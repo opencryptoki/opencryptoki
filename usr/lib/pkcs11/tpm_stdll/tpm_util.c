@@ -37,24 +37,6 @@
 #include "args.h"
 #include "h_extern.h"
 
-void
-LoadBlob_PRIVKEY_DIGEST(UINT16 * offset, BYTE * blob, TCPA_KEY *key)
-{
-	LoadBlob_TCPA_VERSION(offset, blob, key->ver);
-	LoadBlob_UINT16(offset, key->keyUsage, blob);
-	LoadBlob_KEY_FLAGS(offset, blob, &key->keyFlags);
-	blob[(*offset)++] = key->authDataUsage;
-	LoadBlob_KEY_PARMS(offset, blob, &key->algorithmParms);
-
-	LoadBlob_UINT32(offset, key->PCRInfoSize, blob);
-	/* exclude pcrInfo when PCRInfoSize is 0 as spec'd in TPM 1.1b spec p.71 */
-	if (key->PCRInfoSize != 0)
-		LoadBlob(offset, key->PCRInfoSize, blob, key->PCRInfo);
-
-	LoadBlob_STORE_PUBKEY(offset, blob, &key->pubKey);
-	/* exclude encSize, encData as spec'd in TPM 1.1b spec p.71 */
-}
-
 int
 util_set_file_mode(char *filename, mode_t mode)
 {
@@ -93,4 +75,24 @@ util_create_user_dir(char *loc)
 	rc |= chown(loc, user->pw_uid, group->gr_gid);
 
 	return rc;
+}
+
+CK_RV
+util_set_username(char **name)
+{
+	uid_t user_id = getuid();
+	struct passwd *pw = NULL;
+
+	/* manpage decrees that errno must be set to 0 if we want to check it on
+	 * error.. */
+	errno = 0;
+	pw = getpwuid(user_id);
+	if (pw == NULL) {
+		LogError("getpwuid failed: %s", strerror(errno));
+		return CKR_FUNCTION_FAILED;
+	}
+
+	*name = strdup(pw->pw_name);
+
+	return CKR_OK;
 }
