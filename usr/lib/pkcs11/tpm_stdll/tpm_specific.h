@@ -22,37 +22,6 @@
 #ifndef _TPM_SPECIFIC_H_
 #define _TPM_SPECIFIC_H_
 
-CK_CHAR manuf[] = "IBM Corp.";
-CK_CHAR model[] = "TPM Token";
-CK_CHAR descr[] = "Token for the Trusted Platform Module";
-CK_CHAR label[] = "IBM OS PKCS#11";
-
-/* The context we'll use globally to connect to the TSP */
-TSS_HCONTEXT tspContext = NULL_HCONTEXT;
-/* TSP key handles */
-TSS_HKEY hSRK = NULL_HKEY;
-TSS_HKEY hRootKey = NULL_HKEY;
-TSS_HKEY hPubRootKey = NULL_HKEY;
-TSS_HKEY hMigRootKey = NULL_HKEY;
-TSS_HKEY hMigLeafKey = NULL_HKEY;
-TSS_HKEY hUserBaseKey = NULL_HKEY;
-TSS_HKEY hUserLeafKey = NULL_HKEY;
-
-/* PKCS#11 key handles */
-CK_OBJECT_HANDLE ckRootKey = 0;
-CK_OBJECT_HANDLE ckMigRootKey = 0;
-CK_OBJECT_HANDLE ckMigLeafKey = 0;
-CK_OBJECT_HANDLE ckMigAsymKey = 0;
-CK_OBJECT_HANDLE ckUserBaseKey = 0;
-CK_OBJECT_HANDLE ckUserLeafKey = 0;
-CK_OBJECT_HANDLE ckPubRootKey = 0;
-CK_OBJECT_HANDLE ckAESKey = 0;
-
-/* since logging in is such an intensive process, set a flag on logout,
- * so that we only have to load 1 key on a re-login
- */
-int relogging_in = 0;
-
 /* key types in the TPM token */
 #define TPMTOK_ROOT_KEY		0
 #define TPMTOK_MIG_ROOT_KEY	1
@@ -80,8 +49,10 @@ int relogging_in = 0;
 #define TPMTOK_PUB_ROOT_KEY_BACKUP_LOCATION	"/etc/pkcs11/tpm/PUB_ROOT_KEY.pem"
 #define TPMTOK_USER_BASE_KEY_BACKUP_LOCATION	"/etc/pkcs11/tpm/TOK_OBJ/%s/%s_BASE_KEY.pem"
 
+#if 0
 /* Application ID for objects created by this token */
 #define TPMTOK_APPLICATION_ID	"PKCS#11 TPM Token"
+#endif
 
 #define TPMTOK_ROOT_KEY_ID_SIZE		strlen(TPMTOK_ROOT_KEY_ID)
 #define TPMTOK_MIG_ROOT_KEY_ID_SIZE	strlen(TPMTOK_MIG_ROOT_KEY_ID)
@@ -96,7 +67,10 @@ int relogging_in = 0;
 
 RSA *openssl_gen_key();
 int openssl_write_key(RSA *, char *, char *);
-RSA *openssl_read_key(char *, char *, RSA **);
+CK_RV openssl_read_key(char *, char *, RSA **);
 int openssl_get_modulus_and_prime(RSA *, unsigned int *, unsigned char *, unsigned int *, unsigned char *);
 int util_create_user_dir(char *);
+int util_set_file_mode(char *, mode_t);
+char *util_create_id(int);
+CK_RV util_set_username(char **);
 #endif
