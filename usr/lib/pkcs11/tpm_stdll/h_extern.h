@@ -2040,5 +2040,6 @@ extern CK_BYTE *TPMTOK_USERNAME;
 
 /* custom attribute to store our blob in */
 #define CKA_KEY_BLOB		CKA_VENDOR_DEFINED + 0
+#define CKA_HIDDEN		CKA_VENDOR_DEFINED + 1
 
 #endif
