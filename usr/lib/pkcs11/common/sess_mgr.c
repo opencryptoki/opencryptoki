@@ -1,5 +1,3 @@
-static const char rcsid[] = "$Header: /cvsroot/opencryptoki/opencryptoki/usr/lib/pkcs11/common/sess_mgr.c,v 1.1 2005/01/18 16:09:01 kyoder Exp $";
-//
 /*
              Common Public License Version 0.5
 

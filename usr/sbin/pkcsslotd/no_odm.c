@@ -1,5 +1,3 @@
-static const char rcsid[] = "$Header: /cvsroot/opencryptoki/opencryptoki/usr/sbin/pkcsslotd/no_odm.c,v 1.2 2005/02/22 20:49:31 mhalcrow Exp $";
-
 /*
              Common Public License Version 0.5
 
