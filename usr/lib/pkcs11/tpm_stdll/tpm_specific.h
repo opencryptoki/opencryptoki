@@ -32,6 +32,7 @@ TSS_HCONTEXT tspContext = NULL_HCONTEXT;
 /* TSP key handles */
 TSS_HKEY hSRK = NULL_HKEY;
 TSS_HKEY hRootKey = NULL_HKEY;
+TSS_HKEY hPubRootKey = NULL_HKEY;
 TSS_HKEY hMigRootKey = NULL_HKEY;
 TSS_HKEY hMigLeafKey = NULL_HKEY;
 TSS_HKEY hUserBaseKey = NULL_HKEY;
@@ -44,6 +45,7 @@ CK_OBJECT_HANDLE ckMigLeafKey = 0;
 CK_OBJECT_HANDLE ckMigAsymKey = 0;
 CK_OBJECT_HANDLE ckUserBaseKey = 0;
 CK_OBJECT_HANDLE ckUserLeafKey = 0;
+CK_OBJECT_HANDLE ckPubRootKey = 0;
 CK_OBJECT_HANDLE ckAESKey = 0;
 
 /* since logging in is such an intensive process, set a flag on logout,
@@ -59,13 +61,15 @@ int relogging_in = 0;
 #define TPMTOK_USER_LEAF_KEY	4
 #define TPMTOK_USER_KEY		5
 #define TPMTOK_SO_KEY		6
+#define TPMTOK_PUB_ROOT_KEY	7
 
 /* key identifier suffixes for the PKCS#11 objects */
-#define TPMTOK_ROOT_KEY_SUFFIX		"00 TPM 00 ROOT KEY"
-#define TPMTOK_MIG_ROOT_KEY_SUFFIX	"MIG ROOT KEY"
-#define TPMTOK_MIG_LEAF_KEY_SUFFIX	"MIG LEAF KEY"
-#define TPMTOK_USER_BASE_KEY_SUFFIX	"BASE KEY"
-#define TPMTOK_USER_LEAF_KEY_SUFFIX	"LEAF KEY"
+#define TPMTOK_ROOT_KEY_ID	"00 TPM 00 ROOT KEY"
+#define TPMTOK_MIG_ROOT_KEY_ID	"MIG ROOT KEY"
+#define TPMTOK_MIG_LEAF_KEY_ID	"MIG LEAF KEY"
+#define TPMTOK_USER_BASE_KEY_ID	"BASE KEY"
+#define TPMTOK_USER_LEAF_KEY_ID	"LEAF KEY"
+#define TPMTOK_PUB_ROOT_KEY_ID	"PUB ROOT KEY"
 
 /* for use in the token object storage paths, etc */
 #define TPMTOK_TOKEN_NAME	tpm
@@ -73,16 +77,18 @@ int relogging_in = 0;
 /* locations to write the backup copies of the sw generated keys */
 #define TPMTOK_ROOT_KEY_BACKUP_LOCATION		"/etc/pkcs11/tpm/ROOT_KEY.pem"
 #define TPMTOK_MIG_ROOT_KEY_BACKUP_LOCATION	"/etc/pkcs11/tpm/MIG_ROOT_KEY.pem"
+#define TPMTOK_PUB_ROOT_KEY_BACKUP_LOCATION	"/etc/pkcs11/tpm/PUB_ROOT_KEY.pem"
 #define TPMTOK_USER_BASE_KEY_BACKUP_LOCATION	"/etc/pkcs11/tpm/TOK_OBJ/%s/%s_BASE_KEY.pem"
 
 /* Application ID for objects created by this token */
-#define TPM_APPLICATION_ID	"PKCS#11 TPM Token"
+#define TPMTOK_APPLICATION_ID	"PKCS#11 TPM Token"
 
-#define TPMTOK_ROOT_KEY_SUFFIX_SIZE		strlen(TPMTOK_ROOT_KEY_SUFFIX)
-#define TPMTOK_MIG_ROOT_KEY_SUFFIX_SIZE		strlen(TPMTOK_MIG_ROOT_KEY_SUFFIX)
-#define TPMTOK_MIG_LEAF_KEY_SUFFIX_SIZE		strlen(TPMTOK_MIG_LEAF_KEY_SUFFIX)
-#define TPMTOK_USER_BASE_KEY_SUFFIX_SIZE	strlen(TPMTOK_USER_BASE_KEY_SUFFIX)
-#define TPMTOK_USER_LEAF_KEY_SUFFIX_SIZE	strlen(TPMTOK_USER_LEAF_KEY_SUFFIX)
+#define TPMTOK_ROOT_KEY_ID_SIZE		strlen(TPMTOK_ROOT_KEY_ID)
+#define TPMTOK_MIG_ROOT_KEY_ID_SIZE	strlen(TPMTOK_MIG_ROOT_KEY_ID)
+#define TPMTOK_MIG_LEAF_KEY_ID_SIZE	strlen(TPMTOK_MIG_LEAF_KEY_ID)
+#define TPMTOK_USER_BASE_KEY_ID_SIZE	strlen(TPMTOK_USER_BASE_KEY_ID)
+#define TPMTOK_USER_LEAF_KEY_ID_SIZE	strlen(TPMTOK_USER_LEAF_KEY_ID)
+#define TPMTOK_PUB_ROOT_KEY_ID_SIZE	strlen(TPMTOK_PUB_ROOT_KEY_ID)
 
 /* TPM token specific return codes */
 #define CKR_KEY_NOT_FOUND	CKR_VENDOR_DEFINED + 0
@@ -90,8 +96,7 @@ int relogging_in = 0;
 
 RSA *openssl_gen_key();
 int openssl_write_key(RSA *, char *, char *);
-RSA *openssl_read_key(char *, char *);
+RSA *openssl_read_key(char *, char *, RSA **);
 int openssl_get_modulus_and_prime(RSA *, unsigned int *, unsigned char *, unsigned int *, unsigned char *);
-void LoadBlob_PRIVKEY_DIGEST(UINT16 *, BYTE *, TCPA_KEY *);
 int util_create_user_dir(char *);
 #endif
