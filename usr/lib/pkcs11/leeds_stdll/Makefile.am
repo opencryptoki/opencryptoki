@@ -6,12 +6,27 @@ PKCS11_4758_so_LDFLAGS = $(SCC_LIB_DIRS) -nostartfiles -shared  -Wl,-Bsymbolic -
 
 PKCS11_4758_so_CFLAGS = -DDEV -D_THREAD_SAFE -DLEEDS_BUILD
 
+CFLAGS = @CFLAGS@ -DDEV -D_THREAD_SAFE -DLEEDS_BUILD
+
 PKCS11_4758_so_SOURCES = host_api.c util.c
 
 INCLUDES = $(SCC_INC_DIRS) -I/usr/include -I. -I../../../include/pkcs11/stdll -I../../../include/pkcs11 
 
+GOOD_LIBRARY_NAME=libpkcs11_4758.so
+BAD_LIBRARY_NAME=PKCS11_4758.so
+
 install-data-local:
-	mkdir -p $(INSROOT)/usr/lib/pkcs11/stdll; \
-	if [ $(shell uname -m) != s390x ] ;then cp PKCS11_4758.so \
-	$(INSROOT)/usr/lib/pkcs11/stdll/PKCS11_4758.so; fi; \
-	rm -f /tmp/PKCS11_4758.*;
+	mkdir -p $(STDLL_PATH); \
+	cp $(BAD_LIBRARY_NAME) $(STDLL_PATH)/$(GOOD_LIBRARY_NAME); \
+	if [ $(shell uname -m) == s390x -o $(shell uname -m) == ppc64 ]; then \
+		mkdir -p $(INSROOT)/usr/lib64/pkcs11/stdll; \
+		ln -s $(STDLL_PATH)/$(GOOD_LIBRARY_NAME) $(INSROOT)/usr/lib64/pkcs11/stdll/$(BAD_LIBRARY_NAME); \
+		ln -s $(STDLL_PATH)/$(GOOD_LIBRARY_NAME) $(INSROOT)/usr/lib64/$(BAD_LIBRARY_NAME); \
+		ln -s $(STDLL_PATH)/$(GOOD_LIBRARY_NAME) $(INSROOT)/usr/lib64/; \
+	else \
+		mkdir -p $(INSROOT)/usr/lib/pkcs11/stdll; \
+		ln -s $(STDLL_PATH)/$(GOOD_LIBRARY_NAME) $(INSROOT)/usr/lib/pkcs11/stdll/$(BAD_LIBRARY_NAME); \
+		ln -s $(STDLL_PATH)/$(GOOD_LIBRARY_NAME) $(INSROOT)/usr/lib/$(BAD_LIBRARY_NAME); \
+		ln -s $(STDLL_PATH)/$(GOOD_LIBRARY_NAME) $(INSROOT)/usr/lib/; \
+	fi; \
+	rm -f /tmp/$(BAD_LIBRARY_NAME);
