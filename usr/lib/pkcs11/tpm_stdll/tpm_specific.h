@@ -33,7 +33,7 @@
 #define TPMTOK_PUB_ROOT_KEY	7
 
 /* key identifier suffixes for the PKCS#11 objects */
-#define TPMTOK_ROOT_KEY_ID	"00 TPM 00 ROOT KEY"
+#define TPMTOK_ROOT_KEY_ID	"USER ROOT KEY"
 #define TPMTOK_MIG_ROOT_KEY_ID	"MIG ROOT KEY"
 #define TPMTOK_MIG_LEAF_KEY_ID	"MIG LEAF KEY"
 #define TPMTOK_USER_BASE_KEY_ID	"BASE KEY"
@@ -73,4 +73,5 @@ int util_create_user_dir(char *);
 int util_set_file_mode(char *, mode_t);
 char *util_create_id(int);
 CK_RV util_set_username(char **);
+unsigned int util_get_keysize_flag(CK_ULONG);
 #endif
