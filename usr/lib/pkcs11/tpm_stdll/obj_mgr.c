@@ -34,7 +34,6 @@
 
   #include <string.h>  // for memcmp() et al
 
-
 #include "pkcs11/pkcs11types.h"
 #include <pkcs11/stdll.h>
 #include "defs.h"
@@ -42,7 +41,8 @@
 #include "h_extern.h"
 #include "tok_spec_struct.h"
 
-
+#include <openssl/rsa.h>
+#include "tpm_specific.h"
 
 
 CK_RV
@@ -1015,8 +1015,8 @@ object_mgr_find_init( SESSION      * sess,
       return CKR_FUNCTION_FAILED;
    }
    if (sess->find_active != FALSE){
-      return CKR_OPERATION_ACTIVE;
       st_err_log(31, __FILE__, __LINE__); 
+      return CKR_OPERATION_ACTIVE;
    }
    // initialize the found object list.  if it doesn't exist, allocate
    // a list big enough for 10 handles.  we'll reallocate if we need more
@@ -1087,6 +1087,7 @@ object_mgr_find_build_list( SESSION      * sess,
    CK_BBOOL           is_priv;
    CK_BBOOL           match;
    CK_BBOOL           hw_feature = FALSE;
+   CK_BBOOL           hidden_object = FALSE;
    CK_RV              rc;
    CK_ATTRIBUTE     * attr;
    int		      i;
@@ -1112,6 +1113,15 @@ object_mgr_find_build_list( SESSION      * sess,
       if (pTemplate[i].type == CKA_CLASS) {
 	 if (*(CK_ULONG *)pTemplate[i].pValue == CKO_HW_FEATURE) {
 	    hw_feature = TRUE;
+	    break;
+	 }
+      }
+
+      /* only find CKA_HIDDEN objects if its specified in the template. This
+       * is an attribute specific to the TPM token */
+      if (pTemplate[i].type == CKA_HIDDEN) {
+	 if (*(CK_ULONG *)pTemplate[i].pValue == TRUE) {
+	    hidden_object = TRUE;
 	    break;
 	 }
       }
@@ -1143,19 +1153,26 @@ object_mgr_find_build_list( SESSION      * sess,
             //st_err_log(110, __FILE__, __LINE__);
             rc = object_mgr_add_to_map( sess, obj, &handle );
             if (rc != CKR_OK){
-               st_err_log(4, __FILE__, __LINE__, __FUNCTION__); 
+               st_err_log(4, __FILE__, __LINE__, __FUNCTION__);
                return CKR_FUNCTION_FAILED;
             }
          }
          if (rc == CKR_OK) {
 	    // If hw_feature is false here, we need to filter out all objects
 	    // that have the CKO_HW_FEATURE attribute set. - KEY
-            if ((hw_feature == FALSE) && 
+            if ((hw_feature == FALSE) &&
 	        (template_attribute_find(obj->template, CKA_CLASS, &attr) == TRUE)) {
                if (*(CK_OBJECT_CLASS *)attr->pValue == CKO_HW_FEATURE)
 	          goto next_loop;
 	    }
-	    
+
+	    /* Don't find objects created by the TPM token */
+            if ((hidden_object == FALSE) &&
+                (template_attribute_find(obj->template, CKA_HIDDEN, &attr) == TRUE)) {
+               if (*(CK_OBJECT_CLASS *)attr->pValue == TRUE)
+	          goto next_loop;
+	    }
+
             sess->find_list[ sess->find_count ] = handle;
             sess->find_count++;
 
@@ -1164,7 +1181,7 @@ object_mgr_find_build_list( SESSION      * sess,
                sess->find_list = (CK_OBJECT_HANDLE *)realloc( sess->find_list,
                                                               sess->find_len * sizeof(CK_OBJECT_HANDLE) );
                if (!sess->find_list){
-                  st_err_log(0, __FILE__, __LINE__); 
+                  st_err_log(0, __FILE__, __LINE__);
                   return CKR_HOST_MEMORY;
                }
             }
