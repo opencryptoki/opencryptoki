@@ -1,0 +1,19 @@
+#!
+* IBM_PROLOG_BEGIN_TAG 
+* This is an automatically generated prolog. 
+*  
+* bos43V src/bos/usr/lib/pkcs11/api/PKCS11_AIX.exp 1.1 
+*  
+* Licensed Materials - Property of IBM 
+*  
+* Restricted Materials of IBM 
+*  
+* (C) COPYRIGHT International Business Machines Corp. 1999,2000 
+* All Rights Reserved 
+*  
+* US Government Users Restricted Rights - Use, duplication or 
+* disclosure restricted by GSA ADP Schedule Contract with IBM Corp. 
+*  
+* IBM_PROLOG_END_TAG 
+* @(#)98	1.2  src/lib/PKCS11_AIX.exp, pkcs11, pkcs11proto 8/23/99 10:27:04
+C_GetFunctionList
