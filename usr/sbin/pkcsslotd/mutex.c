@@ -1,4 +1,4 @@
-static const char rcsid[] = "$Header: /cvsroot/opencryptoki/opencryptoki/usr/sbin/pkcsslotd/mutex.c,v 1.1 2005/01/18 16:09:04 kyoder Exp $";
+static const char rcsid[] = "$Header: /cvsroot/opencryptoki/opencryptoki/usr/sbin/pkcsslotd/mutex.c,v 1.2 2005/02/22 20:49:30 mhalcrow Exp $";
 
 /*
              Common Public License Version 0.5
@@ -297,12 +297,6 @@ static const char rcsid[] = "$Header: /cvsroot/opencryptoki/opencryptoki/usr/sbi
 #include "pkcsslotd.h"
 #pragma info(restore)
 
-#if !defined(LINUX)
-#ifndef _POSIX_THREAD_PROCESS_SHARED
-  #error "This platform does not support the process-shared mutex"
-#endif /* _POSIX_THREAD_PROCESS_SHARED */
-#endif
-
 
 #if SYSVSEM
 #error "Caveat Emptor... this does not work"
@@ -332,35 +326,7 @@ static int xplfd=-1;
 int
 CreateXProcLock(void *xpl)
 {
-#if AIX
-#if !defined(PKCS64)
-   int err;
-   pthread_mutex_t  *pmtx = (pthread_mutex_t *)xpl;
-  /* Initialize the attributes object */
-  if ( (err = pthread_mutexattr_init(&mtxattr)) != 0 ) { 
-    DbgLog(DL0,"InitializeMutexes: pthread_mutexattr_init() failed - returned %#x\n", err);
-    return FALSE;
-  }
-
-  /* Set the attribute variable so that mutexes created with it can be shared across processes */
-  if ( (err = pthread_mutexattr_setpshared( &mtxattr, PTHREAD_PROCESS_SHARED )) != 0 ) {
-    DbgLog(DL0,"InitializeMutexes: pthread_mutexattr_setpshared() failed - returned %#x\n", err);
-    return FALSE;
-  }
-
-  /* Initialize the global shared memory mutex */
-  if ( (err = pthread_mutex_init(pmtx,&mtxattr)) != 0 ) {
-    DbgLog(DL0,"InitializeMutexes: pthread_mutex_init() failed.  returned %#x\n", err);
-    return FALSE;
-  }
-#else
-  msemaphore  *psem = (msemaphore *)xpl;
-  if ( msem_init(psem,0) == NULL ) {
-    DbgLog(DL0,"InitializeMutexes: msem_init() failed.  returned NULL\n");
-    return FALSE;
-  }
-#endif
-#elif (PTHREADXPL)
+#if (PTHREADXPL)
    int err;
    pthread_mutex_t  *pmtx = (pthread_mutex_t *)xpl;
   /* Initialize the attributes object */
@@ -433,18 +399,7 @@ return TRUE;
 int
 DestroyXProcLock(void *xpl)
 {
-#if AIX
-#if defined(PKCS64)
-  return msem_remove((xpl));
-#else
-  /* Destroy the global shared memory mutex */
-  pthread_mutex_destroy((xpl));
-
-  /* Destroy the attribute object used to create all the mutexes */
-  pthread_mutexattr_destroy( &mtxattr );
-  return TRUE;
-#endif
-#elif (PTHREADXPL)
+#if (PTHREADXPL)
   /* Destroy the global shared memory mutex */
   pthread_mutex_destroy((xpl));
 
@@ -473,13 +428,7 @@ return TRUE;
 int
 XProcLock(void *xpl)
 {
-#if AIX
-#if defined(PKCS64)
-  return msem_lock(xpl, 0 );
-#else
-  return pthread_mutex_lock((xpl));
-#endif
-#elif (PTHREADXPL)
+#if (PTHREADXPL)
   return pthread_mutex_lock((xpl));
 #elif (POSIXSEM)
 #error "this won't work since these are really the AIX calls.."
@@ -504,13 +453,7 @@ return TRUE;
 int
 XProcUnLock(void *xpl)
 {
-#if AIX
-#if defined(PKCS64)
-  return msem_unlock((xpl),0);
-#else
-  return pthread_mutex_unlock((xpl));
-#endif
-#elif (PTHREADXPL)
+#if (PTHREADXPL)
   return pthread_mutex_unlock((xpl));
 #elif (POSIXSEM)
 #error "this won't work since these are really the AIX calls.."
@@ -570,15 +513,6 @@ int InitializeMutexes ( void ) {
     return FALSE;
   }
 
-#elif AIX
-
-  /* Initialize the global shared memory mutex */
-  if ( msem_init(&(shmp->slt_mutex),0) == NULL ) {
-    DbgLog(DL0,"InitializeMutexes: pthread_mutex_init() failed.  returned NULL\n");
-    return FALSE;
-  }
-#elif LINUX 
-#error " Linux Needs the XPROC lock stuff defined"
 #endif
 #endif
    
@@ -606,13 +540,6 @@ int InitializeMutexes ( void ) {
       return FALSE;
     }
 
-#if !defined(LINUX)
-    if ( (err = pthread_condattr_setpshared ( &(shmp->shmem_cv_attr), PTHREAD_PROCESS_SHARED ) ) != 0 ) { 
-    /* if ( (err = pthread_condattr_setpshared ( &(shmp->shmem_cv_attr), PTHREAD_PROCESS_PRIVATE ) ) != 0 ) { */
-      DbgLog(DL0,"InitializeConditionVariables: pthread_condattr_setpshared returned %s (%d; %#x)\n", SysConst(err), err, err);
-      return FALSE;
-    }
-#endif
 
     if ( (err = pthread_cond_init( &(shmp->shmem_cv), &(shmp->shmem_cv_attr) ) ) != 0 ) {
       DbgLog(DL0,"InitializeConditionVariables: pthread_cond_init returned %s (%d; %#x)\n", SysConst(err), err, err);

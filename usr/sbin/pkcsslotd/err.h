@@ -1,5 +1,5 @@
 /*
- * $Header: /cvsroot/opencryptoki/opencryptoki/usr/sbin/pkcsslotd/err.h,v 1.1 2005/01/18 16:09:03 kyoder Exp $
+ * $Header: /cvsroot/opencryptoki/opencryptoki/usr/sbin/pkcsslotd/err.h,v 1.2 2005/02/22 20:49:30 mhalcrow Exp $
  */
 
 
@@ -362,10 +362,8 @@ const unsigned char *ConstName         ( pConstInfo pInfoArray, unsigned int Inf
   const unsigned char *DAEConst        ( unsigned int Val );
 #endif /* _DAE_H */
 
-#if (LINUX)
 #ifndef _H_ERRNO
 #define _H_ERRNO
-#endif
 #endif
 
 #ifdef _H_ERRNO

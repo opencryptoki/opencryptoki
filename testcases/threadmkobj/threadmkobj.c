@@ -12,10 +12,7 @@
 #include <stdlib.h>
 #include <string.h>
 #include <memory.h>
-
-#if (AIX || LINUX)
 #include <dlfcn.h>
-#endif
 
 #include "pkcs11types.h"
 
@@ -140,17 +137,13 @@ void show_error( CK_BYTE *str, CK_RV rc )
 int do_GetFunctionList( void )
 {
    CK_RV            rc;
-#if (AIX || LINUX)
    CK_RV  (*pfoo)();
    void    *d;
    char    *e;
-   char 	*z="/usr/lib/pkcs11/PKCS11_API.so";
-#endif
-
+   char 	*z="PKCS11_API.so";
 
    printf("do_GetFunctionList...\n");
 
-#if (AIX || LINUX)
    e = getenv("PKCSLIB");
    if ( e == NULL) {
       e = z;
@@ -165,11 +158,6 @@ int do_GetFunctionList( void )
       return FALSE;
    }
    rc = pfoo(&funcs);
-#else
-   rc = C_GetFunctionList( &funcs ) ;
-#endif
-
-
 
    if (rc != CKR_OK) {
       show_error("   C_GetFunctionList", rc );

@@ -1,5 +1,5 @@
 /*
- * $Header: /cvsroot/opencryptoki/opencryptoki/usr/lib/pkcs11/methods/4758_status/defs.h,v 1.1 2005/01/18 16:09:00 kyoder Exp $
+ * $Header: /cvsroot/opencryptoki/opencryptoki/usr/lib/pkcs11/methods/4758_status/defs.h,v 1.2 2005/02/22 20:48:08 mhalcrow Exp $
  */
 
 //
@@ -304,9 +304,7 @@
 #define _DEFS_H
 
 #pragma options align=packed
-#if LINUX
 #pragma pack(1)
-#endif
 
 
 #ifndef MIN
@@ -348,9 +346,7 @@ typedef struct _LEEDS_REPLY
    //
 } LEEDS_REPLY;
 
-#if LINUX
 #pragma pack()
-#endif
 
 
 #pragma options align=full

@@ -1,5 +1,5 @@
 /*
- * $Header: /cvsroot/opencryptoki/opencryptoki/usr/lib/pkcs11/common/args.h,v 1.1 2005/01/18 16:09:01 kyoder Exp $
+ * $Header: /cvsroot/opencryptoki/opencryptoki/usr/lib/pkcs11/common/args.h,v 1.2 2005/02/22 20:47:43 mhalcrow Exp $
  */
 
 
@@ -303,15 +303,10 @@
 
 
 #if (LEEDS_BUILD)
-#if (AIX)
-#pragma options align=packed
-#endif
 
-#if (LINUX)
 #pragma pack(1)
 #pragma options align=packed
 #include "linuxdef.h"
-#endif
 
 #ifdef _NT_ON_I386
 #pragma pack(1)
@@ -1105,14 +1100,8 @@ typedef struct _QueryTweakValues_Args
 #pragma pack()
 #endif
 
-#ifdef AIX
-#pragma options align=full
-#endif
-
-#if (LINUX)
 #pragma pack()
 #pragma options align=full
-#endif
 #endif
 
 #endif

@@ -1,4 +1,4 @@
-static const char rcsid[] = "$Header: /cvsroot/opencryptoki/opencryptoki/usr/lib/pkcs11/common/log.c,v 1.1 2005/01/18 16:09:00 kyoder Exp $";
+static const char rcsid[] = "$Header: /cvsroot/opencryptoki/opencryptoki/usr/lib/pkcs11/common/log.c,v 1.2 2005/02/22 20:47:46 mhalcrow Exp $";
 
 /*
              Common Public License Version 0.5
@@ -298,9 +298,6 @@ static const char rcsid[] = "$Header: /cvsroot/opencryptoki/opencryptoki/usr/lib
 #include <errno.h>
 #include <sys/syslog.h>
 
-#if defined(AIX)
-#include <sys/mode.h>
-#endif
 #include <sys/ipc.h>
 
 #include <stdarg.h>
@@ -320,17 +317,12 @@ extern token_spec_t token_specific;
 
 #include "msg.h"  // HACK  
 
-#if defined(AIX)
-struct syslog_data log_data = SYSLOG_DATA_INIT;
-#endif
-
 void stlogit(char *, ...);
 //extern char **err_msg;
 
 #include <sys/types.h>
 #include <sys/stat.h>
 
-#if (LINUX)
 #if 0
 extern FILE  *debugfile;
 char  lfname[1024];
@@ -338,7 +330,6 @@ char  lfname[1024];
 extern int  debugfile;
 #endif
 pthread_mutex_t  lmtx=PTHREAD_MUTEX_INITIALIZER;
-#endif
 
 static int enabled=0;
 static int logging=0;
@@ -363,10 +354,6 @@ stloginit(){
    }
    if (!enabled && logging){
       enabled=1;
-#if defined(AIX)
-      openlog_r(DBGTAG,LOG_PID|LOG_NDELAY,LOG_LOCAL6,&log_data);
-      setlogmask_r(LOG_UPTO(LOG_DEBUG),&log_data);
-#elif (LINUX)
       openlog(DBGTAG,LOG_PID|LOG_NDELAY,LOG_LOCAL6);
       setlogmask(LOG_UPTO(LOG_DEBUG));
 
@@ -385,11 +372,6 @@ stloginit(){
       }
 #endif
       stlogit("Logg initialized");
-
-
-
-#endif
- 
    }
 }
 
@@ -416,9 +398,6 @@ stlogit2(int type,char *fmt, ...)
          va_start(pvar, fmt);
          vsprintf(buffer,fmt,pvar);
          va_end(pvar);
-#if defined(AIX)
-         syslog_r(LOG_DEBUG,&log_data,buffer);
-#elif (LINUX)
          pthread_mutex_lock(&lmtx);
          syslog(LOG_DEBUG,buffer);
          pthread_mutex_unlock(&lmtx);
@@ -429,7 +408,6 @@ stlogit2(int type,char *fmt, ...)
           fflush(debugfile);
          pthread_mutex_unlock(&lmtx);
  	}
-#endif
 #endif
    }
 
@@ -451,9 +429,6 @@ stlogit(char *fmt, ...)
          va_start(pvar, fmt);
          vsprintf(buffer,fmt,pvar);
          va_end(pvar);
-#if defined(AIX)
-         syslog_r(LOG_DEBUG,&log_data,buffer);
-#else
          pthread_mutex_lock(&lmtx);
          syslog(LOG_DEBUG,buffer);
          pthread_mutex_unlock(&lmtx);
@@ -464,7 +439,6 @@ stlogit(char *fmt, ...)
           fflush(debugfile);
          pthread_mutex_unlock(&lmtx);
  	}
-#endif
 #endif
    }
 
@@ -484,13 +458,9 @@ st_err_log(char *fmt, ...)
          va_start(pvar, fmt);
          vsprintf(buffer,fmt,pvar);
          va_end(pvar);
-#if defined(AIX)
-         syslog_r(LOG_ERR,&log_data,buffer);
-#else
          pthread_mutex_lock(&lmtx);
          syslog(LOG_ERR,buffer);
          pthread_mutex_unlock(&lmtx);
-#endif
    }
 
 }
@@ -510,13 +480,9 @@ st_err_log(int num, ...)
          va_start(pvar,num);
          vsprintf(buffer,err_msg[num].msg,pvar);
          va_end(pvar);
-#if defined(AIX)
-         syslog_r(LOG_ERR,&log_data,buffer);
-#else
          pthread_mutex_lock(&lmtx);
          syslog(LOG_ERR,buffer);
          pthread_mutex_unlock(&lmtx);
-#endif
    }
 
 }

@@ -1,4 +1,4 @@
-static const char rcsid[] = "$Header: /cvsroot/opencryptoki/opencryptoki/usr/sbin/pkcsslotd/err.c,v 1.1 2005/01/18 16:09:03 kyoder Exp $";
+static const char rcsid[] = "$Header: /cvsroot/opencryptoki/opencryptoki/usr/sbin/pkcsslotd/err.c,v 1.2 2005/02/22 20:49:30 mhalcrow Exp $";
 
 /*
              Common Public License Version 0.5
@@ -344,23 +344,12 @@ static const char rcsid[] = "$Header: /cvsroot/opencryptoki/opencryptoki/usr/sbi
 	CONSTINFO(ENOCSI), 
 	CONSTINFO(EL2HLT), 
 	CONSTINFO(EDEADLK),
-#if defined(AIX)
-	CONSTINFO(ENOTREADY), 
-	CONSTINFO(EWRPROTECT), 
-	CONSTINFO(EFORMAT), 
-	CONSTINFO(ENOLCK), 
-	CONSTINFO(ENOCONNECT), 
-	CONSTINFO(EDIST), 
-#endif
 	CONSTINFO(ESTALE), 
 	CONSTINFO(EWOULDBLOCK), 
 	CONSTINFO(EINPROGRESS), 
 	CONSTINFO(EALREADY), 
 	CONSTINFO(ENOTSOCK), 
 	CONSTINFO(EDESTADDRREQ), 
-#if defined(AIX)
-	CONSTINFO(EDESTADDREQ), 
-#endif
 	CONSTINFO(EMSGSIZE), 
 	CONSTINFO(EPROTOTYPE), 
 	CONSTINFO(ENOPROTOOPT), 
@@ -385,9 +374,6 @@ static const char rcsid[] = "$Header: /cvsroot/opencryptoki/opencryptoki/usr/sbi
 	CONSTINFO(EHOSTDOWN), 
 	CONSTINFO(EHOSTUNREACH), 
 	CONSTINFO(ERESTART), 
-#if defined(AIX)
-	CONSTINFO(EPROCLIM), 
-#endif
 	CONSTINFO(EUSERS), 
 	CONSTINFO(ELOOP), 
 	CONSTINFO(ENAMETOOLONG), 
@@ -395,14 +381,6 @@ static const char rcsid[] = "$Header: /cvsroot/opencryptoki/opencryptoki/usr/sbi
 	CONSTINFO(EDQUOT), 
 	CONSTINFO(EREMOTE), 
 	CONSTINFO(ENOSYS), 
-#if defined(AIX)
-	CONSTINFO(EMEDIA), 
-	CONSTINFO(ESOFT), 
-	CONSTINFO(ENOATTR), 
-	CONSTINFO(ESAD), 
-	CONSTINFO(ENOTRUST), 
-	CONSTINFO(ECLONEME), 
-#endif
 	CONSTINFO(ETOOMANYREFS), 
 	CONSTINFO(EILSEQ), 
 	CONSTINFO(ECANCELED), 
@@ -432,25 +410,6 @@ static const char rcsid[] = "$Header: /cvsroot/opencryptoki/opencryptoki/usr/sbi
 	CONSTINFO(SIGTRAP), 
 	CONSTINFO(SIGABRT), 
 	CONSTINFO(SIGFPE), 
-#if defined(AIX)
-	CONSTINFO(SIGEMT), 
-	CONSTINFO(SIGMSG), 
-	CONSTINFO(SIGDANGER), 
-	CONSTINFO(SIGMIGRATE), 
-	CONSTINFO(SIGPRE), 
-	CONSTINFO(SIGALRM1), 
-	CONSTINFO(SIGWAITING), 
-	CONSTINFO(SIGKAP), 
-	CONSTINFO(SIGGRANT), 
-	CONSTINFO(SIGRETRACT), 
-	CONSTINFO(SIGSOUND), 
-	CONSTINFO(SIGSAK), 
-	CONSTINFO(SIGIOINT), 
-	CONSTINFO(SIGPTY), 
-	CONSTINFO(SIGLOST), 
-	CONSTINFO(SIGVIRT), 
-	CONSTINFO(SIGAIO), 
-#endif
 	CONSTINFO(SIGKILL), 
 	CONSTINFO(SIGBUS), 
 	CONSTINFO(SIGSEGV), 

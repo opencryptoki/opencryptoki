@@ -1,5 +1,5 @@
 /*
- * $Header: /cvsroot/opencryptoki/opencryptoki/usr/lib/pkcs11/common/linuxdef.h,v 1.1 2005/01/18 16:09:01 kyoder Exp $
+ * $Header: /cvsroot/opencryptoki/opencryptoki/usr/lib/pkcs11/common/linuxdef.h,v 1.2 2005/02/22 20:47:46 mhalcrow Exp $
  */
 
 
@@ -297,7 +297,6 @@
 #ifndef _LINUXDEF_H_
 #define _LINUXDEF_H_
 
-#ifdef _LINUX_
   #include <limits.h>
   
   char *itoa(int value, char *string, int);
@@ -308,6 +307,5 @@
   #define _MAX_PATH    PATH_MAX
   #define _MAX_FNAME   NAME_MAX
   #define _MAX_EXT     NAME_MAX
-#endif
 
 #endif /*_LINUXDEF_H_ */

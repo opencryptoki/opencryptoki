@@ -4,7 +4,7 @@ bindir=/tmp
 PKCS11_CR_so_LDFLAGS = $(LCRYPTO) $(CR_LIB_DIRS) -nostartfiles -shared -Wl,-Bsymbolic -Wl,-soname,PKCS11_BC.so.1 -lc -lpthread -lsocketarmor -ldl -lcrypto
 
 VARIANT = -DSHALLOW=0 -DSWTOK=1 -DLITE=0
-PKCS11_CR_so_CFLAGS = -DSPINXPL -DDEV -D_THREAD_SAFE -DLINUX  -fPIC $(VARIANT) -DNOCDMF -DNOMD2 -DNODSA -DDEBUGON -D_LINUX -D_LINUX_ 
+PKCS11_CR_so_CFLAGS = -DSPINXPL -DDEV -D_THREAD_SAFE -fPIC $(VARIANT) -DNOCDMF -DNOMD2 -DNODSA -DDEBUGON
 
 #VPATH= ./:../common
 

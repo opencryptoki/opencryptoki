@@ -1,4 +1,4 @@
-static const char rcsid[] = "$Header: /cvsroot/opencryptoki/opencryptoki/usr/sbin/pkcsslotd/shmem.c,v 1.1 2005/01/18 16:09:03 kyoder Exp $";
+static const char rcsid[] = "$Header: /cvsroot/opencryptoki/opencryptoki/usr/sbin/pkcsslotd/shmem.c,v 1.2 2005/02/22 20:49:32 mhalcrow Exp $";
 
 /*
              Common Public License Version 0.5
@@ -655,11 +655,7 @@ int InitSharedMemory ( Slot_Mgr_Shr_t *sp ) {
 #if FIXME
 #error "No usage of the per process mutexes..."
 #ifdef PKCS64
-#if (AIX)
-      msem_init( &(sp->proc_table[procindex].proc_mutex), 0 );
-#else
       msem_init( &(sp->proc_table[procindex].proc_mutex), 1 );
-#endif
 #else     
       pthread_mutex_init( &(sp->proc_table[procindex].proc_mutex), &mtxattr );
 #endif

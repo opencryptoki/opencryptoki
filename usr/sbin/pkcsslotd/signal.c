@@ -1,4 +1,4 @@
-static const char rcsid[] = "$Header: /cvsroot/opencryptoki/opencryptoki/usr/sbin/pkcsslotd/signal.c,v 1.1 2005/01/18 16:09:03 kyoder Exp $";
+static const char rcsid[] = "$Header: /cvsroot/opencryptoki/opencryptoki/usr/sbin/pkcsslotd/signal.c,v 1.2 2005/02/22 20:49:32 mhalcrow Exp $";
 
 /*
              Common Public License Version 0.5
@@ -308,11 +308,6 @@ static int SigsToIntercept[] = {
   SIGHUP,      SIGINT,       SIGQUIT,    SIGPIPE,      SIGALRM,      
   SIGTERM,     SIGTSTP,      SIGTTIN,      
   SIGTTOU,     SIGUSR1,      SIGUSR2,    SIGPROF
-#if defined(AIX)
-	  ,      SIGDANGER,    
-  SIGVTALRM,   SIGMIGRATE,   SIGPRE,     SIGGRANT,     SIGRETRACT,
-  SIGSOUND,    SIGSAK
-#endif
 };
 
 /* SIGCONT - Don't want to exit on SIGCONT; it'll in fact

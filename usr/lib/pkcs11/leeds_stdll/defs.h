@@ -1,5 +1,5 @@
 /*
- * $Header: /cvsroot/opencryptoki/opencryptoki/usr/lib/pkcs11/leeds_stdll/defs.h,v 1.1 2005/01/18 16:09:03 kyoder Exp $
+ * $Header: /cvsroot/opencryptoki/opencryptoki/usr/lib/pkcs11/leeds_stdll/defs.h,v 1.2 2005/02/22 20:48:04 mhalcrow Exp $
  */
 
 //
@@ -304,14 +304,9 @@
 #define _DEFS_H
 
 #if (LEEDS_BUILD)
-#ifdef AIX
-#pragma options align=packed
-#endif
 
-#ifdef LINUX
 #pragma pack(1)
 #pragma options align=packed
-#endif
 #endif
 
 
@@ -657,14 +652,8 @@ typedef struct _SSL3_KEY_MAT_PARAMS
 
 
 #if (LEEDS_BUILD)
-#ifdef AIX
-#pragma options align=full
-#endif
-
-#ifdef LINUX
 #pragma pack( )
 #pragma options align=full
-#endif
 #endif
 
 

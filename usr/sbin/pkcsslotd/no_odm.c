@@ -1,4 +1,4 @@
-static const char rcsid[] = "$Header: /cvsroot/opencryptoki/opencryptoki/usr/sbin/pkcsslotd/no_odm.c,v 1.1 2005/01/18 16:09:04 kyoder Exp $";
+static const char rcsid[] = "$Header: /cvsroot/opencryptoki/opencryptoki/usr/sbin/pkcsslotd/no_odm.c,v 1.2 2005/02/22 20:49:31 mhalcrow Exp $";
 
 /*
              Common Public License Version 0.5
@@ -734,18 +734,10 @@ BOOL ReadSlotInfoDB ( void ) {
 
       {
         /* check for file existance */
-#if (AIX)
-        struct stat64 statbuf;
-#elif (LINUX)
         struct stat statbuf;
-#endif
         int Err;
 
-#if (AIX)
-        if ( stat64( sinfo_struct.dll_location, &statbuf ) < 0 ) {
-#elif (LINUX)
         if ( stat( sinfo_struct.dll_location, &statbuf ) < 0 ) {
-#endif
 	  /* File not found, or other error */
 	  #pragma info(none)
 	    Err = errno;

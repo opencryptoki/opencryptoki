@@ -8,10 +8,6 @@
 #include <string.h>
 #include <memory.h>
 
-#ifdef AIX
-#include <dlfcn.h>
-#endif
-
 #include "pkcs11types.h"
 
 
@@ -20,7 +16,7 @@ int  do_GetInfo(void);
 
 void init_coprocessor(void);
 
-CK_RV _cdecl C_GetFunctionList( CK_FUNCTION_LIST ** ) ;
+CK_RV C_GetFunctionList( CK_FUNCTION_LIST ** ) ;
 
 CK_FUNCTION_LIST  *funcs;
 
@@ -135,36 +131,10 @@ void show_error( CK_BYTE *str, CK_RV rc )
 int do_GetFunctionList( void )
 {
    CK_RV            rc;
-#ifdef AIX
-   CK_RV  (*pfoo)();
-   void    *d;
-   char    *e;
-
-#endif
-
 
    printf("do_GetFunctionList...\n");
 
-#ifdef AIX
-   e = getenv("PKCSLIB");
-   if ( e == NULL) {
-      return FALSE;
-   }
-   d = dlopen(e,RTLD_NOW);
-   if ( d == NULL ) {
-      return FALSE;
-   }
-
-   pfoo = (CK_RV (*)())dlsym(d,"C_GetFunctionList");
-   if (pfoo == NULL ) {
-      return FALSE;
-   }
-   rc = pfoo(&funcs);
-#else
    rc = C_GetFunctionList( &funcs ) ;
-#endif
-
-
 
    if (rc != CKR_OK) {
       show_error("   C_GetFunctionList", rc );

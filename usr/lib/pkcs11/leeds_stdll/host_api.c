@@ -1,4 +1,4 @@
-static const char rcsid[] = "$Header: /cvsroot/opencryptoki/opencryptoki/usr/lib/pkcs11/leeds_stdll/host_api.c,v 1.1 2005/01/18 16:09:03 kyoder Exp $";
+static const char rcsid[] = "$Header: /cvsroot/opencryptoki/opencryptoki/usr/lib/pkcs11/leeds_stdll/host_api.c,v 1.2 2005/02/22 20:48:04 mhalcrow Exp $";
 //
 /*
              Common Public License Version 0.5
@@ -337,9 +337,6 @@ CK_ULONG get_mech_parameter_len(CK_MECHANISM_PTR); // util.c prototype
 #include <errno.h>
 #include <sys/syslog.h>
 
-#if (AIX)
-#include <sys/mode.h>
-#endif
 #include <sys/ipc.h>
 
 #include <stdarg.h>
@@ -351,9 +348,6 @@ CK_ULONG get_mech_parameter_len(CK_MECHANISM_PTR); // util.c prototype
 #define DBGTAG "Leeds_STDLL_Debug"
 #endif
 
-#if (AIX)
-struct syslog_data log_data = SYSLOG_DATA_INIT;
-#endif
 static int enabled=0;
 // Logging types.  Ultimately this will allow
 // us to log to different log files.  The logger will also
@@ -365,15 +359,8 @@ void
 loginit(){
    if (!enabled){
       enabled=1;
-#if (AIX)
-      openlog_r(DBGTAG,LOG_PID|LOG_NDELAY,LOG_DAEMON,&log_data);
-      setlogmask_r(LOG_UPTO(LOG_DEBUG),&log_data);
-#elif (LINUX)
       openlog(DBGTAG,LOG_PID|LOG_NDELAY,LOG_DAEMON);
       setlogmask(LOG_UPTO(LOG_DEBUG));
-#else
-#error "Define LINUX or AIX or change the code for your flavor"
-#endif
    }
 
 }
@@ -391,13 +378,7 @@ logit(int type,char *fmt, ...)
          va_start(pvar, fmt);
          vsprintf(buffer,fmt,pvar);
          va_end(pvar);
-#if (AIX)
-         syslog_r(LOG_DEBUG,&log_data,buffer);
-#elif (LINUX)
          syslog(LOG_DEBUG,buffer);
-#else
-#error "Define LINUX or AIX or change the code for your flavor"
-#endif
    }
 
 }
@@ -8242,12 +8223,10 @@ CK_RV FCVFunction( CK_SLOT_ID sid, CK_BYTE *FCV, CK_ULONG len )
 #endif
 
 
-#if LINUX
 void
 _init()
 {
 printf("Initialization of leeds STDLL \n");
 
 }
-#endif
 

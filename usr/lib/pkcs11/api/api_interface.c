@@ -1,4 +1,4 @@
-static const char rcsid[] = "$Header: /cvsroot/opencryptoki/opencryptoki/usr/lib/pkcs11/api/api_interface.c,v 1.1 2005/01/18 16:09:00 kyoder Exp $";
+static const char rcsid[] = "$Header: /cvsroot/opencryptoki/opencryptoki/usr/lib/pkcs11/api/api_interface.c,v 1.2 2005/02/22 20:47:42 mhalcrow Exp $";
 
 /*
              Common Public License Version 0.5
@@ -354,7 +354,6 @@ int      slot_loaded[NUMBER_SLOTS_MANAGED];  // Array of flags to indicate
 
 
 
-#if (LINUX || linux)
 // For linux only at this time... if it works out we can get rid
 // of the stupid pid tracking.... Linux we kind of have to do this
 // since new threads are processes also, and we will be hosed
@@ -369,15 +368,13 @@ child_fork_initializer()
    loginit(); // _init is NOT invoked on fork
 }
 
-#endif
-
 
 //------------------------------------------------------------------------
 // API function C_CancelFunction   
 //------------------------------------------------------------------------
 // This is a legacy function and performs no operations per the
 // specification.
-CK_RV CK_ENTRY 
+CK_RV
 C_CancelFunction ( CK_SESSION_HANDLE hSession )
 {
    LOG("C_CancelFunction");
@@ -402,7 +399,7 @@ C_CancelFunction ( CK_SESSION_HANDLE hSession )
 //
 //------------------------------------------------------------------------
 
-CK_RV CK_ENTRY 
+CK_RV
 C_CloseAllSessions ( CK_SLOT_ID slotID )
 {
    Session_Struct_t *pCur,*pPrev;
@@ -493,7 +490,7 @@ C_CloseAllSessions ( CK_SLOT_ID slotID )
 //
 //------------------------------------------------------------------------
 
-CK_RV CK_ENTRY 
+CK_RV
 C_CloseSession ( CK_SESSION_HANDLE hSession )
 {
    CK_RV   rv;
@@ -566,7 +563,7 @@ C_CloseSession ( CK_SESSION_HANDLE hSession )
 //
 //------------------------------------------------------------------------
 
-CK_RV CK_ENTRY 
+CK_RV
 C_CopyObject ( CK_SESSION_HANDLE    hSession,
                      CK_OBJECT_HANDLE     hObject,
                      CK_ATTRIBUTE_PTR     pTemplate,
@@ -645,7 +642,7 @@ C_CopyObject ( CK_SESSION_HANDLE    hSession,
 //
 //------------------------------------------------------------------------
 
-CK_RV CK_ENTRY 
+CK_RV
 C_CreateObject ( CK_SESSION_HANDLE    hSession,
                                 CK_ATTRIBUTE_PTR     pTemplate,
                                 CK_ULONG             ulCount,
@@ -728,7 +725,7 @@ C_CreateObject ( CK_SESSION_HANDLE    hSession,
 //
 //------------------------------------------------------------------------
 
-CK_RV CK_ENTRY 
+CK_RV
 C_Decrypt ( CK_SESSION_HANDLE hSession,
                   CK_BYTE_PTR       pEncryptedData,
                   CK_ULONG          ulEncryptedDataLen,
@@ -794,7 +791,7 @@ C_Decrypt ( CK_SESSION_HANDLE hSession,
 //------------------------------------------------------------------------
 //  Netscape Required
 
-CK_RV CK_ENTRY 
+CK_RV
 C_DecryptDigestUpdate ( CK_SESSION_HANDLE hSession,
                               CK_BYTE_PTR       pEncryptedPart,
                               CK_ULONG          ulEncryptedPartLen,
@@ -867,7 +864,7 @@ C_DecryptDigestUpdate ( CK_SESSION_HANDLE hSession,
 //
 //------------------------------------------------------------------------
 
-CK_RV CK_ENTRY 
+CK_RV
 C_DecryptFinal ( CK_SESSION_HANDLE hSession,
                        CK_BYTE_PTR       pLastPart,
                        CK_ULONG_PTR      pulLastPartLen
@@ -940,7 +937,7 @@ C_DecryptFinal ( CK_SESSION_HANDLE hSession,
 //
 //------------------------------------------------------------------------
 
-CK_RV CK_ENTRY 
+CK_RV
 C_DecryptInit ( CK_SESSION_HANDLE hSession,
                       CK_MECHANISM_PTR  pMechanism,
                       CK_OBJECT_HANDLE  hKey
@@ -1005,7 +1002,7 @@ C_DecryptInit ( CK_SESSION_HANDLE hSession,
 //
 //------------------------------------------------------------------------
 
-CK_RV CK_ENTRY 
+CK_RV
 C_DecryptUpdate ( CK_SESSION_HANDLE hSession,
                         CK_BYTE_PTR       pEncryptedPart,
                         CK_ULONG          ulEncryptedPartLen,
@@ -1070,7 +1067,7 @@ C_DecryptUpdate ( CK_SESSION_HANDLE hSession,
 // API function C_DecryptVerifyUpdate 
 //------------------------------------------------------------------------
 
-CK_RV CK_ENTRY 
+CK_RV
 C_DecryptVerifyUpdate ( CK_SESSION_HANDLE hSession,
                               CK_BYTE_PTR       pEncryptedPart,
                               CK_ULONG          ulEncryptedPartLen,
@@ -1134,7 +1131,7 @@ C_DecryptVerifyUpdate ( CK_SESSION_HANDLE hSession,
 // API function C_DeriveKey   
 //------------------------------------------------------------------------
 
-CK_RV CK_ENTRY 
+CK_RV
 C_DeriveKey ( CK_SESSION_HANDLE    hSession,
                     CK_MECHANISM_PTR     pMechanism,
                     CK_OBJECT_HANDLE     hBaseKey,
@@ -1219,7 +1216,7 @@ C_DeriveKey ( CK_SESSION_HANDLE    hSession,
 //
 //------------------------------------------------------------------------
 
-CK_RV CK_ENTRY 
+CK_RV
 C_DestroyObject ( CK_SESSION_HANDLE hSession,
                         CK_OBJECT_HANDLE  hObject
                       )
@@ -1275,7 +1272,7 @@ C_DestroyObject ( CK_SESSION_HANDLE hSession,
 // API function C_Digest   
 //------------------------------------------------------------------------
 
-CK_RV CK_ENTRY 
+CK_RV
 C_Digest ( CK_SESSION_HANDLE hSession,
                  CK_BYTE_PTR       pData,
                  CK_ULONG          ulDataLen,
@@ -1338,7 +1335,7 @@ C_Digest ( CK_SESSION_HANDLE hSession,
 // API function C_DigestEncryptUpdate   
 //------------------------------------------------------------------------
 
-CK_RV CK_ENTRY 
+CK_RV
 C_DigestEncryptUpdate ( CK_SESSION_HANDLE hSession,
                               CK_BYTE_PTR       pPart,
                               CK_ULONG          ulPartLen,
@@ -1405,7 +1402,7 @@ C_DigestEncryptUpdate ( CK_SESSION_HANDLE hSession,
 // API function C_DigestFinal   
 //------------------------------------------------------------------------
 
-CK_RV CK_ENTRY 
+CK_RV
 C_DigestFinal ( CK_SESSION_HANDLE hSession,
                       CK_BYTE_PTR       pDigest,
                       CK_ULONG_PTR      pulDigestLen
@@ -1468,7 +1465,7 @@ C_DigestFinal ( CK_SESSION_HANDLE hSession,
 // API function C_DigestInit   
 //------------------------------------------------------------------------
 
-CK_RV CK_ENTRY 
+CK_RV
 C_DigestInit ( CK_SESSION_HANDLE hSession,
                      CK_MECHANISM_PTR  pMechanism
                    )
@@ -1529,7 +1526,7 @@ C_DigestInit ( CK_SESSION_HANDLE hSession,
 // API function C_DigestKey   
 //------------------------------------------------------------------------
 
-CK_RV CK_ENTRY 
+CK_RV
 C_DigestKey ( CK_SESSION_HANDLE hSession,
                     CK_OBJECT_HANDLE  hKey
                   )
@@ -1585,7 +1582,7 @@ C_DigestKey ( CK_SESSION_HANDLE hSession,
 // API function C_DigestUpdate   
 //------------------------------------------------------------------------
 
-CK_RV CK_ENTRY 
+CK_RV
 C_DigestUpdate ( CK_SESSION_HANDLE hSession,
                        CK_BYTE_PTR       pPart,
                        CK_ULONG          ulPartLen
@@ -1646,7 +1643,7 @@ C_DigestUpdate ( CK_SESSION_HANDLE hSession,
 // API function C_Encrypt   
 //------------------------------------------------------------------------
 
-CK_RV CK_ENTRY 
+CK_RV
 C_Encrypt ( CK_SESSION_HANDLE hSession,
                   CK_BYTE_PTR       pData,
                   CK_ULONG          ulDataLen,
@@ -1708,7 +1705,7 @@ C_Encrypt ( CK_SESSION_HANDLE hSession,
 // API function C_EncryptFinal   
 //------------------------------------------------------------------------
 
-CK_RV CK_ENTRY 
+CK_RV
 C_EncryptFinal ( CK_SESSION_HANDLE hSession,
                        CK_BYTE_PTR       pLastEncryptedPart,
                        CK_ULONG_PTR      pulLastEncryptedPartLen
@@ -1769,7 +1766,7 @@ C_EncryptFinal ( CK_SESSION_HANDLE hSession,
 // API function C_EncryptInit   
 //------------------------------------------------------------------------
 
-CK_RV CK_ENTRY 
+CK_RV
 C_EncryptInit ( CK_SESSION_HANDLE hSession,
                       CK_MECHANISM_PTR  pMechanism,
                       CK_OBJECT_HANDLE  hKey
@@ -1831,7 +1828,7 @@ C_EncryptInit ( CK_SESSION_HANDLE hSession,
 // API function C_EncryptUpdate  
 //------------------------------------------------------------------------
 
-CK_RV CK_ENTRY 
+CK_RV
 C_EncryptUpdate ( CK_SESSION_HANDLE hSession,
                         CK_BYTE_PTR       pPart,
                         CK_ULONG          ulPartLen,
@@ -1899,7 +1896,7 @@ C_EncryptUpdate ( CK_SESSION_HANDLE hSession,
 //
 //------------------------------------------------------------------------
 
-CK_RV CK_ENTRY 
+CK_RV
 C_Finalize ( CK_VOID_PTR pReserved )
 {
    API_Slot_t *sltp;
@@ -1967,7 +1964,7 @@ C_Finalize ( CK_VOID_PTR pReserved )
 //
 //------------------------------------------------------------------------
 
-CK_RV CK_ENTRY 
+CK_RV
 C_FindObjects ( CK_SESSION_HANDLE    hSession,
                                CK_OBJECT_HANDLE_PTR phObject,
                                CK_ULONG             ulMaxObjectCount,
@@ -2031,7 +2028,7 @@ C_FindObjects ( CK_SESSION_HANDLE    hSession,
 //
 //------------------------------------------------------------------------
 
-CK_RV CK_ENTRY 
+CK_RV
 C_FindObjectsFinal ( CK_SESSION_HANDLE hSession )
 {
 
@@ -2090,7 +2087,7 @@ C_FindObjectsFinal ( CK_SESSION_HANDLE hSession )
 //
 //------------------------------------------------------------------------
 
-CK_RV CK_ENTRY 
+CK_RV
 C_FindObjectsInit ( CK_SESSION_HANDLE hSession,
                                    CK_ATTRIBUTE_PTR  pTemplate,
                                    CK_ULONG          ulCount )
@@ -2151,7 +2148,7 @@ C_FindObjectsInit ( CK_SESSION_HANDLE hSession,
 //------------------------------------------------------------------------
 //  Netscape Required
 
-CK_RV CK_ENTRY 
+CK_RV
 C_GenerateKey ( CK_SESSION_HANDLE    hSession,
                       CK_MECHANISM_PTR     pMechanism,
                       CK_ATTRIBUTE_PTR     pTemplate,
@@ -2217,7 +2214,7 @@ C_GenerateKey ( CK_SESSION_HANDLE    hSession,
 //------------------------------------------------------------------------
 //  Netscape Required
 
-CK_RV CK_ENTRY 
+CK_RV
 C_GenerateKeyPair ( CK_SESSION_HANDLE    hSession,
                           CK_MECHANISM_PTR     pMechanism,
                           CK_ATTRIBUTE_PTR     pPublicKeyTemplate,
@@ -2292,7 +2289,7 @@ C_GenerateKeyPair ( CK_SESSION_HANDLE    hSession,
 //------------------------------------------------------------------------
 //  Netscape Required
 
-CK_RV CK_ENTRY 
+CK_RV
 C_GenerateRandom ( CK_SESSION_HANDLE hSession,
                          CK_BYTE_PTR       RandomData,
                          CK_ULONG          ulRandomLen
@@ -2357,7 +2354,7 @@ C_GenerateRandom ( CK_SESSION_HANDLE hSession,
 //
 //------------------------------------------------------------------------
 
-CK_RV CK_ENTRY 
+CK_RV
 C_GetAttributeValue ( CK_SESSION_HANDLE hSession,
                             CK_OBJECT_HANDLE  hObject,
                             CK_ATTRIBUTE_PTR  pTemplate,
@@ -2422,7 +2419,7 @@ C_GetAttributeValue ( CK_SESSION_HANDLE hSession,
 //------------------------------------------------------------------------
 //  Netscape Required
 
-CK_RV CK_ENTRY 
+CK_RV
 C_GetFunctionList ( CK_FUNCTION_LIST_PTR_PTR ppFunctionList )
 {
    static   int num_invocations=0;
@@ -2518,7 +2515,7 @@ C_GetFunctionList ( CK_FUNCTION_LIST_PTR_PTR ppFunctionList )
 // API function C_GetFunctionStatus   
 //------------------------------------------------------------------------
 
-CK_RV CK_ENTRY 
+CK_RV
 C_GetFunctionStatus ( CK_SESSION_HANDLE hSession )
 {
    LOG("C_GetFunctionStatus");
@@ -2542,7 +2539,7 @@ C_GetFunctionStatus ( CK_SESSION_HANDLE hSession )
 
 #ifdef PKCS64
 
-CK_RV CK_ENTRY 
+CK_RV
 C_GetInfo ( CK_INFO_PTR pInfo )
 {
    Slot_Mgr_Shr_t  *shm;
@@ -2574,7 +2571,7 @@ C_GetInfo ( CK_INFO_PTR pInfo )
 
 #else
 
-CK_RV CK_ENTRY 
+CK_RV
 C_GetInfo ( CK_INFO_PTR pInfo )
 {
    Slot_Mgr_Shr_t  *shm;
@@ -2607,7 +2604,7 @@ C_GetInfo ( CK_INFO_PTR pInfo )
 //
 //------------------------------------------------------------------------
 
-CK_RV CK_ENTRY 
+CK_RV
 C_GetMechanismInfo ( CK_SLOT_ID            slotID,
                            CK_MECHANISM_TYPE     type,
                            CK_MECHANISM_INFO_PTR pInfo
@@ -2659,7 +2656,7 @@ C_GetMechanismInfo ( CK_SLOT_ID            slotID,
 //
 //------------------------------------------------------------------------
 
-CK_RV CK_ENTRY 
+CK_RV
 C_GetMechanismList ( CK_SLOT_ID            slotID,
                            CK_MECHANISM_TYPE_PTR pMechanismList,
                            CK_ULONG_PTR          pulCount
@@ -2730,7 +2727,7 @@ C_GetMechanismList ( CK_SLOT_ID            slotID,
 //
 //------------------------------------------------------------------------
 
-CK_RV CK_ENTRY 
+CK_RV
 C_GetObjectSize ( CK_SESSION_HANDLE hSession,
                                  CK_OBJECT_HANDLE  hObject,
                                  CK_ULONG_PTR      pulSize )
@@ -2789,7 +2786,7 @@ C_GetObjectSize ( CK_SESSION_HANDLE hSession,
 // API function C_GetOperationState   
 //------------------------------------------------------------------------
 
-CK_RV CK_ENTRY 
+CK_RV
 C_GetOperationState ( CK_SESSION_HANDLE hSession,
                             CK_BYTE_PTR       pOperationState,
                             CK_ULONG_PTR      pulOperationStateLen
@@ -2856,7 +2853,7 @@ C_GetOperationState ( CK_SESSION_HANDLE hSession,
 //
 //------------------------------------------------------------------------
 
-CK_RV CK_ENTRY 
+CK_RV
 C_GetSessionInfo ( CK_SESSION_HANDLE   hSession,
                          CK_SESSION_INFO_PTR pInfo
                        )
@@ -2928,7 +2925,7 @@ C_GetSessionInfo ( CK_SESSION_HANDLE   hSession,
 
 #ifdef PKCS64
 
-CK_RV CK_ENTRY 
+CK_RV
 C_GetSlotInfo ( CK_SLOT_ID       slotID,
                       CK_SLOT_INFO_PTR pInfo
                     )
@@ -2997,7 +2994,7 @@ C_GetSlotInfo ( CK_SLOT_ID       slotID,
 
 #else
 
-CK_RV CK_ENTRY 
+CK_RV
 C_GetSlotInfo ( CK_SLOT_ID       slotID,
                       CK_SLOT_INFO_PTR pInfo
                     )
@@ -3059,7 +3056,7 @@ C_GetSlotInfo ( CK_SLOT_ID       slotID,
 //
 //------------------------------------------------------------------------
 
-CK_RV CK_ENTRY 
+CK_RV
 C_GetSlotList ( CK_BBOOL       tokenPresent,
                       CK_SLOT_ID_PTR pSlotList,
                       CK_ULONG_PTR   pulCount
@@ -3206,7 +3203,7 @@ C_GetSlotList ( CK_BBOOL       tokenPresent,
 //------------------------------------------------------------------------
 
 
-CK_RV CK_ENTRY 
+CK_RV
 C_GetTokenInfo ( CK_SLOT_ID        slotID,
                        CK_TOKEN_INFO_PTR pInfo
                      )
@@ -3285,7 +3282,7 @@ Call_Finalize(){
 //
 //------------------------------------------------------------------------
 
-CK_RV CK_ENTRY 
+CK_RV
 C_Initialize ( CK_VOID_PTR pVoid )
 {
    int rc;
@@ -3312,17 +3309,9 @@ C_Initialize ( CK_VOID_PTR pVoid )
             return CKR_HOST_MEMORY;
          }
       } else {
-#if !(LINUX || linux)
-         if ( Anchor->Pid == getpid() ) { // validate against current pid is an error
-            st_err_log(72, __FILE__, __LINE__);
-            return CKR_CRYPTOKI_ALREADY_INITIALIZED;
-         }
-#else
          // Linux the atfork routines handle this
          st_err_log(72, __FILE__, __LINE__);
          return CKR_CRYPTOKI_ALREADY_INITIALIZED;
-
-#endif
       }
 
       bzero(slot_loaded,sizeof(int)*NUMBER_SLOTS_MANAGED); // Clear out the load list
@@ -3500,7 +3489,7 @@ C_Initialize ( CK_VOID_PTR pVoid )
 //
 //------------------------------------------------------------------------
 
-CK_RV CK_ENTRY 
+CK_RV
 C_InitPIN ( CK_SESSION_HANDLE hSession,
                   CK_CHAR_PTR       pPin,
                   CK_ULONG          ulPinLen
@@ -3571,7 +3560,7 @@ C_InitPIN ( CK_SESSION_HANDLE hSession,
 //------------------------------------------------------------------------
 //Netscape NEVER Calls this according to the Netscape documentation
 
-CK_RV CK_ENTRY 
+CK_RV
 C_InitToken ( CK_SLOT_ID  slotID,
                     CK_CHAR_PTR pPin,
                     CK_ULONG    ulPinLen,
@@ -3648,7 +3637,7 @@ C_InitToken ( CK_SLOT_ID  slotID,
 //
 //------------------------------------------------------------------------
 
-CK_RV CK_ENTRY 
+CK_RV
 C_Login ( CK_SESSION_HANDLE hSession,
                 CK_USER_TYPE      userType,
                 CK_CHAR_PTR       pPin,
@@ -3719,7 +3708,7 @@ C_Login ( CK_SESSION_HANDLE hSession,
 //
 //------------------------------------------------------------------------
 
-CK_RV CK_ENTRY 
+CK_RV
 C_Logout ( CK_SESSION_HANDLE hSession )
 {
 
@@ -3781,7 +3770,7 @@ C_Logout ( CK_SESSION_HANDLE hSession )
 // usage of them appears to be optional from the specification
 // but we may need to do something with them at a later date.
 //
-CK_RV CK_ENTRY 
+CK_RV
 C_OpenSession ( CK_SLOT_ID            slotID,
                       CK_FLAGS              flags,
                       CK_VOID_PTR           pApplication,
@@ -3873,7 +3862,7 @@ C_OpenSession ( CK_SLOT_ID            slotID,
 // API function C_SeedRandom   
 //------------------------------------------------------------------------
 
-CK_RV CK_ENTRY 
+CK_RV
 C_SeedRandom ( CK_SESSION_HANDLE hSession,
                      CK_BYTE_PTR       pSeed,
                      CK_ULONG          ulSeedLen
@@ -3942,7 +3931,7 @@ C_SeedRandom ( CK_SESSION_HANDLE hSession,
 //
 //------------------------------------------------------------------------
 
-CK_RV CK_ENTRY 
+CK_RV
 C_SetAttributeValue ( CK_SESSION_HANDLE hSession,
                             CK_OBJECT_HANDLE  hObject,
                             CK_ATTRIBUTE_PTR  pTemplate,
@@ -4006,7 +3995,7 @@ C_SetAttributeValue ( CK_SESSION_HANDLE hSession,
 // API function C_SetOperationState   
 //------------------------------------------------------------------------
 
-CK_RV CK_ENTRY 
+CK_RV
 C_SetOperationState ( CK_SESSION_HANDLE hSession,
                             CK_BYTE_PTR       pOperationState,
                             CK_ULONG          ulOperationStateLen,
@@ -4076,7 +4065,7 @@ C_SetOperationState ( CK_SESSION_HANDLE hSession,
 //
 //------------------------------------------------------------------------
 
-CK_RV CK_ENTRY 
+CK_RV
 C_SetPIN ( CK_SESSION_HANDLE hSession,
                  CK_CHAR_PTR       pOldPin,
                  CK_ULONG          ulOldLen,
@@ -4143,7 +4132,7 @@ C_SetPIN ( CK_SESSION_HANDLE hSession,
 //
 //------------------------------------------------------------------------
 
-CK_RV CK_ENTRY 
+CK_RV
 C_Sign ( CK_SESSION_HANDLE hSession,
                CK_BYTE_PTR       pData,
                CK_ULONG          ulDataLen,
@@ -4204,7 +4193,7 @@ C_Sign ( CK_SESSION_HANDLE hSession,
 // API function C_SignEncryptUpdate   
 //------------------------------------------------------------------------
 
-CK_RV CK_ENTRY 
+CK_RV
 C_SignEncryptUpdate ( CK_SESSION_HANDLE hSession,
                             CK_BYTE_PTR       pPart,
                             CK_ULONG          ulPartLen,
@@ -4273,7 +4262,7 @@ C_SignEncryptUpdate ( CK_SESSION_HANDLE hSession,
 //
 //------------------------------------------------------------------------
 
-CK_RV CK_ENTRY 
+CK_RV
 C_SignFinal ( CK_SESSION_HANDLE hSession,
                     CK_BYTE_PTR       pSignature,
                     CK_ULONG_PTR      pulSignatureLen
@@ -4341,7 +4330,7 @@ C_SignFinal ( CK_SESSION_HANDLE hSession,
 //
 //------------------------------------------------------------------------
 
-CK_RV CK_ENTRY 
+CK_RV
 C_SignInit ( CK_SESSION_HANDLE hSession,
                    CK_MECHANISM_PTR  pMechanism,
                    CK_OBJECT_HANDLE  hKey
@@ -4400,7 +4389,7 @@ C_SignInit ( CK_SESSION_HANDLE hSession,
 // API function C_SignRecover   
 //------------------------------------------------------------------------
 
-CK_RV CK_ENTRY 
+CK_RV
 C_SignRecover ( CK_SESSION_HANDLE hSession,
                       CK_BYTE_PTR       pData,
                       CK_ULONG          ulDataLen,
@@ -4465,7 +4454,7 @@ C_SignRecover ( CK_SESSION_HANDLE hSession,
 // API function C_SignRecoverInit   
 //------------------------------------------------------------------------
 
-CK_RV CK_ENTRY 
+CK_RV
 C_SignRecoverInit ( CK_SESSION_HANDLE hSession,
                           CK_MECHANISM_PTR  pMechanism,
                           CK_OBJECT_HANDLE  hKey
@@ -4533,7 +4522,7 @@ C_SignRecoverInit ( CK_SESSION_HANDLE hSession,
 //
 //------------------------------------------------------------------------
 
-CK_RV CK_ENTRY 
+CK_RV
 C_SignUpdate ( CK_SESSION_HANDLE hSession,
                      CK_BYTE_PTR       pPart,
                      CK_ULONG          ulPartLen
@@ -4597,7 +4586,7 @@ C_SignUpdate ( CK_SESSION_HANDLE hSession,
 //------------------------------------------------------------------------
 //  Netscape Required
 
-CK_RV CK_ENTRY 
+CK_RV
 C_UnwrapKey ( CK_SESSION_HANDLE    hSession,
                     CK_MECHANISM_PTR     pMechanism,
                     CK_OBJECT_HANDLE     hUnwrappingKey,
@@ -4674,7 +4663,7 @@ C_UnwrapKey ( CK_SESSION_HANDLE    hSession,
 //------------------------------------------------------------------------
 //  Netscape Required
 
-CK_RV CK_ENTRY 
+CK_RV
 C_Verify ( CK_SESSION_HANDLE hSession,
                  CK_BYTE_PTR       pData,
                  CK_ULONG          ulDataLen,
@@ -4736,7 +4725,7 @@ C_Verify ( CK_SESSION_HANDLE hSession,
 // API function C_VerifyFinal   
 //------------------------------------------------------------------------
 
-CK_RV CK_ENTRY 
+CK_RV
 C_VerifyFinal ( CK_SESSION_HANDLE hSession,
                       CK_BYTE_PTR       pSignature,
                       CK_ULONG          ulSignatureLen
@@ -4799,7 +4788,7 @@ C_VerifyFinal ( CK_SESSION_HANDLE hSession,
 // API function C_VerifyInit   
 //------------------------------------------------------------------------
 
-CK_RV CK_ENTRY 
+CK_RV
 C_VerifyInit ( CK_SESSION_HANDLE hSession,
                      CK_MECHANISM_PTR  pMechanism,
                      CK_OBJECT_HANDLE  hKey
@@ -4859,7 +4848,7 @@ C_VerifyInit ( CK_SESSION_HANDLE hSession,
 //------------------------------------------------------------------------
 //  Netscape Required
 
-CK_RV CK_ENTRY 
+CK_RV
 C_VerifyRecover ( CK_SESSION_HANDLE hSession,
                         CK_BYTE_PTR       pSignature,
                         CK_ULONG          ulSignatureLen,
@@ -4920,7 +4909,7 @@ C_VerifyRecover ( CK_SESSION_HANDLE hSession,
 // API function C_VerifyRecoverInit   
 //------------------------------------------------------------------------
 
-CK_RV CK_ENTRY 
+CK_RV
 C_VerifyRecoverInit ( CK_SESSION_HANDLE hSession,
                             CK_MECHANISM_PTR  pMechanism,
                             CK_OBJECT_HANDLE  hKey
@@ -4979,7 +4968,7 @@ C_VerifyRecoverInit ( CK_SESSION_HANDLE hSession,
 // API function C_VerifyUpdate   
 //------------------------------------------------------------------------
 
-CK_RV CK_ENTRY 
+CK_RV
 C_VerifyUpdate ( CK_SESSION_HANDLE hSession,
                        CK_BYTE_PTR       pPart,
                        CK_ULONG          ulPartLen
@@ -5056,7 +5045,7 @@ C_VerifyUpdate ( CK_SESSION_HANDLE hSession,
 //implemented.  Be forewarned.
 //------------------------------------------------------------------------
 
-CK_RV CK_ENTRY 
+CK_RV
 C_WaitForSlotEvent ( CK_FLAGS       flags,
                            CK_SLOT_ID_PTR pSlot,
                            CK_VOID_PTR    pReserved
@@ -5184,7 +5173,7 @@ C_WaitForSlotEvent ( CK_FLAGS       flags,
 //------------------------------------------------------------------------
 //  Netscape Required
 
-CK_RV CK_ENTRY 
+CK_RV
 C_WrapKey ( CK_SESSION_HANDLE hSession,
                   CK_MECHANISM_PTR  pMechanism,
                   CK_OBJECT_HANDLE  hWrappingKey,
@@ -5246,12 +5235,7 @@ C_WrapKey ( CK_SESSION_HANDLE hSession,
 }
 
 void
-#if (AIX)
-Linit()
-#endif
-#if (LINUX)
 _init()
-#endif
 {
    char  *env;
 
@@ -5266,24 +5250,17 @@ _init()
 
    loginit();  // called once per application... rules for C_Initialize apply
 
-#if (LINUX || linux)
    // Should only have to do the atfork stuff at load time...
    if (!Initialized){ 
       pthread_atfork(NULL,NULL,(void(*)())child_fork_initializer);
       Initialized=1;
    }
-#endif
 
 }
 
 
 void
-#if defined(AIX)
-Lterminate()
-#endif
-#if defined(LINUX)
 _fini()
-#endif
 {
    logterm();
    if ( API_Initialized() == TRUE ) {

@@ -4,7 +4,7 @@ bindir=/tmp
 
 PKCS11_ICA_so_LDFLAGS = $(LCRYPTO) $(ICA_LIB_DIRS) -nostartfiles -shared -Wl,-Bsymbolic  -Wl,-soname,$@ -Wl,-Bsymbolic -lc -lpthread -lica -ldl -lcrypto
 
-PKCS11_ICA_so_CFLAGS = -DSPINXPL -DDEV -D_THREAD_SAFE -DLINUX -fPIC -DSHALLOW=0 -DSWTOK=0 -DLITE=1 -DNODH -DNOAES -DNOCDMF -DNOMD2 -DNODSA -D_LINUX -D_LINUX_ 
+PKCS11_ICA_so_CFLAGS = -DSPINXPL -DDEV -D_THREAD_SAFE -fPIC -DSHALLOW=0 -DSWTOK=0 -DLITE=1 -DNODH -DNOAES -DNOCDMF -DNOMD2 -DNODSA
 
 #VPATH= ./:../common
 
@@ -14,6 +14,6 @@ INCLUDES = $(ICA_INC_DIRS) -I. -I../../../include/pkcs11/stdll -I../../../includ
 
 install-data-local:
 	mkdir -p $(INSROOT)/usr/lib/pkcs11/stdll; \
- 	if [ $(shell uname -m) == s390x ] ;then cp PKCS11_ICA.so $(INSROOT)/usr/lib/pkcs11/stdll/PKCS11_ICA.so64; \
+	if [ $(shell uname -m) == s390x ] ;then cp PKCS11_ICA.so $(INSROOT)/usr/lib64/pkcs11/stdll/PKCS11_ICA.so; ln -s $(INSROOT)/usr/lib64/pkcs11/stdll/PKCS11_ICA.so /usr/lib/pkcs11/stdll/PKCS11_ICA.so64; \
 	else cp PKCS11_ICA.so $(INSROOT)/usr/lib/pkcs11/stdll/; fi; \
 	rm -f /tmp/PKCS11_ICA.*;

@@ -1,5 +1,5 @@
 /*
- * $Header: /cvsroot/opencryptoki/opencryptoki/usr/include/pkcs11/pkcs32.h,v 1.1 2005/01/18 16:09:04 kyoder Exp $
+ * $Header: /cvsroot/opencryptoki/opencryptoki/usr/include/pkcs11/pkcs32.h,v 1.2 2005/02/22 20:47:35 mhalcrow Exp $
  */
 
 //----------------------------------------------------------------------------
@@ -311,10 +311,6 @@ extern "C"
 #endif
 
 
-#ifndef AIX
-#pragma pack(1)
-#endif
-
   /* These are the new definitions need for the structures in 
    * leeds_stdll largs.h (and elsewhere)
    */
@@ -462,9 +458,7 @@ typedef struct CK_ATTRIBUTE_32 {
 
 
 
-#ifndef AIX
 #pragma pack()
-#endif
 
 
 #ifdef __cplusplus

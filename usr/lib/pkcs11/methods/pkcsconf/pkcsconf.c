@@ -1,4 +1,4 @@
-static const char rcsid[] = "$Header: /cvsroot/opencryptoki/opencryptoki/usr/lib/pkcs11/methods/pkcsconf/Attic/pkcsconf.c,v 1.1 2005/01/18 16:09:00 kyoder Exp $";
+static const char rcsid[] = "$Header: /cvsroot/opencryptoki/opencryptoki/usr/lib/pkcs11/methods/pkcsconf/Attic/pkcsconf.c,v 1.2 2005/02/22 20:49:28 mhalcrow Exp $";
 
 /*
              Common Public License Version 0.5
@@ -292,9 +292,7 @@ static const char rcsid[] = "$Header: /cvsroot/opencryptoki/opencryptoki/usr/lib
 
 
 #include <unistd.h>
-#if defined(LINUX)
 #include <sys/stat.h>
-#endif
 #include <stdlib.h>
 #include <errno.h>
 #include <stdio.h>

@@ -1,4 +1,4 @@
-static const char rcsid[] = "$Header: /cvsroot/opencryptoki/opencryptoki/usr/lib/pkcs11/methods/4758_status/4758_status.c,v 1.1 2005/01/18 16:09:00 kyoder Exp $";
+static const char rcsid[] = "$Header: /cvsroot/opencryptoki/opencryptoki/usr/lib/pkcs11/methods/4758_status/4758_status.c,v 1.2 2005/02/22 20:48:07 mhalcrow Exp $";
 
 /*
              Common Public License Version 0.5
@@ -294,9 +294,7 @@ static const char rcsid[] = "$Header: /cvsroot/opencryptoki/opencryptoki/usr/lib
 #include <stdio.h>
 #include <stdlib.h>
 
-#if (LINUX)
 #include "unistd.h"
-#endif
 
 #include "4758_status.h"
 #include "pkcs11types.h"
@@ -317,13 +315,8 @@ CK_ULONG long_reverse( CK_ULONG x )
 
    return rev;
 }
-#if (AIX)
-#define HTOCL(Z) long_reverse(Z)
-#define CTOHL(Z) long_reverse(Z)
-#elif (LINUX)
 #define HTOCL(Z) (Z)
 #define CTOHL(Z) (Z)
-#endif
 
 CK_RV 
 communicate( CK_ULONG    slot_id, CK_ULONG cmd_id,
@@ -544,11 +537,7 @@ main (int argc, char *argv[]){
    else
       tempc = (char *)malloc(strlen(card));
    
-#if !LINUX
-   sscanf(card, "crypt%s", tempc);
-#else
    sscanf(card, "crypto%s", tempc);
-#endif
    dev_minor = atoi(tempc);
    free (tempc);
    

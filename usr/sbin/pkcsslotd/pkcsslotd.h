@@ -1,5 +1,5 @@
 /*
- * $Header: /cvsroot/opencryptoki/opencryptoki/usr/sbin/pkcsslotd/pkcsslotd.h,v 1.1 2005/01/18 16:09:03 kyoder Exp $
+ * $Header: /cvsroot/opencryptoki/opencryptoki/usr/sbin/pkcsslotd/pkcsslotd.h,v 1.2 2005/02/22 20:49:31 mhalcrow Exp $
  */
 
 
@@ -339,9 +339,6 @@
 #include <odmi.h>
 #endif
 #include <pkcs11types.h> 
-#ifdef AIX
-#include <procinfo.h>
-#endif
 #include <signal.h>
 #include <stdarg.h>
 #include <stdio.h>
@@ -357,14 +354,7 @@
 #include <nl_types.h>
 
 #include <sys/ipc.h>
-#if defined(AIX)
-#include <sys/limits.h>
-#include <sys/mode.h>
-#else
-#if defined(LINUX)
 #include <linux/limits.h>
-#endif
-#endif
 #include <sys/shm.h>
 #include <sys/stat.h>
 #include <sys/types.h>
@@ -381,15 +371,6 @@
   *******/
 #include "slotd_msg.h"
 
-
-#if !defined(NOGARBAGE)
-
-#if (AIX)
-int getprocs (struct procsinfo64 *ProcessBuffer, int ProcessSize, struct fdsinfo *FileBuffer, int FileSize, pid_t *IndexPointer, int Count);
-#endif
-
-
-#endif
 
 #define MSG_SET MS_SLOTD
 nl_catd catd;

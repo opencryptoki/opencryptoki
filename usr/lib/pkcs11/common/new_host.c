@@ -1,4 +1,4 @@
-static const char rcsid[] = "$Header: /cvsroot/opencryptoki/opencryptoki/usr/lib/pkcs11/common/new_host.c,v 1.1 2005/01/18 16:09:02 kyoder Exp $";
+static const char rcsid[] = "$Header: /cvsroot/opencryptoki/opencryptoki/usr/lib/pkcs11/common/new_host.c,v 1.2 2005/02/22 20:47:46 mhalcrow Exp $";
 
 /*
              Common Public License Version 0.5
@@ -309,9 +309,6 @@ static const char rcsid[] = "$Header: /cvsroot/opencryptoki/opencryptoki/usr/lib
 #include <string.h>
 
 #include <stdlib.h>
-#if (AIX)
-#include <sys/mman.h>
-#endif
 #include <sys/types.h>
 #include <grp.h>
 
@@ -377,17 +374,12 @@ void SC_SetFunctionList(void);
 
 static char  *debugfilepathbuffer;
 static int  debugon = 1;
-#if (AIX)
-int  debugfile=0;
-#define FFLUSH(x)
-#else
 #if 0
 FILE  *debugfile = NULL;
 #define FFLUSH(x) fflush(x);
 #else
 int  debugfile = 0;
 #define FFLUSH(x) 
-#endif
 #endif
 
 pid_t  initedpid=0;  // for initialized pid
@@ -406,9 +398,6 @@ CK_BBOOL
 st_Initialized()
 {
   if (initialized == FALSE ) return FALSE;
-#if !(LINUX)
-  if (initedpid != getpid()) return FALSE;
-#endif
   return TRUE;
 
 }
@@ -678,19 +667,10 @@ stloginit();
       }
    }
 
-#if !(LINUX)
-   // Linux we will assume that the upper level has filtered
-   // this and we need to initialize the code
-   // go through this only once for each application
-   if (st_Initialized() == TRUE){
-      return CKR_OK;
-   }
-#elif (LINUX)
    // assume that the upper API prevents multiple calls of initialize
    // since that only happens on C_Initialize and that is the
    // resonsibility of the upper layer..
    initialized = FALSE; /// So the rest of the code works correctly
-#endif
 
    // If we're not already initialized, grab the mutex and do the
    // initialization.  Check to see if another thread did so while we
@@ -700,16 +680,6 @@ stloginit();
    // PKCS#11 operations; until we do so, we have to use the native mutex...
    //
    WaitForSingleObject( native_mutex, INFINITE );
-
-#if !(LINUX)
-   // check for other completing this before creating mutexes...
-   // make sure that the same process tried to to the init...
-   // thread issues should be caught up above...
-   if (st_Initialized() == TRUE){
-      st_err_log(143, __FILE__, __LINE__);
-      goto done;
-   }
-#endif
 
    // SAB need to call Fork_Initializer here
    // instead of at the end of the loop...
@@ -726,9 +696,6 @@ stloginit();
 
    if ( (debugfilepathbuffer = getenv( "CRYPTOKI_DEBUG")) != NULL) {
       debugon=1;
-#if (AIX)
-      debugfile = 1;
-#endif
    }
 
    init_data_store(PK_DIR);
@@ -4492,13 +4459,9 @@ CK_RV SC_CancelFunction( ST_SESSION_HANDLE  sSession )
    return CKR_FUNCTION_NOT_PARALLEL;
 }
 
-
-#if (LINUX)
-#define __cdecl 
-#endif
 //
 //
-CK_RV __cdecl QueryTweakValues( void )
+CK_RV QueryTweakValues( void )
 {
    st_err_log(142, __FILE__, __LINE__, __FUNCTION__);
    return CKR_FUNCTION_NOT_SUPPORTED;
@@ -4507,7 +4470,7 @@ CK_RV __cdecl QueryTweakValues( void )
 
 //
 //
-CK_RV __cdecl UpdateTweakValues( void )
+CK_RV UpdateTweakValues( void )
 {
    st_err_log(142, __FILE__, __LINE__, __FUNCTION__);
    return CKR_FUNCTION_NOT_SUPPORTED;

@@ -1,4 +1,4 @@
-static const char rcsid[] = "$Header: /cvsroot/opencryptoki/opencryptoki/usr/sbin/pkcsslotd/slotmgr.c,v 1.1 2005/01/18 16:09:04 kyoder Exp $";
+static const char rcsid[] = "$Header: /cvsroot/opencryptoki/opencryptoki/usr/sbin/pkcsslotd/slotmgr.c,v 1.2 2005/02/22 20:49:32 mhalcrow Exp $";
 
 /*
              Common Public License Version 0.5
@@ -300,9 +300,7 @@ static const char rcsid[] = "$Header: /cvsroot/opencryptoki/opencryptoki/usr/sbi
 
 #include "pkcsslotd.h"
 
-#if defined(LINUX)
 #include <semaphore.h>
-#endif
 
 
 /* 

@@ -3,7 +3,7 @@ bindir=/tmp
 
 pkcsslotd_LDFLAGS = -lpthread
 
-pkcsslotd_CFLAGS = -DSPINXPL -DLINUX -DPROGRAM_NAME=\"$(@)\" -DNOODM -DNODAE
+pkcsslotd_CFLAGS = -DSPINXPL -DPROGRAM_NAME=\"$(@)\" -DNOODM -DNODAE
 
 pkcsslotd_SOURCES = slotmgr.c shmem.c signal.c mutex.c err.c log.c daemon.c no_odm.c garbage_linux.c
 

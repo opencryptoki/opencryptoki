@@ -1,4 +1,4 @@
-static const char rcsid[] = "$Header: /cvsroot/opencryptoki/opencryptoki/usr/sbin/pkcsslotd/log.c,v 1.1 2005/01/18 16:09:03 kyoder Exp $";
+static const char rcsid[] = "$Header: /cvsroot/opencryptoki/opencryptoki/usr/sbin/pkcsslotd/log.c,v 1.2 2005/02/22 20:49:30 mhalcrow Exp $";
 
 /*
              Common Public License Version 0.5
@@ -417,19 +417,11 @@ BOOL GetCurrentTimeString ( char *Buffer ) {
 static int InitDataStructs ( void ) {
   
   int                   i;
-#if defined(AIX)
-  #pragma info(noini)
-  struct syslog_data    TempData = SYSLOG_DATA_INIT;
-  #pragma info(restore)
-#endif
 
   for ( i = 0; i < (sizeof(LogInfo) / sizeof(LogInfo[0])); i++ ) {
     LogInfo[i].Initialized    = FALSE;
     LogInfo[i].Descrip[0]     = '\0';
     LogInfo[i].LogOption      = DefaultLogOption;
-#if defined(AIX)
-    memcpy ( (void *) &(LogInfo[i].LogData), (void *) &TempData, sizeof(TempData) );
-#endif
   }
 
   Initialized = TRUE;
@@ -647,11 +639,6 @@ BOOL NewLoggingFacility ( char *ID, pLoggingFacility pStuff ) {
 BOOL CloseLoggingFacility ( LogHandle hLog ) {
 
   pLoggingFacilityInfo      pInfo               = NULL;
-#if defined(AIX)
-  #pragma info(noini)
-  struct syslog_data        TempData            = SYSLOG_DATA_INIT;
-  #pragma info(restore)
-#endif
 
   if ( (pInfo = GetLogInfoPtr(hLog)) == NULL ) {
     return FALSE;
@@ -663,16 +650,9 @@ BOOL CloseLoggingFacility ( LogHandle hLog ) {
   pInfo->pid            = 0;
 
   if ( pInfo->UseSyslog ) {
-#if defined(AIX)
-    closelog_r( &(pInfo->LogData) );
-#else
     closelog(  );
-#endif
   }
 
-#if defined(AIX)
-  memcpy ( &(pInfo->LogData), &TempData, sizeof(TempData) );
-#endif
   pInfo->Initialized    = FALSE;
 
   return TRUE;
@@ -733,11 +713,7 @@ static BOOL SetLogPriorityMask ( LogHandle hLog, u_int32 Priority ) {
 #endif
     return FALSE;
   } else {
-#if defined(AIX)
-    setlogmask_r( Priority, &(pInfo->LogData) );
-#else
     setlogmask( Priority );
-#endif
   }
 
   return TRUE;
@@ -846,11 +822,7 @@ BOOL PKCS_Log ( pLogHandle phLog, char *Format, va_list ap ) {
 
   /* Always log to syslog, if we're using it */
   if ( pInfo->UseSyslog ) {
-#if defined(AIX)
-    syslog_r(pInfo->LogLevel, &(pInfo->LogData), Buffer);
-#else
     syslog(pInfo->LogLevel,  Buffer);
-#endif
   }
 
   return TRUE;
@@ -1092,28 +1064,11 @@ static BOOL SyslogOpen ( pLoggingFacilityInfo pInfo ) {
 
   if ( pInfo->pid != 0 ) {
     /* We've been initialized before, so close the previous instance */
-#if defined(AIX)
-    closelog_r( &(pInfo->LogData) );
-#else
     closelog();
-#endif
   }
 
-#if defined(AIX)
-  if ( openlog_r ( pInfo->Descrip, pInfo->LogOption, (Daemon ? LOG_DAEMON : LOG_USER), &(pInfo->LogData) ) != 0) { 
-#ifdef DEV
-    fprintf(stderr, "SyslogOpen: openlog_r failed\n");
-#endif
-    return FALSE;
-  }
-#endif
-  
   /* Default to log all messages.  This can be changed by a subsequent call to SetLogPriorityMask */
-#if defined(AIX)
-  setlogmask_r( LOG_UPTO(LOG_DEBUG), &(pInfo->LogData) );
-#else
   setlogmask( LOG_UPTO(LOG_DEBUG));
-#endif
  
   /* Mark this as having been set by this process */
   pInfo->pid = getpid();

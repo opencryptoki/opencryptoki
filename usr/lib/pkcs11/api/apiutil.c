@@ -1,4 +1,4 @@
-static const char rcsid[] = "$Header: /cvsroot/opencryptoki/opencryptoki/usr/lib/pkcs11/api/apiutil.c,v 1.1 2005/01/18 16:09:00 kyoder Exp $";
+static const char rcsid[] = "$Header: /cvsroot/opencryptoki/opencryptoki/usr/lib/pkcs11/api/apiutil.c,v 1.2 2005/02/22 20:47:43 mhalcrow Exp $";
 //
 /*
              Common Public License Version 0.5
@@ -308,9 +308,6 @@ static const char rcsid[] = "$Header: /cvsroot/opencryptoki/opencryptoki/usr/lib
 #include <errno.h>
 #include <sys/syslog.h>
 
-#if defined(AIX)
-#include <sys/mode.h>
-#endif
 #include <sys/ipc.h>
 
 #include "msg.h" //HACK
@@ -366,10 +363,6 @@ set_perm(int file)
 
 #define SYSLOG
 
-#if defined(AIX)
-struct syslog_data log_data = SYSLOG_DATA_INIT;
-#endif
-
 
 void logit( int, char *, ...);
 
@@ -388,16 +381,9 @@ loginit(){
 
    if (!enabled){
       enabled=1;
-#if defined(AIX) || defined(PTHREAD_SYSLOG)
-      openlog_r("AIXPKCSModule",LOG_PID|LOG_NDELAY,LOG_DAEMON,&log_data);
-      setlogmask_r(LOG_UPTO(LOG_DEBUG),&log_data);
-#elif defined(LINUX)
       openlog("openCryptokiModule",LOG_PID|LOG_NDELAY,LOG_DAEMON);
       setlogmask(LOG_UPTO(LOG_DEBUG));
 	logit(LOG_DEBUG,"Logging enabled %d enabled",enabled);
-#else
-#error  "logging not defined for this os"
-#endif
    }
 
 }
@@ -424,11 +410,7 @@ logit(int type,char *fmt, ...)
          va_start(pvar, fmt);
          vsprintf(buffer,fmt,pvar);
          va_end(pvar);
-#if defined(AIX) || defined(PTHREAD_SYSLOG)
-         syslog_r(type,&log_data,buffer);
-#elif defined(LINUX)
           syslog(type,buffer);
-#endif
       }
    }
 
@@ -455,13 +437,7 @@ static struct sembuf xlock_unlock[1] = {
 int
 XProcLock(void *x)
 {
-#if (AIX)
-#if PKCS64
-   return msem_lock(x,0);
-#else
-   return pthread_mutex_lock(x);
-#endif
-#elif PTHREADXPL
+#if PTHREADXPL
    return pthread_mutex_lock(x);
 #elif POSIXSEM
 #error "posix semaphores need to be defined"
@@ -484,13 +460,7 @@ XProcLock(void *x)
 int 
 XProcUnLock(void *x)
 {
-#if (AIX)
-#if PKCS64
-   return msem_unlock(x,0);
-#else
-   return pthread_mutex_unlock(x);
-#endif
-#elif PTHREADXPL
+#if PTHREADXPL
    return pthread_mutex_unlock(x);
 #elif POSIXSEM
 #error "posix semaphores need to be defined"
@@ -629,14 +599,6 @@ API_Initialized()
 
    if ( Anchor == NULL )
       return FALSE;
-
-#if !(LINUX)
-   if ( Anchor->Pid == getpid() ){
-      return TRUE;
-   } else {
-      return FALSE;
-   }
-#endif
 
    return TRUE;
 }
@@ -1227,11 +1189,7 @@ st_err_log(int num, ...)
          va_start(pvar, num);
          vsprintf(buffer,err_msg[num].msg,pvar);
          va_end(pvar);
-#if defined(AIX)
-         syslog_r(LOG_ERR,&log_data,buffer);
-#else
          syslog(LOG_ERR,buffer);
-#endif
    }
 
 }

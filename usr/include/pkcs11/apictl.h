@@ -1,5 +1,5 @@
 /*
- * $Header: /cvsroot/opencryptoki/opencryptoki/usr/include/pkcs11/apictl.h,v 1.1 2005/01/18 16:09:04 kyoder Exp $
+ * $Header: /cvsroot/opencryptoki/opencryptoki/usr/include/pkcs11/apictl.h,v 1.2 2005/02/22 20:47:32 mhalcrow Exp $
  */
 
 
@@ -296,12 +296,7 @@
 
 
 #include <pkcs11types.h>
-#if defined(AIX)
-#include <sys/limits.h>
-#endif
-#if defined(LINUX)
 #include <linux/limits.h>
-#endif
 #include <local_types.h>
 #include <stdll.h>
 #include <slotmgr.h>
