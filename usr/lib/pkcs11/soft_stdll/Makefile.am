@@ -13,7 +13,7 @@ PKCS11_SW_so_SOURCES = ../common/asn1.c ../common/cert.c ../common/hwf_obj.c ../
  
 INCLUDES = -I/usr/include -I. -I../../../include/pkcs11/stdll -I../../../include/pkcs11 -I ../common
 
-GOOD_LIBRARY_NAME=libpkcs11_SW.so
+GOOD_LIBRARY_NAME=libpkcs11_sw.so
 BAD_LIBRARY_NAME=PKCS11_SW.so
 
 install-data-local:
