@@ -1,0 +1,79 @@
+-- openCryptoki README -- Kent Yoder <yoder1@us.ibm.com>
+
+REQUIREMENTS:
+
+  As of version 2.1, openCryptoki's soft token will require openssl-0.9.7.
+This is as a result of moving to version 2.11 of the PKCS#11 specification,
+which includes the AES algorithm.  Since no hardware tokens yet support AES,
+there is an option to intentionally not build the software token, which is
+meant to be used for testing only. So your options are to either install
+openssl-0.9.7 and build as normal, or use openssl-0.9.6, and run
+'./configure --disable-swtok'.
+
+  Warning: Having both openssl 0.9.6 and 0.9.7 installed at the same time
+can be tricky and most likely will only be detected at run time by a
+segmentation fault (for instance if you link to libcrypto 0.9.7 and use
+the header file from 0.9.6 to compile.) To be sure you get the soft
+token compiled correctly I suggest doing
+
+# mv /usr/include/openssl /usr/include/openssl.0.9.6
+ (make and install openssl-0.9.7 into the default location /usr/local/ssl)
+# cd openCryptoki
+# sh ./bootstrap.sh
+# LDFLAGS=-L/usr/local/ssl/lib CFLAGS=-I/usr/local/ssl/include ./configure
+# mv /usr/include/openssl.0.9.6 /usr/include/openssl
+
+BUILD PROCESS:
+
+  First, run `sh bootstrap.sh`.  This will create a configure script.  Then the
+standard:
+
+  $ ./configure
+  $ make
+  $ su -c 'make install'
+
+  If your stdll headers and libraries are not under any standard path, you'll
+  need to pass the paths to your files to the configure script. ie:
+
+  $ CPPFLAGS="-L/path/lib" LDFLAGS="-I/path/include" ./configure
+
+  See ./configure --help for info on various options.  The default 
+  behavior is to build any token whose libraries are found. You may
+  disable building any token with its corresponding --disable-<tok>
+  configure option.
+
+RUNNING openCryptoki:
+
+  See http://www-124.ibm.com/developerworks/oss/opencryptoki/howto/index.html
+    or the docs section of 
+  http://www-124.ibm.com/developerworks/projects/openCryptoki
+
+ARCHITECTURE:
+
+  On any 32bit arch, openCryptoki is compiled using gcc and all the necessary
+components are installed as 32bit executables/libraries as follows:
+
+  /usr/lib/pkcs11/PKCS11_API.so			32bit shared library
+  /usr/lib/pkcs11/stdll				directory
+  /usr/lib/pkcs11/stdll/PKCS11_ICA.so		32bit shared library
+  /usr/lib/pkcs11/methods			directory
+  /usr/lib/pkcs11/methods/pkcsconf		32bit executable
+  /usr/lib/pkcs11/methods/pkcs_slot		Shell script
+  /usr/lib/pkcs11/methods/pkcs11_startup	Shell script
+  /usr/sbin/pkcsslotd				32bit executable
+
+  On 64bit s390x, a 64bit gcc is used to compile the only 2 64bit objects
+used in openCryptoki:
+
+  /usr/lib64/pkcs11/PKCS11_API.so		64bit shared library
+  /usr/lib64/pkcs11/stdll/PKCS11_ICA.so		64bit shared library
+
+  On ppc64, the 64bit cross compiler is used to compile these 2 objects. On
+both s390x and ppc64, the 32bit libraries and executables are installed as
+well as the 64bit objects in order to have an environment where both 32bit 
+and 64bit PKCS#11 apps can run. On ppc and s390, pkcsslotd is compiled with 
+the -DPKCS64 flag, which makes all structures match their size on a 64bit 
+platform when being compiled 32bit. In this way, pkcsslotd can interact
+with both 32 and 64bit executable/libraries.
+
+
