@@ -13,6 +13,8 @@
 
 #include "../common/defs.h"
 
+#undef MAX_PIN_LEN
+#undef MIN_PIN_LEN
 #define MAX_PIN_LEN           128
 #define MIN_PIN_LEN           6
 
