@@ -1992,7 +1992,7 @@ extern token_spec_t token_specific;
 #endif
 
 #include <stdio.h>
-#define APPID	"hi"
+#define APPID	"TPM_STDLL"
 /* log to stdout */
 #define LogMessage(dest, priority, layer, fmt, ...) \
 	do { \
