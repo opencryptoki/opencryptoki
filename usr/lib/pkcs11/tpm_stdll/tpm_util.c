@@ -42,6 +42,26 @@
 
 #include "tpm_specific.h"
 
+UINT32
+util_get_keysize_flag(CK_ULONG size)
+{
+	switch (size) {
+		case 512:
+			return TSS_KEY_SIZE_512;
+			break;
+		case 1024:
+			return TSS_KEY_SIZE_1024;
+			break;
+		case 2048:
+			return TSS_KEY_SIZE_2048;
+			break;
+		default:
+			break;
+	}
+
+	return 0;
+}
+
 char *
 util_create_id(int type)
 {
