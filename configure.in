@@ -26,7 +26,18 @@ AC_FUNC_ALLOCA
 AC_FUNC_MEMCMP
 AC_FUNC_STRFTIME
 AC_FUNC_VPRINTF
-AC_CHECK_FUNCS(getcwd)
+AC_CHECK_FUNCS([getcwd])
+
+# Used in the init scripts
+AC_SUBST(ID, /usr/bin/id)
+AC_SUBST(USERMOD, /usr/sbin/usermod)
+AC_SUBST(GROUPADD, /usr/sbin/groupadd)
+
+AC_SUBST(CONFIG_PATH, /etc/pkcs11)
+AC_SUBST(DB_PATH, /etc/pkcs11)
+AC_SUBST(STDLL_PATH, /usr/lib/pkcs11/stdll)
+AC_SUBST(CONFIG_FILE, pk_config_data)
+AC_SUBST(METHOD_PATH, /usr/lib/pkcs11/methods)
 
 TO_BUILD=0
 
@@ -189,19 +200,28 @@ AC_OUTPUT(Makefile usr/Makefile \
           usr/lib/Makefile \
           usr/lib/pkcs11/Makefile \
           usr/lib/pkcs11/api/Makefile \
+          usr/lib/pkcs11/api/shrd_mem.c \
           usr/lib/pkcs11/ica_stdll/Makefile \
+          usr/lib/pkcs11/ica_stdll/tok_struct.h \
           usr/lib/pkcs11/ica_s390_stdll/Makefile \
+          usr/lib/pkcs11/ica_s390_stdll/tok_struct.h \
           usr/sbin/Makefile \
           usr/sbin/pkcsslotd/Makefile \
           usr/lib/pkcs11/methods/Makefile \
           usr/lib/pkcs11/methods/4758_startup/Makefile \
+          usr/lib/pkcs11/methods/4758_startup/pkcs11_startup \
           usr/lib/pkcs11/methods/leeds_slot/Makefile \
+          usr/lib/pkcs11/methods/leeds_slot/pkcs_slot \
           usr/lib/pkcs11/methods/pkcsconf/Makefile \
           usr/lib/pkcs11/leeds_stdll/Makefile \
           usr/lib/pkcs11/soft_stdll/Makefile \
+          usr/lib/pkcs11/soft_stdll/tok_struct.h \
           usr/lib/pkcs11/bcom_stdll/Makefile \
+          usr/lib/pkcs11/bcom_stdll/tok_struct.h \
           usr/lib/pkcs11/cr_stdll/Makefile \
+          usr/lib/pkcs11/cr_stdll/tok_struct.h \
           usr/lib/pkcs11/aep_stdll/Makefile \
+          usr/lib/pkcs11/aep_stdll/tok_struct.h \
           usr/lib/pkcs11/methods/4758_status/Makefile)
 
 if [[ $TO_BUILD -eq 0 ]]; then

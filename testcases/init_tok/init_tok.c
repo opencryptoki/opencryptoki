@@ -7,11 +7,7 @@
 #include <stdlib.h>
 #include <string.h>
 #include <memory.h>
-
-#if AIX || LINUX
 #include <dlfcn.h>
-#define _cdecl
-#endif
 
 #include "pkcs11types.h"
 
@@ -21,7 +17,7 @@ int  do_GetInfo(void);
 
 void init_coprocessor(void);
 
-CK_RV _cdecl C_GetFunctionList( CK_FUNCTION_LIST ** ) ;
+CK_RV C_GetFunctionList( CK_FUNCTION_LIST ** ) ;
 
 CK_FUNCTION_LIST  *funcs;
 
@@ -136,18 +132,13 @@ void show_error( CK_BYTE *str, CK_RV rc )
 int do_GetFunctionList( void )
 {
    CK_RV            rc;
-#if AIX || LINUX
    CK_RV  (*pfoo)();
    void    *d;
    char    *e;
-   char		*x="/usr/lib/pkcs11/PKCS11_API.so";
-
-#endif
-
+   char		*x="PKCS11_API.so";
 
    printf("do_GetFunctionList...\n");
 
-#if AIX || LINUX
    e = getenv("PKCSLIB");
    if ( e == NULL) {
 	e=x;
@@ -163,10 +154,6 @@ int do_GetFunctionList( void )
       return FALSE;
    }
    rc = pfoo(&funcs);
-#else
-   rc = C_GetFunctionList( &funcs ) ;
-#endif
-
 
 
    if (rc != CKR_OK) {

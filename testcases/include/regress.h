@@ -22,11 +22,9 @@
 
 #define MIN(a, b)       ( (a) < (b) ? (a) : (b) )
 
-#if (AIX || LINUX)
 #include <sys/timeb.h>
 #define SYSTEMTIME   struct timeb
 #define GetSystemTime(x) ftime((x))
-#endif
 
 void process_time(SYSTEMTIME t1, SYSTEMTIME t2);
 void process_ret_code( CK_RV rc );

@@ -107,12 +107,9 @@ Cryptographic Accelerator (FC 4960 on pSeries)
 }
 #./autoversion
 #autoreconf --force --install
-# openCryptoki appends a 'so64' to 64bit shared objects and they stay
-# in /usr/lib, so we leave libdir allone.  libexecdir is not needed as
-# well, since IBM does not support the 64bit tools, if a 32bit
-# compatibility exists in the 64bit architecture, so no conflicts
-# possible here as well.
-#./configure # --libdir=%_libdir
+%ifarch %openCryptoki_64bit_arch
+./configure --libdir=/usr/lib64
+%endif
 #/bin/pwd
 #/usr/bin/aclocal
 #/usr/bin/automake
@@ -190,7 +187,7 @@ y/ /,/
 %else # not openCryptoki_32bit_arch  but  64bit arch
 
 %files 64bit
-/usr/lib/pkcs11/PKCS11_API.so64
-/usr/lib/pkcs11/stdll/PKCS11_ICA.so64
+/usr/lib64/pkcs11/PKCS11_API.so
+/usr/lib64/pkcs11/stdll/PKCS11_ICA.so
 %endif
 
