@@ -775,10 +775,9 @@ token_create_user_tree(ST_SESSION_HANDLE session, CK_BYTE *pinHash, CK_BYTE *pPi
 	 * be tied to pluggable object storage routines */
 	sprintf(loc, "%s/%s/%s", token_specific.token_directory, PK_LITE_OBJ_DIR, TPMTOK_USERNAME);
 
-	if (mkdir(loc, 0700) == -1) {
-		LogError("%s: mkdir: %s", __FUNCTION__, strerror(errno));
-		rc = CKR_FUNCTION_FAILED;
-		goto done;
+	if (util_create_user_dir(loc)) {
+		LogError("%s: util_create_user_dir failed.", __FUNCTION__);
+		return CKR_FUNCTION_FAILED;
 	}
 
 	/* XXX this is bad form */

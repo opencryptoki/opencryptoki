@@ -329,21 +329,30 @@ retry_open:
 	strncat( (char *)fname, (char *) obj->name, 8 );
 
 	//fp = fopen( (char *)fname, "w" );
-	fp = fopen( (char *)fname, "w+" );
+	fp = fopen( (char *)fname, "r+" );
 	if (!fp) {
-		/* XXX file exists, namespace collision hopefully due to migration */
-		CK_CHAR name[8];
-
-		if (errno == EEXIST) {
-			memcpy(name, obj->name, 8);
-			compute_next_token_obj_name(name, obj->name);
-			goto retry_open;
+		if (errno == ENOENT) {
+			/* this is good, we're opening a new file */
+			fp = fopen( (char *)fname, "w" );
+			if (!fp) {
+				LogError("errno: %d: %s", errno, strerror(errno));
+				st_err_log(4, __FILE__, __LINE__, __FUNCTION__);
+				rc = CKR_FUNCTION_FAILED;
+				goto error;
+			}
 		} else {
 			LogError("errno: %d: %s", errno, strerror(errno));
 			st_err_log(4, __FILE__, __LINE__, __FUNCTION__);
 			rc = CKR_FUNCTION_FAILED;
 			goto error;
 		}
+	} else {
+		/* XXX file exists, namespace collision hopefully due to migration */
+		CK_CHAR name[8];
+
+		memcpy(name, obj->name, 8);
+		compute_next_token_obj_name(name, obj->name);
+		goto retry_open;
 	}
 
 	set_perm(fileno(fp));
@@ -371,136 +380,146 @@ error:
 CK_RV
 save_private_token_object(OBJECT *obj)
 {
-   FILE             * fp        = NULL;
-   CK_BYTE          * obj_data  = NULL;
-   CK_BYTE          * cleartxt  = NULL;
-   CK_BYTE          * ciphertxt = NULL;
-   CK_BYTE          * ptr       = NULL;
-   CK_BYTE            fname[100];
-   CK_BYTE            hash_sha[SHA1_HASH_SIZE];
-   CK_BYTE            hash_md5[MD5_HASH_SIZE];
-   CK_BYTE            des3_key[3 * DES_KEY_SIZE];
-   CK_ULONG           obj_data_len,cleartxt_len, ciphertxt_len, hash_len, tmp, tmp2;
-   CK_ULONG           padded_len;
-   CK_BBOOL           flag;
-   CK_RV              rc;
-   CK_ULONG_32        obj_data_len_32;
-   CK_ULONG_32        total_len;
+	FILE             * fp        = NULL;
+	CK_BYTE          * obj_data  = NULL;
+	CK_BYTE          * cleartxt  = NULL;
+	CK_BYTE          * ciphertxt = NULL;
+	CK_BYTE          * ptr       = NULL;
+	CK_BYTE            fname[100];
+	CK_BYTE            hash_sha[SHA1_HASH_SIZE];
+	CK_BYTE            hash_md5[MD5_HASH_SIZE];
+	CK_BYTE            des3_key[3 * DES_KEY_SIZE];
+	CK_ULONG           obj_data_len,cleartxt_len, ciphertxt_len, hash_len, tmp, tmp2;
+	CK_ULONG           padded_len;
+	CK_BBOOL           flag;
+	CK_RV              rc;
+	CK_ULONG_32        obj_data_len_32;
+	CK_ULONG_32        total_len;
 
-   rc = object_flatten( obj, &obj_data, &obj_data_len );
-   obj_data_len_32 = obj_data_len;
-   if (rc != CKR_OK){
-      st_err_log(101, __FILE__, __LINE__);
-      goto error;
-   }
-   //
-   // format for the object file:
-   //    private flag
-   //    ---- begin encrypted part        <--+
-   //       length of object data            |
-   //       object data                      +---- sensitive part
-   //       SHA of (object data)             |
-   //    ---- end encrypted part          <--+
-   //
-   compute_sha( obj_data, obj_data_len, hash_sha );
+	rc = object_flatten( obj, &obj_data, &obj_data_len );
+	obj_data_len_32 = obj_data_len;
+	if (rc != CKR_OK){
+		st_err_log(101, __FILE__, __LINE__);
+		goto error;
+	}
+	//
+	// format for the object file:
+	//    private flag
+	//    ---- begin encrypted part        <--+
+	//       length of object data            |
+	//       object data                      +---- sensitive part
+	//       SHA of (object data)             |
+	//    ---- end encrypted part          <--+
+	//
+	compute_sha( obj_data, obj_data_len, hash_sha );
 
-   // encrypt the sensitive object data.  need to be careful.
-   // if I use the normal high-level encryption routines I'll need to
-   // create a tepmorary key object containing the master key, perform the
-   // encryption, then destroy the key object.  There is a race condition
-   // here if the application is multithreaded (if a thread-switch occurs,
-   // the other application thread could do a FindObject and be able to access
-   // the master key object.
-   //
-   // So I have to use the low-level encryption routines.
-   //
-   memcpy( des3_key, master_key, 3*DES_KEY_SIZE );
+	// encrypt the sensitive object data.  need to be careful.
+	// if I use the normal high-level encryption routines I'll need to
+	// create a tepmorary key object containing the master key, perform the
+	// encryption, then destroy the key object.  There is a race condition
+	// here if the application is multithreaded (if a thread-switch occurs,
+	// the other application thread could do a FindObject and be able to access
+	// the master key object.
+	//
+	// So I have to use the low-level encryption routines.
+	//
+	memcpy( des3_key, master_key, 3*DES_KEY_SIZE );
 
-   cleartxt_len = sizeof(CK_ULONG_32) + obj_data_len_32 + SHA1_HASH_SIZE;
-   padded_len   = DES_BLOCK_SIZE * (cleartxt_len / DES_BLOCK_SIZE + 1);
+	cleartxt_len = sizeof(CK_ULONG_32) + obj_data_len_32 + SHA1_HASH_SIZE;
+	padded_len   = DES_BLOCK_SIZE * (cleartxt_len / DES_BLOCK_SIZE + 1);
 
-   cleartxt  = (CK_BYTE *)malloc( padded_len );
-   ciphertxt = (CK_BYTE *)malloc( padded_len );
-   if (!cleartxt || !ciphertxt) {
-      st_err_log(0, __FILE__, __LINE__);
-      rc = CKR_HOST_MEMORY;
-      goto error;
-   }
+	cleartxt  = (CK_BYTE *)malloc( padded_len );
+	ciphertxt = (CK_BYTE *)malloc( padded_len );
+	if (!cleartxt || !ciphertxt) {
+		st_err_log(0, __FILE__, __LINE__);
+		rc = CKR_HOST_MEMORY;
+		goto error;
+	}
 
-   ciphertxt_len = padded_len;
+	ciphertxt_len = padded_len;
 
-   ptr = cleartxt;
-   memcpy( ptr, &obj_data_len_32, sizeof(CK_ULONG_32) );  ptr += sizeof(CK_ULONG_32);
-   memcpy( ptr,  obj_data,     obj_data_len_32     );  ptr += obj_data_len_32;
-   memcpy( ptr,  hash_sha,     SHA1_HASH_SIZE   );
+	ptr = cleartxt;
+	memcpy( ptr, &obj_data_len_32, sizeof(CK_ULONG_32) );  ptr += sizeof(CK_ULONG_32);
+	memcpy( ptr,  obj_data,     obj_data_len_32     );  ptr += obj_data_len_32;
+	memcpy( ptr,  hash_sha,     SHA1_HASH_SIZE   );
 
-   add_pkcs_padding( cleartxt + cleartxt_len, DES_BLOCK_SIZE, cleartxt_len, padded_len );
+	add_pkcs_padding( cleartxt + cleartxt_len, DES_BLOCK_SIZE, cleartxt_len, padded_len );
 
 #ifndef  CLEARTEXT
 
 	rc = ckm_des3_cbc_encrypt( cleartxt,    padded_len,
-				 ciphertxt,  &ciphertxt_len,
-			        "10293847", (char *) des3_key );
+			ciphertxt,  &ciphertxt_len,
+			"10293847", (char *) des3_key );
 #else
-         bcopy(cleartxt,ciphertxt,padded_len);
-         rc = CKR_OK;
+	bcopy(cleartxt,ciphertxt,padded_len);
+	rc = CKR_OK;
 #endif
-   if (rc != CKR_OK){
-      st_err_log(105, __FILE__, __LINE__);
-      goto error;
-   }
+	if (rc != CKR_OK){
+		st_err_log(105, __FILE__, __LINE__);
+		goto error;
+	}
 
 retry_open:
-   //strcpy( (char *)fname, "/tmp/TOK_OBJ/" );
-   if (TPMTOK_USERNAME == NULL) {
-	   sprintf( (char *)fname,"%s/%s/", pk_dir,PK_LITE_OBJ_DIR);
-   } else {
-	   sprintf( (char *)fname,"%s/%s/%s/", pk_dir,PK_LITE_OBJ_DIR, TPMTOK_USERNAME);
-   }
-   strncat( (char *)fname,(char *) obj->name, 8 );
+	//strcpy( (char *)fname, "/tmp/TOK_OBJ/" );
+	if (TPMTOK_USERNAME == NULL) {
+		sprintf( (char *)fname,"%s/%s/", pk_dir,PK_LITE_OBJ_DIR);
+	} else {
+		sprintf( (char *)fname,"%s/%s/%s/", pk_dir,PK_LITE_OBJ_DIR, TPMTOK_USERNAME);
+	}
+	strncat( (char *)fname,(char *) obj->name, 8 );
 
-   //fp = fopen( (char *)fname, "w" );
-   fp = fopen( (char *)fname, "r+" );
-   if (!fp) {
-	   /* XXX file exists, namespace collision hopefully due to migration */
-	   CK_CHAR name[8];
+	fp = fopen( (char *)fname, "r+" );
+	if (!fp) {
+		if (errno == ENOENT) {
+			/* this is good, we're opening a new file */
+			fp = fopen( (char *)fname, "w" );
+			if (!fp) {
+				LogError("errno: %d: %s", errno, strerror(errno));
+				st_err_log(4, __FILE__, __LINE__, __FUNCTION__);
+				rc = CKR_FUNCTION_FAILED;
+				goto error;
+			}
+		} else {
+			LogError("errno: %d: %s", errno, strerror(errno));
+			st_err_log(4, __FILE__, __LINE__, __FUNCTION__);
+			rc = CKR_FUNCTION_FAILED;
+			goto error;
+		}
+	} else {
+		/* XXX file exists, namespace collision hopefully due to migration */
+		CK_CHAR name[8];
 
-	   if (errno == EEXIST) {
-		   memcpy(name, obj->name, 8);
-		   compute_next_token_obj_name(name, obj->name);
-		   goto retry_open;
-	   } else {
-		   st_err_log(4, __FILE__, __LINE__, __FUNCTION__);
-		   rc = CKR_FUNCTION_FAILED;
-		   goto error;
-	   }
-   }
+		memcpy(name, obj->name, 8);
+		compute_next_token_obj_name(name, obj->name);
+		goto retry_open;
+	}
 
-   set_perm(fileno(fp));
 
-   total_len = sizeof(CK_ULONG_32) + sizeof(CK_BBOOL) + ciphertxt_len;
+	set_perm(fileno(fp));
 
-   flag = TRUE;
+	total_len = sizeof(CK_ULONG_32) + sizeof(CK_BBOOL) + ciphertxt_len;
 
-   fwrite( &total_len, sizeof(CK_ULONG_32), 1, fp );
-   fwrite( &flag,      sizeof(CK_BBOOL), 1, fp );
-   fwrite( ciphertxt,  ciphertxt_len,    1, fp );
+	flag = TRUE;
 
-   fclose( fp );
+	fwrite( &total_len, sizeof(CK_ULONG_32), 1, fp );
+	fwrite( &flag,      sizeof(CK_BBOOL), 1, fp );
+	fwrite( ciphertxt,  ciphertxt_len,    1, fp );
 
-   free( obj_data  );
-   free( cleartxt  );
-   free( ciphertxt );
-   return CKR_OK;
+	fclose( fp );
+
+	free( obj_data  );
+	free( cleartxt  );
+	free( ciphertxt );
+	return CKR_OK;
 
 error:
-   if (fp)  fclose( fp );
+	if (fp)  fclose( fp );
 
-   if (obj_data)  free( obj_data  );
-   if (cleartxt)  free( cleartxt  );
-   if (ciphertxt) free( ciphertxt );
+	if (obj_data)  free( obj_data  );
+	if (cleartxt)  free( cleartxt  );
+	if (ciphertxt) free( ciphertxt );
 
-   return rc;
+	return rc;
 }
 
 /*

@@ -22,8 +22,11 @@
 
 #include <sys/types.h>
 #include <sys/stat.h>
+#include <unistd.h>
 #include <errno.h>
 #include <string.h>
+#include <pwd.h>
+#include <grp.h>
 
 #include <tss/tss.h>
 
@@ -53,7 +56,7 @@ LoadBlob_PRIVKEY_DIGEST(UINT16 * offset, BYTE * blob, TCPA_KEY *key)
 }
 
 int
-set_file_mode(char *filename, mode_t mode)
+util_set_file_mode(char *filename, mode_t mode)
 {
 	struct stat file_stat;
 
@@ -68,4 +71,26 @@ set_file_mode(char *filename, mode_t mode)
 	}
 
 	return 0;
+}
+
+int
+util_create_user_dir(char *loc)
+{
+	mode_t mode = (S_IRWXU | S_IRWXG);
+	struct passwd *user = getpwnam(TPMTOK_USERNAME);
+	struct group *group = getgrnam("pkcs11");
+	int rc;
+
+	if (user == NULL || group == NULL)
+		return -1;
+
+	if (mkdir(loc, mode) == -1) {
+		LogError("%s: mkdir: %s", __FUNCTION__, strerror(errno));
+		return -1;
+	}
+
+	rc = util_set_file_mode(loc, mode);
+	rc |= chown(loc, user->pw_uid, group->gr_gid);
+
+	return rc;
 }

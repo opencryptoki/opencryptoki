@@ -123,7 +123,7 @@ openssl_write_key(RSA *rsa, char *filename, char *pPin)
 
 	BIO_free(b);
 
-	if (set_file_mode(filename, (S_IRUSR|S_IWUSR))) {
+	if (util_set_file_mode(filename, (S_IRUSR|S_IWUSR))) {
 		LogError("Setting file mode of %s failed", filename);
 	}
 
