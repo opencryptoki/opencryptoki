@@ -224,10 +224,9 @@ token_find_key(ST_SESSION_HANDLE session, int key_type, CK_OBJECT_HANDLE *handle
 		goto done;
 	}
 
-	SC_FindObjectsFinal(session);
-
 	*handle = hObj;
 done:
+	SC_FindObjectsFinal(session);
 	free(key_id);
 	return rc;
 }
