@@ -123,7 +123,7 @@ AC_ARG_ENABLE(tpmtok,
               [enable_tpmtok="yes"])
 
 if test "x$enable_tpmtok" = xyes; then
-	AC_CHECK_HEADER(tss.h,
+	AC_CHECK_HEADER(tss/tss.h,
 		AC_CHECK_LIB(crypto, AES_encrypt,
 			AC_CHECK_LIB(tspi, Tspi_Context_Create,
 				     [AM_CONDITIONAL(TPM, true)], [AM_CONDITIONAL(TPM, false)], -lcrypto),
