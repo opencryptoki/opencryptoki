@@ -1,5 +1,3 @@
-static const char rcsid[] = "$Header$";
-//
 /*
              Common Public License Version 0.5
 

@@ -362,17 +362,6 @@ do
 	fi
     fi
 done
-fi  
-
-
-
-
-#  For this we will always delete the SW tok from ODM and then
-# add it if the file exists....
-
-if [ -f @STDLL_PATH@/PKCS11_SW.so ]
-then
-    @METHOD_PATH@/pkcs_slot 0  soft
 fi
 
 # Add the TPM device automatically if it exists
@@ -444,6 +433,13 @@ then
     then
 	    @METHOD_PATH@/pkcs_slot 0  cr
     fi
+fi
+
+# Add the SW token last, so that "dumb" apps that always open
+# slot 0 will get a HW token if one exists
+if [ -f @STDLL_PATH@/PKCS11_SW.so ]
+then
+    @METHOD_PATH@/pkcs_slot 0  soft
 fi
 
 if [ $ERRORS -ne 0 ]
