@@ -161,7 +161,7 @@ token_specific_aes_cbc( CK_BYTE  *,
                         CK_BYTE     );
 #endif
 
-CK_RV token_specific_login(ST_SESSION_HANDLE, CK_USER_TYPE, CK_CHAR_PTR, CK_ULONG);
+CK_RV token_specific_login(CK_USER_TYPE, CK_CHAR_PTR, CK_ULONG);
 CK_RV token_specific_logout();
 CK_RV token_specific_init_pin(CK_CHAR_PTR, CK_ULONG);
 CK_RV token_specific_set_pin(ST_SESSION_HANDLE, CK_CHAR_PTR, CK_ULONG, CK_CHAR_PTR, CK_ULONG);
