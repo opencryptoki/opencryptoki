@@ -50,6 +50,7 @@
 #include <openssl/evp.h>
 
 #include <tss/tss.h>
+#include <tss/trousers.h>
 
 #include "pkcs11/pkcs11types.h"
 #include "pkcs11/stdll.h"
@@ -63,7 +64,47 @@
 
 #include "tpm_specific.h"
 
+CK_CHAR manuf[] = "IBM Corp.";
+CK_CHAR model[] = "TPM Token";
+CK_CHAR descr[] = "Token for the Trusted Platform Module";
+CK_CHAR label[] = "IBM PKCS#11 TPM Token";
+
+/* The context we'll use globally to connect to the TSP */
+TSS_HCONTEXT tspContext = NULL_HCONTEXT;
+/* TSP key handles */
+TSS_HKEY hSRK = NULL_HKEY;
+TSS_HKEY hRootKey = NULL_HKEY;
+TSS_HKEY hPubRootKey = NULL_HKEY;
+TSS_HKEY hMigRootKey = NULL_HKEY;
+TSS_HKEY hMigLeafKey = NULL_HKEY;
+TSS_HKEY hUserBaseKey = NULL_HKEY;
+TSS_HKEY hUserLeafKey = NULL_HKEY;
+
+/* PKCS#11 key handles */
+CK_OBJECT_HANDLE ckRootKey = 0;
+CK_OBJECT_HANDLE ckMigRootKey = 0;
+CK_OBJECT_HANDLE ckMigLeafKey = 0;
+CK_OBJECT_HANDLE ckMigAsymKey = 0;
+CK_OBJECT_HANDLE ckUserBaseKey = 0;
+CK_OBJECT_HANDLE ckUserLeafKey = 0;
+CK_OBJECT_HANDLE ckPubRootKey = 0;
+CK_OBJECT_HANDLE ckAESKey = 0;
+
+/* since logging in is such an intensive process, set a flag on logout,
+ * so that we only have to load 1 key on a re-login
+ */
+int relogging_in = 0;
+int not_initialized = 0;
+
 CK_BYTE *TPMTOK_USERNAME = NULL;
+
+/* SHA-1 of "12345678" */
+CK_BYTE default_user_pin_sha[SHA1_HASH_SIZE] = {
+	0x7c, 0x22, 0x2f, 0xb2, 0x92, 0x7d, 0x82, 0x8a,
+	0xf2, 0x2f, 0x59, 0x21, 0x34, 0xe8, 0x93, 0x24,
+	0x80, 0x63, 0x7c, 0x0d
+};
+
 
 CK_RV
 token_specific_session(CK_SLOT_ID  slotid)
@@ -126,82 +167,25 @@ token_specific_init(char *Correlator, CK_SLOT_ID SlotNumber)
 	return CKR_OK;
 }
 
-char *
-token_gen_identifier(int type)
-{
-	char *ret = NULL;
-	int size = 0;
-
-	switch (type) {
-		case TPMTOK_ROOT_KEY:
-			size = TPMTOK_ROOT_KEY_SUFFIX_SIZE + 1;
-			if ((ret = malloc(size)) == NULL) {
-				st_err_log("CKR_HOST_MEMORY");
-				break;
-			}
-
-			sprintf(ret, "%s", TPMTOK_ROOT_KEY_SUFFIX);
-			break;
-		case TPMTOK_MIG_ROOT_KEY:
-			size = TPMTOK_MIG_ROOT_KEY_SUFFIX_SIZE + 2;
-			if ((ret = malloc(size)) == NULL) {
-				st_err_log("CKR_HOST_MEMORY");
-				break;
-			}
-
-			sprintf(ret, "%s", TPMTOK_MIG_ROOT_KEY_SUFFIX);
-			break;
-		case TPMTOK_MIG_LEAF_KEY:
-			size = TPMTOK_MIG_LEAF_KEY_SUFFIX_SIZE + 2;
-			if ((ret = malloc(size)) == NULL) {
-				st_err_log("CKR_HOST_MEMORY");
-				break;
-			}
-
-			sprintf(ret, "%s", TPMTOK_MIG_LEAF_KEY_SUFFIX);
-			break;
-		case TPMTOK_USER_LEAF_KEY:
-			size = strlen(TPMTOK_USERNAME) + TPMTOK_USER_LEAF_KEY_SUFFIX_SIZE + 2;
-			if ((ret = malloc(size)) == NULL) {
-				st_err_log("CKR_HOST_MEMORY");
-				break;
-			}
-
-			sprintf(ret, "%s %s", TPMTOK_USERNAME, TPMTOK_USER_LEAF_KEY_SUFFIX);
-			break;
-		case TPMTOK_USER_BASE_KEY:
-			size = strlen(TPMTOK_USERNAME) + TPMTOK_USER_BASE_KEY_SUFFIX_SIZE + 2;
-			if ((ret = malloc(size)) == NULL) {
-				st_err_log("CKR_HOST_MEMORY");
-				break;
-			}
-
-			sprintf(ret, "%s %s", TPMTOK_USERNAME, TPMTOK_USER_BASE_KEY_SUFFIX);
-			break;
-		default:
-			LogError("Unknown type passed to %s", __FUNCTION__);
-			break;
-	}
-
-	return ret;
-}
 
 CK_RV
 token_find_key(ST_SESSION_HANDLE session, int key_type, CK_OBJECT_HANDLE *handle)
 {
-	CK_BYTE *key_id = token_gen_identifier(key_type);
+	CK_BYTE *key_id = util_create_id(key_type);
 	CK_RV rc = CKR_OK;
 	CK_KEY_TYPE type = CKK_RSA;
 	CK_OBJECT_CLASS priv_class = CKO_PRIVATE_KEY;
+	CK_BBOOL true = TRUE;
 	CK_ATTRIBUTE tmpl[] = {
 		{CKA_KEY_TYPE, &type, sizeof(type)},
 		{CKA_ID, key_id, strlen(key_id)},
-		{CKA_CLASS, &priv_class, sizeof(priv_class)}
+		{CKA_CLASS, &priv_class, sizeof(priv_class)},
+		{CKA_HIDDEN, &true, sizeof(CK_BBOOL)}
 	};
 	CK_OBJECT_HANDLE hObj;
 	CK_ULONG ulObjCount;
 
-	rc = SC_FindObjectsInit(session, tmpl, 3);
+	rc = SC_FindObjectsInit(session, tmpl, 4);
 	if (rc != CKR_OK) {
 		goto done;
 	}
@@ -393,18 +377,143 @@ tss_get_key_blob(TSS_HKEY hKey, UINT32 *ulBlobLen,  BYTE **rgbBlob)
 	return result;
 }
 
-CK_RV
-token_store_tss_key(ST_SESSION_HANDLE session, TSS_HKEY hKey, int key_type, CK_OBJECT_HANDLE *ckKey)
+TSS_RESULT
+tss_change_auth(TSS_HKEY hObjectToChange, TSS_HKEY hParentObject, CK_CHAR *passHash)
 {
-	CK_RV rc;
 	TSS_RESULT result;
+	TSS_HPOLICY hPolicy;
+
+	result = Tspi_Context_CreateObject(tspContext, TSS_OBJECT_TYPE_POLICY,
+						TSS_POLICY_USAGE, &hPolicy);
+	if (result != TSS_SUCCESS) {
+		LogError("Tspi_Context_CreateObject failed: 0x%x", result);
+		return result;
+	}
+
+	result = Tspi_Policy_SetSecret(hPolicy, TSS_SECRET_MODE_SHA1, SHA1_HASH_SIZE, passHash);
+	if (result != TSS_SUCCESS) {
+		LogError("Tspi_Policy_SetSecret failed: 0x%x", result);
+		return result;
+	}
+
+	result = Tspi_ChangeAuth(hObjectToChange, hParentObject, hPolicy);
+	if (result != TSS_SUCCESS) {
+		LogError("Tspi_ChangeAuth failed: 0x%x", result);
+	}
+
+	return result;
+}
+
+CK_RV
+token_store_priv_key(ST_SESSION_HANDLE session, TSS_HKEY hKey, int key_type, CK_OBJECT_HANDLE *ckKey)
+{
 	CK_ATTRIBUTE *priv_tmpl_init = NULL;
 	CK_ATTRIBUTE *new_attr = NULL;
 	OBJECT *priv_key_obj = NULL;
+	BYTE *rgbBlob = NULL;
+	UINT32 ulBlobLen = 0;
 	CK_BBOOL flag;
+	CK_BYTE *key_id = util_create_id(key_type);
+	CK_RV rc;
+
+	/* grab the entire key blob to put into the PKCS#11 private key object */
+	rc = Tspi_GetAttribData(hKey, TSS_TSPATTRIB_KEY_BLOB, TSS_TSPATTRIB_KEYBLOB_BLOB,
+					&ulBlobLen, &rgbBlob);
+	if (rc != TSS_SUCCESS) {
+		LogError("Tspi_GetAttribData failed with rc: 0x%x", rc);
+		free(key_id);
+		return rc;
+	}
+
+	/* create skeleton for the private key object */
+	rc = object_mgr_create_skel(session_mgr_find(session.sessionh), priv_tmpl_init, 0, MODE_KEYGEN,
+			CKO_PRIVATE_KEY, CKK_RSA, &priv_key_obj);
+	if (rc != CKR_OK) {
+		LogError("object_mgr_create_skel: 0x%x", rc);
+		free(key_id);
+		return rc;
+	}
+
+	/* add the ID attribute */
+	rc = build_attribute(CKA_ID, key_id, strlen(key_id), &new_attr);
+	if (rc != CKR_OK){
+		st_err_log(84, __FILE__, __LINE__);
+		free(key_id);
+		return rc;
+	}
+	template_update_attribute( priv_key_obj->template, new_attr );
+	free(key_id);
+
+	/* add the HIDDEN attribute */
+	flag = TRUE;
+	rc = build_attribute(CKA_HIDDEN, &flag, sizeof(CK_BBOOL), &new_attr);
+	if (rc != CKR_OK){
+		st_err_log(84, __FILE__, __LINE__);
+		free(key_id);
+		return rc;
+	}
+	template_update_attribute( priv_key_obj->template, new_attr );
+
+	/* add the key blob to the PKCS#11 object template */
+	rc = build_attribute(CKA_KEY_BLOB, rgbBlob, ulBlobLen, &new_attr);
+	if (rc != CKR_OK){
+		st_err_log(84, __FILE__, __LINE__);
+		return rc;
+	}
+	template_update_attribute( priv_key_obj->template, new_attr );
+
+	/*  set CKA_ALWAYS_SENSITIVE to true */
+	rc = build_attribute( CKA_ALWAYS_SENSITIVE, &flag, sizeof(CK_BBOOL), &new_attr );
+	if (rc != CKR_OK){
+		st_err_log(84, __FILE__, __LINE__);
+		return rc;
+	}
+	template_update_attribute( priv_key_obj->template, new_attr );
+
+	/*  set CKA_NEVER_EXTRACTABLE to true */
+	rc = build_attribute( CKA_NEVER_EXTRACTABLE, &flag, sizeof(CK_BBOOL), &new_attr );
+	if (rc != CKR_OK){
+		st_err_log(84, __FILE__, __LINE__);
+		return rc;
+	}
+	template_update_attribute( priv_key_obj->template, new_attr );
+
+	/* make the object reside on the token, as if that were possible */
+	rc = build_attribute( CKA_TOKEN, &flag, sizeof(CK_BBOOL), &new_attr );
+	if (rc != CKR_OK){
+		st_err_log(84, __FILE__, __LINE__);
+		return rc;
+	}
+	template_update_attribute( priv_key_obj->template, new_attr );
+
+	/* make the object public, since the SO only has access to public token objects */
+	flag = FALSE;
+	rc = build_attribute( CKA_PRIVATE, &flag, sizeof(CK_BBOOL), &new_attr );
+	if (rc != CKR_OK){
+		st_err_log(84, __FILE__, __LINE__);
+		return rc;
+	}
+	template_update_attribute( priv_key_obj->template, new_attr );
+
+	rc = object_mgr_create_final(session_mgr_find(session.sessionh), priv_key_obj, ckKey);
+	if (rc != CKR_OK){
+		st_err_log(90, __FILE__, __LINE__);
+	}
+
+	return rc;
+}
+
+CK_RV
+token_store_pub_key(ST_SESSION_HANDLE session, TSS_HKEY hKey, int key_type, CK_OBJECT_HANDLE *ckKey)
+{
+	CK_RV rc;
+	TSS_RESULT result;
+	CK_ATTRIBUTE *new_attr = NULL;
+	OBJECT *pub_key_obj;
+	CK_BBOOL flag = TRUE;
 	CK_OBJECT_CLASS pub_class = CKO_PUBLIC_KEY;
 	CK_KEY_TYPE type = CKK_RSA;
-	CK_BYTE *key_id = token_gen_identifier(key_type);
+	CK_BYTE *key_id = util_create_id(key_type);
 	CK_BYTE pub_exp[] = { 0x1, 0x0, 0x1 }; // 65537
 	CK_ATTRIBUTE pub_tmpl[] = {
 		{CKA_CLASS, &pub_class, sizeof(pub_class)},
@@ -414,7 +523,6 @@ token_store_tss_key(ST_SESSION_HANDLE session, TSS_HKEY hKey, int key_type, CK_O
 		{CKA_MODULUS, NULL_PTR, 0}
 	};
 	BYTE *rgbPubBlob = NULL;
-	BYTE *rgbBlob = NULL;
 	UINT32 ulBlobLen = 0;
 
 	/* grab the public key  to put into the PKCS#11 public key object */
@@ -430,30 +538,9 @@ token_store_tss_key(ST_SESSION_HANDLE session, TSS_HKEY hKey, int key_type, CK_O
 	pub_tmpl[4].pValue = rgbPubBlob;
 	pub_tmpl[4].ulValueLen = ulBlobLen;
 
-	/* call the internal PKCS#11 functions to create the PKCS#11 public key object.
-	 * Throw away the ckKey handle since the blob is in the private key object. */
-	rc = object_mgr_add( session_mgr_find(session.sessionh), pub_tmpl, 5, ckKey);
-	if (rc != CKR_OK) {
-		st_err_log(157, __FILE__, __LINE__);
-		Tspi_Context_CloseObject(tspContext, hKey);
-		Tspi_Context_FreeMemory(tspContext, rgbPubBlob);
-		free(key_id);
-	}
-
-	/* grab the entire key blob to put into the PKCS#11 private key object */
-	result = Tspi_GetAttribData(hKey, TSS_TSPATTRIB_KEY_BLOB, TSS_TSPATTRIB_KEYBLOB_BLOB,
-					&ulBlobLen, &rgbBlob);
-	if (result != TSS_SUCCESS) {
-		LogError("Tspi_GetAttribData failed with rc: 0x%x", result);
-		Tspi_Context_CloseObject(tspContext, hKey);
-		Tspi_Context_FreeMemory(tspContext, rgbPubBlob);
-		free(key_id);
-		return result;
-	}
-
 	/* create skeleton for the private key object */
-	rc = object_mgr_create_skel(session_mgr_find(session.sessionh), priv_tmpl_init, 0, MODE_KEYGEN,
-			CKO_PRIVATE_KEY, CKK_RSA, &priv_key_obj);
+	rc = object_mgr_create_skel(session_mgr_find(session.sessionh), pub_tmpl, 5, MODE_CREATE,
+			CKO_PUBLIC_KEY, CKK_RSA, &pub_key_obj);
 	if (rc != CKR_OK) {
 		LogError("object_mgr_create_skel: 0x%x", rc);
 		Tspi_Context_CloseObject(tspContext, hKey);
@@ -462,63 +549,76 @@ token_store_tss_key(ST_SESSION_HANDLE session, TSS_HKEY hKey, int key_type, CK_O
 		return rc;
 	}
 
-	/* add the key blob to the PKCS#11 object template */
-	rc = build_attribute(CKA_KEY_BLOB, rgbBlob, ulBlobLen, &new_attr);
-	if (rc != CKR_OK){
-		st_err_log(84, __FILE__, __LINE__);
-		goto done;
-	}
-	template_update_attribute( priv_key_obj->template, new_attr );
-
-	/* add the ID attribute */
-	rc = build_attribute(CKA_ID, key_id, strlen(key_id), &new_attr);
-	if (rc != CKR_OK){
-		st_err_log(84, __FILE__, __LINE__);
-		goto done;
-	}
-	template_update_attribute( priv_key_obj->template, new_attr );
-
-	/*  set CKA_ALWAYS_SENSITIVE to true */
-	flag = TRUE;
-	rc = build_attribute( CKA_ALWAYS_SENSITIVE, &flag, sizeof(CK_BBOOL), &new_attr );
-	if (rc != CKR_OK){
-		st_err_log(84, __FILE__, __LINE__);
-		goto done;
-	}
-	template_update_attribute( priv_key_obj->template, new_attr );
-
-	/*  set CKA_NEVER_EXTRACTABLE to true */
-	rc = build_attribute( CKA_NEVER_EXTRACTABLE, &flag, sizeof(CK_BBOOL), &new_attr );
-	if (rc != CKR_OK){
-		st_err_log(84, __FILE__, __LINE__);
-		goto done;
-	}
-	template_update_attribute( priv_key_obj->template, new_attr );
-
 	/* make the object reside on the token, as if that were possible */
 	rc = build_attribute( CKA_TOKEN, &flag, sizeof(CK_BBOOL), &new_attr );
 	if (rc != CKR_OK){
 		st_err_log(84, __FILE__, __LINE__);
 		goto done;
 	}
-	template_update_attribute( priv_key_obj->template, new_attr );
+	template_update_attribute( pub_key_obj->template, new_attr );
 
-	/* make the object public, since the SO only has access to public token objects */
-	flag = FALSE;
-	rc = build_attribute( CKA_PRIVATE, &flag, sizeof(CK_BBOOL), &new_attr );
+	/* set the object to be hidden */
+	rc = build_attribute( CKA_HIDDEN, &flag, sizeof(CK_BBOOL), &new_attr );
 	if (rc != CKR_OK){
 		st_err_log(84, __FILE__, __LINE__);
 		goto done;
 	}
-	template_update_attribute( priv_key_obj->template, new_attr );
+	template_update_attribute( pub_key_obj->template, new_attr );
 
-	rc = object_mgr_create_final(session_mgr_find(session.sessionh), priv_key_obj, ckKey);
+	rc = object_mgr_create_final(session_mgr_find(session.sessionh), pub_key_obj, ckKey);
 	if (rc != CKR_OK){
 		st_err_log(90, __FILE__, __LINE__);
 		goto done;
 	}
 
 done:
+	return rc;
+}
+
+CK_RV
+token_update_private_key(ST_SESSION_HANDLE session, TSS_HKEY hKey, int key_type)
+{
+	CK_OBJECT_HANDLE ckHandle;
+	CK_RV rc;
+
+	/* find the private key portion of the key */
+	if ((rc = token_find_key(session, key_type, &ckHandle))) {
+		LogError("token_find_key failed: 0x%x", rc);
+		return rc;
+	}
+
+	/* destroy the private key and create a new one */
+	if ((rc = object_mgr_destroy_object(session_mgr_find(session.sessionh), ckHandle))) {
+		LogError("token_find_key failed: 0x%x", rc);
+		return rc;
+	}
+
+	if ((rc = token_store_priv_key(session, hKey, key_type, &ckHandle))) {
+		LogError("token_store_priv_key failed: 0x%x", rc);
+	}
+
+	return rc;
+}
+
+CK_RV
+token_store_tss_key(ST_SESSION_HANDLE session, TSS_HKEY hKey, int key_type,
+			CK_OBJECT_HANDLE *ckKey)
+{
+	CK_RV rc;
+
+	/* create a PKCS#11 pub key object for the key */
+	rc = token_store_pub_key(session, hKey, key_type, ckKey);
+	if (rc != CKR_OK) {
+		st_err_log("token_store_pub_key");
+		return rc;
+	}
+
+	/* create a PKCS#11 private key object for the key */
+	rc = token_store_priv_key(session, hKey, key_type, ckKey);
+	if (rc != CKR_OK) {
+		st_err_log("token_store_pub_key");
+	}
+
 	return rc;
 }
 
@@ -572,7 +672,6 @@ token_generate_key(ST_SESSION_HANDLE session, TSS_FLAGS initFlags, int key_type,
 	rc = token_store_tss_key(session, *phKey, key_type, ckKey);
 	if (rc != CKR_OK) {
 		st_err_log("token_store_tss_key");
-		return rc;
 	}
 
 done:
@@ -584,7 +683,7 @@ token_generate_sw_key(char *filename, CK_BYTE *pPin, TSS_HKEY hParentKey, TSS_HK
 {
 	RSA *rsa = NULL;
         unsigned char n[256], p[256];
-        unsigned char null_auth[20];
+        unsigned char null_auth[SHA1_HASH_SIZE];
         unsigned char priv_key[214]; /* its not magic, see TPM 1.1b spec p.71 */
         unsigned char enc_priv_key[214]; /* its not magic, see TPM 1.1b spec p.71 */
         int size_n, size_p, priv_key_len;
@@ -599,12 +698,12 @@ token_generate_sw_key(char *filename, CK_BYTE *pPin, TSS_HKEY hParentKey, TSS_HK
 	if ((rsa = openssl_gen_key()) == NULL)
 		return CKR_HOST_MEMORY;
 
-	memset(null_auth, 0, 20);
+	memset(null_auth, 0, SHA1_HASH_SIZE);
 
 	/* set up the private key structure */
-	LoadBlob_BYTE(&offset, TCPA_PT_ASYM, priv_key);
-	LoadBlob(&offset, 20, priv_key, null_auth);
-	LoadBlob(&offset, 20, priv_key, null_auth);
+	Trspi_LoadBlob_BYTE(&offset, TCPA_PT_ASYM, priv_key);
+	Trspi_LoadBlob(&offset, SHA1_HASH_SIZE, priv_key, null_auth);
+	Trspi_LoadBlob(&offset, SHA1_HASH_SIZE, priv_key, null_auth);
 
 	/* create the TSS key object */
 	result = Tspi_Context_CreateObject(tspContext, TSS_OBJECT_TYPE_RSAKEY,
@@ -644,14 +743,14 @@ token_generate_sw_key(char *filename, CK_BYTE *pPin, TSS_HKEY hParentKey, TSS_HK
 
 	/* unload the blob returned by the TSS, then load up one to create the
 	 * private key's digest with. */
-	if ((result = UnloadBlob_KEY(tspContext, &dig_offset, blob, &key)) != TSS_SUCCESS) {
-		LogError("UnloadBlob_KEY: 0x%x", result);
+	if ((result = Trspi_UnloadBlob_KEY(tspContext, &dig_offset, blob, &key)) != TSS_SUCCESS) {
+		LogError("Trspi_UnloadBlob_KEY: 0x%x", result);
 		Tspi_Context_CloseObject(tspContext, *phKey);
 		*phKey = NULL_HKEY;
 		return CKR_FUNCTION_FAILED;
 	}
 	dig_offset = 0;
-	LoadBlob_PRIVKEY_DIGEST(&dig_offset, blob_for_digest, &key);
+	Trspi_LoadBlob_PRIVKEY_DIGEST(&dig_offset, blob_for_digest, &key);
 
 	result = Tspi_Context_FreeMemory(tspContext, blob);
 	if (result != TSS_SUCCESS) {
@@ -662,13 +761,13 @@ token_generate_sw_key(char *filename, CK_BYTE *pPin, TSS_HKEY hParentKey, TSS_HK
 	}
 
 	/* blob_for_digest now has the correct data in it, create the digest */
-	TSS_Hash(TSS_HASH_SHA1, dig_offset, blob_for_digest, &digest.digest);
+	Trspi_Hash(TSS_HASH_SHA1, dig_offset, blob_for_digest, &digest.digest);
 
 	/* load the digest of the TCPA_KEY structure */
-	LoadBlob(&offset, 20, priv_key, &digest.digest);
+	Trspi_LoadBlob(&offset, SHA1_HASH_SIZE, priv_key, &digest.digest);
 	/* load the TCPA_STORE_PRIVKEY structure */
-	LoadBlob_UINT32(&offset, size_p, priv_key);
-	LoadBlob(&offset, size_p, priv_key, p);
+	Trspi_LoadBlob_UINT32(&offset, size_p, priv_key);
+	Trspi_LoadBlob(&offset, size_p, priv_key, p);
 	priv_key_len = offset;
 
 	/* Now encrypt the private parts of this key with the SRK's public key */
@@ -683,7 +782,7 @@ token_generate_sw_key(char *filename, CK_BYTE *pPin, TSS_HKEY hParentKey, TSS_HK
 		return CKR_FUNCTION_FAILED;
 	}
 
-	if (TSS_RSA_Encrypt(priv_key, priv_key_len, enc_priv_key, &priv_key_len,
+	if (Trspi_RSA_Encrypt(priv_key, priv_key_len, enc_priv_key, &priv_key_len,
 				blob, blob_size)) {
 		LogError("Tspi_Context_FreeMemory: 0x%x", result);
 		Tspi_Context_CloseObject(tspContext, *phKey);
@@ -821,7 +920,6 @@ token_create_user_tree(ST_SESSION_HANDLE session, CK_BYTE *pinHash, CK_BYTE *pPi
 		return CKR_FUNCTION_FAILED;
 	}
 
-done:
 	return rc;
 }
 
@@ -831,6 +929,28 @@ token_create_so_tree(ST_SESSION_HANDLE session, CK_BYTE *pinHash, CK_BYTE *pPin)
 	CK_RV rc;
 	TSS_RESULT result;
 
+	/* create the public root key */
+	rc = token_generate_sw_key(TPMTOK_PUB_ROOT_KEY_BACKUP_LOCATION, pPin, hSRK, &hPubRootKey);
+	if (rc != CKR_OK) {
+		LogError("token_generate_sw_key(hPubRootKey)");
+		return rc;
+	}
+
+	result = Tspi_Key_LoadKey(hPubRootKey, hSRK);
+	if (result != TSS_SUCCESS) {
+		LogError("Tspi_Key_LoadKey: 0x%x", result);
+		Tspi_Context_CloseObject(tspContext, hPubRootKey);
+		hPubRootKey = NULL_HKEY;
+		return CKR_FUNCTION_FAILED;
+	}
+
+	rc = token_store_tss_key(session, hPubRootKey, TPMTOK_PUB_ROOT_KEY, &ckPubRootKey);
+	if (rc != CKR_OK) {
+		st_err_log("token_store_tss_key");
+		return rc;
+	}
+
+	/* create the user root key */
 	rc = token_generate_sw_key(TPMTOK_ROOT_KEY_BACKUP_LOCATION, pPin, hSRK, &hRootKey);
 	if (rc != CKR_OK) {
 		st_err_log("token_generate_sw_key");
@@ -851,6 +971,7 @@ token_create_so_tree(ST_SESSION_HANDLE session, CK_BYTE *pinHash, CK_BYTE *pPin)
 		return rc;
 	}
 
+	/* create the migratable root key */
 	rc = token_generate_sw_key(TPMTOK_MIG_ROOT_KEY_BACKUP_LOCATION, pPin, hSRK, &hMigRootKey);
 	if (rc != CKR_OK) {
 		st_err_log("token_generate_sw_key");
@@ -873,6 +994,7 @@ token_create_so_tree(ST_SESSION_HANDLE session, CK_BYTE *pinHash, CK_BYTE *pPin)
 		return rc;
 	}
 
+	/* create the SO's leaf key */
 	rc = token_generate_key(session, 0, TPMTOK_MIG_LEAF_KEY, pinHash, &hMigLeafKey);
 	if (rc != CKR_OK) {
 		st_err_log("token_generate_key");
@@ -901,8 +1023,6 @@ token_specific_login(ST_SESSION_HANDLE session, CK_USER_TYPE userType,
 	CK_RV rc;
 	CK_BYTE hash_sha[SHA1_HASH_SIZE];
 	TSS_RESULT result;
-	uid_t user_id = getuid();
-	struct passwd *pw = NULL;
 
 	result = token_load_srk();
 	if (result != TSS_SUCCESS) {
@@ -913,16 +1033,11 @@ token_specific_login(ST_SESSION_HANDLE session, CK_USER_TYPE userType,
 	compute_sha( pPin, ulPinLen, hash_sha );
 
 	if (userType == CKU_USER) {
-		/* manpage decrees that errno must be set to 0 if we want to check it on
-		 * error.. */
-		errno = 0;
-		pw = getpwuid(user_id);
-		if (pw == NULL) {
-			LogError("getpwuid failed: %s", strerror(errno));
-			return CKR_FUNCTION_FAILED;
+		rc = util_set_username((char **)&TPMTOK_USERNAME);
+		if (rc != CKR_OK) {
+			LogError("util_set_username failed");
+			return rc;
 		}
-
-		TPMTOK_USERNAME = strdup(pw->pw_name);
 
 		/* since logging in is such an intensive process, set a flag on logout,
 		 * so that we only have to load 1 key on a re-login
@@ -937,16 +1052,8 @@ token_specific_login(ST_SESSION_HANDLE session, CK_USER_TYPE userType,
 
 			rc = token_verify_pin(session, hUserLeafKey);
 			if (rc != CKR_OK) {
-				st_err_log("CKR_FUNCTION_FAILED");
-				return CKR_FUNCTION_FAILED;
+				return rc;
 			}
-
-#if 0
-			/* We have re-logged in successfully, do what's needed to read
-			 * the master_key off disk
-			 */
-			goto legacy_user_ops;
-#endif
 		}
 
 		/* find, load the root key */
@@ -965,19 +1072,14 @@ token_specific_login(ST_SESSION_HANDLE session, CK_USER_TYPE userType,
 		/* find, load this user's base key */
 		rc = token_find_key(session, TPMTOK_USER_BASE_KEY, &ckUserBaseKey);
 		if (rc != CKR_OK) {
-			rc = token_create_user_tree(session, hash_sha, pPin);
-			if (rc != CKR_OK) {
-				LogError1("FAILED creating USER tree.");
-				return CKR_FUNCTION_FAILED;
+			/* user's key chain not found, this must be the initial login */
+			if (memcmp(hash_sha, default_user_pin_sha, SHA1_HASH_SIZE)) {
+				LogError("token_find_key failed and PIN != default");
+				return CKR_PIN_INCORRECT;
 			}
 
-			rc = token_verify_pin(session, hUserLeafKey);
-			if (rc != CKR_OK) {
-				st_err_log("CKR_FUNCTION_FAILED");
-				return CKR_FUNCTION_FAILED;
-			}
-
-			goto done;
+			not_initialized = 1;
+			return CKR_OK;
 		}
 
 		rc = token_load_key(session, ckUserBaseKey, hRootKey, NULL, &hUserBaseKey);
@@ -1002,35 +1104,12 @@ token_specific_login(ST_SESSION_HANDLE session, CK_USER_TYPE userType,
 
 		rc = token_verify_pin(session, hUserLeafKey);
 		if (rc != CKR_OK) {
-			st_err_log("CKR_FUNCTION_FAILED");
-			return CKR_FUNCTION_FAILED;
+			st_err_log("token_verify_pin failed.");
+			return rc;
 		}
-#if 0
-legacy_user_ops:
-                compute_md5( pPin, ulPinLen, user_pin_md5 );
-                memset( so_pin_md5, 0, MD5_HASH_SIZE );
-
-                rc = load_masterkey_user();
-                if (rc != CKR_OK){
-                        st_err_log(155, __FILE__, __LINE__);
-                        goto done;
-                }
-                rc = load_private_token_objects();
-
-                XProcLock( xproclock );
-                global_shm->priv_loaded = TRUE;
-                XProcUnLock( xproclock );
-#endif
 	} else {
-		// SO path
-#if 0
-		/* must be root or effectively root in this token */
-		if (user_id != 0 && geteuid() != 0) {
-			LogError1("SO must be root in the TPM Token.");
-			return CKR_FUNCTION_FAILED;
-		}
-#endif
-		/* since logging in is such an intensive process, set a flag on logout,
+		/* SO path --
+		 * Since logging in is such an intensive process, set a flag on logout,
 		 * so that we only have to load 1 key on a re-login
 		 */
 		if (relogging_in) {
@@ -1043,8 +1122,8 @@ legacy_user_ops:
 
 			rc = token_verify_pin(session, hUserLeafKey);
 			if (rc != CKR_OK) {
-				st_err_log("CKR_FUNCTION_FAILED");
-				return CKR_FUNCTION_FAILED;
+				st_err_log("token_verify_pin failed.");
+				return rc;
 			}
 
 			/* We have re-logged in successfully, do what's needed to read
@@ -1056,15 +1135,19 @@ legacy_user_ops:
 		/* find, load the root key */
 		rc = token_find_key(session, TPMTOK_ROOT_KEY, &ckRootKey);
 		if (rc != CKR_OK) {
-			rc = token_create_so_tree(session, hash_sha, pPin);
-			if (rc != CKR_OK) {
-				LogError1("FAILED creating SO tree.");
-				return CKR_FUNCTION_FAILED;
+			/* The SO hasn't set her PIN yet, compare the login pin with
+			 * the hard-coded value */
+			if (memcmp(default_so_pin_sha, hash_sha, SHA1_HASH_SIZE)) {
+				LogError("token_find_key failed and PIN != default");
+				return CKR_PIN_INCORRECT;
 			}
 
-			goto done;
+			not_initialized = 1;
+			return CKR_OK;
 		}
 
+		/* The SO's key hierarchy has previously been created, so load the key
+		 * hierarchy and verify the pin using the TPM. */
 		rc = token_load_key(session, ckRootKey, hSRK, NULL, &hRootKey);
 		if (rc != CKR_OK) {
 			LogError1("token_load_key(RootKey) Failed.");
@@ -1100,8 +1183,8 @@ legacy_user_ops:
 
 		rc = token_verify_pin(session, hMigLeafKey);
 		if (rc != CKR_OK) {
-			st_err_log("CKR_FUNCTION_FAILED");
-			return CKR_FUNCTION_FAILED;
+			st_err_log("token_verify_pin failed.");
+			return rc;
 		}
 legacy_so_ops:
 		compute_md5( pPin, ulPinLen, so_pin_md5 );
@@ -1115,7 +1198,6 @@ legacy_so_ops:
 		}
 	}
 
-done:
 	return rc;
 }
 
@@ -1150,11 +1232,35 @@ token_specific_logout()
 CK_RV
 token_specific_init_pin(CK_CHAR_PTR pPin, CK_ULONG ulPinLen)
 {
-	/* Since the USER must log in before calling C_InitPIN, we will
-	 * by definition be able to return CKR_OK automatically here.
+	/* Since the SO must log in before calling C_InitPIN, we will
+	 * be able to return CKR_OK automatically here.
 	 * This is because the USER key structure is created at the
 	 * time of her first login, not at C_InitPIN time.
 	 */
+	return CKR_OK;
+}
+
+CK_RV
+check_pin_properties(CK_USER_TYPE userType, CK_BYTE *pinHash, CK_ULONG ulPinLen)
+{
+	/* make sure the new PIN is different */
+	if (userType == CKU_USER) {
+		if (!memcmp(pinHash, default_user_pin_sha, SHA1_HASH_SIZE)) {
+			LogError("new PIN must not be the default");
+			return CKR_PIN_INVALID;
+		}
+	} else {
+		if (!memcmp(pinHash, default_so_pin_sha, SHA1_HASH_SIZE)) {
+			LogError("new PIN must not be the default");
+			return CKR_PIN_INVALID;
+		}
+	}
+
+	if (ulPinLen > MAX_PIN_LEN || ulPinLen < MIN_PIN_LEN) {
+		LogError("New PIN is out of size range");
+		return CKR_PIN_LEN_RANGE;
+	}
+
 	return CKR_OK;
 }
 
@@ -1163,7 +1269,168 @@ token_specific_set_pin(ST_SESSION_HANDLE session,
 		       CK_CHAR_PTR pOldPin, CK_ULONG ulOldPinLen,
 		       CK_CHAR_PTR pNewPin, CK_ULONG ulNewPinLen)
 {
-	return CKR_OK;
+	SESSION *sess = session_mgr_find( session.sessionh );
+	CK_BYTE oldpin_hash[SHA1_HASH_SIZE], newpin_hash[SHA1_HASH_SIZE];
+	CK_RV rc;
+	RSA *rsa_base, *rsa_user_root, *rsa_pub_root;
+	char loc[80];
+	TSS_RESULT result;
+
+	if (!sess) {
+		st_err_log(40, __FILE__, __LINE__);
+		return CKR_SESSION_HANDLE_INVALID;
+	}
+
+	compute_sha(pOldPin, ulOldPinLen, oldpin_hash);
+	compute_sha(pNewPin, ulNewPinLen, newpin_hash);
+
+	if (sess->session_info.state == CKS_RW_USER_FUNCTIONS) {
+		if (not_initialized) {
+			if (memcmp(oldpin_hash, default_user_pin_sha, SHA1_HASH_SIZE)) {
+				LogError("old PIN != default for an uninitialized user");
+				return CKR_PIN_INCORRECT;
+			}
+
+			if ((rc = check_pin_properties(CKU_USER, newpin_hash, ulNewPinLen))) {
+				return rc;
+			}
+
+			rc = token_create_user_tree(session, newpin_hash, pNewPin);
+			if (rc != CKR_OK) {
+				LogError1("FAILED creating USER tree.");
+				return CKR_FUNCTION_FAILED;
+			}
+
+			nv_token_data->token_info.flags &= ~(CKF_USER_PIN_TO_BE_CHANGED);
+
+			return save_token_data();
+		}
+
+		if ((rc = check_pin_properties(CKU_USER, newpin_hash, ulNewPinLen))) {
+			return rc;
+		}
+
+		/* change the auth on the TSS object */
+		result = tss_change_auth(hUserLeafKey, hUserBaseKey, newpin_hash);
+		if (result != TSS_SUCCESS) {
+			LogError1("tss_change_auth failed");
+			return CKR_FUNCTION_FAILED;
+		}
+
+		/* destroy the old PKCS#11 priv key object and create a new one */
+		rc = token_update_private_key(session, hUserLeafKey, TPMTOK_USER_LEAF_KEY);
+		if (rc != CKR_OK) {
+			LogError1("token_update_private_key failed.");
+			return rc;
+		}
+
+		/* now re-write the backup key using the new pin */
+		sprintf(loc, TPMTOK_USER_BASE_KEY_BACKUP_LOCATION, TPMTOK_USERNAME, TPMTOK_USERNAME);
+
+		/* read the backup key with the old pin */
+		rc = openssl_read_key(loc, pOldPin, &rsa_base);
+		if (rc != CKR_OK) {
+			LogError1("openssl_read_key failed");
+			return rc;
+		}
+
+		/* write it out using the new pin */
+		rc = openssl_write_key(rsa_base, loc, pNewPin);
+		if (rc != CKR_OK) {
+			RSA_free(rsa_base);
+			LogError1("openssl_write_key failed");
+			return CKR_FUNCTION_FAILED;
+		}
+	} else if (sess->session_info.state == CKS_RW_SO_FUNCTIONS) {
+		if (not_initialized) {
+			if (memcmp(default_so_pin_sha, oldpin_hash, SHA1_HASH_SIZE)) {
+				LogError("old PIN != default for an uninitialized SO");
+				return CKR_PIN_INCORRECT;
+			}
+
+			if ((rc = check_pin_properties(CKU_SO, newpin_hash, ulNewPinLen))) {
+				return rc;
+			}
+
+			rc = token_create_so_tree(session, newpin_hash, pNewPin);
+			if (rc != CKR_OK) {
+				LogError1("FAILED creating SO tree.");
+				return CKR_FUNCTION_FAILED;
+			}
+
+			nv_token_data->token_info.flags &= ~(CKF_SO_PIN_TO_BE_CHANGED);
+
+			return save_token_data();
+		}
+
+		if ((rc = check_pin_properties(CKU_SO, newpin_hash, ulNewPinLen))) {
+			return rc;
+		}
+
+		/* change auth on the SO's leaf key */
+		result = tss_change_auth(hMigLeafKey, hMigRootKey, newpin_hash);
+		if (result != TSS_SUCCESS) {
+			LogError1("tss_change_auth failed");
+			return CKR_FUNCTION_FAILED;
+		}
+
+		rc = token_update_private_key(session, hMigLeafKey, TPMTOK_MIG_LEAF_KEY);
+		if (rc != CKR_OK) {
+			LogError1("token_update_private_key failed.");
+			return rc;
+		}
+
+		/* change auth on the migratable root key's openssl backup */
+		rc = openssl_read_key(TPMTOK_MIG_ROOT_KEY_BACKUP_LOCATION, pOldPin, &rsa_base);
+		if (rc != CKR_OK) {
+			LogError1("openssl_read_key failed");
+			return rc;
+		}
+
+		/* write it out using the new pin */
+		rc = openssl_write_key(rsa_base, TPMTOK_MIG_ROOT_KEY_BACKUP_LOCATION, pNewPin);
+		if (rc != CKR_OK) {
+			RSA_free(rsa_base);
+			LogError1("openssl_write_key failed");
+			return CKR_FUNCTION_FAILED;
+		}
+		RSA_free(rsa_base);
+
+		/* change auth on the user root key's openssl backup */
+		rc = openssl_read_key(TPMTOK_ROOT_KEY_BACKUP_LOCATION, pOldPin, &rsa_user_root);
+		if (rc != CKR_OK) {
+			LogError1("openssl_read_key failed");
+			return rc;
+		}
+
+		/* write it out using the new pin */
+		rc = openssl_write_key(rsa_user_root, TPMTOK_ROOT_KEY_BACKUP_LOCATION, pNewPin);
+		if (rc != CKR_OK) {
+			LogError1("openssl_write_key failed");
+			return CKR_FUNCTION_FAILED;
+		}
+		RSA_free(rsa_user_root);
+
+		/* change auth on the public root key's openssl backup */
+		rc = openssl_read_key(TPMTOK_PUB_ROOT_KEY_BACKUP_LOCATION, pOldPin, &rsa_pub_root);
+		if (rc != CKR_OK) {
+			LogError1("openssl_read_key failed");
+			return rc;
+		}
+
+		/* write it out using the new pin */
+		rc = openssl_write_key(rsa_pub_root, TPMTOK_PUB_ROOT_KEY_BACKUP_LOCATION, pNewPin);
+		if (rc != CKR_OK) {
+			LogError1("openssl_write_key failed");
+			return CKR_FUNCTION_FAILED;
+		}
+		RSA_free(rsa_pub_root);
+	} else {
+		st_err_log(142, __FILE__, __LINE__);
+		rc = CKR_SESSION_READ_ONLY;
+	}
+
+	return rc;
 }
 
 
@@ -1171,16 +1438,56 @@ token_specific_set_pin(ST_SESSION_HANDLE session,
 CK_RV
 token_specific_verify_so_pin(CK_CHAR_PTR pPin, CK_ULONG ulPinLen)
 {
-	CK_RV rc;
 	CK_BYTE hash_sha[SHA1_HASH_SIZE];
+	CK_RV rc;
 
-	rc = compute_sha( pPin, ulPinLen, hash_sha );
-	if (memcmp(nv_token_data->so_pin_sha, hash_sha, SHA1_HASH_SIZE) != 0) {
-		st_err_log(33, __FILE__, __LINE__);
-		return CKR_PIN_INCORRECT;
+	compute_sha( pPin, ulPinLen, hash_sha );
+
+#if 0
+	/* find, load the migratable root key */
+	rc = token_find_key(session, TPMTOK_MIG_ROOT_KEY, &ckMigRootKey);
+	if (rc != CKR_OK) {
+		/* The SO hasn't set her PIN yet, compare the login pin with
+		 * the hard-coded value */
+#endif
+		if (memcmp(default_so_pin_sha, hash_sha, SHA1_HASH_SIZE)) {
+			LogError("token_find_key failed and PIN != default");
+			return CKR_PIN_INCORRECT;
+		}
+
+		return CKR_OK;
+#if 0
+	}
+
+	/* we found the root key, so check by loading the chain */
+	rc = token_load_key(session, ckMigRootKey, hSRK, NULL, &hMigRootKey);
+	if (rc != CKR_OK) {
+		LogError1("token_load_key(MigRootKey) Failed.");
+		return CKR_FUNCTION_FAILED;
+	}
+
+	/* find, load the migratable leaf key */
+	rc = token_find_key(session, TPMTOK_MIG_LEAF_KEY, &ckMigLeafKey);
+	if (rc != CKR_OK) {
+		st_err_log("CKR_FUNCTION_FAILED");
+		return CKR_FUNCTION_FAILED;
+	}
+
+	rc = token_load_key(session, ckMigLeafKey, hMigRootKey, hash_sha,
+			&hMigLeafKey);
+	if (rc != CKR_OK) {
+		LogError1("token_load_key(MigLeafKey) Failed.");
+		return CKR_FUNCTION_FAILED;
+	}
+
+	rc = token_verify_pin(session, hMigLeafKey);
+	if (rc != CKR_OK) {
+		st_err_log("token_verify_pin failed.");
+		return rc;
 	}
 
 	return CKR_OK;
+#endif
 }
 
 CK_RV
@@ -1617,7 +1924,7 @@ os_specific_rsa_keygen(TEMPLATE *publ_tmpl,  TEMPLATE *priv_tmpl)
 	RSA *rsa;
 	BIGNUM *bignum;
 	CK_BYTE *ssl_ptr;
-	unsigned long three = 3;
+	unsigned int three = 3;
 
 	flag = template_attribute_find( publ_tmpl, CKA_MODULUS_BITS, &attr );
 	if (!flag){
@@ -1633,14 +1940,11 @@ os_specific_rsa_keygen(TEMPLATE *publ_tmpl,  TEMPLATE *priv_tmpl)
 	}
 
 
-	// we don't support less than 1024 bit keys in the sw
 	if (mod_bits < 512 || mod_bits > 2048) {
 		st_err_log(19, __FILE__, __LINE__);
 		return CKR_KEY_SIZE_RANGE;
 	}
 
-	// Because of a limition of OpenSSL, this token only supports
-	// 3 as an exponent in RSA key generation
 	rsa = RSA_new();
 	if (rsa == NULL) {
 		st_err_log(1, __FILE__, __LINE__);
