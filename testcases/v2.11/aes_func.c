@@ -1782,7 +1782,7 @@ int do_WrapUnwrapAES_CBC_PAD(void)
 
 int do_GetFunctionList(void)
 {
-        char *pkcslib = "/usr/lib/pkcs11/PKCS11_API.so";
+        char *pkcslib = "PKCS11_API.so";
         CK_RV (*func_ptr)();
         int rc;
 
@@ -1804,40 +1804,6 @@ int do_GetFunctionList(void)
         return 0;
 }
 
-
-#if !( AIX || LINUX)
-//
-//
-void process_time(SYSTEMTIME t1, SYSTEMTIME t2)
-{
-   long ms   = t2.wMilliseconds - t1.wMilliseconds;
-   long s    = t2.wSecond - t1.wSecond;
-   long min  = t2.wMinute - t1.wMinute;
-   long hour = t2.wHour   - t1.wHour;
-
-   // this doesn't handle hour wrap around but that's not a problem here
-   //
-
-   while (ms < 0) {
-      ms += 1000;
-      s--;
-   }
-
-   while (s < 0) {
-      s += 60;
-      min--;
-   }
-
-   while (min < 0) {
-      min += 60;
-      hour--;
-   }
-
-   ms += (s * 1000) + (min * 60 * 1000);
-
-   printf("Time:  %d ms\n", ms );
-}
-#else
 void process_time(SYSTEMTIME t1, SYSTEMTIME t2)
 {
    long ms   = t2.millitm - t1.millitm;
@@ -1855,8 +1821,6 @@ void process_time(SYSTEMTIME t1, SYSTEMTIME t2)
    printf("Time:  %u msec\n", ms );
 
 }
-#endif
-
 
 void process_ret_code( CK_RV rc )
 {

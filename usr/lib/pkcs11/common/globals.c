@@ -304,10 +304,6 @@ static const char rcsid[] = "$Header$";
 #include <pthread.h>
 #include <stdlib.h>
 
-#if (AIX)
-#include <sys/mman.h>
-#endif
-
 #include "pkcs11types.h"
 #include "stdll.h"
 #include "defs.h"
@@ -323,20 +319,13 @@ CK_BBOOL        initialized = FALSE;
 // native_mutex is used to protect C_Initialize.  It gets created when the DLL
 // is attached, it gets destroyed when the DLL is detached
 //
-#ifdef AIX
-pthread_mutex_t  native_mutex =  PTHREAD_MUTEX_INITIALIZER;
-MUTEX   pkcs_mutex=PTHREAD_MUTEX_INITIALIZER, obj_list_mutex=PTHREAD_MUTEX_INITIALIZER, sess_list_mutex=PTHREAD_MUTEX_INITIALIZER, login_mutex=PTHREAD_MUTEX_INITIALIZER;
-#else
 pthread_mutex_t  native_mutex ;
 MUTEX   pkcs_mutex, obj_list_mutex, sess_list_mutex, login_mutex;
 
-#if LINUX
 #if SYSVSEM
 int   xprocsemid = -1;
 #endif
-#endif
 
-#endif
 void *xproclock;
 
 DL_NODE  *sess_list      = NULL;

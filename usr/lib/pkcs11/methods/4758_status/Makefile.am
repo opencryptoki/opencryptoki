@@ -3,7 +3,7 @@ bindir=/tmp
 
 
 4758_status_LDFLAGS = -ldl -lpthread -lscc
-4758_status_CFLAGS = -DDEV -D_THREAD_SAFE -DLINUX -DDEBUG -DAPI
+4758_status_CFLAGS = -DDEV -D_THREAD_SAFE -DDEBUG -DAPI
 
 SOURCES = 4758_status.c
  

@@ -294,12 +294,10 @@ static const char rcsid[] = "$Header$";
 #include "pthread.h"
 #pragma info(none)
 #include "pkcsslotd.h"
-#if (LINUX)
 #include <sys/stat.h>
 #include <sys/types.h>
 #include <fcntl.h>
 /* #include "garbage_linux.h" */
-#endif
 #pragma info(restore)
 
 
@@ -393,11 +391,7 @@ BOOL                IsValidProcessEntry     ( pid_t pid,   time_t RegTime );
 
 int                 Stat2Proc               ( int pid, proc_t *p );
 
-#if AIX
-static pthread_t    GCThread;                /* Garbage Collection thread's handle */
-#else
  pthread_t    GCThread;                /* Garbage Collection thread's handle */
-#endif
 static BOOL         ThreadRunning = FALSE;   /* If we're already running or not */
 
 #if THREADED

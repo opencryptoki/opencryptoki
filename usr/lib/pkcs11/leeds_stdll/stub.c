@@ -317,7 +317,7 @@ static const char rcsid[] = "$Header$";
 
 //
 //
-MY_RV SC_WaitForSlotEvent( CK_FLAGS        flags,
+CK_RV SC_WaitForSlotEvent( CK_FLAGS        flags,
                           CK_SLOT_ID_PTR  pSlot,
                           CK_VOID_PTR     pReserved )
 {
@@ -329,7 +329,7 @@ MY_RV SC_WaitForSlotEvent( CK_FLAGS        flags,
 
 //
 //
-MY_RV SC_DigestEncryptUpdate( CK_SESSION_HANDLE  hSession,
+CK_RV SC_DigestEncryptUpdate( CK_SESSION_HANDLE  hSession,
                              CK_BYTE_PTR        pPart,
                              CK_ULONG           ulPartLen,
                              CK_BYTE_PTR        pEncryptedPart,
@@ -341,7 +341,7 @@ MY_RV SC_DigestEncryptUpdate( CK_SESSION_HANDLE  hSession,
 
 //
 //
-MY_RV SC_DecryptDigestUpdate( CK_SESSION_HANDLE  hSession,
+CK_RV SC_DecryptDigestUpdate( CK_SESSION_HANDLE  hSession,
                              CK_BYTE_PTR        pEncryptedPart,
                              CK_ULONG           ulEncryptedPartLen,
                              CK_BYTE_PTR        pPart,
@@ -353,7 +353,7 @@ MY_RV SC_DecryptDigestUpdate( CK_SESSION_HANDLE  hSession,
 
 //
 //
-MY_RV SC_SignEncryptUpdate( CK_SESSION_HANDLE  hSession,
+CK_RV SC_SignEncryptUpdate( CK_SESSION_HANDLE  hSession,
                            CK_BYTE_PTR        pPart,
                            CK_ULONG           ulPartLen,
                            CK_BYTE_PTR        pEncryptedPart,
@@ -365,7 +365,7 @@ MY_RV SC_SignEncryptUpdate( CK_SESSION_HANDLE  hSession,
 
 //
 //
-MY_RV SC_DecryptVerifyUpdate( CK_SESSION_HANDLE  hSession,
+CK_RV SC_DecryptVerifyUpdate( CK_SESSION_HANDLE  hSession,
                              CK_BYTE_PTR        pEncryptedPart,
                              CK_ULONG           ulEncryptedPartLen,
                              CK_BYTE_PTR        pPart,
@@ -375,7 +375,7 @@ MY_RV SC_DecryptVerifyUpdate( CK_SESSION_HANDLE  hSession,
 }
 
 
-MY_RV SC_GetFunctionStatus( CK_SESSION_HANDLE  hSession )
+CK_RV SC_GetFunctionStatus( CK_SESSION_HANDLE  hSession )
 {
    return CKR_FUNCTION_NOT_SUPPORTED;
 }
@@ -383,7 +383,7 @@ MY_RV SC_GetFunctionStatus( CK_SESSION_HANDLE  hSession )
 
 //
 //
-MY_RV SC_CancelFunction( CK_SESSION_HANDLE  hSession )
+CK_RV SC_CancelFunction( CK_SESSION_HANDLE  hSession )
 {
    return CKR_FUNCTION_NOT_SUPPORTED;
 }

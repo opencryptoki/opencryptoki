@@ -298,14 +298,8 @@
 #ifndef _HOST_DEFS_H
 #define _HOST_DEFS_H
 
-#if defined(LINUX)
 #include <semaphore.h>
 #include <pthread.h>
-#endif
-
-#ifdef NT_ON_I386
-  #pragma pack(1)
-#endif
 
 #include "pkcs32.h"
 // Both of the strings below have a length of 32 chars and must be
@@ -320,8 +314,6 @@
 #define PKW_MAX_DEVICES                 10
 
 #define MAX_TOK_OBJS  2048
-
-#define MY_RV CK_RV CK_ENTRY
 
 CK_BBOOL pin_expired(CK_SESSION_INFO *);
 CK_BBOOL pin_locked(CK_SESSION_INFO *);
@@ -510,33 +502,14 @@ typedef struct _MD5_CONTEXT {
 } MD5_CONTEXT;
 
 
-#if !((AIX) || (LINUX))
-typedef struct _MUTEX
-{
-   union {
-      void              * handle;
-      pthread_mutex_t     pt_mutex;
-   };
-} MUTEX;
-
-#define XPROCLOCK   msemaphore
-#else
-// AIX or linux
+// linux
 typedef pthread_mutex_t MUTEX;
-#endif
 
-#if (AIX)
-	#define XPROCLOCK   msemaphore
-#elif (LINUX)
 // This is actualy wrong... XPROC will be with spinlocks
-
 #if (SPINXPL)
 #define XPROCLOCK   unsigned int
 #else
 #define XPROCLOCK    MUTEX
-#endif
-
-
 #endif
 
 
@@ -602,17 +575,10 @@ typedef struct _OP_STATE_DATA
 //
 typedef struct _TWEAK_VEC
 {
-#if !(LINUX) // Linux gcc seems to not like this when the comparisons are done
-   int   allow_weak_des   : 1;
-   int   check_des_parity : 1;
-   int   allow_key_mods   : 1;
-   int   netscape_mods    : 1;
-#else
    int   allow_weak_des   ;
    int   check_des_parity ;
    int   allow_key_mods   ;
    int   netscape_mods    ;
-#endif
 } TWEAK_VEC;
 
 typedef struct _TOKEN_DATA
@@ -651,7 +617,6 @@ typedef struct _MASTER_KEY_FILE_T
 } MASTER_KEY_FILE_T;
 
 
-#if  (( AIX) || (LINUX))
 typedef struct _TOK_OBJ_ENTRY
 {
    CK_BBOOL  deleted;
@@ -686,12 +651,5 @@ typedef struct _LW_SHM_TYPE
 #define  MY_DestroyMsem(x)    DestroyXProcLock((void *)(x))
 #define  MY_LockMsem(x)       XProcLock((void *)(x))
 #define  MY_UnlockMsem(x)     XProcUnLock((void *)(x))
-
-
-#endif
-
-#ifdef NT_ON_I386
-  #pragma pack()
-#endif
 
 #endif

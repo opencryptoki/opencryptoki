@@ -655,11 +655,7 @@ int InitSharedMemory ( Slot_Mgr_Shr_t *sp ) {
 #if FIXME
 #error "No usage of the per process mutexes..."
 #ifdef PKCS64
-#if (AIX)
-      msem_init( &(sp->proc_table[procindex].proc_mutex), 0 );
-#else
       msem_init( &(sp->proc_table[procindex].proc_mutex), 1 );
-#endif
 #else     
       pthread_mutex_init( &(sp->proc_table[procindex].proc_mutex), &mtxattr );
 #endif

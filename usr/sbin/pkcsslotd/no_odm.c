@@ -734,18 +734,10 @@ BOOL ReadSlotInfoDB ( void ) {
 
       {
         /* check for file existance */
-#if (AIX)
-        struct stat64 statbuf;
-#elif (LINUX)
         struct stat statbuf;
-#endif
         int Err;
 
-#if (AIX)
-        if ( stat64( sinfo_struct.dll_location, &statbuf ) < 0 ) {
-#elif (LINUX)
         if ( stat( sinfo_struct.dll_location, &statbuf ) < 0 ) {
-#endif
 	  /* File not found, or other error */
 	  #pragma info(none)
 	    Err = errno;

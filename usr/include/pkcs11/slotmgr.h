@@ -301,12 +301,7 @@
 
 
 #include <pkcs11types.h>
-#ifdef AIX
-#include <sys/limits.h>
-#endif
-#if defined(LINUX)
 #include <linux/limits.h>
-#endif
 #include <local_types.h>
 #include <pthread.h>
 
@@ -432,9 +427,7 @@ typedef struct CK_SLOT_INFO_64 {
 
 
 typedef struct Slot_Mgr_Proc_t_64 {
-#if AIX
-      msemaphore      slt_mutex;
-#elif SYSVSEM
+#if SYSVSEM
       int                slt_mutex;
 #elif PTHREADXPL
      pthread_mutex_t       slt_mutex;
@@ -494,9 +487,7 @@ typedef struct {
    *    and then finds an empty slot in the process table to use.
    *    This simplifies the management capabilities.   
    *************************************************************/
-#if AIX
-      msemaphore      slt_mutex;
-#elif SYSVSEM
+#if SYSVSEM
       int                slt_mutex;
 #elif PTHREADXPL
      pthread_mutex_t       slt_mutex;
@@ -530,9 +521,7 @@ typedef struct {
    *    This simplifies the management capabilities.   
    *************************************************************/
 
-#if AIX
-   msemaphore      slt_mutex;
-#elif SYSVSEM
+#if SYSVSEM
    int                slt_mutex;
 #elif PTHREADXPL
   pthread_mutex_t       slt_mutex;

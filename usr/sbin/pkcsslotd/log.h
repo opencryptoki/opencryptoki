@@ -356,9 +356,7 @@
  ************************************************************************/
 
 
-#if defined(LINUX)
 typedef unsigned int  u_int32;
-#endif
 
 
 typedef u_int32 LogHandle, *pLogHandle;
@@ -372,9 +370,6 @@ typedef struct _logging_facility_info {
   char                      *Filename;
   BOOL                      UseSyslog;
   u_int32                   LogLevel;
-#if defined(AIX)
-  struct syslog_data        LogData;
-#endif
   pid_t                     pid;
 } LoggingFacilityInfo, *pLoggingFacilityInfo;
 

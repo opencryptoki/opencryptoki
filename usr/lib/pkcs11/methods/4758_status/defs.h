@@ -304,9 +304,7 @@
 #define _DEFS_H
 
 #pragma options align=packed
-#if LINUX
 #pragma pack(1)
-#endif
 
 
 #ifndef MIN
@@ -348,9 +346,7 @@ typedef struct _LEEDS_REPLY
    //
 } LEEDS_REPLY;
 
-#if LINUX
 #pragma pack()
-#endif
 
 
 #pragma options align=full

@@ -292,9 +292,7 @@ static const char rcsid[] = "$Header$";
 
 
 #include <unistd.h>
-#if defined(LINUX)
 #include <sys/stat.h>
-#endif
 #include <stdlib.h>
 #include <errno.h>
 #include <stdio.h>

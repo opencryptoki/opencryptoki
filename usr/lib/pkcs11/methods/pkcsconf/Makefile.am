@@ -3,7 +3,7 @@ bindir=/tmp
 
 pkcsconf_LDFLAGS = -lpthread -ldl
 
-pkcsconf_CFLAGS = -DSPINXPL -DLINUX -D_THREAD_SAFE -DDEBUG -DDEV -DAPI
+pkcsconf_CFLAGS = -DSPINXPL -D_THREAD_SAFE -DDEBUG -DDEV -DAPI
 
 pkcsconf_SOURCES = pkcsconf.c
 

@@ -297,7 +297,6 @@
 #ifndef _LINUXDEF_H_
 #define _LINUXDEF_H_
 
-#ifdef _LINUX_
   #include <limits.h>
   
   char *itoa(int value, char *string, int);
@@ -308,6 +307,5 @@
   #define _MAX_PATH    PATH_MAX
   #define _MAX_FNAME   NAME_MAX
   #define _MAX_EXT     NAME_MAX
-#endif
 
 #endif /*_LINUXDEF_H_ */

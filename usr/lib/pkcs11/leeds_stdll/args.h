@@ -308,14 +308,9 @@
 #endif
 
 #if (LEEDS_BUILD)
-#ifdef AIX
-#pragma options align=packed
-#endif
 
-#ifdef LINUX
 #pragma pack(1)
 #pragma options align=packed
-#endif
 #endif
 
 
@@ -1335,14 +1330,9 @@ typedef struct _InitToken_Args
 
 
 #if (LEEDS_BUILD)
-#ifdef AIX
-#pragma options align=full
-#endif
 
-#ifdef LINUX
 #pragma pack()
 #pragma options align=full
-#endif
 #endif
 
 #endif

@@ -311,10 +311,6 @@ extern "C"
 #endif
 
 
-#ifndef AIX
-#pragma pack(1)
-#endif
-
   /* These are the new definitions need for the structures in 
    * leeds_stdll largs.h (and elsewhere)
    */
@@ -462,9 +458,7 @@ typedef struct CK_ATTRIBUTE_32 {
 
 
 
-#ifndef AIX
 #pragma pack()
-#endif
 
 
 #ifdef __cplusplus

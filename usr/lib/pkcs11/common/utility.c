@@ -571,20 +571,10 @@ _CreateMutex( MUTEX *mutex )
 }
 
 CK_RV
-#if defined(AIX)
-_CreateMsem( msemaphore *msem )
-#endif
-#if defined(LINUX)
 _CreateMsem( sem_t *msem )
-#endif
 {
-#if defined(AIX)
-   if (!msem_init( msem, MSEM_UNLOCKED))
-#endif
-#if defined(LINUX)
    if (!sem_init( msem,0, 1)) // parm 2 non-0 means pshared  1 is unlocked 0 is locked
    //if (!sem_init( msem,1, 1)) // parm 2 non-0 means pshared  1 is unlocked 0 is locked
-#endif
       return CKR_OK;
    else{
       st_err_log(4, __FILE__, __LINE__, __FUNCTION__);
@@ -604,19 +594,9 @@ _DestroyMutex( MUTEX *mutex )
 }
 
 CK_RV
-#if defined(AIX)
-_DestroyMsem( msemaphore *msem )
-#endif
-#if defined(LINUX)
 _DestroyMsem( sem_t *msem )
-#endif
 {
-#if defined(AIX)
-   if (!msem_remove(msem))
-#endif
-#if defined(LINUX)
    if (!sem_destroy(msem))
-#endif
       return CKR_OK;
    else{
       st_err_log(4, __FILE__, __LINE__, __FUNCTION__);
@@ -628,47 +608,19 @@ _DestroyMsem( sem_t *msem )
 CK_RV
 _LockMutex( MUTEX *mutex )
 {
-   CK_RV  rc;
-#if !(defined(AIX) || defined(LINUX))
-   if (!mutex){
-      st_err_log(4, __FILE__, __LINE__, __FUNCTION__);
-      return CKR_FUNCTION_FAILED;
-   }
-   if (cinit_args.flags & CKF_OS_LOCKING_OK) {
-      WaitForSingleObject( mutex->handle, INFINITE );
-      return CKR_OK;
-   }
-
-   if (cinit_args.pfLockMutex == NULL)
-      return CKR_OK;
-
-   rc = cinit_args.pfLockMutex( mutex->pmutex );
-   return rc;
-#else
       pthread_mutex_lock( mutex);
       return CKR_OK;
-#endif
 
 }
 
 CK_RV
-#if defined(AIX)
-_LockMsem( msemaphore *msem )
-#endif
-#if defined(LINUX)
 _LockMsem( sem_t *msem )
-#endif
 {
    if (!msem){
       st_err_log(4, __FILE__, __LINE__, __FUNCTION__);
       return CKR_FUNCTION_FAILED;
    }
-#if defined(AIX)
-   if(!msem_lock(msem, 0)) // block until the semaphore is free
-#endif
-#if defined(LINUX)
    if(!sem_wait(msem)) // block until the semaphore is free
-#endif
       return CKR_OK;
    else{
       st_err_log(4, __FILE__, __LINE__, __FUNCTION__);
@@ -679,47 +631,19 @@ _LockMsem( sem_t *msem )
 CK_RV
 _UnlockMutex( MUTEX *mutex )
 {
-   CK_RV  rc;
-#if !(defined(AIX) || defined(LINUX))
-   if (!mutex){
-      st_err_log(4, __FILE__, __LINE__, __FUNCTION__);
-      return CKR_FUNCTION_FAILED;
-   }
-   if (cinit_args.flags & CKF_OS_LOCKING_OK) {
-      ReleaseMutex( mutex->handle );
-      return CKR_OK;
-   }
-
-   if (cinit_args.pfUnlockMutex == NULL)
-      return CKR_OK;
-
-   rc = cinit_args.pfUnlockMutex( mutex->pmutex );
-   return rc;
-#else
    pthread_mutex_unlock(mutex);
    return CKR_OK;
-#endif
 
 }
 
 CK_RV
-#if defined(AIX)
-_UnlockMsem( msemaphore *msem )
-#endif
-#if defined(LINUX)
 _UnlockMsem( sem_t *msem )
-#endif
 {
    if (!msem){
       st_err_log(4, __FILE__, __LINE__, __FUNCTION__);
       return CKR_FUNCTION_FAILED;
    }
-#if defined(AIX)
-   if (!msem_unlock(msem, 0))
-#endif
-#if defined(LINUX)
    if (!sem_post(msem))
-#endif
       return CKR_OK;
    else{
       st_err_log(4, __FILE__, __LINE__, __FUNCTION__);
@@ -754,9 +678,7 @@ CK_RV
 CreateXProcLock(void *xproc)
 {
 
-#if (AIX)
-	return _CreateMsem((msemaphore *)xproc);
-#elif (SPINXPL)
+#if (SPINXPL)
     // open the file that we will do the locking on...
   spinxplfd = open("/tmp/.pkcs11spinloc",O_CREAT|O_APPEND|O_RDWR,
         S_IRWXU|S_IRWXG|S_IRWXO);
@@ -819,9 +741,7 @@ if ( *psem < 0 ) {
 CK_RV
 DestroyXProcLock(void *xproc)
 {
-#if (AIX)
-	return _DestroyMsem((msemaphore *)xproc);
-#elif SPINXPL
+#if SPINXPL
 	return CKR_OK;
 #elif SYSVSEM
    int semid,*psem;
@@ -850,9 +770,7 @@ pthread_mutex_unlock(&semmtx);
 CK_RV
 XProcLock(void *xproc)
 {
-#if (AIX)
-	return _LockMsem((msemaphore *)xproc);
-#elif SPINXPL
+#if SPINXPL
 	if (!spin_created) {
 	  spinxplfd = open("/tmp/.pkcs11spinloc",O_CREAT|O_APPEND|O_RDWR,
 		S_IRWXU|S_IRWXG|S_IRWXO);
@@ -889,9 +807,7 @@ XProcLock(void *xproc)
 CK_RV
 XProcUnLock(void *xproc)
 {
-#if (AIX)
-	return _UnlockMsem((msemaphore *)xproc);
-#elif SPINXPL
+#if SPINXPL
 	if (!spin_created) {
 	  spinxplfd = open("/tmp/.pkcs11spinloc",O_CREAT|O_APPEND|O_RDWR,
 		S_IRWXU|S_IRWXG|S_IRWXO);
@@ -1328,8 +1244,6 @@ parity_is_odd( CK_BYTE b )
 }
 
 
-#if (defined(AIX) || defined(LINUX))
-
 CK_RV
 attach_shm()
 {
@@ -1412,7 +1326,7 @@ attach_shm()
    } else {
 	xproclock = (void *)&global_shm->mutex;
    }
-#elif MMAP
+#if MMAP
 {
 #define FILENAME   "\\.stmapfile"
 #define MODE (S_IRUSR|S_IWUSR|S_IRGRP|S_IWGRP)

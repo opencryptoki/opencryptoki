@@ -296,12 +296,7 @@
 
 
 #include <pkcs11types.h>
-#if defined(AIX)
-#include <sys/limits.h>
-#endif
-#if defined(LINUX)
 #include <linux/limits.h>
-#endif
 #include <local_types.h>
 #include <stdll.h>
 #include <slotmgr.h>

@@ -12,11 +12,8 @@
 #include <stdlib.h>
 #include <string.h>
 #include <memory.h>
-
-#if (AIX || LINUX)
 #include <dlfcn.h>
 #include <sys/timeb.h>
-#endif
 
 #include "pkcs11types.h"
 #include "regress.h"
@@ -339,41 +336,6 @@ printf("GENERATING KEY \n");
    return TRUE;
 }
 
-
-
-#if !(AIX || LINUX)
-//
-//
-void process_time(SYSTEMTIME t1, SYSTEMTIME t2)
-{
-   long ms   = t2.wMilliseconds - t1.wMilliseconds;
-   long s    = t2.wSecond - t1.wSecond;
-   long min  = t2.wMinute - t1.wMinute;
-   long hour = t2.wHour   - t1.wHour;
-
-   // this doesn't handle hour wrap around but that's not a problem here
-   //
-
-   while (ms < 0) {
-      ms += 1000;
-      s--;
-   }
-
-   while (s < 0) {
-      s += 60;
-      min--;
-   }
-
-   while (min < 0) {
-      min += 60;
-      hour--;
-   }
-
-   ms += (s * 1000) + (min * 60 * 1000);
-
-   printf("Time:  %d ms\n", ms );
-}
-#else
 void process_time(SYSTEMTIME t1, SYSTEMTIME t2)
 {
    long ms   = t2.millitm - t1.millitm;
@@ -391,8 +353,6 @@ void process_time(SYSTEMTIME t1, SYSTEMTIME t2)
    printf("Time:  %u msec\n", ms );
 
 }
-#endif
-
 
 //
 //
@@ -518,18 +478,18 @@ void print_hex( CK_BYTE *buf, CK_ULONG len )
 int do_GetFunctionList( void )
 {
    CK_RV            rc;
-#if (AIX || LINUX)
+#if (LINUX)
    CK_RV  (*pfoo)();
    void    *d;
    char    *e;
-   char	   f[]="/usr/lib/pkcs11/PKCS11_API.so";
+   char	   f[]="PKCS11_API.so";
 
 #endif
 
 
    printf("do_GetFunctionList...\n");
 
-#if (AIX || LINUX)
+#if (LINUX)
    e = getenv("PKCSLIB");
    if ( e == NULL) {
 	e = f;
@@ -545,9 +505,6 @@ int do_GetFunctionList( void )
       return FALSE;
    }
    rc = pfoo(&funcs);
-#else
-   rc = C_GetFunctionList( &funcs ) ;
-#endif
 
    if (rc != CKR_OK) {
       show_error("   C_GetFunctionList", rc );

@@ -303,16 +303,12 @@
 #ifndef _DEFS_H
 #define _DEFS_H
 
-#ifdef NT_ON_I386
-  #pragma pack(1)
-#elseif (AIX && LEEDS)
-  #pragma options align=packed
-#elif (LINUX && LEEDS)
+#if (LEEDS)
   #pragma pack(1)
   #pragma options align=packed
 #endif
 
-#if (LINUX && LEEDS)
+#if (LEEDS)
 #include <linuxdef.h>
 #else
 #define PACK_DATA
@@ -408,8 +404,6 @@ typedef struct _sha1_ctx {
 #define DSA_SIGNATURE_SIZE  40
 
 #define DEFAULT_SO_PIN  "87654321"
-
-#define MY_RV  CK_RV CK_ENTRY
 
 
 typedef enum {
@@ -550,19 +544,9 @@ typedef struct _DL_NODE
 #define PK_LITE_OBJ_DIR "TOK_OBJ"
 #define PK_LITE_OBJ_IDX "OBJ.IDX"
 
-#if (AIX)
-#define DEL_CMD "/usr/bin/rm -f"
-#elif (LINUX)
 #define DEL_CMD "/bin/rm -f"
-#else
-#error "Define the delete command"
-#endif
 
-#ifdef NT_ON_I386
-  #pragma pack()
-#elif (AIX && LEEDS)
-  #pragma options align=full
-#elif  (LINUX && LEEDS)
+#if  (LEEDS)
   #pragma options align=full
   #pragma pack() 
 #endif

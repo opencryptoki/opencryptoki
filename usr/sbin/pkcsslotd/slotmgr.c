@@ -300,9 +300,7 @@ static const char rcsid[] = "$Header$";
 
 #include "pkcsslotd.h"
 
-#if defined(LINUX)
 #include <semaphore.h>
-#endif
 
 
 /* 

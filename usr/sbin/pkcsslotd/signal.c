@@ -308,11 +308,6 @@ static int SigsToIntercept[] = {
   SIGHUP,      SIGINT,       SIGQUIT,    SIGPIPE,      SIGALRM,      
   SIGTERM,     SIGTSTP,      SIGTTIN,      
   SIGTTOU,     SIGUSR1,      SIGUSR2,    SIGPROF
-#if defined(AIX)
-	  ,      SIGDANGER,    
-  SIGVTALRM,   SIGMIGRATE,   SIGPRE,     SIGGRANT,     SIGRETRACT,
-  SIGSOUND,    SIGSAK
-#endif
 };
 
 /* SIGCONT - Don't want to exit on SIGCONT; it'll in fact
