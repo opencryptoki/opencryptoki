@@ -1070,30 +1070,30 @@ session_mgr_set_op_state( SESSION           * sess,
 
 // Return TRUE if the session we're in has its PIN
 // expired.
-CK_BBOOL pin_expired(CK_SESSION_INFO *si)
+CK_BBOOL pin_expired(CK_SESSION_INFO *si, CK_FLAGS flags)
 {
    // If this is an SO session
-   if (	(si->flags & CKF_SO_PIN_TO_BE_CHANGED) &&
+   if (	(flags & CKF_SO_PIN_TO_BE_CHANGED) &&
 	   (si->state == CKS_RW_SO_FUNCTIONS) )
 	   return TRUE;
-	   
+
    // Else we're a User session
-   return( (si->flags & CKF_USER_PIN_TO_BE_CHANGED) &&
+   return( (flags & CKF_USER_PIN_TO_BE_CHANGED) &&
 	  ((si->state == CKS_RO_USER_FUNCTIONS) ||
 	   (si->state == CKS_RW_USER_FUNCTIONS)) );
-}	   
+}
 
 // Return TRUE if the session we're in has its PIN
 // locked.
-CK_BBOOL pin_locked(CK_SESSION_INFO *si)
+CK_BBOOL pin_locked(CK_SESSION_INFO *si, CK_FLAGS flags)
 {
    // If this is an SO session
-   if (	(si->flags & CKF_SO_PIN_LOCKED) &&
-	   (si->state == CKS_RW_SO_FUNCTIONS) ) 
+   if (	(flags & CKF_SO_PIN_LOCKED) &&
+	   (si->state == CKS_RW_SO_FUNCTIONS) )
 	   return TRUE;
-	   
+
    // Else we're a User session
-   return( (si->flags & CKF_USER_PIN_LOCKED) &&
+   return( (flags & CKF_USER_PIN_LOCKED) &&
 	  ((si->state == CKS_RO_USER_FUNCTIONS) ||
 	   (si->state == CKS_RW_USER_FUNCTIONS)) );
 }
