@@ -32,7 +32,7 @@
 #include <stdlib.h>
 #include <stdio.h>
 
-  #include <string.h>  // for memcmp() et al
+#include <string.h>  // for memcmp() et al
 
 #include "pkcs11/pkcs11types.h"
 #include <pkcs11/stdll.h>
