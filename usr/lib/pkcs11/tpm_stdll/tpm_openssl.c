@@ -130,31 +130,37 @@ openssl_write_key(RSA *rsa, char *filename, char *pPin)
 	return 0;
 }
 
-RSA *
-openssl_read_key(char *filename, char *pPin)
+CK_RV
+openssl_read_key(char *filename, char *pPin, RSA **ret)
 {
 	BIO *b;
 	RSA *rsa = NULL;
 
+	/* we can't allow a pin of NULL here, since openssl will try to prompt
+	 * for a password in PEM_read_bio_RSAPrivateKey */
 	if (pPin == NULL)
-		return NULL;
+		return CKR_PIN_INCORRECT;
 
 	b = BIO_new_file(filename, "r+");
 	if (b == NULL) {
 		LogError("%s: Error opening file for read: %s", __FUNCTION__, filename);
-		return -1;
+		return CKR_FUNCTION_FAILED;
 	}
 
 	if ((rsa = PEM_read_bio_RSAPrivateKey(b, NULL, 0, pPin)) == NULL) {
 		BIO_free(b);
 		LogError("Reading key %s from disk failed.", filename);
 		DEBUG_openssl_print_errors();
-		return -1;
+		if (ERR_GET_REASON(ERR_get_error()) == PEM_R_BAD_DECRYPT) {
+			return CKR_PIN_INCORRECT;
+		}
+		return CKR_FUNCTION_FAILED;
 	}
 
 	BIO_free(b);
+	*ret = rsa;
 
-	return rsa;
+	return CKR_OK;
 }
 
 int
@@ -166,23 +172,23 @@ openssl_get_modulus_and_prime(RSA *rsa, unsigned int *size_n, unsigned char *n,
 		DEBUG_openssl_print_errors();
 		return -1;
 	}
-
+#if 0
 	if (*size_n > 2048/8) {
 		LogError("rsa modulus too big! (%d)\n", *size_n);
 		return -1;
 	}
-
+#endif
 	/* get one of the primes from the RSA object */
 	if ((*size_p = BN_bn2bin(rsa->p, p)) <= 0) {
 		DEBUG_openssl_print_errors();
 		return -1;
 	}
-
+#if 0
 	if (*size_p > 2048/8) {
 		LogError("rsa prime too big! (%d)\n", *size_p);
 		return -1;
 	}
-
+#endif
 	return 0;
 }
 
