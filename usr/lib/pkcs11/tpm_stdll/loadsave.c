@@ -445,6 +445,7 @@ save_private_token_object(OBJECT *obj)
 
 	add_pkcs_padding( cleartxt + cleartxt_len, DES_BLOCK_SIZE, cleartxt_len, padded_len );
 
+#if 0
 #ifndef  CLEARTEXT
 
 	rc = ckm_des3_cbc_encrypt( cleartxt,    padded_len,
@@ -454,6 +455,11 @@ save_private_token_object(OBJECT *obj)
 	bcopy(cleartxt,ciphertxt,padded_len);
 	rc = CKR_OK;
 #endif
+#endif
+	/* do things in cleartext for now */
+	bcopy(cleartxt,ciphertxt,padded_len);
+	rc = CKR_OK;
+
 	if (rc != CKR_OK){
 		st_err_log(105, __FILE__, __LINE__);
 		goto error;
@@ -845,6 +851,7 @@ restore_private_token_object( CK_BYTE  * data,
    //
    memcpy( des3_key, master_key, 3*DES_KEY_SIZE );
 
+#if 0
 #ifndef  CLEARTEXT
    rc = ckm_des3_cbc_decrypt( ciphertxt,  len,
                               cleartxt,  &len,
@@ -853,6 +860,11 @@ restore_private_token_object( CK_BYTE  * data,
       bcopy(ciphertxt,cleartxt,len);
       rc = CKR_OK;
 #endif
+#endif
+      /* do things in cleartext for now */
+      bcopy(ciphertxt,cleartxt,len);
+      rc = CKR_OK;
+
  
    if (rc != CKR_OK){
       st_err_log(106, __FILE__, __LINE__);
@@ -951,15 +963,21 @@ load_masterkey_so( void )
    memcpy( des3_key,                 so_pin_md5, MD5_HASH_SIZE );
    memcpy( des3_key + MD5_HASH_SIZE, so_pin_md5, DES_KEY_SIZE  );
 
+#if 0
 #ifndef CLEARTEXT
    rc = ckm_des3_cbc_decrypt( cipher, cipher_len, clear, &clear_len, "12345678", des3_key );
 #else
    bcopy(cipher,clear,cipher_len);
    rc = CKR_OK;
 #endif
+#endif
+   /* do things cleartext for now */
+   bcopy(cipher,clear,cipher_len);
+   rc = CKR_OK;
 
    if (rc != CKR_OK){
       st_err_log(106, __FILE__, __LINE__);
+      LogError("WHAT THE FUCK");
       goto done;
    }
    memcpy( (CK_BYTE *)&mk, clear, sizeof(mk) );
@@ -1037,12 +1055,17 @@ load_masterkey_user( void )
    memcpy( des3_key,                 user_pin_md5, MD5_HASH_SIZE );
    memcpy( des3_key + MD5_HASH_SIZE, user_pin_md5, DES_KEY_SIZE  );
 
+#if 0
 #ifndef CLEARTEXT
    rc = ckm_des3_cbc_decrypt( cipher, cipher_len, clear, &clear_len, "12345678", des3_key );
 #else
    bcopy(cipher,clear,cipher_len);
    rc = CKR_OK;
 #endif
+#endif
+   /* do things cleartext for now */
+   bcopy(cipher,clear,cipher_len);
+   rc = CKR_OK;
 
    if (rc != CKR_OK){
       st_err_log(106, __FILE__, __LINE__);
@@ -1108,12 +1131,17 @@ save_masterkey_so( void )
    padded_len = DES_BLOCK_SIZE * (cleartxt_len / DES_BLOCK_SIZE + 1);
    add_pkcs_padding( cleartxt + cleartxt_len, DES_BLOCK_SIZE, cleartxt_len, padded_len );
 
+#if 0
 #ifndef CLEARTEXT
    rc = ckm_des3_cbc_encrypt( cleartxt, padded_len, ciphertxt, &ciphertxt_len, "12345678", des3_key );
 #else
             bcopy(cleartxt,ciphertxt,padded_len);
 	             rc = CKR_OK;
 #endif
+#endif
+   /* do things cleartext for now */
+   bcopy(cleartxt,ciphertxt,padded_len);
+   rc = CKR_OK;
 
    if (rc != CKR_OK){
       st_err_log(105, __FILE__, __LINE__);
@@ -1183,12 +1211,17 @@ save_masterkey_user( void )
    padded_len = DES_BLOCK_SIZE * (cleartxt_len / DES_BLOCK_SIZE + 1);
    add_pkcs_padding( cleartxt + cleartxt_len, DES_BLOCK_SIZE, cleartxt_len, padded_len );
 
+#if 0
 #ifndef CLEARTEXT
    rc = ckm_des3_cbc_encrypt( cleartxt, padded_len, ciphertxt, &ciphertxt_len, "12345678", des3_key );
 #else
    bcopy(cleartxt,ciphertxt,padded_len);
    rc = CKR_OK;
 #endif
+#endif
+   /* do the cleartext thing for now */
+   bcopy(cleartxt,ciphertxt,padded_len);
+   rc = CKR_OK;
 
    if (rc != CKR_OK){
       st_err_log(105, __FILE__, __LINE__);
