@@ -1,5 +1,5 @@
 dnl Process this file with autoconf to produce a configure script.
-AC_INIT(openCryptoki, 2.1, yoder1@us.ibm.com,)
+AC_INIT(openCryptoki, 2.1, mhalcrow@us.ibm.com,)
 dnl AM_INIT_AUTOMAKE(openCryptoki, 2.0.0)
 AM_INIT_AUTOMAKE(1.6.1)
 
@@ -33,11 +33,20 @@ AC_SUBST(ID, /usr/bin/id)
 AC_SUBST(USERMOD, /usr/sbin/usermod)
 AC_SUBST(GROUPADD, /usr/sbin/groupadd)
 
+dnl i.e., /usr/local or /usr
+if test "x$prefix" = xNONE; then
+  prefix=$ac_default_prefix
+fi
+if test "x$exec_prefix" = xNONE; then
+  exec_prefix='${prefix}'
+fi
+
 AC_SUBST(CONFIG_PATH, /etc/pkcs11)
 AC_SUBST(DB_PATH, /etc/pkcs11)
-AC_SUBST(STDLL_PATH, /usr/lib/pkcs11/stdll)
+AC_SUBST(LIB_PATH, $prefix/lib/pkcs11/opencryptoki)
+AC_SUBST(STDLL_PATH, $LIB_PATH/stdll)
 AC_SUBST(CONFIG_FILE, pk_config_data)
-AC_SUBST(METHOD_PATH, /usr/lib/pkcs11/methods)
+AC_SUBST(METHOD_PATH, $prefix/sbin)
 
 TO_BUILD=0
 
