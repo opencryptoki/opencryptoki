@@ -1,10 +1,11 @@
 bin_PROGRAMS=PKCS11_ICA.so
-
 bindir=/tmp
 
 PKCS11_ICA_so_LDFLAGS = $(LCRYPTO) $(ICA_LIB_DIRS) -nostartfiles -shared -Wl,-Bsymbolic  -Wl,-soname,$@ -Wl,-Bsymbolic -lc -lpthread -lica -ldl -lcrypto
 
 PKCS11_ICA_so_CFLAGS = -DSPINXPL -DDEV -D_THREAD_SAFE -fPIC -DSHALLOW=0 -DSWTOK=0 -DLITE=1 -DNODH -DNOAES -DNOCDMF -DNOMD2 -DNODSA
+
+CFLAGS = @CFLAGS@ -DSPINXPL -DDEV -D_THREAD_SAFE -fPIC -DSHALLOW=0 -DSWTOK=0 -DLITE=1 -DNODH -DNOAES -DNOCDMF -DNOMD2 -DNODSA
 
 #VPATH= ./:../common
 
@@ -12,8 +13,24 @@ PKCS11_ICA_so_SOURCES = ../common/asn1.c ../common/cert.c ../common/hwf_obj.c ..
 
 INCLUDES = $(ICA_INC_DIRS) -I. -I../../../include/pkcs11/stdll -I../../../include/pkcs11   -I../common -I../../../ica/inc -I../../../../ica/include -I.. -I../../../../ica/src/inc
 
+GOOD_LIBRARY_NAME=libpkcs11_ica.so
+BAD_LIBRARY_NAME=PKCS11_ICA.so
+REALLY_BAD_LIBRARY_NAME=PKCS11_ICA.so64
+
 install-data-local:
-	mkdir -p $(INSROOT)/usr/lib/pkcs11/stdll; \
-	if [ $(shell uname -m) == s390x ] ;then cp PKCS11_ICA.so $(INSROOT)/usr/lib64/pkcs11/stdll/PKCS11_ICA.so; ln -s $(INSROOT)/usr/lib64/pkcs11/stdll/PKCS11_ICA.so /usr/lib/pkcs11/stdll/PKCS11_ICA.so64; \
-	else cp PKCS11_ICA.so $(INSROOT)/usr/lib/pkcs11/stdll/; fi; \
-	rm -f /tmp/PKCS11_ICA.*;
+	mkdir -p $(STDLL_PATH); \
+	cp $(BAD_LIBRARY_NAME) $(STDLL_PATH)/$(GOOD_LIBRARY_NAME); \
+	if [ $(shell uname -m) == s390x -o $(shell uname -m) == ppc64 ]; then \
+		mkdir -p $(INSROOT)/usr/lib64/pkcs11/stdll; \
+		mkdir -p $(INSROOT)/usr/lib/pkcs11/stdll; \
+		ln -s $(STDLL_PATH)/$(GOOD_LIBRARY_NAME) $(INSROOT)/usr/lib64/pkcs11/stdll/$(BAD_LIBRARY_NAME); \
+		ln -s $(STDLL_PATH)/$(GOOD_LIBRARY_NAME) $(INSROOT)/usr/lib/pkcs11/stdll/$(REALLY_BAD_LIBRARY_NAME); \
+		ln -s $(STDLL_PATH)/$(GOOD_LIBRARY_NAME) $(INSROOT)/usr/lib64/$(BAD_LIBRARY_NAME); \
+		ln -s $(STDLL_PATH)/$(GOOD_LIBRARY_NAME) $(INSROOT)/usr/lib64/; \
+	else \
+		mkdir -p $(INSROOT)/usr/lib/pkcs11/stdll; \
+		ln -s $(STDLL_PATH)/$(GOOD_LIBRARY_NAME) $(INSROOT)/usr/lib/pkcs11/stdll/$(BAD_LIBRARY_NAME); \
+		ln -s $(STDLL_PATH)/$(GOOD_LIBRARY_NAME) $(INSROOT)/usr/lib/$(BAD_LIBRARY_NAME); \
+		ln -s $(STDLL_PATH)/$(GOOD_LIBRARY_NAME) $(INSROOT)/usr/lib/; \
+	fi; \
+	rm -f /tmp/$(BAD_LIBRARY_NAME);

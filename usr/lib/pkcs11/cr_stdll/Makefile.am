@@ -4,7 +4,10 @@ bindir=/tmp
 PKCS11_CR_so_LDFLAGS = $(LCRYPTO) $(CR_LIB_DIRS) -nostartfiles -shared -Wl,-Bsymbolic -Wl,-soname,PKCS11_BC.so.1 -lc -lpthread -lsocketarmor -ldl -lcrypto
 
 VARIANT = -DSHALLOW=0 -DSWTOK=1 -DLITE=0
+
 PKCS11_CR_so_CFLAGS = -DSPINXPL -DDEV -D_THREAD_SAFE -fPIC $(VARIANT) -DNOCDMF -DNOMD2 -DNODSA -DDEBUGON
+
+CFLAGS = @CFLAGS@ -DSPINXPL -DDEV -D_THREAD_SAFE -fPIC $(VARIANT) -DNOCDMF -DNOMD2 -DNODSA -DDEBUGON
 
 #VPATH= ./:../common
 
@@ -12,8 +15,21 @@ PKCS11_CR_so_SOURCES = ../common/asn1.c ../common/cert.c ../common/hwf_obj.c ../
 
 INCLUDES = $(CR_INC_DIRS) -I/usr/include -I. -I../../../include/pkcs11/stdll -I../../../include/pkcs11   -I../common -I../../../ica/inc -I../../../../ica/include -I.. -I../../../../ica/src/inc
 
+GOOD_LIBRARY_NAME=libpkcs11_cr.so
+BAD_LIBRARY_NAME=PKCS11_CR.so
+
 install-data-local:
-	mkdir -p $(INSROOT)/usr/lib/pkcs11/stdll; \
-	if [ $(shell uname -m) != s390x ] ;then cp PKCS11_CR.so \
-	$(INSROOT)/usr/lib/pkcs11/stdll/PKCS11_CR.so; fi; \
-	rm -f /tmp/PKCS11_CR.*;
+	mkdir -p $(STDLL_PATH); \
+	cp $(BAD_LIBRARY_NAME) $(STDLL_PATH)/$(GOOD_LIBRARY_NAME); \
+	if [ $(shell uname -m) == s390x -o $(shell uname -m) == ppc64 ]; then \
+		mkdir -p $(INSROOT)/usr/lib64/pkcs11/stdll; \
+		ln -s $(STDLL_PATH)/$(GOOD_LIBRARY_NAME) $(INSROOT)/usr/lib64/pkcs11/stdll/$(BAD_LIBRARY_NAME); \
+		ln -s $(STDLL_PATH)/$(GOOD_LIBRARY_NAME) $(INSROOT)/usr/lib64/$(BAD_LIBRARY_NAME); \
+		ln -s $(STDLL_PATH)/$(GOOD_LIBRARY_NAME) $(INSROOT)/usr/lib64/; \
+	else \
+		mkdir -p $(INSROOT)/usr/lib/pkcs11/stdll; \
+		ln -s $(STDLL_PATH)/$(GOOD_LIBRARY_NAME) $(INSROOT)/usr/lib/pkcs11/stdll/$(BAD_LIBRARY_NAME); \
+		ln -s $(STDLL_PATH)/$(GOOD_LIBRARY_NAME) $(INSROOT)/usr/lib/$(BAD_LIBRARY_NAME); \
+		ln -s $(STDLL_PATH)/$(GOOD_LIBRARY_NAME) $(INSROOT)/usr/lib/; \
+	fi; \
+	rm -f /tmp/$(BAD_LIBRARY_NAME);
