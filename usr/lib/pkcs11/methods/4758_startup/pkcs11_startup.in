@@ -375,6 +375,13 @@ then
     @METHOD_PATH@/pkcs_slot 0  soft
 fi
 
+# Add the TPM device automatically if it exists
+
+if [ -f @STDLL_PATH@/PKCS11_TPM.so ]
+then
+    @METHOD_PATH@/pkcs_slot 0  tpm
+fi
+
 
 # Addition for AEP Devices
 
