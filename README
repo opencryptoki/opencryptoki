@@ -65,8 +65,8 @@ components are installed as 32bit executables/libraries as follows:
   On 64bit s390x, a 64bit gcc is used to compile the only 2 64bit objects
 used in openCryptoki:
 
-  /usr/lib64/pkcs11/PKCS11_API.so		64bit shared library
-  /usr/lib64/pkcs11/stdll/PKCS11_ICA.so		64bit shared library
+  /usr/lib/pkcs11/PKCS11_API.so64		64bit shared library
+  /usr/lib/pkcs11/stdll/PKCS11_ICA.so64		64bit shared library
 
   On ppc64, the 64bit cross compiler is used to compile these 2 objects. On
 both s390x and ppc64, the 32bit libraries and executables are installed as

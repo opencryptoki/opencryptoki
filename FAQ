@@ -1,0 +1,69 @@
+
+
+ openCryptoki FAQ - Kent Yoder <yoder1@us.ibm.com>
+-----------------------------------------------------------------------------
+
+ 1. Q. All openCryptoki applications are returning CKR_TOKEN_NOT_PRESENT,
+    even though the token is there, and its STDLL is in the right place. 
+    What's the problem?
+
+    A1. The user who's executing the application is probably not a member
+    of the pkcs11 group. 
+
+    A2. Check that the device driver for your hardware token is loaded.
+    (`lsmod` in Linux).
+
+    A3. If you're doing development, this error will also be returned of your 
+    token's STDLL has unresolved symbols in it.  Enable debugging and
+    check the debug log to find out what symbols are undefined.
+
+ 2. Q. When C_Initialize() gets called by my app, openCryptoki returns
+    CKR_HOST_MEMORY, even though I've got lots of free memory.  What's
+    the problem?
+
+    A1. CKR_HOST_MEMORY is returned also if openCryptoki cannot attach
+    to shared memory.  This can happen if:
+
+	a1. The user who's executing the application is not a member of
+	the pkcs11 group.
+
+	a2. pkcsslotd is not running.
+
+ 3. Q. pkcsconf is returning:
+
+    Error getting token info: 0x2
+	This is CKR_HOST_MEMORY, see question 2.
+
+    Error getting token info: 0x3
+	The slot ID you're providing is invalid.
+
+ 4. Q. How can I get the complete debug logs from openCryptoki?
+
+	A. First, for openCryptoki-2.0 forward, define the environment variable 
+	   PKCS11_API_LOG_DEBUG=1 (in versions of openCryptoki before 2.0, 
+	   define AIX_PKCS11_API_LOG_DEBUG=1). Also, apparently by default 
+	   syslogd does not have an entry in /etc/syslogd.conf for debug 
+	   messages, so even if you have debug messages enabled in your 
+	   openCryptoki compile, you'll not get them in the system log until 
+	   you edit /etc/syslogd.conf and restart syslogd.  Add an entry in 
+	   /etc/syslogd.conf such as:
+
+	# vi /etc/syslogd.conf
+	---
+	[...]
+
+	*.debug				/var/log/debuglog
+	---	
+	# killall -HUP syslogd
+
+	   Now, when openCryptoki is configured with the --enable-debug
+	   option (or if you install the -debug rpms), /var/log/debuglog 
+	   will receive its debugging messages.
+
+ 5. Q. My PKCS#11 app is hangs at the point where the PKCS11_API.so tries
+    to log data to the system log. What can I do to fix this?
+
+	A. Link your application against the pthread library.
+
+-----------------------------------------------------------------------------
+ openCryptoki FAQ 

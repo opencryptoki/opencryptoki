@@ -1,0 +1,25 @@
+
+The tests in this directory are used to test the new functionality 
+added to openCryptoki to comply with v2.11 of the PKCS#11 spec. If
+you are pulling this out of CVS, you may be pulling v2.01. If this
+is the case, these testcases will fail, and that's to be expected.
+
+aes_func
+  * Tests that the AES functions Encrypt/Decrypt and Wrap/Unwrap
+    correctly.
+
+rijndael
+  * Encrypts using the algorthm used by the Rijndael known answer
+    tests and compares with its output.
+
+login
+  * Tests the new login functionality used in v2.11.  After running
+    this test, you will have to run the init_tok test on the slot
+    to unlock the user's account before running other tests.
+
+hw_fn
+  * Tests the new hardware feature object class.  This test should
+    fail.  It was used to test searching for hardware feature objects,
+    which cannot be created by users, but only by tokens.
+
+Kent Yoder <yoder1@us.ibm.com>
