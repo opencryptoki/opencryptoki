@@ -2,7 +2,7 @@
 
 #
 #
-# $Header: /cvsroot/opencryptoki/opencryptoki/usr/lib/pkcs11/methods/leeds_slot/Attic/pkcs_slot.in,v 1.1 2005/02/22 23:45:33 mhalcrow Exp $
+# $Header: /cvsroot/opencryptoki/opencryptoki/usr/lib/pkcs11/methods/leeds_slot/Attic/pkcs_slot.in,v 1.2 2005/02/24 20:37:16 kyoder Exp $
 #
 
 
@@ -321,6 +321,10 @@ CR_DIR="@DB_PATH@/cr"
 CR_DLL="@STDLL_PATH@/PKCS11_CR.so"
 CR_INIT="ST_Initialize"
 
+TPM_DIR="@DB_PATH@/tpm"
+TPM_DLL="@STDLL_PATH@/PKCS11_TPM.so"
+TPM_INIT="ST_Initialize"
+
 SYSTEM=`uname -s`
 MANUFACTURER=`uname -rs`
 
@@ -361,6 +365,20 @@ then
 	chgrp pkcs11 "$SOFT_DIR"/TOK_OBJ
     fi
     SYS_SLOT="Soft"
+fi
+
+# If the depth is "tpm" then we are configuring the tpm token....
+if [ $DEPTH = "tpm" ]
+then
+    test  -d $TPM_DIR
+    if [ $? -ne 0 ]
+    then
+	mkdir  $TPM_DIR
+	chgrp pkcs11 $TPM_DIR
+	mkdir "$TPM_DIR"/TOK_OBJ
+	chgrp pkcs11 "$TPM_DIR"/TOK_OBJ
+    fi
+    SYS_SLOT="TPM"
 fi
 
 # If we are using a shallow device, make sure that the directory
@@ -452,7 +470,10 @@ then
 echo "TRUE|0|$SLOT_DESCRIPTION|$MANUFACTURER|TRUE|FALSE|TRUE|0|0|1|1|NONE|$CR_DLL|$CR_INIT" >>$CFGFILE
 elif [ $DEPTH = "soft" ]
 then
-    echo "TRUE|0|$SLOT_DESCRIPTION|$MANUFACTURER|TRUE|FALSE|FALSE|0|0|1|1|NONE|$SOFT_DLL|$SOFT_INIT" >>$CFGFILE
+echo "TRUE|0|$SLOT_DESCRIPTION|$MANUFACTURER|TRUE|FALSE|FALSE|0|0|1|1|NONE|$SOFT_DLL|$SOFT_INIT" >>$CFGFILE
+elif [ $DEPTH = "tpm" ]
+then
+echo "TRUE|0|$SLOT_DESCRIPTION|$MANUFACTURER|TRUE|FALSE|TRUE|0|0|1|1|NONE|$TPM_DLL|$TPM_INIT" >>$CFGFILE
 fi
 
 cd @DB_PATH@
