@@ -93,4 +93,5 @@ int openssl_write_key(RSA *, char *, char *);
 RSA *openssl_read_key(char *, char *);
 int openssl_get_modulus_and_prime(RSA *, unsigned int *, unsigned char *, unsigned int *, unsigned char *);
 void LoadBlob_PRIVKEY_DIGEST(UINT16 *, BYTE *, TCPA_KEY *);
+int util_create_user_dir(char *);
 #endif
