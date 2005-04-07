@@ -228,6 +228,8 @@ AC_CANONICAL_TARGET
 AC_PROG_CC
 
 AC_OUTPUT(Makefile usr/Makefile \
+          usr/include/Makefile \
+          usr/include/pkcs11/Makefile \
           usr/lib/Makefile \
           usr/lib/pkcs11/Makefile \
           usr/lib/pkcs11/api/Makefile \
