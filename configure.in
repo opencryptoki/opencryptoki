@@ -76,6 +76,7 @@ AC_SUBST(DB_PATH, /etc/pkcs11)
 AC_SUBST(STDLL_PATH, $LIB_PATH/stdll)
 AC_SUBST(CONFIG_FILE, pk_config_data)
 AC_SUBST(METHOD_PATH, $prefix/sbin)
+AC_SUBST(HEADER_PATH, $prefix/include)
 
 TO_BUILD=0
 
