@@ -387,7 +387,7 @@ fi
 
 
 # Add the ICA device if it exists
-if [ -f @STDLL_PATH@/PKCS11_ICA.so ]
+if [ -f @STDLL_PATH@/libpkcs11_ica.so ]
 then
 #  This won't work if the driver is built into the kernel
 # so we will look for it in /proc/devices
@@ -437,7 +437,7 @@ fi
 
 # Add the SW token last, so that "dumb" apps that always open
 # slot 0 will get a HW token if one exists
-if [ -f @STDLL_PATH@/PKCS11_SW.so ]
+if [ -f @STDLL_PATH@/libpkcs11_sw.so ]
 then
     @METHOD_PATH@/pkcs_slot 0  soft
 fi
