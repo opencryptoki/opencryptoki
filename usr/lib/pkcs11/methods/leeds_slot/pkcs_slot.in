@@ -477,7 +477,7 @@ echo "TRUE|0|$SLOT_DESCRIPTION|$MANUFACTURER|TRUE|FALSE|TRUE|0|0|1|1|NONE|$TPM_D
 fi
 
 cd @DB_PATH@
-chmod -R g+w .
+chmod -R g+wrx .
 
 
 exit $OK
