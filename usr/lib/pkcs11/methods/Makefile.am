@@ -1,5 +1,5 @@
 if BUILD_UTILS
-ROOT = 4758_startup leeds_slot pkcsconf
+ROOT = 4758_startup pkcsconf
 else
 ROOT =
 endif
