@@ -349,7 +349,7 @@ if [ ! -d @DB_PATH@ ]
 then
 	mkdir -p @DB_PATH@
         chgrp pkcs11 @DB_PATH@
-	chmod -R g+rw @DB_PATH@
+	chmod -R g+rwx @DB_PATH@
 fi
 
 
