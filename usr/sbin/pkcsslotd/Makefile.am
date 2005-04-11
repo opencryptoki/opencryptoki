@@ -1,5 +1,4 @@
-bin_PROGRAMS=pkcsslotd
-bindir=/tmp
+sbin_PROGRAMS=pkcsslotd
 
 pkcsslotd_LDFLAGS = -lpthread
 
@@ -10,8 +9,8 @@ pkcsslotd_SOURCES = slotmgr.c shmem.c signal.c mutex.c err.c log.c daemon.c no_o
 
 INCLUDES = -I../. -I../../include/pkcs11 -I../../include/pkcs11/stdll
 
-install-data-local:
-	mkdir -p $(INSROOT)/usr/sbin; \
-	if [ $(shell uname -m) != s390x ] ;then cp pkcsslotd \
-	$(INSROOT)/usr/sbin/pkcsslotd; fi; \
-	rm -f /tmp/pkcsslotd;
+#install-data-local:
+#	mkdir -p $(INSROOT)/usr/sbin; \
+#	if [ $(shell uname -m) != s390x ] ;then cp pkcsslotd \
+#	$(INSROOT)/usr/sbin/pkcsslotd; fi; \
+#	rm -f /tmp/pkcsslotd;
