@@ -246,9 +246,6 @@ AC_OUTPUT(Makefile usr/Makefile \
           usr/sbin/pkcs_slot/pkcs_slot \
           usr/sbin/pkcsconf/Makefile \
           usr/lib/pkcs11/methods/Makefile \
-          usr/lib/pkcs11/methods/leeds_slot/Makefile \
-          usr/lib/pkcs11/methods/leeds_slot/pkcs_slot \
-          usr/lib/pkcs11/methods/pkcsconf/Makefile \
           usr/lib/pkcs11/leeds_stdll/Makefile \
           usr/lib/pkcs11/soft_stdll/Makefile \
           usr/lib/pkcs11/soft_stdll/tok_struct.h \
