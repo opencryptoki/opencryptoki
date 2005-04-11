@@ -244,6 +244,7 @@ AC_OUTPUT(Makefile usr/Makefile \
           usr/sbin/pkcs11_startup/pkcs11_startup \
           usr/sbin/pkcs_slot/Makefile \
           usr/sbin/pkcs_slot/pkcs_slot \
+          usr/sbin/pkcsconf/Makefile \
           usr/lib/pkcs11/methods/Makefile \
           usr/lib/pkcs11/methods/leeds_slot/Makefile \
           usr/lib/pkcs11/methods/leeds_slot/pkcs_slot \
