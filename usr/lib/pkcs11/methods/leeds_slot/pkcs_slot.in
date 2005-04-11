@@ -2,7 +2,7 @@
 
 #
 #
-# $Header: /cvsroot/opencryptoki/opencryptoki/usr/lib/pkcs11/methods/leeds_slot/Attic/pkcs_slot.in,v 1.2 2005/02/24 20:37:16 kyoder Exp $
+# $Header: /cvsroot/opencryptoki/opencryptoki/usr/lib/pkcs11/methods/leeds_slot/Attic/pkcs_slot.in,v 1.3 2005/04/11 18:20:53 mhalcrow Exp $
 #
 
 
@@ -349,7 +349,7 @@ if [ ! -d @DB_PATH@ ]
 then
 	mkdir -p @DB_PATH@
         chgrp pkcs11 @DB_PATH@
-	chmod -R g+rw @DB_PATH@
+	chmod -R g+rwx @DB_PATH@
 fi
 
 
