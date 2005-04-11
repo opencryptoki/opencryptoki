@@ -98,7 +98,7 @@ verify_mgr_init( SESSION             * sess,
    //
    switch (mech->mechanism) {
       case CKM_RSA_X_509:
-      case CKM_RSA_PKCS:
+      case CKM_RSA_PKCS_OAEP:
          {
             if (mech->ulParameterLen != 0){
                st_err_log(29, __FILE__, __LINE__);
@@ -437,8 +437,8 @@ verify_mgr_verify( SESSION             * sess,
    }
 
    switch (ctx->mech.mechanism) {
-      case CKM_RSA_PKCS:
-         return rsa_pkcs_verify( sess,      ctx,
+      case CKM_RSA_PKCS_OAEP:
+         return rsa_pkcs_oaep_verify( sess,      ctx,
                                  in_data,   in_data_len,
                                  signature, sig_len );
 
@@ -616,8 +616,8 @@ verify_mgr_verify_recover( SESSION             * sess,
    }
 
    switch (ctx->mech.mechanism) {
-      case CKM_RSA_PKCS:
-         return rsa_pkcs_verify_recover( sess,      length_only,
+      case CKM_RSA_PKCS_OAEP:
+         return rsa_pkcs_oaep_verify_recover( sess,      length_only,
                                          ctx,
                                          signature, sig_len,
                                          out_data,  out_len );
