@@ -97,7 +97,7 @@ sign_mgr_init( SESSION                * sess,
    //
    switch (mech->mechanism) {
       case CKM_RSA_X_509:
-      case CKM_RSA_PKCS:
+      case CKM_RSA_PKCS_OAEP:
          {
             if (mech->ulParameterLen != 0){
                st_err_log(29, __FILE__, __LINE__); 
@@ -453,8 +453,8 @@ sign_mgr_sign( SESSION              * sess,
       return CKR_OPERATION_ACTIVE;
    }
    switch (ctx->mech.mechanism) {
-      case CKM_RSA_PKCS:
-         return rsa_pkcs_sign( sess,     length_only,  ctx,
+      case CKM_RSA_PKCS_OAEP:
+         return rsa_pkcs_oaep_sign( sess,     length_only,  ctx,
                                in_data,  in_data_len,
                                out_data, out_data_len );
 
@@ -638,10 +638,10 @@ sign_mgr_sign_recover( SESSION             * sess,
       return CKR_OPERATION_ACTIVE;
    }
    switch (ctx->mech.mechanism) {
-      case CKM_RSA_PKCS:
+      case CKM_RSA_PKCS_OAEP:
          // we can use the same sign mechanism to do sign-recover
          //
-         return rsa_pkcs_sign( sess,     length_only,  ctx,
+         return rsa_pkcs_oaep_sign( sess,     length_only,  ctx,
                                in_data,  in_data_len,
                                out_data, out_data_len );
 
