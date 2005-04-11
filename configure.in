@@ -240,9 +240,9 @@ AC_OUTPUT(Makefile usr/Makefile \
           usr/lib/pkcs11/ica_s390_stdll/tok_struct.h \
           usr/sbin/Makefile \
           usr/sbin/pkcsslotd/Makefile \
+          usr/sbin/pkcs11_startup/Makefile \
+          usr/sbin/pkcs11_startup/pkcs11_startup \
           usr/lib/pkcs11/methods/Makefile \
-          usr/lib/pkcs11/methods/4758_startup/Makefile \
-          usr/lib/pkcs11/methods/4758_startup/pkcs11_startup \
           usr/lib/pkcs11/methods/leeds_slot/Makefile \
           usr/lib/pkcs11/methods/leeds_slot/pkcs_slot \
           usr/lib/pkcs11/methods/pkcsconf/Makefile \
