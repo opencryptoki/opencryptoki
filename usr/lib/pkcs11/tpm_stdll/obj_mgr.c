@@ -1120,7 +1120,7 @@ object_mgr_find_build_list( SESSION      * sess,
       /* only find CKA_HIDDEN objects if its specified in the template. This
        * is an attribute specific to the TPM token */
       if (pTemplate[i].type == CKA_HIDDEN) {
-	 if (*(CK_ULONG *)pTemplate[i].pValue == TRUE) {
+	 if (*(CK_BBOOL *)pTemplate[i].pValue == TRUE) {
 	    hidden_object = TRUE;
 	    break;
 	 }
@@ -1169,7 +1169,7 @@ object_mgr_find_build_list( SESSION      * sess,
 	    /* Don't find objects created by the TPM token */
             if ((hidden_object == FALSE) &&
                 (template_attribute_find(obj->template, CKA_HIDDEN, &attr) == TRUE)) {
-               if (*(CK_OBJECT_CLASS *)attr->pValue == TRUE)
+               if (*(CK_BBOOL *)attr->pValue == TRUE)
 	          goto next_loop;
 	    }
 
