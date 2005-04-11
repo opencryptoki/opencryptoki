@@ -207,7 +207,7 @@ token_find_key(int key_type, CK_OBJECT_HANDLE *handle)
 		rc = CKR_KEY_NOT_FOUND;
 		goto done;
 	} else if (ulObjCount < 1) {
-		LogError("key with ID=\"%\" not found in the store!", key_id);
+		LogError("key with ID=\"%s\" not found in the store!", key_id);
 		rc = CKR_KEY_NOT_FOUND;
 		goto done;
 	}
