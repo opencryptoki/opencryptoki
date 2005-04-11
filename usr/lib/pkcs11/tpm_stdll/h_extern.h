@@ -628,7 +628,7 @@ CK_RV  rsa_pkcs_verify ( SESSION             * sess,
                          CK_BYTE             * signature,
                          CK_ULONG              sig_len );
 
-CK_RV  rsa_pkcs_verify_recover ( SESSION             * sess,
+CK_RV  rsa_pkcs_oaep_verify_recover ( SESSION             * sess,
                                  CK_BBOOL              length_only,
                                  SIGN_VERIFY_CONTEXT * ctx,
                                  CK_BYTE             * signature,
@@ -716,14 +716,16 @@ CK_RV  rsa_hash_pkcs_verify_final ( SESSION             * sess,
 //
 CK_RV  ckm_rsa_key_pair_gen( TEMPLATE *publ_tmpl, TEMPLATE *priv_tmpl );
 
-CK_RV  ckm_rsa_encrypt( CK_BYTE  * in_data,
+CK_RV  ckm_rsa_oaep_encrypt( CK_BYTE  * in_data,
                         CK_ULONG   in_data_len,
                         CK_BYTE  * out_data,
+			CK_ULONG * out_data_len,
                         OBJECT   * key_obj );
 
-CK_RV  ckm_rsa_decrypt( CK_BYTE  * in_data,
+CK_RV  ckm_rsa_oaep_decrypt( CK_BYTE  * in_data,
                         CK_ULONG   in_data_len,
                         CK_BYTE  * out_data,
+			CK_ULONG * out_data_len,
                         OBJECT   * key_obj );
 
 CK_RV  ckm_rsa_compute_priv_exp( TEMPLATE *tmpl );
@@ -2041,5 +2043,6 @@ extern CK_BYTE *TPMTOK_USERNAME;
 /* custom attribute to store our blob in */
 #define CKA_KEY_BLOB		CKA_VENDOR_DEFINED + 0
 #define CKA_HIDDEN		CKA_VENDOR_DEFINED + 1
+#define CKA_ENC_AUTHDATA	CKA_VENDOR_DEFINED + 2
 
 #endif
