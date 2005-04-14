@@ -595,6 +595,7 @@ key_mgr_wrap_key( SESSION           * sess,
          //
          break;
 
+      case CKM_RSA_PKCS:
       case CKM_RSA_PKCS_OAEP:
       case CKM_RSA_X_509:
          if (class != CKO_SECRET_KEY){
@@ -717,6 +718,7 @@ key_mgr_wrap_key( SESSION           * sess,
          //
          break;
 
+      case CKM_RSA_PKCS:
       case CKM_RSA_PKCS_OAEP:
       case CKM_RSA_X_509:
 //         rc = ckm_rsa_wrap_format( length_only, &data, &data_len );
@@ -803,6 +805,7 @@ key_mgr_unwrap_key( SESSION           * sess,
    // to be specified in the template (though it still may appear)
    //
    switch (mech->mechanism) {
+      case CKM_RSA_PKCS:
       case CKM_RSA_PKCS_OAEP:
       case CKM_RSA_X_509:
          keyclass = CKO_SECRET_KEY;
@@ -865,6 +868,7 @@ CKO_PRIVATE_KEY)){
    // final check to see if mechanism is allowed to unwrap such a key
    //
    switch (mech->mechanism) {
+      case CKM_RSA_PKCS:
       case CKM_RSA_PKCS_OAEP:
       case CKM_RSA_X_509:
          if (keyclass != CKO_SECRET_KEY){
