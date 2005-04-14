@@ -77,13 +77,26 @@ CK_RV token_specific_tdes_cbc(CK_BYTE *,
 
 CK_RV
 token_specific_rsa_decrypt( CK_BYTE   * ,
+		CK_ULONG    ,
+		CK_BYTE   *,
+		OBJECT    *);
+
+CK_RV
+token_specific_rsa_encrypt( CK_BYTE   * ,
+		CK_ULONG    ,
+		CK_BYTE   * ,
+		OBJECT    * );
+
+
+CK_RV
+token_specific_rsa_oaep_decrypt( CK_BYTE   * ,
                   CK_ULONG    ,
                   CK_BYTE   * ,
 		  CK_ULONG  * ,
                   OBJECT    *);
 
 CK_RV
-token_specific_rsa_encrypt( CK_BYTE   * ,
+token_specific_rsa_oaep_encrypt( CK_BYTE   * ,
                    CK_ULONG    ,
                    CK_BYTE   * ,
 		   CK_ULONG  * ,

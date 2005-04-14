@@ -628,6 +628,14 @@ CK_RV  rsa_pkcs_verify ( SESSION             * sess,
                          CK_BYTE             * signature,
                          CK_ULONG              sig_len );
 
+CK_RV  rsa_pkcs_verify_recover ( SESSION             * sess,
+                                 CK_BBOOL              length_only,
+                                 SIGN_VERIFY_CONTEXT * ctx,
+                                 CK_BYTE             * signature,
+                                 CK_ULONG              sig_len,
+                                 CK_BYTE             * out_data,
+                                 CK_ULONG            * out_len );
+
 CK_RV  rsa_pkcs_oaep_verify_recover ( SESSION             * sess,
                                  CK_BBOOL              length_only,
                                  SIGN_VERIFY_CONTEXT * ctx,
@@ -715,6 +723,16 @@ CK_RV  rsa_hash_pkcs_verify_final ( SESSION             * sess,
 // RSA mechanisms
 //
 CK_RV  ckm_rsa_key_pair_gen( TEMPLATE *publ_tmpl, TEMPLATE *priv_tmpl );
+
+CK_RV  ckm_rsa_encrypt( CK_BYTE  * in_data,
+                        CK_ULONG   in_data_len,
+                        CK_BYTE  * out_data,
+                        OBJECT   * key_obj );
+
+CK_RV  ckm_rsa_decrypt( CK_BYTE  * in_data,
+                        CK_ULONG   in_data_len,
+                        CK_BYTE  * out_data,
+                        OBJECT   * key_obj );
 
 CK_RV  ckm_rsa_oaep_encrypt( CK_BYTE  * in_data,
                         CK_ULONG   in_data_len,
