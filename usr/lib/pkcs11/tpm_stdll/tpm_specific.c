@@ -105,7 +105,6 @@ CK_BYTE default_user_pin_sha[SHA1_HASH_SIZE] = {
 	0x80, 0x63, 0x7c, 0x0d
 };
 
-
 CK_RV
 token_specific_session(CK_SLOT_ID  slotid)
 {
@@ -127,7 +126,7 @@ token_rng(CK_BYTE *output, CK_ULONG bytes)
 
         rc = Tspi_TPM_GetRandom(hTPM, bytes, &random_bytes);
         if (rc != TSS_SUCCESS) {
-                st_err_log("CKR_FUNCTION_FAILED");
+                LogError("Tspi_TPM_GetRandom failed. rc=0x%x", rc);
                 return CKR_FUNCTION_FAILED;
         }
 
@@ -137,13 +136,11 @@ token_rng(CK_BYTE *output, CK_ULONG bytes)
         return CKR_OK;
 }
 
-// convert pkcs slot number to local representation
 int
 tok_slot2local(CK_SLOT_ID snum)
 {
 	return 1;
 }
-
 
 CK_RV
 token_specific_init(char *Correlator, CK_SLOT_ID SlotNumber)
@@ -152,7 +149,7 @@ token_specific_init(char *Correlator, CK_SLOT_ID SlotNumber)
 
 	result = Tspi_Context_Create(&tspContext);
 	if (result != TSS_SUCCESS) {
-                st_err_log("CKR_FUNCTION_FAILED");
+                LogError("Tspi_Context_Create failed. rc=0x%x", result);
                 return CKR_FUNCTION_FAILED;
 	}
 
@@ -236,13 +233,13 @@ token_get_key_blob(CK_OBJECT_HANDLE ckKey, CK_BYTE **ret_blob, CK_ULONG *blob_si
 	/* find object the first time to return the size of the buffer needed */
 	rc = object_mgr_get_attribute_values(&dummy_sess, ckKey, tmpl, 1);
 	if (rc != CKR_OK) {
-		st_err_log("SC_GetAttributeValue");
+		LogError("object_mgr_get_attribute_values failed. rc=0x%x", rc);
 		goto done;
 	}
 
 	blob = malloc(tmpl[0].ulValueLen);
 	if (blob == NULL) {
-		st_err_log("CKR_HOST_MEMORY");
+		LogError("malloc of %d bytes failed.", tmpl[0].ulValueLen);
 		rc = CKR_HOST_MEMORY;
 		goto done;
 	}
@@ -251,7 +248,7 @@ token_get_key_blob(CK_OBJECT_HANDLE ckKey, CK_BYTE **ret_blob, CK_ULONG *blob_si
 	/* find object the 2nd time to fill the buffer with data */
 	rc = object_mgr_get_attribute_values(&dummy_sess, ckKey, tmpl, 1);
 	if (rc != CKR_OK) {
-		st_err_log("SC_GetAttributeValue");
+		LogError("object_mgr_get_attribute_values failed. rc=0x%x", rc);
 		goto done;
 	}
 
@@ -319,19 +316,19 @@ token_load_srk()
 	result = Tspi_Context_LoadKeyByUUID(tspContext, TSS_PS_TYPE_SYSTEM, SRK_UUID,
 						&hSRK);
 	if (result != TSS_SUCCESS) {
-		st_err_log("Tspi_Context_LoadKeyByUUID");
+		LogError("Tspi_Context_LoadKeyByUUID failed. rc=0x%x", result);
 		goto done;
 	}
 
 	result = Tspi_GetPolicyObject(hSRK, TSS_POLICY_USAGE, &hPolicy);
 	if (result != TSS_SUCCESS) {
-		st_err_log("Tspi_GetPolicyObject");
+		LogError("Tspi_GetPolicyObject failed. rc=0x%x", result);
 		goto done;
 	}
 
 	result = Tspi_Policy_SetSecret(hPolicy, TSS_SECRET_MODE_PLAIN, 0, NULL);
 	if (result != TSS_SUCCESS) {
-		st_err_log("Tspi_Policy_SetSecret");
+		LogError("Tspi_Policy_SetSecret failed. rc=0x%x", result);
 	}
 done:
 	return result;
@@ -694,14 +691,14 @@ token_store_tss_key(TSS_HKEY hKey, int key_type, CK_OBJECT_HANDLE *ckKey)
 	/* create a PKCS#11 pub key object for the key */
 	rc = token_store_pub_key(hKey, key_type, ckKey);
 	if (rc != CKR_OK) {
-		st_err_log("token_store_pub_key");
+		LogError("token_store_pub_key failed. rc=0x%x", rc);
 		return rc;
 	}
 
 	/* create a PKCS#11 private key object for the key */
 	rc = token_store_priv_key(hKey, key_type, ckKey);
 	if (rc != CKR_OK) {
-		st_err_log("token_store_pub_key");
+		LogError("token_store_pub_key failed. rc=0x%x", rc);
 	}
 
 	return rc;
@@ -755,7 +752,7 @@ token_generate_key(TSS_FLAGS initFlags, int key_type, CK_CHAR_PTR passHash, TSS_
 
 	rc = token_store_tss_key(*phKey, key_type, ckKey);
 	if (rc != CKR_OK) {
-		st_err_log("token_store_tss_key");
+		LogError("token_store_tss_key failed. rc=0x%x", result);
 	}
 
 done:
@@ -917,7 +914,7 @@ token_verify_pin(TSS_HKEY hKey)
 	result = Tspi_Context_CreateObject(tspContext, TSS_OBJECT_TYPE_ENCDATA,
 					   TSS_ENCDATA_BIND, &hEncData);
 	if (result != TSS_SUCCESS) {
-		st_err_log("Tspi_Context_CreateObject");
+		LogError("Tspi_Context_CreateObject failed. rc=0x%x", result);
 		goto done;
 	}
 
@@ -968,14 +965,14 @@ token_create_user_tree(CK_BYTE *pinHash, CK_BYTE *pPin)
 	/* generate the software based user base key */
 	rc = token_generate_sw_key(loc, pPin, hRootKey, &hUserBaseKey);
 	if (rc != CKR_OK) {
-		st_err_log("token_generate_sw_key");
+		LogError("token_generate_sw_key failed. rc=0x%x", rc);
 		return rc;
 	}
 
 	/* store the user base key in a PKCS#11 object internally */
 	rc = token_store_tss_key(hUserBaseKey, TPMTOK_USER_BASE_KEY, &ckUserBaseKey);
 	if (rc != CKR_OK) {
-		st_err_log("token_store_tss_key");
+		LogError("token_store_tss_key failed. rc=0x%x", rc);
 		return rc;
 	}
 
@@ -990,7 +987,7 @@ token_create_user_tree(CK_BYTE *pinHash, CK_BYTE *pPin)
 	/* generate the TPM user leaf key */
 	rc = token_generate_key(0, TPMTOK_USER_LEAF_KEY, pinHash, &hUserLeafKey);
 	if (rc != CKR_OK) {
-		st_err_log("token_generate_key");
+		LogError("token_generate_key failed. rc=0x%x", rc);
 		return rc;
 	}
 
@@ -1030,14 +1027,14 @@ token_create_so_tree(CK_BYTE *pinHash, CK_BYTE *pPin)
 
 	rc = token_store_tss_key(hPubRootKey, TPMTOK_PUB_ROOT_KEY, &ckPubRootKey);
 	if (rc != CKR_OK) {
-		st_err_log("token_store_tss_key");
+		LogError("token_store_tss_key failed. rc=0x%x", rc);
 		return rc;
 	}
 
 	/* create the user root key */
 	rc = token_generate_sw_key(TPMTOK_ROOT_KEY_BACKUP_LOCATION, pPin, hSRK, &hRootKey);
 	if (rc != CKR_OK) {
-		st_err_log("token_generate_sw_key");
+		LogError("token_generate_sw_key failed. rc=0x%x", rc);
 		return rc;
 	}
 
@@ -1051,14 +1048,14 @@ token_create_so_tree(CK_BYTE *pinHash, CK_BYTE *pPin)
 
 	rc = token_store_tss_key(hRootKey, TPMTOK_ROOT_KEY, &ckRootKey);
 	if (rc != CKR_OK) {
-		st_err_log("token_store_tss_key");
+		LogError("token_store_tss_key failed. rc=0x%x", rc);
 		return rc;
 	}
 
 	/* create the migratable root key */
 	rc = token_generate_sw_key(TPMTOK_MIG_ROOT_KEY_BACKUP_LOCATION, pPin, hSRK, &hMigRootKey);
 	if (rc != CKR_OK) {
-		st_err_log("token_generate_sw_key");
+		LogError("token_generate_sw_key failed. rc=0x%x", rc);
 		return rc;
 	}
 
@@ -1074,14 +1071,14 @@ token_create_so_tree(CK_BYTE *pinHash, CK_BYTE *pPin)
 
 	rc = token_store_tss_key(hMigRootKey, TPMTOK_MIG_ROOT_KEY, &ckMigRootKey);
 	if (rc != CKR_OK) {
-		st_err_log("token_store_tss_key");
+		LogError("token_store_tss_key failed. rc=0x%x", rc);
 		return rc;
 	}
 
 	/* create the SO's leaf key */
 	rc = token_generate_key(0, TPMTOK_MIG_LEAF_KEY, pinHash, &hMigLeafKey);
 	if (rc != CKR_OK) {
-		st_err_log("token_generate_key");
+		LogError("token_generate_key failed. rc=0x%x", rc);
 		return rc;
 	}
 
@@ -1109,7 +1106,7 @@ token_specific_login(CK_USER_TYPE userType, CK_CHAR_PTR pPin, CK_ULONG ulPinLen)
 
 	result = token_load_srk();
 	if (result != TSS_SUCCESS) {
-		st_err_log("CKR_FUNCTION_FAILED");
+		LogError("token_load_srk failed. rc=0x%x", result);
 		return CKR_FUNCTION_FAILED;
 	}
 
@@ -1129,7 +1126,7 @@ token_specific_login(CK_USER_TYPE userType, CK_CHAR_PTR pPin, CK_ULONG ulPinLen)
 			rc = token_load_key(ckUserLeafKey, hUserBaseKey, hash_sha,
 					    &hUserLeafKey);
 			if (rc != CKR_OK) {
-				st_err_log("CKR_FUNCTION_FAILED");
+				LogError("token_load_key failed. rc=0x%x", rc);
 				return CKR_FUNCTION_FAILED;
 			}
 
@@ -1142,13 +1139,13 @@ token_specific_login(CK_USER_TYPE userType, CK_CHAR_PTR pPin, CK_ULONG ulPinLen)
 		/* find, load the root key */
 		rc = token_find_key(TPMTOK_ROOT_KEY, &ckRootKey);
 		if (rc != CKR_OK) {
-			st_err_log("CKR_FUNCTION_FAILED");
+			LogError("token_find_key failed. rc=0x%x", rc);
 			return CKR_USER_PIN_NOT_INITIALIZED;
 		}
 
 		rc = token_load_key(ckRootKey, hSRK, NULL, &hRootKey);
 		if (rc != CKR_OK) {
-			st_err_log("CKR_FUNCTION_FAILED");
+			LogError("token_load_key failed. rc=0x%x", rc);
 			return CKR_FUNCTION_FAILED;
 		}
 
@@ -1167,26 +1164,26 @@ token_specific_login(CK_USER_TYPE userType, CK_CHAR_PTR pPin, CK_ULONG ulPinLen)
 
 		rc = token_load_key(ckUserBaseKey, hRootKey, NULL, &hUserBaseKey);
 		if (rc != CKR_OK) {
-			st_err_log("CKR_FUNCTION_FAILED");
+			LogError("token_load_key failed. rc=0x%x", rc);
 			return CKR_FUNCTION_FAILED;
 		}
 
 		/* find, load this user's leaf key */
 		rc = token_find_key(TPMTOK_USER_LEAF_KEY, &ckUserLeafKey);
 		if (rc != CKR_OK) {
-			st_err_log("CKR_FUNCTION_FAILED");
+			LogError("token_find_key failed. rc=0x%x", rc);
 			return CKR_FUNCTION_FAILED;
 		}
 
 		rc = token_load_key(ckUserLeafKey, hUserBaseKey, hash_sha, &hUserLeafKey);
 		if (rc != CKR_OK) {
-			st_err_log("CKR_FUNCTION_FAILED");
+			LogError("token_load_key failed. rc=0x%x", rc);
 			return CKR_FUNCTION_FAILED;
 		}
 
 		rc = token_verify_pin(hUserLeafKey);
 		if (rc != CKR_OK) {
-			st_err_log("token_verify_pin failed.");
+			LogError("token_verify_pin failed. failed. rc=0x%x", rc);
 			return rc;
 		}
 	} else {
@@ -1198,13 +1195,13 @@ token_specific_login(CK_USER_TYPE userType, CK_CHAR_PTR pPin, CK_ULONG ulPinLen)
 			rc = token_load_key(ckUserLeafKey, hUserBaseKey, hash_sha,
 					&hUserLeafKey);
 			if (rc != CKR_OK) {
-				st_err_log("CKR_FUNCTION_FAILED");
+				LogError("token_load_key failed. rc=0x%x", rc);
 				return CKR_FUNCTION_FAILED;
 			}
 
 			rc = token_verify_pin(hUserLeafKey);
 			if (rc != CKR_OK) {
-				st_err_log("token_verify_pin failed.");
+				LogError("token_verify_pin failed. rc=0x%x", rc);
 				return rc;
 			}
 
@@ -1239,7 +1236,7 @@ token_specific_login(CK_USER_TYPE userType, CK_CHAR_PTR pPin, CK_ULONG ulPinLen)
 		/* find, load the migratable root key */
 		rc = token_find_key(TPMTOK_MIG_ROOT_KEY, &ckMigRootKey);
 		if (rc != CKR_OK) {
-			st_err_log("CKR_FUNCTION_FAILED");
+			LogError("token_find_key failed. rc=0x%x", rc);
 			return CKR_FUNCTION_FAILED;
 		}
 
@@ -1252,7 +1249,7 @@ token_specific_login(CK_USER_TYPE userType, CK_CHAR_PTR pPin, CK_ULONG ulPinLen)
 		/* find, load the migratable leaf key */
 		rc = token_find_key(TPMTOK_MIG_LEAF_KEY, &ckMigLeafKey);
 		if (rc != CKR_OK) {
-			st_err_log("CKR_FUNCTION_FAILED");
+			LogError("token_find_key failed. rc=0x%x", rc);
 			return CKR_FUNCTION_FAILED;
 		}
 
@@ -1264,7 +1261,7 @@ token_specific_login(CK_USER_TYPE userType, CK_CHAR_PTR pPin, CK_ULONG ulPinLen)
 
 		rc = token_verify_pin(hMigLeafKey);
 		if (rc != CKR_OK) {
-			st_err_log("token_verify_pin failed.");
+			LogError("token_verify_pin failed. rc=0x%x", rc);
 			return rc;
 		}
 legacy_so_ops:
@@ -1546,7 +1543,7 @@ token_specific_verify_so_pin(CK_CHAR_PTR pPin, CK_ULONG ulPinLen)
 	/* find, load the migratable leaf key */
 	rc = token_find_key(TPMTOK_MIG_LEAF_KEY, &ckMigLeafKey);
 	if (rc != CKR_OK) {
-		st_err_log("CKR_FUNCTION_FAILED");
+		LogError("token_find_key failed. rc=0x%x", rc);
 		return CKR_FUNCTION_FAILED;
 	}
 
@@ -1558,7 +1555,7 @@ token_specific_verify_so_pin(CK_CHAR_PTR pPin, CK_ULONG ulPinLen)
 
 	rc = token_verify_pin(hMigLeafKey);
 	if (rc != CKR_OK) {
-		st_err_log("token_verify_pin failed.");
+		LogError("token_verify_pin failed. rc=0x%x", rc);
 		return rc;
 	}
 
@@ -1568,11 +1565,11 @@ token_specific_verify_so_pin(CK_CHAR_PTR pPin, CK_ULONG ulPinLen)
 CK_RV
 token_specific_final()
 {
-	TSS_RESULT rc;
+	TSS_RESULT result;
 
-        rc = Tspi_Context_Close(tspContext);
-        if (rc != TSS_SUCCESS) {
-                st_err_log("CKR_FUNCTION_FAILED");
+        result = Tspi_Context_Close(tspContext);
+        if (result != TSS_SUCCESS) {
+                LogError("Tspi_Context_Close failed. rc=0x%x", result);
                 return CKR_FUNCTION_FAILED;
         }
 
@@ -1932,7 +1929,6 @@ rsa_convert_public_key(OBJECT *key_obj)
 	return ret;
 }
 
-#if 0
 void *
 rsa_convert_private_key(OBJECT *key_obj)
 {
@@ -2026,7 +2022,6 @@ rsa_convert_private_key(OBJECT *key_obj)
 	}
 	return (void *)rsa;
 }
-#endif
 
 CK_RV
 token_specific_rsa_generate_keypair( TEMPLATE  * publ_tmpl,
@@ -2050,7 +2045,7 @@ token_specific_rsa_generate_keypair( TEMPLATE  * publ_tmpl,
 	BYTE		*rgbBlob;
 	BYTE		debug_sha[SHA1_HASH_SIZE];
 
-	LogError("Generating RSA keypair on the TPM...");
+	//LogError("Generating RSA keypair on the TPM...");
 
 	flag = template_attribute_find( publ_tmpl, CKA_MODULUS_BITS, &attr );
 	if (!flag){
@@ -2191,9 +2186,75 @@ token_specific_rsa_generate_keypair( TEMPLATE  * publ_tmpl,
 	return rc;
 }
 
-/* XXX set out_data_len here, unlike other tokens */
 CK_RV
 token_specific_rsa_encrypt( CK_BYTE   * in_data,
+		CK_ULONG    in_data_len,
+		CK_BYTE   * out_data,
+		OBJECT    * key_obj )
+{
+	CK_RV               rc;
+	RSA *rsa;
+
+	// Convert the local representation to an RSA representation
+	rsa = (RSA *)rsa_convert_public_key(key_obj);
+	if (rsa==NULL) {
+		st_err_log(4, __FILE__, __LINE__, __FUNCTION__);
+		rc = CKR_FUNCTION_FAILED;
+		goto done;
+	}
+	// Do an RSA public encryption
+	rc = RSA_public_encrypt(in_data_len, in_data, out_data, rsa, RSA_NO_PADDING);
+
+	if (rc != 0) {
+		rc = CKR_OK;
+	} else {
+		st_err_log(4, __FILE__, __LINE__, __FUNCTION__);
+		rc = CKR_FUNCTION_FAILED;
+	}
+	// Clean up after ourselves
+	RSA_free(rsa);
+done:
+	return rc;
+}
+
+CK_RV
+token_specific_rsa_decrypt( CK_BYTE   * in_data,
+		CK_ULONG    in_data_len,
+		CK_BYTE   * out_data,
+		OBJECT    * key_obj )
+{
+	CK_RV               rc;
+	RSA *rsa;
+
+	// Convert the local key representation to an RSA key representaion
+	rsa = (RSA *)rsa_convert_private_key(key_obj);
+	if (rsa == NULL) {
+		st_err_log(4, __FILE__, __LINE__, __FUNCTION__);
+		rc = CKR_FUNCTION_FAILED;
+		goto done;
+	}
+	// Do the private decryption
+	rc = RSA_private_decrypt(in_data_len, in_data, out_data, rsa, RSA_NO_PADDING);
+
+	if (rc != 0) {
+		rc = CKR_OK;
+	} else {
+		st_err_log(4, __FILE__, __LINE__, __FUNCTION__);
+		rc = CKR_FUNCTION_FAILED;
+	}
+
+	// Clean up
+	RSA_free(rsa);
+done:
+	return rc;
+}
+
+
+
+
+/* XXX set out_data_len here, unlike other tokens */
+CK_RV
+token_specific_rsa_oaep_encrypt( CK_BYTE   * in_data,
 		CK_ULONG    in_data_len,
 		CK_BYTE   * out_data,
 		CK_ULONG  * out_data_len,
@@ -2204,30 +2265,6 @@ token_specific_rsa_encrypt( CK_BYTE   * in_data,
 	CK_ATTRIBUTE	*attr;
 	CK_ULONG	key_size;
 	TSS_HENCDATA	hEncData;
-#if 0
-	// Convert the local representation to an RSA representation
-	modulus = rsa_convert_public_key(key_obj);
-	if (modulus == NULL) {
-		st_err_log(4, __FILE__, __LINE__, __FUNCTION__);
-		return rc;
-	}
-
-	result = template_attribute_find( key_obj->template, CKA_MODULUS_BITS, &attr );
-	if (result == FALSE) {
-		LogError("template_attribute_find failed. rc=0x%x", rc);
-		return CKR_FUNCTION_FAILED;
-	}
-	key_size = *(CK_ULONG *)attr->pValue;
-
-	// Do an RSA public encryption
-	LogError("TPM RSA encrypt: in_data_len: 0x%x, key_size: 0x%x", in_data_len, key_size/8);
-	if ((result = Trspi_RSA_Encrypt(in_data, in_data_len, out_data, out_data_len, modulus, key_size/8))) {
-		LogError("Trspi_RSA_Encrypt failed. rc=0x%x", rc);
-		free(modulus);
-		return CKR_FUNCTION_FAILED;
-	}
-	free(modulus);
-#else
 	BYTE		*dataBlob;
 	UINT32		dataBlobSize;
 	TSS_HKEY	hParentKey, hKey;
@@ -2301,7 +2338,7 @@ token_specific_rsa_encrypt( CK_BYTE   * in_data,
 		return CKR_FUNCTION_FAILED;
 	}
 
-	if (dataBlobSize > out_data_len) {
+	if (dataBlobSize > *out_data_len) {
 		LogError("CKR_DATA_LEN_RANGE");
 		free(dataBlob);
 		return CKR_DATA_LEN_RANGE;
@@ -2310,14 +2347,13 @@ token_specific_rsa_encrypt( CK_BYTE   * in_data,
 	memcpy(out_data, dataBlob, dataBlobSize);
 	*out_data_len = dataBlobSize;
 	free(dataBlob);
-#endif
 	return CKR_OK;
 }
 
 
 /* XXX set out_data_len here, unlike other tokens */
 CK_RV
-token_specific_rsa_decrypt( CK_BYTE   * in_data,
+token_specific_rsa_oaep_decrypt( CK_BYTE   * in_data,
 		CK_ULONG    in_data_len,
 		CK_BYTE   * out_data,
 		CK_ULONG  * out_data_len,
@@ -2388,7 +2424,7 @@ token_specific_rsa_decrypt( CK_BYTE   * in_data,
 	/* push the data into the encrypted data object */
 	if ((result = Tspi_Context_CreateObject(tspContext, TSS_OBJECT_TYPE_ENCDATA,
 						TSS_ENCDATA_BIND, &hEncData))) {
-		st_err_log("Tspi_Context_CreateObject");
+		LogError("Tspi_Context_CreateObject failed. rc=0x%x", result);
 		return CKR_FUNCTION_FAILED;
 	}
 
