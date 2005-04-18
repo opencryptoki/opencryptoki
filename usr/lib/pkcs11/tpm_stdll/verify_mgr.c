@@ -97,7 +97,6 @@ verify_mgr_init( SESSION             * sess,
    // is the key allowed to generate signatures?
    //
    switch (mech->mechanism) {
-      case CKM_RSA_X_509:
       case CKM_RSA_PKCS:
          {
             if (mech->ulParameterLen != 0){
@@ -442,11 +441,6 @@ verify_mgr_verify( SESSION             * sess,
                                  in_data,   in_data_len,
                                  signature, sig_len );
 
-      case CKM_RSA_X_509:
-         return rsa_x509_verify( sess,      ctx,
-                                 in_data,   in_data_len,
-                                 signature, sig_len );
-
       case CKM_MD2_RSA_PKCS:
       case CKM_MD5_RSA_PKCS:
       case CKM_SHA1_RSA_PKCS:
@@ -618,11 +612,6 @@ verify_mgr_verify_recover( SESSION             * sess,
    switch (ctx->mech.mechanism) {
       case CKM_RSA_PKCS:
          return rsa_pkcs_verify_recover( sess,      length_only,
-                                         ctx,
-                                         signature, sig_len,
-                                         out_data,  out_len );
-      case CKM_RSA_X_509:
-         return rsa_x509_verify_recover( sess,      length_only,
                                          ctx,
                                          signature, sig_len,
                                          out_data,  out_len );
