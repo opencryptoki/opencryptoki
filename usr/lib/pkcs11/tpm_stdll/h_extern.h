@@ -636,53 +636,6 @@ CK_RV  rsa_pkcs_verify_recover ( SESSION             * sess,
                                  CK_BYTE             * out_data,
                                  CK_ULONG            * out_len );
 
-CK_RV  rsa_pkcs_oaep_verify_recover ( SESSION             * sess,
-                                 CK_BBOOL              length_only,
-                                 SIGN_VERIFY_CONTEXT * ctx,
-                                 CK_BYTE             * signature,
-                                 CK_ULONG              sig_len,
-                                 CK_BYTE             * out_data,
-                                 CK_ULONG            * out_len );
-
-CK_RV  rsa_x509_encrypt ( SESSION           * sess,
-                          CK_BBOOL            length_only,
-                          ENCR_DECR_CONTEXT * ctx,
-                          CK_BYTE           * in_data,
-                          CK_ULONG            in_data_len,
-                          CK_BYTE           * out_data,
-                          CK_ULONG          * out_data_len );
-
-CK_RV  rsa_x509_decrypt ( SESSION           * sess,
-                          CK_BBOOL            length_only,
-                          ENCR_DECR_CONTEXT * ctx,
-                          CK_BYTE           * in_data,
-                          CK_ULONG            in_data_len,
-                          CK_BYTE           * out_data,
-                          CK_ULONG          * out_data_len );
-
-CK_RV  rsa_x509_sign   ( SESSION             * sess,
-                         CK_BBOOL              length_only,
-                         SIGN_VERIFY_CONTEXT * ctx,
-                         CK_BYTE             * in_data,
-                         CK_ULONG              in_data_len,
-                         CK_BYTE             * signature,
-                         CK_ULONG            * sig_len );
-
-CK_RV  rsa_x509_verify ( SESSION             * sess,
-                         SIGN_VERIFY_CONTEXT * ctx,
-                         CK_BYTE             * in_data,
-                         CK_ULONG              in_data_len,
-                         CK_BYTE             * signature,
-                         CK_ULONG              sig_len );
-
-CK_RV  rsa_x509_verify_recover( SESSION             * sess,
-                                 CK_BBOOL              length_only,
-                                 SIGN_VERIFY_CONTEXT * ctx,
-                                 CK_BYTE             * signature,
-                                 CK_ULONG              sig_len,
-                                 CK_BYTE             * out_data,
-                                 CK_ULONG            * out_len );
-
 CK_RV  rsa_hash_pkcs_sign   ( SESSION             * sess,
                               CK_BBOOL              length_only,
                               SIGN_VERIFY_CONTEXT * ctx,
@@ -732,18 +685,6 @@ CK_RV  ckm_rsa_encrypt( CK_BYTE  * in_data,
 CK_RV  ckm_rsa_decrypt( CK_BYTE  * in_data,
                         CK_ULONG   in_data_len,
                         CK_BYTE  * out_data,
-                        OBJECT   * key_obj );
-
-CK_RV  ckm_rsa_oaep_encrypt( CK_BYTE  * in_data,
-                        CK_ULONG   in_data_len,
-                        CK_BYTE  * out_data,
-			CK_ULONG * out_data_len,
-                        OBJECT   * key_obj );
-
-CK_RV  ckm_rsa_oaep_decrypt( CK_BYTE  * in_data,
-                        CK_ULONG   in_data_len,
-                        CK_BYTE  * out_data,
-			CK_ULONG * out_data_len,
                         OBJECT   * key_obj );
 
 CK_RV  ckm_rsa_compute_priv_exp( TEMPLATE *tmpl );
