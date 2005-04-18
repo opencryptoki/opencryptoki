@@ -347,9 +347,7 @@ encr_mgr_init( SESSION           * sess,
          }
          break;
 
-      case CKM_RSA_X_509:
       case CKM_RSA_PKCS:
-      case CKM_RSA_PKCS_OAEP:
          {
             if (mech->ulParameterLen != 0){
                st_err_log(29, __FILE__, __LINE__);
@@ -587,17 +585,6 @@ encr_mgr_encrypt( SESSION           *sess,
                                   in_data,  in_data_len,
                                   out_data, out_data_len );
 
-      case CKM_RSA_PKCS_OAEP:
-         return rsa_pkcs_oaep_encrypt( sess,     length_only,
-                                  ctx,
-                                  in_data,  in_data_len,
-                                  out_data, out_data_len );
-
-      case CKM_RSA_X_509:
-         return rsa_x509_encrypt( sess,     length_only,
-                                  ctx,
-                                  in_data,  in_data_len,
-                                  out_data, out_data_len );
 #ifndef NOAES
       case CKM_AES_CBC:
 	 return aes_cbc_encrypt( sess,     length_only,
