@@ -96,7 +96,6 @@ sign_mgr_init( SESSION                * sess,
    // is the key allowed to generate signatures?
    //
    switch (mech->mechanism) {
-      case CKM_RSA_X_509:
       case CKM_RSA_PKCS:
          {
             if (mech->ulParameterLen != 0){
@@ -458,11 +457,6 @@ sign_mgr_sign( SESSION              * sess,
                                in_data,  in_data_len,
                                out_data, out_data_len );
 
-      case CKM_RSA_X_509:
-         return rsa_x509_sign( sess,     length_only,  ctx,
-                               in_data,  in_data_len,
-                               out_data, out_data_len );
-
 #if !(NOMD2)
       case CKM_MD2_RSA_PKCS:
 #endif
@@ -642,11 +636,6 @@ sign_mgr_sign_recover( SESSION             * sess,
          // we can use the same sign mechanism to do sign-recover
          //
          return rsa_pkcs_sign( sess,     length_only,  ctx,
-                               in_data,  in_data_len,
-                               out_data, out_data_len );
-
-      case CKM_RSA_X_509:
-         return rsa_x509_sign( sess,     length_only,  ctx,
                                in_data,  in_data_len,
                                out_data, out_data_len );
 
