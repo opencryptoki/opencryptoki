@@ -71,8 +71,10 @@ case $target in
 		AM_CONDITIONAL(S390, false) ;;
 esac
 
-AC_SUBST(CONFIG_PATH, /etc/pkcs11)
-AC_SUBST(DB_PATH, /etc/pkcs11)
+dnl AC_SUBST(CONFIG_PATH, /etc/pkcs11)
+AC_SUBST(CONFIG_PATH, $prefix/var/lib/pkcs11)
+dnl AC_SUBST(DB_PATH, /etc/pkcs11)
+AC_SUBST(DB_PATH, $prefix/var/lib/pkcs11)
 AC_SUBST(STDLL_PATH, $LIB_PATH/stdll)
 AC_SUBST(CONFIG_FILE, pk_config_data)
 AC_SUBST(METHOD_PATH, $prefix/sbin)
