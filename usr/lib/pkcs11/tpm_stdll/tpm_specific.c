@@ -1814,7 +1814,7 @@ token_specific_tdes_cbc(CK_BYTE * in_data,
 /* wrap the 20 bytes of auth data @authData and store in an attribute of the two
  * keys.
  */
-CK_RV
+	CK_RV
 token_wrap_auth_data(CK_BYTE *authData, TEMPLATE *publ_tmpl, TEMPLATE *priv_tmpl)
 {
 	CK_RV		rc;
@@ -1836,7 +1836,7 @@ token_wrap_auth_data(CK_BYTE *authData, TEMPLATE *publ_tmpl, TEMPLATE *priv_tmpl
 
 	/* create the encrypted data object */
 	if ((rc = Tspi_Context_CreateObject(tspContext, TSS_OBJECT_TYPE_ENCDATA,
-						TSS_ENCDATA_BIND, &hEncData))) {
+					TSS_ENCDATA_BIND, &hEncData))) {
 		LogError("Tspi_Context_CreateObject failed. rc=0x%x", rc);
 		return rc;
 	}
@@ -1867,7 +1867,7 @@ token_wrap_auth_data(CK_BYTE *authData, TEMPLATE *publ_tmpl, TEMPLATE *priv_tmpl
 
 CK_RV
 token_unwrap_auth_data(CK_BYTE *encAuthData, CK_ULONG encAuthDataLen, TSS_HKEY hKey,
-			BYTE **authData)
+		BYTE **authData)
 {
 	TSS_RESULT	result;
 	TSS_HENCDATA	hEncData;
@@ -1875,14 +1875,14 @@ token_unwrap_auth_data(CK_BYTE *encAuthData, CK_ULONG encAuthDataLen, TSS_HKEY h
 	UINT32		buf_size;
 
 	if ((result = Tspi_Context_CreateObject(tspContext, TSS_OBJECT_TYPE_ENCDATA,
-						TSS_ENCDATA_BIND, &hEncData))) {
+					TSS_ENCDATA_BIND, &hEncData))) {
 		LogError("Tspi_Context_CreateObject failed. rc=0x%x", result);
 		return CKR_FUNCTION_FAILED;
 	}
 
 	if ((result = Tspi_SetAttribData(hEncData, TSS_TSPATTRIB_ENCDATA_BLOB,
-					 TSS_TSPATTRIB_ENCDATABLOB_BLOB, encAuthDataLen,
-					 encAuthData))) {
+					TSS_TSPATTRIB_ENCDATABLOB_BLOB, encAuthDataLen,
+					encAuthData))) {
 		LogError("Tspi_SetAttribData failed. rc=0x%x", result);
 		return CKR_FUNCTION_FAILED;
 	}
@@ -1906,7 +1906,7 @@ token_unwrap_auth_data(CK_BYTE *encAuthData, CK_ULONG encAuthDataLen, TSS_HKEY h
 // convert from the local PKCS11 template representation to
 // the underlying requirement
 // returns the pointer to the local key representation
-CK_BYTE *
+	CK_BYTE *
 rsa_convert_public_key(OBJECT *key_obj)
 {
 	CK_ATTRIBUTE	*modulus = NULL;
@@ -1927,100 +1927,6 @@ rsa_convert_public_key(OBJECT *key_obj)
 	memcpy(ret, modulus->pValue, modulus->ulValueLen);
 
 	return ret;
-}
-
-void *
-rsa_convert_private_key(OBJECT *key_obj)
-{
-	CK_ATTRIBUTE      * modulus  = NULL;
-	CK_ATTRIBUTE      * priv_exp = NULL;
-	CK_ATTRIBUTE      * prime1   = NULL;
-	CK_ATTRIBUTE      * prime2   = NULL;
-	CK_ATTRIBUTE      * exp1     = NULL;
-	CK_ATTRIBUTE      * exp2     = NULL;
-	CK_ATTRIBUTE      * coeff    = NULL;
-	CK_BBOOL          rc;
-
-	RSA *rsa;
-	BIGNUM *bn_mod, *bn_priv_exp, *bn_p1, *bn_p2, *bn_e1, *bn_e2, *bn_cf;
-
-
-	rc  = template_attribute_find( key_obj->template, CKA_MODULUS,          &modulus );
-	rc &= template_attribute_find( key_obj->template, CKA_PRIVATE_EXPONENT, &priv_exp );
-	rc &= template_attribute_find( key_obj->template, CKA_PRIME_1,          &prime1 );
-	rc &= template_attribute_find( key_obj->template, CKA_PRIME_2,          &prime2 );
-	rc &= template_attribute_find( key_obj->template, CKA_EXPONENT_1,       &exp1 );
-	rc &= template_attribute_find( key_obj->template, CKA_EXPONENT_2,       &exp2 );
-	rc &= template_attribute_find( key_obj->template, CKA_COEFFICIENT,      &coeff );
-
-	if ( !prime2 && !modulus ){
-		return NULL;
-	}
-
-	// Create and init all the RSA and BIGNUM structs we need.
-	rsa = RSA_new();
-	if (rsa == NULL)
-		return NULL;
-	RSA_blinding_off(rsa);
-
-	bn_mod = BN_new();
-	bn_priv_exp = BN_new();
-	bn_p1 = BN_new();
-	bn_p2 = BN_new();
-	bn_e1 = BN_new();
-	bn_e2 = BN_new();
-	bn_cf = BN_new();
-
-	if ((bn_cf == NULL) || (bn_e2 == NULL) || (bn_e1 == NULL) ||
-			(bn_p2 == NULL) || (bn_p1 == NULL) || (bn_priv_exp == NULL) ||
-			(bn_mod == NULL))
-	{
-		if (rsa)         RSA_free(rsa);
-		if (bn_mod)      BN_free(bn_mod);
-		if (bn_priv_exp) BN_free(bn_priv_exp);
-		if (bn_p1)       BN_free(bn_p1);
-		if (bn_p2)       BN_free(bn_p2);
-		if (bn_e1)       BN_free(bn_e1);
-		if (bn_e2)       BN_free(bn_e2);
-		if (bn_cf)       BN_free(bn_cf);
-		return NULL;
-	}
-
-
-	// CRT key?
-	if ( prime1){
-		if (!prime2 || !exp1 ||!exp2 || !coeff) {
-			return NULL;
-		}
-		// Even though this is CRT key, OpenSSL requires the
-		// modulus and exponents filled in or encrypt and decrypt will
-		// not work
-		BN_bin2bn((char *)modulus->pValue, modulus->ulValueLen, bn_mod);
-		rsa->n = bn_mod;
-		BN_bin2bn((char *)priv_exp->pValue, priv_exp->ulValueLen, bn_priv_exp);
-		rsa->d = bn_priv_exp;
-		BN_bin2bn((char *)prime1->pValue, prime1->ulValueLen, bn_p1);
-		rsa->p = bn_p1;
-		BN_bin2bn((char *)prime2->pValue, prime2->ulValueLen, bn_p2);
-		rsa->q = bn_p2;
-		BN_bin2bn((char *)exp1->pValue, exp1->ulValueLen, bn_e1);
-		rsa->dmp1 = bn_e1;
-		BN_bin2bn((char *)exp2->pValue, exp2->ulValueLen, bn_e2);
-		rsa->dmq1 = bn_e2;
-		BN_bin2bn((char *)coeff->pValue, coeff->ulValueLen, bn_cf);
-		rsa->iqmp = bn_cf;
-
-		return rsa;
-	} else {   // must be a non-CRT key
-		if (!priv_exp) {
-			return NULL;
-		}
-		BN_bin2bn((char *)modulus->pValue, modulus->ulValueLen, bn_mod);
-		rsa->n = bn_mod;
-		BN_bin2bn((char *)priv_exp->pValue, priv_exp->ulValueLen, bn_priv_exp);
-		rsa->d = bn_priv_exp;
-	}
-	return (void *)rsa;
 }
 
 CK_RV
@@ -2139,7 +2045,7 @@ token_specific_rsa_generate_keypair( TEMPLATE  * publ_tmpl,
 
 	/* grab the public key to put into the public key object */
 	result = Tspi_GetAttribData(hKey, TSS_TSPATTRIB_KEY_BLOB, TSS_TSPATTRIB_KEYBLOB_PUBLIC_KEY,
-					&ulBlobLen, &rgbBlob);
+			&ulBlobLen, &rgbBlob);
 	if (result != TSS_SUCCESS) {
 		LogError("Tspi_GetAttribData failed with rc: 0x%x", result);
 		return result;
@@ -2158,7 +2064,7 @@ token_specific_rsa_generate_keypair( TEMPLATE  * publ_tmpl,
 
 	/* grab the private key to put into the private key object */
 	result = Tspi_GetAttribData(hKey, TSS_TSPATTRIB_KEY_BLOB, TSS_TSPATTRIB_KEYBLOB_PRIVATE_KEY,
-					&ulBlobLen, &rgbBlob);
+			&ulBlobLen, &rgbBlob);
 	if (result != TSS_SUCCESS) {
 		LogError("Tspi_GetAttribData failed with rc: 0x%x", result);
 		return result;
@@ -2186,75 +2092,108 @@ token_specific_rsa_generate_keypair( TEMPLATE  * publ_tmpl,
 	return rc;
 }
 
-CK_RV
-token_specific_rsa_encrypt( CK_BYTE   * in_data,
-		CK_ULONG    in_data_len,
-		CK_BYTE   * out_data,
-		OBJECT    * key_obj )
-{
-	CK_RV               rc;
-	RSA *rsa;
-
-	// Convert the local representation to an RSA representation
-	rsa = (RSA *)rsa_convert_public_key(key_obj);
-	if (rsa==NULL) {
-		st_err_log(4, __FILE__, __LINE__, __FUNCTION__);
-		rc = CKR_FUNCTION_FAILED;
-		goto done;
-	}
-	// Do an RSA public encryption
-	rc = RSA_public_encrypt(in_data_len, in_data, out_data, rsa, RSA_NO_PADDING);
-
-	if (rc != 0) {
-		rc = CKR_OK;
-	} else {
-		st_err_log(4, __FILE__, __LINE__, __FUNCTION__);
-		rc = CKR_FUNCTION_FAILED;
-	}
-	// Clean up after ourselves
-	RSA_free(rsa);
-done:
-	return rc;
-}
 
 CK_RV
 token_specific_rsa_decrypt( CK_BYTE   * in_data,
 		CK_ULONG    in_data_len,
 		CK_BYTE   * out_data,
+		CK_ULONG  * out_data_len,
 		OBJECT    * key_obj )
 {
-	CK_RV               rc;
-	RSA *rsa;
+	CK_RV           rc;
+	CK_ATTRIBUTE    *attr;
+	TSS_RESULT      result;
+	TSS_HKEY        hParentKey, hKey;
+	TSS_HENCDATA    hEncData = NULL_HENCDATA;
+	TSS_HPOLICY     hPolicy = NULL_HPOLICY;
+	UINT32          buf_size = 0;
+	BYTE            *buf = NULL, *authData = NULL;
+	BYTE            debug_sha[SHA1_HASH_SIZE];
 
-	// Convert the local key representation to an RSA key representaion
-	rsa = (RSA *)rsa_convert_private_key(key_obj);
-	if (rsa == NULL) {
-		st_err_log(4, __FILE__, __LINE__, __FUNCTION__);
-		rc = CKR_FUNCTION_FAILED;
-		goto done;
-	}
-	// Do the private decryption
-	rc = RSA_private_decrypt(in_data_len, in_data, out_data, rsa, RSA_NO_PADDING);
-
-	if (rc != 0) {
-		rc = CKR_OK;
+	if ((hUserLeafKey == NULL_HKEY) && (hMigLeafKey == NULL_HKEY)) {
+		hParentKey = hPubRootKey;
+	} else if (hMigLeafKey != NULL_HKEY) {
+		hParentKey = hMigRootKey;
 	} else {
-		st_err_log(4, __FILE__, __LINE__, __FUNCTION__);
-		rc = CKR_FUNCTION_FAILED;
+		hParentKey = hUserBaseKey;
 	}
 
-	// Clean up
-	RSA_free(rsa);
-done:
-	return rc;
+	if ((rc = template_attribute_find( key_obj->template, CKA_KEY_BLOB, &attr )) == FALSE) {
+		LogError1("template_attribute_find failed.");
+		return CKR_FUNCTION_FAILED;
+	}
+
+	if ((result = Tspi_Context_LoadKeyByBlob(tspContext, hParentKey, attr->ulValueLen,
+					attr->pValue, &hKey))) {
+		LogError("Tspi_Context_LoadKeyByBlob failed. rc=0x%x", result);
+		return CKR_FUNCTION_FAILED;
+	}
+
+	/* auth data may be required */
+	if (template_attribute_find( key_obj->template, CKA_ENC_AUTHDATA, &attr) == TRUE && attr) {
+		if ((result = Tspi_GetPolicyObject(hKey, TSS_POLICY_USAGE, &hPolicy))) {
+			LogError("Tspi_GetPolicyObject: 0x%x", result);
+			return CKR_FUNCTION_FAILED;
+		}
+
+		if ((hUserLeafKey == NULL_HKEY) && (hMigLeafKey == NULL_HKEY)) {
+			LogError("Shouldn't be in a public session here");
+		} else if (hMigLeafKey != NULL_HKEY) {
+			hParentKey = hMigLeafKey;
+		} else {
+			hParentKey = hUserLeafKey;
+		}
+
+		if ((result = token_unwrap_auth_data(attr->pValue, attr->ulValueLen, hParentKey, &authData))) {
+			LogError("token_unwrap_auth_data: 0x%x", result);
+			return CKR_FUNCTION_FAILED;
+		}
+
+		if ((result = Tspi_Policy_SetSecret(hPolicy, TSS_SECRET_MODE_SHA1, SHA1_HASH_SIZE,
+						authData))) {
+			LogError("Tspi_Policy_SetSecret failed. rc=0x%x", result);
+			return CKR_FUNCTION_FAILED;
+		}
+
+		Tspi_Context_FreeMemory(tspContext, authData);
+	}
+
+	/* push the data into the encrypted data object */
+	if ((result = Tspi_Context_CreateObject(tspContext, TSS_OBJECT_TYPE_ENCDATA,
+					TSS_ENCDATA_BIND, &hEncData))) {
+		LogError("Tspi_Context_CreateObject failed. rc=0x%x", result);
+		return CKR_FUNCTION_FAILED;
+	}
+
+	if ((result = Tspi_SetAttribData(hEncData, TSS_TSPATTRIB_ENCDATA_BLOB,
+					TSS_TSPATTRIB_ENCDATABLOB_BLOB, in_data_len, in_data))) {
+		LogError("Tspi_SetAttribData failed. rc=0x%x", result);
+		return CKR_FUNCTION_FAILED;
+	}
+
+	/* unbind the data, receiving the plaintext back */
+	LogError("unbinding data with size: %d", in_data_len);
+	if ((result = Tspi_Data_Unbind(hEncData, hKey, &buf_size, &buf))) {
+		LogError("Tspi_Data_Unbind failed: 0x%x", result);
+		return CKR_FUNCTION_FAILED;
+	}
+
+	if (*out_data_len < buf_size) {
+		st_err_log(111, __FILE__, __LINE__);
+		Tspi_Context_FreeMemory(tspContext, buf);
+		return CKR_BUFFER_TOO_SMALL;
+	}
+
+	memcpy(out_data, buf, buf_size);
+	*out_data_len = buf_size;
+
+	Tspi_Context_FreeMemory(tspContext, buf);
+	return CKR_OK;
 }
 
 
-
-
-/* XXX set out_data_len here, unlike other tokens */
 CK_RV
-token_specific_rsa_oaep_encrypt( CK_BYTE   * in_data,
+token_specific_rsa_encrypt( CK_BYTE   * in_data,
 		CK_ULONG    in_data_len,
 		CK_BYTE   * out_data,
 		CK_ULONG  * out_data_len,
@@ -2289,8 +2228,6 @@ token_specific_rsa_oaep_encrypt( CK_BYTE   * in_data,
 		LogError("template_attribute_find failed. rc=0x%x", result);
 		return CKR_FUNCTION_FAILED;
 	}
-
-	compute_sha(attr->pValue, attr->ulValueLen, debug_sha);
 
 	if ((result = Tspi_Context_LoadKeyByBlob(tspContext, hParentKey, (UINT32)attr->ulValueLen,
 					(BYTE *)attr->pValue, &hKey))) {
@@ -2347,110 +2284,6 @@ token_specific_rsa_oaep_encrypt( CK_BYTE   * in_data,
 	memcpy(out_data, dataBlob, dataBlobSize);
 	*out_data_len = dataBlobSize;
 	free(dataBlob);
-	return CKR_OK;
-}
-
-
-/* XXX set out_data_len here, unlike other tokens */
-CK_RV
-token_specific_rsa_oaep_decrypt( CK_BYTE   * in_data,
-		CK_ULONG    in_data_len,
-		CK_BYTE   * out_data,
-		CK_ULONG  * out_data_len,
-		OBJECT    * key_obj )
-{
-	CK_RV		rc;
-	CK_ATTRIBUTE	*attr;
-
-	TSS_RESULT	result;
-	TSS_HKEY	hParentKey, hKey;
-	TSS_HENCDATA	hEncData = NULL_HENCDATA;
-	TSS_HPOLICY	hPolicy = NULL_HPOLICY;
-	UINT32		buf_size = 0;
-	BYTE		*buf = NULL, *authData = NULL;
-	BYTE		debug_sha[SHA1_HASH_SIZE];
-
-	if ((hUserLeafKey == NULL_HKEY) && (hMigLeafKey == NULL_HKEY)) {
-		hParentKey = hPubRootKey;
-	} else if (hMigLeafKey != NULL_HKEY) {
-		hParentKey = hMigRootKey;
-	} else {
-		hParentKey = hUserBaseKey;
-	}
-
-	rc  = template_attribute_find( key_obj->template, CKA_KEY_BLOB, &attr );
-	if (rc == FALSE) {
-		LogError("template_attribute_find failed. rc=0x%x", rc);
-		return CKR_FUNCTION_FAILED;
-	}
-
-	compute_sha(attr->pValue, attr->ulValueLen, debug_sha);
-
-	if ((result = Tspi_Context_LoadKeyByBlob(tspContext, hParentKey, attr->ulValueLen,
-						 attr->pValue, &hKey))) {
-		LogError("Tspi_Context_LoadKeyByBlob failed. rc=0x%x", result);
-		return CKR_FUNCTION_FAILED;
-	}
-
-	/* auth data may be required */
-	if (template_attribute_find( key_obj->template, CKA_ENC_AUTHDATA, &attr) == TRUE && attr) {
-		if ((result = Tspi_GetPolicyObject(hKey, TSS_POLICY_USAGE, &hPolicy))) {
-			LogError("Tspi_GetPolicyObject: 0x%x", result);
-			return CKR_FUNCTION_FAILED;
-		}
-
-		if ((hUserLeafKey == NULL_HKEY) && (hMigLeafKey == NULL_HKEY)) {
-			LogError("Shouldn't be in a public session here");
-		} else if (hMigLeafKey != NULL_HKEY) {
-			hParentKey = hMigLeafKey;
-		} else {
-			hParentKey = hUserLeafKey;
-		}
-
-		if ((result = token_unwrap_auth_data(attr->pValue, attr->ulValueLen, hParentKey, &authData))) {
-			LogError("token_unwrap_auth_data: 0x%x", result);
-			return CKR_FUNCTION_FAILED;
-		}
-
-		if ((result = Tspi_Policy_SetSecret(hPolicy, TSS_SECRET_MODE_SHA1, SHA1_HASH_SIZE,
-						authData))) {
-			LogError("Tspi_Policy_SetSecret failed. rc=0x%x", result);
-			return CKR_FUNCTION_FAILED;
-		}
-
-		Tspi_Context_FreeMemory(tspContext, authData);
-	}
-
-	/* push the data into the encrypted data object */
-	if ((result = Tspi_Context_CreateObject(tspContext, TSS_OBJECT_TYPE_ENCDATA,
-						TSS_ENCDATA_BIND, &hEncData))) {
-		LogError("Tspi_Context_CreateObject failed. rc=0x%x", result);
-		return CKR_FUNCTION_FAILED;
-	}
-
-	if ((result = Tspi_SetAttribData(hEncData, TSS_TSPATTRIB_ENCDATA_BLOB,
-					 TSS_TSPATTRIB_ENCDATABLOB_BLOB, in_data_len, in_data))) {
-		LogError("Tspi_SetAttribData failed. rc=0x%x", result);
-		return CKR_FUNCTION_FAILED;
-	}
-
-	/* unbind the data, receiving the plaintext back */
-	LogError("unbinding data with size: %d", in_data_len);
-	if ((result = Tspi_Data_Unbind(hEncData, hKey, &buf_size, &buf))) {
-		LogError("Tspi_Data_Unbind failed: 0x%x", result);
-		return CKR_FUNCTION_FAILED;
-	}
-
-	if (*out_data_len < buf_size) {
-		st_err_log(111, __FILE__, __LINE__);
-		Tspi_Context_FreeMemory(tspContext, buf);
-		return CKR_BUFFER_TOO_SMALL;
-	}
-
-	memcpy(out_data, buf, buf_size);
-	*out_data_len = buf_size;
-
-	Tspi_Context_FreeMemory(tspContext, buf);
 
 	return CKR_OK;
 }
@@ -2752,7 +2585,6 @@ token_specific_dh_pkcs_key_pair_gen( TEMPLATE  * publ_tmpl,
 
 	return CKR_OK ;
 
-} /* end token_specific_dh_key_pair_gen() */
-/* End code contributed by Corrent corp. */
+}
 
 
