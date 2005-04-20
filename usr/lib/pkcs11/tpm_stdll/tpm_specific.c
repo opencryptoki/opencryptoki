@@ -197,8 +197,6 @@ token_find_key(int key_type, CK_OBJECT_HANDLE *handle)
 	memcpy( &hObj, dummy_sess.find_list + dummy_sess.find_idx, ulObjCount * sizeof(CK_OBJECT_HANDLE) );
 	dummy_sess.find_idx += ulObjCount;
 
-	/* there should be 2 keys with this ID, the public and private. All we care about is
-	 * the private, since the blob is in there */
 	if (ulObjCount > 1) {
 		LogError1("More than one matching key found in the store!");
 		rc = CKR_KEY_NOT_FOUND;
@@ -560,7 +558,6 @@ token_store_priv_key(TSS_HKEY hKey, int key_type, CK_OBJECT_HANDLE *ckKey)
 	}
 	template_update_attribute( priv_key_obj->template, new_attr );
 
-	/* make the object public, since the SO only has access to public token objects */
 	flag = FALSE;
 	rc = build_attribute( CKA_PRIVATE, &flag, sizeof(CK_BBOOL), &new_attr );
 	if (rc != CKR_OK){
@@ -730,6 +727,7 @@ token_generate_key(TSS_FLAGS initFlags, int key_type, CK_CHAR_PTR passHash, TSS_
 			hParentKey = hUserBaseKey;
 			ckKey = &ckUserBaseKey;
 			break;
+#if 0
 		case TPMTOK_USER_KEY:
 			initFlags |= TSS_KEY_MIGRATABLE | TSS_KEY_AUTHORIZATION;
 			hParentKey = hUserBaseKey;
@@ -738,6 +736,7 @@ token_generate_key(TSS_FLAGS initFlags, int key_type, CK_CHAR_PTR passHash, TSS_
 			initFlags |= TSS_KEY_MIGRATABLE | TSS_KEY_AUTHORIZATION;
 			hParentKey = hMigRootKey;
 			break;
+#endif
 		default:
 			LogError1("Oh NO");
 			goto done;
@@ -1949,7 +1948,6 @@ token_specific_rsa_generate_keypair( TEMPLATE  * publ_tmpl,
 	TSS_RESULT	result;
 	UINT32		ulBlobLen;
 	BYTE		*rgbBlob;
-	BYTE		debug_sha[SHA1_HASH_SIZE];
 
 	//LogError("Generating RSA keypair on the TPM...");
 
@@ -2024,8 +2022,6 @@ token_specific_rsa_generate_keypair( TEMPLATE  * publ_tmpl,
 		return CKR_FUNCTION_FAILED;
 	}
 
-	compute_sha(rgbBlob, ulBlobLen, debug_sha);
-
 	rc = build_attribute(CKA_KEY_BLOB, rgbBlob, ulBlobLen, &attr);
 	if (rc != CKR_OK){
 		st_err_log(84, __FILE__, __LINE__);
@@ -2087,8 +2083,6 @@ token_specific_rsa_generate_keypair( TEMPLATE  * publ_tmpl,
 		}
 	}
 
-	Tspi_Context_FreeMemory(tspContext, rgbBlob);
-
 	return rc;
 }
 
@@ -2108,7 +2102,6 @@ token_specific_rsa_decrypt( CK_BYTE   * in_data,
 	TSS_HPOLICY     hPolicy = NULL_HPOLICY;
 	UINT32          buf_size = 0;
 	BYTE            *buf = NULL, *authData = NULL;
-	BYTE            debug_sha[SHA1_HASH_SIZE];
 
 	if ((hUserLeafKey == NULL_HKEY) && (hMigLeafKey == NULL_HKEY)) {
 		hParentKey = hPubRootKey;
@@ -2207,7 +2200,7 @@ token_specific_rsa_encrypt( CK_BYTE   * in_data,
 	BYTE		*dataBlob;
 	UINT32		dataBlobSize;
 	TSS_HKEY	hParentKey, hKey;
-	BYTE		debug_sha[SHA1_HASH_SIZE], *authData = NULL;
+	BYTE		*authData = NULL;
 	TSS_HPOLICY	hPolicy;
 
 	if ((hUserLeafKey == NULL_HKEY) && (hMigLeafKey == NULL_HKEY)) {
@@ -2277,13 +2270,13 @@ token_specific_rsa_encrypt( CK_BYTE   * in_data,
 
 	if (dataBlobSize > *out_data_len) {
 		LogError("CKR_DATA_LEN_RANGE");
-		free(dataBlob);
+		Tspi_Context_FreeMemory(tspContext, dataBlob);
 		return CKR_DATA_LEN_RANGE;
 	}
 
 	memcpy(out_data, dataBlob, dataBlobSize);
 	*out_data_len = dataBlobSize;
-	free(dataBlob);
+	Tspi_Context_FreeMemory(tspContext, dataBlob);
 
 	return CKR_OK;
 }
