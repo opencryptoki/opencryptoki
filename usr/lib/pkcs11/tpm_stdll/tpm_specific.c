@@ -411,7 +411,7 @@ tss_get_key_blob(TSS_HKEY hKey, UINT32 *ulBlobLen,  BYTE **rgbBlob)
 	TSS_RESULT result;
 
 	if ((result = Tspi_GetAttribData(hKey, TSS_TSPATTRIB_KEY_BLOB, TSS_TSPATTRIB_KEYBLOB_BLOB,
-				ulBlobLen, rgbBlob) != TSS_SUCCESS)) {
+				ulBlobLen, rgbBlob))) {
 		LogError("Tspi_GetAttribData failed with rc: 0x%x", result);
 	}
 
@@ -619,10 +619,10 @@ token_store_pub_key(TSS_HKEY hKey, int key_type, CK_OBJECT_HANDLE *ckKey)
 	if (rc != CKR_OK) {
 		LogError("object_mgr_create_skel: 0x%x", rc);
 		Tspi_Context_CloseObject(tspContext, hKey);
-		Tspi_Context_FreeMemory(tspContext, rgbPubBlob);
 		free(key_id);
 		return rc;
 	}
+	Tspi_Context_FreeMemory(tspContext, rgbPubBlob);
 
 	/* make the object reside on the token, as if that were possible */
 	rc = build_attribute( CKA_TOKEN, &flag, sizeof(CK_BBOOL), &new_attr );
@@ -832,13 +832,7 @@ token_generate_sw_key(char *filename, CK_BYTE *pPin, TSS_HKEY hParentKey, TSS_HK
 	dig_offset = 0;
 	Trspi_LoadBlob_PRIVKEY_DIGEST(&dig_offset, blob_for_digest, &key);
 
-	result = Tspi_Context_FreeMemory(tspContext, blob);
-	if (result != TSS_SUCCESS) {
-		LogError("Tspi_Context_FreeMemory: 0x%x", result);
-		Tspi_Context_CloseObject(tspContext, *phKey);
-		*phKey = NULL_HKEY;
-		return CKR_FUNCTION_FAILED;
-	}
+	Tspi_Context_FreeMemory(tspContext, blob);
 
 	/* blob_for_digest now has the correct data in it, create the digest */
 	Trspi_Hash(TSS_HASH_SHA1, dig_offset, blob_for_digest, &digest.digest);
@@ -864,20 +858,14 @@ token_generate_sw_key(char *filename, CK_BYTE *pPin, TSS_HKEY hParentKey, TSS_HK
 
 	if (Trspi_RSA_Encrypt(priv_key, priv_key_len, enc_priv_key, &priv_key_len,
 				blob, blob_size)) {
-		LogError("Tspi_Context_FreeMemory: 0x%x", result);
+		LogError("Trspi_RSA_Encrypt: 0x%x", result);
 		Tspi_Context_CloseObject(tspContext, *phKey);
 		Tspi_Context_FreeMemory(tspContext, blob);
 		*phKey = NULL_HKEY;
 		return CKR_FUNCTION_FAILED;
 	}
 
-	result = Tspi_Context_FreeMemory(tspContext, blob);
-	if (result != TSS_SUCCESS) {
-		LogError("Tspi_Context_FreeMemory: 0x%x", result);
-		Tspi_Context_CloseObject(tspContext, *phKey);
-		*phKey = NULL_HKEY;
-		return CKR_FUNCTION_FAILED;
-	}
+	Tspi_Context_FreeMemory(tspContext, blob);
 
 	result = Tspi_SetAttribData(*phKey, TSS_TSPATTRIB_KEY_BLOB,
 			TSS_TSPATTRIB_KEYBLOB_PRIVATE_KEY, priv_key_len, enc_priv_key);
@@ -1813,7 +1801,7 @@ token_specific_tdes_cbc(CK_BYTE * in_data,
 /* wrap the 20 bytes of auth data @authData and store in an attribute of the two
  * keys.
  */
-	CK_RV
+CK_RV
 token_wrap_auth_data(CK_BYTE *authData, TEMPLATE *publ_tmpl, TEMPLATE *priv_tmpl)
 {
 	CK_RV		rc;
@@ -1859,6 +1847,12 @@ token_wrap_auth_data(CK_BYTE *authData, TEMPLATE *publ_tmpl, TEMPLATE *priv_tmpl
 		return rc;
 	}
 	template_update_attribute( publ_tmpl, new_attr );
+
+	rc = build_attribute( CKA_ENC_AUTHDATA, blob, blob_size, &new_attr );
+	if (rc != CKR_OK){
+		st_err_log(84, __FILE__, __LINE__);
+		return rc;
+	}
 	template_update_attribute( priv_tmpl, new_attr );
 
 	return rc;
@@ -1905,7 +1899,7 @@ token_unwrap_auth_data(CK_BYTE *encAuthData, CK_ULONG encAuthDataLen, TSS_HKEY h
 // convert from the local PKCS11 template representation to
 // the underlying requirement
 // returns the pointer to the local key representation
-	CK_BYTE *
+CK_BYTE *
 rsa_convert_public_key(OBJECT *key_obj)
 {
 	CK_ATTRIBUTE	*modulus = NULL;
