@@ -372,8 +372,8 @@ token_load_prk()
 TSS_RESULT
 tss_generate_key(TSS_FLAGS initFlags, BYTE *passHash, TSS_HKEY hParentKey, TSS_HKEY *phKey)
 {
-	TSS_RESULT result;
-	TSS_HPOLICY hPolicy;
+	TSS_RESULT	result;
+	TSS_HPOLICY	hPolicy;
 
 	if ((result = Tspi_Context_CreateObject(tspContext, TSS_OBJECT_TYPE_RSAKEY, initFlags, phKey))) {
 		LogError("Tspi_Context_CreateObject failed with rc: %x", result);
@@ -395,6 +395,24 @@ tss_generate_key(TSS_FLAGS initFlags, BYTE *passHash, TSS_HKEY hParentKey, TSS_H
 		LogError("Tspi_Policy_SetSecret failed with rc: 0x%x", result);
 		Tspi_Context_CloseObject(tspContext, *phKey);
 		return result;
+	}
+
+	if (initFlags & TSS_KEY_TYPE_LEGACY) {
+		if ((result = Tspi_SetAttribUint32(*phKey, TSS_TSPATTRIB_KEY_INFO,
+							TSS_TSPATTRIB_KEYINFO_ENCSCHEME,
+							TSS_ES_RSAESPKCSV15))) {
+			LogError("Tspi_SetAttribUint32 failed. rc=0x%x", result);
+			Tspi_Context_CloseObject(tspContext, *phKey);
+			return result;
+		}
+
+		if ((result = Tspi_SetAttribUint32(*phKey, TSS_TSPATTRIB_KEY_INFO,
+							TSS_TSPATTRIB_KEYINFO_SIGSCHEME,
+							TSS_SS_RSASSAPKCS1V15_DER))) {
+			LogError("Tspi_SetAttribUint32 failed. rc=0x%x", result);
+			Tspi_Context_CloseObject(tspContext, *phKey);
+			return result;
+		}
 	}
 
 	if ((result = Tspi_Key_CreateKey(*phKey, hParentKey, 0))) {
