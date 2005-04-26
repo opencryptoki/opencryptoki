@@ -771,7 +771,7 @@ init_token_data( void )
    //
    // FIXME: erase the token object index file (and all token objects)
    //
-
+#if 0
    rc  = rng_generate( master_key, 3 * DES_KEY_SIZE );
    if (rc != CKR_OK){
       st_err_log(4, __FILE__, __LINE__, __FUNCTION__); 
@@ -782,6 +782,7 @@ init_token_data( void )
       st_err_log(4, __FILE__, __LINE__, __FUNCTION__); 
       return CKR_FUNCTION_FAILED;
    }
+#endif
    rc = save_token_data();
    if (rc != CKR_OK)
       st_err_log(4, __FILE__, __LINE__, __FUNCTION__); 

@@ -833,13 +833,13 @@ CK_RV SC_InitToken( CK_SLOT_ID   sid,
       rc = CKR_PIN_INCORRECT;
       goto done;
    }
-#endif
    rc  = rng_generate( master_key, 3 * DES_KEY_SIZE );
    if (rc != CKR_OK) {
       st_err_log(4, __FILE__, __LINE__, __FUNCTION__);
       rc = CKR_FUNCTION_FAILED;
       goto done;
    }
+#endif
 
    // Before we reconstruct all the data, we should delete the
    // token objects from the filesystem.
@@ -869,11 +869,13 @@ CK_RV SC_InitToken( CK_SLOT_ID   sid,
       st_err_log(104, __FILE__, __LINE__, __FUNCTION__);
       goto done;
    }
+#if 0
    rc = save_masterkey_so();
    if (rc != CKR_OK){
       st_err_log(149, __FILE__, __LINE__, __FUNCTION__);
       goto done;
    }
+#endif
 
 done:
    LLOCK;
