@@ -26,8 +26,6 @@
 #include <unistd.h>
 #include <errno.h>
 #include <string.h>
-#include <pwd.h>
-#include <grp.h>
 
 #include <openssl/rsa.h>
 
@@ -69,59 +67,41 @@ util_create_id(int type)
 	int size = 0;
 
 	switch (type) {
-		case TPMTOK_PUB_ROOT_KEY:
-			size = TPMTOK_PUB_ROOT_KEY_ID_SIZE + 1;
+		case TPMTOK_PRIVATE_ROOT_KEY:
+			size = TPMTOK_PRIVATE_ROOT_KEY_ID_SIZE + 1;
 			if ((ret = malloc(size)) == NULL) {
 				st_err_log("CKR_HOST_MEMORY");
 				break;
 			}
 
-			sprintf(ret, "%s", TPMTOK_PUB_ROOT_KEY_ID);
+			sprintf(ret, "%s", TPMTOK_PRIVATE_ROOT_KEY_ID);
 			break;
-		case TPMTOK_ROOT_KEY:
-			size = TPMTOK_ROOT_KEY_ID_SIZE + 1;
+		case TPMTOK_PUBLIC_ROOT_KEY:
+			size = TPMTOK_PUBLIC_ROOT_KEY_ID_SIZE + 2;
 			if ((ret = malloc(size)) == NULL) {
 				st_err_log("CKR_HOST_MEMORY");
 				break;
 			}
 
-			sprintf(ret, "%s", TPMTOK_ROOT_KEY_ID);
+			sprintf(ret, "%s", TPMTOK_PUBLIC_ROOT_KEY_ID);
 			break;
-		case TPMTOK_MIG_ROOT_KEY:
-			size = TPMTOK_MIG_ROOT_KEY_ID_SIZE + 2;
+		case TPMTOK_PUBLIC_LEAF_KEY:
+			size = TPMTOK_PUBLIC_LEAF_KEY_ID_SIZE + 2;
 			if ((ret = malloc(size)) == NULL) {
 				st_err_log("CKR_HOST_MEMORY");
 				break;
 			}
 
-			sprintf(ret, "%s", TPMTOK_MIG_ROOT_KEY_ID);
+			sprintf(ret, "%s", TPMTOK_PUBLIC_LEAF_KEY_ID);
 			break;
-		case TPMTOK_MIG_LEAF_KEY:
-			size = TPMTOK_MIG_LEAF_KEY_ID_SIZE + 2;
+		case TPMTOK_PRIVATE_LEAF_KEY:
+			size = TPMTOK_PRIVATE_LEAF_KEY_ID_SIZE + 2;
 			if ((ret = malloc(size)) == NULL) {
 				st_err_log("CKR_HOST_MEMORY");
 				break;
 			}
 
-			sprintf(ret, "%s", TPMTOK_MIG_LEAF_KEY_ID);
-			break;
-		case TPMTOK_USER_LEAF_KEY:
-			size = strlen(TPMTOK_USERNAME) + TPMTOK_USER_LEAF_KEY_ID_SIZE + 2;
-			if ((ret = malloc(size)) == NULL) {
-				st_err_log("CKR_HOST_MEMORY");
-				break;
-			}
-
-			sprintf(ret, "%s %s", TPMTOK_USERNAME, TPMTOK_USER_LEAF_KEY_ID);
-			break;
-		case TPMTOK_USER_BASE_KEY:
-			size = strlen(TPMTOK_USERNAME) + TPMTOK_USER_BASE_KEY_ID_SIZE + 2;
-			if ((ret = malloc(size)) == NULL) {
-				st_err_log("CKR_HOST_MEMORY");
-				break;
-			}
-
-			sprintf(ret, "%s %s", TPMTOK_USERNAME, TPMTOK_USER_BASE_KEY_ID);
+			sprintf(ret, "%s", TPMTOK_PRIVATE_LEAF_KEY_ID);
 			break;
 		default:
 			LogError("Unknown type passed to %s: %d", __FUNCTION__, type);
@@ -147,46 +127,4 @@ util_set_file_mode(char *filename, mode_t mode)
 	}
 
 	return 0;
-}
-
-int
-util_create_user_dir(char *loc)
-{
-	mode_t mode = (S_IRWXU | S_IRWXG);
-	struct passwd *user = getpwnam(TPMTOK_USERNAME);
-	struct group *group = getgrnam("pkcs11");
-	int rc;
-
-	if (user == NULL || group == NULL)
-		return -1;
-
-	if (mkdir(loc, mode) == -1) {
-		LogError("%s: mkdir: %s", __FUNCTION__, strerror(errno));
-		return -1;
-	}
-
-	rc = util_set_file_mode(loc, mode);
-	rc |= chown(loc, user->pw_uid, group->gr_gid);
-
-	return rc;
-}
-
-CK_RV
-util_set_username(char **name)
-{
-	uid_t user_id = getuid();
-	struct passwd *pw = NULL;
-
-	/* manpage decrees that errno must be set to 0 if we want to check it on
-	 * error.. */
-	errno = 0;
-	pw = getpwuid(user_id);
-	if (pw == NULL) {
-		LogError("getpwuid failed: %s", strerror(errno));
-		return CKR_FUNCTION_FAILED;
-	}
-
-	*name = strdup(pw->pw_name);
-
-	return CKR_OK;
 }
