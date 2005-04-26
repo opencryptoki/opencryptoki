@@ -1,26 +1,292 @@
-
 /*
- * The Initial Developer of the Original Code is International
- * Business Machines Corporation. Portions created by IBM
- * Corporation are Copyright (C) 2005 International Business
- * Machines Corporation. All Rights Reserved.
- *
- * This program is free software; you can redistribute it and/or modify
- * it under the terms of the Common Public License as published by
- * IBM Corporation; either version 1 of the License, or (at your option)
- * any later version.
- *
- * This program is distributed in the hope that it will be useful,
- * but WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
- * Common Public License for more details.
- *
- * You should have received a copy of the Common Public License
- * along with this program; if not, a copy can be viewed at
- * http://www.opensource.org/licenses/cpl1.0.php.
- */
+             Common Public License Version 0.5
 
-/* (C) COPYRIGHT International Business Machines Corp. 2001, 2002, 2005 */
+             THE ACCOMPANYING PROGRAM IS PROVIDED UNDER THE TERMS OF
+             THIS COMMON PUBLIC LICENSE ("AGREEMENT"). ANY USE,
+             REPRODUCTION OR DISTRIBUTION OF THE PROGRAM CONSTITUTES
+             RECIPIENT'S ACCEPTANCE OF THIS AGREEMENT.
+
+             1. DEFINITIONS
+
+             "Contribution" means: 
+                   a) in the case of the initial Contributor, the
+                   initial code and documentation distributed under
+                   this Agreement, and 
+
+                   b) in the case of each subsequent Contributor:
+                   i) changes to the Program, and
+                   ii) additions to the Program;
+
+                   where such changes and/or additions to the Program
+                   originate from and are distributed by that
+                   particular Contributor. A Contribution 'originates'
+                   from a Contributor if it was added to the Program
+                   by such Contributor itself or anyone acting on such
+                   Contributor's behalf. Contributions do not include
+                   additions to the Program which: (i) are separate
+                   modules of software distributed in conjunction with
+                   the Program under their own license agreement, and
+                   (ii) are not derivative works of the Program.
+
+
+             "Contributor" means any person or entity that distributes
+             the Program.
+
+             "Licensed Patents " mean patent claims licensable by a
+             Contributor which are necessarily infringed by the use or
+             sale of its Contribution alone or when combined with the
+             Program. 
+
+             "Program" means the Contributions distributed in
+             accordance with this Agreement.
+
+             "Recipient" means anyone who receives the Program under
+             this Agreement, including all Contributors.
+
+             2. GRANT OF RIGHTS
+
+                   a) Subject to the terms of this Agreement, each
+                   Contributor hereby grants Recipient a
+                   non-exclusive, worldwide, royalty-free copyright
+                   license to reproduce, prepare derivative works of,
+                   publicly display, publicly perform, distribute and
+                   sublicense the Contribution of such Contributor, if
+                   any, and such derivative works, in source code and
+                   object code form.
+
+                   b) Subject to the terms of this Agreement, each
+                   Contributor hereby grants Recipient a
+                   non-exclusive, worldwide, royalty-free patent
+                   license under Licensed Patents to make, use, sell,
+                   offer to sell, import and otherwise transfer the
+                   Contribution of such Contributor, if any, in source
+                   code and object code form. This patent license
+                   shall apply to the combination of the Contribution
+                   and the Program if, at the time the Contribution is
+                   added by the Contributor, such addition of the
+                   Contribution causes such combination to be covered
+                   by the Licensed Patents. The patent license shall
+                   not apply to any other combinations which include
+                   the Contribution. No hardware per se is licensed
+                   hereunder.
+
+                   c) Recipient understands that although each
+                   Contributor grants the licenses to its
+                   Contributions set forth herein, no assurances are
+                   provided by any Contributor that the Program does
+                   not infringe the patent or other intellectual
+                   property rights of any other entity. Each
+                   Contributor disclaims any liability to Recipient
+                   for claims brought by any other entity based on
+                   infringement of intellectual property rights or
+                   otherwise. As a condition to exercising the rights
+                   and licenses granted hereunder, each Recipient
+                   hereby assumes sole responsibility to secure any
+                   other intellectual property rights needed, if any.
+
+                   For example, if a third party patent license is
+                   required to allow Recipient to distribute the
+                   Program, it is Recipient's responsibility to
+                   acquire that license before distributing the
+                   Program.
+
+                   d) Each Contributor represents that to its
+                   knowledge it has sufficient copyright rights in its
+                   Contribution, if any, to grant the copyright
+                   license set forth in this Agreement.
+
+             3. REQUIREMENTS
+
+             A Contributor may choose to distribute the Program in
+             object code form under its own license agreement, provided
+             that:
+                   a) it complies with the terms and conditions of
+                   this Agreement; and
+
+                   b) its license agreement:
+                   i) effectively disclaims on behalf of all
+                   Contributors all warranties and conditions, express
+                   and implied, including warranties or conditions of
+                   title and non-infringement, and implied warranties
+                   or conditions of merchantability and fitness for a
+                   particular purpose;
+
+                   ii) effectively excludes on behalf of all
+                   Contributors all liability for damages, including
+                   direct, indirect, special, incidental and
+                   consequential damages, such as lost profits;
+
+                   iii) states that any provisions which differ from
+                   this Agreement are offered by that Contributor
+                   alone and not by any other party; and
+
+                   iv) states that source code for the Program is
+                   available from such Contributor, and informs
+                   licensees how to obtain it in a reasonable manner
+                   on or through a medium customarily used for
+                   software exchange.
+
+             When the Program is made available in source code form:
+                   a) it must be made available under this Agreement;
+                   and
+                   b) a copy of this Agreement must be included with
+                   each copy of the Program. 
+
+             Contributors may not remove or alter any copyright notices
+             contained within the Program.
+
+             Each Contributor must identify itself as the originator of
+             its Contribution, if any, in a manner that reasonably
+             allows subsequent Recipients to identify the originator of
+             the Contribution. 
+
+
+             4. COMMERCIAL DISTRIBUTION
+
+             Commercial distributors of software may accept certain
+             responsibilities with respect to end users, business
+             partners and the like. While this license is intended to
+             facilitate the commercial use of the Program, the
+             Contributor who includes the Program in a commercial
+             product offering should do so in a manner which does not
+             create potential liability for other Contributors.
+             Therefore, if a Contributor includes the Program in a
+             commercial product offering, such Contributor ("Commercial
+             Contributor") hereby agrees to defend and indemnify every
+             other Contributor ("Indemnified Contributor") against any
+             losses, damages and costs (collectively "Losses") arising
+             from claims, lawsuits and other legal actions brought by a
+             third party against the Indemnified Contributor to the
+             extent caused by the acts or omissions of such Commercial
+             Contributor in connection with its distribution of the
+             Program in a commercial product offering. The obligations
+             in this section do not apply to any claims or Losses
+             relating to any actual or alleged intellectual property
+             infringement. In order to qualify, an Indemnified
+             Contributor must: a) promptly notify the Commercial
+             Contributor in writing of such claim, and b) allow the
+             Commercial Contributor to control, and cooperate with the
+             Commercial Contributor in, the defense and any related
+             settlement negotiations. The Indemnified Contributor may
+             participate in any such claim at its own expense.
+
+
+             For example, a Contributor might include the Program in a
+             commercial product offering, Product X. That Contributor
+             is then a Commercial Contributor. If that Commercial
+             Contributor then makes performance claims, or offers
+             warranties related to Product X, those performance claims
+             and warranties are such Commercial Contributor's
+             responsibility alone. Under this section, the Commercial
+             Contributor would have to defend claims against the other
+             Contributors related to those performance claims and
+             warranties, and if a court requires any other Contributor
+             to pay any damages as a result, the Commercial Contributor
+             must pay those damages.
+
+
+             5. NO WARRANTY
+
+             EXCEPT AS EXPRESSLY SET FORTH IN THIS AGREEMENT, THE
+             PROGRAM IS PROVIDED ON AN "AS IS" BASIS, WITHOUT
+             WARRANTIES OR CONDITIONS OF ANY KIND, EITHER EXPRESS OR
+             IMPLIED INCLUDING, WITHOUT LIMITATION, ANY WARRANTIES OR
+             CONDITIONS OF TITLE, NON-INFRINGEMENT, MERCHANTABILITY OR
+             FITNESS FOR A PARTICULAR PURPOSE. Each Recipient is solely
+             responsible for determining the appropriateness of using
+             and distributing the Program and assumes all risks
+             associated with its exercise of rights under this
+             Agreement, including but not limited to the risks and
+             costs of program errors, compliance with applicable laws,
+             damage to or loss of data, programs or equipment, and
+             unavailability or interruption of operations. 
+
+             6. DISCLAIMER OF LIABILITY
+             EXCEPT AS EXPRESSLY SET FORTH IN THIS AGREEMENT, NEITHER
+             RECIPIENT NOR ANY CONTRIBUTORS SHALL HAVE ANY LIABILITY
+             FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY,
+             OR CONSEQUENTIAL DAMAGES (INCLUDING WITHOUT LIMITATION
+             LOST PROFITS), HOWEVER CAUSED AND ON ANY THEORY OF
+             LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT
+             (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT
+             OF THE USE OR DISTRIBUTION OF THE PROGRAM OR THE EXERCISE
+             OF ANY RIGHTS GRANTED HEREUNDER, EVEN IF ADVISED OF THE
+             POSSIBILITY OF SUCH DAMAGES.
+
+             7. GENERAL
+
+             If any provision of this Agreement is invalid or
+             unenforceable under applicable law, it shall not affect
+             the validity or enforceability of the remainder of the
+             terms of this Agreement, and without further action by the
+             parties hereto, such provision shall be reformed to the
+             minimum extent necessary to make such provision valid and
+             enforceable.
+
+
+             If Recipient institutes patent litigation against a
+             Contributor with respect to a patent applicable to
+             software (including a cross-claim or counterclaim in a
+             lawsuit), then any patent licenses granted by that
+             Contributor to such Recipient under this Agreement shall
+             terminate as of the date such litigation is filed. In
+             addition, If Recipient institutes patent litigation
+             against any entity (including a cross-claim or
+             counterclaim in a lawsuit) alleging that the Program
+             itself (excluding combinations of the Program with other
+             software or hardware) infringes such Recipient's
+             patent(s), then such Recipient's rights granted under
+             Section 2(b) shall terminate as of the date such
+             litigation is filed.
+
+             All Recipient's rights under this Agreement shall
+             terminate if it fails to comply with any of the material
+             terms or conditions of this Agreement and does not cure
+             such failure in a reasonable period of time after becoming
+             aware of such noncompliance. If all Recipient's rights
+             under this Agreement terminate, Recipient agrees to cease
+             use and distribution of the Program as soon as reasonably
+             practicable. However, Recipient's obligations under this
+             Agreement and any licenses granted by Recipient relating
+             to the Program shall continue and survive. 
+
+             Everyone is permitted to copy and distribute copies of
+             this Agreement, but in order to avoid inconsistency the
+             Agreement is copyrighted and may only be modified in the
+             following manner. The Agreement Steward reserves the right
+             to publish new versions (including revisions) of this
+             Agreement from time to time. No one other than the
+             Agreement Steward has the right to modify this Agreement.
+
+             IBM is the initial Agreement Steward. IBM may assign the
+             responsibility to serve as the Agreement Steward to a
+             suitable separate entity. Each new version of the
+             Agreement will be given a distinguishing version number.
+             The Program (including Contributions) may always be
+             distributed subject to the version of the Agreement under
+             which it was received. In addition, after a new version of
+             the Agreement is published, Contributor may elect to
+             distribute the Program (including its Contributions) under
+             the new version. Except as expressly stated in Sections
+             2(a) and 2(b) above, Recipient receives no rights or
+             licenses to the intellectual property of any Contributor
+             under this Agreement, whether expressly, by implication,
+             estoppel or otherwise. All rights in the Program not
+             expressly granted under this Agreement are reserved.
+
+
+             This Agreement is governed by the laws of the State of New
+             York and the intellectual property laws of the United
+             States of America. No party to this Agreement will bring a
+             legal action under this Agreement more than one year after
+             the cause of action arose. Each party waives its rights to
+             a jury trial in any resulting litigation. 
+
+
+
+*/
+
+/* (C) COPYRIGHT International Business Machines Corp. 2001,2002          */
 
 
 // loadsave.c
@@ -28,20 +294,6 @@
 // routines associated with loading/saving files
 //
 //
-
-/* loading/saving token objects will work like this on the TPM token:
- *
- * @DB_PATH@/TOK_OBJ/*                  - SO token objects
- * @DB_PATH@/TOK_OBJ/OBJ.IDX            - Index file for the SO token objects
- * @DB_PATH@/TOK_OBJ/username/*         - username's token objects
- * @DB_PATH@/TOK_OBJ/username/OBJ.IDX   - Index file for username's token objects
- *
- * XXX username must be prepended to the object name even inside the username directory
- * because all objects will be in one global namespace after they're read in from
- * disk.
- *
- */
-
 
 #include <pthread.h>
 #include <stdio.h>
@@ -51,12 +303,11 @@
 #include <sys/stat.h>
 #include <sys/ipc.h>
 #include <sys/file.h>
-#include <unistd.h>
 #include <errno.h>
-#include <dirent.h>
+
 #include <grp.h>
 
-#include "pkcs11/pkcs11types.h"
+#include <pkcs11/pkcs11types.h>
 #include <pkcs11/stdll.h>
 #include "defs.h"
 #include "host_defs.h"
@@ -70,15 +321,15 @@
 void
 set_perm(int file)
 {
-	struct group *grp;
+   struct group *grp;
 
-	// Set absolute permissions or rw-rw-r--
-	fchmod(file,S_IRUSR|S_IWUSR|S_IRGRP|S_IWGRP|S_IROTH);
+   // Set absolute permissions or rw-rw-r--
+   fchmod(file,S_IRUSR|S_IWUSR|S_IRGRP|S_IWGRP|S_IROTH);
 
-	grp = getgrnam("pkcs11"); // Obtain the group id
-	if (grp){
-		fchown(file,getuid(),grp->gr_gid);  // set ownership to root, and pkcs11 group
-	}
+   grp = getgrnam("pkcs11"); // Obtain the group id
+   if (grp){
+      fchown(file,getuid(),grp->gr_gid);  // set ownership to root, and pkcs11 group
+   }
 
 }
 
@@ -87,88 +338,89 @@ set_perm(int file)
 CK_RV
 load_token_data()
 {
-	FILE        * fp;
-	CK_BYTE     fname[2048];
-	TOKEN_DATA    td;
-	CK_BYTE       clear[3 * DES_BLOCK_SIZE];  // enough to hold a CBC-encrypted SHA hash
-	CK_BYTE       cipher[3 * DES_BLOCK_SIZE];
-	CK_ULONG      clear_len, cipher_len;
-	CK_RV         rc;
+   FILE        * fp;
+   CK_BYTE     fname[2048];
+   TOKEN_DATA    td;
+   CK_BYTE       clear[3 * DES_BLOCK_SIZE];  // enough to hold a CBC-encrypted SHA hash
+   CK_BYTE       cipher[3 * DES_BLOCK_SIZE];
+   CK_ULONG      clear_len, cipher_len;
+   CK_RV         rc;
 
-	rc = XProcLock( xproclock );
-	if (rc != CKR_OK){
-		st_err_log(150, __FILE__, __LINE__);
-		goto out_nolock;
-	}
+   rc = XProcLock( xproclock );
+   if (rc != CKR_OK){
+      st_err_log(150, __FILE__, __LINE__);
+      goto out_nolock;
+   }
 
-	sprintf((char *)fname,"%s/%s",(char *)pk_dir, PK_LITE_NV);
+   sprintf((char *)fname,"%s/%s",(char *)pk_dir, PK_LITE_NV);
 
-	//fp = fopen("/tmp/NVTOK.DAT", "r");
-	fp = fopen((char *)fname, "r");
-	if (!fp) {
-		/* Better error checking added */
-		if (errno == ENOENT) {
-			/* init_token_data may call save_token_data, which graps the 
-			 * xproclock, so we must release it around this call */
-			XProcUnLock( xproclock );
-			init_token_data();
-			rc = XProcLock( xproclock );
-			if (rc != CKR_OK){
-				st_err_log(150, __FILE__, __LINE__);
-				goto out_nolock;
-			}
+   //fp = fopen("/tmp/NVTOK.DAT", "r");
+   fp = fopen((char *)fname, "r");
+   if (!fp) {
+      /* Better error checking added */
+      if (errno == ENOENT) {
+         /* init_token_data may call save_token_data, which graps the 
+          * xproclock, so we must release it around this call */
+         XProcUnLock( xproclock );
+         init_token_data();
+         rc = XProcLock( xproclock );
+         if (rc != CKR_OK){
+            st_err_log(150, __FILE__, __LINE__);
+            goto out_nolock;
+         }
 
-			//fp = fopen("/tmp/NVTOK.DAT", "r");
-			fp = fopen((char *)fname, "r");
-			if (!fp) {
-				// were really hosed here since the created
-				// did not occur
-				st_err_log(194, __FILE__, __LINE__, PK_LITE_NV, errno);
-				rc = CKR_FUNCTION_FAILED;
-				goto out_unlock;
-			}
-		} else {
-			/* Could not open file for some unknown reason */
-			st_err_log(194, __FILE__, __LINE__, PK_LITE_NV, errno);
-			rc = CKR_FUNCTION_FAILED;
-			goto out_unlock;
-		}
-	}
-	set_perm(fileno(fp));
+         //fp = fopen("/tmp/NVTOK.DAT", "r");
+         fp = fopen((char *)fname, "r");
+         if (!fp) {
+            // were really hosed here since the created
+            // did not occur
+            //st_err_log(194, __FILE__, __LINE__, PK_LITE_NV, errno);
+	    LogError("failed opening %s for read: %s", fname, strerror(errno));
+            rc = CKR_FUNCTION_FAILED;
+            goto out_unlock;
+         }
+      } else {
+         /* Could not open file for some unknown reason */
+         st_err_log(194, __FILE__, __LINE__, PK_LITE_NV, errno);
+         rc = CKR_FUNCTION_FAILED;
+         goto out_unlock;
+      }
+   }
+   set_perm(fileno(fp));
 
-	rc = fread( &td, sizeof(TOKEN_DATA), 1, fp );
-	fclose(fp);
+   rc = fread( &td, sizeof(TOKEN_DATA), 1, fp );
+   fclose(fp);
 
-	if (rc == 0) {
-		rc = CKR_FUNCTION_FAILED;
-		goto out_unlock;
-	}
+   if (rc == 0) {
+      rc = CKR_FUNCTION_FAILED;
+      goto out_unlock;
+   }
 
-	//   memcpy( cipher, &td.user_pin_sha, 3*DES_BLOCK_SIZE );
-	//   clear_len = cipher_len = 3 * DES_BLOCK_SIZE;
-	//   rc = ckm_des3_cbc_decrypt( cipher, cipher_len, clear, &clear_len, "12345678", master_key );
-	//   if (rc != CKR_OK)
-	//      return CKR_FUNCTION_FAILED;
-	//
-	//   memcpy( &td.user_pin_sha, clear, clear_len );
-	//
-	//   memcpy( cipher, &td.so_pin_sha, 3*DES_BLOCK_SIZE );
-	//   clear_len = cipher_len = 3 * DES_BLOCK_SIZE;
-	//   rc = ckm_des3_cbc_decrypt( cipher, cipher_len, clear, &clear_len, "12345678", master_key );
-	//   if (rc != CKR_OK)
-	//      return CKR_FUNCTION_FAILED;
-	//
-	//   memcpy( &td.so_pin_sha, clear, clear_len );
+//   memcpy( cipher, &td.user_pin_sha, 3*DES_BLOCK_SIZE );
+//   clear_len = cipher_len = 3 * DES_BLOCK_SIZE;
+//   rc = ckm_des3_cbc_decrypt( cipher, cipher_len, clear, &clear_len, "12345678", master_key );
+//   if (rc != CKR_OK)
+//      return CKR_FUNCTION_FAILED;
+//
+//   memcpy( &td.user_pin_sha, clear, clear_len );
+//
+//   memcpy( cipher, &td.so_pin_sha, 3*DES_BLOCK_SIZE );
+//   clear_len = cipher_len = 3 * DES_BLOCK_SIZE;
+//   rc = ckm_des3_cbc_decrypt( cipher, cipher_len, clear, &clear_len, "12345678", master_key );
+//   if (rc != CKR_OK)
+//      return CKR_FUNCTION_FAILED;
+//
+//   memcpy( &td.so_pin_sha, clear, clear_len );
 
-	memcpy( nv_token_data, &td, sizeof(TOKEN_DATA) );
+   memcpy( nv_token_data, &td, sizeof(TOKEN_DATA) );
 
-	rc = CKR_OK;
+   rc = CKR_OK;
 
 out_unlock:
-	XProcUnLock( xproclock );
+   XProcUnLock( xproclock );
 
 out_nolock:
-	return rc;
+   return rc;
 }
 
 
@@ -177,61 +429,61 @@ out_nolock:
 CK_RV
 save_token_data()
 {
-	FILE       *fp;
-	TOKEN_DATA  td;
-	CK_BYTE     clear[3 * DES_BLOCK_SIZE];
-	CK_BYTE     cipher[3 * DES_BLOCK_SIZE];
-	CK_ULONG    clear_len, cipher_len;
-	CK_RV       rc;
-	CK_BYTE     fname[2048];
+   FILE       *fp;
+   TOKEN_DATA  td;
+   CK_BYTE     clear[3 * DES_BLOCK_SIZE];
+   CK_BYTE     cipher[3 * DES_BLOCK_SIZE];
+   CK_ULONG    clear_len, cipher_len;
+   CK_RV       rc;
+   CK_BYTE     fname[2048];
 
-	rc = XProcLock( xproclock );
-	if (rc != CKR_OK){
-		st_err_log(150, __FILE__, __LINE__);
-		goto out_nolock;
-	}
+   rc = XProcLock( xproclock );
+   if (rc != CKR_OK){
+      st_err_log(150, __FILE__, __LINE__);
+      goto out_nolock;
+   }
 
-	sprintf((char *)fname,"%s/%s",pk_dir, PK_LITE_NV);
-	//fp = fopen("/tmp/NVTOK.DAT", "w");
-	fp = fopen((char *)fname, "w");
+   sprintf((char *)fname,"%s/%s",pk_dir, PK_LITE_NV);
+   //fp = fopen("/tmp/NVTOK.DAT", "w");
+   fp = fopen((char *)fname, "w");
 
-	if (!fp){
-		st_err_log(4, __FILE__, __LINE__, __FUNCTION__);
-		rc = CKR_FUNCTION_FAILED;
-		goto done;
-	}
-	set_perm(fileno(fp));
+   if (!fp){
+      st_err_log(4, __FILE__, __LINE__, __FUNCTION__);
+      rc = CKR_FUNCTION_FAILED;
+      goto done;
+   }
+   set_perm(fileno(fp));
 
-	memcpy( &td, nv_token_data, sizeof(TOKEN_DATA) );
+   memcpy( &td, nv_token_data, sizeof(TOKEN_DATA) );
 
-	//   memcpy( clear, nv_token_data->user_pin_sha, SHA1_HASH_SIZE );
-	//   memcpy( clear + SHA1_HASH_SIZE, "1234", 4 );
-	//   clear_len = cipher_len = 3 * DES_KEY_SIZE;
-	//   rc = ckm_des3_cbc_encrypt( clear, clear_len, cipher, &cipher_len, "12345678", master_key );
-	//   if (rc != CKR_OK)
-	//      goto done;
-	//
-	//   memcpy( td.user_pin_sha, cipher, 3*DES_BLOCK_SIZE );
-	//
-	//   memcpy( clear, nv_token_data->so_pin_sha, SHA1_HASH_SIZE );
-	//   memcpy( clear + SHA1_HASH_SIZE, "1234", 4 );
-	//   clear_len = cipher_len = 3 * DES_KEY_SIZE;
-	//   rc = ckm_des3_cbc_encrypt( clear, clear_len, cipher, &cipher_len, "12345678", master_key );
-	//   if (rc != CKR_OK)
-	//      goto done;
-	//
-	//   memcpy( td.so_pin_sha, cipher, 3*DES_BLOCK_SIZE );
+//   memcpy( clear, nv_token_data->user_pin_sha, SHA1_HASH_SIZE );
+//   memcpy( clear + SHA1_HASH_SIZE, "1234", 4 );
+//   clear_len = cipher_len = 3 * DES_KEY_SIZE;
+//   rc = ckm_des3_cbc_encrypt( clear, clear_len, cipher, &cipher_len, "12345678", master_key );
+//   if (rc != CKR_OK)
+//      goto done;
+//
+//   memcpy( td.user_pin_sha, cipher, 3*DES_BLOCK_SIZE );
+//
+//   memcpy( clear, nv_token_data->so_pin_sha, SHA1_HASH_SIZE );
+//   memcpy( clear + SHA1_HASH_SIZE, "1234", 4 );
+//   clear_len = cipher_len = 3 * DES_KEY_SIZE;
+//   rc = ckm_des3_cbc_encrypt( clear, clear_len, cipher, &cipher_len, "12345678", master_key );
+//   if (rc != CKR_OK)
+//      goto done;
+//
+//   memcpy( td.so_pin_sha, cipher, 3*DES_BLOCK_SIZE );
 
-	fwrite( &td, sizeof(TOKEN_DATA), 1, fp );
-	fclose(fp);
+   fwrite( &td, sizeof(TOKEN_DATA), 1, fp );
+   fclose(fp);
 
-	rc = CKR_OK;
+   rc = CKR_OK;
 
 done:
-	XProcUnLock( xproclock );
+   XProcUnLock( xproclock );
 
 out_nolock:
-	return rc;
+   return rc;
 }
 
 
@@ -240,62 +492,58 @@ out_nolock:
 CK_RV
 save_token_object( OBJECT *obj )
 {
-	FILE      * fp = NULL;
-	CK_BYTE     line[100];
-	CK_RV       rc;
-	CK_BYTE     fname[2048];
+   FILE      * fp = NULL;
+   CK_BYTE     line[100];
+   CK_RV       rc;
+   CK_BYTE     fname[2048];
 
-	if (object_is_private(obj) == TRUE)
-		rc = save_private_token_object( obj );
-	else
-		rc = save_public_token_object( obj );
+   if (object_is_private(obj) == TRUE)
+      rc = save_private_token_object( obj );
+   else
+      rc = save_public_token_object( obj );
 
-	if (rc != CKR_OK){
-		st_err_log(104, __FILE__, __LINE__);
-		return rc;
-	}
-	// update the index file if it exists
-	//
-	if (TPMTOK_USERNAME == NULL) {
-		sprintf((char *)fname,"%s/%s/%s",pk_dir,PK_LITE_OBJ_DIR,PK_LITE_OBJ_IDX);
-	} else {
-		sprintf((char *)fname,"%s/%s/%s/%s",pk_dir,PK_LITE_OBJ_DIR,TPMTOK_USERNAME,PK_LITE_OBJ_IDX);
-	}
+   if (rc != CKR_OK){
+      st_err_log(104, __FILE__, __LINE__);
+      return rc;
+   }
+   // update the index file if it exists
+   //
+   sprintf((char *)fname,"%s/%s/%s",pk_dir,PK_LITE_OBJ_DIR,PK_LITE_OBJ_IDX);
 
-	//fp = fopen( "/tmp/TOK_OBJ/OBJ.IDX", "r" );
-	fp = fopen( (char *)fname, "r" );
-	if (fp) {
-		set_perm(fileno(fp));
-		while (!feof(fp)) {
-			fgets((char *)line, 50, fp );
-			if (!feof(fp)) {
-				line[ strlen((char *)line)-1 ] = 0;
-				if (strcmp((char *)line,(char *)(obj->name)) == 0) {
-					fclose(fp);
-					return CKR_OK;  // object is already in the list
-				}
-			}
-		}
-		fclose(fp);
-	}
+   //fp = fopen( "/tmp/TOK_OBJ/OBJ.IDX", "r" );
+   fp = fopen( (char *)fname, "r" );
+   if (fp) {
+   	set_perm(fileno(fp));
+      while (!feof(fp)) {
+         fgets((char *)line, 50, fp );
+         if (!feof(fp)) {
+            line[ strlen((char *)line)-1 ] = 0;
+            if (strcmp((char *)line,(char *)( obj->name)) == 0) {
+               fclose(fp);
+               return CKR_OK;  // object is already in the list
+            }
+         }
+      }
+      fclose(fp);
+   }
 
 
-	// we didn't find it...either the index file doesn't exist or this
-	// is a new object...
-	//
-	//fp = fopen("/tmp/TOK_OBJ/OBJ.IDX", "a");
-	fp = fopen((char *)fname, "a");
-	if (!fp){
-		st_err_log(4, __FILE__, __LINE__, __FUNCTION__);
-		return CKR_FUNCTION_FAILED;
-	}
-	set_perm(fileno(fp));
+   // we didn't find it...either the index file doesn't exist or this
+   // is a new object...
+   //
+   //fp = fopen("/tmp/TOK_OBJ/OBJ.IDX", "a");
+   fp = fopen((char *)fname, "a");
+   if (!fp){
+      st_err_log(4, __FILE__, __LINE__, __FUNCTION__);
+      return CKR_FUNCTION_FAILED;
+   }
+   set_perm(fileno(fp));
 
-	set_perm(fileno(fp));
-	fprintf( fp, "%s\n", obj->name );
-	fclose(fp);
+   set_perm(fileno(fp));
+   fprintf( fp, "%s\n", obj->name );
+   fclose(fp);
 
-	return CKR_OK;
+   return CKR_OK;
 }
 
 
@@ -303,508 +551,319 @@ save_token_object( OBJECT *obj )
 // clear
 //
 CK_RV
-save_public_token_object(OBJECT *obj )
+save_public_token_object( OBJECT *obj )
 {
-	FILE       * fp       = NULL;
-	CK_BYTE    * cleartxt = NULL;
-	CK_BYTE      fname[2048];
-	CK_ULONG     cleartxt_len;
-	CK_BBOOL     flag = FALSE;
-	CK_RV        rc;
-	CK_ULONG_32  total_len;
+   FILE       * fp       = NULL;
+   CK_BYTE    * cleartxt = NULL;
+   CK_BYTE      fname[2048];
+   CK_ULONG     cleartxt_len;
+   CK_BBOOL     flag = FALSE;
+   CK_RV        rc;
+   CK_ULONG_32  total_len;
 
-	rc = object_flatten( obj, &cleartxt, &cleartxt_len );
-	if (rc != CKR_OK){
-		st_err_log(101, __FILE__, __LINE__);
-		goto error;
-	}
+   //strcpy( fname, "/tmp/TOK_OBJ/" );
+   sprintf( (char *)fname,"%s/%s/", pk_dir,PK_LITE_OBJ_DIR);
+   strncat( (char *)fname, (char *) obj->name, 8 );
 
-retry_open:
-	//strcpy( fname, "/tmp/TOK_OBJ/" );
-	if (TPMTOK_USERNAME == NULL) {
-		sprintf( (char *)fname,"%s/%s/", pk_dir,PK_LITE_OBJ_DIR);
-	} else {
-		sprintf( (char *)fname,"%s/%s/%s/", pk_dir,PK_LITE_OBJ_DIR, TPMTOK_USERNAME);
-	}
-	strncat( (char *)fname, (char *) obj->name, 8 );
+   rc = object_flatten( obj, &cleartxt, &cleartxt_len );
+   if (rc != CKR_OK){
+      st_err_log(101, __FILE__, __LINE__);
+      goto error;
+   }
+   fp = fopen( (char *)fname, "w" );
+   if (!fp) {
+      st_err_log(4, __FILE__, __LINE__, __FUNCTION__);
+      rc = CKR_FUNCTION_FAILED;
+      goto error;
+   }
 
-	//fp = fopen( (char *)fname, "w" );
-	fp = fopen( (char *)fname, "r+" );
-	if (!fp) {
-		if (errno == ENOENT) {
-			/* this is good, we're opening a new file */
-			fp = fopen( (char *)fname, "w" );
-			if (!fp) {
-				LogError("errno: %d: %s", errno, strerror(errno));
-				st_err_log(4, __FILE__, __LINE__, __FUNCTION__);
-				rc = CKR_FUNCTION_FAILED;
-				goto error;
-			}
-		} else {
-			LogError("errno: %d: %s", errno, strerror(errno));
-			st_err_log(4, __FILE__, __LINE__, __FUNCTION__);
-			rc = CKR_FUNCTION_FAILED;
-			goto error;
-		}
-	} else {
-		/* XXX file exists, namespace collision hopefully due to migration */
-		CK_CHAR name[8];
+   set_perm(fileno(fp));
 
-		memcpy(name, obj->name, 8);
-		compute_next_token_obj_name(name, obj->name);
-		goto retry_open;
-	}
+   total_len = cleartxt_len + sizeof(CK_ULONG_32) + sizeof(CK_BBOOL);
 
-	set_perm(fileno(fp));
+   fwrite( &total_len, sizeof(CK_ULONG_32), 1, fp );
+   fwrite( &flag,      sizeof(CK_BBOOL), 1, fp );
+   fwrite( cleartxt,   cleartxt_len,     1, fp );
 
-	total_len = cleartxt_len + sizeof(CK_ULONG_32) + sizeof(CK_BBOOL);
+   fclose( fp );
+   free( cleartxt );
 
-	fwrite( &total_len, sizeof(CK_ULONG_32), 1, fp );
-	fwrite( &flag,      sizeof(CK_BBOOL), 1, fp );
-	fwrite( cleartxt,   cleartxt_len,     1, fp );
-
-	fclose( fp );
-	free( cleartxt );
-
-	return CKR_OK;
+   return CKR_OK;
 
 error:
-	if (fp)  fclose( fp );
-	if (cleartxt) free( cleartxt );
-	return rc;
+   if (fp)  fclose( fp );
+   if (cleartxt) free( cleartxt );
+   return rc;
 }
 
 
 //
 //
 CK_RV
-save_private_token_object(OBJECT *obj)
+save_private_token_object( OBJECT *obj )
 {
-	FILE             * fp        = NULL;
-	CK_BYTE          * obj_data  = NULL;
-	CK_BYTE          * cleartxt  = NULL;
-	CK_BYTE          * ciphertxt = NULL;
-	CK_BYTE          * ptr       = NULL;
-	CK_BYTE            fname[100];
-	CK_BYTE            hash_sha[SHA1_HASH_SIZE];
-	CK_BYTE            hash_md5[MD5_HASH_SIZE];
-	CK_BYTE            des3_key[3 * DES_KEY_SIZE];
-	CK_ULONG           obj_data_len,cleartxt_len, ciphertxt_len, hash_len, tmp, tmp2;
-	CK_ULONG           padded_len;
-	CK_BBOOL           flag;
-	CK_RV              rc;
-	CK_ULONG_32        obj_data_len_32;
-	CK_ULONG_32        total_len;
+   FILE             * fp        = NULL;
+   CK_BYTE          * obj_data  = NULL;
+   CK_BYTE          * cleartxt  = NULL;
+   CK_BYTE          * ciphertxt = NULL;
+   CK_BYTE          * ptr       = NULL;
+   CK_BYTE            fname[100];
+   CK_BYTE            hash_sha[SHA1_HASH_SIZE];
+   CK_BYTE            hash_md5[MD5_HASH_SIZE];
+   CK_BYTE            des3_key[3 * DES_KEY_SIZE];
+   CK_ULONG           obj_data_len,cleartxt_len, ciphertxt_len, hash_len, tmp, tmp2;
+   CK_ULONG           padded_len;
+   CK_BBOOL           flag;
+   CK_RV              rc;
+   CK_ULONG_32        obj_data_len_32;
+   CK_ULONG_32        total_len;
 
-	rc = object_flatten( obj, &obj_data, &obj_data_len );
-	obj_data_len_32 = obj_data_len;
-	if (rc != CKR_OK){
-		st_err_log(101, __FILE__, __LINE__);
-		goto error;
-	}
-	//
-	// format for the object file:
-	//    private flag
-	//    ---- begin encrypted part        <--+
-	//       length of object data            |
-	//       object data                      +---- sensitive part
-	//       SHA of (object data)             |
-	//    ---- end encrypted part          <--+
-	//
-	compute_sha( obj_data, obj_data_len, hash_sha );
+   rc = object_flatten( obj, &obj_data, &obj_data_len );
+   obj_data_len_32 = obj_data_len;
+   if (rc != CKR_OK){
+      st_err_log(101, __FILE__, __LINE__);
+      goto error;
+   }
+   //
+   // format for the object file:
+   //    private flag
+   //    ---- begin encrypted part        <--+
+   //       length of object data            |
+   //       object data                      +---- sensitive part
+   //       SHA of (object data)             |
+   //    ---- end encrypted part          <--+
+   //
+   compute_sha( obj_data, obj_data_len, hash_sha );
 
-	// encrypt the sensitive object data.  need to be careful.
-	// if I use the normal high-level encryption routines I'll need to
-	// create a tepmorary key object containing the master key, perform the
-	// encryption, then destroy the key object.  There is a race condition
-	// here if the application is multithreaded (if a thread-switch occurs,
-	// the other application thread could do a FindObject and be able to access
-	// the master key object.
-	//
-	// So I have to use the low-level encryption routines.
-	//
-	memcpy( des3_key, master_key, 3*DES_KEY_SIZE );
-
-	cleartxt_len = sizeof(CK_ULONG_32) + obj_data_len_32 + SHA1_HASH_SIZE;
-	padded_len   = DES_BLOCK_SIZE * (cleartxt_len / DES_BLOCK_SIZE + 1);
-
-	cleartxt  = (CK_BYTE *)malloc( padded_len );
-	ciphertxt = (CK_BYTE *)malloc( padded_len );
-	if (!cleartxt || !ciphertxt) {
-		st_err_log(0, __FILE__, __LINE__);
-		rc = CKR_HOST_MEMORY;
-		goto error;
-	}
-
-	ciphertxt_len = padded_len;
-
-	ptr = cleartxt;
-	memcpy( ptr, &obj_data_len_32, sizeof(CK_ULONG_32) );  ptr += sizeof(CK_ULONG_32);
-	memcpy( ptr,  obj_data,     obj_data_len_32     );  ptr += obj_data_len_32;
-	memcpy( ptr,  hash_sha,     SHA1_HASH_SIZE   );
-
-	add_pkcs_padding( cleartxt + cleartxt_len, DES_BLOCK_SIZE, cleartxt_len, padded_len );
-
+   // encrypt the sensitive object data.  need to be careful.
+   // if I use the normal high-level encryption routines I'll need to
+   // create a tepmorary key object containing the master key, perform the
+   // encryption, then destroy the key object.  There is a race condition
+   // here if the application is multithreaded (if a thread-switch occurs,
+   // the other application thread could do a FindObject and be able to access
+   // the master key object.
+   //
+   // So I have to use the low-level encryption routines.
+   //
 #if 0
+   memcpy( des3_key, master_key, 3*DES_KEY_SIZE );
+#else
+   memcpy( des3_key, master_key_private, 3*DES_KEY_SIZE );
+#endif
+
+   cleartxt_len = sizeof(CK_ULONG_32) + obj_data_len_32 + SHA1_HASH_SIZE;
+   padded_len   = DES_BLOCK_SIZE * (cleartxt_len / DES_BLOCK_SIZE + 1);
+
+   cleartxt  = (CK_BYTE *)malloc( padded_len );
+   ciphertxt = (CK_BYTE *)malloc( padded_len );
+   if (!cleartxt || !ciphertxt) {
+      st_err_log(0, __FILE__, __LINE__);
+      rc = CKR_HOST_MEMORY;
+      goto error;
+   }
+
+   ciphertxt_len = padded_len;
+
+   ptr = cleartxt;
+   memcpy( ptr, &obj_data_len_32, sizeof(CK_ULONG_32) );  ptr += sizeof(CK_ULONG_32);
+   memcpy( ptr,  obj_data,     obj_data_len_32     );  ptr += obj_data_len_32;
+   memcpy( ptr,  hash_sha,     SHA1_HASH_SIZE   );
+
+   add_pkcs_padding( cleartxt + cleartxt_len, DES_BLOCK_SIZE, cleartxt_len, padded_len );
+
 #ifndef  CLEARTEXT
 
 	rc = ckm_des3_cbc_encrypt( cleartxt,    padded_len,
-			ciphertxt,  &ciphertxt_len,
-			"10293847", (char *) des3_key );
+				 ciphertxt,  &ciphertxt_len,
+			        "10293847", (char *) des3_key );
 #else
-	bcopy(cleartxt,ciphertxt,padded_len);
-	rc = CKR_OK;
+         bcopy(cleartxt,ciphertxt,padded_len);
+         rc = CKR_OK;
 #endif
-#endif
-	/* do things in cleartext for now */
-	bcopy(cleartxt,ciphertxt,padded_len);
-	rc = CKR_OK;
+   if (rc != CKR_OK){
+      st_err_log(105, __FILE__, __LINE__);
+      goto error;
+   }
 
-	if (rc != CKR_OK){
-		st_err_log(105, __FILE__, __LINE__);
-		goto error;
-	}
+   //strcpy( (char *)fname, "/tmp/TOK_OBJ/" );
+   sprintf( (char *)fname,"%s/%s/", pk_dir,PK_LITE_OBJ_DIR);
+   strncat( (char *)fname,(char *) obj->name, 8 );
 
-retry_open:
-	//strcpy( (char *)fname, "/tmp/TOK_OBJ/" );
-	if (TPMTOK_USERNAME == NULL) {
-		sprintf( (char *)fname,"%s/%s/", pk_dir,PK_LITE_OBJ_DIR);
-	} else {
-		sprintf( (char *)fname,"%s/%s/%s/", pk_dir,PK_LITE_OBJ_DIR, TPMTOK_USERNAME);
-	}
-	strncat( (char *)fname,(char *) obj->name, 8 );
+   fp = fopen( (char *)fname, "w" );
+   if (!fp) {
+      st_err_log(4, __FILE__, __LINE__, __FUNCTION__);
+      rc = CKR_FUNCTION_FAILED;
+      goto error;
+   }
 
-	fp = fopen( (char *)fname, "r+" );
-	if (!fp) {
-		if (errno == ENOENT) {
-			/* this is good, we're opening a new file */
-			fp = fopen( (char *)fname, "w" );
-			if (!fp) {
-				LogError("errno: %d: %s", errno, strerror(errno));
-				st_err_log(4, __FILE__, __LINE__, __FUNCTION__);
-				rc = CKR_FUNCTION_FAILED;
-				goto error;
-			}
-		} else {
-			LogError("errno: %d: %s", errno, strerror(errno));
-			st_err_log(4, __FILE__, __LINE__, __FUNCTION__);
-			rc = CKR_FUNCTION_FAILED;
-			goto error;
-		}
-	} else {
-		/* XXX file exists, namespace collision hopefully due to migration */
-		CK_CHAR name[8];
+   set_perm(fileno(fp));
 
-		memcpy(name, obj->name, 8);
-		compute_next_token_obj_name(name, obj->name);
-		goto retry_open;
-	}
+   total_len = sizeof(CK_ULONG_32) + sizeof(CK_BBOOL) + ciphertxt_len;
 
+   flag = TRUE;
 
-	set_perm(fileno(fp));
+   fwrite( &total_len, sizeof(CK_ULONG_32), 1, fp );
+   fwrite( &flag,      sizeof(CK_BBOOL), 1, fp );
+   fwrite( ciphertxt,  ciphertxt_len,    1, fp );
 
-	total_len = sizeof(CK_ULONG_32) + sizeof(CK_BBOOL) + ciphertxt_len;
+   fclose( fp );
 
-	flag = TRUE;
-
-	fwrite( &total_len, sizeof(CK_ULONG_32), 1, fp );
-	fwrite( &flag,      sizeof(CK_BBOOL), 1, fp );
-	fwrite( ciphertxt,  ciphertxt_len,    1, fp );
-
-	fclose( fp );
-
-	free( obj_data  );
-	free( cleartxt  );
-	free( ciphertxt );
-	return CKR_OK;
+   free( obj_data  );
+   free( cleartxt  );
+   free( ciphertxt );
+   return CKR_OK;
 
 error:
-	if (fp)  fclose( fp );
+   if (fp)  fclose( fp );
 
-	if (obj_data)  free( obj_data  );
-	if (cleartxt)  free( cleartxt  );
-	if (ciphertxt) free( ciphertxt );
+   if (obj_data)  free( obj_data  );
+   if (cleartxt)  free( cleartxt  );
+   if (ciphertxt) free( ciphertxt );
 
-	return rc;
-}
-
-/*
- * read objects from index file f.
- */
-CK_RV
-read_public_objects( FILE *f, CK_BYTE *dir )
-{
-	CK_ULONG_32  size;
-	FILE *fp2 = NULL;
-	CK_BYTE fname[2048], tmp[2048];
-	CK_BYTE  *buf = NULL;
-	CK_BBOOL  priv;
-
-	while (!feof(f)) {
-		fgets( (char *)tmp, 50, f );
-		if (!feof(f)) {
-			tmp[ strlen((char *)tmp)-1 ] = 0;
-
-			//strcpy(fname,"/tmp/TOK_OBJ/username");
-			if (dir == NULL) {
-				sprintf((char *)fname,"%s/%s/",pk_dir, PK_LITE_OBJ_DIR);
-			} else {
-				sprintf((char *)fname,"%s/%s/%s/",pk_dir, PK_LITE_OBJ_DIR, dir);
-			}
-			strcat((char *)fname, (char *)tmp );
-
-			fp2 = fopen( (char *)fname, "r" );
-			if (!fp2) {
-				LogError("Unable to open %s. Continuing.", fname);
-				continue;
-			}
-
-			fread( &size, sizeof(CK_ULONG_32), 1, fp2 );
-			fread( &priv, sizeof(CK_BBOOL), 1, fp2 );
-			if (priv == TRUE) {
-				fclose( fp2 );
-				fp2 = NULL;
-				continue;
-			}
-
-			// size--;
-			size = size -sizeof(CK_ULONG_32) - sizeof(CK_BBOOL);
-			buf = (CK_BYTE *)malloc(size);
-			if (!buf) {
-				fclose(fp2);
-				fp2 = NULL;
-				st_err_log(0, __FILE__, __LINE__);
-				return CKR_HOST_MEMORY;
-			}
-
-			fread( buf, size, 1, fp2 );
-
-			// ... grab object mutex here.
-			MY_LockMutex(&obj_list_mutex);
-			object_mgr_restore_obj( buf, NULL );
-			MY_UnlockMutex(&obj_list_mutex);
-			free( buf );
-			fclose( fp2 );
-			fp2 = NULL;
-		}
-	}
-
-	return CKR_OK;
+   return rc;
 }
 
 
-// doesn't matter who owns these objects or what directories they're coming out of, we
-// need to load *all* pub token objects.
+//
+//
 CK_RV
 load_public_token_objects( void )
 {
-	FILE     *fp1 = NULL;
-	CK_BYTE   iname[2048];
-	CK_BYTE dirname[2048], tmp[2048];
-	DIR *obj_dir;
-	struct dirent *dentry;
-	struct stat dir_stat;
+   FILE     *fp1 = NULL, *fp2 = NULL;
+   CK_BYTE  *buf = NULL;
+   CK_BYTE   tmp[2048], fname[2048],iname[2048];
+   CK_BBOOL  priv;
+   CK_ULONG_32  size;
 
-	sprintf((char *)iname,"%s/%s/%s",pk_dir,PK_LITE_OBJ_DIR, PK_LITE_OBJ_IDX);
-	//fp1 = fopen("/tmp/TOK_OBJ/OBJ.IDX", "r");
-	fp1 = fopen((char *)iname, "r");
-	if (!fp1)
-		return CKR_OK;  // no token objects
+   sprintf((char *)iname,"%s/%s/%s",pk_dir,PK_LITE_OBJ_DIR, PK_LITE_OBJ_IDX);
+   //fp1 = fopen("/tmp/TOK_OBJ/OBJ.IDX", "r");
+   fp1 = fopen((char *)iname, "r");
+   if (!fp1)
+      return CKR_OK;  // no token objects
 
-	/* read SO objects from the base object directory */
-	if (read_public_objects(fp1, NULL) != CKR_OK)
-		goto done;
+   while (!feof(fp1)) {
+      fgets( (char *)tmp, 50, fp1 );
+      if (!feof(fp1)) {
+         tmp[ strlen((char *)tmp)-1 ] = 0;
 
-	fclose(fp1);
-	fp1 = NULL;
+         //strcpy(fname,"/tmp/TOK_OBJ/");
+         sprintf((char *)fname,"%s/%s/",pk_dir, PK_LITE_OBJ_DIR);
+         strcat((char *)fname, (char *)tmp );
 
-	/* for each user subdir, read objects out */
-	sprintf((char *)dirname,"%s/%s",pk_dir,PK_LITE_OBJ_DIR);
-	obj_dir = opendir(dirname);
+         fp2 = fopen( (char *)fname, "r" );
+         if (!fp2)
+            continue;
 
-	if (obj_dir == NULL)
-		return CKR_OK;
+         fread( &size, sizeof(CK_ULONG_32), 1, fp2 );
+         fread( &priv, sizeof(CK_BBOOL), 1, fp2 );
+         if (priv == TRUE) {
+            fclose( fp2 );
+            continue;
+         }
 
-	/* for each directory underneath pk_dir/PK_LITE_OBJ_DIR, read objects
-	 * out */
-	while ((dentry = readdir(obj_dir)) != NULL) {
-		if (!strncmp(dentry->d_name, ".\0", 2))
-			continue;
-		if (!strncmp(dentry->d_name, "..\0", 3))
-			continue;
+         // size--;
+	 size = size -sizeof(CK_ULONG_32) - sizeof(CK_BBOOL);
+         buf = (CK_BYTE *)malloc(size);
+         if (!buf) {
+            fclose(fp1);
+            fclose(fp2);
+            st_err_log(0, __FILE__, __LINE__);
+            return CKR_HOST_MEMORY;
+         }
 
-		sprintf(tmp, "%s/%s", dirname, dentry->d_name);
+         fread( buf, size, 1, fp2 );
 
-		/* check if the given entry is a directory. */
-		if (stat(tmp, &dir_stat) == -1) {
-			LogError("stat of %s failed: %s", tmp, strerror(errno));
-			continue;
-		}
+         // ... grab object mutex here.
+         MY_LockMutex(&obj_list_mutex);
+         object_mgr_restore_obj( buf, NULL );
+         MY_UnlockMutex(&obj_list_mutex);
+         free( buf );
+         fclose( fp2 );
+      }
+   }
+   fclose(fp1);
 
-		/* is this a directory? */
-		if (S_ISDIR(dir_stat.st_mode)) {
-			sprintf((char *)iname,"%s/%s/%s/%s",pk_dir,PK_LITE_OBJ_DIR,dentry->d_name,PK_LITE_OBJ_IDX);
-			//fp1 = fopen("/pk_dir/TOK_OBJ/username/OBJ.IDX", "r");
-			fp1 = fopen((char *)iname, "r");
-			if (!fp1) {
-				LogError("Unable to open %s. Continuing.", iname);
-				continue;
-			}
-
-			if (read_public_objects(fp1, dentry->d_name) != CKR_OK)
-				goto done;
-
-			fclose(fp1);
-			fp1 = NULL;
-		}
-	}
-
-
-done:
-	if (fp1) {
-		fclose(fp1);
-	}
-
-	return CKR_OK;
+   return CKR_OK;
 }
 
 
-CK_RV
-read_private_objects ( FILE *f, CK_BYTE *dir )
-{
-	CK_BYTE  *buf = NULL;
-	CK_BYTE tmp[2048], fname[2048];
-	CK_BBOOL  priv;
-	FILE *fp2 = NULL;
-	CK_RV rc;
-	CK_ULONG_32  size;
-
-	while (!feof(f)) {
-		fgets((char *) tmp, 50, f );
-		if (!feof(f)) {
-			tmp[ strlen((char *)tmp)-1 ] = 0;
-
-			//strcpy(fname,"/tmp/TOK_OBJ/username/OBJ.IDX");
-			if (dir == NULL) {
-				sprintf((char *)fname,"%s/%s/",pk_dir, PK_LITE_OBJ_DIR);
-			} else {
-				sprintf((char *)fname,"%s/%s/%s/",pk_dir, PK_LITE_OBJ_DIR, dir);
-			}
-			strcat((char *)fname,(char *) tmp );
-
-			fp2 = fopen( (char *)fname, "r" );
-			if (!fp2) {
-				LogError("Unable to open %s. Continuing.", fname);
-				continue;
-			}
-
-			fread( &size, sizeof(CK_ULONG_32), 1, fp2 );
-			fread( &priv, sizeof(CK_BBOOL), 1, fp2 );
-			if (priv == FALSE) {
-				fclose( fp2 );
-				fp2 = NULL;
-				continue;
-			}
-
-			//size--;
-			size = size - sizeof(CK_ULONG_32) - sizeof(CK_BBOOL);
-			buf = (CK_BYTE *)malloc(size);
-			if (!buf) {
-				st_err_log(0, __FILE__, __LINE__);
-				rc = CKR_HOST_MEMORY;
-				goto error;
-			}
-
-			rc = fread( (char *)buf, size, 1, fp2 );
-			if (rc != 1) {
-				st_err_log(4, __FILE__, __LINE__, __FUNCTION__);
-				rc = CKR_FUNCTION_FAILED;
-				goto error;
-			}
-
-			// Grab object list  mutex
-			MY_LockMutex(&obj_list_mutex);
-			rc = restore_private_token_object( buf, size, NULL );
-			MY_UnlockMutex(&obj_list_mutex);
-			if (rc != CKR_OK){
-				st_err_log(107, __FILE__, __LINE__);
-				goto error;
-			}
-
-			free( buf );
-			fclose( fp2 );
-			fp2 = NULL;
-		}
-	}
-
-error:
-	if (fp2)  fclose( fp2 );
-	return rc;
-}
-
-// doesn't matter who owns these objects or what directories they're coming out of, we
-// need to load *all* priv token objects.
+//
+//
 CK_RV
 load_private_token_objects( void )
 {
-	FILE     *fp1 = NULL;
-	CK_BYTE   iname[2048], dirname[2048];
-	DIR *obj_dir;
-	struct dirent *dentry;
-	struct stat dir_stat;
+   FILE     *fp1 = NULL, *fp2 = NULL;
+   CK_BYTE  *buf = NULL;
+   CK_BYTE   tmp[2048], fname[2048],iname[2048];
+   CK_BYTE   sha_hash[SHA1_HASH_SIZE], old_hash[SHA1_HASH_SIZE];
+   CK_BBOOL  priv;
+   CK_ULONG_32  size;
+   CK_RV     rc;
 
-	sprintf((char *)iname,"%s/%s/%s",pk_dir,PK_LITE_OBJ_DIR, PK_LITE_OBJ_IDX);
-	//fp1 = fopen("/tmp/TOK_OBJ/OBJ.IDX", "r");
-	fp1 = fopen((char *)iname, "r");
-	if (!fp1)
-		return CKR_OK;  // no token objects
+   sprintf((char *)iname,"%s/%s/%s",pk_dir,PK_LITE_OBJ_DIR, PK_LITE_OBJ_IDX);
+   //fp1 = fopen("/tmp/TOK_OBJ/OBJ.IDX", "r");
+   fp1 = fopen((char *)iname, "r");
+   if (!fp1)
+      return CKR_OK;  // no token objects
 
-	/* read SO objects from the base object directory */
-	if (read_private_objects(fp1, NULL) != CKR_OK)
-		goto done;
+   while (!feof(fp1)) {
+      fgets((char *) tmp, 50, fp1 );
+      if (!feof(fp1)) {
+         tmp[ strlen((char *)tmp)-1 ] = 0;
 
-	fclose(fp1);
+         //strcpy(fname,"/tmp/TOK_OBJ/");
+         sprintf((char *)fname,"%s/%s/",pk_dir,PK_LITE_OBJ_DIR);
+         strcat((char *)fname,(char *) tmp );
 
-	/* for each user subdir, read objects out */
-	sprintf((char *)dirname,"%s/%s",pk_dir,PK_LITE_OBJ_DIR);
-	obj_dir = opendir(dirname);
+         fp2 = fopen( (char *)fname, "r" );
+         if (!fp2)
+            continue;
 
-	if (obj_dir == NULL)
-		return CKR_OK;
+         fread( &size, sizeof(CK_ULONG_32), 1, fp2 );
+         fread( &priv, sizeof(CK_BBOOL), 1, fp2 );
+         if (priv == FALSE) {
+            fclose( fp2 );
+            continue;
+         }
 
-	/* for each directory underneath pk_dir/PK_LITE_OBJ_DIR, read objects
-	 * out */
-	while ((dentry = readdir(obj_dir)) != NULL) {
-		if (!strncmp(dentry->d_name, ".\0", 2))
-			continue;
-		if (!strncmp(dentry->d_name, "..\0", 3))
-			continue;
+         //size--;
+	 size = size - sizeof(CK_ULONG_32) - sizeof(CK_BBOOL);
+         buf = (CK_BYTE *)malloc(size);
+         if (!buf) {
+            st_err_log(0, __FILE__, __LINE__);
+            rc = CKR_HOST_MEMORY;
+            goto error;
+         }
 
-		/* check if the given entry is a directory. */
-		if (stat(dentry->d_name, &dir_stat) == -1) {
-			continue;
-		}
+         rc = fread( (char *)buf, size, 1, fp2 );
+         if (rc != 1) {
+            st_err_log(4, __FILE__, __LINE__, __FUNCTION__);
+            rc = CKR_FUNCTION_FAILED;
+            goto error;
+         }
 
-		/* is this a directory? */
-		if (S_ISDIR(dir_stat.st_mode)) {
-			sprintf((char *)iname,"%s/%s/%s/%s",pk_dir,PK_LITE_OBJ_DIR,dentry->d_name,PK_LITE_OBJ_IDX);
-			//fp1 = fopen("/pk_dir/TOK_OBJ/username/OBJ.IDX", "r");
-			fp1 = fopen((char *)iname, "r");
-			if (!fp1)
-				continue;
+// Grab object list  mutex
+	MY_LockMutex(&obj_list_mutex);
+         rc = restore_private_token_object( buf, size, NULL );
+	MY_UnlockMutex(&obj_list_mutex);
+         if (rc != CKR_OK){
+            st_err_log(107, __FILE__, __LINE__);
+            goto error;
+         }
 
-			if (read_private_objects(fp1, dentry->d_name) != CKR_OK) {
-				goto done;
-			}
+         free( buf );
+         fclose( fp2 );
+      }
+   }
+   fclose(fp1);
 
-			fclose(fp1);
-		}
-	}
+   return CKR_OK;
 
-done:
-	fclose(fp1);
-
-	return CKR_OK;
+error:
+   if (buf)  free( buf );
+   if (fp1)  fclose( fp1 );
+   if (fp2)  fclose( fp2 );
+   return rc;
 }
 
 
@@ -849,9 +908,12 @@ restore_private_token_object( CK_BYTE  * data,
 
    // decrypt the encrypted chunk
    //
-   memcpy( des3_key, master_key, 3*DES_KEY_SIZE );
-
 #if 0
+   memcpy( des3_key, master_key, 3*DES_KEY_SIZE );
+#else
+   memcpy( des3_key, master_key_private, 3*DES_KEY_SIZE );
+#endif
+
 #ifndef  CLEARTEXT
    rc = ckm_des3_cbc_decrypt( ciphertxt,  len,
                               cleartxt,  &len,
@@ -860,11 +922,6 @@ restore_private_token_object( CK_BYTE  * data,
       bcopy(ciphertxt,cleartxt,len);
       rc = CKR_OK;
 #endif
-#endif
-      /* do things in cleartext for now */
-      bcopy(ciphertxt,cleartxt,len);
-      rc = CKR_OK;
-
  
    if (rc != CKR_OK){
       st_err_log(106, __FILE__, __LINE__);
@@ -915,6 +972,7 @@ done:
 }
 
 
+#if 0
 //
 //
 CK_RV
@@ -963,21 +1021,15 @@ load_masterkey_so( void )
    memcpy( des3_key,                 so_pin_md5, MD5_HASH_SIZE );
    memcpy( des3_key + MD5_HASH_SIZE, so_pin_md5, DES_KEY_SIZE  );
 
-#if 0
 #ifndef CLEARTEXT
    rc = ckm_des3_cbc_decrypt( cipher, cipher_len, clear, &clear_len, "12345678", des3_key );
 #else
    bcopy(cipher,clear,cipher_len);
    rc = CKR_OK;
 #endif
-#endif
-   /* do things cleartext for now */
-   bcopy(cipher,clear,cipher_len);
-   rc = CKR_OK;
 
    if (rc != CKR_OK){
       st_err_log(106, __FILE__, __LINE__);
-      LogError("WHAT THE FUCK");
       goto done;
    }
    memcpy( (CK_BYTE *)&mk, clear, sizeof(mk) );
@@ -1055,17 +1107,12 @@ load_masterkey_user( void )
    memcpy( des3_key,                 user_pin_md5, MD5_HASH_SIZE );
    memcpy( des3_key + MD5_HASH_SIZE, user_pin_md5, DES_KEY_SIZE  );
 
-#if 0
 #ifndef CLEARTEXT
    rc = ckm_des3_cbc_decrypt( cipher, cipher_len, clear, &clear_len, "12345678", des3_key );
 #else
    bcopy(cipher,clear,cipher_len);
    rc = CKR_OK;
 #endif
-#endif
-   /* do things cleartext for now */
-   bcopy(cipher,clear,cipher_len);
-   rc = CKR_OK;
 
    if (rc != CKR_OK){
       st_err_log(106, __FILE__, __LINE__);
@@ -1131,17 +1178,12 @@ save_masterkey_so( void )
    padded_len = DES_BLOCK_SIZE * (cleartxt_len / DES_BLOCK_SIZE + 1);
    add_pkcs_padding( cleartxt + cleartxt_len, DES_BLOCK_SIZE, cleartxt_len, padded_len );
 
-#if 0
 #ifndef CLEARTEXT
    rc = ckm_des3_cbc_encrypt( cleartxt, padded_len, ciphertxt, &ciphertxt_len, "12345678", des3_key );
 #else
             bcopy(cleartxt,ciphertxt,padded_len);
 	             rc = CKR_OK;
 #endif
-#endif
-   /* do things cleartext for now */
-   bcopy(cleartxt,ciphertxt,padded_len);
-   rc = CKR_OK;
 
    if (rc != CKR_OK){
       st_err_log(105, __FILE__, __LINE__);
@@ -1211,17 +1253,12 @@ save_masterkey_user( void )
    padded_len = DES_BLOCK_SIZE * (cleartxt_len / DES_BLOCK_SIZE + 1);
    add_pkcs_padding( cleartxt + cleartxt_len, DES_BLOCK_SIZE, cleartxt_len, padded_len );
 
-#if 0
 #ifndef CLEARTEXT
    rc = ckm_des3_cbc_encrypt( cleartxt, padded_len, ciphertxt, &ciphertxt_len, "12345678", des3_key );
 #else
    bcopy(cleartxt,ciphertxt,padded_len);
    rc = CKR_OK;
 #endif
-#endif
-   /* do the cleartext thing for now */
-   bcopy(cleartxt,ciphertxt,padded_len);
-   rc = CKR_OK;
 
    if (rc != CKR_OK){
       st_err_log(105, __FILE__, __LINE__);
@@ -1256,7 +1293,7 @@ done:
    if (fp)  fclose( fp );
    return rc;
 }
-
+#endif
 
 //
 //
@@ -1274,13 +1311,8 @@ reload_token_object( OBJECT *obj )
    memset( (char *)fname, 0x0, sizeof(fname) );
 
   // strcpy(fname, "/tmp/TOK_OBJ/" );
-   if (TPMTOK_USERNAME == NULL) {
-	   sprintf((char *)fname,"%s/%s/",pk_dir, PK_LITE_OBJ_DIR);
-	   strncat((char *)fname,(char *)  obj->name, 8 );
-   } else {
-	   sprintf((char *)fname,"%s/%s/%s/",pk_dir, PK_LITE_OBJ_DIR, TPMTOK_USERNAME);
-	   strncat((char *)fname,(char *)  obj->name, 8 );
-   }
+   sprintf((char *)fname,"%s/%s/",pk_dir, PK_LITE_OBJ_DIR);
+   strncat((char *)fname,(char *)  obj->name, 8 );
 
    fp = fopen( (char *)fname, "r" );
    if (!fp) {
@@ -1333,77 +1365,70 @@ extern void set_perm(int) ;
 CK_RV
 delete_token_object( OBJECT *obj )
 {
-	FILE      *fp1, *fp2;
-	CK_BYTE    line[100];
-	CK_BYTE    objidx[2048], idxtmp[2048],fname[2048];
+   FILE      *fp1, *fp2;
+   CK_BYTE    line[100];
+   CK_BYTE    objidx[2048], idxtmp[2048],fname[2048];
 
-	// FIXME:  on UNIX, we need to make sure these guys aren't symlinks
-	//         before we blindly write to these files...
-	//
+   // FIXME:  on UNIX, we need to make sure these guys aren't symlinks
+   //         before we blindly write to these files...
+   //
 
-	// remove the object from the index file
-	//
+   // remove the object from the index file
+   //
 
-	if (TPMTOK_USERNAME == NULL) {
-		sprintf((char *)objidx,"%s/%s/%s",pk_dir, PK_LITE_OBJ_DIR,PK_LITE_OBJ_IDX);
-		sprintf((char *)idxtmp,"%s/%s/%s",pk_dir, PK_LITE_OBJ_DIR, "IDX.TMP");
-		//fp1 = fopen("/tmp/TOK_OBJ/OBJ.IDX", "r");
-		//fp2 = fopen("/tmp/TOK_OBJ/IDX.TMP", "w");
-	} else {
-		sprintf((char *)objidx,"%s/%s/%s/%s",pk_dir, PK_LITE_OBJ_DIR,TPMTOK_USERNAME,PK_LITE_OBJ_IDX);
-		sprintf((char *)idxtmp,"%s/%s/%s/%s",pk_dir, PK_LITE_OBJ_DIR,TPMTOK_USERNAME,"IDX.TMP");
-		//fp1 = fopen("/tmp/TOK_OBJ/username/OBJ.IDX", "r");
-		//fp2 = fopen("/tmp/TOK_OBJ/username/IDX.TMP", "w");
-	}
-	fp1 = fopen((char *)objidx, "r");
-	fp2 = fopen((char *)idxtmp, "w");
-	if (!fp1 || !fp2) {
-		if (fp1) fclose(fp1);
-		if (fp2) fclose(fp2);
-		st_err_log(4, __FILE__, __LINE__, __FUNCTION__);
-		return CKR_FUNCTION_FAILED;
-	}
+   sprintf((char *)objidx,"%s/%s/%s",pk_dir, PK_LITE_OBJ_DIR,PK_LITE_OBJ_IDX);
+   sprintf((char *)idxtmp,"%s/%s/%s",pk_dir, PK_LITE_OBJ_DIR, "IDX.TMP");
+   //fp1 = fopen("/tmp/TOK_OBJ/OBJ.IDX", "r");
+   //fp2 = fopen("/tmp/TOK_OBJ/IDX.TMP", "w");
+   fp1 = fopen((char *)objidx, "r");
+   fp2 = fopen((char *)idxtmp, "w");
+   if (!fp1 || !fp2) {
+      if (fp1) fclose(fp1);
+      if (fp2) fclose(fp2);
+      st_err_log(4, __FILE__, __LINE__, __FUNCTION__);
+      return CKR_FUNCTION_FAILED;
+   }
 
-	set_perm(fileno(fp2));
+   set_perm(fileno(fp2));
 
-	while (!feof(fp1)) {
-		fgets((char *)line, 50, fp1 );
-		if (!feof(fp1)) {
-			line[ strlen((char *)line)-1 ] = 0;
-			if (strcmp((char *)line, (char *)obj->name) == 0)
-				continue;
-			else
-				fprintf( fp2, "%s\n", line );
-		}
-	}
+   while (!feof(fp1)) {
+      fgets((char *)line, 50, fp1 );
+      if (!feof(fp1)) {
+         line[ strlen((char *)line)-1 ] = 0;
+         if (strcmp((char *)line, (char *)obj->name) == 0)
+            continue;
+         else
+            fprintf( fp2, "%s\n", line );
+      }
+   }
 
-	fclose(fp1);
-	fclose(fp2);
-	//fp2 = fopen("/tmp/TOK_OBJ/OBJ.IDX", "w");
-	//fp1 = fopen("/tmp/TOK_OBJ/IDX.TMP", "r");
-	fp2 = fopen((char *)objidx, "w");
-	fp1 = fopen((char *)idxtmp, "r");
-	if (!fp1 || !fp2) {
-		if (fp1) fclose(fp1);
-		if (fp2) fclose(fp2);
-		st_err_log(4, __FILE__, __LINE__, __FUNCTION__);
-		return CKR_FUNCTION_FAILED;
-	}
+   fclose(fp1);
+   fclose(fp2);
+   //fp2 = fopen("/tmp/TOK_OBJ/OBJ.IDX", "w");
+   //fp1 = fopen("/tmp/TOK_OBJ/IDX.TMP", "r");
+   fp2 = fopen((char *)objidx, "w");
+   fp1 = fopen((char *)idxtmp, "r");
+   if (!fp1 || !fp2) {
+      if (fp1) fclose(fp1);
+      if (fp2) fclose(fp2);
+      st_err_log(4, __FILE__, __LINE__, __FUNCTION__);
+      return CKR_FUNCTION_FAILED;
+   }
 
-	set_perm(fileno(fp2));
+   set_perm(fileno(fp2));
 
-	while (!feof(fp1)) {
-		fgets((char *)line, 50, fp1 );
-		if (!feof(fp1))
-			fprintf( fp2, "%s",(char *) line );
-	}
+   while (!feof(fp1)) {
+      fgets((char *)line, 50, fp1 );
+      if (!feof(fp1))
+         fprintf( fp2, "%s",(char *) line );
+   }
 
-	fclose(fp1);
-	fclose(fp2);
+   fclose(fp1);
+   fclose(fp2);
 
-	sprintf((char *)fname,"%s/%s/%s",pk_dir, PK_LITE_OBJ_DIR,(char *)obj->name);
-	unlink((char *)fname);
-	return CKR_OK;
+   sprintf((char *)fname,"%s/%s/%s",pk_dir, PK_LITE_OBJ_DIR,(char *)obj->name);
+   unlink((char *)fname);
+   return CKR_OK;
 
 }
 
