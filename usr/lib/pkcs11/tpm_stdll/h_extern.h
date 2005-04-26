@@ -68,7 +68,10 @@ extern DL_NODE *publ_token_obj_list;
 extern DL_NODE *priv_token_obj_list;
 extern DL_NODE *object_map;
 
-extern CK_BYTE master_key[3*DES_KEY_SIZE];
+//extern CK_BYTE master_key[3*DES_KEY_SIZE];
+#define MK_SIZE	(3*DES_KEY_SIZE)
+extern CK_BYTE master_key_public[MK_SIZE];
+extern CK_BYTE master_key_private[MK_SIZE];
 
 extern CK_BYTE so_pin_md5[MD5_HASH_SIZE];
 extern CK_BYTE user_pin_md5[MD5_HASH_SIZE];
@@ -494,12 +497,12 @@ CK_RV delete_token_object( OBJECT *ptr );
 CK_RV init_token_data( void );
 CK_RV load_token_data( void );
 CK_RV save_token_data( void );
-
+#if 0
 CK_RV load_masterkey_so  ( void );
 CK_RV load_masterkey_user( void );
 CK_RV save_masterkey_so  ( void );
 CK_RV save_masterkey_user( void );
-
+#endif
 CK_RV compute_md5( CK_BYTE *data, CK_ULONG len, CK_BYTE *hash );
 CK_RV compute_sha( CK_BYTE *data, CK_ULONG len, CK_BYTE *hash );
 
@@ -1998,8 +2001,6 @@ extern token_spec_t token_specific;
 
 #define st_err_log(...)
 #endif
-
-extern CK_BYTE *TPMTOK_USERNAME;
 
 /* custom attribute to store our blob in */
 #define CKA_KEY_BLOB		CKA_VENDOR_DEFINED + 0
