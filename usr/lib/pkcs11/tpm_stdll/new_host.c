@@ -898,6 +898,7 @@ CK_RV SC_InitPIN( ST_SESSION_HANDLE  sSession,
    CK_BYTE           hash_sha[SHA1_HASH_SIZE];
    CK_BYTE           hash_md5[MD5_HASH_SIZE];
    CK_RV             rc = CKR_OK;
+   CK_FLAGS_32     * flags = NULL;
    SESS_SET
 
       LOCKIT;
@@ -941,6 +942,19 @@ CK_RV SC_InitPIN( ST_SESSION_HANDLE  sSession,
 #endif
 
    rc = token_specific.t_init_pin(pPin, ulPinLen);
+   if (rc == CKR_OK){
+      flags = &nv_token_data->token_info.flags;
+
+      *flags &=       ~(CKF_USER_PIN_LOCKED |
+		      CKF_USER_PIN_FINAL_TRY |
+		      CKF_USER_PIN_COUNT_LOW);
+
+      rc = save_token_data();
+      if (rc != CKR_OK){
+	 st_err_log(104, __FILE__, __LINE__);
+	 goto done;
+      }
+   }
 
 #if 0
    // compute the SHA and MD5 hashes of the user pin
