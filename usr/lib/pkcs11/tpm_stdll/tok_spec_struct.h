@@ -74,6 +74,18 @@ struct token_specific_struct{
 			  CK_ULONG *,
 			  OBJECT *);
 
+   CK_RV (*t_rsa_sign)(CK_BYTE *,
+			  CK_ULONG,
+			  CK_BYTE *,
+			  CK_ULONG *,
+			  OBJECT *);
+
+   CK_RV (*t_rsa_verify)(CK_BYTE *,
+			  CK_ULONG,
+			  CK_BYTE *,
+			  CK_ULONG,
+			  OBJECT *);
+
    CK_RV (*t_rsa_generate_keypair)(TEMPLATE *, TEMPLATE *);
 /* Begin code contributed by Corrent corp. */
 #ifndef NODH
