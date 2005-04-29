@@ -37,6 +37,8 @@ struct token_specific_struct token_specific = {
      &token_specific_tdes_cbc,
      &token_specific_rsa_decrypt,
      &token_specific_rsa_encrypt,
+     &token_specific_rsa_sign,
+     &token_specific_rsa_verify,
      &token_specific_rsa_generate_keypair,
      &token_specific_dh_pkcs_derive,
      &token_specific_dh_pkcs_key_pair_gen,

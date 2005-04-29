@@ -94,7 +94,6 @@ ckm_rsa_encrypt( CK_BYTE   * in_data,
    return rc;
 }
 
-
 //
 //
 CK_RV
@@ -130,6 +129,76 @@ ckm_rsa_decrypt( CK_BYTE   * in_data,
    return rc;
 }
 
+//
+//
+CK_RV
+ckm_rsa_sign(    CK_BYTE   * in_data,
+                 CK_ULONG    in_data_len,
+                 CK_BYTE   * out_data,
+		 CK_ULONG  * out_data_len,
+                 OBJECT    * key_obj )
+{
+   CK_ATTRIBUTE      * attr     = NULL;
+   CK_OBJECT_CLASS     keyclass;
+   CK_RV               rc;
+
+
+   rc = template_attribute_find( key_obj->template, CKA_CLASS, &attr );
+   if (rc == FALSE){
+      st_err_log(4, __FILE__, __LINE__, __FUNCTION__);
+      return CKR_FUNCTION_FAILED;
+   }
+   else
+      keyclass = *(CK_OBJECT_CLASS *)attr->pValue;
+
+   // this had better be a private key
+   //
+   if (keyclass != CKO_PRIVATE_KEY){
+      st_err_log(4, __FILE__, __LINE__, __FUNCTION__);
+      return CKR_FUNCTION_FAILED;
+   }
+   rc = token_specific.t_rsa_sign(in_data, in_data_len, out_data, out_data_len, key_obj);
+   if (rc != CKR_OK)
+      st_err_log(135, __FILE__, __LINE__);
+
+   return rc;
+}
+
+
+//
+//
+CK_RV
+ckm_rsa_verify(  CK_BYTE   * in_data,
+                 CK_ULONG    in_data_len,
+                 CK_BYTE   * out_data,
+		 CK_ULONG    out_data_len,
+                 OBJECT    * key_obj )
+{
+   CK_ATTRIBUTE      * attr     = NULL;
+   CK_OBJECT_CLASS     keyclass;
+   CK_RV               rc;
+
+
+   rc = template_attribute_find( key_obj->template, CKA_CLASS, &attr );
+   if (rc == FALSE){
+      st_err_log(4, __FILE__, __LINE__, __FUNCTION__);
+      return CKR_FUNCTION_FAILED;
+   }
+   else
+      keyclass = *(CK_OBJECT_CLASS *)attr->pValue;
+
+   // this had better be a private key
+   //
+   if (keyclass != CKO_PUBLIC_KEY){
+      st_err_log(4, __FILE__, __LINE__, __FUNCTION__);
+      return CKR_FUNCTION_FAILED;
+   }
+   rc = token_specific.t_rsa_verify(in_data, in_data_len, out_data, out_data_len, key_obj);
+   if (rc != CKR_OK)
+      st_err_log(135, __FILE__, __LINE__);
+
+   return rc;
+}
 //
 //
 CK_RV
@@ -278,7 +347,13 @@ rsa_pkcs_sign( SESSION             *sess,
 
    // check input data length restrictions
    //
+#if 0
    if (in_data_len != modulus_bytes){
+      st_err_log(109, __FILE__, __LINE__);
+      return CKR_DATA_LEN_RANGE;
+   }
+#endif
+   if (in_data_len > modulus_bytes - 11){
       st_err_log(109, __FILE__, __LINE__);
       return CKR_DATA_LEN_RANGE;
    }
@@ -293,9 +368,13 @@ rsa_pkcs_sign( SESSION             *sess,
       return CKR_BUFFER_TOO_SMALL;
    }
 
+#if 0
    // signing is a private key operation --> decrypt
    //
    rc = ckm_rsa_decrypt( data, in_data_len, out_data, out_data_len, key_obj );
+#else
+   rc = ckm_rsa_sign( in_data, in_data_len, out_data, out_data_len, key_obj );
+#endif
    if (rc != CKR_OK)
       st_err_log(133, __FILE__, __LINE__);
    return rc;
@@ -341,6 +420,7 @@ rsa_pkcs_verify( SESSION             * sess,
    }
    // verify is a public key operation --> encrypt
    //
+#if 0
    rc = ckm_rsa_encrypt( signature, modulus_bytes, out, &out_len, key_obj );
    if (rc == CKR_OK) {
       if (out_len != in_data_len){
@@ -355,6 +435,10 @@ rsa_pkcs_verify( SESSION             * sess,
       return CKR_OK;
    }
    else
+#else
+   rc = ckm_rsa_verify( in_data, in_data_len, signature, sig_len, key_obj );
+   if (rc != CKR_OK)
+#endif
       st_err_log(132, __FILE__, __LINE__);
 
    return rc;

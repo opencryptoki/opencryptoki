@@ -90,6 +90,20 @@ token_specific_rsa_encrypt( CK_BYTE   * ,
                    OBJECT    * );
 
 CK_RV
+token_specific_rsa_sign( CK_BYTE   * ,
+                   CK_ULONG    ,
+                   CK_BYTE   * ,
+		   CK_ULONG  * ,
+                   OBJECT    * );
+
+CK_RV
+token_specific_rsa_verify( CK_BYTE   * ,
+                   CK_ULONG    ,
+                   CK_BYTE   * ,
+		   CK_ULONG    ,
+                   OBJECT    * );
+
+CK_RV
 token_specific_rsa_generate_keypair( TEMPLATE  * ,
                             TEMPLATE  * );
 /* Begin code contributed by Corrent corp. */
