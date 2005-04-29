@@ -2287,26 +2287,24 @@ token_specific_rsa_generate_keypair( TEMPLATE  * publ_tmpl,
 	return rc;
 }
 
-
 CK_RV
-token_specific_rsa_decrypt( CK_BYTE   * in_data,
-		CK_ULONG    in_data_len,
-		CK_BYTE   * out_data,
-		CK_ULONG  * out_data_len,
-		OBJECT    * key_obj )
+token_rsa_load_key( OBJECT * key_obj, TSS_HKEY * phKey )
 {
-	CK_RV           rc;
-	CK_ATTRIBUTE    *attr;
-	TSS_RESULT      result;
-	TSS_HKEY        hParentKey, hKey;
-	TSS_HENCDATA    hEncData = NULL_HENCDATA;
+	TSS_RESULT	result;
 	TSS_HPOLICY     hPolicy = NULL_HPOLICY;
-	UINT32          buf_size = 0;
-	BYTE            *buf = NULL, *authData = NULL;
+	TSS_HKEY	hParentKey;
+	BYTE		*authData = NULL;
+	CK_ATTRIBUTE    *attr;
+	CK_RV           rc;
 
 	if (hPrivateLeafKey != NULL_HKEY) {
 		hParentKey = hPrivateRootKey;
 	} else {
+		if ((result = token_load_public_root_key())) {
+			LogError("token_load_public_root_key failed. rc=%x", result);
+			return CKR_FUNCTION_FAILED;
+		}
+
 		hParentKey = hPublicRootKey;
 	}
 
@@ -2316,14 +2314,14 @@ token_specific_rsa_decrypt( CK_BYTE   * in_data,
 	}
 
 	if ((result = Tspi_Context_LoadKeyByBlob(tspContext, hParentKey, attr->ulValueLen,
-					attr->pValue, &hKey))) {
+					attr->pValue, phKey))) {
 		LogError("Tspi_Context_LoadKeyByBlob failed. rc=0x%x", result);
 		return CKR_FUNCTION_FAILED;
 	}
 
 	/* auth data may be required */
 	if (template_attribute_find( key_obj->template, CKA_ENC_AUTHDATA, &attr) == TRUE && attr) {
-		if ((result = Tspi_GetPolicyObject(hKey, TSS_POLICY_USAGE, &hPolicy))) {
+		if ((result = Tspi_GetPolicyObject(*phKey, TSS_POLICY_USAGE, &hPolicy))) {
 			LogError("Tspi_GetPolicyObject: 0x%x", result);
 			return CKR_FUNCTION_FAILED;
 		}
@@ -2349,6 +2347,28 @@ token_specific_rsa_decrypt( CK_BYTE   * in_data,
 		}
 
 		Tspi_Context_FreeMemory(tspContext, authData);
+	}
+
+	return CKR_OK;
+}
+
+CK_RV
+token_specific_rsa_decrypt( CK_BYTE   * in_data,
+		CK_ULONG    in_data_len,
+		CK_BYTE   * out_data,
+		CK_ULONG  * out_data_len,
+		OBJECT    * key_obj )
+{
+	CK_RV           rc;
+	TSS_RESULT      result;
+	TSS_HKEY        hKey;
+	TSS_HENCDATA    hEncData = NULL_HENCDATA;
+	UINT32          buf_size = 0;
+	BYTE            *buf = NULL;
+
+	if ((rc = token_rsa_load_key(key_obj, &hKey))) {
+		LogError("token_rsa_load_key failed. rc=0x%x", rc);
+		return rc;
 	}
 
 	/* push the data into the encrypted data object */
@@ -2384,6 +2404,103 @@ token_specific_rsa_decrypt( CK_BYTE   * in_data,
 	return CKR_OK;
 }
 
+CK_RV
+token_specific_rsa_verify( CK_BYTE   * in_data,
+		CK_ULONG    in_data_len,
+		CK_BYTE   * sig,
+		CK_ULONG    sig_len,
+		OBJECT    * key_obj )
+{
+	TSS_RESULT	result;
+	TSS_HHASH	hHash;
+	TSS_HKEY	hKey;
+	CK_RV		rc;
+
+	if ((rc = token_rsa_load_key(key_obj, &hKey))) {
+		LogError("token_rsa_load_key failed. rc=0x%x", rc);
+		return rc;
+	}
+
+	/* Create the hash object we'll use to sign */
+	if ((result = Tspi_Context_CreateObject(tspContext, TSS_OBJECT_TYPE_HASH,
+					TSS_HASH_OTHER, &hHash))) {
+		LogError("Tspi_Context_CreateObject failed. rc=0x%x", result);
+		return CKR_FUNCTION_FAILED;
+	}
+
+	/* Insert the data into the hash object */
+	if ((result = Tspi_Hash_SetHashValue(hHash, in_data_len, in_data))) {
+		LogError("Tspi_Hash_SetHashValue failed. rc=0x%x", result);
+		return CKR_FUNCTION_FAILED;
+	}
+
+	/* Verify */
+	result = Tspi_Hash_VerifySignature(hHash, hKey, sig_len, sig);
+	if (result != TSS_SUCCESS &&
+	    result != TSS_E_FAIL) {
+		LogError("Tspi_Hash_VerifySignature failed. rc=0x%x", result);
+	}
+
+	if (result == TSS_E_FAIL) {
+		rc = CKR_SIGNATURE_INVALID;
+	} else {
+		rc = CKR_OK;
+	}
+
+	return rc;
+}
+
+CK_RV
+token_specific_rsa_sign( CK_BYTE   * in_data,
+		CK_ULONG    in_data_len,
+		CK_BYTE   * out_data,
+		CK_ULONG  * out_data_len,
+		OBJECT    * key_obj )
+{
+	TSS_RESULT	result;
+	TSS_HHASH	hHash;
+	BYTE		*sig;
+	UINT32		sig_len;
+	TSS_HKEY	hKey;
+	CK_RV		rc;
+
+	if ((rc = token_rsa_load_key(key_obj, &hKey))) {
+		LogError("token_rsa_load_key failed. rc=0x%x", rc);
+		return rc;
+	}
+
+	/* Create the hash object we'll use to sign */
+	if ((result = Tspi_Context_CreateObject(tspContext, TSS_OBJECT_TYPE_HASH,
+					TSS_HASH_OTHER, &hHash))) {
+		LogError("Tspi_Context_CreateObject failed. rc=0x%x", result);
+		return CKR_FUNCTION_FAILED;
+	}
+
+	/* Insert the data into the hash object */
+	if ((result = Tspi_Hash_SetHashValue(hHash, in_data_len, in_data))) {
+		LogError("Tspi_Hash_SetHashValue failed. rc=0x%x", result);
+		return CKR_FUNCTION_FAILED;
+	}
+
+	/* Sign */
+	if ((result = Tspi_Hash_Sign(hHash, hKey, &sig_len, &sig))) {
+		LogError("Tspi_Hash_Sign failed. rc=0x%x", result);
+		return CKR_FUNCTION_FAILED;
+	}
+
+	if (sig_len > *out_data_len) {
+		LogError("%s: Error: Buffer too small to hold result.", __FUNCTION__);
+		Tspi_Context_FreeMemory(tspContext, sig);
+		return CKR_BUFFER_TOO_SMALL;
+	}
+
+	memcpy(out_data, sig, sig_len);
+	*out_data_len = sig_len;
+	Tspi_Context_FreeMemory(tspContext, sig);
+
+	return CKR_OK;
+}
+
 
 CK_RV
 token_specific_rsa_encrypt( CK_BYTE   * in_data,
@@ -2393,72 +2510,21 @@ token_specific_rsa_encrypt( CK_BYTE   * in_data,
 		OBJECT    * key_obj )
 {
 	TSS_RESULT	result;
-	CK_BYTE		*modulus;
-	CK_ATTRIBUTE	*attr;
-	CK_ULONG	key_size;
 	TSS_HENCDATA	hEncData;
 	BYTE		*dataBlob;
 	UINT32		dataBlobSize;
-	TSS_HKEY	hParentKey, hKey;
-	BYTE		*authData = NULL;
-	TSS_HPOLICY	hPolicy;
+	TSS_HKEY	hKey;
+	CK_RV		rc;
 
-	if (hPrivateLeafKey != NULL_HKEY) {
-		hParentKey = hPrivateRootKey;
-	} else {
-		if ((result = token_load_public_root_key())) {
-			LogError("token_load_public_root_key failed. rc=0x%x", result);
-			return CKR_FUNCTION_FAILED;
-		}
-
-		hParentKey = hPublicRootKey;
+	if ((rc = token_rsa_load_key(key_obj, &hKey))) {
+		LogError("token_rsa_load_key failed. rc=0x%x", rc);
+		return rc;
 	}
 
 	if ((result = Tspi_Context_CreateObject(tspContext, TSS_OBJECT_TYPE_ENCDATA,
 					TSS_ENCDATA_BIND, &hEncData))) {
 		LogError("Tspi_Context_CreateObject failed. rc=0x%x", result);
 		return CKR_FUNCTION_FAILED;
-	}
-
-	if ((result = template_attribute_find( key_obj->template, CKA_KEY_BLOB, &attr )) == FALSE) {
-		LogError("template_attribute_find failed. rc=0x%x", result);
-		return CKR_FUNCTION_FAILED;
-	}
-
-	if ((result = Tspi_Context_LoadKeyByBlob(tspContext, hParentKey, (UINT32)attr->ulValueLen,
-					(BYTE *)attr->pValue, &hKey))) {
-		LogError("Tspi_Context_LoadKeyByBlob failed. rc=0x%x", result);
-		return CKR_FUNCTION_FAILED;
-	}
-
-	/* auth data may be required */
-	if (template_attribute_find( key_obj->template, CKA_ENC_AUTHDATA, &attr) == TRUE && attr) {
-		if ((result = Tspi_GetPolicyObject(hKey, TSS_POLICY_USAGE, &hPolicy))) {
-			LogError("Tspi_GetPolicyObject: 0x%x", result);
-			return CKR_FUNCTION_FAILED;
-		}
-
-		if ((hPrivateLeafKey == NULL_HKEY) && (hPublicLeafKey == NULL_HKEY)) {
-			LogError("Shouldn't be in a public session here");
-			return CKR_FUNCTION_FAILED;
-		} else if (hPublicLeafKey != NULL_HKEY) {
-			hParentKey = hPublicLeafKey;
-		} else {
-			hParentKey = hPrivateLeafKey;
-		}
-
-		if ((result = token_unwrap_auth_data(attr->pValue, attr->ulValueLen, hParentKey, &authData))) {
-			LogError("token_unwrap_auth_data: 0x%x", result);
-			return CKR_FUNCTION_FAILED;
-		}
-
-		if ((result = Tspi_Policy_SetSecret(hPolicy, TSS_SECRET_MODE_SHA1, SHA1_HASH_SIZE,
-						authData))) {
-			LogError("Tspi_Policy_SetSecret failed. rc=0x%x", result);
-			return CKR_FUNCTION_FAILED;
-		}
-
-		Tspi_Context_FreeMemory(tspContext, authData);
 	}
 
 	if ((result = Tspi_Data_Bind(hEncData, hKey, in_data_len, in_data))) {
