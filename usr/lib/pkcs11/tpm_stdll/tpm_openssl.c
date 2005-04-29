@@ -40,16 +40,9 @@
 #include "tok_specific.h"
 #include "tok_spec_struct.h"
 
+#include "tpm_specific.h"
+
 #ifdef DEBUG
-#define DEBUG_openssl_print_errors()	openssl_print_errors()
-#else
-#define DEBUG_openssl_print_errors()
-#endif
-
-
-/* retry count for generating software RSA keys */
-#define KEYGEN_RETRY    5
-
 void
 openssl_print_errors()
 {
@@ -57,6 +50,7 @@ openssl_print_errors()
 	ERR_load_crypto_strings();
 	ERR_print_errors_fp(stderr);
 }
+#endif
 
 RSA *
 openssl_gen_key()
@@ -144,7 +138,7 @@ openssl_read_key(char *filename, char *pPin, RSA **ret)
 	b = BIO_new_file(filename, "r+");
 	if (b == NULL) {
 		LogError("%s: Error opening file for read: %s", __FUNCTION__, filename);
-		return CKR_FUNCTION_FAILED;
+		return CKR_FILE_NOT_FOUND;
 	}
 
 	if ((rsa = PEM_read_bio_RSAPrivateKey(b, NULL, 0, pPin)) == NULL) {
