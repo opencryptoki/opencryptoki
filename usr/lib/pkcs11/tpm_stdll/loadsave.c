@@ -610,7 +610,8 @@ save_private_token_object( OBJECT *obj )
    CK_BYTE            fname[100];
    CK_BYTE            hash_sha[SHA1_HASH_SIZE];
    CK_BYTE            hash_md5[MD5_HASH_SIZE];
-   CK_BYTE            des3_key[3 * DES_KEY_SIZE];
+   CK_BYTE            aes_key[AES_KEY_SIZE_256];
+   CK_BYTE            aes_iv[AES_BLOCK_SIZE];
    CK_ULONG           obj_data_len,cleartxt_len, ciphertxt_len, hash_len, tmp, tmp2;
    CK_ULONG           padded_len;
    CK_BBOOL           flag;
@@ -645,14 +646,11 @@ save_private_token_object( OBJECT *obj )
    //
    // So I have to use the low-level encryption routines.
    //
-#if 0
-   memcpy( des3_key, master_key, 3*DES_KEY_SIZE );
-#else
-   memcpy( des3_key, master_key_private, 3*DES_KEY_SIZE );
-#endif
+   memcpy( aes_key, master_key_private, AES_KEY_SIZE_256 );
+   memcpy( aes_iv, ")#%&!*)^!()$&!&N", AES_BLOCK_SIZE );
 
    cleartxt_len = sizeof(CK_ULONG_32) + obj_data_len_32 + SHA1_HASH_SIZE;
-   padded_len   = DES_BLOCK_SIZE * (cleartxt_len / DES_BLOCK_SIZE + 1);
+   padded_len   = AES_BLOCK_SIZE * (cleartxt_len / AES_BLOCK_SIZE + 1);
 
    cleartxt  = (CK_BYTE *)malloc( padded_len );
    ciphertxt = (CK_BYTE *)malloc( padded_len );
@@ -669,13 +667,13 @@ save_private_token_object( OBJECT *obj )
    memcpy( ptr,  obj_data,     obj_data_len_32     );  ptr += obj_data_len_32;
    memcpy( ptr,  hash_sha,     SHA1_HASH_SIZE   );
 
-   add_pkcs_padding( cleartxt + cleartxt_len, DES_BLOCK_SIZE, cleartxt_len, padded_len );
+   add_pkcs_padding( cleartxt + cleartxt_len, AES_BLOCK_SIZE, cleartxt_len, padded_len );
 
 #ifndef  CLEARTEXT
 
-	rc = ckm_des3_cbc_encrypt( cleartxt,    padded_len,
+	rc = ckm_aes_cbc_encrypt( cleartxt,    padded_len,
 				 ciphertxt,  &ciphertxt_len,
-			        "10293847", (char *) des3_key );
+			         aes_iv, (char *) aes_key, AES_KEY_SIZE_256 );
 #else
          bcopy(cleartxt,ciphertxt,padded_len);
          rc = CKR_OK;
@@ -878,7 +876,8 @@ restore_private_token_object( CK_BYTE  * data,
    CK_BYTE          * obj_data  = NULL;
    CK_BYTE          * ciphertxt = NULL;
    CK_BYTE          * ptr       = NULL;
-   CK_BYTE            des3_key[3 * DES_KEY_SIZE];
+   CK_BYTE            aes_key[AES_KEY_SIZE_256];
+   CK_BYTE            aes_iv[AES_BLOCK_SIZE];
    CK_BYTE            hash_sha[SHA1_HASH_SIZE];
    CK_MECHANISM       mech;
    DIGEST_CONTEXT     digest_ctx;
@@ -908,16 +907,13 @@ restore_private_token_object( CK_BYTE  * data,
 
    // decrypt the encrypted chunk
    //
-#if 0
-   memcpy( des3_key, master_key, 3*DES_KEY_SIZE );
-#else
-   memcpy( des3_key, master_key_private, 3*DES_KEY_SIZE );
-#endif
+   memcpy( aes_key, master_key_private, AES_KEY_SIZE_256 );
+   memcpy( aes_iv, ")#%&!*)^!()$&!&N", AES_BLOCK_SIZE );
 
 #ifndef  CLEARTEXT
-   rc = ckm_des3_cbc_decrypt( ciphertxt,  len,
+   rc = ckm_aes_cbc_decrypt( ciphertxt,  len,
                               cleartxt,  &len,
-                              "10293847", des3_key );
+                              aes_iv, aes_key, AES_KEY_SIZE_256 );
 #else
       bcopy(ciphertxt,cleartxt,len);
       rc = CKR_OK;
