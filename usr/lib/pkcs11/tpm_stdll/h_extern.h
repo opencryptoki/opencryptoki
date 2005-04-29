@@ -68,9 +68,7 @@ extern DL_NODE *publ_token_obj_list;
 extern DL_NODE *priv_token_obj_list;
 extern DL_NODE *object_map;
 
-//extern CK_BYTE master_key[3*DES_KEY_SIZE];
-#define MK_SIZE	(3*DES_KEY_SIZE)
-extern CK_BYTE master_key_public[MK_SIZE];
+#define MK_SIZE	(AES_KEY_SIZE_256)
 extern CK_BYTE master_key_private[MK_SIZE];
 
 extern CK_BYTE so_pin_md5[MD5_HASH_SIZE];
