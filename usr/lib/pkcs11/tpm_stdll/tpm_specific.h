@@ -48,10 +48,18 @@
 
 /* TPM token specific return codes */
 #define CKR_KEY_NOT_FOUND	CKR_VENDOR_DEFINED + 0
-#define CKR_DATA_OBJ_NOT_FOUND	CKR_VENDOR_DEFINED + 1
+#define CKR_FILE_NOT_FOUND	CKR_VENDOR_DEFINED + 1
 
-#define TPMTOK_MASTERKEY_PUBLIC		"MK_PUBLIC"
 #define TPMTOK_MASTERKEY_PRIVATE	"MK_PRIVATE"
+
+#ifdef DEBUG
+#define DEBUG_openssl_print_errors()    openssl_print_errors()
+#else
+#define DEBUG_openssl_print_errors()
+#endif
+
+/* retry count for generating software RSA keys */
+#define KEYGEN_RETRY    5
 
 RSA *openssl_gen_key();
 int openssl_write_key(RSA *, char *, char *);
