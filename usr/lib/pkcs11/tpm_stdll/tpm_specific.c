@@ -69,7 +69,6 @@ CK_CHAR model[] = "TPM v1.1 Token";
 CK_CHAR descr[] = "Token for the Trusted Platform Module";
 CK_CHAR label[] = "IBM PKCS#11 TPM Token";
 
-CK_BYTE master_key_public[MK_SIZE];
 CK_BYTE master_key_private[MK_SIZE];
 
 /* The context we'll use globally to connect to the TSP */
@@ -1113,157 +1112,7 @@ save_masterkey_private()
 
 	return CKR_OK;
 }
-#if 0
-CK_RV
-save_masterkey_public()
-{
-	CK_BYTE		fname[2048];
-	struct stat	file_stat;
-	int		err;
-	FILE		*fp = NULL;
 
-	TSS_RESULT	result;
-	TSS_HENCDATA	hEncData;
-	BYTE		*encrypted_masterkey;
-	UINT32		encrypted_masterkey_size;
-
-	//fp = fopen("/etc/pkcs11/tpm/MK_PUBLIC", "r");
-	sprintf((char *)fname,"%s/%s", pk_dir, TPMTOK_MASTERKEY_PUBLIC);
-
-	/* if file exists, assume its been written correctly before */
-	if ((err = stat(fname, &file_stat)) == 0) {
-		return CKR_OK;
-	} else if (errno != ENOENT) {
-		/* some error other than file doesn't exist */
-		return CKR_FUNCTION_FAILED;
-	}
-
-	/* encrypt the public masterkey using the public root key */
-	if ((result = Tspi_Context_CreateObject(tspContext, TSS_OBJECT_TYPE_ENCDATA,
-					TSS_ENCDATA_BIND, &hEncData))) {
-		LogError("Tspi_Context_CreateObject failed. rc=0x%x", result);
-		return CKR_FUNCTION_FAILED;
-	}
-
-	if ((result = Tspi_Data_Bind(hEncData, hPublicRootKey, MK_SIZE, master_key_public))) {
-		LogError("Tspi_Data_Bind failed. rc=0x%x", result);
-		return CKR_FUNCTION_FAILED;
-	}
-
-	if ((result = Tspi_GetAttribData(hEncData, TSS_TSPATTRIB_ENCDATA_BLOB,
-					TSS_TSPATTRIB_ENCDATABLOB_BLOB, &encrypted_masterkey_size,
-					&encrypted_masterkey))) {
-		LogError("Tspi_GetAttribData failed. rc=0x%x", result);
-		return CKR_FUNCTION_FAILED;
-	}
-
-	if (encrypted_masterkey_size > 256) {
-		Tspi_Context_FreeMemory(tspContext, encrypted_masterkey);
-		return CKR_DATA_LEN_RANGE;
-	}
-
-	/* write the encrypted key to disk */
-	if ((fp = fopen((char *)fname, "w")) == NULL) {
-		LogError("Error opening MK_PUBLIC file for write: %s", strerror(errno));
-		Tspi_Context_FreeMemory(tspContext, encrypted_masterkey);
-		return CKR_FUNCTION_FAILED;
-	}
-
-	if ((err = fwrite(encrypted_masterkey, encrypted_masterkey_size, 1, fp)) == 0) {
-		LogError("Error writing MK_PUBLIC file: %s", strerror(errno));
-		Tspi_Context_FreeMemory(tspContext, encrypted_masterkey);
-		fclose(fp);
-		return CKR_FUNCTION_FAILED;
-	}
-
-	Tspi_Context_FreeMemory(tspContext, encrypted_masterkey);
-	fclose(fp);
-
-	return CKR_OK;
-}
-
-CK_RV
-load_masterkey_public()
-{
-	FILE		*fp  = NULL;
-	int		err;
-	struct stat	file_stat;
-	CK_BYTE		fname[2048], encrypted_masterkey[256];
-	CK_RV		rc;
-
-	TSS_RESULT	result;
-	TSS_HENCDATA	hEncData;
-	BYTE		*masterkey;
-	UINT32		masterkey_size, encrypted_masterkey_size = 256;
-
-	sprintf((char *)fname,"%s/%s", pk_dir, TPMTOK_MASTERKEY_PUBLIC);
-
-	/* if file exists, check its size */
-	if ((err = stat(fname, &file_stat)) == 0) {
-		if (file_stat.st_size != 256) {
-			LogError1("Public master key has been corrupted");
-			return CKR_FUNCTION_FAILED;
-		}
-	} else if (errno == ENOENT) {
-		LogError1("Public masterkey doesn't exist, creating it...");
-
-		/* create the public master key, then save */
-		if ((rc = token_rng(master_key_public, MK_SIZE))) {
-			LogError("token_rng failed. rc=0x%x", rc);
-			return rc;
-		}
-
-		return save_masterkey_public();
-	} else {
-		/* some error other than file doesn't exist */
-		LogError("stat of public master key failed: %s", strerror(errno));
-		return CKR_FUNCTION_FAILED;
-	}
-
-	//fp = fopen("/etc/pkcs11/tpm/MK_PUBLIC", "r");
-	if ((fp = fopen((char *)fname, "r")) == NULL) {
-		LogError("Error opening public master key: %s", strerror(errno));
-		return CKR_FUNCTION_FAILED;
-	}
-
-	if (fread(encrypted_masterkey, encrypted_masterkey_size, 1, fp) == 0) {
-		LogError("Error reading public master key: %s", strerror(errno));
-		fclose(fp);
-		return CKR_FUNCTION_FAILED;
-	}
-	fclose(fp);
-
-	/* decrypt the public masterkey using the public root key */
-	if ((result = Tspi_Context_CreateObject(tspContext, TSS_OBJECT_TYPE_ENCDATA,
-					TSS_ENCDATA_BIND, &hEncData))) {
-		LogError("Tspi_Context_CreateObject failed. rc=0x%x", result);
-		return CKR_FUNCTION_FAILED;
-	}
-
-	if ((result = Tspi_SetAttribData(hEncData, TSS_TSPATTRIB_ENCDATA_BLOB,
-					TSS_TSPATTRIB_ENCDATABLOB_BLOB, encrypted_masterkey_size,
-					encrypted_masterkey))) {
-		LogError("Tspi_SetAttribData failed. rc=0x%x", result);
-		return CKR_FUNCTION_FAILED;
-	}
-
-	if ((result = Tspi_Data_Unbind(hEncData, hPublicRootKey, &masterkey_size, &masterkey))) {
-		LogError("Tspi_Data_Unbind failed. rc=0x%x", result);
-		return CKR_FUNCTION_FAILED;
-	}
-
-	if (masterkey_size != MK_SIZE) {
-		LogError("decrypted public master key size is %u, should be %u",
-				masterkey_size, MK_SIZE);
-		Tspi_Context_FreeMemory(tspContext, masterkey);
-		return CKR_FUNCTION_FAILED;
-	}
-
-	memcpy(master_key_public, masterkey, MK_SIZE);
-	Tspi_Context_FreeMemory(tspContext, masterkey);
-	return CKR_OK;
-}
-#endif
 CK_RV
 load_masterkey_private()
 {
@@ -1441,6 +1290,7 @@ legacy_user_ops:
 			LogError("load_masterkey_private failed. rc=0x%x", rc);
 			Tspi_Key_UnloadKey(hPrivateLeafKey);
 			hPrivateLeafKey = NULL_HKEY;
+			return rc;
 		}
 
 		rc = load_private_token_objects();
@@ -1460,10 +1310,9 @@ legacy_user_ops:
 
 			if ((rc = token_verify_pin(hPrivateLeafKey))) {
 				LogError("token_verify_pin failed. rc=0x%x", rc);
-				return rc;
 			}
 
-			goto legacy_so_ops;
+			return rc;
 		}
 
 		/* find, load the root key */
@@ -1518,15 +1367,6 @@ legacy_user_ops:
 			LogError("token_verify_pin failed. rc=0x%x", rc);
 			return rc;
 		}
-legacy_so_ops:
-#if 0
-		if ((rc = load_masterkey_public())) {
-			LogError("load_masterkey_public failed. rc=0x%x", rc);
-			Tspi_Key_UnloadKey(hPublicLeafKey);
-			hPublicLeafKey = NULL_HKEY;
-		}
-#endif
-		;
 	}
 
 	return rc;
@@ -1544,7 +1384,6 @@ token_specific_logout()
 	}
 
 	memset(master_key_private, 0, MK_SIZE);
-	memset(master_key_public, 0, MK_SIZE);
 
 	/* pulled from new_host.c */
 	object_mgr_purge_private_token_objects();
@@ -1650,6 +1489,12 @@ token_specific_set_pin(ST_SESSION_HANDLE session,
 
 		/* read the backup key with the old pin */
 		if ((rc = openssl_read_key(TPMTOK_PRIVATE_ROOT_KEY_LOCATION, pOldPin, &rsa_root))) {
+			if (rc == CKR_FILE_NOT_FOUND) {
+				/* If the user has moved his backup PEM file off site, allow a
+				 * change auth to succeed without updating it. */
+				return CKR_OK;
+			}
+
 			LogError1("openssl_read_key failed");
 			return rc;
 		}
@@ -1697,12 +1542,14 @@ token_specific_set_pin(ST_SESSION_HANDLE session,
 			return rc;
 		}
 
-		/* XXX make a decision here.  If the user has moved his software keys off-site,
-		 * should we silently succeed here?
-		 */
-
 		/* change auth on the public root key's openssl backup */
 		if ((rc = openssl_read_key(TPMTOK_PUBLIC_ROOT_KEY_LOCATION, pOldPin, &rsa_root))) {
+			if (rc == CKR_FILE_NOT_FOUND) {
+				/* If the user has moved his backup PEM file off site, allow a
+				 * change auth to succeed without updating it. */
+				return CKR_OK;
+			}
+
 			LogError1("openssl_read_key failed");
 			return rc;
 		}
