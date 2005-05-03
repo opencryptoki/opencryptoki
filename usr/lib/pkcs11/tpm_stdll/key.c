@@ -690,7 +690,7 @@ priv_key_validate_attribute( TEMPLATE *tmpl, CK_ATTRIBUTE *attr, CK_ULONG mode )
 	 }
          return CKR_OK;
 
-      case CKA_KEY_BLOB:
+      case CKA_IBM_OPAQUE:
          {
 	    CK_ATTRIBUTE *new_attr;
 
@@ -703,7 +703,7 @@ priv_key_validate_attribute( TEMPLATE *tmpl, CK_ATTRIBUTE *attr, CK_ULONG mode )
 	       st_err_log(1, __FILE__, __LINE__);
 	       return CKR_HOST_MEMORY;
 	    }
-	    new_attr->type       = CKA_KEY_BLOB;
+	    new_attr->type       = CKA_IBM_OPAQUE;
 	    new_attr->ulValueLen = attr->ulValueLen;
 	    new_attr->pValue     = malloc(attr->ulValueLen);
 	    if (new_attr->pValue == NULL) {
