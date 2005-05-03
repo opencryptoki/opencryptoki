@@ -209,7 +209,7 @@ token_get_key_blob(CK_OBJECT_HANDLE ckKey, CK_ULONG *blob_size, CK_BYTE **ret_bl
 	CK_RV rc = CKR_OK;
 	CK_BYTE_PTR blob = NULL;
 	CK_ATTRIBUTE tmpl[] = {
-		{CKA_KEY_BLOB, NULL_PTR, 0}
+		{CKA_IBM_OPAQUE, NULL_PTR, 0}
 	};
 	SESSION dummy_sess;
 
@@ -243,30 +243,511 @@ done:
 	return rc;
 }
 
+CK_RV
+token_wrap_sw_key(int size_n, unsigned char *n, int size_p, unsigned char *p,
+		  TSS_HKEY hParentKey, TSS_HKEY *phKey)
+{
+        unsigned char	null_auth[SHA1_HASH_SIZE];
+        unsigned char	priv_key[214]; /* its not magic, see TPM 1.1b spec p.71 */
+        unsigned char	enc_priv_key[214]; /* its not magic, see TPM 1.1b spec p.71 */
+        int		priv_key_len;
+        UINT16		offset = 0, dig_offset = 0;
+        TSS_RESULT	result;
+        BYTE		blob_for_digest[1024], *blob;
+        UINT32		blob_size;
+        TCPA_DIGEST	digest;
+        TCPA_KEY	key;
+
+	memset(null_auth, 0, SHA1_HASH_SIZE);
+
+	/* set up the private key structure */
+	Trspi_LoadBlob_BYTE(&offset, TCPA_PT_ASYM, priv_key);
+	Trspi_LoadBlob(&offset, SHA1_HASH_SIZE, priv_key, null_auth);
+	Trspi_LoadBlob(&offset, SHA1_HASH_SIZE, priv_key, null_auth);
+
+	/* create the TSS key object */
+	if ((result = Tspi_Context_CreateObject(tspContext, TSS_OBJECT_TYPE_RSAKEY,
+			TSS_KEY_SIZE_2048 | TSS_KEY_TYPE_STORAGE | TSS_KEY_MIGRATABLE |
+			TSS_KEY_NO_AUTHORIZATION, phKey))) {
+		LogError("Tspi_Context_CreateObject: 0x%x", result);
+		return CKR_FUNCTION_FAILED;
+	}
+
+	/* set the public key data in the TSS object */
+	if ((result = Tspi_SetAttribData(*phKey, TSS_TSPATTRIB_KEY_BLOB,
+			TSS_TSPATTRIB_KEYBLOB_PUBLIC_KEY, size_n, n))) {
+		LogError("Tspi_SetAttribData: 0x%x", result);
+		Tspi_Context_CloseObject(tspContext, *phKey);
+		*phKey = NULL_HKEY;
+		return CKR_FUNCTION_FAILED;
+	}
+
+	/* get the object's blob so that we can create a digest of the structure to
+	 * stick inside the private key structure. */
+	if ((result = Tspi_GetAttribData(*phKey, TSS_TSPATTRIB_KEY_BLOB,
+			TSS_TSPATTRIB_KEYBLOB_BLOB, &blob_size, &blob))) {
+		LogError("Tspi_GetAttribData: 0x%x", result);
+		Tspi_Context_CloseObject(tspContext, *phKey);
+		*phKey = NULL_HKEY;
+		return CKR_FUNCTION_FAILED;
+	}
+
+	/* unload the blob returned by the TSS, then load up one to create the
+	 * private key's digest with. */
+	if ((result = Trspi_UnloadBlob_KEY(tspContext, &dig_offset, blob, &key)) != TSS_SUCCESS) {
+		LogError("Trspi_UnloadBlob_KEY: 0x%x", result);
+		Tspi_Context_CloseObject(tspContext, *phKey);
+		*phKey = NULL_HKEY;
+		return CKR_FUNCTION_FAILED;
+	}
+	dig_offset = 0;
+	Trspi_LoadBlob_PRIVKEY_DIGEST(&dig_offset, blob_for_digest, &key);
+
+	Tspi_Context_FreeMemory(tspContext, blob);
+
+	/* blob_for_digest now has the correct data in it, create the digest */
+	Trspi_Hash(TSS_HASH_SHA1, dig_offset, blob_for_digest, &digest.digest);
+
+	/* load the digest of the TCPA_KEY structure */
+	Trspi_LoadBlob(&offset, SHA1_HASH_SIZE, priv_key, &digest.digest);
+	/* load the TCPA_STORE_PRIVKEY structure */
+	Trspi_LoadBlob_UINT32(&offset, size_p, priv_key);
+	Trspi_LoadBlob(&offset, size_p, priv_key, p);
+	priv_key_len = offset;
+
+	/* Now encrypt the private parts of this key with the SRK's public key */
+
+	/* reuse blob here in getting the parent's public key */
+	if ((result = Tspi_GetAttribData(hParentKey, TSS_TSPATTRIB_KEY_BLOB,
+			TSS_TSPATTRIB_KEYBLOB_PUBLIC_KEY, &blob_size, &blob))) {
+		LogError("Tspi_GetAttribData: 0x%x", result);
+		Tspi_Context_CloseObject(tspContext, *phKey);
+		*phKey = NULL_HKEY;
+		return CKR_FUNCTION_FAILED;
+	}
+
+	if (Trspi_RSA_Encrypt(priv_key, priv_key_len, enc_priv_key, &priv_key_len,
+				blob, blob_size)) {
+		LogError("Trspi_RSA_Encrypt: 0x%x", result);
+		Tspi_Context_CloseObject(tspContext, *phKey);
+		Tspi_Context_FreeMemory(tspContext, blob);
+		*phKey = NULL_HKEY;
+		return CKR_FUNCTION_FAILED;
+	}
+
+	Tspi_Context_FreeMemory(tspContext, blob);
+
+	if ((result = Tspi_SetAttribData(*phKey, TSS_TSPATTRIB_KEY_BLOB,
+			TSS_TSPATTRIB_KEYBLOB_PRIVATE_KEY, priv_key_len, enc_priv_key))) {
+		LogError("Tspi_SetAttribData: 0x%x", result);
+		Tspi_Context_CloseObject(tspContext, *phKey);
+		*phKey = NULL_HKEY;
+		return CKR_FUNCTION_FAILED;
+	}
+
+	return CKR_OK;
+}
+
+#if 0
+CK_RV
+token_get_key_modulus(CK_OBJECT_HANDLE ckKey, TSS_HKEY *phKey)
+{
+	CK_RV rc = CKR_OK;
+	CK_BYTE_PTR blob = NULL;
+	CK_ATTRIBUTE tmpl[] = {
+		{CKA_IBM_OPAQUE, NULL_PTR, 0}
+	};
+	SESSION dummy_sess;
+
+	/* set up dummy session */
+	memset(&dummy_sess, 0, sizeof(SESSION));
+	dummy_sess.session_info.state = CKS_RO_USER_FUNCTIONS;
+
+	/* find object the first time to return the size of the buffer needed */
+	if ((rc = object_mgr_get_attribute_values(&dummy_sess, ckKey, tmpl, 1))) {
+		LogError("object_mgr_get_attribute_values failed. rc=0x%x", rc);
+		goto done;
+	}
+
+	blob = malloc(tmpl[0].ulValueLen);
+	if (blob == NULL) {
+		LogError("malloc of %d bytes failed.", tmpl[0].ulValueLen);
+		rc = CKR_HOST_MEMORY;
+		goto done;
+	}
+
+	tmpl[0].pValue = blob;
+	/* find object the 2nd time to fill the buffer with data */
+	if ((rc = object_mgr_get_attribute_values(&dummy_sess, ckKey, tmpl, 1))) {
+		LogError("object_mgr_get_attribute_values failed. rc=0x%x", rc);
+		goto done;
+	}
+
+	*ret_blob = blob;
+	*blob_size = tmpl[0].ulValueLen;
+done:
+	return rc;
+}
+/*
+ * create a TPM key blob for an imported key.
+ */
+CK_RV
+token_specific_create_object( OBJECT * o )
+{
+	CK_RV		rc = CKR_OK;
+	CK_ATTRIBUTE	*attr = NULL, *new_attr, *prime_attr;
+	CK_ULONG	class, key_type, pub_exp;
+	CK_BBOOL	found;
+
+	TSS_RESULT	result;
+	TSS_HKEY	hKey;
+	TSS_FLAGS	initFlags = 0;
+	BYTE		*rgbBlob;
+	UINT32		ulBlobLen;
+
+	/* if the object isn't a key, just let it pass on through */
+	if ((found = template_attribute_find(obj->template, CKA_KEY_TYPE, &attr)) == FALSE) {
+		return CKR_OK;
+	}
+
+	key_type = *((CK_ULONG *)attr->pValue);
+
+	if (key_type != CKK_RSA) {
+		return CKR_OK;
+	}
+
+	if ((found = template_attribute_find(obj->template, CKA_CLASS, &attr)) == FALSE) {
+		LogError1("Couldn't find CKA_CLASS attribute of key object");
+		return CKR_FUNCTION_FAILED;
+	}
+
+	class = *((CK_ULONG *)attr->pValue);
+
+	if (class == CKO_PRIVATE_KEY) {
+		/* check the least likely attribute to exist first, the primes */
+		if ((found = template_attribute_find(obj->template, CKA_PRIME_1,
+						&prime_attr)) == FALSE) {
+			if ((found = template_attribute_find(obj->template, CKA_PRIME_2,
+							&prime_attr)) == FALSE) {
+				LogError1("Couldn't find a required attribute of key"
+						"the object");
+				return CKR_TEMPLATE_INCONSISTENT;
+			}
+		}
+
+		/* Make sure the public exponent is usable */
+		if ((found = template_attribute_find(obj->template, CKA_PUBLIC_EXPONENT,
+						&attr)) == FALSE) {
+			LogError1("Couldn't find a required attribute of key object");
+			return CKR_FUNCTION_FAILED;
+		}
+
+		pub_exp = *((CK_ULONG *)attr->pValue);
+		if (pub_exp != TPMTOK_PUB_EXP) {
+			LogError("Invalid public exponent");
+			return CKR_TEMPLATE_INCONSISTENT;
+		}
+
+		/* grab the modulus to put into the TSS key object */
+		if ((found = template_attribute_find(obj->template, CKA_MODULUS, &attr))
+				== FALSE) {
+			LogError1("Couldn't find a required attribute of key object");
+			return CKR_FUNCTION_FAILED;
+		}
+
+		/* make sure the key size is usable */
+		initFlags = util_get_keysize_flag(attr->ulValueLen * 8);
+		if (initFlags == 0) {
+			LogError("Invalid key size.");
+			return CKR_TEMPLATE_INCONSISTENT;
+		}
+
+		initFlags |= TSS_KEY_TYPE_LEGACY | TSS_KEY_MIGRATABLE | TSS_KEY_AUTHORIZATION;
+
+		if ((result = Tspi_Context_CreateObject(tspContext, TSS_OBJECT_TYPE_RSAKEY,
+						initFlags, &hKey))) {
+			LogError("Tspi_Context_CreateObject failed. rc=0x%x", result);
+			return result;
+		}
+
+		if ((result = Tspi_SetAttribData(hKey, TSS_TSPATTRIB_KEY_BLOB,
+						TSS_TSPATTRIB_KEYBLOB_PUBLIC_KEY,
+						attr->ulValueLen, attr->pValue))) {
+			LogError("Tspi_SetAttribData: 0x%x", result);
+			Tspi_Context_CloseObject(tspContext, hKey);
+			return CKR_FUNCTION_FAILED;
+		}
+	} else if (class == CKO_PUBLIC_KEY) {
+		/* Make sure the public exponent is usable */
+		if ((found = template_attribute_find(obj->template, CKA_PUBLIC_EXPONENT,
+						&attr)) == FALSE) {
+			LogError1("Couldn't find a required attribute of key object");
+			return CKR_TEMPLATE_INCONSISTENT;
+		}
+
+		pub_exp = *((CK_ULONG *)attr->pValue);
+		if (pub_exp != TPMTOK_PUB_EXP) {
+			LogError("Invalid public exponent");
+			return CKR_TEMPLATE_INCONSISTENT;
+		}
+
+		/* grab the modulus to put into the TSS key object */
+		if ((found = template_attribute_find(obj->template, CKA_MODULUS, &attr))
+				== FALSE) {
+			LogError1("Couldn't find a required attribute of key object");
+			return CKR_TEMPLATE_INCONSISTENT;
+		}
+
+		/* make sure the key size is usable */
+		initFlags = util_get_keysize_flag(attr->ulValueLen * 8);
+		if (initFlags == 0) {
+			LogError("Invalid key size.");
+			return CKR_TEMPLATE_INCONSISTENT;
+		}
+
+		initFlags |= TSS_KEY_TYPE_LEGACY | TSS_KEY_MIGRATABLE | TSS_KEY_NO_AUTHORIZATION;
+
+		if ((result = Tspi_Context_CreateObject(tspContext, TSS_OBJECT_TYPE_RSAKEY,
+						initFlags, &hKey))) {
+			LogError("Tspi_Context_CreateObject failed. rc=0x%x", result);
+			return result;
+		}
+
+		if ((result = Tspi_SetAttribData(hKey, TSS_TSPATTRIB_KEY_BLOB,
+						TSS_TSPATTRIB_KEYBLOB_PUBLIC_KEY,
+						attr->ulValueLen, attr->pValue))) {
+			LogError("Tspi_SetAttribData: 0x%x", result);
+			Tspi_Context_CloseObject(tspContext, hKey);
+			return CKR_FUNCTION_FAILED;
+		}
+	}
+
+	/* grab the entire key blob to put into the PKCS#11 object */
+	if ((result = Tspi_GetAttribData(hKey, TSS_TSPATTRIB_KEY_BLOB,
+					TSS_TSPATTRIB_KEYBLOB_BLOB,
+					&ulBlobLen, &rgbBlob))) {
+		LogError("Tspi_GetAttribData failed with rc: 0x%x", result);
+		return CKR_FUNCTION_FAILED;
+	}
+
+	/* insert the key blob into the object */
+	if ((rc = build_attribute(CKA_IBM_OPAQUE, rgbBlob, ulBlobLen, &new_attr))) {
+		st_err_log(84, __FILE__, __LINE__);
+		Tspi_Context_FreeMemory(tspContext, rgbBlob);
+		return rc;
+	}
+	template_update_attribute( priv_key_obj->template, new_attr );
+	Tspi_Context_FreeMemory(tspContext, rgbBlob);
+
+	return CKR_OK;
+}
+#else
+/*
+ * Create a TPM key blob for an imported key. This function is only called when
+ * a key is in active use, so any failure should trickle through.
+ */
+CK_RV
+token_wrap_key_object( CK_OBJECT_HANDLE ckObject, TSS_HKEY hParentKey, TSS_HKEY *phKey )
+{
+	CK_RV		rc = CKR_OK;
+	CK_ATTRIBUTE	*attr = NULL, *new_attr, *prime_attr;
+	CK_ULONG	class, key_type, pub_exp;
+	CK_BBOOL	found;
+	OBJECT		*obj;
+
+	TSS_RESULT	result;
+	TSS_HKEY	hKey;
+	TSS_FLAGS	initFlags = 0;
+	BYTE		*rgbBlob;
+	UINT32		ulBlobLen;
+
+	if ((rc = object_mgr_find_in_map1(ckObject, &obj))) {
+		LogError("object_mgr_find_in_map1 failed. rc=0x%x", rc);
+		return rc;
+	}
+
+	/* if the object isn't a key, fail */
+	if ((found = template_attribute_find(obj->template, CKA_KEY_TYPE, &attr)) == FALSE) {
+		LogError1("template_attribute_find(CKA_KEY_TYPE) failed.");
+		return CKR_FUNCTION_FAILED;
+	}
+
+	key_type = *((CK_ULONG *)attr->pValue);
+
+	if (key_type != CKK_RSA) {
+		LogError("%s: Bad key type!", __FUNCTION__);
+		return CKR_FUNCTION_FAILED;
+	}
+
+	if ((found = template_attribute_find(obj->template, CKA_CLASS, &attr)) == FALSE) {
+		LogError1("template_attribute_find(CKA_CLASS) failed.");
+		return CKR_FUNCTION_FAILED;
+	}
+
+	class = *((CK_ULONG *)attr->pValue);
+
+	if (class == CKO_PRIVATE_KEY) {
+		/* In order to create a full TSS key blob using a PKCS#11 private key
+		 * object, we need one of the two primes, the modulus and the private
+		 * exponent and we need the public exponent to be correct */
+
+		/* check the least likely attribute to exist first, the primes */
+		if ((found = template_attribute_find(obj->template, CKA_PRIME_1,
+						&prime_attr)) == FALSE) {
+			if ((found = template_attribute_find(obj->template, CKA_PRIME_2,
+							&prime_attr)) == FALSE) {
+				LogError1("Couldn't find a required attribute of key"
+						"the object");
+				return CKR_TEMPLATE_INCONSISTENT;
+			}
+		}
+
+		/* Make sure the public exponent is usable */
+		if ((found = template_attribute_find(obj->template, CKA_PUBLIC_EXPONENT,
+						&attr)) == FALSE) {
+			LogError1("Couldn't find a required attribute of key object");
+			return CKR_FUNCTION_FAILED;
+		}
+
+		pub_exp = *((CK_ULONG *)attr->pValue);
+		if (pub_exp != TPMTOK_PUB_EXP) {
+			LogError("Invalid public exponent");
+			return CKR_TEMPLATE_INCONSISTENT;
+		}
+
+		/* make sure the key size is usable */
+		initFlags = util_get_keysize_flag(attr->ulValueLen * 8);
+		if (initFlags == 0) {
+			LogError("Invalid key size.");
+			return CKR_TEMPLATE_INCONSISTENT;
+		}
+
+		if ((result = Tspi_SetAttribData(hKey, TSS_TSPATTRIB_KEY_BLOB,
+						TSS_TSPATTRIB_KEYBLOB_PUBLIC_KEY,
+						attr->ulValueLen, attr->pValue))) {
+			LogError("Tspi_SetAttribData: 0x%x", result);
+			Tspi_Context_CloseObject(tspContext, hKey);
+			return CKR_FUNCTION_FAILED;
+		}
+
+		/* generate the software based key */
+		if ((rc = token_wrap_sw_key((int)attr->ulValueLen, attr->pValue,
+						(int)prime_attr->ulValueLen, prime_attr->pValue,
+						hParentKey, phKey))) {
+			LogError("token_wrap_sw_key failed. rc=0x%x", rc);
+			return rc;
+		}
+	} else if (class == CKO_PUBLIC_KEY) {
+		/* Make sure the public exponent is usable */
+		if ((found = template_attribute_find(obj->template, CKA_PUBLIC_EXPONENT,
+						&attr)) == FALSE) {
+			LogError1("Couldn't find a required attribute of key object");
+			return CKR_TEMPLATE_INCONSISTENT;
+		}
+
+		pub_exp = *((CK_ULONG *)attr->pValue);
+		if (pub_exp != TPMTOK_PUB_EXP) {
+			LogError("Invalid public exponent");
+			return CKR_TEMPLATE_INCONSISTENT;
+		}
+
+		/* grab the modulus to put into the TSS key object */
+		if ((found = template_attribute_find(obj->template, CKA_MODULUS, &attr))
+				== FALSE) {
+			LogError1("Couldn't find a required attribute of key object");
+			return CKR_TEMPLATE_INCONSISTENT;
+		}
+
+		/* make sure the key size is usable */
+		initFlags = util_get_keysize_flag(attr->ulValueLen * 8);
+		if (initFlags == 0) {
+			LogError("Invalid key size.");
+			return CKR_TEMPLATE_INCONSISTENT;
+		}
+
+		initFlags |= TSS_KEY_TYPE_LEGACY | TSS_KEY_MIGRATABLE | TSS_KEY_NO_AUTHORIZATION;
+
+		if ((result = Tspi_Context_CreateObject(tspContext, TSS_OBJECT_TYPE_RSAKEY,
+						initFlags, &hKey))) {
+			LogError("Tspi_Context_CreateObject failed. rc=0x%x", result);
+			return result;
+		}
+
+		if ((result = Tspi_SetAttribData(hKey, TSS_TSPATTRIB_KEY_BLOB,
+						TSS_TSPATTRIB_KEYBLOB_PUBLIC_KEY,
+						attr->ulValueLen, attr->pValue))) {
+			LogError("Tspi_SetAttribData: 0x%x", result);
+			Tspi_Context_CloseObject(tspContext, hKey);
+			return CKR_FUNCTION_FAILED;
+		}
+	} else {
+		LogError("%s: Bad key class!", __FUNCTION__);
+		return CKR_FUNCTION_FAILED;
+	}
+
+	/* grab the entire key blob to put into the PKCS#11 object */
+	if ((result = Tspi_GetAttribData(*phKey, TSS_TSPATTRIB_KEY_BLOB,
+					TSS_TSPATTRIB_KEYBLOB_BLOB,
+					&ulBlobLen, &rgbBlob))) {
+		LogError("Tspi_GetAttribData failed with rc: 0x%x", result);
+		return CKR_FUNCTION_FAILED;
+	}
+
+	/* insert the key blob into the object */
+	if ((rc = build_attribute(CKA_IBM_OPAQUE, rgbBlob, ulBlobLen, &new_attr))) {
+		st_err_log(84, __FILE__, __LINE__);
+		Tspi_Context_FreeMemory(tspContext, rgbBlob);
+		return rc;
+	}
+	template_update_attribute( obj->template, new_attr );
+	Tspi_Context_FreeMemory(tspContext, rgbBlob);
+
+	/* if this is a token object, save it with the new attribute so that we
+	 * don't have to go down this path again */
+	if (!object_is_session_object(obj)) {
+		rc = save_token_object(obj);
+	}
+
+	return rc;
+}
+#endif
+
 /*
  * load a key in the TSS hierarchy from its CK_OBJECT_HANDLE
  */
 CK_RV
-token_load_key(CK_OBJECT_HANDLE ckKey, TSS_HKEY hParentKey, CK_CHAR_PTR passHash, TSS_HKEY *hKey)
+token_load_key(CK_OBJECT_HANDLE ckKey, TSS_HKEY hParentKey, CK_CHAR_PTR passHash, TSS_HKEY *phKey)
 {
 	TSS_RESULT result;
 	TSS_HPOLICY hPolicy;
-	CK_BYTE *blob;
-	CK_ULONG ulBlobSize;
+	CK_BYTE *blob = NULL;
+	CK_ULONG ulBlobSize = 0;
 	CK_RV rc;
 
 	if ((rc = token_get_key_blob(ckKey, &ulBlobSize, &blob))) {
-		return rc;
+		if (rc != CKR_ATTRIBUTE_TYPE_INVALID) {
+			LogError("token_get_key_blob failed. rc=0x%x", rc);
+			return rc;
+		}
+		/* the key blob wasn't found, so check for a modulus
+		 * to load */
+		LogError1("key blob not found, checking for modulus");
+		if ((rc = token_wrap_key_object(ckKey, hParentKey, phKey))) {
+			LogError("token_wrap_key_object failed. rc=0x%x", rc);
+			return rc;
+		}
 	}
 
-	/* load the key inside the TSS */
-	if ((result = Tspi_Context_LoadKeyByBlob(tspContext, hParentKey, ulBlobSize,
-					    blob, hKey))) {
-		LogError("Tspi_Context_LoadKeyByBlob: 0x%x", result);
-		goto done;
+	if (blob != NULL) {
+		/* load the key inside the TSS */
+		if ((result = Tspi_Context_LoadKeyByBlob(tspContext, hParentKey, ulBlobSize,
+						blob, phKey))) {
+			LogError("Tspi_Context_LoadKeyByBlob: 0x%x", result);
+			goto done;
+		}
 	}
 
-	if ((result = Tspi_GetPolicyObject(*hKey, TSS_POLICY_USAGE, &hPolicy))) {
+	if ((result = Tspi_GetPolicyObject(*phKey, TSS_POLICY_USAGE, &hPolicy))) {
 		LogError("Tspi_GetPolicyObject: 0x%x", result);
 		goto done;
 	}
@@ -274,7 +755,8 @@ token_load_key(CK_OBJECT_HANDLE ckKey, TSS_HKEY hParentKey, CK_CHAR_PTR passHash
 	if (passHash == NULL) {
 		result = Tspi_Policy_SetSecret(hPolicy, TSS_SECRET_MODE_NONE, 0, NULL);
 	} else {
-		result = Tspi_Policy_SetSecret(hPolicy, TSS_SECRET_MODE_SHA1, 20, passHash);
+		result = Tspi_Policy_SetSecret(hPolicy, TSS_SECRET_MODE_SHA1,
+						SHA1_HASH_SIZE, passHash);
 	}
 	if (result != TSS_SUCCESS) {
 		LogError("Tspi_Policy_SetSecret: 0x%x", result);
@@ -482,7 +964,7 @@ token_store_priv_key(TSS_HKEY hKey, int key_type, CK_OBJECT_HANDLE *ckKey)
 	free(key_id);
 
 	/* add the key blob to the PKCS#11 object template */
-	if ((rc = build_attribute(CKA_KEY_BLOB, rgbBlob, ulBlobLen, &new_attr))) {
+	if ((rc = build_attribute(CKA_IBM_OPAQUE, rgbBlob, ulBlobLen, &new_attr))) {
 		st_err_log(84, __FILE__, __LINE__);
 		Tspi_Context_FreeMemory(tspContext, rgbBlob);
 		Tspi_Context_FreeMemory(tspContext, rgbPrivBlob);
@@ -703,117 +1185,6 @@ done:
 }
 
 CK_RV
-token_wrap_sw_key(RSA *rsa, CK_BYTE *pPin, TSS_HKEY hParentKey, TSS_HKEY *phKey)
-{
-        unsigned char n[256], p[256];
-        unsigned char null_auth[SHA1_HASH_SIZE];
-        unsigned char priv_key[214]; /* its not magic, see TPM 1.1b spec p.71 */
-        unsigned char enc_priv_key[214]; /* its not magic, see TPM 1.1b spec p.71 */
-        int size_n, size_p, priv_key_len;
-        UINT16 offset = 0, dig_offset = 0;
-        TSS_RESULT result;
-        BYTE blob_for_digest[1024], *blob;
-        UINT32 blob_size;
-        TCPA_DIGEST digest;
-        TCPA_KEY key;
-
-	memset(null_auth, 0, SHA1_HASH_SIZE);
-
-	/* set up the private key structure */
-	Trspi_LoadBlob_BYTE(&offset, TCPA_PT_ASYM, priv_key);
-	Trspi_LoadBlob(&offset, SHA1_HASH_SIZE, priv_key, null_auth);
-	Trspi_LoadBlob(&offset, SHA1_HASH_SIZE, priv_key, null_auth);
-
-	/* create the TSS key object */
-	if ((result = Tspi_Context_CreateObject(tspContext, TSS_OBJECT_TYPE_RSAKEY,
-			TSS_KEY_SIZE_2048 | TSS_KEY_TYPE_STORAGE | TSS_KEY_MIGRATABLE |
-			TSS_KEY_NO_AUTHORIZATION, phKey))) {
-		LogError("Tspi_Context_CreateObject: 0x%x", result);
-		return CKR_FUNCTION_FAILED;
-	}
-
-	if (openssl_get_modulus_and_prime(rsa, &size_n, n, &size_p, p) != 0) {
-		Tspi_Context_CloseObject(tspContext, *phKey);
-		*phKey = NULL_HKEY;
-		return CKR_FUNCTION_FAILED;
-	}
-
-	/* set the public key data in the TSS object */
-	if ((result = Tspi_SetAttribData(*phKey, TSS_TSPATTRIB_KEY_BLOB,
-			TSS_TSPATTRIB_KEYBLOB_PUBLIC_KEY, size_n, n))) {
-		LogError("Tspi_SetAttribData: 0x%x", result);
-		Tspi_Context_CloseObject(tspContext, *phKey);
-		*phKey = NULL_HKEY;
-		return CKR_FUNCTION_FAILED;
-	}
-
-	/* get the object's blob so that we can create a digest of the structure to
-	 * stick inside the private key structure. */
-	if ((result = Tspi_GetAttribData(*phKey, TSS_TSPATTRIB_KEY_BLOB,
-			TSS_TSPATTRIB_KEYBLOB_BLOB, &blob_size, &blob))) {
-		LogError("Tspi_GetAttribData: 0x%x", result);
-		Tspi_Context_CloseObject(tspContext, *phKey);
-		*phKey = NULL_HKEY;
-		return CKR_FUNCTION_FAILED;
-	}
-
-	/* unload the blob returned by the TSS, then load up one to create the
-	 * private key's digest with. */
-	if ((result = Trspi_UnloadBlob_KEY(tspContext, &dig_offset, blob, &key)) != TSS_SUCCESS) {
-		LogError("Trspi_UnloadBlob_KEY: 0x%x", result);
-		Tspi_Context_CloseObject(tspContext, *phKey);
-		*phKey = NULL_HKEY;
-		return CKR_FUNCTION_FAILED;
-	}
-	dig_offset = 0;
-	Trspi_LoadBlob_PRIVKEY_DIGEST(&dig_offset, blob_for_digest, &key);
-
-	Tspi_Context_FreeMemory(tspContext, blob);
-
-	/* blob_for_digest now has the correct data in it, create the digest */
-	Trspi_Hash(TSS_HASH_SHA1, dig_offset, blob_for_digest, &digest.digest);
-
-	/* load the digest of the TCPA_KEY structure */
-	Trspi_LoadBlob(&offset, SHA1_HASH_SIZE, priv_key, &digest.digest);
-	/* load the TCPA_STORE_PRIVKEY structure */
-	Trspi_LoadBlob_UINT32(&offset, size_p, priv_key);
-	Trspi_LoadBlob(&offset, size_p, priv_key, p);
-	priv_key_len = offset;
-
-	/* Now encrypt the private parts of this key with the SRK's public key */
-
-	/* reuse blob here in getting the parent's public key */
-	if ((result = Tspi_GetAttribData(hParentKey, TSS_TSPATTRIB_KEY_BLOB,
-			TSS_TSPATTRIB_KEYBLOB_PUBLIC_KEY, &blob_size, &blob))) {
-		LogError("Tspi_GetAttribData: 0x%x", result);
-		Tspi_Context_CloseObject(tspContext, *phKey);
-		*phKey = NULL_HKEY;
-		return CKR_FUNCTION_FAILED;
-	}
-
-	if (Trspi_RSA_Encrypt(priv_key, priv_key_len, enc_priv_key, &priv_key_len,
-				blob, blob_size)) {
-		LogError("Trspi_RSA_Encrypt: 0x%x", result);
-		Tspi_Context_CloseObject(tspContext, *phKey);
-		Tspi_Context_FreeMemory(tspContext, blob);
-		*phKey = NULL_HKEY;
-		return CKR_FUNCTION_FAILED;
-	}
-
-	Tspi_Context_FreeMemory(tspContext, blob);
-
-	if ((result = Tspi_SetAttribData(*phKey, TSS_TSPATTRIB_KEY_BLOB,
-			TSS_TSPATTRIB_KEYBLOB_PRIVATE_KEY, priv_key_len, enc_priv_key))) {
-		LogError("Tspi_SetAttribData: 0x%x", result);
-		Tspi_Context_CloseObject(tspContext, *phKey);
-		*phKey = NULL_HKEY;
-		return CKR_FUNCTION_FAILED;
-	}
-
-	return CKR_OK;
-}
-
-CK_RV
 token_verify_pin(TSS_HKEY hKey)
 {
 	TSS_HENCDATA hEncData;
@@ -858,13 +1229,20 @@ token_create_private_tree(CK_BYTE *pinHash, CK_BYTE *pPin)
 	CK_RV		rc;
 	TSS_RESULT	result;
 	RSA		*rsa;
+	int		size_n, size_p;
+	unsigned char	n[256], p[256];
 
 	/* all sw generated keys are 2048 bits */
 	if ((rsa = openssl_gen_key()) == NULL)
 		return CKR_HOST_MEMORY;
 
+	if (openssl_get_modulus_and_prime(rsa, &size_n, n, &size_p, p) != 0) {
+		LogError1("openssl_get_modulus_and_prime failed");
+		return CKR_FUNCTION_FAILED;
+	}
+
 	/* generate the software based user base key */
-	if ((rc = token_wrap_sw_key(rsa, pPin, hSRK, &hPrivateRootKey))) {
+	if ((rc = token_wrap_sw_key(size_n, n, size_p, p, hSRK, &hPrivateRootKey))) {
 		LogError("token_wrap_sw_key failed. rc=0x%x", rc);
 		return rc;
 	}
@@ -914,13 +1292,20 @@ token_create_public_tree(CK_BYTE *pinHash, CK_BYTE *pPin)
 	CK_RV		rc;
 	TSS_RESULT	result;
 	RSA		*rsa;
+	int		size_n, size_p;
+	unsigned char	n[256], p[256];
 
 	/* all sw generated keys are 2048 bits */
 	if ((rsa = openssl_gen_key()) == NULL)
 		return CKR_HOST_MEMORY;
 
+	if (openssl_get_modulus_and_prime(rsa, &size_n, n, &size_p, p) != 0) {
+		LogError1("openssl_get_modulus_and_prime failed");
+		return CKR_FUNCTION_FAILED;
+	}
+
 	/* create the public root key */
-	if ((rc = token_wrap_sw_key(rsa, pPin, hSRK, &hPublicRootKey))) {
+	if ((rc = token_wrap_sw_key(size_n, n, size_p, p, hSRK, &hPublicRootKey))) {
 		LogError("token_wrap_sw_key failed. rc=0x%x", rc);
 		return rc;
 	}
@@ -968,6 +1353,8 @@ token_migrate(int key_type, CK_BYTE *pin)
 {
 	RSA			*rsa;
 	char			*backup_loc;
+	int			size_n, size_p;
+	unsigned char		n[256], p[256];
 	TSS_RESULT		result;
 	TSS_HKEY		*phKey;
 	CK_RV			rc;
@@ -1000,7 +1387,12 @@ token_migrate(int key_type, CK_BYTE *pin)
 	/* So, reading the backup openssl key off disk succeeded with the SOs PIN.
 	 * We will now try to re-wrap that key with the current SRK
 	 */
-	if ((rc = token_wrap_sw_key(rsa, pin, hSRK, phKey))) {
+	if (openssl_get_modulus_and_prime(rsa, &size_n, n, &size_p, p) != 0) {
+		LogError1("openssl_get_modulus_and_prime failed");
+		return CKR_FUNCTION_FAILED;
+	}
+
+	if ((rc = token_wrap_sw_key(size_n, n, size_p, p, hSRK, phKey))) {
 		LogError("token_wrap_sw_key failed. rc=0x%x", rc);
 		RSA_free(rsa);
 		return rc;
@@ -1999,14 +2391,13 @@ token_specific_rsa_generate_keypair( TEMPLATE  * publ_tmpl,
 	CK_ULONG		mod_bits = 0;
 	CK_BBOOL		flag;
 	CK_RV			rc;
-	CK_OBJECT_HANDLE	ckKey, ckDataObj;
+	CK_BYTE			pub_exp[] = { 0x1, 0x0, 0x1 }; // 65537
 
 	TSS_FLAGS	initFlags = 0;
 	BYTE		authHash[SHA1_HASH_SIZE];
 	BYTE		*authData = NULL;
 	TSS_HKEY	hKey = NULL_HKEY;
 	TSS_HKEY	hParentKey = NULL_HKEY;
-	CK_BYTE		pub_exp[] = { 0x1, 0x0, 0x1 }; // 65537
 	TSS_RESULT	result;
 	UINT32		ulBlobLen;
 	BYTE		*rgbBlob;
@@ -2026,8 +2417,10 @@ token_specific_rsa_generate_keypair( TEMPLATE  * publ_tmpl,
 		return CKR_TEMPLATE_INCOMPLETE;
 	}
 
+	mod_bits = *((CK_ULONG *)publ_exp->pValue);
+
 	/* 65537 is the only allowable pub exp */
-	if (memcmp(publ_exp->pValue, pub_exp, MIN(sizeof(pub_exp), publ_exp->ulValueLen))) {
+	if (mod_bits != TPMTOK_PUB_EXP) {
 		LogError("Template inconsistent");
 		return CKR_TEMPLATE_INCONSISTENT;
 	}
@@ -2085,13 +2478,13 @@ token_specific_rsa_generate_keypair( TEMPLATE  * publ_tmpl,
 		return CKR_FUNCTION_FAILED;
 	}
 
-	if ((rc = build_attribute(CKA_KEY_BLOB, rgbBlob, ulBlobLen, &attr))) {
+	if ((rc = build_attribute(CKA_IBM_OPAQUE, rgbBlob, ulBlobLen, &attr))) {
 		st_err_log(84, __FILE__, __LINE__);
 		Tspi_Context_FreeMemory(tspContext, rgbBlob);
 		return rc;
 	}
 	template_update_attribute( priv_tmpl, attr );
-	if ((rc = build_attribute(CKA_KEY_BLOB, rgbBlob, ulBlobLen, &attr))) {
+	if ((rc = build_attribute(CKA_IBM_OPAQUE, rgbBlob, ulBlobLen, &attr))) {
 		st_err_log(84, __FILE__, __LINE__);
 		Tspi_Context_FreeMemory(tspContext, rgbBlob);
 		return rc;
@@ -2155,7 +2548,7 @@ token_rsa_load_key( OBJECT * key_obj, TSS_HKEY * phKey )
 		hParentKey = hPublicRootKey;
 	}
 
-	if ((rc = template_attribute_find( key_obj->template, CKA_KEY_BLOB, &attr )) == FALSE) {
+	if ((rc = template_attribute_find( key_obj->template, CKA_IBM_OPAQUE, &attr )) == FALSE) {
 		LogError1("template_attribute_find failed.");
 		return CKR_FUNCTION_FAILED;
 	}
