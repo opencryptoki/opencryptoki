@@ -166,23 +166,13 @@ openssl_get_modulus_and_prime(RSA *rsa, unsigned int *size_n, unsigned char *n,
 		DEBUG_openssl_print_errors();
 		return -1;
 	}
-#if 0
-	if (*size_n > 2048/8) {
-		LogError("rsa modulus too big! (%d)\n", *size_n);
-		return -1;
-	}
-#endif
+
 	/* get one of the primes from the RSA object */
 	if ((*size_p = BN_bn2bin(rsa->p, p)) <= 0) {
 		DEBUG_openssl_print_errors();
 		return -1;
 	}
-#if 0
-	if (*size_p > 2048/8) {
-		LogError("rsa prime too big! (%d)\n", *size_p);
-		return -1;
-	}
-#endif
+
 	return 0;
 }
 
