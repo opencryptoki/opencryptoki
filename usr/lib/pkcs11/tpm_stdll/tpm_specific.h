@@ -52,6 +52,9 @@
 
 #define TPMTOK_MASTERKEY_PRIVATE	"MK_PRIVATE"
 
+/* the only allowable public exponent for TPM keys */
+#define TPMTOK_PUB_EXP		65537
+
 #ifdef DEBUG
 #define DEBUG_openssl_print_errors()    openssl_print_errors()
 #else
