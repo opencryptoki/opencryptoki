@@ -2012,9 +2012,13 @@ extern token_spec_t token_specific;
 #define st_err_log(...)
 #endif
 
-/* custom attribute to store our blob in */
-#define CKA_KEY_BLOB		CKA_VENDOR_DEFINED + 0
-#define CKA_HIDDEN		CKA_VENDOR_DEFINED + 1
-#define CKA_ENC_AUTHDATA	CKA_VENDOR_DEFINED + 2
+/* custom attributes for the TPM token */
+/* CKA_HIDDEN will be used to filter return results on a C_FindObjects call. Used
+ * for objects internal to the TPM token for management */
+#define CKA_HIDDEN		CKA_VENDOR_DEFINED + 0x01000000
+/* CKA_ENC_AUTHDATA will be used to store the encrypted SHA-1 hashes of auth data
+ * passed in for TPM keys. The authdata will be encrypted using either the public
+ * leaf key or the private leaf key */
+#define CKA_ENC_AUTHDATA	CKA_VENDOR_DEFINED + 0x01000001
 
 #endif
