@@ -18,3 +18,10 @@ install-data-local:
 	ln -s $(exec_prefix)/lib/opencryptoki/libpkcs11_api.so \
 	      $(exec_prefix)/lib/PKCS11_API.so
 	ln -s $(exec_prefix)/sbin/ $(exec_prefix)/lib/opencryptoki/methods
+	mkdir -p $(exec_prefix)/lib/pkcs11
+	ln -s $(exec_prefix)/lib/opencryptoki/libpkcs11_api.so \
+	      $(exec_prefix)/lib/pkcs11/PKCS11_API.so
+	ln -s $(exec_prefix)/sbin $(exec_prefix)/lib/pkcs11/
+	ln -s $(exec_prefix)/lib/opencryptoki/stdll \
+	      $(exec_prefix)/lib/pkcs11/stdll
+	mkdir -p $(CONFIG_PATH)
