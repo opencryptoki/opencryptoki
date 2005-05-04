@@ -16,5 +16,5 @@ libpkcs11_sw_so_SOURCES = ../common/asn1.c ../common/cert.c ../common/hwf_obj.c 
 INCLUDES = -I/usr/include -I. -I../../../include/pkcs11/stdll -I../../../include/pkcs11 -I ../common
 
 install-data-local:
-	ln -s $(exec_prefix)/lib/opencryptoki/stdll/libpkcs11_sw.so \
-	      $(exec_prefix)/lib/opencryptoki/stdll/PKCS11_SW.so
+	ln -sf $(exec_prefix)/lib/opencryptoki/stdll/libpkcs11_sw.so \
+	       $(exec_prefix)/lib/opencryptoki/stdll/PKCS11_SW.so
