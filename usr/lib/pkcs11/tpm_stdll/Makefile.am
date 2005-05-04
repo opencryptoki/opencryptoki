@@ -11,9 +11,9 @@ VPATH = ../common
 
 # TODO: -DLINUX and -DSPINXPL should be controlled via configure.in
 
-libpkcs11_tpm_so_CFLAGS = -I../../../include -I../../../include/pkcs11 -I../common -I. -DLINUX -DSPINXPL -DNOCDMF -DNODSA
+#libpkcs11_tpm_so_CFLAGS = -I../../../include -I../../../include/pkcs11 -I../common -I. -DLINUX -DSPINXPL -DNOCDMF -DNODSA
 
-CFLAGS = @CFLAGS@ -I../../../include -I../../../include/pkcs11 -I../common -I. -DLINUX -DSPINXPL -DNOCDMF -DNODSA
+AM_CFLAGS = -I../../../include -I../../../include/pkcs11 -I../common -I. -DLINUX -DSPINXPL -DNOCDMF -DNODSA
 
 libpkcs11_tpm_so_LDFLAGS = -shared -lcrypto -ltspi -Wl,-Bsymbolic -Wl,-soname,$@ -lpthread
 
