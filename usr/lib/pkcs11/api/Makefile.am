@@ -24,5 +24,6 @@ install-data-local:
 	       $(exec_prefix)/lib/pkcs11/PKCS11_API.so
 	ln -sf $(exec_prefix)/lib/opencryptoki/stdll \
 	       $(exec_prefix)/lib/pkcs11/stdll
-	ln -sf $(exec_prefix)/var/lib/pkcs11 $(exec_prefix)/etc/
+#	ln -sf $(exec_prefix)/var/lib/pkcs11 $(exec_prefix)/etc/
 	mkdir -p $(CONFIG_PATH)
+	ln -sf $(CONFIG_PATH) $(CONFIG_PATH_ETC)
