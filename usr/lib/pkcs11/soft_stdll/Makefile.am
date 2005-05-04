@@ -1,9 +1,7 @@
 lib_LTLIBRARIES=libpkcs11_sw.so
 libdir = $(exec_prefix)/lib/opencryptoki/stdll
-#bin_PROGRAMS=PKCS11_SW.so
-#bindir=/tmp
 
-libpkcs11_sw_so_LDFLAGS = -nostartfiles -shared -Wl,-Bsymbolic -Wl,-soname,PKCS11_SW.so.1 -lc -lpthread -lcrypto
+libpkcs11_sw_so_LDFLAGS = -nostartfiles -shared -Wl,-Bsymbolic -Wl,-soname,$@ -lc -lpthread -lcrypto
 
 libpkcs11_sw_so_CFLAGS = -DSPINXPL -DDEV -D_THREAD_SAFE -fPIC -DSHALLOW=0 -DSWTOK=1 -DLITE=0 -DNOCDMF -DNOMD2 -DNODSA -DDEBUGON
 
