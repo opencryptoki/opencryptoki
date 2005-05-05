@@ -797,6 +797,11 @@ typedef CK_ULONG          CK_ATTRIBUTE_TYPE;
 
 #define CKA_VENDOR_DEFINED     0x80000000
 
+/* For use in storing objects that have an encrypted or otherwise
+ * opaque attribute. Support has been added to use this attribute
+ * in key objects only. */
+#define CKA_IBM_OPAQUE         CKA_VENDOR_DEFINED + 1
+
 
 /* CK_ATTRIBUTE is a structure that includes the type, length
  * and value of an attribute */
