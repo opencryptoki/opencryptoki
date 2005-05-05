@@ -43,8 +43,8 @@
 #define TPMTOK_TOKEN_NAME	tpm
 
 /* locations to write the backup copies of the sw generated keys */
-#define TPMTOK_PUBLIC_ROOT_KEY_LOCATION		"/etc/pkcs11/tpm/PUBLIC_ROOT_KEY.pem"
-#define TPMTOK_PRIVATE_ROOT_KEY_LOCATION	"/etc/pkcs11/tpm/PRIVATE_ROOT_KEY.pem"
+#define TPMTOK_PUBLIC_ROOT_KEY_LOCATION		CONFIG_PATH "/tpm/PUBLIC_ROOT_KEY.pem"
+#define TPMTOK_PRIVATE_ROOT_KEY_LOCATION	CONFIG_PATH "/tpm/PRIVATE_ROOT_KEY.pem"
 
 /* TPM token specific return codes */
 #define CKR_KEY_NOT_FOUND	CKR_VENDOR_DEFINED + 0
