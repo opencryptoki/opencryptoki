@@ -301,7 +301,7 @@
 
 
 
-#define   ODM_DIRECTORY  "/etc/pkcs11"
+#define   ODM_DIRECTORY  CONFIG_PATH
 
 
 
