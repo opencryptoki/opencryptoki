@@ -81,13 +81,13 @@ case $target in
 esac
 
 if test "x$prefix" == x/usr; then
-        AC_SUBST(CONFIG_PATH, /var/lib/pkcs11)
+        AC_SUBST(CONFIG_PATH, /var/lib/opencryptoki)
 	AC_SUBST(CONFIG_PATH_ETC, /etc/pkcs11)
-        AC_SUBST(DB_PATH, /var/lib/pkcs11)
+        AC_SUBST(DB_PATH, /var/lib/opencryptoki)
 else
-        AC_SUBST(CONFIG_PATH, $prefix/var/lib/pkcs11)
+        AC_SUBST(CONFIG_PATH, $prefix/var/lib/opencryptoki)
 	AC_SUBST(CONFIG_PATH_ETC, $prefix/etc/pkcs11)
-        AC_SUBST(DB_PATH, $prefix/var/lib/pkcs11)
+        AC_SUBST(DB_PATH, $prefix/var/lib/opencryptoki)
 fi
 
 AC_SUBST(STDLL_PATH, $LIB_PATH/stdll)
