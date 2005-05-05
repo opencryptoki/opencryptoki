@@ -2,7 +2,7 @@
 
 #
 #
-# $Header: /cvsroot/opencryptoki/opencryptoki/usr/sbin/pkcs_slot/pkcs_slot.in,v 1.1 2005/04/11 20:10:03 mhalcrow Exp $
+# $Header: /cvsroot/opencryptoki/opencryptoki/usr/sbin/pkcs_slot/pkcs_slot.in,v 1.2 2005/05/05 22:01:21 tlendacky Exp $
 #
 
 
@@ -302,11 +302,11 @@ DEEP4758_DLL="@STDLL_PATH@/PKCS11_4758.so"
 DEEP4758_INIT="SC_Initialize"
 
 SOFT_DIR="@DB_PATH@/swtok"
-SOFT_DLL="@STDLL_PATH@/PKCS11_SW.so"
+SOFT_DLL="@STDLL_PATH@/libpkcs11_sw.so"
 SOFT_INIT="ST_Initialize"
 
 ICA_DIR="@DB_PATH@/lite"
-ICA_DLL="@STDLL_PATH@/PKCS11_ICA.so"
+ICA_DLL="@STDLL_PATH@/libpkcs11_ica.so"
 ICA_INIT="ST_Initialize"
 
 BCOM_DIR="@DB_PATH@/bcom"
@@ -322,7 +322,7 @@ CR_DLL="@STDLL_PATH@/PKCS11_CR.so"
 CR_INIT="ST_Initialize"
 
 TPM_DIR="@DB_PATH@/tpm"
-TPM_DLL="@STDLL_PATH@/PKCS11_TPM.so"
+TPM_DLL="@STDLL_PATH@/libpkcs11_tpm.so"
 TPM_INIT="ST_Initialize"
 
 SYSTEM=`uname -s`
