@@ -1,5 +1,5 @@
 /*
- * $Header: /cvsroot/opencryptoki/opencryptoki/usr/include/pkcs11/slotmgr.h,v 1.2 2005/02/22 20:47:37 mhalcrow Exp $
+ * $Header: /cvsroot/opencryptoki/opencryptoki/usr/include/pkcs11/slotmgr.h,v 1.3 2005/05/05 21:29:17 tlendacky Exp $
  */
 
 //
@@ -315,9 +315,9 @@
 
 
 #ifdef DEV
-    #define TOK_PATH  "/usr/sbin/pkcsslotd"
+    #define TOK_PATH  SBIN_PATH "pkcsslotd"
 #else
-    #define TOK_PATH  "/usr/sbin/pkcsslotd"
+    #define TOK_PATH  SBIN_PATH "pkcsslotd"
 #endif /* DEV */
 
 #if (SPINXPL)
@@ -325,7 +325,7 @@
 #endif
 
 
-#define PID_FILE_PATH  "/etc/pkcs11/.slotpid"
+#define PID_FILE_PATH CONFIG_PATH ".slotpid"
 
 #ifndef CK_BOOL
     #define CK_BOOL  CK_BBOOL

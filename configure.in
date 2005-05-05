@@ -12,7 +12,6 @@ dnl Checks for programs.
 dnl Checks for libraries.
 
 dnl Checks for header files.
-backup_CFLAGS=$CFLAGS
 AC_DISABLE_STATIC
 AC_PROG_LIBTOOL
 
@@ -48,27 +47,23 @@ fi
 # Arch specific stuff
 case $target in
 	*ppc64*)
-		CFLAGS="$CFLAGS -DPKCS64"
 		AM_CONDITIONAL(BUILD_UTILS, false)
 		AM_CONDITIONAL(S390, false)
 		AC_SUBST(LIB_PATH, $prefix/lib64/opencryptoki)
 		AC_SUBST(LIB_ROOT_PATH, $prefix/lib64)
 		AC_MSG_RESULT([*** 64bit platform detected.  Not building utilities. ***]) ;;
 	*s390x*)
-		CFLAGS="$CFLAGS -DPKCS64"
 		AM_CONDITIONAL(BUILD_UTILS, false)
 		AM_CONDITIONAL(S390, true)
 		AC_SUBST(LIB_PATH, $prefix/lib64/opencryptoki)
 		AC_SUBST(LIB_ROOT_PATH, $prefix/lib64)
 		AC_MSG_RESULT([*** 64bit platform detected.  Not building utilities. ***]) ;;
 	*ppc*)
-		CFLAGS="$CFLAGS -DPKCS64"
 		AM_CONDITIONAL(S390, true)
 		AC_SUBST(LIB_PATH, $prefix/lib/opencryptoki)
 		AC_SUBST(LIB_ROOT_PATH, $prefix/lib)
 		AM_CONDITIONAL(BUILD_UTILS, true) ;;
 	*s390*)
-		CFLAGS="$CFLAGS -DPKCS64"
 		AM_CONDITIONAL(BUILD_UTILS, true)
 		AC_SUBST(LIB_PATH, $prefix/lib/opencryptoki)
 		AC_SUBST(LIB_ROOT_PATH, $prefix/lib)
@@ -83,10 +78,12 @@ esac
 if test "x$prefix" == x/usr; then
         AC_SUBST(CONFIG_PATH, /var/lib/opencryptoki)
 	AC_SUBST(CONFIG_PATH_ETC, /etc/pkcs11)
+        AC_SUBST(SBIN_PATH, /usr/sbin)
         AC_SUBST(DB_PATH, /var/lib/opencryptoki)
 else
         AC_SUBST(CONFIG_PATH, $prefix/var/lib/opencryptoki)
 	AC_SUBST(CONFIG_PATH_ETC, $prefix/etc/pkcs11)
+        AC_SUBST(SBIN_PATH, $prefix/usr/sbin)
         AC_SUBST(DB_PATH, $prefix/var/lib/opencryptoki)
 fi
 
@@ -97,7 +94,8 @@ AC_SUBST(HEADER_PATH, $prefix/include)
 
 TO_BUILD=0
 
-CFLAGS=$backup_CFLAGS
+CFLAGS="$CFLAGS -DPKCS64 -DCONFIG_PATH=\"$CONFIG_PATH\" -DSBIN_PATH=\"$SBIN_PATH\""
+
 # Debugging support
 AC_ARG_ENABLE(debug, [  --enable-debug          turn on all openCryptoki debugging flags],
               [               enable_debug="yes"],)
