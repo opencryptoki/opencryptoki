@@ -1,20 +1,23 @@
-#lib_LTLIBRARIES = libpkcs11_api.so
 lib_LTLIBRARIES = libpkcs11_api.la
 libdir = $(exec_prefix)/lib/opencryptoki
 
 #libpkcs11_api_so_LDFLAGS = -g -nostartfiles -shared -Wl,-soname,$@ \
 #			   -Wl,-Bsymbolic -lc -ldl -lpthread
 
-libpkcs11_api_la_LDFLAGS = -g -nostartfiles -shared -Wl,-soname,$@ \
-			   -Wl,-Bsymbolic -lc -ldl -lpthread
+#libpkcs11_api_la_LDFLAGS = -shared -lpthread -nostartfiles
+
+#pic_flag = -shared -lpthread -nostartfiles
+
+#libpkcs11_api_la_LDFLAGS = -g -nostartfiles -shared -Wl,-soname,$@ \
+#			   -Wl,-Bsymbolic -lc -ldl -lpthread
 
 #LDADD = -nostartfiles
 
 libpkcs11_api_la_CFLAGS = -DSPINXPL -DAPI -DDEV -D_THREAD_SAFE -fPIC -I../. \
-			  -I../../../include/pkcs11 -nostartfiles
+			  -I../../../include/pkcs11
 
 AM_CFLAGS = -DSPINXPL -DAPI -DDEV -D_THREAD_SAFE -fPIC -I../. \
-	    -I../../../include/pkcs11 -nostartfiles
+	    -I../../../include/pkcs11
 
 #libpkcs11_api_so_SOURCES = api_interface.c shrd_mem.c apiutil.c
 

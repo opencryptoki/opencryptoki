@@ -311,7 +311,7 @@
 #include <apiproto.h>
 
 
-void _init();
+void api_init();
 
 
 #ifdef DEBUG
@@ -5232,8 +5232,10 @@ C_WrapKey ( CK_SESSION_HANDLE hSession,
 
 }
 
+void api_init(void) __attribute__((constructor));
+
 void
-_init()
+api_init(void)
 {
    char  *env;
 
@@ -5256,9 +5258,10 @@ _init()
 
 }
 
+void api_fini(void) __attribute__((destructor));
 
 void
-_fini()
+api_fini()
 {
    logterm();
    if ( API_Initialized() == TRUE ) {
