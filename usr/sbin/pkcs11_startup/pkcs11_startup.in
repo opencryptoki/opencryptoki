@@ -366,7 +366,7 @@ fi
 
 # Add the TPM device automatically if it exists
 
-if [ -f @STDLL_PATH@/PKCS11_TPM.so ]
+if [ -f @STDLL_PATH@/libpkcs11_tpm.so ]
 then
     @METHOD_PATH@/pkcs_slot 0  tpm
 fi
