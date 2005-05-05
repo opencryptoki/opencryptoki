@@ -1,5 +1,5 @@
 /*
- * $Header: /cvsroot/opencryptoki/opencryptoki/usr/include/pkcs11/pkcs11types.h,v 1.2 2005/02/22 20:47:32 mhalcrow Exp $
+ * $Header: /cvsroot/opencryptoki/opencryptoki/usr/include/pkcs11/pkcs11types.h,v 1.3 2005/05/05 19:20:30 kyoder Exp $
  */
 
 /*
@@ -796,6 +796,11 @@ typedef CK_ULONG          CK_ATTRIBUTE_TYPE;
 #define CKA_HAS_RESET          0x00000302
 
 #define CKA_VENDOR_DEFINED     0x80000000
+
+/* For use in storing objects that have an encrypted or otherwise
+ * opaque attribute. Support has been added to use this attribute
+ * in key objects only. */
+#define CKA_IBM_OPAQUE         CKA_VENDOR_DEFINED + 1
 
 
 /* CK_ATTRIBUTE is a structure that includes the type, length
