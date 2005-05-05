@@ -315,9 +315,9 @@
 
 
 #ifdef DEV
-    #define TOK_PATH  SBIN_PATH "pkcsslotd"
+    #define TOK_PATH  SBIN_PATH "/pkcsslotd"
 #else
-    #define TOK_PATH  SBIN_PATH "pkcsslotd"
+    #define TOK_PATH  SBIN_PATH "/pkcsslotd"
 #endif /* DEV */
 
 #if (SPINXPL)
@@ -325,7 +325,7 @@
 #endif
 
 
-#define PID_FILE_PATH CONFIG_PATH ".slotpid"
+#define PID_FILE_PATH CONFIG_PATH "/.slotpid"
 
 #ifndef CK_BOOL
     #define CK_BOOL  CK_BBOOL
