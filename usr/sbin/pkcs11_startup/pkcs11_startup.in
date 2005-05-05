@@ -2,7 +2,7 @@
 
 #
 #
-# $Header: /cvsroot/opencryptoki/opencryptoki/usr/sbin/pkcs11_startup/pkcs11_startup.in,v 1.1 2005/04/11 19:59:24 mhalcrow Exp $
+# $Header: /cvsroot/opencryptoki/opencryptoki/usr/sbin/pkcs11_startup/pkcs11_startup.in,v 1.2 2005/05/05 21:57:25 tlendacky Exp $
 #
 
 
@@ -366,7 +366,7 @@ fi
 
 # Add the TPM device automatically if it exists
 
-if [ -f @STDLL_PATH@/PKCS11_TPM.so ]
+if [ -f @STDLL_PATH@/libpkcs11_tpm.so ]
 then
     @METHOD_PATH@/pkcs_slot 0  tpm
 fi
