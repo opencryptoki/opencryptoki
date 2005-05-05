@@ -51,31 +51,31 @@ case $target in
 		CFLAGS="$CFLAGS -DPKCS64"
 		AM_CONDITIONAL(BUILD_UTILS, false)
 		AM_CONDITIONAL(S390, false)
-		AC_SUBST(LIB_PATH, $prefix/lib64/pkcs11/opencryptoki)
+		AC_SUBST(LIB_PATH, $prefix/lib64/opencryptoki)
 		AC_SUBST(LIB_ROOT_PATH, $prefix/lib64)
 		AC_MSG_RESULT([*** 64bit platform detected.  Not building utilities. ***]) ;;
 	*s390x*)
 		CFLAGS="$CFLAGS -DPKCS64"
 		AM_CONDITIONAL(BUILD_UTILS, false)
 		AM_CONDITIONAL(S390, true)
-		AC_SUBST(LIB_PATH, $prefix/lib64/pkcs11/opencryptoki)
+		AC_SUBST(LIB_PATH, $prefix/lib64/opencryptoki)
 		AC_SUBST(LIB_ROOT_PATH, $prefix/lib64)
 		AC_MSG_RESULT([*** 64bit platform detected.  Not building utilities. ***]) ;;
 	*ppc*)
 		CFLAGS="$CFLAGS -DPKCS64"
 		AM_CONDITIONAL(S390, true)
-		AC_SUBST(LIB_PATH, $prefix/lib/pkcs11/opencryptoki)
+		AC_SUBST(LIB_PATH, $prefix/lib/opencryptoki)
 		AC_SUBST(LIB_ROOT_PATH, $prefix/lib)
 		AM_CONDITIONAL(BUILD_UTILS, true) ;;
 	*s390*)
 		CFLAGS="$CFLAGS -DPKCS64"
 		AM_CONDITIONAL(BUILD_UTILS, true)
-		AC_SUBST(LIB_PATH, $prefix/lib/pkcs11/opencryptoki)
+		AC_SUBST(LIB_PATH, $prefix/lib/opencryptoki)
 		AC_SUBST(LIB_ROOT_PATH, $prefix/lib)
 		AM_CONDITIONAL(S390, true) ;;
 	*)
 		AM_CONDITIONAL(BUILD_UTILS, true)
-		AC_SUBST(LIB_PATH, $prefix/lib/pkcs11/opencryptoki)
+		AC_SUBST(LIB_PATH, $prefix/lib/opencryptoki)
 		AC_SUBST(LIB_ROOT_PATH, $prefix/lib)
 		AM_CONDITIONAL(S390, false) ;;
 esac
