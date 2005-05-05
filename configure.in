@@ -1,5 +1,9 @@
 dnl Process this file with autoconf to produce a configure script.
 AC_INIT(openCryptoki, 2.1, mhalcrow@us.ibm.com,)
+
+# Compute $target
+AC_CANONICAL_TARGET
+		
 dnl AM_INIT_AUTOMAKE(openCryptoki, 2.0.0)
 AM_INIT_AUTOMAKE(1.6.1)
 
@@ -229,13 +233,21 @@ else
         AC_MSG_RESULT([*** Disabling the Corrent Crypto Accelerator token at user request ***])
 fi
 
-# Compute $target
-AC_CANONICAL_TARGET
-		
 # At this point, CFLAGS is set to something sensible
 AC_PROG_CC
 
-AC_OUTPUT(Makefile usr/Makefile \
+if [[ $TO_BUILD -eq 0 ]]; then
+       echo " "
+       echo "Warning!"
+       echo " "
+       echo "No tokens are flagged as buildable! Install the necessary components of the "
+       echo "tokens you'd like to build and re-configure openCryptoki. If you have no "
+       echo "hardware, install openssl's libcrypto.a to build a software token. See README"
+       echo "for information on how to point the openCryptoki build to your token's libraries"
+       echo " "
+fi
+
+AC_OUTPUT([Makefile usr/Makefile \
           usr/include/Makefile \
           usr/include/pkcs11/Makefile \
           usr/lib/Makefile \
@@ -265,16 +277,5 @@ AC_OUTPUT(Makefile usr/Makefile \
           usr/lib/pkcs11/aep_stdll/tok_struct.h \
           usr/lib/pkcs11/tpm_stdll/Makefile \
           usr/lib/pkcs11/tpm_stdll/tok_struct.h \
-          usr/lib/pkcs11/methods/4758_status/Makefile)
-
-if [[ $TO_BUILD -eq 0 ]]; then
-       echo " "
-       echo "Warning!"
-       echo " "
-       echo "No tokens are flagged as buildable! Install the necessary components of the "
-       echo "tokens you'd like to build and re-configure openCryptoki. If you have no "
-       echo "hardware, install openssl's libcrypto.a to build a software token. See README"
-       echo "for information on how to point the openCryptoki build to your token's libraries"
-       echo " "
-fi
+          usr/lib/pkcs11/methods/4758_status/Makefile])
 
