@@ -97,7 +97,7 @@ stloginit(){
       debugfile = 0;
 #endif
 #if 0
-      sprintf(lfname,"/etc/pkcs11/%s.%d",DBGTAG,getpid());
+      sprintf(lfname,"%s/%s.%d",CONFIG_PATH,DBGTAG,getpid());
       debugfile = fopen(lfname,"w+");
       if (debugfile) {
          fchmod(fileno(debugfile),
