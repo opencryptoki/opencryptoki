@@ -13,16 +13,15 @@ AM_CFLAGS = -DSPINXPL -DAPI -DDEV -D_THREAD_SAFE -fPIC -I../. \
 libpkcs11_api_la_SOURCES = api_interface.c shrd_mem.c apiutil.c
 
 install-data-local:
-	ln -sf $(exec_prefix)/lib/opencryptoki/libpkcs11_api.so \
-	       $(exec_prefix)/lib/libopencryptoki.so
-	ln -sf $(exec_prefix)/lib/opencryptoki/libpkcs11_api.so \
-	       $(exec_prefix)/lib/opencryptoki/PKCS11_API.so
-	ln -sf $(exec_prefix)/sbin/ $(exec_prefix)/lib/opencryptoki/methods
+	cd $(exec_prefix)/lib && ln -sf opencryptoki/libpkcs11_api.so \
+	                                libopencryptoki.so
+	cd $(exec_prefix)/lib/opencryptoki && ln -sf libpkcs11_api.so \
+	                                             PKCS11_API.so
+	cd $(exec_prefix) && ln -sf sbin/ lib/opencryptoki/methods
 	mkdir -p $(exec_prefix)/lib/pkcs11
-	ln -sf $(exec_prefix)/sbin/ $(exec_prefix)/lib/pkcs11/methods
-	ln -sf $(exec_prefix)/lib/opencryptoki/libpkcs11_api.so \
-	       $(exec_prefix)/lib/pkcs11/PKCS11_API.so
-	ln -sf $(exec_prefix)/lib/opencryptoki/stdll \
-	       $(exec_prefix)/lib/pkcs11/stdll
+	cd $(exec_prefix) && ln -sf sbin/ lib/pkcs11/methods
+	cd $(exec_prefix)/lib && ln -sf opencryptoki/libpkcs11_api.so \
+	                                pkcs11/PKCS11_API.so
+	cd $(exec_prefix)/lib && ln -sf opencryptoki/stdll pkcs11/stdll
 	mkdir -p $(CONFIG_PATH)
 	ln -sf $(CONFIG_PATH) $(CONFIG_PATH_ETC)
