@@ -329,7 +329,7 @@ static int xplfd=-1;
 
 #include <libgen.h>
 
-#define LIBLOCATION  "/usr/lib/pkcs11"      // this should be set via config
+#define LIBLOCATION  LIB_PATH
 
 
 extern  API_Proc_Struct_t  *Anchor;
