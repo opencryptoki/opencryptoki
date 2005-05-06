@@ -2,9 +2,7 @@ sbin_PROGRAMS=pkcsconf
 
 pkcsconf_LDFLAGS = -lpthread -ldl
 
-#pkcsconf_CFLAGS = -DSPINXPL -D_THREAD_SAFE -DDEBUG -DDEV -DAPI
-
-AM_CFLAGS = -DSPINXPL -D_THREAD_SAFE -DDEBUG -DDEV -DAPI
+pkcsconf_CFLAGS = -DSPINXPL -D_THREAD_SAFE -DDEBUG -DDEV -DAPI
 
 pkcsconf_SOURCES = pkcsconf.c
 

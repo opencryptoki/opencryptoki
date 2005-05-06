@@ -77,13 +77,13 @@ esac
 
 if test "x$prefix" == x/usr; then
         AC_SUBST(CONFIG_PATH, /var/lib/opencryptoki)
-	AC_SUBST(CONFIG_PATH_ETC, /etc/pkcs11)
+	AC_SUBST(CONFIG_PATH_ETC, /etc)
         AC_SUBST(SBIN_PATH, /usr/sbin)
         AC_SUBST(DB_PATH, /var/lib/opencryptoki)
 else
         AC_SUBST(CONFIG_PATH, $prefix/var/lib/opencryptoki)
-	AC_SUBST(CONFIG_PATH_ETC, $prefix/etc/pkcs11)
-        AC_SUBST(SBIN_PATH, $prefix/usr/sbin)
+	AC_SUBST(CONFIG_PATH_ETC, $prefix/etc)
+        AC_SUBST(SBIN_PATH, $prefix/sbin)
         AC_SUBST(DB_PATH, $prefix/var/lib/opencryptoki)
 fi
 
