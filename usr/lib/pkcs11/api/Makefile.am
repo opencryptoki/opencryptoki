@@ -30,5 +30,7 @@ install-data-local:
 	cd $(LIB_ROOT_PATH)/pkcs11 && rm -f stdll && \
 		ln -sf ../opencryptoki/stdll/ stdll
 	mkdir -p $(CONFIG_PATH)
+	chown root:pkcs11 $(CONFIG_PATH)
+	chmod 775 $(CONFIG_PATH)
 	cd $(CONFIG_PATH_ETC) && rm -f pkcs11 && \
 		ln -sf $(CONFIG_PATH) pkcs11
