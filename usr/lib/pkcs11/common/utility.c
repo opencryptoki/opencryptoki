@@ -298,7 +298,7 @@
 #include <sys/stat.h>
 #include <sys/ipc.h>
 #include <errno.h>
-
+#include <syslog.h>
 
 
 #include "pkcs11types.h"
@@ -1324,50 +1324,59 @@ attach_shm()
    } else {
 	xproclock = (void *)&global_shm->mutex;
    }
-#if MMAP
+#elif MMAP
 {
-#define FILENAME   "\\.stmapfile"
+#define FILENAME   ".stmapfile"
 #define MODE (S_IRUSR|S_IWUSR|S_IRGRP|S_IWGRP)
 
 #warning "EXPERIMENTAL"
 	char *fname,*b2;
 	int   fd,i; 
-   // Memory Mapped File work
-   // STAT the file to see if it exists... If not, then create it 
-   fname = malloc(strlen(pk_dir)+strlen(FILENAME)+100);
-   if (fname ) {
-	   sprintf(fname,"%s%s",pk_dir,FILENAME);
-   } else {
-      st_err_log(4, __FILE__, __LINE__, __FUNCTION__); 
-      return CKR_FUNCTION_FAILED;
-	   
-   }
+	// Memory Mapped File work
+	// STAT the file to see if it exists... If not, then create it 
+	fname = malloc(strlen(pk_dir)+strlen(FILENAME)+100);
+	if (fname ) {
+		sprintf(fname,"%s/%s",pk_dir,FILENAME);
+	} else {
+		st_err_log(4, __FILE__, __LINE__, __FUNCTION__); 
+		return CKR_FUNCTION_FAILED;
 
-   if (stat(fname, &statbuf) < 0) {
-	   // File does not exist Create it
-			fd = open(fname,O_RDWR|O_CREAT,MODE);
-			if (fd < 0 ){
-			  return CKR_FUNCTION_FAILED;  //Failed
-			}
-			i = sizeof(LW_SHM_TYPE);
-			b2 = malloc(i);
-			memset(b2,'\0',i);
-			write(fd,b2,i);
-			free(b2);
-			free(fname);
-			created=TRUE;
-   }
-   global_shm = (LW_SHM_TYPE *)mmap(NULL,sizeof(LW_SHM_TYPE),PROT_READ|PROT_WRITE,MAP_SHARED,fd,0);
-   if (created == TRUE) {
-      XProcLock( xproclock );
-         global_shm->num_publ_tok_obj = 0;
-         global_shm->num_priv_tok_obj = 0;
-         memset( &global_shm->publ_tok_objs, 0x0, 2048 * sizeof(TOK_OBJ_ENTRY) );
-         memset( &global_shm->priv_tok_objs, 0x0, 2048 * sizeof(TOK_OBJ_ENTRY) );
-      XProcUnLock( xproclock );
-   } else {
-	xproclock = (void *)&global_shm->mutex;
-   }
+	}
+
+	if (stat(fname, &statbuf) < 0) {
+		// File does not exist Create it
+		fd = open(fname,O_RDWR|O_CREAT,MODE);
+		if (fd < 0 ){
+			syslog(LOG_ERR, "Creating memory mapped file %s failed: %s",
+					fname, strerror(errno));
+			return CKR_FUNCTION_FAILED;  //Failed
+		}
+		i = sizeof(LW_SHM_TYPE);
+		b2 = malloc(i);
+		memset(b2,'\0',i);
+		write(fd,b2,i);
+		free(b2);
+		free(fname);
+		created=TRUE;
+	} else {
+		fd = open(fname,O_RDWR,MODE);
+		if (fd < 0 ){
+			syslog(LOG_ERR, "Opening of memory mapped file %s failed: %s",
+					fname, strerror(errno));
+			return CKR_FUNCTION_FAILED;  //Failed
+		}
+	}
+	global_shm = (LW_SHM_TYPE *)mmap(NULL,sizeof(LW_SHM_TYPE),PROT_READ|PROT_WRITE,MAP_SHARED,fd,0);
+	if (created == TRUE) {
+		XProcLock( xproclock );
+		global_shm->num_publ_tok_obj = 0;
+		global_shm->num_priv_tok_obj = 0;
+		memset( &global_shm->publ_tok_objs, 0x0, 2048 * sizeof(TOK_OBJ_ENTRY) );
+		memset( &global_shm->priv_tok_objs, 0x0, 2048 * sizeof(TOK_OBJ_ENTRY) );
+		XProcUnLock( xproclock );
+	} else {
+		xproclock = (void *)&global_shm->mutex;
+	}
 
 }
 
@@ -1394,7 +1403,7 @@ detach_shm()
    return CKR_OK;
 }
 
-#endif
+//#endif
 
 
 CK_RV
