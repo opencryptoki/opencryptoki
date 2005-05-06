@@ -1,7 +1,12 @@
 lib_LTLIBRARIES = libopencryptoki.la
 libdir = $(exec_prefix)/lib/opencryptoki
 
-libopencryptoki_la_LDFLAGS = -g -shared -Wl,-Bsymbolic -lc -ldl -lpthread
+SO_CURRENT=0
+SO_REVISION=0
+SO_AGE=0
+
+libopencryptoki_la_LDFLAGS = -shared -Wl,-Bsymbolic -lc -ldl -lpthread \
+			     -version-info $(SO_CURRENT):$(SO_REVISION):$(SO_AGE)
 
 libopencryptoki_la_CFLAGS = -DSPINXPL -DAPI -DDEV -D_THREAD_SAFE \
 			    -fPIC -I../. -I../../../include/pkcs11
@@ -11,6 +16,8 @@ libopencryptoki_la_SOURCES = api_interface.c shrd_mem.c apiutil.c
 install-data-local:
 	cd $(LIB_ROOT_PATH) && rm -f libopencryptoki.so && \
 		ln -sf opencryptoki/libopencryptoki.so libopencryptoki.so
+	cd $(LIB_ROOT_PATH) && rm -f libopencryptoki.so.$(SO_CURRENT) && \
+		ln -sf opencryptoki/libopencryptoki.so.$(SO_CURRENT) libopencryptoki.so.$(SO_CURRENT)
 	cd $(LIB_ROOT_PATH)/opencryptoki && rm -f PKCS11_API.so && \
 		ln -sf libopencryptoki.so PKCS11_API.so
 	cd $(LIB_ROOT_PATH)/opencryptoki && rm -f methods && \
