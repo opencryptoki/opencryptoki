@@ -24,6 +24,7 @@
 #include <sys/stat.h>
 #include <errno.h>
 #include <string.h>
+#include <pwd.h>
 
 #include <openssl/pem.h>
 #include <openssl/rsa.h>
@@ -101,24 +102,35 @@ regen_rsa_key:
 int
 openssl_write_key(RSA *rsa, char *filename, char *pPin)
 {
-	BIO *b = BIO_new_file(filename, "w");
+	BIO *b = NULL;
+	char loc[2048];
+	struct passwd *pw = NULL;
 
+	errno = 0;
+	if ((pw = getpwuid(getuid())) == NULL) {
+		LogError("%s: Error getting username: %s", __FUNCTION__, strerror(errno));
+		return -1;
+	}
+
+	sprintf(loc, "%s/%s/%s", pk_dir, pw->pw_name, filename);
+
+	b = BIO_new_file(loc, "w");
 	if (!b) {
-		LogError("%s: Error opening file for write: %s", __FUNCTION__, filename);
+		LogError("%s: Error opening file for write: %s", __FUNCTION__, loc);
 		return -1;
 	}
 
 	if (!PEM_write_bio_RSAPrivateKey(b, rsa, EVP_aes_256_cbc(), NULL, 0, 0, pPin)) {
 		BIO_free(b);
-		LogError("Writing key %s to disk failed.", filename);
+		LogError("Writing key %s to disk failed.", loc);
 		DEBUG_openssl_print_errors();
 		return -1;
 	}
 
 	BIO_free(b);
 
-	if (util_set_file_mode(filename, (S_IRUSR|S_IWUSR))) {
-		LogError("Setting file mode of %s failed", filename);
+	if (util_set_file_mode(loc, (S_IRUSR|S_IWUSR))) {
+		LogError("Setting file mode of %s failed", loc);
 	}
 
 	return 0;
@@ -127,23 +139,33 @@ openssl_write_key(RSA *rsa, char *filename, char *pPin)
 CK_RV
 openssl_read_key(char *filename, char *pPin, RSA **ret)
 {
-	BIO *b;
+	BIO *b = NULL;
 	RSA *rsa = NULL;
+	char loc[2048];
+	struct passwd *pw = NULL;
+
+	errno = 0;
+	if ((pw = getpwuid(getuid())) == NULL) {
+		LogError("%s: Error getting username: %s", __FUNCTION__, strerror(errno));
+		return -1;
+	}
+
+	sprintf(loc, "%s/%s/%s", pk_dir, pw->pw_name, filename);
 
 	/* we can't allow a pin of NULL here, since openssl will try to prompt
 	 * for a password in PEM_read_bio_RSAPrivateKey */
 	if (pPin == NULL)
 		return CKR_PIN_INCORRECT;
 
-	b = BIO_new_file(filename, "r+");
+	b = BIO_new_file(loc, "r+");
 	if (b == NULL) {
-		LogError("%s: Error opening file for read: %s", __FUNCTION__, filename);
+		LogError("%s: Error opening file for read: %s", __FUNCTION__, loc);
 		return CKR_FILE_NOT_FOUND;
 	}
 
 	if ((rsa = PEM_read_bio_RSAPrivateKey(b, NULL, 0, pPin)) == NULL) {
 		BIO_free(b);
-		LogError("Reading key %s from disk failed.", filename);
+		LogError("Reading key %s from disk failed.", loc);
 		DEBUG_openssl_print_errors();
 		if (ERR_GET_REASON(ERR_get_error()) == PEM_R_BAD_DECRYPT) {
 			return CKR_PIN_INCORRECT;
