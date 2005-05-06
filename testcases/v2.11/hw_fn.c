@@ -351,7 +351,7 @@ int clean_up(void)
 
 int do_GetFunctionList(void)
 {
-	char *pkcslib = "PKCS11_API.so";
+	char *pkcslib = "libpkcs11_api.so";
 	CK_RV (*func_ptr)();
 	int rc;
 

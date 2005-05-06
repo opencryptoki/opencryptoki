@@ -482,7 +482,7 @@ int do_GetFunctionList( void )
    CK_RV  (*pfoo)();
    void    *d;
    char    *e;
-   char	   f[]="PKCS11_API.so";
+   char	   f[]="libpkcs11_api.so";
 
 #endif
 

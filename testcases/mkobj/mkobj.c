@@ -135,7 +135,7 @@ int do_GetFunctionList( void )
    CK_RV  (*pfoo)();
    void * d;
    char* e;
-   char * z="PKCS11_API.so";
+   char * z="libpkcs11_api.so";
 
    printf("do_GetFunctionList...\n");
 
