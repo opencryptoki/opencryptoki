@@ -375,8 +375,6 @@ then
     then
 	mkdir  $TPM_DIR
 	chgrp pkcs11 $TPM_DIR
-	mkdir "$TPM_DIR"/TOK_OBJ
-	chgrp pkcs11 "$TPM_DIR"/TOK_OBJ
     fi
     SYS_SLOT="TPM"
 fi
