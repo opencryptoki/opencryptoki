@@ -411,6 +411,13 @@ int CreateSharedMemory ( void ) {
    int fd;
    int i;
    char *buffer;
+   
+   grp = getgrnam("pkcs11");
+   if ( !grp ) {
+     ErrLog("Group \"pkcs11\" does not exist! Please run %s/pkcs11_startup.",
+		     SBIN_PATH);
+     return FALSE;  // Group does not exist... setup is wrong..
+   }
 
    fd = open(MAPFILENAME,O_RDWR,MODE);
     if (fd < 0 ){
@@ -418,8 +425,20 @@ int CreateSharedMemory ( void ) {
       fd = open(MAPFILENAME,O_RDWR|O_CREAT,MODE); // Create the file
       if (fd < 0 ){ // We are really hosed here, since we should be able
                     // to create the file now
+	 ErrLog("%s: open(%s): %s", __FUNCTION__, MAPFILENAME, strerror(errno));
          return FALSE;
       } else {
+	  if (fchmod(fd, MODE) == -1) {
+	     ErrLog("%s: fchmod(%s): %s", __FUNCTION__, MAPFILENAME, strerror(errno));
+	     close(fd);
+	     return FALSE;
+	  }
+	  if (fchown(fd, 0, grp->gr_gid) == -1) {
+	     ErrLog("%s: fchown(%s, root, pkcs11): %s", __FUNCTION__, MAPFILENAME,
+			     strerror(errno));
+	     close(fd);
+	     return FALSE;
+	  }
          // Create a buffer and make the file the right length
           i = sizeof(Slot_Mgr_Shr_t);
           buffer = malloc(sizeof(Slot_Mgr_Shr_t));
