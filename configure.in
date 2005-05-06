@@ -94,20 +94,17 @@ AC_SUBST(HEADER_PATH, $prefix/include)
 
 TO_BUILD=0
 
-CFLAGS="$CFLAGS -DPKCS64 -DCONFIG_PATH=\\\"$CONFIG_PATH\\\" -DSBIN_PATH=\\\"$SBIN_PATH\\\""
+CFLAGS="$CFLAGS -DPKCS64 \
+	-DCONFIG_PATH=\\\"$CONFIG_PATH\\\" \
+	-DSBIN_PATH=\\\"$SBIN_PATH\\\" \
+	-DLIB_PATH=\\\"$LIB_PATH\\\""
 
 # Debugging support
 AC_ARG_ENABLE(debug, [  --enable-debug          turn on all openCryptoki debugging flags],
               [               enable_debug="yes"],)
 
-if test "x$enable_debug" != xyes; then
-	if test -z "$CFLAGS"; then
-		CFLAGS="-O2"
-	fi
-else
-	if test -z "$CFLAGS"; then
-		CFLAGS="-O0 -g -DDEBUG -DDEBUGON"
-	fi
+if test "x$enable_debug" = xyes; then
+	CFLAGS="$CFLAGS -g -O0 -DDEBUG -DDEBUGON"
 	AC_MSG_RESULT([*** Enabling debugging at user request ***])
 fi
 
