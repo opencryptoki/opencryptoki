@@ -86,10 +86,12 @@ CK_OBJECT_HANDLE ckPublicLeafKey = 0;
 CK_OBJECT_HANDLE ckPrivateRootKey = 0;
 CK_OBJECT_HANDLE ckPrivateLeafKey = 0;
 
+#if 0
 /* since logging in is such an intensive process, set a flag on logout,
  * so that we only have to load 1 key on a re-login
  */
 int relogging_in = 0;
+#endif
 int not_initialized = 0;
 
 /* SHA-1 of "12345678" */
@@ -1410,6 +1412,7 @@ token_specific_login(CK_USER_TYPE userType, CK_CHAR_PTR pPin, CK_ULONG ulPinLen)
 	compute_sha( pPin, ulPinLen, hash_sha );
 
 	if (userType == CKU_USER) {
+#if 0
 		/* since logging in is such an intensive process, set a flag on logout,
 		 * so that we only have to load 1 key on a re-login
 		 */
@@ -1426,7 +1429,7 @@ token_specific_login(CK_USER_TYPE userType, CK_CHAR_PTR pPin, CK_ULONG ulPinLen)
 
 			goto legacy_user_ops;
 		}
-
+#endif
 		/* If the public root key doesn't exist yet, the SO hasn't init'd the token */
 		if ((result = token_load_public_root_key())) {
 			LogError("token_load_public_root_key failed. rc=0x%x", result);
@@ -1499,6 +1502,7 @@ legacy_user_ops:
 	} else {
 		/* SO path --
 		 */
+#if 0
 		if (relogging_in) {
 			if ((rc = token_load_key(ckPrivateLeafKey, hPrivateRootKey, hash_sha,
 					&hPrivateLeafKey))) {
@@ -1512,7 +1516,7 @@ legacy_user_ops:
 
 			return rc;
 		}
-
+#endif
 		/* find, load the root key */
 		if ((rc = token_find_key(TPMTOK_PUBLIC_ROOT_KEY, CKO_PRIVATE_KEY, &ckPublicRootKey))) {
 			/* The SO hasn't set her PIN yet, compare the login pin with
@@ -1586,10 +1590,12 @@ token_specific_logout()
 	/* pulled from new_host.c */
 	object_mgr_purge_private_token_objects();
 
+#if 0
 	/* since logging in is such an intensive process, set a flag on logout,
 	 * so that we only have to load 1 key on a re-login
 	 */
 	relogging_in = 1;
+#endif
 
 	return CKR_OK;
 }
