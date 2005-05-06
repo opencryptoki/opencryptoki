@@ -1118,10 +1118,13 @@ init(void){
 
    /* Open the PKCS11 API shared library, and inform the user is there is an
     * error */
-   if (sizeof(CK_ULONG) == 4) 
+   /* The host machine should have the right library in the
+    * LD_LIBRARY_PATH */
+/*   if (sizeof(CK_ULONG) == 4) 
       dllPtr = dlopen("/usr/lib/pkcs11/PKCS11_API.so", RTLD_NOW);
    else
-      dllPtr = dlopen("/usr/lib/pkcs11/PKCS11_API.so64", RTLD_NOW);
+   dllPtr = dlopen("/usr/lib/pkcs11/PKCS11_API.so64", RTLD_NOW); */
+   dllPtr = dlopen("libpkcs11_api.so", RTLD_NOW);
    if (!dllPtr) {
       rc = errno;
       printf(PKCSINIT_MSG(LOADERROR, "Error loading PKCS#11 library: 0x%X\n"), rc);

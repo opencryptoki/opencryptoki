@@ -130,10 +130,10 @@ fi
 mkdir -p $RPM_BUILD_ROOT/usr/include
 make -f Makefile install
 #cp -a SuSE/* $RPM_BUILD_ROOT
-cp -a usr/include/pkcs11 $RPM_BUILD_ROOT/usr/include
-# Create etc/pkcs11 and set the permissions correctly
-mkdir -p $RPM_BUILD_ROOT/etc/pkcs11
-for f in /etc/pkcs11 /usr/lib/pkcs11 /usr/sbin/pkcsslotd
+cp -a usr/include/opencryptoki $RPM_BUILD_ROOT/usr/include
+# Create var/lib/opencryptoki and set the permissions correctly
+mkdir -p $RPM_BUILD_ROOT/var/lib/opencryptoki
+for f in /var/lib/opencryptoki /usr/lib/opencryptoki /usr/sbin/pkcsslotd
   do
   test -e $RPM_BUILD_ROOT/$f && chgrp -R pkcs11 $RPM_BUILD_ROOT/$f
 done
@@ -168,26 +168,26 @@ y/ /,/
   /usr/sbin/pkcsslotd
   # these don't conflict because they only exist as 64bit binaries if
   # there is no 32bit version of them usable
-  /usr/lib/pkcs11/methods/pkcs11_startup
-  /usr/lib/pkcs11/methods/pkcsconf
-  /usr/lib/pkcs11/methods/pkcs_slot
+  /usr/sbin/pkcs11_startup
+  /usr/sbin/pkcsconf
+  /usr/sbin/pkcs_slot
 %files 32bit
   # these don't conflict because of the different suffix
-  /usr/lib/pkcs11/PKCS11_API.so
-  /usr/lib/pkcs11/stdll/PKCS11_ICA.so
+  /usr/lib/opencryptoki/libpkcs11_api.so
+  /usr/lib/opencryptoki/stdll/libpkcs11_ica.so
   %ifarch %ix86
-    /usr/lib/pkcs11/methods/4758_status
-    /usr/lib/pkcs11/stdll/PKCS11_SW.so
-    /usr/lib/pkcs11/stdll/PKCS11_4758.so
-    /usr/lib/pkcs11/stdll/PKCS11_CR.so
-    /usr/lib/pkcs11/stdll/PKCS11_BC.so
-    /usr/lib/pkcs11/stdll/PKCS11_AEP.so
+%   /usr/lib/pkcs11/methods/4758_status
+    /usr/lib/opencryptoki/stdll/libpkcs11_sw.so
+    /usr/lib/opencryptoki/stdll/libpkcs11_4758.so
+    /usr/lib/opencryptoki/stdll/libpkcs11_cr.so
+    /usr/lib/opencryptoki/stdll/libpkcs11_bc.so
+    /usr/lib/opencryptoki/stdll/libpkcs11_aep.so
   %endif
 ###################################################################
 %else # not openCryptoki_32bit_arch  but  64bit arch
 
 %files 64bit
-/usr/lib64/pkcs11/PKCS11_API.so
-/usr/lib64/pkcs11/stdll/PKCS11_ICA.so
+/usr/lib64/opencryptoki/libpkcs11_api.so
+/usr/lib64/opencryptoki/stdll/libpkcs11_ica.so
 %endif
 
