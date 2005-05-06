@@ -305,6 +305,7 @@
 #include <sys/file.h>
 #include <errno.h>
 
+#include <pwd.h>
 #include <grp.h>
 
 #include <pkcs11/pkcs11types.h>
@@ -321,16 +322,23 @@
 void
 set_perm(int file)
 {
+#if 0
    struct group *grp;
 
-   // Set absolute permissions or rw-rw-r--
-   fchmod(file,S_IRUSR|S_IWUSR|S_IRGRP|S_IWGRP|S_IROTH);
+   // Set absolute permissions of rw-rw-r--
+   //fchmod(file,S_IRUSR|S_IWUSR|S_IRGRP|S_IWGRP|S_IROTH);
+#endif
+   /* In the TPM token, with per user data stores, we don't share the token
+    * object amongst a group. In fact, we want to restrict access to a single
+    * user */
+   fchmod(file,S_IRUSR|S_IWUSR);
 
+#if 0
    grp = getgrnam("pkcs11"); // Obtain the group id
    if (grp){
       fchown(file,getuid(),grp->gr_gid);  // set ownership to root, and pkcs11 group
    }
-
+#endif
 }
 
 //
@@ -345,6 +353,14 @@ load_token_data()
    CK_BYTE       cipher[3 * DES_BLOCK_SIZE];
    CK_ULONG      clear_len, cipher_len;
    CK_RV         rc;
+   struct passwd *pw = NULL;
+
+   if ((pw = getpwuid(getuid())) == NULL){
+      LogError("getpwuid failed: %s", strerror(errno));
+      return CKR_FUNCTION_FAILED;
+   }
+
+   sprintf((char *)fname,"%s/%s/%s",(char *)pk_dir, pw->pw_name, PK_LITE_NV);
 
    rc = XProcLock( xproclock );
    if (rc != CKR_OK){
@@ -352,7 +368,7 @@ load_token_data()
       goto out_nolock;
    }
 
-   sprintf((char *)fname,"%s/%s",(char *)pk_dir, PK_LITE_NV);
+   //sprintf((char *)fname,"%s/%s",(char *)pk_dir, PK_LITE_NV);
 
    //fp = fopen("/tmp/NVTOK.DAT", "r");
    fp = fopen((char *)fname, "r");
@@ -436,6 +452,14 @@ save_token_data()
    CK_ULONG    clear_len, cipher_len;
    CK_RV       rc;
    CK_BYTE     fname[2048];
+   struct passwd *pw = NULL;
+
+   if ((pw = getpwuid(getuid())) == NULL){
+      LogError("getpwuid failed: %s", strerror(errno));
+      return CKR_FUNCTION_FAILED;
+   }
+
+   sprintf((char *)fname,"%s/%s/%s",(char *)pk_dir, pw->pw_name, PK_LITE_NV);
 
    rc = XProcLock( xproclock );
    if (rc != CKR_OK){
@@ -443,7 +467,7 @@ save_token_data()
       goto out_nolock;
    }
 
-   sprintf((char *)fname,"%s/%s",pk_dir, PK_LITE_NV);
+   //sprintf((char *)fname,"%s/%s",pk_dir, PK_LITE_NV);
    //fp = fopen("/tmp/NVTOK.DAT", "w");
    fp = fopen((char *)fname, "w");
 
@@ -496,6 +520,8 @@ save_token_object( OBJECT *obj )
    CK_BYTE     line[100];
    CK_RV       rc;
    CK_BYTE     fname[2048];
+   struct passwd *pw = NULL;
+
 
    if (object_is_private(obj) == TRUE)
       rc = save_private_token_object( obj );
@@ -508,7 +534,15 @@ save_token_object( OBJECT *obj )
    }
    // update the index file if it exists
    //
-   sprintf((char *)fname,"%s/%s/%s",pk_dir,PK_LITE_OBJ_DIR,PK_LITE_OBJ_IDX);
+   if ((pw = getpwuid(getuid())) == NULL){
+      LogError("getpwuid failed: %s", strerror(errno));
+      return CKR_FUNCTION_FAILED;
+   }
+
+   sprintf((char *)fname,"%s/%s/%s/%s",(char *)pk_dir, pw->pw_name,
+		   PK_LITE_OBJ_DIR, PK_LITE_OBJ_IDX);
+
+   //sprintf((char *)fname,"%s/%s/%s",pk_dir,PK_LITE_OBJ_DIR,PK_LITE_OBJ_IDX);
 
    //fp = fopen( "/tmp/TOK_OBJ/OBJ.IDX", "r" );
    fp = fopen( (char *)fname, "r" );
@@ -560,9 +594,18 @@ save_public_token_object( OBJECT *obj )
    CK_BBOOL     flag = FALSE;
    CK_RV        rc;
    CK_ULONG_32  total_len;
+   struct passwd *pw = NULL;
+
+   if ((pw = getpwuid(getuid())) == NULL){
+      LogError("getpwuid failed: %s", strerror(errno));
+      return CKR_FUNCTION_FAILED;
+   }
+
+   sprintf((char *)fname,"%s/%s/%s/",(char *)pk_dir, pw->pw_name,
+		   PK_LITE_OBJ_DIR);
 
    //strcpy( fname, "/tmp/TOK_OBJ/" );
-   sprintf( (char *)fname,"%s/%s/", pk_dir,PK_LITE_OBJ_DIR);
+   //sprintf( (char *)fname,"%s/%s/", pk_dir,PK_LITE_OBJ_DIR);
    strncat( (char *)fname, (char *) obj->name, 8 );
 
    rc = object_flatten( obj, &cleartxt, &cleartxt_len );
@@ -618,6 +661,15 @@ save_private_token_object( OBJECT *obj )
    CK_RV              rc;
    CK_ULONG_32        obj_data_len_32;
    CK_ULONG_32        total_len;
+   struct passwd    * pw = NULL;
+
+   if ((pw = getpwuid(getuid())) == NULL){
+      LogError("getpwuid failed: %s", strerror(errno));
+      return CKR_FUNCTION_FAILED;
+   }
+
+   sprintf((char *)fname,"%s/%s/%s/",(char *)pk_dir, pw->pw_name,
+		   PK_LITE_OBJ_DIR);
 
    rc = object_flatten( obj, &obj_data, &obj_data_len );
    obj_data_len_32 = obj_data_len;
@@ -684,7 +736,7 @@ save_private_token_object( OBJECT *obj )
    }
 
    //strcpy( (char *)fname, "/tmp/TOK_OBJ/" );
-   sprintf( (char *)fname,"%s/%s/", pk_dir,PK_LITE_OBJ_DIR);
+   //sprintf( (char *)fname,"%s/%s/", pk_dir,PK_LITE_OBJ_DIR);
    strncat( (char *)fname,(char *) obj->name, 8 );
 
    fp = fopen( (char *)fname, "w" );
@@ -732,8 +784,17 @@ load_public_token_objects( void )
    CK_BYTE   tmp[2048], fname[2048],iname[2048];
    CK_BBOOL  priv;
    CK_ULONG_32  size;
+   struct passwd *pw = NULL;
 
-   sprintf((char *)iname,"%s/%s/%s",pk_dir,PK_LITE_OBJ_DIR, PK_LITE_OBJ_IDX);
+   if ((pw = getpwuid(getuid())) == NULL){
+      LogError("getpwuid failed: %s", strerror(errno));
+      return CKR_FUNCTION_FAILED;
+   }
+
+   sprintf((char *)iname,"%s/%s/%s/%s",(char *)pk_dir, pw->pw_name,
+		   PK_LITE_OBJ_DIR, PK_LITE_OBJ_IDX);
+
+   //sprintf((char *)iname,"%s/%s/%s",pk_dir,PK_LITE_OBJ_DIR, PK_LITE_OBJ_IDX);
    //fp1 = fopen("/tmp/TOK_OBJ/OBJ.IDX", "r");
    fp1 = fopen((char *)iname, "r");
    if (!fp1)
@@ -745,7 +806,7 @@ load_public_token_objects( void )
          tmp[ strlen((char *)tmp)-1 ] = 0;
 
          //strcpy(fname,"/tmp/TOK_OBJ/");
-         sprintf((char *)fname,"%s/%s/",pk_dir, PK_LITE_OBJ_DIR);
+         sprintf((char *)fname,"%s/%s/%s/",pk_dir, pw->pw_name, PK_LITE_OBJ_DIR);
          strcat((char *)fname, (char *)tmp );
 
          fp2 = fopen( (char *)fname, "r" );
@@ -797,8 +858,17 @@ load_private_token_objects( void )
    CK_BBOOL  priv;
    CK_ULONG_32  size;
    CK_RV     rc;
+   struct passwd *pw = NULL;
 
-   sprintf((char *)iname,"%s/%s/%s",pk_dir,PK_LITE_OBJ_DIR, PK_LITE_OBJ_IDX);
+   if ((pw = getpwuid(getuid())) == NULL){
+      LogError("getpwuid failed: %s", strerror(errno));
+      return CKR_FUNCTION_FAILED;
+   }
+
+   sprintf((char *)iname,"%s/%s/%s/%s",(char *)pk_dir, pw->pw_name,
+		   PK_LITE_OBJ_DIR, PK_LITE_OBJ_IDX);
+
+   //sprintf((char *)iname,"%s/%s/%s",pk_dir,PK_LITE_OBJ_DIR, PK_LITE_OBJ_IDX);
    //fp1 = fopen("/tmp/TOK_OBJ/OBJ.IDX", "r");
    fp1 = fopen((char *)iname, "r");
    if (!fp1)
@@ -810,7 +880,7 @@ load_private_token_objects( void )
          tmp[ strlen((char *)tmp)-1 ] = 0;
 
          //strcpy(fname,"/tmp/TOK_OBJ/");
-         sprintf((char *)fname,"%s/%s/",pk_dir,PK_LITE_OBJ_DIR);
+         sprintf((char *)fname,"%s/%s/%s/",pk_dir, pw->pw_name, PK_LITE_OBJ_DIR);
          strcat((char *)fname,(char *) tmp );
 
          fp2 = fopen( (char *)fname, "r" );
@@ -1303,11 +1373,20 @@ reload_token_object( OBJECT *obj )
    CK_ULONG_32   size;
    CK_ULONG   size_64;
    CK_RV      rc;
+   struct passwd *pw = NULL;
+
+   if ((pw = getpwuid(getuid())) == NULL){
+      LogError("getpwuid failed: %s", strerror(errno));
+      return CKR_FUNCTION_FAILED;
+   }
 
    memset( (char *)fname, 0x0, sizeof(fname) );
 
+   sprintf((char *)fname,"%s/%s/%s/",(char *)pk_dir, pw->pw_name,
+		   PK_LITE_OBJ_DIR);
+
   // strcpy(fname, "/tmp/TOK_OBJ/" );
-   sprintf((char *)fname,"%s/%s/",pk_dir, PK_LITE_OBJ_DIR);
+   //sprintf((char *)fname,"%s/%s/",pk_dir, PK_LITE_OBJ_DIR);
    strncat((char *)fname,(char *)  obj->name, 8 );
 
    fp = fopen( (char *)fname, "r" );
@@ -1364,6 +1443,18 @@ delete_token_object( OBJECT *obj )
    FILE      *fp1, *fp2;
    CK_BYTE    line[100];
    CK_BYTE    objidx[2048], idxtmp[2048],fname[2048];
+   struct passwd *pw = NULL;
+
+   if ((pw = getpwuid(getuid())) == NULL){
+      LogError("getpwuid failed: %s", strerror(errno));
+      return CKR_FUNCTION_FAILED;
+   }
+
+   sprintf((char *)objidx,"%s/%s/%s/%s",(char *)pk_dir, pw->pw_name,
+		   PK_LITE_OBJ_DIR, PK_LITE_OBJ_IDX);
+   sprintf((char *)idxtmp,"%s/%s/%s/%s",(char *)pk_dir, pw->pw_name,
+		   PK_LITE_OBJ_DIR, "IDX.TMP");
+
 
    // FIXME:  on UNIX, we need to make sure these guys aren't symlinks
    //         before we blindly write to these files...
@@ -1372,8 +1463,8 @@ delete_token_object( OBJECT *obj )
    // remove the object from the index file
    //
 
-   sprintf((char *)objidx,"%s/%s/%s",pk_dir, PK_LITE_OBJ_DIR,PK_LITE_OBJ_IDX);
-   sprintf((char *)idxtmp,"%s/%s/%s",pk_dir, PK_LITE_OBJ_DIR, "IDX.TMP");
+   //sprintf((char *)objidx,"%s/%s/%s",pk_dir, PK_LITE_OBJ_DIR,PK_LITE_OBJ_IDX);
+   //sprintf((char *)idxtmp,"%s/%s/%s",pk_dir, PK_LITE_OBJ_DIR, "IDX.TMP");
    //fp1 = fopen("/tmp/TOK_OBJ/OBJ.IDX", "r");
    //fp2 = fopen("/tmp/TOK_OBJ/IDX.TMP", "w");
    fp1 = fopen((char *)objidx, "r");
@@ -1422,7 +1513,8 @@ delete_token_object( OBJECT *obj )
    fclose(fp1);
    fclose(fp2);
 
-   sprintf((char *)fname,"%s/%s/%s",pk_dir, PK_LITE_OBJ_DIR,(char *)obj->name);
+   sprintf((char *)fname,"%s/%s/%s/%s",pk_dir, pw->pw_name, PK_LITE_OBJ_DIR, (char *)obj->name);
+   //sprintf((char *)fname,"%s/%s/%s",pk_dir, PK_LITE_OBJ_DIR,(char *)obj->name);
    unlink((char *)fname);
    return CKR_OK;
 
