@@ -77,7 +77,7 @@ util_create_id(int type)
 			sprintf(ret, "%s", TPMTOK_PRIVATE_ROOT_KEY_ID);
 			break;
 		case TPMTOK_PUBLIC_ROOT_KEY:
-			size = TPMTOK_PUBLIC_ROOT_KEY_ID_SIZE + 2;
+			size = TPMTOK_PUBLIC_ROOT_KEY_ID_SIZE + 1;
 			if ((ret = malloc(size)) == NULL) {
 				st_err_log("CKR_HOST_MEMORY");
 				break;
@@ -86,7 +86,7 @@ util_create_id(int type)
 			sprintf(ret, "%s", TPMTOK_PUBLIC_ROOT_KEY_ID);
 			break;
 		case TPMTOK_PUBLIC_LEAF_KEY:
-			size = TPMTOK_PUBLIC_LEAF_KEY_ID_SIZE + 2;
+			size = TPMTOK_PUBLIC_LEAF_KEY_ID_SIZE + 1;
 			if ((ret = malloc(size)) == NULL) {
 				st_err_log("CKR_HOST_MEMORY");
 				break;
@@ -95,7 +95,7 @@ util_create_id(int type)
 			sprintf(ret, "%s", TPMTOK_PUBLIC_LEAF_KEY_ID);
 			break;
 		case TPMTOK_PRIVATE_LEAF_KEY:
-			size = TPMTOK_PRIVATE_LEAF_KEY_ID_SIZE + 2;
+			size = TPMTOK_PRIVATE_LEAF_KEY_ID_SIZE + 1;
 			if ((ret = malloc(size)) == NULL) {
 				st_err_log("CKR_HOST_MEMORY");
 				break;
@@ -127,4 +127,35 @@ util_set_file_mode(char *filename, mode_t mode)
 	}
 
 	return 0;
+}
+
+/* make sure the public exponent attribute is 65537 */
+CK_ULONG
+util_check_public_exponent(TEMPLATE *tmpl)
+{
+	CK_BBOOL flag;
+	CK_ATTRIBUTE *publ_exp_attr;
+	CK_BYTE pubexp_bytes[] = { 1, 0, 1 };
+	CK_ULONG publ_exp, rc = 1;
+
+	flag = template_attribute_find(tmpl, CKA_PUBLIC_EXPONENT, &publ_exp_attr);
+	if (!flag){
+		LogError("Couldn't find public exponent attribute");
+		return CKR_TEMPLATE_INCOMPLETE;
+	}
+
+	switch (publ_exp_attr->ulValueLen) {
+		case 3:
+			rc = memcmp(pubexp_bytes, publ_exp_attr->pValue, 3);
+			break;
+		case sizeof(CK_ULONG):
+			publ_exp = *((CK_ULONG *)publ_exp_attr->pValue);
+			if (publ_exp == 65537)
+				rc = 0;
+			break;
+		default:
+			break;
+	}
+
+	return rc;
 }
