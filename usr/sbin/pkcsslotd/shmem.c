@@ -305,7 +305,7 @@
 
 
 #define MODE (S_IRUSR|S_IWUSR|S_IRGRP|S_IWGRP)
-#define MAPFILENAME "//etc//pkcs11//.apimap"
+#define MAPFILENAME CONFIG_PATH "/.apimap"
 
 /***********************************************************************
  *  CreateSharedMemory - 
