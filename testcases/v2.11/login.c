@@ -298,7 +298,7 @@ int clean_up(void)
         if( (rc = funcs->C_Finalize(NULL)) != CKR_OK)
 		oc_err_msg("C_Finalize", rc);
 
-	/* Decrement the reference count to PKCS11_API.so */
+	/* Decrement the reference count to libpkcs11_api.so */
 	dlclose(dl_handle);
 	
 	return rc;
