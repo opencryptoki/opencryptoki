@@ -39,21 +39,14 @@
 #define TPMTOK_PUBLIC_ROOT_KEY_ID_SIZE	strlen(TPMTOK_PUBLIC_ROOT_KEY_ID)
 #define TPMTOK_PUBLIC_LEAF_KEY_ID_SIZE	strlen(TPMTOK_PUBLIC_LEAF_KEY_ID)
 
-/* for use in the token object storage paths, etc */
-#define TPMTOK_TOKEN_NAME	tpm
-
-/* locations to write the backup copies of the sw generated keys */
-#define TPMTOK_PUBLIC_ROOT_KEY_LOCATION		CONFIG_PATH "/tpm/PUBLIC_ROOT_KEY.pem"
-#define TPMTOK_PRIVATE_ROOT_KEY_LOCATION	CONFIG_PATH "/tpm/PRIVATE_ROOT_KEY.pem"
+#define TPMTOK_PUB_ROOT_KEY_FILE	"PUBLIC_ROOT_KEY.pem"
+#define TPMTOK_PRIV_ROOT_KEY_FILE	"PRIVATE_ROOT_KEY.pem"
 
 /* TPM token specific return codes */
-#define CKR_KEY_NOT_FOUND	CKR_VENDOR_DEFINED + 0
-#define CKR_FILE_NOT_FOUND	CKR_VENDOR_DEFINED + 1
+#define CKR_KEY_NOT_FOUND	CKR_VENDOR_DEFINED + 0x0f000000
+#define CKR_FILE_NOT_FOUND	CKR_VENDOR_DEFINED + 0x0f000001
 
 #define TPMTOK_MASTERKEY_PRIVATE	"MK_PRIVATE"
-
-/* the only allowable public exponent for TPM keys */
-#define TPMTOK_PUB_EXP		65537
 
 #ifdef DEBUG
 #define DEBUG_openssl_print_errors()    openssl_print_errors()
