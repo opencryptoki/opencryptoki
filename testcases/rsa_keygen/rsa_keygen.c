@@ -270,7 +270,7 @@ int do_GetFunctionList( void )
    CK_RV  (*pfoo)();
    void    *d;
    char    *e;
-   char    default_lib[]="PKCS11_API.so";
+   char    default_lib[]="libpkcs11_api.so";
 
    printf("do_GetFunctionList...\n");
 
