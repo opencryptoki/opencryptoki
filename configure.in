@@ -228,7 +228,7 @@ else
         AC_MSG_RESULT([*** Disabling the Corrent Crypto Accelerator token at user request ***])
 fi
 
-CFLAGS="$CFLAGS -DPKCS64 \
+CFLAGS="$CFLAGS -DMMAP -DPKCS64 \
 	-DCONFIG_PATH=\\\"$CONFIG_PATH\\\" \
 	-DSBIN_PATH=\\\"$SBIN_PATH\\\" \
 	-DLIB_PATH=\\\"$LIB_PATH\\\""
