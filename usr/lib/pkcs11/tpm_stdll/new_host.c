@@ -35,11 +35,9 @@
 #include <stdio.h>
 #include <time.h>
 #include <string.h>
+#include <errno.h>
 
 #include <stdlib.h>
-#if (AIX)
-#include <sys/mman.h>
-#endif
 #include <sys/types.h>
 #include <grp.h>
 
@@ -51,6 +49,8 @@
 #include "h_extern.h"
 #include "tok_spec_struct.h"
 #include <pkcs11/pkcs32.h>
+
+#include "tpm_specific.h"
 
 #define UCHAR  unsigned char
 
@@ -795,6 +795,7 @@ CK_RV SC_InitToken( CK_SLOT_ID   sid,
    CK_BYTE    hash_sha[SHA1_HASH_SIZE];
    CK_SLOT_ID slotID;
    char       s[2048];
+   struct passwd *pw = NULL;
 
    SLT_CHECK;
 
@@ -841,6 +842,13 @@ CK_RV SC_InitToken( CK_SLOT_ID   sid,
    }
 #endif
 
+   errno = 0;
+   if ((pw = getpwuid(getuid())) == NULL) {
+	   LogError("%s: Error getting username: %s", __FUNCTION__, strerror(errno));
+	   rc = CKR_FUNCTION_FAILED;
+	   goto done;
+   }
+
    // Before we reconstruct all the data, we should delete the
    // token objects from the filesystem.
    //
@@ -848,7 +856,22 @@ CK_RV SC_InitToken( CK_SLOT_ID   sid,
    //
    object_mgr_destroy_token_objects();
 
-   sprintf(s, "%s %s/%s/* > /dev/null 2>&1", DEL_CMD, pk_dir, PK_LITE_OBJ_DIR);
+   // delete the TOK_OBJ data files
+   sprintf(s, "%s %s/%s/%s/* > /dev/null 2>&1", DEL_CMD, pk_dir, pw->pw_name,
+						PK_LITE_OBJ_DIR);
+   system(s);
+
+   // delete the OpenSSL backup keys
+   sprintf(s, "%s %s/%s/%s > /dev/null 2>&1", DEL_CMD, pk_dir, pw->pw_name,
+						TPMTOK_PUB_ROOT_KEY_FILE);
+   system(s);
+   sprintf(s, "%s %s/%s/%s > /dev/null 2>&1", DEL_CMD, pk_dir, pw->pw_name,
+						TPMTOK_PRIV_ROOT_KEY_FILE);
+   system(s);
+
+   // delete the masterkey
+   sprintf(s, "%s %s/%s/%s > /dev/null 2>&1", DEL_CMD, pk_dir, pw->pw_name,
+						TPMTOK_MASTERKEY_PRIVATE);
    system(s);
 
    //
