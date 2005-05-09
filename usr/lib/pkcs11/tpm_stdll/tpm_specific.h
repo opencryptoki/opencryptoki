@@ -22,6 +22,8 @@
 #ifndef _TPM_SPECIFIC_H_
 #define _TPM_SPECIFIC_H_
 
+#include <openssl/rsa.h>
+
 /* key types in the TPM token */
 #define TPMTOK_PRIVATE_ROOT_KEY	1
 #define TPMTOK_PRIVATE_LEAF_KEY	2
