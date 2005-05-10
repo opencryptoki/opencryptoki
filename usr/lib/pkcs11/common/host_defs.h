@@ -315,8 +315,8 @@
 
 #define MAX_TOK_OBJS  2048
 
-CK_BBOOL pin_expired(CK_SESSION_INFO *);
-CK_BBOOL pin_locked(CK_SESSION_INFO *);
+CK_BBOOL pin_expired(CK_SESSION_INFO *, CK_FLAGS);
+CK_BBOOL pin_locked(CK_SESSION_INFO *, CK_FLAGS);
 
 // the following enum is for performance measurements.  since the server runs
 // as an NT service, it's difficult (impossible?) to use a standalone performance
