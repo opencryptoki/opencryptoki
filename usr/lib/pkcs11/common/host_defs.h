@@ -1,5 +1,5 @@
 /*
- * $Header: /cvsroot/opencryptoki/opencryptoki/usr/lib/pkcs11/common/host_defs.h,v 1.2 2005/02/22 20:47:46 mhalcrow Exp $
+ * $Header: /cvsroot/opencryptoki/opencryptoki/usr/lib/pkcs11/common/host_defs.h,v 1.3 2005/05/10 18:51:59 kyoder Exp $
  */
 
 
@@ -315,8 +315,8 @@
 
 #define MAX_TOK_OBJS  2048
 
-CK_BBOOL pin_expired(CK_SESSION_INFO *);
-CK_BBOOL pin_locked(CK_SESSION_INFO *);
+CK_BBOOL pin_expired(CK_SESSION_INFO *, CK_FLAGS);
+CK_BBOOL pin_locked(CK_SESSION_INFO *, CK_FLAGS);
 
 // the following enum is for performance measurements.  since the server runs
 // as an NT service, it's difficult (impossible?) to use a standalone performance
