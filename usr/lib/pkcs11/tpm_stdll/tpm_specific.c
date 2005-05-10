@@ -241,105 +241,45 @@ CK_RV
 token_wrap_sw_key(int size_n, unsigned char *n, int size_p, unsigned char *p,
 		  TSS_HKEY hParentKey, TSS_HKEY *phKey)
 {
-        unsigned char	null_auth[SHA1_HASH_SIZE];
-        unsigned char	priv_key[214]; /* its not magic, see TPM 1.1b spec p.71 */
-        unsigned char	enc_priv_key[214]; /* its not magic, see TPM 1.1b spec p.71 */
-        int		priv_key_len;
-        UINT16		offset = 0, dig_offset = 0;
-        TSS_RESULT	result;
-        BYTE		blob_for_digest[1024], *blob;
-        UINT32		blob_size;
-        TCPA_DIGEST	digest;
-        TCPA_KEY	key;
-
-	memset(null_auth, 0, SHA1_HASH_SIZE);
-
-	/* set up the private key structure */
-	Trspi_LoadBlob_BYTE(&offset, TCPA_PT_ASYM, priv_key);
-	Trspi_LoadBlob(&offset, SHA1_HASH_SIZE, priv_key, null_auth);
-	Trspi_LoadBlob(&offset, SHA1_HASH_SIZE, priv_key, null_auth);
+	TSS_RESULT result;
 
 	/* create the TSS key object */
-	if ((result = Tspi_Context_CreateObject(tspContext, TSS_OBJECT_TYPE_RSAKEY,
+	result = Tspi_Context_CreateObject(tspContext, TSS_OBJECT_TYPE_RSAKEY,
 			TSS_KEY_SIZE_2048 | TSS_KEY_TYPE_STORAGE | TSS_KEY_MIGRATABLE |
-			TSS_KEY_NO_AUTHORIZATION, phKey))) {
-		LogError("Tspi_Context_CreateObject: 0x%x", result);
-		return CKR_FUNCTION_FAILED;
+			TSS_KEY_NO_AUTHORIZATION, phKey);
+	if (result != TSS_SUCCESS) {
+		LogError("Tspi_Context_CreateObject failed: rc=0x%x", result);
+		return result;
 	}
 
 	/* set the public key data in the TSS object */
-	if ((result = Tspi_SetAttribData(*phKey, TSS_TSPATTRIB_KEY_BLOB,
-			TSS_TSPATTRIB_KEYBLOB_PUBLIC_KEY, size_n, n))) {
-		LogError("Tspi_SetAttribData: 0x%x", result);
+	result = Tspi_SetAttribData(*phKey, TSS_TSPATTRIB_KEY_BLOB,
+			TSS_TSPATTRIB_KEYBLOB_PUBLIC_KEY, size_n, n);
+	if (result != TSS_SUCCESS) {
+		LogError("Tspi_SetAttribData failed: rc=0x%x", result);
 		Tspi_Context_CloseObject(tspContext, *phKey);
 		*phKey = NULL_HKEY;
-		return CKR_FUNCTION_FAILED;
+		return result;
 	}
 
-	/* get the object's blob so that we can create a digest of the structure to
-	 * stick inside the private key structure. */
-	if ((result = Tspi_GetAttribData(*phKey, TSS_TSPATTRIB_KEY_BLOB,
-			TSS_TSPATTRIB_KEYBLOB_BLOB, &blob_size, &blob))) {
-		LogError("Tspi_GetAttribData: 0x%x", result);
+	/* set the private key data in the TSS object */
+	result = Tspi_SetAttribData(*phKey, TSS_TSPATTRIB_KEY_BLOB,
+			TSS_TSPATTRIB_KEYBLOB_PRIVATE_KEY, size_p, p);
+	if (result != TSS_SUCCESS) {
+		LogError("Tspi_SetAttribData failed: rc=0x%x", result);
 		Tspi_Context_CloseObject(tspContext, *phKey);
 		*phKey = NULL_HKEY;
-		return CKR_FUNCTION_FAILED;
+		return result;
 	}
 
-	/* unload the blob returned by the TSS, then load up one to create the
-	 * private key's digest with. */
-	if ((result = Trspi_UnloadBlob_KEY(tspContext, &dig_offset, blob, &key)) != TSS_SUCCESS) {
-		LogError("Trspi_UnloadBlob_KEY: 0x%x", result);
+	result = Tspi_Key_WrapKey(*phKey, hParentKey, NULL_HPCRS);
+	if (result != TSS_SUCCESS) {
+		LogError("Tspi_Key_WrapKey failed: rc=0x%x", result);
 		Tspi_Context_CloseObject(tspContext, *phKey);
 		*phKey = NULL_HKEY;
-		return CKR_FUNCTION_FAILED;
-	}
-	dig_offset = 0;
-	Trspi_LoadBlob_PRIVKEY_DIGEST(&dig_offset, blob_for_digest, &key);
-
-	Tspi_Context_FreeMemory(tspContext, blob);
-
-	/* blob_for_digest now has the correct data in it, create the digest */
-	Trspi_Hash(TSS_HASH_SHA1, dig_offset, blob_for_digest, &digest.digest);
-
-	/* load the digest of the TCPA_KEY structure */
-	Trspi_LoadBlob(&offset, SHA1_HASH_SIZE, priv_key, &digest.digest);
-	/* load the TCPA_STORE_PRIVKEY structure */
-	Trspi_LoadBlob_UINT32(&offset, size_p, priv_key);
-	Trspi_LoadBlob(&offset, size_p, priv_key, p);
-	priv_key_len = offset;
-
-	/* Now encrypt the private parts of this key with the SRK's public key */
-
-	/* reuse blob here in getting the parent's public key */
-	if ((result = Tspi_GetAttribData(hParentKey, TSS_TSPATTRIB_KEY_BLOB,
-			TSS_TSPATTRIB_KEYBLOB_PUBLIC_KEY, &blob_size, &blob))) {
-		LogError("Tspi_GetAttribData: 0x%x", result);
-		Tspi_Context_CloseObject(tspContext, *phKey);
-		*phKey = NULL_HKEY;
-		return CKR_FUNCTION_FAILED;
 	}
 
-	if (Trspi_RSA_Encrypt(priv_key, priv_key_len, enc_priv_key, &priv_key_len,
-				blob, blob_size)) {
-		LogError("Trspi_RSA_Encrypt: 0x%x", result);
-		Tspi_Context_CloseObject(tspContext, *phKey);
-		Tspi_Context_FreeMemory(tspContext, blob);
-		*phKey = NULL_HKEY;
-		return CKR_FUNCTION_FAILED;
-	}
-
-	Tspi_Context_FreeMemory(tspContext, blob);
-
-	if ((result = Tspi_SetAttribData(*phKey, TSS_TSPATTRIB_KEY_BLOB,
-			TSS_TSPATTRIB_KEYBLOB_PRIVATE_KEY, priv_key_len, enc_priv_key))) {
-		LogError("Tspi_SetAttribData: 0x%x", result);
-		Tspi_Context_CloseObject(tspContext, *phKey);
-		*phKey = NULL_HKEY;
-		return CKR_FUNCTION_FAILED;
-	}
-
-	return CKR_OK;
+	return result;
 }
 
 /*
