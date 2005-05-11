@@ -894,10 +894,16 @@ decr_mgr_decrypt_update( SESSION            *sess,
                          CK_BYTE            *out_data,
                          CK_ULONG           *out_data_len )
 {
-   if (!sess || !in_data || !out_data || !ctx){
+   if (!sess || !in_data || !ctx){
       st_err_log(4, __FILE__, __LINE__, __FUNCTION__);
       return CKR_FUNCTION_FAILED;
    }
+
+   if (!out_data && !length_only){
+      st_err_log(4, __FILE__, __LINE__, __FUNCTION__);
+      return CKR_FUNCTION_FAILED;
+   }
+
    if (ctx->active == FALSE){
       st_err_log(32, __FILE__, __LINE__);
       return CKR_OPERATION_NOT_INITIALIZED;
