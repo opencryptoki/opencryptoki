@@ -4,8 +4,10 @@ bindir=/tmp
 
 PKCS11_AEP_so_LDFLAGS = $(LCRYPTO) $(AEP_LIB_DIRS) -nostartfiles -shared -Wl,-soname,PKCS11_AEP.so.1  -lc -lpthread -lcrypto -laep
 
+# Not all versions of automake observe libname_CFLAGS
 PKCS11_AEP_so_CFLAGS = -DSPINXPL -DDEV -D_THREAD_SAFE -fPIC -DSHALLOW=0 -DSWTOK=1 -DLITE=0 -DNOCDMF -DNOMD2 -DNODSA -DDEBUGON -DAEP_GENERIC
 
+# Not all versions of automake observe libname_CFLAGS
 AM_CFLAGS = @CFLAGS@ -DSPINXPL -DDEV -D_THREAD_SAFE -fPIC -DSHALLOW=0 -DSWTOK=1 -DLITE=0 -DNOCDMF -DNOMD2 -DNODSA -DDEBUGON -DAEP_GENERIC
 
 #VPATH= ./:../common

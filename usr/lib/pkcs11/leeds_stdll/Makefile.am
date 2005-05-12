@@ -4,8 +4,10 @@ PKCS11_4758_so_LDFLAGS = $(SCC_LIB_DIRS) -nostartfiles -shared  -Wl,-Bsymbolic -
 
 #LIBS = -lscc
 
-#PKCS11_4758_so_CFLAGS = -DDEV -D_THREAD_SAFE -DLEEDS_BUILD
+# Not all versions of automake observe libname_CFLAGS
+PKCS11_4758_so_CFLAGS = -DDEV -D_THREAD_SAFE -DLEEDS_BUILD
 
+# Not all versions of automake observe libname_CFLAGS
 AM_CFLAGS = -DDEV -D_THREAD_SAFE -DLEEDS_BUILD
 
 PKCS11_4758_so_SOURCES = host_api.c util.c

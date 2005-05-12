@@ -11,8 +11,15 @@ VPATH = ../common
 
 # TODO: -DLINUX and -DSPINXPL should be controlled via configure.in
 
+# Not all versions of automake observe libname_CFLAGS
 libpkcs11_tpm_la_CFLAGS = -DLINUX -DSPINXPL -DNOCDMF -DNODSA \
-			  -I../../../include -I../../../include/pkcs11 -I../common -I.
+			  -I../../../include -I../../../include/pkcs11 \
+			  -I../common -I.
+
+# Not all versions of automake observe libname_CFLAGS
+AM_CFLAGS = -DLINUX -DSPINXPL -DNOCDMF -DNODSA \
+	    -I../../../include -I../../../include/pkcs11 \
+	    -I../common -I.
 
 libpkcs11_tpm_la_LDFLAGS = -shared -Wl,-Bsymbolic -lcrypto -ltspi -lpthread
 
