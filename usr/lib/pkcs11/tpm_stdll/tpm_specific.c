@@ -95,6 +95,9 @@ CK_BYTE default_user_pin_sha[SHA1_HASH_SIZE] = {
 	0xf2, 0x2f, 0x59, 0x21, 0x34, 0xe8, 0x93, 0x24,
 	0x80, 0x63, 0x7c, 0x0d
 };
+CK_BYTE current_user_pin_sha[SHA1_HASH_SIZE];
+CK_BYTE current_so_pin_sha[SHA1_HASH_SIZE];
+
 
 CK_RV
 token_specific_session(CK_SLOT_ID  slotid)
@@ -1402,7 +1405,9 @@ token_specific_login(CK_USER_TYPE userType, CK_CHAR_PTR pPin, CK_ULONG ulPinLen)
 			LogError("token_verify_pin failed. failed. rc=0x%x", rc);
 			return rc;
 		}
-legacy_user_ops:
+
+		memcpy(current_user_pin_sha, hash_sha, SHA1_HASH_SIZE);
+
 		/* load private data encryption key here */
 		if ((rc = load_masterkey_private())) {
 			LogError("load_masterkey_private failed. rc=0x%x", rc);
@@ -1471,6 +1476,8 @@ legacy_user_ops:
 			LogError("token_verify_pin failed. rc=0x%x", rc);
 			return rc;
 		}
+
+		memcpy(current_so_pin_sha, hash_sha, SHA1_HASH_SIZE);
 	}
 
 	return rc;
@@ -1488,6 +1495,8 @@ token_specific_logout()
 	}
 
 	memset(master_key_private, 0, MK_SIZE);
+	memset(current_so_pin_sha, 0, SHA1_HASH_SIZE);
+	memset(current_user_pin_sha, 0, SHA1_HASH_SIZE);
 
 	/* pulled from new_host.c */
 	object_mgr_purge_private_token_objects();
@@ -1530,6 +1539,50 @@ check_pin_properties(CK_USER_TYPE userType, CK_BYTE *pinHash, CK_ULONG ulPinLen)
 	return CKR_OK;
 }
 
+/* use this function call from set_pin only, where a not logged in public
+ * session can provide the user pin which must be verified. This function
+ * assumes that the pin has already been set once, so there's no migration
+ * path option or checking of the default user pin.
+ */
+CK_RV
+verify_user_pin(CK_BYTE *hash_sha)
+{
+	CK_RV rc;
+
+	/* find, load the private root key */
+	if ((rc = token_find_key(TPMTOK_PRIVATE_ROOT_KEY, CKO_PRIVATE_KEY,
+					&ckPrivateRootKey))) {
+		LogError("token_find_key failed. rc=0x%x", rc);
+		return CKR_FUNCTION_FAILED;
+	}
+
+	if ((rc = token_load_key(ckPrivateRootKey, hSRK, NULL,
+					&hPrivateRootKey))) {
+		LogError("token_load_key failed. rc=0x%x", rc);
+		return CKR_FUNCTION_FAILED;
+	}
+
+	/* find, load the user leaf key */
+	if ((rc = token_find_key(TPMTOK_PRIVATE_LEAF_KEY, CKO_PRIVATE_KEY,
+					&ckPrivateLeafKey))) {
+		LogError("token_find_key failed. rc=0x%x", rc);
+		return CKR_FUNCTION_FAILED;
+	}
+
+	if ((rc = token_load_key(ckPrivateLeafKey, hPrivateRootKey, hash_sha,
+					&hPrivateLeafKey))) {
+		LogError("token_load_key failed. rc=0x%x", rc);
+		return CKR_FUNCTION_FAILED;
+	}
+
+	if ((rc = token_verify_pin(hPrivateLeafKey))) {
+		LogError("token_verify_pin failed. failed. rc=0x%x", rc);
+		return rc;
+	}
+
+	return CKR_OK;
+}
+
 CK_RV
 token_specific_set_pin(ST_SESSION_HANDLE session,
 		       CK_CHAR_PTR pOldPin, CK_ULONG ulOldPinLen,
@@ -1549,7 +1602,8 @@ token_specific_set_pin(ST_SESSION_HANDLE session,
 	compute_sha(pOldPin, ulOldPinLen, oldpin_hash);
 	compute_sha(pNewPin, ulNewPinLen, newpin_hash);
 
-	if (sess->session_info.state == CKS_RW_USER_FUNCTIONS) {
+	if (sess->session_info.state == CKS_RW_USER_FUNCTIONS ||
+	    sess->session_info.state == CKS_RW_PUBLIC_SESSION) {
 		if (not_initialized) {
 			if (memcmp(oldpin_hash, default_user_pin_sha, SHA1_HASH_SIZE)) {
 				LogError("old PIN != default for an uninitialized user");
@@ -1568,6 +1622,18 @@ token_specific_set_pin(ST_SESSION_HANDLE session,
 			nv_token_data->token_info.flags &= ~(CKF_USER_PIN_TO_BE_CHANGED);
 
 			return save_token_data();
+		}
+
+		if (sess->session_info.state == CKS_RW_USER_FUNCTIONS) {
+			/* if we're already logged in, just verify the hash */
+			if (memcmp(current_user_pin_sha, oldpin_hash, SHA1_HASH_SIZE)) {
+				LogError("USER pin incorrect");
+				return CKR_PIN_INCORRECT;
+			}
+		} else {
+			if ((rc = verify_user_pin(oldpin_hash))) {
+				return rc;
+			}
 		}
 
 		if ((rc = check_pin_properties(CKU_USER, newpin_hash, ulNewPinLen))) {
@@ -1624,6 +1690,11 @@ token_specific_set_pin(ST_SESSION_HANDLE session,
 			nv_token_data->token_info.flags &= ~(CKF_SO_PIN_TO_BE_CHANGED);
 
 			return save_token_data();
+		}
+
+		if (memcmp(current_so_pin_sha, oldpin_hash, SHA1_HASH_SIZE)) {
+			LogError("SO PIN incorrect");
+			return CKR_PIN_INCORRECT;
 		}
 
 		if ((rc = check_pin_properties(CKU_SO, newpin_hash, ulNewPinLen))) {
