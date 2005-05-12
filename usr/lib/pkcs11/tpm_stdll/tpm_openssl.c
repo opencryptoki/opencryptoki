@@ -143,11 +143,12 @@ openssl_read_key(char *filename, char *pPin, RSA **ret)
 	RSA *rsa = NULL;
 	char loc[2048];
 	struct passwd *pw = NULL;
+	CK_RV rc = CKR_FUNCTION_FAILED;
 
 	errno = 0;
 	if ((pw = getpwuid(getuid())) == NULL) {
 		LogError("%s: Error getting username: %s", __FUNCTION__, strerror(errno));
-		return -1;
+		return CKR_FUNCTION_FAILED;
 	}
 
 	sprintf(loc, "%s/%s/%s", pk_dir, pw->pw_name, filename);
@@ -164,13 +165,13 @@ openssl_read_key(char *filename, char *pPin, RSA **ret)
 	}
 
 	if ((rsa = PEM_read_bio_RSAPrivateKey(b, NULL, 0, pPin)) == NULL) {
-		BIO_free(b);
 		LogError("Reading key %s from disk failed.", loc);
 		DEBUG_openssl_print_errors();
 		if (ERR_GET_REASON(ERR_get_error()) == PEM_R_BAD_DECRYPT) {
-			return CKR_PIN_INCORRECT;
+			rc = CKR_PIN_INCORRECT;
 		}
-		return CKR_FUNCTION_FAILED;
+		BIO_free(b);
+		return rc;
 	}
 
 	BIO_free(b);
