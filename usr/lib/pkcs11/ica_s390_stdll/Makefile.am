@@ -3,8 +3,10 @@ bindir=/tmp
 
 PKCS11_ICA_so_LDFLAGS = $(LCRYPTO) $(ICA_LIB_DIRS) -nostartfiles -shared -Wl,-Bsymbolic  -Wl,-soname,$@ -Wl,-Bsymbolic -lc -lpthread -lica -ldl -lcrypto
 
-#PKCS11_ICA_so_CFLAGS = -DSPINXPL -DDEV -D_THREAD_SAFE -fPIC -DSHALLOW=0 -DSWTOK=0 -DLITE=1 -DNODH -DNOAES -DNOCDMF -DNOMD2 -DNODSA
+# Not all versions of automake observe libname_CFLAGS
+PKCS11_ICA_so_CFLAGS = -DSPINXPL -DDEV -D_THREAD_SAFE -fPIC -DSHALLOW=0 -DSWTOK=0 -DLITE=1 -DNODH -DNOAES -DNOCDMF -DNOMD2 -DNODSA
 
+# Not all versions of automake observe libname_CFLAGS
 AM_CFLAGS = -DSPINXPL -DDEV -D_THREAD_SAFE -fPIC -DSHALLOW=0 -DSWTOK=0 -DLITE=1 -DNODH -DNOAES -DNOCDMF -DNOMD2 -DNODSA
 
 #VPATH= ./:../common
