@@ -1,35 +1,39 @@
-bin_PROGRAMS=PKCS11_CR.so
-bindir=/tmp
+lib_LTLIBRARIES=libpkcs11_cr.la
+libdir = $(exec_prefix)/lib/opencryptoki/stdll
 
-PKCS11_CR_so_LDFLAGS = $(LCRYPTO) $(CR_LIB_DIRS) -nostartfiles -shared -Wl,-Bsymbolic -Wl,-soname,PKCS11_BC.so.1 -lc -lpthread -lsocketarmor -ldl -lcrypto
+libpkcs11_cr_la_LDFLAGS = $(LCRYPTO) $(CR_LIB_DIRS) -nostartfiles -shared \
+			  -Wl,-Bsymbolic -Wl,-soname,PKCS11_BC.so.1 -lc \
+			  -lpthread -lsocketarmor -ldl -lcrypto
 
 VARIANT = -DSHALLOW=0 -DSWTOK=1 -DLITE=0
 
-#PKCS11_CR_so_CFLAGS = -DSPINXPL -DDEV -D_THREAD_SAFE -fPIC $(VARIANT) -DNOCDMF -DNOMD2 -DNODSA -DDEBUGON
+libpkcs11_cr_la_CFLAGS = -DSPINXPL -DDEV -D_THREAD_SAFE -fPIC $(VARIANT) \
+			 -DNOCDMF -DNOMD2 -DNODSA -DDEBUGON
 
-AM_CFLAGS = -DSPINXPL -DDEV -D_THREAD_SAFE -fPIC $(VARIANT) -DNOCDMF -DNOMD2 -DNODSA -DDEBUGON
+AM_CFLAGS = -DSPINXPL -DDEV -D_THREAD_SAFE -fPIC $(VARIANT) -DNOCDMF -DNOMD2 \
+	    -DNODSA -DDEBUGON
 
-#VPATH= ./:../common
+libpkcs11_cr_la_SOURCES = ../common/asn1.c ../common/cert.c		\
+			  ../common/hwf_obj.c ../common/dp_obj.c	\
+			  ../common/data_obj.c ../common/decr_mgr.c	\
+			  ../common/dig_mgr.c ../common/encr_mgr.c	\
+			  ../common/globals.c ../common/loadsave.c	\
+			  ../common/key.c ../common/key_mgr.c		\
+			  ../common/mech_des.c ../common/mech_des3.c	\
+			  ../common/mech_dh.c ../common/mech_md5.c	\
+			  ../common/mech_md2.c ../common/mech_rng.c	\
+			  ../common/mech_rsa.c ../common/mech_sha.c	\
+			  ../common/mech_ssl3.c ../common/new_host.c	\
+			  ../common/obj_mgr.c ../common/object.c	\
+			  ../common/sess_mgr.c ../common/sign_mgr.c	\
+			  ../common/template.c ../common/utility.c	\
+			  ../common/verify_mgr.c ../common/log.c        \
+			  cr_specific.c
 
-PKCS11_CR_so_SOURCES = ../common/asn1.c ../common/cert.c ../common/hwf_obj.c ../common/dp_obj.c ../common/data_obj.c ../common/decr_mgr.c ../common/dig_mgr.c ../common/encr_mgr.c ../common/globals.c ../common/loadsave.c ../common/key.c ../common/key_mgr.c ../common/mech_aes.c ../common/mech_des.c ../common/mech_des3.c ../common/mech_dh.c ../common/mech_md5.c ../common/mech_md2.c ../common/mech_rng.c ../common/mech_rsa.c ../common/mech_sha.c ../common/mech_ssl3.c ../common/new_host.c ../common/obj_mgr.c ../common/object.c ../common/sess_mgr.c ../common/sign_mgr.c ../common/template.c ../common/utility.c ../common/verify_mgr.c ../common/log.c cr_specific.c
-
-INCLUDES = $(CR_INC_DIRS) -I/usr/include -I. -I../../../include/pkcs11/stdll -I../../../include/pkcs11   -I../common -I../../../ica/inc -I../../../../ica/include -I.. -I../../../../ica/src/inc
-
-GOOD_LIBRARY_NAME=libpkcs11_cr.so
-BAD_LIBRARY_NAME=PKCS11_CR.so
+INCLUDES = $(CR_INC_DIRS) -I/usr/include -I. -I../../../include/pkcs11/stdll \
+	   -I../../../include/pkcs11   -I../common -I../../../ica/inc \
+	   -I../../../../ica/include -I.. -I../../../../ica/src/inc
 
 install-data-local:
-	mkdir -p $(STDLL_PATH); \
-	cp $(BAD_LIBRARY_NAME) $(STDLL_PATH)/$(GOOD_LIBRARY_NAME); \
-	if [ $(shell uname -m) == s390x -o $(shell uname -m) == ppc64 ]; then \
-		mkdir -p $(INSROOT)/usr/lib64/pkcs11/stdll; \
-		ln -s $(STDLL_PATH)/$(GOOD_LIBRARY_NAME) $(INSROOT)/usr/lib64/pkcs11/stdll/$(BAD_LIBRARY_NAME); \
-		ln -s $(STDLL_PATH)/$(GOOD_LIBRARY_NAME) $(INSROOT)/usr/lib64/$(BAD_LIBRARY_NAME); \
-		ln -s $(STDLL_PATH)/$(GOOD_LIBRARY_NAME) $(INSROOT)/usr/lib64/; \
-	else \
-		mkdir -p $(INSROOT)/usr/lib/pkcs11/stdll; \
-		ln -s $(STDLL_PATH)/$(GOOD_LIBRARY_NAME) $(INSROOT)/usr/lib/pkcs11/stdll/$(BAD_LIBRARY_NAME); \
-		ln -s $(STDLL_PATH)/$(GOOD_LIBRARY_NAME) $(INSROOT)/usr/lib/$(BAD_LIBRARY_NAME); \
-		ln -s $(STDLL_PATH)/$(GOOD_LIBRARY_NAME) $(INSROOT)/usr/lib/; \
-	fi; \
-	rm -f /tmp/$(BAD_LIBRARY_NAME);
+	cd $(STDLL_PATH) && rm -f PKCS11_CR.so && \
+		ln -sf libpkcs11_cr.so PKCS11_CR.so
