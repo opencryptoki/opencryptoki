@@ -65,7 +65,7 @@ y/ /,/
 # Make sure the permissions are set correctly
 mkdir -p %{_localstatedir}/lib/opencryptoki
 chown root:pkcs11 %{_localstatedir}/lib/opencryptoki
-chmod 755 %{_localstatedir}/lib/opencryptoki
+chmod 775 %{_localstatedir}/lib/opencryptoki
 
 # Old library name links
 cd %{_libdir}/opencryptoki && ln -sf ./libopencryptoki.so PKCS11_API.so
