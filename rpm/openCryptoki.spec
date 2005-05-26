@@ -44,14 +44,10 @@ fi
 #make -f Makefile install
 %makeinstall -f Makefile
 mkdir -p $RPM_BUILD_ROOT/usr/include
-cp -a usr/include/pkcs11 $RPM_BUILD_ROOT/usr/include
 
 # Install initscript
 mkdir -p $RPM_BUILD_ROOT%{_sysconfdir}/rc.d/init.d
 install -m 755 %{SOURCE1} $RPM_BUILD_ROOT%{_sysconfdir}/rc.d/init.d/pkcsslotd
-
-# Create etc/pkcs11 and set the permissions correctly
-mkdir -p $RPM_BUILD_ROOT%{_sysconfdir}/pkcs11
 
 %clean
 #make -f Makefile clean
@@ -69,12 +65,23 @@ y/ /,/
 %defattr(-,root,root)
 %{_sysconfdir}/rc.d/init.d/pkcsslotd
 %{_sbindir}/pkcsslotd
-%{_libdir}/pkcs11/methods/pkcs11_startup
-%{_libdir}/pkcs11/methods/pkcsconf
-%{_libdir}/pkcs11/methods/pkcs_slot
+%{_sbindir}/pkcs11_startup
+%{_sbindir}/pkcsconf
+%{_sbindir}/pkcs_slot
+%{_libdir}/opencryptoki/libopencryptoki.so
+%{_libdir}/opencryptoki/libopencryptoki.so.0.0.0
+%{_libdir}/opencryptoki/libopencryptoki.la
 %{_libdir}/pkcs11/PKCS11_API.so
+%{_libdir}/opencryptoki/stdll/libpkcs11_ica.so
+%{_libdir}/opencryptoki/stdll/libpkcs11_ica.so.0.0.0
+%{_libdir}/opencryptoki/stdll/libpkcs11_ica.la
 %{_libdir}/pkcs11/stdll/PKCS11_ICA.so
-%{_includedir}/pkcs11
+%{_libdir}/opencryptoki/stdll/libpkcs11_sw.so
+%{_libdir}/opencryptoki/stdll/libpkcs11_sw.so.0.0.0
+%{_libdir}/opencryptoki/stdll/libpkcs11_sw.la
+%{_libdir}/pkcs11/stdll/PKCS11_SW.so
+%{_includedir}/opencryptoki
+#%{_includedir}/pkcs11
 
 %changelog
 * Wed Mar 02 2005 Phil Knirsch <pknirsch@redhat.com> 2.1.5-6.9

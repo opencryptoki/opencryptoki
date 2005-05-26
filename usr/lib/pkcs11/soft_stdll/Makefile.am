@@ -1,10 +1,10 @@
-nobase_lib_LTLIBRARIES = opencryptoki/libpkcs11_sw.la
+nobase_lib_LTLIBRARIES = opencryptoki/stdll/libpkcs11_sw.la
 
-opencryptoki_libpkcs11_sw_la_LDFLAGS = -shared -Wl,-Bsymbolic -lc -lpthread \
-				       -lcrypto
+opencryptoki_stdll_libpkcs11_sw_la_LDFLAGS = -shared -Wl,-Bsymbolic -lc -lpthread \
+					     -lcrypto
 
 # Not all versions of automake observe libname_CFLAGS
-opencryptoki_libpkcs11_sw_la_CFLAGS = -DSPINXPL -DDEV -D_THREAD_SAFE \
+opencryptoki_stdll_libpkcs11_sw_la_CFLAGS = -DSPINXPL -DDEV -D_THREAD_SAFE \
 				      -DSHALLOW=0 -DSWTOK=1 -DLITE=0 \
 				      -DNOCDMF -DNOMD2 -DNODSA -DDEBUGON -fPIC \
 				      -I/usr/include -I. \
@@ -18,7 +18,7 @@ AM_CFLAGS = -DSPINXPL -DDEV -D_THREAD_SAFE -DSHALLOW=0 \
 	    -I../../../include/pkcs11/stdll \
 	    -I../../../include/pkcs11 -I../common
 
-opencryptoki_libpkcs11_sw_la_SOURCES = ../common/asn1.c ../common/cert.c \
+opencryptoki_stdll_libpkcs11_sw_la_SOURCES = ../common/asn1.c ../common/cert.c \
 			  	       ../common/hwf_obj.c ../common/dp_obj.c \
 			  	       ../common/data_obj.c \
 				       ../common/decr_mgr.c \
@@ -45,8 +45,7 @@ opencryptoki_libpkcs11_sw_la_SOURCES = ../common/asn1.c ../common/cert.c \
 				       ../common/utility.c \
 				       ../common/verify_mgr.c ../common/log.c \
 				       soft_specific.c
- 
+
 install-data-local:
-	mkdir -p $(libdir)/stdll
-	cd $(libdir)/stdll && rm -f PKCS11_SW.so && \
+	cd $(libdir)/opencryptoki/stdll && rm -f PKCS11_SW.so && \
 		ln -sf libpkcs11_sw.so PKCS11_SW.so
