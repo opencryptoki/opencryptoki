@@ -61,6 +61,26 @@ install -m 755 %{SOURCE1} $RPM_BUILD_ROOT%{_sysconfdir}/rc.d/init.d/pkcsslotd
 y/ /,/
 '),pkcs11  root
 
+%post
+cd %{_libdir}/opencryptoki && ln -sf ./libopencryptoki.so PKCS11_API.so
+rm -rf %{_libdir}/pkcs11/stdll
+cd %{_libdir}/pkcs11 && ln -sf ../opencryptoki/stdll stdll
+cd %{_libdir}/pkcs11/stdll && ln -sf ./libpkcs11_ica.so PKCS11_ICA.so \
+	&& ln -sf ./libpkcs11_sw.so PKCS11_SW.so
+
+# Symlink from /var/lib/opencryptoki to /etc/pkcs11
+if [ ! -L %{_sysconfdir}/pkcs11 ] ; then
+	if [ -e %{_sysconfdir}/pkcs11/* ] ; then
+		mv %{_sysconfdir}/pkcs11/* %{_localstatedir}/lib/opencryptoki
+	fi
+fi
+cd %{_sysconfdir} && rm -rf pkcs11 && \
+			ln -sf %{_localstatedir}/lib/opencryptoki pkcs11
+
+# Make sure the permissions are set correctly
+chown root:pkcs11 %{_localstatedir}/lib/opencryptoki
+chmod 755 %{_localstatedir}/lib/opencryptoki
+
 %files
 %defattr(-,root,root)
 %{_sysconfdir}/rc.d/init.d/pkcsslotd
@@ -81,7 +101,6 @@ y/ /,/
 %{_libdir}/opencryptoki/stdll/libpkcs11_sw.la
 %{_libdir}/pkcs11/stdll/PKCS11_SW.so
 %{_includedir}/opencryptoki
-#%{_includedir}/pkcs11
 
 %changelog
 * Wed Mar 02 2005 Phil Knirsch <pknirsch@redhat.com> 2.1.5-6.9
