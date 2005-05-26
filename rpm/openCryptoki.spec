@@ -69,6 +69,7 @@ chmod 775 %{_localstatedir}/lib/opencryptoki
 
 # Old library name links
 cd %{_libdir}/opencryptoki && ln -sf ./libopencryptoki.so PKCS11_API.so
+ln -sf %{_sbindir} %{_libdir}/opencryptoki/methods
 rm -rf %{_libdir}/pkcs11/stdll
 cd %{_libdir}/pkcs11 && ln -sf ../opencryptoki/stdll stdll
 cd %{_libdir}/pkcs11/stdll && ln -sf ./libpkcs11_ica.so PKCS11_ICA.so \
