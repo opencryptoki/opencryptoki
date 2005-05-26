@@ -62,6 +62,12 @@ y/ /,/
 '),pkcs11  root
 
 %post
+# Make sure the permissions are set correctly
+mkdir -p %{_localstatedir}/lib/opencryptoki
+chown root:pkcs11 %{_localstatedir}/lib/opencryptoki
+chmod 755 %{_localstatedir}/lib/opencryptoki
+
+# Old library name links
 cd %{_libdir}/opencryptoki && ln -sf ./libopencryptoki.so PKCS11_API.so
 rm -rf %{_libdir}/pkcs11/stdll
 cd %{_libdir}/pkcs11 && ln -sf ../opencryptoki/stdll stdll
@@ -76,10 +82,6 @@ if [ ! -L %{_sysconfdir}/pkcs11 ] ; then
 fi
 cd %{_sysconfdir} && rm -rf pkcs11 && \
 			ln -sf %{_localstatedir}/lib/opencryptoki pkcs11
-
-# Make sure the permissions are set correctly
-chown root:pkcs11 %{_localstatedir}/lib/opencryptoki
-chmod 755 %{_localstatedir}/lib/opencryptoki
 
 %files
 %defattr(-,root,root)
