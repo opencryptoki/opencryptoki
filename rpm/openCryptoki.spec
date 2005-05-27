@@ -103,6 +103,10 @@ cd %{_sysconfdir} && rm -rf pkcs11 && \
 %{_libdir}/opencryptoki/stdll/libpkcs11_sw.so.0.0.0
 %{_libdir}/opencryptoki/stdll/libpkcs11_sw.la
 %{_libdir}/pkcs11/stdll/PKCS11_SW.so
+# TODO: Uncomment these
+#%{_libdir}/opencryptoki/stdll/libpkcs11_tpm.so
+#%{_libdir}/opencryptoki/stdll/libpkcs11_tpm.so.0.0.0
+#%{_libdir}/opencryptoki/stdll/libpkcs11_tpm.la
 %{_includedir}/opencryptoki
 
 %changelog
