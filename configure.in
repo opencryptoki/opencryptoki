@@ -68,6 +68,12 @@ case $target in
 		AC_SUBST(LIB_PATH, $prefix/lib/opencryptoki)
 		AC_SUBST(LIB_ROOT_PATH, $prefix/lib)
 		AM_CONDITIONAL(S390, true) ;;
+	*x86_64*)
+		AM_CONDITIONAL(BUILD_UTILS, true)
+		AC_SUBST(LIB_PATH, $prefix/lib/opencryptoki)
+		AC_SUBST(LIB_ROOT_PATH, $prefix/lib)
+		CFLAGS="$CFLAGS -m32"
+		AM_CONDITIONAL(S390, false) ;;
 	*)
 		AM_CONDITIONAL(BUILD_UTILS, true)
 		AC_SUBST(LIB_PATH, $prefix/lib/opencryptoki)
