@@ -441,7 +441,8 @@ main(int argc, char *argv[]){
       usage(argv[0]);
    }
    /* Load the PKCS11 library and start the slotmanager if it is not running */
-   init();
+   if ( init() != CKR_OK )
+	exit(-1);
 
 #if SHM
    /* If a slot number was passed in validate the slot number */
@@ -1124,12 +1125,12 @@ init(void){
       dllPtr = dlopen("/usr/lib/pkcs11/PKCS11_API.so", RTLD_NOW);
    else
    dllPtr = dlopen("/usr/lib/pkcs11/PKCS11_API.so64", RTLD_NOW); */
-   dllPtr = dlopen("libpkcs11_api.so", RTLD_NOW);
+   dllPtr = dlopen("libopencryptoki.so", RTLD_NOW);
    if (!dllPtr) {
-      rc = errno;
       printf(PKCSINIT_MSG(LOADERROR, "Error loading PKCS#11 library: 0x%X\n"), rc);
+      printf(PKCSINIT_MSG(LOADERROR, "dlopen error: %s\n"), dlerror());
       fflush(stdout);
-      return rc;
+      return -1;
    }
 
    /* Get the list of the PKCS11 functions this token support */
