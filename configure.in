@@ -1,9 +1,11 @@
 dnl Process this file with autoconf to produce a configure script.
-AC_INIT(openCryptoki, 2.1, mhalcrow@us.ibm.com,)
+AC_INIT(openCryptoki, 2.2.0, mhalcrow@us.ibm.com,)
+
+cmdline_CFLAGS="$CFLAGS"
 
 # Compute $target
 AC_CANONICAL_TARGET
-		
+
 dnl AM_INIT_AUTOMAKE(openCryptoki, 2.0.0)
 AM_INIT_AUTOMAKE(1.6.1)
 
@@ -43,6 +45,8 @@ fi
 if test "x$exec_prefix" = xNONE; then
   exec_prefix='${prefix}'
 fi
+
+CFLAGS="$cmdline_CFLAGS"
 
 # Arch specific stuff
 case $target in
@@ -107,6 +111,8 @@ AC_ARG_ENABLE(debug, [  --enable-debug          turn on all openCryptoki debuggi
 if test "x$enable_debug" = xyes; then
 	CFLAGS="$CFLAGS -g -O0 -DDEBUG -DDEBUGON"
 	AC_MSG_RESULT([*** Enabling debugging at user request ***])
+else
+	CFLAGS="$CFLAGS -O2"
 fi
 
 # Support for OpenSSL path specification
