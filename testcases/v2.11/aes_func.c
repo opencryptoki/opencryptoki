@@ -1782,7 +1782,7 @@ int do_WrapUnwrapAES_CBC_PAD(void)
 
 int do_GetFunctionList(void)
 {
-        char *pkcslib = "libpkcs11_api.so";
+        char *pkcslib = "libopencryptoki.so";
         CK_RV (*func_ptr)();
         int rc;
 
@@ -2013,7 +2013,7 @@ done:
         if( (rc = funcs->C_Finalize(NULL)) != CKR_OK)
                 OC_ERR_MSG("C_Finalize", rc);
 
-        /* Decrement the reference count to libpkcs11_api.so */
+        /* Decrement the reference count to libopencryptoki.so */
         dlclose(dl_handle);
 
 

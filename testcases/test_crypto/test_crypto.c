@@ -82,7 +82,7 @@ CK_RV init(void)
    char *error;
 
    /* Open the PKCS11 API */
-   dllPtr = dlopen( "libpkcs11_api.so", RTLD_NOW);
+   dllPtr = dlopen( "libopencryptoki.so", RTLD_NOW);
    if (! dllPtr) {
       fprintf(stderr, "%s\n", dlerror());
       rc = CKR_FUNCTION_FAILED;
