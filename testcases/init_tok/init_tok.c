@@ -135,7 +135,7 @@ int do_GetFunctionList( void )
    CK_RV  (*pfoo)();
    void    *d;
    char    *e;
-   char		*x="libpkcs11_api.so";
+   char		*x="libopencryptoki.so";
 
    printf("do_GetFunctionList...\n");
 

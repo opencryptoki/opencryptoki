@@ -583,7 +583,7 @@ int do_GetFunctionList( void )
    CK_RV  (*pfoo)();
    void    *d;
    char    *e;
-   char	   f[]="libpkcs11_api.so";
+   char	   f[]="libopencryptoki.so";
 
 #endif
 
