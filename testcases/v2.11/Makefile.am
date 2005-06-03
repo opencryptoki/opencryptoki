@@ -1,0 +1,10 @@
+noinst_PROGRAMS=login aes_func rijndael hw_fn
+
+AM_CFLAGS=-I/usr/include -I. -I../../usr/include/pkcs11 -I ../include
+AM_LDFLAGS = -lc  -ldl -lpthread
+
+login_SOURCES=login.c
+aes_func_SOURCES=aes_func.c
+rijndael_SOURCES=rijndael.c
+hw_fn_SOURCES=hw_fn.c
+
