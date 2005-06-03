@@ -486,7 +486,7 @@ BOOL ReadSlotInfoDB ( void ) {
   fp=fopen(StartDir, "r");
   if (fp == NULL) {
     fprintf(stderr, "\nCannot open file %s\n", StartDir);
-    fprintf(stderr, "Please run /usr/lib/pkcs11/methods/pkcs11_startup\n");
+    fprintf(stderr, "Please run %s/pkcs11_startup\n", SBIN_PATH);
     return FALSE;
   }
 
