@@ -292,5 +292,17 @@ AC_OUTPUT([Makefile usr/Makefile \
           usr/lib/pkcs11/aep_stdll/tok_struct.h \
           usr/lib/pkcs11/tpm_stdll/Makefile \
           usr/lib/pkcs11/tpm_stdll/tok_struct.h \
-          usr/lib/pkcs11/methods/4758_status/Makefile])
+          usr/lib/pkcs11/methods/4758_status/Makefile \
+	  testcases/Makefile \
+	  testcases/driver/Makefile \
+	  testcases/init_tok/Makefile \
+	  testcases/mkobj/Makefile \
+	  testcases/oc-digest/Makefile \
+	  testcases/rsa_keygen/Makefile \
+	  testcases/rsa_test/Makefile \
+	  testcases/speed/Makefile \
+	  testcases/test_crypto/Makefile \
+	  testcases/threadmkobj/Makefile \
+	  testcases/tok_obj/Makefile \
+	  testcases/v2.11/Makefile])
 
