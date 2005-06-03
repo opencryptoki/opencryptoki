@@ -71,7 +71,7 @@ void usage(void)
 {
    fprintf(stderr, "Usage:  test_crypto [-c <slotId>]\n"
       "Default slotID is 0\n"
-      "To get a list of slotIDs, call /usr/lib/pkcs11/methods/pkcsconf -s\n");
+      "To get a list of slotIDs, call %s/pkcsconf -s\n", SBIN_PATH);
    exit(1);
 }
 
