@@ -1328,7 +1328,7 @@ int do_DummyFunction( void )
 
 //
 //
-void main( int argc, char **argv )
+int main( int argc, char **argv )
 {
    CK_C_INITIALIZE_ARGS  cinit_args;
    int        rc, i;
@@ -1344,7 +1344,7 @@ void main( int argc, char **argv )
       if (strcmp(argv[i], "-h") == 0) {
          printf("usage:  %s [-slot <num>] [-h]\n\n", argv[0] );
          printf("By default, Slot #1 is used\n\n");
-         return;
+         return -1;
       }
    }
 
@@ -1352,7 +1352,7 @@ void main( int argc, char **argv )
 
    rc = do_GetFunctionList();
    if (!rc)
-      return;
+      return rc;
 
    memset( &cinit_args, 0x0, sizeof(cinit_args) );
    cinit_args.flags = CKF_OS_LOCKING_OK;
@@ -1362,35 +1362,35 @@ void main( int argc, char **argv )
 #if 1
    rc = do_RSA_KeyGen_2048();
    if (!rc)
-      return;
+      return rc;
 
    rc = do_RSA_KeyGen_1024();
    if (!rc)
-      return;
+      return rc;
 
 #endif
 #if 1
    rc = do_RSA_PKCS_SignVerify_1024();
    if (!rc)
-      return;
+      return rc;
 
 #endif
 #if 1
    rc = do_RSA_PKCS_EncryptDecrypt( );
    if (!rc)
-      return;
+      return rc;
 
    rc = do_DES3_ECB_EncrDecr();
    if (!rc)
-      return;
+      return rc;
 
    rc = do_DES3_CBC_EncrDecr();
    if (!rc)
-      return;
+      return rc;
 
    rc = do_SHA1();
    if (!rc)
-      return;
+      return rc;
 #endif
 
 //   rc = do_DES_ECB_EncrDecr();
@@ -1400,18 +1400,20 @@ void main( int argc, char **argv )
 #if 1
    rc = do_DES3_ECB_EncrDecr();
    if (!rc)
-      return;
+      return rc;
 
    rc = do_DES3_CBC_EncrDecr();
    if (!rc)
-      return;
+      return rc;
 
    rc = do_SHA1();
    if (!rc)
-      return;
+      return rc;
 #endif
 
    funcs->C_Finalize( NULL );
+
+   return 0;
 }
 
 

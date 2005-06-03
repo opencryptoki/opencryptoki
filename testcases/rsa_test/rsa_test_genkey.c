@@ -478,18 +478,14 @@ void print_hex( CK_BYTE *buf, CK_ULONG len )
 int do_GetFunctionList( void )
 {
    CK_RV            rc;
-#if (LINUX)
    CK_RV  (*pfoo)();
    void    *d;
    char    *e;
    char	   f[]="libopencryptoki.so";
 
-#endif
-
 
    printf("do_GetFunctionList...\n");
 
-#if (LINUX)
    e = getenv("PKCSLIB");
    if ( e == NULL) {
 	e = f;
@@ -520,7 +516,7 @@ int do_GetFunctionList( void )
 
 //
 //
-void main( int argc, char **argv )
+int main( int argc, char **argv )
 {
    CK_C_INITIALIZE_ARGS  cinit_args;
    int        rc, i;

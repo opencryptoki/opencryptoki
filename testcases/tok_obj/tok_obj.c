@@ -674,7 +674,7 @@ int do_GetTokenInfo( void )
 
 //
 //
-void main( int argc, char **argv )
+int main( int argc, char **argv )
 {
    CK_BYTE            line[20];
    CK_ULONG           val, i;
@@ -691,7 +691,7 @@ void main( int argc, char **argv )
       if (strcmp(argv[i], "-h") == 0) {
          printf("usage:  %s [-slot <num>] [-h]\n\n", argv[0] );
          printf("By default, Slot #1 is used\n\n");
-         return;
+         return -1;
       }
    }
 
@@ -699,7 +699,7 @@ void main( int argc, char **argv )
 
    rc = do_GetFunctionList();
    if (!rc)
-      return;
+      return rc;
 
    funcs->C_Initialize( NULL );
 
@@ -749,6 +749,5 @@ void main( int argc, char **argv )
 done:
 
    rc = funcs->C_Finalize( NULL );
-   if (rc != CKR_OK)
-      return;
+   return rc;
 }

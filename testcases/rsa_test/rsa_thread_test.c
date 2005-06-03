@@ -579,18 +579,14 @@ void print_hex( CK_BYTE *buf, CK_ULONG len )
 int do_GetFunctionList( void )
 {
    CK_RV            rc;
-#if (LINUX)
    CK_RV  (*pfoo)();
    void    *d;
    char    *e;
    char	   f[]="libopencryptoki.so";
 
-#endif
-
 
    printf("do_GetFunctionList...\n");
 
-#if (LINUX)
    e = getenv("PKCSLIB");
    if ( e == NULL) {
 	e = f;
@@ -621,7 +617,7 @@ int do_GetFunctionList( void )
 
 //
 //
-void main( int argc, char **argv )
+int main( int argc, char **argv )
 {
    CK_C_INITIALIZE_ARGS  cinit_args;
    int        rc, i;
@@ -663,7 +659,7 @@ void main( int argc, char **argv )
          printf("By default, Slot #1 is used\n\n");
          printf("By default we skip anything that creates or modifies\n");
          printf("token objects to preserve flash lifetime.\n");
-         return;
+         return -1;
       }
    }
 
@@ -671,7 +667,7 @@ void main( int argc, char **argv )
 
    rc = do_GetFunctionList();
    if (!rc)
-      return;
+      return rc;
 
    memset( &cinit_args, 0x0, sizeof(cinit_args) );
    cinit_args.flags = CKF_OS_LOCKING_OK;
@@ -681,7 +677,7 @@ void main( int argc, char **argv )
    funcs->C_Initialize( &cinit_args );
 
    rc = do_Login();
-   if (!rc) return;
+   if (!rc) return rc;
 
    threads = (Thread_t *)malloc(sizeof(Thread_t) * THREADCNT);
 
@@ -701,5 +697,7 @@ void main( int argc, char **argv )
 
    }
 
-   funcs->C_Finalize( NULL );
+   rc = funcs->C_Finalize( NULL );
+
+   return rc;
 }

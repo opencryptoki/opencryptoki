@@ -516,7 +516,7 @@ int do_GetFunctionList( void )
 
 //
 //
-void main( int argc, char **argv )
+int main( int argc, char **argv )
 {
    CK_C_INITIALIZE_ARGS  cinit_args;
    int        rc, i;
@@ -544,7 +544,7 @@ void main( int argc, char **argv )
          printf("By default, Slot #1 is used\n\n");
          printf("By default we skip anything that creates or modifies\n");
          printf("token objects to preserve flash lifetime.\n");
-         return;
+         return -1;
       }
    }
 
@@ -552,7 +552,7 @@ void main( int argc, char **argv )
 
    rc = do_GetFunctionList();
    if (!rc)
-      return;
+      return rc;
 
    memset( &cinit_args, 0x0, sizeof(cinit_args) );
    cinit_args.flags = CKF_OS_LOCKING_OK;
@@ -564,7 +564,7 @@ void main( int argc, char **argv )
 
    rc = do_EncryptRSA_PKCS();
    if (!rc)
-      return;
+      return rc;
 
    funcs->C_Finalize( NULL );
 }

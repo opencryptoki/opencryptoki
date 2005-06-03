@@ -304,7 +304,7 @@ int do_GetFunctionList( void )
 
 //
 //
-void main( int argc, char **argv )
+int main( int argc, char **argv )
 {
    CK_C_INITIALIZE_ARGS  cinit_args;
    int        rc, i;
@@ -340,7 +340,7 @@ void main( int argc, char **argv )
 
    rc = do_GetFunctionList();
    if (!rc)
-      return;
+      return rc;
 
    memset( &cinit_args, 0x0, sizeof(cinit_args) );
    cinit_args.flags = CKF_OS_LOCKING_OK;
@@ -352,7 +352,7 @@ void main( int argc, char **argv )
 
    rc = do_GenerateRSAKeyPair();
    if (!rc)
-      return;
+      return rc;
 
    funcs->C_Finalize( NULL );
 }

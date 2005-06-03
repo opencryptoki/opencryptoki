@@ -667,7 +667,7 @@ int do_GetTokenInfo( void )
 
 //
 //
-void main( int argc, char **argv )
+int main( int argc, char **argv )
 {
    CK_BYTE            line[20];
    CK_ULONG           val, i;
@@ -692,7 +692,7 @@ void main( int argc, char **argv )
 
    rc = do_GetFunctionList();
    if (!rc)
-      return;
+      return rc;
 
    funcs->C_Initialize( NULL );
 
@@ -704,5 +704,5 @@ done:
 
    rc = funcs->C_Finalize( NULL );
    if (rc != CKR_OK)
-      return;
+      return rc;
 }
