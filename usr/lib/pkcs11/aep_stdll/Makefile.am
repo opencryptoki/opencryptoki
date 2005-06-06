@@ -29,5 +29,5 @@ INCLUDES = -I/usr/include -I. -I../../../include/pkcs11/stdll	\
 -I../../../include/pkcs11 -I ../common
 
 install-data-local:
-	cd $(STDLL_PATH) && rm -f PKCS11_AEP.so && \
+	cd $(DESTDIR)/$(libdir)/opencryptoki/stdll && rm -f PKCS11_AEP.so && \
 		ln -sf libpkcs11_aep.so PKCS11_AEP.so
