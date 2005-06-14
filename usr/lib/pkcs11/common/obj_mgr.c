@@ -1163,6 +1163,58 @@ done:
 }
 
 
+// object_mgr_find_in_map_nocache()
+//
+// Locates the specified object in the map
+// without going and checking for cache update
+//
+CK_RV
+object_mgr_find_in_map_nocache( CK_OBJECT_HANDLE    handle,
+                         OBJECT           ** ptr )
+{
+   DL_NODE   * node = NULL;
+   OBJECT    * obj  = NULL;
+
+   if (!ptr){
+      st_err_log(4, __FILE__, __LINE__, __FUNCTION__); 
+      return CKR_FUNCTION_FAILED;
+   }
+   //
+   // no mutex here.  the calling function should have locked the mutex
+   //
+
+   node = object_map;
+   while (node) {
+      OBJECT_MAP *map = (OBJECT_MAP *)node->data;
+
+      if (map->handle == handle) {
+         obj = map->ptr;
+         break;
+      }
+
+      node = node->next;
+   }
+
+   if (obj == NULL || node == NULL) {
+      st_err_log(30, __FILE__, __LINE__); 
+      return CKR_OBJECT_HANDLE_INVALID;
+   }
+
+   //
+   // if this is a token object, we need to check the shared memory segment
+   // to see if any other processes have updated the object
+   //
+
+   if (object_is_session_object(obj) == TRUE) {
+      *ptr = obj;
+      return CKR_OK;
+   }
+
+
+   *ptr = obj;
+   return CKR_OK;
+}
+
 // object_mgr_find_in_map1()
 //
 // Locates the specified object in the map
