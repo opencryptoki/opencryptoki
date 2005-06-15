@@ -525,8 +525,8 @@ MECH_LIST_ELEMENT mech_list[] = {
 #if !(NODSA)
    { CKM_DSA_KEY_PAIR_GEN,          512, 1024, CKF_HW | CKF_GENERATE_KEY_PAIR },
 #endif
-   { CKM_DES_KEY_GEN,                 0,    0, CKF_HW | CKF_GENERATE },
-   { CKM_DES3_KEY_GEN,                0,    0, CKF_HW | CKF_GENERATE },
+   { CKM_DES_KEY_GEN,                 8,    8, CKF_HW | CKF_GENERATE },
+   { CKM_DES3_KEY_GEN,                24,    24, CKF_HW | CKF_GENERATE },
 #if !(NOCDMF)
    { CKM_CDMF_KEY_GEN,                0,    0, CKF_HW | CKF_GENERATE },
 #endif
@@ -570,15 +570,15 @@ MECH_LIST_ELEMENT mech_list[] = {
 #endif
 /* End code contributed by Corrent corp. */
 
-   { CKM_DES_ECB,                     0,    0, CKF_HW      |
+   { CKM_DES_ECB,                     8,    8, CKF_HW      |
                                                CKF_ENCRYPT | CKF_DECRYPT |
                                                CKF_WRAP    | CKF_UNWRAP },
 
-   { CKM_DES_CBC,                     0,    0, CKF_HW      |
+   { CKM_DES_CBC,                     8,    8, CKF_HW      |
                                                CKF_ENCRYPT | CKF_DECRYPT |
                                                CKF_WRAP    | CKF_UNWRAP },
 
-   { CKM_DES_CBC_PAD,                 0,    0, CKF_HW      |
+   { CKM_DES_CBC_PAD,                 8,    8, CKF_HW      |
                                                CKF_ENCRYPT | CKF_DECRYPT |
                                                CKF_WRAP    | CKF_UNWRAP },
 
@@ -592,15 +592,15 @@ MECH_LIST_ELEMENT mech_list[] = {
                                                CKF_WRAP    | CKF_UNWRAP },
 #endif
 
-   { CKM_DES3_ECB,                    0,    0, CKF_HW      |
+   { CKM_DES3_ECB,                    24,    24, CKF_HW      |
                                                CKF_ENCRYPT | CKF_DECRYPT |
                                                CKF_WRAP    | CKF_UNWRAP },
 
-   { CKM_DES3_CBC,                    0,    0, CKF_HW      |
+   { CKM_DES3_CBC,                    24,    24, CKF_HW      |
                                                CKF_ENCRYPT | CKF_DECRYPT |
                                                CKF_WRAP    | CKF_UNWRAP },
 
-   { CKM_DES3_CBC_PAD,                0,    0, CKF_HW      |
+   { CKM_DES3_CBC_PAD,                24,    24, CKF_HW      |
                                                CKF_ENCRYPT | CKF_DECRYPT |
                                                CKF_WRAP    | CKF_UNWRAP },
 
