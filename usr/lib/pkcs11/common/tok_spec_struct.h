@@ -323,17 +323,25 @@ struct token_specific_struct{
    CK_RV  (*t_des_key_gen)(CK_BYTE *,CK_ULONG);
    CK_RV  (*t_des_ecb)( 
                          CK_BYTE *, CK_ULONG,
-                         CK_BYTE *, CK_ULONG *, CK_BYTE *, CK_BYTE);
+                         CK_BYTE *, CK_ULONG *, CK_BYTE *, CK_BYTE, OBJECT *);
    CK_RV  (*t_des_cbc)(
                          CK_BYTE *, CK_ULONG,
-                         CK_BYTE *, CK_ULONG *, CK_BYTE *,CK_BYTE *, CK_BYTE);
+                         CK_BYTE *, CK_ULONG *, CK_BYTE *,CK_BYTE *, CK_BYTE, OBJECT *);
+// SAB Add for Perf
+   CK_RV  (*t_des_optimize)( OBJECT *);  // Called on Encrypt/Decrypt init IFF the values are not set in the OBJECT structure
+   CK_RV  (*t_des_destroy) (OBJECT *);  // Called when theobject is destroyed
+// Done SAB add for Perf
 
    CK_RV  (*t_tdes_ecb)(
                          CK_BYTE *, CK_ULONG,
-                         CK_BYTE *, CK_ULONG *, CK_BYTE *, CK_BYTE);
+                         CK_BYTE *, CK_ULONG *, CK_BYTE *, CK_BYTE, OBJECT *);
    CK_RV  (*t_tdes_cbc)(
                          CK_BYTE *, CK_ULONG,
-                         CK_BYTE *, CK_ULONG *, CK_BYTE *,CK_BYTE *, CK_BYTE);
+                         CK_BYTE *, CK_ULONG *, CK_BYTE *,CK_BYTE *, CK_BYTE, OBJECT *);
+// SAB Add for Perf  FIXME  uncomment when TDES is made to work
+//   CK_RV  (*t_tdes_optimize)( OBJECT *);  // Called on Encrypt/Decrypt init IFF the values are not set in the OBJECT structure
+//   CK_RV  (*t_tdes_destroy) (OBJECT *);  // Called when theobject is destroyed
+// Done SAB add for Perf
 
    
    CK_RV (*t_rsa_decrypt)(    CK_BYTE *,
