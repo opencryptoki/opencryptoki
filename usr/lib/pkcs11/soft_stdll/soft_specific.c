@@ -420,7 +420,7 @@ token_specific_des_ecb(CK_BYTE * in_data,
                        CK_BYTE *out_data,
                        CK_ULONG *out_data_len,
                        CK_BYTE  *key_value,
-                       CK_BYTE  encrypt)
+                       CK_BYTE  encrypt, OBJECT *obj)
 {
 	CK_ULONG       rc;
 	
@@ -473,7 +473,7 @@ token_specific_des_cbc(CK_BYTE * in_data,
                        CK_ULONG *out_data_len,
                        CK_BYTE  *key_value, 
                        CK_BYTE *init_v,
-                       CK_BYTE  encrypt)
+                       CK_BYTE  encrypt, OBJECT *obj)
 {
 	CK_ULONG         rc;
 	
@@ -515,7 +515,7 @@ token_specific_tdes_ecb(CK_BYTE * in_data,
                        CK_BYTE *out_data,
                        CK_ULONG *out_data_len,
                        CK_BYTE  *key_value,
-                       CK_BYTE  encrypt)
+                       CK_BYTE  encrypt, OBJECT *obj)
 {
 	CK_RV  rc;
 
@@ -582,7 +582,7 @@ token_specific_tdes_cbc(CK_BYTE * in_data,
                        CK_ULONG *out_data_len,
                        CK_BYTE  *key_value, 
                        CK_BYTE *init_v,
-                       CK_BYTE  encrypt)
+                       CK_BYTE  encrypt, OBJECT *obj)
 {
 
 	CK_RV rc = CKR_OK;
@@ -1150,7 +1150,7 @@ token_specific_aes_ecb(	CK_BYTE 	*in_data,
 			CK_ULONG	*out_data_len,
 			CK_BYTE		*key_value,
 			CK_ULONG	key_len,
-			CK_BYTE		encrypt)
+			CK_BYTE		encrypt, OBJECT *obj)
 {
 	AES_KEY		ssl_aes_key;
 	int		i;
@@ -1191,7 +1191,7 @@ token_specific_aes_cbc(	CK_BYTE		*in_data,
 			CK_BYTE		*key_value,
 			CK_ULONG	key_len,
 			CK_BYTE		*init_v,
-			CK_BYTE		encrypt)
+			CK_BYTE		encrypt, OBJECT *obj)
 {
 	AES_KEY		ssl_aes_key;
 	int		i;

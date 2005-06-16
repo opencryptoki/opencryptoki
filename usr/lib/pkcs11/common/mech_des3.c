@@ -1859,7 +1859,7 @@ ckm_des3_ecb_encrypt( CK_BYTE     * in_data,
       return CKR_FUNCTION_FAILED;
    }
    rc = token_specific.t_tdes_ecb(in_data,in_data_len,out_data, out_data_len,
-         key_value, 1);
+         key_value, 1,NULL);
 
    
    if (rc != CKR_OK)
@@ -1890,7 +1890,7 @@ ckm_des3_ecb_decrypt( CK_BYTE     * in_data,
       return CKR_FUNCTION_FAILED;
    }
    rc = token_specific.t_tdes_ecb(in_data,in_data_len,out_data, out_data_len,
-         key_value, 0);
+         key_value, 0,NULL);
    
    if (rc != CKR_OK)
       st_err_log(120, __FILE__, __LINE__);
@@ -1922,7 +1922,7 @@ ckm_des3_cbc_encrypt( CK_BYTE     * in_data,
       return CKR_FUNCTION_FAILED;
    }
    rc = token_specific.t_tdes_cbc(in_data,in_data_len,out_data,out_data_len,
-         key_value,init_v,1);
+         key_value,init_v,1,NULL);
 
    if (rc != CKR_OK)
       st_err_log(119, __FILE__, __LINE__);
@@ -1953,7 +1953,7 @@ ckm_des3_cbc_decrypt( CK_BYTE     * in_data,
       return CKR_FUNCTION_FAILED;
    }
    rc = token_specific.t_tdes_cbc(in_data,in_data_len,out_data,out_data_len,
-         key_value,init_v,0);
+         key_value,init_v,0,NULL);
 
    if (rc != CKR_OK)
       st_err_log(119, __FILE__, __LINE__);

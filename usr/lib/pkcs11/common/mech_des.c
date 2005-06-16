@@ -357,7 +357,7 @@ pk_des_ecb_encrypt( SESSION           *sess,
    }
 
    return ckm_des_ecb_encrypt( in_data,  in_data_len,
-                               out_data, out_data_len, attr->pValue);
+                               out_data, out_data_len, attr->pValue, key);
 }
 
 
@@ -411,7 +411,7 @@ des_ecb_decrypt( SESSION           *sess,
    }
 
    return ckm_des_ecb_decrypt( in_data,  in_data_len,
-                               out_data, out_data_len, attr->pValue );
+                               out_data, out_data_len, attr->pValue, key );
 }
 
 
@@ -465,7 +465,7 @@ pk_des_cbc_encrypt( SESSION           *sess,
    return ckm_des_cbc_encrypt( in_data,  in_data_len,
                                out_data, out_data_len,
                                ctx->mech.pParameter,
-                               attr->pValue );
+                               attr->pValue, key );
 }
 
 
@@ -520,7 +520,7 @@ des_cbc_decrypt( SESSION            *sess,
    return ckm_des_cbc_decrypt( in_data,  in_data_len,
                                out_data, out_data_len,
                                ctx->mech.pParameter,
-                               attr->pValue );
+                               attr->pValue, key );
 }
 
 
@@ -588,7 +588,7 @@ des_cbc_pad_encrypt( SESSION           *sess,
    rc = ckm_des_cbc_encrypt( clear,    padded_len,
                              out_data, out_data_len,
                              ctx->mech.pParameter,
-                             attr->pValue );
+                             attr->pValue, key );
    if (rc != CKR_OK) 
       st_err_log(113, __FILE__, __LINE__);
    free( clear );
@@ -657,7 +657,7 @@ des_cbc_pad_decrypt( SESSION            *sess,
    rc = ckm_des_cbc_decrypt( in_data, in_data_len,
                              clear,   &padded_len,
                              ctx->mech.pParameter,
-                             attr->pValue );
+                             attr->pValue, key );
 
    if (rc == CKR_OK) {
       strip_pkcs_padding( clear, padded_len, out_data_len );
@@ -737,7 +737,7 @@ des_ecb_encrypt_update( SESSION            *sess,
       memcpy( clear + context->len, in_data,       out_len - context->len );
 
       rc = ckm_des_ecb_encrypt( clear,    out_len,
-                                out_data, out_data_len, attr->pValue );
+                                out_data, out_data_len, attr->pValue, key );
       if (rc == CKR_OK) {
          *out_data_len = out_len;
 
@@ -827,7 +827,7 @@ des_ecb_decrypt_update( SESSION           *sess,
       memcpy( cipher + context->len, in_data,       out_len - context->len );
 
       rc = ckm_des_ecb_decrypt( cipher,   out_len,
-                                out_data, out_data_len, attr->pValue );
+                                out_data, out_data_len, attr->pValue, key );
       if (rc == CKR_OK) {
          *out_data_len = out_len;
 
@@ -921,7 +921,7 @@ des_cbc_encrypt_update( SESSION           *sess,
       rc = ckm_des_cbc_encrypt( clear,    out_len,
                                 out_data, out_data_len,
                                 ctx->mech.pParameter,
-                                attr->pValue );
+                                attr->pValue, key );
       if (rc == CKR_OK) {
          *out_data_len = out_len;
 
@@ -1020,7 +1020,7 @@ des_cbc_decrypt_update( SESSION           *sess,
       rc = ckm_des_cbc_decrypt( cipher,   out_len,
                                 out_data, out_data_len,
                                 ctx->mech.pParameter,
-                                attr->pValue );
+                                attr->pValue, key );
       if (rc == CKR_OK) {
          *out_data_len = out_len;
 
@@ -1133,7 +1133,7 @@ des_cbc_pad_encrypt_update( SESSION           *sess,
       rc = ckm_des_cbc_encrypt( clear,    out_len,
                                 out_data, out_data_len,
                                 ctx->mech.pParameter,
-                                attr->pValue );
+                                attr->pValue, key );
 
       if (rc == CKR_OK) {
          // the new init_v is the last encrypted data block
@@ -1239,7 +1239,7 @@ des_cbc_pad_decrypt_update( SESSION           *sess,
       rc = ckm_des_cbc_decrypt( cipher,  out_len,
                                 out_data, out_data_len,
                                 ctx->mech.pParameter,
-                                attr->pValue );
+                                attr->pValue, key );
 
       if (rc == CKR_OK) {
          // the new init_v is the last decrypted data block
@@ -1462,7 +1462,7 @@ des_cbc_pad_encrypt_final( SESSION           *sess,
       rc = ckm_des_cbc_encrypt( clear,    out_len,
                                 out_data, out_data_len,
                                 ctx->mech.pParameter,
-                                attr->pValue );
+                                attr->pValue, key );
       if (rc != CKR_OK) 
          st_err_log(113, __FILE__, __LINE__);
       return rc;
@@ -1525,7 +1525,7 @@ des_cbc_pad_decrypt_final( SESSION           *sess,
       rc = ckm_des_cbc_decrypt( cipher, DES_BLOCK_SIZE,
                                 clear,  &out_len,
                                 ctx->mech.pParameter,
-                                attr->pValue );
+                                attr->pValue, key );
       if (rc == CKR_OK) {
          strip_pkcs_padding( clear, DES_BLOCK_SIZE, &out_len );
 
@@ -1696,12 +1696,13 @@ ckm_cdmf_key_gen( TEMPLATE *tmpl )
 
 //
 //
+// SAB XXX Add object to this 
 CK_RV
 ckm_des_ecb_encrypt( CK_BYTE   * in_data,
                      CK_ULONG    in_data_len,
                      CK_BYTE   * out_data,
                      CK_ULONG  * out_data_len,
-                     CK_BYTE   * key_value )
+                     CK_BYTE   * key_value, OBJECT *obj )
 {
    CK_ULONG       req_len, repl_len, expected_repl_len;
    CK_ULONG       rc;
@@ -1715,7 +1716,7 @@ ckm_des_ecb_encrypt( CK_BYTE   * in_data,
       st_err_log(4, __FILE__, __LINE__, __FUNCTION__);
       return CKR_FUNCTION_FAILED;
    }
-   rc = token_specific.t_des_ecb(in_data,in_data_len,out_data,out_data_len,key_value,1);//  token specifics return CKR_ errors ... 
+   rc = token_specific.t_des_ecb(in_data,in_data_len,out_data,out_data_len,key_value,1,NULL);//  token specifics return CKR_ errors ... 
 
    if (rc != CKR_OK)
       st_err_log(117, __FILE__, __LINE__);
@@ -1725,12 +1726,13 @@ ckm_des_ecb_encrypt( CK_BYTE   * in_data,
 
 //
 //
+// SAB XXX Add object to this 
 CK_RV
 ckm_des_ecb_decrypt( CK_BYTE   * in_data,
                      CK_ULONG    in_data_len,
                      CK_BYTE   * out_data,
                      CK_ULONG  * out_data_len,
-                     CK_BYTE   * key_value )
+                     CK_BYTE   * key_value , OBJECT *obj)
 {
    CK_ULONG         req_len, repl_len, expected_repl_len;
    CK_ULONG         rc;
@@ -1747,7 +1749,7 @@ ckm_des_ecb_decrypt( CK_BYTE   * in_data,
    }
 
    rc = token_specific.t_des_ecb(in_data,in_data_len,out_data,
-         out_data_len,key_value,0);  // last parm is the encrypt flag
+         out_data_len,key_value,0,NULL);  // last parm is the encrypt flag
    if (rc != CKR_OK)
       st_err_log(117, __FILE__, __LINE__);
    return rc;
@@ -1756,13 +1758,14 @@ ckm_des_ecb_decrypt( CK_BYTE   * in_data,
 
 //
 //
+// SAB XXX Add object to this 
 CK_RV
 ckm_des_cbc_encrypt( CK_BYTE   * in_data,
                      CK_ULONG    in_data_len,
                      CK_BYTE   * out_data,
                      CK_ULONG  * out_data_len,
                      CK_BYTE   * init_v,
-                     CK_BYTE   * key_value )
+                     CK_BYTE   * key_value , OBJECT *obj)
 {
    CK_ULONG         req_len, repl_len, expected_repl_len;
    CK_ULONG         rc;
@@ -1777,7 +1780,7 @@ ckm_des_cbc_encrypt( CK_BYTE   * in_data,
       return CKR_FUNCTION_FAILED;
    }
    rc = token_specific.t_des_cbc(in_data,in_data_len,out_data,
-         out_data_len,key_value,init_v,1);  // last parm is the encrypt flag
+         out_data_len,key_value,init_v,1,NULL);  // last parm is the encrypt flag
 
    if (rc != CKR_OK)
       st_err_log(118, __FILE__, __LINE__);
@@ -1787,13 +1790,14 @@ ckm_des_cbc_encrypt( CK_BYTE   * in_data,
 
 //
 //
+// SAB XXX Add object to this 
 CK_RV
 ckm_des_cbc_decrypt( CK_BYTE   * in_data,
                      CK_ULONG    in_data_len,
                      CK_BYTE   * out_data,
                      CK_ULONG  * out_data_len,
                      CK_BYTE   * init_v,
-                     CK_BYTE   * key_value )
+                     CK_BYTE   * key_value , OBJECT *obj)
 {
    CK_ULONG         req_len, repl_len, expected_repl_len;
    CK_ULONG         rc;
@@ -1809,7 +1813,7 @@ ckm_des_cbc_decrypt( CK_BYTE   * in_data,
    }
 
    rc = token_specific.t_des_cbc(in_data,in_data_len,out_data,
-         out_data_len,key_value,init_v,0);  // last parm is the encrypt flag
+         out_data_len,key_value,init_v,0,NULL);  // last parm is the encrypt flag
 
    if (rc != CKR_OK)
       st_err_log(118, __FILE__, __LINE__);

@@ -1815,7 +1815,7 @@ ckm_aes_ecb_encrypt( CK_BYTE     * in_data,
 
    rc = token_specific.t_aes_ecb(in_data,in_data_len,
 				 out_data,out_data_len,
-				 key_value,key_len,1);
+				 key_value,key_len,1,NULL);
    
    if (rc != CKR_OK)
       st_err_log(120, __FILE__, __LINE__);
@@ -1847,7 +1847,7 @@ ckm_aes_ecb_decrypt( CK_BYTE     * in_data,
    
    rc = token_specific.t_aes_ecb(in_data,in_data_len,
 		      		 out_data,out_data_len,
-				 key_value,key_len,0);
+				 key_value,key_len,0,NULL);
    
    if (rc != CKR_OK)
       st_err_log(120, __FILE__, __LINE__);
@@ -1881,7 +1881,7 @@ ckm_aes_cbc_encrypt( CK_BYTE     * in_data,
    rc = token_specific.t_aes_cbc(in_data, in_data_len,
 		      		 out_data,out_data_len,
 			       	 key_value,key_len,
-				 init_v,1);
+				 init_v,1,NULL);
 
    if (rc != CKR_OK)
       st_err_log(119, __FILE__, __LINE__);
@@ -1914,7 +1914,7 @@ ckm_aes_cbc_decrypt( CK_BYTE     * in_data,
    rc = token_specific.t_aes_cbc(in_data, in_data_len,
 		      		 out_data, out_data_len,
 			       	 key_value,key_len,
-				 init_v,0);
+				 init_v,0,NULL);
    
    if (rc != CKR_OK)
       st_err_log(119, __FILE__, __LINE__);

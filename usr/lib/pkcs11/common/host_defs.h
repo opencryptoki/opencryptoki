@@ -529,7 +529,7 @@ typedef struct _OBJECT
    CK_ULONG          count_hi;  // only significant for token objects
    CK_ULONG          count_lo;  // only significant for token objects
 
-   CK_RV  (*t_spec_obj_destroy) (void *)  // SAB  store a pointer to the  destruction function specific to the token. use void pointer to avoid the conflict
+   CK_RV  (*t_spec_obj_destroy) (void *);  // SAB  store a pointer to the  destruction function specific to the token. use void pointer to avoid the conflict
    void  *object_optimize;    // optimized data pointer for use by the above function
 } OBJECT;
 

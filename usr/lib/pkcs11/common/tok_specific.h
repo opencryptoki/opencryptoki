@@ -320,17 +320,13 @@ CK_RV token_specific_final(void);
 
 CK_RV token_specific_des_key_gen(CK_BYTE  *,CK_ULONG) ;
 
-// SAB Add for perf gain
-CK_RV token_specific_des_optimize( OBJECT *);
-CK_RV token_specific_des_destroy (OBJECT *);
-// Done SAB Add for perf gain
 
 CK_RV token_specific_des_ecb(CK_BYTE *,
                   CK_ULONG ,
                   CK_BYTE *,
                   CK_ULONG *,
                   CK_BYTE  *,
-                  CK_BYTE
+                  CK_BYTE,
 		  OBJECT * );
 
 CK_RV token_specific_des_cbc(CK_BYTE *,
@@ -339,19 +335,15 @@ CK_RV token_specific_des_cbc(CK_BYTE *,
                   CK_ULONG *,
                   CK_BYTE  *,
                   CK_BYTE  *,
-                  CK_BYTE
+                  CK_BYTE,
 		  OBJECT * );
 
-// SAB Add for perf gain
-CK_RV token_specific_tdes_optimize( OBJECT *);
-CK_RV token_specific_tdes_destroy (OBJECT *);
-// Done SAB Add for perf gain
 CK_RV token_specific_tdes_ecb(CK_BYTE *,
                   CK_ULONG ,
                   CK_BYTE *,
                   CK_ULONG *,
                   CK_BYTE  *,
-                  CK_BYTE
+                  CK_BYTE,
 		  OBJECT * );
 
 CK_RV token_specific_tdes_cbc(CK_BYTE *,
@@ -360,7 +352,7 @@ CK_RV token_specific_tdes_cbc(CK_BYTE *,
                   CK_ULONG *,
                   CK_BYTE  *,
                   CK_BYTE  *,
-                  CK_BYTE
+                  CK_BYTE,
 		  OBJECT * );
 
 CK_RV
@@ -436,7 +428,7 @@ token_specific_aes_ecb( CK_BYTE  *,
                         CK_ULONG *,
                         CK_BYTE  *,
                         CK_ULONG  ,
-                        CK_BYTE 
+                        CK_BYTE ,
 		  OBJECT *    );
 
 CK_RV
@@ -447,9 +439,17 @@ token_specific_aes_cbc( CK_BYTE  *,
                         CK_BYTE  *,
                         CK_ULONG  ,
                         CK_BYTE  *,
-                        CK_BYTE 
+                        CK_BYTE ,
 		  OBJECT *    );
 #endif
+// SAB Add for perf gain
+CK_RV token_specific_des_optimize( OBJECT *);
+CK_RV token_specific_des_destroy (OBJECT *);
+// SAB Add for perf gain
+CK_RV token_specific_tdes_optimize( OBJECT *);
+CK_RV token_specific_tdes_destroy (OBJECT *);
+// Done SAB Add for perf gain
+// Done SAB Add for perf gain
 
 #endif
 

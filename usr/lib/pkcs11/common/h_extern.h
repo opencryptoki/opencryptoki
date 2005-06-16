@@ -1157,24 +1157,25 @@ CK_RV  ckm_cdmf_key_gen( TEMPLATE *tmpl );
 
 CK_RV  ckm_des_ecb_encrypt( CK_BYTE *in_data,   CK_ULONG in_data_len,
                             CK_BYTE *out_data,  CK_ULONG *out_data_len,
-                            CK_BYTE *key_value );
+                            CK_BYTE *key_value, OBJECT * );
 CK_RV  ckm_des_ecb_decrypt( CK_BYTE *in_data,  CK_ULONG in_data_len,
                             CK_BYTE *out_data,  CK_ULONG *out_data_len,
-                            CK_BYTE *key_value );
+                            CK_BYTE *key_value , OBJECT *);
 
 CK_RV  ckm_des_cbc_encrypt( CK_BYTE *in_data,   CK_ULONG in_data_len,
                             CK_BYTE *out_data,  CK_ULONG *out_data_len,
                             CK_BYTE *init_v,
-                            CK_BYTE *key_value );
+                            CK_BYTE *key_value , OBJECT *);
 CK_RV  ckm_des_cbc_decrypt( CK_BYTE *in_data,   CK_ULONG in_data_len,
                             CK_BYTE *out_data,  CK_ULONG *out_data_len,
                             CK_BYTE *init_v,
-                            CK_BYTE *key_value );
+                            CK_BYTE *key_value , OBJECT *);
 
 CK_RV  ckm_des_wrap_format( CK_BBOOL length_only,
                             CK_BYTE  **data, CK_ULONG *data_len );
 
 
+// SAB FIXME  need to add the object to this and the AES ckm_* calls
 // DES3 routines
 //
 CK_RV  des3_ecb_encrypt( SESSION  *sess,     CK_BBOOL  length_only,
