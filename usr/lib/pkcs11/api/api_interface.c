@@ -3365,6 +3365,11 @@ C_Initialize ( CK_VOID_PTR pVoid )
             LOGIT(LOG_DEBUG,"Can't create OS threads.... This is OK");
          }
 
+	 /* CFK_SERIAL_SESSION is deprecated, so we should just turn
+	  * it on within the code automatically, instead of requiring
+	  * the application to do it. */
+	 pArg->flags |= CKF_SERIAL_SESSION;
+
          // Since this is an initialization path, we will be verbose in the
          // code rather than efficient.
          // 
