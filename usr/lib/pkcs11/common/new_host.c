@@ -1407,11 +1407,13 @@ CK_RV SC_OpenSession( CK_SLOT_ID             sid,
       goto done;
    }
 
-   if ((flags & CKF_SERIAL_SESSION) == 0) {
-      st_err_log(41, __FILE__, __LINE__); 
-      rc = CKR_SESSION_PARALLEL_NOT_SUPPORTED;
-      goto done;
-   }
+// SAB Deprecate
+//   if ((flags & CKF_SERIAL_SESSION) == 0) {
+//      st_err_log(41, __FILE__, __LINE__); 
+//      rc = CKR_SESSION_PARALLEL_NOT_SUPPORTED;
+//      goto done;
+//   }
+   flags |= CKF_SERIAL_SESSION;
 
    if ((flags & CKF_RW_SESSION) == 0) {
       if (session_mgr_so_session_exists()) {
