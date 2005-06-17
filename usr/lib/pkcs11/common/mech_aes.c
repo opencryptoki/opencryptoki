@@ -793,7 +793,7 @@ aes_ecb_encrypt_update( SESSION           *sess,
          return CKR_OK;
       }
 
-      rc = object_mgr_find_in_map1( ctx->key, &key );
+      rc = object_mgr_find_in_map_nocache( ctx->key, &key );
       if (rc != CKR_OK){
          st_err_log(110, __FILE__, __LINE__);
          return rc;
@@ -894,7 +894,7 @@ aes_ecb_decrypt_update( SESSION           *sess,
          return CKR_OK;
       }
 
-      rc = object_mgr_find_in_map1( ctx->key, &key );
+      rc = object_mgr_find_in_map_nocache( ctx->key, &key );
       if (rc != CKR_OK){
          st_err_log(110, __FILE__, __LINE__);
          return rc;
@@ -996,7 +996,7 @@ aes_cbc_encrypt_update( SESSION           *sess,
          return CKR_OK;
       }
 
-      rc = object_mgr_find_in_map1( ctx->key, &key );
+      rc = object_mgr_find_in_map_nocache( ctx->key, &key );
       if (rc != CKR_OK){
          st_err_log(110, __FILE__, __LINE__);
          return rc;
@@ -1108,7 +1108,7 @@ aes_cbc_decrypt_update( SESSION           *sess,
          return CKR_OK;
       }
 
-      rc = object_mgr_find_in_map1( ctx->key, &key );
+      rc = object_mgr_find_in_map_nocache( ctx->key, &key );
       if (rc != CKR_OK){
          st_err_log(110, __FILE__, __LINE__);
          return rc;
@@ -1230,7 +1230,7 @@ aes_cbc_pad_encrypt_update( SESSION           *sess,
       //    1) remain != 0
       //    2) out_len != 0
       //
-      rc = object_mgr_find_in_map1( ctx->key, &key );
+      rc = object_mgr_find_in_map_nocache( ctx->key, &key );
       if (rc != CKR_OK){
          st_err_log(110, __FILE__, __LINE__);
          return rc;
@@ -1348,7 +1348,7 @@ aes_cbc_pad_decrypt_update( SESSION           *sess,
       //    1) remain != 0
       //    2) out_len != 0
       //
-      rc = object_mgr_find_in_map1( ctx->key, &key );
+      rc = object_mgr_find_in_map_nocache( ctx->key, &key );
       if (rc != CKR_OK){
          st_err_log(110, __FILE__, __LINE__);
          return rc;

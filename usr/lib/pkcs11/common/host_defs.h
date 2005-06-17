@@ -1,5 +1,5 @@
 /*
- * $Header: /cvsroot/opencryptoki/opencryptoki/usr/lib/pkcs11/common/host_defs.h,v 1.3 2005/05/10 18:51:59 kyoder Exp $
+ * $Header: /cvsroot/opencryptoki/opencryptoki/usr/lib/pkcs11/common/host_defs.h,v 1.4 2005/06/17 16:19:44 sbade Exp $
  */
 
 
@@ -528,6 +528,7 @@ typedef struct _OBJECT
    TEMPLATE         *template;
    CK_ULONG          count_hi;  // only significant for token objects
    CK_ULONG          count_lo;  // only significant for token objects
+   CK_ULONG	     index;  // SAB  Index into the SHM
 } OBJECT;
 
 
