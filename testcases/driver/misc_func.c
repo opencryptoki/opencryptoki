@@ -311,10 +311,10 @@ int do_InitPIN( void )
 
    printf("do_InitPIN...\n");
 
-   memcpy( user_pin, "12345678", 8 );
-   memcpy( so_pin,   "87654321", 8 );
+   memcpy( user_pin, DEFAULT_USER_PIN, DEFAULT_USER_PIN_LEN );
+   memcpy( so_pin,   DEFAULT_SO_PIN, DEFAULT_SO_PIN_LEN );
 
-   user_pin_len = 8;
+   user_pin_len = DEFAULT_USER_PIN_LEN;
    so_pin_len   = 8;
 
    slot_id = SLOT_ID;
@@ -396,8 +396,8 @@ int do_SetPIN( void )
    CK_SLOT_ID        slot_id;
    CK_FLAGS          flags;
    CK_SESSION_HANDLE session;
-   CK_CHAR           old_pin[8];
-   CK_CHAR           new_pin[8];
+   CK_CHAR           old_pin[DEFAULT_USER_PIN_LEN];
+   CK_CHAR           new_pin[NEW_USER_PIN_LEN];
    CK_ULONG          old_len;
    CK_ULONG          new_len;
    CK_RV             rc;
@@ -407,11 +407,11 @@ int do_SetPIN( void )
    // first, try to set the user PIN
    //
 
-   memcpy( old_pin, "12345678", 8 );
-   memcpy( new_pin, "ABCDEF", 6 );
+   memcpy( old_pin, DEFAULT_USER_PIN, DEFAULT_USER_PIN_LEN );
+   memcpy( new_pin, NEW_USER_PIN, NEW_USER_PIN_LEN );
 
-   old_len = 8;
-   new_len = 6;
+   old_len = DEFAULT_USER_PIN_LEN;
+   new_len = NEW_USER_PIN_LEN;
 
    slot_id = SLOT_ID;
    flags   = CKF_SERIAL_SESSION | CKF_RW_SESSION;
@@ -485,7 +485,7 @@ int do_SetPIN( void )
    //
    // done with user tests...now try with the SO
    //
-   memcpy( old_pin, "87654321", 8 );
+   memcpy( old_pin, DEFAULT_SO_PIN, DEFAULT_SO_PIN_LEN );
 
 
    // try to call C_SetPIN from a normal user session
@@ -627,8 +627,8 @@ int do_GenerateKey( void )
 
    slot_id = SLOT_ID;
 
-   memcpy( user_pin, "12345678", 8 );
-   user_pin_len = 8;
+   memcpy( user_pin, DEFAULT_USER_PIN, DEFAULT_USER_PIN_LEN );
+   user_pin_len = DEFAULT_USER_PIN_LEN;
 
    mech.mechanism      = CKM_DES_KEY_GEN;
    mech.ulParameterLen = 0;

@@ -66,7 +66,7 @@ int do_GenerateRSAKeyPair( void )
    CK_MECHANISM        mech;
    CK_OBJECT_HANDLE    publ_key, priv_key;
    CK_FLAGS            flags;
-   CK_BYTE             user_pin[8];
+   CK_BYTE             user_pin[DEFAULT_USER_PIN_LEN];
    CK_ULONG            user_pin_len;
    CK_RV               rc;
 
@@ -75,8 +75,8 @@ int do_GenerateRSAKeyPair( void )
 
    slot_id = SLOT_ID;
 
-   memcpy( user_pin, "12345678", 8 );
-   user_pin_len = 8;
+   memcpy( user_pin, DEFAULT_USER_PIN, DEFAULT_USER_PIN_LEN );
+   user_pin_len = DEFAULT_USER_PIN_LEN;
 
    mech.mechanism      = CKM_RSA_PKCS_KEY_PAIR_GEN;
    mech.ulParameterLen = 0;

@@ -63,4 +63,17 @@ extern CK_BYTE DSA_PUBL_BASE[128];
 
 extern int skip_token_obj;
 
+/* Right now the testcases will break if these PINs are any length
+ * other than 8.
+ */
+#define DEFAULT_USER_PIN	"12345678"
+#define DEFAULT_USER_PIN_LEN	8
+#define DEFAULT_SO_PIN		"87654321"
+#define DEFAULT_SO_PIN_LEN	8
+
+#define NEW_USER_PIN		"01234567"
+#define NEW_USER_PIN_LEN	8
+#define NEW_SO_PIN		"76543210"
+#define NEW_SO_PIN_LEN		8
+
 #endif

@@ -17,11 +17,10 @@
 #include <fcntl.h>
 
 #include "pkcs11types.h"
+#include "regress.h"
 
 #define BAD_USER_PIN		"534566346"
 #define BAD_USER_PIN_LEN	strlen(BAD_USER_PIN)
-#define GOOD_USER_PIN		"12345678"
-#define GOOD_USER_PIN_LEN	8
 
 void oc_err_msg(char *, CK_RV);
 int do_GetFunctionList(void);
@@ -130,7 +129,7 @@ int main(int argc, char **argv)
 	}
 
 	// 3. Login/Logout with correct USER PIN
-	rc = funcs->C_Login(session_handle, CKU_USER, GOOD_USER_PIN, GOOD_USER_PIN_LEN);
+	rc = funcs->C_Login(session_handle, CKU_USER, DEFAULT_USER_PIN, DEFAULT_USER_PIN_LEN);
 	if( rc != CKR_OK ) {
 		oc_err_msg("C_Login #3", rc);
 		goto session_close;
@@ -184,7 +183,7 @@ int main(int argc, char **argv)
 	}
 	
 	// 8. Login correctly
-	rc = funcs->C_Login(session_handle, CKU_USER, GOOD_USER_PIN, GOOD_USER_PIN_LEN);
+	rc = funcs->C_Login(session_handle, CKU_USER, DEFAULT_USER_PIN, DEFAULT_USER_PIN_LEN);
 	if( rc != CKR_OK ) {
 		oc_err_msg("C_Login #8", rc);
 		goto session_close;
@@ -206,8 +205,8 @@ int main(int argc, char **argv)
 
         // 10. Try to set a new PIN, but with newPIN == oldPIN
 	// 11. Check that we get CKR_PIN_INVALID
-	rc = funcs->C_SetPIN(session_handle, GOOD_USER_PIN, GOOD_USER_PIN_LEN,
-       				GOOD_USER_PIN, GOOD_USER_PIN_LEN);
+	rc = funcs->C_SetPIN(session_handle, DEFAULT_USER_PIN, DEFAULT_USER_PIN_LEN,
+       				DEFAULT_USER_PIN, DEFAULT_USER_PIN_LEN);
 	if(rc != CKR_PIN_INVALID) {
 		oc_err_msg("Test #10", rc);
 		goto session_close;

@@ -15,10 +15,16 @@
 
 #include "pkcs11types.h"
 
+/* FIXME */
+#define DEFAULT_USER_PIN        "12345678"
+#define DEFAULT_USER_PIN_LEN    8
+#define DEFAULT_SO_PIN          "87654321"
+#define DEFAULT_SO_PIN_LEN      8
+
+
 #define SYSTEMTIME  struct timeb
 #define GetSystemTime(x)   ftime(x)
 long process_time(SYSTEMTIME , SYSTEMTIME );
-
 
 int skip_token_obj;
 int debug=0;
@@ -206,7 +212,7 @@ int do_Login(void)
    CK_MECHANISM        mech;
    CK_OBJECT_HANDLE    publ_key, priv_key;
    CK_FLAGS            flags;
-   CK_BYTE             user_pin[8];
+   CK_BYTE             user_pin[DEFAULT_USER_PIN_LEN];
    CK_ULONG            user_pin_len;
    CK_ULONG            i;
    CK_ULONG            len1, len2, cipherlen;
@@ -226,8 +232,8 @@ int do_Login(void)
    }
 
 
-   memcpy( user_pin, "12345678", 8 );
-   user_pin_len = 8;
+   memcpy( user_pin, DEFAULT_USER_PIN, DEFAULT_USER_PIN_LEN );
+   user_pin_len = DEFAULT_USER_PIN_LEN;
 
    rc = funcs->C_Login( session, CKU_USER, user_pin, user_pin_len );
    if (rc != CKR_OK) {
@@ -454,6 +460,7 @@ long process_time(SYSTEMTIME t1, SYSTEMTIME t2)
 
 
 }
+
 
 //
 //

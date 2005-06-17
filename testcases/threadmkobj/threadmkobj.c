@@ -15,7 +15,7 @@
 #include <dlfcn.h>
 
 #include "pkcs11types.h"
-
+#include "regress.h"
 
 void process_ret_code( CK_RV rc );
 int  do_GetInfo(void);
@@ -177,13 +177,13 @@ open_session_and_login(void)
 CK_FLAGS          flags;
 CK_SESSION_HANDLE h_session;
 CK_RV             rc;
-CK_BYTE           user_pin[8];
+CK_BYTE           user_pin[DEFAULT_USER_PIN_LEN];
 CK_ULONG          user_pin_len;
 
 CK_BYTE           true  = TRUE;
 
-   memcpy( user_pin, "12345678", 8 );
-   user_pin_len = 8;
+   memcpy( user_pin, DEFAULT_USER_PIN, DEFAULT_USER_PIN_LEN );
+   user_pin_len = DEFAULT_USER_PIN_LEN;
 
    // create a USER R/W session
    //
@@ -202,7 +202,7 @@ int do_create_token_object( void )
    CK_FLAGS          flags;
    CK_SESSION_HANDLE h_session;
    CK_RV             rc;
-   CK_BYTE           user_pin[8];
+   CK_BYTE           user_pin[DEFAULT_USER_PIN_LEN];
    CK_ULONG          user_pin_len;
 
    CK_BYTE           true  = TRUE;
@@ -233,8 +233,8 @@ int do_create_token_object( void )
 
 
 
-   memcpy( user_pin, "12345678", 8 );
-   user_pin_len = 8;
+   memcpy( user_pin, DEFAULT_USER_PIN, DEFAULT_USER_PIN_LEN );
+   user_pin_len = DEFAULT_USER_PIN_LEN;
 
    // create a USER R/W session
    //

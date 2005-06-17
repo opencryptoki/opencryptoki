@@ -255,17 +255,17 @@ int do_LoginLogout( void )
    CK_SESSION_HANDLE h1, h2, h3, h4;
    CK_SESSION_INFO   info;
    CK_RV             rc;
-   CK_BYTE           user_pin[8];
+   CK_BYTE           user_pin[DEFAULT_USER_PIN_LEN];
    CK_ULONG          user_pin_len;
-   CK_BYTE           so_pin[8];
+   CK_BYTE           so_pin[DEFAULT_SO_PIN_LEN];
    CK_ULONG          so_pin_len;
 
    printf("do_LoginLogout...\n");
 
-   memcpy( user_pin, "12345678", 8 );
-   memcpy( so_pin,   "87654321", 8 );
-   user_pin_len = 8;
-   so_pin_len   = 8;
+   memcpy( user_pin, DEFAULT_USER_PIN, DEFAULT_USER_PIN_LEN );
+   memcpy( so_pin,   DEFAULT_SO_PIN, DEFAULT_SO_PIN_LEN );
+   user_pin_len = DEFAULT_USER_PIN_LEN;
+   so_pin_len   = DEFAULT_SO_PIN_LEN;
 
    slot_id = SLOT_ID;
    flags   = CKF_SERIAL_SESSION;   // read-only session
@@ -475,7 +475,7 @@ int do_OperationState1( void )
    CK_SLOT_ID          slot_id;
    CK_SESSION_HANDLE   session1, session2;
    CK_FLAGS            flags;
-   CK_BYTE             user_pin[8];
+   CK_BYTE             user_pin[DEFAULT_USER_PIN_LEN];
    CK_ULONG            user_pin_len;
    CK_RV               rc;
 
@@ -526,8 +526,8 @@ int do_OperationState1( void )
       return FALSE;
    }
 
-   memcpy( user_pin, "12345678", 8 );
-   user_pin_len = 8;
+   memcpy( user_pin, DEFAULT_USER_PIN, DEFAULT_USER_PIN_LEN );
+   user_pin_len = DEFAULT_USER_PIN_LEN;
 
    rc = funcs->C_Login( session1, CKU_USER, user_pin, user_pin_len );
    if (rc != CKR_OK) {
@@ -689,7 +689,7 @@ int do_OperationState2( void )
    CK_SLOT_ID          slot_id;
    CK_SESSION_HANDLE   session1, session2, session3;
    CK_FLAGS            flags;
-   CK_BYTE             user_pin[8];
+   CK_BYTE             user_pin[DEFAULT_USER_PIN_LEN];
    CK_ULONG            user_pin_len;
    CK_RV               rc;
 
@@ -750,8 +750,8 @@ int do_OperationState2( void )
       return FALSE;
    }
 
-   memcpy( user_pin, "12345678", 8 );
-   user_pin_len = 8;
+   memcpy( user_pin, DEFAULT_USER_PIN, DEFAULT_USER_PIN_LEN );
+   user_pin_len = DEFAULT_USER_PIN_LEN;
 
    rc = funcs->C_Login( session1, CKU_USER, user_pin, user_pin_len );
    if (rc != CKR_OK) {
@@ -927,7 +927,7 @@ int do_OperationState3( void )
    CK_SLOT_ID          slot_id;
    CK_SESSION_HANDLE   session1, session2, session3;
    CK_FLAGS            flags;
-   CK_BYTE             user_pin[8];
+   CK_BYTE             user_pin[DEFAULT_USER_PIN_LEN];
    CK_ULONG            user_pin_len;
    CK_RV               rc;
 
@@ -986,8 +986,8 @@ int do_OperationState3( void )
       return FALSE;
    }
 
-   memcpy( user_pin, "12345678", 8 );
-   user_pin_len = 8;
+   memcpy( user_pin, DEFAULT_USER_PIN, DEFAULT_USER_PIN_LEN );
+   user_pin_len = DEFAULT_USER_PIN_LEN;
 
    rc = funcs->C_Login( session1, CKU_USER, user_pin, user_pin_len );
    if (rc != CKR_OK) {

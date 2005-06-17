@@ -22,7 +22,7 @@ int do_CreateSessionObject( void )
    CK_FLAGS          flags;
    CK_SESSION_HANDLE h_session;
    CK_RV             rc;
-   CK_BYTE           user_pin[8];
+   CK_BYTE           user_pin[DEFAULT_USER_PIN_LEN];
    CK_ULONG          user_pin_len;
 
    CK_BYTE           true  = TRUE;
@@ -73,8 +73,8 @@ int do_CreateSessionObject( void )
 
    printf("do_CreateSessionObject...\n");
 
-   memcpy( user_pin, "12345678", 8 );
-   user_pin_len = 8;
+   memcpy( user_pin, DEFAULT_USER_PIN, DEFAULT_USER_PIN_LEN );
+   user_pin_len = DEFAULT_USER_PIN_LEN;
 
    slot_id = SLOT_ID;
 
@@ -162,7 +162,7 @@ int do_CopyObject( void )
    CK_FLAGS          flags;
    CK_SESSION_HANDLE h_session;
    CK_RV             rc;
-   CK_BYTE           user_pin[8];
+   CK_BYTE           user_pin[DEFAULT_USER_PIN_LEN];
    CK_ULONG          user_pin_len;
    CK_ULONG          obj_size;
 
@@ -201,8 +201,8 @@ int do_CopyObject( void )
 
    printf("do_CopyObject...\n");
 
-   memcpy( user_pin, "12345678", 8 );
-   user_pin_len = 8;
+   memcpy( user_pin, DEFAULT_USER_PIN, DEFAULT_USER_PIN_LEN );
+   user_pin_len = DEFAULT_USER_PIN_LEN;
 
    slot_id = SLOT_ID;
 
@@ -373,7 +373,7 @@ int do_SetAttributeValues( void )
    CK_FLAGS          flags;
    CK_SESSION_HANDLE h_session;
    CK_RV             rc;
-   CK_BYTE           user_pin[8];
+   CK_BYTE           user_pin[DEFAULT_USER_PIN_LEN];
    CK_ULONG          user_pin_len;
 
    CK_BYTE           false = FALSE;
@@ -416,8 +416,8 @@ int do_SetAttributeValues( void )
 
    printf("do_SetAttributeValues...\n");
 
-   memcpy( user_pin, "12345678", 8 );
-   user_pin_len = 8;
+   memcpy( user_pin, DEFAULT_USER_PIN, DEFAULT_USER_PIN_LEN );
+   user_pin_len = DEFAULT_USER_PIN_LEN;
 
    slot_id = SLOT_ID;
 
@@ -543,7 +543,7 @@ int do_FindObjects( void )
    CK_FLAGS          flags;
    CK_SESSION_HANDLE h_session;
    CK_RV             rc;
-   CK_BYTE           user_pin[8];
+   CK_BYTE           user_pin[DEFAULT_USER_PIN_LEN];
    CK_ULONG          user_pin_len;
 
    CK_BYTE           false = FALSE;
@@ -618,8 +618,8 @@ int do_FindObjects( void )
 
    printf("do_FindObjects...\n");
 
-   memcpy( user_pin, "12345678", 8 );
-   user_pin_len = 8;
+   memcpy( user_pin, DEFAULT_USER_PIN, DEFAULT_USER_PIN_LEN );
+   user_pin_len = DEFAULT_USER_PIN_LEN;
 
    slot_id = SLOT_ID;
 
@@ -824,7 +824,7 @@ int do_CreateTokenObjects( void )
    CK_FLAGS          flags;
    CK_SESSION_HANDLE h_session;
    CK_RV             rc;
-   CK_BYTE           user_pin[8];
+   CK_BYTE           user_pin[DEFAULT_USER_PIN_LEN];
    CK_ULONG          user_pin_len;
 
    CK_BYTE           true = TRUE;
@@ -903,8 +903,8 @@ int do_CreateTokenObjects( void )
 
    printf("do_CreateTokenObjects...\n");
 
-   memcpy( user_pin, "12345678", 8 );
-   user_pin_len = 8;
+   memcpy( user_pin, DEFAULT_USER_PIN, DEFAULT_USER_PIN_LEN );
+   user_pin_len = DEFAULT_USER_PIN_LEN;
 
    slot_id = SLOT_ID;
 

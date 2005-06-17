@@ -36,7 +36,7 @@ int do_EncryptAES_ECB(void)
 	CK_MECHANISM mech;
 	CK_OBJECT_HANDLE h_key;
 	CK_FLAGS flags;
-	CK_BYTE user_pin[8];
+	CK_BYTE user_pin[DEFAULT_USER_PIN_LEN];
 	CK_ULONG user_pin_len;
 	CK_ULONG i;
 	CK_ULONG len1, len2, key_size = AES_KEY_SIZE_256;
@@ -56,8 +56,8 @@ int do_EncryptAES_ECB(void)
 	}
 
 
-	memcpy(user_pin, "12345678", 8);
-	user_pin_len = 8;
+	memcpy(user_pin, DEFAULT_USER_PIN, DEFAULT_USER_PIN_LEN);
+	user_pin_len = DEFAULT_USER_PIN_LEN;
 
 	rc = funcs->C_Login(session, CKU_USER, user_pin, user_pin_len);
 	if (rc != CKR_OK) {
@@ -154,7 +154,7 @@ int do_EncryptAES_Multipart_ECB(void)
 	CK_MECHANISM mech;
 	CK_OBJECT_HANDLE h_key;
 	CK_FLAGS flags;
-	CK_BYTE user_pin[8];
+	CK_BYTE user_pin[DEFAULT_USER_PIN_LEN];
 	CK_ULONG user_pin_len;
 	CK_ULONG i, k, key_size = AES_KEY_SIZE_256;
 	CK_ULONG orig_len;
@@ -176,8 +176,8 @@ int do_EncryptAES_Multipart_ECB(void)
 	}
 
 
-	memcpy(user_pin, "12345678", 8);
-	user_pin_len = 8;
+	memcpy(user_pin, DEFAULT_USER_PIN, DEFAULT_USER_PIN_LEN);
+	user_pin_len = DEFAULT_USER_PIN_LEN;
 
 	rc = funcs->C_Login(session, CKU_USER, user_pin, user_pin_len);
 	if (rc != CKR_OK) {
@@ -412,7 +412,7 @@ int do_EncryptAES_CBC(void)
 	CK_MECHANISM mech;
 	CK_OBJECT_HANDLE h_key;
 	CK_FLAGS flags;
-	CK_BYTE user_pin[8];
+	CK_BYTE user_pin[DEFAULT_USER_PIN_LEN];
 	CK_ULONG user_pin_len;
 	CK_BYTE init_v[AES_BLOCK_SIZE];
 	CK_ULONG i, key_size = AES_KEY_SIZE_256;
@@ -433,8 +433,8 @@ int do_EncryptAES_CBC(void)
 	}
 
 
-	memcpy(user_pin, "12345678", 8);
-	user_pin_len = 8;
+	memcpy(user_pin, DEFAULT_USER_PIN, DEFAULT_USER_PIN_LEN);
+	user_pin_len = DEFAULT_USER_PIN_LEN;
 
 	rc = funcs->C_Login(session, CKU_USER, user_pin, user_pin_len);
 	if (rc != CKR_OK) {
@@ -535,7 +535,7 @@ int do_EncryptAES_Multipart_CBC(void)
 	CK_OBJECT_HANDLE h_key;
 	CK_FLAGS flags;
 	CK_BYTE init_v[AES_BLOCK_SIZE];
-	CK_BYTE user_pin[8];
+	CK_BYTE user_pin[DEFAULT_USER_PIN_LEN];
 	CK_ULONG user_pin_len;
 	CK_ULONG i, k, key_size = AES_KEY_SIZE_256;
 	CK_ULONG orig_len;
@@ -557,8 +557,8 @@ int do_EncryptAES_Multipart_CBC(void)
 	}
 
 
-	memcpy(user_pin, "12345678", 8);
-	user_pin_len = 8;
+	memcpy(user_pin, DEFAULT_USER_PIN, DEFAULT_USER_PIN_LEN);
+	user_pin_len = DEFAULT_USER_PIN_LEN;
 
 	rc = funcs->C_Login(session, CKU_USER, user_pin, user_pin_len);
 	if (rc != CKR_OK) {
@@ -795,7 +795,7 @@ int do_EncryptAES_Multipart_CBC_PAD(void)
 	CK_OBJECT_HANDLE h_key;
 	CK_FLAGS flags;
 	CK_BYTE init_v[AES_BLOCK_SIZE];
-	CK_BYTE user_pin[8];
+	CK_BYTE user_pin[DEFAULT_USER_PIN_LEN];
 	CK_ULONG user_pin_len;
 	CK_ULONG i, k, key_size = AES_KEY_SIZE_256;
 	CK_ULONG orig_len, crypt1_len, crypt2_len, decrypt1_len,
@@ -816,8 +816,8 @@ int do_EncryptAES_Multipart_CBC_PAD(void)
 	}
 
 
-	memcpy(user_pin, "12345678", 8);
-	user_pin_len = 8;
+	memcpy(user_pin, DEFAULT_USER_PIN, DEFAULT_USER_PIN_LEN);
+	user_pin_len = DEFAULT_USER_PIN_LEN;
 
 	rc = funcs->C_Login(session, CKU_USER, user_pin, user_pin_len);
 	if (rc != CKR_OK) {
@@ -1052,7 +1052,7 @@ int do_WrapUnwrapAES_ECB(void)
 	CK_OBJECT_HANDLE w_key;
 	CK_OBJECT_HANDLE uw_key;
 	CK_FLAGS flags;
-	CK_BYTE user_pin[8];
+	CK_BYTE user_pin[DEFAULT_USER_PIN_LEN];
 	CK_ULONG user_pin_len;
 	CK_ULONG wrapped_data_len;
 	CK_ULONG i, key_size = AES_KEY_SIZE_256;
@@ -1083,8 +1083,8 @@ int do_WrapUnwrapAES_ECB(void)
 	}
 
 
-	memcpy(user_pin, "12345678", 8);
-	user_pin_len = 8;
+	memcpy(user_pin, DEFAULT_USER_PIN, DEFAULT_USER_PIN_LEN);
+	user_pin_len = DEFAULT_USER_PIN_LEN;
 
 	rc = funcs->C_Login(session, CKU_USER, user_pin, user_pin_len);
 	if (rc != CKR_OK) {
@@ -1317,7 +1317,7 @@ int do_WrapUnwrapAES_CBC(void)
 	CK_OBJECT_HANDLE w_key;
 	CK_OBJECT_HANDLE uw_key;
 	CK_FLAGS flags;
-	CK_BYTE user_pin[8];
+	CK_BYTE user_pin[DEFAULT_USER_PIN_LEN];
 	CK_BYTE init_v[] = { 0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 'a', 'b', 'c', 'd', 'e', 'f' };
 	CK_ULONG user_pin_len;
 	CK_ULONG wrapped_data_len;
@@ -1349,8 +1349,8 @@ int do_WrapUnwrapAES_CBC(void)
 	}
 
 
-	memcpy(user_pin, "12345678", 8);
-	user_pin_len = 8;
+	memcpy(user_pin, DEFAULT_USER_PIN, DEFAULT_USER_PIN_LEN);
+	user_pin_len = DEFAULT_USER_PIN_LEN;
 
 	rc = funcs->C_Login(session, CKU_USER, user_pin, user_pin_len);
 	if (rc != CKR_OK) {
@@ -1524,7 +1524,7 @@ int do_WrapUnwrapAES_CBC_PAD(void)
 	CK_OBJECT_HANDLE w_key;
 	CK_OBJECT_HANDLE uw_key;
 	CK_FLAGS flags;
-	CK_BYTE user_pin[8];
+	CK_BYTE user_pin[DEFAULT_USER_PIN_LEN];
 	CK_BYTE init_v[] = { 0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 'a', 'b', 'c', 'd', 'e', 'f' };
 	CK_ULONG user_pin_len;
 	CK_ULONG wrapped_data_len;
@@ -1556,8 +1556,8 @@ int do_WrapUnwrapAES_CBC_PAD(void)
 	}
 
 
-	memcpy(user_pin, "12345678", 8);
-	user_pin_len = 8;
+	memcpy(user_pin, DEFAULT_USER_PIN, DEFAULT_USER_PIN_LEN);
+	user_pin_len = DEFAULT_USER_PIN_LEN;
 
 	rc = funcs->C_Login(session, CKU_USER, user_pin, user_pin_len);
 	if (rc != CKR_OK) {
