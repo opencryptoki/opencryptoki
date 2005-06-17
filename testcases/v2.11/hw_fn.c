@@ -16,9 +16,7 @@
 #include <fcntl.h>
 
 #include "pkcs11types.h"
-
-#define GOOD_USER_PIN		"12345678"
-#define GOOD_USER_PIN_LEN	8
+#include "regress.h"
 
 #define OC_ERR_MSG(x,y)		oc_err_msg(__FILE__,__LINE__,x,y)
 
@@ -307,7 +305,7 @@ int main(int argc, char **argv)
 
 	
 	// Login correctly
-	rc = funcs->C_Login(sess, CKU_USER, GOOD_USER_PIN, GOOD_USER_PIN_LEN);
+	rc = funcs->C_Login(sess, CKU_USER, DEFAULT_USER_PIN, DEFAULT_USER_PIN_LEN);
 	if( rc != CKR_OK ) {
 		OC_ERR_MSG("C_Login #1", rc);
 		goto session_close;

@@ -155,7 +155,7 @@ int do_create_token_object( void )
    CK_FLAGS          flags;
    CK_SESSION_HANDLE h_session;
    CK_RV             rc;
-   CK_BYTE           user_pin[8];
+   CK_BYTE           user_pin[DEFAULT_USER_PIN_LEN];
    CK_ULONG          user_pin_len;
 
    CK_BYTE           true  = TRUE;
@@ -187,8 +187,8 @@ int do_create_token_object( void )
 
 
 
-   memcpy( user_pin, "12345678", 8 );
-   user_pin_len = 8;
+   memcpy( user_pin, DEFAULT_USER_PIN, DEFAULT_USER_PIN_LEN );
+   user_pin_len = DEFAULT_USER_PIN_LEN;
 
    // create a USER R/W session
    //
@@ -268,15 +268,15 @@ int do_count_token_objects( void )
    CK_FLAGS          flags;
    CK_SESSION_HANDLE h_session;
    CK_RV             rc;
-   CK_BYTE           user_pin[8];
+   CK_BYTE           user_pin[DEFAULT_USER_PIN_LEN];
    CK_ULONG          user_pin_len;
    CK_OBJECT_HANDLE  obj_list[20];
    CK_ULONG          find_count;
 
 
 
-   memcpy( user_pin, "12345678", 8 );
-   user_pin_len = 8;
+   memcpy( user_pin, DEFAULT_USER_PIN, DEFAULT_USER_PIN_LEN );
+   user_pin_len = DEFAULT_USER_PIN_LEN;
 
 
    // create a USER R/W session
@@ -341,7 +341,7 @@ int do_verify_token_object( void )
    CK_FLAGS          flags;
    CK_SESSION_HANDLE h_session;
    CK_RV             rc;
-   CK_BYTE           user_pin[8];
+   CK_BYTE           user_pin[DEFAULT_USER_PIN_LEN];
    CK_ULONG          user_pin_len;
    CK_OBJECT_HANDLE  obj_list[20];
    CK_ULONG          find_count;
@@ -356,8 +356,8 @@ int do_verify_token_object( void )
 
 
 
-   memcpy( user_pin, "12345678", 8 );
-   user_pin_len = 8;
+   memcpy( user_pin, DEFAULT_USER_PIN, DEFAULT_USER_PIN_LEN );
+   user_pin_len = DEFAULT_USER_PIN_LEN;
 
 
    // create a USER R/W session
@@ -435,7 +435,7 @@ int do_destroy_all_token_objects( void )
    CK_FLAGS          flags;
    CK_SESSION_HANDLE h_session;
    CK_RV             rc;
-   CK_BYTE           user_pin[8];
+   CK_BYTE           user_pin[DEFAULT_USER_PIN_LEN];
    CK_ULONG          user_pin_len;
 
    CK_OBJECT_HANDLE  obj_list[20];
@@ -443,8 +443,8 @@ int do_destroy_all_token_objects( void )
    CK_ULONG          i;
 
 
-   memcpy( user_pin, "12345678", 8 );
-   user_pin_len = 8;
+   memcpy( user_pin, DEFAULT_USER_PIN, DEFAULT_USER_PIN_LEN );
+   user_pin_len = DEFAULT_USER_PIN_LEN;
 
 
    // create a USER R/W session
@@ -514,14 +514,14 @@ done:
 int do_inittoken( void )
 {
    CK_BYTE           label[32];
-   CK_BYTE           so_pin[8];
+   CK_BYTE           so_pin[DEFAULT_SO_PIN_LEN];
    CK_ULONG          so_pin_len;
    int               len;
    CK_RV             rc;
 
 
-   memcpy( so_pin, "87654321", 8 );
-   so_pin_len = 8;
+   memcpy( so_pin, DEFAULT_SO_PIN, DEFAULT_SO_PIN_LEN );
+   so_pin_len = DEFAULT_SO_PIN_LEN;
 
 //   memcpy( label, "A new label                           ", 32 );
    memcpy( label,   "                                      ", 32 );
@@ -570,17 +570,18 @@ done:
 
 int do_setUserPIN( void )
 {
-   CK_BYTE  so_pin[8];
-   CK_BYTE  user_pin[8];
+   CK_BYTE  so_pin[DEFAULT_SO_PIN_LEN];
+   CK_BYTE  user_pin[DEFAULT_USER_PIN_LEN];
    CK_ULONG user_pin_len, so_pin_len;
    CK_FLAGS flags;
    CK_SESSION_HANDLE h_session;
    CK_ULONG rc;
 
-   memcpy( so_pin,   "87654321", 8 );
-   memcpy( user_pin, "12345678", 8 );
+   memcpy( so_pin,   DEFAULT_SO_PIN, DEFAULT_SO_PIN_LEN );
+   memcpy( user_pin, DEFAULT_USER_PIN, DEFAULT_USER_PIN_LEN );
 
-   so_pin_len = user_pin_len = 8;
+   so_pin_len = DEFAULT_SO_PIN_LEN;
+   user_pin_len = DEFAULT_USER_PIN_LEN;
 
 
    flags = CKF_SERIAL_SESSION | CKF_RW_SESSION;

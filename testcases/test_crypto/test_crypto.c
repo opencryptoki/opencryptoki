@@ -6,8 +6,7 @@
 #include <dlfcn.h>
 #include <pkcs11types.h>
 #include "slotmgr.h"
-
-#define DEFAULT_PIN "12345678"
+#include "regress.h"
 
 CK_RV init(void);
 void usage(void);
@@ -175,7 +174,7 @@ CK_RV test_crypto(long slot_num)
    }
 
    /* log in as normal user */
-   rc = FunctionPtr->C_Login(hSession, CKU_USER, DEFAULT_PIN, strlen(DEFAULT_PIN));
+   rc = FunctionPtr->C_Login(hSession, CKU_USER, DEFAULT_USER_PIN, DEFAULT_USER_PIN_LEN);
    if (rc != CKR_OK) {
       fprintf(stderr, "ERROR call to C_Login failed, rc = 0x%0x\n", rc);
       goto out_close;

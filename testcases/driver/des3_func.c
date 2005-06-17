@@ -24,7 +24,7 @@ int do_Encrypt3DES_ECB( void )
    CK_MECHANISM        mech;
    CK_OBJECT_HANDLE    h_key;
    CK_FLAGS            flags;
-   CK_BYTE             user_pin[8];
+   CK_BYTE             user_pin[DEFAULT_USER_PIN_LEN];
    CK_ULONG            user_pin_len;
    CK_ULONG            i;
    CK_ULONG            len1, len2;
@@ -41,8 +41,8 @@ int do_Encrypt3DES_ECB( void )
    }
 
 
-   memcpy( user_pin, "12345678", 8 );
-   user_pin_len = 8;
+   memcpy( user_pin, DEFAULT_USER_PIN, DEFAULT_USER_PIN_LEN );
+   user_pin_len = DEFAULT_USER_PIN_LEN;
 
    rc = funcs->C_Login( session, CKU_USER, user_pin, user_pin_len );
    if (rc != CKR_OK) {
@@ -148,7 +148,7 @@ int do_Encrypt3DES_Multipart_ECB( void )
    CK_MECHANISM        mech;
    CK_OBJECT_HANDLE    h_key;
    CK_FLAGS            flags;
-   CK_BYTE             user_pin[8];
+   CK_BYTE             user_pin[DEFAULT_USER_PIN_LEN];
    CK_ULONG            user_pin_len;
    CK_ULONG            i, k;
    CK_ULONG            orig_len;
@@ -167,8 +167,8 @@ int do_Encrypt3DES_Multipart_ECB( void )
    }
 
 
-   memcpy( user_pin, "12345678", 8 );
-   user_pin_len = 8;
+   memcpy( user_pin, DEFAULT_USER_PIN, DEFAULT_USER_PIN_LEN );
+   user_pin_len = DEFAULT_USER_PIN_LEN;
 
    rc = funcs->C_Login( session, CKU_USER, user_pin, user_pin_len );
    if (rc != CKR_OK) {
@@ -400,7 +400,7 @@ int do_Encrypt3DES_CBC( void )
    CK_MECHANISM        mech;
    CK_OBJECT_HANDLE    h_key;
    CK_FLAGS            flags;
-   CK_BYTE             user_pin[8];
+   CK_BYTE             user_pin[DEFAULT_USER_PIN_LEN];
    CK_ULONG            user_pin_len;
    CK_BYTE             init_v[8];
    CK_ULONG            i;
@@ -418,8 +418,8 @@ int do_Encrypt3DES_CBC( void )
    }
 
 
-   memcpy( user_pin, "12345678", 8 );
-   user_pin_len = 8;
+   memcpy( user_pin, DEFAULT_USER_PIN, DEFAULT_USER_PIN_LEN );
+   user_pin_len = DEFAULT_USER_PIN_LEN;
 
    rc = funcs->C_Login( session, CKU_USER, user_pin, user_pin_len );
    if (rc != CKR_OK) {
@@ -451,7 +451,7 @@ int do_Encrypt3DES_CBC( void )
       data2[i] = i % 255;
    }
 
-   memcpy( init_v, "12345678", 8 );
+   memcpy( init_v, DEFAULT_USER_PIN, DEFAULT_USER_PIN_LEN );
 
    mech.mechanism      = CKM_DES3_CBC;
    mech.ulParameterLen = 8;
@@ -522,7 +522,7 @@ int do_Encrypt3DES_Multipart_CBC( void )
    CK_OBJECT_HANDLE    h_key;
    CK_FLAGS            flags;
    CK_BYTE             init_v[8];
-   CK_BYTE             user_pin[8];
+   CK_BYTE             user_pin[DEFAULT_USER_PIN_LEN];
    CK_ULONG            user_pin_len;
    CK_ULONG            i, k;
    CK_ULONG            orig_len;
@@ -541,8 +541,8 @@ int do_Encrypt3DES_Multipart_CBC( void )
    }
 
 
-   memcpy( user_pin, "12345678", 8 );
-   user_pin_len = 8;
+   memcpy( user_pin, DEFAULT_USER_PIN, DEFAULT_USER_PIN_LEN );
+   user_pin_len = DEFAULT_USER_PIN_LEN;
 
    rc = funcs->C_Login( session, CKU_USER, user_pin, user_pin_len );
    if (rc != CKR_OK) {
@@ -571,7 +571,7 @@ int do_Encrypt3DES_Multipart_CBC( void )
       original[i] = i % 255;
    }
 
-   memcpy( init_v, "12345678", 8 );
+   memcpy( init_v, DEFAULT_USER_PIN, DEFAULT_USER_PIN_LEN );
 
    mech.mechanism      = CKM_DES3_CBC;
    mech.ulParameterLen = 8;
@@ -771,7 +771,7 @@ int do_EncryptDES3_Multipart_CBC_PAD( void )
    CK_OBJECT_HANDLE    h_key;
    CK_FLAGS            flags;
    CK_BYTE             init_v[8];
-   CK_BYTE             user_pin[8];
+   CK_BYTE             user_pin[DEFAULT_USER_PIN_LEN];
    CK_ULONG            user_pin_len;
    CK_ULONG            i, k;
    CK_ULONG            orig_len, crypt1_len, crypt2_len, decrypt1_len, decrypt2_len;
@@ -788,8 +788,8 @@ int do_EncryptDES3_Multipart_CBC_PAD( void )
    }
 
 
-   memcpy( user_pin, "12345678", 8 );
-   user_pin_len = 8;
+   memcpy( user_pin, DEFAULT_USER_PIN, DEFAULT_USER_PIN_LEN );
+   user_pin_len = DEFAULT_USER_PIN_LEN;
 
    rc = funcs->C_Login( session, CKU_USER, user_pin, user_pin_len );
    if (rc != CKR_OK) {
@@ -819,7 +819,7 @@ int do_EncryptDES3_Multipart_CBC_PAD( void )
       original[i] = i % 255;
    }
 
-   memcpy( init_v, "12345678", 8 );
+   memcpy( init_v, DEFAULT_USER_PIN, DEFAULT_USER_PIN_LEN );
 
    mech.mechanism      = CKM_DES3_CBC_PAD;
    mech.ulParameterLen = 8;
@@ -1016,7 +1016,7 @@ int do_WrapUnwrapDES3_ECB( void )
    CK_OBJECT_HANDLE    w_key;
    CK_OBJECT_HANDLE    uw_key;
    CK_FLAGS            flags;
-   CK_BYTE             user_pin[8];
+   CK_BYTE             user_pin[DEFAULT_USER_PIN_LEN];
    CK_ULONG            user_pin_len;
    CK_ULONG            wrapped_data_len;
    CK_ULONG            i;
@@ -1044,8 +1044,8 @@ int do_WrapUnwrapDES3_ECB( void )
    }
 
 
-   memcpy( user_pin, "12345678", 8 );
-   user_pin_len = 8;
+   memcpy( user_pin, DEFAULT_USER_PIN, DEFAULT_USER_PIN_LEN );
+   user_pin_len = DEFAULT_USER_PIN_LEN;
 
    rc = funcs->C_Login( session, CKU_USER, user_pin, user_pin_len );
    if (rc != CKR_OK) {
@@ -1229,7 +1229,7 @@ int do_WrapUnwrapDES3_CBC( void )
    CK_OBJECT_HANDLE    w_key;
    CK_OBJECT_HANDLE    uw_key;
    CK_FLAGS            flags;
-   CK_BYTE             user_pin[8];
+   CK_BYTE             user_pin[DEFAULT_USER_PIN_LEN];
    CK_BYTE             init_v[] = { 1,2,3,4,5,6,7,8 };
    CK_ULONG            user_pin_len;
    CK_ULONG            wrapped_data_len;
@@ -1258,8 +1258,8 @@ int do_WrapUnwrapDES3_CBC( void )
    }
 
 
-   memcpy( user_pin, "12345678", 8 );
-   user_pin_len = 8;
+   memcpy( user_pin, DEFAULT_USER_PIN, DEFAULT_USER_PIN_LEN );
+   user_pin_len = DEFAULT_USER_PIN_LEN;
 
    rc = funcs->C_Login( session, CKU_USER, user_pin, user_pin_len );
    if (rc != CKR_OK) {
@@ -1439,7 +1439,7 @@ int do_WrapUnwrapDES3_CBC_PAD( void )
    CK_OBJECT_HANDLE    w_key;
    CK_OBJECT_HANDLE    uw_key;
    CK_FLAGS            flags;
-   CK_BYTE             user_pin[8];
+   CK_BYTE             user_pin[DEFAULT_USER_PIN_LEN];
    CK_BYTE             init_v[] = { 1,2,3,4,5,6,7,8 };
    CK_ULONG            user_pin_len;
    CK_ULONG            wrapped_data_len;
@@ -1468,8 +1468,8 @@ int do_WrapUnwrapDES3_CBC_PAD( void )
    }
 
 
-   memcpy( user_pin, "12345678", 8 );
-   user_pin_len = 8;
+   memcpy( user_pin, DEFAULT_USER_PIN, DEFAULT_USER_PIN_LEN );
+   user_pin_len = DEFAULT_USER_PIN_LEN;
 
    rc = funcs->C_Login( session, CKU_USER, user_pin, user_pin_len );
    if (rc != CKR_OK) {
