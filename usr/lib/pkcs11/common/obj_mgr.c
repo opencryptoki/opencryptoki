@@ -1261,6 +1261,9 @@ object_mgr_find_in_map1( CK_OBJECT_HANDLE    handle,
       return CKR_OK;
    }
 
+// SAB XXX Fix me.. need to make it more efficient than just looking for the object to be changed
+// set a global flag that contains the ref count to all objects.. if the shm ref count changes, then we update the object
+// if not
    object_mgr_check_shm( obj );
 
    *ptr = obj;
@@ -2269,6 +2272,35 @@ object_mgr_search_shm_for_obj( TOK_OBJ_ENTRY  * obj_list,
    CK_ULONG    mid;
    int         val;
 
+// SAB  XXX reduce the search time since this is what seems to be burning cycles
+   CK_ULONG idx;
+   if ( obj->index == 0 ) {
+	   for (idx=0;idx<=hi;idx++){
+	      if (memcmp(obj->name, obj_list[idx].name,8) == 0) {
+		 *index = idx;
+		 obj->index = idx;
+		 return CKR_OK ;
+	      }
+	   }
+   } else {
+	// SAB better double check
+	if ( memcmp(obj->name, obj_list[obj->index].name,8) == 0 ){
+		 *index = obj->index;
+		 return CKR_OK ;
+	} else { // something is hosed.. go back to the brute force method
+	   for (idx=0;idx<=hi;idx++){
+	      if (memcmp(obj->name, obj_list[idx].name,8) == 0) {
+		 *index = idx;
+		 obj->index = idx;
+		 return CKR_OK ;
+	      }
+	   }
+        }
+   }
+   st_err_log(4, __FILE__, __LINE__, __FUNCTION__); 
+   return CKR_FUNCTION_FAILED;
+	
+#if 0
 #if 1
    CK_ULONG   idx;
    for (idx=0;idx<=hi;idx++){
@@ -2305,6 +2337,7 @@ object_mgr_search_shm_for_obj( TOK_OBJ_ENTRY  * obj_list,
       return object_mgr_search_shm_for_obj( obj_list, lo, mid-1, obj, index );
    else
       return object_mgr_search_shm_for_obj( obj_list, mid+1, hi, obj, index );
+#endif
 #endif
 }
 
