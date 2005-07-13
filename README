@@ -75,3 +75,4 @@ and 64bit PKCS#11 apps can run. On ppc and s390, pkcsslotd is compiled with
 the -DPKCS64 flag, which makes all structures match their size on a 64bit 
 platform when being compiled 32bit. In this way, pkcsslotd can interact
 with both 32 and 64bit executable/libraries.
+
