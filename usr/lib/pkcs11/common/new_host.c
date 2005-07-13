@@ -1195,8 +1195,9 @@ CK_RV SC_InitPIN( ST_SESSION_HANDLE  sSession,
       st_err_log(150, __FILE__, __LINE__);
       goto done;
    }
-      memcpy( nv_token_data->user_pin_sha, hash_sha, SHA1_HASH_SIZE );
-      nv_token_data->token_info.flags |= CKF_USER_PIN_INITIALIZED;
+   memcpy( nv_token_data->user_pin_sha, hash_sha, SHA1_HASH_SIZE );
+   nv_token_data->token_info.flags |= CKF_USER_PIN_INITIALIZED;
+   nv_token_data->token_info.flags &= ~(CKF_USER_PIN_TO_BE_CHANGED);
    XProcUnLock( xproclock );
 
    memcpy( user_pin_md5, hash_md5, MD5_HASH_SIZE  );
