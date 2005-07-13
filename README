@@ -76,4 +76,3 @@ the -DPKCS64 flag, which makes all structures match their size on a 64bit
 platform when being compiled 32bit. In this way, pkcsslotd can interact
 with both 32 and 64bit executable/libraries.
 
-
