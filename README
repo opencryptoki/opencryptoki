@@ -48,6 +48,9 @@ RUNNING openCryptoki:
     or the docs section of 
   http://www-124.ibm.com/developerworks/projects/openCryptoki
 
+  openCryptoki defaults to be usable by anyone who is in the group
+  ``pkcs11''.
+
 ARCHITECTURE:
 
   On any 32bit arch, openCryptoki is compiled using gcc and all the necessary
@@ -75,4 +78,3 @@ and 64bit PKCS#11 apps can run. On ppc and s390, pkcsslotd is compiled with
 the -DPKCS64 flag, which makes all structures match their size on a 64bit 
 platform when being compiled 32bit. In this way, pkcsslotd can interact
 with both 32 and 64bit executable/libraries.
-
