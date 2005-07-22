@@ -2162,7 +2162,15 @@ object_mgr_del_from_shm( OBJECT *obj )
       // 10 from 9.)
       //
       global_shm->num_priv_tok_obj--;
+#if 1 // XXX SAB   when the index is a higher number than the number maintained in shm, the count goes astronomical causing a core dump
+	if (index > global_shm->num_priv_tok_obj) {
+	      count = index - global_shm->num_priv_tok_obj;
+	} else {
+	      count = global_shm->num_priv_tok_obj - index;
+	}	
+#else
       count = global_shm->num_priv_tok_obj - index;
+#endif
 
       if (count > 0) {  // If we are not deleting the last element in the list
          // Move up count number of elements effectively deleting the index
@@ -2188,7 +2196,17 @@ object_mgr_del_from_shm( OBJECT *obj )
          return CKR_FUNCTION_FAILED;
       }
       global_shm->num_publ_tok_obj--;
+
+
+#if 1 // XXX SAB   when the index is a higher number than the number maintained in shm, the count goes astronomical causing a core dump
+	if (index > global_shm->num_publ_tok_obj) {
+	      count = index - global_shm->num_publ_tok_obj;
+	} else {
+	      count = global_shm->num_publ_tok_obj - index;
+	}	
+#else
       count = global_shm->num_publ_tok_obj - index;
+#endif
 
       if (count > 0) {
          bcopy((char *)&global_shm->publ_tok_objs[index+1],
