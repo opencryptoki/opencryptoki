@@ -7,11 +7,11 @@ $(AEP_LIB_DIRS) -nostartfiles -shared -Wl,-soname,PKCS11_AEP.so.1 -lc	\
 # Not all versions of automake observe libname_CFLAGS
 opencryptoki_stdll_libpkcs11_aep_la_CFLAGS = -DSPINXPL -DDEV		\
 -D_THREAD_SAFE -fPIC -DSHALLOW=0 -DSWTOK=1 -DLITE=0 -DNOCDMF -DNOMD2	\
--DNODSA -DDEBUGON -DAEP_GENERIC
+-DNODSA -DDEBUGON -DAEP_GENERIC -DNORIPE
 
 # Not all versions of automake observe libname_CFLAGS
 AM_CFLAGS = @CFLAGS@ -DSPINXPL -DDEV -D_THREAD_SAFE -fPIC -DSHALLOW=0	\
--DSWTOK=1 -DLITE=0 -DNOCDMF -DNOMD2 -DNODSA -DDEBUGON -DAEP_GENERIC
+-DSWTOK=1 -DLITE=0 -DNOCDMF -DNOMD2 -DNODSA -DDEBUGON -DAEP_GENERIC -DNORIPE
 
 opencryptoki_stdll_libpkcs11_aep_la_SOURCES = ../common/asn1.c		\
 ../common/cert.c ../common/hwf_obj.c ../common/dp_obj.c			\

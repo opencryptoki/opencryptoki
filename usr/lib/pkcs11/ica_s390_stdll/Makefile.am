@@ -11,7 +11,7 @@ opencryptoki_stdll_libpkcs11_ica_la_CFLAGS = -DSPINXPL -DDEV		\
 
 # Not all versions of automake observe libname_CFLAGS
 AM_CFLAGS = -DSPINXPL -DDEV -D_THREAD_SAFE -fPIC -DSHALLOW=0 -DSWTOK=0	\
--DLITE=1 -DNODH -DNOAES -DNOCDMF -DNOMD2 -DNODSA
+-DLITE=1 -DNODH -DNOAES -DNOCDMF -DNOMD2 -DNODSA -DNORIPE
 
 opencryptoki_stdll_libpkcs11_ica_la_SOURCES = ../common/asn1.c	\
 ../common/cert.c ../common/hwf_obj.c ../common/dp_obj.c		\
