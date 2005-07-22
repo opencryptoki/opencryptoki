@@ -7,11 +7,11 @@ $(ICA_LIB_DIRS) -nostartfiles -shared -Wl,-Bsymbolic		\
 # Not all versions of automake observe libname_CFLAGS
 opencryptoki_stdll_libpkcs11_ica_la_CFLAGS = -DSPINXPL -DDEV		\
 -D_THREAD_SAFE -fPIC -DSHALLOW=0 -DSWTOK=0 -DLITE=1 -DNOCDMF -DNOMD2	\
--DNODSA -DNOAES -DNODH
+-DNODSA -DNOAES -DNODH -DNORIPE
 
 # Not all versions of automake observe libname_CFLAGS
 AM_CFLAGS = -DSPINXPL -DDEV -D_THREAD_SAFE -fPIC -DSHALLOW=0 -DSWTOK=0	\
--DLITE=1 -DNOCDMF -DNOMD2 -DNODSA -DNOAES -DNODH
+-DLITE=1 -DNOCDMF -DNOMD2 -DNODSA -DNOAES -DNODH -DNORIPE
 
 opencryptoki_stdll_libpkcs11_ica_la_SOURCES= ../common/asn1.c	\
 ../common/cert.c ../common/hwf_obj.c ../common/dp_obj.c		\

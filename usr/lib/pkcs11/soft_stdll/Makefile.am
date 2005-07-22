@@ -6,7 +6,7 @@ opencryptoki_stdll_libpkcs11_sw_la_LDFLAGS = -shared -Wl,-Bsymbolic	\
 # Not all versions of automake observe libname_CFLAGS
 opencryptoki_stdll_libpkcs11_sw_la_CFLAGS = -DSPINXPL -DDEV -D_THREAD_SAFE  \
 					    -DSHALLOW=0 -DSWTOK=1 -DLITE=0  \
-					    -DNOCDMF -DNOMD2 -DNODSA	    \
+					    -DNOCDMF -DNOMD2 -DNODSA -DNORIPE	    \
 					    -DDEBUGON -fPIC		    \
 					    -I/usr/include -I.		    \
 					    -I../../../include/pkcs11/stdll \
