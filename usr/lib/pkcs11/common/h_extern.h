@@ -325,6 +325,7 @@ extern MECH_LIST_ELEMENT  mech_list[];
 extern CK_ULONG           mech_list_len;
 
 extern pthread_mutex_t  native_mutex;
+extern pthread_mutex_t obj_list_rw_mutex;
 #if SYSVSEM
 extern int xprocsemid;
 #endif

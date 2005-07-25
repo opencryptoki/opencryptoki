@@ -688,6 +688,10 @@ stloginit();
 
    MY_CreateMutex( &pkcs_mutex      );
    MY_CreateMutex( &obj_list_mutex  );
+   /* TODO: Where to destroy? */
+   if (pthread_rwlock_init(&obj_list_rw_mutex, NULL)) {
+          st_err_log(145, __FILE__, __LINE__);
+   }
    MY_CreateMutex( &sess_list_mutex );
    MY_CreateMutex( &login_mutex     );
 
