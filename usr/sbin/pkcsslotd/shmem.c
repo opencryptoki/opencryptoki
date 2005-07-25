@@ -420,37 +420,40 @@ int CreateSharedMemory ( void ) {
    }
 
    fd = open(MAPFILENAME,O_RDWR,MODE);
-    if (fd < 0 ){
-       // File does not exist... this is cool, we creat it here
-      fd = open(MAPFILENAME,O_RDWR|O_CREAT,MODE); // Create the file
-      if (fd < 0 ){ // We are really hosed here, since we should be able
-                    // to create the file now
-	 ErrLog("%s: open(%s): %s", __FUNCTION__, MAPFILENAME, strerror(errno));
-         return FALSE;
-      } else {
-	  if (fchmod(fd, MODE) == -1) {
-	     ErrLog("%s: fchmod(%s): %s", __FUNCTION__, MAPFILENAME, strerror(errno));
-	     close(fd);
-	     return FALSE;
-	  }
-	  if (fchown(fd, 0, grp->gr_gid) == -1) {
-	     ErrLog("%s: fchown(%s, root, pkcs11): %s", __FUNCTION__, MAPFILENAME,
-			     strerror(errno));
-	     close(fd);
-	     return FALSE;
-	  }
-         // Create a buffer and make the file the right length
-          i = sizeof(Slot_Mgr_Shr_t);
-          buffer = malloc(sizeof(Slot_Mgr_Shr_t));
-          memset(buffer,'\0',i);
-          write(fd,buffer,i);
-          free(buffer);
-          close(fd);
-      }
-    } else {
-       close(fd); 
+   if (fd < 0 ) {
+     // File does not exist... this is cool, we creat it here
+     fd = open(MAPFILENAME,O_RDWR|O_CREAT,MODE); // Create the file
+     if (fd < 0 ){ // We are really hosed here, since we should be able
+       // to create the file now
+       ErrLog("%s: open(%s): %s", __FUNCTION__, MAPFILENAME, strerror(errno));
        return FALSE;
-    }
+     } else {
+       if (fchmod(fd, MODE) == -1) {
+	 ErrLog("%s: fchmod(%s): %s", __FUNCTION__, MAPFILENAME, strerror(errno));
+	 close(fd);
+	 return FALSE;
+       }
+       if (fchown(fd, 0, grp->gr_gid) == -1) {
+	 ErrLog("%s: fchown(%s, root, pkcs11): %s", __FUNCTION__, MAPFILENAME,
+		strerror(errno));
+	 close(fd);
+	 return FALSE;
+       }
+       // Create a buffer and make the file the right length
+       i = sizeof(Slot_Mgr_Shr_t);
+       buffer = malloc(sizeof(Slot_Mgr_Shr_t));
+       memset(buffer,'\0',i);
+       write(fd,buffer,i);
+       free(buffer);
+       close(fd);
+     }
+   } else {
+     ErrLog("%s: [%s] exists; you may already have a pkcsslot daemon running. If this "
+	    "is not the case, then the prior daemon was not shut down cleanly. "
+	    "Please delete this file and try again\n", __FUNCTION__, MAPFILENAME);
+     close(fd); 
+     return FALSE;
+   }
    return TRUE;
 }
 
