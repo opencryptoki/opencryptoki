@@ -299,7 +299,7 @@
 #include <sys/ipc.h>
 #include <errno.h>
 #include <syslog.h>
-
+#include <grp.h>
 
 #include "pkcs11types.h"
 #include "defs.h"
@@ -1344,20 +1344,36 @@ attach_shm()
 	}
 
 	if (stat(fname, &statbuf) < 0) {
-		// File does not exist Create it
-		fd = open(fname,O_RDWR|O_CREAT,MODE);
-		if (fd < 0 ){
-			syslog(LOG_ERR, "Creating memory mapped file %s failed: %s",
-					fname, strerror(errno));
-			return CKR_FUNCTION_FAILED;  //Failed
-		}
-		i = sizeof(LW_SHM_TYPE);
-		b2 = malloc(i);
-		memset(b2,'\0',i);
-		write(fd,b2,i);
-		free(b2);
-		free(fname);
-		created=TRUE;
+	  struct group *grp;
+	  /* File does not exist; Create it */
+	  fd = open(fname,O_RDWR|O_CREAT,MODE);
+	  if (fd < 0 ){
+	    syslog(LOG_ERR, "Creating memory mapped file %s failed: %s",
+		   fname, strerror(errno));
+	    return CKR_FUNCTION_FAILED;  //Failed
+	  }
+	  /* Set the group permission */
+	  grp = getgrnam("pkcs11");
+	  if ( !grp ) {
+	    syslog(LOG_ERR, "%s: Group \"pkcs11\" does not exist! Please run "
+		   "%s/pkcs11_startup.\n", __FUNCTION__, SBIN_PATH);
+	    close(fd);
+	    return CKR_FUNCTION_FAILED; /* Group does not exist; 
+					   setup is wrong */
+	  }
+	  if (fchown(fd, 0, grp->gr_gid) == -1) {
+	    syslog(LOG_ERR, "%s: fchown(%s, root, pkcs11): %s", __FUNCTION__,
+		   fname, strerror(errno));
+	    close(fd);
+	    return CKR_FUNCTION_FAILED;
+	  }
+	  i = sizeof(LW_SHM_TYPE);
+	  b2 = malloc(i);
+	  memset(b2,'\0',i);
+	  write(fd,b2,i);
+	  free(b2);
+	  free(fname);
+	  created=TRUE;
 	} else {
 		fd = open(fname,O_RDWR,MODE);
 		if (fd < 0 ){
