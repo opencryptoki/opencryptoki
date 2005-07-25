@@ -1,5 +1,5 @@
 /*
- * $Header: /cvsroot/opencryptoki/opencryptoki/usr/lib/pkcs11/common/h_extern.h,v 1.2 2005/02/22 20:47:46 mhalcrow Exp $
+ * $Header: /cvsroot/opencryptoki/opencryptoki/usr/lib/pkcs11/common/h_extern.h,v 1.3 2005/07/25 20:20:14 mhalcrow Exp $
  */
 
 
@@ -325,6 +325,7 @@ extern MECH_LIST_ELEMENT  mech_list[];
 extern CK_ULONG           mech_list_len;
 
 extern pthread_mutex_t  native_mutex;
+extern pthread_mutex_t obj_list_rw_mutex;
 #if SYSVSEM
 extern int xprocsemid;
 #endif
