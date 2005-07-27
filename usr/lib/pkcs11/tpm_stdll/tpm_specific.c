@@ -49,8 +49,8 @@
 #include <openssl/aes.h>
 #include <openssl/evp.h>
 
-#include <tss/tss.h>
-#include <tss/trousers.h>
+#include <trousers/tss.h>
+#include <trousers/trousers.h>
 
 #include "pkcs11/pkcs11types.h"
 #include "pkcs11/stdll.h"
@@ -300,7 +300,7 @@ token_wrap_key_object( CK_OBJECT_HANDLE ckObject, TSS_HKEY hParentKey, TSS_HKEY 
 
 	TSS_RESULT	result;
 	TSS_HKEY	hKey;
-	TSS_FLAGS	initFlags = 0;
+	TSS_FLAG	initFlags = 0;
 	BYTE		*rgbBlob;
 	UINT32		ulBlobLen;
 
@@ -507,6 +507,7 @@ token_load_srk()
 {
 	TSS_HPOLICY hPolicy;
 	TSS_RESULT result;
+	TSS_UUID SRK_UUID = TSS_UUID_SRK;
 
 	if (hSRK != NULL_HKEY)
 		return TSS_SUCCESS;
@@ -567,7 +568,7 @@ token_load_public_root_key()
 }
 
 TSS_RESULT
-tss_generate_key(TSS_FLAGS initFlags, BYTE *passHash, TSS_HKEY hParentKey, TSS_HKEY *phKey)
+tss_generate_key(TSS_FLAG initFlags, BYTE *passHash, TSS_HKEY hParentKey, TSS_HKEY *phKey)
 {
 	TSS_RESULT	result;
 	TSS_HPOLICY	hPolicy;
@@ -887,7 +888,7 @@ token_generate_leaf_key(int key_type, CK_CHAR_PTR passHash, TSS_HKEY *phKey)
 	TSS_RESULT		result;
 	TSS_HKEY		hParentKey;
 	CK_OBJECT_HANDLE	*ckKey;
-	TSS_FLAGS		initFlags = TSS_KEY_MIGRATABLE | TSS_KEY_TYPE_BIND |
+	TSS_FLAG		initFlags = TSS_KEY_MIGRATABLE | TSS_KEY_TYPE_BIND |
 					    TSS_KEY_SIZE_2048  | TSS_KEY_AUTHORIZATION;
 
 	switch (key_type) {
@@ -940,7 +941,7 @@ token_verify_pin(TSS_HKEY hKey)
 
 	/* unbind the junk data to test the key's auth data */
 	result = Tspi_Data_Unbind(hEncData, hKey, &ulUnboundDataLen, &rgbUnboundData);
-	if (result == TCPA_AUTHFAIL) {
+	if (result == TCPA_E_AUTHFAIL) {
 		rc = CKR_PIN_INCORRECT;
 		LogError("%s: Unbind returned TCPA_AUTHFAIL", __FUNCTION__);
 		goto done;
@@ -2176,7 +2177,7 @@ token_specific_rsa_generate_keypair( TEMPLATE  * publ_tmpl,
 	CK_BBOOL	flag;
 	CK_RV		rc;
 
-	TSS_FLAGS	initFlags = 0;
+	TSS_FLAG	initFlags = 0;
 	BYTE		authHash[SHA1_HASH_SIZE];
 	BYTE		*authData = NULL;
 	TSS_HKEY	hKey = NULL_HKEY;

@@ -29,7 +29,7 @@
 
 #include <openssl/rsa.h>
 
-#include <tss/tss.h>
+#include <trousers/tss.h>
 
 #include "pkcs11/pkcs11types.h"
 #include "pkcs11/stdll.h"
