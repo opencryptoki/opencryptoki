@@ -68,4 +68,10 @@ char *util_create_id(int);
 CK_RV util_set_username(char **);
 unsigned int util_get_keysize_flag(CK_ULONG);
 
+#define NULL_HKEY	0
+#define NULL_HENCDATA	0
+#define NULL_HPOLICY	0
+#define NULL_HCONTEXT	0
+#define NULL_HPCRS	0
+
 #endif
