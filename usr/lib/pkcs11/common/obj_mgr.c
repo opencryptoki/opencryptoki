@@ -297,9 +297,7 @@
 #include <pthread.h>
 #include <stdlib.h>
 #include <stdio.h>
-
-  #include <string.h>  // for memcmp() et al
-
+#include <string.h>  // for memcmp() et al
 
 #include "pkcs11types.h"
 #include "defs.h"
@@ -307,8 +305,7 @@
 #include "h_extern.h"
 #include "tok_spec_struct.h"
 
-
-
+pthread_mutex_t obj_list_rw_mutex = PTHREAD_MUTEX_INITIALIZER;
 
 CK_RV
 object_mgr_add( SESSION          * sess,
@@ -1183,6 +1180,10 @@ object_mgr_find_in_map_nocache( CK_OBJECT_HANDLE    handle,
    // no mutex here.  the calling function should have locked the mutex
    //
 
+   if (pthread_rwlock_rdlock(&obj_list_rw_mutex)) {
+     st_err_log(4, __FILE__, __LINE__, __FUNCTION__);
+     return CKR_FUNCTION_FAILED;
+   }
    node = object_map;
    while (node) {
       OBJECT_MAP *map = (OBJECT_MAP *)node->data;
@@ -1194,6 +1195,7 @@ object_mgr_find_in_map_nocache( CK_OBJECT_HANDLE    handle,
 
       node = node->next;
    }
+   pthread_rwlock_unlock(&obj_list_rw_mutex);
 
    if (obj == NULL || node == NULL) {
       st_err_log(30, __FILE__, __LINE__); 
@@ -1234,6 +1236,10 @@ object_mgr_find_in_map1( CK_OBJECT_HANDLE    handle,
    // no mutex here.  the calling function should have locked the mutex
    //
 
+   if (pthread_rwlock_rdlock(&obj_list_rw_mutex)) {
+     st_err_log(4, __FILE__, __LINE__, __FUNCTION__);
+     return CKR_FUNCTION_FAILED;
+   }
    node = object_map;
    while (node) {
       OBJECT_MAP *map = (OBJECT_MAP *)node->data;
@@ -1245,6 +1251,7 @@ object_mgr_find_in_map1( CK_OBJECT_HANDLE    handle,
 
       node = node->next;
    }
+   pthread_rwlock_unlock(&obj_list_rw_mutex);
 
    if (obj == NULL || node == NULL) {
       st_err_log(30, __FILE__, __LINE__); 
@@ -1288,6 +1295,10 @@ object_mgr_find_in_map2( OBJECT           * obj,
    // no mutex here.  the calling function should have locked the mutex
    //
 
+   if (pthread_rwlock_rdlock(&obj_list_rw_mutex)) {
+     st_err_log(4, __FILE__, __LINE__, __FUNCTION__);
+     return CKR_FUNCTION_FAILED;
+   }
    node = object_map;
    while (node) {
       OBJECT_MAP *map = (OBJECT_MAP *)node->data;
@@ -1299,6 +1310,7 @@ object_mgr_find_in_map2( OBJECT           * obj,
 
       node = node->next;
    }
+   pthread_rwlock_unlock(&obj_list_rw_mutex);
 
    if (node == NULL) {
 //      st_err_log(30, __FILE__, __LINE__); 
@@ -1616,6 +1628,10 @@ object_mgr_invalidate_handle1( CK_OBJECT_HANDLE handle )
    // no mutex stuff here.  the calling routine should have locked the mutex
    //
 
+   if (pthread_rwlock_wrlock(&obj_list_rw_mutex)) {
+     st_err_log(4, __FILE__, __LINE__, __FUNCTION__);
+     return CKR_FUNCTION_FAILED;
+   }
    node = object_map;
 
    while (node) {
@@ -1626,13 +1642,13 @@ object_mgr_invalidate_handle1( CK_OBJECT_HANDLE handle )
       if (map->handle == handle) {
          object_map = dlist_remove_node( object_map, node );
          free( map );
-
+	 pthread_rwlock_unlock(&obj_list_rw_mutex);
          return TRUE;
       }
 
       node = node->next;
    }
-
+   pthread_rwlock_unlock(&obj_list_rw_mutex);
    return FALSE;
 
 }
@@ -1655,22 +1671,24 @@ object_mgr_invalidate_handle2( OBJECT *obj )
    // no mutex stuff here.  the calling routine should have locked the mutex
    //
 
+   if (pthread_rwlock_wrlock(&obj_list_rw_mutex)) {
+     st_err_log(4, __FILE__, __LINE__, __FUNCTION__);
+     return CKR_FUNCTION_FAILED;
+   }
    node = object_map;
 
    while (node) {
       OBJECT_MAP *map = (OBJECT_MAP *)node->data;
-
       // I think we can do this because even token objects exist in RAM
-      //
       if (map->ptr == obj) {
          object_map = dlist_remove_node( object_map, node );
          free( map );
-
+	 pthread_rwlock_unlock(&obj_list_rw_mutex);
          return TRUE;
       }
-
       node = node->next;
    }
+   pthread_rwlock_unlock(&obj_list_rw_mutex);
 
    return FALSE;
 
@@ -1861,18 +1879,22 @@ object_mgr_remove_from_map( CK_OBJECT_HANDLE  handle )
    // no mutex stuff here.  the calling routine should have locked the mutex
    //
 
+   if (pthread_rwlock_wrlock(&obj_list_rw_mutex)) {
+     st_err_log(4, __FILE__, __LINE__, __FUNCTION__);
+     return CKR_FUNCTION_FAILED;
+   }
    node = object_map;
    while (node) {
       OBJECT_MAP *map = (OBJECT_MAP *)node->data;
-
       if (map->handle == handle) {
          object_map = dlist_remove_node( object_map, node );
          free( map );
+	 pthread_rwlock_unlock(&obj_list_rw_mutex);
          return CKR_OK;
       }
-
       node = node->next;
    }
+   pthread_rwlock_unlock(&obj_list_rw_mutex);
 
    st_err_log(4, __FILE__, __LINE__, __FUNCTION__); 
    return CKR_FUNCTION_FAILED;
@@ -2689,30 +2711,30 @@ object_mgr_purge_map(
 //  if (!proc || !sess)
 //      return FALSE;
 
+   if (pthread_rwlock_wrlock(&obj_list_rw_mutex)) {
+     st_err_log(4, __FILE__, __LINE__, __FUNCTION__);
+     return CKR_FUNCTION_FAILED;
+   }
    node = object_map;
-
    while (node) {
       OBJECT_MAP *map = (OBJECT_MAP *)node->data;
       OBJECT     *obj = (OBJECT *)map->ptr;
-
       next = node->next;
-
       if (type == PRIVATE) {
          if (object_is_private(obj)) {
             object_map = dlist_remove_node( object_map, node );
             free( map );
          }
       }
-
       if (type == PUBLIC) {
          if (object_is_public(obj)) {
             object_map = dlist_remove_node( object_map, node );
             free( map );
          }
       }
-
       node = next;
    }
+   pthread_rwlock_unlock(&obj_list_rw_mutex);
 
    return TRUE;
 }
