@@ -321,6 +321,9 @@
 
 #define UCHAR  unsigned char
 
+/* Declared in obj_mgr.c */
+extern pthread_mutex_t obj_list_rw_mutex;
+
 char *pk_dir;
 void SC_SetFunctionList(void);
 
@@ -688,9 +691,8 @@ stloginit();
 
    MY_CreateMutex( &pkcs_mutex      );
    MY_CreateMutex( &obj_list_mutex  );
-   /* TODO: Where to destroy? */
    if (pthread_rwlock_init(&obj_list_rw_mutex, NULL)) {
-          st_err_log(145, __FILE__, __LINE__);
+     st_err_log(145, __FILE__, __LINE__);
    }
    MY_CreateMutex( &sess_list_mutex );
    MY_CreateMutex( &login_mutex     );
@@ -1772,6 +1774,10 @@ CK_RV SC_Login( ST_SESSION_HANDLE   sSession,
 		*flags &= 	~(CKF_USER_PIN_LOCKED | 
 				  CKF_USER_PIN_FINAL_TRY | 
 				  CKF_USER_PIN_COUNT_LOW);
+
+		nv_token_data->token_info.flags 
+                          &= ~(CKF_USER_PIN_TO_BE_CHANGED);
+
 		
 		compute_md5( pPin, ulPinLen, user_pin_md5 );
 		memset( so_pin_md5, 0x0, MD5_HASH_SIZE );
@@ -1806,6 +1812,9 @@ CK_RV SC_Login( ST_SESSION_HANDLE   sSession,
 				  CKF_SO_PIN_FINAL_TRY | 
 				  CKF_SO_PIN_COUNT_LOW);
 		
+		nv_token_data->token_info.flags 
+                          &= ~(CKF_SO_PIN_TO_BE_CHANGED);
+
 		compute_md5( pPin, ulPinLen, so_pin_md5 );
 		memset( user_pin_md5, 0x0, MD5_HASH_SIZE );
 		

@@ -318,7 +318,6 @@ CK_BBOOL        initialized = FALSE;
 // is attached, it gets destroyed when the DLL is detached
 //
 pthread_mutex_t native_mutex ;
-pthread_mutex_t obj_list_rw_mutex;
 MUTEX pkcs_mutex, obj_list_mutex, sess_list_mutex, login_mutex;
 
 #if SYSVSEM

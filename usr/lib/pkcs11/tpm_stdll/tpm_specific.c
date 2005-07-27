@@ -1605,28 +1605,33 @@ token_specific_set_pin(ST_SESSION_HANDLE session,
 	if (sess->session_info.state == CKS_RW_USER_FUNCTIONS ||
 	    sess->session_info.state == CKS_RW_PUBLIC_SESSION) {
 		if (not_initialized) {
-			if (memcmp(oldpin_hash, default_user_pin_sha, SHA1_HASH_SIZE)) {
+			if (memcmp(oldpin_hash, default_user_pin_sha,
+				   SHA1_HASH_SIZE)) {
 				LogError("old PIN != default for an uninitialized user");
 				return CKR_PIN_INCORRECT;
 			}
 
-			if ((rc = check_pin_properties(CKU_USER, newpin_hash, ulNewPinLen))) {
+			if ((rc = check_pin_properties(CKU_USER, newpin_hash,
+						       ulNewPinLen))) {
 				return rc;
 			}
 
-			if ((rc = token_create_private_tree(newpin_hash, pNewPin))) {
+			if ((rc = token_create_private_tree(newpin_hash,
+							    pNewPin))) {
 				LogError1("FAILED creating USER tree.");
 				return CKR_FUNCTION_FAILED;
 			}
 
-			nv_token_data->token_info.flags &= ~(CKF_USER_PIN_TO_BE_CHANGED);
+			nv_token_data->token_info.flags 
+			  &= ~(CKF_USER_PIN_TO_BE_CHANGED);
 
 			return save_token_data();
 		}
 
 		if (sess->session_info.state == CKS_RW_USER_FUNCTIONS) {
 			/* if we're already logged in, just verify the hash */
-			if (memcmp(current_user_pin_sha, oldpin_hash, SHA1_HASH_SIZE)) {
+			if (memcmp(current_user_pin_sha, oldpin_hash,
+				   SHA1_HASH_SIZE)) {
 				LogError("USER pin incorrect");
 				return CKR_PIN_INCORRECT;
 			}
@@ -1636,7 +1641,8 @@ token_specific_set_pin(ST_SESSION_HANDLE session,
 			}
 		}
 
-		if ((rc = check_pin_properties(CKU_USER, newpin_hash, ulNewPinLen))) {
+		if ((rc = check_pin_properties(CKU_USER, newpin_hash, 
+					       ulNewPinLen))) {
 			return rc;
 		}
 
