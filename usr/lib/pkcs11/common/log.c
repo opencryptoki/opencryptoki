@@ -369,7 +369,7 @@ stloginit(){
          S_IRUSR|S_IWUSR|S_IRGRP|S_IWGRP|S_IROTH|S_IWOTH);
       }
 #endif
-      stlogit("Logg initialized");
+      stlogit("Log initialized");
    }
 }
 
