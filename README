@@ -44,9 +44,10 @@ standard:
 
 RUNNING openCryptoki:
 
-  See http://www-124.ibm.com/developerworks/oss/opencryptoki/howto/index.html
-    or the docs section of 
-  http://www-124.ibm.com/developerworks/projects/openCryptoki
+  See http://www-128.ibm.com/developerworks/security/library/s-pkcs/index.html
+
+  openCryptoki defaults to be usable by anyone who is in the group
+  ``pkcs11''.
 
 ARCHITECTURE:
 
