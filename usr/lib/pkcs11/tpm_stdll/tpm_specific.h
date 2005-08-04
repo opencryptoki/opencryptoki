@@ -74,4 +74,11 @@ unsigned int util_get_keysize_flag(CK_ULONG);
 #define NULL_HCONTEXT	0
 #define NULL_HPCRS	0
 
+/* CKA_ENC_AUTHDATA will be used to store the encrypted SHA-1 hashes of auth data
+ * passed in for TPM keys. The authdata will be encrypted using either the public
+ * leaf key or the private leaf key */
+#define CKA_ENC_AUTHDATA        CKA_VENDOR_DEFINED + 0x01000001
+
+#define MK_SIZE (AES_KEY_SIZE_256)
+
 #endif
