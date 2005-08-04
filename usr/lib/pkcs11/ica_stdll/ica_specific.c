@@ -1347,8 +1347,8 @@ CK_RV token_specific_sha2_update(DIGEST_CONTEXT *ctx, CK_BYTE *in_data,
 				 CK_ULONG in_data_len)
 {
 	unsigned int rc, i, fill_size = 0;
-	oc_sha2_ctx *oc_sha2_ctx = (oc_sha2_ctx *)ctx->context;
-	SHA256_CONTEXT *ica_sha2_ctx = (SHA256_CONTEXT *)oc_sha2_ctx->dev_ctx;
+	oc_sha2_ctx *oc_sha256_ctx = (oc_sha2_ctx *)ctx->context;
+	SHA256_CONTEXT *ica_sha2_ctx = (SHA256_CONTEXT *)oc_sha256_ctx->dev_ctx;
 	if (!ctx) {
 		return CKR_OPERATION_NOT_INITIALIZED;
 	}
@@ -1356,19 +1356,19 @@ CK_RV token_specific_sha2_update(DIGEST_CONTEXT *ctx, CK_BYTE *in_data,
 		return CKR_FUNCTION_FAILED;
 	}
 	if (ctx->multi == TRUE) {
-		if (oc_sha2_ctx->tail_len == 64) {
+		if (oc_sha256_ctx->tail_len == 64) {
 			/* Submit the filled out save buffer */
                         if (icaSha256(adapter_handle, 
 				      (ica_sha2_ctx->runningLength == 0 
 				       ? SHA_MSG_PART_FIRST 
 				       : SHA_MSG_PART_MIDDLE),
-				      64, oc_sha2_ctx->tail,
+				      64, oc_sha256_ctx->tail,
 				      LENGTH_SHA256_CONTEXT, ica_sha2_ctx,
-				      &oc_sha2_ctx->hash_len,
-				      oc_sha2_ctx->hash)) {
+				      &oc_sha256_ctx->hash_len,
+				      oc_sha256_ctx->hash)) {
 				return CKR_FUNCTION_FAILED;
 			}
-			oc_sha2_ctx->tail_len = 0;
+			oc_sha256_ctx->tail_len = 0;
 		}
 		/* libICA and SHA256 demand that if this is a
 		 * PART_FIRST or a PART_MIDDLE operation, the amount
@@ -1376,8 +1376,8 @@ CK_RV token_specific_sha2_update(DIGEST_CONTEXT *ctx, CK_BYTE *in_data,
 		 * KEY
 		 */
 		if (ica_sha2_ctx->runningLength == 0 && 
-		    oc_sha2_ctx->tail_len == 0) {
-			oc_sha2_ctx->message_part = SHA_MSG_PART_FIRST;
+		    oc_sha256_ctx->tail_len == 0) {
+			oc_sha256_ctx->message_part = SHA_MSG_PART_FIRST;
 			/* Just copying the last <64 bytes will not
 			 * work in the case of a user who SHA's a
 			 * large chunk of data in 64 byte pieces
@@ -1386,21 +1386,21 @@ CK_RV token_specific_sha2_update(DIGEST_CONTEXT *ctx, CK_BYTE *in_data,
 			 * the MSG_PART_FINAL comes in. - KEY
 			 */
 			if (!(in_data_len % 64)) {
-				oc_sha2_ctx->tail_len = 64;
-				memcpy(oc_sha2_ctx->tail,
+				oc_sha256_ctx->tail_len = 64;
+				memcpy(oc_sha256_ctx->tail,
 				       (in_data + in_data_len - 64), 64);
 				in_data_len -= 64;
 			} else {
-				oc_sha2_ctx->tail_len = in_data_len & 0x3f;
+				oc_sha256_ctx->tail_len = in_data_len & 0x3f;
 			}
-			if (oc_sha2_ctx->tail_len < 64) {
+			if (oc_sha256_ctx->tail_len < 64) {
 				in_data_len &= ~0x3f;	
-				memcpy(oc_sha2_ctx->tail,
+				memcpy(oc_sha256_ctx->tail,
 				       (in_data + in_data_len),
-				       oc_sha2_ctx->tail_len);
+				       oc_sha256_ctx->tail_len);
 			}
 		} else if (ica_sha2_ctx->runningLength == 0 &&
-			   oc_sha2_ctx->tail_len > 0) {
+			   oc_sha256_ctx->tail_len > 0) {
 			/* Here we need to fill out the temporary tail
 			 * buffer until it has 64 bytes in it, then
 			 * call icaSha256 on that buffer.  If there
@@ -1408,28 +1408,28 @@ CK_RV token_specific_sha2_update(DIGEST_CONTEXT *ctx, CK_BYTE *in_data,
 			 * out, just copy in what we can and return
 			 * success without calling icaSha1. - KEY
 			 */
-			fill_size = 64 - oc_sha2_ctx->tail_len;
+			fill_size = 64 - oc_sha256_ctx->tail_len;
 			if (fill_size < in_data_len) {
-				memcpy((oc_sha2_ctx->tail
-					+ oc_sha2_ctx->tail_len),
+				memcpy((oc_sha256_ctx->tail
+					+ oc_sha256_ctx->tail_len),
 				       in_data, fill_size);
 				/* Submit the filled out save buffer */
 				if (icaSha256(adapter_handle,
 					      (unsigned int)SHA_MSG_PART_FIRST,
 					      (unsigned int)64,
-					      oc_sha2_ctx->tail,
+					      oc_sha256_ctx->tail,
 					      (unsigned int)
 					      LENGTH_SHA256_CONTEXT, 
 					      ica_sha2_ctx, 
-					      &oc_sha2_ctx->hash_len,
-					      oc_sha2_ctx->hash)) {
+					      &oc_sha256_ctx->hash_len,
+					      oc_sha256_ctx->hash)) {
 					return CKR_FUNCTION_FAILED;
 				}
 			} else {
-				memcpy((oc_sha2_ctx->tail
-					+ oc_sha2_ctx->tail_len),
+				memcpy((oc_sha256_ctx->tail
+					+ oc_sha256_ctx->tail_len),
 				       in_data, in_data_len);
-				oc_sha2_ctx->tail_len += in_data_len;
+				oc_sha256_ctx->tail_len += in_data_len;
 				return CKR_OK;
 			}
                         /* We had to use 'fill_size' bytes from
@@ -1437,38 +1437,38 @@ CK_RV token_specific_sha2_update(DIGEST_CONTEXT *ctx, CK_BYTE *in_data,
                          * data, so adjust in_data_len
                          */
                         in_data_len -= fill_size;
-                        oc_sha2_ctx->tail_len = in_data_len & 0x3f;
-                        if (oc_sha2_ctx->tail_len) {
-                                memcpy(oc_sha2_ctx->tail, in_data + fill_size,
-				       oc_sha2_ctx->tail_len);
+                        oc_sha256_ctx->tail_len = in_data_len & 0x3f;
+                        if (oc_sha256_ctx->tail_len) {
+                                memcpy(oc_sha256_ctx->tail, in_data + fill_size,
+				       oc_sha256_ctx->tail_len);
                                 in_data_len &= ~0x3f;
                         }
 		} else if (ica_sha2_ctx->runningLength > 0) {
-			oc_sha2_ctx->message_part = SHA_MSG_PART_MIDDLE;
-			if(oc_sha2_ctx->tail_len) {
-	                        fill_size = (64 - oc_sha2_ctx->tail_len);
+			oc_sha256_ctx->message_part = SHA_MSG_PART_MIDDLE;
+			if(oc_sha256_ctx->tail_len) {
+	                        fill_size = (64 - oc_sha256_ctx->tail_len);
         	                if (fill_size < in_data_len) {
-                	                memcpy(oc_sha2_ctx->tail
-					       + oc_sha_ctx->tail_len, 
+                	                memcpy(oc_sha256_ctx->tail
+					       + oc_sha256_ctx->tail_len, 
 					       in_data, fill_size);
                         	        /* Submit the filled out save buffer */
                                 	if (icaSha256(adapter_handle,
 						      (unsigned int)
-						      oc_sha2_ctx->message_part,
+						      oc_sha256_ctx->message_part,
 						      (unsigned int)64,
-						      oc_sha2_ctx->tail,
+						      oc_sha256_ctx->tail,
 						      (unsigned int)
 						      LENGTH_SHA256_CONTEXT,
 						      ica_sha2_ctx,
-						      &oc_sha2_ctx->hash_len,
-						      oc_sha2_ctx->hash)) {
+						      &oc_sha256_ctx->hash_len,
+						      oc_sha256_ctx->hash)) {
         	                                return CKR_FUNCTION_FAILED;
 					}
                 	        } else {
-                        	        memcpy((oc_sha2_ctx->tail
-						+ oc_sha2_ctx->tail_len),
+                        	        memcpy((oc_sha256_ctx->tail
+						+ oc_sha256_ctx->tail_len),
 					       in_data, in_data_len);
-	                                oc_sha2_ctx->tail_len += in_data_len;
+	                                oc_sha256_ctx->tail_len += in_data_len;
         	                        return CKR_OK;
                 	        }
 				/* We had to use some of the data from
@@ -1476,11 +1476,11 @@ CK_RV token_specific_sha2_update(DIGEST_CONTEXT *ctx, CK_BYTE *in_data,
 				 * of save data, so adjust in_data_len
 				 */
 				in_data_len -= fill_size;
-				oc_sha2_ctx->tail_len = in_data_len & 0x3f;
-				if(oc_sha2_ctx->tail_len) {
-					memcpy(oc_sha2_ctx->tail,
+				oc_sha256_ctx->tail_len = in_data_len & 0x3f;
+				if(oc_sha256_ctx->tail_len) {
+					memcpy(oc_sha256_ctx->tail,
 					       (in_data + fill_size),
-					       oc_sha2_ctx->tail_len);
+					       oc_sha256_ctx->tail_len);
 					in_data_len &= ~0x3f;	
 				}
 			} else {
@@ -1499,20 +1499,20 @@ CK_RV token_specific_sha2_update(DIGEST_CONTEXT *ctx, CK_BYTE *in_data,
 				 * the MSG_PART_FINAL comes in. - KEY
 				 */
                         	if (!(in_data_len % 64)) {
-                                	oc_sha2_ctx->tail_len = 64;
-	                                memcpy(oc_sha2_ctx->tail,
+                                	oc_sha256_ctx->tail_len = 64;
+	                                memcpy(oc_sha256_ctx->tail,
 					       (in_data + in_data_len - 64),
 					       64);
         	                        in_data_len -= 64;
                 	        } else {
-                        	        oc_sha2_ctx->tail_len =
+                        	        oc_sha256_ctx->tail_len =
 						in_data_len & 0x3f;
 				}
-				if (oc_sha2_ctx->tail_len < 64) {
+				if (oc_sha256_ctx->tail_len < 64) {
 					in_data_len &= ~0x3f;
-					memcpy(oc_sha2_ctx->tail,
+					memcpy(oc_sha256_ctx->tail,
 					       (in_data + in_data_len),
-					       oc_sha2_ctx->tail_len);
+					       oc_sha256_ctx->tail_len);
 				}
 			}
 		}
@@ -1522,17 +1522,17 @@ CK_RV token_specific_sha2_update(DIGEST_CONTEXT *ctx, CK_BYTE *in_data,
 		 * part -KEY
 		 */
 		if (ica_sha2_ctx->runningLength > 0) {
-			oc_sha2_ctx->message_part = SHA_MSG_PART_FINAL;
+			oc_sha256_ctx->message_part = SHA_MSG_PART_FINAL;
 		} else {
-			oc_sha2_ctx->message_part = SHA_MSG_PART_ONLY;
+			oc_sha256_ctx->message_part = SHA_MSG_PART_ONLY;
 		}
 	}
-	if (in_data_len || (oc_sha2_ctx->message_part == SHA_MSG_PART_FINAL)) {
+	if (in_data_len || (oc_sha256_ctx->message_part == SHA_MSG_PART_FINAL)) {
 		if (icaSha256(adapter_handle,
-			      (unsigned int)oc_sha2_ctx->message_part,
+			      (unsigned int)oc_sha256_ctx->message_part,
 			      (unsigned int)in_data_len, (in_data + fill_size),
 			      (unsigned int)LENGTH_SHA256_CONTEXT, ica_sha2_ctx,
-			      &oc_sha2_ctx->hash_len, oc_sha2_ctx->hash)) {
+			      &oc_sha256_ctx->hash_len, oc_sha256_ctx->hash)) {
 			return CKR_FUNCTION_FAILED;
 		}
 	}
@@ -1575,7 +1575,7 @@ CK_RV token_specific_sha2_final(DIGEST_CONTEXT *ctx, CK_BYTE *out_data,
 				CK_ULONG *out_data_len)
 {
 	CK_RV rv = CKR_OK;
-	oc_sha2_ctx *oc_sha2_ctx = (oc_sha2_ctx *)ctx->context;
+	oc_sha2_ctx *oc_sha256_ctx = (oc_sha2_ctx *)ctx->context;
 	int copy_len = MIN(*out_data_len, LENGTH_SHA256_HASH);
 	if (!ctx) {
 		return CKR_OPERATION_NOT_INITIALIZED;
@@ -1583,18 +1583,18 @@ CK_RV token_specific_sha2_final(DIGEST_CONTEXT *ctx, CK_BYTE *out_data,
 	if(!out_data || (*out_data_len < LENGTH_SHA256_HASH)) {
 		return CKR_FUNCTION_FAILED;
 	}
-	if ((oc_sha2_ctx->message_part != SHA_MSG_PART_FINAL)
-	    && (oc_sha2_ctx->message_part != SHA_MSG_PART_ONLY)) {
+	if ((oc_sha256_ctx->message_part != SHA_MSG_PART_FINAL)
+	    && (oc_sha256_ctx->message_part != SHA_MSG_PART_ONLY)) {
 		/* Finalize the SHA operation; tell update that this
 		 * multi-part operation is done. -KEY */
 		ctx->multi = FALSE;
-		token_specific_sha2_update(ctx, oc_sha2_ctx->tail,
-					   oc_sha2_ctx->tail_len);
+		token_specific_sha2_update(ctx, oc_sha256_ctx->tail,
+					   oc_sha256_ctx->tail_len);
 	}
-	memcpy(out_data, oc_sha2_ctx->hash, copy_len);
+	memcpy(out_data, oc_sha256_ctx->hash, copy_len);
 	*out_data_len = copy_len;
 	/* ctx->context is freed inside digest_mgr_cleanup - KEY */
-	free(oc_sha2_ctx->dev_ctx);
+	free(oc_sha256_ctx->dev_ctx);
 	return rv;
 }
 

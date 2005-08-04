@@ -1,5 +1,5 @@
 /*
- * $Header: /cvsroot/opencryptoki/opencryptoki/usr/lib/pkcs11/common/tok_specific.h,v 1.1 2005/01/18 16:09:00 kyoder Exp $
+ * $Header: /cvsroot/opencryptoki/opencryptoki/usr/lib/pkcs11/common/tok_specific.h,v 1.2 2005/08/04 16:05:44 mhalcrow Exp $
  */
 
 //
@@ -409,6 +409,18 @@ token_specific_sha_update(      DIGEST_CONTEXT  *,
 
 CK_RV
 token_specific_sha_final(       DIGEST_CONTEXT  *,
+                                CK_BYTE         *,
+                                CK_ULONG        * );
+CK_RV
+token_specific_sha2_init( DIGEST_CONTEXT * );
+
+CK_RV
+token_specific_sha2_update(      DIGEST_CONTEXT  *,
+                                CK_BYTE         *,
+                                CK_ULONG);
+
+CK_RV
+token_specific_sha2_final(       DIGEST_CONTEXT  *,
                                 CK_BYTE         *,
                                 CK_ULONG        * );
 #ifndef NOAES
