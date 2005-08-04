@@ -12,7 +12,7 @@ opencryptoki_stdll_libpkcs11_cr_la_CFLAGS = -DSPINXPL -DDEV		\
 
 # Not all versions of automake observe libname_CFLAGS
 AM_CFLAGS = -DSPINXPL -DDEV -D_THREAD_SAFE -fPIC $(VARIANT) -DNOCDMF	\
--DNOMD2 -DNODSA -DDEBUGON
+-DNOMD2 -DNODSA -DDEBUGON -DSTDLL_NAME=\"crtok\"
 
 opencryptoki_stdll_libpkcs11_cr_la_SOURCES = ../common/asn1.c	\
 ../common/cert.c ../common/hwf_obj.c ../common/dp_obj.c		\

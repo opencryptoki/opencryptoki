@@ -11,7 +11,7 @@ opencryptoki_stdll_libpkcs11_sw_la_CFLAGS = -DSPINXPL -DDEV -D_THREAD_SAFE  \
 					    -I/usr/include -I.		    \
 					    -I../../../include/pkcs11/stdll \
 					    -I../../../include/pkcs11	    \
-					    -I../common
+					    -I../common -DSTDLL_NAME=\"swtok\"
 
 # Not all versions of automake observe libname_CFLAGS
 AM_CFLAGS = -DSPINXPL -DDEV -D_THREAD_SAFE -DSHALLOW=0 \
