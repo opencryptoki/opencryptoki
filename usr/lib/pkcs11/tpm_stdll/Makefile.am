@@ -10,14 +10,14 @@ AUTOMAKE_OPTIONS = gnu
 
 # Not all versions of automake observe libname_CFLAGS
 opencryptoki_stdll_libpkcs11_tpm_la_CFLAGS = -DLINUX -DSPINXPL -DNOCDMF	\
-					     -DNODSA			\
+					     -DNODSA -DNODH		\
 					     -I. -I../../../include	\
 					     -I../../../include/pkcs11	\
 					     -I../common		\
 					     -DSTDLL_NAME=\"tpmtok\"
 
 # Not all versions of automake observe libname_CFLAGS
-AM_CFLAGS = -DLINUX -DSPINXPL -DNOCDMF -DNODSA -I. \
+AM_CFLAGS = -DLINUX -DSPINXPL -DNOCDMF -DNODSA -DNODH -I. \
 	    -I../../../include -I../../../include/pkcs11 \
 	    -I../common
 
