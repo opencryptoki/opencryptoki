@@ -9,7 +9,7 @@ VARIANT = -DSHALLOW=0 -DSWTOK=1 -DLITE=0
 # Not all versions of automake observe libname_CFLAGS
 opencryptoki_stdll_libpkcs11_bc_la_CFLAGS = -DSPINXPL -DDEV		\
 -D_THREAD_SAFE -fPIC $(VARIANT) -DNOCDMF -DNOMD2 -DNODSA -DNOAES	\
--DNODH -DDEBUGON -DNORIPE
+-DNODH -DDEBUGON -DNORIPE -DSTDLL_NAME=\"bcomtok\"
 
 # Not all versions of automake observe libname_CFLAGS
 AM_CFLAGS = -DSPINXPL -DDEV -D_THREAD_SAFE -fPIC $(VARIANT) -DNOCDMF	\
