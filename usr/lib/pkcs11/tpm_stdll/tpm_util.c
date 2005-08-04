@@ -35,7 +35,7 @@
 #include "pkcs11/stdll.h"
 #include "defs.h"
 #include "host_defs.h"
-#include "args.h"
+#include "../common/args.h"
 #include "h_extern.h"
 
 #include "tpm_specific.h"
@@ -70,7 +70,8 @@ util_create_id(int type)
 		case TPMTOK_PRIVATE_ROOT_KEY:
 			size = TPMTOK_PRIVATE_ROOT_KEY_ID_SIZE + 1;
 			if ((ret = malloc(size)) == NULL) {
-				st_err_log("CKR_HOST_MEMORY");
+				LogError("malloc of %d bytes failed.",
+						size);
 				break;
 			}
 
@@ -79,7 +80,8 @@ util_create_id(int type)
 		case TPMTOK_PUBLIC_ROOT_KEY:
 			size = TPMTOK_PUBLIC_ROOT_KEY_ID_SIZE + 1;
 			if ((ret = malloc(size)) == NULL) {
-				st_err_log("CKR_HOST_MEMORY");
+				LogError("malloc of %d bytes failed.",
+						size);
 				break;
 			}
 
@@ -88,7 +90,8 @@ util_create_id(int type)
 		case TPMTOK_PUBLIC_LEAF_KEY:
 			size = TPMTOK_PUBLIC_LEAF_KEY_ID_SIZE + 1;
 			if ((ret = malloc(size)) == NULL) {
-				st_err_log("CKR_HOST_MEMORY");
+				LogError("malloc of %d bytes failed.",
+						size);
 				break;
 			}
 
@@ -97,7 +100,8 @@ util_create_id(int type)
 		case TPMTOK_PRIVATE_LEAF_KEY:
 			size = TPMTOK_PRIVATE_LEAF_KEY_ID_SIZE + 1;
 			if ((ret = malloc(size)) == NULL) {
-				st_err_log("CKR_HOST_MEMORY");
+				LogError("malloc of %d bytes failed.",
+						size);
 				break;
 			}
 
