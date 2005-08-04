@@ -39,6 +39,7 @@
 #include <pkcs11/stdll.h>
 #include "defs.h"
 #include "host_defs.h"
+#include "tok_spec_struct.h"
 #include "h_extern.h"
 
 //
