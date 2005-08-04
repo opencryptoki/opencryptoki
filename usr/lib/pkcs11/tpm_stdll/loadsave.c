@@ -317,7 +317,9 @@
 #include "pkcs32.h"
 //#include "args.h"
 
-//extern void  st_err_log(char *fmt, ...);
+#define MK_SIZE (AES_KEY_SIZE_256)
+
+extern CK_BYTE master_key_private[MK_SIZE];
 
 void
 set_perm(int file)
