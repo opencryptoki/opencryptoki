@@ -45,7 +45,9 @@
 #include <openssl/des.h>
 #include <openssl/rand.h>
 #include <openssl/rsa.h>
+#ifndef NODH
 #include <openssl/dh.h>
+#endif
 #include <openssl/aes.h>
 #include <openssl/evp.h>
 
@@ -2642,6 +2644,7 @@ token_specific_aes_cbc(	CK_BYTE		*in_data,
 	return CKR_OK;
 }
 
+#ifndef NODH
 /* Begin code contributed by Corrent corp. */ 
 
 // This computes DH shared secret, where:
@@ -2864,4 +2867,4 @@ token_specific_dh_pkcs_key_pair_gen( TEMPLATE  * publ_tmpl,
 
 }
 
-
+#endif
