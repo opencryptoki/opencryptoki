@@ -411,6 +411,18 @@ CK_RV
 token_specific_sha_final(       DIGEST_CONTEXT  *,
                                 CK_BYTE         *,
                                 CK_ULONG        * );
+CK_RV
+token_specific_sha2_init( DIGEST_CONTEXT * );
+
+CK_RV
+token_specific_sha2_update(      DIGEST_CONTEXT  *,
+                                CK_BYTE         *,
+                                CK_ULONG);
+
+CK_RV
+token_specific_sha2_final(       DIGEST_CONTEXT  *,
+                                CK_BYTE         *,
+                                CK_ULONG        * );
 #ifndef NOAES
 CK_RV
 token_specific_aes_key_gen( CK_BYTE *,
