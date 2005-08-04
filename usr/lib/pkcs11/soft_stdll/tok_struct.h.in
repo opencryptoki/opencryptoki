@@ -348,7 +348,10 @@ token_spec_t token_specific  = {
      NULL, // SHA-1 in the soft token is integrated already, as token
      NULL, // specific SHA-1 is new. As a TODO, the soft SHA-1 routines
      NULL, // should probably move to functions plugged in here.
-
+     /* SHA-256 */
+     NULL,
+     NULL,
+     NULL,
      // AES
      &token_specific_aes_key_gen,
      &token_specific_aes_ecb,
