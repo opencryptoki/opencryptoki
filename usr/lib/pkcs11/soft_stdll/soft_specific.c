@@ -306,7 +306,7 @@
 #include "pkcs11types.h"
 #include "defs.h"
 #include "host_defs.h"
-//#include "h_extern.h"
+#include "h_extern.h"
 #include "args.h"
 #include "errno.h"
 #include "tok_specific.h"
@@ -341,7 +341,6 @@ CK_RV
 token_specific_session(CK_SLOT_ID  slotid)
 {
        return CKR_OK;
-
 }
 
 CK_RV
