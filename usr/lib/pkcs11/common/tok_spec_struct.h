@@ -1,5 +1,5 @@
 /*
- * $Header: /cvsroot/opencryptoki/opencryptoki/usr/lib/pkcs11/common/tok_spec_struct.h,v 1.1 2005/01/18 16:09:01 kyoder Exp $
+ * $Header: /cvsroot/opencryptoki/opencryptoki/usr/lib/pkcs11/common/tok_spec_struct.h,v 1.2 2005/08/04 02:03:26 mhalcrow Exp $
  */
 
 //
@@ -373,6 +373,18 @@ struct token_specific_struct{
 			CK_ULONG);
    
    CK_RV (*t_sha_final)(
+		   	DIGEST_CONTEXT *,
+			CK_BYTE *,
+			CK_ULONG *);
+   // Token Specific SHA256 functions 
+   CK_RV (*t_sha2_init)(DIGEST_CONTEXT *);
+   
+   CK_RV (*t_sha2_update)(
+		   	DIGEST_CONTEXT *,
+			CK_BYTE	*,
+			CK_ULONG);
+   
+   CK_RV (*t_sha2_final)(
 		   	DIGEST_CONTEXT *,
 			CK_BYTE *,
 			CK_ULONG *);

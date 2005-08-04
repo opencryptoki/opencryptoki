@@ -1,5 +1,5 @@
 /*
- * $Header: /cvsroot/opencryptoki/opencryptoki/usr/lib/pkcs11/common/defs.h,v 1.2 2005/02/22 20:47:44 mhalcrow Exp $
+ * $Header: /cvsroot/opencryptoki/opencryptoki/usr/lib/pkcs11/common/defs.h,v 1.3 2005/08/04 02:03:26 mhalcrow Exp $
  */
 
 //
@@ -394,6 +394,19 @@ typedef struct _sha1_ctx {
    char tail[64];	/* save the last (up to) 64 bytes which may need to be shaved */ 
    void *dev_ctx;
 } oc_sha1_ctx;
+
+#define SHA2_HASH_SIZE  32
+#define SHA2_BLOCK_SIZE 64
+
+typedef struct _sha2_ctx {
+   unsigned char hash[SHA2_HASH_SIZE+1];
+   unsigned int hash_len, tail_len;
+   int message_part; /* needs to be seen across calls to update and
+		      * final */
+   char tail[64]; /* save the last (up to) 64 bytes which may need to
+		   * be shaved */ 
+   void *dev_ctx;
+} oc_sha2_ctx;
 
 #define MD2_HASH_SIZE   16
 #define MD2_BLOCK_SIZE  48

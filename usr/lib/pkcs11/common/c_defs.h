@@ -1,5 +1,5 @@
 /*
- * $Header: /cvsroot/opencryptoki/opencryptoki/usr/lib/pkcs11/common/c_defs.h,v 1.1 2005/01/18 16:09:00 kyoder Exp $
+ * $Header: /cvsroot/opencryptoki/opencryptoki/usr/lib/pkcs11/common/c_defs.h,v 1.2 2005/08/04 02:03:26 mhalcrow Exp $
  */
 
 //
@@ -329,6 +329,9 @@
 
 #define SHA1_HASH_SIZE  20
 #define SHA1_BLOCK_SIZE 64
+
+#define SHA2_HASH_SIZE  32
+#define SHA2_BLOCK_SIZE 64
 
 #define MD2_HASH_SIZE   16
 #define MD2_BLOCK_SIZE  48
