@@ -308,6 +308,9 @@
 #ifndef _H_EXTERN_H
 #define _H_EXTERN_H
 
+#include <stdio.h>
+#include "msg.h"
+
 #if (LEEDS_BUILD)
 #pragma options align=packed
 #endif
@@ -2262,5 +2265,55 @@ extern token_spec_t token_specific;
 #if (LEEDS_BUILD)
 #pragma options align=full
 #endif
+
+/* logging */
+/* log to stdout */
+#define LogMessage(dest, priority, layer, fmt, ...) \
+	do { \
+		fprintf(dest, "%s %s %s:%d " fmt "\n", priority, layer, __FILE__, __LINE__, ## __VA_ARGS__); \
+	} while (0)
+
+#define LogMessage1(dest, priority, layer, data) \
+	do { \
+		fprintf(dest, "%s %s %s:%d %s\n", priority, layer, __FILE__, __LINE__, data); \
+	} while (0)
+
+/* Debug logging */
+#ifdef DEBUG
+#define LogDebug(fmt, ...)      LogMessage(stdout, "LOG_DEBUG", STDLL_NAME, fmt, ##__VA_ARGS__)
+#define LogDebug1(data)         LogMessage1(stdout, "LOG_DEBUG", STDLL_NAME, data)
+
+/* Error logging */
+#define LogError(fmt, ...)      LogMessage(stderr, "LOG_ERR", STDLL_NAME, "ERROR: " fmt, ##__VA_ARGS__)
+#define LogError1(data)         LogMessage1(stderr, "LOG_ERR", STDLL_NAME, "ERROR: " data)
+
+/* Warn logging */
+#define LogWarn(fmt, ...)       LogMessage(stdout, "LOG_WARNING", STDLL_NAME, "WARNING: " fmt, ##__VA_ARGS__)
+#define LogWarn1(data)          LogMessage1(stdout, "LOG_WARNING", STDLL_NAME, "WARNING: " data)
+
+/* Info Logging */
+#define LogInfo(fmt, ...)       LogMessage(stdout, "LOG_INFO", STDLL_NAME, fmt, ##__VA_ARGS__)
+#define LogInfo1(data)          LogMessage1(stdout, "LOG_INFO", STDLL_NAME, data)
+
+#define st_err_log(num, ...)    LogMessage(stderr, "ERROR", STDLL_NAME, "%s", err_msg[num].msg)
+#else
+#define LogDebug(fmt, ...)
+#define LogDebug1(data)
+#define LogBlob(sz,blb)
+#define LogError(fmt, ...)
+#define LogError1(data)
+#define LogWarn(fmt, ...)
+#define LogWarn1(data)
+#define LogInfo(fmt, ...)
+#define LogInfo1(data)
+
+#define st_err_log(...)
+#endif
+
+/* CKA_HIDDEN will be used to filter return results on a C_FindObjects call.
+ * Used for objects internal to a token for management of that token */
+#define CKA_HIDDEN              CKA_VENDOR_DEFINED + 0x01000000
+
+
 
 #endif
