@@ -464,6 +464,7 @@ st_err_log(char *fmt, ...)
 }
 */
 
+#if 0
 void
 st_err_log(int num, ...)
 {
@@ -484,4 +485,243 @@ st_err_log(int num, ...)
    }
 
 }
+#endif
+
+/* moved in from msg.h */
+
+struct messages err_msg[]={
+		{"Malloc Failed"},
+		{"Not Enough Memory in Context"},
+		{"Slot Invalid"},
+		{"General Error"},
+		{"%s Function Failed"},
+		//#5
+		{"%s Bad Arguments"},
+		{"No Event"},
+		{"Attribute Read Only"},
+		{"Attribute Type Invalid"},
+		{"Attribute Value Invalid"},
+		//#10
+		{"Data Invalid"},
+		{"Data Length out of Range"},
+		{"Device Error"},
+		{"Device Removed"},
+		{"Encrypted Data Invalid"},
+		//15
+		{"Encrypted Data Length out of Range"},
+		{"Function Cancelled"},
+		{"Function Not Parallel"},
+		{"Key Handle Invalid"},
+		{"Key Size out of Range"},
+		//20
+		{"Key Type Inconsistent"},
+		{"Key Not Needed"},
+		{"Key Changed"},
+		{"Key Needed"},
+		{"Key Indigestible"},
+		//25
+		{"Key Function Not Permitted"},
+		{"Key Not Wrappable"},
+		{"Key Unextractable"},
+		{"Mechanism Invalid"},
+		{"Mechanism Param Invalid"},
+		//30
+		{"Object Handle Invalid"},
+		{"Operation Active"},
+		{"Operation Not Initialized"},
+		{"Pin Incorrect"},
+		{"Pin Invalid"},
+		//35
+		{"Pin Length out of Range"},
+		{"Pin Expired"},
+		{"Pin Locked"},
+		{"Session Closed"},
+		{"Session Count"},
+		//40
+		{"Session Handle Invalid"},
+		{"Parallel Session Not Supported"},
+		{"Session Read Only"},
+		{"Session Exists"},
+		{"Session Read only Exists"},
+		//45
+		{"Session Read Write Exists"},
+		{"Signature Length out of Range"},
+		{"Signature Invalid"},
+		{"Template Incomplete"},
+		{"Template Inconsistent"},
+		//50
+		{"Token Not Present"},
+		{"Token Not Recognized"},
+		{"Token Write Protected"},
+		{"Unwrapping Key Handle Invalid"},
+		{"Unwrapping Key Size Range Invalid"},
+		//55
+		{"Unwrapping Key Type Inconsistent"},
+		{"User Already Logged In"},
+		{"User Not Logged In"},
+		{"User PIN Not Initialized"},
+		{"User Type Invalid"},
+		//60
+		{"Another User Already Logged In"},
+		{"Too Many User Types"},
+		{"Wrapped Key Invalid"},
+		{"Wrapped Key Length Out of Range"},
+		{"Wrapping Key Size out of Range"},
+		//65
+		{"Wrapping Key Type Inconsistent"},
+		{"Random Seed Not Supported"},
+		{"Random Number Invalid"},
+		{"Buffer Too Small"},
+		{"Saved State Invalid"},
+		//70
+		{"Information Sensitive"},
+		{"State Unsaveable"},
+		{"API not initialized"},
+		{"API already Initialized"},
+		{"Mutex Bad"},
+		//75
+		{"Mutex Lock Invalid"},
+		{"Encode Integer Failed"},
+		{"Encode Octet String Failed"},
+		{"Encode Sequence Failed"},
+		{"Decode Integer Failed"},
+		//80
+		{"Decode Octet String Failed"},
+		{"Decode Sequence Failed"},
+		{"Encode Private Key Failed"},
+		{"Decode Private Key Failed"},
+		{"Build Attribute Failed"},
+		//85
+		{"Function Not Permitted"},
+		{"Key Not Exportable"},
+		{"Encode Private Key failed"},
+		{"Decode Private Key failed"},
+		{"Object Mgr Create Skeleton failed"},
+		//90
+		{"Object Mgr Create Final failed"},
+		{"Key Generation failed"},
+		{"DES Wrap Get Data Failed"},
+		{"DES3 Wrap Get Data Failed"},
+		{"RSA Wrap Get Data Failed"},
+		//95
+		{"DSA Wrap Get Data Failed"},
+		{"Generic Secret Wrap Get Data Failed"},
+		{"DES Wrap Format Failed"},
+		{"Encryption Mgr Init Failed"},
+		{"Encryption Mgr Encrypt Failed"},
+		//100
+		{"Decryption Mgr Decrypt Failed"},
+		{"Flatten Object Failed"},
+		{"Key Mgr Get Priv Key Type Failed"},
+		{"Decrypt Private Key Info Failed"},
+		{"Save Token Failed"},
+		//105
+		{"Triple DES CBC Encrypt Failed"},
+		{"Triple DES CBC Decrypt Failed"},
+		{"Restore Private Token Failed"},
+		{"Restore Object Failed"},
+		{"Data Length Out of Range"},
+		//110
+		{"Object Manager Find in Map Failed"},
+		{"Token Specific RNG Failed"},
+		{"Encrypted Data Length Out of Range"},
+		{"DES CBC Encrypt Failed"},
+		{"DES CBC Decrypt Failed"},
+		//115
+		{"DES ECB Encrypt Failed"},
+		{"DES ECB Decrypt Failed"},
+		{"Token Specific DES ECB Failed"},
+		{"Token Specific DES CBC Failed"},
+		{"Token Specific 3DES CBC Failed"},
+		//120
+		{"Token Specific 3DES ECB Failed"},
+		{"DSA Verify Failed"},
+		{"DSA Sign Failed"},
+		{"Digest Init Failed"},
+		{"Digest Failed"},
+		//125
+		{"Digest Update Failed"},
+		{"Digest Final Failed"},
+		{"Sign Init Failed"},
+		{"Sign Update Failed"},
+		{"Sign Final Failed"},
+		//130
+		{"Random Number Generate Failed"},
+		{"RSA Format Block Failed"},
+		{"RSA Encrypt Failed"},
+		{"RSA Decrypt Failed"},
+		{"Token Specific RSA Encrypt Failed"},
+		//135
+		{"Token Specific RSA Decrypt Failed"},
+		{"SSL SHA Failed"},
+		{"SSL3 MD5 Failed"},
+		{"SSL3 Process MAC Keys Failed"},
+		{"SSL3 Process Write Keys Failed"},
+		//140
+		{"Validate Attribute Failed"},
+		{"SSL3 Process Write Keys Failed"},
+		{"%s Function Not Supported"},
+		{"Token Already Initialized"},
+		{"Cannot Attach to Shared Memory"},
+		//145
+		{"Token Specific Init Failed"},
+		{"Mutex Lock Failed"},
+		{"Mutex Unlock Failed"},
+		{"Hash Computation Failed"},
+		{"Save Master Key Failed"},
+		//150
+		{"Process Lock Failed"},
+		{"Process Unlock Failed"},
+		{"Session Mgr New Failed"},
+		{"Close all Sessions Failed"},
+		{"Session Mgr Get Op State Failed"},
+		//155
+		{"Load Master Key Failed"},
+		{"Object Create Failed"},
+		{"Object Mgr Add to Map Failed"},
+		{"Object Copy Failed"},
+		{"Object Get Attribute Values Failed"},
+		//160
+		{"Object Restore Data Failed"},
+		{"Object Set Attribute Values Failed"},
+		{"Object Mgr Search for Object Failed"},
+		{"Copy Template Failed"},
+		{"Add Attribute Failed"},
+		//165
+		{"Check Required Attributes Failed"},
+		{"Unflatten Template Failed"},
+		{"Verify Init Failed"},
+		{"Verify Failed"},
+		{"Verify Update Failed"},
+		//170
+		{"Verify Final Failed"},
+		{"Sign Failed"},
+		{"Set Default Attributes Failed"},
+		{"Unwrap Key Failed"},
+		{"Session Mgr New Failed"},
+		//175
+		{"Merge Attributes Failed"},
+		{"Encryption Mgr Encrypt Update Failed"},
+		{"Encryption Mgr Encrypt Final Failed"},
+		{"Update Attribute Failed"},
+		{"Decryption Mgr Init Failed"},
+		//180
+		{"Decryption Mgr Update Failed"},
+		{"Decryption Mgr Final Failed"},
+		{"Object Mgr Destroy Failed"},
+		{"Attribute Undefined"},
+		{"Object Mgr Get Size Failed"},
+		//185
+		{"Object Manager Find Init Failed"},
+		{"Sign Recover Failed"},
+		{"Verify Recover Failed"},
+		{"Wrap Key Failed"},
+		{"Unwrap Key Failed"},
+		//190
+		{"Derive Key Failed"},
+		{"AES Wrap Get Data Failed"},
+		{"AES Wrap Format Failed"},
+		{"Domain Parameter Invalid"},
+		{"File \"%s\" could not be opened, errno=%d"}
+};
 
