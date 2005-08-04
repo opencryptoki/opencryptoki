@@ -376,6 +376,18 @@ struct token_specific_struct{
 		   	DIGEST_CONTEXT *,
 			CK_BYTE *,
 			CK_ULONG *);
+   // Token Specific SHA256 functions 
+   CK_RV (*t_sha2_init)(DIGEST_CONTEXT *);
+   
+   CK_RV (*t_sha2_update)(
+		   	DIGEST_CONTEXT *,
+			CK_BYTE	*,
+			CK_ULONG);
+   
+   CK_RV (*t_sha2_final)(
+		   	DIGEST_CONTEXT *,
+			CK_BYTE *,
+			CK_ULONG *);
 #ifndef NOAES
    // Token Specific AES functions
    CK_RV (*t_aes_key_gen)(

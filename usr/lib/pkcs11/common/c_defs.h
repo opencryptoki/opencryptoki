@@ -330,6 +330,9 @@
 #define SHA1_HASH_SIZE  20
 #define SHA1_BLOCK_SIZE 64
 
+#define SHA2_HASH_SIZE  32
+#define SHA2_BLOCK_SIZE 64
+
 #define MD2_HASH_SIZE   16
 #define MD2_BLOCK_SIZE  48
 
