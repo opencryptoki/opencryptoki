@@ -46,13 +46,12 @@
 
 #include "defs.h"
 #include "host_defs.h"
-#include "h_extern.h"
 #include "tok_spec_struct.h"
+#include "h_extern.h"
 #include <pkcs11/pkcs32.h>
 
 #include "tpm_specific.h"
 
-#define UCHAR  unsigned char
 
 char *pk_dir;
 void SC_SetFunctionList(void);
