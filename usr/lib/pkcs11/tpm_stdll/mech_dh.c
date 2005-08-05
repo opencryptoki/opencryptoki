@@ -31,6 +31,8 @@
 #include "h_extern.h"
 #include "tok_spec_struct.h"
 
+#ifndef NODH
+
 //
 //
 CK_RV
@@ -226,3 +228,4 @@ ckm_dh_pkcs_key_pair_gen( TEMPLATE  * publ_tmpl,
 
    return rc;
 }
+#endif
