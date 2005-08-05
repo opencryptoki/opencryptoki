@@ -29,12 +29,12 @@ opencryptoki_stdll_libpkcs11_tpm_la_SOURCES = ../common/asn1.c           \
                                               ../common/hwf_obj.c        \
                                               ../common/log.c            \
 					      ../common/key.c            \
-                                              ../common/mech_dh.c        \
+                                              mech_dh.c        \
                                               ../common/mech_rng.c       \
                                               new_host.c sign_mgr.c      \
                                               ../common/cert.c           \
                                               ../common/dp_obj.c         \
-                                              ../common/mech_aes.c       \
+                                              mech_aes.c       \
                                               ../common/$(MECH_DSA)      \
                                               mech_rsa.c                 \
                                               ../common/obj_mgr.c        \
@@ -42,12 +42,12 @@ opencryptoki_stdll_libpkcs11_tpm_la_SOURCES = ../common/asn1.c           \
                                               ../common/data_obj.c       \
                                               encr_mgr.c key_mgr.c       \
                                               ../common/mech_md2.c       \
-                                              ../common/mech_sha.c       \
+                                              mech_sha.c       \
                                               ../common/object.c         \
                                               decr_mgr.c globals.c       \
                                               loadsave.c utility.c       \
-                                              ../common/mech_des.c       \
-                                              ../common/mech_des3.c      \
+                                              mech_des.c       \
+                                              mech_des3.c      \
                                               ../common/mech_md5.c       \
                                               ../common/mech_ssl3.c      \
                                               ../common/sess_mgr.c       \
