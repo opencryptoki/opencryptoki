@@ -53,6 +53,9 @@
 #include "tpm_specific.h"
 
 
+/* Declared in obj_mgr.c */
+extern pthread_mutex_t obj_list_rw_mutex;
+
 char *pk_dir;
 void SC_SetFunctionList(void);
 
@@ -435,6 +438,9 @@ CK_RV ST_Initialize( void **FunctionList,
 
 	MY_CreateMutex( &pkcs_mutex      );
 	MY_CreateMutex( &obj_list_mutex  );
+	if (pthread_rwlock_init(&obj_list_rw_mutex, NULL)) {
+		st_err_log(145, __FILE__, __LINE__);
+	}
 	MY_CreateMutex( &sess_list_mutex );
 	MY_CreateMutex( &login_mutex     );
 
