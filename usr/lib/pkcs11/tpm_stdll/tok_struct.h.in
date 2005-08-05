@@ -40,8 +40,10 @@ struct token_specific_struct token_specific = {
      &token_specific_rsa_sign,
      &token_specific_rsa_verify,
      &token_specific_rsa_generate_keypair,
+#ifndef NODH
      &token_specific_dh_pkcs_derive,
      &token_specific_dh_pkcs_key_pair_gen,
+#endif
      // SHA-1 - use the internal implementation
      NULL,
      NULL,
