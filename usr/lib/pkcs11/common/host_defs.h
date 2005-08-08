@@ -1,5 +1,5 @@
 /*
- * $Header: /cvsroot/opencryptoki/opencryptoki/usr/lib/pkcs11/common/host_defs.h,v 1.4 2005/06/17 16:19:44 sbade Exp $
+ * $Header: /cvsroot/opencryptoki/opencryptoki/usr/lib/pkcs11/common/host_defs.h,v 1.5 2005/08/08 15:15:42 kyoder Exp $
  */
 
 
@@ -300,6 +300,7 @@
 
 #include <semaphore.h>
 #include <pthread.h>
+#include <endian.h>
 
 #include "pkcs32.h"
 // Both of the strings below have a length of 32 chars and must be
