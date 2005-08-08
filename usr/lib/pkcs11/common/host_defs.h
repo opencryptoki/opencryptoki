@@ -300,6 +300,7 @@
 
 #include <semaphore.h>
 #include <pthread.h>
+#include <endian.h>
 
 #include "pkcs32.h"
 // Both of the strings below have a length of 32 chars and must be
