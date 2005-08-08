@@ -597,7 +597,7 @@ tss_generate_key(TSS_FLAG initFlags, BYTE *passHash, TSS_HKEY hParentKey, TSS_HK
 		return result;
 	}
 
-	if (initFlags & TSS_KEY_TYPE_LEGACY) {
+	if (TSS_KEY_TYPE(initFlags) == TSS_KEY_TYPE_LEGACY) {
 		if ((result = Tspi_SetAttribUint32(*phKey, TSS_TSPATTRIB_KEY_INFO,
 							TSS_TSPATTRIB_KEYINFO_ENCSCHEME,
 							TSS_ES_RSAESPKCSV15))) {
