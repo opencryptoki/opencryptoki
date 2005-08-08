@@ -305,7 +305,7 @@
 #include "h_extern.h"
 #include "tok_spec_struct.h"
 
-pthread_mutex_t obj_list_rw_mutex = PTHREAD_MUTEX_INITIALIZER;
+pthread_rwlock_t obj_list_rw_mutex = PTHREAD_RWLOCK_INITIALIZER;
 
 CK_RV
 object_mgr_add( SESSION          * sess,
