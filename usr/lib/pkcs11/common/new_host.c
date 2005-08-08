@@ -322,7 +322,7 @@
 #define UCHAR  unsigned char
 
 /* Declared in obj_mgr.c */
-extern pthread_mutex_t obj_list_rw_mutex;
+extern pthread_rwlock_t obj_list_rw_mutex;
 
 char *pk_dir;
 void SC_SetFunctionList(void);
