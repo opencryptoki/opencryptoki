@@ -858,7 +858,16 @@ display_slot_info(void){
       printf(PKCSINIT_MSG(SLOTINFO, "Slot #%d Info\n"), SlotList[lcv]);
       printf(PKCSINIT_MSG(SLOTDESC, "\tDescription: %.64s\n"), SlotInfo.slotDescription);
       printf(PKCSINIT_MSG(MANUFACT, "\tManufacturer: %.32s\n"), SlotInfo.manufacturerID);
-      printf(PKCSINIT_MSG(FLAGS, "\tFlags: 0x%X\n"), SlotInfo.flags);
+      printf(PKCSINIT_MSG(FLAGS, "\tFlags: 0x%X ("), SlotInfo.flags);
+
+      if (SlotInfo.flags & CKF_TOKEN_PRESENT)
+	      printf(PKCSINIT_MSG(FLAGS, "TOKEN_PRESENT|"));
+      if (SlotInfo.flags & CKF_REMOVABLE_DEVICE)
+	      printf(PKCSINIT_MSG(FLAGS, "REMOVABLE_DEVICE|"));
+      if (SlotInfo.flags & CKF_HW_SLOT)
+	      printf(PKCSINIT_MSG(FLAGS, "HW_SLOT|"));
+      printf(")\n");
+
       printf(PKCSINIT_MSG(HWVERSION, "\tHardware Version: %d.%d\n"),
             SlotInfo.hardwareVersion.major,
             SlotInfo.hardwareVersion.minor);
@@ -948,8 +957,8 @@ display_token_info(void){
       if (TokenInfo.flags & CKF_SO_PIN_LOCKED)
 	      printf(PKCSINIT_MSG(FLAGS, "SO_PIN_LOCKED|"));
       if (TokenInfo.flags & CKF_SO_PIN_TO_BE_CHANGED)
-	      printf(PKCSINIT_MSG(FLAGS, "SO_PIN_TO_BE_CHANGED"));
-      printf(")\n");
+	      printf(PKCSINIT_MSG(FLAGS, "SO_PIN_TO_BE_CHANGED|"));
+      printf(")\n");
 
       printf(PKCSINIT_MSG(SESSIONS, "\tSessions: %d/%d\n"), TokenInfo.ulSessionCount,
             TokenInfo.ulMaxSessionCount);
