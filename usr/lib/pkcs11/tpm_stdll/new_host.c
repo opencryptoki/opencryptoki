@@ -1571,8 +1571,10 @@ CK_RV SC_Login( ST_SESSION_HANDLE   sSession,
 			*flags &=       ~(CKF_USER_PIN_LOCKED |
 					CKF_USER_PIN_FINAL_TRY |
 					CKF_USER_PIN_COUNT_LOW);
-		} else {
+		} else if (rc == CKR_PIN_INCORRECT) {
 			set_login_flags(userType, flags);
+			goto done;
+		} else {
 			goto done;
 		}
 	} else {
@@ -1588,8 +1590,10 @@ CK_RV SC_Login( ST_SESSION_HANDLE   sSession,
 			*flags &=       ~(CKF_SO_PIN_LOCKED |
 					CKF_SO_PIN_FINAL_TRY |
 					CKF_SO_PIN_COUNT_LOW);
-		} else {
+		} else if (rc == CKR_PIN_INCORRECT) {
 			set_login_flags(userType, flags);
+			goto done;
+		} else {
 			goto done;
 		}
 	}
