@@ -910,7 +910,47 @@ display_token_info(void){
       printf(PKCSINIT_MSG(MANUFACT, "\tManufacturer: %.32s\n"), TokenInfo.manufacturerID);
       printf(PKCSINIT_MSG(MODEL, "\tModel: %.16s\n"), TokenInfo.model);
       printf(PKCSINIT_MSG(SERIAL, "\tSerial Number: %.16s\n"), TokenInfo.serialNumber);
-      printf(PKCSINIT_MSG(FLAGS, "\tFlags: 0x%X\n"), TokenInfo.flags);
+      printf(PKCSINIT_MSG(FLAGS, "\tFlags: 0x%X ("), TokenInfo.flags);
+
+      /* print more informative flag message */
+      if (TokenInfo.flags & CKF_RNG)
+	      printf(PKCSINIT_MSG(FLAGS, "RNG|"));
+      if (TokenInfo.flags & CKF_WRITE_PROTECTED)
+	      printf(PKCSINIT_MSG(FLAGS, "WRITE_PROTECTED|"));
+      if (TokenInfo.flags & CKF_LOGIN_REQUIRED)
+	      printf(PKCSINIT_MSG(FLAGS, "LOGIN_REQUIRED|"));
+      if (TokenInfo.flags & CKF_USER_PIN_INITIALIZED)
+	      printf(PKCSINIT_MSG(FLAGS, "USER_PIN_INITIALIZED|"));
+      if (TokenInfo.flags & CKF_RESTORE_KEY_NOT_NEEDED)
+	      printf(PKCSINIT_MSG(FLAGS, "RESTORE_KEY_NOT_NEEDED|"));
+      if (TokenInfo.flags & CKF_CLOCK_ON_TOKEN)
+	      printf(PKCSINIT_MSG(FLAGS, "CLOCK_ON_TOKEN|"));
+      if (TokenInfo.flags & CKF_PROTECTED_AUTHENTICATION_PATH)
+	      printf(PKCSINIT_MSG(FLAGS, "PROTECTED_AUTHENTICATION_PATH|"));
+      if (TokenInfo.flags & CKF_DUAL_CRYPTO_OPERATIONS)
+	      printf(PKCSINIT_MSG(FLAGS, "DUAL_CRYPTO_OPERATIONS|"));
+      if (TokenInfo.flags & CKF_TOKEN_INITIALIZED)
+	      printf(PKCSINIT_MSG(FLAGS, "TOKEN_INITIALIZED|"));
+      if (TokenInfo.flags & CKF_SECONDARY_AUTHENTICATION)
+	      printf(PKCSINIT_MSG(FLAGS, "SECONDARY_AUTHENTICATION|"));
+      if (TokenInfo.flags & CKF_USER_PIN_COUNT_LOW)
+	      printf(PKCSINIT_MSG(FLAGS, "USER_PIN_COUNT_LOW|"));
+      if (TokenInfo.flags & CKF_USER_PIN_FINAL_TRY)
+	      printf(PKCSINIT_MSG(FLAGS, "USER_PIN_FINAL_TRY|"));
+      if (TokenInfo.flags & CKF_USER_PIN_LOCKED)
+	      printf(PKCSINIT_MSG(FLAGS, "USER_PIN_LOCKED|"));
+      if (TokenInfo.flags & CKF_USER_PIN_TO_BE_CHANGED)
+	      printf(PKCSINIT_MSG(FLAGS, "USER_PIN_TO_BE_CHANGED|"));
+      if (TokenInfo.flags & CKF_SO_PIN_COUNT_LOW)
+	      printf(PKCSINIT_MSG(FLAGS, "SO_PIN_COUNT_LOW|"));
+      if (TokenInfo.flags & CKF_SO_PIN_FINAL_TRY)
+	      printf(PKCSINIT_MSG(FLAGS, "SO_PIN_FINAL_TRY|"));
+      if (TokenInfo.flags & CKF_SO_PIN_LOCKED)
+	      printf(PKCSINIT_MSG(FLAGS, "SO_PIN_LOCKED|"));
+      if (TokenInfo.flags & CKF_SO_PIN_TO_BE_CHANGED)
+	      printf(PKCSINIT_MSG(FLAGS, "SO_PIN_TO_BE_CHANGED"));
+      printf(")\n");
+
       printf(PKCSINIT_MSG(SESSIONS, "\tSessions: %d/%d\n"), TokenInfo.ulSessionCount,
             TokenInfo.ulMaxSessionCount);
       printf(PKCSINIT_MSG(RWSESSIONS, "\tR/W Sessions: %d/%d\n"),
