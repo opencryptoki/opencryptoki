@@ -1291,10 +1291,11 @@ CK_RV SC_SetPIN( ST_SESSION_HANDLE  sSession,
          goto done;
       }
 
-      /* The old PIN matches, now make sure its different than the new.
-       * If so, reset the CKF_USER_PIN_TO_BE_CHANGED flag. -KEY 
+      /* The old PIN matches, now make sure its different than the new
+       * and is not the default.
        */
-      if (memcmp(old_hash_sha, new_hash_sha, SHA1_HASH_SIZE) == 0) {
+      if ((memcmp(old_hash_sha, new_hash_sha, SHA1_HASH_SIZE) == 0) ||
+	  (memcmp(new_hash_sha, default_user_pin_sha, SHA1_HASH_SIZE) == 0)) {
 	 st_err_log(34, __FILE__, __LINE__);
 	 rc = CKR_PIN_INVALID;
 	 goto done;
@@ -1310,7 +1311,7 @@ CK_RV SC_SetPIN( ST_SESSION_HANDLE  sSession,
 
 	 // New in v2.11 - XXX KEY
 	 nv_token_data->token_info.flags &= ~(CKF_USER_PIN_TO_BE_CHANGED);
-      
+
          XProcUnLock( xproclock );
          rc = save_token_data();
 
@@ -1323,45 +1324,53 @@ CK_RV SC_SetPIN( ST_SESSION_HANDLE  sSession,
    else if (sess->session_info.state == CKS_RW_SO_FUNCTIONS) {
       if (memcmp(nv_token_data->so_pin_sha, old_hash_sha, SHA1_HASH_SIZE) != 0) {
          rc = CKR_PIN_INCORRECT;
-         st_err_log(33, __FILE__, __LINE__); 	
+         st_err_log(33, __FILE__, __LINE__);
          goto done;
       }
 
       rc  = compute_sha( pNewPin, ulNewLen, new_hash_sha );
       rc |= compute_md5( pNewPin, ulNewLen, hash_md5 );
       if (rc != CKR_OK){
-         st_err_log(148, __FILE__, __LINE__); 	
+         st_err_log(148, __FILE__, __LINE__);
          goto done;
       }
 
-      /* The old PIN matches, now make sure its different than the new.
-       * If so, reset the CKF_SO_PIN_TO_BE_CHANGED flag. - KEY 
+      /* The old PIN matches, now make sure its different than the new
+       * and is not the default.
        */
-      if (memcmp(old_hash_sha, new_hash_sha, SHA1_HASH_SIZE) == 0) {
+      if ((memcmp(old_hash_sha, new_hash_sha, SHA1_HASH_SIZE) == 0) ||
+	  (memcmp(new_hash_sha, default_so_pin_sha, SHA1_HASH_SIZE) == 0)) {
 	 st_err_log(34, __FILE__, __LINE__);
 	 rc = CKR_PIN_INVALID;
 	 goto done;
       }
-      
+
       rc = XProcLock( xproclock );
       if (rc != CKR_OK){
          st_err_log(150, __FILE__, __LINE__);
          goto done;
       }
-         memcpy( nv_token_data->so_pin_sha, new_hash_sha, SHA1_HASH_SIZE );
-         memcpy( so_pin_md5, hash_md5, MD5_HASH_SIZE );
-      
-	 // New in v2.11 - XXX KEY      
+
+      /* reset the data that tells us when the user pin is uninitialized */
+      if (memcmp(nv_token_data->user_pin_sha,
+		 "00000000000000000000", SHA1_HASH_SIZE) == 0)
+         memcpy(nv_token_data->user_pin_sha, default_user_pin_sha,
+				SHA1_HASH_SIZE );
+
+      memcpy( nv_token_data->so_pin_sha, new_hash_sha, SHA1_HASH_SIZE );
+      memcpy( so_pin_md5, hash_md5, MD5_HASH_SIZE );
+
+	 // New in v2.11 - XXX KEY
 	 nv_token_data->token_info.flags &= ~(CKF_SO_PIN_TO_BE_CHANGED);
 
-   	 XProcUnLock( xproclock );
+	 XProcUnLock( xproclock );
          rc = save_token_data();
 
       if (rc != CKR_OK){
           st_err_log(104, __FILE__, __LINE__);
          goto done;
       }
-      
+
       rc = save_masterkey_so();
    }
    else{
@@ -1376,7 +1385,7 @@ done:
 
    UNLOCKIT;
    if (rc != CKR_SESSION_READ_ONLY && rc != CKR_OK)
-      st_err_log(149, __FILE__, __LINE__);	
+      st_err_log(149, __FILE__, __LINE__);
    return rc;
 }
 
@@ -1755,44 +1764,47 @@ CK_RV SC_Login( ST_SESSION_HANDLE   sSession,
 	}
 	if (rc != CKR_OK)
 		goto done;
-		
+
 	if (userType == CKU_USER) {
 		if (*flags & CKF_USER_PIN_LOCKED) {
 			st_err_log(37, __FILE__, __LINE__);
 			rc = CKR_PIN_LOCKED;
 			goto done;
 		}
-		
-		rc = compute_sha( pPin, ulPinLen, hash_sha );
-		if (memcmp(nv_token_data->user_pin_sha, hash_sha, SHA1_HASH_SIZE) != 0) {
-			set_login_flags(userType, flags);
+
+		if (memcmp(nv_token_data->user_pin_sha,
+				"00000000000000000000", SHA1_HASH_SIZE) == 0) {
 			st_err_log(33, __FILE__, __LINE__);
-			rc = CKR_PIN_INCORRECT;
+			rc = CKR_USER_PIN_NOT_INITIALIZED;
 			goto done;
 		}
+
+		rc = compute_sha( pPin, ulPinLen, hash_sha );
+		if (memcmp(nv_token_data->user_pin_sha, hash_sha, SHA1_HASH_SIZE) != 0) {
+				set_login_flags(userType, flags);
+				st_err_log(33, __FILE__, __LINE__);
+				rc = CKR_PIN_INCORRECT;
+				goto done;
+		}
 		/* Successful login, clear flags */
-		*flags &= 	~(CKF_USER_PIN_LOCKED | 
-				  CKF_USER_PIN_FINAL_TRY | 
+		*flags &=	~(CKF_USER_PIN_LOCKED |
+				  CKF_USER_PIN_FINAL_TRY |
 				  CKF_USER_PIN_COUNT_LOW);
 
-		nv_token_data->token_info.flags 
-                          &= ~(CKF_USER_PIN_TO_BE_CHANGED);
-
-		
 		compute_md5( pPin, ulPinLen, user_pin_md5 );
 		memset( so_pin_md5, 0x0, MD5_HASH_SIZE );
-		
+
 		rc = load_masterkey_user();
 		if (rc != CKR_OK){
 			st_err_log(155, __FILE__, __LINE__);
 			goto done;
 		}
 		rc = load_private_token_objects();
-		
+
 		XProcLock( xproclock );
 		global_shm->priv_loaded = TRUE;
 		XProcUnLock( xproclock );
-		
+
 	}
 	else {
 		if (*flags & CKF_SO_PIN_LOCKED) {
@@ -1811,13 +1823,10 @@ CK_RV SC_Login( ST_SESSION_HANDLE   sSession,
 		*flags &= 	~(CKF_SO_PIN_LOCKED | 
 				  CKF_SO_PIN_FINAL_TRY | 
 				  CKF_SO_PIN_COUNT_LOW);
-		
-		nv_token_data->token_info.flags 
-                          &= ~(CKF_SO_PIN_TO_BE_CHANGED);
 
 		compute_md5( pPin, ulPinLen, so_pin_md5 );
 		memset( user_pin_md5, 0x0, MD5_HASH_SIZE );
-		
+
 		rc = load_masterkey_so();
 		if (rc != CKR_OK) {
 			st_err_log(155, __FILE__, __LINE__);
