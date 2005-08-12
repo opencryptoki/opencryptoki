@@ -74,6 +74,7 @@ extern CK_BYTE master_key_private[MK_SIZE];
 extern CK_BYTE so_pin_md5[MD5_HASH_SIZE];
 extern CK_BYTE user_pin_md5[MD5_HASH_SIZE];
 
+extern CK_BYTE default_user_pin_sha[SHA1_HASH_SIZE];
 extern CK_BYTE default_so_pin_sha[SHA1_HASH_SIZE];
 extern CK_BYTE default_so_pin_md5[MD5_HASH_SIZE];
 
