@@ -305,5 +305,6 @@ AC_OUTPUT([Makefile usr/Makefile \
 	  testcases/test_crypto/Makefile \
 	  testcases/threadmkobj/Makefile \
 	  testcases/tok_obj/Makefile \
-	  testcases/v2.11/Makefile])
+	  testcases/v2.11/Makefile \
+	  testcases/login/Makefile])
 
