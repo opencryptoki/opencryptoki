@@ -1,5 +1,5 @@
 /*
- * $Header: /cvsroot/opencryptoki/opencryptoki/usr/lib/pkcs11/common/h_extern.h,v 1.5 2005/08/04 22:13:18 kyoder Exp $
+ * $Header: /cvsroot/opencryptoki/opencryptoki/usr/lib/pkcs11/common/h_extern.h,v 1.6 2005/08/12 16:15:42 kyoder Exp $
  */
 
 
@@ -348,6 +348,7 @@ extern CK_BYTE master_key[3*DES_KEY_SIZE];
 extern CK_BYTE so_pin_md5[MD5_HASH_SIZE];
 extern CK_BYTE user_pin_md5[MD5_HASH_SIZE];
 
+extern CK_BYTE default_user_pin_sha[SHA1_HASH_SIZE];
 extern CK_BYTE default_so_pin_sha[SHA1_HASH_SIZE];
 extern CK_BYTE default_so_pin_md5[MD5_HASH_SIZE];
 
