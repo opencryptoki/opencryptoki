@@ -3155,9 +3155,9 @@ C_GetSlotList ( CK_BBOOL       tokenPresent,
       }
    }
 
+   *pulCount = count;
    // If only the count is wanted then we set the value and exit
    if ( pSlotList == NULL ) {
-        *pulCount = count;
         return CKR_OK;
    } else {
    // Verify that the buffer passed is large enough
@@ -3189,7 +3189,6 @@ C_GetSlotList ( CK_BBOOL       tokenPresent,
          }
 
       }
-     *pulCount = count;
    }
    return CKR_OK;
 } // end of C_GetSlotList
