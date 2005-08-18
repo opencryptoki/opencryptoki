@@ -1599,6 +1599,10 @@ token_specific_set_pin(ST_SESSION_HANDLE session,
 	compute_sha(pOldPin, ulOldPinLen, oldpin_hash);
 	compute_sha(pNewPin, ulNewPinLen, newpin_hash);
 
+	/* From the PKCS#11 2.20 spec: "C_SetPIN modifies the PIN of the user that is
+	 * currently logged in, or the CKU_USER PIN if the session is not logged in."
+	 * A non R/W session fails with CKR_SESSION_READ_ONLY.
+	 */
 	if (sess->session_info.state == CKS_RW_USER_FUNCTIONS ||
 	    sess->session_info.state == CKS_RW_PUBLIC_SESSION) {
 		if (not_initialized) {
