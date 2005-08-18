@@ -30,7 +30,16 @@
 #include <openssl/rsa.h>
 #include <openssl/err.h>
 
-#include <trousers/tss.h>
+#include <tss/platform.h>
+#include <tss/tcpa_defines.h>
+#include <tss/tcpa_typedef.h>
+#include <tss/tcpa_struct.h>
+#include <tss/tcpa_error.h>
+#include <tss/tss_defines.h>
+#include <tss/tss_typedef.h>
+#include <tss/tss_structs.h>
+#include <tss/tss_error.h>
+#include <tss/tspi.h>
 
 #include "pkcs11/pkcs11types.h"
 #include "pkcs11/stdll.h"
