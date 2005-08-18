@@ -24,6 +24,10 @@
 
 #include <openssl/rsa.h>
 
+/* TSS key type helper */
+#define TPMTOK_TSS_KEY_TYPE_MASK	0x000000F0
+#define TPMTOK_TSS_KEY_TYPE(x)		(x & TPMTOK_TSS_KEY_TYPE_MASK)
+
 /* key types in the TPM token */
 #define TPMTOK_PRIVATE_ROOT_KEY	1
 #define TPMTOK_PRIVATE_LEAF_KEY	2
