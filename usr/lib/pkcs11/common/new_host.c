@@ -1277,7 +1277,13 @@ CK_RV SC_SetPIN( ST_SESSION_HANDLE  sSession,
       st_err_log(148, __FILE__, __LINE__); 	
       goto done;
    }
-   if (sess->session_info.state == CKS_RW_USER_FUNCTIONS) {
+
+   /* From the PKCS#11 2.20 spec: "C_SetPIN modifies the PIN of the user that is
+    * currently logged in, or the CKU_USER PIN if the session is not logged in."
+    * A non R/W session fails with CKR_SESSION_READ_ONLY.
+    */
+   if ((sess->session_info.state == CKS_RW_USER_FUNCTIONS) ||
+       (sess->session_info.state == CKS_RW_PUBLIC_SESSION)) {
       if (memcmp(nv_token_data->user_pin_sha, old_hash_sha, SHA1_HASH_SIZE) != 0) {
          st_err_log(33, __FILE__, __LINE__); 	
          rc = CKR_PIN_INCORRECT;
