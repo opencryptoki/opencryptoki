@@ -9,7 +9,7 @@
 #include <memory.h>
 #include <dlfcn.h>
 
-#include "pkcs11/pkcs11types.h"
+#include "pkcs11types.h"
 
 #include "common.h"
 

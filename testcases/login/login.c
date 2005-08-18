@@ -7,7 +7,7 @@
 #include <dlfcn.h>
 #include <sys/timeb.h>
 
-#include <pkcs11/pkcs11types.h>
+#include "pkcs11types.h"
 
 #include "common.h"
 
