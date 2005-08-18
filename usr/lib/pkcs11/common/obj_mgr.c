@@ -1419,6 +1419,7 @@ object_mgr_find_build_list( SESSION      * sess,
    CK_BBOOL           is_priv;
    CK_BBOOL           match;
    CK_BBOOL           hw_feature = FALSE;
+   CK_BBOOL           hidden_object = FALSE;
    CK_RV              rc;
    CK_ATTRIBUTE     * attr;
    int		      i;
@@ -1444,6 +1445,14 @@ object_mgr_find_build_list( SESSION      * sess,
       if (pTemplate[i].type == CKA_CLASS) {
 	 if (*(CK_ULONG *)pTemplate[i].pValue == CKO_HW_FEATURE) {
 	    hw_feature = TRUE;
+	    break;
+	 }
+      }
+
+      /* only find CKA_HIDDEN objects if its specified in the template. */
+      if (pTemplate[i].type == CKA_HIDDEN) {
+	 if (*(CK_BBOOL *)pTemplate[i].pValue == TRUE) {
+	    hidden_object = TRUE;
 	    break;
 	 }
       }
@@ -1488,6 +1497,14 @@ object_mgr_find_build_list( SESSION      * sess,
 	          goto next_loop;
 	    }
 	    
+	    /* Don't find objects that have been created with the CKA_HIDDEN
+             * attribute set */
+            if ((hidden_object == FALSE) &&
+                (template_attribute_find(obj->template, CKA_HIDDEN, &attr) == TRUE)) {
+               if (*(CK_BBOOL *)attr->pValue == TRUE)
+	          goto next_loop;
+	    }
+
             sess->find_list[ sess->find_count ] = handle;
             sess->find_count++;
 
