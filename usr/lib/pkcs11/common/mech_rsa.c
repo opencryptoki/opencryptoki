@@ -1175,8 +1175,14 @@ rsa_hash_pkcs_sign( SESSION              * sess,
       digest_mech.mechanism      = CKM_MD5;
       oid = ber_md5WithRSAEncryption;
       oid_len = ber_md5WithRSAEncryptionLen;
-   }
-   else {
+   } else if (ctx->mech.mechanism == CKM_SHA256_RSA_PKCS_PSS) {
+	   /* TODO: Code support for SHA256 here */
+/*      digest_mech.mechanism      = CKM_SHA256;
+      oid = ber_sha2WithRSAEncryption;
+      oid_len = ber_sha2WithRSAEncryptionLen; */
+	   rc = CKR_FUNCTION_NOT_SUPPORTED;
+	   goto error;
+   } else {
       digest_mech.mechanism      = CKM_SHA_1;
       oid = ber_sha1WithRSAEncryption;
       oid_len = ber_sha1WithRSAEncryptionLen;
@@ -1261,8 +1267,12 @@ rsa_hash_pkcs_sign_update( SESSION              * sess,
          digest_mech.mechanism = CKM_MD2;
       else if (ctx->mech.mechanism == CKM_MD5_RSA_PKCS)
          digest_mech.mechanism = CKM_MD5;
-      else
-         digest_mech.mechanism = CKM_SHA_1;
+      else if (ctx->mech.mechanism == CKM_SHA256_RSA_PKCS_PSS) {
+	      rc = CKR_FUNCTION_NOT_SUPPORTED;
+	      goto error;
+      } else {
+	      digest_mech.mechanism = CKM_SHA_1;
+      }
 
       digest_mech.ulParameterLen = 0;
       digest_mech.pParameter     = NULL;
@@ -1328,8 +1338,10 @@ rsa_hash_pkcs_verify( SESSION              * sess,
       digest_mech.mechanism      = CKM_MD5;
       oid = ber_md5WithRSAEncryption;
       oid_len = ber_md5WithRSAEncryptionLen;
-   }
-   else {
+   } else if (ctx->mech.mechanism == CKM_SHA256_RSA_PKCS_PSS) {
+	   rc = CKR_FUNCTION_NOT_SUPPORTED;
+	   goto done;
+   } else {
       digest_mech.mechanism      = CKM_SHA_1;
       oid = ber_sha1WithRSAEncryption;
       oid_len = ber_sha1WithRSAEncryptionLen;
@@ -1414,8 +1426,12 @@ rsa_hash_pkcs_verify_update( SESSION              * sess,
          digest_mech.mechanism = CKM_MD2;
       else if (ctx->mech.mechanism == CKM_MD5_RSA_PKCS)
          digest_mech.mechanism = CKM_MD5;
-      else
+      else if (ctx->mech.mechanism == CKM_SHA256_RSA_PKCS_PSS) {
+	      rc = CKR_FUNCTION_NOT_SUPPORTED;
+	      goto error;
+      } else {
          digest_mech.mechanism = CKM_SHA_1;
+      }
 
       digest_mech.ulParameterLen = 0;
       digest_mech.pParameter     = NULL;

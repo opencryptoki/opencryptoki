@@ -621,6 +621,9 @@ MECH_LIST_ELEMENT mech_list[] = {
    { CKM_SHA_1,                       0,    0, CKF_HW | CKF_DIGEST },
    { CKM_SHA_1_HMAC,                  0,    0, CKF_HW | CKF_SIGN | CKF_VERIFY },
    { CKM_SHA_1_HMAC_GENERAL,          0,    0, CKF_HW | CKF_SIGN | CKF_VERIFY },
+   { CKM_SHA256,                       0,    0, CKF_HW | CKF_DIGEST },
+   { CKM_SHA256_HMAC,                  0,    0, CKF_HW | CKF_SIGN | CKF_VERIFY },
+   { CKM_SHA256_HMAC_GENERAL,          0,    0, CKF_HW | CKF_SIGN | CKF_VERIFY },
 #endif
 
 #if !(NOMD2)
