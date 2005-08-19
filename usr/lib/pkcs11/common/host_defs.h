@@ -491,6 +491,7 @@ typedef struct _SHA1_CONTEXT
 
 } SHA1_CONTEXT;
 
+typedef SHA1_CONTEXT SHA2_CONTEXT;
 
 typedef struct _MD2_CONTEXT
 {

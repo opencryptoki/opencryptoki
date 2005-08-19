@@ -1427,6 +1427,40 @@ CK_RV  ckm_sha1_update( DIGEST_CONTEXT *ctx,
 CK_RV  ckm_sha1_final( DIGEST_CONTEXT *ctx,
                        CK_BYTE      *out_data, CK_ULONG  *out_data_len );
 
+/* SHA256 */
+CK_RV  sha2_hash( SESSION  *sess,     CK_BBOOL  length_only,
+                  DIGEST_CONTEXT *ctx,
+                  CK_BYTE  *in_data,  CK_ULONG  in_data_len,
+                  CK_BYTE  *out_data, CK_ULONG *out_data_len );
+
+CK_RV  sha2_hash_update( SESSION *sess,    DIGEST_CONTEXT *ctx,
+                         CK_BYTE *in_data, CK_ULONG in_data_len );
+
+CK_RV  sha2_hash_final( SESSION  *sess,     CK_BBOOL  length_only,
+                        DIGEST_CONTEXT *ctx,
+                        CK_BYTE  *out_data, CK_ULONG *out_data_len );
+
+CK_RV  sha2_hmac_sign( SESSION *sess,  CK_BBOOL length_only,
+                       SIGN_VERIFY_CONTEXT * ctx,
+                       CK_BYTE             * in_data,
+                       CK_ULONG              in_data_len,
+                       CK_BYTE             * out_data,
+                       CK_ULONG            * out_data_len );
+
+CK_RV  sha2_hmac_verify( SESSION             * sess,
+                         SIGN_VERIFY_CONTEXT * ctx,
+                         CK_BYTE             * in_data,
+                         CK_ULONG              in_data_len,
+                         CK_BYTE             * signature,
+                         CK_ULONG              sig_len );
+
+void   ckm_sha2_init( DIGEST_CONTEXT *ctx );
+
+CK_RV  ckm_sha2_update( DIGEST_CONTEXT *ctx,
+                        CK_BYTE      *in_data,  CK_ULONG in_data_len );
+
+CK_RV  ckm_sha2_final( DIGEST_CONTEXT *ctx,
+                       CK_BYTE      *out_data, CK_ULONG  *out_data_len );
 
 // MD2 mechanisms
 //
