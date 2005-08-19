@@ -62,8 +62,8 @@ do_InitPIN(CK_FUNCTION_LIST *funcs, CK_SLOT_ID slot_id, char *sologinpass, char 
 void
 usage(char *argv0)
 {
-	printf("usage:  %s [-slot <num>] [-h] [-user|-so] -sopass pass -userpass pass\n\n", argv0 );
-	printf("By default, Slot %d is used, as user (which should fail)\n\n", SLOT_ID_DEFAULT);
+	printf("usage:  %s [-slot <num>] [-h] -sopass pass -userpass pass\n\n", argv0 );
+	printf("By default, Slot %d is used, as user\n\n", SLOT_ID_DEFAULT);
 	exit(-1);
 }
 
