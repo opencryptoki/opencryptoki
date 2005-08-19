@@ -326,6 +326,10 @@ token_spec_t token_specific  = {
      &token_specific_sha_init, 
      &token_specific_sha_update,
      &token_specific_sha_final,
+     /* SHA256 */
+     NULL,
+     NULL,
+     NULL,
 #ifndef NOAES
      &token_specific_aes_key_gen,
      &token_specific_aes_ecb,
