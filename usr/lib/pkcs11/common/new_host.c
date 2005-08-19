@@ -1357,12 +1357,6 @@ CK_RV SC_SetPIN( ST_SESSION_HANDLE  sSession,
          goto done;
       }
 
-      /* reset the data that tells us when the user pin is uninitialized */
-      if (memcmp(nv_token_data->user_pin_sha,
-		 "00000000000000000000", SHA1_HASH_SIZE) == 0)
-         memcpy(nv_token_data->user_pin_sha, default_user_pin_sha,
-				SHA1_HASH_SIZE );
-
       memcpy( nv_token_data->so_pin_sha, new_hash_sha, SHA1_HASH_SIZE );
       memcpy( so_pin_md5, hash_md5, MD5_HASH_SIZE );
 
