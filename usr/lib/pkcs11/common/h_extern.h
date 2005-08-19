@@ -1454,7 +1454,7 @@ CK_RV  sha2_hmac_verify( SESSION             * sess,
                          CK_BYTE             * signature,
                          CK_ULONG              sig_len );
 
-void   ckm_sha2_init( DIGEST_CONTEXT *ctx );
+CK_RV   ckm_sha2_init( DIGEST_CONTEXT *ctx );
 
 CK_RV  ckm_sha2_update( DIGEST_CONTEXT *ctx,
                         CK_BYTE      *in_data,  CK_ULONG in_data_len );

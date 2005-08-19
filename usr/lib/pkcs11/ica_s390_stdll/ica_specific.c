@@ -295,6 +295,8 @@ static const char rcsid[] = "$Header$";
 #include <pthread.h>
 #include <string.h>            // for memcmp() et al
 #include <stdlib.h>
+#include <syslog.h>
+#include <errno.h>
 
 #ifndef NOAES
 #include <openssl/aes.h>
@@ -631,6 +633,7 @@ CK_RV token_specific_sha2_init(DIGEST_CONTEXT *ctx)
 	/* For the C_DigestInit, C_Digest case, we may have already 
 	 * created ctx->context... - KEY 
 	 */
+	syslog(LOG_ERR, "%s: Enter\n", __FUNCTION__);
 	if(ctx->context) {
 		sc = (oc_sha2_ctx *)ctx->context;
 		if(sc->dev_ctx)
@@ -640,8 +643,9 @@ CK_RV token_specific_sha2_init(DIGEST_CONTEXT *ctx)
 	/* The caller will check to see if ctx->context == NULL */
 	ctx->context_len = sizeof(oc_sha2_ctx);
 	ctx->context = malloc(sizeof(oc_sha2_ctx));
-	if(ctx->context == NULL) 
+	if(ctx->context == NULL) {
 		return CKR_HOST_MEMORY;
+	}
 	memset(ctx->context, 0, ctx->context_len);
 	sc = (oc_sha2_ctx *)ctx->context;
 	sc->hash_len = SHA2_HASH_SIZE;
@@ -653,6 +657,7 @@ CK_RV token_specific_sha2_init(DIGEST_CONTEXT *ctx)
 		return CKR_HOST_MEMORY;
 	}
 	memset(sc->dev_ctx, 0, LENGTH_SHA256_CONTEXT);
+	syslog(LOG_ERR, "%s: Exit\n", __FUNCTION__);
 	return CKR_OK;
 }
 
@@ -834,26 +839,44 @@ CK_RV token_specific_sha2_update(DIGEST_CONTEXT *ctx, CK_BYTE *in_data,
 				 CK_ULONG in_data_len)
 {
 	unsigned int rc, i, fill_size = 0;
+	CK_RV rv = CKR_OK;
+	syslog(LOG_ERR, "%s: Enter\n", __FUNCTION__);
 	oc_sha2_ctx *oc_sha256_ctx = (oc_sha2_ctx *)ctx->context;
-	SHA256_CONTEXT *ica_sha2_ctx = (SHA256_CONTEXT *)oc_sha256_ctx->dev_ctx;
+	SHA256_CONTEXT *ica_sha2_ctx=(SHA256_CONTEXT *)oc_sha256_ctx->dev_ctx;
 	if (!ctx) {
-		return CKR_OPERATION_NOT_INITIALIZED;
+		syslog(LOG_ERR, "%s: NULL context\n", __FUNCTION__);
+		rv = CKR_OPERATION_NOT_INITIALIZED;
+		goto out;
 	}
 	if (!in_data) {
-		return CKR_FUNCTION_FAILED;
+		syslog(LOG_ERR, "%s: NULL in_data\n", __FUNCTION__);
+		rv = CKR_FUNCTION_FAILED;
+		goto out;
 	}
 	if (ctx->multi == TRUE) {
 		if (oc_sha256_ctx->tail_len == 64) {
+			int rc;
 			/* Submit the filled out save buffer */
-                        if (icaSha256(adapter_handle, 
-				      (ica_sha2_ctx->runningLength == 0 
-				       ? SHA_MSG_PART_FIRST 
-				       : SHA_MSG_PART_MIDDLE),
-				      64, oc_sha256_ctx->tail,
-				      LENGTH_SHA256_CONTEXT, ica_sha2_ctx,
-				      &oc_sha256_ctx->hash_len,
-				      oc_sha256_ctx->hash)) {
-				return CKR_FUNCTION_FAILED;
+                        if (rc = icaSha256(adapter_handle, 
+					   (ica_sha2_ctx->runningLength == 0 
+					    ? SHA_MSG_PART_FIRST 
+					    : SHA_MSG_PART_MIDDLE),
+					   64, oc_sha256_ctx->tail,
+					   LENGTH_SHA256_CONTEXT, ica_sha2_ctx,
+					   &oc_sha256_ctx->hash_len,
+					   oc_sha256_ctx->hash)) {
+				syslog(LOG_ERR, "%s: [1]libICA unhappy about "
+				       "something; return code = [%d]\n",
+				       __FUNCTION__, rc);
+				if (rc == ENODEV) {
+					syslog(LOG_ERR, "%s: libICA "
+					       "reports that we don't "
+					       "have any hardware "
+					       "SHA256 support.\n",
+					       __FUNCTION__);
+				}
+				rv = CKR_FUNCTION_FAILED;
+				goto out;
 			}
 			oc_sha256_ctx->tail_len = 0;
 		}
@@ -897,27 +920,39 @@ CK_RV token_specific_sha2_update(DIGEST_CONTEXT *ctx, CK_BYTE *in_data,
 			 */
 			fill_size = 64 - oc_sha256_ctx->tail_len;
 			if (fill_size < in_data_len) {
+				int rc;
 				memcpy((oc_sha256_ctx->tail
 					+ oc_sha256_ctx->tail_len),
 				       in_data, fill_size);
 				/* Submit the filled out save buffer */
-				if (icaSha256(adapter_handle,
-					      (unsigned int)SHA_MSG_PART_FIRST,
-					      (unsigned int)64,
-					      oc_sha256_ctx->tail,
-					      (unsigned int)
-					      LENGTH_SHA256_CONTEXT, 
-					      ica_sha2_ctx, 
-					      &oc_sha256_ctx->hash_len,
-					      oc_sha256_ctx->hash)) {
-					return CKR_FUNCTION_FAILED;
+				if (rc = icaSha256(adapter_handle,
+						   (unsigned int)SHA_MSG_PART_FIRST,
+						   (unsigned int)64,
+						   oc_sha256_ctx->tail,
+						   (unsigned int)
+						   LENGTH_SHA256_CONTEXT, 
+						   ica_sha2_ctx, 
+						   &oc_sha256_ctx->hash_len,
+						   oc_sha256_ctx->hash)) {
+					syslog(LOG_ERR, "%s: [2]libICA unhappy"
+					       " about something; return code "
+					       "= [%d]\n", __FUNCTION__, rc);
+					if (rc == ENODEV) {
+						syslog(LOG_ERR, "%s: libICA "
+						       "reports that we don't "
+						       "have any hardware "
+						       "SHA256 support.\n",
+						       __FUNCTION__);
+					}
+					rv = CKR_FUNCTION_FAILED;
+					goto out;
 				}
 			} else {
 				memcpy((oc_sha256_ctx->tail
 					+ oc_sha256_ctx->tail_len),
 				       in_data, in_data_len);
 				oc_sha256_ctx->tail_len += in_data_len;
-				return CKR_OK;
+				goto out;
 			}
                         /* We had to use 'fill_size' bytes from
                          * in_data to fill out the empty part of save
@@ -935,28 +970,37 @@ CK_RV token_specific_sha2_update(DIGEST_CONTEXT *ctx, CK_BYTE *in_data,
 			if(oc_sha256_ctx->tail_len) {
 	                        fill_size = (64 - oc_sha256_ctx->tail_len);
         	                if (fill_size < in_data_len) {
+					int rc;
                 	                memcpy(oc_sha256_ctx->tail
 					       + oc_sha256_ctx->tail_len, 
 					       in_data, fill_size);
-                        	        /* Submit the filled out save buffer */
-                                	if (icaSha256(adapter_handle,
-						      (unsigned int)
-						      oc_sha256_ctx->message_part,
-						      (unsigned int)64,
-						      oc_sha256_ctx->tail,
-						      (unsigned int)
-						      LENGTH_SHA256_CONTEXT,
-						      ica_sha2_ctx,
-						      &oc_sha256_ctx->hash_len,
-						      oc_sha256_ctx->hash)) {
-        	                                return CKR_FUNCTION_FAILED;
+                        	        /* Submit the filled out save
+					 * buffer */
+					rc = icaSha256(adapter_handle,
+						       (unsigned int)
+						       oc_sha256_ctx->message_part,
+						       (unsigned int)64,
+						       oc_sha256_ctx->tail,
+						       (unsigned int)
+						       LENGTH_SHA256_CONTEXT,
+						       ica_sha2_ctx,
+						       &oc_sha256_ctx->hash_len,
+						       oc_sha256_ctx->hash);
+                                	if (rc) {
+						syslog(LOG_ERR,
+						       "%s: [3]libICA unhappy "
+						       "about something; "
+						       "return code = [%d]\n",
+						       __FUNCTION__, rc);
+						rv = CKR_FUNCTION_FAILED;
+						goto out;
 					}
                 	        } else {
                         	        memcpy((oc_sha256_ctx->tail
 						+ oc_sha256_ctx->tail_len),
 					       in_data, in_data_len);
 	                                oc_sha256_ctx->tail_len += in_data_len;
-        	                        return CKR_OK;
+					goto out;
                 	        }
 				/* We had to use some of the data from
 				 * in_data to fill out the empty part
@@ -1014,16 +1058,26 @@ CK_RV token_specific_sha2_update(DIGEST_CONTEXT *ctx, CK_BYTE *in_data,
 			oc_sha256_ctx->message_part = SHA_MSG_PART_ONLY;
 		}
 	}
-	if (in_data_len || (oc_sha256_ctx->message_part == SHA_MSG_PART_FINAL)) {
-		if (icaSha256(adapter_handle,
-			      (unsigned int)oc_sha256_ctx->message_part,
-			      (unsigned int)in_data_len, (in_data + fill_size),
-			      (unsigned int)LENGTH_SHA256_CONTEXT, ica_sha2_ctx,
-			      &oc_sha256_ctx->hash_len, oc_sha256_ctx->hash)) {
-			return CKR_FUNCTION_FAILED;
+	if (in_data_len 
+	    || (oc_sha256_ctx->message_part == SHA_MSG_PART_FINAL)) {
+		int rc;
+		if (rc = icaSha256(adapter_handle,
+				   (unsigned int)oc_sha256_ctx->message_part,
+				   (unsigned int)in_data_len,
+				   (in_data + fill_size),
+				   (unsigned int)LENGTH_SHA256_CONTEXT,
+				   ica_sha2_ctx,
+				   &oc_sha256_ctx->hash_len,
+				   oc_sha256_ctx->hash)) {
+			syslog(LOG_ERR, "%s: [4]libICA unhappy about something"
+			       "; return code = [%d]\n", __FUNCTION__, rc);
+			rv = CKR_FUNCTION_FAILED;
+			goto out;
 		}
 	}
-	return CKR_OK;
+ out:
+	syslog(LOG_ERR, "%s: Exit; rv = [%d]\n", __FUNCTION__, rv);
+	return rv;
 }
 
 CK_RV
