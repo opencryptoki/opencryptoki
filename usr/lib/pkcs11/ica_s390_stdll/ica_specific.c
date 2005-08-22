@@ -1845,19 +1845,19 @@ token_specific_session(CK_SLOT_ID  slotid)
 #ifndef NOAES
 
 CK_RV
-token_specific_aes_key_gen( CK_BYTE *key, CK_ULONG len )
+token_specific_aes_key_gen(CK_BYTE *key, CK_ULONG len)
 {
         return rng_generate(key, len);
 }
 
 CK_RV
-token_specific_aes_ecb( CK_BYTE         *in_data,
-                        CK_ULONG        in_data_len,
-                        CK_BYTE         *out_data,
-                        CK_ULONG        *out_data_len,
-                        CK_BYTE         *key_value,
-                        CK_ULONG        key_len,
-                        CK_BYTE         encrypt)
+token_specific_aes_ecb(CK_BYTE         *in_data,
+		       CK_ULONG        in_data_len,
+		       CK_BYTE         *out_data,
+		       CK_ULONG        *out_data_len,
+		       CK_BYTE         *key_value,
+		       CK_ULONG        key_len,
+		       CK_BYTE         encrypt)
 {
 	ICA_AES_VECTOR empty_iv;
 	int rc = CKR_OK;
@@ -1890,14 +1890,14 @@ token_specific_aes_ecb( CK_BYTE         *in_data,
 }
 
 CK_RV
-token_specific_aes_cbc( CK_BYTE         *in_data,
-                        CK_ULONG        in_data_len,
-                        CK_BYTE         *out_data,
-                        CK_ULONG        *out_data_len,
-                        CK_BYTE         *key_value,
-                        CK_ULONG        key_len,
-                        CK_BYTE         *init_v,
-                        CK_BYTE         encrypt)
+token_specific_aes_cbc(CK_BYTE         *in_data,
+		       CK_ULONG        in_data_len,
+		       CK_BYTE         *out_data,
+		       CK_ULONG        *out_data_len,
+		       CK_BYTE         *key_value,
+		       CK_ULONG        key_len,
+		       CK_BYTE         *init_v,
+		       CK_BYTE         encrypt)
 {
 	CK_RV rc;
 	unsigned int out_data_len_local;
@@ -2150,3 +2150,44 @@ token_specific_dh_pkcs_key_pair_gen( TEMPLATE  * publ_tmpl,
 } /* end token_specific_dh_key_pair_gen() */
 
 #endif
+
+struct mech_list;
+
+struct mech_list {
+  struct mech_list *next;
+  MECH_LIST_ELEMENT element;
+};
+
+CK_RV
+token_specific_getmechanismlist(CK_SLOT_ID slotID, 
+				CK_MECHANISM_TYPE_PTR pMechanismList,
+				CK_ULONG_PTR pulCount)
+{
+	int rc = CKR_OK;
+	struct mech_list head;
+	struct mech_list *walker;
+	generate_pkcs11_mech_list(&head);
+	(*pulCount) = 0;
+	walker = head.next;
+	if (NULL == pMechanismList) {
+		while (walker) {
+			struct mech_list *next;
+			next = walker->next;
+			(*pulCount)++;
+			free(walker);
+			walker = next;
+		}
+		goto out;
+	}
+	while (walker) {
+		struct mech_list *next;
+		next = walker->next;
+		pMechanismList[(*pulCount)] = walker->element.mech_type;
+		(*pulCount)++;
+		free(walker);
+		walker = next;
+	}
+	
+ out:
+	return rc;
+}

@@ -413,6 +413,9 @@ struct token_specific_struct{
 			CK_BYTE *,
 			CK_BYTE);
 #endif
+	CK_RV (*token_specific_getmechanismlist)(CK_SLOT_ID, 
+						 CK_MECHANISM_TYPE_PTR,
+						 CK_ULONG_PTR);
 };
 
 typedef  struct token_specific_struct token_spec_t;
