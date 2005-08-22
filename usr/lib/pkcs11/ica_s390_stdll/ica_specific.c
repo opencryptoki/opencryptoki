@@ -1899,52 +1899,32 @@ token_specific_aes_cbc( CK_BYTE         *in_data,
                         CK_BYTE         *init_v,
                         CK_BYTE         encrypt)
 {
-   CK_RV rc;
-   ICA_AES_VECTOR init_v;
-   unsigned int out_data_len_local;
-   out_data_len_local = (unsigned int)(*out_data_len);
-   if (encrypt) {
-	   rc = icaAesEncrypt(adapter_handle, MODE_AES_CBC,
-			      (unsigned int)in_data_len, in_data,
-			      &init_v, key_len, (ICA_KEY_AES_SINGLE *)key_value, 
-			      &out_data_len_local, (unsigned char *)out_data);
-   } else {
-   rc = icaTDesDecrypt(adapter_handle, MODE_DES_CBC, (unsigned int)in_data_len, in_data,
-                            (ICA_DES_VECTOR *)init_v, 
-                            (ICA_KEY_DES_TRIPLE *)key_value, 
-                            &temp, 
-                            (unsigned char *)out_data);
-   }
-   *out_data_len = (CK_ULONG) temp;
-   if (rc != 0) {
-         rc = CKR_FUNCTION_FAILED;
-   }else {
-         *out_data_len = in_data_len;
-         rc = CKR_OK;
-   }
-
-   return rc;
-
-        AES_KEY         ssl_aes_key;
-        int             i;
-
-        memset( &ssl_aes_key, 0, sizeof(AES_KEY));
-
-        // AES_cbc_encrypt chunks the data into AES_BLOCK_SIZE blocks, unlike
-        // AES_ecb_encrypt, so no looping required.
-        if (encrypt) {
-                AES_set_encrypt_key((unsigned char *)key_value, (key_len*8), &ssl_aes_key);
-                AES_cbc_encrypt((unsigned char *)in_data, (unsigned char *)out_data,
-                                in_data_len,              &ssl_aes_key,
-                                init_v,                   AES_ENCRYPT);
-        } else {
-                AES_set_decrypt_key((unsigned char *)key_value, (key_len*8), &ssl_aes_key);
-                AES_cbc_encrypt((unsigned char *)in_data, (unsigned char *)out_data,
-                                in_data_len,              &ssl_aes_key,
-                                init_v,                   AES_DECRYPT);
-        }
-        *out_data_len = in_data_len;
-        return CKR_OK;
+	CK_RV rc;
+	unsigned int out_data_len_local;
+	out_data_len_local = (unsigned int)(*out_data_len);
+	if (encrypt) {
+		rc = icaAesEncrypt(adapter_handle, MODE_AES_CBC,
+				   (unsigned int)in_data_len, in_data,
+				   (ICA_AES_VECTOR *)init_v, key_len,
+				   (ICA_KEY_AES_SINGLE *)key_value, 
+				   &out_data_len_local,
+				   (unsigned char *)out_data);
+	} else {
+		rc = icaAesDecrypt(adapter_handle, MODE_AES_CBC,
+				   (unsigned int)in_data_len, in_data,
+				   (ICA_AES_VECTOR *)init_v, key_len,
+				   (ICA_KEY_AES_SINGLE *)key_value, 
+				   &out_data_len_local,
+				   (unsigned char *)out_data);
+	}
+	if (rc != 0) {
+		(*out_data_len) = (CK_ULONG)out_data_len_local;
+		rc = CKR_FUNCTION_FAILED;
+	} else {
+		(*out_data_len) = in_data_len;
+		rc = CKR_OK;
+	}
+	return rc;
 }
 #endif
 
