@@ -1859,35 +1859,34 @@ token_specific_aes_ecb( CK_BYTE         *in_data,
                         CK_ULONG        key_len,
                         CK_BYTE         encrypt)
 {
-        AES_KEY         ssl_aes_key;
-        int             i;
-        /* There's a previous check that in_data_len % AES_BLOCK_SIZE == 0,
-         * so this is fine */
-        CK_ULONG        loops = (CK_ULONG)(in_data_len/AES_BLOCK_SIZE);
-
-        memset( &ssl_aes_key, 0, sizeof(AES_KEY));
-
-        // AES_ecb_encrypt encrypts only a single block, so we have to break up the
-        // input data here
+	ICA_AES_VECTOR empty_iv;
+	int rc = CKR_OK;
+	unsigned int out_data_len_local;
+	out_data_len_local = (unsigned int)(*out_data_len);
+	memset(&empty_iv, 0, sizeof(empty_iv));
+	/* TODO: Sanity check the dataLength; it must be a multiple of
+	 * the cipher block length */
         if (encrypt) {
-                AES_set_encrypt_key((unsigned char *)key_value, (key_len*8), &ssl_aes_key);
-                for( i=0; i<loops; i++ ) {
-                        AES_ecb_encrypt((unsigned char *)in_data + (i*AES_BLOCK_SIZE),
-                                        (unsigned char *)out_data + (i*AES_BLOCK_SIZE),
-                                        &ssl_aes_key,
-                                        AES_ENCRYPT);
-                }
+		rc = icaAesEncrypt(adapter_handle, MODE_AES_ECB, 
+				   (unsigned int)in_data_len, in_data, 
+				   &empty_iv, key_len,
+				   (ICA_KEY_AES_SINGLE *)key_value,
+				   &out_data_len_local, out_data);
         } else {
-                AES_set_decrypt_key((unsigned char *)key_value, (key_len*8), &ssl_aes_key);
-                for( i=0; i<loops; i++ ) {
-                        AES_ecb_encrypt((unsigned char *)in_data + (i*AES_BLOCK_SIZE),
-                                        (unsigned char *)out_data + (i*AES_BLOCK_SIZE),
-                                        &ssl_aes_key,
-                                        AES_DECRYPT);
-                }
+		rc = icaAesDecrypt(adapter_handle, MODE_AES_ECB,
+				   (unsigned int)in_data_len, in_data, 
+				   &empty_iv, key_len,
+				   (ICA_KEY_DES_SINGLE *)key_value,
+				   &out_data_len_local, out_data);
         }
-        *out_data_len = in_data_len;
-        return CKR_OK;
+	if (rc != 0) {
+		(*out_data_len) = (CK_ULONG)out_data_len_local;
+		rc = CKR_FUNCTION_FAILED;
+	} else {
+		(*out_data_len) = in_data_len;
+		rc = CKR_OK;
+	}
+        return rc;
 }
 
 CK_RV
