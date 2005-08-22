@@ -1876,7 +1876,7 @@ token_specific_aes_ecb( CK_BYTE         *in_data,
 		rc = icaAesDecrypt(adapter_handle, MODE_AES_ECB,
 				   (unsigned int)in_data_len, in_data, 
 				   &empty_iv, key_len,
-				   (ICA_KEY_DES_SINGLE *)key_value,
+				   (ICA_KEY_AES_SINGLE *)key_value,
 				   &out_data_len_local, out_data);
         }
 	if (rc != 0) {
@@ -1899,6 +1899,32 @@ token_specific_aes_cbc( CK_BYTE         *in_data,
                         CK_BYTE         *init_v,
                         CK_BYTE         encrypt)
 {
+   CK_RV rc;
+   ICA_AES_VECTOR init_v;
+   unsigned int out_data_len_local;
+   out_data_len_local = (unsigned int)(*out_data_len);
+   if (encrypt) {
+	   rc = icaAesEncrypt(adapter_handle, MODE_AES_CBC,
+			      (unsigned int)in_data_len, in_data,
+			      &init_v, key_len, (ICA_KEY_AES_SINGLE *)key_value, 
+			      &out_data_len_local, (unsigned char *)out_data);
+   } else {
+   rc = icaTDesDecrypt(adapter_handle, MODE_DES_CBC, (unsigned int)in_data_len, in_data,
+                            (ICA_DES_VECTOR *)init_v, 
+                            (ICA_KEY_DES_TRIPLE *)key_value, 
+                            &temp, 
+                            (unsigned char *)out_data);
+   }
+   *out_data_len = (CK_ULONG) temp;
+   if (rc != 0) {
+         rc = CKR_FUNCTION_FAILED;
+   }else {
+         *out_data_len = in_data_len;
+         rc = CKR_OK;
+   }
+
+   return rc;
+
         AES_KEY         ssl_aes_key;
         int             i;
 
