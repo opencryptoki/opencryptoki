@@ -348,6 +348,7 @@ token_spec_t token_specific  = {
      &token_specific_aes_cbc,
 #endif
      &token_specific_getmechanismlist,
+     &token_specific_getmechanisminfo,
 };
 
 #endif

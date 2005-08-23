@@ -2151,21 +2151,14 @@ token_specific_dh_pkcs_key_pair_gen( TEMPLATE  * publ_tmpl,
 
 #endif
 
-struct mech_list;
-
-struct mech_list {
-  struct mech_list *next;
-  MECH_LIST_ELEMENT element;
-};
-
 CK_RV
-token_specific_getmechanismlist(CK_SLOT_ID slotID, 
-				CK_MECHANISM_TYPE_PTR pMechanismList,
+token_specific_getmechanismlist(CK_MECHANISM_TYPE_PTR pMechanismList,
 				CK_ULONG_PTR pulCount)
 {
 	int rc = CKR_OK;
 	struct mech_list head;
 	struct mech_list *walker;
+	/* TODO: Cache this data */
 	generate_pkcs11_mech_list(&head);
 	(*pulCount) = 0;
 	walker = head.next;
@@ -2187,7 +2180,44 @@ token_specific_getmechanismlist(CK_SLOT_ID slotID,
 		free(walker);
 		walker = next;
 	}
-	
  out:
+	return rc;
+}
+
+CK_RV
+token_specific_getmechanisminfo(CK_MECHANISM_TYPE type,
+				CK_MECHANISM_INFO_PTR pInfo)
+{
+	int rc = CKR_MECHANISM_INVALID;
+	struct mech_list head;
+	struct mech_list *walker;
+	/* TODO: Cache this data */
+	generate_pkcs11_mech_list(&head);
+	walker = head.next;
+	while (walker) {
+		struct mech_list *next;
+		next = walker->next;
+		if (walker->element.mech_type == type) {
+			if (rc == CKR_OK) {
+				/* Multiple matches */
+				st_err_log(195, __FILE__, __LINE__,
+					   type);
+				rc = CKR_MECHANISM_INVALID;
+				goto out;
+			}
+			memcpy(pInfo, &walker->element.mech_info, 
+			       sizeof(CK_MECHANISM_INFO));
+			rc = CKR_OK;
+		}
+		free(walker);
+		walker = next;
+	}
+ out:
+	while (walker) {
+		struct mech_list *next;
+		next = walker->next;
+		free(walker);
+		walker = next;
+	}
 	return rc;
 }

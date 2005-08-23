@@ -533,5 +533,7 @@ struct messages err_msg[]={
 		{"%s:%d AES Wrap Get Data Failed"},
 		{"%s:%d AES Wrap Format Failed"},
 		{"%s:%d Domain Parameter Invalid"},
-		{"%s:%d File \"%s\" could not be opened, errno=%d"}
+		{"%s:%d File \"%s\" could not be opened, errno=%d"},
+		//195
+		{"%s:%d Multiple mechanisms for type [%lu]"}
                };
