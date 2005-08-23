@@ -936,138 +936,128 @@ CK_RV SC_WaitForSlotEvent( CK_FLAGS        flags,
    return CKR_FUNCTION_NOT_SUPPORTED;
 }
 
-
-//
-//
-CK_RV SC_GetMechanismList( CK_SLOT_ID             sid,
-                          CK_MECHANISM_TYPE_PTR  pMechList,
-                          CK_ULONG_PTR           count )
+/**
+ * Get the mechanism type list for the current token.
+ */
+CK_RV SC_GetMechanismList(CK_SLOT_ID sid,
+                          CK_MECHANISM_TYPE_PTR pMechList,
+                          CK_ULONG_PTR count)
 {
-   CK_ULONG   i;
-   CK_RV      rc = CKR_OK;
-   char        *envrn;
-   SLT_CHECK
-
-
-      LOCKIT;
-   if (st_Initialized() == FALSE) {
-      st_err_log(72, __FILE__, __LINE__);
-      rc = CKR_CRYPTOKI_NOT_INITIALIZED;
-      goto done;
-   }
-
-   if (count == NULL) {
-      st_err_log(4, __FILE__, __LINE__, __FUNCTION__);
-      rc = CKR_FUNCTION_FAILED;
-      goto done;
-   }
-
-   if (slot_id > MAX_SLOT_ID) {
-      st_err_log(2, __FILE__, __LINE__); 
-      rc = CKR_SLOT_ID_INVALID;
-      goto done;
-   }
-
-   if (pMechList == NULL) {
-      *count = mech_list_len;
-      rc = CKR_OK;
-      goto done;
-   }
-
-   if (*count < mech_list_len) {
-      *count = mech_list_len;
-      st_err_log(111, __FILE__, __LINE__); 
-      rc = CKR_BUFFER_TOO_SMALL;
-      goto done;
-   }
-
-   for (i=0; i < mech_list_len; i++)
-      pMechList[i] = mech_list[i].mech_type;
-
-#if 1
-   //  For Netscape  we want to not support the
-   //  SSL3 mechs since the native ones perform much better
-   //  Force those slots to be RSA... it's ugly but it works
-   if ( (envrn = getenv("NS_SERVER_HOME"))!= NULL) {
-      for (i=0; i<mech_list_len; i++){
-           switch (pMechList[i]) {
-
-           case CKM_SSL3_PRE_MASTER_KEY_GEN:
-           case CKM_SSL3_MASTER_KEY_DERIVE:
-           case CKM_SSL3_KEY_AND_MAC_DERIVE:
-           case CKM_SSL3_MD5_MAC:
-           case CKM_SSL3_SHA1_MAC:
-                   pMechList[i]=CKM_RSA_PKCS;
-                   break;
-           }
-      }
-   }
-#endif
-
-
-   *count = mech_list_len;
-   rc = CKR_OK;
-
-done:
-   LLOCK;
-   if (debugfile) {
-      stlogit2(debugfile, "%-25s:  rc = 0x%08x, # mechanisms:  %d\n", "C_GetMechanismList", rc, *count );
-   }
-  UNLOCKIT;
-   return rc;
+	CK_RV rc = CKR_OK;
+	CK_ULONG i;
+	char *envrn;
+	SLT_CHECK;
+	LOCKIT;
+	if (st_Initialized() == FALSE) {
+		st_err_log(72, __FILE__, __LINE__);
+		rc = CKR_CRYPTOKI_NOT_INITIALIZED;
+		goto out;
+	}
+	if (count == NULL) {
+		st_err_log(4, __FILE__, __LINE__, __FUNCTION__);
+		rc = CKR_FUNCTION_FAILED;
+		goto out;
+	}
+	if (slot_id > MAX_SLOT_ID) {
+		st_err_log(2, __FILE__, __LINE__); 
+		rc = CKR_SLOT_ID_INVALID;
+		goto out;
+	}
+	if (token_specific.t_get_mechanism_list) {
+		rc = token_specific.t_get_mechanism_list(pMechList, count);
+	} else {
+		if (pMechList == NULL) {
+			*count = mech_list_len;
+			rc = CKR_OK;
+			goto out;
+		}
+		if (*count < mech_list_len) {
+			*count = mech_list_len;
+			st_err_log(111, __FILE__, __LINE__); 
+			rc = CKR_BUFFER_TOO_SMALL;
+			goto out;
+		}
+		for (i=0; i < mech_list_len; i++)
+			pMechList[i] = mech_list[i].mech_type;
+		/* For Netscape we want to not support the SSL3 mechs
+		 * since the native ones perform much better.  Force
+		 * those slots to be RSA... it's ugly but it works */
+		if ((envrn = getenv("NS_SERVER_HOME")) != NULL) {
+			for (i=0; i<mech_list_len; i++){
+				switch (pMechList[i]) {
+				case CKM_SSL3_PRE_MASTER_KEY_GEN:
+				case CKM_SSL3_MASTER_KEY_DERIVE:
+				case CKM_SSL3_KEY_AND_MAC_DERIVE:
+				case CKM_SSL3_MD5_MAC:
+				case CKM_SSL3_SHA1_MAC:
+					pMechList[i] = CKM_RSA_PKCS;
+					break;
+				}
+			}
+		}
+		(*count) = mech_list_len;
+		rc = CKR_OK;
+	}
+ out:
+	LLOCK;
+	if (debugfile) {
+		stlogit2(debugfile, "%-25s:  rc = 0x%08x, # mechanisms:  %d\n",
+			 "C_GetMechanismList", rc, *count );
+	}
+	UNLOCKIT;
+	return rc;
 }
 
-
-//
-//
-CK_RV SC_GetMechanismInfo( CK_SLOT_ID             sid,
-                          CK_MECHANISM_TYPE      type,
-                          CK_MECHANISM_INFO_PTR  pInfo )
+/**
+ * Get the mechanism info for the current type and token.
+ */
+CK_RV SC_GetMechanismInfo(CK_SLOT_ID sid,
+                          CK_MECHANISM_TYPE type,
+                          CK_MECHANISM_INFO_PTR pInfo)
 {
-   CK_ULONG  i;
-   CK_RV     rc = CKR_OK;
-   SLT_CHECK
-
-      LOCKIT;
-   if (st_Initialized() == FALSE) {
-      st_err_log(72, __FILE__, __LINE__);
-      rc = CKR_CRYPTOKI_NOT_INITIALIZED;
-      goto done;
-   }
-
-   if (pInfo == NULL) {
-      st_err_log(4, __FILE__, __LINE__, __FUNCTION__);
-      rc = CKR_FUNCTION_FAILED;
-      goto done;
-   }
-
-   if (slot_id > MAX_SLOT_ID) {
-      st_err_log(2, __FILE__, __LINE__); 
-      rc = CKR_SLOT_ID_INVALID;
-      goto done;
-   }
-
-   for (i=0; i < mech_list_len; i++) {
-      if (mech_list[i].mech_type == type) {
-         memcpy( pInfo, &mech_list[i].mech_info, sizeof(CK_MECHANISM_INFO) );
-         rc = CKR_OK;
-         goto done;
-      }
-   }
-
-   st_err_log(28, __FILE__, __LINE__); 
-   rc = CKR_MECHANISM_INVALID;
-
-done:
-   LLOCK;
-   if (debugfile) {
-      stlogit2(debugfile, "%-25s:  rc = 0x%08x, mech type = 0x%08x\n", "C_GetMechanismInfo", rc, type );
-   }
-
-   UNLOCKIT;
-   return rc;
+	CK_RV rc = CKR_OK;
+	CK_ULONG i;
+	SLT_CHECK;
+	LOCKIT;
+	if (st_Initialized() == FALSE) {
+		st_err_log(72, __FILE__, __LINE__);
+		rc = CKR_CRYPTOKI_NOT_INITIALIZED;
+		goto out;
+	}
+	if (pInfo == NULL) {
+		st_err_log(4, __FILE__, __LINE__, __FUNCTION__);
+		rc = CKR_FUNCTION_FAILED;
+		goto out;
+	}
+	if (slot_id > MAX_SLOT_ID) {
+		st_err_log(2, __FILE__, __LINE__); 
+		rc = CKR_SLOT_ID_INVALID;
+		goto out;
+	}
+	if (token_specific.t_get_mechanism_info) {
+		rc = token_specific.t_get_mechanism_info(type, pInfo);
+	} else {
+		for (i=0; i < mech_list_len; i++) {
+			if (mech_list[i].mech_type == type) {
+				memcpy(pInfo, &mech_list[i].mech_info,
+				       sizeof(CK_MECHANISM_INFO));
+				rc = CKR_OK;
+				goto out;
+			}
+		}
+		st_err_log(28, __FILE__, __LINE__); 
+		rc = CKR_MECHANISM_INVALID;
+	}
+ out:
+	LLOCK;
+	if (debugfile) {
+		stlogit2(debugfile, "%-25s:  rc = 0x%08x, mech type = 0x%08x\n",
+			 "C_GetMechanismInfo", rc, type );
+	}
+	
+	UNLOCKIT;
+	return rc;
 }
-
 
 // this routine should only be called if no other processes are attached to
 //         the token.  we need to somehow check that this is the only process

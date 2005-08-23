@@ -2151,15 +2151,36 @@ token_specific_dh_pkcs_key_pair_gen( TEMPLATE  * publ_tmpl,
 
 #endif
 
+/**
+ * Remove/alter mechanisms for whatever reason.
+ */
+static void scrub_list(struct mech_list *head)
+{
+	struct mech_list *walker;
+	walker = head;
+	while (walker->next) {
+		struct mech_list *current;
+		current = walker->next;
+		if (/* remove condition */0) {
+			walker->next = current->next;
+			free(current);
+		} else if (/* alter condition */0) {
+			/* current->element.mech_info.flags = ...; */
+		}
+		walker = walker->next;
+	}
+}
+
 CK_RV
-token_specific_getmechanismlist(CK_MECHANISM_TYPE_PTR pMechanismList,
-				CK_ULONG_PTR pulCount)
+t_get_mechanism_list(CK_MECHANISM_TYPE_PTR pMechanismList,
+		     CK_ULONG_PTR pulCount)
 {
 	int rc = CKR_OK;
 	struct mech_list head;
 	struct mech_list *walker;
 	/* TODO: Cache this data */
 	generate_pkcs11_mech_list(&head);
+	scrub_list(&head);
 	(*pulCount) = 0;
 	walker = head.next;
 	if (NULL == pMechanismList) {
@@ -2185,14 +2206,14 @@ token_specific_getmechanismlist(CK_MECHANISM_TYPE_PTR pMechanismList,
 }
 
 CK_RV
-token_specific_getmechanisminfo(CK_MECHANISM_TYPE type,
-				CK_MECHANISM_INFO_PTR pInfo)
+t_get_mechanism_info(CK_MECHANISM_TYPE type, CK_MECHANISM_INFO_PTR pInfo)
 {
 	int rc = CKR_MECHANISM_INVALID;
 	struct mech_list head;
 	struct mech_list *walker;
 	/* TODO: Cache this data */
 	generate_pkcs11_mech_list(&head);
+	scrub_list(&head);
 	walker = head.next;
 	while (walker) {
 		struct mech_list *next;
@@ -2200,8 +2221,7 @@ token_specific_getmechanisminfo(CK_MECHANISM_TYPE type,
 		if (walker->element.mech_type == type) {
 			if (rc == CKR_OK) {
 				/* Multiple matches */
-				st_err_log(195, __FILE__, __LINE__,
-					   type);
+				st_err_log(195, __FILE__, __LINE__, type);
 				rc = CKR_MECHANISM_INVALID;
 				goto out;
 			}
