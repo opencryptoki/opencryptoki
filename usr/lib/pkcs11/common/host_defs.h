@@ -645,6 +645,13 @@ typedef struct _MECH_LIST_ELEMENT
    CK_MECHANISM_INFO    mech_info;
 } MECH_LIST_ELEMENT;
 
+struct mech_list;
+
+struct mech_list {
+  struct mech_list *next;
+  MECH_LIST_ELEMENT element;
+};
+
 typedef struct _MASTER_KEY_FILE_T
 {
    CK_BYTE     key[3 * DES_KEY_SIZE];
