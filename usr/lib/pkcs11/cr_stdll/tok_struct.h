@@ -357,8 +357,10 @@ token_spec_t token_specific  = {
      // AES
      &token_specific_aes_key_gen,
      &token_specific_aes_ecb,
-     &token_specific_aes_cbc
+     &token_specific_aes_cbc,
 #endif
+     NULL, /* t_get_mechanism_list() */
+     NULL /* t_get_mechanism_info() */
 };
 
 #endif
