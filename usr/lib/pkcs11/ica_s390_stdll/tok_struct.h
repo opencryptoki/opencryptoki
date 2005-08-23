@@ -347,8 +347,8 @@ token_spec_t token_specific  = {
      &token_specific_aes_ecb,
      &token_specific_aes_cbc,
 #endif
-     &token_specific_getmechanismlist,
-     &token_specific_getmechanisminfo,
+     &token_specific_get_mechanism_list,
+     &token_specific_get_mechanism_info,
 };
 
 #endif

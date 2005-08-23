@@ -2172,8 +2172,8 @@ static void scrub_list(struct mech_list *head)
 }
 
 CK_RV
-t_get_mechanism_list(CK_MECHANISM_TYPE_PTR pMechanismList,
-		     CK_ULONG_PTR pulCount)
+token_spcific_get_mechanism_list(CK_MECHANISM_TYPE_PTR pMechanismList,
+				 CK_ULONG_PTR pulCount)
 {
 	int rc = CKR_OK;
 	struct mech_list head;
@@ -2206,7 +2206,8 @@ t_get_mechanism_list(CK_MECHANISM_TYPE_PTR pMechanismList,
 }
 
 CK_RV
-t_get_mechanism_info(CK_MECHANISM_TYPE type, CK_MECHANISM_INFO_PTR pInfo)
+token_specific_get_mechanism_info(CK_MECHANISM_TYPE type, 
+				  CK_MECHANISM_INFO_PTR pInfo)
 {
 	int rc = CKR_MECHANISM_INVALID;
 	struct mech_list head;
