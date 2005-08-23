@@ -26,12 +26,8 @@ it or regenerate `configure' using a newer version of `autoconf'.
 The simplest way to compile this package is:
 
   1. `cd' to the directory containing the package's source code and type
-     `aclocal` followed by `automake` followed by `autoconf`.  This will set 
-     the configure script properly, then type
-     `./configure' to configure the package for your system.  If you're
-     using `csh' on an old version of System V, you might need to type
-     `sh ./configure' instead to prevent `csh' from trying to execute
-     `configure' itself.
+     `sh ./bootstrap.sh`. This will set the configure script properly,
+     then type `./configure' to configure the package for your system.
 
      Running `configure' takes awhile.  While running, it prints some
      messages telling which features it is checking for.
