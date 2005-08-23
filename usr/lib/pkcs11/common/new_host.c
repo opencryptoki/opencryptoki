@@ -307,6 +307,7 @@ static const char rcsid[] = "$Header$";
 #include <stdio.h>
 #include <time.h>
 #include <string.h>
+#include <syslog.h>
 
 #include <stdlib.h>
 #if (AIX)
@@ -964,8 +965,12 @@ CK_RV SC_GetMechanismList(CK_SLOT_ID sid,
 		goto out;
 	}
 	if (token_specific.t_get_mechanism_list) {
+		syslog(LOG_ERR, "%s: Calling token's get_mechanism_list()\n",
+		       __FUNCTION__);
 		rc = token_specific.t_get_mechanism_list(pMechList, count);
 	} else {
+		syslog(LOG_ERR, "%s: Filling in my own mechanism list\n",
+		       __FUNCTION__);
 		if (pMechList == NULL) {
 			*count = mech_list_len;
 			rc = CKR_OK;
@@ -1035,8 +1040,12 @@ CK_RV SC_GetMechanismInfo(CK_SLOT_ID sid,
 		goto out;
 	}
 	if (token_specific.t_get_mechanism_info) {
+		syslog(LOG_ERR, "%s: Calling token's get_mechanism_info()\n",
+		       __FUNCTION__);
 		rc = token_specific.t_get_mechanism_info(type, pInfo);
 	} else {
+		syslog(LOG_ERR, "%s: Filling in my own mechanism info\n",
+		       __FUNCTION__);
 		for (i=0; i < mech_list_len; i++) {
 			if (mech_list[i].mech_type == type) {
 				memcpy(pInfo, &mech_list[i].mech_info,

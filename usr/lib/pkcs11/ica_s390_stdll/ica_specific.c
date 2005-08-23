@@ -2178,6 +2178,7 @@ token_specific_get_mechanism_list(CK_MECHANISM_TYPE_PTR pMechanismList,
 	int rc = CKR_OK;
 	struct mech_list head;
 	struct mech_list *walker;
+	syslog(LOG_ERR, "%s: Enter\n", __FUNCTION__);
 	/* TODO: Cache this data */
 	generate_pkcs11_mech_list(&head);
 	scrub_list(&head);
@@ -2202,8 +2203,16 @@ token_specific_get_mechanism_list(CK_MECHANISM_TYPE_PTR pMechanismList,
 		walker = next;
 	}
  out:
+	syslog(LOG_ERR, "%s: Exit; *pulCount = [%lu]\n", __FUNCTION__, 
+	       (*pulCount));
 	return rc;
 }
+
+/* TODO: Remove once proper behavior is determined for duplicate
+ * mechanisms. */
+#ifndef OCK_FAIL_ON_DUPLICATE_MECH
+#define OCK_FAIL_ON_DUPLICATE_MECH 0
+#endif
 
 CK_RV
 token_specific_get_mechanism_info(CK_MECHANISM_TYPE type, 
@@ -2212,6 +2221,7 @@ token_specific_get_mechanism_info(CK_MECHANISM_TYPE type,
 	int rc = CKR_MECHANISM_INVALID;
 	struct mech_list head;
 	struct mech_list *walker;
+	syslog(LOG_ERR, "%s: Enter; type = [%lu]\n", __FUNCTION__, type);
 	/* TODO: Cache this data */
 	generate_pkcs11_mech_list(&head);
 	scrub_list(&head);
@@ -2223,8 +2233,12 @@ token_specific_get_mechanism_info(CK_MECHANISM_TYPE type,
 			if (rc == CKR_OK) {
 				/* Multiple matches */
 				st_err_log(195, __FILE__, __LINE__, type);
-				rc = CKR_MECHANISM_INVALID;
-				goto out;
+				syslog(LOG_ERR, "%s: Duplicate type [%lu]\n",
+				       __FUNCTION__, type);
+				if (OCK_FAIL_ON_DUPLICATE_MECH) {
+					rc = CKR_MECHANISM_INVALID;
+					goto out;
+				}
 			}
 			memcpy(pInfo, &walker->element.mech_info, 
 			       sizeof(CK_MECHANISM_INFO));
@@ -2240,5 +2254,6 @@ token_specific_get_mechanism_info(CK_MECHANISM_TYPE type,
 		free(walker);
 		walker = next;
 	}
+	syslog(LOG_ERR, "%s: Exit\n", __FUNCTION__);
 	return rc;
 }
