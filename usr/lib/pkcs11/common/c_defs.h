@@ -359,10 +359,10 @@ typedef struct _MECH_LIST_ELEMENT
    CK_MECHANISM_INFO    mech_info;
 } MECH_LIST_ELEMENT;
 
-struct mech_list;
+struct mech_list_item;
 
-struct mech_list {
-  struct mech_list *next;
+struct mech_list_item {
+  struct mech_list_item *next;
   MECH_LIST_ELEMENT element;
 };
 

@@ -938,6 +938,39 @@ CK_RV SC_WaitForSlotEvent( CK_FLAGS        flags,
 }
 
 /**
+ * For Netscape we want to not support the SSL3 mechs since the native
+ * ones perform much better.  Force those slots to be RSA... it's ugly
+ * but it works.
+ */
+static void
+netscape_hack(CK_MECHANISM_TYPE_PTR mech_arr_ptr, CK_ULONG count)
+{
+	char *envrn;
+	CK_ULONG i;
+	if ((envrn = getenv("NS_SERVER_HOME")) != NULL) {
+		for (i = 0; i < count; i++){
+			switch (mech_arr_ptr[i]) {
+			case CKM_SSL3_PRE_MASTER_KEY_GEN:
+			case CKM_SSL3_MASTER_KEY_DERIVE:
+			case CKM_SSL3_KEY_AND_MAC_DERIVE:
+			case CKM_SSL3_MD5_MAC:
+			case CKM_SSL3_SHA1_MAC:
+				mech_arr_ptr[i] = CKM_RSA_PKCS;
+				break;
+			}
+		}
+	}
+}
+
+void mechanism_list_transformations(CK_MECHANISM_TYPE_PTR mech_arr_ptr,
+				    CK_ULONG_PTR count_ptr)
+{
+#ifndef NO_NETSCAPE_HACK
+	netscape_hack(mech_arr_ptr, (*count_ptr));
+#endif /* #ifndef NO_NETSCAPE_HACK */
+}
+
+/**
  * Get the mechanism type list for the current token.
  */
 CK_RV SC_GetMechanismList(CK_SLOT_ID sid,
@@ -945,8 +978,6 @@ CK_RV SC_GetMechanismList(CK_SLOT_ID sid,
                           CK_ULONG_PTR count)
 {
 	CK_RV rc = CKR_OK;
-	CK_ULONG i;
-	char *envrn;
 	SLT_CHECK;
 	LOCKIT;
 	if (st_Initialized() == FALSE) {
@@ -964,44 +995,17 @@ CK_RV SC_GetMechanismList(CK_SLOT_ID sid,
 		rc = CKR_SLOT_ID_INVALID;
 		goto out;
 	}
-	if (token_specific.t_get_mechanism_list) {
-		syslog(LOG_ERR, "%s: Calling token's get_mechanism_list()\n",
-		       __FUNCTION__);
-		rc = token_specific.t_get_mechanism_list(pMechList, count);
-	} else {
-		syslog(LOG_ERR, "%s: Filling in my own mechanism list\n",
-		       __FUNCTION__);
-		if (pMechList == NULL) {
-			*count = mech_list_len;
-			rc = CKR_OK;
-			goto out;
-		}
-		if (*count < mech_list_len) {
-			*count = mech_list_len;
-			st_err_log(111, __FILE__, __LINE__); 
-			rc = CKR_BUFFER_TOO_SMALL;
-			goto out;
-		}
-		for (i=0; i < mech_list_len; i++)
-			pMechList[i] = mech_list[i].mech_type;
-		/* For Netscape we want to not support the SSL3 mechs
-		 * since the native ones perform much better.  Force
-		 * those slots to be RSA... it's ugly but it works */
-		if ((envrn = getenv("NS_SERVER_HOME")) != NULL) {
-			for (i=0; i<mech_list_len; i++){
-				switch (pMechList[i]) {
-				case CKM_SSL3_PRE_MASTER_KEY_GEN:
-				case CKM_SSL3_MASTER_KEY_DERIVE:
-				case CKM_SSL3_KEY_AND_MAC_DERIVE:
-				case CKM_SSL3_MD5_MAC:
-				case CKM_SSL3_SHA1_MAC:
-					pMechList[i] = CKM_RSA_PKCS;
-					break;
-				}
-			}
-		}
-		(*count) = mech_list_len;
-		rc = CKR_OK;
+	if (!token_specific.t_get_mechanism_list) {
+		st_err_log(4, __FILE__, __LINE__);
+		rc = CKR_GENERAL_ERROR;
+		goto out;
+	}
+	rc = token_specific.t_get_mechanism_list(pMechList, count);
+	if (rc == CKR_OK) {
+		/* To accomodate certain buggy applications, we may
+		 * need to make adjustments to the token's mechanism
+		 * list. */
+		mechanism_list_transformations(pMechList, count);
 	}
  out:
 	LLOCK;
@@ -1039,24 +1043,12 @@ CK_RV SC_GetMechanismInfo(CK_SLOT_ID sid,
 		rc = CKR_SLOT_ID_INVALID;
 		goto out;
 	}
-	if (token_specific.t_get_mechanism_info) {
-		syslog(LOG_ERR, "%s: Calling token's get_mechanism_info()\n",
-		       __FUNCTION__);
-		rc = token_specific.t_get_mechanism_info(type, pInfo);
-	} else {
-		syslog(LOG_ERR, "%s: Filling in my own mechanism info\n",
-		       __FUNCTION__);
-		for (i=0; i < mech_list_len; i++) {
-			if (mech_list[i].mech_type == type) {
-				memcpy(pInfo, &mech_list[i].mech_info,
-				       sizeof(CK_MECHANISM_INFO));
-				rc = CKR_OK;
-				goto out;
-			}
-		}
-		st_err_log(28, __FILE__, __LINE__); 
-		rc = CKR_MECHANISM_INVALID;
+	if (!token_specific.t_get_mechanism_info) {
+		st_err_log(4, __FILE__, __LINE__);
+		rc = CKR_GENERAL_ERROR;
+		goto out;
 	}
+	rc = token_specific.t_get_mechanism_info(type, pInfo);
  out:
 	LLOCK;
 	if (debugfile) {

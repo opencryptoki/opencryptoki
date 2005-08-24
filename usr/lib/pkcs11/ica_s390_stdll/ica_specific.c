@@ -2151,15 +2151,29 @@ token_specific_dh_pkcs_key_pair_gen( TEMPLATE  * publ_tmpl,
 
 #endif
 
+/*CK_MECHANISM_TYPE unsupported_mech_types[] = {
+	CKM_RSA_X9_31_KEY_PAIR_GEN,
+	CKM_DSA_KEY_PAIR_GEN,
+	CKM_DH_PKCS_KEY_PAIR_GEN,
+	CKM_X9_42_DH_KEY_PAIR_GEN,
+	CKM_RC2_KEY_GEN,
+};
+#define OCK_NUM_UNSUPPORTED_S390_MECH_TYPES
+
+CK_MECHANISM_TYPE ock_types[] = { 
+};*/
+
+
+
 /**
  * Remove/alter mechanisms for whatever reason.
  */
-static void scrub_list(struct mech_list *head)
+static void scrub_list(struct mech_list_item *head)
 {
-	struct mech_list *walker;
+	struct mech_list_item *walker;
 	walker = head;
 	while (walker->next) {
-		struct mech_list *current;
+		struct mech_list_item *current;
 		current = walker->next;
 		if (/* remove condition */0) {
 			walker->next = current->next;
@@ -2176,17 +2190,33 @@ token_specific_get_mechanism_list(CK_MECHANISM_TYPE_PTR pMechanismList,
 				  CK_ULONG_PTR pulCount)
 {
 	int rc = CKR_OK;
-	struct mech_list head;
-	struct mech_list *walker;
+	struct mech_list_item head;
+	struct mech_list_item *walker;
 	syslog(LOG_ERR, "%s: Enter\n", __FUNCTION__);
+#if 1
+	rc = ock_generic_get_mechanism_list(pMechanismList, pulCount);	
+	if (rc != CKR_OK) {
+		goto out;
+	}
+#endif
 	/* TODO: Cache this data */
-	generate_pkcs11_mech_list(&head);
+	generate_pkcs11_mech_list_item(&head);
 	scrub_list(&head);
+#if 1
+	walker = find_mech_list_item_for_type(CKM_SHA256, &head);
+	if (walker) {
+		if (NULL != pMechanismList) {
+			pMechanismList[(*pulCount)] = CKM_SHA256;
+		}
+		(*pulCount)++;
+	}
+	goto out;
+#else
 	(*pulCount) = 0;
 	walker = head.next;
 	if (NULL == pMechanismList) {
 		while (walker) {
-			struct mech_list *next;
+			struct mech_list_item *next;
 			next = walker->next;
 			(*pulCount)++;
 			free(walker);
@@ -2195,13 +2225,14 @@ token_specific_get_mechanism_list(CK_MECHANISM_TYPE_PTR pMechanismList,
 		goto out;
 	}
 	while (walker) {
-		struct mech_list *next;
+		struct mech_list_item *next;
 		next = walker->next;
 		pMechanismList[(*pulCount)] = walker->element.mech_type;
 		(*pulCount)++;
 		free(walker);
 		walker = next;
 	}
+#endif
  out:
 	syslog(LOG_ERR, "%s: Exit; *pulCount = [%lu]\n", __FUNCTION__, 
 	       (*pulCount));
@@ -2219,41 +2250,30 @@ token_specific_get_mechanism_info(CK_MECHANISM_TYPE type,
 				  CK_MECHANISM_INFO_PTR pInfo)
 {
 	int rc = CKR_MECHANISM_INVALID;
-	struct mech_list head;
-	struct mech_list *walker;
+	struct mech_list_item head;
+	struct mech_list_item *walker;
 	syslog(LOG_ERR, "%s: Enter; type = [%lu]\n", __FUNCTION__, type);
-	/* TODO: Cache this data */
-	generate_pkcs11_mech_list(&head);
+#if 1
+	rc = ock_generic_get_mechanism_info(type, pInfo);
+	if (rc == CKR_OK) {
+		/* Match made; info copiedl. We're done. */
+		goto out;
+	}
+	/* TODO: Remove this hack when the time is right. */
+	if (type != CKM_SHA256) {
+		goto out;
+	}
+#endif
+	generate_pkcs11_mech_list_item(&head);
 	scrub_list(&head);
-	walker = head.next;
-	while (walker) {
-		struct mech_list *next;
-		next = walker->next;
-		if (walker->element.mech_type == type) {
-			if (rc == CKR_OK) {
-				/* Multiple matches */
-				st_err_log(195, __FILE__, __LINE__, type);
-				syslog(LOG_ERR, "%s: Duplicate type [%lu]\n",
-				       __FUNCTION__, type);
-				if (OCK_FAIL_ON_DUPLICATE_MECH) {
-					rc = CKR_MECHANISM_INVALID;
-					goto out;
-				}
-			}
-			memcpy(pInfo, &walker->element.mech_info, 
-			       sizeof(CK_MECHANISM_INFO));
-			rc = CKR_OK;
-		}
-		free(walker);
-		walker = next;
+	walker = find_mech_list_item_for_type(type, &head);
+	if (walker) {
+		memcpy(pInfo, &walker->element.mech_info, 
+		       sizeof(CK_MECHANISM_INFO));
+		rc = CKR_OK;
 	}
  out:
-	while (walker) {
-		struct mech_list *next;
-		next = walker->next;
-		free(walker);
-		walker = next;
-	}
+	free_mech_list(&head);
 	syslog(LOG_ERR, "%s: Exit\n", __FUNCTION__);
 	return rc;
 }
