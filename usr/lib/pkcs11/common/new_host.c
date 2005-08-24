@@ -1256,148 +1256,156 @@ CK_RV SC_SetPIN( ST_SESSION_HANDLE  sSession,
                  CK_CHAR_PTR        pNewPin,
                  CK_ULONG           ulNewLen )
 {
-   SESSION         * sess = NULL;
-   CK_BYTE	     old_hash_sha[SHA1_HASH_SIZE];
-   CK_BYTE           new_hash_sha[SHA1_HASH_SIZE];
-   CK_BYTE           hash_md5[MD5_HASH_SIZE];
-   CK_MECHANISM      mech;
-   DIGEST_CONTEXT    digest_ctx;
-   CK_ULONG          hash_len;
-   CK_RV             rc = CKR_OK;
-   SESS_SET
+	SESSION         * sess = NULL;
+	CK_BYTE	     old_hash_sha[SHA1_HASH_SIZE];
+	CK_BYTE           new_hash_sha[SHA1_HASH_SIZE];
+	CK_BYTE           hash_md5[MD5_HASH_SIZE];
+	CK_MECHANISM      mech;
+	DIGEST_CONTEXT    digest_ctx;
+	CK_ULONG          hash_len;
+	CK_RV             rc = CKR_OK;
+	SESS_SET
 
-      LOCKIT;
-   if (st_Initialized() == FALSE) {
-      st_err_log(72, __FILE__, __LINE__);
-      rc = CKR_CRYPTOKI_NOT_INITIALIZED;
-      goto done;
-   }
+		LOCKIT;
+	if (st_Initialized() == FALSE) {
+		st_err_log(72, __FILE__, __LINE__);
+		rc = CKR_CRYPTOKI_NOT_INITIALIZED;
+		goto done;
+	}
 
-   sess = SESSION_MGR_FIND( hSession );
-   if (!sess) {
-      st_err_log(40, __FILE__, __LINE__);
-      rc = CKR_SESSION_HANDLE_INVALID;
-      goto done;
-   }
+	sess = SESSION_MGR_FIND( hSession );
+	if (!sess) {
+		st_err_log(40, __FILE__, __LINE__);
+		rc = CKR_SESSION_HANDLE_INVALID;
+		goto done;
+	}
 
-   if (pin_locked(&sess->session_info, nv_token_data->token_info.flags) == TRUE) {
-      st_err_log(37, __FILE__, __LINE__);
-      rc = CKR_PIN_LOCKED;
-      goto done;
-   }
+	if (pin_locked(&sess->session_info, nv_token_data->token_info.flags) == TRUE) {
+		st_err_log(37, __FILE__, __LINE__);
+		rc = CKR_PIN_LOCKED;
+		goto done;
+	}
 
-   if ((ulNewLen < MIN_PIN_LEN) || (ulNewLen > MAX_PIN_LEN)) {
-      st_err_log(35, __FILE__, __LINE__); 
-      rc = CKR_PIN_LEN_RANGE;
-      goto done;
-   }
+	if ((ulNewLen < MIN_PIN_LEN) || (ulNewLen > MAX_PIN_LEN)) {
+		st_err_log(35, __FILE__, __LINE__); 
+		rc = CKR_PIN_LEN_RANGE;
+		goto done;
+	}
 
-   rc = compute_sha( pOldPin, ulOldLen, old_hash_sha );
-   if (rc != CKR_OK){
-      st_err_log(148, __FILE__, __LINE__); 	
-      goto done;
-   }
-   if (sess->session_info.state == CKS_RW_USER_FUNCTIONS) {
-      if (memcmp(nv_token_data->user_pin_sha, old_hash_sha, SHA1_HASH_SIZE) != 0) {
-         st_err_log(33, __FILE__, __LINE__); 	
-         rc = CKR_PIN_INCORRECT;
-         goto done;
-      }
+	rc = compute_sha( pOldPin, ulOldLen, old_hash_sha );
+	if (rc != CKR_OK){
+		st_err_log(148, __FILE__, __LINE__); 	
+		goto done;
+	}
 
-      rc  = compute_sha( pNewPin, ulNewLen, new_hash_sha );
-      rc |= compute_md5( pNewPin, ulNewLen, hash_md5 );
-      if (rc != CKR_OK){
-         st_err_log(148, __FILE__, __LINE__); 	
-         goto done;
-      }
+	/* From the PKCS#11 2.20 spec: "C_SetPIN modifies the PIN of the
+	 * user that is currently logged in, or the CKU_USER PIN if the
+	 * session is not logged in."  A non R/W session fails with
+	 * CKR_SESSION_READ_ONLY.
+	 */
+	if ((sess->session_info.state == CKS_RW_USER_FUNCTIONS) ||
+	    (sess->session_info.state == CKS_RW_PUBLIC_SESSION)) {
+		if (memcmp(nv_token_data->user_pin_sha, old_hash_sha,
+			   SHA1_HASH_SIZE) != 0) {
+			st_err_log(33, __FILE__, __LINE__); 	
+			rc = CKR_PIN_INCORRECT;
+			goto done;
+		}
+	   
+		rc  = compute_sha( pNewPin, ulNewLen, new_hash_sha );
+		rc |= compute_md5( pNewPin, ulNewLen, hash_md5 );
+		if (rc != CKR_OK){
+			st_err_log(148, __FILE__, __LINE__); 	
+			goto done;
+		}
 
-      /* The old PIN matches, now make sure its different than the new.
-       * If so, reset the CKF_USER_PIN_TO_BE_CHANGED flag. -KEY 
-       */
-      if (memcmp(old_hash_sha, new_hash_sha, SHA1_HASH_SIZE) == 0) {
-	 st_err_log(34, __FILE__, __LINE__);
-	 rc = CKR_PIN_INVALID;
-	 goto done;
-      }
+		/* The old PIN matches, now make sure its different than the new.
+		 * If so, reset the CKF_USER_PIN_TO_BE_CHANGED flag. -KEY 
+		 */
+		if (memcmp(old_hash_sha, new_hash_sha, SHA1_HASH_SIZE) == 0) {
+			st_err_log(34, __FILE__, __LINE__);
+			rc = CKR_PIN_INVALID;
+			goto done;
+		}
       
-      rc = XProcLock( xproclock );
-      if (rc != CKR_OK){
-         st_err_log(150, __FILE__, __LINE__);
-         goto done;
-      }
-         memcpy( nv_token_data->user_pin_sha, new_hash_sha, SHA1_HASH_SIZE );
-         memcpy( user_pin_md5, hash_md5, MD5_HASH_SIZE );
+		rc = XProcLock( xproclock );
+		if (rc != CKR_OK){
+			st_err_log(150, __FILE__, __LINE__);
+			goto done;
+		}
+		memcpy( nv_token_data->user_pin_sha, new_hash_sha, SHA1_HASH_SIZE );
+		memcpy( user_pin_md5, hash_md5, MD5_HASH_SIZE );
 
-	 // New in v2.11 - XXX KEY
-	 sess->session_info.flags &= ~(CKF_USER_PIN_TO_BE_CHANGED);
+		// New in v2.11 - XXX KEY
+		sess->session_info.flags &= ~(CKF_USER_PIN_TO_BE_CHANGED);
       
-         XProcUnLock( xproclock );
-         rc = save_token_data();
+		XProcUnLock( xproclock );
+		rc = save_token_data();
 
-      if (rc != CKR_OK){
-          st_err_log(104, __FILE__, __LINE__);
-          goto done;
-      }
-      rc = save_masterkey_user();
-   }
-   else if (sess->session_info.state == CKS_RW_SO_FUNCTIONS) {
-      if (memcmp(nv_token_data->so_pin_sha, old_hash_sha, SHA1_HASH_SIZE) != 0) {
-         rc = CKR_PIN_INCORRECT;
-         st_err_log(33, __FILE__, __LINE__); 	
-         goto done;
-      }
+		if (rc != CKR_OK){
+			st_err_log(104, __FILE__, __LINE__);
+			goto done;
+		}
+		rc = save_masterkey_user();
+	}
+	else if (sess->session_info.state == CKS_RW_SO_FUNCTIONS) {
+		if (memcmp(nv_token_data->so_pin_sha, old_hash_sha, SHA1_HASH_SIZE) != 0) {
+			rc = CKR_PIN_INCORRECT;
+			st_err_log(33, __FILE__, __LINE__); 	
+			goto done;
+		}
 
-      rc  = compute_sha( pNewPin, ulNewLen, new_hash_sha );
-      rc |= compute_md5( pNewPin, ulNewLen, hash_md5 );
-      if (rc != CKR_OK){
-         st_err_log(148, __FILE__, __LINE__); 	
-         goto done;
-      }
+		rc  = compute_sha( pNewPin, ulNewLen, new_hash_sha );
+		rc |= compute_md5( pNewPin, ulNewLen, hash_md5 );
+		if (rc != CKR_OK){
+			st_err_log(148, __FILE__, __LINE__); 	
+			goto done;
+		}
 
-      /* The old PIN matches, now make sure its different than the new.
-       * If so, reset the CKF_SO_PIN_TO_BE_CHANGED flag. - KEY 
-       */
-      if (memcmp(old_hash_sha, new_hash_sha, SHA1_HASH_SIZE) == 0) {
-	 st_err_log(34, __FILE__, __LINE__);
-	 rc = CKR_PIN_INVALID;
-	 goto done;
-      }
+		/* The old PIN matches, now make sure its different than the new.
+		 * If so, reset the CKF_SO_PIN_TO_BE_CHANGED flag. - KEY 
+		 */
+		if (memcmp(old_hash_sha, new_hash_sha, SHA1_HASH_SIZE) == 0) {
+			st_err_log(34, __FILE__, __LINE__);
+			rc = CKR_PIN_INVALID;
+			goto done;
+		}
       
-      rc = XProcLock( xproclock );
-      if (rc != CKR_OK){
-         st_err_log(150, __FILE__, __LINE__);
-         goto done;
-      }
-         memcpy( nv_token_data->so_pin_sha, new_hash_sha, SHA1_HASH_SIZE );
-         memcpy( so_pin_md5, hash_md5, MD5_HASH_SIZE );
+		rc = XProcLock( xproclock );
+		if (rc != CKR_OK){
+			st_err_log(150, __FILE__, __LINE__);
+			goto done;
+		}
+		memcpy( nv_token_data->so_pin_sha, new_hash_sha, SHA1_HASH_SIZE );
+		memcpy( so_pin_md5, hash_md5, MD5_HASH_SIZE );
       
-	 // New in v2.11 - XXX KEY      
-	 sess->session_info.flags &= ~(CKF_SO_PIN_TO_BE_CHANGED);
+		// New in v2.11 - XXX KEY      
+		sess->session_info.flags &= ~(CKF_SO_PIN_TO_BE_CHANGED);
 
-   	 XProcUnLock( xproclock );
-         rc = save_token_data();
+		XProcUnLock( xproclock );
+		rc = save_token_data();
 
-      if (rc != CKR_OK){
-          st_err_log(104, __FILE__, __LINE__);
-         goto done;
-      }
+		if (rc != CKR_OK){
+			st_err_log(104, __FILE__, __LINE__);
+			goto done;
+		}
       
-      rc = save_masterkey_so();
-   }
-   else{
-      st_err_log(142, __FILE__, __LINE__);
-      rc = CKR_SESSION_READ_ONLY;
-   }
-done:
-   LLOCK;
-   if (debugfile) {
-      stlogit2(debugfile, "%-25s:  session = %08x\n", "C_SetPin", rc, hSession );
-   }
+		rc = save_masterkey_so();
+	}
+	else{
+		st_err_log(142, __FILE__, __LINE__);
+		rc = CKR_SESSION_READ_ONLY;
+	}
+ done:
+	LLOCK;
+	if (debugfile) {
+		stlogit2(debugfile, "%-25s:  session = %08x\n", "C_SetPin", rc, hSession );
+	}
 
-   UNLOCKIT;
-   if (rc != CKR_SESSION_READ_ONLY && rc != CKR_OK)
-      st_err_log(149, __FILE__, __LINE__);	
-   return rc;
+	UNLOCKIT;
+	if (rc != CKR_SESSION_READ_ONLY && rc != CKR_OK)
+		st_err_log(149, __FILE__, __LINE__);	
+	return rc;
 }
 
 
