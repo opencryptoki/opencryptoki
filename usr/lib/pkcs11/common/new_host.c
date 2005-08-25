@@ -1280,7 +1280,8 @@ CK_RV SC_SetPIN( ST_SESSION_HANDLE  sSession,
 		goto done;
 	}
 
-	if (pin_locked(&sess->session_info, nv_token_data->token_info.flags) == TRUE) {
+	if (pin_locked(&sess->session_info, nv_token_data->token_info.flags)
+	    == TRUE) {
 		st_err_log(37, __FILE__, __LINE__);
 		rc = CKR_PIN_LOCKED;
 		goto done;
