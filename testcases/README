@@ -1,14 +1,15 @@
 openCryptoki Test Programs
 
 This directory contains programs designed to test the functionality of
-openCryptoki and PKCS#11.  The rely on STDLL's installed to the standard system
-location (usually /usr/lib/stdll).  Many of the programs have command line
-options for passing the slot number to use (default is slot 0) as well as other
-options.  All programs expect that the a slot has been intialized using
-pkcsconf.  The expected user pin is "12345678" and this can also be set using
-pkcsconf.
+openCryptoki and PKCS#11. They rely on STDLL's installed to the
+standard system location (usually /usr/lib/stdll or
+/usr/lib/pkcs11/stdll). Many of the programs have command-line options
+for passing the slot number to use (default is slot 0) as well as
+other options. All programs expect that the a slot has been intialized
+using pkcsconf. The expected user pin is "12345678" and this can also
+be set using pkcsconf.
 
-A typical sequence of commands for a test run would be:
+A typical sequence of commands preceding test run would be:
 
 # pkcsslotd
 

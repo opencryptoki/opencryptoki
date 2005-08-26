@@ -14,6 +14,9 @@
 #define DES_BLOCK_SIZE  8
 #define DES_KEY_LEN     8
 
+#define AES_BLOCK_SIZE  16
+#define AES_KEY_LEN     16
+
 #define SHA1_HASH_LEN   20
 #define MD2_HASH_LEN    16
 #define MD5_HASH_LEN    16

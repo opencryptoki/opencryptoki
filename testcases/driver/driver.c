@@ -375,7 +375,6 @@ int main (int argc, char **argv)
 
 #endif
 
-#if 1
    rc = des_functions();
    if (!rc)
       return;
@@ -384,10 +383,15 @@ int main (int argc, char **argv)
    if (!rc)
       return;
 
+   rc = aes_functions();
+   if (!rc) {
+	   printf("Error executing AES functions\n");
+	   goto out;
+   }
+
    rc = digest_functions();
    if (!rc)
       return;
-#endif
 
    rc = rsa_functions();
    if (!rc)
@@ -408,6 +412,7 @@ int main (int argc, char **argv)
    rc = ssl3_functions();
    if (!rc)
       return;
+
    printf("------------------ Completed pass %d --------------------\n",i);
    i++;
 

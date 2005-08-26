@@ -1867,7 +1867,7 @@ token_specific_aes_ecb(CK_BYTE         *in_data,
 	/* TODO: Sanity check the dataLength; it must be a multiple of
 	 * the cipher block length */
         if (encrypt) {
-		rc = icaAesEncrypt(adapter_handle, MODE_AES_ECB, 
+		rc = icaAesEncrypt(adapter_handle, MODE_AES_ECB,
 				   (unsigned int)in_data_len, in_data, 
 				   &empty_iv, key_len,
 				   (ICA_KEY_AES_SINGLE *)key_value,

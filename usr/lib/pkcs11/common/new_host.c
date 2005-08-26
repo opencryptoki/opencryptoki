@@ -4019,7 +4019,9 @@ CK_RV SC_GenerateKey( ST_SESSION_HANDLE     sSession,
       goto done;
    }
 
-   if (pin_expired(&sess->session_info, nv_token_data->token_info.flags) == TRUE) {
+   if (pin_expired(&sess->session_info, nv_token_data->token_info.flags) 
+       == TRUE) {
+	   syslog(LOG_ERR, "%s: Pin expired\n", __FUNCTION__);
       st_err_log(36, __FILE__, __LINE__);
       rc = CKR_PIN_EXPIRED;
       goto done;
