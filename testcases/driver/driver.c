@@ -328,8 +328,11 @@ int main (int argc, char **argv)
    printf("With option: no_init: %d, noskip: %d\n", no_init, skip_token_obj);
    
    rc = do_GetFunctionList();
-   if (!rc)
-      return;
+   if (!rc) {
+	   rc = 1;
+	   printf("Error getting function list\n");
+	   goto out;
+   }
 
    memset( &cinit_args, 0x0, sizeof(cinit_args) );
    cinit_args.flags = CKF_OS_LOCKING_OK;
@@ -348,7 +351,6 @@ int main (int argc, char **argv)
    rc = funcs->C_CancelFunction(hsess);
    if (rc  != CKR_FUNCTION_NOT_PARALLEL)
 	return;
-
 }
 
 
@@ -413,4 +415,6 @@ int main (int argc, char **argv)
 }
 
    funcs->C_Finalize( NULL );
+ out:
+   return rc;
 }

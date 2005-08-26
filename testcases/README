@@ -8,6 +8,29 @@ options.  All programs expect that the a slot has been intialized using
 pkcsconf.  The expected user pin is "12345678" and this can also be set using
 pkcsconf.
 
+A typical sequence of commands for a test run would be:
+
+# pkcsslotd
+
+# pkcsconf -c 0 -I
+Enter the SO PIN: 87654321
+Enter a unique token label: ibmtest
+
+# pkcsconf -c 0 -P
+Enter the SO PIN: 87654321
+Enter the new SO PIN: 76543210
+Re-enter the new SO PIN: 76543210
+
+# pkcsconf -c 0 -P
+Enter the SO PIN: 76543210
+Enter the new SO PIN: 87654321
+Re-enter the new SO PIN: 87654321
+
+# pkcsconf -c 0 -u
+Enter the SO PIN: 87654321
+Enter the new user PIN: 12345678
+Re-enter the new user PIN: 12345678
+
 driver
 ------
 The driver programs tests all openCryptoki that do not involve token

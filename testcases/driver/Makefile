@@ -1,8 +1,8 @@
 INCS	= -I. -I../../usr/include/pkcs11 -I../include
 OPTLVL =  
-CFLAGS	= $(OPTLVL) $(INCS) -DLINUX
+CFLAGS	= $(OPTLVL) $(INCS) -DLINUX $(M31FLAG)
 
-LDFLAGS = -lc  -ldl -lpthread
+LDFLAGS = -lc  -ldl -lpthread $(M31FLAG)
 
 #VPATH = ..
 

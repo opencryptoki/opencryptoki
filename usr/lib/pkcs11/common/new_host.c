@@ -1338,7 +1338,7 @@ CK_RV SC_SetPIN( ST_SESSION_HANDLE  sSession,
 		memcpy( user_pin_md5, hash_md5, MD5_HASH_SIZE );
 
 		// New in v2.11 - XXX KEY
-		sess->session_info.flags &= ~(CKF_USER_PIN_TO_BE_CHANGED);
+		nv_token_data->token_info.flags &= ~(CKF_USER_PIN_TO_BE_CHANGED);
       
 		XProcUnLock( xproclock );
 		rc = save_token_data();
@@ -1381,7 +1381,7 @@ CK_RV SC_SetPIN( ST_SESSION_HANDLE  sSession,
 		memcpy( so_pin_md5, hash_md5, MD5_HASH_SIZE );
       
 		// New in v2.11 - XXX KEY      
-		sess->session_info.flags &= ~(CKF_SO_PIN_TO_BE_CHANGED);
+		nv_token_data->token_info.flags &= ~(CKF_SO_PIN_TO_BE_CHANGED);
 
 		XProcUnLock( xproclock );
 		rc = save_token_data();
