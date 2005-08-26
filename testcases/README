@@ -12,24 +12,33 @@ A typical sequence of commands for a test run would be:
 
 # pkcsslotd
 
-# pkcsconf -c 0 -I
+# /usr/lib/pkcs11/methods/pkcsconf -c 0 -I
 Enter the SO PIN: 87654321
 Enter a unique token label: ibmtest
 
-# pkcsconf -c 0 -P
+# /usr/lib/pkcs11/methods/pkcsconf -c 0 -P
 Enter the SO PIN: 87654321
 Enter the new SO PIN: 76543210
 Re-enter the new SO PIN: 76543210
 
-# pkcsconf -c 0 -P
+# /usr/lib/pkcs11/methods/pkcsconf -c 0 -P
 Enter the SO PIN: 76543210
 Enter the new SO PIN: 87654321
 Re-enter the new SO PIN: 87654321
 
-# pkcsconf -c 0 -u
+# /usr/lib/pkcs11/methods/pkcsconf -c 0 -u
 Enter the SO PIN: 87654321
+Enter the new user PIN: 01234567
+Re-enter the new user PIN: 01234567
+
+# /usr/lib/pkcs11/methods/pkcsconf -c 0 -p
+Enter user PIN: 01234567
 Enter the new user PIN: 12345678
 Re-enter the new user PIN: 12345678
+
+Alternatively, instead of entering all of the commands listed above,
+you can try the init_token.sh Expect script located in the testcases/
+directory.
 
 driver
 ------
