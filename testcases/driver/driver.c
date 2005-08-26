@@ -298,6 +298,7 @@ int main (int argc, char **argv)
    CK_C_INITIALIZE_ARGS  cinit_args;
    int        rc, i;
    CK_BBOOL      no_init;
+   int aes_only = FALSE;
    
    SLOT_ID = 0;
    skip_token_obj = TRUE;
@@ -317,6 +318,8 @@ int main (int argc, char **argv)
       }
       else if (strcmp (argv[i], "-noinit") == 0)
          no_init = TRUE;
+      else if (strcmp (argv[i], "-aesonly") == 0)
+         aes_only = TRUE;
       else {
 	 printf ("Invalid argument passed as option: %s\n", argv [i]);
 	 usage (argv [0]);
@@ -357,6 +360,10 @@ int main (int argc, char **argv)
 {  int i=0;
    while(i<1){
 
+   if (aes_only == TRUE) {
+	   goto aes;
+   }
+
 #if 1
    fprintf (stderr, "\tMisc Functions tests...\n");
     rc = misc_functions(); 
@@ -383,9 +390,13 @@ int main (int argc, char **argv)
    if (!rc)
       return;
 
+   aes:
    rc = aes_functions();
    if (!rc) {
 	   printf("Error executing AES functions\n");
+	   goto out;
+   }
+   if (aes_only == TRUE) {
 	   goto out;
    }
 

@@ -387,6 +387,15 @@ key_mgr_generate_key( SESSION           * sess,
          subclass = CKK_DES3;
          break;
 
+      case CKM_AES_KEY_GEN:
+         if (subclass != 0 && subclass != CKK_AES){
+            st_err_log(49, __FILE__, __LINE__);
+            return CKR_TEMPLATE_INCONSISTENT;
+         }
+
+         subclass = CKK_AES;
+         break;
+
 #if !(NOCDMF)
       case CKM_CDMF_KEY_GEN:
          if (subclass != 0 && subclass != CKK_CDMF){
@@ -409,15 +418,6 @@ key_mgr_generate_key( SESSION           * sess,
          }
          subclass = CKK_GENERIC_SECRET;
          break;
-
-      case CKM_AES_KEY_GEN:
-	 if (subclass != 0 && subclass != CKK_AES){
-	    st_err_log(49, __FILE__, __LINE__);
-	    return CKR_TEMPLATE_INCONSISTENT;
-	 }
-
-	 subclass = CKK_AES;
-	 break;
 
       default:
          st_err_log(28, __FILE__, __LINE__);

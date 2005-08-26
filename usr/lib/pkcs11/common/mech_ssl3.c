@@ -2108,6 +2108,7 @@ ssl3_kmd_process_write_keys( SESSION           * sess,
       case CKK_DES:
       case CKK_DES2:
       case CKK_DES3:
+      case CKK_AES:
       case CKK_RC2:
       case CKK_RC4:
       case CKK_RC5:

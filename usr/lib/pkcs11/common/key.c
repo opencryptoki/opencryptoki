@@ -4220,7 +4220,6 @@ des3_wrap_get_data( TEMPLATE   * tmpl,
    return CKR_OK;
 }
 
-
 // cast_check_required_attributes()
 //
 CK_RV
