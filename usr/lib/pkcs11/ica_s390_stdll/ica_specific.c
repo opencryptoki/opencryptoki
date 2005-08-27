@@ -1867,59 +1867,20 @@ token_specific_aes_ecb(CK_BYTE         *in_data,
 	/* TODO: Sanity check the dataLength; it must be a multiple of
 	 * the cipher block length */
         if (encrypt) {
-		switch (key_len) {
-		case AES_KEY_SIZE_256:
-			rc = icaAesEncrypt(adapter_handle, MODE_AES_ECB,
-					   (unsigned int)in_data_len, in_data, 
-					   &empty_iv, key_len,
-					   (ICA_KEY_AES_LEN256 *)key_value,
-					   &out_data_len_local, out_data);
-			break;
-		case AES_KEY_SIZE_192:
-			rc = icaAesEncrypt(adapter_handle, MODE_AES_ECB,
-					   (unsigned int)in_data_len, in_data, 
-					   &empty_iv, key_len,
-					   (ICA_KEY_AES_LEN192 *)key_value,
-					   &out_data_len_local, out_data);
-			break;
-		case AES_KEY_SIZE_128:
-			rc = icaAesEncrypt(adapter_handle, MODE_AES_ECB,
-					   (unsigned int)in_data_len, in_data, 
-					   &empty_iv, key_len,
-					   (ICA_KEY_AES_LEN128 *)key_value,
-					   &out_data_len_local, out_data);
-			break;
-		default:
-			rc = CKR_ARGUMENTS_BAD;
-			goto out;
-		}
+		/* libica overrides the _SINGLE key_value type to
+		 * reference however many bytes are necessary, given
+		 * key_value */
+		rc = icaAesEncrypt(adapter_handle, MODE_AES_ECB,
+				   (unsigned int)in_data_len, in_data, 
+				   &empty_iv, key_len,
+				   (ICA_KEY_AES_SINGLE *)key_value,
+				   &out_data_len_local, out_data);
         } else {
-		switch (key_len) {
-		case AES_KEY_SIZE_256:
-			rc = icaAesDecrypt(adapter_handle, MODE_AES_ECB,
-					   (unsigned int)in_data_len, in_data, 
-					   &empty_iv, key_len,
-					   (ICA_KEY_AES_LEN256 *)key_value,
-					   &out_data_len_local, out_data);
-			break;
-		case AES_KEY_SIZE_192:
-			rc = icaAesDecrypt(adapter_handle, MODE_AES_ECB,
-					   (unsigned int)in_data_len, in_data, 
-					   &empty_iv, key_len,
-					   (ICA_KEY_AES_LEN192 *)key_value,
-					   &out_data_len_local, out_data);
-			break;
-		case AES_KEY_SIZE_128:
-			rc = icaAesDecrypt(adapter_handle, MODE_AES_ECB,
-					   (unsigned int)in_data_len, in_data, 
-					   &empty_iv, key_len,
-					   (ICA_KEY_AES_LEN128 *)key_value,
-					   &out_data_len_local, out_data);
-			break;
-		default:
-			rc = CKR_ARGUMENTS_BAD;
-			goto out;
-		}
+		rc = icaAesDecrypt(adapter_handle, MODE_AES_ECB,
+				   (unsigned int)in_data_len, in_data, 
+				   &empty_iv, key_len,
+				   (ICA_KEY_AES_SINGLE *)key_value,
+				   &out_data_len_local, out_data);
         }
 	if (rc != 0) {
 		(*out_data_len) = (CK_ULONG)out_data_len_local;
