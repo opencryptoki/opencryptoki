@@ -307,7 +307,7 @@ static const char rcsid[] = "$Header$";
 #include <stdio.h>
 #include <time.h>
 #include <string.h>
-#include <syslog.h>
+/* #include <syslog.h> */
 
 #include <stdlib.h>
 #if (AIX)
@@ -4021,10 +4021,10 @@ CK_RV SC_GenerateKey( ST_SESSION_HANDLE     sSession,
 
    if (pin_expired(&sess->session_info, nv_token_data->token_info.flags) 
        == TRUE) {
-	   syslog(LOG_ERR, "%s: Pin expired\n", __FUNCTION__);
-      st_err_log(36, __FILE__, __LINE__);
-      rc = CKR_PIN_EXPIRED;
-      goto done;
+/*	   syslog(LOG_ERR, "%s: Pin expired\n", __FUNCTION__); */
+	   st_err_log(36, __FILE__, __LINE__);
+	   rc = CKR_PIN_EXPIRED;
+	   goto done;
    }
    
    rc = key_mgr_generate_key( sess, pMechanism, pTemplate, ulCount, phKey );

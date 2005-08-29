@@ -295,7 +295,7 @@ static const char rcsid[] = "$Header$";
 #include <pthread.h>
 #include <string.h>            // for memcmp() et al
 #include <stdlib.h>
-#include <syslog.h>
+/* #include <syslog.h> */
 #include <errno.h>
 
 #ifndef NOAES
@@ -633,7 +633,7 @@ CK_RV token_specific_sha2_init(DIGEST_CONTEXT *ctx)
 	/* For the C_DigestInit, C_Digest case, we may have already 
 	 * created ctx->context... - KEY 
 	 */
-	syslog(LOG_ERR, "%s: Enter\n", __FUNCTION__);
+/*	syslog(LOG_ERR, "%s: Enter\n", __FUNCTION__); */
 	if(ctx->context) {
 		sc = (oc_sha2_ctx *)ctx->context;
 		if(sc->dev_ctx)
@@ -657,7 +657,7 @@ CK_RV token_specific_sha2_init(DIGEST_CONTEXT *ctx)
 		return CKR_HOST_MEMORY;
 	}
 	memset(sc->dev_ctx, 0, LENGTH_SHA256_CONTEXT);
-	syslog(LOG_ERR, "%s: Exit\n", __FUNCTION__);
+/*	syslog(LOG_ERR, "%s: Exit\n", __FUNCTION__); */
 	return CKR_OK;
 }
 
@@ -840,16 +840,16 @@ CK_RV token_specific_sha2_update(DIGEST_CONTEXT *ctx, CK_BYTE *in_data,
 {
 	unsigned int rc, i, fill_size = 0;
 	CK_RV rv = CKR_OK;
-	syslog(LOG_ERR, "%s: Enter\n", __FUNCTION__);
+/*	syslog(LOG_ERR, "%s: Enter\n", __FUNCTION__); */
 	oc_sha2_ctx *oc_sha256_ctx = (oc_sha2_ctx *)ctx->context;
 	SHA256_CONTEXT *ica_sha2_ctx=(SHA256_CONTEXT *)oc_sha256_ctx->dev_ctx;
 	if (!ctx) {
-		syslog(LOG_ERR, "%s: NULL context\n", __FUNCTION__);
+/*		syslog(LOG_ERR, "%s: NULL context\n", __FUNCTION__); */
 		rv = CKR_OPERATION_NOT_INITIALIZED;
 		goto out;
 	}
 	if (!in_data) {
-		syslog(LOG_ERR, "%s: NULL in_data\n", __FUNCTION__);
+/*		syslog(LOG_ERR, "%s: NULL in_data\n", __FUNCTION__); */
 		rv = CKR_FUNCTION_FAILED;
 		goto out;
 	}
@@ -865,15 +865,15 @@ CK_RV token_specific_sha2_update(DIGEST_CONTEXT *ctx, CK_BYTE *in_data,
 					   LENGTH_SHA256_CONTEXT, ica_sha2_ctx,
 					   &oc_sha256_ctx->hash_len,
 					   oc_sha256_ctx->hash)) {
-				syslog(LOG_ERR, "%s: [1]libICA unhappy about "
+/*				syslog(LOG_ERR, "%s: [1]libICA unhappy about "
 				       "something; return code = [%d]\n",
-				       __FUNCTION__, rc);
+				       __FUNCTION__, rc); */
 				if (rc == ENODEV) {
-					syslog(LOG_ERR, "%s: libICA "
+/*					syslog(LOG_ERR, "%s: libICA "
 					       "reports that we don't "
 					       "have any hardware "
 					       "SHA256 support.\n",
-					       __FUNCTION__);
+					       __FUNCTION__); */
 				}
 				rv = CKR_FUNCTION_FAILED;
 				goto out;
@@ -934,15 +934,16 @@ CK_RV token_specific_sha2_update(DIGEST_CONTEXT *ctx, CK_BYTE *in_data,
 						   ica_sha2_ctx, 
 						   &oc_sha256_ctx->hash_len,
 						   oc_sha256_ctx->hash)) {
-					syslog(LOG_ERR, "%s: [2]libICA unhappy"
+/*					syslog(LOG_ERR, "%s: [2]libICA unhappy"
 					       " about something; return code "
-					       "= [%d]\n", __FUNCTION__, rc);
+					       "= [%d]\n",
+					       __FUNCTION__, rc); */
 					if (rc == ENODEV) {
-						syslog(LOG_ERR, "%s: libICA "
+/*						syslog(LOG_ERR, "%s: libICA "
 						       "reports that we don't "
 						       "have any hardware "
 						       "SHA256 support.\n",
-						       __FUNCTION__);
+						       __FUNCTION__); */
 					}
 					rv = CKR_FUNCTION_FAILED;
 					goto out;
@@ -987,11 +988,12 @@ CK_RV token_specific_sha2_update(DIGEST_CONTEXT *ctx, CK_BYTE *in_data,
 						       &oc_sha256_ctx->hash_len,
 						       oc_sha256_ctx->hash);
                                 	if (rc) {
-						syslog(LOG_ERR,
+/*						syslog(LOG_ERR,
 						       "%s: [3]libICA unhappy "
 						       "about something; "
 						       "return code = [%d]\n",
-						       __FUNCTION__, rc);
+						       __FUNCTION__,
+						       rc); */
 						rv = CKR_FUNCTION_FAILED;
 						goto out;
 					}
@@ -1069,14 +1071,15 @@ CK_RV token_specific_sha2_update(DIGEST_CONTEXT *ctx, CK_BYTE *in_data,
 				   ica_sha2_ctx,
 				   &oc_sha256_ctx->hash_len,
 				   oc_sha256_ctx->hash)) {
-			syslog(LOG_ERR, "%s: [4]libICA unhappy about something"
-			       "; return code = [%d]\n", __FUNCTION__, rc);
+/*			syslog(LOG_ERR, "%s: [4]libICA unhappy about something"
+			       "; return code = [%d]\n", __FUNCTION__,
+			       rc); */
 			rv = CKR_FUNCTION_FAILED;
 			goto out;
 		}
 	}
  out:
-	syslog(LOG_ERR, "%s: Exit; rv = [%d]\n", __FUNCTION__, rv);
+/*	syslog(LOG_ERR, "%s: Exit; rv = [%d]\n", __FUNCTION__, rv); */
 	return rv;
 }
 
@@ -1875,6 +1878,10 @@ token_specific_aes_ecb(CK_BYTE         *in_data,
 				   &empty_iv, key_len,
 				   (ICA_KEY_AES_SINGLE *)key_value,
 				   &out_data_len_local, out_data);
+		if (rc != 0) {
+/*			syslog(LOG_ERR, "%s: icaAesEncrypt returned [%d]\n", 
+			__FUNCTION__, rc); */
+		}
         } else {
 		rc = icaAesDecrypt(adapter_handle, MODE_AES_ECB,
 				   (unsigned int)in_data_len, in_data, 
@@ -2335,7 +2342,7 @@ token_specific_get_mechanism_list(CK_MECHANISM_TYPE_PTR pMechanismList,
 	int rc = CKR_OK;
 	struct mech_list_item head;
 	struct mech_list_item *walker;
-	syslog(LOG_ERR, "%s: Enter\n", __FUNCTION__);
+/*	syslog(LOG_ERR, "%s: Enter\n", __FUNCTION__); */
 #if 1
 	rc = ock_generic_get_mechanism_list(pMechanismList, pulCount);	
 	if (rc != CKR_OK) {
@@ -2377,8 +2384,8 @@ token_specific_get_mechanism_list(CK_MECHANISM_TYPE_PTR pMechanismList,
 	}
 #endif
  out:
-	syslog(LOG_ERR, "%s: Exit; *pulCount = [%lu]\n", __FUNCTION__, 
-	       (*pulCount));
+/*	syslog(LOG_ERR, "%s: Exit; *pulCount = [%lu]\n", __FUNCTION__, 
+	(*pulCount)); */
 	return rc;
 }
 
@@ -2395,7 +2402,8 @@ token_specific_get_mechanism_info(CK_MECHANISM_TYPE type,
 	int rc = CKR_MECHANISM_INVALID;
 	struct mech_list_item head;
 	struct mech_list_item *walker;
-	syslog(LOG_ERR, "%s: Enter; type = [%lu]\n", __FUNCTION__, type);
+/*	syslog(LOG_ERR, "%s: Enter; type = [%lu]\n", __FUNCTION__,
+	type); */
 #if 1
 	rc = ock_generic_get_mechanism_info(type, pInfo);
 	if (rc == CKR_OK) {
@@ -2417,6 +2425,6 @@ token_specific_get_mechanism_info(CK_MECHANISM_TYPE type,
 	}
  out:
 	free_mech_list(&head);
-	syslog(LOG_ERR, "%s: Exit\n", __FUNCTION__);
+/*	syslog(LOG_ERR, "%s: Exit\n", __FUNCTION__); */
 	return rc;
 }

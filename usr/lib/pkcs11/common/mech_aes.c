@@ -299,7 +299,7 @@
 
 #include <string.h>            // for memcmp() et al
 #include <stdlib.h>
-#include <syslog.h>
+/* #include <syslog.h> */
 
 #include "pkcs11types.h"
 #include "defs.h"
@@ -1725,10 +1725,12 @@ ckm_aes_key_gen( TEMPLATE *tmpl )
    CK_ULONG	      key_size;
    CK_BBOOL	      found	    = FALSE;
 
-   syslog(LOG_ERR, "%s: Searching for CKA_VALUE_LEN...\n", __FUNCTION__);
+/*   syslog(LOG_ERR, "%s: Searching for CKA_VALUE_LEN...\n",
+     __FUNCTION__); */
    found = template_attribute_find( tmpl, CKA_VALUE_LEN, &val_len_attr );
    if (found == FALSE) {
-           syslog(LOG_ERR, "%s: No template attribute found\n", __FUNCTION__);
+/*           syslog(LOG_ERR, "%s: No template attribute found\n",
+	     __FUNCTION__); */
 	   return CKR_TEMPLATE_INCONSISTENT;
    }
       

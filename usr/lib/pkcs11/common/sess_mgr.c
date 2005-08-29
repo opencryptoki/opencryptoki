@@ -300,7 +300,7 @@ static const char rcsid[] = "$Header$";
 #include <pthread.h>
 #include <stdlib.h>
 #include <string.h>  // for memcmp() et al
-#include <syslog.h>
+/* #include <syslog.h> */
 
 #include "pkcs11types.h"
 #include "defs.h"
@@ -1344,9 +1344,9 @@ CK_BBOOL pin_expired(CK_SESSION_INFO *si, CK_FLAGS flags)
 	/* If this is an SO session */
 	if ((flags & CKF_SO_PIN_TO_BE_CHANGED) 
 	    && (si->state == CKS_RW_SO_FUNCTIONS)) {
-		syslog(LOG_ERR, "%s: The SO pin must be changed and we are "
+/*		syslog(LOG_ERR, "%s: The SO pin must be changed and we are "
 		       "in a R/W function; reporting the pin as expired\n",
-		       __FUNCTION__);
+		       __FUNCTION__); */
 		rv = TRUE;
 		goto out;
 	}
@@ -1355,9 +1355,9 @@ CK_BBOOL pin_expired(CK_SESSION_INFO *si, CK_FLAGS flags)
 	if ((flags & CKF_USER_PIN_TO_BE_CHANGED) 
 	    && ((si->state == CKS_RO_USER_FUNCTIONS)
 		|| (si->state == CKS_RW_USER_FUNCTIONS))) {
-		syslog(LOG_ERR, "%s: The user pin must be changed and we are "
+/*		syslog(LOG_ERR, "%s: The user pin must be changed and we are "
 		       "either in a R/O function or a R/W function\n",
-		       __FUNCTION__);
+		       __FUNCTION__); */
 		rv = TRUE;
 		goto out;
 	}

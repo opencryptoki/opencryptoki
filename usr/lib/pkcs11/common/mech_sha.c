@@ -315,7 +315,7 @@ static const char rcsid[] = "$Header$";
 #include <string.h>            // for memcmp() et al
 #include <stdlib.h>
 #include <memory.h>
-#include <syslog.h>
+/* #include <syslog.h> */
 
 #include "pkcs11types.h"
 #include "defs.h"
@@ -476,17 +476,17 @@ sha2_hash_update( SESSION        * sess,
                   CK_ULONG         in_data_len )
 {
 	CK_RV rv = CKR_OK;
-	syslog(LOG_ERR, "%s: Enter\n", __FUNCTION__);
+/*	syslog(LOG_ERR, "%s: Enter\n", __FUNCTION__); */
 	if (!sess || !in_data) {
 		st_err_log(4, __FILE__, __LINE__, __FUNCTION__);
-		syslog(LOG_ERR, "%s: sess = [%p]; in_data = [%p]\n", 
-		       __FUNCTION__, sess, in_data);
+/*		syslog(LOG_ERR, "%s: sess = [%p]; in_data = [%p]\n", 
+		__FUNCTION__, sess, in_data); */
 		rv = CKR_FUNCTION_FAILED;
 		goto out;
 	}
 	rv = ckm_sha2_update( ctx, in_data, in_data_len );
  out:
-	syslog(LOG_ERR, "%s: Exit\n", __FUNCTION__);
+/*	syslog(LOG_ERR, "%s: Exit\n", __FUNCTION__); */
 	return rv;
 }
 
@@ -1043,7 +1043,7 @@ ckm_sha2_update( DIGEST_CONTEXT * ctx,
                  CK_ULONG         in_data_len )
 {
 	CK_RV rv;
-	syslog(LOG_ERR, "%s: Enter\n", __FUNCTION__);
+/*	syslog(LOG_ERR, "%s: Enter\n", __FUNCTION__); */
 	if( token_specific.t_sha2_update == NULL ){
 		/* TODO: Software implementation here */
 		rv = CKR_MECHANISM_INVALID;
@@ -1051,7 +1051,7 @@ ckm_sha2_update( DIGEST_CONTEXT * ctx,
 	}
 	rv = token_specific.t_sha2_update(ctx, in_data, in_data_len);
  out:
-	syslog(LOG_ERR, "%s: Exit\n", __FUNCTION__);
+/*	syslog(LOG_ERR, "%s: Exit\n", __FUNCTION__); */
 	return rv;
 }
 
@@ -1086,7 +1086,7 @@ ckm_sha2_final( DIGEST_CONTEXT * ctx,
                 CK_ULONG       * out_data_len )
 {
 	CK_RV rv = CKR_OK;
-	syslog(LOG_ERR, "%s: Enter\n", __FUNCTION__);
+/* 	syslog(LOG_ERR, "%s: Enter\n", __FUNCTION__); */
 	if (token_specific.t_sha2_final  == NULL ){
 		/* TODO: Software implementation here */
 		rv = CKR_MECHANISM_INVALID;
@@ -1094,7 +1094,7 @@ ckm_sha2_final( DIGEST_CONTEXT * ctx,
 	}
 	rv = token_specific.t_sha2_final(ctx, out_data, out_data_len);
  out:
-	syslog(LOG_ERR, "%s: Exit\n", __FUNCTION__);
+/*	syslog(LOG_ERR, "%s: Exit\n", __FUNCTION__); */
 	return rv;
 }
 
@@ -1132,7 +1132,7 @@ CK_RV
 ckm_sha2_init( DIGEST_CONTEXT * ctx)
 {
 	CK_RV rv = CKR_OK;
-	syslog(LOG_ERR, "%s: Enter\n", __FUNCTION__);
+/*	syslog(LOG_ERR, "%s: Enter\n", __FUNCTION__); */
 	if (token_specific.t_sha2_init == NULL ) {
 		rv = CKR_MECHANISM_INVALID;
 		goto out;
@@ -1142,7 +1142,7 @@ ckm_sha2_init( DIGEST_CONTEXT * ctx)
 		rv = token_specific.t_sha2_init(ctx);
 	}
  out:
-	syslog(LOG_ERR, "%s: Exit; rv = [%d]\n", __FUNCTION__, rv);
+/*	syslog(LOG_ERR, "%s: Exit; rv = [%d]\n", __FUNCTION__, rv); */
 	return rv;
 }
 

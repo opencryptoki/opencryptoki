@@ -314,6 +314,7 @@ static const char rcsid[] = "$Header$";
 #include <pthread.h>
 #include <stdlib.h>
 #include <stdio.h>
+/* #include <syslog.h> */
 
   #include <string.h>  // for memcmp() et al
 
@@ -553,15 +554,19 @@ template_attribute_find( TEMPLATE           * tmpl,
 {
    DL_NODE      * node = NULL;
    CK_ATTRIBUTE * a    = NULL;
-
-   if (!tmpl || !attr)
-      return FALSE;
+/*   syslog(LOG_ERR, "%s: Enter; type = [%d]\n", __FUNCTION__, type); */
+   if (!tmpl || !attr) {
+/*	      syslog(LOG_ERR, "%s: tmpl = [%p]; attr = [%p]\n", __FUNCTION__, 
+	      tmpl, attr); */
+	      return FALSE;
+   }
 
    node = tmpl->attribute_list;
 
    while (node != NULL) {
       a = (CK_ATTRIBUTE *)node->data;
-
+/*      syslog(LOG_ERR, "%s: Comparing type [%d] against a->type [%d]\n",
+	__FUNCTION__, type, a->type); */
       if (type == a->type) {
          *attr = a;
          return TRUE;
@@ -569,7 +574,8 @@ template_attribute_find( TEMPLATE           * tmpl,
 
       node = node->next;
    }
-
+/*   syslog(LOG_ERR, "%s: No match found for type [%d]\n",
+ *__FUNCTION__, type); */
    *attr = NULL;
    return FALSE;
 }
