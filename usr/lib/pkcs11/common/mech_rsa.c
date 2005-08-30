@@ -1175,15 +1175,6 @@ rsa_hash_pkcs_sign( SESSION              * sess,
       digest_mech.mechanism      = CKM_MD5;
       oid = ber_md5WithRSAEncryption;
       oid_len = ber_md5WithRSAEncryptionLen;
-   } else if (ctx->mech.mechanism == CKM_SHA256_RSA_PKCS_PSS) {
-	   /* TODO: Code support for SHA256 here; remember to update
-	    * the hash array size above to support larger hash sizes
-	    * when that time comes */
-/*      digest_mech.mechanism      = CKM_SHA256;
-      oid = ber_sha2WithRSAEncryption;
-      oid_len = ber_sha2WithRSAEncryptionLen; */
-	   rc = CKR_GENERAL_ERROR;
-	   goto error;
    } else {
       digest_mech.mechanism      = CKM_SHA_1;
       oid = ber_sha1WithRSAEncryption;
@@ -1269,10 +1260,7 @@ rsa_hash_pkcs_sign_update( SESSION              * sess,
          digest_mech.mechanism = CKM_MD2;
       else if (ctx->mech.mechanism == CKM_MD5_RSA_PKCS)
          digest_mech.mechanism = CKM_MD5;
-      else if (ctx->mech.mechanism == CKM_SHA256_RSA_PKCS_PSS) {
-	      rc = CKR_GENERAL_ERROR;
-	      goto error;
-      } else {
+      else {
 	      digest_mech.mechanism = CKM_SHA_1;
       }
 
@@ -1340,9 +1328,6 @@ rsa_hash_pkcs_verify( SESSION              * sess,
       digest_mech.mechanism      = CKM_MD5;
       oid = ber_md5WithRSAEncryption;
       oid_len = ber_md5WithRSAEncryptionLen;
-   } else if (ctx->mech.mechanism == CKM_SHA256_RSA_PKCS_PSS) {
-	   rc = CKR_GENERAL_ERROR;
-	   goto done;
    } else {
       digest_mech.mechanism      = CKM_SHA_1;
       oid = ber_sha1WithRSAEncryption;
@@ -1428,10 +1413,7 @@ rsa_hash_pkcs_verify_update( SESSION              * sess,
          digest_mech.mechanism = CKM_MD2;
       else if (ctx->mech.mechanism == CKM_MD5_RSA_PKCS)
          digest_mech.mechanism = CKM_MD5;
-      else if (ctx->mech.mechanism == CKM_SHA256_RSA_PKCS_PSS) {
-	      rc = CKR_GENERAL_ERROR;
-	      goto error;
-      } else {
+      else {
          digest_mech.mechanism = CKM_SHA_1;
       }
 

@@ -59,7 +59,7 @@ fi
 AC_ARG_WITH(openssl,
         [  --with-openssl[[=DIR]]     build with OpenSSL support [[/usr/local/ssl]]],
         [openssl_prefix=$withval], 
-        [openssl_prefix="/usr/local/ssl"]
+        [openssl_prefix=""]
 )
 AC_MSG_RESULT([*** Using OpenSSL directory $openssl_prefix ***])
 LDFLAGS="-L$openssl_prefix/lib $LDFLAGS"
