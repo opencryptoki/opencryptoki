@@ -1044,7 +1044,7 @@ int do_WrapUnwrapAES_ECB(void)
 	CK_BYTE data1[BIG_REQUEST];
 	CK_BYTE data2[BIG_REQUEST];
 	CK_BYTE sanity[BIG_REQUEST];
-	CK_BYTE wrapped_data[AES_BLOCK_SIZE];
+	CK_BYTE wrapped_data[AES_KEY_SIZE_256];
 	CK_SLOT_ID slot_id;
 	CK_SESSION_HANDLE session;
 	CK_MECHANISM mech;
@@ -1515,7 +1515,7 @@ int do_WrapUnwrapAES_CBC_PAD(void)
 	CK_BYTE cipher[BIG_REQUEST + AES_BLOCK_SIZE];
 	CK_BYTE decipher[BIG_REQUEST + AES_BLOCK_SIZE];
 
-	CK_BYTE wrapped_data[BIG_REQUEST + AES_BLOCK_SIZE];
+	CK_BYTE wrapped_data[BIG_REQUEST + AES_KEY_SIZE_256];
 
 	CK_SLOT_ID slot_id;
 	CK_SESSION_HANDLE session;

@@ -36,13 +36,9 @@ AC_ARG_ENABLE(debug, [  --enable-debug          turn on all openCryptoki debuggi
               [               enable_debug="yes"],)
 
 if test "x$enable_debug" != xyes; then
-	if test -z "$CFLAGS"; then
-		CFLAGS="-O2"
-	fi
+	CFLAGS="-O2"
 else
-	if test -z "$CFLAGS"; then
-		CFLAGS="-O0 -g -DDEBUG -DDEBUGON"
-	fi
+	CFLAGS="-O0 -g -DDEBUG -DDEBUGON"
 	AC_MSG_RESULT([*** Enabling debugging at user request ***])
 fi
 
@@ -51,7 +47,7 @@ AC_ARG_ENABLE(31_bit, [  --enable-31_bit         compile 31-bit (for S390)],
               [               enable_31_bit="yes"],)
 
 if test "x$enable_31_bit" = xyes; then
-   	CFLAGS="$(CFLAGS) -m31"
+   	CFLAGS="$CFLAGS -m31"
 	AC_MSG_RESULT([*** Enabling 31-bit mode at user request ***])
 fi
 
