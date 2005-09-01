@@ -625,8 +625,7 @@ CK_RV token_specific_sha2_init(DIGEST_CONTEXT *ctx)
 {
 	oc_sha2_ctx *sc;
 	/* For the C_DigestInit, C_Digest case, we may have already 
-	 * created ctx->context... - KEY 
-	 */
+	 * created ctx->context... - KEY */
 	if(ctx->context) {
 		sc = (oc_sha2_ctx *)ctx->context;
 		if(sc->dev_ctx)
@@ -636,8 +635,9 @@ CK_RV token_specific_sha2_init(DIGEST_CONTEXT *ctx)
 	/* The caller will check to see if ctx->context == NULL */
 	ctx->context_len = sizeof(oc_sha2_ctx);
 	ctx->context = malloc(sizeof(oc_sha2_ctx));
-	if(ctx->context == NULL) 
+	if(ctx->context == NULL) {
 		return CKR_HOST_MEMORY;
+	}
 	memset(ctx->context, 0, ctx->context_len);
 	sc = (oc_sha2_ctx *)ctx->context;
 	sc->hash_len = SHA2_HASH_SIZE;
@@ -830,34 +830,38 @@ CK_RV token_specific_sha2_update(DIGEST_CONTEXT *ctx, CK_BYTE *in_data,
 				 CK_ULONG in_data_len)
 {
 	unsigned int rc, i, fill_size = 0;
+	CK_RV rv = CKR_OK;
 	oc_sha2_ctx *oc_sha256_ctx = (oc_sha2_ctx *)ctx->context;
-	SHA256_CONTEXT *ica_sha2_ctx = (SHA256_CONTEXT *)oc_sha256_ctx->dev_ctx;
+	SHA256_CONTEXT *ica_sha2_ctx=(SHA256_CONTEXT *)oc_sha256_ctx->dev_ctx;
 	if (!ctx) {
-		return CKR_OPERATION_NOT_INITIALIZED;
+		rv = CKR_OPERATION_NOT_INITIALIZED;
+		goto out;
 	}
 	if (!in_data) {
-		return CKR_FUNCTION_FAILED;
+		rv = CKR_FUNCTION_FAILED;
+		goto out;
 	}
 	if (ctx->multi == TRUE) {
 		if (oc_sha256_ctx->tail_len == 64) {
+			int rc;
 			/* Submit the filled out save buffer */
-                        if (icaSha256(adapter_handle, 
-				      (ica_sha2_ctx->runningLength == 0 
-				       ? SHA_MSG_PART_FIRST 
-				       : SHA_MSG_PART_MIDDLE),
-				      64, oc_sha256_ctx->tail,
-				      LENGTH_SHA256_CONTEXT, ica_sha2_ctx,
-				      &oc_sha256_ctx->hash_len,
-				      oc_sha256_ctx->hash)) {
-				return CKR_FUNCTION_FAILED;
+                        if (rc = icaSha256(adapter_handle, 
+					   (ica_sha2_ctx->runningLength == 0 
+					    ? SHA_MSG_PART_FIRST 
+					    : SHA_MSG_PART_MIDDLE),
+					   64, oc_sha256_ctx->tail,
+					   LENGTH_SHA256_CONTEXT, ica_sha2_ctx,
+					   &oc_sha256_ctx->hash_len,
+					   oc_sha256_ctx->hash)) {
+				rv = CKR_FUNCTION_FAILED;
+				goto out;
 			}
 			oc_sha256_ctx->tail_len = 0;
 		}
 		/* libICA and SHA256 demand that if this is a
 		 * PART_FIRST or a PART_MIDDLE operation, the amount
 		 * of data passed in must be a multiple of 64 bytes. -
-		 * KEY
-		 */
+		 * KEY */
 		if (ica_sha2_ctx->runningLength == 0 && 
 		    oc_sha256_ctx->tail_len == 0) {
 			oc_sha256_ctx->message_part = SHA_MSG_PART_FIRST;
@@ -889,40 +893,41 @@ CK_RV token_specific_sha2_update(DIGEST_CONTEXT *ctx, CK_BYTE *in_data,
 			 * call icaSha256 on that buffer.  If there
 			 * weren't enough bytes passed in to fill it
 			 * out, just copy in what we can and return
-			 * success without calling icaSha1. - KEY
-			 */
+			 * success without calling icaSha1. - KEY */
 			fill_size = 64 - oc_sha256_ctx->tail_len;
 			if (fill_size < in_data_len) {
+				int rc;
 				memcpy((oc_sha256_ctx->tail
 					+ oc_sha256_ctx->tail_len),
 				       in_data, fill_size);
 				/* Submit the filled out save buffer */
-				if (icaSha256(adapter_handle,
-					      (unsigned int)SHA_MSG_PART_FIRST,
-					      (unsigned int)64,
-					      oc_sha256_ctx->tail,
-					      (unsigned int)
-					      LENGTH_SHA256_CONTEXT, 
-					      ica_sha2_ctx, 
-					      &oc_sha256_ctx->hash_len,
-					      oc_sha256_ctx->hash)) {
-					return CKR_FUNCTION_FAILED;
+				if (rc = icaSha256(adapter_handle,
+						   (unsigned int)SHA_MSG_PART_FIRST,
+						   (unsigned int)64,
+						   oc_sha256_ctx->tail,
+						   (unsigned int)
+						   LENGTH_SHA256_CONTEXT, 
+						   ica_sha2_ctx, 
+						   &oc_sha256_ctx->hash_len,
+						   oc_sha256_ctx->hash)) {
+					rv = CKR_FUNCTION_FAILED;
+					goto out;
 				}
 			} else {
 				memcpy((oc_sha256_ctx->tail
 					+ oc_sha256_ctx->tail_len),
 				       in_data, in_data_len);
 				oc_sha256_ctx->tail_len += in_data_len;
-				return CKR_OK;
+				goto out;
 			}
                         /* We had to use 'fill_size' bytes from
                          * in_data to fill out the empty part of save
-                         * data, so adjust in_data_len
-                         */
+                         * data, so adjust in_data_len */
                         in_data_len -= fill_size;
                         oc_sha256_ctx->tail_len = in_data_len & 0x3f;
                         if (oc_sha256_ctx->tail_len) {
-                                memcpy(oc_sha256_ctx->tail, in_data + fill_size,
+                                memcpy(oc_sha256_ctx->tail,
+				       in_data + fill_size,
 				       oc_sha256_ctx->tail_len);
                                 in_data_len &= ~0x3f;
                         }
@@ -931,28 +936,32 @@ CK_RV token_specific_sha2_update(DIGEST_CONTEXT *ctx, CK_BYTE *in_data,
 			if(oc_sha256_ctx->tail_len) {
 	                        fill_size = (64 - oc_sha256_ctx->tail_len);
         	                if (fill_size < in_data_len) {
+					int rc;
                 	                memcpy(oc_sha256_ctx->tail
 					       + oc_sha256_ctx->tail_len, 
 					       in_data, fill_size);
-                        	        /* Submit the filled out save buffer */
-                                	if (icaSha256(adapter_handle,
-						      (unsigned int)
-						      oc_sha256_ctx->message_part,
-						      (unsigned int)64,
-						      oc_sha256_ctx->tail,
-						      (unsigned int)
-						      LENGTH_SHA256_CONTEXT,
-						      ica_sha2_ctx,
-						      &oc_sha256_ctx->hash_len,
-						      oc_sha256_ctx->hash)) {
-        	                                return CKR_FUNCTION_FAILED;
+                        	        /* Submit the filled out save
+					 * buffer */
+					rc = icaSha256(adapter_handle,
+						       (unsigned int)
+						       oc_sha256_ctx->message_part,
+						       (unsigned int)64,
+						       oc_sha256_ctx->tail,
+						       (unsigned int)
+						       LENGTH_SHA256_CONTEXT,
+						       ica_sha2_ctx,
+						       &oc_sha256_ctx->hash_len,
+						       oc_sha256_ctx->hash);
+                                	if (rc) {
+						rv = CKR_FUNCTION_FAILED;
+						goto out;
 					}
                 	        } else {
                         	        memcpy((oc_sha256_ctx->tail
 						+ oc_sha256_ctx->tail_len),
 					       in_data, in_data_len);
 	                                oc_sha256_ctx->tail_len += in_data_len;
-        	                        return CKR_OK;
+					goto out;
                 	        }
 				/* We had to use some of the data from
 				 * in_data to fill out the empty part
@@ -971,8 +980,7 @@ CK_RV token_specific_sha2_update(DIGEST_CONTEXT *ctx, CK_BYTE *in_data,
 				 * to go ahead and send the first X *
 				 * 64 byte chunks in to be processed
 				 * and copy the last <64 byte area
-				 * into the tail. -KEY
-				 */
+				 * into the tail. -KEY */
 				/* Just copying the last <64 bytes
 				 * will not work in the case of a user
 				 * who SHA's a large chunk of data in
@@ -1002,24 +1010,30 @@ CK_RV token_specific_sha2_update(DIGEST_CONTEXT *ctx, CK_BYTE *in_data,
 	} else {
 		/* ctx->multi == FALSE, but we've run
 		 * previously. That's our signal that this is the last
-		 * part -KEY
-		 */
+		 * part -KEY */
 		if (ica_sha2_ctx->runningLength > 0) {
 			oc_sha256_ctx->message_part = SHA_MSG_PART_FINAL;
 		} else {
 			oc_sha256_ctx->message_part = SHA_MSG_PART_ONLY;
 		}
 	}
-	if (in_data_len || (oc_sha256_ctx->message_part == SHA_MSG_PART_FINAL)) {
-		if (icaSha256(adapter_handle,
-			      (unsigned int)oc_sha256_ctx->message_part,
-			      (unsigned int)in_data_len, (in_data + fill_size),
-			      (unsigned int)LENGTH_SHA256_CONTEXT, ica_sha2_ctx,
-			      &oc_sha256_ctx->hash_len, oc_sha256_ctx->hash)) {
-			return CKR_FUNCTION_FAILED;
+	if (in_data_len 
+	    || (oc_sha256_ctx->message_part == SHA_MSG_PART_FINAL)) {
+		int rc;
+		if (rc = icaSha256(adapter_handle,
+				   (unsigned int)oc_sha256_ctx->message_part,
+				   (unsigned int)in_data_len,
+				   (in_data + fill_size),
+				   (unsigned int)LENGTH_SHA256_CONTEXT,
+				   ica_sha2_ctx,
+				   &oc_sha256_ctx->hash_len,
+				   oc_sha256_ctx->hash)) {
+			rv = CKR_FUNCTION_FAILED;
+			goto out;
 		}
 	}
-	return CKR_OK;
+ out:
+	return rv;
 }
 
 CK_RV
@@ -1564,81 +1578,86 @@ token_specific_session(CK_SLOT_ID  slotid)
 #ifndef NOAES
 
 CK_RV
-token_specific_aes_key_gen( CK_BYTE *key, CK_ULONG len )
+token_specific_aes_key_gen(CK_BYTE *key, CK_ULONG len)
 {
         return rng_generate(key, len);
 }
 
 CK_RV
-token_specific_aes_ecb( CK_BYTE         *in_data,
-                        CK_ULONG        in_data_len,
-                        CK_BYTE         *out_data,
-                        CK_ULONG        *out_data_len,
-                        CK_BYTE         *key_value,
-                        CK_ULONG        key_len,
-                        CK_BYTE         encrypt)
+token_specific_aes_ecb(CK_BYTE *in_data, CK_ULONG in_data_len,
+		       CK_BYTE *out_data, CK_ULONG *out_data_len,
+		       CK_BYTE *key_value, CK_ULONG key_len, CK_BYTE encrypt)
 {
-        AES_KEY         ssl_aes_key;
-        int             i;
-        /* There's a previous check that in_data_len % AES_BLOCK_SIZE == 0,
-         * so this is fine */
-        CK_ULONG        loops = (CK_ULONG)(in_data_len/AES_BLOCK_SIZE);
-
-        memset( &ssl_aes_key, 0, sizeof(AES_KEY));
-
-        // AES_ecb_encrypt encrypts only a single block, so we have to break up the
-        // input data here
+	ICA_AES_VECTOR empty_iv;
+	int rc = CKR_OK;
+	unsigned int out_data_len_local;
+	out_data_len_local = (unsigned int)(*out_data_len);
+	memset(&empty_iv, 0, sizeof(empty_iv));
+	/* TODO: Sanity check the dataLength; it must be a multiple of
+	 * the cipher block length */
         if (encrypt) {
-                AES_set_encrypt_key((unsigned char *)key_value, (key_len*8), &ssl_aes_key);
-                for( i=0; i<loops; i++ ) {
-                        AES_ecb_encrypt((unsigned char *)in_data + (i*AES_BLOCK_SIZE),
-                                        (unsigned char *)out_data + (i*AES_BLOCK_SIZE),
-                                        &ssl_aes_key,
-                                        AES_ENCRYPT);
-                }
+		/* libica overrides the _SINGLE key_value type to
+		 * reference however many bytes are necessary, given
+		 * key_value */
+		rc = icaAesEncrypt(adapter_handle, MODE_AES_ECB,
+				   (unsigned int)in_data_len, in_data, 
+				   &empty_iv, key_len,
+				   (ICA_KEY_AES_SINGLE *)key_value,
+				   &out_data_len_local, out_data);
         } else {
-                AES_set_decrypt_key((unsigned char *)key_value, (key_len*8), &ssl_aes_key);
-                for( i=0; i<loops; i++ ) {
-                        AES_ecb_encrypt((unsigned char *)in_data + (i*AES_BLOCK_SIZE),
-                                        (unsigned char *)out_data + (i*AES_BLOCK_SIZE),
-                                        &ssl_aes_key,
-                                        AES_DECRYPT);
-                }
+		rc = icaAesDecrypt(adapter_handle, MODE_AES_ECB,
+				   (unsigned int)in_data_len, in_data, 
+				   &empty_iv, key_len,
+				   (ICA_KEY_AES_SINGLE *)key_value,
+				   &out_data_len_local, out_data);
         }
-        *out_data_len = in_data_len;
-        return CKR_OK;
+	if (rc != 0) {
+		(*out_data_len) = (CK_ULONG)out_data_len_local;
+		rc = CKR_FUNCTION_FAILED;
+	} else {
+		(*out_data_len) = in_data_len;
+		rc = CKR_OK;
+	}
+ out:
+        return rc;
 }
 
 CK_RV
-token_specific_aes_cbc( CK_BYTE         *in_data,
-                        CK_ULONG        in_data_len,
-                        CK_BYTE         *out_data,
-                        CK_ULONG        *out_data_len,
-                        CK_BYTE         *key_value,
-                        CK_ULONG        key_len,
-                        CK_BYTE         *init_v,
-                        CK_BYTE         encrypt)
+token_specific_aes_cbc(CK_BYTE         *in_data,
+		       CK_ULONG        in_data_len,
+		       CK_BYTE         *out_data,
+		       CK_ULONG        *out_data_len,
+		       CK_BYTE         *key_value,
+		       CK_ULONG        key_len,
+		       CK_BYTE         *init_v,
+		       CK_BYTE         encrypt)
 {
-        AES_KEY         ssl_aes_key;
-        int             i;
-
-        memset( &ssl_aes_key, 0, sizeof(AES_KEY));
-
-        // AES_cbc_encrypt chunks the data into AES_BLOCK_SIZE blocks, unlike
-        // AES_ecb_encrypt, so no looping required.
-        if (encrypt) {
-                AES_set_encrypt_key((unsigned char *)key_value, (key_len*8), &ssl_aes_key);
-                AES_cbc_encrypt((unsigned char *)in_data, (unsigned char *)out_data,
-                                in_data_len,              &ssl_aes_key,
-                                init_v,                   AES_ENCRYPT);
-        } else {
-                AES_set_decrypt_key((unsigned char *)key_value, (key_len*8), &ssl_aes_key);
-                AES_cbc_encrypt((unsigned char *)in_data, (unsigned char *)out_data,
-                                in_data_len,              &ssl_aes_key,
-                                init_v,                   AES_DECRYPT);
-        }
-        *out_data_len = in_data_len;
-        return CKR_OK;
+	CK_RV rc;
+	unsigned int out_data_len_local;
+	out_data_len_local = (unsigned int)(*out_data_len);
+	if (encrypt) {
+		rc = icaAesEncrypt(adapter_handle, MODE_AES_CBC,
+				   (unsigned int)in_data_len, in_data,
+				   (ICA_AES_VECTOR *)init_v, key_len,
+				   (ICA_KEY_AES_SINGLE *)key_value, 
+				   &out_data_len_local,
+				   (unsigned char *)out_data);
+	} else {
+		rc = icaAesDecrypt(adapter_handle, MODE_AES_CBC,
+				   (unsigned int)in_data_len, in_data,
+				   (ICA_AES_VECTOR *)init_v, key_len,
+				   (ICA_KEY_AES_SINGLE *)key_value, 
+				   &out_data_len_local,
+				   (unsigned char *)out_data);
+	}
+	if (rc != 0) {
+		(*out_data_len) = (CK_ULONG)out_data_len_local;
+		rc = CKR_FUNCTION_FAILED;
+	} else {
+		(*out_data_len) = in_data_len;
+		rc = CKR_OK;
+	}
+	return rc;
 }
 #endif
 
@@ -1863,4 +1882,250 @@ token_specific_dh_pkcs_key_pair_gen( TEMPLATE  * publ_tmpl,
  
 } /* end token_specific_dh_key_pair_gen() */
 
+#endif /* #ifndef NODH */
+
+MECH_LIST_ELEMENT mech_list[] = {
+   { CKM_RSA_PKCS_KEY_PAIR_GEN,     512, 2048, CKF_HW | CKF_GENERATE_KEY_PAIR },
+#if !(NODSA)
+   { CKM_DSA_KEY_PAIR_GEN,          512, 1024, CKF_HW | CKF_GENERATE_KEY_PAIR },
 #endif
+   { CKM_DES_KEY_GEN,                 8,    8, CKF_HW | CKF_GENERATE },
+   { CKM_DES3_KEY_GEN,                24,    24, CKF_HW | CKF_GENERATE },
+#if !(NOCDMF)
+   { CKM_CDMF_KEY_GEN,                0,    0, CKF_HW | CKF_GENERATE },
+#endif
+
+   { CKM_RSA_PKCS,                  512, 2048, CKF_HW           |
+                                               CKF_ENCRYPT      | CKF_DECRYPT |
+                                               CKF_WRAP         | CKF_UNWRAP  |
+                                               CKF_SIGN         | CKF_VERIFY  |
+                                               CKF_SIGN_RECOVER | CKF_VERIFY_RECOVER },
+#if !(NOX509)
+   { CKM_RSA_X_509,                 512, 2048, CKF_HW           |
+                                               CKF_ENCRYPT      | CKF_DECRYPT |
+                                               CKF_WRAP         | CKF_UNWRAP  |
+                                               CKF_SIGN         | CKF_VERIFY  |
+                                               CKF_SIGN_RECOVER | CKF_VERIFY_RECOVER },
+#endif
+#if !(NOMD2)
+   { CKM_MD2_RSA_PKCS,              512, 2048, CKF_HW      |
+                                               CKF_SIGN    | CKF_VERIFY },
+
+#endif
+#if !(NOMD5)
+   { CKM_MD5_RSA_PKCS,              512, 2048, CKF_HW      |
+                                               CKF_SIGN    | CKF_VERIFY },
+#endif
+#if !(NOSHA1)
+   { CKM_SHA1_RSA_PKCS,             512, 2048, CKF_HW      |
+                                               CKF_SIGN    | CKF_VERIFY },
+#endif
+
+
+#if !(NODSA)
+   { CKM_DSA,                       512, 1024, CKF_HW      |
+                                               CKF_SIGN    | CKF_VERIFY },
+#endif
+
+/* Begin code contributed by Corrent corp. */
+#if !(NODH)
+   { CKM_DH_PKCS_DERIVE,            512, 2048, CKF_HW | CKF_DERIVE },
+   { CKM_DH_PKCS_KEY_PAIR_GEN,      512, 2048, CKF_HW | CKF_GENERATE_KEY_PAIR },
+#endif
+/* End code contributed by Corrent corp. */
+
+   { CKM_DES_ECB,                     8,    8, CKF_HW      |
+                                               CKF_ENCRYPT | CKF_DECRYPT |
+                                               CKF_WRAP    | CKF_UNWRAP },
+
+   { CKM_DES_CBC,                     8,    8, CKF_HW      |
+                                               CKF_ENCRYPT | CKF_DECRYPT |
+                                               CKF_WRAP    | CKF_UNWRAP },
+
+   { CKM_DES_CBC_PAD,                 8,    8, CKF_HW      |
+                                               CKF_ENCRYPT | CKF_DECRYPT |
+                                               CKF_WRAP    | CKF_UNWRAP },
+
+#if !(NOCDMF)
+   { CKM_CDMF_ECB,                    0,    0, CKF_HW      |
+                                               CKF_ENCRYPT | CKF_DECRYPT |
+                                               CKF_WRAP    | CKF_UNWRAP },
+
+   { CKM_CDMF_CBC,                    0,    0, CKF_HW      |
+                                               CKF_ENCRYPT | CKF_DECRYPT |
+                                               CKF_WRAP    | CKF_UNWRAP },
+#endif
+
+   { CKM_DES3_ECB,                    24,    24, CKF_HW      |
+                                               CKF_ENCRYPT | CKF_DECRYPT |
+                                               CKF_WRAP    | CKF_UNWRAP },
+
+   { CKM_DES3_CBC,                    24,    24, CKF_HW      |
+                                               CKF_ENCRYPT | CKF_DECRYPT |
+                                               CKF_WRAP    | CKF_UNWRAP },
+
+   { CKM_DES3_CBC_PAD,                24,    24, CKF_HW      |
+                                               CKF_ENCRYPT | CKF_DECRYPT |
+                                               CKF_WRAP    | CKF_UNWRAP },
+
+#if !(NOSHA1)
+   { CKM_SHA_1,                       0,    0, CKF_HW | CKF_DIGEST },
+   { CKM_SHA_1_HMAC,                  0,    0, CKF_HW | CKF_SIGN | CKF_VERIFY },
+   { CKM_SHA_1_HMAC_GENERAL,          0,    0, CKF_HW | CKF_SIGN | CKF_VERIFY },
+   { CKM_SHA256,                       0,    0, CKF_HW | CKF_DIGEST },
+   { CKM_SHA256_HMAC,                  0,    0, CKF_HW | CKF_SIGN | CKF_VERIFY },
+   { CKM_SHA256_HMAC_GENERAL,          0,    0, CKF_HW | CKF_SIGN | CKF_VERIFY },
+#endif
+
+#if !(NOMD2)
+   { CKM_MD2,                         0,    0, CKF_HW | CKF_DIGEST },
+   { CKM_MD2_HMAC,                    0,    0, CKF_HW | CKF_SIGN | CKF_VERIFY },
+   { CKM_MD2_HMAC_GENERAL,            0,    0, CKF_HW | CKF_SIGN | CKF_VERIFY },
+#endif
+
+#if !(NOMD5)
+   { CKM_MD5,                         0,    0, CKF_HW | CKF_DIGEST },
+   { CKM_MD5_HMAC,                    0,    0, CKF_HW | CKF_SIGN | CKF_VERIFY },
+   { CKM_MD5_HMAC_GENERAL,            0,    0, CKF_HW | CKF_SIGN | CKF_VERIFY },
+#endif
+
+   { CKM_SSL3_PRE_MASTER_KEY_GEN,    48,   48, CKF_HW | CKF_GENERATE },
+   { CKM_SSL3_MASTER_KEY_DERIVE,     48,   48, CKF_HW | CKF_DERIVE },
+   { CKM_SSL3_KEY_AND_MAC_DERIVE,    48,   48, CKF_HW | CKF_DERIVE },
+   { CKM_SSL3_MD5_MAC,              384,  384, CKF_HW | CKF_SIGN | CKF_VERIFY },
+   { CKM_SSL3_SHA1_MAC,             384,  384, CKF_HW | CKF_SIGN | CKF_VERIFY },
+
+#if !(NOAES)
+   { CKM_AES_KEY_GEN,                16,   32, CKF_HW },
+   { CKM_AES_ECB,                    16,   32, CKF_HW      |
+   					       CKF_ENCRYPT | CKF_DECRYPT |
+   					       CKF_WRAP    | CKF_UNWRAP },
+   { CKM_AES_CBC,                    16,   32, CKF_HW      |
+   					       CKF_ENCRYPT | CKF_DECRYPT |
+   					       CKF_WRAP    | CKF_UNWRAP },
+   { CKM_AES_MAC,                    16,   32, CKF_HW | CKF_SIGN | CKF_VERIFY },
+   { CKM_AES_MAC_GENERAL,            16,   32, CKF_HW | CKF_SIGN | CKF_VERIFY },
+   { CKM_AES_CBC_PAD,                16,   32, CKF_HW      |
+   					       CKF_ENCRYPT | CKF_DECRYPT |
+   					       CKF_WRAP    | CKF_UNWRAP },
+#endif
+	
+#if !(NORIPE)
+   { CKM_RIPEMD128,			0,   0, CKF_HW | CKF_DIGEST },
+   { CKM_RIPEMD128_HMAC,		0,   0, CKF_HW | CKF_SIGN | CKF_VERIFY },
+   { CKM_RIPEMD128_HMAC_GENERAL,	0,   0, CKF_HW | CKF_SIGN | CKF_VERIFY },
+   { CKM_RIPEMD160,			0,   0, CKF_HW | CKF_DIGEST },
+   { CKM_RIPEMD160_HMAC,		0,   0, CKF_HW | CKF_SIGN | CKF_VERIFY },
+   { CKM_RIPEMD160_HMAC_GENERAL,	0,   0, CKF_HW | CKF_SIGN | CKF_VERIFY },
+#endif
+};
+
+CK_ULONG mech_list_len = (sizeof(mech_list) / sizeof(MECH_LIST_ELEMENT));
+
+/**
+ * Remove/alter mechanisms for whatever reason.
+ */
+static void scrub_list(struct mech_list_item *head)
+{
+	struct mech_list_item *walker;
+	walker = head;
+	while (walker->next) {
+		struct mech_list_item *current;
+		current = walker->next;
+		if (/* remove condition */0) {
+			walker->next = current->next;
+			free(current);
+		} else if (/* alter condition */0) {
+			/* current->element.mech_info.flags = ...; */
+		}
+		walker = walker->next;
+	}
+}
+
+CK_RV
+token_specific_get_mechanism_list(CK_MECHANISM_TYPE_PTR pMechanismList,
+				  CK_ULONG_PTR pulCount)
+{
+	int rc = CKR_OK;
+	struct mech_list_item head;
+	struct mech_list_item *walker;
+#if 1
+	rc = ock_generic_get_mechanism_list(pMechanismList, pulCount);	
+	if (rc != CKR_OK) {
+		goto out;
+	}
+#endif
+	/* TODO: Cache this data */
+	generate_pkcs11_mech_list(&head);
+	scrub_list(&head);
+#if 1
+	walker = find_mech_list_item_for_type(CKM_SHA256, &head);
+	if (walker) {
+		if (NULL != pMechanismList) {
+			pMechanismList[(*pulCount)] = CKM_SHA256;
+		}
+		(*pulCount)++;
+	}
+	goto out;
+#else
+	(*pulCount) = 0;
+	walker = head.next;
+	if (NULL == pMechanismList) {
+		while (walker) {
+			struct mech_list_item *next;
+			next = walker->next;
+			(*pulCount)++;
+			free(walker);
+			walker = next;
+		}
+		goto out;
+	}
+	while (walker) {
+		struct mech_list_item *next;
+		next = walker->next;
+		pMechanismList[(*pulCount)] = walker->element.mech_type;
+		(*pulCount)++;
+		free(walker);
+		walker = next;
+	}
+#endif
+ out:
+	return rc;
+}
+
+/* TODO: Remove once proper behavior is determined for duplicate
+ * mechanisms. */
+#ifndef OCK_FAIL_ON_DUPLICATE_MECH
+#define OCK_FAIL_ON_DUPLICATE_MECH 0
+#endif
+
+CK_RV
+token_specific_get_mechanism_info(CK_MECHANISM_TYPE type, 
+				  CK_MECHANISM_INFO_PTR pInfo)
+{
+	int rc = CKR_MECHANISM_INVALID;
+	struct mech_list_item head;
+	struct mech_list_item *walker;
+#if 1
+	rc = ock_generic_get_mechanism_info(type, pInfo);
+	if (rc == CKR_OK) {
+		/* Match made; info copiedl. We're done. */
+		goto out;
+	}
+	/* TODO: Remove this hack when the time is right. */
+	if (type != CKM_SHA256) {
+		goto out;
+	}
+#endif
+	generate_pkcs11_mech_list(&head);
+	scrub_list(&head);
+	walker = find_mech_list_item_for_type(type, &head);
+	if (walker) {
+		memcpy(pInfo, &walker->element.mech_info, 
+		       sizeof(CK_MECHANISM_INFO));
+		rc = CKR_OK;
+	}
+ out:
+	free_mech_list(&head);
+	return rc;
+}

@@ -1,5 +1,5 @@
 /*
- * $Header: /cvsroot/opencryptoki/opencryptoki/usr/lib/pkcs11/common/c_defs.h,v 1.2 2005/08/04 02:03:26 mhalcrow Exp $
+ * $Header: /cvsroot/opencryptoki/opencryptoki/usr/lib/pkcs11/common/c_defs.h,v 1.3 2005/09/01 22:57:04 mhalcrow Exp $
  */
 
 //
@@ -362,6 +362,12 @@ typedef struct _MECH_LIST_ELEMENT
    CK_MECHANISM_INFO    mech_info;
 } MECH_LIST_ELEMENT;
 
+struct mech_list_item;
+
+struct mech_list_item {
+	struct mech_list_item *next;
+	MECH_LIST_ELEMENT element;
+};
 
 typedef struct _TEMPLATE
 {

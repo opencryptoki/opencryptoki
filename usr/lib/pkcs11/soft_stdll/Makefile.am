@@ -51,6 +51,7 @@ opencryptoki_stdll_libpkcs11_sw_la_SOURCES = ../common/asn1.c		\
 					     ../common/utility.c	\
 					     ../common/verify_mgr.c	\
 					     ../common/log.c		\
+					     ../common/mech_list.c      \
 					     soft_specific.c
 
 install-data-local:

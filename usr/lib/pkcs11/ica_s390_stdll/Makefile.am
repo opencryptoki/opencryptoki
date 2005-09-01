@@ -6,12 +6,12 @@ $(ICA_LIB_DIRS) -nostartfiles -shared -Wl,-Bsymbolic -Wl,-soname,$@	\
 
 # Not all versions of automake observe libname_CFLAGS
 opencryptoki_stdll_libpkcs11_ica_la_CFLAGS = -DSPINXPL -DDEV		\
--D_THREAD_SAFE -fPIC -DSHALLOW=0 -DSWTOK=0 -DLITE=1 -DNODH -DNOAES	\
+-D_THREAD_SAFE -fPIC -DSHALLOW=0 -DSWTOK=0 -DLITE=1 -DNODH 		\
 -DNOCDMF -DNOMD2 -DNODSA -DSTDLL_NAME=\"icatok\"
 
 # Not all versions of automake observe libname_CFLAGS
 AM_CFLAGS = -DSPINXPL -DDEV -D_THREAD_SAFE -fPIC -DSHALLOW=0 -DSWTOK=0	\
--DLITE=1 -DNODH -DNOAES -DNOCDMF -DNOMD2 -DNODSA -DNORIPE
+-DLITE=1 -DNODH -DNOCDMF -DNOMD2 -DNODSA -DNORIPE
 
 opencryptoki_stdll_libpkcs11_ica_la_SOURCES = ../common/asn1.c	\
 ../common/cert.c ../common/hwf_obj.c ../common/dp_obj.c		\
@@ -23,7 +23,8 @@ opencryptoki_stdll_libpkcs11_ica_la_SOURCES = ../common/asn1.c	\
 ../common/mech_sha.c ../common/mech_ssl3.c ../common/new_host.c	\
 ../common/obj_mgr.c ../common/object.c ../common/sess_mgr.c	\
 ../common/sign_mgr.c ../common/template.c ../common/utility.c	\
-../common/verify_mgr.c ../common/log.c ica_specific.c
+../common/verify_mgr.c ../common/log.c ../common/mech_list.c    \
+ica_specific.c
 
 INCLUDES = $(ICA_INC_DIRS) -I. -I../../../include/pkcs11/stdll	\
 -I../../../include/pkcs11 -I../common -I../../../ica/inc	\

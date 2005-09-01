@@ -1,5 +1,5 @@
 /*
- * $Header: /cvsroot/opencryptoki/opencryptoki/usr/lib/pkcs11/common/host_defs.h,v 1.5 2005/08/08 15:15:42 kyoder Exp $
+ * $Header: /cvsroot/opencryptoki/opencryptoki/usr/lib/pkcs11/common/host_defs.h,v 1.6 2005/09/01 22:57:04 mhalcrow Exp $
  */
 
 
@@ -611,6 +611,27 @@ typedef struct _MECH_LIST_ELEMENT
    CK_MECHANISM_TYPE    mech_type;
    CK_MECHANISM_INFO    mech_info;
 } MECH_LIST_ELEMENT;
+
+struct mech_list_item;
+
+struct mech_list_item {
+  struct mech_list_item *next;
+  MECH_LIST_ELEMENT element;
+};
+
+struct mech_list_item *
+find_mech_list_item_for_type(CK_MECHANISM_TYPE type,
+                             struct mech_list_item *head);
+
+/* mech_list.c */
+CK_RV
+ock_generic_get_mechanism_list(CK_MECHANISM_TYPE_PTR pMechanismList,
+                               CK_ULONG_PTR pulCount);
+
+/* mech_list.c */
+CK_RV
+ock_generic_get_mechanism_info(CK_MECHANISM_TYPE type,
+                               CK_MECHANISM_INFO_PTR pInfo);
 
 typedef struct _MASTER_KEY_FILE_T
 {

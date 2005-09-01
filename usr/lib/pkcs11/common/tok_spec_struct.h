@@ -1,5 +1,5 @@
 /*
- * $Header: /cvsroot/opencryptoki/opencryptoki/usr/lib/pkcs11/common/tok_spec_struct.h,v 1.2 2005/08/04 02:03:26 mhalcrow Exp $
+ * $Header: /cvsroot/opencryptoki/opencryptoki/usr/lib/pkcs11/common/tok_spec_struct.h,v 1.3 2005/09/01 22:57:04 mhalcrow Exp $
  */
 
 //
@@ -413,13 +413,13 @@ struct token_specific_struct{
 			CK_BYTE *,
 			CK_BYTE);
 #endif
+	CK_RV (*t_get_mechanism_list)(CK_MECHANISM_TYPE_PTR,
+				      CK_ULONG_PTR);
+	CK_RV (*t_get_mechanism_info)(CK_MECHANISM_TYPE,
+				      CK_MECHANISM_INFO_PTR);
 };
 
-typedef  struct token_specific_struct token_spec_t;
-
-
-
-
+typedef struct token_specific_struct token_spec_t;
 
 #endif
 
