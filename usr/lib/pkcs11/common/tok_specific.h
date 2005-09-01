@@ -448,5 +448,13 @@ token_specific_aes_cbc( CK_BYTE  *,
                         CK_BYTE     );
 #endif
 
+CK_RV
+token_specific_get_mechanism_list(CK_MECHANISM_TYPE_PTR pMechanismList,
+                                  CK_ULONG_PTR pulCount);
+
+CK_RV
+token_specific_get_mechanism_info(CK_MECHANISM_TYPE type,
+                                  CK_MECHANISM_INFO_PTR pInfo);
+
 #endif
 

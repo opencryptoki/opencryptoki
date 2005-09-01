@@ -612,6 +612,27 @@ typedef struct _MECH_LIST_ELEMENT
    CK_MECHANISM_INFO    mech_info;
 } MECH_LIST_ELEMENT;
 
+struct mech_list_item;
+
+struct mech_list_item {
+  struct mech_list_item *next;
+  MECH_LIST_ELEMENT element;
+};
+
+struct mech_list_item *
+find_mech_list_item_for_type(CK_MECHANISM_TYPE type,
+                             struct mech_list_item *head);
+
+/* mech_list.c */
+CK_RV
+ock_generic_get_mechanism_list(CK_MECHANISM_TYPE_PTR pMechanismList,
+                               CK_ULONG_PTR pulCount);
+
+/* mech_list.c */
+CK_RV
+ock_generic_get_mechanism_info(CK_MECHANISM_TYPE type,
+                               CK_MECHANISM_INFO_PTR pInfo);
+
 typedef struct _MASTER_KEY_FILE_T
 {
    CK_BYTE     key[3 * DES_KEY_SIZE];

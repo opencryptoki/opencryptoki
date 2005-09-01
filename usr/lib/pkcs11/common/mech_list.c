@@ -1,9 +1,4 @@
 /*
- * $Header$
- */
-
-//
-/*
              Common Public License Version 0.5
 
              THE ACCOMPANYING PROGRAM IS PROVIDED UNDER THE TERMS OF
@@ -291,135 +286,105 @@
 
 */
 
-/* (C) COPYRIGHT International Business Machines Corp. 2001,2002,2002          */
+/* COPYRIGHT (c) International Business Machines Corp. 2005 */
 
-/***************************************************************************
-                          Change Log
-                          ==========
-       4/25/03    Kapil Sood (kapil@corrent.com)
-                  Added DH key pair generation and DH shared key derivation
-                  functions.
- 
- 
- 
-****************************************************************************/
+#include "pkcs11types.h"
+#include "defs.h"
+#include "host_defs.h"
+#include "h_extern.h"
+#include "tok_spec_struct.h"
 
-#ifndef _TOK_SPECIFIC_STRUCT
-#define _TOK_SPECIFIC_STRUCT
+void mech_array_to_list(struct mech_list_item *head,
+			MECH_LIST_ELEMENT mech_list_arr[],
+			int list_len) {
+	int i;
+	struct mech_list_item *current;
+	current = head;
+	for (i = 0; i < list_len; i++) {
+		current->next = malloc(sizeof(struct mech_list_item));
+		current = current->next;
+		memcpy(&current->element, &mech_list_arr[i],
+		       sizeof(MECH_LIST_ELEMENT));
+	}
+}
 
-struct token_specific_struct{
-   CK_BYTE  token_directory[2048];  // Used to be in the token_local.h as a #def
-   CK_BYTE  token_subdir[2048];     // subdirectory
-   CK_BYTE  token_debug_tag[2048];  // debug logging tag
+struct mech_list_item *
+find_mech_list_item_for_type(CK_MECHANISM_TYPE type,
+			     struct mech_list_item *head)
+{
+	struct mech_list_item *res;
+	res = head->next;
+	while (res) {
+		if (res->element.mech_type == type) {
+			goto out;
+		}
+		res = res->next;
+	}
+ out:
+	return res;
+}
 
-   CK_RV  (*t_init)(char *,CK_SLOT_ID);             // Initialization function
-   int  (*t_slot2local)();       // convert the PKCS#11 slot to a local index
-                                   // generaly not used but if a STDLL actualy 
-                                   // managed multiple devices, this would conv
-                                   
-   CK_RV  (*t_rng)(CK_BYTE *,CK_ULONG);          // Random Number Gen
-   CK_RV  (*t_session)(CK_SLOT_ID);   //perform anything specific needed by the token takes a slot id
-   CK_RV  (*t_final)();     // any specific final code
-   CK_RV  (*t_des_key_gen)(CK_BYTE *,CK_ULONG);
-   CK_RV  (*t_des_ecb)( 
-                         CK_BYTE *, CK_ULONG,
-                         CK_BYTE *, CK_ULONG *, CK_BYTE *, CK_BYTE);
-   CK_RV  (*t_des_cbc)(
-                         CK_BYTE *, CK_ULONG,
-                         CK_BYTE *, CK_ULONG *, CK_BYTE *,CK_BYTE *, CK_BYTE);
+void free_mech_list(struct mech_list_item *head)
+{
+	struct mech_list_item *walker;
+	walker = head->next;
+	while (walker) {
+		struct mech_list_item *next;
+		next = walker->next;
+		free(walker);
+		walker = next;
+	}	
+}
 
-   CK_RV  (*t_tdes_ecb)(
-                         CK_BYTE *, CK_ULONG,
-                         CK_BYTE *, CK_ULONG *, CK_BYTE *, CK_BYTE);
-   CK_RV  (*t_tdes_cbc)(
-                         CK_BYTE *, CK_ULONG,
-                         CK_BYTE *, CK_ULONG *, CK_BYTE *,CK_BYTE *, CK_BYTE);
+/**
+ * If a type exists in the source that is not in the target, copy it
+ * over. If a type exists in both the source and the target, overwrite
+ * the target.
+ */
+void merge_mech_lists(struct mech_list_item *head_of_target,
+		      struct mech_list_item *head_of_source)
+{
+	
+}
 
-   
-   CK_RV (*t_rsa_decrypt)(    CK_BYTE *,
-                              CK_ULONG,
-                              CK_BYTE *,
-                              OBJECT *);
-             
-   CK_RV (*t_rsa_encrypt)(
-                              CK_BYTE *,
-                              CK_ULONG, 
-                              CK_BYTE *,
-                              OBJECT *);
+CK_RV
+ock_generic_get_mechanism_list(CK_MECHANISM_TYPE_PTR pMechanismList,
+			       CK_ULONG_PTR pulCount)
+{
+	int rc = CKR_OK;
+	int i;
+	if (pMechanismList == NULL) {
+		(*pulCount) = mech_list_len;
+		goto out;
+	}
+	if ((*pulCount) < mech_list_len) {
+		(*pulCount) = mech_list_len;
+		st_err_log(111, __FILE__, __LINE__); 
+		rc = CKR_BUFFER_TOO_SMALL;
+		goto out;
+	}
+	for (i=0; i < mech_list_len; i++) 
+		pMechanismList[i] = mech_list[i].mech_type;
+	(*pulCount) = mech_list_len;
+ out:
+	return rc;	
+}
 
-   CK_RV (*t_rsa_generate_keypair)(TEMPLATE *, TEMPLATE *);
-/* Begin code contributed by Corrent corp. */
-#ifndef NODH
-   // Token Specific DH functions
- 
-   CK_RV (*t_dh_pkcs_derive) ( CK_BYTE *,
-                               CK_ULONG *,
-                               CK_BYTE *,
-                               CK_ULONG,
-                               CK_BYTE *,
-                               CK_ULONG,
-                               CK_BYTE *,
-                               CK_ULONG ) ;
- 
-   CK_RV (*t_dh_pkcs_key_pair_gen)(TEMPLATE *, TEMPLATE *);
-#endif
-/* End code contributed by Corrent corp. */
-   // Token Specific SHA1 functions 
-   CK_RV (*t_sha_init)(DIGEST_CONTEXT *);
-   
-   CK_RV (*t_sha_update)(
-		   	DIGEST_CONTEXT *,
-			CK_BYTE	*,
-			CK_ULONG);
-   
-   CK_RV (*t_sha_final)(
-		   	DIGEST_CONTEXT *,
-			CK_BYTE *,
-			CK_ULONG *);
-   // Token Specific SHA256 functions 
-   CK_RV (*t_sha2_init)(DIGEST_CONTEXT *);
-   
-   CK_RV (*t_sha2_update)(
-		   	DIGEST_CONTEXT *,
-			CK_BYTE	*,
-			CK_ULONG);
-   
-   CK_RV (*t_sha2_final)(
-		   	DIGEST_CONTEXT *,
-			CK_BYTE *,
-			CK_ULONG *);
-#ifndef NOAES
-   // Token Specific AES functions
-   CK_RV (*t_aes_key_gen)(
-			CK_BYTE *,
-			CK_ULONG);
-   
-   CK_RV (*t_aes_ecb)(
-		   	CK_BYTE *,
-			CK_ULONG,
-			CK_BYTE *,
-			CK_ULONG *,
-			CK_BYTE *,
-			CK_ULONG,
-			CK_BYTE);
-   
-   CK_RV (*t_aes_cbc)(
-		   	CK_BYTE *,
-			CK_ULONG,
-			CK_BYTE *,
-			CK_ULONG *,
-			CK_BYTE *,
-			CK_ULONG,
-			CK_BYTE *,
-			CK_BYTE);
-#endif
-	CK_RV (*t_get_mechanism_list)(CK_MECHANISM_TYPE_PTR,
-				      CK_ULONG_PTR);
-	CK_RV (*t_get_mechanism_info)(CK_MECHANISM_TYPE,
-				      CK_MECHANISM_INFO_PTR);
-};
-
-typedef struct token_specific_struct token_spec_t;
-
-#endif
-
+CK_RV
+ock_generic_get_mechanism_info(CK_MECHANISM_TYPE type, 
+			       CK_MECHANISM_INFO_PTR pInfo)
+{
+	int rc = CKR_OK;
+	int i;
+	for (i=0; i < mech_list_len; i++) {
+		if (mech_list[i].mech_type == type) {
+			memcpy(pInfo, &mech_list[i].mech_info,
+			       sizeof(CK_MECHANISM_INFO));
+			goto out;
+		}
+	}
+	st_err_log(28, __FILE__, __LINE__); 
+	rc = CKR_MECHANISM_INVALID;
+ out:
+	return rc;
+}
