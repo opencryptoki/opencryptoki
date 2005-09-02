@@ -8,6 +8,7 @@ dnl Checks for programs.
 dnl Checks for libraries.
 
 dnl Checks for header files.
+dnl One or more of the following macro's messes up CFLAGS
 backup_CFLAGS=$CFLAGS
 AC_DISABLE_STATIC
 AC_PROG_LIBTOOL
@@ -36,9 +37,9 @@ AC_ARG_ENABLE(debug, [  --enable-debug          turn on all openCryptoki debuggi
               [               enable_debug="yes"],)
 
 if test "x$enable_debug" != xyes; then
-	CFLAGS="-O2"
+	CFLAGS="-O2 $CFLAGS"
 else
-	CFLAGS="-O0 -g -DDEBUG -DDEBUGON"
+	CFLAGS="-O0 -g -DDEBUG -DDEBUGON $CFLAGS"
 	AC_MSG_RESULT([*** Enabling debugging at user request ***])
 fi
 
@@ -54,12 +55,11 @@ fi
 # Support for OpenSSL path specification
 AC_ARG_WITH(openssl,
         [  --with-openssl[[=DIR]]     build with OpenSSL support [[/usr/local/ssl]]],
-        [openssl_prefix=$withval], 
+        [AC_MSG_RESULT([*** Using OpenSSL directory $withval ***])
+	 LDFLAGS="-L$withval/lib $LDFLAGS"
+	 CFLAGS="-I$withval/include $CFLAGS"],
         [openssl_prefix=""]
 )
-AC_MSG_RESULT([*** Using OpenSSL directory $openssl_prefix ***])
-LDFLAGS="-L$openssl_prefix/lib $LDFLAGS"
-CFLAGS="-I$openssl_prefix/include $CFLAGS"
 
 # Support for the IBM 4758 (PCICC) token
 AC_ARG_ENABLE(icctok,
@@ -176,7 +176,7 @@ case $target in
 		AC_MSG_RESULT([*** 64bit platform detected.  Not building utilities. ***]) ;;
 	*ppc*)
 		CFLAGS="$CFLAGS -DPKCS64"
-		AM_CONDITIONAL(S390, true)
+		AM_CONDITIONAL(S390, false)
 		AM_CONDITIONAL(BUILD_UTILS, true) ;;
 	*s390*)
 		CFLAGS="$CFLAGS -DPKCS64 -m31"
