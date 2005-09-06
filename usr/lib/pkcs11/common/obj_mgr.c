@@ -299,6 +299,7 @@ static const char rcsid[] = "$Header$";
 #include <pthread.h>
 #include <stdlib.h>
 #include <stdio.h>
+#include <syslog.h>
 
   #include <string.h>  // for memcmp() et al
 
@@ -1174,7 +1175,6 @@ object_mgr_find_in_map1( CK_OBJECT_HANDLE    handle,
 {
    DL_NODE   * node = NULL;
    OBJECT    * obj  = NULL;
-
    if (!ptr){
       st_err_log(4, __FILE__, __LINE__, __FUNCTION__); 
       return CKR_FUNCTION_FAILED;
@@ -1565,6 +1565,8 @@ object_mgr_invalidate_handle1( CK_OBJECT_HANDLE handle )
    if (pthread_rwlock_wrlock(&obj_list_rw_mutex)) {
      st_err_log(4, __FILE__, __LINE__, __FUNCTION__);
      return CKR_FUNCTION_FAILED;
+
+
    }
    node = object_map;
 
@@ -2626,11 +2628,9 @@ object_mgr_purge_map(
             free( map );
          }
       }
-      pthread_rwlock_unlock(&obj_list_rw_mutex);
-
       node = next;
    }
-
+   pthread_rwlock_unlock(&obj_list_rw_mutex);
    return TRUE;
 }
 
