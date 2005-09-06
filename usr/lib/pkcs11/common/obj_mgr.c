@@ -299,10 +299,7 @@ static const char rcsid[] = "$Header$";
 #include <pthread.h>
 #include <stdlib.h>
 #include <stdio.h>
-#include <syslog.h>
-
-  #include <string.h>  // for memcmp() et al
-
+#include <string.h>  // for memcmp() et al
 
 #include "pkcs11types.h"
 #include "defs.h"
@@ -1164,6 +1161,62 @@ done:
    return rc;
 }
 
+// object_mgr_find_in_map_nocache()
+//
+// Locates the specified object in the map
+// without going and checking for cache update
+//
+CK_RV
+object_mgr_find_in_map_nocache( CK_OBJECT_HANDLE    handle,
+                         OBJECT           ** ptr )
+{
+   DL_NODE   * node = NULL;
+   OBJECT    * obj  = NULL;
+
+   if (!ptr){
+      st_err_log(4, __FILE__, __LINE__, __FUNCTION__); 
+      return CKR_FUNCTION_FAILED;
+   }
+   //
+   // no mutex here.  the calling function should have locked the mutex
+   //
+
+   if (pthread_rwlock_rdlock(&obj_list_rw_mutex)) {
+     st_err_log(4, __FILE__, __LINE__, __FUNCTION__);
+     return CKR_FUNCTION_FAILED;
+   }
+   node = object_map;
+   while (node) {
+      OBJECT_MAP *map = (OBJECT_MAP *)node->data;
+
+      if (map->handle == handle) {
+         obj = map->ptr;
+         break;
+      }
+
+      node = node->next;
+   }
+   pthread_rwlock_unlock(&obj_list_rw_mutex);
+
+   if (obj == NULL || node == NULL) {
+      st_err_log(30, __FILE__, __LINE__); 
+      return CKR_OBJECT_HANDLE_INVALID;
+   }
+
+   //
+   // if this is a token object, we need to check the shared memory segment
+   // to see if any other processes have updated the object
+   //
+
+   if (object_is_session_object(obj) == TRUE) {
+      *ptr = obj;
+      return CKR_OK;
+   }
+
+
+   *ptr = obj;
+   return CKR_OK;
+}
 
 // object_mgr_find_in_map1()
 //
@@ -2150,7 +2203,13 @@ object_mgr_del_from_shm( OBJECT *obj )
          return CKR_FUNCTION_FAILED;
       }
       global_shm->num_publ_tok_obj--;
-      count = global_shm->num_publ_tok_obj - index;
+// XXX SAB when the index is a higher number than the number
+// maintained in shm, the count goes astronomical causing a core dump
+      if (index > global_shm->num_priv_tok_obj) {
+	    count = index - global_shm->num_priv_tok_obj;
+      } else {
+	    count = global_shm->num_priv_tok_obj - index;
+      }	
 
       if (count > 0) {
          bcopy((char *)&global_shm->publ_tok_objs[index+1],
@@ -2219,7 +2278,6 @@ object_mgr_check_shm( OBJECT *obj )
    return rc;
 }
 
-
 // I'd use the standard bsearch() routine but I want an index, not a pointer.
 // Converting the pointer to an index might cause problems when switching
 // to a 64-bit environment...
@@ -2234,45 +2292,34 @@ object_mgr_search_shm_for_obj( TOK_OBJ_ENTRY  * obj_list,
    CK_ULONG    mid;
    int         val;
 
-#if 1
-   CK_ULONG   idx;
-   for (idx=0;idx<=hi;idx++){
-      if (memcmp(obj->name, obj_list[idx].name,8) == 0) {
-         *index = idx;
-         return CKR_OK;
-      }
+// SAB  XXX reduce the search time since this is what seems to be burning cycles
+   CK_ULONG idx;
+   if ( obj->index == 0 ) {
+	   for (idx=0;idx<=hi;idx++){
+	      if (memcmp(obj->name, obj_list[idx].name,8) == 0) {
+		 *index = idx;
+		 obj->index = idx;
+		 return CKR_OK ;
+	      }
+	   }
+   } else {
+	// SAB better double check
+	if ( memcmp(obj->name, obj_list[obj->index].name,8) == 0 ){
+		 *index = obj->index;
+		 return CKR_OK ;
+	} else { // something is hosed.. go back to the brute force method
+	   for (idx=0;idx<=hi;idx++){
+	      if (memcmp(obj->name, obj_list[idx].name,8) == 0) {
+		 *index = idx;
+		 obj->index = idx;
+		 return CKR_OK ;
+	      }
+	   }
+        }
    }
    st_err_log(4, __FILE__, __LINE__, __FUNCTION__); 
    return CKR_FUNCTION_FAILED;
-#else
-
-   if (lo == hi) {
-      if (memcmp(obj->name, obj_list[lo].name, 8) == 0) {
-         *index = lo;
-         return CKR_OK;
-      }
-      else{ 
-         st_err_log(4, __FILE__, __LINE__, __FUNCTION__); 
-         return CKR_FUNCTION_FAILED;
-      }
-   }
-
-   mid = (lo + hi) / 2;
-
-   val = memcmp( obj->name, obj_list[mid].name, 8 );
-
-   if (val == 0) {
-      *index = mid;
-      return CKR_OK;
-   }
-
-   if (val < 0)
-      return object_mgr_search_shm_for_obj( obj_list, lo, mid-1, obj, index );
-   else
-      return object_mgr_search_shm_for_obj( obj_list, mid+1, hi, obj, index );
-#endif
 }
-
 
 //
 //

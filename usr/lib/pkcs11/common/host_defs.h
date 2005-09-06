@@ -556,6 +556,7 @@ typedef struct _OBJECT
    TEMPLATE         *template;
    CK_ULONG          count_hi;  // only significant for token objects
    CK_ULONG          count_lo;  // only significant for token objects
+   CK_ULONG         index;  // SAB  Index into the SHM
 } OBJECT;
 
 

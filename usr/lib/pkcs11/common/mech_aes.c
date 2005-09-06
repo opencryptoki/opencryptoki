@@ -299,7 +299,6 @@
 
 #include <string.h>            // for memcmp() et al
 #include <stdlib.h>
-/* #include <syslog.h> */
 
 #include "pkcs11types.h"
 #include "defs.h"
@@ -794,7 +793,7 @@ aes_ecb_encrypt_update( SESSION           *sess,
          return CKR_OK;
       }
 
-      rc = object_mgr_find_in_map1( ctx->key, &key );
+      rc = object_mgr_find_in_map_nocache( ctx->key, &key );
       if (rc != CKR_OK){
          st_err_log(110, __FILE__, __LINE__);
          return rc;
@@ -895,7 +894,7 @@ aes_ecb_decrypt_update( SESSION           *sess,
          return CKR_OK;
       }
 
-      rc = object_mgr_find_in_map1( ctx->key, &key );
+      rc = object_mgr_find_in_map_nocache( ctx->key, &key );
       if (rc != CKR_OK){
          st_err_log(110, __FILE__, __LINE__);
          return rc;
@@ -997,7 +996,7 @@ aes_cbc_encrypt_update( SESSION           *sess,
          return CKR_OK;
       }
 
-      rc = object_mgr_find_in_map1( ctx->key, &key );
+      rc = object_mgr_find_in_map_nocache( ctx->key, &key );
       if (rc != CKR_OK){
          st_err_log(110, __FILE__, __LINE__);
          return rc;
@@ -1109,7 +1108,7 @@ aes_cbc_decrypt_update( SESSION           *sess,
          return CKR_OK;
       }
 
-      rc = object_mgr_find_in_map1( ctx->key, &key );
+      rc = object_mgr_find_in_map_nocache( ctx->key, &key );
       if (rc != CKR_OK){
          st_err_log(110, __FILE__, __LINE__);
          return rc;
@@ -1231,7 +1230,7 @@ aes_cbc_pad_encrypt_update( SESSION           *sess,
       //    1) remain != 0
       //    2) out_len != 0
       //
-      rc = object_mgr_find_in_map1( ctx->key, &key );
+      rc = object_mgr_find_in_map_nocache( ctx->key, &key );
       if (rc != CKR_OK){
          st_err_log(110, __FILE__, __LINE__);
          return rc;
@@ -1349,7 +1348,7 @@ aes_cbc_pad_decrypt_update( SESSION           *sess,
       //    1) remain != 0
       //    2) out_len != 0
       //
-      rc = object_mgr_find_in_map1( ctx->key, &key );
+      rc = object_mgr_find_in_map_nocache( ctx->key, &key );
       if (rc != CKR_OK){
          st_err_log(110, __FILE__, __LINE__);
          return rc;
@@ -1725,14 +1724,10 @@ ckm_aes_key_gen( TEMPLATE *tmpl )
    CK_ULONG	      key_size;
    CK_BBOOL	      found	    = FALSE;
 
-/*   syslog(LOG_ERR, "%s: Searching for CKA_VALUE_LEN...\n",
-     __FUNCTION__); */
+
    found = template_attribute_find( tmpl, CKA_VALUE_LEN, &val_len_attr );
-   if (found == FALSE) {
-/*           syslog(LOG_ERR, "%s: No template attribute found\n",
-	     __FUNCTION__); */
-	   return CKR_TEMPLATE_INCONSISTENT;
-   }
+   if (found == FALSE)
+      return CKR_TEMPLATE_INCONSISTENT;
       
    key_size = *(CK_ULONG *)val_len_attr->pValue;
    if (key_size != AES_KEY_SIZE_128 &&
