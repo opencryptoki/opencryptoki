@@ -37,9 +37,9 @@ AC_ARG_ENABLE(debug, [  --enable-debug          turn on all openCryptoki debuggi
               [               enable_debug="yes"],)
 
 if test "x$enable_debug" != xyes; then
-	CFLAGS="-O2 $CFLAGS"
+	CFLAGS="-O2 -D_XOPEN_SOURCE=500 $CFLAGS"
 else
-	CFLAGS="-O0 -g -DDEBUG -DDEBUGON $CFLAGS"
+	CFLAGS="-O0 -g -DDEBUG -DDEBUGON -D_XOPEN_SOURCE=500 $CFLAGS"
 	AC_MSG_RESULT([*** Enabling debugging at user request ***])
 fi
 
@@ -186,7 +186,7 @@ case $target in
 		AM_CONDITIONAL(BUILD_UTILS, true)
 		AM_CONDITIONAL(S390, false) ;;
 esac
-		
+
 # At this point, CFLAGS is set to something sensible
 AC_PROG_CC
 

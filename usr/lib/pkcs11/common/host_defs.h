@@ -300,6 +300,7 @@
 #if defined(LINUX)
 #include <semaphore.h>
 #include <pthread.h>
+#include <endian.h>
 #endif
 
 #ifdef NT_ON_I386
