@@ -288,7 +288,6 @@
 
 /* COPYRIGHT (c) International Business Machines Corp. 2005 */
 
-#include <syslog.h>
 #include "pkcs11types.h"
 #include "defs.h"
 #include "host_defs.h"
@@ -332,8 +331,6 @@ void free_mech_list(struct mech_list_item *head)
 	while (walker) {
 		struct mech_list_item *next;
 		next = walker->next;
-		syslog(LOG_ERR, "%s: Freeing memory at location [%p]\n",
-		       __FUNCTION__, walker);
 		free(walker);
 		walker = next;
 	}	

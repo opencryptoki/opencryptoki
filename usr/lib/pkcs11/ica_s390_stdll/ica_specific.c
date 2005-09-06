@@ -2369,8 +2369,6 @@ token_specific_get_mechanism_list(CK_MECHANISM_TYPE_PTR pMechanismList,
 			struct mech_list_item *next;
 			next = walker->next;
 			(*pulCount)++;
-			syslog(LOG_ERR, "%s: Freeing memory at location [%p]\n",
-			       __FUNCTION__, walker);
 			free(walker);
 			walker = next;
 		}
@@ -2381,8 +2379,6 @@ token_specific_get_mechanism_list(CK_MECHANISM_TYPE_PTR pMechanismList,
 		next = walker->next;
 		pMechanismList[(*pulCount)] = walker->element.mech_type;
 		(*pulCount)++;
-		syslog(LOG_ERR, "%s: Freeing memory at location [%p]\n",
-		       __FUNCTION__, walker);
 		free(walker);
 		walker = next;
 	}
@@ -2406,8 +2402,7 @@ token_specific_get_mechanism_info(CK_MECHANISM_TYPE type,
 	int rc = CKR_MECHANISM_INVALID;
 	struct mech_list_item head;
 	struct mech_list_item *walker;
-/*	syslog(LOG_ERR, "%s: Enter; type = [%lu]\n", __FUNCTION__,
-	type); */
+	head.next = NULL;
 #if 1
 	rc = ock_generic_get_mechanism_info(type, pInfo);
 	if (rc == CKR_OK) {
@@ -2428,7 +2423,7 @@ token_specific_get_mechanism_info(CK_MECHANISM_TYPE type,
 		rc = CKR_OK;
 	}
  out:
-/*	free_mech_list(&head); */
+	free_mech_list(&head);
 /*	syslog(LOG_ERR, "%s: Exit\n", __FUNCTION__); */
 	return rc;
 }
