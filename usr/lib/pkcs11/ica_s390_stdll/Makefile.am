@@ -18,7 +18,7 @@ opencryptoki_stdll_libpkcs11_ica_la_SOURCES = ../common/asn1.c	\
 ../common/data_obj.c ../common/decr_mgr.c ../common/dig_mgr.c	\
 ../common/encr_mgr.c ../common/globals.c ../common/loadsave.c	\
 ../common/key.c ../common/key_mgr.c ../common/mech_des.c	\
-../common/mech_des3.c ../common/mech_dh.c ../common/mech_md5.c	\
+../common/mech_des3.c ../common/mech_md5.c	\
 ../common/mech_md2.c ../common/mech_rng.c ../common/mech_rsa.c	\
 ../common/mech_sha.c ../common/mech_ssl3.c ../common/new_host.c	\
 ../common/obj_mgr.c ../common/object.c ../common/sess_mgr.c	\
