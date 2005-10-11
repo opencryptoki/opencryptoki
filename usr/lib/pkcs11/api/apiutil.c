@@ -1031,16 +1031,8 @@ DL_Load( sinfp,sltp,dllload)
 
    }
 
+   dllload[i].dlop_p = dlopen(sinfp->dll_location,RTLD_NOW);
 
-
-   if ( sizeof(long) == 4 ) {
-      dllload[i].dlop_p = dlopen(sinfp->dll_location,RTLD_NOW);
-   } else {
-     // 64 bit env 
-      sprintf(buffer,"%s64",sinfp->dll_location);
-      dllload[i].dlop_p = dlopen(buffer,RTLD_NOW);
-
-   }
    if (dllload[i].dlop_p != NULL ){
       sltp->dlop_p = dllload[i].dlop_p;
       sltp->dll_information = &dllload[i];
