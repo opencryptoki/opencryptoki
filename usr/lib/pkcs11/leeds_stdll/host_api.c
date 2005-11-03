@@ -7827,7 +7827,7 @@ CK_RV SC_DeriveKey( ST_SESSION_HANDLE     sSession,
          param_len = 0;
          req_len = sizeof(DeriveKey_Args) + tmpl_len;
 #ifdef PKCS64
-         repl_len = sizoef(CK_OBJECT_HANDLE_32);
+         repl_len = sizeof(CK_OBJECT_HANDLE_32);
 #else
          repl_len = sizeof(CK_OBJECT_HANDLE);
 #endif
@@ -8220,11 +8220,11 @@ CK_RV FCVFunction( CK_SLOT_ID sid, CK_BYTE *FCV, CK_ULONG len )
 }
 #endif
 
-
+#if LINUX
 void
 _init()
 {
 printf("Initialization of leeds STDLL \n");
 
 }
-
+#endif

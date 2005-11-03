@@ -1,5 +1,5 @@
 /*
- * $Header: /cvsroot/opencryptoki/opencryptoki/usr/lib/pkcs11/leeds_stdll/defs.h,v 1.2 2005/02/22 20:48:04 mhalcrow Exp $
+ * $Header: /cvsroot/opencryptoki/opencryptoki/usr/lib/pkcs11/leeds_stdll/defs.h,v 1.3 2005/11/03 19:38:00 mhalcrow Exp $
  */
 
 //
@@ -303,6 +303,8 @@
 #ifndef _DEFS_H
 #define _DEFS_H
 
+#include <pkcs11types.h>
+
 #if (LEEDS_BUILD)
 
 #pragma pack(1)
@@ -534,12 +536,12 @@ typedef struct _SSL3_KEY_MAT_PARAMS
 
 // SAB XXX 64Bit
 
-typedef struct _VERSION
+/* typedef struct _VERSION
 {
   CK_BYTE  major;
   CK_BYTE  minor;
 
-} VERSION;
+  } VERSION; */
 
 
 #else // !PKCS11
