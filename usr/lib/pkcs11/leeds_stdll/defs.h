@@ -303,6 +303,8 @@
 #ifndef _DEFS_H
 #define _DEFS_H
 
+#include <pkcs11types.h>
+
 #if (LEEDS_BUILD)
 
 #pragma pack(1)
@@ -534,12 +536,12 @@ typedef struct _SSL3_KEY_MAT_PARAMS
 
 // SAB XXX 64Bit
 
-typedef struct _VERSION
+/* typedef struct _VERSION
 {
   CK_BYTE  major;
   CK_BYTE  minor;
 
-} VERSION;
+  } VERSION; */
 
 
 #else // !PKCS11
