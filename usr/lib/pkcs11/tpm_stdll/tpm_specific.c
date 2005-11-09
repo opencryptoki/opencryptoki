@@ -249,6 +249,7 @@ token_wrap_sw_key(int size_n, unsigned char *n, int size_p, unsigned char *p,
 		  TSS_HKEY hParentKey, TSS_HKEY *phKey)
 {
 	TSS_RESULT result;
+	static TSS_BOOL get_srk_pub_key = TRUE;
 
 	/* create the TSS key object */
 	result = Tspi_Context_CreateObject(tspContext, TSS_OBJECT_TYPE_RSAKEY,
@@ -277,6 +278,23 @@ token_wrap_sw_key(int size_n, unsigned char *n, int size_p, unsigned char *p,
 		Tspi_Context_CloseObject(tspContext, *phKey);
 		*phKey = NULL_HKEY;
 		return result;
+	}
+
+	/* if the parent wrapping key is the SRK, we need to manually pull
+	 * out the SRK's pub key, which is not stored in persistent storage
+	 * for privacy reasons */
+	if (hParentKey == hSRK && get_srk_pub_key == TRUE) {
+		UINT32 pubKeySize;
+		BYTE *pubKey;
+		result = Tspi_Key_GetPubKey(hParentKey, &pubKeySize, &pubKey);
+		if (result != TSS_SUCCESS) {
+			LogError("Tspi_Key_GetPubKey failed: rc=0x%x", result);
+			Tspi_Context_CloseObject(tspContext, *phKey);
+			*phKey = NULL_HKEY;
+			return result;
+		}
+		Tspi_Context_FreeMemory(tspContext, pubKey);
+		get_srk_pub_key = FALSE;
 	}
 
 	result = Tspi_Key_WrapKey(*phKey, hParentKey, NULL_HPCRS);
@@ -379,8 +397,9 @@ token_wrap_key_object( CK_OBJECT_HANDLE ckObject, TSS_HKEY hParentKey, TSS_HKEY 
 
 		/* generate the software based key */
 		if ((rc = token_wrap_sw_key((int)attr->ulValueLen, attr->pValue,
-						(int)prime_attr->ulValueLen, prime_attr->pValue,
-						hParentKey, phKey))) {
+					    (int)prime_attr->ulValueLen,
+					    prime_attr->pValue,
+					    hParentKey, phKey))) {
 			LogError("token_wrap_sw_key failed. rc=0x%x", rc);
 			return rc;
 		}
@@ -531,6 +550,7 @@ token_load_srk()
 	if ((result = Tspi_Policy_SetSecret(hPolicy, TSS_SECRET_MODE_PLAIN, 0, NULL))) {
 		LogError("Tspi_Policy_SetSecret failed. rc=0x%x", result);
 	}
+
 done:
 	return result;
 }
