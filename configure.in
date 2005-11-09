@@ -123,11 +123,13 @@ fi
 AC_ARG_WITH(openssl,
         [  --with-openssl[[=DIR]]     build with OpenSSL support [[/usr/local/ssl]]],
         [openssl_prefix=$withval], 
-        [openssl_prefix="/usr/local/ssl"]
+        [openssl_prefix=]
 )
-AC_MSG_RESULT([*** Using OpenSSL directory $openssl_prefix ***])
-LDFLAGS="-L$openssl_prefix/lib $LDFLAGS"
-CFLAGS="-I$openssl_prefix/include $CFLAGS"
+if test "x$openssl_prefix" != x; then
+	AC_MSG_RESULT([*** Using OpenSSL directory $openssl_prefix ***])
+	LDFLAGS="-L$openssl_prefix/lib $LDFLAGS"
+	CFLAGS="-I$openssl_prefix/include $CFLAGS"
+fi
 
 # Support for the IBM 4758 (PCICC) token
 AC_ARG_ENABLE(icctok,
@@ -308,4 +310,7 @@ AC_OUTPUT([Makefile usr/Makefile \
 	  testcases/tok_obj/Makefile \
 	  testcases/v2.11/Makefile \
 	  testcases/login/Makefile])
+
+echo
+echo "CLFAGS=$CFLAGS"
 
