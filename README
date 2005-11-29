@@ -49,6 +49,10 @@ RUNNING openCryptoki:
   openCryptoki defaults to be usable by anyone who is in the group
   ``pkcs11''.
 
+TESTING openCryptoki:
+
+  See the testcases/README file for details on running the tests.
+
 ARCHITECTURE:
 
   On any 32bit arch, openCryptoki is compiled using gcc and all the necessary
@@ -76,5 +80,4 @@ and 64bit PKCS#11 apps can run. On ppc and s390, pkcsslotd is compiled with
 the -DPKCS64 flag, which makes all structures match their size on a 64bit 
 platform when being compiled 32bit. In this way, pkcsslotd can interact
 with both 32 and 64bit executable/libraries.
-
 
