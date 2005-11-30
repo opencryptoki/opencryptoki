@@ -1365,7 +1365,6 @@ object_mgr_find_init( SESSION      * sess,
 //  --- need to grab the object lock here 
    MY_LockMutex(&obj_list_mutex);
    object_mgr_update_from_shm();
-   MY_UnlockMutex(&obj_list_mutex);
 
    // which objects can be returned:
    //
@@ -1388,6 +1387,7 @@ object_mgr_find_init( SESSION      * sess,
          object_mgr_find_build_list( sess, pTemplate, ulCount, sess_obj_list,  FALSE );
          break;
    }
+   MY_UnlockMutex(&obj_list_mutex);
 
    sess->find_active = TRUE;
 
