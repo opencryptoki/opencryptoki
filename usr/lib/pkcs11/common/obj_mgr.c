@@ -543,8 +543,12 @@ object_mgr_add_to_map( SESSION          * sess,
       map_node->is_session_obj = FALSE;
 
    // add the new map entry to the list
-   //
+   if (pthread_rwlock_wrlock(&obj_list_rw_mutex)) {
+      st_err_log(4, __FILE__, __LINE__, __FUNCTION__);
+      return CKR_FUNCTION_FAILED;
+   }
    object_map = dlist_add_as_first( object_map, map_node );
+   pthread_rwlock_unlock(&obj_list_rw_mutex);
 
    *handle = map_node->handle;
    return CKR_OK;
@@ -1374,7 +1378,6 @@ object_mgr_find_init( SESSION      * sess,
 //  --- need to grab the object lock here 
    MY_LockMutex(&obj_list_mutex);
    object_mgr_update_from_shm();
-   MY_UnlockMutex(&obj_list_mutex);
 
    // which objects can be returned:
    //
@@ -1397,6 +1400,7 @@ object_mgr_find_init( SESSION      * sess,
          object_mgr_find_build_list( sess, pTemplate, ulCount, sess_obj_list,  FALSE );
          break;
    }
+   MY_UnlockMutex(&obj_list_mutex);
 
    sess->find_active = TRUE;
 
