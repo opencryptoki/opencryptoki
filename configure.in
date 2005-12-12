@@ -250,7 +250,6 @@ CFLAGS="$CFLAGS -DMMAP -DPKCS64 \
 	-DCONFIG_PATH=\\\"$CONFIG_PATH\\\" \
 	-DSBIN_PATH=\\\"$SBIN_PATH\\\" \
 	-DLIB_PATH=\\\"$LIB_PATH\\\" \
-	-DPCKG_VER=\\\"$PACKAGE_VERSION\\\" \
 	-D_XOPEN_SOURCE=500"
 
 # At this point, CFLAGS is set to something sensible
