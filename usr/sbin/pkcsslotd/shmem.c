@@ -296,6 +296,8 @@ static const char rcsid[] = "$Header$";
 #include "pkcsslotd.h"
 #pragma info(restore)
 
+#include <string.h>
+#include <stdlib.h>
 #include <fcntl.h>
 #include <sys/stat.h>
 #include <sys/mman.h>
@@ -580,7 +582,10 @@ int InitSharedMemory ( Slot_Mgr_Shr_t *sp ) {
    CK_SLOT_INFO_PTR    ckslot;
    CK_SLOT_ID          id;
    uint16              procindex;
-
+   char *package_version_tmp;
+   char *tok_str;
+   CK_BYTE lib_major;
+   CK_BYTE lib_minor;
 
    ckinf = &(sp->ck_info);
    ckver = &(ckinf->cryptokiVersion);
@@ -598,9 +603,27 @@ int InitSharedMemory ( Slot_Mgr_Shr_t *sp ) {
    memcpy ( ckinf->libraryDescription, LIB, strlen(LIB) );
 
    ckver = &(ckinf->libraryVersion);
+
    ckver->major = LIB_MAJOR_V;
    ckver->minor = LIB_MINOR_V;
-   
+
+#ifdef PCKG_VER
+   package_version_tmp = malloc(strlen(PCKG_VER)+1);
+   if (package_version_tmp) {
+           strcpy(package_version_tmp, PCKG_VER);
+           tok_str = strtok(package_version_tmp, ".");
+           if (tok_str) {
+                   lib_major = (CK_BYTE)atoi(tok_str);
+                   tok_str = strtok(NULL, ".");
+                   if (tok_str) {
+                           lib_minor = (CK_BYTE)atoi(tok_str);
+                           ckver->major = lib_major;
+                           ckver->minor = lib_minor;
+                   }
+           }
+           free(package_version_tmp);
+   }
+#endif
 
    /*  
     *  populate the Slot entries...
