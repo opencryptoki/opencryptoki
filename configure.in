@@ -187,8 +187,6 @@ case $target in
 		AM_CONDITIONAL(S390, false) ;;
 esac
 
-CFLAGS="$CFLAGS -DPCKG_VER=\\\"$PACKAGE_VERSION\\\""
-
 # At this point, CFLAGS is set to something sensible
 AC_PROG_CC
 

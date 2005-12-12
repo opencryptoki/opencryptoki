@@ -607,10 +607,10 @@ int InitSharedMemory ( Slot_Mgr_Shr_t *sp ) {
    ckver->major = LIB_MAJOR_V;
    ckver->minor = LIB_MINOR_V;
 
-#ifdef PCKG_VER
-   package_version_tmp = malloc(strlen(PCKG_VER)+1);
+#ifdef PACKAGE_VERSION
+   package_version_tmp = malloc(strlen(PACKAGE_VERSION)+1);
    if (package_version_tmp) {
-           strcpy(package_version_tmp, PCKG_VER);
+           strcpy(package_version_tmp, PACKAGE_VERSION);
            tok_str = strtok(package_version_tmp, ".");
            if (tok_str) {
                    lib_major = (CK_BYTE)atoi(tok_str);
