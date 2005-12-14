@@ -1515,7 +1515,6 @@ C_DigestInit ( CK_SESSION_HANDLE hSession,
       // Map the Session to the slot session
       rv = fcn->ST_DigestInit(rSession,pMechanism);
       LOGIT(LOG_DEBUG,"Called STDLL rv = 0x%x",rv);
-      syslog(LOG_ERR,"Called STDLL rv = 0x%x",rv);
    } else { 
       st_err_log(142, __FILE__, __LINE__, __FUNCTION__); 
       rv = CKR_FUNCTION_NOT_SUPPORTED;
