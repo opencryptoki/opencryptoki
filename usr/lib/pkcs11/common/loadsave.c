@@ -696,10 +696,23 @@ save_private_token_object( OBJECT *obj )
    add_pkcs_padding( cleartxt + cleartxt_len, DES_BLOCK_SIZE, cleartxt_len, padded_len );
 
 #ifndef  CLEARTEXT
+	// SAB  XXX some crypto libraries expect to be able to change th einitial vector.
+	// so we will enable that by a local variable
 
-	rc = ckm_des3_cbc_encrypt( cleartxt,    padded_len,
+{
+	CK_BYTE *initial_vector=NULL;
+	
+	initial_vector = (CK_BYTE *)alloca(strlen("10293847")+5);
+	if (initial_vector) {	
+		bcopy("10293847",initial_vector,strlen("10293847"));
+		rc = ckm_des3_cbc_encrypt( cleartxt,    padded_len,
 				 ciphertxt,  &ciphertxt_len,
-			        "10293847", (char *) des3_key );
+			        initial_vector, (char *) des3_key );
+	} else {
+		rc=CKR_FUNCTION_FAILED;
+	}
+
+}
 #else
          bcopy(cleartxt,ciphertxt,padded_len);
          rc = CKR_OK;
@@ -950,9 +963,26 @@ restore_private_token_object( CK_BYTE  * data,
    memcpy( des3_key, master_key, 3*DES_KEY_SIZE );
 
 #ifndef  CLEARTEXT
+{
+        CK_BYTE *initial_vector=NULL;
+                                                                                                                                  
+        initial_vector = (CK_BYTE *)alloca(strlen("10293847")+5);
+        if (initial_vector) {
+		bcopy("10293847",initial_vector,strlen("10293847"));
+                rc = ckm_des3_cbc_decrypt( ciphertxt,    len,
+                                 cleartxt,  &len,
+                                initial_vector, (char *) des3_key );
+        } else {
+                rc=CKR_FUNCTION_FAILED;
+        }
+                                                                                                                                  
+}
+
+#if 0
    rc = ckm_des3_cbc_decrypt( ciphertxt,  len,
                               cleartxt,  &len,
                               "10293847", des3_key );
+#endif
 #else
       bcopy(ciphertxt,cleartxt,len);
       rc = CKR_OK;
@@ -1063,7 +1093,24 @@ load_masterkey_so( void )
    memcpy( des3_key + MD5_HASH_SIZE, so_pin_md5, DES_KEY_SIZE  );
 
 #ifndef CLEARTEXT
+{
+        CK_BYTE *initial_vector=NULL;
+                                                                                                                                  
+        initial_vector = (CK_BYTE *)alloca(strlen("12345678")+5);
+        if (initial_vector) {
+		bcopy("12345678",initial_vector,strlen("12345678"));
+                rc = ckm_des3_cbc_decrypt( cipher,    cipher_len,
+                                 clear,  &clear_len,
+                                initial_vector, (char *) des3_key );
+        } else {
+                rc=CKR_FUNCTION_FAILED;
+        }
+                                                                                                                                  
+}
+
+#if 0
    rc = ckm_des3_cbc_decrypt( cipher, cipher_len, clear, &clear_len, "12345678", des3_key );
+#endif
 #else
    bcopy(cipher,clear,cipher_len);
    rc = CKR_OK;
@@ -1156,7 +1203,23 @@ load_masterkey_user( void )
    memcpy( des3_key + MD5_HASH_SIZE, user_pin_md5, DES_KEY_SIZE  );
 
 #ifndef CLEARTEXT
+{
+        CK_BYTE *initial_vector=NULL;
+                                                                                                                                  
+        initial_vector = (CK_BYTE *)alloca(strlen("12345678")+5);
+        if (initial_vector) {
+		bcopy("12345678",initial_vector,strlen("12345678"));
+                rc = ckm_des3_cbc_decrypt( cipher,    cipher_len,
+                                 clear,  &clear_len,
+                                initial_vector, (char *) des3_key );
+        } else {
+                rc=CKR_FUNCTION_FAILED;
+        }
+                                                                                                                                  
+}
+#if 0
    rc = ckm_des3_cbc_decrypt( cipher, cipher_len, clear, &clear_len, "12345678", des3_key );
+#endif
 #else
    bcopy(cipher,clear,cipher_len);
    rc = CKR_OK;
@@ -1232,7 +1295,23 @@ save_masterkey_so( void )
    add_pkcs_padding( cleartxt + cleartxt_len, DES_BLOCK_SIZE, cleartxt_len, padded_len );
 
 #ifndef CLEARTEXT
+{
+        CK_BYTE *initial_vector=NULL;
+                                                                                                                                  
+        initial_vector = (CK_BYTE *)alloca(strlen("12345678"));
+        if (initial_vector) {
+		bcopy("12345678",initial_vector,strlen("12345678"));
+                rc = ckm_des3_cbc_encrypt( cleartxt,    padded_len,
+                                 ciphertxt,  &ciphertxt_len,
+                                initial_vector, (char *) des3_key );
+        } else {
+                rc=CKR_FUNCTION_FAILED;
+        }
+                                                                                                                                  
+}
+#if 0
    rc = ckm_des3_cbc_encrypt( cleartxt, padded_len, ciphertxt, &ciphertxt_len, "12345678", des3_key );
+#endif
 #else
             bcopy(cleartxt,ciphertxt,padded_len);
 	             rc = CKR_OK;
@@ -1312,7 +1391,23 @@ save_masterkey_user( void )
    add_pkcs_padding( cleartxt + cleartxt_len, DES_BLOCK_SIZE, cleartxt_len, padded_len );
 
 #ifndef CLEARTEXT
+{
+        CK_BYTE *initial_vector=NULL;
+                                                                                                                                  
+        initial_vector = (CK_BYTE *)alloca(strlen("12345678")+5);
+        if (initial_vector) {
+		bcopy("12345678",initial_vector,strlen("12345678"));
+                rc = ckm_des3_cbc_encrypt( cleartxt,    padded_len,
+                                 ciphertxt,  &ciphertxt_len,
+                                initial_vector, (char *) des3_key );
+        } else {
+                rc=CKR_FUNCTION_FAILED;
+        }
+                                                                                                                                  
+}
+#if 0
    rc = ckm_des3_cbc_encrypt( cleartxt, padded_len, ciphertxt, &ciphertxt_len, "12345678", des3_key );
+#endif
 #else
    bcopy(cleartxt,ciphertxt,padded_len);
    rc = CKR_OK;
