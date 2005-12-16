@@ -49,7 +49,7 @@ char *buf = NULL;
 #define READ_SIZE	(46)
 #define MIN(a,b)	((a) < (b) ? (a) : (b))
 #define MB		(0x100000)
-#define NUM_DIGESTS	3
+#define NUM_DIGESTS	4
 struct digest_type digests[NUM_DIGESTS] = {
 	{
 		.id = "md5",
@@ -77,6 +77,15 @@ struct digest_type digests[NUM_DIGESTS] = {
 			.pParameter = NULL,
 			.ulParameterLen = 0
 		}
+	},
+	{
+		.id = "sha256",
+		.length = 32,
+		.mech = {
+			.mechanism = CKM_SHA256,
+			.pParameter = NULL,
+			.ulParameterLen = 0
+		}
 	}
 };
 
@@ -86,6 +95,7 @@ enum digest_types {
 	md5,
 	fasthash,
 	sha1,
+	sha256
 };
 
 enum digest_types hash = uninitialized;
@@ -159,6 +169,7 @@ int main(int argc, char **argv)
 
 	/* stat the file for size, etc */
 	if( stat(file, &file_stat) < 0 ) {
+		printf("Error getting stats for file [%s]\n", file);
 		perror("stat");
 		return clean_up();
 	}
@@ -279,7 +290,7 @@ int clean_up(void)
         if( (rc = funcs->C_Finalize(NULL)) != CKR_OK)
 		oc_err_msg("C_Finalize", rc);
 
-	/* Decrement the reference count to libopencryptoki.so */
+	/* Decrement the reference count to PKCS11_API.so */
 	dlclose(dl_handle);
 	
 	return rc;
@@ -287,7 +298,7 @@ int clean_up(void)
 
 int do_GetFunctionList(void)
 {
-	char *pkcslib = "libopencryptoki.so";
+	char *pkcslib = "/usr/lib/pkcs11/PKCS11_API.so";
 	CK_RV (*func_ptr)();
 	int rc;
 
