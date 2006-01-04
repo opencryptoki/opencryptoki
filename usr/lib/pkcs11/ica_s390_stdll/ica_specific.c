@@ -942,16 +942,17 @@ CK_RV token_specific_sha2_update(DIGEST_CONTEXT *ctx, CK_BYTE *in_data,
 					       in_data, fill_size);
                         	        /* Submit the filled out save
 					 * buffer */
-					rc = icaSha256(adapter_handle,
-						       (unsigned int)
-						       oc_sha256_ctx->message_part,
-						       (unsigned int)64,
-						       oc_sha256_ctx->tail,
-						       (unsigned int)
-						       LENGTH_SHA256_CONTEXT,
-						       ica_sha2_ctx,
-						       &oc_sha256_ctx->hash_len,
-						       oc_sha256_ctx->hash);
+					rc = icaSha256(
+						adapter_handle,
+						(unsigned int)
+						oc_sha256_ctx->message_part,
+						(unsigned int)64,
+						oc_sha256_ctx->tail,
+						(unsigned int)
+						LENGTH_SHA256_CONTEXT,
+						ica_sha2_ctx,
+						&oc_sha256_ctx->hash_len,
+						oc_sha256_ctx->hash);
                                 	if (rc) {
 						rv = CKR_FUNCTION_FAILED;
 						goto out;
