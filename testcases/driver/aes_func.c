@@ -18,6 +18,18 @@
 #define OCK_DEFAULT_USER_PIN_LEN 8
 #endif
 
+#ifndef AES_KEY_SIZE_256
+#define AES_KEY_SIZE_256 32
+#endif
+
+#ifndef AES_BLOCK_SIZE
+#define AES_BLOCK_SIZE 16
+#endif
+
+#ifndef AES_KEY_LEN
+#define AES_KEY_LEN 32
+#endif
+
 int do_EncryptAES_ECB(void)
 {
 	CK_BYTE             data1[BIG_REQUEST];
@@ -30,8 +42,11 @@ int do_EncryptAES_ECB(void)
 	CK_BYTE             user_pin[OCK_DEFAULT_USER_PIN_LEN];
 	CK_ULONG            user_pin_len;
 	CK_ULONG            i;
-	CK_ULONG            len1, len2;
+	CK_ULONG            len1, len2, key_size = AES_KEY_SIZE_256;
 	CK_RV               rc;
+	CK_ATTRIBUTE key_gen_tmpl[] = {
+		{CKA_VALUE_LEN, &key_size, sizeof(CK_ULONG) }
+	};
 
 	printf("do_EncryptAES_ECB...\n");
 
@@ -52,10 +67,9 @@ int do_EncryptAES_ECB(void)
 		goto error;
 	}
 	mech.mechanism      = CKM_AES_KEY_GEN;
-#warning "This is not right; copy over from v2.11 code"
 	mech.ulParameterLen = 0;
 	mech.pParameter     = NULL;
-	rc = funcs->C_GenerateKey( session, &mech, NULL, 0, &h_key );
+	rc = funcs->C_GenerateKey( session, &mech, key_gen_tmpl, 1, &h_key );
 	if (rc != CKR_OK) {
 		show_error("   C_GenerateKey #1", rc );
 		goto error;
