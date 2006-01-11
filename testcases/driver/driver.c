@@ -336,7 +336,6 @@ int main (int argc, char **argv)
    rc = aes_functions();
    if (!rc) {
           printf("Error executing AES functions\n");
-          goto out;
    }
 
    rc = digest_functions();
