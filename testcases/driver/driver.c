@@ -310,7 +310,6 @@ int main (int argc, char **argv)
 {  int i=0;
    while(i<1){
 
-#if 1
    fprintf (stderr, "\tMisc Functions tests...\n");
     rc = misc_functions(); 
    if (!rc)
@@ -326,9 +325,6 @@ int main (int argc, char **argv)
    if (!rc)
       return;
 
-#endif
-
-#if 1
    rc = des_functions();
    if (!rc)
       return;
@@ -337,20 +333,19 @@ int main (int argc, char **argv)
    if (!rc)
       return;
 
+   rc = aes_functions();
+   if (!rc) {
+          printf("Error executing AES functions\n");
+          goto out;
+   }
+
    rc = digest_functions();
    if (!rc)
       return;
-#endif
 
    rc = rsa_functions();
    if (!rc)
       return;
-
-#if 0
-   rc = dsa_functions();
-   if (!rc)
-      return;
-#endif
 
 /* Begin code contributed by Corrent corp. */
    rc = dh_functions();
