@@ -1,5 +1,5 @@
 /*
- * $Header: /cvsroot/opencryptoki/opencryptoki/usr/sbin/pkcsslotd/garbage_linux.h,v 1.1 2005/01/18 16:09:03 kyoder Exp $
+ * $Header: /cvsroot/opencryptoki/opencryptoki/usr/sbin/pkcsslotd/garbage_linux.h,v 1.2 2006/01/24 17:18:26 mhalcrow Exp $
  */
 
 
@@ -308,7 +308,7 @@ typedef struct {
     pid;            /* process id */
 
   char
-    *cmd,           /* command line string vector for /proc/<pid>/cmdline */
+    cmd[16],        /* command line string vector for /proc/<pid>/cmdline */
     state;          /* single-char code for process state [R, S, D, Z, or T] */
 
   int
