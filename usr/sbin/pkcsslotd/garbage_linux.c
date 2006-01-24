@@ -841,7 +841,7 @@ int Stat2Proc (int pid, proc_t *p) {
   p->processor = 0;
 
   /* now parse the two strings, tmp & buf, separately, skipping the leading "(" */
-  memset(&p->cmd, 0, sizeof(p->cmd));
+  memset(p->cmd, 0, sizeof(p->cmd));
   sscanf(buf, "%d (%15c", &p->pid, p->cmd);      // comm[16] in kernel
   num = sscanf(tmp + 2,                         // skip space after ')' as well
 	       "%c "
