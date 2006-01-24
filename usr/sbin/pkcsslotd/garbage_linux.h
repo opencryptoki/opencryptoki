@@ -308,7 +308,7 @@ typedef struct {
     pid;            /* process id */
 
   char
-    *cmd,           /* command line string vector for /proc/<pid>/cmdline */
+    cmd[16],        /* command line string vector for /proc/<pid>/cmdline */
     state;          /* single-char code for process state [R, S, D, Z, or T] */
 
   int
