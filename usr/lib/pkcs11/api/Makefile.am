@@ -47,6 +47,7 @@ install-data-local:
 				mv $(DESTDIR)/etc/pkcs11/* $(DESTDIR)/var/lib/opencryptoki ; \
 			fi ; \
 		fi ;\
+		mkdir -p $(DESTDIR)/etc \
 		cd $(DESTDIR)/etc && rm -rf pkcs11 && \
 			ln -sf $(DESTDIR)/var/lib/opencryptoki pkcs11 ; \
 	else \
