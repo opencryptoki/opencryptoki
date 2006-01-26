@@ -563,8 +563,13 @@ typedef struct {
 #define MAJOR_V   1
 #define MINOR_V   2
 
+#ifndef CRYPTOKI_API_MAJOR_V 
 #define CRYPTOKI_API_MAJOR_V 0x2
+#endif
+
+#ifndef CRYPTOKI_API_MINOR_V
 #define CRYPTOKI_API_MINOR_V 0xb
+#endif
 
 #define LIB_MAJOR_V 1
 #define LIB_MINOR_V 4
