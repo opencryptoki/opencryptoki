@@ -1,5 +1,5 @@
 /*
- * $Header: /cvsroot/opencryptoki/opencryptoki/usr/include/pkcs11/slotmgr.h,v 1.4 2005/05/05 21:53:04 tlendacky Exp $
+ * $Header: /cvsroot/opencryptoki/opencryptoki/usr/include/pkcs11/slotmgr.h,v 1.5 2006/01/26 20:21:22 mhalcrow Exp $
  */
 
 //
@@ -563,8 +563,13 @@ typedef struct {
 #define MAJOR_V   1
 #define MINOR_V   2
 
+#ifndef CRYPTOKI_API_MAJOR_V 
 #define CRYPTOKI_API_MAJOR_V 0x2
+#endif
+
+#ifndef CRYPTOKI_API_MINOR_V
 #define CRYPTOKI_API_MINOR_V 0xb
+#endif
 
 #define LIB_MAJOR_V 1
 #define LIB_MINOR_V 4
