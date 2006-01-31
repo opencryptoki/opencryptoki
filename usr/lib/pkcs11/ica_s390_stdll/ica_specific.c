@@ -2050,6 +2050,7 @@ token_specific_get_mechanism_list(CK_MECHANISM_TYPE_PTR pMechanismList,
 	int rc = CKR_OK;
 	struct mech_list_item head;
 	struct mech_list_item *walker;
+	head.next = NULL;
 #if 1
 	rc = ock_generic_get_mechanism_list(pMechanismList, pulCount);	
 	if (rc != CKR_OK) {
@@ -2090,7 +2091,8 @@ token_specific_get_mechanism_list(CK_MECHANISM_TYPE_PTR pMechanismList,
 		walker = next;
 	}
 #endif
- out:
+out:
+	free_mech_list(&head);
 	return rc;
 }
 
