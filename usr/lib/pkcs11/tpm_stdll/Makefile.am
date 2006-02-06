@@ -13,11 +13,11 @@ opencryptoki_stdll_libpkcs11_tpm_la_CFLAGS = -DLINUX -DSPINXPL -DNOCDMF	\
 					     -DNODSA -DNODH		\
 					     -I. -I../../../include	\
 					     -I../../../include/pkcs11	\
-					     -I../common		\
+					     -I../common -DMMAP		\
 					     -DSTDLL_NAME=\"tpmtok\"
 
 # Not all versions of automake observe libname_CFLAGS
-AM_CFLAGS = -DLINUX -DSPINXPL -DNOCDMF -DNODSA -DNODH -I. \
+AM_CFLAGS = -DLINUX -DMMAP -DSPINXPL -DNOCDMF -DNODSA -DNODH -I. \
 	    -I../../../include -I../../../include/pkcs11 \
 	    -I../common
 
