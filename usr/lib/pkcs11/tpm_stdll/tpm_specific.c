@@ -1651,8 +1651,8 @@ token_specific_set_pin(ST_SESSION_HANDLE session,
 				return CKR_FUNCTION_FAILED;
 			}
 
-			nv_token_data->token_info.flags 
-			  &= ~(CKF_USER_PIN_TO_BE_CHANGED);
+			nv_token_data->token_info.flags &= ~(CKF_USER_PIN_TO_BE_CHANGED);
+			nv_token_data->token_info.flags |= CKF_USER_PIN_INITIALIZED;
 
 			return save_token_data();
 		}
