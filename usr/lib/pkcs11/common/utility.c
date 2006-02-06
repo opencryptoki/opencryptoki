@@ -1329,85 +1329,19 @@ attach_shm()
 #define FILENAME   ".stmapfile"
 
 #warning "EXPERIMENTAL"
-		char		*fname = NULL, *dirname = NULL;
+		char		*fname = NULL;
 		char		*b2 = NULL;
-		int		fd = -1, i;
-		struct passwd	*pw = NULL;
-		mode_t		mode = (S_IRUSR | S_IWUSR | S_IXUSR);
+		int		fd = -1;
+		mode_t		mode;
 		CK_RV		rc;
 
-		/* manpage decrees that errno must be set to 0 if we want to check it on
-		 * error.. */
-		errno = 0;
-		pw = getpwuid(getuid());
-		if (pw == NULL) {
-			LogError("getpwuid failed: %s", strerror(errno));
-			return CKR_FUNCTION_FAILED;
-		}
 
-		// STAT the directory to see if it exists... If not, then create it
-		dirname = malloc(strlen(pk_dir) + strlen(pw->pw_name) + strlen(PK_LITE_OBJ_DIR) + 2);
-		if (dirname) {
-			sprintf(dirname, "%s/%s", pk_dir, pw->pw_name);
-		} else {
-			st_err_log(4, __FILE__, __LINE__, __FUNCTION__);
-			return CKR_HOST_MEMORY;
-		}
-
-		// if the user specific directory doesn't exist, create it and userdir/TOK_OBJ
-		if (stat(dirname, &statbuf) < 0) {
-			if (mkdir(dirname, mode) == -1) {
-				LogError("%s: mkdir(%s): %s", __FUNCTION__, dirname,
-						strerror(errno));
-				rc = CKR_FUNCTION_FAILED;
-				goto err_out;
-			}
-			fd = open(dirname, O_RDONLY);
-			if (fd < 0) {
-				LogError("%s: open(%s): %s", __FUNCTION__, dirname,
-						strerror(errno));
-				rc = CKR_FUNCTION_FAILED;
-				goto err_out;
-			}
-			if (fchmod(fd, mode) == -1) {
-				LogError("%s: fchmod(%s): %s", __FUNCTION__, dirname,
-						strerror(errno));
-				close(fd);
-				rc = CKR_FUNCTION_FAILED;
-				goto err_out;
-			}
-			close(fd);
-
-			// now create userdir/TOK_OBJ
-			strncat(dirname, "/", 1);
-			strncat(dirname, PK_LITE_OBJ_DIR, strlen(PK_LITE_OBJ_DIR));
-			if (mkdir(dirname, mode) == -1) {
-				LogError("%s: mkdir \"%s\": %s", __FUNCTION__, dirname,
-						strerror(errno));
-				rc = CKR_FUNCTION_FAILED;
-				goto err_out;
-			}
-			fd = open(dirname, O_RDONLY);
-			if (fd < 0) {
-				LogError("%s: open(%s): %s", __FUNCTION__, dirname,
-						strerror(errno));
-				rc = CKR_FUNCTION_FAILED;
-				goto err_out;
-			}
-			if (fchmod(fd, mode) == -1) {
-				LogError("%s: fchmod(%s): %s", __FUNCTION__, dirname,
-						strerror(errno));
-				close(fd);
-				rc = CKR_FUNCTION_FAILED;
-				goto err_out;
-			}
-			close(fd);
-		}
+		mode = (S_IRUSR | S_IWUSR | S_IRGRP | S_IWGRP );
 
 		// STAT the file to see if it exists... If not, then create it
-		fname = malloc(strlen(dirname)+strlen(FILENAME)+100);
+		fname = malloc(strlen(pk_dir)+strlen(FILENAME)+100);
 		if (fname ) {
-			sprintf(fname, "%s/%s/%s", pk_dir, pw->pw_name, FILENAME);
+			sprintf(fname, "%s/%s", pk_dir, FILENAME);
 		} else {
 			st_err_log(4, __FILE__, __LINE__, __FUNCTION__);
 			return CKR_HOST_MEMORY;
@@ -1418,18 +1352,19 @@ attach_shm()
 			fd = open(fname,O_RDWR|O_CREAT,mode);
 			if (fd < 0 ){
 				LogError("open of %s failed: %s", fname, strerror(errno));
+				free(fname);
 				return CKR_FUNCTION_FAILED;  //Failed
 			}
-			i = sizeof(LW_SHM_TYPE);
-			b2 = malloc(i);
-			memset(b2,'\0',i);
-			write(fd,b2,i);
+			b2 = malloc(sizeof(LW_SHM_TYPE));
+			memset(b2,'\0',sizeof(LW_SHM_TYPE));
+			write(fd,b2,sizeof(LW_SHM_TYPE));
 			free(b2);
 			created=TRUE;
 		} else {
 			fd = open(fname,O_RDWR,mode);
 			if (fd < 0 ){
 				LogError("open of %s failed: %s", fname, strerror(errno));
+				free(fname);
 				return CKR_FUNCTION_FAILED;  //Failed
 			}
 		}
@@ -1448,8 +1383,6 @@ attach_shm()
 
 		rc = CKR_OK;
 
-err_out:
-		free(dirname);
 		free(fname);
 		close(fd);
 		return rc;
