@@ -60,27 +60,29 @@ main directory and do the following:
         /prefix/sbin/pkcs_slot
         /prefix/sbin/pkcsconf
         /prefix/sbin/pkcsslotd
-        /prefix/lib/libopencryptoki.so
-        /prefix/lib/libopencryptoki.so.0
-        /prefix/lib/opencryptoki/libopencryptoki.so
-        /prefix/lib/opencryptoki/libopencryptoki.so.0
-        /prefix/lib/opencryptoki/libopencryptoki.so.0.0.0
+        /prefix/libdir/libopencryptoki.so
+        /prefix/libdir/libopencryptoki.so.0
+        /prefix/libdir/opencryptoki/libopencryptoki.so
+        /prefix/libdir/opencryptoki/libopencryptoki.so.0
+        /prefix/libdir/opencryptoki/libopencryptoki.so.0.0.0
         /prefix/var/lib/opencryptoki
 
      Token objects, which may be optionally built, go to the following
      locations:
-        /prefix/lib/opencryptoki/stdll/libpkcs11_ica.so
-        /prefix/lib/opencryptoki/stdll/libpkcs11_ica.so.0
-        /prefix/lib/opencryptoki/stdll/libpkcs11_ica.so.0.0.0
-        /prefix/lib/opencryptoki/stdll/libpkcs11_sw.so
-        /prefix/lib/opencryptoki/stdll/libpkcs11_sw.so.0
-        /prefix/lib/opencryptoki/stdll/libpkcs11_sw.so.0.0.0
-        /prefix/lib/opencryptoki/stdll/libpkcs11_tpm.so
-        /prefix/lib/opencryptoki/stdll/libpkcs11_tpm.so.0
-        /prefix/lib/opencryptoki/stdll/libpkcs11_tpm.so.0.0.0
+        /prefix/libdir/opencryptoki/stdll/libpkcs11_ica.so
+        /prefix/libdir/opencryptoki/stdll/libpkcs11_ica.so.0
+        /prefix/libdir/opencryptoki/stdll/libpkcs11_ica.so.0.0.0
+        /prefix/libdir/opencryptoki/stdll/libpkcs11_sw.so
+        /prefix/libdir/opencryptoki/stdll/libpkcs11_sw.so.0
+        /prefix/libdir/opencryptoki/stdll/libpkcs11_sw.so.0.0.0
+        /prefix/libdir/opencryptoki/stdll/libpkcs11_tpm.so
+        /prefix/libdir/opencryptoki/stdll/libpkcs11_tpm.so.0
+        /prefix/libdir/opencryptoki/stdll/libpkcs11_tpm.so.0.0.0
 
      where `prefix' is either `/usr/local' or the PATH that you specified
-     in the `--prefix' flag.
+     in the `--prefix' flag. `libdir' is the name of the library
+     directory; for 32-bit libraries it is usually `lib' and for
+     64-bit libraries it is usually `lib64'.
 
      To maintain backwards compatibility, some additional symlinks
      are generated (note that these are deprecated, and applications
