@@ -2109,6 +2109,7 @@ token_specific_get_mechanism_info(CK_MECHANISM_TYPE type,
 	int rc = CKR_MECHANISM_INVALID;
 	struct mech_list_item head;
 	struct mech_list_item *walker;
+	head.next = NULL;
 #if 1
 	rc = ock_generic_get_mechanism_info(type, pInfo);
 	if (rc == CKR_OK) {
