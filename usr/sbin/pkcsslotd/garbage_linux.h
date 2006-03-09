@@ -291,18 +291,11 @@
 
 */
 
-/* (C) COPYRIGHT International Business Machines Corp. 2001          */
-
+/* (C) COPYRIGHT International Business Machines Corp. 2001 */
 
 #ifndef GARBAGE_LINUX_H
 #define GARBAGE_LINUX_H
 
-/*
- * Basic data structure which holds all information we can get about a process.
- * (unless otherwise specified, fields are read from /proc/#/stat)
- *
- * Most of it comes from task_struct in linux/sched.h
- */
 typedef struct {
   int
     pid;            /* process id */
@@ -323,7 +316,7 @@ typedef struct {
     min_flt,        /* number of minor page faults since process start */
     cmin_flt,       /* cumulative min_flt of process and child processes */
     maj_flt,        /* number of major page faults since process start */
-    cmaj_flt;       /* cumulative maj_flt of process and child processes */
+    cmaj_flt,       /* cumulative maj_flt of process and child processes */
     utime,          /* user-mode CPU time accumulated by process */
     stime;          /* kernel-mode CPU time accumulated by process */
 
@@ -368,7 +361,6 @@ typedef struct {
     processor;
 
 } proc_t;
-
 
 #endif
 
