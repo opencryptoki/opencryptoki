@@ -295,91 +295,15 @@
 #include <sys/stat.h>
 #include <sys/types.h>
 #include <fcntl.h>
-/* #include "garbage_linux.h" */
 #pragma info(restore)
-
 
 #define PROC_BASE "/proc"
 
-
 extern BOOL GCBlockSignals (void);
-
 
 #if !defined(NOGARBAGE)
 
-
-/*
- * Basic data structure which holds information we can get about a process.
- * (unless otherwise specified, fields are read from /proc/<pid>/stat)
- *
- * Comes from task_struct in linux/sched.h
- */
-typedef struct {
-  int
-    pid;            /* process id */
-
-  char
-    *cmd,           /* command line string vector for /proc/<pid>/cmdline */
-    state;          /* single-char code for process state [R, S, D, Z, or T] */
-
-  int
-    ppid,           /* pid of parent process */
-    pgrp,           /* process group id */
-    session,        /* session id */
-    tty,            /* full device number of controlling terminal */
-    tpgid;          /* terminal process group id */
-
-  unsigned long
-    flags,          /* kernel flags for the process */
-    min_flt,        /* number of minor page faults since process start */
-    cmin_flt,       /* cumulative min_flt of process and child processes */
-    maj_flt,        /* number of major page faults since process start */
-    cmaj_flt,       /* cumulative maj_flt of process and child processes */
-    utime,          /* user-mode CPU time accumulated by process */
-    stime;          /* kernel-mode CPU time accumulated by process */
-
-  long
-    cutime,         /* cumulative utime of process and reaped children */
-    cstime,         /* cumulative stime of process and reaped children */
-    priority,       /* kernel scheduling priority */
-    nice,           /* standard unix nice level of process */
-    timeout,        /* ? */
-    it_real_value;  /* ? */
-
-  unsigned long
-    start_time,     /* start time of process -- seconds since 1-1-70 */
-    vsize;          /* number of pages of virtual memory ... */
-
-  long
-    rss;            /* resident set size from /proc/<pid>/stat (pages) */
-
-  unsigned long
-    rss_rlim,       /* resident set size limit? */
-    start_code,     /* address of beginning of code segment */
-    end_code,       /* address of end of code segment */
-    start_stack,    /* address of the bottom of stack for the process */
-    kstk_esp,       /* kernel stack pointer */
-    kstk_eip;       /* kernel instruction pointer */
-
-  char                                        
-    /* Linux 2.1.7x and up have more signals. This handles 88. */
-    /* long long (instead of char xxxxxx[24]) handles 64 */
-    signal[24],     /* mask of pending signals */
-    blocked[24],    /* mask of blocked signals */
-    sigignore[24],  /* mask of ignored signals */
-    sigcatch[24];   /* mask of caught  signals */
-
-  unsigned long
-    wchan,          /* address of kernel wait channel proc is sleeping in */
-    nswap,          /* ? */
-    cnswap;         /* cumulative nswap ? */
-  
-  int
-    exit_signal,
-    processor;
-
-} proc_t;
-
+#include "garbage_linux.h"
 
 #ifdef PKCS64
 BOOL                IsValidProcessEntry     ( pid_t_64 pid, time_t_64 RegTime );
