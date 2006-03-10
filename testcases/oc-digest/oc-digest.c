@@ -290,7 +290,7 @@ int clean_up(void)
         if( (rc = funcs->C_Finalize(NULL)) != CKR_OK)
 		oc_err_msg("C_Finalize", rc);
 
-	/* Decrement the reference count to PKCS11_API.so */
+	/* Decrement the reference count to libopencryptoki.so */
 	dlclose(dl_handle);
 	
 	return rc;
@@ -298,7 +298,7 @@ int clean_up(void)
 
 int do_GetFunctionList(void)
 {
-	char *pkcslib = "/usr/lib/pkcs11/PKCS11_API.so";
+        char *pkcslib = "libopencryptoki.so";
 	CK_RV (*func_ptr)();
 	int rc;
 
