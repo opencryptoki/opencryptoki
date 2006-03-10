@@ -1,0 +1,18 @@
+NAME
+
+pkcs11_startup
+
+SYNOPSIS
+
+pkcs11_startup
+
+DESCRIPTION
+
+Script that detects available tokens from installed shared object
+libraries and writes corresponding records to the pk_config_data
+file. The pkcsslotd daemon later uses this information when
+initializing the tokens.
+
+SEE ALSO
+
+opencryptoki(7) pkcsslotd(8) pk_config_data(5)
