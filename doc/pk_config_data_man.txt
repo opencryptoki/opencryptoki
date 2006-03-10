@@ -1,0 +1,13 @@
+NAME
+
+pk_config_data - Configuration file for pkcsslotd
+
+DESCRIPTION
+
+This file contains records corresponding to available openCryptoki
+tokens. At startup, the pkcsslotd daemon parses this file to determine
+which tokens are available for use.
+
+SEE ALSO
+
+opencryptoki(7) pkcsslotd(8) pkcs11_startup(1)
