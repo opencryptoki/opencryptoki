@@ -11,7 +11,7 @@
 #include "regress.h"
 
 #ifndef OCK_DEFAULT_USER_PIN
-#define OCK_DEFAULT_USER_PIN "12345678"
+#define OCK_DEFAULT_USER_PIN "01234567"
 #endif
 
 #ifndef OCK_DEFAULT_USER_PIN_LEN
