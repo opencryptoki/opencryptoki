@@ -28,9 +28,9 @@
 #include "pkcs11types.h"
 
 /* FIXME */
-#define DEFAULT_USER_PIN        "12345678"
+#define DEFAULT_USER_PIN        "01234567"
 #define DEFAULT_USER_PIN_LEN    8
-#define DEFAULT_SO_PIN          "87654321"
+#define DEFAULT_SO_PIN          "76543210"
 #define DEFAULT_SO_PIN_LEN      8
 
 
