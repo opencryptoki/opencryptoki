@@ -6,6 +6,7 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+#include <strings.h>
 #include <memory.h>
 
 #include "pkcs11types.h"
@@ -60,7 +61,7 @@ int do_Digest_SHA1( void )
       }
 
       hash_len = sizeof(hash);
-      data_len = strlen(data1);
+      data_len = strlen((char *)data1);
       rc = funcs->C_Digest( session, data1,    data_len,
                                      hash,    &hash_len );
       if (rc != CKR_OK) {
@@ -69,7 +70,7 @@ int do_Digest_SHA1( void )
       }
 
       if (hash_len != 20) {
-         printf("   ERROR #1:  hash_len == %d, expected 20\n", hash_len );
+         printf("   ERROR #1:  hash_len == %ld, expected 20\n", hash_len );
          return FALSE;
       }
 
@@ -87,7 +88,7 @@ int do_Digest_SHA1( void )
          return FALSE;
       }
 
-      data_len = strlen(data1);
+      data_len = strlen((char *)data1);
       rc = funcs->C_DigestUpdate( session, data1, data_len );
       if (rc != CKR_OK) {
          show_error("   C_DigestUpdate #1", rc );
@@ -102,7 +103,7 @@ int do_Digest_SHA1( void )
       }
 
       if (hash_len != 20) {
-         printf("   ERROR #3:  hash_len == %d, expected 20\n", hash_len );
+         printf("   ERROR #3:  hash_len == %ld, expected 20\n", hash_len );
          return FALSE;
       }
 
@@ -121,7 +122,7 @@ int do_Digest_SHA1( void )
       }
 
       hash_len = sizeof(hash);
-      data_len = strlen(data2);
+      data_len = strlen((char *)data2);
       rc = funcs->C_Digest( session, data2,    data_len,
                                      hash,    &hash_len );
       if (rc != CKR_OK) {
@@ -130,7 +131,7 @@ int do_Digest_SHA1( void )
       }
 
       if (hash_len != 20) {
-         printf("   ERROR #5:  hash_len == %d, expected 20\n", hash_len );
+         printf("   ERROR #5:  hash_len == %ld, expected 20\n", hash_len );
          return FALSE;
       }
 
@@ -148,7 +149,7 @@ int do_Digest_SHA1( void )
          return FALSE;
       }
 
-      data_len = strlen(data2);
+      data_len = strlen((char *)data2);
       rc = funcs->C_DigestUpdate( session, data2, data_len );
       if (rc != CKR_OK) {
          show_error("   C_DigestUpdate #2", rc );
@@ -163,7 +164,7 @@ int do_Digest_SHA1( void )
       }
 
       if (hash_len != 20) {
-         printf("   ERROR #7:  hash_len == %d, expected 20\n", hash_len );
+         printf("   ERROR #7:  hash_len == %ld, expected 20\n", hash_len );
          return FALSE;
       }
 
@@ -211,7 +212,7 @@ int do_Digest_SHA1( void )
       }
 
       if (hash_len != SHA1_HASH_LEN) {
-         printf("   ERROR #9:  expected len1 to be %d.  Got %d instead\n\n", SHA1_HASH_LEN, hash_len );
+         printf("   ERROR #9:  expected len1 to be %d.  Got %ld instead\n\n", SHA1_HASH_LEN, hash_len );
          return FALSE;
       }
 
@@ -232,7 +233,7 @@ int do_Digest_SHA1( void )
          rc = funcs->C_DigestUpdate( session, &data[i], size );
          if (rc != CKR_OK) {
             show_error("   C_DigestUpdate #3", rc );
-            printf("   Offset:  %d\n", i);
+            printf("   Offset:  %ld\n", i);
             return FALSE;
          }
       }
@@ -245,7 +246,7 @@ int do_Digest_SHA1( void )
       }
 
       if (hash_len != SHA1_HASH_LEN) {
-         printf("   ERROR #10:  expected len2 to be %d.  Got %d instead\n\n", SHA1_HASH_LEN, hash_len );
+         printf("   ERROR #10:  expected len2 to be %d.  Got %ld instead\n\n", SHA1_HASH_LEN, hash_len );
          return FALSE;
       }
 
@@ -268,7 +269,7 @@ int do_Digest_SHA1( void )
          rc = funcs->C_DigestUpdate( session, &data[i], size );
          if (rc != CKR_OK) {
             show_error("   C_DigestUpdate #4", rc );
-            printf("   Offset:  %d\n", i);
+            printf("   Offset:  %ld\n", i);
             return FALSE;
          }
       }
@@ -281,7 +282,7 @@ int do_Digest_SHA1( void )
       }
 
       if (hash_len != SHA1_HASH_LEN) {
-         printf("   ERROR #11:  expected len3 to be %d.  Got %d instead\n\n", SHA1_HASH_LEN, hash_len );
+         printf("   ERROR #11:  expected len3 to be %d.  Got %ld instead\n\n", SHA1_HASH_LEN, hash_len );
          return FALSE;
       }
 
@@ -367,7 +368,7 @@ int do_Digest_MD2( void )
    }
 
    if (hash_len != MD2_HASH_LEN) {
-      printf("   ERROR:  expected len1 to be %d.  Got %d instead\n\n", MD2_HASH_LEN, hash_len );
+      printf("   ERROR:  expected len1 to be %d.  Got %ld instead\n\n", MD2_HASH_LEN, hash_len );
       return FALSE;
    }
 
@@ -387,7 +388,7 @@ int do_Digest_MD2( void )
       rc = funcs->C_DigestUpdate( session, &data[i], size );
       if (rc != CKR_OK) {
          show_error("   C_DigestUpdate #1", rc );
-         printf("   Offset:  %d\n", i);
+         printf("   Offset:  %ld\n", i);
          return FALSE;
       }
    }
@@ -400,7 +401,7 @@ int do_Digest_MD2( void )
    }
 
    if (hash_len != MD2_HASH_LEN) {
-      printf("   ERROR:  expected len2 to be %d.  Got %d instead\n\n", MD2_HASH_LEN, hash_len );
+      printf("   ERROR:  expected len2 to be %d.  Got %ld instead\n\n", MD2_HASH_LEN, hash_len );
       return FALSE;
    }
 
@@ -421,7 +422,7 @@ int do_Digest_MD2( void )
       rc = funcs->C_DigestUpdate( session, &data[i], size );
       if (rc != CKR_OK) {
          show_error("   C_DigestUpdate #2", rc );
-         printf("   Offset:  %d\n", i);
+         printf("   Offset:  %ld\n", i);
          return FALSE;
       }
    }
@@ -434,7 +435,7 @@ int do_Digest_MD2( void )
    }
 
    if (hash_len != MD2_HASH_LEN) {
-      printf("   ERROR:  expected len3 to be %d.  Got %d instead\n\n", MD2_HASH_LEN, hash_len );
+      printf("   ERROR:  expected len3 to be %d.  Got %ld instead\n\n", MD2_HASH_LEN, hash_len );
       return FALSE;
    }
 
@@ -524,7 +525,7 @@ int do_Digest_MD5( void )
    }
 
    if (hash_len != MD5_HASH_LEN) {
-      printf("   ERROR:  expected len1 to be %d.  Got %d instead\n\n", MD5_HASH_LEN, hash_len );
+      printf("   ERROR:  expected len1 to be %d.  Got %ld instead\n\n", MD5_HASH_LEN, hash_len );
       return FALSE;
    }
 
@@ -552,7 +553,7 @@ int do_Digest_MD5( void )
       rc = funcs->C_DigestUpdate( session, &data[i], size );
       if (rc != CKR_OK) {
          show_error("   C_DigestUpdate #1", rc );
-         printf("   Offset:  %d\n", i);
+         printf("   Offset:  %ld\n", i);
          return FALSE;
       }
    }
@@ -565,7 +566,7 @@ int do_Digest_MD5( void )
    }
 
    if (hash_len != MD5_HASH_LEN) {
-      printf("   ERROR:  expected len2 to be %d.  Got %d instead\n\n", MD5_HASH_LEN, hash_len );
+      printf("   ERROR:  expected len2 to be %d.  Got %ld instead\n\n", MD5_HASH_LEN, hash_len );
       return FALSE;
    }
 
@@ -586,7 +587,7 @@ int do_Digest_MD5( void )
       rc = funcs->C_DigestUpdate( session, &data[i], size );
       if (rc != CKR_OK) {
          show_error("   C_DigestUpdate #2", rc );
-         printf("   Offset:  %d\n", i);
+         printf("   Offset:  %ld\n", i);
          return FALSE;
       }
    }
@@ -599,7 +600,7 @@ int do_Digest_MD5( void )
    }
 
    if (hash_len != MD5_HASH_LEN) {
-      printf("   ERROR:  expected len3 to be %d.  Got %d instead\n\n", MD5_HASH_LEN, hash_len );
+      printf("   ERROR:  expected len3 to be %d.  Got %ld instead\n\n", MD5_HASH_LEN, hash_len );
       return FALSE;
    }
 
@@ -681,7 +682,7 @@ int do_Digest_SHA1_speed( void )
       }
 
       if (hash_len != SHA1_HASH_LEN) {
-         printf("   ERROR:  expected len1 to be %d.  Got %d instead\n\n", SHA1_HASH_LEN, hash_len );
+         printf("   ERROR:  expected len1 to be %d.  Got %ld instead\n\n", SHA1_HASH_LEN, hash_len );
          return FALSE;
       }
    }
@@ -750,7 +751,7 @@ int do_Digest_MD5_speed( void )
       }
 
       if (hash_len != MD5_HASH_LEN) {
-         printf("   ERROR:  expected len1 to be %d.  Got %d instead\n\n", MD5_HASH_LEN, hash_len );
+         printf("   ERROR:  expected len1 to be %d.  Got %ld instead\n\n", MD5_HASH_LEN, hash_len );
          return FALSE;
       }
    }
@@ -1126,7 +1127,7 @@ int do_SignVerify_MD5_HMAC( void )
           {CKA_VALUE,       &key_data,         sizeof(key_data)     }
       };
 
-      strcpy( data, "Test With Truncation" );
+      strcpy((char *)data, "Test With Truncation" );
       data_len = 20;
 
       rc = funcs->C_CreateObject( session, key_attribs, 4, &h_key );
@@ -1209,7 +1210,7 @@ int do_SignVerify_MD5_HMAC( void )
           {CKA_VALUE,       &key_data,         sizeof(key_data)     }
       };
 
-      strcpy( data, "Test Using Larger Than Block-Size Key - Hash Key First" );
+      strcpy( (char *)data, "Test Using Larger Than Block-Size Key - Hash Key First" );
       data_len = 54;
 
       rc = funcs->C_CreateObject( session, key_attribs, 4, &h_key );
@@ -1292,7 +1293,7 @@ int do_SignVerify_MD5_HMAC( void )
           {CKA_VALUE,       &key_data,         sizeof(key_data)     }
       };
 
-      strcpy( data, "Test Using Larger Than Block-Size Key and Larger Than One Block-Size Data" );
+      strcpy( (char *)data, "Test Using Larger Than Block-Size Key and Larger Than One Block-Size Data" );
       data_len = 73;
 
       rc = funcs->C_CreateObject( session, key_attribs, 4, &h_key );
@@ -1718,7 +1719,7 @@ int do_SignVerify_MD5_HMAC_GENERAL( void )
           {CKA_VALUE,       &key_data,         sizeof(key_data)     }
       };
 
-      strcpy( data, "Test With Truncation" );
+      strcpy( (char *)data, "Test With Truncation" );
       data_len = 20;
 
       rc = funcs->C_CreateObject( session, key_attribs, 4, &h_key );
@@ -1801,7 +1802,7 @@ int do_SignVerify_MD5_HMAC_GENERAL( void )
           {CKA_VALUE,       &key_data,         sizeof(key_data)     }
       };
 
-      strcpy( data, "Test Using Larger Than Block-Size Key - Hash Key First" );
+      strcpy( (char *)data, "Test Using Larger Than Block-Size Key - Hash Key First" );
       data_len = 54;
 
       rc = funcs->C_CreateObject( session, key_attribs, 4, &h_key );
@@ -1884,7 +1885,7 @@ int do_SignVerify_MD5_HMAC_GENERAL( void )
           {CKA_VALUE,       &key_data,         sizeof(key_data)     }
       };
 
-      strcpy( data, "Test Using Larger Than Block-Size Key and Larger Than One Block-Size Data" );
+      strcpy( (char *)data, "Test Using Larger Than Block-Size Key and Larger Than One Block-Size Data" );
       data_len = 73;
 
       rc = funcs->C_CreateObject( session, key_attribs, 4, &h_key );
@@ -2309,7 +2310,7 @@ int do_SignVerify_SHA1_HMAC( void )
           {CKA_VALUE,       &key_data,         sizeof(key_data)     }
       };
 
-      strcpy( data, "Test With Truncation" );
+      strcpy( (char *)data, "Test With Truncation" );
       data_len = 20;
 
       rc = funcs->C_CreateObject( session, key_attribs, 4, &h_key );
@@ -2393,7 +2394,7 @@ int do_SignVerify_SHA1_HMAC( void )
           {CKA_VALUE,       &key_data,         sizeof(key_data)     }
       };
 
-      strcpy( data, "Test Using Larger Than Block-Size Key - Hash Key First" );
+      strcpy( (char *)data, "Test Using Larger Than Block-Size Key - Hash Key First" );
       data_len = 54;
 
       rc = funcs->C_CreateObject( session, key_attribs, 4, &h_key );
@@ -2477,7 +2478,7 @@ int do_SignVerify_SHA1_HMAC( void )
           {CKA_VALUE,       &key_data,         sizeof(key_data)     }
       };
 
-      strcpy( data, "Test Using Larger Than Block-Size Key and Larger Than One Block-Size Data" );
+      strcpy( (char *)data, "Test Using Larger Than Block-Size Key and Larger Than One Block-Size Data" );
       data_len = 73;
 
       rc = funcs->C_CreateObject( session, key_attribs, 4, &h_key );
@@ -2904,7 +2905,7 @@ int do_SignVerify_SHA1_HMAC_GENERAL( void )
           {CKA_VALUE,       &key_data,         sizeof(key_data)     }
       };
 
-      strcpy( data, "Test With Truncation" );
+      strcpy( (char *)data, "Test With Truncation" );
       data_len = 20;
 
       rc = funcs->C_CreateObject( session, key_attribs, 4, &h_key );
@@ -2988,7 +2989,7 @@ int do_SignVerify_SHA1_HMAC_GENERAL( void )
           {CKA_VALUE,       &key_data,         sizeof(key_data)     }
       };
 
-      strcpy( data, "Test Using Larger Than Block-Size Key - Hash Key First" );
+      strcpy( (char *)data, "Test Using Larger Than Block-Size Key - Hash Key First" );
       data_len = 54;
 
       rc = funcs->C_CreateObject( session, key_attribs, 4, &h_key );
@@ -3072,7 +3073,7 @@ int do_SignVerify_SHA1_HMAC_GENERAL( void )
           {CKA_VALUE,       &key_data,         sizeof(key_data)     }
       };
 
-      strcpy( data, "Test Using Larger Than Block-Size Key and Larger Than One Block-Size Data" );
+      strcpy( (char *)data, "Test Using Larger Than Block-Size Key and Larger Than One Block-Size Data" );
       data_len = 73;
 
       rc = funcs->C_CreateObject( session, key_attribs, 4, &h_key );

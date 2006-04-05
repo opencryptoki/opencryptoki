@@ -9,6 +9,7 @@
  */
 
 #include <stdio.h>
+#include <stdlib.h>
 #include <string.h>
 #include <dlfcn.h>
 #include <sys/types.h>
@@ -52,7 +53,7 @@ int main(int argc, char **argv)
 		}
 	}
 	
-	printf("Using slot %d...\n\n", slot_id);
+	printf("Using slot %ld...\n\n", slot_id);
 	
 	if(do_GetFunctionList())
 		return -1;
@@ -63,7 +64,7 @@ int main(int argc, char **argv)
 	
 	if( (rc = funcs->C_Initialize( &initialize_args )) != CKR_OK ) {
 		oc_err_msg("C_Initialize", rc);
-		return;
+		return -1;
 	}
 
 	//
@@ -108,7 +109,7 @@ int main(int argc, char **argv)
 	 * It should now be the slot number of the token we're using 
 	 */
 	if(si.slotID != slot_id) {
-		printf("Test #2 failed. Slot ID was %d, expected %d\n", si.slotID, slot_id);
+		printf("Test #2 failed. Slot ID was %ld, expected %ld\n", si.slotID, slot_id);
 		goto session_close;
 	}
 
@@ -118,18 +119,18 @@ int main(int argc, char **argv)
 	}
 
 	if(ti.flags & CKF_USER_PIN_LOCKED) {
-		printf("The USER's PIN is locked for the token in slot %d.\n"
+		printf("The USER's PIN is locked for the token in slot %ld.\n"
 			"Please reset the USER's PIN and re-run this test.\n", slot_id);
 		goto session_close;
 	}
 
 	if(!(ti.flags & CKF_TOKEN_INITIALIZED)) {
-		printf("The token in slot %d is uninitialized.\n", slot_id);
+		printf("The token in slot %ld is uninitialized.\n", slot_id);
 		goto session_close;
 	}
 
 	// 3. Login/Logout with correct USER PIN
-	rc = funcs->C_Login(session_handle, CKU_USER, DEFAULT_USER_PIN, DEFAULT_USER_PIN_LEN);
+	rc = funcs->C_Login(session_handle, CKU_USER, (CK_CHAR_PTR)DEFAULT_USER_PIN, DEFAULT_USER_PIN_LEN);
 	if( rc != CKR_OK ) {
 		oc_err_msg("C_Login #3", rc);
 		goto session_close;
@@ -143,7 +144,7 @@ int main(int argc, char **argv)
 
 	
 	// 4. Login as USER with an incorrect PIN
-	rc = funcs->C_Login(session_handle, CKU_USER, BAD_USER_PIN, BAD_USER_PIN_LEN);
+	rc = funcs->C_Login(session_handle, CKU_USER, (CK_CHAR_PTR)BAD_USER_PIN, BAD_USER_PIN_LEN);
 	if( rc != CKR_PIN_INCORRECT ) {
 		oc_err_msg("Test #4", rc);
 		goto session_close;
@@ -158,12 +159,12 @@ int main(int argc, char **argv)
 	if(((ti.flags & CKF_USER_PIN_COUNT_LOW) == 0) || 
 		(ti.flags & CKF_USER_PIN_FINAL_TRY)   ||
 		(ti.flags & CKF_USER_PIN_LOCKED)) {
-		printf("Test #5 failed. Token flags: 0x%x.\n", ti.flags);
+	  printf("Test #5 failed. Token flags: %p.\n", (void *)ti.flags);
 		goto session_close;
 	}
 
 	// 6. Login as USER with an incorrect PIN
-	rc = funcs->C_Login(session_handle, CKU_USER, BAD_USER_PIN, BAD_USER_PIN_LEN);
+	rc = funcs->C_Login(session_handle, CKU_USER, (CK_CHAR_PTR)BAD_USER_PIN, BAD_USER_PIN_LEN);
 	if( rc != CKR_PIN_INCORRECT ) {
 		oc_err_msg("C_Login #6", rc);
 		goto session_close;
@@ -178,12 +179,12 @@ int main(int argc, char **argv)
 	if((ti.flags & CKF_USER_PIN_COUNT_LOW) || 
 		((ti.flags & CKF_USER_PIN_FINAL_TRY) == 0) ||
 		(ti.flags & CKF_USER_PIN_LOCKED)) {
-		printf("Test #7 failed. Token flags: %d.\n", ti.flags);
+	        printf("Test #7 failed. Token flags: %p.\n", (void *)ti.flags);
 		goto session_close;
 	}
 	
 	// 8. Login correctly
-	rc = funcs->C_Login(session_handle, CKU_USER, DEFAULT_USER_PIN, DEFAULT_USER_PIN_LEN);
+	rc = funcs->C_Login(session_handle, CKU_USER, (CK_CHAR_PTR)DEFAULT_USER_PIN, DEFAULT_USER_PIN_LEN);
 	if( rc != CKR_OK ) {
 		oc_err_msg("C_Login #8", rc);
 		goto session_close;
@@ -199,21 +200,21 @@ int main(int argc, char **argv)
 		(ti.flags & CKF_USER_PIN_FINAL_TRY)  ||
 		(ti.flags & CKF_USER_PIN_LOCKED) ) {
 
-		printf("Test #9 failed. Token flags: %d.\n", ti.flags);
+                printf("Test #9 failed. Token flags: %p.\n", (void *)ti.flags);
 		goto session_close;
 	}
 
         // 10. Try to set a new PIN, but with newPIN == oldPIN
 	// 11. Check that we get CKR_PIN_INVALID
-	rc = funcs->C_SetPIN(session_handle, DEFAULT_USER_PIN, DEFAULT_USER_PIN_LEN,
-       				DEFAULT_USER_PIN, DEFAULT_USER_PIN_LEN);
+	rc = funcs->C_SetPIN(session_handle, (CK_CHAR_PTR)DEFAULT_USER_PIN, DEFAULT_USER_PIN_LEN,
+       				(CK_CHAR_PTR)DEFAULT_USER_PIN, DEFAULT_USER_PIN_LEN);
 	if(rc != CKR_PIN_INVALID) {
 		oc_err_msg("Test #10", rc);
 		goto session_close;
 	}
 	
         // 12. Login as USER with an incorrect PIN
-        rc = funcs->C_Login(session_handle, CKU_USER, BAD_USER_PIN, BAD_USER_PIN_LEN);
+        rc = funcs->C_Login(session_handle, CKU_USER, (CK_CHAR_PTR)BAD_USER_PIN, BAD_USER_PIN_LEN);
         if( rc != CKR_PIN_INCORRECT ) {
                 oc_err_msg("C_Login #12", rc);
                 goto session_close;
@@ -228,12 +229,12 @@ int main(int argc, char **argv)
         if(((ti.flags & CKF_USER_PIN_COUNT_LOW) == 0) ||
                 (ti.flags & CKF_USER_PIN_FINAL_TRY)   ||
                 (ti.flags & CKF_USER_PIN_LOCKED)) {
-                printf("Test #13 failed. Token flags: 0x%x.\n", ti.flags);
+                printf("Test #13 failed. Token flags: %p.\n", (void *)ti.flags);
                 goto session_close;
         }
 
         // 14. Login as USER with an incorrect PIN
-        rc = funcs->C_Login(session_handle, CKU_USER, BAD_USER_PIN, BAD_USER_PIN_LEN);
+        rc = funcs->C_Login(session_handle, CKU_USER, (CK_CHAR_PTR)BAD_USER_PIN, BAD_USER_PIN_LEN);
         if( rc != CKR_PIN_INCORRECT ) {
                 oc_err_msg("C_Login #14", rc);
                 goto session_close;
@@ -248,14 +249,14 @@ int main(int argc, char **argv)
         if((ti.flags & CKF_USER_PIN_COUNT_LOW) ||
                 ((ti.flags & CKF_USER_PIN_FINAL_TRY) == 0) ||
                 (ti.flags & CKF_USER_PIN_LOCKED)) {
-                printf("Test #15 failed. Token flags: %d.\n", ti.flags);
+                printf("Test #15 failed. Token flags: %p.\n", (void *)ti.flags);
                 goto session_close;
         }
 
 	
 	
 	// 16. Login as USER with incorrect PIN
-	rc = funcs->C_Login(session_handle, CKU_USER, BAD_USER_PIN, BAD_USER_PIN_LEN);
+	rc = funcs->C_Login(session_handle, CKU_USER, (CK_CHAR_PTR)BAD_USER_PIN, BAD_USER_PIN_LEN);
 	if( rc != CKR_PIN_INCORRECT ) {
 		oc_err_msg("C_Login #16", rc);
 		goto session_close;
@@ -271,11 +272,11 @@ int main(int argc, char **argv)
 		(ti.flags & CKF_USER_PIN_FINAL_TRY)  ||
 		((ti.flags & CKF_USER_PIN_LOCKED) == 0)) {
 
-		printf("Test #17 failed. Token flags: %d.\n", ti.flags);
+                printf("Test #17 failed. Token flags: %p.\n", (void *)ti.flags);
 		goto session_close;
 	}
 	
-	printf("Tests succeeded. USER PIN is now locked for slot %d.\n"
+	printf("Tests succeeded. USER PIN is now locked for slot %ld.\n"
 		"Re-running this test should return CKR_PIN_LOCKED.\n"
 		"To unlock this slot, run the init_tok testcase on the slot.\n", slot_id);
 	
@@ -419,7 +420,7 @@ void process_ret_code( CK_RV rc )
 
 void oc_err_msg( char *str, CK_RV rc )
 {
-	printf("Error: %s returned:  %d ", str, rc );
+	printf("Error: %s returned:  %ld ", str, rc );
 	process_ret_code( rc );
 	printf("\n\n");
 }

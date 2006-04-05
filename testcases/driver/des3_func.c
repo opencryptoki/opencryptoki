@@ -110,7 +110,7 @@ int do_Encrypt3DES_ECB( void )
 
    for (i=0; i <len1; i++) {
       if (data1[i] != data2[i]) {
-         printf("   ERROR:  mismatch at byte %d\n", i );
+         printf("   ERROR:  mismatch at byte %ld\n", i );
          goto error;
       }
    }
@@ -260,12 +260,12 @@ int do_Encrypt3DES_Multipart_ECB( void )
    }
 
    if (tmp != 0) {
-      printf("   ERROR:  DecryptFinal wants to return %d bytes\n", tmp );
+      printf("   ERROR:  DecryptFinal wants to return %ld bytes\n", tmp );
       goto error;
    }
 
    if (crypt2_len != crypt1_len) {
-      printf("   ERROR:  crypt1_len = %d, crypt2_len = %d\n", crypt1_len, crypt2_len );
+      printf("   ERROR:  crypt1_len = %ld, crypt2_len = %ld\n", crypt1_len, crypt2_len );
       goto error;
    }
 
@@ -274,7 +274,7 @@ int do_Encrypt3DES_Multipart_ECB( void )
    //
    for (i=0; i < crypt1_len; i++) {
       if (crypt1[i] != crypt2[i]) {
-         printf("   ERROR:  mismatch.  crypt1 != crypt2 at byte %d\n", i );
+         printf("   ERROR:  mismatch.  crypt1 != crypt2 at byte %ld\n", i );
          goto error;
       }
    }
@@ -338,17 +338,17 @@ int do_Encrypt3DES_Multipart_ECB( void )
    }
 
    if (tmp != 0) {
-      printf("   ERROR:  DecryptFinal wants to return %d bytes\n", tmp );
+      printf("   ERROR:  DecryptFinal wants to return %ld bytes\n", tmp );
       goto error;
    }
 
    if (decrypt1_len != decrypt2_len) {
-      printf("   ERROR:  decrypt1_len = %d, decrypt2_len = %d\n", decrypt1_len, decrypt2_len );
+      printf("   ERROR:  decrypt1_len = %ld, decrypt2_len = %ld\n", decrypt1_len, decrypt2_len );
       goto error;
    }
 
    if (decrypt1_len != orig_len) {
-      printf("   ERROR:  decrypted lengths = %d, original length = %d\n", decrypt1_len, orig_len );
+      printf("   ERROR:  decrypted lengths = %ld, original length = %ld\n", decrypt1_len, orig_len );
       goto error;
    }
 
@@ -356,7 +356,7 @@ int do_Encrypt3DES_Multipart_ECB( void )
    //
    for (i=0; i < decrypt1_len; i++) {
       if (decrypt1[i] != decrypt2[i]) {
-         printf("   ERROR:  mismatch.  decrypt1 != decrypt2 at byte %d\n", i );
+         printf("   ERROR:  mismatch.  decrypt1 != decrypt2 at byte %ld\n", i );
          goto error;
       }
    }
@@ -365,7 +365,7 @@ int do_Encrypt3DES_Multipart_ECB( void )
    //
    for (i=0; i < orig_len; i++) {
       if (original[i] != decrypt1[i]) {
-         printf("   ERROR:  decrypted mismatch: original != decrypt at byte %d\n", i );
+         printf("   ERROR:  decrypted mismatch: original != decrypt at byte %ld\n", i );
          goto error;
       }
    }
@@ -490,7 +490,7 @@ int do_Encrypt3DES_CBC( void )
 
    for (i=0; i <len1; i++) {
       if (data1[i] != data2[i]) {
-         printf("   ERROR:  mismatch at byte %d\n", i );
+         printf("   ERROR:  mismatch at byte %ld\n", i );
          return FALSE;
       }
    }
@@ -634,13 +634,13 @@ int do_Encrypt3DES_Multipart_CBC( void )
    }
 
    if (tmp != 0) {
-      printf("   ERROR:  EncryptFinal wants to return %d bytes\n", tmp );
+      printf("   ERROR:  EncryptFinal wants to return %ld bytes\n", tmp );
       return FALSE;
    }
 
 
    if (crypt2_len != crypt1_len) {
-      printf("   ERROR:  crypt1_len = %d, crypt2_len = %d\n", crypt1_len, crypt2_len );
+      printf("   ERROR:  crypt1_len = %ld, crypt2_len = %ld\n", crypt1_len, crypt2_len );
       return FALSE;
    }
 
@@ -648,7 +648,7 @@ int do_Encrypt3DES_Multipart_CBC( void )
    //
    for (i=0; i < crypt1_len; i++) {
       if (crypt1[i] != crypt2[i]) {
-         printf("   ERROR:  mismatch.  crypt1 != crypt2 at byte %d\n", i );
+         printf("   ERROR:  mismatch.  crypt1 != crypt2 at byte %ld\n", i );
          return FALSE;
       }
    }
@@ -713,12 +713,12 @@ int do_Encrypt3DES_Multipart_CBC( void )
    }
 
    if (tmp != 0) {
-      printf("   ERROR:  DecryptFinal wants to return %d bytes\n", tmp );
+      printf("   ERROR:  DecryptFinal wants to return %ld bytes\n", tmp );
       return FALSE;
    }
 
    if (decrypt2_len != decrypt1_len) {
-      printf("   ERROR:  decrypt1_len = %d, decrypt2_len = %d\n", decrypt1_len, decrypt2_len );
+      printf("   ERROR:  decrypt1_len = %ld, decrypt2_len = %ld\n", decrypt1_len, decrypt2_len );
       return FALSE;
    }
 
@@ -726,7 +726,7 @@ int do_Encrypt3DES_Multipart_CBC( void )
    //
    for (i=0; i < decrypt1_len; i++) {
       if (crypt1[i] != crypt2[i]) {
-         printf("   ERROR:  mismatch.  decrypt1 != decrypt2 at byte %d\n", i );
+         printf("   ERROR:  mismatch.  decrypt1 != decrypt2 at byte %ld\n", i );
          return FALSE;
       }
    }
@@ -735,7 +735,7 @@ int do_Encrypt3DES_Multipart_CBC( void )
    //
    for (i=0; i < orig_len; i++) {
       if (original[i] != decrypt1[i]) {
-         printf("   ERROR:  decrypted mismatch: original != decrypt at byte %d\n", i );
+         printf("   ERROR:  decrypted mismatch: original != decrypt at byte %ld\n", i );
          return FALSE;
       }
    }
@@ -885,7 +885,7 @@ int do_EncryptDES3_Multipart_CBC_PAD( void )
 
    if (crypt2_len != crypt1_len) {
       printf("   ERROR:  encrypted lengths don't match\n");
-      printf("           crypt2_len == %d,  crypt1_len == %d\n", crypt2_len, crypt1_len );
+      printf("           crypt2_len == %ld,  crypt1_len == %ld\n", crypt2_len, crypt1_len );
       return FALSE;
    }
 
@@ -893,7 +893,7 @@ int do_EncryptDES3_Multipart_CBC_PAD( void )
    //
    for (i=0; i < crypt2_len; i++) {
       if (crypt1[i] != crypt2[i]) {
-         printf("   ERROR:  encrypted mismatch: crypt1 != crypt2 at byte %d\n", i );
+         printf("   ERROR:  encrypted mismatch: crypt1 != crypt2 at byte %ld\n", i );
          return FALSE;
       }
    }
@@ -961,13 +961,13 @@ int do_EncryptDES3_Multipart_CBC_PAD( void )
 
    if (decrypt2_len != decrypt1_len) {
       printf("   ERROR:  decrypted lengths don't match\n");
-      printf("           decrypt1_len == %d,  decrypt2_len == %d\n", decrypt1_len, decrypt2_len );
+      printf("           decrypt1_len == %ld,  decrypt2_len == %ld\n", decrypt1_len, decrypt2_len );
       return FALSE;
    }
 
    if (decrypt2_len != orig_len) {
       printf("   ERROR:  decrypted lengths don't match the original\n");
-      printf("           decrypt_len == %d,  orig_len == %d\n", decrypt1_len, orig_len );
+      printf("           decrypt_len == %ld,  orig_len == %ld\n", decrypt1_len, orig_len );
       return FALSE;
    }
 
@@ -976,7 +976,7 @@ int do_EncryptDES3_Multipart_CBC_PAD( void )
    //
    for (i=0; i < decrypt1_len; i++) {
       if (decrypt1[i] != decrypt2[i]) {
-         printf("   ERROR:  decrypted mismatch: data1 != data2 at byte %d\n", i );
+         printf("   ERROR:  decrypted mismatch: data1 != data2 at byte %ld\n", i );
          return FALSE;
       }
    }
@@ -985,7 +985,7 @@ int do_EncryptDES3_Multipart_CBC_PAD( void )
    //
    for (i=0; i < orig_len; i++) {
       if (original[i] != decrypt2[i]) {
-         printf("   ERROR:  decrypted mismatch: original != decrypted at byte %d\n", i );
+         printf("   ERROR:  decrypted mismatch: original != decrypted at byte %ld\n", i );
          return FALSE;
       }
    }
@@ -1143,7 +1143,7 @@ int do_WrapUnwrapDES3_ECB( void )
 
    for (i=0; i <len1; i++) {
       if (data1[i] != data2[i]) {
-         printf("   ERROR:  mismatch at byte %d\n", i );
+         printf("   ERROR:  mismatch at byte %ld\n", i );
          goto error;
       }
    }
@@ -1357,7 +1357,7 @@ int do_WrapUnwrapDES3_CBC( void )
 
    for (i=0; i <len1; i++) {
       if (data1[i] != data2[i]) {
-         printf("   ERROR:  mismatch at byte %d\n", i );
+         printf("   ERROR:  mismatch at byte %ld\n", i );
          return FALSE;
       }
    }
@@ -1561,13 +1561,13 @@ int do_WrapUnwrapDES3_CBC_PAD( void )
    }
 
    if (orig_len != decipher_len) {
-      printf("   ERROR:  lengths don't match:  %d vs %d\n", orig_len, decipher_len );
+      printf("   ERROR:  lengths don't match:  %ld vs %ld\n", orig_len, decipher_len );
       return FALSE;
    }
 
    for (i=0; i < orig_len; i++) {
       if (original[i] != decipher[i]) {
-         printf("   ERROR:  mismatch at byte %d\n", i );
+         printf("   ERROR:  mismatch at byte %ld\n", i );
          return FALSE;
       }
    }
@@ -1669,13 +1669,13 @@ int do_WrapUnwrapDES3_CBC_PAD( void )
       }
 
       if (orig_len != decipher_len) {
-         printf("   ERROR:  lengths don't match:  %d vs %d\n", orig_len, decipher_len );
+         printf("   ERROR:  lengths don't match:  %ld vs %ld\n", orig_len, decipher_len );
          return FALSE;
       }
 
       for (i=0; i < orig_len; i++) {
          if (original[i] != decipher[i]) {
-            printf("   ERROR:  mismatch at byte %d\n", i );
+            printf("   ERROR:  mismatch at byte %ld\n", i );
             return FALSE;
          }
       }

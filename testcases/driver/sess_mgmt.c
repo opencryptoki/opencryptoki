@@ -17,7 +17,7 @@
 void dump_session_info( CK_SESSION_INFO *info )
 {
    printf("   CK_SESSION_INFO:\n");
-   printf("      slotID:         %d\n", info->slotID );
+   printf("      slotID:         %ld\n", info->slotID );
    printf("      state:          ");
    switch (info->state) {
       case CKS_RO_PUBLIC_SESSION:   printf("CKS_RO_PUBLIC_SESSION\n");
@@ -31,8 +31,8 @@ void dump_session_info( CK_SESSION_INFO *info )
       case CKS_RW_SO_FUNCTIONS:     printf("CKS_RW_SO_FUNCTIONS\n");
                                     break;
    }
-   printf("      flags:          0x%0x\n", info->flags );
-   printf("      ulDeviceError:  %d\n",    info->ulDeviceError );
+   printf("      flags:          %p\n",    (void *)info->flags );
+   printf("      ulDeviceError:  %ld\n",    info->ulDeviceError );
 }
 
 

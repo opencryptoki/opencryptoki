@@ -91,7 +91,7 @@ unsigned int THREADCNT=NUMTHREADS;
 
 
 int  do_EncryptRSA_PKCS(int);
-void show_error( CK_BYTE *, CK_RV );
+void show_error( char *, CK_RV );
 
 
 // Fill this one in..
@@ -266,7 +266,8 @@ int do_EncryptRSA_PKCS( int index )
    CK_BBOOL		false = FALSE;
 
    SYSTEMTIME		t1,t2;
-   CK_ULONG		diff, loopcount=0,failed=0;
+   CK_ULONG		diff, failed=0;
+   long int             loopcount=0;
 
 
    CK_ULONG  bits = 1024;
@@ -392,21 +393,17 @@ int do_EncryptRSA_PKCS( int index )
    //
    GetSystemTime(&t1);
    while ( loopcount < LOOPCOUNT) {
-      if (debug) printf("%d ",threads[index].tid);
+      if (debug) printf("%d ",(int)threads[index].tid);
       rc = funcs->C_DecryptInit( session, &mech, priv_key );
       if (rc != CKR_OK) {
          failed++;
          continue;
-       //  show_error("   C_DecryptInit #1", rc );
-       //  goto errordecrypt;
       }
 
       rc = funcs->C_Decrypt( session, cipher, cipherlen, data2, &len2 );
       if (rc != CKR_OK) {
          failed++;
          continue;
-      //   show_error("   C_Decrypt #1", rc );
-      //   goto errordecrypt;
       }
        loopcount++;
    }
@@ -416,13 +413,6 @@ int do_EncryptRSA_PKCS( int index )
    threads[index].total = diff;
    threads[index].processed = loopcount - failed;
    threads[index].ops = (float) ((float)(loopcount - failed) / (float)diff);
-
-   return;
-errordecrypt:
-   //if (len1 != len2) {
-   //   printf("   ERROR:  lengths don't match\n");
-   //   return FALSE;
-  // }
 
 #if 0
    hex_dump_to_file("decrypted",data2,len2);
@@ -556,9 +546,9 @@ void process_ret_code( CK_RV rc )
 
 //
 //
-void show_error( CK_BYTE *str, CK_RV rc )
+void show_error( char *str, CK_RV rc )
 {
-   printf("%s returned:  %d (0x%0x)", str, rc, rc );
+  printf("%s returned:  %ld (%p)", str, rc, (void *)rc );
    process_ret_code( rc );
    printf("\n");
 }
@@ -627,7 +617,8 @@ int do_GetFunctionList( void )
 int main( int argc, char **argv )
 {
    CK_C_INITIALIZE_ARGS  cinit_args;
-   int        rc, i;
+   int        i, rc;
+   unsigned int j;
 
    CK_BBOOL      no_init;
    unsigned long  avg_time;
@@ -670,7 +661,7 @@ int main( int argc, char **argv )
       }
    }
 
-   printf("Using slot #%d...\n\n", SLOT_ID );
+   printf("Using slot #%ld...\n\n", SLOT_ID );
 
    rc = do_GetFunctionList();
    if (!rc)
@@ -689,18 +680,18 @@ int main( int argc, char **argv )
    threads = (Thread_t *)malloc(sizeof(Thread_t) * THREADCNT);
 
    
-   for (i=0;i<THREADCNT;i++){
-      threads[i].id = i;
+   for (j=0;j<THREADCNT;j++){
+      threads[j].id = j;
 //      printf("Creating thread %d\n",threads[i].id);
-      pthread_create(&threads[i].tid,NULL,(void*(*)(void *))thread_func,
-            (void *)&(threads[i]));
+      pthread_create(&threads[j].tid,NULL,(void*(*)(void *))thread_func,
+            (void *)&(threads[j]));
 //      printf("Creating thread tid %d\n",threads[i].tid);
    }
-   for (i=0;i<THREADCNT;i++){
+   for (j=0;j<THREADCNT;j++){
  //   printf("Joining thread %d\n",threads[i].id);
-    pthread_join(threads[i].tid,NULL);
-    printf("Thread[%d] took %d ms for %d operations %6f OP/ms   \n",i,threads[i].total,threads[i].processed,
-            threads[i].ops);
+    pthread_join(threads[j].tid,NULL);
+    printf("Thread[%d] took %ld ms for %ld operations %6f OP/ms   \n",j,threads[j].total,threads[j].processed,
+            threads[j].ops);
 
    }
 

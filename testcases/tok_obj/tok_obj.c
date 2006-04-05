@@ -120,9 +120,9 @@ void process_ret_code( CK_RV rc )
 
 //
 //
-void show_error( CK_BYTE *str, CK_RV rc )
+void show_error( char *str, CK_RV rc )
 {
-   printf("%s returned:  %d", str, rc );
+   printf("%s returned:  %ld", str, rc );
    process_ret_code( rc );
    printf("\n");
 }
@@ -342,7 +342,7 @@ int do_count_token_objects( void )
       goto done;
    }
 
-   printf("Found:  %d objects\n", find_count);
+   printf("Found:  %ld objects\n", find_count);
    rc = TRUE;
 
 done:
@@ -505,7 +505,7 @@ int do_destroy_all_token_objects( void )
       for (i=0; i < find_count; i++) {
          rc = funcs->C_DestroyObject( h_session, obj_list[i] );
          if (rc != CKR_OK) {
-            printf("   C_DestroyObject #%d returned", i);
+            printf("   C_DestroyObject #%ld returned", i);
             show_error(" ", rc );
             rc = FALSE;
             goto done;
@@ -653,17 +653,17 @@ int do_GetTokenInfo( void )
    printf("      manufacturerID:          %32.32s\n",  info.manufacturerID );
    printf("      model:                   %16.16s\n",  info.model );
    printf("      serialNumber:            %16.16s\n",  info.serialNumber );
-   printf("      flags:                   %0x\n",      info.flags );
-   printf("      ulMaxSessionCount:       %d\n",       info.ulMaxSessionCount );
-   printf("      ulSessionCount:          %d\n",       info.ulSessionCount );
-   printf("      ulMaxRwSessionCount:     %d\n",       info.ulMaxRwSessionCount );
-   printf("      ulRwSessionCount:        %d\n",       info.ulRwSessionCount );
-   printf("      ulMaxPinLen:             %d\n",       info.ulMaxPinLen );
-   printf("      ulMinPinLen:             %d\n",       info.ulMinPinLen );
-   printf("      ulTotalPublicMemory:     %d\n",       info.ulTotalPublicMemory );
-   printf("      ulFreePublicMemory:      %d\n",       info.ulFreePublicMemory );
-   printf("      ulTotalPrivateMemory:    %d\n",       info.ulTotalPrivateMemory );
-   printf("      ulFreePrivateMemory:     %d\n",       info.ulFreePrivateMemory );
+   printf("      flags:                   %p\n",       (void *)info.flags );
+   printf("      ulMaxSessionCount:       %ld\n",      info.ulMaxSessionCount );
+   printf("      ulSessionCount:          %ld\n",      info.ulSessionCount );
+   printf("      ulMaxRwSessionCount:     %ld\n",      info.ulMaxRwSessionCount );
+   printf("      ulRwSessionCount:        %ld\n",      info.ulRwSessionCount );
+   printf("      ulMaxPinLen:             %ld\n",      info.ulMaxPinLen );
+   printf("      ulMinPinLen:             %ld\n",      info.ulMinPinLen );
+   printf("      ulTotalPublicMemory:     %ld\n",      info.ulTotalPublicMemory );
+   printf("      ulFreePublicMemory:      %ld\n",      info.ulFreePublicMemory );
+   printf("      ulTotalPrivateMemory:    %ld\n",      info.ulTotalPrivateMemory );
+   printf("      ulFreePrivateMemory:     %ld\n",      info.ulFreePrivateMemory );
    printf("      hardwareVersion:         %d.%d\n",    info.hardwareVersion.major, info.hardwareVersion.minor );
    printf("      firmwareVersion:         %d.%d\n",    info.firmwareVersion.major, info.firmwareVersion.minor );
    printf("      time:                    %16.16s\n",  info.utcTime );
@@ -679,8 +679,8 @@ int do_GetTokenInfo( void )
 int main( int argc, char **argv )
 {
    CK_BYTE            line[20];
-   CK_ULONG           val, i;
-   int rc;
+   CK_ULONG           val;
+   int i, rc;
 
    SLOT_ID = 0;
 
@@ -697,7 +697,7 @@ int main( int argc, char **argv )
       }
    }
 
-   printf("Using slot #%d...\n\n", SLOT_ID );
+   printf("Using slot #%ld...\n\n", SLOT_ID );
 
    rc = do_GetFunctionList();
    if (!rc)
@@ -717,9 +717,9 @@ int main( int argc, char **argv )
       printf("9.  Exit\n");
       printf("Selection:   ");  fflush(stdout);
 
-      fgets(line, 10, stdin);
+      fgets((char *)line, 10, stdin);
 
-      val = atoi(line);
+      val = atoi((char *)line);
 
       switch (val) {
          case 1:  do_create_token_object();

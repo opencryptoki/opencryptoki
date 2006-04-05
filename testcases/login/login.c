@@ -8,8 +8,11 @@
 #include <sys/timeb.h>
 
 #include "pkcs11types.h"
+#include "regress.h"
 
 #include "common.h"
+
+int do_GetFunctionList( CK_FUNCTION_LIST **funcs );
 
 int
 do_LoginLogout(CK_FUNCTION_LIST *funcs, CK_SLOT_ID slot_id, CK_USER_TYPE userType, char *pass)
@@ -27,7 +30,7 @@ do_LoginLogout(CK_FUNCTION_LIST *funcs, CK_SLOT_ID slot_id, CK_USER_TYPE userTyp
 		show_error("C_OpenSession", rc);
 		return rc;
 	}
-	rc = funcs->C_Login(session, userType, pass, strlen(pass));
+	rc = funcs->C_Login(session, userType, (CK_CHAR_PTR)pass, strlen(pass));
 	if (rc != CKR_OK) {
 		show_error("C_Login", rc);
 		return rc;
@@ -82,7 +85,7 @@ main( int argc, char **argv )
 		} else {
 			printf("usage:  %s [-slot <num>] [-h] [-pass passwd] [-user|-so]\n\n", argv[0] );
 			printf("By default, Slot %d is used, as user\n\n", SLOT_ID_DEFAULT);
-			return;
+			return -1;
 		}
 	}
 

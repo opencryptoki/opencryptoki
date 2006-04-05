@@ -10,6 +10,9 @@
 #include "pkcs11types.h"
 
 #include "common.h"
+#include "regress.h"
+
+int do_GetFunctionList( CK_FUNCTION_LIST **funcs );
 
 int
 do_digestInit(CK_FUNCTION_LIST *funcs, CK_SLOT_ID slot_id, CK_USER_TYPE userType, char *pass)
@@ -31,7 +34,7 @@ do_digestInit(CK_FUNCTION_LIST *funcs, CK_SLOT_ID slot_id, CK_USER_TYPE userType
 		return rc;
 	}
 
-	rc = funcs->C_Login(session, userType, pass, strlen(pass));
+	rc = funcs->C_Login(session, userType, (CK_CHAR_PTR)pass, strlen(pass));
 	if (rc != CKR_OK) {
 		show_error("C_Login", rc);
 		return rc;
