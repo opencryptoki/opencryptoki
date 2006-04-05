@@ -1,5 +1,5 @@
 /*
- * $Header: /cvsroot/opencryptoki/opencryptoki/usr/lib/pkcs11/api/apiproto.h,v 1.1 2005/01/18 16:09:00 kyoder Exp $
+ * $Header: /cvsroot/opencryptoki/opencryptoki/usr/lib/pkcs11/api/apiproto.h,v 1.2 2006/04/05 20:07:45 kyoder Exp $
  */
 
 //
@@ -304,6 +304,7 @@
 #ifndef _APIEXT_H
 #define _APIEXT_H
 
+#include "apictl.h"
 
 void *attach_shared_memory();
 void  detach_shared_memory(char *);
@@ -313,12 +314,24 @@ int API_Initialized();
 void Terminate_All_Process_Sessions();
 int API_Register();
 void API_UnRegister();
-int   DL_Load_and_Init(API_Slot_t *,CK_SLOT_ID);
+int DL_Load_and_Init(API_Slot_t *,CK_SLOT_ID);
 
 
 int XProcLock(void *);
 int XProcUnLock(void *);
 
+void _init(void);
+void loginit();
+void logterm();
+void logit( int, char *, ...);
+void decr_sess_counts(CK_SLOT_ID);
+void incr_sess_counts(CK_SLOT_ID);
+void AddToSessionList(Session_Struct_t *);
+void RemoveFromSessionList(Session_Struct_t *);
+void DL_UnLoad( API_Slot_t  *, CK_SLOT_ID);
+void DL_Unload(API_Slot_t  *);
 
+int Valid_Session(Session_Struct_t *, ST_SESSION_T *);
+int sessions_exist(CK_SLOT_ID);
 
 #endif

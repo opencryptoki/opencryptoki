@@ -10,6 +10,7 @@
  */
 
 #include <stdio.h>
+#include <stdlib.h>
 #include <string.h>
 #include <dlfcn.h>
 #include <sys/types.h>
@@ -96,7 +97,8 @@ CK_BYTE KAT_256_CBC_CT[] = {	0xC0,0xFE,0xFF,0xF0,0x75,0x06,0xA0,0xB4,
 
 int do_AES_KAT_128_ECB(void)
 {
-	int			i, j, k;
+	int			j;
+	unsigned int            i, k;
 	CK_RV 			rc;
         CK_BYTE                 pt[AES_BLOCK_SIZE],
                                 ct[AES_BLOCK_SIZE],
@@ -236,7 +238,8 @@ done:
 
 int do_AES_KAT_192_ECB(void)
 {
-	int			i, j, k;
+	int			j;
+	unsigned int            i, k;
 	CK_RV 			rc;
         CK_BYTE                 pt[AES_BLOCK_SIZE],
                                 ct[24], // larger to acct for trailing ciphertext
@@ -365,7 +368,8 @@ done:
 
 int do_AES_KAT_256_ECB(void)
 {
-	int			i, j, k;
+	int			j;
+	unsigned int            i, k;
 	CK_RV 			rc;
         CK_BYTE                 pt[AES_BLOCK_SIZE],
                                 ct[32], // larger to acct for trailing ciphertext
@@ -495,7 +499,8 @@ done:
 
 int do_AES_KAT_128_CBC(void)
 {
-        int                     i, j, k;
+        int                     j;
+	unsigned int            i, k;
         CK_RV                   rc;
         CK_BYTE                 pt[AES_BLOCK_SIZE],
                                 ct[16],
@@ -631,7 +636,8 @@ done:
 
 int do_AES_KAT_192_CBC(void)
 {
-        int                     i, j, k;
+        int                     j;
+	unsigned int            i, k;
         CK_RV                   rc;
         CK_BYTE                 pt[AES_BLOCK_SIZE],
 				old_ct[AES_BLOCK_SIZE],
@@ -762,7 +768,8 @@ done:
 
 int do_AES_KAT_256_CBC(void)
 {
-        int                     i, j, k;
+        int                     j;
+	unsigned int            i, k;
         CK_RV                   rc;
         CK_BYTE                 pt[AES_BLOCK_SIZE],
 				old_ct[AES_BLOCK_SIZE],
@@ -915,7 +922,7 @@ int main(int argc, char **argv)
 		}
 	}
 	
-	printf("Using slot %d...\n\n", slot_id);
+	printf("Using slot %ld...\n\n", slot_id);
 	
 	if(do_GetFunctionList())
 		return -1;
@@ -925,7 +932,7 @@ int main(int argc, char **argv)
 	
 	if( (rc = funcs->C_Initialize( &initialize_args )) != CKR_OK ) {
 		OC_ERR_MSG("C_Initialize", rc);
-		return;
+		return -1;
 	}
 
 	/* Open a session with the token */
@@ -941,7 +948,7 @@ int main(int argc, char **argv)
 
 	
 	// Login correctly
-	rc = funcs->C_Login(sess, CKU_USER, DEFAULT_USER_PIN, DEFAULT_USER_PIN_LEN);
+	rc = funcs->C_Login(sess, CKU_USER, (CK_CHAR_PTR)DEFAULT_USER_PIN, DEFAULT_USER_PIN_LEN);
 	if( rc != CKR_OK ) {
 		OC_ERR_MSG("C_Login #1", rc);
 		goto session_close;
@@ -1129,7 +1136,7 @@ void process_ret_code( CK_RV rc )
 
 void oc_err_msg( char *file, int line, char *str, CK_RV rc )
 {
-	printf("%s:%d Error: %s returned:  %d ", file, line, str, rc );
+	printf("%s:%d Error: %s returned:  %ld ", file, line, str, rc );
 	process_ret_code( rc );
 	printf("\n\n");
 }

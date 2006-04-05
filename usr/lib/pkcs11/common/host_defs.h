@@ -1,5 +1,5 @@
 /*
- * $Header: /cvsroot/opencryptoki/opencryptoki/usr/lib/pkcs11/common/host_defs.h,v 1.6 2005/09/01 22:57:04 mhalcrow Exp $
+ * $Header: /cvsroot/opencryptoki/opencryptoki/usr/lib/pkcs11/common/host_defs.h,v 1.7 2006/04/05 20:07:45 kyoder Exp $
  */
 
 
@@ -318,6 +318,7 @@
 
 CK_BBOOL pin_expired(CK_SESSION_INFO *, CK_FLAGS);
 CK_BBOOL pin_locked(CK_SESSION_INFO *, CK_FLAGS);
+void set_login_flags(CK_USER_TYPE, CK_FLAGS_32 *);
 
 // the following enum is for performance measurements.  since the server runs
 // as an NT service, it's difficult (impossible?) to use a standalone performance

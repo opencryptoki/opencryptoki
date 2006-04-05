@@ -187,7 +187,7 @@ int do_EncryptRSA_PKCS( void )
       return FALSE;
    }
 
-   printf("Cipyer len %d \n",cipherlen);
+   printf("Cipyer len %ld \n",cipherlen);
 
    // now, decrypt the data
    //
@@ -203,7 +203,7 @@ int do_EncryptRSA_PKCS( void )
       return FALSE;
    }
 
-   printf("Len from encrypt %d  from decrypt %d \n",len1, len2);
+   printf("Len from encrypt %ld  from decrypt %ld \n",len1, len2);
    //if (len1 != len2) {
    //   printf("   ERROR:  lengths don't match\n");
    //   return FALSE;
@@ -211,7 +211,7 @@ int do_EncryptRSA_PKCS( void )
 
    for (i=0; i <len1; i++) {
       if (data1[i] != data2[i]) {
-         printf("   ERROR:  mismatch at byte %d\n", i );
+         printf("   ERROR:  mismatch at byte %ld\n", i );
          return FALSE;
       }
    }
@@ -349,13 +349,13 @@ int do_EncryptRSA_PKCS_Speed( void )
    printf("\n");
 
    if (len1 != len2) {
-      printf("   ERROR:  lengths don't match %d  %d \n",len1,len2);
+      printf("   ERROR:  lengths don't match %ld  %ld \n",len1,len2);
       return FALSE;
    }
 
    for (i=0; i <len1; i++) {
       if (data1[i] != data2[i]) {
-         printf("   ERROR:  mismatch at byte %d\n", i );
+         printf("   ERROR:  mismatch at byte %ld\n", i );
          return FALSE;
       }
    }
@@ -703,7 +703,7 @@ int do_WrapUnwrapRSA_PKCS( void )
 
    for (i=0; i < orig_len; i++) {
       if (original[i] != decrypt[i]) {
-         printf("   ERROR:  mismatch at byte %d\n", i );
+         printf("   ERROR:  mismatch at byte %ld\n", i );
          goto error;
       }
    }
@@ -882,7 +882,7 @@ int do_EncryptRSA_X509( void )
    pad_len = len2 - len1;
 
    if (memcmp(data1, &data2[pad_len], len1) != 0) {
-      printf("   ERROR:  mismatch at byte %d\n", i );
+      printf("   ERROR:  mismatch at byte %ld\n", i );
       return FALSE;
    }
 
@@ -1227,7 +1227,7 @@ int do_WrapUnwrapRSA_X509( void )
 
    for (i=0; i < orig_len; i++) {
       if (original[i] != decrypt[i]) {
-         printf("   ERROR:  mismatch at byte %d\n", i );
+         printf("   ERROR:  mismatch at byte %ld\n", i );
          goto error;
       }
    }
@@ -1401,7 +1401,7 @@ int do_SignVerifyMD2_RSA_PKCS( void )
       rc = funcs->C_SignUpdate( session, &original[orig_len - remain], amt );
       if (rc != CKR_OK) {
          show_error("   C_SignUpdate #1", rc );
-         printf("   Iteration:  i = %d\n", i );
+         printf("   Iteration:  i = %ld\n", i );
          return FALSE;
       }
 
@@ -1463,7 +1463,7 @@ int do_SignVerifyMD2_RSA_PKCS( void )
       rc = funcs->C_VerifyUpdate( session, &original[orig_len - remain], amt );
       if (rc != CKR_OK) {
          show_error("   C_VerifyUpdate #1", rc );
-         printf("   Iteration:  i = %d\n", i );
+         printf("   Iteration:  i = %ld\n", i );
          return FALSE;
       }
 
@@ -1606,7 +1606,7 @@ int do_SignVerifyMD5_RSA_PKCS( void )
       rc = funcs->C_SignUpdate( session, &original[orig_len - remain], amt );
       if (rc != CKR_OK) {
          show_error("   C_SignUpdate #1", rc );
-         printf("   Iteration:  i = %d\n", i );
+         printf("   Iteration:  i = %ld\n", i );
          goto error;
       }
 
@@ -1668,7 +1668,7 @@ int do_SignVerifyMD5_RSA_PKCS( void )
       rc = funcs->C_VerifyUpdate( session, &original[orig_len - remain], amt );
       if (rc != CKR_OK) {
          show_error("   C_VerifyUpdate #1", rc );
-         printf("   Iteration:  i = %d\n", i );
+         printf("   Iteration:  i = %ld\n", i );
          goto error;
       }
 
@@ -1817,7 +1817,7 @@ int do_SignVerifySHA1_RSA_PKCS( void )
       rc = funcs->C_SignUpdate( session, &original[orig_len - remain], amt );
       if (rc != CKR_OK) {
          show_error("   C_SignUpdate #1", rc );
-         printf("   Iteration:  i = %d\n", i );
+         printf("   Iteration:  i = %ld\n", i );
          goto error;
       }
 
@@ -1879,7 +1879,7 @@ int do_SignVerifySHA1_RSA_PKCS( void )
       rc = funcs->C_VerifyUpdate( session, &original[orig_len - remain], amt );
       if (rc != CKR_OK) {
          show_error("   C_VerifyUpdate #1", rc );
-         printf("   Iteration:  i = %d\n", i );
+         printf("   Iteration:  i = %ld\n", i );
          goto error;
       }
 

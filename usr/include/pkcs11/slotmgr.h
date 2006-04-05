@@ -1,5 +1,5 @@
 /*
- * $Header: /cvsroot/opencryptoki/opencryptoki/usr/include/pkcs11/slotmgr.h,v 1.5 2006/01/26 20:21:22 mhalcrow Exp $
+ * $Header: /cvsroot/opencryptoki/opencryptoki/usr/include/pkcs11/slotmgr.h,v 1.6 2006/04/05 20:07:44 kyoder Exp $
  */
 
 //
@@ -398,7 +398,7 @@ typedef struct{
  *
  */
 
-typedef unsigned long long pid_t_64;
+typedef signed long long pid_t_64;
 typedef unsigned long long time_t_64;
 typedef unsigned long long CK_SLOT_ID_64;
 typedef unsigned long long CK_FLAGS_64;

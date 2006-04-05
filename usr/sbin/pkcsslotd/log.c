@@ -290,10 +290,8 @@
 
 
 #include "pthread.h"
-#pragma info(none)
 
 #include "pkcsslotd.h"
-#pragma info(restore)
 
 
 #define DEFAULT_PROGRAM_NAME "Program"
@@ -414,7 +412,7 @@ BOOL GetCurrentTimeString ( char *Buffer ) {
 
 static int InitDataStructs ( void ) {
   
-  int                   i;
+  unsigned int i;
 
   for ( i = 0; i < (sizeof(LogInfo) / sizeof(LogInfo[0])); i++ ) {
     LogInfo[i].Initialized    = FALSE;
@@ -786,7 +784,7 @@ BOOL PKCS_Log ( pLogHandle phLog, char *Format, va_list ap ) {
     #endif /* DEV */
 
     if ( WriteNow ) {
-      fprintf(stderr, "%s[%d.%d]: %s\n", pInfo->Descrip, getpid(), pthread_self(), Buffer);
+      fprintf(stderr, "%s[%d.%d]: %s\n", pInfo->Descrip, getpid(), (int)pthread_self(), Buffer);
     }
 
   }
@@ -970,7 +968,7 @@ void InfoLog ( char *Format, ... ) {
 
 static BOOL InitLogging ( void ) {
   
-  int i;
+  unsigned int i;
   char *s = ProgramName;
 
 
@@ -1030,7 +1028,6 @@ u_int32 GetDebugLevel ( void ) {
 
 
 
-#pragma info(none)
 #if 0
 int main ( int argc, char *argv[], char *envp[] ) {
 
@@ -1045,7 +1042,6 @@ int main ( int argc, char *argv[], char *envp[] ) {
 
 }
 #endif /* 0 */
-#pragma info(restore)
 
 
 

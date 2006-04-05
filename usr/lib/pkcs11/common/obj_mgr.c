@@ -298,12 +298,15 @@
 #include <stdlib.h>
 #include <stdio.h>
 #include <string.h>  // for memcmp() et al
+#include <strings.h>
 
 #include "pkcs11types.h"
 #include "defs.h"
 #include "host_defs.h"
 #include "h_extern.h"
 #include "tok_spec_struct.h"
+
+#include "../api/apiproto.h"
 
 pthread_rwlock_t obj_list_rw_mutex = PTHREAD_RWLOCK_INITIALIZER;
 
@@ -1426,7 +1429,7 @@ object_mgr_find_build_list( SESSION      * sess,
    CK_BBOOL           hidden_object = FALSE;
    CK_RV              rc;
    CK_ATTRIBUTE     * attr;
-   int		      i;
+   unsigned int	      i;
 
    // pTemplate == NULL is a legal condition here
    //
@@ -2439,6 +2442,8 @@ object_mgr_update_from_shm( void )
 {
    object_mgr_update_publ_tok_obj_from_shm();
    object_mgr_update_priv_tok_obj_from_shm();
+
+   return CKR_OK;
 }
 
 
@@ -2533,7 +2538,7 @@ object_mgr_update_publ_tok_obj_from_shm()
    if ((node == NULL) && (index < global_shm->num_publ_tok_obj)) {
       DL_NODE  *new_node = NULL;
       OBJECT   *new_obj  = NULL;
-      int       i;
+      unsigned int i;
 
       // new items added to the end of the list
       //
@@ -2676,7 +2681,7 @@ object_mgr_update_priv_tok_obj_from_shm()
    if ((node == NULL) && (index < global_shm->num_priv_tok_obj)) {
       DL_NODE  *new_node = NULL;
       OBJECT   *new_obj  = NULL;
-      int       i;
+      unsigned int i;
 
       // new items added to the end of the list
       //

@@ -1,6 +1,7 @@
 
 #include <unistd.h>
 #include <stdlib.h>
+#include <string.h>
 #include <errno.h>
 #include <stdio.h>
 #include <dlfcn.h>
@@ -10,8 +11,14 @@
 
 CK_RV init(void);
 void usage(void);
-CK_RV verify_slot(long slot_num);
+CK_RV verify_slot(unsigned long slot_num);
 CK_RV test_crypto(long slot_num);
+int test_ecb_des(CK_SESSION_HANDLE hSession);
+int test_cbc_des(CK_SESSION_HANDLE hSession);
+int test_ecb_3des(CK_SESSION_HANDLE hSession);
+int test_cbc_3des(CK_SESSION_HANDLE hSession);
+int test_rsa_encryption(CK_SESSION_HANDLE hSession);
+int test_rsa_signature(CK_SESSION_HANDLE hSession);
 CK_RV symmetric_encryption(CK_SESSION_HANDLE hSession, CK_OBJECT_HANDLE hKey, 
       CK_MECHANISM mechanism, CK_CHAR *data, CK_ULONG data_sz, 
       CK_CHAR **encryptedData, CK_ULONG *encryptedData_sz);
@@ -24,7 +31,7 @@ Slot_Mgr_Shr_t         *shmp = NULL;
 int main(int argc, char *argv[]) {
    CK_RV rc = 1;
    CK_FLAGS flags = 0;
-   long slot_num = 0;  
+   unsigned long slot_num = 0;  
    int c;
 
    /* parse the command line parameters */
@@ -44,21 +51,21 @@ int main(int argc, char *argv[]) {
    /* load the PKCS11 library */
    rc = init();
    if (rc != CKR_OK) {
-      fprintf(stderr, "ERROR calling init, rc = %x.\n", rc);
+      fprintf(stderr, "ERROR calling init, rc = %p.\n", (void *)rc);
       exit (1);
    }
 
    /* verify the slot number */
    rc = verify_slot(slot_num);
    if (rc != CKR_OK) {
-      fprintf(stderr, "ERROR invalid slot ID, rc = %x.\n", rc);
+      fprintf(stderr, "ERROR invalid slot ID, rc = %p.\n", (void *)rc);
       exit (1);
    }
 
    /* test the crypto functions */
    rc = test_crypto(slot_num);
    if (rc != CKR_OK) {
-      fprintf(stderr, "ERROR call to test_crytpo failed.\n", rc);
+      fprintf(stderr, "ERROR call to test_crytpo failed.\n");
       exit (1);
    }
 
@@ -125,12 +132,12 @@ done:
    return rc;
 }
 
-CK_RV verify_slot(long slot_num) 
+CK_RV verify_slot(unsigned long slot_num) 
 {
    CK_RV rc;
    CK_SLOT_ID_PTR pSlotWithTokenList;
    CK_ULONG ulSlotWithTokenCount;
-   int i;
+   unsigned int i;
 
    rc = FunctionPtr->C_GetSlotList(TRUE, NULL_PTR, &ulSlotWithTokenCount); 
    if (rc == CKR_OK) {
@@ -169,39 +176,39 @@ CK_RV test_crypto(long slot_num)
    rc = FunctionPtr->C_OpenSession(slot_num, CKF_RW_SESSION | CKF_SERIAL_SESSION, NULL_PTR,
          NULL_PTR, &hSession);
    if (rc != CKR_OK) {
-      fprintf(stderr, "ERROR call to C_OpenSession failed, rc = 0x%0x\n", rc);
+      fprintf(stderr, "ERROR call to C_OpenSession failed, rc = %p\n", (void *)rc);
       goto out;
    }
 
    /* log in as normal user */
-   rc = FunctionPtr->C_Login(hSession, CKU_USER, DEFAULT_USER_PIN, DEFAULT_USER_PIN_LEN);
+   rc = FunctionPtr->C_Login(hSession, CKU_USER, (CK_CHAR_PTR)DEFAULT_USER_PIN, DEFAULT_USER_PIN_LEN);
    if (rc != CKR_OK) {
-      fprintf(stderr, "ERROR call to C_Login failed, rc = 0x%0x\n", rc);
+      fprintf(stderr, "ERROR call to C_Login failed, rc = %p\n", (void *)rc);
       goto out_close;
    }
 
 #if 1
    rc = test_ecb_des(hSession);
    if (rc != CKR_OK) {
-      fprintf(stderr, "ERROR DES_ECB failed, rc = 0x%0x\n", rc);
+      fprintf(stderr, "ERROR DES_ECB failed, rc = %p\n", (void *)rc);
    }
    fprintf(stderr, "CKM_DES_ECB test passed.\n");
 
    rc = test_cbc_des(hSession);
    if (rc != CKR_OK) {
-      fprintf(stderr, "ERROR DES_CBC failed, rc = 0x%0x\n", rc);
+      fprintf(stderr, "ERROR DES_CBC failed, rc = %p\n", (void *)rc);
    }
    fprintf(stderr, "CKM_DES_CBC test passed.\n");
 
    rc = test_ecb_3des(hSession);
    if (rc != CKR_OK) {
-      fprintf(stderr, "ERROR, DES3_ECB failed, rc = 0x%0x\n", rc);
+      fprintf(stderr, "ERROR, DES3_ECB failed, rc = %p\n", (void *)rc);
    }
    fprintf(stderr, "CKM_DES3_ECB test passed.\n");
 
    rc = test_cbc_3des(hSession);
    if (rc != CKR_OK) {
-      fprintf(stderr, "ERROR, DES3_CBC failed, rc = 0x%0x\n", rc);
+      fprintf(stderr, "ERROR, DES3_CBC failed, rc = %p\n", (void *)rc);
    }
    fprintf(stderr, "CKM_DES3_CBC test passed.\n");
 
@@ -209,18 +216,18 @@ CK_RV test_crypto(long slot_num)
 
    rc = test_rsa_encryption(hSession);
    if (rc != CKR_OK) {
-      fprintf(stderr, "ERROR, RSA encryption failed, rc = 0x%0x\n", rc);
+      fprintf(stderr, "ERROR, RSA encryption failed, rc = %p\n", (void *)rc);
    } 
    fprintf(stderr, "CKM_RSA_PKCS_KEY_PAIR_GEN and CKM_RSA_PKCS tests passed.\n");
 
    rc = test_rsa_signature(hSession);
    if (rc != CKR_OK) {
-      fprintf(stderr, "ERROR, RSA signature failed, rc = 0x%0x\n", rc);
+      fprintf(stderr, "ERROR, RSA signature failed, rc = %p\n", (void *)rc);
    }
 
 out_close:
    if( (rc = FunctionPtr->C_CloseSession(hSession)) != CKR_OK ) {
-      fprintf(stderr, "Error: C_CloseSession failed with 0x%0x\n", rc);
+      fprintf(stderr, "Error: C_CloseSession failed with %p\n", (void *)rc);
    }
 
 out:
@@ -287,7 +294,7 @@ int test_rsa_encryption(CK_SESSION_HANDLE hSession)
       goto out_delkeys;
    }
 
-   fprintf(stderr, "* Minimum key size:  %u\n* Maximum key size:  %u\n", info.ulMinKeySize, info.ulMaxKeySize);
+   fprintf(stderr, "* Minimum key size:  %ld\n* Maximum key size:  %ld\n", info.ulMinKeySize, info.ulMaxKeySize);
 
    /* encrypt something */
    rc = FunctionPtr->C_EncryptInit(hSession, &mechanism_encr, hPublicKey);
@@ -392,13 +399,13 @@ int test_ecb_des(CK_SESSION_HANDLE hSession)
          sizeof(template) / sizeof (CK_ATTRIBUTE),
          &hKey);
    if (rc != CKR_OK) {
-      fprintf(stderr, "ERROR call to C_CreateObject failed, rc = %0x\n", rc);
+     fprintf(stderr, "ERROR call to C_CreateObject failed, rc = %p\n", (void *)rc);
       return rc;
    }
 
    rc = symmetric_encryption(hSession, hKey, mechanism, plain, sizeof(plain), &encryptedData, &encryptedDataLen);
    if (rc != CKR_OK) {
-      fprintf(stderr, "ERROR call to symmetric_encryption failed, rc =%0x\n", rc);
+      fprintf(stderr, "ERROR call to symmetric_encryption failed, rc =%p\n", (void *)rc);
       rc = CKR_GENERAL_ERROR;
       goto done;
    }
@@ -466,13 +473,13 @@ int test_cbc_des(CK_SESSION_HANDLE hSession)
          sizeof(template) / sizeof (CK_ATTRIBUTE),
          &hKey);
    if (rc != CKR_OK) {
-      fprintf(stderr, "ERROR call to C_CreateObject failed, rc = %0x\n", rc);
+      fprintf(stderr, "ERROR call to C_CreateObject failed, rc = %p\n", (void *)rc);
       return rc;
    }
 
    rc = symmetric_encryption(hSession, hKey, mechanism, data, sizeof(data), &encryptedData, &encryptedDataLen);
    if (rc != CKR_OK) {
-      fprintf(stderr, "ERROR call to symmetric_encryption failed, rc =%0x\n", rc);
+      fprintf(stderr, "ERROR call to symmetric_encryption failed, rc =%p\n", (void *)rc);
       rc = CKR_GENERAL_ERROR;
       goto done;
    }
@@ -538,13 +545,13 @@ int test_ecb_3des(CK_SESSION_HANDLE hSession)
          sizeof(template) / sizeof (CK_ATTRIBUTE),
          &hKey);
    if (rc != CKR_OK) {
-      fprintf(stderr, "ERROR call to C_CreateObject failed, rc = %0x\n", rc);
+      fprintf(stderr, "ERROR call to C_CreateObject failed, rc = %p\n", (void *)rc);
       return rc;
    }
 
    rc = symmetric_encryption(hSession, hKey, mechanism, data, sizeof(data), &encryptedData, &encryptedDataLen);
    if (rc != CKR_OK) {
-      fprintf(stderr, "ERROR call to symmetric_encryption failed, rc =%0x\n", rc);
+      fprintf(stderr, "ERROR call to symmetric_encryption failed, rc =%p\n", (void *)rc);
       rc = CKR_GENERAL_ERROR;
       goto done;
    }
@@ -610,13 +617,13 @@ int test_cbc_3des(CK_SESSION_HANDLE hSession)
          sizeof(template) / sizeof (CK_ATTRIBUTE),
          &hKey);
    if (rc != CKR_OK) {
-      fprintf(stderr, "ERROR call to C_CreateObject failed, rc = %0x\n", rc);
+      fprintf(stderr, "ERROR call to C_CreateObject failed, rc = %p\n", (void *)rc);
       return rc;
    }
 
    rc = symmetric_encryption(hSession, hKey, mechanism, data, sizeof(data), &encryptedData, &encryptedDataLen);
    if (rc != CKR_OK) {
-      fprintf(stderr, "ERROR call to symmetric_encryption failed, rc =%0x\n", rc);
+      fprintf(stderr, "ERROR call to symmetric_encryption failed, rc =%p\n", (void *)rc);
       rc = CKR_GENERAL_ERROR;
       goto done;
    }
@@ -660,13 +667,13 @@ CK_RV symmetric_encryption(CK_SESSION_HANDLE hSession, CK_OBJECT_HANDLE hKey,
    /* init */
    rc = FunctionPtr->C_EncryptInit(hSession, &mechanism, hKey);
    if (rc != CKR_OK) {
-      fprintf(stderr, "ERROR call to C_EncryptInit failed, rc = %0x\n", rc);
+      fprintf(stderr, "ERROR call to C_EncryptInit failed, rc = %p\n", (void *)rc);
       return rc;
    }
 
    rc = FunctionPtr->C_Encrypt(hSession, data, data_sz, NULL, encryptedData_sz);
    if (rc != CKR_OK) {
-      fprintf(stderr, "ERROR failed to get size of encrypted data calling C_Encrypt, rc = %0x\n", rc);
+      fprintf(stderr, "ERROR failed to get size of encrypted data calling C_Encrypt, rc = %p\n", (void *)rc);
       return rc;
    }
 
@@ -675,7 +682,7 @@ CK_RV symmetric_encryption(CK_SESSION_HANDLE hSession, CK_OBJECT_HANDLE hKey,
    /* encrypt */
    rc = FunctionPtr->C_Encrypt(hSession, data, data_sz, this_encryptedData, encryptedData_sz);
    if (rc != CKR_OK) {
-      fprintf(stderr, "ERROR call to C_EncryptUpdate failed, rc = %0x\n", rc);
+      fprintf(stderr, "ERROR call to C_EncryptUpdate failed, rc = %p\n", (void *)rc);
       return rc;
    }
 

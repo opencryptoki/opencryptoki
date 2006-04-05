@@ -124,9 +124,9 @@ void process_ret_code( CK_RV rc )
 
 //
 //
-void show_error( CK_BYTE *str, CK_RV rc )
+void show_error( char *str, CK_RV rc )
 {
-   printf("%s returned:  %d", str, rc );
+   printf("%s returned:  %ld", str, rc );
    process_ret_code( rc );
    printf("\n");
 }
@@ -171,7 +171,7 @@ int do_GetFunctionList( void )
 
 
 
-int
+void
 open_session_and_login(void)
 {
 CK_FLAGS          flags;
@@ -296,8 +296,8 @@ int
 main( int argc, char **argv )
 {
    CK_BYTE            line[20];
-   CK_ULONG           val, i;
-   int rc;
+   CK_ULONG           val;
+   int i, rc;
    pthread_t		id[100];
    int thid[100];
 
@@ -313,15 +313,15 @@ main( int argc, char **argv )
       if (strcmp(argv[i], "-h") == 0) {
          printf("usage:  %s [-slot <num>] [-h]\n\n", argv[0] );
          printf("By default, Slot #1 is used\n\n");
-         return;
+         return 0;
       }
    }
 
-   printf("Using slot #%d...\n\n", SLOT_ID );
+   printf("Using slot #%ld...\n\n", SLOT_ID );
 
    rc = do_GetFunctionList();
    if (!rc)
-      return;
+      return -1;
 
    funcs->C_Initialize( NULL );
 
@@ -334,11 +334,13 @@ main( int argc, char **argv )
    }
 
    for (i=0;i<THREADCNT;i++){
-	 printf("Joining thread %d\n",id[i]);
+	 printf("Joining thread %ld\n",id[i]);
 	 pthread_join(id[i],NULL);
    }
 
    rc = funcs->C_Finalize( NULL );
    if (rc != CKR_OK)
-      return;
+     return -1;
+
+   return 0;
 }

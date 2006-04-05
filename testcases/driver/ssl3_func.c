@@ -151,7 +151,7 @@ int do_SignVerify_SSL3_MD5_MAC( void )
          rc = funcs->C_SignUpdate( session, &data[i], 100 );
          if (rc != CKR_OK) {
             show_error("   C_SignUpdate #1", rc );
-            printf("   Iteration #%d\n", i / 100 );
+            printf("   Iteration #%ld\n", i / 100 );
             return FALSE;
          }
       }
@@ -191,7 +191,7 @@ int do_SignVerify_SSL3_MD5_MAC( void )
          rc = funcs->C_VerifyUpdate( session, &data[i], 100 );
          if (rc != CKR_OK) {
             show_error("   C_VerifyUpdate #1", rc );
-            printf("   Iteration #%d\n", i / 100 );
+            printf("   Iteration #%ld\n", i / 100 );
             return FALSE;
          }
       }

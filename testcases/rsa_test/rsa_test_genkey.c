@@ -294,7 +294,7 @@ printf("GENERATING KEY \n");
       return FALSE;
    }
 
-   printf("Cipyer len %d \n",cipherlen);
+   printf("Cipyer len %ld \n",cipherlen);
    hex_dump_to_file("Ciphertext",cipher,cipherlen);
 
    // now, decrypt the data
@@ -311,7 +311,7 @@ printf("GENERATING KEY \n");
       return FALSE;
    }
 
-   printf("Len from encrypt %d  from decrypt %d \n",len1, len2);
+   printf("Len from encrypt %ld  from decrypt %ld \n",len1, len2);
    //if (len1 != len2) {
    //   printf("   ERROR:  lengths don't match\n");
    //   return FALSE;
@@ -320,7 +320,7 @@ printf("GENERATING KEY \n");
    hex_dump_to_file("decrypted",data2,len2);
    for (i=0; i <len1; i++) {
       if (data1[i] != data2[i]) {
-         printf("   ERROR:  mismatch at byte %d\n", i );
+         printf("   ERROR:  mismatch at byte %ld\n", i );
          return FALSE;
       }
    }
@@ -350,7 +350,7 @@ void process_time(SYSTEMTIME t1, SYSTEMTIME t2)
 
 
 
-   printf("Time:  %u msec\n", ms );
+   printf("Time:  %ld msec\n", ms );
 
 }
 
@@ -448,9 +448,9 @@ void process_ret_code( CK_RV rc )
 
 //
 //
-void show_error( CK_BYTE *str, CK_RV rc )
+void show_error( char *str, CK_RV rc )
 {
-   printf("%s returned:  %d (0x%0x)", str, rc, rc );
+  printf("%s returned:  %ld (%p)", str, rc, (void *)rc );
    process_ret_code( rc );
    printf("\n");
 }
@@ -544,15 +544,15 @@ int main( int argc, char **argv )
          printf("By default, Slot #1 is used\n\n");
          printf("By default we skip anything that creates or modifies\n");
          printf("token objects to preserve flash lifetime.\n");
-         return;
+         return 0;
       }
    }
 
-   printf("Using slot #%d...\n\n", SLOT_ID );
+   printf("Using slot #%ld...\n\n", SLOT_ID );
 
    rc = do_GetFunctionList();
    if (!rc)
-      return;
+      return rc;
 
    memset( &cinit_args, 0x0, sizeof(cinit_args) );
    cinit_args.flags = CKF_OS_LOCKING_OK;
@@ -564,7 +564,9 @@ int main( int argc, char **argv )
 
    rc = do_EncryptRSA_PKCS();
    if (!rc)
-      return;
+      return -1;
 
    funcs->C_Finalize( NULL );
+
+   return rc;
 }

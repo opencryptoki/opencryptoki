@@ -22,6 +22,7 @@
 
 #include <sys/types.h>
 #include <sys/stat.h>
+#include <unistd.h>
 #include <errno.h>
 #include <string.h>
 #include <pwd.h>
@@ -29,6 +30,7 @@
 #include <openssl/pem.h>
 #include <openssl/rsa.h>
 #include <openssl/err.h>
+#include <openssl/rand.h>
 
 #include <tss/platform.h>
 #include <tss/tcpa_defines.h>
@@ -69,7 +71,7 @@ openssl_gen_key()
 	int rc, counter = 0;
 	char buf[32];
 
-	token_rng(buf, 32);
+	token_rng((CK_BYTE *)buf, 32);
 	RAND_seed(buf, 32);
 
 regen_rsa_key:
@@ -109,7 +111,7 @@ regen_rsa_key:
 }
 
 int
-openssl_write_key(RSA *rsa, char *filename, char *pPin)
+openssl_write_key(RSA *rsa, char *filename, CK_BYTE *pPin)
 {
 	BIO *b = NULL;
 	char loc[2048];
@@ -146,7 +148,7 @@ openssl_write_key(RSA *rsa, char *filename, char *pPin)
 }
 
 CK_RV
-openssl_read_key(char *filename, char *pPin, RSA **ret)
+openssl_read_key(char *filename, CK_BYTE *pPin, RSA **ret)
 {
 	BIO *b = NULL;
 	RSA *rsa = NULL;

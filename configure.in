@@ -53,20 +53,20 @@ CFLAGS="$cmdline_CFLAGS"
 
 # Arch specific stuff
 case $target in
-	*ppc64*)
-		AM_CONDITIONAL(BUILD_UTILS, false)
+	*ppc64* | *powerpc64*)
+		CFLAGS="$CFLAGS -m64"
+		AM_CONDITIONAL(BUILD_UTILS, true)
 		AM_CONDITIONAL(S390, false)
 		AC_SUBST(LIB_PATH, $prefix/lib64/opencryptoki)
-		AC_SUBST(LIB_ROOT_PATH, $prefix/lib64)
-		AC_MSG_RESULT([*** 64bit platform detected.  Not building utilities. ***]) ;;
+		AC_SUBST(LIB_ROOT_PATH, $prefix/lib64) ;;
 	*s390x*)
 		AM_CONDITIONAL(BUILD_UTILS, false)
 		AM_CONDITIONAL(S390, true)
 		AC_SUBST(LIB_PATH, $prefix/lib64/opencryptoki)
 		AC_SUBST(LIB_ROOT_PATH, $prefix/lib64)
 		AC_MSG_RESULT([*** 64bit platform detected.  Not building utilities. ***]) ;;
-	*ppc*)
-		AM_CONDITIONAL(S390, true)
+	*ppc* | *powerpc*)
+		AM_CONDITIONAL(S390, false)
 		AC_SUBST(LIB_PATH, $prefix/lib/opencryptoki)
 		AC_SUBST(LIB_ROOT_PATH, $prefix/lib)
 		AM_CONDITIONAL(BUILD_UTILS, true) ;;
@@ -78,9 +78,8 @@ case $target in
 		AM_CONDITIONAL(S390, true) ;;
 	*x86_64*)
 		AM_CONDITIONAL(BUILD_UTILS, true)
-		AC_SUBST(LIB_PATH, $prefix/lib/opencryptoki)
-		AC_SUBST(LIB_ROOT_PATH, $prefix/lib)
-		CFLAGS="$CFLAGS -m32"
+		AC_SUBST(LIB_PATH, $prefix/lib64/opencryptoki)
+		AC_SUBST(LIB_ROOT_PATH, $prefix/lib64)
 		AM_CONDITIONAL(S390, false) ;;
 	*)
 		AM_CONDITIONAL(BUILD_UTILS, true)
@@ -250,7 +249,7 @@ CFLAGS="$CFLAGS -DPKCS64 \
 	-DCONFIG_PATH=\\\"$CONFIG_PATH\\\" \
 	-DSBIN_PATH=\\\"$SBIN_PATH\\\" \
 	-DLIB_PATH=\\\"$LIB_PATH\\\" \
-	-D_XOPEN_SOURCE=500"
+	-D_XOPEN_SOURCE=500 -Wno-unused"
 
 # At this point, CFLAGS is set to something sensible
 AC_PROG_CC

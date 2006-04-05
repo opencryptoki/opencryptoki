@@ -8,6 +8,7 @@
  */
 
 #include <stdio.h>
+#include <stdlib.h>
 #include <string.h>
 #include <dlfcn.h>
 #include <sys/types.h>
@@ -48,7 +49,8 @@ CK_SESSION_HANDLE	sess;
 
 int do_HW_Feature_Search(void)
 {
-	int			i, j, k;
+	int			j, k;
+	unsigned int            i;
 	CK_RV 			rc;
 	CK_ULONG		find_count;
 
@@ -177,7 +179,7 @@ int do_HW_Feature_Search(void)
 	 * feature object. -KEY */
      	if (find_count != 2) {
 	  	printf("%s:%d ERROR:  C_FindObjects #1 should have found 2 objects!\n"
-	  	       "           It found %d objects\n", __FILE__, __LINE__,
+	  	       "           It found %ld objects\n", __FILE__, __LINE__,
 		       find_count);
 		rc = -1;
 	  	goto done;
@@ -219,7 +221,7 @@ int do_HW_Feature_Search(void)
 
         if (find_count != 3) {
                 printf("%s:%d ERROR:  C_FindObjects #2 should have found 3 objects!\n"
-                       "           It found %d objects\n", __FILE__, __LINE__,
+                       "           It found %ld objects\n", __FILE__, __LINE__,
 		       find_count);
                 funcs->C_FindObjectsFinal( sess );
 		rc = -1;
@@ -279,7 +281,7 @@ int main(int argc, char **argv)
 		}
 	}
 	
-	printf("Using slot %d...\n\n", slot_id);
+	printf("Using slot %ld...\n\n", slot_id);
 	
 	if(do_GetFunctionList())
 		return -1;
@@ -289,7 +291,7 @@ int main(int argc, char **argv)
 	
 	if( (rc = funcs->C_Initialize( &initialize_args )) != CKR_OK ) {
 		OC_ERR_MSG("C_Initialize", rc);
-		return;
+		return -1;
 	}
 
 	/* Open a session with the token */
@@ -305,7 +307,7 @@ int main(int argc, char **argv)
 
 	
 	// Login correctly
-	rc = funcs->C_Login(sess, CKU_USER, DEFAULT_USER_PIN, DEFAULT_USER_PIN_LEN);
+	rc = funcs->C_Login(sess, CKU_USER, (CK_CHAR_PTR)DEFAULT_USER_PIN, DEFAULT_USER_PIN_LEN);
 	if( rc != CKR_OK ) {
 		OC_ERR_MSG("C_Login #1", rc);
 		goto session_close;
@@ -463,7 +465,7 @@ void process_ret_code( CK_RV rc )
 
 void oc_err_msg( char *file, int line, char *str, CK_RV rc )
 {
-	printf("%s:%d Error: %s returned:  %d ", file, line, str, rc );
+	printf("%s:%d Error: %s returned:  %ld ", file, line, str, rc );
 	process_ret_code( rc );
 	printf("\n\n");
 }

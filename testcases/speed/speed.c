@@ -27,12 +27,10 @@
 
 #include "pkcs11types.h"
 
-/* FIXME */
 #define DEFAULT_USER_PIN        "01234567"
 #define DEFAULT_USER_PIN_LEN    8
 #define DEFAULT_SO_PIN          "76543210"
 #define DEFAULT_SO_PIN_LEN      8
-
 
 #if !defined(TRUE)
 #define TRUE 1
@@ -207,9 +205,9 @@ void process_ret_code( CK_RV rc )
 
 //
 //
-void show_error( CK_BYTE *str, CK_RV rc )
+void show_error( char *str, CK_RV rc )
 {
-   printf("%s returned:  %d (0x%0x)", str, rc, rc );
+  printf("%s returned:  %ld (%p)", str, rc, (void *)rc );
    process_ret_code( rc );
    printf("\n");
 }
@@ -385,9 +383,9 @@ int do_RSA_PKCS_EncryptDecrypt( void )
    avg_time -= min_time;
    avg_time -= max_time;
 
-   printf("1000 RSA PKCS Encrypt operations:  %d \n", avg_time );
-   printf("Minimum:                        %d \n", min_time );
-   printf("Maximum:                        %d \n", max_time );
+   printf("1000 RSA PKCS Encrypt operations:  %ld \n", avg_time );
+   printf("Minimum:                        %ld \n", min_time );
+   printf("Maximum:                        %ld \n", max_time );
 
    printf("\n");
 
@@ -426,9 +424,9 @@ int do_RSA_PKCS_EncryptDecrypt( void )
    avg_time -= min_time;
    avg_time -= max_time;
 
-   printf("1000 RSA PKCS Decrypt operations:  %d ms  \n", avg_time );
-   printf("Minimum:                          %d ms\n", min_time );
-   printf("Maximum:                          %d ms\n", max_time );
+   printf("1000 RSA PKCS Decrypt operations:  %ld ms  \n", avg_time );
+   printf("Minimum:                          %ld ms\n", min_time );
+   printf("Maximum:                          %ld ms\n", max_time );
 
    printf("\n");
    rc = funcs->C_CloseAllSessions( slot_id );
@@ -521,7 +519,7 @@ int do_RSA_KeyGen_2048( void )
          GetSystemTime(&t2);
 
          diff = process_time( t1, t2 );
-         printf("   %3d: %d\n", i, diff );
+         printf("   %3ld: %ld\n", i, diff );
 
          avg_time += diff;
 
@@ -535,9 +533,9 @@ int do_RSA_KeyGen_2048( void )
       avg_time -= min_time;
       avg_time -= max_time;
 
-      printf("10 iterations:  %dms\n", avg_time );
-      printf("Minimum:        %dms\n", min_time );
-      printf("Maximum:        %dms\n", max_time );
+      printf("10 iterations:  %ldms\n", avg_time );
+      printf("Minimum:        %ldms\n", min_time );
+      printf("Maximum:        %ldms\n", max_time );
 
       rc = funcs->C_CloseSession( session );
       if (rc != CKR_OK) {
@@ -629,7 +627,7 @@ int do_RSA_KeyGen_1024( void )
          GetSystemTime(&t2);
 
          diff = process_time( t1, t2 );
-         printf("   %3d: %d\n", i, diff );
+         printf("   %3ld: %ld\n", i, diff );
 
          avg_time += diff;
 
@@ -643,9 +641,9 @@ int do_RSA_KeyGen_1024( void )
       avg_time -= min_time;
       avg_time -= max_time;
 
-      printf("10 iterations:  %dms\n", avg_time );
-      printf("Minimum:        %dms\n", min_time );
-      printf("Maximum:        %dms\n", max_time );
+      printf("10 iterations:  %ldms\n", avg_time );
+      printf("Minimum:        %ldms\n", min_time );
+      printf("Maximum:        %ldms\n", max_time );
 
       rc = funcs->C_CloseSession( session );
       if (rc != CKR_OK) {
@@ -774,9 +772,9 @@ int do_RSA_PKCS_SignVerify_1024( void )
    avg_time -= min_time;
    avg_time -= max_time;
 
-   printf("1000 RSA PKCS Sign operations:  %d ms\n", avg_time );
-   printf("Minimum:                        %d ms\n", min_time );
-   printf("Maximum:                        %d ms\n", max_time );
+   printf("1000 RSA PKCS Sign operations:  %ld ms\n", avg_time );
+   printf("Minimum:                        %ld ms\n", min_time );
+   printf("Maximum:                        %ld ms\n", max_time );
 
    printf("\n");
 
@@ -815,9 +813,9 @@ int do_RSA_PKCS_SignVerify_1024( void )
    avg_time -= min_time;
    avg_time -= max_time;
 
-   printf("1000 RSA PKCS Verify operations:  %d ms\n", avg_time );
-   printf("Minimum:                          %d ms\n", min_time );
-   printf("Maximum:                          %d ms\n", max_time );
+   printf("1000 RSA PKCS Verify operations:  %ld ms\n", avg_time );
+   printf("Minimum:                          %ld ms\n", min_time );
+   printf("Maximum:                          %ld ms\n", max_time );
 
    printf("\n");
    rc = funcs->C_CloseAllSessions( slot_id );
@@ -945,9 +943,9 @@ int do_DES3_ECB_EncrDecr( void )
    avg_time -= min_time;
    avg_time -= max_time;
 
-   printf("1000 DES3 %d byte ENCR operations:  %d ms\n", BIG_REQUEST, avg_time );
-   printf("Minimum:                        %d ms\n", min_time );
-   printf("Maximum:                        %d ms\n", max_time );
+   printf("1000 DES3 %d byte ENCR operations:  %ld ms\n", BIG_REQUEST, avg_time );
+   printf("Minimum:                        %ld ms\n", min_time );
+   printf("Maximum:                        %ld ms\n", max_time );
 
    printf("\n");
 
@@ -987,9 +985,9 @@ int do_DES3_ECB_EncrDecr( void )
    avg_time -= min_time;
    avg_time -= max_time;
 
-   printf("1000 DES3 %d byte DECR operations:  %d ms\n", BIG_REQUEST, avg_time );
-   printf("Minimum:                        %d ms\n", min_time );
-   printf("Maximum:                        %d ms\n", max_time );
+   printf("1000 DES3 %d byte DECR operations:  %ld ms\n", BIG_REQUEST, avg_time );
+   printf("Minimum:                        %ld ms\n", min_time );
+   printf("Maximum:                        %ld ms\n", max_time );
 
    rc = funcs->C_CloseAllSessions( slot_id );
    if (rc != CKR_OK) {
@@ -1120,9 +1118,9 @@ int do_DES3_CBC_EncrDecr( void )
    avg_time -= min_time;
    avg_time -= max_time;
 
-   printf("1000 DES3 %d byte ENCR operations:  %d ms\n", BIG_REQUEST, avg_time );
-   printf("Minimum:                        %d ms\n", min_time );
-   printf("Maximum:                        %d ms\n", max_time );
+   printf("1000 DES3 %d byte ENCR operations:  %ld ms\n", BIG_REQUEST, avg_time );
+   printf("Minimum:                        %ld ms\n", min_time );
+   printf("Maximum:                        %ld ms\n", max_time );
 
    printf("\n");
 
@@ -1162,9 +1160,9 @@ int do_DES3_CBC_EncrDecr( void )
    avg_time -= min_time;
    avg_time -= max_time;
 
-   printf("1000 DES3 %d byte DECR operations:  %d ms\n", BIG_REQUEST, avg_time );
-   printf("Minimum:                        %d ms\n", min_time );
-   printf("Maximum:                        %d ms\n", max_time );
+   printf("1000 DES3 %d byte DECR operations:  %ld ms\n", BIG_REQUEST, avg_time );
+   printf("Minimum:                        %ld ms\n", min_time );
+   printf("Maximum:                        %ld ms\n", max_time );
 
    rc = funcs->C_CloseAllSessions( slot_id );
    if (rc != CKR_OK) {
@@ -1265,9 +1263,9 @@ int do_SHA1( void )
       avg_time -= min_time;
       avg_time -= max_time;
 
-      printf("1000 SHA-1 %d byte operations:  %d ms\n", BIG_REQUEST, avg_time );
-      printf("Minimum:                    %d ms\n", min_time );
-      printf("Maximum:                    %d ms\n", max_time );
+      printf("1000 SHA-1 %d byte operations:  %ld ms\n", BIG_REQUEST, avg_time );
+      printf("Minimum:                    %ld ms\n", min_time );
+      printf("Maximum:                    %ld ms\n", max_time );
 
       free( data );
    }
@@ -1325,12 +1323,13 @@ int do_DummyFunction( void )
    avg_time -= min_time;
    avg_time -= max_time;
 
-   printf("1000 DummyFunction %d byte operations:  %d ms\n", 1024, avg_time );
-   printf("Minimum:                    %d ms\n", min_time );
-   printf("Maximum:                    %d ms\n", max_time );
+   printf("1000 DummyFunction %d byte operations:  %ld ms\n", 1024, avg_time );
+   printf("Minimum:                    %ld ms\n", min_time );
+   printf("Maximum:                    %ld ms\n", max_time );
 #endif
-}
 
+   return TRUE;
+}
 
 
 //
@@ -1355,7 +1354,7 @@ int main( int argc, char **argv )
       }
    }
 
-   printf("Using slot #%d...\n\n", SLOT_ID );
+   printf("Using slot #%ld...\n\n", SLOT_ID );
 
    rc = do_GetFunctionList();
    if (!rc)

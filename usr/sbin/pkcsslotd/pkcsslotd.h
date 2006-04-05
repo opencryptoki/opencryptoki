@@ -1,5 +1,5 @@
 /*
- * $Header: /cvsroot/opencryptoki/opencryptoki/usr/sbin/pkcsslotd/pkcsslotd.h,v 1.2 2005/02/22 20:49:31 mhalcrow Exp $
+ * $Header: /cvsroot/opencryptoki/opencryptoki/usr/sbin/pkcsslotd/pkcsslotd.h,v 1.3 2006/04/05 20:07:48 kyoder Exp $
  */
 
 
@@ -301,7 +301,6 @@
  ***********************************************************************/
 
 
-#pragma info(none)
 
 #ifndef _PKCSSLOTMGR_H
 #define _PKCSSLOTMGR_H 1
@@ -544,4 +543,3 @@ int  DestroyXProcLock(void *);
 #endif /* _SLOTMGR_H */
 
 
-#pragma info(restore)

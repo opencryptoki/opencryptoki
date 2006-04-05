@@ -31,7 +31,7 @@ void process_time(struct timeb t1, struct timeb t2)
 
 	ms += (s*1000);
 
-	printf("Time:  %u msec\n", ms );
+	printf("Time:  %ld msec\n", ms );
 
 }
 
@@ -129,9 +129,9 @@ void process_ret_code( CK_RV rc )
 
 //
 //
-void show_error( CK_BYTE *str, CK_RV rc )
+void show_error( char *str, CK_RV rc )
 {
-	printf("%s returned:  %d (0x%0x)", str, rc, rc );
+  printf("%s returned:  %ld (%p)", str, rc, (void *)rc );
 	process_ret_code( rc );
 	printf("\n");
 }
@@ -174,7 +174,7 @@ int do_GetFunctionList( CK_FUNCTION_LIST **funcs )
 
 	pfoo = (CK_RV (*)())dlsym(d,"C_GetFunctionList");
 	if (pfoo == NULL ) {
-		PRINTERR("dlsym failed: %s\n", e, dlerror());
+		PRINTERR("dlsym failed: %s\n", dlerror());
 		return -1;
 	}
 

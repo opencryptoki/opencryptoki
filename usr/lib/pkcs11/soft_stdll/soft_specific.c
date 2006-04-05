@@ -302,6 +302,7 @@
 #include <pthread.h>
 #include <string.h>            // for memcmp() et al
 #include <stdlib.h>
+#include <unistd.h>
 
 #include "pkcs11types.h"
 #include "defs.h"
@@ -360,7 +361,8 @@ token_rng(CK_BYTE *output, CK_ULONG bytes)
 	pthread_mutex_unlock(&rngmtx);
 #else
      int  ranfd;
-     int  rlen,totallen=0;
+     int  rlen;
+     unsigned  int totallen=0;
 
      ranfd = open("/dev/urandom",O_RDONLY);
      if (ranfd >= 0 ){
@@ -395,6 +397,7 @@ token_specific_init(char * Correlator,CK_SLOT_ID SlotNumber)
 CK_RV
 token_specific_final()
 {
+  return CKR_OK;
 }
 
 
@@ -426,7 +429,7 @@ token_specific_des_ecb(CK_BYTE * in_data,
 	des_key_schedule des_key2;
    	const_des_cblock key_val_SSL, in_key_data;
 	des_cblock out_key_data;
-	int i,j;
+	unsigned int i,j;
    	int ret;
 
   	// Create the key schedule
@@ -518,7 +521,8 @@ token_specific_tdes_ecb(CK_BYTE * in_data,
 {
 	CK_RV  rc;
 
-	int k,j, ret;
+	int ret;
+	unsigned int k,j;
 	des_cblock out_temp;
 	des_key_schedule des_key1;
 	des_key_schedule des_key2;
@@ -547,8 +551,8 @@ token_specific_tdes_ecb(CK_BYTE * in_data,
 	if (encrypt) {
 		for(k=0;k<in_data_len;k=k+8){
 		memcpy(in_key_data, in_data+k, 8);
-		des_ecb3_encrypt(&in_key_data, 
-				&out_key_data, 
+		des_ecb3_encrypt((const_DES_cblock *)&in_key_data, 
+			 (DES_cblock *)&out_key_data, 
 				des_key1, 
 				des_key2,
 				des_key3,
@@ -560,8 +564,8 @@ token_specific_tdes_ecb(CK_BYTE * in_data,
 	} else {
 		for (j=0;j<in_data_len;j=j+8){
 		memcpy(in_key_data, in_data+j, 8);
-		des_ecb3_encrypt(&in_key_data,
-				&out_key_data, 
+		des_ecb3_encrypt((const_DES_cblock *)&in_key_data,
+			 (DES_cblock *)&out_key_data, 
 				des_key1,
 				des_key2,
 				des_key3, 
@@ -680,9 +684,9 @@ rsa_convert_public_key( OBJECT    * key_obj )
 	}
 
 	// Convert from strings to BIGNUMs and stick them in the RSA struct
-	BN_bin2bn((char *)modulus->pValue, modulus->ulValueLen, bn_mod);
+	BN_bin2bn((unsigned char *)modulus->pValue, modulus->ulValueLen, bn_mod);
 	rsa->n = bn_mod;
-	BN_bin2bn((char *)pub_exp->pValue, pub_exp->ulValueLen, bn_exp);
+	BN_bin2bn((unsigned char *)pub_exp->pValue, pub_exp->ulValueLen, bn_exp);
 	rsa->e = bn_exp;
    
 	return (void *)rsa;
@@ -755,19 +759,19 @@ rsa_convert_private_key(OBJECT *key_obj)
 		// Even though this is CRT key, OpenSSL requires the
 		// modulus and exponents filled in or encrypt and decrypt will
 		// not work
-		BN_bin2bn((char *)modulus->pValue, modulus->ulValueLen, bn_mod);
+		BN_bin2bn((unsigned char *)modulus->pValue, modulus->ulValueLen, bn_mod);
 		rsa->n = bn_mod;
-		BN_bin2bn((char *)priv_exp->pValue, priv_exp->ulValueLen, bn_priv_exp);
+		BN_bin2bn((unsigned char *)priv_exp->pValue, priv_exp->ulValueLen, bn_priv_exp);
 		rsa->d = bn_priv_exp;
-		BN_bin2bn((char *)prime1->pValue, prime1->ulValueLen, bn_p1);
+		BN_bin2bn((unsigned char *)prime1->pValue, prime1->ulValueLen, bn_p1);
 		rsa->p = bn_p1;
-		BN_bin2bn((char *)prime2->pValue, prime2->ulValueLen, bn_p2);
+		BN_bin2bn((unsigned char *)prime2->pValue, prime2->ulValueLen, bn_p2);
 		rsa->q = bn_p2;
-		BN_bin2bn((char *)exp1->pValue, exp1->ulValueLen, bn_e1);
+		BN_bin2bn((unsigned char *)exp1->pValue, exp1->ulValueLen, bn_e1);
 		rsa->dmp1 = bn_e1;
-		BN_bin2bn((char *)exp2->pValue, exp2->ulValueLen, bn_e2);
+		BN_bin2bn((unsigned char *)exp2->pValue, exp2->ulValueLen, bn_e2);
 		rsa->dmq1 = bn_e2;
-		BN_bin2bn((char *)coeff->pValue, coeff->ulValueLen, bn_cf);
+		BN_bin2bn((unsigned char *)coeff->pValue, coeff->ulValueLen, bn_cf);
 		rsa->iqmp = bn_cf;
 
 		return rsa;
@@ -775,9 +779,9 @@ rsa_convert_private_key(OBJECT *key_obj)
 		if (!priv_exp) {
 			return NULL;
 		}
-		BN_bin2bn((char *)modulus->pValue, modulus->ulValueLen, bn_mod);
+		BN_bin2bn((unsigned char *)modulus->pValue, modulus->ulValueLen, bn_mod);
 		rsa->n = bn_mod;
-		BN_bin2bn((char *)priv_exp->pValue, priv_exp->ulValueLen, bn_priv_exp);
+		BN_bin2bn((unsigned char *)priv_exp->pValue, priv_exp->ulValueLen, bn_priv_exp);
 		rsa->d = bn_priv_exp;
 	}
 	return (void *)rsa;
@@ -1152,7 +1156,7 @@ token_specific_aes_ecb(	CK_BYTE 	*in_data,
 			CK_BYTE		encrypt)
 {
 	AES_KEY		ssl_aes_key;
-	int		i;
+	unsigned int	i;
 	/* There's a previous check that in_data_len % AES_BLOCK_SIZE == 0, 
 	 * so this is fine */
        	CK_ULONG	loops = (CK_ULONG)(in_data_len/AES_BLOCK_SIZE);
@@ -1262,9 +1266,9 @@ token_specific_dh_pkcs_derive( CK_BYTE   *z,
  
      // Add data into these new BN structures
  
-     BN_bin2bn((char *)y, y_len, bn_y);
-     BN_bin2bn((char *)x, x_len, bn_x);
-     BN_bin2bn((char *)p, p_len, bn_p);
+     BN_bin2bn((unsigned char *)y, y_len, bn_y);
+     BN_bin2bn((unsigned char *)x, x_len, bn_x);
+     BN_bin2bn((unsigned char *)p, p_len, bn_p);
  
      rc = BN_mod_exp(bn_z,bn_y,bn_x,bn_p,ctx);
      if (rc == 0)
@@ -1347,9 +1351,9 @@ token_specific_dh_pkcs_key_pair_gen( TEMPLATE  * publ_tmpl,
     }
  
     // Convert from strings to BIGNUMs and stick them in the DH struct
-    BN_bin2bn((char *)prime_attr->pValue, prime_attr->ulValueLen, bn_p);
+    BN_bin2bn((unsigned char *)prime_attr->pValue, prime_attr->ulValueLen, bn_p);
     dh->p = bn_p;
-    BN_bin2bn((char *)base_attr->pValue, base_attr->ulValueLen, bn_g);
+    BN_bin2bn((unsigned char *)base_attr->pValue, base_attr->ulValueLen, bn_g);
     dh->g = bn_g;
  
     // Generate the DH Key
@@ -1405,7 +1409,7 @@ token_specific_dh_pkcs_key_pair_gen( TEMPLATE  * publ_tmpl,
     template_update_attribute( priv_tmpl, value_bits_attr );
  
     // Add prime and base to the private key template
-    rc = build_attribute( CKA_PRIME,(char *)prime_attr->pValue,
+    rc = build_attribute( CKA_PRIME,(unsigned char *)prime_attr->pValue,
                           prime_attr->ulValueLen, &temp_attr ); // in bytes
     if (rc != CKR_OK)
     {
@@ -1414,7 +1418,7 @@ token_specific_dh_pkcs_key_pair_gen( TEMPLATE  * publ_tmpl,
     }
     template_update_attribute( priv_tmpl, temp_attr );
  
-    rc = build_attribute( CKA_BASE,(char *)base_attr->pValue,
+    rc = build_attribute( CKA_BASE,(unsigned char *)base_attr->pValue,
                           base_attr->ulValueLen, &temp_attr ); // in bytes
     if (rc != CKR_OK)
     {
@@ -1432,138 +1436,138 @@ token_specific_dh_pkcs_key_pair_gen( TEMPLATE  * publ_tmpl,
 /* End code contributed by Corrent corp. */
 
 MECH_LIST_ELEMENT mech_list[] = {
-   { CKM_RSA_PKCS_KEY_PAIR_GEN,     512, 2048, CKF_HW | CKF_GENERATE_KEY_PAIR },
+  { CKM_RSA_PKCS_KEY_PAIR_GEN,     {512, 2048, CKF_HW | CKF_GENERATE_KEY_PAIR} },
 #if !(NODSA)
-   { CKM_DSA_KEY_PAIR_GEN,          512, 1024, CKF_HW | CKF_GENERATE_KEY_PAIR },
+  { CKM_DSA_KEY_PAIR_GEN,          {512, 1024, CKF_HW | CKF_GENERATE_KEY_PAIR} },
 #endif
-   { CKM_DES_KEY_GEN,                 8,    8, CKF_HW | CKF_GENERATE },
-   { CKM_DES3_KEY_GEN,                24,    24, CKF_HW | CKF_GENERATE },
+  { CKM_DES_KEY_GEN,                 {8,    8, CKF_HW | CKF_GENERATE} },
+  { CKM_DES3_KEY_GEN,                {24,    24, CKF_HW | CKF_GENERATE} },
 #if !(NOCDMF)
-   { CKM_CDMF_KEY_GEN,                0,    0, CKF_HW | CKF_GENERATE },
+  { CKM_CDMF_KEY_GEN,                {0,    0, CKF_HW | CKF_GENERATE} },
 #endif
 
-   { CKM_RSA_PKCS,                  512, 2048, CKF_HW           |
+  { CKM_RSA_PKCS,                  {512, 2048, CKF_HW           |
                                                CKF_ENCRYPT      | CKF_DECRYPT |
                                                CKF_WRAP         | CKF_UNWRAP  |
                                                CKF_SIGN         | CKF_VERIFY  |
-                                               CKF_SIGN_RECOVER | CKF_VERIFY_RECOVER },
+				    CKF_SIGN_RECOVER | CKF_VERIFY_RECOVER} },
 #if !(NOX509)
-   { CKM_RSA_X_509,                 512, 2048, CKF_HW           |
+  { CKM_RSA_X_509,                 {512, 2048, CKF_HW           |
                                                CKF_ENCRYPT      | CKF_DECRYPT |
                                                CKF_WRAP         | CKF_UNWRAP  |
                                                CKF_SIGN         | CKF_VERIFY  |
-                                               CKF_SIGN_RECOVER | CKF_VERIFY_RECOVER },
+				    CKF_SIGN_RECOVER | CKF_VERIFY_RECOVER} },
 #endif
 #if !(NOMD2)
-   { CKM_MD2_RSA_PKCS,              512, 2048, CKF_HW      |
-                                               CKF_SIGN    | CKF_VERIFY },
+  { CKM_MD2_RSA_PKCS,              {512, 2048, CKF_HW      |
+				    CKF_SIGN    | CKF_VERIFY} },
 
 #endif
 #if !(NOMD5)
-   { CKM_MD5_RSA_PKCS,              512, 2048, CKF_HW      |
-                                               CKF_SIGN    | CKF_VERIFY },
+  { CKM_MD5_RSA_PKCS,              {512, 2048, CKF_HW      |
+				    CKF_SIGN    | CKF_VERIFY} },
 #endif
 #if !(NOSHA1)
-   { CKM_SHA1_RSA_PKCS,             512, 2048, CKF_HW      |
-                                               CKF_SIGN    | CKF_VERIFY },
+  { CKM_SHA1_RSA_PKCS,             {512, 2048, CKF_HW      |
+				    CKF_SIGN    | CKF_VERIFY} },
 #endif
 
 
 #if !(NODSA)
-   { CKM_DSA,                       512, 1024, CKF_HW      |
-                                               CKF_SIGN    | CKF_VERIFY },
+  { CKM_DSA,                       {512, 1024, CKF_HW      |
+				    CKF_SIGN    | CKF_VERIFY} },
 #endif
 
 /* Begin code contributed by Corrent corp. */
 #if !(NODH)
-   { CKM_DH_PKCS_DERIVE,            512, 2048, CKF_HW | CKF_DERIVE },
-   { CKM_DH_PKCS_KEY_PAIR_GEN,      512, 2048, CKF_HW | CKF_GENERATE_KEY_PAIR },
+  { CKM_DH_PKCS_DERIVE,            {512, 2048, CKF_HW | CKF_DERIVE} },
+  { CKM_DH_PKCS_KEY_PAIR_GEN,      {512, 2048, CKF_HW | CKF_GENERATE_KEY_PAIR} },
 #endif
 /* End code contributed by Corrent corp. */
 
-   { CKM_DES_ECB,                     8,    8, CKF_HW      |
+  { CKM_DES_ECB,                     {8,    8, CKF_HW      |
                                                CKF_ENCRYPT | CKF_DECRYPT |
-                                               CKF_WRAP    | CKF_UNWRAP },
+				      CKF_WRAP    | CKF_UNWRAP} },
 
-   { CKM_DES_CBC,                     8,    8, CKF_HW      |
+  { CKM_DES_CBC,                     {8,    8, CKF_HW      |
                                                CKF_ENCRYPT | CKF_DECRYPT |
-                                               CKF_WRAP    | CKF_UNWRAP },
+				      CKF_WRAP    | CKF_UNWRAP} },
 
-   { CKM_DES_CBC_PAD,                 8,    8, CKF_HW      |
+  { CKM_DES_CBC_PAD,                 {8,    8, CKF_HW      |
                                                CKF_ENCRYPT | CKF_DECRYPT |
-                                               CKF_WRAP    | CKF_UNWRAP },
+				      CKF_WRAP    | CKF_UNWRAP} },
 
 #if !(NOCDMF)
-   { CKM_CDMF_ECB,                    0,    0, CKF_HW      |
+  { CKM_CDMF_ECB,                    {0,    0, CKF_HW      |
                                                CKF_ENCRYPT | CKF_DECRYPT |
-                                               CKF_WRAP    | CKF_UNWRAP },
+				      CKF_WRAP    | CKF_UNWRAP} },
 
-   { CKM_CDMF_CBC,                    0,    0, CKF_HW      |
+  { CKM_CDMF_CBC,                    {0,    0, CKF_HW      |
                                                CKF_ENCRYPT | CKF_DECRYPT |
-                                               CKF_WRAP    | CKF_UNWRAP },
+				      CKF_WRAP    | CKF_UNWRAP} },
 #endif
 
-   { CKM_DES3_ECB,                    24,    24, CKF_HW      |
+  { CKM_DES3_ECB,                    {24,    24, CKF_HW      |
                                                CKF_ENCRYPT | CKF_DECRYPT |
-                                               CKF_WRAP    | CKF_UNWRAP },
+				      CKF_WRAP    | CKF_UNWRAP} },
 
-   { CKM_DES3_CBC,                    24,    24, CKF_HW      |
+  { CKM_DES3_CBC,                    {24,    24, CKF_HW      |
                                                CKF_ENCRYPT | CKF_DECRYPT |
-                                               CKF_WRAP    | CKF_UNWRAP },
+				      CKF_WRAP    | CKF_UNWRAP} },
 
-   { CKM_DES3_CBC_PAD,                24,    24, CKF_HW      |
+  { CKM_DES3_CBC_PAD,                {24,    24, CKF_HW      |
                                                CKF_ENCRYPT | CKF_DECRYPT |
-                                               CKF_WRAP    | CKF_UNWRAP },
+				      CKF_WRAP    | CKF_UNWRAP} },
 
 #if !(NOSHA1)
-   { CKM_SHA_1,                       0,    0, CKF_HW | CKF_DIGEST },
-   { CKM_SHA_1_HMAC,                  0,    0, CKF_HW | CKF_SIGN | CKF_VERIFY },
-   { CKM_SHA_1_HMAC_GENERAL,          0,    0, CKF_HW | CKF_SIGN | CKF_VERIFY },
-   { CKM_SHA256,                       0,    0, CKF_HW | CKF_DIGEST },
-   { CKM_SHA256_HMAC,                  0,    0, CKF_HW | CKF_SIGN | CKF_VERIFY },
-   { CKM_SHA256_HMAC_GENERAL,          0,    0, CKF_HW | CKF_SIGN | CKF_VERIFY },
+  { CKM_SHA_1,                       {0,    0, CKF_HW | CKF_DIGEST} },
+  { CKM_SHA_1_HMAC,                  {0,    0, CKF_HW | CKF_SIGN | CKF_VERIFY} },
+  { CKM_SHA_1_HMAC_GENERAL,          {0,    0, CKF_HW | CKF_SIGN | CKF_VERIFY} },
+  { CKM_SHA256,                      {0,    0, CKF_HW | CKF_DIGEST} },
+  { CKM_SHA256_HMAC,                 {0,    0, CKF_HW | CKF_SIGN | CKF_VERIFY} },
+  { CKM_SHA256_HMAC_GENERAL,         {0,    0, CKF_HW | CKF_SIGN | CKF_VERIFY} },
 #endif
 
 #if !(NOMD2)
-   { CKM_MD2,                         0,    0, CKF_HW | CKF_DIGEST },
-   { CKM_MD2_HMAC,                    0,    0, CKF_HW | CKF_SIGN | CKF_VERIFY },
-   { CKM_MD2_HMAC_GENERAL,            0,    0, CKF_HW | CKF_SIGN | CKF_VERIFY },
+  { CKM_MD2,                         {0,    0, CKF_HW | CKF_DIGEST} },
+  { CKM_MD2_HMAC,                    {0,    0, CKF_HW | CKF_SIGN | CKF_VERIFY} },
+  { CKM_MD2_HMAC_GENERAL,            {0,    0, CKF_HW | CKF_SIGN | CKF_VERIFY} },
 #endif
 
 #if !(NOMD5)
-   { CKM_MD5,                         0,    0, CKF_HW | CKF_DIGEST },
-   { CKM_MD5_HMAC,                    0,    0, CKF_HW | CKF_SIGN | CKF_VERIFY },
-   { CKM_MD5_HMAC_GENERAL,            0,    0, CKF_HW | CKF_SIGN | CKF_VERIFY },
+  { CKM_MD5,                         {0,    0, CKF_HW | CKF_DIGEST} },
+  { CKM_MD5_HMAC,                    {0,    0, CKF_HW | CKF_SIGN | CKF_VERIFY} },
+  { CKM_MD5_HMAC_GENERAL,            {0,    0, CKF_HW | CKF_SIGN | CKF_VERIFY} },
 #endif
 
-   { CKM_SSL3_PRE_MASTER_KEY_GEN,    48,   48, CKF_HW | CKF_GENERATE },
-   { CKM_SSL3_MASTER_KEY_DERIVE,     48,   48, CKF_HW | CKF_DERIVE },
-   { CKM_SSL3_KEY_AND_MAC_DERIVE,    48,   48, CKF_HW | CKF_DERIVE },
-   { CKM_SSL3_MD5_MAC,              384,  384, CKF_HW | CKF_SIGN | CKF_VERIFY },
-   { CKM_SSL3_SHA1_MAC,             384,  384, CKF_HW | CKF_SIGN | CKF_VERIFY },
+  { CKM_SSL3_PRE_MASTER_KEY_GEN,    {48,   48, CKF_HW | CKF_GENERATE} },
+  { CKM_SSL3_MASTER_KEY_DERIVE,     {48,   48, CKF_HW | CKF_DERIVE} },
+  { CKM_SSL3_KEY_AND_MAC_DERIVE,    {48,   48, CKF_HW | CKF_DERIVE} },
+  { CKM_SSL3_MD5_MAC,              {384,  384, CKF_HW | CKF_SIGN | CKF_VERIFY} },
+  { CKM_SSL3_SHA1_MAC,             {384,  384, CKF_HW | CKF_SIGN | CKF_VERIFY} },
 
 #if !(NOAES)
-   { CKM_AES_KEY_GEN,                16,   32, CKF_HW },
-   { CKM_AES_ECB,                    16,   32, CKF_HW      |
+  { CKM_AES_KEY_GEN,                {16,   32, CKF_HW} },
+  { CKM_AES_ECB,                    {16,   32, CKF_HW      |
    					       CKF_ENCRYPT | CKF_DECRYPT |
-   					       CKF_WRAP    | CKF_UNWRAP },
-   { CKM_AES_CBC,                    16,   32, CKF_HW      |
+				     CKF_WRAP    | CKF_UNWRAP} },
+  { CKM_AES_CBC,                    {16,   32, CKF_HW      |
    					       CKF_ENCRYPT | CKF_DECRYPT |
-   					       CKF_WRAP    | CKF_UNWRAP },
-   { CKM_AES_MAC,                    16,   32, CKF_HW | CKF_SIGN | CKF_VERIFY },
-   { CKM_AES_MAC_GENERAL,            16,   32, CKF_HW | CKF_SIGN | CKF_VERIFY },
-   { CKM_AES_CBC_PAD,                16,   32, CKF_HW      |
+				     CKF_WRAP    | CKF_UNWRAP} },
+  { CKM_AES_MAC,                    {16,   32, CKF_HW | CKF_SIGN | CKF_VERIFY} },
+  { CKM_AES_MAC_GENERAL,            {16,   32, CKF_HW | CKF_SIGN | CKF_VERIFY} },
+  { CKM_AES_CBC_PAD,                {16,   32, CKF_HW      |
    					       CKF_ENCRYPT | CKF_DECRYPT |
-   					       CKF_WRAP    | CKF_UNWRAP },
+				     CKF_WRAP    | CKF_UNWRAP} },
 #endif
 	
 #if !(NORIPE)
-   { CKM_RIPEMD128,			0,   0, CKF_HW | CKF_DIGEST },
-   { CKM_RIPEMD128_HMAC,		0,   0, CKF_HW | CKF_SIGN | CKF_VERIFY },
-   { CKM_RIPEMD128_HMAC_GENERAL,	0,   0, CKF_HW | CKF_SIGN | CKF_VERIFY },
-   { CKM_RIPEMD160,			0,   0, CKF_HW | CKF_DIGEST },
-   { CKM_RIPEMD160_HMAC,		0,   0, CKF_HW | CKF_SIGN | CKF_VERIFY },
-   { CKM_RIPEMD160_HMAC_GENERAL,	0,   0, CKF_HW | CKF_SIGN | CKF_VERIFY },
+  { CKM_RIPEMD128,		{0,   0, CKF_HW | CKF_DIGEST} },
+  { CKM_RIPEMD128_HMAC,		{0,   0, CKF_HW | CKF_SIGN | CKF_VERIFY} },
+  { CKM_RIPEMD128_HMAC_GENERAL,	{0,   0, CKF_HW | CKF_SIGN | CKF_VERIFY} },
+  { CKM_RIPEMD160,		{0,   0, CKF_HW | CKF_DIGEST} },
+  { CKM_RIPEMD160_HMAC,		{0,   0, CKF_HW | CKF_SIGN | CKF_VERIFY} },
+  { CKM_RIPEMD160_HMAC_GENERAL,	{0,   0, CKF_HW | CKF_SIGN | CKF_VERIFY} },
 #endif
    
 };

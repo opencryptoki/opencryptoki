@@ -345,7 +345,7 @@ object_create( CK_ATTRIBUTE  * pTemplate,
    CK_BBOOL        flag;
    CK_ULONG        class = 0xFFFFFFFF, subclass = 0xFFFFFFFF;
    CK_RV           rc;
-   int             i;
+   unsigned int    i;
 
    if (!pTemplate){
       st_err_log(4, __FILE__, __LINE__, __FUNCTION__);

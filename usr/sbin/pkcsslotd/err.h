@@ -1,5 +1,5 @@
 /*
- * $Header: /cvsroot/opencryptoki/opencryptoki/usr/sbin/pkcsslotd/err.h,v 1.2 2005/02/22 20:49:30 mhalcrow Exp $
+ * $Header: /cvsroot/opencryptoki/opencryptoki/usr/sbin/pkcsslotd/err.h,v 1.3 2006/04/05 20:07:48 kyoder Exp $
  */
 
 
@@ -371,9 +371,7 @@ const unsigned char *ConstName         ( pConstInfo pInfoArray, unsigned int Inf
   #define SysError( _x ) SysConst((_x))
 #endif /* _H_ERRNO */
 
-#ifdef _H_SIGNAL
   const unsigned char *SignalConst     ( unsigned int Val );
-#endif /* _H_SIGNAL */
 
 #ifdef _H_ODMI
   const unsigned char *ODMConst        ( unsigned int Val );
@@ -386,7 +384,6 @@ const unsigned char *ConstName         ( pConstInfo pInfoArray, unsigned int Inf
   const unsigned char *PkcsObject      ( unsigned int Val );
   const unsigned char *PkcsKey         ( unsigned int Val );
   const unsigned char *PkcsAttribute   ( unsigned int Val );
-  unsigned char       *PkcsReturnString( unsigned char *Dest, CK_ULONG DestLen, CK_RV *Array, CK_ULONG ArrayLen );
 #endif /* _PKCS11TYPES_H_ */
 
 const unsigned char *ResponseSeverity( unsigned int Val );

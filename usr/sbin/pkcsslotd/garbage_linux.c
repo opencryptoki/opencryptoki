@@ -290,12 +290,11 @@
 
 
 #include "pthread.h"
-#pragma info(none)
 #include "pkcsslotd.h"
+#include <strings.h>
 #include <sys/stat.h>
 #include <sys/types.h>
 #include <fcntl.h>
-#pragma info(restore)
 
 #define PROC_BASE "/proc"
 
@@ -747,7 +746,7 @@ int Stat2Proc (int pid, proc_t *p) {
   // buf[num] = '\0';
   
   tmp = strrchr(buf, ')');                      // split into "PID (cmd" and "<rest>"
-  *tmp = NULL;                                   // replacing trailing ')' with NULL
+  *tmp = (char)NULL;                            // replacing trailing ')' with NULL
   // Tmp now points to the rest of the buffer.
   // buff points to the command...
   
