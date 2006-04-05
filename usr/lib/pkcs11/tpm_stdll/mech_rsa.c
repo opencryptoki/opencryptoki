@@ -536,19 +536,19 @@ rsa_hash_pkcs_sign( SESSION              * sess,
 
    if (ctx->mech.mechanism == CKM_MD2_RSA_PKCS) {
       digest_mech.mechanism      = CKM_MD2;
-      oid = ber_md2WithRSAEncryption;
-      oid_len = ber_md2WithRSAEncryptionLen;
+      oid = ber_AlgMd2;
+      oid_len = ber_AlgMd2Len;
 
    }
    else if (ctx->mech.mechanism == CKM_MD5_RSA_PKCS) {
       digest_mech.mechanism      = CKM_MD5;
-      oid = ber_md5WithRSAEncryption;
-      oid_len = ber_md5WithRSAEncryptionLen;
+      oid = ber_AlgMd5;
+      oid_len = ber_AlgMd5Len;
    }
    else {
       digest_mech.mechanism      = CKM_SHA_1;
-      oid = ber_sha1WithRSAEncryption;
-      oid_len = ber_sha1WithRSAEncryptionLen;
+      oid = ber_AlgSha1;
+      oid_len = ber_AlgSha1Len;
    }
 
    digest_mech.ulParameterLen = 0;
@@ -690,18 +690,18 @@ rsa_hash_pkcs_verify( SESSION              * sess,
 
    if (ctx->mech.mechanism == CKM_MD2_RSA_PKCS) {
       digest_mech.mechanism      = CKM_MD2;
-      oid = ber_md2WithRSAEncryption;
-      oid_len = ber_md2WithRSAEncryptionLen;
+      oid = ber_AlgMd2;
+      oid_len = ber_AlgMd2Len;
    }
    else if (ctx->mech.mechanism == CKM_MD5_RSA_PKCS) {
       digest_mech.mechanism      = CKM_MD5;
-      oid = ber_md5WithRSAEncryption;
-      oid_len = ber_md5WithRSAEncryptionLen;
+      oid = ber_AlgMd5;
+      oid_len = ber_AlgMd5Len;
    }
    else {
       digest_mech.mechanism      = CKM_SHA_1;
-      oid = ber_sha1WithRSAEncryption;
-      oid_len = ber_sha1WithRSAEncryptionLen;
+      oid = ber_AlgSha1;
+      oid_len = ber_AlgSha1Len;
    }
 
 
@@ -839,16 +839,16 @@ rsa_hash_pkcs_sign_final( SESSION              * sess,
    }
 
    if (ctx->mech.mechanism == CKM_MD2_RSA_PKCS) {
-      oid = ber_md2WithRSAEncryption;
-      oid_len = ber_md2WithRSAEncryptionLen;
+      oid = ber_AlgMd2;
+      oid_len = ber_AlgMd2Len;
    }
    else if (ctx->mech.mechanism == CKM_MD5_RSA_PKCS) {
-      oid = ber_md5WithRSAEncryption;
-      oid_len = ber_md5WithRSAEncryptionLen;
+      oid = ber_AlgMd5;
+      oid_len = ber_AlgMd5Len;
    }
    else {
-      oid = ber_sha1WithRSAEncryption;
-      oid_len = ber_sha1WithRSAEncryptionLen;
+      oid = ber_AlgSha1;
+      oid_len = ber_AlgSha1Len;
    }
 
    memset( &sign_ctx, 0x0, sizeof(sign_ctx));
@@ -935,16 +935,16 @@ rsa_hash_pkcs_verify_final( SESSION              * sess,
       return CKR_FUNCTION_FAILED;
    }
    if (ctx->mech.mechanism == CKM_MD2_RSA_PKCS) {
-      oid = ber_md2WithRSAEncryption;
-      oid_len = ber_md2WithRSAEncryptionLen;
+      oid = ber_AlgMd2;
+      oid_len = ber_AlgMd2Len;
    }
    else if (ctx->mech.mechanism == CKM_MD5_RSA_PKCS) {
-      oid = ber_md5WithRSAEncryption;
-      oid_len = ber_md5WithRSAEncryptionLen;
+      oid = ber_AlgMd5;
+      oid_len = ber_AlgMd5Len;
    }
    else {
-      oid = ber_sha1WithRSAEncryption;
-      oid_len = ber_sha1WithRSAEncryptionLen;
+      oid = ber_AlgSha1;
+      oid_len = ber_AlgSha1Len;
    }
 
    memset( &verify_ctx, 0x0, sizeof(verify_ctx));
