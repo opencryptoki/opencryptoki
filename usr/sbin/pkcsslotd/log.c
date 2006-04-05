@@ -290,10 +290,8 @@
 
 
 #include "pthread.h"
-//#pragma info(none)
 
 #include "pkcsslotd.h"
-//#pragma info(restore)
 
 
 #define DEFAULT_PROGRAM_NAME "Program"
@@ -1030,7 +1028,6 @@ u_int32 GetDebugLevel ( void ) {
 
 
 
-//#pragma info(none)
 #if 0
 int main ( int argc, char *argv[], char *envp[] ) {
 
@@ -1045,7 +1042,6 @@ int main ( int argc, char *argv[], char *envp[] ) {
 
 }
 #endif /* 0 */
-//#pragma info(restore)
 
 
 

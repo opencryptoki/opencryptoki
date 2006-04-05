@@ -291,9 +291,7 @@
 
 #include "pthread.h"
 
-//#pragma info(none)
 #include "pkcsslotd.h"
-//#pragma info(restore)
 
   static ConstInfo SysErrorInfo[] = {
 

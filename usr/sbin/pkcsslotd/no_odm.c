@@ -292,11 +292,9 @@
 
 #include "pthread.h"
 
-//#pragma info(none)
 #include "pkcsslotd.h"
 #include <string.h>
 #include <strings.h>
-//#pragma info(restore)
 
 
 
@@ -322,8 +320,6 @@ static void            PrintSlotInfo ( Slot_Info_t *P );
 
 
 
-//#pragma info(none)
-//#pragma info(restore)
 
 BOOL BooleanVal ( char *ptr, int length, BOOL *result ) {
 
@@ -737,9 +733,7 @@ BOOL ReadSlotInfoDB ( void ) {
 
         if ( stat( sinfo_struct.dll_location, &statbuf ) < 0 ) {
 	  /* File not found, or other error */
-	  //	  #pragma info(none)
 	    Err = errno;
-	    //	  #pragma info(restore)
 
 	  if ( Err == ENOENT ) {
             fprintf(stderr, "\nReading Slot Info: %s: file not found (%s).  Skipping slot entry.", sinfo_struct.dll_location, SysError(Err) );

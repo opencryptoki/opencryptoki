@@ -290,13 +290,11 @@
 
 
 #include "pthread.h"
-//#pragma info(none)
 #include "pkcsslotd.h"
 #include <strings.h>
 #include <sys/stat.h>
 #include <sys/types.h>
 #include <fcntl.h>
-//#pragma info(restore)
 
 #define PROC_BASE "/proc"
 

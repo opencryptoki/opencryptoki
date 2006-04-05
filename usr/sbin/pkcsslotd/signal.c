@@ -290,12 +290,9 @@
 
 
 #include "pthread.h"
-//#pragma info(none)
 #include "pkcsslotd.h"
-//#pragma info(restore)
 #include "err.h"
 
-//#pragma info(nopar, noppt)
 
 #ifdef PKCS64
 extern BOOL        IsValidProcessEntry  ( pid_t_64 pid, time_t_64 RegTime );
@@ -392,7 +389,6 @@ void slotdGenericSignalHandler( int Signal ) {
    exit(0);
 
 }
-//#pragma info(restore)
 
 
 
@@ -475,9 +471,7 @@ int SetupSignalHandlers ( void ) {
   /* sigaddset(&(new_action.sa_mask), SA_NOCLDWAIT); */
   /* sigaddset(&(new_action.sa_mask), SA_NOCLDSTOP); */
 
-  //#pragma info(nocnd)
   new_action.sa_flags = (RESTART_SYS_CALLS ? SA_RESTART : 0);
-  //#pragma info(restore)
 
 
   for ( i = 0; i < (sizeof(SigsToIntercept) / sizeof(SigsToIntercept[0])); i++ ) {

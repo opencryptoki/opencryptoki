@@ -323,7 +323,6 @@ void DumpSharedMemory ( void );
  *
  *****************************************/
 
-//#pragma info(nopar,noret)
 int main ( int argc, char *argv[], char *envp[]) {
    int rc;
 
@@ -577,7 +576,6 @@ printf("Start garbage \n");
         }
      }
 
-     //   #pragma info(none)
    while (1) {
 #if !(THREADED) && !(NOGARBAGE)
      GCMain(shmp);
@@ -585,7 +583,6 @@ printf("Start garbage \n");
      sleep(10);
 #endif
    }
-   //   #pragma info(restore)
 
 
    /*************************************************************
@@ -601,7 +598,6 @@ printf("Start garbage \n");
 
 } /* end main */
 
-//#pragma info(restore)
 
 
 
@@ -614,9 +610,7 @@ printf("Start garbage \n");
     char Buf[2048];
     u_int32 i;
     
-    //    #pragma info(none)
     p = (u_int32 *) shmp;
-    //    #pragma info(restore)
     
     for ( i = 0; i < 15; i++ ) {
       sprintf(Buf, "%08X %08X %08X %08X", p[0+(i*4)], p[1+(i*4)], p[2+(i*4)], p[3+(i*4)]);
