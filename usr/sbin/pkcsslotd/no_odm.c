@@ -292,11 +292,11 @@
 
 #include "pthread.h"
 
-#pragma info(none)
+//#pragma info(none)
 #include "pkcsslotd.h"
 #include <string.h>
 #include <strings.h>
-#pragma info(restore)
+//#pragma info(restore)
 
 
 
@@ -322,8 +322,8 @@ static void            PrintSlotInfo ( Slot_Info_t *P );
 
 
 
-#pragma info(none)
-#pragma info(restore)
+//#pragma info(none)
+//#pragma info(restore)
 
 BOOL BooleanVal ( char *ptr, int length, BOOL *result ) {
 
@@ -573,7 +573,7 @@ BOOL ReadSlotInfoDB ( void ) {
     /* SlotDescription */
 
     case SlotDescription:
-      strncpy( (pSlot->slotDescription), slot_element, 
+      strncpy( (char *)(pSlot->slotDescription), slot_element, 
 	( (strlen(slot_element) > sizeof(pSlot->slotDescription)) 
 	  ? sizeof(pSlot->slotDescription) 
 	  : (strlen(slot_element) ) ) );
@@ -588,7 +588,7 @@ BOOL ReadSlotInfoDB ( void ) {
     /* ManufacturerID */
 
     case ManufacturerID:
-      strncpy( (pSlot->manufacturerID), slot_element, 
+      strncpy( (char *)(pSlot->manufacturerID), slot_element, 
 	( (strlen(slot_element) > sizeof(pSlot->manufacturerID)) 
 	  ? (sizeof(pSlot->manufacturerID)) 
 	  : (strlen(slot_element) ) ) );
@@ -737,16 +737,16 @@ BOOL ReadSlotInfoDB ( void ) {
 
         if ( stat( sinfo_struct.dll_location, &statbuf ) < 0 ) {
 	  /* File not found, or other error */
-	  #pragma info(none)
+	  //	  #pragma info(none)
 	    Err = errno;
-	  #pragma info(restore)
+	    //	  #pragma info(restore)
 
 	  if ( Err == ENOENT ) {
             fprintf(stderr, "\nReading Slot Info: %s: file not found (%s).  Skipping slot entry.", sinfo_struct.dll_location, SysError(Err) );
 	    /* WarnLog ( "***** ReadSlotInfoDB: %s: file not found (%s).  Skipping DB entry.", sinfo[Index].dll_location, SysError(Err) ); */
 	  }
           else {
-            fprintf(stderr, "\nReading Slot Info: %s: looking at %s, stat64() returned %s (%d; %#x)", sinfo_struct.dll_location, SysError(Err), Err, Err);
+            fprintf(stderr, "\nReading Slot Info: looking at %s, stat64() returned %s (%d; %#x)", sinfo_struct.dll_location, SysError(Err), Err, Err);
 	    /* DbgLog (DL0, "***** ReadSlotInfoDB: looking at %s, stat64() returned %s (%d; %#x)", sinfo[Index].dll_location, SysError(Err), Err, Err); */
 	  }
 	  memset( pSlot, '\0', sizeof(*pSlot) );
@@ -782,7 +782,7 @@ BOOL ReadSlotInfoDB ( void ) {
 
       {
         /* stripping off trailing new line character, '\n' from init function name if necessary */
-        int i;
+        unsigned int i;
         for(i = 0; i < sizeof(sinfo_struct.slot_init_fcn); i++){
           if(sinfo_struct.slot_init_fcn[i] == '\n')
             sinfo_struct.slot_init_fcn[i] = (char)NULL;

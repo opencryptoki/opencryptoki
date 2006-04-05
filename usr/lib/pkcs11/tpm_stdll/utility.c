@@ -26,6 +26,7 @@
 #include <pthread.h>
 #include <stdio.h>
 #include <stdlib.h>
+#include <unistd.h>
 #include <string.h>
 #include <sys/types.h>
 #include <pthread.h>
@@ -666,8 +667,8 @@ init_slotInfo( void )
 	memset( &slot_info.slotDescription, ' ', sizeof(slot_info.slotDescription) );
 	memset( &slot_info.manufacturerID,  ' ', sizeof(slot_info.manufacturerID)  );
 
-	memcpy( &slot_info.slotDescription, descr, strlen(descr) );
-	memcpy( &slot_info.manufacturerID,  manuf, strlen(manuf) );
+	memcpy( &slot_info.slotDescription, descr, strlen((char *)descr) );
+	memcpy( &slot_info.manufacturerID,  manuf, strlen((char *)manuf) );
 
 	slot_info.hardwareVersion.major = 1;
 	slot_info.hardwareVersion.minor = 0;
@@ -693,8 +694,8 @@ init_tokenInfo( void )
 
 	memcpy( token_info->label,          nv_token_data->token_info.label, 32 );
 
-	memcpy( token_info->manufacturerID, manuf, strlen(manuf) );
-	memcpy( token_info->model,          model, strlen(model) );
+	memcpy( token_info->manufacturerID, manuf, strlen((char *)manuf) );
+	memcpy( token_info->model,          model, strlen((char *)model) );
 
 	// use the 41-xxxxx serial number from the coprocessor
 	//
@@ -759,7 +760,7 @@ init_token_data( void )
 	// generate the master key used for signing the Operation State information
 	//                          `
 	memset( nv_token_data->token_info.label, ' ', sizeof(nv_token_data->token_info.label) );
-	memcpy( nv_token_data->token_info.label, label, strlen(label) );
+	memcpy( nv_token_data->token_info.label, label, strlen((char *)label) );
 
 	nv_token_data->tweak_vector.allow_weak_des   = TRUE;
 	nv_token_data->tweak_vector.check_des_parity = FALSE;
@@ -1067,7 +1068,7 @@ attach_shm()
 		//#define MODE (S_IRUSR|S_IWUSR|S_IRGRP|S_IWGRP)
 		//#define MODE (S_IRUSR|S_IWUSR)
 
-#warning "EXPERIMENTAL"
+//#warning "EXPERIMENTAL"
 		char		*fname = NULL, *dirname = NULL;
 		char		*b2 = NULL;
 		int		fd = -1, i;

@@ -313,8 +313,7 @@
 #include <stdlib.h>
 #include <stdio.h>
 
-  #include <string.h>  // for memcmp() et al
-
+#include <string.h>  // for memcmp() et al
 
 #include "pkcs11types.h"
 #include "defs.h"
@@ -335,7 +334,7 @@ template_add_attributes( TEMPLATE     * tmpl,
 {
    CK_ATTRIBUTE  * attr = NULL;
    CK_RV           rc;
-   int             i;
+   unsigned int    i;
 
    for (i=0; i < ulCount; i++) {
       if (!is_attribute_defined(pTemplate[i].type)){

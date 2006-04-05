@@ -291,9 +291,9 @@
 
 #include "pthread.h"
 
-#pragma info(none)
+//#pragma info(none)
 #include "pkcsslotd.h"
-#pragma info(restore)
+//#pragma info(restore)
 
   static ConstInfo SysErrorInfo[] = {
 
@@ -1017,44 +1017,6 @@ const unsigned char *ConstName( pConstInfo pInfoArray, unsigned int InfoArraySiz
     return ConstName ( PkcsAttributeInfo, PkcsAttributeSize, Val);
   }
 
-  unsigned char *PkcsReturnString ( unsigned char *Dest, CK_ULONG DestLen, CK_RV *Array, CK_ULONG ArrayLen ) {
-
-    char Str[2048];
-    u_int32 i;
-
-    memset ( Str, '\0', sizeof(Str) );
-    strcat ( Str, "( ");
-    for ( i = 0; i < ArrayLen; i++ ) {
-      if ( i != 0 ) {
-	strcat ( Str, " || ");
-      }
-      #pragma info(none)
-      strcat (Str, (const char *) PkcsReturn(Array[i]));
-      #pragma info(restore)
-    }
-    strcat( Str, " )");
-    
-    if ( ( strlen( Str ) + 1 ) > DestLen ) {
-#ifdef DEV
-      WarnLog("PkcsReturnString: Destination Buffer too small.  Copying partial string");
-#endif
-      if ( DestLen > 4 ) {
-	Str[DestLen - 1] = '\0';
-	Str[DestLen - 2] = '*';
-	Str[DestLen - 3] = '*';
-	Str[DestLen - 4] = '*';
-      }
-    }
-    #pragma info(none)
-    strncpy ( Dest, (unsigned char *)Str, DestLen );
-    #pragma info(restore)
-    return Dest;
-    
-  }
-
-
-
 const unsigned char *ResponseSeverity( unsigned int Val ) {
   return ConstName ( PkcsResponseSeverityInfo, PkcsResponseSeveritySize, Val);
 }
-

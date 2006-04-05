@@ -298,6 +298,7 @@
 #include <pthread.h>
 #include <stdio.h>
 #include <stdlib.h>
+#include <unistd.h>
 #include <string.h>
 #include <sys/types.h>
 #include <sys/stat.h>
@@ -316,6 +317,8 @@
 #include "tok_spec_struct.h"
 #include "pkcs32.h"
 //#include "args.h"
+
+#include "../api/apiproto.h"
 
 #define MK_SIZE (AES_KEY_SIZE_256)
 
@@ -727,7 +730,7 @@ save_private_token_object( OBJECT *obj )
 
 	rc = ckm_aes_cbc_encrypt( cleartxt,    padded_len,
 				 ciphertxt,  &ciphertxt_len,
-			         aes_iv, (char *) aes_key, AES_KEY_SIZE_256 );
+			         aes_iv, (unsigned char *) aes_key, AES_KEY_SIZE_256 );
 #else
          bcopy(cleartxt,ciphertxt,padded_len);
          rc = CKR_OK;

@@ -318,6 +318,7 @@
 
 CK_BBOOL pin_expired(CK_SESSION_INFO *, CK_FLAGS);
 CK_BBOOL pin_locked(CK_SESSION_INFO *, CK_FLAGS);
+void set_login_flags(CK_USER_TYPE, CK_FLAGS_32 *);
 
 // the following enum is for performance measurements.  since the server runs
 // as an NT service, it's difficult (impossible?) to use a standalone performance

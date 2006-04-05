@@ -398,7 +398,8 @@ typedef struct{
  *
  */
 
-typedef unsigned long long pid_t_64;
+//typedef unsigned long long pid_t_64;
+typedef signed long long pid_t_64;
 typedef unsigned long long time_t_64;
 typedef unsigned long long CK_SLOT_ID_64;
 typedef unsigned long long CK_FLAGS_64;

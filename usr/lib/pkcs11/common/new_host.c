@@ -300,13 +300,15 @@
  
 ****************************************************************************/
 
-
+#define _GNU_SOURCE
 #include <pthread.h>
 #include <stdio.h>
 #include <time.h>
 #include <string.h>
+#include <strings.h>
 
 #include <stdlib.h>
+#include <unistd.h>
 #include <sys/types.h>
 #include <grp.h>
 #include <pwd.h>
@@ -319,6 +321,8 @@
 #include "h_extern.h"
 #include "tok_spec_struct.h"
 #include "pkcs32.h"
+
+#include "../api/apiproto.h"
 
 #define UCHAR  unsigned char
 
@@ -374,6 +378,8 @@ CK_ULONG  usage_count = 0; // variable for number of times the DLL has
 CK_C_INITIALIZE_ARGS cinit_args = { NULL, NULL, NULL, NULL, 0, NULL };
 
 extern void stlogterm();
+extern void stloginit();
+extern void stlogit2(int type,char *fmt, ...);
 
 CK_BBOOL
 st_Initialized()
@@ -658,7 +664,7 @@ ST_Initialize(void **FunctionList,
 		debugon=1;
 	}
 
-	init_data_store(PK_DIR);
+	init_data_store((char *)PK_DIR);
 
 
 	// Handle global initialization issues first if we have not
@@ -766,21 +772,52 @@ copy_token_contents_sensibly(CK_TOKEN_INFO_PTR pInfo, TOKEN_DATA *nv_token_data)
 {
 	memcpy(pInfo, &nv_token_data->token_info, sizeof(CK_TOKEN_INFO_32));
 	pInfo->flags = nv_token_data->token_info.flags;
-	pInfo->ulMaxSessionCount = nv_token_data->token_info.ulMaxSessionCount;
-	pInfo->ulSessionCount = nv_token_data->token_info.ulSessionCount;
-	pInfo->ulMaxRwSessionCount = 
-		nv_token_data->token_info.ulMaxRwSessionCount;
-	pInfo->ulRwSessionCount = nv_token_data->token_info.ulRwSessionCount;
+
+	if ( nv_token_data->token_info.ulMaxSessionCount == (CK_ULONG_32)CK_UNAVAILABLE_INFORMATION ) {
+	  pInfo->ulMaxSessionCount = (CK_ULONG)CK_UNAVAILABLE_INFORMATION;
+	} else {
+	  pInfo->ulMaxSessionCount = nv_token_data->token_info.ulMaxSessionCount;
+	}
+	if ( nv_token_data->token_info.ulSessionCount == (CK_ULONG_32)CK_UNAVAILABLE_INFORMATION ) {
+	  pInfo->ulSessionCount = (CK_ULONG)CK_UNAVAILABLE_INFORMATION;
+	} else {
+	  pInfo->ulSessionCount = nv_token_data->token_info.ulSessionCount;
+	}
+	if ( nv_token_data->token_info.ulMaxRwSessionCount == (CK_ULONG_32)CK_UNAVAILABLE_INFORMATION ) {
+	  pInfo->ulMaxRwSessionCount = (CK_ULONG)CK_UNAVAILABLE_INFORMATION;
+	} else {
+	  pInfo->ulMaxRwSessionCount = 	nv_token_data->token_info.ulMaxRwSessionCount;
+	}
+	if ( nv_token_data->token_info.ulRwSessionCount == (CK_ULONG_32)CK_UNAVAILABLE_INFORMATION ) {
+	  pInfo->ulRwSessionCount = (CK_ULONG)CK_UNAVAILABLE_INFORMATION;
+	} else {
+	  pInfo->ulRwSessionCount = nv_token_data->token_info.ulRwSessionCount;
+	}
+
 	pInfo->ulMaxPinLen = nv_token_data->token_info.ulMaxPinLen;
 	pInfo->ulMinPinLen = nv_token_data->token_info.ulMinPinLen;
-	pInfo->ulTotalPublicMemory =
-		nv_token_data->token_info.ulTotalPublicMemory;
-	pInfo->ulFreePublicMemory =
-		nv_token_data->token_info.ulFreePublicMemory;
-	pInfo->ulTotalPrivateMemory = 
-		nv_token_data->token_info.ulTotalPrivateMemory;
-	pInfo->ulFreePrivateMemory = 
-		nv_token_data->token_info.ulFreePrivateMemory;
+
+	if ( nv_token_data->token_info.ulTotalPublicMemory == (CK_ULONG_32)CK_UNAVAILABLE_INFORMATION ) {
+	  pInfo->ulTotalPublicMemory = (CK_ULONG)CK_UNAVAILABLE_INFORMATION;
+	} else {
+	  pInfo->ulTotalPublicMemory = nv_token_data->token_info.ulTotalPublicMemory;
+	}
+	if ( nv_token_data->token_info.ulFreePublicMemory == (CK_ULONG_32)CK_UNAVAILABLE_INFORMATION ) {
+	  pInfo->ulFreePublicMemory = (CK_ULONG)CK_UNAVAILABLE_INFORMATION;
+	} else {
+	  pInfo->ulFreePublicMemory = nv_token_data->token_info.ulFreePublicMemory;
+	}
+	if ( nv_token_data->token_info.ulTotalPrivateMemory == (CK_ULONG_32)CK_UNAVAILABLE_INFORMATION ) {
+	  pInfo->ulTotalPrivateMemory = (CK_ULONG)CK_UNAVAILABLE_INFORMATION;
+	} else {
+	  pInfo->ulTotalPrivateMemory = nv_token_data->token_info.ulTotalPrivateMemory;
+	}
+	if ( nv_token_data->token_info.ulFreePrivateMemory == (CK_ULONG_32)CK_UNAVAILABLE_INFORMATION ) {
+	  pInfo->ulFreePrivateMemory = (CK_ULONG)CK_UNAVAILABLE_INFORMATION;
+	} else {
+	  pInfo->ulFreePrivateMemory = nv_token_data->token_info.ulFreePrivateMemory;
+	}
+
 	pInfo->hardwareVersion = nv_token_data->token_info.hardwareVersion;
 	pInfo->firmwareVersion = nv_token_data->token_info.firmwareVersion;
 	pInfo->flags = long_reverse(pInfo->flags);
@@ -1364,7 +1401,7 @@ CK_RV SC_OpenSession(CK_SLOT_ID             sid,
 			 rc);
 		if (rc == CKR_OK)
 			stlogit2(debugfile, "sess = %d", 
-				 ((sess == NULL) ? -1 : sess->handle));
+				 ((sess == NULL) ? -1 : (CK_LONG)sess->handle));
 		stlogit2(debugfile, "\n");
 	}
 	UNLOCKIT;
@@ -2309,7 +2346,7 @@ CK_RV SC_EncryptInit( ST_SESSION_HANDLE  sSession,
  done:
 	LLOCK;
 	if (debugfile) {
-		stlogit2(debugfile, "%-25s:  rc = %08x, sess = %d, key = %d, mech = 0x%x\n", "C_EncryptInit", rc,(sess == NULL)?-1:sess->handle, hKey, pMechanism->mechanism );
+		stlogit2(debugfile, "%-25s:  rc = %08x, sess = %d, key = %d, mech = 0x%x\n", "C_EncryptInit", rc,(sess == NULL)?-1:(CK_LONG)sess->handle, hKey, pMechanism->mechanism );
 	}
 
 	UNLOCKIT; return rc;
@@ -2373,7 +2410,7 @@ CK_RV SC_Encrypt( ST_SESSION_HANDLE  sSession,
 		encr_mgr_cleanup( &sess->encr_ctx );
 
 	if (debugfile) {
-		stlogit2(debugfile, "%-25s:  rc = %08x, sess = %d, amount = %d\n", "C_Encrypt", rc, (sess == NULL)?-1:sess->handle, ulDataLen );
+		stlogit2(debugfile, "%-25s:  rc = %08x, sess = %d, amount = %d\n", "C_Encrypt", rc, (sess == NULL)?-1:(CK_LONG)sess->handle, ulDataLen );
 	}
 
 	UNLOCKIT; return rc;
@@ -2437,7 +2474,7 @@ CK_RV SC_EncryptUpdate( ST_SESSION_HANDLE  sSession,
 		encr_mgr_cleanup( &sess->encr_ctx );
 
 	if (debugfile) {
-		stlogit2(debugfile, "%-25s:  rc = %08x, sess = %d, amount = %d\n", "C_EncryptUpdate", rc, (sess == NULL)?-1:sess->handle, ulPartLen );
+		stlogit2(debugfile, "%-25s:  rc = %08x, sess = %d, amount = %d\n", "C_EncryptUpdate", rc, (sess == NULL)?-1:(CK_LONG)sess->handle, ulPartLen );
 	}
 
 	UNLOCKIT; return rc;
@@ -2516,7 +2553,7 @@ CK_RV SC_EncryptFinal( ST_SESSION_HANDLE  sSession,
 		encr_mgr_cleanup( &sess->encr_ctx );
 
 	if (debugfile) {
-		stlogit2(debugfile, "%-25s:  rc = %08x, sess = %d\n", "C_EncryptFinal", rc, (sess == NULL)?-1:sess->handle );
+		stlogit2(debugfile, "%-25s:  rc = %08x, sess = %d\n", "C_EncryptFinal", rc, (sess == NULL)?-1:(CK_LONG)sess->handle );
 	}
 
 	UNLOCKIT; return rc;
@@ -2575,7 +2612,7 @@ CK_RV SC_DecryptInit( ST_SESSION_HANDLE  sSession,
  done:
 	LLOCK;
 	if (debugfile) {
-		stlogit2(debugfile, "%-25s:  rc = %08x, sess = %d, key = %d, mech = 0x%x\n", "C_DecryptInit", rc, (sess == NULL)?-1:sess->handle, hKey, pMechanism->mechanism );
+		stlogit2(debugfile, "%-25s:  rc = %08x, sess = %d, key = %d, mech = 0x%x\n", "C_DecryptInit", rc, (sess == NULL)?-1:(CK_LONG)sess->handle, hKey, pMechanism->mechanism );
 	}
 
 	UNLOCKIT; return rc;
@@ -2639,7 +2676,7 @@ CK_RV SC_Decrypt( ST_SESSION_HANDLE  sSession,
 		decr_mgr_cleanup( &sess->decr_ctx );
 
 	if (debugfile) {
-		stlogit2(debugfile, "%-25s:  rc = %08x, sess = %d, amount = %d\n", "C_Decrypt", rc, (sess == NULL)?-1:sess->handle, ulEncryptedDataLen );
+		stlogit2(debugfile, "%-25s:  rc = %08x, sess = %d, amount = %d\n", "C_Decrypt", rc, (sess == NULL)?-1:(CK_LONG)sess->handle, ulEncryptedDataLen );
 	}
 
 	UNLOCKIT; return rc;
@@ -2703,7 +2740,7 @@ CK_RV SC_DecryptUpdate( ST_SESSION_HANDLE  sSession,
 		decr_mgr_cleanup( &sess->decr_ctx );
 
 	if (debugfile) {
-		stlogit2(debugfile, "%-25s:  rc = %08x, sess = %d, amount = %d\n", "C_DecryptUpdate", rc, (sess == NULL)?-1:sess->handle, ulEncryptedPartLen );
+		stlogit2(debugfile, "%-25s:  rc = %08x, sess = %d, amount = %d\n", "C_DecryptUpdate", rc, (sess == NULL)?-1:(CK_LONG)sess->handle, ulEncryptedPartLen );
 	}
 
 	UNLOCKIT; return rc;
@@ -2764,7 +2801,7 @@ CK_RV SC_DecryptFinal( ST_SESSION_HANDLE  sSession,
 		decr_mgr_cleanup( &sess->decr_ctx );
 
 	if (debugfile) {
-		stlogit2(debugfile, "%-25s:  rc = %08x, sess = %d, amount = %d\n", "C_DecryptFinal", rc, (sess == NULL)?-1:sess->handle, *pulLastPartLen );
+		stlogit2(debugfile, "%-25s:  rc = %08x, sess = %d, amount = %d\n", "C_DecryptFinal", rc, (sess == NULL)?-1:(CK_LONG)sess->handle, *pulLastPartLen );
 	}
 
 	UNLOCKIT; return rc;
@@ -2823,7 +2860,7 @@ CK_RV SC_DigestInit( ST_SESSION_HANDLE  sSession,
  done:
 	LLOCK;
 	if (debugfile) {
-		stlogit2(debugfile, "%-25s:  rc = %08x, sess = %d, mech = %x\n", "C_DigestInit", rc, (sess == NULL)?-1:sess->handle, pMechanism->mechanism );
+		stlogit2(debugfile, "%-25s:  rc = %08x, sess = %d, mech = %x\n", "C_DigestInit", rc, (sess == NULL)?-1:(CK_LONG)sess->handle, pMechanism->mechanism );
 	}
 
 	UNLOCKIT; return rc;
@@ -2890,7 +2927,7 @@ CK_RV SC_Digest( ST_SESSION_HANDLE  sSession,
 
 	LLOCK;
 	if (debugfile) {
-		stlogit2(debugfile, "%-25s:  rc = %08x, sess = %d, datalen = %d\n", "C_Digest", rc, (sess == NULL)?-1:sess->handle, ulDataLen );
+		stlogit2(debugfile, "%-25s:  rc = %08x, sess = %d, datalen = %d\n", "C_Digest", rc, (sess == NULL)?-1:(CK_LONG)sess->handle, ulDataLen );
 	}
 
 	UNLOCKIT; return rc;
@@ -2948,7 +2985,7 @@ CK_RV SC_DigestUpdate( ST_SESSION_HANDLE  sSession,
 
 	LLOCK;
 	if (debugfile) {
-		stlogit2(debugfile, "%-25s:  rc = %08x, sess = %d, datalen = %d\n", "C_DigestUpdate", rc, (sess == NULL)?-1:sess->handle, ulPartLen );
+		stlogit2(debugfile, "%-25s:  rc = %08x, sess = %d, datalen = %d\n", "C_DigestUpdate", rc, (sess == NULL)?-1:(CK_LONG)sess->handle, ulPartLen );
 	}
 
 	UNLOCKIT; return rc;
@@ -2995,7 +3032,7 @@ CK_RV SC_DigestKey( ST_SESSION_HANDLE  sSession,
 
 	LLOCK;
 	if (debugfile) {
-		stlogit2(debugfile, "%-25s:  rc = %08x, sess = %d, key = %d\n", "C_DigestKey", rc, (sess == NULL)?-1:sess->handle, hKey );
+		stlogit2(debugfile, "%-25s:  rc = %08x, sess = %d, key = %d\n", "C_DigestKey", rc, (sess == NULL)?-1:(CK_LONG)sess->handle, hKey );
 	}
 
 	UNLOCKIT; return rc;
@@ -3056,7 +3093,7 @@ CK_RV SC_DigestFinal( ST_SESSION_HANDLE  sSession,
 
 	LLOCK;
 	if (debugfile) {
-		stlogit2(debugfile, "%-25s:  rc = %08x, sess = %d\n", "C_DigestFinal", rc, (sess == NULL)?-1:sess->handle );
+		stlogit2(debugfile, "%-25s:  rc = %08x, sess = %d\n", "C_DigestFinal", rc, (sess == NULL)?-1:(CK_LONG)sess->handle );
 	}
 
 	UNLOCKIT; return rc;
@@ -3115,7 +3152,7 @@ CK_RV SC_SignInit( ST_SESSION_HANDLE  sSession,
  done:
 	LLOCK;
 	if (debugfile) {
-		stlogit2(debugfile, "%-25s:  rc = %08x, sess = %d, mech = %x\n", "C_SignInit", rc, (sess == NULL)?-1:sess->handle, pMechanism->mechanism );
+		stlogit2(debugfile, "%-25s:  rc = %08x, sess = %d, mech = %x\n", "C_SignInit", rc, (sess == NULL)?-1:(CK_LONG)sess->handle, pMechanism->mechanism );
 	}
 
 	UNLOCKIT; return rc;
@@ -3179,7 +3216,7 @@ CK_RV SC_Sign( ST_SESSION_HANDLE  sSession,
 
 	LLOCK;
 	if (debugfile) {
-		stlogit2(debugfile, "%-25s:  rc = %08x, sess = %d, datalen = %d\n", "C_Sign", rc, (sess == NULL)?-1:sess->handle, ulDataLen );
+		stlogit2(debugfile, "%-25s:  rc = %08x, sess = %d, datalen = %d\n", "C_Sign", rc, (sess == NULL)?-1:(CK_LONG)sess->handle, ulDataLen );
 	}
 
 	UNLOCKIT; return rc;
@@ -3234,7 +3271,7 @@ CK_RV SC_SignUpdate( ST_SESSION_HANDLE  sSession,
 
 	LLOCK;
 	if (debugfile) {
-		stlogit2(debugfile, "%-25s:  rc = %08x, sess = %d, datalen = %d\n", "C_SignUpdate", rc, (sess == NULL)?-1:sess->handle, ulPartLen );
+		stlogit2(debugfile, "%-25s:  rc = %08x, sess = %d, datalen = %d\n", "C_SignUpdate", rc, (sess == NULL)?-1:(CK_LONG)sess->handle, ulPartLen );
 	}
 
 	UNLOCKIT; return rc;
@@ -3296,7 +3333,7 @@ CK_RV SC_SignFinal( ST_SESSION_HANDLE  sSession,
 	LLOCK;
 	if (debugfile)
 	{
-		stlogit2(debugfile, "%-25s:  rc = %08x, sess = %d\n", "C_SignFinal", rc, (sess == NULL)?-1:sess->handle );
+		stlogit2(debugfile, "%-25s:  rc = %08x, sess = %d\n", "C_SignFinal", rc, (sess == NULL)?-1:(CK_LONG)sess->handle );
 	}
 
 	UNLOCKIT; return rc;
@@ -3354,7 +3391,7 @@ CK_RV SC_SignRecoverInit( ST_SESSION_HANDLE  sSession,
  done:
 	LLOCK;
 	if (debugfile) {
-		stlogit2(debugfile, "%-25s:  rc = %08x, sess = %d, mech = %x\n", "C_SignRecoverInit", rc, (sess == NULL)?-1:sess->handle, pMechanism->mechanism );
+		stlogit2(debugfile, "%-25s:  rc = %08x, sess = %d, mech = %x\n", "C_SignRecoverInit", rc, (sess == NULL)?-1:(CK_LONG)sess->handle, pMechanism->mechanism );
 	}
 
 	UNLOCKIT; return rc;
@@ -3418,7 +3455,7 @@ CK_RV SC_SignRecover( ST_SESSION_HANDLE  sSession,
 
 	LLOCK;
 	if (debugfile) {
-		stlogit2(debugfile, "%-25s:  rc = %08x, sess = %d, datalen = %d\n", "C_SignRecover", rc, (sess == NULL)?-1:sess->handle, ulDataLen );
+		stlogit2(debugfile, "%-25s:  rc = %08x, sess = %d, datalen = %d\n", "C_SignRecover", rc, (sess == NULL)?-1:(CK_LONG)sess->handle, ulDataLen );
 	}
 
 	UNLOCKIT; return rc;
@@ -3476,7 +3513,7 @@ CK_RV SC_VerifyInit( ST_SESSION_HANDLE  sSession,
  done:
 	LLOCK;
 	if (debugfile) {
-		stlogit2(debugfile, "%-25s:  rc = %08x, sess = %d, mech = %x\n", "C_VerifyInit", rc, (sess == NULL)?-1:sess->handle, pMechanism->mechanism );
+		stlogit2(debugfile, "%-25s:  rc = %08x, sess = %d, mech = %x\n", "C_VerifyInit", rc, (sess == NULL)?-1:(CK_LONG)sess->handle, pMechanism->mechanism );
 	}
 
 	UNLOCKIT; return rc;
@@ -3535,7 +3572,7 @@ CK_RV SC_Verify( ST_SESSION_HANDLE  sSession,
 
 	LLOCK;
 	if (debugfile) {
-		stlogit2(debugfile, "%-25s:  rc = %08x, sess = %d, datalen = %d\n", "C_Verify", rc, (sess == NULL)?-1:sess->handle, ulDataLen );
+		stlogit2(debugfile, "%-25s:  rc = %08x, sess = %d, datalen = %d\n", "C_Verify", rc, (sess == NULL)?-1:(CK_LONG)sess->handle, ulDataLen );
 	}
 
 	UNLOCKIT; return rc;
@@ -3590,7 +3627,7 @@ CK_RV SC_VerifyUpdate( ST_SESSION_HANDLE  sSession,
 
 	LLOCK;
 	if (debugfile) {
-		stlogit2(debugfile, "%-25s:  rc = %08x, sess = %d, datalen = %d\n", "C_VerifyUpdate", rc, (sess == NULL)?-1:sess->handle, ulPartLen );
+		stlogit2(debugfile, "%-25s:  rc = %08x, sess = %d, datalen = %d\n", "C_VerifyUpdate", rc, (sess == NULL)?-1:(CK_LONG)sess->handle, ulPartLen );
 	}
 
 	UNLOCKIT; return rc;
@@ -3644,7 +3681,7 @@ CK_RV SC_VerifyFinal( ST_SESSION_HANDLE  sSession,
 
 	LLOCK;
 	if (debugfile) {
-		stlogit2(debugfile, "%-25s:  rc = %08x, sess = %d\n", "C_VerifyFinal", rc, (sess == NULL)?-1:sess->handle );
+		stlogit2(debugfile, "%-25s:  rc = %08x, sess = %d\n", "C_VerifyFinal", rc, (sess == NULL)?-1:(CK_LONG)sess->handle );
 	}
 
 	UNLOCKIT; return rc;
@@ -3702,7 +3739,7 @@ CK_RV SC_VerifyRecoverInit( ST_SESSION_HANDLE  sSession,
  done:
 	LLOCK;
 	if (debugfile) {
-		stlogit2(debugfile, "%-25s:  rc = %08x, sess = %d, mech = %x\n", "C_VerifyRecoverInit", rc, (sess == NULL)?-1:sess->handle, pMechanism->mechanism );
+		stlogit2(debugfile, "%-25s:  rc = %08x, sess = %d, mech = %x\n", "C_VerifyRecoverInit", rc, (sess == NULL)?-1:(CK_LONG)sess->handle, pMechanism->mechanism );
 	}
 
 	UNLOCKIT; return rc;
@@ -3767,7 +3804,7 @@ CK_RV SC_VerifyRecover( ST_SESSION_HANDLE  sSession,
 
 	LLOCK;
 	if (debugfile) {
-		stlogit2(debugfile, "%-25s:  rc = %08x, sess = %d, recover len = %d, length_only = %d\n", "C_VerifyRecover", rc, (sess == NULL)?-1:sess->handle, *pulDataLen, length_only );
+		stlogit2(debugfile, "%-25s:  rc = %08x, sess = %d, recover len = %d, length_only = %d\n", "C_VerifyRecover", rc, (sess == NULL)?-1:(CK_LONG)sess->handle, *pulDataLen, length_only );
 	}
 
 	UNLOCKIT; return rc;
@@ -3898,7 +3935,7 @@ CK_RV SC_GenerateKey( ST_SESSION_HANDLE     sSession,
 		CK_ATTRIBUTE *attr = pTemplate;
 		CK_ULONG      i;
 
-		stlogit2(debugfile, "%-25s:  rc = %08x, sess = %d, handle = %d, mech = %x\n", "C_GenerateKey", rc, (sess == NULL)?-1:sess->handle, *phKey, pMechanism->mechanism );
+		stlogit2(debugfile, "%-25s:  rc = %08x, sess = %d, handle = %d, mech = %x\n", "C_GenerateKey", rc, (sess == NULL)?-1:(CK_LONG)sess->handle, *phKey, pMechanism->mechanism );
 
 		for (i = 0; i < ulCount; i++, attr++) {
 			CK_BYTE *ptr = (CK_BYTE *)attr->pValue;
@@ -3978,7 +4015,7 @@ CK_RV SC_GenerateKeyPair( ST_SESSION_HANDLE     sSession,
 		CK_ATTRIBUTE *attr = NULL;
 		CK_ULONG      i;
 
-		stlogit2(debugfile, "%-25s:  rc = %08x, sess = %d, mech = %x\n", "C_GenerateKeyPair", rc, (sess == NULL)?-1:sess->handle, pMechanism->mechanism );
+		stlogit2(debugfile, "%-25s:  rc = %08x, sess = %d, mech = %x\n", "C_GenerateKeyPair", rc, (sess == NULL)?-1:(CK_LONG)sess->handle, pMechanism->mechanism );
 
 		if (rc == CKR_OK) {
 			stlogit2(debugfile, "   Public  handle:  %d\n", *phPublicKey );
@@ -4077,7 +4114,7 @@ CK_RV SC_WrapKey( ST_SESSION_HANDLE  sSession,
  done:
 	LLOCK;
 	if (debugfile) {
-		stlogit2(debugfile, "%-25s:  rc = %08x, sess = %d, encrypting key = %d, wrapped key = %d\n", "C_WrapKey", rc, (sess == NULL)?-1:sess->handle, hWrappingKey, hKey );
+		stlogit2(debugfile, "%-25s:  rc = %08x, sess = %d, encrypting key = %d, wrapped key = %d\n", "C_WrapKey", rc, (sess == NULL)?-1:(CK_LONG)sess->handle, hWrappingKey, hKey );
 	}
 
 	UNLOCKIT; return rc;
@@ -4144,7 +4181,7 @@ CK_RV SC_UnwrapKey( ST_SESSION_HANDLE     sSession,
 //   if (rc == CKR_OBJECT_HANDLE_INVALID)  brkpt();
 	LLOCK;
 	if (debugfile) {
-		stlogit2(debugfile, "%-25s:  rc = %08x, sess = %d, decrypting key = %d, unwrapped key = %d\n", "C_UnwrapKey", rc, (sess == NULL)?-1:sess->handle, hUnwrappingKey, *phKey );
+		stlogit2(debugfile, "%-25s:  rc = %08x, sess = %d, decrypting key = %d, unwrapped key = %d\n", "C_UnwrapKey", rc, (sess == NULL)?-1:(CK_LONG)sess->handle, hUnwrappingKey, *phKey );
 
 		attr = pTemplate;
 		for (i = 0; i < ulCount; i++, attr++) {
@@ -4219,7 +4256,7 @@ CK_RV SC_DeriveKey( ST_SESSION_HANDLE     sSession,
  done:
 	LLOCK;
 	if (debugfile) {
-		stlogit2(debugfile, "%-25s:  rc = %08x, sess = %d, base key = %d, mech = %x\n", "C_DeriveKey", rc, (sess == NULL)?-1:sess->handle, hBaseKey, pMechanism->mechanism );
+		stlogit2(debugfile, "%-25s:  rc = %08x, sess = %d, base key = %d, mech = %x\n", "C_DeriveKey", rc, (sess == NULL)?-1:(CK_LONG)sess->handle, hBaseKey, pMechanism->mechanism );
 
 		if (rc == CKR_OK) {
 			switch (pMechanism->mechanism) {

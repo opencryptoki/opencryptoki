@@ -3058,8 +3058,6 @@ generic_secret_check_required_attributes( TEMPLATE *tmpl, CK_ULONG mode )
       // it's merely optional if the mechanism is CKM_SSL3_PRE_MASTER_KEY_GEN.
       // Unfortunately, we can't check the mechanism at this point
       //
-      //if (mode == MODE_KEYGEN)
-      //   return CKR_TEMPLATE_INCOMPLETE;
       return CKR_OK;
    }
    else {
@@ -3069,7 +3067,6 @@ generic_secret_check_required_attributes( TEMPLATE *tmpl, CK_ULONG mode )
       // most unwrapping mechanisms.  Netscape DOES does specify this attribute
       // when unwrapping.
       //
-      //if (mode == MODE_CREATE || mode == MODE_UNWRAP)
       if (mode == MODE_CREATE){
          st_err_log(7, __FILE__, __LINE__);
          return CKR_ATTRIBUTE_READ_ONLY;
@@ -4158,10 +4155,6 @@ des3_validate_attribute( TEMPLATE *tmpl, CK_ATTRIBUTE *attr, CK_ULONG mode )
             if (mode == MODE_CREATE || mode == MODE_DERIVE ||
                 mode == MODE_KEYGEN || mode == MODE_UNWRAP)
             {
-//               CK_ULONG len = *(CK_ULONG *)attr->pValue;
-//               if (len != (3 * DES_KEY_SIZE))
-//                  return CKR_ATTRIBUTE_VALUE_INVALID;
-//               else
                   return CKR_OK;
             }
             else{
@@ -5115,7 +5108,6 @@ aes_check_required_attributes( TEMPLATE *tmpl, CK_ULONG mode )
 CK_RV
 aes_validate_attribute( TEMPLATE *tmpl, CK_ATTRIBUTE *attr, CK_ULONG mode )
 {
-   CK_BYTE   * ptr = NULL;
    CK_ULONG    val;
 
    switch (attr->type) {
@@ -5208,7 +5200,6 @@ aes_unwrap( TEMPLATE *tmpl,
    CK_ATTRIBUTE  * value_attr   = NULL;
    CK_ATTRIBUTE  * val_len_attr = NULL;
    CK_BYTE       * ptr          = NULL;
-   CK_ULONG        i;
    CK_ULONG	   key_size;
    CK_BBOOL	   found        = FALSE;
 
@@ -5235,6 +5226,7 @@ aes_unwrap( TEMPLATE *tmpl,
       ptr = data;
    
 #if 0
+   CK_ULONG        i;
    if (nv_token_data->tweak_vector.check_des_parity == TRUE) {
       for (i=0; i < 3*DES_KEY_SIZE; i++) {
          if (parity_is_odd(ptr[i]) == FALSE){

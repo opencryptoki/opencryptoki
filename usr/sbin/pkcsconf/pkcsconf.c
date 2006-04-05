@@ -301,6 +301,7 @@
 #include <nl_types.h>
 #include <memory.h>
 #include <string.h>
+#include <strings.h>
 #include "slotmgr.h"
 #include "pkcsconf_msg.h"
 
@@ -330,7 +331,7 @@ nl_catd catd;
 #define CFG_LIST_SLOT      0x2000
 
 CK_RV init(void);
-void  usage(unsigned char *);
+void  usage(char *);
 int   echo(int);
 void  get_pin(CK_CHAR **);
 CK_RV cleanup(void);
@@ -450,7 +451,7 @@ main(int argc, char *argv[]){
       validate_slot(slot);
 #else
    if (flags & CFG_SLOT) {
-	in_slot = atol(slot);
+     in_slot = atol((char *)slot);
    }
 #endif
 
@@ -520,7 +521,7 @@ main(int argc, char *argv[]){
          printf(PKCSINIT_MSG(VNEWUSER, "Re-enter the new user PIN: "));
          fflush(stdout);
          get_pin(&newpin2);
-         if (! memcmp(newpin, newpin2, strlen(newpin)) == 0) {
+         if (! memcmp(newpin, newpin2, strlen((char *)newpin)) == 0) {
             printf(PKCSINIT_MSG(PINMISMATCH, "New PINs do not match.\n"));
             fflush(stdout);
             exit(CKR_PIN_INVALID);
@@ -544,7 +545,7 @@ main(int argc, char *argv[]){
          printf(PKCSINIT_MSG(VNEWSO, "Re-enter the new SO PIN: "));
          fflush(stdout);
          get_pin(&newpin2);
-         if (! memcmp(newpin, newpin2, strlen(newpin)) == 0) {
+         if (! memcmp(newpin, newpin2, strlen((char *)newpin)) == 0) {
             printf(PKCSINIT_MSG(PINMISMATCH, "New PINs do not match.\n"));
             fflush(stdout);
             exit(CKR_PIN_INVALID);
@@ -568,7 +569,7 @@ main(int argc, char *argv[]){
          printf(PKCSINIT_MSG(VNEWUSER, "Re-enter the new user PIN: "));
          fflush(stdout);
          get_pin(&newpin2);
-         if (! memcmp(newpin, newpin2, strlen(newpin)) == 0) {
+         if (! memcmp(newpin, newpin2, strlen((char *)newpin)) == 0) {
             printf(PKCSINIT_MSG(PINMISMATCH, "New PINs do not match.\n"));
             fflush(stdout);
             exit(CKR_PIN_INVALID);
@@ -583,22 +584,22 @@ main(int argc, char *argv[]){
 
 done:
 #if SHM
-   detach_shared_memory((char *)shmp);
-   free (slot);
+     detach_shared_memory((char *)shmp);
+     free (slot);
 #endif
 
    if (sopin) {
-      bzero (sopin, strlen(sopin));
-      free (sopin);
+     bzero (sopin, strlen((char *)sopin));
+     free (sopin);
    }
 
    if (pin) {
-      bzero (pin, strlen(pin));
+      bzero (pin, strlen((char *)pin));
       free (pin);
    }
 
    if (newpin) {
-      bzero (newpin, strlen(newpin));
+      bzero (newpin, strlen((char *)newpin));
       free (newpin);
    }
 
@@ -635,12 +636,12 @@ get_pin(CK_CHAR ** pin){
 
    /* Allocate 80 bytes for the user PIN.  This is large enough for the tokens
     * supported in AIX 5.0 and 5.1 */
-   *pin = (char *)malloc(PIN_SIZE);
+   *pin = (unsigned char *)malloc(PIN_SIZE);
 
    /* Strip the carage return from the user input (it is not part of the PIN)
     * and put the PIN in the return buffer */
    buff[count-1] =  '\0'; //NULL; 
-   strncpy(*pin, buff, strlen(buff)+1); // keep the trailing null for the strlen
+   strncpy((char *)*pin, buff, strlen((char *)buff)+1); // keep the trailing null for the strlen
 }
 
 int
@@ -672,6 +673,8 @@ echo(int bool){
     * displayed on the terminal is invalid */
    if (tcsetattr(STDIN_FILENO, TCSAFLUSH, &term) != 0)
       return -1;
+
+   return 0;
 }
 
 #if SHM
@@ -716,7 +719,7 @@ display_pkcs11_info(void){
 
    /* display the header and information */
    printf(PKCSINIT_MSG(PKCSINFO, "PKCS#11 Info\n"));
-   printf(PKCSINIT_MSG(VERSION, "\tVersion %d.%d \n"), CryptokiInfo.cryptokiVersion.major,
+   printf(PKCSINIT_MSG((int)VERSION, "\tVersion %d.%d \n"), CryptokiInfo.cryptokiVersion.major,
          CryptokiInfo.cryptokiVersion.minor);
    printf(PKCSINIT_MSG(MANUFACT, "\tManufacturer: %32s \n"), CryptokiInfo.manufacturerID);
    printf(PKCSINIT_MSG(FLAGS, "\tFlags: 0x%X  \n"), CryptokiInfo.flags);
@@ -725,6 +728,8 @@ display_pkcs11_info(void){
    printf(PKCSINIT_MSG(LIBVERSION, "\tLibrary Version %d.%d \n"),
          CryptokiInfo.libraryVersion.major,
          CryptokiInfo.libraryVersion.minor);
+
+   return rc;
 }
 
 CK_RV
@@ -793,7 +798,7 @@ display_mechanism_info(void){
    CK_MECHANISM_TYPE_PTR MechanismList = NULL;  // Head to Mechanism list
    CK_MECHANISM_INFO MechanismInfo;    // Structure to hold Mechanism Info
    CK_ULONG       MechanismCount = 0;  // Number of supported mechanisms
-   int            lcv, lcv2;           // Loop Control Variables
+   unsigned int   lcv, lcv2;           // Loop Control Variables
 
    for (lcv = 0; lcv < SlotCount; lcv++){
       /* For each slot find out how many mechanisms are supported */
@@ -844,7 +849,7 @@ CK_RV
 display_slot_info(void){
    CK_RV          rc;        // Return Code
    CK_SLOT_INFO   SlotInfo;  // Structure to hold slot information
-   int            lcv;       // Loop control Variable
+   unsigned int   lcv;       // Loop control Variable
 
    for (lcv = 0; lcv < SlotCount; lcv++){
       /* Get the info for the slot we are examining and store in SlotInfo*/
@@ -882,7 +887,7 @@ CK_RV
 list_slot(void){
    CK_RV          rc;        // Return code
    CK_SLOT_INFO   SlotInfo;  // Structure to hold slot information
-   int            lcv;       // Loop control variable
+   unsigned int   lcv;       // Loop control variable
 
    for (lcv = 0; lcv < SlotCount; lcv++){
       /* Get the info for the slot we are examining and store in SlotInfo*/
@@ -893,7 +898,7 @@ list_slot(void){
       }
 
       /* Display the slot description */
-      printf("%d:", SlotList[lcv]);
+      printf("%ld:", SlotList[lcv]);
       printf(PKCSINIT_MSG(SLOTDESC, "\tDescription: %.64s\n"), SlotInfo.slotDescription);
    }
    return CKR_OK;
@@ -903,7 +908,7 @@ CK_RV
 display_token_info(void){
    CK_RV          rc;         // Return Code
    CK_TOKEN_INFO  TokenInfo;  // Variable to hold Token Information
-   int            lcv;        // Loop control variable
+   unsigned int   lcv;        // Loop control variable
 
    for (lcv = 0; lcv < SlotCount; lcv++){
       /* Get the Token info for each slot in the system */
@@ -996,24 +1001,24 @@ init_token(CK_CHAR_PTR pin){
    CK_CHAR     label[32],        // What we want to set the Label of the card to
                enteredlabel[33]; // Max size of 32 + carriage return;
 
-   int lcv;                      // Loop Control Varable
+   unsigned int lcv;             // Loop Control Varable
 
    /* Find out the size of the entered PIN */
-   pinlen = strlen(pin);
+   pinlen = strlen((char *)pin);
 
    /* Get the token label from the user, NOTE it states to give a unique label
     * but it is never verified as unique.  This is becuase Netscape requires a
     * unique token label; however the PKCS11 spec does not.  */
    printf(PKCSINIT_MSG(GETLABEL, "Enter a unique token label: "));
    fflush(stdout);
-   fgets(enteredlabel, sizeof(enteredlabel), stdin);
+   fgets((char *)enteredlabel, sizeof(enteredlabel), stdin);
 
    /* First clear the label array.  We must have 32 characters for PADDING then
     * we start all labels with 'IBM 4758 - ' therefore we use some of the label
     * information for our own use.  This is primarily done for support reasons,
     * we are able to look at the labels and determine what is in the system */
    memset(label, ' ', 32);
-   strncpy(label, enteredlabel, strlen(enteredlabel) - 1);   // Strip the \n
+   strncpy((char *)label, (char *)enteredlabel, strlen((char *)enteredlabel) - 1);   // Strip the \n
 
    /* It is possible to initialize all tokens although this would not give us a
     * unique token label would it?  Normally this would be called with only one
@@ -1046,8 +1051,8 @@ init_user_pin(CK_CHAR_PTR pin, CK_CHAR_PTR sopin){
    CK_ULONG pinlen, sopinlen;          // Length of the user and SO PINs
 
    /* get the length of the PINs */
-   pinlen = strlen(pin);
-   sopinlen = strlen(sopin);
+   pinlen = strlen((char *)pin);
+   sopinlen = strlen((char *)sopin);
 
    /* set the mask we will use for Open Session */
    flags |= CKF_SERIAL_SESSION;
@@ -1066,7 +1071,7 @@ init_user_pin(CK_CHAR_PTR pin, CK_CHAR_PTR sopin){
    /* After the session is open, we must login as the SO to initialize the PIN */
    rc = FunctionPtr->C_Login(session_handle, CKU_SO, sopin, sopinlen);
    if (rc != CKR_OK){
-      if (rc = CKR_PIN_INCORRECT) {
+      if (rc == CKR_PIN_INCORRECT) {
          printf(PKCSINIT_MSG(INCORRECTPIN, "Incorrect PIN Entered.\n"));
          fflush(stdout);
       }
@@ -1112,8 +1117,8 @@ set_user_pin(CK_USER_TYPE user, CK_CHAR_PTR oldpin, CK_CHAR_PTR newpin){
     *        the CK_USER_TYPE specifes which we are changing. */
 
    /* Get the size of the PINs */
-   oldpinlen = strlen(oldpin);
-   newpinlen = strlen(newpin);
+   oldpinlen = strlen((char *)oldpin);
+   newpinlen = strlen((char *)newpin);
 
    /* set the flags we will open the session with */
    flags |= CKF_SERIAL_SESSION;
@@ -1131,7 +1136,7 @@ set_user_pin(CK_USER_TYPE user, CK_CHAR_PTR oldpin, CK_CHAR_PTR newpin){
    /* Login to the session we just created as the pkcs11 passed in USER type */
    rc = FunctionPtr->C_Login(session_handle, user, oldpin, oldpinlen);
    if (rc != CKR_OK){
-      if (rc = CKR_PIN_INCORRECT) {
+      if (rc == CKR_PIN_INCORRECT) {
          printf(PKCSINIT_MSG(INCORRECTPIN, "Incorrect PIN Entered.\n"));
          fflush(stdout);
       }
@@ -1238,7 +1243,7 @@ cleanup(void){
 }
 
 void
-usage(unsigned char *progname){
+usage(char *progname){
 
    /* If we get here the user needs help, so give it to them */
    printf(PKCSINIT_MSG(USAGE,

@@ -301,7 +301,7 @@
  ***********************************************************************/
 
 
-#pragma info(none)
+//#pragma info(none)
 
 #ifndef _PKCSSLOTMGR_H
 #define _PKCSSLOTMGR_H 1
@@ -544,4 +544,4 @@ int  DestroyXProcLock(void *);
 #endif /* _SLOTMGR_H */
 
 
-#pragma info(restore)
+    //#pragma info(restore)

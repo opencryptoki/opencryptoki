@@ -291,9 +291,9 @@
 
 #include "pthread.h"
 
-#pragma info(none)
+//#pragma info(none)
 #include "pkcsslotd.h"
-#pragma info(restore)
+//#pragma info(restore)
 
 
 #if SYSVSEM

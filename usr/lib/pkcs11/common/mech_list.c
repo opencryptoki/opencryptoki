@@ -288,6 +288,9 @@
 
 /* COPYRIGHT (c) International Business Machines Corp. 2005 */
 
+#include <stdlib.h>
+#include <string.h>
+
 #include "pkcs11types.h"
 #include "defs.h"
 #include "host_defs.h"
@@ -352,7 +355,7 @@ ock_generic_get_mechanism_list(CK_MECHANISM_TYPE_PTR pMechanismList,
 			       CK_ULONG_PTR pulCount)
 {
 	int rc = CKR_OK;
-	int i;
+	unsigned int i;
 	if (pMechanismList == NULL) {
 		(*pulCount) = mech_list_len;
 		goto out;
@@ -375,7 +378,7 @@ ock_generic_get_mechanism_info(CK_MECHANISM_TYPE type,
 			       CK_MECHANISM_INFO_PTR pInfo)
 {
 	int rc = CKR_OK;
-	int i;
+	unsigned int i;
 	for (i=0; i < mech_list_len; i++) {
 		if (mech_list[i].mech_type == type) {
 			memcpy(pInfo, &mech_list[i].mech_info,

@@ -69,10 +69,10 @@ util_get_keysize_flag(CK_ULONG size)
 	return 0;
 }
 
-char *
+CK_BYTE *
 util_create_id(int type)
 {
-	char *ret = NULL;
+	CK_BYTE *ret = NULL;
 	int size = 0;
 
 	switch (type) {
@@ -84,7 +84,7 @@ util_create_id(int type)
 				break;
 			}
 
-			sprintf(ret, "%s", TPMTOK_PRIVATE_ROOT_KEY_ID);
+			sprintf((char *)ret, "%s", TPMTOK_PRIVATE_ROOT_KEY_ID);
 			break;
 		case TPMTOK_PUBLIC_ROOT_KEY:
 			size = TPMTOK_PUBLIC_ROOT_KEY_ID_SIZE + 1;
@@ -94,7 +94,7 @@ util_create_id(int type)
 				break;
 			}
 
-			sprintf(ret, "%s", TPMTOK_PUBLIC_ROOT_KEY_ID);
+			sprintf((char *)ret, "%s", TPMTOK_PUBLIC_ROOT_KEY_ID);
 			break;
 		case TPMTOK_PUBLIC_LEAF_KEY:
 			size = TPMTOK_PUBLIC_LEAF_KEY_ID_SIZE + 1;
@@ -104,7 +104,7 @@ util_create_id(int type)
 				break;
 			}
 
-			sprintf(ret, "%s", TPMTOK_PUBLIC_LEAF_KEY_ID);
+			sprintf((char *)ret, "%s", TPMTOK_PUBLIC_LEAF_KEY_ID);
 			break;
 		case TPMTOK_PRIVATE_LEAF_KEY:
 			size = TPMTOK_PRIVATE_LEAF_KEY_ID_SIZE + 1;
@@ -114,7 +114,7 @@ util_create_id(int type)
 				break;
 			}
 
-			sprintf(ret, "%s", TPMTOK_PRIVATE_LEAF_KEY_ID);
+			sprintf((char *)ret, "%s", TPMTOK_PRIVATE_LEAF_KEY_ID);
 			break;
 		default:
 			LogError("Unknown type passed to %s: %d", __FUNCTION__, type);

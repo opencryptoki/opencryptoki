@@ -1076,6 +1076,10 @@ CK_RV  ckm_aes_cbc_decrypt( CK_BYTE  *in_data,   CK_ULONG    in_data_len,
                             CK_BYTE  *init_v,    CK_BYTE    *key_value,
 			    CK_ULONG  key_len );
 
+CK_RV ckm_aes_wrap_format( CK_BBOOL    length_only,
+			   CK_BYTE  ** data,
+			   CK_ULONG  * data_len );
+
 // SHA-1 mechanisms
 //
 CK_RV  sha1_hash( SESSION  *sess,     CK_BBOOL  length_only,
@@ -1797,6 +1801,7 @@ CK_RV     des_set_default_attributes( TEMPLATE *tmpl, CK_ULONG mode );
 CK_RV     des_unwrap( TEMPLATE *tmpl, CK_BYTE *data, CK_ULONG data_len, CK_BBOOL fromend );
 CK_RV     des_validate_attribute( TEMPLATE *tmpl, CK_ATTRIBUTE *attr, CK_ULONG mode );
 CK_RV     des_wrap_get_data( TEMPLATE *tmpl, CK_BBOOL length_only, CK_BYTE **data, CK_ULONG *data_len );
+CK_BBOOL  des_check_weak_key( CK_BYTE *key );
 
 // DES2 routines
 CK_RV     des2_check_required_attributes( TEMPLATE *tmpl, CK_ULONG mode );

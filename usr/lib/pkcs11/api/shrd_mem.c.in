@@ -316,6 +316,8 @@ static const char rcsid[] = "$Header$";
 
 
 #include <pwd.h>
+#include <string.h>
+#include <unistd.h>
 #include <sys/types.h>
 #include <grp.h>
 

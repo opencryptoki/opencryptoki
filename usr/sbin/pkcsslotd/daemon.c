@@ -323,9 +323,9 @@ BOOL SaveStartupDirectory ( char *Arg0 ) {
   ASSERT( Arg0 != NULL );
 
   if ( getcwd ( cwd, PathSize ) == NULL ) {
-    #pragma info(nopro)
+    //    #pragma info(nopro)
     Err = errno;
-    #pragma info(restore)
+    //    #pragma info(restore)
     DbgLog(DL0,"SaveStartupDirectory: getcwd returned %s (%d)", SysConst(Err), Err);
     return FALSE;
   }
@@ -338,9 +338,9 @@ BOOL SaveStartupDirectory ( char *Arg0 ) {
 
   /* Allocate memory */
   if ( (StartDir = calloc ( PathSize, sizeof(char) ) ) == NULL ) {
-    #pragma info(nopro)
+    //    #pragma info(nopro)
     Err = errno;
-    #pragma info(restore)
+    //    #pragma info(restore)
     DbgLog(DL0,"SaveStartupDirectory: Unable to allocate %d bytes of memory for storage of the CWD. %s (%d)\n", SysConst(Err), Err );
     exit(1);
   }

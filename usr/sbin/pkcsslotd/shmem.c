@@ -290,9 +290,9 @@
 
 
 #include "pthread.h"
-#pragma info(none)
+//#pragma info(none)
 #include "pkcsslotd.h"
-#pragma info(restore)
+//#pragma info(restore)
 
 #include <string.h>
 #include <stdlib.h>
@@ -377,10 +377,10 @@ int CreateSharedMemory ( void ) {
 
 
    if ( shmid < 0 ) {
-      #pragma info(nopro)
+     //      #pragma info(nopro)
       ErrLog(SLOTD_MSG(SHMEMCR, 
               "Shared memory creation failed (0x%X)\n"), errno);
-      #pragma info(restore)
+      //      #pragma info(restore)
       ErrLog(SLOTD_MSG(IPCRM, "perform ipcrm -M 0x%X\n"), tok);
       return FALSE;
    }
@@ -482,10 +482,10 @@ int AttachToSharedMemeory ( void ) {
    shmp = (Slot_Mgr_Shr_t *) shmat( shmid, NULL, 0 );
 
    if ( !shmp ) {
-      #pragma info(nopro)
+     //      #pragma info(nopro)
       ErrLog(SLOTD_MSG(SHMEMAT, 
                "Shared memory attach failed (0x%X)\n"), errno);
-      #pragma info(restore)
+      //      #pragma info(restore)
       return FALSE;
    }
 

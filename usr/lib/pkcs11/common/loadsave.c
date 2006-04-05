@@ -299,6 +299,9 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+#include <strings.h>
+#include <unistd.h>
+#include <alloca.h>
 #include <sys/types.h>
 #include <sys/stat.h>
 #include <sys/ipc.h>
@@ -314,6 +317,8 @@
 #include "h_extern.h"
 #include "tok_spec_struct.h"
 #include "pkcs32.h"
+
+#include "../api/apiproto.h"
 
 void
 set_perm(int file)
@@ -337,9 +342,6 @@ load_token_data()
    FILE        * fp;
    CK_BYTE     fname[2048];
    TOKEN_DATA    td;
-   CK_BYTE       clear[3 * DES_BLOCK_SIZE];  // enough to hold a CBC-encrypted SHA hash
-   CK_BYTE       cipher[3 * DES_BLOCK_SIZE];
-   CK_ULONG      clear_len, cipher_len;
    CK_RV         rc;
 
 
@@ -351,7 +353,6 @@ load_token_data()
       goto out_nolock;
    }
 
-   //fp = fopen("/tmp/NVTOK.DAT", "r");
    fp = fopen((char *)fname, "r");
    if (!fp) {
       /* Better error checking added */
@@ -366,12 +367,10 @@ load_token_data()
             goto out_nolock;
          }
 
-         //fp = fopen("/tmp/NVTOK.DAT", "r");
          fp = fopen((char *)fname, "r");
          if (!fp) {
             // were really hosed here since the created
             // did not occur
-            //st_err_log(194, __FILE__, __LINE__, PK_LITE_NV, errno);
 	    LogError("failed opening %s for read: %s", fname, strerror(errno));
             rc = CKR_FUNCTION_FAILED;
             goto out_unlock;
@@ -393,22 +392,6 @@ load_token_data()
       goto out_unlock;
    }
 
-//   memcpy( cipher, &td.user_pin_sha, 3*DES_BLOCK_SIZE );
-//   clear_len = cipher_len = 3 * DES_BLOCK_SIZE;
-//   rc = ckm_des3_cbc_decrypt( cipher, cipher_len, clear, &clear_len, "12345678", master_key );
-//   if (rc != CKR_OK)
-//      return CKR_FUNCTION_FAILED;
-//
-//   memcpy( &td.user_pin_sha, clear, clear_len );
-//
-//   memcpy( cipher, &td.so_pin_sha, 3*DES_BLOCK_SIZE );
-//   clear_len = cipher_len = 3 * DES_BLOCK_SIZE;
-//   rc = ckm_des3_cbc_decrypt( cipher, cipher_len, clear, &clear_len, "12345678", master_key );
-//   if (rc != CKR_OK)
-//      return CKR_FUNCTION_FAILED;
-//
-//   memcpy( &td.so_pin_sha, clear, clear_len );
-
    memcpy( nv_token_data, &td, sizeof(TOKEN_DATA) );
 
    rc = CKR_OK;
@@ -428,9 +411,6 @@ save_token_data()
 {
    FILE       *fp;
    TOKEN_DATA  td;
-   CK_BYTE     clear[3 * DES_BLOCK_SIZE];
-   CK_BYTE     cipher[3 * DES_BLOCK_SIZE];
-   CK_ULONG    clear_len, cipher_len;
    CK_RV       rc;
    CK_BYTE     fname[2048];
 
@@ -443,7 +423,6 @@ save_token_data()
       goto out_nolock;
    }
 
-   //fp = fopen("/tmp/NVTOK.DAT", "w");
    fp = fopen((char *)fname, "w");
 
    if (!fp){
@@ -454,24 +433,6 @@ save_token_data()
    set_perm(fileno(fp));
 
    memcpy( &td, nv_token_data, sizeof(TOKEN_DATA) );
-
-//   memcpy( clear, nv_token_data->user_pin_sha, SHA1_HASH_SIZE );
-//   memcpy( clear + SHA1_HASH_SIZE, "1234", 4 );
-//   clear_len = cipher_len = 3 * DES_KEY_SIZE;
-//   rc = ckm_des3_cbc_encrypt( clear, clear_len, cipher, &cipher_len, "12345678", master_key );
-//   if (rc != CKR_OK)
-//      goto done;
-//
-//   memcpy( td.user_pin_sha, cipher, 3*DES_BLOCK_SIZE );
-//
-//   memcpy( clear, nv_token_data->so_pin_sha, SHA1_HASH_SIZE );
-//   memcpy( clear + SHA1_HASH_SIZE, "1234", 4 );
-//   clear_len = cipher_len = 3 * DES_KEY_SIZE;
-//   rc = ckm_des3_cbc_encrypt( clear, clear_len, cipher, &cipher_len, "12345678", master_key );
-//   if (rc != CKR_OK)
-//      goto done;
-//
-//   memcpy( td.so_pin_sha, cipher, 3*DES_BLOCK_SIZE );
 
    fwrite( &td, sizeof(TOKEN_DATA), 1, fp );
    fclose(fp);
@@ -509,7 +470,6 @@ save_token_object( OBJECT *obj )
    //
    sprintf((char *)fname,"%s/%s/%s",pk_dir,PK_LITE_OBJ_DIR,PK_LITE_OBJ_IDX);
 
-   //fp = fopen( "/tmp/TOK_OBJ/OBJ.IDX", "r" );
    fp = fopen( (char *)fname, "r" );
    if (fp) {
 	set_perm(fileno(fp));
@@ -530,7 +490,6 @@ save_token_object( OBJECT *obj )
    // we didn't find it...either the index file doesn't exist or this
    // is a new object...
    //
-   //fp = fopen("/tmp/TOK_OBJ/OBJ.IDX", "a");
    fp = fopen((char *)fname, "a");
    if (!fp){
       st_err_log(4, __FILE__, __LINE__, __FUNCTION__);
@@ -563,7 +522,6 @@ save_public_token_object( OBJECT *obj )
 
    sprintf( (char *)fname,"%s/%s/", pk_dir,PK_LITE_OBJ_DIR);
 
-   //strcpy( fname, "/tmp/TOK_OBJ/" );
    strncat( (char *)fname, (char *) obj->name, 8 );
 
    rc = object_flatten( obj, &cleartxt, &cleartxt_len );
@@ -610,9 +568,8 @@ save_private_token_object( OBJECT *obj )
    CK_BYTE          * ptr       = NULL;
    CK_BYTE            fname[100];
    CK_BYTE            hash_sha[SHA1_HASH_SIZE];
-   CK_BYTE            hash_md5[MD5_HASH_SIZE];
    CK_BYTE            des3_key[3 * DES_KEY_SIZE];
-   CK_ULONG           obj_data_len,cleartxt_len, ciphertxt_len, hash_len, tmp, tmp2;
+   CK_ULONG           obj_data_len,cleartxt_len, ciphertxt_len;
    CK_ULONG           padded_len;
    CK_BBOOL           flag;
    CK_RV              rc;
@@ -683,7 +640,7 @@ save_private_token_object( OBJECT *obj )
 		bcopy("10293847",initial_vector,strlen("10293847"));
 		rc = ckm_des3_cbc_encrypt( cleartxt,    padded_len,
 				 ciphertxt,  &ciphertxt_len,
-			        initial_vector, (char *) des3_key );
+			        initial_vector, des3_key );
 	} else {
 		rc=CKR_FUNCTION_FAILED;
 	}
@@ -698,7 +655,6 @@ save_private_token_object( OBJECT *obj )
       goto error;
    }
 
-   //strcpy( (char *)fname, "/tmp/TOK_OBJ/" );
    strncat( (char *)fname,(char *) obj->name, 8 );
 
    fp = fopen( (char *)fname, "w" );
@@ -750,7 +706,6 @@ load_public_token_objects( void )
 
    sprintf((char *)iname,"%s/%s/%s",pk_dir,PK_LITE_OBJ_DIR, PK_LITE_OBJ_IDX);
 
-   //fp1 = fopen("/tmp/TOK_OBJ/OBJ.IDX", "r");
    fp1 = fopen((char *)iname, "r");
    if (!fp1)
       return CKR_OK;  // no token objects
@@ -760,7 +715,6 @@ load_public_token_objects( void )
       if (!feof(fp1)) {
          tmp[ strlen((char *)tmp)-1 ] = 0;
 
-         //strcpy(fname,"/tmp/TOK_OBJ/");
 	 sprintf((char *)fname,"%s/%s/",pk_dir, PK_LITE_OBJ_DIR);
          strcat((char *)fname, (char *)tmp );
 
@@ -809,7 +763,6 @@ load_private_token_objects( void )
    FILE     *fp1 = NULL, *fp2 = NULL;
    CK_BYTE  *buf = NULL;
    CK_BYTE   tmp[2048], fname[2048],iname[2048];
-   CK_BYTE   sha_hash[SHA1_HASH_SIZE], old_hash[SHA1_HASH_SIZE];
    CK_BBOOL  priv;
    CK_ULONG_32  size;
    CK_RV     rc;
@@ -817,7 +770,6 @@ load_private_token_objects( void )
 
    sprintf((char *)iname,"%s/%s/%s",pk_dir,PK_LITE_OBJ_DIR, PK_LITE_OBJ_IDX);
 
-   //fp1 = fopen("/tmp/TOK_OBJ/OBJ.IDX", "r");
    fp1 = fopen((char *)iname, "r");
    if (!fp1)
       return CKR_OK;  // no token objects
@@ -827,7 +779,6 @@ load_private_token_objects( void )
       if (!feof(fp1)) {
          tmp[ strlen((char *)tmp)-1 ] = 0;
 
-         //strcpy(fname,"/tmp/TOK_OBJ/");
 	 sprintf((char *)fname,"%s/%s/",pk_dir,PK_LITE_OBJ_DIR);
          strcat((char *)fname,(char *) tmp );
 
@@ -896,10 +847,7 @@ restore_private_token_object( CK_BYTE  * data,
    CK_BYTE          * ptr       = NULL;
    CK_BYTE            des3_key[3 * DES_KEY_SIZE];
    CK_BYTE            hash_sha[SHA1_HASH_SIZE];
-   CK_MECHANISM       mech;
-   DIGEST_CONTEXT     digest_ctx;
-   ENCR_DECR_CONTEXT  encr_ctx;
-   CK_ULONG           hash_len, cleartxt_len, obj_data_len;
+   CK_ULONG           cleartxt_len, obj_data_len;
    CK_RV              rc;
 
    // format for the object data:
@@ -935,7 +883,7 @@ restore_private_token_object( CK_BYTE  * data,
 		bcopy("10293847",initial_vector,strlen("10293847"));
                 rc = ckm_des3_cbc_decrypt( ciphertxt,    len,
                                  cleartxt,  &len,
-                                initial_vector, (char *) des3_key );
+                                initial_vector, des3_key );
         } else {
                 rc=CKR_FUNCTION_FAILED;
         }
@@ -989,12 +937,10 @@ restore_private_token_object( CK_BYTE  * data,
    // token object...
    //
 
-   //object_mgr_restore_obj( obj_data, NULL );
    object_mgr_restore_obj( obj_data, pObj );
    rc = CKR_OK;
 
 done:
-//   if (ciphertxt) free( ciphertxt );
    if (cleartxt)  free( cleartxt );
 
    return rc;
@@ -1007,15 +953,12 @@ CK_RV
 load_masterkey_so( void )
 {
    FILE               * fp  = NULL;
-   CK_BYTE            * ptr = NULL;
    CK_BYTE              hash_sha[SHA1_HASH_SIZE];
    CK_BYTE              cipher[sizeof(MASTER_KEY_FILE_T) + DES_BLOCK_SIZE];
    CK_BYTE              clear [sizeof(MASTER_KEY_FILE_T) + DES_BLOCK_SIZE];
    CK_BYTE              des3_key[3 * DES_KEY_SIZE];
-   CK_MECHANISM         mech;
-   DIGEST_CONTEXT       digest_ctx;
    MASTER_KEY_FILE_T    mk;
-   CK_ULONG             cipher_len, clear_len, hash_len;
+   CK_ULONG             cipher_len, clear_len;
    CK_RV                rc;
    CK_BYTE              fname[2048];
 
@@ -1026,7 +969,6 @@ load_masterkey_so( void )
 
    // this file gets created on C_InitToken so we can assume that it always exists
    //
-   //fp = fopen("/tmp/MK_SO", "r");
    fp = fopen((char *)fname, "r");
    if (!fp) {
       st_err_log(4, __FILE__, __LINE__, __FUNCTION__);
@@ -1060,7 +1002,7 @@ load_masterkey_so( void )
 		bcopy("12345678",initial_vector,strlen("12345678"));
                 rc = ckm_des3_cbc_decrypt( cipher,    cipher_len,
                                  clear,  &clear_len,
-                                initial_vector, (char *) des3_key );
+                                initial_vector, des3_key );
         } else {
                 rc=CKR_FUNCTION_FAILED;
         }
@@ -1112,15 +1054,12 @@ CK_RV
 load_masterkey_user( void )
 {
    FILE               * fp  = NULL;
-   CK_BYTE            * ptr = NULL;
    CK_BYTE              hash_sha[SHA1_HASH_SIZE];
    CK_BYTE              cipher[sizeof(MASTER_KEY_FILE_T) + DES_BLOCK_SIZE];
    CK_BYTE              clear[sizeof(MASTER_KEY_FILE_T) + DES_BLOCK_SIZE];
    CK_BYTE              des3_key[3 * DES_KEY_SIZE];
-   CK_MECHANISM         mech;
-   DIGEST_CONTEXT       digest_ctx;
    MASTER_KEY_FILE_T    mk;
-   CK_ULONG             cipher_len, clear_len, hash_len;
+   CK_ULONG             cipher_len, clear_len;
    CK_RV                rc;
    CK_BYTE              fname[2048];
 
@@ -1131,7 +1070,6 @@ load_masterkey_user( void )
 
    // this file gets created on C_InitToken so we can assume that it always exists
    //
-   //fp = fopen( "/tmp/MK_USER", "r" );
    fp = fopen( (char *)fname, "r" );
    if (!fp) {
       LogError("fopen(%s): %s", fname, strerror(errno));
@@ -1165,7 +1103,7 @@ load_masterkey_user( void )
 		bcopy("12345678",initial_vector,strlen("12345678"));
                 rc = ckm_des3_cbc_decrypt( cipher,    cipher_len,
                                  clear,  &clear_len,
-                                initial_vector, (char *) des3_key );
+                                initial_vector, des3_key );
         } else {
                 rc=CKR_FUNCTION_FAILED;
         }
@@ -1219,10 +1157,8 @@ save_masterkey_so( void )
    CK_BYTE            cleartxt [sizeof(MASTER_KEY_FILE_T) + DES_BLOCK_SIZE];
    CK_BYTE            ciphertxt[sizeof(MASTER_KEY_FILE_T) + DES_BLOCK_SIZE];
    CK_BYTE            des3_key[3 * DES_KEY_SIZE];
-   CK_MECHANISM       mech;
-   DIGEST_CONTEXT     digest_ctx;
    MASTER_KEY_FILE_T  mk;
-   CK_ULONG           hash_len, cleartxt_len, ciphertxt_len, padded_len;
+   CK_ULONG           cleartxt_len, ciphertxt_len, padded_len;
    CK_RV              rc;
    CK_BYTE            fname[2048];
 
@@ -1252,7 +1188,7 @@ save_masterkey_so( void )
 		bcopy("12345678",initial_vector,strlen("12345678"));
                 rc = ckm_des3_cbc_encrypt( cleartxt,    padded_len,
                                  ciphertxt,  &ciphertxt_len,
-                                initial_vector, (char *) des3_key );
+                                initial_vector, des3_key );
         } else {
                 rc=CKR_FUNCTION_FAILED;
         }
@@ -1276,7 +1212,6 @@ save_masterkey_so( void )
    // probably ought to ensure the permissions are correct
    //
    sprintf((char *)fname,"%s/MK_SO",pk_dir);
-   //fp = fopen( "/tmp/MK_SO", "w" );
    fp = fopen( (char *)fname, "w" );
    if (!fp) {
       st_err_log(4, __FILE__, __LINE__, __FUNCTION__);
@@ -1309,10 +1244,8 @@ save_masterkey_user( void )
    CK_BYTE            cleartxt [sizeof(MASTER_KEY_FILE_T) + DES_BLOCK_SIZE];
    CK_BYTE            ciphertxt[sizeof(MASTER_KEY_FILE_T) + DES_BLOCK_SIZE];
    CK_BYTE            des3_key[3 * DES_KEY_SIZE];
-   CK_MECHANISM       mech;
-   DIGEST_CONTEXT     digest_ctx;
    MASTER_KEY_FILE_T  mk;
-   CK_ULONG           hash_len, cleartxt_len, ciphertxt_len, padded_len;
+   CK_ULONG           cleartxt_len, ciphertxt_len, padded_len;
    CK_RV              rc;
    CK_BYTE            fname[2048];
 
@@ -1342,7 +1275,7 @@ save_masterkey_user( void )
 		bcopy("12345678",initial_vector,strlen("12345678"));
                 rc = ckm_des3_cbc_encrypt( cleartxt,    padded_len,
                                  ciphertxt,  &ciphertxt_len,
-                                initial_vector, (char *) des3_key );
+                                initial_vector, des3_key );
         } else {
                 rc=CKR_FUNCTION_FAILED;
         }
@@ -1367,7 +1300,6 @@ save_masterkey_user( void )
    // probably ought to ensure the permissions are correct
    //
    sprintf((char *)fname,"%s/MK_USER", pk_dir);
-   //fp = fopen( "/tmp/MK_USER", "w" );
    fp = fopen( (char *)fname, "w" );
    if (!fp) {
       st_err_log(4, __FILE__, __LINE__, __FUNCTION__);
@@ -1409,7 +1341,6 @@ reload_token_object( OBJECT *obj )
 
    sprintf((char *)fname,"%s/%s/",pk_dir, PK_LITE_OBJ_DIR);
 
-   // strcpy(fname, "/tmp/TOK_OBJ/" );
    strncat((char *)fname,(char *)  obj->name, 8 );
 
    fp = fopen( (char *)fname, "r" );
@@ -1478,8 +1409,6 @@ delete_token_object( OBJECT *obj )
    // remove the object from the index file
    //
 
-   //fp1 = fopen("/tmp/TOK_OBJ/OBJ.IDX", "r");
-   //fp2 = fopen("/tmp/TOK_OBJ/IDX.TMP", "w");
    fp1 = fopen((char *)objidx, "r");
    fp2 = fopen((char *)idxtmp, "w");
    if (!fp1 || !fp2) {
@@ -1504,8 +1433,6 @@ delete_token_object( OBJECT *obj )
 
    fclose(fp1);
    fclose(fp2);
-   //fp2 = fopen("/tmp/TOK_OBJ/OBJ.IDX", "w");
-   //fp1 = fopen("/tmp/TOK_OBJ/IDX.TMP", "r");
    fp2 = fopen((char *)objidx, "w");
    fp1 = fopen((char *)idxtmp, "r");
    if (!fp1 || !fp2) {

@@ -295,6 +295,10 @@
 #include <pthread.h>
 #endif
 
+#include <string.h>
+#include <strings.h>
+#include <unistd.h>
+#include <sys/types.h>
 #include <stdio.h>
 #include <syslog.h>
 
@@ -310,9 +314,8 @@
 
 #include <apiproto.h>
 
-
 void api_init();
-
+void st_err_log(int, ...);
 
 #ifdef DEBUG
 #define LOG(x)  logit(LOG_DEBUG,x)
@@ -403,9 +406,7 @@ C_CloseAllSessions ( CK_SLOT_ID slotID )
    Session_Struct_t *pCur,*pPrev;
    CK_RV    rv;
    API_Slot_t  *sltp;
-   STDLL_FcnList_t  *fcn;
    ST_SESSION_T  hSession;
-   int      count=0;
 
    // Although why does modutil do a close all sessions.  It is a single
    // application it can only close its sessions...
@@ -441,8 +442,6 @@ C_CloseAllSessions ( CK_SLOT_ID slotID )
          hSession.sessionh = pCur->RealHandle;  // use this since after close session
          hSession.slotID = pCur->SltId;
          pPrev = pCur->Previous;
-         //LOGIT(LOG_DEBUG,"Prev %x  PrevNext %x %d",pPrev,pPrev->Next,count++);
-         //rv = fcn->ST_CloseSession(hSession);
          rv = C_CloseSession((CK_SESSION_HANDLE)pCur);  // Call the local copy
          if (rv == CKR_OK  || 
              rv == CKR_SESSION_CLOSED ||
@@ -574,7 +573,6 @@ C_CopyObject ( CK_SESSION_HANDLE    hSession,
    API_Slot_t  *sltp;
    STDLL_FcnList_t  *fcn;
    CK_SLOT_ID        slotID;
-   Session_Struct_t   *sessp;
    ST_SESSION_T rSession;
 
    LOG("C_CopyObject");
@@ -651,7 +649,6 @@ C_CreateObject ( CK_SESSION_HANDLE    hSession,
    API_Slot_t  *sltp;
    STDLL_FcnList_t  *fcn;
    CK_SLOT_ID        slotID;
-   Session_Struct_t   *sessp;
    ST_SESSION_T rSession;
 
    LOG("C_CreateObject");
@@ -735,7 +732,6 @@ C_Decrypt ( CK_SESSION_HANDLE hSession,
    API_Slot_t  *sltp;
    STDLL_FcnList_t  *fcn;
    CK_SLOT_ID        slotID;
-   Session_Struct_t   *sessp;
    ST_SESSION_T rSession;
 
    LOG("C_Decrypt");
@@ -803,7 +799,6 @@ C_DecryptDigestUpdate ( CK_SESSION_HANDLE hSession,
    API_Slot_t  *sltp;
    STDLL_FcnList_t  *fcn;
    CK_SLOT_ID        slotID;
-   Session_Struct_t   *sessp;
    ST_SESSION_T rSession;
 
    LOG("C_DecryptDigestUpdate");
@@ -873,7 +868,6 @@ C_DecryptFinal ( CK_SESSION_HANDLE hSession,
    API_Slot_t  *sltp;
    STDLL_FcnList_t  *fcn;
    CK_SLOT_ID        slotID;
-   Session_Struct_t   *sessp;
    ST_SESSION_T rSession;
 
    LOG("C_DecryptFinal");
@@ -945,7 +939,6 @@ C_DecryptInit ( CK_SESSION_HANDLE hSession,
    API_Slot_t  *sltp;
    STDLL_FcnList_t  *fcn;
    CK_SLOT_ID        slotID;
-   Session_Struct_t   *sessp;
    ST_SESSION_T rSession;
 
    LOG("C_DecryptInit");
@@ -1012,7 +1005,6 @@ C_DecryptUpdate ( CK_SESSION_HANDLE hSession,
    API_Slot_t  *sltp;
    STDLL_FcnList_t  *fcn;
    CK_SLOT_ID        slotID;
-   Session_Struct_t   *sessp;
    ST_SESSION_T rSession;
 
    LOG("C_DecryptUpdate");
@@ -1077,7 +1069,6 @@ C_DecryptVerifyUpdate ( CK_SESSION_HANDLE hSession,
    API_Slot_t  *sltp;
    STDLL_FcnList_t  *fcn;
    CK_SLOT_ID        slotID;
-   Session_Struct_t   *sessp;
    ST_SESSION_T rSession;
 
    LOG("C_DecryptVerifyUpdate");
@@ -1142,7 +1133,6 @@ C_DeriveKey ( CK_SESSION_HANDLE    hSession,
    API_Slot_t  *sltp;
    STDLL_FcnList_t  *fcn;
    CK_SLOT_ID        slotID;
-   Session_Struct_t   *sessp;
    ST_SESSION_T rSession;
 
    LOG("C_DeriveKey");
@@ -1224,7 +1214,6 @@ C_DestroyObject ( CK_SESSION_HANDLE hSession,
    API_Slot_t  *sltp;
    STDLL_FcnList_t  *fcn;
    CK_SLOT_ID        slotID;
-   Session_Struct_t   *sessp;
    ST_SESSION_T rSession;
 
    LOG("C_DestrypObject");
@@ -1282,7 +1271,6 @@ C_Digest ( CK_SESSION_HANDLE hSession,
    API_Slot_t  *sltp;
    STDLL_FcnList_t  *fcn;
    CK_SLOT_ID        slotID;
-   Session_Struct_t   *sessp;
    ST_SESSION_T rSession;
 
    LOG("C_Digest");
@@ -1345,7 +1333,6 @@ C_DigestEncryptUpdate ( CK_SESSION_HANDLE hSession,
    API_Slot_t  *sltp;
    STDLL_FcnList_t  *fcn;
    CK_SLOT_ID        slotID;
-   Session_Struct_t   *sessp;
    ST_SESSION_T rSession;
 
    LOG("C_DigestEncryptUpdate");
@@ -1410,7 +1397,6 @@ C_DigestFinal ( CK_SESSION_HANDLE hSession,
    API_Slot_t  *sltp;
    STDLL_FcnList_t  *fcn;
    CK_SLOT_ID        slotID;
-   Session_Struct_t   *sessp;
    ST_SESSION_T rSession;
 
    LOG("C_DigestFinal");
@@ -1472,7 +1458,6 @@ C_DigestInit ( CK_SESSION_HANDLE hSession,
    API_Slot_t  *sltp;
    STDLL_FcnList_t  *fcn;
    CK_SLOT_ID        slotID;
-   Session_Struct_t   *sessp;
    ST_SESSION_T rSession;
 
    LOG("C_DigestInit");
@@ -1533,7 +1518,6 @@ C_DigestKey ( CK_SESSION_HANDLE hSession,
    API_Slot_t  *sltp;
    STDLL_FcnList_t  *fcn;
    CK_SLOT_ID        slotID;
-   Session_Struct_t   *sessp;
    ST_SESSION_T rSession;
 
    LOG("C_DigestKey");
@@ -1590,7 +1574,6 @@ C_DigestUpdate ( CK_SESSION_HANDLE hSession,
    API_Slot_t  *sltp;
    STDLL_FcnList_t  *fcn;
    CK_SLOT_ID        slotID;
-   Session_Struct_t   *sessp;
    ST_SESSION_T rSession;
 
    LOG("C_DigestUpdate");
@@ -1654,7 +1637,6 @@ C_Encrypt ( CK_SESSION_HANDLE hSession,
    API_Slot_t  *sltp;
    STDLL_FcnList_t  *fcn;
    CK_SLOT_ID        slotID;
-   Session_Struct_t   *sessp;
    ST_SESSION_T rSession;
 
    LOG("C_Encrypt");
@@ -1713,7 +1695,6 @@ C_EncryptFinal ( CK_SESSION_HANDLE hSession,
    API_Slot_t  *sltp;
    STDLL_FcnList_t  *fcn;
    CK_SLOT_ID        slotID;
-   Session_Struct_t   *sessp;
    ST_SESSION_T rSession;
 
    LOG("C_EncryptFinal");
@@ -1775,7 +1756,6 @@ C_EncryptInit ( CK_SESSION_HANDLE hSession,
    API_Slot_t  *sltp;
    STDLL_FcnList_t  *fcn;
    CK_SLOT_ID        slotID;
-   Session_Struct_t   *sessp;
    ST_SESSION_T rSession;
 
    LOG("C_EncryptInit");
@@ -1838,7 +1818,6 @@ C_EncryptUpdate ( CK_SESSION_HANDLE hSession,
    API_Slot_t  *sltp;
    STDLL_FcnList_t  *fcn;
    CK_SLOT_ID        slotID;
-   Session_Struct_t   *sessp;
    ST_SESSION_T rSession;
 
    LOG("C_EncryptUpdate");
@@ -1972,7 +1951,6 @@ C_FindObjects ( CK_SESSION_HANDLE    hSession,
    API_Slot_t  *sltp;
    STDLL_FcnList_t  *fcn;
    CK_SLOT_ID        slotID;
-   Session_Struct_t   *sessp;
    ST_SESSION_T rSession;
 
    LOG("C_FindObjects");
@@ -2034,7 +2012,6 @@ C_FindObjectsFinal ( CK_SESSION_HANDLE hSession )
    API_Slot_t  *sltp;
    STDLL_FcnList_t  *fcn;
    CK_SLOT_ID        slotID;
-   Session_Struct_t   *sessp;
    ST_SESSION_T rSession;
 
    LOG("C_FindObjectsFinal");
@@ -2095,11 +2072,7 @@ C_FindObjectsInit ( CK_SESSION_HANDLE hSession,
    API_Slot_t  *sltp;
    STDLL_FcnList_t  *fcn;
    CK_SLOT_ID        slotID;
-   Session_Struct_t   *sessp;
    ST_SESSION_T rSession;
-#ifdef DEBUG
-   CK_ULONG    i;
-#endif
 
    LOG("C_FindObjectsInit");
    if (API_Initialized() == FALSE ){
@@ -2158,7 +2131,6 @@ C_GenerateKey ( CK_SESSION_HANDLE    hSession,
    API_Slot_t  *sltp;
    STDLL_FcnList_t  *fcn;
    CK_SLOT_ID        slotID;
-   Session_Struct_t   *sessp;
    ST_SESSION_T rSession;
 
    LOG("C_GenerateKey");
@@ -2227,7 +2199,6 @@ C_GenerateKeyPair ( CK_SESSION_HANDLE    hSession,
    API_Slot_t  *sltp;
    STDLL_FcnList_t  *fcn;
    CK_SLOT_ID        slotID;
-   Session_Struct_t   *sessp;
    ST_SESSION_T rSession;
 
    LOG("C_GenerateKeyPair");
@@ -2297,7 +2268,6 @@ C_GenerateRandom ( CK_SESSION_HANDLE hSession,
    API_Slot_t  *sltp;
    STDLL_FcnList_t  *fcn;
    CK_SLOT_ID        slotID;
-   Session_Struct_t   *sessp;
    ST_SESSION_T rSession;
 
    LOG("C_GenerateRandom");
@@ -2363,7 +2333,6 @@ C_GetAttributeValue ( CK_SESSION_HANDLE hSession,
    API_Slot_t  *sltp;
    STDLL_FcnList_t  *fcn;
    CK_SLOT_ID        slotID;
-   Session_Struct_t   *sessp;
    ST_SESSION_T rSession;
 
    LOG("C_GetAttributeValue");
@@ -2420,8 +2389,6 @@ C_GetAttributeValue ( CK_SESSION_HANDLE hSession,
 CK_RV
 C_GetFunctionList ( CK_FUNCTION_LIST_PTR_PTR ppFunctionList )
 {
-   static   int num_invocations=0;
-
 
    _init();
    
@@ -2735,7 +2702,6 @@ C_GetObjectSize ( CK_SESSION_HANDLE hSession,
    API_Slot_t  *sltp;
    STDLL_FcnList_t  *fcn;
    CK_SLOT_ID        slotID;
-   Session_Struct_t   *sessp;
    ST_SESSION_T rSession;
 
    LOG("C_GetObjectSize");
@@ -2794,7 +2760,6 @@ C_GetOperationState ( CK_SESSION_HANDLE hSession,
    API_Slot_t  *sltp;
    STDLL_FcnList_t  *fcn;
    CK_SLOT_ID        slotID;
-   Session_Struct_t   *sessp;
    ST_SESSION_T rSession;
 
    LOG("C_GetOperateionState");
@@ -2861,7 +2826,6 @@ C_GetSessionInfo ( CK_SESSION_HANDLE   hSession,
    STDLL_FcnList_t  *fcn;
    CK_SLOT_ID        slotID;
 
-   Session_Struct_t   *sessp;
    ST_SESSION_T rSession;
 
    LOGIT(LOG_DEBUG,"C_GetSessionInfo  %x  %x",hSession,pInfo);
@@ -2929,8 +2893,6 @@ C_GetSlotInfo ( CK_SLOT_ID       slotID,
                     )
 {
    uint16         count;
-   uint16         index;
-   uint16         sindx;
    Slot_Mgr_Shr_t *shm;
    Slot_Info_t_64 *sinfp;
 
@@ -3282,8 +3244,6 @@ Call_Finalize(){
 CK_RV
 C_Initialize ( CK_VOID_PTR pVoid )
 {
-   int rc;
-   char  *env;
    CK_C_INITIALIZE_ARGS *pArg;
    char fcnmap = 0;
 
@@ -3502,7 +3462,6 @@ C_InitPIN ( CK_SESSION_HANDLE hSession,
    API_Slot_t  *sltp;
    STDLL_FcnList_t  *fcn;
    CK_SLOT_ID        slotID;
-   Session_Struct_t   *sessp;
    ST_SESSION_T rSession;
 
    LOG("C_InitPin");
@@ -3651,7 +3610,6 @@ C_Login ( CK_SESSION_HANDLE hSession,
    API_Slot_t  *sltp;
    STDLL_FcnList_t  *fcn;
    CK_SLOT_ID        slotID;
-   Session_Struct_t   *sessp;
    ST_SESSION_T rSession;
 
    LOG("C_Login");
@@ -3718,7 +3676,6 @@ C_Logout ( CK_SESSION_HANDLE hSession )
    API_Slot_t  *sltp;
    STDLL_FcnList_t  *fcn;
    CK_SLOT_ID        slotID;
-   Session_Struct_t   *sessp;
    ST_SESSION_T rSession;
 
    if (API_Initialized() == FALSE ){
@@ -3874,7 +3831,6 @@ C_SeedRandom ( CK_SESSION_HANDLE hSession,
    API_Slot_t  *sltp;
    STDLL_FcnList_t  *fcn;
    CK_SLOT_ID        slotID;
-   Session_Struct_t   *sessp;
    ST_SESSION_T rSession;
 
    LOG("C_SeedRandom");
@@ -3944,7 +3900,6 @@ C_SetAttributeValue ( CK_SESSION_HANDLE hSession,
    API_Slot_t  *sltp;
    STDLL_FcnList_t  *fcn;
    CK_SLOT_ID        slotID;
-   Session_Struct_t   *sessp;
    ST_SESSION_T rSession;
 
    LOG("C_SetAttributeValue");
@@ -4009,7 +3964,6 @@ C_SetOperationState ( CK_SESSION_HANDLE hSession,
    API_Slot_t  *sltp;
    STDLL_FcnList_t  *fcn;
    CK_SLOT_ID        slotID;
-   Session_Struct_t   *sessp;
    ST_SESSION_T rSession;
 
    LOG("C_SetOperationState");
@@ -4080,7 +4034,6 @@ C_SetPIN ( CK_SESSION_HANDLE hSession,
    API_Slot_t  *sltp;
    STDLL_FcnList_t  *fcn;
    CK_SLOT_ID        slotID;
-   Session_Struct_t   *sessp;
    ST_SESSION_T rSession;
 
    LOG("C_SetPIN");
@@ -4146,7 +4099,6 @@ C_Sign ( CK_SESSION_HANDLE hSession,
    API_Slot_t  *sltp;
    STDLL_FcnList_t  *fcn;
    CK_SLOT_ID        slotID;
-   Session_Struct_t   *sessp;
    ST_SESSION_T rSession;
 
    LOG("C_Sign");
@@ -4207,7 +4159,6 @@ C_SignEncryptUpdate ( CK_SESSION_HANDLE hSession,
    API_Slot_t  *sltp;
    STDLL_FcnList_t  *fcn;
    CK_SLOT_ID        slotID;
-   Session_Struct_t   *sessp;
    ST_SESSION_T rSession;
 
    LOG("C_SignEncryptUpdate");
@@ -4274,7 +4225,6 @@ C_SignFinal ( CK_SESSION_HANDLE hSession,
    API_Slot_t  *sltp;
    STDLL_FcnList_t  *fcn;
    CK_SLOT_ID        slotID;
-   Session_Struct_t   *sessp;
    ST_SESSION_T rSession;
 
    LOG("C_SignEncryptUpdate");
@@ -4342,7 +4292,6 @@ C_SignInit ( CK_SESSION_HANDLE hSession,
    API_Slot_t  *sltp;
    STDLL_FcnList_t  *fcn;
    CK_SLOT_ID        slotID;
-   Session_Struct_t   *sessp;
    ST_SESSION_T rSession;
 
    LOG("C_SignInit");
@@ -4403,7 +4352,6 @@ C_SignRecover ( CK_SESSION_HANDLE hSession,
    API_Slot_t  *sltp;
    STDLL_FcnList_t  *fcn;
    CK_SLOT_ID        slotID;
-   Session_Struct_t   *sessp;
    ST_SESSION_T rSession;
 
    LOG("C_SignRecover");
@@ -4467,7 +4415,6 @@ C_SignRecoverInit ( CK_SESSION_HANDLE hSession,
    API_Slot_t  *sltp;
    STDLL_FcnList_t  *fcn;
    CK_SLOT_ID        slotID;
-   Session_Struct_t   *sessp;
    ST_SESSION_T rSession;
 
    LOG("C_SignRecoverInit");
@@ -4534,7 +4481,6 @@ C_SignUpdate ( CK_SESSION_HANDLE hSession,
    API_Slot_t  *sltp;
    STDLL_FcnList_t  *fcn;
    CK_SLOT_ID        slotID;
-   Session_Struct_t   *sessp;
    ST_SESSION_T rSession;
 
    LOG("C_SignUpdate");
@@ -4603,7 +4549,6 @@ C_UnwrapKey ( CK_SESSION_HANDLE    hSession,
    API_Slot_t  *sltp;
    STDLL_FcnList_t  *fcn;
    CK_SLOT_ID        slotID;
-   Session_Struct_t   *sessp;
    ST_SESSION_T rSession;
 
    LOG("C_UnwrapKey");
@@ -4678,7 +4623,6 @@ C_Verify ( CK_SESSION_HANDLE hSession,
    API_Slot_t  *sltp;
    STDLL_FcnList_t  *fcn;
    CK_SLOT_ID        slotID;
-   Session_Struct_t   *sessp;
    ST_SESSION_T rSession;
 
    LOG("C_Verify");
@@ -4737,7 +4681,6 @@ C_VerifyFinal ( CK_SESSION_HANDLE hSession,
    API_Slot_t  *sltp;
    STDLL_FcnList_t  *fcn;
    CK_SLOT_ID        slotID;
-   Session_Struct_t   *sessp;
    ST_SESSION_T rSession;
 
    LOG("C_VerifyFinal");
@@ -4800,7 +4743,6 @@ C_VerifyInit ( CK_SESSION_HANDLE hSession,
    API_Slot_t  *sltp;
    STDLL_FcnList_t  *fcn;
    CK_SLOT_ID        slotID;
-   Session_Struct_t   *sessp;
    ST_SESSION_T rSession;
 
    LOG("C_VerifyInit");
@@ -4863,7 +4805,6 @@ C_VerifyRecover ( CK_SESSION_HANDLE hSession,
    API_Slot_t  *sltp;
    STDLL_FcnList_t  *fcn;
    CK_SLOT_ID        slotID;
-   Session_Struct_t   *sessp;
    ST_SESSION_T rSession;
 
    LOG("C_VerifyRecover");
@@ -4921,7 +4862,6 @@ C_VerifyRecoverInit ( CK_SESSION_HANDLE hSession,
    API_Slot_t  *sltp;
    STDLL_FcnList_t  *fcn;
    CK_SLOT_ID        slotID;
-   Session_Struct_t   *sessp;
    ST_SESSION_T rSession;
 
    LOG("C_VerifyRecoverInit");
@@ -4980,7 +4920,6 @@ C_VerifyUpdate ( CK_SESSION_HANDLE hSession,
    API_Slot_t  *sltp;
    STDLL_FcnList_t  *fcn;
    CK_SLOT_ID        slotID;
-   Session_Struct_t   *sessp;
    ST_SESSION_T rSession;
 
    LOG("C_VerifyUpdate");
@@ -5053,15 +4992,13 @@ C_WaitForSlotEvent ( CK_FLAGS       flags,
                            CK_VOID_PTR    pReserved
                          )
 {
-   Slot_Mgr_Shr_t   *shm;
-
+#ifdef PLUGGABLE_TOKENS_SUPPORTED
 #ifdef PKCS64
    Slot_Mgr_Proc_t_64  *procp;
 #else
    Slot_Mgr_Proc_t  *procp;
 #endif
-
-   int   i;
+#endif
 
    LOG("C_WaitForSlotEvent");
 
@@ -5188,7 +5125,6 @@ C_WrapKey ( CK_SESSION_HANDLE hSession,
    API_Slot_t  *sltp;
    STDLL_FcnList_t  *fcn;
    CK_SLOT_ID        slotID;
-   Session_Struct_t   *sessp;
    ST_SESSION_T rSession;
 
    LOG("C_WrapKey");

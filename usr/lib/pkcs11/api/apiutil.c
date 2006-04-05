@@ -302,6 +302,10 @@
 
 #include <stdlib.h>
 #include <stdio.h>
+#include <string.h>
+#include <strings.h>
+#include <unistd.h>
+#include <alloca.h>
 #include <dlfcn.h>
 #include <errno.h>
 #include <sys/syslog.h>
@@ -315,8 +319,6 @@
 #include <apiclient.h>  // Function prototypes for PKCS11
 #include <slotmgr.h>
 #include <apictl.h>
-
-
 #include <apiproto.h>
 
 #if SPINXPL
@@ -342,7 +344,6 @@ extern  int                 logging;
 void
 set_perm(int file)
 {
-   struct group *grp;
 
    // Set absolute permissions or rw-rw-r--
    fchmod(file,S_IRUSR|S_IWUSR|S_IRGRP|S_IWGRP|S_IROTH|S_IWOTH);
@@ -395,9 +396,7 @@ enabled = 0;
 void
 logit(int type,char *fmt, ...)
 {
-      int n;
       va_list pvar;
-      char *env;
       char buffer[2048];
       
 
@@ -452,7 +451,6 @@ XProcLock(void *x)
 #else
 #error  "XProcess locking needs to be defined"
 #endif
-
 }
 
 int 
@@ -627,7 +625,7 @@ slot_present(id)
 
 }
 
-int
+void
 incr_sess_counts(slotID)
    CK_SLOT_ID   slotID;
 {
@@ -656,7 +654,7 @@ incr_sess_counts(slotID)
 
 }
 
-int
+void
 decr_sess_counts(slotID)
    CK_SLOT_ID   slotID;
 {
@@ -705,10 +703,8 @@ sessions_exist(slotID)
 
 #ifdef PKCS64
    Slot_Info_t_64      *sinfp;
-   Slot_Mgr_Proc_t_64  *procp;
 #else
    Slot_Info_t     *sinfp;
-   Slot_Mgr_Proc_t  *procp;
 #endif
 
    // Get the slot mutex
@@ -902,8 +898,6 @@ API_UnRegister()
    Slot_Mgr_Proc_t  *procp;
 #endif
 
-   uint16         indx;
-
    // Grab the Shared Memory MUTEX to prevent other updates to the
    // SHM Process 
    // The registration is done to allow for future handling of
@@ -992,10 +986,8 @@ DL_Load( sinfp,sltp,dllload)
    DLL_Load_t  *dllload;
 {
    int i;
-   char  buffer[2048];
    char  *path,*path2;
    char *dname;
-   int plen;
 
  LOGIT(LOG_DEBUG,"DL_LOAD");
 
@@ -1047,7 +1039,7 @@ DL_Load( sinfp,sltp,dllload)
 
 }
 
-int DL_Unload(sltp)
+void DL_Unload(sltp)
    API_Slot_t  *sltp;
 {
    DLL_Load_t  *dllload;
@@ -1088,8 +1080,6 @@ DL_Load_and_Init(sltp,slotID )
 
    int            (*pSTinit)();
    void            (*pSTfini)();
-   void            (*pSTcloseall)();
-   void             *dlp;
    CK_RV            rv;
    int            dll_len,dl_index;
    DLL_Load_t  *dllload;
@@ -1133,13 +1123,11 @@ DL_Load_and_Init(sltp,slotID )
       pSTinit = (int (*)())dlsym( sltp->dlop_p, sinfp->slot_init_fcn);
    } else {
       DL_Unload(sltp);
-      // dlclose(sltp->dlop_p);
       return FALSE;
    }
    if (!pSTinit ){
       // Unload the DLL
       DL_Unload(sltp);
-      //dlclose(sltp->dlop_p);
       return FALSE;
    }
 
@@ -1150,7 +1138,6 @@ DL_Load_and_Init(sltp,slotID )
    if (rv != CKR_OK ){
       // clean up and unload
       DL_Unload(sltp);
-      //dlclose(sltp->dlop_p);
        sltp->DLLoaded=FALSE;
       return FALSE;
    } else {
@@ -1169,9 +1156,7 @@ DL_Load_and_Init(sltp,slotID )
 void
 st_err_log(int num, ...)
 {
-      int n;
       va_list pvar;
-      char *env;
       char buffer[4096*4];
    if (!enabled)  loginit();
 
