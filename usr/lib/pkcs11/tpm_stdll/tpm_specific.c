@@ -246,15 +246,22 @@ done:
 
 CK_RV
 token_wrap_sw_key(int size_n, unsigned char *n, int size_p, unsigned char *p,
-		  TSS_HKEY hParentKey, TSS_HKEY *phKey)
+		  TSS_HKEY hParentKey, TSS_FLAG initFlags, TSS_HKEY *phKey)
 {
 	TSS_RESULT result;
 	static TSS_BOOL get_srk_pub_key = TRUE;
+	UINT32 key_size;
+
+	key_size = util_get_keysize_flag(size_n * 8);
+	if (initFlags == 0) {
+		LogError("Invalid key size.");
+		return CKR_FUNCTION_FAILED;
+	}
 
 	/* create the TSS key object */
 	result = Tspi_Context_CreateObject(tspContext, TSS_OBJECT_TYPE_RSAKEY,
-			TSS_KEY_SIZE_2048 | TSS_KEY_TYPE_STORAGE | TSS_KEY_MIGRATABLE |
-			TSS_KEY_NO_AUTHORIZATION, phKey);
+					   TSS_KEY_MIGRATABLE | initFlags | key_size,
+					   phKey);
 	if (result != TSS_SUCCESS) {
 		LogError("Tspi_Context_CreateObject failed: rc=0x%x", result);
 		return result;
@@ -321,7 +328,6 @@ token_wrap_key_object( CK_OBJECT_HANDLE ckObject, TSS_HKEY hParentKey, TSS_HKEY 
 	OBJECT		*obj;
 
 	TSS_RESULT	result;
-	TSS_HKEY	hKey;
 	TSS_FLAG	initFlags = 0;
 	BYTE		*rgbBlob;
 	UINT32		ulBlobLen;
@@ -387,19 +393,13 @@ token_wrap_key_object( CK_OBJECT_HANDLE ckObject, TSS_HKEY hParentKey, TSS_HKEY 
 			return CKR_TEMPLATE_INCONSISTENT;
 		}
 
-		if ((result = Tspi_SetAttribData(hKey, TSS_TSPATTRIB_KEY_BLOB,
-						TSS_TSPATTRIB_KEYBLOB_PUBLIC_KEY,
-						attr->ulValueLen, attr->pValue))) {
-			LogError("Tspi_SetAttribData: 0x%x", result);
-			Tspi_Context_CloseObject(tspContext, hKey);
-			return CKR_FUNCTION_FAILED;
-		}
-
 		/* generate the software based key */
 		if ((rc = token_wrap_sw_key((int)attr->ulValueLen, attr->pValue,
 					    (int)prime_attr->ulValueLen,
 					    prime_attr->pValue,
-					    hParentKey, phKey))) {
+					    hParentKey,
+					    TSS_KEY_TYPE_LEGACY | TSS_KEY_NO_AUTHORIZATION,
+					    phKey))) {
 			LogError("token_wrap_sw_key failed. rc=0x%x", rc);
 			return rc;
 		}
@@ -427,16 +427,17 @@ token_wrap_key_object( CK_OBJECT_HANDLE ckObject, TSS_HKEY hParentKey, TSS_HKEY 
 		initFlags |= TSS_KEY_TYPE_LEGACY | TSS_KEY_MIGRATABLE | TSS_KEY_NO_AUTHORIZATION;
 
 		if ((result = Tspi_Context_CreateObject(tspContext, TSS_OBJECT_TYPE_RSAKEY,
-						initFlags, &hKey))) {
+							initFlags, phKey))) {
 			LogError("Tspi_Context_CreateObject failed. rc=0x%x", result);
 			return result;
 		}
 
-		if ((result = Tspi_SetAttribData(hKey, TSS_TSPATTRIB_KEY_BLOB,
+		if ((result = Tspi_SetAttribData(*phKey, TSS_TSPATTRIB_KEY_BLOB,
 						TSS_TSPATTRIB_KEYBLOB_PUBLIC_KEY,
 						attr->ulValueLen, attr->pValue))) {
 			LogError("Tspi_SetAttribData: 0x%x", result);
-			Tspi_Context_CloseObject(tspContext, hKey);
+			Tspi_Context_CloseObject(tspContext, *phKey);
+			*phKey = NULL_HKEY;
 			return CKR_FUNCTION_FAILED;
 		}
 	} else {
@@ -1001,7 +1002,9 @@ token_create_private_tree(CK_BYTE *pinHash, CK_BYTE *pPin)
 	}
 
 	/* generate the software based user base key */
-	if ((rc = token_wrap_sw_key(size_n, n, size_p, p, hSRK, &hPrivateRootKey))) {
+	if ((rc = token_wrap_sw_key(size_n, n, size_p, p, hSRK,
+				    TSS_KEY_NO_AUTHORIZATION | TSS_KEY_TYPE_STORAGE,
+				    &hPrivateRootKey))) {
 		LogError("token_wrap_sw_key failed. rc=0x%x", rc);
 		return rc;
 	}
@@ -1064,7 +1067,9 @@ token_create_public_tree(CK_BYTE *pinHash, CK_BYTE *pPin)
 	}
 
 	/* create the public root key */
-	if ((rc = token_wrap_sw_key(size_n, n, size_p, p, hSRK, &hPublicRootKey))) {
+	if ((rc = token_wrap_sw_key(size_n, n, size_p, p, hSRK,
+				    TSS_KEY_NO_AUTHORIZATION | TSS_KEY_TYPE_STORAGE,
+				    &hPublicRootKey))) {
 		LogError("token_wrap_sw_key failed. rc=0x%x", rc);
 		return rc;
 	}
@@ -1151,7 +1156,9 @@ token_migrate(int key_type, CK_BYTE *pin)
 		return CKR_FUNCTION_FAILED;
 	}
 
-	if ((rc = token_wrap_sw_key(size_n, n, size_p, p, hSRK, phKey))) {
+	if ((rc = token_wrap_sw_key(size_n, n, size_p, p, hSRK,
+				    TSS_KEY_TYPE_STORAGE | TSS_KEY_NO_AUTHORIZATION,
+				    phKey))) {
 		LogError("token_wrap_sw_key failed. rc=0x%x", rc);
 		RSA_free(rsa);
 		return rc;
