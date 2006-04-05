@@ -416,7 +416,7 @@ sha1_hash( SESSION         *sess,
    if(ctx->context == NULL)
 	   return CKR_HOST_MEMORY;
 
-   if(rv = ckm_sha1_update(ctx, in_data, in_data_len))
+   if((rv = (ckm_sha1_update(ctx, in_data, in_data_len))))
 	   return rv;
    
    return ckm_sha1_final(  ctx, out_data, out_data_len );

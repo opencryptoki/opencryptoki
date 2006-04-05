@@ -751,6 +751,35 @@ CK_RV C_CancelFunction      ( CK_SESSION_HANDLE        hSession             );
 //
 // internal routines are below this point
 //
+CK_RV clock_set_default_attributes( TEMPLATE *tmpl, CK_ULONG mode );
+CK_RV clock_check_required_attributes( TEMPLATE *tmpl, CK_ULONG mode );
+CK_RV clock_validate_attribute( TEMPLATE *tmpl, 
+				CK_ATTRIBUTE *attr, 
+				CK_ULONG mode);
+
+CK_RV counter_set_default_attributes( TEMPLATE *tmpl, CK_ULONG mode );
+CK_RV counter_check_required_attributes( TEMPLATE *tmpl, CK_ULONG mode );
+CK_RV counter_validate_attribute( TEMPLATE *tmpl, 
+				  CK_ATTRIBUTE *attr, 
+				  CK_ULONG mode);
+
+CK_RV dp_dsa_check_required_attributes( TEMPLATE *tmpl, CK_ULONG mode);
+CK_RV dp_dsa_set_default_attributes( TEMPLATE *tmpl, CK_ULONG mode );
+CK_RV dp_dsa_validate_attribute( TEMPLATE *tmpl, 
+				 CK_ATTRIBUTE *attr, 
+				 CK_ULONG mode);
+
+CK_RV dp_dh_check_required_attributes( TEMPLATE *tmpl, CK_ULONG mode);
+CK_RV dp_dh_set_default_attributes( TEMPLATE *tmpl, CK_ULONG mode );
+CK_RV dp_dh_validate_attribute( TEMPLATE *tmpl, 
+				CK_ATTRIBUTE *attr, 
+				CK_ULONG mode);
+
+CK_RV dp_x9dh_check_required_attributes( TEMPLATE *tmpl, CK_ULONG mode);
+CK_RV dp_x9dh_set_default_attributes( TEMPLATE *tmpl, CK_ULONG mode );
+CK_RV dp_x9dh_validate_attribute( TEMPLATE *tmpl, 
+				  CK_ATTRIBUTE *attr, 
+				  CK_ULONG mode);
 
 CK_RV communicate( CK_ULONG cmd_id,
                    CK_VOID_PTR pReq,   CK_ULONG     req_len,
@@ -1072,6 +1101,9 @@ CK_RV
 ckm_dh_key_pair_gen( TEMPLATE *publ_tmpl,
                      TEMPLATE *priv_tmpl );
  
+CK_RV
+ckm_dh_pkcs_key_pair_gen( TEMPLATE  * publ_tmpl,
+                          TEMPLATE  * priv_tmpl );
 #endif
 /* End code contributed by Corrent corp. */
 
@@ -1382,6 +1414,10 @@ CK_RV  ckm_aes_cbc_decrypt( CK_BYTE  *in_data,   CK_ULONG    in_data_len,
                             CK_BYTE  *out_data,  CK_ULONG   *out_data_len,
                             CK_BYTE  *init_v,    CK_BYTE    *key_value,
 			    CK_ULONG  key_len );
+
+CK_RV ckm_aes_wrap_format( CK_BBOOL    length_only,
+			   CK_BYTE  ** data,
+			   CK_ULONG  * data_len );
 
 // SHA-1 mechanisms
 //
@@ -1806,6 +1842,9 @@ CK_RV    object_mgr_destroy_object( SESSION         * sess,
 
 CK_RV    object_mgr_destroy_token_objects( void );
 
+CK_RV    object_mgr_find_in_map_nocache( CK_OBJECT_HANDLE    handle,
+					 OBJECT           ** ptr );
+
 CK_RV    object_mgr_find_in_map1( CK_OBJECT_HANDLE   handle,
                                   OBJECT           ** ptr );
 
@@ -1954,6 +1993,8 @@ CK_ULONG  template_get_count( TEMPLATE *tmpl );
 
 CK_ULONG  template_get_size( TEMPLATE *tmpl );
 
+CK_ULONG  template_get_compressed_size( TEMPLATE *tmpl );
+
 CK_RV     template_set_default_common_attributes( TEMPLATE *tmpl );
 
 CK_RV     template_merge( TEMPLATE *dest, TEMPLATE **src );
@@ -2100,6 +2141,7 @@ CK_RV     rc5_validate_attribute( TEMPLATE *tmpl, CK_ATTRIBUTE *attr, CK_ULONG m
 
 // DES routines
 CK_RV     des_check_required_attributes( TEMPLATE *tmpl, CK_ULONG mode );
+CK_BBOOL  des_check_weak_key( CK_BYTE *key );
 CK_RV     des_set_default_attributes( TEMPLATE *tmpl, CK_ULONG mode );
 CK_RV     des_unwrap( TEMPLATE *tmpl, CK_BYTE *data, CK_ULONG data_len, CK_BBOOL fromend );
 CK_RV     des_validate_attribute( TEMPLATE *tmpl, CK_ATTRIBUTE *attr, CK_ULONG mode );

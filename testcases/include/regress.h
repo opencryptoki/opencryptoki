@@ -29,7 +29,7 @@
 void process_time(SYSTEMTIME t1, SYSTEMTIME t2);
 void process_ret_code( CK_RV rc );
 int  do_GetInfo(void);
-void show_error( CK_BYTE *str, CK_RV rc );
+void show_error( char *str, CK_RV rc );
 void print_hex( CK_BYTE *buf, CK_ULONG len );
 
 void init_coprocessor(void);
@@ -42,6 +42,8 @@ int sess_mgmt_functions(void);
 int obj_mgmt_functions(void);
 int des_functions(void);
 int des3_functions(void);
+int aes_functions(void);
+int ssl3_functions(void);
 int digest_functions(void);
 int rsa_functions(void);
 int dsa_functions(void);

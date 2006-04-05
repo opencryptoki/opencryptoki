@@ -139,7 +139,7 @@ void process_time(SYSTEMTIME t1, SYSTEMTIME t2)
 
 
 
-   printf("Time:  %u msec\n", ms );
+   printf("Time:  %ld msec\n", ms );
 
 }
 
@@ -237,9 +237,10 @@ void process_ret_code( CK_RV rc )
 
 //
 //
-void show_error( CK_BYTE *str, CK_RV rc )
+//void show_error( CK_BYTE *str, CK_RV rc )
+void show_error( char *str, CK_RV rc )
 {
-   printf("%s returned:  %d (0x%0x)", str, rc, rc );
+  printf("%s returned:  %ld (%p)", str, rc, (void *)rc );
    process_ret_code( rc );
    printf("\n");
 }
@@ -332,11 +333,11 @@ int main( int argc, char **argv )
          printf("By default, Slot #1 is used\n\n");
          printf("By default we skip anything that creates or modifies\n");
          printf("token objects to preserve flash lifetime.\n");
-         return;
+         return 0;
       }
    }
 
-   printf("Using slot #%d...\n\n", SLOT_ID );
+   printf("Using slot #%ld...\n\n", SLOT_ID );
 
    rc = do_GetFunctionList();
    if (!rc)
@@ -355,4 +356,6 @@ int main( int argc, char **argv )
       return rc;
 
    funcs->C_Finalize( NULL );
+
+   return rc;
 }

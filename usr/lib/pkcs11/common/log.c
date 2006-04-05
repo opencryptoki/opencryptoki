@@ -352,7 +352,7 @@ stloginit(){
    }
    if (!enabled && logging){
       enabled=1;
-      openlog(DBGTAG,LOG_PID|LOG_NDELAY,LOG_LOCAL6);
+      openlog((const char *)DBGTAG,LOG_PID|LOG_NDELAY,LOG_LOCAL6);
       setlogmask(LOG_UPTO(LOG_DEBUG));
 
 

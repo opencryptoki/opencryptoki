@@ -709,7 +709,7 @@ int do_FindObjects( void )
 
    if (find_count != 1) {
       printf("   ERROR:  C_FindObjects #1 should have found 1 object!\n");
-      printf("           it found %d objects\n", find_count);
+      printf("           it found %ld objects\n", find_count);
       return FALSE;
    }
 
@@ -744,7 +744,7 @@ int do_FindObjects( void )
 
    if (find_count != 0) {
       printf("   ERROR:  C_FindObjects #2 should have found 0 object!\n");
-      printf("           it found %d objects\n", find_count);
+      printf("           it found %ld objects\n", find_count);
       return FALSE;
    }
 
@@ -773,9 +773,9 @@ int do_FindObjects( void )
    }
 
    if (find_count != num_existing_objects + 3) {
-      printf("   ERROR:  C_FindObjects #3 should have found %d objects!\n",
+      printf("   ERROR:  C_FindObjects #3 should have found %ld objects!\n",
       		num_existing_objects+3);
-      printf("           it found %d objects\n", find_count);
+      printf("           it found %ld objects\n", find_count);
       return FALSE;
    }
 
@@ -968,7 +968,7 @@ int do_CreateTokenObjects( void )
 
    if (find_count != 3) {
       printf("   ERROR:  expected C_FindObjects #1 to find 3 objects\n");
-      printf("           it found %d objects\n", find_count );
+      printf("           it found %ld objects\n", find_count );
       return FALSE;
    }
 
@@ -1088,7 +1088,7 @@ int do_CreateTokenObjects( void )
 
    if (find_count != 3) {
       printf("   ERROR:  expected C_FindObjects #4 to find 3 objects\n");
-      printf("           it found %d objects\n", find_count );
+      printf("           it found %ld objects\n", find_count );
       return FALSE;
    }
 
@@ -1205,7 +1205,7 @@ int do_CreateTokenObjects( void )
 
    if (find_count != 0) {
       printf("   ERROR:  expected C_FindObjects #7 to find 0 objects\n");
-      printf("           it found %d objects\n", find_count );
+      printf("           it found %ld objects\n", find_count );
       return FALSE;
    }
 

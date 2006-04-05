@@ -12,6 +12,7 @@
  */
 
 #include <stdio.h>
+#include <stdlib.h>
 #include <string.h>
 #include <dlfcn.h>
 #include <sys/types.h>
@@ -114,7 +115,8 @@ void usage(char *argv0)
 
 int main(int argc, char **argv)
 {
-	int i, j, bytes_read=READ_SIZE;
+        int i, j, bytes_read=READ_SIZE;
+	unsigned int k;
 	CK_RV rc;
 	CK_C_INITIALIZE_ARGS initialize_args;
 
@@ -164,7 +166,7 @@ int main(int argc, char **argv)
 	
 	if( (rc = funcs->C_Initialize( &initialize_args )) != CKR_OK ) {
 		oc_err_msg("C_Initialize", rc);
-		return;
+		return rc;
 	}
 
 	/* stat the file for size, etc */
@@ -233,7 +235,7 @@ int main(int argc, char **argv)
 	bytes_read = read(fd, buf, READ_SIZE);
 
 	while(bytes_read == READ_SIZE) {
-        	rc = funcs->C_DigestUpdate(session_handle, buf, bytes_read);
+	  rc = funcs->C_DigestUpdate(session_handle, (CK_BYTE_PTR)buf, bytes_read);
 	        if( rc != CKR_OK) {
 	                oc_err_msg("C_DigestUpdate", rc);
 			goto mech_close;
@@ -242,7 +244,7 @@ int main(int argc, char **argv)
 	}
 	
 	if( bytes_read )
-	        rc = funcs->C_DigestUpdate(session_handle, (bytes_read ? buf : NULL), bytes_read);
+	  rc = funcs->C_DigestUpdate(session_handle, (CK_BYTE_PTR)(bytes_read ? buf : NULL), bytes_read);
 	if( rc != CKR_OK) {
 		oc_err_msg("C_DigestUpdate", rc);
 		goto mech_close;
@@ -254,8 +256,8 @@ int main(int argc, char **argv)
 		goto mech_close;
 	}
 
-	for( i = 0; i < digests[hash].length; i++ )
-		printf("%02x", msg_digest[i]);
+	for( k = 0; k < digests[hash].length; k++ )
+		printf("%02x", msg_digest[k]);
 	printf("\t*%s\n", file);
 
 
@@ -412,7 +414,7 @@ void process_ret_code( CK_RV rc )
 
 void oc_err_msg( char *str, CK_RV rc )
 {
-	printf("Error: %s returned:  %d ", str, rc );
+	printf("Error: %s returned:  %ld ", str, rc );
 	process_ret_code( rc );
 	printf("\n\n");
 }

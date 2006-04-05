@@ -74,7 +74,7 @@ void process_time(SYSTEMTIME t1, SYSTEMTIME t2)
 
 
 
-   printf("Time:  %u msec\n", ms );
+   printf("Time:  %ld msec\n", ms );
 
 }
 
@@ -172,9 +172,9 @@ void process_ret_code( CK_RV rc )
 
 //
 //
-void show_error( CK_BYTE *str, CK_RV rc )
+void show_error( char *str, CK_RV rc )
 {
-   printf("%s returned:  %d (0x%0x)", str, rc, rc );
+   printf("%s returned:  %ld (%p)", str, rc, (void *)rc );
    process_ret_code( rc );
    printf("\n");
 }
@@ -261,7 +261,7 @@ int main (int argc, char **argv)
    for (i = 1; i < argc; i++) {
       if (strcmp (argv[i], "-h") == 0 || strcmp (argv[i], "--help") == 0) {
 	 usage (argv [0]);
-	 return;
+	 return 0;
       }
       else if (strcmp (argv[i], "-noskip") == 0)
          skip_token_obj = FALSE;
@@ -275,16 +275,16 @@ int main (int argc, char **argv)
       else {
 	 printf ("Invalid argument passed as option: %s\n", argv [i]);
 	 usage (argv [0]);
-	 return;
+	 return -1;
       }
    }
 
-   printf("Using slot #%d...\n\n", SLOT_ID );
+   printf("Using slot #%ld...\n\n", SLOT_ID );
    printf("With option: no_init: %d, noskip: %d\n", no_init, skip_token_obj);
    
    rc = do_GetFunctionList();
    if (!rc)
-      return;
+      return rc;
 
    memset( &cinit_args, 0x0, sizeof(cinit_args) );
    cinit_args.flags = CKF_OS_LOCKING_OK;
@@ -298,11 +298,11 @@ int main (int argc, char **argv)
 
    rc = funcs->C_GetFunctionStatus(hsess);
    if (rc  != CKR_FUNCTION_NOT_PARALLEL)  
-	return;
+	return rc;
 
    rc = funcs->C_CancelFunction(hsess);
    if (rc  != CKR_FUNCTION_NOT_PARALLEL)
-	return;
+	return rc;
 
 }
 
@@ -313,25 +313,25 @@ int main (int argc, char **argv)
    fprintf (stderr, "\tMisc Functions tests...\n");
     rc = misc_functions(); 
    if (!rc)
-      return;
+      return rc;
 
    fprintf (stderr, "\tSession Mgmt Functions tests...\n");
    rc = sess_mgmt_functions();
    if (!rc)
-      return;
+      return rc;
 
    fprintf (stderr, "\tObject Mgmt Functions tests...\n");
    rc = obj_mgmt_functions();
    if (!rc)
-      return;
+      return rc;
 
    rc = des_functions();
    if (!rc)
-      return;
+      return rc;
 
    rc = des3_functions();
    if (!rc)
-      return;
+      return rc;
 
    rc = aes_functions();
    if (!rc) {
@@ -340,21 +340,21 @@ int main (int argc, char **argv)
 
    rc = digest_functions();
    if (!rc)
-      return;
+      return rc;
 
    rc = rsa_functions();
    if (!rc)
-      return;
+      return rc;
 
 /* Begin code contributed by Corrent corp. */
    rc = dh_functions();
    if (!rc)
-      return;
+      return rc;
 /* End code contributed by Corrent corp. */
    
    rc = ssl3_functions();
    if (!rc)
-      return;
+      return rc;
    printf("------------------ Completed pass %d --------------------\n",i);
    i++;
 
@@ -362,4 +362,6 @@ int main (int argc, char **argv)
 }
 
    funcs->C_Finalize( NULL );
+
+   return 0;
 }

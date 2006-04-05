@@ -237,71 +237,71 @@ CK_BYTE  des_possibly_weak_keys[48][8] = {
 
 
 MECH_LIST_ELEMENT mech_list[] = {
-   { CKM_RSA_PKCS_KEY_PAIR_GEN,     512, 2048, CKF_GENERATE_KEY_PAIR },
-   { CKM_DES_KEY_GEN,                 0,    0, CKF_GENERATE },
-   { CKM_DES3_KEY_GEN,                0,    0, CKF_GENERATE },
-   { CKM_RSA_PKCS,                  512, 2048, CKF_HW           |
-                                               CKF_ENCRYPT      | CKF_DECRYPT |
-                                               CKF_WRAP         | CKF_UNWRAP  |
-                                               CKF_SIGN         | CKF_VERIFY  |
-                                               CKF_SIGN_RECOVER | CKF_VERIFY_RECOVER },
-   { CKM_RSA_PKCS_OAEP,             512, 2048, CKF_HW           |
-                                               CKF_ENCRYPT      | CKF_DECRYPT |
-                                               CKF_WRAP         | CKF_UNWRAP  |
-                                               CKF_SIGN         | CKF_VERIFY  |
-                                               CKF_SIGN_RECOVER | CKF_VERIFY_RECOVER },
+  { CKM_RSA_PKCS_KEY_PAIR_GEN,     {512, 2048, CKF_GENERATE_KEY_PAIR} },
+  { CKM_DES_KEY_GEN,                 {0,    0, CKF_GENERATE} },
+  { CKM_DES3_KEY_GEN,                {0,    0, CKF_GENERATE} },
+  { CKM_RSA_PKCS,                  {512, 2048, CKF_HW           |
+				    CKF_ENCRYPT      | CKF_DECRYPT |
+				    CKF_WRAP         | CKF_UNWRAP  |
+				    CKF_SIGN         | CKF_VERIFY  |
+				    CKF_SIGN_RECOVER | CKF_VERIFY_RECOVER} },
+  { CKM_RSA_PKCS_OAEP,             {512, 2048, CKF_HW           |
+				    CKF_ENCRYPT      | CKF_DECRYPT |
+				    CKF_WRAP         | CKF_UNWRAP  |
+				    CKF_SIGN         | CKF_VERIFY  |
+				    CKF_SIGN_RECOVER | CKF_VERIFY_RECOVER} },
 #if !(NOX509)
-   { CKM_RSA_X_509,                 512, 2048, CKF_HW           |
-                                               CKF_ENCRYPT      | CKF_DECRYPT |
-                                               CKF_WRAP         | CKF_UNWRAP  |
-                                               CKF_SIGN         | CKF_VERIFY  |
-                                               CKF_SIGN_RECOVER | CKF_VERIFY_RECOVER },
+  { CKM_RSA_X_509,                 {512, 2048, CKF_HW           |
+				    CKF_ENCRYPT      | CKF_DECRYPT |
+				    CKF_WRAP         | CKF_UNWRAP  |
+				    CKF_SIGN         | CKF_VERIFY  |
+				    CKF_SIGN_RECOVER | CKF_VERIFY_RECOVER} },
 #endif
-   { CKM_MD5_RSA_PKCS,              512, 2048, CKF_HW      |
-                                               CKF_SIGN    | CKF_VERIFY },
-   { CKM_SHA1_RSA_PKCS,             512, 2048, CKF_HW      |
-                                               CKF_SIGN    | CKF_VERIFY },
-   { CKM_DES_ECB,                     0,    0,
-                                               CKF_ENCRYPT | CKF_DECRYPT |
-                                               CKF_WRAP    | CKF_UNWRAP },
-   { CKM_DES_CBC,                     0,    0,
-                                               CKF_ENCRYPT | CKF_DECRYPT |
-                                               CKF_WRAP    | CKF_UNWRAP },
-   { CKM_DES_CBC_PAD,                 0,    0,
-                                               CKF_ENCRYPT | CKF_DECRYPT |
-                                               CKF_WRAP    | CKF_UNWRAP },
-   { CKM_DES3_ECB,                    0,    0,
-                                               CKF_ENCRYPT | CKF_DECRYPT |
-                                               CKF_WRAP    | CKF_UNWRAP },
-   { CKM_DES3_CBC,                    0,    0,
-                                               CKF_ENCRYPT | CKF_DECRYPT |
-                                               CKF_WRAP    | CKF_UNWRAP },
-   { CKM_DES3_CBC_PAD,                0,    0,
-                                               CKF_ENCRYPT | CKF_DECRYPT |
-                                               CKF_WRAP    | CKF_UNWRAP },
-   { CKM_SHA_1,                       0,    0, CKF_DIGEST },
-   { CKM_SHA_1_HMAC,                  0,    0, CKF_SIGN | CKF_VERIFY },
-   { CKM_SHA_1_HMAC_GENERAL,          0,    0, CKF_SIGN | CKF_VERIFY },
-   { CKM_MD5,                         0,    0, CKF_DIGEST },
-   { CKM_MD5_HMAC,                    0,    0, CKF_SIGN | CKF_VERIFY },
-   { CKM_MD5_HMAC_GENERAL,            0,    0, CKF_SIGN | CKF_VERIFY },
-   { CKM_SSL3_PRE_MASTER_KEY_GEN,    48,   48, CKF_GENERATE },
-   { CKM_SSL3_MASTER_KEY_DERIVE,     48,   48, CKF_DERIVE },
-   { CKM_SSL3_KEY_AND_MAC_DERIVE,    48,   48, CKF_DERIVE },
-   { CKM_SSL3_MD5_MAC,              384,  384, CKF_SIGN | CKF_VERIFY },
-   { CKM_SSL3_SHA1_MAC,             384,  384, CKF_SIGN | CKF_VERIFY },
-   { CKM_AES_KEY_GEN,                16,   32, CKF_GENERATE },
-   { CKM_AES_ECB,                    16,   32,
-					       CKF_ENCRYPT | CKF_DECRYPT |
-					       CKF_WRAP    | CKF_UNWRAP },
-   { CKM_AES_CBC,                    16,   32,
-					       CKF_ENCRYPT | CKF_DECRYPT |
-					       CKF_WRAP    | CKF_UNWRAP },
-   { CKM_AES_MAC,                    16,   32, CKF_SIGN | CKF_VERIFY },
-   { CKM_AES_MAC_GENERAL,            16,   32, CKF_SIGN | CKF_VERIFY },
-   { CKM_AES_CBC_PAD,                16,   32,
-					       CKF_ENCRYPT | CKF_DECRYPT |
-					       CKF_WRAP    | CKF_UNWRAP },
+  { CKM_MD5_RSA_PKCS,              {512, 2048, CKF_HW      |
+				    CKF_SIGN    | CKF_VERIFY} },
+  { CKM_SHA1_RSA_PKCS,             {512, 2048, CKF_HW      |
+				    CKF_SIGN    | CKF_VERIFY} },
+  { CKM_DES_ECB,                     {0,    0,
+				      CKF_ENCRYPT | CKF_DECRYPT |
+				      CKF_WRAP    | CKF_UNWRAP} },
+  { CKM_DES_CBC,                     {0,    0,
+				      CKF_ENCRYPT | CKF_DECRYPT |
+				      CKF_WRAP    | CKF_UNWRAP} },
+  { CKM_DES_CBC_PAD,                 {0,    0,
+				      CKF_ENCRYPT | CKF_DECRYPT |
+				      CKF_WRAP    | CKF_UNWRAP} },
+  { CKM_DES3_ECB,                    {0,    0,
+				      CKF_ENCRYPT | CKF_DECRYPT |
+				      CKF_WRAP    | CKF_UNWRAP} },
+  { CKM_DES3_CBC,                    {0,    0,
+				      CKF_ENCRYPT | CKF_DECRYPT |
+				      CKF_WRAP    | CKF_UNWRAP} },
+  { CKM_DES3_CBC_PAD,                {0,    0,
+				      CKF_ENCRYPT | CKF_DECRYPT |
+				      CKF_WRAP    | CKF_UNWRAP} },
+  { CKM_SHA_1,                       {0,    0, CKF_DIGEST} },
+  { CKM_SHA_1_HMAC,                  {0,    0, CKF_SIGN | CKF_VERIFY} },
+  { CKM_SHA_1_HMAC_GENERAL,          {0,    0, CKF_SIGN | CKF_VERIFY} },
+  { CKM_MD5,                         {0,    0, CKF_DIGEST} },
+  { CKM_MD5_HMAC,                    {0,    0, CKF_SIGN | CKF_VERIFY} },
+  { CKM_MD5_HMAC_GENERAL,            {0,    0, CKF_SIGN | CKF_VERIFY} },
+  { CKM_SSL3_PRE_MASTER_KEY_GEN,    {48,   48, CKF_GENERATE} },
+  { CKM_SSL3_MASTER_KEY_DERIVE,     {48,   48, CKF_DERIVE} },
+  { CKM_SSL3_KEY_AND_MAC_DERIVE,    {48,   48, CKF_DERIVE} },
+  { CKM_SSL3_MD5_MAC,              {384,  384, CKF_SIGN | CKF_VERIFY} },
+  { CKM_SSL3_SHA1_MAC,             {384,  384, CKF_SIGN | CKF_VERIFY} },
+  { CKM_AES_KEY_GEN,                {16,   32, CKF_GENERATE} },
+  { CKM_AES_ECB,                    {16,   32,
+				     CKF_ENCRYPT | CKF_DECRYPT |
+				     CKF_WRAP    | CKF_UNWRAP} },
+  { CKM_AES_CBC,                    {16,   32,
+				     CKF_ENCRYPT | CKF_DECRYPT |
+				     CKF_WRAP    | CKF_UNWRAP} },
+  { CKM_AES_MAC,                    {16,   32, CKF_SIGN | CKF_VERIFY} },
+  { CKM_AES_MAC_GENERAL,            {16,   32, CKF_SIGN | CKF_VERIFY} },
+  { CKM_AES_CBC_PAD,                {16,   32,
+				     CKF_ENCRYPT | CKF_DECRYPT |
+				     CKF_WRAP    | CKF_UNWRAP} },
 };
 
 CK_ULONG  mech_list_len = (sizeof(mech_list) / sizeof(MECH_LIST_ELEMENT));

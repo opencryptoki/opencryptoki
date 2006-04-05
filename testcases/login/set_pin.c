@@ -10,6 +10,9 @@
 #include "pkcs11types.h"
 
 #include "common.h"
+#include "regress.h"
+
+int do_GetFunctionList( CK_FUNCTION_LIST **funcs );
 
 int
 do_SetPIN(CK_FUNCTION_LIST *funcs, CK_SLOT_ID slot_id, CK_USER_TYPE userType, char *old, char *new)
@@ -26,7 +29,7 @@ do_SetPIN(CK_FUNCTION_LIST *funcs, CK_SLOT_ID slot_id, CK_USER_TYPE userType, ch
 		return rc;
 	}
 
-	rc = funcs->C_Login(session, userType, old, strlen(old));
+	rc = funcs->C_Login(session, userType, (CK_CHAR_PTR)old, strlen(old));
 	if (rc != CKR_OK) {
 		show_error("C_Login", rc);
 		return rc;
@@ -34,7 +37,7 @@ do_SetPIN(CK_FUNCTION_LIST *funcs, CK_SLOT_ID slot_id, CK_USER_TYPE userType, ch
 
 	printf("Logged in successfully, calling C_SetPIN...\n");
 
-	rc = funcs->C_SetPIN(session, old, strlen(old), new, strlen(new));
+	rc = funcs->C_SetPIN(session, (CK_CHAR_PTR)old, strlen(old), (CK_CHAR_PTR)new, strlen(new));
 	if (rc != CKR_OK) {
 		show_error("C_SetPIN", rc);
 		funcs->C_Logout(session);

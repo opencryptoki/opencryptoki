@@ -12,11 +12,13 @@
 #include "pkcs11types.h"
 
 #include "common.h"
+#include "regress.h"
 
 void process_ret_code( CK_RV rc );
 int  do_GetInfo(void);
 
 CK_RV C_GetFunctionList( CK_FUNCTION_LIST ** ) ;
+int do_GetFunctionList( CK_FUNCTION_LIST ** );
 
 CK_SLOT_ID  SLOT_ID;
 
@@ -35,19 +37,19 @@ int do_inittoken( CK_FUNCTION_LIST *funcs, CK_BYTE *sopass )
       }
    }
 
-   rc = funcs->C_InitToken( SLOT_ID, NULL, strlen(sopass), label );
+   rc = funcs->C_InitToken( SLOT_ID, NULL, strlen((char *)sopass), label );
    if (rc != CKR_ARGUMENTS_BAD) {
       show_error(" C_InitToken Fail #1",rc);
       goto done;
    }
 
-   rc = funcs->C_InitToken( SLOT_ID, sopass, strlen(sopass), NULL );
+   rc = funcs->C_InitToken( SLOT_ID, sopass, strlen((char *)sopass), NULL );
    if (rc != CKR_ARGUMENTS_BAD) {
       show_error(" C_InitToken Fail #2",rc);
       goto done;
    }
 
-   rc = funcs->C_InitToken( SLOT_ID, sopass, strlen(sopass), label );
+   rc = funcs->C_InitToken( SLOT_ID, sopass, strlen((char *)sopass), label );
    if (rc != CKR_OK) {
       show_error("   C_InitToken #1", rc );
       goto done;
@@ -64,10 +66,11 @@ int
 main( int argc, char **argv )
 {
 	CK_BYTE            line[20];
-	CK_ULONG           val, i;
+	CK_ULONG           val;
 	CK_FUNCTION_LIST   *funcs = NULL;
 	CK_BYTE		   *pass = NULL;
 	int rc;
+	int i;
 
 	SLOT_ID = 0;
 
@@ -76,7 +79,7 @@ main( int argc, char **argv )
 			SLOT_ID = atoi(argv[i+1]);
 			i++;
 		} else if (strcmp(argv[i], "-pass") == 0) {
-			pass = strdup(argv[i+1]);
+                        pass = (CK_BYTE_PTR)strdup(argv[i+1]);
 			i++;
 		} else {
 			printf("usage:  %s [-slot <num>] [-h] -pass pass\n\n", argv[0] );
@@ -91,7 +94,7 @@ main( int argc, char **argv )
 		return -1;
 	}
 
-	printf("Using slot #%d...\n\n", SLOT_ID );
+	printf("Using slot #%ld...\n\n", SLOT_ID );
 
 	rc = do_GetFunctionList(&funcs);
 	if (rc || funcs == NULL) {

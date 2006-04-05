@@ -987,11 +987,6 @@ key_mgr_wrap_key( SESSION           * sess,
 
       case CKM_RSA_PKCS:
       case CKM_RSA_X_509:
-//         rc = ckm_rsa_wrap_format( length_only, &data, &data_len );
-//         if (rc != CKR_OK) {
-//            free( data );
-//            return rc;
-//         }
          break;
 
       default:
@@ -1364,13 +1359,6 @@ key_mgr_derive_key( SESSION           * sess,
 
       case CKM_SSL3_KEY_AND_MAC_DERIVE:
       {
-         CK_SSL3_KEY_MAT_PARAMS *params = (CK_SSL3_KEY_MAT_PARAMS *)mech->pParameter;
-
-         // Check FCV
-         //
-//         if (((nv_FCV.FunctionCntlBytes[DES_FUNCTION_BYTE] & FCV_56_BIT_DES) == 0) && (params->bIsExport == FALSE))
-//            return CKR_MECHANISM_INVALID;
-
          return ssl3_key_and_mac_derive( sess, mech, base_key,
                                          pTemplate, ulCount );
       }

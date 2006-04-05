@@ -13,7 +13,7 @@
 
 #include "pkcs11types.h"
 #include "regress.h"
-
+#include "pkcs32.h"
 
 // Purpose:  to cause a variety of crashes to test that the Cryptoki.DLL
 //           DLL Init-Term routine properly detaches from the coprocessor
@@ -146,7 +146,7 @@ int do_GetSlotInfo( void )
    printf("   CK_SLOT_INFO for slot #1:  \n");
    printf("      slotDescription:  %64.64s\n",  info.slotDescription );
    printf("      manufacturerID:   %32.32s\n",  info.manufacturerID );
-   printf("      flags:            0x%0x\n",    info.flags );
+   printf("      flags:            %p\n",       (void *)info.flags );
    printf("      hardwareVersion:  %d.%d\n",    info.hardwareVersion.major, info.hardwareVersion.minor );
    printf("      firmwareVersion:  %d.%d\n",    info.firmwareVersion.major, info.firmwareVersion.minor );
 
@@ -180,17 +180,17 @@ int do_GetTokenInfo( void )
    printf("      manufacturerID:          %32.32s\n",  info.manufacturerID );
    printf("      model:                   %16.16s\n",  info.model );
    printf("      serialNumber:            %16.16s\n",  info.serialNumber );
-   printf("      flags:                   %0x\n",      info.flags );
-   printf("      ulMaxSessionCount:       %d\n",       info.ulMaxSessionCount );
-   printf("      ulSessionCount:          %d\n",       info.ulSessionCount );
-   printf("      ulMaxRwSessionCount:     %d\n",       info.ulMaxRwSessionCount );
-   printf("      ulRwSessionCount:        %d\n",       info.ulRwSessionCount );
-   printf("      ulMaxPinLen:             %d\n",       info.ulMaxPinLen );
-   printf("      ulMinPinLen:             %d\n",       info.ulMinPinLen );
-   printf("      ulTotalPublicMemory:     %d\n",       info.ulTotalPublicMemory );
-   printf("      ulFreePublicMemory:      %d\n",       info.ulFreePublicMemory );
-   printf("      ulTotalPrivateMemory:    %d\n",       info.ulTotalPrivateMemory );
-   printf("      ulFreePrivateMemory:     %d\n",       info.ulFreePrivateMemory );
+   printf("      flags:                   %p\n",       (void *)info.flags );
+   printf("      ulMaxSessionCount:       %ld\n",      info.ulMaxSessionCount );
+   printf("      ulSessionCount:          %ld\n",      info.ulSessionCount );
+   printf("      ulMaxRwSessionCount:     %ld\n",      info.ulMaxRwSessionCount );
+   printf("      ulRwSessionCount:        %ld\n",      info.ulRwSessionCount );
+   printf("      ulMaxPinLen:             %ld\n",      info.ulMaxPinLen );
+   printf("      ulMinPinLen:             %ld\n",      info.ulMinPinLen );
+   printf("      ulTotalPublicMemory:     %ld\n",      info.ulTotalPublicMemory );
+   printf("      ulFreePublicMemory:      %ld\n",      info.ulFreePublicMemory );
+   printf("      ulTotalPrivateMemory:    %ld\n",      info.ulTotalPrivateMemory );
+   printf("      ulFreePrivateMemory:     %ld\n",      info.ulFreePrivateMemory );
    printf("      hardwareVersion:         %d.%d\n",    info.hardwareVersion.major, info.hardwareVersion.minor );
    printf("      firmwareVersion:         %d.%d\n",    info.firmwareVersion.major, info.firmwareVersion.minor );
    printf("      time:                    %16.16s\n",  info.utcTime );
@@ -221,7 +221,7 @@ int do_GetMechanismList( void )
       return FALSE;
    }
 
-   printf("   C_GetMechanismList #1 returned %d mechanisms\n", count );
+   printf("   C_GetMechanismList #1 returned %ld mechanisms\n", count );
 
    mech_list = (CK_MECHANISM_TYPE *)malloc( count * sizeof(CK_MECHANISM_TYPE) );
    if (!mech_list)
@@ -278,14 +278,14 @@ int do_GetMechanismInfo( void )
       rc = funcs->C_GetMechanismInfo( slot_id, mech_list[i], &info );
       if (rc != CKR_OK) {
          show_error("   C_GetMechanismInfo", rc );
-         printf("   Tried to get info on mechanism # %d\n", mech_list[i] );
+         printf("   Tried to get info on mechanism # %ld\n", mech_list[i] );
          return FALSE;
       }
 
-      printf("   Mechanism #%d\n",  mech_list[i] );
-      printf("      ulMinKeySize:  %d\n",  info.ulMinKeySize );
-      printf("      ulMaxKeySize:  %d\n",  info.ulMaxKeySize );
-      printf("      flags:         %0x\n", info.flags );
+      printf("   Mechanism #%ld\n",  mech_list[i] );
+      printf("      ulMinKeySize:  %ld\n",  info.ulMinKeySize );
+      printf("      ulMaxKeySize:  %ld\n",  info.ulMaxKeySize );
+      printf("      flags:         %p\n",   (void *)info.flags );
    }
 
    free( mech_list );

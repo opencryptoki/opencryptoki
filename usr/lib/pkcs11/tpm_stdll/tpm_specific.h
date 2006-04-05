@@ -64,13 +64,14 @@
 #define KEYGEN_RETRY    5
 
 RSA *openssl_gen_key();
-int openssl_write_key(RSA *, char *, char *);
-CK_RV openssl_read_key(char *, char *, RSA **);
+int openssl_write_key(RSA *, char *, CK_BYTE *);
+CK_RV openssl_read_key(char *, CK_BYTE *, RSA **);
 int openssl_get_modulus_and_prime(RSA *, unsigned int *, unsigned char *, unsigned int *, unsigned char *);
 int util_set_file_mode(char *, mode_t);
-char *util_create_id(int);
+CK_BYTE *util_create_id(int);
 CK_RV util_set_username(char **);
 unsigned int util_get_keysize_flag(CK_ULONG);
+CK_ULONG util_check_public_exponent(TEMPLATE *);
 
 #define NULL_HKEY	0
 #define NULL_HENCDATA	0
