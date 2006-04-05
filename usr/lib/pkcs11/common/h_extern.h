@@ -1,5 +1,5 @@
 /*
- * $Header: /cvsroot/opencryptoki/opencryptoki/usr/lib/pkcs11/common/h_extern.h,v 1.6 2005/08/12 16:15:42 kyoder Exp $
+ * $Header: /cvsroot/opencryptoki/opencryptoki/usr/lib/pkcs11/common/h_extern.h,v 1.7 2006/04/05 17:25:18 kyoder Exp $
  */
 
 
@@ -379,6 +379,14 @@ extern CK_BYTE   ber_md5WithRSAEncryption[];
 extern CK_ULONG  ber_md5WithRSAEncryptionLen;
 extern CK_BYTE   ber_sha1WithRSAEncryption[];
 extern CK_ULONG  ber_sha1WithRSAEncryptionLen;
+extern CK_BYTE   ber_AlgMd2[];
+extern CK_ULONG  ber_AlgMd2Len;
+extern CK_BYTE   ber_AlgMd5[];
+extern CK_ULONG  ber_AlgMd5Len;
+extern CK_BYTE   ber_AlgSha1[];
+extern CK_ULONG  ber_AlgSha1Len;
+extern CK_BYTE   ber_AlgSha256[];
+extern CK_ULONG  ber_AlgSha256Len;
 
 
 extern CK_ULONG           des_weak_count;
