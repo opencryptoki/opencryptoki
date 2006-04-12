@@ -986,7 +986,6 @@ DL_Load( sinfp,sltp,dllload)
    DLL_Load_t  *dllload;
 {
    int i;
-   char  *path,*path2;
    char *dname;
 
  LOGIT(LOG_DEBUG,"DL_LOAD");
@@ -1003,25 +1002,6 @@ DL_Load( sinfp,sltp,dllload)
    }
 
    dllload[i].dll_name = sinfp->dll_location;  // Point to the location
-
-   // allocate off the stack
-   path = alloca(strlen(sinfp->dll_location)+20);
-   path2 = alloca(strlen(sinfp->dll_location)+20);
-   if ( !path ) {
-        sltp->dlop_p = NULL;
-        return 0; // allocation failed
-   }
-
-   // Check for the name specified to be corre
-   sprintf(path,"%s",sinfp->dll_location);  // make a copy since dir name can change the memory
-   sprintf(path2,"%s/stdll",LIBLOCATION);  // make a copy since dir name can change the memory
-   dname = dirname(path);
-   if (strcmp(dname,path2) != 0 ) {
-        // Not in the location we expect
-        sltp->dlop_p = NULL;
-        return 0;
-
-   }
 
    dllload[i].dlop_p = dlopen(sinfp->dll_location,RTLD_NOW);
 
