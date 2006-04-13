@@ -82,7 +82,7 @@ case $target in
 		AC_SUBST(LIB_ROOT_PATH, $prefix/lib64)
 		AM_CONDITIONAL(S390, false) ;;
 	*)
-		CFLAGS="$CFLAGS -m32 -malign-double"
+		CFLAGS="$CFLAGS -m32"
 		AM_CONDITIONAL(BUILD_UTILS, true)
 		AC_SUBST(LIB_PATH, $prefix/lib/opencryptoki)
 		AC_SUBST(LIB_ROOT_PATH, $prefix/lib)
