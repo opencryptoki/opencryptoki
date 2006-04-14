@@ -297,6 +297,9 @@ AC_OUTPUT([Makefile usr/Makefile \
           usr/lib/pkcs11/tpm_stdll/Makefile \
           usr/lib/pkcs11/tpm_stdll/tok_struct.h \
           usr/lib/pkcs11/methods/4758_status/Makefile \
+          misc/Makefile \
+          misc/opencryptoki.conf \
+          misc/opencryptoki-stdll.conf \
 	  testcases/Makefile \
 	  testcases/driver/Makefile \
 	  testcases/init_tok/Makefile \
