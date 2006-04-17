@@ -726,6 +726,7 @@ BOOL ReadSlotInfoDB ( void ) {
       /* Set the last character in string to NULL since strncpy may mor may not copy the trailing NULL */
       sinfo_struct.dll_location[sizeof(sinfo_struct.dll_location) - 1] = (char) NULL;
 
+#if 0      
       {
         /* check for file existance */
         struct stat statbuf;
@@ -749,6 +750,7 @@ BOOL ReadSlotInfoDB ( void ) {
         }
 
       } /* end DLLLocation unconditional block */
+#endif
       }
 
       element_num++;
