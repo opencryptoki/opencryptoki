@@ -1,4 +1,4 @@
-SUBDIRS = usr testcases
+SUBDIRS = usr testcases misc 
 SPEC=rpm//openCryptoki-$(shell uname -m).spec
 
 rpm: ${SPEC}
