@@ -405,14 +405,14 @@ typedef unsigned long long CK_FLAGS_64;
 
 typedef struct CK_INFO_64 {
   CK_VERSION    cryptokiVersion;     /* Cryptoki interface ver */
-  CK_CHAR	pad1[6];             /* pad for alignment */
   CK_CHAR       manufacturerID[32];  /* blank padded */
+  CK_CHAR	pad1[6];             /* pad for dword alignment */
   CK_FLAGS_64   flags;               /* must be zero */
 
   /* libraryDescription and libraryVersion are new for v2.0 */
   CK_CHAR       libraryDescription[32];  /* blank padded */
   CK_VERSION    libraryVersion;          /* version of library */
-  CK_CHAR       pad2[6];             /* pad for alignment */
+  CK_CHAR       pad2[6];             /* pad for dword alignment */
 } CK_INFO_64;  
 
 typedef CK_INFO_64 CK_PTR CK_INFO_PTR_64;
@@ -425,7 +425,7 @@ typedef struct CK_SLOT_INFO_64 {
   /* hardwareVersion and firmwareVersion are new for v2.0 */
   CK_VERSION    hardwareVersion;  /* version of hardware */
   CK_VERSION    firmwareVersion;  /* version of firmware */
-  CK_CHAR	pad[4];           /* pad for alignment */
+  CK_CHAR	pad[4];           /* pad for dword alignment */
 } CK_SLOT_INFO_64;       
 
 
@@ -471,14 +471,14 @@ typedef struct Slot_Mgr_Proc_t_64 {
 typedef struct{
    CK_SLOT_ID_64    slot_number;
    CK_BOOL          present;
-   char          pad1[4];          // pad for alignment
+   char          pad1[7];          // pad for dword alignment
    CK_SLOT_INFO_64  pk_slot;
    char          dll_location[PATH_MAX+1];   // location of slot management  DLL
    char          slot_init_fcn[PATH_MAX+1];  // function to call to initialize the token in the slot
    char          correlator[PATH_MAX+1];     // Slot DLL Slotindex to dev correlation string
-   char           pad2[5];         // pad for alignment
+   char           pad2[5];         // pad for dword alignment
    uint32         global_sessions; // counter of the total sessions on a token in
-   char           pad3[4];         // pad for alignment
+   char           pad3[4];         // pad for dword alignment
                                    // a slot.  Used for quick check of no
                                    // sessions
 }Slot_Info_t_64;
