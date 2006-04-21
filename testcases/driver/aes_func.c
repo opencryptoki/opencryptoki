@@ -1,7 +1,5 @@
 /* File: aes_func.c */
 
-/* #include <windows.h> */
-
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -9,14 +7,6 @@
 
 #include "pkcs11types.h"
 #include "regress.h"
-
-#ifndef OCK_DEFAULT_USER_PIN
-#define OCK_DEFAULT_USER_PIN "01234567"
-#endif
-
-#ifndef OCK_DEFAULT_USER_PIN_LEN
-#define OCK_DEFAULT_USER_PIN_LEN 8
-#endif
 
 #ifndef AES_KEY_SIZE_256
 #define AES_KEY_SIZE_256 32
@@ -39,7 +29,7 @@ int do_EncryptAES_ECB(void)
 	CK_MECHANISM        mech;
 	CK_OBJECT_HANDLE    h_key;
 	CK_FLAGS            flags;
-	CK_BYTE             user_pin[OCK_DEFAULT_USER_PIN_LEN];
+	CK_BYTE             user_pin[PKCS11_MAX_PIN_LEN];
 	CK_ULONG            user_pin_len;
 	CK_ULONG            i;
 	CK_ULONG            len1, len2, key_size = AES_KEY_SIZE_256;
@@ -58,8 +48,9 @@ int do_EncryptAES_ECB(void)
 		return FALSE;
 	}
 
-	memcpy( user_pin, OCK_DEFAULT_USER_PIN, OCK_DEFAULT_USER_PIN_LEN );
-	user_pin_len = OCK_DEFAULT_USER_PIN_LEN;
+	if (get_user_pin(user_pin))
+		return CKR_FUNCTION_FAILED;
+	user_pin_len = strlen(user_pin);
 
 	rc = funcs->C_Login( session, CKU_USER, user_pin, user_pin_len );
 	if (rc != CKR_OK) {
@@ -143,7 +134,7 @@ int do_EncryptAES_Multipart_ECB( void )
 	CK_MECHANISM        mech;
 	CK_OBJECT_HANDLE    h_key;
 	CK_FLAGS            flags;
-	CK_BYTE             user_pin[OCK_DEFAULT_USER_PIN_LEN];
+	CK_BYTE             user_pin[PKCS11_MAX_PIN_LEN];
 	CK_ULONG            user_pin_len;
 	CK_ULONG            i, k;
 	CK_ULONG            orig_len;
@@ -162,8 +153,9 @@ int do_EncryptAES_Multipart_ECB( void )
 	}
 
 
-	memcpy( user_pin, OCK_DEFAULT_USER_PIN, OCK_DEFAULT_USER_PIN_LEN );
-	user_pin_len = OCK_DEFAULT_USER_PIN_LEN;
+	if (get_user_pin(user_pin))
+		return CKR_FUNCTION_FAILED;
+	user_pin_len = strlen(user_pin);
 
 	rc = funcs->C_Login( session, CKU_USER, user_pin, user_pin_len );
 	if (rc != CKR_OK) {
@@ -395,7 +387,7 @@ int do_EncryptAES_CBC( void )
 	CK_MECHANISM        mech;
 	CK_OBJECT_HANDLE    h_key;
 	CK_FLAGS            flags;
-	CK_BYTE             user_pin[OCK_DEFAULT_USER_PIN_LEN];
+	CK_BYTE             user_pin[PKCS11_MAX_PIN_LEN];
 	CK_ULONG            user_pin_len;
 	CK_BYTE             init_v[8];
 	CK_ULONG            i;
@@ -413,8 +405,9 @@ int do_EncryptAES_CBC( void )
 	}
 
 
-	memcpy( user_pin, OCK_DEFAULT_USER_PIN, OCK_DEFAULT_USER_PIN_LEN );
-	user_pin_len = OCK_DEFAULT_USER_PIN_LEN;
+	if (get_user_pin(user_pin))
+		return CKR_FUNCTION_FAILED;
+	user_pin_len = strlen(user_pin);
 
 	rc = funcs->C_Login( session, CKU_USER, user_pin, user_pin_len );
 	if (rc != CKR_OK) {
@@ -517,7 +510,7 @@ int do_EncryptAES_Multipart_CBC( void )
 	CK_OBJECT_HANDLE    h_key;
 	CK_FLAGS            flags;
 	CK_BYTE             init_v[8];
-	CK_BYTE             user_pin[OCK_DEFAULT_USER_PIN_LEN];
+	CK_BYTE             user_pin[PKCS11_MAX_PIN_LEN];
 	CK_ULONG            user_pin_len;
 	CK_ULONG            i, k;
 	CK_ULONG            orig_len;
@@ -536,8 +529,9 @@ int do_EncryptAES_Multipart_CBC( void )
 	}
 
 
-	memcpy( user_pin, OCK_DEFAULT_USER_PIN, OCK_DEFAULT_USER_PIN_LEN );
-	user_pin_len = OCK_DEFAULT_USER_PIN_LEN;
+	if (get_user_pin(user_pin))
+		return CKR_FUNCTION_FAILED;
+	user_pin_len = strlen(user_pin);
 
 	rc = funcs->C_Login( session, CKU_USER, user_pin, user_pin_len );
 	if (rc != CKR_OK) {
@@ -766,7 +760,7 @@ int do_EncryptAES_Multipart_CBC_PAD( void )
 	CK_OBJECT_HANDLE    h_key;
 	CK_FLAGS            flags;
 	CK_BYTE             init_v[8];
-	CK_BYTE             user_pin[OCK_DEFAULT_USER_PIN_LEN];
+	CK_BYTE             user_pin[PKCS11_MAX_PIN_LEN];
 	CK_ULONG            user_pin_len;
 	CK_ULONG            i, k;
 	CK_ULONG            orig_len, crypt1_len, crypt2_len, decrypt1_len, decrypt2_len;
@@ -783,8 +777,9 @@ int do_EncryptAES_Multipart_CBC_PAD( void )
 	}
 
 
-	memcpy( user_pin, OCK_DEFAULT_USER_PIN, OCK_DEFAULT_USER_PIN_LEN );
-	user_pin_len = OCK_DEFAULT_USER_PIN_LEN;
+	if (get_user_pin(user_pin))
+		return CKR_FUNCTION_FAILED;
+	user_pin_len = strlen(user_pin);
 
 	rc = funcs->C_Login( session, CKU_USER, user_pin, user_pin_len );
 	if (rc != CKR_OK) {
@@ -1011,7 +1006,7 @@ int do_WrapUnwrapAES_ECB( void )
 	CK_OBJECT_HANDLE    w_key;
 	CK_OBJECT_HANDLE    uw_key;
 	CK_FLAGS            flags;
-	CK_BYTE             user_pin[OCK_DEFAULT_USER_PIN_LEN];
+	CK_BYTE             user_pin[PKCS11_MAX_PIN_LEN];
 	CK_ULONG            user_pin_len;
 	CK_ULONG            wrapped_data_len;
 	CK_ULONG            i;
@@ -1039,8 +1034,9 @@ int do_WrapUnwrapAES_ECB( void )
 	}
 
 
-	memcpy( user_pin, OCK_DEFAULT_USER_PIN, OCK_DEFAULT_USER_PIN_LEN );
-	user_pin_len = OCK_DEFAULT_USER_PIN_LEN;
+	if (get_user_pin(user_pin))
+		return CKR_FUNCTION_FAILED;
+	user_pin_len = strlen(user_pin);
 
 	rc = funcs->C_Login( session, CKU_USER, user_pin, user_pin_len );
 	if (rc != CKR_OK) {
@@ -1224,7 +1220,7 @@ int do_WrapUnwrapAES_CBC( void )
 	CK_OBJECT_HANDLE    w_key;
 	CK_OBJECT_HANDLE    uw_key;
 	CK_FLAGS            flags;
-	CK_BYTE             user_pin[OCK_DEFAULT_USER_PIN_LEN];
+	CK_BYTE             user_pin[PKCS11_MAX_PIN_LEN];
 	CK_BYTE             init_v[] = { 1,2,3,4,5,6,7,8 };
 	CK_ULONG            user_pin_len;
 	CK_ULONG            wrapped_data_len;
@@ -1253,8 +1249,9 @@ int do_WrapUnwrapAES_CBC( void )
 	}
 
 
-	memcpy( user_pin, OCK_DEFAULT_USER_PIN, OCK_DEFAULT_USER_PIN_LEN );
-	user_pin_len = OCK_DEFAULT_USER_PIN_LEN;
+	if (get_user_pin(user_pin))
+		return CKR_FUNCTION_FAILED;
+	user_pin_len = strlen(user_pin);
 
 	rc = funcs->C_Login( session, CKU_USER, user_pin, user_pin_len );
 	if (rc != CKR_OK) {
@@ -1434,7 +1431,7 @@ int do_WrapUnwrapAES_CBC_PAD( void )
 	CK_OBJECT_HANDLE    w_key;
 	CK_OBJECT_HANDLE    uw_key;
 	CK_FLAGS            flags;
-	CK_BYTE             user_pin[OCK_DEFAULT_USER_PIN_LEN];
+	CK_BYTE             user_pin[PKCS11_MAX_PIN_LEN];
 	CK_BYTE             init_v[] = { 1,2,3,4,5,6,7,8 };
 	CK_ULONG            user_pin_len;
 	CK_ULONG            wrapped_data_len;
@@ -1463,8 +1460,9 @@ int do_WrapUnwrapAES_CBC_PAD( void )
 	}
 
 
-	memcpy( user_pin, OCK_DEFAULT_USER_PIN, OCK_DEFAULT_USER_PIN_LEN );
-	user_pin_len = OCK_DEFAULT_USER_PIN_LEN;
+	if (get_user_pin(user_pin))
+		return CKR_FUNCTION_FAILED;
+	user_pin_len = strlen(user_pin);
 
 	rc = funcs->C_Login( session, CKU_USER, user_pin, user_pin_len );
 	if (rc != CKR_OK) {

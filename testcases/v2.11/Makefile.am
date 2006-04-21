@@ -1,7 +1,7 @@
 noinst_PROGRAMS=login aes_func rijndael hw_fn
 
 AM_CFLAGS=-I/usr/include -I. -I../../usr/include/pkcs11 -I ../include
-AM_LDFLAGS = -lc  -ldl -lpthread
+AM_LDFLAGS=-L../common -lc  -ldl -lpthread -lcommon
 
 login_LDFLAGS = $(AM_LDFLAGS)
 aes_func_LDFLAGS = $(AM_LDFLAGS)

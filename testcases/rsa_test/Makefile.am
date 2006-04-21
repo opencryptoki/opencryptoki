@@ -1,7 +1,7 @@
 noinst_PROGRAMS=rsa_test rsa_thread_test rsa_test_genkey
 
 AM_CFLAGS=-I/usr/include -I. -I../../usr/include/pkcs11 -I ../include
-AM_LDFLAGS = -lc  -ldl -lpthread
+AM_LDFLAGS=-L../common -lc  -ldl -lpthread -lcommon
 
 rsa_test_LDFLAGS = $(AM_LDFLAGS)
 rsa_thread_test_LDFLAGS = $(AM_LDFLAGS)

@@ -303,19 +303,21 @@ int do_InitPIN( void )
    CK_SLOT_ID         slot_id;
    CK_FLAGS           flags;
    CK_SESSION_HANDLE  session;
-   CK_CHAR            so_pin[8];
-   CK_CHAR            user_pin[8];
+   CK_CHAR            so_pin[PKCS11_MAX_PIN_LEN];
+   CK_CHAR            user_pin[PKCS11_MAX_PIN_LEN];
    CK_ULONG           so_pin_len;
    CK_ULONG           user_pin_len;
    CK_RV              rc;
 
    printf("do_InitPIN...\n");
 
-   memcpy( user_pin, DEFAULT_USER_PIN, DEFAULT_USER_PIN_LEN );
-   memcpy( so_pin,   DEFAULT_SO_PIN, DEFAULT_SO_PIN_LEN );
+   if (get_user_pin(user_pin))
+	   return CKR_FUNCTION_FAILED;
+   user_pin_len = strlen(user_pin);
 
-   user_pin_len = DEFAULT_USER_PIN_LEN;
-   so_pin_len   = 8;
+   if (get_so_pin(so_pin))
+	   return CKR_FUNCTION_FAILED;
+   so_pin_len = strlen(so_pin);
 
    slot_id = SLOT_ID;
    flags   = CKF_SERIAL_SESSION | CKF_RW_SESSION;
@@ -396,8 +398,8 @@ int do_SetPIN( void )
    CK_SLOT_ID        slot_id;
    CK_FLAGS          flags;
    CK_SESSION_HANDLE session;
-   CK_CHAR           old_pin[DEFAULT_USER_PIN_LEN];
-   CK_CHAR           new_pin[NEW_USER_PIN_LEN];
+   CK_CHAR           old_pin[PKCS11_MAX_PIN_LEN];
+   CK_CHAR           new_pin[PKCS11_MAX_PIN_LEN];
    CK_ULONG          old_len;
    CK_ULONG          new_len;
    CK_RV             rc;
@@ -407,11 +409,12 @@ int do_SetPIN( void )
    // first, try to set the user PIN
    //
 
-   memcpy( old_pin, DEFAULT_USER_PIN, DEFAULT_USER_PIN_LEN );
-   memcpy( new_pin, NEW_USER_PIN, NEW_USER_PIN_LEN );
+   if (get_user_pin(old_pin))
+	   return CKR_FUNCTION_FAILED;
+   old_len = strlen(old_pin);
 
-   old_len = DEFAULT_USER_PIN_LEN;
-   new_len = NEW_USER_PIN_LEN;
+   memcpy( new_pin, "ABCDEF", 6 );
+   new_len = 6;
 
    slot_id = SLOT_ID;
    flags   = CKF_SERIAL_SESSION | CKF_RW_SESSION;
@@ -485,7 +488,8 @@ int do_SetPIN( void )
    //
    // done with user tests...now try with the SO
    //
-   memcpy( old_pin, DEFAULT_SO_PIN, DEFAULT_SO_PIN_LEN );
+   if (get_so_pin(old_pin))
+	   return CKR_FUNCTION_FAILED;
 
 
    // try to call C_SetPIN from a normal user session
@@ -538,7 +542,7 @@ int do_SetPIN( void )
       return FALSE;
    }
 
-   printf("Looks okay...\n");
+   printf("Success.\n");
 
    return TRUE;
 }
@@ -627,8 +631,9 @@ int do_GenerateKey( void )
 
    slot_id = SLOT_ID;
 
-   memcpy( user_pin, DEFAULT_USER_PIN, DEFAULT_USER_PIN_LEN );
-   user_pin_len = DEFAULT_USER_PIN_LEN;
+   if (get_user_pin(user_pin))
+	   return CKR_FUNCTION_FAILED;
+   user_pin_len = strlen(user_pin);
 
    mech.mechanism      = CKM_DES_KEY_GEN;
    mech.ulParameterLen = 0;
