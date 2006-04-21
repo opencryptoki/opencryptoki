@@ -14,7 +14,7 @@
 #include "common.h"
 #include "regress.h"
 
-void process_ret_code( CK_RV rc );
+CK_FUNCTION_LIST  *funcs;
 int  do_GetInfo(void);
 
 CK_RV C_GetFunctionList( CK_FUNCTION_LIST ** ) ;

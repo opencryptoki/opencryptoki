@@ -12,6 +12,7 @@
 #include "common.h"
 #include "regress.h"
 
+CK_FUNCTION_LIST  *funcs;
 int do_GetFunctionList( CK_FUNCTION_LIST **funcs );
 
 int
