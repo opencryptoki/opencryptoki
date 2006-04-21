@@ -14,8 +14,6 @@
 void		*dl_handle;
 unsigned long	SlotID = 0;
 
-void oc_err_msg(char *, int, char *, CK_RV);
-
 #define AES_KEY_SIZE_256	32
 #define AES_BLOCK_SIZE		16
 #define AES_KEY_LEN		32
@@ -36,7 +34,7 @@ int do_EncryptAES_ECB(void)
 	CK_MECHANISM mech;
 	CK_OBJECT_HANDLE h_key;
 	CK_FLAGS flags;
-	CK_BYTE user_pin[DEFAULT_USER_PIN_LEN];
+	CK_BYTE user_pin[PKCS11_MAX_PIN_LEN];
 	CK_ULONG user_pin_len;
 	CK_ULONG i;
 	CK_ULONG len1, len2, key_size = AES_KEY_SIZE_256;
@@ -51,17 +49,18 @@ int do_EncryptAES_ECB(void)
 	flags = CKF_SERIAL_SESSION | CKF_RW_SESSION;
 	rc = funcs->C_OpenSession(slot_id, flags, NULL, NULL, &session);
 	if (rc != CKR_OK) {
-		OC_ERR_MSG("   C_OpenSession #1", rc);
+		show_error("   C_OpenSession #1", rc);
 		return FALSE;
 	}
 
 
-	memcpy(user_pin, DEFAULT_USER_PIN, DEFAULT_USER_PIN_LEN);
-	user_pin_len = DEFAULT_USER_PIN_LEN;
+	if (get_user_pin(user_pin))
+		return CKR_FUNCTION_FAILED;
+	user_pin_len = strlen(user_pin);
 
 	rc = funcs->C_Login(session, CKU_USER, user_pin, user_pin_len);
 	if (rc != CKR_OK) {
-		OC_ERR_MSG("   C_Login #1", rc);
+		show_error("   C_Login #1", rc);
 		return FALSE;
 	}
 
@@ -74,7 +73,7 @@ int do_EncryptAES_ECB(void)
 	//
 	rc = funcs->C_GenerateKey(session, &mech, key_gen_tmpl, 1, &h_key);
 	if (rc != CKR_OK) {
-		OC_ERR_MSG("   C_GenerateKey #1", rc);
+		show_error("   C_GenerateKey #1", rc);
 		return FALSE;
 	}
 
@@ -93,26 +92,26 @@ int do_EncryptAES_ECB(void)
 
 	rc = funcs->C_EncryptInit(session, &mech, h_key);
 	if (rc != CKR_OK) {
-		OC_ERR_MSG("   C_EncryptInit #1", rc);
+		show_error("   C_EncryptInit #1", rc);
 		return FALSE;
 	}
 
 	rc = funcs->C_Encrypt(session, data1, len1, data1, &len1);
 	if (rc != CKR_OK) {
-		OC_ERR_MSG("   C_Encrypt #1", rc);
+		show_error("   C_Encrypt #1", rc);
 		return FALSE;
 	}
 	// now, decrypt the data
 	//
 	rc = funcs->C_DecryptInit(session, &mech, h_key);
 	if (rc != CKR_OK) {
-		OC_ERR_MSG("   C_DecryptInit #1", rc);
+		show_error("   C_DecryptInit #1", rc);
 		return FALSE;
 	}
 
 	rc = funcs->C_Decrypt(session, data1, len1, data1, &len1);
 	if (rc != CKR_OK) {
-		OC_ERR_MSG("   C_Decrypt #1", rc);
+		show_error("   C_Decrypt #1", rc);
 		return FALSE;
 	}
 
@@ -130,7 +129,7 @@ int do_EncryptAES_ECB(void)
 
 	rc = funcs->C_CloseAllSessions(slot_id);
 	if (rc != CKR_OK) {
-		OC_ERR_MSG("   C_CloseAllSessions #1", rc);
+		show_error("   C_CloseAllSessions #1", rc);
 		return FALSE;
 	}
 
@@ -154,7 +153,7 @@ int do_EncryptAES_Multipart_ECB(void)
 	CK_MECHANISM mech;
 	CK_OBJECT_HANDLE h_key;
 	CK_FLAGS flags;
-	CK_BYTE user_pin[DEFAULT_USER_PIN_LEN];
+	CK_BYTE user_pin[PKCS11_MAX_PIN_LEN];
 	CK_ULONG user_pin_len;
 	CK_ULONG i, k, key_size = AES_KEY_SIZE_256;
 	CK_ULONG orig_len;
@@ -171,17 +170,18 @@ int do_EncryptAES_Multipart_ECB(void)
 	flags = CKF_SERIAL_SESSION | CKF_RW_SESSION;
 	rc = funcs->C_OpenSession(slot_id, flags, NULL, NULL, &session);
 	if (rc != CKR_OK) {
-		OC_ERR_MSG("   C_OpenSession #1", rc);
+		show_error("   C_OpenSession #1", rc);
 		return FALSE;
 	}
 
 
-	memcpy(user_pin, DEFAULT_USER_PIN, DEFAULT_USER_PIN_LEN);
-	user_pin_len = DEFAULT_USER_PIN_LEN;
+	if (get_user_pin(user_pin))
+		return CKR_FUNCTION_FAILED;
+	user_pin_len = strlen(user_pin);
 
 	rc = funcs->C_Login(session, CKU_USER, user_pin, user_pin_len);
 	if (rc != CKR_OK) {
-		OC_ERR_MSG("   C_Login #1", rc);
+		show_error("   C_Login #1", rc);
 		return FALSE;
 	}
 
@@ -194,7 +194,7 @@ int do_EncryptAES_Multipart_ECB(void)
 	//
 	rc = funcs->C_GenerateKey(session, &mech, key_gen_tmpl, 1, &h_key);
 	if (rc != CKR_OK) {
-		OC_ERR_MSG("   C_GenerateKey #1", rc);
+		show_error("   C_GenerateKey #1", rc);
 		return FALSE;
 	}
 
@@ -211,7 +211,7 @@ int do_EncryptAES_Multipart_ECB(void)
 
 	rc = funcs->C_EncryptInit(session, &mech, h_key);
 	if (rc != CKR_OK) {
-		OC_ERR_MSG("   C_EncryptInit #1", rc);
+		show_error("   C_EncryptInit #1", rc);
 		return FALSE;
 	}
 	// use normal ecb mode to encrypt data1
@@ -220,14 +220,14 @@ int do_EncryptAES_Multipart_ECB(void)
 	rc = funcs->C_Encrypt(session, original, orig_len, crypt1,
 			      &crypt1_len);
 	if (rc != CKR_OK) {
-		OC_ERR_MSG("   C_Encrypt #1", rc);
+		show_error("   C_Encrypt #1", rc);
 		return FALSE;
 	}
 	// use multipart ecb mode to encrypt data2 in 5 byte chunks
 	//
 	rc = funcs->C_EncryptInit(session, &mech, h_key);
 	if (rc != CKR_OK) {
-		OC_ERR_MSG("   C_EncryptInit #2", rc);
+		show_error("   C_EncryptInit #2", rc);
 		return FALSE;
 	}
 
@@ -248,7 +248,7 @@ int do_EncryptAES_Multipart_ECB(void)
 		rc = funcs->C_EncryptUpdate(session, &original[i], chunk,
 					    &crypt2[k], &tmp);
 		if (rc != CKR_OK) {
-			OC_ERR_MSG("   C_EncryptUpdate #1", rc);
+			show_error("   C_EncryptUpdate #1", rc);
 			return FALSE;
 		}
 
@@ -262,7 +262,7 @@ int do_EncryptAES_Multipart_ECB(void)
 	//
 	rc = funcs->C_EncryptFinal(session, NULL, &tmp);
 	if (rc != CKR_OK) {
-		OC_ERR_MSG("   C_EncryptFinal #2", rc);
+		show_error("   C_EncryptFinal #2", rc);
 		return FALSE;
 	}
 
@@ -294,7 +294,7 @@ int do_EncryptAES_Multipart_ECB(void)
 	//
 	rc = funcs->C_DecryptInit(session, &mech, h_key);
 	if (rc != CKR_OK) {
-		OC_ERR_MSG("   C_DecryptInit #1", rc);
+		show_error("   C_DecryptInit #1", rc);
 		return FALSE;
 	}
 
@@ -302,14 +302,14 @@ int do_EncryptAES_Multipart_ECB(void)
 	rc = funcs->C_Decrypt(session, crypt1, crypt1_len, decrypt1,
 			      &decrypt1_len);
 	if (rc != CKR_OK) {
-		OC_ERR_MSG("   C_Decrypt #1", rc);
+		show_error("   C_Decrypt #1", rc);
 		return FALSE;
 	}
 	// use multipart ecb mode to encrypt data2 in 1024 byte chunks
 	//
 	rc = funcs->C_DecryptInit(session, &mech, h_key);
 	if (rc != CKR_OK) {
-		OC_ERR_MSG("   C_DecryptInit #1", rc);
+		show_error("   C_DecryptInit #1", rc);
 		return FALSE;
 	}
 
@@ -330,7 +330,7 @@ int do_EncryptAES_Multipart_ECB(void)
 		rc = funcs->C_DecryptUpdate(session, &crypt1[i], chunk,
 					    &decrypt2[k], &tmp);
 		if (rc != CKR_OK) {
-			OC_ERR_MSG("   C_DecryptUpdate #1", rc);
+			show_error("   C_DecryptUpdate #1", rc);
 			return FALSE;
 		}
 
@@ -344,7 +344,7 @@ int do_EncryptAES_Multipart_ECB(void)
 	//
 	rc = funcs->C_DecryptFinal(session, NULL, &tmp);
 	if (rc != CKR_OK) {
-		OC_ERR_MSG("   C_DecryptFinal #2", rc);
+		show_error("   C_DecryptFinal #2", rc);
 		return FALSE;
 	}
 
@@ -392,7 +392,7 @@ int do_EncryptAES_Multipart_ECB(void)
 
 	rc = funcs->C_CloseAllSessions(slot_id);
 	if (rc != CKR_OK) {
-		OC_ERR_MSG("   C_CloseAllSessions #1", rc);
+		show_error("   C_CloseAllSessions #1", rc);
 		return FALSE;
 	}
 
@@ -412,7 +412,7 @@ int do_EncryptAES_CBC(void)
 	CK_MECHANISM mech;
 	CK_OBJECT_HANDLE h_key;
 	CK_FLAGS flags;
-	CK_BYTE user_pin[DEFAULT_USER_PIN_LEN];
+	CK_BYTE user_pin[PKCS11_MAX_PIN_LEN];
 	CK_ULONG user_pin_len;
 	CK_BYTE init_v[AES_BLOCK_SIZE];
 	CK_ULONG i, key_size = AES_KEY_SIZE_256;
@@ -428,17 +428,18 @@ int do_EncryptAES_CBC(void)
 	flags = CKF_SERIAL_SESSION | CKF_RW_SESSION;
 	rc = funcs->C_OpenSession(slot_id, flags, NULL, NULL, &session);
 	if (rc != CKR_OK) {
-		OC_ERR_MSG("   C_OpenSession #1", rc);
+		show_error("   C_OpenSession #1", rc);
 		return FALSE;
 	}
 
 
-	memcpy(user_pin, DEFAULT_USER_PIN, DEFAULT_USER_PIN_LEN);
-	user_pin_len = DEFAULT_USER_PIN_LEN;
+	if (get_user_pin(user_pin))
+		return CKR_FUNCTION_FAILED;
+	user_pin_len = strlen(user_pin);
 
 	rc = funcs->C_Login(session, CKU_USER, user_pin, user_pin_len);
 	if (rc != CKR_OK) {
-		OC_ERR_MSG("   C_Login #1", rc);
+		show_error("   C_Login #1", rc);
 		return FALSE;
 	}
 
@@ -452,7 +453,7 @@ int do_EncryptAES_CBC(void)
 	//
 	rc = funcs->C_GenerateKey(session, &mech, key_gen_tmpl, 1, &h_key);
 	if (rc != CKR_OK) {
-		OC_ERR_MSG("   C_GenerateKey #1", rc);
+		show_error("   C_GenerateKey #1", rc);
 		return FALSE;
 	}
 
@@ -473,26 +474,26 @@ int do_EncryptAES_CBC(void)
 
 	rc = funcs->C_EncryptInit(session, &mech, h_key);
 	if (rc != CKR_OK) {
-		OC_ERR_MSG("   C_EncryptInit #1", rc);
+		show_error("   C_EncryptInit #1", rc);
 		return FALSE;
 	}
 
 	rc = funcs->C_Encrypt(session, data1, len1, data1, &len1);
 	if (rc != CKR_OK) {
-		OC_ERR_MSG("   C_Encrypt #1", rc);
+		show_error("   C_Encrypt #1", rc);
 		return FALSE;
 	}
 	// now, decrypt the data
 	//
 	rc = funcs->C_DecryptInit(session, &mech, h_key);
 	if (rc != CKR_OK) {
-		OC_ERR_MSG("   C_DecryptInit #1", rc);
+		show_error("   C_DecryptInit #1", rc);
 		return FALSE;
 	}
 
 	rc = funcs->C_Decrypt(session, data1, len1, data1, &len1);
 	if (rc != CKR_OK) {
-		OC_ERR_MSG("   C_Decrypt #1", rc);
+		show_error("   C_Decrypt #1", rc);
 		return FALSE;
 	}
 
@@ -510,7 +511,7 @@ int do_EncryptAES_CBC(void)
 
 	rc = funcs->C_CloseAllSessions(slot_id);
 	if (rc != CKR_OK) {
-		OC_ERR_MSG("   C_CloseAllSessions #1", rc);
+		show_error("   C_CloseAllSessions #1", rc);
 		return FALSE;
 	}
 
@@ -535,7 +536,7 @@ int do_EncryptAES_Multipart_CBC(void)
 	CK_OBJECT_HANDLE h_key;
 	CK_FLAGS flags;
 	CK_BYTE init_v[AES_BLOCK_SIZE];
-	CK_BYTE user_pin[DEFAULT_USER_PIN_LEN];
+	CK_BYTE user_pin[PKCS11_MAX_PIN_LEN];
 	CK_ULONG user_pin_len;
 	CK_ULONG i, k, key_size = AES_KEY_SIZE_256;
 	CK_ULONG orig_len;
@@ -552,17 +553,18 @@ int do_EncryptAES_Multipart_CBC(void)
 	flags = CKF_SERIAL_SESSION | CKF_RW_SESSION;
 	rc = funcs->C_OpenSession(slot_id, flags, NULL, NULL, &session);
 	if (rc != CKR_OK) {
-		OC_ERR_MSG("   C_OpenSession #1", rc);
+		show_error("   C_OpenSession #1", rc);
 		return FALSE;
 	}
 
 
-	memcpy(user_pin, DEFAULT_USER_PIN, DEFAULT_USER_PIN_LEN);
-	user_pin_len = DEFAULT_USER_PIN_LEN;
+	if (get_user_pin(user_pin))
+		return CKR_FUNCTION_FAILED;
+	user_pin_len = strlen(user_pin);
 
 	rc = funcs->C_Login(session, CKU_USER, user_pin, user_pin_len);
 	if (rc != CKR_OK) {
-		OC_ERR_MSG("   C_Login #1", rc);
+		show_error("   C_Login #1", rc);
 		return FALSE;
 	}
 
@@ -575,7 +577,7 @@ int do_EncryptAES_Multipart_CBC(void)
 	//
 	rc = funcs->C_GenerateKey(session, &mech, key_gen_tmpl, 1, &h_key);
 	if (rc != CKR_OK) {
-		OC_ERR_MSG("   C_GenerateKey #1", rc);
+		show_error("   C_GenerateKey #1", rc);
 		return FALSE;
 	}
 
@@ -594,7 +596,7 @@ int do_EncryptAES_Multipart_CBC(void)
 
 	rc = funcs->C_EncryptInit(session, &mech, h_key);
 	if (rc != CKR_OK) {
-		OC_ERR_MSG("   C_EncryptInit #1", rc);
+		show_error("   C_EncryptInit #1", rc);
 		return FALSE;
 	}
 	// use normal ecb mode to encrypt data1
@@ -603,14 +605,14 @@ int do_EncryptAES_Multipart_CBC(void)
 	rc = funcs->C_Encrypt(session, original, orig_len, crypt1,
 			      &crypt1_len);
 	if (rc != CKR_OK) {
-		OC_ERR_MSG("   C_Encrypt #1", rc);
+		show_error("   C_Encrypt #1", rc);
 		return FALSE;
 	}
 	// use multipart cbc mode to encrypt data2 in 1024 byte chunks
 	//
 	rc = funcs->C_EncryptInit(session, &mech, h_key);
 	if (rc != CKR_OK) {
-		OC_ERR_MSG("   C_EncryptInit #2", rc);
+		show_error("   C_EncryptInit #2", rc);
 		return FALSE;
 	}
 
@@ -631,7 +633,7 @@ int do_EncryptAES_Multipart_CBC(void)
 		rc = funcs->C_EncryptUpdate(session, &original[i], chunk,
 					    &crypt2[k], &tmp);
 		if (rc != CKR_OK) {
-			OC_ERR_MSG("   C_EncryptUpdate #1", rc);
+			show_error("   C_EncryptUpdate #1", rc);
 			return FALSE;
 		}
 
@@ -643,7 +645,7 @@ int do_EncryptAES_Multipart_CBC(void)
 
 	rc = funcs->C_EncryptFinal(session, NULL, &tmp);
 	if (rc != CKR_OK) {
-		OC_ERR_MSG("   C_EncryptFinal #2", rc);
+		show_error("   C_EncryptFinal #2", rc);
 		return FALSE;
 	}
 
@@ -677,7 +679,7 @@ int do_EncryptAES_Multipart_CBC(void)
 	//
 	rc = funcs->C_DecryptInit(session, &mech, h_key);
 	if (rc != CKR_OK) {
-		OC_ERR_MSG("   C_DecryptInit #1", rc);
+		show_error("   C_DecryptInit #1", rc);
 		return FALSE;
 	}
 
@@ -685,14 +687,14 @@ int do_EncryptAES_Multipart_CBC(void)
 	rc = funcs->C_Decrypt(session, crypt1, crypt1_len, decrypt1,
 			      &decrypt1_len);
 	if (rc != CKR_OK) {
-		OC_ERR_MSG("   C_Decrypt #1", rc);
+		show_error("   C_Decrypt #1", rc);
 		return FALSE;
 	}
 	// use multipart cbc mode to encrypt data2 in 1024 byte chunks
 	//
 	rc = funcs->C_DecryptInit(session, &mech, h_key);
 	if (rc != CKR_OK) {
-		OC_ERR_MSG("   C_DecryptInit #1", rc);
+		show_error("   C_DecryptInit #1", rc);
 		return FALSE;
 	}
 
@@ -714,7 +716,7 @@ int do_EncryptAES_Multipart_CBC(void)
 		rc = funcs->C_DecryptUpdate(session, &crypt1[i], chunk,
 					    &decrypt2[k], &tmp);
 		if (rc != CKR_OK) {
-			OC_ERR_MSG("   C_DecryptUpdate #1", rc);
+			show_error("   C_DecryptUpdate #1", rc);
 			return FALSE;
 		}
 
@@ -726,7 +728,7 @@ int do_EncryptAES_Multipart_CBC(void)
 
 	rc = funcs->C_DecryptFinal(session, NULL, &tmp);
 	if (rc != CKR_OK) {
-		OC_ERR_MSG("   C_DecryptFinal #2", rc);
+		show_error("   C_DecryptFinal #2", rc);
 		return FALSE;
 	}
 
@@ -767,7 +769,7 @@ int do_EncryptAES_Multipart_CBC(void)
 
 	rc = funcs->C_CloseAllSessions(slot_id);
 	if (rc != CKR_OK) {
-		OC_ERR_MSG("   C_CloseAllSessions #1", rc);
+		show_error("   C_CloseAllSessions #1", rc);
 		return FALSE;
 	}
 
@@ -795,7 +797,7 @@ int do_EncryptAES_Multipart_CBC_PAD(void)
 	CK_OBJECT_HANDLE h_key;
 	CK_FLAGS flags;
 	CK_BYTE init_v[AES_BLOCK_SIZE];
-	CK_BYTE user_pin[DEFAULT_USER_PIN_LEN];
+	CK_BYTE user_pin[PKCS11_MAX_PIN_LEN];
 	CK_ULONG user_pin_len;
 	CK_ULONG i, k, key_size = AES_KEY_SIZE_256;
 	CK_ULONG orig_len, crypt1_len, crypt2_len, decrypt1_len,
@@ -811,17 +813,18 @@ int do_EncryptAES_Multipart_CBC_PAD(void)
 	flags = CKF_SERIAL_SESSION | CKF_RW_SESSION;
 	rc = funcs->C_OpenSession(slot_id, flags, NULL, NULL, &session);
 	if (rc != CKR_OK) {
-		OC_ERR_MSG("   C_OpenSession #1", rc);
+		show_error("   C_OpenSession #1", rc);
 		return FALSE;
 	}
 
 
-	memcpy(user_pin, DEFAULT_USER_PIN, DEFAULT_USER_PIN_LEN);
-	user_pin_len = DEFAULT_USER_PIN_LEN;
+	if (get_user_pin(user_pin))
+		return CKR_FUNCTION_FAILED;
+	user_pin_len = strlen(user_pin);
 
 	rc = funcs->C_Login(session, CKU_USER, user_pin, user_pin_len);
 	if (rc != CKR_OK) {
-		OC_ERR_MSG("   C_Login #1", rc);
+		show_error("   C_Login #1", rc);
 		return FALSE;
 	}
 
@@ -834,7 +837,7 @@ int do_EncryptAES_Multipart_CBC_PAD(void)
 	//
 	rc = funcs->C_GenerateKey(session, &mech, key_gen_tmpl, 1, &h_key);
 	if (rc != CKR_OK) {
-		OC_ERR_MSG("   C_GenerateKey #1", rc);
+		show_error("   C_GenerateKey #1", rc);
 		return FALSE;
 	}
 
@@ -854,7 +857,7 @@ int do_EncryptAES_Multipart_CBC_PAD(void)
 
 	rc = funcs->C_EncryptInit(session, &mech, h_key);
 	if (rc != CKR_OK) {
-		OC_ERR_MSG("   C_EncryptInit #1", rc);
+		show_error("   C_EncryptInit #1", rc);
 		return FALSE;
 	}
 	// use normal ecb mode to encrypt data1
@@ -863,14 +866,14 @@ int do_EncryptAES_Multipart_CBC_PAD(void)
 	rc = funcs->C_Encrypt(session, original, orig_len, crypt1,
 			      &crypt1_len);
 	if (rc != CKR_OK) {
-		OC_ERR_MSG("   C_Encrypt #1", rc);
+		show_error("   C_Encrypt #1", rc);
 		return FALSE;
 	}
 	// use multipart cbc mode to encrypt data2 in chunks
 	//
 	rc = funcs->C_EncryptInit(session, &mech, h_key);
 	if (rc != CKR_OK) {
-		OC_ERR_MSG("   C_EncryptInit #2", rc);
+		show_error("   C_EncryptInit #2", rc);
 		return FALSE;
 	}
 
@@ -891,7 +894,7 @@ int do_EncryptAES_Multipart_CBC_PAD(void)
 		rc = funcs->C_EncryptUpdate(session, &original[i], chunk,
 					    &crypt2[k], &len);
 		if (rc != CKR_OK) {
-			OC_ERR_MSG("   C_EncryptUpdate #1", rc);
+			show_error("   C_EncryptUpdate #1", rc);
 			return FALSE;
 		}
 
@@ -903,7 +906,7 @@ int do_EncryptAES_Multipart_CBC_PAD(void)
 
 	rc = funcs->C_EncryptFinal(session, &crypt2[k], &crypt2_len);
 	if (rc != CKR_OK) {
-		OC_ERR_MSG("   C_EncryptFinal #2", rc);
+		show_error("   C_EncryptFinal #2", rc);
 		return FALSE;
 	}
 
@@ -932,7 +935,7 @@ int do_EncryptAES_Multipart_CBC_PAD(void)
 	//
 	rc = funcs->C_DecryptInit(session, &mech, h_key);
 	if (rc != CKR_OK) {
-		OC_ERR_MSG("   C_DecryptInit #1", rc);
+		show_error("   C_DecryptInit #1", rc);
 		return FALSE;
 	}
 
@@ -940,14 +943,14 @@ int do_EncryptAES_Multipart_CBC_PAD(void)
 	rc = funcs->C_Decrypt(session, crypt1, crypt1_len, decrypt1,
 			      &decrypt1_len);
 	if (rc != CKR_OK) {
-		OC_ERR_MSG("   C_Decrypt #1", rc);
+		show_error("   C_Decrypt #1", rc);
 		return FALSE;
 	}
 	// use multipart cbc mode to encrypt data2 in 1024 byte chunks
 	//
 	rc = funcs->C_DecryptInit(session, &mech, h_key);
 	if (rc != CKR_OK) {
-		OC_ERR_MSG("   C_DecryptInit #1", rc);
+		show_error("   C_DecryptInit #1", rc);
 		return FALSE;
 	}
 
@@ -969,7 +972,7 @@ int do_EncryptAES_Multipart_CBC_PAD(void)
 		rc = funcs->C_DecryptUpdate(session, &crypt2[i], chunk,
 					    &decrypt2[k], &len);
 		if (rc != CKR_OK) {
-			OC_ERR_MSG("   C_DecryptUpdate #1", rc);
+			show_error("   C_DecryptUpdate #1", rc);
 			return FALSE;
 		}
 
@@ -981,7 +984,7 @@ int do_EncryptAES_Multipart_CBC_PAD(void)
 
 	rc = funcs->C_DecryptFinal(session, &decrypt2[k], &decrypt2_len);
 	if (rc != CKR_OK) {
-		OC_ERR_MSG("   C_DecryptFinal #2", rc);
+		show_error("   C_DecryptFinal #2", rc);
 		return FALSE;
 	}
 
@@ -1028,7 +1031,7 @@ int do_EncryptAES_Multipart_CBC_PAD(void)
 
 	rc = funcs->C_CloseAllSessions(slot_id);
 	if (rc != CKR_OK) {
-		OC_ERR_MSG("   C_CloseAllSessions #1", rc);
+		show_error("   C_CloseAllSessions #1", rc);
 		return FALSE;
 	}
 
@@ -1052,7 +1055,7 @@ int do_WrapUnwrapAES_ECB(void)
 	CK_OBJECT_HANDLE w_key;
 	CK_OBJECT_HANDLE uw_key;
 	CK_FLAGS flags;
-	CK_BYTE user_pin[DEFAULT_USER_PIN_LEN];
+	CK_BYTE user_pin[PKCS11_MAX_PIN_LEN];
 	CK_ULONG user_pin_len;
 	CK_ULONG wrapped_data_len;
 	CK_ULONG i, key_size = AES_KEY_SIZE_256;
@@ -1078,17 +1081,18 @@ int do_WrapUnwrapAES_ECB(void)
 	flags = CKF_SERIAL_SESSION | CKF_RW_SESSION;
 	rc = funcs->C_OpenSession(slot_id, flags, NULL, NULL, &session);
 	if (rc != CKR_OK) {
-		OC_ERR_MSG("   C_OpenSession #1", rc);
+		show_error("   C_OpenSession #1", rc);
 		return FALSE;
 	}
 
 
-	memcpy(user_pin, DEFAULT_USER_PIN, DEFAULT_USER_PIN_LEN);
-	user_pin_len = DEFAULT_USER_PIN_LEN;
+	if (get_user_pin(user_pin))
+		return CKR_FUNCTION_FAILED;
+	user_pin_len = strlen(user_pin);
 
 	rc = funcs->C_Login(session, CKU_USER, user_pin, user_pin_len);
 	if (rc != CKR_OK) {
-		OC_ERR_MSG("   C_Login #1", rc);
+		show_error("   C_Login #1", rc);
 		return FALSE;
 	}
 
@@ -1101,13 +1105,13 @@ int do_WrapUnwrapAES_ECB(void)
 	//
 	rc = funcs->C_GenerateKey(session, &mech, key_gen_tmpl, 1, &h_key);
 	if (rc != CKR_OK) {
-		OC_ERR_MSG("   C_GenerateKey #1", rc);
+		show_error("   C_GenerateKey #1", rc);
 		return FALSE;
 	}
 
 	rc = funcs->C_GenerateKey(session, &mech, key_gen_tmpl, 1, &w_key);
 	if (rc != CKR_OK) {
-		OC_ERR_MSG("   C_GenerateKey #2", rc);
+		show_error("   C_GenerateKey #2", rc);
 		return FALSE;
 	}
 
@@ -1126,13 +1130,13 @@ int do_WrapUnwrapAES_ECB(void)
 
 	rc = funcs->C_EncryptInit(session, &mech, h_key);
 	if (rc != CKR_OK) {
-		OC_ERR_MSG("   C_EncryptInit #1", rc);
+		show_error("   C_EncryptInit #1", rc);
 		return FALSE;
 	}
 
 	rc = funcs->C_Encrypt(session, data1, len1, data1, &len1);
 	if (rc != CKR_OK) {
-		OC_ERR_MSG("   C_Encrypt #1", rc);
+		show_error("   C_Encrypt #1", rc);
 		return FALSE;
 	}
 #if 0
@@ -1140,13 +1144,13 @@ int do_WrapUnwrapAES_ECB(void)
         printf("Sanity chec #1: Decrypting using original, unwrapped key.\n");
 
         if (rc != CKR_OK) {
-                OC_ERR_MSG("   C_DecryptInit #1", rc);
+                show_error("   C_DecryptInit #1", rc);
                 return FALSE;
         }
 
         rc = funcs->C_Decrypt(session, data1, len1, sanity, &sanity_len);
         if (rc != CKR_OK) {
-                OC_ERR_MSG("   C_Decrypt #1", rc);
+                show_error("   C_Decrypt #1", rc);
                 return FALSE;
         }
 	
@@ -1174,7 +1178,7 @@ int do_WrapUnwrapAES_ECB(void)
 			      (CK_BYTE *) & wrapped_data,
 			      &wrapped_data_len);
 	if (rc != CKR_OK) {
-		OC_ERR_MSG("   C_WrapKey #1", rc);
+		show_error("   C_WrapKey #1", rc);
 		return FALSE;
 	}
 #if 0
@@ -1182,13 +1186,13 @@ int do_WrapUnwrapAES_ECB(void)
         printf("Sanity Check #2: Decrypting using original, unwrapped key after C_WrapKey.\n");
 
         if (rc != CKR_OK) {
-                OC_ERR_MSG("   C_DecryptInit #1", rc);
+                show_error("   C_DecryptInit #1", rc);
                 return FALSE;
         }
 
         rc = funcs->C_Decrypt(session, data1, len1, sanity, &sanity_len);
         if (rc != CKR_OK) {
-                OC_ERR_MSG("   C_Decrypt #1", rc);
+                show_error("   C_Decrypt #1", rc);
                 return FALSE;
         }
 
@@ -1213,7 +1217,7 @@ int do_WrapUnwrapAES_ECB(void)
 				wrapped_data, wrapped_data_len,
 				template, tmpl_count, &uw_key);
 	if (rc != CKR_OK) {
-		OC_ERR_MSG("   C_UnWrapKey #1", rc);
+		show_error("   C_UnWrapKey #1", rc);
 		return FALSE;
 	}
 
@@ -1222,13 +1226,13 @@ int do_WrapUnwrapAES_ECB(void)
 	rc = funcs->C_DecryptInit(session, &mech, uw_key);
 
 	if (rc != CKR_OK) {
-		OC_ERR_MSG("   C_DecryptInit #1", rc);
+		show_error("   C_DecryptInit #1", rc);
 		return FALSE;
 	}
 
 	rc = funcs->C_Decrypt(session, data1, len1, data1, &len1);
 	if (rc != CKR_OK) {
-		OC_ERR_MSG("   C_Decrypt #1", rc);
+		show_error("   C_Decrypt #1", rc);
 		return FALSE;
 	}
 
@@ -1279,14 +1283,14 @@ int do_WrapUnwrapAES_ECB(void)
 
 		rc = funcs->C_CreateObject(session, tmpl, 10, &priv_key);
 		if (rc != CKR_OK) {
-			OC_ERR_MSG("   C_CreateObject #1", rc);
+			show_error("   C_CreateObject #1", rc);
 			return FALSE;
 		}
 
 		rc = funcs->C_WrapKey(session, &mech,
 				      w_key, priv_key, data, &data_len);
 		if (rc != CKR_KEY_NOT_WRAPPABLE) {
-			OC_ERR_MSG("   C_WrapKey #2", rc);
+			show_error("   C_WrapKey #2", rc);
 			printf("   Expected CKR_KEY_NOT_WRAPPABLE\n");
 			return FALSE;
 		}
@@ -1294,7 +1298,7 @@ int do_WrapUnwrapAES_ECB(void)
 
 	rc = funcs->C_CloseAllSessions(slot_id);
 	if (rc != CKR_OK) {
-		OC_ERR_MSG("   C_CloseAllSessions #1", rc);
+		show_error("   C_CloseAllSessions #1", rc);
 		return FALSE;
 	}
 
@@ -1317,7 +1321,7 @@ int do_WrapUnwrapAES_CBC(void)
 	CK_OBJECT_HANDLE w_key;
 	CK_OBJECT_HANDLE uw_key;
 	CK_FLAGS flags;
-	CK_BYTE user_pin[DEFAULT_USER_PIN_LEN];
+	CK_BYTE user_pin[PKCS11_MAX_PIN_LEN];
 	CK_BYTE init_v[] = { 0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 'a', 'b', 'c', 'd', 'e', 'f' };
 	CK_ULONG user_pin_len;
 	CK_ULONG wrapped_data_len;
@@ -1344,17 +1348,18 @@ int do_WrapUnwrapAES_CBC(void)
 	flags = CKF_SERIAL_SESSION | CKF_RW_SESSION;
 	rc = funcs->C_OpenSession(slot_id, flags, NULL, NULL, &session);
 	if (rc != CKR_OK) {
-		OC_ERR_MSG("   C_OpenSession #1", rc);
+		show_error("   C_OpenSession #1", rc);
 		return FALSE;
 	}
 
 
-	memcpy(user_pin, DEFAULT_USER_PIN, DEFAULT_USER_PIN_LEN);
-	user_pin_len = DEFAULT_USER_PIN_LEN;
+	if (get_user_pin(user_pin))
+		return CKR_FUNCTION_FAILED;
+	user_pin_len = strlen(user_pin);
 
 	rc = funcs->C_Login(session, CKU_USER, user_pin, user_pin_len);
 	if (rc != CKR_OK) {
-		OC_ERR_MSG("   C_Login #1", rc);
+		show_error("   C_Login #1", rc);
 		return FALSE;
 	}
 
@@ -1367,13 +1372,13 @@ int do_WrapUnwrapAES_CBC(void)
 	//
 	rc = funcs->C_GenerateKey(session, &mech, key_gen_tmpl, 1, &h_key);
 	if (rc != CKR_OK) {
-		OC_ERR_MSG("   C_GenerateKey #1", rc);
+		show_error("   C_GenerateKey #1", rc);
 		return FALSE;
 	}
 
 	rc = funcs->C_GenerateKey(session, &mech, key_gen_tmpl, 1, &w_key);
 	if (rc != CKR_OK) {
-		OC_ERR_MSG("   C_GenerateKey #2", rc);
+		show_error("   C_GenerateKey #2", rc);
 		return FALSE;
 	}
 
@@ -1390,13 +1395,13 @@ int do_WrapUnwrapAES_CBC(void)
 
 	rc = funcs->C_EncryptInit(session, &mech, h_key);
 	if (rc != CKR_OK) {
-		OC_ERR_MSG("   C_EncryptInit #1", rc);
+		show_error("   C_EncryptInit #1", rc);
 		return FALSE;
 	}
 
 	rc = funcs->C_Encrypt(session, data1, len1, data1, &len1);
 	if (rc != CKR_OK) {
-		OC_ERR_MSG("   C_Encrypt #1", rc);
+		show_error("   C_Encrypt #1", rc);
 		return FALSE;
 	}
 
@@ -1409,7 +1414,7 @@ int do_WrapUnwrapAES_CBC(void)
 			      (CK_BYTE *) & wrapped_data,
 			      &wrapped_data_len);
 	if (rc != CKR_OK) {
-		OC_ERR_MSG("   C_WrapKey #1", rc);
+		show_error("   C_WrapKey #1", rc);
 		return FALSE;
 	}
 
@@ -1418,7 +1423,7 @@ int do_WrapUnwrapAES_CBC(void)
 				wrapped_data, wrapped_data_len,
 				template, tmpl_count, &uw_key);
 	if (rc != CKR_OK) {
-		OC_ERR_MSG("   C_UnWrapKey #1", rc);
+		show_error("   C_UnWrapKey #1", rc);
 		return FALSE;
 	}
 
@@ -1426,13 +1431,13 @@ int do_WrapUnwrapAES_CBC(void)
 	//
 	rc = funcs->C_DecryptInit(session, &mech, uw_key);
 	if (rc != CKR_OK) {
-		OC_ERR_MSG("   C_DecryptInit #1", rc);
+		show_error("   C_DecryptInit #1", rc);
 		return FALSE;
 	}
 
 	rc = funcs->C_Decrypt(session, data1, len1, data1, &len1);
 	if (rc != CKR_OK) {
-		OC_ERR_MSG("   C_Decrypt #1", rc);
+		show_error("   C_Decrypt #1", rc);
 		return FALSE;
 	}
 
@@ -1483,14 +1488,14 @@ int do_WrapUnwrapAES_CBC(void)
 
 		rc = funcs->C_CreateObject(session, tmpl, 10, &priv_key);
 		if (rc != CKR_OK) {
-			OC_ERR_MSG("   C_CreateObject #1", rc);
+			show_error("   C_CreateObject #1", rc);
 			return FALSE;
 		}
 
 		rc = funcs->C_WrapKey(session, &mech,
 				      w_key, priv_key, data, &data_len);
 		if (rc != CKR_KEY_NOT_WRAPPABLE) {
-			OC_ERR_MSG("   C_WrapKey #2", rc);
+			show_error("   C_WrapKey #2", rc);
 			printf("line %d  Expected CKR_KEY_NOT_WRAPPABLE\n", __LINE__);
 			return FALSE;
 		}
@@ -1498,7 +1503,7 @@ int do_WrapUnwrapAES_CBC(void)
 
 	rc = funcs->C_CloseAllSessions(slot_id);
 	if (rc != CKR_OK) {
-		OC_ERR_MSG("   C_CloseAllSessions #1", rc);
+		show_error("   C_CloseAllSessions #1", rc);
 		return FALSE;
 	}
 
@@ -1524,7 +1529,7 @@ int do_WrapUnwrapAES_CBC_PAD(void)
 	CK_OBJECT_HANDLE w_key;
 	CK_OBJECT_HANDLE uw_key;
 	CK_FLAGS flags;
-	CK_BYTE user_pin[DEFAULT_USER_PIN_LEN];
+	CK_BYTE user_pin[PKCS11_MAX_PIN_LEN];
 	CK_BYTE init_v[] = { 0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 'a', 'b', 'c', 'd', 'e', 'f' };
 	CK_ULONG user_pin_len;
 	CK_ULONG wrapped_data_len;
@@ -1551,17 +1556,18 @@ int do_WrapUnwrapAES_CBC_PAD(void)
 	flags = CKF_SERIAL_SESSION | CKF_RW_SESSION;
 	rc = funcs->C_OpenSession(slot_id, flags, NULL, NULL, &session);
 	if (rc != CKR_OK) {
-		OC_ERR_MSG("   C_OpenSession #1", rc);
+		show_error("   C_OpenSession #1", rc);
 		return FALSE;
 	}
 
 
-	memcpy(user_pin, DEFAULT_USER_PIN, DEFAULT_USER_PIN_LEN);
-	user_pin_len = DEFAULT_USER_PIN_LEN;
+	if (get_user_pin(user_pin))
+		return CKR_FUNCTION_FAILED;
+	user_pin_len = strlen(user_pin);
 
 	rc = funcs->C_Login(session, CKU_USER, user_pin, user_pin_len);
 	if (rc != CKR_OK) {
-		OC_ERR_MSG("   C_Login #1", rc);
+		show_error("   C_Login #1", rc);
 		return FALSE;
 	}
 
@@ -1574,13 +1580,13 @@ int do_WrapUnwrapAES_CBC_PAD(void)
 	//
 	rc = funcs->C_GenerateKey(session, &mech, key_gen_tmpl, 1, &h_key);
 	if (rc != CKR_OK) {
-		OC_ERR_MSG("   C_GenerateKey #1", rc);
+		show_error("   C_GenerateKey #1", rc);
 		return FALSE;
 	}
 
 	rc = funcs->C_GenerateKey(session, &mech, key_gen_tmpl, 1, &w_key);
 	if (rc != CKR_OK) {
-		OC_ERR_MSG("   C_GenerateKey #2", rc);
+		show_error("   C_GenerateKey #2", rc);
 		return FALSE;
 	}
 
@@ -1597,7 +1603,7 @@ int do_WrapUnwrapAES_CBC_PAD(void)
 
 	rc = funcs->C_EncryptInit(session, &mech, h_key);
 	if (rc != CKR_OK) {
-		OC_ERR_MSG("   C_EncryptInit #1", rc);
+		show_error("   C_EncryptInit #1", rc);
 		return FALSE;
 	}
 
@@ -1605,7 +1611,7 @@ int do_WrapUnwrapAES_CBC_PAD(void)
 	rc = funcs->C_Encrypt(session, original, orig_len, cipher,
 			      &cipher_len);
 	if (rc != CKR_OK) {
-		OC_ERR_MSG("   C_Encrypt #1", rc);
+		show_error("   C_Encrypt #1", rc);
 		return FALSE;
 	}
 
@@ -1617,7 +1623,7 @@ int do_WrapUnwrapAES_CBC_PAD(void)
 			      w_key, h_key,
 			      wrapped_data, &wrapped_data_len);
 	if (rc != CKR_OK) {
-		OC_ERR_MSG("   C_WrapKey #1", rc);
+		show_error("   C_WrapKey #1", rc);
 		return FALSE;
 	}
 
@@ -1626,7 +1632,7 @@ int do_WrapUnwrapAES_CBC_PAD(void)
 				wrapped_data, wrapped_data_len,
 				template, tmpl_count, &uw_key);
 	if (rc != CKR_OK) {
-		OC_ERR_MSG("   C_UnWrapKey #1", rc);
+		show_error("   C_UnWrapKey #1", rc);
 		return FALSE;
 	}
 
@@ -1634,7 +1640,7 @@ int do_WrapUnwrapAES_CBC_PAD(void)
 	//
 	rc = funcs->C_DecryptInit(session, &mech, uw_key);
 	if (rc != CKR_OK) {
-		OC_ERR_MSG("   C_DecryptInit #1", rc);
+		show_error("   C_DecryptInit #1", rc);
 		return FALSE;
 	}
 
@@ -1642,7 +1648,7 @@ int do_WrapUnwrapAES_CBC_PAD(void)
 	rc = funcs->C_Decrypt(session, cipher, cipher_len, decipher,
 			      &decipher_len);
 	if (rc != CKR_OK) {
-		OC_ERR_MSG("   C_Decrypt #1", rc);
+		show_error("   C_Decrypt #1", rc);
 		return FALSE;
 	}
 
@@ -1691,7 +1697,7 @@ int do_WrapUnwrapAES_CBC_PAD(void)
 					      NULL, 0,
 					      &publ_key, &priv_key);
 		if (rc != CKR_OK) {
-			OC_ERR_MSG("   C_GenerateKeyPair #1", rc);
+			show_error("   C_GenerateKeyPair #1", rc);
 			return FALSE;
 		}
 
@@ -1703,7 +1709,7 @@ int do_WrapUnwrapAES_CBC_PAD(void)
 				      w_key, priv_key,
 				      wrapped_data, &wrapped_data_len);
 		if (rc != CKR_OK) {
-			OC_ERR_MSG("   C_WrapKey #2", rc);
+			show_error("   C_WrapKey #2", rc);
 			return FALSE;
 		}
 
@@ -1712,7 +1718,7 @@ int do_WrapUnwrapAES_CBC_PAD(void)
 					wrapped_data, wrapped_data_len,
 					uw_tmpl, 2, &uw_key);
 		if (rc != CKR_OK) {
-			OC_ERR_MSG("   C_UnWrapKey #2", rc);
+			show_error("   C_UnWrapKey #2", rc);
 			return FALSE;
 		}
 		// encrypt something with the public key
@@ -1723,7 +1729,7 @@ int do_WrapUnwrapAES_CBC_PAD(void)
 
 		rc = funcs->C_EncryptInit(session, &mech2, publ_key);
 		if (rc != CKR_OK) {
-			OC_ERR_MSG("   C_EncryptInit #2", rc);
+			show_error("   C_EncryptInit #2", rc);
 			return FALSE;
 		}
 		// for RSA operations, keep the input data size smaller than
@@ -1735,14 +1741,14 @@ int do_WrapUnwrapAES_CBC_PAD(void)
 		rc = funcs->C_Encrypt(session, original, orig_len, cipher,
 				      &cipher_len);
 		if (rc != CKR_OK) {
-			OC_ERR_MSG("   C_Encrypt #2", rc);
+			show_error("   C_Encrypt #2", rc);
 			return FALSE;
 		}
 		// now, decrypt the data using the unwrapped private key.
 		//
 		rc = funcs->C_DecryptInit(session, &mech2, uw_key);
 		if (rc != CKR_OK) {
-			OC_ERR_MSG("   C_DecryptInit #1", rc);
+			show_error("   C_DecryptInit #1", rc);
 			return FALSE;
 		}
 
@@ -1750,7 +1756,7 @@ int do_WrapUnwrapAES_CBC_PAD(void)
 		rc = funcs->C_Decrypt(session, cipher, cipher_len,
 				      decipher, &decipher_len);
 		if (rc != CKR_OK) {
-			OC_ERR_MSG("   C_Decrypt #1", rc);
+			show_error("   C_Decrypt #1", rc);
 			return FALSE;
 		}
 
@@ -1772,153 +1778,13 @@ int do_WrapUnwrapAES_CBC_PAD(void)
 
 	rc = funcs->C_CloseAllSessions(slot_id);
 	if (rc != CKR_OK) {
-		OC_ERR_MSG("   C_CloseAllSessions #1", rc);
+		show_error("   C_CloseAllSessions #1", rc);
 		return FALSE;
 	}
 
 	printf("Looks okay...\n");
 	return TRUE;
 }
-
-int do_GetFunctionList(void)
-{
-        char *pkcslib = "libopencryptoki.so";
-        CK_RV (*func_ptr)();
-        int rc;
-
-        if( (dl_handle = dlopen(pkcslib, RTLD_NOW)) == NULL) {
-                printf("dlopen: %s\n", dlerror());
-                return -1;
-        }
-
-        func_ptr = (CK_RV (*)())dlsym(dl_handle, "C_GetFunctionList");
-
-        if(func_ptr == NULL)
-                return -1;
-
-        if( (rc = func_ptr(&funcs)) != CKR_OK) {
-                OC_ERR_MSG("C_GetFunctionList", rc);
-                return -1;
-        }
-
-        return 0;
-}
-
-void process_time(SYSTEMTIME t1, SYSTEMTIME t2)
-{
-   long ms   = t2.millitm - t1.millitm;
-   long s    = t2.time - t1.time;
-
-   while (ms < 0) {
-      ms += 1000;
-      s--;
-   }
-
-   ms += (s*1000);
-
-
-
-   printf("Time:  %ld msec\n", ms );
-
-}
-
-void process_ret_code( CK_RV rc )
-{
-        switch (rc) {
-         case CKR_OK:printf(" CKR_OK");break;
-         case CKR_CANCEL:                           printf(" CKR_CANCEL");                           break;
-         case CKR_HOST_MEMORY:                      printf(" CKR_HOST_MEMORY");                      break;
-         case CKR_SLOT_ID_INVALID:                  printf(" CKR_SLOT_ID_INVALID");                  break;
-         case CKR_GENERAL_ERROR:                    printf(" CKR_GENERAL_ERROR");                    break;
-         case CKR_FUNCTION_FAILED:                  printf(" CKR_FUNCTION_FAILED");                  break;
-         case CKR_ARGUMENTS_BAD:                    printf(" CKR_ARGUMENTS_BAD");                    break;
-         case CKR_NO_EVENT:                         printf(" CKR_NO_EVENT");                         break;
-         case CKR_NEED_TO_CREATE_THREADS:           printf(" CKR_NEED_TO_CREATE_THREADS");           break;
-         case CKR_CANT_LOCK:                        printf(" CKR_CANT_LOCK");                        break;
-         case CKR_ATTRIBUTE_READ_ONLY:              printf(" CKR_ATTRIBUTE_READ_ONLY");              break;
-         case CKR_ATTRIBUTE_SENSITIVE:              printf(" CKR_ATTRIBUTE_SENSITIVE");              break;
-         case CKR_ATTRIBUTE_TYPE_INVALID:           printf(" CKR_ATTRIBUTE_TYPE_INVALID");           break;
-         case CKR_ATTRIBUTE_VALUE_INVALID:          printf(" CKR_ATTRIBUTE_VALUE_INVALID");          break;
-         case CKR_DATA_INVALID:                     printf(" CKR_DATA_INVALID");                     break;
-         case CKR_DATA_LEN_RANGE:                   printf(" CKR_DATA_LEN_RANGE");                   break;
-         case CKR_DEVICE_ERROR:                     printf(" CKR_DEVICE_ERROR");                     break;
-         case CKR_DEVICE_MEMORY:                    printf(" CKR_DEVICE_MEMORY");                    break;
-         case CKR_DEVICE_REMOVED:                   printf(" CKR_DEVICE_REMOVED");                   break;
-         case CKR_ENCRYPTED_DATA_INVALID:           printf(" CKR_ENCRYPTED_DATA_INVALID");           break;
-         case CKR_ENCRYPTED_DATA_LEN_RANGE:         printf(" CKR_ENCRYPTED_DATA_LEN_RANGE");         break;
-         case CKR_FUNCTION_CANCELED:                printf(" CKR_FUNCTION_CANCELED");                break;
-         case CKR_FUNCTION_NOT_PARALLEL:            printf(" CKR_FUNCTION_NOT_PARALLEL");            break;
-         case CKR_FUNCTION_NOT_SUPPORTED:           printf(" CKR_FUNCTION_NOT_SUPPORTED");           break;
-         case CKR_KEY_HANDLE_INVALID:               printf(" CKR_KEY_HANDLE_INVALID");               break;
-         case CKR_KEY_SIZE_RANGE:                   printf(" CKR_KEY_SIZE_RANGE");                   break;
-         case CKR_KEY_TYPE_INCONSISTENT:            printf(" CKR_KEY_TYPE_INCONSISTENT");            break;
-         case CKR_KEY_NOT_NEEDED:                   printf(" CKR_KEY_NOT_NEEDED");                   break;
-         case CKR_KEY_CHANGED:                      printf(" CKR_KEY_CHANGED");                      break;
-         case CKR_KEY_NEEDED:                       printf(" CKR_KEY_NEEDED");                       break;
-         case CKR_KEY_INDIGESTIBLE:                 printf(" CKR_KEY_INDIGESTIBLE");                 break;
-         case CKR_KEY_FUNCTION_NOT_PERMITTED:       printf(" CKR_KEY_FUNCTION_NOT_PERMITTED");       break;
-         case CKR_KEY_NOT_WRAPPABLE:                printf(" CKR_KEY_NOT_WRAPPABLE");                break;
-         case CKR_KEY_UNEXTRACTABLE:                printf(" CKR_KEY_UNEXTRACTABLE");                break;
-         case CKR_MECHANISM_INVALID:                printf(" CKR_MECHANISM_INVALID");                break;
-         case CKR_MECHANISM_PARAM_INVALID:          printf(" CKR_MECHANISM_PARAM_INVALID");          break;
-         case CKR_OBJECT_HANDLE_INVALID:            printf(" CKR_OBJECT_HANDLE_INVALID");            break;
-         case CKR_OPERATION_ACTIVE:                 printf(" CKR_OPERATION_ACTIVE");                 break;
-         case CKR_OPERATION_NOT_INITIALIZED:        printf(" CKR_OPERATION_NOT_INITIALIZED");        break;
-         case CKR_PIN_INCORRECT:                    printf(" CKR_PIN_INCORRECT");                    break;
-         case CKR_PIN_INVALID:                      printf(" CKR_PIN_INVALID");                      break;
-         case CKR_PIN_LEN_RANGE:                    printf(" CKR_PIN_LEN_RANGE");                    break;
-         case CKR_PIN_EXPIRED:                      printf(" CKR_PIN_EXPIRED");                      break;
-         case CKR_PIN_LOCKED:                       printf(" CKR_PIN_LOCKED");                       break;
-         case CKR_SESSION_CLOSED:                   printf(" CKR_SESSION_CLOSED");                   break;
-         case CKR_SESSION_COUNT:                    printf(" CKR_SESSION_COUNT");                    break;
-         case CKR_SESSION_HANDLE_INVALID:           printf(" CKR_SESSION_HANDLE_INVALID");           break;
-         case CKR_SESSION_PARALLEL_NOT_SUPPORTED:   printf(" CKR_SESSION_PARALLEL_NOT_SUPPORTED");   break;
-         case CKR_SESSION_READ_ONLY:                printf(" CKR_SESSION_READ_ONLY");                break;
-         case CKR_SESSION_EXISTS:                   printf(" CKR_SESSION_EXISTS");                   break;
-         case CKR_SESSION_READ_ONLY_EXISTS:         printf(" CKR_SESSION_READ_ONLY_EXISTS");         break;
-         case CKR_SESSION_READ_WRITE_SO_EXISTS:     printf(" CKR_SESSION_READ_WRITE_SO_EXISTS");     break;
-         case CKR_SIGNATURE_INVALID:                printf(" CKR_SIGNATURE_INVALID");                break;
-         case CKR_SIGNATURE_LEN_RANGE:              printf(" CKR_SIGNATURE_LEN_RANGE");              break;
-         case CKR_TEMPLATE_INCOMPLETE:              printf(" CKR_TEMPLATE_INCOMPLETE");              break;
-         case CKR_TEMPLATE_INCONSISTENT:            printf(" CKR_TEMPLATE_INCONSISTENT");            break;
-         case CKR_TOKEN_NOT_PRESENT:                printf(" CKR_TOKEN_NOT_PRESENT");                break;
-        case CKR_TOKEN_NOT_RECOGNIZED:             printf(" CKR_TOKEN_NOT_RECOGNIZED");             break;
-        case CKR_TOKEN_WRITE_PROTECTED:            printf(" CKR_TOKEN_WRITE_PROTECTED");            break;
-        case CKR_UNWRAPPING_KEY_HANDLE_INVALID:    printf(" CKR_UNWRAPPING_KEY_HANDLE_INVALID");    break;
-        case CKR_UNWRAPPING_KEY_SIZE_RANGE:        printf(" CKR_UNWRAPPING_KEY_SIZE_RANGE");        break;
-        case CKR_UNWRAPPING_KEY_TYPE_INCONSISTENT: printf(" CKR_UNWRAPPING_KEY_TYPE_INCONSISTENT"); break;
-        case CKR_USER_ALREADY_LOGGED_IN:           printf(" CKR_USER_ALREADY_LOGGED_IN");           break;
-        case CKR_USER_NOT_LOGGED_IN:               printf(" CKR_USER_NOT_LOGGED_IN");               break;
-        case CKR_USER_PIN_NOT_INITIALIZED:         printf(" CKR_USER_PIN_NOT_INITIALIZED");         break;
-        case CKR_USER_TYPE_INVALID:                printf(" CKR_USER_TYPE_INVALID");                break;
-        case CKR_USER_ANOTHER_ALREADY_LOGGED_IN:   printf(" CKR_USER_ANOTHER_ALREADY_LOGGED_IN");   break;
-        case CKR_USER_TOO_MANY_TYPES:              printf(" CKR_USER_TOO_MANY_TYPES");              break;
-        case CKR_WRAPPED_KEY_INVALID:              printf(" CKR_WRAPPED_KEY_INVALID");              break;
-        case CKR_WRAPPED_KEY_LEN_RANGE:            printf(" CKR_WRAPPED_KEY_LEN_RANGE");            break;
-        case CKR_WRAPPING_KEY_HANDLE_INVALID:      printf(" CKR_WRAPPING_KEY_HANDLE_INVALID");      break;
-        case CKR_WRAPPING_KEY_SIZE_RANGE:          printf(" CKR_WRAPPING_KEY_SIZE_RANGE");          break;
-        case CKR_WRAPPING_KEY_TYPE_INCONSISTENT:   printf(" CKR_WRAPPING_KEY_TYPE_INCONSISTENT");   break;
-        case CKR_RANDOM_SEED_NOT_SUPPORTED:        printf(" CKR_RANDOM_SEED_NOT_SUPPORTED");        break;
-        case CKR_RANDOM_NO_RNG:                    printf(" CKR_RANDOM_NO_RNG");                    break;
-        case CKR_BUFFER_TOO_SMALL:                 printf(" CKR_BUFFER_TOO_SMALL");                 break;
-        case CKR_SAVED_STATE_INVALID:              printf(" CKR_SAVED_STATE_INVALID");              break;
-        case CKR_INFORMATION_SENSITIVE:            printf(" CKR_INFORMATION_SENSITIVE");            break;
-        case CKR_STATE_UNSAVEABLE:                 printf(" CKR_STATE_UNSAVEABLE");                 break;
-        case CKR_CRYPTOKI_NOT_INITIALIZED:         printf(" CKR_CRYPTOKI_NOT_INITIALIZED");         break;
-        case CKR_CRYPTOKI_ALREADY_INITIALIZED:     printf(" CKR_CRYPTOKI_ALREADY_INITIALIZED");     break;
-        case CKR_MUTEX_BAD:                        printf(" CKR_MUTEX_BAD");break;
-        case CKR_MUTEX_NOT_LOCKED:    printf(" CKR_MUTEX_NOT_LOCKED");break;
-        }
-}
-
-
-void oc_err_msg( char *file, int line, char *str, CK_RV rc )
-{
-        printf("%s line %d Error: %s returned:  %ld ", file, line, str, rc );
-        process_ret_code( rc );
-        printf("\n\n");
-}
-
 
 int main(int argc, char **argv)
 {
@@ -1945,12 +1811,9 @@ int main(int argc, char **argv)
 	memset(&initialize_args, 0, sizeof(initialize_args));
 
 	if ((rc = funcs->C_Initialize(&initialize_args)) != CKR_OK) {
-		OC_ERR_MSG("C_Initialize", rc);
+		show_error("C_Initialize", rc);
 		return -1;
 	}
-
-
-
 
 
 	GetSystemTime(&t1);
@@ -2011,7 +1874,7 @@ int main(int argc, char **argv)
 
 done:
         if( (rc = funcs->C_Finalize(NULL)) != CKR_OK)
-                OC_ERR_MSG("C_Finalize", rc);
+                show_error("C_Finalize", rc);
 
         /* Decrement the reference count to libopencryptoki.so */
         dlclose(dl_handle);

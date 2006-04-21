@@ -29,7 +29,7 @@
 void process_time(SYSTEMTIME t1, SYSTEMTIME t2);
 void process_ret_code( CK_RV rc );
 int  do_GetInfo(void);
-void show_error( char *str, CK_RV rc );
+void show_error( CK_BYTE *str, CK_RV rc );
 void print_hex( CK_BYTE *buf, CK_ULONG len );
 
 void init_coprocessor(void);
@@ -65,17 +65,17 @@ extern CK_BYTE DSA_PUBL_BASE[128];
 
 extern int skip_token_obj;
 
-/* Right now the testcases will break if these PINs are any length
- * other than 8.
- */
-#define DEFAULT_USER_PIN	"01234567"
-#define DEFAULT_USER_PIN_LEN	8
-#define DEFAULT_SO_PIN		"76543210"
-#define DEFAULT_SO_PIN_LEN	8
+int get_so_pin(CK_BYTE_PTR);
+int get_user_pin(CK_BYTE_PTR);
 
-#define NEW_USER_PIN		"01234567"
-#define NEW_USER_PIN_LEN	8
-#define NEW_SO_PIN		"76543210"
-#define NEW_SO_PIN_LEN		8
+#define PKCS11_MAX_PIN_LEN	128
+#define PKCS11_SO_PIN_ENV_VAR   "PKCS11_SO_PIN"
+#define PKCS11_USER_PIN_ENV_VAR "PKCS11_USER_PIN"
+
+#define PRINT_ERR(fmt, ...)     fprintf(stderr, "%s:%d " fmt "\n", __FILE__, __LINE__, \
+                                        ## __VA_ARGS__)
+#define PRINT(fmt, ...)         printf("%s:%d " fmt "\n", __FILE__, __LINE__, \
+                                        ## __VA_ARGS__)
+
 
 #endif

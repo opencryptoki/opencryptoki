@@ -24,7 +24,7 @@ CK_RV symmetric_encryption(CK_SESSION_HANDLE hSession, CK_OBJECT_HANDLE hKey,
       CK_CHAR **encryptedData, CK_ULONG *encryptedData_sz);
 
 void *dllPtr;
-CK_FUNCTION_LIST_PTR   FunctionPtr = NULL;
+CK_FUNCTION_LIST_PTR   funcs = NULL;
 Slot_Mgr_Shr_t         *shmp = NULL;
 
 
@@ -109,9 +109,9 @@ CK_RV init(void)
    }
 
    /* get the list of functions */
-   funcPtr(&FunctionPtr);
+   funcPtr(&funcs);
 
-   rc = FunctionPtr->C_Initialize(NULL);
+   rc = funcs->C_Initialize(NULL);
    if (rc != CKR_OK) {
       goto done;
    }
@@ -121,8 +121,8 @@ CK_RV init(void)
 done:
    if (rc != CKR_OK) {
       /* call C_Finalize and close the dyn. linked lib */
-      if (FunctionPtr) {
-         FunctionPtr->C_Finalize(NULL);
+      if (funcs) {
+         funcs->C_Finalize(NULL);
       }
       if (dllPtr) {
          dlclose(dllPtr);
@@ -139,10 +139,10 @@ CK_RV verify_slot(unsigned long slot_num)
    CK_ULONG ulSlotWithTokenCount;
    unsigned int i;
 
-   rc = FunctionPtr->C_GetSlotList(TRUE, NULL_PTR, &ulSlotWithTokenCount); 
+   rc = funcs->C_GetSlotList(TRUE, NULL_PTR, &ulSlotWithTokenCount); 
    if (rc == CKR_OK) {
       pSlotWithTokenList = (CK_SLOT_ID_PTR)malloc(ulSlotWithTokenCount*sizeof(CK_SLOT_ID));
-      rc = FunctionPtr->C_GetSlotList(TRUE, pSlotWithTokenList, &ulSlotWithTokenCount);
+      rc = funcs->C_GetSlotList(TRUE, pSlotWithTokenList, &ulSlotWithTokenCount);
       if (rc != CKR_OK) {
          fprintf(stderr, "Error geting list of slots with token\n");
          return rc;
@@ -171,9 +171,15 @@ CK_RV test_crypto(long slot_num)
 {
    CK_RV rc;
    CK_SESSION_HANDLE hSession;
+   CK_BYTE user_pin[PKCS11_MAX_PIN_LEN];
+   CK_ULONG user_pin_len;
+
+   if (get_user_pin(user_pin))
+	   return CKR_FUNCTION_FAILED;
+   user_pin_len = strlen(user_pin);
 
    /* open a R/W cryptoki session, CKR_SERIAL_SESSION is a legacy bit we have to set */
-   rc = FunctionPtr->C_OpenSession(slot_num, CKF_RW_SESSION | CKF_SERIAL_SESSION, NULL_PTR,
+   rc = funcs->C_OpenSession(slot_num, CKF_RW_SESSION | CKF_SERIAL_SESSION, NULL_PTR,
          NULL_PTR, &hSession);
    if (rc != CKR_OK) {
       fprintf(stderr, "ERROR call to C_OpenSession failed, rc = %p\n", (void *)rc);
@@ -181,7 +187,7 @@ CK_RV test_crypto(long slot_num)
    }
 
    /* log in as normal user */
-   rc = FunctionPtr->C_Login(hSession, CKU_USER, (CK_CHAR_PTR)DEFAULT_USER_PIN, DEFAULT_USER_PIN_LEN);
+   rc = funcs->C_Login(hSession, CKU_USER, user_pin, user_pin_len);
    if (rc != CKR_OK) {
       fprintf(stderr, "ERROR call to C_Login failed, rc = %p\n", (void *)rc);
       goto out_close;
@@ -226,7 +232,7 @@ CK_RV test_crypto(long slot_num)
    }
 
 out_close:
-   if( (rc = FunctionPtr->C_CloseSession(hSession)) != CKR_OK ) {
+   if( (rc = funcs->C_CloseSession(hSession)) != CKR_OK ) {
       fprintf(stderr, "Error: C_CloseSession failed with %p\n", (void *)rc);
    }
 
@@ -277,7 +283,7 @@ int test_rsa_encryption(CK_SESSION_HANDLE hSession)
    CK_MECHANISM_INFO info;
 
    /* generate a new key */
-   rc = FunctionPtr->C_GenerateKeyPair(
+   rc = funcs->C_GenerateKeyPair(
          hSession, &mechanism, 
          publicKeyTemplate, 5, 
          privateKeyTemplate, 8,
@@ -288,7 +294,7 @@ int test_rsa_encryption(CK_SESSION_HANDLE hSession)
    }
 
    /* get information on CKM_RSA_PKS mechanism */
-   rc = FunctionPtr->C_GetMechanismInfo(0, CKM_RSA_PKCS, &info);
+   rc = funcs->C_GetMechanismInfo(0, CKM_RSA_PKCS, &info);
    if (rc != CKR_OK) {
       fprintf(stderr, "ERROR:  call to C_GetMechanismInfo faile.\n");
       goto out_delkeys;
@@ -297,36 +303,36 @@ int test_rsa_encryption(CK_SESSION_HANDLE hSession)
    fprintf(stderr, "* Minimum key size:  %ld\n* Maximum key size:  %ld\n", info.ulMinKeySize, info.ulMaxKeySize);
 
    /* encrypt something */
-   rc = FunctionPtr->C_EncryptInit(hSession, &mechanism_encr, hPublicKey);
+   rc = funcs->C_EncryptInit(hSession, &mechanism_encr, hPublicKey);
    if (rc != CKR_OK) {
       fprintf(stderr, "ERROR: call to C_EncryptInit failed.\n");
       goto out_delkeys;
    }
-   rc = FunctionPtr->C_Encrypt(hSession, pData, ulDataLen, NULL, &encryptedDataLen);
+   rc = funcs->C_Encrypt(hSession, pData, ulDataLen, NULL, &encryptedDataLen);
    if (rc != CKR_OK) {
       fprintf(stderr, "ERROR: call to C_Encrypt to get size of encryptedData failed.\n");
       goto out_delkeys;
    }
    pEncryptedData = (CK_BYTE_PTR)malloc(encryptedDataLen);
-   rc = FunctionPtr->C_Encrypt(hSession, pData, ulDataLen, pEncryptedData, &encryptedDataLen);
+   rc = funcs->C_Encrypt(hSession, pData, ulDataLen, pEncryptedData, &encryptedDataLen);
    if (rc != CKR_OK) {
       fprintf(stderr, "ERROR: call to C_Encrypt failed.\n");
       goto out_delkeys;
    }
 
    /* now try decrypting */
-   rc = FunctionPtr->C_DecryptInit(hSession, &mechanism_encr, hPrivateKey);
+   rc = funcs->C_DecryptInit(hSession, &mechanism_encr, hPrivateKey);
    if (rc != CKR_OK) {
       fprintf(stderr, "ERROR: call to C_EncryptInit failed.\n");
       goto out_delkeys;
    }
-   rc = FunctionPtr->C_Decrypt(hSession, pEncryptedData, encryptedDataLen, NULL, &decryptedDataLen);
+   rc = funcs->C_Decrypt(hSession, pEncryptedData, encryptedDataLen, NULL, &decryptedDataLen);
    if (rc != CKR_OK) {
       fprintf(stderr, "ERROR: call to C_Encrypt failed.\n");
       goto out_delkeys;
    }
    pDecryptedData = (CK_BYTE_PTR)malloc(decryptedDataLen);
-   rc = FunctionPtr->C_Decrypt(hSession, pEncryptedData, encryptedDataLen, pDecryptedData, &decryptedDataLen);
+   rc = funcs->C_Decrypt(hSession, pEncryptedData, encryptedDataLen, pDecryptedData, &decryptedDataLen);
    if (rc != CKR_OK) {
       fprintf(stderr, "ERROR: call to C_Encrypt failed.\n");
       goto out_delkeys;
@@ -338,13 +344,13 @@ int test_rsa_encryption(CK_SESSION_HANDLE hSession)
    }
 
 out_delkeys:
-   rc2 = FunctionPtr->C_DestroyObject(hSession, hPublicKey);
+   rc2 = funcs->C_DestroyObject(hSession, hPublicKey);
    if (rc2 != CKR_OK) {
       fprintf(stderr, "Error deleting public key...\n");
       if (rc == CKR_OK)
          rc = rc2;
    }
-   rc2 = FunctionPtr->C_DestroyObject(hSession, hPrivateKey);
+   rc2 = funcs->C_DestroyObject(hSession, hPrivateKey);
    if (rc2 != CKR_OK) {
       fprintf(stderr, "Error deleting private key...\n");
       if (rc == CKR_OK)
@@ -394,7 +400,7 @@ int test_ecb_des(CK_SESSION_HANDLE hSession)
    };
 
    /* create DES secret key object */
-   rc = FunctionPtr->C_CreateObject(hSession, 
+   rc = funcs->C_CreateObject(hSession, 
          template, 
          sizeof(template) / sizeof (CK_ATTRIBUTE),
          &hKey);
@@ -424,7 +430,7 @@ done:
    if (encryptedData) {
       free(encryptedData);
    }
-   rc2 = FunctionPtr->C_DestroyObject(hSession, hKey);
+   rc2 = funcs->C_DestroyObject(hSession, hKey);
    if (rc2 != CKR_OK) {
       fprintf(stderr, "Error deleting DES key...\n");
       if (rc == CKR_OK)
@@ -468,7 +474,7 @@ int test_cbc_des(CK_SESSION_HANDLE hSession)
    };
 
    /* create DES secret key object */
-   rc = FunctionPtr->C_CreateObject(hSession, 
+   rc = funcs->C_CreateObject(hSession, 
          template, 
          sizeof(template) / sizeof (CK_ATTRIBUTE),
          &hKey);
@@ -498,7 +504,7 @@ done:
    if (encryptedData) {
       free(encryptedData);
    }
-   rc2 = FunctionPtr->C_DestroyObject(hSession, hKey);
+   rc2 = funcs->C_DestroyObject(hSession, hKey);
    if (rc2 != CKR_OK) {
       fprintf(stderr, "Error deleting DES key...\n");
       if (rc == CKR_OK)
@@ -540,7 +546,7 @@ int test_ecb_3des(CK_SESSION_HANDLE hSession)
    };
 
    /* create DES secret key object */
-   rc = FunctionPtr->C_CreateObject(hSession, 
+   rc = funcs->C_CreateObject(hSession, 
          template, 
          sizeof(template) / sizeof (CK_ATTRIBUTE),
          &hKey);
@@ -570,7 +576,7 @@ done:
    if (encryptedData) {
       free(encryptedData);
    }
-   rc2 = FunctionPtr->C_DestroyObject(hSession, hKey);
+   rc2 = funcs->C_DestroyObject(hSession, hKey);
    if (rc2 != CKR_OK) {
       fprintf(stderr, "Error deleting 3DES key...\n");
       if (rc == CKR_OK)
@@ -612,7 +618,7 @@ int test_cbc_3des(CK_SESSION_HANDLE hSession)
       CKM_DES3_CBC, iv, sizeof(iv)
    };
    /* create DES secret key object */
-   rc = FunctionPtr->C_CreateObject(hSession, 
+   rc = funcs->C_CreateObject(hSession, 
          template, 
          sizeof(template) / sizeof (CK_ATTRIBUTE),
          &hKey);
@@ -642,7 +648,7 @@ done:
    if (encryptedData) {
       free(encryptedData);
    }
-   rc2 = FunctionPtr->C_DestroyObject(hSession, hKey);
+   rc2 = funcs->C_DestroyObject(hSession, hKey);
    if (rc2 != CKR_OK) {
       fprintf(stderr, "Error deleting 3DES key...\n");
       if (rc == CKR_OK)
@@ -665,13 +671,13 @@ CK_RV symmetric_encryption(CK_SESSION_HANDLE hSession, CK_OBJECT_HANDLE hKey,
    CK_CHAR *this_encryptedData;
 
    /* init */
-   rc = FunctionPtr->C_EncryptInit(hSession, &mechanism, hKey);
+   rc = funcs->C_EncryptInit(hSession, &mechanism, hKey);
    if (rc != CKR_OK) {
       fprintf(stderr, "ERROR call to C_EncryptInit failed, rc = %p\n", (void *)rc);
       return rc;
    }
 
-   rc = FunctionPtr->C_Encrypt(hSession, data, data_sz, NULL, encryptedData_sz);
+   rc = funcs->C_Encrypt(hSession, data, data_sz, NULL, encryptedData_sz);
    if (rc != CKR_OK) {
       fprintf(stderr, "ERROR failed to get size of encrypted data calling C_Encrypt, rc = %p\n", (void *)rc);
       return rc;
@@ -680,7 +686,7 @@ CK_RV symmetric_encryption(CK_SESSION_HANDLE hSession, CK_OBJECT_HANDLE hKey,
    this_encryptedData = (CK_CHAR *)malloc((*encryptedData_sz)*sizeof(CK_CHAR));
 
    /* encrypt */
-   rc = FunctionPtr->C_Encrypt(hSession, data, data_sz, this_encryptedData, encryptedData_sz);
+   rc = funcs->C_Encrypt(hSession, data, data_sz, this_encryptedData, encryptedData_sz);
    if (rc != CKR_OK) {
       fprintf(stderr, "ERROR call to C_EncryptUpdate failed, rc = %p\n", (void *)rc);
       return rc;

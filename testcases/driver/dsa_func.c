@@ -21,7 +21,7 @@ int do_GenerateDSAKeyPair( void )
    CK_MECHANISM        mech;
    CK_OBJECT_HANDLE    publ_key, priv_key;
    CK_FLAGS            flags;
-   CK_BYTE             user_pin[DEFAULT_USER_PIN_LEN];
+   CK_BYTE             user_pin[PKCS11_MAX_PIN_LEN];
    CK_ULONG            user_pin_len;
    CK_RV               rc;
 
@@ -37,8 +37,9 @@ int do_GenerateDSAKeyPair( void )
 
    slot_id = SLOT_ID;
 
-   memcpy( user_pin, DEFAULT_USER_PIN, DEFAULT_USER_PIN_LEN );
-   user_pin_len = DEFAULT_USER_PIN_LEN;
+   if (get_user_pin(user_pin))
+	   return CKR_FUNCTION_FAILED;
+   user_pin_len = strlen(user_pin);
 
    mech.mechanism      = CKM_DSA_KEY_PAIR_GEN;
    mech.ulParameterLen = 0;
@@ -90,7 +91,7 @@ int do_SignDSA( void )
    CK_MECHANISM        mech;
    CK_OBJECT_HANDLE    publ_key, priv_key;
    CK_FLAGS            flags;
-   CK_BYTE             user_pin[DEFAULT_USER_PIN_LEN];
+   CK_BYTE             user_pin[PKCS11_MAX_PIN_LEN];
    CK_ULONG            user_pin_len;
    CK_ULONG            i;
    CK_ULONG            len1, sig_len;
@@ -114,8 +115,9 @@ int do_SignDSA( void )
    }
 
 
-   memcpy( user_pin, DEFAULT_USER_PIN, DEFAULT_USER_PIN_LEN );
-   user_pin_len = DEFAULT_USER_PIN_LEN;
+   if (get_user_pin(user_pin))
+	   return CKR_FUNCTION_FAILED;
+   user_pin_len = strlen(user_pin);
 
    rc = funcs->C_Login( session, CKU_USER, user_pin, user_pin_len );
    if (rc != CKR_OK) {

@@ -59,7 +59,7 @@ CK_BYTE DSA_PUBL_BASE[128] =
    0xc5, 0x18, 0xe9, 0xbc, 0xff, 0xae, 0x34, 0x7f
 };
 
-
+#if 0
 void hex_dump_to_file(char *str, unsigned char *data, int bytes)
 {
    FILE *fp;
@@ -79,7 +79,7 @@ void hex_dump_to_file(char *str, unsigned char *data, int bytes)
    fclose(fp);
 
 }
-
+#endif
 
 unsigned char cka_modulus[] =
                   { 0xec, 0x51, 0xab, 0xa1, 0xf8, 0x40, 0x2c, 0x8,
@@ -162,11 +162,11 @@ int do_EncryptRSA_PKCS( void )
    CK_MECHANISM        mech;
    CK_OBJECT_HANDLE    publ_key, priv_key;
    CK_FLAGS            flags;
-   CK_BYTE             user_pin[DEFAULT_USER_PIN_LEN];
+   CK_BYTE             user_pin[128];
    CK_ULONG            user_pin_len;
    CK_ULONG            i;
    CK_ULONG            len1, len2, cipherlen;
-   CK_RV               rc;
+   CK_RV               rv;
    CK_OBJECT_CLASS  class = CKO_PUBLIC_KEY; 
    CK_KEY_TYPE      type= CKK_RSA;
    CK_OBJECT_CLASS  privclass = CKO_PRIVATE_KEY; 
@@ -177,97 +177,47 @@ int do_EncryptRSA_PKCS( void )
    CK_ULONG  bits = 1024;
    CK_BYTE   pub_exp[] = { 0x3 };
 
-#if GENKEY
    CK_ATTRIBUTE pub_tmpl[] = {
       {CKA_MODULUS_BITS,    &bits,    sizeof(bits)    },
       {CKA_PUBLIC_EXPONENT, &pub_exp, sizeof(pub_exp) },
    };
-#else
-   CK_ATTRIBUTE pub_tmpl[] =
-   {
-      {CKA_CLASS,    &class,    sizeof(class)    },
-      {CKA_KEY_TYPE,    &type,    sizeof(type)    },
-      {CKA_TOKEN,    &false,    sizeof(false)    },
-      {CKA_ENCRYPT,  &true, sizeof(true) },
-      {CKA_PUBLIC_EXPONENT, &pub_exp, sizeof(pub_exp) },
-      {CKA_MODULUS, cka_modulus, sizeof(cka_modulus)}
-   };
-#define NUMPUBL 6
-
-   CK_ATTRIBUTE priv_tmpl[] =
-   {
-      {CKA_CLASS,    &privclass,    sizeof(privclass)    },
-      {CKA_KEY_TYPE,    &type,    sizeof(type)    },
-      {CKA_TOKEN,    &false,    sizeof(false)    },
-      {CKA_DECRYPT,  &true, sizeof(true) },
-      {CKA_PUBLIC_EXPONENT, &pub_exp, sizeof(pub_exp) },
-      {CKA_PRIVATE_EXPONENT, NULL, 0 },
-      {CKA_MODULUS, cka_modulus, sizeof(cka_modulus)},
-      {CKA_PRIME_1, cka_prime_1, sizeof(cka_prime_1)},
-      {CKA_PRIME_2, cka_prime_2, sizeof(cka_prime_2)},
-      {CKA_EXPONENT_1, cka_exponent_1, sizeof(cka_exponent_1)},
-      {CKA_EXPONENT_2, cka_exponent_2, sizeof(cka_exponent_2)},
-      {CKA_COEFFICIENT, cka_coefficient, sizeof(cka_coefficient)},
-      {CKA_SENSITIVE, &true, sizeof(true)}
-   };
-#define NUMPRIV 13
-#endif
 
    printf("do_EncryptRSA_PKCS...\n");
 
    slot_id = SLOT_ID;
    flags = CKF_SERIAL_SESSION | CKF_RW_SESSION;
-   rc = funcs->C_OpenSession( slot_id, flags, NULL, NULL, &session );
-   if (rc != CKR_OK) {
-      show_error("   C_OpenSession #1", rc );
+   rv = funcs->C_OpenSession( slot_id, flags, NULL, NULL, &session );
+   if (rv != CKR_OK) {
+      show_error("   C_OpenSession #1", rv );
       return FALSE;
    }
 
 
-   memcpy( user_pin, DEFAULT_USER_PIN, DEFAULT_USER_PIN_LEN );
-   user_pin_len = DEFAULT_USER_PIN_LEN;
+   if (get_user_pin(user_pin))
+	   return CKR_FUNCTION_FAILED;
+   user_pin_len = strlen(user_pin);
 
-   rc = funcs->C_Login( session, CKU_USER, user_pin, user_pin_len );
-   if (rc != CKR_OK) {
-      show_error("   C_Login #1", rc );
+   rv = funcs->C_Login( session, CKU_USER, user_pin, user_pin_len );
+   if (rv != CKR_OK) {
+      show_error("   C_Login #1", rv );
       return FALSE;
    }
 
 
-
-#if GENKEY
-printf("GENERATING KEY \n");
+   printf("GENERATING KEY \n");
    mech.mechanism      = CKM_RSA_PKCS_KEY_PAIR_GEN;
    mech.ulParameterLen = 0;
    mech.pParameter     = NULL;
 
-   rc = funcs->C_GenerateKeyPair( session,   &mech,
+   rv = funcs->C_GenerateKeyPair( session,   &mech,
                                   pub_tmpl,   2,
                                   NULL,       0,
                                   &publ_key, &priv_key );
-   if (rc != CKR_OK) {
-      show_error("   C_GenerateKeyPair #1", rc );
+   if (rv != CKR_OK) {
+      show_error("   C_GenerateKeyPair #1", rv );
       return FALSE;
    }
 
-#else
-// We will create the objects here...
-   rc = funcs->C_CreateObject( session, pub_tmpl, NUMPUBL, &publ_key );
-   if (rc != CKR_OK) {
-      show_error("   C_CreateObject #1", rc );
-      rc = FALSE;
-      return FALSE;
-   }
-
-   rc = funcs->C_CreateObject( session, priv_tmpl, NUMPRIV, &priv_key );
-   if (rc != CKR_OK) {
-      show_error("   C_CreateObject #2", rc );
-      rc = FALSE;
-      return FALSE;
-   }
-
-
-#endif
    // now, encrypt some data
    //
    len1      = sizeof(data1);
@@ -281,245 +231,68 @@ printf("GENERATING KEY \n");
    mech.ulParameterLen = 0;
    mech.pParameter     = NULL;
 
-   rc = funcs->C_EncryptInit( session, &mech, publ_key );
-   if (rc != CKR_OK) {
-      show_error("   C_EncryptInit #1", rc );
+   rv = funcs->C_EncryptInit( session, &mech, publ_key );
+   if (rv != CKR_OK) {
+      show_error("   C_EncryptInit #1", rv );
       return FALSE;
    }
 
-   rc = funcs->C_Encrypt( session, data1, len1, cipher, &cipherlen );
-   if (rc != CKR_OK) {
-      show_error("   C_Encrypt #1", rc );
+   rv = funcs->C_Encrypt( session, data1, len1, cipher, &cipherlen );
+   if (rv != CKR_OK) {
+      show_error("   C_Encrypt #1", rv );
       return FALSE;
    }
 
-   printf("Cipyer len %ld \n",cipherlen);
-   hex_dump_to_file("Ciphertext",cipher,cipherlen);
+   printf("Cipher len %d \n",cipherlen);
+   //hex_dump_to_file("Ciphertext",cipher,cipherlen);
 
    // now, decrypt the data
    //
-   rc = funcs->C_DecryptInit( session, &mech, priv_key );
-   if (rc != CKR_OK) {
-      show_error("   C_DecryptInit #1", rc );
+   rv = funcs->C_DecryptInit( session, &mech, priv_key );
+   if (rv != CKR_OK) {
+      show_error("   C_DecryptInit #1", rv );
       return FALSE;
    }
 
-   rc = funcs->C_Decrypt( session, cipher, cipherlen, data2, &len2 );
-   if (rc != CKR_OK) {
-      show_error("   C_Decrypt #1", rc );
+   rv = funcs->C_Decrypt( session, cipher, cipherlen, data2, &len2 );
+   if (rv != CKR_OK) {
+      show_error("   C_Decrypt #1", rv );
       return FALSE;
    }
 
-   printf("Len from encrypt %ld  from decrypt %ld \n",len1, len2);
+   printf("Len from encrypt %d  from decrypt %d \n",len1, len2);
    //if (len1 != len2) {
    //   printf("   ERROR:  lengths don't match\n");
    //   return FALSE;
   // }
 
-   hex_dump_to_file("decrypted",data2,len2);
+   //hex_dump_to_file("decrypted",data2,len2);
    for (i=0; i <len1; i++) {
       if (data1[i] != data2[i]) {
-         printf("   ERROR:  mismatch at byte %ld\n", i );
-         return FALSE;
-      }
+         printf("   ERROR:  mismatch at byte %d\n", i );
+      return FALSE;
+   }
    }
 
-   rc = funcs->C_CloseAllSessions( slot_id );
-   if (rc != CKR_OK) {
-      show_error("   C_CloseAllSessions #1", rc );
+   rv = funcs->C_CloseAllSessions( slot_id );
+   if (rv != CKR_OK) {
+      show_error("   C_CloseAllSessions #1", rv );
       return FALSE;
    }
 
 
-   printf("Looks okay...\n");
+   printf("Success.\n");
    return TRUE;
 }
 
 
-
-void process_time(SYSTEMTIME t1, SYSTEMTIME t2)
-{
-   long ms   = t2.millitm - t1.millitm;
-   long s    = t2.time - t1.time;
-
-   while (ms < 0) {
-      ms += 1000;
-      s--;
-   }
-
-   ms += (s*1000);
-
-
-
-   printf("Time:  %ld msec\n", ms );
-
-}
-
 //
 //
-void process_ret_code( CK_RV rc )
-{
-   switch (rc) {
-      case CKR_OK:                               printf(" CKR_OK");                               break;
-      case CKR_CANCEL:                           printf(" CKR_CANCEL");                           break;
-      case CKR_HOST_MEMORY:                      printf(" CKR_HOST_MEMORY");                      break;
-      case CKR_SLOT_ID_INVALID:                  printf(" CKR_SLOT_ID_INVALID");                  break;
-      case CKR_GENERAL_ERROR:                    printf(" CKR_GENERAL_ERROR");                    break;
-      case CKR_FUNCTION_FAILED:                  printf(" CKR_FUNCTION_FAILED");                  break;
-      case CKR_ARGUMENTS_BAD:                    printf(" CKR_ARGUMENTS_BAD");                    break;
-      case CKR_NO_EVENT:                         printf(" CKR_NO_EVENT");                         break;
-      case CKR_NEED_TO_CREATE_THREADS:           printf(" CKR_NEED_TO_CREATE_THREADS");           break;
-      case CKR_CANT_LOCK:                        printf(" CKR_CANT_LOCK");                        break;
-      case CKR_ATTRIBUTE_READ_ONLY:              printf(" CKR_ATTRIBUTE_READ_ONLY");              break;
-      case CKR_ATTRIBUTE_SENSITIVE:              printf(" CKR_ATTRIBUTE_SENSITIVE");              break;
-      case CKR_ATTRIBUTE_TYPE_INVALID:           printf(" CKR_ATTRIBUTE_TYPE_INVALID");           break;
-      case CKR_ATTRIBUTE_VALUE_INVALID:          printf(" CKR_ATTRIBUTE_VALUE_INVALID");          break;
-      case CKR_DATA_INVALID:                     printf(" CKR_DATA_INVALID");                     break;
-      case CKR_DATA_LEN_RANGE:                   printf(" CKR_DATA_LEN_RANGE");                   break;
-      case CKR_DEVICE_ERROR:                     printf(" CKR_DEVICE_ERROR");                     break;
-      case CKR_DEVICE_MEMORY:                    printf(" CKR_DEVICE_MEMORY");                    break;
-      case CKR_DEVICE_REMOVED:                   printf(" CKR_DEVICE_REMOVED");                   break;
-      case CKR_ENCRYPTED_DATA_INVALID:           printf(" CKR_ENCRYPTED_DATA_INVALID");           break;
-      case CKR_ENCRYPTED_DATA_LEN_RANGE:         printf(" CKR_ENCRYPTED_DATA_LEN_RANGE");         break;
-      case CKR_FUNCTION_CANCELED:                printf(" CKR_FUNCTION_CANCELED");                break;
-      case CKR_FUNCTION_NOT_PARALLEL:            printf(" CKR_FUNCTION_NOT_PARALLEL");            break;
-      case CKR_FUNCTION_NOT_SUPPORTED:           printf(" CKR_FUNCTION_NOT_SUPPORTED");           break;
-      case CKR_KEY_HANDLE_INVALID:               printf(" CKR_KEY_HANDLE_INVALID");               break;
-      case CKR_KEY_SIZE_RANGE:                   printf(" CKR_KEY_SIZE_RANGE");                   break;
-      case CKR_KEY_TYPE_INCONSISTENT:            printf(" CKR_KEY_TYPE_INCONSISTENT");            break;
-      case CKR_KEY_NOT_NEEDED:                   printf(" CKR_KEY_NOT_NEEDED");                   break;
-      case CKR_KEY_CHANGED:                      printf(" CKR_KEY_CHANGED");                      break;
-      case CKR_KEY_NEEDED:                       printf(" CKR_KEY_NEEDED");                       break;
-      case CKR_KEY_INDIGESTIBLE:                 printf(" CKR_KEY_INDIGESTIBLE");                 break;
-      case CKR_KEY_FUNCTION_NOT_PERMITTED:       printf(" CKR_KEY_FUNCTION_NOT_PERMITTED");       break;
-      case CKR_KEY_NOT_WRAPPABLE:                printf(" CKR_KEY_NOT_WRAPPABLE");                break;
-      case CKR_KEY_UNEXTRACTABLE:                printf(" CKR_KEY_UNEXTRACTABLE");                break;
-      case CKR_MECHANISM_INVALID:                printf(" CKR_MECHANISM_INVALID");                break;
-      case CKR_MECHANISM_PARAM_INVALID:          printf(" CKR_MECHANISM_PARAM_INVALID");          break;
-      case CKR_OBJECT_HANDLE_INVALID:            printf(" CKR_OBJECT_HANDLE_INVALID");            break;
-      case CKR_OPERATION_ACTIVE:                 printf(" CKR_OPERATION_ACTIVE");                 break;
-      case CKR_OPERATION_NOT_INITIALIZED:        printf(" CKR_OPERATION_NOT_INITIALIZED");        break;
-      case CKR_PIN_INCORRECT:                    printf(" CKR_PIN_INCORRECT");                    break;
-      case CKR_PIN_INVALID:                      printf(" CKR_PIN_INVALID");                      break;
-      case CKR_PIN_LEN_RANGE:                    printf(" CKR_PIN_LEN_RANGE");                    break;
-      case CKR_PIN_EXPIRED:                      printf(" CKR_PIN_EXPIRED");                      break;
-      case CKR_PIN_LOCKED:                       printf(" CKR_PIN_LOCKED");                       break;
-      case CKR_SESSION_CLOSED:                   printf(" CKR_SESSION_CLOSED");                   break;
-      case CKR_SESSION_COUNT:                    printf(" CKR_SESSION_COUNT");                    break;
-      case CKR_SESSION_HANDLE_INVALID:           printf(" CKR_SESSION_HANDLE_INVALID");           break;
-      case CKR_SESSION_PARALLEL_NOT_SUPPORTED:   printf(" CKR_SESSION_PARALLEL_NOT_SUPPORTED");   break;
-      case CKR_SESSION_READ_ONLY:                printf(" CKR_SESSION_READ_ONLY");                break;
-      case CKR_SESSION_EXISTS:                   printf(" CKR_SESSION_EXISTS");                   break;
-      case CKR_SESSION_READ_ONLY_EXISTS:         printf(" CKR_SESSION_READ_ONLY_EXISTS");         break;
-      case CKR_SESSION_READ_WRITE_SO_EXISTS:     printf(" CKR_SESSION_READ_WRITE_SO_EXISTS");     break;
-      case CKR_SIGNATURE_INVALID:                printf(" CKR_SIGNATURE_INVALID");                break;
-      case CKR_SIGNATURE_LEN_RANGE:              printf(" CKR_SIGNATURE_LEN_RANGE");              break;
-      case CKR_TEMPLATE_INCOMPLETE:              printf(" CKR_TEMPLATE_INCOMPLETE");              break;
-      case CKR_TEMPLATE_INCONSISTENT:            printf(" CKR_TEMPLATE_INCONSISTENT");            break;
-      case CKR_TOKEN_NOT_PRESENT:                printf(" CKR_TOKEN_NOT_PRESENT");                break;
-      case CKR_TOKEN_NOT_RECOGNIZED:             printf(" CKR_TOKEN_NOT_RECOGNIZED");             break;
-      case CKR_TOKEN_WRITE_PROTECTED:            printf(" CKR_TOKEN_WRITE_PROTECTED");            break;
-      case CKR_UNWRAPPING_KEY_HANDLE_INVALID:    printf(" CKR_UNWRAPPING_KEY_HANDLE_INVALID");    break;
-      case CKR_UNWRAPPING_KEY_SIZE_RANGE:        printf(" CKR_UNWRAPPING_KEY_SIZE_RANGE");        break;
-      case CKR_UNWRAPPING_KEY_TYPE_INCONSISTENT: printf(" CKR_UNWRAPPING_KEY_TYPE_INCONSISTENT"); break;
-      case CKR_USER_ALREADY_LOGGED_IN:           printf(" CKR_USER_ALREADY_LOGGED_IN");           break;
-      case CKR_USER_NOT_LOGGED_IN:               printf(" CKR_USER_NOT_LOGGED_IN");               break;
-      case CKR_USER_PIN_NOT_INITIALIZED:         printf(" CKR_USER_PIN_NOT_INITIALIZED");         break;
-      case CKR_USER_TYPE_INVALID:                printf(" CKR_USER_TYPE_INVALID");                break;
-      case CKR_USER_ANOTHER_ALREADY_LOGGED_IN:   printf(" CKR_USER_ANOTHER_ALREADY_LOGGED_IN");   break;
-      case CKR_USER_TOO_MANY_TYPES:              printf(" CKR_USER_TOO_MANY_TYPES");              break;
-      case CKR_WRAPPED_KEY_INVALID:              printf(" CKR_WRAPPED_KEY_INVALID");              break;
-      case CKR_WRAPPED_KEY_LEN_RANGE:            printf(" CKR_WRAPPED_KEY_LEN_RANGE");            break;
-      case CKR_WRAPPING_KEY_HANDLE_INVALID:      printf(" CKR_WRAPPING_KEY_HANDLE_INVALID");      break;
-      case CKR_WRAPPING_KEY_SIZE_RANGE:          printf(" CKR_WRAPPING_KEY_SIZE_RANGE");          break;
-      case CKR_WRAPPING_KEY_TYPE_INCONSISTENT:   printf(" CKR_WRAPPING_KEY_TYPE_INCONSISTENT");   break;
-      case CKR_RANDOM_SEED_NOT_SUPPORTED:        printf(" CKR_RANDOM_SEED_NOT_SUPPORTED");        break;
-      case CKR_RANDOM_NO_RNG:                    printf(" CKR_RANDOM_NO_RNG");                    break;
-      case CKR_BUFFER_TOO_SMALL:                 printf(" CKR_BUFFER_TOO_SMALL");                 break;
-      case CKR_SAVED_STATE_INVALID:              printf(" CKR_SAVED_STATE_INVALID");              break;
-      case CKR_INFORMATION_SENSITIVE:            printf(" CKR_INFORMATION_SENSITIVE");            break;
-      case CKR_STATE_UNSAVEABLE:                 printf(" CKR_STATE_UNSAVEABLE");                 break;
-      case CKR_CRYPTOKI_NOT_INITIALIZED:         printf(" CKR_CRYPTOKI_NOT_INITIALIZED");         break;
-      case CKR_CRYPTOKI_ALREADY_INITIALIZED:     printf(" CKR_CRYPTOKI_ALREADY_INITIALIZED");     break;
-      case CKR_MUTEX_BAD:                        printf(" CKR_MUTEX_BAD");                        break;
-      case CKR_MUTEX_NOT_LOCKED:                 printf(" CKR_MUTEX_NOT_LOCKED");                 break;
-   }
-}
-
-
-//
-//
-void show_error( char *str, CK_RV rc )
-{
-  printf("%s returned:  %ld (%p)", str, rc, (void *)rc );
-   process_ret_code( rc );
-   printf("\n");
-}
-
-
-//
-//
-void print_hex( CK_BYTE *buf, CK_ULONG len )
-{
-   CK_ULONG i, j;
-
-   i = 0;
-
-   while (i < len) {
-      for (j=0; (j < 15) && (i < len); j++, i++)
-         printf("%03x ", buf[i] );
-      printf("\n");
-   }
-   printf("\n");
-}
-
-
-//
-//
-int do_GetFunctionList( void )
-{
-   CK_RV            rc;
-   CK_RV  (*pfoo)();
-   void    *d;
-   char    *e;
-   char	   f[]="libopencryptoki.so";
-
-   printf("do_GetFunctionList...\n");
-
-   e = getenv("PKCSLIB");
-   if ( e == NULL) {
-	e = f;
-      //return FALSE;
-   }
-   d = dlopen(e,RTLD_NOW);
-   if ( d == NULL ) {
-      return FALSE;
-   }
-
-   pfoo = (CK_RV (*)())dlsym(d,"C_GetFunctionList");
-   if (pfoo == NULL ) {
-      return FALSE;
-   }
-   rc = pfoo(&funcs);
-
-   if (rc != CKR_OK) {
-      show_error("   C_GetFunctionList", rc );
-      return FALSE;
-   }
-
-   printf("Looks okay...\n");
-   return TRUE;
-
-}
-
-
-
-//
-//
-int main( int argc, char **argv )
+int
+main( int argc, char **argv )
 {
    CK_C_INITIALIZE_ARGS  cinit_args;
-   int        rc, i;
+   int        rv, i;
 
    CK_BBOOL      no_init;
 
@@ -544,29 +317,40 @@ int main( int argc, char **argv )
          printf("By default, Slot #1 is used\n\n");
          printf("By default we skip anything that creates or modifies\n");
          printf("token objects to preserve flash lifetime.\n");
-         return -1;
+         return;
       }
    }
 
-   printf("Using slot #%ld...\n\n", SLOT_ID );
+   printf("Using slot #%d...\n\n", SLOT_ID );
 
-   rc = do_GetFunctionList();
-   if (!rc)
-      return rc;
+   rv = do_GetFunctionList();
+   if (rv != TRUE) {
+	   show_error("do_GetFunctionList", rv);
+	   return rv;
+   }
 
    memset( &cinit_args, 0x0, sizeof(cinit_args) );
    cinit_args.flags = CKF_OS_LOCKING_OK;
 
    // SAB Add calls to ALL functions before the C_Initialize gets hit
 
- funcs->C_Initialize( &cinit_args );
+   rv = funcs->C_Initialize( &cinit_args );
+   if (rv != CKR_OK) {
+	   show_error("C_Initialize", rv);
+	   return rv;
+   }
 
+   rv = do_EncryptRSA_PKCS();
+   if (rv != TRUE) {
+	   show_error("do_EncryptRSA_PKCS", rv);
+	   return rv;
+   }
 
-   rc = do_EncryptRSA_PKCS();
-   if (!rc)
-      return rc;
+   rv = funcs->C_Finalize( NULL );
+   if (rv != CKR_OK) {
+	   show_error("C_Finalize", rv);
+	   return rv;
+   }
 
-   funcs->C_Finalize( NULL );
-
-   return rc;
+   return 0;
 }

@@ -255,17 +255,20 @@ int do_LoginLogout( void )
    CK_SESSION_HANDLE h1, h2, h3, h4;
    CK_SESSION_INFO   info;
    CK_RV             rc;
-   CK_BYTE           user_pin[DEFAULT_USER_PIN_LEN];
+   CK_BYTE           user_pin[PKCS11_MAX_PIN_LEN];
    CK_ULONG          user_pin_len;
-   CK_BYTE           so_pin[DEFAULT_SO_PIN_LEN];
+   CK_BYTE           so_pin[PKCS11_MAX_PIN_LEN];
    CK_ULONG          so_pin_len;
 
    printf("do_LoginLogout...\n");
 
-   memcpy( user_pin, DEFAULT_USER_PIN, DEFAULT_USER_PIN_LEN );
-   memcpy( so_pin,   DEFAULT_SO_PIN, DEFAULT_SO_PIN_LEN );
-   user_pin_len = DEFAULT_USER_PIN_LEN;
-   so_pin_len   = DEFAULT_SO_PIN_LEN;
+   if (get_user_pin(user_pin))
+	   return CKR_FUNCTION_FAILED;
+   user_pin_len = strlen(user_pin);
+
+   if (get_so_pin(so_pin))
+	   return CKR_FUNCTION_FAILED;
+   so_pin_len = strlen(so_pin);
 
    slot_id = SLOT_ID;
    flags   = CKF_SERIAL_SESSION;   // read-only session
@@ -475,7 +478,7 @@ int do_OperationState1( void )
    CK_SLOT_ID          slot_id;
    CK_SESSION_HANDLE   session1, session2;
    CK_FLAGS            flags;
-   CK_BYTE             user_pin[DEFAULT_USER_PIN_LEN];
+   CK_BYTE             user_pin[PKCS11_MAX_PIN_LEN];
    CK_ULONG            user_pin_len;
    CK_RV               rc;
 
@@ -526,8 +529,9 @@ int do_OperationState1( void )
       return FALSE;
    }
 
-   memcpy( user_pin, DEFAULT_USER_PIN, DEFAULT_USER_PIN_LEN );
-   user_pin_len = DEFAULT_USER_PIN_LEN;
+   if (get_user_pin(user_pin))
+	   return CKR_FUNCTION_FAILED;
+   user_pin_len = strlen(user_pin);
 
    rc = funcs->C_Login( session1, CKU_USER, user_pin, user_pin_len );
    if (rc != CKR_OK) {
@@ -559,7 +563,7 @@ int do_OperationState1( void )
    //
    mech.mechanism = CKM_DES_CBC;
    mech.ulParameterLen = 8;
-   mech.pParameter     = "87654321";
+   mech.pParameter     = "asdfqwer";
 
    rc = funcs->C_EncryptInit( session1, &mech, h_key );
    if (rc != CKR_OK) {
@@ -689,7 +693,7 @@ int do_OperationState2( void )
    CK_SLOT_ID          slot_id;
    CK_SESSION_HANDLE   session1, session2, session3;
    CK_FLAGS            flags;
-   CK_BYTE             user_pin[DEFAULT_USER_PIN_LEN];
+   CK_BYTE             user_pin[PKCS11_MAX_PIN_LEN];
    CK_ULONG            user_pin_len;
    CK_RV               rc;
 
@@ -750,8 +754,9 @@ int do_OperationState2( void )
       return FALSE;
    }
 
-   memcpy( user_pin, DEFAULT_USER_PIN, DEFAULT_USER_PIN_LEN );
-   user_pin_len = DEFAULT_USER_PIN_LEN;
+   if (get_user_pin(user_pin))
+	   return CKR_FUNCTION_FAILED;
+   user_pin_len = strlen(user_pin);
 
    rc = funcs->C_Login( session1, CKU_USER, user_pin, user_pin_len );
    if (rc != CKR_OK) {
@@ -927,7 +932,7 @@ int do_OperationState3( void )
    CK_SLOT_ID          slot_id;
    CK_SESSION_HANDLE   session1, session2, session3;
    CK_FLAGS            flags;
-   CK_BYTE             user_pin[DEFAULT_USER_PIN_LEN];
+   CK_BYTE             user_pin[PKCS11_MAX_PIN_LEN];
    CK_ULONG            user_pin_len;
    CK_RV               rc;
 
@@ -986,8 +991,9 @@ int do_OperationState3( void )
       return FALSE;
    }
 
-   memcpy( user_pin, DEFAULT_USER_PIN, DEFAULT_USER_PIN_LEN );
-   user_pin_len = DEFAULT_USER_PIN_LEN;
+   if (get_user_pin(user_pin))
+	   return CKR_FUNCTION_FAILED;
+   user_pin_len = strlen(user_pin);
 
    rc = funcs->C_Login( session1, CKU_USER, user_pin, user_pin_len );
    if (rc != CKR_OK) {
