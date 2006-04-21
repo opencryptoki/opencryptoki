@@ -301,6 +301,7 @@ AC_OUTPUT([Makefile usr/Makefile \
           misc/opencryptoki.conf \
           misc/opencryptoki-stdll.conf \
 	  testcases/Makefile \
+	  testcases/common/Makefile \
 	  testcases/driver/Makefile \
 	  testcases/init_tok/Makefile \
 	  testcases/mkobj/Makefile \
