@@ -756,6 +756,9 @@ CK_RV SC_Finalize( CK_SLOT_ID sid )
 	session_mgr_close_all_sessions();
 	object_mgr_purge_token_objects();
 	detach_shm();
+	// close spin lock file
+	if (spin_created)
+	  close(spinxplfd);
 	if ( token_specific.t_final != NULL) {
 		token_specific.t_final();
 	}
