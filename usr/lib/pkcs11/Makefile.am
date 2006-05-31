@@ -20,9 +20,4 @@ endif
 if TPM
 TPM_DLL = tpm_stdll
 endif
-if S390
-S390_DLL = ica_s390_stdll 
-SUBDIRS = $(ROOT) $(S390_DLL)
-else
 SUBDIRS = $(ROOT) $(LEEDS_DLL) $(ICA_DLL) $(SOFT_DLL) $(BCOM_DLL) $(AEP_DLL)  $(CR_DLL) $(TPM_DLL)
-endif
