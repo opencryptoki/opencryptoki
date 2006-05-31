@@ -54,6 +54,3 @@ opencryptoki_stdll_libpkcs11_sw_la_SOURCES = ../common/asn1.c		\
 					     ../common/mech_list.c      \
 					     soft_specific.c
 
-install-data-local:
-	cd $(DESTDIR)/$(libdir)/opencryptoki/stdll && rm -f PKCS11_SW.so && \
-		ln -sf libpkcs11_sw.so PKCS11_SW.so

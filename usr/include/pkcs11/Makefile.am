@@ -1,5 +1,5 @@
 opencryptoki_headers = apiclient.h pkcs11types.h pkcs11.h
 
-opencryptokiincludedir=$(DESTDIR)/$(includedir)/opencryptoki
+opencryptokiincludedir=$(includedir)/opencryptoki
 
 opencryptokiinclude_HEADERS = $(opencryptoki_headers)

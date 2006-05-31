@@ -25,18 +25,9 @@ install-data-local:
 		ln -sf opencryptoki/libopencryptoki.so.$(SO_CURRENT) \
 		libopencryptoki.so.$(SO_CURRENT)
 	mkdir -p $(DESTDIR)/$(libdir)/opencryptoki
-	cd $(DESTDIR)/$(libdir)/opencryptoki && rm -f PKCS11_API.so && \
-		ln -sf libopencryptoki.so PKCS11_API.so
 	cd $(DESTDIR)/$(libdir)/opencryptoki && rm -f methods && \
 		ln -sf ../../sbin/ methods
-	mkdir -p $(DESTDIR)/$(libdir)/pkcs11
-	cd $(DESTDIR)/$(libdir)/pkcs11 && rm -f methods && \
-		ln -sf ../../sbin/ methods
-	cd $(DESTDIR)/$(libdir)/pkcs11 && rm -f PKCS11_API.so && \
-		ln -sf ../opencryptoki/libopencryptoki.so PKCS11_API.so
 	mkdir -p $(DESTDIR)/$(libdir)/opencryptoki/stdll
-	cd $(DESTDIR)/$(libdir)/pkcs11 && rm -f stdll && \
-		ln -sf ../opencryptoki/stdll/ stdll
 	-groupadd pkcs11
 	if test "x$(prefix)" = "x/usr"; then \
 		mkdir -p $(DESTDIR)/var/lib/opencryptoki ; \
