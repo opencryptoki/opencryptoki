@@ -69,7 +69,7 @@ else
         AC_SUBST(DB_PATH, $prefix/var/lib/opencryptoki)
 fi
 
-AC_SUBST(LIB_PATH, $prefix/$libdir/opencryptoki)
+AC_SUBST(LIB_PATH, $libdir/opencryptoki)
 AC_SUBST(STDLL_PATH, $LIB_PATH/stdll)
 AC_SUBST(CONFIG_FILE, pk_config_data)
 AC_SUBST(METHOD_PATH, $prefix/sbin)
@@ -266,7 +266,8 @@ AC_OUTPUT([Makefile usr/Makefile \
           usr/lib/pkcs11/methods/4758_status/Makefile \
           misc/Makefile \
           misc/opencryptoki.conf \
-          misc/opencryptoki-stdll.conf]) 
+          misc/opencryptoki-stdll.conf \
+          misc/pkcsslotd]) 
 
 echo
 echo "CLFAGS=$CFLAGS"
