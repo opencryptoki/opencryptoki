@@ -47,8 +47,7 @@ if [ "$1" = "0" ]; then
 	/sbin/chkconfig --del pkcsslotd
 fi
 
-%postun
-/sbin/ldconfig
+%postun -p /sbin/ldconfig 
 
 %post
 if [ "$1" = "0" ]; then
@@ -70,7 +69,9 @@ y/ /,/
 
 %files
 %defattr(-,root,root,-)
-%doc
+%doc FAQ README
+%config(noreplace) %{_sysconfdir}/ld.so.conf.d/%{name}.conf
+%config(noreplace) %{_sysconfdir}/ld.so.conf.d/%{name}-stdll.conf
 %dir %attr(755,root,pkcs11) /var/lib/%{name}
 %{_sbindir}/pkcsslotd
 %{_sbindir}/pkcsconf
@@ -85,9 +86,7 @@ y/ /,/
 %{_libdir}/%{name}/methods
 %{_libdir}/%{name}/stdll/libpkcs11_sw.so
 %{_libdir}/%{name}/stdll/libpkcs11_sw.so*.0
-%{_sysconfdir}/ld.so.conf.d/%{name}.conf
-%{_sysconfdir}/ld.so.conf.d/%{name}-stdll.conf
-%{_sysconfdir}/rc.d/init.d/pkcsslotd
+%{_initrddir}/pkcsslotd
 
 %files devel
 %defattr(-,root,root,-)
@@ -101,6 +100,6 @@ y/ /,/
 %{_includedir}/%{name}/pkcs11types.h
 
 %changelog
-* Thu May 25 2006 Daniel H Jones <danjones@us.ibm.com>
+* Thu May 25 2006 Daniel H Jones <danjones@us.ibm.com> 2.2.4-1
 - initial file created
 
