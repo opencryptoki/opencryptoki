@@ -6,7 +6,7 @@
 #		Serge E. Hallyn <serue@us.ibm.com>
 #               Daniel H. Jones <danjones@us.ibm.com>
 #
-# chkconfig: 2345 50 50
+# chkconfig: - 50 50
 # description: pkcsslotd is a daemon which manages cryptographic hardware \
 # tokens for the openCryptoki package.
 

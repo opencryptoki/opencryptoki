@@ -10,7 +10,7 @@ Source0:       %{name}-%{version}.tar.bz2
 BuildRoot:     %{_tmppath}/%{name}-%{version}-%{release}-root-%(%{__id_u} -n)
 
 Prereq: /sbin/chkconfig
-BuildRequires: openssl-devel 
+BuildRequires: autoconf automake libtool openssl-devel 
 #Requires:       
 
 %description
@@ -21,7 +21,7 @@ Token Interface Standard (Cryptoki).
 %package devel
 Summary:       An Implementation of PKCS#11 (Cryptoki) v2.11
 Group:         Applications/Productivity
-Requires:      openCryptoki = %{version}-%{release}, glibc-devel, openssl-devel
+Requires:      opencryptoki = %{version}-%{release}, glibc-devel
 
 %description devel
 The openCryptoki package implements the PKCS#11 version 2.11: Cryptographic
@@ -69,7 +69,7 @@ y/ /,/
 
 %files
 %defattr(-,root,root,-)
-%doc FAQ README
+%doc FAQ LICENSE README
 %config(noreplace) %{_sysconfdir}/ld.so.conf.d/%{name}.conf
 %config(noreplace) %{_sysconfdir}/ld.so.conf.d/%{name}-stdll.conf
 %dir %attr(755,root,pkcs11) /var/lib/%{name}
