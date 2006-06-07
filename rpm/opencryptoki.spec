@@ -34,7 +34,7 @@ Token Interface Standard (Cryptoki).
 
 %build
 autoreconf --force --install
-./configure --libdir=%{_libdir} --prefix=/usr --disable-static
+%configure --disable-static
 make %{?_smp_mflags}
 
 
@@ -86,8 +86,8 @@ y/ /,/
 %{_libdir}/%{name}/libopencryptoki.so
 %{_libdir}/%{name}/libopencryptoki.so*.0
 %{_libdir}/%{name}/methods
-%{_libdir}/%{name}/stdll/libpkcs11_sw.so
-%{_libdir}/%{name}/stdll/libpkcs11_sw.so*.0
+%{_libdir}/%{name}/stdll/libpkcs11_*.so
+%{_libdir}/%{name}/stdll/libpkcs11_*.so*.0
 %{_initrddir}/pkcsslotd
 
 %files devel

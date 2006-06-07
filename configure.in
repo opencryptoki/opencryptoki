@@ -10,7 +10,7 @@ cmdline_CFLAGS="$CFLAGS"
 AC_CANONICAL_TARGET
 
 dnl AM_INIT_AUTOMAKE(openCryptoki, 2.0.0)
-AM_INIT_AUTOMAKE(1.6.1)
+AM_INIT_AUTOMAKE([foreign 1.6])
 
 dnl Checks for programs.
 
@@ -219,7 +219,7 @@ CFLAGS="$CFLAGS -DPKCS64 \
 	-DCONFIG_PATH=\\\"$CONFIG_PATH\\\" \
 	-DSBIN_PATH=\\\"$SBIN_PATH\\\" \
 	-DLIB_PATH=\\\"$LIB_PATH\\\" \
-	-D_XOPEN_SOURCE=500 -Wno-unused"
+	-D_XOPEN_SOURCE=500 -Wall -Wno-unused"
 
 # At this point, CFLAGS is set to something sensible
 AC_PROG_CC
