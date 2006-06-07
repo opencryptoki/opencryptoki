@@ -34,13 +34,15 @@ Token Interface Standard (Cryptoki).
 
 %build
 autoreconf --force --install
-./configure --libdir=%{_libdir} --prefix=/usr
+./configure --libdir=%{_libdir} --prefix=/usr --disable-static
 make %{?_smp_mflags}
 
 
 %install
 rm -rf $RPM_BUILD_ROOT
 make install DESTDIR=$RPM_BUILD_ROOT 
+rm -f $RPM_BUILD_ROOT/%{_libdir}/%{name}/*.la
+rm -f $RPM_BUILD_ROOT/%{_libdir}/%{name}/stdll/*.la
 
 %preun
 if [ "$1" = "0" ]; then
@@ -90,10 +92,6 @@ y/ /,/
 
 %files devel
 %defattr(-,root,root,-)
-%dir %{_libdir}/%{name}
-%dir %{_libdir}/%{name}/stdll
-%{_libdir}/%{name}/*.la
-%{_libdir}/%{name}/stdll/*.la
 %dir %{_includedir}/%{name}
 %{_includedir}/%{name}/apiclient.h
 %{_includedir}/%{name}/pkcs11.h
