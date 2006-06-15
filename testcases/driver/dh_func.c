@@ -379,7 +379,7 @@ int do_GenerateDHKeyPair( void )
 
    if (get_user_pin(user_pin))
 	   return CKR_FUNCTION_FAILED;
-   user_pin_len = strlen(user_pin);
+   user_pin_len = (CK_ULONG)strlen((char *)user_pin);
 
    mech.mechanism      = CKM_DH_PKCS_KEY_PAIR_GEN;
    mech.ulParameterLen = 0;
@@ -484,7 +484,7 @@ int do_DeriveDHKey( void )
 
    if (get_user_pin(user_pin))
 	   return CKR_FUNCTION_FAILED;
-   user_pin_len = strlen(user_pin);
+   user_pin_len = (CK_ULONG)strlen((char *)user_pin);
 
 
    flags = CKF_SERIAL_SESSION | CKF_RW_SESSION;

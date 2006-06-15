@@ -18,6 +18,8 @@
 
 int skip_token_obj;
 
+int do_GetFunctionList(void);
+
 CK_FUNCTION_LIST  *funcs;
 CK_SLOT_ID  SLOT_ID;
 
@@ -40,7 +42,7 @@ do_GenerateRSAKeyPair(CK_ULONG bits)
 
    if (get_user_pin(user_pin))
 	   return CKR_FUNCTION_FAILED;
-   user_pin_len = strlen(user_pin);
+   user_pin_len = (CK_ULONG)strlen((char *)user_pin);
 
    mech.mechanism      = CKM_RSA_PKCS_KEY_PAIR_GEN;
    mech.ulParameterLen = 0;
@@ -179,7 +181,7 @@ main( int argc, char **argv )
       }
    }
 
-   printf("Using slot #%d...\n\n", SLOT_ID );
+   printf("Using slot #%d...\n\n", (int)SLOT_ID );
 
    rv = do_GetFunctionList();
    if (rv != TRUE) {

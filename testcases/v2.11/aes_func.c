@@ -13,6 +13,7 @@
 
 void		*dl_handle;
 unsigned long	SlotID = 0;
+int do_GetFunctionList(void);
 
 #define AES_KEY_SIZE_256	32
 #define AES_BLOCK_SIZE		16
@@ -56,7 +57,7 @@ int do_EncryptAES_ECB(void)
 
 	if (get_user_pin(user_pin))
 		return CKR_FUNCTION_FAILED;
-	user_pin_len = strlen(user_pin);
+	user_pin_len = (CK_ULONG)strlen((char *)user_pin);
 
 	rc = funcs->C_Login(session, CKU_USER, user_pin, user_pin_len);
 	if (rc != CKR_OK) {
@@ -177,7 +178,7 @@ int do_EncryptAES_Multipart_ECB(void)
 
 	if (get_user_pin(user_pin))
 		return CKR_FUNCTION_FAILED;
-	user_pin_len = strlen(user_pin);
+	user_pin_len = (CK_ULONG)strlen((char *)user_pin);
 
 	rc = funcs->C_Login(session, CKU_USER, user_pin, user_pin_len);
 	if (rc != CKR_OK) {
@@ -435,7 +436,7 @@ int do_EncryptAES_CBC(void)
 
 	if (get_user_pin(user_pin))
 		return CKR_FUNCTION_FAILED;
-	user_pin_len = strlen(user_pin);
+	user_pin_len = (CK_ULONG)strlen((char *)user_pin);
 
 	rc = funcs->C_Login(session, CKU_USER, user_pin, user_pin_len);
 	if (rc != CKR_OK) {
@@ -560,7 +561,7 @@ int do_EncryptAES_Multipart_CBC(void)
 
 	if (get_user_pin(user_pin))
 		return CKR_FUNCTION_FAILED;
-	user_pin_len = strlen(user_pin);
+	user_pin_len = (CK_ULONG)strlen((char *)user_pin);
 
 	rc = funcs->C_Login(session, CKU_USER, user_pin, user_pin_len);
 	if (rc != CKR_OK) {
@@ -820,7 +821,7 @@ int do_EncryptAES_Multipart_CBC_PAD(void)
 
 	if (get_user_pin(user_pin))
 		return CKR_FUNCTION_FAILED;
-	user_pin_len = strlen(user_pin);
+	user_pin_len = (CK_ULONG)strlen((char *)user_pin);
 
 	rc = funcs->C_Login(session, CKU_USER, user_pin, user_pin_len);
 	if (rc != CKR_OK) {
@@ -1088,7 +1089,7 @@ int do_WrapUnwrapAES_ECB(void)
 
 	if (get_user_pin(user_pin))
 		return CKR_FUNCTION_FAILED;
-	user_pin_len = strlen(user_pin);
+	user_pin_len = (CK_ULONG)strlen((char *)user_pin);
 
 	rc = funcs->C_Login(session, CKU_USER, user_pin, user_pin_len);
 	if (rc != CKR_OK) {
@@ -1355,7 +1356,7 @@ int do_WrapUnwrapAES_CBC(void)
 
 	if (get_user_pin(user_pin))
 		return CKR_FUNCTION_FAILED;
-	user_pin_len = strlen(user_pin);
+	user_pin_len = (CK_ULONG)strlen((char *)user_pin);
 
 	rc = funcs->C_Login(session, CKU_USER, user_pin, user_pin_len);
 	if (rc != CKR_OK) {
@@ -1563,7 +1564,7 @@ int do_WrapUnwrapAES_CBC_PAD(void)
 
 	if (get_user_pin(user_pin))
 		return CKR_FUNCTION_FAILED;
-	user_pin_len = strlen(user_pin);
+	user_pin_len = (CK_ULONG)strlen((char *)user_pin);
 
 	rc = funcs->C_Login(session, CKU_USER, user_pin, user_pin_len);
 	if (rc != CKR_OK) {

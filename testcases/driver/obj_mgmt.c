@@ -75,7 +75,7 @@ int do_CreateSessionObject( void )
 
    if (get_user_pin(user_pin))
 	   return CKR_FUNCTION_FAILED;
-   user_pin_len = strlen(user_pin);
+   user_pin_len = (CK_ULONG)strlen((char *)user_pin);
 
    slot_id = SLOT_ID;
 
@@ -204,7 +204,7 @@ int do_CopyObject( void )
 
    if (get_user_pin(user_pin))
 	   return CKR_FUNCTION_FAILED;
-   user_pin_len = strlen(user_pin);
+   user_pin_len = (CK_ULONG)strlen((char *)user_pin);
 
    slot_id = SLOT_ID;
 
@@ -420,7 +420,7 @@ int do_SetAttributeValues( void )
 
    if (get_user_pin(user_pin))
 	   return CKR_FUNCTION_FAILED;
-   user_pin_len = strlen(user_pin);
+   user_pin_len = (CK_ULONG)strlen((char *)user_pin);
 
    slot_id = SLOT_ID;
 
@@ -623,7 +623,7 @@ int do_FindObjects( void )
 
    if (get_user_pin(user_pin))
 	   return CKR_FUNCTION_FAILED;
-   user_pin_len = strlen(user_pin);
+   user_pin_len = (CK_ULONG)strlen((char *)user_pin);
 
    slot_id = SLOT_ID;
 
@@ -909,7 +909,7 @@ int do_CreateTokenObjects( void )
 
    if (get_user_pin(user_pin))
 	   return CKR_FUNCTION_FAILED;
-   user_pin_len = strlen(user_pin);
+   user_pin_len = (CK_ULONG)strlen((char *)user_pin);
 
    slot_id = SLOT_ID;
 

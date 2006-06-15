@@ -19,6 +19,7 @@
 #include "regress.h"
 
 int skip_token_obj;
+int do_GetFunctionList(void);
 
 CK_FUNCTION_LIST  *funcs;
 CK_SLOT_ID  SLOT_ID;
@@ -190,7 +191,7 @@ int do_EncryptRSA_PKCS( void )
 
    if (get_user_pin(user_pin))
 	   return CKR_FUNCTION_FAILED;
-   user_pin_len = strlen(user_pin);
+   user_pin_len = (CK_ULONG)strlen((char *)user_pin);
 
    rc = funcs->C_Login( session, CKU_USER, user_pin, user_pin_len );
    if (rc != CKR_OK) {
@@ -258,7 +259,7 @@ printf("GENERATING KEY \n");
       return FALSE;
    }
 
-   printf("Cipyer len %d \n",cipherlen);
+   printf("Cipyer len %d \n",(int)cipherlen);
    //hex_dump_to_file("Ciphertext",cipher,cipherlen);
 
    // now, decrypt the data

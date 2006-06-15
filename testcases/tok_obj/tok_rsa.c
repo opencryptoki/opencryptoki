@@ -16,6 +16,7 @@
 #include "regress.h"
 
 int skip_token_obj;
+int do_GetFunctionList(void);
 
 CK_FUNCTION_LIST  *funcs;
 CK_SLOT_ID  SLOT_ID;
@@ -34,7 +35,7 @@ do_VerifyTokenRSAKeyPair(CK_SESSION_HANDLE sess, CK_BYTE *label, CK_ULONG bits)
 	{
 		CK_ATTRIBUTE tmpl[] =
 		{
-			{CKA_LABEL, label, strlen(label) + 1 },
+			{CKA_LABEL, label, (CK_ULONG)strlen((char *)label) + 1 },
 			{CKA_TOKEN, &true, sizeof(CK_BBOOL) }
 		};
 
@@ -68,7 +69,7 @@ do_VerifyTokenRSAKeyPair(CK_SESSION_HANDLE sess, CK_BYTE *label, CK_ULONG bits)
 
 		if (obj_class == CKO_PUBLIC_KEY) {
 			CK_BYTE n[256], e[256], tmp[256];
-			CK_ULONG exp_size, mod_size;
+			CK_ULONG exp_size = 0, mod_size = 0;
 			CK_ATTRIBUTE pub_attrs[] = {
 				{ CKA_PUBLIC_EXPONENT, NULL, exp_size },
 				{ CKA_MODULUS, NULL, mod_size }
@@ -147,12 +148,12 @@ do_GenerateTokenRSAKeyPair(CK_SESSION_HANDLE sess, CK_BYTE *label, CK_ULONG bits
 		{
 			{CKA_MODULUS_BITS,    &bits,    sizeof(bits)    },
 			{CKA_PUBLIC_EXPONENT, &pub_exp, sizeof(pub_exp) },
-			{CKA_LABEL, label, strlen(label) + 1 },
+			{CKA_LABEL, label, (CK_ULONG)strlen((char *)label) + 1 },
 			{CKA_TOKEN, &true, sizeof(CK_BBOOL) }
 		};
 		CK_ATTRIBUTE priv_tmpl[] =
 		{
-			{CKA_LABEL, label, strlen(label) + 1 },
+			{CKA_LABEL, label, (CK_ULONG)strlen((char *)label) + 1 },
 			{CKA_TOKEN, &true, sizeof(CK_BBOOL) }
 		};
 
@@ -202,7 +203,7 @@ main( int argc, char **argv )
 		}
 	}
 
-	printf("Using slot #%d...\n\n", SLOT_ID );
+	printf("Using slot #%d...\n\n", (int)SLOT_ID );
 
 	slot_id = SLOT_ID;
 
@@ -224,7 +225,7 @@ main( int argc, char **argv )
 
 	if (get_user_pin(user_pin))
 		return CKR_FUNCTION_FAILED;
-	user_pin_len = strlen(user_pin);
+	user_pin_len = (CK_ULONG)strlen((char *)user_pin);
 
 	flags = CKF_SERIAL_SESSION | CKF_RW_SESSION;
 	rv = funcs->C_OpenSession( slot_id, flags, NULL, NULL, &session );

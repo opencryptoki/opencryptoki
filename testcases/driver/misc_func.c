@@ -313,11 +313,11 @@ int do_InitPIN( void )
 
    if (get_user_pin(user_pin))
 	   return CKR_FUNCTION_FAILED;
-   user_pin_len = strlen(user_pin);
+   user_pin_len = (CK_ULONG)strlen((char *)user_pin);
 
    if (get_so_pin(so_pin))
 	   return CKR_FUNCTION_FAILED;
-   so_pin_len = strlen(so_pin);
+   so_pin_len = (CK_ULONG)strlen((char *)so_pin);
 
    slot_id = SLOT_ID;
    flags   = CKF_SERIAL_SESSION | CKF_RW_SESSION;
@@ -411,7 +411,7 @@ int do_SetPIN( void )
 
    if (get_user_pin(old_pin))
 	   return CKR_FUNCTION_FAILED;
-   old_len = strlen(old_pin);
+   old_len = (CK_ULONG)strlen((char *)old_pin);
 
    memcpy( new_pin, "ABCDEF", 6 );
    new_len = 6;
@@ -633,7 +633,7 @@ int do_GenerateKey( void )
 
    if (get_user_pin(user_pin))
 	   return CKR_FUNCTION_FAILED;
-   user_pin_len = strlen(user_pin);
+   user_pin_len = (CK_ULONG)strlen((char *)user_pin);
 
    mech.mechanism      = CKM_DES_KEY_GEN;
    mech.ulParameterLen = 0;
