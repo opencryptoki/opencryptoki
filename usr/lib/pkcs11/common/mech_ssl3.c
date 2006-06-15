@@ -1485,7 +1485,7 @@ ssl3_key_and_mac_derive( SESSION           * sess,
    CK_BYTE       variable_data[26];
    CK_BYTE       key_block[(16*26) + (4*16)];
    CK_ULONG      i, key_material_loop_count;
-   CK_ULONG      iv_len, MAC_len, write_len;
+   CK_ULONG      iv_len = 0, MAC_len, write_len;
    CK_RV         rc;
 
    CK_BYTE     * base_key_value       = NULL;
@@ -1809,7 +1809,7 @@ ssl3_kmd_process_mac_keys( SESSION           * sess,
    CK_ULONG      i, cnt;
    CK_ULONG      true_vals[]  = { CKA_SIGN, CKA_VERIFY, CKA_DERIVE };
    CK_ULONG      false_vals[] = { CKA_ENCRYPT, CKA_DECRYPT, CKA_WRAP, CKA_UNWRAP };
-   CK_RV         rc;
+   CK_RV         rc = 0;
 
 
    // for the MAC keys, we want the following default values:
@@ -2000,7 +2000,7 @@ ssl3_kmd_process_write_keys( SESSION           * sess,
    CK_ULONG         i, cnt;
    CK_ULONG         true_vals[]  = { CKA_ENCRYPT, CKA_DECRYPT, CKA_DERIVE };
    CK_ULONG         false_vals[] = { CKA_SIGN, CKA_VERIFY, CKA_WRAP, CKA_UNWRAP };
-   CK_RV            rc;
+   CK_RV            rc = 0;
 
    // for the write keys, we want the following default values:
    //    CKA_ENCRYPT, CKA_DECRYPT, CKA_DERIVE = TRUE

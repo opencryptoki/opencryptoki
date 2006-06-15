@@ -3230,7 +3230,7 @@ generic_secret_unwrap( TEMPLATE *tmpl,
    CK_ATTRIBUTE  * value_attr     = NULL;
    CK_ATTRIBUTE  * value_len_attr = NULL;
    CK_BYTE    * ptr            = NULL;
-   CK_ULONG     rc, len;
+   CK_ULONG     rc, len = 0;
 
 
    if (fromend == TRUE)

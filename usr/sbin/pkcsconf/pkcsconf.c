@@ -358,7 +358,7 @@ int in_slot;
 
 int
 main(int argc, char *argv[]){
-   CK_RV rc;                   // Return Code
+   CK_RV rc = CKR_OK;          // Return Code
    CK_FLAGS flags = 0;         // Bit mask for what options were passed in
    CK_CHAR_PTR sopin = NULL,   // The Security Office PIN
                pin = NULL,     // The User PIN
@@ -1168,7 +1168,7 @@ set_user_pin(CK_USER_TYPE user, CK_CHAR_PTR oldpin, CK_CHAR_PTR newpin){
 
 CK_RV
 init(void){
-   CK_RV rc;             // Return Code
+   CK_RV rc = CKR_OK;    // Return Code
    void (*symPtr)();     // Pointer for the Dll
 
    /* Open the PKCS11 API shared library, and inform the user is there is an
