@@ -874,7 +874,7 @@ session_mgr_get_op_state( SESSION   *sess,
                           CK_ULONG  *data_len )
 {
    OP_STATE_DATA  *op_data = NULL;
-   CK_ULONG        op_data_len;
+   CK_ULONG        op_data_len = 0;
    CK_ULONG        offset;
 
    if (!sess){

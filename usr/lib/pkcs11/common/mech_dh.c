@@ -330,7 +330,7 @@ dh_pkcs_derive( SESSION           * sess,
                 CK_OBJECT_HANDLE  * handle )
 {
    CK_RV		rc;
-   CK_ULONG		i, keyclass, keytype = 0 ;
+   CK_ULONG		i, keyclass = 0, keytype = 0 ;
    CK_ATTRIBUTE         *new_attr ;
    OBJECT               *temp_obj = NULL; 
 
