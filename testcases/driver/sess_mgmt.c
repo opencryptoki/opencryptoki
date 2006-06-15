@@ -264,11 +264,11 @@ int do_LoginLogout( void )
 
    if (get_user_pin(user_pin))
 	   return CKR_FUNCTION_FAILED;
-   user_pin_len = strlen(user_pin);
+   user_pin_len = (CK_ULONG)strlen((char *)user_pin);
 
    if (get_so_pin(so_pin))
 	   return CKR_FUNCTION_FAILED;
-   so_pin_len = strlen(so_pin);
+   so_pin_len = (CK_ULONG)strlen((char *)so_pin);
 
    slot_id = SLOT_ID;
    flags   = CKF_SERIAL_SESSION;   // read-only session
@@ -531,7 +531,7 @@ int do_OperationState1( void )
 
    if (get_user_pin(user_pin))
 	   return CKR_FUNCTION_FAILED;
-   user_pin_len = strlen(user_pin);
+   user_pin_len = (CK_ULONG)strlen((char *)user_pin);
 
    rc = funcs->C_Login( session1, CKU_USER, user_pin, user_pin_len );
    if (rc != CKR_OK) {
@@ -756,7 +756,7 @@ int do_OperationState2( void )
 
    if (get_user_pin(user_pin))
 	   return CKR_FUNCTION_FAILED;
-   user_pin_len = strlen(user_pin);
+   user_pin_len = (CK_ULONG)strlen((char *)user_pin);
 
    rc = funcs->C_Login( session1, CKU_USER, user_pin, user_pin_len );
    if (rc != CKR_OK) {
@@ -993,7 +993,7 @@ int do_OperationState3( void )
 
    if (get_user_pin(user_pin))
 	   return CKR_FUNCTION_FAILED;
-   user_pin_len = strlen(user_pin);
+   user_pin_len = (CK_ULONG)strlen((char *)user_pin);
 
    rc = funcs->C_Login( session1, CKU_USER, user_pin, user_pin_len );
    if (rc != CKR_OK) {

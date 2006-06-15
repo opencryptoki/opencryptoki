@@ -19,6 +19,8 @@
 
 int skip_token_obj;
 
+int do_GetFunctionList(void);
+
 CK_FUNCTION_LIST  *funcs;
 CK_SLOT_ID  SLOT_ID;
 
@@ -118,7 +120,7 @@ int main (int argc, char **argv)
    funcs->C_Initialize( &cinit_args );
 
 {
-   CK_SESSION_HANDLE  hsess;
+   CK_SESSION_HANDLE  hsess = 0;
 
    rc = funcs->C_GetFunctionStatus(hsess);
    if (rc  != CKR_FUNCTION_NOT_PARALLEL)  

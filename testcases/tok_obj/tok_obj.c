@@ -14,6 +14,7 @@
 
 
 int  do_GetInfo(void);
+int  do_GetFunctionList(void);
 
 void init_coprocessor(void);
 
@@ -64,7 +65,7 @@ int do_create_token_object( void )
 
    if (get_user_pin(user_pin))
 	   return CKR_FUNCTION_FAILED;
-   user_pin_len = strlen(user_pin);
+   user_pin_len = (CK_ULONG)strlen((char *)user_pin);
 
    // create a USER R/W session
    //
@@ -153,7 +154,7 @@ int do_count_token_objects( void )
 
    if (get_user_pin(user_pin))
 	   return CKR_FUNCTION_FAILED;
-   user_pin_len = strlen(user_pin);
+   user_pin_len = (CK_ULONG)strlen((char *)user_pin);
 
 
    // create a USER R/W session
@@ -233,7 +234,7 @@ int do_verify_token_object( void )
 
    if (get_user_pin(user_pin))
 	   return CKR_FUNCTION_FAILED;
-   user_pin_len = strlen(user_pin);
+   user_pin_len = (CK_ULONG)strlen((char *)user_pin);
 
 
    // create a USER R/W session
@@ -321,7 +322,7 @@ int do_destroy_all_token_objects( void )
 
    if (get_user_pin(user_pin))
 	   return CKR_FUNCTION_FAILED;
-   user_pin_len = strlen(user_pin);
+   user_pin_len = (CK_ULONG)strlen((char *)user_pin);
 
 
    // create a USER R/W session
@@ -399,7 +400,7 @@ int do_inittoken( void )
 
    if (get_so_pin(so_pin))
 	   return CKR_FUNCTION_FAILED;
-   so_pin_len = strlen(so_pin);
+   so_pin_len = (CK_ULONG)strlen((char *)so_pin);
 
 //   memcpy( label, "A new label                           ", 32 );
    memcpy( label,   "                                      ", 32 );
@@ -457,11 +458,11 @@ int do_setUserPIN( void )
 
    if (get_user_pin(user_pin))
 	   return CKR_FUNCTION_FAILED;
-   user_pin_len = strlen(user_pin);
+   user_pin_len = (CK_ULONG)strlen((char *)user_pin);
 
    if (get_so_pin(so_pin))
 	   return CKR_FUNCTION_FAILED;
-   so_pin_len = strlen(so_pin);
+   so_pin_len = (CK_ULONG)strlen((char *)so_pin);
 
 
    flags = CKF_SERIAL_SESSION | CKF_RW_SESSION;

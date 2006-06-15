@@ -16,6 +16,7 @@
 #include "regress.h"
 
 int skip_token_obj;
+int do_GetFunctionList(void);
 
 CK_FUNCTION_LIST  *funcs;
 CK_SLOT_ID  SLOT_ID;
@@ -34,7 +35,7 @@ do_VerifyTokenSymKey(CK_SESSION_HANDLE sess, CK_BYTE *label)
 	{
 		CK_ATTRIBUTE tmpl[] =
 		{
-			{CKA_LABEL, label, strlen(label) + 1 },
+			{CKA_LABEL, label, (CK_ULONG)strlen((char *)label) + 1 },
 			{CKA_TOKEN, &true, sizeof(CK_BBOOL) },
 			{CKA_CLASS, &obj_class, sizeof(obj_class) }
 		};
@@ -106,7 +107,7 @@ do_GenerateTokenSymKey(CK_SESSION_HANDLE sess, CK_BYTE *label, CK_ULONG type)
 	CK_RV               rv;
 	CK_BBOOL	    true = 1;
 	CK_ATTRIBUTE tmpl[] = {
-		{CKA_LABEL, label, strlen(label) + 1 },
+		{CKA_LABEL, label, (CK_ULONG)strlen((char *)label) + 1 },
 		{CKA_TOKEN, &true, sizeof(CK_BBOOL) }
 	};
 
@@ -165,7 +166,7 @@ main( int argc, char **argv )
 		}
 	}
 
-	printf("Using slot #%d...\n\n", SLOT_ID );
+	printf("Using slot #%d...\n\n", (int)SLOT_ID );
 
 	slot_id = SLOT_ID;
 
@@ -187,7 +188,7 @@ main( int argc, char **argv )
 
 	if (get_user_pin(user_pin))
 		return CKR_FUNCTION_FAILED;
-	user_pin_len = strlen(user_pin);
+	user_pin_len = (CK_ULONG)strlen((char *)user_pin);
 
 	flags = CKF_SERIAL_SESSION | CKF_RW_SESSION;
 	rv = funcs->C_OpenSession( slot_id, flags, NULL, NULL, &session );

@@ -176,7 +176,7 @@ CK_RV test_crypto(long slot_num)
 
    if (get_user_pin(user_pin))
 	   return CKR_FUNCTION_FAILED;
-   user_pin_len = strlen(user_pin);
+   user_pin_len = (CK_ULONG)strlen((char *)user_pin);
 
    /* open a R/W cryptoki session, CKR_SERIAL_SESSION is a legacy bit we have to set */
    rc = funcs->C_OpenSession(slot_num, CKF_RW_SESSION | CKF_SERIAL_SESSION, NULL_PTR,

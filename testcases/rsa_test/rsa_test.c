@@ -18,6 +18,7 @@
 #include "regress.h"
 
 int skip_token_obj;
+int do_GetFunctionList(void);
 
 CK_FUNCTION_LIST  *funcs;
 CK_SLOT_ID  SLOT_ID;
@@ -195,7 +196,7 @@ int do_EncryptRSA_PKCS( void )
 
    if (get_user_pin(user_pin))
 	   return CKR_FUNCTION_FAILED;
-   user_pin_len = strlen(user_pin);
+   user_pin_len = (CK_ULONG)strlen((char *)user_pin);
 
    rv = funcs->C_Login( session, CKU_USER, user_pin, user_pin_len );
    if (rv != CKR_OK) {
@@ -243,7 +244,7 @@ int do_EncryptRSA_PKCS( void )
       return FALSE;
    }
 
-   printf("Cipher len %d \n",cipherlen);
+   printf("Cipher len %d \n", (int)cipherlen);
    //hex_dump_to_file("Ciphertext",cipher,cipherlen);
 
    // now, decrypt the data
@@ -260,7 +261,7 @@ int do_EncryptRSA_PKCS( void )
       return FALSE;
    }
 
-   printf("Len from encrypt %d  from decrypt %d \n",len1, len2);
+   printf("Len from encrypt %d  from decrypt %d \n",(int)len1, (int)len2);
    //if (len1 != len2) {
    //   printf("   ERROR:  lengths don't match\n");
    //   return FALSE;
@@ -269,7 +270,7 @@ int do_EncryptRSA_PKCS( void )
    //hex_dump_to_file("decrypted",data2,len2);
    for (i=0; i <len1; i++) {
       if (data1[i] != data2[i]) {
-         printf("   ERROR:  mismatch at byte %d\n", i );
+         printf("   ERROR:  mismatch at byte %d\n", (int)i );
       return FALSE;
    }
    }
@@ -317,11 +318,11 @@ main( int argc, char **argv )
          printf("By default, Slot #1 is used\n\n");
          printf("By default we skip anything that creates or modifies\n");
          printf("token objects to preserve flash lifetime.\n");
-         return;
+         return 0;
       }
    }
 
-   printf("Using slot #%d...\n\n", SLOT_ID );
+   printf("Using slot #%d...\n\n", (int)SLOT_ID );
 
    rv = do_GetFunctionList();
    if (rv != TRUE) {

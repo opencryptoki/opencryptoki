@@ -41,7 +41,7 @@ int do_Encrypt3DES_ECB( void )
 
    if (get_user_pin(user_pin))
 	   return CKR_FUNCTION_FAILED;
-   user_pin_len = strlen(user_pin);
+   user_pin_len = (CK_ULONG)strlen((char *)user_pin);
 
    rc = funcs->C_Login( session, CKU_USER, user_pin, user_pin_len );
    if (rc != CKR_OK) {
@@ -168,7 +168,7 @@ int do_Encrypt3DES_Multipart_ECB( void )
 
    if (get_user_pin(user_pin))
 	   return CKR_FUNCTION_FAILED;
-   user_pin_len = strlen(user_pin);
+   user_pin_len = (CK_ULONG)strlen((char *)user_pin);
 
    rc = funcs->C_Login( session, CKU_USER, user_pin, user_pin_len );
    if (rc != CKR_OK) {
@@ -420,7 +420,7 @@ int do_Encrypt3DES_CBC( void )
 
    if (get_user_pin(user_pin))
 	   return CKR_FUNCTION_FAILED;
-   user_pin_len = strlen(user_pin);
+   user_pin_len = (CK_ULONG)strlen((char *)user_pin);
 
    rc = funcs->C_Login( session, CKU_USER, user_pin, user_pin_len );
    if (rc != CKR_OK) {
@@ -544,7 +544,7 @@ int do_Encrypt3DES_Multipart_CBC( void )
 
    if (get_user_pin(user_pin))
 	   return CKR_FUNCTION_FAILED;
-   user_pin_len = strlen(user_pin);
+   user_pin_len = (CK_ULONG)strlen((char *)user_pin);
 
    rc = funcs->C_Login( session, CKU_USER, user_pin, user_pin_len );
    if (rc != CKR_OK) {
@@ -792,7 +792,7 @@ int do_EncryptDES3_Multipart_CBC_PAD( void )
 
    if (get_user_pin(user_pin))
 	   return CKR_FUNCTION_FAILED;
-   user_pin_len = strlen(user_pin);
+   user_pin_len = (CK_ULONG)strlen((char *)user_pin);
 
    rc = funcs->C_Login( session, CKU_USER, user_pin, user_pin_len );
    if (rc != CKR_OK) {
@@ -1049,7 +1049,7 @@ int do_WrapUnwrapDES3_ECB( void )
 
    if (get_user_pin(user_pin))
 	   return CKR_FUNCTION_FAILED;
-   user_pin_len = strlen(user_pin);
+   user_pin_len = (CK_ULONG)strlen((char *)user_pin);
 
    rc = funcs->C_Login( session, CKU_USER, user_pin, user_pin_len );
    if (rc != CKR_OK) {
@@ -1264,7 +1264,7 @@ int do_WrapUnwrapDES3_CBC( void )
 
    if (get_user_pin(user_pin))
 	   return CKR_FUNCTION_FAILED;
-   user_pin_len = strlen(user_pin);
+   user_pin_len = (CK_ULONG)strlen((char *)user_pin);
 
    rc = funcs->C_Login( session, CKU_USER, user_pin, user_pin_len );
    if (rc != CKR_OK) {
@@ -1475,7 +1475,7 @@ int do_WrapUnwrapDES3_CBC_PAD( void )
 
    if (get_user_pin(user_pin))
 	   return CKR_FUNCTION_FAILED;
-   user_pin_len = strlen(user_pin);
+   user_pin_len = (CK_ULONG)strlen((char *)user_pin);
 
    rc = funcs->C_Login( session, CKU_USER, user_pin, user_pin_len );
    if (rc != CKR_OK) {

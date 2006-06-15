@@ -18,6 +18,7 @@
 #include "regress.h"
 
 int  do_GetInfo(void);
+int  do_GetFunctionList(void);
 
 void init_coprocessor(void);
 
@@ -40,7 +41,7 @@ CK_BYTE           true  = TRUE;
 
    if (get_user_pin(user_pin))
 	   return CKR_FUNCTION_FAILED;
-   user_pin_len = strlen(user_pin);
+   user_pin_len = (CK_ULONG)strlen((char *)user_pin);
 
    // create a USER R/W session
    //
@@ -92,7 +93,7 @@ int do_create_token_object( void )
 
    if (get_user_pin(user_pin))
 	   return CKR_FUNCTION_FAILED;
-   user_pin_len = strlen(user_pin);
+   user_pin_len = (CK_ULONG)strlen((char *)user_pin);
 
    // create a USER R/W session
    //

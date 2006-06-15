@@ -33,7 +33,7 @@
 #define MIN(a, b)       ( (a) < (b) ? (a) : (b) )
 
 
-
+int do_GetFunctionList(void);
 int skip_token_obj;
 
 CK_FUNCTION_LIST  *funcs;
@@ -98,7 +98,7 @@ int do_RSA_PKCS_EncryptDecrypt( void )
 
    if (get_user_pin(user_pin))
 	   return CKR_FUNCTION_FAILED;
-   user_pin_len = strlen(user_pin);
+   user_pin_len = (CK_ULONG)strlen((char *)user_pin);
 
    rc = funcs->C_Login( session, CKU_USER, user_pin, user_pin_len );
    if (rc != CKR_OK) {
@@ -251,7 +251,7 @@ int do_RSA_KeyGen_2048( void )
 
    if (get_user_pin(user_pin))
 	   return CKR_FUNCTION_FAILED;
-   user_pin_len = strlen(user_pin);
+   user_pin_len = (CK_ULONG)strlen((char *)user_pin);
 
    mech.mechanism      = CKM_RSA_PKCS_KEY_PAIR_GEN;
    mech.ulParameterLen = 0;
@@ -360,7 +360,7 @@ int do_RSA_KeyGen_1024( void )
 
    if (get_user_pin(user_pin))
 	   return CKR_FUNCTION_FAILED;
-   user_pin_len = strlen(user_pin);
+   user_pin_len = (CK_ULONG)strlen((char *)user_pin);
 
    mech.mechanism      = CKM_RSA_PKCS_KEY_PAIR_GEN;
    mech.ulParameterLen = 0;
@@ -418,7 +418,7 @@ int do_RSA_KeyGen_1024( void )
          GetSystemTime(&t2);
 
          diff = speed_process_time( t1, t2 );
-         printf("   %3d: %d\n", i, diff );
+         printf("   %3d: %d\n", (int)i, (int)diff );
 
          avg_time += diff;
 
@@ -490,7 +490,7 @@ int do_RSA_PKCS_SignVerify_1024( void )
 
    if (get_user_pin(user_pin))
 	   return CKR_FUNCTION_FAILED;
-   user_pin_len = strlen(user_pin);
+   user_pin_len = (CK_ULONG)strlen((char *)user_pin);
 
    rc = funcs->C_Login( session, CKU_USER, user_pin, user_pin_len );
    if (rc != CKR_OK) {
@@ -669,7 +669,7 @@ int do_DES3_ECB_EncrDecr( void )
 
    if (get_user_pin(user_pin))
 	   return CKR_FUNCTION_FAILED;
-   user_pin_len = strlen(user_pin);
+   user_pin_len = (CK_ULONG)strlen((char *)user_pin);
 
    rc = funcs->C_Login( session, CKU_USER, user_pin, user_pin_len );
    if (rc != CKR_OK) {
@@ -845,7 +845,7 @@ int do_DES3_CBC_EncrDecr( void )
 
    if (get_user_pin(user_pin))
 	   return CKR_FUNCTION_FAILED;
-   user_pin_len = strlen(user_pin);
+   user_pin_len = (CK_ULONG)strlen((char *)user_pin);
 
    rc = funcs->C_Login( session, CKU_USER, user_pin, user_pin_len );
    if (rc != CKR_OK) {

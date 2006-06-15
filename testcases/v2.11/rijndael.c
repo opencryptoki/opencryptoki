@@ -947,7 +947,7 @@ int main(int argc, char **argv)
 
 	if (get_user_pin(user_pin))
 		return CKR_FUNCTION_FAILED;
-	user_pin_len = strlen(user_pin);
+	user_pin_len = (CK_ULONG)strlen((char *)user_pin);
 
 	// Login correctly
 	rc = funcs->C_Login(sess, CKU_USER, user_pin, user_pin_len);

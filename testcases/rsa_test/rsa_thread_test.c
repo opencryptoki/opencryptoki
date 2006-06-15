@@ -31,6 +31,7 @@ int skip_token_obj;
 int debug=0;
 
 int LOOPCOUNT = 10000;
+int do_GetFunctionList(void);
 
 CK_FUNCTION_LIST  *funcs;
 CK_SLOT_ID  SLOT_ID;
@@ -92,7 +93,7 @@ unsigned int THREADCNT=NUMTHREADS;
 
 
 int  do_EncryptRSA_PKCS(int);
-void show_error( CK_BYTE *, CK_RV );
+void show_error( char *, CK_RV );
 
 
 // Fill this one in..
@@ -235,7 +236,7 @@ int do_Login(void)
 
    if (get_user_pin(user_pin))
 	   return CKR_FUNCTION_FAILED;
-   user_pin_len = strlen(user_pin);
+   user_pin_len = (CK_ULONG)strlen((char *)user_pin);
 
    rc = funcs->C_Login( session, CKU_USER, user_pin, user_pin_len );
    if (rc != CKR_OK) {
@@ -494,11 +495,11 @@ main( int argc, char **argv )
 			printf("usage:  %s [-loop <num>] [-threads <num>] [-noskip]"
 			       " [-slot <num>] [-h]\n\n", argv[0] );
 			printf("By default, Slot 0 is used\n\n");
-			return;
+			return 0;
       }
    }
 
-	printf("Using slot #%d...\n\n", SLOT_ID );
+	printf("Using slot #%d...\n\n", (int)SLOT_ID );
 
    rc = do_GetFunctionList();
 	if (!rc) {
@@ -537,7 +538,7 @@ main( int argc, char **argv )
  //   printf("Joining thread %d\n",threads[i].id);
 		pthread_join(threads[i].tid,NULL);
 		printf("Thread[%d] took %d ms for %d operations %6f OP/ms   \n",
-		       i, threads[i].total, threads[i].processed,
+		       i, (int)threads[i].total, (int)threads[i].processed,
 		       threads[i].ops);
 
    }
@@ -547,4 +548,6 @@ main( int argc, char **argv )
 		show_error("C_Finalize", rv);
 		return rv;
 	}
+
+   return 0;
 }

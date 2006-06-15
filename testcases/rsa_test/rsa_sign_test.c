@@ -57,6 +57,8 @@
 #include "pkcs11types.h"
 #include "regress.h"
 
+int do_GetFunctionList(void);
+
 CK_FUNCTION_LIST  *funcs;
 
 CK_RV
@@ -66,7 +68,7 @@ do_OpenSSLVerify(CK_SESSION_HANDLE session, CK_BYTE *signature,
 {
 	CK_RV rv;
 	CK_BYTE n[256], e[8], tmp[256];
-	CK_ULONG exp_size, mod_size;
+	CK_ULONG exp_size = 0, mod_size = 0;
 	CK_ATTRIBUTE pub_attrs[] = {
 		{ CKA_PUBLIC_EXPONENT, NULL, exp_size },
 		{ CKA_MODULUS, NULL, mod_size }
@@ -75,7 +77,7 @@ do_OpenSSLVerify(CK_SESSION_HANDLE session, CK_BYTE *signature,
 	RSA *rsa;
 	int ver, n_size, e_size, rc, ihash_len;
 	EVP_MD_CTX dgst_ctx;
-	EVP_MD *nid_alg;
+	EVP_MD *nid_alg = NULL;
 
 	switch (nid) {
 		case NID_md2:
@@ -573,13 +575,13 @@ main( int argc, char **argv )
       if (strcmp(argv[i], "-h") == 0) {
          printf("usage:  %s [-slot <num>] [-h]\n\n", argv[0] );
          printf("By default, Slot 0 is used\n\n");
-         return;
+         return 0;
       }
    }
 
    ERR_load_crypto_strings();
 
-   printf("Using slot %d...\n\n", slot_id );
+   printf("Using slot %d...\n\n", (int)slot_id );
 
    rv = do_GetFunctionList();
    if (rv != TRUE) {
@@ -608,7 +610,7 @@ main( int argc, char **argv )
 
    if (get_user_pin(user_pin))
 	   return CKR_FUNCTION_FAILED;
-   user_pin_len = strlen(user_pin);
+   user_pin_len = (CK_ULONG)strlen((char *)user_pin);
 
    rv = funcs->C_Login( session, CKU_USER, user_pin, user_pin_len );
    if (rv != CKR_OK) {

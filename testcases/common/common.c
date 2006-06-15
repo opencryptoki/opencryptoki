@@ -69,7 +69,7 @@ void process_time(SYSTEMTIME t1, SYSTEMTIME t2)
 
    ms += (s*1000);
 
-   printf("Time:  %u msec\n", ms );
+   printf("Time:  %u msec\n", (unsigned int)ms );
 }
 
 
@@ -167,9 +167,9 @@ void process_ret_code( CK_RV rc )
 
 //
 //
-void show_error( CK_BYTE *str, CK_RV rc )
+void show_error( char *str, CK_RV rc )
 {
-   printf("%s returned:  %d (0x%0x)", str, rc, rc );
+   printf("%s returned:  %d (0x%0x)", str, (int)rc, (unsigned int)rc );
    process_ret_code( rc );
    printf("\n");
 }
