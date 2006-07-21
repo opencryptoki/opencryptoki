@@ -19,11 +19,6 @@ AM_CFLAGS = -DSPINXPL -DAPI -DDEV -D_THREAD_SAFE \
 opencryptoki_libopencryptoki_la_SOURCES = api_interface.c shrd_mem.c apiutil.c
 
 install-data-local:
-	cd $(DESTDIR)/$(libdir) && rm -f libopencryptoki.so && \
-		ln -sf opencryptoki/libopencryptoki.so libopencryptoki.so
-	cd $(DESTDIR)/$(libdir) && rm -f libopencryptoki.so.$(SO_CURRENT) && \
-		ln -sf opencryptoki/libopencryptoki.so.$(SO_CURRENT) \
-		libopencryptoki.so.$(SO_CURRENT)
 	mkdir -p $(DESTDIR)/$(libdir)/opencryptoki
 	cd $(DESTDIR)/$(libdir)/opencryptoki && rm -f methods && \
 		ln -sf ../../sbin/ methods

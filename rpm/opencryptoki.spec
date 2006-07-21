@@ -1,5 +1,5 @@
 Name:          opencryptoki 
-Version:       2.2.4 
+Version:       2.3.0 
 Release:        1%{?dist}
 Summary:       An Implementation of PKCS#11 (Cryptoki) v2.11 
 
@@ -46,15 +46,14 @@ rm -f $RPM_BUILD_ROOT/%{_libdir}/%{name}/stdll/*.la
 
 %preun
 if [ "$1" = "0" ]; then
+	/sbin/service pkcsslotd stop /dev/null 2>&1
 	/sbin/chkconfig --del pkcsslotd
 fi
 
 %postun -p /sbin/ldconfig 
 
 %post
-if [ "$1" = "0" ]; then
-	/sbin/chkconfig --add pkcsslotd
-fi
+/sbin/chkconfig --add pkcsslotd
 /sbin/ldconfig
 
 %clean
@@ -73,22 +72,21 @@ y/ /,/
 %defattr(-,root,root,-)
 %doc FAQ LICENSE README
 %config(noreplace) %{_sysconfdir}/ld.so.conf.d/%{name}.conf
-%config(noreplace) %{_sysconfdir}/ld.so.conf.d/%{name}-stdll.conf
-%dir %attr(755,root,pkcs11) /var/lib/%{name}
-%{_sbindir}/pkcsslotd
-%{_sbindir}/pkcsconf
-%{_sbindir}/pkcs_slot
-%{_sbindir}/pkcs11_startup
+%dir %attr(770,root,pkcs11) /var/lib/%{name}
+%attr(755,root,root) %{_sbindir}/pkcsslotd
+%attr(755,root,root) %{_sbindir}/pkcsconf
+%attr(755,root,root) %{_sbindir}/pkcs_slot
+%attr(755,root,root) %{_sbindir}/pkcs11_startup
 %dir %{_libdir}/%{name}
 %dir %{_libdir}/%{name}/stdll
-%{_libdir}/libopencryptoki.so
-%{_libdir}/libopencryptoki.so.0
 %{_libdir}/%{name}/libopencryptoki.so
-%{_libdir}/%{name}/libopencryptoki.so*.0
+%{_libdir}/%{name}/libopencryptoki.so.0
+%attr(755,root,root) %{_libdir}/%{name}/libopencryptoki.so.0.0.0
 %{_libdir}/%{name}/methods
-%{_libdir}/%{name}/stdll/libpkcs11_*.so
-%{_libdir}/%{name}/stdll/libpkcs11_*.so*.0
-%{_initrddir}/pkcsslotd
+%{_libdir}/%{name}/stdll/libpkcs11_sw.so
+%{_libdir}/%{name}/stdll/libpkcs11_sw.so.0
+%attr(755,root,root) %{_libdir}/%{name}/stdll/libpkcs11_sw.so.0.0.0
+%attr(755,root,root) %{_initrddir}/pkcsslotd
 
 %files devel
 %defattr(-,root,root,-)
@@ -98,6 +96,6 @@ y/ /,/
 %{_includedir}/%{name}/pkcs11types.h
 
 %changelog
-* Thu May 25 2006 Daniel H Jones <danjones@us.ibm.com> 2.2.4-1
+* Thu Jul 21 2006 Daniel H Jones <danjones@us.ibm.com> 2.3.0-1
 - initial file created
 
