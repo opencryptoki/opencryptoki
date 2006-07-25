@@ -1,6 +1,6 @@
 Name:          opencryptoki 
 Version:       2.2.5
-Release:        1%{?dist}
+Release:       1%{?dist}
 Summary:       An Implementation of PKCS#11 (Cryptoki) v2.11 
 
 Group:         Applications/Productivity 
@@ -49,6 +49,7 @@ rm -f $RPM_BUILD_ROOT/%{_libdir}/%{name}/stdll/*.la
 
 %preun
 if [ "$1" = "0" ]; then
+	/sbin/service pkcsslotd stop /dev/null 2>&1
 	/sbin/chkconfig --del pkcsslotd
 fi
 
@@ -57,9 +58,7 @@ fi
 
 
 %post
-if [ "$1" = "0" ]; then
-	/sbin/chkconfig --add pkcsslotd
-fi
+/sbin/chkconfig --add pkcsslotd
 /sbin/ldconfig
 
 
@@ -82,7 +81,7 @@ y/ /,/
 %doc FAQ LICENSE README
 %config(noreplace) %{_sysconfdir}/ld.so.conf.d/%{name}.conf
 %config(noreplace) %{_sysconfdir}/ld.so.conf.d/%{name}-stdll.conf
-%dir %attr(755,root,pkcs11) /var/lib/%{name}
+%dir %attr(770,root,pkcs11) /var/lib/%{name}
 %{_sbindir}/pkcsslotd
 %{_sbindir}/pkcsconf
 %{_sbindir}/pkcs_slot
@@ -115,6 +114,7 @@ y/ /,/
 
 
 %changelog
+* Tue Jul 25 2006 Daniel H Jones <danjones@us.ibm.com> 2.2.5-1
+- fixed post section and /var/lib/opencryptoki perms
 * Thu May 25 2006 Daniel H Jones <danjones@us.ibm.com> 2.2.4-1
 - initial file created
-
