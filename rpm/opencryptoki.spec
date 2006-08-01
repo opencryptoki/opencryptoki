@@ -102,8 +102,11 @@ y/ /,/
 %dir %{_libdir}/pkcs11/methods
 %{_libdir}/pkcs11/PKCS11_API.so
 %{_libdir}/%{name}/PKCS11_API.so
+%ifarch s390 s390x
+%{_libdir}/%{name}/stdll/PKCS11_ICA.so
+%else
 %{_libdir}/%{name}/stdll/PKCS11_SW.so
-
+%endif 
 
 %files devel
 %defattr(-,root,root,-)
@@ -114,6 +117,8 @@ y/ /,/
 
 
 %changelog
+* Tue Aug 1 2006 Daniel H Jones <danjones@us.ibm.com> 
+- sw token not created for s390
 * Tue Jul 25 2006 Daniel H Jones <danjones@us.ibm.com> 2.2.5-1
 - fixed post section and /var/lib/opencryptoki perms
 * Thu May 25 2006 Daniel H Jones <danjones@us.ibm.com> 2.2.4-1
