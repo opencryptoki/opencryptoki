@@ -1,6 +1,6 @@
 Name:          opencryptoki 
 Version:       2.3.0 
-Release:        1%{?dist}
+Release:       1%{?dist}
 Summary:       An Implementation of PKCS#11 (Cryptoki) v2.11 
 
 Group:         Applications/Productivity 
@@ -9,9 +9,8 @@ URL:           http://sourceforge.net/projects/opencryptoki
 Source0:       %{name}-%{version}.tar.bz2 
 BuildRoot:     %{_tmppath}/%{name}-%{version}-%{release}-root-%(%{__id_u} -n)
 
-Prereq: /sbin/chkconfig
 BuildRequires: autoconf automake libtool openssl-devel 
-#Requires:       
+Requires: /sbin/chkconfig       
 
 %description
 The openCryptoki package implements the PKCS#11 version 2.11: Cryptographic 
