@@ -52,8 +52,10 @@ CFLAGS="$cmdline_CFLAGS"
 
 # Arch specific stuff
 case $target in
-	*ppc64* | *powerpc64*)
-		CFLAGS="$CFLAGS -m64" ;;
+	*64*)
+		lib="lib64" ;;
+	*)
+		lib="lib" ;;
 esac
 
 if test "x$prefix" == x/usr; then
@@ -68,7 +70,7 @@ else
         AC_SUBST(DB_PATH, $prefix/var/lib/opencryptoki)
 fi
 
-AC_SUBST(LIB_PATH, $libdir/opencryptoki)
+AC_SUBST(LIB_PATH, $prefix/$lib/opencryptoki)
 AC_SUBST(STDLL_PATH, $LIB_PATH/stdll)
 AC_SUBST(CONFIG_FILE, pk_config_data)
 AC_SUBST(METHOD_PATH, $prefix/sbin)
@@ -163,7 +165,6 @@ AC_OUTPUT([Makefile usr/Makefile \
           usr/lib/pkcs11/tpm_stdll/Makefile \
           usr/lib/pkcs11/tpm_stdll/tok_struct.h \
           misc/Makefile \
-          misc/opencryptoki.conf \
           misc/pkcsslotd]) 
 
 echo

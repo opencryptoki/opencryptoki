@@ -70,7 +70,7 @@ y/ /,/
 %files
 %defattr(-,root,root,-)
 %doc FAQ LICENSE README doc/*
-%config(noreplace) %{_sysconfdir}/ld.so.conf.d/%{name}.conf
+%config(noreplace) %{_sysconfdir}/ld.so.conf.d/%{name}*.conf
 %dir %attr(770,root,pkcs11) /var/lib/%{name}
 %attr(755,root,root) %{_sbindir}/pkcsslotd
 %attr(755,root,root) %{_sbindir}/pkcsconf
