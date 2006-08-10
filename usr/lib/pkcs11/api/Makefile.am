@@ -23,6 +23,9 @@ install-data-local:
 	cd $(DESTDIR)/$(libdir)/opencryptoki && rm -f methods && \
 		ln -sf ../../sbin/ methods
 	mkdir -p $(DESTDIR)/$(libdir)/opencryptoki/stdll
+	mkdir -p $(DESTDIR)/$(libdir)/pkcs11
+	cd $(DESTDIR)/$(libdir)/pkcs11 && rm -f libopencryptoki.so && \
+		ln -sf ../opencryptoki/libopencryptoki.so libopencryptoki.so
 	-groupadd pkcs11
 	if test "x$(prefix)" = "x/usr"; then \
 		mkdir -p $(DESTDIR)/var/lib/opencryptoki ; \

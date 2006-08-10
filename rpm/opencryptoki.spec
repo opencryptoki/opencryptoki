@@ -77,15 +77,17 @@ y/ /,/
 %attr(755,root,root) %{_sbindir}/pkcs_slot
 %attr(755,root,root) %{_sbindir}/pkcs11_startup
 %dir %{_libdir}/%{name}
-%dir %{_libdir}/%{name}/stdll
 %{_libdir}/%{name}/libopencryptoki.so
 %{_libdir}/%{name}/libopencryptoki.so.0
 %attr(755,root,root) %{_libdir}/%{name}/libopencryptoki.so.0.0.0
-%{_libdir}/%{name}/methods
+%dir %{_libdir}/pkcs11
+%{_libdir}/pkcs11/libopencryptoki.so
+%dir %{_libdir}/%{name}/stdll
 %{_libdir}/%{name}/stdll/libpkcs11_sw.so
 %{_libdir}/%{name}/stdll/libpkcs11_sw.so.0
 %attr(755,root,root) %{_libdir}/%{name}/stdll/libpkcs11_sw.so.0.0.0
 %attr(755,root,root) %{_initrddir}/pkcsslotd
+%{_libdir}/%{name}/methods
 
 %files devel
 %doc LICENSE
