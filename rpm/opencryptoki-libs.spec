@@ -65,6 +65,7 @@ rm -rf $RPM_BUILD_ROOT
 %dir %{_libdir}/pkcs11/methods
 %{_libdir}/pkcs11/PKCS11_API.so
 %{_libdir}/%{base}/PKCS11_API.so
+%{_libdir}/pkcs11/libopencryptoki.so
 %ifarch s390 s390x
 %{_libdir}/%{base}/stdll/PKCS11_ICA.so
 %else
