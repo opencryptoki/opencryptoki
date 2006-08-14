@@ -1,8 +1,9 @@
-openCryptoki README
-Package version 2.2.5
+opencryptoki README
+Package version 2.2.4
 Authors:
  Mike Halcrow <mhalcrow@us.ibm.com>
  Kent Yoder <yoder1@us.ibm.com>
+ Daniel H Jones <danjones@us.ibm.com>
 
 OVERVIEW
 
@@ -43,9 +44,11 @@ main directory and do the following:
      $ CPPFLAGS="-L/path/lib" LDFLAGS="-I/path/include" ./configure
 
      See ./configure --help for info on various options.  The default
-     behavior is to build any token whose libraries are found. You may
-     disable building any token with its corresponding --disable-<tok>
-     configure option.
+     behavior is to build a default token implicitly. For the s390
+     platform, the default token is ica_s390. For other platforms, the
+     default token is the software token. Other tokens may be enabled
+     using the corresponding --enable-<tok> configuration option
+     provided the appropriate libraries are available.
 
      While running, `configure' prints some messages telling which
      features is it checking for. 

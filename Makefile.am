@@ -1,2 +1,12 @@
-SUBDIRS = usr testcases misc 
+if TESTS
+TESTDIR = testcases
+endif
+if LIBRARY
+MISCDIR = misc
+endif
+if DAEMON
+MISCDIR = misc 
+endif
+
+SUBDIRS = usr $(MISCDIR) $(TESTDIR)
 
