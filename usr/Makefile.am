@@ -1,2 +1,5 @@
-SUBDIRS = lib include sbin
+if DAEMON
+DAEMONDIRS = include sbin
+endif
 
+SUBDIRS = lib $(DAEMONDIRS)
