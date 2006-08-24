@@ -13,7 +13,7 @@
 #include "regress.h"
 
 CK_FUNCTION_LIST  *funcs;
-int do_GetFunctionList( CK_FUNCTION_LIST **funcs );
+int do_GetFunctionList(void);
 
 int
 do_SetPIN(CK_FUNCTION_LIST *funcs, CK_SLOT_ID slot_id, CK_USER_TYPE userType, char *old, char *new)
@@ -79,7 +79,6 @@ int
 main( int argc, char **argv )
 {
 	CK_C_INITIALIZE_ARGS	cinit_args;
-	CK_FUNCTION_LIST	*funcs = NULL;
 	CK_USER_TYPE		userType = CKU_USER;
 	int			rc, i;
 	char			*old = NULL, *new = NULL;
@@ -110,7 +109,7 @@ main( int argc, char **argv )
 	if (slot_id != SLOT_ID_DEFAULT)
 		printf("Using user specified slot %d.\n", slot_id);
 
-	rc = do_GetFunctionList(&funcs);
+	rc = do_GetFunctionList();
 	if (funcs == NULL)
 		return -1;
 

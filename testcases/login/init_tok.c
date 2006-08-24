@@ -18,7 +18,7 @@ CK_FUNCTION_LIST  *funcs;
 int  do_GetInfo(void);
 
 CK_RV C_GetFunctionList( CK_FUNCTION_LIST ** ) ;
-int do_GetFunctionList( CK_FUNCTION_LIST ** );
+int do_GetFunctionList(void);
 
 CK_SLOT_ID  SLOT_ID;
 
@@ -67,7 +67,6 @@ main( int argc, char **argv )
 {
 	CK_BYTE            line[20];
 	CK_ULONG           val;
-	CK_FUNCTION_LIST   *funcs = NULL;
 	CK_BYTE		   *pass = NULL;
 	int rc;
 	int i;
@@ -96,8 +95,8 @@ main( int argc, char **argv )
 
 	printf("Using slot #%ld...\n\n", SLOT_ID );
 
-	rc = do_GetFunctionList(&funcs);
-	if (rc || funcs == NULL) {
+	rc = do_GetFunctionList();
+	if ((rc != TRUE) || (funcs == NULL)) {
 		PRINTERR("do_GetFunctionList failed.");
 		return rc;
 	}
