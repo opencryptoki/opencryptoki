@@ -292,6 +292,7 @@
 
 #include <pthread.h>
 #include <string.h>            // for memcmp() et al
+#include <strings.h>
 #include <stdlib.h>
 
 #ifndef NOAES
