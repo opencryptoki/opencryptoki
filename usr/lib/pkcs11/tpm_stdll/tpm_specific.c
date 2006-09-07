@@ -76,6 +76,8 @@
 
 #include "../api/apiproto.h"
 
+TSS_RESULT util_set_public_modulus(TSS_HKEY, unsigned long, unsigned char *);
+
 CK_CHAR manuf[] = "IBM Corp.";
 CK_CHAR model[] = "TPM v1.1 Token";
 CK_CHAR descr[] = "Token for the Trusted Platform Module";
@@ -269,11 +271,9 @@ token_wrap_sw_key(int size_n, unsigned char *n, int size_p, unsigned char *p,
 		return result;
 	}
 
-	/* set the public key data in the TSS object */
-	result = Tspi_SetAttribData(*phKey, TSS_TSPATTRIB_KEY_BLOB,
-			TSS_TSPATTRIB_KEYBLOB_PUBLIC_KEY, size_n, n);
+	result = util_set_public_modulus(*phKey, size_n, n);
 	if (result != TSS_SUCCESS) {
-		LogError("Tspi_SetAttribData failed: rc=0x%x", result);
+		LogError("util_set_public_modulus failed: rc=0x%x", result);
 		Tspi_Context_CloseObject(tspContext, *phKey);
 		*phKey = NULL_HKEY;
 		return result;
@@ -402,7 +402,7 @@ token_wrap_key_object( CK_OBJECT_HANDLE ckObject, TSS_HKEY hParentKey, TSS_HKEY 
 					    hParentKey,
 					    TSS_KEY_TYPE_LEGACY | TSS_KEY_NO_AUTHORIZATION,
 					    phKey))) {
-			LogError("token_wrap_sw_key failed. rc=0x%x", rc);
+			LogError("token_wrap_sw_key failed. rc=0x%lu", rc);
 			return rc;
 		}
 	} else if (class == CKO_PUBLIC_KEY) {
@@ -434,10 +434,8 @@ token_wrap_key_object( CK_OBJECT_HANDLE ckObject, TSS_HKEY hParentKey, TSS_HKEY 
 			return result;
 		}
 
-		if ((result = Tspi_SetAttribData(*phKey, TSS_TSPATTRIB_KEY_BLOB,
-						TSS_TSPATTRIB_KEYBLOB_PUBLIC_KEY,
-						attr->ulValueLen, attr->pValue))) {
-			LogError("Tspi_SetAttribData: 0x%x", result);
+		if ((result = util_set_public_modulus(*phKey, attr->ulValueLen, attr->pValue))) {
+			LogError("util_set_public_modulus failed: 0x%x", result);
 			Tspi_Context_CloseObject(tspContext, *phKey);
 			*phKey = NULL_HKEY;
 			return CKR_FUNCTION_FAILED;
@@ -816,8 +814,9 @@ token_store_pub_key(TSS_HKEY hKey, int key_type, CK_OBJECT_HANDLE *ckKey)
 	dummy_sess.session_info.state = CKS_RW_USER_FUNCTIONS;
 
 	/* grab the public key  to put into the PKCS#11 public key object */
-	if ((result = Tspi_GetAttribData(hKey, TSS_TSPATTRIB_KEY_BLOB, TSS_TSPATTRIB_KEYBLOB_PUBLIC_KEY,
-					&ulBlobLen, &rgbPubBlob))) {
+	if ((result = Tspi_GetAttribData(hKey, TSS_TSPATTRIB_RSAKEY_INFO,
+					 TSS_TSPATTRIB_KEYINFO_RSA_MODULUS,
+					 &ulBlobLen, &rgbPubBlob))) {
 		LogError("Tspi_GetAttribData failed with rc: 0x%x", result);
 		Tspi_Context_CloseObject(tspContext, hKey);
 		free(key_id);
@@ -1008,7 +1007,7 @@ token_create_private_tree(CK_BYTE *pinHash, CK_BYTE *pPin)
 	if ((rc = token_wrap_sw_key(size_n, n, size_p, p, hSRK,
 				    TSS_KEY_NO_AUTHORIZATION | TSS_KEY_TYPE_STORAGE,
 				    &hPrivateRootKey))) {
-		LogError("token_wrap_sw_key failed. rc=0x%x", rc);
+		LogError("token_wrap_sw_key failed. rc=0x%lu", rc);
 		return rc;
 	}
 
@@ -2307,8 +2306,9 @@ token_specific_rsa_generate_keypair( TEMPLATE  * publ_tmpl,
 	Tspi_Context_FreeMemory(tspContext, rgbBlob);
 
 	/* grab the public key to put into the public key object */
-	if ((result = Tspi_GetAttribData(hKey, TSS_TSPATTRIB_KEY_BLOB, TSS_TSPATTRIB_KEYBLOB_PUBLIC_KEY,
-			&ulBlobLen, &rgbBlob))) {
+	if ((result = Tspi_GetAttribData(hKey, TSS_TSPATTRIB_RSAKEY_INFO,
+					 TSS_TSPATTRIB_KEYINFO_RSA_MODULUS, &ulBlobLen,
+					 &rgbBlob))) {
 		LogError("Tspi_GetAttribData failed with rc: 0x%x", result);
 		return result;
 	}
@@ -2581,7 +2581,7 @@ token_specific_rsa_encrypt( CK_BYTE   * in_data,
 	}
 
 	if ((result = Tspi_Data_Bind(hEncData, hKey, in_data_len, in_data))) {
-		LogError("Trspi_RSA_Encrypt failed. rc=0x%x", result);
+		LogError("Tspi_Data_Bind failed. rc=0x%x", result);
 		return CKR_FUNCTION_FAILED;
 	}
 
