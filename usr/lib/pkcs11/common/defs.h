@@ -303,17 +303,7 @@
 #ifndef _DEFS_H
 #define _DEFS_H
 
-#if (LEEDS)
-  #pragma pack(1)
-  #pragma options align=packed
-#endif
-
-#if (LEEDS)
-#include <linuxdef.h>
-#else
 #define PACK_DATA
-#endif
-
 
 #define MAX_SESSION_COUNT     64
 #define MAX_PIN_LEN           8
@@ -425,66 +415,6 @@ typedef enum {
    PUBLIC
 } SESS_OBJ_TYPE;
 
-#if (LEEDS_BUILD)
-
-enum cmdconst {
-   FIRST_ENTRY = 0,
-   DUMMYFUNCTION = 1,
-   FCVFUNCTION,
-   UPDATETWEAKVALUES,
-   QUERYTWEAKVALUES,
-
-   PK_DES_KEYGEN,
-   PK_CDMF_KEYGEN,
-   PK_CDMF_TRANSFORM_KEY,
-   PK_RSA_KEYPAIR_GEN,
-   PK_DSA_KEYPAIR_GEN,
-
-   PK_GENERATE_RND,
-
-   PK_DES_ECB_ENCRYPT,
-   PK_DES_ECB_DECRYPT,
-   PK_DES_CBC_ENCRYPT,
-   PK_DES_CBC_DECRYPT,
-
-   PK_DES3_ECB_ENCRYPT,
-   PK_DES3_ECB_DECRYPT,
-   PK_DES3_CBC_ENCRYPT,
-   PK_DES3_CBC_DECRYPT,
-
-   PK_RSA_ENCRYPT,
-   PK_RSA_DECRYPT,
-
-   PK_DSA_SIGN,
-   PK_DSA_VERIFY,
-
-   PK_SHA1_DIGEST,
-   PK_SHA1_UPDATE,
-   PK_SHA1_FINAL,
-
-   LAST_ENTRY
-};
-
-
-typedef struct _LEEDS_REQUEST
-{
-   CK_ULONG    pid;
-   CK_ULONG    req_len;      // size of request data
-   CK_ULONG    repl_max[4];
-   // any command-specific request data gets appended here
-   //
-} PACK_DATA LEEDS_REQUEST;
-
-typedef struct _LEEDS_REPLY
-{
-   CK_RV     rc;
-   CK_ULONG  repl_len[4];   // size of data
-   // any command-specific reply data gets appended here
-   //
-} PACK_DATA LEEDS_REPLY;
-
-#endif
-
 // this is a flattened version of the CK_SSL3_RANDOM_DATA
 //
 typedef struct _SSL3_RANDOM_DATA
@@ -558,10 +488,5 @@ typedef struct _DL_NODE
 #define PK_LITE_OBJ_IDX "OBJ.IDX"
 
 #define DEL_CMD "/bin/rm -f"
-
-#if  (LEEDS)
-  #pragma options align=full
-  #pragma pack() 
-#endif
 
 #endif

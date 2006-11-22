@@ -1,9 +1,4 @@
 /*
- * $Header$
- */
-
-//
-/*
              Common Public License Version 0.5
 
              THE ACCOMPANYING PROGRAM IS PROVIDED UNDER THE TERMS OF
@@ -291,85 +286,108 @@
 
 */
 
-/* (C) COPYRIGHT International Business Machines Corp. 2001,2002          */
+/* COPYRIGHT (c) International Business Machines Corp. 2005 */
 
+#include <stdlib.h>
+#include <string.h>
 
-// File:  extern.h
-//
-// Lists extern (global) variables for the coprocessor-side code
-//
+#include "pkcs11types.h"
+#include "defs.h"
+#include "host_defs.h"
+#include "h_extern.h"
+#include "tok_spec_struct.h"
 
-#ifndef _EXTERN_H
-#define _EXTERN_H
+void mech_array_to_list(struct mech_list_item *head,
+			MECH_LIST_ELEMENT mech_list_arr[],
+			int list_len) {
+	int i;
+	struct mech_list_item *current;
+	current = head;
+	for (i = 0; i < list_len; i++) {
+		current->next = malloc(sizeof(struct mech_list_item));
+		current = current->next;
+		memcpy(&current->element, &mech_list_arr[i],
+		       sizeof(MECH_LIST_ELEMENT));
+	}
+}
 
+struct mech_list_item *
+find_mech_list_item_for_type(CK_MECHANISM_TYPE type,
+			     struct mech_list_item *head)
+{
+	struct mech_list_item *res;
+	res = head->next;
+	while (res) {
+		if (res->element.mech_type == type) {
+			goto out;
+		}
+		res = res->next;
+	}
+ out:
+	return res;
+}
 
-#define malloc(x) newmalloc(x)
-#define free(x)   newfree(x)
-#define realloc(x,y) newrealloc(x,y)
+void free_mech_list(struct mech_list_item *head)
+{
+	struct mech_list_item *walker;
+	walker = head->next;
+	while (walker) {
+		struct mech_list_item *next;
+		next = walker->next;
+		free(walker);
+		walker = next;
+	}	
+}
 
-_prelinkc_ void   _postlinkc_ newfree(void *);
-_prelinkc_ void * _postlinkc_ newmalloc(size_t);
-_prelinkc_ void * _postlinkc_ newrealloc(void *,size_t);
+/**
+ * If a type exists in the source that is not in the target, copy it
+ * over. If a type exists in both the source and the target, overwrite
+ * the target.
+ */
+void merge_mech_lists(struct mech_list_item *head_of_target,
+		      struct mech_list_item *head_of_source)
+{
+	
+}
 
+CK_RV
+ock_generic_get_mechanism_list(CK_MECHANISM_TYPE_PTR pMechanismList,
+			       CK_ULONG_PTR pulCount)
+{
+	int rc = CKR_OK;
+	unsigned int i;
+	if (pMechanismList == NULL) {
+		(*pulCount) = mech_list_len;
+		goto out;
+	}
+	if ((*pulCount) < mech_list_len) {
+		(*pulCount) = mech_list_len;
+		st_err_log(111, __FILE__, __LINE__); 
+		rc = CKR_BUFFER_TOO_SMALL;
+		goto out;
+	}
+	for (i=0; i < mech_list_len; i++) 
+		pMechanismList[i] = mech_list[i].mech_type;
+	(*pulCount) = mech_list_len;
+ out:
+	return rc;	
+}
 
-CK_RV api_DummyFunction  ( sccRequestHeader_t *req, LEEDS_REQUEST *request, LEEDS_REPLY *reply );
-CK_RV do_RND_Generate    ( sccRequestHeader_t *req, LEEDS_REQUEST *request, LEEDS_REPLY *reply );
-CK_RV do_DES_KeyGen      ( sccRequestHeader_t *req, LEEDS_REQUEST *request, LEEDS_REPLY *reply );
-CK_RV do_CDMF_KeyGen     ( sccRequestHeader_t *req, LEEDS_REQUEST *request, LEEDS_REPLY *reply );
-CK_RV do_Encrypt_DES_ECB ( sccRequestHeader_t *req, LEEDS_REQUEST *request, LEEDS_REPLY *reply );
-CK_RV do_Decrypt_DES_ECB ( sccRequestHeader_t *req, LEEDS_REQUEST *request, LEEDS_REPLY *reply );
-CK_RV do_Encrypt_DES_CBC ( sccRequestHeader_t *req, LEEDS_REQUEST *request, LEEDS_REPLY *reply );
-CK_RV do_Decrypt_DES_CBC ( sccRequestHeader_t *req, LEEDS_REQUEST *request, LEEDS_REPLY *reply );
-CK_RV do_Encrypt_DES3_ECB( sccRequestHeader_t *req, LEEDS_REQUEST *request, LEEDS_REPLY *reply );
-CK_RV do_Decrypt_DES3_ECB( sccRequestHeader_t *req, LEEDS_REQUEST *request, LEEDS_REPLY *reply );
-CK_RV do_Encrypt_DES3_CBC( sccRequestHeader_t *req, LEEDS_REQUEST *request, LEEDS_REPLY *reply );
-CK_RV do_Decrypt_DES3_CBC( sccRequestHeader_t *req, LEEDS_REQUEST *request, LEEDS_REPLY *reply );
-CK_RV do_SHA1_Hash       ( sccRequestHeader_t *req, LEEDS_REQUEST *request, LEEDS_REPLY *reply );
-CK_RV do_SHA1_Update     ( sccRequestHeader_t *req, LEEDS_REQUEST *request, LEEDS_REPLY *reply );
-CK_RV do_SHA1_Final      ( sccRequestHeader_t *req, LEEDS_REQUEST *request, LEEDS_REPLY *reply );
-CK_RV do_RSA_KeyPairGen  ( sccRequestHeader_t *req, LEEDS_REQUEST *request, LEEDS_REPLY *reply );
-CK_RV do_RSA_Encrypt     ( sccRequestHeader_t *req, LEEDS_REQUEST *request, LEEDS_REPLY *reply );
-CK_RV do_RSA_Decrypt     ( sccRequestHeader_t *req, LEEDS_REQUEST *request, LEEDS_REPLY *reply );
-CK_RV do_DSA_KeyPairGen  ( sccRequestHeader_t *req, LEEDS_REQUEST *request, LEEDS_REPLY *reply );
-CK_RV do_DSA_Sign        ( sccRequestHeader_t *req, LEEDS_REQUEST *request, LEEDS_REPLY *reply );
-CK_RV do_DSA_Verify      ( sccRequestHeader_t *req, LEEDS_REQUEST *request, LEEDS_REPLY *reply );
-
-
-CK_RV mp_subtract( CK_BYTE   *bigint,
-                   CK_ULONG   val,
-                   CK_ULONG   len );
-
-CK_RV mp_mult( CK_BYTE  *bigint_a,
-               CK_ULONG  a_len,
-               CK_BYTE  *bigint_b,
-               CK_ULONG  b_len,
-               CK_BYTE  *bigint_n,
-               CK_ULONG  n_len,
-               CK_BYTE  *result,
-               CK_ULONG *result_len );
-
-CK_RV mp_exp( CK_BYTE  *bigint_a,
-              CK_ULONG  a_len,
-              CK_BYTE  *bigint_b,
-              CK_ULONG  b_len,
-              CK_BYTE  *bigint_n,
-              CK_ULONG  n_len,
-              CK_BYTE  *result,
-              CK_ULONG *result_len );
-
-CK_BYTE parity_adjust( CK_BYTE b );
-CK_RV   parity_is_odd( CK_BYTE b );
-
-
-CK_RV ckm_rsa_compute_priv_exp( sccPKCSKeyToken_t  * key_token,
-                                CK_BYTE            * dest,
-                                CK_ULONG           * exp_len );
-
-
-unsigned long treeCheck(int treeIdx);
-void *newmalloc(size_t size);
-void newfree(void *ptr);
-void *newrealloc(void *oldptr,size_t size);
-
-
-#endif
+CK_RV
+ock_generic_get_mechanism_info(CK_MECHANISM_TYPE type, 
+			       CK_MECHANISM_INFO_PTR pInfo)
+{
+	int rc = CKR_OK;
+	unsigned int i;
+	for (i=0; i < mech_list_len; i++) {
+		if (mech_list[i].mech_type == type) {
+			memcpy(pInfo, &mech_list[i].mech_info,
+			       sizeof(CK_MECHANISM_INFO));
+			goto out;
+		}
+	}
+	st_err_log(28, __FILE__, __LINE__); 
+	rc = CKR_MECHANISM_INVALID;
+ out:
+	return rc;
+}

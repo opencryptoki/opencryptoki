@@ -1,9 +1,4 @@
 /*
- * $Header$
- */
-
-//
-/*
              Common Public License Version 0.5
 
              THE ACCOMPANYING PROGRAM IS PROVIDED UNDER THE TERMS OF
@@ -291,89 +286,108 @@
 
 */
 
-/* (C) COPYRIGHT International Business Machines Corp. 2001,2002          */
+/* COPYRIGHT (c) International Business Machines Corp. 2005 */
 
+#include <stdlib.h>
+#include <string.h>
 
-//
-// Contains definitions that should only be required for the
-// coprocessor-side code
-//
+#include "pkcs11types.h"
+#include "defs.h"
+#include "host_defs.h"
+#include "h_extern.h"
+#include "tok_spec_struct.h"
 
-#ifndef _CARD_H
-#define _CARD_H
+void mech_array_to_list(struct mech_list_item *head,
+			MECH_LIST_ELEMENT mech_list_arr[],
+			int list_len) {
+	int i;
+	struct mech_list_item *current;
+	current = head;
+	for (i = 0; i < list_len; i++) {
+		current->next = malloc(sizeof(struct mech_list_item));
+		current = current->next;
+		memcpy(&current->element, &mech_list_arr[i],
+		       sizeof(MECH_LIST_ELEMENT));
+	}
+}
 
-
-
-#define MODE_COPY       (1 << 0)
-#define MODE_CREATE     (1 << 1)
-#define MODE_KEYGEN     (1 << 2)
-#define MODE_MODIFY     (1 << 3)
-#define MODE_DERIVE     (1 << 4)
-#define MODE_UNWRAP     (1 << 5)
-
-// RSA block formatting types
-//
-#define PKCS_BT_1       1
-#define PKCS_BT_2       2
-
-#define OP_ENCRYPT_INIT 1
-#define OP_DECRYPT_INIT 2
-#define OP_WRAP         3
-#define OP_UNWRAP       4
-#define OP_SIGN_INIT    5
-#define OP_VERIFY_INIT  6
-
-
-#define DES_KEY_SIZE    8
-#define DES_BLOCK_SIZE  8
-
-#define SHA1_HASH_SIZE  20
-#define SHA1_BLOCK_SIZE 64
-
-#define SHA2_HASH_SIZE  32
-#define SHA2_BLOCK_SIZE 64
-
-#define MD2_HASH_SIZE   16
-#define MD2_BLOCK_SIZE  48
-
-#define MD5_HASH_SIZE   16
-#define MD5_BLOCK_SIZE  64
-
-#define DSA_SIGNATURE_SIZE  40
-
-#define DEFAULT_SO_PIN  "87654321"
-
-
-// saved-state identifiers
-//
-enum {
-   STATE_INVALID = 0,
-   STATE_ENCR,
-   STATE_DECR,
-   STATE_DIGEST,
-   STATE_SIGN,
-   STATE_VERIFY
-};
-
-
-typedef struct _MECH_LIST_ELEMENT
+struct mech_list_item *
+find_mech_list_item_for_type(CK_MECHANISM_TYPE type,
+			     struct mech_list_item *head)
 {
-   CK_MECHANISM_TYPE    mech_type;
-   CK_MECHANISM_INFO    mech_info;
-} MECH_LIST_ELEMENT;
+	struct mech_list_item *res;
+	res = head->next;
+	while (res) {
+		if (res->element.mech_type == type) {
+			goto out;
+		}
+		res = res->next;
+	}
+ out:
+	return res;
+}
 
-struct mech_list_item;
-
-struct mech_list_item {
-	struct mech_list_item *next;
-	MECH_LIST_ELEMENT element;
-};
-
-typedef struct _TEMPLATE
+void free_mech_list(struct mech_list_item *head)
 {
-   DL_NODE  *attribute_list;
-} TEMPLATE;
+	struct mech_list_item *walker;
+	walker = head->next;
+	while (walker) {
+		struct mech_list_item *next;
+		next = walker->next;
+		free(walker);
+		walker = next;
+	}	
+}
 
+/**
+ * If a type exists in the source that is not in the target, copy it
+ * over. If a type exists in both the source and the target, overwrite
+ * the target.
+ */
+void merge_mech_lists(struct mech_list_item *head_of_target,
+		      struct mech_list_item *head_of_source)
+{
+	
+}
 
+CK_RV
+ock_generic_get_mechanism_list(CK_MECHANISM_TYPE_PTR pMechanismList,
+			       CK_ULONG_PTR pulCount)
+{
+	int rc = CKR_OK;
+	unsigned int i;
+	if (pMechanismList == NULL) {
+		(*pulCount) = mech_list_len;
+		goto out;
+	}
+	if ((*pulCount) < mech_list_len) {
+		(*pulCount) = mech_list_len;
+		st_err_log(111, __FILE__, __LINE__); 
+		rc = CKR_BUFFER_TOO_SMALL;
+		goto out;
+	}
+	for (i=0; i < mech_list_len; i++) 
+		pMechanismList[i] = mech_list[i].mech_type;
+	(*pulCount) = mech_list_len;
+ out:
+	return rc;	
+}
 
-#endif
+CK_RV
+ock_generic_get_mechanism_info(CK_MECHANISM_TYPE type, 
+			       CK_MECHANISM_INFO_PTR pInfo)
+{
+	int rc = CKR_OK;
+	unsigned int i;
+	for (i=0; i < mech_list_len; i++) {
+		if (mech_list[i].mech_type == type) {
+			memcpy(pInfo, &mech_list[i].mech_info,
+			       sizeof(CK_MECHANISM_INFO));
+			goto out;
+		}
+	}
+	st_err_log(28, __FILE__, __LINE__); 
+	rc = CKR_MECHANISM_INVALID;
+ out:
+	return rc;
+}

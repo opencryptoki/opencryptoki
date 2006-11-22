@@ -315,7 +315,7 @@
 #include "defs.h"
 #include "host_defs.h"
 #include "h_extern.h"
-#include "tok_spec_struct.h"
+#include "sw_default.h"
 
 #ifndef NODH
 
@@ -487,7 +487,7 @@ ckm_dh_pkcs_derive( CK_VOID_PTR        other_pubkey,
    p_other_pubkey = (CK_BYTE *) other_pubkey ;
    
    // Perform: z = other_pubkey^x mod p
-   rc = token_specific.t_dh_pkcs_derive(secret_value, secret_value_len, p_other_pubkey, 
+   rc = sw_default_dh_pkcs_derive(secret_value, secret_value_len, p_other_pubkey, 
                                         other_pubkey_len, x, x_len, p, p_len );
    if (rc != CKR_OK)
    {
@@ -506,7 +506,7 @@ ckm_dh_pkcs_key_pair_gen( TEMPLATE  * publ_tmpl,
 {
    CK_RV                rc;
 
-   rc = token_specific.t_dh_pkcs_key_pair_gen(publ_tmpl,priv_tmpl);
+   rc = sw_default_dh_pkcs_key_pair_gen(publ_tmpl,priv_tmpl);
    if (rc != CKR_OK)
    {
       st_err_log(91, __FILE__, __LINE__);

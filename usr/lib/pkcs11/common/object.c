@@ -303,21 +303,15 @@
 //    object_is_session_object
 //
 
-//#include <windows.h>
 #include <pthread.h>
 #include <stdlib.h>
 #include <memory.h>
 #include <string.h>
-#ifdef LEEDS_BUILD
-  #include <string.h>  // for memcmp() et al
-#endif
-
 
 #include "pkcs11types.h"
 #include "defs.h"
 #include "host_defs.h"
 #include "h_extern.h"
-#include "tok_spec_struct.h"
 #include "pkcs32.h"
 
 // object_create()
@@ -1011,5 +1005,65 @@ done:
    if (tmpl2)  template_free( tmpl2 );
 
    return rc;
+}
+
+//
+//
+CK_RV
+object_create_obj_from_tmpl(CK_ATTRIBUTE  * pTemplate,
+			    CK_ULONG        ulCount,
+			    CK_ULONG        mode,
+			    CK_ULONG        class,
+			    CK_ULONG        subclass,
+			    OBJECT       ** obj)
+{
+    TEMPLATE * tmpl = NULL;
+    OBJECT   * o    = NULL;
+    CK_RV      rc   = CKR_OK;
+    
+    if ((!pTemplate) && (ulCount != 0)){
+	st_err_log(4, __FILE__, __LINE__, __FUNCTION__);
+	return CKR_FUNCTION_FAILED;
+    }
+    
+    o     = (OBJECT *)malloc(sizeof(OBJECT));
+    tmpl  = (TEMPLATE *)malloc(sizeof(TEMPLATE));
+    if (!o || !tmpl) {
+	st_err_log(0, __FILE__, __LINE__);
+	rc = CKR_HOST_MEMORY;
+	goto done;
+    }
+    memset(o,    0x0, sizeof(OBJECT));
+    memset(tmpl, 0x0, sizeof(TEMPLATE));
+    
+    rc = template_add_attributes(tmpl, pTemplate, ulCount);
+    if (rc != CKR_OK)
+	goto done;
+
+/* BUGBUG: Can't do this because some valid attributes (CKA_LOCAL)
+*          return error. object_create_skel only checks the
+*          default attributes prior to merging.
+    rc = template_validate_attributes(tmpl, class, subclass, mode);
+    if (rc != CKR_OK){
+	st_err_log(165, __FILE__, __LINE__); 
+	goto done;
+    }
+*/
+    rc = template_check_required_attributes(tmpl, class, subclass, mode);
+    if (rc != CKR_OK){
+	st_err_log(166, __FILE__, __LINE__); 
+	goto done;
+    }
+
+    o->template = tmpl;
+    *obj = o;
+    
+    return rc;
+    
+ done:
+    if (o)      free( o );
+    if (tmpl)   template_free( tmpl );
+    
+    return rc;
 }
 

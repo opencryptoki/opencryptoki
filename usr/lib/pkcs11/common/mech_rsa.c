@@ -305,7 +305,7 @@
 #include "defs.h"
 #include "host_defs.h"
 #include "h_extern.h"
-
+#include "sw_default.h"
 
 
 // in the Shallow token we have the modulus so we can just get it
@@ -1667,7 +1667,7 @@ ckm_rsa_key_pair_gen( TEMPLATE  * publ_tmpl,
    // Really want to FIXME to not instantiate the attributes in  each token
    // specific routine.  Should return the pieces and instantiate the attributes
    // once.... SAB..
-   rc = token_specific.t_rsa_generate_keypair(publ_tmpl, priv_tmpl);
+   rc = sw_default_rsa_generate_keypair(publ_tmpl, priv_tmpl);
    if (rc != CKR_OK)
       st_err_log(91, __FILE__, __LINE__);
 
@@ -1709,7 +1709,7 @@ ckm_rsa_encrypt( CK_BYTE   * in_data,
       return CKR_FUNCTION_FAILED;
    }
    
-   rc = token_specific.t_rsa_encrypt(in_data,in_data_len,out_data,key_obj);
+   rc = sw_default_rsa_encrypt(in_data,in_data_len,out_data,key_obj);
    if (rc != CKR_OK)
       st_err_log(134, __FILE__, __LINE__);
 
@@ -1757,7 +1757,7 @@ ckm_rsa_decrypt( CK_BYTE   * in_data,
       st_err_log(4, __FILE__, __LINE__, __FUNCTION__);
       return CKR_FUNCTION_FAILED;
    }
-   rc = token_specific.t_rsa_decrypt(in_data,in_data_len,out_data,key_obj);
+   rc = sw_default_rsa_decrypt(in_data,in_data_len,out_data,key_obj);
    if (rc != CKR_OK)
       st_err_log(135, __FILE__, __LINE__);
 

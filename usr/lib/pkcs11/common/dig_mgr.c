@@ -294,20 +294,15 @@
 // Digest manager routines
 //
 
-//#include <windows.h>
-
 #include <pthread.h>
-  #include <string.h>            // for memcmp() et al
-  #include <stdlib.h>
-
+#include <string.h>            // for memcmp() et al
+#include <stdlib.h>
 
 #include "pkcs11types.h"
 #include "defs.h"
 #include "host_defs.h"
 #include "h_extern.h"
-#include "tok_spec_struct.h"
-//#include "args.h"
-
+#include "sw_default.h"
 
 //
 //
@@ -317,7 +312,8 @@ digest_mgr_init( SESSION           *sess,
                  CK_MECHANISM      *mech )
 {
    CK_BYTE  * ptr = NULL;
-
+   CK_MECHANISM_INFO mech_info;
+   CK_RV rc;
 
    if (!sess || !ctx){
       st_err_log(4, __FILE__, __LINE__, __FUNCTION__);
@@ -328,8 +324,42 @@ digest_mgr_init( SESSION           *sess,
       return CKR_OPERATION_ACTIVE;
    }
 
+   // check if token supports this mechanism
+   if ((rc = token_functions->T_GetMechanismInfo(
+	    mech->mechanism, &mech_info)) == CKR_OK) {
+       
+       // token must supply DigestInit function
+       if (!(token_functions->T_DigestInit)) {
+	   st_err_log(4, __FILE__, __LINE__, __FUNCTION__);
+	   return CKR_FUNCTION_FAILED;
+       }
+       
+       // token returns:
+       //     address of context
+       //     context length
+       if ((rc = token_functions->T_DigestInit(
+		mech, &ctx->context, &ctx->context_len)) == CKR_OK) {
+	   ctx->token = TRUE;
+	   goto common_return;
+       } else {
+	   st_err_log(4, __FILE__, __LINE__, __FUNCTION__);
+	   return rc;
+       }
+       
+   // otherwise check if sw fallback can handle mechanism
+   } else if ((rc = sw_default_GetMechanismInfo(
+		   mech->mechanism, &mech_info)) != CKR_OK) {
+       st_err_log(29, __FILE__, __LINE__);
+       return CKR_MECHANISM_PARAM_INVALID;
+   }
+
+   //
+   // Beyond this point is default processing for mechanisms not supported
+   // by the token.
+   //
    // is the mechanism supported?  is the parameter present if required?
    //
+   ctx->token = FALSE;
    switch (mech->mechanism) {
       case CKM_SHA_1:
          {
@@ -345,22 +375,6 @@ digest_mgr_init( SESSION           *sess,
                st_err_log(1, __FILE__, __LINE__);     
                return CKR_HOST_MEMORY;
             }
-         }
-         break;
-
-      case CKM_MD2:
-         {
-            if (mech->ulParameterLen != 0){
-               st_err_log(29, __FILE__, __LINE__);     
-               return CKR_MECHANISM_PARAM_INVALID;
-            }
-            ctx->context_len = sizeof(MD2_CONTEXT);
-            ctx->context     = (CK_BYTE *)malloc(sizeof(MD2_CONTEXT));
-            if (!ctx->context){
-               st_err_log(1, __FILE__, __LINE__);     
-               return CKR_HOST_MEMORY;
-            }
-            memset( ctx->context, 0x0, sizeof(MD2_CONTEXT) );
          }
          break;
 
@@ -385,6 +399,7 @@ digest_mgr_init( SESSION           *sess,
          return CKR_MECHANISM_INVALID;
    }
 
+ common_return:
 
    if (mech->ulParameterLen > 0) {
       ptr = (CK_BYTE *)malloc(mech->ulParameterLen);
@@ -418,6 +433,7 @@ digest_mgr_cleanup( DIGEST_CONTEXT *ctx )
    ctx->mech.mechanism      = 0;
    ctx->multi               = FALSE;
    ctx->active              = FALSE;
+   ctx->token               = FALSE;
    ctx->context_len         = 0;
 
    if (ctx->mech.pParameter) {
@@ -432,7 +448,6 @@ digest_mgr_cleanup( DIGEST_CONTEXT *ctx )
 
    return CKR_OK;
 }
-
 
 
 //
@@ -468,18 +483,30 @@ digest_mgr_digest( SESSION         *sess,
       st_err_log(31, __FILE__, __LINE__);
       return CKR_OPERATION_ACTIVE;
    }
+
+   // check if token is handling the digest
+   if (ctx->token == TRUE) {
+       
+       // token must supply Digest function
+       if (!(token_functions->T_Digest)) {
+	   st_err_log(4, __FILE__, __LINE__, __FUNCTION__);
+	   return CKR_FUNCTION_FAILED;
+       }
+
+       return token_functions->T_Digest(
+	   ctx->mech, in_data, in_data_len, out_data, out_data_len, 
+	   ctx->context, ctx->context_len);
+   }
+
+   //
+   // Beyond this point is default processing for mechanisms not supported
+   // by the token.
+   //
    switch (ctx->mech.mechanism) {
       case CKM_SHA_1:
          return sha1_hash( sess,      length_only, ctx,
                            in_data,   in_data_len,
                            out_data,  out_data_len );
-
-#if !(NOMD2 )
-      case CKM_MD2:
-         return md2_hash( sess,     length_only, ctx,
-                          in_data,  in_data_len,
-                          out_data, out_data_len );
-#endif
 
       case CKM_MD5:
          return md5_hash( sess,     length_only, ctx,
@@ -515,14 +542,26 @@ digest_mgr_digest_update( SESSION         *sess,
 
    ctx->multi = TRUE;
 
+   // check if token is handling the digest
+   if (ctx->token == TRUE) {
+       
+       // token must supply DigestUpdate function
+       if (!(token_functions->T_DigestUpdate)) {
+	   st_err_log(4, __FILE__, __LINE__, __FUNCTION__);
+	   return CKR_FUNCTION_FAILED;
+       }
+
+       return token_functions->T_DigestUpdate(
+	   ctx->mech, data, data_len, ctx->context, ctx->context_len);
+   }
+
+   //
+   // Beyond this point is default processing for mechanisms not supported
+   // by the token.
+   //
    switch (ctx->mech.mechanism) {
       case CKM_SHA_1:
          return sha1_hash_update( sess, ctx, data, data_len );
-
-#if !(NOMD2)
-      case CKM_MD2:
-         return md2_hash_update( sess, ctx, data, data_len );
-#endif
 
       case CKM_MD5:
          return md5_hash_update( sess, ctx, data, data_len );
@@ -616,18 +655,28 @@ digest_mgr_digest_final( SESSION         *sess,
     */
    ctx->multi = FALSE;
    
+   // check if token is handling the digest
+   if (ctx->token == TRUE) {
+       
+       // token must supply DigestFinal function
+       if (!(token_functions->T_DigestFinal)) {
+	   st_err_log(4, __FILE__, __LINE__, __FUNCTION__);
+	   return CKR_FUNCTION_FAILED;
+       }
+
+       return token_functions->T_DigestFinal(
+	   ctx->mech, hash, hash_len, ctx->context, ctx->context_len);
+   }
+
+   //
+   // Beyond this point is default processing for mechanisms not supported
+   // by the token.
+   //
    switch (ctx->mech.mechanism) {
       case CKM_SHA_1:
          return sha1_hash_final( sess, length_only,
                                  ctx,
                                  hash, hash_len );
-
-#if !(NOMD2)
-      case CKM_MD2:
-         return md2_hash_final( sess, length_only,
-                                ctx,
-                                hash, hash_len );
-#endif
 
       case CKM_MD5:
          return md5_hash_final( sess, length_only,

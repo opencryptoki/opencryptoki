@@ -292,6 +292,7 @@
 #include <pthread.h>
 #include <stdio.h>
 #include <stdlib.h>
+#include <unistd.h>
 #include <string.h>
 #include <sys/types.h>
 #include <pthread.h>
@@ -300,13 +301,12 @@
 #include <sys/shm.h>
 #include <errno.h>
 #include <pwd.h>
-
+#include <dirent.h>
 
 #include "pkcs11types.h"
 #include "defs.h"
 #include "host_defs.h"
 #include "h_extern.h"
-#include "tok_spec_struct.h"
 #include "pkcs32.h"
 
 #if (SPINXPL)
@@ -1454,4 +1454,37 @@ compute_md5( CK_BYTE  * data,
    return CKR_OK;
 }
 
+int dir_filter(const struct dirent * direntry) 
+{
+    
+    int len,i;
+    len = strlen(direntry->d_name);
+    if (len > 2) return 1;
+    for (i=0; i<len; i++) 
+	if (direntry->d_name[i] != '.') return 1;
+    return 0;
+}
+
+int delete_all_files_in_dir(char *dirpath)
+{
+    int (*filter)(const struct dirent *) = &dir_filter;
+    struct dirent **namelist;
+    char path[4096];
+    int dirlen;
+    int n,i;
+
+    dirlen = strlen(dirpath);
+    strncpy(path, dirpath, dirlen);
+    if (path[dirlen-1] != '/')
+	path[dirlen++] = '/';
+    n = scandir(dirpath, &namelist, filter, NULL);
+    for (i=0; i<n; i++) {
+	strcpy(&path[dirlen], namelist[i]->d_name);
+	unlink(path);
+	free(namelist[i]);
+    }
+    free(namelist);
+    
+    return 0;
+}
 

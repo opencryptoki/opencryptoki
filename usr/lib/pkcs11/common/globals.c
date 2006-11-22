@@ -307,6 +307,9 @@
 #include "defs.h"
 #include "host_defs.h"
 #include "h_extern.h"
+#include "token_struct.h"
+
+TOKEN_STRUCT *token_functions = NULL;
 
 CK_SLOT_INFO    slot_info;
 CK_BBOOL        initialized = FALSE;
@@ -317,9 +320,9 @@ CK_BBOOL        initialized = FALSE;
 pthread_mutex_t native_mutex ;
 MUTEX pkcs_mutex, obj_list_mutex, sess_list_mutex, login_mutex;
 
-#if SYSVSEM
-int   xprocsemid = -1;
-#endif
+//#if SYSVSEM
+//int   xprocsemid = -1;
+//#endif
 
 void *xproclock;
 

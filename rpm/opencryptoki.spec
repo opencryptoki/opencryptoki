@@ -104,6 +104,8 @@ y/ /,/
 %files devel
 %defattr(-,root,root,-)
 %doc LICENSE
+%dir %{_libdir}/%{name}
+%{_libdir}/%{name}/libcommon.a
 %dir %{_includedir}/%{name}
 %{_includedir}/%{name}/apiclient.h
 %{_includedir}/%{name}/pkcs11.h

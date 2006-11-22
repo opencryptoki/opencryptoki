@@ -302,12 +302,10 @@
 //    cert_vendor_validate_attribute
 //
 
-//#include <windows.h>
-
 #include <pthread.h>
 #include <stdlib.h>
 
-  #include <string.h>  // for memcmp() et al
+#include <string.h>  // for memcmp() et al
 
 #include "pkcs11types.h"
 #include "defs.h"

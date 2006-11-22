@@ -399,20 +399,15 @@
 //    juniper_priv_check_exportability
 //
 
-//#include <windows.h>
-
 #include <pthread.h>
 #include <stdlib.h>
 
-  #include <string.h>  // for memcmp() et al
+#include <string.h>  // for memcmp() et al
 
 #include "pkcs11types.h"
 #include "defs.h"
 #include "host_defs.h"
 #include "h_extern.h"
-
-#include "tok_spec_struct.h"
-//#include "args.h"
 
 
 // key_object_check_required_attributes()

@@ -294,8 +294,6 @@
 // Mechanisms for SSL v3 support
 //
 
-//#include <windows.h>
-
 #include <pthread.h>
 #include <string.h>            // for memcmp() et al
 #include <stdlib.h>
@@ -305,7 +303,6 @@
 #include "defs.h"
 #include "host_defs.h"
 #include "h_extern.h"
-#include "tok_spec_struct.h"
 
 extern FILE *debugfile;
 extern char *debugfilepathbuffer;

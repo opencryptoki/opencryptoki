@@ -294,8 +294,6 @@
 // Mechanisms for DES3
 //
 
-//#include <windows.h>
-
 #include <string.h>            // for memcmp() et al
 #include <stdlib.h>
 
@@ -303,8 +301,7 @@
 #include "defs.h"
 #include "host_defs.h"
 #include "h_extern.h"
-#include "tok_spec_struct.h"
-//#include "args.h"
+#include "sw_default.h"
 
 
 //
@@ -1789,7 +1786,7 @@ ckm_des3_key_gen( TEMPLATE *tmpl )
    CK_ULONG           req_len, repl_len, expected_repl_len;
    CK_ULONG           rc;
 
-   rc = token_specific.t_des_key_gen(des_key, sizeof(des_key));
+   rc = sw_default_des_key_gen(des_key, sizeof(des_key));
    if (rc != CKR_OK)
       return rc;
 
@@ -1858,7 +1855,7 @@ ckm_des3_ecb_encrypt( CK_BYTE     * in_data,
       st_err_log(4, __FILE__, __LINE__, __FUNCTION__);
       return CKR_FUNCTION_FAILED;
    }
-   rc = token_specific.t_tdes_ecb(in_data,in_data_len,out_data, out_data_len,
+   rc = sw_default_tdes_ecb(in_data,in_data_len,out_data, out_data_len,
          key_value, 1);
 
    
@@ -1889,7 +1886,7 @@ ckm_des3_ecb_decrypt( CK_BYTE     * in_data,
       st_err_log(4, __FILE__, __LINE__, __FUNCTION__);
       return CKR_FUNCTION_FAILED;
    }
-   rc = token_specific.t_tdes_ecb(in_data,in_data_len,out_data, out_data_len,
+   rc = sw_default_tdes_ecb(in_data,in_data_len,out_data, out_data_len,
          key_value, 0);
    
    if (rc != CKR_OK)
@@ -1921,7 +1918,7 @@ ckm_des3_cbc_encrypt( CK_BYTE     * in_data,
       st_err_log(4, __FILE__, __LINE__, __FUNCTION__);
       return CKR_FUNCTION_FAILED;
    }
-   rc = token_specific.t_tdes_cbc(in_data,in_data_len,out_data,out_data_len,
+   rc = sw_default_tdes_cbc(in_data,in_data_len,out_data,out_data_len,
          key_value,init_v,1);
 
    if (rc != CKR_OK)
@@ -1952,7 +1949,7 @@ ckm_des3_cbc_decrypt( CK_BYTE     * in_data,
       st_err_log(4, __FILE__, __LINE__, __FUNCTION__);
       return CKR_FUNCTION_FAILED;
    }
-   rc = token_specific.t_tdes_cbc(in_data,in_data_len,out_data,out_data_len,
+   rc = sw_default_tdes_cbc(in_data,in_data_len,out_data,out_data_len,
          key_value,init_v,0);
 
    if (rc != CKR_OK)

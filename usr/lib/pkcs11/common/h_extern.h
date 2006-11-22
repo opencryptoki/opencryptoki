@@ -310,27 +310,20 @@
 
 #include <stdio.h>
 #include "msg.h"
-
-#if (LEEDS_BUILD)
-#pragma options align=packed
-#endif
-
-
+#include "token_struct.h"
 
 extern char * pk_dir;
 // global variables
 //
+extern TOKEN_STRUCT *token_functions;
 extern CK_BBOOL  initialized;
 extern char *card_function_names[];
 extern char *total_function_names[];
 
-extern MECH_LIST_ELEMENT  mech_list[];
-extern CK_ULONG           mech_list_len;
-
 extern pthread_mutex_t  native_mutex;
-#if SYSVSEM
-extern int xprocsemid;
-#endif
+//#if SYSVSEM
+//extern int xprocsemid;
+//#endif
 
 
 extern  void *xproclock;
@@ -402,6 +395,7 @@ extern CK_C_INITIALIZE_ARGS cinit_args;
 
 CK_ULONG long_reverse( CK_ULONG x );
 
+int delete_all_files_in_dir(char *);
 
 // VACPP C runtime initialization/cleanup entry points
 //
@@ -1837,6 +1831,14 @@ CK_RV    object_mgr_create_skel( SESSION      * sess,
                                  CK_ULONG       subclass,
                                  OBJECT      ** obj );
 
+CK_RV    object_mgr_create_obj_from_tmpl( SESSION      * sess,
+					  CK_ATTRIBUTE * pTemplate,
+					  CK_ULONG       ulCount,
+					  CK_ULONG       mode,
+					  CK_ULONG       class,
+					  CK_ULONG       subclass,
+					  OBJECT      ** obj );
+
 CK_RV    object_mgr_destroy_object( SESSION         * sess,
                                     CK_OBJECT_HANDLE  handle );
 
@@ -1907,6 +1909,14 @@ CK_RV     object_create_skel( CK_ATTRIBUTE * pTemplate,
                               CK_ULONG       class,
                               CK_ULONG       subclass,
                               OBJECT      ** key );
+
+CK_RV
+object_create_obj_from_tmpl(CK_ATTRIBUTE  * pTemplate,
+			    CK_ULONG        ulCount,
+			    CK_ULONG        mode,
+			    CK_ULONG        class,
+			    CK_ULONG        subclass,
+			    OBJECT       ** obj);
 
 CK_RV     object_copy( CK_ATTRIBUTE * pTemplate,
                        CK_ULONG       ulCount,
@@ -1981,7 +1991,7 @@ CK_RV     template_copy( TEMPLATE * dest,
                          TEMPLATE * src );
 
 CK_RV     template_flatten( TEMPLATE * tmpl,
-                            CK_BYTE  * dest );
+                            CK_BYTE  * dest);
 
 CK_RV     template_free( TEMPLATE *tmpl );
 
@@ -2020,6 +2030,9 @@ CK_RV     template_validate_base_attribute( TEMPLATE     * tmpl,
                                             CK_ATTRIBUTE * attr,
                                             CK_ULONG       mode );
 
+CK_RV     template_to_attr( TEMPLATE  * tmpl,
+			    CK_BYTE   * dest, 
+			    CK_ULONG  * count );
 
 
 // DATA OBJECT ROUTINES
@@ -2310,13 +2323,6 @@ CK_RV    ber_decode_DSAPrivateKey( CK_BYTE     * data,
                                    CK_ATTRIBUTE ** priv_key );
 
 
-#include "tok_spec_struct.h"
-extern token_spec_t token_specific;
-
-#if (LEEDS_BUILD)
-#pragma options align=full
-#endif
-
 /* logging */
 /* log to stdout */
 #define LogMessage(dest, priority, layer, fmt, ...) \
@@ -2331,6 +2337,8 @@ extern token_spec_t token_specific;
 
 /* Debug logging */
 #ifdef DEBUG
+extern char STDLL_NAME[];
+
 #define LogDebug(fmt, ...)      LogMessage(stdout, "LOG_DEBUG", STDLL_NAME, fmt, ##__VA_ARGS__)
 #define LogDebug1(data)         LogMessage1(stdout, "LOG_DEBUG", STDLL_NAME, data)
 

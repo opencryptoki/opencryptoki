@@ -307,8 +307,6 @@
 //    Comments to pgut1@cs.aukuni.ac.nz
 //
 
-//#include <windows.h>
-
 #include <pthread.h>
 #include <string.h>            // for memcmp() et al
 #include <stdlib.h>
@@ -318,7 +316,7 @@
 #include "defs.h"
 #include "host_defs.h"
 #include "h_extern.h"
-#include "tok_spec_struct.h"
+#include "sw_default.h"
 
 #define SHA_HARDWARE_THRESHHOLD 128000
 
@@ -717,7 +715,21 @@ ckm_sha1_update( DIGEST_CONTEXT * ctx,
                  CK_BYTE        * in_data,
                  CK_ULONG         in_data_len )
 {
-    if( token_specific.t_sha_update == NULL ){
+
+    // check if token is handling the digest
+    if (ctx->token == TRUE) {
+	
+	// token must supply DigestUpdate function
+	if (!(token_functions->T_DigestUpdate)) {
+	    st_err_log(4, __FILE__, __LINE__, __FUNCTION__);
+	    return CKR_FUNCTION_FAILED;
+	}
+
+	return token_functions->T_DigestUpdate(
+	    ctx->mech, in_data, in_data_len, ctx->context, ctx->context_len);
+
+    } else {
+
 	if (!ctx || !in_data){
 	    st_err_log(4, __FILE__, __LINE__, __FUNCTION__);
 	    return CKR_FUNCTION_FAILED;
@@ -725,8 +737,6 @@ ckm_sha1_update( DIGEST_CONTEXT * ctx,
 	shaUpdate( (SHA1_CONTEXT *)ctx->context, in_data, in_data_len );
 	return CKR_OK;
     }
-
-    return token_specific.t_sha_update(ctx, in_data, in_data_len);
 }
 
 
@@ -737,7 +747,21 @@ ckm_sha1_final( DIGEST_CONTEXT * ctx,
                 CK_BYTE        * out_data,
                 CK_ULONG       * out_data_len )
 {
-    if (token_specific.t_sha_final  == NULL ){
+
+    // check if token is handling the digest
+    if (ctx->token == TRUE) {
+       
+	// token must supply DigestFinal function
+	if (!(token_functions->T_DigestFinal)) {
+	    st_err_log(4, __FILE__, __LINE__, __FUNCTION__);
+	    return CKR_FUNCTION_FAILED;
+	}
+
+	return token_functions->T_DigestFinal(
+	    ctx->mech, out_data, out_data_len, ctx->context, ctx->context_len);
+
+    } else {
+
 	if (!ctx || !out_data || !out_data_len){
 	    st_err_log(4, __FILE__, __LINE__, __FUNCTION__);
 	    return CKR_FUNCTION_FAILED;
@@ -751,8 +775,6 @@ ckm_sha1_final( DIGEST_CONTEXT * ctx,
 
 	return CKR_OK;
     } 
-    
-    return token_specific.t_sha_final(ctx, out_data, out_data_len);
 }
 
 
@@ -762,8 +784,41 @@ ckm_sha1_final( DIGEST_CONTEXT * ctx,
 void
 ckm_sha1_init( DIGEST_CONTEXT * ctx)
 {
+    CK_MECHANISM_INFO mech_info;
+    CK_MECHANISM      digest_mech;
+    CK_RV             rc;
+
+    // check if token supports SHA1
+    if ((rc = token_functions->T_GetMechanismInfo(
+	    CKM_SHA_1, &mech_info)) == CKR_OK) {
+
+	// token must supply DigestInit function
+	if (!(token_functions->T_DigestInit)) {
+	    st_err_log(4, __FILE__, __LINE__, __FUNCTION__);
+	    ctx->context = NULL;
+	    return;
+	}
+       
+	digest_mech.mechanism      = CKM_SHA_1;
+	digest_mech.ulParameterLen = 0;
+	digest_mech.pParameter     = NULL;
+
+	// token returns:
+	//     address of context
+	//     context length
+	if ((rc = token_functions->T_DigestInit(
+		 &digest_mech, &ctx->context, &ctx->context_len)) == CKR_OK) {
+	    ctx->token = TRUE;
+	} else {
+	    st_err_log(4, __FILE__, __LINE__, __FUNCTION__);
+	    ctx->context = NULL;
+	}
+
+	return;
+
+    } else {
+
     // Set the h-vars to their initial values
-    if (token_specific.t_sha_init  == NULL ) {
 	SHA1_CONTEXT *sha1_ctx;
 	/* Allocate the context */
 	ctx->context_len = sizeof(SHA1_CONTEXT);
@@ -780,9 +835,6 @@ ckm_sha1_init( DIGEST_CONTEXT * ctx)
 
 	// Initialise bit count
     	sha1_ctx->bits_lo = sha1_ctx->bits_hi = 0;
-    } else {
-	// SAB XXX call token specific init... the init MUST allocate it's context
-	token_specific.t_sha_init(ctx);
     }
 }
 

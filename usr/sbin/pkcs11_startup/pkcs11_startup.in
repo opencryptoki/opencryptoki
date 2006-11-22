@@ -435,6 +435,14 @@ then
     fi
 fi
 
+#add the Sample token
+
+if [ -f @STDLL_PATH@/libpkcs11_sample.so ]
+then
+    @METHOD_PATH@/pkcs_slot 0  sample
+fi
+
+
 # Add the SW token last, so that "dumb" apps that always open
 # slot 0 will get a HW token if one exists
 if [ -f @STDLL_PATH@/libpkcs11_sw.so ]

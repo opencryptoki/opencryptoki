@@ -303,19 +303,53 @@
 // File:  key_mgr.c
 //
 
-//#include <windows.h>
-
 #include <pthread.h>
 #include <stdlib.h>
 
- #include <string.h>  // for memcmp() et al
+#include <string.h>  // for memcmp() et al
 
 #include "pkcs11types.h"
 #include "defs.h"
 #include "host_defs.h"
 #include "h_extern.h"
-#include "tok_spec_struct.h"
-//#include "args.h"
+#include "sw_default.h"
+
+#define NUM_MECHS_SECRET 19
+#define NUM_MECHS_PAIR 8
+
+// The first 4 mechanisms can be satisfied by the fallback.
+CK_ULONG mech_to_keytype_secret[NUM_MECHS_SECRET][2] = {
+    {CKM_DES_KEY_GEN                 ,CKK_DES           },
+    {CKM_DES3_KEY_GEN                ,CKK_DES3          },  
+    {CKM_SSL3_PRE_MASTER_KEY_GEN     ,CKK_GENERIC_SECRET},  
+    {CKM_AES_KEY_GEN                 ,CKK_AES           },  
+    {CKM_RC2_KEY_GEN                 ,CKK_RC2           },  
+    {CKM_RC4_KEY_GEN                 ,CKK_RC4           },  
+    {CKM_DES2_KEY_GEN                ,CKK_DES2          },  
+    {CKM_CDMF_KEY_GEN                ,CKK_CDMF          },  
+    {CKM_CAST_KEY_GEN                ,CKK_CAST          },  			   
+    {CKM_CAST3_KEY_GEN               ,CKK_CAST3         },  			   
+    {CKM_CAST5_KEY_GEN               ,CKK_CAST5         },  			   
+    {CKM_CAST128_KEY_GEN             ,CKK_CAST128       },  
+    {CKM_RC5_KEY_GEN                 ,CKK_RC5           },  
+    {CKM_IDEA_KEY_GEN                ,CKK_IDEA          },  
+    {CKM_SKIPJACK_KEY_GEN            ,CKK_SKIPJACK      },  
+    {CKM_BATON_KEY_GEN               ,CKK_BATON         },  
+    {CKM_JUNIPER_KEY_GEN             ,CKK_JUNIPER       },     
+    {CKM_GENERIC_SECRET_KEY_GEN      ,CKK_GENERIC_SECRET}, 
+    {CKM_TLS_PRE_MASTER_KEY_GEN      ,CKK_GENERIC_SECRET}
+};
+
+CK_ULONG mech_to_keytype_pair[NUM_MECHS_PAIR][2] = {
+    {CKM_RSA_PKCS_KEY_PAIR_GEN       ,CKK_RSA           },
+    {CKM_RSA_X9_31_KEY_PAIR_GEN      ,CKK_RSA           },  
+    {CKM_DSA_KEY_PAIR_GEN            ,CKK_DSA           },  
+    {CKM_DH_PKCS_KEY_PAIR_GEN        ,CKK_DH            },  
+    {CKM_X9_42_DH_KEY_PAIR_GEN       ,CKK_X9_42_DH      },  
+    {CKM_KEA_KEY_PAIR_GEN            ,CKK_KEA           },  
+    {CKM_ECDSA_KEY_PAIR_GEN          ,CKK_ECDSA         },  
+    {CKM_EC_KEY_PAIR_GEN             ,CKK_EC            }
+};
 
 
 static CK_BBOOL true = TRUE, false = FALSE;
@@ -332,10 +366,13 @@ key_mgr_generate_key( SESSION           * sess,
    OBJECT        * key_obj  = NULL;
    CK_ATTRIBUTE  * attr     = NULL;
    CK_ATTRIBUTE  * new_attr = NULL;
-   CK_ULONG        i, keyclass, subclass = 0;
+   CK_ATTRIBUTE  * poutTemplate;
+   CK_ULONG        i, keyclass = 0, subclass = 0;
+   CK_ULONG        outulCount;
    CK_BBOOL        flag;
+   CK_BBOOL        mech_found = FALSE;
    CK_RV           rc;
-
+   CK_MECHANISM_INFO mech_info;
 
    if (!sess || !mech || !handle){
       st_err_log(4, __FILE__, __LINE__, __FUNCTION__);
@@ -347,11 +384,12 @@ key_mgr_generate_key( SESSION           * sess,
    }
    // it's silly but Cryptoki allows the user to specify the CKA_CLASS
    // in the template.  so we have to iterate through the provided template
-   // and make sure that if CKA_CLASS is CKO_SECRET_KEY, if it is present.
+   // and make sure that CKA_CLASS is CKO_SECRET_KEY, if it is present.
    //
    // it would have been more logical for Cryptoki to forbid specifying
    // the CKA_CLASS attribute when generating a key
    //
+   // BUGBUG: What if CKA_CLASS is CKO_DOMAIN_PARAMETER?`
    for (i=0; i < ulCount; i++) {
       if (pTemplate[i].type == CKA_CLASS) {
          keyclass = *(CK_OBJECT_CLASS *)pTemplate[i].pValue;
@@ -365,64 +403,67 @@ key_mgr_generate_key( SESSION           * sess,
          subclass = *(CK_ULONG *)pTemplate[i].pValue;
    }
 
-
-   switch (mech->mechanism) {
-      case CKM_DES_KEY_GEN:
-         if (subclass != 0 && subclass != CKK_DES){
-            st_err_log(49, __FILE__, __LINE__);
-            return CKR_TEMPLATE_INCONSISTENT;
-         }
-
-         subclass = CKK_DES;
-         break;
-
-      case CKM_DES3_KEY_GEN:
-         if (subclass != 0 && subclass != CKK_DES3){
-            st_err_log(49, __FILE__, __LINE__);
-            return CKR_TEMPLATE_INCONSISTENT;
-         }
-
-         subclass = CKK_DES3;
-         break;
-
-#if !(NOCDMF)
-      case CKM_CDMF_KEY_GEN:
-         if (subclass != 0 && subclass != CKK_CDMF){
-            st_err_log(49, __FILE__, __LINE__);
-            return CKR_TEMPLATE_INCONSISTENT;
-         }
-
-         subclass = CKK_CDMF;
-         break;
-#endif
-
-      case CKM_SSL3_PRE_MASTER_KEY_GEN:
-         if (subclass != 0 && subclass != CKK_GENERIC_SECRET){
-            st_err_log(49, __FILE__, __LINE__);
-            return CKR_TEMPLATE_INCONSISTENT;
-         }
-         if (mech->ulParameterLen != sizeof(CK_VERSION)){
-            st_err_log(29, __FILE__, __LINE__);
-            return CKR_MECHANISM_PARAM_INVALID;
-         }
-         subclass = CKK_GENERIC_SECRET;
-         break;
-
-      case CKM_AES_KEY_GEN:
-	 if (subclass != 0 && subclass != CKK_AES){
-	    st_err_log(49, __FILE__, __LINE__);
-	    return CKR_TEMPLATE_INCONSISTENT;
-	 }
-
-	 subclass = CKK_AES;
-	 break;
-
-      default:
-         st_err_log(28, __FILE__, __LINE__);
-         return CKR_MECHANISM_INVALID;
+   // 
+   // If keytype is specified it must be consistent with the mechanism. 
+   //
+   for (i=0; i < NUM_MECHS_SECRET; i++) {
+       if (mech_to_keytype_secret[i][0] == mech->mechanism) {
+	   if (subclass == 0) {
+	       subclass = mech_to_keytype_secret[i][1];
+	   } else if (subclass != mech_to_keytype_secret[i][1]){
+	       st_err_log(49, __FILE__, __LINE__);
+	       return CKR_TEMPLATE_INCONSISTENT;
+	   } 
+	   mech_found = TRUE;
+	   break;
+       }
+   }
+   if (!mech_found) {
+       st_err_log(28, __FILE__, __LINE__);
+       return CKR_MECHANISM_INVALID;
    }
 
+   // check if token supports this mechanism
+   if ((rc = token_functions->T_GetMechanismInfo(
+	    mech->mechanism, &mech_info)) == CKR_OK) {
+       
+       // token must supply GenerateKey function
+       if (!(token_functions->T_GenerateKey)) {
+	   st_err_log(4, __FILE__, __LINE__, __FUNCTION__);
+	   return CKR_FUNCTION_FAILED;
+       }
+       
+       // token returns:
+       //     output template
+       //     output count
+       if ((rc = token_functions->T_GenerateKey(
+		mech, pTemplate, ulCount, &poutTemplate, &outulCount)) == CKR_OK) {
+	   
+       } else {
+	   st_err_log(4, __FILE__, __LINE__, __FUNCTION__);
+	   return rc;
+       }
+       
+       rc = object_mgr_create_obj_from_tmpl(sess, poutTemplate, outulCount,
+					    MODE_CREATE, keyclass,
+					    subclass, &key_obj);
 
+       free(poutTemplate);
+
+       if (rc != CKR_OK){
+	   st_err_log(89, __FILE__, __LINE__);
+	   goto error;
+       }
+
+       goto common_return;
+
+   // otherwise check if sw fallback can handle mechanism
+   } else if ((rc = sw_default_GetMechanismInfo(
+		   mech->mechanism, &mech_info)) != CKR_OK) {
+       st_err_log(29, __FILE__, __LINE__);
+       return CKR_MECHANISM_PARAM_INVALID;
+   }
+   
    rc = object_mgr_create_skel( sess,
                                 pTemplate, ulCount,
                                 MODE_KEYGEN,
@@ -437,7 +478,6 @@ key_mgr_generate_key( SESSION           * sess,
    // the key type, we may need to extract one or more attributes from
    // the object prior to generating the key data (ie. variable key length)
    //
-
    switch (mech->mechanism) {
       case CKM_DES_KEY_GEN:
             rc = ckm_des_key_gen( key_obj->template );
@@ -447,20 +487,14 @@ key_mgr_generate_key( SESSION           * sess,
             rc = ckm_des3_key_gen( key_obj->template );
             break;
 
-#if !(NOCDMF)
-         case CKM_CDMF_KEY_GEN:
-            rc = ckm_cdmf_key_gen( key_obj->template );
-            break;
-#endif
-
          case CKM_SSL3_PRE_MASTER_KEY_GEN:
             rc = ckm_ssl3_pre_master_key_gen( key_obj->template, mech );
             break;
-#ifndef NOAES
+
 	 case CKM_AES_KEY_GEN:
 	    rc = ckm_aes_key_gen( key_obj->template );
 	    break;
-#endif
+
       default:
          st_err_log(28, __FILE__, __LINE__);
          rc = CKR_MECHANISM_INVALID;
@@ -470,6 +504,8 @@ key_mgr_generate_key( SESSION           * sess,
       st_err_log(91, __FILE__, __LINE__);
       goto error;
    }
+
+ common_return:
 
    // we can now set CKA_ALWAYS_SENSITIVE and CKA_NEVER_EXTRACTABLE
    // to their appropriate values.  this only applies to CKO_SECRET_KEY
@@ -492,7 +528,6 @@ key_mgr_generate_key( SESSION           * sess,
       goto error;
    }
 
-
    flag = template_attribute_find( key_obj->template, CKA_EXTRACTABLE, &attr );
    if (flag == TRUE) {
       flag = *(CK_BBOOL *)attr->pValue;
@@ -512,7 +547,6 @@ key_mgr_generate_key( SESSION           * sess,
       st_err_log(4, __FILE__, __LINE__, __FUNCTION__);
       goto error;
    }
-
 
    // at this point, the key should be fully constructed...assign
    // an object handle and store the key
@@ -549,9 +583,15 @@ key_mgr_generate_key_pair( SESSION           * sess,
    OBJECT        * priv_key_obj = NULL;
    CK_ATTRIBUTE  * attr         = NULL;
    CK_ATTRIBUTE  * new_attr     = NULL;
+   CK_ATTRIBUTE  * publ_tmpl2   = publ_tmpl;
+   CK_ATTRIBUTE  * priv_tmpl2   = priv_tmpl;
    CK_ULONG        i, keyclass, subclass = 0;
+   CK_ULONG        publ_count2 = publ_count;
+   CK_ULONG        priv_count2 = priv_count;
    CK_BBOOL        flag;
+   CK_BBOOL        mech_found = FALSE;
    CK_RV           rc;
+   CK_MECHANISM_INFO mech_info;
 
    if (!sess || !mech || !publ_key_handle || !priv_key_handle){
       st_err_log(4, __FILE__, __LINE__, __FUNCTION__);
@@ -605,44 +645,72 @@ key_mgr_generate_key_pair( SESSION           * sess,
       }
    }
 
-
-   switch (mech->mechanism) {
-      case CKM_RSA_PKCS_KEY_PAIR_GEN:
-         if (subclass != 0 && subclass != CKK_RSA){
-            st_err_log(49, __FILE__, __LINE__);
-            return CKR_TEMPLATE_INCONSISTENT;
-          }
-
-         subclass = CKK_RSA;
-         break;
-
-#if !(NODSA)
-      case CKM_DSA_KEY_PAIR_GEN:
-         if (subclass != 0 && subclass != CKK_DSA){
-           st_err_log(49, __FILE__, __LINE__);
-           return CKR_TEMPLATE_INCONSISTENT;
-         }
-         subclass = CKK_DSA;
-         break;
-#endif
-
-/* Begin code contributed by Corrent corp. */
-#if !(NODH)
-      case CKM_DH_PKCS_KEY_PAIR_GEN:
-         if (subclass != 0 && subclass != CKK_DH){
-           st_err_log(49, __FILE__, __LINE__);
-           return CKR_TEMPLATE_INCONSISTENT;
-         }
-         subclass = CKK_DH;
-         break;
-#endif
-/* End  code contributed by Corrent corp. */
-
-      default:
-         st_err_log(28, __FILE__, __LINE__);
-         return CKR_MECHANISM_INVALID;
+   // 
+   // If keytype is specified it must be consistent with the mechanism. 
+   //
+   for (i=0; i < NUM_MECHS_PAIR; i++) {
+       if (mech_to_keytype_pair[i][0] == mech->mechanism) {
+	   if (subclass == 0) {
+	       subclass = mech_to_keytype_pair[i][1];
+	   } else if (subclass != mech_to_keytype_pair[i][1]){
+	       st_err_log(49, __FILE__, __LINE__);
+	       return CKR_TEMPLATE_INCONSISTENT;
+	   } 
+	   mech_found = TRUE;
+	   break;
+       }
+   }
+   if (!mech_found) {
+       st_err_log(28, __FILE__, __LINE__);
+       return CKR_MECHANISM_INVALID;
    }
 
+   // check if token supports this mechanism
+   if ((rc = token_functions->T_GetMechanismInfo(
+	    mech->mechanism, &mech_info)) == CKR_OK) {
+       
+       // token must supply GenerateKey function
+       if (!(token_functions->T_GenerateKeyPair)) {
+	   st_err_log(4, __FILE__, __LINE__, __FUNCTION__);
+	   return CKR_FUNCTION_FAILED;
+       }
+       
+       // token returns:
+       //     updated templates
+       //     updated counts
+       if ((rc = token_functions->T_GenerateKeyPair(
+		mech, &publ_tmpl2, &publ_count2, 
+		&priv_tmpl2, &priv_count2)) == CKR_OK) {
+	   
+       } else {
+	   st_err_log(4, __FILE__, __LINE__, __FUNCTION__);
+	   return rc;
+       }
+       
+       rc = object_mgr_create_obj_from_tmpl(sess, publ_tmpl2, publ_count2,
+					    MODE_KEYGEN, CKO_PUBLIC_KEY,
+					    subclass, &publ_key_obj );
+       if (rc != CKR_OK){
+	   st_err_log(89, __FILE__, __LINE__);
+	   goto error;
+       }
+
+       rc = object_mgr_create_obj_from_tmpl(sess, priv_tmpl2, priv_count2,
+					    MODE_KEYGEN, CKO_PRIVATE_KEY,
+					    subclass, &priv_key_obj );
+       if (rc != CKR_OK){
+	   st_err_log(89, __FILE__, __LINE__);
+	   goto error;
+       }
+       
+       goto common_return;
+
+   // otherwise check if sw fallback can handle mechanism
+   } else if ((rc = sw_default_GetMechanismInfo(
+		   mech->mechanism, &mech_info)) != CKR_OK) {
+       st_err_log(29, __FILE__, __LINE__);
+       return CKR_MECHANISM_PARAM_INVALID;
+   }
 
    rc = object_mgr_create_skel( sess,
                                 publ_tmpl,       publ_count,
@@ -674,20 +742,13 @@ key_mgr_generate_key_pair( SESSION           * sess,
                                     priv_key_obj->template );
          break;
 
-#if !(NODSA)
-      case CKM_DSA_KEY_PAIR_GEN:
-         rc = ckm_dsa_key_pair_gen( publ_key_obj->template,
-                                    priv_key_obj->template );
-         break;
-#endif
-
 /* Begin code contributed by Corrent corp. */
-#if !(NODH)
+
       case CKM_DH_PKCS_KEY_PAIR_GEN:
          rc = ckm_dh_pkcs_key_pair_gen( publ_key_obj->template,
                                         priv_key_obj->template );
          break;
-#endif
+
 /* End code contributed by Corrent corp. */
 
       default:
@@ -700,6 +761,8 @@ key_mgr_generate_key_pair( SESSION           * sess,
       st_err_log(91, __FILE__, __LINE__);
       goto error;
    }
+
+ common_return:
 
    // we can now set CKA_ALWAYS_SENSITIVE and CKA_NEVER_EXTRACTABLE
    // to their appropriate values.  this only applies to CKO_SECRET_KEY
@@ -785,11 +848,17 @@ key_mgr_wrap_key( SESSION           * sess,
    OBJECT            * key1_obj  = NULL;
    OBJECT            * key2_obj  = NULL;
    CK_ATTRIBUTE      * attr      = NULL;
+   CK_ATTRIBUTE      * attr1     = NULL;
+   CK_ATTRIBUTE      * attr2     = NULL;
    CK_BYTE           * data      = NULL;
    CK_ULONG            data_len;
+   CK_ULONG            count1;
+   CK_ULONG            count2;
+   CK_ULONG            size;
    CK_OBJECT_CLASS     class;
    CK_KEY_TYPE         keytype;
    CK_BBOOL            flag;
+   CK_MECHANISM_INFO   mech_info;
    CK_RV               rc;
 
 
@@ -816,6 +885,7 @@ key_mgr_wrap_key( SESSION           * sess,
       st_err_log(26, __FILE__, __LINE__);
       return CKR_KEY_NOT_WRAPPABLE;  // could happen if user tries to wrap a public key
    }
+   // BUGBUG: Should this error be CKR_KEY_UNEXTRACTABLE?
    else {
       flag = *(CK_BBOOL *)attr->pValue;
       if (flag == FALSE){
@@ -824,7 +894,54 @@ key_mgr_wrap_key( SESSION           * sess,
       }
    }
 
+   // check if token supports this mechanism
+   if ((rc = token_functions->T_GetMechanismInfo(
+	    mech->mechanism, &mech_info)) == CKR_OK) {
+       
+       // token must supply WrapKey function
+       if (!(token_functions->T_WrapKey)) {
+	   st_err_log(4, __FILE__, __LINE__, __FUNCTION__);
+	   return CKR_FUNCTION_FAILED;
+       }
 
+       // create CK_ATTRIBUTE list for wrapping key
+       size = template_get_size(key1_obj->template);
+       attr1 = (CK_ATTRIBUTE *)malloc(size);
+       rc = template_to_attr(key1_obj->template, (CK_BYTE *)attr1, &count1);
+       if (rc != CKR_OK){
+	   free(attr1);
+	   return rc;
+       }
+
+       // create CK_ATTRIBUTE list for key to wrap
+       size = template_get_size(key2_obj->template);
+       attr2 = (CK_ATTRIBUTE *)malloc(size);
+       rc = template_to_attr(key2_obj->template, (CK_BYTE *)attr2, &count2);
+       if (rc != CKR_OK){
+	   free(attr1);
+	   free(attr2);
+	   return rc;
+       }
+       
+       rc = token_functions->T_WrapKey(
+	   mech, attr1, count1, attr2, count2, 
+	   wrapped_key, wrapped_key_len);
+       
+       free(attr1);
+       free(attr2);
+       return rc;
+       
+   // otherwise check if sw fallback can handle mechanism
+   } else if ((rc = sw_default_GetMechanismInfo(
+		   mech->mechanism, &mech_info)) != CKR_OK) {
+       st_err_log(29, __FILE__, __LINE__);
+       return CKR_MECHANISM_PARAM_INVALID;
+   }
+
+   //
+   // Beyond this point is default processing for mechanisms not supported
+   // by the token.
+   //
    // what kind of key are we trying to wrap?  make sure the mechanism is
    // allowed to wrap this kind of key
    //
@@ -837,10 +954,6 @@ key_mgr_wrap_key( SESSION           * sess,
       class = *(CK_OBJECT_CLASS *)attr->pValue;
 
    switch (mech->mechanism) {
-#if !(NOCDMF)
-      case CKM_CDMF_ECB:
-      case CKM_CDMF_CBC:
-#endif
       case CKM_DES_ECB:
       case CKM_DES_CBC:
       case CKM_DES3_ECB:
@@ -853,9 +966,6 @@ key_mgr_wrap_key( SESSION           * sess,
          }
          break;
 
-#if !(NOCDMF)
-      case CKM_CDMF_CBC_PAD:
-#endif
       case CKM_DES_CBC_PAD:
       case CKM_DES3_CBC_PAD:
       case CKM_AES_CBC_PAD:
@@ -876,7 +986,6 @@ key_mgr_wrap_key( SESSION           * sess,
          return CKR_KEY_NOT_WRAPPABLE;
    }
 
-
    // extract the secret data to be wrapped
    //
    rc = template_attribute_find( key2_obj->template, CKA_KEY_TYPE, &attr );
@@ -888,9 +997,6 @@ key_mgr_wrap_key( SESSION           * sess,
       keytype = *(CK_KEY_TYPE *)attr->pValue;
 
    switch (keytype) {
-#if !(NOCDMF)
-      case CKK_CDMF:
-#endif
       case CKK_DES:
          rc = des_wrap_get_data( key2_obj->template, length_only, &data, &data_len );
          if (rc != CKR_OK){
@@ -915,16 +1021,6 @@ key_mgr_wrap_key( SESSION           * sess,
          }
          break;
 
-#if !(NODSA)
-      case CKK_DSA:
-         rc = dsa_priv_wrap_get_data( key2_obj->template, length_only, &data, &data_len );
-         if (rc != CKR_OK){
-            st_err_log(95, __FILE__, __LINE__);
-            return rc;
-         }
-         break;
-#endif
-
       case CKK_GENERIC_SECRET:
          rc = generic_secret_wrap_get_data( key2_obj->template, length_only, &data, &data_len );
          if (rc != CKR_OK){
@@ -932,7 +1028,7 @@ key_mgr_wrap_key( SESSION           * sess,
             return rc;
          }
          break;
-#ifndef NOAES
+
       case CKK_AES:
 	 rc = aes_wrap_get_data( key2_obj->template, length_only, &data, &data_len );
 	 if (rc != CKR_OK){
@@ -940,7 +1036,7 @@ key_mgr_wrap_key( SESSION           * sess,
 	    return rc;
 	 }
 	 break;
-#endif
+
       default:
          st_err_log(26, __FILE__, __LINE__);
          return CKR_KEY_NOT_WRAPPABLE;
@@ -949,10 +1045,6 @@ key_mgr_wrap_key( SESSION           * sess,
    // we might need to format the wrapped data based on the mechanism
    //
    switch (mech->mechanism) {
-#if !(NOCMF)
-      case CKM_CDMF_ECB:
-      case CKM_CDMF_CBC:
-#endif
       case CKM_DES_ECB:
       case CKM_DES_CBC:
       case CKM_DES3_ECB:
@@ -964,7 +1056,7 @@ key_mgr_wrap_key( SESSION           * sess,
             return rc;
          }
          break;
-#ifndef NOAES
+
       case CKM_AES_ECB:
       case CKM_AES_CBC:
 	 rc = ckm_aes_wrap_format( length_only, &data, &data_len );
@@ -974,10 +1066,7 @@ key_mgr_wrap_key( SESSION           * sess,
 	    return rc;
 	 }
 	 break;
-#endif
-#if !(NOCMF)
-      case CKM_CDMF_CBC_PAD:
-#endif
+
       case CKM_DES_CBC_PAD:
       case CKM_DES3_CBC_PAD:
       case CKM_AES_CBC_PAD:
@@ -1041,10 +1130,19 @@ key_mgr_unwrap_key( SESSION           * sess,
    OBJECT            * key_obj = NULL;
    CK_BYTE           * data = NULL;
    CK_ULONG            data_len;
-   CK_ULONG            keyclass, keytype;
+   CK_ULONG            keyclass = 0, keytype;
    CK_ULONG            i;
+   CK_ULONG            size;
    CK_BBOOL            found_class, found_type, fromend;
    CK_RV               rc;
+   CK_ULONG            unwrapped_count;
+   CK_ULONG            unwrapping_count;
+   CK_ULONG            newkey_count;
+   CK_ATTRIBUTE      * unwrapped_key_attr = NULL;
+   CK_ATTRIBUTE      * unwrapping_key_attr = NULL;
+   CK_ATTRIBUTE      * newkey_attr = NULL;
+   CK_MECHANISM_INFO   mech_info;
+   TEMPLATE          * tmpl = NULL;
 
 
    if (!sess || !wrapped_key || !h_unwrapped_key){
@@ -1056,6 +1154,79 @@ key_mgr_unwrap_key( SESSION           * sess,
    if (rc != CKR_OK){
       st_err_log(62, __FILE__, __LINE__);
       return CKR_WRAPPING_KEY_HANDLE_INVALID;
+   }
+
+   // check if token supports this mechanism
+   if ((rc = token_functions->T_GetMechanismInfo(
+	    mech->mechanism, &mech_info)) == CKR_OK) {
+       
+       // token must supply UnwrapKey function
+       if (!(token_functions->T_UnwrapKey)) {
+	   st_err_log(4, __FILE__, __LINE__, __FUNCTION__);
+	   return CKR_FUNCTION_FAILED;
+       }
+       
+       // create CK_ATTRIBUTE list for unwrapping key
+       size = template_get_size(key_obj->template);
+       unwrapping_key_attr = (CK_ATTRIBUTE *)malloc(size);
+       rc = template_to_attr(key_obj->template, (CK_BYTE *)unwrapping_key_attr, 
+			     &unwrapping_count);
+       if (rc != CKR_OK){
+	   free(unwrapping_key_attr);
+	   return rc;
+       }
+       
+       // token must allocate memory for the unwrapped key attribute list
+       if ((rc = token_functions->T_UnwrapKey(
+		mech, unwrapping_key_attr, unwrapping_count, wrapped_key, wrapped_key_len,
+		attributes, attrib_count, 
+		&unwrapped_key_attr, &unwrapped_count)) == CKR_OK) {
+
+	   // release unwrapping key attribute list
+	   //
+	   free(unwrapping_key_attr);
+
+	   for (i=0; i < attrib_count; i++) {
+	       switch (attributes[i].type) {
+		   case CKA_CLASS:
+		       keyclass = *(CK_OBJECT_CLASS *)attributes[i].pValue;
+		       found_class = TRUE;
+		       break;
+		       
+		   case CKA_KEY_TYPE:
+		       keytype = *(CK_KEY_TYPE *)attributes[i].pValue;
+		       found_type = TRUE;
+		       break;
+	       }
+	   }
+
+	   rc = object_mgr_create_skel( sess,
+					attributes, attrib_count,
+					MODE_UNWRAP,
+					keyclass, keytype,
+					&key_obj);
+	   if (rc != CKR_OK){
+	       return rc;
+	   }
+
+	   // add unwrapped key value to the key object
+	   rc = template_add_attributes(key_obj->template, 
+					unwrapped_key_attr, unwrapped_count);
+
+	   free(unwrapped_key_attr);
+
+	   rc = object_mgr_create_final(sess, key_obj, h_unwrapped_key);
+	   if (rc != CKR_OK){
+	       object_free(key_obj);
+	   }
+
+	   return rc;
+
+       } else {
+
+	   free(unwrapping_key_attr);
+	   return rc;
+       }
    }
 
    found_class    = FALSE;
@@ -1072,10 +1243,6 @@ key_mgr_unwrap_key( SESSION           * sess,
          found_class = TRUE;
          break;
 
-#if !(NOCMF)
-      case CKM_CDMF_ECB:
-      case CKM_CDMF_CBC:
-#endif
       case CKM_DES_ECB:
       case CKM_DES_CBC:
       case CKM_DES3_ECB:
@@ -1086,9 +1253,6 @@ key_mgr_unwrap_key( SESSION           * sess,
          found_class = TRUE;
          break;
 
-#if !(NOCMF)
-      case CKM_CDMF_CBC_PAD:
-#endif
       case CKM_DES_CBC_PAD:
       case CKM_DES3_CBC_PAD:
       case CKM_AES_CBC_PAD:
@@ -1119,10 +1283,9 @@ key_mgr_unwrap_key( SESSION           * sess,
    // if we're unwrapping a private key, we can extract the key type from
    // the BER-encoded information
    //
-   if (found_class == FALSE || (found_type == FALSE && keyclass !=
-CKO_PRIVATE_KEY)){
-      st_err_log(48, __FILE__, __LINE__);
-      return CKR_TEMPLATE_INCOMPLETE;
+   if (found_class == FALSE || (found_type == FALSE && keyclass != CKO_PRIVATE_KEY)){
+       st_err_log(48, __FILE__, __LINE__);
+       return CKR_TEMPLATE_INCOMPLETE;
    }
 
    // final check to see if mechanism is allowed to unwrap such a key
@@ -1136,10 +1299,6 @@ CKO_PRIVATE_KEY)){
          }
          break;
 
-#if !(NOCMF)
-      case CKM_CDMF_ECB:
-      case CKM_CDMF_CBC:
-#endif
       case CKM_DES_ECB:
       case CKM_DES_CBC:
       case CKM_DES3_ECB:
@@ -1152,9 +1311,6 @@ CKO_PRIVATE_KEY)){
          }
          break;
 
-#if !(NOCMF)
-      case CKM_CDMF_CBC_PAD:
-#endif
       case CKM_DES_CBC_PAD:
       case CKM_DES3_CBC_PAD:
       case CKM_AES_CBC_PAD:
@@ -1229,7 +1385,6 @@ CKO_PRIVATE_KEY)){
       }
    }
 
-
    // we have decrypted the wrapped key data.  we also
    // know what type of key it is.  now we need to construct a new key
    // object...
@@ -1269,6 +1424,7 @@ CKO_PRIVATE_KEY)){
       st_err_log(173, __FILE__, __LINE__);
       goto error;
    }
+
    // at this point, the key should be fully constructed...assign
    // an object handle and store the key
    //
@@ -1336,6 +1492,19 @@ key_mgr_derive_key( SESSION           * sess,
                     CK_ATTRIBUTE      * pTemplate,
                     CK_ULONG            ulCount )
 {
+    OBJECT          * base_obj     = NULL;
+    OBJECT          * derive_obj   = NULL;
+    CK_ATTRIBUTE    * base_attr    = NULL;
+    CK_ATTRIBUTE    * derive_attr  = NULL;
+    CK_ULONG          base_count   = 0;
+    CK_ULONG          derive_count = 0;
+    CK_ULONG          keytype      = 0;
+    CK_ULONG          keyclass     = 0;
+    CK_ULONG          size         = 0;
+    CK_ULONG          i            = 0;
+    CK_RV             rc           = CKR_OK;
+    CK_MECHANISM_INFO mech_info;
+
    if (!sess || !mech){
       st_err_log(4, __FILE__, __LINE__, __FUNCTION__);
       return CKR_FUNCTION_FAILED;
@@ -1344,6 +1513,87 @@ key_mgr_derive_key( SESSION           * sess,
       st_err_log(4, __FILE__, __LINE__, __FUNCTION__);
       return CKR_FUNCTION_FAILED;
    }
+
+   // check if token supports this mechanism
+   if ((rc = token_functions->T_GetMechanismInfo(
+	    mech->mechanism, &mech_info)) == CKR_OK) {
+       
+       // token must supply DeriveKey function
+       if (!(token_functions->T_DeriveKey)) {
+	   return CKR_FUNCTION_FAILED;
+       }
+
+       rc = object_mgr_find_in_map1(base_key, &base_obj);
+       if (rc != CKR_OK){
+	   return CKR_FUNCTION_FAILED;
+       }
+       
+       // create derived key object
+       for (i=0; i < ulCount; i++) {
+	   switch (pTemplate[i].type) {
+	       case CKA_CLASS:
+		   keyclass = *(CK_OBJECT_CLASS *)pTemplate[i].pValue;
+		   break;
+		   
+	       case CKA_KEY_TYPE:
+		   keytype = *(CK_KEY_TYPE *)pTemplate[i].pValue;
+		   break;
+	   }
+       }
+	   
+       rc = object_mgr_create_skel(sess,
+				   pTemplate, ulCount,
+				   MODE_KEYGEN,
+				   keyclass, keytype,
+				   &derive_obj);
+       if (rc != CKR_OK){
+	   return rc;
+       }
+
+       // create CK_ATTRIBUTE list for base key
+       size = template_get_size(base_obj->template);
+       base_attr = (CK_ATTRIBUTE *)malloc(size);
+       rc = template_to_attr(base_obj->template, (CK_BYTE *)base_attr, &base_count);
+       if (rc != CKR_OK){
+	   free(base_attr);
+	   object_free(derive_obj);
+	   return rc;
+       }
+       
+       rc = token_functions->T_DeriveKey(
+	   mech, base_attr, base_count, &derive_attr, &derive_count);
+       free(base_attr);
+       if (rc != CKR_OK){
+	   object_free(derive_obj);
+       }
+
+       // add derived key value to the key object
+       rc = template_add_attributes(derive_obj->template, 
+				    derive_attr, derive_count);
+       free(derive_attr);
+       if (rc != CKR_OK){
+	   object_free(derive_obj);
+       }
+
+       rc = object_mgr_create_final(sess, derive_obj, derived_key);
+       if (rc != CKR_OK){
+	   object_free(derive_obj);
+       }
+       
+       return rc;
+       
+   // otherwise check if sw fallback can handle mechanism
+   } else if ((rc = sw_default_GetMechanismInfo(
+		   mech->mechanism, &mech_info)) != CKR_OK) {
+       st_err_log(29, __FILE__, __LINE__);
+       return CKR_MECHANISM_PARAM_INVALID;
+   }
+
+   //
+   // Beyond this point is default processing for mechanisms not supported
+   // by the token.
+   //
+
    switch (mech->mechanism)
    {
       case CKM_SSL3_MASTER_KEY_DERIVE:

@@ -294,7 +294,6 @@
 // Session manager related functions
 //
 
-//#include <windows.h>
 #include <pthread.h>
 #include <stdlib.h>
 #include <string.h>  // for memcmp() et al
@@ -303,7 +302,6 @@
 #include "defs.h"
 #include "host_defs.h"
 #include "h_extern.h"
-#include "tok_spec_struct.h"
 
 
 // session_mgr_find()

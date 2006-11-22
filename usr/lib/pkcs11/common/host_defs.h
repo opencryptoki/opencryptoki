@@ -302,6 +302,7 @@
 #include <pthread.h>
 #include <endian.h>
 
+#include "defs.h"
 #include "pkcs32.h"
 // Both of the strings below have a length of 32 chars and must be
 // padded with spaces, and non-null terminated.
@@ -421,6 +422,7 @@ typedef struct _ENCR_DECR_CONTEXT
    CK_ULONG          context_len;
    CK_BBOOL          multi;
    CK_BBOOL          active;
+   CK_BBOOL          token;
 } ENCR_DECR_CONTEXT;
 
 typedef struct _DIGEST_CONTEXT
@@ -430,6 +432,7 @@ typedef struct _DIGEST_CONTEXT
    CK_ULONG       context_len;
    CK_BBOOL       multi;
    CK_BBOOL       active;
+   CK_BBOOL       token;
 } DIGEST_CONTEXT;
 
 typedef struct _SIGN_VERIFY_CONTEXT
@@ -441,6 +444,7 @@ typedef struct _SIGN_VERIFY_CONTEXT
    CK_BBOOL         multi;    // is this a multi-part operation?
    CK_BBOOL         recover;  // are we in recover mode?
    CK_BBOOL         active;
+   CK_BBOOL         token;
 } SIGN_VERIFY_CONTEXT;
 
 
@@ -625,14 +629,14 @@ find_mech_list_item_for_type(CK_MECHANISM_TYPE type,
                              struct mech_list_item *head);
 
 /* mech_list.c */
-CK_RV
-ock_generic_get_mechanism_list(CK_MECHANISM_TYPE_PTR pMechanismList,
-                               CK_ULONG_PTR pulCount);
+//CK_RV
+//ock_generic_get_mechanism_list(CK_MECHANISM_TYPE_PTR pMechanismList,
+//                               CK_ULONG_PTR pulCount);
 
 /* mech_list.c */
-CK_RV
-ock_generic_get_mechanism_info(CK_MECHANISM_TYPE type,
-                               CK_MECHANISM_INFO_PTR pInfo);
+//CK_RV
+//ock_generic_get_mechanism_info(CK_MECHANISM_TYPE type,
+//                               CK_MECHANISM_INFO_PTR pInfo);
 
 typedef struct _MASTER_KEY_FILE_T
 {

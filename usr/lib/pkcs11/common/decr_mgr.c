@@ -294,18 +294,15 @@
 // Decryption manager routines
 //
 
-//#include <windows.h>
-
 #include <pthread.h>
-  #include <string.h>            // for memcmp() et al
-  #include <stdlib.h>
+#include <string.h>            // for memcmp() et al
+#include <stdlib.h>
 
 #include "pkcs11types.h"
 #include "defs.h"
 #include "host_defs.h"
 #include "h_extern.h"
-#include "tok_spec_struct.h"
-//#include "args.h"
+#include "sw_default.h"
 
 
 //
@@ -323,7 +320,7 @@ decr_mgr_init( SESSION           *sess,
    CK_KEY_TYPE   keytype;
    CK_BBOOL      flag;
    CK_RV         rc;
-
+   CK_MECHANISM_INFO mech_info;
 
 
    if (!sess){
@@ -387,12 +384,59 @@ decr_mgr_init( SESSION           *sess,
       st_err_log(4, __FILE__, __LINE__, __FUNCTION__);
       return CKR_FUNCTION_FAILED;
    }
+
+   // get keytype
+   rc = template_attribute_find(key_obj->template, CKA_KEY_TYPE, &attr);
+   if (rc == FALSE){
+       st_err_log(20, __FILE__, __LINE__);
+       return CKR_KEY_TYPE_INCONSISTENT;
+   }
+   keytype = *(CK_KEY_TYPE *)attr->pValue;
+
+   ctx->context_len = 0;
+   ctx->context     = NULL;
+
+   // check if token supports this mechanism
+   if ((rc = token_functions->T_GetMechanismInfo(
+	    mech->mechanism, &mech_info)) == CKR_OK) {
+       
+       // token must supply DecryptInit function
+       if (!(token_functions->T_DecryptInit)) {
+	   st_err_log(4, __FILE__, __LINE__, __FUNCTION__);
+	   return CKR_FUNCTION_FAILED;
+       }
+       
+       // token function must verify:
+       //    keytype is valid for mechanism 
+       //    mechanism Parameter
+       // token returns:
+       //     address of context
+       //     context length
+       if ((rc = token_functions->T_DecryptInit(
+		mech, keytype, &ctx->context, &ctx->context_len)) == CKR_OK) {
+	   ctx->token = TRUE;
+	   goto common_return;
+       } else {
+	   st_err_log(4, __FILE__, __LINE__, __FUNCTION__);
+	   return rc;
+       }
+       
+   // otherwise check if sw fallback can handle mechanism
+   } else if ((rc = sw_default_GetMechanismInfo(
+		   mech->mechanism, &mech_info)) != CKR_OK) {
+       st_err_log(29, __FILE__, __LINE__);
+       return CKR_MECHANISM_PARAM_INVALID;
+   }
+
+   //
+   // Beyond this point is default processing for mechanisms not supported
+   // by the token.
+   //
    // is the mechanism supported?  is the key type correct?  is a
    // parameter present if required?  is the key size allowed?
    // does the key support decryption?
    //
-   // Will the FCV allow the operation?
-   //
+   ctx->token = FALSE;
    switch (mech->mechanism)
    {
       case CKM_DES_ECB:
@@ -403,61 +447,10 @@ decr_mgr_init( SESSION           *sess,
             }
             // is the key type correct?
             //
-            rc = template_attribute_find( key_obj->template, CKA_KEY_TYPE, &attr );
-            if (rc == FALSE){
-               st_err_log(20, __FILE__, __LINE__);
-               return CKR_KEY_TYPE_INCONSISTENT;
-            }
-            else
-            {
-               keytype = *(CK_KEY_TYPE *)attr->pValue;
-               if (keytype != CKK_DES){
-                  st_err_log(20, __FILE__, __LINE__);
-                  return CKR_KEY_TYPE_INCONSISTENT;
-               }
-            }
-
-            // Check FCV
-            //
-//            if ((nv_FCV.FunctionCntlBytes[DES_FUNCTION_BYTE] & FCV_56_BIT_DES) == 0)
-//               return CKR_MECHANISM_INVALID;
-
-            ctx->context_len = sizeof(DES_CONTEXT);
-            ctx->context     = (CK_BYTE *)malloc(sizeof(DES_CONTEXT));
-            if (!ctx->context){
-               st_err_log(1, __FILE__, __LINE__);
-               return CKR_HOST_MEMORY;
-            }
-            memset( ctx->context, 0x0, sizeof(DES_CONTEXT) );
-         }
-         break;
-
-      case CKM_CDMF_ECB:
-         {
-            if (mech->ulParameterLen != 0){
-               st_err_log(29, __FILE__, __LINE__);
-               return CKR_MECHANISM_PARAM_INVALID;
-            }
-            // is the key type correct?
-            //
-            rc = template_attribute_find( key_obj->template, CKA_KEY_TYPE, &attr );
-            if (rc == FALSE){
-               st_err_log(20, __FILE__, __LINE__);
-               return CKR_KEY_TYPE_INCONSISTENT;
-            }
-            else
-            {
-               keytype = *(CK_KEY_TYPE *)attr->pValue;
-               if (keytype != CKK_CDMF){
-                  st_err_log(20, __FILE__, __LINE__);
-                  return CKR_KEY_TYPE_INCONSISTENT;
-               }
-            }
-
-            // Check FCV
-            //
-//            if ((nv_FCV.FunctionCntlBytes[DES_FUNCTION_BYTE] & FCV_CDMF_DES) == 0)
-//               return CKR_MECHANISM_INVALID;
+	    if (keytype != CKK_DES){
+		st_err_log(20, __FILE__, __LINE__);
+		return CKR_KEY_TYPE_INCONSISTENT;
+	    }
 
             ctx->context_len = sizeof(DES_CONTEXT);
             ctx->context     = (CK_BYTE *)malloc(sizeof(DES_CONTEXT));
@@ -478,58 +471,10 @@ decr_mgr_init( SESSION           *sess,
             }
             // is the key type correct?
             //
-            rc = template_attribute_find( key_obj->template, CKA_KEY_TYPE, &attr );
-            if (rc == FALSE){
-               st_err_log(20, __FILE__, __LINE__);
-               return CKR_KEY_TYPE_INCONSISTENT;
-            }
-            else
-            {
-               keytype = *(CK_KEY_TYPE *)attr->pValue;
-               if (keytype != CKK_DES){
-                  st_err_log(20, __FILE__, __LINE__);
-                  return CKR_KEY_TYPE_INCONSISTENT;
-               }
-            }
-
-            // Check FCV
-            //
-//            if ((nv_FCV.FunctionCntlBytes[DES_FUNCTION_BYTE] & FCV_56_BIT_DES) == 0)
-//               return CKR_MECHANISM_INVALID;
-
-            ctx->context_len = sizeof(DES_CONTEXT);
-            ctx->context     = (CK_BYTE *)malloc(sizeof(DES_CONTEXT));
-            if (!ctx->context){
-               st_err_log(1, __FILE__, __LINE__);
-               return CKR_HOST_MEMORY;
-            }
-            memset( ctx->context, 0x0, sizeof(DES_CONTEXT) );
-         }
-         break;
-
-      case CKM_CDMF_CBC:
-      case CKM_CDMF_CBC_PAD:
-         {
-            if (mech->ulParameterLen != DES_BLOCK_SIZE){
-               st_err_log(29, __FILE__, __LINE__);
-               return CKR_MECHANISM_PARAM_INVALID;
-            }
-            // is the key type correct?
-            //
-            rc = template_attribute_find( key_obj->template, CKA_KEY_TYPE, &attr );
-            if (rc == FALSE){
-               st_err_log(20, __FILE__, __LINE__);
-               return CKR_KEY_TYPE_INCONSISTENT;
-            }
-            else
-            {
-               keytype = *(CK_KEY_TYPE *)attr->pValue;
-               if (keytype != CKK_CDMF){
-                  st_err_log(20, __FILE__, __LINE__);
-                  return CKR_KEY_TYPE_INCONSISTENT;
-               }
-            }
-
+	    if (keytype != CKK_DES){
+		st_err_log(20, __FILE__, __LINE__);
+		return CKR_KEY_TYPE_INCONSISTENT;
+	    }
 
             ctx->context_len = sizeof(DES_CONTEXT);
             ctx->context     = (CK_BYTE *)malloc(sizeof(DES_CONTEXT));
@@ -549,24 +494,10 @@ decr_mgr_init( SESSION           *sess,
 
             // is the key type correct?
             //
-            rc = template_attribute_find( key_obj->template, CKA_KEY_TYPE, &attr );
-            if (rc == FALSE){
-               st_err_log(20, __FILE__, __LINE__);
-               return CKR_KEY_TYPE_INCONSISTENT;
-            }
-            else
-            {
-               keytype = *(CK_KEY_TYPE *)attr->pValue;
-               if (keytype != CKK_DES3 && keytype != CKK_DES2){
-                  st_err_log(20, __FILE__, __LINE__);
-                  return CKR_KEY_TYPE_INCONSISTENT;
-               }
-            }
-
-            // Check FCV
-            //
-//            if ((nv_FCV.FunctionCntlBytes[DES_FUNCTION_BYTE] & FCV_TRIPLE_DES) == 0)
-//               return CKR_MECHANISM_INVALID;
+	    if (keytype != CKK_DES3 && keytype != CKK_DES2){
+		st_err_log(20, __FILE__, __LINE__);
+		return CKR_KEY_TYPE_INCONSISTENT;
+	    }
 
             ctx->context_len = sizeof(DES_CONTEXT);
             ctx->context     = (CK_BYTE *)malloc(sizeof(DES_CONTEXT));
@@ -586,24 +517,10 @@ decr_mgr_init( SESSION           *sess,
 
             // is the key type correct?
             //
-            rc = template_attribute_find( key_obj->template, CKA_KEY_TYPE, &attr );
-            if (rc == FALSE){
-               st_err_log(20, __FILE__, __LINE__);
-               return CKR_KEY_TYPE_INCONSISTENT;
-            }
-            else
-            {
-               keytype = *(CK_KEY_TYPE *)attr->pValue;
-               if (keytype != CKK_DES3 && keytype != CKK_DES2){
-                  st_err_log(20, __FILE__, __LINE__);
-                  return CKR_KEY_TYPE_INCONSISTENT;
-               }
-            }
-
-            // Check FCV
-            //
-//            if ((nv_FCV.FunctionCntlBytes[DES_FUNCTION_BYTE] & FCV_TRIPLE_DES) == 0)
-//               return CKR_MECHANISM_INVALID;
+	    if (keytype != CKK_DES3 && keytype != CKK_DES2){
+		st_err_log(20, __FILE__, __LINE__);
+		return CKR_KEY_TYPE_INCONSISTENT;
+	    }
 
             ctx->context_len = sizeof(DES_CONTEXT);
             ctx->context     = (CK_BYTE *)malloc(sizeof(DES_CONTEXT));
@@ -621,26 +538,12 @@ decr_mgr_init( SESSION           *sess,
             if (mech->ulParameterLen != 0)
                return CKR_MECHANISM_PARAM_INVALID;
 
-            rc = template_attribute_find( key_obj->template, CKA_KEY_TYPE, &attr );
-            if (rc == FALSE){
-               st_err_log(20, __FILE__, __LINE__);
-               return CKR_KEY_TYPE_INCONSISTENT;
-            }
-            else
-            {
-               keytype = *(CK_KEY_TYPE *)attr->pValue;
-               if (keytype != CKK_RSA){
-                  st_err_log(20, __FILE__, __LINE__);
-                  return CKR_KEY_TYPE_INCONSISTENT;
-               }
-            }
-
-            // Check FCV
+            // is the key type correct?
             //
-//            rc = template_attribute_find( key_obj->template, CKA_MODULUS, &attr );
-//            if (rc == FALSE ||
-//                nv_FCV.SymmetricModLength/8 < attr->value_length)
-//               return (operation == OP_DECRYPT_INIT ? CKR_KEY_SIZE_RANGE : CKR_UNWRAPPING_KEY_SIZE_RANGE );
+	    if (keytype != CKK_RSA){
+		st_err_log(20, __FILE__, __LINE__);
+		return CKR_KEY_TYPE_INCONSISTENT;
+	    }
 
             // RSA cannot be used for multi-part operations
             //
@@ -649,6 +552,7 @@ decr_mgr_init( SESSION           *sess,
 
          }
          break;
+
       case CKM_AES_ECB:
 	 {
 	    // XXX Copied from DES3, should be verified - KEY
@@ -659,19 +563,10 @@ decr_mgr_init( SESSION           *sess,
 
             // is the key type correct?
             //
-            rc = template_attribute_find( key_obj->template, CKA_KEY_TYPE, &attr );
-            if (rc == FALSE){
-               st_err_log(20, __FILE__, __LINE__);
-               return CKR_KEY_TYPE_INCONSISTENT;
-            }
-            else
-            {
-               keytype = *(CK_KEY_TYPE *)attr->pValue;
-               if (keytype != CKK_AES){
-                  st_err_log(20, __FILE__, __LINE__);
-                  return CKR_KEY_TYPE_INCONSISTENT;
-               }
-            }
+	    if (keytype != CKK_AES){
+		st_err_log(20, __FILE__, __LINE__);
+		return CKR_KEY_TYPE_INCONSISTENT;
+	    }
 
             ctx->context_len = sizeof(AES_CONTEXT);
             ctx->context     = (CK_BYTE *)malloc(sizeof(AES_CONTEXT));
@@ -683,6 +578,7 @@ decr_mgr_init( SESSION           *sess,
 
 	 }
 	 break;
+
       case CKM_AES_CBC:
       case CKM_AES_CBC_PAD:
 	 {
@@ -693,19 +589,10 @@ decr_mgr_init( SESSION           *sess,
 
             // is the key type correct?
             //
-            rc = template_attribute_find( key_obj->template, CKA_KEY_TYPE, &attr );
-            if (rc == FALSE){
-               st_err_log(20, __FILE__, __LINE__);
-               return CKR_KEY_TYPE_INCONSISTENT;
-            }
-            else
-            {
-               keytype = *(CK_KEY_TYPE *)attr->pValue;
-               if (keytype != CKK_AES){
-                  st_err_log(20, __FILE__, __LINE__);
-                  return CKR_KEY_TYPE_INCONSISTENT;
-               }
-            }
+	    if (keytype != CKK_AES){
+		st_err_log(20, __FILE__, __LINE__);
+		return CKR_KEY_TYPE_INCONSISTENT;
+	    }
 
             ctx->context_len = sizeof(AES_CONTEXT);
             ctx->context     = (CK_BYTE *)malloc(sizeof(AES_CONTEXT));
@@ -723,6 +610,7 @@ decr_mgr_init( SESSION           *sess,
          return CKR_MECHANISM_INVALID;
    }
 
+ common_return:
 
    if (mech->ulParameterLen > 0) {
       ptr = (CK_BYTE *)malloc(mech->ulParameterLen);
@@ -758,6 +646,7 @@ decr_mgr_cleanup( ENCR_DECR_CONTEXT *ctx )
    ctx->mech.mechanism      = 0;
    ctx->multi               = FALSE;
    ctx->active              = FALSE;
+   ctx->token               = FALSE;
    ctx->context_len         = 0;
 
    if (ctx->mech.pParameter) {
@@ -785,6 +674,12 @@ decr_mgr_decrypt( SESSION           *sess,
                   CK_BYTE           *out_data,
                   CK_ULONG          *out_data_len )
 {
+    OBJECT        * key_obj = NULL;
+    CK_ATTRIBUTE  * attr    = NULL;
+    CK_ULONG      count;
+    CK_ULONG      size;
+    CK_RV         rc;
+
    if (!sess || !ctx){
       st_err_log(4, __FILE__, __LINE__, __FUNCTION__);
       return CKR_FUNCTION_FAILED;
@@ -804,15 +699,51 @@ decr_mgr_decrypt( SESSION           *sess,
       st_err_log(31, __FILE__, __LINE__);
       return CKR_OPERATION_ACTIVE;
    }
+
+   // check if token is handling the decryption
+   if (ctx->token == TRUE) {
+       
+       // token must supply Decrypt function
+       if (!(token_functions->T_Decrypt)) {
+	   st_err_log(4, __FILE__, __LINE__, __FUNCTION__);
+	   return CKR_FUNCTION_FAILED;
+       }
+
+       // retrieve key object
+       rc = object_mgr_find_in_map1(ctx->key, &key_obj);
+       if (rc != CKR_OK){
+	   st_err_log(4, __FILE__, __LINE__, __FUNCTION__);
+	   return CKR_FUNCTION_FAILED;
+       }
+
+       // create CK_ATTRIBUTE list from TEMPLATE
+       size = template_get_size(key_obj->template);
+       attr = (CK_ATTRIBUTE *)malloc(size);
+       rc = template_to_attr(key_obj->template, (CK_BYTE *)attr, &count);
+       if (rc != CKR_OK){
+	   free(attr);
+	   return rc;
+       }
+
+       rc = token_functions->T_Decrypt(
+	   ctx->mech, in_data, in_data_len, out_data, out_data_len, 
+	   attr, count);
+       free(attr);
+
+       return rc;
+   }
+
+   //
+   // Beyond this point is default processing for mechanisms not supported
+   // by the token.
+   //
    switch (ctx->mech.mechanism) {
-      case CKM_CDMF_ECB:
       case CKM_DES_ECB:
          return des_ecb_decrypt( sess,     length_only,
                                  ctx,
                                  in_data,  in_data_len,
                                  out_data, out_data_len );
 
-      case CKM_CDMF_CBC:
       case CKM_DES_CBC:
          return des_cbc_decrypt( sess,     length_only,
                                  ctx,
@@ -820,7 +751,6 @@ decr_mgr_decrypt( SESSION           *sess,
                                  out_data, out_data_len );
 
       case CKM_DES_CBC_PAD:
-      case CKM_CDMF_CBC_PAD:
          return des_cbc_pad_decrypt( sess,     length_only,
                                      ctx,
                                      in_data,  in_data_len,
@@ -855,7 +785,7 @@ decr_mgr_decrypt( SESSION           *sess,
                                   ctx,
                                   in_data,  in_data_len,
                                   out_data, out_data_len );
-#ifndef NOAES
+
       case CKM_AES_CBC:
          return aes_cbc_decrypt( sess,     length_only,
                                  ctx,
@@ -873,7 +803,7 @@ decr_mgr_decrypt( SESSION           *sess,
                                      ctx,
                                      in_data,  in_data_len,
                                      out_data, out_data_len );
-#endif
+
       default:
          return CKR_MECHANISM_INVALID;
    }
@@ -894,6 +824,12 @@ decr_mgr_decrypt_update( SESSION            *sess,
                          CK_BYTE            *out_data,
                          CK_ULONG           *out_data_len )
 {
+    OBJECT        * key_obj = NULL;
+    CK_ATTRIBUTE  * attr    = NULL;
+    CK_ULONG      count;
+    CK_ULONG      size;
+    CK_RV         rc;
+
    if (!sess || !in_data || !ctx){
       st_err_log(4, __FILE__, __LINE__, __FUNCTION__);
       return CKR_FUNCTION_FAILED;
@@ -910,15 +846,50 @@ decr_mgr_decrypt_update( SESSION            *sess,
    }
    ctx->multi = TRUE;
 
+   // check if token is handling the decryption
+   if (ctx->token == TRUE) {
+       
+       // token must supply DecryptUpdate function
+       if (!(token_functions->T_DecryptUpdate)) {
+	   st_err_log(4, __FILE__, __LINE__, __FUNCTION__);
+	   return CKR_FUNCTION_FAILED;
+       }
+
+       // retrieve key object
+       rc = object_mgr_find_in_map1(ctx->key, &key_obj);
+       if (rc != CKR_OK){
+	   st_err_log(4, __FILE__, __LINE__, __FUNCTION__);
+	   return CKR_FUNCTION_FAILED;
+       }
+
+       // create CK_ATTRIBUTE list from TEMPLATE
+       size = template_get_size(key_obj->template);
+       attr = (CK_ATTRIBUTE *)malloc(size);
+       rc = template_to_attr(key_obj->template, (CK_BYTE *)attr, &count);
+       if (rc != CKR_OK){
+	   free(attr);
+	   return rc;
+       }
+       
+       rc = token_functions->T_DecryptUpdate(
+	   ctx->mech, in_data, in_data_len, out_data, out_data_len, 
+	   attr, count, ctx->context, ctx->context_len);
+       free(attr);
+
+       return rc;
+   }
+
+   //
+   // Beyond this point is default processing for mechanisms not supported
+   // by the token.
+   //
    switch (ctx->mech.mechanism) {
-      case CKM_CDMF_ECB:
       case CKM_DES_ECB:
          return des_ecb_decrypt_update( sess,     length_only,
                                         ctx,
                                         in_data,  in_data_len,
                                         out_data, out_data_len );
 
-      case CKM_CDMF_CBC:
       case CKM_DES_CBC:
          return des_cbc_decrypt_update( sess,     length_only,
                                         ctx,
@@ -926,7 +897,6 @@ decr_mgr_decrypt_update( SESSION            *sess,
                                         out_data, out_data_len );
 
       case CKM_DES_CBC_PAD:
-      case CKM_CDMF_CBC_PAD:
          return des_cbc_pad_decrypt_update( sess,     length_only,
                                             ctx,
                                             in_data,  in_data_len,
@@ -949,7 +919,7 @@ decr_mgr_decrypt_update( SESSION            *sess,
                                              ctx,
                                              in_data,  in_data_len,
                                              out_data, out_data_len );
-#ifndef NOAES 
+
       case CKM_AES_ECB:
          return aes_ecb_decrypt_update( sess,     length_only,
                                         ctx,
@@ -967,7 +937,7 @@ decr_mgr_decrypt_update( SESSION            *sess,
                                             ctx,
                                             in_data,  in_data_len,
                                             out_data, out_data_len );
-#endif
+
       default:
          st_err_log(28, __FILE__, __LINE__);
          return CKR_MECHANISM_INVALID;
@@ -986,6 +956,12 @@ decr_mgr_decrypt_final( SESSION            *sess,
                         CK_BYTE            *out_data,
                         CK_ULONG           *out_data_len )
 {
+    OBJECT        * key_obj = NULL;
+    CK_ATTRIBUTE  * attr    = NULL;
+    CK_ULONG      count;
+    CK_ULONG      size;
+    CK_RV         rc;
+
    if (!sess || !ctx){
       st_err_log(4, __FILE__, __LINE__, __FUNCTION__);
       return CKR_FUNCTION_FAILED;
@@ -993,23 +969,57 @@ decr_mgr_decrypt_final( SESSION            *sess,
    if (ctx->active == FALSE){
       st_err_log(28, __FILE__, __LINE__);
       return CKR_OPERATION_NOT_INITIALIZED;
-      }
+   }
 
+   // check if token is handling the decryption
+   if (ctx->token == TRUE) {
+       
+       // token must supply DecryptFinal function
+       if (!(token_functions->T_DecryptFinal)) {
+	   st_err_log(4, __FILE__, __LINE__, __FUNCTION__);
+	   return CKR_FUNCTION_FAILED;
+       }
+
+       // retrieve key object
+       rc = object_mgr_find_in_map1(ctx->key, &key_obj);
+       if (rc != CKR_OK){
+	   st_err_log(4, __FILE__, __LINE__, __FUNCTION__);
+	   return CKR_FUNCTION_FAILED;
+       }
+
+       // create CK_ATTRIBUTE list from TEMPLATE
+       size = template_get_size(key_obj->template);
+       attr = (CK_ATTRIBUTE *)malloc(size);
+       rc = template_to_attr(key_obj->template, (CK_BYTE *)attr, &count);
+       if (rc != CKR_OK){
+	   free(attr);
+	   return rc;
+       }
+
+       rc = token_functions->T_DecryptFinal(
+	   ctx->mech, out_data, out_data_len, 
+	   attr, count, ctx->context, ctx->context_len);
+       free(attr);
+
+       return rc;
+   }
+
+   //
+   // Beyond this point is default processing for mechanisms not supported
+   // by the token.
+   //
    switch (ctx->mech.mechanism) {
-      case CKM_CDMF_ECB:
       case CKM_DES_ECB:
          return des_ecb_decrypt_final( sess,     length_only,
                                        ctx,
                                        out_data, out_data_len );
 
-      case CKM_CDMF_CBC:
       case CKM_DES_CBC:
          return des_cbc_decrypt_final( sess,     length_only,
                                        ctx,
                                        out_data, out_data_len );
 
       case CKM_DES_CBC_PAD:
-      case CKM_CDMF_CBC_PAD:
          return des_cbc_pad_decrypt_final( sess,     length_only,
                                            ctx,
                                            out_data, out_data_len );
@@ -1028,7 +1038,7 @@ decr_mgr_decrypt_final( SESSION            *sess,
          return des3_cbc_pad_decrypt_final( sess,     length_only,
                                             ctx,
                                             out_data, out_data_len );
-#ifndef NOAES
+
       case CKM_AES_ECB:
          return aes_ecb_decrypt_final( sess,     length_only,
                                        ctx,
@@ -1043,7 +1053,7 @@ decr_mgr_decrypt_final( SESSION            *sess,
          return aes_cbc_pad_decrypt_final( sess,     length_only,
                                            ctx,
                                            out_data, out_data_len );
-#endif
+
       default:
          st_err_log(28, __FILE__, __LINE__);
          return CKR_MECHANISM_INVALID;

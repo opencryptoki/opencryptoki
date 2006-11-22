@@ -300,8 +300,6 @@
 #include "defs.h"
 #include "host_defs.h"
 #include "h_extern.h"
-#include "tok_spec_struct.h"
-//#include "args.h"
 
 
 // Permutation of 0..255 constructed from the digits of pi. It gives a

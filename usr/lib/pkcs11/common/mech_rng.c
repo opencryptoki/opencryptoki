@@ -296,8 +296,6 @@
 // PKCS #11 doesn't consider random number generator to be a "mechanism"
 //
 
-//#include <windows.h>
-
 #include <pthread.h>
 
 #include <string.h>            // for memcmp() et al
@@ -307,10 +305,7 @@
 #include "defs.h"
 #include "host_defs.h"
 #include "h_extern.h"
-//#include "args.h"
-
-#include "tok_spec_struct.h"
-#include "tok_specific.h"
+#include "sw_default.h"
 
 //
 //
@@ -320,8 +315,15 @@ rng_generate( CK_BYTE *output, CK_ULONG bytes )
    CK_ULONG  req_len, repl_len, expected_repl_len;
    CK_RV     rc;
 
-   rc = token_rng(output, bytes);
+    // call token random number function if available
+   if (token_functions->T_rng != NULL) {
+       rc = token_functions->T_rng(output, bytes);
+   } else {
+       rc = sw_default_rng(output, bytes);
+   }
+
    if (rc != CKR_OK)
-      st_err_log(111, __FILE__, __LINE__);
+       st_err_log(111, __FILE__, __LINE__);
+
    return rc;
 }

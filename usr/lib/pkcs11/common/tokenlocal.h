@@ -298,12 +298,12 @@
 // // to get the variant dependency out
 #ifndef  _TOK_LOCAL_
 #define  _TOK_LOCAL_
-#define PK_LITE_DIR  token_specific.token_directory
+#define PK_LITE_DIR  token_functions->token_directory
 
 #define PK_DIR      PK_LITE_DIR
-#define SUB_DIR     token_specific.token_subdir
+#define SUB_DIR     token_functions->token_subdir
 
 
-#define DBGTAG  token_specific.token_debug_tag
+#define DBGTAG  token_functions->token_debug_tag
 
 #endif

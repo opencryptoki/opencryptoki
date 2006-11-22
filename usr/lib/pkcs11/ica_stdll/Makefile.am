@@ -13,21 +13,21 @@ opencryptoki_stdll_libpkcs11_ica_la_CFLAGS = -DSPINXPL -DDEV		\
 AM_CFLAGS = -DSPINXPL -DDEV -D_THREAD_SAFE -fPIC -DSHALLOW=0 -DSWTOK=0	\
 -DLITE=1 -DNOCDMF -DNOMD2 -DNODSA -DNOAES -DNODH -DNORIPE
 
-opencryptoki_stdll_libpkcs11_ica_la_SOURCES= ../common/asn1.c	\
-../common/cert.c ../common/hwf_obj.c ../common/dp_obj.c		\
-../common/data_obj.c ../common/decr_mgr.c ../common/dig_mgr.c	\
-../common/encr_mgr.c ../common/globals.c ../common/loadsave.c	\
-../common/key.c ../common/key_mgr.c ../common/mech_des.c	\
-../common/mech_des3.c ../common/mech_md5.c ../common/mech_md2.c	\
-../common/mech_rng.c ../common/mech_rsa.c ../common/mech_sha.c	\
-../common/mech_ssl3.c ../common/new_host.c ../common/obj_mgr.c	\
-../common/object.c ../common/sess_mgr.c ../common/sign_mgr.c	\
-../common/template.c ../common/utility.c ../common/verify_mgr.c	\
-../common/log.c ../common/mech_list.c ica_specific.c
+opencryptoki_stdll_libpkcs11_ica_la_SOURCES= asn1.c	\
+		cert.c hwf_obj.c dp_obj.c		\
+		data_obj.c decr_mgr.c dig_mgr.c		\
+		encr_mgr.c globals.c loadsave.c		\
+		key.c key_mgr.c mech_des.c		\
+		mech_des3.c mech_md5.c mech_md2.c	\
+		mech_rng.c mech_rsa.c mech_sha.c	\
+		mech_ssl3.c new_host.c obj_mgr.c	\
+		object.c sess_mgr.c sign_mgr.c		\
+		template.c utility.c verify_mgr.c	\
+		log.c mech_list.c ica_specific.c
 
 INCLUDES = $(ICA_INC_DIRS) -I/usr/include			\
 -I. -I../../../include/pkcs11/stdll -I../../../include/pkcs11	\
--I../common -I../../../ica/inc -I../../../../ica/include	\
+-I../../../ica/inc -I../../../../ica/include			\
 -I.. -I../../../../ica/src/inc
 
 install-data-local:

@@ -304,7 +304,7 @@
 #include "defs.h"
 #include "host_defs.h"
 #include "h_extern.h"
-#include "tok_spec_struct.h"
+#include "sw_default.h"
 
 #include "../api/apiproto.h"
 
@@ -809,6 +809,82 @@ object_mgr_create_skel( SESSION       * sess,
                             mode,
                             obj_type, sub_class,
                             &o );
+   if (rc != CKR_OK){
+      st_err_log(89, __FILE__, __LINE__); 
+      return rc;
+   }
+   sess_obj = object_is_session_object( o );
+   priv_obj = object_is_private( o );
+
+   if (sess->session_info.state == CKS_RO_PUBLIC_SESSION) {
+      if (priv_obj) {
+         object_free( o );
+         st_err_log(57, __FILE__, __LINE__); 
+         return CKR_USER_NOT_LOGGED_IN;
+      }
+
+      if (!sess_obj) {
+         object_free( o );
+         st_err_log(42, __FILE__, __LINE__); 
+         return CKR_SESSION_READ_ONLY;
+      }
+   }
+
+   if (sess->session_info.state == CKS_RO_USER_FUNCTIONS) {
+      if (!sess_obj) {
+         object_free( o );
+         st_err_log(42, __FILE__, __LINE__); 
+         return CKR_SESSION_READ_ONLY;
+      }
+   }
+
+   if (sess->session_info.state == CKS_RW_PUBLIC_SESSION) {
+      if (priv_obj) {
+         object_free( o );
+         st_err_log(57, __FILE__, __LINE__); 
+         return CKR_USER_NOT_LOGGED_IN;
+      }
+   }
+
+   if (sess->session_info.state == CKS_RW_SO_FUNCTIONS) {
+      if (priv_obj) {
+         object_free( o );
+         st_err_log(57, __FILE__, __LINE__); 
+         return CKR_USER_NOT_LOGGED_IN;
+      }
+   }
+
+   *obj = o;
+   return CKR_OK;
+}
+
+CK_RV
+object_mgr_create_obj_from_tmpl( SESSION       * sess,
+				 CK_ATTRIBUTE  * pTemplate,
+				 CK_ULONG        ulCount,
+				 CK_ULONG        mode,
+				 CK_ULONG        obj_type,
+				 CK_ULONG        sub_class,
+				 OBJECT       ** obj )
+{
+   OBJECT     *o = NULL;
+   CK_RV       rc;
+   CK_BBOOL    priv_obj;
+   CK_BBOOL    sess_obj;
+
+   if (!sess || !obj){
+      st_err_log(4, __FILE__, __LINE__, __FUNCTION__); 
+      return CKR_FUNCTION_FAILED;
+   }
+   if (!pTemplate && (ulCount != 0)){
+      st_err_log(4, __FILE__, __LINE__, __FUNCTION__); 
+      return CKR_FUNCTION_FAILED;
+   }
+
+   rc = object_create_obj_from_tmpl( pTemplate, ulCount,
+				     mode,
+				     obj_type, sub_class,
+				     &o );
    if (rc != CKR_OK){
       st_err_log(89, __FILE__, __LINE__); 
       return rc;

@@ -308,7 +308,6 @@
 //    template_validate_base_attribute
 //
 
-//#include <windows.h>
 #include <pthread.h>
 #include <stdlib.h>
 #include <stdio.h>
@@ -319,7 +318,6 @@
 #include "defs.h"
 #include "host_defs.h"
 #include "h_extern.h"
-#include "tok_spec_struct.h"
 #include "pkcs32.h"
 
 // template_add_attributes()
@@ -862,7 +860,7 @@ template_copy( TEMPLATE *dest, TEMPLATE *src )
 //
 CK_RV
 template_flatten( TEMPLATE  * tmpl,
-                  CK_BYTE   * dest )
+                  CK_BYTE   * dest) 
 {
    DL_NODE   * node = NULL;
    CK_BYTE   * ptr = NULL;
@@ -1099,7 +1097,7 @@ template_get_class( TEMPLATE  * tmpl,
                     CK_ULONG  * subclass )
 {
    DL_NODE * node;
-   CK_BBOOL  found;
+   CK_BBOOL  found = FALSE;
 
    if (!tmpl || !class || !subclass)
       return FALSE;
@@ -1680,4 +1678,40 @@ template_validate_base_attribute( TEMPLATE      * tmpl,
    return CKR_ATTRIBUTE_READ_ONLY;
 }
 
+// translate TEMPLATE to CK_ATTRIBUTE list
+//
+CK_RV
+template_to_attr( TEMPLATE  * tmpl,
+                  CK_BYTE   * dest, 
+                  CK_ULONG  * count)
+{
+    DL_NODE      * node   = NULL;
+    CK_BYTE      * values = NULL;
+    CK_ATTRIBUTE * ptr    = NULL;
+    CK_ATTRIBUTE * attr   = NULL;
+    
+    if (!tmpl || !dest){
+	st_err_log(4, __FILE__, __LINE__, __FUNCTION__); 
+	return CKR_FUNCTION_FAILED;
+    }
+    
+    (*count) = template_get_count(tmpl);
+    ptr = (CK_ATTRIBUTE *)dest;
+    values = dest + ((*count) * sizeof(CK_ATTRIBUTE));
+    
+    node = tmpl->attribute_list;
+    while (node) {
+	
+	attr = (CK_ATTRIBUTE *)node->data;
+	ptr->type = attr->type;
+	ptr->pValue = values;
+	ptr->ulValueLen = attr->ulValueLen;
+	memcpy(ptr->pValue, attr->pValue, attr->ulValueLen);
+	ptr ++;
+	values += attr->ulValueLen;
+	node = node->next;
+    }
+    
+    return CKR_OK;
+}
 

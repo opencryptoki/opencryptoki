@@ -295,8 +295,6 @@
 // Mechanisms for AES
 //
 
-//#include <windows.h>
-
 #include <string.h>            // for memcmp() et al
 #include <stdlib.h>
 
@@ -304,8 +302,7 @@
 #include "defs.h"
 #include "host_defs.h"
 #include "h_extern.h"
-#include "tok_spec_struct.h"
-//#include "args.h"
+#include "sw_default.h"
 
 
 //
@@ -1741,7 +1738,7 @@ ckm_aes_key_gen( TEMPLATE *tmpl )
       return CKR_HOST_MEMORY;
    }
    
-   rc = token_specific.t_aes_key_gen(aes_key, key_size);
+   rc = sw_default_aes_key_gen(aes_key, key_size);
    
    if (rc != CKR_OK)
       return rc;
@@ -1813,9 +1810,9 @@ ckm_aes_ecb_encrypt( CK_BYTE     * in_data,
       return CKR_FUNCTION_FAILED;
    }
 
-   rc = token_specific.t_aes_ecb(in_data,in_data_len,
-				 out_data,out_data_len,
-				 key_value,key_len,1);
+   rc = sw_default_aes_ecb(in_data,in_data_len,
+			   out_data,out_data_len,
+			   key_value,key_len,1);
    
    if (rc != CKR_OK)
       st_err_log(120, __FILE__, __LINE__);
@@ -1845,9 +1842,9 @@ ckm_aes_ecb_decrypt( CK_BYTE     * in_data,
       return CKR_FUNCTION_FAILED;
    }
    
-   rc = token_specific.t_aes_ecb(in_data,in_data_len,
-		      		 out_data,out_data_len,
-				 key_value,key_len,0);
+   rc = sw_default_aes_ecb(in_data,in_data_len,
+			   out_data,out_data_len,
+			   key_value,key_len,0);
    
    if (rc != CKR_OK)
       st_err_log(120, __FILE__, __LINE__);
@@ -1878,10 +1875,10 @@ ckm_aes_cbc_encrypt( CK_BYTE     * in_data,
       return CKR_FUNCTION_FAILED;
    }
    
-   rc = token_specific.t_aes_cbc(in_data, in_data_len,
-		      		 out_data,out_data_len,
-			       	 key_value,key_len,
-				 init_v,1);
+   rc = sw_default_aes_cbc(in_data, in_data_len,
+			   out_data,out_data_len,
+			   key_value,key_len,
+			   init_v,1);
 
    if (rc != CKR_OK)
       st_err_log(119, __FILE__, __LINE__);
@@ -1911,10 +1908,10 @@ ckm_aes_cbc_decrypt( CK_BYTE     * in_data,
       return CKR_FUNCTION_FAILED;
    }
    
-   rc = token_specific.t_aes_cbc(in_data, in_data_len,
-		      		 out_data, out_data_len,
-			       	 key_value,key_len,
-				 init_v,0);
+   rc = sw_default_aes_cbc(in_data, in_data_len,
+			   out_data, out_data_len,
+			   key_value,key_len,
+			   init_v,0);
    
    if (rc != CKR_OK)
       st_err_log(119, __FILE__, __LINE__);

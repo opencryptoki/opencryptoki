@@ -295,8 +295,9 @@
        4/25/03    Kapil Sood (kapil@corrent.com)
                   Added DH key pair generation and DH shared key derivation
                   functions.
- 
- 
+       9/21/06    Daniel H Jones (danjones@us.ibm.com)
+                  Extensive restructuring for modularity and future 
+                  enhancements.
  
 ****************************************************************************/
 
@@ -319,24 +320,75 @@
 #include "defs.h"
 #include "host_defs.h"
 #include "h_extern.h"
-#include "tok_spec_struct.h"
 #include "pkcs32.h"
+#include "sw_default.h"
 
 #include "../api/apiproto.h"
 
-#define UCHAR  unsigned char
+/*
+ * external variables
+ */
+extern int spinxplfd;
+extern int spin_created;
 
+/*
+ * external functions
+ */
+extern void stlogterm();
+extern void stloginit();
+extern void stlogit2(int type,char *fmt, ...);
 /* Declared in obj_mgr.c */
 extern pthread_rwlock_t obj_list_rw_mutex;
+/* token initialize, returns token function pointers */
+extern CK_RV T_Initialize(char *, CK_SLOT_ID, TOKEN_STRUCT **);
 
+/*
+ * global variables
+ */
+static char *debugfilepathbuffer;
+static int debugon = 1;
 char *pk_dir;
-void SC_SetFunctionList(void);
+int  debugfile = 0;
+pid_t  initedpid=0;  // for initialized pid
+CK_ULONG  usage_count = 0; // variable for number of times the DLL has
+			   // been used.
 
+MECH_LIST_ELEMENT * merged_mech_list     = NULL;
+CK_ULONG            merged_mech_list_len = 0;
+
+/*
+ * prototypes
+ */
+void SC_SetFunctionList(void);
+int APISlot2Local(CK_SLOT_ID);
+
+/*
+ * macros
+ */
 #define SESSION_MGR_FIND(x) session_mgr_find(x) /* All these need to
 						 * get the lock */
 
-/* Maximum number of supported devices (rather arbitrary) */
-#define PKW_MAX_DEVICES                10
+#define  SLT_CHECK  \
+   CK_SLOT_ID     slot_id; \
+   int            sid1; \
+ \
+   if ( (sid1 = APISlot2Local(sid)) != -1 ){ \
+      slot_id = sid1; \
+   } else { \
+      return CKR_ARGUMENTS_BAD; \
+   }
+
+#define SESS_SET \
+   CK_SESSION_HANDLE  hSession; \
+\
+   hSession = sSession.sessionh;
+
+#define VALID_MECH(p) \
+   if ( validate_mechanism(p) != CKR_OK){ \
+      rc = CKR_MECHANISM_INVALID; \
+      goto done; \
+   } \
+
 
 // Netscape/SSL is fairly timing-sensitive so can't always use a debugger
 //
@@ -363,35 +415,13 @@ void SC_SetFunctionList(void);
 // the function that returns the metrics to specify which metric(s) are
 // returned.
 //
-#define MAXFILENAME 1024
-
-static char *debugfilepathbuffer;
-static int debugon = 1;
-int  debugfile = 0;
-#define FFLUSH(x) 
-
-pid_t  initedpid=0;  // for initialized pid
-
-CK_ULONG  usage_count = 0; // variable for number of times the DLL has
-			   // been used.
-
-CK_C_INITIALIZE_ARGS cinit_args = { NULL, NULL, NULL, NULL, 0, NULL };
-
-extern void stlogterm();
-extern void stloginit();
-extern void stlogit2(int type,char *fmt, ...);
 
 CK_BBOOL
 st_Initialized()
 {
-	if (initialized == FALSE ) return FALSE;
-	return TRUE;
+	return initialized;
 }
 
-#ifdef SPINXPL
-extern int spinxplfd;
-extern int spin_created;
-#endif
 
 void
 Fork_Initializer(void)
@@ -400,10 +430,8 @@ Fork_Initializer(void)
         stloginit(); // Initialize Logging so we can capture
 		     // EVERYTHING
 
-#ifdef SPINXPL
 	spinxplfd = -1;
 	spin_created = 0;
-#endif
 
 	// Force logout.  This cleans out the private session and list
 	// and cleans out the private object map
@@ -446,50 +474,16 @@ Fork_Initializer(void)
 	// the appropriate object list....
 }
 
-#ifdef ALLLOCK
-#define LOCKIT   pthread_mutex_lock(&native_mutex)
-#define LLOCK
-#define UNLOCKIT   pthread_mutex_unlock(&native_mutex)
-#else
-#ifdef DEBLOCK
-#define LOCKIT
-#define LLOCK   pthread_mutex_lock(&native_mutex)
-#define UNLOCKIT   pthread_mutex_unlock(&native_mutex)
-#else
-#define LOCKIT
-#define LLOCK
-#define UNLOCKIT
-#endif
-#endif
-
 int
-APISlot2Local(snum)
-CK_SLOT_ID  snum;
+APISlot2Local(CK_SLOT_ID snum)
 {
-	int i;
-	return(token_specific.t_slot2local(snum));
+    // call token slot2local if function is available
+    if (token_functions->T_slot2local != NULL) {
+	return(token_functions->T_slot2local(snum));
+    } else {
+	return(sw_default_slot2local(snum));
+    }
 }
-
-
-#define  SLT_CHECK  \
-   CK_SLOT_ID     slot_id; \
-   int            sid1; \
- \
-   if ( (sid1 = APISlot2Local(sid)) != -1 ){ \
-      slot_id = sid1; \
-   } else { \
-      return CKR_ARGUMENTS_BAD; \
-   }
-
-
-#define SESSION_HANDLE   sSession.sessionh
-#define SLOTID    APISlot2Local(sSession.slotID)
-
-#define SESS_SET \
-   CK_SESSION_HANDLE  hSession; \
-\
-   hSession = sSession.sessionh;
-
 
 // More efficient long reverse
 inline CK_ULONG long_reverse(CK_ULONG x)
@@ -506,31 +500,126 @@ inline CK_ULONG long_reverse(CK_ULONG x)
 
 }
 
+/*
+ * This function will merge the token and software fallback mechanism
+ * lists and cache the results in a global array of MECH_LIST_ELEMENTS.
+ */
+CK_RV mechanism_list_merge()
+{
+    CK_MECHANISM_INFO     mech_info;
+    CK_MECHANISM_TYPE_PTR token_mech_types      = NULL;
+    CK_MECHANISM_TYPE_PTR sw_default_mech_types = NULL;
+    CK_ULONG              token_mech_count;
+    CK_ULONG              sw_default_mech_count;
+    CK_ULONG              i = 0;
+    CK_ULONG              j = 0;
+    CK_ULONG              element_index = 0;
+    CK_BBOOL              found = FALSE;
+    CK_RV                 rc = CKR_OK;
+    
+    // get token mechanisms
+    rc = token_functions->T_GetMechanismList(NULL, &token_mech_count);
+    if (rc != CKR_OK) {
+	goto out;
+    }
+    token_mech_types = calloc(token_mech_count, sizeof(CK_MECHANISM_TYPE));
+    rc = token_functions->T_GetMechanismList(token_mech_types, &token_mech_count);
+    if (rc != CKR_OK) {
+	goto out;
+    }
+    
+    // get default mechanism 
+    rc = sw_default_GetMechanismList(NULL, &sw_default_mech_count);
+    if (rc != CKR_OK) {
+	goto out;
+    }
+    sw_default_mech_types = calloc(sw_default_mech_count, sizeof(CK_MECHANISM_TYPE));
+    rc = sw_default_GetMechanismList(sw_default_mech_types, &sw_default_mech_count);
+    if (rc != CKR_OK) {
+	goto out;
+    }
+    
+    // start with the token mechs and add any default mechs not supported by token
+    merged_mech_list_len = token_mech_count;
+    for (i = 0; i < sw_default_mech_count; i++){
+	found = FALSE;
+	for (j = 0; j < token_mech_count; j++){
+	    if (sw_default_mech_types[i] == token_mech_types[j]) {
+		found = TRUE;
+		break;
+	    }
+	}
+	// if mechanism was not found then increment merged list size
+	if (!found) {
+	    merged_mech_list_len++;
+	}
+    }
+    
+    // create the global MECH_LIST_ELEMENT array
+    merged_mech_list = calloc(merged_mech_list_len, sizeof(MECH_LIST_ELEMENT));
+    
+    // first grab all the token mechs
+    for (i = 0; i < token_mech_count; i++) {
+	rc = token_functions->T_GetMechanismInfo(token_mech_types[i], &mech_info);
+	if (rc != CKR_OK) {
+	    free(merged_mech_list);
+	    merged_mech_list = NULL;
+	    goto out;
+	}
+	merged_mech_list[i].mech_type = token_mech_types[i];
+	memcpy(&merged_mech_list[i].mech_info, &mech_info, sizeof(CK_MECHANISM_INFO));
+    }
+    
+    element_index = token_mech_count;
+    
+    // now add any default mechs not already in the list
+    for (i = 0; i < sw_default_mech_count; i++) {
+	found = FALSE;
+	for (j = 0; j < token_mech_count; j++){
+	    if (sw_default_mech_types[i] == token_mech_types[j]) {
+		found = TRUE;
+		break;
+	    }
+	}
+	
+	if (!found) {
+	    rc = sw_default_GetMechanismInfo(sw_default_mech_types[i], &mech_info);
+	    if (rc != CKR_OK) {
+		free(merged_mech_list);
+		merged_mech_list = NULL;
+		goto out;
+	    }
+	    merged_mech_list[element_index].mech_type = sw_default_mech_types[i];
+	    memcpy(&merged_mech_list[element_index].mech_info, 
+		   &mech_info, sizeof(CK_MECHANISM_INFO));
+	    element_index++;
+	}
+    }
+    
+ out:
+    if (token_mech_types) free(token_mech_types);
+    if (sw_default_mech_types) free(sw_default_mech_types);
+    
+    return rc;
+}
+
 // verify that the mech specified is in the
 // mech list for this token... Common code requires this 
 // to be added
 CK_RV 
 validate_mechanism(CK_MECHANISM_PTR  pMechanism)
 {
-	CK_ULONG i;   
-	for (i=0; i< mech_list_len;i++){
-		if (pMechanism->mechanism == mech_list[i].mech_type) {
-			return CKR_OK;
-		}
+    CK_ULONG i;   
+
+    for (i = 0; i < merged_mech_list_len; i++){
+	if (pMechanism->mechanism == merged_mech_list[i].mech_type) {
+	    return CKR_OK;
 	}
-	st_err_log(28, __FILE__, __LINE__);
-	return CKR_MECHANISM_INVALID;
+    }
+
+    st_err_log(28, __FILE__, __LINE__);
+    return CKR_MECHANISM_INVALID;
 }
-
-#define VALID_MECH(p) \
-   if ( validate_mechanism(p) != CKR_OK){ \
-      rc = CKR_MECHANISM_INVALID; \
-      goto done; \
-   } \
-
-// Defines to allow NT code to work correctly
-#define WaitForSingleObject(x,y)  pthread_mutex_lock(&(x))
-#define ReleaseMutex(x)           pthread_mutex_unlock(&(x))
 
 void
 init_data_store(char *directory)
@@ -547,6 +636,7 @@ init_data_store(char *directory)
 
 	}
 }
+
 
 /* In an STDLL this is called once for each card in the system
  * therefore the initialized only flags certain one time things
@@ -565,6 +655,9 @@ ST_Initialize(void **FunctionList,
 	char *pkdir;
 	struct passwd  *pw,*epw; // SAB XXX XXX
 	uid_t    userid,euserid;
+	CK_MECHANISM_TYPE_PTR token_mech_types;
+	CK_MECHANISM_INFO     token_mech_info;
+
 
 	stlogterm();
 	stloginit();
@@ -642,7 +735,7 @@ ST_Initialize(void **FunctionList,
 	// One of the things we do during initialization is create the mutex for
 	// PKCS#11 operations; until we do so, we have to use the native mutex...
 	//
-	WaitForSingleObject( native_mutex, INFINITE );
+	pthread_mutex_lock(&(native_mutex));
 
 	// SAB need to call Fork_Initializer here
 	// instead of at the end of the loop...
@@ -664,21 +757,52 @@ ST_Initialize(void **FunctionList,
 		debugon=1;
 	}
 
-	init_data_store((char *)PK_DIR);
-
-
 	// Handle global initialization issues first if we have not
 	// been initialized.
 	if (st_Initialized() == FALSE){
-#if SYSVSEM
-		xproclock = (void *)&xprocsemid;
-		CreateXProcLock(xproclock);
-#endif
+
+		// The token_specific structure must be populated before any
+		// reference to PK_DIR (token_specific.directory) can be made.
+		rc =  T_Initialize(Correlator, SlotNumber, &token_functions);
+		if (rc != 0) {   // Zero means success, right?!?
+			*FunctionList = NULL;
+			st_err_log(145, __FILE__, __LINE__);
+			goto done;
+		}
+
+		// GetMechanismList, GetMechanismInfo are required
+		if (!(token_functions->T_GetMechanismList  &&
+		      token_functions->T_GetMechanismInfo)) {
+		    rc = CKR_FUNCTION_FAILED;
+		    goto done;
+		}
+
+		// create a token/default merged mechanism list
+		rc = mechanism_list_merge();
+		if (rc != CKR_OK) {
+		    goto done;
+		}
+
+		// If pluggable login enabled, support functions must be present
+		if (token_functions->flags && TOKEN_PLUGGABLE_LOGIN) {
+		    if (!(token_functions->T_VerifySOPIN   &&
+			  token_functions->T_VerifyUserPIN &&
+			  token_functions->T_InitPIN       &&
+			  token_functions->T_SetSOPIN      &&
+			  token_functions->T_SetUserPIN    &&
+			  token_functions->T_Login)) {
+			// BUGBUG: log message
+			rc = CKR_FUNCTION_FAILED;
+			goto done;
+		    }
+		}
+
+		init_data_store((char *)PK_DIR);
+
 		if ( (rc = attach_shm()) != CKR_OK) {
 			st_err_log(144, __FILE__, __LINE__);
 			goto done;
 		}
-      
 
 		nv_token_data = &global_shm->nv_token_data;
 
@@ -688,13 +812,6 @@ ST_Initialize(void **FunctionList,
 		initedpid = getpid();
 		SC_SetFunctionList();
 
-		// Always call the token_specific_init function....
-		rc =  token_specific.t_init(Correlator,SlotNumber);
-		if (rc != 0) {   // Zero means success, right?!?
-			*FunctionList = NULL;
-			st_err_log(145, __FILE__, __LINE__);
-			goto done;
-		}
 	}
 
 	// SAB XXX FIXME FIXME  check return code... for all these...
@@ -704,7 +821,6 @@ ST_Initialize(void **FunctionList,
 		st_err_log(145, __FILE__, __LINE__);
 		goto done;
 	}
-
 
 	load_public_token_objects();
 	XProcLock( xproclock );
@@ -717,7 +833,7 @@ ST_Initialize(void **FunctionList,
 	(*FunctionList) = &function_list;
 
  done:
-	ReleaseMutex( native_mutex );
+	pthread_mutex_unlock(&(native_mutex));
 	if (rc != 0)
 		st_err_log(145, __FILE__, __LINE__);
 	return rc;
@@ -759,9 +875,16 @@ CK_RV SC_Finalize( CK_SLOT_ID sid )
 	// close spin lock file
 	if (spin_created)
 	  close(spinxplfd);
-	if ( token_specific.t_final != NULL) {
-		token_specific.t_final();
+	
+        // call token finalize code if function is available
+	if (token_functions->T_Finalize != NULL) {
+	    rc = token_functions->T_Finalize();
+	    if (rc != CKR_OK) {
+		MY_UnlockMutex(&pkcs_mutex);
+		return CKR_FUNCTION_FAILED;
+	    }
 	}
+	
 	rc = MY_UnlockMutex( &pkcs_mutex );
 	if (rc != CKR_OK){
 		st_err_log(147, __FILE__, __LINE__);
@@ -842,7 +965,7 @@ CK_RV SC_GetTokenInfo( CK_SLOT_ID         sid,
 	CK_RV             rc = CKR_OK;
 	time_t now;
 	SLT_CHECK;
-	LOCKIT;
+
 	if (st_Initialized() == FALSE) {
 		st_err_log(72, __FILE__, __LINE__);
 		rc = CKR_CRYPTOKI_NOT_INITIALIZED;
@@ -858,26 +981,19 @@ CK_RV SC_GetTokenInfo( CK_SLOT_ID         sid,
 		rc = CKR_SLOT_ID_INVALID;
 		goto done;
 	}
-/* TODO: This should always be enabled; eliminate the PKCS64 flag */
-#ifdef PKCS64
-	copy_token_contents_sensibly(pInfo, nv_token_data);
-#else
-	memcpy( pInfo, &nv_token_data->token_info, sizeof(CK_TOKEN_INFO) );
-#endif
 
+	copy_token_contents_sensibly(pInfo, nv_token_data);
 
 	// Set the time
 	now = time ((time_t *)NULL);
 	strftime( (char *)pInfo->utcTime, 16, "%X", localtime(&now) );
 
  done:
-	LLOCK;
 	if (debugfile) {
 		stlogit2(debugfile, "%-25s:  rc = 0x%08x\n", "C_GetTokenInfo", rc );
 
 	}
 
-	UNLOCKIT;
 	return rc;
 }
 
@@ -918,8 +1034,13 @@ netscape_hack(CK_MECHANISM_TYPE_PTR mech_arr_ptr, CK_ULONG count)
 	}
 }
 
+/*
+ * This function will merge the token and software fallback mechanism
+ * lists and either return a count of the merged lists or a merged
+ * mechanism list.
+ */
 void mechanism_list_transformations(CK_MECHANISM_TYPE_PTR mech_arr_ptr,
-				    CK_ULONG_PTR count_ptr)
+				     CK_ULONG_PTR count_ptr)
 {
 #ifndef NO_NETSCAPE_HACK
 	netscape_hack(mech_arr_ptr, (*count_ptr));
@@ -934,8 +1055,9 @@ CK_RV SC_GetMechanismList(CK_SLOT_ID sid,
                           CK_ULONG_PTR count)
 {
 	CK_RV rc = CKR_OK;
+	CK_ULONG i = 0;
 	SLT_CHECK;
-	LOCKIT;
+
 	if (st_Initialized() == FALSE) {
 		st_err_log(72, __FILE__, __LINE__);
 		rc = CKR_CRYPTOKI_NOT_INITIALIZED;
@@ -951,24 +1073,33 @@ CK_RV SC_GetMechanismList(CK_SLOT_ID sid,
 		rc = CKR_SLOT_ID_INVALID;
 		goto out;
 	}
-	if (!token_specific.t_get_mechanism_list) {
-		st_err_log(4, __FILE__, __LINE__);
-		rc = CKR_GENERAL_ERROR;
-		goto out;
+
+	if (pMechList == NULL) {
+	    (*count) = merged_mech_list_len;
+	    goto out;
+	} else if (*count < merged_mech_list_len) {
+	    (*count) = merged_mech_list_len;
+	    rc = CKR_BUFFER_TOO_SMALL;
+	    goto out;
+	} else {
+	    (*count) = merged_mech_list_len;
+	    for (i = 0; i < merged_mech_list_len; i++) {
+		pMechList[i] = merged_mech_list[i].mech_type;
+	    }
 	}
-	rc = token_specific.t_get_mechanism_list(pMechList, count);
+
 	if (rc == CKR_OK) {
 		/* To accomodate certain special cases, we may need to
 		 * make adjustments to the token's mechanism list. */
 		mechanism_list_transformations(pMechList, count);
 	}
+
  out:
-	LLOCK;
 	if (debugfile) {
 		stlogit2(debugfile, "%-25s:  rc = 0x%08x, # mechanisms:  %d\n",
 			 "C_GetMechanismList", rc, *count );
 	}
-	UNLOCKIT;
+
 	return rc;
 }
 
@@ -982,7 +1113,7 @@ CK_RV SC_GetMechanismInfo(CK_SLOT_ID sid,
 	CK_RV rc = CKR_OK;
 	CK_ULONG i;
 	SLT_CHECK;
-	LOCKIT;
+
 	if (st_Initialized() == FALSE) {
 		st_err_log(72, __FILE__, __LINE__);
 		rc = CKR_CRYPTOKI_NOT_INITIALIZED;
@@ -998,26 +1129,22 @@ CK_RV SC_GetMechanismInfo(CK_SLOT_ID sid,
 		rc = CKR_SLOT_ID_INVALID;
 		goto out;
 	}
-	if (!token_specific.t_get_mechanism_info) {
-		st_err_log(4, __FILE__, __LINE__);
-		rc = CKR_GENERAL_ERROR;
+
+	for (i = 0; i < merged_mech_list_len; i++) {
+	    if (type == merged_mech_list[i].mech_type) {
+		memcpy(pInfo, &merged_mech_list[i].mech_info, sizeof(CK_MECHANISM_INFO));
 		goto out;
+	    }
 	}
-	rc = token_specific.t_get_mechanism_info(type, pInfo);
+	rc = CKR_MECHANISM_INVALID;
+
  out:
-	LLOCK;
 	if (debugfile) {
 		stlogit2(debugfile, "%-25s:  rc = 0x%08x, mech type = 0x%08x\n",
 			 "C_GetMechanismInfo", rc, type );
 	}
 	
-	UNLOCKIT;
 	return rc;
-}
-
-int delete_all_files_in_dir(char *full_dir_path)
-{
-	return 0;
 }
 
 /* This routine should only be called if no other processes are
@@ -1037,7 +1164,7 @@ CK_RV SC_InitToken( CK_SLOT_ID   sid,
 	char *pk_full_path = NULL;
 	SLT_CHECK;
 	slotID = slot_id;
-	LOCKIT;
+
 	if (st_Initialized() == FALSE) {
 		st_err_log(72, __FILE__, __LINE__);
 		rc = CKR_CRYPTOKI_NOT_INITIALIZED;
@@ -1053,12 +1180,26 @@ CK_RV SC_InitToken( CK_SLOT_ID   sid,
 		rc = CKR_PIN_LOCKED;
 		goto done;
 	}
-	rc = compute_sha( pPin, ulPinLen, hash_sha );
-	if (memcmp(nv_token_data->so_pin_sha, hash_sha, SHA1_HASH_SIZE) != 0) {
+
+	// call token function for pin check if enabled
+	if (token_functions->flags && TOKEN_PLUGGABLE_LOGIN) {
+	    if ((rc = token_functions->T_VerifySOPIN(
+		     pPin, ulPinLen)) != CKR_OK) {
 		st_err_log(33, __FILE__, __LINE__);
 		rc = CKR_PIN_INCORRECT;
 		goto done;
+	    }
+
+	// otherwise use use default pin checking
+	} else {
+	    rc = compute_sha( pPin, ulPinLen, hash_sha );
+	    if (memcmp(nv_token_data->so_pin_sha, hash_sha, SHA1_HASH_SIZE) != 0) {
+		st_err_log(33, __FILE__, __LINE__);
+		rc = CKR_PIN_INCORRECT;
+		goto done;
+	    }
 	}
+	
 	rc  = rng_generate( master_key, 3 * DES_KEY_SIZE );
 	if (rc != CKR_OK) {
 		st_err_log(4, __FILE__, __LINE__, __FUNCTION__);
@@ -1071,7 +1212,7 @@ CK_RV SC_InitToken( CK_SLOT_ID   sid,
 	// Construct a string to delete the token objects.
 	//
 	object_mgr_destroy_token_objects();
-#if 0 /* TODO: Implement delete_all_files_in_dir() */
+
 	local_rc = asprintf(&pk_full_path, "%s/%s", pk_dir, PK_LITE_OBJ_DIR);
 	if (local_rc == -1) {
 		rc = CKR_HOST_MEMORY;
@@ -1082,28 +1223,25 @@ CK_RV SC_InitToken( CK_SLOT_ID   sid,
 		rc = CKR_FUNCTION_FAILED;
 		goto out;
 	}
-#endif
-	local_rc = asprintf(&s, "%s %s/%s/* > /dev/null 2>&1", DEL_CMD, pk_dir,
-			    PK_LITE_OBJ_DIR);
-	if (local_rc == -1) {
-		rc = CKR_HOST_MEMORY;
-		goto out;
-	}
-	system(s);
-	free(s);
-	s = NULL;
+
 	// META This should be fine since the open session checking
 	// should occur at the API not the STDLL
 	init_token_data();
 	init_slotInfo();
 	memcpy( nv_token_data->token_info.label, pLabel, 32 );
-	memcpy( nv_token_data->so_pin_sha, hash_sha, SHA1_HASH_SIZE);
+
+	// init_token_data resets so pin
+	if (!(token_functions->flags && TOKEN_PLUGGABLE_LOGIN)) {
+	    memcpy( nv_token_data->so_pin_sha, hash_sha, SHA1_HASH_SIZE);
+	}
+
 	nv_token_data->token_info.flags |= CKF_TOKEN_INITIALIZED;
 	rc = save_token_data();
 	if (rc != CKR_OK){
 		st_err_log(104, __FILE__, __LINE__, __FUNCTION__);
 		goto done;
 	}
+
 	rc = save_masterkey_so();
 	if (rc != CKR_OK){
 		st_err_log(149, __FILE__, __LINE__, __FUNCTION__);
@@ -1111,18 +1249,16 @@ CK_RV SC_InitToken( CK_SLOT_ID   sid,
 	}
  done:
  out:
-	LLOCK;
 	if (debugfile) {
 		stlogit2(debugfile, "%-25s:  rc = 0x%08x\n", "C_InitToken",
 			 rc );
 	}
-	UNLOCKIT;
+
 	if (pk_full_path) {
 		free(pk_full_path);
 	}
 	return rc;
 }
-
 
 //
 //
@@ -1136,7 +1272,7 @@ CK_RV SC_InitPIN( ST_SESSION_HANDLE  sSession,
 	CK_RV             rc = CKR_OK;
 	CK_FLAGS_32     * flags = NULL;
 	SESS_SET;
-	LOCKIT;
+
 	if (st_Initialized() == FALSE) {
 		st_err_log(72, __FILE__, __LINE__);
 		rc = CKR_CRYPTOKI_NOT_INITIALIZED;
@@ -1164,43 +1300,61 @@ CK_RV SC_InitPIN( ST_SESSION_HANDLE  sSession,
 		rc = CKR_USER_NOT_LOGGED_IN;
 		goto done;
 	}
-	if ((ulPinLen < MIN_PIN_LEN) || (ulPinLen > MAX_PIN_LEN)) {
+
+	// call token function to init pin if enabled
+	if (token_functions->flags && TOKEN_PLUGGABLE_LOGIN) {
+	    if ((rc = token_functions->T_InitPIN(pPin, ulPinLen)) != CKR_OK) {
+		// token must provide appropriate return code
+		goto done;
+	    }
+	    rc = XProcLock( xproclock );
+	    if (rc != CKR_OK){
+		st_err_log(150, __FILE__, __LINE__);
+		goto done;
+	    }
+	    nv_token_data->token_info.flags |= CKF_USER_PIN_INITIALIZED;
+	    XProcUnLock(xproclock);
+
+	// otherwise use default user pin init
+	} else {
+	    if ((ulPinLen < MIN_PIN_LEN) || (ulPinLen > MAX_PIN_LEN)) {
 		st_err_log(35, __FILE__, __LINE__); 
 		rc = CKR_PIN_LEN_RANGE;
 		goto done;
-	}
-	// compute the SHA and MD5 hashes of the user pin
-	rc  = compute_sha( pPin, ulPinLen, hash_sha );
-	rc |= compute_md5( pPin, ulPinLen, hash_md5 );
-	if (rc != CKR_OK){
+	    }
+	    // compute the SHA and MD5 hashes of the user pin
+	    rc  = compute_sha( pPin, ulPinLen, hash_sha );
+	    rc |= compute_md5( pPin, ulPinLen, hash_md5 );
+	    if (rc != CKR_OK){
 		st_err_log(148, __FILE__, __LINE__); 	
 		goto done;
-	}
-	rc = XProcLock( xproclock );
-	if (rc != CKR_OK){
+	    }
+	    rc = XProcLock( xproclock );
+	    if (rc != CKR_OK){
 		st_err_log(150, __FILE__, __LINE__);
 		goto done;
+	    }
+	    memcpy(nv_token_data->user_pin_sha, hash_sha, SHA1_HASH_SIZE);
+	    nv_token_data->token_info.flags |= CKF_USER_PIN_INITIALIZED;
+	    XProcUnLock(xproclock);
+	    memcpy( user_pin_md5, hash_md5, MD5_HASH_SIZE  );
 	}
-	memcpy(nv_token_data->user_pin_sha, hash_sha, SHA1_HASH_SIZE);
-	nv_token_data->token_info.flags |= CKF_USER_PIN_INITIALIZED;
-	XProcUnLock(xproclock);
-	memcpy( user_pin_md5, hash_md5, MD5_HASH_SIZE  );
+
 	rc = save_token_data();
 	if (rc != CKR_OK){
-		st_err_log(104, __FILE__, __LINE__);
-		goto done;
+	    st_err_log(104, __FILE__, __LINE__);
+	    goto done;
 	}
 	rc = save_masterkey_user();
 	if (rc != CKR_OK){
 		st_err_log(149, __FILE__, __LINE__);
 	}
  done:
-	LLOCK;
 	if (debugfile) {
 		stlogit2(debugfile, "%-25s:  session = %08x\n", "C_InitPin", rc, 
 			 hSession);
 	}
-	UNLOCKIT;
+
 	return rc;
 }
 
@@ -1219,7 +1373,7 @@ CK_RV SC_SetPIN( ST_SESSION_HANDLE  sSession,
 	CK_ULONG hash_len;
 	CK_RV rc = CKR_OK;
 	SESS_SET;
-	LOCKIT;
+
 	if (st_Initialized() == FALSE) {
 		st_err_log(72, __FILE__, __LINE__);
 		rc = CKR_CRYPTOKI_NOT_INITIALIZED;
@@ -1237,87 +1391,151 @@ CK_RV SC_SetPIN( ST_SESSION_HANDLE  sSession,
 		rc = CKR_PIN_LOCKED;
 		goto done;
 	}
-	if ((ulNewLen < MIN_PIN_LEN) || (ulNewLen > MAX_PIN_LEN)) {
+
+	// call token function to set pin if enabled
+	if (token_functions->flags && TOKEN_PLUGGABLE_LOGIN) {
+	    // set user pin
+	    if ((sess->session_info.state == CKS_RW_USER_FUNCTIONS) ||
+		(sess->session_info.state == CKS_RW_PUBLIC_SESSION)) {
+		if ((rc = token_functions->T_SetUserPIN(
+			 pOldPin, ulOldLen, pNewPin, ulNewLen)) != CKR_OK) {
+		    // token must provide appropriate return code
+		    goto done;
+		}
+		// generate and store pin md5 for masterkey
+		rc |= compute_md5(pNewPin, ulNewLen, hash_md5);
+		if (rc != CKR_OK){
+		    st_err_log(148, __FILE__, __LINE__); 	
+		    goto done;
+		}
+		rc = XProcLock(xproclock);
+		if (rc != CKR_OK){
+		    st_err_log(150, __FILE__, __LINE__);
+		    goto done;
+		}
+		memcpy(user_pin_md5, hash_md5, MD5_HASH_SIZE);
+		nv_token_data->token_info.flags &=
+		    ~(CKF_USER_PIN_TO_BE_CHANGED);
+		XProcUnLock(xproclock);
+		rc = save_masterkey_user();
+		
+            // set SO pin
+	    } else if (sess->session_info.state == CKS_RW_SO_FUNCTIONS) {
+		if ((rc = token_functions->T_SetSOPIN(
+			 pOldPin, ulOldLen,pNewPin, ulNewLen)) != CKR_OK) {
+		    // token must provide appropriate return code
+		    goto done;
+		}
+		// generate and store pin md5 for masterkey
+		rc |= compute_md5(pNewPin, ulNewLen, hash_md5);
+		if (rc != CKR_OK){
+		    st_err_log(148, __FILE__, __LINE__); 	
+		    goto done;
+		}
+		rc = XProcLock(xproclock);
+		if (rc != CKR_OK){
+		    st_err_log(150, __FILE__, __LINE__);
+		    goto done;
+		}
+		memcpy(so_pin_md5, hash_md5, MD5_HASH_SIZE);
+		nv_token_data->token_info.flags &= ~(CKF_SO_PIN_TO_BE_CHANGED);
+		XProcUnLock(xproclock);
+		rc = save_masterkey_so();
+	    } else {
+		st_err_log(142, __FILE__, __LINE__);
+		rc = CKR_SESSION_READ_ONLY;
+		goto done;
+	    }
+	    rc = save_token_data();
+	    if (rc != CKR_OK){
+		st_err_log(104, __FILE__, __LINE__);
+		goto done;
+	    }
+	    
+	// otherwise use default pin set function
+	} else {
+
+	    if ((ulNewLen < MIN_PIN_LEN) || (ulNewLen > MAX_PIN_LEN)) {
 		st_err_log(35, __FILE__, __LINE__); 
 		rc = CKR_PIN_LEN_RANGE;
 		goto done;
-	}
-	rc = compute_sha( pOldPin, ulOldLen, old_hash_sha );
-	if (rc != CKR_OK){
+	    }
+	    rc = compute_sha( pOldPin, ulOldLen, old_hash_sha );
+	    if (rc != CKR_OK){
 		st_err_log(148, __FILE__, __LINE__); 	
 		goto done;
-	}
-	/* From the PKCS#11 2.20 spec: "C_SetPIN modifies the PIN of
-	 * the user that is currently logged in, or the CKU_USER PIN
-	 * if the session is not logged in."  A non R/W session fails
-	 * with CKR_SESSION_READ_ONLY.
-	 */
-	if ((sess->session_info.state == CKS_RW_USER_FUNCTIONS) ||
-	    (sess->session_info.state == CKS_RW_PUBLIC_SESSION)) {
+	    }
+	    /* From the PKCS#11 2.20 spec: "C_SetPIN modifies the PIN of
+	     * the user that is currently logged in, or the CKU_USER PIN
+	     * if the session is not logged in."  A non R/W session fails
+	     * with CKR_SESSION_READ_ONLY.
+	     */
+	    if ((sess->session_info.state == CKS_RW_USER_FUNCTIONS) ||
+		(sess->session_info.state == CKS_RW_PUBLIC_SESSION)) {
 		if (memcmp(nv_token_data->user_pin_sha, old_hash_sha, 
 			   SHA1_HASH_SIZE) != 0) {
-			st_err_log(33, __FILE__, __LINE__); 	
-			rc = CKR_PIN_INCORRECT;
-			goto done;
+		    st_err_log(33, __FILE__, __LINE__); 	
+		    rc = CKR_PIN_INCORRECT;
+		    goto done;
 		}
 		rc  = compute_sha( pNewPin, ulNewLen, new_hash_sha );
 		rc |= compute_md5( pNewPin, ulNewLen, hash_md5 );
 		if (rc != CKR_OK){
-			st_err_log(148, __FILE__, __LINE__); 	
-			goto done;
+		    st_err_log(148, __FILE__, __LINE__); 	
+		    goto done;
 		}
 		/* The old PIN matches, now make sure its different
 		 * than the new and is not the default. */
 		if ((memcmp(old_hash_sha, new_hash_sha, SHA1_HASH_SIZE) == 0) ||
 		    (memcmp(new_hash_sha, default_user_pin_sha, SHA1_HASH_SIZE)
 		     == 0)) {
-			st_err_log(34, __FILE__, __LINE__);
-			rc = CKR_PIN_INVALID;
-			goto done;
+		    st_err_log(34, __FILE__, __LINE__);
+		    rc = CKR_PIN_INVALID;
+		    goto done;
 		}
 		rc = XProcLock( xproclock );
 		if (rc != CKR_OK){
-			st_err_log(150, __FILE__, __LINE__);
-			goto done;
+		    st_err_log(150, __FILE__, __LINE__);
+		    goto done;
 		}
 		memcpy(nv_token_data->user_pin_sha, new_hash_sha,
 		       SHA1_HASH_SIZE);
 		memcpy(user_pin_md5, hash_md5, MD5_HASH_SIZE);
 		nv_token_data->token_info.flags &=
-			~(CKF_USER_PIN_TO_BE_CHANGED);
+		    ~(CKF_USER_PIN_TO_BE_CHANGED);
 		XProcUnLock( xproclock );
 		rc = save_token_data();
 		if (rc != CKR_OK){
-			st_err_log(104, __FILE__, __LINE__);
-			goto done;
+		    st_err_log(104, __FILE__, __LINE__);
+		    goto done;
 		}
 		rc = save_masterkey_user();
-	} else if (sess->session_info.state == CKS_RW_SO_FUNCTIONS) {
+	    } else if (sess->session_info.state == CKS_RW_SO_FUNCTIONS) {
 		if (memcmp(nv_token_data->so_pin_sha, old_hash_sha, 
 			   SHA1_HASH_SIZE) != 0) {
-			rc = CKR_PIN_INCORRECT;
-			st_err_log(33, __FILE__, __LINE__);
-			goto done;
+		    rc = CKR_PIN_INCORRECT;
+		    st_err_log(33, __FILE__, __LINE__);
+		    goto done;
 		}
 		rc = compute_sha(pNewPin, ulNewLen, new_hash_sha);
 		rc |= compute_md5(pNewPin, ulNewLen, hash_md5);
 		if (rc != CKR_OK){
-			st_err_log(148, __FILE__, __LINE__);
-			goto done;
+		    st_err_log(148, __FILE__, __LINE__);
+		    goto done;
 		}
 		/* The old PIN matches, now make sure its different
 		 * than the new and is not the default. */
 		if ((memcmp(old_hash_sha, new_hash_sha, SHA1_HASH_SIZE) == 0) ||
 		    (memcmp(new_hash_sha, default_so_pin_sha, SHA1_HASH_SIZE)
 		     == 0)) {
-			st_err_log(34, __FILE__, __LINE__);
-			rc = CKR_PIN_INVALID;
-			goto done;
+		    st_err_log(34, __FILE__, __LINE__);
+		    rc = CKR_PIN_INVALID;
+		    goto done;
 		}
 		rc = XProcLock( xproclock );
 		if (rc != CKR_OK){
-			st_err_log(150, __FILE__, __LINE__);
-			goto done;
+		    st_err_log(150, __FILE__, __LINE__);
+		    goto done;
 		}
 		memcpy(nv_token_data->so_pin_sha, new_hash_sha, SHA1_HASH_SIZE);
 		memcpy( so_pin_md5, hash_md5, MD5_HASH_SIZE );
@@ -1325,21 +1543,21 @@ CK_RV SC_SetPIN( ST_SESSION_HANDLE  sSession,
 		XProcUnLock( xproclock );
 		rc = save_token_data();
 		if (rc != CKR_OK){
-			st_err_log(104, __FILE__, __LINE__);
-			goto done;
+		    st_err_log(104, __FILE__, __LINE__);
+		    goto done;
 		}
 		rc = save_masterkey_so();
-	} else {
+	    } else {
 		st_err_log(142, __FILE__, __LINE__);
 		rc = CKR_SESSION_READ_ONLY;
+	    }
 	}
  done:
-	LLOCK;
 	if (debugfile) {
 		stlogit2(debugfile, "%-25s:  session = %08x\n", "C_SetPin", rc,
 			 hSession );
 	}
-	UNLOCKIT;
+
 	if (rc != CKR_SESSION_READ_ONLY && rc != CKR_OK)
 		st_err_log(149, __FILE__, __LINE__);
 	return rc;
@@ -1353,7 +1571,7 @@ CK_RV SC_OpenSession(CK_SLOT_ID             sid,
 	CK_BBOOL               locked = FALSE;
 	CK_RV                  rc = CKR_OK;
 	SLT_CHECK;
-	LOCKIT;
+
 	if (st_Initialized() == FALSE) {
 		st_err_log(72, __FILE__, __LINE__);
 		rc = CKR_CRYPTOKI_NOT_INITIALIZED;
@@ -1384,9 +1602,19 @@ CK_RV SC_OpenSession(CK_SLOT_ID             sid,
 		goto done;
 	}
 	locked = TRUE;
-	token_specific.t_session(slot_id);
+
+	// token open session
+	if ( token_functions->T_OpenSession != NULL) {
+	    if ((rc = token_functions->T_OpenSession(sid)) != CKR_OK) {
+		// token must provide appropriate return code
+		// mutex unlocked at done
+		goto done;
+	    }
+	}
+	
 	MY_UnlockMutex( &pkcs_mutex );
 	locked = FALSE;
+
 	rc = session_mgr_new( flags, &sess );
 	if (rc != CKR_OK){
 		st_err_log(152, __FILE__, __LINE__); 
@@ -1398,7 +1626,6 @@ CK_RV SC_OpenSession(CK_SLOT_ID             sid,
  done:
 	if (locked)
 		MY_UnlockMutex( &pkcs_mutex );
-	LLOCK;
 	if (debugfile) {
 		stlogit2(debugfile, "%-25s:  rc = 0x%08x  ", "C_OpenSession",
 			 rc);
@@ -1407,7 +1634,7 @@ CK_RV SC_OpenSession(CK_SLOT_ID             sid,
 				 ((sess == NULL) ? -1 : (CK_LONG)sess->handle));
 		stlogit2(debugfile, "\n");
 	}
-	UNLOCKIT;
+
 	return rc;
 }
 
@@ -1416,7 +1643,7 @@ CK_RV SC_CloseSession( ST_SESSION_HANDLE  sSession )
 	SESSION  * sess = NULL;
 	CK_RV      rc = CKR_OK;
 	SESS_SET;
-	LOCKIT;
+
 	if (st_Initialized() == FALSE) {
 		st_err_log(72, __FILE__, __LINE__);
 		rc = CKR_CRYPTOKI_NOT_INITIALIZED;
@@ -1428,14 +1655,22 @@ CK_RV SC_CloseSession( ST_SESSION_HANDLE  sSession )
 		rc = CKR_SESSION_HANDLE_INVALID;
 		goto done;
 	}
+
+	// token close session
+	if ( token_functions->T_CloseSession != NULL) {
+	    if ((rc = token_functions->T_CloseSession()) != CKR_OK) {
+		// token must provide appropriate return code
+		goto done;
+	    }
+	}
+	
 	rc = session_mgr_close_session( sess );
  done:
-	LLOCK;
 	if (debugfile) {
 		stlogit2(debugfile, "%-25s:  rc = 0x%08x  sess = %d\n",
 			 "C_CloseSession", rc, hSession );
 	}
-	UNLOCKIT;
+
 	return rc;
 }
 
@@ -1443,23 +1678,31 @@ CK_RV SC_CloseAllSessions( CK_SLOT_ID  sid )
 {
 	CK_RV rc = CKR_OK;
 	SLT_CHECK;
-	LOCKIT;
+
 	if (st_Initialized() == FALSE) {
 		st_err_log(72, __FILE__, __LINE__);
 		rc = CKR_CRYPTOKI_NOT_INITIALIZED;
 		goto done;
 	}
+
+	// token close all sessions
+	if ( token_functions->T_CloseAllSessions != NULL) {
+	    if ((rc = token_functions->T_CloseAllSessions(sid)) != CKR_OK) {
+		// token must provide appropriate return code
+		goto done;
+	    }
+	}
+
 	rc = session_mgr_close_all_sessions();
 	if (rc != CKR_OK){
 		st_err_log(153, __FILE__, __LINE__);
 	}
  done:
-	LLOCK;
 	if (debugfile) {
 		stlogit2(debugfile, "%-25s:  rc = 0x%08x  slot = %d\n",
 			 "C_CloseAllSessions", rc, slot_id );
 	}
-	UNLOCKIT;
+
 	return rc;
 }
 
@@ -1469,7 +1712,7 @@ CK_RV SC_GetSessionInfo( ST_SESSION_HANDLE   sSession,
 	SESSION  * sess = NULL;
 	CK_RV      rc = CKR_OK;
 	SESS_SET;
-	LOCKIT;
+
 	if (st_Initialized() == FALSE) {
 		st_err_log(72, __FILE__, __LINE__);
 		rc = CKR_CRYPTOKI_NOT_INITIALIZED;
@@ -1496,7 +1739,7 @@ CK_RV SC_GetSessionInfo( ST_SESSION_HANDLE   sSession,
 		stlogit2(debugfile, "%-25s:  session = %08d\n",
 			 "C_GetSessionInfo", hSession );
 	}
-	UNLOCKIT;
+
 	return rc;
 }
 
@@ -1508,7 +1751,7 @@ CK_RV SC_GetOperationState( ST_SESSION_HANDLE  sSession,
 	CK_BBOOL   length_only = FALSE;
 	CK_RV      rc = CKR_OK;
 	SESS_SET;
-	LOCKIT;
+
 	if (st_Initialized() == FALSE) {
 		st_err_log(72, __FILE__, __LINE__);
 		rc = CKR_CRYPTOKI_NOT_INITIALIZED;
@@ -1539,12 +1782,10 @@ CK_RV SC_GetOperationState( ST_SESSION_HANDLE  sSession,
 		st_err_log(154, __FILE__, __LINE__);
 	}
  done:
-	LLOCK;
 	if (debugfile) {
 		stlogit2(debugfile, "%-25s:  session = %08x\n", "C_GetOperationState", rc, hSession );
 	}
 
-	UNLOCKIT;
 	return rc;
 }
 
@@ -1562,7 +1803,6 @@ CK_RV SC_SetOperationState( ST_SESSION_HANDLE  sSession,
 	SESS_SET
 
 
-		LOCKIT;
 	if (st_Initialized() == FALSE) {
 		st_err_log(72, __FILE__, __LINE__);
 		rc = CKR_CRYPTOKI_NOT_INITIALIZED;
@@ -1590,12 +1830,10 @@ CK_RV SC_SetOperationState( ST_SESSION_HANDLE  sSession,
 		st_err_log(154, __FILE__, __LINE__);
 	}
  done:
-	LLOCK;
 	if (debugfile) {
 		stlogit2(debugfile, "%-25s:  session = %08x\n", "C_SetOperationState", rc, hSession );
 	}
 
-	UNLOCKIT;
 	return rc;
 }
 
@@ -1614,7 +1852,7 @@ CK_RV SC_Login( ST_SESSION_HANDLE   sSession,
 	CK_RV            rc = CKR_OK;
 
 	SESS_SET
-		LOCKIT;
+
 	// In v2.11, logins should be exclusive, since token
 	// specific flags may need to be set for a bad login. - KEY
 	rc = MY_LockMutex( &login_mutex );
@@ -1637,13 +1875,6 @@ CK_RV SC_Login( ST_SESSION_HANDLE   sSession,
 	}
 	flags = &nv_token_data->token_info.flags;
 
-	if (!pPin || ulPinLen > MAX_PIN_LEN) {
-		set_login_flags(userType, flags);
-		st_err_log(33, __FILE__, __LINE__);
-		rc = CKR_PIN_INCORRECT;
-		goto done;
-	}
-	
 	// PKCS #11 v2.01 requires that all sessions have the same login status:
 	//    --> all sessions are public, all are SO or all are USER
 	//
@@ -1678,72 +1909,117 @@ CK_RV SC_Login( ST_SESSION_HANDLE   sSession,
 	if (rc != CKR_OK)
 		goto done;
 
+	// verify user pin
 	if (userType == CKU_USER) {
-		if (*flags & CKF_USER_PIN_LOCKED) {
-			st_err_log(37, __FILE__, __LINE__);
-			rc = CKR_PIN_LOCKED;
-			goto done;
+
+	    if (*flags & CKF_USER_PIN_LOCKED) {
+		st_err_log(37, __FILE__, __LINE__);
+		rc = CKR_PIN_LOCKED;
+		goto done;
+	    }
+
+	    // call token function for pin check if enabled
+	    if (token_functions->flags && TOKEN_PLUGGABLE_LOGIN) {
+		if ((rc = token_functions->T_VerifyUserPIN(
+			 pPin, ulPinLen)) != CKR_OK) {
+		    set_login_flags(userType, flags);
+		    st_err_log(33, __FILE__, __LINE__);
+		    rc = CKR_PIN_INCORRECT;
+		    goto done;
+		}
+
+	    // otherwise use use default pin checking
+	    } else {
+	        if (!pPin || ulPinLen > MAX_PIN_LEN) {
+		    set_login_flags(userType, flags);
+		    st_err_log(33, __FILE__, __LINE__);
+		    rc = CKR_PIN_INCORRECT;
+		    goto done;
 		}
 
 		if (memcmp(nv_token_data->user_pin_sha,
 			   "00000000000000000000", SHA1_HASH_SIZE) == 0) {
-			st_err_log(33, __FILE__, __LINE__);
-			rc = CKR_USER_PIN_NOT_INITIALIZED;
-			goto done;
+		    st_err_log(33, __FILE__, __LINE__);
+		    rc = CKR_USER_PIN_NOT_INITIALIZED;
+		    goto done;
 		}
-
+		
 		rc = compute_sha( pPin, ulPinLen, hash_sha );
 		if (memcmp(nv_token_data->user_pin_sha, hash_sha, SHA1_HASH_SIZE) != 0) {
-			set_login_flags(userType, flags);
-			st_err_log(33, __FILE__, __LINE__);
-			rc = CKR_PIN_INCORRECT;
-			goto done;
+		    set_login_flags(userType, flags);
+		    st_err_log(33, __FILE__, __LINE__);
+		    rc = CKR_PIN_INCORRECT;
+		    goto done;
 		}
-		/* Successful login, clear flags */
-		*flags &=	~(CKF_USER_PIN_LOCKED |
-				  CKF_USER_PIN_FINAL_TRY |
-				  CKF_USER_PIN_COUNT_LOW);
+	    }
 
-		compute_md5( pPin, ulPinLen, user_pin_md5 );
-		memset( so_pin_md5, 0x0, MD5_HASH_SIZE );
+	    /* Successful login, clear flags */
+	    *flags &=	~(CKF_USER_PIN_LOCKED |
+			  CKF_USER_PIN_FINAL_TRY |
+			  CKF_USER_PIN_COUNT_LOW);
+	    
+	    compute_md5( pPin, ulPinLen, user_pin_md5 );
+	    memset( so_pin_md5, 0x0, MD5_HASH_SIZE );
 
-		rc = load_masterkey_user();
-		if (rc != CKR_OK){
-			st_err_log(155, __FILE__, __LINE__);
-			goto done;
+	    rc = load_masterkey_user();
+	    if (rc != CKR_OK){
+		st_err_log(155, __FILE__, __LINE__);
+		goto done;
+	    }
+	    rc = load_private_token_objects();
+	    
+	    XProcLock( xproclock );
+	    global_shm->priv_loaded = TRUE;
+	    XProcUnLock( xproclock );
+
+	// verify SO pin
+	} else {
+	    if (*flags & CKF_SO_PIN_LOCKED) {
+		st_err_log(37, __FILE__, __LINE__);
+		rc = CKR_PIN_LOCKED;
+		goto done;
+	    }
+
+	    // call token function for pin check if enabled
+	    if (token_functions->flags && TOKEN_PLUGGABLE_LOGIN) {
+		if ((rc = token_functions->T_VerifySOPIN(
+			 pPin, ulPinLen)) != CKR_OK) {
+		    set_login_flags(userType, flags);
+		    st_err_log(33, __FILE__, __LINE__);
+		    rc = CKR_PIN_INCORRECT;
+		    goto done;
 		}
-		rc = load_private_token_objects();
 
-		XProcLock( xproclock );
-		global_shm->priv_loaded = TRUE;
-		XProcUnLock( xproclock );
-
-	}
-	else {
-		if (*flags & CKF_SO_PIN_LOCKED) {
-			st_err_log(37, __FILE__, __LINE__);
-			rc = CKR_PIN_LOCKED;
-			goto done;
+	    // otherwise use use default pin checking
+	    } else {
+	        if (!pPin || ulPinLen > MAX_PIN_LEN) {
+		    set_login_flags(userType, flags);
+		    st_err_log(33, __FILE__, __LINE__);
+		    rc = CKR_PIN_INCORRECT;
+		    goto done;
 		}
+
 		rc = compute_sha( pPin, ulPinLen, hash_sha );
 		if (memcmp(nv_token_data->so_pin_sha, hash_sha, SHA1_HASH_SIZE) != 0) {
-			set_login_flags(userType, flags);
-			st_err_log(33, __FILE__, __LINE__);
-			rc = CKR_PIN_INCORRECT;
-			goto done;
+		    set_login_flags(userType, flags);
+		    st_err_log(33, __FILE__, __LINE__);
+		    rc = CKR_PIN_INCORRECT;
+		    goto done;
 		}
-		/* Successful login, clear flags */
-		*flags &= 	~(CKF_SO_PIN_LOCKED | 
-				  CKF_SO_PIN_FINAL_TRY | 
-				  CKF_SO_PIN_COUNT_LOW);
+	    }
 
-		compute_md5( pPin, ulPinLen, so_pin_md5 );
-		memset( user_pin_md5, 0x0, MD5_HASH_SIZE );
-
-		rc = load_masterkey_so();
-		if (rc != CKR_OK) {
-			st_err_log(155, __FILE__, __LINE__);
-		}
+	    /* Successful login, clear flags */
+	    *flags &= 	~(CKF_SO_PIN_LOCKED | 
+			  CKF_SO_PIN_FINAL_TRY | 
+			  CKF_SO_PIN_COUNT_LOW);
+	    
+	    compute_md5( pPin, ulPinLen, so_pin_md5 );
+	    memset( user_pin_md5, 0x0, MD5_HASH_SIZE );
+	    
+	    rc = load_masterkey_so();
+	    if (rc != CKR_OK) {
+		st_err_log(155, __FILE__, __LINE__);
+	    }
 	}
 
 	rc = session_mgr_login_all( userType );
@@ -1752,12 +2028,10 @@ CK_RV SC_Login( ST_SESSION_HANDLE   sSession,
 	}
 
  done:
-	LLOCK;
 	if (debugfile) {
 		stlogit2(debugfile, "%-25s:  rc = 0x%08x\n", "C_Login", rc );
 	}
 
-	UNLOCKIT;
 	save_token_data();
 	MY_UnlockMutex( &login_mutex );
 	return rc;
@@ -1773,7 +2047,6 @@ CK_RV SC_Logout( ST_SESSION_HANDLE  sSession )
 
 	SESS_SET
 	
-		LOCKIT;
 	if (st_Initialized() == FALSE) {
 		st_err_log(72, __FILE__, __LINE__);
 		rc = CKR_CRYPTOKI_NOT_INITIALIZED;
@@ -1799,18 +2072,27 @@ CK_RV SC_Logout( ST_SESSION_HANDLE  sSession )
 	if (rc != CKR_OK){
 		st_err_log(57, __FILE__, __LINE__);
 	}
+
 	memset( user_pin_md5, 0x0, MD5_HASH_SIZE );
 	memset( so_pin_md5,   0x0, MD5_HASH_SIZE );
 	
+        // call token logout code if function is available
+	if (token_functions->T_Logout != NULL) {
+	    rc = token_functions->T_Logout();
+	    if (rc != CKR_OK) {
+		MY_UnlockMutex(&pkcs_mutex);
+		return CKR_FUNCTION_FAILED;
+	    }
+	}
+
 	object_mgr_purge_private_token_objects();
 	
  done:
-	LLOCK;
 	if (debugfile) {
 		stlogit2(debugfile, "%-25s:  rc = 0x%08x\n", "C_Logout", rc );
 	}
    
-	UNLOCKIT; return rc;
+	return rc;
 }
 
 
@@ -1826,7 +2108,6 @@ CK_RV SC_CreateObject( ST_SESSION_HANDLE    sSession,
 	CK_RV                   rc = CKR_OK;
 	SESS_SET
 
-		LOCKIT;
 	if (st_Initialized() == FALSE) {
 		st_err_log(72, __FILE__, __LINE__);
 		rc = CKR_CRYPTOKI_NOT_INITIALIZED;
@@ -1852,7 +2133,6 @@ CK_RV SC_CreateObject( ST_SESSION_HANDLE    sSession,
 	}
 
  done:
-	LLOCK;
 	if (debugfile) {
 		stlogit2(debugfile, "%-25s:  rc = %08x\n", "C_CreateObject", rc );
 
@@ -1865,7 +2145,7 @@ CK_RV SC_CreateObject( ST_SESSION_HANDLE    sSession,
 
 	}
 
-	UNLOCKIT; return rc;
+	return rc;
 }
 
 
@@ -1882,7 +2162,6 @@ CK_RV  SC_CopyObject( ST_SESSION_HANDLE    sSession,
 	CK_RV                  rc = CKR_OK;
 	SESS_SET
 
-		LOCKIT;
 	if (st_Initialized() == FALSE) {
 		st_err_log(72, __FILE__, __LINE__);
 		rc = CKR_CRYPTOKI_NOT_INITIALIZED;
@@ -1908,12 +2187,11 @@ CK_RV  SC_CopyObject( ST_SESSION_HANDLE    sSession,
 	}
 
  done:
-	LLOCK;
 	if (debugfile) {
 		stlogit2(debugfile, "%-25s:  rc = %08x, old handle = %d, new handle = %d\n", "C_CopyObject", rc, hObject, *phNewObject );
 	}
 
-	UNLOCKIT; return rc;
+	return rc;
 }
 
 
@@ -1927,7 +2205,6 @@ CK_RV SC_DestroyObject( ST_SESSION_HANDLE  sSession,
 	SESS_SET
 
 
-		LOCKIT;
 	if (st_Initialized() == FALSE) {
 		st_err_log(72, __FILE__, __LINE__);
 		rc = CKR_CRYPTOKI_NOT_INITIALIZED;
@@ -1952,12 +2229,11 @@ CK_RV SC_DestroyObject( ST_SESSION_HANDLE  sSession,
 		st_err_log(182, __FILE__, __LINE__);
 	}
  done:
-	LLOCK;
 	if (debugfile) {
 		stlogit2(debugfile, "%-25s:  rc = %08x, handle = %d\n", "C_DestroyObject", rc, hObject );
 	}
 
-	UNLOCKIT; return rc;
+	return rc;
 }
 
 
@@ -1972,7 +2248,6 @@ CK_RV SC_GetObjectSize( ST_SESSION_HANDLE  sSession,
 	SESS_SET
 
 
-		LOCKIT;
 	if (st_Initialized() == FALSE) {
 		st_err_log(72, __FILE__, __LINE__);
 		rc = CKR_CRYPTOKI_NOT_INITIALIZED;
@@ -1992,12 +2267,11 @@ CK_RV SC_GetObjectSize( ST_SESSION_HANDLE  sSession,
 	}
 
  done:
-	LLOCK;
 	if (debugfile) {
 		stlogit2(debugfile, "%-25s:  rc = %08x, handle = %d\n", "C_GetObjectSize", rc, hObject );
 	}
 
-	UNLOCKIT; return rc;
+	return rc;
 }
 
 
@@ -2016,7 +2290,6 @@ CK_RV SC_GetAttributeValue( ST_SESSION_HANDLE  sSession,
 	SESS_SET
 
 
-		LOCKIT;
 	if (st_Initialized() == FALSE) {
 		st_err_log(72, __FILE__, __LINE__);
 		rc = CKR_CRYPTOKI_NOT_INITIALIZED;
@@ -2037,7 +2310,6 @@ CK_RV SC_GetAttributeValue( ST_SESSION_HANDLE  sSession,
 
 
  done:
-	LLOCK;
 	if (debugfile) {
 		stlogit2(debugfile, "%-25s:  rc = %08x, handle = %d\n", "C_GetAttributeValue", rc, hObject );
 
@@ -2056,7 +2328,7 @@ CK_RV SC_GetAttributeValue( ST_SESSION_HANDLE  sSession,
 
 	}
 
-	UNLOCKIT; return rc;
+	return rc;
 }
 
 
@@ -2074,7 +2346,6 @@ CK_RV  SC_SetAttributeValue( ST_SESSION_HANDLE    sSession,
 	SESS_SET
 
 
-		LOCKIT;
 	if (st_Initialized() == FALSE) {
 		st_err_log(72, __FILE__, __LINE__);
 		rc = CKR_CRYPTOKI_NOT_INITIALIZED;
@@ -2094,7 +2365,6 @@ CK_RV  SC_SetAttributeValue( ST_SESSION_HANDLE    sSession,
 	}
 
  done:
-	LLOCK;
 	if (debugfile) {
 		stlogit2(debugfile, "%-25s:  rc = %08x, handle = %d\n", "C_SetAttributeValue", rc, hObject );
 
@@ -2113,7 +2383,7 @@ CK_RV  SC_SetAttributeValue( ST_SESSION_HANDLE    sSession,
 
 	}
 
-	UNLOCKIT; return rc;
+	return rc;
 }
 
 
@@ -2129,7 +2399,6 @@ CK_RV SC_FindObjectsInit( ST_SESSION_HANDLE   sSession,
 	CK_RV            rc = CKR_OK;
 	SESS_SET
 
-		LOCKIT;
 	if (st_Initialized() == FALSE) {
 		st_err_log(72, __FILE__, __LINE__);
 		rc = CKR_CRYPTOKI_NOT_INITIALIZED;
@@ -2161,7 +2430,6 @@ CK_RV SC_FindObjectsInit( ST_SESSION_HANDLE   sSession,
 	}
 
  done:
-	LLOCK;
 	if (debugfile) {
 		stlogit2(debugfile, "%-25s:  rc = %08x\n", "C_FindObjectsInit", rc );
 
@@ -2180,7 +2448,7 @@ CK_RV SC_FindObjectsInit( ST_SESSION_HANDLE   sSession,
 
 	}
 
-	UNLOCKIT; return rc;
+	return rc;
 }
 
 
@@ -2197,7 +2465,6 @@ CK_RV SC_FindObjects( ST_SESSION_HANDLE     sSession,
 	SESS_SET
 
 
-		LOCKIT;
 	if (st_Initialized() == FALSE) {
 		st_err_log(72, __FILE__, __LINE__);
 		rc = CKR_CRYPTOKI_NOT_INITIALIZED;
@@ -2237,12 +2504,11 @@ CK_RV SC_FindObjects( ST_SESSION_HANDLE     sSession,
 	rc = CKR_OK;
 
  done:
-	LLOCK;
 	if (debugfile) {
 		stlogit2(debugfile, "%-25s:  rc = %08x, returned %d objects\n", "C_FindObjects", rc, count );
 	}
 
-	UNLOCKIT; return rc;
+	return rc;
 }
 
 
@@ -2256,7 +2522,6 @@ CK_RV SC_FindObjectsFinal( ST_SESSION_HANDLE  sSession )
 	SESS_SET
 
 
-		LOCKIT;
 	if (st_Initialized() == FALSE) {
 		st_err_log(72, __FILE__, __LINE__);
 		rc = CKR_CRYPTOKI_NOT_INITIALIZED;
@@ -2287,12 +2552,11 @@ CK_RV SC_FindObjectsFinal( ST_SESSION_HANDLE  sSession )
 	rc = CKR_OK;
 
  done:
-	LLOCK;
 	if (debugfile) {
 		stlogit2(debugfile, "%-25s:  rc = %08x\n", "C_FindObjectsFinal", rc );
 	}
 
-	UNLOCKIT; return rc;
+	return rc;
 }
 
 
@@ -2308,7 +2572,6 @@ CK_RV SC_EncryptInit( ST_SESSION_HANDLE  sSession,
 	SESS_SET
 
 
-		LOCKIT;
 	if (st_Initialized() == FALSE) {
 		st_err_log(72, __FILE__, __LINE__);
 		rc = CKR_CRYPTOKI_NOT_INITIALIZED;
@@ -2347,12 +2610,11 @@ CK_RV SC_EncryptInit( ST_SESSION_HANDLE  sSession,
 		st_err_log(98, __FILE__, __LINE__);
 	}
  done:
-	LLOCK;
 	if (debugfile) {
 		stlogit2(debugfile, "%-25s:  rc = %08x, sess = %d, key = %d, mech = 0x%x\n", "C_EncryptInit", rc,(sess == NULL)?-1:(CK_LONG)sess->handle, hKey, pMechanism->mechanism );
 	}
 
-	UNLOCKIT; return rc;
+	return rc;
 }
 
 
@@ -2370,7 +2632,6 @@ CK_RV SC_Encrypt( ST_SESSION_HANDLE  sSession,
 	SESS_SET
 
 
-		LOCKIT;
 	if (st_Initialized() == FALSE) {
 		st_err_log(72, __FILE__, __LINE__);
 		rc = CKR_CRYPTOKI_NOT_INITIALIZED;
@@ -2408,7 +2669,6 @@ CK_RV SC_Encrypt( ST_SESSION_HANDLE  sSession,
 	}
 
  done:
-	LLOCK;
 	if (rc != CKR_BUFFER_TOO_SMALL && (rc != CKR_OK || length_only != TRUE))
 		encr_mgr_cleanup( &sess->encr_ctx );
 
@@ -2416,7 +2676,7 @@ CK_RV SC_Encrypt( ST_SESSION_HANDLE  sSession,
 		stlogit2(debugfile, "%-25s:  rc = %08x, sess = %d, amount = %d\n", "C_Encrypt", rc, (sess == NULL)?-1:(CK_LONG)sess->handle, ulDataLen );
 	}
 
-	UNLOCKIT; return rc;
+	return rc;
 }
 
 
@@ -2434,7 +2694,6 @@ CK_RV SC_EncryptUpdate( ST_SESSION_HANDLE  sSession,
 	SESS_SET
 
 
-		LOCKIT;
 	if (st_Initialized() == FALSE) {
 		st_err_log(72, __FILE__, __LINE__);
 		rc = CKR_CRYPTOKI_NOT_INITIALIZED;
@@ -2472,7 +2731,6 @@ CK_RV SC_EncryptUpdate( ST_SESSION_HANDLE  sSession,
 	}
 
  done:
-	LLOCK;
 	if (rc != CKR_OK && rc != CKR_BUFFER_TOO_SMALL)
 		encr_mgr_cleanup( &sess->encr_ctx );
 
@@ -2480,7 +2738,7 @@ CK_RV SC_EncryptUpdate( ST_SESSION_HANDLE  sSession,
 		stlogit2(debugfile, "%-25s:  rc = %08x, sess = %d, amount = %d\n", "C_EncryptUpdate", rc, (sess == NULL)?-1:(CK_LONG)sess->handle, ulPartLen );
 	}
 
-	UNLOCKIT; return rc;
+	return rc;
 }
 
 
@@ -2515,7 +2773,6 @@ CK_RV SC_EncryptFinal( ST_SESSION_HANDLE  sSession,
 	SESS_SET
 
 
-		LOCKIT;
 	if (st_Initialized() == FALSE) {
 		st_err_log(72, __FILE__, __LINE__);
 		rc = CKR_CRYPTOKI_NOT_INITIALIZED;
@@ -2551,7 +2808,6 @@ CK_RV SC_EncryptFinal( ST_SESSION_HANDLE  sSession,
 	}
 
  done:
-	LLOCK;
 	if (rc != CKR_BUFFER_TOO_SMALL && (rc != CKR_OK || length_only != TRUE))
 		encr_mgr_cleanup( &sess->encr_ctx );
 
@@ -2559,7 +2815,7 @@ CK_RV SC_EncryptFinal( ST_SESSION_HANDLE  sSession,
 		stlogit2(debugfile, "%-25s:  rc = %08x, sess = %d\n", "C_EncryptFinal", rc, (sess == NULL)?-1:(CK_LONG)sess->handle );
 	}
 
-	UNLOCKIT; return rc;
+	return rc;
 }
 
 
@@ -2574,7 +2830,6 @@ CK_RV SC_DecryptInit( ST_SESSION_HANDLE  sSession,
 	SESS_SET
 
 
-		LOCKIT;
 	if (st_Initialized() == FALSE) {
 		st_err_log(72, __FILE__, __LINE__);
 		rc = CKR_CRYPTOKI_NOT_INITIALIZED;
@@ -2613,12 +2868,11 @@ CK_RV SC_DecryptInit( ST_SESSION_HANDLE  sSession,
 	}
 
  done:
-	LLOCK;
 	if (debugfile) {
 		stlogit2(debugfile, "%-25s:  rc = %08x, sess = %d, key = %d, mech = 0x%x\n", "C_DecryptInit", rc, (sess == NULL)?-1:(CK_LONG)sess->handle, hKey, pMechanism->mechanism );
 	}
 
-	UNLOCKIT; return rc;
+	return rc;
 }
 
 
@@ -2636,7 +2890,6 @@ CK_RV SC_Decrypt( ST_SESSION_HANDLE  sSession,
 	SESS_SET
 
 
-		LOCKIT;
 	if (st_Initialized() == FALSE) {
 		st_err_log(72, __FILE__, __LINE__);
 		rc = CKR_CRYPTOKI_NOT_INITIALIZED;
@@ -2674,7 +2927,6 @@ CK_RV SC_Decrypt( ST_SESSION_HANDLE  sSession,
 	}
 
  done:
-	LLOCK;
 	if (rc != CKR_BUFFER_TOO_SMALL && (rc != CKR_OK || length_only != TRUE))
 		decr_mgr_cleanup( &sess->decr_ctx );
 
@@ -2682,7 +2934,7 @@ CK_RV SC_Decrypt( ST_SESSION_HANDLE  sSession,
 		stlogit2(debugfile, "%-25s:  rc = %08x, sess = %d, amount = %d\n", "C_Decrypt", rc, (sess == NULL)?-1:(CK_LONG)sess->handle, ulEncryptedDataLen );
 	}
 
-	UNLOCKIT; return rc;
+	return rc;
 }
 
 
@@ -2700,7 +2952,6 @@ CK_RV SC_DecryptUpdate( ST_SESSION_HANDLE  sSession,
 	SESS_SET
 
 
-		LOCKIT;
 	if (st_Initialized() == FALSE) {
 		st_err_log(72, __FILE__, __LINE__);
 		rc = CKR_CRYPTOKI_NOT_INITIALIZED;
@@ -2738,7 +2989,6 @@ CK_RV SC_DecryptUpdate( ST_SESSION_HANDLE  sSession,
 	}
 
  done:
-	LLOCK;
 	if (rc != CKR_OK && rc != CKR_BUFFER_TOO_SMALL)
 		decr_mgr_cleanup( &sess->decr_ctx );
 
@@ -2746,7 +2996,7 @@ CK_RV SC_DecryptUpdate( ST_SESSION_HANDLE  sSession,
 		stlogit2(debugfile, "%-25s:  rc = %08x, sess = %d, amount = %d\n", "C_DecryptUpdate", rc, (sess == NULL)?-1:(CK_LONG)sess->handle, ulEncryptedPartLen );
 	}
 
-	UNLOCKIT; return rc;
+	return rc;
 }
 
 
@@ -2762,7 +3012,6 @@ CK_RV SC_DecryptFinal( ST_SESSION_HANDLE  sSession,
 	SESS_SET
 
 
-		LOCKIT;
 	if (st_Initialized() == FALSE) {
 		st_err_log(72, __FILE__, __LINE__);
 		rc = CKR_CRYPTOKI_NOT_INITIALIZED;
@@ -2799,7 +3048,6 @@ CK_RV SC_DecryptFinal( ST_SESSION_HANDLE  sSession,
 		st_err_log(181, __FILE__, __LINE__);
 	}
  done:
-	LLOCK;
 	if (rc != CKR_BUFFER_TOO_SMALL && (rc != CKR_OK || length_only != TRUE))
 		decr_mgr_cleanup( &sess->decr_ctx );
 
@@ -2807,7 +3055,7 @@ CK_RV SC_DecryptFinal( ST_SESSION_HANDLE  sSession,
 		stlogit2(debugfile, "%-25s:  rc = %08x, sess = %d, amount = %d\n", "C_DecryptFinal", rc, (sess == NULL)?-1:(CK_LONG)sess->handle, *pulLastPartLen );
 	}
 
-	UNLOCKIT; return rc;
+	return rc;
 }
 
 
@@ -2821,7 +3069,6 @@ CK_RV SC_DigestInit( ST_SESSION_HANDLE  sSession,
 	SESS_SET
 
 
-		LOCKIT;
 	if (st_Initialized() == FALSE) {
 		st_err_log(72, __FILE__, __LINE__);
 		rc = CKR_CRYPTOKI_NOT_INITIALIZED;
@@ -2861,12 +3108,11 @@ CK_RV SC_DigestInit( ST_SESSION_HANDLE  sSession,
 	}
 
  done:
-	LLOCK;
 	if (debugfile) {
 		stlogit2(debugfile, "%-25s:  rc = %08x, sess = %d, mech = %x\n", "C_DigestInit", rc, (sess == NULL)?-1:(CK_LONG)sess->handle, pMechanism->mechanism );
 	}
 
-	UNLOCKIT; return rc;
+	return rc;
 }
 
 
@@ -2884,7 +3130,6 @@ CK_RV SC_Digest( ST_SESSION_HANDLE  sSession,
 	SESS_SET
 
 
-		LOCKIT;
 	if (st_Initialized() == FALSE) {
 		st_err_log(72, __FILE__, __LINE__);
 		rc = CKR_CRYPTOKI_NOT_INITIALIZED;
@@ -2928,12 +3173,11 @@ CK_RV SC_Digest( ST_SESSION_HANDLE  sSession,
 	if (rc != CKR_BUFFER_TOO_SMALL && (rc != CKR_OK || length_only != TRUE))
 		digest_mgr_cleanup( &sess->digest_ctx );
 
-	LLOCK;
 	if (debugfile) {
 		stlogit2(debugfile, "%-25s:  rc = %08x, sess = %d, datalen = %d\n", "C_Digest", rc, (sess == NULL)?-1:(CK_LONG)sess->handle, ulDataLen );
 	}
 
-	UNLOCKIT; return rc;
+	return rc;
 }
 
 
@@ -2948,7 +3192,6 @@ CK_RV SC_DigestUpdate( ST_SESSION_HANDLE  sSession,
 	SESS_SET
 
 
-		LOCKIT;
 	if (st_Initialized() == FALSE) {
 		st_err_log(72, __FILE__, __LINE__);
 		rc = CKR_CRYPTOKI_NOT_INITIALIZED;
@@ -2986,12 +3229,11 @@ CK_RV SC_DigestUpdate( ST_SESSION_HANDLE  sSession,
 	if (rc != CKR_OK)
 		digest_mgr_cleanup( &sess->digest_ctx );
 
-	LLOCK;
 	if (debugfile) {
 		stlogit2(debugfile, "%-25s:  rc = %08x, sess = %d, datalen = %d\n", "C_DigestUpdate", rc, (sess == NULL)?-1:(CK_LONG)sess->handle, ulPartLen );
 	}
 
-	UNLOCKIT; return rc;
+	return rc;
 }
 
 
@@ -3004,7 +3246,6 @@ CK_RV SC_DigestKey( ST_SESSION_HANDLE  sSession,
 	CK_RV      rc = CKR_OK;
 	SESS_SET
 
-		LOCKIT;
 	if (st_Initialized() == FALSE) {
 		st_err_log(72, __FILE__, __LINE__);
 		rc = CKR_CRYPTOKI_NOT_INITIALIZED;
@@ -3033,12 +3274,11 @@ CK_RV SC_DigestKey( ST_SESSION_HANDLE  sSession,
 	if (rc != CKR_OK)
 		digest_mgr_cleanup( &sess->digest_ctx );
 
-	LLOCK;
 	if (debugfile) {
 		stlogit2(debugfile, "%-25s:  rc = %08x, sess = %d, key = %d\n", "C_DigestKey", rc, (sess == NULL)?-1:(CK_LONG)sess->handle, hKey );
 	}
 
-	UNLOCKIT; return rc;
+	return rc;
 }
 
 
@@ -3054,7 +3294,6 @@ CK_RV SC_DigestFinal( ST_SESSION_HANDLE  sSession,
 	SESS_SET
 
 
-		LOCKIT;
 	if (st_Initialized() == FALSE) {
 		st_err_log(72, __FILE__, __LINE__);
 		rc = CKR_CRYPTOKI_NOT_INITIALIZED;
@@ -3094,12 +3333,11 @@ CK_RV SC_DigestFinal( ST_SESSION_HANDLE  sSession,
 	if (rc != CKR_BUFFER_TOO_SMALL && (rc != CKR_OK || length_only != TRUE))
 		digest_mgr_cleanup( &sess->digest_ctx );
 
-	LLOCK;
 	if (debugfile) {
 		stlogit2(debugfile, "%-25s:  rc = %08x, sess = %d\n", "C_DigestFinal", rc, (sess == NULL)?-1:(CK_LONG)sess->handle );
 	}
 
-	UNLOCKIT; return rc;
+	return rc;
 }
 
 
@@ -3114,7 +3352,6 @@ CK_RV SC_SignInit( ST_SESSION_HANDLE  sSession,
 	SESS_SET
 
 
-		LOCKIT;
 	if (st_Initialized() == FALSE) {
 		st_err_log(72, __FILE__, __LINE__);
 		rc = CKR_CRYPTOKI_NOT_INITIALIZED;
@@ -3153,12 +3390,11 @@ CK_RV SC_SignInit( ST_SESSION_HANDLE  sSession,
 	}
 
  done:
-	LLOCK;
 	if (debugfile) {
 		stlogit2(debugfile, "%-25s:  rc = %08x, sess = %d, mech = %x\n", "C_SignInit", rc, (sess == NULL)?-1:(CK_LONG)sess->handle, pMechanism->mechanism );
 	}
 
-	UNLOCKIT; return rc;
+	return rc;
 }
 
 
@@ -3176,7 +3412,6 @@ CK_RV SC_Sign( ST_SESSION_HANDLE  sSession,
 	SESS_SET
 
 
-		LOCKIT;
 	if (st_Initialized() == FALSE) {
 		st_err_log(72, __FILE__, __LINE__);
 		rc = CKR_CRYPTOKI_NOT_INITIALIZED;
@@ -3217,12 +3452,11 @@ CK_RV SC_Sign( ST_SESSION_HANDLE  sSession,
 	if (rc != CKR_BUFFER_TOO_SMALL && (rc != CKR_OK || length_only != TRUE))
 		sign_mgr_cleanup( &sess->sign_ctx );
 
-	LLOCK;
 	if (debugfile) {
 		stlogit2(debugfile, "%-25s:  rc = %08x, sess = %d, datalen = %d\n", "C_Sign", rc, (sess == NULL)?-1:(CK_LONG)sess->handle, ulDataLen );
 	}
 
-	UNLOCKIT; return rc;
+	return rc;
 }
 
 
@@ -3237,7 +3471,6 @@ CK_RV SC_SignUpdate( ST_SESSION_HANDLE  sSession,
 	SESS_SET
 
 
-		LOCKIT;
 	if (st_Initialized() == FALSE) {
 		st_err_log(72, __FILE__, __LINE__);
 		rc = CKR_CRYPTOKI_NOT_INITIALIZED;
@@ -3272,12 +3505,11 @@ CK_RV SC_SignUpdate( ST_SESSION_HANDLE  sSession,
 	if (rc != CKR_OK)
 		sign_mgr_cleanup( &sess->sign_ctx );
 
-	LLOCK;
 	if (debugfile) {
 		stlogit2(debugfile, "%-25s:  rc = %08x, sess = %d, datalen = %d\n", "C_SignUpdate", rc, (sess == NULL)?-1:(CK_LONG)sess->handle, ulPartLen );
 	}
 
-	UNLOCKIT; return rc;
+	return rc;
 }
 
 
@@ -3293,7 +3525,6 @@ CK_RV SC_SignFinal( ST_SESSION_HANDLE  sSession,
 	SESS_SET
 
 
-		LOCKIT;
 	if (st_Initialized() == FALSE) {
 		st_err_log(72, __FILE__, __LINE__);
 		rc = CKR_CRYPTOKI_NOT_INITIALIZED;
@@ -3333,13 +3564,12 @@ CK_RV SC_SignFinal( ST_SESSION_HANDLE  sSession,
 	if (rc != CKR_BUFFER_TOO_SMALL && (rc != CKR_OK || length_only != TRUE))
 		sign_mgr_cleanup( &sess->sign_ctx );
 
-	LLOCK;
 	if (debugfile)
 	{
 		stlogit2(debugfile, "%-25s:  rc = %08x, sess = %d\n", "C_SignFinal", rc, (sess == NULL)?-1:(CK_LONG)sess->handle );
 	}
 
-	UNLOCKIT; return rc;
+	return rc;
 }
 
 
@@ -3354,7 +3584,6 @@ CK_RV SC_SignRecoverInit( ST_SESSION_HANDLE  sSession,
 	SESS_SET
 
 
-		LOCKIT;
 	if (st_Initialized() == FALSE) {
 		st_err_log(72, __FILE__, __LINE__);
 		rc = CKR_CRYPTOKI_NOT_INITIALIZED;
@@ -3392,12 +3621,11 @@ CK_RV SC_SignRecoverInit( ST_SESSION_HANDLE  sSession,
 	}
 
  done:
-	LLOCK;
 	if (debugfile) {
 		stlogit2(debugfile, "%-25s:  rc = %08x, sess = %d, mech = %x\n", "C_SignRecoverInit", rc, (sess == NULL)?-1:(CK_LONG)sess->handle, pMechanism->mechanism );
 	}
 
-	UNLOCKIT; return rc;
+	return rc;
 }
 
 
@@ -3417,7 +3645,6 @@ CK_RV SC_SignRecover( ST_SESSION_HANDLE  sSession,
 
 		if (st_Initialized() == FALSE) {
 			st_err_log(72, __FILE__, __LINE__);
-			LOCKIT;
 			rc = CKR_CRYPTOKI_NOT_INITIALIZED;
 			goto done;
 		}
@@ -3456,12 +3683,11 @@ CK_RV SC_SignRecover( ST_SESSION_HANDLE  sSession,
 	if (rc != CKR_BUFFER_TOO_SMALL && (rc != CKR_OK || length_only != TRUE))
 		sign_mgr_cleanup( &sess->sign_ctx );
 
-	LLOCK;
 	if (debugfile) {
 		stlogit2(debugfile, "%-25s:  rc = %08x, sess = %d, datalen = %d\n", "C_SignRecover", rc, (sess == NULL)?-1:(CK_LONG)sess->handle, ulDataLen );
 	}
 
-	UNLOCKIT; return rc;
+	return rc;
 }
 
 
@@ -3476,7 +3702,6 @@ CK_RV SC_VerifyInit( ST_SESSION_HANDLE  sSession,
 	SESS_SET
 
 
-		LOCKIT;
 	if (st_Initialized() == FALSE) {
 		st_err_log(72, __FILE__, __LINE__);
 		rc = CKR_CRYPTOKI_NOT_INITIALIZED;
@@ -3514,12 +3739,11 @@ CK_RV SC_VerifyInit( ST_SESSION_HANDLE  sSession,
 	}
 
  done:
-	LLOCK;
 	if (debugfile) {
 		stlogit2(debugfile, "%-25s:  rc = %08x, sess = %d, mech = %x\n", "C_VerifyInit", rc, (sess == NULL)?-1:(CK_LONG)sess->handle, pMechanism->mechanism );
 	}
 
-	UNLOCKIT; return rc;
+	return rc;
 }
 
 
@@ -3536,7 +3760,6 @@ CK_RV SC_Verify( ST_SESSION_HANDLE  sSession,
 	SESS_SET
 
 
-		LOCKIT;
 	if (st_Initialized() == FALSE) {
 		st_err_log(72, __FILE__, __LINE__);
 		rc = CKR_CRYPTOKI_NOT_INITIALIZED;
@@ -3573,12 +3796,11 @@ CK_RV SC_Verify( ST_SESSION_HANDLE  sSession,
  done:
 	verify_mgr_cleanup( &sess->verify_ctx );
 
-	LLOCK;
 	if (debugfile) {
 		stlogit2(debugfile, "%-25s:  rc = %08x, sess = %d, datalen = %d\n", "C_Verify", rc, (sess == NULL)?-1:(CK_LONG)sess->handle, ulDataLen );
 	}
 
-	UNLOCKIT; return rc;
+	return rc;
 }
 
 
@@ -3593,7 +3815,6 @@ CK_RV SC_VerifyUpdate( ST_SESSION_HANDLE  sSession,
 	SESS_SET
 
 
-		LOCKIT;
 	if (st_Initialized() == FALSE) {
 		st_err_log(72, __FILE__, __LINE__);
 		rc = CKR_CRYPTOKI_NOT_INITIALIZED;
@@ -3628,12 +3849,11 @@ CK_RV SC_VerifyUpdate( ST_SESSION_HANDLE  sSession,
 	if (rc != CKR_OK)
 		verify_mgr_cleanup( &sess->verify_ctx );
 
-	LLOCK;
 	if (debugfile) {
 		stlogit2(debugfile, "%-25s:  rc = %08x, sess = %d, datalen = %d\n", "C_VerifyUpdate", rc, (sess == NULL)?-1:(CK_LONG)sess->handle, ulPartLen );
 	}
 
-	UNLOCKIT; return rc;
+	return rc;
 }
 
 
@@ -3648,7 +3868,6 @@ CK_RV SC_VerifyFinal( ST_SESSION_HANDLE  sSession,
 	SESS_SET
 
 
-		LOCKIT;
 	if (st_Initialized() == FALSE) {
 		st_err_log(72, __FILE__, __LINE__);
 		rc = CKR_CRYPTOKI_NOT_INITIALIZED;
@@ -3682,12 +3901,11 @@ CK_RV SC_VerifyFinal( ST_SESSION_HANDLE  sSession,
  done:
 	verify_mgr_cleanup( &sess->verify_ctx );
 
-	LLOCK;
 	if (debugfile) {
 		stlogit2(debugfile, "%-25s:  rc = %08x, sess = %d\n", "C_VerifyFinal", rc, (sess == NULL)?-1:(CK_LONG)sess->handle );
 	}
 
-	UNLOCKIT; return rc;
+	return rc;
 }
 
 
@@ -3702,7 +3920,6 @@ CK_RV SC_VerifyRecoverInit( ST_SESSION_HANDLE  sSession,
 	SESS_SET
 
 
-		LOCKIT;
 	if (st_Initialized() == FALSE) {
 		st_err_log(72, __FILE__, __LINE__);
 		rc = CKR_CRYPTOKI_NOT_INITIALIZED;
@@ -3740,12 +3957,11 @@ CK_RV SC_VerifyRecoverInit( ST_SESSION_HANDLE  sSession,
 	}
 
  done:
-	LLOCK;
 	if (debugfile) {
 		stlogit2(debugfile, "%-25s:  rc = %08x, sess = %d, mech = %x\n", "C_VerifyRecoverInit", rc, (sess == NULL)?-1:(CK_LONG)sess->handle, pMechanism->mechanism );
 	}
 
-	UNLOCKIT; return rc;
+	return rc;
 }
 
 
@@ -3763,7 +3979,6 @@ CK_RV SC_VerifyRecover( ST_SESSION_HANDLE  sSession,
 	SESS_SET
 
 
-		LOCKIT;
 	if (st_Initialized() == FALSE) {
 		st_err_log(72, __FILE__, __LINE__);
 		rc = CKR_CRYPTOKI_NOT_INITIALIZED;
@@ -3805,12 +4020,11 @@ CK_RV SC_VerifyRecover( ST_SESSION_HANDLE  sSession,
 	if (rc != CKR_BUFFER_TOO_SMALL && (rc != CKR_OK || length_only != TRUE))
 		verify_mgr_cleanup( &sess->verify_ctx );
 
-	LLOCK;
 	if (debugfile) {
 		stlogit2(debugfile, "%-25s:  rc = %08x, sess = %d, recover len = %d, length_only = %d\n", "C_VerifyRecover", rc, (sess == NULL)?-1:(CK_LONG)sess->handle, *pulDataLen, length_only );
 	}
 
-	UNLOCKIT; return rc;
+	return rc;
 }
 
 
@@ -3900,7 +4114,6 @@ CK_RV SC_GenerateKey( ST_SESSION_HANDLE     sSession,
 	SESS_SET
 
 
-		LOCKIT;
 	if (st_Initialized() == FALSE) {
 		st_err_log(72, __FILE__, __LINE__);
 		rc = CKR_CRYPTOKI_NOT_INITIALIZED;
@@ -3933,7 +4146,6 @@ CK_RV SC_GenerateKey( ST_SESSION_HANDLE     sSession,
 	}
 
  done:
-	LLOCK;
 	if (debugfile) {
 		CK_ATTRIBUTE *attr = pTemplate;
 		CK_ULONG      i;
@@ -3954,7 +4166,7 @@ CK_RV SC_GenerateKey( ST_SESSION_HANDLE     sSession,
 
 	}
 
-	UNLOCKIT; return rc;
+	return rc;
 }
 
 
@@ -3974,7 +4186,6 @@ CK_RV SC_GenerateKeyPair( ST_SESSION_HANDLE     sSession,
 	SESS_SET
 
 
-		LOCKIT;
 	if (st_Initialized() == FALSE) {
 		st_err_log(72, __FILE__, __LINE__);
 		rc = CKR_CRYPTOKI_NOT_INITIALIZED;
@@ -4013,7 +4224,6 @@ CK_RV SC_GenerateKeyPair( ST_SESSION_HANDLE     sSession,
 	}
 
  done:
-	LLOCK;
 	if (debugfile) {
 		CK_ATTRIBUTE *attr = NULL;
 		CK_ULONG      i;
@@ -4057,7 +4267,7 @@ CK_RV SC_GenerateKeyPair( ST_SESSION_HANDLE     sSession,
 
 	}
 
-	UNLOCKIT; return rc;
+	return rc;
 }
 
 
@@ -4076,7 +4286,6 @@ CK_RV SC_WrapKey( ST_SESSION_HANDLE  sSession,
 	SESS_SET
 
 
-		LOCKIT;
 	if (st_Initialized() == FALSE) {
 		st_err_log(72, __FILE__, __LINE__);
 		rc = CKR_CRYPTOKI_NOT_INITIALIZED;
@@ -4115,12 +4324,11 @@ CK_RV SC_WrapKey( ST_SESSION_HANDLE  sSession,
 	}
 
  done:
-	LLOCK;
 	if (debugfile) {
 		stlogit2(debugfile, "%-25s:  rc = %08x, sess = %d, encrypting key = %d, wrapped key = %d\n", "C_WrapKey", rc, (sess == NULL)?-1:(CK_LONG)sess->handle, hWrappingKey, hKey );
 	}
 
-	UNLOCKIT; return rc;
+	return rc;
 }
 
 
@@ -4143,7 +4351,6 @@ CK_RV SC_UnwrapKey( ST_SESSION_HANDLE     sSession,
 	SESS_SET
 
 
-		LOCKIT;
 	if (st_Initialized() == FALSE) {
 		st_err_log(72, __FILE__, __LINE__);
 		rc = CKR_CRYPTOKI_NOT_INITIALIZED;
@@ -4182,7 +4389,6 @@ CK_RV SC_UnwrapKey( ST_SESSION_HANDLE     sSession,
 
  done:
 //   if (rc == CKR_OBJECT_HANDLE_INVALID)  brkpt();
-	LLOCK;
 	if (debugfile) {
 		stlogit2(debugfile, "%-25s:  rc = %08x, sess = %d, decrypting key = %d, unwrapped key = %d\n", "C_UnwrapKey", rc, (sess == NULL)?-1:(CK_LONG)sess->handle, hUnwrappingKey, *phKey );
 
@@ -4201,7 +4407,7 @@ CK_RV SC_UnwrapKey( ST_SESSION_HANDLE     sSession,
 
 	}
 
-	UNLOCKIT; return rc;
+	return rc;
 }
 
 
@@ -4222,7 +4428,6 @@ CK_RV SC_DeriveKey( ST_SESSION_HANDLE     sSession,
 	SESS_SET
 
 
-		LOCKIT;
 	if (st_Initialized() == FALSE) {
 		st_err_log(72, __FILE__, __LINE__);
 		rc = CKR_CRYPTOKI_NOT_INITIALIZED;
@@ -4257,7 +4462,6 @@ CK_RV SC_DeriveKey( ST_SESSION_HANDLE     sSession,
 	}
 
  done:
-	LLOCK;
 	if (debugfile) {
 		stlogit2(debugfile, "%-25s:  rc = %08x, sess = %d, base key = %d, mech = %x\n", "C_DeriveKey", rc, (sess == NULL)?-1:(CK_LONG)sess->handle, hBaseKey, pMechanism->mechanism );
 
@@ -4304,7 +4508,7 @@ CK_RV SC_DeriveKey( ST_SESSION_HANDLE     sSession,
 
 	}
 
-	UNLOCKIT; return rc;
+	return rc;
 }
 
 
@@ -4333,7 +4537,6 @@ CK_RV SC_GenerateRandom( ST_SESSION_HANDLE  sSession,
 	CK_RV    rc = CKR_OK;
 	SESS_SET
 
-		LOCKIT;
 	if (st_Initialized() == FALSE) {
 		st_err_log(72, __FILE__, __LINE__);
 		rc = CKR_CRYPTOKI_NOT_INITIALIZED;
@@ -4359,12 +4562,11 @@ CK_RV SC_GenerateRandom( ST_SESSION_HANDLE  sSession,
 	}
 
  done:
-	LLOCK;
 	if (debugfile) {
 		stlogit2(debugfile, "%-25s:  rc = %08x, %d bytes\n", "C_GenerateRandom", rc, ulRandomLen );
 	}
 
-	UNLOCKIT; return rc;
+	return rc;
 }
 
 

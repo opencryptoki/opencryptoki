@@ -296,15 +296,14 @@
 
 #include <pthread.h>
 
-  #include <string.h>            // for memcmp() et al
-  #include <stdlib.h>
+#include <string.h>            // for memcmp() et al
+#include <stdlib.h>
 
 #include "pkcs11types.h"
 #include "defs.h"
 #include "host_defs.h"
 #include "h_extern.h"
-#include "tok_spec_struct.h"
-
+#include "sw_default.h"
 
 //
 //
@@ -317,12 +316,15 @@ sign_mgr_init( SESSION                * sess,
 {
    OBJECT          * key_obj = NULL;
    CK_ATTRIBUTE    * attr    = NULL;
+   CK_ATTRIBUTE    * keyattr = NULL;
    CK_BYTE         * ptr     = NULL;
    CK_KEY_TYPE       keytype;
    CK_OBJECT_CLASS   class;
    CK_BBOOL          flag;
+   CK_ULONG          count;
+   CK_ULONG          size;
    CK_RV             rc;
-
+   CK_MECHANISM_INFO mech_info;
 
    if (!sess || !ctx){
       st_err_log(4, __FILE__, __LINE__, __FUNCTION__); 
@@ -355,11 +357,118 @@ sign_mgr_init( SESSION                * sess,
       }
    }
 
+   // get keytype 
+   rc = template_attribute_find(key_obj->template, CKA_KEY_TYPE, &attr);
+   if (rc == FALSE){
+       st_err_log(20, __FILE__, __LINE__);
+       return CKR_KEY_TYPE_INCONSISTENT;
+   }
+   keytype = *(CK_KEY_TYPE *)attr->pValue;
 
+   // get key class 
+   flag = template_attribute_find(key_obj->template, CKA_CLASS, &attr);
+   if (flag == FALSE){
+       st_err_log(20, __FILE__, __LINE__); 
+       return CKR_KEY_TYPE_INCONSISTENT;
+   }
+   class = *(CK_OBJECT_CLASS *)attr->pValue;
+
+   ctx->context_len = 0;
+   ctx->context     = NULL;
+
+   // check if token supports this mechanism
+   if ((rc = token_functions->T_GetMechanismInfo(
+	    mech->mechanism, &mech_info)) == CKR_OK) {
+
+       if (recover_mode) {
+
+	   // token must supply SignRecoverInit function
+	   if (!(token_functions->T_SignRecoverInit)) {
+	       st_err_log(4, __FILE__, __LINE__, __FUNCTION__);
+	       return CKR_FUNCTION_FAILED;
+	   }
+	   
+	   // create CK_ATTRIBUTE list from TEMPLATE
+	   size = template_get_size(key_obj->template);
+	   keyattr = (CK_ATTRIBUTE *)malloc(size);
+	   rc = template_to_attr(key_obj->template, (CK_BYTE *)keyattr, &count);
+	   if (rc != CKR_OK){
+	       free(keyattr);
+	       return rc;
+	   }
+
+	   // token function must verify:
+	   //    keytype is valid for mechanism 
+	   //    class is valid 
+	   //    mechanism Parameter
+	   // token returns:
+	   //     address of context
+	   //     context length
+	   if ((rc = token_functions->T_SignRecoverInit(
+		    mech, keyattr, count, 
+		    &ctx->context, &ctx->context_len)) == CKR_OK) {
+	       ctx->token = TRUE;
+	       free(keyattr);
+	       goto common_return;
+	   } else {
+	       st_err_log(4, __FILE__, __LINE__, __FUNCTION__);
+	       free(keyattr);
+	       return rc;
+	   }
+
+       } else {
+	   
+           // token must supply SignInit function
+	   if (!(token_functions->T_SignInit)) {
+	       st_err_log(4, __FILE__, __LINE__, __FUNCTION__);
+	       return CKR_FUNCTION_FAILED;
+	   }
+	   
+	   // create CK_ATTRIBUTE list from TEMPLATE
+	   size = template_get_size(key_obj->template);
+	   keyattr = (CK_ATTRIBUTE *)malloc(size);
+	   rc = template_to_attr(key_obj->template, (CK_BYTE *)keyattr, &count);
+	   if (rc != CKR_OK){
+	       free(keyattr);
+	       return rc;
+	   }
+
+	   // token function must verify:
+	   //    keytype is valid for mechanism 
+	   //    class is valid 
+	   //    mechanism Parameter
+	   // token returns:
+	   //     address of context
+	   //     context length
+	   if ((rc = token_functions->T_SignInit(
+		    mech, keyattr, count, 
+		    &ctx->context, &ctx->context_len)) == CKR_OK) {
+	       ctx->token = TRUE;
+	       free(keyattr);
+	       goto common_return;
+	   } else {
+	       st_err_log(4, __FILE__, __LINE__, __FUNCTION__);
+	       free(keyattr);
+	       return rc;
+	   }
+       }
+
+   // otherwise check if sw fallback can handle mechanism
+   } else if ((rc = sw_default_GetMechanismInfo(
+		   mech->mechanism, &mech_info)) != CKR_OK) {
+       st_err_log(29, __FILE__, __LINE__);
+       return CKR_MECHANISM_PARAM_INVALID;
+   }
+
+   //
+   // Beyond this point is default processing for mechanisms not supported
+   // by the token.
+   //
    // is the mechanism supported?  is the key type correct?  is a
    // parameter present if required?  is the key size allowed?
    // is the key allowed to generate signatures?
    //
+   ctx->token = FALSE;
    switch (mech->mechanism) {
       case CKM_RSA_X_509:
       case CKM_RSA_PKCS:
@@ -368,29 +477,16 @@ sign_mgr_init( SESSION                * sess,
                st_err_log(29, __FILE__, __LINE__); 
                return CKR_MECHANISM_PARAM_INVALID;
             }
-            rc = template_attribute_find( key_obj->template, CKA_KEY_TYPE, &attr );
-            if (rc == FALSE){
-               st_err_log(20, __FILE__, __LINE__); 
-               return CKR_KEY_TYPE_INCONSISTENT;
-            }
-            else {
-               keytype = *(CK_KEY_TYPE *)attr->pValue;
-               if (keytype != CKK_RSA){
-                  st_err_log(20, __FILE__, __LINE__); 
-                  return CKR_KEY_TYPE_INCONSISTENT;
-               }
-            }
+
+            // is the key type correct?
+            //
+	    if (keytype != CKK_RSA){
+		st_err_log(20, __FILE__, __LINE__); 
+		return CKR_KEY_TYPE_INCONSISTENT;
+	    }
 
             // must be a PRIVATE key
             //
-            flag = template_attribute_find( key_obj->template, CKA_CLASS, &attr );
-            if (flag == FALSE){
-               st_err_log(20, __FILE__, __LINE__); 
-               return CKR_KEY_TYPE_INCONSISTENT;
-            }
-            else
-               class = *(CK_OBJECT_CLASS *)attr->pValue;
-
             // if it's not a private RSA key then we have an internal failure...means
             // that somehow a public key got assigned a CKA_SIGN attribute
             //
@@ -405,9 +501,6 @@ sign_mgr_init( SESSION                * sess,
          }
          break;
 
-#if  !(NOMD2)
-      case CKM_MD2_RSA_PKCS:
-#endif
       case CKM_MD5_RSA_PKCS:
       case CKM_SHA1_RSA_PKCS:
          {
@@ -415,33 +508,21 @@ sign_mgr_init( SESSION                * sess,
                st_err_log(29, __FILE__, __LINE__); 
                return CKR_MECHANISM_PARAM_INVALID;
             }
-            rc = template_attribute_find( key_obj->template, CKA_KEY_TYPE, &attr );
-            if (rc == FALSE){
-               st_err_log(20, __FILE__, __LINE__); 
-               return CKR_KEY_TYPE_INCONSISTENT;
-            }
-            else {
-               keytype = *(CK_KEY_TYPE *)attr->pValue;
-               if (keytype != CKK_RSA){
-                  st_err_log(20, __FILE__, __LINE__); 
-                  return CKR_KEY_TYPE_INCONSISTENT;
-               }
-            }
+
+            // is the key type correct?
+            //
+	    if (keytype != CKK_RSA){
+		st_err_log(20, __FILE__, __LINE__); 
+		return CKR_KEY_TYPE_INCONSISTENT;
+	    }
 
             // must be a PRIVATE key operation
             //
-            flag = template_attribute_find( key_obj->template, CKA_CLASS, &attr );
-            if (flag == FALSE){
-               st_err_log(4, __FILE__, __LINE__, __FUNCTION__); 
-               return CKR_FUNCTION_FAILED;
-            }
-            else
-               class = *(CK_OBJECT_CLASS *)attr->pValue;
-
             if (class != CKO_PRIVATE_KEY){
                st_err_log(4, __FILE__, __LINE__, __FUNCTION__); 
                return CKR_FUNCTION_FAILED;
             }
+
             ctx->context_len = sizeof(RSA_DIGEST_CONTEXT);
             ctx->context     = (CK_BYTE *)malloc(sizeof(RSA_DIGEST_CONTEXT));
             if (!ctx->context){
@@ -452,55 +533,6 @@ sign_mgr_init( SESSION                * sess,
          }
          break;
 
-
-#if !(NODSA)
-      case CKM_DSA:
-         {
-            if (mech->ulParameterLen != 0){
-               st_err_log(29, __FILE__, __LINE__); 
-               return CKR_MECHANISM_PARAM_INVALID;
-            }
-            rc = template_attribute_find( key_obj->template, CKA_KEY_TYPE, &attr );
-            if (rc == FALSE){
-               st_err_log(20, __FILE__, __LINE__); 
-               return CKR_KEY_TYPE_INCONSISTENT;
-            }
-            else {
-               keytype = *(CK_KEY_TYPE *)attr->pValue;
-               if (keytype != CKK_DSA){
-                  st_err_log(20, __FILE__, __LINE__); 
-                  return CKR_KEY_TYPE_INCONSISTENT;
-               }
-            }
-
-            // must be a PRIVATE key
-            //
-            flag = template_attribute_find( key_obj->template, CKA_CLASS, &attr );
-            if (flag == FALSE){
-               st_err_log(20, __FILE__, __LINE__); 
-               return CKR_KEY_TYPE_INCONSISTENT;
-            }
-            else
-               class = *(CK_OBJECT_CLASS *)attr->pValue;
-
-            // if it's not a private RSA key then we have an internal failure...means
-            // that somehow a public key got assigned a CKA_SIGN attribute
-            //
-            if (class != CKO_PRIVATE_KEY){
-               st_err_log(20, __FILE__, __LINE__); 
-               return CKR_KEY_TYPE_INCONSISTENT;
-            }
-            // PKCS #11 doesn't allow multi-part DSA operations
-            //
-            ctx->context_len = 0;
-            ctx->context     = NULL;
-         }
-         break;
-#endif
-
-#if  !(NOMD2)
-      case CKM_MD2_HMAC:
-#endif
       case CKM_MD5_HMAC:
       case CKM_SHA_1_HMAC:
          {
@@ -508,18 +540,13 @@ sign_mgr_init( SESSION                * sess,
                st_err_log(29, __FILE__, __LINE__); 
                return CKR_MECHANISM_PARAM_INVALID;
             }
-            rc = template_attribute_find( key_obj->template, CKA_KEY_TYPE, &attr );
-            if (rc == FALSE){
-               st_err_log(20, __FILE__, __LINE__); 
-               return CKR_KEY_TYPE_INCONSISTENT;
-            }
-            else {
-               keytype = *(CK_KEY_TYPE *)attr->pValue;
-               if (keytype != CKK_GENERIC_SECRET){
-                  st_err_log(20, __FILE__, __LINE__); 
-                  return CKR_KEY_TYPE_INCONSISTENT;
-               }
-            }
+
+            // is the key type correct?
+            //
+	    if (keytype != CKK_GENERIC_SECRET){
+		st_err_log(20, __FILE__, __LINE__); 
+		return CKR_KEY_TYPE_INCONSISTENT;
+	    }
 
             // PKCS #11 doesn't allow multi-part HMAC operations
             //
@@ -528,9 +555,6 @@ sign_mgr_init( SESSION                * sess,
          }
          break;
 
-#if  !(NOMD2)
-      case CKM_MD2_HMAC_GENERAL:
-#endif
       case CKM_MD5_HMAC_GENERAL:
       case CKM_SHA_1_HMAC_GENERAL:
          {
@@ -540,13 +564,6 @@ sign_mgr_init( SESSION                * sess,
                st_err_log(29, __FILE__, __LINE__); 
                return CKR_MECHANISM_PARAM_INVALID;
             }
-
-#if  !(NOMD2)
-            if ((mech->mechanism == CKM_MD2_HMAC_GENERAL) && (*param > 16)){
-               st_err_log(29, __FILE__, __LINE__); 
-               return CKR_MECHANISM_PARAM_INVALID;
-            }
-#endif
 
             if ((mech->mechanism == CKM_MD5_HMAC_GENERAL) && (*param > 16)){
                st_err_log(29, __FILE__, __LINE__); 
@@ -561,13 +578,13 @@ sign_mgr_init( SESSION                * sess,
                st_err_log(20, __FILE__, __LINE__); 
                return CKR_KEY_TYPE_INCONSISTENT;
             }
-            else {
-               keytype = *(CK_KEY_TYPE *)attr->pValue;
-               if (keytype != CKK_GENERIC_SECRET){
-                  st_err_log(20, __FILE__, __LINE__); 
-                  return CKR_KEY_TYPE_INCONSISTENT;
-               }
-            }
+
+            // is the key type correct?
+            //
+	    if (keytype != CKK_GENERIC_SECRET){
+		st_err_log(20, __FILE__, __LINE__); 
+		return CKR_KEY_TYPE_INCONSISTENT;
+	    }
 
             // PKCS #11 doesn't allow multi-part HMAC operations
             //
@@ -601,18 +618,14 @@ sign_mgr_init( SESSION                * sess,
                }
             }
 
-            rc = template_attribute_find( key_obj->template, CKA_CLASS, &attr );
-            if (rc == FALSE){
-               st_err_log(20, __FILE__, __LINE__); 
-               return CKR_KEY_TYPE_INCONSISTENT;
-            }
-            else {
-               class = *(CK_OBJECT_CLASS *)attr->pValue;
-               if (class != CKO_SECRET_KEY){
-                  st_err_log(20, __FILE__, __LINE__); 
-                  return CKR_KEY_TYPE_INCONSISTENT;
-               }
-            }
+            // BUGBUG: why no key type check?
+            //
+            // is the key class correct?
+            //
+	    if (class != CKO_SECRET_KEY){
+		st_err_log(20, __FILE__, __LINE__); 
+		return CKR_KEY_TYPE_INCONSISTENT;
+	    }
 
             ctx->context_len = sizeof(SSL3_MAC_CONTEXT);
             ctx->context     = (CK_BYTE *)malloc(sizeof(SSL3_MAC_CONTEXT));
@@ -629,6 +642,7 @@ sign_mgr_init( SESSION                * sess,
          return CKR_MECHANISM_INVALID;
    }
 
+ common_return:
 
    if (mech->ulParameterLen > 0) {
       ptr = (CK_BYTE *)malloc(mech->ulParameterLen);
@@ -666,6 +680,7 @@ sign_mgr_cleanup( SIGN_VERIFY_CONTEXT *ctx )
    ctx->multi               = FALSE;
    ctx->active              = FALSE;
    ctx->recover             = FALSE;
+   ctx->token               = FALSE;
    ctx->context_len         = 0;
 
    if (ctx->mech.pParameter) {
@@ -693,6 +708,12 @@ sign_mgr_sign( SESSION              * sess,
                CK_BYTE              * out_data,
                CK_ULONG             * out_data_len )
 {
+    OBJECT        * key_obj = NULL;
+    CK_ATTRIBUTE  * attr    = NULL;
+    CK_ULONG      count;
+    CK_ULONG      size;
+    CK_RV           rc;
+
    if (!sess || !ctx){
       st_err_log(4, __FILE__, __LINE__, __FUNCTION__); 
       return CKR_FUNCTION_FAILED;
@@ -717,6 +738,43 @@ sign_mgr_sign( SESSION              * sess,
       st_err_log(31, __FILE__, __LINE__); 
       return CKR_OPERATION_ACTIVE;
    }
+
+   // check if token is handling the sign
+   if (ctx->token == TRUE) {
+       
+       // token must supply Sign function
+       if (!(token_functions->T_Sign)) {
+	   st_err_log(4, __FILE__, __LINE__, __FUNCTION__);
+	   return CKR_FUNCTION_FAILED;
+       }
+
+       // retrieve key object
+       rc = object_mgr_find_in_map1(ctx->key, &key_obj);
+       if (rc != CKR_OK){
+	   st_err_log(4, __FILE__, __LINE__, __FUNCTION__);
+	   return CKR_FUNCTION_FAILED;
+       }
+
+       // create CK_ATTRIBUTE list from TEMPLATE
+       size = template_get_size(key_obj->template);
+       attr = (CK_ATTRIBUTE *)malloc(size);
+       rc = template_to_attr(key_obj->template, (CK_BYTE *)attr, &count);
+       if (rc != CKR_OK){
+	   free(attr);
+	   return rc;
+       }
+
+       rc = token_functions->T_Sign(
+	   ctx->mech, in_data, in_data_len, out_data, out_data_len, attr, count);
+       free(attr);
+
+       return rc;
+   }
+
+   //
+   // Beyond this point is default processing for mechanisms not supported
+   // by the token.
+   //
    switch (ctx->mech.mechanism) {
       case CKM_RSA_PKCS:
          return rsa_pkcs_sign( sess,     length_only,  ctx,
@@ -728,29 +786,11 @@ sign_mgr_sign( SESSION              * sess,
                                in_data,  in_data_len,
                                out_data, out_data_len );
 
-#if !(NOMD2)
-      case CKM_MD2_RSA_PKCS:
-#endif
       case CKM_MD5_RSA_PKCS:
       case CKM_SHA1_RSA_PKCS:
          return rsa_hash_pkcs_sign( sess,     length_only, ctx,
                                     in_data,  in_data_len,
                                     out_data, out_data_len );
-
-#if !(NODSA)
-      case CKM_DSA:
-         return dsa_sign( sess,     length_only,  ctx,
-                          in_data,  in_data_len,
-                          out_data, out_data_len );
-#endif
-
-#if !(NOMD2)
-      case CKM_MD2_HMAC:
-      case CKM_MD2_HMAC_GENERAL:
-         return md2_hmac_sign( sess,     length_only, ctx,
-                               in_data,  in_data_len,
-                               out_data, out_data_len );
-#endif
 
       case CKM_MD5_HMAC:
       case CKM_MD5_HMAC_GENERAL:
@@ -788,6 +828,12 @@ sign_mgr_sign_update( SESSION             * sess,
                       CK_BYTE             * in_data,
                       CK_ULONG              in_data_len )
 {
+    OBJECT        * key_obj = NULL;
+    CK_ATTRIBUTE  * attr    = NULL;
+    CK_ULONG      count;
+    CK_ULONG      size;
+    CK_RV           rc;
+
    if (!sess || !ctx || !in_data){
       st_err_log(4, __FILE__, __LINE__, __FUNCTION__); 
       return CKR_FUNCTION_FAILED;
@@ -803,10 +849,44 @@ sign_mgr_sign_update( SESSION             * sess,
    }
    ctx->multi = TRUE;
 
+   // check if token is handling the sign
+   if (ctx->token == TRUE) {
+       
+       // token must supply SignUpdate function
+       if (!(token_functions->T_SignUpdate)) {
+	   st_err_log(4, __FILE__, __LINE__, __FUNCTION__);
+	   return CKR_FUNCTION_FAILED;
+       }
+
+       // retrieve key object
+       rc = object_mgr_find_in_map1(ctx->key, &key_obj);
+       if (rc != CKR_OK){
+	   st_err_log(4, __FILE__, __LINE__, __FUNCTION__);
+	   return CKR_FUNCTION_FAILED;
+       }
+
+       // create CK_ATTRIBUTE list from TEMPLATE
+       size = template_get_size(key_obj->template);
+       attr = (CK_ATTRIBUTE *)malloc(size);
+       rc = template_to_attr(key_obj->template, (CK_BYTE *)attr, &count);
+       if (rc != CKR_OK){
+	   free(attr);
+	   return rc;
+       }
+
+       rc = token_functions->T_SignUpdate(
+	   ctx->mech, in_data, in_data_len, attr, count, 
+	   ctx->context, ctx->context_len);
+       free(attr);
+
+       return rc;
+   }
+
+   //
+   // Beyond this point is default processing for mechanisms not supported
+   // by the token.
+   //
    switch (ctx->mech.mechanism) {
-#if !(NOMD2)
-      case CKM_MD2_RSA_PKCS:
-#endif
       case CKM_MD5_RSA_PKCS:
       case CKM_SHA1_RSA_PKCS:
          return rsa_hash_pkcs_sign_update( sess, ctx, in_data, in_data_len );
@@ -833,6 +913,13 @@ sign_mgr_sign_final( SESSION             * sess,
                      CK_BYTE             * signature,
                      CK_ULONG            * sig_len )
 {
+
+    OBJECT        * key_obj = NULL;
+    CK_ATTRIBUTE  * attr    = NULL;
+    CK_ULONG      count;
+    CK_ULONG      size;
+    CK_RV           rc;
+
    if (!sess || !ctx){
       st_err_log(4, __FILE__, __LINE__, __FUNCTION__); 
       return CKR_FUNCTION_FAILED;
@@ -845,10 +932,44 @@ sign_mgr_sign_final( SESSION             * sess,
       st_err_log(32, __FILE__, __LINE__); 
       return CKR_OPERATION_NOT_INITIALIZED;
    }
+
+   // check if token is handling the sign
+   if (ctx->token == TRUE) {
+       
+       // token must supply SignFinal function
+       if (!(token_functions->T_SignFinal)) {
+	   st_err_log(4, __FILE__, __LINE__, __FUNCTION__);
+	   return CKR_FUNCTION_FAILED;
+       }
+
+       // retrieve key object
+       rc = object_mgr_find_in_map1(ctx->key, &key_obj);
+       if (rc != CKR_OK){
+	   st_err_log(4, __FILE__, __LINE__, __FUNCTION__);
+	   return CKR_FUNCTION_FAILED;
+       }
+
+       // create CK_ATTRIBUTE list from TEMPLATE
+       size = template_get_size(key_obj->template);
+       attr = (CK_ATTRIBUTE *)malloc(size);
+       rc = template_to_attr(key_obj->template, (CK_BYTE *)attr, &count);
+       if (rc != CKR_OK){
+	   free(attr);
+	   return rc;
+       }
+
+       rc = token_functions->T_SignFinal(
+	   ctx->mech, signature, sig_len, attr, count, ctx->context, ctx->context_len);
+       free(attr);
+
+       return rc;
+   }
+
+   //
+   // Beyond this point is default processing for mechanisms not supported
+   // by the token.
+   //
    switch (ctx->mech.mechanism) {
-#if !(NOMD2)
-      case CKM_MD2_RSA_PKCS:
-#endif
       case CKM_MD5_RSA_PKCS:
       case CKM_SHA1_RSA_PKCS:
          return rsa_hash_pkcs_sign_final( sess, length_only, ctx, signature, sig_len );
@@ -878,6 +999,12 @@ sign_mgr_sign_recover( SESSION             * sess,
                        CK_BYTE             * out_data,
                        CK_ULONG            * out_data_len )
 {
+    OBJECT        * key_obj = NULL;
+    CK_ATTRIBUTE  * attr    = NULL;
+    CK_ULONG      count;
+    CK_ULONG      size;
+    CK_RV           rc;
+
    if (!sess || !ctx){
       st_err_log(4, __FILE__, __LINE__, __FUNCTION__); 
       return CKR_FUNCTION_FAILED;
@@ -902,6 +1029,43 @@ sign_mgr_sign_recover( SESSION             * sess,
       st_err_log(31, __FILE__, __LINE__); 
       return CKR_OPERATION_ACTIVE;
    }
+
+   // check if token is handling the sign
+   if (ctx->token == TRUE) {
+       
+       // token must supply SignRecover function
+       if (!(token_functions->T_SignRecover)) {
+	   st_err_log(4, __FILE__, __LINE__, __FUNCTION__);
+	   return CKR_FUNCTION_FAILED;
+       }
+
+       // retrieve key object
+       rc = object_mgr_find_in_map1(ctx->key, &key_obj);
+       if (rc != CKR_OK){
+	   st_err_log(4, __FILE__, __LINE__, __FUNCTION__);
+	   return CKR_FUNCTION_FAILED;
+       }
+
+       // create CK_ATTRIBUTE list from TEMPLATE
+       size = template_get_size(key_obj->template);
+       attr = (CK_ATTRIBUTE *)malloc(size);
+       rc = template_to_attr(key_obj->template, (CK_BYTE *)attr, &count);
+       if (rc != CKR_OK){
+	   free(attr);
+	   return rc;
+       }
+
+       rc = token_functions->T_SignRecover(
+	   ctx->mech, in_data, in_data_len, out_data, out_data_len, attr, count);
+       free(attr);
+
+       return rc;
+   }
+
+   //
+   // Beyond this point is default processing for mechanisms not supported
+   // by the token.
+   //
    switch (ctx->mech.mechanism) {
       case CKM_RSA_PKCS:
          // we can use the same sign mechanism to do sign-recover

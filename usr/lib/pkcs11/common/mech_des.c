@@ -294,8 +294,6 @@
 // Mechanisms for DES
 //
 
-//#include <windows.h>
-
 #include <string.h>            // for memcmp() et al
 #include <stdlib.h>
 
@@ -303,9 +301,7 @@
 #include "defs.h"
 #include "host_defs.h"
 #include "h_extern.h"
-#include "tok_spec_struct.h"
-//#include "args.h"
-
+#include "sw_default.h"
 
 
 //
@@ -1569,7 +1565,7 @@ ckm_des_key_gen( TEMPLATE *tmpl )
    // The size is passed in to allow the same token specific code to
    // do both DES and TDES
    do {
-      rc = token_specific.t_des_key_gen(des_key,DES_KEY_SIZE);
+      rc = sw_default_des_key_gen(des_key,DES_KEY_SIZE);
    } while (des_check_weak_key(des_key) != FALSE  && rc != CKR_OK);
    if (rc != CKR_OK)
       goto done;
@@ -1715,7 +1711,7 @@ ckm_des_ecb_encrypt( CK_BYTE   * in_data,
       st_err_log(4, __FILE__, __LINE__, __FUNCTION__);
       return CKR_FUNCTION_FAILED;
    }
-   rc = token_specific.t_des_ecb(in_data,in_data_len,out_data,out_data_len,key_value,1);//  token specifics return CKR_ errors ... 
+   rc = sw_default_des_ecb(in_data,in_data_len,out_data,out_data_len,key_value,1);//  token specifics return CKR_ errors ... 
 
    if (rc != CKR_OK)
       st_err_log(117, __FILE__, __LINE__);
@@ -1746,7 +1742,7 @@ ckm_des_ecb_decrypt( CK_BYTE   * in_data,
       return CKR_FUNCTION_FAILED;
    }
 
-   rc = token_specific.t_des_ecb(in_data,in_data_len,out_data,
+   rc = sw_default_des_ecb(in_data,in_data_len,out_data,
          out_data_len,key_value,0);  // last parm is the encrypt flag
    if (rc != CKR_OK)
       st_err_log(117, __FILE__, __LINE__);
@@ -1776,7 +1772,7 @@ ckm_des_cbc_encrypt( CK_BYTE   * in_data,
       st_err_log(4, __FILE__, __LINE__, __FUNCTION__);
       return CKR_FUNCTION_FAILED;
    }
-   rc = token_specific.t_des_cbc(in_data,in_data_len,out_data,
+   rc = sw_default_des_cbc(in_data,in_data_len,out_data,
          out_data_len,key_value,init_v,1);  // last parm is the encrypt flag
 
    if (rc != CKR_OK)
@@ -1808,7 +1804,7 @@ ckm_des_cbc_decrypt( CK_BYTE   * in_data,
       return CKR_FUNCTION_FAILED;
    }
 
-   rc = token_specific.t_des_cbc(in_data,in_data_len,out_data,
+   rc = sw_default_des_cbc(in_data,in_data_len,out_data,
          out_data_len,key_value,init_v,0);  // last parm is the encrypt flag
 
    if (rc != CKR_OK)
