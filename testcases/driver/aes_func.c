@@ -16,6 +16,10 @@
 #define AES_BLOCK_SIZE 16
 #endif
 
+#ifndef AES_IV_VALUE
+#define AES_IV_VALUE "1234567890123456"
+#endif
+
 #ifndef AES_KEY_LEN
 #define AES_KEY_LEN 32
 #endif
@@ -34,7 +38,7 @@ int do_EncryptAES_ECB(void)
 	CK_ULONG            i;
 	CK_ULONG            len1, len2, key_size = AES_KEY_SIZE_256;
 	CK_RV               rc;
-	CK_ATTRIBUTE key_gen_tmpl[] = {
+	CK_ATTRIBUTE        key_gen_tmpl[] = {
 		{CKA_VALUE_LEN, &key_size, sizeof(CK_ULONG) }
 	};
 
@@ -139,8 +143,11 @@ int do_EncryptAES_Multipart_ECB( void )
 	CK_ULONG            i, k;
 	CK_ULONG            orig_len;
 	CK_ULONG            crypt1_len, crypt2_len, decrypt1_len, decrypt2_len;
-	CK_ULONG            tmp;
+	CK_ULONG            tmp, key_size = AES_KEY_SIZE_256;
 	CK_RV               rc;
+	CK_ATTRIBUTE        key_gen_tmpl[] = {
+		{CKA_VALUE_LEN, &key_size, sizeof(CK_ULONG) }
+	};
 
 	printf("do_EncryptAES_Multipart_ECB...\n");
 
@@ -170,7 +177,7 @@ int do_EncryptAES_Multipart_ECB( void )
 
 	// first, generate a AES key
 	//
-	rc = funcs->C_GenerateKey( session, &mech, NULL, 0, &h_key );
+	rc = funcs->C_GenerateKey( session, &mech, key_gen_tmpl, 1, &h_key );
 	if (rc != CKR_OK) {
 		show_error("   C_GenerateKey #1", rc );
 		goto error;
@@ -364,7 +371,7 @@ int do_EncryptAES_Multipart_ECB( void )
 		return FALSE;
 	}
 
-	printf("Looks okay...\n");
+	printf("Success.\n");
 	return TRUE;
 
  error:
@@ -389,10 +396,13 @@ int do_EncryptAES_CBC( void )
 	CK_FLAGS            flags;
 	CK_BYTE             user_pin[PKCS11_MAX_PIN_LEN];
 	CK_ULONG            user_pin_len;
-	CK_BYTE             init_v[8];
-	CK_ULONG            i;
+	CK_BYTE             init_v[AES_BLOCK_SIZE];
+	CK_ULONG            i, key_size = AES_KEY_SIZE_256;
 	CK_ULONG            len1, len2;
 	CK_RV               rc;
+	CK_ATTRIBUTE        key_gen_tmpl[] = {
+		{CKA_VALUE_LEN, &key_size, sizeof(CK_ULONG) }
+	};
 
 	printf("do_EncryptAES_CBC...\n");
 
@@ -423,7 +433,7 @@ int do_EncryptAES_CBC( void )
 
 	// first, generate a AES key
 	//
-	rc = funcs->C_GenerateKey( session, &mech, NULL, 0, &h_key );
+	rc = funcs->C_GenerateKey( session, &mech, key_gen_tmpl, 1, &h_key );
 	if (rc != CKR_OK) {
 		show_error("   C_GenerateKey #1", rc );
 		return FALSE;
@@ -439,10 +449,10 @@ int do_EncryptAES_CBC( void )
 		data2[i] = i % 255;
 	}
 
-	memcpy( init_v, "12345678", 8 );
+	memcpy( init_v, AES_IV_VALUE, AES_BLOCK_SIZE );
 
 	mech.mechanism      = CKM_AES_CBC;
-	mech.ulParameterLen = 8;
+	mech.ulParameterLen = AES_BLOCK_SIZE;
 	mech.pParameter     = init_v;
 
 	rc = funcs->C_EncryptInit( session, &mech, h_key );
@@ -489,7 +499,7 @@ int do_EncryptAES_CBC( void )
 		return FALSE;
 	}
 
-	printf("Looks okay...\n");
+	printf("Success.\n");
 	return TRUE;
 }
 
@@ -509,14 +519,17 @@ int do_EncryptAES_Multipart_CBC( void )
 	CK_MECHANISM        mech;
 	CK_OBJECT_HANDLE    h_key;
 	CK_FLAGS            flags;
-	CK_BYTE             init_v[8];
+	CK_BYTE             init_v[AES_BLOCK_SIZE];
 	CK_BYTE             user_pin[PKCS11_MAX_PIN_LEN];
 	CK_ULONG            user_pin_len;
 	CK_ULONG            i, k;
 	CK_ULONG            orig_len;
 	CK_ULONG            crypt1_len, crypt2_len, decrypt1_len, decrypt2_len;
-	CK_ULONG            tmp;
+	CK_ULONG            tmp, key_size = AES_KEY_SIZE_256;
 	CK_RV               rc;
+	CK_ATTRIBUTE        key_gen_tmpl[] = {
+		{CKA_VALUE_LEN, &key_size, sizeof(CK_ULONG) }
+	};
 
 	printf("do_EncryptAES_Multipart_CBC...\n");
 
@@ -546,7 +559,7 @@ int do_EncryptAES_Multipart_CBC( void )
 
 	// first, generate a AES key
 	//
-	rc = funcs->C_GenerateKey( session, &mech, NULL, 0, &h_key );
+	rc = funcs->C_GenerateKey( session, &mech, key_gen_tmpl, 1, &h_key );
 	if (rc != CKR_OK) {
 		show_error("   C_GenerateKey #1", rc );
 		return FALSE;
@@ -560,10 +573,10 @@ int do_EncryptAES_Multipart_CBC( void )
 		original[i] = i % 255;
 	}
 
-	memcpy( init_v, "12345678", 8 );
+	memcpy( init_v, AES_IV_VALUE, AES_BLOCK_SIZE );
 
 	mech.mechanism      = CKM_AES_CBC;
-	mech.ulParameterLen = 8;
+	mech.ulParameterLen = AES_BLOCK_SIZE;
 	mech.pParameter     = init_v;
 
 	rc = funcs->C_EncryptInit( session, &mech, h_key );
@@ -736,7 +749,7 @@ int do_EncryptAES_Multipart_CBC( void )
 		return FALSE;
 	}
 
-	printf("Looks okay...\n");
+	printf("Success.\n");
 	return TRUE;
 }
 
@@ -747,11 +760,11 @@ int do_EncryptAES_Multipart_CBC_PAD( void )
 {
 	CK_BYTE             original[BIG_REQUEST];
 
-	CK_BYTE             crypt1[BIG_REQUEST + 8];  // account for padding
-	CK_BYTE             crypt2[BIG_REQUEST + 8];  // account for padding
+	CK_BYTE             crypt1[BIG_REQUEST + AES_BLOCK_SIZE];  // account for padding
+	CK_BYTE             crypt2[BIG_REQUEST + AES_BLOCK_SIZE];  // account for padding
 
-	CK_BYTE             decrypt1[BIG_REQUEST + 8];  // account for padding
-	CK_BYTE             decrypt2[BIG_REQUEST + 8];  // account for padding
+	CK_BYTE             decrypt1[BIG_REQUEST + AES_BLOCK_SIZE];  // account for padding
+	CK_BYTE             decrypt2[BIG_REQUEST + AES_BLOCK_SIZE];  // account for padding
 
 
 	CK_SLOT_ID          slot_id;
@@ -759,12 +772,15 @@ int do_EncryptAES_Multipart_CBC_PAD( void )
 	CK_MECHANISM        mech;
 	CK_OBJECT_HANDLE    h_key;
 	CK_FLAGS            flags;
-	CK_BYTE             init_v[8];
+	CK_BYTE             init_v[AES_BLOCK_SIZE];
 	CK_BYTE             user_pin[PKCS11_MAX_PIN_LEN];
 	CK_ULONG            user_pin_len;
 	CK_ULONG            i, k;
 	CK_ULONG            orig_len, crypt1_len, crypt2_len, decrypt1_len, decrypt2_len;
-	CK_RV               rc;
+	CK_RV               rc, key_size = AES_KEY_SIZE_256;
+	CK_ATTRIBUTE        key_gen_tmpl[] = {
+		{CKA_VALUE_LEN, &key_size, sizeof(CK_ULONG) }
+	};
 
 	printf("do_EncryptAES_Multipart_CBC_PAD...\n");
 
@@ -794,7 +810,7 @@ int do_EncryptAES_Multipart_CBC_PAD( void )
 
 	// first, generate a AES key
 	//
-	rc = funcs->C_GenerateKey( session, &mech, NULL, 0, &h_key );
+	rc = funcs->C_GenerateKey( session, &mech, key_gen_tmpl, 1, &h_key );
 	if (rc != CKR_OK) {
 		show_error("   C_GenerateKey #1", rc );
 		return FALSE;
@@ -809,10 +825,10 @@ int do_EncryptAES_Multipart_CBC_PAD( void )
 		original[i] = i % 255;
 	}
 
-	memcpy( init_v, "12345678", 8 );
+	memcpy( init_v, AES_IV_VALUE, AES_BLOCK_SIZE );
 
 	mech.mechanism      = CKM_AES_CBC_PAD;
-	mech.ulParameterLen = 8;
+	mech.ulParameterLen = AES_BLOCK_SIZE;
 	mech.pParameter     = init_v;
 
 	rc = funcs->C_EncryptInit( session, &mech, h_key );
@@ -987,7 +1003,7 @@ int do_EncryptAES_Multipart_CBC_PAD( void )
 		return FALSE;
 	}
 
-	printf("Looks okay...\n");
+	printf("Success.\n");
 	return TRUE;
 }
 
@@ -1011,15 +1027,19 @@ int do_WrapUnwrapAES_ECB( void )
 	CK_ULONG            wrapped_data_len;
 	CK_ULONG            i;
 	CK_ULONG            len1, len2;
-	CK_RV               rc;
+	CK_RV               rc, key_size = AES_KEY_SIZE_256;
+	CK_ATTRIBUTE        key_gen_tmpl[] = {
+		{CKA_VALUE_LEN, &key_size, sizeof(CK_ULONG) }
+	};
 
 	CK_OBJECT_CLASS     key_class = CKO_SECRET_KEY;
 	CK_KEY_TYPE         key_type  = CKK_AES;
-	CK_ULONG            tmpl_count = 2;
+	CK_ULONG            tmpl_count = 3;
 	CK_ATTRIBUTE   template[] =
 		{
 			{ CKA_CLASS,     &key_class,  sizeof(key_class) },
-			{ CKA_KEY_TYPE,  &key_type,   sizeof(key_type)  }
+			{ CKA_KEY_TYPE,  &key_type,   sizeof(key_type)  },
+			{ CKA_VALUE_LEN, &key_size, sizeof(key_size) }
 		};
 
 
@@ -1051,13 +1071,13 @@ int do_WrapUnwrapAES_ECB( void )
 
 	// first, generate a AES key and a wrapping key
 	//
-	rc = funcs->C_GenerateKey( session, &mech, NULL, 0, &h_key );
+	rc = funcs->C_GenerateKey( session, &mech, key_gen_tmpl, 1, &h_key );
 	if (rc != CKR_OK) {
 		show_error("   C_GenerateKey #1", rc );
 		goto error;
 	}
 
-	rc = funcs->C_GenerateKey( session, &mech, NULL, 0, &w_key );
+	rc = funcs->C_GenerateKey( session, &mech, key_gen_tmpl, 1, &w_key );
 	if (rc != CKR_OK) {
 		show_error("   C_GenerateKey #2", rc );
 		goto error;
@@ -1194,7 +1214,7 @@ int do_WrapUnwrapAES_ECB( void )
 		return FALSE;
 	}
 
-	printf("Looks okay...\n");
+	printf("Success.\n");
 	return TRUE;
 
  error:
@@ -1221,20 +1241,24 @@ int do_WrapUnwrapAES_CBC( void )
 	CK_OBJECT_HANDLE    uw_key;
 	CK_FLAGS            flags;
 	CK_BYTE             user_pin[PKCS11_MAX_PIN_LEN];
-	CK_BYTE             init_v[] = { 1,2,3,4,5,6,7,8 };
+	CK_BYTE             init_v[AES_BLOCK_SIZE] = AES_IV_VALUE;
 	CK_ULONG            user_pin_len;
 	CK_ULONG            wrapped_data_len;
 	CK_ULONG            i;
 	CK_ULONG            len1, len2;
-	CK_RV               rc;
+	CK_RV               rc, key_size = AES_KEY_SIZE_256;
+	CK_ATTRIBUTE        key_gen_tmpl[] = {
+		{CKA_VALUE_LEN, &key_size, sizeof(CK_ULONG) }
+	};
 
 	CK_OBJECT_CLASS     key_class = CKO_SECRET_KEY;
 	CK_KEY_TYPE         key_type  = CKK_AES;
-	CK_ULONG            tmpl_count = 2;
+	CK_ULONG            tmpl_count = 3;
 	CK_ATTRIBUTE   template[] =
 		{
 			{ CKA_CLASS,     &key_class,  sizeof(key_class) },
-			{ CKA_KEY_TYPE,  &key_type,   sizeof(key_type)  }
+			{ CKA_KEY_TYPE,  &key_type,   sizeof(key_type)  },
+			{ CKA_VALUE_LEN, &key_size, sizeof(key_size) }
 		};
 
 
@@ -1266,13 +1290,13 @@ int do_WrapUnwrapAES_CBC( void )
 
 	// first, generate a AES key and a wrapping key
 	//
-	rc = funcs->C_GenerateKey( session, &mech, NULL, 0, &h_key );
+	rc = funcs->C_GenerateKey( session, &mech, key_gen_tmpl, 1, &h_key );
 	if (rc != CKR_OK) {
 		show_error("   C_GenerateKey #1", rc );
 		return FALSE;
 	}
 
-	rc = funcs->C_GenerateKey( session, &mech, NULL, 0, &w_key );
+	rc = funcs->C_GenerateKey( session, &mech, key_gen_tmpl, 1, &w_key );
 	if (rc != CKR_OK) {
 		show_error("   C_GenerateKey #2", rc );
 		return FALSE;
@@ -1409,7 +1433,7 @@ int do_WrapUnwrapAES_CBC( void )
 		return FALSE;
 	}
 
-	printf("Looks okay...\n");
+	printf("Success.\n");
 	return TRUE;
 }
 
@@ -1419,10 +1443,10 @@ int do_WrapUnwrapAES_CBC( void )
 int do_WrapUnwrapAES_CBC_PAD( void )
 {
 	CK_BYTE             original[BIG_REQUEST];
-	CK_BYTE             cipher  [BIG_REQUEST + 8];
-	CK_BYTE             decipher[BIG_REQUEST + 8];
+	CK_BYTE             cipher  [BIG_REQUEST + AES_BLOCK_SIZE];
+	CK_BYTE             decipher[BIG_REQUEST + AES_BLOCK_SIZE];
 
-	CK_BYTE             wrapped_data[BIG_REQUEST + 8];
+	CK_BYTE             wrapped_data[BIG_REQUEST + AES_BLOCK_SIZE];
 
 	CK_SLOT_ID          slot_id;
 	CK_SESSION_HANDLE   session;
@@ -1432,20 +1456,24 @@ int do_WrapUnwrapAES_CBC_PAD( void )
 	CK_OBJECT_HANDLE    uw_key;
 	CK_FLAGS            flags;
 	CK_BYTE             user_pin[PKCS11_MAX_PIN_LEN];
-	CK_BYTE             init_v[] = { 1,2,3,4,5,6,7,8 };
+	CK_BYTE             init_v[AES_BLOCK_SIZE] = AES_IV_VALUE;
 	CK_ULONG            user_pin_len;
 	CK_ULONG            wrapped_data_len;
 	CK_ULONG            i;
 	CK_ULONG            orig_len, cipher_len, decipher_len;
-	CK_RV               rc;
+	CK_RV               rc, key_size = AES_KEY_SIZE_256;
+	CK_ATTRIBUTE        key_gen_tmpl[] = {
+		{CKA_VALUE_LEN, &key_size, sizeof(CK_ULONG) }
+	};
 
 	CK_OBJECT_CLASS     key_class = CKO_SECRET_KEY;
 	CK_KEY_TYPE         key_type  = CKK_AES;
-	CK_ULONG            tmpl_count = 2;
+	CK_ULONG            tmpl_count = 3;
 	CK_ATTRIBUTE   template[] =
 		{
 			{ CKA_CLASS,     &key_class,  sizeof(key_class) },
-			{ CKA_KEY_TYPE,  &key_type,   sizeof(key_type)  }
+			{ CKA_KEY_TYPE,  &key_type,   sizeof(key_type)  },
+			{ CKA_VALUE_LEN, &key_size,   sizeof(key_size)  }
 		};
 
 
@@ -1477,13 +1505,13 @@ int do_WrapUnwrapAES_CBC_PAD( void )
 
 	// first, generate a AES key and a wrapping key
 	//
-	rc = funcs->C_GenerateKey( session, &mech, NULL, 0, &h_key );
+	rc = funcs->C_GenerateKey( session, &mech, key_gen_tmpl, 1, &h_key );
 	if (rc != CKR_OK) {
 		show_error("   C_GenerateKey #1", rc );
 		return FALSE;
 	}
 
-	rc = funcs->C_GenerateKey( session, &mech, NULL, 0, &w_key );
+	rc = funcs->C_GenerateKey( session, &mech, key_gen_tmpl, 1, &w_key );
 	if (rc != CKR_OK) {
 		show_error("   C_GenerateKey #2", rc );
 		return FALSE;
@@ -1680,7 +1708,7 @@ int do_WrapUnwrapAES_CBC_PAD( void )
 		return FALSE;
 	}
 
-	printf("Looks okay...\n");
+	printf("Success.\n");
 	return TRUE;
 }
 
@@ -1696,55 +1724,69 @@ int aes_functions(void)
 	if (!rc) {
 		fprintf (stderr, "ERROR do_EncryptAES_ECB failed, rc = "
 			 "0x%0x\n", rc);
+		return rc;
 	}
-	return TRUE;
 
 	GetSystemTime(&t1);
 	rc = do_EncryptAES_CBC();
-	if (!rc)
+	if (!rc) {
 		fprintf (stderr, "ERROR do_EncryptAES_CBC failed, rc = 0x%0x\n", rc);
+		return rc;
+	}
 	GetSystemTime(&t2);
 	process_time( t1, t2 );
 
 	GetSystemTime(&t1);
 	rc = do_EncryptAES_Multipart_ECB();
-	if (!rc)
+	if (!rc) {
 		fprintf (stderr, "ERROR do_EncryptAES_Multipart_ECB failed, rc = 0x%0x\n", rc);
+		return rc;
+	}
 	GetSystemTime(&t2);
 	process_time( t1, t2 );
 
 	GetSystemTime(&t1);
 	rc = do_EncryptAES_Multipart_CBC();
-	if (!rc)
+	if (!rc) {
 		fprintf (stderr, "ERROR do_EncryptAES_Multipart_CBC failed, rc = 0x%0x\n", rc);
+		return rc;
+	}
 	GetSystemTime(&t2);
 	process_time( t1, t2 );
 
 	GetSystemTime(&t1);
 	rc = do_EncryptAES_Multipart_CBC_PAD();
-	if (!rc)
+	if (!rc) {
 		fprintf (stderr, "ERROR do_EncryptAES_Multipart_CBC_PAD failed, rc = 0x%0x\n", rc);
+		return rc;
+	}
 	GetSystemTime(&t2);
 	process_time( t1, t2 );
 
 	GetSystemTime(&t1);
 	rc = do_WrapUnwrapAES_ECB();
-	if (!rc)
+	if (!rc) {
 		fprintf (stderr, "ERROR do_WrapUnwrapAES_EBC failed, rc = 0x%0x\n", rc);
+		return rc;
+	}
 	GetSystemTime(&t2);
 	process_time( t1, t2 );
 
 	GetSystemTime(&t1);
 	rc = do_WrapUnwrapAES_CBC();
-	if (!rc)
+	if (!rc) {
 		fprintf (stderr, "ERROR do_WrapUnwrapAES_CBC failed, rc = 0x%0x\n", rc);
+		return rc;
+	}
 	GetSystemTime(&t2);
 	process_time( t1, t2 );
 
 	GetSystemTime(&t1);
 	rc = do_WrapUnwrapAES_CBC_PAD();
-	if (!rc)
+	if (!rc) {
 		fprintf (stderr, "ERROR do_WrapUnwrapAES_CBC_PAD failed, rc = 0x%0x\n", rc);
+		return rc;
+	}
 	GetSystemTime(&t2);
 	process_time( t1, t2 );
 
