@@ -180,7 +180,7 @@ util_check_public_exponent(TEMPLATE *tmpl)
 TSS_RESULT
 util_set_public_modulus(TSS_HKEY hKey, unsigned long size_n, unsigned char *n)
 {
-	UINT16 offset;
+	UINT64 offset;
 	UINT32 blob_size;
 	BYTE *blob, pub_blob[1024];
 	TCPA_PUBKEY pub_key;

@@ -95,6 +95,9 @@ TSS_HKEY hPublicLeafKey = NULL_HKEY;
 TSS_HKEY hPrivateRootKey = NULL_HKEY;
 TSS_HKEY hPrivateLeafKey = NULL_HKEY;
 
+/* TSP policy handles */
+TSS_HPOLICY hDefaultPolicy = NULL_HPOLICY;
+
 /* PKCS#11 key handles */
 CK_OBJECT_HANDLE ckPublicRootKey = 0;
 CK_OBJECT_HANDLE ckPublicLeafKey = 0;
@@ -156,6 +159,11 @@ token_specific_init(char *Correlator, CK_SLOT_ID SlotNumber)
                 LogError("Tspi_Context_Connect failed. rc=0x%x", result);
                 return CKR_FUNCTION_FAILED;
         }
+
+	if ((result = Tspi_Context_GetDefaultPolicy(tspContext, &hDefaultPolicy))) {
+                LogError("Tspi_Context_GetDefaultPolicy failed. rc=0x%x", result);
+                return CKR_FUNCTION_FAILED;
+	}
 
 	OpenSSL_add_all_algorithms();
 
@@ -253,6 +261,7 @@ token_wrap_sw_key(int size_n, unsigned char *n, int size_p, unsigned char *p,
 		  TSS_HKEY hParentKey, TSS_FLAG initFlags, TSS_HKEY *phKey)
 {
 	TSS_RESULT result;
+	TSS_HPOLICY hPolicy;
 	static TSS_BOOL get_srk_pub_key = TRUE;
 	UINT32 key_size;
 
@@ -304,6 +313,33 @@ token_wrap_sw_key(int size_n, unsigned char *n, int size_p, unsigned char *p,
 		}
 		Tspi_Context_FreeMemory(tspContext, pubKey);
 		get_srk_pub_key = FALSE;
+	}
+
+	result = Tspi_Context_CreateObject(tspContext, TSS_OBJECT_TYPE_POLICY, TSS_POLICY_MIGRATION,
+					   &hPolicy);
+	if (result != TSS_SUCCESS) {
+		LogError("Tspi_Context_CreateObject: 0x%x", result);
+		Tspi_Context_CloseObject(tspContext, *phKey);
+		*phKey = NULL_HKEY;
+		return result;
+	}
+
+	result = Tspi_Policy_SetSecret(hPolicy, TSS_SECRET_MODE_NONE, 0, NULL);
+	if (result != TSS_SUCCESS) {
+		LogError("Tspi_Policy_SetSecret failed. rc=0x%x", result);
+		Tspi_Context_CloseObject(tspContext, *phKey);
+		Tspi_Context_CloseObject(tspContext, hPolicy);
+		*phKey = NULL_HKEY;
+		return result;
+	}
+
+	result = Tspi_Policy_AssignToObject(hPolicy, *phKey);
+	if (result != TSS_SUCCESS) {
+		LogError("Tspi_Policy_AssignToObject: 0x%x", result);
+		Tspi_Context_CloseObject(tspContext, *phKey);
+		Tspi_Context_CloseObject(tspContext, hPolicy);
+		*phKey = NULL_HKEY;
+		return result;
 	}
 
 	result = Tspi_Key_WrapKey(*phKey, hParentKey, NULL_HPCRS);
@@ -505,11 +541,18 @@ token_load_key(CK_OBJECT_HANDLE ckKey, TSS_HKEY hParentKey, CK_CHAR_PTR passHash
 			goto done;
 		}
 	}
-
+#if 0
 	if ((result = Tspi_GetPolicyObject(*phKey, TSS_POLICY_USAGE, &hPolicy))) {
 		LogError("Tspi_GetPolicyObject: 0x%x", result);
 		goto done;
 	}
+#else
+	if ((result = Tspi_Context_CreateObject(tspContext, TSS_OBJECT_TYPE_POLICY,
+						TSS_POLICY_USAGE, &hPolicy))) {
+		LogError("Tspi_Context_CreateObject: 0x%x", result);
+		goto done;
+	}
+#endif
 
 	if (passHash == NULL) {
 		result = Tspi_Policy_SetSecret(hPolicy, TSS_SECRET_MODE_NONE, 0, NULL);
@@ -519,6 +562,11 @@ token_load_key(CK_OBJECT_HANDLE ckKey, TSS_HKEY hParentKey, CK_CHAR_PTR passHash
 	}
 	if (result != TSS_SUCCESS) {
 		LogError("Tspi_Policy_SetSecret: 0x%x", result);
+		goto done;
+	}
+
+	if ((result = Tspi_Policy_AssignToObject(hPolicy, *phKey))) {
+		LogError("Tspi_Policy_AssignToObject: 0x%x", result);
 		goto done;
 	}
 done:
@@ -596,18 +644,27 @@ TSS_RESULT
 tss_generate_key(TSS_FLAG initFlags, BYTE *passHash, TSS_HKEY hParentKey, TSS_HKEY *phKey)
 {
 	TSS_RESULT	result;
-	TSS_HPOLICY	hPolicy;
+	TSS_HPOLICY	hPolicy, hMigPolicy;
 
-	if ((result = Tspi_Context_CreateObject(tspContext, TSS_OBJECT_TYPE_RSAKEY, initFlags, phKey))) {
+	if ((result = Tspi_Context_CreateObject(tspContext, TSS_OBJECT_TYPE_RSAKEY, initFlags,
+						phKey))) {
 		LogError("Tspi_Context_CreateObject failed. rc=0x%x", result);
 		return result;
 	}
-
+#if 0
 	if ((result = Tspi_GetPolicyObject(*phKey, TSS_POLICY_USAGE, &hPolicy))) {
 		LogError("Tspi_GetPolicyObject failed. rc=0x%x", result);
 		Tspi_Context_CloseObject(tspContext, *phKey);
 		return result;
 	}
+#else
+	if ((result = Tspi_Context_CreateObject(tspContext, TSS_OBJECT_TYPE_POLICY,
+						TSS_POLICY_USAGE, &hPolicy))) {
+		LogError("Tspi_Context_CreateObject: 0x%x", result);
+		Tspi_Context_CloseObject(tspContext, *phKey);
+		return result;
+	}
+#endif
 
 	if (passHash == NULL) {
 		result = Tspi_Policy_SetSecret(hPolicy, TSS_SECRET_MODE_NONE, 0, NULL);
@@ -617,7 +674,48 @@ tss_generate_key(TSS_FLAG initFlags, BYTE *passHash, TSS_HKEY hParentKey, TSS_HK
 	if (result != TSS_SUCCESS) {
 		LogError("Tspi_Policy_SetSecret failed. rc=0x%x", result);
 		Tspi_Context_CloseObject(tspContext, *phKey);
+		Tspi_Context_CloseObject(tspContext, hPolicy);
 		return result;
+	}
+
+	if ((result = Tspi_Policy_AssignToObject(hPolicy, *phKey))) {
+		LogError("Tspi_Policy_AssignToObject: 0x%x", result);
+		Tspi_Context_CloseObject(tspContext, *phKey);
+		Tspi_Context_CloseObject(tspContext, hPolicy);
+		return result;
+	}
+
+	if (TPMTOK_TSS_KEY_MIG_TYPE(initFlags) == TSS_KEY_MIGRATABLE) {
+		if ((result = Tspi_Context_CreateObject(tspContext, TSS_OBJECT_TYPE_POLICY,
+							TSS_POLICY_MIGRATION, &hMigPolicy))) {
+			LogError("Tspi_Context_CreateObject: 0x%x", result);
+			Tspi_Context_CloseObject(tspContext, *phKey);
+			Tspi_Context_CloseObject(tspContext, hPolicy);
+			return result;
+		}
+
+		if (passHash == NULL) {
+			result = Tspi_Policy_SetSecret(hMigPolicy, TSS_SECRET_MODE_NONE, 0, NULL);
+		} else {
+			result = Tspi_Policy_SetSecret(hMigPolicy, TSS_SECRET_MODE_SHA1, 20,
+						       passHash);
+		}
+
+		if (result != TSS_SUCCESS) {
+			LogError("Tspi_Policy_SetSecret failed. rc=0x%x", result);
+			Tspi_Context_CloseObject(tspContext, *phKey);
+			Tspi_Context_CloseObject(tspContext, hPolicy);
+			Tspi_Context_CloseObject(tspContext, hMigPolicy);
+			return result;
+		}
+
+		if ((result = Tspi_Policy_AssignToObject(hMigPolicy, *phKey))) {
+			LogError("Tspi_Policy_AssignToObject: 0x%x", result);
+			Tspi_Context_CloseObject(tspContext, *phKey);
+			Tspi_Context_CloseObject(tspContext, hPolicy);
+			Tspi_Context_CloseObject(tspContext, hMigPolicy);
+			return result;
+		}
 	}
 
 	if (TPMTOK_TSS_KEY_TYPE(initFlags) == TSS_KEY_TYPE_LEGACY) {
@@ -626,6 +724,8 @@ tss_generate_key(TSS_FLAG initFlags, BYTE *passHash, TSS_HKEY hParentKey, TSS_HK
 							TSS_ES_RSAESPKCSV15))) {
 			LogError("Tspi_SetAttribUint32 failed. rc=0x%x", result);
 			Tspi_Context_CloseObject(tspContext, *phKey);
+			Tspi_Context_CloseObject(tspContext, hPolicy);
+			Tspi_Context_CloseObject(tspContext, hMigPolicy);
 			return result;
 		}
 
@@ -634,6 +734,8 @@ tss_generate_key(TSS_FLAG initFlags, BYTE *passHash, TSS_HKEY hParentKey, TSS_HK
 							TSS_SS_RSASSAPKCS1V15_DER))) {
 			LogError("Tspi_SetAttribUint32 failed. rc=0x%x", result);
 			Tspi_Context_CloseObject(tspContext, *phKey);
+			Tspi_Context_CloseObject(tspContext, hPolicy);
+			Tspi_Context_CloseObject(tspContext, hMigPolicy);
 			return result;
 		}
 	}
@@ -641,6 +743,8 @@ tss_generate_key(TSS_FLAG initFlags, BYTE *passHash, TSS_HKEY hParentKey, TSS_HK
 	if ((result = Tspi_Key_CreateKey(*phKey, hParentKey, 0))) {
 		LogError("Tspi_Key_CreateKey failed with rc: 0x%x", result);
 		Tspi_Context_CloseObject(tspContext, *phKey);
+		Tspi_Context_CloseObject(tspContext, hPolicy);
+		Tspi_Context_CloseObject(tspContext, hMigPolicy);
 	}
 
 	return result;
@@ -2374,11 +2478,6 @@ token_rsa_load_key( OBJECT * key_obj, TSS_HKEY * phKey )
 
 	/* auth data may be required */
 	if (template_attribute_find( key_obj->template, CKA_ENC_AUTHDATA, &attr) == TRUE && attr) {
-		if ((result = Tspi_GetPolicyObject(*phKey, TSS_POLICY_USAGE, &hPolicy))) {
-			LogError("Tspi_GetPolicyObject: 0x%x", result);
-			return CKR_FUNCTION_FAILED;
-		}
-
 		if ((hPrivateLeafKey == NULL_HKEY) && (hPublicLeafKey == NULL_HKEY)) {
 			LogError("Shouldn't be in a public session here");
 			return CKR_FUNCTION_FAILED;
@@ -2393,8 +2492,33 @@ token_rsa_load_key( OBJECT * key_obj, TSS_HKEY * phKey )
 			return CKR_FUNCTION_FAILED;
 		}
 
-		if ((result = Tspi_Policy_SetSecret(hPolicy, TSS_SECRET_MODE_SHA1, SHA1_HASH_SIZE,
-						authData))) {
+		if ((result = Tspi_GetPolicyObject(*phKey, TSS_POLICY_USAGE, &hPolicy))) {
+			LogError("Tspi_GetPolicyObject: 0x%x", result);
+			return CKR_FUNCTION_FAILED;
+		}
+
+		/* If the policy handle returned is the same as the context's default policy, then
+		 * a new policy must be created and assigned to the key. Otherwise, just set the
+		 * secret in the policy */
+		if (hPolicy == hDefaultPolicy) {
+			if ((result = Tspi_Context_CreateObject(tspContext, TSS_OBJECT_TYPE_POLICY,
+								TSS_POLICY_USAGE, &hPolicy))) {
+				LogError("Tspi_Context_CreateObject: 0x%x", result);
+				return CKR_FUNCTION_FAILED;
+			}
+
+			if ((result = Tspi_Policy_SetSecret(hPolicy, TSS_SECRET_MODE_SHA1,
+							    SHA1_HASH_SIZE, authData))) {
+				LogError("Tspi_Policy_SetSecret failed. rc=0x%x", result);
+				return CKR_FUNCTION_FAILED;
+			}
+
+			if ((result = Tspi_Policy_AssignToObject(hPolicy, *phKey))) {
+				LogError("Tspi_Policy_AssignToObject failed. rc=0x%x", result);
+				return CKR_FUNCTION_FAILED;
+			}
+		} else if ((result = Tspi_Policy_SetSecret(hPolicy, TSS_SECRET_MODE_SHA1,
+							   SHA1_HASH_SIZE, authData))) {
 			LogError("Tspi_Policy_SetSecret failed. rc=0x%x", result);
 			return CKR_FUNCTION_FAILED;
 		}
