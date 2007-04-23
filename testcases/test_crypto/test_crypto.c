@@ -259,7 +259,7 @@ int test_rsa_encryption(CK_SESSION_HANDLE hSession)
    /* pub and priv key template declarations */
    CK_BBOOL true = TRUE;
    CK_ULONG modulusBits = 768;
-   CK_BYTE publicExponent[] = {0x01, 0x00, 0x03 };
+   CK_BYTE publicExponent[] = {0x01, 0x00, 0x01 };
    CK_BYTE subject[] = {'p', 'e', 'a', 'c', 'e'};
    CK_BYTE id[] = {123};
    CK_ATTRIBUTE publicKeyTemplate[] = {
