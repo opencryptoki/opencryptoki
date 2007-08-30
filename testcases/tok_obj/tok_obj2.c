@@ -680,7 +680,7 @@ int main( int argc, char **argv )
       }
    }
 
-   printf("Using slot #%d...\n\n", SLOT_ID );
+   printf("Using slot #%lu...\n\n", SLOT_ID );
 
    rc = do_GetFunctionList();
    if (!rc)

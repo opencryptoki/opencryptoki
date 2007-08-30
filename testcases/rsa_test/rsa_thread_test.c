@@ -100,7 +100,6 @@ void show_error( char *, CK_RV );
 int
 thread_func( void * thid)
 {
-   int  i=0;
    CK_RV rv;
    Thread_t *id;
 
@@ -206,24 +205,12 @@ unsigned char cka_coefficient[] =
 
 int do_Login(void)
 {
-   CK_BYTE             data1[100];
-   CK_BYTE             data2[256];
-   CK_BYTE             cipher[256];
    CK_SLOT_ID          slot_id;
    CK_SESSION_HANDLE   session;
-   CK_MECHANISM        mech;
-   CK_OBJECT_HANDLE    publ_key, priv_key;
    CK_FLAGS            flags;
    CK_BYTE             user_pin[PKCS11_MAX_PIN_LEN];
    CK_ULONG            user_pin_len;
-   CK_ULONG            i;
-   CK_ULONG            len1, len2, cipherlen;
    CK_RV               rc;
-   CK_OBJECT_CLASS  class = CKO_PUBLIC_KEY; 
-   CK_KEY_TYPE      type= CKK_RSA;
-   CK_OBJECT_CLASS  privclass = CKO_PRIVATE_KEY; 
-   CK_BBOOL		true = TRUE;
-   CK_BBOOL		false = FALSE;
 
    slot_id = SLOT_ID;
    flags = CKF_SERIAL_SESSION | CKF_RW_SESSION;
@@ -257,16 +244,9 @@ int do_EncryptRSA_PKCS( int index )
    CK_MECHANISM        mech;
    CK_OBJECT_HANDLE    publ_key, priv_key;
    CK_FLAGS            flags;
-   CK_BYTE             user_pin[8];
-   CK_ULONG            user_pin_len;
    CK_ULONG            i;
    CK_ULONG            len1, len2, cipherlen;
    CK_RV               rc;
-   CK_OBJECT_CLASS  class = CKO_PUBLIC_KEY; 
-   CK_KEY_TYPE      type= CKK_RSA;
-   CK_OBJECT_CLASS  privclass = CKO_PRIVATE_KEY; 
-   CK_BBOOL		true = TRUE;
-   CK_BBOOL		false = FALSE;
 
    SYSTEMTIME		t1,t2;
    CK_ULONG		diff, failed=0;
@@ -321,17 +301,6 @@ int do_EncryptRSA_PKCS( int index )
       show_error("   C_OpenSession #1", rc );
       return FALSE;
    }
-
-
-//   memcpy( user_pin, "12345678", 8 );
-//   user_pin_len = 8;
-
-//   rc = funcs->C_Login( session, CKU_USER, user_pin, user_pin_len );
-//   if (rc != CKR_OK) {
-//      show_error("   C_Login #1", rc );
-//      return FALSE;
-//   }
-
 
 
 #if GENKEY
@@ -462,9 +431,8 @@ int
 main( int argc, char **argv )
 {
    CK_C_INITIALIZE_ARGS  cinit_args;
-	int        rc, i;
-   unsigned long  avg_time;
-	CK_RV rv;
+   int  rc, i;
+   CK_RV rv;
    SLOT_ID = 0;
    skip_token_obj = TRUE;
 
@@ -499,7 +467,7 @@ main( int argc, char **argv )
       }
    }
 
-	printf("Using slot #%d...\n\n", (int)SLOT_ID );
+	printf("Using slot #%lu...\n\n", SLOT_ID );
 
    rc = do_GetFunctionList();
 	if (!rc) {
@@ -527,15 +495,15 @@ main( int argc, char **argv )
    threads = (Thread_t *)malloc(sizeof(Thread_t) * THREADCNT);
 
    
-	for (i=0; i<THREADCNT; i++){
+	for (i=0; i<(int)THREADCNT; i++){
 		threads[i].id = i;
 		//      printf("Creating thread %d\n",threads[i].id);
 		pthread_create(&threads[i].tid,NULL,(void*(*)(void *))thread_func,
 				(void *)&(threads[i]));
 		//      printf("Creating thread tid %d\n",threads[i].tid);
    }
-	for (i=0; i<THREADCNT; i++){
- //   printf("Joining thread %d\n",threads[i].id);
+	for (i=0; i<(int)THREADCNT; i++){
+		//   printf("Joining thread %d\n",threads[i].id);
 		pthread_join(threads[i].tid,NULL);
 		printf("Thread[%d] took %d ms for %d operations %6f OP/ms   \n",
 		       i, (int)threads[i].total, (int)threads[i].processed,

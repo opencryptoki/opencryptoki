@@ -1081,6 +1081,7 @@ int do_SHA1( void )
 //
 int do_DummyFunction( void )
 {
+#if DUMMY
    CK_SLOT_ID        slot_id;
    CK_ULONG          i;
    CK_ULONG          diff, avg_time, min_time, max_time;
@@ -1088,7 +1089,6 @@ int do_DummyFunction( void )
 
 
    printf("do_DummyFunction...\n");
-#if DUMMY
    slot_id = SLOT_ID;
 
    avg_time = 0;
@@ -1148,7 +1148,7 @@ int main( int argc, char **argv )
       }
    }
 
-   printf("Using slot #%ld...\n\n", SLOT_ID );
+   printf("Using slot #%lu...\n\n", SLOT_ID );
 
    rc = do_GetFunctionList();
    if (!rc)

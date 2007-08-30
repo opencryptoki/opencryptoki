@@ -1047,7 +1047,9 @@ int do_WrapUnwrapAES_ECB(void)
 {
 	CK_BYTE data1[BIG_REQUEST];
 	CK_BYTE data2[BIG_REQUEST];
+#if 0
 	CK_BYTE sanity[BIG_REQUEST];
+#endif
 	CK_BYTE wrapped_data[AES_BLOCK_SIZE];
 	CK_SLOT_ID slot_id;
 	CK_SESSION_HANDLE session;

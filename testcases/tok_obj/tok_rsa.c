@@ -68,7 +68,7 @@ do_VerifyTokenRSAKeyPair(CK_SESSION_HANDLE sess, CK_BYTE *label, CK_ULONG bits)
 		}
 
 		if (obj_class == CKO_PUBLIC_KEY) {
-			CK_BYTE n[256], e[256], tmp[256];
+			CK_BYTE n[256], e[256];
 			CK_ULONG exp_size = 0, mod_size = 0;
 			CK_ATTRIBUTE pub_attrs[] = {
 				{ CKA_PUBLIC_EXPONENT, NULL, exp_size },
@@ -203,7 +203,7 @@ main( int argc, char **argv )
 		}
 	}
 
-	printf("Using slot #%d...\n\n", (int)SLOT_ID );
+	printf("Using slot #%lu...\n\n", SLOT_ID );
 
 	slot_id = SLOT_ID;
 
@@ -240,19 +240,19 @@ main( int argc, char **argv )
 		return rv;
 	}
 
-	rv = do_GenerateTokenRSAKeyPair(session, "XXX DELETE ME TEST LABEL 512bit", 512);
+	rv = do_GenerateTokenRSAKeyPair(session, (CK_BYTE *)"XXX DELETE ME TEST LABEL 512bit", 512);
 	if (rv != CKR_OK) {
 		show_error("do_GenerateTokenRSAKeyPair(512)", rv);
 		return -1;
 	}
 
-	rv = do_GenerateTokenRSAKeyPair(session, "XXX DELETE ME TEST LABEL 1024bit", 1024);
+	rv = do_GenerateTokenRSAKeyPair(session, (CK_BYTE *)"XXX DELETE ME TEST LABEL 1024bit", 1024);
 	if (rv != CKR_OK) {
 		show_error("do_GenerateTokenRSAKeyPair(1024)", rv);
 		return -1;
 	}
 
-	rv = do_GenerateTokenRSAKeyPair(session, "XXX DELETE ME TEST LABEL 2048bit", 2048);
+	rv = do_GenerateTokenRSAKeyPair(session, (CK_BYTE *)"XXX DELETE ME TEST LABEL 2048bit", 2048);
 	if (rv != CKR_OK) {
 		show_error("do_GenerateTokenRSAKeyPair(2048)", rv);
 		return -1;
@@ -288,19 +288,19 @@ main( int argc, char **argv )
 		goto close_session;
 	}
 
-	rv = do_VerifyTokenRSAKeyPair(session, "XXX DELETE ME TEST LABEL 512bit", 512);
+	rv = do_VerifyTokenRSAKeyPair(session, (CK_BYTE *)"XXX DELETE ME TEST LABEL 512bit", 512);
 	if (rv != CKR_OK) {
 		show_error("do_VerifyTokenRSAKeyPair(512)", rv);
 		goto close_session;
 	}
 
-	rv = do_VerifyTokenRSAKeyPair(session, "XXX DELETE ME TEST LABEL 1024bit", 1024);
+	rv = do_VerifyTokenRSAKeyPair(session, (CK_BYTE *)"XXX DELETE ME TEST LABEL 1024bit", 1024);
 	if (rv != CKR_OK) {
 		show_error("do_VerifyTokenRSAKeyPair(1024)", rv);
 		goto close_session;
 	}
 
-	rv = do_VerifyTokenRSAKeyPair(session, "XXX DELETE ME TEST LABEL 2048bit", 2048);
+	rv = do_VerifyTokenRSAKeyPair(session, (CK_BYTE *)"XXX DELETE ME TEST LABEL 2048bit", 2048);
 	if (rv != CKR_OK) {
 		show_error("do_VerifyTokenRSAKeyPair(2048)", rv);
 	}

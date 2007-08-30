@@ -67,7 +67,7 @@ do_OpenSSLVerify(CK_SESSION_HANDLE session, CK_BYTE *signature,
 		 CK_OBJECT_HANDLE publ_key, int nid)
 {
 	CK_RV rv;
-	CK_BYTE n[256], e[8], tmp[256];
+	CK_BYTE n[256], e[8];
 	CK_ULONG exp_size = 0, mod_size = 0;
 	CK_ATTRIBUTE pub_attrs[] = {
 		{ CKA_PUBLIC_EXPONENT, NULL, exp_size },
@@ -75,7 +75,8 @@ do_OpenSSLVerify(CK_SESSION_HANDLE session, CK_BYTE *signature,
 	};
 	CK_BYTE hash[256];
 	RSA *rsa;
-	int ver, n_size, e_size, rc, ihash_len;
+	int ver, n_size, e_size, rc;
+	unsigned int ihash_len;
 	EVP_MD_CTX dgst_ctx;
 	EVP_MD *nid_alg = NULL;
 
@@ -366,11 +367,6 @@ do_SignVerRSA_PKCS(CK_SESSION_HANDLE session, CK_ULONG bits,
    CK_ULONG		i;
    CK_ULONG		len1, len2, sig_len;
    CK_RV		rv;
-   CK_OBJECT_CLASS	class = CKO_PUBLIC_KEY;
-   CK_KEY_TYPE		type= CKK_RSA;
-   CK_OBJECT_CLASS	privclass = CKO_PRIVATE_KEY;
-   CK_BBOOL		true = TRUE;
-   CK_BBOOL		false = FALSE;
 
    CK_BYTE		hash1[20];
    CK_BYTE		*hash2;
@@ -624,7 +620,6 @@ main( int argc, char **argv )
       return rv;
    }
 
-done:
    rv = funcs->C_CloseAllSessions( slot_id );
    if (rv != CKR_OK) {
       show_error("   C_CloseAllSessions #1", rv );

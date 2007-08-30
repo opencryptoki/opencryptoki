@@ -105,7 +105,7 @@ int main (int argc, char **argv)
       }
    }
 
-   printf("Using slot #%ld...\n\n", SLOT_ID );
+   printf("Using slot #%lu...\n\n", SLOT_ID );
    printf("With option: no_init: %d, noskip: %d\n", no_init, skip_token_obj);
    
    rc = do_GetFunctionList();

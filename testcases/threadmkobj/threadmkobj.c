@@ -37,8 +37,6 @@ CK_RV             rc;
 CK_BYTE           user_pin[PKCS11_MAX_PIN_LEN];
 CK_ULONG          user_pin_len;
 
-CK_BYTE           true  = TRUE;
-
    if (get_user_pin(user_pin))
 	   return CKR_FUNCTION_FAILED;
    user_pin_len = (CK_ULONG)strlen((char *)user_pin);
@@ -70,7 +68,6 @@ int do_create_token_object( void )
    CK_OBJECT_CLASS     cert1_class         = CKO_CERTIFICATE;
    CK_CERTIFICATE_TYPE cert1_type          = CKC_X_509;
    CK_BYTE             cert1_subject[]     = "Certificate subject #1";
-   CK_BYTE             cert1_id[]          = "Certificate ID #1";
    CK_BYTE             cert1_value[]       = "AaBbCcDdEeFfGgHhIiJjKkLlMmNnOoPpQqRrSsTtUuVvWwXxYyZz";
 
    CK_ATTRIBUTE        cert1_attribs[] =
@@ -82,12 +79,6 @@ int do_create_token_object( void )
        {CKA_VALUE,            &cert1_value,       sizeof(cert1_value)   },
        {CKA_PRIVATE,          &true,              sizeof(false)         }
    };
-   CK_ATTRIBUTE  cert_id_attr[] =
-   {
-       {CKA_ID,               &cert1_id,          sizeof(cert1_id)      }
-   };
-   CK_OBJECT_HANDLE   obj_list[20];
-   CK_ULONG           objcount;
 
 
 
@@ -154,8 +145,6 @@ thread_func(void *thid)
 int
 main( int argc, char **argv )
 {
-   CK_BYTE            line[20];
-   CK_ULONG           val;
    int i, rc;
    pthread_t		id[100];
    int thid[100];
@@ -176,7 +165,7 @@ main( int argc, char **argv )
       }
    }
 
-   printf("Using slot #%ld...\n\n", SLOT_ID );
+   printf("Using slot #%lu...\n\n", SLOT_ID );
 
    rc = do_GetFunctionList();
    if (!rc)

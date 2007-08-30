@@ -126,8 +126,6 @@ do_GenerateRSAKeyPair(CK_ULONG bits)
 
    // Use no pub exp
    {
-      CK_BYTE   pub_exp[] = { 0x1, 0x0, 0x2 };
-
       CK_ATTRIBUTE pub_tmpl[] =
       {
          {CKA_MODULUS_BITS,    &bits,    sizeof(bits)    }
@@ -181,7 +179,7 @@ main( int argc, char **argv )
       }
    }
 
-   printf("Using slot #%d...\n\n", (int)SLOT_ID );
+   printf("Using slot #%lu...\n\n", SLOT_ID );
 
    rv = do_GetFunctionList();
    if (rv != TRUE) {

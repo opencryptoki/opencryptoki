@@ -65,8 +65,6 @@ done:
 int
 main( int argc, char **argv )
 {
-	CK_BYTE            line[20];
-	CK_ULONG           val;
 	CK_BYTE		   *pass = NULL;
 	int rc;
 	int i;
@@ -93,7 +91,7 @@ main( int argc, char **argv )
 		return -1;
 	}
 
-	printf("Using slot #%ld...\n\n", SLOT_ID );
+	printf("Using slot #%lu...\n\n", SLOT_ID );
 
 	rc = do_GetFunctionList();
 	if ((rc != TRUE) || (funcs == NULL)) {
@@ -105,7 +103,6 @@ main( int argc, char **argv )
 
 	rc = do_inittoken(funcs, pass);
 
-done:
 	free(pass);
 
 	funcs->C_Finalize( NULL );

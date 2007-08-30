@@ -168,11 +168,6 @@ int do_EncryptRSA_PKCS( void )
    CK_ULONG            i;
    CK_ULONG            len1, len2, cipherlen;
    CK_RV               rv;
-   CK_OBJECT_CLASS  class = CKO_PUBLIC_KEY; 
-   CK_KEY_TYPE      type= CKK_RSA;
-   CK_OBJECT_CLASS  privclass = CKO_PRIVATE_KEY; 
-   CK_BBOOL		true = TRUE;
-   CK_BBOOL		false = FALSE;
 
 
    CK_ULONG  bits = 1024;
@@ -322,7 +317,7 @@ main( int argc, char **argv )
       }
    }
 
-   printf("Using slot #%d...\n\n", (int)SLOT_ID );
+   printf("Using slot #%lu...\n\n", SLOT_ID );
 
    rv = do_GetFunctionList();
    if (rv != TRUE) {

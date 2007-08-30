@@ -30,7 +30,6 @@ Slot_Mgr_Shr_t         *shmp = NULL;
 
 int main(int argc, char *argv[]) {
    CK_RV rc = 1;
-   CK_FLAGS flags = 0;
    unsigned long slot_num = 0;  
    int c;
 

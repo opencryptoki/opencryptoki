@@ -166,7 +166,7 @@ main( int argc, char **argv )
 		}
 	}
 
-	printf("Using slot #%d...\n\n", (int)SLOT_ID );
+	printf("Using slot #%lu...\n\n", SLOT_ID );
 
 	slot_id = SLOT_ID;
 

@@ -132,11 +132,6 @@ int do_EncryptRSA_PKCS( void )
    CK_ULONG            i;
    CK_ULONG            len1, len2, cipherlen;
    CK_RV               rc;
-   CK_OBJECT_CLASS  class = CKO_PUBLIC_KEY; 
-   CK_KEY_TYPE      type= CKK_RSA;
-   CK_OBJECT_CLASS  privclass = CKO_PRIVATE_KEY; 
-   CK_BBOOL		true = TRUE;
-   CK_BBOOL		false = FALSE;
 
 
    CK_ULONG  bits = 1024;
@@ -308,12 +303,12 @@ int
 main( int argc, char **argv )
 {
    CK_C_INITIALIZE_ARGS  cinit_args;
-   int        rc, i;
+   int        i;
    CK_BBOOL      no_init;
    SLOT_ID = 0;
    skip_token_obj = TRUE;
    no_init = FALSE;
-   CK_RV rv;
+   CK_RV rc;
 
    for (i=1; i < argc; i++) {
       if (strcmp(argv[i], "-noskip") == 0)
@@ -335,7 +330,7 @@ main( int argc, char **argv )
       }
    }
 
-   printf("Using slot #%ld...\n\n", SLOT_ID );
+   printf("Using slot #%lu...\n\n", SLOT_ID );
 
    rc = do_GetFunctionList();
    if (!rc)

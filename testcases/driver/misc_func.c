@@ -35,6 +35,7 @@ do_crash()
 //
 int do_DummySpeed( void )
 {
+#if 0
    CK_SLOT_ID        slot_id;
    CK_ULONG          i;
    CK_RV             rc;
@@ -42,7 +43,6 @@ int do_DummySpeed( void )
 
    printf("do_DummySpeed.  1000 iterations to the card...\n");
 
-#if 0
 
    slot_id = SLOT_ID;
 
@@ -53,9 +53,9 @@ int do_DummySpeed( void )
          return FALSE;
       }
    }
-#endif
 
    printf("Done...\n");
+#endif
    return TRUE;
 }
 

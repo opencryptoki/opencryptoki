@@ -355,8 +355,6 @@ int do_GenerateDHKeyPair( void )
    CK_KEY_TYPE         pub_key_type   = CKK_DH ;
    CK_OBJECT_CLASS     priv_key_class = CKO_PRIVATE_KEY ;
    CK_KEY_TYPE         priv_key_type   = CKK_DH ;
-   CK_BYTE             pub_value[128] ;
-   CK_BYTE             priv_value[128] ;
    CK_BBOOL            true = TRUE ;
 
    CK_ATTRIBUTE  publ_tmpl[] =
@@ -442,16 +440,13 @@ int do_DeriveDHKey( void )
    CK_KEY_TYPE         pub_key_type   = CKK_DH ;
    CK_OBJECT_CLASS     priv_key_class = CKO_PRIVATE_KEY ;
    CK_KEY_TYPE         priv_key_type   = CKK_DH ;
-   CK_BYTE             pub_value[128] ;
    CK_BYTE             peer_pub_value[128];
    CK_ULONG            count ;
-   CK_BYTE             priv_value[128] ;
    CK_BBOOL            true = TRUE ;
    CK_ULONG            cka_value_bits = 180 ;
    
    CK_OBJECT_CLASS     secret_key_class  = CKO_SECRET_KEY ;
    CK_KEY_TYPE         secret_key_type   = CKK_GENERIC_SECRET ;
-   CK_BYTE             secret_key_value[128] ;
    CK_ULONG            secret_key_value_len = 128 ;
 
    CK_ATTRIBUTE  publ_tmpl[] =

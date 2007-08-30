@@ -534,8 +534,6 @@ int do_GetTokenInfo( void )
 //
 int main( int argc, char **argv )
 {
-   CK_BYTE            line[20];
-   CK_ULONG           val;
    int                i;
    int rc;
 
@@ -554,7 +552,7 @@ int main( int argc, char **argv )
       }
    }
 
-   printf("Using slot #%ld...\n\n", SLOT_ID );
+   printf("Using slot #%lu...\n\n", SLOT_ID );
 
    rc = do_GetFunctionList();
    if (!rc)
@@ -566,11 +564,7 @@ int main( int argc, char **argv )
          do_inittoken();
          do_setUserPIN();
 
-done:
-
    rc = funcs->C_Finalize( NULL );
-   if (rc != CKR_OK)
-      return rc;
 
    return rc;
 }

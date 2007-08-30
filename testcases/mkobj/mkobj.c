@@ -43,7 +43,6 @@ int do_create_token_object( void )
    CK_OBJECT_CLASS     cert1_class         = CKO_CERTIFICATE;
    CK_CERTIFICATE_TYPE cert1_type          = CKC_X_509;
    CK_BYTE             cert1_subject[]     = "Certificate subject #1";
-   CK_BYTE             cert1_id[]          = "Certificate ID #1";
    CK_BYTE             cert1_value[]       = "AaBbCcDdEeFfGgHhIiJjKkLlMmNnOoPpQqRrSsTtUuVvWwXxYyZz";
 
    CK_ATTRIBUTE        cert1_attribs[] =
@@ -55,12 +54,15 @@ int do_create_token_object( void )
        {CKA_VALUE,            &cert1_value,       sizeof(cert1_value)   },
        {CKA_PRIVATE,          &false,              sizeof(false)         }
    };
+#if 0
+   CK_BYTE             cert1_id[]          = "Certificate ID #1";
    CK_ATTRIBUTE  cert_id_attr[] =
    {
        {CKA_ID,               &cert1_id,          sizeof(cert1_id)      }
    };
    CK_OBJECT_HANDLE   obj_list[20];
    CK_ULONG           objcount;
+#endif
 
 
 
@@ -539,8 +541,6 @@ int do_GetTokenInfo( void )
 //
 int main( int argc, char **argv )
 {
-   CK_BYTE            line[20];
-   CK_ULONG           val;
    int i, rc;
 
    SLOT_ID = 0;
@@ -558,7 +558,7 @@ int main( int argc, char **argv )
       }
    }
 
-   printf("Using slot #%ld...\n\n", SLOT_ID );
+   printf("Using slot #%lu...\n\n", SLOT_ID );
 
    rc = do_GetFunctionList();
    if (!rc)
@@ -572,8 +572,6 @@ int main( int argc, char **argv )
    } while (++i < 1 );
 
    rc = funcs->C_Finalize( NULL );
-   if (rc != CKR_OK)
-      return rc;
 
    return rc;
 }

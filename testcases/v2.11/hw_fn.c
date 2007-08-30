@@ -46,7 +46,6 @@ CK_SESSION_HANDLE	sess;
 
 int do_HW_Feature_Search(void)
 {
-	int			j, k;
 	unsigned int            i;
 	CK_RV 			rc;
 	CK_ULONG		find_count;
@@ -120,7 +119,6 @@ int do_HW_Feature_Search(void)
 				h_obj1, 
 				h_obj2, 
 				obj_list[10];
-        CK_MECHANISM            mech;
 	CK_ATTRIBUTE		find_tmpl[] = {
 		{CKA_CLASS,	&counter1_class, sizeof(counter1_class)}
 	};
