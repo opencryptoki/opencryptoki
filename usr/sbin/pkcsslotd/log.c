@@ -690,7 +690,6 @@ static void CloseAllLoggingFacilities ( void ) {
 
 static BOOL SetLogPriorityMask ( LogHandle hLog, u_int32 Priority ) {
 
-  u_int32                   OldMaskPriority;
   pLoggingFacilityInfo      pInfo               = NULL;
 
   /* Get a pointer to the syslog_data structure */

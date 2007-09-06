@@ -308,7 +308,6 @@
 //    template_validate_base_attribute
 //
 
-//#include <windows.h>
 #include <pthread.h>
 #include <stdlib.h>
 #include <stdio.h>
@@ -867,11 +866,10 @@ template_flatten( TEMPLATE  * tmpl,
    DL_NODE   * node = NULL;
    CK_BYTE   * ptr = NULL;
    CK_ULONG_32 long_len;
-   CK_ATTRIBUTE_32 *attr_32;
+   CK_ATTRIBUTE_32 *attr_32 = NULL;
    CK_ULONG    Val;
    CK_ULONG_32 Val_32;
    CK_ULONG  * pVal;
-   CK_ULONG_32 * pVal_32;
    long_len = sizeof(CK_ULONG);
 
    if (!tmpl || !dest){
@@ -928,7 +926,7 @@ template_flatten( TEMPLATE  * tmpl,
       node = node->next;
    }
 
-   if (long_len != 4)
+   if (attr_32)
       free(attr_32);
 
    return CKR_OK;

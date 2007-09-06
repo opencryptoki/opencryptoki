@@ -434,7 +434,7 @@ save_token_data()
 
    memcpy( &td, nv_token_data, sizeof(TOKEN_DATA) );
 
-   fwrite( &td, sizeof(TOKEN_DATA), 1, fp );
+   (void)fwrite( &td, sizeof(TOKEN_DATA), 1, fp );
    fclose(fp);
 
    rc = CKR_OK;
@@ -474,7 +474,7 @@ save_token_object( OBJECT *obj )
    if (fp) {
 	set_perm(fileno(fp));
       while (!feof(fp)) {
-         fgets((char *)line, 50, fp );
+         (void)fgets((char *)line, 50, fp );
          if (!feof(fp)) {
             line[ strlen((char *)line)-1 ] = 0;
             if (strcmp((char *)line,(char *)( obj->name)) == 0) {
@@ -540,9 +540,9 @@ save_public_token_object( OBJECT *obj )
 
    total_len = cleartxt_len + sizeof(CK_ULONG_32) + sizeof(CK_BBOOL);
 
-   fwrite( &total_len, sizeof(CK_ULONG_32), 1, fp );
-   fwrite( &flag,      sizeof(CK_BBOOL), 1, fp );
-   fwrite( cleartxt,   cleartxt_len,     1, fp );
+   (void)fwrite( &total_len, sizeof(CK_ULONG_32), 1, fp );
+   (void)fwrite( &flag,      sizeof(CK_BBOOL), 1, fp );
+   (void)fwrite( cleartxt,   cleartxt_len,     1, fp );
 
    fclose( fp );
    free( cleartxt );
@@ -633,22 +633,21 @@ save_private_token_object( OBJECT *obj )
 	// so we will enable that by a local variable
 
 {
-	CK_BYTE *initial_vector=NULL;
+   CK_BYTE *initial_vector=NULL;
 	
-	initial_vector = (CK_BYTE *)alloca(strlen("10293847")+5);
-	if (initial_vector) {	
-		bcopy("10293847",initial_vector,strlen("10293847"));
-		rc = ckm_des3_cbc_encrypt( cleartxt,    padded_len,
+   initial_vector = (CK_BYTE *)alloca(strlen("10293847")+5);
+   if (initial_vector) {	
+      memcpy(initial_vector, "10293847", strlen("10293847"));
+      rc = ckm_des3_cbc_encrypt( cleartxt,    padded_len,
 				 ciphertxt,  &ciphertxt_len,
-			        initial_vector, des3_key );
-	} else {
-		rc=CKR_FUNCTION_FAILED;
-	}
-
+			         initial_vector, des3_key );
+   } else {
+      rc=CKR_FUNCTION_FAILED;
+   }
 }
 #else
-         bcopy(cleartxt,ciphertxt,padded_len);
-         rc = CKR_OK;
+   memcpy(ciphertxt, cleartxt, padded_len);
+   rc = CKR_OK;
 #endif
    if (rc != CKR_OK){
       st_err_log(105, __FILE__, __LINE__);
@@ -670,9 +669,9 @@ save_private_token_object( OBJECT *obj )
 
    flag = TRUE;
 
-   fwrite( &total_len, sizeof(CK_ULONG_32), 1, fp );
-   fwrite( &flag,      sizeof(CK_BBOOL), 1, fp );
-   fwrite( ciphertxt,  ciphertxt_len,    1, fp );
+   (void)fwrite( &total_len, sizeof(CK_ULONG_32), 1, fp );
+   (void)fwrite( &flag,      sizeof(CK_BBOOL), 1, fp );
+   (void)fwrite( ciphertxt,  ciphertxt_len,    1, fp );
 
    fclose( fp );
 
@@ -711,7 +710,7 @@ load_public_token_objects( void )
       return CKR_OK;  // no token objects
 
    while (!feof(fp1)) {
-      fgets( (char *)tmp, 50, fp1 );
+      (void)fgets( (char *)tmp, 50, fp1 );
       if (!feof(fp1)) {
          tmp[ strlen((char *)tmp)-1 ] = 0;
 
@@ -775,7 +774,7 @@ load_private_token_objects( void )
       return CKR_OK;  // no token objects
 
    while (!feof(fp1)) {
-      fgets((char *) tmp, 50, fp1 );
+      (void)fgets((char *) tmp, 50, fp1 );
       if (!feof(fp1)) {
          tmp[ strlen((char *)tmp)-1 ] = 0;
 
@@ -876,28 +875,21 @@ restore_private_token_object( CK_BYTE  * data,
 
 #ifndef  CLEARTEXT
 {
-        CK_BYTE *initial_vector=NULL;
-                                                                                                                                  
-        initial_vector = (CK_BYTE *)alloca(strlen("10293847")+5);
-        if (initial_vector) {
-		bcopy("10293847",initial_vector,strlen("10293847"));
-                rc = ckm_des3_cbc_decrypt( ciphertxt,    len,
-                                 cleartxt,  &len,
-                                initial_vector, des3_key );
-        } else {
-                rc=CKR_FUNCTION_FAILED;
-        }
-                                                                                                                                  
-}
+   CK_BYTE *initial_vector=NULL;
 
-#if 0
-   rc = ckm_des3_cbc_decrypt( ciphertxt,  len,
-                              cleartxt,  &len,
-                              "10293847", des3_key );
-#endif
+   initial_vector = (CK_BYTE *)alloca(strlen("10293847")+5);
+   if (initial_vector) {
+      memcpy(initial_vector, "10293847", strlen("10293847"));
+      rc = ckm_des3_cbc_decrypt( ciphertxt,    len,
+                                 cleartxt,  &len,
+                                 initial_vector, des3_key );
+   } else {
+      rc=CKR_FUNCTION_FAILED;
+   }
+}
 #else
-      bcopy(ciphertxt,cleartxt,len);
-      rc = CKR_OK;
+   memcpy(cleartxt, ciphertxt, len);
+   rc = CKR_OK;
 #endif
  
    if (rc != CKR_OK){
@@ -995,25 +987,20 @@ load_masterkey_so( void )
 
 #ifndef CLEARTEXT
 {
-        CK_BYTE *initial_vector=NULL;
-                                                                                                                                  
-        initial_vector = (CK_BYTE *)alloca(strlen("12345678")+5);
-        if (initial_vector) {
-		bcopy("12345678",initial_vector,strlen("12345678"));
-                rc = ckm_des3_cbc_decrypt( cipher,    cipher_len,
-                                 clear,  &clear_len,
-                                initial_vector, des3_key );
-        } else {
-                rc=CKR_FUNCTION_FAILED;
-        }
-                                                                                                                                  
-}
+   CK_BYTE *initial_vector=NULL;
 
-#if 0
-   rc = ckm_des3_cbc_decrypt( cipher, cipher_len, clear, &clear_len, "12345678", des3_key );
-#endif
+   initial_vector = (CK_BYTE *)alloca(strlen("12345678")+5);
+   if (initial_vector) {
+      memcpy(initial_vector, "12345678", strlen("12345678"));
+      rc = ckm_des3_cbc_decrypt( cipher,  cipher_len,
+                                 clear,  &clear_len,
+                                 initial_vector, des3_key );
+   } else {
+      rc=CKR_FUNCTION_FAILED;
+   }
+}
 #else
-   bcopy(cipher,clear,cipher_len);
+   memcpy(clear, cipher, cipher_len);
    rc = CKR_OK;
 #endif
 
@@ -1096,24 +1083,20 @@ load_masterkey_user( void )
 
 #ifndef CLEARTEXT
 {
-        CK_BYTE *initial_vector=NULL;
-                                                                                                                                  
-        initial_vector = (CK_BYTE *)alloca(strlen("12345678")+5);
-        if (initial_vector) {
-		bcopy("12345678",initial_vector,strlen("12345678"));
-                rc = ckm_des3_cbc_decrypt( cipher,    cipher_len,
+   CK_BYTE *initial_vector=NULL;
+
+   initial_vector = (CK_BYTE *)alloca(strlen("12345678")+5);
+   if (initial_vector) {
+      memcpy(initial_vector, "12345678", strlen("12345678"));
+      rc = ckm_des3_cbc_decrypt( cipher,  cipher_len,
                                  clear,  &clear_len,
-                                initial_vector, des3_key );
-        } else {
-                rc=CKR_FUNCTION_FAILED;
-        }
-                                                                                                                                  
+                                 initial_vector, des3_key );
+   } else {
+      rc=CKR_FUNCTION_FAILED;
+   }
 }
-#if 0
-   rc = ckm_des3_cbc_decrypt( cipher, cipher_len, clear, &clear_len, "12345678", des3_key );
-#endif
 #else
-   bcopy(cipher,clear,cipher_len);
+   memcpy(clear, cipher, cipher_len);
    rc = CKR_OK;
 #endif
 
@@ -1181,25 +1164,21 @@ save_masterkey_so( void )
 
 #ifndef CLEARTEXT
 {
-        CK_BYTE *initial_vector=NULL;
-                                                                                                                                  
-        initial_vector = (CK_BYTE *)alloca(strlen("12345678"));
-        if (initial_vector) {
-		bcopy("12345678",initial_vector,strlen("12345678"));
-                rc = ckm_des3_cbc_encrypt( cleartxt,    padded_len,
+   CK_BYTE *initial_vector=NULL;
+
+   initial_vector = (CK_BYTE *)alloca(strlen("12345678"));
+   if (initial_vector) {
+      memcpy(initial_vector, "12345678", strlen("12345678"));
+      rc = ckm_des3_cbc_encrypt( cleartxt,    padded_len,
                                  ciphertxt,  &ciphertxt_len,
-                                initial_vector, des3_key );
-        } else {
-                rc=CKR_FUNCTION_FAILED;
-        }
-                                                                                                                                  
+                                 initial_vector, des3_key );
+   } else {
+      rc=CKR_FUNCTION_FAILED;
+   }
 }
-#if 0
-   rc = ckm_des3_cbc_encrypt( cleartxt, padded_len, ciphertxt, &ciphertxt_len, "12345678", des3_key );
-#endif
 #else
-            bcopy(cleartxt,ciphertxt,padded_len);
-	             rc = CKR_OK;
+   memcpy(ciphertxt, cleartxt, padded_len);
+   rc = CKR_OK;
 #endif
 
    if (rc != CKR_OK){
@@ -1268,24 +1247,20 @@ save_masterkey_user( void )
 
 #ifndef CLEARTEXT
 {
-        CK_BYTE *initial_vector=NULL;
-                                                                                                                                  
-        initial_vector = (CK_BYTE *)alloca(strlen("12345678")+5);
-        if (initial_vector) {
-		bcopy("12345678",initial_vector,strlen("12345678"));
-                rc = ckm_des3_cbc_encrypt( cleartxt,    padded_len,
+   CK_BYTE *initial_vector=NULL;
+
+   initial_vector = (CK_BYTE *)alloca(strlen("12345678")+5);
+   if (initial_vector) {
+      memcpy(initial_vector, "12345678", strlen("12345678"));
+      rc = ckm_des3_cbc_encrypt( cleartxt,    padded_len,
                                  ciphertxt,  &ciphertxt_len,
-                                initial_vector, des3_key );
-        } else {
-                rc=CKR_FUNCTION_FAILED;
-        }
-                                                                                                                                  
+                                 initial_vector, des3_key );
+   } else {
+      rc=CKR_FUNCTION_FAILED;
+   }
 }
-#if 0
-   rc = ckm_des3_cbc_encrypt( cleartxt, padded_len, ciphertxt, &ciphertxt_len, "12345678", des3_key );
-#endif
 #else
-   bcopy(cleartxt,ciphertxt,padded_len);
+   memcpy(ciphertxt, cleartxt, padded_len);
    rc = CKR_OK;
 #endif
 
@@ -1421,7 +1396,7 @@ delete_token_object( OBJECT *obj )
    set_perm(fileno(fp2));
 
    while (!feof(fp1)) {
-      fgets((char *)line, 50, fp1 );
+      (void)fgets((char *)line, 50, fp1 );
       if (!feof(fp1)) {
          line[ strlen((char *)line)-1 ] = 0;
          if (strcmp((char *)line, (char *)obj->name) == 0)
@@ -1445,7 +1420,7 @@ delete_token_object( OBJECT *obj )
    set_perm(fileno(fp2));
 
    while (!feof(fp1)) {
-      fgets((char *)line, 50, fp1 );
+      (void)fgets((char *)line, 50, fp1 );
       if (!feof(fp1))
          fprintf( fp2, "%s",(char *) line );
    }

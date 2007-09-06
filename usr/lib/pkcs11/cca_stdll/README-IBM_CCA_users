@@ -1,0 +1,184 @@
+
+openCryptoki CCA Token README
+Kent Yoder <yoder1@us.ibm.com>
+
+
+  The purpose of this README is to document the differences between setting up
+the openCryptoki token for the IBM CCA (Common Cryptographic Architecture) and
+setting up other tokens, such as the ICA (IBM Crypto Accelerator) token. The main
+difference is that the CCA libraries are available for 64bit s390x only, whereas
+all other openCryptoki tokens can be used 32 or 64bit.  This means that the
+PKCS#11 setup utility used by openCryptoki, pkcsconf, cannot be used, since its
+compiled 32bit by default. In order to work around this limitation, a version
+of pkcsconf has been included in the 64bit openCryptoki package to configure the
+CCA token. This version is named 'pkcsconf64', and is installed in /usr/sbin,
+alongside the 32bit pkcsconf. Note that pkcsconf64 can be used to configure
+any openCryptoki token, since they all support 64bit apps.
+
+
+After installing these RPMs, the setup process is:
+
+STEP 1:
+
+  # /etc/init.d/pkcsslotd start
+
+  This should start the pkcsslotd daemon.  You can check this with:
+
+  # ps -auwx | grep pkcsslotd
+
+  You should see something like:
+
+  root      8914  0.0  0.3   3220  1552 ?        Ss   23:31   0:00 /usr/sbin/pkcsslotd
+
+STEP 2:
+
+  Check that all the libraries are in the right places. Do:
+
+  # /usr/sbin/pkcsconf64 -t
+
+  You should see:
+
+  Token #0 Info:
+        Label: IBM ICA  PKCS #11
+        Manufacturer: IBM Corp.
+        Model: IBM ICA
+        Serial Number: 123
+        Flags: 0x880045 (RNG|LOGIN_REQUIRED|CLOCK_ON_TOKEN|USER_PIN_TO_BE_CHANGED|SO_PIN_TO_BE_CHANGED)
+        Sessions: -1/-1
+        R/W Sessions: -1/-1
+        PIN Length: 4-8
+        Public Memory: 0xFFFFFFFF/0xFFFFFFFF
+        Private Memory: 0xFFFFFFFF/0xFFFFFFFF
+        Hardware Version: 1.0
+        Firmware Version: 1.0
+  Token #1 Info:
+        Label: IBM PKCS#11 for CCA
+        Manufacturer: IBM Corp.
+        Model: IBM CCA Token
+        Serial Number: 123
+        Flags: 0x880045 (RNG|LOGIN_REQUIRED|CLOCK_ON_TOKEN|USER_PIN_TO_BE_CHANGED|SO_PIN_TO_BE_CHANGED)
+        Sessions: -1/-1
+        R/W Sessions: -1/-1
+        PIN Length: 4-128
+        Public Memory: 0xFFFFFFFF/0xFFFFFFFF
+        Private Memory: 0xFFFFFFFF/0xFFFFFFFF
+        Hardware Version: 1.0
+        Firmware Version: 1.0
+        Time: 23:33:41
+
+  Token #0 is the ICA token, driven by the libica package.  If libica or its device driver
+  isn't installed, you may only see Token #1.
+
+  If you get the following message:
+
+  C_GetSlotCount returned 0 slots. Check that your tokens are installed correctly.
+
+  several things could be wrong. Check that:
+
+  1) The master keys for the CCA's crypto card have been loaded.
+
+     If the master keys have not yet been loaded, a message will appear in the
+     system log whenever pkcsconf is run that looks like:
+
+     openCryptoki(CCA)[5294]: cca_specific.c Warning: CCA master key is not yet loaded
+
+     Please follow any instructions or procedures you may have been given on
+     loading master keys.
+
+  2) The device driver for the CCA hardware is loaded.  This module may be called
+     "zsecrypt" or "z90crypt" and may not have been loaded by the /etc/init.d/pkcsslotd
+     script.
+
+  3) The CCA libraries are installed correctly. openCryptoki requires the following
+     libraries:
+
+   library		source package
+   -----------------------------------
+   libcsulcall.so	xcryptolinz
+   libcsulsapi.so	xcryptolinz
+   libcsulsecy.so	xcryptolinz
+   libds30.so		xcryptolinz
+   libxcryp.so		xcryptolinz
+   libcrypto.so		openssl
+
+   When a token is detected by the startup scripts run by /etc/init.d/pkcsslotd, an
+   entry is made in the /var/lib/opencryptoki/pk_config_data file. This file will
+   contain 1 line per token.
+
+STEP 3:
+
+  Initialize the CCA token.
+
+  # /usr/sbin/pkcsconf64 -I -c 1
+
+  You should see:
+
+  Enter the SO PIN:
+    - Enter the default SO PIN here, which is "87654321".
+  Enter a unique token label:
+    - Enter any string here, such as "My token init string"
+
+  Another call to pkcsconf64 should reflect the token label change:
+
+  # /usr/sbin/pkcsconf64 -t
+  Token #1 Info:
+        Label: My token init string
+        Manufacturer: IBM Corp.
+        Model: IBM CCA Token
+        Serial Number: 123
+        Flags: 0x880445 (RNG|LOGIN_REQUIRED|CLOCK_ON_TOKEN|TOKEN_INITIALIZED|USER_PIN_TO_BE_CHANGED|SO_PIN_TO_BE_CHANGED)
+        Sessions: -1/-1
+        R/W Sessions: -1/-1
+        PIN Length: 4-128
+        Public Memory: 0xFFFFFFFF/0xFFFFFFFF
+        Private Memory: 0xFFFFFFFF/0xFFFFFFFF
+        Hardware Version: 1.0
+        Firmware Version: 1.0
+        Time: 23:38:48
+
+STEP 4:
+
+  Set the Security Officer's (SO) Password.  This should be a secret known only to
+  the system admin.
+
+  # /usr/sbin/pkcsconf64 -P -c 1
+  Enter the SO PIN: ********
+    - This should be the default SO PIN, "87654321"
+  Enter the new SO PIN: ********
+  Re-enter the new SO PIN: ********
+    - Enter the new SO PIN here twice for verification
+
+
+STEP 5:
+
+  Set the PKCS#11 User Password.  This will be a secret known to all users/apps of the
+  PKCS#11 interface.
+
+  # /usr/sbin/pkcsconf64 -u -c 1
+  Enter the SO PIN: ********
+    - This should be the SO PIN you set in STEP 4.
+  Enter the new user PIN: **********
+  Re-enter the new user PIN: **********
+    - This should be a new secret, known to all users of the token.
+
+STEP 6:
+
+  Make sure applications will have access to PKCS#11.
+
+  All processes that would like to use PKCS#11 need to be in the 'pkcs11' group. So,
+  if java needs to access PKCS#11, then edit /etc/group:
+
+  # vim /etc/group
+
+  Look for the line:
+
+  pkcs11:!:64:root
+
+  and add the java uid to that line:
+
+  pkcs11:!:64:root,java
+
+  /etc/init.d/pkcsslotd creates the 'pkcs11' group when its first run.
+
+Send questions to opencryptoki-users@lists.sourceforge.net.
+EOF

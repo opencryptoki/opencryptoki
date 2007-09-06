@@ -444,7 +444,6 @@ ckm_dsa_key_pair_gen( TEMPLATE  * publ_tmpl,
    CK_ATTRIBUTE       * attr      = NULL;
    CK_BYTE            * ptr       = NULL;
    CK_BYTE              repl_buf[5500];
-   CK_ULONG             req_len, repl_len;
    CK_BBOOL             flag;
    CK_RV                rc;
 
@@ -469,7 +468,6 @@ ckm_dsa_sign( CK_BYTE   * in_data,
    CK_ATTRIBUTE     * exponent  = NULL;
    CK_ATTRIBUTE     * attr      = NULL;
    CK_BYTE          * ptr       = NULL;
-   CK_ULONG           req_len, repl_len, keylen;
    CK_OBJECT_CLASS    keyclass;
    CK_RV              rc;
 
@@ -508,7 +506,6 @@ ckm_dsa_verify( CK_BYTE   * signature,
    CK_ATTRIBUTE     * exponent  = NULL;
    CK_ATTRIBUTE     * attr      = NULL;
    CK_BYTE          * ptr       = NULL;
-   CK_ULONG           req_len, repl_len, keylen;
    CK_OBJECT_CLASS    keyclass;
    CK_RV              rc;
 

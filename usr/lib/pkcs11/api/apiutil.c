@@ -357,7 +357,7 @@ set_perm(int file)
 #ifdef DEBUG
 #define LOGIT  logit
 #else
-#define LOGIT  
+#define LOGIT(...) 
 #endif
 
 #define SYSLOG
@@ -859,9 +859,9 @@ API_Register()
    }
 
 #ifdef PKCS64
-   bzero((char *)procp,sizeof(Slot_Mgr_Proc_t_64));
+   memset((char *)procp, 0, sizeof(Slot_Mgr_Proc_t_64));
 #else
-   bzero((char *)procp,sizeof(Slot_Mgr_Proc_t));
+   memset((char *)procp, 0, sizeof(Slot_Mgr_Proc_t));
 #endif
    procp->inuse = TRUE;
    procp->proc_id = getpid();
@@ -910,9 +910,9 @@ API_UnRegister()
    procp = &(shm->proc_table[Anchor->MgrProcIndex]);
 
 #ifdef PKCS64
-   bzero((char *)procp,sizeof(Slot_Mgr_Proc_t_64));
+   memset((char *)procp, 0, sizeof(Slot_Mgr_Proc_t_64));
 #else
-   bzero((char *)procp,sizeof(Slot_Mgr_Proc_t));
+   memset((char *)procp, 0, sizeof(Slot_Mgr_Proc_t));
 #endif
 
    Anchor->MgrProcIndex=0;
@@ -986,7 +986,6 @@ DL_Load( sinfp,sltp,dllload)
    DLL_Load_t  *dllload;
 {
    int i;
-   char *dname;
 
  LOGIT(LOG_DEBUG,"DL_LOAD");
 

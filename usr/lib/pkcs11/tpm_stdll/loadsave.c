@@ -503,7 +503,7 @@ save_token_data()
 //
 //   memcpy( td.so_pin_sha, cipher, 3*DES_BLOCK_SIZE );
 
-   fwrite( &td, sizeof(TOKEN_DATA), 1, fp );
+   (void)fwrite( &td, sizeof(TOKEN_DATA), 1, fp );
    fclose(fp);
 
    rc = CKR_OK;
@@ -554,7 +554,7 @@ save_token_object( OBJECT *obj )
    if (fp) {
    	set_perm(fileno(fp));
       while (!feof(fp)) {
-         fgets((char *)line, 50, fp );
+         (void)fgets((char *)line, 50, fp );
          if (!feof(fp)) {
             line[ strlen((char *)line)-1 ] = 0;
             if (strcmp((char *)line,(char *)( obj->name)) == 0) {
@@ -629,9 +629,9 @@ save_public_token_object( OBJECT *obj )
 
    total_len = cleartxt_len + sizeof(CK_ULONG_32) + sizeof(CK_BBOOL);
 
-   fwrite( &total_len, sizeof(CK_ULONG_32), 1, fp );
-   fwrite( &flag,      sizeof(CK_BBOOL), 1, fp );
-   fwrite( cleartxt,   cleartxt_len,     1, fp );
+   (void)fwrite( &total_len, sizeof(CK_ULONG_32), 1, fp );
+   (void)fwrite( &flag,      sizeof(CK_BBOOL), 1, fp );
+   (void)fwrite( cleartxt,   cleartxt_len,     1, fp );
 
    fclose( fp );
    free( cleartxt );
@@ -727,13 +727,12 @@ save_private_token_object( OBJECT *obj )
    add_pkcs_padding( cleartxt + cleartxt_len, AES_BLOCK_SIZE, cleartxt_len, padded_len );
 
 #ifndef  CLEARTEXT
-
-	rc = ckm_aes_cbc_encrypt( cleartxt,    padded_len,
-				 ciphertxt,  &ciphertxt_len,
-			         aes_iv, (unsigned char *) aes_key, AES_KEY_SIZE_256 );
+   rc = ckm_aes_cbc_encrypt( cleartxt,    padded_len,
+                             ciphertxt,  &ciphertxt_len,
+                             aes_iv, (unsigned char *) aes_key, AES_KEY_SIZE_256 );
 #else
-         bcopy(cleartxt,ciphertxt,padded_len);
-         rc = CKR_OK;
+   memcpy(ciphertxt, cleartxt, padded_len);
+   rc = CKR_OK;
 #endif
    if (rc != CKR_OK){
       st_err_log(105, __FILE__, __LINE__);
@@ -757,9 +756,9 @@ save_private_token_object( OBJECT *obj )
 
    flag = TRUE;
 
-   fwrite( &total_len, sizeof(CK_ULONG_32), 1, fp );
-   fwrite( &flag,      sizeof(CK_BBOOL), 1, fp );
-   fwrite( ciphertxt,  ciphertxt_len,    1, fp );
+   (void)fwrite( &total_len, sizeof(CK_ULONG_32), 1, fp );
+   (void)fwrite( &flag,      sizeof(CK_BBOOL), 1, fp );
+   (void)fwrite( ciphertxt,  ciphertxt_len,    1, fp );
 
    fclose( fp );
 
@@ -806,7 +805,7 @@ load_public_token_objects( void )
       return CKR_OK;  // no token objects
 
    while (!feof(fp1)) {
-      fgets( (char *)tmp, 50, fp1 );
+      (void)fgets( (char *)tmp, 50, fp1 );
       if (!feof(fp1)) {
          tmp[ strlen((char *)tmp)-1 ] = 0;
 
@@ -880,7 +879,7 @@ load_private_token_objects( void )
       return CKR_OK;  // no token objects
 
    while (!feof(fp1)) {
-      fgets((char *) tmp, 50, fp1 );
+      (void)fgets((char *) tmp, 50, fp1 );
       if (!feof(fp1)) {
          tmp[ strlen((char *)tmp)-1 ] = 0;
 
@@ -987,11 +986,11 @@ restore_private_token_object( CK_BYTE  * data,
 
 #ifndef  CLEARTEXT
    rc = ckm_aes_cbc_decrypt( ciphertxt,  len,
-                              cleartxt,  &len,
-                              aes_iv, aes_key, AES_KEY_SIZE_256 );
+                             cleartxt,  &len,
+                             aes_iv, aes_key, AES_KEY_SIZE_256 );
 #else
-      bcopy(ciphertxt,cleartxt,len);
-      rc = CKR_OK;
+   memcpy(cleartxt, ciphertxt, len);
+   rc = CKR_OK;
 #endif
  
    if (rc != CKR_OK){
@@ -1095,7 +1094,7 @@ load_masterkey_so( void )
 #ifndef CLEARTEXT
    rc = ckm_des3_cbc_decrypt( cipher, cipher_len, clear, &clear_len, "12345678", des3_key );
 #else
-   bcopy(cipher,clear,cipher_len);
+   memcpy(clear, cipher, cipher_len);
    rc = CKR_OK;
 #endif
 
@@ -1181,7 +1180,7 @@ load_masterkey_user( void )
 #ifndef CLEARTEXT
    rc = ckm_des3_cbc_decrypt( cipher, cipher_len, clear, &clear_len, "12345678", des3_key );
 #else
-   bcopy(cipher,clear,cipher_len);
+   memcpy(clear, cipher, cipher_len);
    rc = CKR_OK;
 #endif
 
@@ -1252,8 +1251,8 @@ save_masterkey_so( void )
 #ifndef CLEARTEXT
    rc = ckm_des3_cbc_encrypt( cleartxt, padded_len, ciphertxt, &ciphertxt_len, "12345678", des3_key );
 #else
-            bcopy(cleartxt,ciphertxt,padded_len);
-	             rc = CKR_OK;
+   memcpy(ciphertxt, cleartxt, padded_len);
+   rc = CKR_OK;
 #endif
 
    if (rc != CKR_OK){
@@ -1327,7 +1326,7 @@ save_masterkey_user( void )
 #ifndef CLEARTEXT
    rc = ckm_des3_cbc_encrypt( cleartxt, padded_len, ciphertxt, &ciphertxt_len, "12345678", des3_key );
 #else
-   bcopy(cleartxt,ciphertxt,padded_len);
+   memcpy(ciphertxt, cleartxt, padded_len);
    rc = CKR_OK;
 #endif
 
@@ -1484,7 +1483,7 @@ delete_token_object( OBJECT *obj )
    set_perm(fileno(fp2));
 
    while (!feof(fp1)) {
-      fgets((char *)line, 50, fp1 );
+      (void)fgets((char *)line, 50, fp1 );
       if (!feof(fp1)) {
          line[ strlen((char *)line)-1 ] = 0;
          if (strcmp((char *)line, (char *)obj->name) == 0)
@@ -1510,7 +1509,7 @@ delete_token_object( OBJECT *obj )
    set_perm(fileno(fp2));
 
    while (!feof(fp1)) {
-      fgets((char *)line, 50, fp1 );
+      (void)fgets((char *)line, 50, fp1 );
       if (!feof(fp1))
          fprintf( fp2, "%s",(char *) line );
    }

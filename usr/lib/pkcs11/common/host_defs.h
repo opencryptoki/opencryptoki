@@ -1,5 +1,5 @@
 /*
- * $Header: /cvsroot/opencryptoki/opencryptoki/usr/lib/pkcs11/common/host_defs.h,v 1.7 2006/04/05 20:07:45 kyoder Exp $
+ * $Header: /cvsroot/opencryptoki/opencryptoki/usr/lib/pkcs11/common/host_defs.h,v 1.8 2007/09/06 15:40:12 tlendacky Exp $
  */
 
 
@@ -484,6 +484,8 @@ typedef struct _SHA1_CONTEXT
    unsigned int bits_hi, bits_lo;    // # bits  processed so far
 
 } SHA1_CONTEXT;
+
+typedef SHA1_CONTEXT SHA2_CONTEXT;
 
 
 typedef struct _MD2_CONTEXT

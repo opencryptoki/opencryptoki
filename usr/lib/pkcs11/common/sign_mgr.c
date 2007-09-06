@@ -296,8 +296,8 @@
 
 #include <pthread.h>
 
-  #include <string.h>            // for memcmp() et al
-  #include <stdlib.h>
+#include <string.h>            // for memcmp() et al
+#include <stdlib.h>
 
 #include "pkcs11types.h"
 #include "defs.h"
@@ -503,6 +503,7 @@ sign_mgr_init( SESSION                * sess,
 #endif
       case CKM_MD5_HMAC:
       case CKM_SHA_1_HMAC:
+      case CKM_SHA256_HMAC:
          {
             if (mech->ulParameterLen != 0){
                st_err_log(29, __FILE__, __LINE__); 
@@ -533,6 +534,7 @@ sign_mgr_init( SESSION                * sess,
 #endif
       case CKM_MD5_HMAC_GENERAL:
       case CKM_SHA_1_HMAC_GENERAL:
+      case CKM_SHA256_HMAC_GENERAL:
          {
             CK_MAC_GENERAL_PARAMS *param = (CK_MAC_GENERAL_PARAMS *)mech->pParameter;
 
@@ -553,6 +555,10 @@ sign_mgr_init( SESSION                * sess,
                return CKR_MECHANISM_PARAM_INVALID;
             }
             if ((mech->mechanism == CKM_SHA_1_HMAC_GENERAL) && (*param > 20)){
+               st_err_log(29, __FILE__, __LINE__); 
+               return CKR_MECHANISM_PARAM_INVALID;
+            }
+            if ((mech->mechanism == CKM_SHA256_HMAC_GENERAL) && (*param > 32)){
                st_err_log(29, __FILE__, __LINE__); 
                return CKR_MECHANISM_PARAM_INVALID;
             }
@@ -761,6 +767,12 @@ sign_mgr_sign( SESSION              * sess,
       case CKM_SHA_1_HMAC:
       case CKM_SHA_1_HMAC_GENERAL:
          return sha1_hmac_sign( sess,     length_only, ctx,
+                               in_data,  in_data_len,
+                               out_data, out_data_len );
+
+      case CKM_SHA256_HMAC:
+      case CKM_SHA256_HMAC_GENERAL:
+         return sha2_hmac_sign( sess,     length_only, ctx,
                                in_data,  in_data_len,
                                out_data, out_data_len );
 

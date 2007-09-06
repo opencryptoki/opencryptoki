@@ -913,7 +913,7 @@
 
   static unsigned int PkcsAttributeSize = ( sizeof(PkcsAttributeInfo) / sizeof(PkcsAttributeInfo[0]) );
 
-
+#if 0
 static ConstInfo PkcsSessionStateInfo[] = {
 
   CONSTINFO(CKS_RO_PUBLIC_SESSION), 
@@ -924,7 +924,7 @@ static ConstInfo PkcsSessionStateInfo[] = {
 
 
 };
-
+#endif
 
 
 static ConstInfo PkcsResponseSeverityInfo[] = {

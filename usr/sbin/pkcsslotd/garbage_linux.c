@@ -337,7 +337,6 @@ void         GCCancel                ( void *Ptr );
 BOOL StartGCThread ( Slot_Mgr_Shr_t *MemPtr ) {
 
   int err;
-  pthread_attr_t  attr;
 
 #if !(THREADED)
   return TRUE;
@@ -377,7 +376,6 @@ BOOL StartGCThread ( Slot_Mgr_Shr_t *MemPtr ) {
 BOOL StopGCThread ( void *Ptr ) {
   int err;
 
-  Slot_Mgr_Shr_t               *MemPtr              = (Slot_Mgr_Shr_t *) Ptr;
   void *Status;
 
 #if !(THREADED)
@@ -426,10 +424,11 @@ BOOL StopGCThread ( void *Ptr ) {
 
 void *GCMain ( void *Ptr) {
 
+#if THREADED
   int                           OrigCancelState;
   int                           OrigCancelType;
   int                           LastCancelState;
-  int                           i;
+#endif
   Slot_Mgr_Shr_t               *MemPtr              = (Slot_Mgr_Shr_t *) Ptr;
 
   
@@ -512,8 +511,6 @@ void *GCMain ( void *Ptr) {
  *********************************************************************************/
 
 void GCCancel ( void *Ptr ) {
-
-  Slot_Mgr_Shr_t               *MemPtr              = (Slot_Mgr_Shr_t *) Ptr;
 
   /* Yeah, yeah.  Doesn't do anything, but I had plans */
   DbgLog(DL3, "GCCancel: tid: %d running cleanup routine", pthread_self());
@@ -725,7 +722,7 @@ int Stat2Proc (int pid, proc_t *p) {
   char fbuf[800];  // about 40 fields, 64-bit decimal is about 20 chars
   char *tmp;
   int fd, num;
-  FILE *fp;
+  //  FILE *fp;
 
   //  sprintf(buf, "%s/%d/stat", PROC_BASE, pid);  
   //  if( (fp = fopen(buf, "r")) == NULL )
@@ -840,7 +837,7 @@ BOOL IsValidProcessEntry ( pid_t pid, time_t RegTime ) {
   p = (proc_t *)malloc(sizeof(proc_t));
 #else
   p = &procstore;
-  bzero(p, sizeof(proc_t));
+  memset(p, 0, sizeof(proc_t));
 #endif
 
   if( !(valid = Stat2Proc( (int)pid, p )) )

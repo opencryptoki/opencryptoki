@@ -293,6 +293,7 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+#include <unistd.h>
 #include <sys/types.h>
 #include <pthread.h>
 #include <sys/stat.h>
@@ -561,8 +562,6 @@ dlist_remove_node( DL_NODE *list, DL_NODE *node )
 CK_RV
 _CreateMutex( MUTEX *mutex )
 {
-   CK_RV  rc;
-
       // on AIX we make this a no-op since we assume that
       // the mutex was created in the initialization
       pthread_mutex_init( mutex, NULL );
@@ -584,8 +583,6 @@ _CreateMsem( sem_t *msem )
 CK_RV
 _DestroyMutex( MUTEX *mutex )
 {
-   CK_RV  rc;
-
      // no-op in AIX
      pthread_mutex_destroy((pthread_mutex_t *)mutex);
      return CKR_OK;
@@ -949,7 +946,6 @@ void
 init_tokenInfo( void )
 {
    CK_TOKEN_INFO_32    *token_info = NULL;
-   CK_ULONG          len;
 
    token_info = &nv_token_data->token_info;
 
@@ -1250,7 +1246,6 @@ attach_shm()
    int      shm_id;
    struct stat statbuf;
    CK_BBOOL created = FALSE;
-   void *temp = NULL;
 
 #if !(NOSHM) && !(MMAP)
    // Change TOK_PATH2 to be the directory 

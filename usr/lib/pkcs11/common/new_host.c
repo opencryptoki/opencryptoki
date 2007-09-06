@@ -466,7 +466,6 @@ int
 APISlot2Local(snum)
 CK_SLOT_ID  snum;
 {
-	int i;
 	return(token_specific.t_slot2local(snum));
 }
 
@@ -538,11 +537,11 @@ init_data_store(char *directory)
 	char *pkdir;
 	if ( (pkdir = getenv("PKCS_APP_STORE")) != NULL){
 		pk_dir =  (char *) malloc(strlen(pkdir)+1024);
-		bzero(pk_dir,strlen(pkdir)+1024);
+		memset(pk_dir, 0, strlen(pkdir)+1024);
 		sprintf(pk_dir,"%s/%s",pkdir,SUB_DIR);
 	} else {
 		pk_dir  = (char *)malloc(strlen(directory)+25);
-		bzero(pk_dir,strlen(directory)+25);
+		memset(pk_dir, 0, strlen(directory)+25);
 		sprintf(pk_dir,"%s",directory);
 
 	}
@@ -559,10 +558,8 @@ ST_Initialize(void **FunctionList,
 	      CK_SLOT_ID SlotNumber,
 	      char *Correlator)
 {
-	int    i, j;
+	int    i;
 	CK_RV  rc = CKR_OK;
-	char   tstr[2048];
-	char *pkdir;
 	struct passwd  *pw,*epw; // SAB XXX XXX
 	uid_t    userid,euserid;
 
@@ -577,9 +574,7 @@ ST_Initialize(void **FunctionList,
 	if (userid != 0 && euserid != 0) { // Root or effective Root
 					   // is ok
 		struct group *grp;
-		char *name,*g;
 		int   rc = 0;
-		int   index = 0;
 		gid_t  gid,egid;
 		grp = getgrnam("pkcs11");
 		if (grp) {
@@ -728,9 +723,7 @@ ST_Initialize(void **FunctionList,
 // stuff
 CK_RV SC_Finalize( CK_SLOT_ID sid )
 {
-	CK_ULONG       req_len, repl_len;
-	CK_ULONG       i;
-	CK_RV          rc, rc2;
+	CK_RV          rc;
 	SLT_CHECK;
 	if (st_Initialized() == FALSE) {	
 		st_err_log(72, __FILE__, __LINE__);
@@ -980,7 +973,6 @@ CK_RV SC_GetMechanismInfo(CK_SLOT_ID sid,
                           CK_MECHANISM_INFO_PTR pInfo)
 {
 	CK_RV rc = CKR_OK;
-	CK_ULONG i;
 	SLT_CHECK;
 	LOCKIT;
 	if (st_Initialized() == FALSE) {
@@ -1134,7 +1126,6 @@ CK_RV SC_InitPIN( ST_SESSION_HANDLE  sSession,
 	CK_BYTE           hash_sha[SHA1_HASH_SIZE];
 	CK_BYTE           hash_md5[MD5_HASH_SIZE];
 	CK_RV             rc = CKR_OK;
-	CK_FLAGS_32     * flags = NULL;
 	SESS_SET;
 	LOCKIT;
 	if (st_Initialized() == FALSE) {
@@ -1183,6 +1174,8 @@ CK_RV SC_InitPIN( ST_SESSION_HANDLE  sSession,
 	}
 	memcpy(nv_token_data->user_pin_sha, hash_sha, SHA1_HASH_SIZE);
 	nv_token_data->token_info.flags |= CKF_USER_PIN_INITIALIZED;
+	nv_token_data->token_info.flags &= ~(CKF_USER_PIN_TO_BE_CHANGED);
+	nv_token_data->token_info.flags &= ~(CKF_USER_PIN_LOCKED);
 	XProcUnLock(xproclock);
 	memcpy( user_pin_md5, hash_md5, MD5_HASH_SIZE  );
 	rc = save_token_data();
@@ -1214,9 +1207,6 @@ CK_RV SC_SetPIN( ST_SESSION_HANDLE  sSession,
 	CK_BYTE old_hash_sha[SHA1_HASH_SIZE];
 	CK_BYTE new_hash_sha[SHA1_HASH_SIZE];
 	CK_BYTE hash_md5[MD5_HASH_SIZE];
-	CK_MECHANISM mech;
-	DIGEST_CONTEXT digest_ctx;
-	CK_ULONG hash_len;
 	CK_RV rc = CKR_OK;
 	SESS_SET;
 	LOCKIT;

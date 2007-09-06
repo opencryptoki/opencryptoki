@@ -212,6 +212,18 @@ else
 	AM_CONDITIONAL(ICC, false)
 fi
 
+# Support for the secure-key (CCA api) token
+AC_ARG_ENABLE(ccatok,
+              [  --enable-ccatok         build the IBM CCA Secure-Key token [default=disabled]],
+              [enable_ccatok="yes"],
+              [enable_ccatok="no"])
+
+if test "x$enable_ccatok" = xyes; then
+	AM_CONDITIONAL(CCA, true)
+else
+	AM_CONDITIONAL(CCA, false)
+fi
+
 # Support for the AEP Crypto Accelerator
 AC_ARG_ENABLE(aeptok,
               [  --enable-aeptok         build the AEP Crypto Accelerator token [default=disabled]],
@@ -265,11 +277,11 @@ AC_ARG_ENABLE(testcases,
               [AM_CONDITIONAL(TESTS, false)])
 
 
-CFLAGS="$CFLAGS -DPKCS64 \
-	-DCONFIG_PATH=\\\"$CONFIG_PATH\\\" \
-	-DSBIN_PATH=\\\"$SBIN_PATH\\\" \
-	-DLIB_PATH=\\\"$LIB_PATH\\\" \
-	-D_XOPEN_SOURCE=500 -Wall -Wno-unused"
+CFLAGS="$CFLAGS -DPKCS64			\
+	-DCONFIG_PATH=\\\"$CONFIG_PATH\\\"	\
+	-DSBIN_PATH=\\\"$SBIN_PATH\\\"		\
+	-DLIB_PATH=\\\"$LIB_PATH\\\"		\
+	-D_XOPEN_SOURCE=500"
 
 # At this point, CFLAGS is set to something sensible
 AC_PROG_CC
@@ -292,6 +304,7 @@ AC_OUTPUT([Makefile usr/Makefile \
           usr/sbin/pkcs_slot/Makefile \
           usr/sbin/pkcs_slot/pkcs_slot \
           usr/sbin/pkcsconf/Makefile \
+          usr/sbin/pkcscca_migrate/Makefile \
           usr/lib/pkcs11/methods/Makefile \
           usr/lib/pkcs11/leeds_stdll/Makefile \
           usr/lib/pkcs11/soft_stdll/Makefile \
@@ -304,6 +317,9 @@ AC_OUTPUT([Makefile usr/Makefile \
           usr/lib/pkcs11/aep_stdll/tok_struct.h \
           usr/lib/pkcs11/tpm_stdll/Makefile \
           usr/lib/pkcs11/tpm_stdll/tok_struct.h \
+          usr/lib/pkcs11/cca_stdll/Makefile \
+          usr/lib/pkcs11/cca_stdll/tok_struct.h \
+          usr/lib/pkcs11/cca_stdll/ccalibs/Makefile \
           usr/lib/pkcs11/methods/4758_status/Makefile \
           misc/Makefile \
           misc/pkcsslotd \

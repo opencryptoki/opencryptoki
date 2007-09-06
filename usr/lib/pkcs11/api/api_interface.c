@@ -321,8 +321,8 @@ void st_err_log(int, ...);
 #define LOG(x)  logit(LOG_DEBUG,x)
 #define LOGIT   logit
 #else
-#define LOG(x)
-#define LOGIT   
+#define LOG(...)
+#define LOGIT(...)
 #endif
 
 // NOTES:
@@ -2522,13 +2522,13 @@ C_GetInfo ( CK_INFO_PTR pInfo )
 
    shm = Anchor->SharedMemP;
 
-   bzero(pInfo, sizeof(*pInfo));
+   memset(pInfo, 0, sizeof(*pInfo));
 
    pInfo->cryptokiVersion = shm->ck_info.cryptokiVersion;     
    memset(pInfo->manufacturerID, '\0', 32);
-   bcopy(&(shm->ck_info.manufacturerID),pInfo->manufacturerID,32);
+   memcpy(pInfo->manufacturerID, &(shm->ck_info.manufacturerID), 32);
    pInfo->flags = shm->ck_info.flags;
-   bcopy(&(shm->ck_info.libraryDescription),pInfo->libraryDescription,32);
+   memcpy(pInfo->libraryDescription, &(shm->ck_info.libraryDescription), 32);
    pInfo->libraryVersion = shm->ck_info.libraryVersion;          
    
    return CKR_OK;
@@ -2553,7 +2553,7 @@ C_GetInfo ( CK_INFO_PTR pInfo )
    }
 
    shm = Anchor->SharedMemP;
-   bcopy(&(shm->ck_info),pInfo,sizeof(CK_INFO));
+   memcpy(pInfo, &(shm->ck_info), sizeof(CK_INFO));
 
    return CKR_OK;
 } // end of C_GetInfo
@@ -2934,14 +2934,14 @@ C_GetSlotInfo ( CK_SLOT_ID       slotID,
 
 #ifdef __64BIT__
 
-   bcopy((char *)&(sinfp->pk_slot),pInfo,sizeof(CK_SLOT_INFO));
+   memcpy(pInfo, (char *)&(sinfp->pk_slot), sizeof(CK_SLOT_INFO));
 
 #else
 
-   bcopy((char *)&(sinfp->pk_slot.slotDescription[0]),
-         (char *)&(pInfo->slotDescription[0]),64);   
-   bcopy((char *)&(sinfp->pk_slot.manufacturerID[0]),
-         (char *)&(pInfo->manufacturerID[0]),32);   
+   memcpy((char *)&(pInfo->slotDescription[0]),
+          (char *)&(sinfp->pk_slot.slotDescription[0]), 64);
+   memcpy((char *)&(pInfo->manufacturerID[0]),
+          (char *)&(sinfp->pk_slot.manufacturerID[0]), 32);
 
    pInfo->flags = sinfp->pk_slot.flags; 
    pInfo->hardwareVersion = sinfp->pk_slot.hardwareVersion;
@@ -3000,7 +3000,7 @@ C_GetSlotInfo ( CK_SLOT_ID       slotID,
 
    //LOGIT(LOG_DEBUG," %32s ",sinfp->pk_slot.slotDescription);
    //LOGIT(LOG_DEBUG," %32s ",sinfp->pk_slot.manufacturerID);
-   bcopy((char *)&(sinfp->pk_slot),pInfo,sizeof(CK_SLOT_INFO));
+   memcpy(pInfo, (char *)&(sinfp->pk_slot), sizeof(CK_SLOT_INFO));
 
    return CKR_OK;
 } // end of C_GetSlotInfo
@@ -3271,7 +3271,7 @@ C_Initialize ( CK_VOID_PTR pVoid )
          return CKR_CRYPTOKI_ALREADY_INITIALIZED;
       }
 
-      bzero(slot_loaded,sizeof(int)*NUMBER_SLOTS_MANAGED); // Clear out the load list
+      memset(slot_loaded, 0, sizeof(int)*NUMBER_SLOTS_MANAGED); // Clear out the load list
 
 
       LOGIT(LOG_DEBUG,"Anchor allocated at %x",(char *)Anchor);
@@ -3384,7 +3384,7 @@ C_Initialize ( CK_VOID_PTR pVoid )
       //if ( Shared Memory Mapped not Successful )
       //                Free allocated Memory
       //                Return CKR_HOST_MEMORY
-      bzero((char *)Anchor,sizeof(API_Proc_Struct_t)); 
+      memset((char *)Anchor, 0, sizeof(API_Proc_Struct_t)); 
       pthread_mutex_init(&(Anchor->ProcMutex),NULL);  // This is not shared across apps.
       pthread_mutex_init(&(Anchor->SessListMutex),NULL);  // This is not shared across apps.
       pthread_mutex_init(&GlobMutex,NULL);

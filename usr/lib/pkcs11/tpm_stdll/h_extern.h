@@ -2013,17 +2013,17 @@ extern token_spec_t token_specific;
 
 #define st_err_log(...)		LogMessage(stderr, "ST MSG", APPID, "whammy")
 #else
-#define LogDebug(fmt, ...)
-#define LogDebug1(data)
-#define LogBlob(sz,blb)
-#define LogError(fmt, ...)
-#define LogError1(data)
-#define LogWarn(fmt, ...)
-#define LogWarn1(data)
-#define LogInfo(fmt, ...)
-#define LogInfo1(data)
+#define LogDebug(...)		do { } while (0)
+#define LogDebug1(...)		do { } while (0)
+#define LogBlob(...)		do { } while (0)
+#define LogError(...)		do { } while (0)
+#define LogError1(...)		do { } while (0)
+#define LogWarn(...)		do { } while (0)
+#define LogWarn1(...)		do { } while (0)
+#define LogInfo(...)		do { } while (0)
+#define LogInfo1(...)		do { } while (0)
 
-#define st_err_log(...)
+#define st_err_log(...)		do { } while (0)
 #endif
 
 /* custom attributes for the TPM token */

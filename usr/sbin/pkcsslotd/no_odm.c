@@ -498,7 +498,7 @@ BOOL ReadSlotInfoDB ( void ) {
 #ifdef ALLOCATE
     slot_entry = (char *)malloc(sizeof(char)*(PATH_MAX));
 #else
-    bzero(slot_entry,PATH_MAX);
+    memset(slot_entry, 0, PATH_MAX);
 #endif
 
     fgets(slot_entry, PATH_MAX, fp);
@@ -519,7 +519,7 @@ BOOL ReadSlotInfoDB ( void ) {
   //  if( feof(fp) )
   //    break;
 
-    bzero(&sinfo_struct,sizeof(sinfo_struct));  // for good measure zero it out before use each time
+    memset(&sinfo_struct, 0, sizeof(sinfo_struct));  // for good measure zero it out before use each time
 
     sinfo_struct.global_sessions = 0;	// initializing to zero
     element_num = Present;
@@ -723,34 +723,8 @@ BOOL ReadSlotInfoDB ( void ) {
             ? (sizeof(sinfo_struct.dll_location)) 
 		  : (strlen(slot_element)) ) );	// took away an ")"
 
-      /* Set the last character in string to NULL since strncpy may mor may not copy the trailing NULL */
-      sinfo_struct.dll_location[sizeof(sinfo_struct.dll_location) - 1] = (char) NULL;
-
-#if 0      
-      {
-        /* check for file existance */
-        struct stat statbuf;
-        int Err;
-
-        if ( stat( sinfo_struct.dll_location, &statbuf ) < 0 ) {
-	  /* File not found, or other error */
-	    Err = errno;
-
-	  if ( Err == ENOENT ) {
-            fprintf(stderr, "\nReading Slot Info: %s: file not found (%s).  Skipping slot entry.", sinfo_struct.dll_location, SysError(Err) );
-	    /* WarnLog ( "***** ReadSlotInfoDB: %s: file not found (%s).  Skipping DB entry.", sinfo[Index].dll_location, SysError(Err) ); */
-	  }
-          else {
-            fprintf(stderr, "\nReading Slot Info: looking at %s, stat64() returned %s (%d; %#x)", sinfo_struct.dll_location, SysError(Err), Err, Err);
-	    /* DbgLog (DL0, "***** ReadSlotInfoDB: looking at %s, stat64() returned %s (%d; %#x)", sinfo[Index].dll_location, SysError(Err), Err, Err); */
-	  }
-	  memset( pSlot, '\0', sizeof(*pSlot) );
-	  sinfo_struct.present = (CK_BOOL) FALSE;
-	  continue;
-        }
-
-      } /* end DLLLocation unconditional block */
-#endif
+        /* Set the last character in string to NULL since strncpy may mor may not copy the trailing NULL */
+        sinfo_struct.dll_location[sizeof(sinfo_struct.dll_location) - 1] = (char) NULL;
       }
 
       element_num++;
@@ -805,7 +779,7 @@ BOOL ReadSlotInfoDB ( void ) {
     if( (sinfo_struct.dll_location != NULL) &&
 	(sinfo_struct.slot_init_fcn != NULL) ) {
 
-      bcopy(&sinfo_struct,&sinfo[Index],sizeof(sinfo_struct));  // similar to sinfo[Index] = &sinfo_struct;
+      memcpy(&sinfo[Index], &sinfo_struct, sizeof(sinfo_struct));  // similar to sinfo[Index] = &sinfo_struct;
       PrintSlotInfo( &(sinfo[Index]) );
       Index++;
 

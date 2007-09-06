@@ -314,7 +314,6 @@ BOOL IsDaemon ( void ) {
 BOOL SaveStartupDirectory ( char *Arg0 ) {
 
   unsigned int        Err;
-  char                Str[PATH_MAX+1];
   char                cwd[PATH_MAX+1];
   char                arg[PATH_MAX+1];
   char                *dname = NULL;

@@ -303,19 +303,16 @@
 // File:  key_mgr.c
 //
 
-//#include <windows.h>
-
 #include <pthread.h>
 #include <stdlib.h>
 
- #include <string.h>  // for memcmp() et al
+#include <string.h>  // for memcmp() et al
 
 #include "pkcs11types.h"
 #include "defs.h"
 #include "host_defs.h"
 #include "h_extern.h"
 #include "tok_spec_struct.h"
-//#include "args.h"
 
 
 static CK_BBOOL true = TRUE, false = FALSE;

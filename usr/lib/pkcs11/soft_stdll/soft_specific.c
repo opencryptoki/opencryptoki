@@ -430,7 +430,6 @@ token_specific_des_ecb(CK_BYTE * in_data,
    	const_des_cblock key_val_SSL, in_key_data;
 	des_cblock out_key_data;
 	unsigned int i,j;
-   	int ret;
 
   	// Create the key schedule
 	memcpy(&key_val_SSL, key_value, 8);
@@ -480,11 +479,9 @@ token_specific_des_cbc(CK_BYTE * in_data,
 	CK_ULONG         rc;
 	
 	des_cblock ivec;
-	int ret;
 
 	des_key_schedule des_key2;
-   	const_des_cblock key_val_SSL, in_key_data;
-	des_cblock out_key_data;
+   	const_des_cblock key_val_SSL;
 
 	// Create the key schedule
 	memcpy(&key_val_SSL, key_value, 8);
@@ -521,9 +518,7 @@ token_specific_tdes_ecb(CK_BYTE * in_data,
 {
 	CK_RV  rc;
 
-	int ret;
 	unsigned int k,j;
-	des_cblock out_temp;
 	des_key_schedule des_key1;
 	des_key_schedule des_key2;
 	des_key_schedule des_key3;
@@ -593,7 +588,7 @@ token_specific_tdes_cbc(CK_BYTE * in_data,
 	des_key_schedule des_key2;
 	des_key_schedule des_key3;
 
-   	const_des_cblock key_SSL1, key_SSL2, key_SSL3, in_key_data;
+   	const_des_cblock key_SSL1, key_SSL2, key_SSL3;
 	des_cblock ivec;
 
 	// The key as passed in is a 24 byte string containing 3 keys
@@ -695,7 +690,6 @@ rsa_convert_public_key( OBJECT    * key_obj )
 void *
 rsa_convert_private_key(OBJECT *key_obj)
 {
-	CK_ATTRIBUTE      * attr     = NULL;
 	CK_ATTRIBUTE      * modulus  = NULL;
 	CK_ATTRIBUTE      * priv_exp = NULL;
 	CK_ATTRIBUTE      * prime1   = NULL;
@@ -829,8 +823,6 @@ os_specific_rsa_keygen(TEMPLATE *publ_tmpl,  TEMPLATE *priv_tmpl)
 	BIGNUM *bignum;
 	CK_BYTE *ssl_ptr;
 	unsigned long three = 3;
-	unsigned char *exp_str;
-	unsigned long exponent;
 
 	flag = template_attribute_find( publ_tmpl, CKA_MODULUS_BITS, &attr );
 	if (!flag){
@@ -1197,7 +1189,6 @@ token_specific_aes_cbc(	CK_BYTE		*in_data,
 			CK_BYTE		encrypt)
 {
 	AES_KEY		ssl_aes_key;
-	int		i;
 
 	memset( &ssl_aes_key, 0, sizeof(AES_KEY));
 

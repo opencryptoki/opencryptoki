@@ -294,8 +294,6 @@
 // Mechanisms for DES3
 //
 
-//#include <windows.h>
-
 #include <string.h>            // for memcmp() et al
 #include <stdlib.h>
 
@@ -304,7 +302,6 @@
 #include "host_defs.h"
 #include "h_extern.h"
 #include "tok_spec_struct.h"
-//#include "args.h"
 
 
 //
@@ -1786,7 +1783,6 @@ ckm_des3_key_gen( TEMPLATE *tmpl )
    CK_ATTRIBUTE     * class_attr    = NULL;
    CK_ATTRIBUTE     * local_attr    = NULL;
    CK_BYTE            des_key[3 * DES_KEY_SIZE];
-   CK_ULONG           req_len, repl_len, expected_repl_len;
    CK_ULONG           rc;
 
    rc = token_specific.t_des_key_gen(des_key, sizeof(des_key));
@@ -1846,7 +1842,6 @@ ckm_des3_ecb_encrypt( CK_BYTE     * in_data,
                       CK_ULONG    * out_data_len,
                       CK_BYTE     * key_value )
 {
-   CK_ULONG         req_len, repl_len, expected_repl_len;
    CK_ULONG         rc;
 
 
@@ -1877,7 +1872,6 @@ ckm_des3_ecb_decrypt( CK_BYTE     * in_data,
                       CK_ULONG    * out_data_len,
                       CK_BYTE     * key_value )
 {
-   CK_ULONG         req_len, repl_len, expected_repl_len;
    CK_ULONG         rc;
 
 
@@ -1909,7 +1903,6 @@ ckm_des3_cbc_encrypt( CK_BYTE     * in_data,
                       CK_BYTE     * init_v,
                       CK_BYTE     * key_value )
 {
-   CK_ULONG         req_len, repl_len, expected_repl_len;
    CK_ULONG         rc;
 
 
@@ -1940,7 +1933,6 @@ ckm_des3_cbc_decrypt( CK_BYTE     * in_data,
                       CK_BYTE     * init_v,
                       CK_BYTE     * key_value )
 {
-   CK_ULONG         req_len, repl_len, expected_repl_len;
    CK_ULONG         rc;
 
 

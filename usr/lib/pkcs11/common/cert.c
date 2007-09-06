@@ -302,8 +302,6 @@
 //    cert_vendor_validate_attribute
 //
 
-//#include <windows.h>
-
 #include <pthread.h>
 #include <stdlib.h>
 
@@ -313,7 +311,6 @@
 #include "defs.h"
 #include "host_defs.h"
 #include "h_extern.h"
-
 
 
 // cert_check_required_attributes

@@ -303,13 +303,12 @@
 //    object_is_session_object
 //
 
-//#include <windows.h>
 #include <pthread.h>
 #include <stdlib.h>
 #include <memory.h>
 #include <string.h>
 #ifdef LEEDS_BUILD
-  #include <string.h>  // for memcmp() et al
+#include <string.h>  // for memcmp() et al
 #endif
 
 

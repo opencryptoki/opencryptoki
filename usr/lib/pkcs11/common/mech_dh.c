@@ -334,10 +334,8 @@ dh_pkcs_derive( SESSION           * sess,
    CK_ATTRIBUTE         *new_attr ;
    OBJECT               *temp_obj = NULL; 
 
-   OBJECT              *secret_obj = NULL ;
    CK_BYTE             secret_key_value[256] ;
-   CK_ULONG            count, secret_key_value_len = 256 ;
-   CK_ATTRIBUTE        *attr ;
+   CK_ULONG            secret_key_value_len = 256 ;
 
    // Prelim checking of sess, mech, pTemplate, and ulCount was
    // done in the calling function (key_mgr_derive_key).
@@ -447,7 +445,6 @@ ckm_dh_pkcs_derive( CK_VOID_PTR        other_pubkey,
    CK_ULONG       x_len ;
    CK_ATTRIBUTE   *temp_attr ;
    OBJECT         *base_key_obj = NULL ;
-   CK_ULONG       count ;
    CK_BYTE        *p_other_pubkey ;
 
    rc = object_mgr_find_in_map1( base_key, &base_key_obj );

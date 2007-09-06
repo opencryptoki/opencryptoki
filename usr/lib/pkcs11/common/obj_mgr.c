@@ -2180,8 +2180,6 @@ object_mgr_add_to_shm( OBJECT *obj )
 CK_RV
 object_mgr_del_from_shm( OBJECT *obj )
 {
-   TOK_OBJ_ENTRY   * entry = NULL;
-   CK_BYTE         * ptr;
    CK_ULONG          index, count;
    CK_BBOOL          priv;
    CK_RV             rc;
@@ -2220,16 +2218,16 @@ object_mgr_del_from_shm( OBJECT *obj )
 
       if (count > 0) {  // If we are not deleting the last element in the list
          // Move up count number of elements effectively deleting the index
-         bcopy((char *)&global_shm->priv_tok_objs[index+1],
-               (char *)&global_shm->priv_tok_objs[index],
-               sizeof(TOK_OBJ_ENTRY) * count );
+         memcpy((char *)&global_shm->priv_tok_objs[index],
+                (char *)&global_shm->priv_tok_objs[index+1],
+                sizeof(TOK_OBJ_ENTRY) * count );
          // We need to zero out the last entry... Since the memcopy
          // does not zero it out...
-         bzero((char *)&global_shm->priv_tok_objs[global_shm->num_priv_tok_obj+1],
+         memset((char *)&global_shm->priv_tok_objs[global_shm->num_priv_tok_obj+1], 0,
                 sizeof(TOK_OBJ_ENTRY));
       }
       else { // We are deleting the last element which is in num_priv_tok_obj
-         bzero((char *)&global_shm->priv_tok_objs[global_shm->num_priv_tok_obj],
+         memset((char *)&global_shm->priv_tok_objs[global_shm->num_priv_tok_obj], 0,
                 sizeof(TOK_OBJ_ENTRY));
       }
    }
@@ -2255,16 +2253,16 @@ object_mgr_del_from_shm( OBJECT *obj )
 #endif
 
       if (count > 0) {
-         bcopy((char *)&global_shm->publ_tok_objs[index+1],
-               (char *)&global_shm->publ_tok_objs[index],
-               sizeof(TOK_OBJ_ENTRY) * count);
+         memcpy((char *)&global_shm->publ_tok_objs[index],
+                (char *)&global_shm->publ_tok_objs[index+1],
+                sizeof(TOK_OBJ_ENTRY) * count);
          // We need to zero out the last entry... Since the memcopy
          // does not zero it out...
-         bzero((char *)&global_shm->publ_tok_objs[global_shm->num_publ_tok_obj+1],
+         memset((char *)&global_shm->publ_tok_objs[global_shm->num_publ_tok_obj+1], 0,
                 sizeof(TOK_OBJ_ENTRY));
       }
       else {
-         bzero((char *)&global_shm->publ_tok_objs[global_shm->num_publ_tok_obj],
+         memset((char *)&global_shm->publ_tok_objs[global_shm->num_publ_tok_obj], 0,
                 sizeof(TOK_OBJ_ENTRY));
       }
    }
@@ -2333,9 +2331,6 @@ object_mgr_search_shm_for_obj( TOK_OBJ_ENTRY  * obj_list,
                                OBJECT         * obj,
                                CK_ULONG       * index )
 {
-   CK_ULONG    mid;
-   int         val;
-
 // SAB  XXX reduce the search time since this is what seems to be burning cycles
    CK_ULONG idx;
    if ( obj->index == 0 ) {
@@ -2458,7 +2453,6 @@ object_mgr_update_publ_tok_obj_from_shm()
    OBJECT            * obj  = NULL;
    CK_OBJECT_HANDLE    handle;
    CK_ULONG            index;
-   CK_BBOOL            cont;
    int                 val;
    CK_RV               rc;
 
@@ -2536,7 +2530,6 @@ object_mgr_update_publ_tok_obj_from_shm()
    }
 
    if ((node == NULL) && (index < global_shm->num_publ_tok_obj)) {
-      DL_NODE  *new_node = NULL;
       OBJECT   *new_obj  = NULL;
       unsigned int i;
 
@@ -2593,7 +2586,6 @@ object_mgr_update_priv_tok_obj_from_shm()
    OBJECT            * obj  = NULL;
    CK_OBJECT_HANDLE    handle;
    CK_ULONG            index;
-   CK_BBOOL            cont;
    int                 val;
    CK_RV               rc;
 
@@ -2679,7 +2671,6 @@ object_mgr_update_priv_tok_obj_from_shm()
    }
 
    if ((node == NULL) && (index < global_shm->num_priv_tok_obj)) {
-      DL_NODE  *new_node = NULL;
       OBJECT   *new_obj  = NULL;
       unsigned int i;
 

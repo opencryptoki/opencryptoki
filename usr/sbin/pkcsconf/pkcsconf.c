@@ -579,7 +579,7 @@ main(int argc, char *argv[]){
    }
 
    /* We are done, detach from shared memory, and free the memory we may have
-    * allocated.  In the case of PIN's we bzero them to ensure that they are not
+    * allocated.  In the case of PIN's we memset them to ensure that they are not
     * left around in system memory*/
 
 done:
@@ -589,17 +589,17 @@ done:
 #endif
 
    if (sopin) {
-     bzero (sopin, strlen((char *)sopin));
+     memset(sopin, 0, strlen((char *)sopin));
      free (sopin);
    }
 
    if (pin) {
-      bzero (pin, strlen((char *)pin));
+      memset(pin, 0, strlen((char *)pin));
       free (pin);
    }
 
    if (newpin) {
-      bzero (newpin, strlen((char *)newpin));
+      memset(newpin, 0, strlen((char *)newpin));
       free (newpin);
    }
 
@@ -609,7 +609,7 @@ done:
 
 void
 get_pin(CK_CHAR ** pin){
-   int  size = PIN_SIZE, count = 0;
+   int  count = 0;
    char buff[PIN_SIZE] = { 0 }, c = 0;
 
    /* Turn off echoing to the terminal when getting the password */
@@ -734,7 +734,6 @@ display_pkcs11_info(void){
 
 CK_RV
 get_slot_list(int cond, CK_CHAR_PTR slot){
-   int                   lcv;                  // Loop control variable
    CK_RV                 rc;                   // Return Code
    CK_SLOT_ID_PTR        TempSlotList = NULL;  // Temporary Slot List
 
@@ -1175,13 +1174,9 @@ init(void){
     * error */
    /* The host machine should have the right library in the
     * LD_LIBRARY_PATH */
-/*   if (sizeof(CK_ULONG) == 4) 
-      dllPtr = dlopen("/usr/lib/pkcs11/PKCS11_API.so", RTLD_NOW);
-   else
-   dllPtr = dlopen("/usr/lib/pkcs11/PKCS11_API.so64", RTLD_NOW); */
    dllPtr = dlopen("libopencryptoki.so", RTLD_NOW);
    if (!dllPtr) {
-      printf(PKCSINIT_MSG(LOADERROR, "Error loading PKCS#11 library: 0x%X\n"), rc);
+      printf(PKCSINIT_MSG(LOADERROR, "Error loading PKCS#11 library\n"));
       printf(PKCSINIT_MSG(LOADERROR, "dlopen error: %s\n"), dlerror());
       fflush(stdout);
       return -1;

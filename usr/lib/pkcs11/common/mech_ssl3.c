@@ -294,8 +294,6 @@
 // Mechanisms for SSL v3 support
 //
 
-//#include <windows.h>
-
 #include <pthread.h>
 #include <string.h>            // for memcmp() et al
 #include <stdlib.h>
@@ -2000,7 +1998,7 @@ ssl3_kmd_process_write_keys( SESSION           * sess,
    CK_ULONG         i, cnt;
    CK_ULONG         true_vals[]  = { CKA_ENCRYPT, CKA_DECRYPT, CKA_DERIVE };
    CK_ULONG         false_vals[] = { CKA_SIGN, CKA_VERIFY, CKA_WRAP, CKA_UNWRAP };
-   CK_RV            rc = 0;
+   CK_RV            rc = CKR_HOST_MEMORY;
 
    // for the write keys, we want the following default values:
    //    CKA_ENCRYPT, CKA_DECRYPT, CKA_DERIVE = TRUE
@@ -2027,7 +2025,6 @@ ssl3_kmd_process_write_keys( SESSION           * sess,
       attr->ulValueLen   = sizeof(CK_BBOOL);
       attr->pValue       = (CK_BBOOL *)malloc(sizeof(CK_BBOOL));
       if (!attr->pValue) {
-         rc = CKR_HOST_MEMORY;
          st_err_log(0, __FILE__, __LINE__); 
          goto error;
       }
@@ -2039,7 +2036,6 @@ ssl3_kmd_process_write_keys( SESSION           * sess,
       attr->ulValueLen   = sizeof(CK_BBOOL);
       attr->pValue       = (CK_BBOOL *)malloc(sizeof(CK_BBOOL));
       if (!attr->pValue) {
-         rc = CKR_HOST_MEMORY;
          st_err_log(0, __FILE__, __LINE__); 
          goto error;
       }
@@ -2055,7 +2051,6 @@ ssl3_kmd_process_write_keys( SESSION           * sess,
          attr->ulValueLen = pTemplate[i].ulValueLen;
          attr->pValue     = (char *)malloc(attr->ulValueLen);
          if (!attr->pValue) {
-            rc = CKR_HOST_MEMORY;
             st_err_log(0, __FILE__, __LINE__); 
             goto error;
          }

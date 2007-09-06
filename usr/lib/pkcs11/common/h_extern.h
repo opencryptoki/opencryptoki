@@ -1,5 +1,5 @@
 /*
- * $Header: /cvsroot/opencryptoki/opencryptoki/usr/lib/pkcs11/common/h_extern.h,v 1.8 2006/04/05 20:07:45 kyoder Exp $
+ * $Header: /cvsroot/opencryptoki/opencryptoki/usr/lib/pkcs11/common/h_extern.h,v 1.9 2007/09/06 15:40:11 tlendacky Exp $
  */
 
 
@@ -1456,6 +1456,43 @@ CK_RV  ckm_sha1_final( DIGEST_CONTEXT *ctx,
                        CK_BYTE      *out_data, CK_ULONG  *out_data_len );
 
 
+// SHA-256 mechanisms
+//
+CK_RV  sha2_hash( SESSION  *sess,     CK_BBOOL  length_only,
+                  DIGEST_CONTEXT *ctx,
+                  CK_BYTE  *in_data,  CK_ULONG  in_data_len,
+                  CK_BYTE  *out_data, CK_ULONG *out_data_len );
+
+CK_RV  sha2_hash_update( SESSION *sess,    DIGEST_CONTEXT *ctx,
+                         CK_BYTE *in_data, CK_ULONG in_data_len );
+
+CK_RV  sha2_hash_final( SESSION  *sess,     CK_BBOOL  length_only,
+                        DIGEST_CONTEXT *ctx,
+                        CK_BYTE  *out_data, CK_ULONG *out_data_len );
+
+CK_RV  sha2_hmac_sign( SESSION *sess,  CK_BBOOL length_only,
+                       SIGN_VERIFY_CONTEXT * ctx,
+                       CK_BYTE             * in_data,
+                       CK_ULONG              in_data_len,
+                       CK_BYTE             * out_data,
+                       CK_ULONG            * out_data_len );
+
+CK_RV  sha2_hmac_verify( SESSION             * sess,
+                         SIGN_VERIFY_CONTEXT * ctx,
+                         CK_BYTE             * in_data,
+                         CK_ULONG              in_data_len,
+                         CK_BYTE             * signature,
+                         CK_ULONG              sig_len );
+
+void   ckm_sha2_init( DIGEST_CONTEXT *ctx );
+
+CK_RV  ckm_sha2_update( DIGEST_CONTEXT *ctx,
+                        CK_BYTE      *in_data,  CK_ULONG in_data_len );
+
+CK_RV  ckm_sha2_final( DIGEST_CONTEXT *ctx,
+                       CK_BYTE      *out_data, CK_ULONG  *out_data_len );
+
+
 // MD2 mechanisms
 //
 CK_RV  md2_hash( SESSION  *sess,     CK_BBOOL  length_only,
@@ -2348,17 +2385,17 @@ extern token_spec_t token_specific;
 
 #define st_err_log(num, ...)    LogMessage(stderr, "ERROR", STDLL_NAME, "%s", err_msg[num].msg)
 #else
-#define LogDebug(fmt, ...)
-#define LogDebug1(data)
-#define LogBlob(sz,blb)
-#define LogError(fmt, ...)
-#define LogError1(data)
-#define LogWarn(fmt, ...)
-#define LogWarn1(data)
-#define LogInfo(fmt, ...)
-#define LogInfo1(data)
+#define LogDebug(...)		do { } while (0)
+#define LogDebug1(...)		do { } while (0)
+#define LogBlob(...)		do { } while (0)
+#define LogError(...)		do { } while (0)
+#define LogError1(...)		do { } while (0)
+#define LogWarn(...)		do { } while (0)
+#define LogWarn1(...)		do { } while (0)
+#define LogInfo(...)		do { } while (0)
+#define LogInfo1(...)		do { } while (0)
 
-#define st_err_log(...)
+#define st_err_log(...)		do { } while (0)
 #endif
 
 /* CKA_HIDDEN will be used to filter return results on a C_FindObjects call.

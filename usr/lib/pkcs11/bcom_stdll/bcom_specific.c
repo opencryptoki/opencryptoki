@@ -428,7 +428,7 @@ CK_RV build_swapped_attribute(CK_ATTRIBUTE_TYPE type,
   if (! swapped_data) {
     return CKR_DEVICE_ERROR;
   }
-  bzero(swapped_data, data_len);
+  memset(swapped_data, 0, data_len);
   real_data_len = data_len;
 
   pos = data_len -1;
@@ -483,10 +483,10 @@ int bcom_rsa_pub_new(BCOM_RSA_PUB_KEY_t **out_rsa_pub)
   }
 
   rsa_pub->n = (U32_t *)malloc(MAX_PUBLIC_KEY_BYTES*sizeof(unsigned char));
-  bzero(rsa_pub->n, MAX_PUBLIC_KEY_BYTES);
+  memset(rsa_pub->n, 0, MAX_PUBLIC_KEY_BYTES);
   rsa_pub->n_len = 0;
   rsa_pub->e = (U32_t *)malloc(MAX_PUBLIC_KEY_BYTES*sizeof(unsigned char));
-  bzero(rsa_pub->e, MAX_PUBLIC_KEY_BYTES);
+  memset(rsa_pub->e, 0, MAX_PUBLIC_KEY_BYTES);
   rsa_pub->e_len = 0;
 
   if (! (rsa_pub->n && rsa_pub->e)) {
@@ -578,24 +578,24 @@ int bcom_rsa_crt_new(BCOM_RSA_CRT_KEY_t **out_rsa_priv)
   }
   
   rsa_priv->n = (U32_t *)malloc(MAX_PUBLIC_KEY_BYTES);
-  bzero(rsa_priv->n, MAX_PUBLIC_KEY_BYTES);
+  memset(rsa_priv->n, 0, MAX_PUBLIC_KEY_BYTES);
   rsa_priv->d = (U32_t *)malloc(MAX_PUBLIC_KEY_BYTES);
-  bzero(rsa_priv->d, MAX_PUBLIC_KEY_BYTES);
+  memset(rsa_priv->d, 0, MAX_PUBLIC_KEY_BYTES);
   rsa_priv->d_len = 0;
   rsa_priv->p = (U32_t *)malloc(MAX_PUBLIC_KEY_BYTES);
-  bzero(rsa_priv->p, MAX_PUBLIC_KEY_BYTES);
+  memset(rsa_priv->p, 0, MAX_PUBLIC_KEY_BYTES);
   rsa_priv->p_len = 0;
   rsa_priv->q = (U32_t *)malloc(MAX_PUBLIC_KEY_BYTES);
-  bzero(rsa_priv->q, MAX_PUBLIC_KEY_BYTES);
+  memset(rsa_priv->q, 0, MAX_PUBLIC_KEY_BYTES);
   rsa_priv->q_len = 0;
   rsa_priv->dp = (U32_t *)malloc(MAX_PUBLIC_KEY_BYTES);
-  bzero(rsa_priv->dp, MAX_PUBLIC_KEY_BYTES);
+  memset(rsa_priv->dp, 0, MAX_PUBLIC_KEY_BYTES);
   rsa_priv->dp_len = 0;
   rsa_priv->dq = (U32_t *)malloc(MAX_PUBLIC_KEY_BYTES);
-  bzero(rsa_priv->dq, MAX_PUBLIC_KEY_BYTES);
+  memset(rsa_priv->dq, 0, MAX_PUBLIC_KEY_BYTES);
   rsa_priv->dq_len = 0;
   rsa_priv->pinv = (U32_t *)malloc(MAX_PUBLIC_KEY_BYTES);
-  bzero(rsa_priv->pinv, MAX_PUBLIC_KEY_BYTES);
+  memset(rsa_priv->pinv, 0, MAX_PUBLIC_KEY_BYTES);
   rsa_priv->pinv_len = 0;
 
   if (! (rsa_priv->p && rsa_priv->q && rsa_priv->dp && rsa_priv->dq && rsa_priv->pinv)) {
@@ -970,9 +970,9 @@ token_specific_rsa_encrypt( CK_BYTE   *in_data,
   /* allocate enough memory (size of modulus)  
      for swapped cleartext and for ciphertext */
   tcipher = (CK_BYTE *)malloc(pubKey->n_len);
-  bzero(tcipher, pubKey->n_len);
+  memset(tcipher, 0, pubKey->n_len);
   tclear = (CK_BYTE *)malloc(pubKey->n_len);
-  bzero(tcipher, pubKey->n_len);
+  memset(tcipher, 0, pubKey->n_len);
 
   /* swapp the plaintext to get Broadcom representation */
   bignum_swapper(in_data, tclear, pubKey->n_len);

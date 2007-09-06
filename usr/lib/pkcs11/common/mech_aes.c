@@ -295,8 +295,6 @@
 // Mechanisms for AES
 //
 
-//#include <windows.h>
-
 #include <string.h>            // for memcmp() et al
 #include <stdlib.h>
 
@@ -305,7 +303,6 @@
 #include "host_defs.h"
 #include "h_extern.h"
 #include "tok_spec_struct.h"
-//#include "args.h"
 
 
 //

@@ -319,7 +319,6 @@ int CreateSharedMemory ( void ) {
 
   struct stat statbuf;
   char *Path = NULL;
-  gid_t  gid;
   struct group *grp;
   struct shmid_ds shm_info;
 
@@ -593,7 +592,6 @@ int InitSharedMemory ( Slot_Mgr_Shr_t *sp ) {
 #endif
 
    CK_VERSION_PTR      ckver;
-   CK_SLOT_INFO_PTR    ckslot;
    CK_SLOT_ID          id;
    uint16              procindex;
    char *package_version_tmp;

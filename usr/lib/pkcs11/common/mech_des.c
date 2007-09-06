@@ -294,8 +294,6 @@
 // Mechanisms for DES
 //
 
-//#include <windows.h>
-
 #include <string.h>            // for memcmp() et al
 #include <stdlib.h>
 
@@ -304,8 +302,6 @@
 #include "host_defs.h"
 #include "h_extern.h"
 #include "tok_spec_struct.h"
-//#include "args.h"
-
 
 
 //
@@ -1251,7 +1247,6 @@ des_cbc_pad_decrypt_update( SESSION           *sess,
          memcpy( context->data, in_data + (in_data_len - remain), remain );
          context->len = remain;
       }
-      
       else
          st_err_log(114, __FILE__, __LINE__);
       free( cipher );
@@ -1558,7 +1553,6 @@ ckm_des_key_gen( TEMPLATE *tmpl )
    CK_ATTRIBUTE     * class_attr    = NULL;
    CK_ATTRIBUTE     * local_attr    = NULL;
    CK_BYTE            des_key[DES_KEY_SIZE];
-   CK_ULONG           req_len, repl_len, expected_repl_len;
    CK_ULONG           rc;
    // Checking for a weak key is redundant in that the token
    // specific keygen may already do this
@@ -1572,7 +1566,7 @@ ckm_des_key_gen( TEMPLATE *tmpl )
       rc = token_specific.t_des_key_gen(des_key,DES_KEY_SIZE);
    } while (des_check_weak_key(des_key) != FALSE  && rc != CKR_OK);
    if (rc != CKR_OK)
-      goto done;
+      return rc;
 
    value_attr    = (CK_ATTRIBUTE *)malloc(sizeof(CK_ATTRIBUTE) + DES_KEY_SIZE );
    key_type_attr = (CK_ATTRIBUTE *)malloc(sizeof(CK_ATTRIBUTE) + sizeof(CK_KEY_TYPE) );
@@ -1614,10 +1608,7 @@ ckm_des_key_gen( TEMPLATE *tmpl )
    template_update_attribute( tmpl, class_attr );
    template_update_attribute( tmpl, local_attr );
 
-//   return CKR_OK;
-
-done:
-   return rc;
+   return CKR_OK;
 }
 
 #if !(NOCDMF)
@@ -1703,7 +1694,6 @@ ckm_des_ecb_encrypt( CK_BYTE   * in_data,
                      CK_ULONG  * out_data_len,
                      CK_BYTE   * key_value )
 {
-   CK_ULONG       req_len, repl_len, expected_repl_len;
    CK_ULONG       rc;
 
 
@@ -1732,7 +1722,6 @@ ckm_des_ecb_decrypt( CK_BYTE   * in_data,
                      CK_ULONG  * out_data_len,
                      CK_BYTE   * key_value )
 {
-   CK_ULONG         req_len, repl_len, expected_repl_len;
    CK_ULONG         rc;
 
 
@@ -1764,7 +1753,6 @@ ckm_des_cbc_encrypt( CK_BYTE   * in_data,
                      CK_BYTE   * init_v,
                      CK_BYTE   * key_value )
 {
-   CK_ULONG         req_len, repl_len, expected_repl_len;
    CK_ULONG         rc;
 
 
@@ -1795,7 +1783,6 @@ ckm_des_cbc_decrypt( CK_BYTE   * in_data,
                      CK_BYTE   * init_v,
                      CK_BYTE   * key_value )
 {
-   CK_ULONG         req_len, repl_len, expected_repl_len;
    CK_ULONG         rc;
 
 

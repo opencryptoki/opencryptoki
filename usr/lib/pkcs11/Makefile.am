@@ -30,10 +30,13 @@ endif
 if CR
 CR_DLL = cr_stdll
 endif
+if CCA
+CCA_DLL = cca_stdll
+endif
 
 if LIBRARY
 API = api
 endif 
 
-SUBDIRS = $(API) $(DEFAULT) $(ICA_DLL) $(TPM_DLL) $(LEEDS_DLL) $(AEP_DLL) $(BCOM_DLL) $(CR_DLL) 
+SUBDIRS = $(API) $(DEFAULT) $(ICA_DLL) $(TPM_DLL) $(LEEDS_DLL) $(AEP_DLL) $(BCOM_DLL) $(CR_DLL) $(CCA_DLL)
 

@@ -1,0 +1,24 @@
+
+README for the CCA secure-key token
+
+Kent Yoder <yoder1@us.ibm.com>
+
+  The key used to encrypt private objects on disk is a secure key.
+
+  The key used to encrypt that secure key is based on the hash of the
+USER and SO pins.  Therefore it is a clear key and software is used to
+do the encryption/decryption of the secure key.
+
+MK_USER: The secure key used for internal on-disk encryption, encrypted
+         under the USER's PIN by software routines
+
+MK_SO: The secure key used for internal on-disk encryption, encrypted
+         under the SO's PIN by software routines
+
+So, MK_USER and MK_SO contain the same key, encrypted under different PINs
+
+PKCS#11 Notes:
+
+DES/3DES PKCS#11 key objects have the CCA key identifier stored in the CKA_VALUE
+attribute.  Usually the CKA_VALUE attribute would hold a plaintext key, however
+in this case, the id used to reference the secure key is stored here.

@@ -382,11 +382,9 @@ stlogterm()
 void
 stlogit2(int type,char *fmt, ...)
 {
-      int n;
       va_list pvar;
-      char *env;
       char buffer[4096*4];
-      char buf1[4096];
+//      char buf1[4096];
 
    if (!enabled)  stloginit();
 
@@ -416,9 +414,7 @@ stlogit2(int type,char *fmt, ...)
 void
 stlogit(char *fmt, ...)
 {
-      int n;
       va_list pvar;
-      char *env;
       char buffer[4096*4];
 
    if (!enabled)  stloginit();
@@ -441,51 +437,6 @@ stlogit(char *fmt, ...)
    }
 
 }
-/*
-void
-st_err_log(char *fmt, ...)
-{
-      int n;
-      va_list pvar;
-      char *env;
-      char buffer[4096*4];
-
-   if (!enabled)  stloginit();
-
-   if ( enabled ){
-         va_start(pvar, fmt);
-         vsprintf(buffer,fmt,pvar);
-         va_end(pvar);
-         pthread_mutex_lock(&lmtx);
-         syslog(LOG_ERR,buffer);
-         pthread_mutex_unlock(&lmtx);
-   }
-
-}
-*/
-
-#if 0
-void
-st_err_log(int num, ...)
-{
-      int n;
-      va_list pvar;
-      char *env;
-      char buffer[4096*4];
-
-   if (!enabled && logging)  stloginit();
-
-   if ( enabled ){
-         va_start(pvar,num);
-         vsprintf(buffer,err_msg[num].msg,pvar);
-         va_end(pvar);
-         pthread_mutex_lock(&lmtx);
-         syslog(LOG_ERR,buffer);
-         pthread_mutex_unlock(&lmtx);
-   }
-
-}
-#endif
 
 /* moved in from msg.h */
 

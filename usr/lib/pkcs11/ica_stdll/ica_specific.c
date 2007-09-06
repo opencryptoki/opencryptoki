@@ -291,6 +291,7 @@
 
 #include <pthread.h>
 #include <string.h>            // for memcmp() et al
+#include <strings.h>
 #include <stdlib.h>
 
 #ifndef NOAES
@@ -438,7 +439,7 @@ token_specific_des_ecb(CK_BYTE * in_data,
    CK_RV rc;
    unsigned int _out_data_len = *out_data_len;
 
-   bzero(&empty_iv,sizeof(empty_iv));
+   memset(&empty_iv, 0, sizeof(empty_iv));
    if ( encrypt) {
       rc = icaDesEncrypt(adapter_handle, (unsigned int)MODE_DES_ECB, (unsigned int)in_data_len, in_data,
                 &empty_iv, (ICA_KEY_DES_SINGLE *)key_value, 
@@ -513,7 +514,7 @@ token_specific_tdes_ecb(CK_BYTE * in_data,
    unsigned int _out_data_len = *out_data_len;
    
 
-   bzero(&empty_iv,sizeof(empty_iv));
+   memset(&empty_iv, 0, sizeof(empty_iv));
    if ( encrypt) {
       rc = icaTDesEncrypt(adapter_handle, (unsigned int)MODE_DES_ECB, 
 		(unsigned int)in_data_len, in_data,
@@ -617,7 +618,7 @@ rsa_convert_public_key( OBJECT    * key_obj )
    if (publKey == NULL) {
       return NULL;
    }
-   bzero(publKey, sizeof(ICA_KEY_RSA_MODEXPO));
+   memset(publKey, 0, sizeof(ICA_KEY_RSA_MODEXPO));
 
    // Currently using definition of ICA_KEY_RSA_MODEXPO in NT spec v1.12
 
@@ -632,9 +633,9 @@ rsa_convert_public_key( OBJECT    * key_obj )
 
    pkey = (CK_BYTE_PTR) publKey->keyRecord;
    pkey += modulus->ulValueLen - pub_exp->ulValueLen;
-   bcopy(pub_exp->pValue, pkey, pub_exp->ulValueLen);
+   memcpy(pkey, pub_exp->pValue, pub_exp->ulValueLen);
    pkey += pub_exp->ulValueLen;
-   bcopy(modulus->pValue, pkey, modulus->ulValueLen);
+   memcpy(pkey, modulus->pValue, modulus->ulValueLen);
    return publKey;
 
 }
@@ -676,7 +677,7 @@ rsa_convert_private_key(OBJECT *key_obj)
          if (privKey == NULL) {
             return NULL;
          }
-         bzero(privKey, sizeof(ICA_KEY_RSA_CRT));
+         memset(privKey, 0, sizeof(ICA_KEY_RSA_CRT));
 
          // Currently using definition of ICA_KEY_RSA_CRT in NT spec v1.12
          // (with nLength and nOffset removed per BEF's e-mail)
@@ -700,19 +701,19 @@ rsa_convert_private_key(OBJECT *key_obj)
          privKey->qInvOffset = offset + qSize;
          pkey = (CK_BYTE_PTR) privKey->keyRecord;
          pkey += pSize - exp1->ulValueLen;
-         bcopy(exp1->pValue, pkey, exp1->ulValueLen);
+         memcpy(pkey, exp1->pValue, exp1->ulValueLen);
 //       pkey += exp1->ulValueLen + qSize - exp2->ulValueLen;
          pkey += exp1->ulValueLen;
-         bcopy(exp2->pValue, pkey, exp2->ulValueLen);
+         memcpy(pkey, exp2->pValue, exp2->ulValueLen);
 //       pkey += exp2->ulValueLen + pSize - prime1->ulValueLen;
          pkey += qSize + pSize - prime1->ulValueLen;
-         bcopy(prime1->pValue, pkey, prime1->ulValueLen);
+         memcpy(pkey, prime1->pValue, prime1->ulValueLen);
 //       pkey += prime1->ulValueLen + qSize - prime2->ulValueLen;
          pkey += prime1->ulValueLen;
-         bcopy(prime2->pValue, pkey, prime2->ulValueLen);
+         memcpy(pkey, prime2->pValue, prime2->ulValueLen);
 //       pkey += prime2->ulValueLen + pSize - coeff->ulValueLen;
          pkey += qSize + pSize - coeff->ulValueLen;
-         bcopy(coeff->pValue, pkey, coeff->ulValueLen);
+         memcpy(pkey, coeff->pValue, coeff->ulValueLen);
          return privKey;
 //         hex_dump_to_file("PRIVATEKEY",(char *)privKey,sizeof(ICA_KEY_RSA_CRT));
       } else {   // must be a non-CRT key
@@ -723,7 +724,7 @@ rsa_convert_private_key(OBJECT *key_obj)
          if (privModKey == NULL) {
             return NULL;
          }
-         bzero(privModKey, sizeof(ICA_KEY_RSA_MODEXPO));
+         memset(privModKey, 0, sizeof(ICA_KEY_RSA_MODEXPO));
 
          // Currently using definition of ICA_KEY_RSA_MODEXPO in NT spec v1.12
 
@@ -739,9 +740,9 @@ rsa_convert_private_key(OBJECT *key_obj)
 
          pkey = (CK_BYTE_PTR) privModKey->keyRecord;
          pkey += modulus->ulValueLen - priv_exp->ulValueLen;
-         bcopy(priv_exp->pValue, pkey, priv_exp->ulValueLen);
+         memcpy(pkey, priv_exp->pValue, priv_exp->ulValueLen);
          pkey += priv_exp->ulValueLen;
-         bcopy(modulus->pValue, pkey, modulus->ulValueLen);
+         memcpy(pkey, modulus->pValue, modulus->ulValueLen);
 
          return privModKey;
       }

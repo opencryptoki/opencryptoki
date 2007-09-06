@@ -305,7 +305,7 @@
 #include "defs.h"
 #include "host_defs.h"
 #include "h_extern.h"
-
+#include "tok_spec_struct.h"
 
 
 // in the Shallow token we have the modulus so we can just get it
@@ -479,10 +479,8 @@ rsa_pkcs_decrypt( SESSION           *sess,
                   CK_ULONG          *out_data_len )
 {
    OBJECT          *key_obj  = NULL;
-   CK_ATTRIBUTE    *attr     = NULL;
    CK_BYTE          out[256];  // 2048 bits
    CK_ULONG         i, modulus_bytes;
-   CK_BBOOL         flag;
    CK_RV            rc;
 
 
@@ -560,10 +558,8 @@ rsa_pkcs_sign( SESSION             *sess,
                CK_ULONG            *out_data_len )
 {
    OBJECT          *key_obj   = NULL;
-   CK_ATTRIBUTE    *attr      = NULL;
    CK_BYTE          data[256], sig[256];  // max size: 256 bytes == 2048 bits
    CK_ULONG         modulus_bytes;
-   CK_BBOOL         flag;
    CK_RV            rc;
 
 
@@ -849,10 +845,8 @@ rsa_x509_decrypt( SESSION           *sess,
                   CK_ULONG          *out_data_len )
 {
    OBJECT          *key_obj  = NULL;
-   CK_ATTRIBUTE    *attr     = NULL;
    CK_BYTE          out[256];  // 2048 bits
    CK_ULONG         modulus_bytes;
-   CK_BBOOL         flag;
    CK_RV            rc;
 
 
@@ -922,10 +916,8 @@ rsa_x509_sign( SESSION             *sess,
                CK_ULONG            *out_data_len )
 {
    OBJECT          *key_obj   = NULL;
-   CK_ATTRIBUTE    *attr      = NULL;
    CK_BYTE          data[256], sig[256];  // max size: 256 bytes == 2048 bits
    CK_ULONG         modulus_bytes;
-   CK_BBOOL         flag;
    CK_RV            rc;
 
 
@@ -1642,9 +1634,6 @@ ckm_rsa_key_pair_gen( TEMPLATE  * publ_tmpl,
    CK_ATTRIBUTE       * publ_exp = NULL;
    CK_ATTRIBUTE       * attr     = NULL;
 
-   CK_BYTE            * ptr      = NULL;
-   CK_BYTE              repl_buf[5500];
-   CK_ULONG             req_len, repl_len;
    CK_ULONG             mod_bits;
    CK_BBOOL             flag;
    CK_RV                rc;
@@ -1684,13 +1673,8 @@ ckm_rsa_encrypt( CK_BYTE   * in_data,
                  OBJECT    * key_obj )
 {
    CK_ATTRIBUTE      * attr    = NULL;
-   CK_ATTRIBUTE      * modulus = NULL;
-   CK_ATTRIBUTE      * pub_exp = NULL;
-   CK_BYTE           * ptr     = NULL;
 
-   CK_ULONG            buffer[80];  // plenty of room...
    CK_OBJECT_CLASS     keyclass;
-   CK_ULONG            req_len, repl_len, key_len;
    CK_RV               rc;
 
 
@@ -1713,7 +1697,6 @@ ckm_rsa_encrypt( CK_BYTE   * in_data,
    if (rc != CKR_OK)
       st_err_log(134, __FILE__, __LINE__);
 
-done:
    return rc;
 }
 
@@ -1727,19 +1710,8 @@ ckm_rsa_decrypt( CK_BYTE   * in_data,
                  OBJECT    * key_obj )
 {
    CK_ATTRIBUTE      * attr     = NULL;
-   CK_ATTRIBUTE      * modulus  = NULL;
-   CK_ATTRIBUTE      * pub_exp  = NULL;
-   CK_ATTRIBUTE      * prime1   = NULL;
-   CK_ATTRIBUTE      * prime2   = NULL;
-   CK_ATTRIBUTE      * exp1     = NULL;
-   CK_ATTRIBUTE      * exp2     = NULL;
-   CK_ATTRIBUTE      * coeff    = NULL;
-   CK_BYTE           * ptr      = NULL;
 
-   CK_ULONG            buffer[80];  // plenty of room...
    CK_OBJECT_CLASS     keyclass;
-   CK_ULONG            key_size;
-   CK_ULONG            req_len, repl_len;
    CK_RV               rc;
 
 
@@ -1761,7 +1733,6 @@ ckm_rsa_decrypt( CK_BYTE   * in_data,
    if (rc != CKR_OK)
       st_err_log(135, __FILE__, __LINE__);
 
-done:
    return rc;
 }
 

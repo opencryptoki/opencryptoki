@@ -593,8 +593,6 @@ int InitializeMutexes ( void ) {
 
 int DestroyMutexes ( void ) {
 
-  int i;
-
   /* Get the global shared memory mutex */
 #if 1
   XProcLock(&(shmp->slt_mutex));

@@ -289,8 +289,6 @@
 /* (C) COPYRIGHT International Business Machines Corp. 2001,2002          */
 
 
-//#include <windows.h>
-
 #include <pthread.h>
 #include <string.h>            // for memcmp() et al
 #include <stdlib.h>
@@ -301,7 +299,6 @@
 #include "host_defs.h"
 #include "h_extern.h"
 #include "tok_spec_struct.h"
-//#include "args.h"
 
 
 // forward declaration

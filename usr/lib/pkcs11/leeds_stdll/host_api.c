@@ -838,7 +838,7 @@ copy_attribute_value(void *source, void *dest, CK_ATTRIBUTE *attr)
          
          break;
       default:
-         bcopy(source,dest,attr->ulValueLen);
+         memcpy(dest, source, attr->ulValueLen);
          break;
    }
 
@@ -874,10 +874,10 @@ ModifyAttribute(type,val)
 #ifdef PKCS64
         tval =  HTOCL((CK_ULONG_32)*val);
 	*val = tval; 
-        // bcopy(&tval,val,sizeof(CK_ULONG_32));
+        // memcpy(val, &tval, sizeof(CK_ULONG_32));
 #else
         tval =  HTOCL((CK_ULONG)*val);
-        bcopy(&tval,val,sizeof(CK_ULONG));
+        memcpy(val, &tval, sizeof(CK_ULONG));
 #endif
 
       default:
@@ -1254,7 +1254,7 @@ CK_RV communicate( CK_ULONG    cmd_id, CK_SLOT_ID   slot_id,
            }
             hst=*hs;
             saddr.sin_family = AF_INET;
-            bcopy(hs->h_addr,(char *)&saddr.sin_addr,hs->h_length);
+            memcpy((char *)&saddr.sin_addr, hs->h_addr, hs->h_length);
             //saddr.sin_addr.s_addr  =  htonl(0x0933510c);
             saddr.sin_port = htons(PORT);
 
@@ -1556,11 +1556,11 @@ CK_RV SC_Initialize( void **FunctionList,
       // Zero out the adapter handle array
       //  an adapter handle of 0 indicates that the particular adapter has
       // NOT been initialized
-      bzero((char *)adapter_handle,sizeof(sccAdapterHandle_t)*MAX_SLOT_ID);
+      memset((char *)adapter_handle, 0, sizeof(sccAdapterHandle_t)*MAX_SLOT_ID);
       initialized = TRUE;
       initedpid = getpid();
       SC_SetFunctionList(); 
-      bzero((char *)correlator_init,PKW_MAX_DEVICES * sizeof(struct Cor_init));
+      memset((char *)correlator_init, 0, PKW_MAX_DEVICES * sizeof(struct Cor_init));
 
       {
          int i;
@@ -1645,7 +1645,7 @@ rc = 0;
 
 
             saddr.sin_family = AF_INET;
-            bcopy(hs->h_addr,(char *)&saddr.sin_addr,hs->h_length);
+            memcpy((char *)&saddr.sin_addr, hs->h_addr, hs->h_length);
             saddr.sin_port = htons(PORT);
             if ( connect (adapter_handle[i],(struct sockaddr *)&saddr,sizeof(struct sockaddr_in)) < 0 ){
                // XXX FIXME   just bail for now.
@@ -3133,7 +3133,7 @@ CK_RV  SC_CopyObject( ST_SESSION_HANDLE    sSession,
 #if __64BIT__
       copy_attribute_value(ps,pd,attr);
 #else
-      bcopy(ps,pd,attr->ulValueLen);
+      memcpy(pd, ps, attr->ulValueLen);
 #endif
 
 #if __64BIT__
@@ -3842,7 +3842,7 @@ CK_RV  SC_SetAttributeValue( ST_SESSION_HANDLE    sSession,
 #if __64BIT__
       copy_attribute_value(ps,pd,attr);
 #else
-      bcopy(ps,pd,attr->ulValueLen);
+      memcpy(pd, ps, attr->ulValueLen);
 #endif
 
 #if __64BIT__
@@ -3997,7 +3997,7 @@ CK_RV SC_FindObjectsInit( ST_SESSION_HANDLE   sSession,
 #if __64BIT__
       copy_attribute_value(ps,pd,attr);
 #else
-      bcopy(ps,pd,attr->ulValueLen);
+      memcpy(pd, ps, attr->ulValueLen);
 #endif
 
 #if __64BIT__
@@ -4457,7 +4457,7 @@ CK_RV SC_GenerateKey( ST_SESSION_HANDLE     sSession,
 #if __64BIT__
       copy_attribute_value(ps,pd,attr);
 #else
-      bcopy(ps,pd,attr->ulValueLen);
+      memcpy(pd, ps, attr->ulValueLen);
 #endif
 
 #if __64BIT__
@@ -5555,7 +5555,7 @@ CK_RV SC_UnwrapKey( ST_SESSION_HANDLE     sSession,
 #if __64BIT__
       copy_attribute_value(ps,pd,attr);
 #else
-      bcopy(ps,pd,attr->ulValueLen);
+      memcpy(pd, ps, attr->ulValueLen);
 #endif
 
 
@@ -6142,7 +6142,7 @@ CK_RV SC_GenerateKeyPair( ST_SESSION_HANDLE     sSession,
 #if __64BIT__
       copy_attribute_value(ps,pd,attr);
 #else
-      bcopy(ps,pd,attr->ulValueLen);
+      memcpy(pd, ps, attr->ulValueLen);
 #endif
 
 #if __64BIT__
@@ -6205,7 +6205,7 @@ CK_RV SC_GenerateKeyPair( ST_SESSION_HANDLE     sSession,
 #if __64BIT__
       copy_attribute_value(ps,pd,attr);
 #else
-      bcopy(ps,pd,attr->ulValueLen);
+      memcpy(pd, ps, attr->ulValueLen);
 #endif
 
 #if __64BIT__
@@ -7995,7 +7995,7 @@ CK_RV SC_DeriveKey( ST_SESSION_HANDLE     sSession,
 #if __64BIT__
       copy_attribute_value(ps,pd,attr);
 #else
-      bcopy(ps,pd,attr->ulValueLen);
+      memcpy(pd, ps, attr->ulValueLen);
 #endif
 
 #if __64BIT__

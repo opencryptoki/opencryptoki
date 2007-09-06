@@ -294,19 +294,15 @@
 // Digest manager routines
 //
 
-//#include <windows.h>
-
 #include <pthread.h>
-  #include <string.h>            // for memcmp() et al
-  #include <stdlib.h>
-
+#include <string.h>            // for memcmp() et al
+#include <stdlib.h>
 
 #include "pkcs11types.h"
 #include "defs.h"
 #include "host_defs.h"
 #include "h_extern.h"
 #include "tok_spec_struct.h"
-//#include "args.h"
 
 
 //
@@ -343,6 +339,23 @@ digest_mgr_init( SESSION           *sess,
 	    
             if (!ctx->context) {
                st_err_log(1, __FILE__, __LINE__);     
+               return CKR_HOST_MEMORY;
+            }
+         }
+         break;
+
+      case CKM_SHA256:
+         {
+            if (mech->ulParameterLen != 0){
+               st_err_log(29, __FILE__, __LINE__);
+               return CKR_MECHANISM_PARAM_INVALID;
+            }
+
+            ctx->context = NULL;
+            ckm_sha2_init( ctx );
+
+            if (!ctx->context) {
+               st_err_log(1, __FILE__, __LINE__);
                return CKR_HOST_MEMORY;
             }
          }
@@ -474,6 +487,11 @@ digest_mgr_digest( SESSION         *sess,
                            in_data,   in_data_len,
                            out_data,  out_data_len );
 
+      case CKM_SHA256:
+         return sha2_hash( sess,      length_only, ctx,
+                           in_data,   in_data_len,
+                           out_data,  out_data_len );
+
 #if !(NOMD2 )
       case CKM_MD2:
          return md2_hash( sess,     length_only, ctx,
@@ -518,6 +536,9 @@ digest_mgr_digest_update( SESSION         *sess,
    switch (ctx->mech.mechanism) {
       case CKM_SHA_1:
          return sha1_hash_update( sess, ctx, data, data_len );
+
+      case CKM_SHA256:
+         return sha2_hash_update( sess, ctx, data, data_len );
 
 #if !(NOMD2)
       case CKM_MD2:
@@ -619,6 +640,11 @@ digest_mgr_digest_final( SESSION         *sess,
    switch (ctx->mech.mechanism) {
       case CKM_SHA_1:
          return sha1_hash_final( sess, length_only,
+                                 ctx,
+                                 hash, hash_len );
+
+      case CKM_SHA256:
+         return sha2_hash_final( sess, length_only,
                                  ctx,
                                  hash, hash_len );
 

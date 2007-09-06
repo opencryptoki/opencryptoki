@@ -308,12 +308,12 @@ init_data_store(char *directory)
 
 	if ( (pkdir = getenv("PKCS_APP_STORE")) != NULL) {
 		pk_dir =  (char *) malloc(strlen(pkdir)+1024);
-		bzero(pk_dir,strlen(pkdir)+1024);
+		memset(pk_dir, 0, strlen(pkdir)+1024);
 		sprintf(pk_dir,"%s/%s",pkdir,SUB_DIR);
 		LogError("Using custom data store location: %s", pk_dir);
 	} else {
 		pk_dir  = (char *)malloc(strlen(directory)+25);
-		bzero(pk_dir,strlen(directory)+25);
+		memset(pk_dir, 0, strlen(directory)+25);
 		sprintf(pk_dir,"%s",directory);
 	}
 }

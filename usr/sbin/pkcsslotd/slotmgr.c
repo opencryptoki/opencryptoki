@@ -324,8 +324,6 @@ void DumpSharedMemory ( void );
  *****************************************/
 
 int main ( int argc, char *argv[], char *envp[]) {
-   int rc;
-
    setlocale(LC_ALL, "");
    catd = catopen(MF_SLOTD,0);
 
