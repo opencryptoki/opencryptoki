@@ -1,5 +1,5 @@
 dnl Process this file with autoconf to produce a configure script.
-AC_INIT(openCryptoki, 2.2.4.1, opencryptoki-tech@lists.sourceforge.net,)
+AC_INIT(openCryptoki, 2.2.5, opencryptoki-tech@lists.sourceforge.net,)
 
 dnl Backup CFLAGS so that once the auto tools set it to "-g -O2",
 dnl (which we want to avoid), we can restore them to whatever the
@@ -336,7 +336,12 @@ AC_OUTPUT([Makefile usr/Makefile \
 	  testcases/threadmkobj/Makefile \
 	  testcases/tok_obj/Makefile \
 	  testcases/v2.11/Makefile \
-	  testcases/login/Makefile])
+	  testcases/login/Makefile \
+	  man/Makefile \
+	  man/man1/Makefile \
+	  man/man5/Makefile \
+	  man/man7/Makefile \
+	  man/man8/Makefile])
 
 echo
 echo "CLFAGS=$CFLAGS"
