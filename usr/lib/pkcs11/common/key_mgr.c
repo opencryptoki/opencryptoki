@@ -752,6 +752,10 @@ key_mgr_generate_key_pair( SESSION           * sess,
    rc = object_mgr_create_final( sess, priv_key_obj, priv_key_handle );
    if (rc != CKR_OK){
       st_err_log(90, __FILE__, __LINE__);
+      // just calling object_free in the error path below would lead to a double
+      // free error on session close - KEY 09/26/07
+      object_mgr_destroy_object( sess, *publ_key_handle );
+      publ_key_obj = NULL;
       goto error;
    }
    return rc;
