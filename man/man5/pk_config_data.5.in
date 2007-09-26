@@ -1,0 +1,19 @@
+.TH PK_CONFIG_DATA 5 "May 2007" "@PACKAGE_VERSION@" "openCryptoki"
+.SH NAME
+pk_config_data \- Configuration file for pkcsslotd.
+
+.SH DESCRIPTION
+This file contains records corresponding to available openCryptoki
+tokens. At startup, the pkcsslotd daemon parses this file to determine
+which tokens are available for use. The file should not be manually
+edited and will be overwritten each time pkcs11_startup is run.
+
+.SH "SEE ALSO"
+.PD 0
+.TP
+\fBopencryptoki\fP(7),
+.TP
+\fBpkcsslotd\fP(8),
+.TP
+\fBpkcs11_startup\fP(1).
+.PD

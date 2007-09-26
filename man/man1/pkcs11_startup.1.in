@@ -1,0 +1,20 @@
+.TH PKCS11_STARTUP 1 "May 2007" "@PACKAGE_VERSION@" "openCryptoki"
+.SH NAME
+pkcs11_startup
+
+.SH DESCRIPTION
+Script that detects available tokens from installed shared object
+libraries and writes corresponding records to the pk_config_data
+file. The pkcsslotd daemon later uses this information when
+initializing the tokens. The script should be run each time a
+new token has been installed or uninstalled.
+
+.SH "SEE ALSO"
+.PD 0
+.TP
+\fBopencryptoki\fP(7),
+.TP
+\fBpkcsslotd\fP(8),
+.TP
+\fBpk_config_data\fP(5).
+.PD

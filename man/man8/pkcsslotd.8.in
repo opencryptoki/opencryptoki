@@ -1,0 +1,36 @@
+.TH PKCSSLOTD 8 "May 2007" "@PACKAGE_VERSION@" "openCryptoki"
+.SH NAME
+pkcsslotd - shared memory manager for opencryptoki
+
+.SH DESCRIPTION
+The \fBpkcsslotd\fP daemon manages PKCS#11 objects between
+PKCS#11-enabled applications. When 2 or more processes are accessing
+the same cryptographic token, the daemon is notified and updates
+each application when the token's objects change.
+
+.SH NOTES
+Only one instance of the pkcsslotd daemon should be running on any
+given host. If a prior instance of pkcsslotd did not shut down
+cleanly, then it may leave an allocated shared memory segment on
+the system. The allocated memory segment can be identified by its
+key and can be safely removed once the daemon is stopped with the
+ipcrm command, such as:
+
+\fIipcrm -M 0x6202AB38\fP
+
+In order to prevent a denial of service against the daemon, the
+shared memory segment is created with group ownership by the
+"pkcs11" group. Any application that requires access to a pkcs11
+token must be run by a user who's a member of the "pkcs11" group.
+
+.SH "SEE ALSO"
+.PD 0
+.TP
+\fBopencryptoki\fP(7),
+.TP
+\fBpkcsconf\fP(1),
+.TP
+\fBpk_config_data\fP(5),
+.TP
+\fBpkcs11_startup\fP(1).
+.PD

@@ -1,0 +1,31 @@
+.TH OPENCRYPTOKI 7 "May 2007" "@PACKAGE_VERSION@" "openCryptoki"
+.SH NAME
+openCryptoki \- A PKCS#11 implementation.
+
+.SH DESCRIPTION
+\fBopenCryptoki\fP is an implementation of the PKCS#11 API standard. It
+provides an interface to the functions of underlying cryptographic
+tokens, which may be implemented via software or hardware. The PKCS#11
+specification has been released by RSA Labs. More information on PKCS#11
+can be found on the RSA labs website: http://www.rsa.com/rsalabs.
+
+To use openCryptoki, first run \fIpkcs11_startup\fP to initialize the
+contents of the pk_config_data file. Then run the \fIpkcsslotd\fP daemon. At
+this point, openCryptoki is ready to start receiving PKCS#11 requests
+from user applications. If openCryptoki is included by your distro, its
+likely that pkcs11_startup is run automatically by an init script.
+
+Use the \fIpkcsconf\fP utility to further configure openCryptoki once the
+daemon is running.
+
+.SH "SEE ALSO"
+.PD 0
+.TP
+\fBpkcsslotd\fP(8),
+.TP
+\fBpkcsconf\fP(1),
+.TP
+\fBpk_config_data\fP(5),
+.TP
+\fBpkcs11_startup\fP(1).
+.PD

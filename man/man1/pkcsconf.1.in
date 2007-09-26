@@ -1,0 +1,50 @@
+.TH PKCSCONF 1 "May 2007" "@PACKAGE_VERSION@" "openCryptoki"
+.SH NAME
+pkcsconf
+
+.SH SYNOPSIS
+\fBpkcsconf\fP
+[\fB-itsmMIupP\fP]
+[\fB-c\fP \fIslotnumber\fP \fB-U\fP \fIuserPIN\fP
+\fB-S\fP \fISOPin\fP \fB-n\fP \fInewpin\fP]
+
+.SH DESCRIPTION
+The \fBpkcsconf\fP utility displays and configures the state of the
+pkcsslotd daemon and the tokens managed by the daemon.
+
+.SH "COMMAND SUMMARY"
+.IP "\fB-i\fP" 10
+display PKCS11 info
+.IP "\fB-t\fP" 10
+display token info
+.IP "\fB-s\fP" 10
+display slot info
+.IP "\fB-m\fP" 10
+display mechanism list
+.IP "\fB-I\fP" 10
+initialize token 
+.IP "\fB-u\fP" 10
+initialize user PIN
+.IP "\fB-p\fP" 10
+set the user PIN
+.IP "\fB-P\fP" 10
+set the SO PIN
+.IP "\fB-c\fP \fISLOT\fP" 10
+specify the token slot for the operation
+.IP "\fB-U\fP \fIUSERPIN\fP" 10
+the current user pin (for use when changing the user pin; -u and -p options);
+if not specified, user will be prompted
+.IP "\fB-S\fP \fISOPIN\fP" 10
+the current Security Officer (SO) pin (for use when changing the SO pin;
+-P option); if not specified, user will be prompted
+.IP "\fB-n\fP \fINEWPIN\fP" 10
+the new pin (for use when changing either the user pin or the SO pin; -u, -p
+and -P options); if not specified, user will be prompted
+
+.SH SEE ALSO
+.PD 0
+.TP
+\fBopencryptoki\fP(7),
+.TP
+\fBpkcsslotd\fP(8).
+.PD
