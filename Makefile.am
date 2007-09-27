@@ -5,8 +5,8 @@ if LIBRARY
 MISCDIR = misc
 endif
 if DAEMON
-MISCDIR = misc 
+MISCDIR = misc
 endif
 
-SUBDIRS = usr $(MISCDIR) $(TESTDIR)
+SUBDIRS = usr man $(MISCDIR) $(TESTDIR)
 
