@@ -339,9 +339,14 @@ AC_OUTPUT([Makefile usr/Makefile \
 	  testcases/login/Makefile \
 	  man/Makefile \
 	  man/man1/Makefile \
+	  man/man1/pkcsconf.1 \
+	  man/man1/pkcs11_startup.1 \
 	  man/man5/Makefile \
+	  man/man5/pk_config_data.5 \
 	  man/man7/Makefile \
-	  man/man8/Makefile])
+	  man/man7/opencryptoki.7 \
+	  man/man8/Makefile \
+	  man/man8/pkcsslotd.8])
 
 echo
 echo "CLFAGS=$CFLAGS"
