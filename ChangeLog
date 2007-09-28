@@ -1,0 +1,19 @@
+
+* openCryptoki-2.2.5
+
+- Moved doc/*.txt to manpage format and integrated them into the build/install
+- Updated testcases to query env vars for PINs and call a set of common
+routines for common operations
+- Added SHA256 support for all tokens
+- Fixed object cleanup when max number of token objects is hit
+- Fixed fd exhaustion bug with spin lock fd
+- Updated TPM stdll for TSS policy handling changes. Trousers 0.2.9+ now
+required with openCryptoki 2.2.5
+- Updated TPM stdll to use TSS_TSPATTRIB_KEYINFO_RSA_MODULUS when retrieving
+the public modulus
+- pkcs11_startup fix for use with s/w fallback support in libica on s390
+- Added the CCA secure key token and migration utility
+- Replaced bcopy/bzero with memcpy/memset throughout the code
+- Removed unused variables throughout the code
+
+* openCryptoki-2.2.4
