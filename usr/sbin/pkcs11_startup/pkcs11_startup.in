@@ -2,7 +2,7 @@
 
 #
 #
-# $Header: /cvsroot/opencryptoki/opencryptoki/usr/sbin/pkcs11_startup/pkcs11_startup.in,v 1.3 2007/09/26 22:40:26 kyoder Exp $
+# $Header: /cvsroot/opencryptoki/opencryptoki/usr/sbin/pkcs11_startup/pkcs11_startup.in,v 1.4 2007/11/08 22:06:17 kyoder Exp $
 #
 
 
@@ -391,7 +391,6 @@ if [ -f @STDLL_PATH@/libpkcs11_ica.so ]
 then
 #  This won't work if the driver is built into the kernel
 # so we will look for it in /proc/devices
-    /sbin/lsmod | grep devica >/dev/null 2>&1
     /bin/cat /proc/devices | grep leedslite >/dev/null 2>&1
     rc=$?
     if [ $rc = 0 ]
