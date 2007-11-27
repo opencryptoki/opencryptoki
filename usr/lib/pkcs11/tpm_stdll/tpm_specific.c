@@ -41,6 +41,7 @@
 #include <unistd.h>
 #include <errno.h>
 #include <pwd.h>
+#include <syslog.h>
 
 #include <openssl/des.h>
 #include <openssl/rand.h>
@@ -306,7 +307,13 @@ token_wrap_sw_key(int size_n, unsigned char *n, int size_p, unsigned char *p,
 		BYTE *pubKey;
 		result = Tspi_Key_GetPubKey(hParentKey, &pubKeySize, &pubKey);
 		if (result != TSS_SUCCESS) {
-			LogError("Tspi_Key_GetPubKey failed: rc=0x%x", result);
+			if (result == TPM_E_INVALID_KEYHANDLE) {
+				LOG(LOG_WARNING, "Warning: Your TPM is not configured to allow "
+				    "reading the public SRK by anyone but the owner. Use "
+				    "tpm_restrictsrk -a to allow reading the public SRK");
+			} else {
+				LogError("Tspi_Key_GetPubKey failed: rc=0x%x", result);
+			}
 			Tspi_Context_CloseObject(tspContext, *phKey);
 			*phKey = NULL_HKEY;
 			return result;
@@ -405,8 +412,7 @@ token_wrap_key_object( CK_OBJECT_HANDLE ckObject, TSS_HKEY hParentKey, TSS_HKEY 
 						&prime_attr)) == FALSE) {
 			if ((found = template_attribute_find(obj->template, CKA_PRIME_2,
 							&prime_attr)) == FALSE) {
-				LogError1("Couldn't find a required attribute of key"
-						"the object");
+				LogError1("Couldn't find prime1 or prime2 of key object to wrap");
 				return CKR_TEMPLATE_INCONSISTENT;
 			}
 		}
@@ -591,10 +597,23 @@ token_load_srk()
 		goto done;
 	}
 
+#if 0
 	if ((result = Tspi_GetPolicyObject(hSRK, TSS_POLICY_USAGE, &hPolicy))) {
 		LogError("Tspi_GetPolicyObject failed. rc=0x%x", result);
 		goto done;
 	}
+#else
+	if ((result = Tspi_Context_CreateObject(tspContext, TSS_OBJECT_TYPE_POLICY,
+						TSS_POLICY_USAGE, &hPolicy))) {
+		LogError("Tspi_Context_CreateObject failed. rc=0x%x", result);
+		goto done;
+	}
+
+	if ((result = Tspi_Policy_AssignToObject(hPolicy, hSRK))) {
+		LogError("Tspi_Policy_AssignToObject failed. rc=0x%x", result);
+		goto done;
+	}
+#endif
 
 	if ((result = Tspi_Policy_SetSecret(hPolicy, TSS_SECRET_MODE_PLAIN, 0, NULL))) {
 		LogError("Tspi_Policy_SetSecret failed. rc=0x%x", result);
@@ -1486,7 +1505,10 @@ token_specific_login(CK_USER_TYPE userType, CK_CHAR_PTR pPin, CK_ULONG ulPinLen)
 		return CKR_FUNCTION_FAILED;
 	}
 
-	compute_sha( pPin, ulPinLen, hash_sha );
+	if ((rc = compute_sha(pPin, ulPinLen, hash_sha))) {
+		LogError("compute_sha failed. rc=0x%lx", rc);
+		return CKR_FUNCTION_FAILED;
+	}
 
 	if (userType == CKU_USER) {
 		/* If the public root key doesn't exist yet, the SO hasn't init'd the token */
@@ -1738,8 +1760,19 @@ token_specific_set_pin(ST_SESSION_HANDLE session,
 		return CKR_SESSION_HANDLE_INVALID;
 	}
 
-	compute_sha(pOldPin, ulOldPinLen, oldpin_hash);
-	compute_sha(pNewPin, ulNewPinLen, newpin_hash);
+	if ((rc = compute_sha(pOldPin, ulOldPinLen, oldpin_hash))) {
+		LogError("compute_sha failed. rc=0x%lx", rc);
+		return CKR_FUNCTION_FAILED;
+	}
+	if ((rc = compute_sha(pNewPin, ulNewPinLen, newpin_hash))) {
+		LogError("compute_sha failed. rc=0x%lx", rc);
+		return CKR_FUNCTION_FAILED;
+	}
+
+	if ((result = token_load_srk())) {
+		LogError("token_load_srk failed. rc=0x%x", result);
+		return CKR_FUNCTION_FAILED;
+	}
 
 	/* From the PKCS#11 2.20 spec: "C_SetPIN modifies the PIN of the user that is
 	 * currently logged in, or the CKU_USER PIN if the session is not logged in."
@@ -1895,7 +1928,10 @@ token_specific_verify_so_pin(CK_CHAR_PTR pPin, CK_ULONG ulPinLen)
 	CK_BYTE hash_sha[SHA1_HASH_SIZE];
 	CK_RV rc;
 
-	compute_sha( pPin, ulPinLen, hash_sha );
+	if ((rc = compute_sha(pPin, ulPinLen, hash_sha))) {
+		LogError("compute_sha failed. rc=0x%lx", rc);
+		return CKR_FUNCTION_FAILED;
+	}
 
 	/* find, load the migratable root key */
 	if ((rc = token_find_key(TPMTOK_PUBLIC_ROOT_KEY, CKO_PRIVATE_KEY, &ckPublicRootKey))) {
@@ -2453,6 +2489,7 @@ token_rsa_load_key( OBJECT * key_obj, TSS_HKEY * phKey )
 	BYTE		*authData = NULL;
 	CK_ATTRIBUTE    *attr;
 	CK_RV           rc;
+        CK_OBJECT_HANDLE handle;
 
 	if (hPrivateLeafKey != NULL_HKEY) {
 		hParentKey = hPrivateRootKey;
@@ -2466,9 +2503,21 @@ token_rsa_load_key( OBJECT * key_obj, TSS_HKEY * phKey )
 	}
 
 	if ((rc = template_attribute_find( key_obj->template, CKA_IBM_OPAQUE, &attr )) == FALSE) {
-		LogError1("template_attribute_find failed.");
-		return CKR_FUNCTION_FAILED;
-	}
+          /* if the key blob wasn't found, then try to wrap the key */
+          rc = object_mgr_find_in_map2(key_obj, &handle);
+          if (rc != CKR_OK)
+            return CKR_FUNCTION_FAILED;
+          if ((rc = token_load_key(handle, hParentKey, NULL, phKey))) {
+            LogError("token_load_key failed. rc=0x%lx", rc);
+            return rc;
+          }
+          /* try again to get the CKA_IBM_OPAQUE attr */
+          if ((rc = template_attribute_find( key_obj->template, CKA_IBM_OPAQUE, &attr )) == FALSE)
+            {
+              LogError("Could not find key blob");
+              return rc;
+            }
+        }
 
 	if ((result = Tspi_Context_LoadKeyByBlob(tspContext, hParentKey, attr->ulValueLen,
 					attr->pValue, phKey))) {
@@ -2614,11 +2663,11 @@ token_specific_rsa_verify( CK_BYTE   * in_data,
 	/* Verify */
 	result = Tspi_Hash_VerifySignature(hHash, hKey, sig_len, sig);
 	if (result != TSS_SUCCESS &&
-	    result != TSS_E_FAIL) {
+	    TPMTOK_TSS_ERROR_CODE(result) != TSS_E_FAIL) {
 		LogError("Tspi_Hash_VerifySignature failed. rc=0x%x", result);
 	}
 
-	if (result == TSS_E_FAIL) {
+	if (TPMTOK_TSS_ERROR_CODE(result) == TSS_E_FAIL) {
 		rc = CKR_SIGNATURE_INVALID;
 	} else {
 		rc = CKR_OK;
