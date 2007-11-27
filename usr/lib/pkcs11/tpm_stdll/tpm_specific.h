@@ -29,6 +29,9 @@
 #define TPMTOK_TSS_KEY_TYPE(x)		(x & TPMTOK_TSS_KEY_TYPE_MASK)
 #define TPMTOK_TSS_KEY_MIG_TYPE(x)	(x & TSS_KEY_MIGRATABLE)
 
+#define TPMTOK_TSS_MAX_ERROR		0x00000FFF
+#define TPMTOK_TSS_ERROR_CODE(x)	(x & TPMTOK_TSS_MAX_ERROR)
+
 /* key types in the TPM token */
 #define TPMTOK_PRIVATE_ROOT_KEY	1
 #define TPMTOK_PRIVATE_LEAF_KEY	2
@@ -86,5 +89,11 @@ CK_ULONG util_check_public_exponent(TEMPLATE *);
 #define CKA_ENC_AUTHDATA        CKA_VENDOR_DEFINED + 0x01000001
 
 #define MK_SIZE (AES_KEY_SIZE_256)
+
+#define LOG(priority, fmt, ...) \
+        do { \
+                openlog("openCryptoki(TPM)", LOG_NDELAY|LOG_PID, LOG_USER); \
+                syslog(priority, "%s " fmt, __FILE__, ##__VA_ARGS__); \
+        } while (0)
 
 #endif
