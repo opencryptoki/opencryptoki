@@ -349,6 +349,26 @@ token_wrap_sw_key(int size_n, unsigned char *n, int size_p, unsigned char *p,
 		return result;
 	}
 
+	if (TPMTOK_TSS_KEY_TYPE(initFlags) == TSS_KEY_TYPE_LEGACY) {
+		if ((result = Tspi_SetAttribUint32(*phKey, TSS_TSPATTRIB_KEY_INFO,
+						   TSS_TSPATTRIB_KEYINFO_ENCSCHEME,
+						   TSS_ES_RSAESPKCSV15))) {
+			LogError("Tspi_SetAttribUint32 failed. rc=0x%x", result);
+			Tspi_Context_CloseObject(tspContext, *phKey);
+			Tspi_Context_CloseObject(tspContext, hPolicy);
+			return result;
+		}
+
+		if ((result = Tspi_SetAttribUint32(*phKey, TSS_TSPATTRIB_KEY_INFO,
+						   TSS_TSPATTRIB_KEYINFO_SIGSCHEME,
+						   TSS_SS_RSASSAPKCS1V15_DER))) {
+			LogError("Tspi_SetAttribUint32 failed. rc=0x%x", result);
+			Tspi_Context_CloseObject(tspContext, *phKey);
+			Tspi_Context_CloseObject(tspContext, hPolicy);
+			return result;
+		}
+	}
+
 	result = Tspi_Key_WrapKey(*phKey, hParentKey, NULL_HPCRS);
 	if (result != TSS_SUCCESS) {
 		LogError("Tspi_Key_WrapKey failed: rc=0x%x", result);
