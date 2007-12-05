@@ -352,6 +352,14 @@ token_spec_t token_specific  = {
      NULL,
      NULL,
      NULL,
+     /* SHA-384 */
+     NULL,
+     NULL,
+     NULL,
+     /* SHA-512 */
+     NULL,
+     NULL,
+     NULL,
      // AES
      &token_specific_aes_key_gen,
      &token_specific_aes_ecb,

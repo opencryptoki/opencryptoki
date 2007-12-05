@@ -50,7 +50,7 @@ char *buf = NULL;
 #define READ_SIZE	(46)
 #define MIN(a,b)	((a) < (b) ? (a) : (b))
 #define MB		(0x100000)
-#define NUM_DIGESTS	4
+#define NUM_DIGESTS	6
 struct digest_type digests[NUM_DIGESTS] = {
 	{
 		.id = "md5",
@@ -87,6 +87,24 @@ struct digest_type digests[NUM_DIGESTS] = {
 			.pParameter = NULL,
 			.ulParameterLen = 0
 		}
+	},
+	{
+		.id = "sha384",
+		.length = 48,
+		.mech = {
+			.mechanism = CKM_SHA384,
+			.pParameter = NULL,
+			.ulParameterLen = 0
+		}
+	},
+	{
+		.id = "sha512",
+		.length = 64,
+		.mech = {
+			.mechanism = CKM_SHA512,
+			.pParameter = NULL,
+			.ulParameterLen = 0
+		}
 	}
 };
 
@@ -96,7 +114,9 @@ enum digest_types {
 	md5,
 	fasthash,
 	sha1,
-	sha256
+	sha256,
+	sha384,
+	sha512
 };
 
 enum digest_types hash = uninitialized;

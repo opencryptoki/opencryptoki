@@ -1,5 +1,5 @@
 /*
- * $Header: /cvsroot/opencryptoki/opencryptoki/usr/lib/pkcs11/common/h_extern.h,v 1.9 2007/09/06 15:40:11 tlendacky Exp $
+ * $Header: /cvsroot/opencryptoki/opencryptoki/usr/lib/pkcs11/common/h_extern.h,v 1.10 2007/12/05 22:52:01 mhalcrow Exp $
  */
 
 
@@ -1492,6 +1492,21 @@ CK_RV  ckm_sha2_update( DIGEST_CONTEXT *ctx,
 CK_RV  ckm_sha2_final( DIGEST_CONTEXT *ctx,
                        CK_BYTE      *out_data, CK_ULONG  *out_data_len );
 
+void   ckm_sha3_init( DIGEST_CONTEXT *ctx );
+
+CK_RV  ckm_sha3_update( DIGEST_CONTEXT *ctx,
+	               CK_BYTE      *in_data,  CK_ULONG in_data_len );
+
+CK_RV  ckm_sha3_final( DIGEST_CONTEXT *ctx,
+	              CK_BYTE      *out_data, CK_ULONG  *out_data_len );
+
+void   ckm_sha5_init( DIGEST_CONTEXT *ctx );
+
+CK_RV  ckm_sha5_update( DIGEST_CONTEXT *ctx,
+                       CK_BYTE      *in_data,  CK_ULONG in_data_len );
+
+CK_RV  ckm_sha5_final( DIGEST_CONTEXT *ctx,
+                      CK_BYTE      *out_data, CK_ULONG  *out_data_len );
 
 // MD2 mechanisms
 //

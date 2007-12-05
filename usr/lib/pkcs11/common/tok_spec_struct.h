@@ -1,5 +1,5 @@
 /*
- * $Header: /cvsroot/opencryptoki/opencryptoki/usr/lib/pkcs11/common/tok_spec_struct.h,v 1.3 2005/09/01 22:57:04 mhalcrow Exp $
+ * $Header: /cvsroot/opencryptoki/opencryptoki/usr/lib/pkcs11/common/tok_spec_struct.h,v 1.4 2007/12/05 22:52:01 mhalcrow Exp $
  */
 
 //
@@ -388,6 +388,20 @@ struct token_specific_struct{
 		   	DIGEST_CONTEXT *,
 			CK_BYTE *,
 			CK_ULONG *);
+   CK_RV (*t_sha3_init)(DIGEST_CONTEXT *);
+   CK_RV (*t_sha3_update)(DIGEST_CONTEXT *,
+			  CK_BYTE	*,
+			  CK_ULONG);
+   CK_RV (*t_sha3_final)(DIGEST_CONTEXT *,
+			 CK_BYTE *,
+			 CK_ULONG *);
+   CK_RV (*t_sha5_init)(DIGEST_CONTEXT *);
+   CK_RV (*t_sha5_update)(DIGEST_CONTEXT *,
+			  CK_BYTE	*,
+			  CK_ULONG);
+   CK_RV (*t_sha5_final)(DIGEST_CONTEXT *,
+			 CK_BYTE *,
+			 CK_ULONG *);
 #ifndef NOAES
    // Token Specific AES functions
    CK_RV (*t_aes_key_gen)(

@@ -314,7 +314,6 @@ digest_mgr_init( SESSION           *sess,
 {
    CK_BYTE  * ptr = NULL;
 
-
    if (!sess || !ctx){
       st_err_log(4, __FILE__, __LINE__, __FUNCTION__);
       return CKR_FUNCTION_FAILED;
@@ -323,7 +322,6 @@ digest_mgr_init( SESSION           *sess,
       st_err_log(31, __FILE__, __LINE__);     
       return CKR_OPERATION_ACTIVE;
    }
-
    // is the mechanism supported?  is the parameter present if required?
    //
    switch (mech->mechanism) {
@@ -353,6 +351,40 @@ digest_mgr_init( SESSION           *sess,
 
             ctx->context = NULL;
             ckm_sha2_init( ctx );
+
+            if (!ctx->context) {
+               st_err_log(1, __FILE__, __LINE__);
+               return CKR_HOST_MEMORY;
+            }
+         }
+         break;
+
+      case CKM_SHA384:
+         {
+            if (mech->ulParameterLen != 0){
+               st_err_log(29, __FILE__, __LINE__);
+               return CKR_MECHANISM_PARAM_INVALID;
+            }
+
+            ctx->context = NULL;
+            ckm_sha3_init( ctx );
+
+            if (!ctx->context) {
+               st_err_log(1, __FILE__, __LINE__);
+               return CKR_HOST_MEMORY;
+            }
+         }
+         break;
+
+      case CKM_SHA512:
+         {
+            if (mech->ulParameterLen != 0){
+               st_err_log(29, __FILE__, __LINE__);
+               return CKR_MECHANISM_PARAM_INVALID;
+            }
+
+            ctx->context = NULL;
+            ckm_sha5_init( ctx );
 
             if (!ctx->context) {
                st_err_log(1, __FILE__, __LINE__);
@@ -398,7 +430,6 @@ digest_mgr_init( SESSION           *sess,
          return CKR_MECHANISM_INVALID;
    }
 
-
    if (mech->ulParameterLen > 0) {
       ptr = (CK_BYTE *)malloc(mech->ulParameterLen);
       if (!ptr){
@@ -407,7 +438,6 @@ digest_mgr_init( SESSION           *sess,
       }
       memcpy( ptr, mech->pParameter, mech->ulParameterLen );
    }
-
    ctx->mech.ulParameterLen = mech->ulParameterLen;
    ctx->mech.mechanism      = mech->mechanism;
    ctx->mech.pParameter     = ptr;
@@ -492,6 +522,16 @@ digest_mgr_digest( SESSION         *sess,
                            in_data,   in_data_len,
                            out_data,  out_data_len );
 
+      case CKM_SHA384:
+         return sha3_hash( sess,      length_only, ctx,
+                           in_data,   in_data_len,
+                           out_data,  out_data_len );
+
+      case CKM_SHA512:
+         return sha5_hash( sess,      length_only, ctx,
+                           in_data,   in_data_len,
+                           out_data,  out_data_len );
+
 #if !(NOMD2 )
       case CKM_MD2:
          return md2_hash( sess,     length_only, ctx,
@@ -539,6 +579,12 @@ digest_mgr_digest_update( SESSION         *sess,
 
       case CKM_SHA256:
          return sha2_hash_update( sess, ctx, data, data_len );
+
+      case CKM_SHA384:
+         return sha3_hash_update( sess, ctx, data, data_len );
+
+      case CKM_SHA512:
+         return sha5_hash_update( sess, ctx, data, data_len );
 
 #if !(NOMD2)
       case CKM_MD2:
@@ -645,6 +691,16 @@ digest_mgr_digest_final( SESSION         *sess,
 
       case CKM_SHA256:
          return sha2_hash_final( sess, length_only,
+                                 ctx,
+                                 hash, hash_len );
+
+      case CKM_SHA384:
+         return sha3_hash_final( sess, length_only,
+                                 ctx,
+                                 hash, hash_len );
+
+      case CKM_SHA512:
+         return sha5_hash_final( sess, length_only,
                                  ctx,
                                  hash, hash_len );
 

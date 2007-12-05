@@ -1,5 +1,5 @@
 /*
- * $Header: /cvsroot/opencryptoki/opencryptoki/usr/lib/pkcs11/common/tok_specific.h,v 1.3 2005/09/01 22:57:04 mhalcrow Exp $
+ * $Header: /cvsroot/opencryptoki/opencryptoki/usr/lib/pkcs11/common/tok_specific.h,v 1.4 2007/12/05 22:52:01 mhalcrow Exp $
  */
 
 //
@@ -400,6 +400,18 @@ ckm_dsa_verify( CK_BYTE   *,
                 OBJECT    * );
 
 CK_RV
+token_specific_sha_generic_init(DIGEST_CONTEXT *ctx,
+				CK_MECHANISM_TYPE sha_type);
+CK_RV
+token_specific_sha_generic_update(DIGEST_CONTEXT *ctx, CK_BYTE *in_data,
+				  CK_ULONG in_data_len,
+				  CK_MECHANISM_TYPE sha_type);
+CK_RV
+token_specific_sha_generic_final(DIGEST_CONTEXT *ctx, CK_BYTE *out_data,
+				 CK_ULONG *out_data_len,
+				 CK_MECHANISM_TYPE sha_type);
+
+CK_RV
 token_specific_sha_init( DIGEST_CONTEXT * );
 
 CK_RV
@@ -411,6 +423,7 @@ CK_RV
 token_specific_sha_final(       DIGEST_CONTEXT  *,
                                 CK_BYTE         *,
                                 CK_ULONG        * );
+
 CK_RV
 token_specific_sha2_init( DIGEST_CONTEXT * );
 
@@ -423,6 +436,33 @@ CK_RV
 token_specific_sha2_final(       DIGEST_CONTEXT  *,
                                 CK_BYTE         *,
                                 CK_ULONG        * );
+
+CK_RV
+token_specific_sha3_init( DIGEST_CONTEXT * );
+
+CK_RV
+token_specific_sha3_update(      DIGEST_CONTEXT  *,
+                                CK_BYTE         *,
+                                CK_ULONG);
+
+CK_RV
+token_specific_sha3_final(       DIGEST_CONTEXT  *,
+                                CK_BYTE         *,
+                                CK_ULONG        * );
+
+CK_RV
+token_specific_sha5_init( DIGEST_CONTEXT * );
+
+CK_RV
+token_specific_sha5_update(      DIGEST_CONTEXT  *,
+                                CK_BYTE         *,
+                                CK_ULONG);
+
+CK_RV
+token_specific_sha5_final(       DIGEST_CONTEXT  *,
+                                CK_BYTE         *,
+                                CK_ULONG        * );
+
 #ifndef NOAES
 CK_RV
 token_specific_aes_key_gen( CK_BYTE *,

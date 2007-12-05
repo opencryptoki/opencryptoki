@@ -1,5 +1,5 @@
 /*
- * $Header: /cvsroot/opencryptoki/opencryptoki/usr/include/pkcs11/pkcs11types.h,v 1.4 2005/09/01 22:57:04 mhalcrow Exp $
+ * $Header: /cvsroot/opencryptoki/opencryptoki/usr/include/pkcs11/pkcs11types.h,v 1.5 2007/12/05 22:52:01 mhalcrow Exp $
  */
 
 /*
@@ -931,6 +931,12 @@ typedef CK_ULONG          CK_MECHANISM_TYPE;
 #define CKM_SHA256                     0x00000250
 #define CKM_SHA256_HMAC                0x00000251
 #define CKM_SHA256_HMAC_GENERAL        0x00000252
+#define CKM_SHA384                     0x00000260
+#define CKM_SHA384_HMAC                0x00000261
+#define CKM_SHA384_HMAC_GENERAL        0x00000262
+#define CKM_SHA512                     0x00000270
+#define CKM_SHA512_HMAC                0x00000271
+#define CKM_SHA512_HMAC_GENERAL        0x00000272
 
 /* All of the following mechanisms are new for v2.0 */
 /* Note that CAST128 and CAST5 are the same algorithm */

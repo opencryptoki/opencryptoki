@@ -1010,6 +1010,8 @@ DL_Load( sinfp,sltp,dllload)
       dllload[i].dll_load_count=1;;
 
    } else {
+	   syslog(LOG_ERR, "%s: dlopen() failed for [%s]; dlerror = [%s]\n",
+			   __FUNCTION__, sinfp->dll_location, dlerror());
       LOGIT(LOG_DEBUG,"\tDL_Load of %s failed, dlerror: %s",sinfp->dll_location,dlerror());
       sltp->dlop_p = NULL;
       return 0;

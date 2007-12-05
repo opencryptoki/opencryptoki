@@ -1,5 +1,5 @@
 /*
- * $Header: /cvsroot/opencryptoki/opencryptoki/usr/lib/pkcs11/common/defs.h,v 1.3 2005/08/04 02:03:26 mhalcrow Exp $
+ * $Header: /cvsroot/opencryptoki/opencryptoki/usr/lib/pkcs11/common/defs.h,v 1.4 2007/12/05 22:52:01 mhalcrow Exp $
  */
 
 //
@@ -386,27 +386,27 @@ enum {
 
 #define SHA1_HASH_SIZE  20
 #define SHA1_BLOCK_SIZE 64
-
-typedef struct _sha1_ctx {
-   unsigned char hash[SHA1_HASH_SIZE+1];
-   unsigned int hash_len, tail_len;
-   int message_part;	/* needs to be seen across calls to update and final */
-   char tail[64];	/* save the last (up to) 64 bytes which may need to be shaved */ 
-   void *dev_ctx;
-} oc_sha1_ctx;
-
+#define SHA1_BLOCK_SIZE_MASK (SHA1_BLOCK_SIZE - 1)
 #define SHA2_HASH_SIZE  32
 #define SHA2_BLOCK_SIZE 64
+#define SHA2_BLOCK_SIZE_MASK (SHA2_BLOCK_SIZE - 1)
+#define SHA3_HASH_SIZE  48
+#define SHA3_BLOCK_SIZE 128
+#define SHA3_BLOCK_SIZE_MASK (SHA3_BLOCK_SIZE - 1)
+#define SHA5_HASH_SIZE  64
+#define SHA5_BLOCK_SIZE 128
+#define SHA5_BLOCK_SIZE_MASK (SHA5_BLOCK_SIZE - 1)
+#define MAX_SHA_HASH_SIZE SHA5_HASH_SIZE
+#define MAX_SHA_BLOCK_SIZE SHA5_BLOCK_SIZE
 
-typedef struct _sha2_ctx {
-   unsigned char hash[SHA2_HASH_SIZE+1];
+struct oc_sha_ctx {
+   unsigned char hash[MAX_SHA_HASH_SIZE + 1];
    unsigned int hash_len, tail_len;
-   int message_part; /* needs to be seen across calls to update and
-		      * final */
-   char tail[64]; /* save the last (up to) 64 bytes which may need to
-		   * be shaved */ 
+   int message_part; /* needs to be seen across calls to update and final */
+   unsigned char tail[MAX_SHA_BLOCK_SIZE]; /* save the last (up to) block-size
+				           * bytes which may need to be shaved */
    void *dev_ctx;
-} oc_sha2_ctx;
+};
 
 #define MD2_HASH_SIZE   16
 #define MD2_BLOCK_SIZE  48
