@@ -1871,8 +1871,14 @@ ckm_aes_cbc_encrypt( CK_BYTE     * in_data,
       return CKR_FUNCTION_FAILED;
    }
    if (*out_data_len < in_data_len){
+#if 0
       st_err_log(4, __FILE__, __LINE__, __FUNCTION__);
       return CKR_FUNCTION_FAILED;
+#else
+      *out_data_len = in_data_len;
+      st_err_log(68, __FILE__, __FUNCTION__);
+      return CKR_BUFFER_TOO_SMALL;
+#endif
    }
    
    rc = token_specific.t_aes_cbc(in_data, in_data_len,
