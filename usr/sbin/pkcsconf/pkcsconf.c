@@ -367,6 +367,7 @@ main(int argc, char *argv[]){
                slot = NULL;    // The PKCS slot number
 
    int c,                      // To store passed in options
+       newpinlen, newpin2len,
        errflag = 0;            // Error Flag
 
    /* Open the Message Catalog */
@@ -518,10 +519,12 @@ main(int argc, char *argv[]){
          printf(PKCSINIT_MSG(NEWUSER, "Enter the new user PIN: "));
          fflush(stdout);
          get_pin(&newpin);
+	 newpinlen = strlen(newpin);
          printf(PKCSINIT_MSG(VNEWUSER, "Re-enter the new user PIN: "));
          fflush(stdout);
          get_pin(&newpin2);
-         if (! memcmp(newpin, newpin2, strlen((char *)newpin)) == 0) {
+	 newpin2len = strlen(newpin2);
+         if (newpinlen != newpin2len || memcmp(newpin, newpin2, strlen((char *)newpin)) != 0) {
             printf(PKCSINIT_MSG(PINMISMATCH, "New PINs do not match.\n"));
             fflush(stdout);
             exit(CKR_PIN_INVALID);
@@ -542,10 +545,12 @@ main(int argc, char *argv[]){
          printf(PKCSINIT_MSG(NEWSO, "Enter the new SO PIN: "));
          fflush(stdout);
          get_pin(&newpin);
+	 newpinlen = strlen(newpin);
          printf(PKCSINIT_MSG(VNEWSO, "Re-enter the new SO PIN: "));
          fflush(stdout);
          get_pin(&newpin2);
-         if (! memcmp(newpin, newpin2, strlen((char *)newpin)) == 0) {
+	 newpin2len = strlen(newpin2);
+         if (newpinlen != newpin2len || memcmp(newpin, newpin2, strlen((char *)newpin)) != 0) {
             printf(PKCSINIT_MSG(PINMISMATCH, "New PINs do not match.\n"));
             fflush(stdout);
             exit(CKR_PIN_INVALID);
@@ -566,10 +571,12 @@ main(int argc, char *argv[]){
          printf(PKCSINIT_MSG(NEWUSER, "Enter the new user PIN: "));
          fflush(stdout);
          get_pin(&newpin);
+	 newpinlen = strlen(newpin);
          printf(PKCSINIT_MSG(VNEWUSER, "Re-enter the new user PIN: "));
          fflush(stdout);
          get_pin(&newpin2);
-         if (! memcmp(newpin, newpin2, strlen((char *)newpin)) == 0) {
+	 newpin2len = strlen(newpin2);
+         if (newpinlen != newpin2len || memcmp(newpin, newpin2, strlen((char *)newpin)) != 0) {
             printf(PKCSINIT_MSG(PINMISMATCH, "New PINs do not match.\n"));
             fflush(stdout);
             exit(CKR_PIN_INVALID);
@@ -601,6 +608,11 @@ done:
    if (newpin) {
       memset(newpin, 0, strlen((char *)newpin));
       free (newpin);
+   }
+
+   if (newpin2) {
+      memset(newpin2, 0, strlen((char *)newpin2));
+      free (newpin2);
    }
 
    return rc;
