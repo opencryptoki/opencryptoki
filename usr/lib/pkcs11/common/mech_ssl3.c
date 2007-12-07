@@ -1660,8 +1660,6 @@ ssl3_key_and_mac_derive( SESSION           * sess,
    // Exportable ciphers require additional processing
    //
    if (params->bIsExport == TRUE) {
-      write_len = 16;
-      iv_len    = 16;
       rc = ssl3_md5_only( sess,
                           client_write_key_value,
                           (params->ulKeySizeInBits + 7)/8,
