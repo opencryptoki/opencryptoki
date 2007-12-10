@@ -25,11 +25,11 @@ opencryptoki_stdll_libpkcs11_cca_la_LDFLAGS = -shared -Wl,-Bsymbolic	\
 	-Wl,-L./ccalibs/opencryptoki/stdll/.libs			\
 	-Wl,-lcsulsecy -Wl,-lcsulcall -Wl,-lcsulsapi -Wl,-lds30
 
-opencryptoki_stdll_libpkcs11_cca_la_SOURCES = ../common/asn1.c		\
+opencryptoki_stdll_libpkcs11_cca_la_SOURCES = asn1.c			\
 					      ../common/dig_mgr.c	\
 					      ../common/hwf_obj.c	\
 					      ../common/log.c		\
-					      ../common/key.c		\
+					      key.c			\
 					      mech_dh.c			\
 					      ../common/mech_rng.c	\
 					      new_host.c		\
@@ -42,7 +42,7 @@ opencryptoki_stdll_libpkcs11_cca_la_SOURCES = ../common/asn1.c		\
 					      ../common/template.c	\
 					      ../common/data_obj.c	\
 					      encr_mgr.c		\
-					      ../common/key_mgr.c	\
+					      key_mgr.c			\
 					      ../common/mech_md2.c	\
 					      mech_sha.c		\
 					      ../common/object.c	\

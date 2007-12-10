@@ -2052,23 +2052,31 @@ CK_RV    ber_encode_RSAPrivateKey( CK_BBOOL     length_only,
                                    CK_ULONG   * data_len,
                                    CK_ATTRIBUTE * modulus,
                                    CK_ATTRIBUTE * publ_exp,
+#if 0
                                    CK_ATTRIBUTE * priv_exp,
                                    CK_ATTRIBUTE * prime1,
                                    CK_ATTRIBUTE * prime2,
                                    CK_ATTRIBUTE * exponent1,
                                    CK_ATTRIBUTE * exponent2,
                                    CK_ATTRIBUTE * coeff );
+#else
+				   CK_ATTRIBUTE * opaque );
+#endif
 
 CK_RV    ber_decode_RSAPrivateKey( CK_BYTE     * data,
                                    CK_ULONG      data_len,
                                    CK_ATTRIBUTE ** modulus,
                                    CK_ATTRIBUTE ** publ_exp,
+#if 0
                                    CK_ATTRIBUTE ** priv_exp,
                                    CK_ATTRIBUTE ** prime1,
                                    CK_ATTRIBUTE ** prime2,
                                    CK_ATTRIBUTE ** exponent1,
                                    CK_ATTRIBUTE ** exponent2,
                                    CK_ATTRIBUTE ** coeff );
+#else
+				   CK_ATTRIBUTE ** opaque );
+#endif
 
 
 CK_RV    ber_encode_DSAPrivateKey( CK_BBOOL      length_only,

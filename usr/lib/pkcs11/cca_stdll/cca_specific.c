@@ -659,6 +659,11 @@ token_specific_rsa_encrypt(CK_BYTE  *in_data,
 		return CKR_TEMPLATE_INCOMPLETE;
 	}
 
+	/* The max value allowable by CCA for out_data_len is 256, so cap the incoming value if its
+	 * too large. CCA will throw error 8, 72 otherwise. */
+	if (*out_data_len > 256)
+		*out_data_len = 256;
+
 	rule_array_count = 1;
 	memcpy(rule_array, "PKCS-1.2", CCA_KEYWORD_SIZE);
 
@@ -703,6 +708,11 @@ token_specific_rsa_decrypt(CK_BYTE  *in_data,
 		st_err_log(48, __FILE__, __LINE__);
 		return CKR_TEMPLATE_INCOMPLETE;
 	}
+
+	/* The max value allowable by CCA for out_data_len is 256, so cap the incoming value if its
+	 * too large. CCA will throw error 8, 72 otherwise. */
+	if (*out_data_len > 256)
+		*out_data_len = 256;
 
 	rule_array_count = 1;
 	memcpy(rule_array, "PKCS-1.2", CCA_KEYWORD_SIZE);
