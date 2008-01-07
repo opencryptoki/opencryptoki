@@ -1,6 +1,12 @@
 
 * openCryptoki-2.2.5
 
+- Fixed bug in comparison of PINs in pkcsconf.
+- Added code to set the encryption and signature schemes of keys imported
+into the TPM token.
+- Added tpm token message to warn when only owner can read the pub SRK.
+- Fixed return code of function failed when it should be buffer too small in
+various mech_des.c mech_des3.c and mech_aes.c files.
 - Moved doc/*.txt to manpage format and integrated them into the build/install
 - Updated testcases to query env vars for PINs and call a set of common
 routines for common operations
