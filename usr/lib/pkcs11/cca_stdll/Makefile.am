@@ -21,9 +21,7 @@ AM_CFLAGS = -DLINUX -DSPINXPL -DNOCDMF -DNODSA -DNODH -DNOECB		\
 	-DSTDLL_NAME=\"ccatok\"
 
 opencryptoki_stdll_libpkcs11_cca_la_LDFLAGS = -shared -Wl,-Bsymbolic	\
-	-lcrypto -lpthread -nostartfiles -Wl,-soname,$@			\
-	-Wl,-L./ccalibs/opencryptoki/stdll/.libs			\
-	-Wl,-lcsulsecy -Wl,-lcsulcall -Wl,-lcsulsapi -Wl,-lds30
+	-lcrypto -lpthread -nostartfiles -Wl,-soname,$@
 
 opencryptoki_stdll_libpkcs11_cca_la_SOURCES = asn1.c			\
 					      ../common/dig_mgr.c	\

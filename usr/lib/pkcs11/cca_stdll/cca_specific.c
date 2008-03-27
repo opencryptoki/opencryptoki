@@ -135,9 +135,37 @@ CK_RV
 token_specific_init(char *Correlator, CK_SLOT_ID SlotNumber)
 {
 	unsigned char rule_array[256] = { 0, };
-        long return_code, reason_code, rule_array_count, verb_data_length;
+	long return_code, reason_code, rule_array_count, verb_data_length;
+	void *lib_csulsecy;
+	void *lib_csulcall;
+	void *lib_csulsapi;
+	void *lib_ds30;
 
-        memcpy(rule_array, "STATCCAE", 8);
+	/* Explictly load the dependent libraries. There are circular
+	 * dependencies in this set of libraries, so we do lazy symbol
+	 * resolution for the first three libraries. */
+	lib_ds30 = dlopen("libds30.so", (RTLD_GLOBAL | RTLD_LAZY));
+	if (lib_ds30 == NULL) {
+		syslog(LOG_ERR, "%s: Error loading library: [%s]\n", __FUNCTION__, dlerror());
+		return CKR_FUNCTION_FAILED;
+	}
+	lib_csulsapi = dlopen("libcsulsapi.so", (RTLD_GLOBAL | RTLD_LAZY));
+	if (lib_csulsapi == NULL) {
+		syslog(LOG_ERR, "%s: Error loading library: [%s]\n", __FUNCTION__, dlerror());
+		return CKR_FUNCTION_FAILED;
+	}
+	lib_csulcall = dlopen("libcsulcall.so", (RTLD_GLOBAL | RTLD_LAZY));
+	if (lib_csulcall == NULL) {
+		syslog(LOG_ERR, "%s: Error loading library: [%s]\n", __FUNCTION__, dlerror());
+		return CKR_FUNCTION_FAILED;
+	}
+	lib_csulsecy = dlopen("libcsulsecy.so", (RTLD_GLOBAL | RTLD_NOW));
+	if (lib_csulsecy == NULL) {
+		syslog(LOG_ERR, "%s: Error loading library: [%s]\n", __FUNCTION__, dlerror());
+		return CKR_FUNCTION_FAILED;
+	}
+
+	memcpy(rule_array, "STATCCAE", 8);
 
         rule_array_count = 1;
         verb_data_length = 0;
