@@ -20,6 +20,7 @@
 #include <pthread.h>
 #include <limits.h>
 #include <syslog.h>
+#include <dlfcn.h>
 
 #include <openssl/des.h>
 

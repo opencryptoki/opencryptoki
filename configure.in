@@ -319,7 +319,6 @@ AC_OUTPUT([Makefile usr/Makefile \
           usr/lib/pkcs11/tpm_stdll/tok_struct.h \
           usr/lib/pkcs11/cca_stdll/Makefile \
           usr/lib/pkcs11/cca_stdll/tok_struct.h \
-          usr/lib/pkcs11/cca_stdll/ccalibs/Makefile \
           usr/lib/pkcs11/methods/4758_status/Makefile \
           misc/Makefile \
           misc/pkcsslotd \

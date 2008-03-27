@@ -1,8 +1,6 @@
 # Makefile.am for common functions for openCryptoki
 # Michael A. Halcrow <mhalcrow@us.ibm.com>
 
-SUBDIRS=ccalibs
-
 #
 # The PKCS#11 STDLL library
 #
