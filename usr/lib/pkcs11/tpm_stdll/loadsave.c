@@ -352,7 +352,7 @@ CK_RV
 load_token_data()
 {
    FILE        * fp;
-   CK_BYTE     fname[2048];
+   CK_BYTE     fname[PATH_MAX];
    TOKEN_DATA    td;
    CK_BYTE       clear[3 * DES_BLOCK_SIZE];  // enough to hold a CBC-encrypted SHA hash
    CK_BYTE       cipher[3 * DES_BLOCK_SIZE];
@@ -456,7 +456,7 @@ save_token_data()
    CK_BYTE     cipher[3 * DES_BLOCK_SIZE];
    CK_ULONG    clear_len, cipher_len;
    CK_RV       rc;
-   CK_BYTE     fname[2048];
+   CK_BYTE     fname[PATH_MAX];
    struct passwd *pw = NULL;
 
    if ((pw = getpwuid(getuid())) == NULL){
@@ -524,7 +524,7 @@ save_token_object( OBJECT *obj )
    FILE      * fp = NULL;
    CK_BYTE     line[100];
    CK_RV       rc;
-   CK_BYTE     fname[2048];
+   CK_BYTE     fname[PATH_MAX];
    struct passwd *pw = NULL;
 
 
@@ -594,7 +594,7 @@ save_public_token_object( OBJECT *obj )
 {
    FILE       * fp       = NULL;
    CK_BYTE    * cleartxt = NULL;
-   CK_BYTE      fname[2048];
+   CK_BYTE      fname[PATH_MAX];
    CK_ULONG     cleartxt_len;
    CK_BBOOL     flag = FALSE;
    CK_RV        rc;
@@ -785,7 +785,7 @@ load_public_token_objects( void )
 {
    FILE     *fp1 = NULL, *fp2 = NULL;
    CK_BYTE  *buf = NULL;
-   CK_BYTE   tmp[2048], fname[2048],iname[2048];
+   CK_BYTE   tmp[PATH_MAX], fname[PATH_MAX], iname[PATH_MAX];
    CK_BBOOL  priv;
    CK_ULONG_32  size;
    struct passwd *pw = NULL;
@@ -857,7 +857,7 @@ load_private_token_objects( void )
 {
    FILE     *fp1 = NULL, *fp2 = NULL;
    CK_BYTE  *buf = NULL;
-   CK_BYTE   tmp[2048], fname[2048],iname[2048];
+   CK_BYTE   tmp[PATH_MAX], fname[PATH_MAX],iname[PATH_MAX];
    CK_BYTE   sha_hash[SHA1_HASH_SIZE], old_hash[SHA1_HASH_SIZE];
    CK_BBOOL  priv;
    CK_ULONG_32  size;
@@ -1059,7 +1059,7 @@ load_masterkey_so( void )
    MASTER_KEY_FILE_T    mk;
    CK_ULONG             cipher_len, clear_len, hash_len;
    CK_RV                rc;
-   CK_BYTE              fname[2048];
+   CK_BYTE              fname[PATH_MAX];
 
    memset( master_key, 0x0, 3*DES_KEY_SIZE );
 
@@ -1145,7 +1145,7 @@ load_masterkey_user( void )
    MASTER_KEY_FILE_T    mk;
    CK_ULONG             cipher_len, clear_len, hash_len;
    CK_RV                rc;
-   CK_BYTE              fname[2048];
+   CK_BYTE              fname[PATH_MAX];
 
    memset( master_key, 0x0, 3*DES_KEY_SIZE );
 
@@ -1229,7 +1229,7 @@ save_masterkey_so( void )
    MASTER_KEY_FILE_T  mk;
    CK_ULONG           hash_len, cleartxt_len, ciphertxt_len, padded_len;
    CK_RV              rc;
-   CK_BYTE            fname[2048];
+   CK_BYTE            fname[PATH_MAX];
 
 
    memcpy( mk.key, master_key, 3 * DES_KEY_SIZE);
@@ -1303,7 +1303,7 @@ save_masterkey_user( void )
    MASTER_KEY_FILE_T  mk;
    CK_ULONG           hash_len, cleartxt_len, ciphertxt_len, padded_len;
    CK_RV              rc;
-   CK_BYTE            fname[2048];
+   CK_BYTE            fname[PATH_MAX];
 
 
    memcpy( mk.key, master_key, 3 * DES_KEY_SIZE);
@@ -1372,7 +1372,7 @@ reload_token_object( OBJECT *obj )
 {
    FILE     * fp  = NULL;
    CK_BYTE  * buf = NULL;
-   CK_BYTE    fname[2048];
+   CK_BYTE    fname[PATH_MAX];
    CK_BBOOL   priv;
    CK_ULONG_32   size;
    CK_ULONG   size_64;
@@ -1446,7 +1446,7 @@ delete_token_object( OBJECT *obj )
 {
    FILE      *fp1, *fp2;
    CK_BYTE    line[100];
-   CK_BYTE    objidx[2048], idxtmp[2048],fname[2048];
+   CK_BYTE    objidx[PATH_MAX], idxtmp[PATH_MAX], fname[PATH_MAX];
    struct passwd *pw = NULL;
 
    if ((pw = getpwuid(getuid())) == NULL){

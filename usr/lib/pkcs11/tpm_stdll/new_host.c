@@ -840,7 +840,7 @@ CK_RV SC_InitToken( CK_SLOT_ID   sid,
    CK_RV      rc = CKR_OK;
    CK_BYTE    hash_sha[SHA1_HASH_SIZE];
    CK_SLOT_ID slotID;
-   char       s[2048];
+   char       s[2*PATH_MAX];
    struct passwd *pw = NULL;
 
    SLT_CHECK;

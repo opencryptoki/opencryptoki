@@ -397,7 +397,7 @@ void
 logit(int type,char *fmt, ...)
 {
       va_list pvar;
-      char buffer[2048];
+      char buffer[PATH_MAX];
       
 
    if ( enabled){

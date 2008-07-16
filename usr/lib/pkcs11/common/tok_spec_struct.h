@@ -1,5 +1,5 @@
 /*
- * $Header: /cvsroot/opencryptoki/opencryptoki/usr/lib/pkcs11/common/tok_spec_struct.h,v 1.4 2007/12/05 22:52:01 mhalcrow Exp $
+ * $Header: /cvsroot/opencryptoki/opencryptoki/usr/lib/pkcs11/common/tok_spec_struct.h,v 1.5 2008/07/16 22:27:48 mhalcrow Exp $
  */
 
 //
@@ -308,9 +308,9 @@
 #define _TOK_SPECIFIC_STRUCT
 
 struct token_specific_struct{
-   CK_BYTE  token_directory[2048];  // Used to be in the token_local.h as a #def
-   CK_BYTE  token_subdir[2048];     // subdirectory
-   CK_BYTE  token_debug_tag[2048];  // debug logging tag
+   CK_BYTE  token_directory[PATH_MAX];  // Used to be in the token_local.h as a #def
+   CK_BYTE  token_subdir[PATH_MAX];     // subdirectory
+   CK_BYTE  token_debug_tag[PATH_MAX];  // debug logging tag
 
    CK_RV  (*t_init)(char *,CK_SLOT_ID);             // Initialization function
    int  (*t_slot2local)();       // convert the PKCS#11 slot to a local index

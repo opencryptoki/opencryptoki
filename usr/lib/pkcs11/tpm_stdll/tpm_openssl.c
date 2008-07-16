@@ -114,7 +114,7 @@ int
 openssl_write_key(RSA *rsa, char *filename, CK_BYTE *pPin)
 {
 	BIO *b = NULL;
-	char loc[2048];
+	char loc[PATH_MAX];
 	struct passwd *pw = NULL;
 
 	errno = 0;
@@ -152,7 +152,7 @@ openssl_read_key(char *filename, CK_BYTE *pPin, RSA **ret)
 {
 	BIO *b = NULL;
 	RSA *rsa = NULL;
-	char loc[2048];
+	char loc[PATH_MAX];
 	struct passwd *pw = NULL;
 	CK_RV rc = CKR_FUNCTION_FAILED;
 

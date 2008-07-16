@@ -728,7 +728,7 @@ static BOOL SetLogPriorityMask ( LogHandle hLog, u_int32 Priority ) {
 
 BOOL PKCS_Log ( pLogHandle phLog, char *Format, va_list ap ) {
 
-  char                    Buffer[2048];
+  char                    Buffer[PATH_MAX];
   pLoggingFacilityInfo    pInfo;
 
   if ( Format == NULL ) { return FALSE; }

@@ -605,7 +605,7 @@ printf("Start garbage \n");
   void DumpSharedMemory ( void ) {
 
     u_int32 *p;
-    char Buf[2048];
+    char Buf[PATH_MAX];
     u_int32 i;
     
     p = (u_int32 *) shmp;

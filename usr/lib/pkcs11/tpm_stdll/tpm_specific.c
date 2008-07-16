@@ -1351,7 +1351,7 @@ token_migrate(int key_type, CK_BYTE *pin)
 CK_RV
 save_masterkey_private()
 {
-	char		fname[2048];
+	char		fname[PATH_MAX];
 	struct stat	file_stat;
 	int		err;
 	FILE		*fp = NULL;
@@ -1429,7 +1429,7 @@ load_masterkey_private()
 	int		err;
 	struct stat	file_stat;
 	CK_BYTE		encrypted_masterkey[256];
-	char		fname[2048];
+	char		fname[PATH_MAX];
 	CK_RV		rc;
 	struct passwd	*pw = NULL;
 

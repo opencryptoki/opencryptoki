@@ -1,5 +1,5 @@
 /*
- * $Header: /cvsroot/opencryptoki/opencryptoki/usr/lib/pkcs11/common/defs.h,v 1.4 2007/12/05 22:52:01 mhalcrow Exp $
+ * $Header: /cvsroot/opencryptoki/opencryptoki/usr/lib/pkcs11/common/defs.h,v 1.5 2008/07/16 22:27:48 mhalcrow Exp $
  */
 
 //
@@ -398,6 +398,10 @@ enum {
 #define SHA5_BLOCK_SIZE_MASK (SHA5_BLOCK_SIZE - 1)
 #define MAX_SHA_HASH_SIZE SHA5_HASH_SIZE
 #define MAX_SHA_BLOCK_SIZE SHA5_BLOCK_SIZE
+
+#ifndef PATH_MAX
+#define PATH_MAX 4096
+#endif
 
 struct oc_sha_ctx {
    unsigned char hash[MAX_SHA_HASH_SIZE + 1];
