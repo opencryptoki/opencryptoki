@@ -1,5 +1,5 @@
 dnl Process this file with autoconf to produce a configure script.
-AC_INIT(openCryptoki, 2.2.5, opencryptoki-tech@lists.sourceforge.net,)
+AC_INIT(openCryptoki, 2.2.6, opencryptoki-tech@lists.sourceforge.net,)
 
 dnl Backup CFLAGS so that once the auto tools set it to "-g -O2",
 dnl (which we want to avoid), we can restore them to whatever the
