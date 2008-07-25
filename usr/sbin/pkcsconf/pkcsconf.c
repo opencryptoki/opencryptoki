@@ -331,18 +331,18 @@ nl_catd catd;
 #define CFG_LIST_SLOT      0x2000
 
 CK_RV init(void);
-void  usage(char *);
-int   echo(int);
-void  get_pin(CK_CHAR **);
+void usage(char *);
+int echo(int);
+int get_pin(CK_CHAR **);
 CK_RV cleanup(void);
 CK_RV display_pkcs11_info(void);
 CK_RV get_slot_list(int, CK_CHAR_PTR);
 CK_RV display_slot_info(void);
 CK_RV display_token_info(void);
 CK_RV display_mechanism_info(void);
-void  display_shared_memory(void);
+void display_shared_memory(void);
 void *attach_shared_memory(void);
-void  detach_shared_memory(char *);
+void detach_shared_memory(char *);
 CK_RV validate_slot(CK_CHAR_PTR);
 CK_RV init_token(CK_CHAR_PTR);
 CK_RV init_user_pin(CK_CHAR_PTR, CK_CHAR_PTR);
@@ -499,9 +499,13 @@ main(int argc, char *argv[]){
     * the SO pin, if not ask for the PIN */
    if (flags & CFG_INITIALIZE){
       if (~flags & CFG_SO_PIN){
-         printf(PKCSINIT_MSG(SOPIN, "Enter the SO PIN: "));
-         fflush(stdout);
-         get_pin(&(sopin));
+	      int rc;
+
+	      do {
+		      printf(PKCSINIT_MSG(SOPIN, "Enter the SO PIN: "));
+		      fflush(stdout);
+		      rc = get_pin(&(sopin));
+	      } while (rc == -EINVAL);
       }
       rc = init_token(sopin);
    }
@@ -511,18 +515,29 @@ main(int argc, char *argv[]){
     * the New User PIN on the command line if not ask for the PIN and verify it */
    if (flags & CFG_INIT_USER){
       if (~flags & CFG_SO_PIN) {
-         printf(PKCSINIT_MSG(SOPIN, "Enter the SO PIN: "));
-         fflush(stdout);
-         get_pin(&sopin);
+	      int rc;
+
+	      do {
+		      printf(PKCSINIT_MSG(SOPIN, "Enter the SO PIN: "));
+		      fflush(stdout);
+		      rc = get_pin(&sopin);
+	      } while (rc == -EINVAL);
       }
       if (~flags & CFG_NEW_PIN) {
-         printf(PKCSINIT_MSG(NEWUSER, "Enter the new user PIN: "));
-         fflush(stdout);
-         get_pin(&newpin);
-	 newpinlen = strlen(newpin);
-         printf(PKCSINIT_MSG(VNEWUSER, "Re-enter the new user PIN: "));
-         fflush(stdout);
-         get_pin(&newpin2);
+	      int rc;
+
+	      do {
+		      printf(PKCSINIT_MSG(NEWUSER, "Enter the new user PIN: "));
+		      fflush(stdout);
+		      rc = get_pin(&newpin);
+	      } while (rc == -EINVAL);
+	      newpinlen = strlen(newpin);
+	      do {
+		      printf(PKCSINIT_MSG(VNEWUSER,
+					  "Re-enter the new user PIN: "));
+		      fflush(stdout);
+		      rc = get_pin(&newpin2);
+	      } while (rc == -EINVAL);
 	 newpin2len = strlen(newpin2);
          if (newpinlen != newpin2len || memcmp(newpin, newpin2, strlen((char *)newpin)) != 0) {
             printf(PKCSINIT_MSG(PINMISMATCH, "New PINs do not match.\n"));
@@ -537,18 +552,28 @@ main(int argc, char *argv[]){
     * current SO PIN and the New PIN in.  If not prompt and validate them. */
    if (flags & CFG_SET_SO){
       if (~flags & CFG_SO_PIN) {
-         printf(PKCSINIT_MSG(SOPIN, "Enter the SO PIN: "));
-         fflush(stdout);
-         get_pin(&sopin);
+	      int rc;
+
+	      do {
+		      printf(PKCSINIT_MSG(SOPIN, "Enter the SO PIN: "));
+		      fflush(stdout);
+		      rc = get_pin(&sopin);
+	      } while (rc == -EINVAL);
       }
       if (~flags & CFG_NEW_PIN) {
-         printf(PKCSINIT_MSG(NEWSO, "Enter the new SO PIN: "));
-         fflush(stdout);
-         get_pin(&newpin);
+	      int rc;
+
+	      do {
+		      printf(PKCSINIT_MSG(NEWSO, "Enter the new SO PIN: "));
+		      fflush(stdout);
+		      rc = get_pin(&newpin);
+	      } while (rc == -EINVAL);
 	 newpinlen = strlen(newpin);
-         printf(PKCSINIT_MSG(VNEWSO, "Re-enter the new SO PIN: "));
-         fflush(stdout);
-         get_pin(&newpin2);
+	      do {
+		      printf(PKCSINIT_MSG(VNEWSO, "Re-enter the new SO PIN: "));
+		      fflush(stdout);
+		      rc = get_pin(&newpin2);
+	      } while (rc == -EINVAL);
 	 newpin2len = strlen(newpin2);
          if (newpinlen != newpin2len || memcmp(newpin, newpin2, strlen((char *)newpin)) != 0) {
             printf(PKCSINIT_MSG(PINMISMATCH, "New PINs do not match.\n"));
@@ -563,18 +588,26 @@ main(int argc, char *argv[]){
     * current User PIN and the New PIN in.  If not prompt and validate them. */
    if (flags & CFG_SET_USER){
       if (~flags & CFG_USER_PIN) {
-         printf(PKCSINIT_MSG(USERPIN, "Enter user PIN: "));
-         fflush(stdout);
-         get_pin(&pin);
+	      int rc;
+
+	      do {
+		      printf(PKCSINIT_MSG(USERPIN, "Enter user PIN: "));
+		      fflush(stdout);
+		      rc = get_pin(&pin);
+	      } while (rc != -EINVAL);
       }
       if (~flags & CFG_NEW_PIN) {
-         printf(PKCSINIT_MSG(NEWUSER, "Enter the new user PIN: "));
-         fflush(stdout);
-         get_pin(&newpin);
-	 newpinlen = strlen(newpin);
-         printf(PKCSINIT_MSG(VNEWUSER, "Re-enter the new user PIN: "));
-         fflush(stdout);
-         get_pin(&newpin2);
+	      do {
+		      printf(PKCSINIT_MSG(NEWUSER, "Enter the new user PIN: "));
+		      fflush(stdout);
+		      rc = get_pin(&newpin);
+	      } while (rc != -EINVAL);
+	      newpinlen = strlen(newpin);
+	      do {
+		      printf(PKCSINIT_MSG(VNEWUSER, "Re-enter the new user PIN: "));
+		      fflush(stdout);
+		      rc = get_pin(&newpin2);
+	      } while (rc != -EINVAL);
 	 newpin2len = strlen(newpin2);
          if (newpinlen != newpin2len || memcmp(newpin, newpin2, strlen((char *)newpin)) != 0) {
             printf(PKCSINIT_MSG(PINMISMATCH, "New PINs do not match.\n"));
@@ -619,41 +652,49 @@ done:
 
 }
 
-void
-get_pin(CK_CHAR ** pin){
-   int  count = 0;
-   char buff[PIN_SIZE] = { 0 }, c = 0;
+int get_pin(CK_CHAR **pin)
+{
+	int  count;
+	char buff[PIN_SIZE] = { 0 }, c = 0;
+	int rc = 0;
 
-   /* Turn off echoing to the terminal when getting the password */
-   echo(FALSE);
-
-   /* Get each character and print out a '*' for each input */
-   for (count = 0; (c != LINE_FEED) && (count < PIN_SIZE); count++){
-      buff[count] = getc(stdin);
-      c = buff[count];
-      if ((c != LINE_FEED) && (c != BACK_SPACE))
-         printf("*");
-      if (c == BACK_SPACE) {
-         printf("%c%c%c", BACK_SPACE, ' ', BACK_SPACE);
-         count-=2;
-      }
-      fflush(stdout);
-   }
-
-   echo(TRUE);
-
-   /* After we get the password go to the next line */
-   printf("\n");
-   fflush(stdout);
-
-   /* Allocate 80 bytes for the user PIN.  This is large enough for the tokens
-    * supported in AIX 5.0 and 5.1 */
-   *pin = (unsigned char *)malloc(PIN_SIZE);
-
-   /* Strip the carage return from the user input (it is not part of the PIN)
-    * and put the PIN in the return buffer */
-   buff[count-1] =  '\0'; //NULL; 
-   strncpy((char *)*pin, buff, strlen((char *)buff)+1); // keep the trailing null for the strlen
+	*pin = NULL;
+	/* Turn off echoing to the terminal when getting the password */
+	echo(FALSE);
+	/* Get each character and print out a '*' for each input */
+	for (count = 0; (c != LINE_FEED) && (count < PIN_SIZE); count++) {
+		buff[count] = getc(stdin);
+		c = buff[count];
+		if (c == BACK_SPACE) {
+			printf("\nBackspace character not allowed. "
+			       "Please retry entering your PIN.\n");
+			rc = -EINVAL;
+			echo(TRUE);
+			fflush(stdout);
+			goto out;
+		}
+		if ((c != LINE_FEED))
+			printf("*");
+		fflush(stdout);
+	}
+	echo(TRUE);
+	/* After we get the password go to the next line */
+	printf("\n");
+	fflush(stdout);
+	/* Allocate 80 bytes for the user PIN. This is large enough
+	 * for the tokens supported in AIX 5.0 and 5.1 */
+	*pin = (unsigned char *)malloc(PIN_SIZE);
+	if (!(*pin)) {
+		rc = -ENOMEM;
+		goto out;
+	}
+	/* Strip the carage return from the user input (it is not part
+	 * of the PIN) and put the PIN in the return buffer */
+	buff[count - 1] =  '\0';
+	/* keep the trailing null for the strlen */
+	strncpy((char *)*pin, buff, (strlen((char *)buff) + 1));
+out:
+	return rc;
 }
 
 int
