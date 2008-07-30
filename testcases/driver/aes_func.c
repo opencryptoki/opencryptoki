@@ -24,6 +24,8 @@
 #define AES_KEY_LEN 32
 #endif
 
+extern int no_stop;
+
 int do_EncryptAES_ECB(void)
 {
 	CK_BYTE             data1[BIG_REQUEST];
@@ -1721,7 +1723,7 @@ int aes_functions(void)
 	rc = do_EncryptAES_ECB();
 	GetSystemTime(&t2);
 	process_time( t1, t2 );
-	if (!rc) {
+	if (!rc && !no_stop) {
 		fprintf (stderr, "ERROR do_EncryptAES_ECB failed, rc = "
 			 "0x%0x\n", rc);
 		return rc;
@@ -1729,7 +1731,7 @@ int aes_functions(void)
 
 	GetSystemTime(&t1);
 	rc = do_EncryptAES_CBC();
-	if (!rc) {
+	if (!rc && !no_stop) {
 		fprintf (stderr, "ERROR do_EncryptAES_CBC failed, rc = 0x%0x\n", rc);
 		return rc;
 	}
@@ -1738,7 +1740,7 @@ int aes_functions(void)
 
 	GetSystemTime(&t1);
 	rc = do_EncryptAES_Multipart_ECB();
-	if (!rc) {
+	if (!rc && !no_stop) {
 		fprintf (stderr, "ERROR do_EncryptAES_Multipart_ECB failed, rc = 0x%0x\n", rc);
 		return rc;
 	}
@@ -1747,7 +1749,7 @@ int aes_functions(void)
 
 	GetSystemTime(&t1);
 	rc = do_EncryptAES_Multipart_CBC();
-	if (!rc) {
+	if (!rc && !no_stop) {
 		fprintf (stderr, "ERROR do_EncryptAES_Multipart_CBC failed, rc = 0x%0x\n", rc);
 		return rc;
 	}
@@ -1756,7 +1758,7 @@ int aes_functions(void)
 
 	GetSystemTime(&t1);
 	rc = do_EncryptAES_Multipart_CBC_PAD();
-	if (!rc) {
+	if (!rc && !no_stop) {
 		fprintf (stderr, "ERROR do_EncryptAES_Multipart_CBC_PAD failed, rc = 0x%0x\n", rc);
 		return rc;
 	}
@@ -1765,7 +1767,7 @@ int aes_functions(void)
 
 	GetSystemTime(&t1);
 	rc = do_WrapUnwrapAES_ECB();
-	if (!rc) {
+	if (!rc && !no_stop) {
 		fprintf (stderr, "ERROR do_WrapUnwrapAES_EBC failed, rc = 0x%0x\n", rc);
 		return rc;
 	}
@@ -1774,7 +1776,7 @@ int aes_functions(void)
 
 	GetSystemTime(&t1);
 	rc = do_WrapUnwrapAES_CBC();
-	if (!rc) {
+	if (!rc && !no_stop) {
 		fprintf (stderr, "ERROR do_WrapUnwrapAES_CBC failed, rc = 0x%0x\n", rc);
 		return rc;
 	}
@@ -1783,7 +1785,7 @@ int aes_functions(void)
 
 	GetSystemTime(&t1);
 	rc = do_WrapUnwrapAES_CBC_PAD();
-	if (!rc) {
+	if (!rc && !no_stop) {
 		fprintf (stderr, "ERROR do_WrapUnwrapAES_CBC_PAD failed, rc = 0x%0x\n", rc);
 		return rc;
 	}
