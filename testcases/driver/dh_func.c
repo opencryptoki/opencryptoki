@@ -308,264 +308,266 @@
 #include "pkcs11types.h"
 #include "regress.h"
 
+extern int no_stop;
+
 // These values were obtained from IPsec second oakley group. These values are in big-endian
 // format.  These are required for generating DH keys and secrets.
- 
+
 CK_BYTE DH_PUBL_PRIME[128] =
 {
-   0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xC9, 0x0F, 0xDA, 0xA2, 0x21, 0x68, 0xC2,
-   0x34, 0xC4, 0xC6, 0x62, 0x8B, 0x80, 0xDC, 0x1C, 0xD1, 0x29, 0x02, 0x4E, 0x08, 0x8A, 0x67,
-   0xCC, 0x74, 0x02, 0x0B, 0xBE, 0xA6, 0x3B, 0x13, 0x9B, 0x22, 0x51, 0x4A, 0x08, 0x79, 0x8E,
-   0x34, 0x04, 0xDD, 0xEF, 0x95, 0x19, 0xB3, 0xCD, 0x3A, 0x43, 0x1B, 0x30, 0x2B, 0x0A, 0x6D,
-   0xF2, 0x5F, 0x14, 0x37, 0x4F, 0xE1, 0x35, 0x6D, 0x6D, 0x51, 0xC2, 0x45, 0xE4, 0x85, 0xB5,
-   0x76, 0x62, 0x5E, 0x7E, 0xC6, 0xF4, 0x4C, 0x42, 0xE9, 0xA6, 0x37, 0xED, 0x6B, 0x0B, 0xFF,
-   0x5C, 0xB6, 0xF4, 0x06, 0xB7, 0xED, 0xEE, 0x38, 0x6B, 0xFB, 0x5A, 0x89, 0x9F, 0xA5, 0xAE,
-   0x9F, 0x24, 0x11, 0x7C, 0x4B, 0x1F, 0xE6, 0x49, 0x28, 0x66, 0x51, 0xEC, 0xE6, 0x53, 0x81,
-   0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF
+	0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xC9, 0x0F, 0xDA, 0xA2, 0x21, 0x68, 0xC2,
+	0x34, 0xC4, 0xC6, 0x62, 0x8B, 0x80, 0xDC, 0x1C, 0xD1, 0x29, 0x02, 0x4E, 0x08, 0x8A, 0x67,
+	0xCC, 0x74, 0x02, 0x0B, 0xBE, 0xA6, 0x3B, 0x13, 0x9B, 0x22, 0x51, 0x4A, 0x08, 0x79, 0x8E,
+	0x34, 0x04, 0xDD, 0xEF, 0x95, 0x19, 0xB3, 0xCD, 0x3A, 0x43, 0x1B, 0x30, 0x2B, 0x0A, 0x6D,
+	0xF2, 0x5F, 0x14, 0x37, 0x4F, 0xE1, 0x35, 0x6D, 0x6D, 0x51, 0xC2, 0x45, 0xE4, 0x85, 0xB5,
+	0x76, 0x62, 0x5E, 0x7E, 0xC6, 0xF4, 0x4C, 0x42, 0xE9, 0xA6, 0x37, 0xED, 0x6B, 0x0B, 0xFF,
+	0x5C, 0xB6, 0xF4, 0x06, 0xB7, 0xED, 0xEE, 0x38, 0x6B, 0xFB, 0x5A, 0x89, 0x9F, 0xA5, 0xAE,
+	0x9F, 0x24, 0x11, 0x7C, 0x4B, 0x1F, 0xE6, 0x49, 0x28, 0x66, 0x51, 0xEC, 0xE6, 0x53, 0x81,
+	0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF
 } ;
- 
+
 CK_BYTE DH_PUBL_BASE[128] =
 {
-   0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
-   0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
-   0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
-   0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
-   0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
-   0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
-   0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
-   0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
-   0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x02
- 
+	0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
+	0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
+	0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
+	0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
+	0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
+	0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
+	0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
+	0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
+	0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x02
+
 };
 
 //
 //
 int do_GenerateDHKeyPair( void )
 {
-   CK_SLOT_ID          slot_id;
-   CK_SESSION_HANDLE   session;
-   CK_MECHANISM        mech;
-   CK_OBJECT_HANDLE    publ_key, priv_key;
-   CK_FLAGS            flags;
-   CK_BYTE             user_pin[PKCS11_MAX_PIN_LEN];
-   CK_ULONG            user_pin_len;
-   CK_RV               rc;
+	CK_SLOT_ID          slot_id;
+	CK_SESSION_HANDLE   session;
+	CK_MECHANISM        mech;
+	CK_OBJECT_HANDLE    publ_key, priv_key;
+	CK_FLAGS            flags;
+	CK_BYTE             user_pin[PKCS11_MAX_PIN_LEN];
+	CK_ULONG            user_pin_len;
+	CK_RV               rc;
 
-   CK_OBJECT_CLASS     pub_key_class  = CKO_PUBLIC_KEY ;
-   CK_KEY_TYPE         pub_key_type   = CKK_DH ;
-   CK_OBJECT_CLASS     priv_key_class = CKO_PRIVATE_KEY ;
-   CK_KEY_TYPE         priv_key_type   = CKK_DH ;
-   CK_BBOOL            true = TRUE ;
+	CK_OBJECT_CLASS     pub_key_class  = CKO_PUBLIC_KEY ;
+	CK_KEY_TYPE         pub_key_type   = CKK_DH ;
+	CK_OBJECT_CLASS     priv_key_class = CKO_PRIVATE_KEY ;
+	CK_KEY_TYPE         priv_key_type   = CKK_DH ;
+	CK_BBOOL            true = TRUE ;
 
-   CK_ATTRIBUTE  publ_tmpl[] =
-   {
-      {CKA_CLASS,    &pub_key_class,   sizeof(pub_key_class)    },
-      {CKA_KEY_TYPE, &pub_key_type,    sizeof(pub_key_type)     },
-      {CKA_MODIFIABLE, &true,          sizeof(true)             },
-      {CKA_PRIME,    DH_PUBL_PRIME,    sizeof(DSA_PUBL_PRIME)   },
-      {CKA_BASE,     DH_PUBL_BASE,     sizeof(DSA_PUBL_BASE)    }
-   };
+	CK_ATTRIBUTE  publ_tmpl[] =
+	{
+		{CKA_CLASS,    &pub_key_class,   sizeof(pub_key_class)    },
+		{CKA_KEY_TYPE, &pub_key_type,    sizeof(pub_key_type)     },
+		{CKA_MODIFIABLE, &true,          sizeof(true)             },
+		{CKA_PRIME,    DH_PUBL_PRIME,    sizeof(DSA_PUBL_PRIME)   },
+		{CKA_BASE,     DH_PUBL_BASE,     sizeof(DSA_PUBL_BASE)    }
+	};
 
-   CK_ATTRIBUTE  priv_tmpl[] =
-   {
-      {CKA_CLASS,    &priv_key_class,   sizeof(priv_key_class)    },
-      {CKA_KEY_TYPE, &priv_key_type,    sizeof(priv_key_type)     },
-      {CKA_MODIFIABLE, &true,          sizeof(true)             }
-   };
+	CK_ATTRIBUTE  priv_tmpl[] =
+	{
+		{CKA_CLASS,    &priv_key_class,   sizeof(priv_key_class)    },
+		{CKA_KEY_TYPE, &priv_key_type,    sizeof(priv_key_type)     },
+		{CKA_MODIFIABLE, &true,          sizeof(true)             }
+	};
 
-   slot_id = SLOT_ID;
+	slot_id = SLOT_ID;
 
-   if (get_user_pin(user_pin))
-	   return CKR_FUNCTION_FAILED;
-   user_pin_len = (CK_ULONG)strlen((char *)user_pin);
+	if (get_user_pin(user_pin))
+		return CKR_FUNCTION_FAILED;
+	user_pin_len = (CK_ULONG)strlen((char *)user_pin);
 
-   mech.mechanism      = CKM_DH_PKCS_KEY_PAIR_GEN;
-   mech.ulParameterLen = 0;
-   mech.pParameter     = NULL;
+	mech.mechanism      = CKM_DH_PKCS_KEY_PAIR_GEN;
+	mech.ulParameterLen = 0;
+	mech.pParameter     = NULL;
 
-   flags = CKF_SERIAL_SESSION;
-   rc = funcs->C_OpenSession( slot_id, flags, NULL, NULL, &session );
-   if (rc != CKR_OK) {
-      show_error("   C_OpenSession #3", rc );
-      return FALSE;
-   }
+	flags = CKF_SERIAL_SESSION;
+	rc = funcs->C_OpenSession( slot_id, flags, NULL, NULL, &session );
+	if (rc != CKR_OK) {
+		show_error("   C_OpenSession #3", rc );
+		return FALSE;
+	}
 
-   rc = funcs->C_Login( session, CKU_USER, user_pin, user_pin_len );
-   if (rc != CKR_OK) {
-      show_error("   C_Login #1", rc );
-      goto error;
-   }
+	rc = funcs->C_Login( session, CKU_USER, user_pin, user_pin_len );
+	if (rc != CKR_OK) {
+		show_error("   C_Login #1", rc );
+		goto error;
+	}
 
-   printf("do_GenerateDHKeyPair...\n");
+	printf("do_GenerateDHKeyPair...\n");
 
-   rc = funcs->C_GenerateKeyPair( session,   &mech,
-                                  publ_tmpl,  5,
-                                  priv_tmpl,  3,
-                                  &publ_key, &priv_key );
-   if (rc != CKR_OK) {
-      show_error("   C_GenerateKeyPair #1", rc );
-      goto error;
-   }
+	rc = funcs->C_GenerateKeyPair( session,   &mech,
+			publ_tmpl,  5,
+			priv_tmpl,  3,
+			&publ_key, &priv_key );
+	if (rc != CKR_OK) {
+		show_error("   C_GenerateKeyPair #1", rc );
+		goto error;
+	}
 
-   rc = funcs->C_CloseSession( session );
-   if (rc != CKR_OK) {
-      show_error("   C_CloseSession #3", rc );
-      return FALSE;
-   }
+	rc = funcs->C_CloseSession( session );
+	if (rc != CKR_OK) {
+		show_error("   C_CloseSession #3", rc );
+		return FALSE;
+	}
 
-   printf("Looks okay...\n");
-   return TRUE;
+	printf("Looks okay...\n");
+	return TRUE;
 
 error:
-   rc = funcs->C_CloseSession (session);
-   if (rc != CKR_OK)
-      show_error ("   C_CloseSession", rc);
+	rc = funcs->C_CloseSession (session);
+	if (rc != CKR_OK)
+		show_error ("   C_CloseSession", rc);
 
-   return FALSE;
+	return FALSE;
 }
 
 
 int do_DeriveDHKey( void )
 {
-   CK_SLOT_ID          slot_id;
-   CK_SESSION_HANDLE   session;
-   CK_MECHANISM        mech;
-   CK_OBJECT_HANDLE    publ_key, priv_key, secret_key;
-   CK_FLAGS            flags;
-   CK_BYTE             user_pin[PKCS11_MAX_PIN_LEN];
-   CK_ULONG            user_pin_len;
-   CK_RV               rc;
+	CK_SLOT_ID          slot_id;
+	CK_SESSION_HANDLE   session;
+	CK_MECHANISM        mech;
+	CK_OBJECT_HANDLE    publ_key, priv_key, secret_key;
+	CK_FLAGS            flags;
+	CK_BYTE             user_pin[PKCS11_MAX_PIN_LEN];
+	CK_ULONG            user_pin_len;
+	CK_RV               rc;
 
-   CK_OBJECT_CLASS     pub_key_class  = CKO_PUBLIC_KEY ;
-   CK_KEY_TYPE         pub_key_type   = CKK_DH ;
-   CK_OBJECT_CLASS     priv_key_class = CKO_PRIVATE_KEY ;
-   CK_KEY_TYPE         priv_key_type   = CKK_DH ;
-   CK_BYTE             peer_pub_value[128];
-   CK_ULONG            count ;
-   CK_BBOOL            true = TRUE ;
-   CK_ULONG            cka_value_bits = 180 ;
-   
-   CK_OBJECT_CLASS     secret_key_class  = CKO_SECRET_KEY ;
-   CK_KEY_TYPE         secret_key_type   = CKK_GENERIC_SECRET ;
-   CK_ULONG            secret_key_value_len = 128 ;
+	CK_OBJECT_CLASS     pub_key_class  = CKO_PUBLIC_KEY ;
+	CK_KEY_TYPE         pub_key_type   = CKK_DH ;
+	CK_OBJECT_CLASS     priv_key_class = CKO_PRIVATE_KEY ;
+	CK_KEY_TYPE         priv_key_type   = CKK_DH ;
+	CK_BYTE             peer_pub_value[128];
+	CK_ULONG            count ;
+	CK_BBOOL            true = TRUE ;
+	CK_ULONG            cka_value_bits = 180 ;
 
-   CK_ATTRIBUTE  publ_tmpl[] =
-   {
-      {CKA_CLASS,    &pub_key_class,   sizeof(pub_key_class)    },
-      {CKA_KEY_TYPE, &pub_key_type,    sizeof(pub_key_type)     },
-      {CKA_MODIFIABLE, &true,          sizeof(true)             },
-      {CKA_PRIME,    DH_PUBL_PRIME,    sizeof(DSA_PUBL_PRIME)   },
-      {CKA_BASE,     DH_PUBL_BASE,     sizeof(DSA_PUBL_BASE)    }
-   };
+	CK_OBJECT_CLASS     secret_key_class  = CKO_SECRET_KEY ;
+	CK_KEY_TYPE         secret_key_type   = CKK_GENERIC_SECRET ;
+	CK_ULONG            secret_key_value_len = 128 ;
 
-   CK_ATTRIBUTE  priv_tmpl[] =
-   {
-      {CKA_CLASS,    &priv_key_class,   sizeof(priv_key_class)    },
-      {CKA_KEY_TYPE, &priv_key_type,    sizeof(priv_key_type)     },
-      {CKA_MODIFIABLE, &true,          sizeof(true)             },
-      {CKA_VALUE_BITS, &cka_value_bits, sizeof(cka_value_bits) }                                                   
-   };
+	CK_ATTRIBUTE  publ_tmpl[] =
+	{
+		{CKA_CLASS,    &pub_key_class,   sizeof(pub_key_class)    },
+		{CKA_KEY_TYPE, &pub_key_type,    sizeof(pub_key_type)     },
+		{CKA_MODIFIABLE, &true,          sizeof(true)             },
+		{CKA_PRIME,    DH_PUBL_PRIME,    sizeof(DSA_PUBL_PRIME)   },
+		{CKA_BASE,     DH_PUBL_BASE,     sizeof(DSA_PUBL_BASE)    }
+	};
 
-   CK_ATTRIBUTE  secret_tmpl[] =
-   {
-      {CKA_CLASS,    &secret_key_class,   sizeof(secret_key_class) },
-      {CKA_KEY_TYPE, &secret_key_type,    sizeof(secret_key_type)  },
-      {CKA_VALUE_LEN, &secret_key_value_len, sizeof(secret_key_value_len) }
-   };
+	CK_ATTRIBUTE  priv_tmpl[] =
+	{
+		{CKA_CLASS,    &priv_key_class,   sizeof(priv_key_class)    },
+		{CKA_KEY_TYPE, &priv_key_type,    sizeof(priv_key_type)     },
+		{CKA_MODIFIABLE, &true,          sizeof(true)             },
+		{CKA_VALUE_BITS, &cka_value_bits, sizeof(cka_value_bits) }                                                   
+	};
 
-   printf("do_DeriveDHKey...\n");
+	CK_ATTRIBUTE  secret_tmpl[] =
+	{
+		{CKA_CLASS,    &secret_key_class,   sizeof(secret_key_class) },
+		{CKA_KEY_TYPE, &secret_key_type,    sizeof(secret_key_type)  },
+		{CKA_VALUE_LEN, &secret_key_value_len, sizeof(secret_key_value_len) }
+	};
 
-   slot_id = SLOT_ID;
+	printf("do_DeriveDHKey...\n");
 
-   if (get_user_pin(user_pin))
-	   return CKR_FUNCTION_FAILED;
-   user_pin_len = (CK_ULONG)strlen((char *)user_pin);
+	slot_id = SLOT_ID;
 
-
-   flags = CKF_SERIAL_SESSION | CKF_RW_SESSION;
-   rc = funcs->C_OpenSession( slot_id, flags, NULL, NULL, &session );
-   if (rc != CKR_OK) {
-      show_error("   C_OpenSession #3", rc );
-      return FALSE;
-   }
-
-   rc = funcs->C_Login( session, CKU_USER, user_pin, user_pin_len );
-   if (rc != CKR_OK) {
-      show_error("   C_Login #1", rc );
-      goto error;
-   }
-
-   // First, generate the DH key Pair
-
-   mech.mechanism      = CKM_DH_PKCS_KEY_PAIR_GEN;
-   mech.ulParameterLen = 0;
-   mech.pParameter     = NULL;
-
-   rc = funcs->C_GenerateKeyPair( session,   &mech,
-                                  publ_tmpl,  5,
-                                  priv_tmpl,  4,
-                                  &publ_key, &priv_key );
-   if (rc != CKR_OK) {
-      show_error("   C_GenerateKeyPair #1", rc );
-      goto error;
-   }
-
-   // Now, Use the key pair derived above to derive the DH key
-
-   // Fill in dummy value for peer's public key
-   for (count=0; count<128; count++)
-       peer_pub_value[count] = 0x22 ;
-
-   mech.mechanism      = CKM_DH_PKCS_DERIVE;
-   mech.pParameter     = peer_pub_value ;
-   mech.ulParameterLen = sizeof(peer_pub_value);
-
-   rc = funcs->C_DeriveKey( session, &mech,
-                            priv_key, secret_tmpl,
-                            3, &secret_key ) ;
-   if (rc != CKR_OK) {
-printf("DeriveKey Failed\n") ;
-      show_error("   C_DeriveKey #1", rc );
-      goto error;
-   }
+	if (get_user_pin(user_pin))
+		return CKR_FUNCTION_FAILED;
+	user_pin_len = (CK_ULONG)strlen((char *)user_pin);
 
 
-   rc = funcs->C_CloseSession( session );
-   if (rc != CKR_OK) {
-      show_error("   C_CloseSession #3", rc );
-      return FALSE;
-   }
+	flags = CKF_SERIAL_SESSION | CKF_RW_SESSION;
+	rc = funcs->C_OpenSession( slot_id, flags, NULL, NULL, &session );
+	if (rc != CKR_OK) {
+		show_error("   C_OpenSession #3", rc );
+		return FALSE;
+	}
 
-   printf("Looks okay...\n");
-   return TRUE;
+	rc = funcs->C_Login( session, CKU_USER, user_pin, user_pin_len );
+	if (rc != CKR_OK) {
+		show_error("   C_Login #1", rc );
+		goto error;
+	}
+
+	// First, generate the DH key Pair
+
+	mech.mechanism      = CKM_DH_PKCS_KEY_PAIR_GEN;
+	mech.ulParameterLen = 0;
+	mech.pParameter     = NULL;
+
+	rc = funcs->C_GenerateKeyPair( session,   &mech,
+			publ_tmpl,  5,
+			priv_tmpl,  4,
+			&publ_key, &priv_key );
+	if (rc != CKR_OK) {
+		show_error("   C_GenerateKeyPair #1", rc );
+		goto error;
+	}
+
+	// Now, Use the key pair derived above to derive the DH key
+
+	// Fill in dummy value for peer's public key
+	for (count=0; count<128; count++)
+		peer_pub_value[count] = 0x22 ;
+
+	mech.mechanism      = CKM_DH_PKCS_DERIVE;
+	mech.pParameter     = peer_pub_value ;
+	mech.ulParameterLen = sizeof(peer_pub_value);
+
+	rc = funcs->C_DeriveKey( session, &mech,
+			priv_key, secret_tmpl,
+			3, &secret_key ) ;
+	if (rc != CKR_OK) {
+		printf("DeriveKey Failed\n") ;
+		show_error("   C_DeriveKey #1", rc );
+		goto error;
+	}
+
+
+	rc = funcs->C_CloseSession( session );
+	if (rc != CKR_OK) {
+		show_error("   C_CloseSession #3", rc );
+		return FALSE;
+	}
+
+	printf("Looks okay...\n");
+	return TRUE;
 
 error:
-   rc = funcs->C_CloseSession (session);
-   if (rc != CKR_OK)
-      show_error ("   C_CloseSession", rc);
+	rc = funcs->C_CloseSession (session);
+	if (rc != CKR_OK)
+		show_error ("   C_CloseSession", rc);
 
-   return FALSE;
+	return FALSE;
 } /* end do_DeriveDHKey() */
 
 
 int dh_functions()
 {
-   SYSTEMTIME t1, t2;
-   int        rc;
+	SYSTEMTIME t1, t2;
+	int        rc;
 
-   GetSystemTime(&t1);
-   rc = do_GenerateDHKeyPair();
-   if (!rc)
-      fprintf (stderr, "ERRRO do_GenerateDHKeyPair failed, rc = 0x%0x\n", rc);
-   GetSystemTime(&t2);
-   process_time( t1, t2 );
+	GetSystemTime(&t1);
+	rc = do_GenerateDHKeyPair();
+	if (!rc && !no_stop)
+		fprintf (stderr, "ERRRO do_GenerateDHKeyPair failed, rc = 0x%0x\n", rc);
+	GetSystemTime(&t2);
+	process_time( t1, t2 );
 
-   GetSystemTime(&t1);
-   rc = do_DeriveDHKey();
-   if (!rc)
-      fprintf (stderr, "ERRRO do_DeriveDHKey failed, rc = 0x%0x\n", rc);
-   GetSystemTime(&t2);
-   process_time( t1, t2 );
+	GetSystemTime(&t1);
+	rc = do_DeriveDHKey();
+	if (!rc && !no_stop)
+		fprintf (stderr, "ERRRO do_DeriveDHKey failed, rc = 0x%0x\n", rc);
+	GetSystemTime(&t2);
+	process_time( t1, t2 );
 
-   return TRUE;
+	return TRUE;
 }
