@@ -1,22 +1,37 @@
 openCryptoki Test Programs
 
 This directory contains programs designed to test the functionality of
-openCryptoki and PKCS#11.  The rely on STDLL's installed to the standard system
-location.  Many of the programs have command line options for passing the slot
-number to use (default is slot 0) as well as other options.  All programs expect
-that the a slot has been intialized using pkcsconf.  The expected user pin is
-"01234567" and this can also be set using pkcsconf.  The expected PINs can also
-be changed by modifying DEFAULT_USER_PIN and DEFAULT_SO_PIN in
-include/regress.h.
+openCryptoki and PKCS#11. They rely on STDLL's installed to the standard system
+location. In order to execute them, ock_tests.sh must be called. It's responsible
+for checking some environmental issues, like wether PKCS11_USER_PIN and 
+PKCS11_SO_PIN are set or not, as well if the pkcsslotd is running. It also
+calls 'driver', that runs the testcases. The slots must have been 
+intialized using pkcsconf, or by calling init_token.sh.
+If running init_token.sh, PKCS11_SO_PIN and PKCS11_USER_PIN can be set with pin values
+as follows:
 
-For correct testcase execution, the token should be initialized before and
-after running the testcases.
+export PKCS11_SO_PIN=76543210
+export PKCS11_USER_PIN=01234567
+
+Otherwise, if the token was initialized by running pkcsconf, just set the correct pin values.
+
 
 driver
 ------
-The driver programs tests all openCryptoki that do not involve token
-manipulation.  This includes, but is not limited to, tests such as RSA key
-generation, CBC and ECB encryption and decryption, and MD5 digests.  
+The driver programs tests all openCryptoki. This includes, but is not limited to, 
+tests such as RSA key generation, CBC and ECB encryption and decryption, MD5 digests,
+token objects manipulation and session management.
+
+ock_tests.sh
+------------
+Simply run ./ock_tests.sh
+For more options, ./ock_tests.sh -h
+
+--------------------------------------------------------
+
+All tests below are deprecated, instead use ock_tests.sh
+
+--------------------------------------------------------
 
 init_tok
 --------
