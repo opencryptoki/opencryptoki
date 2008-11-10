@@ -839,7 +839,7 @@ os_specific_rsa_keygen(TEMPLATE *publ_tmpl,  TEMPLATE *priv_tmpl)
 
 
 	// we don't support less than 1024 bit keys in the sw
-	if (mod_bits < 512 || mod_bits > 2048) {
+	if (mod_bits < 512 || mod_bits > 4096) {
 		st_err_log(19, __FILE__, __LINE__);
 		return CKR_KEY_SIZE_RANGE;
 	}
@@ -1427,7 +1427,7 @@ token_specific_dh_pkcs_key_pair_gen( TEMPLATE  * publ_tmpl,
 /* End code contributed by Corrent corp. */
 
 MECH_LIST_ELEMENT mech_list[] = {
-  { CKM_RSA_PKCS_KEY_PAIR_GEN,     {512, 2048, CKF_HW | CKF_GENERATE_KEY_PAIR} },
+  { CKM_RSA_PKCS_KEY_PAIR_GEN,     {512, 4096, CKF_HW | CKF_GENERATE_KEY_PAIR} },
 #if !(NODSA)
   { CKM_DSA_KEY_PAIR_GEN,          {512, 1024, CKF_HW | CKF_GENERATE_KEY_PAIR} },
 #endif
@@ -1437,29 +1437,29 @@ MECH_LIST_ELEMENT mech_list[] = {
   { CKM_CDMF_KEY_GEN,                {0,    0, CKF_HW | CKF_GENERATE} },
 #endif
 
-  { CKM_RSA_PKCS,                  {512, 2048, CKF_HW           |
+  { CKM_RSA_PKCS,                  {512, 4096, CKF_HW           |
                                                CKF_ENCRYPT      | CKF_DECRYPT |
                                                CKF_WRAP         | CKF_UNWRAP  |
                                                CKF_SIGN         | CKF_VERIFY  |
 				    CKF_SIGN_RECOVER | CKF_VERIFY_RECOVER} },
 #if !(NOX509)
-  { CKM_RSA_X_509,                 {512, 2048, CKF_HW           |
+  { CKM_RSA_X_509,                 {512, 4096, CKF_HW           |
                                                CKF_ENCRYPT      | CKF_DECRYPT |
                                                CKF_WRAP         | CKF_UNWRAP  |
                                                CKF_SIGN         | CKF_VERIFY  |
 				    CKF_SIGN_RECOVER | CKF_VERIFY_RECOVER} },
 #endif
 #if !(NOMD2)
-  { CKM_MD2_RSA_PKCS,              {512, 2048, CKF_HW      |
+  { CKM_MD2_RSA_PKCS,              {512, 4096, CKF_HW      |
 				    CKF_SIGN    | CKF_VERIFY} },
 
 #endif
 #if !(NOMD5)
-  { CKM_MD5_RSA_PKCS,              {512, 2048, CKF_HW      |
+  { CKM_MD5_RSA_PKCS,              {512, 4096, CKF_HW      |
 				    CKF_SIGN    | CKF_VERIFY} },
 #endif
 #if !(NOSHA1)
-  { CKM_SHA1_RSA_PKCS,             {512, 2048, CKF_HW      |
+  { CKM_SHA1_RSA_PKCS,             {512, 4096, CKF_HW      |
 				    CKF_SIGN    | CKF_VERIFY} },
 #endif
 
