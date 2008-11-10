@@ -335,7 +335,7 @@ rsa_format_block( CK_BYTE   * in_data,
                   CK_ULONG    mod_len,
                   CK_ULONG    type )
 {
-   CK_BYTE   buf[256];
+   CK_BYTE   buf[512];
    CK_BYTE   rnd_buf[32];
    CK_ULONG  i, end, tmp;
    CK_RV     rc;
@@ -414,7 +414,7 @@ rsa_pkcs_encrypt( SESSION           *sess,
 {
    OBJECT          *key_obj  = NULL;
    CK_ATTRIBUTE    *attr     = NULL;
-   CK_BYTE          clear[256], cipher[256];  // 2048 bits
+   CK_BYTE          clear[512], cipher[512];  // 4096 bits
    CK_ULONG         modulus_bytes;
    CK_BBOOL         flag;
    CK_RV            rc;
@@ -479,7 +479,7 @@ rsa_pkcs_decrypt( SESSION           *sess,
                   CK_ULONG          *out_data_len )
 {
    OBJECT          *key_obj  = NULL;
-   CK_BYTE          out[256];  // 2048 bits
+   CK_BYTE          out[512];  // 4096 bits
    CK_ULONG         i, modulus_bytes;
    CK_RV            rc;
 
@@ -558,7 +558,7 @@ rsa_pkcs_sign( SESSION             *sess,
                CK_ULONG            *out_data_len )
 {
    OBJECT          *key_obj   = NULL;
-   CK_BYTE          data[256], sig[256];  // max size: 256 bytes == 2048 bits
+   CK_BYTE          data[512], sig[512];  // max size: 512 bytes == 4096 bits
    CK_ULONG         modulus_bytes;
    CK_RV            rc;
 
@@ -621,7 +621,7 @@ rsa_pkcs_verify( SESSION             * sess,
 {
    OBJECT          *key_obj  = NULL;
    CK_ATTRIBUTE    *attr     = NULL;
-   CK_BYTE          out[256];  // 2048 bits
+   CK_BYTE          out[512];  // 4096 bits
    CK_ULONG         i, modulus_bytes;
    CK_BBOOL         flag;
    CK_RV            rc;
@@ -696,7 +696,7 @@ rsa_pkcs_verify_recover( SESSION             * sess,
 {
    OBJECT          *key_obj  = NULL;
    CK_ATTRIBUTE    *attr     = NULL;
-   CK_BYTE          out[256];  // 2048 bits
+   CK_BYTE          out[512];  // 4096 bits
    CK_ULONG         i, modulus_bytes;
    CK_BBOOL         flag;
    CK_RV            rc;
@@ -780,7 +780,7 @@ rsa_x509_encrypt( SESSION           *sess,
 {
    OBJECT          *key_obj  = NULL;
    CK_ATTRIBUTE    *attr     = NULL;
-   CK_BYTE          clear[256], cipher[256];  // max size: 256 bytes == 2048 bits
+   CK_BYTE          clear[512], cipher[512];  // max size: 512 bytes == 4096 bits
    CK_ULONG         modulus_bytes;
    CK_BBOOL         flag;
    CK_RV            rc;
@@ -845,7 +845,7 @@ rsa_x509_decrypt( SESSION           *sess,
                   CK_ULONG          *out_data_len )
 {
    OBJECT          *key_obj  = NULL;
-   CK_BYTE          out[256];  // 2048 bits
+   CK_BYTE          out[512];  // 4096 bits
    CK_ULONG         modulus_bytes;
    CK_RV            rc;
 
@@ -916,7 +916,7 @@ rsa_x509_sign( SESSION             *sess,
                CK_ULONG            *out_data_len )
 {
    OBJECT          *key_obj   = NULL;
-   CK_BYTE          data[256], sig[256];  // max size: 256 bytes == 2048 bits
+   CK_BYTE          data[512], sig[512];  // max size: 512 bytes == 4096 bits
    CK_ULONG         modulus_bytes;
    CK_RV            rc;
 
@@ -985,7 +985,7 @@ rsa_x509_verify( SESSION             * sess,
 {
    OBJECT          *key_obj  = NULL;
    CK_ATTRIBUTE    *attr     = NULL;
-   CK_BYTE          out[256];  // 2048 bits
+   CK_BYTE          out[512];  // 4096 bits
    CK_ULONG         modulus_bytes;
    CK_BBOOL         flag;
    CK_RV            rc;
@@ -1064,7 +1064,7 @@ rsa_x509_verify_recover( SESSION             * sess,
 {
    OBJECT          *key_obj  = NULL;
    CK_ATTRIBUTE    *attr     = NULL;
-   CK_BYTE          out[256];  // 2048 bits
+   CK_BYTE          out[512];  // 4096 bits
    CK_ULONG         modulus_bytes;
    CK_BBOOL         flag;
    CK_RV            rc;

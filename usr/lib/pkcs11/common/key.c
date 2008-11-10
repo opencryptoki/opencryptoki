@@ -1417,7 +1417,7 @@ rsa_publ_validate_attribute( TEMPLATE *tmpl, CK_ATTRIBUTE *attr, CK_ULONG mode )
             else {
                CK_ULONG mod_bits = *(CK_ULONG *)attr->pValue;
 
-               if (mod_bits < 512 || mod_bits > 2048){
+               if (mod_bits < 512 || mod_bits > 4096){
                   st_err_log(9, __FILE__, __LINE__);
                   return CKR_ATTRIBUTE_VALUE_INVALID;
                }
