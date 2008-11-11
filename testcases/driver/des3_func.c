@@ -9,9 +9,6 @@
 #include "pkcs11types.h"
 #include "regress.h"
 
-
-extern int no_stop;
-
 //
 //
 int do_Encrypt3DES_ECB( void )
@@ -1698,66 +1695,130 @@ int do_WrapUnwrapDES3_CBC_PAD( void )
 	return TRUE;
 }
 
+int main(int argc, char **argv)
+{
+	CK_C_INITIALIZE_ARGS cinit_args;
+	int rc, i;
+
+	
+	rc = do_ParseArgs(argc, argv);
+	if ( rc != 1)
+		return rc;
+
+	printf("Using slot #%lu...\n\n", SLOT_ID );
+	printf("With option: no_init: %d\n", no_init);
+
+	rc = do_GetFunctionList();
+	if (!rc) {
+		fprintf(stderr, "ERROR do_GetFunctionList() Failed , rc = 0x%0x\n", rc); 
+		return rc;
+	}
+	
+	memset( &cinit_args, 0x0, sizeof(cinit_args) );
+	cinit_args.flags = CKF_OS_LOCKING_OK;
+
+	// SAB Add calls to ALL functions before the C_Initialize gets hit
+
+	funcs->C_Initialize( &cinit_args );
+
+	{
+		CK_SESSION_HANDLE  hsess = 0;
+
+		rc = funcs->C_GetFunctionStatus(hsess);
+		if (rc  != CKR_FUNCTION_NOT_PARALLEL)  
+			return rc;
+
+		rc = funcs->C_CancelFunction(hsess);
+		if (rc  != CKR_FUNCTION_NOT_PARALLEL)
+			return rc;
+
+	}
+
+	des3_functions();
+}
 
 int des3_functions()
 {
 	SYSTEMTIME t1, t2;
-	int        rc;
-
-
+	int rc;	
+	
 	GetSystemTime(&t1);
 	rc = do_Encrypt3DES_ECB();
-	if (!rc && !no_stop)
+	if (!rc) {
 		fprintf (stderr, "ERROR do_Encrypt3DES_ECB failed, rc = 0x%0x\n", rc);
+		if (!no_stop)
+			return rc;
+	}
 	GetSystemTime(&t2);
 	process_time( t1, t2 );
 
 	GetSystemTime(&t1);
 	rc = do_Encrypt3DES_CBC();
-	if (!rc && !no_stop)
+	if (!rc) {
 		fprintf (stderr, "ERROR do_Encrypt3DES_CBC failed, rc = 0x%0x\n", rc);
+		if (!no_stop)
+			return rc;
+	}
 	GetSystemTime(&t2);
 	process_time( t1, t2 );
 
 	GetSystemTime(&t1);
 	rc = do_Encrypt3DES_Multipart_ECB();
-	if (!rc && !no_stop)
+	if (!rc) {
 		fprintf (stderr, "ERROR do_Encrypt3DES_Multipart_ECB failed, rc = 0x%0x\n", rc);
+		if (!no_stop)
+			return rc;
+	}
 	GetSystemTime(&t2);
 	process_time( t1, t2 );
 
 	GetSystemTime(&t1);
 	rc = do_Encrypt3DES_Multipart_CBC();
-	if (!rc && !no_stop)
+	if (!rc) {
 		fprintf (stderr, "ERROR do_Encrypt3DES_Multipart_CBC failed, rc = 0x%0x\n", rc);
+		if (!no_stop)
+			return rc;
+	}
 	GetSystemTime(&t2);
 	process_time( t1, t2 );
 
 	GetSystemTime(&t1);
 	rc = do_EncryptDES3_Multipart_CBC_PAD();
-	if (!rc && !no_stop)
+	if (!rc) {
 		fprintf (stderr, "ERROR do_EncryptDES3_Multipart_CBC_PAD failed, rc = 0x%0x\n", rc);
+		if (!no_stop)
+			return rc;
+	}
 	GetSystemTime(&t2);
 	process_time( t1, t2 );
 
 	GetSystemTime(&t1);
 	rc = do_WrapUnwrapDES3_ECB();
-	if (!rc && !no_stop)
+	if (!rc) {
 		fprintf (stderr, "ERROR do_WrapUnwrapDES3_EBC failed, rc = 0x%0x\n", rc);
+		if (!no_stop)
+			return rc;
+	}
 	GetSystemTime(&t2);
 	process_time( t1, t2 );
 
 	GetSystemTime(&t1);
 	rc = do_WrapUnwrapDES3_CBC();
-	if (!rc && !no_stop)
+	if (!rc) {
 		fprintf (stderr, "ERROR do_WrapUnwrapDES3_CBC failed, rc = 0x%0x\n", rc);
+		if (!no_stop)
+			return rc;
+	}
 	GetSystemTime(&t2);
 	process_time( t1, t2 );
 
 	GetSystemTime(&t1);
 	rc = do_WrapUnwrapDES3_CBC_PAD();
-	if (!rc && !no_stop)
+	if (!rc) {
 		fprintf (stderr, "ERROR do_WrapUnwrapDES3_CBC_PAD failed, rc = 0x%0x\n", rc);
+		if (!no_stop)
+			return rc;
+	}
 	GetSystemTime(&t2);
 	process_time( t1, t2 );
 

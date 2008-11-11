@@ -64,15 +64,13 @@ do_SetPIN(CK_FUNCTION_LIST *funcs, CK_SLOT_ID slot_id, CK_USER_TYPE userType, ch
 
 	return rc;
 }
-
 void
-usage(char *argv0)
+set_pin_usage(char *argv0)
 {
 	printf("usage:  %s [-slot <num>] [-h] [-user|-so] -old pass -new pass\n\n", argv0 );
 	printf("By default, Slot %d is used, as user\n\n", SLOT_ID_DEFAULT);
 	exit(-1);
 }
-
 //
 //
 int
@@ -99,12 +97,12 @@ main( int argc, char **argv )
 		} else if (strcmp(argv[i], "-user") == 0) {
 			continue;
 		} else {
-			usage(argv[0]);
+			set_pin_usage(argv[0]);
 		}
 	}
 
 	if (!old || !new)
-		usage(argv[0]);
+		set_pin_usage(argv[0]);
 
 	if (slot_id != SLOT_ID_DEFAULT)
 		printf("Using user specified slot %d.\n", slot_id);

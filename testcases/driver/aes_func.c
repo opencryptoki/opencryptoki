@@ -24,8 +24,6 @@
 #define AES_KEY_LEN 32
 #endif
 
-extern int no_stop;
-
 int do_EncryptAES_ECB(void)
 {
 	CK_BYTE             data1[BIG_REQUEST];
@@ -117,7 +115,7 @@ int do_EncryptAES_ECB(void)
 	}
 	printf("Pass\n");
 	return TRUE;
- error:
+error:
 	rc = funcs->C_CloseSession (session);
 	if (rc != CKR_OK)
 		show_error ("   C_CloseSession #2", rc);   
@@ -235,7 +233,7 @@ int do_EncryptAES_Multipart_ECB( void )
 		tmp = crypt2_len - k;  // how much room is left in crypt2?
 
 		rc = funcs->C_EncryptUpdate( session, &original[i],  chunk,
-					     &crypt2[k],   &tmp );
+				&crypt2[k],   &tmp );
 		if (rc != CKR_OK) {
 			show_error("   C_EncryptUpdate #1", rc );
 			goto error;
@@ -313,7 +311,7 @@ int do_EncryptAES_Multipart_ECB( void )
 		tmp = decrypt2_len - k;
 
 		rc = funcs->C_DecryptUpdate( session, &crypt1[i],    chunk,
-					     &decrypt2[k], &tmp );
+				&decrypt2[k], &tmp );
 		if (rc != CKR_OK) {
 			show_error("   C_DecryptUpdate #1", rc );
 			goto error;
@@ -376,11 +374,11 @@ int do_EncryptAES_Multipart_ECB( void )
 	printf("Success.\n");
 	return TRUE;
 
- error:
+error:
 	rc = funcs->C_CloseSession (session);
 	if (rc != CKR_OK)
 		show_error ("   C_CloseSession #2", rc);
-   
+
 	return FALSE;
 }
 
@@ -619,7 +617,7 @@ int do_EncryptAES_Multipart_CBC( void )
 		tmp = crypt2_len - k;  // how much room is left in crypt2?
 
 		rc = funcs->C_EncryptUpdate( session, &original[i],  chunk,
-					     &crypt2[k],   &tmp );
+				&crypt2[k],   &tmp );
 		if (rc != CKR_OK) {
 			show_error("   C_EncryptUpdate #1", rc );
 			return FALSE;
@@ -698,7 +696,7 @@ int do_EncryptAES_Multipart_CBC( void )
 		tmp = decrypt2_len - k;
 
 		rc = funcs->C_DecryptUpdate( session, &crypt1[i],    chunk,
-					     &decrypt2[k], &tmp );
+				&decrypt2[k], &tmp );
 		if (rc != CKR_OK) {
 			show_error("   C_DecryptUpdate #1", rc );
 			return FALSE;
@@ -871,7 +869,7 @@ int do_EncryptAES_Multipart_CBC_PAD( void )
 
 		len = crypt2_len - k;
 		rc = funcs->C_EncryptUpdate( session, &original[i],  chunk,
-					     &crypt2[k],    &len );
+				&crypt2[k],    &len );
 		if (rc != CKR_OK) {
 			show_error("   C_EncryptUpdate #1", rc );
 			return FALSE;
@@ -947,7 +945,7 @@ int do_EncryptAES_Multipart_CBC_PAD( void )
 
 		len = decrypt2_len - k;
 		rc = funcs->C_DecryptUpdate( session, &crypt2[i],   chunk,
-					     &decrypt2[k], &len );
+				&decrypt2[k], &len );
 		if (rc != CKR_OK) {
 			show_error("   C_DecryptUpdate #1", rc );
 			return FALSE;
@@ -1038,11 +1036,11 @@ int do_WrapUnwrapAES_ECB( void )
 	CK_KEY_TYPE         key_type  = CKK_AES;
 	CK_ULONG            tmpl_count = 3;
 	CK_ATTRIBUTE   template[] =
-		{
-			{ CKA_CLASS,     &key_class,  sizeof(key_class) },
-			{ CKA_KEY_TYPE,  &key_type,   sizeof(key_type)  },
-			{ CKA_VALUE_LEN, &key_size, sizeof(key_size) }
-		};
+	{
+		{ CKA_CLASS,     &key_class,  sizeof(key_class) },
+		{ CKA_KEY_TYPE,  &key_type,   sizeof(key_type)  },
+		{ CKA_VALUE_LEN, &key_size, sizeof(key_size) }
+	};
 
 
 	printf("do_WrapUnwrapAES_ECB...\n");
@@ -1117,18 +1115,18 @@ int do_WrapUnwrapAES_ECB( void )
 	wrapped_data_len = 3 * AES_KEY_LEN;
 
 	rc = funcs->C_WrapKey( session,    &mech,
-			       w_key,      h_key,
-			       (CK_BYTE *)&wrapped_data, &wrapped_data_len );
+			w_key,      h_key,
+			(CK_BYTE *)&wrapped_data, &wrapped_data_len );
 	if (rc != CKR_OK) {
 		show_error("   C_WrapKey #1", rc );
 		goto error;
 	}
 
 	rc = funcs->C_UnwrapKey( session, &mech,
-				 w_key,
-				 wrapped_data, wrapped_data_len,
-				 template,  tmpl_count,
-				 &uw_key );
+			w_key,
+			wrapped_data, wrapped_data_len,
+			template,  tmpl_count,
+			&uw_key );
 	if (rc != CKR_OK) {
 		show_error("   C_UnWrapKey #1", rc );
 		goto error;
@@ -1201,8 +1199,8 @@ int do_WrapUnwrapAES_ECB( void )
 		}
 
 		rc = funcs->C_WrapKey( session,  &mech,
-				       w_key,     priv_key,
-				       data,     &data_len );
+				w_key,     priv_key,
+				data,     &data_len );
 		if (rc != CKR_KEY_NOT_WRAPPABLE) {
 			show_error("   C_WrapKey #2", rc );
 			printf("   Expected CKR_KEY_NOT_WRAPPABLE\n" );
@@ -1219,11 +1217,11 @@ int do_WrapUnwrapAES_ECB( void )
 	printf("Success.\n");
 	return TRUE;
 
- error:
+error:
 	rc = funcs->C_CloseSession (session);
 	if (rc != CKR_OK)
 		show_error ("   C_CloseSession #2", rc);
-   
+
 	return FALSE;
 }
 
@@ -1257,11 +1255,11 @@ int do_WrapUnwrapAES_CBC( void )
 	CK_KEY_TYPE         key_type  = CKK_AES;
 	CK_ULONG            tmpl_count = 3;
 	CK_ATTRIBUTE   template[] =
-		{
-			{ CKA_CLASS,     &key_class,  sizeof(key_class) },
-			{ CKA_KEY_TYPE,  &key_type,   sizeof(key_type)  },
-			{ CKA_VALUE_LEN, &key_size, sizeof(key_size) }
-		};
+	{
+		{ CKA_CLASS,     &key_class,  sizeof(key_class) },
+		{ CKA_KEY_TYPE,  &key_type,   sizeof(key_type)  },
+		{ CKA_VALUE_LEN, &key_size, sizeof(key_size) }
+	};
 
 
 	printf("do_WrapUnwrapAES_CBC...\n");
@@ -1336,18 +1334,18 @@ int do_WrapUnwrapAES_CBC( void )
 	wrapped_data_len = 3 * AES_KEY_LEN;
 
 	rc = funcs->C_WrapKey( session,    &mech,
-			       w_key,      h_key,
-			       (CK_BYTE *)&wrapped_data, &wrapped_data_len );
+			w_key,      h_key,
+			(CK_BYTE *)&wrapped_data, &wrapped_data_len );
 	if (rc != CKR_OK) {
 		show_error("   C_WrapKey #1", rc );
 		return FALSE;
 	}
 
 	rc = funcs->C_UnwrapKey( session, &mech,
-				 w_key,
-				 wrapped_data, wrapped_data_len,
-				 template,  tmpl_count,
-				 &uw_key );
+			w_key,
+			wrapped_data, wrapped_data_len,
+			template,  tmpl_count,
+			&uw_key );
 	if (rc != CKR_OK) {
 		show_error("   C_UnWrapKey #1", rc );
 		return FALSE;
@@ -1420,8 +1418,8 @@ int do_WrapUnwrapAES_CBC( void )
 		}
 
 		rc = funcs->C_WrapKey( session,  &mech,
-				       w_key,     priv_key,
-				       data,     &data_len );
+				w_key,     priv_key,
+				data,     &data_len );
 		if (rc != CKR_KEY_NOT_WRAPPABLE) {
 			show_error("   C_WrapKey #2", rc );
 			printf("   Expected CKR_KEY_NOT_WRAPPABLE\n" );
@@ -1472,11 +1470,11 @@ int do_WrapUnwrapAES_CBC_PAD( void )
 	CK_KEY_TYPE         key_type  = CKK_AES;
 	CK_ULONG            tmpl_count = 3;
 	CK_ATTRIBUTE   template[] =
-		{
-			{ CKA_CLASS,     &key_class,  sizeof(key_class) },
-			{ CKA_KEY_TYPE,  &key_type,   sizeof(key_type)  },
-			{ CKA_VALUE_LEN, &key_size,   sizeof(key_size)  }
-		};
+	{
+		{ CKA_CLASS,     &key_class,  sizeof(key_class) },
+		{ CKA_KEY_TYPE,  &key_type,   sizeof(key_type)  },
+		{ CKA_VALUE_LEN, &key_size,   sizeof(key_size)  }
+	};
 
 
 	printf("do_WrapUnwrapAES_CBC_PAD...\n");
@@ -1550,18 +1548,18 @@ int do_WrapUnwrapAES_CBC_PAD( void )
 	wrapped_data_len = sizeof(wrapped_data);
 
 	rc = funcs->C_WrapKey( session,      &mech,
-			       w_key,         h_key,
-			       wrapped_data, &wrapped_data_len );
+			w_key,         h_key,
+			wrapped_data, &wrapped_data_len );
 	if (rc != CKR_OK) {
 		show_error("   C_WrapKey #1", rc );
 		return FALSE;
 	}
 
 	rc = funcs->C_UnwrapKey( session, &mech,
-				 w_key,
-				 wrapped_data, wrapped_data_len,
-				 template,  tmpl_count,
-				 &uw_key );
+			w_key,
+			wrapped_data, wrapped_data_len,
+			template,  tmpl_count,
+			&uw_key );
 	if (rc != CKR_OK) {
 		show_error("   C_UnWrapKey #1", rc );
 		return FALSE;
@@ -1621,9 +1619,9 @@ int do_WrapUnwrapAES_CBC_PAD( void )
 		mech2.pParameter     = NULL;
 
 		rc = funcs->C_GenerateKeyPair( session,   &mech2,
-					       pub_tmpl,   2,
-					       NULL,       0,
-					       &publ_key, &priv_key );
+				pub_tmpl,   2,
+				NULL,       0,
+				&publ_key, &priv_key );
 		if (rc != CKR_OK) {
 			show_error("   C_GenerateKeyPair #1", rc );
 			return FALSE;
@@ -1635,18 +1633,18 @@ int do_WrapUnwrapAES_CBC_PAD( void )
 		wrapped_data_len = sizeof(wrapped_data);
 
 		rc = funcs->C_WrapKey( session,      &mech,
-				       w_key,         priv_key,
-				       wrapped_data, &wrapped_data_len );
+				w_key,         priv_key,
+				wrapped_data, &wrapped_data_len );
 		if (rc != CKR_OK) {
 			show_error("   C_WrapKey #2", rc );
 			return FALSE;
 		}
 
 		rc = funcs->C_UnwrapKey( session, &mech,
-					 w_key,
-					 wrapped_data, wrapped_data_len,
-					 uw_tmpl,  2,
-					 &uw_key );
+				w_key,
+				wrapped_data, wrapped_data_len,
+				uw_tmpl,  2,
+				&uw_key );
 		if (rc != CKR_OK) {
 			show_error("   C_UnWrapKey #2", rc );
 			return FALSE;
@@ -1715,79 +1713,129 @@ int do_WrapUnwrapAES_CBC_PAD( void )
 }
 
 
-int aes_functions(void)
+int main(int argc, char **argv)
+{
+	CK_C_INITIALIZE_ARGS cinit_args;
+	int rc, i;
+
+	
+	rc = do_ParseArgs(argc, argv);
+	if ( rc != 1)
+		return rc;
+
+	printf("Using slot #%lu...\n\n", SLOT_ID );
+	printf("With option: no_stop: %d\n", no_stop);
+
+	rc = do_GetFunctionList();
+	if (!rc) {
+		fprintf(stderr, "ERROR do_GetFunctionList() Failed , rc = 0x%0x\n", rc); 
+		return rc;
+	}
+	
+	memset( &cinit_args, 0x0, sizeof(cinit_args) );
+	cinit_args.flags = CKF_OS_LOCKING_OK;
+
+	// SAB Add calls to ALL functions before the C_Initialize gets hit
+
+	funcs->C_Initialize( &cinit_args );
+
+	{
+		CK_SESSION_HANDLE  hsess = 0;
+
+		rc = funcs->C_GetFunctionStatus(hsess);
+		if (rc  != CKR_FUNCTION_NOT_PARALLEL)  
+			return rc;
+
+		rc = funcs->C_CancelFunction(hsess);
+		if (rc  != CKR_FUNCTION_NOT_PARALLEL)
+			return rc;
+
+	}
+
+	aes_functions();
+}
+
+int aes_functions()
 {
 	SYSTEMTIME t1, t2;
 	int rc;
+
 	GetSystemTime(&t1);
 	rc = do_EncryptAES_ECB();
+	if (!rc) {
+		fprintf (stderr, "ERROR do_EncryptAES_ECB failed, rc = 0x%0x\n", rc);
+		if (!no_stop)
+			return rc;
+	}
 	GetSystemTime(&t2);
 	process_time( t1, t2 );
-	if (!rc && !no_stop) {
-		fprintf (stderr, "ERROR do_EncryptAES_ECB failed, rc = "
-			 "0x%0x\n", rc);
-		return rc;
-	}
 
 	GetSystemTime(&t1);
 	rc = do_EncryptAES_CBC();
-	if (!rc && !no_stop) {
+	if (!rc) {
 		fprintf (stderr, "ERROR do_EncryptAES_CBC failed, rc = 0x%0x\n", rc);
-		return rc;
+		if (!no_stop)
+			return rc;
 	}
 	GetSystemTime(&t2);
 	process_time( t1, t2 );
 
 	GetSystemTime(&t1);
 	rc = do_EncryptAES_Multipart_ECB();
-	if (!rc && !no_stop) {
+	if (!rc) {
 		fprintf (stderr, "ERROR do_EncryptAES_Multipart_ECB failed, rc = 0x%0x\n", rc);
-		return rc;
+		if (!no_stop)
+			return rc;
 	}
 	GetSystemTime(&t2);
 	process_time( t1, t2 );
 
 	GetSystemTime(&t1);
 	rc = do_EncryptAES_Multipart_CBC();
-	if (!rc && !no_stop) {
+	if (!rc) {
 		fprintf (stderr, "ERROR do_EncryptAES_Multipart_CBC failed, rc = 0x%0x\n", rc);
-		return rc;
+		if (!no_stop)
+			return rc;
 	}
 	GetSystemTime(&t2);
 	process_time( t1, t2 );
 
 	GetSystemTime(&t1);
 	rc = do_EncryptAES_Multipart_CBC_PAD();
-	if (!rc && !no_stop) {
+	if (!rc) {
 		fprintf (stderr, "ERROR do_EncryptAES_Multipart_CBC_PAD failed, rc = 0x%0x\n", rc);
-		return rc;
+		if (!no_stop)
+			return rc;
 	}
 	GetSystemTime(&t2);
 	process_time( t1, t2 );
 
 	GetSystemTime(&t1);
 	rc = do_WrapUnwrapAES_ECB();
-	if (!rc && !no_stop) {
+	if (!rc) {
 		fprintf (stderr, "ERROR do_WrapUnwrapAES_EBC failed, rc = 0x%0x\n", rc);
-		return rc;
+		if (!no_stop)
+			return rc;
 	}
 	GetSystemTime(&t2);
 	process_time( t1, t2 );
 
 	GetSystemTime(&t1);
 	rc = do_WrapUnwrapAES_CBC();
-	if (!rc && !no_stop) {
+	if (!rc) {
 		fprintf (stderr, "ERROR do_WrapUnwrapAES_CBC failed, rc = 0x%0x\n", rc);
-		return rc;
+		if (!no_stop)
+			return rc;
 	}
 	GetSystemTime(&t2);
 	process_time( t1, t2 );
 
 	GetSystemTime(&t1);
 	rc = do_WrapUnwrapAES_CBC_PAD();
-	if (!rc && !no_stop) {
+	if (!rc) {
 		fprintf (stderr, "ERROR do_WrapUnwrapAES_CBC_PAD failed, rc = 0x%0x\n", rc);
-		return rc;
+		if (!no_stop)
+			return rc;
 	}
 	GetSystemTime(&t2);
 	process_time( t1, t2 );

@@ -308,7 +308,6 @@
 #include "pkcs11types.h"
 #include "regress.h"
 
-extern int no_stop;
 
 // These values were obtained from IPsec second oakley group. These values are in big-endian
 // format.  These are required for generating DH keys and secrets.
@@ -549,6 +548,47 @@ error:
 	return FALSE;
 } /* end do_DeriveDHKey() */
 
+int main(int argc, char **argv)
+{
+	CK_C_INITIALIZE_ARGS cinit_args;
+	int rc, i;
+
+	
+	rc = do_ParseArgs(argc, argv);
+	if ( rc != 1)
+		return rc;
+
+	printf("Using slot #%lu...\n\n", SLOT_ID );
+	printf("With option: no_init: %d\n", no_init);
+
+	rc = do_GetFunctionList();
+	if (!rc) {
+		fprintf(stderr, "ERROR do_GetFunctionList() Failed , rc = 0x%0x\n", rc); 
+		return rc;
+	}
+	
+	memset( &cinit_args, 0x0, sizeof(cinit_args) );
+	cinit_args.flags = CKF_OS_LOCKING_OK;
+
+	// SAB Add calls to ALL functions before the C_Initialize gets hit
+
+	funcs->C_Initialize( &cinit_args );
+
+	{
+		CK_SESSION_HANDLE  hsess = 0;
+
+		rc = funcs->C_GetFunctionStatus(hsess);
+		if (rc  != CKR_FUNCTION_NOT_PARALLEL)  
+			return rc;
+
+		rc = funcs->C_CancelFunction(hsess);
+		if (rc  != CKR_FUNCTION_NOT_PARALLEL)
+			return rc;
+
+	}
+
+	dh_functions();
+}
 
 int dh_functions()
 {
@@ -557,15 +597,21 @@ int dh_functions()
 
 	GetSystemTime(&t1);
 	rc = do_GenerateDHKeyPair();
-	if (!rc && !no_stop)
-		fprintf (stderr, "ERRRO do_GenerateDHKeyPair failed, rc = 0x%0x\n", rc);
+	if (!rc) {
+		fprintf (stderr, "ERROR do_GenerateDHKeyPair failed, rc = 0x%0x\n", rc);
+		if (!no_stop)
+			return rc;
+	}
 	GetSystemTime(&t2);
 	process_time( t1, t2 );
 
 	GetSystemTime(&t1);
 	rc = do_DeriveDHKey();
-	if (!rc && !no_stop)
-		fprintf (stderr, "ERRRO do_DeriveDHKey failed, rc = 0x%0x\n", rc);
+	if (!rc) {
+		fprintf (stderr, "ERROR do_DeriveDHKey failed, rc = 0x%0x\n", rc);
+		if (!no_stop)
+			return rc;
+	}
 	GetSystemTime(&t2);
 	process_time( t1, t2 );
 

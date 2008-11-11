@@ -18,8 +18,6 @@
 #define BAD_USER_PIN		"534566346"
 #define BAD_USER_PIN_LEN	strlen(BAD_USER_PIN)
 
-extern int no_stop;
-
 // Tests:
 //
 // 1. Open Session
@@ -40,6 +38,7 @@ extern int no_stop;
 // 16. Login as USER with incorrect PIN
 // 17. Check that USER PIN LOCKED set
 // 
+#if 0
 int do_Login( void )
 {
 	int i;
@@ -143,8 +142,8 @@ int do_Login( void )
 	}
 
 	// 5. Check that USER PIN COUNT LOW set
-	if(((ti.flags & CKF_USER_PIN_COUNT_LOW) == 0) && 
-			(ti.flags & CKF_USER_PIN_FINAL_TRY)   &&
+	if(((ti.flags & CKF_USER_PIN_COUNT_LOW) == 0) || 
+			(ti.flags & CKF_USER_PIN_FINAL_TRY)   ||
 			(ti.flags & CKF_USER_PIN_LOCKED)) {
 		printf("Test #5 failed. Token flags: %p.\n", (void *)ti.flags);
 		goto session_close;
@@ -163,8 +162,8 @@ int do_Login( void )
 	}
 
 	// 7. Check that USER PIN LAST TRY set
-	if((ti.flags & CKF_USER_PIN_COUNT_LOW) && 
-			((ti.flags & CKF_USER_PIN_FINAL_TRY) == 0) &&
+	if((ti.flags & CKF_USER_PIN_COUNT_LOW) ||
+			((ti.flags & CKF_USER_PIN_FINAL_TRY) == 0) ||
 			(ti.flags & CKF_USER_PIN_LOCKED)) {
 		printf("Test #7 failed. Token flags: %p.\n", (void *)ti.flags);
 		goto session_close;
@@ -183,8 +182,8 @@ int do_Login( void )
 	}
 
 	// 9. Check that flags are reset
-	if((ti.flags & CKF_USER_PIN_COUNT_LOW) && 
-			(ti.flags & CKF_USER_PIN_FINAL_TRY)  &&
+	if((ti.flags & CKF_USER_PIN_COUNT_LOW) ||
+			(ti.flags & CKF_USER_PIN_FINAL_TRY)  ||
 			(ti.flags & CKF_USER_PIN_LOCKED) ) {
 
 		printf("Test #9 failed. Token flags: %p.\n", (void *)ti.flags);
@@ -213,8 +212,8 @@ int do_Login( void )
 	}
 
 	// 13. Check that USER PIN COUNT LOW set
-	if(((ti.flags & CKF_USER_PIN_COUNT_LOW) == 0) &&
-			(ti.flags & CKF_USER_PIN_FINAL_TRY)   &&
+	if(((ti.flags & CKF_USER_PIN_COUNT_LOW) == 0) ||
+			(ti.flags & CKF_USER_PIN_FINAL_TRY) ||
 			(ti.flags & CKF_USER_PIN_LOCKED)) {
 		printf("Test #13 failed. Token flags: %p.\n", (void *)ti.flags);
 		goto session_close;
@@ -233,8 +232,8 @@ int do_Login( void )
 	}
 
 	// 15. Check that USER PIN LAST TRY set
-	if((ti.flags & CKF_USER_PIN_COUNT_LOW) &&
-			((ti.flags & CKF_USER_PIN_FINAL_TRY) == 0) &&
+	if((ti.flags & CKF_USER_PIN_COUNT_LOW) ||
+			((ti.flags & CKF_USER_PIN_FINAL_TRY) == 0) ||
 			(ti.flags & CKF_USER_PIN_LOCKED)) {
 		printf("Test #15 failed. Token flags: %p.\n", (void *)ti.flags);
 		goto session_close;
@@ -255,8 +254,8 @@ int do_Login( void )
 	}
 
 	// 17. Check that USER PIN LOCKED set
-	if((ti.flags & CKF_USER_PIN_COUNT_LOW) && 
-			(ti.flags & CKF_USER_PIN_FINAL_TRY)  &&
+	if((ti.flags & CKF_USER_PIN_COUNT_LOW) ||
+			(ti.flags & CKF_USER_PIN_FINAL_TRY)  ||
 			((ti.flags & CKF_USER_PIN_LOCKED) == 0)) {
 
 		printf("Test #17 failed. Token flags: %p.\n", (void *)ti.flags);
@@ -305,7 +304,7 @@ done:
 
 	return TRUE;
 }
-
+#endif
 
 int do_InitToken( void )
 {
@@ -1279,6 +1278,47 @@ int do_GenerateKey( void )
 	return TRUE;
 }
 
+int main(int argc, char **argv)
+{
+	CK_C_INITIALIZE_ARGS cinit_args;
+	int rc, i;
+
+	
+	rc = do_ParseArgs(argc, argv);
+	if ( rc != 1)
+		return rc;
+
+	printf("Using slot #%lu...\n\n", SLOT_ID );
+	printf("With option: no_init: %d\n", no_init);
+
+	rc = do_GetFunctionList();
+	if (!rc) {
+		fprintf(stderr, "ERROR do_GetFunctionList() Failed , rc = 0x%0x\n", rc); 
+		return rc;
+	}
+	
+	memset( &cinit_args, 0x0, sizeof(cinit_args) );
+	cinit_args.flags = CKF_OS_LOCKING_OK;
+
+	// SAB Add calls to ALL functions before the C_Initialize gets hit
+
+	funcs->C_Initialize( &cinit_args );
+
+	{
+		CK_SESSION_HANDLE  hsess = 0;
+
+		rc = funcs->C_GetFunctionStatus(hsess);
+		if (rc  != CKR_FUNCTION_NOT_PARALLEL)  
+			return rc;
+
+		rc = funcs->C_CancelFunction(hsess);
+		if (rc  != CKR_FUNCTION_NOT_PARALLEL)
+			return rc;
+
+	}
+
+	misc_functions();
+}
 
 int misc_functions()
 {
@@ -1338,14 +1378,14 @@ int misc_functions()
 		return FALSE;
 	GetSystemTime(&t2);
 	process_time( t1, t2 );
-
+#if 0
 	GetSystemTime(&t1);
 	rc = do_Login();
 	if ( !rc && !no_stop)
 		return FALSE;
 	GetSystemTime(&t2);
 	process_time( t1, t2 );
-
+#endif
 #if 0
 	GetSystemTime(&t1);
 	rc = do_InitToken();

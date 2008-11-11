@@ -14,7 +14,6 @@
 
 #include "md5.h"
 
-extern int no_stop;
 //
 //
 int do_Digest_SHA1( void )
@@ -3136,60 +3135,126 @@ int do_SignVerify_SHA1_HMAC_GENERAL( void )
 }
 
 
-int digest_functions()
+int main(int argc, char **argv)
 {
-	SYSTEMTIME t1, t2;
-	int        rc;
+	CK_C_INITIALIZE_ARGS cinit_args;
+	int rc, i;
+	CK_BBOOL no_init, no_stop;
+
+	SLOT_ID = 0;
+	no_init = FALSE;
+	no_stop = FALSE;
 
 
-	GetSystemTime(&t1);
+	rc = do_ParseArgs(argc, argv);
+	if ( rc != 1)
+		return rc;
+	
+	printf("Using slot #%lu...\n\n", SLOT_ID );
+	printf("With option: no_init: %d\n", no_init);
+
+	rc = do_GetFunctionList();
+	if (!rc) {
+		fprintf(stderr, "ERROR do_GetFunctionList() Failed , rc = 0x%0x\n", rc); 
+		return rc;
+	}
+
+	memset( &cinit_args, 0x0, sizeof(cinit_args) );
+	cinit_args.flags = CKF_OS_LOCKING_OK;
+
+	// SAB Add calls to ALL functions before the C_Initialize gets hit
+
+	funcs->C_Initialize( &cinit_args );
+
+	{
+		CK_SESSION_HANDLE  hsess = 0;
+
+		rc = funcs->C_GetFunctionStatus(hsess);
+		if (rc  != CKR_FUNCTION_NOT_PARALLEL)  
+			return rc;
+
+		rc = funcs->C_CancelFunction(hsess);
+		if (rc  != CKR_FUNCTION_NOT_PARALLEL)
+			return rc;
+
+	}
+
+	digest_funcs();
+}
+
+int digest_funcs()
+{
+	SYSTEMTIME t1, t2;	
+	int rc;
+
 	rc = do_Digest_SHA1();
-	if (!rc && !no_stop)
-		return FALSE;
+	if (!rc) {
+		fprintf (stderr, "ERROR do_Digest_SHA1 failed, rc = 0x%0x\n", rc);
+		if (!no_stop)
+			return rc;
+	}
 	GetSystemTime(&t2);
 	process_time( t1, t2 );
 
 #if MD2
 	GetSystemTime(&t1);
 	rc = do_Digest_MD2();
-	if (!rc && !no_stop)
-		return FALSE;
+	if (!rc) {
+		fprintf (stderr, "ERROR do_Digest_MD2 failed, rc = 0x%0x\n", rc);
+		if (!no_stop)
+			return rc;
+	}
 	GetSystemTime(&t2);
 	process_time( t1, t2 );
 #endif
 
 	GetSystemTime(&t1);
 	rc = do_Digest_MD5();
-	if (!rc && !no_stop)
-		return FALSE;
+	if (!rc) {
+		fprintf (stderr, "ERROR do_Digest_MD5 failed, rc = 0x%0x\n", rc);
+		if (!no_stop)
+			return rc;
+	}
 	GetSystemTime(&t2);
 	process_time( t1, t2 );
 
 	GetSystemTime(&t1);
 	rc = do_SignVerify_MD5_HMAC();
-	if (!rc && !no_stop)
-		return FALSE;
+	if (!rc) {
+		fprintf (stderr, "ERROR do_SignVerify_MD5 failed, rc = 0x%0x\n", rc);
+		if (!no_stop)
+			return rc;
+	}
 	GetSystemTime(&t2);
 	process_time( t1, t2 );
 
 	GetSystemTime(&t1);
 	rc = do_SignVerify_MD5_HMAC_GENERAL();
-	if (!rc && !no_stop)
-		return FALSE;
+	if (!rc) {
+		fprintf (stderr, "ERROR do_SignVerify_MD5_HMAC_GENERAL failed, rc = 0x%0x\n", rc);
+		if (!no_stop)
+			return rc;
+	}
 	GetSystemTime(&t2);
 	process_time( t1, t2 );
 
 	GetSystemTime(&t1);
 	rc = do_SignVerify_SHA1_HMAC();
-	if (!rc && !no_stop)
-		return FALSE;
+	if (!rc) {
+		fprintf (stderr, "ERROR do_SignVerify_SHA1_HMAC failed, rc = 0x%0x\n", rc);
+		if (!no_stop)
+			return rc;
+	}
 	GetSystemTime(&t2);
 	process_time( t1, t2 );
 
 	GetSystemTime(&t1);
 	rc = do_SignVerify_SHA1_HMAC_GENERAL();
-	if (!rc && !no_stop)
-		return FALSE;
+	if (!rc) {
+		fprintf (stderr, "ERROR do_SignVerify_SHA1_HMAC_GENERAL failed, rc = 0x%0x\n", rc);
+		if (!no_stop)
+			return rc;
+	}
 	GetSystemTime(&t2);
 	process_time( t1, t2 );
 
@@ -3199,15 +3264,15 @@ int digest_functions()
 	//   //
 	//   GetSystemTime(&t1);
 	//   rc = do_Digest_SHA1_speed();
-	//   if (!rc && !no_stop)
-	//      return FALSE;
+	//   if (!rc)
+	//      ;
 	//   GetSystemTime(&t2);
 	//   process_time( t1, t2 );
 	//
 	//   GetSystemTime(&t1);
 	//   rc = do_Digest_MD5_speed();
-	//   if (!rc && !no_stop)
-	//      return FALSE;
+	//   if (!rc)
+	//      ;
 	//   GetSystemTime(&t2);
 	//   process_time( t1, t2 );
 

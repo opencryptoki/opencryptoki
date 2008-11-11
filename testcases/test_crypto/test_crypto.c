@@ -10,7 +10,7 @@
 #include "regress.h"
 
 CK_RV init(void);
-void usage(void);
+//void usage(void);
 CK_RV verify_slot(unsigned long slot_num);
 CK_RV test_crypto(long slot_num);
 int test_ecb_des(CK_SESSION_HANDLE hSession);
@@ -38,15 +38,18 @@ int main(int argc, char *argv[]) {
    while ((c = getopt(argc, argv, "hc:")) != (-1)) {
       switch (c) {
          case 'h':
-            usage();
+            test_crypto_usage();
+	    return 0;
+	    break;
          case 'c':  /* a specific card (slot) is specified */
             slot_num = atol(optarg);
             break;
          default:   /* if something else was passed in it is an error */
-            usage();
+            test_crypto_usage();
+	    return 0;
       }
    }
-
+   
    /* load the PKCS11 library */
    rc = init();
    if (rc != CKR_OK) {
@@ -71,8 +74,7 @@ int main(int argc, char *argv[]) {
    exit (0);
 }
 
-
-void usage(void)
+void test_crypto_usage(void)
 {
    fprintf(stderr, "Usage:  test_crypto [-c <slotId>]\n"
       "Default slotID is 0\n"

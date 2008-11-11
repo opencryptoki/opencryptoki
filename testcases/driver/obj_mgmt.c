@@ -14,8 +14,6 @@
 
 #define AES_KEY_SIZE_128	16
 
-extern int no_stop;
-
 // 1) create a data object
 // 2) create a certificate
 // 3) create a key object
@@ -830,11 +828,10 @@ int do_CreateTokenObjects( void )
 {
 	CK_SLOT_ID        slot_id;
 	CK_FLAGS          flags;
+	CK_SESSION_HANDLE h_session;
 	CK_RV             rc;
 	CK_BYTE           user_pin[PKCS11_MAX_PIN_LEN];
 	CK_ULONG          user_pin_len;
-
-	CK_SESSION_HANDLE h_session;
 
 	CK_BYTE           true = TRUE;
 	CK_BYTE           false = FALSE;
@@ -1509,10 +1506,55 @@ done:
 	return TRUE;
 }
 
+int main(int argc, char **argv)
+{
+	CK_C_INITIALIZE_ARGS cinit_args;
+	int rc, i;
+
+
+	printf("Using slot #%lu...\n\n", SLOT_ID );
+	printf("With option: no_init: %d, noskip: %d\n", no_init, skip_token_obj);
+
+	rc = do_ParseArgs(argc, argv);
+	if ( rc != 1)
+		return rc;
+
+	rc = do_GetFunctionList();
+	if (!rc) {
+		fprintf(stderr, "ERROR do_GetFunctionList() Failed , rc = 0x%0x\n", rc); 
+		return rc;
+	}
+	
+	memset( &cinit_args, 0x0, sizeof(cinit_args) );
+	cinit_args.flags = CKF_OS_LOCKING_OK;
+
+	// SAB Add calls to ALL functions before the C_Initialize gets hit
+
+	funcs->C_Initialize( &cinit_args );
+
+	{
+		CK_SESSION_HANDLE  hsess = 0;
+
+		rc = funcs->C_GetFunctionStatus(hsess);
+		if (rc  != CKR_FUNCTION_NOT_PARALLEL)  
+			return rc;
+
+		rc = funcs->C_CancelFunction(hsess);
+		if (rc  != CKR_FUNCTION_NOT_PARALLEL)
+			return rc;
+
+	}
+
+	obj_mgmt_functions();
+}
+
 int obj_mgmt_functions()
 {
 	SYSTEMTIME  t1, t2;
 	int         rc;
+
+	
+	printf("Object Management tests...\n\n");
 
 
 	GetSystemTime(&t1);

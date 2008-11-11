@@ -191,6 +191,52 @@ void print_hex( CK_BYTE *buf, CK_ULONG len )
    printf("\n");
 }
 
+void usage (char *fct)
+{
+	printf("usage:  %s [-noskip] [-noinit] [-slot <num>] [-h]\n\n", fct );
+	printf("By default, Slot #1 (ie: Slot_Id 0) is used\n\n");
+	printf("By default we skip anything that creates or modifies\n");
+	printf("token objects to preserve flash lifetime.\n");
+
+	return;
+}
+	
+
+int do_ParseArgs(int argc, char **argv)
+{
+	int i;
+
+	skip_token_obj = TRUE;
+	no_stop = FALSE;
+	no_init = FALSE;
+	SLOT_ID = 0;
+
+
+	for (i = 1; i < argc; i++) {
+		if (strcmp (argv[i], "-h") == 0 || strcmp (argv[i], "--help") == 0) {
+			usage (argv [0]);
+			return 0;
+		}
+		else if (strcmp (argv[i], "-noskip") == 0)
+			skip_token_obj = FALSE;
+
+		else if (strcmp (argv[i], "-slot") == 0) {
+			SLOT_ID = atoi (argv[i+1]);
+			i++;
+		}
+		else if (strcmp (argv[i], "-noinit") == 0)
+			no_init = TRUE;
+		
+		else if (strcmp (argv[i], "-nostop") == 0)
+			no_stop = TRUE;
+		else {
+			printf ("Invalid argument passed as option: %s\n", argv [i]);
+			usage (argv [0]);
+			return -1;
+		}
+	}
+	return 1;
+}
 
 //
 //

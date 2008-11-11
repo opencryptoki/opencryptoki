@@ -62,15 +62,13 @@ do_InitPIN(CK_FUNCTION_LIST *funcs, CK_SLOT_ID slot_id, char *sologinpass, char 
 
 	return rc;
 }
-
 void
-usage(char *argv0)
+init_pin_usage(char *argv0)
 {
 	printf("usage:  %s [-slot <num>] [-h] -sopass pass -userpass pass\n\n", argv0 );
 	printf("By default, Slot %d is used, as user\n\n", SLOT_ID_DEFAULT);
 	exit(-1);
 }
-
 //
 //
 int
@@ -92,12 +90,12 @@ main( int argc, char **argv )
 			++i;
 			slot_id = atoi(argv[i]);
 		} else {
-			usage(argv[0]);
+			 init_pin_usage(argv[0]);
 		}
 	}
 
 	if (!sopass || !userpass)
-		usage(argv[0]);
+		init_pin_usage(argv[0]);
 
 	if (slot_id != SLOT_ID_DEFAULT)
 		printf("Using user specified slot %d.\n", slot_id);

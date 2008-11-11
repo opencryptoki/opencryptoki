@@ -17,13 +17,6 @@
 #include "pkcs11types.h"
 #include "regress.h"
 
-int skip_token_obj;
-int no_stop;
-
-int do_GetFunctionList(void);
-
-CK_FUNCTION_LIST  *funcs;
-CK_SLOT_ID  SLOT_ID;
 
 // these values are required when generating a PKCS DSA value.  they were
 // obtained by generating a DSA key pair on the 4758 with the default (random)
@@ -63,15 +56,6 @@ CK_BYTE DSA_PUBL_BASE[128] =
 };
 
 
-void usage (char *fct)
-{
-	printf("usage:  %s [-noskip] [-noinit] [-slot <num>] [-h]\n\n", fct );
-	printf("By default, Slot #1 (ie: Slot_Id 0) is used\n\n");
-	printf("By default we skip anything that creates or modifies\n");
-	printf("token objects to preserve flash lifetime.\n");
-
-	return;
-}
 
 //
 //
@@ -87,7 +71,7 @@ int main (int argc, char **argv)
 	no_stop = FALSE;
 
 	for (i = 1; i < argc; i++) {
-		if (strcmp (argv[i], "-h") == 0 && strcmp (argv[i], "--help") == 0) {
+		if (strcmp (argv[i], "-h") == 0 || strcmp (argv[i], "--help") == 0) {
 			usage (argv [0]);
 			return 0;
 		}
@@ -139,30 +123,49 @@ int main (int argc, char **argv)
 	}
 
 
-
-	fprintf (stderr, "\tMisc Functions tests...\n");
+#if 0
+	fprintf (stderr, "\tMisc functions tests...\n");
 	rc = misc_functions(); 
 	if ( !rc && !no_stop)
 		return rc;
 
-	fprintf (stderr, "\tSession Mgmt Functions tests...\n");
+	fprintf (stderr, "\tSession Mgmt functions tests...\n");
 	rc = sess_mgmt_functions();
 	if ( !rc && !no_stop)
 		return rc;
 
-	fprintf (stderr, "\tObject Mgmt Functions tests...\n");
+	fprintf (stderr, "\tObject Mgmt functions tests...\n");
 	rc = obj_mgmt_functions();
 	if ( !rc && !no_stop)
 		return rc;
 
+	fprintf (stderr, "\tDES functions tests...\n");
 	rc = des_functions();
-	if ( !rc && !no_stop)
+	if ( !rc && !no_stop) {
+		printf("Error executing DES functions\n");
 		return rc;
+	}
 
+	fprintf (stderr, "\tDES3 functions tests...\n");
+	rc = des3_functions();
+	if ( !rc && !no_stop) {
+		printf("Error executing DES3 functions\n");
+		return rc;
+	}
+
+	fprintf (stderr, "\tDSA functions tests...\n");
+	rc = dsa_functions();
+	if ( !rc && !no_stop) {
+		printf("Error executing DSA functions\n");
+		return rc;
+	}
+	
+	fprintf (stderr, "\tDES3 functions tests...\n");
 	rc = des3_functions();
 	if ( !rc && !no_stop)
 		return rc;
-
+	
+	fprintf (stderr, "\tAES functions tests...\n");
 	rc = aes_functions();
 	if ( !rc && !no_stop) {
 		printf("Error executing AES functions\n");
@@ -171,26 +174,41 @@ int main (int argc, char **argv)
 
 	fprintf (stderr, "\tRijndael tests...\n");
 	rc = rijndael_functions();
-	if ( !rc && !no_stop)
+	if ( !rc && !no_stop) {
+		printf("Error executing Rijndael functions\n");
 		return rc;
+	}
 	
+	fprintf (stderr, "\tDigest functions tests...\n");
 	rc = digest_functions();
-	if ( !rc && !no_stop)
+	if ( !rc && !no_stop) {
+		printf("Error executing Digest functions\n");
 		return rc;
+	}
 
+	fprintf (stderr, "\tRSA functions tests...\n");
 	rc = rsa_functions();
-	if ( !rc && !no_stop)
+	if ( !rc && !no_stop) {
+		printf("Error executing RSA functions\n");
 		return rc;
+	}
 
 	/* Begin code contributed by Corrent corp. */
+	fprintf (stderr, "\tDH functions tests...\n");
 	rc = dh_functions();
-	if ( !rc && !no_stop)
+	if ( !rc && !no_stop) {
+		printf("Error executing DH functions\n");
 		return rc;
+	}
 	/* End code contributed by Corrent corp. */
 
+	fprintf (stderr, "\tSSL3 functions tests...\n");
 	rc = ssl3_functions();
-	if ( !rc && !no_stop)
+	if ( !rc && !no_stop) { 
+		printf("Error executing SSL3 functions\n");
 		return rc;
+	}
+#endif
 	printf("------------------ Completed pass --------------------\n");
 
 	funcs->C_Finalize( NULL );

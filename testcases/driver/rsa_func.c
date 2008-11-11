@@ -116,7 +116,7 @@ int do_EncryptRSA_PKCS( void )
 {
 	CK_BYTE             data1[100];
 	CK_BYTE             data2[256];
-	CK_BYTE             cipher[256];
+	CK_BYTE             cipher[512];
 	CK_SLOT_ID          slot_id;
 	CK_SESSION_HANDLE   session;
 	CK_MECHANISM        mech;
@@ -128,7 +128,6 @@ int do_EncryptRSA_PKCS( void )
 	CK_ULONG            len1, len2, cipherlen;
 	CK_RV               rc;
 
-	;
 	CK_BYTE   pub_exp[] = { 0x3 };
 
 	CK_ATTRIBUTE pub_tmpl[] =
@@ -250,7 +249,7 @@ int do_EncryptRSA_PKCS_Speed( void )
 {
 	CK_BYTE             data1[100];
 	CK_BYTE             data2[256];
-	CK_BYTE             cipher[256];
+	CK_BYTE             cipher[512];
 	CK_SLOT_ID          slot_id;
 	CK_SESSION_HANDLE   session;
 	CK_MECHANISM        mech;
@@ -263,7 +262,6 @@ int do_EncryptRSA_PKCS_Speed( void )
 	CK_RV               rc;
 	SYSTEMTIME          t1, t2;
 
-	;
 	CK_BYTE   pub_exp[] = { 0x3 };
 
 	CK_ATTRIBUTE pub_tmpl[] =
@@ -322,7 +320,7 @@ int do_EncryptRSA_PKCS_Speed( void )
 	printf("Doing 300 encryptions...\n");
 	GetSystemTime(&t1);
 
-#define NUM  300
+#define NUM  30
 	for (i=0; i < NUM; i++) {
 		cipherlen = sizeof(cipher);
 
@@ -400,8 +398,8 @@ error:
 int do_SignRSA_PKCS( void )
 {
 	CK_BYTE             data1[100];
-	CK_BYTE             data2[256];
-	CK_BYTE             signature[256];
+	CK_BYTE             data2[512];
+	CK_BYTE             signature[512];
 	CK_SLOT_ID          slot_id;
 	CK_SESSION_HANDLE   session;
 	CK_MECHANISM        mech;
@@ -413,7 +411,6 @@ int do_SignRSA_PKCS( void )
 	CK_ULONG            len1, len2, sig_len;
 	CK_RV               rc;
 
-	;
 	CK_BYTE   pub_exp[] = { 0x3 };
 
 	CK_ATTRIBUTE pub_tmpl[] =
@@ -504,6 +501,7 @@ int do_SignRSA_PKCS( void )
 		show_error("   C_VerifyInit #2", rc );
 		return FALSE;
 	}
+
 	rc = funcs->C_Verify( session, data1, len1, signature, sig_len );
 	if (rc != CKR_SIGNATURE_INVALID) {
 		show_error("   C_Verify #2", rc );
@@ -550,9 +548,6 @@ int do_SignRSA_PKCS( void )
 		printf("   ERROR;  data mismatch\n");
 		goto error;
 	}
-
-
-
 
 	rc = funcs->C_CloseAllSessions( slot_id );
 	if (rc != CKR_OK) {
@@ -603,7 +598,6 @@ int do_WrapUnwrapRSA_PKCS( void )
 		{ CKA_KEY_TYPE,  &key_type,   sizeof(key_type)  }
 	};
 
-	;
 	CK_BYTE   pub_exp[] = { 0x3 };
 	CK_ATTRIBUTE pub_tmpl[] =
 	{
@@ -800,9 +794,9 @@ int do_WrapUnwrapRSA_PKCS( void )
 	return TRUE;
 
 error:
-	rc = funcs->C_CloseAllSessions ( slot_id );
+	rc = funcs->C_CloseSession (session);
 	if (rc != CKR_OK)
-		show_error ("   C_CloseAllSessions #1", rc);
+		show_error ("   C_CloseSession #2", rc);
 
 	return FALSE;
 }
@@ -813,8 +807,8 @@ error:
 int do_EncryptRSA_X509( void )
 {
 	CK_BYTE             data1[100];
-	CK_BYTE             data2[256];
-	CK_BYTE             cipher[256];
+	CK_BYTE             data2[512];
+	CK_BYTE             cipher[512];
 	CK_SLOT_ID          slot_id;
 	CK_SESSION_HANDLE   session;
 	CK_MECHANISM        mech;
@@ -826,7 +820,6 @@ int do_EncryptRSA_X509( void )
 	CK_ULONG            len1, len2, cipherlen, pad_len;
 	CK_RV               rc;
 
-	;
 	CK_BYTE   pub_exp[] = { 0x3 };
 
 	CK_ATTRIBUTE pub_tmpl[] =
@@ -942,8 +935,8 @@ error:
 int do_SignRSA_X509( void )
 {
 	CK_BYTE             data1[100];
-	CK_BYTE             data2[256];
-	CK_BYTE             signature[256];
+	CK_BYTE             data2[512];
+	CK_BYTE             signature[512];
 	CK_SLOT_ID          slot_id;
 	CK_SESSION_HANDLE   session;
 	CK_MECHANISM        mech;
@@ -955,7 +948,6 @@ int do_SignRSA_X509( void )
 	CK_ULONG            len1, len2, sig_len;
 	CK_RV               rc;
 
-	;
 	CK_BYTE   pub_exp[] = { 0x3 };
 
 	CK_ATTRIBUTE pub_tmpl[] =
@@ -964,7 +956,7 @@ int do_SignRSA_X509( void )
 		{CKA_PUBLIC_EXPONENT, &pub_exp, sizeof(pub_exp) }
 	};
 
-	printf("do_SignRSA_PKCS...\n");
+	printf("do_SignRSA_PKCS_X509...\n");
 
 	slot_id = SLOT_ID;
 	flags = CKF_SERIAL_SESSION | CKF_RW_SESSION;
@@ -1144,7 +1136,6 @@ int do_WrapUnwrapRSA_X509( void )
 		{ CKA_KEY_TYPE,  &key_type,   sizeof(key_type)  }
 	};
 
-	;
 	CK_BYTE   pub_exp[] = { 0x3 };
 	CK_ATTRIBUTE pub_tmpl[] =
 	{
@@ -1345,16 +1336,16 @@ error:
 	if (rc != CKR_OK)
 		show_error("   C_CloseAllSessions #1", rc );
 	return FALSE;
-
 }
+
 
 //
 //
 int do_SignVerifyMD2_RSA_PKCS( void )
 {
 	CK_BYTE             original[2048];
-	CK_BYTE             sig1[256];
-	CK_BYTE             sig2[256];
+	CK_BYTE             sig1[512];
+	CK_BYTE             sig2[512];
 	CK_BYTE             user_pin[PKCS11_MAX_PIN_LEN];
 	CK_SLOT_ID          slot_id;
 	CK_SESSION_HANDLE   session;
@@ -1366,7 +1357,6 @@ int do_SignVerifyMD2_RSA_PKCS( void )
 	CK_ULONG            i, remain;
 	CK_RV               rc;
 
-	;
 	CK_BYTE   pub_exp[] = { 0x3 };
 
 	CK_ATTRIBUTE pub_tmpl[] =
@@ -1565,8 +1555,8 @@ error:
 int do_SignVerifyMD5_RSA_PKCS( void )
 {
 	CK_BYTE             original[2048];
-	CK_BYTE             sig1[256];
-	CK_BYTE             sig2[256];
+	CK_BYTE             sig1[512];
+	CK_BYTE             sig2[512];
 	CK_BYTE             user_pin[PKCS11_MAX_PIN_LEN];
 	CK_SLOT_ID          slot_id;
 	CK_SESSION_HANDLE   session;
@@ -1578,7 +1568,6 @@ int do_SignVerifyMD5_RSA_PKCS( void )
 	CK_ULONG            i, remain;
 	CK_RV               rc;
 
-	;
 	CK_BYTE   pub_exp[] = { 0x3 };
 
 	CK_ATTRIBUTE pub_tmpl[] =
@@ -1763,6 +1752,7 @@ int do_SignVerifyMD5_RSA_PKCS( void )
 
 	printf("Looks okay...\n");
 	return TRUE;
+
 error:
 	rc = funcs->C_CloseAllSessions( slot_id );
 	if (rc != CKR_OK) 
@@ -1770,13 +1760,14 @@ error:
 
 	return FALSE;
 }
+
 //
 //
 int do_SignVerifySHA1_RSA_PKCS( void )
 {
 	CK_BYTE             original[2048];
-	CK_BYTE             sig1[256];
-	CK_BYTE             sig2[256];
+	CK_BYTE             sig1[512];
+	CK_BYTE             sig2[512];
 	CK_BYTE             user_pin[PKCS11_MAX_PIN_LEN];
 	CK_SLOT_ID          slot_id;
 	CK_SESSION_HANDLE   session;
@@ -1788,7 +1779,6 @@ int do_SignVerifySHA1_RSA_PKCS( void )
 	CK_ULONG            i, remain;
 	CK_RV               rc;
 
-	;
 	CK_BYTE   pub_exp[] = { 0x3 };
 
 	CK_ATTRIBUTE pub_tmpl[] =
@@ -1982,13 +1972,54 @@ error:
 	return FALSE;
 }
 
+int main(int argc, char **argv)
+{
+	CK_C_INITIALIZE_ARGS cinit_args;
+	int rc, i;
+
+	rc = do_ParseArgs(argc, argv);
+	if ( rc != 1)
+		return rc;
+
+	printf("Using slot #%lu...\n\n", SLOT_ID );
+	printf("With option: no_init: %d\n", no_init);
+
+	rc = do_GetFunctionList();
+	if (!rc) {
+		fprintf(stderr, "ERROR do_GetFunctionList() Failed , rc = 0x%0x\n", rc); 
+		return rc;
+	}
+	
+	memset( &cinit_args, 0x0, sizeof(cinit_args) );
+	cinit_args.flags = CKF_OS_LOCKING_OK;
+
+	// SAB Add calls to ALL functions before the C_Initialize gets hit
+
+	funcs->C_Initialize( &cinit_args );
+
+	{
+		CK_SESSION_HANDLE  hsess = 0;
+
+		rc = funcs->C_GetFunctionStatus(hsess);
+		if (rc  != CKR_FUNCTION_NOT_PARALLEL)  
+			return rc;
+
+		rc = funcs->C_CancelFunction(hsess);
+		if (rc  != CKR_FUNCTION_NOT_PARALLEL)
+			return rc;
+
+	}
+
+	rsa_functions();
+}
+
 
 int rsa_functions()
 {
 	SYSTEMTIME t1, t2;
 	int        rc;
 
-	bits=1024;
+	bits=2048; //Max = 4096
 	//In test phase
 	//for (bits = 1024; bits <= 2048; bits*=2)
 	{
@@ -2009,6 +2040,12 @@ int rsa_functions()
 		GetSystemTime(&t2);
 		process_time( t1, t2 );
 
+		GetSystemTime(&t1);
+//		rc = do_EncryptRSA_PKCS_Speed();
+		if (!rc)
+			fprintf (stderr, "ERROR do_EncryptRSA_PKCS_Speed failed, rc = 0x%0x\n", rc);
+		GetSystemTime(&t2);
+		process_time( t1, t2 );
 
 		GetSystemTime(&t1);
 		rc = do_SignRSA_PKCS();
@@ -2044,6 +2081,7 @@ int rsa_functions()
 			fprintf (stderr, "ERROR do_WrapUnwrapRSA_X509 failed, rc = 0x%0x\n", rc);
 		GetSystemTime(&t2);
 		process_time( t1, t2 );
+
 #if MD2
 		GetSystemTime(&t1);
 		rc = do_SignVerifyMD2_RSA_PKCS();
@@ -2052,6 +2090,29 @@ int rsa_functions()
 		GetSystemTime(&t2);
 		process_time( t1, t2 );
 #endif
+#endif
+
+		GetSystemTime(&t1);
+		rc = do_SignVerifyMD5_RSA_PKCS();
+		if (!rc)
+			fprintf (stderr, "ERROR do_SignVerifyMD5_RSA_PKCS failed, rc = 0x%0x\n", rc);
+		GetSystemTime(&t2);
+		process_time( t1, t2 );
+
+		GetSystemTime(&t1);
+		rc = do_SignVerifySHA1_RSA_PKCS();
+		if (!rc)
+			fprintf (stderr, "ERROR do_SignVerifySHA1_RSA_PKCS failed, rc = 0x%0x\n", rc);
+		GetSystemTime(&t2);
+		process_time( t1, t2 );
+
+		//   GetSystemTime(&t1);
+		//   rc = do_EncryptRSA_PKCS_Speed();
+		//   if (!rc)
+		//      return FALSE;
+		//   GetSystemTime(&t2);
+		//   process_time( t1, t2 );
+
 		GetSystemTime(&t1);
 		rc = do_SignVerifyMD5_RSA_PKCS();
 		if (!rc)
@@ -2067,15 +2128,13 @@ int rsa_functions()
 		process_time( t1, t2 );
 
 		GetSystemTime(&t1);
-		rc = do_EncryptRSA_PKCS_Speed();
+		//rc = do_EncryptRSA_PKCS_Speed();
 		if (!rc)
 			fprintf (stderr, "ERROR do_EncryptRSA_PKCS_Speed failed, rc = 0x%0x\n", rc);
 		GetSystemTime(&t2);
 		process_time( t1, t2 );
-#endif	
 	}
-	
+
 	return TRUE;
-	
 }
 

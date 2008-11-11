@@ -37,7 +37,7 @@
 #	None.
 ##
 
-
+LOGGING=0
 LOGFILE="$PWD/ock-tests.log"
 ERR_SUMMARY="$PWD/ock-tests.err"
 TCSD="/usr/sbin/tcsd"
@@ -47,11 +47,11 @@ TESTCONF="$PWD/ock-tests.config"
 OCKDIR="/var/lib/opencryptoki"
 STDLLDIR="/usr/lib/pkcs11/stdll"
 CONFSTART="/usr/sbin/pkcs11_startup"
-TEST="./driver/driver"
 
 usage()
 {
 	cat <<-END >&2
+
 	usage: ./ock_tests.sh [-s <slot>] [-l <logfile>] [-n] [-h]
 		-l	  logfile to redirect output to (default is command line)
 		-h	  display this help
@@ -71,6 +71,7 @@ do
 			;;
 		l)
 			LOGGING=1
+			LOGFILE="$OPTARG"
 			touch $LOGFILE
 			;;
 		c)
@@ -165,7 +166,7 @@ check_environment_vars()
 	then
 		echo "Error: PKCSLIB pointing to a wrong .so file"
 		exit -1
-	elif [ "basename `ls $i`" != "libopencryptoki.so" ] && [ "basename `ls $i`" != "PKCS11_API.so" ]
+	elif [ "basename `ls $i`"!="libopencryptoki.so" ] && [ "basename `ls $i`"!="PKCS11_API.so" ]
 	then
 		echo "Error: File pointed by PKCSLIB doesn't exist"
 		exit -1
@@ -179,12 +180,18 @@ run_tests()
 	do
 		if [ -z "$SLOT" ] || [ "$SLOT" = "$i" ]
 		then
-			if [ $LOGGING -eq 1 ]
-			then
-				$TEST -slot $i $NO_STOP 2>&1 >> $LOGFILE
-			else
-				$TEST -slot $i $NO_STOP  2>&1 >/dev/tty 
-			fi
+			for j in $( ls driver/*tests )
+				do
+				
+				if [ "$LOGGING"="1" ]
+				then
+					$j -slot $i $NO_STOP #2>&1 >> $LOGFILE
+
+				else
+					$j -slot $i $NO_STOP 2>&1 >/dev/tty 
+
+				fi
+			done
 		fi
 	done
 }

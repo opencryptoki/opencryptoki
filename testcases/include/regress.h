@@ -32,6 +32,8 @@ int  do_GetInfo(void);
 void show_error( char *str, CK_RV rc );
 void print_hex( CK_BYTE *buf, CK_ULONG len );
 
+int do_GetFunctionList(void);
+
 void init_coprocessor(void);
 
 CK_RV C_GetFunctionList( CK_FUNCTION_LIST ** ) ;
@@ -51,9 +53,11 @@ int dsa_functions(void);
 int dh_functions(void);
 /* End code contributed by Corrent corp. */
 
-extern CK_FUNCTION_LIST  *funcs;
-extern CK_SLOT_ID  SLOT_ID;
+CK_FUNCTION_LIST  *funcs;
+CK_SLOT_ID  SLOT_ID;
 
+void usage(char *fct);
+int do_ParseArgs(int argc, char **argv);
 
 // these values are required when generating a PKCS DSA value.  they were
 // obtained by generating a DSA key pair on the 4758 with the default (random)
@@ -63,7 +67,9 @@ extern CK_BYTE DSA_PUBL_PRIME[128];
 extern CK_BYTE DSA_PUBL_SUBPRIME[20];
 extern CK_BYTE DSA_PUBL_BASE[128];
 
-extern int skip_token_obj;
+CK_BBOOL skip_token_obj;
+CK_BBOOL no_stop;
+CK_BBOOL no_init;
 
 int get_so_pin(CK_BYTE_PTR);
 int get_user_pin(CK_BYTE_PTR);

@@ -70,14 +70,12 @@ do_digestInit(CK_FUNCTION_LIST *funcs, CK_SLOT_ID slot_id, CK_USER_TYPE userType
 	return rc;
 }
 
-void
-usage(char *argv0)
+void digest_init_usage(char *argv0)
 {
 	printf("usage:  %s [-slot <num>] [-h] [-user|-so] -pass pass\n\n", argv0 );
 	printf("By default, Slot %d is used, as user\n\n", SLOT_ID_DEFAULT);
 	exit(-1);
 }
-
 //
 //
 int
@@ -101,12 +99,12 @@ main( int argc, char **argv )
 		} else if (strcmp(argv[i], "-user") == 0) {
 			continue;
 		} else {
-			usage(argv[0]);
+			digest_init_usage(argv[0]);
 		}
 	}
 
 	if (!pass)
-		usage(argv[0]);
+		digest_init_usage(argv[0]);
 
 	if (slot_id != SLOT_ID_DEFAULT)
 		printf("Using user specified slot %d.\n", slot_id);
