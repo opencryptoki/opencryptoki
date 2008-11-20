@@ -164,11 +164,8 @@ check_environment_vars()
 		echo " It should point to libopencryptoki.so or PKCS11_API.so"
 	elif [ -z "`echo $i | grep libopencryptoki.so`" ] && [ -z "`echo $i | grep PKCS11_API.so`" ]
 	then
-		echo "Error: PKCSLIB pointing to a wrong .so file"
-		exit -1
-	elif [ "basename `ls $i`"!="libopencryptoki.so" ] && [ "basename `ls $i`"!="PKCS11_API.so" ]
-	then
-		echo "Error: File pointed by PKCSLIB doesn't exist"
+		echo "Error: PKCSLIB pointing to an unknown .so file"
+		env | grep PKCSLIB
 		exit -1
 	fi
 
