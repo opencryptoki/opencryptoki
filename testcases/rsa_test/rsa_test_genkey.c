@@ -18,7 +18,6 @@
 #include "pkcs11types.h"
 #include "regress.h"
 
-int skip_token_obj;
 int do_GetFunctionList(void);
 
 CK_FUNCTION_LIST  *funcs;

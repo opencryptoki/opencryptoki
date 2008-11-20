@@ -34,7 +34,6 @@
 
 
 int do_GetFunctionList(void);
-int skip_token_obj;
 
 CK_FUNCTION_LIST  *funcs;
 CK_SLOT_ID  SLOT_ID;

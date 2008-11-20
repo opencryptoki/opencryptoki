@@ -27,7 +27,6 @@ long process_time(SYSTEMTIME , SYSTEMTIME );
 long rsa_thread_process_time(SYSTEMTIME t1, SYSTEMTIME t2);
 #endif
 
-int skip_token_obj;
 int debug=0;
 
 int LOOPCOUNT = 10000;
