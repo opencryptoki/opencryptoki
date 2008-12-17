@@ -594,20 +594,20 @@ main(int argc, char *argv[]){
 		      printf(PKCSINIT_MSG(USERPIN, "Enter user PIN: "));
 		      fflush(stdout);
 		      rc = get_pin(&pin);
-	      } while (rc != -EINVAL);
+	      } while (rc == -EINVAL);
       }
       if (~flags & CFG_NEW_PIN) {
 	      do {
 		      printf(PKCSINIT_MSG(NEWUSER, "Enter the new user PIN: "));
 		      fflush(stdout);
 		      rc = get_pin(&newpin);
-	      } while (rc != -EINVAL);
+	      } while (rc == -EINVAL);
 	      newpinlen = strlen(newpin);
 	      do {
 		      printf(PKCSINIT_MSG(VNEWUSER, "Re-enter the new user PIN: "));
 		      fflush(stdout);
 		      rc = get_pin(&newpin2);
-	      } while (rc != -EINVAL);
+	      } while (rc == -EINVAL);
 	 newpin2len = strlen(newpin2);
          if (newpinlen != newpin2len || memcmp(newpin, newpin2, strlen((char *)newpin)) != 0) {
             printf(PKCSINIT_MSG(PINMISMATCH, "New PINs do not match.\n"));
