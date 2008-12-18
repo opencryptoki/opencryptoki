@@ -665,8 +665,8 @@ int get_pin(CK_CHAR **pin)
 	for (count = 0; (c != LINE_FEED) && (count < PIN_SIZE); count++) {
 		buff[count] = getc(stdin);
 		c = buff[count];
-		if (c == BACK_SPACE) {
-			printf("\nBackspace character not allowed. "
+		if (c == BACK_SPACE || c == DELETE) {
+			printf("\nBackspace and delete character not allowed. "
 			       "Please retry entering your PIN.\n");
 			rc = -EINVAL;
 			echo(TRUE);
