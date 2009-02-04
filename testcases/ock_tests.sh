@@ -63,7 +63,7 @@ usage()
 }
 
 
-while getopts s:lhc:n arg
+while getopts s:l:hc:n arg
 do
 	case $arg in
 		h)
@@ -182,7 +182,7 @@ run_tests()
 				
 				if [ "$LOGGING"="1" ]
 				then
-					$j -slot $i $NO_STOP #2>&1 >> $LOGFILE
+					$j -slot $i $NO_STOP 2>&1 >> $LOGFILE
 
 				else
 					$j -slot $i $NO_STOP 2>&1 >/dev/tty 
