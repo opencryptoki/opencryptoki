@@ -392,7 +392,7 @@ load_token_data()
       goto out_unlock;
    }
 
-   memcpy( nv_token_data, &td, sizeof(TOKEN_DATA) );
+   memcpy(nv_token_data, &td, sizeof(TOKEN_DATA) );
 
    rc = CKR_OK;
 
@@ -413,7 +413,7 @@ save_token_data()
    TOKEN_DATA  td;
    CK_RV       rc;
    CK_BYTE     fname[PATH_MAX];
-
+   fpos_t      fpos;
 
    sprintf((char *)fname,"%s/%s",pk_dir, PK_LITE_NV);
 
@@ -423,17 +423,19 @@ save_token_data()
       goto out_nolock;
    }
 
-   fp = fopen((char *)fname, "w");
-
+   fp = fopen((char *)fname, "r+");
    if (!fp){
-      st_err_log(4, __FILE__, __LINE__, __FUNCTION__);
-      rc = CKR_FUNCTION_FAILED;
-      goto done;
+      fp = fopen((char *)fname, "w");
+      if (!fp) {
+         st_err_log(4, __FILE__, __LINE__, __FUNCTION__);
+         rc = CKR_FUNCTION_FAILED;
+         goto done;
+      }
    }
    set_perm(fileno(fp));
 
    memcpy( &td, nv_token_data, sizeof(TOKEN_DATA) );
-
+   
    (void)fwrite( &td, sizeof(TOKEN_DATA), 1, fp );
    fclose(fp);
 

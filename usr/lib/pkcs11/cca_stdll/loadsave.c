@@ -146,12 +146,14 @@ save_token_data()
       goto out_nolock;
    }
 
-   fp = fopen((char *)fname, "w");
-
+   fp = fopen((char *)fname, "r+");
    if (!fp){
-      st_err_log(4, __FILE__, __LINE__, __FUNCTION__);
-      rc = CKR_FUNCTION_FAILED;
-      goto done;
+      fp = fopen((char *)fname, "w");
+      if (!fp) {
+         st_err_log(4, __FILE__, __LINE__, __FUNCTION__);
+         rc = CKR_FUNCTION_FAILED;
+         goto done;
+      }
    }
    set_perm(fileno(fp));
 
