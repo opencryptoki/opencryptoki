@@ -784,11 +784,15 @@ token_specific_sha_update(	DIGEST_CONTEXT	*ctx,
 				 * empty part of save data, so adjust in_data_len
 				 */
 				in_data_len -= fill_size;
-			
+				
+				/* Save the _last_ oc_sha_ctx->tail_len bytes from in_data
+				 * Rajiv - 2009 */
 				oc_sha_ctx->tail_len = in_data_len & 0x3f;
 				if(oc_sha_ctx->tail_len) {
-					memcpy(oc_sha_ctx->tail, in_data + fill_size, 
-							oc_sha_ctx->tail_len);
+					memcpy(oc_sha_ctx->tail, 
+					       in_data + fill_size + 
+					       in_data_len - oc_sha_ctx->tail_len,
+					       oc_sha_ctx->tail_len);
 					in_data_len &= ~0x3f;	
 				}
 			} else {
