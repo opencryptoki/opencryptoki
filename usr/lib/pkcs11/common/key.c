@@ -5201,14 +5201,17 @@ aes_unwrap( TEMPLATE *tmpl,
    CK_BBOOL	   found        = FALSE;
 
    
-   /* If the user didn't specify the size of the AES key being
-    * unwrapped, we return. - KEY */
+   /*
+    * CKA_VALUE_LEN attribute is optional in the key template. Default
+    * is to use AES_BLOCK_SIZE and truncate if no value is specified. --KlausK
+    */
    found = template_attribute_find( tmpl, CKA_VALUE_LEN, &val_len_attr );
-   if (!found){
-      st_err_log(48, __FILE__, __LINE__);
-      return CKR_TEMPLATE_INCOMPLETE;
+   if (found){
+      key_size = *(CK_ULONG *)val_len_attr->pValue;
    }
-   key_size = *(CK_ULONG *)val_len_attr->pValue;
+   else {
+      key_size = AES_BLOCK_SIZE;		/* same as AES_KEY_SIZE_128 */
+   }
       
    /* key_size should be one of AES's possible sizes */
    if (key_size != AES_KEY_SIZE_128 &&
