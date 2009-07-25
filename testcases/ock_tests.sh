@@ -71,7 +71,10 @@ do
 			;;
 		l)
 			LOGGING=1
-			LOGFILE="$OPTARG"
+			if [ -n $OPTARG ]
+			then
+				LOGFILE="$OPTARG"
+			fi
 			touch $LOGFILE
 			;;
 		c)
@@ -121,7 +124,7 @@ check_files()
 	#[ -e $TESTCONF ] || touch $TESTCONF #echo "Config file missing"
 	
 	#Is the TCSD present?
-	if [ `grep -c -i tpm $PKCONF` > 0 ] && [ ! -e $TCSD ] 
+	if grep -i tpm $PKCONF && [ ! -e $TCSD ] 
 	then
 		echo "Error: TCSD not present"
 		exit -1
@@ -179,23 +182,27 @@ run_tests()
 		then
 			for j in $( ls driver/*tests )
 				do
-				
-				if [ "$LOGGING"="1" ]
-				then
-					$j -slot $i $NO_STOP 2>&1 >> $LOGFILE
-
-				else
-					$j -slot $i $NO_STOP 2>&1 >/dev/tty 
-
-				fi
+				echo "=====Now executing '$j'======"
+				$j -slot $i $NO_STOP 2>&1
 			done
 		fi
 	done
 }
 
-check_slots
-check_files
-check_environment_vars
-run_tests
+main_script()
+{
+	check_slots
+	check_files
+	check_environment_vars
+	run_tests 
+}
+
+if [ "$LOGGING" = "1" ]
+then
+	main_script >>$LOGFILE 2>&1
+else
+	main_script
+fi
+
 exit 0
 
