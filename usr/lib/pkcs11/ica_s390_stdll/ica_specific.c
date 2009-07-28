@@ -338,7 +338,7 @@ token_rng(CK_BYTE *output, CK_ULONG bytes)
 
       pthread_mutex_lock(&rngmtx);
 
-      rc = icaRandomNumberGenerate(adapter_handle, (unsigned int)bytes, output);
+      rc = ica_random_number_generate( (unsigned int) bytes, output);
 
       if (rc != 0) {
          pthread_mutex_unlock(&rngmtx);
@@ -361,13 +361,13 @@ CK_RV
 token_specific_init(char * Correlator,CK_SLOT_ID  SlotNumber)
 {
 
-   return icaOpenAdapter(0,&adapter_handle);
+   return ica_open_adapter(&adapter_handle);
 }
 
 CK_RV
 token_specific_final()
 {
-   icaCloseAdapter(adapter_handle);
+   ica_close_adapter(adapter_handle);
    return CKR_OK;
 }
 
@@ -435,26 +435,25 @@ token_specific_des_ecb(CK_BYTE * in_data,
                        CK_BYTE  *key_value,
                        CK_BYTE  encrypt)
 {
-   ICA_DES_VECTOR  empty_iv;
    CK_RV rc;
-   unsigned int temp = 0;
-   temp = (unsigned int) *out_data_len; 
 
-   memset(&empty_iv, 0, sizeof(empty_iv));
+   /*
+    * checks for input and output data length and block sizes
+    * are already being carried out in mech_des.c
+    * so we skip those
+    */
+
    if ( encrypt) {
-      rc = icaDesEncrypt(adapter_handle, MODE_DES_ECB, (unsigned int)in_data_len, in_data,
-                &empty_iv, (ICA_KEY_DES_SINGLE *)key_value, 
-                &temp, out_data);
-
+      rc = ica_des_encrypt(MODE_DES_ECB, (unsigned int) in_data_len, in_data,
+                           NULL, (ica_des_key_single_t *) key_value, out_data);
    } else {
-      rc = icaDesDecrypt(adapter_handle, MODE_DES_ECB, (unsigned int)in_data_len, in_data,
-                   &empty_iv, (ICA_KEY_DES_SINGLE *)key_value, 
-                   &temp, out_data);
-
+      rc = ica_des_decrypt(MODE_DES_ECB, (unsigned int) in_data_len, in_data,
+                           NULL, (ica_des_key_single_t *) key_value, out_data);
    }
-   *out_data_len = (CK_ULONG)temp;
+
    if (rc != 0) {
       rc = CKR_FUNCTION_FAILED;
+      st_err_log(4, __FILE__, __LINE__, __FUNCTION__);
    }else {
       *out_data_len = in_data_len;
       rc = CKR_OK;
@@ -476,24 +475,24 @@ token_specific_des_cbc(CK_BYTE * in_data,
 {
 
    CK_RV rc;
-   unsigned int temp = 0;
-   temp = (unsigned int) *out_data_len;  
+
+   /*
+    * checks for input and output data length and block sizes
+    * are already being carried out in mech_des.c
+    * so we skip those
+    */
 
    if ( encrypt ){
-   rc = icaDesEncrypt(adapter_handle, MODE_DES_CBC, (unsigned int)in_data_len, in_data,
-                            (ICA_DES_VECTOR *)init_v, 
-                            (ICA_KEY_DES_SINGLE *)key_value, 
-                            &temp, 
-                            (unsigned char *)out_data);
+      rc = ica_des_encrypt(MODE_DES_CBC, (unsigned int) in_data_len, in_data,
+                           (ica_des_vector_t *) init_v, (ica_des_key_single_t *) key_value,
+                           out_data);
    } else {
-   rc = icaDesDecrypt(adapter_handle, MODE_DES_CBC, (unsigned int)in_data_len, in_data,
-                            (ICA_DES_VECTOR *)init_v, 
-                            (ICA_KEY_DES_SINGLE *)key_value, 
-                            &temp, 
-                            (unsigned char *)out_data);
+      rc = ica_des_decrypt(MODE_DES_CBC, (unsigned int) in_data_len, in_data,
+                           (ica_des_vector_t *) init_v, (ica_des_key_single_t *) key_value,
+                           out_data);
    }
-   *out_data_len = (CK_ULONG) temp;
    if (rc != 0) {
+         st_err_log(4, __FILE__, __LINE__, __FUNCTION__);
          rc = CKR_FUNCTION_FAILED;
    }else {
          *out_data_len = in_data_len;
@@ -511,27 +510,24 @@ token_specific_tdes_ecb(CK_BYTE * in_data,
                        CK_BYTE  *key_value,
                        CK_BYTE  encrypt)
 {
-   ICA_DES_VECTOR  empty_iv;
    CK_RV rc;
-   unsigned int temp;
-   temp = (unsigned int) *out_data_len; 
 
-   memset(&empty_iv, 0, sizeof(empty_iv));
+   /*
+    * checks for input and output data length and block sizes
+    * are already being carried out in mech_des3.c
+    * so we skip those
+    */
+
    if ( encrypt) {
-      rc = icaTDesEncrypt(adapter_handle, MODE_DES_ECB, (unsigned int)in_data_len, in_data,
-                &empty_iv, 
-                (ICA_KEY_DES_TRIPLE *)key_value, 
-                &temp, out_data);
-
+      rc = ica_3des_encrypt(MODE_DES_ECB, (unsigned int) in_data_len, in_data,
+                            NULL, (ica_des_key_triple_t *) key_value, out_data);
    } else {
-      rc = icaTDesDecrypt(adapter_handle, MODE_DES_ECB, (unsigned int)in_data_len, in_data,
-                   &empty_iv, 
-                   (ICA_KEY_DES_TRIPLE *)key_value, 
-                   &temp, out_data);
-
+      rc = ica_3des_decrypt(MODE_DES_ECB, (unsigned int) in_data_len, in_data,
+                            NULL, (ica_des_key_triple_t *) key_value, out_data);
    }
-   *out_data_len = (CK_ULONG) temp;
+
    if (rc != 0) {
+      st_err_log(4, __FILE__, __LINE__, __FUNCTION__);
       rc = CKR_FUNCTION_FAILED;
    }else {
       *out_data_len = in_data_len;
@@ -554,24 +550,24 @@ token_specific_tdes_cbc(CK_BYTE * in_data,
 {
 
    CK_RV rc;
-   unsigned int temp = 0;
-   temp = (unsigned int) *out_data_len;
+
+   /*
+    * checks for input and output data length and block sizes
+    * are already being carried out in mech_des3.c
+    * so we skip those
+    */
 
    if ( encrypt ){
-   rc = icaTDesEncrypt(adapter_handle, MODE_DES_CBC, (unsigned int)in_data_len, in_data,
-                            (ICA_DES_VECTOR *)init_v, 
-                            (ICA_KEY_DES_TRIPLE *)key_value, 
-                            &temp, 
-                            (unsigned char *)out_data);
+   rc = ica_3des_encrypt(MODE_DES_CBC, (unsigned int) in_data_len, in_data,
+                         (ica_des_vector_t  *) init_v, (ica_des_key_triple_t *) key_value,
+                         out_data);
    } else {
-   rc = icaTDesDecrypt(adapter_handle, MODE_DES_CBC, (unsigned int)in_data_len, in_data,
-                            (ICA_DES_VECTOR *)init_v, 
-                            (ICA_KEY_DES_TRIPLE *)key_value, 
-                            &temp, 
-                            (unsigned char *)out_data);
+   rc = ica_3des_decrypt(MODE_DES_CBC, (unsigned int) in_data_len, in_data,
+                         (ica_des_vector_t *) init_v, (ica_des_key_triple_t *) key_value,
+                         out_data);
    }
-   *out_data_len = (CK_ULONG) temp;
    if (rc != 0) {
+         st_err_log(4, __FILE__, __LINE__, __FUNCTION__);
          rc = CKR_FUNCTION_FAILED;
    }else {
          *out_data_len = in_data_len;
@@ -580,10 +576,6 @@ token_specific_tdes_cbc(CK_BYTE * in_data,
 
    return rc;
 }
-
-#warning libica version 1.3.9pre uses SHA512 types for its SHA384 operations
-#define LENGTH_SHA384_CONTEXT LENGTH_SHA512_CONTEXT
-#define SHA384_CONTEXT SHA512_CONTEXT
 
 /**
  * Init SHA data structures
@@ -606,6 +598,7 @@ CK_RV token_specific_sha_generic_init(DIGEST_CONTEXT *ctx,
 	ctx->context_len = sizeof(struct oc_sha_ctx);
 	ctx->context = malloc(sizeof(struct oc_sha_ctx));
 	if(ctx->context == NULL) {
+                st_err_log(1, __FILE__, __LINE__);
 		return CKR_HOST_MEMORY;
 	}
 	memset(ctx->context, 0, ctx->context_len);
@@ -613,19 +606,19 @@ CK_RV token_specific_sha_generic_init(DIGEST_CONTEXT *ctx,
 	switch (sha_type) {
 	case CKM_SHA_1:
 		sc->hash_len = SHA1_HASH_SIZE;
-		dev_ctx_size = LENGTH_SHA_CONTEXT; /* From ica_api.h */
+                dev_ctx_size = sizeof(sha_context_t);
 		break;
 	case CKM_SHA256:
 		sc->hash_len = SHA2_HASH_SIZE;
-		dev_ctx_size = LENGTH_SHA256_CONTEXT;
+                dev_ctx_size = sizeof(sha256_context_t);
 		break;
 	case CKM_SHA384:
 		sc->hash_len = SHA3_HASH_SIZE;
-		dev_ctx_size = LENGTH_SHA384_CONTEXT;
+                dev_ctx_size = sizeof(sha512_context_t);
 		break;
 	case CKM_SHA512:
 		sc->hash_len = SHA5_HASH_SIZE;
-		dev_ctx_size = LENGTH_SHA512_CONTEXT;
+                dev_ctx_size = sizeof(sha512_context_t);
 		break;
 	default:
 		free(ctx->context);
@@ -634,6 +627,7 @@ CK_RV token_specific_sha_generic_init(DIGEST_CONTEXT *ctx,
 	sc->dev_ctx = malloc(dev_ctx_size);
 	if(sc->dev_ctx == NULL){
 		free(ctx->context);
+                st_err_log(1, __FILE__, __LINE__);
 		return CKR_HOST_MEMORY;
 	}
 	memset(sc->dev_ctx, 0, dev_ctx_size);
@@ -669,8 +663,10 @@ token_specific_sha_update(	DIGEST_CONTEXT	*ctx,
 {
 	unsigned int fill_size = 0;
 	struct oc_sha_ctx *oc_sha_ctx = (struct oc_sha_ctx *)ctx->context;
-	SHA_CONTEXT *ica_sha_ctx = (SHA_CONTEXT *)oc_sha_ctx->dev_ctx;
-	
+        sha_context_t *ica_sha_ctx = (sha_context_t *) oc_sha_ctx->dev_ctx;
+
+        oc_sha_ctx->hash_len = SHA_HASH_LENGTH;
+
 	if( !ctx )
 		return CKR_OPERATION_NOT_INITIALIZED;
 	
@@ -680,12 +676,10 @@ token_specific_sha_update(	DIGEST_CONTEXT	*ctx,
 	if( ctx->multi == TRUE ){
 		if (oc_sha_ctx->tail_len == 64) {
                         /* Submit the filled out save buffer */
-                        if(icaSha1(adapter_handle,
-				   (ica_sha_ctx->runningLength == 0 ?
-				    SHA_MSG_PART_FIRST : SHA_MSG_PART_MIDDLE),
-				   64, oc_sha_ctx->tail,
-				   LENGTH_SHA_CONTEXT, ica_sha_ctx,
-				   &oc_sha_ctx->hash_len, oc_sha_ctx->hash))
+                        if (ica_sha1( (ica_sha_ctx->runningLength == 0 ?
+                                     SHA_MSG_PART_FIRST : SHA_MSG_PART_MIDDLE),
+                                     64, oc_sha_ctx->tail, ica_sha_ctx,
+                                     oc_sha_ctx->hash))
                                 return CKR_FUNCTION_FAILED;
                         oc_sha_ctx->tail_len = 0;
                 }
@@ -720,10 +714,10 @@ token_specific_sha_update(	DIGEST_CONTEXT	*ctx,
 				oc_sha_ctx->tail_len > 0 ) {
 
 			/* Here we need to fill out the temporary tail buffer until
-			 * it has 64 bytes in it, then call icaSha1 on that buffer.
+                         * it has 64 bytes in it, then call ica_sha1 on that buffer.
 			 * If there weren't enough bytes passed in to fill it out,
 			 * just copy in what we can and return success without calling
-			 * icaSha1. - KEY
+                         * ica_sha1. - KEY
 			 */
 
 			fill_size = 64 - oc_sha_ctx->tail_len;
@@ -731,10 +725,8 @@ token_specific_sha_update(	DIGEST_CONTEXT	*ctx,
 				memcpy(oc_sha_ctx->tail + oc_sha_ctx->tail_len, in_data, fill_size);
 			
 				/* Submit the filled out save buffer */
-				if( icaSha1(    adapter_handle, SHA_MSG_PART_FIRST,
-						64, oc_sha_ctx->tail,
-						LENGTH_SHA_CONTEXT, ica_sha_ctx,
-						&oc_sha_ctx->hash_len, oc_sha_ctx->hash))
+                                if (ica_sha1(SHA_MSG_PART_FIRST, 64, oc_sha_ctx->tail,
+                                             ica_sha_ctx, oc_sha_ctx->hash))
 					return CKR_FUNCTION_FAILED;
 			} else {
 				memcpy(oc_sha_ctx->tail + oc_sha_ctx->tail_len,
@@ -767,14 +759,13 @@ token_specific_sha_update(	DIGEST_CONTEXT	*ctx,
 							in_data, fill_size);
 
                         	        /* Submit the filled out save buffer */
-                                	if( icaSha1(    adapter_handle, oc_sha_ctx->message_part,
-                                        	        64, oc_sha_ctx->tail,
-                                                	LENGTH_SHA_CONTEXT, ica_sha_ctx,
-	                                                &oc_sha_ctx->hash_len, oc_sha_ctx->hash))
+                                        if (ica_sha1(oc_sha_ctx->message_part, 64,
+                                                     oc_sha_ctx->tail, ica_sha_ctx,
+                                                     oc_sha_ctx->hash))
         	                                return CKR_FUNCTION_FAILED;
                 	        } else {
                         	        memcpy(oc_sha_ctx->tail + oc_sha_ctx->tail_len,
-                                	        in_data, in_data_len);
+                                               in_data, in_data_len);
 	                                oc_sha_ctx->tail_len += in_data_len;
 	
         	                        return CKR_OK;
@@ -830,10 +821,9 @@ token_specific_sha_update(	DIGEST_CONTEXT	*ctx,
 	}
 	
 	if( in_data_len || oc_sha_ctx->message_part == SHA_MSG_PART_FINAL ) {
-		if( icaSha1(	adapter_handle, oc_sha_ctx->message_part,
-				in_data_len, in_data + fill_size,
-				LENGTH_SHA_CONTEXT, ica_sha_ctx,
-				&oc_sha_ctx->hash_len, oc_sha_ctx->hash))
+                if (ica_sha1(oc_sha_ctx->message_part, in_data_len,
+                             in_data + fill_size,ica_sha_ctx,
+                             oc_sha_ctx->hash))
 			return CKR_FUNCTION_FAILED;
 	}
 	
@@ -846,7 +836,10 @@ CK_RV token_specific_sha2_update(DIGEST_CONTEXT *ctx, CK_BYTE *in_data,
 	unsigned int fill_size = 0;
 	CK_RV rv = CKR_OK;
 	struct oc_sha_ctx *oc_sha_ctx = (struct oc_sha_ctx *)ctx->context;
-	SHA256_CONTEXT *ica_sha2_ctx=(SHA256_CONTEXT *)oc_sha_ctx->dev_ctx;
+        sha256_context_t *ica_sha2_ctx = (sha256_context_t *) oc_sha_ctx->dev_ctx;
+
+        oc_sha_ctx->hash_len = SHA256_HASH_LENGTH;
+
 	if (!ctx) {
 		rv = CKR_OPERATION_NOT_INITIALIZED;
 		goto out;
@@ -857,17 +850,11 @@ CK_RV token_specific_sha2_update(DIGEST_CONTEXT *ctx, CK_BYTE *in_data,
 	}
 	if (ctx->multi == TRUE) {
 		if (oc_sha_ctx->tail_len == 64) {
-			int rc;
 			/* Submit the filled out save buffer */
-                        if ((rc = icaSha256(adapter_handle, 
-					    (ica_sha2_ctx->runningLength == 0
-					     ? SHA_MSG_PART_FIRST 
-					     : SHA_MSG_PART_MIDDLE),
-					    64, oc_sha_ctx->tail,
-					    LENGTH_SHA256_CONTEXT,
-					    ica_sha2_ctx,
-					    &oc_sha_ctx->hash_len,
-					    oc_sha_ctx->hash))) {
+                        if ((ica_sha256( (ica_sha2_ctx->runningLength == 0 ?
+                                        SHA_MSG_PART_FIRST : SHA_MSG_PART_MIDDLE),
+                                        64, oc_sha_ctx->tail, ica_sha2_ctx,
+                                        oc_sha_ctx->hash))) {
 				rv = CKR_FUNCTION_FAILED;
 				goto out;
 			}
@@ -905,10 +892,10 @@ CK_RV token_specific_sha2_update(DIGEST_CONTEXT *ctx, CK_BYTE *in_data,
 			   oc_sha_ctx->tail_len > 0) {
 			/* Here we need to fill out the temporary tail
 			 * buffer until it has 64 bytes in it, then
-			 * call icaSha256 on that buffer.  If there
+                         * call ica_sha256 on that buffer.  If there
 			 * weren't enough bytes passed in to fill it
 			 * out, just copy in what we can and return
-			 * success without calling icaSha1. - KEY */
+                         * success without calling ica_sha256. - KEY */
 			fill_size = 64 - oc_sha_ctx->tail_len;
 			if (fill_size < in_data_len) {
 				int rc;
@@ -916,15 +903,9 @@ CK_RV token_specific_sha2_update(DIGEST_CONTEXT *ctx, CK_BYTE *in_data,
 					+ oc_sha_ctx->tail_len),
 				       in_data, fill_size);
 				/* Submit the filled out save buffer */
-				if ((rc = icaSha256(adapter_handle,
-						    (unsigned int)SHA_MSG_PART_FIRST,
-						    (unsigned int)64,
-						    oc_sha_ctx->tail,
-						    (unsigned int)
-						    LENGTH_SHA256_CONTEXT, 
-						    ica_sha2_ctx, 
-						    &oc_sha_ctx->hash_len,
-						    oc_sha_ctx->hash))) {
+                                if ((rc = ica_sha256(SHA_MSG_PART_FIRST, 64,
+                                                     oc_sha_ctx->tail,ica_sha2_ctx,
+                                                     oc_sha_ctx->hash))) {
 					rv = CKR_FUNCTION_FAILED;
 					goto out;
 				}
@@ -957,17 +938,10 @@ CK_RV token_specific_sha2_update(DIGEST_CONTEXT *ctx, CK_BYTE *in_data,
 					       in_data, fill_size);
                         	        /* Submit the filled out save
 					 * buffer */
-					rc = icaSha256(
-						adapter_handle,
-						(unsigned int)
-						oc_sha_ctx->message_part,
-						(unsigned int)64,
-						oc_sha_ctx->tail,
-						(unsigned int)
-						LENGTH_SHA256_CONTEXT,
-						ica_sha2_ctx,
-						&oc_sha_ctx->hash_len,
-						oc_sha_ctx->hash);
+                                        rc = ica_sha256(oc_sha_ctx->message_part,
+                                                        64, oc_sha_ctx->tail,
+                                                        ica_sha2_ctx,
+                                                        oc_sha_ctx->hash);
                                 	if (rc) {
 						rv = CKR_FUNCTION_FAILED;
 						goto out;
@@ -1036,14 +1010,9 @@ CK_RV token_specific_sha2_update(DIGEST_CONTEXT *ctx, CK_BYTE *in_data,
 	if (in_data_len 
 	    || (oc_sha_ctx->message_part == SHA_MSG_PART_FINAL)) {
 		int rc;
-		if ((rc = icaSha256(adapter_handle,
-				    (unsigned int)oc_sha_ctx->message_part,
-				    (unsigned int)in_data_len,
-				    (in_data + fill_size),
-				    (unsigned int)LENGTH_SHA256_CONTEXT,
-				    ica_sha2_ctx,
-				    &oc_sha_ctx->hash_len,
-				    oc_sha_ctx->hash))) {
+                if ((rc = ica_sha256(oc_sha_ctx->message_part,
+                                     in_data_len, (in_data + fill_size),
+                                     ica_sha2_ctx, oc_sha_ctx->hash))) {
 			rv = CKR_FUNCTION_FAILED;
 			goto out;
 		}
@@ -1058,7 +1027,9 @@ CK_RV token_specific_sha3_update(DIGEST_CONTEXT *ctx, CK_BYTE *in_data,
 	unsigned int fill_size = 0;
 	CK_RV rv = CKR_OK;
 	struct oc_sha_ctx *oc_sha_ctx = (struct oc_sha_ctx *)ctx->context;
-	SHA384_CONTEXT *ica_sha3_ctx=(SHA384_CONTEXT *)oc_sha_ctx->dev_ctx;
+        sha512_context_t *ica_sha3_ctx = (sha512_context_t *) oc_sha_ctx->dev_ctx;
+
+        oc_sha_ctx->hash_len = SHA384_HASH_LENGTH;
 
 	if (!ctx) {
 		rv = CKR_OPERATION_NOT_INITIALIZED;
@@ -1073,16 +1044,10 @@ CK_RV token_specific_sha3_update(DIGEST_CONTEXT *ctx, CK_BYTE *in_data,
 			int rc;
 
 			/* Submit the filled out save buffer */
-                        if ((rc = icaSha384(adapter_handle, 
-					    ((ica_sha3_ctx->runningLengthLow
-					      == 0
-					      && ica_sha3_ctx->runningLengthHigh
-					      == 0) ? SHA_MSG_PART_FIRST 
-					     : SHA_MSG_PART_MIDDLE),
-					    SHA3_BLOCK_SIZE, oc_sha_ctx->tail,
-					    LENGTH_SHA384_CONTEXT, ica_sha3_ctx,
-					    &oc_sha_ctx->hash_len,
-					    oc_sha_ctx->hash))) {
+                        if ((rc = ica_sha384(((ica_sha3_ctx->runningLengthLow == 0 && ica_sha3_ctx->runningLengthHigh == 0) ?
+                                             SHA_MSG_PART_FIRST : SHA_MSG_PART_MIDDLE),
+                                             SHA3_BLOCK_SIZE, oc_sha_ctx->tail,
+                                             ica_sha3_ctx, oc_sha_ctx->hash))) {
 				rv = CKR_FUNCTION_FAILED;
 				goto out;
 			}
@@ -1125,11 +1090,11 @@ CK_RV token_specific_sha3_update(DIGEST_CONTEXT *ctx, CK_BYTE *in_data,
 			   && oc_sha_ctx->tail_len > 0) {
 			/* Here we need to fill out the temporary tail
 			 * buffer until it has SHA3_BLOCK_SIZE bytes
-			 * in it, then call icaSha384 on that buffer.
+                         * in it, then call ica_sha384 on that buffer.
 			 * If there weren't enough bytes passed in to
 			 * fill it out, just copy in what we can and
 			 * return success without calling
-			 * icaSha384. */
+                         * ica_sha384. */
 			fill_size = (SHA3_BLOCK_SIZE - oc_sha_ctx->tail_len);
 			if (fill_size < in_data_len) {
 				int rc;
@@ -1137,17 +1102,9 @@ CK_RV token_specific_sha3_update(DIGEST_CONTEXT *ctx, CK_BYTE *in_data,
 					+ oc_sha_ctx->tail_len),
 				       in_data, fill_size);
 				/* Submit the filled out save buffer */
-				if ((rc = icaSha384(adapter_handle,
-						    (unsigned int)
-						    SHA_MSG_PART_FIRST,
-						    (unsigned int)
-						    SHA3_BLOCK_SIZE,
-						    oc_sha_ctx->tail,
-						    (unsigned int)
-						    LENGTH_SHA384_CONTEXT, 
-						    ica_sha3_ctx, 
-						    &oc_sha_ctx->hash_len,
-						    oc_sha_ctx->hash))) {
+                                if ((rc = ica_sha384(SHA_MSG_PART_FIRST, SHA3_BLOCK_SIZE,
+                                                     oc_sha_ctx->tail,
+                                                     ica_sha3_ctx, oc_sha_ctx->hash))) {
 					rv = CKR_FUNCTION_FAILED;
 					goto out;
 				}
@@ -1184,17 +1141,9 @@ CK_RV token_specific_sha3_update(DIGEST_CONTEXT *ctx, CK_BYTE *in_data,
 					       in_data, fill_size);
                         	        /* Submit the filled out save
 					 * buffer */
-					rc = icaSha384(
-						adapter_handle,
-						(unsigned int)
-						oc_sha_ctx->message_part,
-						(unsigned int)SHA3_BLOCK_SIZE,
-						oc_sha_ctx->tail,
-						(unsigned int)
-						LENGTH_SHA384_CONTEXT,
-						ica_sha3_ctx,
-						&oc_sha_ctx->hash_len,
-						oc_sha_ctx->hash);
+                                        rc = ica_sha384(oc_sha_ctx->message_part,
+                                                        SHA3_BLOCK_SIZE, oc_sha_ctx->tail,
+                                                        ica_sha3_ctx, oc_sha_ctx->hash);
                                 	if (rc) {
 						rv = CKR_FUNCTION_FAILED;
 						goto out;
@@ -1270,14 +1219,9 @@ CK_RV token_specific_sha3_update(DIGEST_CONTEXT *ctx, CK_BYTE *in_data,
 	    || (oc_sha_ctx->message_part == SHA_MSG_PART_FINAL)) {
 		int rc;
 
-		if ((rc = icaSha384(adapter_handle,
-				    (unsigned int)oc_sha_ctx->message_part,
-				    (unsigned int)in_data_len,
-				    (in_data + fill_size),
-				    (unsigned int)LENGTH_SHA384_CONTEXT,
-				    ica_sha3_ctx,
-				    &oc_sha_ctx->hash_len,
-				    oc_sha_ctx->hash))) {
+                if ((rc = ica_sha384(oc_sha_ctx->message_part, in_data_len,
+                                     (in_data + fill_size),
+                                     ica_sha3_ctx, oc_sha_ctx->hash))) {
 			rv = CKR_FUNCTION_FAILED;
 			goto out;
 		}
@@ -1294,6 +1238,8 @@ CK_RV token_specific_sha5_update(DIGEST_CONTEXT *ctx, CK_BYTE *in_data,
 	struct oc_sha_ctx *oc_sha_ctx = (struct oc_sha_ctx *)ctx->context;
 	SHA512_CONTEXT *ica_sha5_ctx=(SHA512_CONTEXT *)oc_sha_ctx->dev_ctx;
 
+        oc_sha_ctx->hash_len = SHA512_HASH_LENGTH;
+
 	if (!ctx) {
 		rv = CKR_OPERATION_NOT_INITIALIZED;
 		goto out;
@@ -1306,16 +1252,11 @@ CK_RV token_specific_sha5_update(DIGEST_CONTEXT *ctx, CK_BYTE *in_data,
 		if (oc_sha_ctx->tail_len == SHA5_BLOCK_SIZE) {
 			int rc;
 			/* Submit the filled out save buffer */
-                        if ((rc = icaSha512(adapter_handle, 
-					    ((ica_sha5_ctx->runningLengthLow
-					      == 0 
-					      && ica_sha5_ctx->runningLengthHigh
-					      == 0) ? SHA_MSG_PART_FIRST 
-					     : SHA_MSG_PART_MIDDLE),
-					    SHA5_BLOCK_SIZE, oc_sha_ctx->tail,
-					    LENGTH_SHA512_CONTEXT, ica_sha5_ctx,
-					    &oc_sha_ctx->hash_len,
-					    oc_sha_ctx->hash))) {
+                        if ((rc = ica_sha512(((ica_sha5_ctx->runningLengthLow == 0
+                                             && ica_sha5_ctx->runningLengthHigh == 0) ?
+                                             SHA_MSG_PART_FIRST : SHA_MSG_PART_MIDDLE),
+                                             SHA5_BLOCK_SIZE, oc_sha_ctx->tail,
+                                             ica_sha5_ctx, oc_sha_ctx->hash))) {
 				rv = CKR_FUNCTION_FAILED;
 				goto out;
 			}
@@ -1358,11 +1299,11 @@ CK_RV token_specific_sha5_update(DIGEST_CONTEXT *ctx, CK_BYTE *in_data,
 			   && oc_sha_ctx->tail_len > 0) {
 			/* Here we need to fill out the temporary tail
 			 * buffer until it has SHA5_BLOCK_SIZE bytes
-			 * in it, then call icaSha512 on that buffer.
+                         * in it, then call ica_sha512 on that buffer.
 			 * If there weren't enough bytes passed in to
 			 * fill it out, just copy in what we can and
 			 * return success without calling
-			 * icaSha512. */
+                         * ica_sha512. */
 			fill_size = (SHA5_BLOCK_SIZE - oc_sha_ctx->tail_len);
 			if (fill_size < in_data_len) {
 				int rc;
@@ -1370,17 +1311,9 @@ CK_RV token_specific_sha5_update(DIGEST_CONTEXT *ctx, CK_BYTE *in_data,
 					+ oc_sha_ctx->tail_len),
 				       in_data, fill_size);
 				/* Submit the filled out save buffer */
-				if ((rc = icaSha512(adapter_handle,
-						    (unsigned int)
-						    SHA_MSG_PART_FIRST,
-						    (unsigned int)
-						    SHA5_BLOCK_SIZE,
-						    oc_sha_ctx->tail,
-						    (unsigned int)
-						    LENGTH_SHA512_CONTEXT, 
-						    ica_sha5_ctx, 
-						    &oc_sha_ctx->hash_len,
-						    oc_sha_ctx->hash))) {
+                                if ((rc = ica_sha512(SHA_MSG_PART_FIRST, SHA5_BLOCK_SIZE,
+                                                     oc_sha_ctx->tail, ica_sha5_ctx,
+                                                     oc_sha_ctx->hash))) {
 					rv = CKR_FUNCTION_FAILED;
 					goto out;
 				}
@@ -1417,17 +1350,9 @@ CK_RV token_specific_sha5_update(DIGEST_CONTEXT *ctx, CK_BYTE *in_data,
 					       in_data, fill_size);
                         	        /* Submit the filled out save
 					 * buffer */
-					rc = icaSha512(
-						adapter_handle,
-						(unsigned int)
-						oc_sha_ctx->message_part,
-						(unsigned int)SHA5_BLOCK_SIZE,
-						oc_sha_ctx->tail,
-						(unsigned int)
-						LENGTH_SHA512_CONTEXT,
-						ica_sha5_ctx,
-						&oc_sha_ctx->hash_len,
-						oc_sha_ctx->hash);
+                                        rc = ica_sha512(oc_sha_ctx->message_part, SHA5_BLOCK_SIZE,
+                                                        oc_sha_ctx->tail, ica_sha5_ctx,
+                                                        oc_sha_ctx->hash);
                                 	if (rc) {
 						rv = CKR_FUNCTION_FAILED;
 						goto out;
@@ -1503,14 +1428,8 @@ CK_RV token_specific_sha5_update(DIGEST_CONTEXT *ctx, CK_BYTE *in_data,
 	    || (oc_sha_ctx->message_part == SHA_MSG_PART_FINAL)) {
 		int rc;
 
-		if ((rc = icaSha512(adapter_handle,
-				    (unsigned int)oc_sha_ctx->message_part,
-				    (unsigned int)in_data_len,
-				    (in_data + fill_size),
-				    (unsigned int)LENGTH_SHA512_CONTEXT,
-				    ica_sha5_ctx,
-				    &oc_sha_ctx->hash_len,
-				    oc_sha_ctx->hash))) {
+                if ((rc = ica_sha512(oc_sha_ctx->message_part, in_data_len,
+                                     (in_data + fill_size), ica_sha5_ctx, oc_sha_ctx->hash))) {
 			rv = CKR_FUNCTION_FAILED;
 			goto out;
 		}
@@ -1553,16 +1472,16 @@ token_specific_sha_generic_final(DIGEST_CONTEXT	*ctx, CK_BYTE *out_data,
 		return CKR_OPERATION_NOT_INITIALIZED;
 	switch (sha_type) {
 	case CKM_SHA_1:
-		hash_len = LENGTH_SHA_HASH;
+                hash_len = SHA_HASH_LENGTH;
 		break;
 	case CKM_SHA256:
-		hash_len = LENGTH_SHA256_HASH;
+                hash_len = SHA256_HASH_LENGTH;
 		break;
 	case CKM_SHA384:
-		hash_len = LENGTH_SHA384_HASH;
+                hash_len = SHA384_HASH_LENGTH;
 		break;
 	case CKM_SHA512:
-		hash_len = LENGTH_SHA512_HASH;
+                hash_len = SHA512_HASH_LENGTH;
 		break;
 	default:
 		return CKR_MECHANISM_INVALID;
@@ -1619,162 +1538,178 @@ CK_RV token_specific_sha5_final(DIGEST_CONTEXT *ctx, CK_BYTE *out_data,
 #ifndef LITE
 #define LITE
 #endif
-// convert from the local PKCS11 template representation to
-// the underlying requirement
-// returns the pointer to the local key representation
-void *
-rsa_convert_public_key( OBJECT    * key_obj )
+
+/* Creates a libICA modulus+exponent key representation using
+ * PKCS#11 attributes
+ */
+ica_rsa_key_mod_expo_t *
+rsa_convert_mod_expo_key( CK_ATTRIBUTE * modulus,
+                          CK_ATTRIBUTE * mod_bits,
+                          CK_ATTRIBUTE * exponent)
 {
-   CK_BBOOL           rc;
-   CK_ATTRIBUTE      * modulus = NULL;
-   CK_ATTRIBUTE      * pub_exp = NULL;
-   ICA_KEY_RSA_MODEXPO *publKey;
-   unsigned char       *pkey;
-   unsigned int        offset;
+   CK_BYTE                * ptr     = NULL;
+   ica_rsa_key_mod_expo_t * modexpokey = NULL;
 
-
-   // So we need to generate the publKey in device specific format every time
-   // we know the modulus is good, and that the pub_exp is good since
-
-   rc  = template_attribute_find( key_obj->template, CKA_MODULUS,         &modulus );
-   rc &= template_attribute_find( key_obj->template, CKA_PUBLIC_EXPONENT, &pub_exp );
-
-   if (rc == FALSE) {
+   /* We need at least the modulus and a (public|private) exponent */
+   if (!modulus || !exponent) {
+      st_err_log(4, __FILE__, __LINE__, __FUNCTION__);
       return NULL;
    }
 
-   publKey = (ICA_KEY_RSA_MODEXPO *) malloc(sizeof(ICA_KEY_RSA_MODEXPO));
-   if (publKey == NULL) {
-      return NULL;
+   modexpokey = (ica_rsa_key_mod_expo_t *) calloc(1, sizeof(ica_rsa_key_mod_expo_t));
+   if (modexpokey == NULL) {
+      st_err_log(1, __FILE__, __LINE__);
+      goto err;
    }
-   memset(publKey, 0, sizeof(ICA_KEY_RSA_MODEXPO));
 
-   // Currently using definition of ICA_KEY_RSA_MODEXPO in NT spec v1.12
+   /* We can't rely solely on CKA_MODULUS_BITS here since Private Keys
+    * using the modulus + private exponent representation may also go
+    * through this path. Use modulus length in bytes as key_length if
+    * no mod_bits is present */
+   if (mod_bits != NULL) {
+      modexpokey->key_length = ((* (CK_ULONG *) mod_bits->pValue) + 7 ) / 8;
+   }
+   else {
+      modexpokey->key_length = modulus->ulValueLen;
+   }
 
-   publKey->keyType = KEYTYPE_MODEXPO;
-   publKey->keyLength = sizeof(ICA_KEY_RSA_MODEXPO);
-   publKey->modulusBitLength = 8 * modulus->ulValueLen;
-   publKey->nLength = modulus->ulValueLen;
-   publKey->expLength = modulus->ulValueLen;
-   offset = (CK_BYTE_PTR) publKey->keyRecord - (CK_BYTE_PTR) publKey;
-   publKey->expOffset = offset;
-   publKey->nOffset = offset + modulus->ulValueLen;
+   /* maybe I'm over-cautious here */
+   if ( (modulus->ulValueLen > modexpokey->key_length) ||
+        (exponent->ulValueLen > modexpokey->key_length)) {
+      st_err_log(4, __FILE__, __LINE__, __FUNCTION__);
+      goto err;
+   }
 
-   pkey = (CK_BYTE_PTR) publKey->keyRecord;
-   pkey += modulus->ulValueLen - pub_exp->ulValueLen;
-   memcpy(pkey, pub_exp->pValue, pub_exp->ulValueLen);
-   pkey += pub_exp->ulValueLen;
-   memcpy(pkey, modulus->pValue, modulus->ulValueLen);
-   return publKey;
+   modexpokey->modulus = (unsigned char *) calloc(1, modexpokey->key_length);
+
+   if (modexpokey->modulus == NULL) {
+      st_err_log(1, __FILE__, __LINE__);
+      goto err;
+   }
+
+   /* right-justified fields */
+   ptr = modexpokey->modulus + modexpokey->key_length - modulus->ulValueLen;
+   memcpy(ptr, modulus->pValue, modexpokey->key_length);
+
+   modexpokey->exponent = (unsigned char *) calloc(1, modexpokey->key_length);
+   if (modexpokey->exponent == NULL) {
+      st_err_log(1, __FILE__, __LINE__);
+      goto err;
+   }
+
+   ptr = modexpokey->exponent + modexpokey->key_length - exponent->ulValueLen;
+   memcpy(ptr, exponent->pValue, exponent->ulValueLen);
+   return modexpokey;
+
+ err:
+   free(modexpokey->modulus);
+   free(modexpokey->exponent);
+   free(modexpokey);
+   return NULL;
 
 }
 
-void *
-rsa_convert_private_key(OBJECT *key_obj)
+/* Creates a libICA CRT key representation using
+ * PKCS#11 attributes
+ */
+ica_rsa_key_crt_t *
+rsa_convert_crt_key( CK_ATTRIBUTE * modulus,
+                     CK_ATTRIBUTE * prime1,
+                     CK_ATTRIBUTE * prime2,
+                     CK_ATTRIBUTE * exp1,
+                     CK_ATTRIBUTE * exp2,
+                     CK_ATTRIBUTE * coeff)
 {
-   CK_ATTRIBUTE      * attr     = NULL;
-   CK_ATTRIBUTE      * modulus  = NULL;
-   CK_ATTRIBUTE      * priv_exp = NULL;
-   CK_ATTRIBUTE      * prime1   = NULL;
-   CK_ATTRIBUTE      * prime2   = NULL;
-   CK_ATTRIBUTE      * exp1     = NULL;
-   CK_ATTRIBUTE      * exp2     = NULL;
-   CK_ATTRIBUTE      * coeff    = NULL;
-   CK_BBOOL          rc;
-   CK_BYTE_PTR         pkey;
-   ICA_KEY_RSA_CRT     *privKey;
-   ICA_KEY_RSA_MODEXPO *privModKey;
-   unsigned int        offset, pSize, qSize;
+   CK_BYTE           * ptr      = NULL;
+   ica_rsa_key_crt_t * crtkey  = NULL;
 
-      rc  = template_attribute_find( key_obj->template, CKA_MODULUS,          &modulus );
-      rc &= template_attribute_find( key_obj->template, CKA_PRIVATE_EXPONENT, &priv_exp );
-      rc &= template_attribute_find( key_obj->template, CKA_PRIME_1,          &prime1 );
-      rc &= template_attribute_find( key_obj->template, CKA_PRIME_2,          &prime2 );
-      rc &= template_attribute_find( key_obj->template, CKA_EXPONENT_1,       &exp1 );
-      rc &= template_attribute_find( key_obj->template, CKA_EXPONENT_2,       &exp2 );
-      rc &= template_attribute_find( key_obj->template, CKA_COEFFICIENT,      &coeff );
-      if ( !prime2 && !modulus ){
+   /* All the above params are required to build a CRT key
+    * that can be used by libICA. Private Keys with modulus
+    * and private exponent should use rsa_convert_mod_expo_key() */
+   if (!modulus || !prime1 || !prime2 || !exp1 || !exp2 || !coeff ) {
+      st_err_log(4, __FILE__, __LINE__, __FUNCTION__);
+      return NULL;
+   }
+   else {
+      crtkey = (ica_rsa_key_crt_t *) calloc(1, sizeof(ica_rsa_key_crt_t));
+      if (crtkey == NULL) {
+         st_err_log(1, __FILE__, __LINE__);
          return NULL;
       }
+      /* use modulus length in bytes as key_length */
+      crtkey->key_length = modulus->ulValueLen;
 
-      // CRT key?
-      if ( prime1){
-         if (!prime2 || !exp1 ||!exp2 || !coeff) {
-            return NULL;
-         }
-         privKey = (ICA_KEY_RSA_CRT *) malloc(sizeof(ICA_KEY_RSA_CRT));
-         if (privKey == NULL) {
-            return NULL;
-         }
-         memset(privKey, 0, sizeof(ICA_KEY_RSA_CRT));
+      /* buffers pointed by p, q, dp, dq and qInverse in struct
+       * ica_rsa_key_crt_t must be of size key_legth/2 or larger.
+       * p, dp and qInverse have an additional 8-byte padding. */
 
-         // Currently using definition of ICA_KEY_RSA_CRT in NT spec v1.12
-         // (with nLength and nOffset removed per BEF's e-mail)
+      /* need to allocate the buffers. Also, all fields are
+       * right-aligned, thus the use for ptr */
 
-         privKey->keyType = KEYTYPE_PKCSCRT;
-         privKey->keyLength = sizeof(ICA_KEY_RSA_CRT);
-         privKey->modulusBitLength = 8 * modulus->ulValueLen;
-         privKey->pLength = prime1->ulValueLen;
-         privKey->qLength = prime2->ulValueLen;
-         privKey->dpLength = exp1->ulValueLen;
-         privKey->dqLength = exp2->ulValueLen;
-         privKey->qInvLength = coeff->ulValueLen;
-         offset = (CK_BYTE_PTR) privKey->keyRecord
-                  - (CK_BYTE_PTR) privKey;
-         qSize = modulus->ulValueLen / 2;
-         pSize = qSize + 8;   //  1 QWORD larger
-         privKey->dpOffset = offset;
-         privKey->dqOffset = offset += pSize;
-         privKey->pOffset = offset += qSize;
-         privKey->qOffset = offset += pSize;
-         privKey->qInvOffset = offset + qSize;
-         pkey = (CK_BYTE_PTR) privKey->keyRecord;
-         pkey += pSize - exp1->ulValueLen;
-         memcpy(pkey, exp1->pValue, exp1->ulValueLen);
-//       pkey += exp1->ulValueLen + qSize - exp2->ulValueLen;
-         pkey += exp1->ulValueLen;
-         memcpy(pkey, exp2->pValue, exp2->ulValueLen);
-//       pkey += exp2->ulValueLen + pSize - prime1->ulValueLen;
-         pkey += qSize + pSize - prime1->ulValueLen;
-         memcpy(pkey, prime1->pValue, prime1->ulValueLen);
-//       pkey += prime1->ulValueLen + qSize - prime2->ulValueLen;
-         pkey += prime1->ulValueLen;
-         memcpy(pkey, prime2->pValue, prime2->ulValueLen);
-//       pkey += prime2->ulValueLen + pSize - coeff->ulValueLen;
-         pkey += qSize + pSize - coeff->ulValueLen;
-         memcpy(pkey, coeff->pValue, coeff->ulValueLen);
-         return privKey;
-//         hex_dump_to_file("PRIVATEKEY",(char *)privKey,sizeof(ICA_KEY_RSA_CRT));
-      } else {   // must be a non-CRT key
-         if (!priv_exp) {
-            return NULL;
-         }
-         privModKey = (ICA_KEY_RSA_MODEXPO *) malloc(sizeof(ICA_KEY_RSA_MODEXPO));
-         if (privModKey == NULL) {
-            return NULL;
-         }
-         memset(privModKey, 0, sizeof(ICA_KEY_RSA_MODEXPO));
-
-         // Currently using definition of ICA_KEY_RSA_MODEXPO in NT spec v1.12
-
-         privModKey->keyType = KEYTYPE_MODEXPO;
-         privModKey->keyLength = sizeof(ICA_KEY_RSA_MODEXPO);
-         privModKey->modulusBitLength = 8 * modulus->ulValueLen;
-         privModKey->nLength = modulus->ulValueLen;
-         privModKey->expLength = modulus->ulValueLen;
-         offset = (CK_BYTE_PTR) privModKey->keyRecord
-                  - (CK_BYTE_PTR) privModKey;
-         privModKey->expOffset = offset;
-         privModKey->nOffset = offset + modulus->ulValueLen;
-
-         pkey = (CK_BYTE_PTR) privModKey->keyRecord;
-         pkey += modulus->ulValueLen - priv_exp->ulValueLen;
-         memcpy(pkey, priv_exp->pValue, priv_exp->ulValueLen);
-         pkey += priv_exp->ulValueLen;
-         memcpy(pkey, modulus->pValue, modulus->ulValueLen);
-
-         return privModKey;
+      /* FIXME: if individual components lengths are bigger then
+       * what we support in libICA then we're in trouble,
+       * but maybe explicitly checking them is being over-zealous? */
+      if ( (prime1->ulValueLen > (crtkey->key_length/2)) ||
+           (prime2->ulValueLen > (crtkey->key_length/2)) ||
+           (exp1->ulValueLen   > (crtkey->key_length/2)) ||
+           (exp2->ulValueLen   > (crtkey->key_length/2)) ||
+           (coeff->ulValueLen  > (crtkey->key_length/2)) ) {
+         st_err_log(4, __FILE__, __LINE__, __FUNCTION__);
+         goto err_crtkey;
       }
+      crtkey->p = (unsigned char *) calloc(1, (crtkey->key_length/2) + 8);
+      if (crtkey->p == NULL) {
+         st_err_log(1, __FILE__, __LINE__);
+         goto err_crtkey;
+      }
+      ptr = crtkey->p + (crtkey->key_length/2) + 8 - prime1->ulValueLen;
+      memcpy(ptr, prime1->pValue, prime1->ulValueLen);
+
+      crtkey->q = (unsigned char *) calloc(1, crtkey->key_length/2);
+
+      if (crtkey->q == NULL) {
+         st_err_log(1, __FILE__, __LINE__);
+         goto err_crtkey;
+      }
+      ptr = crtkey->q + (crtkey->key_length/2) - prime2->ulValueLen;
+      memcpy(ptr, prime2->pValue, prime2->ulValueLen);
+
+      crtkey->dp = (unsigned char *) calloc(1, (crtkey->key_length/2) + 8);
+      if (crtkey->dp == NULL) {
+         st_err_log(1, __FILE__, __LINE__);
+         goto err_crtkey;
+      }
+      ptr = crtkey->dp + (crtkey->key_length/2) + 8 - exp1->ulValueLen;
+      memcpy(ptr, exp1->pValue, exp1->ulValueLen);
+
+      crtkey->dq = (unsigned char *) calloc(1, crtkey->key_length/2);
+      if (crtkey->dq == NULL) {
+         st_err_log(1, __FILE__, __FILE__);
+         goto err_crtkey;
+      }
+      ptr = crtkey->dq + (crtkey->key_length/2) - exp2->ulValueLen;
+      memcpy(ptr, exp2->pValue, exp2->ulValueLen);
+
+      crtkey->qInverse = (unsigned char *) calloc(1, (crtkey->key_length/2) + 8);
+      if (crtkey->qInverse == NULL) {
+         st_err_log(1, __FILE__, __LINE__);
+         goto err_crtkey;
+      }
+      ptr = crtkey->qInverse + (crtkey->key_length/2) + 8 - coeff->ulValueLen;
+      memcpy(ptr, coeff->pValue, coeff->ulValueLen);
+
+      return crtkey;
+   }
+
+ err_crtkey:
+   free(crtkey->p);
+   free(crtkey->q);
+   free(crtkey->dp);
+   free(crtkey->dq);
+   free(crtkey->qInverse);
+   free(crtkey);
+   return NULL;
+
 }
 
 
@@ -1786,80 +1721,130 @@ os_specific_rsa_keygen(TEMPLATE *publ_tmpl,  TEMPLATE *priv_tmpl)
    CK_ATTRIBUTE       * publ_exp = NULL;
    CK_ATTRIBUTE       * attr     = NULL;
    CK_BYTE            * ptr      = NULL;
-   CK_BYTE              repl_buf[5500];
-   CK_ULONG             req_len, repl_len;
    CK_ULONG             mod_bits;
    CK_BBOOL             flag;
    CK_RV                rc;
-   CK_BYTE_PTR         pubExp;
-   CK_BYTE_PTR         prdat;  // IN format for cryptolite
-   CK_BYTE_PTR         pudat;  // IN format for cryptolite
-   CK_ULONG            keysize;
-   ICA_KEY_RSA_MODEXPO *publKey;
-   ICA_KEY_RSA_CRT *privKey;
-   unsigned int        offset, len;
-   unsigned int        publKeySize, privKeySize;
-
+   ica_rsa_key_mod_expo_t * publKey = NULL;
+   ica_rsa_key_crt_t      * privKey = NULL;
 
    flag = template_attribute_find( publ_tmpl, CKA_MODULUS_BITS, &attr );
-   if (!flag)
+   if (!flag) {
+       st_err_log(48, __FILE__, __LINE__);
        return CKR_TEMPLATE_INCOMPLETE;  // should never happen
+   }
    mod_bits = *(CK_ULONG *)attr->pValue;
 
    flag = template_attribute_find( publ_tmpl, CKA_PUBLIC_EXPONENT, &publ_exp );
-   if (!flag)
+   if (!flag) {
+        st_err_log(48, __FILE__, __LINE__);
 	return CKR_TEMPLATE_INCOMPLETE;
+   }
 
-   //jag
-   // we don't support less than 1024 bit keys in the sw
-   if (mod_bits < 256 || mod_bits > 2048) {
+
+   // FIXME: is this check really necessary?
+   if (mod_bits < 512 || mod_bits > 4096) {
+      st_err_log(19, __FILE__, __LINE__);
      return CKR_KEY_SIZE_RANGE;
    }
-    
-   if(publ_exp->ulValueLen > (mod_bits * 8)){
-     return CKR_DATA_LEN_RANGE;
+
+   /* libICA replicates the openSSL requirement that the public exponent
+    * can't be larger than the size of an unsigned long
+    */
+   if (publ_exp->ulValueLen > sizeof (unsigned long)) {
+      st_err_log(19, __FILE__, __LINE__);
+     return CKR_KEY_SIZE_RANGE;
    }
 
-
-   publKey = (ICA_KEY_RSA_MODEXPO *) malloc(sizeof(ICA_KEY_RSA_MODEXPO));
+   /* Build publKey:
+    * The buffers in ica_rsa_key_mod_expo_t must be
+    * allocated by the caller, with key_length size
+    * use calloc() so that memory is zeroed (right alignment) */
+   publKey = (ica_rsa_key_mod_expo_t *) calloc(1, sizeof(ica_rsa_key_mod_expo_t));
    if (publKey == NULL) {
+      st_err_log(1, __FILE__, __LINE__);
       return CKR_HOST_MEMORY;
    }
- 
 
-   privKey = (ICA_KEY_RSA_CRT *) malloc(sizeof(ICA_KEY_RSA_CRT));
+   /* key_length is in terms of bytes */
+   publKey->key_length = ((mod_bits + 7) / 8);
+
+   publKey->modulus = (unsigned char *) calloc(1, publKey->key_length);
+   if (publKey->modulus == NULL) {
+      st_err_log(1, __FILE, __LINE__);
+      rc = CKR_HOST_MEMORY;
+      goto pubkey_cleanup;
+   }
+
+   publKey->exponent = (unsigned char *) calloc(1, publKey->key_length);
+   if (publKey->exponent == NULL) {
+      st_err_log(1, __FILE, __LINE___);
+      rc = CKR_HOST_MEMORY;
+      goto pubkey_cleanup;
+   }
+
+   /* Use the provided public exponent:
+    * all fields must be right-aligned, so make
+    * sure we only use the rightmost part */
+   ptr = publKey->exponent + publKey->key_length - publ_exp->ulValueLen;
+   memcpy(ptr, publ_exp->pValue, publ_exp->ulValueLen);
+
+   /* Build privKey:
+    * buffers pointed by p, q, dp, dq and qInverse in struct
+    * ica_rsa_key_crt_t must be of size key_legth/2 or larger.
+    * p, dp and qInverse have an additional 8-byte padding */
+   privKey = (ica_rsa_key_crt_t *) calloc(1, sizeof(ica_rsa_key_crt_t));
    if (privKey == NULL) {
+     st_err_log(1, __FILE__, __LINE__);
      rc = CKR_HOST_MEMORY;
      goto pubkey_cleanup;
    }
 
+   /* modexpo and crt key lengths are always the same */
+   privKey->key_length = publKey->key_length;
 
-   memset(publKey, 0x00, sizeof(ICA_KEY_RSA_MODEXPO));
-   memset(privKey, 0x00, sizeof(ICA_KEY_RSA_CRT)); 
+   privKey->p = (unsigned char *) calloc(1, (privKey->key_length/2) + 8);
+   if (privKey->p == NULL) {
+      st_err_log(1, __FILE__, __LINE__);
+      rc = CKR_HOST_MEMORY;
+      goto privkey_cleanup;
+   }
 
-   // Currently using definition of ICA_KEY_RSA_MODEXPO in NT spec v1.12
-   
-   keysize = ((mod_bits + 7)/8);
+   privKey->q = (unsigned char *) calloc(1, privKey->key_length/2);
+   if (privKey->q == NULL) {
+      st_err_log(1, __FILE__, __LINE__);
+      rc = CKR_HOST_MEMORY;
+      goto privkey_cleanup;
+   }
 
-   /* Linux driver is not using these */
+   privKey->dp = (unsigned char *) calloc(1, (privKey->key_length/2) + 8);
+   if (privKey->dp == NULL) {
+      st_err_log(1, __FILE__, __LINE__);
+      rc = CKR_HOST_MEMORY;
+      goto privkey_cleanup;
+   }
 
+   privKey->dq = (unsigned char *) calloc(1, privKey->key_length/2);
+   if (privKey->dq == NULL) {
+      st_err_log(1, __FILE__, __LINE__);
+      rc = CKR_HOST_MEMORY;
+      goto privkey_cleanup;
+   }
 
-   ptr = publKey->keyRecord + keysize - publ_exp->ulValueLen;
-   memcpy(ptr,publ_exp->pValue, publ_exp->ulValueLen);    
+   privKey->qInverse = (unsigned char *) calloc(1, (privKey->key_length/2) + 8);
+   if (privKey->qInverse == NULL) {
+      st_err_log(1, __FILE__, __LINE__);
+      rc = CKR_HOST_MEMORY;
+      goto privkey_cleanup;
+   }
 
-   publKeySize = sizeof(ICA_KEY_RSA_MODEXPO);
-   privKeySize = sizeof(ICA_KEY_RSA_CRT);
-      
-   rc = icaRsaKeyGenerateCrt(adapter_handle,
-				 (unsigned int)mod_bits,
-				 RSA_PUBLIC_FIXED,
-				 &publKeySize,
-				 (ICA_KEY_RSA_MODEXPO *)publKey,
-				 &privKeySize,
-				 (ICA_KEY_RSA_CRT *)privKey);
+   rc = ica_rsa_key_generate_crt(adapter_handle,
+                                 (unsigned int)mod_bits,
+                                 publKey,
+                                 privKey);
 
    
    if(rc){
+     st_err_log(4, __FILE__, __LINE__, __FUNCTION__);
      rc = CKR_FUNCTION_FAILED;
      goto privkey_cleanup;
    }
@@ -1867,10 +1852,12 @@ os_specific_rsa_keygen(TEMPLATE *publ_tmpl,  TEMPLATE *priv_tmpl)
 
    // modulus: n
    //
-   ptr = (CK_BYTE *)(publKey->keyRecord + keysize);
-   rc = build_attribute( CKA_MODULUS, ptr, keysize, &attr );
-   if (rc != CKR_OK)
+   rc = build_attribute( CKA_MODULUS, publKey->modulus,
+                        publKey->key_length, &attr );
+   if (rc != CKR_OK){
+      st_err_log(84, __FILE__, __LINE__);
       goto privkey_cleanup;
+   }
    template_update_attribute( publ_tmpl, attr );
 
   
@@ -1878,8 +1865,10 @@ os_specific_rsa_keygen(TEMPLATE *publ_tmpl,  TEMPLATE *priv_tmpl)
    //
    flag = TRUE;
    rc = build_attribute( CKA_LOCAL, &flag, sizeof(CK_BBOOL), &attr );
-   if (rc != CKR_OK)
+   if (rc != CKR_OK){
+      st_err_log(84, __FILE__, __LINE__);
       goto privkey_cleanup;
+   }
    template_update_attribute( publ_tmpl, attr );
 
    //
@@ -1889,91 +1878,98 @@ os_specific_rsa_keygen(TEMPLATE *publ_tmpl,  TEMPLATE *priv_tmpl)
    // public exponent: e
    //
    rc = build_attribute( CKA_PUBLIC_EXPONENT, publ_exp->pValue, publ_exp->ulValueLen, &attr );
-   if (rc != CKR_OK)
+   if (rc != CKR_OK) {
+      st_err_log(84, __FILE__, __LINE__);
       goto privkey_cleanup;
+   }
    template_update_attribute( priv_tmpl, attr );
 
    // modulus: n
    //
-   ptr = (CK_BYTE *)(publKey->keyRecord + keysize);
-   rc = build_attribute( CKA_MODULUS, ptr, keysize, &attr );
-   if (rc != CKR_OK)
+   rc = build_attribute( CKA_MODULUS, publKey->modulus,
+                        publKey->key_length, &attr );
+   if (rc != CKR_OK){
+      st_err_log(84, __FILE__, __LINE__);
       return rc;
+   }
    template_update_attribute( priv_tmpl, attr );
-
-   /* CRT sizes are smaller */
-
-   keysize /= 2;
 
    // exponent 1: d mod(p-1)
    //
-   ptr = (CK_BYTE *)(privKey->keyRecord);
-   rc = build_attribute( CKA_EXPONENT_1, ptr, keysize + 8, &attr );
-   if (rc != CKR_OK)
+   rc = build_attribute( CKA_EXPONENT_1, privKey->dp + 8,
+                        privKey->key_length/2, &attr );
+   if (rc != CKR_OK){
+      st_err_log(84, __FILE__, __LINE__);
       goto privkey_cleanup;
+   }
    template_update_attribute( priv_tmpl, attr );
 
    // exponent 2: d mod(q-1)
    //
-   ptr += keysize + 8;
-   rc = build_attribute( CKA_EXPONENT_2, ptr, keysize, &attr );
-   if (rc != CKR_OK)
+   rc = build_attribute( CKA_EXPONENT_2, privKey->dq,
+                        privKey->key_length/2, &attr );
+   if (rc != CKR_OK){
+      st_err_log(84, __FILE__, __LINE__);
       goto privkey_cleanup;
+   }
    template_update_attribute( priv_tmpl, attr );
 
    // prime #1: p
    //
-   ptr += keysize; 
-   rc = build_attribute( CKA_PRIME_1, ptr, keysize+8, &attr );
-   if (rc != CKR_OK)
+   rc = build_attribute( CKA_PRIME_1, privKey->p + 8,
+                        privKey->key_length/2, &attr );
+   if (rc != CKR_OK){
+      st_err_log(84, __FILE__, __LINE__);
       goto privkey_cleanup;
+   }
    template_update_attribute( priv_tmpl, attr );
 
    
    // prime #2: q
    //
-   ptr += keysize + 8;
-   rc = build_attribute( CKA_PRIME_2, ptr, keysize, &attr );
-   if (rc != CKR_OK)
+   rc = build_attribute( CKA_PRIME_2, privKey->q,
+                        privKey->key_length/2, &attr );
+   if (rc != CKR_OK){
+      st_err_log(84, __FILE__, __LINE__);
       goto privkey_cleanup;
+   }
    template_update_attribute( priv_tmpl, attr );
 
 
    // CRT coefficient:  q_inverse mod(p)
    //
-   ptr += keysize;
-   rc = build_attribute( CKA_COEFFICIENT, ptr, keysize + 8, &attr );
-   if (rc != CKR_OK)
+   rc = build_attribute( CKA_COEFFICIENT, privKey->qInverse + 8,
+                        privKey->key_length/2, &attr );
+   if (rc != CKR_OK){
+      st_err_log(84, __FILE__, __LINE__);
       goto privkey_cleanup;
+   }
    template_update_attribute( priv_tmpl, attr );
 
  privkey_cleanup:
+   free(privKey->p);
+   free(privKey->q);
+   free(privKey->dp);
+   free(privKey->dq);
+   free(privKey->qInverse);
    free(privKey);
  pubkey_cleanup:
+   free(publKey->modulus);
+   free(publKey->exponent);
    free(publKey);
    return rc;
 
 }
 
-
-// SAB FIXME   this keygen stuff needs to be reworked..
-//
-//
 CK_RV
 token_specific_rsa_generate_keypair( TEMPLATE  * publ_tmpl,
                       TEMPLATE  * priv_tmpl )
 {
-   CK_ATTRIBUTE       * publ_exp = NULL;
-   CK_ATTRIBUTE       * attr     = NULL;
-
-   CK_BYTE            * ptr      = NULL;
-   CK_BYTE              repl_buf[5500];
-   CK_ULONG             req_len, repl_len;
-   CK_ULONG             mod_bits;
-   CK_BBOOL             flag;
    CK_RV                rc;
 
    rc = os_specific_rsa_keygen(publ_tmpl,priv_tmpl);
+   if (rc != CKR_OK)
+         st_err_log(91, __FILE__, __LINE__);
    return rc;
 }
 
@@ -1986,39 +1982,47 @@ token_specific_rsa_encrypt( CK_BYTE   * in_data,
                  CK_BYTE   * out_data,
                  OBJECT    * key_obj )
 {
-   CK_ATTRIBUTE      * attr    = NULL;
    CK_ATTRIBUTE      * modulus = NULL;
    CK_ATTRIBUTE      * pub_exp = NULL;
-   CK_BYTE           * ptr     = NULL;
-
-   CK_ULONG            buffer[80];  // plenty of room...
-   CK_OBJECT_CLASS     keyclass;
-   CK_ULONG            req_len, repl_len, key_len;
+   CK_ATTRIBUTE      * mod_bits = NULL;
+   ica_rsa_key_mod_expo_t * publKey  = NULL;
    CK_RV               rc;
-   CK_ULONG out_data_len;
-   ICA_KEY_RSA_MODEXPO *publKey;
 
-   unsigned int temp_out_data_len = 0;
+   /* mech_sra.c:ckm_rsa_encrypt accepts only CKO_PUBLIC_KEY */
+   template_attribute_find( key_obj->template, CKA_MODULUS,          &modulus  );
+   template_attribute_find( key_obj->template, CKA_MODULUS_BITS,     &mod_bits );
+   template_attribute_find( key_obj->template, CKA_PUBLIC_EXPONENT,  &pub_exp  );
 
-   publKey = (ICA_KEY_RSA_MODEXPO *) rsa_convert_public_key(key_obj);
+   publKey = rsa_convert_mod_expo_key(modulus, mod_bits, pub_exp);
    if (publKey == NULL) {
+      st_err_log(4, __FILE__, __LINE__, __FUNCTION__);
       rc = CKR_FUNCTION_FAILED;
       goto done;
    }
-   temp_out_data_len = (unsigned int)in_data_len;
 
-   rc = icaRsaModExpo(adapter_handle, (unsigned int)in_data_len, in_data,
-                      publKey, &temp_out_data_len, out_data);
-   
-   out_data_len = (CK_ULONG) temp_out_data_len;
+   /* in_data must be in big endian format. 'in_data' size in bits must not
+    * exceed the bit length of the key, and size in bytes must
+    * be of the same length of the key */
+   // FIXME: we're not cheking the size in bits of in_data - but how could we?
+   if (publKey->key_length != in_data_len) {
+      st_err_log(11, __FILE__, __LINE__);
+      rc = CKR_DATA_LEN_RANGE;
+      goto cleanup_pubkey;
+   }
+   rc = ica_rsa_mod_expo(adapter_handle, in_data,
+                         publKey, out_data);
 
    if (rc != 0) {
+      st_err_log(4, __FILE__, __LINE__, __FUNCTION__);
       rc = CKR_FUNCTION_FAILED;
    } else {
       rc = CKR_OK;
    }
+
+cleanup_pubkey:
+   free(publKey->modulus);
+   free(publKey->exponent);
    free(publKey);
-   goto done;
 
 
 done:
@@ -2034,55 +2038,119 @@ token_specific_rsa_decrypt( CK_BYTE   * in_data,
                  CK_BYTE   * out_data,
                  OBJECT    * key_obj )
 {
-   CK_ATTRIBUTE      * attr     = NULL;
    CK_ATTRIBUTE      * modulus  = NULL;
-   CK_ATTRIBUTE      * pub_exp  = NULL;
    CK_ATTRIBUTE      * prime1   = NULL;
    CK_ATTRIBUTE      * prime2   = NULL;
    CK_ATTRIBUTE      * exp1     = NULL;
    CK_ATTRIBUTE      * exp2     = NULL;
    CK_ATTRIBUTE      * coeff    = NULL;
-   CK_BYTE           * ptr      = NULL;
-
-   CK_ULONG            buffer[80];  // plenty of room...
-   CK_OBJECT_CLASS     keyclass;
-   CK_ULONG            key_size;
-   CK_ULONG            req_len, repl_len;
+   CK_ATTRIBUTE           * priv_exp   = NULL;
+   ica_rsa_key_crt_t      * crtKey     = NULL;
+   ica_rsa_key_mod_expo_t * modexpoKey = NULL;
    CK_RV               rc;
 
-   CK_ULONG out_data_len;
-   ICA_KEY_RSA_CRT *privKey;
+   /* mech_rsa.c:ckm_rsa_decrypt accepts only CKO_PRIVATE_KEY,
+    * but Private Key can have 2 representations (see PKCS#1):
+    *  - Modulus + private exponent
+    *  - p, q, dp, dq and qInv (CRT format)
+    * The former should use ica_rsa_key_mod_expo_t and the latter
+    * ica_rsa_key_crt_t. Detect what representation this
+    * key_obj has and use the proper convert function */
 
-   unsigned int temp_out_data_len = 0;
+   template_attribute_find( key_obj->template, CKA_MODULUS,          &modulus );
+   template_attribute_find( key_obj->template, CKA_PRIVATE_EXPONENT, &priv_exp );
+   template_attribute_find( key_obj->template, CKA_PRIME_1,          &prime1  );
+   template_attribute_find( key_obj->template, CKA_PRIME_2,          &prime2  );
+   template_attribute_find( key_obj->template, CKA_EXPONENT_1,       &exp1    );
+   template_attribute_find( key_obj->template, CKA_EXPONENT_2,       &exp2    );
+   template_attribute_find( key_obj->template, CKA_COEFFICIENT,      &coeff   );
 
-   privKey = (ICA_KEY_RSA_CRT *) rsa_convert_private_key(key_obj);
-   if (privKey == NULL) {
-      rc = CKR_FUNCTION_FAILED;
+   /* Need to check for CRT Key format *BEFORE* check for mod_expo key,
+    * that's because opencryptoki *HAS* a CKA_PRIVATE_EXPONENT attribute
+    * even in CRT keys (but with zero length) */
+   // FIXME: Checking for non-zero lengths anyway (might be overkill)
+
+   if (modulus && modulus->ulValueLen &&
+       prime1  && prime1->ulValueLen  &&
+       prime2  && prime2->ulValueLen  &&
+       exp1    && exp1->ulValueLen    &&
+       exp2    && exp2->ulValueLen    &&
+       coeff   && coeff->ulValueLen     ) {
+      /* ica_rsa_key_crt_t representation */
+      crtKey = rsa_convert_crt_key(modulus, prime1, prime2, exp1, exp2, coeff);
+      if (crtKey == NULL) {
+         st_err_log(4, __FILE__, __LINE__, __FUNCTION__);
+         rc = CKR_FUNCTION_FAILED;
+         goto done;
+      }
+      /* same check as above */
+      if (crtKey->key_length != in_data_len) {
+         st_err_log(11, __FILE__, __LINE__);
+         rc = CKR_ENCRYPTED_DATA_LEN_RANGE;
+         goto crt_cleanup;
+      }
+
+      rc = ica_rsa_crt(adapter_handle, in_data,
+                       crtKey, out_data);
+
+      if (rc != 0) {
+         st_err_log(4, __FILE__, __LINE__, __FUNCTION__);
+         rc = CKR_FUNCTION_FAILED;
+      } else {
+         rc = CKR_OK;
+      }
+      goto crt_cleanup;
+   }
+   else if (modulus  && modulus->ulValueLen &&
+            priv_exp && priv_exp->ulValueLen  ) {
+      /* ica_rsa_key_mod_expo_t representation */
+      modexpoKey = rsa_convert_mod_expo_key(modulus, NULL, priv_exp);
+      if (modexpoKey == NULL) {
+         st_err_log(4, __FILE__, __LINE__, __FUNCTION__);
+         rc = CKR_FUNCTION_FAILED;
+         goto done;
+      }
+      /* in_data must be in big endian format. Size in bits must not
+       * exceed the bit length of the key, and size in bytes must
+       * be the same */
+      // FIXME: we're not cheking the size in bits of in_data - but how could we?
+      if (modexpoKey->key_length != in_data_len) {
+         st_err_log(11, __FILE__, __LINE__);
+         rc = CKR_ENCRYPTED_DATA_LEN_RANGE;
+         goto modexpo_cleanup;
+      }
+
+      rc = ica_rsa_mod_expo(adapter_handle, in_data,
+                            modexpoKey, out_data);
+
+      if (rc != 0) {
+         st_err_log(4, __FILE__, __LINE__, __FUNCTION__);
+         rc = CKR_FUNCTION_FAILED;
+      } else {
+         rc = CKR_OK;
+      }
+      goto modexpo_cleanup;
+   }
+   else {
+      /* should never happen */
+      st_err_log(165, __FILE__, __LINE__);
+      rc = CKR_MECHANISM_PARAM_INVALID;
       goto done;
    }
-   temp_out_data_len = (unsigned int)in_data_len;
 
-   if (privKey->keyType == KEYTYPE_PKCSCRT) {
-      rc = icaRsaCrt(adapter_handle, (unsigned int)in_data_len, in_data,
-                     privKey, &temp_out_data_len, out_data);
-   } else if (privKey->keyType == KEYTYPE_MODEXPO) {
-      rc = icaRsaModExpo(adapter_handle, (unsigned int)in_data_len, in_data,
-           (ICA_KEY_RSA_MODEXPO *) privKey, &temp_out_data_len, out_data);
-   } else {
-      rc = CKR_FUNCTION_FAILED;
-      free(privKey);
-      goto done;
-   }
-   
-   out_data_len = (CK_ULONG)temp_out_data_len;
-
-   if (rc != 0) {
-      rc = CKR_FUNCTION_FAILED;
-   } else {
-      rc = CKR_OK;
-   }
-   free(privKey);
+crt_cleanup:
+   free(crtKey->p);
+   free(crtKey->q);
+   free(crtKey->dp);
+   free(crtKey->dq);
+   free(crtKey->qInverse);
+   free(crtKey);
    goto done;
+
+modexpo_cleanup:
+   free(modexpoKey->modulus);
+   free(modexpoKey->exponent);
+   free(modexpoKey);
 
 done:
    return rc;
@@ -2109,31 +2177,25 @@ token_specific_aes_ecb(CK_BYTE *in_data, CK_ULONG in_data_len,
 		       CK_BYTE *out_data, CK_ULONG *out_data_len,
 		       CK_BYTE *key_value, CK_ULONG key_len, CK_BYTE encrypt)
 {
-	ICA_AES_VECTOR empty_iv;
 	int rc = CKR_OK;
-	unsigned int out_data_len_local;
-	out_data_len_local = (unsigned int)(*out_data_len);
-	memset(&empty_iv, 0, sizeof(empty_iv));
-	/* TODO: Sanity check the dataLength; it must be a multiple of
-	 * the cipher block length */
+
+   /* 
+    * checks for input and output data length and block sizes
+    * are already being carried out in mech_aes.c
+    * so we skip those
+    */
+
         if (encrypt) {
-		/* libica overrides the _SINGLE key_value type to
-		 * reference however many bytes are necessary, given
-		 * key_value */
-		rc = icaAesEncrypt(adapter_handle, MODE_AES_ECB,
-				   (unsigned int)in_data_len, in_data, 
-				   &empty_iv, key_len,
-				   (ICA_KEY_AES_SINGLE *)key_value,
-				   &out_data_len_local, out_data);
+        rc = ica_aes_encrypt(MODE_AES_ECB, (unsigned int) in_data_len,
+                             in_data, NULL, (unsigned  int) key_len,
+                             key_value, out_data);
         } else {
-		rc = icaAesDecrypt(adapter_handle, MODE_AES_ECB,
-				   (unsigned int)in_data_len, in_data, 
-				   &empty_iv, key_len,
-				   (ICA_KEY_AES_SINGLE *)key_value,
-				   &out_data_len_local, out_data);
+        rc = ica_aes_decrypt(MODE_AES_ECB, (unsigned int) in_data_len,
+                             in_data, NULL, (unsigned int) key_len,
+                             key_value, out_data);
         }
 	if (rc != 0) {
-		(*out_data_len) = (CK_ULONG)out_data_len_local;
+        (*out_data_len) = 0;
 		rc = CKR_FUNCTION_FAILED;
 	} else {
 		(*out_data_len) = in_data_len;
@@ -2153,25 +2215,26 @@ token_specific_aes_cbc(CK_BYTE         *in_data,
 		       CK_BYTE         encrypt)
 {
 	CK_RV rc;
-	unsigned int out_data_len_local;
-	out_data_len_local = (unsigned int)(*out_data_len);
+
+   /* 
+    * checks for input and output data length and block sizes
+    * are already being carried out in mech_aes.c
+    * so we skip those
+    */
+
 	if (encrypt) {
-		rc = icaAesEncrypt(adapter_handle, MODE_AES_CBC,
-				   (unsigned int)in_data_len, in_data,
-				   (ICA_AES_VECTOR *)init_v, key_len,
-				   (ICA_KEY_AES_SINGLE *)key_value, 
-				   &out_data_len_local,
-				   (unsigned char *)out_data);
+        rc = ica_aes_encrypt(MODE_AES_CBC, (unsigned int) in_data_len,
+                             in_data, (ica_aes_vector_t *) init_v,
+                             (unsigned int) key_len, key_value,
+                             out_data);
 	} else {
-		rc = icaAesDecrypt(adapter_handle, MODE_AES_CBC,
-				   (unsigned int)in_data_len, in_data,
-				   (ICA_AES_VECTOR *)init_v, key_len,
-				   (ICA_KEY_AES_SINGLE *)key_value, 
-				   &out_data_len_local,
-				   (unsigned char *)out_data);
+        rc = ica_aes_decrypt(MODE_AES_CBC, (unsigned int) in_data_len,
+                             in_data, (ica_aes_vector_t *) init_v,
+                             (unsigned int) key_len, key_value,
+                             out_data);
 	}
 	if (rc != 0) {
-		(*out_data_len) = (CK_ULONG)out_data_len_local;
+        (*out_data_len) = 0;
 		rc = CKR_FUNCTION_FAILED;
 	} else {
 		(*out_data_len) = in_data_len;
@@ -2405,7 +2468,7 @@ token_specific_dh_pkcs_key_pair_gen( TEMPLATE  * publ_tmpl,
 #endif /* #ifndef NODH */
 
 MECH_LIST_ELEMENT mech_list[] = {
-   { CKM_RSA_PKCS_KEY_PAIR_GEN,     512, 2048, CKF_HW | CKF_GENERATE_KEY_PAIR },
+   { CKM_RSA_PKCS_KEY_PAIR_GEN,     512, 4096, CKF_HW | CKF_GENERATE_KEY_PAIR },
 #if !(NODSA)
    { CKM_DSA_KEY_PAIR_GEN,          512, 1024, CKF_HW | CKF_GENERATE_KEY_PAIR },
 #endif
@@ -2415,29 +2478,29 @@ MECH_LIST_ELEMENT mech_list[] = {
    { CKM_CDMF_KEY_GEN,                0,    0, CKF_HW | CKF_GENERATE },
 #endif
 
-   { CKM_RSA_PKCS,                  512, 2048, CKF_HW           |
+   { CKM_RSA_PKCS,                  512, 4096, CKF_HW           |
                                                CKF_ENCRYPT      | CKF_DECRYPT |
                                                CKF_WRAP         | CKF_UNWRAP  |
                                                CKF_SIGN         | CKF_VERIFY  |
                                                CKF_SIGN_RECOVER | CKF_VERIFY_RECOVER },
 #if !(NOX509)
-   { CKM_RSA_X_509,                 512, 2048, CKF_HW           |
+   { CKM_RSA_X_509,                 512, 4096, CKF_HW           |
                                                CKF_ENCRYPT      | CKF_DECRYPT |
                                                CKF_WRAP         | CKF_UNWRAP  |
                                                CKF_SIGN         | CKF_VERIFY  |
                                                CKF_SIGN_RECOVER | CKF_VERIFY_RECOVER },
 #endif
 #if !(NOMD2)
-   { CKM_MD2_RSA_PKCS,              512, 2048, CKF_HW      |
+   { CKM_MD2_RSA_PKCS,              512, 4096, CKF_HW      |
                                                CKF_SIGN    | CKF_VERIFY },
 
 #endif
 #if !(NOMD5)
-   { CKM_MD5_RSA_PKCS,              512, 2048, CKF_HW      |
+   { CKM_MD5_RSA_PKCS,              512, 4096, CKF_HW      |
                                                CKF_SIGN    | CKF_VERIFY },
 #endif
 #if !(NOSHA1)
-   { CKM_SHA1_RSA_PKCS,             512, 2048, CKF_HW      |
+   { CKM_SHA1_RSA_PKCS,             512, 4096, CKF_HW      |
                                                CKF_SIGN    | CKF_VERIFY },
 #endif
 
