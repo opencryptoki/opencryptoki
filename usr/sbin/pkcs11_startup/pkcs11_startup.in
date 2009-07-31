@@ -341,7 +341,7 @@ if [ -x $STATCOMMAND ]
 then
 for i in $CARDS
 do
-    @METHOD_PATH@/4758_status -c $i
+    $STATCOMMAND -c $i
     RC=$?
     if [ $RC = 101 ]
     then
@@ -387,21 +387,13 @@ fi
 
 
 # Add the ICA device if it exists
+# Starting from version 1.3, libica supports software
+# fallback when no specialized hardware is found, so
+# we default for including the ica token when it's
+# stdll is present (s390x by default) - KlausK Jul'09
 if [ -f @STDLL_PATH@/libpkcs11_ica.so ]
 then
-#  This won't work if the driver is built into the kernel
-# so we will look for it in /proc/devices
-    /bin/cat /proc/devices | grep leedslite >/dev/null 2>&1
-    rc=$?
-    if [ $rc = 0 ]
-    then
-	    @METHOD_PATH@/pkcs_slot 0  ica
-    else
-	# We used to require hardware for the ICA token, now we allow
-	# its use as a software token on System Z. - KEY Sep/2007
-	#
-	@METHOD_PATH@/pkcs_slot 0  ica
-    fi
+    @METHOD_PATH@/pkcs_slot 0  ica
 fi
 
 
@@ -428,6 +420,16 @@ then
     then
 	    @METHOD_PATH@/pkcs_slot 0  cr
     fi
+fi
+
+# add the CCA token
+# CCA stdll is always built by default in supported archs, so check for both
+# the CCA stdll *and* for a library needed by the CCA token - KlausK Jul'09
+# The libraries required by CCA token are provided by the 'xcryptolinzGA'
+# RPM package, available from the IBM web site.
+if [ -f @STDLL_PATH@/libpkcs11_cca.so ] && [ -f /usr/lib64/libcsulmkapi.so.1 ]
+then
+    @METHOD_PATH@/pkcs_slot 0 cca
 fi
 
 # Add the SW token last, so that "dumb" apps that always open

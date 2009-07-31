@@ -332,6 +332,11 @@ TPM_DLL="@STDLL_PATH@/libpkcs11_tpm.so"
 TPM_DLL_FN="libpkcs11_tpm.so"
 TPM_INIT="ST_Initialize"
 
+CCA_DIR="@DB_PATH@/ccatok"
+CCA_DLL="@STDLL_PATH@/libpkcs11_cca.so"
+CCA_DLL_FN="libpkcs11_cca.so"
+CCA_INIT="ST_Initialize"
+
 SYSTEM=`uname -s`
 MANUFACTURER=`uname -rs`
 
@@ -384,6 +389,19 @@ then
 	chgrp pkcs11 $TPM_DIR
     fi
     SYS_SLOT="TPM"
+fi
+
+if [ $DEPTH = "cca" ]
+then
+    test  -d $CCA_DIR
+    if [ $? -ne 0 ]
+    then
+       mkdir  $CCA_DIR
+       chgrp pkcs11 $CCA_DIR
+       mkdir "$CCA_DIR"/TOK_OBJ
+       chgrp pkcs11 "$CCA_DIR"/TOK_OBJ
+    fi
+    SYS_SLOT="CCA"
 fi
 
 # If we are using a shallow device, make sure that the directory
@@ -479,6 +497,9 @@ echo "TRUE|0|$SLOT_DESCRIPTION|$MANUFACTURER|TRUE|FALSE|FALSE|0|0|1|1|NONE|$SOFT
 elif [ $DEPTH = "tpm" ]
 then
 echo "TRUE|0|$SLOT_DESCRIPTION|$MANUFACTURER|TRUE|FALSE|TRUE|0|0|1|1|NONE|$TPM_DLL_FN|$TPM_INIT" >>$CFGFILE
+elif [ $DEPTH = "cca" ]
+then
+echo "TRUE|0|$SLOT_DESCRIPTION|$MANUFACTURER|TRUE|FALSE|TRUE|0|0|1|1|NONE|$CCA_DLL_FN|$CCA_INIT" >>$CFGFILE
 fi
 
 cd @DB_PATH@
