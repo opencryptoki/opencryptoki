@@ -6,14 +6,10 @@
 #
 nobase_lib_LTLIBRARIES=opencryptoki/stdll/libpkcs11_cca.la
 
-# Not all versions of automake observe libname_CFLAGS
-opencryptoki_stdll_libpkcs11_cca_la_CFLAGS = -DLINUX -DSPINXPL -DNOCDMF	\
-	-DNODSA -DNODH -DNOECB						\
-	-I. -I../../../include	-I../../../include/pkcs11 -I../common	\
-	-DSTDLL_NAME=\"ccatok\"
+pkgdata_DATA=README.cca_stdll README-IBM_CCA_users
 
 # Not all versions of automake observe libname_CFLAGS
-AM_CFLAGS = -DLINUX -DSPINXPL -DNOCDMF -DNODSA -DNODH -DNOECB		\
+opencryptoki_stdll_libpkcs11_cca_la_CFLAGS = -DLINUX -DSPINXPL -DNOCDMF	\
 	-DNODSA -DNODH -DNOECB						\
 	-I. -I../../../include	-I../../../include/pkcs11 -I../common	\
 	-DSTDLL_NAME=\"ccatok\"
@@ -57,7 +53,6 @@ opencryptoki_stdll_libpkcs11_cca_la_SOURCES = asn1.c			\
 noinst_HEADERS = h_extern.h tok_spec_struct.h defs.h csulincl.h		\
 		 host_defs.h cca_stdll.h tok_specific.h
 
-install-data-local:
-	mkdir -p -- "$(DESTDIR)/$(datadir)/opencryptoki"
-	@INSTALL@ README-IBM_CCA_users $(DESTDIR)/$(datadir)/opencryptoki
-
+install-data-hook:
+	cd $(DESTDIR)/$(libdir)/opencryptoki/stdll && \
+		ln -sf libpkcs11_cca.so PKCS11_CCA.so
