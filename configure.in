@@ -281,7 +281,6 @@ AC_OUTPUT([Makefile usr/Makefile \
           usr/lib/pkcs11/soft_stdll/Makefile \
           usr/lib/pkcs11/soft_stdll/tok_struct.h \
           usr/lib/pkcs11/bcom_stdll/Makefile \
-          usr/lib/pkcs11/bcom_stdll/tok_struct.h \
           usr/lib/pkcs11/cr_stdll/Makefile \
           usr/lib/pkcs11/cr_stdll/tok_struct.h \
           usr/lib/pkcs11/aep_stdll/Makefile \

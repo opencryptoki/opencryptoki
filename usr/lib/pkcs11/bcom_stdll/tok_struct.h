@@ -297,19 +297,18 @@
 
 #include "tok_spec_struct.h"
 
-// #define PK_LITE_DIR  "/etc/pkcs11/lite"
-//
-// #define PK_DIR      PK_LITE_DIR
-// #define SUB_DIR     "lite"
-//
-//
-// #define DBGTAG  "ICA_STDLL_Debug"
-//
-//
-//
+#ifndef BCOM_CONFIG_PATH
+
+#ifndef CONFIG_PATH
+#warning CONFIG_PATH not set, using default (/usr/local/var/lib/opencryptoki)
+#define CONFIG_PATH "/usr/local/var/lib/opencryptoki"
+#endif  // #ifndef CONFIG_PATH
+
+#define BCOM_CONFIG_PATH CONFIG_PATH "/bcom"
+#endif  // #ifndef BCOM_CONFIG_PATH
 
 token_spec_t token_specific  = {
-     "@DB_PATH@/bcom",
+     BCOM_CONFIG_PATH,
      "bcom",
      "BC_STDLL_Debug",
      &token_specific_init,
