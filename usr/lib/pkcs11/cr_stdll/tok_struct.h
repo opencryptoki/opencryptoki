@@ -320,8 +320,18 @@
 //
 //
 
+#ifndef CR_CONFIG_PATH
+
+#ifndef CONFIG_PATH
+#warning CONFIG_PATH not set, using default (/usr/local/var/lib/opencryptoki)
+#define CONFIG_PATH "/usr/local/var/lib/opencryptoki"
+#endif  // #ifndef CONFIG_PATH
+
+#define CR_CONFIG_PATH CONFIG_PATH "/crtok"
+#endif  // #ifndef CR_CONFIG_PATH
+
 token_spec_t token_specific  = {
-     "@DB_PATH@/crtok",
+     CR_CONFIG_PATH,
      "crtok",
      "CR_STDLL_Debug",
      &token_specific_init,
