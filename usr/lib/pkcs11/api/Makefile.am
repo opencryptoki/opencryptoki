@@ -12,52 +12,20 @@ opencryptoki_libopencryptoki_la_LDFLAGS = -shared -Wl,-Bsymbolic -lc -ldl \
 opencryptoki_libopencryptoki_la_CFLAGS = -DSPINXPL -DAPI -DDEV -D_THREAD_SAFE \
 					 -fPIC -I../. -I../../../include/pkcs11
 
-# Not all versions of automake observe libname_CFLAGS
-AM_CFLAGS = -DSPINXPL -DAPI -DDEV -D_THREAD_SAFE \
-	    -fPIC -I../. -I../../../include/pkcs11
-
 opencryptoki_libopencryptoki_la_SOURCES = api_interface.c shrd_mem.c apiutil.c
 
-install-data-local:
-	mkdir -p $(DESTDIR)/$(libdir)/opencryptoki
-	cd $(DESTDIR)/$(libdir)/opencryptoki && rm -f PKCS11_API.so && \
+install-data-hook:
+	cd $(DESTDIR)$(libdir)/opencryptoki && \
 		ln -sf libopencryptoki.so PKCS11_API.so 
-	cd $(DESTDIR)/$(libdir)/opencryptoki && rm -f methods && \
-		ln -sf ../../sbin/ methods
-	mkdir -p $(DESTDIR)/$(libdir)/pkcs11
-	cd $(DESTDIR)/$(libdir)/pkcs11 && rm -f methods && \
-		ln -sf ../../sbin/ methods
-	cd $(DESTDIR)/$(libdir)/pkcs11 && rm -f PKCS11_API.so && \
-		ln -sf ../opencryptoki/libopencryptoki.so PKCS11_API.so
-	cd $(DESTDIR)/$(libdir)/pkcs11 && rm -f libopencryptoki.so && \
-		ln -sf ../opencryptoki/libopencryptoki.so libopencryptoki.so
-	mkdir -p $(DESTDIR)/$(libdir)/opencryptoki/stdll
-	cd $(DESTDIR)/$(libdir)/pkcs11 && rm -f stdll && \
-		ln -sf ../opencryptoki/stdll/ stdll
-	-groupadd pkcs11
-	if test "x$(prefix)" = "x/usr"; then \
-		mkdir -p $(DESTDIR)/var/lib/opencryptoki ; \
-		chown root:pkcs11 $(DESTDIR)/var/lib/opencryptoki ; \
-		chmod 775 $(DESTDIR)/var/lib/opencryptoki ; \
-		if [ ! -L $(DESTDIR)/etc/pkcs11 ] ; then \
-			if [ -e $(DESTDIR)/etc/pkcs11/* ] ; then \
-				mv $(DESTDIR)/etc/pkcs11/* $(DESTDIR)/var/lib/opencryptoki ; \
-			fi ; \
-		fi ;\
-		mkdir -p $(DESTDIR)/etc \
-		cd $(DESTDIR)/etc && rm -rf pkcs11 && \
-			ln -sf $(DESTDIR)/var/lib/opencryptoki pkcs11 ; \
-	else \
-		mkdir -p $(DESTDIR)/$(localstatedir)/lib/opencryptoki ; \
-		chown root:pkcs11 $(DESTDIR)/$(localstatedir)/lib/opencryptoki ; \
-		chmod 775 $(DESTDIR)/$(localstatedir)/lib/opencryptoki ; \
-		if [ ! -L $(DESTDIR)/$(sysconfdir)/pkcs11 ] ; then \
-			if [ -e $(DESTDIR)/$(sysconfdir)/pkcs11/* ] ; then \
-				mv $(DESTDIR)/$(sysconfdir)/pkcs11/* \
-				$(DESTDIR)/$(localstatedir)/lib/opencryptoki ; \
-			fi ; \
-		fi ; \
-		mkdir -p $(DESTDIR)/$(sysconfdir) ; \
-		cd $(DESTDIR)/$(sysconfdir) && rm -rf pkcs11 && \
-			ln -sf $(DESTDIR)/$(localstatedir)/lib/opencryptoki pkcs11 ; \
-	fi
+	cd $(DESTDIR)$(libdir)/opencryptoki && \
+		ln -sf $(DESTDIR)$(sbindir) methods
+	$(MKDIR_P) $(DESTDIR)$(libdir)/pkcs11
+	cd $(DESTDIR)$(libdir)/pkcs11 && \
+		ln -sf $(DESTDIR)$(sbindir) methods
+	cd $(DESTDIR)$(libdir)/pkcs11 && \
+		ln -sf $(DESTDIR)$(libdir)/opencryptoki/libopencryptoki.so PKCS11_API.so
+	cd $(DESTDIR)/$(libdir)/pkcs11 && \
+		ln -sf $(DESTDIR)$(libdir)/opencryptoki/libopencryptoki.so libopencryptoki.so
+	$(MKDIR_P) $(DESTDIR)/$(libdir)/opencryptoki/stdll
+	cd $(DESTDIR)/$(libdir)/pkcs11 && \
+		ln -sf $(DESTDIR)$(libdir)/opencryptoki/stdll/ stdll
