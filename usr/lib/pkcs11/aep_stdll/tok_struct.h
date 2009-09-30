@@ -297,19 +297,18 @@
 
 #include "tok_spec_struct.h"
 
-// #define PK_LITE_DIR  "/etc/pkcs11/lite"
-//
-// #define PK_DIR      PK_LITE_DIR
-// #define SUB_DIR     "lite"
-//
-//
-// #define DBGTAG  "ICA_STDLL_Debug"
-//
-//
-//
+#ifndef AEP_CONFIG_PATH
+
+#ifndef CONFIG_PATH
+#warning CONFIG_PATH not set, using default (/usr/local/var/lib/opencryptoki)
+#define CONFIG_PATH "/usr/local/var/lib/opencryptoki"
+#endif  // #ifndef CONFIG_PATH
+
+#define AEP_CONFIG_PATH CONFIG_PATH "/aep"
+#endif  // #ifndef AEP_CONFIG_PATH
 
 token_spec_t token_specific  = {
-     "@DB_PATH@/aep",
+     AEP_CONFIG_PATH,
      "aep",
      "AEP_STDLL_Debug",
      &token_specific_init,
@@ -354,7 +353,7 @@ token_spec_t token_specific  = {
      &token_specific_aes_cbc,
 #endif
      &token_specific_get_mechanism_list,
-     &token_specific_get_mechanism_info	
+     &token_specific_get_mechanism_info
 };
 
 #endif
