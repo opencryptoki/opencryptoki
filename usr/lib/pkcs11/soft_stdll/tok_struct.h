@@ -319,8 +319,18 @@
 //
 //
 
+#ifndef SW_CONFIG_PATH
+
+#ifndef CONFIG_PATH
+#warning CONFIG_PATH not set, using default (/usr/local/var/lib/opencryptoki)
+#define CONFIG_PATH "/usr/local/var/lib/opencryptoki"
+#endif  // #ifndef CONFIG_PATH
+
+#define SW_CONFIG_PATH CONFIG_PATH "/swtok"
+#endif  // #ifndef SW_CONFIG_PATH
+
 token_spec_t token_specific  = {
-     "@DB_PATH@/swtok",
+     SW_CONFIG_PATH,
      "swtok",
      "SW_STDLL_Debug",
      &token_specific_init,
@@ -339,7 +349,7 @@ token_spec_t token_specific  = {
      &token_specific_rsa_decrypt,
      &token_specific_rsa_encrypt,
      &token_specific_rsa_generate_keypair,
-/* Begin code contributed by Corrent corp. */   
+/* Begin code contributed by Corrent corp. */
      // DH
      &token_specific_dh_pkcs_derive,
      &token_specific_dh_pkcs_key_pair_gen,
