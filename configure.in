@@ -267,7 +267,6 @@ AC_OUTPUT([Makefile usr/Makefile \
           usr/lib/pkcs11/api/Makefile \
           usr/lib/pkcs11/api/shrd_mem.c \
           usr/lib/pkcs11/ica_stdll/Makefile \
-          usr/lib/pkcs11/ica_stdll/tok_struct.h \
           usr/lib/pkcs11/ica_s390_stdll/Makefile \
           usr/sbin/Makefile \
           usr/sbin/pkcsslotd/Makefile \

@@ -297,8 +297,18 @@
 
 #include "tok_spec_struct.h"
 
+#ifndef LITE_CONFIG_PATH
+
+#ifndef CONFIG_PATH
+#warning CONFIG_PATH not set, using default (/usr/local/var/lib/opencryptoki)
+#define CONFIG_PATH "/usr/local/var/lib/opencryptoki"
+#endif  // #ifndef CONFIG_PATH
+
+#define LITE_CONFIG_PATH CONFIG_PATH "/lite"
+#endif  // #ifndef LITE_CONFIG_PATH
+
 token_spec_t token_specific  = {
-     "@DB_PATH@/lite",
+     LITE_CONFIG_PATH,
      "lite",
      "ICA_STDLL_Debug",
      &token_specific_init,
@@ -323,7 +333,7 @@ token_spec_t token_specific  = {
      &token_specific_dh_pkcs_key_pair_gen,
 #endif
      // SHA
-     &token_specific_sha_init, 
+     &token_specific_sha_init,
      &token_specific_sha_update,
      &token_specific_sha_final,
      /* SHA256 */
