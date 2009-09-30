@@ -21,8 +21,18 @@
 
 #include "tpm_specific.h"
 
+#ifndef TPM_CONFIG_PATH
+
+#ifndef CONFIG_PATH
+#warning CONFIG_PATH not set, using default (/usr/local/var/lib/opencryptoki)
+#define CONFIG_PATH "/usr/local/var/lib/opencryptoki"
+#endif	// #ifndef CONFIG_PATH
+
+#define TPM_CONFIG_PATH CONFIG_PATH "/tpm"
+#endif	// #ifndef TPM_CONFIG_PATH
+
 struct token_specific_struct token_specific = {
-     "@DB_PATH@/tpm",
+     TPM_CONFIG_PATH,
      "tpm",
      "TPM_STDLL_Debug",
      &token_specific_init,
