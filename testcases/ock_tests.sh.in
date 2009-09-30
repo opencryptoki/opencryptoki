@@ -41,12 +41,12 @@ LOGGING=0
 LOGFILE="$PWD/ock-tests.log"
 ERR_SUMMARY="$PWD/ock-tests.err"
 TCSD="/usr/sbin/tcsd"
-PKCONF="/var/lib/opencryptoki/pk_config_data"
-PKCSCONFBIN="/usr/sbin/pkcsconf"
+PKCONF="@localstatedir@/lib/opencryptoki/pk_config_data"
+PKCSCONFBIN="@sbindir@/pkcsconf"
 TESTCONF="$PWD/ock-tests.config"
-OCKDIR="/var/lib/opencryptoki"
-STDLLDIR="/usr/lib/pkcs11/stdll"
-CONFSTART="/usr/sbin/pkcs11_startup"
+OCKDIR="lib/opencryptoki"
+STDLLDIR="@libdir@/pkcs11/stdll"
+CONFSTART="@sbindir@/pkcs11_startup"
 
 usage()
 {
@@ -81,7 +81,7 @@ do
 			TESTCONF="$OPTARG"
 			touch $TESTCONF
 			;;
-		n)	
+		n)
 			NO_STOP="-nostop"
 			;;
 		s)
@@ -96,7 +96,7 @@ check_slots()
 
 	#pkcsslotd running?
 	if [ -z "`pgrep pkcsslotd`" ]
-	then 
+	then
 		echo "Error: pkcsslotd not started"
 		exit -1
 	fi
@@ -107,7 +107,7 @@ check_slots()
 		if [ -z "`$PKCSCONFBIN -s | grep $i`" ]
 		then
 			echo "Warning: Token not loaded: $i"
-		
+
 			if [ -n "`echo $i | grep -i TPM`" ]
 			then
 				[ -n "`pgrep tcsd`" ] || echo " TCSD not running"
@@ -122,17 +122,17 @@ check_files()
 {
 	#Not implemented yet
 	#[ -e $TESTCONF ] || touch $TESTCONF #echo "Config file missing"
-	
+
 	#Is the TCSD present?
-	if grep -i tpm $PKCONF && [ ! -e $TCSD ] 
+	if grep -i tpm $PKCONF && [ ! -e $TCSD ]
 	then
 		echo "Error: TCSD not present"
 		exit -1
 	fi
-	
+
 
 	#Checks if for each token in $PKCFONF there is a .so file.
-	if [ -e $PKCONF ] 
+	if [ -e $PKCONF ]
 	then
 		for i in $( cat $PKCONF | awk -F \| '{print $13}' )
 		do
@@ -152,13 +152,13 @@ check_files()
 check_environment_vars()
 {
 
-	if [ `env | grep -c PKCS11` -lt 2 ] 
+	if [ `env | grep -c PKCS11` -lt 2 ]
 	then
 		[ -n "`env | grep PKCS11_SO_PIN`" ] ||	echo "Error: PKCS11_SO_PIN not set"
 		[ -n "`env | grep PKCS11_USER_PIN`" ] ||  echo "Error: PKCS11_USER_PIN not set"
 		exit -1
 	fi
-	
+
 	i=`env | grep PKCSLIB | sed "s/PKCSLIB=//"`
 
 	if [ -z "$i" ]
@@ -175,8 +175,8 @@ check_environment_vars()
 }
 run_tests()
 {
-	
-	for i in $( $PKCSCONFBIN -t | grep Info: | awk {'print $2'} | sed 's/#//' ) 
+
+	for i in $( $PKCSCONFBIN -t | grep Info: | awk {'print $2'} | sed 's/#//' )
 	do
 		if [ -z "$SLOT" ] || [ "$SLOT" = "$i" ]
 		then
@@ -194,7 +194,7 @@ main_script()
 	check_slots
 	check_files
 	check_environment_vars
-	run_tests 
+	run_tests
 }
 
 if [ "$LOGGING" = "1" ]
