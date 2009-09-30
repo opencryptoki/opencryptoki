@@ -9,10 +9,6 @@ opencryptoki_stdll_libpkcs11_ica_la_CFLAGS = -DSPINXPL -DDEV		\
 -D_THREAD_SAFE -fPIC -DSHALLOW=0 -DSWTOK=0 -DLITE=1 -DNODH 		\
 -DNOCDMF -DNOMD2 -DNODSA -DSTDLL_NAME=\"icatok\"
 
-# Not all versions of automake observe libname_CFLAGS
-AM_CFLAGS = -DSPINXPL -DDEV -D_THREAD_SAFE -fPIC -DSHALLOW=0 -DSWTOK=0	\
--DLITE=1 -DNODH -DNOCDMF -DNOMD2 -DNODSA -DNORIPE
-
 opencryptoki_stdll_libpkcs11_ica_la_SOURCES = ../common/asn1.c	\
 ../common/cert.c ../common/hwf_obj.c ../common/dp_obj.c		\
 ../common/data_obj.c ../common/decr_mgr.c ../common/dig_mgr.c	\
@@ -30,7 +26,6 @@ INCLUDES = $(ICA_INC_DIRS) -I. -I../../../include/pkcs11/stdll	\
 -I../../../include/pkcs11 -I../common -I../../../ica/inc	\
 -I../../../../ica/include -I.. -I../../../../ica/src/inc
 
-install-data-local:
-	mkdir -p $(DESTDIR)/$(libdir)/opencryptoki/stdll
-	cd $(DESTDIR)/$(libdir)/opencryptoki/stdll && rm -f PKCS11_ICA.so && \
+install-data-hook:
+	cd $(DESTDIR)$(libdir)/opencryptoki/stdll && \
 		ln -sf libpkcs11_ica.so PKCS11_ICA.so
