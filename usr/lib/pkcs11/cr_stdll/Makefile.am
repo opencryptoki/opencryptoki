@@ -10,10 +10,6 @@ VARIANT = -DSHALLOW=0 -DSWTOK=1 -DLITE=0
 opencryptoki_stdll_libpkcs11_cr_la_CFLAGS = -DSPINXPL -DDEV		\
 -D_THREAD_SAFE -fPIC $(VARIANT) -DNOCDMF -DNOMD2 -DNODSA -DDEBUGON
 
-# Not all versions of automake observe libname_CFLAGS
-AM_CFLAGS = -DSPINXPL -DDEV -D_THREAD_SAFE -fPIC $(VARIANT) -DNOCDMF	\
--DNOMD2 -DNODSA -DDEBUGON -DSTDLL_NAME=\"crtok\"
-
 opencryptoki_stdll_libpkcs11_cr_la_SOURCES = ../common/asn1.c	\
 ../common/cert.c ../common/hwf_obj.c ../common/dp_obj.c		\
 ../common/data_obj.c ../common/decr_mgr.c ../common/dig_mgr.c	\
@@ -32,6 +28,6 @@ INCLUDES = $(CR_INC_DIRS) -I/usr/include			\
 -I../common -I../../../ica/inc -I../../../../ica/include	\
 -I.. -I../../../../ica/src/inc
 
-install-data-local:
-	cd $(DESTDIR)/$(libdir)/opencryptoki/stdll && rm -f PKCS11_CR.so && \
+install-data-hook:
+	cd $(DESTDIR)$(libdir)/opencryptoki/stdll && \
 		ln -sf libpkcs11_cr.so PKCS11_CR.so
