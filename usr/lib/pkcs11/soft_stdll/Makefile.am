@@ -13,13 +13,6 @@ opencryptoki_stdll_libpkcs11_sw_la_CFLAGS = -DSPINXPL -DDEV -D_THREAD_SAFE  \
 					    -I../../../include/pkcs11	    \
 					    -I../common -DSTDLL_NAME=\"swtok\"
 
-# Not all versions of automake observe libname_CFLAGS
-AM_CFLAGS = -DSPINXPL -DDEV -D_THREAD_SAFE -DSHALLOW=0 \
-	    -DSWTOK=1 -DLITE=0 -DNOCDMF -DNOMD2 -DNODSA \
-	    -DDEBUGON -fPIC -I/usr/include -I. \
-	    -I../../../include/pkcs11/stdll \
-	    -I../../../include/pkcs11 -I../common
-
 opencryptoki_stdll_libpkcs11_sw_la_SOURCES = ../common/asn1.c		\
 					     ../common/cert.c		\
 					     ../common/hwf_obj.c	\
@@ -54,6 +47,6 @@ opencryptoki_stdll_libpkcs11_sw_la_SOURCES = ../common/asn1.c		\
 					     ../common/mech_list.c      \
 					     soft_specific.c
 
-install-data-local:
-	cd $(DESTDIR)/$(libdir)/opencryptoki/stdll && rm -f PKCS11_SW.so && \
+install-data-hook:
+	cd $(DESTDIR)$(libdir)/opencryptoki/stdll && \
 		ln -sf libpkcs11_sw.so PKCS11_SW.so
