@@ -9,10 +9,6 @@ opencryptoki_stdll_libpkcs11_aep_la_CFLAGS = -DSPINXPL -DDEV		\
 -D_THREAD_SAFE -fPIC -DSHALLOW=0 -DSWTOK=1 -DLITE=0 -DNOCDMF -DNOMD2	\
 -DNODSA -DDEBUGON -DAEP_GENERIC -DNORIPE -DSTDLL_NAME=\"aeptok\"
 
-# Not all versions of automake observe libname_CFLAGS
-AM_CFLAGS = @CFLAGS@ -DSPINXPL -DDEV -D_THREAD_SAFE -fPIC -DSHALLOW=0	\
--DSWTOK=1 -DLITE=0 -DNOCDMF -DNOMD2 -DNODSA -DDEBUGON -DAEP_GENERIC -DNORIPE
-
 opencryptoki_stdll_libpkcs11_aep_la_SOURCES = ../common/asn1.c		\
 ../common/cert.c ../common/hwf_obj.c ../common/dp_obj.c			\
 ../common/data_obj.c ../common/decr_mgr.c ../common/dig_mgr.c		\
@@ -29,6 +25,6 @@ aeptok_specific.c aeptok_api.c
 INCLUDES = -I/usr/include -I. -I../../../include/pkcs11/stdll	\
 -I../../../include/pkcs11 -I ../common
 
-install-data-local:
-	cd $(DESTDIR)/$(libdir)/opencryptoki/stdll && rm -f PKCS11_AEP.so && \
+install-data-hook:
+	cd $(DESTDIR)/$(libdir)/opencryptoki/stdll && \
 		ln -sf libpkcs11_aep.so PKCS11_AEP.so
