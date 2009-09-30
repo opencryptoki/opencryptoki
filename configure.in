@@ -35,11 +35,15 @@ AC_FUNC_STRFTIME
 AC_FUNC_VPRINTF
 AC_CHECK_FUNCS([getcwd])
 
-# Used in the init scripts
-AC_SUBST(ID, /usr/bin/id)
-AC_SUBST(USERMOD, /usr/sbin/usermod)
-AC_SUBST(GROUPADD, /usr/sbin/groupadd)
-
+dnl Used in various scripts
+AC_PATH_PROG([ID], [id], [/us/bin/id])
+AC_PATH_PROG([USERMOD], [usermod], [/usr/sbin/usermod])
+AC_PATH_PROG([GROUPADD], [groupadd], [/usr/sbin/groupadd])
+AC_PATH_PROG([CAT], [cat], [/bin/cat])
+AC_PATH_PROG([CHMOD], [chmod], [/bin/chmod])
+AC_PATH_PROG([CHGRP], [chgrp], [/bin/chgrp])
+AC_PROG_SED
+AC_PROG_MKDIR_P
 dnl i.e., /usr/local or /usr
 if test "x$prefix" = xNONE; then
   prefix=$ac_default_prefix
@@ -302,7 +306,6 @@ AC_OUTPUT([Makefile usr/Makefile \
           usr/sbin/pkcs11_startup/Makefile \
           usr/sbin/pkcs11_startup/pkcs11_startup \
           usr/sbin/pkcs_slot/Makefile \
-          usr/sbin/pkcs_slot/pkcs_slot \
           usr/sbin/pkcsconf/Makefile \
           usr/sbin/pkcscca_migrate/Makefile \
           usr/lib/pkcs11/methods/Makefile \
