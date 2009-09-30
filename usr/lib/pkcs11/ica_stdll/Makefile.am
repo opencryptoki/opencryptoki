@@ -30,7 +30,6 @@ INCLUDES = $(ICA_INC_DIRS) -I/usr/include			\
 -I../common -I../../../ica/inc -I../../../../ica/include	\
 -I.. -I../../../../ica/src/inc
 
-install-data-local:
-	mkdir -p $(DESTDIR)/$(libdir)/opencryptoki/stdll
-	cd $(DESTDIR)/$(libdir)/opencryptoki/stdll && rm -f PKCS11_ICA.so && \
+install-data-hook:
+	cd $(DESTDIR)$(libdir)/opencryptoki/stdll && \
 		ln -sf libpkcs11_ica.so PKCS11_ICA.so
