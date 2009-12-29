@@ -1002,7 +1002,7 @@ DL_Load( sinfp,sltp,dllload)
 
    dllload[i].dll_name = sinfp->dll_location;  // Point to the location
 
-   dllload[i].dlop_p = dlopen(sinfp->dll_location,RTLD_NOW);
+   dllload[i].dlop_p = dlopen(sinfp->dll_location, (RTLD_GLOBAL | RTLD_LAZY));
 
    if (dllload[i].dlop_p != NULL ){
       sltp->dlop_p = dllload[i].dlop_p;

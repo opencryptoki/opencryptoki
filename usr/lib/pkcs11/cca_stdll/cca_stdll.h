@@ -53,7 +53,7 @@
 
 /* CCA STDLL constants */
 
-#define CCATOK_MAX_N_LEN		256
+#define CCATOK_MAX_N_LEN		512
 #define CCATOK_MAX_E_LEN		256
 
 #define sw_des3_cbc_encrypt(clear, len, cipher, len2, iv, key) \

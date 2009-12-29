@@ -44,15 +44,15 @@ CK_CHAR label[] = "IBM PKCS#11 for CCA";
 MECH_LIST_ELEMENT mech_list[] = {
    { CKM_DES_KEY_GEN,                { 8,    8, CKF_HW | CKF_GENERATE } },
    { CKM_DES3_KEY_GEN,              { 24,   24, CKF_HW | CKF_GENERATE } },
-   { CKM_RSA_PKCS_KEY_PAIR_GEN,    { 512, 2048, CKF_HW | CKF_GENERATE_KEY_PAIR } },
-   { CKM_RSA_PKCS,                 { 512, 2048, CKF_HW           |
+   { CKM_RSA_PKCS_KEY_PAIR_GEN,    { 512, 4096, CKF_HW | CKF_GENERATE_KEY_PAIR } },
+   { CKM_RSA_PKCS,                 { 512, 4096, CKF_HW           |
                                                 CKF_ENCRYPT      | CKF_DECRYPT |
                                                 CKF_SIGN         | CKF_VERIFY } },
-   { CKM_MD2_RSA_PKCS,             { 512, 2048, CKF_HW      |
+   { CKM_MD2_RSA_PKCS,             { 512, 4096, CKF_HW      |
                                                 CKF_SIGN    | CKF_VERIFY } },
-   { CKM_MD5_RSA_PKCS,             { 512, 2048, CKF_HW      |
+   { CKM_MD5_RSA_PKCS,             { 512, 4096, CKF_HW      |
                                                 CKF_SIGN    | CKF_VERIFY } },
-   { CKM_SHA1_RSA_PKCS,            { 512, 2048, CKF_HW      |
+   { CKM_SHA1_RSA_PKCS,            { 512, 4096, CKF_HW      |
                                                 CKF_SIGN    | CKF_VERIFY } },
    { CKM_DES_CBC,                    { 8,    8, CKF_HW      |
                                                 CKF_ENCRYPT | CKF_DECRYPT |
@@ -66,9 +66,24 @@ MECH_LIST_ELEMENT mech_list[] = {
    { CKM_DES3_CBC_PAD,              { 24,   24, CKF_HW      |
                                                 CKF_ENCRYPT | CKF_DECRYPT |
                                                 CKF_WRAP    | CKF_UNWRAP } },
+   { CKM_AES_KEY_GEN,                16,   32, CKF_HW },
+   { CKM_AES_ECB,                    16,   32, CKF_HW      |
+   					       CKF_ENCRYPT | CKF_DECRYPT |
+   					       CKF_WRAP    | CKF_UNWRAP },
+   { CKM_AES_CBC,                    16,   32, CKF_HW      |
+   					       CKF_ENCRYPT | CKF_DECRYPT |
+   					       CKF_WRAP    | CKF_UNWRAP },
+   { CKM_AES_MAC,                    16,   32, CKF_HW | CKF_SIGN | CKF_VERIFY },
+   { CKM_AES_MAC_GENERAL,            16,   32, CKF_HW | CKF_SIGN | CKF_VERIFY },
+   { CKM_AES_CBC_PAD,                16,   32, CKF_HW      |
+   					       CKF_ENCRYPT | CKF_DECRYPT |
+   					       CKF_WRAP    | CKF_UNWRAP },
    { CKM_SHA_1,                      { 0,    0, CKF_DIGEST } },
    { CKM_SHA_1_HMAC,                 { 0,    0, CKF_SIGN | CKF_VERIFY } },
    { CKM_SHA_1_HMAC_GENERAL,         { 0,    0, CKF_SIGN | CKF_VERIFY } },
+   { CKM_SHA256,                     { 0,    0, CKF_HW | CKF_DIGEST } },
+   { CKM_SHA256_HMAC,                { 0,    0, CKF_HW | CKF_SIGN | CKF_VERIFY } },
+   { CKM_SHA256_HMAC_GENERAL,        { 0,    0, CKF_HW | CKF_SIGN | CKF_VERIFY } },
    { CKM_MD5,                        { 0,    0, CKF_DIGEST } },
    { CKM_MD5_HMAC,                   { 0,    0, CKF_SIGN | CKF_VERIFY } },
    { CKM_MD5_HMAC_GENERAL,           { 0,    0, CKF_SIGN | CKF_VERIFY } },
@@ -137,31 +152,10 @@ token_specific_init(char *Correlator, CK_SLOT_ID SlotNumber)
 {
 	unsigned char rule_array[256] = { 0, };
 	long return_code, reason_code, rule_array_count, verb_data_length;
-	void *lib_csulsecy;
-	void *lib_csulcall;
-	void *lib_csulsapi;
-	void *lib_ds30;
-
-	/* Explictly load the dependent libraries. There are circular
-	 * dependencies in this set of libraries, so we do lazy symbol
-	 * resolution for the first three libraries. */
-	lib_ds30 = dlopen("libds30.so", (RTLD_GLOBAL | RTLD_LAZY));
-	if (lib_ds30 == NULL) {
-		syslog(LOG_ERR, "%s: Error loading library: [%s]\n", __FUNCTION__, dlerror());
-		return CKR_FUNCTION_FAILED;
-	}
-	lib_csulsapi = dlopen("libcsulsapi.so", (RTLD_GLOBAL | RTLD_LAZY));
-	if (lib_csulsapi == NULL) {
-		syslog(LOG_ERR, "%s: Error loading library: [%s]\n", __FUNCTION__, dlerror());
-		return CKR_FUNCTION_FAILED;
-	}
-	lib_csulcall = dlopen("libcsulcall.so", (RTLD_GLOBAL | RTLD_LAZY));
-	if (lib_csulcall == NULL) {
-		syslog(LOG_ERR, "%s: Error loading library: [%s]\n", __FUNCTION__, dlerror());
-		return CKR_FUNCTION_FAILED;
-	}
-	lib_csulsecy = dlopen("libcsulsecy.so", (RTLD_GLOBAL | RTLD_NOW));
-	if (lib_csulsecy == NULL) {
+	void *lib_csulcca;
+	
+	lib_csulcca = dlopen("libcsulcca.so",  (RTLD_GLOBAL | RTLD_NOW));
+	if (lib_csulcca == NULL) {
 		syslog(LOG_ERR, "%s: Error loading library: [%s]\n", __FUNCTION__, dlerror());
 		return CKR_FUNCTION_FAILED;
 	}
@@ -170,7 +164,6 @@ token_specific_init(char *Correlator, CK_SLOT_ID SlotNumber)
 
         rule_array_count = 1;
         verb_data_length = 0;
-
         CSUACFQ(&return_code,
                 &reason_code,
                 NULL,
@@ -202,21 +195,17 @@ token_specific_final()
 	return CKR_OK;
 }
 
-CK_RV
-token_specific_des_key_gen(CK_BYTE *des_key, CK_ULONG len, CK_ULONG key_size)
+CK_RV cca_key_gen(CK_BYTE *key, unsigned char *key_form, unsigned char *key_type_1, 
+		  CK_ULONG key_size)
 {
+
 	long return_code, reason_code;
-	unsigned char key_form[CCA_KEYWORD_SIZE], key_length[CCA_KEYWORD_SIZE];
-	unsigned char key_type_1[CCA_KEYWORD_SIZE], key_type_2[CCA_KEYWORD_SIZE] = { 0, };
+	unsigned char key_length[CCA_KEYWORD_SIZE];
+	unsigned char key_type_2[CCA_KEYWORD_SIZE] = { 0, };
 	unsigned char kek_key_identifier_1[CCA_KEY_ID_SIZE] = { 0, };
 	unsigned char kek_key_identifier_2[CCA_KEY_ID_SIZE] = { 0, };
-	unsigned char generated_key_identifier_1[CCA_KEY_ID_SIZE] = { 0, };
+	unsigned char *generated_key_identifier_1 = key;
 	unsigned char generated_key_identifier_2[CCA_KEY_ID_SIZE] = { 0, };
-
-	DBG("Enter");
-
-	memcpy(key_form, "OP      ", (size_t)CCA_KEYWORD_SIZE);
-	memcpy(key_type_1, "DATA    ", (size_t)CCA_KEYWORD_SIZE);
 
 	switch (key_size) {
 		case 8:
@@ -230,11 +219,14 @@ token_specific_des_key_gen(CK_BYTE *des_key, CK_ULONG len, CK_ULONG key_size)
 		case 24:
 			memcpy(key_length, "KEYLN24 ", (size_t)CCA_KEYWORD_SIZE);
 			break;
+		case 32:
+			memcpy(key_length, "        ", (size_t)CCA_KEYWORD_SIZE);
+			break;
 		default:
 			DBG("Invalid key length: %lu", key_size);
 			return CKR_KEY_SIZE_RANGE;
 	}
-
+//check if DES 32 bytes keys are supported supported
 	CSNBKGN(&return_code,
 		&reason_code,
 		NULL,
@@ -245,26 +237,33 @@ token_specific_des_key_gen(CK_BYTE *des_key, CK_ULONG len, CK_ULONG key_size)
 		key_type_2,
 		kek_key_identifier_1,
 		kek_key_identifier_2,
-		generated_key_identifier_1,
+		key,
 		generated_key_identifier_2);
 
 	if (return_code != CCA_SUCCESS) {
-		CCADBG("CSNBKGN (DES KEYGEN)", return_code, reason_code);
+		CCADBG("CSNBKGN (KEYGEN)", return_code, reason_code);
 		return CKR_FUNCTION_FAILED;
 	}
 
-	memcpy(des_key, generated_key_identifier_1, (size_t)CCA_KEY_ID_SIZE);
+//	memcpy(key, generated_key_identifier_1, (size_t)CCA_KEY_ID_SIZE);
 
-#ifdef DEBUG
-	DBG("Created a new key of size %lu", key_size);
-	{
-		uint32_t *i = (uint32_t *) des_key, j;
-		for ( j = 0; j < 16; j++)
-			DBG("%.8x ", *i++);
-	}
-#endif
 
 	return CKR_OK;
+}
+
+CK_RV
+token_specific_des_key_gen(CK_BYTE *des_key, CK_ULONG len, CK_ULONG key_size)
+{
+	long return_code, reason_code;
+	unsigned char key_form[CCA_KEYWORD_SIZE], key_length[CCA_KEYWORD_SIZE];
+	unsigned char key_type_1[CCA_KEYWORD_SIZE];
+
+	DBG("Enter CCA DES keygen");
+
+	memcpy(key_form, "OP      ", (size_t)CCA_KEYWORD_SIZE);
+	memcpy(key_type_1, "DATA    ", (size_t)CCA_KEYWORD_SIZE);
+
+	return cca_key_gen(des_key, key_form, key_type_1, key_size);
 }
 
 CK_RV
@@ -349,6 +348,8 @@ token_specific_des_cbc(CK_BYTE  *in_data,
 
 	if (return_code != CCA_SUCCESS) {
 		CCADBG("CSNBENC (DES ENCRYPT)", return_code, reason_code);
+		if (out_data != local_out)
+			free(local_out);
 #ifdef DEBUG
 		{
 			uint32_t *i = (uint32_t *) key_value, j;
@@ -369,9 +370,11 @@ token_specific_des_cbc(CK_BYTE  *in_data,
 		DBG("CKR_BUFFER_TOO_SMALL: %ld bytes to write into %ld bytes space",
 		    length, *out_data_len);
 		st_err_log(111, __FILE__, __LINE__);
+		free(local_out);
 		return CKR_BUFFER_TOO_SMALL;
 	} else if (local_out != out_data) {
 		memcpy(out_data, local_out, (size_t)length);
+		free(local_out);
 	}
 
 	*out_data_len = length;
@@ -860,10 +863,77 @@ token_specific_rsa_verify(CK_BYTE  * in_data,
 
 #ifndef NOAES
 CK_RV
-token_specific_aes_key_gen(CK_BYTE *key, CK_ULONG len)
+token_specific_aes_key_gen(CK_BYTE *aes_key, CK_ULONG key_size)
 {
-	DBG("Unsupported function reached.");
-	return CKR_FUNCTION_NOT_SUPPORTED;
+	long return_code, reason_code;
+	unsigned char key_length[CCA_KEYWORD_SIZE];
+	unsigned char key_token[CCA_KEY_ID_SIZE] = { 0, };
+	unsigned char key_value[32];
+	unsigned char key_form[CCA_KEYWORD_SIZE];
+	unsigned char key_type[CCA_KEYWORD_SIZE];
+	unsigned char rule_array[CCA_RULE_ARRAY_SIZE] = { 0x20, };
+	long exit_data_len = 0, rule_array_count;
+	unsigned char exit_data[4] = { 0, };
+	unsigned char reserved_1[4] = { 0, };
+	unsigned char point_to_array_of_zeros = 0;
+	unsigned char mkvp[16] = { 0, };
+	
+	memcpy(rule_array, "INTERNALAES     NO-KEY  ", (size_t) (CCA_KEYWORD_SIZE*3));
+	memcpy(key_type, "DATA    ", (size_t)CCA_KEYWORD_SIZE);
+	
+	switch (key_size) {
+		case 16:
+			memcpy(rule_array + 3*CCA_KEYWORD_SIZE, "KEYLN16 ", CCA_KEYWORD_SIZE);
+			break;
+		case 24:
+			memcpy(rule_array + 3*CCA_KEYWORD_SIZE, "KEYLN24 ", (size_t)CCA_KEYWORD_SIZE);
+			break;
+		case 32:
+			memcpy(rule_array + 3*CCA_KEYWORD_SIZE, "KEYLN32 ", (size_t)CCA_KEYWORD_SIZE);
+			break;
+		default:
+			DBG("Invalid key length: %lu", key_size);
+			return CKR_KEY_SIZE_RANGE;
+	}
+#ifdef DEBUG
+		{
+			uint32_t j;
+			DBG("Rule Array:");
+			for ( j = 0; j < 32; j++)
+				printf("%c", rule_array[j]);
+			printf("\n");
+			for ( j = 0; j < 8; j++)
+				printf("%c", key_type[j]);
+		}
+#endif
+	rule_array_count = 4;
+	CSNBKTB(&return_code,
+		&reason_code,
+		&exit_data_len,
+		exit_data,
+		key_token,
+		key_type,
+		&rule_array_count,
+		rule_array,
+		NULL,
+		reserved_1,
+		NULL,
+		&point_to_array_of_zeros,
+		NULL,
+		NULL,
+		NULL,
+		NULL,
+		mkvp);
+	
+	if (return_code != CCA_SUCCESS) {
+		CCADBG("CSNBTKB (TOKEN BUILD)", return_code, reason_code);
+		return CKR_FUNCTION_FAILED;
+	}
+	memcpy(key_form, "OP      ", (size_t)CCA_KEYWORD_SIZE);
+	memcpy(key_type, "AESTOKEN", (size_t) CCA_KEYWORD_SIZE);
+	memcpy(aes_key, key_token, (size_t)CCA_KEY_ID_SIZE);
+
+	return cca_key_gen(aes_key, key_form, key_type, key_size);
 }
 
 CK_RV
@@ -875,8 +945,84 @@ token_specific_aes_ecb(CK_BYTE  *in_data,
 		       CK_ULONG	 key_len,
 		       CK_BYTE	 encrypt)
 {
-	DBG("Unsupported function reached.");
-	return CKR_FUNCTION_NOT_SUPPORTED;
+	
+	long return_code, reason_code, rule_array_count, length;
+	long pad_character = 0, block_size = 16;
+	unsigned char chaining_vector[CCA_OCV_SIZE];
+	unsigned char rule_array[CCA_RULE_ARRAY_SIZE];
+	long opt_data_len = 0, key_params_len =0, exit_data_len = 0, IV_len = 0, chain_vector_len = 0;
+	char exit_data[0];
+	CK_BYTE *local_out = out_data;
+
+	key_len = 64;	
+	rule_array_count = 4;
+	memcpy(rule_array, "AES     ECB     KEYIDENTINITIAL ", 
+	       rule_array_count*(size_t)CCA_KEYWORD_SIZE);
+	
+	if (encrypt) {
+		CSNBSAE(&return_code,
+			&reason_code,
+			&exit_data_len,
+			exit_data,
+			&rule_array_count,
+			rule_array,
+			&key_len,
+			key_value,
+			&key_params_len,
+			NULL,
+			&block_size,
+			&IV_len,
+			NULL,
+			&chain_vector_len,
+			NULL,
+			&in_data_len,
+			in_data,
+			out_data_len,
+			local_out,
+			&opt_data_len,
+			NULL);
+	} else {
+		CSNBSAD(&return_code,
+			&reason_code,
+			&exit_data_len,
+			exit_data,
+			&rule_array_count,
+			rule_array,
+			&key_len,
+			key_value,
+			&key_params_len,
+			NULL,
+			&block_size,
+			&IV_len,
+			NULL,
+			&chain_vector_len,
+			NULL,
+			&in_data_len,
+			in_data,
+			out_data_len,
+			local_out,
+			&opt_data_len,
+			NULL);
+	}
+	
+	if (return_code != CCA_SUCCESS) {
+		if (encrypt)
+			CCADBG("CSNBSAE (AES ENCRYPT)", return_code, reason_code);
+		else
+			CCADBG("CSNBSAD (AES DECRYPT)", return_code, reason_code);
+#ifdef DEBUG
+		{
+			uint32_t *i = (uint32_t *) key_value, j;
+			DBG("Bad key:");
+		//	for ( j = 0; j < 16; j++)
+		//		DBG("%.8x ", *i++);
+		}
+#endif
+		(*out_data_len) = 0;
+		return CKR_FUNCTION_FAILED;
+	}
+
+	return CKR_OK;
 }
 
 CK_RV
@@ -889,8 +1035,113 @@ token_specific_aes_cbc(CK_BYTE  *in_data,
 		       CK_BYTE	*init_v,
 		       CK_BYTE	 encrypt)
 {
-	DBG("Unsupported function reached.");
-	return CKR_FUNCTION_NOT_SUPPORTED;
+	long return_code, reason_code, rule_array_count, length;
+	long pad_character = 0, block_size = 16;
+	unsigned char IV[8] = { 0xfe, 0x43, 0x12, 0xed, 0xaa, 0xbb, 0xdd, 0x90 };
+	unsigned char chaining_vector[32];
+	unsigned char rule_array[CCA_RULE_ARRAY_SIZE];
+	long opt_data_len = 0, key_params_len =0, exit_data_len = 0, IV_len = 16, chain_vector_len = 32;
+	CK_BYTE *local_out = out_data;
+	char exit_data[0];
+
+	if (in_data_len%16 == 0) {
+		rule_array_count = 3;
+		memcpy(rule_array, "AES     KEYIDENTINITIAL ", 
+		       rule_array_count*(size_t)CCA_KEYWORD_SIZE);
+	} else {
+		if ((encrypt) && (*out_data_len < (in_data_len + 16))) {
+			local_out = malloc(in_data_len + 16);
+			if (!local_out) {
+				DBG("Malloc of %lu bytes failed.", in_data_len + 16);
+				return CKR_HOST_MEMORY;
+			}
+		}
+
+		rule_array_count = 3;
+		memcpy(rule_array, "AES     PKCS-PADKEYIDENT", 
+		       rule_array_count*(size_t)CCA_KEYWORD_SIZE);
+	}
+
+	length = in_data_len;
+	key_len = 64;
+	if (encrypt) {
+		CSNBSAE(&return_code,
+			&reason_code,
+			&exit_data_len,
+			exit_data,
+			&rule_array_count,
+			rule_array,
+			&key_len,
+			key_value,
+			&key_params_len,
+			exit_data,
+			&block_size,
+			&IV_len,
+			init_v,
+			&chain_vector_len,
+			chaining_vector,
+			&length,
+			in_data,
+			out_data_len,
+			out_data,
+			&opt_data_len,
+			NULL);
+	} else {
+		CSNBSAD(&return_code,
+			&reason_code,
+			&exit_data_len,
+			exit_data,
+			&rule_array_count,
+			rule_array,
+			&key_len,
+			key_value,
+			&key_params_len,
+			NULL,
+			&block_size,
+			&IV_len,
+			init_v,
+			&chain_vector_len,
+			chaining_vector,
+			&length,
+			in_data,
+			out_data_len,
+			out_data,
+			&opt_data_len,
+			NULL);
+	}
+	
+	if (return_code != CCA_SUCCESS) {
+		CCADBG("CSNBENC (AES ENCRYPT)", return_code, reason_code);
+#ifdef DEBUG
+		{
+			uint32_t *i = (uint32_t *) key_value, j;
+			DBG("Bad key:");
+			//for ( j = 0; j < 16; j++)
+			//	DBG("%.8x ", *i++);
+		}
+#endif
+		return CKR_FUNCTION_FAILED;
+	}
+
+	/* If we malloc'd a new buffer due to overflow concerns and the data
+	 * coming out turned out to be bigger than expected, return an error.
+	 *
+	 * Else, memcpy the data back to the user's buffer
+	 */
+	if ((local_out != out_data) && ((CK_ULONG)length > *out_data_len)) {
+		DBG("CKR_BUFFER_TOO_SMALL: %ld bytes to write into %ld bytes space",
+		    length, *out_data_len);
+		st_err_log(111, __FILE__, __LINE__);
+		free(local_out);
+		return CKR_BUFFER_TOO_SMALL;
+	} else if (local_out != out_data) {
+		memcpy(out_data, local_out, (size_t)length);
+		free(local_out);
+	}
+
+	*out_data_len = length;
+
+	return CKR_OK;
 }
 #endif
 
