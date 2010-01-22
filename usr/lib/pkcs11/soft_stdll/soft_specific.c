@@ -822,7 +822,7 @@ os_specific_rsa_keygen(TEMPLATE *publ_tmpl,  TEMPLATE *priv_tmpl)
 	RSA *rsa;
 	BIGNUM *bignum;
 	CK_BYTE *ssl_ptr;
-	unsigned long three = 3;
+	void *e = NULL;
 
 	flag = template_attribute_find( publ_tmpl, CKA_MODULUS_BITS, &attr );
 	if (!flag){
@@ -831,22 +831,46 @@ os_specific_rsa_keygen(TEMPLATE *publ_tmpl,  TEMPLATE *priv_tmpl)
         }
 	mod_bits = *(CK_ULONG *)attr->pValue;
 
+	if (mod_bits < 512 || mod_bits > 4096) {
+		st_err_log(19, __FILE__, __LINE__);
+		return CKR_KEY_SIZE_RANGE;
+	}
+
 	flag = template_attribute_find( publ_tmpl, CKA_PUBLIC_EXPONENT, &publ_exp );
 	if (!flag){
 		st_err_log(48, __FILE__, __LINE__);
 		return CKR_TEMPLATE_INCOMPLETE;
 	}
 
-
-	// we don't support less than 1024 bit keys in the sw
-	if (mod_bits < 512 || mod_bits > 4096) {
+	// Sanity check of public exponent length.
+	if (publ_exp->ulValueLen > sizeof(unsigned long)) {
 		st_err_log(19, __FILE__, __LINE__);
 		return CKR_KEY_SIZE_RANGE;
 	}
 
-	// Because of a limition of OpenSSL, this token only supports
-	// 3 as an exponent in RSA key generation
-	rsa = RSA_generate_key(mod_bits, three, NULL, NULL);
+	e = calloc(1, sizeof(unsigned long));
+	if (e == NULL) {
+		st_err_log(1, __FILE__, __LINE__);
+		return CKR_HOST_MEMORY;
+	}
+
+#ifndef __BYTE_ORDER
+#error "Architecture endianness is not defined."
+#endif
+
+#if __BYTE_ORDER == __LITTLE_ENDIAN
+	memcpy(e, publ_exp->pValue, publ_exp->ulValueLen);
+
+#else
+	memcpy(e + (sizeof(unsigned long) - publ_exp->ulValueLen), publ_exp->pValue, publ_exp->ulValueLen);
+
+#endif
+
+	rsa = RSA_generate_key(mod_bits, *(unsigned long *)e, NULL, NULL);
+
+	free(e);
+	e = NULL;
+
 	if (rsa == NULL) {
                 st_err_log(4, __FILE__, __LINE__);
                 return CKR_FUNCTION_FAILED;
