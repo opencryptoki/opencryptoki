@@ -17,10 +17,11 @@ LOCKFILE=/var/lock/subsys/pkcsslotd
 SLOTDBIN=@METHOD_PATH@/pkcsslotd
 CONFSTART=@METHOD_PATH@/pkcs11_startup
 
-[ -f $SLOTDBIN ] || exit 5
-[ -f $CONFSTART ] || exit 5
 
 start() {
+	[ -x $SLOTDBIN ] || exit 5
+	[ -x $CONFSTART ] || exit 5
+
  	echo -n $"Starting pkcsslotd: "
 
         # Generate the configuration information
@@ -40,8 +41,8 @@ start() {
            daemon $SLOTDBIN
         fi
 
-	echo
 	RETVAL=$?
+	echo
 	[ $RETVAL -eq 0 ] && touch $LOCKFILE
 	return $RETVAL
 }	
@@ -49,8 +50,8 @@ start() {
 stop() {
 	echo -n $"Shutting down pkcsslotd:"
 	killproc pkcsslotd -TERM
-	echo
 	RETVAL=$?
+	echo
 	[ $RETVAL -eq 0 ] && rm -f $LOCKFILE
 	return $RETVAL
 }
@@ -81,7 +82,7 @@ case "$1" in
 	;;
   *)
 	echo $"Usage: $0 {start|stop|status|restart|condrestart}"
-	exit 1
+	exit 2
 esac
 
 exit $?
