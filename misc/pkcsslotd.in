@@ -74,14 +74,14 @@ case "$1" in
   status)
   	status pkcsslotd $SLOTDBIN
 	;;
-  restart|reload)
+  restart|reload|force-reload)
   	restart
 	;;
   condrestart)
   	[ -f $LOCKFILE ] && restart || :
 	;;
   *)
-	echo $"Usage: $0 {start|stop|status|restart|condrestart}"
+	echo $"Usage: $0 {start|stop|status|restart|condrestart|reload|force-reload}"
 	exit 2
 esac
 
