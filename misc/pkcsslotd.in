@@ -27,19 +27,7 @@ start() {
         # Generate the configuration information
         $CONFSTART
 
-	## Start daemon with startproc(8). If this fails
-	## the echo return value is set appropriate.
-        if [ ! -f $PIDFILE ]; then
-           # pid file does not exist
-           daemon --force $SLOTDBIN
-        elif ! ps -h --pid `cat $PIDFILE` | grep "$SLOTDBIN" 2>&1 >/dev/null; then
-           # pid file exists but named pid not
-           rm -f $PIDFILE
-           daemon --force $SLOTDBIN
-        else
-           # just to have "failed" message
-           daemon $SLOTDBIN
-        fi
+        daemon $SLOTDBIN
 
 	RETVAL=$?
 	echo
