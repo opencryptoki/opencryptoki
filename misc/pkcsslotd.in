@@ -37,7 +37,7 @@ start() {
 
 stop() {
 	echo -n $"Shutting down pkcsslotd:"
-	killproc pkcsslotd -TERM
+	killproc pkcsslotd
 	RETVAL=$?
 	echo
 	[ $RETVAL -eq 0 ] && rm -f $LOCKFILE
