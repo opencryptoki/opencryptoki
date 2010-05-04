@@ -369,7 +369,6 @@ encr_mgr_init( SESSION           * sess,
          }
          break;
 #ifndef NOAES
-#ifndef NOECB
       case CKM_AES_ECB:
 	 {
 	    // XXX Copied in from DES3, should be verified - KEY
@@ -405,7 +404,6 @@ encr_mgr_init( SESSION           * sess,
 
 	 }
 	 break;
-#endif
       case CKM_AES_CBC:
       case CKM_AES_CBC_PAD:
 	 {
@@ -593,13 +591,11 @@ encr_mgr_encrypt( SESSION           *sess,
 			 	 ctx,
 				 in_data,  in_data_len,
 				 out_data, out_data_len );
-#ifndef NOECB
       case CKM_AES_ECB:
 	 return aes_ecb_encrypt( sess,     length_only,
 			 	 ctx,
 				 in_data,  in_data_len,
 				 out_data, out_data_len );
-#endif
       case CKM_AES_CBC_PAD:
 	 return aes_cbc_pad_encrypt( sess,     length_only,
 			 	     ctx,
@@ -690,13 +686,11 @@ encr_mgr_encrypt_update( SESSION            *sess,
                                              in_data,  in_data_len,
                                              out_data, out_data_len );
 #ifndef NOAES
-#ifndef NOECB
       case CKM_AES_ECB:
 	 return aes_ecb_encrypt_update( sess,     length_only,
 			 		ctx,
 					in_data,  in_data_len,
 					out_data, out_data_len );
-#endif
       case CKM_AES_CBC:
 	 return aes_cbc_encrypt_update( sess,     length_only,
 			 		ctx,
@@ -775,12 +769,10 @@ encr_mgr_encrypt_final( SESSION            *sess,
                                             ctx,
                                             out_data, out_data_len );
 #ifndef NOAES
-#ifndef NOECB
       case CKM_AES_ECB:
 	 return aes_ecb_encrypt_final( sess,     length_only,
 			 	       ctx,
 				       out_data, out_data_len );
-#endif
       case CKM_AES_CBC:
 	 return aes_cbc_encrypt_final( sess,     length_only,
 			 	       ctx,

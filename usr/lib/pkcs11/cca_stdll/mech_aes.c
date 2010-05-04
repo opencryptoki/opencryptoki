@@ -39,7 +39,7 @@ aes_ecb_encrypt( SESSION           *sess,
 {
    OBJECT       *key       = NULL;
    CK_ATTRIBUTE *attr      = NULL;
-   CK_BYTE       key_value[AES_KEY_SIZE_256];
+   CK_BYTE       key_value[CCA_KEY_ID_SIZE];
    CK_KEY_TYPE   keytype;
    CK_RV         rc;
 
@@ -104,7 +104,7 @@ aes_ecb_decrypt( SESSION           *sess,
 {
    OBJECT       *key       = NULL;
    CK_ATTRIBUTE *attr      = NULL;
-   CK_BYTE       key_value[AES_KEY_SIZE_256];
+   CK_BYTE       key_value[CCA_KEY_ID_SIZE];
    CK_KEY_TYPE   keytype;
    CK_RV         rc;
 
@@ -170,7 +170,7 @@ aes_cbc_encrypt( SESSION           *sess,
 {
    OBJECT       *key       = NULL;
    CK_ATTRIBUTE *attr      = NULL;
-   CK_BYTE       key_value[AES_KEY_SIZE_256];
+   CK_BYTE       key_value[CCA_KEY_ID_SIZE];
    CK_KEY_TYPE   keytype;
    CK_RV         rc;
 
@@ -236,7 +236,7 @@ aes_cbc_decrypt( SESSION            *sess,
 {
    OBJECT       *key       = NULL;
    CK_ATTRIBUTE *attr      = NULL;
-   CK_BYTE       key_value[AES_KEY_SIZE_256];
+   CK_BYTE       key_value[CCA_KEY_ID_SIZE];
    CK_KEY_TYPE   keytype;
    CK_RV         rc;
 
@@ -304,7 +304,7 @@ aes_cbc_pad_encrypt( SESSION           *sess,
    OBJECT       *key       = NULL;
    CK_ATTRIBUTE *attr      = NULL;
    CK_BYTE      *clear     = NULL;
-   CK_BYTE       key_value[AES_KEY_SIZE_256];
+   CK_BYTE       key_value[CCA_KEY_ID_SIZE];
    CK_KEY_TYPE   keytype;
    CK_ULONG      padded_len;
    CK_RV         rc;
@@ -391,7 +391,7 @@ aes_cbc_pad_decrypt( SESSION            *sess,
    OBJECT       *key       = NULL;
    CK_ATTRIBUTE *attr      = NULL;
    CK_BYTE      *clear     = NULL;
-   CK_BYTE       key_value[AES_KEY_SIZE_256];
+   CK_BYTE       key_value[CCA_KEY_ID_SIZE];
    CK_KEY_TYPE   keytype;
    CK_ULONG      padded_len;
    CK_RV         rc;
@@ -479,7 +479,7 @@ aes_ecb_encrypt_update( SESSION           *sess,
    CK_ATTRIBUTE * attr      = NULL;
    OBJECT       * key       = NULL;
    CK_BYTE      * clear     = NULL;
-   CK_BYTE        key_value[AES_KEY_SIZE_256];
+   CK_BYTE        key_value[CCA_KEY_ID_SIZE];
    CK_KEY_TYPE    keytype;
    CK_ULONG       total, remain, out_len;
    CK_RV          rc;
@@ -579,7 +579,7 @@ aes_ecb_decrypt_update( SESSION           *sess,
    CK_ATTRIBUTE * attr      = NULL;
    OBJECT       * key       = NULL;
    CK_BYTE      * cipher    = NULL;
-   CK_BYTE        key_value[AES_KEY_SIZE_256];
+   CK_BYTE        key_value[CCA_KEY_ID_SIZE];
    CK_KEY_TYPE    keytype;
    CK_ULONG       total, remain, out_len;
    CK_RV          rc;
@@ -680,7 +680,7 @@ aes_cbc_encrypt_update( SESSION           *sess,
    CK_ATTRIBUTE * attr      =  NULL;
    OBJECT       * key       = NULL;
    CK_BYTE      * clear     = NULL;
-   CK_BYTE        key_value[AES_KEY_SIZE_256];
+   CK_BYTE        key_value[CCA_KEY_ID_SIZE];
    CK_KEY_TYPE    keytype;
    CK_ULONG       total, remain, out_len;
    CK_RV          rc;
@@ -792,7 +792,7 @@ aes_cbc_decrypt_update( SESSION           *sess,
    CK_ATTRIBUTE * attr      = NULL;
    OBJECT       * key       = NULL;
    CK_BYTE      * cipher    = NULL;
-   CK_BYTE        key_value[AES_KEY_SIZE_256];
+   CK_BYTE        key_value[CCA_KEY_ID_SIZE];
    CK_KEY_TYPE    keytype;
    CK_ULONG       total, remain, out_len;
    CK_RV          rc;
@@ -905,7 +905,7 @@ aes_cbc_pad_encrypt_update( SESSION           *sess,
    CK_ATTRIBUTE * attr      = NULL;
    OBJECT       * key       = NULL;
    CK_BYTE      * clear     = NULL;
-   CK_BYTE        key_value[AES_KEY_SIZE_256];
+   CK_BYTE        key_value[CCA_KEY_ID_SIZE];
    CK_KEY_TYPE    keytype;
    CK_ULONG       total, remain, out_len;
    CK_RV          rc;
@@ -1021,7 +1021,7 @@ aes_cbc_pad_decrypt_update( SESSION           *sess,
    CK_ATTRIBUTE * attr      = NULL;
    OBJECT       * key       = NULL;
    CK_BYTE      * cipher    = NULL;
-   CK_BYTE        key_value[AES_KEY_SIZE_256];
+   CK_BYTE        key_value[CCA_KEY_ID_SIZE];
    CK_KEY_TYPE    keytype;
    CK_ULONG       total, remain, out_len;
    CK_RV          rc;
@@ -1273,7 +1273,7 @@ aes_cbc_pad_encrypt_final( SESSION           *sess,
    OBJECT         *key       = NULL;
    CK_ATTRIBUTE   *attr      = NULL;
    CK_BYTE         clear[2*AES_BLOCK_SIZE];
-   CK_BYTE         key_value[AES_KEY_SIZE_256];
+   CK_BYTE         key_value[CCA_KEY_ID_SIZE];
    CK_KEY_TYPE     keytype;
    CK_ULONG        out_len;
    CK_RV           rc;
@@ -1353,7 +1353,7 @@ aes_cbc_pad_decrypt_final( SESSION           *sess,
    OBJECT         *key       = NULL;
    CK_ATTRIBUTE   *attr      = NULL;
    CK_BYTE         clear[AES_BLOCK_SIZE];
-   CK_BYTE         key_value[AES_KEY_SIZE_256];
+   CK_BYTE         key_value[CCA_KEY_ID_SIZE];
    CK_KEY_TYPE     keytype;
    CK_ULONG        out_len;
    CK_RV           rc;
@@ -1454,7 +1454,7 @@ ckm_aes_key_gen( TEMPLATE *tmpl )
 	   return CKR_ATTRIBUTE_VALUE_INVALID;
    }
    
-   if ((aes_key = (CK_BYTE *)malloc(key_size)) == NULL) {
+   if ((aes_key = (CK_BYTE *)malloc(CCA_KEY_ID_SIZE)) == NULL) {
       st_err_log(1, __FILE__, __LINE__);
       return CKR_HOST_MEMORY;
    }
@@ -1464,7 +1464,7 @@ ckm_aes_key_gen( TEMPLATE *tmpl )
    if (rc != CKR_OK)
       return rc;
 
-   value_attr    = (CK_ATTRIBUTE *)malloc(sizeof(CK_ATTRIBUTE) + key_size );
+   value_attr    = (CK_ATTRIBUTE *)malloc(sizeof(CK_ATTRIBUTE) + CCA_KEY_ID_SIZE );
    key_type_attr = (CK_ATTRIBUTE *)malloc(sizeof(CK_ATTRIBUTE) + sizeof(CK_KEY_TYPE) );
    class_attr    = (CK_ATTRIBUTE *)malloc(sizeof(CK_ATTRIBUTE) + sizeof(CK_OBJECT_CLASS) );
    local_attr    = (CK_ATTRIBUTE *)malloc(sizeof(CK_ATTRIBUTE) + sizeof(CK_BBOOL) );
@@ -1480,9 +1480,9 @@ ckm_aes_key_gen( TEMPLATE *tmpl )
    }
 
    value_attr->type         = CKA_VALUE;
-   value_attr->ulValueLen   = key_size;
+   value_attr->ulValueLen   = CCA_KEY_ID_SIZE;
    value_attr->pValue       = (CK_BYTE *)value_attr + sizeof(CK_ATTRIBUTE);
-   memcpy( value_attr->pValue, aes_key, key_size );
+   memcpy( value_attr->pValue, aes_key, CCA_KEY_ID_SIZE );
    
    free(aes_key);
 
@@ -1665,7 +1665,7 @@ ckm_aes_wrap_format( CK_BBOOL    length_only,
       len2 = AES_BLOCK_SIZE * ((len1 / AES_BLOCK_SIZE) + 1);
 
       if (length_only == FALSE) {
-         ptr = (CK_BYTE *)realloc(*data, len2);
+         ptr = (CK_BYTE *)realloc(*data, 64);
          if (!ptr){
             st_err_log(0, __FILE__, __LINE__);
             return CKR_HOST_MEMORY;

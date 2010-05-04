@@ -35,6 +35,7 @@
   #define CSNBKIM   CSNBKIM_32
   #define CSNBKPI   CSNBKPI_32
   #define CSNBKRC   CSNBKRC_32
+  #define CSNBAKRC  CSNBAKRC_32
   #define CSNBKRD   CSNBKRD_32
   #define CSNBKRL   CSNBKRL_32
   #define CSNBKRR   CSNBKRR_32
@@ -110,6 +111,7 @@
   #define CSNDTBC   CSNDTBC_32
   #define CSNDRKX   CSNDRKX_32
   #define CSNBKET   CSNBKET_32
+  #define CSNBSAE   CSNBSAE_32
 
 /*
  * security API prototypes
@@ -236,6 +238,15 @@ extern void SECURITYAPI
               long          * exit_data_length,
               unsigned char * exit_data,
               unsigned char * key_label);
+/* AES Key Record Create */
+extern void SECURITYAPI
+   CSNBAKRC_32(long          * return_code,
+              	long          * reason_code,
+              	long          * exit_data_length,
+              	unsigned char * exit_data,
+              	unsigned char * key_label,
+		long	      * key_token_length,
+		unsigned char *	key_token);
 
 /* Key Record Delete */
 extern void SECURITYAPI
@@ -389,6 +400,29 @@ extern void SECURITYAPI
               unsigned char * exit_data,
               unsigned char * form,
               unsigned char * random_number);
+
+extern void SECURITYAPI
+   CSNBSAE_32(long          * return_code,
+              long          * reason_code,
+              long          * exit_data_length,
+              unsigned char * exit_data,
+              long	    * rule_array_count,
+	      unsigned char * rule_array,
+	      long	    * key_identifier_length,
+	      unsigned char * key_identifier,
+              long	    * key_params_length,
+	      unsigned char * key_params,
+	      long	    * block_size,
+              long          * initialization_vector_length,
+              unsigned char * initialization_vector,
+              long          * chaining_vector_length,
+              unsigned char * chaining_vector,
+              long          * text_length,
+              unsigned char * text,
+              long          * ciphertext_length,
+              unsigned char * ciphertext,
+              long          * optional_data_length,
+              unsigned char * optional_data);
 
 /* Decipher */
 extern void SECURITYAPI
@@ -626,7 +660,7 @@ extern void SECURITYAPI
               unsigned char * RSA_enciphered_key);
 
 /* Crypto Facility Query */
-extern void SECURITYAPI
+extern void 
    CSUACFQ_32(long          * return_code,
               long          * reason_code,
               long          * exit_data_length,

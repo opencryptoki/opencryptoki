@@ -372,7 +372,6 @@ decr_mgr_init( SESSION           *sess,
          }
          break;
 #ifndef NOAES
-#ifndef NOECB
       case CKM_AES_ECB:
 	 {
 	    // XXX Copied from DES3, should be verified - KEY
@@ -407,7 +406,6 @@ decr_mgr_init( SESSION           *sess,
 
 	 }
 	 break;
-#endif
       case CKM_AES_CBC:
       case CKM_AES_CBC_PAD:
 	 {
@@ -593,13 +591,11 @@ decr_mgr_decrypt( SESSION           *sess,
                                  ctx,
                                  in_data,  in_data_len,
                                  out_data, out_data_len );
-#ifndef NOECB
       case CKM_AES_ECB:
          return aes_ecb_decrypt( sess,     length_only,
                                  ctx,
                                  in_data,  in_data_len,
                                  out_data, out_data_len );
-#endif
       case CKM_AES_CBC_PAD:
          return aes_cbc_pad_decrypt( sess,     length_only,
                                      ctx,
@@ -688,13 +684,11 @@ decr_mgr_decrypt_update( SESSION            *sess,
                                              in_data,  in_data_len,
                                              out_data, out_data_len );
 #ifndef NOAES
-#ifndef NOECB
       case CKM_AES_ECB:
          return aes_ecb_decrypt_update( sess,     length_only,
                                         ctx,
                                         in_data,  in_data_len,
                                         out_data, out_data_len );
-#endif
       case CKM_AES_CBC:
          return aes_cbc_decrypt_update( sess,     length_only,
                                         ctx,
@@ -774,12 +768,10 @@ decr_mgr_decrypt_final( SESSION            *sess,
                                             ctx,
                                             out_data, out_data_len );
 #ifndef NOAES
-#ifndef NOECB
       case CKM_AES_ECB:
          return aes_ecb_decrypt_final( sess,     length_only,
                                        ctx,
                                        out_data, out_data_len );
-#endif
       case CKM_AES_CBC:
          return aes_cbc_decrypt_final( sess,     length_only,
                                        ctx,

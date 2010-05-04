@@ -1150,6 +1150,8 @@ secret_key_unwrap( TEMPLATE *tmpl,
       case CKK_DES:
       case CKK_DES3:
       case CKK_AES:
+	 rc = aes_unwrap( tmpl, data, data_len, fromend );
+	 break;
 #endif
 
       case CKK_GENERIC_SECRET:
@@ -1425,7 +1427,7 @@ rsa_publ_validate_attribute( TEMPLATE *tmpl, CK_ATTRIBUTE *attr, CK_ULONG mode )
             else {
                CK_ULONG mod_bits = *(CK_ULONG *)attr->pValue;
 
-               if (mod_bits < 512 || mod_bits > 2048){
+               if (mod_bits < 512 || mod_bits > 4096){
                   st_err_log(9, __FILE__, __LINE__);
                   return CKR_ATTRIBUTE_VALUE_INVALID;
                }
@@ -5298,7 +5300,7 @@ aes_unwrap( TEMPLATE *tmpl,
    }
 #endif
    
-   value_attr = (CK_ATTRIBUTE *)malloc( sizeof(CK_ATTRIBUTE) + key_size );
+   value_attr = (CK_ATTRIBUTE *)malloc( sizeof(CK_ATTRIBUTE) + CCA_KEY_ID_SIZE );
 
    if (!value_attr) {
       if (value_attr)
@@ -5309,9 +5311,9 @@ aes_unwrap( TEMPLATE *tmpl,
    }
 
    value_attr->type       = CKA_VALUE;
-   value_attr->ulValueLen = key_size;
+   value_attr->ulValueLen = CCA_KEY_ID_SIZE;
    value_attr->pValue     = (CK_BYTE *)value_attr + sizeof(CK_ATTRIBUTE);
-   memcpy( value_attr->pValue, ptr, key_size );
+   memcpy( value_attr->pValue, ptr, CCA_KEY_ID_SIZE );
 
    template_update_attribute( tmpl, value_attr );
 

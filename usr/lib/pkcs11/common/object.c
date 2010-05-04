@@ -379,6 +379,14 @@ object_create( CK_ATTRIBUTE  * pTemplate,
       st_err_log(48, __FILE__, __LINE__);
       return CKR_TEMPLATE_INCOMPLETE;
    }
+
+	// Return CKR_ATTRIBUTE_TYPE_INVALID when trying to create a
+	// vendor-defined object.
+	if (class >= CKO_VENDOR_DEFINED) {
+		st_err_log(8, __FILE__, __LINE__);
+		return CKR_ATTRIBUTE_TYPE_INVALID;
+	}
+
    if (class != CKO_DATA && subclass_given != TRUE){
       st_err_log(48, __FILE__, __LINE__);
       return CKR_TEMPLATE_INCOMPLETE;

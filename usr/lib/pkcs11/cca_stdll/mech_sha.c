@@ -172,6 +172,32 @@ sha2_hash( SESSION         *sess,
    return ckm_sha2_final(  ctx, out_data, out_data_len );
 }
 
+CK_RV
+sha3_hash( SESSION         *sess,
+           CK_BBOOL         length_only,
+           DIGEST_CONTEXT  *ctx,
+           CK_BYTE         *in_data,
+           CK_ULONG         in_data_len,
+           CK_BYTE         *out_data,
+           CK_ULONG        *out_data_len )
+{
+   CK_RV rv;
+
+	return rv = 0;
+}
+CK_RV
+sha5_hash( SESSION         *sess,
+           CK_BBOOL         length_only,
+           DIGEST_CONTEXT  *ctx,
+           CK_BYTE         *in_data,
+           CK_ULONG         in_data_len,
+           CK_BYTE         *out_data,
+           CK_ULONG        *out_data_len )
+{
+   CK_RV rv;
+
+	return rv = 0;
+}
 //
 //
 CK_RV
@@ -200,6 +226,22 @@ sha2_hash_update( SESSION        * sess,
    return ckm_sha2_update( ctx, in_data, in_data_len );
 }
 
+CK_RV
+sha3_hash_update( SESSION        * sess,
+                  DIGEST_CONTEXT * ctx,
+                  CK_BYTE        * in_data,
+                  CK_ULONG         in_data_len )
+{
+	return CKR_OK;
+}
+CK_RV
+sha5_hash_update( SESSION        * sess,
+                  DIGEST_CONTEXT * ctx,
+                  CK_BYTE        * in_data,
+                  CK_ULONG         in_data_len )
+{
+	return CKR_OK;
+}
 //
 //
 CK_RV
@@ -240,6 +282,24 @@ sha2_hash_final( SESSION         * sess,
    return ckm_sha2_final( ctx, out_data, out_data_len );
 }
 
+CK_RV
+sha3_hash_final( SESSION         * sess,
+                 CK_BYTE           length_only,
+                 DIGEST_CONTEXT  * ctx,
+                 CK_BYTE         * out_data,
+                 CK_ULONG        * out_data_len )
+{
+	return CKR_OK;
+}
+CK_RV
+sha5_hash_final( SESSION         * sess,
+                 CK_BYTE           length_only,
+                 DIGEST_CONTEXT  * ctx,
+                 CK_BYTE         * out_data,
+                 CK_ULONG        * out_data_len )
+{
+	return CKR_OK;
+}
 // this routine gets called for two mechanisms actually:
 //    CKM_SHA_1_HMAC
 //    CKM_SHA_1_HMAC_GENERAL
@@ -760,6 +820,34 @@ ckm_sha2_update( DIGEST_CONTEXT * ctx,
     return token_specific.t_sha2_update(ctx, in_data, in_data_len);
 }
 
+CK_RV
+ckm_sha3_update( DIGEST_CONTEXT * ctx,
+                 CK_BYTE        * in_data,
+                 CK_ULONG         in_data_len )
+{
+	return CKR_OK;
+}
+CK_RV
+ckm_sha5_update( DIGEST_CONTEXT * ctx,
+                 CK_BYTE        * in_data,
+                 CK_ULONG         in_data_len )
+{
+	return CKR_OK;
+}
+CK_RV
+ckm_sha3_final( DIGEST_CONTEXT * ctx,
+                CK_BYTE        * out_data,
+                CK_ULONG       * out_data_len )
+{
+	return CKR_OK;
+}
+CK_RV
+ckm_sha5_final( DIGEST_CONTEXT * ctx,
+                CK_BYTE        * out_data,
+                CK_ULONG       * out_data_len )
+{
+	return CKR_OK;
+}
 //
 //
 CK_RV
@@ -840,6 +928,16 @@ ckm_sha2_init( DIGEST_CONTEXT * ctx)
     }
 }
 
+void
+ckm_sha5_init( DIGEST_CONTEXT * ctx)
+{
+	ctx = NULL;
+}
+void
+ckm_sha3_init( DIGEST_CONTEXT * ctx)
+{
+	ctx = NULL;
+}
 // Perform the SHA transformation.  Note that this code, like MD5, seems to
 // break some optimizing compilers due to the complexity of the expressions
 // and the size of the basic block.  It may be necessary to split it into

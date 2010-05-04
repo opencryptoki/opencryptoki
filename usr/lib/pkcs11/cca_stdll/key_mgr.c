@@ -1090,7 +1090,7 @@ key_mgr_unwrap_key( SESSION           * sess,
       case CKM_AES_CBC:
          keyclass = CKO_SECRET_KEY;
          found_class = TRUE;
-         break;
+	 break;
 
 #if !(NOCMF)
       case CKM_CDMF_CBC_PAD:

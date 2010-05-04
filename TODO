@@ -17,10 +17,6 @@ card if possible in InitSharedMemory in pkcsslotd/shmem.c.
    build process
  * Create summary screen for configure screen
 
-[2009-10-05] Make pkcscca_migrate part of the CCA token build.
-Patch it to use dlload() to avoid explicitly linking to
-xcryptolinz libraries
-
 [2009-10-05] usr/sbin/pkcs_slot/pkcs_slot.in: Avoid using
 `uname -s` for Slot's description and Manufacter, as this
 identifier varies widly and doesn't bring any useful information.

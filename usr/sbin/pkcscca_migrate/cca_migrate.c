@@ -61,13 +61,15 @@
 #include <errno.h>
 
 #include <pkcs11types.h>
-#include <csulincl.h>
 #include "cca_migrate.h"
 
 
 int n_flag = 0;
 int v_flag = 0;
 void *p11_lib = NULL;
+void (*CSNDKTC)();
+void (*CSNBKTC)();
+void *lib_csulcca;
 
 CK_FUNCTION_LIST *
 p11_init(void)
@@ -589,7 +591,15 @@ main(int argc, char *argv[])
 	CK_RV		  rv;
 	struct object    *objs_to_migrate = NULL, *tmp, *to_free;
 	int		  exit_code = 0, rc;
+	
+	lib_csulcca = dlopen("libcsulcca.so", (RTLD_GLOBAL | RTLD_NOW));
+	if (lib_csulcca == NULL) {
+		print_error("Couldn't get a handle to the CCA library.");
+		return NULL;
+	}
 
+	CSNDKTC = dlsym(lib_csulcca, "CSNDKTC_32");
+	CSNBKTC = dlsym(lib_csulcca, "CSNBKTC_32");	
 
 	while ((opt = getopt(argc, argv, "c:d:s:u:nvh")) != -1) {
 		switch (opt) {
