@@ -4,7 +4,7 @@ pkcsconf
 
 .SH SYNOPSIS
 \fBpkcsconf\fP
-[\fB-itsmMIupP\fP]
+[\fB-itsmMIupPh\fP]
 [\fB-c\fP \fIslotnumber\fP \fB-U\fP \fIuserPIN\fP
 \fB-S\fP \fISOPin\fP \fB-n\fP \fInewpin\fP]
 
@@ -40,6 +40,8 @@ the current Security Officer (SO) pin (for use when changing the SO pin;
 .IP "\fB-n\fP \fINEWPIN\fP" 10
 the new pin (for use when changing either the user pin or the SO pin; -u, -p
 and -P options); if not specified, user will be prompted
+.IP "\fB-h\fP" 10
+show usage information
 
 .SH SEE ALSO
 .PD 0

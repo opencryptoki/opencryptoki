@@ -375,7 +375,7 @@ main(int argc, char *argv[]){
    catd = catopen(MF_PKCSCONF,0);
 
    /* Parse the command line parameters */
-   while ((c = getopt (argc, argv, "itsmMIc:S:U:upPn:l")) != (-1)){
+   while ((c = getopt (argc, argv, "itsmMIc:S:U:upPn:lh")) != (-1)){
       switch (c){
          case 'c':  /* a specific card (slot) is specified */
             flags |= CFG_SLOT;
@@ -428,6 +428,9 @@ main(int argc, char *argv[]){
             break;
          case 'l':  /* display slot description */
             flags |= CFG_LIST_SLOT;
+            break;
+         case 'h':  /* display command line options */
+	    usage(argv[0]);
             break;
          default:   /* if something else was passed in it is an error */
             errflag++;
@@ -1295,7 +1298,7 @@ usage(char *progname){
 
    /* If we get here the user needs help, so give it to them */
    printf(PKCSINIT_MSG(USAGE,
-           "usage:\t%s [-itsmMIupP] [-c slotnumber -U userPIN -S SOPin -n newpin]\n"),
+           "usage:\t%s [-itsmMIupPh] [-c slotnumber -U userPIN -S SOPin -n newpin]\n"),
            progname);
    printf(PKCSINIT_MSG(USAGE1, "\t-i display PKCS11 info\n"));
    printf(PKCSINIT_MSG(USAGE2, "\t-t display token info\n"));
@@ -1305,6 +1308,7 @@ usage(char *progname){
    printf(PKCSINIT_MSG(USAGE7, "\t-u initialize user PIN\n"));
    printf(PKCSINIT_MSG(USAGE8, "\t-p set the user PIN\n"));
    printf(PKCSINIT_MSG(USAGE9, "\t-P set the SO PIN\n"));
+   printf(PKCSINIT_MSG(USAGE10, "\t-h show this help\n"));
 
    exit(-1);
 }
