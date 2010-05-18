@@ -440,6 +440,9 @@ main(int argc, char *argv[]){
    if (errflag != 0)  /* If there was an error print the usage statement */
        usage(argv[0]);
 
+   if (!flags)  /* If there was no options print the usage statement */
+       usage(argv[0]);
+
    /* Eliminate the ability to specify -I -p -u -P without a slot number */
    if ( (flags & (CFG_INITIALIZE | CFG_INIT_USER | CFG_SET_USER | CFG_SET_SO))
             && !(flags & CFG_SLOT)){
