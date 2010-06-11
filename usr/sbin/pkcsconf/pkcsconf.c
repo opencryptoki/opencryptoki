@@ -804,7 +804,7 @@ get_slot_list(int cond, CK_CHAR_PTR slot){
    }
 
    if (SlotCount == 0) {
-      printf("C_GetSlotCount returned 0 slots. Check that your tokens"
+      printf("C_GetSlotList returned 0 slots. Check that your tokens"
 		" are installed correctly.\n");
       return -ENODEV;
    }
