@@ -1,9 +1,5 @@
 if ENABLE_ICATOK
-if S390
 ICA_DLL = ica_s390_stdll
-else
-ICA_DLL = ica_stdll
-endif
 endif
 
 if ENABLE_SWTOK
