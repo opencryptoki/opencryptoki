@@ -498,19 +498,27 @@ dnl --- package is available
 dnl ---
 
 dnl --- enable_debug
-AM_CONDITIONAL([ENABLE_DEBUG], test "x$enable_debug" = "xyes")
+AM_CONDITIONAL([ENABLE_DEBUG], [test "x$enable_debug" = "xyes"])
 if test "x$enable_debug" = "xyes"; then
 	DEBUG_CFLAGS="-g -O0"
 fi
 
 dnl --- enable_testcases
-AM_CONDITIONAL([ENABLE_TESTCASES], test "x$enable_testcases" = "xyes")
+if test "x$enable_testcases" = "xyes"; then
+	AC_CHECK_PROG([HAVE_EXPECT], [expect], [yes], [no])
+
+	if test "x$HAVE_EXPECT" = "xno"; then
+		AC_MSG_ERROR([*** testcases requires 'expect' interpreter, which wasn't found])
+                enable_testcases=no
+	fi
+fi
+AM_CONDITIONAL([ENABLE_TESTCASES], [test "x$enable_testcases" = "xyes"])
 
 dnl --- enable_daemon
-AM_CONDITIONAL([ENABLE_DAEMON], test "x$enable_daemon" = "xyes")
+AM_CONDITIONAL([ENABLE_DAEMON], [test "x$enable_daemon" = "xyes"])
 
 dnl --- enable_library
-AM_CONDITIONAL([ENABLE_LIBRARY], test "x$enable_library" = "xyes")
+AM_CONDITIONAL([ENABLE_LIBRARY], [test "x$enable_library" = "xyes"])
 
 dnl --- enable_icatok
 if test "x$enable_icatok" != "xno"; then
