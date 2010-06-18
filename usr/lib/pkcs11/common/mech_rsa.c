@@ -400,6 +400,151 @@ rsa_format_block( CK_BYTE   * in_data,
 }
 
 
+/*
+ * Parse an encryption block according to PKCS #1: RSA Encryption, Version
+ * 1.5.
+ */
+
+CK_RV
+rsa_parse_block( CK_BYTE  * in_data,
+                 CK_ULONG   in_data_len,
+                 CK_BYTE  * out_data,
+                 CK_ULONG * out_data_len,
+                 CK_ULONG   type )
+{
+    CK_ULONG        i;
+    CK_RV           rc;
+
+    if (!in_data || !out_data || !out_data_len) {
+        st_err_log(4, __FILE__, __LINE__, __FUNCTION__);
+        rc = CKR_FUNCTION_FAILED;
+        return rc;
+    }
+
+    if (in_data_len <= 11) {
+        st_err_log(4, __FILE__, __LINE__, __FUNCTION__);
+        rc = CKR_FUNCTION_FAILED;
+        return rc;
+    }
+
+    /*
+     * Check for the leading 00 octet.
+     */
+    if (in_data[0] != (CK_BYTE)0) {
+        st_err_log(14, __FILE__, __LINE__);
+        rc = CKR_ENCRYPTED_DATA_INVALID;
+        return rc;
+    }
+
+    /*
+     * Check the block type.
+     */
+    if (in_data[1] != (CK_BYTE)type) {
+        st_err_log(14, __FILE__, __LINE__);
+        rc = CKR_ENCRYPTED_DATA_INVALID;
+        return rc;
+    }
+
+    /*
+     * The block type shall be a single octet indicating the structure of the
+     * encryption block. It shall have value 00, 01, or 02. For a private-key
+     * operation, the block type shall be 00 or 01. For a public-key
+     * operation, it shall be 02.
+     *
+     * For block type 00, the octets shall have value 00; for block type 01,
+     * they shall have value FF; and for block type 02, they shall be
+     * pseudorandomly generated and nonzero.
+     *
+     * For block type 00, the data must begin with a nonzero octet or have
+     * known length so that the encryption block can be parsed unambiguously.
+     * For block types 01 and 02, the encryption block can be parsed
+     * unambiguously since the padding string contains no octets with value 00
+     * and the padding string is separated from the data by an octet with
+     * value 00.
+     */
+    switch (type) {
+        /*
+         * For block type 00, the octets shall have value 00.
+         * EB = 00 || 00 || 00 * i || D
+         * Where D must begin with a nonzero octet.
+         */
+        case 0:
+            for (i = 2; i < (in_data_len - 2); i++) {
+                if (in_data[i] != (CK_BYTE)0)
+                    break;
+            }
+            break;
+
+        /*
+         * For block type 01, they shall have value FF.
+         * EB = 00 || 01 || FF * i || 00 || D
+         */
+        case 1:
+            for (i = 2; i < (in_data_len - 2); i++) {
+                if (in_data[i] != (CK_BYTE)0xff) {
+                    if (in_data[i] == (CK_BYTE)0) {
+                        i++;
+                        break;
+                    }
+
+                    st_err_log(14, __FILE__, __LINE__);
+                    rc = CKR_ENCRYPTED_DATA_INVALID;
+                    return rc;
+                }
+            }
+            break;
+
+        /*
+         * For block type 02, they shall be pseudorandomly generated and
+         * nonzero.
+         * EB = 00 || 02 || ?? * i || 00 || D
+         * Where ?? is nonzero.
+         */
+        case 2:
+            for (i = 2; i < (in_data_len - 2); i++) {
+                if (in_data[i] == (CK_BYTE)0) {
+                    i++;
+                    break;
+                }
+            }
+            break;
+
+        default:
+            st_err_log(14, __FILE__, __LINE__);
+            rc = CKR_ENCRYPTED_DATA_INVALID;
+            return rc;
+    }
+
+    /*
+     * For block types 01 and 02, the padding string is at least eight octets
+     * long, which is a security condition for public-key operations that
+     * prevents an attacker from recoving data by trying all possible
+     * encryption blocks.
+     */
+    if ((type == 1 || type == 2) && ((i - 3) < 8)) {
+        st_err_log(112, __FILE__, __LINE__);
+        rc = CKR_ENCRYPTED_DATA_LEN_RANGE;
+        return rc;
+    }
+
+    if (in_data_len <= i) {
+        st_err_log(112, __FILE__, __LINE__);
+        rc = CKR_ENCRYPTED_DATA_LEN_RANGE;
+        return rc;
+    }
+
+    if (*out_data_len < (in_data_len - i)) {
+      st_err_log(68, __FILE__, __LINE__);
+      rc = CKR_BUFFER_TOO_SMALL;
+      return rc;
+    }
+
+    memcpy(out_data, &in_data[i], in_data_len - i);
+    *out_data_len = in_data_len - i;
+
+    rc = CKR_OK;
+    return rc;
+}
 
 //
 //
@@ -505,43 +650,41 @@ rsa_pkcs_decrypt( SESSION           *sess,
       return CKR_OK;
    }
 
-   rc = ckm_rsa_decrypt( in_data, modulus_bytes, out, key_obj );
-   if (rc == CKR_OK) {
-      CK_ULONG len;
-
-      // strip off the PKCS block formatting data
-      //
-      // 00 | BT | PADDING | 00 | DATA
-      //
-      for (i=2; i < in_data_len; i++) {
-         if (out[i] == 0x0) {
-            i++;  // point i at the first data byte
-            break;
-         }
-      }
-
-      if (i == in_data_len){
-         st_err_log(14, __FILE__, __LINE__);
-         return CKR_ENCRYPTED_DATA_INVALID;
-      }
-      len = in_data_len - i;
-
-      if (len > *out_data_len) {
-         *out_data_len = len;
-         st_err_log(111, __FILE__, __LINE__);
-         return CKR_BUFFER_TOO_SMALL;
-      }
-
-      memcpy( out_data, &out[i], len );
-      *out_data_len = len;
+   if (*out_data_len < (modulus_bytes - 11)) {
+      *out_data_len = modulus_bytes - 11;
+      st_err_log(68, __FILE__, __LINE__);
+      return CKR_BUFFER_TOO_SMALL;
    }
-   else 
-      st_err_log(133, __FILE__, __LINE__);
 
-   if (rc == CKR_DATA_LEN_RANGE){
-      st_err_log(109, __FILE__, __LINE__);
+   rc = ckm_rsa_decrypt( in_data, modulus_bytes, out, key_obj );
+   if (rc != CKR_OK) {
+      if (rc == CKR_DATA_LEN_RANGE) {
+         st_err_log(112, __FILE__, __LINE__);
+         return CKR_ENCRYPTED_DATA_LEN_RANGE;
+      }
+
+      st_err_log(133, __FILE__, __LINE__);
+      return rc;
+   }
+
+   rc = rsa_parse_block(out, modulus_bytes, out_data, out_data_len, PKCS_BT_2);
+   if (rc != CKR_OK) {
+      /*
+       * FIXME: rsa_parse_block() should have it's own error message.
+       */
+      st_err_log(133, __FILE__, __LINE__);
+      return rc;
+   }
+
+   /*
+    * For PKCS #1 v1.5 padding, out_data_len must be less than
+    * modulus_bytes - 11.
+    */
+   if (*out_data_len > (modulus_bytes - 11)) {
+      st_err_log(112, __FILE__, __LINE__);
       return CKR_ENCRYPTED_DATA_LEN_RANGE;
    }
+
    return rc;
 }
 
