@@ -417,13 +417,19 @@ rsa_format_block( CK_BYTE   * in_data,
          * Where ?? is nonzero.
          */
         case 2:
-            rc = rng_generate(&out_data[2], padding_len);
-            if (rc != CKR_OK){
-                st_err_log(130, __FILE__, __LINE__);
-                return rc;
+            for (i = 2; i < (padding_len + 2); i++) {
+                rc = rng_generate(&out_data[i], 1);
+                if (rc != CKR_OK) {
+                    st_err_log(130, __FILE__, __LINE__);
+                    return rc;
+                }
+                if (out_data[i] == (CK_BYTE)0) {
+                    /* avoid zeros by explicitly making them all 0xff -
+                     * won't hurt entropy that bad, and it's better than
+                     * looping over rng_generate */
+                    out_data[i] = (CK_BYTE)0xff;
+                }
             }
-            i = i + padding_len;
-
             break;
 
         default:
@@ -564,14 +570,14 @@ rsa_parse_block( CK_BYTE  * in_data,
      * encryption blocks.
      */
     if ((type == 1 || type == 2) && ((i - 3) < 8)) {
-        st_err_log(112, __FILE__, __LINE__);
-        rc = CKR_ENCRYPTED_DATA_LEN_RANGE;
+        st_err_log(14, __FILE__, __LINE__);
+        rc = CKR_ENCRYPTED_DATA_INVALID;
         return rc;
     }
 
     if (in_data_len <= i) {
-        st_err_log(112, __FILE__, __LINE__);
-        rc = CKR_ENCRYPTED_DATA_LEN_RANGE;
+        st_err_log(14, __FILE__, __LINE__);
+        rc = CKR_ENCRYPTED_DATA_INVALID;
         return rc;
     }
 
@@ -711,7 +717,7 @@ rsa_pkcs_decrypt( SESSION           *sess,
 
    rc = rsa_parse_block(out, modulus_bytes, out_data, out_data_len, PKCS_BT_2);
    if (rc != CKR_OK) {
-      st_err_log(195, __FILE__, __LINE__);
+      st_err_log(133, __FILE__, __LINE__);
       return rc;
    }
 
@@ -834,7 +840,7 @@ rsa_pkcs_verify( SESSION             * sess,
    if (rc == CKR_OK) {
       CK_ULONG len;
 
-      rc = rsa_parse_block( out, modulus_bytes, out_data, &out_data_len, PKCS_BT_2);
+      rc = rsa_parse_block( out, modulus_bytes, out_data, &out_data_len, PKCS_BT_1);
       if (rc == CKR_OK) {
          if (in_data_len != out_data_len){
             st_err_log(47, __FILE__, __LINE__);
@@ -846,9 +852,13 @@ rsa_pkcs_verify( SESSION             * sess,
             return CKR_SIGNATURE_INVALID;
          }
       }
-      else
-         st_err_log(195, __FILE__, __LINE__);
-
+      else if (rc == CKR_ENCRYPTED_DATA_INVALID ) {
+         st_err_log(47, __FILE__, __LINE__);
+         return CKR_SIGNATURE_INVALID;
+      } else {
+         st_err_log(4, __FILE__, __LINE__, __FUNCTION__);
+         return CKR_FUNCTION_FAILED;
+      }
    }
    else
       st_err_log(132, __FILE__, __LINE__);
@@ -908,8 +918,14 @@ rsa_pkcs_verify_recover( SESSION             * sess,
    //
    rc = ckm_rsa_encrypt( signature, modulus_bytes, out, key_obj );
    if (rc == CKR_OK) {
-      rc = rsa_parse_block(out, modulus_bytes, out_data, out_data_len, PKCS_BT_2);
-      return rc;
+      rc = rsa_parse_block(out, modulus_bytes, out_data, out_data_len, PKCS_BT_1);
+      if (rc == CKR_ENCRYPTED_DATA_INVALID ) {
+         st_err_log(47, __FILE__, __LINE__);
+         return CKR_SIGNATURE_INVALID;
+      } else if (rc != CKR_OK) {
+         st_err_log(4, __FILE__, __LINE__, __FUNCTION__);
+         return rc;
+      }
    }
    else
       st_err_log(132, __FILE__, __LINE__);

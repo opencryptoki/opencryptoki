@@ -673,8 +673,6 @@ struct messages err_msg[]={
 		{"AES Wrap Get Data Failed"},
 		{"AES Wrap Format Failed"},
 		{"Domain Parameter Invalid"},
-		{"File \"%s\" could not be opened, errno=%d"},
-		//195
-		{"RSA Parse Block Failed"}
+		{"File \"%s\" could not be opened, errno=%d"}
 };
 
