@@ -711,10 +711,7 @@ rsa_pkcs_decrypt( SESSION           *sess,
 
    rc = rsa_parse_block(out, modulus_bytes, out_data, out_data_len, PKCS_BT_2);
    if (rc != CKR_OK) {
-      /*
-       * FIXME: rsa_parse_block() should have it's own error message.
-       */
-      st_err_log(133, __FILE__, __LINE__);
+      st_err_log(195, __FILE__, __LINE__);
       return rc;
    }
 
@@ -850,10 +847,7 @@ rsa_pkcs_verify( SESSION             * sess,
          }
       }
       else
-         /*
-          * FIXME: rsa_parse_block() should have it's own error message.
-          */
-         st_err_log(132, __FILE__, __LINE__);
+         st_err_log(195, __FILE__, __LINE__);
 
    }
    else
