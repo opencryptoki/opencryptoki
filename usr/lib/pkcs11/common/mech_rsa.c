@@ -806,8 +806,8 @@ rsa_pkcs_verify( SESSION             * sess,
 {
    OBJECT          *key_obj  = NULL;
    CK_ATTRIBUTE    *attr     = NULL;
-   CK_BYTE          out[512];  // 4096 bits
-   CK_ULONG         i, modulus_bytes;
+   CK_BYTE          out[512], out_data[512];  // 4096 bits
+   CK_ULONG         i, modulus_bytes, out_data_len;
    CK_BBOOL         flag;
    CK_RV            rc;
 
@@ -837,29 +837,24 @@ rsa_pkcs_verify( SESSION             * sess,
    if (rc == CKR_OK) {
       CK_ULONG len;
 
-      // skip past the PKCS block formatting data
-      //
-      // 00 | BT | PADDING | 00 | DATA
-      //
-      for (i=2; i < modulus_bytes; i++) {
-         if (out[i] == 0x0) {
-            i++;  // point i at the first data byte
-            break;
+      rc = rsa_parse_block( out, modulus_bytes, out_data, &out_data_len, PKCS_BT_2);
+      if (rc == CKR_OK) {
+         if (in_data_len != out_data_len){
+            st_err_log(47, __FILE__, __LINE__);
+            return CKR_SIGNATURE_INVALID;
+         }
+
+         if (memcmp(in_data, out_data, out_data_len) != 0){
+            st_err_log(47, __FILE__, __LINE__);
+            return CKR_SIGNATURE_INVALID;
          }
       }
+      else
+         /*
+          * FIXME: rsa_parse_block() should have it's own error message.
+          */
+         st_err_log(132, __FILE__, __LINE__);
 
-      len = modulus_bytes - i;
-
-      if (len != in_data_len){
-         st_err_log(47, __FILE__, __LINE__);
-         return CKR_SIGNATURE_INVALID;
-      }
-
-      if (memcmp(in_data, &out[i], len) != 0){
-         st_err_log(47, __FILE__, __LINE__);
-         return CKR_SIGNATURE_INVALID;
-      }
-      return CKR_OK;
    }
    else
       st_err_log(132, __FILE__, __LINE__);
@@ -919,31 +914,8 @@ rsa_pkcs_verify_recover( SESSION             * sess,
    //
    rc = ckm_rsa_encrypt( signature, modulus_bytes, out, key_obj );
    if (rc == CKR_OK) {
-      CK_ULONG len;
-
-      // skip past the PKCS block formatting data
-      //
-      // 00 | BT | PADDING | 00 | DATA
-      //
-      for (i=2; i < modulus_bytes; i++) {
-         if (out[i] == 0x0) {
-            i++;  // point i at the first data byte
-            break;
-         }
-      }
-
-      len = modulus_bytes - i;
-
-      if (*out_data_len < len) {
-         *out_data_len = len;
-         st_err_log(68, __FILE__, __LINE__);
-         return CKR_BUFFER_TOO_SMALL;
-      }
-
-      memcpy( out_data, &out[i], len );
-      *out_data_len = len;
-
-      return CKR_OK;
+      rc = rsa_parse_block(out, modulus_bytes, out_data, out_data_len, PKCS_BT_2);
+      return rc;
    }
    else
       st_err_log(132, __FILE__, __LINE__);
