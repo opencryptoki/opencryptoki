@@ -1100,27 +1100,29 @@ token_specific_rsa_encrypt( CK_BYTE   * in_data,
 {
 	CK_RV               rc;
 	RSA *rsa;
+	int size;
 
 	// Convert the local representation to an RSA representation
 	rsa = (RSA *)rsa_convert_public_key(key_obj);
 	if (rsa==NULL) {
 		st_err_log(4, __FILE__, __LINE__, __FUNCTION__);
 		rc = CKR_FUNCTION_FAILED;
-		goto done;
+		return rc;
 	}
 	// Do an RSA public encryption
-	rc = RSA_public_encrypt(in_data_len, in_data, out_data, rsa, RSA_NO_PADDING);
+	size = RSA_public_encrypt(in_data_len, in_data, out_data, rsa, RSA_NO_PADDING);
 
-	if (rc != 0) {
-		rc = CKR_OK;
-	} else {
+	if (size == -1) {
 		st_err_log(4, __FILE__, __LINE__, __FUNCTION__);
 		rc = CKR_FUNCTION_FAILED;
+		goto done;
 	}
-	// Clean up after ourselves
-	RSA_free(rsa);
+
+	rc = CKR_OK;
+
 done:
-    return rc;
+	RSA_free(rsa);
+	return rc;
 }
 
 
@@ -1132,28 +1134,29 @@ token_specific_rsa_decrypt( CK_BYTE   * in_data,
 {
 	CK_RV               rc;
 	RSA *rsa;
+	int size;
 
 	// Convert the local key representation to an RSA key representaion
 	rsa = (RSA *)rsa_convert_private_key(key_obj);
 	if (rsa == NULL) {
 		st_err_log(4, __FILE__, __LINE__, __FUNCTION__);
 		rc = CKR_FUNCTION_FAILED;
-	goto done;
+		return rc;
 	}
 	// Do the private decryption 
-	rc = RSA_private_decrypt(in_data_len, in_data, out_data, rsa, RSA_NO_PADDING);
+	size = RSA_private_decrypt(in_data_len, in_data, out_data, rsa, RSA_NO_PADDING);
 
-	if (rc != 0) {
-		rc = CKR_OK;
-	} else {
+	if (size == -1) {
 		st_err_log(4, __FILE__, __LINE__, __FUNCTION__);
 		rc = CKR_FUNCTION_FAILED;
+		goto done;
 	}
 
-	// Clean up
-	RSA_free(rsa);
+	rc = CKR_OK;
+
 done:
-   return rc;
+	RSA_free(rsa);
+	return rc;
 }
 
 CK_RV
