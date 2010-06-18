@@ -328,75 +328,117 @@ rsa_get_key_len(OBJECT  *keyobj)
 
 
 
+/*
+ * Format an encryption block according to PKCS #1: RSA Encryption, Version
+ * 1.5.
+ */
+
 CK_RV
 rsa_format_block( CK_BYTE   * in_data,
                   CK_ULONG    in_data_len,
                   CK_BYTE   * out_data,
-                  CK_ULONG    mod_len,
+                  CK_ULONG    out_data_len,
                   CK_ULONG    type )
 {
-   CK_BYTE   buf[512];
-   CK_BYTE   rnd_buf[32];
-   CK_ULONG  i, end, tmp;
-   CK_RV     rc;
+    CK_ULONG        padding_len, i;
+    CK_RV           rc;
 
-   if (!in_data || !out_data){
-      st_err_log(4, __FILE__, __LINE__, __FUNCTION__);
-      return CKR_FUNCTION_FAILED;
-   }
-   // temporary storage
-   //
-   memcpy( buf, in_data, in_data_len );
+    if (!in_data || !in_data_len || !out_data || !out_data_len) {
+        st_err_log(4, __FILE__, __LINE__, __FUNCTION__);
+        rc = CKR_FUNCTION_FAILED;
+        return rc;
+    }
 
-   // PKCS Block Formatting:
-   //
-   // EB == 00 | BT | (K - 3 - DATALEN) bytes of PS | 00 | D
-   //
-   // Block Type 1:  PS = 0xFF
-   // Block Type 2:  PS = Random Data
-   //
-   if (type == PKCS_BT_1) {
-      out_data[0] = 0x0;
-      out_data[1] = 0x1;
+    if (out_data_len < (in_data_len + 11)) {
+      st_err_log(68, __FILE__, __LINE__);
+      rc = CKR_BUFFER_TOO_SMALL;
+      return rc;
+    }
 
-      tmp = mod_len - 3 - in_data_len;
-      memset( &out_data[2], 0xFF, tmp );
+    /*
+     * The padding string PS shall consist of k-3-||D|| octets.
+     */
+    padding_len = out_data_len - 3 - in_data_len;
 
-      tmp += 2;
+    /*
+     * For block types 01 and 02, the padding string is at least eight octets
+     * long, which is a security condition for public-key operations that
+     * prevents an attacker from recoving data by trying all possible
+     * encryption blocks.
+     */
+    if ((type == 1 || type == 2) && ((padding_len) < 8)) {
+        st_err_log(109, __FILE__, __LINE__);
+        rc = CKR_DATA_LEN_RANGE;
+        return rc;
+    }
 
-      out_data[tmp] = 0x0;
-      tmp++;
+    /*
+     * The leading 00 octet.
+     */
+    out_data[0] = (CK_BYTE)0;
 
-      memcpy( &out_data[tmp], buf, in_data_len );
-   }
-   else if (type == PKCS_BT_2) {
-      out_data[0] = 0x0;
-      out_data[1] = 0x2;
+    /*
+     * The block type.
+     */
+    out_data[1] = (CK_BYTE)type;
 
-      tmp = 2;
-      end = mod_len - 3 - in_data_len;
-
-      while (end > 0) {
-         rc = rng_generate( rnd_buf, 32 );
-         if (rc != CKR_OK){
-            st_err_log(130, __FILE__, __LINE__);
-            return rc;
-         }
-         for (i=0; (i < 32) && (end > 0); i++) {
-            if (rnd_buf[i] != 0) {
-               out_data[ tmp++ ] = rnd_buf[i];
-               end--;
+    switch (type) {
+        /*
+         * For block type 00, the octets shall have value 00.
+         * EB = 00 || 00 || 00 * i || D
+         * Where D must begin with a nonzero octet.
+         */
+        case 0:
+            if (in_data[0] == (CK_BYTE)0) {
+                st_err_log(10, __FILE__, __LINE__, __FUNCTION__);
+                rc = CKR_DATA_INVALID;
+                return rc;
             }
-         }
-      }
 
-      out_data[tmp] = 0x0;
-      tmp++;
+            for (i = 2; i < (padding_len + 2); i++)
+                out_data[i] = (CK_BYTE)0;
 
-      memcpy( &out_data[tmp], buf, in_data_len );
-   }
+            break;
 
-   return CKR_OK;
+        /*
+         * For block type 01, they shall have value FF.
+         * EB = 00 || 01 || FF * i || 00 || D
+         */
+        case 1:
+            for (i = 2; i < (padding_len + 2); i++)
+                out_data[i] = (CK_BYTE)0xff;
+
+            break;
+
+        /*
+         * For block type 02, they shall be pseudorandomly generated and
+         * nonzero.
+         * EB = 00 || 02 || ?? * i || 00 || D
+         * Where ?? is nonzero.
+         */
+        case 2:
+            rc = rng_generate(&out_data[2], padding_len);
+            if (rc != CKR_OK){
+                st_err_log(130, __FILE__, __LINE__);
+                return rc;
+            }
+            i = i + padding_len;
+
+            break;
+
+        default:
+            st_err_log(10, __FILE__, __LINE__);
+            rc = CKR_DATA_INVALID;
+            return rc;
+    }
+
+    out_data[i] = (CK_BYTE)0;
+    i++;
+
+    memcpy(&out_data[i], in_data, in_data_len);
+
+    rc = CKR_OK;
+    return rc;
 }
 
 
