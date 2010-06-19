@@ -1934,8 +1934,6 @@ CK_BBOOL object_mgr_purge_token_objects( void );
 
 CK_BBOOL object_mgr_purge_private_token_objects( void );
 
-CK_RV    object_mgr_remove_from_map( CK_OBJECT_HANDLE handle );
-
 CK_RV    object_mgr_restore_obj( CK_BYTE *data, OBJECT *oldObj );
 
 CK_RV    object_mgr_set_attribute_values( SESSION          * sess,
