@@ -305,11 +305,12 @@
 #define _APILOCAL_H
 
 
-typedef struct {
+typedef struct _Session_struct {
    void *Previous;
    void *Next;
    CK_SLOT_ID   SltId;             // Slot ID for indexing into the function list pointer
    CK_SESSION_HANDLE  RealHandle;  // Handle returned by the STDLL
+   struct _Session_struct *Handle; // our own handle, cheap check for valid session
 } Session_Struct_t;
 
 #ifdef PK64

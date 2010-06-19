@@ -352,8 +352,6 @@ set_perm(int file)
 
 
 
-
-
 #ifdef DEBUG
 #define LOGIT  logit
 #else
@@ -564,24 +562,19 @@ Valid_Session(pSession,rSession)
    int rv=FALSE;  // Assume that it is not on the list
    Session_Struct_t  *cSessionp;
 
-
    if ( !pSession )
-      return FALSE;   
-      
-   // Walk the Anchor block session linked list
-   // return TRUE if the pointer is on the list
-   // False if it is not
+      return rv;
+
    pthread_mutex_lock(&(Anchor->SessListMutex));
 
-   cSessionp = Anchor->SessListBeg;
-   while (cSessionp) {
-      if (cSessionp == pSession){
-         rv = TRUE;
-         rSession->sessionh = pSession->RealHandle;
-         rSession->slotID = pSession->SltId;
-         break;
-      }
-      cSessionp = (Session_Struct_t *)cSessionp->Next;
+   // Try to dereference pSession and double-check by
+   // comparing the handle value. MAY segfault if the
+   // session handle pSession is invalid, but that
+   // often means that the caller is buggy.
+   if ( pSession->Handle == pSession ) {
+      rSession->sessionh = pSession->RealHandle;
+      rSession->slotID = pSession->SltId;
+      rv = TRUE;
    }
 
    pthread_mutex_unlock(&(Anchor->SessListMutex));

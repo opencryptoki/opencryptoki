@@ -3787,6 +3787,7 @@ C_OpenSession ( CK_SLOT_ID            slotID,
                                                    // uniqueness.                                                
 
 
+         apiSessp->Handle = apiSessp;
          apiSessp->SltId = slotID;
          // Add to the linked list
          AddToSessionList(apiSessp); 
