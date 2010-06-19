@@ -357,9 +357,9 @@ extern LW_SHM_TYPE *global_shm;
 extern TOKEN_DATA        *nv_token_data;
 extern CK_SLOT_INFO       slot_info;
 
+// extern CK_ULONG next_session_handle;
 extern CK_ULONG  ro_session_count;
 extern CK_ULONG next_object_handle;
-extern CK_ULONG next_session_handle;
 
 extern CK_STATE  global_login_state;
 

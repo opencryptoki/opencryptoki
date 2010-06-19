@@ -462,6 +462,10 @@ typedef struct _SESSION
    SIGN_VERIFY_CONTEXT  verify_ctx;
 } SESSION;
 
+/* TODO:
+ * Add compile-time checking that sizeof(void *) == sizeof(CK_SESSION_HANDLE)
+ * */
+
 
 typedef struct _DES_CONTEXT
 {

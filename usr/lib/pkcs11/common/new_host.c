@@ -417,7 +417,7 @@ Fork_Initializer(void)
 	// This should clear the entire session list out
 	session_mgr_close_all_sessions();
 
-	next_session_handle = 1; // Make is so sessions start with 1
+	//next_session_handle = 1; // Make is so sessions start with 1
 	next_object_handle = 1;
 
 	// Clean out the global login state variable
@@ -1382,7 +1382,7 @@ CK_RV SC_OpenSession(CK_SLOT_ID             sid,
 		st_err_log(152, __FILE__, __LINE__); 
 		goto done;
 	}
-	*phSession = sess->handle;
+	*phSession = (CK_SESSION_HANDLE_PTR) sess;
 	// Set the correct slot ID here. Was hard coded to 1. - KEY
 	sess->session_info.slotID = sid;
  done:

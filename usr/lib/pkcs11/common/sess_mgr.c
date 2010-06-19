@@ -308,7 +308,7 @@
 // session_mgr_find()
 //
 // search for the specified session.  returning a pointer to the session
-// is dangerous
+// might be dangerous, but performs well
 //
 // Returns:  SESSION * or NULL
 //
@@ -319,22 +319,24 @@ session_mgr_find( CK_SESSION_HANDLE handle )
    SESSION  * result = NULL;
    CK_RV      rc;
 
+   if (!handle) {
+      return NULL;
+   }
+
    rc = MY_LockMutex( &sess_list_mutex );
    if (rc != CKR_OK){
       st_err_log(146, __FILE__, __LINE__); 
       return NULL;
    }
-   node = sess_list;
 
-   while (node) {
-      SESSION *s = (SESSION *)node->data;
+   result = (SESSION *) handle;
 
-      if (s->handle == handle) {
-         result = s;
-         break;
-      }
-
-      node = node->next;
+   // Try to dereference result and double-check by
+   // comparing the handle value. MAY segfault if
+   // handle is invalid, but that often means that
+   // the caller is buggy.
+   if ( result->handle != handle ) {
+      result = NULL;
    }
 
    MY_UnlockMutex( &sess_list_mutex );
@@ -385,13 +387,7 @@ session_mgr_new( CK_ULONG flags, SESSION **sess )
    }
    pkcs_locked = TRUE;
 
-   do {
-      s = session_mgr_find( next_session_handle );
-      if (s != NULL)
-         next_session_handle++;
-      else
-         new_session->handle = next_session_handle++;
-   } while (s != NULL);
+   new_session->handle = (CK_SESSION_HANDLE) new_session;
 
    MY_UnlockMutex( &pkcs_mutex );
    pkcs_locked = FALSE;
@@ -596,6 +592,9 @@ session_mgr_close_session( SESSION *sess )
       ro_session_count--;
    }
 
+   // Make sure this address is now invalid
+   sess->handle = CK_INVALID_HANDLE;
+
    if (sess->find_list)
       free( sess->find_list );
 
@@ -679,6 +678,8 @@ session_mgr_close_all_sessions( void )
       SESSION *sess = (SESSION *)sess_list->data;
 
       object_mgr_purge_session_objects( sess, ALL );
+
+      sess->handle = CK_INVALID_HANDLE;
 
       if (sess->find_list)
          free( sess->find_list );
