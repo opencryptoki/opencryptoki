@@ -1656,7 +1656,7 @@ CK_RV SC_Login( ST_SESSION_HANDLE   sSession,
 			st_err_log(56, __FILE__, __LINE__);
 			rc = CKR_USER_ALREADY_LOGGED_IN;
 		}
-		if (session_mgr_readonly_exists()){
+		if (session_mgr_readonly_session_exists()){
 			st_err_log(142, __FILE__, __LINE__);
 			rc = CKR_SESSION_READ_ONLY_EXISTS;
 		}

@@ -329,9 +329,9 @@ DL_NODE  *publ_token_obj_list = NULL;
 DL_NODE  *priv_token_obj_list = NULL;
 DL_NODE  *object_map     = NULL;
 
+CK_ULONG  ro_session_count = 0;
 
-CK_STATE  global_login_state = 0;
-
+CK_STATE  global_login_state = CKS_RO_PUBLIC_SESSION;
 
 LW_SHM_TYPE *global_shm;
 
