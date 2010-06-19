@@ -418,7 +418,7 @@ Fork_Initializer(void)
 	session_mgr_close_all_sessions();
 
 	//next_session_handle = 1; // Make is so sessions start with 1
-	next_object_handle = 1;
+	//next_object_handle = 1;
 
 	// Clean out the global login state variable
 	// When implemented...  Although logout_all should clear this up.

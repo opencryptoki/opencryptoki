@@ -549,6 +549,8 @@ typedef struct _OBJECT_MAP
    OBJECT             * ptr;
 } OBJECT_MAP;
 
+/* FIXME: Compile-time check that sizeof(void *) == sizeof(CK_OBJECT_HANDLE) */
+
 
 typedef struct _ATTRIBUTE_PARSE_LIST
 {
