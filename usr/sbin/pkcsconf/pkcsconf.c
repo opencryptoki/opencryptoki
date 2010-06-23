@@ -844,39 +844,6 @@ get_slot_list(int cond, CK_CHAR_PTR slot){
    return CKR_OK;
 }
 
-void
-display_mechanism_name(CK_MECHANISM_TYPE mech)
-{
-	CK_ULONG i;
-
-	for (i = 0; pkcs11_mech_list[i].name; i++) {
-		if (pkcs11_mech_list[i].mech == mech) {
-			printf("(%s)", pkcs11_mech_list[i].name);
-		}
-	}
-}
-
-void
-display_mechanism_flags(CK_FLAGS flags)
-{
-	CK_ULONG i, firsties = 1;
-
-	for (i = 0; pkcs11_mech_flags[i].name; i++) {
-		if (pkcs11_mech_flags[i].flag & flags) {
-			if (firsties) {
-				printf("(");
-				firsties = 0;
-			}
-
-			printf("%s|", pkcs11_mech_flags[i].name);
-		}
-	}
-
-	if (!firsties) {
-		printf(")");
-	}
-}
-
 CK_RV
 display_mechanism_info(void){
    CK_RV          rc;                  // Return Code
@@ -918,17 +885,10 @@ display_mechanism_info(void){
             return rc;
          }
          printf(PKCSINIT_MSG(MECH, "Mechanism #%d\n"), lcv2);
-         printf(PKCSINIT_MSG(MECHLABEL, "\tMechanism: 0x%X "), MechanismList[lcv2]);
-
-	 display_mechanism_name(MechanismList[lcv2]);
-	 printf("\n");
-
+         printf(PKCSINIT_MSG(MECHLABEL, "\tMechanism: 0x%X\n"), MechanismList[lcv2]);
          printf(PKCSINIT_MSG(KEYSIZE, "\tKey Size: %d-%d\n"), MechanismInfo.ulMinKeySize,
                MechanismInfo.ulMaxKeySize);
-         printf(PKCSINIT_MSG(FLAGS, "\tFlags: 0x%X "), MechanismInfo.flags);
-
-	 display_mechanism_flags(MechanismInfo.flags);
-	 printf("\n");
+         printf(PKCSINIT_MSG(FLAGS, "\tFlags: 0x%X\n"), MechanismInfo.flags);
       }
 
       /* Free the memory we allocated for the mechanism list */
