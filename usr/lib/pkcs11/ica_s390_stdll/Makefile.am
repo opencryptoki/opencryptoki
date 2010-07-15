@@ -29,3 +29,4 @@ INCLUDES = $(ICA_INC_DIRS) -I. -I../../../include/pkcs11/stdll	\
 install-data-hook:
 	cd $(DESTDIR)$(libdir)/opencryptoki/stdll && \
 		ln -sf libpkcs11_ica.so PKCS11_ICA.so
+	$(MKDIR_P) $(DESTDIR)$(localstatedir)/lib/opencryptoki/lite

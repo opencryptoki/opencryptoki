@@ -12,3 +12,6 @@ pkcs_slot: pkcs_slot.in
 		-e s!\@CHMOD\@!"@CHMOD@"!g < $< > $@-t
 	@CHMOD@ +x $@-t
 	mv $@-t $@
+
+install-data-hook:
+	$(MKDIR_P) $(DESTDIR)$(localstatedir)/lib/opencryptoki

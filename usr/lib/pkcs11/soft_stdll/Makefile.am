@@ -50,3 +50,4 @@ opencryptoki_stdll_libpkcs11_sw_la_SOURCES = ../common/asn1.c		\
 install-data-hook:
 	cd $(DESTDIR)$(libdir)/opencryptoki/stdll && \
 		ln -sf libpkcs11_sw.so PKCS11_SW.so
+	$(MKDIR_P) $(DESTDIR)$(localstatedir)/lib/opencryptoki/swtok

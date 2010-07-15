@@ -56,3 +56,4 @@ noinst_HEADERS = h_extern.h tok_spec_struct.h defs.h csulincl.h		\
 install-data-hook:
 	cd $(DESTDIR)/$(libdir)/opencryptoki/stdll && \
 		ln -sf libpkcs11_cca.so PKCS11_CCA.so
+	$(MKDIR_P) $(DESTDIR)$(localstatedir)/lib/opencryptoki/ccatok
