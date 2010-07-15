@@ -2,9 +2,9 @@ SUBDIRS = pkcs11
 
 install-data-hook:
 	$(MKDIR_P) $(DESTDIR)/etc/ld.so.conf.d
-	echo "$(DESTDIR)$(libdir)/opencryptoki" >\
+	echo "$(libdir)/opencryptoki" >\
 		$(DESTDIR)/etc/ld.so.conf.d/opencryptoki-$(host_cpu).conf
-	echo "$(DESTDIR)$(libdir)/opencryptoki/stdll" >>\
+	echo "$(libdir)/opencryptoki/stdll" >>\
 		$(DESTDIR)/etc/ld.so.conf.d/opencryptoki-$(host_cpu).conf
 	echo "**** Remember you must run ldconfig before using the above settings ****"
 

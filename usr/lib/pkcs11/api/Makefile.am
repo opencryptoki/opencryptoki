@@ -18,14 +18,14 @@ install-data-hook:
 	cd $(DESTDIR)$(libdir)/opencryptoki && \
 		ln -sf libopencryptoki.so PKCS11_API.so 
 	cd $(DESTDIR)$(libdir)/opencryptoki && \
-		ln -sf $(DESTDIR)$(sbindir) methods
+		ln -sf $(sbindir) methods
 	$(MKDIR_P) $(DESTDIR)$(libdir)/pkcs11
 	cd $(DESTDIR)$(libdir)/pkcs11 && \
-		ln -sf $(DESTDIR)$(sbindir) methods
+		ln -sf $(sbindir) methods
 	cd $(DESTDIR)$(libdir)/pkcs11 && \
-		ln -sf $(DESTDIR)$(libdir)/opencryptoki/libopencryptoki.so PKCS11_API.so
-	cd $(DESTDIR)/$(libdir)/pkcs11 && \
-		ln -sf $(DESTDIR)$(libdir)/opencryptoki/libopencryptoki.so libopencryptoki.so
-	$(MKDIR_P) $(DESTDIR)/$(libdir)/opencryptoki/stdll
-	cd $(DESTDIR)/$(libdir)/pkcs11 && \
-		ln -sf $(DESTDIR)$(libdir)/opencryptoki/stdll/ stdll
+		ln -sf ../opencryptoki/libopencryptoki.so PKCS11_API.so
+	cd $(DESTDIR)$(libdir)/pkcs11 && \
+		ln -sf ../opencryptoki/libopencryptoki.so libopencryptoki.so
+	$(MKDIR_P) $(DESTDIR)$(libdir)/opencryptoki/stdll
+	cd $(DESTDIR)$(libdir)/pkcs11 && \
+		ln -sf ../opencryptoki/stdll/ stdll
