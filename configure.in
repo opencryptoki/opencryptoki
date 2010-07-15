@@ -9,7 +9,7 @@ cmdline_CFLAGS="$CFLAGS"
 AM_INIT_AUTOMAKE([foreign 1.6])
 
 dnl Get the canonical host type
-AC_CANONICAL_HOST
+AC_CANONICAL_TARGET
 
 dnl Checks for header files.
 AC_DISABLE_STATIC
@@ -40,15 +40,6 @@ AC_PATH_PROG([CHMOD], [chmod], [/bin/chmod])
 AC_PATH_PROG([CHGRP], [chgrp], [/bin/chgrp])
 AC_PROG_SED
 AC_PROG_MKDIR_P
-
-case $host_cpu in
-	x86_64 | ppc64* | s390x)
-		CFLAGS="-m64 $cmdline_CFLAGS"
-		;;
-	*)
-		CFLAGS="-m32 $cmdline_CFLAGS"
-                ;;
-esac
 
 dnl ---
 dnl --- Check all --enable/--disable-features
