@@ -178,6 +178,10 @@ typedef struct _SESSION
    SIGN_VERIFY_CONTEXT  verify_ctx;
 } SESSION;
 
+/* TODO:
+ * Add compile-time checking that sizeof(void *) == sizeof(CK_SESSION_HANDLE)
+ * */
+
 
 typedef struct _DES_CONTEXT
 {
@@ -260,6 +264,8 @@ typedef struct _OBJECT_MAP
    SESSION            * session;
    OBJECT             * ptr;
 } OBJECT_MAP;
+
+/* FIXME: Compile-time check that sizeof(void *) == sizeof(CK_OBJECT_HANDLE) */
 
 
 typedef struct _ATTRIBUTE_PARSE_LIST
