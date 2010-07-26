@@ -93,7 +93,7 @@ int create_des_encrypt_context(CK_SESSION_HANDLE_PTR hsess, CK_OBJECT_HANDLE_PTR
 
 int encrypt_DATA(CK_SESSION_HANDLE hsess, CK_OBJECT_HANDLE hkey, CK_ULONG blocklen) {
 	CK_RV             rc;
-	CK_ULONG          outlen;
+       CK_ULONG          outlen = 8;
         unsigned long int i;
 
 	for (i = 0; i < DATALEN; i+=outlen) {
@@ -111,7 +111,7 @@ int encrypt_DATA(CK_SESSION_HANDLE hsess, CK_OBJECT_HANDLE hkey, CK_ULONG blockl
 int finalize_des_encrypt_context(CK_SESSION_HANDLE hsess)
 {
 	CK_RV             rc;
-	CK_ULONG          outlen;
+       CK_ULONG          outlen = DATALEN;
 
 	rc = funcs->C_EncryptFinal(hsess, DUMP, &outlen);
 	if (rc != CKR_OK) {
@@ -245,4 +245,5 @@ int main(int argc, char **argv)
 		do_SessionPerformance(i);
 	}
 
+       return 0;
 }
