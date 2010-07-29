@@ -325,7 +325,7 @@
 #endif
 
 
-#define PID_FILE_PATH CONFIG_PATH "/.slotpid"
+#define PID_FILE_PATH "/var/run/pkcsslotd.pid"
 
 #ifndef CK_BOOL
     #define CK_BOOL  CK_BBOOL

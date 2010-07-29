@@ -89,4 +89,3 @@ Here is a description of the steps involved in the migration:
 	  data store will be restored from the backup that was created earlier.
 
 	- If no errors have been encountered, then the migration has been successful.
-

@@ -302,10 +302,10 @@
 # Get the operating System....  Everything else falls into that
 # Get a list of crypto adapters and set error code to 0
 
-CARDS=`ls /dev/crypt* 2>/dev/null | sed s?\/dev\/??g 2>/dev/null`
+CARDS=`ls /dev/crypt* 2>/dev/null | @SED@ s?\/dev\/??g 2>/dev/null`
 ERRORS=0
-STATCOMMAND=/usr/lib/pkcs11/methods/4758_status
-rm -f @CONFIG_PATH@/@CONFIG_FILE@ >/dev/null 2>&1  # always whack the entire config file and build
+STATCOMMAND=/@libexecdir@/4758_status
+rm -f @localstatedir@/lib/opencryptoki/pk_config_data >/dev/null 2>&1  # always whack the entire config file and build
 		        # it from scratch
 
 
@@ -328,7 +328,7 @@ if [ -x @USERMOD@ -a -x @ID@ ]
 then
 	# add the pkcs group
 	# replace spaces by commas
-	@USERMOD@ -G $( @ID@ --groups --name root | /bin/sed -e 'y/ /,/'),pkcs11  root
+	@USERMOD@ -G $( @ID@ --groups --name root | @SED@ -e 'y/ /,/'),pkcs11  root
 else
 	echo "Couldn't execute @USERMOD@. Please add root to the group 'pkcs11' manually."
 fi
@@ -347,7 +347,7 @@ do
     then
        # need to make this the minor number of the device only
         x=`ls -l /dev/$i | awk '{ print $6 }'`
-	 @METHOD_PATH@/pkcs_slot $x deep
+	 @sbindir@/pkcs_slot $x deep
     elif [ $RC = 102 ]
     then
 	# SAB XXX Need to get the groups created elsewhere
@@ -366,21 +366,21 @@ fi
 
 # Add the TPM device automatically if it exists
 
-if [ -f @STDLL_PATH@/libpkcs11_tpm.so ]
+if [ -f @libdir@/opencryptoki/stdll/libpkcs11_tpm.so ]
 then
-    @METHOD_PATH@/pkcs_slot 0  tpm
+    @sbindir@/pkcs_slot 0  tpm
 fi
 
 
 # Addition for AEP Devices
 
-if [ -f @STDLL_PATH@/PKCS11_AEP.so ]
+if [ -f @libdir@/opencryptoki/stdll/PKCS11_AEP.so ]
 then
-    /bin/cat /proc/devices | grep paep >/dev/null 2>&1
+    @CAT@ /proc/devices | grep paep >/dev/null 2>&1
     rc=$?
     if [ $rc = 0 ]
     then
-	    @METHOD_PATH@/pkcs_slot 0  aep
+	    @sbindir@/pkcs_slot 0  aep
     fi
 fi
 
@@ -390,35 +390,35 @@ fi
 # Starting from version 1.3, libica supports software
 # fallback when no specialized hardware is found, so
 # we default for including the ica token when it's
-# stdll is present (s390x by default) - KlausK Jul'09
-if [ -f @STDLL_PATH@/libpkcs11_ica.so ]
+# stdll is present - KlausK Jul'09
+if [ -f @libdir@/opencryptoki/stdll/libpkcs11_ica.so ]
 then
-    @METHOD_PATH@/pkcs_slot 0  ica
+    @sbindir@/pkcs_slot 0  ica
 fi
 
 
 
 #add the broadcom device
 
-if [ -f @STDLL_PATH@/PKCS11_BC.so ]
+if [ -f @libdir@/opencryptoki/stdll/PKCS11_BC.so ]
 then
-    /bin/cat /proc/devices | grep cryptonet >/dev/null 2>&1
+    @CAT@ /proc/devices | grep cryptonet >/dev/null 2>&1
     rc=$?
     if [ $rc = 0 ]
     then
-	    @METHOD_PATH@/pkcs_slot 0  bcom
+	    @sbindir@/pkcs_slot 0  bcom
     fi
 fi
 
 #add the Corrent device
 
-if [ -f @STDLL_PATH@/PKCS11_CR.so ]
+if [ -f @libdir@/opencryptoki/stdll/PKCS11_CR.so ]
 then
-    /bin/cat /proc/misc | grep cr702x >/dev/null 2>&1
+    @CAT@ /proc/misc | grep cr702x >/dev/null 2>&1
     rc=$?
     if [ $rc = 0 ]
     then
-	    @METHOD_PATH@/pkcs_slot 0  cr
+	    @sbindir@/pkcs_slot 0  cr
     fi
 fi
 
@@ -427,16 +427,16 @@ fi
 # the CCA stdll *and* for a library needed by the CCA token - KlausK Jul'09
 # The libraries required by CCA token are provided by the 'xcryptolinzGA'
 # RPM package, available from the IBM web site.
-if [ -f @STDLL_PATH@/libpkcs11_cca.so ] && [ -f /usr/lib64/libcsulmkapi.so.1 ]
+if [ -f @libdir@/opencryptoki/stdll/libpkcs11_cca.so ] && [ -f /usr/lib64/libcsulmkapi.so.1 ]
 then
-    @METHOD_PATH@/pkcs_slot 0 cca
+    @sbindir@/pkcs_slot 0 cca
 fi
 
 # Add the SW token last, so that "dumb" apps that always open
 # slot 0 will get a HW token if one exists
-if [ -f @STDLL_PATH@/libpkcs11_sw.so ]
+if [ -f @libdir@/opencryptoki/stdll/libpkcs11_sw.so ]
 then
-    @METHOD_PATH@/pkcs_slot 0  soft
+    @sbindir@/pkcs_slot 0  soft
 fi
 
 if [ $ERRORS -ne 0 ]

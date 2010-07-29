@@ -357,10 +357,11 @@ extern LW_SHM_TYPE *global_shm;
 extern TOKEN_DATA        *nv_token_data;
 extern CK_SLOT_INFO       slot_info;
 
-extern CK_ULONG next_object_handle;
-extern CK_ULONG next_session_handle;
+// extern CK_ULONG next_object_handle;
+// extern CK_ULONG next_session_handle;
 
-// SAB FIXME FIXME
+extern CK_ULONG  ro_session_count;
+
 extern CK_STATE  global_login_state;
 
 
@@ -1834,7 +1835,7 @@ CK_RV  session_mgr_login_all ( CK_USER_TYPE user_type );
 CK_RV  session_mgr_logout_all( void );
 CK_RV  session_mgr_new( CK_ULONG flags, SESSION **sess );
 
-CK_BBOOL  session_mgr_readonly_exists( void );
+CK_BBOOL  session_mgr_readonly_session_exists( void );
 CK_BBOOL  session_mgr_so_session_exists    ( void );
 CK_BBOOL  session_mgr_user_session_exists  ( void );
 CK_BBOOL  session_mgr_public_session_exists( void );
@@ -1933,8 +1934,6 @@ CK_BBOOL object_mgr_purge_session_objects( SESSION       * sess,
 CK_BBOOL object_mgr_purge_token_objects( void );
 
 CK_BBOOL object_mgr_purge_private_token_objects( void );
-
-CK_RV    object_mgr_remove_from_map( CK_OBJECT_HANDLE handle );
 
 CK_RV    object_mgr_restore_obj( CK_BYTE *data, OBJECT *oldObj );
 

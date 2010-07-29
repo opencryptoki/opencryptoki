@@ -14,8 +14,18 @@
 
 #include "tok_spec_struct.h"
 
+#ifndef CCA_CONFIG_PATH
+
+#ifndef CONFIG_PATH
+#warning CONFIG_PATH not set, using default (/usr/local/var/lib/opencryptoki)
+#define CONFIG_PATH "/usr/local/var/lib/opencryptoki"
+#endif  // #ifndef CONFIG_PATH
+
+#define CCA_CONFIG_PATH CONFIG_PATH "/ccatok"
+#endif  // #ifndef CCA_CONFIG_PATH
+
 token_spec_t token_specific  = {
-     "@DB_PATH@/ccatok",
+     CCA_CONFIG_PATH,
      "ccatok",
      "CCA_STDLL_Debug",
      &token_specific_init,

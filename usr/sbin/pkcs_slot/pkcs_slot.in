@@ -298,42 +298,42 @@
 
 
 
-DEEP4758_DLL="@STDLL_PATH@/PKCS11_4758.so"
+DEEP4758_DLL="@libdir@/opencryptoki/stdll/PKCS11_4758.so"
 DEEP4758_DLL_FN="PKCS11_4758.so"
 DEEP4758_INIT="SC_Initialize"
 
-SOFT_DIR="@DB_PATH@/swtok"
-SOFT_DLL="@STDLL_PATH@/libpkcs11_sw.so"
+SOFT_DIR="@localstatedir@/lib/opencryptoki/swtok"
+SOFT_DLL="@libdir@/opencryptoki/stdll/libpkcs11_sw.so"
 SOFT_DLL_FN="libpkcs11_sw.so"
 SOFT_INIT="ST_Initialize"
 
-ICA_DIR="@DB_PATH@/lite"
-ICA_DLL="@STDLL_PATH@/libpkcs11_ica.so"
+ICA_DIR="@localstatedir@/lib/opencryptoki/lite"
+ICA_DLL="@libdir@/opencryptoki/stdll/libpkcs11_ica.so"
 ICA_DLL_FN="libpkcs11_ica.so"
 ICA_INIT="ST_Initialize"
 
-BCOM_DIR="@DB_PATH@/bcom"
-BCOM_DLL="@STDLL_PATH@/PKCS11_BC.so"
+BCOM_DIR="@localstatedir@/lib/opencryptoki/bcom"
+BCOM_DLL="@libdir@/opencryptoki/stdll/PKCS11_BC.so"
 BCOM_DLL_FN="PKCS11_BC.so"
 BCOM_INIT="ST_Initialize"
 
-AEP_DIR="@DB_PATH@/aep"
-AEP_DLL="@STDLL_PATH@/PKCS11_AEP.so"
+AEP_DIR="@localstatedir@/lib/opencryptoki/aep"
+AEP_DLL="@libdir@/opencryptoki/stdll/PKCS11_AEP.so"
 AEP_DLL_FN="PKCS11_AEP.so"
 AEP_INIT="ST_Initialize"
 
-CR_DIR="@DB_PATH@/cr"
-CR_DLL="@STDLL_PATH@/PKCS11_CR.so"
+CR_DIR="@localstatedir@/lib/opencryptoki/cr"
+CR_DLL="@libdir@/opencryptoki/stdll/PKCS11_CR.so"
 CR_DLL_FN="PKCS11_CR.so"
 CR_INIT="ST_Initialize"
 
-TPM_DIR="@DB_PATH@/tpm"
-TPM_DLL="@STDLL_PATH@/libpkcs11_tpm.so"
+TPM_DIR="@localstatedir@/lib/opencryptoki/tpm"
+TPM_DLL="@libdir@/opencryptoki/stdll/libpkcs11_tpm.so"
 TPM_DLL_FN="libpkcs11_tpm.so"
 TPM_INIT="ST_Initialize"
 
-CCA_DIR="@DB_PATH@/ccatok"
-CCA_DLL="@STDLL_PATH@/libpkcs11_cca.so"
+CCA_DIR="@localstatedir@/lib/opencryptoki/ccatok"
+CCA_DLL="@libdir@/opencryptoki/stdll/libpkcs11_cca.so"
 CCA_DLL_FN="libpkcs11_cca.so"
 CCA_INIT="ST_Initialize"
 
@@ -357,11 +357,11 @@ DEVICE=$1
 DEPTH=$2
 
 # Check for the existance of the directories 
-if [ ! -d @DB_PATH@ ]
+if [ ! -d @localstatedir@/lib/opencryptoki ]
 then
-	mkdir -p @DB_PATH@
-        chgrp pkcs11 @DB_PATH@
-	chmod -R g+rwx @DB_PATH@
+	@MKDIR_P@ @localstatedir@/lib/opencryptoki
+        @CHGRP@ pkcs11 @localstatedir@/lib/opencryptoki
+	@CHMOD@ -R g+rwX @localstatedir@/lib/opencryptoki
 fi
 
 
@@ -372,9 +372,9 @@ then
     if [ $? -ne 0 ]
     then
 	mkdir  $SOFT_DIR
-	chgrp pkcs11 $SOFT_DIR
+	@CHGRP@ pkcs11 $SOFT_DIR
 	mkdir "$SOFT_DIR"/TOK_OBJ
-	chgrp pkcs11 "$SOFT_DIR"/TOK_OBJ
+	@CHGRP@ pkcs11 "$SOFT_DIR"/TOK_OBJ
     fi
     SYS_SLOT="Soft"
 fi
@@ -386,7 +386,7 @@ then
     if [ $? -ne 0 ]
     then
 	mkdir  $TPM_DIR
-	chgrp pkcs11 $TPM_DIR
+	@CHGRP@ pkcs11 $TPM_DIR
     fi
     SYS_SLOT="TPM"
 fi
@@ -397,9 +397,9 @@ then
     if [ $? -ne 0 ]
     then
        mkdir  $CCA_DIR
-       chgrp pkcs11 $CCA_DIR
+       @CHGRP@ pkcs11 $CCA_DIR
        mkdir "$CCA_DIR"/TOK_OBJ
-       chgrp pkcs11 "$CCA_DIR"/TOK_OBJ
+       @CHGRP@ pkcs11 "$CCA_DIR"/TOK_OBJ
     fi
     SYS_SLOT="CCA"
 fi
@@ -415,9 +415,9 @@ then
     if [ $? -ne 0 ]
     then
 	mkdir  $ICA_DIR
-	chgrp pkcs11 $ICA_DIR
+	@CHGRP@ pkcs11 $ICA_DIR
 	mkdir "$ICA_DIR"/TOK_OBJ
-	chgrp pkcs11 "$ICA_DIR"/TOK_OBJ
+	@CHGRP@ pkcs11 "$ICA_DIR"/TOK_OBJ
     fi
     SYS_SLOT="ICA"
 fi
@@ -428,9 +428,9 @@ then
     if [ $? -ne 0 ]
     then
 	mkdir  $BCOM_DIR
-	chgrp pkcs11 $BCOM_DIR
+	@CHGRP@ pkcs11 $BCOM_DIR
 	mkdir "$BCOM_DIR"/TOK_OBJ
-	chgrp pkcs11 "$BCOM_DIR"/TOK_OBJ
+	@CHGRP@ pkcs11 "$BCOM_DIR"/TOK_OBJ
     fi
     SYS_SLOT="BCOM"
 fi
@@ -441,9 +441,9 @@ then
     if [ $? -ne 0 ]
     then
 	mkdir  $AEP_DIR
-	chgrp pkcs11 $AEP_DIR
+	@CHGRP@ pkcs11 $AEP_DIR
 	mkdir "$AEP_DIR"/TOK_OBJ
-	chgrp pkcs11 "$AEP_DIR"/TOK_OBJ
+	@CHGRP@ pkcs11 "$AEP_DIR"/TOK_OBJ
     fi
     SYS_SLOT="AEP"
 fi
@@ -454,9 +454,9 @@ then
     if [ $? -ne 0 ]
     then
         mkdir  $CR_DIR
-        chgrp pkcs11 $CR_DIR
+        @CHGRP@ pkcs11 $CR_DIR
         mkdir "$CR_DIR"/TOK_OBJ
-        chgrp pkcs11 "$CR_DIR"/TOK_OBJ
+        @CHGRP@ pkcs11 "$CR_DIR"/TOK_OBJ
     fi
     SYS_SLOT="CRNT"
 fi
@@ -473,7 +473,7 @@ fi
 SLOT_DESCRIPTION=`echo $MANUFACTURER $SYSTEM  "("$SYS_SLOT")"`
 
 
-CFGFILE=@CONFIG_PATH@/@CONFIG_FILE@
+CFGFILE=@localstatedir@/lib/opencryptoki/pk_config_data
 
 if [ $DEPTH = "deep" ]
 then
@@ -502,8 +502,8 @@ then
 echo "TRUE|0|$SLOT_DESCRIPTION|$MANUFACTURER|TRUE|FALSE|TRUE|0|0|1|1|NONE|$CCA_DLL_FN|$CCA_INIT" >>$CFGFILE
 fi
 
-cd @DB_PATH@
-chmod -R g+wrx .
+@CHMOD@ -R g+wrX @localstatedir@/lib/opencryptoki
+
 
 
 exit $OK

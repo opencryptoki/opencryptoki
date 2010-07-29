@@ -1,12 +1,14 @@
-if DAEMON
-initdir = /etc/init.d
-init_SCRIPTS = pkcsslotd
+initddir = $(sysconfdir)/rc.d/init.d
+
+EXTRA_DIST = pkcsslotd.in
+
+if ENABLE_DAEMON
+initd_SCRIPTS = pkcsslotd
+
+CLEANFILES = pkcsslotd
+
+pkcsslotd: pkcsslotd.in
+	@SED@ -e s!\@sbindir\@!"@sbindir@"!g < $< > $@-t
+	@CHMOD@ a+x $@-t
+	mv $@-t $@
 endif
-
-install-data-local:
-	mkdir -p $(DESTDIR)/etc/ld.so.conf.d
-	echo "$(libdir)/opencryptoki" \
-	>$(DESTDIR)/etc/ld.so.conf.d/opencryptoki-$(target_cpu).conf
-	echo "$(libdir)/opencryptoki/stdll" \
-	>>$(DESTDIR)/etc/ld.so.conf.d/opencryptoki-$(target_cpu).conf
-

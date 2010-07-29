@@ -375,7 +375,7 @@ main(int argc, char *argv[]){
    catd = catopen(MF_PKCSCONF,0);
 
    /* Parse the command line parameters */
-   while ((c = getopt (argc, argv, "itsmMIc:S:U:upPn:l")) != (-1)){
+   while ((c = getopt (argc, argv, "itsmMIc:S:U:upPn:lh")) != (-1)){
       switch (c){
          case 'c':  /* a specific card (slot) is specified */
             flags |= CFG_SLOT;
@@ -429,12 +429,18 @@ main(int argc, char *argv[]){
          case 'l':  /* display slot description */
             flags |= CFG_LIST_SLOT;
             break;
+         case 'h':  /* display command line options */
+	    usage(argv[0]);
+            break;
          default:   /* if something else was passed in it is an error */
             errflag++;
             break;
       }
    }
    if (errflag != 0)  /* If there was an error print the usage statement */
+       usage(argv[0]);
+
+   if (!flags)  /* If there was no options print the usage statement */
        usage(argv[0]);
 
    /* Eliminate the ability to specify -I -p -u -P without a slot number */
@@ -844,6 +850,39 @@ get_slot_list(int cond, CK_CHAR_PTR slot){
    return CKR_OK;
 }
 
+void
+display_mechanism_name(CK_MECHANISM_TYPE mech)
+{
+	CK_ULONG i;
+
+	for (i = 0; pkcs11_mech_list[i].name; i++) {
+		if (pkcs11_mech_list[i].mech == mech) {
+			printf("(%s)", pkcs11_mech_list[i].name);
+		}
+	}
+}
+
+void
+display_mechanism_flags(CK_FLAGS flags)
+{
+	CK_ULONG i, firsties = 1;
+
+	for (i = 0; pkcs11_mech_flags[i].name; i++) {
+		if (pkcs11_mech_flags[i].flag & flags) {
+			if (firsties) {
+				printf("(");
+				firsties = 0;
+			}
+
+			printf("%s|", pkcs11_mech_flags[i].name);
+		}
+	}
+
+	if (!firsties) {
+		printf(")");
+	}
+}
+
 CK_RV
 display_mechanism_info(void){
    CK_RV          rc;                  // Return Code
@@ -885,10 +924,17 @@ display_mechanism_info(void){
             return rc;
          }
          printf(PKCSINIT_MSG(MECH, "Mechanism #%d\n"), lcv2);
-         printf(PKCSINIT_MSG(MECHLABEL, "\tMechanism: 0x%X\n"), MechanismList[lcv2]);
+         printf(PKCSINIT_MSG(MECHLABEL, "\tMechanism: 0x%X "), MechanismList[lcv2]);
+
+	 display_mechanism_name(MechanismList[lcv2]);
+	 printf("\n");
+
          printf(PKCSINIT_MSG(KEYSIZE, "\tKey Size: %d-%d\n"), MechanismInfo.ulMinKeySize,
                MechanismInfo.ulMaxKeySize);
-         printf(PKCSINIT_MSG(FLAGS, "\tFlags: 0x%X\n"), MechanismInfo.flags);
+         printf(PKCSINIT_MSG(FLAGS, "\tFlags: 0x%X "), MechanismInfo.flags);
+
+	 display_mechanism_flags(MechanismInfo.flags);
+	 printf("\n");
       }
 
       /* Free the memory we allocated for the mechanism list */
@@ -1295,7 +1341,7 @@ usage(char *progname){
 
    /* If we get here the user needs help, so give it to them */
    printf(PKCSINIT_MSG(USAGE,
-           "usage:\t%s [-itsmMIupP] [-c slotnumber -U userPIN -S SOPin -n newpin]\n"),
+           "usage:\t%s [-itsmMIupPh] [-c slotnumber -U userPIN -S SOPin -n newpin]\n"),
            progname);
    printf(PKCSINIT_MSG(USAGE1, "\t-i display PKCS11 info\n"));
    printf(PKCSINIT_MSG(USAGE2, "\t-t display token info\n"));
@@ -1305,6 +1351,7 @@ usage(char *progname){
    printf(PKCSINIT_MSG(USAGE7, "\t-u initialize user PIN\n"));
    printf(PKCSINIT_MSG(USAGE8, "\t-p set the user PIN\n"));
    printf(PKCSINIT_MSG(USAGE9, "\t-P set the SO PIN\n"));
+   printf(PKCSINIT_MSG(USAGE10, "\t-h show this help\n"));
 
    exit(-1);
 }

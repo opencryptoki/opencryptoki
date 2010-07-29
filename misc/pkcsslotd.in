@@ -14,8 +14,8 @@
 
 PIDFILE=/var/run/pkcsslotd.pid
 LOCKFILE=/var/lock/subsys/pkcsslotd
-SLOTDBIN=@METHOD_PATH@/pkcsslotd
-CONFSTART=@METHOD_PATH@/pkcs11_startup
+SLOTDBIN=@sbindir@/pkcsslotd
+CONFSTART=@sbindir@/pkcs11_startup
 
 
 start() {
@@ -27,19 +27,7 @@ start() {
         # Generate the configuration information
         $CONFSTART
 
-	## Start daemon with startproc(8). If this fails
-	## the echo return value is set appropriate.
-        if [ ! -f $PIDFILE ]; then
-           # pid file does not exist
-           daemon --force $SLOTDBIN
-        elif ! ps -h --pid `cat $PIDFILE` | grep "$SLOTDBIN" 2>&1 >/dev/null; then
-           # pid file exists but named pid not
-           rm -f $PIDFILE
-           daemon --force $SLOTDBIN
-        else
-           # just to have "failed" message
-           daemon $SLOTDBIN
-        fi
+        daemon $SLOTDBIN
 
 	RETVAL=$?
 	echo
@@ -49,7 +37,7 @@ start() {
 
 stop() {
 	echo -n $"Shutting down pkcsslotd:"
-	killproc pkcsslotd -TERM
+	killproc pkcsslotd
 	RETVAL=$?
 	echo
 	[ $RETVAL -eq 0 ] && rm -f $LOCKFILE
@@ -74,14 +62,14 @@ case "$1" in
   status)
   	status pkcsslotd $SLOTDBIN
 	;;
-  restart|reload)
+  restart|reload|force-reload)
   	restart
 	;;
   condrestart)
   	[ -f $LOCKFILE ] && restart || :
 	;;
   *)
-	echo $"Usage: $0 {start|stop|status|restart|condrestart}"
+	echo $"Usage: $0 {start|stop|status|restart|condrestart|reload|force-reload}"
 	exit 2
 esac
 

@@ -308,7 +308,7 @@
 // session_mgr_find()
 //
 // search for the specified session.  returning a pointer to the session
-// is dangerous
+// might be dangerous, but performs well
 //
 // Returns:  SESSION * or NULL
 //
@@ -319,22 +319,24 @@ session_mgr_find( CK_SESSION_HANDLE handle )
    SESSION  * result = NULL;
    CK_RV      rc;
 
+   if (!handle) {
+      return NULL;
+   }
+
    rc = MY_LockMutex( &sess_list_mutex );
    if (rc != CKR_OK){
       st_err_log(146, __FILE__, __LINE__); 
       return NULL;
    }
-   node = sess_list;
 
-   while (node) {
-      SESSION *s = (SESSION *)node->data;
+   result = (SESSION *) handle;
 
-      if (s->handle == handle) {
-         result = s;
-         break;
-      }
-
-      node = node->next;
+   // Try to dereference result and double-check by
+   // comparing the handle value. MAY segfault if
+   // handle is invalid, but that often means that
+   // the caller is buggy.
+   if ( result->handle != handle ) {
+      result = NULL;
    }
 
    MY_UnlockMutex( &sess_list_mutex );
@@ -380,18 +382,12 @@ session_mgr_new( CK_ULONG flags, SESSION **sess )
 
    rc = MY_LockMutex( &pkcs_mutex );      // this protects next_session_handle
    if (rc != CKR_OK){
-      st_err_log(146, __FILE__, __LINE__); 
+      st_err_log(146, __FILE__, __LINE__);
       return rc;
    }
    pkcs_locked = TRUE;
 
-   do {
-      s = session_mgr_find( next_session_handle );
-      if (s != NULL)
-         next_session_handle++;
-      else
-         new_session->handle = next_session_handle++;
-   } while (s != NULL);
+   new_session->handle = (CK_SESSION_HANDLE) new_session;
 
    MY_UnlockMutex( &pkcs_mutex );
    pkcs_locked = FALSE;
@@ -401,44 +397,19 @@ session_mgr_new( CK_ULONG flags, SESSION **sess )
    new_session->session_info.flags         = flags;
    new_session->session_info.ulDeviceError = 0;
 
-   rc = MY_LockMutex( &sess_list_mutex );
-   if (rc != CKR_OK){
-      st_err_log(146, __FILE__, __LINE__); 
-      return rc;
-   }
-   sess_locked = TRUE;
 
    // determine the login/logout status of the new session.  PKCS 11 requires
    // that all sessions belonging to a process have the same login/logout status
    //
-   node = sess_list;
-   while (node) {
-      SESSION *s = (SESSION *)node->data;
-      if (s->session_info.state == CKS_RW_SO_FUNCTIONS) {
-         so_session = TRUE;
-         break;
-      }
+   so_session = session_mgr_so_session_exists();
+   user_session = session_mgr_user_session_exists();
 
-      if ((s->session_info.state == CKS_RO_USER_FUNCTIONS) ||
-          (s->session_info.state == CKS_RW_USER_FUNCTIONS))
-      {
-         user_session = TRUE;
-         break;
-      }
-
-      node = node->next;
+   rc = MY_LockMutex( &sess_list_mutex );
+   if (rc != CKR_OK){
+      st_err_log(146, __FILE__, __LINE__);
+      return rc;
    }
-
-// SAB XXX login does not drop after all sessions are closed XXX
-   if ( global_login_state == CKS_RW_SO_FUNCTIONS) {
-  	so_session = TRUE;
-   }
-   if ((global_login_state == CKS_RO_USER_FUNCTIONS) ||
-       (global_login_state == CKS_RW_USER_FUNCTIONS)) {
-	user_session = TRUE;
-   }
-
-// END SAB login state carry
+   sess_locked = TRUE;
 
    // we don't have to worry about having a user and SO session at the same time.
    // that is prevented in the login routine
@@ -446,8 +417,10 @@ session_mgr_new( CK_ULONG flags, SESSION **sess )
    if (user_session) {
       if (new_session->session_info.flags & CKF_RW_SESSION)
          new_session->session_info.state = CKS_RW_USER_FUNCTIONS;
-      else
+      else {
          new_session->session_info.state = CKS_RO_USER_FUNCTIONS;
+         ro_session_count++;
+      }
    }
    else if (so_session) {
       new_session->session_info.state = CKS_RW_SO_FUNCTIONS;
@@ -455,8 +428,10 @@ session_mgr_new( CK_ULONG flags, SESSION **sess )
    else {
       if (new_session->session_info.flags & CKF_RW_SESSION)
          new_session->session_info.state = CKS_RW_PUBLIC_SESSION;
-      else
+      else {
          new_session->session_info.state = CKS_RO_PUBLIC_SESSION;
+         ro_session_count++;
+      }
    }
 
    sess_list = dlist_add_as_first( sess_list, new_session );
@@ -486,30 +461,20 @@ done:
 CK_BBOOL
 session_mgr_so_session_exists( void )
 {
-   DL_NODE *node = NULL;
-   CK_RV    rc;
+   CK_BBOOL result;
+   CK_RV rc;
 
+   /* we must acquire sess_list_mutex in order to inspect glogal_login_state */
    rc = MY_LockMutex( &sess_list_mutex );
    if (rc != CKR_OK){
       st_err_log(146, __FILE__, __LINE__); 
-      return rc;
-   }
-   node = sess_list;
-   while (node) {
-      SESSION *s = (SESSION *)node->data;
-      if (s->session_info.state == CKS_RW_SO_FUNCTIONS) {
-         rc = TRUE;
-         goto done;
-      }
-
-      node = node->next;
+      return FALSE;      // FIXME: make this function return proper errors
    }
 
-   rc = FALSE;
+   result = (global_login_state == CKS_RW_SO_FUNCTIONS);
 
-done:
    MY_UnlockMutex( &sess_list_mutex );
-   return rc;
+   return result;
 }
 
 
@@ -522,32 +487,20 @@ done:
 CK_BBOOL
 session_mgr_user_session_exists( void )
 {
-   DL_NODE *node = NULL;
-   CK_RV    rc;
+   CK_BBOOL result;
+   CK_RV rc;
 
+   /* we must acquire sess_list_mutex in order to inspect glogal_login_state */
    rc = MY_LockMutex( &sess_list_mutex );
    if (rc != CKR_OK){
       st_err_log(146, __FILE__, __LINE__); 
-      return rc;
-   }
-   node = sess_list;
-   while (node) {
-      SESSION *s = (SESSION *)node->data;
-      if ((s->session_info.state == CKS_RO_USER_FUNCTIONS) ||
-          (s->session_info.state == CKS_RW_USER_FUNCTIONS))
-      {
-         rc = TRUE;
-         goto done;
-      }
-
-      node = node->next;
+      return FALSE;        // FIXME: return proper errors
    }
 
-   rc = FALSE;
+   result = ( (global_login_state == CKS_RO_USER_FUNCTIONS) || (global_login_state == CKS_RW_USER_FUNCTIONS) );
 
-done:
    MY_UnlockMutex( &sess_list_mutex );
-   return rc;
+   return result;
 }
 
 
@@ -560,32 +513,20 @@ done:
 CK_BBOOL
 session_mgr_public_session_exists( void )
 {
-   DL_NODE *node = NULL;
-   CK_RV    rc;
+   CK_BBOOL result;
+   CK_RV rc;
 
+   /* we must acquire sess_list_mutex in order to inspect glogal_login_state */
    rc = MY_LockMutex( &sess_list_mutex );
    if (rc != CKR_OK){
       st_err_log(146, __FILE__, __LINE__); 
-      return rc;
-   }
-   node = sess_list;
-   while (node) {
-      SESSION *s = (SESSION *)node->data;
-      if ((s->session_info.state == CKS_RO_PUBLIC_SESSION) ||
-          (s->session_info.state == CKS_RW_PUBLIC_SESSION))
-      {
-          rc = TRUE;
-          goto done;
-      }
-
-      node = node->next;
+      return FALSE;      // FIXME: return proper errors
    }
 
-   rc = FALSE;
+   result = ( (global_login_state == CKS_RO_PUBLIC_SESSION) || (global_login_state == CKS_RW_PUBLIC_SESSION) );
 
-done:
    MY_UnlockMutex( &sess_list_mutex );
-   return rc;
+   return result;
 }
 
 
@@ -595,32 +536,22 @@ done:
 // because the SO cannot log in if a read-only session exists.
 //
 CK_BBOOL
-session_mgr_readonly_exists( void )
+session_mgr_readonly_session_exists( void )
 {
-   DL_NODE *node = NULL;
-   CK_RV    rc;
+   CK_BBOOL result;
+   CK_RV rc;
 
+   /* we must acquire sess_list_mutex in order to inspect glogal_login_state */
    rc = MY_LockMutex( &sess_list_mutex );
    if (rc != CKR_OK){
       st_err_log(146, __FILE__, __LINE__); 
       return rc;
    }
-   node = sess_list;
-   while (node) {
-      SESSION *s = (SESSION *)node->data;
-      if ((s->session_info.flags & CKF_RW_SESSION) == 0) {
-         rc = TRUE;
-         goto done;
-      }
 
-      node = node->next;
-   }
+   result = (ro_session_count > 0);
 
-   rc = FALSE;
-
-done:
    MY_UnlockMutex( &sess_list_mutex );
-   return rc;
+   return result;
 }
 
 
@@ -655,6 +586,14 @@ session_mgr_close_session( SESSION *sess )
    }
 
    object_mgr_purge_session_objects( sess, ALL );
+
+   if ( (sess->session_info.state == CKS_RO_PUBLIC_SESSION) ||
+        (sess->session_info.state == CKS_RO_USER_FUNCTIONS) ) {
+      ro_session_count--;
+   }
+
+   // Make sure this address is now invalid
+   sess->handle = CK_INVALID_HANDLE;
 
    if (sess->find_list)
       free( sess->find_list );
@@ -706,7 +645,7 @@ session_mgr_close_session( SESSION *sess )
 	// SAB  XXX  if all sessions are closed.  Is this effectivly logging out
 	   object_mgr_purge_private_token_objects();
    
-		global_login_state = 0;
+		global_login_state = CKS_RO_PUBLIC_SESSION;
       // The objects really need to be purged .. but this impacts the
       // performance under linux.   So we need to make sure that the 
       // login state is valid.    I don't really like this.
@@ -739,6 +678,8 @@ session_mgr_close_all_sessions( void )
       SESSION *sess = (SESSION *)sess_list->data;
 
       object_mgr_purge_session_objects( sess, ALL );
+
+      sess->handle = CK_INVALID_HANDLE;
 
       if (sess->find_list)
          free( sess->find_list );
@@ -777,6 +718,8 @@ session_mgr_close_all_sessions( void )
 
       sess_list = dlist_remove_node( sess_list, sess_list );
    }
+
+   ro_session_count = 0;
 
    MY_UnlockMutex( &sess_list_mutex );
    return CKR_OK;

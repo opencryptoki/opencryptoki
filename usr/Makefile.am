@@ -1,4 +1,4 @@
-if DAEMON
+if ENABLE_DAEMON
 DAEMONDIRS = include sbin
 endif
 

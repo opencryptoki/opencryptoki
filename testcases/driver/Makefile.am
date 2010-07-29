@@ -1,6 +1,7 @@
 noinst_PROGRAMS=aes_tests des_tests des3_tests digest_tests \
 		dsa_tests misc_tests obj_mgmt_tests rsa_tests \
-		dh_tests ssl3_tests rijndael_tests sess_mgmt_tests
+		dh_tests ssl3_tests rijndael_tests sess_mgmt_tests \
+		sess_perf_tests
 
 AM_CFLAGS=-I. -I../../usr/include/pkcs11 -I../include
 
@@ -18,3 +19,4 @@ rsa_tests_SOURCES = rsa_func.c
 ssl3_tests_SOURCES = ssl3_func.c
 obj_mgmt_tests_SOURCES = obj_mgmt.c
 sess_mgmt_tests_SOURCES = sess_mgmt.c
+sess_perf_tests_SOURCES = sess_perf.c

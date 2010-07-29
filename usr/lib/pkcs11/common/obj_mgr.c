@@ -536,7 +536,6 @@ object_mgr_add_to_map( SESSION          * sess,
       st_err_log(0, __FILE__, __LINE__); 
       return CKR_HOST_MEMORY;
    }
-   map_node->handle   = next_object_handle++;
    map_node->session  = sess;
    map_node->ptr      = obj;
 
@@ -551,6 +550,10 @@ object_mgr_add_to_map( SESSION          * sess,
       return CKR_FUNCTION_FAILED;
    }
    object_map = dlist_add_as_first( object_map, map_node );
+   map_node->handle   = (CK_SESSION_HANDLE) object_map;  // handle is the DL_NODE pointer and
+                                                         // dlist_add_as_first() will return
+                                                         // this newly added DL_NODE as it is the
+                                                         // new head of the list
    pthread_rwlock_unlock(&obj_list_rw_mutex);
 
    *handle = map_node->handle;
@@ -1033,7 +1036,7 @@ object_mgr_destroy_object( SESSION          * sess,
 
       node = dlist_find( sess_obj_list, obj );
       if (node) {
-         object_mgr_remove_from_map( handle );
+         object_mgr_invalidate_handle1( handle );
 
          object_free( obj );
          sess_obj_list = dlist_remove_node( sess_obj_list, node );
@@ -1062,7 +1065,7 @@ object_mgr_destroy_object( SESSION          * sess,
 
          XProcUnLock( xproclock );
 
-         object_mgr_remove_from_map( handle );
+         object_mgr_invalidate_handle1( handle );
 
          object_free( obj );
 
@@ -1113,7 +1116,7 @@ object_mgr_destroy_token_objects( void )
       if (rc == CKR_OK) {
          // only if it's found in the object map.  it might not be there
          //
-         object_mgr_remove_from_map( handle );
+         object_mgr_invalidate_handle1( handle );
       }
       else{
          st_err_log(110, __FILE__, __LINE__);
@@ -1133,7 +1136,7 @@ object_mgr_destroy_token_objects( void )
       if (rc == CKR_OK) {
          // only if it's found in the object map.  it might not be there
          //
-         object_mgr_remove_from_map( handle );
+         object_mgr_invalidate_handle1( handle );
       }
       else{
          st_err_log(110, __FILE__, __LINE__);
@@ -1176,13 +1179,22 @@ CK_RV
 object_mgr_find_in_map_nocache( CK_OBJECT_HANDLE    handle,
                          OBJECT           ** ptr )
 {
-   DL_NODE   * node = NULL;
-   OBJECT    * obj  = NULL;
+   DL_NODE    * node = NULL;
+   OBJECT_MAP * map  = NULL;
+   OBJECT     * obj  = NULL;
+   CK_RV      result = CKR_OK;
+
 
    if (!ptr){
       st_err_log(4, __FILE__, __LINE__, __FUNCTION__); 
       return CKR_FUNCTION_FAILED;
    }
+
+   if (!handle) {
+      st_err_log(30, __FILE__, __LINE__);
+      return CKR_OBJECT_HANDLE_INVALID;
+   }
+
    //
    // no mutex here.  the calling function should have locked the mutex
    //
@@ -1191,21 +1203,24 @@ object_mgr_find_in_map_nocache( CK_OBJECT_HANDLE    handle,
      st_err_log(4, __FILE__, __LINE__, __FUNCTION__);
      return CKR_FUNCTION_FAILED;
    }
-   node = object_map;
-   while (node) {
-      OBJECT_MAP *map = (OBJECT_MAP *)node->data;
+   node = (DL_NODE *) handle;
 
-      if (map->handle == handle) {
-         obj = map->ptr;
-         break;
-      }
-
-      node = node->next;
+   // Try to dereference 'node' and double-check by
+   // comparing the handle value. MAY segfault if
+   // 'node' is an invalid handle, but that often
+   // means that the caller is buggy.
+   map = (OBJECT_MAP *) node->data;
+   if ( map->handle == handle ){
+      obj = map->ptr;
    }
-   pthread_rwlock_unlock(&obj_list_rw_mutex);
 
-   if (obj == NULL || node == NULL) {
-      st_err_log(30, __FILE__, __LINE__); 
+   pthread_rwlock_unlock(&obj_list_rw_mutex);
+   if (result != CKR_OK) {
+      return result;
+   }
+
+   if (obj == NULL) {
+      st_err_log(30, __FILE__, __LINE__);
       return CKR_OBJECT_HANDLE_INVALID;
    }
 
@@ -1232,12 +1247,20 @@ CK_RV
 object_mgr_find_in_map1( CK_OBJECT_HANDLE    handle,
                          OBJECT           ** ptr )
 {
-   DL_NODE   * node = NULL;
-   OBJECT    * obj  = NULL;
+   DL_NODE    * node = NULL;
+   OBJECT_MAP * map  = NULL;
+   OBJECT     * obj  = NULL;
+   CK_RV      result = CKR_OK;
+
 
    if (!ptr){
       st_err_log(4, __FILE__, __LINE__, __FUNCTION__); 
       return CKR_FUNCTION_FAILED;
+   }
+
+   if (!handle){
+      st_err_log(30, __FILE__, __LINE__);
+      return CKR_OBJECT_HANDLE_INVALID;
    }
    //
    // no mutex here.  the calling function should have locked the mutex
@@ -1247,21 +1270,25 @@ object_mgr_find_in_map1( CK_OBJECT_HANDLE    handle,
      st_err_log(4, __FILE__, __LINE__, __FUNCTION__);
      return CKR_FUNCTION_FAILED;
    }
-   node = object_map;
-   while (node) {
-      OBJECT_MAP *map = (OBJECT_MAP *)node->data;
+   node = (DL_NODE *) handle;
 
-      if (map->handle == handle) {
-         obj = map->ptr;
-         break;
-      }
-
-      node = node->next;
+   // Try to dereference 'node' and double-check by
+   // comparing the handle value. MAY segfault if
+   // 'node' is an invalid handle, but that often
+   // means that the caller is buggy.
+   map = (OBJECT_MAP *) node->data;
+   if ( handle == map->handle ){
+      obj = map->ptr;
    }
-   pthread_rwlock_unlock(&obj_list_rw_mutex);
 
-   if (obj == NULL || node == NULL) {
-      st_err_log(30, __FILE__, __LINE__); 
+   pthread_rwlock_unlock(&obj_list_rw_mutex);
+   if (result != CKR_OK) {
+      return result;
+   }
+
+
+   if (obj == NULL) {
+      st_err_log(30, __FILE__, __LINE__);
       return CKR_OBJECT_HANDLE_INVALID;
    }
 
@@ -1646,34 +1673,42 @@ done:
 CK_BBOOL
 object_mgr_invalidate_handle1( CK_OBJECT_HANDLE handle )
 {
-   DL_NODE *node = NULL;
+   DL_NODE     *node = NULL;
+   OBJECT_MAP  *map  = NULL;
+   CK_BBOOL    result;
 
    //
    // no mutex stuff here.  the calling routine should have locked the mutex
    //
 
+   if (!handle){
+     return FALSE;
+   }
+
    if (pthread_rwlock_wrlock(&obj_list_rw_mutex)) {
      st_err_log(4, __FILE__, __LINE__, __FUNCTION__);
-     return CKR_FUNCTION_FAILED;
+     return FALSE; // FIXME: Proper error messages
    }
-   node = object_map;
 
-   while (node) {
-      OBJECT_MAP *map = (OBJECT_MAP *)node->data;
+   node = (DL_NODE *)handle;
 
-      // I think we can do this because even token objects exist in RAM
-      //
-      if (map->handle == handle) {
-         object_map = dlist_remove_node( object_map, node );
-         free( map );
-	 pthread_rwlock_unlock(&obj_list_rw_mutex);
-         return TRUE;
-      }
+   // Try to dereference 'node' and double-check by
+   // comparing the handle value. MAY segfault if
+   // 'node' is an invalid handle, but that often
+   // means that the caller is buggy.
+   map = (OBJECT_MAP *)node->data;
 
-      node = node->next;
+   if ( handle == map->handle ) {
+      object_map = dlist_remove_node( object_map, node );
+      free( map );
+      result = TRUE;
    }
+   else {
+     result = FALSE;
+   }
+
    pthread_rwlock_unlock(&obj_list_rw_mutex);
-   return FALSE;
+   return result;
 
 }
 
@@ -1889,39 +1924,6 @@ object_mgr_purge_private_token_objects( void )
    MY_UnlockMutex( &obj_list_mutex );
 
    return TRUE;
-}
-
-
-// object_mgr_remove_from_map()
-//
-CK_RV
-object_mgr_remove_from_map( CK_OBJECT_HANDLE  handle )
-{
-   DL_NODE  *node = NULL;
-
-   //
-   // no mutex stuff here.  the calling routine should have locked the mutex
-   //
-
-   if (pthread_rwlock_wrlock(&obj_list_rw_mutex)) {
-     st_err_log(4, __FILE__, __LINE__, __FUNCTION__);
-     return CKR_FUNCTION_FAILED;
-   }
-   node = object_map;
-   while (node) {
-      OBJECT_MAP *map = (OBJECT_MAP *)node->data;
-      if (map->handle == handle) {
-         object_map = dlist_remove_node( object_map, node );
-         free( map );
-	 pthread_rwlock_unlock(&obj_list_rw_mutex);
-         return CKR_OK;
-      }
-      node = node->next;
-   }
-   pthread_rwlock_unlock(&obj_list_rw_mutex);
-
-   st_err_log(4, __FILE__, __LINE__, __FUNCTION__); 
-   return CKR_FUNCTION_FAILED;
 }
 
 
@@ -2474,7 +2476,7 @@ object_mgr_update_publ_tok_obj_from_shm()
          rc = object_mgr_find_in_map2( obj, &handle );
          if (rc == CKR_OK){
             st_err_log(110, __FILE__, __LINE__);
-            object_mgr_remove_from_map( handle );
+            object_mgr_invalidate_handle1( handle );
          }
          object_free( obj );
 
@@ -2557,7 +2559,7 @@ object_mgr_update_publ_tok_obj_from_shm()
          rc = object_mgr_find_in_map2( obj, &handle );
          if (rc == CKR_OK){
             st_err_log(110, __FILE__, __LINE__);
-            object_mgr_remove_from_map( handle );
+            object_mgr_invalidate_handle1( handle );
          }
          object_free( obj );
 
@@ -2615,7 +2617,7 @@ object_mgr_update_priv_tok_obj_from_shm()
          rc = object_mgr_find_in_map2( obj, &handle );
          if (rc == CKR_OK){
             st_err_log(110, __FILE__, __LINE__);
-            object_mgr_remove_from_map( handle );
+            object_mgr_invalidate_handle1( handle );
          }
          object_free( obj );
 
@@ -2698,7 +2700,7 @@ object_mgr_update_priv_tok_obj_from_shm()
          rc = object_mgr_find_in_map2( obj, &handle );
          if (rc == CKR_OK){
             st_err_log(110, __FILE__, __LINE__);
-            object_mgr_remove_from_map( handle );
+            object_mgr_invalidate_handle1( handle );
          }
          object_free( obj );
 

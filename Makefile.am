@@ -1,10 +1,10 @@
-if TESTS
+if ENABLE_TESTCASES
 TESTDIR = testcases
 endif
-if LIBRARY
+if ENABLE_LIBRARY
 MISCDIR = misc
 endif
-if DAEMON
+if ENABLE_DAEMON
 MISCDIR = misc
 endif
 

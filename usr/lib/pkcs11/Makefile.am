@@ -1,42 +1,38 @@
-if S390
-
-if DEFAULT_DLL
-DEFAULT = ica_s390_stdll 
+if ENABLE_ICATOK
+ICA_DLL = ica_s390_stdll
 endif
 
-else
-
-if DEFAULT_DLL
-DEFAULT = soft_stdll 
+if ENABLE_SWTOK
+SW_DLL = soft_stdll
 endif
 
-endif
-
-if ICA
-ICA_DLL = ica_stdll
-endif
-if TPM
+if ENABLE_TPMTOK
 TPM_DLL = tpm_stdll
 endif
-if ICC
+
+if ENABLE_ICCTOK
 LEEDS_DLL= methods leeds_stdll 
 endif
-if AEP
+
+if ENABLE_AEPTOK
 AEP_DLL = aep_stdll
 endif
-if BCOM
+
+if ENABLE_BCOMTOK
 BCOM_DLL = bcom_stdll
 endif
-if CR
+
+if ENABLE_CRTOK
 CR_DLL = cr_stdll
 endif
-if CCA
+
+if ENABLE_CCATOK
 CCA_DLL = cca_stdll
 endif
 
-if LIBRARY
+if ENABLE_LIBRARY
 API = api
 endif 
 
-SUBDIRS = $(API) $(DEFAULT) $(ICA_DLL) $(TPM_DLL) $(LEEDS_DLL) $(AEP_DLL) $(BCOM_DLL) $(CR_DLL) $(CCA_DLL)
+SUBDIRS = $(API) $(SW_DLL) $(ICA_DLL) $(TPM_DLL) $(LEEDS_DLL) $(AEP_DLL) $(BCOM_DLL) $(CR_DLL) $(CCA_DLL)
 

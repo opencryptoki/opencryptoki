@@ -1,26 +1,22 @@
 dnl Process this file with autoconf to produce a configure script.
-AC_INIT(openCryptoki, 2.3.1, opencryptoki-tech@lists.sourceforge.net,)
+AC_INIT([openCryptoki], [2.3.1], [opencryptoki-tech@lists.sourceforge.net])
 
 dnl Backup CFLAGS so that once the auto tools set it to "-g -O2",
 dnl (which we want to avoid), we can restore them to whatever the
 dnl user might have wanted below.
 cmdline_CFLAGS="$CFLAGS"
 
-# Compute $target
-AC_CANONICAL_TARGET
-
 AM_INIT_AUTOMAKE([foreign 1.6])
 
-dnl Checks for programs.
-
-dnl Checks for libraries.
+dnl Get the canonical host type
+AC_CANONICAL_TARGET
 
 dnl Checks for header files.
 AC_DISABLE_STATIC
 AC_PROG_LIBTOOL
 
 AC_HEADER_STDC
-AC_CHECK_HEADERS(fcntl.h limits.h strings.h sys/file.h syslog.h unistd.h)
+AC_CHECK_HEADERS([fcntl.h limits.h strings.h sys/file.h syslog.h unistd.h])
 
 dnl Checks for typedefs, structures, and compiler characteristics.
 AC_C_CONST
@@ -35,253 +31,606 @@ AC_FUNC_STRFTIME
 AC_FUNC_VPRINTF
 AC_CHECK_FUNCS([getcwd])
 
-# Used in the init scripts
-AC_SUBST(ID, /usr/bin/id)
-AC_SUBST(USERMOD, /usr/sbin/usermod)
-AC_SUBST(GROUPADD, /usr/sbin/groupadd)
+dnl Used in various scripts
+AC_PATH_PROG([ID], [id], [/us/bin/id])
+AC_PATH_PROG([USERMOD], [usermod], [/usr/sbin/usermod])
+AC_PATH_PROG([GROUPADD], [groupadd], [/usr/sbin/groupadd])
+AC_PATH_PROG([CAT], [cat], [/bin/cat])
+AC_PATH_PROG([CHMOD], [chmod], [/bin/chmod])
+AC_PATH_PROG([CHGRP], [chgrp], [/bin/chgrp])
+AC_PROG_SED
+AC_PROG_MKDIR_P
 
-dnl i.e., /usr/local or /usr
-if test "x$prefix" = xNONE; then
-  prefix=$ac_default_prefix
+dnl ---
+dnl --- Check all --enable/--disable-features
+dnl ---
+
+dnl --- Debugging support
+AC_ARG_ENABLE([debug],
+	AC_HELP_STRING([--enable-debug=no/yes],
+	[enable debugging build [[default=no]]]),
+	[],
+	[enable_debug=no])
+
+dnl --- build testcases
+AC_ARG_ENABLE([testcases],
+	AC_HELP_STRING([--enable-testcases=no/yes],
+	[build the test cases [[default=no]]]),
+	[],
+	[enable_testcases=no])
+
+dnl --- Check if building daemon
+AC_ARG_ENABLE([daemon],
+	AC_HELP_STRING([--enable-daemon=no/yes],
+	[build pkcsslotd daemon [[default=yes]]]),
+	[],
+	[enable_daemon=yes])
+
+dnl --- Check if building library
+AC_ARG_ENABLE([library],
+	AC_HELP_STRING([--enable-library=no/yes],
+	[build opencryptoki libraries [[default=yes]]]),
+	[],
+	[enable_library=yes])
+
+dnl --- Enable/disable tokens
+dnl --- those have an additional 'check' state, which essentially means
+dnl --- that it will enable it by default it dependencies are met
+
+dnl --- ICA token
+AC_ARG_ENABLE([icatok],
+	AC_HELP_STRING([--enable-icatok=no/yes],
+	[build ica token (enabled by default if libica is present)]),
+	[],
+	[enable_icatok=check])
+
+dnl --- CCA token
+AC_ARG_ENABLE([ccatok],
+	AC_HELP_STRING([--enable-ccatok=no/yes],
+	[build cca token (enabled by default in s390 arch)]),
+	[],
+	[enable_ccatok=check])
+
+dnl --- software token
+AC_ARG_ENABLE([swtok],
+	AC_HELP_STRING([--enable-swtok=no/yes],
+	[build software token (enabled by default)]),
+	[],
+	[enable_swtok=yes])
+
+dnl --- TPM token
+AC_ARG_ENABLE([tpmtok],
+	AC_HELP_STRING([--enable-tpmtok=no/yes],
+	[build tpm token (Trusted Platform Module, enabled by default if TrouSerS is present)]),
+	[],
+	[enable_tpmtok=check])
+
+dnl --- icc token (IBM 4758 PCICC hardware)
+AC_ARG_ENABLE([icctok],
+	AC_HELP_STRING([--enable-icctok=no/yes],
+	[build icc token (IBM 4758 hardware, enabled by default if SCC library is present)]),
+	[],
+	[enable_icctok=check])
+
+dnl --- aep token (AEP Crypto Accelerator hardware)
+AC_ARG_ENABLE([aeptok],
+	AC_HELP_STRING([--enable-aeptok=no/yes],
+	[build aep token (AEP Crypto Accelerator, enabled by default if AEP library is present)]),
+	[],
+	[enable_aeptok=check])
+
+dnl --- bcom token (Broadcom Crypto Accelerator hardware)
+AC_ARG_ENABLE([bcomtok],
+	AC_HELP_STRING([--enable-bcomtok=no/yes],
+	[build bcom token (Broadcom Crypto Accelerator, enabled by default if uBSec library is present)]),
+	[],
+	[enable_bcomtok=check])
+
+dnl -- cr token (Corrent Crypto Accelerator hardware)
+AC_ARG_ENABLE([crtok],
+	AC_HELP_STRING([--enable-crtok=no/yes],
+	[build cr token (Corrent Crypto Accelerator, enabled by default if SocketArmor library is present)]),
+	[],
+	[enable_crtok=check])
+
+dnl --- token-specific stuff
+dnl --- pkcscca_migrate
+AC_ARG_ENABLE([pkcscca_migrate],
+	AC_HELP_STRING([--enable-pkcscca_migrate=no/yes],
+	[build pkcscca_migrate (CCA token key migration tool, enabled by default if CCA library is present)]),
+	[],
+	[enable_pkcscca_migrate=check])
+
+dnl ---
+dnl --- Check for external software
+dnl --- Define what to check based on enabled features
+
+dnl --- Openssl development files
+AC_ARG_WITH([openssl],
+	AC_HELP_STRING([--with-openssl[[=DIR]]], [OpenSSL development files location]),
+	[],
+	[with_openssl=check])
+
+dnl --- Libica development files
+AC_ARG_WITH([libica],
+	AC_HELP_STRING([--with-libica[[=DIR]]], [libica development files location]),
+	[],
+	[with_libica=check])
+
+dnl --- TSS (TrouSerS) development files
+AC_ARG_WITH([tss],
+	AC_HELP_STRING([--with-tss[[=DIR]]], [TrouSerS development files location]),
+	[],
+	[with_tss=check])
+
+dnl --- SCC development files (IBM 4758 PCI Cryptographic Coprocessor)
+AC_ARG_WITH([scc],
+	AC_HELP_STRING([--with-scc[[=DIR]]], [SCC library location]),
+	[],
+	[with_scc=check])
+
+dnl --- AEP development files (AEP crypto hardware)
+AC_ARG_WITH([aep],
+	AC_HELP_STRING([--with-aep[[=DIR]]], [AEP development files location]),
+	[],
+	[with_aep=check])
+
+dnl --- uBSec development files (Broadcom crypto hardware)
+AC_ARG_WITH([ubsec],
+	AC_HELP_STRING([--with-ubsec[[=DIR]]], [uBSec library location]),
+	[],
+	[with_ubsec=check])
+
+dnl --- Socketarmor development files (Corrent crypto hardware)
+AC_ARG_WITH([socketarmor],
+	AC_HELP_STRING([--with-socketarmor[[=DIR]]], [Socketarmor library location]),
+	[],
+	[with_socketarmor=check])
+
+dnl --- xcryptolinz development files (IBM CCA development files)
+AC_ARG_WITH([xcryptolinz],
+	AC_HELP_STRING([--with-xcryptolinz[[=DIR]]], [CCA library (xcryptolinz) location]),
+	[],
+	[with_xcryptolinz=check])
+
+dnl ---
+dnl ---
+dnl --- Now that we have all the options, let's check for a valid build
+dnl ---
+
+dnl --- first, check what external software is present or specified
+dnl --- with --with-package=DIR
+
+dnl --- with_openssl
+OPENSSL_CFLAGS=
+OPENSSL_LIBS=
+if test "x$with_openssl" != "xno"; then
+	if test "x$with_openssl" != "xyes" -a "x$with_openssl" != "xcheck"; then
+		OPENSSL_CFLAGS="-I$with_openssl"
+		OPENSSL_LIBS="-L$with_openssl"
+	fi
+	old_cflags="$CFLAGS"
+	old_libs="$LIBS"
+	CFLAGS="$CFLAGS $OPENSSL_CFLAGS"
+	LIBS="$LIBS $OPENSSL_LIBS"
+	AC_CHECK_HEADER([openssl/ssl.h], [], [
+		if test "x$with_openssl" != "xcheck"; then
+			AC_MSG_ERROR([Build with OpenSSL requested but OpenSSL headers couldn't be found])
+		fi
+		with_openssl=no
+	])
+	if test "x$with_openssl" != "xno"; then
+		AC_CHECK_LIB([crypto], [RSA_generate_key], [
+			OPENSSL_LIBS="$OPENSSL_LIBS -lcrypto"
+			with_openssl=yes
+			], [
+				if test "x$with_openssl" != "xcheck"; then
+					AC_MSG_ERROR([Build with OpenSSL requested but OpenSSL libraries couldn't be found])
+				fi
+				with_openssl=no
+		])
+	fi
+	if test "x$with_openssl" = "xno"; then
+		CFLAGS="$old_cflags"
+		LIBS="$old_libs"
+	fi
 fi
-if test "x$exec_prefix" = xNONE; then
-  exec_prefix='${prefix}'
+AC_SUBST([OPENSSL_CFLAGS])
+AC_SUBST([OPENSSL_LIBS])
+
+
+dnl --- with_libica
+LIBICA_CFLAGS=
+LIBICA_LIBS=
+if test "x$with_libica" != "xno"; then
+	if test "x$with_libica" != "xyes" -a "x$with_libica" != "xcheck"; then
+		LIBICA_CFLAGS="-I$with_libica"
+		LIBICA_LIBS="-L$with_libica"
+	fi
+	old_cflags="$CFLAGS"
+	old_libs="$LIBS"
+	CFLAGS="$CFLAGS $LIBICA_CFLAGS"
+	LIBS="$LIBS $LIBICA_LIBS"
+	AC_CHECK_HEADER([ica_api.h], [], [
+		if test "x$with_libica" != "xcheck"; then
+			AC_MSG_ERROR([Build with Libica requested but Libica headers couldn't be found])
+		fi
+		with_libica=no
+	])
+	if test "x$with_libica" != "xno"; then
+		AC_CHECK_LIB([ica], [ica_open_adapter],
+			[with_libica=yes], [
+				if test "x$with_libica" != "xcheck"; then
+					AC_MSG_ERROR([Build with Libica requested but Libica libraries (v 2.x or higher) couldn't be found])
+				fi
+				with_libica=no
+		])
+	fi
+	if test "x$with_libica" = "xno"; then
+		CFLAGS="$old_cflags"
+		LIBS="$old_libs"
+	fi
+fi
+AC_SUBST([LIBICA_CFLAGS])
+AC_SUBST([LIBICA_LIBS])
+
+dnl --- with_tss
+TSS_CFLAGS=
+TSS_LIBS=
+if test "x$with_tss" != "xno"; then
+	if test "x$with_tss" != "xyes" -a "x$with_tss" != "xcheck"; then
+		TSS_CFLAGS="-I$with_tss"
+		TSS_LIBS="-L$with_tss"
+	fi
+	old_cflags="$CFLAGS"
+	old_libs="$LIBS"
+	CFLAGS="$CFLAGS $TSS_CFLAGS"
+	LIBS="$LIBS $TSS_LIBS"
+	AC_CHECK_HEADER([tss/platform.h], [], [
+		if test "x$with_tss" != "xcheck"; then
+			AC_MSG_ERROR([Build with TSS requested but TSS headers couldn't be found])
+		fi
+		with_tss=no
+	])
+	if test "x$with_tss" != "xno"; then
+		AC_CHECK_LIB([tspi], [Tspi_Context_Create],
+			[with_tss=yes], [
+				if test "x$with_tss" != "xcheck"; then
+					AC_MSG_ERROR([Build with TSS requested but TSS libraries couldn't be found])
+				fi
+				with_tss=no
+		])
+	fi
+	if test "x$with_tss" = "xno"; then
+		CFLAGS="$old_cflags"
+		LIBS="$old_libs"
+	fi
+fi
+AC_SUBST([TSS_CFLAGS])
+AC_SUBST([TSS_LIBS])
+
+dnl --- with_scc
+SCC_CFLAGS=
+SCC_LIBS=
+if test "x$with_scc" != "xno"; then
+	if test "x$with_scc" != "xyes" -a "x$with_scc" != "xcheck"; then
+		SCC_CFLAGS="-I$with_scc"
+		SCC_LIBS="-L$with_scc"
+	fi
+	old_cflags="$CFLAGS"
+	old_libs="$LIBS"
+	CFLAGS="$CFLAGS $SCC_CFLAGS"
+	LIBS="$LIBS $SCC_LIBS"
+	AC_CHECK_HEADER([scc_host.h], [], [
+		if test "x$with_scc" != "xcheck"; then
+			AC_MSG_ERROR([Build with SCC requested but SCC headers couldn't be found])
+		fi
+		with_scc=no
+	])
+	if test "x$with_scc" != "xno"; then
+		AC_CHECK_LIB([scc], [sccOpenAdapter],
+			[with_scc=yes], [
+				if test "x$with_scc" != "xcheck"; then
+					AC_MSG_ERROR([Build with SCC requested but SCC libraries couldn't be found])
+				fi
+				with_scc=no
+		])
+	fi
+	if test "x$with_scc" = "xno"; then
+		CFLAGS="$old_cflags"
+		LIBS="$old_libs"
+	fi
+fi
+AC_SUBST([SCC_CFLAGS])
+AC_SUBST([SCC_LIBS])
+
+dnl --- with_aep
+AEP_LIBS=
+if test "x$with_aep" != "xno"; then
+	if test "x$with_aep" != "xyes" -a "x$with_aep" != "xcheck"; then
+		AEP_LIBS="-L$with_aep"
+	fi
+	old_libs="$LIBS"
+	LIBS="$LIBS $AEP_LIBS"
+	AC_CHECK_LIB([aep], [AEP_Initialize],
+		[with_aep=yes], [
+			if test "x$with_aep" != "xcheck"; then
+				AC_MSG_ERROR([Build with AEP requested but AEP libraries couldn't be found])
+			fi
+			with_aep=no
+	])
+	if test "x$with_aep" = "xno"; then
+		CFLAGS="$old_cflags"
+		LIBS="$old_libs"
+	fi
+fi
+AC_SUBST([AEP_LIBS])
+
+dnl --- with_ubsec
+UBSEC_CFLAGS=
+UBSEC_LIBS=
+if test "x$with_ubsec" != "xno"; then
+	if test "x$with_ubsec" != "xyes" -a "x$with_ubsec" != "xcheck"; then
+		OPENSSL_CFLAGS="-I$with_ubsec"
+		OPENSSL_LIBS="-L$with_ubsec"
+	fi
+	old_cflags="$CFLAGS"
+	old_libs="$LIBS"
+	CFLAGS="$CFLAGS $UBSEC_CFLAGS"
+	LIBS="$LIBS $UBSEC_LIBS"
+	AC_CHECK_HEADER([ubsec.h], [], [
+		if test "x$with_ubsec" != "xcheck"; then
+			AC_MSG_ERROR([Build with uBSec requested but uBSec headers couldn't be found])
+		fi
+		with_ubsec=no
+	])
+	if test "x$with_ubsec" != "xno"; then
+		AC_CHECK_LIB([ubsec], [ubsec_open],
+			[with_ubsec=yes], [
+				if test "x$with_ubsec" != "xcheck"; then
+					AC_MSG_ERROR([Build with uBSec requested but uBSec libraries couldn't be found])
+				fi
+				with_ubsec=no
+		])
+	fi
+	if test "x$with_ubsec" = "xno"; then
+		CFLAGS="$old_cflags"
+		LIBS="$old_libs"
+	fi
+fi
+AC_SUBST([UBSEC_CFLAGS])
+AC_SUBST([UBSEC_LIBS])
+
+dnl --- with_socketarmor
+SOCKETARMOR_CFLAGS=
+SOCKETARMOR_LIBS=
+if test "x$with_socketarmor" != "xno"; then
+	if test "x$with_socketarmor" != "xyes" -a "x$with_socketarmor" != "xcheck"; then
+		SOCKETARMOR_CFLAGS="-I$with_socketarmor"
+		SOCKETARMOR_LIBS="-L$with_socketarmor"
+	fi
+	old_cflags="$CFLAGS"
+	old_libs="$LIBS"
+	CFLAGS="$CFLAGS $SOCKETARMOR_CFLAGS"
+	LIBS="$LIBS $SOCKETARMOR_LIBS"
+	AC_CHECK_HEADER([typhoon.h], [], [
+		if test "x$with_socketarmor" != "xcheck"; then
+			AC_MSG_ERROR([Build with Socketarmor requested but Socketarmor headers couldn't be found])
+		fi
+		with_socketarmor=no
+	])
+	if test "x$with_socketarmor" != "xno"; then
+		AC_CHECK_LIB([socketarmor], [CR_init_lib],
+			[with_socketarmor=yes], [
+				if test "x$with_socketarmor" != "xcheck"; then
+					AC_MSG_ERROR([Build with Socketarmor requested but Socketarmor libraries couldn't be found])
+				fi
+				with_socketarmor=no
+		])
+	fi
+	if test "x$with_socketarmor" = "xno"; then
+		CFLAGS="$old_cflags"
+		LIBS="$old_libs"
+	fi
+fi
+AC_SUBST([SOCKETARMOR_CFLAGS])
+AC_SUBST([SOCKETARMOR_LIBS])
+
+dnl --- with_xcryptolinz
+XCRYPTOLINZ_CFLAGS=
+XCRYPTOLINZ_LIBS=
+if test "x$with_xcryptolinz" != "xno"; then
+	if test "x$with_xcryptolinz" != "xyes" -a "x$with_xcryptolinz" != "xcheck"; then
+		XCRYPTOLINZ_CFLAGS="-I$with_xcryptolinz"
+		XCRYPTOLINZ_LIBS="-L$with_xcryptolinz"
+	fi
+	old_cflags="$CFLAGS"
+	old_libs="$LIBS"
+	CFLAGS="$CFLAGS $XCRYPTOLINZ_CFLAGS"
+	LIBS="$LIBS $XCRYPTOLINZ_LIBS"
+dnl - The above may not be necessary since opencryptoki brings this header file anyway.
+	AC_CHECK_HEADER([csulincl.h], [], [
+		if test "x$with_xcryptolinz" != "xcheck"; then
+			AC_MSG_ERROR([Build with xcryptolinz requested but xcryptolinz headers couldn't be found])
+		fi
+		with_xcryptolinz=no
+	])
+	if test "x$with_xcryptolinz" != "xno"; then
+		AC_CHECK_LIB([csulsapi], [CSNBKTC],
+			[with_xcryptolinz=yes], [
+				if test "x$with_xcryptolinz" != "xcheck"; then
+					AC_MSG_ERROR([Build with xcryptolinz requested but xcryptolinz libraries couldn't be found])
+				fi
+				with_xcryptolinz=no
+		])
+	fi
+	if test "x$with_xcryptolinz" = "xno"; then
+		CFLAGS="$old_cflags"
+		LIBS="$old_libs"
+	fi
+fi
+AC_SUBST([XCRYPTOLINZ_CFLAGS])
+AC_SUBST([XCRYPTOLINZ_LIBS])
+
+
+dnl ---
+dnl --- Now check enabled features, while making sure every required
+dnl --- package is available
+dnl ---
+
+dnl --- enable_debug
+AM_CONDITIONAL([ENABLE_DEBUG], [test "x$enable_debug" = "xyes"])
+if test "x$enable_debug" = "xyes"; then
+	DEBUG_CFLAGS="-g -O0"
 fi
 
-CFLAGS="$cmdline_CFLAGS"
+dnl --- enable_testcases
+if test "x$enable_testcases" = "xyes"; then
+	AC_CHECK_PROG([HAVE_EXPECT], [expect], [yes], [no])
 
-s390=0
+	if test "x$HAVE_EXPECT" = "xno"; then
+		AC_MSG_ERROR([*** testcases requires 'expect' interpreter, which wasn't found])
+                enable_testcases=no
+	fi
+fi
+AM_CONDITIONAL([ENABLE_TESTCASES], [test "x$enable_testcases" = "xyes"])
 
-# Arch specific stuff
-case $target in
-	*64*)
-		lib="lib64"
-		AM_CONDITIONAL(S390, false) ;;
-	*s390x*)
-		s390=1
-		lib="lib64"
-		AM_CONDITIONAL(S390, true) ;;
-	*s390*)
-		s390=1
-		lib="lib"
-		AM_CONDITIONAL(S390, true) ;;
-        *)
-		lib="lib"
-		AM_CONDITIONAL(S390, false) ;;
-esac
+dnl --- enable_daemon
+AM_CONDITIONAL([ENABLE_DAEMON], [test "x$enable_daemon" = "xyes"])
 
-if test "x$prefix" == x/usr; then
-        AC_SUBST(CONFIG_PATH, /var/lib/opencryptoki)
-	AC_SUBST(CONFIG_PATH_ETC, /etc)
-        AC_SUBST(SBIN_PATH, /usr/sbin)
-        AC_SUBST(DB_PATH, /var/lib/opencryptoki)
+dnl --- enable_library
+AM_CONDITIONAL([ENABLE_LIBRARY], [test "x$enable_library" = "xyes"])
+
+dnl --- enable_icatok
+if test "x$enable_icatok" = "xyes"; then
+	if test "x$with_libica" != "xyes"; then
+		AC_MSG_ERROR([ica token build requested but libica development files not found])
+		enable_icatok=no
+	fi
+fi
+if test "x$enable_icatok" = "xyes"; then
+	if test "x$with_openssl" != "xyes"; then
+		AC_MSG_ERROR([ica token build requested but OpenSSL development files not found])
+		enable_icatok=no
+	fi
+fi
+if test "x$enable_icatok" != "xno" -a "x$with_libica" != "xno" -a "x$with_openssl" != "xno"; then
+	enable_icatok=yes
 else
-        AC_SUBST(CONFIG_PATH, $prefix/var/lib/opencryptoki)
-	AC_SUBST(CONFIG_PATH_ETC, $prefix/etc)
-        AC_SUBST(SBIN_PATH, $prefix/sbin)
-        AC_SUBST(DB_PATH, $prefix/var/lib/opencryptoki)
+	enable_icatok=no
 fi
+AM_CONDITIONAL([ENABLE_ICATOK], [test "x$enable_icatok" = "xyes"])
 
-AC_SUBST(LIB_PATH, $prefix/$lib/opencryptoki)
-AC_SUBST(STDLL_PATH, $LIB_PATH/stdll)
-AC_SUBST(CONFIG_FILE, pk_config_data)
-AC_SUBST(METHOD_PATH, $prefix/sbin)
-AC_SUBST(HEADER_PATH, $prefix/include)
-
-# Debugging support
-AC_ARG_ENABLE(debug, [  --enable-debug          turn on all openCryptoki debugging flags],
-                     [ enable_debug="yes"],)
-
-if test "x$enable_debug" = xyes; then
-	CFLAGS="$CFLAGS -g -O0 -DDEBUG -DDEBUGON"
-	AC_MSG_RESULT([*** Enabling debugging at user request ***])
+dnl --- enable_ccatok
+if test "x$enable_ccatok" != "xno"; then
+	enable_ccatok=yes
 else
-	CFLAGS="$CFLAGS -O2"
+	enable_ccatok=no
 fi
+AM_CONDITIONAL([ENABLE_CCATOK], [test "x$enable_ccatok" = "xyes"])
 
-# Support for OpenSSL path specification
-AC_ARG_WITH(openssl,
-        [  --with-openssl[[=DIR]]    build with OpenSSL support [[/usr/local/ssl]]],
-        [openssl_prefix=$withval], 
-        [openssl_prefix=]
-)
-if test "x$openssl_prefix" != x; then
-	AC_MSG_RESULT([*** Using OpenSSL directory $openssl_prefix ***])
-	LDFLAGS="-L$openssl_prefix/lib $LDFLAGS"
-	CFLAGS="-I$openssl_prefix/include $CFLAGS"
+dnl --- enable_swtok
+if test "x$enable_swtok" = "xyes"; then
+	if test "x$with_openssl" != "xyes"; then
+		AC_MSG_ERROR([software token build requested but OpenSSL development files not found])
+		enable_swtok=no
+	fi
 fi
-
-# Check if building daemon
-AC_ARG_ENABLE(daemon, [  --disable-daemon        don't build pkcsslotd [default=enabled]],
-              [AM_CONDITIONAL(DAEMON, false)],
-              [AM_CONDITIONAL(DAEMON, true)])
-
-# Check if building library
-AC_ARG_ENABLE(library, [  --disable-library       don't build libopencryptoki [default=enabled]],
-              [AM_CONDITIONAL(LIBRARY, false)],
-              [AM_CONDITIONAL(LIBRARY, true)])
-
-#
-# s390 tokens
-#
-
-# The ica token is enabled by default on s390
-if [[ $s390 -eq 1 ]]; then
-
-AM_CONDITIONAL(ICA, false)
-AC_ARG_ENABLE(ica390tok,
-              [  --disable-ica390tok     s390 only: don't build the ICA token [default=enabled]],
-              [AM_CONDITIONAL(DEFAULT_DLL, false)],
-              [enable_ica390tok="yes"])
-
-if test "x$enable_ica390tok" = xyes; then
-        AM_CONDITIONAL(DEFAULT_DLL, true)
+if test "x$enable_swtok" != "xno" -a "x$with_openssl" != "xno"; then
+	enable_swtok=yes
 else
-        AC_MSG_RESULT([*** Disabling the default ICA token at user request ***])
+	enable_swtok=no
 fi
+AM_CONDITIONAL([ENABLE_SWTOK], [test "x$enable_swtok" = "xyes"])
 
+dnl --- enable_tpmtok
+if test "x$enable_tpmtok" = "xyes"; then
+	if test "x$with_tss" != "xyes"; then
+		AC_MSG_ERROR([tpm token build requested but TSS development files not found])
+		enable_tpmtok=no
+	fi
+fi
+if test "x$enable_tpmtok" != "xno" -a "x$with_tss" != "xno"; then
+	enable_tpmtok=yes
 else
-#
-# non s390 tokens
-#
+	enable_tpmtok=no
+fi
+AM_CONDITIONAL([ENABLE_TPMTOK], [test "x$enable_tpmtok" = "xyes"])
 
-# The software token is enabled by default on non-s390 platforms
-AC_ARG_ENABLE(swtok,
-              [  --disable-swtok         don't build the software token [default=enabled (except s390)]],
-              [AM_CONDITIONAL(DEFAULT_DLL, false)],
-              [enable_swtok="yes"])
-
-if test "x$enable_swtok" = xyes; then
-        AC_CHECK_LIB(crypto, AES_encrypt,
-             [AM_CONDITIONAL(DEFAULT_DLL, true)],
-             [AM_CONDITIONAL(DEFAULT_DLL, false)])
+dnl --- enable_icctok
+if test "x$enable_icctok" = "xyes"; then
+	if test "x$with_scc" != "xyes"; then
+		AC_MSG_ERROR([icc token build requested but no scc development files not found])
+		enable_icctok=no
+	fi
+fi
+if test "x$enable_icctok" != "xno" -a "x$with_scc" != "xno"; then
+	enable_icctok=yes
 else
-        AC_MSG_RESULT([*** Disabling the default software token at user request ***])
+	enable_icctok=no
 fi
+AM_CONDITIONAL([ENABLE_ICCTOK], [test "x$enable_icctok" = "xyes"])
 
-# Support for the IBM Crypto Accelerator (PCICA) token
-AC_ARG_ENABLE(icatok,
-              [  --enable-icatok         build the IBM Crypto Accelerator (PCICA) token [default=disabled]],
-              [enable_icatok="yes"],
-              [enable_icatok="no"])
-
-if test "x$enable_icatok" = xyes; then
-	AC_CHECK_HEADER(ica_api.h,
-			AC_CHECK_LIB(ica, ica_open_adapter,
-				[AM_CONDITIONAL(ICA, true)],
-				[AM_CONDITIONAL(ICA, false)]),
-			[AM_CONDITIONAL(ICA, false)],,)
-else 
-	AM_CONDITIONAL(ICA, false)
+dnl --- enable_aeptok
+if test "x$enable_aeptok" = "xyes"; then
+	if test "x$with_aep" != "xyes"; then
+		AC_MSG_ERROR([aep token build requested but no aep development files not found])
+		enable_aeptok=no
+	fi
 fi
-
-fi
-
-# TPM support for the TPM token
-AC_ARG_ENABLE(tpmtok,
-              [  --enable-tpmtok         build the TPM token [default=disabled]],
-              [enable_tpmtok="yes"],
-              [enable_tpmtok="no"])
-
-if test "x$enable_tpmtok" = xyes; then
-	AC_CHECK_HEADER(tss/platform.h,
-	AC_CHECK_LIB(crypto, AES_encrypt,
-			AC_CHECK_LIB(tspi, Tspi_Context_Create,
-				     [AM_CONDITIONAL(TPM, true)],
-                                     [AM_CONDITIONAL(TPM, false)], 
-                                     -lcrypto),
-			[AM_CONDITIONAL(TPM, false)]),
-		[AM_CONDITIONAL(TPM, false)])
+if test "x$enable_aeptok" != "xno" -a "x$with_aep" != "xno"; then
+	enable_aeptok=yes
 else
-	AM_CONDITIONAL(TPM, false)
+	enable_aeptok=no
 fi
+AM_CONDITIONAL([ENABLE_AEPTOK], [test "x$enable_aeptok" = "xyes"])
 
-# Support for the IBM 4758 (PCICC) token
-AC_ARG_ENABLE(icctok,
-              [  --enable-icctok         build the IBM 4758 (PCICC) token [default=disabled]],
-              [enable_icctok="yes"],
-              [enable_icctok="no"])
-
-if test "x$enable_icctok" = xyes; then
-	AC_CHECK_HEADER(scc_host.h,
-			AC_CHECK_LIB(scc, sccOpenAdapter,
-				[AM_CONDITIONAL(ICC, true)],
-				[AM_CONDITIONAL(ICC, false)]),
-			[AM_CONDITIONAL(ICC, false)],,)
+dnl --- enable_bcomtok
+if test "x$enable_bcomtok" = "xyes"; then
+	if test "x$with_ubsec" != "xyes"; then
+		AC_MSG_ERROR([bcom token build requested but no uBSec development files not found])
+		enable_bcomok=no
+	fi
+fi
+if test "x$enable_bcomtok" != "xno" -a "x$with_ubsec" != "xno"; then
+	enable_bcomtok=yes
 else
-	AM_CONDITIONAL(ICC, false)
+	enable_bcomtok=no
 fi
+AM_CONDITIONAL([ENABLE_BCOMTOK], [test "x$enable_bcom" = "xyes"])
 
-# Support for the secure-key (CCA api) token
-AC_ARG_ENABLE(ccatok,
-              [  --enable-ccatok         build the IBM CCA Secure-Key token [default=disabled]],
-              [enable_ccatok="yes"],
-              [enable_ccatok="no"])
-
-if test "x$enable_ccatok" = xyes; then
-	AM_CONDITIONAL(CCA, true)
+dnl --- enable_crtok
+if test "x$enable_crtok" = "xyes"; then
+	if test "x$with_socketarmor" != "xyes"; then
+		AC_MSG_ERROR([cr token build requested but no Socketarmor development files not found])
+		enable_crtok=no
+	fi
+fi
+if test "x$enable_crtok" != "xno" -a "x$with_socketarmor" != "xno"; then
+	enable_crtok=yes
 else
-	AM_CONDITIONAL(CCA, false)
+	enable_crtok=no
 fi
+AM_CONDITIONAL([ENABLE_CRTOK], [test "x$enable_crtok" = "xyes"])
 
-# Support for the AEP Crypto Accelerator
-AC_ARG_ENABLE(aeptok,
-              [  --enable-aeptok         build the AEP Crypto Accelerator token [default=disabled]],
-              [enable_aeptok="no"],
-              [enable_aeptok="yes"])
-
-if test "x$enable_aeptok" = xyes; then
-        AC_CHECK_LIB(aep, AEP_Initialize,
-             [AM_CONDITIONAL(AEP, true)],
-             [AM_CONDITIONAL(AEP, false)])
+dnl --- enable_pkcscca_migrate
+if test "x$enable_pkcscca_migrate" = "xyes"; then
+	if test "x$with_xcryptolinz" != "xyes"; then
+		AC_MSG_ERROR([pkcscca_migrate build requested but no xcryptolinz libraries found])
+		enable_pkcscca_migrate=no
+	fi
+fi
+if test "x$enable_pkcscca_migrate" = "xno" -a "x$with_xcryptolinz" != "xno"; then
+	enable_pkcscca_migrate=yes
 else
-        AM_CONDITIONAL(AEP, false)
+	enable_pkcscca_migrate=no
 fi
-
-# Support for the Broadcom Crypto Accelerator
-AC_ARG_ENABLE(bcomtok,
-              [  --enable-bcomtok        build the Broadcom Crypto Accelerator token [default=disabled]],
-              [enable_bcomtok="no"],
-              [enable_bcomtok="yes"])
-
-if test "x$enable_bcomtok" = xyes; then
-	AC_CHECK_HEADER(ubsec.h,
-			AC_CHECK_LIB(ubsec, ubsec_open,
-				[AM_CONDITIONAL(BCOM, true)],
-				[AM_CONDITIONAL(BCOM, false)]),
-			[AM_CONDITIONAL(BCOM, false)],,)
-else
-	AM_CONDITIONAL(BCOM, false)
-fi
-
-# Support for the Corrent Crypto Accelerator
-AC_ARG_ENABLE(crtok,
-              [  --enable-crtok          build the Corrent Crypto Accelerator token [default=disabled]],
-              [enable_crtok="no"],
-              [enable_crtok="yes"])
-
-if test "x$enable_crtok" = xyes; then
-	AC_CHECK_HEADER(typhoon.h,
-			AC_CHECK_LIB(socketarmor, CR_init_lib,
-				[AM_CONDITIONAL(CR, true)],
-				[AM_CONDITIONAL(CR, false)], -ldl),
-			[AM_CONDITIONAL(CR, false)],,)
-else
-        AM_CONDITIONAL(CR, false)
-fi
-
-# Check if building tests
-AC_ARG_ENABLE(testcases,
-              [  --enable-testcases      build the test cases [default=disabled]],
-              [AM_CONDITIONAL(TESTS, true)],
-              [AM_CONDITIONAL(TESTS, false)])
+AM_CONDITIONAL([ENABLE_PKCSCCA_MIGRATE], [test "x$enable_pkcscca_migrate" = "xyes"])
 
 
-CFLAGS="$CFLAGS -DPKCS64			\
-	-DCONFIG_PATH=\\\"$CONFIG_PATH\\\"	\
-	-DSBIN_PATH=\\\"$SBIN_PATH\\\"		\
-	-DLIB_PATH=\\\"$LIB_PATH\\\"		\
-	-D_XOPEN_SOURCE=500"
+CFLAGS="$CFLAGS $DEBUG_CFLAGS -DPKCS64 -D_XOPEN_SOURCE=500"
+
+CFLAGS+=' -DCONFIG_PATH=\"$(localstatedir)/lib/opencryptoki\" -DSBIN_PATH=\"$(sbindir)\" -DLIB_PATH=\"$(libdir)\"'
 
 # At this point, CFLAGS is set to something sensible
 AC_PROG_CC
@@ -294,34 +643,23 @@ AC_OUTPUT([Makefile usr/Makefile \
           usr/lib/pkcs11/api/Makefile \
           usr/lib/pkcs11/api/shrd_mem.c \
           usr/lib/pkcs11/ica_stdll/Makefile \
-          usr/lib/pkcs11/ica_stdll/tok_struct.h \
           usr/lib/pkcs11/ica_s390_stdll/Makefile \
-          usr/lib/pkcs11/ica_s390_stdll/tok_struct.h \
           usr/sbin/Makefile \
           usr/sbin/pkcsslotd/Makefile \
           usr/sbin/pkcs11_startup/Makefile \
-          usr/sbin/pkcs11_startup/pkcs11_startup \
           usr/sbin/pkcs_slot/Makefile \
-          usr/sbin/pkcs_slot/pkcs_slot \
           usr/sbin/pkcsconf/Makefile \
           usr/sbin/pkcscca_migrate/Makefile \
           usr/lib/pkcs11/methods/Makefile \
           usr/lib/pkcs11/leeds_stdll/Makefile \
           usr/lib/pkcs11/soft_stdll/Makefile \
-          usr/lib/pkcs11/soft_stdll/tok_struct.h \
           usr/lib/pkcs11/bcom_stdll/Makefile \
-          usr/lib/pkcs11/bcom_stdll/tok_struct.h \
           usr/lib/pkcs11/cr_stdll/Makefile \
-          usr/lib/pkcs11/cr_stdll/tok_struct.h \
           usr/lib/pkcs11/aep_stdll/Makefile \
-          usr/lib/pkcs11/aep_stdll/tok_struct.h \
           usr/lib/pkcs11/tpm_stdll/Makefile \
-          usr/lib/pkcs11/tpm_stdll/tok_struct.h \
           usr/lib/pkcs11/cca_stdll/Makefile \
-          usr/lib/pkcs11/cca_stdll/tok_struct.h \
           usr/lib/pkcs11/methods/4758_status/Makefile \
           misc/Makefile \
-          misc/pkcsslotd \
 	  testcases/Makefile \
 	  testcases/common/Makefile \
 	  testcases/driver/Makefile \
@@ -347,6 +685,24 @@ AC_OUTPUT([Makefile usr/Makefile \
 	  man/man8/Makefile \
 	  man/man8/pkcsslotd.8])
 
+echo "Enabled features:"
+echo "	Debug build:		$enable_debug"
+echo "	Testcases:		$enable_testcases"
+echo "	Daemon build:		$enable_daemon"
+echo "	Library build:		$enable_library"
+echo
+echo "Enabled token types:"
+echo "	ICA token:		$enable_icatok"
+echo "	CCA token:		$enable_ccatok"
+echo "	Software token:		$enable_swtok"
+echo "	TPM token:		$enable_tpmtok"
+echo "	ICC token:		$enable_icctok"
+echo "	AEP token:		$enable_aeptok"
+echo "	Broadcom token:		$enable_bcomtok"
+echo "	Corrent token:		$enable_crtok"
+echo
+echo "Token-specific features:"
+echo "	pkcsccamigrate build:	$enable_pkcscca_migrate"
 echo
 echo "CLFAGS=$CFLAGS"
 echo

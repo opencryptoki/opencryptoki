@@ -297,21 +297,20 @@
 
 #include "tok_spec_struct.h"
 
-// #define PK_LITE_DIR  "/etc/pkcs11/lite"
-//
-// #define PK_DIR      PK_LITE_DIR
-// #define SUB_DIR     "lite"
-//
-//
-// #define DBGTAG  "ICA_STDLL_Debug"
-//
-//
-//
+#ifndef LITE_CONFIG_PATH
+
+#ifndef CONFIG_PATH
+#warning CONFIG_PATH not set, using default (/usr/local/var/lib/opencryptoki)
+#define CONFIG_PATH "/usr/local/var/lib/opencryptoki"
+#endif  // #ifndef CONFIG_PATH
+
+#define LITE_CONFIG_PATH CONFIG_PATH "/lite"
+#endif  // #ifndef LITE_CONFIG_PATH
 
 token_spec_t token_specific  = {
-     "@DB_PATH@/bcom",
-     "bcom",
-     "BC_STDLL_Debug",
+     LITE_CONFIG_PATH,
+     "lite",
+     "ICA_STDLL_Debug",
      &token_specific_init,
      &tok_slot2local,
      &token_rng,
@@ -333,22 +332,20 @@ token_spec_t token_specific  = {
      &token_specific_dh_pkcs_derive,
      &token_specific_dh_pkcs_key_pair_gen,
 #endif
-     // SHA1
-     NULL,
-     NULL,
-     NULL,
-     /* SHA256 */
-     NULL,
-     NULL,
-     NULL,
-     /* SHA-384 */
-     NULL,
-     NULL,
-     NULL,
-     /* SHA-512 */
-     NULL,
-     NULL,
-     NULL,
+     // SHA
+     &token_specific_sha_init,
+     &token_specific_sha_update,
+     &token_specific_sha_final,
+     /* SHA-256 */
+     &token_specific_sha2_init,
+     &token_specific_sha2_update,
+     &token_specific_sha2_final,
+     &token_specific_sha3_init,
+     &token_specific_sha3_update,
+     &token_specific_sha3_final,
+     &token_specific_sha5_init,
+     &token_specific_sha5_update,
+     &token_specific_sha5_final,
 #ifndef NOAES
      // AES
      &token_specific_aes_key_gen,

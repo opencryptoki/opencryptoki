@@ -16,11 +16,6 @@ opencryptoki_stdll_libpkcs11_tpm_la_CFLAGS = -DLINUX -DSPINXPL -DNOCDMF	\
 					     -I../common -DMMAP		\
 					     -DSTDLL_NAME=\"tpmtok\"
 
-# Not all versions of automake observe libname_CFLAGS
-AM_CFLAGS = -DLINUX -DMMAP -DSPINXPL -DNOCDMF -DNODSA -DNODH -I. \
-	    -I../../../include -I../../../include/pkcs11 \
-	    -I../common
-
 opencryptoki_stdll_libpkcs11_tpm_la_LDFLAGS = -shared -Wl,-Bsymbolic	\
 					      -lcrypto -ltspi -lpthread
 
@@ -58,3 +53,7 @@ opencryptoki_stdll_libpkcs11_tpm_la_SOURCES = ../common/asn1.c           \
 noinst_HEADERS = h_extern.h tok_spec_struct.h defs.h	\
 		 host_defs.h tpm_specific.h tok_specific.h
 
+install-data-hook:
+	cd $(DESTDIR)$(libdir)/opencryptoki/stdll && \
+		ln -sf libpkcs11_tpm.so PKCS11_TPM.so
+	$(MKDIR_P) $(DESTDIR)$(localstatedir)/lib/opencryptoki/tpm

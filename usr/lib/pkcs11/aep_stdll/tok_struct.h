@@ -288,17 +288,6 @@
 
 /* (C) COPYRIGHT International Business Machines Corp. 2002          */
 
-/***************************************************************************
-                          Change Log
-                          ==========
-       4/25/03    Kapil Sood (kapil@corrent.com)
-                  Added DH key pair generation and DH shared key derivation
-                  functions.
- 
- 
- 
-****************************************************************************/
-
 
 // SAB FIXME  need to figure out a better way...
 // // to get the variant dependency out
@@ -308,21 +297,20 @@
 
 #include "tok_spec_struct.h"
 
-// #define PK_LITE_DIR  "/etc/pkcs11/lite"
-//
-// #define PK_DIR      PK_LITE_DIR
-// #define SUB_DIR     "lite"
-//
-//
-// #define DBGTAG  "ICA_STDLL_Debug"
-//
-//
-//
+#ifndef AEP_CONFIG_PATH
+
+#ifndef CONFIG_PATH
+#warning CONFIG_PATH not set, using default (/usr/local/var/lib/opencryptoki)
+#define CONFIG_PATH "/usr/local/var/lib/opencryptoki"
+#endif  // #ifndef CONFIG_PATH
+
+#define AEP_CONFIG_PATH CONFIG_PATH "/aep"
+#endif  // #ifndef AEP_CONFIG_PATH
 
 token_spec_t token_specific  = {
-     "@DB_PATH@/swtok",
-     "swtok",
-     "SW_STDLL_Debug",
+     AEP_CONFIG_PATH,
+     "aep",
+     "AEP_STDLL_Debug",
      &token_specific_init,
      &tok_slot2local,
      &token_rng,
@@ -339,16 +327,14 @@ token_spec_t token_specific  = {
      &token_specific_rsa_decrypt,
      &token_specific_rsa_encrypt,
      &token_specific_rsa_generate_keypair,
-/* Begin code contributed by Corrent corp. */   
      // DH
      &token_specific_dh_pkcs_derive,
      &token_specific_dh_pkcs_key_pair_gen,
-/* End code contributed by Corrent corp. */
-     // SHA-1
-     NULL, // SHA-1 in the soft token is integrated already, as token
-     NULL, // specific SHA-1 is new. As a TODO, the soft SHA-1 routines
-     NULL, // should probably move to functions plugged in here.
-     /* SHA-256 */
+     // SHA1
+     NULL,
+     NULL,
+     NULL,
+     /* SHA256 */
      NULL,
      NULL,
      NULL,
@@ -360,10 +346,12 @@ token_spec_t token_specific  = {
      NULL,
      NULL,
      NULL,
+#ifndef NOAES
      // AES
      &token_specific_aes_key_gen,
      &token_specific_aes_ecb,
      &token_specific_aes_cbc,
+#endif
      &token_specific_get_mechanism_list,
      &token_specific_get_mechanism_info
 };

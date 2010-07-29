@@ -1,48 +1,138 @@
-Name:          opencryptoki 
-Version:       2.2.4
-Release:       1%{?dist}
-Summary:       An Implementation of PKCS#11 (Cryptoki) v2.11 
-
-Group:         Applications/Productivity 
-License:       CPL 
-URL:           http://sourceforge.net/projects/opencryptoki 
-Source0:       %{name}-%{version}.tar.bz2 
-BuildRoot:     %{_tmppath}/%{name}-%{version}-%{release}-root-%(%{__id_u} -n)
-
-BuildRequires: autoconf automake libtool openssl-devel 
-Requires: /sbin/chkconfig 
+Name:			opencryptoki
+Summary:		Implementation of the PKCS#11 (Cryptoki) specification v2.11
+Version:		2.3.1
+Release:		1%{?dist}
+License:		CPL
+Group:			System Environment/Base
+URL:			http://sourceforge.net/projects/opencryptoki
+Source:			http://downloads.sourceforge.net/%{name}/%{name}-%{version}.tar.gz
+BuildRoot:		%(mktemp -ud %{_tmppath}/%{name}-%{version}-%{release}-XXXXXX)
+Requires(pre):		shadow-utils coreutils sed
+Requires(post):		chkconfig
+Requires(preun):	chkconfig
+# This is for /sbin/service
+Requires(preun):	initscripts
+Requires(postun):	initscripts
+BuildRequires:		openssl-devel trousers-devel
+BuildRequires:		autoconf automake libtool
+%ifarch s390 s390x
+BuildRequires:		libica-devel >= 2.0
+%endif
+Requires:		%{name}-libs%{?_isa} = %{version}-%{release}
 
 %description
-The openCryptoki package implements the PKCS#11 version 2.11: Cryptographic 
-Token Interface Standard (Cryptoki).
+Opencryptoki implements the PKCS#11 specification v2.11 for a set of
+cryptographic hardware, such as IBM 4764 and 4765 crypto cards, and the
+Trusted Platform Module (TPM) chip. Opencryptoki also brings a software
+token implementation that can be used without any cryptographic
+hardware.
+This package contains the Slot Daemon (pkcsslotd) and general utilities.
 
+%package libs
+Group:			System Environment/Libraries
+Summary:		The run-time libraries for the opencryptoki package
+
+%description libs
+Opencryptoki implements the PKCS#11 specification v2.11 for a set of
+cryptographic hardware, such as IBM 4764 and 4765 crypto cards, and the
+Trusted Platform Module (TPM) chip. Opencryptoki also brings a software
+token implementation that can be used without any cryptographic
+hardware.
+This package contains the PKCS#11 library implementation, and requires
+at least one token implementation (packaged separately) to be fully
+functional.
+
+%package swtok
+Group:			System Environment/Libraries
+Summary:		The software token implementation for the opencryptoki package
+Requires:		%{name}-libs%{?_isa} = %{version}-%{release}
+
+%description swtok
+Opencryptoki implements the PKCS#11 specification v2.11 for a set of
+cryptographic hardware, such as IBM 4764 and 4765 crypto cards, and the
+Trusted Platform Module (TPM) chip. Opencryptoki also brings a software
+token implementation that can be used without any cryptographic
+hardware.
+This package brings the software token implementation to use opencryptoki
+without any specific cryptographic hardware.
+
+%package tpmtok
+Group:			System Environment/Libraries
+Summary:		Trusted Platform Module (TPM) device support for opencryptoki
+Requires:		%{name}-libs%{?_isa} = %{version}-%{release}
+
+%description tpmtok
+Opencryptoki implements the PKCS#11 specification v2.11 for a set of
+cryptographic hardware, such as IBM 4764 and 4765 crypto cards, and the
+Trusted Platform Module (TPM) chip. Opencryptoki also brings a software
+token implementation that can be used without any cryptographic
+hardware.
+This package brings the necessary libraries and files to support
+Trusted Platform Module (TPM) devices in the opencryptoki stack.
 
 %package devel
-Summary:       An Implementation of PKCS#11 (Cryptoki) v2.11
-Group:         Applications/Productivity
-Requires:      opencryptoki = %{version}-%{release}, glibc-devel
+Group:			Development/Libraries
+Summary:		Development files for openCryptoki
+Requires:		%{name}-libs = %{version}-%{release}
 
 %description devel
-The openCryptoki package implements the PKCS#11 version 2.11: Cryptographic
-Token Interface Standard (Cryptoki).
+This package contains the development header files for building
+opencryptoki and PKCS#11 based applications
 
+%ifarch s390 s390x
+%package icatok
+Group:			System Environment/Libraries
+Summary:		ICA cryptographic devices (clear-key) support for opencryptoki
+Requires:		%{name}-libs%{?_isa} = %{version}-%{release}
+
+%description icatok
+Opencryptoki implements the PKCS#11 specification v2.11 for a set of
+cryptographic hardware, such as IBM 4764 and 4765 crypto cards, and the
+Trusted Platform Module (TPM) chip. Opencryptoki also brings a software
+token implementation that can be used without any cryptographic
+hardware.
+This package brings the necessary libraries and files to support ICA
+devices in the opencryptoki stack. ICA is an interface to IBM
+cryptographic hardware such as IBM 4764 or 4765 that uses the
+"accelerator" or "clear-key" path.
+
+%package ccatok
+Group:			System Environment/Libraries
+Summary:		CCA cryptographic devices (secure-key) support for opencryptoki
+Requires:		%{name}-libs%{?_isa} = %{version}-%{release}
+
+%description ccatok
+Opencryptoki implements the PKCS#11 specification v2.11 for a set of
+cryptographic hardware, such as IBM 4764 and 4765 crypto cards, and the
+Trusted Platform Module (TPM) chip. Opencryptoki also brings a software
+token implementation that can be used without any cryptographic
+hardware.
+This package brings the necessary libraries and files to support CCA
+devices in the opencryptoki stack. CCA is an interface to IBM
+cryptographic hardware such as IBM 4764 or 4765 that uses the
+"co-processor" or "secure-key" path.
+%endif
 
 %prep
-%setup -q -n %{name}-%{version}
-
+%setup -q
 
 %build
-autoreconf --force --install
-%configure --disable-static
+./bootstrap.sh
+%ifarch s390 s390x
+%configure --enable-icatok --enable-ccatok
+%else
+%configure --disable-icatok --disable-ccatok
+%endif
 make %{?_smp_mflags}
-
 
 %install
 rm -rf $RPM_BUILD_ROOT
-make install DESTDIR=$RPM_BUILD_ROOT 
+make install DESTDIR=$RPM_BUILD_ROOT
 rm -f $RPM_BUILD_ROOT/%{_libdir}/%{name}/*.la
 rm -f $RPM_BUILD_ROOT/%{_libdir}/%{name}/stdll/*.la
 
+%clean
+rm -rf $RPM_BUILD_ROOT
 
 %preun
 if [ "$1" = "0" ]; then
@@ -50,66 +140,99 @@ if [ "$1" = "0" ]; then
 	/sbin/chkconfig --del pkcsslotd
 fi
 
-%postun -p /sbin/ldconfig 
+%postun
+if [ "$1" -ge "1" ] ; then
+	/sbin/service pkcsslotd condrestart >/dev/null 2>&1
+fi
+exit 0
+
+%postun libs -p /sbin/ldconfig
+%postun swtok -p /sbin/ldconfig
+%postun tpmtok -p /sbin/ldconfig
+%ifarch s390 s390x
+%postun icatok -p /sbin/ldconfig
+%postun ccatok -p /sbin/ldconfig
+%endif
 
 %post
 /sbin/chkconfig --add pkcsslotd
-/sbin/ldconfig
+exit 0
 
-%clean
-rm -rf $RPM_BUILD_ROOT
+%post libs -p /sbin/ldconfig
+%post swtok -p /sbin/ldconfig
+%post tpmtok -p /sbin/ldconfig
+%ifarch s390 s390x
+%post icatok -p /sbin/ldconfig
+%post ccatok -p /sbin/ldconfig
+%endif
 
 %pre
-/usr/sbin/groupadd -r pkcs11 2>/dev/null || true
-/usr/sbin/usermod -G $(/usr/bin/id --groups --name root | /bin/sed -e '
-# add the pkcs group if it is missing
-/(^| )pkcs11( |$)/!s/$/ pkcs11/
-# replace spaces by commas
-y/ /,/
-'),pkcs11  root
+# Create pkcs11 group
+getent group pkcs11 >/dev/null || groupadd -r pkcs11
+# Add root to the pkcs11 group
+gpasswd -a root pkcs11
 
 %files
 %defattr(-,root,root,-)
-%doc FAQ LICENSE README doc/*
-%config(noreplace) %{_sysconfdir}/ld.so.conf.d/%{name}*.conf
-%dir %attr(770,root,pkcs11) /var/lib/%{name}
-%attr(755,root,root) %{_sbindir}/pkcsslotd
-%attr(755,root,root) %{_sbindir}/pkcsconf
-%attr(755,root,root) %{_sbindir}/pkcs_slot
-%attr(755,root,root) %{_sbindir}/pkcs11_startup
-%dir %{_libdir}/%{name}
-%dir %{_libdir}/%{name}/stdll
-%{_libdir}/%{name}/libopencryptoki.so
-%{_libdir}/%{name}/libopencryptoki.so.0
-%attr(755,root,root) %{_libdir}/%{name}/libopencryptoki.so.0.0.0
-%{_libdir}/%{name}/methods
-%{_libdir}/%{name}/stdll/libpkcs11_*.so
-%{_libdir}/%{name}/stdll/libpkcs11_*.so.0
-%attr(755,root,root) %{_libdir}/%{name}/stdll/libpkcs11_*.so.0.0.0
-%attr(755,root,root) %{_sysconfdir}/init.d/pkcsslotd
-# symlinks for backward compatibility
-%dir %{_libdir}/pkcs11
-%dir %{_libdir}/pkcs11/stdll
-%dir %{_libdir}/pkcs11/methods
-%{_libdir}/pkcs11/PKCS11_API.so
-%{_libdir}/%{name}/PKCS11_API.so
-%{_libdir}/pkcs11/libopencryptoki.so
-%ifarch s390 s390x
-%{_libdir}/%{name}/stdll/PKCS11_ICA.so
-%else
-%{_libdir}/%{name}/stdll/PKCS11_SW.so
-%endif
+%doc FAQ README LICENSE
+%doc doc/openCryptoki-HOWTO.pdf
+%{_mandir}/man*/*
+%{_initddir}/pkcsslotd
+%{_sbindir}/*
+%{_libdir}/opencryptoki/methods
+%{_libdir}/pkcs11/methods
+%dir %attr(770,root,pkcs11) %{_localstatedir}/lib/opencryptoki
 
+%files libs
+%defattr(-,root,root,-)
+%{_sysconfdir}/ld.so.conf.d/*
+# Unversioned .so symlinks usually belong to -devel packages, but opencryptoki
+# needs them in the main package, because:
+#   pkcs11_startup looks for opencryptoki/stdll/*.so, and
+#   documentation suggests that programs should dlopen "PKCS11_API.so".
+%dir %attr(755, root, root) %{_libdir}/opencryptoki
+%{_libdir}/opencryptoki/libopencryptoki.*
+%{_libdir}/opencryptoki/PKCS11_API.so
+%dir %attr(755, root, root) %{_libdir}/opencryptoki/stdll
+%dir %attr(755, root, root) %{_libdir}/pkcs11
+%{_libdir}/pkcs11/libopencryptoki.so
+%{_libdir}/pkcs11/PKCS11_API.so
+%{_libdir}/pkcs11/stdll
+
+
+%files swtok
+%defattr(-,root,root,-)
+%{_libdir}/opencryptoki/stdll/libpkcs11_sw.*
+%{_libdir}/opencryptoki/stdll/PKCS11_SW.so
+
+%files tpmtok
+%defattr(-,root,root,-)
+%{_libdir}/opencryptoki/stdll/libpkcs11_tpm.*
+%{_libdir}/opencryptoki/stdll/PKCS11_TPM.so
+%doc doc/README.tpm_stdll
 
 %files devel
 %defattr(-,root,root,-)
-%doc LICENSE
-%dir %{_includedir}/%{name}
-%{_includedir}/%{name}/apiclient.h
-%{_includedir}/%{name}/pkcs11.h
-%{_includedir}/%{name}/pkcs11types.h
+%{_includedir}/*
+
+%ifarch s390 s390x
+%files icatok
+%defattr(-,root,root,-)
+%{_libdir}/opencryptoki/stdll/libpkcs11_ica.*
+%{_libdir}/opencryptoki/stdll/PKCS11_ICA.so
+
+%files ccatok
+%defattr(-,root,root,-)
+%{_libdir}/opencryptoki/stdll/libpkcs11_cca.*
+%{_libdir}/opencryptoki/stdll/PKCS11_CCA.so
+%doc doc/README-IBM_CCA_users
+%doc doc/README.cca_stdll
+%endif
 
 %changelog
+* Thu Jul 1 2010 Klaus H Kiwi <klausk@linux.vnet.ibm.com> 2.3.1-1
+- Put STDLLs in separate packages
+- General spec file cleanup
 * Thu Aug 7 2006 Daniel H Jones <danjones@us.ibm.com> 
 - spec file cleanup
 * Tue Aug 1 2006 Daniel H Jones <danjones@us.ibm.com>
@@ -118,4 +241,3 @@ y/ /,/
 - fixed post section and /var/lib/opencryptoki perms
 * Thu May 25 2006 Daniel H Jones <danjones@us.ibm.com> 2.2.4-1
 - initial file created
- 

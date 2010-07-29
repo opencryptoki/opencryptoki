@@ -297,10 +297,20 @@
 
 #include "tok_spec_struct.h"
 
+#ifndef BCOM_CONFIG_PATH
+
+#ifndef CONFIG_PATH
+#warning CONFIG_PATH not set, using default (/usr/local/var/lib/opencryptoki)
+#define CONFIG_PATH "/usr/local/var/lib/opencryptoki"
+#endif  // #ifndef CONFIG_PATH
+
+#define BCOM_CONFIG_PATH CONFIG_PATH "/bcom"
+#endif  // #ifndef BCOM_CONFIG_PATH
+
 token_spec_t token_specific  = {
-     "@DB_PATH@/lite",
-     "lite",
-     "ICA_STDLL_Debug",
+     BCOM_CONFIG_PATH,
+     "bcom",
+     "BC_STDLL_Debug",
      &token_specific_init,
      &tok_slot2local,
      &token_rng,
@@ -322,23 +332,24 @@ token_spec_t token_specific  = {
      &token_specific_dh_pkcs_derive,
      &token_specific_dh_pkcs_key_pair_gen,
 #endif
-     // SHA
-     &token_specific_sha_init, 
-     &token_specific_sha_update,
-     &token_specific_sha_final,
+     // SHA1
+     NULL,
+     NULL,
+     NULL,
      /* SHA256 */
      NULL,
      NULL,
      NULL,
-     /* SHA384 */
+     /* SHA-384 */
      NULL,
      NULL,
      NULL,
-     /* SHA512 */
+     /* SHA-512 */
      NULL,
      NULL,
      NULL,
 #ifndef NOAES
+     // AES
      &token_specific_aes_key_gen,
      &token_specific_aes_ecb,
      &token_specific_aes_cbc,

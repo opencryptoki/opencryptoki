@@ -1775,10 +1775,10 @@ ssl3_key_and_mac_derive( SESSION           * sess,
 error:
 
    if (client_write_handle != 0)
-      object_mgr_remove_from_map( client_write_handle );
+      object_mgr_invalidate_handle1( client_write_handle );
 
    if (server_write_handle != 0)
-      object_mgr_remove_from_map( server_write_handle );
+      object_mgr_invalidate_handle1( server_write_handle );
 
    return rc;
 }
@@ -1941,8 +1941,8 @@ ssl3_kmd_process_mac_keys( SESSION           * sess,
    return CKR_OK;
 
 error:
-   if (*client_handle != 0) object_mgr_remove_from_map( *client_handle );
-   if (*server_handle != 0) object_mgr_remove_from_map( *server_handle );
+   if (*client_handle != 0) object_mgr_invalidate_handle1( *client_handle );
+   if (*server_handle != 0) object_mgr_invalidate_handle1( *server_handle );
 
    if (client_obj) {
       object_free( client_obj );
@@ -2198,10 +2198,10 @@ ssl3_kmd_process_write_keys( SESSION           * sess,
 
 error:
    if (*client_handle != 0)
-      object_mgr_remove_from_map( *client_handle );
+      object_mgr_invalidate_handle1( *client_handle );
 
    if (*server_handle != 0)
-      object_mgr_remove_from_map( *server_handle );
+      object_mgr_invalidate_handle1( *server_handle );
 
    if (client_obj)
       object_free( client_obj );

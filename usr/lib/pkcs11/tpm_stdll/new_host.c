@@ -170,8 +170,8 @@ Fork_Initializer(void)
       session_mgr_close_all_sessions();
 
 
-      next_session_handle = 1; // Make is so sessions start with 1
-      next_object_handle = 1;
+      //next_session_handle = 1; // Make is so sessions start with 1
+      //next_object_handle = 1;
 
       // Clean out the global login state variable
       // When implemented...  Although logout_all should clear this up.
@@ -1291,7 +1291,7 @@ CK_RV SC_OpenSession( CK_SLOT_ID             sid,
       st_err_log(152, __FILE__, __LINE__); 
       goto done;
    }
-   *phSession = sess->handle;
+   *phSession = (CK_SESSION_HANDLE_PTR) sess;
    // Set the correct slot ID here. Was hard coded to 1. - KEY
    sess->session_info.slotID = sid;
 
@@ -1587,7 +1587,7 @@ CK_RV SC_Login( ST_SESSION_HANDLE   sSession,
 			st_err_log(56, __FILE__, __LINE__);
 			rc = CKR_USER_ALREADY_LOGGED_IN;
 		}
-		if (session_mgr_readonly_exists()){
+		if (session_mgr_readonly_session_exists()){
 			st_err_log(142, __FILE__, __LINE__);
 			rc = CKR_SESSION_READ_ONLY_EXISTS;
 		}
