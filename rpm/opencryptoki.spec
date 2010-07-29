@@ -1,6 +1,6 @@
 Name:			opencryptoki
 Summary:		Implementation of the PKCS#11 (Cryptoki) specification v2.11
-Version:		2.3.1
+Version:		2.3.2
 Release:		1%{?dist}
 License:		CPL
 Group:			System Environment/Base
@@ -230,7 +230,7 @@ gpasswd -a root pkcs11
 %endif
 
 %changelog
-* Thu Jul 1 2010 Klaus H Kiwi <klausk@linux.vnet.ibm.com> 2.3.1-1
+* Thu Jul 29 2010 Klaus H Kiwi <klausk@linux.vnet.ibm.com> 2.3.2-1
 - Put STDLLs in separate packages
 - General spec file cleanup
 * Thu Aug 7 2006 Daniel H Jones <danjones@us.ibm.com> 

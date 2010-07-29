@@ -1,3 +1,22 @@
+* opencryptoki-2.3.2 (Jul 29 2010)
+- Significant clean-ups to the building and packaging systems and many
+  small fixes by Klaus Heinrich Kiwi <klausk@linux.vnet.ibm.com>
+- Various minor fixes to slot daemon and init script by Dan Horák
+  <dan@danny.cz>
+- Some RSA PKCS#1 v1.5 padding clean-ups by Ramon de Carvalho Valle
+  <rcvalle@linux.vnet.ibm.com>
+- Human-readable flags output to pkcsconf, some minor soft-token
+  fixes by Kent Yoder <key@linux.vnet.ibm.com>
+- Improved overall session/object look-up performance. Note that this
+  change might crash buggy callers with badly-written session/object
+  handle tracking - Klaus Heinrich Kiwi <klausk@linux.vnet.ibm.com>
+
+* openCryptoki-2.3.1
+- Moved ICA token to use libica-2.0, supporting newer hardware and 4K
+  RSA modulus. Libica-2.x is now *required* to build the ICA token.
+- Moved CCA token to use CCA-4.0, supporting AES, SHA-2 and 4K RSA
+  keys in newer hardware. Although not required for building, CCA-4.0
+  is *required* for running the CCA token.
 
 * openCryptoki-2.2.5
 
