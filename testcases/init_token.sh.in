@@ -2,7 +2,7 @@
 
 set timeout 5
 
-spawn pkcsconf -c [lindex $argv 0] -I
+spawn @sbindir@/pkcsconf -c [lindex $argv 0] -I
 expect "Enter the SO PIN: "
 sleep .1
 send "87654321\r"
@@ -11,9 +11,10 @@ expect "label: "
 sleep .1
 send "ibmtest\r"
 sleep .1
-expect eof
+expect eof {} \
+"Incorrect PIN Entered." {exit 1}
 
-spawn pkcsconf -c [lindex $argv 0] -P
+spawn @sbindir@/pkcsconf -c [lindex $argv 0] -P
 expect "Enter the SO PIN: "
 sleep .1
 send "87654321\r"
@@ -26,9 +27,10 @@ expect "Re-enter the new SO PIN: "
 sleep .1
 send "76543210\r"
 sleep .1
-expect eof
+expect eof {} \
+"Incorrect PIN Entered." {exit 1}
 
-spawn pkcsconf -c [lindex $argv 0] -u
+spawn @sbindir@/pkcsconf -c [lindex $argv 0] -u
 expect "Enter the SO PIN: "
 sleep .1
 send "76543210\r"
@@ -41,9 +43,10 @@ expect "Re-enter the new user PIN: "
 sleep .1
 send "12345678\r"
 sleep .1
-expect eof
+expect eof {} \
+"Incorrect PIN Entered." {exit 1}
 
-spawn pkcsconf -c [lindex $argv 0] -p
+spawn @sbindir@/pkcsconf -c [lindex $argv 0] -p
 expect "Enter user PIN: "
 sleep .1
 send "12345678\r"
@@ -56,4 +59,5 @@ expect "Re-enter the new user PIN: "
 sleep .1
 send "01234567\r"
 sleep .1
-expect eof
+expect eof {} \
+"Incorrect PIN Entered." {exit 1}

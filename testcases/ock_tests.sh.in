@@ -44,9 +44,21 @@ TCSD="/usr/sbin/tcsd"
 PKCONF="@localstatedir@/lib/opencryptoki/pk_config_data"
 PKCSCONFBIN="@sbindir@/pkcsconf"
 TESTCONF="$PWD/ock-tests.config"
-OCKDIR="lib/opencryptoki"
+OCKDIR="@localstatedir@/lib/opencryptoki"
 STDLLDIR="@libdir@/pkcs11/stdll"
 CONFSTART="@sbindir@/pkcs11_startup"
+
+#
+# This is the list of the tests we'll be running once everything is initialized
+#
+# The order of these tests matters. v2.11/login leaves the token with its USER
+# PIN locked, leaving the token unusable until someone manually deletes
+# $OCKDIR/$TOKEN/*. Manually deleting this dir is pre-req for starting the
+# automated tests anyway, so this is OK.
+#
+# v2.11/login MUST come last if it appears in this list
+#
+OCK_TESTS="driver/*tests"
 
 usage()
 {
@@ -101,6 +113,8 @@ check_slots()
 		exit -1
 	fi
 
+	OLDIFS=$IFS
+	IFS=$(echo -en "\n\b")
 	#Are all the tokens listed in pk_config_data loaded?
 	for i in $( cat $PKCONF | awk -F \| '{print $3}' )
 	do
@@ -116,6 +130,7 @@ check_slots()
 			echo
 		fi
 	done
+	IFS=$OLDIFS
 }
 
 check_files()
@@ -180,8 +195,11 @@ run_tests()
 	do
 		if [ -z "$SLOT" ] || [ "$SLOT" = "$i" ]
 		then
-			for j in $( ls driver/*tests )
-				do
+			./init_token.sh $i
+			RC=$?
+			if test $RC -ne 0;then exit $RC;fi
+			for j in $( ls $OCK_TESTS )
+			do
 				echo "=====Now executing '$j'======"
 				$j -slot $i $NO_STOP 2>&1
 			done

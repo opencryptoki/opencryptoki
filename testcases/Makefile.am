@@ -1,8 +1,10 @@
-noinst_SCRIPTS = ock_tests.sh
+SUBDIRS=common driver init_tok mkobj oc-digest rsa_keygen rsa_test speed test_crypto threadmkobj tok_obj v2.11 login
 
-EXTRA_DIST = ock_tests.sh.in
+noinst_SCRIPTS = ock_tests.sh init_token.sh
 
-CLEANFILES = ock_tests.sh
+EXTRA_DIST = ock_tests.sh.in init_token.sh.in
+
+CLEANFILES = ock_tests.sh init_token.sh
 
 ock_tests.sh: ock_tests.sh.in
 	@SED@	-e s!\@localstatedir\@!"@localstatedir@"!g	\
@@ -11,4 +13,17 @@ ock_tests.sh: ock_tests.sh.in
 	@CHMOD@ a+x $@-t
 	mv $@-t $@
 
-SUBDIRS=common driver init_tok mkobj oc-digest rsa_keygen rsa_test speed test_crypto threadmkobj tok_obj v2.11 login
+init_token.sh: init_token.sh.in
+	@SED@	-e s!\@localstatedir\@!"@localstatedir@"!g	\
+		-e s!\@sbindir\@!"@sbindir@"!g			\
+		-e s!\@libdir\@!"@libdir@"!g < $< > $@-t
+	@CHMOD@ a+x $@-t
+	mv $@-t $@
+
+
+installcheck-local: all
+	killall -HUP pkcsslotd || true
+	@sbindir@/pkcs11_startup
+	@sbindir@/pkcsslotd
+	PKCSLIB=@libdir@/opencryptoki/libopencryptoki.so PKCS11_SO_PIN=76543210 PKCS11_USER_PIN=01234567 sh ./ock_tests.sh
+	killall -HUP pkcsslotd
