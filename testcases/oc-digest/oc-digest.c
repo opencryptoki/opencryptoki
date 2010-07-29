@@ -292,9 +292,17 @@ mech_close:
 	free(mech_list);
 	
 session_close:
-	/* Close the session */
-	if( (rc = funcs->C_CloseSession(session_handle)) != CKR_OK ) {
-		oc_err_msg("C_CloseSession", rc);
+	/* Close the session, being careful not to clobber rc */
+	{
+		CK_RV loc_rc;
+
+		if( (loc_rc = funcs->C_CloseSession(session_handle)) != CKR_OK ) {
+			oc_err_msg("C_CloseSession", loc_rc);
+
+			if (rc == CKR_OK) {
+				rc = loc_rc;
+			}
+		}
 	}
 	
 file_close:
@@ -302,7 +310,9 @@ file_close:
 	close(fd);
 	
 	/* Call C_Finalize and dlclose the library */
-	return clean_up();
+	clean_up();
+
+	return rc;
 }
 
 int clean_up(void)
