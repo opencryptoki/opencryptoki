@@ -58,7 +58,7 @@ CONFSTART="@sbindir@/pkcs11_startup"
 #
 # v2.11/login MUST come last if it appears in this list
 #
-OCK_TESTS="driver/*tests"
+OCK_TESTS="oc-digest/digest_tests.sh driver/*tests"
 
 usage()
 {
@@ -197,8 +197,13 @@ run_tests()
 		then
 			./init_token.sh $i
 			RC=$?
-			if test $RC -ne 0;then exit $RC;fi
-			for j in $( ls $OCK_TESTS )
+			if test $RC -ne 0;
+			then
+				exit $RC
+			fi
+
+			echo "running tests: $(ls -U $OCK_TESTS)"
+			for j in $( ls -U $OCK_TESTS )
 			do
 				echo "=====Now executing '$j'======"
 				$j -slot $i $NO_STOP 2>&1

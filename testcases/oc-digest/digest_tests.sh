@@ -83,9 +83,9 @@ GLOBAL_RC=0
 function run_test
 {
 	if test "x$3" == "x"; then
-		./oc-digest -slot $SLOT_ID -t $1 $2
+		./oc-digest/oc-digest -slot $SLOT_ID -t $1 $2
 	else
-		./oc-digest -slot $SLOT_ID -t $1 $2 | $3
+		./oc-digest/oc-digest -slot $SLOT_ID -t $1 $2 | $3
 	fi
 
 	return $?
@@ -149,8 +149,13 @@ function run_tests
 	do
 		FILE_NAME="${FILE_SIZE}_byte_file"
 		run_test ${digest_types[$INDEX]} ${FILE_NAME} "${validators[$INDEX]}"
+		RC=$?
 		if test $RC -ne 0; then
 			echo "error testing ${digest_types[$INDEX]} $FILE_NAME"
+			if test $NOSTOP -eq 0; then
+				GLOBAL_RC=$RC
+				return
+			fi
 		fi
 	done
 }
@@ -169,7 +174,7 @@ function cleanup_testfiles
 
 function usage
 {
-	echo "usage: $1 [-slot <slot id>]"
+	echo "usage: $1 [-slot <slot id>] [-nostop]"
 	exit -1
 }
 
@@ -178,7 +183,7 @@ function usage
 #
 
 #
-# Check for -slot param
+# Check for -slot, -nostop params
 #
 while test "x$1" != "x"; do
 	if test "x$1" == "x-slot"; then
@@ -190,6 +195,9 @@ while test "x$1" != "x"; do
 		else
 			usage $0
 		fi
+	elif test "x$1" == "x-nostop"; then
+		shift
+		NOSTOP=1
 	else
 		usage $0
 	fi
@@ -204,13 +212,11 @@ do
 	echo "Testing if slot $SLOT_ID supports ${digest_types[$i]}..."
 	run_test ${digest_types[$i]} /bin/ls
 	RC=$?
-	if test $RC -eq $CKR_MECHANISM_INVALID
-	then
+	if test $RC -eq $CKR_MECHANISM_INVALID; then
 		# this alg isn't supported on this token, test the next alg
 		echo "nope."
 		continue
-	elif test $RC -eq $CKR_OK
-	then
+	elif test $RC -eq $CKR_OK; then
 		# this alg is supported, add it to the list to test
 		echo "yes. ${digest_types[$i]} will be tested."
 		digest_types_to_test="$digest_types_to_test $i"
@@ -227,8 +233,7 @@ do
 	echo "Testing ${digest_types[$i]}..."
 	generate_testfiles ${digest_sizes[$i]}
 	RC=$?
-	if test $RC -ne 0
-	then
+	if test $RC -ne 0; then
 		GLOBAL_RC=$RC
 		cleanup_testfiles
 	else
