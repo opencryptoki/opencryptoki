@@ -92,7 +92,6 @@ unsigned int THREADCNT=NUMTHREADS;
 
 
 int  do_EncryptRSA_PKCS(int);
-void show_error( char *, CK_RV );
 
 
 // Fill this one in..

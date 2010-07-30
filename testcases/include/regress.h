@@ -27,7 +27,7 @@
 #define GetSystemTime(x) ftime((x))
 
 void process_time(SYSTEMTIME t1, SYSTEMTIME t2);
-void process_ret_code( CK_RV rc );
+char *process_ret_code( CK_RV rc );
 int  do_GetInfo(void);
 void show_error( char *str, CK_RV rc );
 void print_hex( CK_BYTE *buf, CK_ULONG len );
@@ -82,6 +82,13 @@ int get_user_pin(CK_BYTE_PTR);
                                         ## __VA_ARGS__)
 #define PRINT(fmt, ...)         printf("%s:%d " fmt "\n", __FILE__, __LINE__, \
                                         ## __VA_ARGS__)
+
+
+/* show_error(char *_str, unsigned long _rc); */
+#define show_error(_str, _rc)						\
+	fprintf(stderr, "%s:%d: %s returned %lu (0x%lx) %s\n",		\
+		__FILE__, __LINE__, _str, _rc, _rc,			\
+		process_ret_code(_rc))
 
 
 #endif
