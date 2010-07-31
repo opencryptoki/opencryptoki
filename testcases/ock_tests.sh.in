@@ -38,15 +38,13 @@
 ##
 
 LOGGING=0
-LOGFILE="$PWD/ock-tests.log"
-ERR_SUMMARY="$PWD/ock-tests.err"
-TCSD="/usr/sbin/tcsd"
+TESTDIR=`dirname $0`
+LOGFILE="$TESTDIR/ock-tests.log"
+ERR_SUMMARY="$TESTDIR/ock-tests.err"
 PKCONF="@localstatedir@/lib/opencryptoki/pk_config_data"
 PKCSCONFBIN="@sbindir@/pkcsconf"
-TESTCONF="$PWD/ock-tests.config"
-OCKDIR="@localstatedir@/lib/opencryptoki"
-STDLLDIR="@libdir@/pkcs11/stdll"
-CONFSTART="@sbindir@/pkcs11_startup"
+TESTCONF="$TESTDIR/ock-tests.config"
+TOKTYPE=""
 
 #
 # This is the list of the tests we'll be running once everything is initialized
@@ -74,6 +72,194 @@ usage()
 	exit -1
 }
 
+###
+## check_tpmtok() - Check if stuff needed by tpm token are
+##                  present
+###
+check_tpmtok()
+{
+        # Check for tpmtoken_init
+        if ! which tpmtoken_init; then
+                echo "Error: tpmtoken_init could not be found on PATH"
+                exit 1
+        fi
+
+        # Check if tcsd is running
+        if ! pgrep tcsd; then
+                echo "Error: TCSD daemon not running"
+                exit 1
+        fi
+}
+
+###
+## check_ccatok() - Check if stuff needed by the CCA token
+##                  are present
+###
+check_ccatok()
+{
+        # Check if catcher.exe is running
+        if ! pgrep catcher.exe; then
+                echo "Error: catcher.exe daemon not running"
+                exit 1
+        fi
+}
+
+###
+## init_slot() - Initialize a specific slot
+## $1 - The slot number to initialize
+##
+###
+init_slot()
+{
+        case $TOKTYPE in
+                TPM)
+                        echo "Initializing TPM token using init_tpmtoken.sh"
+                        if ! $TESTDIR/init_tpmtoken.sh; then
+                                echo "Error initializing TPM token"
+                                exit 1
+                        fi
+                        ;;
+                CCA | ICA | Software)
+                        echo "Initializing $TOKTYPE using init_token.sh"
+                        if ! $TESTDIR/init_token.sh; then
+                                echo "Error initializing $TOKTYPE token"
+                                exit 1
+                        fi
+                        ;;
+                *)
+                        echo "Token type not recognized: $TOKTYPE"
+                        exit 1
+        esac
+}
+
+
+###
+## check_slot() - Checks if we have everything needed to test
+##                this specific slot number
+## $1 - The slot number to check
+###
+check_slot()
+{
+        # Check if the Slot exists, and what it actually is
+        TOKDESCR=`$PKCSCONFBIN -c $1 -t`
+        TOKMODEL=`echo "$TOKDESCR" | grep "Model:"`
+
+        case $TOKMODEL in
+                *TPM*)
+                        echo "TPM Token type detected"
+                        check_tpmtok
+                        TOKTYPE="TPM"
+                        ;;
+                *CCA*)
+                        echo "CCA Token type detected"
+                        check_ccatok
+                        TOKTYPE="CCA"
+                        ;;
+                *ICA*)
+                        echo "ICA Token type detected"
+                        TOKTYPE="ICA"
+                        ;;
+                *SoftTok*)
+                        echo "Software Token type detected"
+                        TOKTYPE="Software"
+                        ;;
+                *)
+                        echo "Error: unsupported or undetermined token type"
+                        echo "       wrong Slot?"
+                        exit 1
+        esac
+}
+
+##
+## check_env() - Check if we have everything we need
+##
+check_env()
+{
+        ## Check env vars first
+        if [ -z $PKCS11_SO_PIN ]; then
+                echo "Error: Must set PKCS11_SO_PIN"
+                exit 1
+        fi
+
+        if [ -z $PKCS11_USER_PIN ]; then
+                echo "Error: Must set PKCS11_USER_PIN"
+                exit 1
+        fi
+
+        if [ -z $PKCSLIB ]; then
+                echo "Error: Must set PKCSLIB"
+                exit 1
+        fi
+
+        if [ ! -f $PKCSLIB ]; then
+                echo "Error: PKCSLIB=$PKCSLIB is invalid"
+                exit 1
+        fi
+
+        if [ ! -f $PKCONF ]; then
+                echo "Error: Can't find configuration data ($PKCONF)"
+                exit 1
+        fi
+
+        ## Check if the pkcs11 group 'exists'
+        P11GROUP=`getent group pkcs11 | cut -d ":" -f 3`
+        if [ -z $P11GROUP ]; then
+                echo "Error: Can't find pkcs11 group"
+                exit 1
+        fi
+        ## Check if we're part of it
+        if ! id -G | grep $P11GROUP; then
+                echo "Error: Must be part of the pkcs11 group"
+                exit 1
+        fi
+
+        ## Make sure we have the slot daemon running
+        if ! pgrep pkcsslotd; then
+                echo "Error: The slot daemon (pkcsslotd) must be running"
+                exit 1
+        fi
+
+        ## We also need pkcsconf
+        if [ ! -x $PKCSCONFBIN ]; then
+                echo "Error: Invalid pkcsconf utility ($PKCSCONFBIN)"
+                exit 1
+        fi
+}
+
+###
+## run_tests() - run tests for a specific slot,
+##               following $OCK_DEST order
+## $1 - the slot
+###
+run_tests()
+{
+	echo "Will run the following tests for slot $1: $(ls -U $OCK_TESTS)"
+	for i in $( ls -U $OCK_TESTS )
+	do
+		echo "=====Now executing '$j'======"
+		$i -slot $1 $NO_STOP 2>&1
+	done
+}
+
+main_script()
+{
+        # check generic stuff first
+        check_env
+
+        # where to run
+        if [ -z $SLOT ]; then
+                NUMSLOT=`wc -l $PKCONF | cut -d " " -f 1`
+                for ((i=0; i<$NUMSLOT; i++)); do
+                        SLOT="$SLOT $i"
+                done
+        fi
+
+        for i in $SLOT; do
+        	check_slot $i
+                init_slot $i
+        	run_tests $i
+        done
+}
 
 while getopts s:l:hc:n arg
 do
@@ -102,123 +288,6 @@ do
 	esac
 done
 
-check_slots()
-{
-	[ -d $OCKDIR ] || echo "$OCKDIR not present"
-
-	#pkcsslotd running?
-	if [ -z "`pgrep pkcsslotd`" ]
-	then
-		echo "Error: pkcsslotd not started"
-		exit -1
-	fi
-
-	OLDIFS=$IFS
-	IFS=$(echo -en "\n\b")
-	#Are all the tokens listed in pk_config_data loaded?
-	for i in $( cat $PKCONF | awk -F \| '{print $3}' )
-	do
-		if [ -z "`$PKCSCONFBIN -s | grep $i`" ]
-		then
-			echo "Warning: Token not loaded: $i"
-
-			if [ -n "`echo $i | grep -i TPM`" ]
-			then
-				[ -n "`pgrep tcsd`" ] || echo " TCSD not running"
-				[ -n "`lsmod | grep tpm`" ] || echo " TPM kernel module not loaded"
-			fi
-			echo
-		fi
-	done
-	IFS=$OLDIFS
-}
-
-check_files()
-{
-	#Not implemented yet
-	#[ -e $TESTCONF ] || touch $TESTCONF #echo "Config file missing"
-
-	#Is the TCSD present?
-	if grep -i tpm $PKCONF && [ ! -e $TCSD ]
-	then
-		echo "Error: TCSD not present"
-		exit -1
-	fi
-
-
-	#Checks if for each token in $PKCFONF there is a .so file.
-	if [ -e $PKCONF ]
-	then
-		for i in $( cat $PKCONF | awk -F \| '{print $13}' )
-		do
-			if [ ! -e $STDLLDIR/$i ]
-			then
-				echo "Error: $i not present"
-				exit -1
-			fi
-		done
-
-	else
-		echo "Error: pk_config_data is missing"
-		exit -1
-	fi
-}
-
-check_environment_vars()
-{
-
-	if [ `env | grep -c PKCS11` -lt 2 ]
-	then
-		[ -n "`env | grep PKCS11_SO_PIN`" ] ||	echo "Error: PKCS11_SO_PIN not set"
-		[ -n "`env | grep PKCS11_USER_PIN`" ] ||  echo "Error: PKCS11_USER_PIN not set"
-		exit -1
-	fi
-
-	i=`env | grep PKCSLIB | sed "s/PKCSLIB=//"`
-
-	if [ -z "$i" ]
-	then
-		echo "Warning: PKCSLIB not set."
-		echo " It should point to libopencryptoki.so or PKCS11_API.so"
-	elif [ -z "`echo $i | grep libopencryptoki.so`" ] && [ -z "`echo $i | grep PKCS11_API.so`" ]
-	then
-		echo "Error: PKCSLIB pointing to an unknown .so file"
-		env | grep PKCSLIB
-		exit -1
-	fi
-
-}
-run_tests()
-{
-
-	for i in $( $PKCSCONFBIN -t | grep Info: | awk {'print $2'} | sed 's/#//' )
-	do
-		if [ -z "$SLOT" ] || [ "$SLOT" = "$i" ]
-		then
-			./init_token.sh $i
-			RC=$?
-			if test $RC -ne 0;
-			then
-				exit $RC
-			fi
-
-			echo "running tests: $(ls -U $OCK_TESTS)"
-			for j in $( ls -U $OCK_TESTS )
-			do
-				echo "=====Now executing '$j'======"
-				$j -slot $i $NO_STOP 2>&1
-			done
-		fi
-	done
-}
-
-main_script()
-{
-	check_slots
-	check_files
-	check_environment_vars
-	run_tests
-}
 
 if [ "$LOGGING" = "1" ]
 then
