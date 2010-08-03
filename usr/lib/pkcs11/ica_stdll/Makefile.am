@@ -33,3 +33,8 @@ INCLUDES = $(ICA_INC_DIRS) -I/usr/include			\
 install-data-hook:
 	cd $(DESTDIR)$(libdir)/opencryptoki/stdll && \
 		ln -sf libpkcs11_ica.so PKCS11_ICA.so
+
+uninstall-hook:
+	if test -d $(DESTDIR)$(libdir)/opencryptoki/stdll; then \
+		cd $(DESTDIR)$(libdir)/opencryptoki/stdll && \
+		rm -f PKCS11_ICA.so; fi

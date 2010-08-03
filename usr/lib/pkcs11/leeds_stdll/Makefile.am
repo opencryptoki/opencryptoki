@@ -14,3 +14,8 @@ INCLUDES = $(SCC_INC_DIRS) -I/usr/include -I. -I../../../include/pkcs11/stdll \
 install-data-hook:
 	cd $(DESTDIR)$(libdir)/opencryptoki/stdll && \
 		ln -sf libpkcs11_4758.so PKCS11_4758.so
+
+uninstall-hook:
+	if test -d $(DESTDIR)$(libdir)/opencryptoki/stdll; then \
+		cd $(DESTDIR)$(libdir)/opencryptoki/stdll && \
+		rm -f PKCS11_4758.so; fi

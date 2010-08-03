@@ -30,3 +30,8 @@ install-data-hook:
 	cd $(DESTDIR)$(libdir)/opencryptoki/stdll && \
 		ln -sf libpkcs11_ica.so PKCS11_ICA.so
 	$(MKDIR_P) $(DESTDIR)$(localstatedir)/lib/opencryptoki/lite
+
+uninstall-hook:
+	if test -d $(DESTDIR)$(libdir)/opencryptoki/stdll; then \
+		cd $(DESTDIR)$(libdir)/opencryptoki/stdll && \
+		rm -f PKCS11_ICA.so; fi

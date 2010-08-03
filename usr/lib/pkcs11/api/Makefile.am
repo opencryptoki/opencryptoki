@@ -29,3 +29,15 @@ install-data-hook:
 	$(MKDIR_P) $(DESTDIR)$(libdir)/opencryptoki/stdll
 	cd $(DESTDIR)$(libdir)/pkcs11 && \
 		ln -sf ../opencryptoki/stdll/ stdll
+
+uninstall-hook:
+	if test -d $(DESTDIR)$(libdir)/opencryptoki/stdll; then \
+		cd $(DESTDIR)$(libdir)/opencryptoki && \
+		rm -f PKCS11_API.so && \
+		rm -f methods; fi
+	if test -d $(DESTDIR)$(libdir)/pkcs11; then \
+		cd $(DESTDIR)$(libdir)/pkcs11 && \
+		rm -f methods && \
+		rm -f PKCS11_API.so && \
+		rm -f libopencryptoki.so && \
+		rm -f stdll; fi

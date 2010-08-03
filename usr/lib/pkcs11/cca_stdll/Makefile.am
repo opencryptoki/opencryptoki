@@ -55,3 +55,8 @@ install-data-hook:
 	cd $(DESTDIR)/$(libdir)/opencryptoki/stdll && \
 		ln -sf libpkcs11_cca.so PKCS11_CCA.so
 	$(MKDIR_P) $(DESTDIR)$(localstatedir)/lib/opencryptoki/ccatok
+
+uninstall-hook:
+	if test -d $(DESTDIR)/$(libdir)/opencryptoki/stdll; then \
+		cd $(DESTDIR)/$(libdir)/opencryptoki/stdll && \
+		rm -f PKCS11_CCA.so; fi
