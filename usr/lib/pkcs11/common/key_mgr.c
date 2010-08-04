@@ -1039,7 +1039,7 @@ key_mgr_unwrap_key( SESSION           * sess,
                     CK_OBJECT_HANDLE  * h_unwrapped_key )
 {
    ENCR_DECR_CONTEXT * ctx = NULL;
-   OBJECT            * key_obj = NULL;
+   OBJECT            * key_obj = NULL, * tmp_obj = NULL;
    CK_BYTE           * data = NULL;
    CK_ULONG            data_len;
    CK_ULONG            keyclass, keytype;
@@ -1053,7 +1053,7 @@ key_mgr_unwrap_key( SESSION           * sess,
       return CKR_FUNCTION_FAILED;
    }
 
-   rc = object_mgr_find_in_map1( h_unwrapping_key, &key_obj );
+   rc = object_mgr_find_in_map1( h_unwrapping_key, &tmp_obj );
    if (rc != CKR_OK){
       st_err_log(62, __FILE__, __LINE__);
       return CKR_WRAPPING_KEY_HANDLE_INVALID;

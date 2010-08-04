@@ -1258,6 +1258,9 @@ object_mgr_find_in_map1( CK_OBJECT_HANDLE    handle,
       return CKR_FUNCTION_FAILED;
    }
 
+   // Initialize *ptr to NULL in case we return in error
+   *ptr = NULL;
+
    if (!handle){
       st_err_log(30, __FILE__, __LINE__);
       return CKR_OBJECT_HANDLE_INVALID;
