@@ -1069,10 +1069,6 @@ key_mgr_unwrap_key( SESSION           * sess,
    switch (mech->mechanism) {
       case CKM_RSA_PKCS:
       case CKM_RSA_X_509:
-         keyclass = CKO_SECRET_KEY;
-         found_class = TRUE;
-         break;
-
 #if !(NOCMF)
       case CKM_CDMF_ECB:
       case CKM_CDMF_CBC:
@@ -1131,12 +1127,6 @@ CKO_PRIVATE_KEY)){
    switch (mech->mechanism) {
       case CKM_RSA_PKCS:
       case CKM_RSA_X_509:
-         if (keyclass != CKO_SECRET_KEY){
-            st_err_log(49, __FILE__, __LINE__);
-            return CKR_TEMPLATE_INCONSISTENT;
-         }
-         break;
-
 #if !(NOCMF)
       case CKM_CDMF_ECB:
       case CKM_CDMF_CBC:
