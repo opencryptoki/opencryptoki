@@ -341,7 +341,7 @@ CK_BYTE DH_PUBL_BASE[128] =
 
 //
 //
-int do_GenerateDHKeyPair( void )
+CK_RV do_GenerateDHKeyPair( void )
 {
 	CK_SLOT_ID          slot_id;
 	CK_SESSION_HANDLE   session;
@@ -350,7 +350,7 @@ int do_GenerateDHKeyPair( void )
 	CK_FLAGS            flags;
 	CK_BYTE             user_pin[PKCS11_MAX_PIN_LEN];
 	CK_ULONG            user_pin_len;
-	CK_RV               rc;
+	CK_RV               rc, loc_rc;
 
 	CK_OBJECT_CLASS     pub_key_class  = CKO_PUBLIC_KEY ;
 	CK_KEY_TYPE         pub_key_type   = CKK_DH ;
@@ -388,7 +388,7 @@ int do_GenerateDHKeyPair( void )
 	rc = funcs->C_OpenSession( slot_id, flags, NULL, NULL, &session );
 	if (rc != CKR_OK) {
 		show_error("   C_OpenSession #3", rc );
-		return FALSE;
+		return rc;
 	}
 
 	rc = funcs->C_Login( session, CKU_USER, user_pin, user_pin_len );
@@ -411,22 +411,22 @@ int do_GenerateDHKeyPair( void )
 	rc = funcs->C_CloseSession( session );
 	if (rc != CKR_OK) {
 		show_error("   C_CloseSession #3", rc );
-		return FALSE;
+		return rc;
 	}
 
 	printf("Looks okay...\n");
-	return TRUE;
+	return 0;
 
 error:
-	rc = funcs->C_CloseSession (session);
-	if (rc != CKR_OK)
-		show_error ("   C_CloseSession", rc);
+	loc_rc = funcs->C_CloseSession (session);
+	if (loc_rc != CKR_OK)
+		show_error ("   C_CloseSession", loc_rc);
 
-	return FALSE;
+	return rc;
 }
 
 
-int do_DeriveDHKey( void )
+CK_RV do_DeriveDHKey( void )
 {
 	CK_SLOT_ID          slot_id;
 	CK_SESSION_HANDLE   session;
@@ -435,7 +435,7 @@ int do_DeriveDHKey( void )
 	CK_FLAGS            flags;
 	CK_BYTE             user_pin[PKCS11_MAX_PIN_LEN];
 	CK_ULONG            user_pin_len;
-	CK_RV               rc;
+	CK_RV               rc, loc_rc;
 
 	CK_OBJECT_CLASS     pub_key_class  = CKO_PUBLIC_KEY ;
 	CK_KEY_TYPE         pub_key_type   = CKK_DH ;
@@ -487,7 +487,7 @@ int do_DeriveDHKey( void )
 	rc = funcs->C_OpenSession( slot_id, flags, NULL, NULL, &session );
 	if (rc != CKR_OK) {
 		show_error("   C_OpenSession #3", rc );
-		return FALSE;
+		return rc;
 	}
 
 	rc = funcs->C_Login( session, CKU_USER, user_pin, user_pin_len );
@@ -525,7 +525,7 @@ int do_DeriveDHKey( void )
 			priv_key, secret_tmpl,
 			3, &secret_key ) ;
 	if (rc != CKR_OK) {
-		printf("DeriveKey Failed\n") ;
+		PRINT_ERR("DeriveKey Failed\n") ;
 		show_error("   C_DeriveKey #1", rc );
 		goto error;
 	}
@@ -534,25 +534,53 @@ int do_DeriveDHKey( void )
 	rc = funcs->C_CloseSession( session );
 	if (rc != CKR_OK) {
 		show_error("   C_CloseSession #3", rc );
-		return FALSE;
+		return rc;
 	}
 
 	printf("Looks okay...\n");
-	return TRUE;
+	return 0;
 
 error:
-	rc = funcs->C_CloseSession (session);
-	if (rc != CKR_OK)
-		show_error ("   C_CloseSession", rc);
+	loc_rc = funcs->C_CloseSession (session);
+	if (loc_rc != CKR_OK)
+		show_error ("   C_CloseSession", loc_rc);
 
-	return FALSE;
+	return rc;
 } /* end do_DeriveDHKey() */
+
+CK_RV dh_functions()
+{
+	SYSTEMTIME t1, t2;
+	CK_RV        rc;
+
+	GetSystemTime(&t1);
+	rc = do_GenerateDHKeyPair();
+	if (rc) {
+		PRINT_ERR("ERROR do_GenerateDHKeyPair failed, rc = 0x%lx\n", rc);
+		if (!no_stop)
+			return rc;
+	}
+	GetSystemTime(&t2);
+	process_time( t1, t2 );
+
+	GetSystemTime(&t1);
+	rc = do_DeriveDHKey();
+	if (rc) {
+		PRINT_ERR("ERROR do_DeriveDHKey failed, rc = 0x%lx\n", rc);
+		if (!no_stop)
+			return rc;
+	}
+	GetSystemTime(&t2);
+	process_time( t1, t2 );
+
+	return 0;
+}
 
 int main(int argc, char **argv)
 {
 	CK_C_INITIALIZE_ARGS cinit_args;
-	int rc, i;
-
+	int rc;
+	CK_RV rv;
 	
 	rc = do_ParseArgs(argc, argv);
 	if ( rc != 1)
@@ -563,7 +591,7 @@ int main(int argc, char **argv)
 
 	rc = do_GetFunctionList();
 	if (!rc) {
-		fprintf(stderr, "ERROR do_GetFunctionList() Failed , rc = 0x%0x\n", rc); 
+		PRINT_ERR("ERROR do_GetFunctionList() Failed , rc = 0x%0x\n", rc);
 		return rc;
 	}
 	
@@ -587,33 +615,8 @@ int main(int argc, char **argv)
 
 	}
 
-	dh_functions();
+	rv = dh_functions();
+	/* make sure we return non-zero if rv is non-zero */
+	return ((rv==0) || (rv % 256) ? rv : -1);
 }
 
-int dh_functions()
-{
-	SYSTEMTIME t1, t2;
-	int        rc;
-
-	GetSystemTime(&t1);
-	rc = do_GenerateDHKeyPair();
-	if (!rc) {
-		fprintf (stderr, "ERROR do_GenerateDHKeyPair failed, rc = 0x%0x\n", rc);
-		if (!no_stop)
-			return rc;
-	}
-	GetSystemTime(&t2);
-	process_time( t1, t2 );
-
-	GetSystemTime(&t1);
-	rc = do_DeriveDHKey();
-	if (!rc) {
-		fprintf (stderr, "ERROR do_DeriveDHKey failed, rc = 0x%0x\n", rc);
-		if (!no_stop)
-			return rc;
-	}
-	GetSystemTime(&t2);
-	process_time( t1, t2 );
-
-	return TRUE;
-}
