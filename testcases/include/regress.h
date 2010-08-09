@@ -28,7 +28,6 @@
 
 void process_time(SYSTEMTIME t1, SYSTEMTIME t2);
 char *process_ret_code( CK_RV rc );
-int  do_GetInfo(void);
 void show_error( char *str, CK_RV rc );
 void print_hex( CK_BYTE *buf, CK_ULONG len );
 
@@ -39,19 +38,7 @@ void init_coprocessor(void);
 CK_RV C_GetFunctionList( CK_FUNCTION_LIST ** ) ;
 CK_RV DummyFunction( CK_SLOT_ID id ) ;
 
-int misc_functions(void);
-int sess_mgmt_functions(void);
-int obj_mgmt_functions(void);
-int des_functions(void);
-int des3_functions(void);
-int aes_functions(void);
-int ssl3_functions(void);
 int digest_functions(void);
-int rsa_functions(void);
-int dsa_functions(void);
-/* Begin code contributed by Corrent corp. */
-int dh_functions(void);
-/* End code contributed by Corrent corp. */
 
 CK_FUNCTION_LIST  *funcs;
 CK_SLOT_ID  SLOT_ID;
