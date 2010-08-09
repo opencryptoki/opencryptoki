@@ -35,7 +35,7 @@ void hex_dump_to_file(char *str, unsigned char *data, int bytes)
 
 //
 //
-int do_GenerateRSAKeyPair( void )
+CK_RV do_GenerateRSAKeyPair( void )
 {
 	CK_SLOT_ID          slot_id;
 	CK_SESSION_HANDLE   session;
@@ -44,7 +44,7 @@ int do_GenerateRSAKeyPair( void )
 	CK_FLAGS            flags;
 	CK_BYTE             user_pin[PKCS11_MAX_PIN_LEN];
 	CK_ULONG            user_pin_len;
-	CK_RV               rc;
+	CK_RV               rc, loc_rc;
 
 
 	printf("do_GenerateRSAKey...\n");
@@ -72,13 +72,13 @@ int do_GenerateRSAKeyPair( void )
 		rc = funcs->C_OpenSession( slot_id, flags, NULL, NULL, &session );
 		if (rc != CKR_OK) {
 			show_error("   C_OpenSession #3", rc );
-			return FALSE;
+			return rc;
 		}
 
 		rc = funcs->C_Login( session, CKU_USER, user_pin, user_pin_len );
 		if (rc != CKR_OK) {
 			show_error("   C_Login #1", rc );
-			return FALSE;
+			return rc;
 		}
 
 		rc = funcs->C_GenerateKeyPair( session,   &mech,
@@ -93,26 +93,26 @@ int do_GenerateRSAKeyPair( void )
 		rc = funcs->C_CloseSession( session );
 		if (rc != CKR_OK) {
 			show_error("   C_CloseSession #3", rc );
-			return FALSE;
+			return rc;
 		}
 	}
 
 	printf("Looks okay...\n");
-	return TRUE;
+	return rc;
 
 error:
-	rc = funcs->C_CloseSession (session);
-	if (rc != CKR_OK)
-		show_error ("   C_CloseSession #2", rc);
+	loc_rc = funcs->C_CloseSession (session);
+	if (loc_rc != CKR_OK)
+		show_error ("   C_CloseSession #2", loc_rc);
 
-	return FALSE;
+	return rc;
 }
 
 
 
 //
 //
-int do_EncryptRSA_PKCS( void )
+CK_RV do_EncryptRSA_PKCS( void )
 {
 	CK_BYTE             data1[100];
 	CK_BYTE             data2[256];
@@ -126,7 +126,7 @@ int do_EncryptRSA_PKCS( void )
 	CK_ULONG            user_pin_len;
 	CK_ULONG            i;
 	CK_ULONG            len1, len2, cipherlen;
-	CK_RV               rc;
+	CK_RV               rc, loc_rc;
 
 	CK_BYTE   pub_exp[] = { 0x3 };
 
@@ -143,7 +143,7 @@ int do_EncryptRSA_PKCS( void )
 	rc = funcs->C_OpenSession( slot_id, flags, NULL, NULL, &session );
 	if (rc != CKR_OK) {
 		show_error("   C_OpenSession #1", rc );
-		return FALSE;
+		return rc;
 	}
 
 
@@ -154,7 +154,7 @@ int do_EncryptRSA_PKCS( void )
 	rc = funcs->C_Login( session, CKU_USER, user_pin, user_pin_len );
 	if (rc != CKR_OK) {
 		show_error("   C_Login #1", rc );
-		return FALSE;
+		return rc;
 	}
 
 	mech.mechanism      = CKM_RSA_PKCS_KEY_PAIR_GEN;
@@ -214,12 +214,12 @@ int do_EncryptRSA_PKCS( void )
 	printf("Len from encrypt %ld  from decrypt %ld \n",len1, len2);
 	//if (len1 != len2) {
 	//   printf("   ERROR:  lengths don't match\n");
-	//   return FALSE;
+	//   return -1;
 	// }
 
 	for (i=0; i <len1; i++) {
 		if (data1[i] != data2[i]) {
-			printf("   ERROR:  mismatch at byte %ld\n", i );
+			PRINT_ERR("   ERROR:  mismatch at byte %ld\n", i );
 			goto error;
 		}
 	}
@@ -227,25 +227,25 @@ int do_EncryptRSA_PKCS( void )
 	rc = funcs->C_CloseAllSessions( slot_id );
 	if (rc != CKR_OK) {
 		show_error("   C_CloseAllSessions #1", rc );
-		return FALSE;
+		return rc;
 	}
 
 	printf("Looks okay...\n");
-	return TRUE;
+	return rc;
 
 error:
-	rc = funcs->C_CloseAllSessions ( slot_id);
-	if (rc != CKR_OK)
-		show_error ("   C_CloseAllSessions #1", rc);
+	loc_rc = funcs->C_CloseAllSessions ( slot_id);
+	if (loc_rc != CKR_OK)
+		show_error ("   C_CloseAllSessions #1", loc_rc);
 
-	return FALSE;
+	return rc;
 }
 
 
 
 //
 //
-int do_EncryptRSA_PKCS_Speed( void )
+CK_RV do_EncryptRSA_PKCS_Speed( void )
 {
 	CK_BYTE             data1[100];
 	CK_BYTE             data2[256];
@@ -259,7 +259,7 @@ int do_EncryptRSA_PKCS_Speed( void )
 	CK_ULONG            user_pin_len;
 	CK_ULONG            i;
 	CK_ULONG            len1, len2, cipherlen;
-	CK_RV               rc;
+	CK_RV               rc, loc_rc;
 	SYSTEMTIME          t1, t2;
 
 	CK_BYTE   pub_exp[] = { 0x3 };
@@ -277,7 +277,7 @@ int do_EncryptRSA_PKCS_Speed( void )
 	rc = funcs->C_OpenSession( slot_id, flags, NULL, NULL, &session );
 	if (rc != CKR_OK) {
 		show_error("   C_OpenSession #1", rc );
-		return FALSE;
+		return rc;
 	}
 
 
@@ -288,7 +288,7 @@ int do_EncryptRSA_PKCS_Speed( void )
 	rc = funcs->C_Login( session, CKU_USER, user_pin, user_pin_len );
 	if (rc != CKR_OK) {
 		show_error("   C_Login #1", rc );
-		return FALSE;
+		return rc;
 	}
 
 	mech.mechanism      = CKM_RSA_PKCS_KEY_PAIR_GEN;
@@ -364,13 +364,13 @@ int do_EncryptRSA_PKCS_Speed( void )
 	printf("\n");
 
 	if (len1 != len2) {
-		printf("   ERROR:  lengths don't match %ld  %ld \n",len1,len2);
+		PRINT_ERR("   ERROR:  lengths don't match %ld  %ld \n",len1,len2);
 		goto error;
 	}
 
 	for (i=0; i <len1; i++) {
 		if (data1[i] != data2[i]) {
-			printf("   ERROR:  mismatch at byte %ld\n", i );
+			PRINT_ERR("   ERROR:  mismatch at byte %ld\n", i );
 			goto error;
 		}
 	}
@@ -378,24 +378,24 @@ int do_EncryptRSA_PKCS_Speed( void )
 	rc = funcs->C_CloseAllSessions( slot_id );
 	if (rc != CKR_OK) {
 		show_error("   C_CloseAllSessions #1", rc );
-		return FALSE;
+		return rc;
 	}
 
 	printf("Looks okay...\n");
-	return TRUE;
+	return rc;
 
 error:
-	rc = funcs->C_CloseAllSessions( slot_id );
-	if (rc != CKR_OK)
-		show_error ("   C_CloseAllSessions #2", rc);
+	loc_rc = funcs->C_CloseAllSessions( slot_id );
+	if (loc_rc != CKR_OK)
+		show_error ("   C_CloseAllSessions #2", loc_rc);
 
-	return FALSE;
+	return rc;
 }
 
 
 //
 //
-int do_SignRSA_PKCS( void )
+CK_RV do_SignRSA_PKCS( void )
 {
 	CK_BYTE             data1[100];
 	CK_BYTE             data2[512];
@@ -409,7 +409,7 @@ int do_SignRSA_PKCS( void )
 	CK_ULONG            user_pin_len;
 	CK_ULONG            i;
 	CK_ULONG            len1, len2, sig_len;
-	CK_RV               rc;
+	CK_RV               rc, loc_rc;
 
 	CK_BYTE   pub_exp[] = { 0x3 };
 
@@ -426,7 +426,7 @@ int do_SignRSA_PKCS( void )
 	rc = funcs->C_OpenSession( slot_id, flags, NULL, NULL, &session );
 	if (rc != CKR_OK) {
 		show_error("   C_OpenSession #1", rc );
-		return FALSE;
+		return rc;
 	}
 
 
@@ -437,7 +437,7 @@ int do_SignRSA_PKCS( void )
 	rc = funcs->C_Login( session, CKU_USER, user_pin, user_pin_len );
 	if (rc != CKR_OK) {
 		show_error("   C_Login #1", rc );
-		return FALSE;
+		return rc;
 	}
 
 	mech.mechanism      = CKM_RSA_PKCS_KEY_PAIR_GEN;
@@ -499,13 +499,13 @@ int do_SignRSA_PKCS( void )
 	rc = funcs->C_VerifyInit( session, &mech, publ_key );
 	if (rc != CKR_OK) {
 		show_error("   C_VerifyInit #2", rc );
-		return FALSE;
+		return rc;
 	}
 
 	rc = funcs->C_Verify( session, data1, len1, signature, sig_len );
 	if (rc != CKR_SIGNATURE_INVALID) {
 		show_error("   C_Verify #2", rc );
-		printf("   Expected CKR_SIGNATURE_INVALID\n");
+		PRINT_ERR("   Expected CKR_SIGNATURE_INVALID\n");
 		goto error;
 	}
 
@@ -540,36 +540,36 @@ int do_SignRSA_PKCS( void )
 	}
 
 	if (len1 != len2) {
-		printf("   ERROR:  recovered length mismatch\n");
+		PRINT_ERR("   ERROR:  recovered length mismatch\n");
 		goto error;
 	}
 
 	if (memcmp(data1, data2, len1) != 0) {
-		printf("   ERROR;  data mismatch\n");
+		PRINT_ERR("   ERROR;  data mismatch\n");
 		goto error;
 	}
 
 	rc = funcs->C_CloseAllSessions( slot_id );
 	if (rc != CKR_OK) {
 		show_error("   C_CloseAllSessions #1", rc );
-		return FALSE;
+		return rc;
 	}
 
 	printf("Looks okay...\n");
-	return TRUE;
+	return rc;
 
 error:
-	rc = funcs->C_CloseAllSessions ( slot_id );
-	if (rc != CKR_OK)
-		show_error ("   C_CloseAllSessions #1", rc);
+	loc_rc = funcs->C_CloseAllSessions ( slot_id );
+	if (loc_rc != CKR_OK)
+		show_error ("   C_CloseAllSessions #1", loc_rc);
 
-	return FALSE;
+	return rc;
 }
 
 
 //
 //
-int do_WrapUnwrapRSA_PKCS( void )
+CK_RV do_WrapUnwrapRSA_PKCS( void )
 {
 	CK_BYTE             original    [BIG_REQUEST];
 	CK_BYTE             crypt       [BIG_REQUEST];
@@ -588,7 +588,7 @@ int do_WrapUnwrapRSA_PKCS( void )
 	CK_ULONG            wrapped_data_len;
 	CK_ULONG            i;
 	CK_ULONG            orig_len, crypt_len, decrypt_len;
-	CK_RV               rc;
+	CK_RV               rc, loc_rc;
 
 	CK_OBJECT_CLASS     key_class = CKO_SECRET_KEY;
 	CK_KEY_TYPE         key_type  = CKK_DES;
@@ -613,7 +613,7 @@ int do_WrapUnwrapRSA_PKCS( void )
 	rc = funcs->C_OpenSession( slot_id, flags, NULL, NULL, &session );
 	if (rc != CKR_OK) {
 		show_error("   C_OpenSession #1", rc );
-		return FALSE;
+		return rc;
 	}
 
 
@@ -723,13 +723,13 @@ int do_WrapUnwrapRSA_PKCS( void )
 	}
 
 	if (decrypt_len != orig_len) {
-		printf("   ERROR:  lengths don't match\n");
+		PRINT_ERR("   ERROR:  lengths don't match\n");
 		goto error;
 	}
 
 	for (i=0; i < orig_len; i++) {
 		if (original[i] != decrypt[i]) {
-			printf("   ERROR:  mismatch at byte %ld\n", i );
+			PRINT_ERR("   ERROR:  mismatch at byte %ld\n", i );
 			goto error;
 		}
 	}
@@ -779,7 +779,7 @@ int do_WrapUnwrapRSA_PKCS( void )
 				data,      &data_len );
 		if (rc != CKR_KEY_NOT_WRAPPABLE) {
 			show_error("   C_WrapKey #2", rc );
-			printf("   Expected CKR_KEY_NOT_WRAPPABLE\n" );
+			PRINT_ERR("   Expected CKR_KEY_NOT_WRAPPABLE\n" );
 			goto error;
 		}
 	}
@@ -787,24 +787,24 @@ int do_WrapUnwrapRSA_PKCS( void )
 	rc = funcs->C_CloseAllSessions( slot_id );
 	if (rc != CKR_OK) {
 		show_error("   C_CloseAllSessions #1", rc );
-		return FALSE;
+		return rc;
 	}
 
 	printf("Looks okay...\n");
-	return TRUE;
+	return rc;
 
 error:
-	rc = funcs->C_CloseSession (session);
-	if (rc != CKR_OK)
-		show_error ("   C_CloseSession #2", rc);
+	loc_rc = funcs->C_CloseSession (session);
+	if (loc_rc != CKR_OK)
+		show_error ("   C_CloseSession #2", loc_rc);
 
-	return FALSE;
+	return rc;
 }
 
 
 //
 //
-int do_EncryptRSA_X509( void )
+CK_RV do_EncryptRSA_X509( void )
 {
 	CK_BYTE             data1[100];
 	CK_BYTE             data2[512];
@@ -818,7 +818,7 @@ int do_EncryptRSA_X509( void )
 	CK_ULONG            user_pin_len;
 	CK_ULONG            i;
 	CK_ULONG            len1, len2, cipherlen, pad_len;
-	CK_RV               rc;
+	CK_RV               rc, loc_rc;
 
 	CK_BYTE   pub_exp[] = { 0x3 };
 
@@ -835,7 +835,7 @@ int do_EncryptRSA_X509( void )
 	rc = funcs->C_OpenSession( slot_id, flags, NULL, NULL, &session );
 	if (rc != CKR_OK) {
 		show_error("   C_OpenSession #1", rc );
-		return FALSE;
+		return rc;
 	}
 
 
@@ -846,7 +846,7 @@ int do_EncryptRSA_X509( void )
 	rc = funcs->C_Login( session, CKU_USER, user_pin, user_pin_len );
 	if (rc != CKR_OK) {
 		show_error("   C_Login #1", rc );
-		return FALSE;
+		return rc;
 	}
 
 	mech.mechanism      = CKM_RSA_PKCS_KEY_PAIR_GEN;
@@ -908,31 +908,31 @@ int do_EncryptRSA_X509( void )
 	pad_len = len2 - len1;
 
 	if (memcmp(data1, &data2[pad_len], len1) != 0) {
-		printf("   ERROR:  mismatch at byte %ld\n", i );
+		PRINT_ERR("   ERROR:  mismatch at byte %ld\n", i );
 		goto error;
 	}
 
 	rc = funcs->C_CloseAllSessions( slot_id );
 	if (rc != CKR_OK) {
 		show_error("   C_CloseAllSessions #1", rc );
-		return FALSE;
+		return rc;
 	}
 
 	printf("Looks okay...\n");
-	return TRUE;
+	return rc;
 
 error:
-	rc = funcs->C_CloseAllSessions ( slot_id );
-	if (rc != CKR_OK)
-		show_error ("   C_CloseAllSessions #1", rc);
+	loc_rc = funcs->C_CloseAllSessions ( slot_id );
+	if (loc_rc != CKR_OK)
+		show_error ("   C_CloseAllSessions #1", loc_rc);
 
-	return FALSE;
+	return rc;
 }
 
 
 //
 //
-int do_SignRSA_X509( void )
+CK_RV do_SignRSA_X509( void )
 {
 	CK_BYTE             data1[100];
 	CK_BYTE             data2[512];
@@ -946,7 +946,7 @@ int do_SignRSA_X509( void )
 	CK_ULONG            user_pin_len;
 	CK_ULONG            i, pad_len;
 	CK_ULONG            len1, len2, sig_len;
-	CK_RV               rc;
+	CK_RV               rc, loc_rc;
 
 	CK_BYTE   pub_exp[] = { 0x3 };
 
@@ -963,7 +963,7 @@ int do_SignRSA_X509( void )
 	rc = funcs->C_OpenSession( slot_id, flags, NULL, NULL, &session );
 	if (rc != CKR_OK) {
 		show_error("   C_OpenSession #1", rc );
-		return FALSE;
+		return rc;
 	}
 
 
@@ -974,7 +974,7 @@ int do_SignRSA_X509( void )
 	rc = funcs->C_Login( session, CKU_USER, user_pin, user_pin_len );
 	if (rc != CKR_OK) {
 		show_error("   C_Login #1", rc );
-		return FALSE;
+		return rc;
 	}
 
 	mech.mechanism      = CKM_RSA_PKCS_KEY_PAIR_GEN;
@@ -1042,7 +1042,7 @@ int do_SignRSA_X509( void )
 	rc = funcs->C_Verify( session, data1, len1, signature, sig_len );
 	if (rc != CKR_SIGNATURE_INVALID) {
 		show_error("   C_Verify #2", rc );
-		printf("   Expected CKR_SIGNATURE_INVALID\n");
+		PRINT_ERR("   Expected CKR_SIGNATURE_INVALID\n");
 		goto error;
 	}
 
@@ -1082,7 +1082,7 @@ int do_SignRSA_X509( void )
 	pad_len = len2 - len1;
 
 	if (memcmp(data1, &data2[pad_len], len1) != 0) {
-		printf("   ERROR;  data mismatch\n");
+		PRINT_ERR("   ERROR;  data mismatch\n");
 		goto error;
 	}
 
@@ -1090,24 +1090,24 @@ int do_SignRSA_X509( void )
 	rc = funcs->C_CloseAllSessions( slot_id );
 	if (rc != CKR_OK) {
 		show_error("   C_CloseAllSessions #1", rc );
-		return FALSE;
+		return rc;
 	}
 
 	printf("Looks okay...\n");
-	return TRUE;
+	return rc;
 
 error:
-	rc = funcs->C_CloseAllSessions (session);
-	if (rc != CKR_OK)
-		show_error ("   C_CloseAllSessions #1", rc);
+	loc_rc = funcs->C_CloseAllSessions (session);
+	if (loc_rc != CKR_OK)
+		show_error ("   C_CloseAllSessions #1", loc_rc);
 
-	return FALSE;
+	return rc;
 }
 
 
 //
 //
-int do_WrapUnwrapRSA_X509( void )
+CK_RV do_WrapUnwrapRSA_X509( void )
 {
 	CK_BYTE             original    [BIG_REQUEST];
 	CK_BYTE             crypt       [BIG_REQUEST];
@@ -1126,7 +1126,7 @@ int do_WrapUnwrapRSA_X509( void )
 	CK_ULONG            wrapped_data_len;
 	CK_ULONG            i;
 	CK_ULONG            orig_len, crypt_len, decrypt_len;
-	CK_RV               rc;
+	CK_RV               rc, loc_rc;
 
 	CK_OBJECT_CLASS     key_class = CKO_SECRET_KEY;
 	CK_KEY_TYPE         key_type  = CKK_DES;
@@ -1151,7 +1151,7 @@ int do_WrapUnwrapRSA_X509( void )
 	rc = funcs->C_OpenSession( slot_id, flags, NULL, NULL, &session );
 	if (rc != CKR_OK) {
 		show_error("   C_OpenSession #1", rc );
-		return FALSE;
+		return rc;
 	}
 
 
@@ -1261,13 +1261,13 @@ int do_WrapUnwrapRSA_X509( void )
 	}
 
 	if (decrypt_len != orig_len) {
-		printf("   ERROR:  lengths don't match\n");
+		PRINT_ERR("   ERROR:  lengths don't match\n");
 		goto error;
 	}
 
 	for (i=0; i < orig_len; i++) {
 		if (original[i] != decrypt[i]) {
-			printf("   ERROR:  mismatch at byte %ld\n", i );
+			PRINT_ERR("   ERROR:  mismatch at byte %ld\n", i );
 			goto error;
 		}
 	}
@@ -1317,7 +1317,7 @@ int do_WrapUnwrapRSA_X509( void )
 				data,      &data_len );
 		if (rc != CKR_KEY_NOT_WRAPPABLE) {
 			show_error("   C_WrapKey #2", rc );
-			printf("   Expected CKR_KEY_NOT_WRAPPABLE\n" );
+			PRINT_ERR("   Expected CKR_KEY_NOT_WRAPPABLE\n" );
 			goto error;
 		}
 	}
@@ -1325,23 +1325,23 @@ int do_WrapUnwrapRSA_X509( void )
 	rc = funcs->C_CloseAllSessions( slot_id );
 	if (rc != CKR_OK) {
 		show_error("   C_CloseAllSessions #1", rc );
-		return FALSE;
+		return rc;
 	}
 
 	printf("Looks okay...\n");
-	return TRUE;
+	return rc;
 
 error:
-	rc = funcs->C_CloseAllSessions( slot_id );
-	if (rc != CKR_OK)
-		show_error("   C_CloseAllSessions #1", rc );
-	return FALSE;
+	loc_rc = funcs->C_CloseAllSessions( slot_id );
+	if (loc_rc != CKR_OK)
+		show_error("   C_CloseAllSessions #1", loc_rc );
+	return rc;
 }
 
 
 //
 //
-int do_SignVerifyMD2_RSA_PKCS( void )
+CK_RV do_SignVerifyMD2_RSA_PKCS( void )
 {
 	CK_BYTE             original[2048];
 	CK_BYTE             sig1[512];
@@ -1355,7 +1355,7 @@ int do_SignVerifyMD2_RSA_PKCS( void )
 	CK_ULONG            user_pin_len;
 	CK_ULONG            orig_len, sig1_len, sig2_len;
 	CK_ULONG            i, remain;
-	CK_RV               rc;
+	CK_RV               rc, loc_rc;
 
 	CK_BYTE   pub_exp[] = { 0x3 };
 
@@ -1372,7 +1372,7 @@ int do_SignVerifyMD2_RSA_PKCS( void )
 	rc = funcs->C_OpenSession( slot_id, flags, NULL, NULL, &session );
 	if (rc != CKR_OK) {
 		show_error("   C_OpenSession #1", rc );
-		return FALSE;
+		return rc;
 	}
 
 
@@ -1383,7 +1383,7 @@ int do_SignVerifyMD2_RSA_PKCS( void )
 	rc = funcs->C_Login( session, CKU_USER, user_pin, user_pin_len );
 	if (rc != CKR_OK) {
 		show_error("   C_Login #1", rc );
-		return FALSE;
+		return rc;
 	}
 
 	mech.mechanism      = CKM_RSA_PKCS_KEY_PAIR_GEN;
@@ -1440,7 +1440,7 @@ int do_SignVerifyMD2_RSA_PKCS( void )
 		rc = funcs->C_SignUpdate( session, &original[orig_len - remain], amt );
 		if (rc != CKR_OK) {
 			show_error("   C_SignUpdate #1", rc );
-			printf("   Iteration:  i = %ld\n", i );
+			PRINT_ERR("   Iteration:  i = %ld\n", i );
 			goto error;
 		}
 
@@ -1455,15 +1455,15 @@ int do_SignVerifyMD2_RSA_PKCS( void )
 	}
 
 	if (sig1_len != sig2_len) {
-		printf("   ERROR:  signature lengths don't match\n");
+		PRINT_ERR("   ERROR:  signature lengths don't match\n");
 		goto error;
 	}
 
 	if (memcmp(sig1, sig2, sig1_len) != 0) {
-		printf("   ERROR:  signatures don't match\n");
-		fprintf (stderr, "\tSig1: %02x %02x %02x %02x ...\n", 
+		PRINT_ERR("   ERROR:  signatures don't match\n");
+		PRINT_ERR("\tSig1: %02x %02x %02x %02x ...\n",
 				sig1[0], sig1[1], sig1[2], sig1[3]);
-		fprintf (stderr, "\tSig2: %02x %02x %02x %02x ...\n", 
+		PRINT_ERR("\tSig2: %02x %02x %02x %02x ...\n",
 				sig2[0], sig2[1], sig2[2], sig2[3]);
 		goto error;
 	}
@@ -1502,7 +1502,7 @@ int do_SignVerifyMD2_RSA_PKCS( void )
 		rc = funcs->C_VerifyUpdate( session, &original[orig_len - remain], amt );
 		if (rc != CKR_OK) {
 			show_error("   C_VerifyUpdate #1", rc );
-			printf("   Iteration:  i = %ld\n", i );
+			PRINT_ERR("   Iteration:  i = %ld\n", i );
 			goto error;
 		}
 
@@ -1529,30 +1529,30 @@ int do_SignVerifyMD2_RSA_PKCS( void )
 	rc = funcs->C_Verify( session, original, orig_len, sig1, sig1_len );
 	if (rc != CKR_SIGNATURE_INVALID) {
 		show_error("   C_Verify #2", rc );
-		printf("   Expected CKR_SIGNATURE_INVALID\n");
+		PRINT_ERR("   Expected CKR_SIGNATURE_INVALID\n");
 		goto error;
 	}
 
 	rc = funcs->C_CloseAllSessions( slot_id );
 	if (rc != CKR_OK) {
 		show_error("   C_CloseAllSessions #1", rc );
-		return FALSE;
+		return rc;
 	}
 
 	printf("Looks okay...\n");
-	return TRUE;
+	return rc;
 
 error:
-	rc = funcs->C_CloseAllSessions( slot_id );
-	if (rc != CKR_OK) 
-		show_error("   C_CloseAllSessions #1", rc );
-	return FALSE;
+	loc_rc = funcs->C_CloseAllSessions( slot_id );
+	if (loc_rc != CKR_OK)
+		show_error("   C_CloseAllSessions #1", loc_rc );
+	return rc;
 }
 
 
 //
 //
-int do_SignVerifyMD5_RSA_PKCS( void )
+CK_RV do_SignVerifyMD5_RSA_PKCS( void )
 {
 	CK_BYTE             original[2048];
 	CK_BYTE             sig1[512];
@@ -1566,7 +1566,7 @@ int do_SignVerifyMD5_RSA_PKCS( void )
 	CK_ULONG            user_pin_len;
 	CK_ULONG            orig_len, sig1_len, sig2_len;
 	CK_ULONG            i, remain;
-	CK_RV               rc;
+	CK_RV               rc, loc_rc;
 
 	CK_BYTE   pub_exp[] = { 0x3 };
 
@@ -1583,7 +1583,7 @@ int do_SignVerifyMD5_RSA_PKCS( void )
 	rc = funcs->C_OpenSession( slot_id, flags, NULL, NULL, &session );
 	if (rc != CKR_OK) {
 		show_error("   C_OpenSession #1", rc );
-		return FALSE;
+		return rc;
 	}
 
 
@@ -1651,7 +1651,7 @@ int do_SignVerifyMD5_RSA_PKCS( void )
 		rc = funcs->C_SignUpdate( session, &original[orig_len - remain], amt );
 		if (rc != CKR_OK) {
 			show_error("   C_SignUpdate #1", rc );
-			printf("   Iteration:  i = %ld\n", i );
+			PRINT_ERR("   Iteration:  i = %ld\n", i );
 			goto error;
 		}
 
@@ -1666,15 +1666,15 @@ int do_SignVerifyMD5_RSA_PKCS( void )
 	}
 
 	if (sig1_len != sig2_len) {
-		printf("   ERROR:  signature lengths don't match\n");
+		PRINT_ERR("   ERROR:  signature lengths don't match\n");
 		goto error;
 	}
 
 	if (memcmp(sig1, sig2, sig1_len) != 0) {
-		printf("   ERROR:  signatures don't match\n");
-		fprintf (stderr, "\tSig1: %02x %02x %02x %02x ...\n", 
+		PRINT_ERR("   ERROR:  signatures don't match\n");
+		PRINT_ERR("\tSig1: %02x %02x %02x %02x ...\n",
 				sig1[0], sig1[1], sig1[2], sig1[3]);
-		fprintf (stderr, "\tSig2: %02x %02x %02x %02x ...\n", 
+		PRINT_ERR("\tSig2: %02x %02x %02x %02x ...\n",
 				sig2[0], sig2[1], sig2[2], sig2[3]);
 		goto error;
 	}
@@ -1713,7 +1713,7 @@ int do_SignVerifyMD5_RSA_PKCS( void )
 		rc = funcs->C_VerifyUpdate( session, &original[orig_len - remain], amt );
 		if (rc != CKR_OK) {
 			show_error("   C_VerifyUpdate #1", rc );
-			printf("   Iteration:  i = %ld\n", i );
+			PRINT_ERR("   Iteration:  i = %ld\n", i );
 			goto error;
 		}
 
@@ -1740,30 +1740,30 @@ int do_SignVerifyMD5_RSA_PKCS( void )
 	rc = funcs->C_Verify( session, original, orig_len, sig1, sig1_len );
 	if (rc != CKR_SIGNATURE_INVALID) {
 		show_error("   C_Verify #2", rc );
-		printf("   Expected CKR_SIGNATURE_INVALID\n");
+		PRINT_ERR("   Expected CKR_SIGNATURE_INVALID\n");
 		goto error;
 	}
 
 	rc = funcs->C_CloseAllSessions( slot_id );
 	if (rc != CKR_OK) {
 		show_error("   C_CloseAllSessions #1", rc );
-		return FALSE;
+		return rc;
 	}
 
 	printf("Looks okay...\n");
-	return TRUE;
+	return rc;
 
 error:
-	rc = funcs->C_CloseAllSessions( slot_id );
-	if (rc != CKR_OK) 
-		show_error("   C_CloseAllSessions #1", rc );
+	loc_rc = funcs->C_CloseAllSessions( slot_id );
+	if (loc_rc != CKR_OK)
+		show_error("   C_CloseAllSessions #1", loc_rc );
 
-	return FALSE;
+	return rc;
 }
 
 //
 //
-int do_SignVerifySHA1_RSA_PKCS( void )
+CK_RV do_SignVerifySHA1_RSA_PKCS( void )
 {
 	CK_BYTE             original[2048];
 	CK_BYTE             sig1[512];
@@ -1777,7 +1777,7 @@ int do_SignVerifySHA1_RSA_PKCS( void )
 	CK_ULONG            user_pin_len;
 	CK_ULONG            orig_len, sig1_len, sig2_len;
 	CK_ULONG            i, remain;
-	CK_RV               rc;
+	CK_RV               rc, loc_rc;
 
 	CK_BYTE   pub_exp[] = { 0x3 };
 
@@ -1794,7 +1794,7 @@ int do_SignVerifySHA1_RSA_PKCS( void )
 	rc = funcs->C_OpenSession( slot_id, flags, NULL, NULL, &session );
 	if (rc != CKR_OK) {
 		show_error("   C_OpenSession #1", rc );
-		return FALSE;
+		return rc;
 	}
 
 
@@ -1862,7 +1862,7 @@ int do_SignVerifySHA1_RSA_PKCS( void )
 		rc = funcs->C_SignUpdate( session, &original[orig_len - remain], amt );
 		if (rc != CKR_OK) {
 			show_error("   C_SignUpdate #1", rc );
-			printf("   Iteration:  i = %ld\n", i );
+			PRINT_ERR("   Iteration:  i = %ld\n", i );
 			goto error;
 		}
 
@@ -1877,15 +1877,15 @@ int do_SignVerifySHA1_RSA_PKCS( void )
 	}
 
 	if (sig1_len != sig2_len) {
-		printf("   ERROR:  signature lengths don't match\n");
+		PRINT_ERR("   ERROR:  signature lengths don't match\n");
 		goto error;
 	}
 
 	if (memcmp(sig1, sig2, sig1_len) != 0) {
-		printf("   ERROR:  signatures don't match\n");
-		fprintf (stderr, "\tSig1: %02x %02x %02x %02x ...\n", 
+		PRINT_ERR("   ERROR:  signatures don't match\n");
+		PRINT_ERR("\tSig1: %02x %02x %02x %02x ...\n",
 				sig1[0], sig1[1], sig1[2], sig1[3]);
-		fprintf (stderr, "\tSig2: %02x %02x %02x %02x ...\n", 
+		PRINT_ERR("\tSig2: %02x %02x %02x %02x ...\n",
 				sig2[0], sig2[1], sig2[2], sig2[3]);
 		goto error;
 	}
@@ -1924,7 +1924,7 @@ int do_SignVerifySHA1_RSA_PKCS( void )
 		rc = funcs->C_VerifyUpdate( session, &original[orig_len - remain], amt );
 		if (rc != CKR_OK) {
 			show_error("   C_VerifyUpdate #1", rc );
-			printf("   Iteration:  i = %ld\n", i );
+			PRINT_ERR("   Iteration:  i = %ld\n", i );
 			goto error;
 		}
 
@@ -1951,31 +1951,156 @@ int do_SignVerifySHA1_RSA_PKCS( void )
 	rc = funcs->C_Verify( session, original, orig_len, sig1, sig1_len );
 	if (rc != CKR_SIGNATURE_INVALID) {
 		show_error("   C_Verify #2", rc );
-		printf("   Expected CKR_SIGNATURE_INVALID\n");
+		PRINT_ERR("   Expected CKR_SIGNATURE_INVALID\n");
 		goto error;
 	}
 
 	rc = funcs->C_CloseAllSessions( slot_id );
 	if (rc != CKR_OK) {
 		show_error("   C_CloseAllSessions #1", rc );
-		return FALSE;
+		return rc;
 	}
 
 	printf("Looks okay...\n");
-	return TRUE;
+	return rc;
 
 error:
-	rc = funcs->C_CloseAllSessions( slot_id );
-	if (rc != CKR_OK)
-		show_error("   C_CloseAllSessions #1", rc );
+	loc_rc = funcs->C_CloseAllSessions( slot_id );
+	if (loc_rc != CKR_OK)
+		show_error("   C_CloseAllSessions #1", loc_rc );
 
-	return FALSE;
+	return rc;
+}
+
+CK_RV rsa_functions()
+{
+	SYSTEMTIME t1, t2;
+	int        rc;
+
+	bits=2048; //Max = 4096
+	//In test phase
+	//for (bits = 1024; bits <= 2048; bits*=2)
+	{
+		printf("RSA tests with %lu bits keys...\n\n", bits);
+
+#if 1
+		GetSystemTime(&t1);
+		rc = do_GenerateRSAKeyPair();
+		if (rc)
+			PRINT_ERR("ERROR do_GenerateRSAKeyPair failed, rc = 0x%0x\n", rc);
+		GetSystemTime(&t2);
+		process_time( t1, t2 );
+
+		GetSystemTime(&t1);
+		rc = do_EncryptRSA_PKCS();
+		if (rc)
+			PRINT_ERR("ERROR do_EncryptRSA_PKCS failed, rc = 0x%0x\n", rc);
+		GetSystemTime(&t2);
+		process_time( t1, t2 );
+
+		GetSystemTime(&t1);
+//		rc = do_EncryptRSA_PKCS_Speed();
+		if (rc)
+			PRINT_ERR("ERROR do_EncryptRSA_PKCS_Speed failed, rc = 0x%0x\n", rc);
+		GetSystemTime(&t2);
+		process_time( t1, t2 );
+
+		GetSystemTime(&t1);
+		rc = do_SignRSA_PKCS();
+		if (rc)
+			PRINT_ERR("ERROR do_SignRSA_PKCS failed, rc = 0x%0x\n", rc);
+		GetSystemTime(&t2);
+		process_time( t1, t2 );
+
+		GetSystemTime(&t1);
+		rc = do_WrapUnwrapRSA_PKCS();
+		if (rc)
+			PRINT_ERR("ERROR do_WrapUnwrapRSA_PKCS failed, rc = 0x%0x\n", rc);
+		GetSystemTime(&t2);
+		process_time( t1, t2 );
+
+		GetSystemTime(&t1);
+		rc = do_EncryptRSA_X509();
+		if (rc)
+			PRINT_ERR("ERROR do_EncryptRSA_X509 failed, rc = 0x%0x\n", rc);
+		GetSystemTime(&t2);
+		process_time( t1, t2 );
+
+		GetSystemTime(&t1);
+		rc = do_SignRSA_X509();
+		if (rc)
+			PRINT_ERR("ERROR do_SignRSA_X509 failed, rc = 0x%0x\n", rc);
+		GetSystemTime(&t2);
+		process_time( t1, t2 );
+
+		GetSystemTime(&t1);
+		rc = do_WrapUnwrapRSA_X509();
+		if (rc)
+			PRINT_ERR("ERROR do_WrapUnwrapRSA_X509 failed, rc = 0x%0x\n", rc);
+		GetSystemTime(&t2);
+		process_time( t1, t2 );
+
+#if MD2
+		GetSystemTime(&t1);
+		rc = do_SignVerifyMD2_RSA_PKCS();
+		if (rc)
+			PRINT_ERR("ERROR do_SignVerifyMD2_RSA_PKCS failed, rc = 0x%0x\n", rc);
+		GetSystemTime(&t2);
+		process_time( t1, t2 );
+#endif
+#endif
+
+		GetSystemTime(&t1);
+		rc = do_SignVerifyMD5_RSA_PKCS();
+		if (rc)
+			PRINT_ERR("ERROR do_SignVerifyMD5_RSA_PKCS failed, rc = 0x%0x\n", rc);
+		GetSystemTime(&t2);
+		process_time( t1, t2 );
+
+		GetSystemTime(&t1);
+		rc = do_SignVerifySHA1_RSA_PKCS();
+		if (rc)
+			PRINT_ERR("ERROR do_SignVerifySHA1_RSA_PKCS failed, rc = 0x%0x\n", rc);
+		GetSystemTime(&t2);
+		process_time( t1, t2 );
+
+		//   GetSystemTime(&t1);
+		//   rc = do_EncryptRSA_PKCS_Speed();
+		//   if (rc)
+		//      return rc;
+		//   GetSystemTime(&t2);
+		//   process_time( t1, t2 );
+
+		GetSystemTime(&t1);
+		rc = do_SignVerifyMD5_RSA_PKCS();
+		if (rc)
+			PRINT_ERR("ERROR do_SignVerifyMD5_RSA_PKCS failed, rc = 0x%0x\n", rc);
+		GetSystemTime(&t2);
+		process_time( t1, t2 );
+
+		GetSystemTime(&t1);
+		rc = do_SignVerifySHA1_RSA_PKCS();
+		if (rc)
+			PRINT_ERR("ERROR do_SignVerifySHA1_RSA_PKCS failed, rc = 0x%0x\n", rc);
+		GetSystemTime(&t2);
+		process_time( t1, t2 );
+
+		GetSystemTime(&t1);
+		//rc = do_EncryptRSA_PKCS_Speed();
+		if (rc)
+			PRINT_ERR("ERROR do_EncryptRSA_PKCS_Speed failed, rc = 0x%0x\n", rc);
+		GetSystemTime(&t2);
+		process_time( t1, t2 );
+	}
+
+	return rc;
 }
 
 int main(int argc, char **argv)
 {
 	CK_C_INITIALIZE_ARGS cinit_args;
-	int rc, i;
+	int rc;
+	CK_RV rv;
 
 	rc = do_ParseArgs(argc, argv);
 	if ( rc != 1)
@@ -1986,10 +2111,10 @@ int main(int argc, char **argv)
 
 	rc = do_GetFunctionList();
 	if (!rc) {
-		fprintf(stderr, "ERROR do_GetFunctionList() Failed , rc = 0x%0x\n", rc); 
+		PRINT_ERR("ERROR do_GetFunctionList() Failed , rc = 0x%0x\n", rc);
 		return rc;
 	}
-	
+
 	memset( &cinit_args, 0x0, sizeof(cinit_args) );
 	cinit_args.flags = CKF_OS_LOCKING_OK;
 
@@ -2001,7 +2126,7 @@ int main(int argc, char **argv)
 		CK_SESSION_HANDLE  hsess = 0;
 
 		rc = funcs->C_GetFunctionStatus(hsess);
-		if (rc  != CKR_FUNCTION_NOT_PARALLEL)  
+		if (rc  != CKR_FUNCTION_NOT_PARALLEL)
 			return rc;
 
 		rc = funcs->C_CancelFunction(hsess);
@@ -2010,131 +2135,7 @@ int main(int argc, char **argv)
 
 	}
 
-	rsa_functions();
+	rv = rsa_functions();
+	/* make sure we return non-zero if rv is non-zero */
+	return ((rv==0) || (rv % 256) ? rv : -1);
 }
-
-
-int rsa_functions()
-{
-	SYSTEMTIME t1, t2;
-	int        rc;
-
-	bits=2048; //Max = 4096
-	//In test phase
-	//for (bits = 1024; bits <= 2048; bits*=2)
-	{
-		printf("RSA tests with %d bits keys...\n\n", bits);
-
-#if 1
-		GetSystemTime(&t1);
-		rc = do_GenerateRSAKeyPair();
-		if (!rc)
-			fprintf (stderr, "ERROR do_GenerateRSAKeyPair failed, rc = 0x%0x\n", rc);
-		GetSystemTime(&t2);
-		process_time( t1, t2 );
-
-		GetSystemTime(&t1);
-		rc = do_EncryptRSA_PKCS();
-		if (!rc)
-			fprintf (stderr, "ERROR do_EncryptRSA_PKCS failed, rc = 0x%0x\n", rc);
-		GetSystemTime(&t2);
-		process_time( t1, t2 );
-
-		GetSystemTime(&t1);
-//		rc = do_EncryptRSA_PKCS_Speed();
-		if (!rc)
-			fprintf (stderr, "ERROR do_EncryptRSA_PKCS_Speed failed, rc = 0x%0x\n", rc);
-		GetSystemTime(&t2);
-		process_time( t1, t2 );
-
-		GetSystemTime(&t1);
-		rc = do_SignRSA_PKCS();
-		if (!rc)
-			fprintf (stderr, "ERROR do_SignRSA_PKCS failed, rc = 0x%0x\n", rc);
-		GetSystemTime(&t2);
-		process_time( t1, t2 );
-
-		GetSystemTime(&t1);
-		rc = do_WrapUnwrapRSA_PKCS();
-		if (!rc)
-			fprintf (stderr, "ERROR do_WrapUnwrapRSA_PKCS failed, rc = 0x%0x\n", rc);
-		GetSystemTime(&t2);
-		process_time( t1, t2 );
-
-		GetSystemTime(&t1);
-		rc = do_EncryptRSA_X509();
-		if (!rc)
-			fprintf (stderr, "ERROR do_EncryptRSA_X509 failed, rc = 0x%0x\n", rc);
-		GetSystemTime(&t2);
-		process_time( t1, t2 );
-
-		GetSystemTime(&t1);
-		rc = do_SignRSA_X509();
-		if (!rc)
-			fprintf (stderr, "ERROR do_SignRSA_X509 failed, rc = 0x%0x\n", rc);
-		GetSystemTime(&t2);
-		process_time( t1, t2 );
-
-		GetSystemTime(&t1);
-		rc = do_WrapUnwrapRSA_X509();
-		if (!rc)
-			fprintf (stderr, "ERROR do_WrapUnwrapRSA_X509 failed, rc = 0x%0x\n", rc);
-		GetSystemTime(&t2);
-		process_time( t1, t2 );
-
-#if MD2
-		GetSystemTime(&t1);
-		rc = do_SignVerifyMD2_RSA_PKCS();
-		if (!rc)
-			fprintf (stderr, "ERROR do_SignVerifyMD2_RSA_PKCS failed, rc = 0x%0x\n", rc);
-		GetSystemTime(&t2);
-		process_time( t1, t2 );
-#endif
-#endif
-
-		GetSystemTime(&t1);
-		rc = do_SignVerifyMD5_RSA_PKCS();
-		if (!rc)
-			fprintf (stderr, "ERROR do_SignVerifyMD5_RSA_PKCS failed, rc = 0x%0x\n", rc);
-		GetSystemTime(&t2);
-		process_time( t1, t2 );
-
-		GetSystemTime(&t1);
-		rc = do_SignVerifySHA1_RSA_PKCS();
-		if (!rc)
-			fprintf (stderr, "ERROR do_SignVerifySHA1_RSA_PKCS failed, rc = 0x%0x\n", rc);
-		GetSystemTime(&t2);
-		process_time( t1, t2 );
-
-		//   GetSystemTime(&t1);
-		//   rc = do_EncryptRSA_PKCS_Speed();
-		//   if (!rc)
-		//      return FALSE;
-		//   GetSystemTime(&t2);
-		//   process_time( t1, t2 );
-
-		GetSystemTime(&t1);
-		rc = do_SignVerifyMD5_RSA_PKCS();
-		if (!rc)
-			fprintf (stderr, "ERROR do_SignVerifyMD5_RSA_PKCS failed, rc = 0x%0x\n", rc);
-		GetSystemTime(&t2);
-		process_time( t1, t2 );
-
-		GetSystemTime(&t1);
-		rc = do_SignVerifySHA1_RSA_PKCS();
-		if (!rc)
-			fprintf (stderr, "ERROR do_SignVerifySHA1_RSA_PKCS failed, rc = 0x%0x\n", rc);
-		GetSystemTime(&t2);
-		process_time( t1, t2 );
-
-		GetSystemTime(&t1);
-		//rc = do_EncryptRSA_PKCS_Speed();
-		if (!rc)
-			fprintf (stderr, "ERROR do_EncryptRSA_PKCS_Speed failed, rc = 0x%0x\n", rc);
-		GetSystemTime(&t2);
-		process_time( t1, t2 );
-	}
-
-	return TRUE;
-}
-
