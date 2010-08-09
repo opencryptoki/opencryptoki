@@ -10,7 +10,7 @@
 #include "regress.h"
 
 CK_RV init(void);
-//void usage(void);
+void test_crypto_usage(void);
 CK_RV verify_slot(unsigned long slot_num);
 CK_RV test_crypto(long slot_num);
 int test_ecb_des(CK_SESSION_HANDLE hSession);
