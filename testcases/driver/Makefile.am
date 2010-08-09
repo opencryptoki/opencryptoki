@@ -3,7 +3,7 @@ noinst_PROGRAMS=aes_tests des_tests des3_tests digest_tests \
 		dh_tests ssl3_tests rijndael_tests sess_mgmt_tests \
 		sess_perf_tests
 
-AM_CFLAGS=-I. -I../../usr/include/pkcs11 -I../include
+AM_CFLAGS=-I. -I../../usr/include/pkcs11 -I../include -Wall
 
 AM_LDFLAGS=-L../common -lc  -ldl -lpthread -lcommon
 
