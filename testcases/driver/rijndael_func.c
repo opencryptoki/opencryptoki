@@ -91,7 +91,7 @@ CK_BYTE KAT_256_CBC_CT[] = {	0xC0,0xFE,0xFF,0xF0,0x75,0x06,0xA0,0xB4,
 
 
 
-int do_AES_KAT_128_ECB(void)
+CK_RV do_AES_KAT_128_ECB(void)
 {
 	int			j;
 	unsigned int            i, k;
@@ -206,23 +206,23 @@ print_done:
 	printf("\n");
 	for( i=0; i<sizeof(key128); i++) {
 		if(key128[i] != KAT_128_ECB_KEY[i]) {
-			printf("%s:%d Error: key data does not match known "
-					"key data at byte %d.\n", __FILE__, __LINE__, i);
+			PRINT_ERR("Error: key data does not match known "
+					"key data at byte %d.\n", i);
 			goto done;
 		}
 	}
 
 	for( i=0; i<sizeof(final_pt); i++) {
 		if(final_pt[i] != KAT_128_ECB_PT[i]) {
-			printf("%s:%d Error: Plain text does not match known "
-					"plain text at byte %d.\n", __FILE__, __LINE__, i);
+			PRINT_ERR("Error: Plain text does not match known "
+					"plain text at byte %d.\n", i);
 			goto done;
 		}
 	}
 	for( i=0; i<sizeof(ct); i++) {
 		if(ct[i] != KAT_128_ECB_CT[i]) {
-			printf("%s:%d Error: Cipher text does not match known "
-					"cipher text at byte %d.\n", __FILE__, __LINE__, i);
+			PRINT_ERR("Error: Cipher text does not match known "
+					"cipher text at byte %d.\n", i);
 			goto done;
 		}
 	}
@@ -232,7 +232,7 @@ done:
 }
 
 
-int do_AES_KAT_192_ECB(void)
+CK_RV do_AES_KAT_192_ECB(void)
 {
 	int			j;
 	unsigned int            i, k;
@@ -333,8 +333,8 @@ print_done:
 
 	for( i=0; i<sizeof(key192); i++) {
 		if(key192[i] != KAT_192_ECB_KEY[i]) {
-			printf("%s:%d Error: key data does not match known "
-					"key data at byte %d.\n", __FILE__, __LINE__, i);
+			PRINT_ERR("Error: key data does not match known "
+					"key data at byte %d.\n", i);
 			rc = -1;
 			goto done;
 		}
@@ -342,16 +342,16 @@ print_done:
 
 	for( i=0; i<sizeof(final_pt); i++) {
 		if(final_pt[i] != KAT_192_ECB_PT[i]) {
-			printf("%s:%d Error: Plain text does not match known "
-					"plain text at byte %d.\n", __FILE__, __LINE__, i);
+			PRINT_ERR("Error: Plain text does not match known "
+					"plain text at byte %d.\n", i);
 			rc = -1;
 			goto done;
 		}
 	}
 	for( i=0; i<AES_BLOCK_SIZE; i++) {
 		if(ct[i+8] != KAT_192_ECB_CT[i]) {
-			printf("%s:%d Error: Cipher text does not match known "
-					"cipher text at byte %d.\n", __FILE__, __LINE__, i);
+			PRINT_ERR("Error: Cipher text does not match known "
+					"cipher text at byte %d.\n", i);
 			rc = -1;
 			goto done;
 		}
@@ -362,7 +362,7 @@ done:
 }
 
 
-int do_AES_KAT_256_ECB(void)
+CK_RV do_AES_KAT_256_ECB(void)
 {
 	int			j;
 	unsigned int            i, k;
@@ -463,8 +463,8 @@ print_done:
 
 	for( i=0; i<sizeof(key256); i++) {
 		if(key256[i] != KAT_256_ECB_KEY[i]) {
-			printf("%s:%d Error: key data does not match known "
-					"key data at byte %d.\n", __FILE__, __LINE__, i);
+			PRINT_ERR("Error: key data does not match known "
+					"key data at byte %d.\n", i);
 			rc = -1;
 			goto done;
 		}
@@ -472,16 +472,16 @@ print_done:
 
 	for( i=0; i<sizeof(final_pt); i++) {
 		if(final_pt[i] != KAT_256_ECB_PT[i]) {
-			printf("%s:%d Error: Plain text does not match known "
-					"plain text at byte %d.\n", __FILE__, __LINE__, i);
+			PRINT_ERR("Error: Plain text does not match known "
+					"plain text at byte %d.\n", i);
 			rc = -1;
 			goto done;
 		}
 	}
 	for( i=0; i<AES_BLOCK_SIZE; i++) {
 		if(ct[i+16] != KAT_256_ECB_CT[i]) {
-			printf("%s:%d Error: Cipher text does not match known "
-					"cipher text at byte %d.\n", __FILE__, __LINE__, i);
+			PRINT_ERR("Error: Cipher text does not match known "
+					"cipher text at byte %d.\n", i);
 			rc = -1;
 			goto done;
 		}
@@ -493,7 +493,7 @@ done:
 
 
 
-int do_AES_KAT_128_CBC(void)
+CK_RV do_AES_KAT_128_CBC(void)
 {
 	int                     j;
 	unsigned int            i, k;
@@ -601,8 +601,8 @@ print_done:
 
 	for( i=0; i<sizeof(key); i++) {
 		if(key[i] != KAT_128_CBC_KEY[i]) {
-			printf("%s:%d Error: key data does not match known "
-					"key data at byte %d.\n", __FILE__, __LINE__, i);
+			PRINT_ERR("Error: key data does not match known "
+					"key data at byte %d.\n", i);
 			rc = -1;
 			goto done;
 		}
@@ -610,16 +610,16 @@ print_done:
 
 	for( i=0; i<sizeof(final_pt); i++) {
 		if(final_pt[i] != KAT_128_CBC_PT[i]) {
-			printf("%s:%d Error: Plain text does not match known "
-					"plain text at byte %d.\n", __FILE__, __LINE__, i);
+			PRINT_ERR("Error: Plain text does not match known "
+					"plain text at byte %d.\n", i);
 			rc = -1;
 			goto done;
 		}
 	}
 	for( i=0; i<AES_BLOCK_SIZE; i++) {
 		if(ct[i] != KAT_128_CBC_CT[i]) {
-			printf("%s:%d Error: Cipher text does not match known "
-					"cipher text at byte %d.\n", __FILE__, __LINE__, i);
+			PRINT_ERR("Error: Cipher text does not match known "
+					"cipher text at byte %d.\n", i);
 			rc = -1;
 			goto done;
 		}
@@ -630,7 +630,7 @@ done:
 }
 
 
-int do_AES_KAT_192_CBC(void)
+CK_RV do_AES_KAT_192_CBC(void)
 {
 	int                     j;
 	unsigned int            i, k;
@@ -734,8 +734,8 @@ print_done:
 
 	for( i=0; i<sizeof(key); i++) {
 		if(key[i] != KAT_192_CBC_KEY[i]) {
-			printf("%s:%d Error: key data does not match known "
-					"key data at byte %d.\n", __FILE__, __LINE__, i);
+			PRINT_ERR("Error: key data does not match known "
+					"key data at byte %d.\n", i);
 			rc = -1;
 			goto done;
 		}
@@ -743,16 +743,16 @@ print_done:
 
 	for( i=0; i<sizeof(final_pt); i++) {
 		if(final_pt[i] != KAT_192_CBC_PT[i]) {
-			printf("%s:%d Error: Plain text does not match known "
-					"plain text at byte %d.\n", __FILE__, __LINE__, i);
+			PRINT_ERR("Error: Plain text does not match known "
+					"plain text at byte %d.\n", i);
 			rc = -1;
 			goto done;
 		}
 	}
 	for( i=0; i<AES_BLOCK_SIZE; i++) {
 		if(ct[i+8] != KAT_192_CBC_CT[i]) {
-			printf("%s:%d Error: Cipher text does not match known "
-					"cipher text at byte %d.\n", __FILE__, __LINE__, i);
+			PRINT_ERR("Error: Cipher text does not match known "
+					"cipher text at byte %d.\n", i);
 			rc = -1;
 			goto done;
 		}
@@ -762,7 +762,7 @@ done:
 
 }
 
-int do_AES_KAT_256_CBC(void)
+CK_RV do_AES_KAT_256_CBC(void)
 {
 	int                     j;
 	unsigned int            i, k;
@@ -869,8 +869,8 @@ print_done:
 
 	for( i=0; i<sizeof(key); i++) {
 		if(key[i] != KAT_256_CBC_KEY[i]) {
-			printf("%s:%d Error: key data does not match known "
-					"key data at byte %d.\n", __FILE__, __LINE__, i);
+			PRINT_ERR("Error: key data does not match known "
+					"key data at byte %d.\n", i);
 			rc = -1;
 			goto done;
 		}
@@ -878,16 +878,16 @@ print_done:
 
 	for( i=0; i<sizeof(final_pt); i++) {
 		if(final_pt[i] != KAT_256_CBC_PT[i]) {
-			printf("%s:%d Error: Plain text does not match known "
-					"plain text at byte %d.\n", __FILE__, __LINE__, i);
+			PRINT_ERR("Error: Plain text does not match known "
+					"plain text at byte %d.\n", i);
 			rc = -1;
 			goto done;
 		}
 	}
 	for( i=0; i<AES_BLOCK_SIZE; i++) {
 		if(ct[i+16] != KAT_256_CBC_CT[i]) {
-			printf("%s:%d Error: Cipher text does not match known "
-					"cipher text at byte %d.\n", __FILE__, __LINE__, i);
+			PRINT_ERR("Error: Cipher text does not match known "
+					"cipher text at byte %d.\n", i);
 			rc = -1;
 			goto done;
 		}
@@ -897,55 +897,9 @@ done:
 
 }
 
-int main(int argc, char **argv)
+CK_RV rijndael_functions(void)
 {
-	CK_C_INITIALIZE_ARGS cinit_args;
-	int rc, i;
-
-	
-	rc = do_ParseArgs(argc, argv);
-	if ( rc != 1)
-		return rc;
-
-	printf("Using slot #%lu...\n\n", SLOT_ID );
-	printf("With option: no_init: %d\n", no_init);
-
-	rc = do_GetFunctionList();
-	if (!rc) {
-		fprintf(stderr, "ERROR do_GetFunctionList() Failed , rc = 0x%0x\n", rc); 
-		return rc;
-	}
-	
-	memset( &cinit_args, 0x0, sizeof(cinit_args) );
-	cinit_args.flags = CKF_OS_LOCKING_OK;
-
-	// SAB Add calls to ALL functions before the C_Initialize gets hit
-
-	funcs->C_Initialize( &cinit_args );
-
-	{
-		CK_SESSION_HANDLE  hsess = 0;
-
-		rc = funcs->C_GetFunctionStatus(hsess);
-		if (rc  != CKR_FUNCTION_NOT_PARALLEL)  
-			return rc;
-
-		rc = funcs->C_CancelFunction(hsess);
-		if (rc  != CKR_FUNCTION_NOT_PARALLEL)
-			return rc;
-
-	}
-
-	rijndael_functions();
-}
-
-
-
-
-int rijndael_functions(void)
-{
-	int			i;
-	CK_RV			rc;
+	CK_RV			rc, loc_rc;
 	CK_C_INITIALIZE_ARGS	initialize_args;
 	CK_BYTE			user_pin[PKCS11_MAX_PIN_LEN];
 	CK_ULONG		user_pin_len;
@@ -1019,17 +973,61 @@ int rijndael_functions(void)
 	printf("Rijndael tests succeeded.\n");
 
 logout:
-	rc = funcs->C_Logout(sess);
-	if( rc != CKR_OK )
-		show_error("C_Logout #1", rc);
+	loc_rc = funcs->C_Logout(sess);
+	if( loc_rc != CKR_OK )
+		show_error("C_Logout #1", loc_rc);
 
 session_close:
 
 	/* Close the session */
-	if( (rc = funcs->C_CloseSession(sess)) != CKR_OK )
-		show_error("C_CloseSession", rc);
+	if( (loc_rc = funcs->C_CloseSession(sess)) != CKR_OK )
+		show_error("C_CloseSession", loc_rc);
 
 done:
 	/* Call C_Finalize and dlclose the library */
-	return TRUE;
+	return rc;
+}
+
+int main(int argc, char **argv)
+{
+	CK_C_INITIALIZE_ARGS cinit_args;
+	int rc;
+	CK_RV rv;
+
+	rc = do_ParseArgs(argc, argv);
+	if ( rc != 1)
+		return rc;
+
+	printf("Using slot #%lu...\n\n", SLOT_ID );
+	printf("With option: no_init: %d\n", no_init);
+
+	rc = do_GetFunctionList();
+	if (!rc) {
+		PRINT_ERR("ERROR do_GetFunctionList() Failed , rc = 0x%0x\n", rc);
+		return rc;
+	}
+
+	memset( &cinit_args, 0x0, sizeof(cinit_args) );
+	cinit_args.flags = CKF_OS_LOCKING_OK;
+
+	// SAB Add calls to ALL functions before the C_Initialize gets hit
+
+	funcs->C_Initialize( &cinit_args );
+
+	{
+		CK_SESSION_HANDLE  hsess = 0;
+
+		rc = funcs->C_GetFunctionStatus(hsess);
+		if (rc  != CKR_FUNCTION_NOT_PARALLEL)
+			return rc;
+
+		rc = funcs->C_CancelFunction(hsess);
+		if (rc  != CKR_FUNCTION_NOT_PARALLEL)
+			return rc;
+
+	}
+
+	rv = rijndael_functions();
+	/* make sure we return non-zero if rv is non-zero */
+	return ((rv==0) || (rv % 256) ? rv : -1);
 }
