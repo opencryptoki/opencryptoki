@@ -18,7 +18,7 @@
 // 2) create a certificate
 // 3) create a key object
 //
-int do_CreateSessionObject( void )
+CK_RV do_CreateSessionObject( void )
 {
 	CK_SLOT_ID        slot_id;
 	CK_FLAGS          flags;
@@ -88,13 +88,13 @@ int do_CreateSessionObject( void )
 	rc = funcs->C_OpenSession( slot_id, flags, NULL, NULL, &h_session );
 	if (rc != CKR_OK) {
 		show_error("   C_OpenSession #1", rc );
-		return FALSE;
+		return rc;
 	}
 
 	rc = funcs->C_Login( h_session, CKU_USER, user_pin, user_pin_len );
 	if (rc != CKR_OK) {
 		show_error("   C_Login #1", rc );
-		return FALSE;
+		return rc;
 	}
 
 
@@ -105,19 +105,19 @@ int do_CreateSessionObject( void )
 	rc = funcs->C_CreateObject( h_session, data_attribs, 4, &h_data );
 	if (rc != CKR_OK) {
 		show_error("   C_CreateObject #1", rc );
-		return FALSE;
+		return rc;
 	}
 
 	rc = funcs->C_CreateObject( h_session, cert_attribs, 6, &h_cert );
 	if (rc != CKR_OK) {
 		show_error("   C_CreateObject #2", rc );
-		return FALSE;
+		return rc;
 	}
 
 	rc = funcs->C_CreateObject( h_session, key_attribs, 5, &h_key );
 	if (rc != CKR_OK) {
 		show_error("   C_CreateObject #3", rc );
-		return FALSE;
+		return rc;
 	}
 
 	// done...close the session and verify the object is deleted
@@ -125,14 +125,14 @@ int do_CreateSessionObject( void )
 	rc = funcs->C_CloseAllSessions( slot_id );
 	if (rc != CKR_OK) {
 		show_error("   C_CloseAllSessions #2:  %d", rc );
-		return FALSE;
+		return rc;
 	}
 
 
 	printf("Looks okay...\n");
 
 
-	return TRUE;
+	return rc;
 }
 
 // do_CopyObject()
@@ -159,7 +159,7 @@ int do_CreateSessionObject( void )
 // D) attempt to reference the copied object after the session has been closed.  ensure
 //    that this fails with an CKR_INVALID_SESSION_HANDLE.
 //
-int do_CopyObject( void )
+CK_RV do_CopyObject( void )
 {
 	CK_SLOT_ID        slot_id;
 	CK_FLAGS          flags;
@@ -217,13 +217,13 @@ int do_CopyObject( void )
 	rc = funcs->C_OpenSession( slot_id, flags, NULL, NULL, &h_session );
 	if (rc != CKR_OK) {
 		show_error("   C_OpenSession #1", rc );
-		return FALSE;
+		return rc;
 	}
 
 	rc = funcs->C_Login( h_session, CKU_USER, user_pin, user_pin_len );
 	if (rc != CKR_OK) {
 		show_error("   C_Login #1", rc );
-		return FALSE;
+		return rc;
 	}
 
 
@@ -232,7 +232,7 @@ int do_CopyObject( void )
 	rc = funcs->C_CreateObject( h_session, data_attribs, 3, &h_data );
 	if (rc != CKR_OK) {
 		show_error("   C_CreateObject #1", rc );
-		return FALSE;
+		return rc;
 	}
 
 	// create the copy
@@ -240,7 +240,7 @@ int do_CopyObject( void )
 	rc = funcs->C_CopyObject( h_session, h_data, copy_attribs, 1, &h_copy );
 	if (rc != CKR_OK) {
 		show_error("   C_CopyObject #1", rc );
-		return FALSE;
+		return rc;
 	}
 
 	// now, try to extract the CKA_APPLICATION attribute from the original
@@ -250,7 +250,7 @@ int do_CopyObject( void )
 	rc = funcs->C_GetAttributeValue( h_session, h_data, verify_attribs, 1 );
 	if (rc != CKR_OK) {
 		show_error("   C_GetAttributeValue #1", rc );
-		return FALSE;
+		return rc;
 	}
 
 	// now, try to extract the CKA_APPLICATION attribute from the copy
@@ -259,12 +259,12 @@ int do_CopyObject( void )
 	rc = funcs->C_GetAttributeValue( h_session, h_copy, verify_attribs, 1 );
 	if (rc != CKR_OK) {
 		show_error("   C_GetAttributeValue #2", rc );
-		return FALSE;
+		return rc;
 	}
 
 	if (memcmp( &data_application, verify_attribs[0].pValue, sizeof(data_application) ) != 0) {
-		printf("   ERROR:  extracted attribute doesn't match\n");
-		return FALSE;
+		PRINT_ERR("   ERROR:  extracted attribute doesn't match\n");
+		return -1;
 	}
 
 	// now, try to extract CKA_PRIME from the original.  this should not exist
@@ -273,8 +273,8 @@ int do_CopyObject( void )
 	rc = funcs->C_GetAttributeValue( h_session, h_data, prime_attribs, 1 );
 	if (rc != CKR_ATTRIBUTE_TYPE_INVALID) {
 		show_error("   C_GetAttributeValue #3", rc );
-		printf("   Expected CKR_ATTRIBUTE_TYPE_INVALID\n");
-		return FALSE;
+		PRINT_ERR("   Expected CKR_ATTRIBUTE_TYPE_INVALID\n");
+		return rc;
 	}
 
 
@@ -285,8 +285,8 @@ int do_CopyObject( void )
 	rc = funcs->C_GetAttributeValue( h_session, 98765, prime_attribs, 1 );
 	if (rc != CKR_OBJECT_HANDLE_INVALID) {
 		show_error("   C_GetAttributeValue #4", rc );
-		printf("   Expected CKR_OBJECT_HANDLE_INVALID\n");
-		return FALSE;
+		PRINT_ERR("   Expected CKR_OBJECT_HANDLE_INVALID\n");
+		return rc;
 	}
         */
 
@@ -295,7 +295,7 @@ int do_CopyObject( void )
 	rc = funcs->C_GetObjectSize( h_session, h_data, &obj_size );
 	if (rc != CKR_OK) {
 		show_error("   C_GetObjectSize #1", rc );
-		return FALSE;
+		return rc;
 	}
 
 	// now, destroy the original object
@@ -303,7 +303,7 @@ int do_CopyObject( void )
 	rc = funcs->C_DestroyObject( h_session, h_data );
 	if (rc != CKR_OK) {
 		show_error("   C_DestroyObject #1", rc );
-		return FALSE;
+		return rc;
 	}
 
 	// now, destroy a non-existant object
@@ -313,8 +313,8 @@ int do_CopyObject( void )
 	rc = funcs->C_DestroyObject( h_session, h_data );
 	if (rc != CKR_OBJECT_HANDLE_INVALID) {
 		show_error("   C_DestroyObject #2", rc );
-		printf("   Expected CKR_OBJECT_HANDLE_INVALID\n");
-		return FALSE;
+		PRINT_ERR("   Expected CKR_OBJECT_HANDLE_INVALID\n");
+		return rc;
 	}
         */
 
@@ -326,8 +326,8 @@ int do_CopyObject( void )
 	rc = funcs->C_GetObjectSize( h_session, h_data, &obj_size );
 	if (rc != CKR_OBJECT_HANDLE_INVALID) {
 		show_error("   C_GetObjectSize #2", rc );
-		printf("   Expected CKR_OBJECT_HANDLE_INVALID\n");
-		return FALSE;
+		PRINT_ERR("   Expected CKR_OBJECT_HANDLE_INVALID\n");
+		return rc;
 	}
         */
 
@@ -340,8 +340,8 @@ int do_CopyObject( void )
 	rc = funcs->C_GetAttributeValue( h_session, h_data, prime_attribs, 1 );
 	if (rc != CKR_OBJECT_HANDLE_INVALID) {
 		show_error("   C_GetAttributeValue #5", rc );
-		printf("   Expected CKR_OBJECT_HANDLE_INVALID\n");
-		return FALSE;
+		PRINT_ERR("   Expected CKR_OBJECT_HANDLE_INVALID\n");
+		return rc;
 	}
         */
 
@@ -351,7 +351,7 @@ int do_CopyObject( void )
 	rc = funcs->C_CloseAllSessions( slot_id );
 	if (rc != CKR_OK) {
 		show_error("   C_CloseAllSessions #1:  %d", rc );
-		return FALSE;
+		return rc;
 	}
 
 
@@ -365,13 +365,13 @@ int do_CopyObject( void )
 	rc = funcs->C_GetAttributeValue( h_session, h_copy, verify_attribs, 1 );
 	if (rc != CKR_SESSION_HANDLE_INVALID) {
 		show_error("   C_GetAttributeValue #6", rc );
-		printf("   Expected CKR_SESSION_HANDLE_INVALID\n");
-		return FALSE;
+		PRINT_ERR("   Expected CKR_SESSION_HANDLE_INVALID\n");
+		return rc;
 	}
         */
 
 	printf("Looks okay...\n");
-	return TRUE;
+	return rc;
 }
 
 
@@ -387,7 +387,7 @@ int do_CopyObject( void )
 // 3) try to modify CKA_VALUE and CKA_ID in a single call to C_SetAttributeValue.  verify
 //    that this fails correctly and that the object is not modified.
 //
-int do_SetAttributeValues( void )
+CK_RV do_SetAttributeValues( void )
 {
 	CK_SLOT_ID        slot_id;
 	CK_FLAGS          flags;
@@ -449,13 +449,13 @@ int do_SetAttributeValues( void )
 	rc = funcs->C_OpenSession( slot_id, flags, NULL, NULL, &h_session );
 	if (rc != CKR_OK) {
 		show_error("   C_OpenSession #1", rc );
-		return FALSE;
+		return rc;
 	}
 
 	rc = funcs->C_Login( h_session, CKU_USER, user_pin, user_pin_len );
 	if (rc != CKR_OK) {
 		show_error("   C_Login #1", rc );
-		return FALSE;
+		return rc;
 	}
 
 
@@ -464,7 +464,7 @@ int do_SetAttributeValues( void )
 	rc = funcs->C_CreateObject( h_session, cert_attribs, 6, &h_cert );
 	if (rc != CKR_OK) {
 		show_error("   C_CreateObject #1", rc );
-		return FALSE;
+		return rc;
 	}
 
 	// Add CKA_SERIAL_NUMBER and CKA_ISSUER and change the existing CKA_ID
@@ -472,7 +472,7 @@ int do_SetAttributeValues( void )
 	rc = funcs->C_SetAttributeValue( h_session, h_cert, update_attr, 3 );
 	if (rc != CKR_OK) {
 		show_error("   C_SetAttributeValue #1", rc );
-		return FALSE;
+		return rc;
 	}
 	else {
 		CK_BYTE       buf1[100];
@@ -488,22 +488,22 @@ int do_SetAttributeValues( void )
 		rc = funcs->C_GetAttributeValue( h_session, h_cert, (CK_ATTRIBUTE *)&check1, 3 );
 		if (rc != CKR_OK) {
 			show_error("   C_GetAttributeValue #1", rc );
-			return FALSE;
+			return rc;
 		}
 
 		if (memcmp(check1[0].pValue, cert_issuer, check1[0].ulValueLen) != 0) {
-			printf("   ERROR : CKA_ISSUER doesn't match\n");
-			return FALSE;
+			PRINT_ERR("   ERROR : CKA_ISSUER doesn't match\n");
+			return -1;
 		}
 
 		if (memcmp(check1[1].pValue, cert_ser_no, check1[1].ulValueLen) != 0) {
-			printf("   ERROR : CKA_SERIAL_NUMBER doesn't match\n");
-			return FALSE;
+			PRINT_ERR("   ERROR : CKA_SERIAL_NUMBER doesn't match\n");
+			return -1;
 		}
 
 		if (memcmp(check1[2].pValue, cert_id2, check1[2].ulValueLen) != 0) {
-			printf("   ERROR : CKA_ID doesn't match\n");
-			return FALSE;
+			PRINT_ERR("   ERROR : CKA_ID doesn't match\n");
+			return -1;
 		}
 	}
 
@@ -513,8 +513,8 @@ int do_SetAttributeValues( void )
 	rc = funcs->C_SetAttributeValue( h_session, h_cert, invalid_attr, 2 );
 	if (rc != CKR_ATTRIBUTE_READ_ONLY) {
 		show_error("   C_SetAttributeValue #2", rc );
-		printf("   Expected CKR_ATTRIBUTE_READ_ONLY\n");
-		return FALSE;
+		PRINT_ERR("   Expected CKR_ATTRIBUTE_READ_ONLY\n");
+		return rc;
 	}
 	else {
 		CK_BYTE       buf1[100];
@@ -526,12 +526,12 @@ int do_SetAttributeValues( void )
 		rc = funcs->C_GetAttributeValue( h_session, h_cert, check1, 1 );
 		if (rc != CKR_OK) {
 			show_error("   C_GetAttributeValue #2", rc );
-			return FALSE;
+			return rc;
 		}
 
 		if (memcmp(check1[0].pValue, cert_id2, check1[0].ulValueLen) != 0) {
-			printf("   ERROR : CKA_ID doesn't match cert_id2\n");
-			return FALSE;
+			PRINT_ERR("   ERROR : CKA_ID doesn't match cert_id2\n");
+			return -1;
 		}
 	}
 
@@ -540,12 +540,12 @@ int do_SetAttributeValues( void )
 	rc = funcs->C_CloseAllSessions( slot_id );
 	if (rc != CKR_OK) {
 		show_error("   C_CloseAllSessions #1:  %d", rc );
-		return FALSE;
+		return rc;
 	}
 
 
 	printf("Looks okay...\n");
-	return TRUE;
+	return rc;
 }
 
 
@@ -558,7 +558,7 @@ int do_SetAttributeValues( void )
 // 4) Specify an empty template.  Verify that all 3 objects are returned.
 //
 //
-int do_FindObjects( void )
+CK_RV do_FindObjects( void )
 {
 	CK_SLOT_ID        slot_id;
 	CK_FLAGS          flags;
@@ -652,13 +652,13 @@ int do_FindObjects( void )
 	rc = funcs->C_OpenSession( slot_id, flags, NULL, NULL, &h_session );
 	if (rc != CKR_OK) {
 		show_error("   C_OpenSession #1", rc );
-		return FALSE;
+		return rc;
 	}
 
 	rc = funcs->C_Login( h_session, CKU_USER, user_pin, user_pin_len );
 	if (rc != CKR_OK) {
 		show_error("   C_Login #1", rc );
-		return FALSE;
+		return rc;
 	}
 
 	//
@@ -672,19 +672,19 @@ int do_FindObjects( void )
 	rc = funcs->C_FindObjectsInit( h_session, NULL, 0 );
 	if (rc != CKR_OK) {
 		show_error("   C_FindObjectsInit #0", rc );
-		return FALSE;
+		return rc;
 	}
 
 	rc = funcs->C_FindObjects( h_session, obj_list, 10, &num_existing_objects);
 	if (rc != CKR_OK) {
 		show_error("   C_FindObjects #0", rc );
-		return FALSE;
+		return rc;
 	}
 
 	rc = funcs->C_FindObjectsFinal( h_session );
 	if (rc != CKR_OK) {
 		show_error("   C_FindObjectsFinal #0", rc );
-		return FALSE;
+		return rc;
 	}
 
 	/* Since we'll only be checking for max 10 objects...  */
@@ -696,19 +696,19 @@ int do_FindObjects( void )
 	rc = funcs->C_CreateObject( h_session, cert1_attribs, 6, &h_cert1 );
 	if (rc != CKR_OK) {
 		show_error("   C_CreateObject #1", rc );
-		return FALSE;
+		return rc;
 	}
 
 	rc = funcs->C_CreateObject( h_session, cert2_attribs, 6, &h_cert2 );
 	if (rc != CKR_OK) {
 		show_error("   C_CreateObject #2", rc );
-		return FALSE;
+		return rc;
 	}
 
 	rc = funcs->C_CreateObject( h_session, cert3_attribs, 6, &h_cert3 );
 	if (rc != CKR_OK) {
 		show_error("   C_CreateObject #3", rc );
-		return FALSE;
+		return rc;
 	}
 
 	//
@@ -720,30 +720,30 @@ int do_FindObjects( void )
 	rc = funcs->C_FindObjectsInit( h_session, find1_attribs, 1 );
 	if (rc != CKR_OK) {
 		show_error("   C_FindObjectsInit #1", rc );
-		return FALSE;
+		return rc;
 	}
 
 	rc = funcs->C_FindObjects( h_session, obj_list, 10, &find_count );
 	if (rc != CKR_OK) {
 		show_error("   C_FindObjects #1", rc );
-		return FALSE;
+		return rc;
 	}
 
 	if (find_count != 1) {
-		printf("   ERROR:  C_FindObjects #1 should have found 1 object!\n");
-		printf("           it found %ld objects\n", find_count);
-		return FALSE;
+		PRINT_ERR("   ERROR:  C_FindObjects #1 should have found 1 object!\n");
+		PRINT_ERR("           it found %ld objects\n", find_count);
+		return -1;
 	}
 
 	if (obj_list[0] != h_cert2) {
-		printf("   ERROR:  C_FindObjects #1 found the wrong object!");
-		return FALSE;
+		PRINT_ERR("   ERROR:  C_FindObjects #1 found the wrong object!");
+		return -1;
 	}
 
 	rc = funcs->C_FindObjectsFinal( h_session );
 	if (rc != CKR_OK) {
 		show_error("   C_FindObjectsFinal #1", rc );
-		return FALSE;
+		return rc;
 	}
 
 	//
@@ -755,25 +755,25 @@ int do_FindObjects( void )
 	rc = funcs->C_FindObjectsInit( h_session, find2_attribs, 1 );
 	if (rc != CKR_OK) {
 		show_error("   C_FindObjectsInit #2", rc );
-		return FALSE;
+		return rc;
 	}
 
 	rc = funcs->C_FindObjects( h_session, obj_list, 10, &find_count );
 	if (rc != CKR_OK) {
 		show_error("   C_FindObjects #2", rc );
-		return FALSE;
+		return rc;
 	}
 
 	if (find_count != 0) {
-		printf("   ERROR:  C_FindObjects #2 should have found 0 object!\n");
-		printf("           it found %ld objects\n", find_count);
-		return FALSE;
+		PRINT_ERR("   ERROR:  C_FindObjects #2 should have found 0 object!\n");
+		PRINT_ERR("           it found %ld objects\n", find_count);
+		return -1;
 	}
 
 	rc = funcs->C_FindObjectsFinal( h_session );
 	if (rc != CKR_OK) {
 		show_error("   C_FindObjectsFinal #2", rc );
-		return FALSE;
+		return rc;
 	}
 
 	//
@@ -785,26 +785,26 @@ int do_FindObjects( void )
 	rc = funcs->C_FindObjectsInit( h_session, NULL, 0 );
 	if (rc != CKR_OK) {
 		show_error("   C_FindObjectsInit #3", rc );
-		return FALSE;
+		return rc;
 	}
 
 	rc = funcs->C_FindObjects( h_session, obj_list, 10, &find_count );
 	if (rc != CKR_OK) {
 		show_error("   C_FindObjects #3", rc );
-		return FALSE;
+		return rc;
 	}
 
 	if (find_count != num_existing_objects + 3) {
-		printf("   ERROR:  C_FindObjects #3 should have found %ld objects!\n",
+		PRINT_ERR("   ERROR:  C_FindObjects #3 should have found %ld objects!\n",
 				num_existing_objects+3);
-		printf("           it found %ld objects\n", find_count);
-		return FALSE;
+		PRINT_ERR("           it found %ld objects\n", find_count);
+		return -1;
 	}
 
 	rc = funcs->C_FindObjectsFinal( h_session );
 	if (rc != CKR_OK) {
 		show_error("   C_FindObjectsFinal #3", rc );
-		return FALSE;
+		return rc;
 	}
 
 	//
@@ -816,11 +816,11 @@ int do_FindObjects( void )
 	rc = funcs->C_CloseAllSessions( slot_id );
 	if (rc != CKR_OK) {
 		show_error("   C_CloseAllSessions #1", rc );
-		return FALSE;
+		return rc;
 	}
 
 	printf("Looks okay...\n");
-	return TRUE;
+	return rc;
 }
 
 
@@ -840,7 +840,7 @@ int do_FindObjects( void )
 // 10) Destroy all 3 token objects
 // 11) Do FindObjects with a NULL template.  Verify that nothing is returned.
 //
-int do_CreateTokenObjects( void )
+CK_RV do_CreateTokenObjects( void )
 {
 	CK_SLOT_ID        slot_id;
 	CK_FLAGS          flags;
@@ -938,13 +938,13 @@ int do_CreateTokenObjects( void )
 	rc = funcs->C_OpenSession( slot_id, flags, NULL, NULL, &h_session );
 	if (rc != CKR_OK) {
 		show_error("   C_OpenSession #1", rc );
-		return FALSE;
+		return rc;
 	}
 
 	rc = funcs->C_Login( h_session, CKU_USER, user_pin, user_pin_len );
 	if (rc != CKR_OK) {
 		show_error("   C_Login #1", rc );
-		return FALSE;
+		return rc;
 	}
 
 	//
@@ -956,19 +956,19 @@ int do_CreateTokenObjects( void )
 	rc = funcs->C_CreateObject( h_session, cert1_attribs, 7, &h_cert1 );
 	if (rc != CKR_OK) {
 		show_error("   C_CreateObject #1", rc );
-		return FALSE;
+		return rc;
 	}
 
 	rc = funcs->C_CreateObject( h_session, cert2_attribs, 7, &h_cert2 );
 	if (rc != CKR_OK) {
 		show_error("   C_CreateObject #2", rc );
-		return FALSE;
+		return rc;
 	}
 
 	rc = funcs->C_CreateObject( h_session, cert3_attribs, 7, &h_cert3 );
 	if (rc != CKR_OK) {
 		show_error("   C_CreateObject #3", rc );
-		return FALSE;
+		return rc;
 	}
 
 	//
@@ -980,25 +980,25 @@ int do_CreateTokenObjects( void )
 	rc = funcs->C_FindObjectsInit( h_session, NULL, 0 );
 	if (rc != CKR_OK) {
 		show_error("   C_FindObjectsInit #1", rc );
-		return FALSE;
+		return rc;
 	}
 
 	rc = funcs->C_FindObjects( h_session, obj_list, 10, &find_count );
 	if (rc != CKR_OK) {
 		show_error("   C_FindObjects #1", rc );
-		return FALSE;
+		return rc;
 	}
 
 	if (find_count != 3) {
-		printf("   ERROR:  expected C_FindObjects #1 to find 3 objects\n");
-		printf("           it found %ld objects\n", find_count );
-		return FALSE;
+		PRINT_ERR("   ERROR:  expected C_FindObjects #1 to find 3 objects\n");
+		PRINT_ERR("           it found %ld objects\n", find_count );
+		return -1;
 	}
 
 	rc = funcs->C_FindObjectsFinal( h_session );
 	if (rc != CKR_OK) {
 		show_error("   C_FindObjectsFinal #1", rc );
-		return FALSE;
+		return rc;
 	}
 
 	//
@@ -1010,29 +1010,29 @@ int do_CreateTokenObjects( void )
 	rc = funcs->C_FindObjectsInit( h_session, find1_attribs, 1 );
 	if (rc != CKR_OK) {
 		show_error("   C_FindObjectsInit #2", rc );
-		return FALSE;
+		return rc;
 	}
 
 	rc = funcs->C_FindObjects( h_session, obj_list, 10, &find_count );
 	if (rc != CKR_OK) {
 		show_error("   C_FindObjects #2", rc );
-		return FALSE;
+		return rc;
 	}
 
 	if (find_count != 1) {
-		printf("   ERROR:  C_FindObjects #2 should have found 1 object!\n");
-		return FALSE;
+		PRINT_ERR("   ERROR:  C_FindObjects #2 should have found 1 object!\n");
+		return -1;
 	}
 
 	if (obj_list[0] != h_cert2) {
-		printf("   ERROR:  C_FindObjects #2 found the wrong object!");
-		return FALSE;
+		PRINT_ERR("   ERROR:  C_FindObjects #2 found the wrong object!");
+		return -1;
 	}
 
 	rc = funcs->C_FindObjectsFinal( h_session );
 	if (rc != CKR_OK) {
 		show_error("   C_FindObjectsFinal #2", rc );
-		return FALSE;
+		return rc;
 	}
 
 	//
@@ -1044,24 +1044,24 @@ int do_CreateTokenObjects( void )
 	rc = funcs->C_FindObjectsInit( h_session, find2_attribs, 1 );
 	if (rc != CKR_OK) {
 		show_error("   C_FindObjectsInit #3", rc );
-		return FALSE;
+		return rc;
 	}
 
 	rc = funcs->C_FindObjects( h_session, obj_list, 10, &find_count );
 	if (rc != CKR_OK) {
 		show_error("   C_FindObjects #3", rc );
-		return FALSE;
+		return rc;
 	}
 
 	if (find_count != 0) {
-		printf("   ERROR:  C_FindObjects #3 should have found 0 objects!\n");
-		return FALSE;
+		PRINT_ERR("   ERROR:  C_FindObjects #3 should have found 0 objects!\n");
+		return -1;
 	}
 
 	rc = funcs->C_FindObjectsFinal( h_session );
 	if (rc != CKR_OK) {
 		show_error("   C_FindObjectsFinal #3", rc );
-		return FALSE;
+		return rc;
 	}
 
 	//
@@ -1073,7 +1073,7 @@ int do_CreateTokenObjects( void )
 	rc = funcs->C_CloseAllSessions( slot_id );
 	if (rc != CKR_OK) {
 		show_error("   C_CloseAllSessions #1", rc );
-		return FALSE;
+		return rc;
 	}
 
 	// create a USER R/W session
@@ -1082,13 +1082,13 @@ int do_CreateTokenObjects( void )
 	rc = funcs->C_OpenSession( slot_id, flags, NULL, NULL, &h_session );
 	if (rc != CKR_OK) {
 		show_error("   C_OpenSession #2", rc );
-		return FALSE;
+		return rc;
 	}
 
 	rc = funcs->C_Login( h_session, CKU_USER, user_pin, user_pin_len );
 	if (rc != CKR_OK) {
 		show_error("   C_Login #2", rc );
-		return FALSE;
+		return rc;
 	}
 
 	//
@@ -1100,25 +1100,25 @@ int do_CreateTokenObjects( void )
 	rc = funcs->C_FindObjectsInit( h_session, NULL, 0 );
 	if (rc != CKR_OK) {
 		show_error("   C_FindObjectsInit #4", rc );
-		return FALSE;
+		return rc;
 	}
 
 	rc = funcs->C_FindObjects( h_session, obj_list, 10, &find_count );
 	if (rc != CKR_OK) {
 		show_error("   C_FindObjects #4", rc );
-		return FALSE;
+		return rc;
 	}
 
 	if (find_count != 3) {
-		printf("   ERROR:  expected C_FindObjects #4 to find 3 objects\n");
-		printf("           it found %ld objects\n", find_count );
-		return FALSE;
+		PRINT_ERR("   ERROR:  expected C_FindObjects #4 to find 3 objects\n");
+		PRINT_ERR("           it found %ld objects\n", find_count );
+		return -1;
 	}
 
 	rc = funcs->C_FindObjectsFinal( h_session );
 	if (rc != CKR_OK) {
 		show_error("   C_FindObjectsFinal #4", rc );
-		return FALSE;
+		return rc;
 	}
 
 	//
@@ -1130,29 +1130,29 @@ int do_CreateTokenObjects( void )
 	rc = funcs->C_FindObjectsInit( h_session, find1_attribs, 1 );
 	if (rc != CKR_OK) {
 		show_error("   C_FindObjectsInit #5", rc );
-		return FALSE;
+		return rc;
 	}
 
 	rc = funcs->C_FindObjects( h_session, obj_list, 10, &find_count );
 	if (rc != CKR_OK) {
 		show_error("   C_FindObjects #5", rc );
-		return FALSE;
+		return rc;
 	}
 
 	if (find_count != 1) {
-		printf("   ERROR:  C_FindObjects #5 should have found 1 object!\n");
-		return FALSE;
+		PRINT_ERR("   ERROR:  C_FindObjects #5 should have found 1 object!\n");
+		return -1;
 	}
 
 	if (obj_list[0] != h_cert2) {
-		printf("   ERROR:  C_FindObjects #5 found the wrong object!");
-		return FALSE;
+		PRINT_ERR("   ERROR:  C_FindObjects #5 found the wrong object!");
+		return -1;
 	}
 
 	rc = funcs->C_FindObjectsFinal( h_session );
 	if (rc != CKR_OK) {
 		show_error("   C_FindObjectsFinal #5", rc );
-		return FALSE;
+		return rc;
 	}
 
 	//
@@ -1164,24 +1164,24 @@ int do_CreateTokenObjects( void )
 	rc = funcs->C_FindObjectsInit( h_session, find2_attribs, 1 );
 	if (rc != CKR_OK) {
 		show_error("   C_FindObjectsInit #6", rc );
-		return FALSE;
+		return rc;
 	}
 
 	rc = funcs->C_FindObjects( h_session, obj_list, 10, &find_count );
 	if (rc != CKR_OK) {
 		show_error("   C_FindObjects #6", rc );
-		return FALSE;
+		return rc;
 	}
 
 	if (find_count != 0) {
-		printf("   ERROR:  C_FindObjects #6 should have found 0 objects!\n");
-		return FALSE;
+		PRINT_ERR("   ERROR:  C_FindObjects #6 should have found 0 objects!\n");
+		return -1;
 	}
 
 	rc = funcs->C_FindObjectsFinal( h_session );
 	if (rc != CKR_OK) {
 		show_error("   C_FindObjectsFinal #6", rc );
-		return FALSE;
+		return rc;
 	}
 
 	//
@@ -1193,19 +1193,19 @@ int do_CreateTokenObjects( void )
 	rc = funcs->C_DestroyObject( h_session, h_cert1 );
 	if (rc != CKR_OK) {
 		show_error("   C_DestroyObject #1", rc );
-		return FALSE;
+		return rc;
 	}
 
 	rc = funcs->C_DestroyObject( h_session, h_cert2 );
 	if (rc != CKR_OK) {
 		show_error("   C_DestroyObject #2", rc );
-		return FALSE;
+		return rc;
 	}
 
 	rc = funcs->C_DestroyObject( h_session, h_cert3 );
 	if (rc != CKR_OK) {
 		show_error("   C_DestroyObject #3", rc );
-		return FALSE;
+		return rc;
 	}
 
 	//
@@ -1217,25 +1217,25 @@ int do_CreateTokenObjects( void )
 	rc = funcs->C_FindObjectsInit( h_session, NULL, 0 );
 	if (rc != CKR_OK) {
 		show_error("   C_FindObjectsInit #7", rc );
-		return FALSE;
+		return rc;
 	}
 
 	rc = funcs->C_FindObjects( h_session, obj_list, 10, &find_count );
 	if (rc != CKR_OK) {
 		show_error("   C_FindObjects #7", rc );
-		return FALSE;
+		return rc;
 	}
 
 	if (find_count != 0) {
-		printf("   ERROR:  expected C_FindObjects #7 to find 0 objects\n");
-		printf("           it found %ld objects\n", find_count );
-		return FALSE;
+		PRINT_ERR("   ERROR:  expected C_FindObjects #7 to find 0 objects\n");
+		PRINT_ERR("           it found %ld objects\n", find_count );
+		return -1;
 	}
 
 	rc = funcs->C_FindObjectsFinal( h_session );
 	if (rc != CKR_OK) {
 		show_error("   C_FindObjectsFinal #7", rc );
-		return FALSE;
+		return rc;
 	}
 
 	//
@@ -1247,12 +1247,12 @@ int do_CreateTokenObjects( void )
 	rc = funcs->C_CloseAllSessions( slot_id );
 	if (rc != CKR_OK) {
 		show_error("   C_CloseAllSessions #2", rc );
-		return FALSE;
+		return rc;
 	}
 
 
 	printf("Looks okay...\n");
-	return TRUE;
+	return rc;
 }
 
 /*
@@ -1269,10 +1269,10 @@ int do_CreateTokenObjects( void )
  *
  */ 
 
-int do_HWFeatureSearch(void)
+CK_RV do_HWFeatureSearch(void)
 {
 	unsigned int            i;
-	CK_RV 			rc;
+	CK_RV 			rc, loc_rc;
 	CK_ULONG		find_count;
 	CK_SLOT_ID		slot_id;
 	CK_BBOOL		false = FALSE;
@@ -1428,7 +1428,7 @@ int do_HWFeatureSearch(void)
 	 * template, so that should return all objects except our hardware
 	 * feature object. -KEY */
 	if (find_count != 2) {
-		printf("%s:%d ERROR:  C_FindObjects #1 should have found 2 objects!\n"
+		PRINT_ERR("%s:%d ERROR:  C_FindObjects #1 should have found 2 objects!\n"
 				"           It found %ld objects\n", __FILE__, __LINE__,
 				find_count);
 		rc = -1;
@@ -1436,14 +1436,14 @@ int do_HWFeatureSearch(void)
 	}
 
 	if (obj_list[0] != h_obj1 && obj_list[0] != h_obj2) {
-		printf("%s:%d ERROR:  C_FindObjects #1 found the wrong objects!",
+		PRINT_ERR("%s:%d ERROR:  C_FindObjects #1 found the wrong objects!",
 				__FILE__, __LINE__);
 		rc = -1;
 		goto destroy;
 	}
 
 	if (obj_list[1] != h_obj1 && obj_list[1] != h_obj2) {
-		printf("%s:%d ERROR:  C_FindObjects #1 found the wrong objects!",
+		PRINT_ERR("%s:%d ERROR:  C_FindObjects #1 found the wrong objects!",
 				__FILE__, __LINE__);
 		rc = -1;
 		goto destroy;
@@ -1470,7 +1470,7 @@ int do_HWFeatureSearch(void)
 	}
 
 	if (find_count != 3) {
-		printf("%s:%d ERROR:  C_FindObjects #2 should have found 3 objects!\n"
+		PRINT_ERR("%s:%d ERROR:  C_FindObjects #2 should have found 3 objects!\n"
 				"           It found %ld objects\n", __FILE__, __LINE__,
 				find_count);
 		funcs->C_FindObjectsFinal(h_session);
@@ -1485,7 +1485,7 @@ int do_HWFeatureSearch(void)
 				obj_list[i] != h_clock) 
 		{
 
-			printf("%s:%d ERROR:  C_FindObjects #2 found the wrong"
+			PRINT_ERR("%s:%d ERROR:  C_FindObjects #2 found the wrong"
 					" objects!", __FILE__, __LINE__);
 			rc = -1;
 		}
@@ -1500,33 +1500,104 @@ int do_HWFeatureSearch(void)
 
 destroy:
 	/* Destroy the created objects, don't clobber the rc */
-	funcs->C_DestroyObject(h_session, h_clock);
+	loc_rc = funcs->C_DestroyObject(h_session, h_clock);
+	if( loc_rc != CKR_OK )
+		show_error("C_DestroyObject #1", loc_rc);
 destroy_4:
-	funcs->C_DestroyObject(h_session, h_counter2);
+	loc_rc = funcs->C_DestroyObject(h_session, h_counter2);
+	if( loc_rc != CKR_OK )
+		show_error("C_DestroyObject #2", loc_rc);
 destroy_3:
-	funcs->C_DestroyObject(h_session, h_counter1);
+	loc_rc = funcs->C_DestroyObject(h_session, h_counter1);
+	if( loc_rc != CKR_OK )
+		show_error("C_DestroyObject #3", loc_rc);
 destroy_2:
-	funcs->C_DestroyObject(h_session, h_obj2);
+	loc_rc = funcs->C_DestroyObject(h_session, h_obj2);
+	if( loc_rc != CKR_OK )
+		show_error("C_DestroyObject #4", loc_rc);
 destroy_1:
-	funcs->C_DestroyObject(h_session, h_obj1);
-logout:
-	rc = funcs->C_Logout(h_session);
-	if( rc != CKR_OK )
-		show_error("C_Logout #1", rc);
+	loc_rc = funcs->C_DestroyObject(h_session, h_obj1);
+	if( loc_rc != CKR_OK )
+		show_error("C_DestroyObject #5", loc_rc);
+
+	loc_rc = funcs->C_Logout(h_session);
+	if( loc_rc != CKR_OK )
+		show_error("C_Logout #1", loc_rc);
 
 session_close:
 	/* Close the session */
-	if( (rc = funcs->C_CloseSession(h_session)) != CKR_OK )
-		show_error("C_CloseSession", rc);
+	if( (loc_rc = funcs->C_CloseSession(h_session)) != CKR_OK )
+		show_error("C_CloseSession", loc_rc);
 done:
-	return TRUE;
+	return rc;
+}
+
+CK_RV obj_mgmt_functions()
+{
+	SYSTEMTIME  t1, t2;
+	int         rc;
+
+	
+	printf("Object Management tests...\n\n");
+
+
+	GetSystemTime(&t1);
+	rc = do_CreateSessionObject();
+	if (rc && !no_stop)
+		return rc;
+	GetSystemTime(&t2);
+	process_time( t1, t2 );
+
+
+	GetSystemTime(&t1);
+	rc = do_CopyObject();
+	if (rc && !no_stop)
+		return rc;
+	GetSystemTime(&t2);
+	process_time( t1, t2 );
+
+
+	GetSystemTime(&t1);
+	rc = do_SetAttributeValues();
+	if (rc && !no_stop)
+		return rc;
+	GetSystemTime(&t2);
+	process_time( t1, t2 );
+
+	GetSystemTime(&t1);
+	rc = do_FindObjects();
+	if (rc && !no_stop)
+		return rc;
+	GetSystemTime(&t2);
+	process_time( t1, t2 );
+
+	GetSystemTime(&t1);
+	rc = do_HWFeatureSearch();
+	if (rc && !no_stop)
+		return rc;
+	GetSystemTime(&t2);
+	process_time( t1, t2 );
+
+	if (skip_token_obj == TRUE) {
+		printf("Skipping do_CreateTokenObjects()...\n\n");
+	}
+	else {
+		GetSystemTime(&t1);
+		rc = do_CreateTokenObjects();
+		if (rc && !no_stop)
+			return rc;
+		GetSystemTime(&t2);
+		process_time( t1, t2 );
+	}
+
+	return rc;
 }
 
 int main(int argc, char **argv)
 {
 	CK_C_INITIALIZE_ARGS cinit_args;
-	int rc, i;
-
+	int rc;
+	CK_RV rv;
 
 	printf("Using slot #%lu...\n\n", SLOT_ID );
 	printf("With option: no_init: %d, noskip: %d\n", no_init, skip_token_obj);
@@ -1537,10 +1608,10 @@ int main(int argc, char **argv)
 
 	rc = do_GetFunctionList();
 	if (!rc) {
-		fprintf(stderr, "ERROR do_GetFunctionList() Failed , rc = 0x%0x\n", rc); 
+		PRINT_ERR("ERROR do_GetFunctionList() Failed , rc = 0x%0x\n", rc);
 		return rc;
 	}
-	
+
 	memset( &cinit_args, 0x0, sizeof(cinit_args) );
 	cinit_args.flags = CKF_OS_LOCKING_OK;
 
@@ -1552,7 +1623,7 @@ int main(int argc, char **argv)
 		CK_SESSION_HANDLE  hsess = 0;
 
 		rc = funcs->C_GetFunctionStatus(hsess);
-		if (rc  != CKR_FUNCTION_NOT_PARALLEL)  
+		if (rc  != CKR_FUNCTION_NOT_PARALLEL)
 			return rc;
 
 		rc = funcs->C_CancelFunction(hsess);
@@ -1561,66 +1632,7 @@ int main(int argc, char **argv)
 
 	}
 
-	obj_mgmt_functions();
-}
-
-int obj_mgmt_functions()
-{
-	SYSTEMTIME  t1, t2;
-	int         rc;
-
-	
-	printf("Object Management tests...\n\n");
-
-
-	GetSystemTime(&t1);
-	rc = do_CreateSessionObject();
-	if (!rc && !no_stop)
-		return FALSE;
-	GetSystemTime(&t2);
-	process_time( t1, t2 );
-
-
-	GetSystemTime(&t1);
-	rc = do_CopyObject();
-	if (!rc && !no_stop)
-		return FALSE;
-	GetSystemTime(&t2);
-	process_time( t1, t2 );
-
-
-	GetSystemTime(&t1);
-	rc = do_SetAttributeValues();
-	if (!rc && !no_stop)
-		return FALSE;
-	GetSystemTime(&t2);
-	process_time( t1, t2 );
-
-	GetSystemTime(&t1);
-	rc = do_FindObjects();
-	if (!rc && !no_stop)
-		return FALSE;
-	GetSystemTime(&t2);
-	process_time( t1, t2 );
-
-	GetSystemTime(&t1);
-	rc = do_HWFeatureSearch();
-	if (!rc && !no_stop)
-		return FALSE;
-	GetSystemTime(&t2);
-	process_time( t1, t2 );
-
-	if (skip_token_obj == TRUE) {
-		printf("Skipping do_CreateTokenObjects()...\n\n");
-	}
-	else {
-		GetSystemTime(&t1);
-		rc = do_CreateTokenObjects();
-		if (!rc && !no_stop)
-			return FALSE;
-		GetSystemTime(&t2);
-		process_time( t1, t2 );
-	}
-
-	return TRUE;
+	rv = obj_mgmt_functions();
+	/* make sure we return non-zero if rv is non-zero */
+	return ((rv==0) || (rv % 256) ? rv : -1);
 }
