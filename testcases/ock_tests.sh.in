@@ -236,7 +236,7 @@ run_tests()
 	echo "Will run the following tests for slot $1: $(ls -U $OCK_TESTS)"
 	for i in $( ls -U $OCK_TESTS )
 	do
-		echo "=====Now executing '$j'======"
+		echo "=====Now executing '$i'======"
 		$i -slot $1 $NO_STOP 2>&1
 	done
 }
