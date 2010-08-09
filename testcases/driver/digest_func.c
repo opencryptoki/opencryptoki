@@ -16,7 +16,7 @@
 
 //
 //
-int do_Digest_SHA1( void )
+CK_RV do_Digest_SHA1( void )
 {
 	CK_SESSION_HANDLE session;
 	CK_SLOT_ID        slot_id;
@@ -33,7 +33,7 @@ int do_Digest_SHA1( void )
 	rc = funcs->C_OpenSession( slot_id, flags, NULL, NULL, &session );
 	if (rc != CKR_OK) {
 		show_error("   C_OpenSession #1", rc );
-		return FALSE;
+		return rc;
 	}
 
 	// perform the hash tests from the FIPS 180-1 document
@@ -56,7 +56,7 @@ int do_Digest_SHA1( void )
 		rc = funcs->C_DigestInit( session, &mech );
 		if (rc != CKR_OK) {
 			show_error("   C_DigestInit #1", rc );
-			return FALSE;
+			return rc;
 		}
 
 		hash_len = sizeof(hash);
@@ -65,17 +65,17 @@ int do_Digest_SHA1( void )
 				hash,    &hash_len );
 		if (rc != CKR_OK) {
 			show_error("   C_Digest #1", rc );
-			return FALSE;
+			return rc;
 		}
 
 		if (hash_len != 20) {
-			printf("   ERROR #1:  hash_len == %ld, expected 20\n", hash_len );
-			return FALSE;
+			PRINT_ERR("   ERROR #1:  hash_len == %ld, expected 20\n", hash_len );
+			return -1;
 		}
 
 		if (memcmp(hash, expected1, hash_len) != 0) {
-			printf("   ERROR #2:  hash output mismatch\n" );
-			return FALSE;
+			PRINT_ERR("   ERROR #2:  hash output mismatch\n" );
+			return -1;
 		}
 
 
@@ -84,31 +84,31 @@ int do_Digest_SHA1( void )
 		rc = funcs->C_DigestInit( session, &mech );
 		if (rc != CKR_OK) {
 			show_error("   C_DigestInit #2", rc );
-			return FALSE;
+			return rc;
 		}
 
 		data_len = strlen((char *)data1);
 		rc = funcs->C_DigestUpdate( session, data1, data_len );
 		if (rc != CKR_OK) {
 			show_error("   C_DigestUpdate #1", rc );
-			return FALSE;
+			return rc;
 		}
 
 		hash_len = sizeof(hash);
 		rc = funcs->C_DigestFinal( session, hash, &hash_len );
 		if (rc != CKR_OK) {
 			show_error("   C_DigestFinal #1", rc );
-			return FALSE;
+			return rc;
 		}
 
 		if (hash_len != 20) {
-			printf("   ERROR #3:  hash_len == %ld, expected 20\n", hash_len );
-			return FALSE;
+			PRINT_ERR("   ERROR #3:  hash_len == %ld, expected 20\n", hash_len );
+			return -1;
 		}
 
 		if (memcmp(hash, expected1, hash_len) != 0) {
-			printf("   ERROR #4:  hash output mismatch\n" );
-			return FALSE;
+			PRINT_ERR("   ERROR #4:  hash output mismatch\n" );
+			return -1;
 		}
 
 
@@ -117,7 +117,7 @@ int do_Digest_SHA1( void )
 		rc = funcs->C_DigestInit( session, &mech );
 		if (rc != CKR_OK) {
 			show_error("   C_DigestInit #3", rc );
-			return FALSE;
+			return rc;
 		}
 
 		hash_len = sizeof(hash);
@@ -126,17 +126,17 @@ int do_Digest_SHA1( void )
 				hash,    &hash_len );
 		if (rc != CKR_OK) {
 			show_error("   C_Digest #2", rc );
-			return FALSE;
+			return rc;
 		}
 
 		if (hash_len != 20) {
-			printf("   ERROR #5:  hash_len == %ld, expected 20\n", hash_len );
-			return FALSE;
+			PRINT_ERR("   ERROR #5:  hash_len == %ld, expected 20\n", hash_len );
+			return -1;
 		}
 
 		if (memcmp(hash, expected2, hash_len) != 0) {
-			printf("   ERROR #6:  hash output mismatch\n" );
-			return FALSE;
+			PRINT_ERR("   ERROR #6:  hash output mismatch\n" );
+			return -1;
 		}
 
 
@@ -145,31 +145,31 @@ int do_Digest_SHA1( void )
 		rc = funcs->C_DigestInit( session, &mech );
 		if (rc != CKR_OK) {
 			show_error("   C_DigestInit #4", rc );
-			return FALSE;
+			return rc;
 		}
 
 		data_len = strlen((char *)data2);
 		rc = funcs->C_DigestUpdate( session, data2, data_len );
 		if (rc != CKR_OK) {
 			show_error("   C_DigestUpdate #2", rc );
-			return FALSE;
+			return rc;
 		}
 
 		hash_len = sizeof(hash);
 		rc = funcs->C_DigestFinal( session, hash, &hash_len );
 		if (rc != CKR_OK) {
 			show_error("   C_DigestFinal #2", rc );
-			return FALSE;
+			return rc;
 		}
 
 		if (hash_len != 20) {
-			printf("   ERROR #7:  hash_len == %ld, expected 20\n", hash_len );
-			return FALSE;
+			PRINT_ERR("   ERROR #7:  hash_len == %ld, expected 20\n", hash_len );
+			return -1;
 		}
 
 		if (memcmp(hash, expected2, hash_len) != 0) {
-			printf("   ERROR #8:  hash output mismatch\n" );
-			return FALSE;
+			PRINT_ERR("   ERROR #8:  hash output mismatch\n" );
+			return -1;
 		}
 	}
 
@@ -199,7 +199,7 @@ int do_Digest_SHA1( void )
 		rc = funcs->C_DigestInit( session, &mech );
 		if (rc != CKR_OK) {
 			show_error("   C_DigestInit #5", rc );
-			return FALSE;
+			return rc;
 		}
 
 		hash_len = sizeof(hash1);
@@ -207,12 +207,12 @@ int do_Digest_SHA1( void )
 				hash1,   &hash_len );
 		if (rc != CKR_OK) {
 			show_error("   C_Digest #3", rc );
-			return FALSE;
+			return rc;
 		}
 
 		if (hash_len != SHA1_HASH_LEN) {
-			printf("   ERROR #9:  expected len1 to be %d.  Got %ld instead\n\n", SHA1_HASH_LEN, hash_len );
-			return FALSE;
+			PRINT_ERR("   ERROR #9:  expected len1 to be %d.  Got %ld instead\n\n", SHA1_HASH_LEN, hash_len );
+			return -1;
 		}
 
 
@@ -222,7 +222,7 @@ int do_Digest_SHA1( void )
 		rc = funcs->C_DigestInit( session, &mech );
 		if (rc != CKR_OK) {
 			show_error("   C_DigestInit #6", rc );
-			return FALSE;
+			return rc;
 		}
 
 		for (i=0; i < sizeof(data); i += 64) {
@@ -232,8 +232,8 @@ int do_Digest_SHA1( void )
 			rc = funcs->C_DigestUpdate( session, &data[i], size );
 			if (rc != CKR_OK) {
 				show_error("   C_DigestUpdate #3", rc );
-				printf("   Offset:  %ld\n", i);
-				return FALSE;
+				PRINT_ERR("   Offset:  %ld\n", i);
+				return rc;
 			}
 		}
 
@@ -241,19 +241,19 @@ int do_Digest_SHA1( void )
 		rc = funcs->C_DigestFinal( session, hash2, &hash_len );
 		if (rc != CKR_OK) {
 			show_error("   C_DigestFinal #3", rc );
-			return FALSE;
+			return rc;
 		}
 
 		if (hash_len != SHA1_HASH_LEN) {
-			printf("   ERROR #10:  expected len2 to be %d.  Got %ld instead\n\n", SHA1_HASH_LEN, hash_len );
-			return FALSE;
+			PRINT_ERR("   ERROR #10:  expected len2 to be %d.  Got %ld instead\n\n", SHA1_HASH_LEN, hash_len );
+			return -1;
 		}
 
 
 		rc = funcs->C_DigestInit( session, &mech );
 		if (rc != CKR_OK) {
 			show_error("   C_DigestInit #3", rc );
-			return FALSE;
+			return rc;
 		}
 
 
@@ -268,8 +268,8 @@ int do_Digest_SHA1( void )
 			rc = funcs->C_DigestUpdate( session, &data[i], size );
 			if (rc != CKR_OK) {
 				show_error("   C_DigestUpdate #4", rc );
-				printf("   Offset:  %ld\n", i);
-				return FALSE;
+				PRINT_ERR("   Offset:  %ld\n", i);
+				return rc;
 			}
 		}
 
@@ -277,25 +277,25 @@ int do_Digest_SHA1( void )
 		rc = funcs->C_DigestFinal( session, hash3, &hash_len );
 		if (rc != CKR_OK) {
 			show_error("   C_DigestFinal #4", rc );
-			return FALSE;
+			return rc;
 		}
 
 		if (hash_len != SHA1_HASH_LEN) {
-			printf("   ERROR #11:  expected len3 to be %d.  Got %ld instead\n\n", SHA1_HASH_LEN, hash_len );
-			return FALSE;
+			PRINT_ERR("   ERROR #11:  expected len3 to be %d.  Got %ld instead\n\n", SHA1_HASH_LEN, hash_len );
+			return -1;
 		}
 
 
 		// the hashes better be the same
 		//
 		if (memcmp(hash1, hash2, sizeof(hash1)) != 0) {
-			printf("   ERROR #12:  hashes 1 and 2 don't match\n");
-			return FALSE;
+			PRINT_ERR("   ERROR #12:  hashes 1 and 2 don't match\n");
+			return -1;
 		}
 
 		if (memcmp(hash1, hash3, sizeof(hash1)) != 0) {
-			printf("   ERROR #13:  hashes 1 and 3 don't match\n");
-			return FALSE;
+			PRINT_ERR("   ERROR #13:  hashes 1 and 3 don't match\n");
+			return -1;
 		}
 	}
 
@@ -303,17 +303,17 @@ int do_Digest_SHA1( void )
 	rc = funcs->C_CloseAllSessions( slot_id );
 	if (rc != CKR_OK) {
 		show_error("   C_CloseAllSessions #1", rc );
-		return FALSE;
+		return rc;
 	}
 
 	printf("Looks okay...\n");
-	return TRUE;
+	return 0;
 }
 
 
 //
 //
-int do_Digest_MD2( void )
+CK_RV do_Digest_MD2( void )
 {
 	CK_SESSION_HANDLE session;
 	CK_SLOT_ID        slot_id;
@@ -336,7 +336,7 @@ int do_Digest_MD2( void )
 	rc = funcs->C_OpenSession( slot_id, flags, NULL, NULL, &session );
 	if (rc != CKR_OK) {
 		show_error("   C_OpenSession #1", rc );
-		return FALSE;
+		return rc;
 	}
 
 	mech.mechanism      = CKM_MD2;
@@ -355,7 +355,7 @@ int do_Digest_MD2( void )
 	rc = funcs->C_DigestInit( session, &mech );
 	if (rc != CKR_OK) {
 		show_error("   C_DigestInit #1", rc );
-		return FALSE;
+		return rc;
 	}
 
 	hash_len = sizeof(hash1);
@@ -363,12 +363,12 @@ int do_Digest_MD2( void )
 			hash1,   &hash_len );
 	if (rc != CKR_OK) {
 		show_error("   C_Digest #1", rc );
-		return FALSE;
+		return rc;
 	}
 
 	if (hash_len != MD2_HASH_LEN) {
-		printf("   ERROR:  expected len1 to be %d.  Got %ld instead\n\n", MD2_HASH_LEN, hash_len );
-		return FALSE;
+		PRINT_ERR("   ERROR:  expected len1 to be %d.  Got %ld instead\n\n", MD2_HASH_LEN, hash_len );
+		return -1;
 	}
 
 
@@ -377,7 +377,7 @@ int do_Digest_MD2( void )
 	rc = funcs->C_DigestInit( session, &mech );
 	if (rc != CKR_OK) {
 		show_error("   C_DigestInit #2", rc );
-		return FALSE;
+		return rc;
 	}
 
 	for (i=0; i < sizeof(data); i += 64) {
@@ -387,8 +387,8 @@ int do_Digest_MD2( void )
 		rc = funcs->C_DigestUpdate( session, &data[i], size );
 		if (rc != CKR_OK) {
 			show_error("   C_DigestUpdate #1", rc );
-			printf("   Offset:  %ld\n", i);
-			return FALSE;
+			PRINT_ERR("   Offset:  %ld\n", i);
+			return rc;
 		}
 	}
 
@@ -396,19 +396,19 @@ int do_Digest_MD2( void )
 	rc = funcs->C_DigestFinal( session, hash2, &hash_len );
 	if (rc != CKR_OK) {
 		show_error("   C_DigestFinal #1", rc );
-		return FALSE;
+		return rc;
 	}
 
 	if (hash_len != MD2_HASH_LEN) {
-		printf("   ERROR:  expected len2 to be %d.  Got %ld instead\n\n", MD2_HASH_LEN, hash_len );
-		return FALSE;
+		PRINT_ERR("   ERROR:  expected len2 to be %d.  Got %ld instead\n\n", MD2_HASH_LEN, hash_len );
+		return -1;
 	}
 
 
 	rc = funcs->C_DigestInit( session, &mech );
 	if (rc != CKR_OK) {
 		show_error("   C_DigestInit #3", rc );
-		return FALSE;
+		return rc;
 	}
 
 
@@ -421,8 +421,8 @@ int do_Digest_MD2( void )
 		rc = funcs->C_DigestUpdate( session, &data[i], size );
 		if (rc != CKR_OK) {
 			show_error("   C_DigestUpdate #2", rc );
-			printf("   Offset:  %ld\n", i);
-			return FALSE;
+			PRINT_ERR("   Offset:  %ld\n", i);
+			return rc;
 		}
 	}
 
@@ -430,43 +430,43 @@ int do_Digest_MD2( void )
 	rc = funcs->C_DigestFinal( session, hash3, &hash_len );
 	if (rc != CKR_OK) {
 		show_error("   C_DigestFinal #2", rc );
-		return FALSE;
+		return rc;
 	}
 
 	if (hash_len != MD2_HASH_LEN) {
-		printf("   ERROR:  expected len3 to be %d.  Got %ld instead\n\n", MD2_HASH_LEN, hash_len );
-		return FALSE;
+		PRINT_ERR("   ERROR:  expected len3 to be %d.  Got %ld instead\n\n", MD2_HASH_LEN, hash_len );
+		return -1;
 	}
 
 
 	// the hashes better be the same
 	//
 	if (memcmp(hash1, hash2, sizeof(hash1)) != 0) {
-		printf("   ERROR:  hashes 1 and 2 don't match\n");
-		return FALSE;
+		PRINT_ERR("   ERROR:  hashes 1 and 2 don't match\n");
+		return -1;
 	}
 
 	if (memcmp(hash1, hash3, sizeof(hash1)) != 0) {
-		printf("   ERROR:  hashes 1 and 3 don't match\n");
-		return FALSE;
+		PRINT_ERR("   ERROR:  hashes 1 and 3 don't match\n");
+		return -1;
 	}
 
 
 	rc = funcs->C_CloseAllSessions( slot_id );
 	if (rc != CKR_OK) {
 		show_error("   C_CloseAllSessions #1", rc );
-		return FALSE;
+		return rc;
 	}
 
 	printf("Looks okay...\n");
-	return TRUE;
+	return 0;
 }
 
 
 
 //
 //
-int do_Digest_MD5( void )
+CK_RV do_Digest_MD5( void )
 {
 	CK_SESSION_HANDLE session;
 	CK_SLOT_ID        slot_id;
@@ -493,7 +493,7 @@ int do_Digest_MD5( void )
 	rc = funcs->C_OpenSession( slot_id, flags, NULL, NULL, &session );
 	if (rc != CKR_OK) {
 		show_error("   C_OpenSession #1", rc );
-		return FALSE;
+		return rc;
 	}
 
 	mech.mechanism      = CKM_MD5;
@@ -512,7 +512,7 @@ int do_Digest_MD5( void )
 	rc = funcs->C_DigestInit( session, &mech );
 	if (rc != CKR_OK) {
 		show_error("   C_DigestInit #1", rc );
-		return FALSE;
+		return rc;
 	}
 
 	hash_len = sizeof(hash1);
@@ -520,12 +520,12 @@ int do_Digest_MD5( void )
 			hash1,   &hash_len );
 	if (rc != CKR_OK) {
 		show_error("   C_Digest #1", rc );
-		return FALSE;
+		return rc;
 	}
 
 	if (hash_len != MD5_HASH_LEN) {
-		printf("   ERROR:  expected len1 to be %d.  Got %ld instead\n\n", MD5_HASH_LEN, hash_len );
-		return FALSE;
+		PRINT_ERR("   ERROR:  expected len1 to be %d.  Got %ld instead\n\n", MD5_HASH_LEN, hash_len );
+		return -1;
 	}
 
 	// SAB Verify...
@@ -533,7 +533,7 @@ int do_Digest_MD5( void )
 	MD5Update(&mdContext,data,data_len);
 	MD5Final(&mdContext);
 	if ( bcmp(hash1,mdContext.digest,MD5_HASH_LEN)){
-		printf("  Error, Card value does not jive with the Software value \n");
+		PRINT_ERR("  Error, Card value does not jive with the Software value \n");
 
 	}
 
@@ -542,7 +542,7 @@ int do_Digest_MD5( void )
 	rc = funcs->C_DigestInit( session, &mech );
 	if (rc != CKR_OK) {
 		show_error("   C_DigestInit #2", rc );
-		return FALSE;
+		return rc;
 	}
 
 	for (i=0; i < sizeof(data); i += 64) {
@@ -552,8 +552,8 @@ int do_Digest_MD5( void )
 		rc = funcs->C_DigestUpdate( session, &data[i], size );
 		if (rc != CKR_OK) {
 			show_error("   C_DigestUpdate #1", rc );
-			printf("   Offset:  %ld\n", i);
-			return FALSE;
+			PRINT_ERR("   Offset:  %ld\n", i);
+			return rc;
 		}
 	}
 
@@ -561,19 +561,19 @@ int do_Digest_MD5( void )
 	rc = funcs->C_DigestFinal( session, hash2, &hash_len );
 	if (rc != CKR_OK) {
 		show_error("   C_DigestFinal #1", rc );
-		return FALSE;
+		return rc;
 	}
 
 	if (hash_len != MD5_HASH_LEN) {
-		printf("   ERROR:  expected len2 to be %d.  Got %ld instead\n\n", MD5_HASH_LEN, hash_len );
-		return FALSE;
+		PRINT_ERR("   ERROR:  expected len2 to be %d.  Got %ld instead\n\n", MD5_HASH_LEN, hash_len );
+		return -1;
 	}
 
 
 	rc = funcs->C_DigestInit( session, &mech );
 	if (rc != CKR_OK) {
 		show_error("   C_DigestInit #3", rc );
-		return FALSE;
+		return rc;
 	}
 
 
@@ -586,8 +586,8 @@ int do_Digest_MD5( void )
 		rc = funcs->C_DigestUpdate( session, &data[i], size );
 		if (rc != CKR_OK) {
 			show_error("   C_DigestUpdate #2", rc );
-			printf("   Offset:  %ld\n", i);
-			return FALSE;
+			PRINT_ERR("   Offset:  %ld\n", i);
+			return rc;
 		}
 	}
 
@@ -595,42 +595,42 @@ int do_Digest_MD5( void )
 	rc = funcs->C_DigestFinal( session, hash3, &hash_len );
 	if (rc != CKR_OK) {
 		show_error("   C_DigestFinal #2", rc );
-		return FALSE;
+		return rc;
 	}
 
 	if (hash_len != MD5_HASH_LEN) {
-		printf("   ERROR:  expected len3 to be %d.  Got %ld instead\n\n", MD5_HASH_LEN, hash_len );
-		return FALSE;
+		PRINT_ERR("   ERROR:  expected len3 to be %d.  Got %ld instead\n\n", MD5_HASH_LEN, hash_len );
+		return -1;
 	}
 
 
 	// the hashes better be the same
 	//
 	if (memcmp(hash1, hash2, sizeof(hash1)) != 0) {
-		printf("   ERROR:  hashes 1 and 2 don't match\n");
-		return FALSE;
+		PRINT_ERR("   ERROR:  hashes 1 and 2 don't match\n");
+		return -1;
 	}
 
 	if (memcmp(hash1, hash3, sizeof(hash1)) != 0) {
-		printf("   ERROR:  hashes 1 and 3 don't match\n");
-		return FALSE;
+		PRINT_ERR("   ERROR:  hashes 1 and 3 don't match\n");
+		return -1;
 	}
 
 
 	rc = funcs->C_CloseAllSessions( slot_id );
 	if (rc != CKR_OK) {
 		show_error("   C_CloseAllSessions #1", rc );
-		return FALSE;
+		return rc;
 	}
 
 	printf("Looks okay...\n");
-	return TRUE;
+	return 0;
 }
 
 
 //
 //
-int do_Digest_SHA1_speed( void )
+CK_RV do_Digest_SHA1_speed( void )
 {
 	CK_SESSION_HANDLE session;
 	CK_SLOT_ID        slot_id;
@@ -651,7 +651,7 @@ int do_Digest_SHA1_speed( void )
 	rc = funcs->C_OpenSession( slot_id, flags, NULL, NULL, &session );
 	if (rc != CKR_OK) {
 		show_error("   C_OpenSession #1", rc );
-		return FALSE;
+		return rc;
 	}
 
 	mech.mechanism      = CKM_SHA_1;
@@ -669,7 +669,7 @@ int do_Digest_SHA1_speed( void )
 		rc = funcs->C_DigestInit( session, &mech );
 		if (rc != CKR_OK) {
 			show_error("   C_DigestInit #1", rc );
-			return FALSE;
+			return rc;
 		}
 
 		hash_len = sizeof(hash1);
@@ -677,29 +677,29 @@ int do_Digest_SHA1_speed( void )
 				hash1,   &hash_len );
 		if (rc != CKR_OK) {
 			show_error("   C_Digest #1", rc );
-			return FALSE;
+			return rc;
 		}
 
 		if (hash_len != SHA1_HASH_LEN) {
-			printf("   ERROR:  expected len1 to be %d.  Got %ld instead\n\n", SHA1_HASH_LEN, hash_len );
-			return FALSE;
+			PRINT_ERR("   ERROR:  expected len1 to be %d.  Got %ld instead\n\n", SHA1_HASH_LEN, hash_len );
+			return -1;
 		}
 	}
 
 	rc = funcs->C_CloseAllSessions( slot_id );
 	if (rc != CKR_OK) {
 		show_error("   C_CloseAllSessions #1", rc );
-		return FALSE;
+		return rc;
 	}
 
 	printf("Looks okay...\n");
-	return TRUE;
+	return 0;
 }
 
 
 //
 //
-int do_Digest_MD5_speed( void )
+CK_RV do_Digest_MD5_speed( void )
 {
 	CK_SESSION_HANDLE session;
 	CK_SLOT_ID        slot_id;
@@ -720,7 +720,7 @@ int do_Digest_MD5_speed( void )
 	rc = funcs->C_OpenSession( slot_id, flags, NULL, NULL, &session );
 	if (rc != CKR_OK) {
 		show_error("   C_OpenSession #1", rc );
-		return FALSE;
+		return rc;
 	}
 
 	mech.mechanism      = CKM_MD5;
@@ -738,7 +738,7 @@ int do_Digest_MD5_speed( void )
 		rc = funcs->C_DigestInit( session, &mech );
 		if (rc != CKR_OK) {
 			show_error("   C_DigestInit #1", rc );
-			return FALSE;
+			return rc;
 		}
 
 		hash_len = sizeof(hash1);
@@ -746,29 +746,29 @@ int do_Digest_MD5_speed( void )
 				hash1,   &hash_len );
 		if (rc != CKR_OK) {
 			show_error("   C_Digest #1", rc );
-			return FALSE;
+			return rc;
 		}
 
 		if (hash_len != MD5_HASH_LEN) {
-			printf("   ERROR:  expected len1 to be %d.  Got %ld instead\n\n", MD5_HASH_LEN, hash_len );
-			return FALSE;
+			PRINT_ERR("   ERROR:  expected len1 to be %d.  Got %ld instead\n\n", MD5_HASH_LEN, hash_len );
+			return -1;
 		}
 	}
 
 	rc = funcs->C_CloseAllSessions( slot_id );
 	if (rc != CKR_OK) {
 		show_error("   C_CloseAllSessions #1", rc );
-		return FALSE;
+		return rc;
 	}
 
 	printf("Looks okay...\n");
-	return TRUE;
+	return 0;
 }
 
 
 //
 //
-int do_SignVerify_MD5_HMAC( void )
+CK_RV do_SignVerify_MD5_HMAC( void )
 {
 	CK_SESSION_HANDLE session;
 	CK_SLOT_ID        slot_id;
@@ -785,7 +785,7 @@ int do_SignVerify_MD5_HMAC( void )
 	rc = funcs->C_OpenSession( slot_id, flags, NULL, NULL, &session );
 	if (rc != CKR_OK) {
 		show_error("   C_OpenSession #1", rc );
-		return FALSE;
+		return rc;
 	}
 
 
@@ -824,49 +824,49 @@ int do_SignVerify_MD5_HMAC( void )
 		rc = funcs->C_CreateObject( session, key_attribs, 4, &h_key );
 		if (rc != CKR_OK) {
 			show_error("   C_CreateObject #1", rc );
-			return FALSE;
+			return rc;
 		}
 
 		rc = funcs->C_SignInit( session, &mech, h_key );
 		if (rc != CKR_OK) {
 			show_error("   C_SignInit #1", rc );
-			return FALSE;
+			return rc;
 		}
 
 		hash_len = sizeof(hash);
 		rc = funcs->C_Sign( session, data, data_len, hash, &hash_len );
 		if (rc != CKR_OK) {
 			show_error("   C_Sign #1", rc );
-			return FALSE;
+			return rc;
 		}
 
 		if (hash_len != MD5_HASH_LEN) {
-			printf("   Error:  C_Sign #1 generated bad HMAC length\n");
-			return FALSE;
+			PRINT_ERR("   Error:  C_Sign #1 generated bad HMAC length\n");
+			return -1;
 		}
 
 		if (memcmp(hash, expect, hash_len) != 0) {
-			printf("   Error:  C_Sign #1 generated bad HMAC\n");
-			return FALSE;
+			PRINT_ERR("   Error:  C_Sign #1 generated bad HMAC\n");
+			return -1;
 		}
 
 		rc = funcs->C_VerifyInit( session, &mech, h_key );
 		if (rc != CKR_OK) {
 			show_error("   C_VerifyInit #1", rc );
-			return FALSE;
+			return rc;
 		}
 
 		rc = funcs->C_Verify( session, data, data_len, hash, hash_len );
 		if (rc != CKR_OK) {
 			show_error("   C_Verify #1", rc );
-			return FALSE;
+			return rc;
 		}
 
 
 		rc = funcs->C_DestroyObject( session, h_key );
 		if (rc != CKR_OK) {
 			show_error("   C_DestroyObject #1", rc );
-			return FALSE;
+			return rc;
 		}
 	}
 
@@ -901,48 +901,48 @@ int do_SignVerify_MD5_HMAC( void )
 		rc = funcs->C_CreateObject( session, key_attribs, 4, &h_key );
 		if (rc != CKR_OK) {
 			show_error("   C_CreateObject #2", rc );
-			return FALSE;
+			return rc;
 		}
 
 		rc = funcs->C_SignInit( session, &mech, h_key );
 		if (rc != CKR_OK) {
 			show_error("   C_SignInit #2", rc );
-			return FALSE;
+			return rc;
 		}
 
 		hash_len = sizeof(hash);
 		rc = funcs->C_Sign( session, data, data_len, hash, &hash_len );
 		if (rc != CKR_OK) {
 			show_error("  C_Sign #2", rc );
-			return FALSE;
+			return rc;
 		}
 
 		if (hash_len != MD5_HASH_LEN) {
-			printf("   Error:  C_Sign #2 generated bad HMAC length\n");
-			return FALSE;
+			PRINT_ERR("   Error:  C_Sign #2 generated bad HMAC length\n");
+			return -1;
 		}
 
 		if (memcmp(hash, expect, hash_len) != 0) {
-			printf("   Error:  C_Sign #2 generated bad HMAC\n");
-			return FALSE;
+			PRINT_ERR("   Error:  C_Sign #2 generated bad HMAC\n");
+			return -1;
 		}
 
 		rc = funcs->C_VerifyInit( session, &mech, h_key );
 		if (rc != CKR_OK) {
 			show_error("   C_VerifyInit #2", rc );
-			return FALSE;
+			return rc;
 		}
 
 		rc = funcs->C_Verify( session, data, data_len, hash, hash_len );
 		if (rc != CKR_OK) {
 			show_error("   C_Verify #2", rc );
-			return FALSE;
+			return rc;
 		}
 
 		rc = funcs->C_DestroyObject( session, h_key );
 		if (rc != CKR_OK) {
 			show_error("   C_DestroyObject #2", rc );
-			return FALSE;
+			return rc;
 		}
 	}
 
@@ -977,48 +977,48 @@ int do_SignVerify_MD5_HMAC( void )
 		rc = funcs->C_CreateObject( session, key_attribs, 4, &h_key );
 		if (rc != CKR_OK) {
 			show_error("   C_CreateObject #3", rc );
-			return FALSE;
+			return rc;
 		}
 
 		rc = funcs->C_SignInit( session, &mech, h_key );
 		if (rc != CKR_OK) {
 			show_error("   C_SignInit #3", rc );
-			return FALSE;
+			return rc;
 		}
 
 		hash_len = sizeof(hash);
 		rc = funcs->C_Sign( session, data, data_len, hash, &hash_len );
 		if (rc != CKR_OK) {
 			show_error("  C_Sign #3", rc );
-			return FALSE;
+			return rc;
 		}
 
 		if (hash_len != MD5_HASH_LEN) {
-			printf("   Error:  C_Sign #3 generated bad HMAC length\n");
-			return FALSE;
+			PRINT_ERR("   Error:  C_Sign #3 generated bad HMAC length\n");
+			return -1;
 		}
 
 		if (memcmp(hash, expect, hash_len) != 0) {
-			printf("   Error:  C_Sign #3 generated bad HMAC\n");
-			return FALSE;
+			PRINT_ERR("   Error:  C_Sign #3 generated bad HMAC\n");
+			return -1;
 		}
 
 		rc = funcs->C_VerifyInit( session, &mech, h_key );
 		if (rc != CKR_OK) {
 			show_error("   C_VerifyInit #3", rc );
-			return FALSE;
+			return rc;
 		}
 
 		rc = funcs->C_Verify( session, data, data_len, hash, hash_len );
 		if (rc != CKR_OK) {
 			show_error("   C_Verify #3", rc );
-			return FALSE;
+			return rc;
 		}
 
 		rc = funcs->C_DestroyObject( session, h_key );
 		if (rc != CKR_OK) {
 			show_error("   C_DestroyObject #3", rc );
-			return FALSE;
+			return rc;
 		}
 	}
 
@@ -1055,48 +1055,48 @@ int do_SignVerify_MD5_HMAC( void )
 		rc = funcs->C_CreateObject( session, key_attribs, 4, &h_key );
 		if (rc != CKR_OK) {
 			show_error("   C_CreateObject #4", rc );
-			return FALSE;
+			return rc;
 		}
 
 		rc = funcs->C_SignInit( session, &mech, h_key );
 		if (rc != CKR_OK) {
 			show_error("   C_SignInit #4", rc );
-			return FALSE;
+			return rc;
 		}
 
 		hash_len = sizeof(hash);
 		rc = funcs->C_Sign( session, data, data_len, hash, &hash_len );
 		if (rc != CKR_OK) {
 			show_error("  C_Sign #4", rc );
-			return FALSE;
+			return rc;
 		}
 
 		if (hash_len != MD5_HASH_LEN) {
-			printf("   Error:  C_Sign #4 generated bad HMAC length\n");
-			return FALSE;
+			PRINT_ERR("   Error:  C_Sign #4 generated bad HMAC length\n");
+			return -1;
 		}
 
 		if (memcmp(hash, expect, hash_len) != 0) {
-			printf("   Error:  C_Sign #4 generated bad HMAC\n");
-			return FALSE;
+			PRINT_ERR("   Error:  C_Sign #4 generated bad HMAC\n");
+			return -1;
 		}
 
 		rc = funcs->C_VerifyInit( session, &mech, h_key );
 		if (rc != CKR_OK) {
 			show_error("   C_VerifyInit #4", rc );
-			return FALSE;
+			return rc;
 		}
 
 		rc = funcs->C_Verify( session, data, data_len, hash, hash_len );
 		if (rc != CKR_OK) {
 			show_error("   C_Verify #4", rc );
-			return FALSE;
+			return rc;
 		}
 
 		rc = funcs->C_DestroyObject( session, h_key );
 		if (rc != CKR_OK) {
 			show_error("   C_DestroyObject #4", rc );
-			return FALSE;
+			return rc;
 		}
 	}
 
@@ -1132,48 +1132,48 @@ int do_SignVerify_MD5_HMAC( void )
 		rc = funcs->C_CreateObject( session, key_attribs, 4, &h_key );
 		if (rc != CKR_OK) {
 			show_error("   C_CreateObject #5", rc );
-			return FALSE;
+			return rc;
 		}
 
 		rc = funcs->C_SignInit( session, &mech, h_key );
 		if (rc != CKR_OK) {
 			show_error("   C_SignInit #5", rc );
-			return FALSE;
+			return rc;
 		}
 
 		hash_len = sizeof(hash);
 		rc = funcs->C_Sign( session, data, data_len, hash, &hash_len );
 		if (rc != CKR_OK) {
 			show_error("  C_Sign #5", rc );
-			return FALSE;
+			return rc;
 		}
 
 		if (hash_len != MD5_HASH_LEN) {
-			printf("   Error:  C_Sign #5 generated bad HMAC length\n");
-			return FALSE;
+			PRINT_ERR("   Error:  C_Sign #5 generated bad HMAC length\n");
+			return -1;
 		}
 
 		if (memcmp(hash, expect, hash_len) != 0) {
-			printf("   Error:  C_Sign #5 generated bad HMAC\n");
-			return FALSE;
+			PRINT_ERR("   Error:  C_Sign #5 generated bad HMAC\n");
+			return -1;
 		}
 
 		rc = funcs->C_VerifyInit( session, &mech, h_key );
 		if (rc != CKR_OK) {
 			show_error("   C_VerifyInit #5", rc );
-			return FALSE;
+			return rc;
 		}
 
 		rc = funcs->C_Verify( session, data, data_len, hash, hash_len );
 		if (rc != CKR_OK) {
 			show_error("   C_Verify #5", rc );
-			return FALSE;
+			return rc;
 		}
 
 		rc = funcs->C_DestroyObject( session, h_key );
 		if (rc != CKR_OK) {
 			show_error("   C_DestroyObject #5", rc );
-			return FALSE;
+			return rc;
 		}
 	}
 
@@ -1215,48 +1215,48 @@ int do_SignVerify_MD5_HMAC( void )
 		rc = funcs->C_CreateObject( session, key_attribs, 4, &h_key );
 		if (rc != CKR_OK) {
 			show_error("   C_CreateObject #6", rc );
-			return FALSE;
+			return rc;
 		}
 
 		rc = funcs->C_SignInit( session, &mech, h_key );
 		if (rc != CKR_OK) {
 			show_error("   C_SignInit #6", rc );
-			return FALSE;
+			return rc;
 		}
 
 		hash_len = sizeof(hash);
 		rc = funcs->C_Sign( session, data, data_len, hash, &hash_len );
 		if (rc != CKR_OK) {
 			show_error("  C_Sign #6", rc );
-			return FALSE;
+			return rc;
 		}
 
 		if (hash_len != MD5_HASH_LEN) {
-			printf("   Error:  C_Sign #6 generated bad HMAC length\n");
-			return FALSE;
+			PRINT_ERR("   Error:  C_Sign #6 generated bad HMAC length\n");
+			return -1;
 		}
 
 		if (memcmp(hash, expect, hash_len) != 0) {
-			printf("   Error:  C_Sign #6 generated bad HMAC\n");
-			return FALSE;
+			PRINT_ERR("   Error:  C_Sign #6 generated bad HMAC\n");
+			return -1;
 		}
 
 		rc = funcs->C_VerifyInit( session, &mech, h_key );
 		if (rc != CKR_OK) {
 			show_error("   C_VerifyInit #6", rc );
-			return FALSE;
+			return rc;
 		}
 
 		rc = funcs->C_Verify( session, data, data_len, hash, hash_len );
 		if (rc != CKR_OK) {
 			show_error("   C_Verify #6", rc );
-			return FALSE;
+			return rc;
 		}
 
 		rc = funcs->C_DestroyObject( session, h_key );
 		if (rc != CKR_OK) {
 			show_error("   C_DestroyObject #6", rc );
-			return FALSE;
+			return rc;
 		}
 	}
 
@@ -1298,48 +1298,48 @@ int do_SignVerify_MD5_HMAC( void )
 		rc = funcs->C_CreateObject( session, key_attribs, 4, &h_key );
 		if (rc != CKR_OK) {
 			show_error("   C_CreateObject #7", rc );
-			return FALSE;
+			return rc;
 		}
 
 		rc = funcs->C_SignInit( session, &mech, h_key );
 		if (rc != CKR_OK) {
 			show_error("   C_SignInit #7", rc );
-			return FALSE;
+			return rc;
 		}
 
 		hash_len = sizeof(hash);
 		rc = funcs->C_Sign( session, data, data_len, hash, &hash_len );
 		if (rc != CKR_OK) {
 			show_error("  C_Sign #7", rc );
-			return FALSE;
+			return rc;
 		}
 
 		if (hash_len != MD5_HASH_LEN) {
-			printf("   Error:  C_Sign #7 generated bad HMAC length\n");
-			return FALSE;
+			PRINT_ERR("   Error:  C_Sign #7 generated bad HMAC length\n");
+			return -1;
 		}
 
 		if (memcmp(hash, expect, hash_len) != 0) {
-			printf("   Error:  C_Sign #7 generated bad HMAC\n");
-			return FALSE;
+			PRINT_ERR("   Error:  C_Sign #7 generated bad HMAC\n");
+			return -1;
 		}
 
 		rc = funcs->C_VerifyInit( session, &mech, h_key );
 		if (rc != CKR_OK) {
 			show_error("   C_VerifyInit #7", rc );
-			return FALSE;
+			return rc;
 		}
 
 		rc = funcs->C_Verify( session, data, data_len, hash, hash_len );
 		if (rc != CKR_OK) {
 			show_error("   C_Verify #7", rc );
-			return FALSE;
+			return rc;
 		}
 
 		rc = funcs->C_DestroyObject( session, h_key );
 		if (rc != CKR_OK) {
 			show_error("   C_DestroyObject #7", rc );
-			return FALSE;
+			return rc;
 		}
 	}
 
@@ -1347,17 +1347,17 @@ int do_SignVerify_MD5_HMAC( void )
 	rc = funcs->C_CloseAllSessions( slot_id );
 	if (rc != CKR_OK) {
 		show_error("   C_CloseAllSessions #1", rc );
-		return FALSE;
+		return rc;
 	}
 
 	printf("Looks okay...\n");
-	return TRUE;
+	return 0;
 }
 
 
 //
 //
-int do_SignVerify_MD5_HMAC_GENERAL( void )
+CK_RV do_SignVerify_MD5_HMAC_GENERAL( void )
 {
 	CK_SESSION_HANDLE session;
 	CK_SLOT_ID        slot_id;
@@ -1375,7 +1375,7 @@ int do_SignVerify_MD5_HMAC_GENERAL( void )
 	rc = funcs->C_OpenSession( slot_id, flags, NULL, NULL, &session );
 	if (rc != CKR_OK) {
 		show_error("   C_OpenSession #1", rc );
-		return FALSE;
+		return rc;
 	}
 
 
@@ -1416,49 +1416,49 @@ int do_SignVerify_MD5_HMAC_GENERAL( void )
 		rc = funcs->C_CreateObject( session, key_attribs, 4, &h_key );
 		if (rc != CKR_OK) {
 			show_error("   C_CreateObject #1", rc );
-			return FALSE;
+			return rc;
 		}
 
 		rc = funcs->C_SignInit( session, &mech, h_key );
 		if (rc != CKR_OK) {
 			show_error("   C_SignInit #1", rc );
-			return FALSE;
+			return rc;
 		}
 
 		hash_len = sizeof(hash);
 		rc = funcs->C_Sign( session, data, data_len, hash, &hash_len );
 		if (rc != CKR_OK) {
 			show_error("   C_Sign #1", rc );
-			return FALSE;
+			return rc;
 		}
 
 		if (hash_len != hmac_size) {
-			printf("   Error:  C_Sign #1 generated bad HMAC length\n");
-			return FALSE;
+			PRINT_ERR("   Error:  C_Sign #1 generated bad HMAC length\n");
+			return -1;
 		}
 
 		if (memcmp(hash, expect, hash_len) != 0) {
-			printf("   Error:  C_Sign #1 generated bad HMAC\n");
-			return FALSE;
+			PRINT_ERR("   Error:  C_Sign #1 generated bad HMAC\n");
+			return -1;
 		}
 
 		rc = funcs->C_VerifyInit( session, &mech, h_key );
 		if (rc != CKR_OK) {
 			show_error("   C_VerifyInit #1", rc );
-			return FALSE;
+			return rc;
 		}
 
 		rc = funcs->C_Verify( session, data, data_len, hash, hmac_size );
 		if (rc != CKR_OK) {
 			show_error("   C_Verify #1", rc );
-			return FALSE;
+			return rc;
 		}
 
 
 		rc = funcs->C_DestroyObject( session, h_key );
 		if (rc != CKR_OK) {
 			show_error("   C_DestroyObject #1", rc );
-			return FALSE;
+			return rc;
 		}
 	}
 
@@ -1493,48 +1493,48 @@ int do_SignVerify_MD5_HMAC_GENERAL( void )
 		rc = funcs->C_CreateObject( session, key_attribs, 4, &h_key );
 		if (rc != CKR_OK) {
 			show_error("   C_CreateObject #2", rc );
-			return FALSE;
+			return rc;
 		}
 
 		rc = funcs->C_SignInit( session, &mech, h_key );
 		if (rc != CKR_OK) {
 			show_error("   C_SignInit #2", rc );
-			return FALSE;
+			return rc;
 		}
 
 		hash_len = sizeof(hash);
 		rc = funcs->C_Sign( session, data, data_len, hash, &hash_len );
 		if (rc != CKR_OK) {
 			show_error("  C_Sign #2", rc );
-			return FALSE;
+			return rc;
 		}
 
 		if (hash_len != hmac_size) {
-			printf("   Error:  C_Sign #2 generated bad HMAC length\n");
-			return FALSE;
+			PRINT_ERR("   Error:  C_Sign #2 generated bad HMAC length\n");
+			return -1;
 		}
 
 		if (memcmp(hash, expect, hash_len) != 0) {
-			printf("   Error:  C_Sign #2 generated bad HMAC\n");
-			return FALSE;
+			PRINT_ERR("   Error:  C_Sign #2 generated bad HMAC\n");
+			return -1;
 		}
 
 		rc = funcs->C_VerifyInit( session, &mech, h_key );
 		if (rc != CKR_OK) {
 			show_error("   C_VerifyInit #2", rc );
-			return FALSE;
+			return rc;
 		}
 
 		rc = funcs->C_Verify( session, data, data_len, hash, hash_len );
 		if (rc != CKR_OK) {
 			show_error("   C_Verify #2", rc );
-			return FALSE;
+			return rc;
 		}
 
 		rc = funcs->C_DestroyObject( session, h_key );
 		if (rc != CKR_OK) {
 			show_error("   C_DestroyObject #2", rc );
-			return FALSE;
+			return rc;
 		}
 	}
 
@@ -1569,48 +1569,48 @@ int do_SignVerify_MD5_HMAC_GENERAL( void )
 		rc = funcs->C_CreateObject( session, key_attribs, 4, &h_key );
 		if (rc != CKR_OK) {
 			show_error("   C_CreateObject #3", rc );
-			return FALSE;
+			return rc;
 		}
 
 		rc = funcs->C_SignInit( session, &mech, h_key );
 		if (rc != CKR_OK) {
 			show_error("   C_SignInit #3", rc );
-			return FALSE;
+			return rc;
 		}
 
 		hash_len = sizeof(hash);
 		rc = funcs->C_Sign( session, data, data_len, hash, &hash_len );
 		if (rc != CKR_OK) {
 			show_error("  C_Sign #3", rc );
-			return FALSE;
+			return rc;
 		}
 
 		if (hash_len != hmac_size) {
-			printf("   Error:  C_Sign #3 generated bad HMAC length\n");
-			return FALSE;
+			PRINT_ERR("   Error:  C_Sign #3 generated bad HMAC length\n");
+			return -1;
 		}
 
 		if (memcmp(hash, expect, hash_len) != 0) {
-			printf("   Error:  C_Sign #3 generated bad HMAC\n");
-			return FALSE;
+			PRINT_ERR("   Error:  C_Sign #3 generated bad HMAC\n");
+			return -1;
 		}
 
 		rc = funcs->C_VerifyInit( session, &mech, h_key );
 		if (rc != CKR_OK) {
 			show_error("   C_VerifyInit #3", rc );
-			return FALSE;
+			return rc;
 		}
 
 		rc = funcs->C_Verify( session, data, data_len, hash, hash_len );
 		if (rc != CKR_OK) {
 			show_error("   C_Verify #3", rc );
-			return FALSE;
+			return rc;
 		}
 
 		rc = funcs->C_DestroyObject( session, h_key );
 		if (rc != CKR_OK) {
 			show_error("   C_DestroyObject #3", rc );
-			return FALSE;
+			return rc;
 		}
 	}
 
@@ -1647,48 +1647,48 @@ int do_SignVerify_MD5_HMAC_GENERAL( void )
 		rc = funcs->C_CreateObject( session, key_attribs, 4, &h_key );
 		if (rc != CKR_OK) {
 			show_error("   C_CreateObject #4", rc );
-			return FALSE;
+			return rc;
 		}
 
 		rc = funcs->C_SignInit( session, &mech, h_key );
 		if (rc != CKR_OK) {
 			show_error("   C_SignInit #4", rc );
-			return FALSE;
+			return rc;
 		}
 
 		hash_len = sizeof(hash);
 		rc = funcs->C_Sign( session, data, data_len, hash, &hash_len );
 		if (rc != CKR_OK) {
 			show_error("  C_Sign #4", rc );
-			return FALSE;
+			return rc;
 		}
 
 		if (hash_len != hmac_size) {
-			printf("   Error:  C_Sign #4 generated bad HMAC length\n");
-			return FALSE;
+			PRINT_ERR("   Error:  C_Sign #4 generated bad HMAC length\n");
+			return -1;
 		}
 
 		if (memcmp(hash, expect, hash_len) != 0) {
-			printf("   Error:  C_Sign #4 generated bad HMAC\n");
-			return FALSE;
+			PRINT_ERR("   Error:  C_Sign #4 generated bad HMAC\n");
+			return -1;
 		}
 
 		rc = funcs->C_VerifyInit( session, &mech, h_key );
 		if (rc != CKR_OK) {
 			show_error("   C_VerifyInit #4", rc );
-			return FALSE;
+			return rc;
 		}
 
 		rc = funcs->C_Verify( session, data, data_len, hash, hash_len );
 		if (rc != CKR_OK) {
 			show_error("   C_Verify #4", rc );
-			return FALSE;
+			return rc;
 		}
 
 		rc = funcs->C_DestroyObject( session, h_key );
 		if (rc != CKR_OK) {
 			show_error("   C_DestroyObject #4", rc );
-			return FALSE;
+			return rc;
 		}
 	}
 
@@ -1724,48 +1724,48 @@ int do_SignVerify_MD5_HMAC_GENERAL( void )
 		rc = funcs->C_CreateObject( session, key_attribs, 4, &h_key );
 		if (rc != CKR_OK) {
 			show_error("   C_CreateObject #5", rc );
-			return FALSE;
+			return rc;
 		}
 
 		rc = funcs->C_SignInit( session, &mech, h_key );
 		if (rc != CKR_OK) {
 			show_error("   C_SignInit #5", rc );
-			return FALSE;
+			return rc;
 		}
 
 		hash_len = sizeof(hash);
 		rc = funcs->C_Sign( session, data, data_len, hash, &hash_len );
 		if (rc != CKR_OK) {
 			show_error("  C_Sign #5", rc );
-			return FALSE;
+			return rc;
 		}
 
 		if (hash_len != hmac_size) {
-			printf("   Error:  C_Sign #5 generated bad HMAC length\n");
-			return FALSE;
+			PRINT_ERR("   Error:  C_Sign #5 generated bad HMAC length\n");
+			return -1;
 		}
 
 		if (memcmp(hash, expect, hash_len) != 0) {
-			printf("   Error:  C_Sign #5 generated bad HMAC\n");
-			return FALSE;
+			PRINT_ERR("   Error:  C_Sign #5 generated bad HMAC\n");
+			return -1;
 		}
 
 		rc = funcs->C_VerifyInit( session, &mech, h_key );
 		if (rc != CKR_OK) {
 			show_error("   C_VerifyInit #5", rc );
-			return FALSE;
+			return rc;
 		}
 
 		rc = funcs->C_Verify( session, data, data_len, hash, hash_len );
 		if (rc != CKR_OK) {
 			show_error("   C_Verify #5", rc );
-			return FALSE;
+			return rc;
 		}
 
 		rc = funcs->C_DestroyObject( session, h_key );
 		if (rc != CKR_OK) {
 			show_error("   C_DestroyObject #5", rc );
-			return FALSE;
+			return rc;
 		}
 	}
 
@@ -1807,48 +1807,48 @@ int do_SignVerify_MD5_HMAC_GENERAL( void )
 		rc = funcs->C_CreateObject( session, key_attribs, 4, &h_key );
 		if (rc != CKR_OK) {
 			show_error("   C_CreateObject #6", rc );
-			return FALSE;
+			return rc;
 		}
 
 		rc = funcs->C_SignInit( session, &mech, h_key );
 		if (rc != CKR_OK) {
 			show_error("   C_SignInit #6", rc );
-			return FALSE;
+			return rc;
 		}
 
 		hash_len = sizeof(hash);
 		rc = funcs->C_Sign( session, data, data_len, hash, &hash_len );
 		if (rc != CKR_OK) {
 			show_error("  C_Sign #6", rc );
-			return FALSE;
+			return rc;
 		}
 
 		if (hash_len != hmac_size) {
-			printf("   Error:  C_Sign #6 generated bad HMAC length\n");
-			return FALSE;
+			PRINT_ERR("   Error:  C_Sign #6 generated bad HMAC length\n");
+			return -1;
 		}
 
 		if (memcmp(hash, expect, hash_len) != 0) {
-			printf("   Error:  C_Sign #6 generated bad HMAC\n");
-			return FALSE;
+			PRINT_ERR("   Error:  C_Sign #6 generated bad HMAC\n");
+			return -1;
 		}
 
 		rc = funcs->C_VerifyInit( session, &mech, h_key );
 		if (rc != CKR_OK) {
 			show_error("   C_VerifyInit #6", rc );
-			return FALSE;
+			return rc;
 		}
 
 		rc = funcs->C_Verify( session, data, data_len, hash, hash_len );
 		if (rc != CKR_OK) {
 			show_error("   C_Verify #6", rc );
-			return FALSE;
+			return rc;
 		}
 
 		rc = funcs->C_DestroyObject( session, h_key );
 		if (rc != CKR_OK) {
 			show_error("   C_DestroyObject #6", rc );
-			return FALSE;
+			return rc;
 		}
 	}
 
@@ -1890,48 +1890,48 @@ int do_SignVerify_MD5_HMAC_GENERAL( void )
 		rc = funcs->C_CreateObject( session, key_attribs, 4, &h_key );
 		if (rc != CKR_OK) {
 			show_error("   C_CreateObject #7", rc );
-			return FALSE;
+			return rc;
 		}
 
 		rc = funcs->C_SignInit( session, &mech, h_key );
 		if (rc != CKR_OK) {
 			show_error("   C_SignInit #7", rc );
-			return FALSE;
+			return rc;
 		}
 
 		hash_len = sizeof(hash);
 		rc = funcs->C_Sign( session, data, data_len, hash, &hash_len );
 		if (rc != CKR_OK) {
 			show_error("  C_Sign #7", rc );
-			return FALSE;
+			return rc;
 		}
 
 		if (hash_len != hmac_size) {
-			printf("   Error:  C_Sign #7 generated bad HMAC length\n");
-			return FALSE;
+			PRINT_ERR("   Error:  C_Sign #7 generated bad HMAC length\n");
+			return -1;
 		}
 
 		if (memcmp(hash, expect, hash_len) != 0) {
-			printf("   Error:  C_Sign #7 generated bad HMAC\n");
-			return FALSE;
+			PRINT_ERR("   Error:  C_Sign #7 generated bad HMAC\n");
+			return -1;
 		}
 
 		rc = funcs->C_VerifyInit( session, &mech, h_key );
 		if (rc != CKR_OK) {
 			show_error("   C_VerifyInit #7", rc );
-			return FALSE;
+			return rc;
 		}
 
 		rc = funcs->C_Verify( session, data, data_len, hash, hash_len );
 		if (rc != CKR_OK) {
 			show_error("   C_Verify #7", rc );
-			return FALSE;
+			return rc;
 		}
 
 		rc = funcs->C_DestroyObject( session, h_key );
 		if (rc != CKR_OK) {
 			show_error("   C_DestroyObject #7", rc );
-			return FALSE;
+			return rc;
 		}
 	}
 
@@ -1939,17 +1939,17 @@ int do_SignVerify_MD5_HMAC_GENERAL( void )
 	rc = funcs->C_CloseAllSessions( slot_id );
 	if (rc != CKR_OK) {
 		show_error("   C_CloseAllSessions #1", rc );
-		return FALSE;
+		return rc;
 	}
 
 	printf("Looks okay...\n");
-	return TRUE;
+	return 0;
 }
 
 
 //
 //
-int do_SignVerify_SHA1_HMAC( void )
+CK_RV do_SignVerify_SHA1_HMAC( void )
 {
 	CK_SESSION_HANDLE session;
 	CK_SLOT_ID        slot_id;
@@ -1966,7 +1966,7 @@ int do_SignVerify_SHA1_HMAC( void )
 	rc = funcs->C_OpenSession( slot_id, flags, NULL, NULL, &session );
 	if (rc != CKR_OK) {
 		show_error("   C_OpenSession #1", rc );
-		return FALSE;
+		return rc;
 	}
 
 
@@ -2006,49 +2006,49 @@ int do_SignVerify_SHA1_HMAC( void )
 		rc = funcs->C_CreateObject( session, key_attribs, 4, &h_key );
 		if (rc != CKR_OK) {
 			show_error("   C_CreateObject #1", rc );
-			return FALSE;
+			return rc;
 		}
 
 		rc = funcs->C_SignInit( session, &mech, h_key );
 		if (rc != CKR_OK) {
 			show_error("   C_SignInit #1", rc );
-			return FALSE;
+			return rc;
 		}
 
 		hash_len = sizeof(hash);
 		rc = funcs->C_Sign( session, data, data_len, hash, &hash_len );
 		if (rc != CKR_OK) {
 			show_error("   C_Sign #1", rc );
-			return FALSE;
+			return rc;
 		}
 
 		if (hash_len != SHA1_HASH_LEN) {
-			printf("   Error:  C_Sign #1 generated bad HMAC length\n");
-			return FALSE;
+			PRINT_ERR("   Error:  C_Sign #1 generated bad HMAC length\n");
+			return -1;
 		}
 
 		if (memcmp(hash, expect, hash_len) != 0) {
-			printf("   Error:  C_Sign #1 generated bad HMAC\n");
-			return FALSE;
+			PRINT_ERR("   Error:  C_Sign #1 generated bad HMAC\n");
+			return -1;
 		}
 
 		rc = funcs->C_VerifyInit( session, &mech, h_key );
 		if (rc != CKR_OK) {
 			show_error("   C_VerifyInit #1", rc );
-			return FALSE;
+			return rc;
 		}
 
 		rc = funcs->C_Verify( session, data, data_len, hash, hash_len );
 		if (rc != CKR_OK) {
 			show_error("   C_Verify #1", rc );
-			return FALSE;
+			return rc;
 		}
 
 
 		rc = funcs->C_DestroyObject( session, h_key );
 		if (rc != CKR_OK) {
 			show_error("   C_DestroyObject #1", rc );
-			return FALSE;
+			return rc;
 		}
 	}
 
@@ -2083,48 +2083,48 @@ int do_SignVerify_SHA1_HMAC( void )
 		rc = funcs->C_CreateObject( session, key_attribs, 4, &h_key );
 		if (rc != CKR_OK) {
 			show_error("   C_CreateObject #2", rc );
-			return FALSE;
+			return rc;
 		}
 
 		rc = funcs->C_SignInit( session, &mech, h_key );
 		if (rc != CKR_OK) {
 			show_error("   C_SignInit #2", rc );
-			return FALSE;
+			return rc;
 		}
 
 		hash_len = sizeof(hash);
 		rc = funcs->C_Sign( session, data, data_len, hash, &hash_len );
 		if (rc != CKR_OK) {
 			show_error("  C_Sign #2", rc );
-			return FALSE;
+			return rc;
 		}
 
 		if (hash_len != SHA1_HASH_LEN) {
-			printf("   Error:  C_Sign #2 generated bad HMAC length\n");
-			return FALSE;
+			PRINT_ERR("   Error:  C_Sign #2 generated bad HMAC length\n");
+			return -1;
 		}
 
 		if (memcmp(hash, expect, hash_len) != 0) {
-			printf("   Error:  C_Sign #2 generated bad HMAC\n");
-			return FALSE;
+			PRINT_ERR("   Error:  C_Sign #2 generated bad HMAC\n");
+			return -1;
 		}
 
 		rc = funcs->C_VerifyInit( session, &mech, h_key );
 		if (rc != CKR_OK) {
 			show_error("   C_VerifyInit #2", rc );
-			return FALSE;
+			return rc;
 		}
 
 		rc = funcs->C_Verify( session, data, data_len, hash, hash_len );
 		if (rc != CKR_OK) {
 			show_error("   C_Verify #2", rc );
-			return FALSE;
+			return rc;
 		}
 
 		rc = funcs->C_DestroyObject( session, h_key );
 		if (rc != CKR_OK) {
 			show_error("   C_DestroyObject #2", rc );
-			return FALSE;
+			return rc;
 		}
 	}
 
@@ -2160,48 +2160,48 @@ int do_SignVerify_SHA1_HMAC( void )
 		rc = funcs->C_CreateObject( session, key_attribs, 4, &h_key );
 		if (rc != CKR_OK) {
 			show_error("   C_CreateObject #3", rc );
-			return FALSE;
+			return rc;
 		}
 
 		rc = funcs->C_SignInit( session, &mech, h_key );
 		if (rc != CKR_OK) {
 			show_error("   C_SignInit #3", rc );
-			return FALSE;
+			return rc;
 		}
 
 		hash_len = sizeof(hash);
 		rc = funcs->C_Sign( session, data, data_len, hash, &hash_len );
 		if (rc != CKR_OK) {
 			show_error("  C_Sign #3", rc );
-			return FALSE;
+			return rc;
 		}
 
 		if (hash_len != SHA1_HASH_LEN) {
-			printf("   Error:  C_Sign #3 generated bad HMAC length\n");
-			return FALSE;
+			PRINT_ERR("   Error:  C_Sign #3 generated bad HMAC length\n");
+			return -1;
 		}
 
 		if (memcmp(hash, expect, hash_len) != 0) {
-			printf("   Error:  C_Sign #3 generated bad HMAC\n");
-			return FALSE;
+			PRINT_ERR("   Error:  C_Sign #3 generated bad HMAC\n");
+			return -1;
 		}
 
 		rc = funcs->C_VerifyInit( session, &mech, h_key );
 		if (rc != CKR_OK) {
 			show_error("   C_VerifyInit #3", rc );
-			return FALSE;
+			return rc;
 		}
 
 		rc = funcs->C_Verify( session, data, data_len, hash, hash_len );
 		if (rc != CKR_OK) {
 			show_error("   C_Verify #3", rc );
-			return FALSE;
+			return rc;
 		}
 
 		rc = funcs->C_DestroyObject( session, h_key );
 		if (rc != CKR_OK) {
 			show_error("   C_DestroyObject #3", rc );
-			return FALSE;
+			return rc;
 		}
 	}
 
@@ -2238,48 +2238,48 @@ int do_SignVerify_SHA1_HMAC( void )
 		rc = funcs->C_CreateObject( session, key_attribs, 4, &h_key );
 		if (rc != CKR_OK) {
 			show_error("   C_CreateObject #4", rc );
-			return FALSE;
+			return rc;
 		}
 
 		rc = funcs->C_SignInit( session, &mech, h_key );
 		if (rc != CKR_OK) {
 			show_error("   C_SignInit #4", rc );
-			return FALSE;
+			return rc;
 		}
 
 		hash_len = sizeof(hash);
 		rc = funcs->C_Sign( session, data, data_len, hash, &hash_len );
 		if (rc != CKR_OK) {
 			show_error("  C_Sign #4", rc );
-			return FALSE;
+			return rc;
 		}
 
 		if (hash_len != SHA1_HASH_LEN) {
-			printf("   Error:  C_Sign #4 generated bad HMAC length\n");
-			return FALSE;
+			PRINT_ERR("   Error:  C_Sign #4 generated bad HMAC length\n");
+			return -1;
 		}
 
 		if (memcmp(hash, expect, hash_len) != 0) {
-			printf("   Error:  C_Sign #4 generated bad HMAC\n");
-			return FALSE;
+			PRINT_ERR("   Error:  C_Sign #4 generated bad HMAC\n");
+			return -1;
 		}
 
 		rc = funcs->C_VerifyInit( session, &mech, h_key );
 		if (rc != CKR_OK) {
 			show_error("   C_VerifyInit #4", rc );
-			return FALSE;
+			return rc;
 		}
 
 		rc = funcs->C_Verify( session, data, data_len, hash, hash_len );
 		if (rc != CKR_OK) {
 			show_error("   C_Verify #4", rc );
-			return FALSE;
+			return rc;
 		}
 
 		rc = funcs->C_DestroyObject( session, h_key );
 		if (rc != CKR_OK) {
 			show_error("   C_DestroyObject #4", rc );
-			return FALSE;
+			return rc;
 		}
 	}
 
@@ -2315,48 +2315,48 @@ int do_SignVerify_SHA1_HMAC( void )
 		rc = funcs->C_CreateObject( session, key_attribs, 4, &h_key );
 		if (rc != CKR_OK) {
 			show_error("   C_CreateObject #5", rc );
-			return FALSE;
+			return rc;
 		}
 
 		rc = funcs->C_SignInit( session, &mech, h_key );
 		if (rc != CKR_OK) {
 			show_error("   C_SignInit #5", rc );
-			return FALSE;
+			return rc;
 		}
 
 		hash_len = sizeof(hash);
 		rc = funcs->C_Sign( session, data, data_len, hash, &hash_len );
 		if (rc != CKR_OK) {
 			show_error("  C_Sign #5", rc );
-			return FALSE;
+			return rc;
 		}
 
 		if (hash_len != SHA1_HASH_LEN) {
-			printf("   Error:  C_Sign #5 generated bad HMAC length\n");
-			return FALSE;
+			PRINT_ERR("   Error:  C_Sign #5 generated bad HMAC length\n");
+			return -1;
 		}
 
 		if (memcmp(hash, expect, hash_len) != 0) {
-			printf("   Error:  C_Sign #5 generated bad HMAC\n");
-			return FALSE;
+			PRINT_ERR("   Error:  C_Sign #5 generated bad HMAC\n");
+			return -1;
 		}
 
 		rc = funcs->C_VerifyInit( session, &mech, h_key );
 		if (rc != CKR_OK) {
 			show_error("   C_VerifyInit #5", rc );
-			return FALSE;
+			return rc;
 		}
 
 		rc = funcs->C_Verify( session, data, data_len, hash, hash_len );
 		if (rc != CKR_OK) {
 			show_error("   C_Verify #5", rc );
-			return FALSE;
+			return rc;
 		}
 
 		rc = funcs->C_DestroyObject( session, h_key );
 		if (rc != CKR_OK) {
 			show_error("   C_DestroyObject #5", rc );
-			return FALSE;
+			return rc;
 		}
 	}
 
@@ -2399,48 +2399,48 @@ int do_SignVerify_SHA1_HMAC( void )
 		rc = funcs->C_CreateObject( session, key_attribs, 4, &h_key );
 		if (rc != CKR_OK) {
 			show_error("   C_CreateObject #6", rc );
-			return FALSE;
+			return rc;
 		}
 
 		rc = funcs->C_SignInit( session, &mech, h_key );
 		if (rc != CKR_OK) {
 			show_error("   C_SignInit #6", rc );
-			return FALSE;
+			return rc;
 		}
 
 		hash_len = sizeof(hash);
 		rc = funcs->C_Sign( session, data, data_len, hash, &hash_len );
 		if (rc != CKR_OK) {
 			show_error("  C_Sign #6", rc );
-			return FALSE;
+			return rc;
 		}
 
 		if (hash_len != SHA1_HASH_LEN) {
-			printf("   Error:  C_Sign #6 generated bad HMAC length\n");
-			return FALSE;
+			PRINT_ERR("   Error:  C_Sign #6 generated bad HMAC length\n");
+			return -1;
 		}
 
 		if (memcmp(hash, expect, hash_len) != 0) {
-			printf("   Error:  C_Sign #6 generated bad HMAC\n");
-			return FALSE;
+			PRINT_ERR("   Error:  C_Sign #6 generated bad HMAC\n");
+			return -1;
 		}
 
 		rc = funcs->C_VerifyInit( session, &mech, h_key );
 		if (rc != CKR_OK) {
 			show_error("   C_VerifyInit #6", rc );
-			return FALSE;
+			return rc;
 		}
 
 		rc = funcs->C_Verify( session, data, data_len, hash, hash_len );
 		if (rc != CKR_OK) {
 			show_error("   C_Verify #6", rc );
-			return FALSE;
+			return rc;
 		}
 
 		rc = funcs->C_DestroyObject( session, h_key );
 		if (rc != CKR_OK) {
 			show_error("   C_DestroyObject #6", rc );
-			return FALSE;
+			return rc;
 		}
 	}
 
@@ -2483,48 +2483,48 @@ int do_SignVerify_SHA1_HMAC( void )
 		rc = funcs->C_CreateObject( session, key_attribs, 4, &h_key );
 		if (rc != CKR_OK) {
 			show_error("   C_CreateObject #7", rc );
-			return FALSE;
+			return rc;
 		}
 
 		rc = funcs->C_SignInit( session, &mech, h_key );
 		if (rc != CKR_OK) {
 			show_error("   C_SignInit #7", rc );
-			return FALSE;
+			return rc;
 		}
 
 		hash_len = sizeof(hash);
 		rc = funcs->C_Sign( session, data, data_len, hash, &hash_len );
 		if (rc != CKR_OK) {
 			show_error("  C_Sign #7", rc );
-			return FALSE;
+			return rc;
 		}
 
 		if (hash_len != SHA1_HASH_LEN) {
-			printf("   Error:  C_Sign #7 generated bad HMAC length\n");
-			return FALSE;
+			PRINT_ERR("   Error:  C_Sign #7 generated bad HMAC length\n");
+			return -1;
 		}
 
 		if (memcmp(hash, expect, hash_len) != 0) {
-			printf("   Error:  C_Sign #7 generated bad HMAC\n");
-			return FALSE;
+			PRINT_ERR("   Error:  C_Sign #7 generated bad HMAC\n");
+			return -1;
 		}
 
 		rc = funcs->C_VerifyInit( session, &mech, h_key );
 		if (rc != CKR_OK) {
 			show_error("   C_VerifyInit #7", rc );
-			return FALSE;
+			return rc;
 		}
 
 		rc = funcs->C_Verify( session, data, data_len, hash, hash_len );
 		if (rc != CKR_OK) {
 			show_error("   C_Verify #7", rc );
-			return FALSE;
+			return rc;
 		}
 
 		rc = funcs->C_DestroyObject( session, h_key );
 		if (rc != CKR_OK) {
 			show_error("   C_DestroyObject #7", rc );
-			return FALSE;
+			return rc;
 		}
 	}
 
@@ -2532,17 +2532,17 @@ int do_SignVerify_SHA1_HMAC( void )
 	rc = funcs->C_CloseAllSessions( slot_id );
 	if (rc != CKR_OK) {
 		show_error("   C_CloseAllSessions #1", rc );
-		return FALSE;
+		return rc;
 	}
 
 	printf("Looks okay...\n");
-	return TRUE;
+	return 0;
 }
 
 
 //
 //
-int do_SignVerify_SHA1_HMAC_GENERAL( void )
+CK_RV do_SignVerify_SHA1_HMAC_GENERAL( void )
 {
 	CK_SESSION_HANDLE session;
 	CK_SLOT_ID        slot_id;
@@ -2560,7 +2560,7 @@ int do_SignVerify_SHA1_HMAC_GENERAL( void )
 	rc = funcs->C_OpenSession( slot_id, flags, NULL, NULL, &session );
 	if (rc != CKR_OK) {
 		show_error("   C_OpenSession #1", rc );
-		return FALSE;
+		return rc;
 	}
 
 	hmac_size = 4;
@@ -2601,49 +2601,49 @@ int do_SignVerify_SHA1_HMAC_GENERAL( void )
 		rc = funcs->C_CreateObject( session, key_attribs, 4, &h_key );
 		if (rc != CKR_OK) {
 			show_error("   C_CreateObject #1", rc );
-			return FALSE;
+			return rc;
 		}
 
 		rc = funcs->C_SignInit( session, &mech, h_key );
 		if (rc != CKR_OK) {
 			show_error("   C_SignInit #1", rc );
-			return FALSE;
+			return rc;
 		}
 
 		hash_len = sizeof(hash);
 		rc = funcs->C_Sign( session, data, data_len, hash, &hash_len );
 		if (rc != CKR_OK) {
 			show_error("   C_Sign #1", rc );
-			return FALSE;
+			return rc;
 		}
 
 		if (hash_len != hmac_size) {
-			printf("   Error:  C_Sign #1 generated bad HMAC length\n");
-			return FALSE;
+			PRINT_ERR("   Error:  C_Sign #1 generated bad HMAC length\n");
+			return -1;
 		}
 
 		if (memcmp(hash, expect, hash_len) != 0) {
-			printf("   Error:  C_Sign #1 generated bad HMAC\n");
-			return FALSE;
+			PRINT_ERR("   Error:  C_Sign #1 generated bad HMAC\n");
+			return -1;
 		}
 
 		rc = funcs->C_VerifyInit( session, &mech, h_key );
 		if (rc != CKR_OK) {
 			show_error("   C_VerifyInit #1", rc );
-			return FALSE;
+			return rc;
 		}
 
 		rc = funcs->C_Verify( session, data, data_len, hash, hash_len );
 		if (rc != CKR_OK) {
 			show_error("   C_Verify #1", rc );
-			return FALSE;
+			return rc;
 		}
 
 
 		rc = funcs->C_DestroyObject( session, h_key );
 		if (rc != CKR_OK) {
 			show_error("   C_DestroyObject #1", rc );
-			return FALSE;
+			return rc;
 		}
 	}
 
@@ -2678,48 +2678,48 @@ int do_SignVerify_SHA1_HMAC_GENERAL( void )
 		rc = funcs->C_CreateObject( session, key_attribs, 4, &h_key );
 		if (rc != CKR_OK) {
 			show_error("   C_CreateObject #2", rc );
-			return FALSE;
+			return rc;
 		}
 
 		rc = funcs->C_SignInit( session, &mech, h_key );
 		if (rc != CKR_OK) {
 			show_error("   C_SignInit #2", rc );
-			return FALSE;
+			return rc;
 		}
 
 		hash_len = sizeof(hash);
 		rc = funcs->C_Sign( session, data, data_len, hash, &hash_len );
 		if (rc != CKR_OK) {
 			show_error("  C_Sign #2", rc );
-			return FALSE;
+			return rc;
 		}
 
 		if (hash_len != hmac_size) {
-			printf("   Error:  C_Sign #2 generated bad HMAC length\n");
-			return FALSE;
+			PRINT_ERR("   Error:  C_Sign #2 generated bad HMAC length\n");
+			return -1;
 		}
 
 		if (memcmp(hash, expect, hash_len) != 0) {
-			printf("   Error:  C_Sign #2 generated bad HMAC\n");
-			return FALSE;
+			PRINT_ERR("   Error:  C_Sign #2 generated bad HMAC\n");
+			return -1;
 		}
 
 		rc = funcs->C_VerifyInit( session, &mech, h_key );
 		if (rc != CKR_OK) {
 			show_error("   C_VerifyInit #2", rc );
-			return FALSE;
+			return rc;
 		}
 
 		rc = funcs->C_Verify( session, data, data_len, hash, hash_len );
 		if (rc != CKR_OK) {
 			show_error("   C_Verify #2", rc );
-			return FALSE;
+			return rc;
 		}
 
 		rc = funcs->C_DestroyObject( session, h_key );
 		if (rc != CKR_OK) {
 			show_error("   C_DestroyObject #2", rc );
-			return FALSE;
+			return rc;
 		}
 	}
 
@@ -2755,48 +2755,48 @@ int do_SignVerify_SHA1_HMAC_GENERAL( void )
 		rc = funcs->C_CreateObject( session, key_attribs, 4, &h_key );
 		if (rc != CKR_OK) {
 			show_error("   C_CreateObject #3", rc );
-			return FALSE;
+			return rc;
 		}
 
 		rc = funcs->C_SignInit( session, &mech, h_key );
 		if (rc != CKR_OK) {
 			show_error("   C_SignInit #3", rc );
-			return FALSE;
+			return rc;
 		}
 
 		hash_len = sizeof(hash);
 		rc = funcs->C_Sign( session, data, data_len, hash, &hash_len );
 		if (rc != CKR_OK) {
 			show_error("  C_Sign #3", rc );
-			return FALSE;
+			return rc;
 		}
 
 		if (hash_len != hmac_size) {
-			printf("   Error:  C_Sign #3 generated bad HMAC length\n");
-			return FALSE;
+			PRINT_ERR("   Error:  C_Sign #3 generated bad HMAC length\n");
+			return -1;
 		}
 
 		if (memcmp(hash, expect, hash_len) != 0) {
-			printf("   Error:  C_Sign #3 generated bad HMAC\n");
-			return FALSE;
+			PRINT_ERR("   Error:  C_Sign #3 generated bad HMAC\n");
+			return -1;
 		}
 
 		rc = funcs->C_VerifyInit( session, &mech, h_key );
 		if (rc != CKR_OK) {
 			show_error("   C_VerifyInit #3", rc );
-			return FALSE;
+			return rc;
 		}
 
 		rc = funcs->C_Verify( session, data, data_len, hash, hash_len );
 		if (rc != CKR_OK) {
 			show_error("   C_Verify #3", rc );
-			return FALSE;
+			return rc;
 		}
 
 		rc = funcs->C_DestroyObject( session, h_key );
 		if (rc != CKR_OK) {
 			show_error("   C_DestroyObject #3", rc );
-			return FALSE;
+			return rc;
 		}
 	}
 
@@ -2833,48 +2833,48 @@ int do_SignVerify_SHA1_HMAC_GENERAL( void )
 		rc = funcs->C_CreateObject( session, key_attribs, 4, &h_key );
 		if (rc != CKR_OK) {
 			show_error("   C_CreateObject #4", rc );
-			return FALSE;
+			return rc;
 		}
 
 		rc = funcs->C_SignInit( session, &mech, h_key );
 		if (rc != CKR_OK) {
 			show_error("   C_SignInit #4", rc );
-			return FALSE;
+			return rc;
 		}
 
 		hash_len = sizeof(hash);
 		rc = funcs->C_Sign( session, data, data_len, hash, &hash_len );
 		if (rc != CKR_OK) {
 			show_error("  C_Sign #4", rc );
-			return FALSE;
+			return rc;
 		}
 
 		if (hash_len != hmac_size) {
-			printf("   Error:  C_Sign #4 generated bad HMAC length\n");
-			return FALSE;
+			PRINT_ERR("   Error:  C_Sign #4 generated bad HMAC length\n");
+			return -1;
 		}
 
 		if (memcmp(hash, expect, hash_len) != 0) {
-			printf("   Error:  C_Sign #4 generated bad HMAC\n");
-			return FALSE;
+			PRINT_ERR("   Error:  C_Sign #4 generated bad HMAC\n");
+			return -1;
 		}
 
 		rc = funcs->C_VerifyInit( session, &mech, h_key );
 		if (rc != CKR_OK) {
 			show_error("   C_VerifyInit #4", rc );
-			return FALSE;
+			return rc;
 		}
 
 		rc = funcs->C_Verify( session, data, data_len, hash, hash_len );
 		if (rc != CKR_OK) {
 			show_error("   C_Verify #4", rc );
-			return FALSE;
+			return rc;
 		}
 
 		rc = funcs->C_DestroyObject( session, h_key );
 		if (rc != CKR_OK) {
 			show_error("   C_DestroyObject #4", rc );
-			return FALSE;
+			return rc;
 		}
 	}
 
@@ -2910,48 +2910,48 @@ int do_SignVerify_SHA1_HMAC_GENERAL( void )
 		rc = funcs->C_CreateObject( session, key_attribs, 4, &h_key );
 		if (rc != CKR_OK) {
 			show_error("   C_CreateObject #5", rc );
-			return FALSE;
+			return rc;
 		}
 
 		rc = funcs->C_SignInit( session, &mech, h_key );
 		if (rc != CKR_OK) {
 			show_error("   C_SignInit #5", rc );
-			return FALSE;
+			return rc;
 		}
 
 		hash_len = sizeof(hash);
 		rc = funcs->C_Sign( session, data, data_len, hash, &hash_len );
 		if (rc != CKR_OK) {
 			show_error("  C_Sign #5", rc );
-			return FALSE;
+			return rc;
 		}
 
 		if (hash_len != hmac_size) {
-			printf("   Error:  C_Sign #5 generated bad HMAC length\n");
-			return FALSE;
+			PRINT_ERR("   Error:  C_Sign #5 generated bad HMAC length\n");
+			return -1;
 		}
 
 		if (memcmp(hash, expect, hash_len) != 0) {
-			printf("   Error:  C_Sign #5 generated bad HMAC\n");
-			return FALSE;
+			PRINT_ERR("   Error:  C_Sign #5 generated bad HMAC\n");
+			return -1;
 		}
 
 		rc = funcs->C_VerifyInit( session, &mech, h_key );
 		if (rc != CKR_OK) {
 			show_error("   C_VerifyInit #5", rc );
-			return FALSE;
+			return rc;
 		}
 
 		rc = funcs->C_Verify( session, data, data_len, hash, hash_len );
 		if (rc != CKR_OK) {
 			show_error("   C_Verify #5", rc );
-			return FALSE;
+			return rc;
 		}
 
 		rc = funcs->C_DestroyObject( session, h_key );
 		if (rc != CKR_OK) {
 			show_error("   C_DestroyObject #5", rc );
-			return FALSE;
+			return rc;
 		}
 	}
 
@@ -2994,48 +2994,48 @@ int do_SignVerify_SHA1_HMAC_GENERAL( void )
 		rc = funcs->C_CreateObject( session, key_attribs, 4, &h_key );
 		if (rc != CKR_OK) {
 			show_error("   C_CreateObject #6", rc );
-			return FALSE;
+			return rc;
 		}
 
 		rc = funcs->C_SignInit( session, &mech, h_key );
 		if (rc != CKR_OK) {
 			show_error("   C_SignInit #6", rc );
-			return FALSE;
+			return rc;
 		}
 
 		hash_len = sizeof(hash);
 		rc = funcs->C_Sign( session, data, data_len, hash, &hash_len );
 		if (rc != CKR_OK) {
 			show_error("  C_Sign #6", rc );
-			return FALSE;
+			return rc;
 		}
 
 		if (hash_len != hmac_size) {
-			printf("   Error:  C_Sign #6 generated bad HMAC length\n");
-			return FALSE;
+			PRINT_ERR("   Error:  C_Sign #6 generated bad HMAC length\n");
+			return -1;
 		}
 
 		if (memcmp(hash, expect, hash_len) != 0) {
-			printf("   Error:  C_Sign #6 generated bad HMAC\n");
-			return FALSE;
+			PRINT_ERR("   Error:  C_Sign #6 generated bad HMAC\n");
+			return -1;
 		}
 
 		rc = funcs->C_VerifyInit( session, &mech, h_key );
 		if (rc != CKR_OK) {
 			show_error("   C_VerifyInit #6", rc );
-			return FALSE;
+			return rc;
 		}
 
 		rc = funcs->C_Verify( session, data, data_len, hash, hash_len );
 		if (rc != CKR_OK) {
 			show_error("   C_Verify #6", rc );
-			return FALSE;
+			return rc;
 		}
 
 		rc = funcs->C_DestroyObject( session, h_key );
 		if (rc != CKR_OK) {
 			show_error("   C_DestroyObject #6", rc );
-			return FALSE;
+			return rc;
 		}
 	}
 
@@ -3078,48 +3078,48 @@ int do_SignVerify_SHA1_HMAC_GENERAL( void )
 		rc = funcs->C_CreateObject( session, key_attribs, 4, &h_key );
 		if (rc != CKR_OK) {
 			show_error("   C_CreateObject #7", rc );
-			return FALSE;
+			return rc;
 		}
 
 		rc = funcs->C_SignInit( session, &mech, h_key );
 		if (rc != CKR_OK) {
 			show_error("   C_SignInit #7", rc );
-			return FALSE;
+			return rc;
 		}
 
 		hash_len = sizeof(hash);
 		rc = funcs->C_Sign( session, data, data_len, hash, &hash_len );
 		if (rc != CKR_OK) {
 			show_error("  C_Sign #7", rc );
-			return FALSE;
+			return rc;
 		}
 
 		if (hash_len != hmac_size) {
-			printf("   Error:  C_Sign #7 generated bad HMAC length\n");
-			return FALSE;
+			PRINT_ERR("   Error:  C_Sign #7 generated bad HMAC length\n");
+			return -1;
 		}
 
 		if (memcmp(hash, expect, hash_len) != 0) {
-			printf("   Error:  C_Sign #7 generated bad HMAC\n");
-			return FALSE;
+			PRINT_ERR("   Error:  C_Sign #7 generated bad HMAC\n");
+			return -1;
 		}
 
 		rc = funcs->C_VerifyInit( session, &mech, h_key );
 		if (rc != CKR_OK) {
 			show_error("   C_VerifyInit #7", rc );
-			return FALSE;
+			return rc;
 		}
 
 		rc = funcs->C_Verify( session, data, data_len, hash, hash_len );
 		if (rc != CKR_OK) {
 			show_error("   C_Verify #7", rc );
-			return FALSE;
+			return rc;
 		}
 
 		rc = funcs->C_DestroyObject( session, h_key );
 		if (rc != CKR_OK) {
 			show_error("   C_DestroyObject #7", rc );
-			return FALSE;
+			return rc;
 		}
 	}
 
@@ -3127,19 +3127,117 @@ int do_SignVerify_SHA1_HMAC_GENERAL( void )
 	rc = funcs->C_CloseAllSessions( slot_id );
 	if (rc != CKR_OK) {
 		show_error("   C_CloseAllSessions #1", rc );
-		return FALSE;
+		return rc;
 	}
 
 	printf("Looks okay...\n");
-	return TRUE;
+	return 0;
+}
+
+CK_RV digest_funcs()
+{
+	SYSTEMTIME t1, t2;	
+	CK_RV rc;
+
+	rc = do_Digest_SHA1();
+	if (rc) {
+		PRINT_ERR("ERROR do_Digest_SHA1 failed, rc = 0x%lx\n", rc);
+		if (!no_stop)
+			return rc;
+	}
+	GetSystemTime(&t2);
+	process_time( t1, t2 );
+
+#if MD2
+	GetSystemTime(&t1);
+	rc = do_Digest_MD2();
+	if (rc) {
+		PRINT_ERR("ERROR do_Digest_MD2 failed, rc = 0x%lx\n", rc);
+		if (!no_stop)
+			return rc;
+	}
+	GetSystemTime(&t2);
+	process_time( t1, t2 );
+#endif
+
+	GetSystemTime(&t1);
+	rc = do_Digest_MD5();
+	if (rc) {
+		PRINT_ERR("ERROR do_Digest_MD5 failed, rc = 0x%lx\n", rc);
+		if (!no_stop)
+			return rc;
+	}
+	GetSystemTime(&t2);
+	process_time( t1, t2 );
+
+	GetSystemTime(&t1);
+	rc = do_SignVerify_MD5_HMAC();
+	if (rc) {
+		PRINT_ERR("ERROR do_SignVerify_MD5 failed, rc = 0x%lx\n", rc);
+		if (!no_stop)
+			return rc;
+	}
+	GetSystemTime(&t2);
+	process_time( t1, t2 );
+
+	GetSystemTime(&t1);
+	rc = do_SignVerify_MD5_HMAC_GENERAL();
+	if (rc) {
+		PRINT_ERR("ERROR do_SignVerify_MD5_HMAC_GENERAL failed, rc = 0x%lx\n", rc);
+		if (!no_stop)
+			return rc;
+	}
+	GetSystemTime(&t2);
+	process_time( t1, t2 );
+
+	GetSystemTime(&t1);
+	rc = do_SignVerify_SHA1_HMAC();
+	if (rc) {
+		PRINT_ERR("ERROR do_SignVerify_SHA1_HMAC failed, rc = 0x%lx\n", rc);
+		if (!no_stop)
+			return rc;
+	}
+	GetSystemTime(&t2);
+	process_time( t1, t2 );
+
+	GetSystemTime(&t1);
+	rc = do_SignVerify_SHA1_HMAC_GENERAL();
+	if (rc) {
+		PRINT_ERR("ERROR do_SignVerify_SHA1_HMAC_GENERAL failed, rc = 0x%lx\n", rc);
+		if (!no_stop)
+			return rc;
+	}
+	GetSystemTime(&t2);
+	process_time( t1, t2 );
+
+
+	//   // these are just speed tests.  they'll take a while to complete
+	//   // so don't include them in normal regression testing
+	//   //
+	//   GetSystemTime(&t1);
+	//   rc = do_Digest_SHA1_speed();
+	//   if (rc)
+	//      ;
+	//   GetSystemTime(&t2);
+	//   process_time( t1, t2 );
+	//
+	//   GetSystemTime(&t1);
+	//   rc = do_Digest_MD5_speed();
+	//   if (rc)
+	//      ;
+	//   GetSystemTime(&t2);
+	//   process_time( t1, t2 );
+
+	return 0;
 }
 
 
 int main(int argc, char **argv)
 {
 	CK_C_INITIALIZE_ARGS cinit_args;
-	int rc, i;
+	int rc;
 	CK_BBOOL no_init, no_stop;
+	CK_RV rv;
 
 	SLOT_ID = 0;
 	no_init = FALSE;
@@ -3149,13 +3247,13 @@ int main(int argc, char **argv)
 	rc = do_ParseArgs(argc, argv);
 	if ( rc != 1)
 		return rc;
-	
+
 	printf("Using slot #%lu...\n\n", SLOT_ID );
 	printf("With option: no_init: %d\n", no_init);
 
 	rc = do_GetFunctionList();
 	if (!rc) {
-		fprintf(stderr, "ERROR do_GetFunctionList() Failed , rc = 0x%0x\n", rc); 
+		PRINT_ERR("ERROR do_GetFunctionList() Failed , rc = 0x%0x\n", rc);
 		return rc;
 	}
 
@@ -3170,7 +3268,7 @@ int main(int argc, char **argv)
 		CK_SESSION_HANDLE  hsess = 0;
 
 		rc = funcs->C_GetFunctionStatus(hsess);
-		if (rc  != CKR_FUNCTION_NOT_PARALLEL)  
+		if (rc  != CKR_FUNCTION_NOT_PARALLEL)
 			return rc;
 
 		rc = funcs->C_CancelFunction(hsess);
@@ -3179,103 +3277,8 @@ int main(int argc, char **argv)
 
 	}
 
-	digest_funcs();
-}
-
-int digest_funcs()
-{
-	SYSTEMTIME t1, t2;	
-	int rc;
-
-	rc = do_Digest_SHA1();
-	if (!rc) {
-		fprintf (stderr, "ERROR do_Digest_SHA1 failed, rc = 0x%0x\n", rc);
-		if (!no_stop)
-			return rc;
-	}
-	GetSystemTime(&t2);
-	process_time( t1, t2 );
-
-#if MD2
-	GetSystemTime(&t1);
-	rc = do_Digest_MD2();
-	if (!rc) {
-		fprintf (stderr, "ERROR do_Digest_MD2 failed, rc = 0x%0x\n", rc);
-		if (!no_stop)
-			return rc;
-	}
-	GetSystemTime(&t2);
-	process_time( t1, t2 );
-#endif
-
-	GetSystemTime(&t1);
-	rc = do_Digest_MD5();
-	if (!rc) {
-		fprintf (stderr, "ERROR do_Digest_MD5 failed, rc = 0x%0x\n", rc);
-		if (!no_stop)
-			return rc;
-	}
-	GetSystemTime(&t2);
-	process_time( t1, t2 );
-
-	GetSystemTime(&t1);
-	rc = do_SignVerify_MD5_HMAC();
-	if (!rc) {
-		fprintf (stderr, "ERROR do_SignVerify_MD5 failed, rc = 0x%0x\n", rc);
-		if (!no_stop)
-			return rc;
-	}
-	GetSystemTime(&t2);
-	process_time( t1, t2 );
-
-	GetSystemTime(&t1);
-	rc = do_SignVerify_MD5_HMAC_GENERAL();
-	if (!rc) {
-		fprintf (stderr, "ERROR do_SignVerify_MD5_HMAC_GENERAL failed, rc = 0x%0x\n", rc);
-		if (!no_stop)
-			return rc;
-	}
-	GetSystemTime(&t2);
-	process_time( t1, t2 );
-
-	GetSystemTime(&t1);
-	rc = do_SignVerify_SHA1_HMAC();
-	if (!rc) {
-		fprintf (stderr, "ERROR do_SignVerify_SHA1_HMAC failed, rc = 0x%0x\n", rc);
-		if (!no_stop)
-			return rc;
-	}
-	GetSystemTime(&t2);
-	process_time( t1, t2 );
-
-	GetSystemTime(&t1);
-	rc = do_SignVerify_SHA1_HMAC_GENERAL();
-	if (!rc) {
-		fprintf (stderr, "ERROR do_SignVerify_SHA1_HMAC_GENERAL failed, rc = 0x%0x\n", rc);
-		if (!no_stop)
-			return rc;
-	}
-	GetSystemTime(&t2);
-	process_time( t1, t2 );
-
-
-	//   // these are just speed tests.  they'll take a while to complete
-	//   // so don't include them in normal regression testing
-	//   //
-	//   GetSystemTime(&t1);
-	//   rc = do_Digest_SHA1_speed();
-	//   if (!rc)
-	//      ;
-	//   GetSystemTime(&t2);
-	//   process_time( t1, t2 );
-	//
-	//   GetSystemTime(&t1);
-	//   rc = do_Digest_MD5_speed();
-	//   if (!rc)
-	//      ;
-	//   GetSystemTime(&t2);
-	//   process_time( t1, t2 );
-
-	return TRUE;
+	rv = digest_funcs();
+	/* make sure we return non-zero if rv is non-zero */
+	return ((rv==0) || (rv % 256) ? rv : -1);
 }
 
