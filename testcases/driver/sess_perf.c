@@ -12,8 +12,8 @@
 #include "regress.h"
 
 #define DATALEN 1024
-char DATA[DATALEN];
-char DUMP[DATALEN];
+CK_BYTE DATA[DATALEN];
+CK_BYTE DUMP[DATALEN];
 
 typedef struct _context_table {
 	CK_SESSION_HANDLE hsess;
@@ -97,7 +97,8 @@ int encrypt_DATA(CK_SESSION_HANDLE hsess, CK_OBJECT_HANDLE hkey, CK_ULONG blockl
         unsigned long int i;
 
 	for (i = 0; i < DATALEN; i+=outlen) {
-		rc = funcs->C_EncryptUpdate(hsess, (DATA + i) , blocklen, (DUMP + i), &outlen);
+		rc = funcs->C_EncryptUpdate(hsess, (CK_BYTE_PTR)(DATA + i) , blocklen,
+					    (CK_BYTE_PTR)(DUMP + i), &outlen);
 		if (rc != CKR_OK) {
 			show_error("   C_Encrypt #1", rc);
 			return FALSE;
@@ -153,13 +154,13 @@ int do_SessionPerformance(unsigned int count)
 	context_table_t   *t = NULL;
 
 	if (count == 0) {
-		show_error("   do_SessionPerformance: zero session count", 0);
+		show_error("   do_SessionPerformance: zero session count", (CK_RV)0);
 		return FALSE;
 	}
 
 	t = (context_table_t *) calloc(count, sizeof(context_table_t));
 	if (t == NULL) {
-		show_error("    do_SessionPerformance: insuficient memory", 0);
+		show_error("    do_SessionPerformance: insuficient memory", (CK_RV)0);
 		return FALSE;
 	}
 
@@ -167,7 +168,7 @@ int do_SessionPerformance(unsigned int count)
 	for (i = 0; i < count; i++) {
 		rc = create_des_encrypt_context(&(t[i].hsess), &(t[i].hkey));
 		if (rc == FALSE) {
-			show_error("    create_des_encrypt_context", 0);
+			show_error("    create_des_encrypt_context", (CK_RV)0);
 			return FALSE;
 		}
 	}
@@ -176,14 +177,14 @@ int do_SessionPerformance(unsigned int count)
 	GetSystemTime(&t1);
 	rc = encrypt_DATA(t[0].hsess, t[0].hkey, 8);
 	if (rc == FALSE) {
-		show_error("   encrypt_DATA #1", 0);
+		show_error("   encrypt_DATA #1", (CK_RV)0);
 		return FALSE;
 
 	}
 
 	rc = encrypt_DATA(t[count - 1].hsess, t[count - 1].hkey, 8);
 	if (rc == FALSE) {
-		show_error("   encrypt_DATA #2", 0);
+		show_error("   encrypt_DATA #2", (CK_RV)0);
 		return FALSE;
 
 	}
@@ -193,7 +194,7 @@ int do_SessionPerformance(unsigned int count)
 	for (i = 0; i < count; i++) {
 		rc = finalize_des_encrypt_context(t[i].hsess);
 		if (rc == FALSE) {
-			show_error("    finalize_des_encrypt_context", 0);
+			show_error("    finalize_des_encrypt_context", (CK_RV)0);
 			return FALSE;
 		}
 	}
@@ -204,7 +205,7 @@ int do_SessionPerformance(unsigned int count)
 int main(int argc, char **argv)
 {
 	CK_C_INITIALIZE_ARGS cinit_args;
-	int rc, i, j;
+	int rc, i;
 
 
 	rc = do_ParseArgs(argc, argv);
@@ -216,7 +217,7 @@ int main(int argc, char **argv)
 
 	rc = do_GetFunctionList();
 	if (!rc) {
-		fprintf(stderr, "ERROR do_GetFunctionList() Failed , rc = 0x%0x\n", rc);
+		PRINT_ERR("ERROR do_GetFunctionList() Failed , rc = 0x%0x\n", rc);
 		return rc;
 	}
 
