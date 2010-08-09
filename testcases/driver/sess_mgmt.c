@@ -38,7 +38,7 @@ void dump_session_info( CK_SESSION_INFO *info )
 
 //
 //
-int do_OpenSession( void )
+CK_RV do_OpenSession( void )
 {
 	CK_SLOT_ID        slot_id;
 	CK_FLAGS          flags;
@@ -53,24 +53,24 @@ int do_OpenSession( void )
 	rc = funcs->C_OpenSession( slot_id, flags, NULL, NULL, &handle );
 	if (rc != CKR_OK) {
 		show_error("   C_OpenSession #1", rc );
-		return FALSE;
+		return rc;
 	}
 
 	rc = funcs->C_CloseSession( handle );
 	if (rc != CKR_OK) {
 		show_error("   C_CloseSession #1", rc );
-		return FALSE;
+		return rc;
 	}
 
 	printf("Looks okay...\n");
 
-	return TRUE;
+	return rc;
 }
 
 
 //
 //
-int do_OpenSession2( void )
+CK_RV do_OpenSession2( void )
 {
 	CK_SLOT_ID        slot_id;
 	CK_FLAGS          flags;
@@ -85,37 +85,37 @@ int do_OpenSession2( void )
 	rc = funcs->C_OpenSession( slot_id, flags, NULL, NULL, &h1 );
 	if (rc != CKR_OK) {
 		show_error("   C_OpenSession #1", rc );
-		return FALSE;
+		return rc;
 	}
 
 	flags = CKF_SERIAL_SESSION | CKF_RW_SESSION;
 	rc = funcs->C_OpenSession( slot_id, flags, NULL, NULL, &h2 );
 	if (rc != CKR_OK) {
 		show_error("   C_OpenSession #2", rc );
-		return FALSE;
+		return rc;
 	}
 
 	rc = funcs->C_CloseSession( h1 );
 	if (rc != CKR_OK) {
 		show_error("   C_CloseSession #1", rc );
-		return FALSE;
+		return rc;
 	}
 
 	rc = funcs->C_CloseSession( h2 );
 	if (rc != CKR_OK) {
 		show_error("   C_CloseSession #2", rc );
-		return FALSE;
+		return rc;
 	}
 
 	printf("Looks okay...\n");
 
-	return TRUE;
+	return rc;
 }
 
 
 //
 //
-int do_CloseAllSessions( void )
+CK_RV do_CloseAllSessions( void )
 {
 	CK_SLOT_ID        slot_id;
 	CK_FLAGS          flags;
@@ -130,38 +130,38 @@ int do_CloseAllSessions( void )
 	rc = funcs->C_OpenSession( slot_id, flags, NULL, NULL, &h1 );
 	if (rc != CKR_OK) {
 		show_error("   C_OpenSession #1", rc );
-		return FALSE;
+		return rc;
 	}
 
 	flags = CKF_SERIAL_SESSION | CKF_RW_SESSION;
 	rc = funcs->C_OpenSession( slot_id, flags, NULL, NULL, &h2 );
 	if (rc != CKR_OK) {
 		show_error("   C_OpenSession #2", rc );
-		return FALSE;
+		return rc;
 	}
 
 	flags = CKF_SERIAL_SESSION | CKF_RW_SESSION;
 	rc = funcs->C_OpenSession( slot_id, flags, NULL, NULL, &h3 );
 	if (rc != CKR_OK) {
 		show_error("   C_OpenSession #3", rc );
-		return FALSE;
+		return rc;
 	}
 
 	rc = funcs->C_CloseAllSessions( slot_id );
 	if (rc != CKR_OK) {
 		show_error("   C_CloseAllSessions", rc );
-		return FALSE;
+		return rc;
 	}
 
 	printf("Looks okay...\n");
 
-	return TRUE;
+	return rc;
 }
 
 
 //
 //
-int do_GetSessionInfo( void )
+CK_RV do_GetSessionInfo( void )
 {
 	CK_SLOT_ID        slot_id;
 	CK_FLAGS          flags;
@@ -177,27 +177,27 @@ int do_GetSessionInfo( void )
 	rc = funcs->C_OpenSession( slot_id, flags, NULL, NULL, &h1 );
 	if (rc != CKR_OK) {
 		show_error("   C_OpenSession #1", rc );
-		return FALSE;
+		return rc;
 	}
 
 	flags = CKF_SERIAL_SESSION | CKF_RW_SESSION;
 	rc = funcs->C_OpenSession( slot_id, flags, NULL, NULL, &h2 );
 	if (rc != CKR_OK) {
 		show_error("   C_OpenSession #2", rc );
-		return FALSE;
+		return rc;
 	}
 
 	flags = CKF_SERIAL_SESSION | CKF_RW_SESSION;
 	rc = funcs->C_OpenSession( slot_id, flags, NULL, NULL, &h3 );
 	if (rc != CKR_OK) {
 		show_error("   C_OpenSession #3", rc );
-		return FALSE;
+		return rc;
 	}
 
 	rc = funcs->C_GetSessionInfo( h1, &info );
 	if (rc != CKR_OK) {
 		show_error("   C_GetSessionInfo #1", rc );
-		return FALSE;
+		return rc;
 	}
 
 	dump_session_info( &info );
@@ -205,7 +205,7 @@ int do_GetSessionInfo( void )
 	rc = funcs->C_GetSessionInfo( h2, &info );
 	if (rc != CKR_OK) {
 		show_error("   C_GetSessionInfo #2", rc );
-		return FALSE;
+		return rc;
 	}
 
 	dump_session_info( &info );
@@ -213,7 +213,7 @@ int do_GetSessionInfo( void )
 	rc = funcs->C_GetSessionInfo( h2, &info );
 	if (rc != CKR_OK) {
 		show_error("   C_GetSessionInfo #3", rc );
-		return FALSE;
+		return rc;
 	}
 
 	dump_session_info( &info );
@@ -221,12 +221,12 @@ int do_GetSessionInfo( void )
 	rc = funcs->C_CloseAllSessions( slot_id );
 	if (rc != CKR_OK) {
 		show_error("   C_CloseAllSessions", rc );
-		return FALSE;
+		return rc;
 	}
 
 	printf("Looks okay...\n");
 
-	return TRUE;
+	return rc;
 }
 
 
@@ -247,7 +247,7 @@ int do_GetSessionInfo( void )
 //  C) Try to create a RO session.  Verify that it fails (SO session exists)
 //  D) Close all sessions and return
 //
-int do_LoginLogout( void )
+CK_RV do_LoginLogout( void )
 {
 	CK_SLOT_ID        slot_id;
 	CK_FLAGS          flags;
@@ -278,21 +278,21 @@ int do_LoginLogout( void )
 	rc = funcs->C_OpenSession( slot_id, flags, NULL, NULL, &h1 );
 	if (rc != CKR_OK) {
 		show_error("   C_OpenSession #1", rc );
-		return FALSE;
+		return rc;
 	}
 
 	flags = CKF_SERIAL_SESSION | CKF_RW_SESSION;
 	rc = funcs->C_OpenSession( slot_id, flags, NULL, NULL, &h2 );
 	if (rc != CKR_OK) {
 		show_error("   C_OpenSession #2", rc );
-		return FALSE;
+		return rc;
 	}
 
 	flags = CKF_SERIAL_SESSION | CKF_RW_SESSION;
 	rc = funcs->C_OpenSession( slot_id, flags, NULL, NULL, &h3 );
 	if (rc != CKR_OK) {
 		show_error("   C_OpenSession #3", rc );
-		return FALSE;
+		return rc;
 	}
 
 	//
@@ -301,13 +301,13 @@ int do_LoginLogout( void )
 	rc = funcs->C_Login( h1, CKU_USER, user_pin, user_pin_len );
 	if (rc != CKR_OK) {
 		show_error("   C_Login #1", rc );
-		return FALSE;
+		return rc;
 	}
 
 	rc = funcs->C_GetSessionInfo( h1, &info );
 	if (rc != CKR_OK) {
 		show_error("   C_GetSessionInfo #1", rc );
-		return FALSE;
+		return rc;
 	}
 
 	dump_session_info( &info );
@@ -315,7 +315,7 @@ int do_LoginLogout( void )
 	rc = funcs->C_GetSessionInfo( h2, &info );
 	if (rc != CKR_OK) {
 		show_error("   C_GetSessionInfo #2", rc );
-		return FALSE;
+		return rc;
 	}
 
 	dump_session_info( &info );
@@ -323,7 +323,7 @@ int do_LoginLogout( void )
 	rc = funcs->C_GetSessionInfo( h2, &info );
 	if (rc != CKR_OK) {
 		show_error("   C_GetSessionInfo #3", rc );
-		return FALSE;
+		return rc;
 	}
 
 	dump_session_info( &info );
@@ -335,8 +335,8 @@ int do_LoginLogout( void )
 	rc = funcs->C_Login( h2, CKU_USER, user_pin, user_pin_len );
 	if (rc != CKR_USER_ALREADY_LOGGED_IN) {
 		show_error("   C_Login #2", rc );
-		printf("   Expected CKR_USER_ALREADY_LOGGED_IN\n");
-		return FALSE;
+		PRINT_ERR("   Expected CKR_USER_ALREADY_LOGGED_IN\n");
+		return -1;
 	}
 
 	//
@@ -345,14 +345,14 @@ int do_LoginLogout( void )
 	rc = funcs->C_Logout( h1 );
 	if (rc != CKR_OK) {
 		show_error("   C_Logout #1", rc );
-		return FALSE;
+		return rc;
 	}
 
 	rc = funcs->C_Logout( h2 );
 	if (rc != CKR_USER_NOT_LOGGED_IN) {
 		show_error("   C_Logout #2", rc );
-		printf("   Expected CKR_USER_NOT_LOGGED_IN\n");
-		return FALSE;
+		PRINT_ERR("   Expected CKR_USER_NOT_LOGGED_IN\n");
+		return rc;
 	}
 
 	//
@@ -361,15 +361,15 @@ int do_LoginLogout( void )
 	rc = funcs->C_Login( h1, CKU_SO, so_pin, so_pin_len );
 	if (rc != CKR_SESSION_READ_ONLY_EXISTS) {
 		show_error("   C_Login #4", rc );
-		printf("   Expected CKR_SESSION_READ_ONLY_EXISTS\n");
-		return FALSE;
+		PRINT_ERR("   Expected CKR_SESSION_READ_ONLY_EXISTS\n");
+		return -1;
 	}
 
 	rc = funcs->C_Login( h2, CKU_SO, so_pin, so_pin_len );
 	if (rc != CKR_SESSION_READ_ONLY_EXISTS) {
 		show_error("   C_Login #5", rc );
-		printf("   Expected CKR_SESSION_READ_ONLY_EXISTS\n");
-		return FALSE;
+		PRINT_ERR("   Expected CKR_SESSION_READ_ONLY_EXISTS\n");
+		return -1;
 	}
 
 	//
@@ -379,7 +379,7 @@ int do_LoginLogout( void )
 	rc = funcs->C_CloseAllSessions( slot_id );
 	if (rc != CKR_OK) {
 		show_error("   C_CloseAllSessions #1", rc );
-		return FALSE;
+		return rc;
 	}
 
 	//
@@ -389,14 +389,14 @@ int do_LoginLogout( void )
 	rc = funcs->C_OpenSession( slot_id, flags, NULL, NULL, &h1 );
 	if (rc != CKR_OK) {
 		show_error("   C_OpenSession #4", rc );
-		return FALSE;
+		return rc;
 	}
 
 	flags = CKF_SERIAL_SESSION | CKF_RW_SESSION;
 	rc = funcs->C_OpenSession( slot_id, flags, NULL, NULL, &h2 );
 	if (rc != CKR_OK) {
 		show_error("   C_OpenSession #5", rc );
-		return FALSE;
+		return rc;
 	}
 
 	//
@@ -405,13 +405,13 @@ int do_LoginLogout( void )
 	rc = funcs->C_Login( h1, CKU_SO, so_pin, so_pin_len );
 	if (rc != CKR_OK) {
 		show_error("   C_Login #6", rc );
-		return FALSE;
+		return rc;
 	}
 
 	rc = funcs->C_GetSessionInfo( h1, &info );
 	if (rc != CKR_OK) {
 		show_error("   C_GetSessionInfo #4", rc );
-		return FALSE;
+		return rc;
 	}
 
 	dump_session_info( &info );
@@ -419,7 +419,7 @@ int do_LoginLogout( void )
 	rc = funcs->C_GetSessionInfo( h2, &info );
 	if (rc != CKR_OK) {
 		show_error("   C_GetSessionInfo #5", rc );
-		return FALSE;
+		return rc;
 	}
 
 	dump_session_info( &info );
@@ -431,13 +431,13 @@ int do_LoginLogout( void )
 	rc = funcs->C_OpenSession( slot_id, flags, NULL, NULL, &h3 );
 	if (rc != CKR_OK) {
 		show_error("   C_OpenSession #6", rc );
-		return FALSE;
+		return rc;
 	}
 
 	rc = funcs->C_GetSessionInfo( h3, &info );
 	if (rc != CKR_OK) {
 		show_error("   C_GetSessionInfo #6", rc );
-		return FALSE;
+		return rc;
 	}
 
 	dump_session_info( &info );
@@ -449,8 +449,8 @@ int do_LoginLogout( void )
 	rc = funcs->C_OpenSession( slot_id, flags, NULL, NULL, &h4 );
 	if (rc != CKR_SESSION_READ_WRITE_SO_EXISTS) {
 		show_error("   C_OpenSession #6", rc );
-		printf("   Expected CKR_SESSION_READ_WRITE_SO_EXISTS\n");
-		return FALSE;
+		PRINT_ERR("   Expected CKR_SESSION_READ_WRITE_SO_EXISTS\n");
+		return -1;
 	}
 
 
@@ -460,19 +460,19 @@ int do_LoginLogout( void )
 	rc = funcs->C_CloseAllSessions( slot_id );
 	if (rc != CKR_OK) {
 		show_error("   C_CloseAllSessions #2:  %d", rc );
-		return FALSE;
+		return rc;
 	}
 
 
 	printf("Looks okay...\n");
 
-	return TRUE;
+	return rc;
 }
 
 
 //
 //
-int do_OperationState1( void )
+CK_RV do_OperationState1( void )
 {
 	CK_SLOT_ID          slot_id;
 	CK_SESSION_HANDLE   session1, session2;
@@ -519,13 +519,13 @@ int do_OperationState1( void )
 	rc = funcs->C_OpenSession( slot_id, flags, NULL, NULL, &session1 );
 	if (rc != CKR_OK) {
 		show_error("   C_OpenSession #1", rc );
-		return FALSE;
+		return rc;
 	}
 
 	rc = funcs->C_OpenSession( slot_id, flags, NULL, NULL, &session2 );
 	if (rc != CKR_OK) {
 		show_error("   C_OpenSession #2", rc );
-		return FALSE;
+		return rc;
 	}
 
 	if (get_user_pin(user_pin))
@@ -535,7 +535,7 @@ int do_OperationState1( void )
 	rc = funcs->C_Login( session1, CKU_USER, user_pin, user_pin_len );
 	if (rc != CKR_OK) {
 		show_error("   C_Login #1", rc );
-		return FALSE;
+		return rc;
 	}
 
 	orig_len = sizeof(original);
@@ -555,7 +555,7 @@ int do_OperationState1( void )
 	rc = funcs->C_GenerateKey( session1, &mech, NULL, 0, &h_key );
 	if (rc != CKR_OK) {
 		show_error("   C_GenerateKey #1", rc );
-		return FALSE;
+		return rc;
 	}
 
 	// now encrypt the original data all at once using CBC
@@ -567,14 +567,14 @@ int do_OperationState1( void )
 	rc = funcs->C_EncryptInit( session1, &mech, h_key );
 	if (rc != CKR_OK) {
 		show_error("   C_EncryptInit #1", rc );
-		return FALSE;
+		return rc;
 	}
 
 	crypt1_len = sizeof(crypt1);
 	rc = funcs->C_Encrypt( session1, original, orig_len, crypt1, &crypt1_len );
 	if (rc != CKR_OK) {
 		show_error("   C_Encrypt #1", rc );
-		return FALSE;
+		return rc;
 	}
 
 
@@ -583,7 +583,7 @@ int do_OperationState1( void )
 	rc = funcs->C_EncryptInit( session1, &mech, h_key );
 	if (rc != CKR_OK) {
 		show_error("   C_EncryptInit #2", rc );
-		return FALSE;
+		return rc;
 	}
 
 	crypt2_len = sizeof(crypt2);
@@ -591,7 +591,7 @@ int do_OperationState1( void )
 			crypt2,   &crypt2_len );
 	if (rc != CKR_OK) {
 		show_error("   C_EncryptUpdate #1", rc );
-		return FALSE;
+		return rc;
 	}
 
 	// save session #1's operation state
@@ -599,19 +599,19 @@ int do_OperationState1( void )
 	rc = funcs->C_GetOperationState( session1, NULL, &op_state_len );
 	if (rc != CKR_OK) {
 		show_error("   C_GetOperationState #1", rc );
-		return FALSE;
+		return rc;
 	}
 
 	op_state = (CK_BYTE *)malloc(op_state_len);
 	if (!op_state) {
-		show_error("   HOST MEMORY ERROR", CKR_HOST_MEMORY );
-		return FALSE;
+		show_error("   HOST MEMORY ERROR", (CK_ULONG)CKR_HOST_MEMORY );
+		return -1;
 	}
 
 	rc = funcs->C_GetOperationState( session1, op_state, &op_state_len );
 	if (rc != CKR_OK) {
 		show_error("   C_GetOperationState #1", rc );
-		return FALSE;
+		return rc;
 	}
 
 	// now, encrypt some garbage.  this will affect the CBC even if
@@ -622,7 +622,7 @@ int do_OperationState1( void )
 			trash2, &trash2_len );
 	if (rc != CKR_OK) {
 		show_error("   C_EncryptUpdate #2", rc );
-		return FALSE;
+		return rc;
 	}
 
 	// restore session #1's operation state that we just saved back
@@ -632,7 +632,7 @@ int do_OperationState1( void )
 			h_key, 0 );
 	if (rc != CKR_OK) {
 		show_error("   C_SetOperationState #1", rc );
-		return FALSE;
+		return rc;
 	}
 
 	free( op_state );
@@ -646,7 +646,7 @@ int do_OperationState1( void )
 			crypt2 + i,            &crypt2_len );
 	if (rc != CKR_OK) {
 		show_error("   C_EncryptUpdate #3", rc );
-		return FALSE;
+		return rc;
 	}
 
 	crypt2_len += i;
@@ -655,39 +655,39 @@ int do_OperationState1( void )
 	rc = funcs->C_EncryptFinal( session2, trash2, &trash2_len );
 	if (rc != CKR_OK) {
 		show_error("   C_EncryptFinal #1", rc );
-		return FALSE;
+		return rc;
 	}
 
 	if (crypt2_len != crypt1_len) {
-		printf("   ERROR:  Lengths don't match\n");
-		return FALSE;
+		PRINT_ERR("   ERROR:  Lengths don't match\n");
+		return -1;
 	}
 
 	if (memcmp(crypt1, crypt2, crypt1_len) != 0) {
-		printf("   ERROR:  crypt1 != crypt2\n");
-		return FALSE;
+		PRINT_ERR("   ERROR:  crypt1 != crypt2\n");
+		return -1;
 	}
 
 	rc = funcs->C_CloseSession( session1 );
 	if (rc != CKR_OK) {
 		show_error("   C_CloseSession #1", rc );
-		return FALSE;
+		return rc;
 	}
 
 	rc = funcs->C_CloseSession( session2 );
 	if (rc != CKR_OK) {
 		show_error("   C_CloseSession #2", rc );
-		return FALSE;
+		return rc;
 	}
 
 	printf("Looks okay...\n");
-	return TRUE;
+	return rc;
 }
 
 
 //
 //
-int do_OperationState2( void )
+CK_RV do_OperationState2( void )
 {
 	CK_SLOT_ID          slot_id;
 	CK_SESSION_HANDLE   session1, session2, session3;
@@ -738,19 +738,19 @@ int do_OperationState2( void )
 	rc = funcs->C_OpenSession( slot_id, flags, NULL, NULL, &session1 );
 	if (rc != CKR_OK) {
 		show_error("   C_OpenSession #1", rc );
-		return FALSE;
+		return rc;
 	}
 
 	rc = funcs->C_OpenSession( slot_id, flags, NULL, NULL, &session2 );
 	if (rc != CKR_OK) {
 		show_error("   C_OpenSession #2", rc );
-		return FALSE;
+		return rc;
 	}
 
 	rc = funcs->C_OpenSession( slot_id, flags, NULL, NULL, &session3 );
 	if (rc != CKR_OK) {
 		show_error("   C_OpenSession #3", rc );
-		return FALSE;
+		return rc;
 	}
 
 	if (get_user_pin(user_pin))
@@ -760,7 +760,7 @@ int do_OperationState2( void )
 	rc = funcs->C_Login( session1, CKU_USER, user_pin, user_pin_len );
 	if (rc != CKR_OK) {
 		show_error("   C_Login #1", rc );
-		return FALSE;
+		return rc;
 	}
 
 	orig_len = sizeof(original);
@@ -774,31 +774,31 @@ int do_OperationState2( void )
 	rc = funcs->C_DigestInit( session1, &mech );
 	if (rc != CKR_OK) {
 		show_error("   C_DigestInit #1", rc );
-		return FALSE;
+		return rc;
 	}
 
 	rc = funcs->C_DigestInit( session2, &mech );
 	if (rc != CKR_OK) {
 		show_error("   C_DigestInit #2", rc );
-		return FALSE;
+		return rc;
 	}
 
 	rc = funcs->C_DigestInit( session3, &mech );
 	if (rc != CKR_OK) {
 		show_error("   C_DigestInit #3", rc );
-		return FALSE;
+		return rc;
 	}
 
 	rc = funcs->C_DigestUpdate( session1, original, 499 );
 	if (rc != CKR_OK) {
 		show_error("   C_DigestUpdate #1", rc );
-		return FALSE;
+		return rc;
 	}
 
 	rc = funcs->C_DigestUpdate( session2, original, 27 );
 	if (rc != CKR_OK) {
 		show_error("   C_DigestUpdate #2", rc );
-		return FALSE;
+		return rc;
 	}
 
 	orig_len = sizeof(original);
@@ -807,7 +807,7 @@ int do_OperationState2( void )
 			digest3,  &digest3_len );
 	if (rc != CKR_OK) {
 		show_error("   C_Digest #1", rc );
-		return FALSE;
+		return rc;
 	}
 
 	// save the operation states of sessions 1 and 2
@@ -815,33 +815,33 @@ int do_OperationState2( void )
 	rc = funcs->C_GetOperationState( session1, NULL, &op_state1_len );
 	if (rc != CKR_OK) {
 		show_error("   C_GetOperationState #1", rc );
-		return FALSE;
+		return rc;
 	}
 	op_state1 = (CK_BYTE *)malloc(op_state1_len);
 	if (!op_state1) {
-		show_error("   HOST MEMORY ERROR", CKR_HOST_MEMORY );
-		return FALSE;
+		show_error("   HOST MEMORY ERROR", (CK_ULONG)CKR_HOST_MEMORY );
+		return -1;
 	}
 	rc = funcs->C_GetOperationState( session1, op_state1, &op_state1_len );
 	if (rc != CKR_OK) {
 		show_error("   C_GetOperationState #2", rc );
-		return FALSE;
+		return rc;
 	}
 
 	rc = funcs->C_GetOperationState( session2, NULL, &op_state2_len );
 	if (rc != CKR_OK) {
 		show_error("   C_GetOperationState #3", rc );
-		return FALSE;
+		return rc;
 	}
 	op_state2 = (CK_BYTE *)malloc(op_state2_len);
 	if (!op_state2) {
-		show_error("   HOST MEMORY ERROR", CKR_HOST_MEMORY );
-		return FALSE;
+		show_error("   HOST MEMORY ERROR", (CK_ULONG)CKR_HOST_MEMORY );
+		return -1;
 	}
 	rc = funcs->C_GetOperationState( session2, op_state2, &op_state2_len );
 	if (rc != CKR_OK) {
 		show_error("   C_GetOperationState #4", rc );
-		return FALSE;
+		return rc;
 	}
 
 	// switch the states
@@ -850,14 +850,14 @@ int do_OperationState2( void )
 			0, 0 );
 	if (rc != CKR_OK) {
 		show_error("   C_SetOperationState #2", rc );
-		return FALSE;
+		return rc;
 	}
 
 	rc = funcs->C_SetOperationState( session2, op_state1, op_state1_len,
 			0, 0 );
 	if (rc != CKR_OK) {
 		show_error("   C_SetOperationState #3", rc );
-		return FALSE;
+		return rc;
 	}
 
 	// now, finish the digest operations
@@ -865,68 +865,68 @@ int do_OperationState2( void )
 	rc = funcs->C_DigestUpdate( session2, original+499, (orig_len - 499) );
 	if (rc != CKR_OK) {
 		show_error("   C_DigestUpdate #3", rc );
-		return FALSE;
+		return rc;
 	}
 
 	rc = funcs->C_DigestUpdate( session1, original+27, orig_len - 27 );
 	if (rc != CKR_OK) {
 		show_error("   C_DigestUpdate #4", rc );
-		return FALSE;
+		return rc;
 	}
 
 	digest1_len = sizeof(digest1);
 	rc = funcs->C_DigestFinal( session1, digest1, &digest1_len );
 	if (rc != CKR_OK) {
 		show_error("   C_DigestFinal #1", rc );
-		return FALSE;
+		return rc;
 	}
 
 	digest2_len = sizeof(digest2);
 	rc = funcs->C_DigestFinal( session2, digest2, &digest2_len );
 	if (rc != CKR_OK) {
 		show_error("   C_DigestFinal #2", rc );
-		return FALSE;
+		return rc;
 	}
 
 	if (digest1_len != digest2_len || digest1_len != digest3_len) {
-		printf("   ERROR:  digested lengths don't match\n");
-		return FALSE;
+		PRINT_ERR("   ERROR:  digested lengths don't match\n");
+		return -1;
 	}
 
 	if (memcmp(digest1, digest2, digest1_len) != 0) {
-		printf("   ERROR:  digest1 != digest2\n");
-		return FALSE;
+		PRINT_ERR("   ERROR:  digest1 != digest2\n");
+		return -1;
 	}
 
 	if (memcmp(digest1, digest3, digest1_len) != 0) {
-		printf("   ERROR:  digest1 != digest3\n");
-		return FALSE;
+		PRINT_ERR("   ERROR:  digest1 != digest3\n");
+		return -1;
 	}
 
 	rc = funcs->C_CloseSession( session1 );
 	if (rc != CKR_OK) {
 		show_error("   C_CloseSession #3", rc );
-		return FALSE;
+		return rc;
 	}
 	rc = funcs->C_CloseSession( session2 );
 	if (rc != CKR_OK) {
 		show_error("   C_CloseSession #4", rc );
-		return FALSE;
+		return rc;
 	}
 	rc = funcs->C_CloseSession( session3 );
 	if (rc != CKR_OK) {
 		show_error("   C_CloseSession #5", rc );
-		return FALSE;
+		return rc;
 	}
 
 	printf("Looks okay...\n");
-	return TRUE;
+	return rc;
 }
 
 
 //
 //
-int do_OperationState3( void )
+CK_RV do_OperationState3( void )
 {
 	CK_SLOT_ID          slot_id;
 	CK_SESSION_HANDLE   session1, session2, session3;
@@ -975,19 +975,19 @@ int do_OperationState3( void )
 	rc = funcs->C_OpenSession( slot_id, flags, NULL, NULL, &session1 );
 	if (rc != CKR_OK) {
 		show_error("   C_OpenSession #1", rc );
-		return FALSE;
+		return rc;
 	}
 
 	rc = funcs->C_OpenSession( slot_id, flags, NULL, NULL, &session2 );
 	if (rc != CKR_OK) {
 		show_error("   C_OpenSession #2", rc );
-		return FALSE;
+		return rc;
 	}
 
 	rc = funcs->C_OpenSession( slot_id, flags, NULL, NULL, &session3 );
 	if (rc != CKR_OK) {
 		show_error("   C_OpenSession #3", rc );
-		return FALSE;
+		return rc;
 	}
 
 	if (get_user_pin(user_pin))
@@ -997,7 +997,7 @@ int do_OperationState3( void )
 	rc = funcs->C_Login( session1, CKU_USER, user_pin, user_pin_len );
 	if (rc != CKR_OK) {
 		show_error("   C_Login #1", rc );
-		return FALSE;
+		return rc;
 	}
 
 	orig_len = sizeof(original);
@@ -1012,7 +1012,7 @@ int do_OperationState3( void )
 	rc = funcs->C_GenerateKey( session1, &mech1, NULL, 0, &key );
 	if (rc != CKR_OK) {
 		show_error("   C_GenerateKey #1", rc );
-		return FALSE;
+		return rc;
 	}
 
 
@@ -1023,7 +1023,7 @@ int do_OperationState3( void )
 	rc = funcs->C_EncryptInit( session1, &mech1, key );
 	if (rc != CKR_OK) {
 		show_error("   C_EncryptInit #1", rc );
-		return FALSE;
+		return rc;
 	}
 
 	mech2.mechanism      = CKM_MD5;
@@ -1033,19 +1033,19 @@ int do_OperationState3( void )
 	rc = funcs->C_DigestInit( session2, &mech2 );
 	if (rc != CKR_OK) {
 		show_error("   C_DigestInit #1", rc );
-		return FALSE;
+		return rc;
 	}
 
 	rc = funcs->C_DigestInit( session3, &mech2 );
 	if (rc != CKR_OK) {
 		show_error("   C_DigestInit #2", rc );
-		return FALSE;
+		return rc;
 	}
 
 	rc = funcs->C_DigestUpdate( session2, original, 499 );
 	if (rc != CKR_OK) {
 		show_error("   C_DigestUpdate #1", rc );
-		return FALSE;
+		return rc;
 	}
 
 	orig_len = sizeof(original);
@@ -1054,30 +1054,30 @@ int do_OperationState3( void )
 			digest3,  &digest3_len );
 	if (rc != CKR_OK) {
 		show_error("   C_Digest #1", rc );
-		return FALSE;
+		return rc;
 	}
 
 
 	rc = funcs->C_GetOperationState( session2, NULL, &op_state2_len );
 	if (rc != CKR_OK) {
 		show_error("   C_GetOperationState #1", rc );
-		return FALSE;
+		return rc;
 	}
 	op_state2 = (CK_BYTE *)malloc(op_state2_len);
 	if (!op_state2) {
-		show_error("   HOST MEMORY ERROR #1", CKR_HOST_MEMORY );
-		return FALSE;
+		show_error("   HOST MEMORY ERROR #1", (CK_ULONG)CKR_HOST_MEMORY );
+		return -1;
 	}
 	rc = funcs->C_GetOperationState( session2, op_state2, &op_state2_len );
 	if (rc != CKR_OK) {
 		show_error("   C_GetOperationState #2", rc );
-		return FALSE;
+		return rc;
 	}
 
 	rc = funcs->C_SetOperationState( session1, op_state2, op_state2_len, 0, 0 );
 	if (rc != CKR_OK) {
 		show_error("   C_SetOperationState #1", rc );
-		return FALSE;
+		return rc;
 	}
 
 	// session #1 should not be set to do digest not encryption
@@ -1086,8 +1086,8 @@ int do_OperationState3( void )
 	rc = funcs->C_EncryptUpdate( session1, original, 499, junk, &junk_len );
 	if (rc != CKR_OPERATION_NOT_INITIALIZED) {
 		show_error("   C_EncryptUpdate #1", rc );
-		printf("   Expected CKR_OPERATION_NOT_INITIALIZED\n" );
-		return FALSE;
+		PRINT_ERR("   Expected CKR_OPERATION_NOT_INITIALIZED\n" );
+		return -1;
 	}
 
 
@@ -1096,13 +1096,13 @@ int do_OperationState3( void )
 	rc = funcs->C_DigestUpdate( session1, original+499, (orig_len - 499) );
 	if (rc != CKR_OK) {
 		show_error("   C_DigestUpdate #2", rc );
-		return FALSE;
+		return rc;
 	}
 
 	rc = funcs->C_DigestUpdate( session2, original+499, (orig_len - 499) );
 	if (rc != CKR_OK) {
 		show_error("   C_DigestUpdate #3", rc );
-		return FALSE;
+		return rc;
 	}
 
 
@@ -1110,57 +1110,128 @@ int do_OperationState3( void )
 	rc = funcs->C_DigestFinal( session1, digest1, &digest1_len );
 	if (rc != CKR_OK) {
 		show_error("   C_DigestFinal #1", rc );
-		return FALSE;
+		return rc;
 	}
 
 	digest2_len = sizeof(digest2);
 	rc = funcs->C_DigestFinal( session2, digest2, &digest2_len );
 	if (rc != CKR_OK) {
 		show_error("   C_DigestFinal #2", rc );
-		return FALSE;
+		return rc;
 	}
 
 	if (digest1_len != digest2_len || digest1_len != digest3_len) {
-		printf("   ERROR:  digested lengths don't match\n");
-		return FALSE;
+		PRINT_ERR("   ERROR:  digested lengths don't match\n");
+		return -1;
 	}
 
 	if (memcmp(digest1, digest2, digest1_len) != 0) {
-		printf("   ERROR:  digest1 != digest2\n");
-		return FALSE;
+		PRINT_ERR("   ERROR:  digest1 != digest2\n");
+		return -1;
 	}
 
 	if (memcmp(digest1, digest3, digest1_len) != 0) {
-		printf("   ERROR:  digest1 != digest3\n");
-		return FALSE;
+		PRINT_ERR("   ERROR:  digest1 != digest3\n");
+		return -1;
 	}
 
 	rc = funcs->C_CloseSession( session1 );
 	if (rc != CKR_OK) {
 		show_error("   C_CloseSession #3", rc );
-		return FALSE;
+		return rc;
 	}
 	rc = funcs->C_CloseSession( session2 );
 	if (rc != CKR_OK) {
 		show_error("   C_CloseSession #4", rc );
-		return FALSE;
+		return rc;
 	}
 	rc = funcs->C_CloseSession( session3 );
 	if (rc != CKR_OK) {
 		show_error("   C_CloseSession #5", rc );
-		return FALSE;
+		return rc;
 	}
 
 	printf("Looks okay...\n");
-	return TRUE;
+	return rc;
+}
+
+CK_RV sess_mgmt_functions()
+{
+	SYSTEMTIME  t1, t2;
+	CK_RV         rc;
+
+
+	GetSystemTime(&t1);
+	rc = do_OpenSession();
+	if (rc && !no_stop)
+		return rc;
+	GetSystemTime(&t2);
+	process_time( t1, t2 );
+
+
+	GetSystemTime(&t1);
+	rc = do_OpenSession2();
+	if (rc && !no_stop)
+		return rc;
+	GetSystemTime(&t2);
+	process_time( t1, t2 );
+
+
+	GetSystemTime(&t1);
+	rc = do_CloseAllSessions();
+	if (rc && !no_stop)
+		return rc;
+	GetSystemTime(&t2);
+	process_time( t1, t2 );
+
+	GetSystemTime(&t1);
+	rc = do_GetSessionInfo();
+	if (rc && !no_stop)
+		return rc;
+	GetSystemTime(&t2);
+	process_time( t1, t2 );
+
+
+	GetSystemTime(&t1);
+	rc = do_LoginLogout();
+	if (rc && !no_stop)
+		return rc;
+	GetSystemTime(&t2);
+	process_time( t1, t2 );
+
+
+	GetSystemTime(&t1);
+	rc = do_OperationState1();
+	if (rc && !no_stop)
+		return rc;
+	GetSystemTime(&t2);
+	process_time( t1, t2 );
+
+
+	GetSystemTime(&t1);
+	rc = do_OperationState2();
+	if (rc && !no_stop)
+		return rc;
+	GetSystemTime(&t2);
+	process_time( t1, t2 );
+
+
+	GetSystemTime(&t1);
+	rc = do_OperationState3();
+	if (rc && !no_stop)
+		return rc;
+	GetSystemTime(&t2);
+	process_time( t1, t2 );
+
+	return rc;
 }
 
 int main(int argc, char **argv)
 {
 	CK_C_INITIALIZE_ARGS cinit_args;
-	int rc, i;
+	int rc;
+	CK_RV rv;
 
-	
 	rc = do_ParseArgs(argc, argv);
 	if ( rc != 1)
 		return rc;
@@ -1170,10 +1241,10 @@ int main(int argc, char **argv)
 
 	rc = do_GetFunctionList();
 	if (!rc) {
-		fprintf(stderr, "ERROR do_GetFunctionList() Failed , rc = 0x%0x\n", rc); 
+		PRINT_ERR("ERROR do_GetFunctionList() Failed , rc = 0x%0x\n", rc);
 		return rc;
 	}
-	
+
 	memset( &cinit_args, 0x0, sizeof(cinit_args) );
 	cinit_args.flags = CKF_OS_LOCKING_OK;
 
@@ -1185,7 +1256,7 @@ int main(int argc, char **argv)
 		CK_SESSION_HANDLE  hsess = 0;
 
 		rc = funcs->C_GetFunctionStatus(hsess);
-		if (rc  != CKR_FUNCTION_NOT_PARALLEL)  
+		if (rc  != CKR_FUNCTION_NOT_PARALLEL)
 			return rc;
 
 		rc = funcs->C_CancelFunction(hsess);
@@ -1194,76 +1265,7 @@ int main(int argc, char **argv)
 
 	}
 
-	sess_mgmt_functions();
-}
-
-int sess_mgmt_functions()
-{
-	SYSTEMTIME  t1, t2;
-	int         rc;
-
-
-	GetSystemTime(&t1);
-	rc = do_OpenSession();
-	if (!rc && !no_stop)
-		return FALSE;
-	GetSystemTime(&t2);
-	process_time( t1, t2 );
-
-
-	GetSystemTime(&t1);
-	rc = do_OpenSession2();
-	if (!rc && !no_stop)
-		return FALSE;
-	GetSystemTime(&t2);
-	process_time( t1, t2 );
-
-
-	GetSystemTime(&t1);
-	rc = do_CloseAllSessions();
-	if (!rc && !no_stop)
-		return FALSE;
-	GetSystemTime(&t2);
-	process_time( t1, t2 );
-
-	GetSystemTime(&t1);
-	rc = do_GetSessionInfo();
-	if (!rc && !no_stop)
-		return FALSE;
-	GetSystemTime(&t2);
-	process_time( t1, t2 );
-
-
-	GetSystemTime(&t1);
-	rc = do_LoginLogout();
-	if (!rc && !no_stop)
-		return FALSE;
-	GetSystemTime(&t2);
-	process_time( t1, t2 );
-
-
-	GetSystemTime(&t1);
-	rc = do_OperationState1();
-	if (!rc && !no_stop)
-		return FALSE;
-	GetSystemTime(&t2);
-	process_time( t1, t2 );
-
-
-	GetSystemTime(&t1);
-	rc = do_OperationState2();
-	if (!rc && !no_stop)
-		return FALSE;
-	GetSystemTime(&t2);
-	process_time( t1, t2 );
-
-
-	GetSystemTime(&t1);
-	rc = do_OperationState3();
-	if (!rc && !no_stop)
-		return FALSE;
-	GetSystemTime(&t2);
-	process_time( t1, t2 );
-
-	return TRUE;
+	rv = sess_mgmt_functions();
+	/* make sure we return non-zero if rv is non-zero */
+	return ((rv==0) || (rv % 256) ? rv : -1);
 }
