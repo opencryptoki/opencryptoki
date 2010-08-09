@@ -11,7 +11,7 @@
 
 //
 //
-int do_EncryptCDMF_ECB( void )
+CK_RV do_EncryptCDMF_ECB( void )
 {
 	CK_BYTE             data1[BIG_REQUEST];
 	CK_BYTE             data2[BIG_REQUEST];
@@ -33,7 +33,7 @@ int do_EncryptCDMF_ECB( void )
 	rc = funcs->C_OpenSession( slot_id, flags, NULL, NULL, &session );
 	if (rc != CKR_OK) {
 		show_error("   C_OpenSession #1", rc );
-		return FALSE;
+		return rc;
 	}
 
 
@@ -44,7 +44,7 @@ int do_EncryptCDMF_ECB( void )
 	rc = funcs->C_Login( session, CKU_USER, user_pin, user_pin_len );
 	if (rc != CKR_OK) {
 		show_error("   C_Login #1", rc );
-		return FALSE;
+		return rc;
 	}
 
 	mech.mechanism      = CKM_CDMF_KEY_GEN;
@@ -57,7 +57,7 @@ int do_EncryptCDMF_ECB( void )
 	rc = funcs->C_GenerateKey( session, &mech, NULL, 0, &h_key );
 	if (rc != CKR_OK) {
 		show_error("   C_GenerateKey #1", rc );
-		return FALSE;
+		return rc;
 	}
 
 
@@ -77,13 +77,13 @@ int do_EncryptCDMF_ECB( void )
 	rc = funcs->C_EncryptInit( session, &mech, h_key );
 	if (rc != CKR_OK) {
 		show_error("   C_EncryptInit #1", rc );
-		return FALSE;
+		return rc;
 	}
 
 	rc = funcs->C_Encrypt( session, data1, len1, data1, &len1 );
 	if (rc != CKR_OK) {
 		show_error("   C_Encrypt #1", rc );
-		return FALSE;
+		return rc;
 	}
 
 	// now, decrypt the data
@@ -91,41 +91,41 @@ int do_EncryptCDMF_ECB( void )
 	rc = funcs->C_DecryptInit( session, &mech, h_key );
 	if (rc != CKR_OK) {
 		show_error("   C_DecryptInit #1", rc );
-		return FALSE;
+		return rc;
 	}
 
 	rc = funcs->C_Decrypt( session, data1, len1, data1, &len1 );
 	if (rc != CKR_OK) {
 		show_error("   C_Decrypt #1", rc );
-		return FALSE;
+		return rc;
 	}
 
 	if (len1 != len2) {
 		printf("   ERROR:  lengths don't match\n");
-		return FALSE;
+		return -1;
 	}
 
 	for (i=0; i <len1; i++) {
 		if (data1[i] != data2[i]) {
 			printf("   ERROR:  mismatch at byte %ld\n", i );
-			return FALSE;
+			return -1;
 		}
 	}
 
 	rc = funcs->C_CloseAllSessions( slot_id );
 	if (rc != CKR_OK) {
 		show_error("   C_CloseAllSessions #1", rc );
-		return FALSE;
+		return rc;
 	}
 
 	printf("Looks okay...\n");
-	return TRUE;
+	return 0;
 }
 
 
 //
 //
-int do_EncryptCDMF_CBC( void )
+CK_RV do_EncryptCDMF_CBC( void )
 {
 	CK_BYTE             data1[BIG_REQUEST];
 	CK_BYTE             data2[BIG_REQUEST];
@@ -148,7 +148,7 @@ int do_EncryptCDMF_CBC( void )
 	rc = funcs->C_OpenSession( slot_id, flags, NULL, NULL, &session );
 	if (rc != CKR_OK) {
 		show_error("   C_OpenSession #1", rc );
-		return FALSE;
+		return rc;
 	}
 
 
@@ -159,7 +159,7 @@ int do_EncryptCDMF_CBC( void )
 	rc = funcs->C_Login( session, CKU_USER, user_pin, user_pin_len );
 	if (rc != CKR_OK) {
 		show_error("   C_Login #1", rc );
-		return FALSE;
+		return rc;
 	}
 
 
@@ -173,7 +173,7 @@ int do_EncryptCDMF_CBC( void )
 	rc = funcs->C_GenerateKey( session, &mech, NULL, 0, &h_key );
 	if (rc != CKR_OK) {
 		show_error("   C_GenerateKey #1", rc );
-		return FALSE;
+		return rc;
 	}
 
 
@@ -195,13 +195,13 @@ int do_EncryptCDMF_CBC( void )
 	rc = funcs->C_EncryptInit( session, &mech, h_key );
 	if (rc != CKR_OK) {
 		show_error("   C_EncryptInit #1", rc );
-		return FALSE;
+		return rc;
 	}
 
 	rc = funcs->C_Encrypt( session, data1, len1, data1, &len1 );
 	if (rc != CKR_OK) {
 		show_error("   C_Encrypt #1", rc );
-		return FALSE;
+		return rc;
 	}
 
 
@@ -210,35 +210,35 @@ int do_EncryptCDMF_CBC( void )
 	rc = funcs->C_DecryptInit( session, &mech, h_key );
 	if (rc != CKR_OK) {
 		show_error("   C_DecryptInit #1", rc );
-		return FALSE;
+		return rc;
 	}
 
 	rc = funcs->C_Decrypt( session, data1, len1, data1, &len1 );
 	if (rc != CKR_OK) {
 		show_error("   C_Decrypt #1", rc );
-		return FALSE;
+		return rc;
 	}
 
 	if (len1 != len2) {
 		printf("   ERROR:  lengths don't match\n");
-		return FALSE;
+		return -1;
 	}
 
 	for (i=0; i <len1; i++) {
 		if (data1[i] != data2[i]) {
 			printf("   ERROR:  mismatch at byte %ld\n", i );
-			return FALSE;
+			return -1;
 		}
 	}
 
 	rc = funcs->C_CloseAllSessions( slot_id );
 	if (rc != CKR_OK) {
 		show_error("   C_CloseAllSessions #1", rc );
-		return FALSE;
+		return rc;
 	}
 
 	printf("Looks okay...\n");
-	return TRUE;
+	return 0;
 }
 
 
@@ -246,7 +246,7 @@ int do_EncryptCDMF_CBC( void )
 
 //
 //
-int do_EncryptDES_ECB( void )
+CK_RV do_EncryptDES_ECB( void )
 {
 	CK_BYTE             data1[BIG_REQUEST];
 	CK_BYTE             data2[BIG_REQUEST];
@@ -259,7 +259,7 @@ int do_EncryptDES_ECB( void )
 	CK_ULONG            user_pin_len;
 	CK_ULONG            i;
 	CK_ULONG            len1, len2;
-	CK_RV               rc;
+	CK_RV               rc, loc_rc;
 
 	printf("do_EncryptDES_ECB...\n");
 
@@ -268,7 +268,7 @@ int do_EncryptDES_ECB( void )
 	rc = funcs->C_OpenSession( slot_id, flags, NULL, NULL, &session );
 	if (rc != CKR_OK) {
 		show_error("   C_OpenSession #1", rc );
-		return FALSE;
+		return rc;
 	}
 
 
@@ -279,7 +279,7 @@ int do_EncryptDES_ECB( void )
 	rc = funcs->C_Login( session, CKU_USER, user_pin, user_pin_len );
 	if (rc != CKR_OK) {
 		show_error("   C_Login #1", rc );
-		return FALSE;
+		return rc;
 	}
 
 	mech.mechanism      = CKM_DES_KEY_GEN;
@@ -350,25 +350,25 @@ int do_EncryptDES_ECB( void )
 	rc = funcs->C_CloseAllSessions( slot_id );
 	if (rc != CKR_OK) {
 		show_error("   C_CloseAllSessions #1", rc );
-		return FALSE;
+		return rc;
 	}
 
 	printf("Looks okay...\n");
 
-	return TRUE;
+	return 0;
 
 error:
-	rc = funcs->C_CloseSession (session);
-	if (rc != CKR_OK)
-		show_error ("   C_CloseSession #2", rc);
+	loc_rc = funcs->C_CloseSession (session);
+	if (loc_rc != CKR_OK)
+		show_error ("   C_CloseSession #2", loc_rc);
 
-	return FALSE;
+	return rc;
 }
 
 
 //
 //
-int do_EncryptDES_Multipart_ECB( void )
+CK_RV do_EncryptDES_Multipart_ECB( void )
 {
 	CK_BYTE             original[BIG_REQUEST];
 	CK_BYTE             crypt1  [BIG_REQUEST];
@@ -387,7 +387,7 @@ int do_EncryptDES_Multipart_ECB( void )
 	CK_ULONG            orig_len;
 	CK_ULONG            crypt1_len, crypt2_len, decrypt1_len, decrypt2_len;
 	CK_ULONG            tmp;
-	CK_RV               rc;
+	CK_RV               rc, loc_rc;
 
 	printf("do_EncryptDES_Multipart_ECB...\n");
 
@@ -396,7 +396,7 @@ int do_EncryptDES_Multipart_ECB( void )
 	rc = funcs->C_OpenSession( slot_id, flags, NULL, NULL, &session );
 	if (rc != CKR_OK) {
 		show_error("   C_OpenSession #1", rc );
-		return FALSE;
+		return rc;
 	}
 
 
@@ -608,24 +608,24 @@ int do_EncryptDES_Multipart_ECB( void )
 	rc = funcs->C_CloseAllSessions( slot_id );
 	if (rc != CKR_OK) {
 		show_error("   C_CloseAllSessions #1", rc );
-		return FALSE;
+		return rc;
 	}
 
 	printf("Looks okay...\n");
-	return TRUE;
+	return 0;
 
 error:
-	rc = funcs->C_CloseSession (session);
-	if (rc != CKR_OK)
-		show_error ("   C_CloseSession #2", rc);
+	loc_rc = funcs->C_CloseSession (session);
+	if (loc_rc != CKR_OK)
+		show_error ("   C_CloseSession #2", loc_rc);
 
-	return FALSE;
+	return rc;
 }
 
 
 //
 //
-int do_EncryptDES_CBC( void )
+CK_RV do_EncryptDES_CBC( void )
 {
 	CK_BYTE             data1[BIG_REQUEST];
 	CK_BYTE             data2[BIG_REQUEST];
@@ -648,7 +648,7 @@ int do_EncryptDES_CBC( void )
 	rc = funcs->C_OpenSession( slot_id, flags, NULL, NULL, &session );
 	if (rc != CKR_OK) {
 		show_error("   C_OpenSession #1", rc );
-		return FALSE;
+		return rc;
 	}
 
 
@@ -659,7 +659,7 @@ int do_EncryptDES_CBC( void )
 	rc = funcs->C_Login( session, CKU_USER, user_pin, user_pin_len );
 	if (rc != CKR_OK) {
 		show_error("   C_Login #1", rc );
-		return FALSE;
+		return rc;
 	}
 
 
@@ -673,7 +673,7 @@ int do_EncryptDES_CBC( void )
 	rc = funcs->C_GenerateKey( session, &mech, NULL, 0, &h_key );
 	if (rc != CKR_OK) {
 		show_error("   C_GenerateKey #1", rc );
-		return FALSE;
+		return rc;
 	}
 
 
@@ -695,13 +695,13 @@ int do_EncryptDES_CBC( void )
 	rc = funcs->C_EncryptInit( session, &mech, h_key );
 	if (rc != CKR_OK) {
 		show_error("   C_EncryptInit #1", rc );
-		return FALSE;
+		return rc;
 	}
 
 	rc = funcs->C_Encrypt( session, data1, len1, data1, &len1 );
 	if (rc != CKR_OK) {
 		show_error("   C_Encrypt #1", rc );
-		return FALSE;
+		return rc;
 	}
 
 
@@ -710,41 +710,41 @@ int do_EncryptDES_CBC( void )
 	rc = funcs->C_DecryptInit( session, &mech, h_key );
 	if (rc != CKR_OK) {
 		show_error("   C_DecryptInit #1", rc );
-		return FALSE;
+		return rc;
 	}
 
 	rc = funcs->C_Decrypt( session, data1, len1, data1, &len1 );
 	if (rc != CKR_OK) {
 		show_error("   C_Decrypt #1", rc );
-		return FALSE;
+		return rc;
 	}
 
 	if (len1 != len2) {
 		printf("   ERROR:  lengths don't match\n");
-		return FALSE;
+		return -1;
 	}
 
 	for (i=0; i <len1; i++) {
 		if (data1[i] != data2[i]) {
 			printf("   ERROR:  mismatch at byte %ld\n", i );
-			return FALSE;
+			return -1;
 		}
 	}
 
 	rc = funcs->C_CloseAllSessions( slot_id );
 	if (rc != CKR_OK) {
 		show_error("   C_CloseAllSessions #1", rc );
-		return FALSE;
+		return rc;
 	}
 
 	printf("Looks okay...\n");
-	return TRUE;
+	return 0;
 }
 
 
 //
 //
-int do_EncryptDES_Multipart_CBC( void )
+CK_RV do_EncryptDES_Multipart_CBC( void )
 {
 	CK_BYTE             original[BIG_REQUEST];
 	CK_BYTE             crypt1  [BIG_REQUEST];
@@ -773,7 +773,7 @@ int do_EncryptDES_Multipart_CBC( void )
 	rc = funcs->C_OpenSession( slot_id, flags, NULL, NULL, &session );
 	if (rc != CKR_OK) {
 		show_error("   C_OpenSession #1", rc );
-		return FALSE;
+		return rc;
 	}
 
 
@@ -784,7 +784,7 @@ int do_EncryptDES_Multipart_CBC( void )
 	rc = funcs->C_Login( session, CKU_USER, user_pin, user_pin_len );
 	if (rc != CKR_OK) {
 		show_error("   C_Login #1", rc );
-		return FALSE;
+		return rc;
 	}
 
 	mech.mechanism      = CKM_DES_KEY_GEN;
@@ -797,7 +797,7 @@ int do_EncryptDES_Multipart_CBC( void )
 	rc = funcs->C_GenerateKey( session, &mech, NULL, 0, &h_key );
 	if (rc != CKR_OK) {
 		show_error("   C_GenerateKey #1", rc );
-		return FALSE;
+		return rc;
 	}
 
 
@@ -817,7 +817,7 @@ int do_EncryptDES_Multipart_CBC( void )
 	rc = funcs->C_EncryptInit( session, &mech, h_key );
 	if (rc != CKR_OK) {
 		show_error("   C_EncryptInit #1", rc );
-		return FALSE;
+		return rc;
 	}
 
 	// use normal ecb mode to encrypt data1
@@ -826,7 +826,7 @@ int do_EncryptDES_Multipart_CBC( void )
 	rc = funcs->C_Encrypt( session, original, orig_len, crypt1, &crypt1_len );
 	if (rc != CKR_OK) {
 		show_error("   C_Encrypt #1", rc );
-		return FALSE;
+		return rc;
 	}
 
 	// use multipart cbc mode to encrypt data2 in 1024 byte chunks
@@ -834,7 +834,7 @@ int do_EncryptDES_Multipart_CBC( void )
 	rc = funcs->C_EncryptInit( session, &mech, h_key );
 	if (rc != CKR_OK) {
 		show_error("   C_EncryptInit #2", rc );
-		return FALSE;
+		return rc;
 	}
 
 	i = k = 0;
@@ -855,7 +855,7 @@ int do_EncryptDES_Multipart_CBC( void )
 				&crypt2[k],   &tmp );
 		if (rc != CKR_OK) {
 			show_error("   C_EncryptUpdate #1", rc );
-			return FALSE;
+			return rc;
 		}
 
 		k += tmp;
@@ -867,18 +867,18 @@ int do_EncryptDES_Multipart_CBC( void )
 	rc = funcs->C_EncryptFinal( session, NULL, &tmp );
 	if (rc != CKR_OK) {
 		show_error("   C_EncryptFinal #2", rc );
-		return FALSE;
+		return rc;
 	}
 
 	if (tmp != 0) {
 		printf("   ERROR:  EncryptFinal wants to return %ld bytes\n", tmp );
-		return FALSE;
+		return -1;
 	}
 
 
 	if (crypt2_len != crypt1_len) {
 		printf("   ERROR:  crypt1_len = %ld, crypt2_len = %ld\n", crypt1_len, crypt2_len );
-		return FALSE;
+		return -1;
 	}
 
 	// compare both encrypted blocks.  they'd better be equal
@@ -886,7 +886,7 @@ int do_EncryptDES_Multipart_CBC( void )
 	for (i=0; i < crypt1_len; i++) {
 		if (crypt1[i] != crypt2[i]) {
 			printf("   ERROR:  mismatch.  crypt1 != crypt2 at byte %ld\n", i );
-			return FALSE;
+			return -1;
 		}
 	}
 
@@ -897,14 +897,14 @@ int do_EncryptDES_Multipart_CBC( void )
 	rc = funcs->C_DecryptInit( session, &mech, h_key );
 	if (rc != CKR_OK) {
 		show_error("   C_DecryptInit #1", rc );
-		return FALSE;
+		return rc;
 	}
 
 	decrypt1_len = sizeof(decrypt1);
 	rc = funcs->C_Decrypt( session, crypt1, crypt1_len, decrypt1, &decrypt1_len );
 	if (rc != CKR_OK) {
 		show_error("   C_Decrypt #1", rc );
-		return FALSE;
+		return rc;
 	}
 
 	// use multipart cbc mode to encrypt data2 in 1024 byte chunks
@@ -912,7 +912,7 @@ int do_EncryptDES_Multipart_CBC( void )
 	rc = funcs->C_DecryptInit( session, &mech, h_key );
 	if (rc != CKR_OK) {
 		show_error("   C_DecryptInit #1", rc );
-		return FALSE;
+		return rc;
 	}
 
 
@@ -934,7 +934,7 @@ int do_EncryptDES_Multipart_CBC( void )
 				&decrypt2[k], &tmp );
 		if (rc != CKR_OK) {
 			show_error("   C_DecryptUpdate #1", rc );
-			return FALSE;
+			return rc;
 		}
 
 		k += tmp;
@@ -946,17 +946,17 @@ int do_EncryptDES_Multipart_CBC( void )
 	rc = funcs->C_DecryptFinal( session, NULL, &tmp );
 	if (rc != CKR_OK) {
 		show_error("   C_DecryptFinal #2", rc );
-		return FALSE;
+		return rc;
 	}
 
 	if (tmp != 0) {
 		printf("   ERROR:  DecryptFinal wants to return %ld bytes\n", tmp );
-		return FALSE;
+		return -1;
 	}
 
 	if (decrypt2_len != decrypt1_len) {
 		printf("   ERROR:  decrypt1_len = %ld, decrypt2_len = %ld\n", decrypt1_len, decrypt2_len );
-		return FALSE;
+		return -1;
 	}
 
 	// compare both decrypted blocks.  they'd better be equal
@@ -964,7 +964,7 @@ int do_EncryptDES_Multipart_CBC( void )
 	for (i=0; i < decrypt1_len; i++) {
 		if (crypt1[i] != crypt2[i]) {
 			printf("   ERROR:  mismatch.  decrypt1 != decrypt2 at byte %ld\n", i );
-			return FALSE;
+			return -1;
 		}
 	}
 
@@ -973,7 +973,7 @@ int do_EncryptDES_Multipart_CBC( void )
 	for (i=0; i < orig_len; i++) {
 		if (original[i] != decrypt1[i]) {
 			printf("   ERROR:  decrypted mismatch: original != decrypt at byte %ld\n", i );
-			return FALSE;
+			return -1;
 		}
 	}
 
@@ -981,16 +981,16 @@ int do_EncryptDES_Multipart_CBC( void )
 	rc = funcs->C_CloseAllSessions( slot_id );
 	if (rc != CKR_OK) {
 		show_error("   C_CloseAllSessions #1", rc );
-		return FALSE;
+		return rc;
 	}
 
 	printf("Looks okay...\n");
-	return TRUE;
+	return 0;
 }
 
 //
 //
-int do_EncryptDES_CBC_PAD( void )
+CK_RV do_EncryptDES_CBC_PAD( void )
 {
 	CK_BYTE             original[BIG_REQUEST];
 	CK_BYTE             crypt[BIG_REQUEST + 8];
@@ -1015,7 +1015,7 @@ int do_EncryptDES_CBC_PAD( void )
 	rc = funcs->C_OpenSession( slot_id, flags, NULL, NULL, &session );
 	if (rc != CKR_OK) {
 		show_error("   C_OpenSession #1", rc );
-		return FALSE;
+		return rc;
 	}
 
 
@@ -1026,7 +1026,7 @@ int do_EncryptDES_CBC_PAD( void )
 	rc = funcs->C_Login( session, CKU_USER, user_pin, user_pin_len );
 	if (rc != CKR_OK) {
 		show_error("   C_Login #1", rc );
-		return FALSE;
+		return rc;
 	}
 
 
@@ -1040,7 +1040,7 @@ int do_EncryptDES_CBC_PAD( void )
 	rc = funcs->C_GenerateKey( session, &mech, NULL, 0, &h_key );
 	if (rc != CKR_OK) {
 		show_error("   C_GenerateKey #1", rc );
-		return FALSE;
+		return rc;
 	}
 
 
@@ -1063,13 +1063,13 @@ int do_EncryptDES_CBC_PAD( void )
 	rc = funcs->C_EncryptInit( session, &mech, h_key );
 	if (rc != CKR_OK) {
 		show_error("   C_EncryptInit #1", rc );
-		return FALSE;
+		return rc;
 	}
 
 	rc = funcs->C_Encrypt( session, original, orig_len, crypt, &crypt_len );
 	if (rc != CKR_OK) {
 		show_error("   C_Encrypt #1", rc );
-		return FALSE;
+		return rc;
 	}
 
 
@@ -1078,42 +1078,42 @@ int do_EncryptDES_CBC_PAD( void )
 	rc = funcs->C_DecryptInit( session, &mech, h_key );
 	if (rc != CKR_OK) {
 		show_error("   C_DecryptInit #1", rc );
-		return FALSE;
+		return rc;
 	}
 
 	decrypt_len = sizeof(decrypt);
 	rc = funcs->C_Decrypt( session, crypt, crypt_len, decrypt, &decrypt_len );
 	if (rc != CKR_OK) {
 		show_error("   C_Decrypt #1", rc );
-		return FALSE;
+		return rc;
 	}
 
 	if (orig_len != decrypt_len) {
 		printf("   ERROR:  lengths don't match\n");
-		return FALSE;
+		return -1;
 	}
 
 	for (i=0; i <orig_len; i++) {
 		if (original[i] != decrypt[i]) {
 			printf("   ERROR:  mismatch at byte %ld\n", i );
-			return FALSE;
+			return -1;
 		}
 	}
 
 	rc = funcs->C_CloseAllSessions( slot_id );
 	if (rc != CKR_OK) {
 		show_error("   C_CloseAllSessions #1", rc );
-		return FALSE;
+		return rc;
 	}
 
 	printf("Looks okay...\n");
-	return TRUE;
+	return 0;
 }
 
 
 //
 //
-int do_EncryptDES_Multipart_CBC_PAD( void )
+CK_RV do_EncryptDES_Multipart_CBC_PAD( void )
 {
 	CK_BYTE             original[BIG_REQUEST];
 
@@ -1145,7 +1145,7 @@ int do_EncryptDES_Multipart_CBC_PAD( void )
 	rc = funcs->C_OpenSession( slot_id, flags, NULL, NULL, &session );
 	if (rc != CKR_OK) {
 		show_error("   C_OpenSession #1", rc );
-		return FALSE;
+		return rc;
 	}
 
 
@@ -1156,7 +1156,7 @@ int do_EncryptDES_Multipart_CBC_PAD( void )
 	rc = funcs->C_Login( session, CKU_USER, user_pin, user_pin_len );
 	if (rc != CKR_OK) {
 		show_error("   C_Login #1", rc );
-		return FALSE;
+		return rc;
 	}
 
 	mech.mechanism      = CKM_DES_KEY_GEN;
@@ -1169,7 +1169,7 @@ int do_EncryptDES_Multipart_CBC_PAD( void )
 	rc = funcs->C_GenerateKey( session, &mech, NULL, 0, &h_key );
 	if (rc != CKR_OK) {
 		show_error("   C_GenerateKey #1", rc );
-		return FALSE;
+		return rc;
 	}
 
 
@@ -1190,7 +1190,7 @@ int do_EncryptDES_Multipart_CBC_PAD( void )
 	rc = funcs->C_EncryptInit( session, &mech, h_key );
 	if (rc != CKR_OK) {
 		show_error("   C_EncryptInit #1", rc );
-		return FALSE;
+		return rc;
 	}
 
 	// use normal ecb mode to encrypt data1
@@ -1199,7 +1199,7 @@ int do_EncryptDES_Multipart_CBC_PAD( void )
 	rc = funcs->C_Encrypt( session, original, orig_len, crypt1, &crypt1_len );
 	if (rc != CKR_OK) {
 		show_error("   C_Encrypt #1", rc );
-		return FALSE;
+		return rc;
 	}
 
 	// use multipart cbc mode to encrypt data2 in chunks
@@ -1207,7 +1207,7 @@ int do_EncryptDES_Multipart_CBC_PAD( void )
 	rc = funcs->C_EncryptInit( session, &mech, h_key );
 	if (rc != CKR_OK) {
 		show_error("   C_EncryptInit #2", rc );
-		return FALSE;
+		return rc;
 	}
 
 	i = k = 0;
@@ -1227,7 +1227,7 @@ int do_EncryptDES_Multipart_CBC_PAD( void )
 				&crypt2[k],    &tmp );
 		if (rc != CKR_OK) {
 			show_error("   C_EncryptUpdate #1", rc );
-			return FALSE;
+			return rc;
 		}
 
 		k += tmp;
@@ -1239,12 +1239,12 @@ int do_EncryptDES_Multipart_CBC_PAD( void )
 	rc = funcs->C_EncryptFinal( session, &crypt2[k], &tmp );
 	if (rc != CKR_OK) {
 		show_error("   C_EncryptFinal #2", rc );
-		return FALSE;
+		return rc;
 	}
 
 	if (tmp == 0) {
 		printf("   ERROR:  expected EncryptFinal to return non-zero length\n");
-		return FALSE;
+		return -1;
 	}
 
 	crypt2_len = k + tmp;
@@ -1252,7 +1252,7 @@ int do_EncryptDES_Multipart_CBC_PAD( void )
 	if (crypt2_len != crypt1_len) {
 		printf("   ERROR:  encrypted lengths don't match\n");
 		printf("           crypt2_len == %ld,  crypt1_len == %ld\n", crypt2_len, crypt1_len );
-		return FALSE;
+		return -1;
 	}
 
 	// compare both encrypted blocks.  they'd better be equal
@@ -1260,7 +1260,7 @@ int do_EncryptDES_Multipart_CBC_PAD( void )
 	for (i=0; i < crypt2_len; i++) {
 		if (crypt1[i] != crypt2[i]) {
 			printf("   ERROR:  encrypted mismatch: crypt1 != crypt2 at byte %ld\n", i );
-			return FALSE;
+			return -1;
 		}
 	}
 
@@ -1271,14 +1271,14 @@ int do_EncryptDES_Multipart_CBC_PAD( void )
 	rc = funcs->C_DecryptInit( session, &mech, h_key );
 	if (rc != CKR_OK) {
 		show_error("   C_DecryptInit #1", rc );
-		return FALSE;
+		return rc;
 	}
 
 	decrypt1_len = sizeof(decrypt1);
 	rc = funcs->C_Decrypt( session, crypt1, crypt1_len, decrypt1, &decrypt1_len );
 	if (rc != CKR_OK) {
 		show_error("   C_Decrypt #1", rc );
-		return FALSE;
+		return rc;
 	}
 
 	// use multipart cbc mode to encrypt data2 in 1024 byte chunks
@@ -1286,7 +1286,7 @@ int do_EncryptDES_Multipart_CBC_PAD( void )
 	rc = funcs->C_DecryptInit( session, &mech, h_key );
 	if (rc != CKR_OK) {
 		show_error("   C_DecryptInit #1", rc );
-		return FALSE;
+		return rc;
 	}
 
 
@@ -1307,7 +1307,7 @@ int do_EncryptDES_Multipart_CBC_PAD( void )
 				&decrypt2[k], &len );
 		if (rc != CKR_OK) {
 			show_error("   C_DecryptUpdate #1", rc );
-			return FALSE;
+			return rc;
 		}
 
 		k += len;
@@ -1319,7 +1319,7 @@ int do_EncryptDES_Multipart_CBC_PAD( void )
 	rc = funcs->C_DecryptFinal( session, &decrypt2[k], &tmp );
 	if (rc != CKR_OK) {
 		show_error("   C_DecryptFinal #2", rc );
-		return FALSE;
+		return rc;
 	}
 
 	// tmp may or may not be 0 depending on whether or not the final
@@ -1331,13 +1331,13 @@ int do_EncryptDES_Multipart_CBC_PAD( void )
 	if (decrypt2_len != decrypt1_len) {
 		printf("   ERROR:  decrypted lengths don't match\n");
 		printf("           decrypt1_len == %ld,  decrypt2_len == %ld\n", decrypt1_len, decrypt2_len );
-		return FALSE;
+		return -1;
 	}
 
 	if (decrypt2_len != orig_len) {
 		printf("   ERROR:  decrypted lengths don't match the original\n");
 		printf("           decrypt_len == %ld,  orig_len == %ld\n", decrypt1_len, orig_len );
-		return FALSE;
+		return -1;
 	}
 
 
@@ -1346,7 +1346,7 @@ int do_EncryptDES_Multipart_CBC_PAD( void )
 	for (i=0; i < decrypt1_len; i++) {
 		if (decrypt1[i] != decrypt2[i]) {
 			printf("   ERROR:  decrypted mismatch: data1 != data2 at byte %ld\n", i );
-			return FALSE;
+			return -1;
 		}
 	}
 
@@ -1355,7 +1355,7 @@ int do_EncryptDES_Multipart_CBC_PAD( void )
 	for (i=0; i < orig_len; i++) {
 		if (original[i] != decrypt2[i]) {
 			printf("   ERROR:  decrypted mismatch: original != decrypted at byte %ld\n", i );
-			return FALSE;
+			return -1;
 		}
 	}
 
@@ -1363,17 +1363,17 @@ int do_EncryptDES_Multipart_CBC_PAD( void )
 	rc = funcs->C_CloseAllSessions( slot_id );
 	if (rc != CKR_OK) {
 		show_error("   C_CloseAllSessions #1", rc );
-		return FALSE;
+		return rc;
 	}
 
 	printf("Looks okay...\n");
-	return TRUE;
+	return 0;
 }
 
 
 //
 //
-int do_WrapUnwrapDES_ECB( void )
+CK_RV do_WrapUnwrapDES_ECB( void )
 {
 	CK_BYTE             data1[BIG_REQUEST];
 	CK_BYTE             data2[BIG_REQUEST];
@@ -1390,7 +1390,7 @@ int do_WrapUnwrapDES_ECB( void )
 	CK_ULONG            wrapped_data_len;
 	CK_ULONG            i;
 	CK_ULONG            len1, len2;
-	CK_RV               rc;
+	CK_RV               rc, loc_rc;
 
 	CK_OBJECT_CLASS     key_class = CKO_SECRET_KEY;
 	CK_KEY_TYPE         key_type  = CKK_DES;
@@ -1409,7 +1409,7 @@ int do_WrapUnwrapDES_ECB( void )
 	rc = funcs->C_OpenSession( slot_id, flags, NULL, NULL, &session );
 	if (rc != CKR_OK) {
 		show_error("   C_OpenSession #1", rc );
-		return FALSE;
+		return rc;
 	}
 
 
@@ -1571,24 +1571,24 @@ int do_WrapUnwrapDES_ECB( void )
 	rc = funcs->C_CloseAllSessions( slot_id );
 	if (rc != CKR_OK) {
 		show_error("   C_CloseAllSessions #1", rc );
-		return FALSE;
+		return rc;
 	}
 
 	printf("Looks okay...\n");
-	return TRUE;
+	return 0;
 
 error:
-	rc = funcs->C_CloseSession (session);
-	if (rc != CKR_OK)
-		show_error ("   C_CloseSession #2", rc);
+	loc_rc = funcs->C_CloseSession (session);
+	if (loc_rc != CKR_OK)
+		show_error ("   C_CloseSession #2", loc_rc);
 
-	return FALSE;	   
+	return rc;
 }
 
 
 //
 //
-int do_WrapUnwrapDES_CBC( void )
+CK_RV do_WrapUnwrapDES_CBC( void )
 {
 	CK_BYTE             data1[BIG_REQUEST];
 	CK_BYTE             data2[BIG_REQUEST];
@@ -1625,7 +1625,7 @@ int do_WrapUnwrapDES_CBC( void )
 	rc = funcs->C_OpenSession( slot_id, flags, NULL, NULL, &session );
 	if (rc != CKR_OK) {
 		show_error("   C_OpenSession #1", rc );
-		return FALSE;
+		return rc;
 	}
 
 
@@ -1636,7 +1636,7 @@ int do_WrapUnwrapDES_CBC( void )
 	rc = funcs->C_Login( session, CKU_USER, user_pin, user_pin_len );
 	if (rc != CKR_OK) {
 		show_error("   C_Login #1", rc );
-		return FALSE;
+		return rc;
 	}
 
 	mech.mechanism      = CKM_DES_KEY_GEN;
@@ -1649,13 +1649,13 @@ int do_WrapUnwrapDES_CBC( void )
 	rc = funcs->C_GenerateKey( session, &mech, NULL, 0, &h_key );
 	if (rc != CKR_OK) {
 		show_error("   C_GenerateKey #1", rc );
-		return FALSE;
+		return rc;
 	}
 
 	rc = funcs->C_GenerateKey( session, &mech, NULL, 0, &w_key );
 	if (rc != CKR_OK) {
 		show_error("   C_GenerateKey #2", rc );
-		return FALSE;
+		return rc;
 	}
 
 
@@ -1675,13 +1675,13 @@ int do_WrapUnwrapDES_CBC( void )
 	rc = funcs->C_EncryptInit( session, &mech, h_key );
 	if (rc != CKR_OK) {
 		show_error("   C_EncryptInit #1", rc );
-		return FALSE;
+		return rc;
 	}
 
 	rc = funcs->C_Encrypt( session, data1, len1, data1, &len1 );
 	if (rc != CKR_OK) {
 		show_error("   C_Encrypt #1", rc );
-		return FALSE;
+		return rc;
 	}
 
 
@@ -1694,7 +1694,7 @@ int do_WrapUnwrapDES_CBC( void )
 			(CK_BYTE *)&wrapped_data, &wrapped_data_len );
 	if (rc != CKR_OK) {
 		show_error("   C_WrapKey #1", rc );
-		return FALSE;
+		return rc;
 	}
 
 	rc = funcs->C_UnwrapKey( session, &mech,
@@ -1704,7 +1704,7 @@ int do_WrapUnwrapDES_CBC( void )
 			&uw_key );
 	if (rc != CKR_OK) {
 		show_error("   C_UnWrapKey #1", rc );
-		return FALSE;
+		return rc;
 	}
 
 
@@ -1713,24 +1713,24 @@ int do_WrapUnwrapDES_CBC( void )
 	rc = funcs->C_DecryptInit( session, &mech, uw_key );
 	if (rc != CKR_OK) {
 		show_error("   C_DecryptInit #1", rc );
-		return FALSE;
+		return rc;
 	}
 
 	rc = funcs->C_Decrypt( session, data1, len1, data1, &len1 );
 	if (rc != CKR_OK) {
 		show_error("   C_Decrypt #1", rc );
-		return FALSE;
+		return rc;
 	}
 
 	if (len1 != len2) {
 		printf("   ERROR:  lengths don't match\n");
-		return FALSE;
+		return -1;
 	}
 
 	for (i=0; i <len1; i++) {
 		if (data1[i] != data2[i]) {
 			printf("   ERROR:  mismatch at byte %ld\n", i );
-			return FALSE;
+			return -1;
 		}
 	}
 
@@ -1771,7 +1771,7 @@ int do_WrapUnwrapDES_CBC( void )
 		rc = funcs->C_CreateObject( session, tmpl, 10, &priv_key );
 		if (rc != CKR_OK) {
 			show_error("   C_CreateObject #1", rc );
-			return FALSE;
+			return rc;
 		}
 
 		rc = funcs->C_WrapKey( session,  &mech,
@@ -1780,24 +1780,24 @@ int do_WrapUnwrapDES_CBC( void )
 		if (rc != CKR_KEY_NOT_WRAPPABLE) {
 			show_error("   C_WrapKey #2", rc );
 			printf("   Expected CKR_KEY_NOT_WRAPPABLE\n" );
-			return FALSE;
+			return rc;
 		}
 	}
 
 	rc = funcs->C_CloseAllSessions( slot_id );
 	if (rc != CKR_OK) {
 		show_error("   C_CloseAllSessions #1", rc );
-		return FALSE;
+		return rc;
 	}
 
 	printf("Looks okay...\n");
-	return TRUE;
+	return 0;
 }
 
 
 //
 //
-int do_WrapUnwrapDES_CBC_PAD( void )
+CK_RV do_WrapUnwrapDES_CBC_PAD( void )
 {
 	CK_BYTE             original[BIG_REQUEST];
 	CK_BYTE             cipher  [BIG_REQUEST + 8];
@@ -1837,7 +1837,7 @@ int do_WrapUnwrapDES_CBC_PAD( void )
 	rc = funcs->C_OpenSession( slot_id, flags, NULL, NULL, &session );
 	if (rc != CKR_OK) {
 		show_error("   C_OpenSession #1", rc );
-		return FALSE;
+		return rc;
 	}
 
 
@@ -1848,7 +1848,7 @@ int do_WrapUnwrapDES_CBC_PAD( void )
 	rc = funcs->C_Login( session, CKU_USER, user_pin, user_pin_len );
 	if (rc != CKR_OK) {
 		show_error("   C_Login #1", rc );
-		return FALSE;
+		return rc;
 	}
 
 	mech.mechanism      = CKM_DES_KEY_GEN;
@@ -1861,13 +1861,13 @@ int do_WrapUnwrapDES_CBC_PAD( void )
 	rc = funcs->C_GenerateKey( session, &mech, NULL, 0, &h_key );
 	if (rc != CKR_OK) {
 		show_error("   C_GenerateKey #1", rc );
-		return FALSE;
+		return rc;
 	}
 
 	rc = funcs->C_GenerateKey( session, &mech, NULL, 0, &w_key );
 	if (rc != CKR_OK) {
 		show_error("   C_GenerateKey #2", rc );
-		return FALSE;
+		return rc;
 	}
 
 
@@ -1885,14 +1885,14 @@ int do_WrapUnwrapDES_CBC_PAD( void )
 	rc = funcs->C_EncryptInit( session, &mech, h_key );
 	if (rc != CKR_OK) {
 		show_error("   C_EncryptInit #1", rc );
-		return FALSE;
+		return rc;
 	}
 
 	cipher_len = sizeof(cipher);
 	rc = funcs->C_Encrypt( session, original, orig_len, cipher, &cipher_len );
 	if (rc != CKR_OK) {
 		show_error("   C_Encrypt #1", rc );
-		return FALSE;
+		return rc;
 	}
 
 
@@ -1905,7 +1905,7 @@ int do_WrapUnwrapDES_CBC_PAD( void )
 			wrapped_data, &wrapped_data_len );
 	if (rc != CKR_OK) {
 		show_error("   C_WrapKey #1", rc );
-		return FALSE;
+		return rc;
 	}
 
 	rc = funcs->C_UnwrapKey( session, &mech,
@@ -1915,7 +1915,7 @@ int do_WrapUnwrapDES_CBC_PAD( void )
 			&uw_key );
 	if (rc != CKR_OK) {
 		show_error("   C_UnWrapKey #1", rc );
-		return FALSE;
+		return rc;
 	}
 
 
@@ -1924,25 +1924,25 @@ int do_WrapUnwrapDES_CBC_PAD( void )
 	rc = funcs->C_DecryptInit( session, &mech, uw_key );
 	if (rc != CKR_OK) {
 		show_error("   C_DecryptInit #1", rc );
-		return FALSE;
+		return rc;
 	}
 
 	decipher_len = sizeof(decipher);
 	rc = funcs->C_Decrypt( session, cipher, cipher_len, decipher, &decipher_len );
 	if (rc != CKR_OK) {
 		show_error("   C_Decrypt #1", rc );
-		return FALSE;
+		return rc;
 	}
 
 	if (orig_len != decipher_len) {
 		printf("   ERROR:  lengths don't match:  %ld vs %ld\n", orig_len, decipher_len );
-		return FALSE;
+		return -1;
 	}
 
 	for (i=0; i < orig_len; i++) {
 		if (original[i] != decipher[i]) {
 			printf("   ERROR:  mismatch at byte %ld\n", i );
-			return FALSE;
+			return -1;
 		}
 	}
 
@@ -1977,7 +1977,7 @@ int do_WrapUnwrapDES_CBC_PAD( void )
 				&publ_key, &priv_key );
 		if (rc != CKR_OK) {
 			show_error("   C_GenerateKeyPair #1", rc );
-			return FALSE;
+			return rc;
 		}
 
 
@@ -1990,7 +1990,7 @@ int do_WrapUnwrapDES_CBC_PAD( void )
 				wrapped_data, &wrapped_data_len );
 		if (rc != CKR_OK) {
 			show_error("   C_WrapKey #2", rc );
-			return FALSE;
+			return rc;
 		}
 
 		rc = funcs->C_UnwrapKey( session, &mech,
@@ -2000,7 +2000,7 @@ int do_WrapUnwrapDES_CBC_PAD( void )
 				&uw_key );
 		if (rc != CKR_OK) {
 			show_error("   C_UnWrapKey #2", rc );
-			return FALSE;
+			return rc;
 		}
 
 		// encrypt something with the public key
@@ -2012,7 +2012,7 @@ int do_WrapUnwrapDES_CBC_PAD( void )
 		rc = funcs->C_EncryptInit( session, &mech2, publ_key );
 		if (rc != CKR_OK) {
 			show_error("   C_EncryptInit #2", rc );
-			return FALSE;
+			return rc;
 		}
 
 		// for RSA operations, keep the input data size smaller than
@@ -2024,7 +2024,7 @@ int do_WrapUnwrapDES_CBC_PAD( void )
 		rc = funcs->C_Encrypt( session, original, orig_len, cipher, &cipher_len );
 		if (rc != CKR_OK) {
 			show_error("   C_Encrypt #2", rc );
-			return FALSE;
+			return rc;
 		}
 
 		// now, decrypt the data using the unwrapped private key.
@@ -2032,25 +2032,25 @@ int do_WrapUnwrapDES_CBC_PAD( void )
 		rc = funcs->C_DecryptInit( session, &mech2, uw_key );
 		if (rc != CKR_OK) {
 			show_error("   C_DecryptInit #2", rc );
-			return FALSE;
+			return rc;
 		}
 
 		decipher_len = sizeof(decipher);
 		rc = funcs->C_Decrypt( session, cipher, cipher_len, decipher, &decipher_len );
 		if (rc != CKR_OK) {
 			show_error("   C_Decrypt #2", rc );
-			return FALSE;
+			return rc;
 		}
 
 		if (orig_len != decipher_len) {
 			printf("   ERROR:  lengths don't match:  %ld vs %ld\n", orig_len, decipher_len );
-			return FALSE;
+			return -1;
 		}
 
 		for (i=0; i < orig_len; i++) {
 			if (original[i] != decipher[i]) {
 				printf("   ERROR:  mismatch at byte %ld\n", i );
-				return FALSE;
+				return -1;
 			}
 		}
 	}
@@ -2088,7 +2088,7 @@ int do_WrapUnwrapDES_CBC_PAD( void )
 				&publ_key, &priv_key );
 		if (rc != CKR_OK) {
 			show_error("   C_GenerateKeyPair #2", rc );
-			return FALSE;
+			return rc;
 		}
 
 
@@ -2101,7 +2101,7 @@ int do_WrapUnwrapDES_CBC_PAD( void )
 				wrapped_data, &wrapped_data_len );
 		if (rc != CKR_OK) {
 			show_error("   C_WrapKey #3", rc );
-			return FALSE;
+			return rc;
 		}
 
 		rc = funcs->C_UnwrapKey( session, &mech,
@@ -2111,7 +2111,7 @@ int do_WrapUnwrapDES_CBC_PAD( void )
 				&uw_key );
 		if (rc != CKR_OK) {
 			show_error("   C_UnWrapKey #3", rc );
-			return FALSE;
+			return rc;
 		}
 
 		// sign & verify something to make sure the keys are okay
@@ -2123,7 +2123,7 @@ int do_WrapUnwrapDES_CBC_PAD( void )
 		rc = funcs->C_SignInit( session, &mech2, uw_key );
 		if (rc != CKR_OK) {
 			show_error("   C_SignInit #1", rc );
-			return FALSE;
+			return rc;
 		}
 
 		// DSA sign operations expect data to be 20 bytes
@@ -2134,7 +2134,7 @@ int do_WrapUnwrapDES_CBC_PAD( void )
 		rc = funcs->C_Sign( session, original, orig_len, signature, &sig_len );
 		if (rc != CKR_OK) {
 			show_error("   C_Sign #1", rc );
-			return FALSE;
+			return rc;
 		}
 
 		// now, verify the signature
@@ -2142,13 +2142,13 @@ int do_WrapUnwrapDES_CBC_PAD( void )
 		rc = funcs->C_VerifyInit( session, &mech2, publ_key );
 		if (rc != CKR_OK) {
 			show_error("   C_VerifyInit #1", rc );
-			return FALSE;
+			return rc;
 		}
 
 		rc = funcs->C_Verify( session, original, orig_len, signature, sig_len );
 		if (rc != CKR_OK) {
 			show_error("   C_Verify #1", rc );
-			return FALSE;
+			return rc;
 		}
 	}
 #endif
@@ -2156,19 +2156,141 @@ int do_WrapUnwrapDES_CBC_PAD( void )
 	rc = funcs->C_CloseAllSessions( slot_id );
 	if (rc != CKR_OK) {
 		show_error("   C_CloseAllSessions #1", rc );
-		return FALSE;
+		return rc;
 	}
 
 	printf("Looks okay...\n");
-	return TRUE;
+	return 0;
+}
+
+CK_RV des_functions()
+{
+	SYSTEMTIME t1, t2;
+	CK_RV rc;
+
+
+#if CDMF
+	GetSystemTime(&t1);
+	rc = do_EncryptCDMF_ECB();
+	if (rc) {
+		PRINT_ERR("ERROR do_EncryptCDMF_CBC failed, rc = 0x%lx\n", rc);
+		if (!no_stop)
+			return rc;
+	}
+	GetSystemTime(&t2);
+	process_time( t1, t2 );
+
+	GetSystemTime(&t1);
+	rc = do_EncryptCDMF_CBC();
+	if (rc) {
+		PRINT_ERR("ERROR do_EncryptCDMF_CBC failed, rc = 0x%lx\n", rc);
+		if (!no_stop)
+			return rc;
+	}
+	GetSystemTime(&t2);
+	process_time( t1, t2 );
+#endif
+#if 1
+
+	GetSystemTime(&t1);
+	rc = do_EncryptDES_ECB();
+	if (rc) {
+		PRINT_ERR("ERROR do_EncryptDES_ECB failed, rc = 0x%lx\n", rc);
+		if (!no_stop)
+			return rc;
+	}
+	GetSystemTime(&t2);
+	process_time( t1, t2 );
+
+	GetSystemTime(&t1);
+	rc = do_EncryptDES_CBC();
+	if (rc) {
+		PRINT_ERR("ERROR do_EncryptDES_CBC failed, rc = 0x%lx\n", rc);
+		if (!no_stop)
+			return rc;
+	}
+	GetSystemTime(&t2);
+	process_time( t1, t2 );
+
+	GetSystemTime(&t1);
+	rc = do_EncryptDES_CBC_PAD();
+	if (!rc) {
+		PRINT_ERR("ERROR do_EncryptDES_CBC_PAD failed, rc = 0x%lx\n", rc);
+		if (!no_stop)
+			return rc;
+	}
+	GetSystemTime(&t2);
+	process_time( t1, t2 );
+
+	GetSystemTime(&t1);
+	rc = do_EncryptDES_Multipart_ECB();
+	if (rc) {
+		PRINT_ERR("ERROR do_EncryptDES_imultipart_ECB failed, rc = 0x%lx\n", rc);
+		if (!no_stop)
+			return rc;
+	}
+	GetSystemTime(&t2);
+	process_time( t1, t2 );
+
+	GetSystemTime(&t1);
+	rc = do_EncryptDES_Multipart_CBC();
+	if (rc) {
+		PRINT_ERR("ERROR do_EncryptDES_Multipart_CBC failed, rc = 0x%lx\n", rc);
+		if (!no_stop)
+			return rc;
+	}
+	GetSystemTime(&t2);
+	process_time( t1, t2 );
+
+	GetSystemTime(&t1);
+	rc = do_EncryptDES_Multipart_CBC_PAD();
+	if (rc) {
+		PRINT_ERR("ERROR do_EncryptDES_Multipart_CBC_PAD failed, rc = 0x%lx\n", rc);
+		if (!no_stop)
+			return rc;
+	}
+	GetSystemTime(&t2);
+	process_time( t1, t2 );
+
+	GetSystemTime(&t1);
+	rc = do_WrapUnwrapDES_ECB();
+	if (rc) {
+		PRINT_ERR("ERROR do_WrapUnwrapDES_ECB failed, rc = 0x%lx\n", rc);
+		if (!no_stop)
+			return rc;
+	}
+	GetSystemTime(&t2);
+	process_time( t1, t2 );
+
+	GetSystemTime(&t1);
+	rc = do_WrapUnwrapDES_CBC();
+	if (rc) {
+		PRINT_ERR("ERROR do_WrapUnwrapDES_CBC failed, rc = 0x%lx\n", rc);
+		if (!no_stop)
+			return rc;
+	}
+	GetSystemTime(&t2);
+	process_time( t1, t2 );
+#endif
+	GetSystemTime(&t1);
+	rc = do_WrapUnwrapDES_CBC_PAD();
+	if (rc) {
+		PRINT_ERR("ERROR do_WrapUnwrapDES_CBC_PAD failed, rc = 0x%lx\n", rc);
+		if (!no_stop)
+			return rc;
+	}
+	GetSystemTime(&t2);
+	process_time( t1, t2 );
+
+	return 0;
 }
 
 int main(int argc, char **argv)
 {
 	CK_C_INITIALIZE_ARGS cinit_args;
-	int rc, i;
+	int rc;
+	CK_RV rv;
 
-	
 	rc = do_ParseArgs(argc, argv);
 	if ( rc != 1)
 		return rc;
@@ -2178,10 +2300,10 @@ int main(int argc, char **argv)
 
 	rc = do_GetFunctionList();
 	if (!rc) {
-		fprintf(stderr, "ERROR do_GetFunctionList() Failed , rc = 0x%0x\n", rc); 
+		PRINT_ERR("ERROR do_GetFunctionList() Failed , rc = 0x%0x\n", rc);
 		return rc;
 	}
-	
+
 	memset( &cinit_args, 0x0, sizeof(cinit_args) );
 	cinit_args.flags = CKF_OS_LOCKING_OK;
 
@@ -2193,7 +2315,7 @@ int main(int argc, char **argv)
 		CK_SESSION_HANDLE  hsess = 0;
 
 		rc = funcs->C_GetFunctionStatus(hsess);
-		if (rc  != CKR_FUNCTION_NOT_PARALLEL)  
+		if (rc  != CKR_FUNCTION_NOT_PARALLEL)
 			return rc;
 
 		rc = funcs->C_CancelFunction(hsess);
@@ -2202,128 +2324,8 @@ int main(int argc, char **argv)
 
 	}
 
-	des_functions();
-}
-
-int des_functions()
-{
-	SYSTEMTIME t1, t2;
-	int rc;	
-
-
-#if CDMF
-	GetSystemTime(&t1);
-	rc = do_EncryptCDMF_ECB();
-	if (!rc) {
-		fprintf (stderr, "ERROR do_EncryptCDMF_CBC failed, rc = 0x%0x\n", rc);
-		if (!no_stop)
-			return rc;
-	}
-	GetSystemTime(&t2);
-	process_time( t1, t2 );
-
-	GetSystemTime(&t1);
-	rc = do_EncryptCDMF_CBC();
-	if (!rc) {
-		fprintf (stderr, "ERROR do_EncryptCDMF_CBC failed, rc = 0x%0x\n", rc);
-		if (!no_stop)
-			return rc;
-	}
-	GetSystemTime(&t2);
-	process_time( t1, t2 );
-#endif
-#if 1
-
-	GetSystemTime(&t1);
-	rc = do_EncryptDES_ECB();
-	if (!rc) {
-		fprintf (stderr, "ERROR do_EncryptDES_ECB failed, rc = 0x%0x\n", rc);
-		if (!no_stop)
-			return rc;
-	}
-	GetSystemTime(&t2);
-	process_time( t1, t2 );
-
-	GetSystemTime(&t1);
-	rc = do_EncryptDES_CBC();
-	if (!rc) {
-		fprintf (stderr, "ERROR do_EncryptDES_CBC failed, rc = 0x%0x\n", rc);
-		if (!no_stop)
-			return rc;
-	}
-	GetSystemTime(&t2);
-	process_time( t1, t2 );
-
-	GetSystemTime(&t1);
-	rc = do_EncryptDES_CBC_PAD();
-	if (!rc) {
-		fprintf (stderr, "ERROR do_EncryptDES_CBC_PAD failed, rc = 0x%0x\n", rc);
-		if (!no_stop)
-			return rc;
-	}
-	GetSystemTime(&t2);
-	process_time( t1, t2 );
-
-	GetSystemTime(&t1);
-	rc = do_EncryptDES_Multipart_ECB();
-	if (!rc) {
-		fprintf (stderr, "ERROR do_EncryptDES_imultipart_ECB failed, rc = 0x%0x\n", rc);
-		if (!no_stop)
-			return rc;
-	}
-	GetSystemTime(&t2);
-	process_time( t1, t2 );
-
-	GetSystemTime(&t1);
-	rc = do_EncryptDES_Multipart_CBC();
-	if (!rc) {
-		fprintf (stderr, "ERROR do_EncryptDES_Multipart_CBC failed, rc = 0x%0x\n", rc);
-		if (!no_stop)
-			return rc;
-	}
-	GetSystemTime(&t2);
-	process_time( t1, t2 );
-
-	GetSystemTime(&t1);
-	rc = do_EncryptDES_Multipart_CBC_PAD();
-	if (!rc) {
-		fprintf (stderr, "ERROR do_EncryptDES_Multipart_CBC_PAD failed, rc = 0x%0x\n", rc);
-		if (!no_stop)
-			return rc;
-	}
-	GetSystemTime(&t2);
-	process_time( t1, t2 );
-
-	GetSystemTime(&t1);
-	rc = do_WrapUnwrapDES_ECB();
-	if (!rc) {
-		fprintf (stderr, "ERROR do_WrapUnwrapDES_ECB failed, rc = 0x%0x\n", rc);
-		if (!no_stop)
-			return rc;
-	}
-	GetSystemTime(&t2);
-	process_time( t1, t2 );
-
-	GetSystemTime(&t1);
-	rc = do_WrapUnwrapDES_CBC();
-	if (!rc) {
-		fprintf (stderr, "ERROR do_WrapUnwrapDES_CBC failed, rc = 0x%0x\n", rc);
-		if (!no_stop)
-			return rc;
-	}
-	GetSystemTime(&t2);
-	process_time( t1, t2 );
-#endif
-	GetSystemTime(&t1);
-	rc = do_WrapUnwrapDES_CBC_PAD();
-	if (!rc) {
-		fprintf (stderr, "ERROR do_WrapUnwrapDES_CBC_PAD failed, rc = 0x%0x\n", rc);
-		if (!no_stop)
-			return rc;
-	}
-	GetSystemTime(&t2);
-	process_time( t1, t2 );
-
-	return TRUE;
+	rv = des_functions();
+	/* make sure we return non-zero if rv is non-zero */
+	return ((rv==0) || (rv % 256) ? rv : -1);
 }
 
