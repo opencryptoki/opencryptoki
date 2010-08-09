@@ -39,7 +39,7 @@
 // 17. Check that USER PIN LOCKED set
 // 
 #if 0
-int do_Login( void )
+CK_RV do_Login( void )
 {
 	int i;
 	CK_RV rc;
@@ -95,7 +95,7 @@ int do_Login( void )
 	 * It should now be the slot number of the token we're using 
 	 */
 	if(si.slotID != slot_id) {
-		printf("Test #2 failed. Slot ID was %ld, expected %ld\n", si.slotID, slot_id);
+		PRINT_ERR("Test #2 failed. Slot ID was %ld, expected %ld\n", si.slotID, slot_id);
 		goto session_close;
 	}
 
@@ -105,13 +105,13 @@ int do_Login( void )
 	}
 
 	if(ti.flags & CKF_USER_PIN_LOCKED) {
-		printf("The USER's PIN is locked for the token in slot %ld.\n"
+		PRINT_ERR("The USER's PIN is locked for the token in slot %ld.\n"
 				"Please reset the USER's PIN and re-run this test.\n", slot_id);
 		goto session_close;
 	}
 
 	if(!(ti.flags & CKF_TOKEN_INITIALIZED)) {
-		printf("The token in slot %ld is uninitialized.\n", slot_id);
+		PRINT_ERR("The token in slot %ld is uninitialized.\n", slot_id);
 		goto session_close;
 	}
 
@@ -145,7 +145,7 @@ int do_Login( void )
 	if(((ti.flags & CKF_USER_PIN_COUNT_LOW) == 0) || 
 			(ti.flags & CKF_USER_PIN_FINAL_TRY)   ||
 			(ti.flags & CKF_USER_PIN_LOCKED)) {
-		printf("Test #5 failed. Token flags: %p.\n", (void *)ti.flags);
+		PRINT_ERR("Test #5 failed. Token flags: %p.\n", (void *)ti.flags);
 		goto session_close;
 	}
 
@@ -165,7 +165,7 @@ int do_Login( void )
 	if((ti.flags & CKF_USER_PIN_COUNT_LOW) ||
 			((ti.flags & CKF_USER_PIN_FINAL_TRY) == 0) ||
 			(ti.flags & CKF_USER_PIN_LOCKED)) {
-		printf("Test #7 failed. Token flags: %p.\n", (void *)ti.flags);
+		PRINT_ERR("Test #7 failed. Token flags: %p.\n", (void *)ti.flags);
 		goto session_close;
 	}
 
@@ -186,7 +186,7 @@ int do_Login( void )
 			(ti.flags & CKF_USER_PIN_FINAL_TRY)  ||
 			(ti.flags & CKF_USER_PIN_LOCKED) ) {
 
-		printf("Test #9 failed. Token flags: %p.\n", (void *)ti.flags);
+		PRINT_ERR("Test #9 failed. Token flags: %p.\n", (void *)ti.flags);
 		goto session_close;
 	}
 
@@ -215,7 +215,7 @@ int do_Login( void )
 	if(((ti.flags & CKF_USER_PIN_COUNT_LOW) == 0) ||
 			(ti.flags & CKF_USER_PIN_FINAL_TRY) ||
 			(ti.flags & CKF_USER_PIN_LOCKED)) {
-		printf("Test #13 failed. Token flags: %p.\n", (void *)ti.flags);
+		PRINT_ERR("Test #13 failed. Token flags: %p.\n", (void *)ti.flags);
 		goto session_close;
 	}
 
@@ -235,7 +235,7 @@ int do_Login( void )
 	if((ti.flags & CKF_USER_PIN_COUNT_LOW) ||
 			((ti.flags & CKF_USER_PIN_FINAL_TRY) == 0) ||
 			(ti.flags & CKF_USER_PIN_LOCKED)) {
-		printf("Test #15 failed. Token flags: %p.\n", (void *)ti.flags);
+		PRINT_ERR("Test #15 failed. Token flags: %p.\n", (void *)ti.flags);
 		goto session_close;
 	}
 
@@ -258,7 +258,7 @@ int do_Login( void )
 			(ti.flags & CKF_USER_PIN_FINAL_TRY)  ||
 			((ti.flags & CKF_USER_PIN_LOCKED) == 0)) {
 
-		printf("Test #17 failed. Token flags: %p.\n", (void *)ti.flags);
+		PRINT_ERR("Test #17 failed. Token flags: %p.\n", (void *)ti.flags);
 		goto session_close;
 	}
 
@@ -302,11 +302,11 @@ session_close:
 
 done:
 
-	return TRUE;
+	return 0;
 }
 #endif
 
-int do_InitToken( void )
+CK_RV do_InitToken( void )
 {
 	CK_BYTE           label[32];
 	int               len;
@@ -350,7 +350,7 @@ done:
 }
 //
 //
-int do_DummySpeed( void )
+CK_RV do_DummySpeed( void )
 {
 #if 0
 	CK_SLOT_ID        slot_id;
@@ -367,19 +367,19 @@ int do_DummySpeed( void )
 		rc = DummyFunction( slot_id );
 		if (rc != CKR_OK) {
 			show_error("   DummyFunction", rc );
-			return FALSE;
+			return rc;
 		}
 	}
 
 	printf("Done...\n");
 #endif
-	return TRUE;
+	return 0;
 }
 
 
 //
 //
-int do_GetInfo( void )
+CK_RV do_GetInfo( void )
 {
 	CK_INFO info;
 	CK_RV   rc;
@@ -390,17 +390,17 @@ int do_GetInfo( void )
 
 	if (rc != CKR_OK) {
 		show_error("   C_GetInfo", rc );
-		return FALSE;
+		return rc;
 	}
 
 	printf("Looks okay...\n");
-	return TRUE;
+	return 0;
 }
 
 
 //
 //
-int do_GetSlotList( void )
+CK_RV do_GetSlotList( void )
 {
 	CK_BBOOL        tokenPresent;
 	CK_SLOT_ID_PTR  pSlotList;
@@ -417,13 +417,13 @@ int do_GetSlotList( void )
 	rc = funcs->C_GetSlotList( tokenPresent, NULL, &ulCount );
 	if (rc != CKR_OK) {
 		show_error("   C_GetSlotList", rc );
-		return FALSE;
+		return rc;
 	}
 
 	pSlotList = (CK_SLOT_ID *)malloc( ulCount * sizeof(CK_SLOT_ID) );
 	if (!pSlotList) {
-		printf("   DRIVER ERROR:  CANNOT ALLOCATE MEMORY FOR SLOT LIST\n");
-		return FALSE;
+		PRINT_ERR("   DRIVER ERROR:  CANNOT ALLOCATE MEMORY FOR SLOT LIST\n");
+		return -1;
 	}
 
 	// now, get the slots
@@ -431,19 +431,19 @@ int do_GetSlotList( void )
 	rc = funcs->C_GetSlotList( tokenPresent, pSlotList, &ulCount );
 	if (rc != CKR_OK) {
 		show_error("   C_GetSlotList", rc );
-		return FALSE;
+		return rc;
 	}
 
 	free( pSlotList );
 
 	printf("Looks okay...\n");
-	return TRUE;
+	return 0;
 }
 
 
 //
 //
-int do_GetSlotInfo( void )
+CK_RV do_GetSlotInfo( void )
 {
 	CK_SLOT_ID    slot_id;
 	CK_SLOT_INFO  info;
@@ -457,7 +457,7 @@ int do_GetSlotInfo( void )
 	rc = funcs->C_GetSlotInfo( slot_id, &info );
 	if (rc != CKR_OK) {
 		show_error("   C_GetSlotInfo", rc );
-		return FALSE;
+		return rc;
 	}
 
 	printf("   CK_SLOT_INFO for slot #1:  \n");
@@ -469,13 +469,13 @@ int do_GetSlotInfo( void )
 
 	printf("Looks Okay...\n");
 
-	return TRUE;
+	return 0;
 }
 
 
 //
 //
-int do_GetTokenInfo( void )
+CK_RV do_GetTokenInfo( void )
 {
 	CK_SLOT_ID     slot_id;
 	CK_TOKEN_INFO  info;
@@ -488,7 +488,7 @@ int do_GetTokenInfo( void )
 	rc = funcs->C_GetTokenInfo( slot_id, &info );
 	if (rc != CKR_OK) {
 		show_error("   C_GetTokenInfo", rc );
-		return FALSE;
+		return rc;
 	}
 
 
@@ -514,13 +514,13 @@ int do_GetTokenInfo( void )
 
 	printf("Looks okay...\n");
 
-	return TRUE;
+	return 0;
 }
 
 
 //
 //
-int do_GetMechanismList( void )
+CK_RV do_GetMechanismList( void )
 {
 	CK_SLOT_ID         slot_id;
 	CK_ULONG           count;
@@ -535,7 +535,7 @@ int do_GetMechanismList( void )
 	rc = funcs->C_GetMechanismList( slot_id, NULL, &count );
 	if (rc != CKR_OK) {
 		show_error("   C_GetMechanismList #1", rc );
-		return FALSE;
+		return rc;
 	}
 
 	printf("   C_GetMechanismList #1 returned %ld mechanisms\n", count );
@@ -547,20 +547,20 @@ int do_GetMechanismList( void )
 	rc = funcs->C_GetMechanismList( slot_id, mech_list, &count );
 	if (rc != CKR_OK) {
 		show_error("   C_GetMechanismList #2", rc );
-		return FALSE;
+		return rc;
 	}
 
 	free( mech_list );
 
 	printf("Looks okay...\n");
 
-	return TRUE;
+	return 0;
 }
 
 
 //
 //
-int do_GetMechanismInfo( void )
+CK_RV do_GetMechanismInfo( void )
 {
 	CK_ULONG           count;
 	CK_MECHANISM_TYPE *mech_list;
@@ -578,7 +578,7 @@ int do_GetMechanismInfo( void )
 	rc = funcs->C_GetMechanismList( slot_id, NULL, &count );
 	if (rc != CKR_OK) {
 		show_error("   C_GetMechanismList #1", rc );
-		return FALSE;
+		return rc;
 	}
 
 	mech_list = (CK_MECHANISM_TYPE *)malloc( count * sizeof(CK_MECHANISM_TYPE) );
@@ -588,15 +588,15 @@ int do_GetMechanismInfo( void )
 	rc = funcs->C_GetMechanismList( slot_id, mech_list, &count );
 	if (rc != CKR_OK) {
 		show_error("   C_GetMechanismList #2", rc );
-		return FALSE;
+		return rc;
 	}
 
 	for (i=0; i < count; i++) {
 		rc = funcs->C_GetMechanismInfo( slot_id, mech_list[i], &info );
 		if (rc != CKR_OK) {
 			show_error("   C_GetMechanismInfo", rc );
-			printf("   Tried to get info on mechanism # %ld\n", mech_list[i] );
-			return FALSE;
+			PRINT_ERR("   Tried to get info on mechanism # %ld\n", mech_list[i] );
+			return rc;
 		}
 
 		printf("   Mechanism #%ld\n",  mech_list[i] );
@@ -609,13 +609,13 @@ int do_GetMechanismInfo( void )
 
 	printf("Looks okay...\n");
 
-	return TRUE;
+	return 0;
 }
 
 
 //
 //
-int do_InitPIN( void )
+CK_RV do_InitPIN( void )
 {
 	CK_SLOT_ID         slot_id;
 	CK_FLAGS           flags;
@@ -644,14 +644,14 @@ int do_InitPIN( void )
 	rc = funcs->C_OpenSession( slot_id, flags, NULL, NULL, &session );
 	if (rc != CKR_OK) {
 		show_error("   C_OpenSession #1", rc );
-		return FALSE;
+		return rc;
 	}
 
 	rc = funcs->C_InitPIN( session, user_pin, user_pin_len );
 	if (rc != CKR_USER_NOT_LOGGED_IN) {
 		show_error("   C_InitPIN #1", rc );
-		printf("   Expected CKR_USER_NOT_LOGGED_IN\n" );
-		return FALSE;
+		PRINT_ERR("   Expected CKR_USER_NOT_LOGGED_IN\n" );
+		return rc;
 	}
 
 	// try to call C_InitPIN from an SO session
@@ -659,19 +659,19 @@ int do_InitPIN( void )
 	rc = funcs->C_Login( session, CKU_SO, so_pin, so_pin_len );
 	if (rc != CKR_OK) {
 		show_error("   C_Login #2", rc );
-		return FALSE;
+		return rc;
 	}
 
 	rc = funcs->C_InitPIN( session, user_pin, user_pin_len );
 	if (rc != CKR_OK) {
 		show_error("   C_InitPIN #2", rc );
-		return FALSE;
+		return rc;
 	}
 
 	rc = funcs->C_Logout( session );
 	if (rc != CKR_OK) {
 		show_error("   C_Logout #1", rc );
-		return FALSE;
+		return rc;
 	}
 
 
@@ -680,37 +680,37 @@ int do_InitPIN( void )
 	rc = funcs->C_Login( session, CKU_USER, user_pin, user_pin_len );
 	if (rc != CKR_OK) {
 		show_error("   C_Login #1", rc );
-		return FALSE;
+		return rc;
 	}
 
 	rc = funcs->C_InitPIN( session, user_pin, user_pin_len );
 	if (rc != CKR_USER_NOT_LOGGED_IN) {
 		show_error("   C_InitPIN #2", rc );
-		printf("   Expected CKR_USER_NOT_LOGGED_IN\n" );
-		return FALSE;
+		PRINT_ERR("   Expected CKR_USER_NOT_LOGGED_IN\n" );
+		return rc;
 	}
 
 	rc = funcs->C_Logout( session );
 	if (rc != CKR_OK) {
 		show_error("   C_Logout #2", rc );
-		return FALSE;
+		return rc;
 	}
 
 	rc = funcs->C_CloseAllSessions( slot_id );
 	if (rc != CKR_OK) {
 		show_error("   C_CloseAllSessions #1", rc );
-		return FALSE;
+		return rc;
 	}
 
 	printf("Looks okay...\n");
 
-	return TRUE;
+	return 0;
 }
 
 
 //
 //
-int do_SetPIN( void )
+CK_RV do_SetPIN( void )
 {
 	CK_SLOT_ID        slot_id;
 	CK_FLAGS          flags;
@@ -742,14 +742,14 @@ int do_SetPIN( void )
 	rc = funcs->C_OpenSession( slot_id, flags, NULL, NULL, &session );
 	if (rc != CKR_OK) {
 		show_error("   C_OpenSession #1", rc );
-		return FALSE;
+		return rc;
 	}
 
 	rc = funcs->C_SetPIN( session, old_pin, old_len, new_pin, new_len );
 	if (rc != CKR_SESSION_READ_ONLY) {
 		show_error("   C_SetPIN #1", rc );
-		printf("   Expected CKR_SESSION_READ_ONLY\n");
-		return FALSE;
+		PRINT_ERR("   Expected CKR_SESSION_READ_ONLY\n");
+		return rc;
 	}
 
 	// try to call C_SetPIN from a normal user session
@@ -757,19 +757,19 @@ int do_SetPIN( void )
 	rc = funcs->C_Login( session, CKU_USER, old_pin, old_len );
 	if (rc != CKR_OK) {
 		show_error("   C_Login #1", rc );
-		return FALSE;
+		return rc;
 	}
 
 	rc = funcs->C_SetPIN( session, old_pin, old_len, new_pin, new_len );
 	if (rc != CKR_OK) {
 		show_error("   C_SetPIN #2", rc );
-		return FALSE;
+		return rc;
 	}
 
 	rc = funcs->C_Logout( session );
 	if (rc != CKR_OK) {
 		show_error("   C_Logout #1", rc );
-		return FALSE;
+		return rc;
 	}
 
 	// now, try to log in with the old PIN
@@ -777,14 +777,14 @@ int do_SetPIN( void )
 	rc = funcs->C_Login( session, CKU_USER, old_pin, old_len );
 	if (rc != CKR_PIN_INCORRECT) {
 		show_error("   C_Login #2", rc );
-		printf("   Expected CKR_PIN_INCORRECT\n");
-		return FALSE;
+		PRINT_ERR("   Expected CKR_PIN_INCORRECT\n");
+		return rc;
 	}
 
 	rc = funcs->C_Login( session, CKU_USER, new_pin, new_len );
 	if (rc != CKR_OK) {
 		show_error("   C_Login #3", rc );
-		return FALSE;
+		return rc;
 	}
 
 	// change the PIN back to the original so the rest of this program
@@ -793,13 +793,13 @@ int do_SetPIN( void )
 	rc = funcs->C_SetPIN( session, new_pin, new_len, old_pin, old_len );
 	if (rc != CKR_OK) {
 		show_error("   C_SetPIN #3", rc );
-		return FALSE;
+		return rc;
 	}
 
 	rc = funcs->C_Logout( session );
 	if (rc != CKR_OK) {
 		show_error("   C_Logout #2", rc );
-		return FALSE;
+		return rc;
 	}
 
 	//
@@ -814,19 +814,19 @@ int do_SetPIN( void )
 	rc = funcs->C_Login( session, CKU_SO, old_pin, old_len );
 	if (rc != CKR_OK) {
 		show_error("   C_Login #3", rc );
-		return FALSE;
+		return rc;
 	}
 
 	rc = funcs->C_SetPIN( session, old_pin, old_len, new_pin, new_len );
 	if (rc != CKR_OK) {
 		show_error("   C_SetPIN #4", rc );
-		return FALSE;
+		return rc;
 	}
 
 	rc = funcs->C_Logout( session );
 	if (rc != CKR_OK) {
 		show_error("   C_Logout #3", rc );
-		return FALSE;
+		return rc;
 	}
 
 	// now, try to log in with the old PIN
@@ -834,14 +834,14 @@ int do_SetPIN( void )
 	rc = funcs->C_Login( session, CKU_SO, old_pin, old_len );
 	if (rc != CKR_PIN_INCORRECT) {
 		show_error("   C_Login #4", rc );
-		printf("   Expected CKR_PIN_INCORRECT\n");
-		return FALSE;
+		PRINT_ERR("   Expected CKR_PIN_INCORRECT\n");
+		return rc;
 	}
 
 	rc = funcs->C_Login( session, CKU_SO, new_pin, new_len );
 	if (rc != CKR_OK) {
 		show_error("   C_Login #5", rc );
-		return FALSE;
+		return rc;
 	}
 
 	// change the PIN back to the original so the rest of this program
@@ -850,24 +850,24 @@ int do_SetPIN( void )
 	rc = funcs->C_SetPIN( session, new_pin, new_len, old_pin, old_len );
 	if (rc != CKR_OK) {
 		show_error("   C_SetPIN #5", rc );
-		return FALSE;
+		return rc;
 	}
 
 	rc = funcs->C_Logout( session );
 	if (rc != CKR_OK) {
 		show_error("   C_Logout #4", rc );
-		return FALSE;
+		return rc;
 	}
 
 	printf("Success.\n");
 
-	return TRUE;
+	return 0;
 }
 
 
 //
 //
-int do_GenerateRandomData( void )
+CK_RV do_GenerateRandomData( void )
 {
 	CK_SLOT_ID        slot_id;
 	CK_SESSION_HANDLE h1;
@@ -884,37 +884,37 @@ int do_GenerateRandomData( void )
 	rc = funcs->C_OpenSession( slot_id, flags, NULL, NULL, &h1 );
 	if (rc != CKR_OK) {
 		show_error("   C_OpenSession #2", rc );
-		return FALSE;
+		return rc;
 	}
 
 
 	rc = funcs->C_SeedRandom(h1, rand_seed,sizeof(rand_seed));
 	if (rc != CKR_OK){
 		show_error("   C_SeedRandom #1",rc);
-		return FALSE;
+		return rc;
 	}
 
 	rc = funcs->C_GenerateRandom( h1, rand_data1, sizeof(rand_data1) );
 	if (rc != CKR_OK) {
 		show_error("   C_GenerateRandom #1", rc );
-		return FALSE;
+		return rc;
 	}
 
 	rc = funcs->C_GenerateRandom( h1, rand_data2, sizeof(rand_data2) );
 	if (rc != CKR_OK) {
 		show_error("   C_GenerateRandom #2", rc );
-		return FALSE;
+		return rc;
 	}
 
 	rc = funcs->C_CloseSession( h1 );
 	if (rc != CKR_OK) {
 		show_error("   C_CloseSession #2", rc );
-		return FALSE;
+		return rc;
 	}
 
 	printf("Looks okay...\n");
 
-	return TRUE;
+	return 0;
 }
 
 
@@ -932,7 +932,7 @@ int do_GenerateRandomData( void )
 // 10) generate a DES key from a RW, USER   session.  specify right key type
 //
 //
-int do_GenerateKey( void )
+CK_RV do_GenerateKey( void )
 {
 	CK_SLOT_ID          slot_id;
 	CK_SESSION_HANDLE   session;
@@ -963,19 +963,19 @@ int do_GenerateKey( void )
 	//   rc = funcs->C_OpenSession( slot_id, flags, NULL, NULL, &session );
 	//   if (rc != CKR_OK) {
 	//      show_error("   C_OpenSession #1", rc );
-	//      return FALSE;
+	//      return rc;
 	//   }
 	//   rc = funcs->C_GenerateKey( session, &mech, NULL, 0, &h_key );
 	//   if (rc != CKR_USER_NOT_LOGGED_IN) {
 	//      show_error("   C_GenerateKey #1", rc );
-	//      printf("   Expected CKR_USER_NOT_LOGGED_IN\n" );
-	//      return FALSE;
+	//      PRINT_ERR("   Expected CKR_USER_NOT_LOGGED_IN\n" );
+	//      return rc;
 	//   }
 	//
 	//   rc = funcs->C_CloseSession( session );
 	//   if (rc != CKR_OK) {
 	//      show_error("   C_CloseSession #1", rc );
-	//      return FALSE;
+	//      return rc;
 	//   }
 	//
 	//
@@ -985,20 +985,20 @@ int do_GenerateKey( void )
 	//   rc = funcs->C_OpenSession( slot_id, flags, NULL, NULL, &session );
 	//   if (rc != CKR_OK) {
 	//      show_error("   C_OpenSession #2", rc );
-	//      return FALSE;
+	//      return rc;
 	//   }
 	//
 	//   rc = funcs->C_GenerateKey( session, &mech, NULL, 0, &h_key );
 	//   if (rc != CKR_USER_NOT_LOGGED_IN) {
 	//      show_error("   C_GenerateKey #2", rc );
-	//      printf("   Expected CKR_USER_NOT_LOGGED_IN\n" );
-	//      return FALSE;
+	//      PRINT_ERR("   Expected CKR_USER_NOT_LOGGED_IN\n" );
+	//      return rc;
 	//   }
 	//
 	//   rc = funcs->C_CloseSession( session );
 	//   if (rc != CKR_OK) {
 	//      show_error("   C_CloseSession #2", rc );
-	//      return FALSE;
+	//      return rc;
 	//   }
 
 
@@ -1008,25 +1008,25 @@ int do_GenerateKey( void )
 	rc = funcs->C_OpenSession( slot_id, flags, NULL, NULL, &session );
 	if (rc != CKR_OK) {
 		show_error("   C_OpenSession #3", rc );
-		return FALSE;
+		return rc;
 	}
 
 	rc = funcs->C_Login( session, CKU_USER, user_pin, user_pin_len );
 	if (rc != CKR_OK) {
 		show_error("   C_Login #1", rc );
-		return FALSE;
+		return rc;
 	}
 
 	rc = funcs->C_GenerateKey( session, &mech, NULL, 0, &h_key );
 	if (rc != CKR_OK) {
 		show_error("   C_GenerateKey #3", rc );
-		return FALSE;
+		return rc;
 	}
 
 	rc = funcs->C_CloseSession( session );
 	if (rc != CKR_OK) {
 		show_error("   C_CloseSession #3", rc );
-		return FALSE;
+		return rc;
 	}
 
 
@@ -1036,25 +1036,25 @@ int do_GenerateKey( void )
 	rc = funcs->C_OpenSession( slot_id, flags, NULL, NULL, &session );
 	if (rc != CKR_OK) {
 		show_error("   C_OpenSession #4", rc );
-		return FALSE;
+		return rc;
 	}
 
 	rc = funcs->C_Login( session, CKU_USER, user_pin, user_pin_len );
 	if (rc != CKR_OK) {
 		show_error("   C_Login #2", rc );
-		return FALSE;
+		return rc;
 	}
 
 	rc = funcs->C_GenerateKey( session, &mech, NULL, 0, &h_key );
 	if (rc != CKR_OK) {
 		show_error("   C_GenerateKey #4", rc );
-		return FALSE;
+		return rc;
 	}
 
 	rc = funcs->C_CloseSession( session );
 	if (rc != CKR_OK) {
 		show_error("   C_CloseSession #4", rc );
-		return FALSE;
+		return rc;
 	}
 
 
@@ -1072,18 +1072,18 @@ int do_GenerateKey( void )
 		rc = funcs->C_OpenSession( slot_id, flags, NULL, NULL, &session );
 		if (rc != CKR_OK) {
 			show_error("   C_OpenSession #5", rc );
-			return FALSE;
+			return rc;
 		}
 		rc = funcs->C_GenerateKey( session, &mech, tmpl, 1, &h_key );
 		if (rc != CKR_OK) {
 			show_error("   C_GenerateKey #5", rc );
-			return FALSE;
+			return rc;
 		}
 
 		rc = funcs->C_CloseSession( session );
 		if (rc != CKR_OK) {
 			show_error("   C_CloseSession #5", rc );
-			return FALSE;
+			return rc;
 		}
 	}
 
@@ -1102,18 +1102,18 @@ int do_GenerateKey( void )
 		rc = funcs->C_OpenSession( slot_id, flags, NULL, NULL, &session );
 		if (rc != CKR_OK) {
 			show_error("   C_OpenSession #6", rc );
-			return FALSE;
+			return rc;
 		}
 		rc = funcs->C_GenerateKey( session, &mech, tmpl, 1, &h_key );
 		if (rc != CKR_OK) {
 			show_error("   C_GenerateKey #6", rc );
-			return FALSE;
+			return rc;
 		}
 
 		rc = funcs->C_CloseSession( session );
 		if (rc != CKR_OK) {
 			show_error("   C_CloseSession #6", rc );
-			return FALSE;
+			return rc;
 		}
 	}
 
@@ -1132,26 +1132,26 @@ int do_GenerateKey( void )
 		rc = funcs->C_OpenSession( slot_id, flags, NULL, NULL, &session );
 		if (rc != CKR_OK) {
 			show_error("   C_OpenSession #7", rc );
-			return FALSE;
+			return rc;
 		}
 
 		rc = funcs->C_Login( session, CKU_USER, user_pin, user_pin_len );
 		if (rc != CKR_OK) {
 			show_error("   C_Login #3", rc );
-			return FALSE;
+			return rc;
 		}
 
 		rc = funcs->C_GenerateKey( session, &mech, tmpl, 1, &h_key );
 		if (rc != CKR_TEMPLATE_INCONSISTENT) {
 			show_error("   C_GenerateKey #7", rc );
-			printf("   Expected CKR_TEMPLATE_INCONSISTENT\n");
-			return FALSE;
+			PRINT_ERR("   Expected CKR_TEMPLATE_INCONSISTENT\n");
+			return rc;
 		}
 
 		rc = funcs->C_CloseSession( session );
 		if (rc != CKR_OK) {
 			show_error("   C_CloseSession #7", rc );
-			return FALSE;
+			return rc;
 		}
 	}
 
@@ -1170,25 +1170,25 @@ int do_GenerateKey( void )
 		rc = funcs->C_OpenSession( slot_id, flags, NULL, NULL, &session );
 		if (rc != CKR_OK) {
 			show_error("   C_OpenSession #8", rc );
-			return FALSE;
+			return rc;
 		}
 
 		rc = funcs->C_Login( session, CKU_USER, user_pin, user_pin_len );
 		if (rc != CKR_OK) {
 			show_error("   C_Login #4", rc );
-			return FALSE;
+			return rc;
 		}
 
 		rc = funcs->C_GenerateKey( session, &mech, tmpl, 1, &h_key );
 		if (rc != CKR_OK) {
 			show_error("   C_GenerateKey #8", rc );
-			return FALSE;
+			return rc;
 		}
 
 		rc = funcs->C_CloseSession( session );
 		if (rc != CKR_OK) {
 			show_error("   C_CloseSession #8", rc );
-			return FALSE;
+			return rc;
 		}
 	}
 
@@ -1207,26 +1207,26 @@ int do_GenerateKey( void )
 		rc = funcs->C_OpenSession( slot_id, flags, NULL, NULL, &session );
 		if (rc != CKR_OK) {
 			show_error("   C_OpenSession #9", rc );
-			return FALSE;
+			return rc;
 		}
 
 		rc = funcs->C_Login( session, CKU_USER, user_pin, user_pin_len );
 		if (rc != CKR_OK) {
 			show_error("   C_Login #5", rc );
-			return FALSE;
+			return rc;
 		}
 
 		rc = funcs->C_GenerateKey( session, &mech, tmpl, 1, &h_key );
 		if (rc != CKR_TEMPLATE_INCONSISTENT) {
 			show_error("   C_GenerateKey #9", rc );
-			printf("   Expected CKR_TEMPLATE_INCONSISTENT\n");
-			return FALSE;
+			PRINT_ERR("   Expected CKR_TEMPLATE_INCONSISTENT\n");
+			return rc;
 		}
 
 		rc = funcs->C_CloseSession( session );
 		if (rc != CKR_OK) {
 			show_error("   C_CloseSession #9", rc );
-			return FALSE;
+			return rc;
 		}
 	}
 
@@ -1245,25 +1245,25 @@ int do_GenerateKey( void )
 		rc = funcs->C_OpenSession( slot_id, flags, NULL, NULL, &session );
 		if (rc != CKR_OK) {
 			show_error("   C_OpenSession #9", rc );
-			return FALSE;
+			return rc;
 		}
 
 		rc = funcs->C_Login( session, CKU_USER, user_pin, user_pin_len );
 		if (rc != CKR_OK) {
 			show_error("   C_Login #5", rc );
-			return FALSE;
+			return rc;
 		}
 
 		rc = funcs->C_GenerateKey( session, &mech, tmpl, 1, &h_key );
 		if (rc != CKR_OK) {
 			show_error("   C_GenerateKey #9", rc );
-			return FALSE;
+			return rc;
 		}
 
 		rc = funcs->C_CloseSession( session );
 		if (rc != CKR_OK) {
 			show_error("   C_CloseSession #9", rc );
-			return FALSE;
+			return rc;
 		}
 	}
 
@@ -1271,19 +1271,123 @@ int do_GenerateKey( void )
 	rc = funcs->C_CloseAllSessions( slot_id );
 	if (rc != CKR_OK) {
 		show_error("   C_CloseAllSessions #1", rc );
-		return FALSE;
+		return rc;
 	}
 
 	printf("Looks okay...\n");
-	return TRUE;
+	return 0;
+}
+
+CK_RV misc_functions()
+{
+	SYSTEMTIME  t1, t2;
+	CK_RV         rc;
+
+
+	GetSystemTime(&t1);
+	rc = do_GetInfo();
+	if ( rc && !no_stop)
+		return rc;
+	GetSystemTime(&t2);
+	process_time( t1, t2 );
+
+	GetSystemTime(&t1);
+	rc = do_GetSlotList();
+	if ( rc && !no_stop)
+		return rc;
+	GetSystemTime(&t2);
+	process_time( t1, t2 );
+
+	GetSystemTime(&t1);
+	rc = do_GetSlotInfo();
+	if ( rc && !no_stop)
+		return rc;
+	GetSystemTime(&t2);
+	process_time( t1, t2 );
+
+	GetSystemTime(&t1);
+	rc = do_GetTokenInfo();
+	if ( rc && !no_stop)
+		return rc;
+	GetSystemTime(&t2);
+	process_time( t1, t2 );
+
+	//
+	// C_WaitForSlotEvent should not be implemented
+	//
+
+	GetSystemTime(&t1);
+	rc = do_GetMechanismList();
+	if ( rc && !no_stop)
+		return rc;
+	GetSystemTime(&t2);
+	process_time( t1, t2 );
+
+	GetSystemTime(&t1);
+	rc = do_GetMechanismInfo();
+	if ( rc && !no_stop)
+		return rc;
+	GetSystemTime(&t2);
+	process_time( t1, t2 );
+
+	GetSystemTime(&t1);
+	rc = do_GenerateRandomData();
+	if ( rc && !no_stop)
+		return rc;
+	GetSystemTime(&t2);
+	process_time( t1, t2 );
+#if 0
+	GetSystemTime(&t1);
+	rc = do_Login();
+	if ( rc && !no_stop)
+		return rc;
+	GetSystemTime(&t2);
+	process_time( t1, t2 );
+#endif
+#if 0
+	GetSystemTime(&t1);
+	rc = do_InitToken();
+	if ( rc && !no_stop)
+		return rc;
+	GetSystemTime(&t2);
+	process_time( t1, t2 );
+#endif
+#if 0
+	GetSystemTime(&t1);
+	rc = do_GenerateKey();
+	if ( rc && !no_stop)
+		return rc;
+	GetSystemTime(&t2);
+	process_time( t1, t2 );
+#endif
+
+	if (skip_token_obj == TRUE) {
+		printf("Skipping do_InitPIN()...\n\n");
+	}
+	else {
+		rc = do_InitPIN();
+		if ( rc && !no_stop)
+			return rc;
+	}
+
+	if (skip_token_obj == TRUE) {
+		printf("Skipping do_SetPIN()...\n\n");
+	}
+	else {
+		rc = do_SetPIN();
+		if ( rc && !no_stop)
+			return rc;
+	}
+
+	return 0;
 }
 
 int main(int argc, char **argv)
 {
 	CK_C_INITIALIZE_ARGS cinit_args;
-	int rc, i;
+	int rc;
+	CK_RV rv;
 
-	
 	rc = do_ParseArgs(argc, argv);
 	if ( rc != 1)
 		return rc;
@@ -1293,10 +1397,10 @@ int main(int argc, char **argv)
 
 	rc = do_GetFunctionList();
 	if (!rc) {
-		fprintf(stderr, "ERROR do_GetFunctionList() Failed , rc = 0x%0x\n", rc); 
+		PRINT_ERR("ERROR do_GetFunctionList() Failed , rc = 0x%0x\n", rc);
 		return rc;
 	}
-	
+
 	memset( &cinit_args, 0x0, sizeof(cinit_args) );
 	cinit_args.flags = CKF_OS_LOCKING_OK;
 
@@ -1308,7 +1412,7 @@ int main(int argc, char **argv)
 		CK_SESSION_HANDLE  hsess = 0;
 
 		rc = funcs->C_GetFunctionStatus(hsess);
-		if (rc  != CKR_FUNCTION_NOT_PARALLEL)  
+		if (rc  != CKR_FUNCTION_NOT_PARALLEL)
 			return rc;
 
 		rc = funcs->C_CancelFunction(hsess);
@@ -1317,109 +1421,7 @@ int main(int argc, char **argv)
 
 	}
 
-	misc_functions();
-}
-
-int misc_functions()
-{
-	SYSTEMTIME  t1, t2;
-	int         rc;
-
-
-	GetSystemTime(&t1);
-	rc = do_GetInfo();
-	if ( !rc && !no_stop)
-		return FALSE;
-	GetSystemTime(&t2);
-	process_time( t1, t2 );
-
-	GetSystemTime(&t1);
-	rc = do_GetSlotList();
-	if ( !rc && !no_stop)
-		return FALSE;
-	GetSystemTime(&t2);
-	process_time( t1, t2 );
-
-	GetSystemTime(&t1);
-	rc = do_GetSlotInfo();
-	if ( !rc && !no_stop)
-		return FALSE;
-	GetSystemTime(&t2);
-	process_time( t1, t2 );
-
-	GetSystemTime(&t1);
-	rc = do_GetTokenInfo();
-	if ( !rc && !no_stop)
-		return FALSE;
-	GetSystemTime(&t2);
-	process_time( t1, t2 );
-
-	//
-	// C_WaitForSlotEvent should not be implemented
-	//
-
-	GetSystemTime(&t1);
-	rc = do_GetMechanismList();
-	if ( !rc && !no_stop)
-		return FALSE;
-	GetSystemTime(&t2);
-	process_time( t1, t2 );
-
-	GetSystemTime(&t1);
-	rc = do_GetMechanismInfo();
-	if ( !rc && !no_stop)
-		return FALSE;
-	GetSystemTime(&t2);
-	process_time( t1, t2 );
-
-	GetSystemTime(&t1);
-	rc = do_GenerateRandomData();
-	if ( !rc && !no_stop)
-		return FALSE;
-	GetSystemTime(&t2);
-	process_time( t1, t2 );
-#if 0
-	GetSystemTime(&t1);
-	rc = do_Login();
-	if ( !rc && !no_stop)
-		return FALSE;
-	GetSystemTime(&t2);
-	process_time( t1, t2 );
-#endif
-#if 0
-	GetSystemTime(&t1);
-	rc = do_InitToken();
-	if ( !rc && !no_stop)
-		return FALSE;
-	GetSystemTime(&t2);
-	process_time( t1, t2 );
-#endif
-#if 0
-	GetSystemTime(&t1);
-	rc = do_GenerateKey();
-	if ( !rc && !no_stop)
-		return FALSE;
-	GetSystemTime(&t2);
-	process_time( t1, t2 );
-#endif
-
-	if (skip_token_obj == TRUE) {
-		printf("Skipping do_InitPIN()...\n\n");
-	}
-	else {
-		rc = do_InitPIN();
-		if ( !rc && !no_stop)
-			return FALSE;
-	}
-
-	if (skip_token_obj == TRUE) {
-		printf("Skipping do_SetPIN()...\n\n");
-	}
-	else {
-		rc = do_SetPIN();
-		if ( !rc && !no_stop)
-			return FALSE;
-	}
-
-	return TRUE;
+	rv = misc_functions();
+	/* make sure we return non-zero if rv is non-zero */
+	return ((rv==0) || (rv % 256) ? rv : -1);
 }
