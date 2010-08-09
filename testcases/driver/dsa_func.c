@@ -50,7 +50,7 @@ CK_BYTE DSA_PUBL_BASE[128] =
 
 //
 //
-int do_GenerateDSAKeyPair( void )
+CK_RV do_GenerateDSAKeyPair( void )
 {
 	CK_SLOT_ID          slot_id;
 	CK_SESSION_HANDLE   session;
@@ -59,7 +59,7 @@ int do_GenerateDSAKeyPair( void )
 	CK_FLAGS            flags;
 	CK_BYTE             user_pin[PKCS11_MAX_PIN_LEN];
 	CK_ULONG            user_pin_len;
-	CK_RV               rc;
+	CK_RV               rc, loc_rc;
 
 	CK_ATTRIBUTE  publ_tmpl[] =
 	{
@@ -86,13 +86,13 @@ int do_GenerateDSAKeyPair( void )
 	rc = funcs->C_OpenSession( slot_id, flags, NULL, NULL, &session );
 	if (rc != CKR_OK) {
 		show_error("   C_OpenSession #3", rc );
-		return FALSE;
+		return rc;
 	}
 
 	rc = funcs->C_Login( session, CKU_USER, user_pin, user_pin_len );
 	if (rc != CKR_OK) {
 		show_error("   C_Login #1", rc );
-		return FALSE;
+		return rc;
 	}
 
 	rc = funcs->C_GenerateKeyPair( session,   &mech,
@@ -115,19 +115,17 @@ int do_GenerateDSAKeyPair( void )
 session_close:
 
 	/* Close the session */
-	if( (rc = funcs->C_CloseSession(session)) != CKR_OK )
-		show_error("C_CloseSession", rc);
+	if( (loc_rc = funcs->C_CloseSession(session)) != CKR_OK )
+		show_error("C_CloseSession", loc_rc);
 	
-	return FALSE;
-done:
-	return TRUE;
+	return rc;
 }
 
 
 // the generic DSA mechanism assumes that the data to be signed has already
 // been hashed by SHA-1.  so the input data length must be 20 bytes
 //
-int do_SignDSA( void )
+CK_RV do_SignDSA( void )
 {
 	CK_BYTE             data1[20];
 	CK_BYTE             signature[256];
@@ -140,7 +138,7 @@ int do_SignDSA( void )
 	CK_ULONG            user_pin_len;
 	CK_ULONG            i;
 	CK_ULONG            len1, sig_len;
-	CK_RV               rc;
+	CK_RV               rc, loc_rc;
 
 	CK_ATTRIBUTE  publ_tmpl[] =
 	{
@@ -234,7 +232,7 @@ int do_SignDSA( void )
 	rc = funcs->C_Verify( session, data1, len1, signature, sig_len );
 	if (rc != CKR_SIGNATURE_INVALID) {
 		show_error("   C_Verify #2", rc );
-		printf("   Expected CKR_SIGNATURE_INVALID\n");
+		PRINT_ERR("   Expected CKR_SIGNATURE_INVALID\n");
 		goto session_close;
 	}
 
@@ -247,20 +245,45 @@ int do_SignDSA( void )
 session_close:
 
 	/* Close the session */
-	if( (rc = funcs->C_CloseSession(session)) != CKR_OK )
-		show_error("C_CloseSession", rc);
+	if( (loc_rc = funcs->C_CloseSession(session)) != CKR_OK )
+		show_error("C_CloseSession", loc_rc);
 	
-	return FALSE;
-done:
-	printf("Looks okay...\n");
-	return TRUE;
+	return rc;
+}
+
+CK_RV dsa_functions()
+{
+	SYSTEMTIME t1, t2;
+	CK_RV rc;
+
+	GetSystemTime(&t1);
+	rc = do_GenerateDSAKeyPair();
+	if (rc) {
+		PRINT_ERR("ERROR do_GenerateDSAKeyPair failed, rc = 0x%lx\n", rc);
+		if (!no_stop)
+			return rc;
+	}
+	GetSystemTime(&t2);
+	process_time( t1, t2 );
+
+	GetSystemTime(&t1);
+	rc = do_SignDSA();
+	if (rc) {
+		PRINT_ERR("ERROR do_SignDSA failed, rc = 0x%lx\n", rc);
+		if (!no_stop)
+			return rc;
+	}
+	GetSystemTime(&t2);
+	process_time( t1, t2 );
+
+	return rc;
 }
 
 int main(int argc, char **argv)
 {
 	CK_C_INITIALIZE_ARGS cinit_args;
-	int rc, i;
-
+	int rc;
+	CK_RV rv;
 	
 	rc = do_ParseArgs(argc, argv);
 	if ( rc != 1)
@@ -271,7 +294,7 @@ int main(int argc, char **argv)
 
 	rc = do_GetFunctionList();
 	if (!rc) {
-		fprintf(stderr, "ERROR do_GetFunctionList() Failed , rc = 0x%0x\n", rc); 
+		PRINT_ERR("ERROR do_GetFunctionList() Failed , rc = 0x%0x\n", rc);
 		return rc;
 	}
 	
@@ -295,33 +318,8 @@ int main(int argc, char **argv)
 
 	}
 
-	dsa_functions();
+	rv = dsa_functions();
+	/* make sure we return non-zero if rv is non-zero */
+	return ((rv == 0) || (rv % 256) ? rv : -1);
 }
 
-int dsa_functions()
-{
-	SYSTEMTIME t1, t2;
-	int rc;
-
-	GetSystemTime(&t1);
-	rc = do_GenerateDSAKeyPair();
-	if (!rc) {
-		fprintf (stderr, "ERROR do_GenerateDSAKeyPair failed, rc = 0x%0x\n", rc);
-		if (!no_stop)
-			return rc;
-	}
-	GetSystemTime(&t2);
-	process_time( t1, t2 );
-
-	GetSystemTime(&t1);
-	rc = do_SignDSA();
-	if (!rc) {
-		fprintf (stderr, "ERROR do_SignDSA failed, rc = 0x%0x\n", rc);
-		if (!no_stop)
-			return rc;
-	}
-	GetSystemTime(&t2);
-	process_time( t1, t2 );
-
-	return TRUE;
-}
