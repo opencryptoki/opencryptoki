@@ -1716,8 +1716,6 @@ CK_BBOOL  object_is_token_object  ( OBJECT * obj );
 CK_BBOOL  object_is_session_object( OBJECT * obj );
 
 
-CK_BBOOL  is_attribute_defined( CK_ATTRIBUTE_TYPE type );
-
 
 // object attribute template routines
 //

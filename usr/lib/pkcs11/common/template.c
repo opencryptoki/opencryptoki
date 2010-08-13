@@ -320,6 +320,7 @@
 #include "h_extern.h"
 #include "tok_spec_struct.h"
 #include "pkcs32.h"
+#include "p11util.h"
 
 // template_add_attributes()
 //

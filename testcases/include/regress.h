@@ -26,8 +26,9 @@
 #define SYSTEMTIME   struct timeb
 #define GetSystemTime(x) ftime((x))
 
+#include "p11util.h"
+
 void process_time(SYSTEMTIME t1, SYSTEMTIME t2);
-char *process_ret_code( CK_RV rc );
 void show_error( char *str, CK_RV rc );
 void print_hex( CK_BYTE *buf, CK_ULONG len );
 
@@ -75,7 +76,7 @@ int get_user_pin(CK_BYTE_PTR);
 #define show_error(_str, _rc)						\
 	fprintf(stderr, "%s:%d: %s returned %lu (0x%lx) %s\n",		\
 		__FILE__, __LINE__, _str, _rc, _rc,			\
-		process_ret_code(_rc))
+		p11_get_ckr(_rc))
 
 
 #endif

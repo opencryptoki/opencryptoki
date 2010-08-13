@@ -41,6 +41,7 @@ opencryptoki_stdll_libpkcs11_sw_la_SOURCES = ../common/asn1.c		\
 					     ../common/sess_mgr.c	\
 					     ../common/sign_mgr.c	\
 					     ../common/template.c	\
+					     ../common/p11util.c	\
 					     ../common/utility.c	\
 					     ../common/verify_mgr.c	\
 					     ../common/log.c		\
