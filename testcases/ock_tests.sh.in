@@ -121,7 +121,7 @@ init_slot()
                         ;;
                 CCA | ICA | Software)
                         echo "Initializing $TOKTYPE using init_token.sh"
-                        if ! $TESTDIR/init_token.sh; then
+                        if ! $TESTDIR/init_token.sh $1; then
                                 echo "Error initializing $TOKTYPE token"
                                 exit 1
                         fi
