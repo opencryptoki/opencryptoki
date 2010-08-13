@@ -8,6 +8,6 @@ pkcsconf_CFLAGS = -DSPINXPL -D_THREAD_SAFE -DDEBUG -DDEV -DAPI
 # Not all versions of automake observe sbinname_CFLAGS
 AM_CFLAGS = -DSPINXPL -D_THREAD_SAFE -DDEBUG -DDEV -DAPI
 
-pkcsconf_SOURCES = pkcsconf.c
+pkcsconf_SOURCES = ../../lib/pkcs11/common/p11util.c pkcsconf.c
 
-INCLUDES = -I../../include/pkcs11 -I.
+INCLUDES = -I../../include/pkcs11 -I. -I../../lib/pkcs11/common
