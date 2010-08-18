@@ -8,6 +8,14 @@
 #include "pkcs11types.h"
 #include "regress.h"
 
+#ifndef AES_KEY_SIZE_128
+#define AES_KEY_SIZE_128 16
+#endif
+
+#ifndef AES_KEY_SIZE_192
+#define AES_KEY_SIZE_192 24
+#endif
+
 #ifndef AES_KEY_SIZE_256
 #define AES_KEY_SIZE_256 32
 #endif
@@ -24,7 +32,7 @@
 #define AES_KEY_LEN 32
 #endif
 
-CK_RV do_EncryptAES_ECB(void)
+CK_RV do_EncryptAES_ECB(CK_ULONG key_len)
 {
 	CK_BYTE             data1[BIG_REQUEST];
 	CK_BYTE             data2[BIG_REQUEST];
@@ -36,7 +44,7 @@ CK_RV do_EncryptAES_ECB(void)
 	CK_BYTE             user_pin[PKCS11_MAX_PIN_LEN];
 	CK_ULONG            user_pin_len;
 	CK_ULONG            i;
-	CK_ULONG            len1, len2, key_size = AES_KEY_SIZE_256;
+	CK_ULONG            len1, len2, key_size = key_len;
 	CK_RV               rc, loc_rc;
 	CK_ATTRIBUTE        key_gen_tmpl[] = {
 		{CKA_VALUE_LEN, &key_size, sizeof(CK_ULONG) }
@@ -127,7 +135,7 @@ error:
 
 //
 //
-CK_RV do_EncryptAES_Multipart_ECB( void )
+CK_RV do_EncryptAES_Multipart_ECB(CK_ULONG key_len)
 {
 	CK_BYTE             original[BIG_REQUEST];
 	CK_BYTE             crypt1  [BIG_REQUEST];
@@ -145,7 +153,7 @@ CK_RV do_EncryptAES_Multipart_ECB( void )
 	CK_ULONG            i, k;
 	CK_ULONG            orig_len;
 	CK_ULONG            crypt1_len, crypt2_len, decrypt1_len, decrypt2_len;
-	CK_ULONG            tmp, key_size = AES_KEY_SIZE_256;
+	CK_ULONG            tmp, key_size = key_len;
 	CK_RV               rc, loc_rc;
 	CK_ATTRIBUTE        key_gen_tmpl[] = {
 		{CKA_VALUE_LEN, &key_size, sizeof(CK_ULONG) }
@@ -392,7 +400,7 @@ error:
 
 //
 //
-CK_RV do_EncryptAES_CBC( void )
+CK_RV do_EncryptAES_CBC(CK_ULONG key_len)
 {
 	CK_BYTE             data1[BIG_REQUEST];
 	CK_BYTE             data2[BIG_REQUEST];
@@ -404,7 +412,7 @@ CK_RV do_EncryptAES_CBC( void )
 	CK_BYTE             user_pin[PKCS11_MAX_PIN_LEN];
 	CK_ULONG            user_pin_len;
 	CK_BYTE             init_v[AES_BLOCK_SIZE];
-	CK_ULONG            i, key_size = AES_KEY_SIZE_256;
+	CK_ULONG            i, key_size = key_len;
 	CK_ULONG            len1, len2;
 	CK_RV               rc;
 	CK_ATTRIBUTE        key_gen_tmpl[] = {
@@ -513,7 +521,7 @@ CK_RV do_EncryptAES_CBC( void )
 
 //
 //
-CK_RV do_EncryptAES_Multipart_CBC( void )
+CK_RV do_EncryptAES_Multipart_CBC(CK_ULONG key_len)
 {
 	CK_BYTE             original[BIG_REQUEST];
 	CK_BYTE             crypt1  [BIG_REQUEST];
@@ -532,7 +540,7 @@ CK_RV do_EncryptAES_Multipart_CBC( void )
 	CK_ULONG            i, k;
 	CK_ULONG            orig_len;
 	CK_ULONG            crypt1_len, crypt2_len, decrypt1_len, decrypt2_len;
-	CK_ULONG            tmp, key_size = AES_KEY_SIZE_256;
+	CK_ULONG            tmp, key_size = key_len;
 	CK_RV               rc;
 	CK_ATTRIBUTE        key_gen_tmpl[] = {
 		{CKA_VALUE_LEN, &key_size, sizeof(CK_ULONG) }
@@ -763,7 +771,7 @@ CK_RV do_EncryptAES_Multipart_CBC( void )
 
 //
 //
-CK_RV do_EncryptAES_Multipart_CBC_PAD( void )
+CK_RV do_EncryptAES_Multipart_CBC_PAD(CK_ULONG key_len)
 {
 	CK_BYTE             original[BIG_REQUEST];
 
@@ -784,7 +792,7 @@ CK_RV do_EncryptAES_Multipart_CBC_PAD( void )
 	CK_ULONG            user_pin_len;
 	CK_ULONG            i, k;
 	CK_ULONG            orig_len, crypt1_len, crypt2_len, decrypt1_len, decrypt2_len;
-	CK_RV               rc, key_size = AES_KEY_SIZE_256;
+	CK_RV               rc, key_size = key_len;
 	CK_ATTRIBUTE        key_gen_tmpl[] = {
 		{CKA_VALUE_LEN, &key_size, sizeof(CK_ULONG) }
 	};
@@ -1017,7 +1025,7 @@ CK_RV do_EncryptAES_Multipart_CBC_PAD( void )
 
 //
 //
-CK_RV do_WrapUnwrapAES_ECB( void )
+CK_RV do_WrapUnwrapAES_ECB(CK_ULONG key_len)
 {
 	CK_BYTE             data1[BIG_REQUEST];
 	CK_BYTE             data2[BIG_REQUEST];
@@ -1033,7 +1041,7 @@ CK_RV do_WrapUnwrapAES_ECB( void )
 	CK_ULONG            user_pin_len;
 	CK_ULONG            wrapped_data_len;
 	CK_ULONG            i;
-	CK_ULONG            len1, len2, key_size = AES_KEY_SIZE_256;
+	CK_ULONG            len1, len2, key_size = key_len;
 	CK_RV               rc, loc_rc;
 	CK_ATTRIBUTE        key_gen_tmpl[] = {
 		{CKA_VALUE_LEN, &key_size, sizeof(CK_ULONG) }
@@ -1237,7 +1245,7 @@ error:
 
 //
 //
-CK_RV do_WrapUnwrapAES_CBC( void )
+CK_RV do_WrapUnwrapAES_CBC(CK_ULONG key_len)
 {
 	CK_BYTE             data1[BIG_REQUEST];
 	CK_BYTE             data2[BIG_REQUEST];
@@ -1255,7 +1263,7 @@ CK_RV do_WrapUnwrapAES_CBC( void )
 	CK_ULONG            wrapped_data_len;
 	CK_ULONG            i;
 	CK_ULONG            len1, len2;
-	CK_RV               rc, key_size = AES_KEY_SIZE_256;
+	CK_RV               rc, key_size = key_len;
 	CK_ATTRIBUTE        key_gen_tmpl[] = {
 		{CKA_VALUE_LEN, &key_size, sizeof(CK_ULONG) }
 	};
@@ -1449,7 +1457,7 @@ CK_RV do_WrapUnwrapAES_CBC( void )
 
 //
 //
-CK_RV do_WrapUnwrapAES_CBC_PAD( void )
+CK_RV do_WrapUnwrapAES_CBC_PAD(CK_ULONG key_len)
 {
 	CK_BYTE             original[BIG_REQUEST];
 	CK_BYTE             cipher  [BIG_REQUEST + AES_BLOCK_SIZE];
@@ -1470,7 +1478,7 @@ CK_RV do_WrapUnwrapAES_CBC_PAD( void )
 	CK_ULONG            wrapped_data_len;
 	CK_ULONG            i;
 	CK_ULONG            orig_len, cipher_len, decipher_len;
-	CK_RV               rc, key_size = AES_KEY_SIZE_256;
+	CK_RV               rc, key_size = key_len;
 	CK_ATTRIBUTE        key_gen_tmpl[] = {
 		{CKA_VALUE_LEN, &key_size, sizeof(CK_ULONG) }
 	};
@@ -1725,86 +1733,89 @@ CK_RV aes_functions()
 {
 	SYSTEMTIME t1, t2;
 	CK_RV rc;
+	CK_ULONG i, key_lens[] = { AES_KEY_SIZE_128, AES_KEY_SIZE_192, AES_KEY_SIZE_256 };
 
-	GetSystemTime(&t1);
-	rc = do_EncryptAES_ECB();
-	if (rc) {
-		PRINT_ERR("ERROR do_EncryptAES_ECB failed, rc = 0x%lx\n", rc);
-		if (!no_stop)
-			return rc;
-	}
-	GetSystemTime(&t2);
-	process_time( t1, t2 );
+	for (i = 0; i < 3; i++) {
+		GetSystemTime(&t1);
+		rc = do_EncryptAES_ECB(key_lens[i]);
+		if (rc) {
+			PRINT_ERR("ERROR do_EncryptAES_ECB failed, rc = 0x%lx\n", rc);
+			if (!no_stop)
+				return rc;
+		}
+		GetSystemTime(&t2);
+		process_time( t1, t2 );
 
-	GetSystemTime(&t1);
-	rc = do_EncryptAES_CBC();
-	if (rc) {
-		PRINT_ERR("ERROR do_EncryptAES_CBC failed, rc = 0x%lx\n", rc);
-		if (!no_stop)
-			return rc;
-	}
-	GetSystemTime(&t2);
-	process_time( t1, t2 );
+		GetSystemTime(&t1);
+		rc = do_EncryptAES_CBC(key_lens[i]);
+		if (rc) {
+			PRINT_ERR("ERROR do_EncryptAES_CBC failed, rc = 0x%lx\n", rc);
+			if (!no_stop)
+				return rc;
+		}
+		GetSystemTime(&t2);
+		process_time( t1, t2 );
 
-	GetSystemTime(&t1);
-	rc = do_EncryptAES_Multipart_ECB();
-	if (rc) {
-		PRINT_ERR("ERROR do_EncryptAES_Multipart_ECB failed, rc = 0x%lx\n", rc);
-		if (!no_stop)
-			return rc;
-	}
-	GetSystemTime(&t2);
-	process_time( t1, t2 );
+		GetSystemTime(&t1);
+		rc = do_EncryptAES_Multipart_ECB(key_lens[i]);
+		if (rc) {
+			PRINT_ERR("ERROR do_EncryptAES_Multipart_ECB failed, rc = 0x%lx\n", rc);
+			if (!no_stop)
+				return rc;
+		}
+		GetSystemTime(&t2);
+		process_time( t1, t2 );
 
-	GetSystemTime(&t1);
-	rc = do_EncryptAES_Multipart_CBC();
-	if (rc) {
-		PRINT_ERR("ERROR do_EncryptAES_Multipart_CBC failed, rc = 0x%lx\n", rc);
-		if (!no_stop)
-			return rc;
-	}
-	GetSystemTime(&t2);
-	process_time( t1, t2 );
+		GetSystemTime(&t1);
+		rc = do_EncryptAES_Multipart_CBC(key_lens[i]);
+		if (rc) {
+			PRINT_ERR("ERROR do_EncryptAES_Multipart_CBC failed, rc = 0x%lx\n", rc);
+			if (!no_stop)
+				return rc;
+		}
+		GetSystemTime(&t2);
+		process_time( t1, t2 );
 
-	GetSystemTime(&t1);
-	rc = do_EncryptAES_Multipart_CBC_PAD();
-	if (rc) {
-		PRINT_ERR("ERROR do_EncryptAES_Multipart_CBC_PAD failed, rc = 0x%lx\n", rc);
-		if (!no_stop)
-			return rc;
-	}
-	GetSystemTime(&t2);
-	process_time( t1, t2 );
+		GetSystemTime(&t1);
+		rc = do_EncryptAES_Multipart_CBC_PAD(key_lens[i]);
+		if (rc) {
+			PRINT_ERR("ERROR do_EncryptAES_Multipart_CBC_PAD failed, rc = 0x%lx\n", rc);
+			if (!no_stop)
+				return rc;
+		}
+		GetSystemTime(&t2);
+		process_time( t1, t2 );
 
-	GetSystemTime(&t1);
-	rc = do_WrapUnwrapAES_ECB();
-	if (rc) {
-		PRINT_ERR("ERROR do_WrapUnwrapAES_EBC failed, rc = 0x%lx\n", rc);
-		if (!no_stop)
-			return rc;
-	}
-	GetSystemTime(&t2);
-	process_time( t1, t2 );
+		GetSystemTime(&t1);
+		rc = do_WrapUnwrapAES_ECB(key_lens[i]);
+		if (rc) {
+			PRINT_ERR("ERROR do_WrapUnwrapAES_EBC failed, rc = 0x%lx\n", rc);
+			if (!no_stop)
+				return rc;
+		}
+		GetSystemTime(&t2);
+		process_time( t1, t2 );
 
-	GetSystemTime(&t1);
-	rc = do_WrapUnwrapAES_CBC();
-	if (rc) {
-		PRINT_ERR("ERROR do_WrapUnwrapAES_CBC failed, rc = 0x%lx\n", rc);
-		if (!no_stop)
-			return rc;
-	}
-	GetSystemTime(&t2);
-	process_time( t1, t2 );
+		GetSystemTime(&t1);
+		rc = do_WrapUnwrapAES_CBC(key_lens[i]);
+		if (rc) {
+			PRINT_ERR("ERROR do_WrapUnwrapAES_CBC failed, rc = 0x%lx\n", rc);
+			if (!no_stop)
+				return rc;
+		}
+		GetSystemTime(&t2);
+		process_time( t1, t2 );
 
-	GetSystemTime(&t1);
-	rc = do_WrapUnwrapAES_CBC_PAD();
-	if (rc) {
-		PRINT_ERR("ERROR do_WrapUnwrapAES_CBC_PAD failed, rc = 0x%lx\n", rc);
-		if (!no_stop)
-			return rc;
+		GetSystemTime(&t1);
+		rc = do_WrapUnwrapAES_CBC_PAD(key_lens[i]);
+		if (rc) {
+			PRINT_ERR("ERROR do_WrapUnwrapAES_CBC_PAD failed, rc = 0x%lx\n", rc);
+			if (!no_stop)
+				return rc;
+		}
+		GetSystemTime(&t2);
+		process_time( t1, t2 );
 	}
-	GetSystemTime(&t2);
-	process_time( t1, t2 );
 
 	return 0;
 }
