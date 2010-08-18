@@ -2214,7 +2214,7 @@ CK_RV des_functions()
 
 	GetSystemTime(&t1);
 	rc = do_EncryptDES_CBC_PAD();
-	if (!rc) {
+	if (rc) {
 		PRINT_ERR("ERROR do_EncryptDES_CBC_PAD failed, rc = 0x%lx\n", rc);
 		if (!no_stop)
 			return rc;

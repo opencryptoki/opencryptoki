@@ -84,10 +84,10 @@ void print_hex( CK_BYTE *buf, CK_ULONG len )
 
    while (i < len) {
       for (j=0; (j < 16) && (i < len); j++, i++)
-         printf("%02x ", buf[i] );
-      printf("\n");
+         fprintf(stderr, "%02x ", buf[i] );
+      fprintf(stderr, "\n");
    }
-   printf("\n");
+   fprintf(stderr, "\n");
 }
 
 void usage (char *fct)
