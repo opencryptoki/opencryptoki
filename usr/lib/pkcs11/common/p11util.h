@@ -299,6 +299,11 @@
 // @rc is the CKR_.. error
 //
 char *p11_get_ckr( CK_RV rc );
+//
+// p11_get_ckm - return textual interpretation of a CKM_ mechanism code
+// @rc is the CKM_.. as a string
+//
+char *p11_get_ckm(CK_ULONG);
 
 // is_attribute_defined()
 //
