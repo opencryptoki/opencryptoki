@@ -198,6 +198,12 @@ dnl ---
 dnl --- Now that we have all the options, let's check for a valid build
 dnl ---
 
+dnl --- enable_debug
+AM_CONDITIONAL([ENABLE_DEBUG], [test "x$enable_debug" = "xyes"])
+if test "x$enable_debug" = "xyes"; then
+	CFLAGS="$cmdline_CFLAGS -g -O0"
+fi
+
 dnl --- first, check what external software is present or specified
 dnl --- with --with-package=DIR
 
@@ -478,12 +484,6 @@ dnl --- Now check enabled features, while making sure every required
 dnl --- package is available
 dnl ---
 
-dnl --- enable_debug
-AM_CONDITIONAL([ENABLE_DEBUG], [test "x$enable_debug" = "xyes"])
-if test "x$enable_debug" = "xyes"; then
-	DEBUG_CFLAGS="-g -O0"
-fi
-
 dnl --- enable_testcases
 if test "x$enable_testcases" = "xyes"; then
 	AC_CHECK_PROG([HAVE_EXPECT], [expect], [yes], [no])
@@ -628,7 +628,7 @@ fi
 AM_CONDITIONAL([ENABLE_PKCSCCA_MIGRATE], [test "x$enable_pkcscca_migrate" = "xyes"])
 
 
-CFLAGS="$CFLAGS $DEBUG_CFLAGS -DPKCS64 -D_XOPEN_SOURCE=500"
+CFLAGS="$CFLAGS -DPKCS64 -D_XOPEN_SOURCE=500"
 
 CFLAGS+=' -DCONFIG_PATH=\"$(localstatedir)/lib/opencryptoki\" -DSBIN_PATH=\"$(sbindir)\" -DLIB_PATH=\"$(libdir)\"'
 
