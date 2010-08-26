@@ -464,7 +464,7 @@ main(int argc, char *argv[]){
 #endif
 
    /* Get the slot list and indicate if a slot number was passed in or not */
-   if (get_slot_list(flags & CFG_SLOT, slot))
+   if ((rc = get_slot_list(flags & CFG_SLOT, slot)))
       goto done;
 
    /* If the user tries to set the user and SO pin at the same time print an
@@ -478,23 +478,28 @@ main(int argc, char *argv[]){
 
    /* If the user wants to display PKCS11 info call the function to do so */
    if (flags & CFG_PKCS_INFO)
-      display_pkcs11_info();
+      if ((rc = display_pkcs11_info()))
+	 goto done;
 
    /* If the user wants to display token info call the function to do so */
    if (flags & CFG_TOKEN_INFO)
-      display_token_info((flags & CFG_SLOT) ? in_slot : -1);
+      if ((rc = display_token_info((flags & CFG_SLOT) ? in_slot : -1)))
+	 goto done;
 
    /* If the user wants to display slot info call the function to do so */
    if (flags & CFG_SLOT_INFO)
-      display_slot_info((flags & CFG_SLOT) ? in_slot : -1);
+      if ((rc = display_slot_info((flags & CFG_SLOT) ? in_slot : -1)))
+	 goto done;
 
    /* If the user wants to display slot info call the function to do so */
    if (flags & CFG_LIST_SLOT)
-      list_slot();
+      if ((rc = list_slot()))
+	 goto done;
 
    /* If the user wants to display mechanism info call the function to do so */
    if (flags & CFG_MECHANISM_INFO)
-      display_mechanism_info();
+      if ((rc = display_mechanism_info()))
+	 goto done;
 
 #if SHM
    /* If the user wants to display shared memory info call the function to do so */
@@ -1359,7 +1364,7 @@ init(void){
       cleanup();
    }
 
-   return CKR_OK;
+   return rc;
 }
 
 CK_RV
