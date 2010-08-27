@@ -57,6 +57,7 @@ TOKTYPE=""
 # v2.11/login MUST come last if it appears in this list
 #
 OCK_TESTS="oc-digest/digest_tests.sh driver/*tests"
+OCK_BENCHS="driver/*bench"
 
 usage()
 {
@@ -68,6 +69,7 @@ usage()
 		-q	  run quietly - display only total number of tests passed/failed
 		-s <slot> slot against which the testcases will run
 		-n	  don't stop in case one of the testcases fail
+                -b        also run benchmarks or performance tests
 	END
 	exit -1
 }
@@ -228,19 +230,33 @@ check_env()
 
 ###
 ## run_tests() - run tests for a specific slot,
-##               following $OCK_DEST order
+##               following $OCK_TEST order
 ## $1 - the slot
 ###
 run_tests()
 {
-	echo "Will run the following tests for slot $1: $(ls -U $OCK_TESTS)"
+	echo "***** Will run the following tests for slot $1: $(ls -U $OCK_TESTS)"
 	for i in $( ls -U $OCK_TESTS )
 	do
-		echo "=====Now executing '$i'======"
+		echo "** Now executing '$i'"
 		$i -slot $1 $NO_STOP 2>&1
 	done
 }
 
+###
+## run_benchs() - run benchmarks for a specific slot,
+##                following $OCK_BENCH order
+## $1 - the slot
+###
+run_benchs()
+{
+	echo "***** Will run the following benchmarks for slot $1: $(ls -U $OCK_BENCHS)"
+	for i in $( ls -U $OCK_BENCHS )
+	do
+		echo "** Now executing '$i"
+		$i -slot $1 $NO_STOP 2>&1
+	done
+}
 main_script()
 {
         # check generic stuff first
@@ -259,6 +275,7 @@ main_script()
                 check_slot $i || { echo "SKIPPING slot $i"; continue; }
                 init_slot $i || { echo "SKIPPING slot $i"; continue; }
                 run_tests $i
+                [ -n "$BENCHMARK" ] && run_benchs $i
         done
 }
 
@@ -286,6 +303,9 @@ do
 		s)
 			SLOT="$OPTARG"
 			;;
+                b)
+                        BENCHMARK="yes"
+                        ;;
 	esac
 done
 
