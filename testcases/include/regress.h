@@ -26,6 +26,25 @@
 #define SYSTEMTIME   struct timeb
 #define GetSystemTime(x) ftime((x))
 
+#include <sys/time.h>
+static struct timeval timev1;
+static struct timeval timev2;
+static struct timeval timevr;
+
+#ifndef timersub
+/* We just need timersub, so instead of requiring _BSD_SOURCE, *
+ * define it just like glibc does                              */
+#define timersub(t1, t2, tr)                                    \
+        do {                                                    \
+                (tr)->tv_sec = (t1)->tv_sec - (t2)->tv_sec;     \
+                (tr)->tv_usec = (t1)->tv_usec - (t2)->tv_usec;  \
+                if ((tr)->tv_usec < 0) {                        \
+                        --(tr)->tv_sec;                         \
+                        (tr)->tv_usec += 1000000;               \
+                }                                               \
+        } while (0)
+#endif
+
 #include "p11util.h"
 
 void process_time(SYSTEMTIME t1, SYSTEMTIME t2);
@@ -77,6 +96,66 @@ int get_user_pin(CK_BYTE_PTR);
 	fprintf(stderr, "%s:%d: %s returned %lu (0x%lx) %s\n",		\
 		__FILE__, __LINE__, _str, _rc, _rc,			\
 		p11_get_ckr(_rc))
+
+#define testcase_begin(_fmt, ...)                                       \
+        do {                                                            \
+                gettimeofday(&timev1, NULL);                            \
+                printf("* TESTCASE %s BEGIN " _fmt "\n",                \
+                        __func__, ## __VA_ARGS__);                      \
+        } while (0)
+
+#define testcase_begin_f(_func, _fmt, ...)                              \
+        do {                                                            \
+                gettimeofday(&timev1, NULL);                            \
+                printf("* TESTCASE %s BEGIN " _fmt "\n",                \
+                        _func, ## __VA_ARGS__);                         \
+        } while (0)
+
+
+#define testcase_pass(_fmt, ...)                                        \
+        do {                                                            \
+                gettimeofday(&timev2, NULL);                            \
+                timersub(&timev2, &timev1, &timevr);                    \
+                printf("* TESTCASE %s PASS (elapsed time %lds %ldus) " _fmt "\n",\
+                        __func__, timevr.tv_sec, timevr.tv_usec,        \
+                        ## __VA_ARGS__);                                \
+        } while (0)
+
+#define testcase_pass_f(_func, _fmt, ...)                               \
+        do {                                                            \
+                gettimeofday(&timev2, NULL);                            \
+                printf("* TESTCASE %s PASS (elapsed time %lds %ldus) " _fmt "\n",\
+                       _func, timevr.tv_sec, timevr.tv_usec,            \
+                        ## __VA_ARGS__);                                \
+        } while (0)
+
+#define testcase_skip(_fmt, ...)                                        \
+        printf("* TESTCASE %s SKIP " _fmt "\n",                         \
+                __func__, ## __VA_ARGS__)
+
+#define testcase_skip_f(_func, _fmt, ...)                               \
+        printf("* TESTCASE %s SKIP " _fmt "\n",                         \
+                _func, ## __VA_ARGS__)
+
+#define testcase_fail(_fmt, ...)                                        \
+        printf("* TESTCASE %s FAIL (%s:%d) " _fmt "\n",                 \
+                        __func__, __FILE__, __LINE__,                   \
+                        ## __VA_ARGS__)
+
+#define testcase_fail_f(_func, _fmt, ...)                               \
+        printf("* TESTCASE %s FAIL (%s:%d) " _fmt "\n",                 \
+                        _func, __FILE__, __LINE__,                      \
+                        ## __VA_ARGS__)
+
+#define testcase_error(_fmt, ...)                                       \
+        printf("* TESTCASE %s ERROR (%s:%d)) " _fmt "\n",               \
+                        __func__, __FILE__, __LINE__,                   \
+                        ## __VA_ARGS__)
+
+#define testcase_error_f(_func, _fmt, ...)                              \
+        printf("* TESTCASE %s ERROR (%s:%d)) " _fmt "\n",               \
+                        _func, __FILE__, __LINE__,                      \
+                        ## __VA_ARGS__)
 
 
 #endif
