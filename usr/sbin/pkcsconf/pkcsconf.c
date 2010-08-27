@@ -337,14 +337,10 @@ int echo(int);
 int get_pin(CK_CHAR **);
 CK_RV cleanup(void);
 CK_RV display_pkcs11_info(void);
-CK_RV get_slot_list(int, CK_CHAR_PTR);
+CK_RV get_slot_list(void);
 CK_RV display_slot_info(int);
 CK_RV display_token_info(int);
 CK_RV display_mechanism_info(void);
-void display_shared_memory(void);
-void *attach_shared_memory(void);
-void detach_shared_memory(char *);
-CK_RV validate_slot(CK_CHAR_PTR);
 CK_RV init_token(CK_CHAR_PTR);
 CK_RV init_user_pin(CK_CHAR_PTR, CK_CHAR_PTR);
 CK_RV list_slot(void);
@@ -410,11 +406,6 @@ main(int argc, char *argv[]){
          case 'm':  /* display mechanism info */
             flags |= CFG_MECHANISM_INFO;
             break;
-#if SHM
-         case 'M':  /* display shared memory */
-            flags |= CFG_SHARED_MEM;
-            break;
-#endif
          case 'I':  /* initialize the token */
             flags |= CFG_INITIALIZE;
             break;
@@ -453,18 +444,12 @@ main(int argc, char *argv[]){
    if ( init() != CKR_OK )
 	exit(-1);
 
-#if SHM
-   /* If a slot number was passed in validate the slot number */
-   if (flags & CFG_SLOT)
-      validate_slot(slot);
-#else
    if (flags & CFG_SLOT) {
      in_slot = atol((char *)slot);
    }
-#endif
 
    /* Get the slot list and indicate if a slot number was passed in or not */
-   if ((rc = get_slot_list(flags & CFG_SLOT, slot)))
+   if ((rc = get_slot_list()))
       goto done;
 
    /* If the user tries to set the user and SO pin at the same time print an
@@ -500,12 +485,6 @@ main(int argc, char *argv[]){
    if (flags & CFG_MECHANISM_INFO)
       if ((rc = display_mechanism_info()))
 	 goto done;
-
-#if SHM
-   /* If the user wants to display shared memory info call the function to do so */
-   if (flags & CFG_SHARED_MEM)
-      display_shared_memory();
-#endif
 
    /* If the user wants to initialize the card check to see if they passed in
     * the SO pin, if not ask for the PIN */
@@ -635,11 +614,6 @@ main(int argc, char *argv[]){
     * left around in system memory*/
 
 done:
-#if SHM
-     detach_shared_memory((char *)shmp);
-     free (slot);
-#endif
-
    if (sopin) {
      memset(sopin, 0, strlen((char *)sopin));
      free (sopin);
@@ -660,8 +634,7 @@ done:
       free (newpin2);
    }
 
-   return rc;
-
+   return ((rc == 0) || (rc % 256) ? rc : -1);
 }
 
 int get_pin(CK_CHAR **pin)
@@ -742,33 +715,6 @@ echo(int bool){
    return 0;
 }
 
-#if SHM
-void
-display_shared_memory(void){
-   int lcv;  // Loop control variable
-
-   /* display message headers */
-   printf(PKCSINIT_MSG(SHMEM, "Shared Memory Data\n"));
-   printf(PKCSINIT_MSG(SLOTNUMS, "\tNumber of Slots: %d\n"), shmp->num_slots);
-
-   /* go through all the slots and display the shared memeory information */
-   for (lcv = 0; lcv < shmp->num_slots; lcv++) {
-      printf("\n");
-      printf(PKCSINIT_MSG(SLOTNUM, "\tSlot Number: %d\n"),
-               shmp->slot_info[lcv].slot_number);
-      printf(PKCSINIT_MSG(PRESENT, "\tPresent: %d\n"), shmp->slot_info[lcv].present);
-      printf(PKCSINIT_MSG(DLLLOC, "\tDLL Location: %s\n"),
-            shmp->slot_info[lcv].dll_location);
-      printf(PKCSINIT_MSG(INITFCN, "\tInit Function: %s\n"),
-            shmp->slot_info[lcv].slot_init_fcn);
-      printf(PKCSINIT_MSG(COORELATE, "\tCoorelator: %s\n"),
-            shmp->slot_info[lcv].correlator);
-      printf(PKCSINIT_MSG(GLOBAL, "\tGlobal Sessions: 0x%X\n"),
-            shmp->slot_info[lcv].global_sessions);
-   }
-}
-#endif
-
 CK_RV
 display_pkcs11_info(void){
 
@@ -798,7 +744,7 @@ display_pkcs11_info(void){
 }
 
 CK_RV
-get_slot_list(int cond, CK_CHAR_PTR slot){
+get_slot_list(){
    CK_RV                 rc;                   // Return Code
    CK_SLOT_ID_PTR        TempSlotList = NULL;  // Temporary Slot List
 
@@ -822,35 +768,6 @@ get_slot_list(int cond, CK_CHAR_PTR slot){
    if (rc != CKR_OK) {
       printf(PKCSINIT_MSG(LISTERROR, "Error getting slot list: 0x%X (%s)\n"), rc, p11_get_ckr(rc));
       return rc;
-   }
-
-   /* If the conditional variable cond is true then slot should
-    * contain a char string representing a slot number to examine.
-    * The validate_slot function has already been run, therefore we now that
-    * the slot exsists in the system. */
-   if (cond) {
-
-      /* NOTE: This function changes slot list to not be the PKCS11 slot list,
-       * but instead the list of slots which we are going to be working with.
-       * This allows us to do the same operation on multiple slots; however, the
-       * configuration routines currently expect only one slot to be passed in
-       * with the -c flag.  Therefore, the slot list will contain only the slot
-       * passed in with the -c flag. */
-
-      TempSlotList = (CK_SLOT_ID_PTR) malloc(sizeof(CK_SLOT_ID));
-
-      /* The validate_slot function set the variable in_slot to tell
-       * us the array position of the passed in card.  We can therefore
-       * use this position and assume it is valid. */
-      *TempSlotList = SlotList[in_slot];
-
-      free (SlotList);
-      SlotList = (CK_SLOT_ID_PTR) malloc(sizeof(CK_SLOT_ID));
-
-      *SlotList = *TempSlotList;
-      SlotCount = 1;
-
-      free (TempSlotList);
    }
 
    return CKR_OK;
@@ -1337,24 +1254,6 @@ init(void){
 
    symPtr(&FunctionPtr);
 
-#if SHM
-   /* Since this program uses PKCS11 function calls we need to make sure that
-    * the slot daemon is running.  If the shared memory is created, then we
-    * know slot manager is running.  Therefore, if we fail to attach to the
-    * memory, we assume that slots is not running and attempt to start it.
-    * After 1/2 second we try again and if it fails we fail. */
-   if ((shmp = attach_shared_memory()) == NULL) {
-       system("/usr/sbin/pkcsslotd");
-       usleep(500);
-       if ((shmp = attach_shared_memory()) == NULL) {
-            printf(PKCSINIT_MSG(SLOTMGRERROR,
-                    "Error communicating with slot manager: 0x%x\n"), errno);
-            fflush(stdout);
-            cleanup();
-       }
-   }
-#endif
-
    /* If we get here we know the slot manager is running and we can use PKCS11
     * calls, so we will execute the PKCS11 Initilize command. */
    rc = FunctionPtr->C_Initialize(NULL);
@@ -1401,77 +1300,3 @@ usage(char *progname){
    exit(-1);
 }
 
-#if SHM
-void *
-attach_shared_memory() {
-
-   key_t  tok;
-   int    shmid;
-   char   *shmp;
-   struct stat statbuf;
-
-   // Really should fstat the tok_path
-
-   if (stat(TOK_PATH,&statbuf) < 0 ){
-      // The Stat token origin file does not work... Kick it out
-      return NULL;
-   }
-
-   tok = ftok(TOK_PATH,'b');
-
-   // Get the shared memory id.
-   shmid = shmget(tok,sizeof(Slot_Mgr_Shr_t),
-               S_IROTH|S_IWOTH|S_IWUSR|S_IWGRP|S_IRGRP|S_IRUSR|S_IWUSR);
-   if ( shmid < 0 ) {
-      return NULL;
-   }
-
-
-   /* Attach to shared memroy */
-   shmp = (void *)shmat(shmid,NULL,0);
-   if ( !shmp ) {
-      return NULL;
-   }
-
-   return shmp;
-}
-
-void
-detach_shared_memory (char *shmp) {
-
-   /* We could call the shmdt (shared memory detatch) directly but this is more
-    * readable */
-   shmdt(shmp);
-}
-
-CK_RV
-validate_slot(CK_CHAR_PTR slot) {
-   int lcv;                // Loop control variable
-   long slot_num;          // integer value for the slot (long should be large enough)
-   CK_BOOL valid = FALSE;  // Conditional variable
-
-   /* Make sure the slot passed in is not NULL */
-   if (! slot)
-      return CKR_ATTRIBUTE_VALUE_INVALID;
-   slot_num = atol(slot);
-
-   for(lcv = 0; lcv < shmp->num_slots; lcv++) {
-      /* Compare what is in shared memory to the slot passed in */
-      if (shmp->slot_info[lcv].slot_number == slot_num) {
-         valid = TRUE;   // indicate the slot is valid
-         in_slot = lcv;  // set the slot value to be array position
-         break;          // no need to check the rest
-      }
-   }
-
-   if (valid)
-      return CKR_OK;
-   else {
-      /* This should really read Slot, but since translation has been done this
-       * will need to wait until 5.1 to be translated correctly */
-      printf(PKCSINIT_MSG(INVALIDCARD, "Invalid Card: %s\n"), slot);
-      fflush(stdout);
-      return CKR_ATTRIBUTE_VALUE_INVALID;
-   }
-}
-#endif
