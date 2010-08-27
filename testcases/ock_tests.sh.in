@@ -81,13 +81,13 @@ check_tpmtok()
         # Check for tpmtoken_init
         if ! which tpmtoken_init; then
                 echo "Error: tpmtoken_init could not be found on PATH"
-                exit 1
+                return 1
         fi
 
         # Check if tcsd is running
         if ! pgrep tcsd; then
                 echo "Error: TCSD daemon not running"
-                exit 1
+                return 1
         fi
 }
 
@@ -100,7 +100,7 @@ check_ccatok()
         # Check if catcher.exe is running
         if ! pgrep catcher.exe; then
                 echo "Error: catcher.exe daemon not running"
-                exit 1
+                return 1
         fi
 }
 
@@ -116,18 +116,18 @@ init_slot()
                         echo "Initializing TPM token using init_tpmtoken.sh"
                         if ! $TESTDIR/init_tpmtoken.sh; then
                                 echo "Error initializing TPM token"
-                                exit 1
+                                return 1
                         fi
                         ;;
                 CCA | ICA | Software)
                         echo "Initializing $TOKTYPE using init_token.sh"
                         if ! $TESTDIR/init_token.sh $1; then
                                 echo "Error initializing $TOKTYPE token"
-                                exit 1
+                                return 1
                         fi
                         ;;
                 *)
-                        echo "Token type not recognized: $TOKTYPE"
+                        echo "FATAL: Token type not recognized: $TOKTYPE"
                         exit 1
         esac
 }
@@ -147,12 +147,12 @@ check_slot()
         case $TOKMODEL in
                 *TPM*)
                         echo "TPM Token type detected"
-                        check_tpmtok
+                        check_tpmtok || return
                         TOKTYPE="TPM"
                         ;;
                 *CCA*)
                         echo "CCA Token type detected"
-                        check_ccatok
+                        check_ccatok || return
                         TOKTYPE="CCA"
                         ;;
                 *ICA*)
@@ -164,7 +164,7 @@ check_slot()
                         TOKTYPE="Software"
                         ;;
                 *)
-                        echo "Error: unsupported or undetermined token type"
+                        echo "FATAL: unsupported or undetermined token type"
                         echo "       wrong Slot?"
                         exit 1
         esac
@@ -177,51 +177,51 @@ check_env()
 {
         ## Check env vars first
         if [ -z $PKCS11_SO_PIN ]; then
-                echo "Error: Must set PKCS11_SO_PIN"
+                echo "FATAL: Must set PKCS11_SO_PIN"
                 exit 1
         fi
 
         if [ -z $PKCS11_USER_PIN ]; then
-                echo "Error: Must set PKCS11_USER_PIN"
+                echo "FATAL: Must set PKCS11_USER_PIN"
                 exit 1
         fi
 
         if [ -z $PKCSLIB ]; then
-                echo "Error: Must set PKCSLIB"
+                echo "FATAL: Must set PKCSLIB"
                 exit 1
         fi
 
         if [ ! -f $PKCSLIB ]; then
-                echo "Error: PKCSLIB=$PKCSLIB is invalid"
+                echo "FATAL: PKCSLIB=$PKCSLIB is invalid"
                 exit 1
         fi
 
         if [ ! -f $PKCONF ]; then
-                echo "Error: Can't find configuration data ($PKCONF)"
+                echo "FATAL: Can't find configuration data ($PKCONF)"
                 exit 1
         fi
 
         ## Check if the pkcs11 group 'exists'
         P11GROUP=`getent group pkcs11 | cut -d ":" -f 3`
         if [ -z $P11GROUP ]; then
-                echo "Error: Can't find pkcs11 group"
+                echo "FATAL: Can't find pkcs11 group"
                 exit 1
         fi
         ## Check if we're part of it
         if ! id -G | grep $P11GROUP; then
-                echo "Error: Must be part of the pkcs11 group"
+                echo "FATAL: Must be part of the pkcs11 group"
                 exit 1
         fi
 
         ## Make sure we have the slot daemon running
         if ! pgrep pkcsslotd; then
-                echo "Error: The slot daemon (pkcsslotd) must be running"
+                echo "FATAL: The slot daemon (pkcsslotd) must be running"
                 exit 1
         fi
 
         ## We also need pkcsconf
         if [ ! -x $PKCSCONFBIN ]; then
-                echo "Error: Invalid pkcsconf utility ($PKCSCONFBIN)"
+                echo "FATAL: Invalid pkcsconf utility ($PKCSCONFBIN)"
                 exit 1
         fi
 }
@@ -255,9 +255,10 @@ main_script()
         fi
 
         for i in $SLOT; do
-        	check_slot $i
-                init_slot $i
-        	run_tests $i
+                echo "********** Testing Slot $i **********"
+                check_slot $i || { echo "SKIPPING slot $i"; continue; }
+                init_slot $i || { echo "SKIPPING slot $i"; continue; }
+                run_tests $i
         done
 }
 
