@@ -174,7 +174,7 @@ gpasswd -a root pkcs11
 
 %files
 %defattr(-,root,root,-)
-%doc FAQ README LICENSE
+%doc FAQ README LICENSE doc/README.token_data
 %doc doc/openCryptoki-HOWTO.pdf
 %{_mandir}/man*/*
 %{_initddir}/pkcsslotd
