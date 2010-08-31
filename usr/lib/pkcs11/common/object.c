@@ -656,6 +656,10 @@ object_is_modifiable( OBJECT *obj )
    if (found == FALSE)
       return TRUE;      // should always be found but we default to TRUE
 
+   //axelrh: prevent dereferencing NULL from bad parse
+   if (attr->pValue == NULL)
+	return TRUE; //default to TRUE
+
    modifiable = *(CK_BBOOL *)attr->pValue;
 
    return modifiable;
@@ -680,7 +684,13 @@ object_is_private( OBJECT *obj )
    if ( attr == NULL)  return  TRUE;
   
 
-   priv = *((CK_BBOOL *)attr->pValue);
+   //axelrh: prevent segfault caused by 0-len attribute
+   //that has a null pValue
+   CK_BBOOL *bboolPtr = (CK_BBOOL *)attr->pValue;
+   if (bboolPtr == NULL)
+       return TRUE; //default
+
+   priv = *(bboolPtr);
 
    return priv;
 }
@@ -714,6 +724,10 @@ object_is_token_object( OBJECT *obj )
    found = template_attribute_find( obj->template, CKA_TOKEN, &attr );
    if (found == FALSE)
       return FALSE;
+
+   //axelrh: prevent dereferencing NULL from bad parse
+   if (attr->pValue == NULL)
+	return FALSE;
 
    is_token = *(CK_BBOOL *)attr->pValue;
    return is_token;
@@ -870,11 +884,19 @@ error:
 }
 
 
-
 //
 //
 CK_RV
 object_restore( CK_BYTE *data, OBJECT **new_obj, CK_BBOOL replace )
+{
+   return object_restore_withSize(data, new_obj, replace, -1);
+}
+
+//
+//Modified object_restore to prevent buffer overflow
+//If data_size=-1, won't do bounds checking
+CK_RV
+object_restore_withSize( CK_BYTE *data, OBJECT **new_obj, CK_BBOOL replace, int data_size )
 {
    TEMPLATE  * tmpl = NULL;
    OBJECT    * obj  = NULL;
@@ -906,7 +928,7 @@ object_restore( CK_BYTE *data, OBJECT **new_obj, CK_BBOOL replace )
    memcpy( &obj->name, data + offset, 8 );
    offset += 8;
 
-   rc = template_unflatten( &tmpl, data + offset, count );
+   rc = template_unflatten_withSize( &tmpl, data + offset, count, data_size );
    if (rc != CKR_OK){
       st_err_log(166, __FILE__, __LINE__);
       goto error;

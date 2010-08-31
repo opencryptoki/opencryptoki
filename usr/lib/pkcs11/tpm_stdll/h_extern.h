@@ -1551,6 +1551,8 @@ CK_BBOOL object_mgr_purge_private_token_objects( void );
 
 CK_RV    object_mgr_restore_obj( CK_BYTE *data, OBJECT *oldObj );
 
+CK_RV    object_mgr_restore_obj_withSize( CK_BYTE *data, OBJECT *oldObj, int data_size );
+
 CK_RV    object_mgr_set_attribute_values( SESSION          * sess,
                                           CK_OBJECT_HANDLE   handle,
                                           CK_ATTRIBUTE     * pTemplate,
@@ -1593,6 +1595,11 @@ CK_ULONG  object_get_size( OBJECT *obj );
 CK_RV     object_restore( CK_BYTE  * data,
                           OBJECT  ** obj,
                           CK_BBOOL   replace );
+
+CK_RV     object_restore_withSize( CK_BYTE  * data,
+				   OBJECT  ** obj,
+				   CK_BBOOL   replace,
+				   int        data_size );
 
 CK_RV     object_set_attribute_values( OBJECT       * obj,
                                        CK_ATTRIBUTE * pTemplate,
@@ -1664,6 +1671,12 @@ CK_RV     template_update_attribute( TEMPLATE * tmpl, CK_ATTRIBUTE * attr );
 CK_RV     template_unflatten( TEMPLATE ** tmpl,
                               CK_BYTE   * data,
                               CK_ULONG    count );
+
+CK_RV     template_unflatten_withSize( TEMPLATE ** new_tmpl,
+				       CK_BYTE   * buf,
+				       CK_ULONG    count,
+				       int         buf_size );
+
 
 CK_RV     template_validate_attribute( TEMPLATE     * tmpl,
                                        CK_ATTRIBUTE * attr,
@@ -2021,6 +2034,7 @@ extern token_spec_t token_specific;
 
 #define st_err_log(...)		do { } while (0)
 #endif
+
 
 /* custom attributes for the TPM token */
 /* CKA_HIDDEN will be used to filter return results on a C_FindObjects call. Used

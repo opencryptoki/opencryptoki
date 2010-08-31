@@ -484,7 +484,6 @@ CK_RV ST_Initialize( void **FunctionList,
 		}
 	}
 
-	// SAB XXX FIXME FIXME  check return code... for all these...
 	rc = load_token_data();
 	if (rc != CKR_OK) {
 		*FunctionList = NULL;
@@ -492,8 +491,9 @@ CK_RV ST_Initialize( void **FunctionList,
 		goto done;
 	}
 
-
+	/* no need to check for error here, we load what we can and syslog the rest */
 	load_public_token_objects();
+
 	XProcLock( xproclock );
 	global_shm->publ_loaded = TRUE;
 	XProcUnLock( xproclock );

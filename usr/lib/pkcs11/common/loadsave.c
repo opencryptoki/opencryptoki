@@ -307,6 +307,7 @@
 #include <sys/ipc.h>
 #include <sys/file.h>
 #include <errno.h>
+#include <syslog.h>
 
 #include <pwd.h>
 #include <grp.h>
@@ -703,6 +704,7 @@ load_public_token_objects( void )
    CK_BYTE   tmp[PATH_MAX], fname[PATH_MAX], iname[PATH_MAX];
    CK_BBOOL  priv;
    CK_ULONG_32  size;
+   size_t    read_size;
 
 
    sprintf((char *)iname,"%s/%s/%s",pk_dir,PK_LITE_OBJ_DIR, PK_LITE_OBJ_IDX);
@@ -734,17 +736,25 @@ load_public_token_objects( void )
 	 size = size -sizeof(CK_ULONG_32) - sizeof(CK_BBOOL);
          buf = (CK_BYTE *)malloc(size);
          if (!buf) {
-            fclose(fp1);
             fclose(fp2);
-            st_err_log(0, __FILE__, __LINE__);
-            return CKR_HOST_MEMORY;
+	    LOG(LOG_ERR, "Cannot malloc %u bytes to read in token object %s (ignoring it)",
+		size, fname);
+	    continue;
          }
 
-         fread( buf, size, 1, fp2 );
+         read_size = fread( buf, 1, size, fp2 );
+	 if (read_size != size) {
+            fclose(fp2);
+	    free(buf);
+	    LOG(LOG_ERR, "Cannot read token object %s (ignoring it)", fname);
+	    continue;
+	 }
 
          // ... grab object mutex here.
          MY_LockMutex(&obj_list_mutex);
-         object_mgr_restore_obj( buf, NULL );
+	 if (object_mgr_restore_obj_withSize(buf, NULL, size) != CKR_OK) {
+	    LOG(LOG_ERR, "Cannot restore token object %s (ignoring it)", fname);
+	 }
          MY_UnlockMutex(&obj_list_mutex);
          free( buf );
          fclose( fp2 );
@@ -767,6 +777,7 @@ load_private_token_objects( void )
    CK_BBOOL  priv;
    CK_ULONG_32  size;
    CK_RV     rc;
+   size_t    read_size;
 
 
    sprintf((char *)iname,"%s/%s/%s",pk_dir,PK_LITE_OBJ_DIR, PK_LITE_OBJ_IDX);
@@ -798,16 +809,18 @@ load_private_token_objects( void )
 	 size = size - sizeof(CK_ULONG_32) - sizeof(CK_BBOOL);
          buf = (CK_BYTE *)malloc(size);
          if (!buf) {
-            st_err_log(0, __FILE__, __LINE__);
-            rc = CKR_HOST_MEMORY;
-            goto error;
+	    fclose( fp2 );
+	    LOG(LOG_ERR, "Cannot malloc %u bytes to read in token object %s (ignoring it)",
+		size, fname);
+	    continue;
          }
 
-         rc = fread( (char *)buf, size, 1, fp2 );
-         if (rc != 1) {
-            st_err_log(4, __FILE__, __LINE__, __FUNCTION__);
-            rc = CKR_FUNCTION_FAILED;
-            goto error;
+         read_size = fread( (char *)buf, 1, size, fp2 );
+         if (read_size != size) {
+	    free( buf );
+	    fclose( fp2 );
+	    LOG(LOG_ERR, "Cannot read token object %s (ignoring it)", fname);
+	    continue;
          }
 
 // Grab object list  mutex
@@ -913,6 +926,14 @@ restore_private_token_object( CK_BYTE  * data,
    ptr = cleartxt;
 
    obj_data_len = *(CK_ULONG_32 *)ptr;
+
+   // prevent buffer overflow in sha_update
+   if (obj_data_len > cleartxt_len) {
+      st_err_log(4, __FILE__, __LINE__, __FUNCTION__);
+      rc = CKR_FUNCTION_FAILED;
+      goto done;
+   }
+
    ptr += sizeof(CK_ULONG_32);
    obj_data = ptr;
 
@@ -1312,6 +1333,7 @@ reload_token_object( OBJECT *obj )
    CK_ULONG_32   size;
    CK_ULONG   size_64;
    CK_RV      rc;
+   size_t     read_size;
 
 
    memset( (char *)fname, 0x0, sizeof(fname) );
@@ -1336,12 +1358,17 @@ reload_token_object( OBJECT *obj )
 
    buf = (CK_BYTE *)malloc(size);
    if (!buf) {
-      st_err_log(0, __FILE__, __LINE__);
       rc = CKR_HOST_MEMORY;
+      LOG(LOG_ERR, "Cannot malloc %u bytes to read in token object %s (ignoring it)", size, fname);
       goto done;
    }
 
-   fread( buf, size, 1, fp );
+   read_size = fread( buf, 1, size, fp );
+   if (read_size != size) {
+      LOG(LOG_ERR, "Token object %s appears corrupted (ignoring it)", fname);
+      rc = CKR_FUNCTION_FAILED;
+      goto done;
+   }
 
    size_64 = size;
 

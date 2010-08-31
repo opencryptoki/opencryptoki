@@ -305,6 +305,7 @@
 #include <sys/ipc.h>
 #include <sys/file.h>
 #include <errno.h>
+#include <syslog.h>
 
 #include <pwd.h>
 #include <grp.h>
@@ -319,6 +320,7 @@
 //#include "args.h"
 
 #include "../api/apiproto.h"
+#include "tpm_specific.h"
 
 #define MK_SIZE (AES_KEY_SIZE_256)
 
@@ -791,6 +793,7 @@ load_public_token_objects( void )
    CK_BBOOL  priv;
    CK_ULONG_32  size;
    struct passwd *pw = NULL;
+   size_t buf_size;
 
    if ((pw = getpwuid(getuid())) == NULL){
       LogError("getpwuid failed: %s", strerror(errno));
@@ -821,6 +824,7 @@ load_public_token_objects( void )
 
          fread( &size, sizeof(CK_ULONG_32), 1, fp2 );
          fread( &priv, sizeof(CK_BBOOL), 1, fp2 );
+
          if (priv == TRUE) {
             fclose( fp2 );
             continue;
@@ -830,17 +834,25 @@ load_public_token_objects( void )
 	 size = size -sizeof(CK_ULONG_32) - sizeof(CK_BBOOL);
          buf = (CK_BYTE *)malloc(size);
          if (!buf) {
-            fclose(fp1);
             fclose(fp2);
-            st_err_log(0, __FILE__, __LINE__);
-            return CKR_HOST_MEMORY;
+	    LOG(LOG_ERR, "Cannot malloc %u bytes to read in token object %s (ignoring it)",
+		size, fname);
+	    continue;
          }
 
-         fread( buf, size, 1, fp2 );
+         buf_size = fread( buf, 1, size, fp2 );
+	 if (buf_size != size) {
+	    free(buf);
+            fclose(fp2);
+	    LOG(LOG_ERR, "Cannot read in token object %s (ignoring it)", fname);
+	    continue;
+	 }
 
          // ... grab object mutex here.
          MY_LockMutex(&obj_list_mutex);
-         object_mgr_restore_obj( buf, NULL );
+         if (object_mgr_restore_obj_withSize( buf, NULL, size ) != CKR_OK) {
+	    LOG(LOG_ERR, "Cannot restore token object %s (ignoring it)", fname);
+	 }
          MY_UnlockMutex(&obj_list_mutex);
          free( buf );
          fclose( fp2 );
@@ -865,6 +877,7 @@ load_private_token_objects( void )
    CK_ULONG_32  size;
    CK_RV     rc;
    struct passwd *pw = NULL;
+   size_t         buf_size;
 
    if ((pw = getpwuid(getuid())) == NULL){
       LogError("getpwuid failed: %s", strerror(errno));
@@ -904,16 +917,18 @@ load_private_token_objects( void )
 	 size = size - sizeof(CK_ULONG_32) - sizeof(CK_BBOOL);
          buf = (CK_BYTE *)malloc(size);
          if (!buf) {
-            st_err_log(0, __FILE__, __LINE__);
-            rc = CKR_HOST_MEMORY;
-            goto error;
+	    fclose(fp2);
+	    LOG(LOG_ERR, "Cannot malloc %u bytes to read in token object %s (ignoring it)",
+		size, fname);
+	    continue;
          }
 
          rc = fread( (char *)buf, size, 1, fp2 );
          if (rc != 1) {
-            st_err_log(4, __FILE__, __LINE__, __FUNCTION__);
-            rc = CKR_FUNCTION_FAILED;
-            goto error;
+	    free(buf);
+            fclose(fp2);
+	    LOG(LOG_ERR, "Cannot read in token object %s (ignoring it)", fname);
+	    continue;
          }
 
 // Grab object list  mutex
@@ -1014,6 +1029,14 @@ restore_private_token_object( CK_BYTE  * data,
    ptr = cleartxt;
 
    obj_data_len = *(CK_ULONG_32 *)ptr;
+
+   //axelrh: prevent buffer overrun in sha_update
+   if (obj_data_len > cleartxt_len) {
+      st_err_log(4, __FILE__, __LINE__, __FUNCTION__);
+      rc = CKR_FUNCTION_FAILED;
+      goto done;
+   }
+
    ptr += sizeof(CK_ULONG_32);
    obj_data = ptr;
 
@@ -1380,6 +1403,7 @@ reload_token_object( OBJECT *obj )
    CK_ULONG   size_64;
    CK_RV      rc;
    struct passwd *pw = NULL;
+   size_t         read_size;
 
    if ((pw = getpwuid(getuid())) == NULL){
       LogError("getpwuid failed: %s", strerror(errno));
@@ -1411,12 +1435,20 @@ reload_token_object( OBJECT *obj )
 
    buf = (CK_BYTE *)malloc(size);
    if (!buf) {
-      st_err_log(0, __FILE__, __LINE__);
+      LOG(LOG_ERR, "Cannot malloc %u bytes to read in token object %s (ignoring it)", size, fname);
       rc = CKR_HOST_MEMORY;
       goto done;
    }
 
-   fread( buf, size, 1, fp );
+   read_size = fread( buf, 1, size, fp );
+
+   //axelrh: make sure the buffer size read in is at least as big
+   //as the reported size of the token
+   if (read_size < size) {
+      LOG(LOG_ERR, "Token object %s appears corrupted (ignoring it)", fname);
+      rc = CKR_FUNCTION_FAILED;
+      goto done;
+   }
 
    size_64 = size;
 

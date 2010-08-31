@@ -1530,6 +1530,11 @@ object_mgr_find_build_list( SESSION      * sess,
 	    // that have the CKO_HW_FEATURE attribute set. - KEY
             if ((hw_feature == FALSE) && 
 	        (template_attribute_find(obj->template, CKA_CLASS, &attr) == TRUE)) {
+	       //axelrh: prevent segfault if pValue set to NULL (bad parse)
+	       if (attr->pValue == NULL) {
+                  st_err_log(3, __FILE__, __LINE__, __FUNCTION__);
+                  return CKR_FUNCTION_FAILED;
+               }
                if (*(CK_OBJECT_CLASS *)attr->pValue == CKO_HW_FEATURE)
 	          goto next_loop;
 	    }
@@ -1929,11 +1934,19 @@ object_mgr_purge_private_token_objects( void )
    return TRUE;
 }
 
-
 //
 //
 CK_RV
 object_mgr_restore_obj( CK_BYTE *data, OBJECT *oldObj )
+{
+    return object_mgr_restore_obj_withSize(data, oldObj, -1);
+}
+
+//
+//Modified verrsion of object_mgr_restore_obj to bounds check
+//If data_size==-1, won't check bounds
+CK_RV
+object_mgr_restore_obj_withSize( CK_BYTE *data, OBJECT *oldObj, int data_size )
 {
    OBJECT    * obj  = NULL;
    CK_BBOOL    priv;
@@ -1953,10 +1966,10 @@ object_mgr_restore_obj( CK_BYTE *data, OBJECT *oldObj )
 
    if (oldObj != NULL) {
       obj = oldObj;
-      rc = object_restore( data, &obj, TRUE );
+      rc = object_restore_withSize( data, &obj, TRUE, data_size );
    }
    else {
-      rc = object_restore( data, &obj, FALSE );
+      rc = object_restore_withSize( data, &obj, FALSE, data_size );
       if (rc == CKR_OK) {
          priv = object_is_private( obj );
 

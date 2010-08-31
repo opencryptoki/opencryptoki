@@ -933,12 +933,24 @@ template_flatten( TEMPLATE  * tmpl,
    return CKR_OK;
 }
 
-//
-//
 CK_RV
 template_unflatten( TEMPLATE ** new_tmpl,
                     CK_BYTE   * buf,
                     CK_ULONG    count )
+{
+	return template_unflatten_withSize(new_tmpl, buf, count, -1);
+}
+
+
+//
+//Modified version of template_unflatten that checks
+//that buf isn't overread.  buf_size=-1 turns off checking
+//(for backwards compatability)
+CK_RV
+template_unflatten_withSize( TEMPLATE ** new_tmpl,
+			     CK_BYTE   * buf,
+			     CK_ULONG    count,
+			     int         buf_size )
 {
    TEMPLATE      * tmpl = NULL;
    CK_ATTRIBUTE  * a2   = NULL;
@@ -965,6 +977,10 @@ template_unflatten( TEMPLATE ** new_tmpl,
 
    ptr = buf;
    for (i=0; i < count; i++) {
+   if (buf_size >= 0 && ((ptr + sizeof(CK_ATTRIBUTE)) > (buf + buf_size))) {
+       return CKR_FUNCTION_FAILED;
+   }
+
    if(long_len == 4) {
       a1_64 = (CK_ATTRIBUTE *)ptr;
 
@@ -976,6 +992,10 @@ template_unflatten( TEMPLATE ** new_tmpl,
          return CKR_HOST_MEMORY;
       }
 
+      //if a buffer size is given, make sure it doesn't get overrun
+      if (buf_size >= 0 && (((void*)a1_64 + len) > ((void*)buf + buf_size))) {
+          return CKR_FUNCTION_FAILED;
+      }
       memcpy( a2, a1_64, len );
    }else{
          a1 = (CK_ATTRIBUTE_32 *)ptr;
@@ -1036,10 +1056,12 @@ template_unflatten( TEMPLATE ** new_tmpl,
 		    pb2 += sizeof(CK_ATTRIBUTE);
 		    pb = (CK_BYTE *)a1;
 		    pb += sizeof(CK_ATTRIBUTE_32);
+            //if a buffer size is given, make sure it doesn't get overrun
+            if (buf_size >= 0 && (pb + a1->ulValueLen) > (buf + buf_size)) {
+                return CKR_FUNCTION_FAILED;
+            }
             memcpy( pb2, pb, a1->ulValueLen );
          }
-
-
    }
 
 
@@ -1058,8 +1080,6 @@ template_unflatten( TEMPLATE ** new_tmpl,
       ptr += len;
    else
       ptr += sizeof(CK_ATTRIBUTE_32) + a1->ulValueLen;
-
-
    }
 
    *new_tmpl = tmpl;
