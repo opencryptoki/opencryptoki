@@ -424,10 +424,11 @@ fi
 
 # add the CCA token
 # CCA stdll is always built by default in supported archs, so check for both
-# the CCA stdll *and* for a library needed by the CCA token - KlausK Jul'09
-# The libraries required by CCA token are provided by the 'xcryptolinzGA'
-# RPM package, available from the IBM web site.
-if [ -f @libdir@/opencryptoki/stdll/libpkcs11_cca.so ] && [ -f /usr/lib64/libcsulmkapi.so.1 ]
+# the CCA stdll *and* for a library needed by the CCA token.
+# For opencryptoki 2.3 and up, we *require* CCA 4.0 or later, which can be
+# obtained from the IBM website
+# http://www.ibm.com/security/cryptocards/pciecc/ordersoftware.shtml
+if [ -f @libdir@/opencryptoki/stdll/libpkcs11_cca.so ] && [ -f /usr/lib64/libcsulcca.so ]
 then
     @sbindir@/pkcs_slot 0 cca
 fi
