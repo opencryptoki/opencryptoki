@@ -301,10 +301,6 @@
 #define MF_PKCSCONF "pkcsconf.cat"
 
 
-
-/* The following was generated from ../../../../../../../../src/bos/usr/lib/pkcs11/methods/pkcsconf/pkcsconf.msg. */
-
-
 /* definitions for set MS_PKCSINIT */
 #define MS_PKCSINIT 1
 
