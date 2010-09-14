@@ -810,7 +810,7 @@ rsa_pkcs_verify( SESSION             * sess,
    OBJECT          *key_obj  = NULL;
    CK_ATTRIBUTE    *attr     = NULL;
    CK_BYTE          out[512], out_data[512];  // 4096 bits
-   CK_ULONG         i, modulus_bytes, out_data_len;
+   CK_ULONG         i, modulus_bytes, out_data_len=512;
    CK_BBOOL         flag;
    CK_RV            rc;
 
