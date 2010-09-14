@@ -340,11 +340,11 @@ CK_RV display_pkcs11_info(void);
 CK_RV get_slot_list(void);
 CK_RV display_slot_info(int);
 CK_RV display_token_info(int);
-CK_RV display_mechanism_info(void);
-CK_RV init_token(CK_CHAR_PTR);
-CK_RV init_user_pin(CK_CHAR_PTR, CK_CHAR_PTR);
-CK_RV list_slot(void);
-CK_RV set_user_pin(CK_USER_TYPE, CK_CHAR_PTR, CK_CHAR_PTR);
+CK_RV display_mechanism_info(int);
+CK_RV init_token(int, CK_CHAR_PTR);
+CK_RV init_user_pin(int, CK_CHAR_PTR, CK_CHAR_PTR);
+CK_RV list_slot(int);
+CK_RV set_user_pin(int, CK_USER_TYPE, CK_CHAR_PTR, CK_CHAR_PTR);
 
 void * dllPtr;
 CK_FUNCTION_LIST_PTR  FunctionPtr = NULL;
@@ -375,24 +375,56 @@ main(int argc, char *argv[]){
    while ((c = getopt (argc, argv, "itsmMIc:S:U:upPn:lh")) != (-1)){
       switch (c){
          case 'c':  /* a specific card (slot) is specified */
-            flags |= CFG_SLOT;
-            slot = (CK_CHAR_PTR) malloc(strlen(optarg));
-            memcpy(slot, optarg, strlen(optarg));
+            if (flags & CFG_SLOT) {
+                printf(PKCSINIT_MSG(SINGLESLOT,
+                        "Must specify a single slot.\n"));
+                fflush(stdout);
+                errflag++;
+            }
+            else {
+                flags |= CFG_SLOT;
+                slot = (CK_CHAR_PTR) malloc(strlen(optarg));
+                memcpy(slot, optarg, strlen(optarg));
+            }
             break;
          case 'S':  /* the SO pin */
-            flags |= CFG_SO_PIN;
-            sopin = (CK_CHAR_PTR) malloc(strlen(optarg));
-            memcpy(sopin, optarg, strlen(optarg));
+            if (flags & CFG_SO_PIN) {
+                printf(PKCSINIT_MSG(SINGLESOPIN,
+                        "Must specify a single SO PIN.\n"));
+                fflush(stdout);
+                errflag++;
+            }
+            else {
+                flags |= CFG_SO_PIN;
+                sopin = (CK_CHAR_PTR) malloc(strlen(optarg));
+                memcpy(sopin, optarg, strlen(optarg));
+            }
             break;
          case 'U':  /* the user pin */
-            flags |= CFG_USER_PIN;
-            pin = (CK_CHAR_PTR) malloc(strlen(optarg));
-            memcpy(pin, optarg, strlen(optarg));
+            if (flags & CFG_USER_PIN) {
+                printf(PKCSINIT_MSG(SINGLEUSERPIN,
+                        "Must specify a single user PIN.\n"));
+                fflush(stdout);
+                errflag++;
+            }
+            else {
+                flags |= CFG_USER_PIN;
+                pin = (CK_CHAR_PTR) malloc(strlen(optarg));
+                memcpy(pin, optarg, strlen(optarg));
+            }
             break;
          case 'n':  /* the new pin */
-            flags |= CFG_NEW_PIN;
-            newpin = (CK_CHAR_PTR) malloc(strlen(optarg));
-            memcpy(newpin, optarg, strlen(optarg));
+            if (flags & CFG_NEW_PIN) {
+                printf(PKCSINIT_MSG(SINGLENEWPIN,
+                        "Must specify a single new PIN.\n"));
+                fflush(stdout);
+                errflag++;
+            }
+            else {
+                flags |= CFG_NEW_PIN;
+                newpin = (CK_CHAR_PTR) malloc(strlen(optarg));
+                memcpy(newpin, optarg, strlen(optarg));
+            }
             break;
          case 'i':  /* display PKCS11 info */
             flags |= CFG_PKCS_INFO;
@@ -478,136 +510,161 @@ main(int argc, char *argv[]){
 
    /* If the user wants to display slot info call the function to do so */
    if (flags & CFG_LIST_SLOT)
-      if ((rc = list_slot()))
+      if ((rc = list_slot((flags & CFG_SLOT) ? in_slot : -1)))
 	 goto done;
 
    /* If the user wants to display mechanism info call the function to do so */
    if (flags & CFG_MECHANISM_INFO)
-      if ((rc = display_mechanism_info()))
+      if ((rc = display_mechanism_info((flags & CFG_SLOT) ? in_slot : -1)))
 	 goto done;
 
-   /* If the user wants to initialize the card check to see if they passed in
-    * the SO pin, if not ask for the PIN */
+    /* If the user wants to initialize the card check to see if they passed in
+     * the SO pin, if not ask for the PIN */
    if (flags & CFG_INITIALIZE){
-      if (~flags & CFG_SO_PIN){
-	      int rc;
-
-	      do {
-		      printf(PKCSINIT_MSG(SOPIN, "Enter the SO PIN: "));
-		      fflush(stdout);
-		      rc = get_pin(&(sopin));
-	      } while (rc == -EINVAL);
-      }
-      rc = init_token(sopin);
+       if (flags & CFG_SLOT){
+            if (~flags & CFG_SO_PIN){
+                int rc;
+                do {
+                    printf(PKCSINIT_MSG(SOPIN, "Enter the SO PIN: "));
+                    fflush(stdout);
+                    rc = get_pin(&(sopin));
+                } while (rc == -EINVAL);
+            }
+            rc = init_token(in_slot, sopin);
+        }
+       else {
+           printf(PKCSINIT_MSG(SLOTREQ, "Must specify one slot"));
+           fflush(stdout);
+           rc = -EINVAL;
+       }
    }
 
-   /* If the user wants to initialize the User PIN, check to see if they have
-    * passed in the SO PIN, if not ask for it.  Then check to see if they passed
-    * the New User PIN on the command line if not ask for the PIN and verify it */
-   if (flags & CFG_INIT_USER){
-      if (~flags & CFG_SO_PIN) {
-	      int rc;
-
-	      do {
-		      printf(PKCSINIT_MSG(SOPIN, "Enter the SO PIN: "));
-		      fflush(stdout);
-		      rc = get_pin(&sopin);
-	      } while (rc == -EINVAL);
-      }
-      if (~flags & CFG_NEW_PIN) {
-	      int rc;
-
-	      do {
-		      printf(PKCSINIT_MSG(NEWUSER, "Enter the new user PIN: "));
-		      fflush(stdout);
-		      rc = get_pin(&newpin);
-	      } while (rc == -EINVAL);
-	      newpinlen = strlen(newpin);
-	      do {
-		      printf(PKCSINIT_MSG(VNEWUSER,
-					  "Re-enter the new user PIN: "));
-		      fflush(stdout);
-		      rc = get_pin(&newpin2);
-	      } while (rc == -EINVAL);
-	 newpin2len = strlen(newpin2);
-         if (newpinlen != newpin2len || memcmp(newpin, newpin2, strlen((char *)newpin)) != 0) {
-            printf(PKCSINIT_MSG(PINMISMATCH, "New PINs do not match.\n"));
+    /* If the user wants to initialize the User PIN, check to see if they have
+     * passed in the SO PIN, if not ask for it.  Then check to see if they passed
+     * the New User PIN on the command line if not ask for the PIN and verify it */
+    if (flags & CFG_INIT_USER){
+        if (flags & CFG_SLOT){
+            if (~flags & CFG_SO_PIN) {
+                int rc;
+                do {
+                    printf(PKCSINIT_MSG(SOPIN, "Enter the SO PIN: "));
+                    fflush(stdout);
+                    rc = get_pin(&sopin);
+                } while (rc == -EINVAL);
+            }
+            if (~flags & CFG_NEW_PIN) {
+                int rc;
+                do {
+                    printf(PKCSINIT_MSG(NEWUSER, "Enter the new user PIN: "));
+                    fflush(stdout);
+                    rc = get_pin(&newpin);
+                } while (rc == -EINVAL);
+                newpinlen = strlen(newpin);
+                do {
+                    printf(PKCSINIT_MSG(VNEWUSER,
+                                "Re-enter the new user PIN: "));
+                    fflush(stdout);
+                    rc = get_pin(&newpin2);
+                } while (rc == -EINVAL);
+                newpin2len = strlen(newpin2);
+                if (newpinlen != newpin2len || memcmp(newpin, newpin2, strlen((char *)newpin)) != 0) {
+                    printf(PKCSINIT_MSG(PINMISMATCH, "New PINs do not match.\n"));
+                    fflush(stdout);
+                    exit(CKR_PIN_INVALID);
+                }
+            }
+            rc = init_user_pin(in_slot, newpin, sopin);
+        }
+        else {
+            printf(PKCSINIT_MSG(SLOTREQ, "Must specify one slot"));
             fflush(stdout);
-            exit(CKR_PIN_INVALID);
-         }
-      }
-      rc = init_user_pin(newpin, sopin);
-   }
+            rc = -EINVAL;
+        }
+    }
 
    /* If the user wants to set the SO PIN, check to see if they have passed the
     * current SO PIN and the New PIN in.  If not prompt and validate them. */
-   if (flags & CFG_SET_SO){
-      if (~flags & CFG_SO_PIN) {
-	      int rc;
+    if (flags & CFG_SET_SO){
+        if (flags & CFG_SLOT){
+            if (~flags & CFG_SO_PIN) {
+                int rc;
 
-	      do {
-		      printf(PKCSINIT_MSG(SOPIN, "Enter the SO PIN: "));
-		      fflush(stdout);
-		      rc = get_pin(&sopin);
-	      } while (rc == -EINVAL);
-      }
-      if (~flags & CFG_NEW_PIN) {
-	      int rc;
+                do {
+                    printf(PKCSINIT_MSG(SOPIN, "Enter the SO PIN: "));
+                    fflush(stdout);
+                    rc = get_pin(&sopin);
+                } while (rc == -EINVAL);
+            }
+            if (~flags & CFG_NEW_PIN) {
+                int rc;
 
-	      do {
-		      printf(PKCSINIT_MSG(NEWSO, "Enter the new SO PIN: "));
-		      fflush(stdout);
-		      rc = get_pin(&newpin);
-	      } while (rc == -EINVAL);
-	 newpinlen = strlen(newpin);
-	      do {
-		      printf(PKCSINIT_MSG(VNEWSO, "Re-enter the new SO PIN: "));
-		      fflush(stdout);
-		      rc = get_pin(&newpin2);
-	      } while (rc == -EINVAL);
-	 newpin2len = strlen(newpin2);
-         if (newpinlen != newpin2len || memcmp(newpin, newpin2, strlen((char *)newpin)) != 0) {
-            printf(PKCSINIT_MSG(PINMISMATCH, "New PINs do not match.\n"));
+                do {
+                    printf(PKCSINIT_MSG(NEWSO, "Enter the new SO PIN: "));
+                    fflush(stdout);
+                    rc = get_pin(&newpin);
+                } while (rc == -EINVAL);
+                newpinlen = strlen(newpin);
+                do {
+                    printf(PKCSINIT_MSG(VNEWSO, "Re-enter the new SO PIN: "));
+                    fflush(stdout);
+                    rc = get_pin(&newpin2);
+                } while (rc == -EINVAL);
+                newpin2len = strlen(newpin2);
+                if (newpinlen != newpin2len || memcmp(newpin, newpin2, strlen((char *)newpin)) != 0) {
+                    printf(PKCSINIT_MSG(PINMISMATCH, "New PINs do not match.\n"));
+                    fflush(stdout);
+                    exit(CKR_PIN_INVALID);
+                }
+            }
+            rc = set_user_pin(in_slot, CKU_SO, sopin, newpin);
+        }
+        else {
+            printf(PKCSINIT_MSG(SLOTREQ, "Must specify one slot"));
             fflush(stdout);
-            exit(CKR_PIN_INVALID);
-         }
-      }
-      rc = set_user_pin(CKU_SO, sopin, newpin);
-   }
+            rc = -EINVAL;
+        }
+    }
 
-   /* If the user wants to set the User PIN, check to see if they have passed the
-    * current User PIN and the New PIN in.  If not prompt and validate them. */
-   if (flags & CFG_SET_USER){
-      if (~flags & CFG_USER_PIN) {
-	      int rc;
+    /* If the user wants to set the User PIN, check to see if they have passed the
+     * current User PIN and the New PIN in.  If not prompt and validate them. */
+    if (flags & CFG_SET_USER){
+        if (flags & CFG_SLOT){
+            if (~flags & CFG_USER_PIN) {
+                int rc;
 
-	      do {
-		      printf(PKCSINIT_MSG(USERPIN, "Enter user PIN: "));
-		      fflush(stdout);
-		      rc = get_pin(&pin);
-	      } while (rc == -EINVAL);
-      }
-      if (~flags & CFG_NEW_PIN) {
-	      do {
-		      printf(PKCSINIT_MSG(NEWUSER, "Enter the new user PIN: "));
-		      fflush(stdout);
-		      rc = get_pin(&newpin);
-	      } while (rc == -EINVAL);
-	      newpinlen = strlen(newpin);
-	      do {
-		      printf(PKCSINIT_MSG(VNEWUSER, "Re-enter the new user PIN: "));
-		      fflush(stdout);
-		      rc = get_pin(&newpin2);
-	      } while (rc == -EINVAL);
-	 newpin2len = strlen(newpin2);
-         if (newpinlen != newpin2len || memcmp(newpin, newpin2, strlen((char *)newpin)) != 0) {
-            printf(PKCSINIT_MSG(PINMISMATCH, "New PINs do not match.\n"));
+                do {
+                    printf(PKCSINIT_MSG(USERPIN, "Enter user PIN: "));
+                    fflush(stdout);
+                    rc = get_pin(&pin);
+                } while (rc == -EINVAL);
+            }
+            if (~flags & CFG_NEW_PIN) {
+                do {
+                    printf(PKCSINIT_MSG(NEWUSER, "Enter the new user PIN: "));
+                    fflush(stdout);
+                    rc = get_pin(&newpin);
+                } while (rc == -EINVAL);
+                newpinlen = strlen(newpin);
+                do {
+                    printf(PKCSINIT_MSG(VNEWUSER, "Re-enter the new user PIN: "));
+                    fflush(stdout);
+                    rc = get_pin(&newpin2);
+                } while (rc == -EINVAL);
+                newpin2len = strlen(newpin2);
+                if (newpinlen != newpin2len || memcmp(newpin, newpin2, strlen((char *)newpin)) != 0) {
+                    printf(PKCSINIT_MSG(PINMISMATCH, "New PINs do not match.\n"));
+                    fflush(stdout);
+                    exit(CKR_PIN_INVALID);
+                }
+            }
+            rc = set_user_pin(in_slot, CKU_USER, pin, newpin);
+        }
+        else {
+            printf(PKCSINIT_MSG(SLOTREQ, "Must specify one slot"));
             fflush(stdout);
-            exit(CKR_PIN_INVALID);
-         }
-      }
-      rc = set_user_pin(CKU_USER, pin, newpin);
-   }
+            rc = -EINVAL;
+        }
+    }
 
    /* We are done, detach from shared memory, and free the memory we may have
     * allocated.  In the case of PIN's we memset them to ensure that they are not
@@ -730,7 +787,7 @@ display_pkcs11_info(void){
 
    /* display the header and information */
    printf(PKCSINIT_MSG(PKCSINFO, "PKCS#11 Info\n"));
-   printf(PKCSINIT_MSG((int)VERSION, "\tVersion %d.%d \n"), CryptokiInfo.cryptokiVersion.major,
+   printf(PKCSINIT_MSG(VERSION, "\tVersion %d.%d \n"), CryptokiInfo.cryptokiVersion.major,
          CryptokiInfo.cryptokiVersion.minor);
    printf(PKCSINIT_MSG(MANUFACT, "\tManufacturer: %32s \n"), CryptokiInfo.manufacturerID);
    printf(PKCSINIT_MSG(FLAGS, "\tFlags: 0x%X  \n"), CryptokiInfo.flags);
@@ -807,63 +864,61 @@ display_mechanism_flags(CK_FLAGS flags)
 }
 
 CK_RV
-display_mechanism_info(void){
-   CK_RV          rc;                  // Return Code
-   CK_MECHANISM_TYPE_PTR MechanismList = NULL;  // Head to Mechanism list
-   CK_MECHANISM_INFO MechanismInfo;    // Structure to hold Mechanism Info
-   CK_ULONG       MechanismCount = 0;  // Number of supported mechanisms
-   unsigned int   lcv, lcv2;           // Loop Control Variables
+display_mechanism_info(int slot_id){
+    CK_RV                   rc;                     // Return Code
+    CK_MECHANISM_TYPE_PTR   MechanismList   = NULL; // Head to Mechanism list
+    CK_MECHANISM_INFO       MechanismInfo;          // Structure to hold Mechanism Info
+    CK_ULONG                MechanismCount  = 0;    // Number of supported mechanisms
+    unsigned int            i;
 
-   for (lcv = 0; lcv < SlotCount; lcv++){
-      /* For each slot find out how many mechanisms are supported */
-      rc = FunctionPtr->C_GetMechanismList(SlotList[lcv], NULL_PTR,
+    /* For each slot find out how many mechanisms are supported */
+    rc = FunctionPtr->C_GetMechanismList(slot_id, NULL_PTR,
             &MechanismCount);
-      if (rc != CKR_OK) {
-         printf(PKCSINIT_MSG(MECHERROR, "Error getting number of mechanisms: 0x%X (%s)\n"),
-              rc, p11_get_ckr(rc));
-         return rc;
-      }
+    if (rc != CKR_OK) {
+        printf(PKCSINIT_MSG(MECHERROR, "Error getting number of mechanisms: 0x%X (%s)\n"),
+                rc, p11_get_ckr(rc));
+        return rc;
+    }
 
-      /* Allocate enough memory to store all the supported mechanisms */
-      MechanismList = (CK_MECHANISM_TYPE_PTR) malloc(MechanismCount *
+    /* Allocate enough memory to store all the supported mechanisms */
+    MechanismList = (CK_MECHANISM_TYPE_PTR) malloc(MechanismCount *
             sizeof(CK_MECHANISM_TYPE));
 
-      /* This time get the mechanism list */
-      rc = FunctionPtr->C_GetMechanismList(SlotList[lcv], MechanismList,
+    /* This time get the mechanism list */
+    rc = FunctionPtr->C_GetMechanismList(slot_id, MechanismList,
             &MechanismCount);
-      if (rc != CKR_OK) {
-         printf(PKCSINIT_MSG(LISTERROR2, "Error getting mechanisms list: 0x%X (%s)\n"), rc, p11_get_ckr(rc));
-         return rc;
-      }
+    if (rc != CKR_OK) {
+        printf(PKCSINIT_MSG(LISTERROR2, "Error getting mechanisms list: 0x%X (%s)\n"), rc, p11_get_ckr(rc));
+        return rc;
+    }
 
-      /* For each Mechanism in the List */
-      for (lcv2 = 0; lcv2 < MechanismCount; lcv2++){
+    /* For each Mechanism in the List */
+    for (i = 0; i < MechanismCount; i++){
 
-         /* Get the Mechanism Info and display it */
-         rc = FunctionPtr->C_GetMechanismInfo(SlotList[lcv],
-               MechanismList[lcv2], &MechanismInfo);
-         if (rc != CKR_OK) {
+        /* Get the Mechanism Info and display it */
+        rc = FunctionPtr->C_GetMechanismInfo(slot_id,
+                MechanismList[i], &MechanismInfo);
+        if (rc != CKR_OK) {
             printf(PKCSINIT_MSG(INFOERROR2, "Error getting mechanisms info: 0x%X (%s)\n"), rc, p11_get_ckr(rc));
             return rc;
-         }
-         printf(PKCSINIT_MSG(MECH, "Mechanism #%d\n"), lcv2);
-         printf(PKCSINIT_MSG(MECHLABEL, "\tMechanism: 0x%X "), MechanismList[lcv2]);
+        }
+        printf(PKCSINIT_MSG(MECH, "Mechanism #%d\n"), i);
+        printf(PKCSINIT_MSG(MECHLABEL, "\tMechanism: 0x%X "), MechanismList[i]);
 
-	 display_mechanism_name(MechanismList[lcv2]);
-	 printf("\n");
+        display_mechanism_name(MechanismList[i]);
+        printf("\n");
 
-         printf(PKCSINIT_MSG(KEYSIZE, "\tKey Size: %d-%d\n"), MechanismInfo.ulMinKeySize,
-               MechanismInfo.ulMaxKeySize);
-         printf(PKCSINIT_MSG(FLAGS, "\tFlags: 0x%X "), MechanismInfo.flags);
+        printf(PKCSINIT_MSG(KEYSIZE, "\tKey Size: %d-%d\n"), MechanismInfo.ulMinKeySize,
+                MechanismInfo.ulMaxKeySize);
+        printf(PKCSINIT_MSG(FLAGS, "\tFlags: 0x%X "), MechanismInfo.flags);
 
-	 display_mechanism_flags(MechanismInfo.flags);
-	 printf("\n");
-      }
+        display_mechanism_flags(MechanismInfo.flags);
+        printf("\n");
+    }
 
-      /* Free the memory we allocated for the mechanism list */
-      free (MechanismList);
-   }
-   return CKR_OK;
+    /* Free the memory we allocated for the mechanism list */
+    free (MechanismList);
+    return CKR_OK;
 }
 
 void
@@ -925,24 +980,39 @@ display_slot_info(int slot_id)
 }
 
 CK_RV
-list_slot(void){
-   CK_RV          rc;        // Return code
-   CK_SLOT_INFO   SlotInfo;  // Structure to hold slot information
-   unsigned int   lcv;       // Loop control variable
+list_slot(int slot_id){
+    CK_RV          rc;        // Return code
+    CK_SLOT_INFO   SlotInfo;  // Structure to hold slot information
+    unsigned int   lcv;       // Loop control variable
 
-   for (lcv = 0; lcv < SlotCount; lcv++){
-      /* Get the info for the slot we are examining and store in SlotInfo*/
-      rc = FunctionPtr->C_GetSlotInfo(SlotList[lcv], &SlotInfo);
-      if (rc != CKR_OK) {
-         printf(PKCSINIT_MSG(SLOTERROR2, "Error getting slot info: 0x%X (%s)\n"), rc, p11_get_ckr(rc));
-         return rc;
-      }
+    if (slot_id != -1) {
+        rc = FunctionPtr->C_GetSlotInfo(slot_id, &SlotInfo);
+        if (rc != CKR_OK) {
+            printf(PKCSINIT_MSG(SLOTERROR2, "Error getting slot info: 0x%X (%s)\n"), rc, p11_get_ckr(rc));
+            return rc;
+        }
 
-      /* Display the slot description */
-      printf("%ld:", SlotList[lcv]);
-      printf(PKCSINIT_MSG(SLOTDESC, "\tDescription: %.64s\n"), SlotInfo.slotDescription);
-   }
-   return CKR_OK;
+        /* Display the slot description */
+        printf("%ld:", SlotList[lcv]);
+        printf(PKCSINIT_MSG(SLOTDESC, "\tDescription: %.64s\n"), SlotInfo.slotDescription);
+
+        return CKR_OK;
+    }
+
+
+    for (lcv = 0; lcv < SlotCount; lcv++){
+        /* Get the info for the slot we are examining and store in SlotInfo*/
+        rc = FunctionPtr->C_GetSlotInfo(SlotList[lcv], &SlotInfo);
+        if (rc != CKR_OK) {
+            printf(PKCSINIT_MSG(SLOTERROR2, "Error getting slot info: 0x%X (%s)\n"), rc, p11_get_ckr(rc));
+            return rc;
+        }
+
+        /* Display the slot description */
+        printf("%ld:", SlotList[lcv]);
+        printf(PKCSINIT_MSG(SLOTDESC, "\tDescription: %.64s\n"), SlotInfo.slotDescription);
+    }
+    return CKR_OK;
 }
 
 void
@@ -1046,184 +1116,176 @@ display_token_info(int slot_id)
 }
 
 CK_RV
-init_token(CK_CHAR_PTR pin){
-   /* Note this function reinitializes a token to the state it was
-    * in just after the initial install of the microcode (clu files).
-    * It does the following actions (if SO pin is correct):
-    *   (1) Purges all Token Objects
-    *   (2) Resets SO PIN back ot the default
-    *   (3) Purges the USER PIN
-    *   (4) Sets the Token Label
-    */
+init_token(int slot_id, CK_CHAR_PTR pin){
+    /* Note this function reinitializes a token to the state it was
+     * in just after the initial install
+     * It does the following actions (if SO pin is correct):
+     *   (1) Purges all Token Objects
+     *   (2) Resets SO PIN back to the default
+     *   (3) Purges the USER PIN
+     *   (4) Sets the Token Label
+     */
 
-   CK_RV rc;                     // Return Code
-   CK_ULONG    pinlen;           // Length of the PIN
-   CK_CHAR     label[32],        // What we want to set the Label of the card to
-               enteredlabel[33]; // Max size of 32 + carriage return;
+    CK_RV rc;                     // Return Code
+    CK_ULONG    pinlen;           // Length of the PIN
+    CK_CHAR     label[32],        // What we want to set the Label of the card to
+                enteredlabel[33]; // Max size of 32 + carriage return;
 
-   unsigned int lcv;             // Loop Control Varable
+    unsigned int lcv;             // Loop Control Varable
 
-   /* Find out the size of the entered PIN */
-   pinlen = strlen((char *)pin);
+    /* Find out the size of the entered PIN */
+    pinlen = strlen((char *)pin);
 
-   /* Get the token label from the user, NOTE it states to give a unique label
-    * but it is never verified as unique.  This is becuase Netscape requires a
-    * unique token label; however the PKCS11 spec does not.  */
-   printf(PKCSINIT_MSG(GETLABEL, "Enter a unique token label: "));
-   fflush(stdout);
-   fgets((char *)enteredlabel, sizeof(enteredlabel), stdin);
+    /* Get the token label from the user, NOTE it states to give a unique label
+     * but it is never verified as unique.  This is becuase Netscape requires a
+     * unique token label; however the PKCS11 spec does not.  */
+    printf(PKCSINIT_MSG(GETLABEL, "Enter a unique token label: "));
+    fflush(stdout);
+    fgets((char *)enteredlabel, sizeof(enteredlabel), stdin);
 
-   /* First clear the label array.  We must have 32 characters for PADDING then
-    * we start all labels with 'IBM 4758 - ' therefore we use some of the label
-    * information for our own use.  This is primarily done for support reasons,
-    * we are able to look at the labels and determine what is in the system */
-   memset(label, ' ', 32);
-   strncpy((char *)label, (char *)enteredlabel, strlen((char *)enteredlabel) - 1);   // Strip the \n
+    /* First clear the label array. Per PKCS#11 spec, We must PAD this field to
+     * 32 bytes, and it should NOT be null-terminated */
+    memset(label, ' ', 32);
+    strncpy((char *)label, (char *)enteredlabel, strlen((char *)enteredlabel) - 1);   // Strip the \n
 
-   /* It is possible to initialize all tokens although this would not give us a
-    * unique token label would it?  Normally this would be called with only one
-    * token in the slot list.  Slot list is not the slot list of the system only
-    * a list of slots we are working with */
-   for (lcv = 0; lcv < SlotCount; lcv++){
-      rc = FunctionPtr->C_InitToken(SlotList[lcv], pin,
+    rc = FunctionPtr->C_InitToken(slot_id, pin,
             pinlen, label);
-      if (rc != CKR_OK) {
-         if (rc == CKR_PIN_INCORRECT) {
+    if (rc != CKR_OK) {
+        if (rc == CKR_PIN_INCORRECT) {
             printf(PKCSINIT_MSG(INCORRECTPIN, "Incorrect PIN Entered.\n"));
             fflush(stdout);
-         }
-         else {
+        }
+        else {
             printf(PKCSINIT_MSG(INITERROR, "Error initializing token: 0x%X (%s)\n"), rc, p11_get_ckr(rc));
             fflush(stdout);
-         }
-         return rc;
-      }
-   }
+        }
+        return rc;
+    }
 
-   return CKR_OK;
+    return CKR_OK;
 }
 
 CK_RV
-init_user_pin(CK_CHAR_PTR pin, CK_CHAR_PTR sopin){
-   CK_RV rc;                           // Return Value
-   CK_FLAGS    flags = 0;              // Mask that we will use when opening the session 
-   CK_SESSION_HANDLE session_handle;   // The session handle we get
-   CK_ULONG pinlen, sopinlen;          // Length of the user and SO PINs
+init_user_pin(int slot_id, CK_CHAR_PTR pin, CK_CHAR_PTR sopin){
+    CK_RV rc;                               // Return Value
+    CK_FLAGS            flags = 0;          // Mask that we will use when opening the session
+    CK_SESSION_HANDLE   session_handle;     // The session handle we get
+    CK_ULONG            pinlen, sopinlen;   // Length of the user and SO PINs
 
-   /* get the length of the PINs */
-   pinlen = strlen((char *)pin);
-   sopinlen = strlen((char *)sopin);
+    /* get the length of the PINs */
+    pinlen = strlen((char *)pin);
+    sopinlen = strlen((char *)sopin);
 
-   /* set the mask we will use for Open Session */
-   flags |= CKF_SERIAL_SESSION;
-   flags |= CKF_RW_SESSION;
+    /* set the mask we will use for Open Session */
+    flags |= CKF_SERIAL_SESSION;
+    flags |= CKF_RW_SESSION;
 
-   /* We need to open a read/write session to the adapter to initialize the user
-    * PIN.  Attempt to do so */
-   rc = FunctionPtr->C_OpenSession(SlotList[0], flags, NULL, NULL,
-         &session_handle);
-   if (rc != CKR_OK){
-      printf(PKCSINIT_MSG(OPENERROR, "Error opening session: 0x%X (%s)\n"), rc, p11_get_ckr(rc));
-      fflush(stdout);
-      return rc;
-   }
+    /* We need to open a read/write session to the adapter to initialize the user
+     * PIN.  Attempt to do so */
+    rc = FunctionPtr->C_OpenSession(slot_id, flags, NULL, NULL,
+            &session_handle);
+    if (rc != CKR_OK){
+        printf(PKCSINIT_MSG(OPENERROR, "Error opening session: 0x%X (%s)\n"), rc, p11_get_ckr(rc));
+        fflush(stdout);
+        return rc;
+    }
 
-   /* After the session is open, we must login as the SO to initialize the PIN */
-   rc = FunctionPtr->C_Login(session_handle, CKU_SO, sopin, sopinlen);
-   if (rc != CKR_OK){
-      if (rc == CKR_PIN_INCORRECT) {
-         printf(PKCSINIT_MSG(INCORRECTPIN, "Incorrect PIN Entered.\n"));
-         fflush(stdout);
-      }
-      else {
-         printf(PKCSINIT_MSG(LOGINERROR, "Error logging in: 0x%X (%s)\n"), rc, p11_get_ckr(rc));
-         fflush(stdout);
-      }
-      return rc;
-   }
+    /* After the session is open, we must login as the SO to initialize the PIN */
+    rc = FunctionPtr->C_Login(session_handle, CKU_SO, sopin, sopinlen);
+    if (rc != CKR_OK){
+        if (rc == CKR_PIN_INCORRECT) {
+            printf(PKCSINIT_MSG(INCORRECTPIN, "Incorrect PIN Entered.\n"));
+            fflush(stdout);
+        }
+        else {
+            printf(PKCSINIT_MSG(LOGINERROR, "Error logging in: 0x%X (%s)\n"), rc, p11_get_ckr(rc));
+            fflush(stdout);
+        }
+        return rc;
+    }
 
-   /* Call the function to Init the PIN */
-   rc = FunctionPtr->C_InitPIN(session_handle, pin, pinlen);
-   if (rc != CKR_OK){
-      printf(PKCSINIT_MSG(SETPIN, "Error setting PIN: 0x%X (%s)\n"), rc, p11_get_ckr(rc));
-      fflush(stdout);
-   }
+    /* Call the function to Init the PIN */
+    rc = FunctionPtr->C_InitPIN(session_handle, pin, pinlen);
+    if (rc != CKR_OK){
+        printf(PKCSINIT_MSG(SETPIN, "Error setting PIN: 0x%X (%s)\n"), rc, p11_get_ckr(rc));
+        fflush(stdout);
+    }
 
-   /* Logout so that others can use the PIN */
-   rc = FunctionPtr->C_Logout(session_handle);
-   if (rc != CKR_OK){
-      printf(PKCSINIT_MSG(LOGOUTERROR, "Error logging out: 0x%X (%s)\n"), rc, p11_get_ckr(rc));
-      fflush(stdout);
-   }
+    /* Logout so that others can use the PIN */
+    rc = FunctionPtr->C_Logout(session_handle);
+    if (rc != CKR_OK){
+        printf(PKCSINIT_MSG(LOGOUTERROR, "Error logging out: 0x%X (%s)\n"), rc, p11_get_ckr(rc));
+        fflush(stdout);
+    }
 
-   /* Close the session */
-   rc = FunctionPtr->C_CloseSession(session_handle);
-   if (rc != CKR_OK){
-      printf(PKCSINIT_MSG(CLOSEERROR, "Error closing session: 0x%X (%s)\n"), rc, p11_get_ckr(rc));
-      fflush(stdout);
-      return rc;
-   }
-   return CKR_OK;
+    /* Close the session */
+    rc = FunctionPtr->C_CloseSession(session_handle);
+    if (rc != CKR_OK){
+        printf(PKCSINIT_MSG(CLOSEERROR, "Error closing session: 0x%X (%s)\n"), rc, p11_get_ckr(rc));
+        fflush(stdout);
+        return rc;
+    }
+    return CKR_OK;
 }
 
 CK_RV
-set_user_pin(CK_USER_TYPE user, CK_CHAR_PTR oldpin, CK_CHAR_PTR newpin){
-   CK_RV rc;                           // Return Value
-   CK_FLAGS flags = 0;                 // Mash ot open the session with
-   CK_SESSION_HANDLE session_handle;   // The handle of the session we will open
-   CK_ULONG oldpinlen, newpinlen;      // The size of the new and ole PINS
+set_user_pin(int slot_id, CK_USER_TYPE user, CK_CHAR_PTR oldpin, CK_CHAR_PTR newpin){
+    CK_RV               rc;                     // Return Value
+    CK_FLAGS            flags = 0;              // Mash ot open the session with
+    CK_SESSION_HANDLE   session_handle;         // The handle of the session we will open
+    CK_ULONG            oldpinlen, newpinlen;   // The size of the new and ole PINS
 
-   /* NOTE:  This function is used for both the settinf of the SO and USER pins,
-    *        the CK_USER_TYPE specifes which we are changing. */
+    /* NOTE:  This function is used for both the settinf of the SO and USER pins,
+     *        the CK_USER_TYPE specifes which we are changing. */
 
-   /* Get the size of the PINs */
-   oldpinlen = strlen((char *)oldpin);
-   newpinlen = strlen((char *)newpin);
+    /* Get the size of the PINs */
+    oldpinlen = strlen((char *)oldpin);
+    newpinlen = strlen((char *)newpin);
 
-   /* set the flags we will open the session with */
-   flags |= CKF_SERIAL_SESSION;
-   flags |= CKF_RW_SESSION;
+    /* set the flags we will open the session with */
+    flags |= CKF_SERIAL_SESSION;
+    flags |= CKF_RW_SESSION;
 
-   /* Open the Session */
-   rc = FunctionPtr->C_OpenSession(SlotList[0], flags, NULL, NULL,
-         &session_handle);
-   if (rc != CKR_OK){
-      printf(PKCSINIT_MSG(OPENERROR, "Error opening session: 0x%X (%s)\n"), rc, p11_get_ckr(rc));
-      fflush(stdout);
-      return rc;
-   }
+    /* Open the Session */
+    rc = FunctionPtr->C_OpenSession(slot_id, flags, NULL, NULL,
+            &session_handle);
+    if (rc != CKR_OK){
+        printf(PKCSINIT_MSG(OPENERROR, "Error opening session: 0x%X (%s)\n"), rc, p11_get_ckr(rc));
+        fflush(stdout);
+        return rc;
+    }
 
-   /* Login to the session we just created as the pkcs11 passed in USER type */
-   rc = FunctionPtr->C_Login(session_handle, user, oldpin, oldpinlen);
-   if (rc != CKR_OK){
-      if (rc == CKR_PIN_INCORRECT) {
-         printf(PKCSINIT_MSG(INCORRECTPIN, "Incorrect PIN Entered.\n"));
-         fflush(stdout);
-      }
-      else {
-         printf(PKCSINIT_MSG(LOGINERROR, "Error logging in: 0x%X (%s)\n"), rc, p11_get_ckr(rc));
-         fflush(stdout);
-      }
-      return rc;
-   }
+    /* Login to the session we just created as the pkcs11 passed in USER type */
+    rc = FunctionPtr->C_Login(session_handle, user, oldpin, oldpinlen);
+    if (rc != CKR_OK){
+        if (rc == CKR_PIN_INCORRECT) {
+            printf(PKCSINIT_MSG(INCORRECTPIN, "Incorrect PIN Entered.\n"));
+            fflush(stdout);
+        }
+        else {
+            printf(PKCSINIT_MSG(LOGINERROR, "Error logging in: 0x%X (%s)\n"), rc, p11_get_ckr(rc));
+            fflush(stdout);
+        }
+        return rc;
+    }
 
-   /* set the new PIN */
-   rc = FunctionPtr->C_SetPIN(session_handle, oldpin, oldpinlen,
-         newpin, newpinlen);
-   if (rc != CKR_OK){
-      printf(PKCSINIT_MSG(SETPIN, "Error setting PIN: 0x%X (%s)\n"), rc, p11_get_ckr(rc));
-      fflush(stdout);
-   }
+    /* set the new PIN */
+    rc = FunctionPtr->C_SetPIN(session_handle, oldpin, oldpinlen,
+            newpin, newpinlen);
+    if (rc != CKR_OK){
+        printf(PKCSINIT_MSG(SETPIN, "Error setting PIN: 0x%X (%s)\n"), rc, p11_get_ckr(rc));
+        fflush(stdout);
+    }
 
-   /* and of course clean up after ourselves */
-   rc = FunctionPtr->C_CloseSession(session_handle);
-   if (rc != CKR_OK){
-      printf(PKCSINIT_MSG(CLOSEERROR, "Error closing session: 0x%X (%s)\n"), rc, p11_get_ckr(rc));
-      fflush(stdout);
-      return rc;
-   }
+    /* and of course clean up after ourselves */
+    rc = FunctionPtr->C_CloseSession(session_handle);
+    if (rc != CKR_OK){
+        printf(PKCSINIT_MSG(CLOSEERROR, "Error closing session: 0x%X (%s)\n"), rc, p11_get_ckr(rc));
+        fflush(stdout);
+        return rc;
+    }
 
-   return CKR_OK;
+    return CKR_OK;
 }
 
 CK_RV

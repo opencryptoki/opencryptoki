@@ -375,6 +375,11 @@
 #define USAGE8 69
 #define USAGE9 70
 #define USAGE10 71
+#define SINGLESLOT 72
+#define SINGLESOPIN 73
+#define SINGLEUSERPIN 74
+#define SINGLENEWPIN 75
+#define SLOTREQ 76
 
 
 /* list of mechanism flags and their printable string names */
