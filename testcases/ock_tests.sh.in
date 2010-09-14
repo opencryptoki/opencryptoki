@@ -166,9 +166,9 @@ check_slot()
                         TOKTYPE="Software"
                         ;;
                 *)
-                        echo "FATAL: unsupported or undetermined token type"
+                        echo "Error: unsupported or undetermined token type"
                         echo "       wrong Slot?"
-                        exit 1
+                        return 1
         esac
 }
 
