@@ -704,20 +704,16 @@ int get_pin(CK_CHAR **pin)
 	/* Turn off echoing to the terminal when getting the password */
 	echo(FALSE);
 	/* Get each character and print out a '*' for each input */
-	for (count = 0; (c != LINE_FEED) && (count < PIN_SIZE); count++) {
+	for (count = 0; (c != LINE_FEED) && (count < PIN_SIZE);) {
 		buff[count] = getc(stdin);
 		c = buff[count];
 		if (c == BACK_SPACE || c == DELETE) {
-			printf("\nBackspace and delete character not allowed. "
-			       "Please retry entering your PIN.\n");
-			rc = -EINVAL;
-			echo(TRUE);
-			fflush(stdout);
-			goto out;
+			if (count)
+				count--;
+			continue;
 		}
-		if ((c != LINE_FEED))
-			printf("*");
 		fflush(stdout);
+		count++;
 	}
 	echo(TRUE);
 	/* After we get the password go to the next line */
