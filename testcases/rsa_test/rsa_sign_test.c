@@ -47,7 +47,6 @@
 
 #include <openssl/evp.h>
 #include <openssl/sha.h>
-#include <openssl/md2.h>
 #include <openssl/md4.h>
 #include <openssl/md5.h>
 #include <openssl/rsa.h>
@@ -81,10 +80,6 @@ do_OpenSSLVerify(CK_SESSION_HANDLE session, CK_BYTE *signature,
 	EVP_MD *nid_alg = NULL;
 
 	switch (nid) {
-		case NID_md2:
-			ihash_len = MD2_DIGEST_LENGTH;
-			nid_alg = (EVP_MD *)EVP_md2();
-			break;
 		case NID_md5:
 			ihash_len = MD5_DIGEST_LENGTH;
 			nid_alg = (EVP_MD *)EVP_md5();
@@ -210,10 +205,6 @@ do_SignVerALG_RSA_PKCS(CK_SESSION_HANDLE session, CK_OBJECT_HANDLE publ_key,
 	   case CKM_SHA1_RSA_PKCS:
 		   nid = NID_sha1;
 		   alg_string = "SHA-1";
-		   break;
-	   case CKM_MD2_RSA_PKCS:
-		   nid = NID_md2;
-		   alg_string = "MD2";
 		   break;
 	   case CKM_MD5_RSA_PKCS:
 		   nid = NID_md5;
