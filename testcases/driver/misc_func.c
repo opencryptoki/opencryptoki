@@ -18,6 +18,9 @@
 #define BAD_USER_PIN		"534566346"
 #define BAD_USER_PIN_LEN	strlen(BAD_USER_PIN)
 
+CK_BBOOL            false = FALSE;
+CK_BBOOL            true = TRUE;
+
 // Tests:
 //
 // 1. Open Session
@@ -1278,6 +1281,135 @@ CK_RV do_GenerateKey( void )
 	return 0;
 }
 
+CK_RV
+test_ExtractableAndSensitive(CK_SESSION_HANDLE  session,
+			     CK_MECHANISM      *mech,
+			     CK_ATTRIBUTE      *tmpl,
+			     CK_ULONG           tmpl_size,
+			     char              *str)
+{
+	CK_OBJECT_HANDLE    h_key;
+	CK_RV               rc, lrc;
+	CK_BYTE             key[32];
+	CK_ATTRIBUTE        value_tmpl[] = {
+		{ CKA_VALUE, &key, 32 }
+	};
+
+	rc = funcs->C_GenerateKey( session, mech, tmpl, tmpl_size, &h_key );
+	if (rc != CKR_OK) {
+		testcase_error("C_GenerateKey");
+		return rc;
+	}
+
+	rc = funcs->C_GetAttributeValue(session, h_key, value_tmpl, 1);
+	/* XXX verify that this is the correct return code for an attempt to get the
+	 * attribute value on a non-extractable key */
+	if (rc != CKR_ATTRIBUTE_SENSITIVE) {
+		testcase_fail("%s", str);
+		rc = -1;
+	} else {
+		testcase_pass("%s", str);
+	}
+
+	lrc = funcs->C_DestroyObject(session, h_key);
+	if (lrc != CKR_OK) {
+		show_error("   C_DestroyObject", lrc);
+	}
+
+	return rc;
+}
+
+/* XXX this only tests secret keys, need to test private keys too */
+CK_RV
+do_ExtractableSensitiveTest()
+{
+	CK_SLOT_ID          slot_id;
+	CK_SESSION_HANDLE   session;
+	CK_MECHANISM        mech;
+	CK_FLAGS            flags;
+	CK_BYTE             user_pin[PKCS11_MAX_PIN_LEN];
+	CK_ULONG            user_pin_len, aes_key_len;
+	CK_RV               rc, lrc;
+	CK_VERSION          version = { 3, 0 };
+	CK_ATTRIBUTE        ext_tmpl[] = {
+		{ CKA_EXTRACTABLE, &false, sizeof(CK_BBOOL) },
+		{ CKA_VALUE_LEN, &aes_key_len, sizeof(CK_ULONG) }
+	};
+	CK_ATTRIBUTE        sens_tmpl[] = {
+		{ CKA_SENSITIVE, &true, sizeof(CK_BBOOL) },
+		{ CKA_VALUE_LEN, &aes_key_len, sizeof(CK_ULONG) }
+	};
+
+	testcase_begin();
+
+	slot_id = SLOT_ID;
+
+	if (get_user_pin(user_pin))
+		return CKR_FUNCTION_FAILED;
+	user_pin_len = (CK_ULONG)strlen((char *)user_pin);
+
+	flags = CKF_SERIAL_SESSION;
+	rc = funcs->C_OpenSession( slot_id, flags, NULL, NULL, &session );
+	if (rc != CKR_OK) {
+		show_error("   C_OpenSession", rc );
+		return rc;
+	}
+
+	rc = funcs->C_Login( session, CKU_USER, user_pin, user_pin_len );
+	if (rc != CKR_OK) {
+		show_error("   C_Login", rc );
+		return rc;
+	}
+
+	/* TEST 1: DES key */
+	mech.mechanism      = CKM_DES_KEY_GEN;
+	mech.ulParameterLen = 0;
+	mech.pParameter     = NULL;
+
+	rc |= test_ExtractableAndSensitive(session, &mech, sens_tmpl, 1, "Sensitive DES key");
+	rc |= test_ExtractableAndSensitive(session, &mech, ext_tmpl, 1, "Extractable DES key");
+
+	/* TEST 2: 3DES key */
+	mech.mechanism      = CKM_DES3_KEY_GEN;
+	mech.ulParameterLen = 0;
+	mech.pParameter     = NULL;
+
+	rc |= test_ExtractableAndSensitive(session, &mech, sens_tmpl, 1, "Sensitive 3DES key");
+	rc |= test_ExtractableAndSensitive(session, &mech, ext_tmpl, 1, "Extractable 3DES key");
+
+	/* TEST 3: SSLv3 key */
+	mech.mechanism      = CKM_SSL3_PRE_MASTER_KEY_GEN;
+	mech.ulParameterLen = sizeof(CK_VERSION);
+	mech.pParameter     = &version;
+
+	rc |= test_ExtractableAndSensitive(session, &mech, sens_tmpl, 1, "Sensitive SSLv3 key");
+	rc |= test_ExtractableAndSensitive(session, &mech, ext_tmpl, 1, "Extractable SSLv3 key");
+
+	/* TEST 4: AES 128 key */
+	mech.mechanism      = CKM_AES_KEY_GEN;
+	mech.ulParameterLen = 0;
+	mech.pParameter     = NULL;
+
+	aes_key_len = 16;
+	rc |= test_ExtractableAndSensitive(session, &mech, sens_tmpl, 2, "Sensitive AES 128 key");
+	rc |= test_ExtractableAndSensitive(session, &mech, ext_tmpl, 2, "Extractable AES 128 key");
+
+	aes_key_len = 24;
+	rc |= test_ExtractableAndSensitive(session, &mech, sens_tmpl, 2, "Sensitive AES 192 key");
+	rc |= test_ExtractableAndSensitive(session, &mech, ext_tmpl, 2, "Extractable AES 192 key");
+
+	aes_key_len = 32;
+	rc |= test_ExtractableAndSensitive(session, &mech, sens_tmpl, 2, "Sensitive AES 256 key");
+	rc |= test_ExtractableAndSensitive(session, &mech, ext_tmpl, 2, "Extractable AES 256 key");
+
+	lrc = funcs->C_CloseSession( session );
+	if (lrc != CKR_OK) {
+		show_error("   C_CloseSession", lrc );
+	}
+
+	return rc;
+}
+
 CK_RV misc_functions()
 {
 	SYSTEMTIME  t1, t2;
@@ -1360,6 +1492,9 @@ CK_RV misc_functions()
 	GetSystemTime(&t2);
 	process_time( t1, t2 );
 #endif
+	rc = do_ExtractableSensitiveTest();
+	if  (rc && !no_stop)
+		return rc;
 
 	if (skip_token_obj == TRUE) {
 		printf("Skipping do_InitPIN()...\n\n");
@@ -1379,7 +1514,7 @@ CK_RV misc_functions()
 			return rc;
 	}
 
-	return 0;
+	return rc;
 }
 
 int main(int argc, char **argv)
