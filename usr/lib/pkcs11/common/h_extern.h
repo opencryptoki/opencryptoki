@@ -2006,6 +2006,7 @@ CK_RV     template_add_attributes( TEMPLATE     * tmpl,
                                    CK_ULONG       ulCount );
 
 CK_RV     template_add_default_attributes( TEMPLATE * tmpl,
+                                           TEMPLATE * basetmpl,
                                            CK_ULONG   class,
                                            CK_ULONG   subclass,
                                            CK_ULONG   mode );
@@ -2126,7 +2127,7 @@ CK_RV     secret_key_validate_attribute       ( TEMPLATE *tmpl, CK_ATTRIBUTE *at
 //
 CK_RV     rsa_publ_check_required_attributes( TEMPLATE *tmpl, CK_ULONG mode );
 CK_RV     rsa_publ_validate_attribute( TEMPLATE *tmpl, CK_ATTRIBUTE *attr, CK_ULONG mode );
-CK_RV     rsa_publ_set_default_attributes( TEMPLATE *tmpl, CK_ULONG mode );
+CK_RV     rsa_publ_set_default_attributes( TEMPLATE *tmpl, TEMPLATE *basetmpl, CK_ULONG mode );
 CK_BBOOL  rsa_priv_check_exportability( CK_ATTRIBUTE_TYPE type );
 CK_RV     rsa_priv_check_required_attributes( TEMPLATE *tmpl, CK_ULONG mode );
 CK_RV     rsa_priv_set_default_attributes( TEMPLATE *tmpl, CK_ULONG mode );

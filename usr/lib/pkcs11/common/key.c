@@ -1350,12 +1350,13 @@ rsa_publ_check_required_attributes( TEMPLATE *tmpl, CK_ULONG mode )
 //  rsa_publ_set_default_attributes()
 //
 CK_RV
-rsa_publ_set_default_attributes( TEMPLATE *tmpl, CK_ULONG mode )
+rsa_publ_set_default_attributes( TEMPLATE *tmpl, TEMPLATE *basetmpl, CK_ULONG mode )
 {
    CK_ATTRIBUTE   *type_attr         = NULL;
    CK_ATTRIBUTE   *modulus_attr      = NULL;
    CK_ATTRIBUTE   *modulus_bits_attr = NULL;
    CK_ATTRIBUTE   *public_exp_attr   = NULL;
+   CK_ATTRIBUTE   *tmpattr           = NULL;
    CK_ULONG        bits = 0L;
 
    publ_key_set_default_attributes( tmpl, mode );
@@ -1387,7 +1388,13 @@ rsa_publ_set_default_attributes( TEMPLATE *tmpl, CK_ULONG mode )
    modulus_bits_attr->type       = CKA_MODULUS_BITS;
    modulus_bits_attr->ulValueLen = sizeof(CK_ULONG);
    modulus_bits_attr->pValue     = (CK_BYTE *)modulus_bits_attr + sizeof(CK_ATTRIBUTE);
-   *(CK_ULONG *)modulus_bits_attr->pValue = bits;
+
+   if (template_attribute_find( basetmpl, CKA_MODULUS, &tmpattr)) {
+      *(CK_ULONG *)modulus_bits_attr->pValue = 8 * tmpattr->ulValueLen;
+   }
+   else {
+      *(CK_ULONG *)modulus_bits_attr->pValue = bits;
+   }
 
    public_exp_attr->type       = CKA_PUBLIC_EXPONENT;
    public_exp_attr->ulValueLen = 0;

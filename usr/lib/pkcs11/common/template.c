@@ -369,9 +369,12 @@ template_add_attributes( TEMPLATE     * tmpl,
 
 
 // template_add_default_attributes()
+//  Add default attributes to '*tmpl'.
+//  '*basetmpl' may be used to derive values to the default attributes
 //
 CK_RV
 template_add_default_attributes( TEMPLATE * tmpl,
+                                 TEMPLATE * basetmpl,
                                  CK_ULONG   class,
                                  CK_ULONG   subclass,
                                  CK_ULONG   mode )
@@ -401,7 +404,7 @@ template_add_default_attributes( TEMPLATE * tmpl,
          switch (subclass)
          {
             case CKK_RSA:
-               return rsa_publ_set_default_attributes( tmpl, mode );
+               return rsa_publ_set_default_attributes( tmpl, basetmpl, mode );
 
             case CKK_DSA:
                return dsa_publ_set_default_attributes( tmpl, mode );

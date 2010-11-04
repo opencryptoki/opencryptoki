@@ -993,10 +993,6 @@ object_create_skel( CK_ATTRIBUTE  * pTemplate,
    memset( tmpl2, 0x0, sizeof(TEMPLATE) );
 
 
-   rc = template_add_default_attributes( tmpl, class, subclass, mode );
-   if (rc != CKR_OK)
-      goto done;
-
    rc = template_add_attributes( tmpl2, pTemplate, ulCount );
    if (rc != CKR_OK)
       goto done;
@@ -1021,6 +1017,11 @@ object_create_skel( CK_ATTRIBUTE  * pTemplate,
       st_err_log(166, __FILE__, __LINE__); 
       goto done;
    }
+
+   rc = template_add_default_attributes( tmpl, tmpl2, class, subclass, mode );
+   if (rc != CKR_OK)
+      goto done;
+
 
    rc = template_merge( tmpl, &tmpl2 );
    if (rc != CKR_OK){
