@@ -102,6 +102,66 @@ do_GenerateRSAKeyPair(CK_ULONG bits)
 
    }
 
+   // try creating a key using C_CreateObject and specifying
+   // CKA_MODULUS_BITS, which must NOT be specified according
+   // to table 15
+   {
+      CK_BYTE   pub_exp[] = { 0x1, 0x0, 0x1 };
+      CK_BYTE   *modulus = malloc(bits/8);
+      CK_KEY_TYPE keyType = CKK_RSA;
+      CK_ULONG    keyClass = CKO_PUBLIC_KEY, attr_bits;
+
+      CK_ATTRIBUTE pub_tmpl[] =
+      {
+	 {CKA_CLASS, &keyClass, sizeof(keyClass)},
+	 {CKA_KEY_TYPE, &keyType, sizeof(keyType)},
+	 {CKA_PUBLIC_EXPONENT, &pub_exp, sizeof(pub_exp) },
+	 {CKA_MODULUS, modulus, bits/8 },
+	 {CKA_MODULUS_BITS,    &bits,    sizeof(bits)    }
+      };
+      CK_ATTRIBUTE mod_bits_tmpl[] =
+      {
+	 {CKA_MODULUS_BITS,    &attr_bits,    sizeof(attr_bits)    }
+      };
+
+      if (!modulus) {
+	 testcase_error("malloc of %lu bytes failed", bits/8);
+	 return -1;
+      }
+
+      rc = funcs->C_CreateObject(session, pub_tmpl, 5, &publ_key);
+      if (rc != CKR_ATTRIBUTE_READ_ONLY && rc != CKR_TEMPLATE_INCONSISTENT) {
+	 free(modulus);
+	 show_error("   C_CreateObject", rc );
+	 return rc;
+      }
+
+      // Create the object correctly, without CKA_MODULUS_BITS
+      rc = funcs->C_CreateObject(session, pub_tmpl, 4, &publ_key);
+      if (rc != CKR_OK) {
+	 free(modulus);
+	 show_error("   C_CreateObject", rc );
+	 return rc;
+      }
+
+      // Check that PKCS#11 added the CKA_MODULUS_BITS attribute
+      rc = funcs->C_GetAttributeValue(session, publ_key, mod_bits_tmpl, 1);
+      if (rc != CKR_OK) {
+	 free(modulus);
+	 show_error("   C_CreateObject", rc );
+	 return rc;
+      }
+
+      if (bits != attr_bits) {
+	 free(modulus);
+	 testcase_fail("modulus bits(%lu) != requested size of "
+		       "modulus(%lu) in created object", attr_bits, bits);
+	 return -1;
+      }
+
+      free(modulus);
+   }
+
    // Use an invalid pub exp
    {
       CK_BYTE   pub_exp[] = { 0x1, 0x0, 0x2 };
@@ -120,7 +180,6 @@ do_GenerateRSAKeyPair(CK_ULONG bits)
          show_error("   C_GenerateKeyPair #3", rc );
          return rc;
    }
-
    }
 
    // Use no pub exp
@@ -141,6 +200,25 @@ do_GenerateRSAKeyPair(CK_ULONG bits)
 
    }
 
+   // Leave out required attribute CKA_MODULUS_BITS
+   {
+      CK_BYTE   pub_exp[] = { 0x1, 0x0, 0x1 };
+
+      CK_ATTRIBUTE pub_tmpl[] =
+      {
+         {CKA_PUBLIC_EXPONENT, &pub_exp, sizeof(pub_exp) }
+      };
+
+      rc = funcs->C_GenerateKeyPair( session,   &mech,
+                                     pub_tmpl,   1,
+                                     NULL,       0,
+                                     &publ_key, &priv_key );
+      if (rc != CKR_TEMPLATE_INCOMPLETE) {
+         show_error("   C_GenerateKeyPair #3", rc );
+         return rc;
+   }
+
+   }
    rc = funcs->C_CloseSession( session );
    if (rc != CKR_OK) {
 	   show_error("   C_CloseSession #3", rc );
