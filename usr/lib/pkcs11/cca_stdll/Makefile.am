@@ -46,6 +46,7 @@ opencryptoki_stdll_libpkcs11_cca_la_SOURCES = asn1.c			\
 					      ../common/mech_ssl3.c	\
 					      ../common/sess_mgr.c	\
 					      verify_mgr.c		\
+					      ../common/p11util.c	\
 					      cca_specific.c
 
 noinst_HEADERS = h_extern.h tok_spec_struct.h defs.h csulincl.h		\

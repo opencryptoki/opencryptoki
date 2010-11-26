@@ -27,6 +27,7 @@
 #include "cca_stdll.h"
 
 #include "pkcs11types.h"
+#include "p11util.h"
 #include "defs.h"
 #include "host_defs.h"
 #include "tok_specific.h"
@@ -569,6 +570,9 @@ token_specific_rsa_generate_keypair(TEMPLATE *publ_tmpl,
 	uint16_t mod_bits;
 	CK_ATTRIBUTE *pub_exp = NULL, *attr = NULL;
 	CK_RV rv;
+        CK_BYTE_PTR ptr;
+        CK_ULONG tmpsize, tmpexp;
+
 
 	if (!template_attribute_find(publ_tmpl, CKA_MODULUS_BITS, &attr)) {
 		st_err_log(48, __FILE__, __LINE__);
@@ -580,19 +584,56 @@ token_specific_rsa_generate_keypair(TEMPLATE *publ_tmpl,
 	/* If e is specified in the template, use it */
 	rv = template_attribute_find(publ_tmpl, CKA_PUBLIC_EXPONENT, &pub_exp);
 	if (rv == TRUE) {
-		if (pub_exp->ulValueLen > SHRT_MAX)
+
+                /* Per CCA manual, we really only support 3 values here:        *
+                 * * 0 (generate random public exponent)                        *
+                 * * 3 or                                                       *
+                 * * 65537                                                      *
+                 * Trim the P11 value so we can check what's comming our way    */
+
+                tmpsize = pub_exp->ulValueLen;
+                ptr = p11_bigint_trim(pub_exp->pValue, &tmpsize);
+                /* If we trimmed the number correctly, only 3 bytes are         *
+                 * sufficient to hold 65537 (0x010001)                          */
+                if (tmpsize > 3)
 			return CKR_TEMPLATE_INCONSISTENT;
 
-		size_of_e = (uint16_t)pub_exp->ulValueLen;
+                /* make pValue into CK_ULONG so we can compare */
+                tmpexp = 0;
+                memcpy((void *)&tmpexp + sizeof(CK_ULONG) - tmpsize,    // right align
+                       ptr, tmpsize);
+
+                /* Check for one of the three allowed values */
+                if ( (tmpexp != 0) &&
+                     (tmpexp != 3) &&
+                     (tmpexp != 65537) )
+                        return CKR_TEMPLATE_INCONSISTENT;
+
+
+		size_of_e = (uint16_t)tmpsize;
 
 		memcpy(&key_value_structure[CCA_PKB_E_SIZE_OFFSET],
 		       &size_of_e, (size_t)CCA_PKB_E_SIZE);
 		memcpy(&key_value_structure[CCA_PKB_E_OFFSET],
-		       pub_exp->pValue, (size_t)pub_exp->ulValueLen);
+		       ptr, (size_t)tmpsize);
 	}
 
 	key_value_structure_length = CCA_KEY_VALUE_STRUCT_SIZE;
 	memcpy(key_value_structure, &mod_bits, sizeof(uint16_t));
+
+        /* One last check. CCA can't auto-generate a random public      *
+         * exponent if the modulus length is more than 2048 bits        *
+         * We should be ok checking the public exponent length in the   *
+         * key_value_structure, since either the caller never           *
+         * specified it or we trimmed it's size. The size should be     *
+         * zero if the value is zero in both cases.                     *
+         * public exponent has CCA_PKB_E_SIZE_OFFSET offset with        *
+         * 2-bytes size                                                 */
+        if (mod_bits > 2048 &&
+            key_value_structure[CCA_PKB_E_SIZE_OFFSET] == 0x00 &&
+            key_value_structure[CCA_PKB_E_SIZE_OFFSET + 1] == 0x00) {
+                return CKR_TEMPLATE_INCONSISTENT;
+        }
 
 	rule_array_count = 2;
 	memcpy(rule_array, "RSA-CRT KEY-MGMT", (size_t)(CCA_KEYWORD_SIZE * 2));
