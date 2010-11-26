@@ -517,7 +517,7 @@ rsa_parse_block( CK_BYTE  * in_data,
          * Where D must begin with a nonzero octet.
          */
         case 0:
-            for (i = 2; i < (in_data_len - 2); i++) {
+            for (i = 2; i <= (in_data_len - 2); i++) {
                 if (in_data[i] != (CK_BYTE)0)
                     break;
             }
@@ -528,7 +528,7 @@ rsa_parse_block( CK_BYTE  * in_data,
          * EB = 00 || 01 || FF * i || 00 || D
          */
         case 1:
-            for (i = 2; i < (in_data_len - 2); i++) {
+            for (i = 2; i <= (in_data_len - 2); i++) {
                 if (in_data[i] != (CK_BYTE)0xff) {
                     if (in_data[i] == (CK_BYTE)0) {
                         i++;
@@ -549,7 +549,7 @@ rsa_parse_block( CK_BYTE  * in_data,
          * Where ?? is nonzero.
          */
         case 2:
-            for (i = 2; i < (in_data_len - 2); i++) {
+            for (i = 2; i <= (in_data_len - 2); i++) {
                 if (in_data[i] == (CK_BYTE)0) {
                     i++;
                     break;
