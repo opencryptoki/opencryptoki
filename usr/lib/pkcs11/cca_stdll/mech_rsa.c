@@ -245,6 +245,7 @@ rsa_pkcs_verify( SESSION             * sess,
 
 //
 //
+#if 0
 CK_RV
 rsa_pkcs_verify_recover( SESSION             * sess,
                          CK_BBOOL              length_only,
@@ -297,7 +298,7 @@ rsa_pkcs_verify_recover( SESSION             * sess,
 
    return rc;
 }
-
+#endif
 
 //
 //

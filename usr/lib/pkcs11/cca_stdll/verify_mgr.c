@@ -612,12 +612,12 @@ verify_mgr_verify_recover( SESSION             * sess,
    }
 
    switch (ctx->mech.mechanism) {
+#if 0
       case CKM_RSA_PKCS:
          return rsa_pkcs_verify_recover( sess,      length_only,
                                          ctx,
                                          signature, sig_len,
                                          out_data,  out_len );
-#if 0
       case CKM_RSA_X_509:
          return rsa_x509_verify_recover( sess,      length_only,
                                          ctx,
