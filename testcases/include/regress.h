@@ -100,14 +100,14 @@ int get_user_pin(CK_BYTE_PTR);
 #define testcase_begin(_fmt, ...)                                       \
         do {                                                            \
                 gettimeofday(&timev1, NULL);                            \
-                printf("* TESTCASE %s BEGIN " _fmt "\n",                \
+                printf("------\n* TESTCASE %s BEGIN " _fmt "\n",        \
                         __func__, ## __VA_ARGS__);                      \
         } while (0)
 
 #define testcase_begin_f(_func, _fmt, ...)                              \
         do {                                                            \
                 gettimeofday(&timev1, NULL);                            \
-                printf("* TESTCASE %s BEGIN " _fmt "\n",                \
+                printf("------\n* TESTCASE %s BEGIN " _fmt "\n",        \
                         _func, ## __VA_ARGS__);                         \
         } while (0)
 
@@ -116,7 +116,7 @@ int get_user_pin(CK_BYTE_PTR);
         do {                                                            \
                 gettimeofday(&timev2, NULL);                            \
                 timersub(&timev2, &timev1, &timevr);                    \
-                printf("* TESTCASE %s PASS (elapsed time %lds %ldus) " _fmt "\n",\
+                printf("* TESTCASE %s PASS (elapsed time %lds %ldus) " _fmt "\n\n",\
                         __func__, timevr.tv_sec, timevr.tv_usec,        \
                         ## __VA_ARGS__);                                \
         } while (0)
@@ -124,17 +124,31 @@ int get_user_pin(CK_BYTE_PTR);
 #define testcase_pass_f(_func, _fmt, ...)                               \
         do {                                                            \
                 gettimeofday(&timev2, NULL);                            \
-                printf("* TESTCASE %s PASS (elapsed time %lds %ldus) " _fmt "\n",\
+                printf("* TESTCASE %s PASS (elapsed time %lds %ldus) " _fmt "\n\n",\
                        _func, timevr.tv_sec, timevr.tv_usec,            \
                         ## __VA_ARGS__);                                \
         } while (0)
 
 #define testcase_skip(_fmt, ...)                                        \
-        printf("* TESTCASE %s SKIP " _fmt "\n",                         \
-                __func__, ## __VA_ARGS__)
+        do {                                                            \
+                printf("* TESTCASE %s SKIP " _fmt "\n\n",               \
+                        __func__, ## __VA_ARGS__);                      \
+                testcase_skip = TRUE;                                   \
+        } while (0)
 
 #define testcase_skip_f(_func, _fmt, ...)                               \
-        printf("* TESTCASE %s SKIP " _fmt "\n",                         \
+        do {                                                            \
+                printf("* TESTCASE %s SKIP " _fmt "\n\n",               \
+                        _func, ## __VA_ARGS__);                         \
+                testcase_skip = TRUE;                                   \
+        } while (0)
+
+#define testcase_notice(_fmt, ...)                                      \
+        printf("* TESTCASE %s NOTICE " _fmt "\n",                       \
+                __func__, ## __VA_ARGS__)
+
+#define testcase_notice_f(_func, _fmt, ...)                             \
+        printf("* TESTCASE %s NOTICE " _fmt "\n",                       \
                 _func, ## __VA_ARGS__)
 
 #define testcase_fail(_fmt, ...)                                        \
@@ -156,6 +170,83 @@ int get_user_pin(CK_BYTE_PTR);
         printf("* TESTCASE %s ERROR (%s:%d)) " _fmt "\n",               \
                         _func, __FILE__, __LINE__,                      \
                         ## __VA_ARGS__)
+
+#define testcase_rw_session()                                           \
+        do {                                                            \
+                flags = CKF_SERIAL_SESSION | CKF_RW_SESSION;            \
+                rc = funcs->C_OpenSession(SLOT_ID, flags,               \
+                        NULL, NULL, &session );                         \
+                if (rc != CKR_OK) {                                     \
+                        testcase_error("C_OpenSession() rc = %s",       \
+                                p11_get_ckr(rc));                       \
+                        goto testcase_cleanup;                          \
+                }                                                       \
+        } while (0)
+
+#define testcase_ro_session()                                           \
+        do {                                                            \
+                flags = CKF_SERIAL_SESSION                              \
+                rc = funcs->C_OpenSession(SLOT_ID, flags,               \
+                        NULL, NULL, &session );                         \
+                if (rc != CKR_OK) {                                     \
+                        testcase_error("C_OpenSession() rc = %s",       \
+                                p11_get_ckr(rc));                       \
+                        goto testcase_cleanup;                          \
+                }                                                       \
+        } while (0)
+
+#define testcase_close_session()                                        \
+        do {                                                            \
+                rc = funcs->C_CloseSession(session);                    \
+                if (rc != CKR_OK) {                                     \
+                        testcase_error("C_CloseSession() rc = %s",      \
+                                p11_get_ckr(rc));                       \
+                }                                                       \
+        } while (0)
+
+#define testcase_closeall_session()                                     \
+        do {                                                            \
+                rc = funcs->C_CloseAllSessions(SLOT_ID);                \
+                if (rc != CKR_OK) {                                     \
+                        testcase_error("C_CloseAllSessions() rc = %s",  \
+                                p11_get_ckr(rc));                       \
+                }                                                       \
+        } while (0)
+
+
+#define testcase_user_login()                                           \
+        do {                                                            \
+                if (get_user_pin(user_pin)) {                           \
+                        testcase_error("get_user_pin() failed");        \
+                        rc = -1;                                        \
+                        goto testcase_cleanup;                          \
+                }                                                       \
+                user_pin_len = (CK_ULONG) strlen( (char *) user_pin);   \
+                rc = funcs->C_Login(session, CKU_USER,                  \
+                        user_pin, user_pin_len);                        \
+                if (rc != CKR_OK) {                                     \
+                        testcase_error("C_Login() rc = %s",             \
+                                p11_get_ckr(rc));                       \
+                        goto testcase_cleanup;                          \
+                }                                                       \
+        } while (0)
+
+#define testcase_so_login()                                             \
+        do {                                                            \
+                if (get_so_pin(so_pin)) {                               \
+                        testcase_error("get_so_pin() failed");          \
+                        rc = -1;                                        \
+                        goto testcase_cleanup;                          \
+                }                                                       \
+                so_pin_len = (CK_ULONG) strlen( (char *) so_pin);       \
+                rc = funcs->C_Login(session, CKU_SO,                    \
+                        so_pin, so_pin_len);                            \
+                if (rc != CKR_OK) {                                     \
+                        testcase_error("C_Login() rc = %s",             \
+                                p11_get_ckr(rc));                       \
+                        goto testcase_cleanup;                          \
+                }                                                       \
+        } while (0)
 
 
 #endif
