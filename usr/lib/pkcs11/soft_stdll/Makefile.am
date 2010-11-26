@@ -7,7 +7,7 @@ opencryptoki_stdll_libpkcs11_sw_la_LDFLAGS = -shared -Wl,-Bsymbolic	\
 opencryptoki_stdll_libpkcs11_sw_la_CFLAGS = -DSPINXPL -DDEV -D_THREAD_SAFE  \
 					    -DSHALLOW=0 -DSWTOK=1 -DLITE=0  \
 					    -DNOCDMF -DNOMD2 -DNODSA -DNORIPE	    \
-					    -DDEBUGON -fPIC		    \
+					    -fPIC		    \
 					    -I/usr/include -I.		    \
 					    -I../../../include/pkcs11/stdll \
 					    -I../../../include/pkcs11	    \

@@ -201,7 +201,7 @@ dnl ---
 dnl --- enable_debug
 AM_CONDITIONAL([ENABLE_DEBUG], [test "x$enable_debug" = "xyes"])
 if test "x$enable_debug" = "xyes"; then
-	CFLAGS="$cmdline_CFLAGS -g -O0"
+	CFLAGS="$cmdline_CFLAGS -g3 -O0 -DDEBUG"
 fi
 
 dnl --- first, check what external software is present or specified
