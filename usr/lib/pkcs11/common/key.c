@@ -5207,50 +5207,45 @@ aes_unwrap( TEMPLATE *tmpl,
    CK_ULONG	   key_size;
    CK_BBOOL	   found        = FALSE;
 
-   
-   /*
-    * CKA_VALUE_LEN attribute is optional in the key template. Default
-    * is to use AES_BLOCK_SIZE and truncate if no value is specified. --KlausK
-    */
+
    found = template_attribute_find( tmpl, CKA_VALUE_LEN, &val_len_attr );
-   if (found){
-      key_size = *(CK_ULONG *)val_len_attr->pValue;
+
+
+   /* For AES, we should inspect data_len and set       *
+    * CKA_VALUE_LEN accordingly                         *
+    * data_len should be one of AES's possible key      *
+    * sizes                                             */
+   if (data_len == AES_KEY_SIZE_128 ||
+       data_len == AES_KEY_SIZE_192 ||
+       data_len == AES_KEY_SIZE_256){
+      key_size = data_len;
    }
    else {
-      key_size = AES_BLOCK_SIZE;		/* same as AES_KEY_SIZE_128 */
-   }
-      
-   /* key_size should be one of AES's possible sizes */
-   if (key_size != AES_KEY_SIZE_128 &&
-       key_size != AES_KEY_SIZE_192 &&
-       key_size != AES_KEY_SIZE_256){
-      st_err_log(62, __FILE__, __LINE__);
-      return CKR_ATTRIBUTE_VALUE_INVALID;
+      /* TODO: log me */
+      /* Ops! We may be dealing with an Unwrapping      *
+       * mechamism  that doesn't do padding and/or      *
+       * doesn't get the decrypted size right.          *
+       * Let's try looking for CKA_VALUE_LEN (which btw *
+       * the specs forbids for C_UnwrapKey()) as a way  *
+       * to recover from that (this is where we get out *
+       * of spec, thus, FIXME:)                         */
+      if (found){
+         key_size = *(CK_ULONG *)val_len_attr->pValue;
+      }
+      else {
+         st_err_log(62, __FILE__, __LINE__);
+         return CKR_ATTRIBUTE_VALUE_INVALID;
+      }
    }
    if (fromend == TRUE)
       ptr = data + data_len - key_size;
    else
       ptr = data;
-   
-#if 0
-   CK_ULONG        i;
-   if (nv_token_data->tweak_vector.check_des_parity == TRUE) {
-      for (i=0; i < 3*DES_KEY_SIZE; i++) {
-         if (parity_is_odd(ptr[i]) == FALSE){
-            st_err_log(9, __FILE__, __LINE__);
-            return CKR_ATTRIBUTE_VALUE_INVALID;
-         }
-      }
-   }
-#endif
-   
+
    value_attr = (CK_ATTRIBUTE *)malloc( sizeof(CK_ATTRIBUTE) + key_size );
 
    if (!value_attr) {
-      if (value_attr)
-         free( value_attr );
       st_err_log(0, __FILE__, __LINE__);
-
       return CKR_HOST_MEMORY;
    }
 
@@ -5260,6 +5255,22 @@ aes_unwrap( TEMPLATE *tmpl,
    memcpy( value_attr->pValue, ptr, key_size );
 
    template_update_attribute( tmpl, value_attr );
+
+   if (!found) {
+      val_len_attr = (CK_ATTRIBUTE *) malloc(sizeof(CK_ATTRIBUTE) + sizeof(CK_ULONG));
+      if (!val_len_attr) {
+         st_err_log(0, __FILE__, __LINE__);
+         return CKR_HOST_MEMORY;
+      }
+   }
+   /* If the templace has CKA_VALUE_LEN, let's just     *
+    * hope it also has pValue allocated                 */
+   val_len_attr->type                  = CKA_VALUE_LEN;
+   val_len_attr->ulValueLen            = sizeof(CK_ULONG);
+   val_len_attr->pValue                = (CK_BYTE *) val_len_attr + sizeof(CK_ATTRIBUTE);
+   *((CK_ULONG *)val_len_attr->pValue) = key_size;
+
+   template_update_attribute(tmpl, val_len_attr);
 
    return CKR_OK;
 }
