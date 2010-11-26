@@ -1237,10 +1237,12 @@ template_get_compressed_size( TEMPLATE *tmpl )
 CK_BBOOL
 template_check_exportability( TEMPLATE *tmpl, CK_ATTRIBUTE_TYPE type )
 {
-   CK_ATTRIBUTE * attr = NULL;
+   CK_ATTRIBUTE * sensitive = NULL;
+   CK_ATTRIBUTE * extractable = NULL;
    CK_ULONG       class;
    CK_ULONG       subclass;
-   CK_BBOOL       val;
+   CK_BBOOL       sensitive_val;
+   CK_BBOOL       extractable_val;
 
 
    if (!tmpl)
@@ -1256,15 +1258,18 @@ template_check_exportability( TEMPLATE *tmpl, CK_ATTRIBUTE_TYPE type )
    //       and secret key objects.  If object type is any other, then
    //       by default the attribute is exportable.
    //
-   //    2) If CKA_SENSITIVE = FALSE then all attributes are exportable
+   //    2) If CKA_SENSITIVE = FALSE  and CKA_EXTRACTABLE = TRUE then
+   //       all attributes are exportable
    //
    if (class != CKO_PRIVATE_KEY && class != CKO_SECRET_KEY)
       return TRUE;
 
-   val = template_attribute_find( tmpl, CKA_SENSITIVE, &attr );
-   if (val) {
-      val = *(CK_BBOOL *)attr->pValue;
-      if (val == FALSE)
+   sensitive_val = template_attribute_find( tmpl, CKA_SENSITIVE, &sensitive );
+   extractable_val = template_attribute_find( tmpl, CKA_EXTRACTABLE, &extractable );
+   if (sensitive_val && extractable_val) {
+      sensitive_val = *(CK_BBOOL *)sensitive->pValue;
+      extractable_val = *(CK_BBOOL *)extractable->pValue;
+      if (sensitive_val == FALSE && extractable_val == TRUE)
          return TRUE;
    }
    else {
@@ -1273,7 +1278,8 @@ template_check_exportability( TEMPLATE *tmpl, CK_ATTRIBUTE_TYPE type )
       return FALSE;
    }
 
-   // at this point, we know the object must have CKA_SENSITIVE = TRUE.
+   // at this point, we know the object must have CKA_SENSITIVE = TRUE
+   // or CKA_EXTRACTABLE = FALSE (or both).
    // need to determine whether the particular attribute in question is
    // a "sensitive" attribute.
    //
