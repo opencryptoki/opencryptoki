@@ -920,7 +920,7 @@ CK_RV do_CreateTokenObjects( void )
         testcase_begin("starting...");
 
         if (skip_token_obj == TRUE) {
-                testcase_skip("Skipping tests that creates token objects");
+                testcase_notice("Skipping tests that creates token objects");
                 return CKR_OK;
         }
 
