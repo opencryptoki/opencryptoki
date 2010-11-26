@@ -720,36 +720,6 @@ APISlot2Local(snum)
 
 
 
-void
-hex_dump(char *str,CK_BYTE_PTR ptr, int  len )
-{
-   int  lendone=0;
-   int  by10 = 0;
-   int   i,j;
-
-
-   printf("%s Dumping  %d bytes \n",str,len);
-   by10 = len/10;
-   for (i=0;i< by10;i++){
-      for (j=0;j<10;j++){
-         lendone ++;
-         printf("0x%02X ",*ptr);
-         ptr++;
-      }
-      printf("\n");
-   }
-
-   for (j=lendone; j< len;j++){
-         printf("0x%02X ",*ptr);
-         ptr++;
-   }
-
-      printf("\n Done Dumping  \n");
-
-
-}
-
-
 
 CK_RV
 MY_LockMutex(void)
