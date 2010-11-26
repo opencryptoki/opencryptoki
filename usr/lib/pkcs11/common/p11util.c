@@ -289,7 +289,7 @@
 /* (C) COPYRIGHT International Business Machines Corp. 2001,2002          */
 
 
-
+#include <stdlib.h>
 #include "pkcs11types.h"
 
 #define _sym2str(X)     case X: return #X
@@ -655,4 +655,49 @@ p11_get_ckm(CK_ULONG mechanism)
 	_sym2str(CKM_VENDOR_DEFINED);
 	default:				return "UNKNOWN";
 	}
+}
+
+// Allocates memory on *dst and puts hex dump from ptr
+// with len bytes.
+// *dst must be freed by the caller
+char *
+p11_ahex_dump(char **dst, CK_BYTE_PTR ptr, CK_ULONG len)
+{
+    CK_ULONG i;
+
+    if (dst == NULL) {
+        return NULL;
+    }
+
+    *dst = (char *) calloc(2*len + 1 , sizeof(char));
+    if (*dst == NULL) {
+        return NULL;
+    }
+
+    for (i = 0; i < len; i++) {
+            sprintf(*dst + 2*i, "%02hhX", ptr[i]);
+    }
+    *(*dst + 2*len) = '\0';      // null-terminate
+
+    return *dst;
+}
+
+
+/* p11_bigint_trim() - trim a big integer. Returns pointer that is
+ *        contained within 'in' + '*size' that represents
+ *        the same number, but without leading zeros.
+ *  @in   points to a sequence of bytes forming a big integer,
+ *        unsigned, right-aligned and big-endian
+ *  @size points to the size of @in on input, and the minimum
+ *        size that can represent it on output
+ */
+CK_BYTE_PTR
+p11_bigint_trim(CK_BYTE_PTR in, CK_ULONG_PTR size) {
+   CK_ULONG i;
+
+   for (i = 0;
+        (i < *size) && in[i] == 0x00;
+        i++);
+   *size -= i;
+   return in + i;
 }

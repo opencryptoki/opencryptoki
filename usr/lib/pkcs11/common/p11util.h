@@ -311,5 +311,20 @@ char *p11_get_ckm(CK_ULONG);
 //
 CK_BBOOL is_attribute_defined( CK_ATTRIBUTE_TYPE type );
 
+// Allocates memory on *dst and puts hex dump from ptr
+// with len bytes.
+// *dst must be freed by the caller
+char * p11_ahex_dump(char **dst, CK_BYTE_PTR ptr, CK_ULONG len);
+
+/* p11_bigint_trim() - trim a big integer. Returns pointer that is
+ *        contained within 'in' + '*size' that represents
+ *        the same number, but without leading zeros.
+ *  @in   points to a sequence of bytes forming a big integer,
+ *        unsigned, right-aligned and big-endian
+ *  @size points to the size of @in on input, and the minimum
+ *        size that can represent it on output
+ */
+CK_BYTE_PTR p11_bigint_trim(CK_BYTE_PTR in, CK_ULONG_PTR size);
+
 #endif  // #ifndef _P11UTIL_H_
 
