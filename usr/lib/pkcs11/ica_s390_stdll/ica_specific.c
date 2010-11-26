@@ -303,6 +303,7 @@
 #endif
 
 #include "pkcs11types.h"
+#include "p11util.h"
 #include "defs.h"
 #include "host_defs.h"
 #include "h_extern.h"
@@ -1713,7 +1714,6 @@ rsa_convert_crt_key( CK_ATTRIBUTE * modulus,
 }
 
 
-
 //
 CK_RV
 os_specific_rsa_keygen(TEMPLATE *publ_tmpl,  TEMPLATE *priv_tmpl)
@@ -1723,6 +1723,7 @@ os_specific_rsa_keygen(TEMPLATE *publ_tmpl,  TEMPLATE *priv_tmpl)
    CK_BYTE            * ptr      = NULL;
    CK_ULONG             mod_bits;
    CK_BBOOL             flag;
+   unsigned long        tmpsize;
    CK_RV                rc;
    ica_rsa_key_mod_expo_t * publKey = NULL;
    ica_rsa_key_crt_t      * privKey = NULL;
@@ -1785,8 +1786,23 @@ os_specific_rsa_keygen(TEMPLATE *publ_tmpl,  TEMPLATE *priv_tmpl)
    /* Use the provided public exponent:
     * all fields must be right-aligned, so make
     * sure we only use the rightmost part */
+   /* We know the pub_exp attribute has it's value in BIG ENDIAN        *
+    * byte order, and we're assuming we're on s390(x) which is also     *
+    * BIG ENDIAN, so no byte swapping required.                         *
+    * FIXME: Will need to fix that if porting for little endian         */
    ptr = publKey->exponent + publKey->key_length - publ_exp->ulValueLen;
    memcpy(ptr, publ_exp->pValue, publ_exp->ulValueLen);
+
+   /* If the public exponent is zero, libica will generate a random one *
+    * If it is an even number, then we have a problem. Use ptr to cast  *
+    * to unsigned int and check                                         */
+   ptr = publKey->exponent + publKey->key_length - sizeof (unsigned long);
+   if ( *( (unsigned long *)ptr) != 0 &&
+        *( (unsigned long *)ptr) % 2 == 0 ) {
+     st_err_log(20, __FILE__, __LINE__);
+     return CKR_TEMPLATE_INCONSISTENT;
+   }
+
 
    /* Build privKey:
     * buffers pointed by p, q, dp, dq and qInverse in struct
@@ -1850,17 +1866,38 @@ os_specific_rsa_keygen(TEMPLATE *publ_tmpl,  TEMPLATE *priv_tmpl)
    }
    
 
+   /* Build the PKCS#11 public key */
    // modulus: n
    //
-   rc = build_attribute( CKA_MODULUS, publKey->modulus,
-                        publKey->key_length, &attr );
+   tmpsize = publKey->key_length;
+   ptr = p11_bigint_trim(publKey->modulus, &tmpsize);
+   if (tmpsize != publKey->key_length) {
+      /* This is bad */
+      st_err_log(4, __FILE__, __LINE__, __FUNCTION__);
+      rc = CKR_FUNCTION_FAILED;
+      goto privkey_cleanup;
+   }
+   rc = build_attribute( CKA_MODULUS, ptr,
+                        tmpsize, &attr );
    if (rc != CKR_OK){
       st_err_log(84, __FILE__, __LINE__);
       goto privkey_cleanup;
    }
    template_update_attribute( publ_tmpl, attr );
 
-  
+   // public exponent
+   //
+   tmpsize = publKey->key_length;
+   ptr = p11_bigint_trim(publKey->exponent, &tmpsize);
+   rc = build_attribute( CKA_PUBLIC_EXPONENT, ptr,
+                        tmpsize, &attr);
+   if (rc != CKR_OK){
+      st_err_log(84, __FILE__, __LINE__);
+      goto privkey_cleanup;
+   }
+   template_update_attribute( publ_tmpl, attr );
+
+
    // local = TRUE
    //
    flag = TRUE;
@@ -1877,7 +1914,9 @@ os_specific_rsa_keygen(TEMPLATE *publ_tmpl,  TEMPLATE *priv_tmpl)
 
    // public exponent: e
    //
-   rc = build_attribute( CKA_PUBLIC_EXPONENT, publ_exp->pValue, publ_exp->ulValueLen, &attr );
+   tmpsize = publKey->key_length;
+   ptr = p11_bigint_trim(publKey->exponent, &tmpsize);
+   rc = build_attribute( CKA_PUBLIC_EXPONENT, ptr, tmpsize, &attr );
    if (rc != CKR_OK) {
       st_err_log(84, __FILE__, __LINE__);
       goto privkey_cleanup;
@@ -1886,18 +1925,28 @@ os_specific_rsa_keygen(TEMPLATE *publ_tmpl,  TEMPLATE *priv_tmpl)
 
    // modulus: n
    //
-   rc = build_attribute( CKA_MODULUS, publKey->modulus,
-                        publKey->key_length, &attr );
+   tmpsize = publKey->key_length;
+   ptr = p11_bigint_trim(publKey->modulus, &tmpsize);
+   if (tmpsize != publKey->key_length) {
+      /* This is bad */
+      st_err_log(4, __FILE__, __LINE__, __FUNCTION__);
+      rc = CKR_FUNCTION_FAILED;
+      goto privkey_cleanup;
+   }
+   rc = build_attribute( CKA_MODULUS, ptr,
+                        tmpsize, &attr );
    if (rc != CKR_OK){
       st_err_log(84, __FILE__, __LINE__);
-      return rc;
+      goto privkey_cleanup;
    }
    template_update_attribute( priv_tmpl, attr );
 
    // exponent 1: d mod(p-1)
    //
-   rc = build_attribute( CKA_EXPONENT_1, privKey->dp + 8,
-                        privKey->key_length/2, &attr );
+   tmpsize = privKey->key_length/2;
+   ptr = p11_bigint_trim(privKey->dp + 8, &tmpsize);
+   rc = build_attribute( CKA_EXPONENT_1, ptr,
+                        tmpsize, &attr );
    if (rc != CKR_OK){
       st_err_log(84, __FILE__, __LINE__);
       goto privkey_cleanup;
@@ -1906,8 +1955,10 @@ os_specific_rsa_keygen(TEMPLATE *publ_tmpl,  TEMPLATE *priv_tmpl)
 
    // exponent 2: d mod(q-1)
    //
-   rc = build_attribute( CKA_EXPONENT_2, privKey->dq,
-                        privKey->key_length/2, &attr );
+   tmpsize = privKey->key_length/2;
+   ptr = p11_bigint_trim(privKey->dq, &tmpsize);
+   rc = build_attribute( CKA_EXPONENT_2, ptr,
+                        tmpsize, &attr );
    if (rc != CKR_OK){
       st_err_log(84, __FILE__, __LINE__);
       goto privkey_cleanup;
@@ -1916,17 +1967,21 @@ os_specific_rsa_keygen(TEMPLATE *publ_tmpl,  TEMPLATE *priv_tmpl)
 
    // prime #1: p
    //
-   rc = build_attribute( CKA_PRIME_1, privKey->p + 8,
-                        privKey->key_length/2, &attr );
+   tmpsize = privKey->key_length/2;
+   ptr = p11_bigint_trim(privKey->p + 8, &tmpsize);
+   rc = build_attribute( CKA_PRIME_1, ptr,
+                        tmpsize, &attr );
    if (rc != CKR_OK){
       st_err_log(84, __FILE__, __LINE__);
       goto privkey_cleanup;
    }
    template_update_attribute( priv_tmpl, attr );
 
-   
+
    // prime #2: q
    //
+   tmpsize = privKey->key_length/2;
+   ptr = p11_bigint_trim(privKey->q, &tmpsize);
    rc = build_attribute( CKA_PRIME_2, privKey->q,
                         privKey->key_length/2, &attr );
    if (rc != CKR_OK){
@@ -1938,8 +1993,10 @@ os_specific_rsa_keygen(TEMPLATE *publ_tmpl,  TEMPLATE *priv_tmpl)
 
    // CRT coefficient:  q_inverse mod(p)
    //
-   rc = build_attribute( CKA_COEFFICIENT, privKey->qInverse + 8,
-                        privKey->key_length/2, &attr );
+   tmpsize = privKey->key_length/2;
+   ptr = p11_bigint_trim(privKey->qInverse + 8, &tmpsize);
+   rc = build_attribute( CKA_COEFFICIENT, ptr,
+                        tmpsize, &attr );
    if (rc != CKR_OK){
       st_err_log(84, __FILE__, __LINE__);
       goto privkey_cleanup;
