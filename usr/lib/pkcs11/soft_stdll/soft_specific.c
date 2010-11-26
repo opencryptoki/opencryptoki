@@ -371,6 +371,7 @@ token_rng(CK_BYTE *output, CK_ULONG bytes)
 		rlen = read(ranfd,output+totallen,bytes-totallen);
 		totallen += rlen; 
         } while( totallen < bytes);
+        close(ranfd);
 	return CKR_OK;
      } else {
 	return CKR_FUNCTION_FAILED;
