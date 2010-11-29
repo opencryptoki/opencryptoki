@@ -825,6 +825,8 @@ strip_pkcs_padding( CK_BYTE   * ptr,
    CK_BYTE  pad_value;
 
    pad_value = ptr[total_len - 1];
+   if (pad_value > total_len)
+       return CKR_ENCRYPTED_DATA_INVALID;
 
    // thus, we have 'pad_value' bytes of 'pad_value' appended to the end
    //
