@@ -701,3 +701,26 @@ p11_bigint_trim(CK_BYTE_PTR in, CK_ULONG_PTR size) {
    *size -= i;
    return in + i;
 }
+
+/* p11_attribute_trim() - trim a PKCS#11 CK_ATTRIBUTE in place,
+ *      using memmove() to move the data and adjusting
+ *      ulValueLen. The resulting "pValue" pointer stays the
+ *      same so that the caller can free() it normally
+ * @attr is the pointer to the CK_ATTRIBUTE to be trimmed
+ */
+void
+p11_attribute_trim(CK_ATTRIBUTE *attr) {
+
+   CK_BYTE_PTR ptr;
+   CK_ULONG    size;
+
+   if (attr != NULL) {
+      size = attr->ulValueLen;
+      ptr = p11_bigint_trim(attr->pValue, &size);
+
+      if (ptr != attr->pValue) {
+         attr->ulValueLen = size;
+         memmove(attr->pValue, ptr, size);
+      }
+   }
+}

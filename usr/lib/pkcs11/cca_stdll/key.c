@@ -405,6 +405,7 @@
 #include <string.h>  // for memcmp() et al
 
 #include "pkcs11types.h"
+#include "p11util.h"
 #include "defs.h"
 #include "cca_stdll.h"
 #include "host_defs.h"
@@ -1444,15 +1445,19 @@ rsa_publ_validate_attribute( TEMPLATE *tmpl, CK_ATTRIBUTE *attr, CK_ULONG mode )
             return CKR_ATTRIBUTE_READ_ONLY;
          }
       case CKA_MODULUS:
-         if (mode == MODE_CREATE)
-            return remove_leading_zeros( attr );
+         if (mode == MODE_CREATE) {
+            p11_attribute_trim( attr );
+            return CKR_OK;
+         }
          else{
             st_err_log(7, __FILE__, __LINE__);
             return CKR_ATTRIBUTE_READ_ONLY;
          }
       case CKA_PUBLIC_EXPONENT:
-         if (mode == MODE_CREATE || mode == MODE_KEYGEN)
-            return remove_leading_zeros( attr );
+         if (mode == MODE_CREATE || mode == MODE_KEYGEN) {
+            p11_attribute_trim( attr );
+            return CKR_OK;
+         }
          else{
             st_err_log(7, __FILE__, __LINE__);
             return CKR_ATTRIBUTE_READ_ONLY;
@@ -1629,8 +1634,10 @@ rsa_priv_validate_attribute( TEMPLATE *tmpl, CK_ATTRIBUTE *attr, CK_ULONG mode )
    switch (attr->type) {
       case CKA_MODULUS:
       case CKA_PRIVATE_EXPONENT:
-         if (mode == MODE_CREATE)
-            return remove_leading_zeros( attr );
+         if (mode == MODE_CREATE) {
+            p11_attribute_trim( attr );
+            return CKR_OK;
+         }
          else{
             st_err_log(7, __FILE__, __LINE__);
             return CKR_ATTRIBUTE_READ_ONLY;
@@ -1641,8 +1648,10 @@ rsa_priv_validate_attribute( TEMPLATE *tmpl, CK_ATTRIBUTE *attr, CK_ULONG mode )
       case CKA_EXPONENT_1:
       case CKA_EXPONENT_2:
       case CKA_COEFFICIENT:
-         if (mode == MODE_CREATE)
-            return remove_leading_zeros( attr );
+         if (mode == MODE_CREATE) {
+            p11_attribute_trim( attr );
+            return CKR_OK;
+         }
          else{
             st_err_log(7, __FILE__, __LINE__);
             return CKR_ATTRIBUTE_READ_ONLY;
@@ -1812,17 +1821,17 @@ rsa_priv_unwrap( TEMPLATE *tmpl,
       st_err_log(88, __FILE__, __LINE__);
       return rc;
    }
-   remove_leading_zeros( modulus );
-   remove_leading_zeros( publ_exp );
+   p11_attribute_trim( modulus );
+   p11_attribute_trim( publ_exp );
 #if 0
-   remove_leading_zeros( priv_exp );
-   remove_leading_zeros( prime1 );
-   remove_leading_zeros( prime2 );
-   remove_leading_zeros( exponent1 );
-   remove_leading_zeros( exponent2 );
-   remove_leading_zeros( coeff );
+   p11_attribute_trim( priv_exp );
+   p11_attribute_trim( prime1 );
+   p11_attribute_trim( prime2 );
+   p11_attribute_trim( exponent1 );
+   p11_attribute_trim( exponent2 );
+   p11_attribute_trim( coeff );
 #else
-   remove_leading_zeros( opaque );
+   p11_attribute_trim( opaque );
 #endif
 
    template_update_attribute( tmpl, modulus );
@@ -1971,7 +1980,8 @@ dsa_publ_validate_attribute( TEMPLATE *tmpl, CK_ATTRIBUTE *attr, CK_ULONG mode )
                st_err_log(9, __FILE__, __LINE__);
                return CKR_ATTRIBUTE_VALUE_INVALID;
             }
-            return remove_leading_zeros( attr );
+            p11_attribute_trim( attr );
+            return CKR_OK;
          }
 
       case CKA_SUBPRIME:
@@ -1986,19 +1996,24 @@ dsa_publ_validate_attribute( TEMPLATE *tmpl, CK_ATTRIBUTE *attr, CK_ULONG mode )
                st_err_log(9, __FILE__, __LINE__);
                return CKR_ATTRIBUTE_VALUE_INVALID;
             }
-            return remove_leading_zeros( attr );
+            p11_attribute_trim( attr );
+            return CKR_OK;
          }
 
       case CKA_BASE:
-         if (mode == MODE_CREATE || mode == MODE_KEYGEN)
-            return remove_leading_zeros( attr );
+         if (mode == MODE_CREATE || mode == MODE_KEYGEN) {
+            p11_attribute_trim( attr );
+            return CKR_OK;
+         }
          else{
             st_err_log(7, __FILE__, __LINE__);
             return CKR_ATTRIBUTE_READ_ONLY;
          }
       case CKA_VALUE:
-         if (mode == MODE_CREATE)
-            return remove_leading_zeros( attr );
+         if (mode == MODE_CREATE) {
+            p11_attribute_trim( attr );
+            return CKR_OK;
+         }
          else{
             st_err_log(7, __FILE__, __LINE__);
             return CKR_ATTRIBUTE_READ_ONLY;
@@ -2139,7 +2154,8 @@ dsa_priv_validate_attribute( TEMPLATE *tmpl, CK_ATTRIBUTE *attr, CK_ULONG mode )
                st_err_log(9, __FILE__, __LINE__);
                return CKR_ATTRIBUTE_VALUE_INVALID;
                }
-            return remove_leading_zeros( attr );
+            p11_attribute_trim( attr );
+            return CKR_OK;
          }
 
       case CKA_SUBPRIME:
@@ -2154,13 +2170,16 @@ dsa_priv_validate_attribute( TEMPLATE *tmpl, CK_ATTRIBUTE *attr, CK_ULONG mode )
                st_err_log(9, __FILE__, __LINE__);
                return CKR_ATTRIBUTE_VALUE_INVALID;
             }
-            return remove_leading_zeros( attr );
+            p11_attribute_trim( attr );
+            return CKR_OK;
          }
 
       case CKA_BASE:
       case CKA_VALUE:
-         if (mode == MODE_CREATE)
-            return remove_leading_zeros( attr );
+         if (mode == MODE_CREATE) {
+            p11_attribute_trim( attr );
+            return CKR_OK;
+         }
          else{
             st_err_log(7, __FILE__, __LINE__);
             return CKR_ATTRIBUTE_READ_ONLY;
@@ -2272,10 +2291,10 @@ dsa_priv_unwrap( TEMPLATE *tmpl,
       st_err_log(88, __FILE__, __LINE__);
       return rc;
    }
-   remove_leading_zeros( prime );
-   remove_leading_zeros( subprime );
-   remove_leading_zeros( base );
-   remove_leading_zeros( value );
+   p11_attribute_trim( prime );
+   p11_attribute_trim( subprime );
+   p11_attribute_trim( base );
+   p11_attribute_trim( value );
 
    template_update_attribute( tmpl, prime );
    template_update_attribute( tmpl, subprime );
@@ -2480,8 +2499,10 @@ ecdsa_priv_validate_attribute( TEMPLATE *tmpl, CK_ATTRIBUTE *attr, CK_ULONG mode
             return CKR_ATTRIBUTE_READ_ONLY;
          }
       case CKA_VALUE:
-         if (mode == MODE_CREATE)
-            return remove_leading_zeros( attr );
+         if (mode == MODE_CREATE) {
+            p11_attribute_trim( attr );
+            return CKR_OK;
+         }
          else{
             st_err_log(7, __FILE__, __LINE__);
             return CKR_ATTRIBUTE_READ_ONLY;
@@ -2609,15 +2630,19 @@ dh_publ_validate_attribute( TEMPLATE *tmpl, CK_ATTRIBUTE *attr, CK_ULONG mode )
    switch (attr->type) {
       case CKA_PRIME:
       case CKA_BASE:
-         if (mode == MODE_CREATE || mode == MODE_KEYGEN)
-            return remove_leading_zeros( attr );
+         if (mode == MODE_CREATE || mode == MODE_KEYGEN) {
+            p11_attribute_trim( attr );
+            return CKR_OK;
+         }
          else{
             st_err_log(7, __FILE__, __LINE__);
             return CKR_ATTRIBUTE_READ_ONLY;
          }
       case CKA_VALUE:
-         if (mode == MODE_CREATE)
-            return remove_leading_zeros( attr );
+         if (mode == MODE_CREATE) {
+            p11_attribute_trim( attr );
+            return CKR_OK;
+         }
          else{
             st_err_log(7, __FILE__, __LINE__);
             return CKR_ATTRIBUTE_READ_ONLY;
@@ -2745,8 +2770,10 @@ dh_priv_validate_attribute( TEMPLATE *tmpl, CK_ATTRIBUTE *attr, CK_ULONG mode )
       case CKA_PRIME:
       case CKA_BASE:
       case CKA_VALUE:
-         if (mode == MODE_CREATE || mode == MODE_KEYGEN)
-            return remove_leading_zeros( attr );
+         if (mode == MODE_CREATE || mode == MODE_KEYGEN) {
+            p11_attribute_trim( attr );
+            return CKR_OK;
+         }
          else{
             st_err_log(7, __FILE__, __LINE__);
             return CKR_ATTRIBUTE_READ_ONLY;
@@ -2905,15 +2932,19 @@ kea_publ_validate_attribute( TEMPLATE *tmpl, CK_ATTRIBUTE *attr, CK_ULONG mode )
       case CKA_PRIME:
       case CKA_SUBPRIME:
       case CKA_BASE:
-         if (mode == MODE_CREATE || mode == MODE_KEYGEN)
-            return remove_leading_zeros( attr );
+         if (mode == MODE_CREATE || mode == MODE_KEYGEN) {
+            p11_attribute_trim( attr );
+            return CKR_OK;
+         }
          else{
             st_err_log(7, __FILE__, __LINE__);
             return CKR_ATTRIBUTE_READ_ONLY;
          }
       case CKA_VALUE:
-         if (mode == MODE_CREATE)
-            return remove_leading_zeros( attr );
+         if (mode == MODE_CREATE) {
+            p11_attribute_trim( attr );
+            return CKR_OK;
+         }
          else{
             st_err_log(7, __FILE__, __LINE__);
             return CKR_ATTRIBUTE_READ_ONLY;
@@ -3042,8 +3073,10 @@ kea_priv_validate_attribute( TEMPLATE *tmpl, CK_ATTRIBUTE *attr, CK_ULONG mode )
       case CKA_SUBPRIME:
       case CKA_BASE:
       case CKA_VALUE:
-         if (mode == MODE_CREATE)
-            return remove_leading_zeros( attr );
+         if (mode == MODE_CREATE) {
+            p11_attribute_trim( attr );
+            return CKR_OK;
+         }
          else{
             st_err_log(7, __FILE__, __LINE__);
             return CKR_ATTRIBUTE_READ_ONLY;

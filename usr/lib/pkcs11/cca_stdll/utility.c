@@ -838,30 +838,6 @@ strip_pkcs_padding( CK_BYTE   * ptr,
 
 //
 //
-CK_RV
-remove_leading_zeros( CK_ATTRIBUTE *attr )
-{
-   CK_BYTE   *ptr = NULL;
-   CK_ULONG   new_len, i;
-
-   ptr = attr->pValue;
-
-   for (i = 0; i < attr->ulValueLen; i++) {
-      if (ptr[i] != 0x0)
-         break;
-   }
-
-   new_len = attr->ulValueLen - i;
-
-   memcpy( ptr, ptr + i, new_len );
-   attr->ulValueLen = new_len;
-
-   return CKR_OK;
-}
-
-
-//
-//
 CK_BYTE
 parity_adjust( CK_BYTE b )
 {

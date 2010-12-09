@@ -546,8 +546,6 @@ CK_RV    strip_pkcs_padding( CK_BYTE  * ptr,
                              CK_ULONG   total_len,
                              CK_ULONG * data_len );
 
-CK_RV    remove_leading_zeros( CK_ATTRIBUTE *attr );
-
 
 // RNG routines
 //
