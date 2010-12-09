@@ -1018,17 +1018,13 @@ void DL_Unload(sltp)
 {
    DLL_Load_t  *dllload;
 
-   // Decrement the count of loads.  When 0 then unloadthis thing;
+   // Decrement the count of loads.  When 0 then unload this thing;
    //
    dllload = sltp->dll_information;
    dllload->dll_load_count --;
    if (dllload->dll_load_count == 0 ){
-// bug in 64bit causes crash of system...
-// check here for 64bit app
-	if (sizeof(long) == 4){
-	      dlclose(dllload->dlop_p);
-        }
-      dllload->dll_name = NULL;
+           dlclose(dllload->dlop_p);
+           dllload->dll_name = NULL;
    }
    // Clear out the slot information
    sltp->DLLoaded = FALSE;
