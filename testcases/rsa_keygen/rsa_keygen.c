@@ -176,7 +176,7 @@ do_GenerateRSAKeyPair(CK_ULONG bits)
                                      pub_tmpl,   2,
                                      NULL,       0,
                                      &publ_key, &priv_key );
-      if (rc != CKR_FUNCTION_FAILED) {
+      if (rc != CKR_TEMPLATE_INCONSISTENT) {
          show_error("   C_GenerateKeyPair #3", rc );
          return rc;
    }
