@@ -1743,9 +1743,12 @@ ckm_sha1_init( DIGEST_CONTEXT * ctx)
 	/* Allocate the context */
 	ctx->context_len = sizeof(SHA1_CONTEXT);
 	ctx->context = (CK_BYTE *)malloc(sizeof(SHA1_CONTEXT));
-	if( ctx->context == NULL )
+	if( ctx->context == NULL ) {
+                st_err_log(0, __FILE__, __LINE__, __FUNCTION__);
+                // TODO: propagate error up?
 		return;
-    
+        }
+
 	sha1_ctx = (SHA1_CONTEXT *)ctx->context;
 	sha1_ctx->hash_value[0]  = h0init;
 	sha1_ctx->hash_value[1]  = h1init;

@@ -962,17 +962,17 @@ init_token_data( void )
 
    rc  = rng_generate( master_key, 3 * DES_KEY_SIZE );
    if (rc != CKR_OK){
-      st_err_log(4, __FILE__, __LINE__, __FUNCTION__); 
+      // st_err_log(4, __FILE__, __LINE__, __FUNCTION__);
       return CKR_FUNCTION_FAILED;
    }
    rc = save_masterkey_so();
    if (rc != CKR_OK){
-      st_err_log(4, __FILE__, __LINE__, __FUNCTION__); 
+      // st_err_log(4, __FILE__, __LINE__, __FUNCTION__);
       return CKR_FUNCTION_FAILED;
    }
    rc = save_token_data();
    if (rc != CKR_OK)
-      st_err_log(4, __FILE__, __LINE__, __FUNCTION__); 
+      // st_err_log(4, __FILE__, __LINE__, __FUNCTION__);
    return rc;
 }
 
@@ -1105,6 +1105,7 @@ strip_pkcs_padding( CK_BYTE   * ptr,
 
    pad_value = ptr[total_len - 1];
    if (pad_value > total_len)
+       st_err_log(10, __FILE__, __LINE__);
        return CKR_ENCRYPTED_DATA_INVALID;
 
    // thus, we have 'pad_value' bytes of 'pad_value' appended to the end

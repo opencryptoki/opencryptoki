@@ -465,7 +465,7 @@ object_mgr_add( SESSION          * sess,
    if (rc != CKR_OK) {
       DL_NODE *node = NULL;
 
-      st_err_log(157, __FILE__, __LINE__); 
+      // st_err_log(157, __FILE__, __LINE__);
       // this is messy but we need to remove the object from whatever
       // list we just added it to
       //

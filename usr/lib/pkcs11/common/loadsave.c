@@ -331,8 +331,19 @@ set_perm(int file)
 
    grp = getgrnam("pkcs11"); // Obtain the group id
    if (grp){
-	   fchown(file,getuid(),grp->gr_gid);  // set ownership to root, and pkcs11 group
+	   if (fchown(file,getuid(),grp->gr_gid) != 0) {  // set ownership to root, and pkcs11 group
+                   goto error;
+           }
    }
+   else {
+           goto error;
+   }
+
+   return;
+
+error:
+   //TODO: More detailed error for this scenario. Possibly propagate error better
+   st_err_log(4, __FILE__, __LINE__, __FUNCTION__);
 }
 
 //
@@ -372,13 +383,14 @@ load_token_data()
          if (!fp) {
             // were really hosed here since the created
             // did not occur
-	    LogError("failed opening %s for read: %s", fname, strerror(errno));
+            st_err_log(194, __FILE__, __LINE__, (char *)fname, errno);
+	    // LogError("failed opening %s for read: %s", fname, strerror(errno));
             rc = CKR_FUNCTION_FAILED;
             goto out_unlock;
          }
       } else {
          /* Could not open file for some unknown reason */
-         st_err_log(194, __FILE__, __LINE__, PK_LITE_NV, errno);
+         st_err_log(194, __FILE__, __LINE__, (char *)fname, errno);
          rc = CKR_FUNCTION_FAILED;
          goto out_unlock;
       }
@@ -466,7 +478,7 @@ save_token_object( OBJECT *obj )
       rc = save_public_token_object( obj );
 
    if (rc != CKR_OK){
-      st_err_log(104, __FILE__, __LINE__);
+      // st_err_log(104, __FILE__, __LINE__);
       return rc;
    }
    // update the index file if it exists
@@ -529,7 +541,7 @@ save_public_token_object( OBJECT *obj )
 
    rc = object_flatten( obj, &cleartxt, &cleartxt_len );
    if (rc != CKR_OK){
-      st_err_log(101, __FILE__, __LINE__);
+      // st_err_log(101, __FILE__, __LINE__);
       goto error;
    }
    fp = fopen( (char *)fname, "w" );
@@ -585,7 +597,7 @@ save_private_token_object( OBJECT *obj )
    rc = object_flatten( obj, &obj_data, &obj_data_len );
    obj_data_len_32 = obj_data_len;
    if (rc != CKR_OK){
-      st_err_log(101, __FILE__, __LINE__);
+      // st_err_log(101, __FILE__, __LINE__);
       goto error;
    }
    //
@@ -645,7 +657,8 @@ save_private_token_object( OBJECT *obj )
 				 ciphertxt,  &ciphertxt_len,
 			         initial_vector, des3_key );
    } else {
-      rc=CKR_FUNCTION_FAILED;
+      st_err_log(0, __FILE__, __LINE__);
+      rc = CKR_HOST_MEMORY;
    }
 }
 #else
@@ -653,7 +666,7 @@ save_private_token_object( OBJECT *obj )
    rc = CKR_OK;
 #endif
    if (rc != CKR_OK){
-      st_err_log(105, __FILE__, __LINE__);
+      // st_err_log(105, __FILE__, __LINE__);
       goto error;
    }
 
@@ -828,7 +841,7 @@ load_private_token_objects( void )
          rc = restore_private_token_object( buf, size, NULL );
 	MY_UnlockMutex(&obj_list_mutex);
          if (rc != CKR_OK){
-            st_err_log(107, __FILE__, __LINE__);
+            // st_err_log(107, __FILE__, __LINE__);
             goto error;
          }
 
@@ -899,7 +912,8 @@ restore_private_token_object( CK_BYTE  * data,
                                  cleartxt,  &len,
                                  initial_vector, des3_key );
    } else {
-      rc=CKR_FUNCTION_FAILED;
+      st_err_log(0, __FILE__, __LINE__);
+      rc = CKR_HOST_MEMORY;
    }
 }
 #else
@@ -908,7 +922,7 @@ restore_private_token_object( CK_BYTE  * data,
 #endif
  
    if (rc != CKR_OK){
-      st_err_log(106, __FILE__, __LINE__);
+      // st_err_log(106, __FILE__, __LINE__);
       goto done;
    }
 
@@ -1019,7 +1033,8 @@ load_masterkey_so( void )
                                  clear,  &clear_len,
                                  initial_vector, des3_key );
    } else {
-      rc=CKR_FUNCTION_FAILED;
+      st_err_log(0, __FILE__, __LINE__);
+      rc = CKR_HOST_MEMORY;
    }
 }
 #else
@@ -1115,7 +1130,8 @@ load_masterkey_user( void )
                                  clear,  &clear_len,
                                  initial_vector, des3_key );
    } else {
-      rc=CKR_FUNCTION_FAILED;
+      st_err_log(0, __FILE__, __LINE__);
+      rc = CKR_HOST_MEMORY;
    }
 }
 #else
@@ -1196,7 +1212,8 @@ save_masterkey_so( void )
                                  ciphertxt,  &ciphertxt_len,
                                  initial_vector, des3_key );
    } else {
-      rc=CKR_FUNCTION_FAILED;
+      st_err_log(0, __FILE__, __LINE__);
+      rc = CKR_HOST_MEMORY;
    }
 }
 #else
@@ -1205,7 +1222,7 @@ save_masterkey_so( void )
 #endif
 
    if (rc != CKR_OK){
-      st_err_log(105, __FILE__, __LINE__);
+      // st_err_log(105, __FILE__, __LINE__);
       goto done;
    }
 
@@ -1279,7 +1296,8 @@ save_masterkey_user( void )
                                  ciphertxt,  &ciphertxt_len,
                                  initial_vector, des3_key );
    } else {
-      rc=CKR_FUNCTION_FAILED;
+      st_err_log(0, __FILE__, __LINE__);
+      rc = CKR_HOST_MEMORY;
    }
 }
 #else
@@ -1288,7 +1306,7 @@ save_masterkey_user( void )
 #endif
 
    if (rc != CKR_OK){
-      st_err_log(105, __FILE__, __LINE__);
+      // st_err_log(105, __FILE__, __LINE__);
       goto done;
    }
 
@@ -1375,12 +1393,14 @@ reload_token_object( OBJECT *obj )
    if (priv){
       rc = restore_private_token_object( buf, size_64, obj );
       if (rc != CKR_OK)
-         st_err_log(107, __FILE__, __LINE__);
+         // st_err_log(107, __FILE__, __LINE__);
+      {}
    }
    else{
       rc = object_mgr_restore_obj( buf, obj );
       if (rc != CKR_OK)
-         st_err_log(108, __FILE__, __LINE__);
+         // st_err_log(108, __FILE__, __LINE__);
+      {}
    }
 
 done:
