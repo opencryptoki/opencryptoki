@@ -437,10 +437,20 @@ object_mgr_add( SESSION          * sess,
          o->session = NULL;
          memcpy( &o->name, current, 8 );
 
-         compute_next_token_obj_name( current, next );
+         rc = compute_next_token_obj_name( current, next );
+         if (rc != CKR_OK) {
+                 // TODO: handle error, check if rc is a valid per spec
+                XProcUnLock(xproclock);
+                 goto done;
+         }
          memcpy( &nv_token_data->next_token_object_name, next, 8 );
 
-         save_token_object( o );
+         rc = save_token_object( o );
+         if (rc != CKR_OK) {
+                 // TODO: handle error, check if rc is a valid per spec
+                XProcUnLock(xproclock);
+                goto done;
+         }
 
          // add the object identifier to the shared memory segment
          //
@@ -450,7 +460,13 @@ object_mgr_add( SESSION          * sess,
 
          // save_token_data has to lock the mutex itself because it's used elsewhere
          //
-         save_token_data();
+         rc = save_token_data();
+         if (rc != CKR_OK) {
+                 // TODO: handle error, check if rc is a valid per spec
+                XProcUnLock(xproclock);
+                goto done;
+         }
+
       }
 
       // now, store the object in the appropriate local token object list
@@ -2159,9 +2175,10 @@ object_mgr_set_attribute_values( SESSION           * sess,
 
 //
 //
-CK_RV
+void
 object_mgr_add_to_shm( OBJECT *obj )
 {
+   // TODO: Can't this function fail?
    TOK_OBJ_ENTRY  * entry  = NULL;
    CK_BBOOL         priv;
 
@@ -2189,7 +2206,7 @@ object_mgr_add_to_shm( OBJECT *obj )
       object_mgr_sort_publ_shm();
    }
 
-   return CKR_OK;
+   return;
 }
 
 

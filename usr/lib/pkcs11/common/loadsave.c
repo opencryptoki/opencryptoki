@@ -926,12 +926,12 @@ restore_private_token_object( CK_BYTE  * data,
       goto done;
    }
 
-   strip_pkcs_padding( cleartxt, len, &cleartxt_len );
+   rc = strip_pkcs_padding( cleartxt, len, &cleartxt_len );
 
    // if the padding extraction didn't work it means the object was tampered with or
    // the key was incorrect
    //
-   if (cleartxt_len > len) {
+   if (rc != CKR_OK || (cleartxt_len > len) ) {
       st_err_log(4, __FILE__, __LINE__, __FUNCTION__);
       rc = CKR_FUNCTION_FAILED;
       goto done;
@@ -953,7 +953,10 @@ restore_private_token_object( CK_BYTE  * data,
 
    // check the hash
    //
-   compute_sha( ptr, obj_data_len, hash_sha );
+   rc = compute_sha( ptr, obj_data_len, hash_sha );
+   if (rc != CKR_OK){
+           goto done;
+   }
    ptr += obj_data_len;
 
    if (memcmp(ptr, hash_sha, SHA1_HASH_SIZE) != 0) {
@@ -966,7 +969,10 @@ restore_private_token_object( CK_BYTE  * data,
    // token object...
    //
 
-   object_mgr_restore_obj( obj_data, pObj );
+   rc = object_mgr_restore_obj( obj_data, pObj );
+   if (rc != CKR_OK) {
+           goto done;
+   }
    rc = CKR_OK;
 
 done:
@@ -1056,7 +1062,10 @@ load_masterkey_so( void )
 
    // compare the hashes
    //
-   compute_sha( mk.key, 3 * DES_KEY_SIZE, hash_sha );
+   rc = compute_sha( mk.key, 3 * DES_KEY_SIZE, hash_sha );
+   if (rc != CKR_OK) {
+      goto done;
+   }
 
    if (memcmp(hash_sha, mk.sha_hash, SHA1_HASH_SIZE) != 0) {
       st_err_log(4, __FILE__, __LINE__, __FUNCTION__);
@@ -1153,7 +1162,10 @@ load_masterkey_user( void )
 
    // compare the hashes
    //
-   compute_sha( mk.key, 3 * DES_KEY_SIZE, hash_sha );
+   rc = compute_sha( mk.key, 3 * DES_KEY_SIZE, hash_sha );
+   if (rc != CKR_OK) {
+      goto done;
+   }
 
    if (memcmp(hash_sha, mk.sha_hash, SHA1_HASH_SIZE) != 0) {
       st_err_log(4, __FILE__, __LINE__, __FUNCTION__);
@@ -1187,7 +1199,10 @@ save_masterkey_so( void )
 
    memcpy( mk.key, master_key, 3 * DES_KEY_SIZE);
 
-   compute_sha( master_key, 3 * DES_KEY_SIZE, mk.sha_hash );
+   rc = compute_sha( master_key, 3 * DES_KEY_SIZE, mk.sha_hash );
+   if (rc != CKR_OK) {
+      goto done;
+   }
 
    // encrypt the key data
    //
@@ -1270,8 +1285,10 @@ save_masterkey_user( void )
 
    memcpy( mk.key, master_key, 3 * DES_KEY_SIZE);
 
-   compute_sha( master_key, 3 * DES_KEY_SIZE, mk.sha_hash );
-
+   rc = compute_sha( master_key, 3 * DES_KEY_SIZE, mk.sha_hash );
+   if (rc != CKR_OK) {
+      goto done;
+   }
 
    // encrypt the key data
    //
