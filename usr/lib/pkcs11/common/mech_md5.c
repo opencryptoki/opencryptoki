@@ -475,7 +475,6 @@ md5_hmac_sign( SESSION              * sess,
       rc = digest_mgr_init( sess, &digest_ctx, &digest_mech );
       if (rc != CKR_OK)
       {
-         digest_mgr_cleanup( &digest_ctx );
          return rc;
       }
 
@@ -484,11 +483,9 @@ md5_hmac_sign( SESSION              * sess,
                               attr->pValue, attr->ulValueLen,
                               hash,  &hash_len );
       if (rc != CKR_OK) {
-         digest_mgr_cleanup( &digest_ctx );
          return rc;
       }
 
-      digest_mgr_cleanup( &digest_ctx );
       memset( &digest_ctx, 0x0, sizeof(DIGEST_CONTEXT) );
 
       for (i=0; i < hash_len; i++) {
@@ -522,7 +519,6 @@ md5_hmac_sign( SESSION              * sess,
    if (rc != CKR_OK)
    {
       st_err_log(123, __FILE__, __LINE__);
-      digest_mgr_cleanup( &digest_ctx );
       return rc;
    }
 
@@ -530,7 +526,6 @@ md5_hmac_sign( SESSION              * sess,
    if (rc != CKR_OK)
    {
       st_err_log(123, __FILE__, __LINE__);
-      digest_mgr_cleanup( &digest_ctx );
       return rc;
    }
 
@@ -538,7 +533,6 @@ md5_hmac_sign( SESSION              * sess,
    if (rc != CKR_OK)
    {
       st_err_log(123, __FILE__, __LINE__);
-      digest_mgr_cleanup( &digest_ctx );
       return rc;
    }
 
@@ -547,11 +541,9 @@ md5_hmac_sign( SESSION              * sess,
    if (rc != CKR_OK)
    {
       st_err_log(126, __FILE__, __LINE__);
-      digest_mgr_cleanup( &digest_ctx );
       return rc;
    }
 
-   digest_mgr_cleanup( &digest_ctx );
    memset( &digest_ctx, 0x0, sizeof(DIGEST_CONTEXT) );
 
 
@@ -561,7 +553,6 @@ md5_hmac_sign( SESSION              * sess,
    if (rc != CKR_OK)
    {
       st_err_log(123, __FILE__, __LINE__);
-      digest_mgr_cleanup( &digest_ctx );
       return rc;
    }
 
@@ -569,7 +560,6 @@ md5_hmac_sign( SESSION              * sess,
    if (rc != CKR_OK)
    {
       st_err_log(123, __FILE__, __LINE__);
-      digest_mgr_cleanup( &digest_ctx );
       return rc;
    }
 
@@ -577,7 +567,6 @@ md5_hmac_sign( SESSION              * sess,
    if (rc != CKR_OK)
    {
       st_err_log(123, __FILE__, __LINE__);
-      digest_mgr_cleanup( &digest_ctx );
       return rc;
    }
 
@@ -586,14 +575,12 @@ md5_hmac_sign( SESSION              * sess,
    if (rc != CKR_OK)
    {
       st_err_log(126, __FILE__, __LINE__);
-      digest_mgr_cleanup( &digest_ctx );
       return rc;
    }
 
    memcpy( out_data, hash, hmac_len );
    *out_data_len = hmac_len;
 
-   digest_mgr_cleanup( &digest_ctx );
    return CKR_OK;
 }
 

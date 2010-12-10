@@ -407,13 +407,13 @@ ssl3_mac_sign( SESSION              * sess,
    //
    rc = digest_mgr_init( sess, &digest_ctx, &digest_mech );
    if (rc != CKR_OK){
-      st_err_log(123, __FILE__, __LINE__); 
-      goto error;
+      st_err_log(123, __FILE__, __LINE__);
+      return rc;
    }
    rc = digest_mgr_digest_update( sess, &digest_ctx, key_data, key_bytes );
    if (rc != CKR_OK){
-      st_err_log(123, __FILE__, __LINE__); 
-      goto error;
+      st_err_log(123, __FILE__, __LINE__);
+      return rc;
    }
    if (ctx->mech.mechanism == CKM_SSL3_MD5_MAC){
       rc = digest_mgr_digest_update( sess, &digest_ctx, inner, 48 );
@@ -422,21 +422,20 @@ ssl3_mac_sign( SESSION              * sess,
       rc = digest_mgr_digest_update( sess, &digest_ctx, inner, 40 );
    }
    if (rc != CKR_OK){
-      st_err_log(123, __FILE__, __LINE__); 
-      goto error;
+      st_err_log(123, __FILE__, __LINE__);
+      return rc;
    }
    rc = digest_mgr_digest_update( sess, &digest_ctx, in_data, in_data_len );
    if (rc != CKR_OK){
-      st_err_log(123, __FILE__, __LINE__); 
-      goto error;
+      st_err_log(123, __FILE__, __LINE__);
+      return rc;
    }
    hash_len = sizeof(hash);
    rc = digest_mgr_digest_final( sess, FALSE, &digest_ctx,  hash, &hash_len );
    if (rc != CKR_OK){
-      st_err_log(126, __FILE__, __LINE__); 
-      goto error;
+      st_err_log(126, __FILE__, __LINE__);
+      return rc;
    }
-   digest_mgr_cleanup( &digest_ctx );
    memset( &digest_ctx, 0x0, sizeof(DIGEST_CONTEXT) );
 
 
@@ -444,38 +443,36 @@ ssl3_mac_sign( SESSION              * sess,
    //
    rc = digest_mgr_init( sess, &digest_ctx, &digest_mech );
    if (rc != CKR_OK){
-      st_err_log(123, __FILE__, __LINE__); 
-      goto error;
+      st_err_log(123, __FILE__, __LINE__);
+      return rc;
    }
    rc = digest_mgr_digest_update( sess, &digest_ctx, key_data, key_bytes );
    if (rc != CKR_OK){
-      st_err_log(123, __FILE__, __LINE__); 
-      goto error;
+      st_err_log(123, __FILE__, __LINE__);
+      return rc;
    }
    if (ctx->mech.mechanism == CKM_SSL3_MD5_MAC)
       rc = digest_mgr_digest_update( sess, &digest_ctx, outer, 48 );
    else
       rc = digest_mgr_digest_update( sess, &digest_ctx, outer, 40 );
    if (rc != CKR_OK){
-      st_err_log(123, __FILE__, __LINE__); 
-      goto error;
+      st_err_log(123, __FILE__, __LINE__);
+      return rc;
    }
    rc = digest_mgr_digest_update( sess, &digest_ctx, hash, hash_len );
    if (rc != CKR_OK){
-      st_err_log(123, __FILE__, __LINE__); 
-      goto error;
+      st_err_log(123, __FILE__, __LINE__);
+      return rc;
    }
    hash_len = sizeof(hash);
    rc = digest_mgr_digest_final( sess, FALSE, &digest_ctx, hash, &hash_len );
    if (rc != CKR_OK){
-      st_err_log(126, __FILE__, __LINE__); 
-      goto error;
+      st_err_log(126, __FILE__, __LINE__);
+      return rc;
    }
    memcpy( out_data, hash, mac_len );
    *out_data_len = mac_len;
 
-error:
-   digest_mgr_cleanup( &digest_ctx );
    return rc;
 }
 
@@ -509,13 +506,12 @@ ssl3_mac_sign_update( SESSION              * sess,
       rc = object_mgr_find_in_map1( ctx->key, &key_obj );
       if (rc != CKR_OK){
          st_err_log(110, __FILE__, __LINE__);
-         goto error;
+         return rc;
       }
       rc = template_attribute_find( key_obj->template, CKA_VALUE, &attr );
       if (rc == FALSE) {
          st_err_log(4, __FILE__, __LINE__, __FUNCTION__);
-         rc = CKR_FUNCTION_FAILED;
-         goto error;
+         return CKR_FUNCTION_FAILED;
       }
       else {
          key_bytes = attr->ulValueLen;
@@ -539,21 +535,21 @@ ssl3_mac_sign_update( SESSION              * sess,
       //
       rc = digest_mgr_init( sess, &context->hash_context, &digest_mech );
       if (rc != CKR_OK){
-         st_err_log(123, __FILE__, __LINE__); 
-         goto error;
+         st_err_log(123, __FILE__, __LINE__);
+         return rc;
       }
       rc = digest_mgr_digest_update( sess, &context->hash_context, key_data, key_bytes );
       if (rc != CKR_OK){
-         st_err_log(123, __FILE__, __LINE__); 
-         goto error;
+         st_err_log(123, __FILE__, __LINE__);
+         return rc;
       }
       if (ctx->mech.mechanism == CKM_SSL3_MD5_MAC)
          rc = digest_mgr_digest_update( sess, &context->hash_context, inner, 48 );
       else
          rc = digest_mgr_digest_update( sess, &context->hash_context, inner, 40 );
       if (rc != CKR_OK){
-         st_err_log(123, __FILE__, __LINE__); 
-         goto error;
+         st_err_log(123, __FILE__, __LINE__);
+         return rc;
       }
       context->flag = TRUE;
    }
@@ -561,14 +557,11 @@ ssl3_mac_sign_update( SESSION              * sess,
 
    rc = digest_mgr_digest_update( sess, &context->hash_context, in_data, in_data_len );
    if (rc != CKR_OK){
-      st_err_log(123, __FILE__, __LINE__); 
-      goto error;
+      st_err_log(123, __FILE__, __LINE__);
+      return rc;
    }
-   return CKR_OK;
 
-error:
-   digest_mgr_cleanup( &context->hash_context );
-   return rc;
+   return CKR_OK;
 }
 
 
@@ -615,13 +608,12 @@ ssl3_mac_sign_final( SESSION              * sess,
    rc = object_mgr_find_in_map1( ctx->key, &key_obj );
    if (rc != CKR_OK){
       st_err_log(110, __FILE__, __LINE__);
-      goto error;
+      return rc;
    }
    rc = template_attribute_find( key_obj->template, CKA_VALUE, &attr );
    if (rc == FALSE) {
       st_err_log(4, __FILE__, __LINE__, __FUNCTION__);
-      rc = CKR_FUNCTION_FAILED;
-      goto error;
+      return CKR_FUNCTION_FAILED;
    }
    else {
       key_bytes = attr->ulValueLen;
@@ -633,12 +625,11 @@ ssl3_mac_sign_final( SESSION              * sess,
    hash_len = sizeof(hash);
    rc = digest_mgr_digest_final( sess, FALSE, &context->hash_context, hash, &hash_len );
    if (rc != CKR_OK){
-      st_err_log(126, __FILE__, __LINE__); 
-      goto error;
+      st_err_log(126, __FILE__, __LINE__);
+      return rc;
    }
    // now, do the outer hash
    //
-   digest_mgr_cleanup( &context->hash_context );
    memset( &context->hash_context, 0x0, sizeof(SSL3_MAC_CONTEXT) );
 
    memset( outer, 0x5C, 48 );
@@ -653,13 +644,13 @@ ssl3_mac_sign_final( SESSION              * sess,
 
    rc = digest_mgr_init( sess, &context->hash_context, &digest_mech );
    if (rc != CKR_OK){
-      st_err_log(123, __FILE__, __LINE__); 
-      goto error;
+      st_err_log(123, __FILE__, __LINE__);
+      return rc;
    }
    rc = digest_mgr_digest_update( sess, &context->hash_context, key_data, key_bytes );
    if (rc != CKR_OK){
-      st_err_log(123, __FILE__, __LINE__); 
-      goto error;
+      st_err_log(123, __FILE__, __LINE__);
+      return rc;
    }
    if (ctx->mech.mechanism == CKM_SSL3_MD5_MAC)
       rc = digest_mgr_digest_update( sess, &context->hash_context, outer, 48 );
@@ -667,25 +658,23 @@ ssl3_mac_sign_final( SESSION              * sess,
       rc = digest_mgr_digest_update( sess, &context->hash_context, outer, 40 );
 
    if (rc != CKR_OK){
-      st_err_log(123, __FILE__, __LINE__); 
-      goto error;
+      st_err_log(123, __FILE__, __LINE__);
+      return rc;
    }
    rc = digest_mgr_digest_update( sess, &context->hash_context, hash, hash_len );
    if (rc != CKR_OK){
-      st_err_log(123, __FILE__, __LINE__); 
-      goto error;
+      st_err_log(123, __FILE__, __LINE__);
+      return rc;
    }
    hash_len = sizeof(hash);
    rc = digest_mgr_digest_final( sess, FALSE, &context->hash_context, hash, &hash_len );
    if (rc != CKR_OK){
-      st_err_log(126, __FILE__, __LINE__); 
-      goto error;
+      st_err_log(126, __FILE__, __LINE__);
+      return rc;
    }
    memcpy( out_data, hash, mac_len );
    *out_data_len = mac_len;
 
-error:
-   digest_mgr_cleanup( &context->hash_context );
    return rc;
 }
 
@@ -772,13 +761,12 @@ ssl3_mac_verify_update( SESSION              * sess,
       rc = object_mgr_find_in_map1( ctx->key, &key_obj );
       if (rc != CKR_OK){
          st_err_log(110, __FILE__, __LINE__);
-         goto error;
+         return rc;
       }
       rc = template_attribute_find( key_obj->template, CKA_VALUE, &attr );
       if (rc == FALSE) {
          st_err_log(4, __FILE__, __LINE__, __FUNCTION__);
-         rc = CKR_FUNCTION_FAILED;
-         goto error;
+         return CKR_FUNCTION_FAILED;
       }
       else {
          key_bytes = attr->ulValueLen;
@@ -802,35 +790,32 @@ ssl3_mac_verify_update( SESSION              * sess,
       //
       rc = digest_mgr_init( sess, &context->hash_context, &digest_mech );
       if (rc != CKR_OK){
-         st_err_log(123, __FILE__, __LINE__); 
-         goto error;
+         st_err_log(123, __FILE__, __LINE__);
+         return rc;
       }
       rc = digest_mgr_digest_update( sess, &context->hash_context, key_data, key_bytes );
       if (rc != CKR_OK){
-         st_err_log(123, __FILE__, __LINE__); 
-         goto error;
+         st_err_log(123, __FILE__, __LINE__);
+         return rc;
       }
       if (ctx->mech.mechanism == CKM_SSL3_MD5_MAC)
          rc = digest_mgr_digest_update( sess, &context->hash_context, inner, 48 );
       else
          rc = digest_mgr_digest_update( sess, &context->hash_context, inner, 40 );
       if (rc != CKR_OK){
-         st_err_log(123, __FILE__, __LINE__); 
-         goto error;
+         st_err_log(123, __FILE__, __LINE__);
+         return rc;
       }
       context->flag = TRUE;
    }
 
    rc = digest_mgr_digest_update( sess, &context->hash_context, in_data, in_data_len );
    if (rc != CKR_OK){
-      st_err_log(123, __FILE__, __LINE__); 
-      goto error;
+      st_err_log(123, __FILE__, __LINE__);
+      return rc;
    }
-   return CKR_OK;
 
-error:
-   digest_mgr_cleanup( &context->hash_context );
-   return rc;
+   return CKR_OK;
 }
 
 
@@ -865,13 +850,12 @@ ssl3_mac_verify_final( SESSION              * sess,
    rc = object_mgr_find_in_map1( ctx->key, &key_obj );
    if (rc != CKR_OK){
       st_err_log(110, __FILE__, __LINE__);
-      goto error;
+      return rc;
    }
    rc = template_attribute_find( key_obj->template, CKA_VALUE, &attr );
    if (rc == FALSE) {
       st_err_log(4, __FILE__, __LINE__, __FUNCTION__);
-      rc = CKR_FUNCTION_FAILED;
-      goto error;
+      return CKR_FUNCTION_FAILED;
    }
    else {
       key_bytes = attr->ulValueLen;
@@ -883,12 +867,11 @@ ssl3_mac_verify_final( SESSION              * sess,
    hash_len = sizeof(hash);
    rc = digest_mgr_digest_final( sess, FALSE, &context->hash_context, hash, &hash_len );
    if (rc != CKR_OK){
-      st_err_log(126, __FILE__, __LINE__); 
-      goto error;
+      st_err_log(126, __FILE__, __LINE__);
+      return rc;
    }
    // now, do the outer hash
    //
-   digest_mgr_cleanup( &context->hash_context );
    memset( &context->hash_context, 0x0, sizeof(SSL3_MAC_CONTEXT) );
 
    memset( outer, 0x5C, 48 );
@@ -903,13 +886,13 @@ ssl3_mac_verify_final( SESSION              * sess,
 
    rc = digest_mgr_init( sess, &context->hash_context, &digest_mech );
    if (rc != CKR_OK){
-      st_err_log(123, __FILE__, __LINE__); 
-      goto error;
+      st_err_log(123, __FILE__, __LINE__);
+      return rc;
    }
    rc = digest_mgr_digest_update( sess, &context->hash_context, key_data, key_bytes );
    if (rc != CKR_OK){
-      st_err_log(123, __FILE__, __LINE__); 
-      goto error;
+      st_err_log(123, __FILE__, __LINE__);
+      return rc;
    }
    if (ctx->mech.mechanism == CKM_SSL3_MD5_MAC)
       rc = digest_mgr_digest_update( sess, &context->hash_context, outer, 48 );
@@ -917,30 +900,29 @@ ssl3_mac_verify_final( SESSION              * sess,
       rc = digest_mgr_digest_update( sess, &context->hash_context, outer, 40 );
 
    if (rc != CKR_OK){
-      st_err_log(123, __FILE__, __LINE__); 
-      goto error;
+      st_err_log(123, __FILE__, __LINE__);
+      return rc;
    }
    rc = digest_mgr_digest_update( sess, &context->hash_context, hash, hash_len );
    if (rc != CKR_OK){
-      st_err_log(123, __FILE__, __LINE__); 
-      goto error;
+      st_err_log(123, __FILE__, __LINE__);
+      return rc;
    }
    hash_len = sizeof(hash);
    rc = digest_mgr_digest_final( sess, FALSE, &context->hash_context, hash, &hash_len );
    if (rc != CKR_OK){
-      st_err_log(126, __FILE__, __LINE__); 
-      goto error;
+      st_err_log(126, __FILE__, __LINE__);
+      return rc;
    }
    if ((mac_len != sig_len) || (mac_len > hash_len)){
-      st_err_log(47, __FILE__, __LINE__); 
+      st_err_log(47, __FILE__, __LINE__);
       rc = CKR_SIGNATURE_INVALID;
    }
    else if (memcmp(signature, hash, sig_len) != 0){
       rc = CKR_SIGNATURE_INVALID;
-      st_err_log(47, __FILE__, __LINE__); 
+      st_err_log(47, __FILE__, __LINE__);
    }
-error:
-   digest_mgr_cleanup( &context->hash_context );
+
    return rc;
 }
 
@@ -1060,45 +1042,44 @@ ssl3_sha_then_md5( SESSION   * sess,
 
    rc = digest_mgr_init( sess, &digest_ctx, &digest_mech );
    if (rc != CKR_OK){
-      st_err_log(123, __FILE__, __LINE__); 
-      goto error;
+      st_err_log(123, __FILE__, __LINE__);
+      return rc;
    }
    rc = digest_mgr_digest_update( sess,
                                   &digest_ctx,
                                   variableData,
                                   variableDataLen );
    if (rc != CKR_OK){
-      st_err_log(123, __FILE__, __LINE__); 
-      goto error;
+      st_err_log(123, __FILE__, __LINE__);
+      return rc;
    }
    rc = digest_mgr_digest_update( sess, &digest_ctx, secret, 48 );
    if (rc != CKR_OK){
-      st_err_log(123, __FILE__, __LINE__); 
-      goto error;
+      st_err_log(123, __FILE__, __LINE__);
+      return rc;
    }
    rc = digest_mgr_digest_update( sess,
                                   &digest_ctx,
                                   firstRandom,
                                   firstRandomLen );
    if (rc != CKR_OK){
-      st_err_log(123, __FILE__, __LINE__); 
-      goto error;
+      st_err_log(123, __FILE__, __LINE__);
+      return rc;
    }
    rc = digest_mgr_digest_update( sess,
                                   &digest_ctx,
                                   secondRandom,
                                   secondRandomLen );
    if (rc != CKR_OK){
-      st_err_log(123, __FILE__, __LINE__); 
-      goto error;
+      st_err_log(123, __FILE__, __LINE__);
+      return rc;
    }
    len = sizeof(hash);
    rc = digest_mgr_digest_final( sess, FALSE, &digest_ctx, hash, &len );
    if (rc != CKR_OK){
-      st_err_log(126, __FILE__, __LINE__); 
-      goto error;
+      st_err_log(126, __FILE__, __LINE__);
+      return rc;
    }
-   digest_mgr_cleanup( &digest_ctx );
 
    // MD5(secret + SHA(...))
    //
@@ -1109,18 +1090,18 @@ ssl3_sha_then_md5( SESSION   * sess,
 
    rc = digest_mgr_init( sess, &digest_ctx, &digest_mech );
    if (rc != CKR_OK){
-      st_err_log(123, __FILE__, __LINE__); 
-      goto error;
+      st_err_log(123, __FILE__, __LINE__);
+      return rc;
    }
    rc = digest_mgr_digest_update( sess, &digest_ctx, secret, 48 );
    if (rc != CKR_OK){
-      st_err_log(123, __FILE__, __LINE__); 
-      goto error;
+      st_err_log(123, __FILE__, __LINE__);
+      return rc;
    }
    rc = digest_mgr_digest_update( sess, &digest_ctx, hash, len );
    if (rc != CKR_OK){
-      st_err_log(123, __FILE__, __LINE__); 
-      goto error;
+      st_err_log(123, __FILE__, __LINE__);
+      return rc;
    }
    len = sizeof(hash);
    rc = digest_mgr_digest_final( sess, FALSE, &digest_ctx, hash, &len );
@@ -1129,9 +1110,8 @@ ssl3_sha_then_md5( SESSION   * sess,
       memcpy( outBuff, hash, len );
    }
    else
-      st_err_log(126, __FILE__, __LINE__); 
-error:
-   digest_mgr_cleanup( &digest_ctx );
+      st_err_log(126, __FILE__, __LINE__);
+
    return rc;
 }
 
@@ -1168,8 +1148,8 @@ ssl3_md5_only( SESSION   * sess,
 
    rc = digest_mgr_init( sess, &digest_ctx, &digest_mech );
    if (rc != CKR_OK){
-      st_err_log(123, __FILE__, __LINE__); 
-      goto error;
+      st_err_log(123, __FILE__, __LINE__);
+      return rc;
    }
    if (firstString != NULL) {
       rc = digest_mgr_digest_update( sess,
@@ -1177,8 +1157,8 @@ ssl3_md5_only( SESSION   * sess,
                                      firstString,
                                      firstStringLen );
       if (rc != CKR_OK){
-         st_err_log(123, __FILE__, __LINE__); 
-         goto error;
+         st_err_log(123, __FILE__, __LINE__);
+         return rc;
       }
    }
 
@@ -1187,26 +1167,25 @@ ssl3_md5_only( SESSION   * sess,
                                   secondString,
                                   secondStringLen );
    if (rc != CKR_OK){
-      st_err_log(123, __FILE__, __LINE__); 
-      goto error;
-   } 
+      st_err_log(123, __FILE__, __LINE__);
+      return rc;
+   }
    rc = digest_mgr_digest_update( sess,
                                   &digest_ctx,
                                   thirdString,
                                   thirdStringLen );
    if (rc != CKR_OK){
-      st_err_log(123, __FILE__, __LINE__); 
-      goto error;
+      st_err_log(123, __FILE__, __LINE__);
+      return rc;
    }
    len = sizeof(hash);
    rc = digest_mgr_digest_final( sess, FALSE, &digest_ctx, hash, &len );
 
    if (rc == CKR_OK){
-      st_err_log(126, __FILE__, __LINE__); 
+      st_err_log(126, __FILE__, __LINE__);
       memcpy( outBuff, hash, len );
    }
-error:
-   digest_mgr_cleanup( &digest_ctx );
+
    return rc;
 }
 

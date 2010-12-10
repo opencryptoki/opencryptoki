@@ -711,7 +711,6 @@ sha1_hmac_sign( SESSION              * sess,
 
       rc = digest_mgr_init( sess, &digest_ctx, &digest_mech );
       if (rc != CKR_OK) {
-         digest_mgr_cleanup( &digest_ctx );
          st_err_log(123, __FILE__, __LINE__);
          return rc;
       }
@@ -722,12 +721,10 @@ sha1_hmac_sign( SESSION              * sess,
                               attr->ulValueLen,
                               hash,  &hash_len );
       if (rc != CKR_OK) {
-         digest_mgr_cleanup( &digest_ctx );
          st_err_log(124, __FILE__, __LINE__);
          return rc;
       }
 
-      digest_mgr_cleanup( &digest_ctx );
       memset( &digest_ctx, 0x0, sizeof(DIGEST_CONTEXT) );
 
       for (i=0; i < hash_len; i++) {
@@ -758,21 +755,18 @@ sha1_hmac_sign( SESSION              * sess,
    //
    rc = digest_mgr_init( sess, &digest_ctx, &digest_mech );
    if (rc != CKR_OK) {
-      digest_mgr_cleanup( &digest_ctx );
       st_err_log(123, __FILE__, __LINE__);
       return rc;
    }
 
    rc = digest_mgr_digest_update( sess, &digest_ctx, k_ipad, SHA1_BLOCK_SIZE );
    if (rc != CKR_OK) {
-      digest_mgr_cleanup( &digest_ctx );
       st_err_log(123, __FILE__, __LINE__);
       return rc;
    }
 
    rc = digest_mgr_digest_update( sess, &digest_ctx, in_data, in_data_len );
    if (rc != CKR_OK) {
-      digest_mgr_cleanup( &digest_ctx );
       st_err_log(123, __FILE__, __LINE__);
       return rc;
    }
@@ -780,12 +774,10 @@ sha1_hmac_sign( SESSION              * sess,
    hash_len = sizeof(hash);
    rc = digest_mgr_digest_final( sess, FALSE, &digest_ctx, hash, &hash_len );
    if (rc != CKR_OK) {
-      digest_mgr_cleanup( &digest_ctx );
       st_err_log(126, __FILE__, __LINE__);
       return rc;
    }
 
-   digest_mgr_cleanup( &digest_ctx );
    memset( &digest_ctx, 0x0, sizeof(DIGEST_CONTEXT) );
 
 
@@ -793,21 +785,18 @@ sha1_hmac_sign( SESSION              * sess,
    //
    rc = digest_mgr_init( sess, &digest_ctx, &digest_mech );
    if (rc != CKR_OK) {
-      digest_mgr_cleanup( &digest_ctx );
       st_err_log(123, __FILE__, __LINE__);
       return rc;
    }
 
    rc = digest_mgr_digest_update( sess, &digest_ctx, k_opad, SHA1_BLOCK_SIZE );
    if (rc != CKR_OK) {
-      digest_mgr_cleanup( &digest_ctx );
       st_err_log(123, __FILE__, __LINE__);
       return rc;
    }
 
    rc = digest_mgr_digest_update( sess, &digest_ctx, hash, hash_len );
    if (rc != CKR_OK) {
-      digest_mgr_cleanup( &digest_ctx );
       st_err_log(123, __FILE__, __LINE__);
       return rc;
    }
@@ -815,7 +804,6 @@ sha1_hmac_sign( SESSION              * sess,
    hash_len = sizeof(hash);
    rc = digest_mgr_digest_final( sess, FALSE, &digest_ctx, hash, &hash_len );
    if (rc != CKR_OK) {
-      digest_mgr_cleanup( &digest_ctx );
       st_err_log(126, __FILE__, __LINE__);
       return rc;
    }
@@ -823,7 +811,6 @@ sha1_hmac_sign( SESSION              * sess,
    memcpy( out_data, hash, hmac_len );
    *out_data_len = hmac_len;
 
-   digest_mgr_cleanup( &digest_ctx );
 
    return CKR_OK;
 }
@@ -900,7 +887,6 @@ sha2_hmac_sign( SESSION              * sess,
 
       rc = digest_mgr_init( sess, &digest_ctx, &digest_mech );
       if (rc != CKR_OK) {
-         digest_mgr_cleanup( &digest_ctx );
          st_err_log(123, __FILE__, __LINE__);
          return rc;
       }
@@ -911,12 +897,10 @@ sha2_hmac_sign( SESSION              * sess,
                               attr->ulValueLen,
                               hash,  &hash_len );
       if (rc != CKR_OK) {
-         digest_mgr_cleanup( &digest_ctx );
          st_err_log(124, __FILE__, __LINE__);
          return rc;
       }
 
-      digest_mgr_cleanup( &digest_ctx );
       memset( &digest_ctx, 0x0, sizeof(DIGEST_CONTEXT) );
 
       for (i=0; i < hash_len; i++) {
@@ -947,21 +931,18 @@ sha2_hmac_sign( SESSION              * sess,
    //
    rc = digest_mgr_init( sess, &digest_ctx, &digest_mech );
    if (rc != CKR_OK) {
-      digest_mgr_cleanup( &digest_ctx );
       st_err_log(123, __FILE__, __LINE__);
       return rc;
    }
 
    rc = digest_mgr_digest_update( sess, &digest_ctx, k_ipad, SHA2_BLOCK_SIZE );
    if (rc != CKR_OK) {
-      digest_mgr_cleanup( &digest_ctx );
       st_err_log(123, __FILE__, __LINE__);
       return rc;
    }
 
    rc = digest_mgr_digest_update( sess, &digest_ctx, in_data, in_data_len );
    if (rc != CKR_OK) {
-      digest_mgr_cleanup( &digest_ctx );
       st_err_log(123, __FILE__, __LINE__);
       return rc;
    }
@@ -969,12 +950,10 @@ sha2_hmac_sign( SESSION              * sess,
    hash_len = sizeof(hash);
    rc = digest_mgr_digest_final( sess, FALSE, &digest_ctx, hash, &hash_len );
    if (rc != CKR_OK) {
-      digest_mgr_cleanup( &digest_ctx );
       st_err_log(126, __FILE__, __LINE__);
       return rc;
    }
 
-   digest_mgr_cleanup( &digest_ctx );
    memset( &digest_ctx, 0x0, sizeof(DIGEST_CONTEXT) );
 
 
@@ -982,21 +961,18 @@ sha2_hmac_sign( SESSION              * sess,
    //
    rc = digest_mgr_init( sess, &digest_ctx, &digest_mech );
    if (rc != CKR_OK) {
-      digest_mgr_cleanup( &digest_ctx );
       st_err_log(123, __FILE__, __LINE__);
       return rc;
    }
 
    rc = digest_mgr_digest_update( sess, &digest_ctx, k_opad, SHA2_BLOCK_SIZE );
    if (rc != CKR_OK) {
-      digest_mgr_cleanup( &digest_ctx );
       st_err_log(123, __FILE__, __LINE__);
       return rc;
    }
 
    rc = digest_mgr_digest_update( sess, &digest_ctx, hash, hash_len );
    if (rc != CKR_OK) {
-      digest_mgr_cleanup( &digest_ctx );
       st_err_log(123, __FILE__, __LINE__);
       return rc;
    }
@@ -1004,7 +980,6 @@ sha2_hmac_sign( SESSION              * sess,
    hash_len = sizeof(hash);
    rc = digest_mgr_digest_final( sess, FALSE, &digest_ctx, hash, &hash_len );
    if (rc != CKR_OK) {
-      digest_mgr_cleanup( &digest_ctx );
       st_err_log(126, __FILE__, __LINE__);
       return rc;
    }
@@ -1012,7 +987,6 @@ sha2_hmac_sign( SESSION              * sess,
    memcpy( out_data, hash, hmac_len );
    *out_data_len = hmac_len;
 
-   digest_mgr_cleanup( &digest_ctx );
 
    return CKR_OK;
 }
@@ -1089,7 +1063,6 @@ sha3_hmac_sign( SESSION              * sess,
 
       rc = digest_mgr_init( sess, &digest_ctx, &digest_mech );
       if (rc != CKR_OK) {
-         digest_mgr_cleanup( &digest_ctx );
          st_err_log(123, __FILE__, __LINE__);
          return rc;
       }
@@ -1100,12 +1073,10 @@ sha3_hmac_sign( SESSION              * sess,
                               attr->ulValueLen,
                               hash,  &hash_len );
       if (rc != CKR_OK) {
-         digest_mgr_cleanup( &digest_ctx );
          st_err_log(124, __FILE__, __LINE__);
          return rc;
       }
 
-      digest_mgr_cleanup( &digest_ctx );
       memset( &digest_ctx, 0x0, sizeof(DIGEST_CONTEXT) );
 
       for (i=0; i < hash_len; i++) {
@@ -1136,21 +1107,18 @@ sha3_hmac_sign( SESSION              * sess,
    //
    rc = digest_mgr_init( sess, &digest_ctx, &digest_mech );
    if (rc != CKR_OK) {
-      digest_mgr_cleanup( &digest_ctx );
       st_err_log(123, __FILE__, __LINE__);
       return rc;
    }
 
    rc = digest_mgr_digest_update( sess, &digest_ctx, k_ipad, SHA3_BLOCK_SIZE );
    if (rc != CKR_OK) {
-      digest_mgr_cleanup( &digest_ctx );
       st_err_log(123, __FILE__, __LINE__);
       return rc;
    }
 
    rc = digest_mgr_digest_update( sess, &digest_ctx, in_data, in_data_len );
    if (rc != CKR_OK) {
-      digest_mgr_cleanup( &digest_ctx );
       st_err_log(123, __FILE__, __LINE__);
       return rc;
    }
@@ -1158,12 +1126,10 @@ sha3_hmac_sign( SESSION              * sess,
    hash_len = sizeof(hash);
    rc = digest_mgr_digest_final( sess, FALSE, &digest_ctx, hash, &hash_len );
    if (rc != CKR_OK) {
-      digest_mgr_cleanup( &digest_ctx );
       st_err_log(126, __FILE__, __LINE__);
       return rc;
    }
 
-   digest_mgr_cleanup( &digest_ctx );
    memset( &digest_ctx, 0x0, sizeof(DIGEST_CONTEXT) );
 
 
@@ -1171,21 +1137,18 @@ sha3_hmac_sign( SESSION              * sess,
    //
    rc = digest_mgr_init( sess, &digest_ctx, &digest_mech );
    if (rc != CKR_OK) {
-      digest_mgr_cleanup( &digest_ctx );
       st_err_log(123, __FILE__, __LINE__);
       return rc;
    }
 
    rc = digest_mgr_digest_update( sess, &digest_ctx, k_opad, SHA3_BLOCK_SIZE );
    if (rc != CKR_OK) {
-      digest_mgr_cleanup( &digest_ctx );
       st_err_log(123, __FILE__, __LINE__);
       return rc;
    }
 
    rc = digest_mgr_digest_update( sess, &digest_ctx, hash, hash_len );
    if (rc != CKR_OK) {
-      digest_mgr_cleanup( &digest_ctx );
       st_err_log(123, __FILE__, __LINE__);
       return rc;
    }
@@ -1193,7 +1156,6 @@ sha3_hmac_sign( SESSION              * sess,
    hash_len = sizeof(hash);
    rc = digest_mgr_digest_final( sess, FALSE, &digest_ctx, hash, &hash_len );
    if (rc != CKR_OK) {
-      digest_mgr_cleanup( &digest_ctx );
       st_err_log(126, __FILE__, __LINE__);
       return rc;
    }
@@ -1201,7 +1163,6 @@ sha3_hmac_sign( SESSION              * sess,
    memcpy( out_data, hash, hmac_len );
    *out_data_len = hmac_len;
 
-   digest_mgr_cleanup( &digest_ctx );
 
    return CKR_OK;
 }
@@ -1278,7 +1239,6 @@ sha5_hmac_sign( SESSION              * sess,
 
       rc = digest_mgr_init( sess, &digest_ctx, &digest_mech );
       if (rc != CKR_OK) {
-         digest_mgr_cleanup( &digest_ctx );
          st_err_log(123, __FILE__, __LINE__);
          return rc;
       }
@@ -1289,12 +1249,10 @@ sha5_hmac_sign( SESSION              * sess,
                               attr->ulValueLen,
                               hash,  &hash_len );
       if (rc != CKR_OK) {
-         digest_mgr_cleanup( &digest_ctx );
          st_err_log(124, __FILE__, __LINE__);
          return rc;
       }
 
-      digest_mgr_cleanup( &digest_ctx );
       memset( &digest_ctx, 0x0, sizeof(DIGEST_CONTEXT) );
 
       for (i=0; i < hash_len; i++) {
@@ -1325,21 +1283,18 @@ sha5_hmac_sign( SESSION              * sess,
    //
    rc = digest_mgr_init( sess, &digest_ctx, &digest_mech );
    if (rc != CKR_OK) {
-      digest_mgr_cleanup( &digest_ctx );
       st_err_log(123, __FILE__, __LINE__);
       return rc;
    }
 
    rc = digest_mgr_digest_update( sess, &digest_ctx, k_ipad, SHA5_BLOCK_SIZE );
    if (rc != CKR_OK) {
-      digest_mgr_cleanup( &digest_ctx );
       st_err_log(123, __FILE__, __LINE__);
       return rc;
    }
 
    rc = digest_mgr_digest_update( sess, &digest_ctx, in_data, in_data_len );
    if (rc != CKR_OK) {
-      digest_mgr_cleanup( &digest_ctx );
       st_err_log(123, __FILE__, __LINE__);
       return rc;
    }
@@ -1347,12 +1302,10 @@ sha5_hmac_sign( SESSION              * sess,
    hash_len = sizeof(hash);
    rc = digest_mgr_digest_final( sess, FALSE, &digest_ctx, hash, &hash_len );
    if (rc != CKR_OK) {
-      digest_mgr_cleanup( &digest_ctx );
       st_err_log(126, __FILE__, __LINE__);
       return rc;
    }
 
-   digest_mgr_cleanup( &digest_ctx );
    memset( &digest_ctx, 0x0, sizeof(DIGEST_CONTEXT) );
 
 
@@ -1360,21 +1313,18 @@ sha5_hmac_sign( SESSION              * sess,
    //
    rc = digest_mgr_init( sess, &digest_ctx, &digest_mech );
    if (rc != CKR_OK) {
-      digest_mgr_cleanup( &digest_ctx );
       st_err_log(123, __FILE__, __LINE__);
       return rc;
    }
 
    rc = digest_mgr_digest_update( sess, &digest_ctx, k_opad, SHA5_BLOCK_SIZE );
    if (rc != CKR_OK) {
-      digest_mgr_cleanup( &digest_ctx );
       st_err_log(123, __FILE__, __LINE__);
       return rc;
    }
 
    rc = digest_mgr_digest_update( sess, &digest_ctx, hash, hash_len );
    if (rc != CKR_OK) {
-      digest_mgr_cleanup( &digest_ctx );
       st_err_log(123, __FILE__, __LINE__);
       return rc;
    }
@@ -1382,7 +1332,6 @@ sha5_hmac_sign( SESSION              * sess,
    hash_len = sizeof(hash);
    rc = digest_mgr_digest_final( sess, FALSE, &digest_ctx, hash, &hash_len );
    if (rc != CKR_OK) {
-      digest_mgr_cleanup( &digest_ctx );
       st_err_log(126, __FILE__, __LINE__);
       return rc;
    }
@@ -1390,7 +1339,6 @@ sha5_hmac_sign( SESSION              * sess,
    memcpy( out_data, hash, hmac_len );
    *out_data_len = hmac_len;
 
-   digest_mgr_cleanup( &digest_ctx );
 
    return CKR_OK;
 }
@@ -1687,8 +1635,8 @@ ckm_sha1_final( DIGEST_CONTEXT * ctx,
 	*out_data_len = SHA1_HASH_SIZE;
 
 	return CKR_OK;
-    } 
-    
+    }
+
     return token_specific.t_sha_final(ctx, out_data, out_data_len);
 }
 

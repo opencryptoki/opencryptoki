@@ -519,7 +519,6 @@ md2_hmac_sign( SESSION              * sess,
          st_err_log(124, __FILE__, __LINE__);
          return rc;
       }
-      digest_mgr_cleanup( &digest_ctx );
       memset( &digest_ctx, 0x0, sizeof(DIGEST_CONTEXT) );
 
       for (i = 0; i < hash_len; i++)
@@ -573,7 +572,6 @@ md2_hmac_sign( SESSION              * sess,
       st_err_log(126, __FILE__, __LINE__);
       return rc;
    }
-   digest_mgr_cleanup( &digest_ctx );
    memset( &digest_ctx, 0x0, sizeof(DIGEST_CONTEXT) );
 
 

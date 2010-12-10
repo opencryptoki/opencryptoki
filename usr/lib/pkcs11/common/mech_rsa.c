@@ -1345,16 +1345,16 @@ rsa_hash_pkcs_sign( SESSION              * sess,
    rc = digest_mgr_init( sess, &digest_ctx, &digest_mech );
    if (rc != CKR_OK){
       st_err_log(123, __FILE__, __LINE__);
-      goto error;
+      return rc;
    }
    hash_len = sizeof(hash);
    rc = digest_mgr_digest( sess, length_only, &digest_ctx, in_data, in_data_len, hash, &hash_len );
    if (rc != CKR_OK){
       st_err_log(124, __FILE__, __LINE__);
-      goto error;
+      return rc;
    }
       // build the BER-encodings
-     
+
     rc = ber_encode_OCTET_STRING( FALSE, &octet_str, &octet_str_len, hash, hash_len );
     if (rc != CKR_OK){
        st_err_log(77, __FILE__, __LINE__);
@@ -1363,7 +1363,7 @@ rsa_hash_pkcs_sign( SESSION              * sess,
     tmp = (CK_BYTE *)buf1;
     memcpy( tmp,           oid,       oid_len );
     memcpy( tmp + oid_len, octet_str, octet_str_len);
-      
+
     rc = ber_encode_SEQUENCE( FALSE, &ber_data, &ber_data_len, tmp, (oid_len + octet_str_len) );
     if (rc != CKR_OK){
        st_err_log(78, __FILE__, __LINE__);
@@ -1389,7 +1389,6 @@ rsa_hash_pkcs_sign( SESSION              * sess,
 error:
    if (octet_str) free( octet_str );
    if (ber_data)  free( ber_data );
-   digest_mgr_cleanup( &digest_ctx );
    sign_mgr_cleanup( &sign_ctx );
    return rc;
 }
@@ -1427,7 +1426,7 @@ rsa_hash_pkcs_sign_update( SESSION              * sess,
       rc = digest_mgr_init( sess, &context->hash_context, &digest_mech );
       if (rc != CKR_OK){
          st_err_log(123, __FILE__, __LINE__);
-         goto error;
+         return rc;
       }
       context->flag = TRUE;
    }
@@ -1435,13 +1434,9 @@ rsa_hash_pkcs_sign_update( SESSION              * sess,
    rc = digest_mgr_digest_update( sess, &context->hash_context, in_data, in_data_len );
    if (rc != CKR_OK){
       st_err_log(123, __FILE__, __LINE__);
-      goto error;
+      return rc;
    }
    return CKR_OK;
-
-error:
-   digest_mgr_cleanup( &context->hash_context );
-   return rc;
 }
 
 
@@ -1499,13 +1494,13 @@ rsa_hash_pkcs_verify( SESSION              * sess,
    rc = digest_mgr_init( sess, &digest_ctx, &digest_mech );
    if (rc != CKR_OK){
       st_err_log(123, __FILE__, __LINE__);
-      goto done;
+      return rc;
    }
    hash_len = sizeof(hash);
    rc = digest_mgr_digest( sess, FALSE, &digest_ctx, in_data, in_data_len, hash, &hash_len );
    if (rc != CKR_OK){
       st_err_log(124, __FILE__, __LINE__);
-      goto done;
+      return rc;
    }
 
    // Build the BER encoding
@@ -1542,8 +1537,6 @@ rsa_hash_pkcs_verify( SESSION              * sess,
 done:
    if (octet_str) free( octet_str );
    if (ber_data)  free( ber_data );
-   
-   digest_mgr_cleanup( &digest_ctx );
    sign_mgr_cleanup( &verify_ctx );
    return rc;
 }
@@ -1580,7 +1573,7 @@ rsa_hash_pkcs_verify_update( SESSION              * sess,
       rc = digest_mgr_init( sess, &context->hash_context, &digest_mech );
       if (rc != CKR_OK){
          st_err_log(123, __FILE__, __LINE__);
-         goto error;
+         return rc;
       }
       context->flag = TRUE;
    }
@@ -1588,13 +1581,9 @@ rsa_hash_pkcs_verify_update( SESSION              * sess,
    rc = digest_mgr_digest_update( sess, &context->hash_context, in_data, in_data_len );
    if (rc != CKR_OK){
       st_err_log(123, __FILE__, __LINE__);
-      goto error;
+      return rc;
    }
    return CKR_OK;
-
-error:
-   digest_mgr_cleanup( &context->hash_context );
-   return rc;
 }
 
 
@@ -1647,14 +1636,14 @@ rsa_hash_pkcs_sign_final( SESSION              * sess,
    rc = digest_mgr_digest_final( sess, length_only, &context->hash_context, hash, &hash_len );
    if (rc != CKR_OK){
       st_err_log(126, __FILE__, __LINE__);
-      goto done;
+      return rc;
    }
    // Build the BER Encoded Data block
    //
    rc = ber_encode_OCTET_STRING( FALSE, &octet_str, &octet_str_len, hash, hash_len );
    if (rc != CKR_OK){
       st_err_log(77, __FILE__, __LINE__);
-      goto done;
+      return rc;
    }
    tmp = (CK_BYTE *)buf1;
    memcpy( tmp,           oid,       oid_len );
@@ -1690,8 +1679,6 @@ rsa_hash_pkcs_sign_final( SESSION              * sess,
 done:
    if (octet_str) free( octet_str );
    if (ber_data)  free( ber_data );
-
-   digest_mgr_cleanup( &context->hash_context );
    sign_mgr_cleanup( &sign_ctx );
    return rc;
 }
@@ -1743,7 +1730,7 @@ rsa_hash_pkcs_verify_final( SESSION              * sess,
    rc = digest_mgr_digest_final( sess, FALSE, &context->hash_context, hash, &hash_len );
    if (rc != CKR_OK){
       st_err_log(126, __FILE__, __LINE__);
-      goto done;
+      return rc;
    }
    // Build the BER encoding
    //
@@ -1780,7 +1767,6 @@ rsa_hash_pkcs_verify_final( SESSION              * sess,
 done:
    if (octet_str) free( octet_str );
    if (ber_data)  free( ber_data );
-   digest_mgr_cleanup( &context->hash_context );
    verify_mgr_cleanup( &verify_ctx );
    return rc;
 }

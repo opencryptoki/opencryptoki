@@ -328,15 +328,16 @@ digest_mgr_init( SESSION           *sess,
       case CKM_SHA_1:
          {
             if (mech->ulParameterLen != 0){
-               st_err_log(29, __FILE__, __LINE__);     
+               st_err_log(29, __FILE__, __LINE__);
                return CKR_MECHANISM_PARAM_INVALID;
             }
-	    
+
             ctx->context = NULL;
             ckm_sha1_init( ctx );
-	    
+
             if (!ctx->context) {
-               st_err_log(1, __FILE__, __LINE__);     
+               digest_mgr_cleanup(ctx);  // to de-initialize context above
+               st_err_log(1, __FILE__, __LINE__);
                return CKR_HOST_MEMORY;
             }
          }
@@ -353,6 +354,7 @@ digest_mgr_init( SESSION           *sess,
             ckm_sha2_init( ctx );
 
             if (!ctx->context) {
+               digest_mgr_cleanup(ctx);  // to de-initialize context above
                st_err_log(1, __FILE__, __LINE__);
                return CKR_HOST_MEMORY;
             }
@@ -370,6 +372,7 @@ digest_mgr_init( SESSION           *sess,
             ckm_sha3_init( ctx );
 
             if (!ctx->context) {
+               digest_mgr_cleanup(ctx);  // to de-initialize context above
                st_err_log(1, __FILE__, __LINE__);
                return CKR_HOST_MEMORY;
             }
@@ -387,6 +390,7 @@ digest_mgr_init( SESSION           *sess,
             ckm_sha5_init( ctx );
 
             if (!ctx->context) {
+               digest_mgr_cleanup(ctx);  // to de-initialize context above
                st_err_log(1, __FILE__, __LINE__);
                return CKR_HOST_MEMORY;
             }
@@ -402,6 +406,7 @@ digest_mgr_init( SESSION           *sess,
             ctx->context_len = sizeof(MD2_CONTEXT);
             ctx->context     = (CK_BYTE *)malloc(sizeof(MD2_CONTEXT));
             if (!ctx->context){
+               digest_mgr_cleanup(ctx);  // to de-initialize context above
                st_err_log(1, __FILE__, __LINE__);     
                return CKR_HOST_MEMORY;
             }
@@ -418,6 +423,7 @@ digest_mgr_init( SESSION           *sess,
             ctx->context_len = sizeof(MD5_CONTEXT);
             ctx->context     = (CK_BYTE *)malloc(sizeof(MD5_CONTEXT));
             if (!ctx->context){
+               digest_mgr_cleanup(ctx);  // to de-initialize context above
                st_err_log(1, __FILE__, __LINE__);     
                return CKR_HOST_MEMORY;
             }
@@ -433,6 +439,7 @@ digest_mgr_init( SESSION           *sess,
    if (mech->ulParameterLen > 0) {
       ptr = (CK_BYTE *)malloc(mech->ulParameterLen);
       if (!ptr){
+         digest_mgr_cleanup(ctx);  // to de-initialize context above
          st_err_log(1, __FILE__, __LINE__);     
          return CKR_HOST_MEMORY;
       }
@@ -489,6 +496,7 @@ digest_mgr_digest( SESSION         *sess,
                    CK_BYTE         *out_data,
                    CK_ULONG        *out_data_len )
 {
+   CK_RV        rc;
 
    if (!sess || !ctx){
       st_err_log(4, __FILE__, __LINE__, __FUNCTION__);
@@ -504,53 +512,70 @@ digest_mgr_digest( SESSION         *sess,
    //
    if ((length_only == FALSE) && (!in_data || !out_data)){
       st_err_log(4, __FILE__, __LINE__, __FUNCTION__);
-      return CKR_FUNCTION_FAILED;
+      rc = CKR_FUNCTION_FAILED;
+      goto out;
    }
 
    if (ctx->multi == TRUE){
       st_err_log(31, __FILE__, __LINE__);
-      return CKR_OPERATION_ACTIVE;
+      rc = CKR_FUNCTION_FAILED;
+      goto out;
    }
    switch (ctx->mech.mechanism) {
       case CKM_SHA_1:
-         return sha1_hash( sess,      length_only, ctx,
+         rc = sha1_hash( sess,      length_only, ctx,
                            in_data,   in_data_len,
                            out_data,  out_data_len );
+         break;
 
       case CKM_SHA256:
-         return sha2_hash( sess,      length_only, ctx,
+         rc = sha2_hash( sess,      length_only, ctx,
                            in_data,   in_data_len,
                            out_data,  out_data_len );
+         break;
 
       case CKM_SHA384:
-         return sha3_hash( sess,      length_only, ctx,
+         rc = sha3_hash( sess,      length_only, ctx,
                            in_data,   in_data_len,
                            out_data,  out_data_len );
+         break;
 
       case CKM_SHA512:
-         return sha5_hash( sess,      length_only, ctx,
+         rc = sha5_hash( sess,      length_only, ctx,
                            in_data,   in_data_len,
                            out_data,  out_data_len );
+         break;
 
 #if !(NOMD2 )
       case CKM_MD2:
-         return md2_hash( sess,     length_only, ctx,
+         rc = md2_hash( sess,     length_only, ctx,
                           in_data,  in_data_len,
                           out_data, out_data_len );
+         break;
 #endif
 
       case CKM_MD5:
-         return md5_hash( sess,     length_only, ctx,
+         rc = md5_hash( sess,     length_only, ctx,
                           in_data,  in_data_len,
                           out_data, out_data_len );
+         break;
 
       default:
          st_err_log(4, __FILE__, __LINE__, __FUNCTION__);
-         return CKR_FUNCTION_FAILED;  // shouldn't happen
+         rc = CKR_FUNCTION_FAILED;  // shouldn't happen
    }
 
-   st_err_log(4, __FILE__, __LINE__, __FUNCTION__);
-   return CKR_FUNCTION_FAILED;
+out:
+   if ( !((rc == CKR_BUFFER_TOO_SMALL) ||
+          (rc == CKR_OK && length_only == TRUE)) ) {
+      // "A call to C_Digest always terminates the active digest operation unless it
+      // returns CKR_BUFFER_TOO_SMALL or is a successful call (i.e., one which returns CKR_OK)
+      // to determine the length of the buffer needed to hold the message digest."
+      digest_mgr_cleanup(ctx);
+   }
+
+   return rc;
+
 }
 
 
@@ -562,6 +587,8 @@ digest_mgr_digest_update( SESSION         *sess,
                           CK_BYTE         *data,
                           CK_ULONG         data_len )
 {
+   CK_RV        rc;
+
    if (!sess || !ctx){
       st_err_log(4, __FILE__, __LINE__, __FUNCTION__);
       return CKR_FUNCTION_FAILED;
@@ -575,32 +602,42 @@ digest_mgr_digest_update( SESSION         *sess,
 
    switch (ctx->mech.mechanism) {
       case CKM_SHA_1:
-         return sha1_hash_update( sess, ctx, data, data_len );
+         rc = sha1_hash_update( sess, ctx, data, data_len );
+         break;
 
       case CKM_SHA256:
-         return sha2_hash_update( sess, ctx, data, data_len );
+         rc = sha2_hash_update( sess, ctx, data, data_len );
+         break;
 
       case CKM_SHA384:
-         return sha3_hash_update( sess, ctx, data, data_len );
+         rc = sha3_hash_update( sess, ctx, data, data_len );
+         break;
 
       case CKM_SHA512:
-         return sha5_hash_update( sess, ctx, data, data_len );
+         rc = sha5_hash_update( sess, ctx, data, data_len );
+         break;
 
 #if !(NOMD2)
       case CKM_MD2:
-         return md2_hash_update( sess, ctx, data, data_len );
+         rc = md2_hash_update( sess, ctx, data, data_len );
+         break;
 #endif
 
       case CKM_MD5:
-         return md5_hash_update( sess, ctx, data, data_len );
+         rc = md5_hash_update( sess, ctx, data, data_len );
+         break;
 
       default:
          st_err_log(28, __FILE__, __LINE__);
-         return CKR_MECHANISM_INVALID;
+         rc = CKR_MECHANISM_INVALID;
    }
 
-   st_err_log(28, __FILE__, __LINE__);
-   return CKR_MECHANISM_INVALID;  // shouldn't happen!
+   if (rc != CKR_OK) {
+      digest_mgr_cleanup(ctx);  // "A call to C_DigestUpdate which results in an error
+                                // terminates the current digest operation."
+   }
+
+   return rc;
 }
 
 
@@ -625,21 +662,24 @@ digest_mgr_digest_key( SESSION          * sess,
    rc = object_mgr_find_in_map1( key_handle, &key_obj );
    if (rc != CKR_OK){
       st_err_log(18, __FILE__, __LINE__);
-      return CKR_KEY_HANDLE_INVALID;
+      rc = CKR_KEY_HANDLE_INVALID;
+      goto out;
    }
    // only allow digesting of CKO_SECRET keys
    //
    rc = template_attribute_find( key_obj->template, CKA_CLASS, &attr );
    if (rc == FALSE) {
       st_err_log(24, __FILE__, __LINE__);
-      return CKR_KEY_INDIGESTIBLE;
+      rc = CKR_KEY_INDIGESTIBLE;
+      goto out;
    }
    else
       class = *(CK_OBJECT_CLASS *)attr->pValue;
 
    if (class != CKO_SECRET_KEY){
       st_err_log(24, __FILE__, __LINE__);
-      return CKR_KEY_INDIGESTIBLE;
+      rc = CKR_KEY_INDIGESTIBLE;
+      goto out;
    }
 
    // every secret key has a CKA_VALUE attribute
@@ -647,7 +687,8 @@ digest_mgr_digest_key( SESSION          * sess,
    rc = template_attribute_find( key_obj->template, CKA_VALUE, &attr );
    if (!rc){
       st_err_log(24, __FILE__, __LINE__);
-      return CKR_KEY_INDIGESTIBLE;
+      rc = CKR_KEY_INDIGESTIBLE;
+      goto out;
    }
    rc = digest_mgr_digest_update( sess,
                                   ctx,
@@ -655,7 +696,12 @@ digest_mgr_digest_key( SESSION          * sess,
                                   attr->ulValueLen );
    if (rc != CKR_OK){
       st_err_log(24, __FILE__, __LINE__);
-   } 
+   }
+
+out:
+   if (rc != CKR_OK) {
+      digest_mgr_cleanup(ctx);
+   }
    return rc;
 }
 
@@ -669,6 +715,8 @@ digest_mgr_digest_final( SESSION         *sess,
                          CK_BYTE         *hash,
                          CK_ULONG        *hash_len )
 {
+   CK_RV        rc;
+
    if (!sess || !ctx){
       st_err_log(4, __FILE__, __LINE__, __FUNCTION__);
       return CKR_FUNCTION_FAILED;
@@ -682,45 +730,58 @@ digest_mgr_digest_final( SESSION         *sess,
     * is the final part of a multi part operation.
     */
    ctx->multi = FALSE;
-   
+
    switch (ctx->mech.mechanism) {
       case CKM_SHA_1:
-         return sha1_hash_final( sess, length_only,
+         rc = sha1_hash_final( sess, length_only,
                                  ctx,
                                  hash, hash_len );
+         break;
 
       case CKM_SHA256:
-         return sha2_hash_final( sess, length_only,
+         rc = sha2_hash_final( sess, length_only,
                                  ctx,
                                  hash, hash_len );
+         break;
 
       case CKM_SHA384:
-         return sha3_hash_final( sess, length_only,
+         rc = sha3_hash_final( sess, length_only,
                                  ctx,
                                  hash, hash_len );
+         break;
 
       case CKM_SHA512:
-         return sha5_hash_final( sess, length_only,
+         rc = sha5_hash_final( sess, length_only,
                                  ctx,
                                  hash, hash_len );
+         break;
 
 #if !(NOMD2)
       case CKM_MD2:
-         return md2_hash_final( sess, length_only,
+         rc = md2_hash_final( sess, length_only,
                                 ctx,
                                 hash, hash_len );
+         break;
 #endif
 
       case CKM_MD5:
-         return md5_hash_final( sess, length_only,
+         rc = md5_hash_final( sess, length_only,
                                 ctx,
                                 hash, hash_len );
+         break;
 
       default:
          st_err_log(28, __FILE__, __LINE__);
-         return CKR_MECHANISM_INVALID;   // shouldn't happen
+         rc = CKR_MECHANISM_INVALID;   // shouldn't happen
    }
 
-   st_err_log(28, __FILE__, __LINE__);
-   return CKR_MECHANISM_INVALID;
+   if ( !((rc == CKR_BUFFER_TOO_SMALL) ||
+          (rc == CKR_OK && length_only == TRUE)) ) {
+      // "A call to C_DigestFinal always terminates the active digest operation unless it
+      // returns CKR_BUFFER_TOO_SMALL or is a successful call (i.e., one which returns CKR_OK)
+      // to determine the length of the buffer needed to hold the message digest."
+      digest_mgr_cleanup(ctx);
+   }
+
+   return rc;
 }
