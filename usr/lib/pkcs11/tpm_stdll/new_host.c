@@ -2821,9 +2821,6 @@ CK_RV SC_Digest( ST_SESSION_HANDLE  sSession,
    }
 
 done:
-   if (rc != CKR_BUFFER_TOO_SMALL && (rc != CKR_OK || length_only != TRUE))
-      digest_mgr_cleanup( &sess->digest_ctx );
-
    LLOCK;
    if (debugfile) {
       stlogit2(debugfile, "%-25s:  rc = %08x, sess = %d, datalen = %d\n", "C_Digest", rc, (sess == NULL)?-1:(CK_LONG)sess->handle, ulDataLen );
@@ -2879,9 +2876,6 @@ CK_RV SC_DigestUpdate( ST_SESSION_HANDLE  sSession,
       }
    }
 done:
-   if (rc != CKR_OK)
-      digest_mgr_cleanup( &sess->digest_ctx );
-
    LLOCK;
    if (debugfile) {
       stlogit2(debugfile, "%-25s:  rc = %08x, sess = %d, datalen = %d\n", "C_DigestUpdate", rc, (sess == NULL)?-1:(CK_LONG)sess->handle, ulPartLen );
@@ -2926,9 +2920,6 @@ CK_RV SC_DigestKey( ST_SESSION_HANDLE  sSession,
    }
 
 done:
-   if (rc != CKR_OK)
-      digest_mgr_cleanup( &sess->digest_ctx );
-
    LLOCK;
    if (debugfile) {
       stlogit2(debugfile, "%-25s:  rc = %08x, sess = %d, key = %d\n", "C_DigestKey", rc, (sess == NULL)?-1:(CK_LONG)sess->handle, hKey );
@@ -2987,9 +2978,6 @@ CK_RV SC_DigestFinal( ST_SESSION_HANDLE  sSession,
    }
 
 done:
-   if (rc != CKR_BUFFER_TOO_SMALL && (rc != CKR_OK || length_only != TRUE))
-      digest_mgr_cleanup( &sess->digest_ctx );
-
    LLOCK;
    if (debugfile) {
       stlogit2(debugfile, "%-25s:  rc = %08x, sess = %d\n", "C_DigestFinal", rc, (sess == NULL)?-1:(CK_LONG)sess->handle );
