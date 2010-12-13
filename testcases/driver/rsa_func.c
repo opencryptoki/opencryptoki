@@ -1091,8 +1091,9 @@ CK_RV do_GenerateWrapUnwrapRSA(
                                   {CKA_VALUE_LEN, &keylen, sizeof(keylen) }
                                 };
         CK_ATTRIBUTE            unwrap_tmpl[] = {
-                                  {CKA_CLASS,    NULL, 0},
-                                  {CKA_KEY_TYPE, NULL, 0}
+                                  {CKA_CLASS,     NULL, 0},
+                                  {CKA_KEY_TYPE,  NULL, 0},
+                                  {CKA_VALUE_LEN, NULL, 0}
                                 };
         CK_ATTRIBUTE            secret_value[] = {
                                   {CKA_VALUE, NULL, 0}
@@ -1303,9 +1304,29 @@ CK_RV do_GenerateWrapUnwrapRSA(
                 goto testcase_cleanup;
         }
 
-        /* Now recover it */
-        rc = funcs->C_UnwrapKey(session, &mech3, priv_key, wrapped_key,
-                        wrapped_keylen, unwrap_tmpl, 2, &unwrapped_key);
+        /* now recover it */
+
+        /* x.509 + variable key length specific case:
+         * x.509 can't handle lengths right, so according to page 242 from
+         * the PKCS#11 spec (v2.11), "If the resulting plaintext is to be
+         * used to produce an unwrapped key, then however many bytes are
+         * specified in the template for the length of the key are taken
+         * from the end of this sequence of bytes."
+         */
+        if (mechtype == CKM_RSA_X_509 && keytype == CKM_AES_KEY_GEN) {
+                unwrap_tmpl[2].type = CKA_VALUE_LEN;
+                unwrap_tmpl[2].ulValueLen = sizeof(keylen);
+                unwrap_tmpl[2].pValue = &keylen;
+
+                rc = funcs->C_UnwrapKey(session, &mech3, priv_key, wrapped_key,
+                                wrapped_keylen, unwrap_tmpl, 3, &unwrapped_key);
+        }
+        else {
+
+                rc = funcs->C_UnwrapKey(session, &mech3, priv_key, wrapped_key,
+                                wrapped_keylen, unwrap_tmpl, 2, &unwrapped_key);
+        }
+
         if (rc != CKR_OK) {
                 testcase_fail("C_UnwrapKey() rc = %s",
                                 p11_get_ckr(rc));
