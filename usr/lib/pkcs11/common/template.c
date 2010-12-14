@@ -338,7 +338,7 @@ template_add_attributes( TEMPLATE     * tmpl,
 
    for (i=0; i < ulCount; i++) {
       if (!is_attribute_defined(pTemplate[i].type)){
-         st_err_log(183, __FILE__, __LINE__); 
+         ock_log_err(OCK_E_ATTR_UNDEF);
          return CKR_ATTRIBUTE_TYPE_INVALID;
       }
       attr = (CK_ATTRIBUTE *)malloc(sizeof(CK_ATTRIBUTE) + pTemplate[i].ulValueLen);
