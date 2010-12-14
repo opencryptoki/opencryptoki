@@ -883,7 +883,7 @@ CK_RV SC_WaitForSlotEvent( CK_FLAGS        flags,
 		ock_log_err(OCK_E_API_NOT_INIT);
 		return CKR_CRYPTOKI_NOT_INITIALIZED;
 	}
-	st_err_log(142, __FILE__, __LINE__, __FUNCTION__);
+	ock_log_err(OCK_E_FUNCTION_NOT_SUPP);
 	return CKR_FUNCTION_NOT_SUPPORTED;
 }
 
@@ -1321,7 +1321,7 @@ CK_RV SC_SetPIN( ST_SESSION_HANDLE  sSession,
 		}
 		rc = save_masterkey_so();
 	} else {
-		st_err_log(142, __FILE__, __LINE__);
+		ock_log_err(OCK_E_FUNCTION_NOT_SUPP);
 		rc = CKR_SESSION_READ_ONLY;
 	}
  done:
@@ -1658,7 +1658,7 @@ CK_RV SC_Login( ST_SESSION_HANDLE   sSession,
 			rc = CKR_USER_ALREADY_LOGGED_IN;
 		}
 		if (session_mgr_readonly_session_exists()){
-			st_err_log(142, __FILE__, __LINE__);
+			ock_log_err(OCK_E_FUNCTION_NOT_SUPP);
 			rc = CKR_SESSION_READ_ONLY_EXISTS;
 		}
 	}
@@ -3809,7 +3809,7 @@ CK_RV SC_DigestEncryptUpdate( ST_SESSION_HANDLE  sSession,
 			ock_log_err(OCK_E_API_NOT_INIT);
 			return CKR_CRYPTOKI_NOT_INITIALIZED;
 		}
-	st_err_log(142, __FILE__, __LINE__, __FUNCTION__);
+	ock_log_err(OCK_E_FUNCTION_NOT_SUPP);
 	return CKR_FUNCTION_NOT_SUPPORTED;
 }
 
@@ -3828,7 +3828,7 @@ CK_RV SC_DecryptDigestUpdate( ST_SESSION_HANDLE  sSession,
 			return CKR_CRYPTOKI_NOT_INITIALIZED;
 		}
 
-	st_err_log(142, __FILE__, __LINE__, __FUNCTION__);
+	ock_log_err(OCK_E_FUNCTION_NOT_SUPP);
 	return CKR_FUNCTION_NOT_SUPPORTED;
 }
 
@@ -3846,7 +3846,7 @@ CK_RV SC_SignEncryptUpdate( ST_SESSION_HANDLE  sSession,
 			ock_log_err(OCK_E_API_NOT_INIT);
 			return CKR_CRYPTOKI_NOT_INITIALIZED;
 		}
-	st_err_log(142, __FILE__, __LINE__, __FUNCTION__);
+	ock_log_err(OCK_E_FUNCTION_NOT_SUPP);
 	return CKR_FUNCTION_NOT_SUPPORTED;
 }
 
@@ -3864,7 +3864,7 @@ CK_RV SC_DecryptVerifyUpdate( ST_SESSION_HANDLE  sSession,
 			ock_log_err(OCK_E_API_NOT_INIT);
 			return CKR_CRYPTOKI_NOT_INITIALIZED;
 		}
-	st_err_log(142, __FILE__, __LINE__, __FUNCTION__);
+	ock_log_err(OCK_E_FUNCTION_NOT_SUPP);
 	return CKR_FUNCTION_NOT_SUPPORTED;
 }
 
@@ -4381,7 +4381,7 @@ CK_RV SC_CancelFunction( ST_SESSION_HANDLE  sSession )
 //
 CK_RV QueryTweakValues( void )
 {
-	st_err_log(142, __FILE__, __LINE__, __FUNCTION__);
+	ock_log_err(OCK_E_FUNCTION_NOT_SUPP);
 	return CKR_FUNCTION_NOT_SUPPORTED;
 }
 
@@ -4390,7 +4390,7 @@ CK_RV QueryTweakValues( void )
 //
 CK_RV UpdateTweakValues( void )
 {
-	st_err_log(142, __FILE__, __LINE__, __FUNCTION__);
+	ock_log_err(OCK_E_FUNCTION_NOT_SUPP);
 	return CKR_FUNCTION_NOT_SUPPORTED;
 }
 

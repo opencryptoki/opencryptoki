@@ -542,7 +542,7 @@ C_CloseSession ( CK_SESSION_HANDLE hSession )
          decr_sess_counts(slotID);
       }
    } else {
-      st_err_log(142, __FILE__, __LINE__, __FUNCTION__); 
+      ock_log_err(OCK_E_FUNCTION_NOT_SUPP);
       rv = CKR_FUNCTION_NOT_SUPPORTED;
    }
    return rv;
@@ -621,7 +621,7 @@ C_CopyObject ( CK_SESSION_HANDLE    hSession,
       rv = fcn->ST_CopyObject(rSession,hObject,pTemplate,ulCount,phNewObject);
       LOGIT(LOG_DEBUG,"Called STDLL rv = 0x%x",rv);
    } else {
-      st_err_log(142, __FILE__, __LINE__, __FUNCTION__); 
+      ock_log_err(OCK_E_FUNCTION_NOT_SUPP);
       rv = CKR_FUNCTION_NOT_SUPPORTED;
    }
    return rv;
@@ -703,7 +703,7 @@ C_CreateObject ( CK_SESSION_HANDLE    hSession,
       rv = fcn->ST_CreateObject(rSession,pTemplate,ulCount,phObject);
       LOGIT(LOG_DEBUG,"Called STDLL rv = 0x%x",rv);
    } else {
-      st_err_log(142, __FILE__, __LINE__, __FUNCTION__); 
+      ock_log_err(OCK_E_FUNCTION_NOT_SUPP);
       rv = CKR_FUNCTION_NOT_SUPPORTED;
    }
    return rv;
@@ -772,7 +772,7 @@ C_Decrypt ( CK_SESSION_HANDLE hSession,
       rv = fcn->ST_Decrypt(rSession,pEncryptedData,ulEncryptedDataLen,pData,pulDataLen);
       LOGIT(LOG_DEBUG,"Called STDLL rv = 0x%x",rv);
    } else {
-      st_err_log(142, __FILE__, __LINE__, __FUNCTION__); 
+      ock_log_err(OCK_E_FUNCTION_NOT_SUPP);
       rv = CKR_FUNCTION_NOT_SUPPORTED;
    }
    return rv;
@@ -839,7 +839,7 @@ C_DecryptDigestUpdate ( CK_SESSION_HANDLE hSession,
       rv = fcn->ST_DecryptDigestUpdate(rSession,pEncryptedPart,ulEncryptedPartLen,pPart,pulPartLen);
       LOGIT(LOG_DEBUG,"Called STDLL rv = 0x%x",rv);
    } else {
-      st_err_log(142, __FILE__, __LINE__, __FUNCTION__); 
+      ock_log_err(OCK_E_FUNCTION_NOT_SUPP);
       rv = CKR_FUNCTION_NOT_SUPPORTED;
    }
    return rv;
@@ -912,7 +912,7 @@ C_DecryptFinal ( CK_SESSION_HANDLE hSession,
       rv = fcn->ST_DecryptFinal(rSession,pLastPart,pulLastPartLen);
       LOGIT(LOG_DEBUG,"Called STDLL rv = 0x%x",rv);
    } else {
-      st_err_log(142, __FILE__, __LINE__, __FUNCTION__); 
+      ock_log_err(OCK_E_FUNCTION_NOT_SUPP);
       rv = CKR_FUNCTION_NOT_SUPPORTED;
    }
    return rv;
@@ -977,7 +977,7 @@ C_DecryptInit ( CK_SESSION_HANDLE hSession,
       rv = fcn->ST_DecryptInit(rSession,pMechanism,hKey);
       LOGIT(LOG_DEBUG,"Called STDLL rv = 0x%x",rv);
    } else {
-      st_err_log(142, __FILE__, __LINE__, __FUNCTION__); 
+      ock_log_err(OCK_E_FUNCTION_NOT_SUPP);
       rv = CKR_FUNCTION_NOT_SUPPORTED;
    }
    return rv;
@@ -1044,7 +1044,7 @@ C_DecryptUpdate ( CK_SESSION_HANDLE hSession,
       rv = fcn->ST_DecryptUpdate(rSession,pEncryptedPart,ulEncryptedPartLen,pPart,pulPartLen);
       LOGIT(LOG_DEBUG,"Called STDLL rv = 0x%x",rv);
    } else {
-      st_err_log(142, __FILE__, __LINE__, __FUNCTION__); 
+      ock_log_err(OCK_E_FUNCTION_NOT_SUPP);
       rv = CKR_FUNCTION_NOT_SUPPORTED;
    }
    return rv;
@@ -1107,7 +1107,7 @@ C_DecryptVerifyUpdate ( CK_SESSION_HANDLE hSession,
       rv = fcn->ST_DecryptVerifyUpdate(rSession,pEncryptedPart,ulEncryptedPartLen,pPart,pulPartLen);
       LOGIT(LOG_DEBUG,"Called STDLL rv = 0x%x",rv);
    } else {
-      st_err_log(142, __FILE__, __LINE__, __FUNCTION__); 
+      ock_log_err(OCK_E_FUNCTION_NOT_SUPP);
       rv = CKR_FUNCTION_NOT_SUPPORTED;
    }
    return rv;
@@ -1186,7 +1186,7 @@ C_DeriveKey ( CK_SESSION_HANDLE    hSession,
       rv = fcn->ST_DeriveKey(rSession,pMechanism,hBaseKey,pTemplate,ulAttributeCount,phKey);
       LOGIT(LOG_DEBUG,"Called STDLL rv = 0x%x",rv);
    } else {
-      st_err_log(142, __FILE__, __LINE__, __FUNCTION__); 
+      ock_log_err(OCK_E_FUNCTION_NOT_SUPP);
       rv = CKR_FUNCTION_NOT_SUPPORTED;
    }
    return rv;
@@ -1247,7 +1247,7 @@ C_DestroyObject ( CK_SESSION_HANDLE hSession,
       rv = fcn->ST_DestroyObject(rSession,hObject);
       LOGIT(LOG_DEBUG,"Called STDLL rv = 0x%x",rv);
    } else {
-      st_err_log(142, __FILE__, __LINE__, __FUNCTION__); 
+      ock_log_err(OCK_E_FUNCTION_NOT_SUPP);
       rv = CKR_FUNCTION_NOT_SUPPORTED;
    }
    return rv;
@@ -1308,7 +1308,7 @@ C_Digest ( CK_SESSION_HANDLE hSession,
       rv = fcn->ST_Digest(rSession,pData,ulDataLen,pDigest,pulDigestLen);
       LOGIT(LOG_DEBUG,"Called STDLL rv = 0x%x",rv);
    } else {
-      st_err_log(142, __FILE__, __LINE__, __FUNCTION__); 
+      ock_log_err(OCK_E_FUNCTION_NOT_SUPP);
       rv = CKR_FUNCTION_NOT_SUPPORTED;
    }
    return rv;
@@ -1374,7 +1374,7 @@ C_DigestEncryptUpdate ( CK_SESSION_HANDLE hSession,
       rv = fcn->ST_DigestEncryptUpdate(rSession,pPart,ulPartLen,pEncryptedPart,pulEncryptedPartLen);
       LOGIT(LOG_DEBUG,"Called STDLL rv = 0x%x",rv);
    } else {
-      st_err_log(142, __FILE__, __LINE__, __FUNCTION__); 
+      ock_log_err(OCK_E_FUNCTION_NOT_SUPP);
       rv = CKR_FUNCTION_NOT_SUPPORTED;
    }
    return rv;
@@ -1434,13 +1434,13 @@ C_DigestFinal ( CK_SESSION_HANDLE hSession,
       rv = fcn->ST_DigestFinal(rSession,pDigest,pulDigestLen);
       LOGIT(LOG_DEBUG,"Called STDLL rv = 0x%x",rv);
    } else {
-      st_err_log(142, __FILE__, __LINE__, __FUNCTION__); 
+      ock_log_err(OCK_E_FUNCTION_NOT_SUPP);
       rv = CKR_FUNCTION_NOT_SUPPORTED;
    }
    return rv;
 
 
-   st_err_log(142, __FILE__, __LINE__, __FUNCTION__); 
+   ock_log_err(OCK_E_FUNCTION_NOT_SUPP);
    return CKR_FUNCTION_NOT_SUPPORTED;
 }
 
@@ -1496,7 +1496,7 @@ C_DigestInit ( CK_SESSION_HANDLE hSession,
       rv = fcn->ST_DigestInit(rSession,pMechanism);
       LOGIT(LOG_DEBUG,"Called STDLL rv = 0x%x",rv);
    } else { 
-      st_err_log(142, __FILE__, __LINE__, __FUNCTION__); 
+      ock_log_err(OCK_E_FUNCTION_NOT_SUPP);
       rv = CKR_FUNCTION_NOT_SUPPORTED;
    }
    return rv;
@@ -1551,7 +1551,7 @@ C_DigestKey ( CK_SESSION_HANDLE hSession,
       rv = fcn->ST_DigestKey(rSession,hKey);
       LOGIT(LOG_DEBUG,"Called STDLL rv = 0x%x",rv);
    } else {
-      st_err_log(142, __FILE__, __LINE__, __FUNCTION__); 
+      ock_log_err(OCK_E_FUNCTION_NOT_SUPP);
       rv = CKR_FUNCTION_NOT_SUPPORTED;
    }
    return rv;
@@ -1611,7 +1611,7 @@ C_DigestUpdate ( CK_SESSION_HANDLE hSession,
       rv = fcn->ST_DigestUpdate(rSession,pPart,ulPartLen);
       LOGIT(LOG_DEBUG,"Called STDLL rv = 0x%x",rv);
    } else {
-      st_err_log(142, __FILE__, __LINE__, __FUNCTION__); 
+      ock_log_err(OCK_E_FUNCTION_NOT_SUPP);
       rv = CKR_FUNCTION_NOT_SUPPORTED;
    }
    return rv;
@@ -1673,7 +1673,7 @@ C_Encrypt ( CK_SESSION_HANDLE hSession,
       rv = fcn->ST_Encrypt(rSession,pData,ulDataLen,pEncryptedData,pulEncryptedDataLen);
       LOGIT(LOG_DEBUG,"Called STDLL rv = 0x%x",rv);
    } else {
-      st_err_log(142, __FILE__, __LINE__, __FUNCTION__); 
+      ock_log_err(OCK_E_FUNCTION_NOT_SUPP);
       rv = CKR_FUNCTION_NOT_SUPPORTED;
    }
    return rv;
@@ -1733,7 +1733,7 @@ C_EncryptFinal ( CK_SESSION_HANDLE hSession,
       rv = fcn->ST_EncryptFinal(rSession,pLastEncryptedPart,pulLastEncryptedPartLen);
       LOGIT(LOG_DEBUG,"Called STDLL rv = 0x%x",rv);
    } else {
-      st_err_log(142, __FILE__, __LINE__, __FUNCTION__); 
+      ock_log_err(OCK_E_FUNCTION_NOT_SUPP);
       rv = CKR_FUNCTION_NOT_SUPPORTED;
    }
    return rv;
@@ -1792,12 +1792,12 @@ C_EncryptInit ( CK_SESSION_HANDLE hSession,
       rv = fcn->ST_EncryptInit(rSession,pMechanism,hKey);
       LOGIT(LOG_DEBUG,"Called STDLL rv = 0x%x",rv);
    } else {
-      st_err_log(142, __FILE__, __LINE__, __FUNCTION__); 
+      ock_log_err(OCK_E_FUNCTION_NOT_SUPP);
       rv = CKR_FUNCTION_NOT_SUPPORTED;
    }
    return rv;
 
-      st_err_log(142, __FILE__, __LINE__, __FUNCTION__); 
+      ock_log_err(OCK_E_FUNCTION_NOT_SUPP);
    return CKR_FUNCTION_NOT_SUPPORTED;
 }
 
@@ -1856,7 +1856,7 @@ C_EncryptUpdate ( CK_SESSION_HANDLE hSession,
       rv = fcn->ST_EncryptUpdate(rSession,pPart,ulPartLen,pEncryptedPart,pulEncryptedPartLen);
       LOGIT(LOG_DEBUG,"Called STDLL rv = 0x%x",rv);
    } else {
-      st_err_log(142, __FILE__, __LINE__, __FUNCTION__); 
+      ock_log_err(OCK_E_FUNCTION_NOT_SUPP);
       rv = CKR_FUNCTION_NOT_SUPPORTED;
    }
    return rv;
@@ -1987,7 +1987,7 @@ C_FindObjects ( CK_SESSION_HANDLE    hSession,
       rv = fcn->ST_FindObjects(rSession,phObject,ulMaxObjectCount,pulObjectCount);
       LOGIT(LOG_DEBUG,"Called STDLL rv = 0x%x",rv);
    } else {
-      st_err_log(142, __FILE__, __LINE__, __FUNCTION__); 
+      ock_log_err(OCK_E_FUNCTION_NOT_SUPP);
       rv = CKR_FUNCTION_NOT_SUPPORTED;
    }
    return rv;
@@ -2044,7 +2044,7 @@ C_FindObjectsFinal ( CK_SESSION_HANDLE hSession )
       rv = fcn->ST_FindObjectsFinal(rSession);
       LOGIT(LOG_DEBUG,"Called STDLL rv = 0x%x",rv);
    } else {
-      st_err_log(142, __FILE__, __LINE__, __FUNCTION__); 
+      ock_log_err(OCK_E_FUNCTION_NOT_SUPP);
       rv = CKR_FUNCTION_NOT_SUPPORTED;
    }
    return rv;
@@ -2106,7 +2106,7 @@ C_FindObjectsInit ( CK_SESSION_HANDLE hSession,
       rv = fcn->ST_FindObjectsInit(rSession,pTemplate,ulCount);
       LOGIT(LOG_DEBUG,"Called STDLL rv = 0x%x",rv);
    } else {
-      st_err_log(142, __FILE__, __LINE__, __FUNCTION__); 
+      ock_log_err(OCK_E_FUNCTION_NOT_SUPP);
       rv = CKR_FUNCTION_NOT_SUPPORTED;
    }
    return rv;
@@ -2171,7 +2171,7 @@ C_GenerateKey ( CK_SESSION_HANDLE    hSession,
       rv = fcn->ST_GenerateKey(rSession,pMechanism,pTemplate,ulCount,phKey);
       LOGIT(LOG_DEBUG,"Called STDLL rv = 0x%x",rv);
    } else {
-      st_err_log(142, __FILE__, __LINE__, __FUNCTION__); 
+      ock_log_err(OCK_E_FUNCTION_NOT_SUPP);
       rv = CKR_FUNCTION_NOT_SUPPORTED;
    }
    return rv;
@@ -2245,7 +2245,7 @@ C_GenerateKeyPair ( CK_SESSION_HANDLE    hSession,
                                    ulPrivateKeyAttributeCount,phPublicKey,phPrivateKey);
       LOGIT(LOG_DEBUG,"Called STDLL rv = 0x%x",rv);
    } else {
-      st_err_log(142, __FILE__, __LINE__, __FUNCTION__); 
+      ock_log_err(OCK_E_FUNCTION_NOT_SUPP);
       rv = CKR_FUNCTION_NOT_SUPPORTED;
    }
    return rv;
@@ -2303,13 +2303,13 @@ C_GenerateRandom ( CK_SESSION_HANDLE hSession,
       rv = fcn->ST_GenerateRandom(rSession,RandomData,ulRandomLen);
       LOGIT(LOG_DEBUG,"Called STDLL rv = 0x%x",rv);
    } else {
-      st_err_log(142, __FILE__, __LINE__, __FUNCTION__); 
+      ock_log_err(OCK_E_FUNCTION_NOT_SUPP);
       rv = CKR_FUNCTION_NOT_SUPPORTED;
    }
    return rv;
 
 
-      st_err_log(142, __FILE__, __LINE__, __FUNCTION__); 
+      ock_log_err(OCK_E_FUNCTION_NOT_SUPP);
   return CKR_FUNCTION_NOT_SUPPORTED;
 }
 
@@ -2373,7 +2373,7 @@ C_GetAttributeValue ( CK_SESSION_HANDLE hSession,
       rv = fcn->ST_GetAttributeValue(rSession,hObject,pTemplate,ulCount);
       LOGIT(LOG_DEBUG,"Called STDLL rv = 0x%x",rv);
    } else {
-      st_err_log(142, __FILE__, __LINE__, __FUNCTION__); 
+      ock_log_err(OCK_E_FUNCTION_NOT_SUPP);
       rv = CKR_FUNCTION_NOT_SUPPORTED;
    }
    return rv;
@@ -2604,7 +2604,7 @@ C_GetMechanismInfo ( CK_SLOT_ID            slotID,
       rv = fcn->ST_GetMechanismInfo(slotID,type,pInfo);
       LOGIT(LOG_DEBUG,"Called STDLL rv = 0x%x",rv);
    } else {
-      st_err_log(142, __FILE__, __LINE__, __FUNCTION__); 
+      ock_log_err(OCK_E_FUNCTION_NOT_SUPP);
       rv = CKR_FUNCTION_NOT_SUPPORTED;
    }
    return rv;
@@ -2664,7 +2664,7 @@ C_GetMechanismList ( CK_SLOT_ID            slotID,
       rv = fcn->ST_GetMechanismList(slotID,pMechanismList,pulCount);
       LOGIT(LOG_DEBUG,"Called STDLL rv = 0x%x",rv);
    } else {
-      st_err_log(142, __FILE__, __LINE__, __FUNCTION__); 
+      ock_log_err(OCK_E_FUNCTION_NOT_SUPP);
       rv = CKR_FUNCTION_NOT_SUPPORTED;
    }
 
@@ -2738,7 +2738,7 @@ C_GetObjectSize ( CK_SESSION_HANDLE hSession,
       rv = fcn->ST_GetObjectSize(rSession,hObject,pulSize);
       LOGIT(LOG_DEBUG,"Called STDLL rv = 0x%x",rv);
    } else {
-      st_err_log(142, __FILE__, __LINE__, __FUNCTION__); 
+      ock_log_err(OCK_E_FUNCTION_NOT_SUPP);
       rv = CKR_FUNCTION_NOT_SUPPORTED;
    }
    return rv;
@@ -2799,7 +2799,7 @@ C_GetOperationState ( CK_SESSION_HANDLE hSession,
       rv = fcn->ST_GetOperationState(rSession,pOperationState,pulOperationStateLen);
       LOGIT(LOG_DEBUG,"Called STDLL rv = 0x%x",rv);
    } else {
-      st_err_log(142, __FILE__, __LINE__, __FUNCTION__); 
+      ock_log_err(OCK_E_FUNCTION_NOT_SUPP);
       rv = CKR_FUNCTION_NOT_SUPPORTED;
    }
    return rv;
@@ -2867,7 +2867,7 @@ C_GetSessionInfo ( CK_SESSION_HANDLE   hSession,
                   pInfo->slotID,pInfo->state, pInfo->flags,pInfo->ulDeviceError);
 
    } else {
-      st_err_log(142, __FILE__, __LINE__, __FUNCTION__); 
+      ock_log_err(OCK_E_FUNCTION_NOT_SUPP);
       rv = CKR_FUNCTION_NOT_SUPPORTED;
    }
    return rv;
@@ -3219,7 +3219,7 @@ C_GetTokenInfo ( CK_SLOT_ID        slotID,
       LOGIT(LOG_DEBUG,"rv %d  CK_TOKEN_INFO Flags %x",rv,pInfo->flags);
       
    } else {
-      st_err_log(142, __FILE__, __LINE__, __FUNCTION__); 
+      ock_log_err(OCK_E_FUNCTION_NOT_SUPP);
       rv = CKR_FUNCTION_NOT_SUPPORTED;
    }
    return rv;
@@ -3502,7 +3502,7 @@ C_InitPIN ( CK_SESSION_HANDLE hSession,
       rv = fcn->ST_InitPIN(rSession,pPin,ulPinLen);
       LOGIT(LOG_DEBUG,"Called STDLL rv = 0x%x",rv);
    } else {
-      st_err_log(142, __FILE__, __LINE__, __FUNCTION__); 
+      ock_log_err(OCK_E_FUNCTION_NOT_SUPP);
       rv = CKR_FUNCTION_NOT_SUPPORTED;
    }
    return rv;
@@ -3577,7 +3577,7 @@ C_InitToken ( CK_SLOT_ID  slotID,
       rv = fcn->ST_InitToken(slotID,pPin,ulPinLen,pLabel);
       LOGIT(LOG_DEBUG,"Called STDLL rv = 0x%x",rv);
    } else {
-      st_err_log(142, __FILE__, __LINE__, __FUNCTION__); 
+      ock_log_err(OCK_E_FUNCTION_NOT_SUPP);
       rv = CKR_FUNCTION_NOT_SUPPORTED;
    }
    return rv;
@@ -3646,7 +3646,7 @@ C_Login ( CK_SESSION_HANDLE hSession,
       rv = fcn->ST_Login(rSession,userType,pPin,ulPinLen);
       LOGIT(LOG_DEBUG,"Called STDLL rv = 0x%x",rv);
    } else {
-      st_err_log(142, __FILE__, __LINE__, __FUNCTION__); 
+      ock_log_err(OCK_E_FUNCTION_NOT_SUPP);
       rv = CKR_FUNCTION_NOT_SUPPORTED;
    }
    return rv;
@@ -3702,7 +3702,7 @@ C_Logout ( CK_SESSION_HANDLE hSession )
       rv = fcn->ST_Logout(rSession);
       LOGIT(LOG_DEBUG,"Called STDLL rv = 0x%x",rv);
    } else {
-      st_err_log(142, __FILE__, __LINE__, __FUNCTION__); 
+      ock_log_err(OCK_E_FUNCTION_NOT_SUPP);
       rv = CKR_FUNCTION_NOT_SUPPORTED;
    }
    return rv;
@@ -3805,7 +3805,7 @@ C_OpenSession ( CK_SLOT_ID            slotID,
          free(apiSessp);
       }
    } else {
-      st_err_log(142, __FILE__, __LINE__, __FUNCTION__); 
+      ock_log_err(OCK_E_FUNCTION_NOT_SUPP);
       rv = CKR_FUNCTION_NOT_SUPPORTED;
    }
    return rv;
@@ -3865,13 +3865,13 @@ C_SeedRandom ( CK_SESSION_HANDLE hSession,
       rv = fcn->ST_SeedRandom(rSession,pSeed,ulSeedLen);
       LOGIT(LOG_DEBUG,"Called STDLL rv = 0x%x",rv);
    } else {
-      st_err_log(142, __FILE__, __LINE__, __FUNCTION__); 
+      ock_log_err(OCK_E_FUNCTION_NOT_SUPP);
       rv = CKR_FUNCTION_NOT_SUPPORTED;
    }
    return rv;
 
 
-      st_err_log(142, __FILE__, __LINE__, __FUNCTION__); 
+      ock_log_err(OCK_E_FUNCTION_NOT_SUPP);
    return CKR_FUNCTION_NOT_SUPPORTED;
 }
 
@@ -3936,7 +3936,7 @@ C_SetAttributeValue ( CK_SESSION_HANDLE hSession,
       rv = fcn->ST_SetAttributeValue(rSession,hObject,pTemplate,ulCount);
       LOGIT(LOG_DEBUG,"Called STDLL rv = 0x%x",rv);
    } else {
-      st_err_log(142, __FILE__, __LINE__, __FUNCTION__); 
+      ock_log_err(OCK_E_FUNCTION_NOT_SUPP);
       rv = CKR_FUNCTION_NOT_SUPPORTED;
    }
    return rv;
@@ -3998,12 +3998,12 @@ C_SetOperationState ( CK_SESSION_HANDLE hSession,
                hAuthenticationKey);
       LOGIT(LOG_DEBUG,"Called STDLL rv = 0x%x",rv);
    } else {
-      st_err_log(142, __FILE__, __LINE__, __FUNCTION__); 
+      ock_log_err(OCK_E_FUNCTION_NOT_SUPP);
       rv = CKR_FUNCTION_NOT_SUPPORTED;
    }
    return rv;
 
-      st_err_log(142, __FILE__, __LINE__, __FUNCTION__); 
+      ock_log_err(OCK_E_FUNCTION_NOT_SUPP);
    return CKR_FUNCTION_NOT_SUPPORTED;
 }
 
@@ -4065,7 +4065,7 @@ C_SetPIN ( CK_SESSION_HANDLE hSession,
       rv = fcn->ST_SetPIN(rSession,pOldPin,ulOldLen,pNewPin,ulNewLen);
       LOGIT(LOG_DEBUG,"Called STDLL rv = 0x%x",rv);
    } else {
-      st_err_log(142, __FILE__, __LINE__, __FUNCTION__); 
+      ock_log_err(OCK_E_FUNCTION_NOT_SUPP);
       rv = CKR_FUNCTION_NOT_SUPPORTED;
    }
    return rv;
@@ -4131,7 +4131,7 @@ C_Sign ( CK_SESSION_HANDLE hSession,
       rv = fcn->ST_Sign(rSession,pData,ulDataLen,pSignature,pulSignatureLen);
       LOGIT(LOG_DEBUG,"Called STDLL rv = 0x%x",rv);
    } else {
-      st_err_log(142, __FILE__, __LINE__, __FUNCTION__); 
+      ock_log_err(OCK_E_FUNCTION_NOT_SUPP);
       rv = CKR_FUNCTION_NOT_SUPPORTED;
    }
    return rv;
@@ -4192,13 +4192,13 @@ C_SignEncryptUpdate ( CK_SESSION_HANDLE hSession,
       rv = fcn->ST_SignEncryptUpdate(rSession,pPart,ulPartLen,pEncryptedPart,pulEncryptedPartLen);
       LOGIT(LOG_DEBUG,"Called STDLL rv = 0x%x",rv);
    } else {
-      st_err_log(142, __FILE__, __LINE__, __FUNCTION__); 
+      ock_log_err(OCK_E_FUNCTION_NOT_SUPP);
       rv = CKR_FUNCTION_NOT_SUPPORTED;
    }
    return rv;
 
 
-      st_err_log(142, __FILE__, __LINE__, __FUNCTION__); 
+      ock_log_err(OCK_E_FUNCTION_NOT_SUPP);
    return CKR_FUNCTION_NOT_SUPPORTED;
 }
 
@@ -4259,13 +4259,13 @@ C_SignFinal ( CK_SESSION_HANDLE hSession,
       rv = fcn->ST_SignFinal(rSession,pSignature,pulSignatureLen);
       LOGIT(LOG_DEBUG,"Called STDLL rv = 0x%x",rv);
    } else {
-      st_err_log(142, __FILE__, __LINE__, __FUNCTION__); 
+      ock_log_err(OCK_E_FUNCTION_NOT_SUPP);
       rv = CKR_FUNCTION_NOT_SUPPORTED;
    }
    return rv;
 
 
-      st_err_log(142, __FILE__, __LINE__, __FUNCTION__); 
+      ock_log_err(OCK_E_FUNCTION_NOT_SUPP);
    return CKR_FUNCTION_NOT_SUPPORTED;
 } // end of C_SignFinal
 
@@ -4324,7 +4324,7 @@ C_SignInit ( CK_SESSION_HANDLE hSession,
       rv = fcn->ST_SignInit(rSession,pMechanism,hKey);
       LOGIT(LOG_DEBUG,"Called STDLL rv = 0x%x",rv);
    } else {
-      st_err_log(142, __FILE__, __LINE__, __FUNCTION__); 
+      ock_log_err(OCK_E_FUNCTION_NOT_SUPP);
       rv = CKR_FUNCTION_NOT_SUPPORTED;
    }
    return rv;
@@ -4385,13 +4385,13 @@ C_SignRecover ( CK_SESSION_HANDLE hSession,
       rv = fcn->ST_SignRecover(rSession,pData,ulDataLen,pSignature,pulSignatureLen);
       LOGIT(LOG_DEBUG,"Called STDLL rv = 0x%x",rv);
    } else {
-      st_err_log(142, __FILE__, __LINE__, __FUNCTION__); 
+      ock_log_err(OCK_E_FUNCTION_NOT_SUPP);
       rv = CKR_FUNCTION_NOT_SUPPORTED;
    }
    return rv;
 
 
-      st_err_log(142, __FILE__, __LINE__, __FUNCTION__); 
+      ock_log_err(OCK_E_FUNCTION_NOT_SUPP);
    return CKR_FUNCTION_NOT_SUPPORTED;
 }
 
@@ -4448,13 +4448,13 @@ C_SignRecoverInit ( CK_SESSION_HANDLE hSession,
       rv = fcn->ST_SignRecoverInit(rSession,pMechanism,hKey);
       LOGIT(LOG_DEBUG,"Called STDLL rv = 0x%x",rv);
    } else {
-      st_err_log(142, __FILE__, __LINE__, __FUNCTION__); 
+      ock_log_err(OCK_E_FUNCTION_NOT_SUPP);
       rv = CKR_FUNCTION_NOT_SUPPORTED;
    }
    return rv;
 
 
-      st_err_log(142, __FILE__, __LINE__, __FUNCTION__); 
+      ock_log_err(OCK_E_FUNCTION_NOT_SUPP);
    return CKR_FUNCTION_NOT_SUPPORTED;
 }
 
@@ -4514,13 +4514,13 @@ C_SignUpdate ( CK_SESSION_HANDLE hSession,
       rv = fcn->ST_SignUpdate(rSession,pPart,ulPartLen);
       LOGIT(LOG_DEBUG,"Called STDLL rv = 0x%x",rv);
    } else {
-      st_err_log(142, __FILE__, __LINE__, __FUNCTION__); 
+      ock_log_err(OCK_E_FUNCTION_NOT_SUPP);
       rv = CKR_FUNCTION_NOT_SUPPORTED;
    }
    return rv;
 
 
-      st_err_log(142, __FILE__, __LINE__, __FUNCTION__); 
+      ock_log_err(OCK_E_FUNCTION_NOT_SUPP);
    return CKR_FUNCTION_NOT_SUPPORTED;
 } // end of C_SignUpdate
 
@@ -4590,13 +4590,13 @@ C_UnwrapKey ( CK_SESSION_HANDLE    hSession,
                pTemplate,ulAttributeCount,phKey);
       LOGIT(LOG_DEBUG,"Called STDLL rv = 0x%x",rv);
    } else {
-      st_err_log(142, __FILE__, __LINE__, __FUNCTION__); 
+      ock_log_err(OCK_E_FUNCTION_NOT_SUPP);
       rv = CKR_FUNCTION_NOT_SUPPORTED;
    }
    return rv;
 
 
-      st_err_log(142, __FILE__, __LINE__, __FUNCTION__); 
+      ock_log_err(OCK_E_FUNCTION_NOT_SUPP);
    return CKR_FUNCTION_NOT_SUPPORTED;
 }
 
@@ -4655,7 +4655,7 @@ C_Verify ( CK_SESSION_HANDLE hSession,
       rv = fcn->ST_Verify(rSession,pData,ulDataLen,pSignature,ulSignatureLen);
       LOGIT(LOG_DEBUG,"Called STDLL rv = 0x%x",rv);
    } else {
-      st_err_log(142, __FILE__, __LINE__, __FUNCTION__); 
+      ock_log_err(OCK_E_FUNCTION_NOT_SUPP);
       rv = CKR_FUNCTION_NOT_SUPPORTED;
    }
    return rv;
@@ -4714,13 +4714,13 @@ C_VerifyFinal ( CK_SESSION_HANDLE hSession,
       rv = fcn->ST_VerifyFinal(rSession,pSignature,ulSignatureLen);
       LOGIT(LOG_DEBUG,"Called STDLL rv = 0x%x",rv);
    } else {
-      st_err_log(142, __FILE__, __LINE__, __FUNCTION__); 
+      ock_log_err(OCK_E_FUNCTION_NOT_SUPP);
       rv = CKR_FUNCTION_NOT_SUPPORTED;
    }
    return rv;
 
 
-      st_err_log(142, __FILE__, __LINE__, __FUNCTION__); 
+      ock_log_err(OCK_E_FUNCTION_NOT_SUPP);
    return CKR_FUNCTION_NOT_SUPPORTED;
 }
 
@@ -4775,7 +4775,7 @@ C_VerifyInit ( CK_SESSION_HANDLE hSession,
       rv = fcn->ST_VerifyInit(rSession,pMechanism,hKey);
       LOGIT(LOG_DEBUG,"Called STDLL rv = 0x%x",rv);
    } else {
-      st_err_log(142, __FILE__, __LINE__, __FUNCTION__); 
+      ock_log_err(OCK_E_FUNCTION_NOT_SUPP);
       rv = CKR_FUNCTION_NOT_SUPPORTED;
    }
    return rv;
@@ -4836,7 +4836,7 @@ C_VerifyRecover ( CK_SESSION_HANDLE hSession,
       rv = fcn->ST_VerifyRecover(rSession,pSignature,ulSignatureLen,pData,pulDataLen);
       LOGIT(LOG_DEBUG,"Called STDLL rv = 0x%x",rv);
    } else {
-      st_err_log(142, __FILE__, __LINE__, __FUNCTION__); 
+      ock_log_err(OCK_E_FUNCTION_NOT_SUPP);
       rv = CKR_FUNCTION_NOT_SUPPORTED;
    }
    return rv;
@@ -4894,7 +4894,7 @@ C_VerifyRecoverInit ( CK_SESSION_HANDLE hSession,
       rv = fcn->ST_VerifyRecoverInit(rSession,pMechanism,hKey);
       LOGIT(LOG_DEBUG,"Called STDLL rv = 0x%x",rv);
    } else {
-      st_err_log(142, __FILE__, __LINE__, __FUNCTION__); 
+      ock_log_err(OCK_E_FUNCTION_NOT_SUPP);
       rv = CKR_FUNCTION_NOT_SUPPORTED;
    }
    return rv;
@@ -4953,7 +4953,7 @@ C_VerifyUpdate ( CK_SESSION_HANDLE hSession,
       rv = fcn->ST_VerifyUpdate(rSession,pPart,ulPartLen);
       LOGIT(LOG_DEBUG,"Called STDLL rv = 0x%x",rv);
    } else {
-      st_err_log(142, __FILE__, __LINE__, __FUNCTION__); 
+      ock_log_err(OCK_E_FUNCTION_NOT_SUPP);
       rv = CKR_FUNCTION_NOT_SUPPORTED;
    }
    return rv;
@@ -5012,7 +5012,7 @@ C_WaitForSlotEvent ( CK_FLAGS       flags,
    // has not been fully implemented at this time, although the
    // design and structure of the shared memory in slotd do.
 
-      st_err_log(142, __FILE__, __LINE__, __FUNCTION__); 
+      ock_log_err(OCK_E_FUNCTION_NOT_SUPP);
    return CKR_FUNCTION_NOT_SUPPORTED;
 #else
    //  Get the pointer to the process element..
@@ -5160,7 +5160,7 @@ C_WrapKey ( CK_SESSION_HANDLE hSession,
       rv = fcn->ST_WrapKey(rSession,pMechanism,hWrappingKey,hKey,pWrappedKey,pulWrappedKeyLen);
       LOGIT(LOG_DEBUG,"Called STDLL rv = 0x%x",rv);
    } else {
-      st_err_log(142, __FILE__, __LINE__, __FUNCTION__); 
+      ock_log_err(OCK_E_FUNCTION_NOT_SUPP);
       rv = CKR_FUNCTION_NOT_SUPPORTED;
    }
    return rv;

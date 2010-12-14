@@ -1934,7 +1934,7 @@ token_specific_set_pin(ST_SESSION_HANDLE session,
 		}
 		RSA_free(rsa_root);
 	} else {
-		st_err_log(142, __FILE__, __LINE__);
+		ock_log_err(OCK_E_FUNCTION_NOT_SUPP);
 		rc = CKR_SESSION_READ_ONLY;
 	}
 

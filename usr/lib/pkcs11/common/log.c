@@ -904,7 +904,7 @@ const char* err_msg[] = {
         //140
         [OCK_E_VALIDATE_ATTR]                   ="Validate Attribute Failed",
         [OCK_E_SSL3_PROCESS_WRITE_KEYS2]         ="SSL3 Process Write Keys Failed",
-        [OCK_E_FUNCTION_NOT_SUPP]               ="%s Function Not Supported",
+        [OCK_E_FUNCTION_NOT_SUPP]               ="Function Not Supported",
         [OCK_E_TOKEN_ALREADY_INIT]              ="Token Already Initialized",
         [OCK_E_CANNOT_ATTACH_SHMEM]             ="Cannot Attach to Shared Memory",
         //145
