@@ -1884,7 +1884,7 @@ ckm_rsa_decrypt( CK_BYTE   * in_data,
    }
    rc = token_specific.t_rsa_decrypt(in_data,in_data_len,out_data,key_obj);
    if (rc != CKR_OK)
-      st_err_log(135, __FILE__, __LINE__);
+      ock_log_err(OCK_E_TOKEN_SPECIFIC_RSA_DECRYPT);
 
    return rc;
 }
