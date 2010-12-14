@@ -1291,7 +1291,7 @@ key_mgr_get_private_key_type( CK_BYTE     *keydata,
 
    rc = ber_decode_PrivateKeyInfo( keydata, keylen, &alg, &alg_len, &priv_key );
    if (rc != CKR_OK){
-      st_err_log(102, __FILE__, __LINE__);
+      ock_log_err(OCK_E_KEY_MGR_GET_PRIVKEY_TYPE);
       return rc;
    }
    // check the entire AlgorithmIdentifier for RSA
