@@ -827,12 +827,12 @@ session_mgr_get_op_state( SESSION   *sess,
    // ensure that at least one operation is active
    //
    if (sess->find_active == TRUE){
-      st_err_log(71, __FILE__, __LINE__); 
+      ock_log_err(OCK_E_STATE_UNSAVEABLE);
       return CKR_STATE_UNSAVEABLE;
    }
    if (sess->encr_ctx.active == TRUE) {
       if (op_data != NULL){
-         st_err_log(71, __FILE__, __LINE__); 
+         ock_log_err(OCK_E_STATE_UNSAVEABLE);
          return CKR_STATE_UNSAVEABLE;
       }
       op_data_len = sizeof(OP_STATE_DATA)      +
@@ -873,7 +873,7 @@ session_mgr_get_op_state( SESSION   *sess,
 
    if (sess->decr_ctx.active == TRUE) {
       if (op_data != NULL){
-         st_err_log(71, __FILE__, __LINE__); 
+         ock_log_err(OCK_E_STATE_UNSAVEABLE);
          return CKR_STATE_UNSAVEABLE;
       }
       op_data_len = sizeof(OP_STATE_DATA)      +
@@ -914,7 +914,7 @@ session_mgr_get_op_state( SESSION   *sess,
 
    if (sess->digest_ctx.active == TRUE) {
       if (op_data != NULL){
-         st_err_log(71, __FILE__, __LINE__); 
+         ock_log_err(OCK_E_STATE_UNSAVEABLE);
          return CKR_STATE_UNSAVEABLE;
       }
       op_data_len = sizeof(OP_STATE_DATA)        +
@@ -955,7 +955,7 @@ session_mgr_get_op_state( SESSION   *sess,
 
    if (sess->sign_ctx.active == TRUE) {
       if (op_data != NULL){
-         st_err_log(71, __FILE__, __LINE__); 
+         ock_log_err(OCK_E_STATE_UNSAVEABLE);
          return CKR_STATE_UNSAVEABLE;
       }
       op_data_len = sizeof(OP_STATE_DATA)       +
@@ -996,7 +996,7 @@ session_mgr_get_op_state( SESSION   *sess,
 
    if (sess->verify_ctx.active == TRUE) {
       if (op_data != NULL){
-         st_err_log(71, __FILE__, __LINE__); 
+         ock_log_err(OCK_E_STATE_UNSAVEABLE);
          return CKR_STATE_UNSAVEABLE;
       }
       op_data_len = sizeof(OP_STATE_DATA)        +
