@@ -2338,7 +2338,7 @@ CK_RV SC_EncryptInit( ST_SESSION_HANDLE  sSession,
 
 	rc = encr_mgr_init( sess, &sess->encr_ctx, OP_ENCRYPT_INIT, pMechanism, hKey );
 	if (rc != CKR_OK) {
-		st_err_log(98, __FILE__, __LINE__);
+		ock_log_err(OCK_E_ENCRYPT_MGR_INIT);
 	}
  done:
 	LLOCK;

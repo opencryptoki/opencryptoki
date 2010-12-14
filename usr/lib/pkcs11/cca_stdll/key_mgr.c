@@ -1011,7 +1011,7 @@ key_mgr_wrap_key( SESSION           * sess,
    //
    rc = encr_mgr_init( sess, ctx, OP_WRAP, mech, h_wrapping_key );
    if (rc != CKR_OK){
-      st_err_log(98, __FILE__, __LINE__);
+      ock_log_err(OCK_E_ENCRYPT_MGR_INIT);
       return rc;
    }
    // do the encryption and clean up.  at this point, 'value' may or may not
