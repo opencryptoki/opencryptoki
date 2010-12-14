@@ -3324,7 +3324,7 @@ CK_RV SC_VerifyUpdate( ST_SESSION_HANDLE  sSession,
 
 	rc = verify_mgr_verify_update( sess, &sess->verify_ctx, pPart, ulPartLen );
 	if (rc != CKR_OK){ 
-		st_err_log(169, __FILE__, __LINE__);
+		ock_log_err(OCK_E_VERIFY_UPDATE);
 	}
 
  done:
