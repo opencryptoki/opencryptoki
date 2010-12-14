@@ -566,7 +566,7 @@ publ_key_set_default_attributes( TEMPLATE *tmpl, CK_ULONG mode )
 
    rc = key_object_set_default_attributes( tmpl, mode );
    if (rc != CKR_OK){
-      st_err_log(172, __FILE__, __LINE__);
+      ock_log_err(OCK_E_SET_DEFAULT_ATTR);
       return rc;
    }
    // add the default CKO_PUBLIC_KEY attributes
@@ -696,7 +696,7 @@ priv_key_set_default_attributes( TEMPLATE *tmpl, CK_ULONG mode )
 
    rc = key_object_set_default_attributes( tmpl, mode );
    if (rc != CKR_OK){
-      st_err_log(172, __FILE__, __LINE__);
+      ock_log_err(OCK_E_SET_DEFAULT_ATTR);
       return rc;
    }
    // add the default CKO_PUBLIC_KEY attributes

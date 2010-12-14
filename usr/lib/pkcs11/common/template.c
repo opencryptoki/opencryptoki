@@ -385,7 +385,7 @@ template_add_default_attributes( TEMPLATE * tmpl,
    //
    rc = template_set_default_common_attributes( tmpl );
    if (rc != CKR_OK){
-      st_err_log(172, __FILE__, __LINE__); 
+      ock_log_err(OCK_E_SET_DEFAULT_ATTR);
       return rc;
    }
    // set the template class-specific default attributes
