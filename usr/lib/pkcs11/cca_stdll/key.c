@@ -1818,7 +1818,7 @@ rsa_priv_unwrap( TEMPLATE *tmpl,
 #endif
 
    if (rc != CKR_OK){
-      st_err_log(88, __FILE__, __LINE__);
+      ock_log_err(OCK_E_DECODE_PRIVKEY2);
       return rc;
    }
    p11_attribute_trim( modulus );
@@ -2288,7 +2288,7 @@ dsa_priv_unwrap( TEMPLATE *tmpl,
                                   &prime, &subprime, &base, &value );
 
    if (rc != CKR_OK){
-      st_err_log(88, __FILE__, __LINE__);
+      ock_log_err(OCK_E_DECODE_PRIVKEY2);
       return rc;
    }
    p11_attribute_trim( prime );
