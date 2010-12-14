@@ -937,7 +937,7 @@ token_specific_rsa_generate_keypair( TEMPLATE  * publ_tmpl,
   
   rc = os_specific_rsa_keygen(publ_tmpl,priv_tmpl);
   if (rc != CKR_OK)
-    st_err_log(91, __FILE__, __LINE__);
+    ock_log_err(OCK_E_KEY_GENERATION);
   return rc;
 }
 

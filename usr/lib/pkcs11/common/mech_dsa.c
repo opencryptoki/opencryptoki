@@ -450,7 +450,7 @@ ckm_dsa_key_pair_gen( TEMPLATE  * publ_tmpl,
 
    rc = token_specific_dsa_generate_keypair(publ_tmpl,priv_tmpl);
    if (rc != CKR_OK)
-      st_err_log(91, __FILE__, __LINE__);
+      ock_log_err(OCK_E_KEY_GENERATION);
    return rc;
 }
 

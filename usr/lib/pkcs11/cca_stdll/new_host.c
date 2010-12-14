@@ -3632,7 +3632,7 @@ CK_RV SC_GenerateKey( ST_SESSION_HANDLE     sSession,
    
 	rc = key_mgr_generate_key( sess, pMechanism, pTemplate, ulCount, phKey );
 	if (rc != CKR_OK){ 
-		st_err_log(91, __FILE__, __LINE__);
+		ock_log_err(OCK_E_KEY_GENERATION);
 	}
 
  done:
@@ -3712,7 +3712,7 @@ CK_RV SC_GenerateKeyPair( ST_SESSION_HANDLE     sSession,
 					pPrivateKeyTemplate, ulPrivateKeyAttributeCount,
 					phPublicKey,         phPrivateKey );
 	if (rc != CKR_OK){ 
-		st_err_log(91, __FILE__, __LINE__);
+		ock_log_err(OCK_E_KEY_GENERATION);
 	}
 
  done:

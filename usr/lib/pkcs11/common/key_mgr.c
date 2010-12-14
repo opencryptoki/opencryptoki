@@ -464,7 +464,7 @@ key_mgr_generate_key( SESSION           * sess,
    }
 
    if (rc != CKR_OK){
-      st_err_log(91, __FILE__, __LINE__);
+      ock_log_err(OCK_E_KEY_GENERATION);
       goto error;
    }
 
@@ -694,7 +694,7 @@ key_mgr_generate_key_pair( SESSION           * sess,
    }
 
    if (rc != CKR_OK){
-      st_err_log(91, __FILE__, __LINE__);
+      ock_log_err(OCK_E_KEY_GENERATION);
       goto error;
    }
 
