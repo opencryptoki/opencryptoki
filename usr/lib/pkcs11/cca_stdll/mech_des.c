@@ -382,7 +382,7 @@ des_cbc_pad_decrypt( SESSION            *sess,
       memcpy( out_data, clear, *out_data_len );
    }
    else
-      st_err_log(114, __FILE__, __LINE__);
+      ock_log_err(OCK_E_DES_CBC_DECRYPT);
 
    free( clear );
    return rc;
@@ -755,7 +755,7 @@ des_cbc_decrypt_update( SESSION           *sess,
       }
 
       else
-         st_err_log(114, __FILE__, __LINE__);
+         ock_log_err(OCK_E_DES_CBC_DECRYPT);
       free( cipher );
       return rc;
    }
@@ -971,7 +971,7 @@ des_cbc_pad_decrypt_update( SESSION           *sess,
          context->len = remain;
       }
       else
-         st_err_log(114, __FILE__, __LINE__);
+         ock_log_err(OCK_E_DES_CBC_DECRYPT);
       free( cipher );
       return rc;
    }
@@ -1254,7 +1254,7 @@ des_cbc_pad_decrypt_final( SESSION           *sess,
          *out_data_len = out_len;
       }
       else
-         st_err_log(114, __FILE__, __LINE__);
+         ock_log_err(OCK_E_DES_CBC_DECRYPT);
 
       return rc;
    }
