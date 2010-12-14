@@ -1067,7 +1067,7 @@ session_mgr_set_op_state( SESSION           * sess,
    // make sure the session states are compatible
    //
    if (sess->session_info.state != op_data->session_state){
-      st_err_log(69, __FILE__, __LINE__); 
+      ock_log_err(OCK_E_SAVED_STATE_INV);
       return CKR_SAVED_STATE_INVALID;
    }
    // validate the new state information.  don't touch the session
@@ -1081,7 +1081,7 @@ session_mgr_set_op_state( SESSION           * sess,
 
             len = sizeof(ENCR_DECR_CONTEXT) + ctx->context_len + ctx->mech.ulParameterLen;
             if (len != op_data->data_len){
-               st_err_log(69, __FILE__, __LINE__); 
+               ock_log_err(OCK_E_SAVED_STATE_INV);
                return CKR_SAVED_STATE_INVALID;
             }
             if (auth_key != 0){
@@ -1125,7 +1125,7 @@ session_mgr_set_op_state( SESSION           * sess,
 
             len = sizeof(SIGN_VERIFY_CONTEXT) + ctx->context_len + ctx->mech.ulParameterLen;
             if (len != op_data->data_len){
-               st_err_log(69, __FILE__, __LINE__); 
+               ock_log_err(OCK_E_SAVED_STATE_INV);
                return CKR_SAVED_STATE_INVALID;
             }
             if (auth_key == 0){
@@ -1168,7 +1168,7 @@ session_mgr_set_op_state( SESSION           * sess,
 
             len = sizeof(DIGEST_CONTEXT) + ctx->context_len + ctx->mech.ulParameterLen;
             if (len != op_data->data_len){
-               st_err_log(69, __FILE__, __LINE__); 
+               ock_log_err(OCK_E_SAVED_STATE_INV);
                return CKR_SAVED_STATE_INVALID;
             }
             if (auth_key != 0){
@@ -1206,7 +1206,7 @@ session_mgr_set_op_state( SESSION           * sess,
          break;
 
       default:
-         st_err_log(69, __FILE__, __LINE__); 
+         ock_log_err(OCK_E_SAVED_STATE_INV);
          return CKR_SAVED_STATE_INVALID;
    }
 
