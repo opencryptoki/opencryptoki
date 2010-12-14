@@ -1257,7 +1257,7 @@ CKO_PRIVATE_KEY)){
    }
 
    if (rc != CKR_OK){
-      st_err_log(173, __FILE__, __LINE__);
+      ock_log_err(OCK_E_UNWRAP_KEY);
       goto error;
    }
    // at this point, the key should be fully constructed...assign
