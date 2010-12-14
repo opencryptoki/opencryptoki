@@ -507,7 +507,7 @@ object_copy( CK_ATTRIBUTE  * pTemplate,
    //
    rc = template_copy( tmpl, old_obj->template );
    if (rc != CKR_OK){
-      st_err_log(163, __FILE__, __LINE__); 
+      ock_log_err(OCK_E_COPY_TMPL);
       goto error;
    }
    rc = template_add_attributes( new_tmpl, pTemplate, ulCount );
