@@ -411,7 +411,7 @@ dsa_verify( SESSION             * sess,
    // check input data length restrictions
    //
    if (sig_len != DSA_SIGNATURE_SIZE){
-      st_err_log(46, __FILE__, __LINE__);
+      ock_log_err(OCK_E_SIG_LEN);
       return CKR_SIGNATURE_LEN_RANGE;
    }
    if (in_data_len != 20){

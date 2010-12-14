@@ -831,7 +831,7 @@ rsa_pkcs_verify( SESSION             * sess,
    // check input data length restrictions
    //
    if (sig_len != modulus_bytes){
-      st_err_log(46, __FILE__, __LINE__);
+      ock_log_err(OCK_E_SIG_LEN);
       return CKR_SIGNATURE_LEN_RANGE;
    }
    // verifying is a public key operation --> encrypt
@@ -906,7 +906,7 @@ rsa_pkcs_verify_recover( SESSION             * sess,
    // check input data length restrictions
    //
    if (sig_len != modulus_bytes){
-      st_err_log(46, __FILE__, __LINE__);
+      ock_log_err(OCK_E_SIG_LEN);
       return CKR_SIGNATURE_LEN_RANGE;
    }
    if (length_only == TRUE) {
@@ -1174,7 +1174,7 @@ rsa_x509_verify( SESSION             * sess,
    // check input data length restrictions
    //
    if (sig_len != modulus_bytes){
-      st_err_log(46, __FILE__, __LINE__);
+      ock_log_err(OCK_E_SIG_LEN);
       return CKR_SIGNATURE_LEN_RANGE;
    }
    // verify is a public key operation --> encrypt
@@ -1257,7 +1257,7 @@ rsa_x509_verify_recover( SESSION             * sess,
    // check input data length restrictions
    //
    if (sig_len != modulus_bytes){
-      st_err_log(46, __FILE__, __LINE__);
+      ock_log_err(OCK_E_SIG_LEN);
       return CKR_SIGNATURE_LEN_RANGE;
    }
    if (length_only == TRUE) {

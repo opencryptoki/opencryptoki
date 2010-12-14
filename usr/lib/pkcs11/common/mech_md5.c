@@ -627,7 +627,7 @@ md5_hmac_verify( SESSION              * sess,
    }
 
    if ((len != hmac_len) || (len != sig_len)){
-      st_err_log(46, __FILE__, __LINE__);
+      ock_log_err(OCK_E_SIG_LEN);
       return CKR_SIGNATURE_LEN_RANGE;
    }
    if (memcmp(hmac, signature, hmac_len) != 0){

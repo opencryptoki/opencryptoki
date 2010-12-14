@@ -718,7 +718,7 @@ ssl3_mac_verify( SESSION              * sess,
    }
    if ((len != mac_len) || (len != sig_len)) {
       rc = CKR_SIGNATURE_LEN_RANGE;
-      st_err_log(46, __FILE__, __LINE__); 
+      ock_log_err(OCK_E_SIG_LEN);
       goto error;
    }
 

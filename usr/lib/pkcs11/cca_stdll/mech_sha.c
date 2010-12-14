@@ -690,7 +690,7 @@ sha1_hmac_verify( SESSION              * sess,
       goto done;
    }
    if ((len != hmac_len) || (len != sig_len)) {
-      st_err_log(46, __FILE__, __LINE__);
+      ock_log_err(OCK_E_SIG_LEN);
       rc = CKR_SIGNATURE_LEN_RANGE;
       goto done;
    }
@@ -742,7 +742,7 @@ sha2_hmac_verify( SESSION              * sess,
       goto done;
    }
    if ((len != hmac_len) || (len != sig_len)) {
-      st_err_log(46, __FILE__, __LINE__);
+      ock_log_err(OCK_E_SIG_LEN);
       rc = CKR_SIGNATURE_LEN_RANGE;
       goto done;
    }
