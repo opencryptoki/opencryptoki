@@ -1640,7 +1640,7 @@ CK_RV SC_Login( ST_SESSION_HANDLE   sSession,
 	//
 	if (userType == CKU_USER) {
 		if (session_mgr_so_session_exists()){
-			st_err_log(60, __FILE__, __LINE__);
+			ock_log_err(OCK_E_ANOTHER_USER_ALREADY_LOGGED_IN);
 			rc = CKR_USER_ANOTHER_ALREADY_LOGGED_IN;
 		}
 		if (session_mgr_user_session_exists()){
@@ -1650,7 +1650,7 @@ CK_RV SC_Login( ST_SESSION_HANDLE   sSession,
 	}
 	else if (userType == CKU_SO) {
 		if (session_mgr_user_session_exists()){
-			st_err_log(60, __FILE__, __LINE__);
+			ock_log_err(OCK_E_ANOTHER_USER_ALREADY_LOGGED_IN);
 			rc = CKR_USER_ANOTHER_ALREADY_LOGGED_IN;
 		}
 		if (session_mgr_so_session_exists()){
@@ -1664,7 +1664,7 @@ CK_RV SC_Login( ST_SESSION_HANDLE   sSession,
 	}
 	else {
 		rc = CKR_USER_TYPE_INVALID;
-		st_err_log(59, __FILE__, __LINE__);
+		ock_log_err(OCK_E_USER_TYPE_INV);
 	}
 	if (rc != CKR_OK)
 		goto done;
