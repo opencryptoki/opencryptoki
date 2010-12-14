@@ -438,241 +438,534 @@ stlogit(char *fmt, ...)
 
 }
 
-/* moved in from msg.h */
+#ifdef DEBUG
 
-struct messages err_msg[]={
-		{"Malloc Failed"},
-		{"Not Enough Memory in Context"},
-		{"Slot Invalid"},
-		{"General Error"},
-		{"%s Function Failed"},
-		//#5
-		{"%s Bad Arguments"},
-		{"No Event"},
-		{"Attribute Read Only"},
-		{"Attribute Type Invalid"},
-		{"Attribute Value Invalid"},
-		//#10
-		{"Data Invalid"},
-		{"Data Length out of Range"},
-		{"Device Error"},
-		{"Device Removed"},
-		{"Encrypted Data Invalid"},
-		//15
-		{"Encrypted Data Length out of Range"},
-		{"Function Cancelled"},
-		{"Function Not Parallel"},
-		{"Key Handle Invalid"},
-		{"Key Size out of Range"},
-		//20
-		{"Key Type Inconsistent"},
-		{"Key Not Needed"},
-		{"Key Changed"},
-		{"Key Needed"},
-		{"Key Indigestible"},
-		//25
-		{"Key Function Not Permitted"},
-		{"Key Not Wrappable"},
-		{"Key Unextractable"},
-		{"Mechanism Invalid"},
-		{"Mechanism Param Invalid"},
-		//30
-		{"Object Handle Invalid"},
-		{"Operation Active"},
-		{"Operation Not Initialized"},
-		{"Pin Incorrect"},
-		{"Pin Invalid"},
-		//35
-		{"Pin Length out of Range"},
-		{"Pin Expired"},
-		{"Pin Locked"},
-		{"Session Closed"},
-		{"Session Count"},
-		//40
-		{"Session Handle Invalid"},
-		{"Parallel Session Not Supported"},
-		{"Session Read Only"},
-		{"Session Exists"},
-		{"Session Read only Exists"},
-		//45
-		{"Session Read Write Exists"},
-		{"Signature Length out of Range"},
-		{"Signature Invalid"},
-		{"Template Incomplete"},
-		{"Template Inconsistent"},
-		//50
-		{"Token Not Present"},
-		{"Token Not Recognized"},
-		{"Token Write Protected"},
-		{"Unwrapping Key Handle Invalid"},
-		{"Unwrapping Key Size Range Invalid"},
-		//55
-		{"Unwrapping Key Type Inconsistent"},
-		{"User Already Logged In"},
-		{"User Not Logged In"},
-		{"User PIN Not Initialized"},
-		{"User Type Invalid"},
-		//60
-		{"Another User Already Logged In"},
-		{"Too Many User Types"},
-		{"Wrapped Key Invalid"},
-		{"Wrapped Key Length Out of Range"},
-		{"Wrapping Key Size out of Range"},
-		//65
-		{"Wrapping Key Type Inconsistent"},
-		{"Random Seed Not Supported"},
-		{"Random Number Invalid"},
-		{"Buffer Too Small"},
-		{"Saved State Invalid"},
-		//70
-		{"Information Sensitive"},
-		{"State Unsaveable"},
-		{"API not initialized"},
-		{"API already Initialized"},
-		{"Mutex Bad"},
-		//75
-		{"Mutex Lock Invalid"},
-		{"Encode Integer Failed"},
-		{"Encode Octet String Failed"},
-		{"Encode Sequence Failed"},
-		{"Decode Integer Failed"},
-		//80
-		{"Decode Octet String Failed"},
-		{"Decode Sequence Failed"},
-		{"Encode Private Key Failed"},
-		{"Decode Private Key Failed"},
-		{"Build Attribute Failed"},
-		//85
-		{"Function Not Permitted"},
-		{"Key Not Exportable"},
-		{"Encode Private Key failed"},
-		{"Decode Private Key failed"},
-		{"Object Mgr Create Skeleton failed"},
-		//90
-		{"Object Mgr Create Final failed"},
-		{"Key Generation failed"},
-		{"DES Wrap Get Data Failed"},
-		{"DES3 Wrap Get Data Failed"},
-		{"RSA Wrap Get Data Failed"},
-		//95
-		{"DSA Wrap Get Data Failed"},
-		{"Generic Secret Wrap Get Data Failed"},
-		{"DES Wrap Format Failed"},
-		{"Encryption Mgr Init Failed"},
-		{"Encryption Mgr Encrypt Failed"},
-		//100
-		{"Decryption Mgr Decrypt Failed"},
-		{"Flatten Object Failed"},
-		{"Key Mgr Get Priv Key Type Failed"},
-		{"Decrypt Private Key Info Failed"},
-		{"Save Token Failed"},
-		//105
-		{"Triple DES CBC Encrypt Failed"},
-		{"Triple DES CBC Decrypt Failed"},
-		{"Restore Private Token Failed"},
-		{"Restore Object Failed"},
-		{"Data Length Out of Range"},
-		//110
-		{"Object Manager Find in Map Failed"},
-		{"Token Specific RNG Failed"},
-		{"Encrypted Data Length Out of Range"},
-		{"DES CBC Encrypt Failed"},
-		{"DES CBC Decrypt Failed"},
-		//115
-		{"DES ECB Encrypt Failed"},
-		{"DES ECB Decrypt Failed"},
-		{"Token Specific DES ECB Failed"},
-		{"Token Specific DES CBC Failed"},
-		{"Token Specific 3DES CBC Failed"},
-		//120
-		{"Token Specific 3DES ECB Failed"},
-		{"DSA Verify Failed"},
-		{"DSA Sign Failed"},
-		{"Digest Init Failed"},
-		{"Digest Failed"},
-		//125
-		{"Digest Update Failed"},
-		{"Digest Final Failed"},
-		{"Sign Init Failed"},
-		{"Sign Update Failed"},
-		{"Sign Final Failed"},
-		//130
-		{"Random Number Generate Failed"},
-		{"RSA Format Block Failed"},
-		{"RSA Encrypt Failed"},
-		{"RSA Decrypt Failed"},
-		{"Token Specific RSA Encrypt Failed"},
-		//135
-		{"Token Specific RSA Decrypt Failed"},
-		{"SSL SHA Failed"},
-		{"SSL3 MD5 Failed"},
-		{"SSL3 Process MAC Keys Failed"},
-		{"SSL3 Process Write Keys Failed"},
-		//140
-		{"Validate Attribute Failed"},
-		{"SSL3 Process Write Keys Failed"},
-		{"%s Function Not Supported"},
-		{"Token Already Initialized"},
-		{"Cannot Attach to Shared Memory"},
-		//145
-		{"Token Specific Init Failed"},
-		{"Mutex Lock Failed"},
-		{"Mutex Unlock Failed"},
-		{"Hash Computation Failed"},
-		{"Save Master Key Failed"},
-		//150
-		{"Process Lock Failed"},
-		{"Process Unlock Failed"},
-		{"Session Mgr New Failed"},
-		{"Close all Sessions Failed"},
-		{"Session Mgr Get Op State Failed"},
-		//155
-		{"Load Master Key Failed"},
-		{"Object Create Failed"},
-		{"Object Mgr Add to Map Failed"},
-		{"Object Copy Failed"},
-		{"Object Get Attribute Values Failed"},
-		//160
-		{"Object Restore Data Failed"},
-		{"Object Set Attribute Values Failed"},
-		{"Object Mgr Search for Object Failed"},
-		{"Copy Template Failed"},
-		{"Add Attribute Failed"},
-		//165
-		{"Check Required Attributes Failed"},
-		{"Unflatten Template Failed"},
-		{"Verify Init Failed"},
-		{"Verify Failed"},
-		{"Verify Update Failed"},
-		//170
-		{"Verify Final Failed"},
-		{"Sign Failed"},
-		{"Set Default Attributes Failed"},
-		{"Unwrap Key Failed"},
-		{"Session Mgr New Failed"},
-		//175
-		{"Merge Attributes Failed"},
-		{"Encryption Mgr Encrypt Update Failed"},
-		{"Encryption Mgr Encrypt Final Failed"},
-		{"Update Attribute Failed"},
-		{"Decryption Mgr Init Failed"},
-		//180
-		{"Decryption Mgr Update Failed"},
-		{"Decryption Mgr Final Failed"},
-		{"Object Mgr Destroy Failed"},
-		{"Attribute Undefined"},
-		{"Object Mgr Get Size Failed"},
-		//185
-		{"Object Manager Find Init Failed"},
-		{"Sign Recover Failed"},
-		{"Verify Recover Failed"},
-		{"Wrap Key Failed"},
-		{"Unwrap Key Failed"},
-		//190
-		{"Derive Key Failed"},
-		{"AES Wrap Get Data Failed"},
-		{"AES Wrap Format Failed"},
-		{"Domain Parameter Invalid"},
-		{"File \"%s\" could not be opened, errno=%d"}
+#define ock_log_warn(code, ...)                                         \
+        do {                                                            \
+                ock_api_log(LOG_WARN, err_msg[code], ## __VA_ARGS__);   \
+        } while (0)
+
+
+#define _ock_log_stderr(level, fmt, ...)                                \
+        do {                                                            \
+                fprintf(stderr, "%s:%d %s() - " fmt,                    \
+                        __FILE__, __LINE__, __func__, ## __VA_ARGS__);  \
+        } while (0)
+#else
+
+#define ock_log_warn(code, ...)                                         \
+        do {                                                            \
+        } while (0)
+
+#define _ock_log_stderr(level, fmt, ...)                                \
+        do {
+        } while (0)
+#endif
+
+#define ock_log_err(code, ...)                                        \
+        do {                                                            \
+                ock_api_log(LOG_ERR, err_msg[code], ## __VA_ARGS__);    \
+        } while (0)
+
+
+#define ock_api_log(level, fmt, ...)                                    \
+        do {                                                            \
+                syslog(level | LOG_USER,                                \
+                       "opencryptoki(library): %s:%d %s() - " fmt,      \
+                       __FILE__, __LINE__, __func__, ## __VA_ARGS__);   \
+                _ock_log_stderr(level, fmt, ## __VA_ARGS__);            \
+        } while (0)
+
+#define ock_daemon_log(level, fmt, ...)                                 \
+        do {                                                            \
+                syslog(level | LOG_DAEMON,                              \
+                       "opencryptoki(daemon): %s:%d %s() - " fmt,       \
+                       __FILE__, __LINE__, __func__, ## __VA_ARGS__);   \
+                _ock_log_stderr(level, fmt, ## __VA_ARGS__);            \
+        } while (0)
+
+#define ock_api_log(level, fmt, ...)                                    \
+        do {                                                            \
+                syslog(level | LOG_USER,                                \
+                       "opencryptoki(library): %s:%d %s() - " fmt,      \
+                       __FILE__, __LINE__, __func__, ## __VA_ARGS__);   \
+                _ock_log_stderr(level, fmt, ## __VA_ARGS__);            \
+        } while (0)
+
+
+
+
+
+enum {
+        OCK_E_MEM_ALLOC = 0,
+        OCK_E_CTX_MEM_INSUF,
+        OCK_E_SLOT_INV,
+        OCK_E_GENERAL_ERR,
+        OCK_E_FUNC,
+        //#5
+        OCK_E_BAD_ARG,
+        OCK_E_NO_EVENT,
+        OCK_E_ATTR_READONLY,
+        OCK_E_ATTR_TYPE_INV,
+        OCK_E_ATTR_VALUE_INV,
+        //#10
+        OCK_E_DATA_INV,
+        OCK_E_DATA_LEN,
+        OCK_E_DEV_ERR,
+        OCK_E_DEV_REMOVED,
+        OCK_E_ENCRYPTED_DATA_INV,
+        //15
+        OCK_E_ENCRYPTED_DATA_LEN,
+        OCK_E_FUNC_CANCELED,
+        OCK_E_FUNC_NOT_PARALLEL,
+        OCK_E_KEY_HANDLE_INV,
+        OCK_E_KEY_SIZE,
+        //20
+        OCK_E_KEY_INCONS,
+        OCK_E_KEY_NOT_NEEDED,
+        OCK_E_KEY_CHANGED,
+        OCK_E_KEY_NEEDED,
+        OCK_E_KEY_INDIGESTIBLE,
+        //25
+        OCK_E_KEY_FUNC_NOT_PERMITTED,
+        OCK_E_KEY_NOT_WRAPPABLE,
+        OCK_E_KEY_UNEXTRACTABLE,
+        OCK_E_MECH_INV,
+        OCK_E_MECH_PARAM_INV,
+        //30
+        OCK_E_OBJ_HANDLE_INV,
+        OCK_E_OP_ACTIVE,
+        OCK_E_OP_NOT_INIT,
+        OCK_E_PIN_WRONG,
+        OCK_E_PIN_INV,
+        //35
+        OCK_E_PIN_LEN,
+        OCK_E_PIN_EXP,
+        OCK_E_PIN_LOCK,
+        OCK_E_SESS_CLOSED,
+        OCK_E_SESS_COUNT,
+        //40
+        OCK_E_SESS_HANDLE_INV,
+        OCK_E_PARALLEL_SESS,
+        OCK_E_SESS_READONLY,
+        OCK_E_SESS_EXISTS,
+        OCK_E_SESS_READONLY_EXISTS,
+        //45
+        OCK_E_SESS_READWRITE_EXISTS,
+        OCK_E_SIG_LEN,
+        OCK_E_SIG_INV,
+        OCK_E_TMPL_INCOMPLETE,
+        OCK_E_TMPL_INCONS,
+        //50
+        OCK_E_TOK_NOT_PRESENT,
+        OCK_E_TOK_NOT_RECOGNIZED,
+        OCK_E_TOK_WRITE_PROTECTED,
+        OCK_E_UNWRAP_KEY_HANDLE_INV,
+        OCK_E_UNWRAP_KEY_SIZE,
+        //55
+        OCK_E_UNWRAP_KEY_INCONS,
+        OCK_E_USER_ALREADY_LOGGED_IN,
+        OCK_E_USER_NOT_LOGGED_IN,
+        OCK_E_USER_PIN_NOT_INIT,
+        OCK_E_USER_TYPE_INV,
+        //60
+        OCK_E_ANOTHER_USER_ALREADY_LOGGED_IN,
+        OCK_E_TOO_MANY_USER_TYPES,
+        OCK_E_WRAPPED_KEY_INV,
+        OCK_E_WRAPPED_KEY_LEN,
+        OCK_E_WRAPPING_KEY_SIZE,
+        //65
+        OCK_E_WRAPPING_KEY_INCONS,
+        OCK_E_RAND_SEED_NOT_SUPP,
+        OCK_E_RAND_NUMBER_INV,
+        OCK_E_BUFFER_TOO_SMALL,
+        OCK_E_SAVED_STATE_INV,
+        //70
+        OCK_E_INFORMATION_SENSITIVE,
+        OCK_E_STATE_UNSAVEABLE,
+        OCK_E_API_NOT_INIT,
+        OCK_E_API_ALREADY_INIT,
+        OCK_E_MUTEX_BAD,
+        //75
+        OCK_E_MUTEX_LOCK_INV,
+        OCK_E_ENCODR_INT,
+        OCK_E_ENCODE_OSTRING,
+        OCK_E_ENCODE_SEQ,
+        OCK_E_DECODE_INT,
+        //80
+        OCK_E_DECODE_OSTRING,
+        OCK_E_DECODE_SEQ,
+        OCK_E_ENCODE_PRIVKEY,
+        OCK_E_DECODE_PRIVKEY,
+        OCK_E_BUILD_ATTR,
+        //85
+        OCK_E_FUNCTION_NOT_PERMITTED,
+        OCK_E_KEY_NOT_EXPORTABLE,
+        OCK_E_ENCODE_PRIVKEY2,
+        OCK_E_DECODE_PRIVKEY2,
+        OCK_E_OBJ_MGR_CREATE_SKELETON,
+        //90
+        OCK_E_OBJ_MGR_CREATE_FINAL,
+        OCK_E_KEY_GENERATION,
+        OCK_E_DES_WRAP_GET_DATA,
+        OCK_E_TDES_WRAP_GET_DATA,
+        OCK_E_RSA_WRAP_GET_DATA,
+        //95
+        OCK_E_DSA_WRAP_GET_DATA,
+        OCK_E_GENERIC_SECRET_WRAP_GET_DATA,
+        OCK_E_DES_WRAP_FORMAT,
+        OCK_E_ENCRYPT_MGR_INIT,
+        OCK_E_ENCRYPT_MGR_ENCRYPT,
+        //100
+        OCK_E_DECRYPT_MGR_DECRYPT,
+        OCK_E_FLATTEN_OBJ,
+        OCK_E_KEY_MGR_GET_PRIVKEY_TYPE,
+        OCK_E_DECRYPT_PRIVKEY_INFO,
+        OCK_E_SAVE_TOKEN,
+        //105
+        OCK_E_TDES_CBC_ENCRYPT,
+        OCK_E_TDES_CBC_DECRYPT,
+        OCK_E_RESTORE_PRIV_TOKEN,
+        OCK_E_RESTORE_OBJ,
+        OCK_E_DATA_LEN2,
+        //110
+        OCK_E_OBJ_MGR_FIND_IN_MAP,
+        OCK_E_TOKEN_SPECIFIC_RNG,
+        OCK_E_ENCRYPT_DATA_LEN2,
+        OCK_E_DES_CBC_ENCRYPT,
+        OCK_E_DES_CBC_DECRYPT,
+        //115
+        OCK_E_DES_ECB_ENCRYPT,
+        OCK_E_DES_ECB_DECRYPT,
+        OCK_E_TOKEN_SPECIFIC_DEC_ECB,
+        OCK_E_TOKEN_SPECIFIC_DES_CBC,
+        OCK_E_TOKEN_SPECIFIC_TDES_CBC,
+        //120
+        OCK_E_TOKEN_SPECIFIC_TDES_ECB,
+        OCK_E_DSA_VERIFY,
+        OCK_E_DSA_SIGN,
+        OCK_E_DIGEST_INIT,
+        OCK_E_DIGEST,
+        //125
+        OCK_E_DIGEST_UPDATE,
+        OCK_E_DIGEST_FINAL,
+        OCK_E_SIGN_INIT,
+        OCK_E_SIGN_UPDATE,
+        OCK_E_SIGN_FINAL,
+        //130
+        OCK_E_RNG,
+        OCK_E_RSA_FORMAT_BLOCK,
+        OCK_E_RSA_ENCRYPT,
+        OCK_E_RSA_DECRYPT,
+        OCK_E_TOKEN_SPECIFIC_RSA_ENCRYPT,
+        //135
+        OCK_E_TOKEN_SPECIFIC_RSA_DECRYPT,
+        OCK_E_SSL_SHA,
+        OCK_E_SSL3_MD5,
+        OCK_E_SSL3_PROCESS_MAC_KEYS,
+        OCK_E_SSL3_PROCESS_WRITE_KEYS,
+        //140
+        OCK_E_VALIDATE_ATTR,
+        OCK_E_SSL3_PROCESS_WRITE_KEYS2,
+        OCK_E_FUNCTION_NOT_SUPP,
+        OCK_E_TOKEN_ALREADY_INIT,
+        OCK_E_CANNOT_ATTACH_SHMEM,
+        //145
+        OCK_E_TOKEN_SPECIFIC_INIT,
+        OCK_E_MUTEX_LOCK,
+        OCK_E_MUTEX_UNLOCK,
+        OCK_E_HASH,
+        OCK_E_SAVE_MASTERKEY,
+        //150
+        OCK_E_PROCESS_LOCK,
+        OCK_E_PROCESS_UNLOCK,
+        OCK_E_SESS_MGR_NEW,
+        OCK_E_CLOSE_ALL_SESS,
+        OCK_E_SESS_MGR_GET_OK_STATE,
+        //155
+        OCK_E_LOAD_MASTERKEY,
+        OCK_E_OBJ_CREATE,
+        OCK_E_OBJ_MGR_ADD_TO_MAP,
+        OCK_E_OBJ_COPY,
+        OCK_E_OBJ_GET_ATTR_VALUE,
+        //160
+        OCK_E_OBJ_RESTORE_DATA,
+        OCK_E_OBJ_SET_ATTR,
+        OCK_E_OBJ_MGR_SEARCH_OBJ,
+        OCK_E_COPY_TMPL,
+        OCK_E_ADD_ATTR,
+        //165
+        OCK_E_CHECK_REQUIRED_ATTR,
+        OCK_E_UNFLATTEN_TMPL,
+        OCK_E_VERIFY_INIT,
+        OCK_E_VERIFY,
+        OCK_E_VERIFY_UPDATE,
+        //170
+        OCK_E_VERIFY_FINAL,
+        OCK_E_SIGN,
+        OCK_E_SET_DEFAULT_ATTR,
+        OCK_E_UNWRAP_KEY,
+        OCK_E_SESS_MGR,
+        //175
+        OCK_E_MERGE_ATTR,
+        OCK_E_ENCRYPT_MGR_ENCRYPT_UPDATE,
+        OCK_E_ENCRYPT_MGR_ENCRYPT_FINAL,
+        OCK_E_UPDATE_ATTR,
+        OCK_E_DECRYPT_MGR_INIT,
+        //180
+        OCK_E_DECRYPT_MGR_UPDATE,
+        OCK_E_DECRYPT_MGR_FINAL,
+        OCK_E_OBJ_MGR_DESTROY,
+        OCK_E_ATTR_UNDEF,
+        OCK_E_OBJ_MGR_GET_SIZE,
+        //185
+        OCK_E_OBJ_MGR_FIND_INIT,
+        OCK_E_SIGN_RECOVER,
+        OCK_E_VERIFY_RECOVER,
+        OCK_E_WRAP_KEY,
+        OCK_E_UNWRAP_KEY2,
+        //190
+        OCK_E_DERIVE,
+        OCK_E_AES_WRAP_GET_DATA,
+        OCK_E_AES_WRAP_FORMAT,
+        OCK_E_DOMAIN_PARAM,
+        OCK_E_CANT_OPEN_FILE,
+};
+
+
+const char* err_msg[] = {
+        [OCK_E_MEM_ALLOC]                       = "Memory allocation Failed",
+        [OCK_E_CTX_MEM_INSUF]                   = "Memory in Context insuficient",
+        [OCK_E_SLOT_INV]                        = "Slot Invalid",
+        [OCK_E_GENERAL_ERR]                     = "General Error",
+        [OCK_E_FUNC]                            = "%s Function Failed",
+        //#5
+        [OCK_E_BAD_ARG]                         = "%s Bad Arguments",
+        [OCK_E_NO_EVENT]                        ="No Event",
+        [OCK_E_ATTR_READONLY]                   ="Attribute Read Only",
+        [OCK_E_ATTR_TYPE_INV]                   ="Attribute Type Invalid",
+        [OCK_E_ATTR_VALUE_INV]                  ="Attribute Value Invalid",
+        //#10
+        [OCK_E_DATA_INV]                        ="Data Invalid",
+        [OCK_E_DATA_LEN]                        ="Data Length out of Range",
+        [OCK_E_DEV_ERR]                         ="Device Error",
+        [OCK_E_DEV_REMOVED]                     ="Device Removed",
+        [OCK_E_ENCRYPTED_DATA_INV]              ="Encrypted Data Invalid",
+        //15
+        [OCK_E_ENCRYPTED_DATA_LEN]              ="Encrypted Data Length out of Range",
+        [OCK_E_FUNC_CANCELED]                   ="Function Cancelled",
+        [OCK_E_FUNC_NOT_PARALLEL]               ="Function Not Parallel",
+        [OCK_E_KEY_HANDLE_INV]                  ="Key Handle Invalid",
+        [OCK_E_KEY_SIZE]                        ="Key Size out of Range",
+        //20
+        [OCK_E_KEY_INCONS]                      ="Key Type Inconsistent",
+        [OCK_E_KEY_NOT_NEEDED]                  ="Key Not Needed",
+        [OCK_E_KEY_CHANGED]                     ="Key Changed",
+        [OCK_E_KEY_NEEDED]                      ="Key Needed",
+        [OCK_E_KEY_INDIGESTIBLE]                ="Key Indigestible",
+        //25
+        [OCK_E_KEY_FUNC_NOT_PERMITTED]          ="Key Function Not Permitted",
+        [OCK_E_KEY_NOT_WRAPPABLE]               ="Key Not Wrappable",
+        [OCK_E_KEY_UNEXTRACTABLE]               ="Key Unextractable",
+        [OCK_E_MECH_INV]                        ="Mechanism Invalid",
+        [OCK_E_MECH_PARAM_INV]                  ="Mechanism Param Invalid",
+        //30
+        [OCK_E_OBJ_HANDLE_INV]                  ="Object Handle Invalid",
+        [OCK_E_OP_ACTIVE]                       ="Operation Active",
+        [OCK_E_OP_NOT_INIT]                     ="Operation Not Initialized",
+        [OCK_E_PIN_WRONG]                       ="Pin Incorrect",
+        [OCK_E_PIN_INV]                         ="Pin Invalid",
+        //35
+        [OCK_E_PIN_LEN]                         ="Pin Length out of Range",
+        [OCK_E_PIN_EXP]                         ="Pin Expired",
+        [OCK_E_PIN_LOCK]                        ="Pin Locked",
+        [OCK_E_SESS_CLOSED]                     ="Session Closed",
+        [OCK_E_SESS_COUNT]                      ="Session Count",
+        //40
+        [OCK_E_SESS_HANDLE_INV]                 ="Session Handle Invalid",
+        [OCK_E_PARALLEL_SESS]                   ="Parallel Session Not Supported",
+        [OCK_E_SESS_READONLY]                   ="Session Read Only",
+        [OCK_E_SESS_EXISTS]                     ="Session Exists",
+        [OCK_E_SESS_READONLY_EXISTS]            ="Session Read only Exists",
+        //45
+        [OCK_E_SESS_READWRITE_EXISTS]           ="Session Read Write Exists",
+        [OCK_E_SIG_LEN]                         ="Signature Length out of Range",
+        [OCK_E_SIG_INV]                         ="Signature Invalid",
+        [OCK_E_TMPL_INCOMPLETE]                 ="Template Incomplete",
+        [OCK_E_TMPL_INCONS]                     ="Template Inconsistent",
+        //50
+        [OCK_E_TOK_NOT_PRESENT]                 ="Token Not Present",
+        [OCK_E_TOK_NOT_RECOGNIZED]              ="Token Not Recognized",
+        [OCK_E_TOK_WRITE_PROTECTED]             ="Token Write Protected",
+        [OCK_E_UNWRAP_KEY_HANDLE_INV]           ="Unwrapping Key Handle Invalid",
+        [OCK_E_UNWRAP_KEY_SIZE]                 ="Unwrapping Key Size Range Invalid",
+        //55
+        [OCK_E_UNWRAP_KEY_INCONS]               ="Unwrapping Key Type Inconsistent",
+        [OCK_E_USER_ALREADY_LOGGED_IN]          ="User Already Logged In",
+        [OCK_E_USER_NOT_LOGGED_IN]              ="User Not Logged In",
+        [OCK_E_USER_PIN_NOT_INIT]               ="User PIN Not Initialized",
+        [OCK_E_USER_TYPE_INV]                   ="User Type Invalid",
+        //60
+        [OCK_E_ANOTHER_USER_ALREADY_LOGGED_IN]  ="Another User Already Logged In",
+        [OCK_E_TOO_MANY_USER_TYPES]             ="Too Many User Types",
+        [OCK_E_WRAPPED_KEY_INV]                 ="Wrapped Key Invalid",
+        [OCK_E_WRAPPED_KEY_LEN]                 ="Wrapped Key Length Out of Range",
+        [OCK_E_WRAPPING_KEY_SIZE]               ="Wrapping Key Size out of Range",
+        //65
+        [OCK_E_WRAPPING_KEY_INCONS]             ="Wrapping Key Type Inconsistent",
+        [OCK_E_RAND_SEED_NOT_SUPP]              ="Random Seed Not Supported",
+        [OCK_E_RAND_NUMBER_INV]                 ="Random Number Invalid",
+        [OCK_E_BUFFER_TOO_SMALL]                ="Buffer Too Small",
+        [OCK_E_SAVED_STATE_INV]                 ="Saved State Invalid",
+        //70
+        [OCK_E_INFORMATION_SENSITIVE]           ="Information Sensitive",
+        [OCK_E_STATE_UNSAVEABLE]                ="State Unsaveable",
+        [OCK_E_API_NOT_INIT]                    ="API not initialized",
+        [OCK_E_API_ALREADY_INIT]                ="API already Initialized",
+        [OCK_E_MUTEX_BAD]                       ="Mutex Bad",
+        //75
+        [OCK_E_MUTEX_LOCK_INV]                  ="Mutex Lock Invalid",
+        [OCK_E_ENCODR_INT]                      ="Encode Integer Failed",
+        [OCK_E_ENCODE_OSTRING]                  ="Encode Octet String Failed",
+        [OCK_E_ENCODE_SEQ]                      ="Encode Sequence Failed",
+        [OCK_E_DECODE_INT]                      ="Decode Integer Failed",
+        //80
+        [OCK_E_DECODE_OSTRING]                  ="Decode Octet String Failed",
+        [OCK_E_DECODE_SEQ]                      ="Decode Sequence Failed",
+        [OCK_E_ENCODE_PRIVKEY]                  ="Encode Private Key Failed",
+        [OCK_E_DECODE_PRIVKEY]                  ="Decode Private Key Failed",
+        [OCK_E_BUILD_ATTR]                      ="Build Attribute Failed",
+        //85
+        [OCK_E_FUNCTION_NOT_PERMITTED]          ="Function Not Permitted",
+        [OCK_E_KEY_NOT_EXPORTABLE]              ="Key Not Exportable",
+        [OCK_E_ENCODE_PRIVKEY2]                 ="Encode Private Key failed",
+        [OCK_E_DECODE_PRIVKEY2]                 ="Decode Private Key failed",
+        [OCK_E_OBJ_MGR_CREATE_SKELETON]         ="Object Mgr Create Skeleton failed",
+        //90
+        [OCK_E_OBJ_MGR_CREATE_FINAL]            ="Object Mgr Create Final failed",
+        [OCK_E_KEY_GENERATION]                  ="Key Generation failed",
+        [OCK_E_DES_WRAP_GET_DATA]               ="DES Wrap Get Data Failed",
+        [OCK_E_TDES_WRAP_GET_DATA]              ="DES3 Wrap Get Data Failed",
+        [OCK_E_RSA_WRAP_GET_DATA]               ="RSA Wrap Get Data Failed",
+        //95
+        [OCK_E_DSA_WRAP_GET_DATA]               ="DSA Wrap Get Data Failed",
+        [OCK_E_GENERIC_SECRET_WRAP_GET_DATA]    ="Generic Secret Wrap Get Data Failed",
+        [OCK_E_DES_WRAP_FORMAT]                 ="DES Wrap Format Failed",
+        [OCK_E_ENCRYPT_MGR_INIT]                ="Encryption Mgr Init Failed",
+        [OCK_E_ENCRYPT_MGR_ENCRYPT]             ="Encryption Mgr Encrypt Failed",
+        //100
+        [OCK_E_DECRYPT_MGR_DECRYPT]             ="Decryption Mgr Decrypt Failed",
+        [OCK_E_FLATTEN_OBJ]                     ="Flatten Object Failed",
+        [OCK_E_KEY_MGR_GET_PRIVKEY_TYPE]        ="Key Mgr Get Priv Key Type Failed",
+        [OCK_E_DECRYPT_PRIVKEY_INFO]             ="Decrypt Private Key Info Failed",
+        [OCK_E_SAVE_TOKEN]                      ="Save Token Failed",
+        //105
+        [OCK_E_TDES_CBC_ENCRYPT]                ="Triple DES CBC Encrypt Failed",
+        [OCK_E_TDES_CBC_DECRYPT]                ="Triple DES CBC Decrypt Failed",
+        [OCK_E_RESTORE_PRIV_TOKEN]              ="Restore Private Token Failed",
+        [OCK_E_RESTORE_OBJ]                     ="Restore Object Failed",
+        [OCK_E_DATA_LEN2]                       ="Data Length Out of Range",
+        //110
+        [OCK_E_OBJ_MGR_FIND_IN_MAP]             ="Object Manager Find in Map Failed",
+        [OCK_E_TOKEN_SPECIFIC_RNG]              ="Token Specific RNG Failed",
+        [OCK_E_ENCRYPT_DATA_LEN2]               ="Encrypted Data Length Out of Range",
+        [OCK_E_DES_CBC_ENCRYPT]                 ="DES CBC Encrypt Failed",
+        [OCK_E_DES_CBC_DECRYPT]                 ="DES CBC Decrypt Failed",
+        //115
+        [OCK_E_DES_ECB_ENCRYPT]                 ="DES ECB Encrypt Failed",
+        [OCK_E_DES_ECB_DECRYPT]                 ="DES ECB Decrypt Failed",
+        [OCK_E_TOKEN_SPECIFIC_DEC_ECB]          ="Token Specific DES ECB Failed",
+        [OCK_E_TOKEN_SPECIFIC_DES_CBC]          ="Token Specific DES CBC Failed",
+        [OCK_E_TOKEN_SPECIFIC_TDES_CBC]         ="Token Specific 3DES CBC Failed",
+        //120
+        [OCK_E_TOKEN_SPECIFIC_TDES_ECB]         ="Token Specific 3DES ECB Failed",
+        [OCK_E_DSA_VERIFY]                      ="DSA Verify Failed",
+        [OCK_E_DSA_SIGN]                        ="DSA Sign Failed",
+        [OCK_E_DIGEST_INIT]                     ="Digest Init Failed",
+        [OCK_E_DIGEST]                          ="Digest Failed",
+        //125
+        [OCK_E_DIGEST_UPDATE]                   ="Digest Update Failed",
+        [OCK_E_DIGEST_FINAL]                    ="Digest Final Failed",
+        [OCK_E_SIGN_INIT]                       ="Sign Init Failed",
+        [OCK_E_SIGN_UPDATE]                     ="Sign Update Failed",
+        [OCK_E_SIGN_FINAL]                      ="Sign Final Failed",
+        //130
+        [OCK_E_RNG]                             ="Random Number Generate Failed",
+        [OCK_E_RSA_FORMAT_BLOCK]                ="RSA Format Block Failed",
+        [OCK_E_RSA_ENCRYPT]                     ="RSA Encrypt Failed",
+        [OCK_E_RSA_DECRYPT]                     ="RSA Decrypt Failed",
+        [OCK_E_TOKEN_SPECIFIC_RSA_ENCRYPT]      ="Token Specific RSA Encrypt Failed",
+        //135
+        [OCK_E_TOKEN_SPECIFIC_RSA_DECRYPT]      ="Token Specific RSA Decrypt Failed",
+        [OCK_E_SSL_SHA]                         ="SSL SHA Failed",
+        [OCK_E_SSL3_MD5]                        ="SSL3 MD5 Failed",
+        [OCK_E_SSL3_PROCESS_MAC_KEYS]           ="SSL3 Process MAC Keys Failed",
+        [OCK_E_SSL3_PROCESS_WRITE_KEYS]         ="SSL3 Process Write Keys Failed",
+        //140
+        [OCK_E_VALIDATE_ATTR]                   ="Validate Attribute Failed",
+        [OCK_E_SSL3_PROCESS_WRITE_KEYS2]         ="SSL3 Process Write Keys Failed",
+        [OCK_E_FUNCTION_NOT_SUPP]               ="%s Function Not Supported",
+        [OCK_E_TOKEN_ALREADY_INIT]              ="Token Already Initialized",
+        [OCK_E_CANNOT_ATTACH_SHMEM]             ="Cannot Attach to Shared Memory",
+        //145
+        [OCK_E_TOKEN_SPECIFIC_INIT]             ="Token Specific Init Failed",
+        [OCK_E_MUTEX_LOCK]                      ="Mutex Lock Failed",
+        [OCK_E_MUTEX_UNLOCK]                    ="Mutex Unlock Failed",
+        [OCK_E_HASH]                            ="Hash Computation Failed",
+        [OCK_E_SAVE_MASTERKEY]                  ="Save Master Key Failed",
+        //150
+        [OCK_E_PROCESS_LOCK]                    ="Process Lock Failed",
+        [OCK_E_PROCESS_UNLOCK]                  ="Process Unlock Failed",
+        [OCK_E_SESS_MGR_NEW]                    ="Session Mgr New Failed",
+        [OCK_E_CLOSE_ALL_SESS]                  ="Close all Sessions Failed",
+        [OCK_E_SESS_MGR_GET_OK_STATE]           ="Session Mgr Get Op State Failed",
+        //155
+        [OCK_E_LOAD_MASTERKEY]                  ="Load Master Key Failed",
+        [OCK_E_OBJ_CREATE]                      ="Object Create Failed",
+        [OCK_E_OBJ_MGR_ADD_TO_MAP]              ="Object Mgr Add to Map Failed",
+        [OCK_E_OBJ_COPY]                        ="Object Copy Failed",
+        [OCK_E_OBJ_GET_ATTR_VALUE]              ="Object Get Attribute Values Failed",
+        //160
+        [OCK_E_OBJ_RESTORE_DATA]                ="Object Restore Data Failed",
+        [OCK_E_OBJ_SET_ATTR]                    ="Object Set Attribute Values Failed",
+        [OCK_E_OBJ_MGR_SEARCH_OBJ]              ="Object Mgr Search for Object Failed",
+        [OCK_E_COPY_TMPL]                       ="Copy Template Failed",
+        [OCK_E_ADD_ATTR]                        ="Add Attribute Failed",
+        //165
+        [OCK_E_CHECK_REQUIRED_ATTR]             ="Check Required Attributes Failed",
+        [OCK_E_UNFLATTEN_TMPL]                  ="Unflatten Template Failed",
+        [OCK_E_VERIFY_INIT]                     ="Verify Init Failed",
+        [OCK_E_VERIFY]                          ="Verify Failed",
+        [OCK_E_VERIFY_UPDATE]                   ="Verify Update Failed",
+        //170
+        [OCK_E_VERIFY_FINAL]                    ="Verify Final Failed",
+        [OCK_E_SIGN]                            ="Sign Failed",
+        [OCK_E_SET_DEFAULT_ATTR]                ="Set Default Attributes Failed",
+        [OCK_E_UNWRAP_KEY]                      ="Unwrap Key Failed",
+        [OCK_E_SESS_MGR]                        ="Session Mgr New Failed",
+        //175
+        [OCK_E_MERGE_ATTR]                      ="Merge Attributes Failed",
+        [OCK_E_ENCRYPT_MGR_ENCRYPT_UPDATE]      ="Encryption Mgr Encrypt Update Failed",
+        [OCK_E_ENCRYPT_MGR_ENCRYPT_FINAL]       ="Encryption Mgr Encrypt Final Failed",
+        [OCK_E_UPDATE_ATTR]                     ="Update Attribute Failed",
+        [OCK_E_DECRYPT_MGR_INIT]                ="Decryption Mgr Init Failed",
+        //180
+        [OCK_E_DECRYPT_MGR_UPDATE]              ="Decryption Mgr Update Failed",
+        [OCK_E_DECRYPT_MGR_FINAL]               ="Decryption Mgr Final Failed",
+        [OCK_E_OBJ_MGR_DESTROY]                 ="Object Mgr Destroy Failed",
+        [OCK_E_ATTR_UNDEF]                      ="Attribute Undefined",
+        [OCK_E_OBJ_MGR_GET_SIZE]                ="Object Mgr Get Size Failed",
+        //185
+        [OCK_E_OBJ_MGR_FIND_INIT]               ="Object Manager Find Init Failed",
+        [OCK_E_SIGN_RECOVER]                    ="Sign Recover Failed",
+        [OCK_E_VERIFY_RECOVER]                  ="Verify Recover Failed",
+        [OCK_E_WRAP_KEY]                        ="Wrap Key Failed",
+        [OCK_E_UNWRAP_KEY2]                      ="Unwrap Key Failed",
+        //190
+        [OCK_E_DERIVE]                          ="Derive Key Failed",
+        [OCK_E_AES_WRAP_GET_DATA]               ="AES Wrap Get Data Failed",
+        [OCK_E_AES_WRAP_FORMAT]                 ="AES Wrap Format Failed",
+        [OCK_E_DOMAIN_PARAM]                    ="Domain Parameter Invalid",
+        [OCK_E_CANT_OPEN_FILE]                  ="File \"%s\" could not be opened, errno=%d"
 };
 

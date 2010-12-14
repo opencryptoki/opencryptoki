@@ -299,10 +299,6 @@
 #ifndef __MSG_H__
 #define __MSG_H__
 
-struct messages {
-	char *   msg;
-};
-
-extern struct messages err_msg[];
+extern char* err_msg[];
 
 #endif

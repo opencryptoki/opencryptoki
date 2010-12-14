@@ -1132,7 +1132,7 @@ st_err_log(int num, ...)
 
    if ( enabled ){
          va_start(pvar, num);
-         vsprintf(buffer,err_msg[num].msg,pvar);
+         vsprintf(buffer,err_msg[num],pvar);
          va_end(pvar);
          syslog(LOG_ERR,buffer);
    }
