@@ -901,7 +901,7 @@ key_mgr_wrap_key( SESSION           * sess,
       case CKK_DES3:
          rc = des3_wrap_get_data( key2_obj->template, length_only, &data, &data_len );
          if (rc != CKR_OK){
-            st_err_log(93, __FILE__, __LINE__);
+            ock_log_err(OCK_E_TDES_WRAP_GET_DATA);
             return rc;
          }
          break;
