@@ -1737,7 +1737,7 @@ CK_RV SC_CreateObject( ST_SESSION_HANDLE    sSession,
    }
 
    if (pin_expired(&sess->session_info, nv_token_data->token_info.flags) == TRUE) {
-      st_err_log(36, __FILE__, __LINE__);
+      ock_log_err(OCK_E_PIN_EXP);
       rc = CKR_PIN_EXPIRED;
       goto done;
    }
@@ -1793,7 +1793,7 @@ CK_RV  SC_CopyObject( ST_SESSION_HANDLE    sSession,
    }
    
    if (pin_expired(&sess->session_info, nv_token_data->token_info.flags) == TRUE) {
-      st_err_log(36, __FILE__, __LINE__);
+      ock_log_err(OCK_E_PIN_EXP);
       rc = CKR_PIN_EXPIRED;
       goto done;
    }
@@ -1838,7 +1838,7 @@ CK_RV SC_DestroyObject( ST_SESSION_HANDLE  sSession,
    }
 
    if (pin_expired(&sess->session_info, nv_token_data->token_info.flags) == TRUE) {
-      st_err_log(36, __FILE__, __LINE__);
+      ock_log_err(OCK_E_PIN_EXP);
       rc = CKR_PIN_EXPIRED;
       goto done;
    }
@@ -2040,7 +2040,7 @@ CK_RV SC_FindObjectsInit( ST_SESSION_HANDLE   sSession,
    }
 
    if (pin_expired(&sess->session_info, nv_token_data->token_info.flags) == TRUE) {
-      st_err_log(36, __FILE__, __LINE__);
+      ock_log_err(OCK_E_PIN_EXP);
       rc = CKR_PIN_EXPIRED;
       goto done;
    }
@@ -2227,7 +2227,7 @@ CK_RV SC_EncryptInit( ST_SESSION_HANDLE  sSession,
    }
 
    if (pin_expired(&sess->session_info, nv_token_data->token_info.flags) == TRUE) {
-      st_err_log(36, __FILE__, __LINE__);
+      ock_log_err(OCK_E_PIN_EXP);
       rc = CKR_PIN_EXPIRED;
       goto done;
    }
@@ -2492,7 +2492,7 @@ CK_RV SC_DecryptInit( ST_SESSION_HANDLE  sSession,
    }
 
    if (pin_expired(&sess->session_info, nv_token_data->token_info.flags) == TRUE) {
-      st_err_log(36, __FILE__, __LINE__);
+      ock_log_err(OCK_E_PIN_EXP);
       rc = CKR_PIN_EXPIRED;
       goto done;
    }
@@ -2740,7 +2740,7 @@ CK_RV SC_DigestInit( ST_SESSION_HANDLE  sSession,
    }
 
    if (pin_expired(&sess->session_info, nv_token_data->token_info.flags) == TRUE) {
-      st_err_log(36, __FILE__, __LINE__);
+      ock_log_err(OCK_E_PIN_EXP);
       rc = CKR_PIN_EXPIRED;
       goto done;
    }
@@ -3020,7 +3020,7 @@ CK_RV SC_SignInit( ST_SESSION_HANDLE  sSession,
    VALID_MECH(pMechanism);
 
    if (pin_expired(&sess->session_info, nv_token_data->token_info.flags) == TRUE) {
-      st_err_log(36, __FILE__, __LINE__);
+      ock_log_err(OCK_E_PIN_EXP);
       rc = CKR_PIN_EXPIRED;
       goto done;
    }
@@ -3259,7 +3259,7 @@ CK_RV SC_SignRecoverInit( ST_SESSION_HANDLE  sSession,
    }
 
    if (pin_expired(&sess->session_info, nv_token_data->token_info.flags) == TRUE) {
-      st_err_log(36, __FILE__, __LINE__);
+      ock_log_err(OCK_E_PIN_EXP);
       rc = CKR_PIN_EXPIRED;
       goto done;
    }
@@ -3381,7 +3381,7 @@ CK_RV SC_VerifyInit( ST_SESSION_HANDLE  sSession,
    }
 
    if (pin_expired(&sess->session_info, nv_token_data->token_info.flags) == TRUE) {
-      st_err_log(36, __FILE__, __LINE__);
+      ock_log_err(OCK_E_PIN_EXP);
       rc = CKR_PIN_EXPIRED;
       goto done;
    }
@@ -3607,7 +3607,7 @@ CK_RV SC_VerifyRecoverInit( ST_SESSION_HANDLE  sSession,
    }
 
    if (pin_expired(&sess->session_info, nv_token_data->token_info.flags) == TRUE) {
-      st_err_log(36, __FILE__, __LINE__);
+      ock_log_err(OCK_E_PIN_EXP);
       rc = CKR_PIN_EXPIRED;
       goto done;
    }
@@ -3806,7 +3806,7 @@ CK_RV SC_GenerateKey( ST_SESSION_HANDLE     sSession,
    }
 
    if (pin_expired(&sess->session_info, nv_token_data->token_info.flags) == TRUE) {
-      st_err_log(36, __FILE__, __LINE__);
+      ock_log_err(OCK_E_PIN_EXP);
       rc = CKR_PIN_EXPIRED;
       goto done;
    }
@@ -3883,7 +3883,7 @@ CK_RV SC_GenerateKeyPair( ST_SESSION_HANDLE     sSession,
    }
 
    if (pin_expired(&sess->session_info, nv_token_data->token_info.flags) == TRUE) {
-      st_err_log(36, __FILE__, __LINE__);
+      ock_log_err(OCK_E_PIN_EXP);
       rc = CKR_PIN_EXPIRED;
       goto done;
    }
@@ -3985,7 +3985,7 @@ CK_RV SC_WrapKey( ST_SESSION_HANDLE  sSession,
    }
 
    if (pin_expired(&sess->session_info, nv_token_data->token_info.flags) == TRUE) {
-      st_err_log(36, __FILE__, __LINE__);
+      ock_log_err(OCK_E_PIN_EXP);
       rc = CKR_PIN_EXPIRED;
       goto done;
    }
@@ -4051,7 +4051,7 @@ CK_RV SC_UnwrapKey( ST_SESSION_HANDLE     sSession,
    }
 
    if (pin_expired(&sess->session_info, nv_token_data->token_info.flags) == TRUE) {
-      st_err_log(36, __FILE__, __LINE__);
+      ock_log_err(OCK_E_PIN_EXP);
       rc = CKR_PIN_EXPIRED;
       goto done;
    }
@@ -4128,7 +4128,7 @@ CK_RV SC_DeriveKey( ST_SESSION_HANDLE     sSession,
    }
 
    if (pin_expired(&sess->session_info, nv_token_data->token_info.flags) == TRUE) {
-      st_err_log(36, __FILE__, __LINE__);
+      ock_log_err(OCK_E_PIN_EXP);
       rc = CKR_PIN_EXPIRED;
       goto done;
    }
