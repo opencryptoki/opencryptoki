@@ -908,7 +908,7 @@ CK_RV SC_InitPIN( ST_SESSION_HANDLE  sSession,
 	}
 	rc = save_masterkey_user();
 	if (rc != CKR_OK){
-		st_err_log(149, __FILE__, __LINE__);
+		ock_log_err(OCK_E_SAVE_MASTERKEY);
 	}
  done:
 	LLOCK;
@@ -1054,7 +1054,7 @@ CK_RV SC_SetPIN( ST_SESSION_HANDLE  sSession,
 	}
 	UNLOCKIT;
 	if (rc != CKR_SESSION_READ_ONLY && rc != CKR_OK)
-		st_err_log(149, __FILE__, __LINE__);
+		ock_log_err(OCK_E_SAVE_MASTERKEY);
 	return rc;
 }
 
