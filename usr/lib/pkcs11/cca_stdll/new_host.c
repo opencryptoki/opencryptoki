@@ -392,7 +392,7 @@ ST_Initialize(void **FunctionList,
 		CreateXProcLock(xproclock);
 #endif
 		if ( (rc = attach_shm()) != CKR_OK) {
-			st_err_log(144, __FILE__, __LINE__);
+			ock_log_err(OCK_E_CANNOT_ATTACH_SHMEM);
 			goto done;
 		}
       

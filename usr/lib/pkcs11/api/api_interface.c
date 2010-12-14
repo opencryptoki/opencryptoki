@@ -3394,7 +3394,7 @@ C_Initialize ( CK_VOID_PTR pVoid )
          pthread_mutex_unlock(&GlobMutex);
          LOGIT(LOG_ERR,"C_Initialize:  Module failed to attach to shared memory.  Verify that the slot management \
                daemon is running %d",errno);
-         st_err_log(144, __FILE__, __LINE__);
+         ock_log_err(OCK_E_CANNOT_ATTACH_SHMEM);
          return CKR_HOST_MEMORY;
       }
       LOGIT(LOG_DEBUG,"Shared memory %x ",Anchor->SharedMemP);
