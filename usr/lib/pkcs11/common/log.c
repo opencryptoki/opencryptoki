@@ -966,6 +966,7 @@ const char* err_msg[] = {
         [OCK_E_AES_WRAP_GET_DATA]               ="AES Wrap Get Data Failed",
         [OCK_E_AES_WRAP_FORMAT]                 ="AES Wrap Format Failed",
         [OCK_E_DOMAIN_PARAM]                    ="Domain Parameter Invalid",
-        [OCK_E_CANT_OPEN_FILE]                  ="File \"%s\" could not be opened, errno=%d"
+        [OCK_E_CANT_OPEN_FILE]                  ="File \"%s\" could not be opened (%s)"
 };
+
 

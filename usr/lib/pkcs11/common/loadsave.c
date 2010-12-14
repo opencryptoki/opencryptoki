@@ -383,14 +383,14 @@ load_token_data()
          if (!fp) {
             // were really hosed here since the created
             // did not occur
-            st_err_log(194, __FILE__, __LINE__, (char *)fname, errno);
+            ock_log_err(OCK_E_CANT_OPEN_FILE, fname, strerror(errno));
 	    // LogError("failed opening %s for read: %s", fname, strerror(errno));
             rc = CKR_FUNCTION_FAILED;
             goto out_unlock;
          }
       } else {
          /* Could not open file for some unknown reason */
-         st_err_log(194, __FILE__, __LINE__, (char *)fname, errno);
+         ock_log_err(OCK_E_CANT_OPEN_FILE, fname, strerror(errno));
          rc = CKR_FUNCTION_FAILED;
          goto out_unlock;
       }
