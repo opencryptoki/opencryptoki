@@ -3560,7 +3560,7 @@ CK_RV SC_VerifyFinal( ST_SESSION_HANDLE  sSession,
 
    rc = verify_mgr_verify_final( sess, &sess->verify_ctx, pSignature, ulSignatureLen );
    if (rc != CKR_OK){ 
-      st_err_log(170, __FILE__, __LINE__);
+      ock_log_err(OCK_E_VERIFY_FINAL);
    }
 
 done:
