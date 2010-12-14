@@ -558,7 +558,7 @@ md2_hmac_sign( SESSION              * sess,
    }
    rc = digest_mgr_digest_update( sess, &digest_ctx, k_ipad, MD2_BLOCK_SIZE );
    if (rc != CKR_OK){
-      st_err_log(125, __FILE__, __LINE__);
+      ock_log_err(OCK_E_DIGEST_UPDATE);
       return rc;
    }
    rc = digest_mgr_digest_update( sess, &digest_ctx, in_data, in_data_len );
