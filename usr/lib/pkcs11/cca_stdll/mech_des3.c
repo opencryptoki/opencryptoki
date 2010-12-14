@@ -382,7 +382,7 @@ des3_cbc_pad_encrypt( SESSION           *sess,
                               key_value );
 
    if (rc != CKR_OK)
-      st_err_log(105, __FILE__, __LINE__);
+      ock_log_err(OCK_E_TDES_CBC_ENCRYPT);
 
    free( clear );
    return rc;
@@ -663,7 +663,7 @@ des3_ecb_decrypt_update( SESSION           *sess,
          context->len = remain;
       }
       else 
-         st_err_log(105, __FILE__, __LINE__);
+         ock_log_err(OCK_E_TDES_CBC_ENCRYPT);
 
       free( cipher );
       return rc;
@@ -773,7 +773,7 @@ des3_cbc_encrypt_update( SESSION           *sess,
          context->len = remain;
       }
       else 
-         st_err_log(105, __FILE__, __LINE__);
+         ock_log_err(OCK_E_TDES_CBC_ENCRYPT);
 
 
       free( clear );
@@ -1341,7 +1341,7 @@ des3_cbc_pad_encrypt_final( SESSION           *sess,
                                  ctx->mech.pParameter,
                                  key_value );
       if (rc != CKR_OK)
-         st_err_log(105, __FILE__, __LINE__);
+         ock_log_err(OCK_E_TDES_CBC_ENCRYPT);
       
       return rc;
    }

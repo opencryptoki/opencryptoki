@@ -386,7 +386,7 @@ aes_cbc_pad_encrypt( SESSION           *sess,
                              key_value, attr->ulValueLen );
 
    if (rc != CKR_OK)
-      st_err_log(105, __FILE__, __LINE__);
+      ock_log_err(OCK_E_TDES_CBC_ENCRYPT);
 
    free( clear );
    return rc;
@@ -670,7 +670,7 @@ aes_ecb_decrypt_update( SESSION           *sess,
          context->len = remain;
       }
       else 
-         st_err_log(105, __FILE__, __LINE__);
+         ock_log_err(OCK_E_TDES_CBC_ENCRYPT);
 
       free( cipher );
       return rc;
@@ -781,7 +781,7 @@ aes_cbc_encrypt_update( SESSION           *sess,
          context->len = remain;
       }
       else 
-         st_err_log(105, __FILE__, __LINE__);
+         ock_log_err(OCK_E_TDES_CBC_ENCRYPT);
 
 
       free( clear );
@@ -1349,7 +1349,7 @@ aes_cbc_pad_encrypt_final( SESSION           *sess,
                                 ctx->mech.pParameter,
                                 key_value, attr->ulValueLen );
       if (rc != CKR_OK) 
-         st_err_log(105, __FILE__, __LINE__);
+         ock_log_err(OCK_E_TDES_CBC_ENCRYPT);
       
       return rc;
    }

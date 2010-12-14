@@ -739,7 +739,7 @@ save_private_token_object( OBJECT *obj )
    rc = CKR_OK;
 #endif
    if (rc != CKR_OK){
-      st_err_log(105, __FILE__, __LINE__);
+      ock_log_err(OCK_E_TDES_CBC_ENCRYPT);
       goto error;
    }
 
@@ -1281,7 +1281,7 @@ save_masterkey_so( void )
 #endif
 
    if (rc != CKR_OK){
-      st_err_log(105, __FILE__, __LINE__);
+      ock_log_err(OCK_E_TDES_CBC_ENCRYPT);
       goto done;
    }
 
@@ -1356,7 +1356,7 @@ save_masterkey_user( void )
 #endif
 
    if (rc != CKR_OK){
-      st_err_log(105, __FILE__, __LINE__);
+      ock_log_err(OCK_E_TDES_CBC_ENCRYPT);
       goto done;
    }
 
