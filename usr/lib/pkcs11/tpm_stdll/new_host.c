@@ -3094,7 +3094,7 @@ CK_RV SC_Sign( ST_SESSION_HANDLE  sSession,
                        pData,      ulDataLen,
                        pSignature, pulSignatureLen );
    if (rc != CKR_OK){ 
-      st_err_log(171, __FILE__, __LINE__);
+      ock_log_err(OCK_E_SIGN);
    }
 
 done:
