@@ -1460,7 +1460,7 @@ reload_token_object( OBJECT *obj )
    else{
       rc = object_mgr_restore_obj( buf, obj );
       if (rc != CKR_OK)
-         st_err_log(108, __FILE__, __LINE__);
+         ock_log_err(OCK_E_RESTORE_OBJ);
    }
 
 done:
