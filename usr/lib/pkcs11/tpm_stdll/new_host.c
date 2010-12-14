@@ -2630,7 +2630,7 @@ CK_RV SC_DecryptUpdate( ST_SESSION_HANDLE  sSession,
                                  pEncryptedPart, ulEncryptedPartLen,
                                  pPart,          pulPartLen );
    if (rc != CKR_OK) {
-      st_err_log(180, __FILE__, __LINE__);
+      ock_log_err(OCK_E_DECRYPT_MGR_UPDATE);
    }
 
 done:
