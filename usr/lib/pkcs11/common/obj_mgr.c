@@ -2111,7 +2111,7 @@ object_mgr_set_attribute_values( SESSION           * sess,
 
    rc = object_set_attribute_values( obj, pTemplate, ulCount );
    if (rc != CKR_OK){
-      st_err_log(161, __FILE__, __LINE__); 
+      ock_log_err(OCK_E_OBJ_SET_ATTR);
       return rc;
    }
    // okay.  the object has been updated.  if it's a session object,

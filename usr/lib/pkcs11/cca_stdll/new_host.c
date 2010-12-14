@@ -1805,7 +1805,7 @@ CK_RV  SC_SetAttributeValue( ST_SESSION_HANDLE    sSession,
 
 	rc = object_mgr_set_attribute_values( sess, hObject, pTemplate, ulCount);
 	if (rc != CKR_OK){
-		st_err_log(161, __FILE__, __LINE__);
+		ock_log_err(OCK_E_OBJ_SET_ATTR);
 	}
 
  done:
