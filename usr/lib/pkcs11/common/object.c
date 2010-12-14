@@ -783,7 +783,7 @@ object_get_attribute_values( OBJECT        * obj,
    for (i=0; i < ulCount; i++) {
       flag = template_check_exportability( obj_tmpl, pTemplate[i].type);
       if (flag == FALSE) {
-         st_err_log(70, __FILE__, __LINE__); 
+         ock_log_err(OCK_E_INFORMATION_SENSITIVE);
          rc = CKR_ATTRIBUTE_SENSITIVE;
          pTemplate[i].ulValueLen = (CK_ULONG)-1;
          continue;
