@@ -2511,7 +2511,7 @@ CK_RV SC_DecryptFinal( ST_SESSION_HANDLE  sSession,
 				     pLastPart, pulLastPartLen );
 
 	if (rc != CKR_OK) {
-		st_err_log(181, __FILE__, __LINE__);
+		ock_log_err(OCK_E_DECRYPT_MGR_FINAL);
 	}
  done:
 	LLOCK;
