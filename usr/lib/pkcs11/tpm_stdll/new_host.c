@@ -985,7 +985,7 @@ CK_RV SC_InitPIN( ST_SESSION_HANDLE  sSession,
 
    sess = SESSION_MGR_FIND( hSession );
    if (!sess) {
-      st_err_log(40, __FILE__, __LINE__);
+      ock_log_err(OCK_E_SESS_HANDLE_INV);
       rc = CKR_SESSION_HANDLE_INVALID;
       goto done;
    }
@@ -1095,7 +1095,7 @@ CK_RV SC_SetPIN( ST_SESSION_HANDLE  sSession,
 
    sess = SESSION_MGR_FIND( hSession );
    if (!sess) {
-      st_err_log(40, __FILE__, __LINE__);
+      ock_log_err(OCK_E_SESS_HANDLE_INV);
       rc = CKR_SESSION_HANDLE_INVALID;
       goto done;
    }
@@ -1329,7 +1329,7 @@ CK_RV SC_CloseSession( ST_SESSION_HANDLE  sSession )
 
    sess = SESSION_MGR_FIND( hSession );
    if (!sess) {
-      st_err_log(40, __FILE__, __LINE__);
+      ock_log_err(OCK_E_SESS_HANDLE_INV);
       rc = CKR_SESSION_HANDLE_INVALID;
       goto done;
    }
@@ -1401,7 +1401,7 @@ CK_RV SC_GetSessionInfo( ST_SESSION_HANDLE   sSession,
 
    sess = SESSION_MGR_FIND( hSession );
    if (!sess) {
-      st_err_log(40, __FILE__, __LINE__);
+      ock_log_err(OCK_E_SESS_HANDLE_INV);
       rc = CKR_SESSION_HANDLE_INVALID;
       goto done;
    }
@@ -1447,7 +1447,7 @@ CK_RV SC_GetOperationState( ST_SESSION_HANDLE  sSession,
 
    sess = SESSION_MGR_FIND( hSession );
    if (!sess) {
-      st_err_log(40, __FILE__, __LINE__);
+      ock_log_err(OCK_E_SESS_HANDLE_INV);
       rc = CKR_SESSION_HANDLE_INVALID;
       goto done;
    }
@@ -1498,7 +1498,7 @@ CK_RV SC_SetOperationState( ST_SESSION_HANDLE  sSession,
 
    sess = SESSION_MGR_FIND( hSession );
    if (!sess) {
-      st_err_log(40, __FILE__, __LINE__);
+      ock_log_err(OCK_E_SESS_HANDLE_INV);
       rc = CKR_SESSION_HANDLE_INVALID;
       goto done;
    }
@@ -1552,7 +1552,7 @@ CK_RV SC_Login( ST_SESSION_HANDLE   sSession,
 
 	sess = SESSION_MGR_FIND( hSession );
 	if (!sess) {
-		st_err_log(40, __FILE__, __LINE__);
+		ock_log_err(OCK_E_SESS_HANDLE_INV);
 		rc = CKR_SESSION_HANDLE_INVALID;
 		goto done;
 	}
@@ -1675,7 +1675,7 @@ CK_RV SC_Logout( ST_SESSION_HANDLE  sSession )
 
 	sess = SESSION_MGR_FIND( hSession );
 	if (!sess) {
-		st_err_log(40, __FILE__, __LINE__);
+		ock_log_err(OCK_E_SESS_HANDLE_INV);
 		rc = CKR_SESSION_HANDLE_INVALID;
 		goto done;
 	}
@@ -1731,7 +1731,7 @@ CK_RV SC_CreateObject( ST_SESSION_HANDLE    sSession,
 
    sess = SESSION_MGR_FIND( hSession );
    if (!sess) {
-      st_err_log(40, __FILE__, __LINE__);
+      ock_log_err(OCK_E_SESS_HANDLE_INV);
       rc = CKR_SESSION_HANDLE_INVALID;
       goto done;
    }
@@ -1787,7 +1787,7 @@ CK_RV  SC_CopyObject( ST_SESSION_HANDLE    sSession,
 
    sess = SESSION_MGR_FIND( hSession );
    if (!sess) {
-      st_err_log(40, __FILE__, __LINE__);
+      ock_log_err(OCK_E_SESS_HANDLE_INV);
       rc = CKR_SESSION_HANDLE_INVALID;
       goto done;
    }
@@ -1832,7 +1832,7 @@ CK_RV SC_DestroyObject( ST_SESSION_HANDLE  sSession,
 
    sess = SESSION_MGR_FIND( hSession );
    if (!sess) {
-      st_err_log(40, __FILE__, __LINE__);
+      ock_log_err(OCK_E_SESS_HANDLE_INV);
       rc = CKR_SESSION_HANDLE_INVALID;
       goto done;
    }
@@ -1877,7 +1877,7 @@ CK_RV SC_GetObjectSize( ST_SESSION_HANDLE  sSession,
 
    sess = SESSION_MGR_FIND( hSession );
    if (!sess) {
-      st_err_log(40, __FILE__, __LINE__);
+      ock_log_err(OCK_E_SESS_HANDLE_INV);
       rc = CKR_SESSION_HANDLE_INVALID;
       goto done;
    }
@@ -1921,7 +1921,7 @@ CK_RV SC_GetAttributeValue( ST_SESSION_HANDLE  sSession,
 
    sess = SESSION_MGR_FIND( hSession );
    if (!sess) {
-      st_err_log(40, __FILE__, __LINE__);
+      ock_log_err(OCK_E_SESS_HANDLE_INV);
       rc = CKR_SESSION_HANDLE_INVALID;
       goto done;
    }
@@ -1979,7 +1979,7 @@ CK_RV  SC_SetAttributeValue( ST_SESSION_HANDLE    sSession,
 
    sess = SESSION_MGR_FIND( hSession );
    if (!sess) {
-      st_err_log(40, __FILE__, __LINE__);
+      ock_log_err(OCK_E_SESS_HANDLE_INV);
       rc = CKR_SESSION_HANDLE_INVALID;
       goto done;
    }
@@ -2034,7 +2034,7 @@ CK_RV SC_FindObjectsInit( ST_SESSION_HANDLE   sSession,
 
    sess = SESSION_MGR_FIND( hSession );
    if (!sess) {
-      st_err_log(40, __FILE__, __LINE__);
+      ock_log_err(OCK_E_SESS_HANDLE_INV);
       rc = CKR_SESSION_HANDLE_INVALID;
       goto done;
    }
@@ -2108,7 +2108,7 @@ CK_RV SC_FindObjects( ST_SESSION_HANDLE     sSession,
 
    sess = SESSION_MGR_FIND( hSession );
    if (!sess) {
-      st_err_log(40, __FILE__, __LINE__);
+      ock_log_err(OCK_E_SESS_HANDLE_INV);
       rc = CKR_SESSION_HANDLE_INVALID;
       goto done;
    }
@@ -2161,7 +2161,7 @@ CK_RV SC_FindObjectsFinal( ST_SESSION_HANDLE  sSession )
 
    sess = SESSION_MGR_FIND( hSession );
    if (!sess) {
-      st_err_log(40, __FILE__, __LINE__);
+      ock_log_err(OCK_E_SESS_HANDLE_INV);
       rc = CKR_SESSION_HANDLE_INVALID;
       goto done;
    }
@@ -2221,7 +2221,7 @@ CK_RV SC_EncryptInit( ST_SESSION_HANDLE  sSession,
 
    sess = SESSION_MGR_FIND( hSession );
    if (!sess) {
-      st_err_log(40, __FILE__, __LINE__);
+      ock_log_err(OCK_E_SESS_HANDLE_INV);
       rc = CKR_SESSION_HANDLE_INVALID;
       goto done;
    }
@@ -2281,7 +2281,7 @@ CK_RV SC_Encrypt( ST_SESSION_HANDLE  sSession,
 
    sess = SESSION_MGR_FIND( hSession );
    if (!sess) {
-      st_err_log(40, __FILE__, __LINE__);
+      ock_log_err(OCK_E_SESS_HANDLE_INV);
       rc = CKR_SESSION_HANDLE_INVALID;
       goto done;
    }
@@ -2345,7 +2345,7 @@ CK_RV SC_EncryptUpdate( ST_SESSION_HANDLE  sSession,
 
    sess = SESSION_MGR_FIND( hSession );
    if (!sess) {
-      st_err_log(40, __FILE__, __LINE__);
+      ock_log_err(OCK_E_SESS_HANDLE_INV);
       rc = CKR_SESSION_HANDLE_INVALID;
       goto done;
    }
@@ -2426,7 +2426,7 @@ CK_RV SC_EncryptFinal( ST_SESSION_HANDLE  sSession,
 
    sess = SESSION_MGR_FIND( hSession );
    if (!sess) {
-      st_err_log(40, __FILE__, __LINE__);
+      ock_log_err(OCK_E_SESS_HANDLE_INV);
       rc = CKR_SESSION_HANDLE_INVALID;
       goto done;
    }
@@ -2486,7 +2486,7 @@ CK_RV SC_DecryptInit( ST_SESSION_HANDLE  sSession,
 
    sess = SESSION_MGR_FIND( hSession );
    if (!sess) {
-      st_err_log(40, __FILE__, __LINE__);
+      ock_log_err(OCK_E_SESS_HANDLE_INV);
       rc = CKR_SESSION_HANDLE_INVALID;
       goto done;
    }
@@ -2547,7 +2547,7 @@ CK_RV SC_Decrypt( ST_SESSION_HANDLE  sSession,
 
    sess = SESSION_MGR_FIND( hSession );
    if (!sess) {
-      st_err_log(40, __FILE__, __LINE__);
+      ock_log_err(OCK_E_SESS_HANDLE_INV);
       rc = CKR_SESSION_HANDLE_INVALID;
       goto done;
    }
@@ -2611,7 +2611,7 @@ CK_RV SC_DecryptUpdate( ST_SESSION_HANDLE  sSession,
 
    sess = SESSION_MGR_FIND( hSession );
    if (!sess) {
-      st_err_log(40, __FILE__, __LINE__);
+      ock_log_err(OCK_E_SESS_HANDLE_INV);
       rc = CKR_SESSION_HANDLE_INVALID;
       goto done;
    }
@@ -2673,7 +2673,7 @@ CK_RV SC_DecryptFinal( ST_SESSION_HANDLE  sSession,
 
    sess = SESSION_MGR_FIND( hSession );
    if (!sess) {
-      st_err_log(40, __FILE__, __LINE__);
+      ock_log_err(OCK_E_SESS_HANDLE_INV);
       rc = CKR_SESSION_HANDLE_INVALID;
       goto done;
    }
@@ -2734,7 +2734,7 @@ CK_RV SC_DigestInit( ST_SESSION_HANDLE  sSession,
 
    sess = SESSION_MGR_FIND( hSession );
    if (!sess) {
-      st_err_log(40, __FILE__, __LINE__);
+      ock_log_err(OCK_E_SESS_HANDLE_INV);
       rc = CKR_SESSION_HANDLE_INVALID;
       goto done;
    }
@@ -2798,7 +2798,7 @@ CK_RV SC_Digest( ST_SESSION_HANDLE  sSession,
 
    sess = SESSION_MGR_FIND( hSession );
    if (!sess) {
-      st_err_log(40, __FILE__, __LINE__);
+      ock_log_err(OCK_E_SESS_HANDLE_INV);
       rc = CKR_SESSION_HANDLE_INVALID;
       goto done;
    }
@@ -2858,7 +2858,7 @@ CK_RV SC_DigestUpdate( ST_SESSION_HANDLE  sSession,
 
    sess = SESSION_MGR_FIND( hSession );
    if (!sess) {
-      st_err_log(40, __FILE__, __LINE__);
+      ock_log_err(OCK_E_SESS_HANDLE_INV);
       rc = CKR_SESSION_HANDLE_INVALID;
       goto done;
    }
@@ -2903,7 +2903,7 @@ CK_RV SC_DigestKey( ST_SESSION_HANDLE  sSession,
 
    sess = SESSION_MGR_FIND( hSession );
    if (!sess) {
-      st_err_log(40, __FILE__, __LINE__);
+      ock_log_err(OCK_E_SESS_HANDLE_INV);
       rc = CKR_SESSION_HANDLE_INVALID;
       goto done;
    }
@@ -2956,7 +2956,7 @@ CK_RV SC_DigestFinal( ST_SESSION_HANDLE  sSession,
 
    sess = SESSION_MGR_FIND( hSession );
    if (!sess) {
-      st_err_log(40, __FILE__, __LINE__);
+      ock_log_err(OCK_E_SESS_HANDLE_INV);
       rc = CKR_SESSION_HANDLE_INVALID;
       goto done;
    }
@@ -3013,7 +3013,7 @@ CK_RV SC_SignInit( ST_SESSION_HANDLE  sSession,
 
    sess = SESSION_MGR_FIND( hSession );
    if (!sess) {
-      st_err_log(40, __FILE__, __LINE__);
+      ock_log_err(OCK_E_SESS_HANDLE_INV);
       rc = CKR_SESSION_HANDLE_INVALID;
       goto done;
    }
@@ -3075,7 +3075,7 @@ CK_RV SC_Sign( ST_SESSION_HANDLE  sSession,
 
    sess = SESSION_MGR_FIND( hSession );
    if (!sess) {
-      st_err_log(40, __FILE__, __LINE__);
+      ock_log_err(OCK_E_SESS_HANDLE_INV);
       rc = CKR_SESSION_HANDLE_INVALID;
       goto done;
    }
@@ -3136,7 +3136,7 @@ CK_RV SC_SignUpdate( ST_SESSION_HANDLE  sSession,
 
    sess = SESSION_MGR_FIND( hSession );
    if (!sess) {
-      st_err_log(40, __FILE__, __LINE__);
+      ock_log_err(OCK_E_SESS_HANDLE_INV);
       rc = CKR_SESSION_HANDLE_INVALID;
       goto done;
    }
@@ -3192,7 +3192,7 @@ CK_RV SC_SignFinal( ST_SESSION_HANDLE  sSession,
 
    sess = SESSION_MGR_FIND( hSession );
    if (!sess) {
-      st_err_log(40, __FILE__, __LINE__);
+      ock_log_err(OCK_E_SESS_HANDLE_INV);
       rc = CKR_SESSION_HANDLE_INVALID;
       goto done;
    }
@@ -3253,7 +3253,7 @@ CK_RV SC_SignRecoverInit( ST_SESSION_HANDLE  sSession,
 
    sess = SESSION_MGR_FIND( hSession );
    if (!sess) {
-      st_err_log(40, __FILE__, __LINE__);
+      ock_log_err(OCK_E_SESS_HANDLE_INV);
       rc = CKR_SESSION_HANDLE_INVALID;
       goto done;
    }
@@ -3314,7 +3314,7 @@ CK_RV SC_SignRecover( ST_SESSION_HANDLE  sSession,
 
    sess = SESSION_MGR_FIND( hSession );
    if (!sess) {
-      st_err_log(40, __FILE__, __LINE__);
+      ock_log_err(OCK_E_SESS_HANDLE_INV);
       rc = CKR_SESSION_HANDLE_INVALID;
       goto done;
    }
@@ -3375,7 +3375,7 @@ CK_RV SC_VerifyInit( ST_SESSION_HANDLE  sSession,
 
    sess = SESSION_MGR_FIND( hSession );
    if (!sess) {
-      st_err_log(40, __FILE__, __LINE__);
+      ock_log_err(OCK_E_SESS_HANDLE_INV);
       rc = CKR_SESSION_HANDLE_INVALID;
       goto done;
    }
@@ -3435,7 +3435,7 @@ CK_RV SC_Verify( ST_SESSION_HANDLE  sSession,
 
    sess = SESSION_MGR_FIND( hSession );
    if (!sess) {
-      st_err_log(40, __FILE__, __LINE__);
+      ock_log_err(OCK_E_SESS_HANDLE_INV);
       rc = CKR_SESSION_HANDLE_INVALID;
       goto done;
    }
@@ -3492,7 +3492,7 @@ CK_RV SC_VerifyUpdate( ST_SESSION_HANDLE  sSession,
 
    sess = SESSION_MGR_FIND( hSession );
    if (!sess) {
-      st_err_log(40, __FILE__, __LINE__);
+      ock_log_err(OCK_E_SESS_HANDLE_INV);
       rc = CKR_SESSION_HANDLE_INVALID;
       goto done;
    }
@@ -3547,7 +3547,7 @@ CK_RV SC_VerifyFinal( ST_SESSION_HANDLE  sSession,
 
    sess = SESSION_MGR_FIND( hSession );
    if (!sess) {
-      st_err_log(40, __FILE__, __LINE__);
+      ock_log_err(OCK_E_SESS_HANDLE_INV);
       rc = CKR_SESSION_HANDLE_INVALID;
       goto done;
    }
@@ -3601,7 +3601,7 @@ CK_RV SC_VerifyRecoverInit( ST_SESSION_HANDLE  sSession,
 
    sess = SESSION_MGR_FIND( hSession );
    if (!sess) {
-      st_err_log(40, __FILE__, __LINE__);
+      ock_log_err(OCK_E_SESS_HANDLE_INV);
       rc = CKR_SESSION_HANDLE_INVALID;
       goto done;
    }
@@ -3662,7 +3662,7 @@ CK_RV SC_VerifyRecover( ST_SESSION_HANDLE  sSession,
 
    sess = SESSION_MGR_FIND( hSession );
    if (!sess) {
-      st_err_log(40, __FILE__, __LINE__);
+      ock_log_err(OCK_E_SESS_HANDLE_INV);
       rc = CKR_SESSION_HANDLE_INVALID;
       goto done;
    }
@@ -3800,7 +3800,7 @@ CK_RV SC_GenerateKey( ST_SESSION_HANDLE     sSession,
 
    sess = SESSION_MGR_FIND( hSession );
    if (!sess) {
-      st_err_log(40, __FILE__, __LINE__);
+      ock_log_err(OCK_E_SESS_HANDLE_INV);
       rc = CKR_SESSION_HANDLE_INVALID;
       goto done;
    }
@@ -3877,7 +3877,7 @@ CK_RV SC_GenerateKeyPair( ST_SESSION_HANDLE     sSession,
 
    sess = SESSION_MGR_FIND( hSession );
    if (!sess) {
-      st_err_log(40, __FILE__, __LINE__);
+      ock_log_err(OCK_E_SESS_HANDLE_INV);
       rc = CKR_SESSION_HANDLE_INVALID;
       goto done;
    }
@@ -3979,7 +3979,7 @@ CK_RV SC_WrapKey( ST_SESSION_HANDLE  sSession,
 
    sess = SESSION_MGR_FIND( hSession );
    if (!sess) {
-      st_err_log(40, __FILE__, __LINE__);
+      ock_log_err(OCK_E_SESS_HANDLE_INV);
       rc = CKR_SESSION_HANDLE_INVALID;
       goto done;
    }
@@ -4045,7 +4045,7 @@ CK_RV SC_UnwrapKey( ST_SESSION_HANDLE     sSession,
 
    sess = SESSION_MGR_FIND( hSession );
    if (!sess) {
-      st_err_log(40, __FILE__, __LINE__);
+      ock_log_err(OCK_E_SESS_HANDLE_INV);
       rc = CKR_SESSION_HANDLE_INVALID;
       goto done;
    }
@@ -4122,7 +4122,7 @@ CK_RV SC_DeriveKey( ST_SESSION_HANDLE     sSession,
 
    sess = SESSION_MGR_FIND( hSession );
    if (!sess) {
-      st_err_log(40, __FILE__, __LINE__);
+      ock_log_err(OCK_E_SESS_HANDLE_INV);
       rc = CKR_SESSION_HANDLE_INVALID;
       goto done;
    }
@@ -4232,7 +4232,7 @@ CK_RV SC_GenerateRandom( ST_SESSION_HANDLE  sSession,
 
    sess = SESSION_MGR_FIND( hSession );
    if (!sess) {
-      st_err_log(40, __FILE__, __LINE__);
+      ock_log_err(OCK_E_SESS_HANDLE_INV);
       rc = CKR_SESSION_HANDLE_INVALID;
       goto done;
    }

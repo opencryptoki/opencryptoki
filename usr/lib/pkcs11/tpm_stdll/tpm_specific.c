@@ -1776,7 +1776,7 @@ token_specific_set_pin(ST_SESSION_HANDLE session,
 	TSS_RESULT	result;
 
 	if (!sess) {
-		st_err_log(40, __FILE__, __LINE__);
+		ock_log_err(OCK_E_SESS_HANDLE_INV);
 		return CKR_SESSION_HANDLE_INVALID;
 	}
 

@@ -505,7 +505,7 @@ C_CloseSession ( CK_SESSION_HANDLE hSession )
 
    // Validate Session
    if (!Valid_Session((Session_Struct_t *)hSession,&rSession)){
-      st_err_log(40, __FILE__, __LINE__);
+      ock_log_err(OCK_E_SESS_HANDLE_INV);
       return CKR_SESSION_HANDLE_INVALID;
    }
 
@@ -583,7 +583,7 @@ C_CopyObject ( CK_SESSION_HANDLE    hSession,
 
    // Validate Session
    if (!Valid_Session((Session_Struct_t *)hSession,&rSession)){
-      st_err_log(40, __FILE__, __LINE__);
+      ock_log_err(OCK_E_SESS_HANDLE_INV);
       return CKR_SESSION_HANDLE_INVALID;
    }
 
@@ -659,7 +659,7 @@ C_CreateObject ( CK_SESSION_HANDLE    hSession,
 
    // Validate Session
    if (!Valid_Session((Session_Struct_t *)hSession,&rSession)){
-      st_err_log(40, __FILE__, __LINE__);
+      ock_log_err(OCK_E_SESS_HANDLE_INV);
       return CKR_SESSION_HANDLE_INVALID;
    }
 
@@ -742,7 +742,7 @@ C_Decrypt ( CK_SESSION_HANDLE hSession,
 
    // Validate Session
    if (!Valid_Session((Session_Struct_t *)hSession,&rSession)){
-      st_err_log(40, __FILE__, __LINE__);
+      ock_log_err(OCK_E_SESS_HANDLE_INV);
       return CKR_SESSION_HANDLE_INVALID;
    }
 
@@ -809,7 +809,7 @@ C_DecryptDigestUpdate ( CK_SESSION_HANDLE hSession,
 
    // Validate Session
    if (!Valid_Session((Session_Struct_t *)hSession,&rSession)){
-      st_err_log(40, __FILE__, __LINE__);
+      ock_log_err(OCK_E_SESS_HANDLE_INV);
       return CKR_SESSION_HANDLE_INVALID;
    }
 
@@ -878,7 +878,7 @@ C_DecryptFinal ( CK_SESSION_HANDLE hSession,
 
    // Validate Session
    if (!Valid_Session((Session_Struct_t *)hSession,&rSession)){
-      st_err_log(40, __FILE__, __LINE__);
+      ock_log_err(OCK_E_SESS_HANDLE_INV);
       return CKR_SESSION_HANDLE_INVALID;
    }
 
@@ -949,7 +949,7 @@ C_DecryptInit ( CK_SESSION_HANDLE hSession,
 
    // Validate Session
    if (!Valid_Session((Session_Struct_t *)hSession,&rSession)){
-      st_err_log(40, __FILE__, __LINE__);
+      ock_log_err(OCK_E_SESS_HANDLE_INV);
       return CKR_SESSION_HANDLE_INVALID;
    }
 
@@ -1015,7 +1015,7 @@ C_DecryptUpdate ( CK_SESSION_HANDLE hSession,
 
    // Validate Session
    if (!Valid_Session((Session_Struct_t *)hSession,&rSession)){
-      st_err_log(40, __FILE__, __LINE__);
+      ock_log_err(OCK_E_SESS_HANDLE_INV);
       return CKR_SESSION_HANDLE_INVALID;
    }
 
@@ -1079,7 +1079,7 @@ C_DecryptVerifyUpdate ( CK_SESSION_HANDLE hSession,
 
    // Validate Session
    if (!Valid_Session((Session_Struct_t *)hSession,&rSession)){
-      st_err_log(40, __FILE__, __LINE__);
+      ock_log_err(OCK_E_SESS_HANDLE_INV);
       return CKR_SESSION_HANDLE_INVALID;
    }
 
@@ -1143,7 +1143,7 @@ C_DeriveKey ( CK_SESSION_HANDLE    hSession,
 
    // Validate Session
    if (!Valid_Session((Session_Struct_t *)hSession,&rSession)){
-      st_err_log(40, __FILE__, __LINE__);
+      ock_log_err(OCK_E_SESS_HANDLE_INV);
       return CKR_SESSION_HANDLE_INVALID;
    }
 
@@ -1224,7 +1224,7 @@ C_DestroyObject ( CK_SESSION_HANDLE hSession,
 
    // Validate Session
    if (!Valid_Session((Session_Struct_t *)hSession,&rSession)){
-      st_err_log(40, __FILE__, __LINE__);
+      ock_log_err(OCK_E_SESS_HANDLE_INV);
       return CKR_SESSION_HANDLE_INVALID;
    }
 
@@ -1281,7 +1281,7 @@ C_Digest ( CK_SESSION_HANDLE hSession,
 
    // Validate Session
    if (!Valid_Session((Session_Struct_t *)hSession,&rSession)){
-      st_err_log(40, __FILE__, __LINE__);
+      ock_log_err(OCK_E_SESS_HANDLE_INV);
       return CKR_SESSION_HANDLE_INVALID;
    }
 
@@ -1350,7 +1350,7 @@ C_DigestEncryptUpdate ( CK_SESSION_HANDLE hSession,
 
    // Validate Session
    if (!Valid_Session((Session_Struct_t *)hSession,&rSession)){
-      st_err_log(40, __FILE__, __LINE__);
+      ock_log_err(OCK_E_SESS_HANDLE_INV);
       return CKR_SESSION_HANDLE_INVALID;
    }
 
@@ -1411,7 +1411,7 @@ C_DigestFinal ( CK_SESSION_HANDLE hSession,
    }
    // Validate Session
    if (!Valid_Session((Session_Struct_t *)hSession,&rSession)){
-      st_err_log(40, __FILE__, __LINE__);
+      ock_log_err(OCK_E_SESS_HANDLE_INV);
       return CKR_SESSION_HANDLE_INVALID;
    }
 
@@ -1472,7 +1472,7 @@ C_DigestInit ( CK_SESSION_HANDLE hSession,
    }
    // Validate Session
    if (!Valid_Session((Session_Struct_t *)hSession,&rSession)){
-      st_err_log(40, __FILE__, __LINE__);
+      ock_log_err(OCK_E_SESS_HANDLE_INV);
       return CKR_SESSION_HANDLE_INVALID;
    }
 
@@ -1528,7 +1528,7 @@ C_DigestKey ( CK_SESSION_HANDLE hSession,
 
    // Validate Session
    if (!Valid_Session((Session_Struct_t *)hSession,&rSession)){
-      st_err_log(40, __FILE__, __LINE__);
+      ock_log_err(OCK_E_SESS_HANDLE_INV);
       return CKR_SESSION_HANDLE_INVALID;
    }
 
@@ -1588,7 +1588,7 @@ C_DigestUpdate ( CK_SESSION_HANDLE hSession,
    }
    // Validate Session
    if (!Valid_Session((Session_Struct_t *)hSession,&rSession)){
-      st_err_log(40, __FILE__, __LINE__);
+      ock_log_err(OCK_E_SESS_HANDLE_INV);
       return CKR_SESSION_HANDLE_INVALID;
    }
 
@@ -1651,7 +1651,7 @@ C_Encrypt ( CK_SESSION_HANDLE hSession,
    }
    // Validate Session
    if (!Valid_Session((Session_Struct_t *)hSession,&rSession)){
-      st_err_log(40, __FILE__, __LINE__);
+      ock_log_err(OCK_E_SESS_HANDLE_INV);
       return CKR_SESSION_HANDLE_INVALID;
    }
 
@@ -1710,7 +1710,7 @@ C_EncryptFinal ( CK_SESSION_HANDLE hSession,
    }
    // Validate Session
    if (!Valid_Session((Session_Struct_t *)hSession,&rSession)){
-      st_err_log(40, __FILE__, __LINE__);
+      ock_log_err(OCK_E_SESS_HANDLE_INV);
       return CKR_SESSION_HANDLE_INVALID;
    }
 
@@ -1770,7 +1770,7 @@ C_EncryptInit ( CK_SESSION_HANDLE hSession,
    }
    // Validate Session
    if (!Valid_Session((Session_Struct_t *)hSession,&rSession)){
-      st_err_log(40, __FILE__, __LINE__);
+      ock_log_err(OCK_E_SESS_HANDLE_INV);
       return CKR_SESSION_HANDLE_INVALID;
    }
 
@@ -1833,7 +1833,7 @@ C_EncryptUpdate ( CK_SESSION_HANDLE hSession,
    }
    // Validate Session
    if (!Valid_Session((Session_Struct_t *)hSession,&rSession)){
-      st_err_log(40, __FILE__, __LINE__);
+      ock_log_err(OCK_E_SESS_HANDLE_INV);
       return CKR_SESSION_HANDLE_INVALID;
    }
 
@@ -1965,7 +1965,7 @@ C_FindObjects ( CK_SESSION_HANDLE    hSession,
    }
    // Validate Session
    if (!Valid_Session((Session_Struct_t *)hSession,&rSession)){
-      st_err_log(40, __FILE__, __LINE__);
+      ock_log_err(OCK_E_SESS_HANDLE_INV);
       return CKR_SESSION_HANDLE_INVALID;
    }
 
@@ -2022,7 +2022,7 @@ C_FindObjectsFinal ( CK_SESSION_HANDLE hSession )
 
    // Validate Session
    if (!Valid_Session((Session_Struct_t *)hSession,&rSession)){
-      st_err_log(40, __FILE__, __LINE__);
+      ock_log_err(OCK_E_SESS_HANDLE_INV);
       return CKR_SESSION_HANDLE_INVALID;
    }
 
@@ -2084,7 +2084,7 @@ C_FindObjectsInit ( CK_SESSION_HANDLE hSession,
 
    // Validate Session
    if (!Valid_Session((Session_Struct_t *)hSession,&rSession)){
-      st_err_log(40, __FILE__, __LINE__);
+      ock_log_err(OCK_E_SESS_HANDLE_INV);
       return CKR_SESSION_HANDLE_INVALID;
    }
 
@@ -2149,7 +2149,7 @@ C_GenerateKey ( CK_SESSION_HANDLE    hSession,
    }
    // Validate Session
    if (!Valid_Session((Session_Struct_t *)hSession,&rSession)){
-      st_err_log(40, __FILE__, __LINE__);
+      ock_log_err(OCK_E_SESS_HANDLE_INV);
       return CKR_SESSION_HANDLE_INVALID;
    }
 
@@ -2221,7 +2221,7 @@ C_GenerateKeyPair ( CK_SESSION_HANDLE    hSession,
 
    // Validate Session
    if (!Valid_Session((Session_Struct_t *)hSession,&rSession)){
-      st_err_log(40, __FILE__, __LINE__);
+      ock_log_err(OCK_E_SESS_HANDLE_INV);
       return CKR_SESSION_HANDLE_INVALID;
    }
 
@@ -2281,7 +2281,7 @@ C_GenerateRandom ( CK_SESSION_HANDLE hSession,
 
    // Validate Session
    if (!Valid_Session((Session_Struct_t *)hSession,&rSession)){
-      st_err_log(40, __FILE__, __LINE__);
+      ock_log_err(OCK_E_SESS_HANDLE_INV);
       return CKR_SESSION_HANDLE_INVALID;
    }
 
@@ -2351,7 +2351,7 @@ C_GetAttributeValue ( CK_SESSION_HANDLE hSession,
    }
    // Validate Session
    if (!Valid_Session((Session_Struct_t *)hSession,&rSession)){
-      st_err_log(40, __FILE__, __LINE__);
+      ock_log_err(OCK_E_SESS_HANDLE_INV);
       return CKR_SESSION_HANDLE_INVALID;
    }
 
@@ -2716,7 +2716,7 @@ C_GetObjectSize ( CK_SESSION_HANDLE hSession,
    }
    // Validate Session
    if (!Valid_Session((Session_Struct_t *)hSession,&rSession)){
-      st_err_log(40, __FILE__, __LINE__);
+      ock_log_err(OCK_E_SESS_HANDLE_INV);
       return CKR_SESSION_HANDLE_INVALID;
    }
 
@@ -2777,7 +2777,7 @@ C_GetOperationState ( CK_SESSION_HANDLE hSession,
    }
    // Validate Session
    if (!Valid_Session((Session_Struct_t *)hSession,&rSession)){
-      st_err_log(40, __FILE__, __LINE__);
+      ock_log_err(OCK_E_SESS_HANDLE_INV);
       return CKR_SESSION_HANDLE_INVALID;
    }
 
@@ -2841,7 +2841,7 @@ C_GetSessionInfo ( CK_SESSION_HANDLE   hSession,
 
    // Validate Session
    if (!Valid_Session((Session_Struct_t *)hSession,&rSession)){
-      st_err_log(40, __FILE__, __LINE__);
+      ock_log_err(OCK_E_SESS_HANDLE_INV);
       return CKR_SESSION_HANDLE_INVALID;
    }
 
@@ -3474,7 +3474,7 @@ C_InitPIN ( CK_SESSION_HANDLE hSession,
 
    // Validate Session
    if (!Valid_Session((Session_Struct_t *)hSession,&rSession)){
-      st_err_log(40, __FILE__, __LINE__);
+      ock_log_err(OCK_E_SESS_HANDLE_INV);
       return CKR_SESSION_HANDLE_INVALID;
    }
 
@@ -3624,7 +3624,7 @@ C_Login ( CK_SESSION_HANDLE hSession,
 
    // Validate Session
    if (!Valid_Session((Session_Struct_t *)hSession,&rSession)){
-      st_err_log(40, __FILE__, __LINE__);
+      ock_log_err(OCK_E_SESS_HANDLE_INV);
       return CKR_SESSION_HANDLE_INVALID;
    }
 
@@ -3680,7 +3680,7 @@ C_Logout ( CK_SESSION_HANDLE hSession )
 
    // Validate Session
    if (!Valid_Session((Session_Struct_t *)hSession,&rSession)){
-      st_err_log(40, __FILE__, __LINE__);
+      ock_log_err(OCK_E_SESS_HANDLE_INV);
       return CKR_SESSION_HANDLE_INVALID;
    }
 
@@ -3842,7 +3842,7 @@ C_SeedRandom ( CK_SESSION_HANDLE hSession,
    }
    // Validate Session
    if (!Valid_Session((Session_Struct_t *)hSession,&rSession)){
-      st_err_log(40, __FILE__, __LINE__);
+      ock_log_err(OCK_E_SESS_HANDLE_INV);
       return CKR_SESSION_HANDLE_INVALID;
    }
 
@@ -3906,7 +3906,7 @@ C_SetAttributeValue ( CK_SESSION_HANDLE hSession,
 
    // Validate Session
    if (!Valid_Session((Session_Struct_t *)hSession,&rSession)){
-      st_err_log(40, __FILE__, __LINE__);
+      ock_log_err(OCK_E_SESS_HANDLE_INV);
       return CKR_SESSION_HANDLE_INVALID;
    }
    
@@ -3970,7 +3970,7 @@ C_SetOperationState ( CK_SESSION_HANDLE hSession,
 
    // Validate Session
    if (!Valid_Session((Session_Struct_t *)hSession,&rSession)){
-      st_err_log(40, __FILE__, __LINE__);
+      ock_log_err(OCK_E_SESS_HANDLE_INV);
       return CKR_SESSION_HANDLE_INVALID;
    }
 
@@ -4043,7 +4043,7 @@ C_SetPIN ( CK_SESSION_HANDLE hSession,
 
    // Validate Session
    if (!Valid_Session((Session_Struct_t *)hSession,&rSession)){
-      st_err_log(40, __FILE__, __LINE__);
+      ock_log_err(OCK_E_SESS_HANDLE_INV);
       return CKR_SESSION_HANDLE_INVALID;
    }
 
@@ -4109,7 +4109,7 @@ C_Sign ( CK_SESSION_HANDLE hSession,
    }
    // Validate Session
    if (!Valid_Session((Session_Struct_t *)hSession,&rSession)){
-      st_err_log(40, __FILE__, __LINE__);
+      ock_log_err(OCK_E_SESS_HANDLE_INV);
       return CKR_SESSION_HANDLE_INVALID;
    }
 
@@ -4169,7 +4169,7 @@ C_SignEncryptUpdate ( CK_SESSION_HANDLE hSession,
    }
    // Validate Session
    if (!Valid_Session((Session_Struct_t *)hSession,&rSession)){
-      st_err_log(40, __FILE__, __LINE__);
+      ock_log_err(OCK_E_SESS_HANDLE_INV);
       return CKR_SESSION_HANDLE_INVALID;
    }
 
@@ -4236,7 +4236,7 @@ C_SignFinal ( CK_SESSION_HANDLE hSession,
 
    // Validate Session
    if (!Valid_Session((Session_Struct_t *)hSession,&rSession)){
-      st_err_log(40, __FILE__, __LINE__);
+      ock_log_err(OCK_E_SESS_HANDLE_INV);
       return CKR_SESSION_HANDLE_INVALID;
    }
 
@@ -4302,7 +4302,7 @@ C_SignInit ( CK_SESSION_HANDLE hSession,
    }
    // Validate Session
    if (!Valid_Session((Session_Struct_t *)hSession,&rSession)){
-      st_err_log(40, __FILE__, __LINE__);
+      ock_log_err(OCK_E_SESS_HANDLE_INV);
       return CKR_SESSION_HANDLE_INVALID;
    }
 
@@ -4362,7 +4362,7 @@ C_SignRecover ( CK_SESSION_HANDLE hSession,
    }
    // Validate Session
    if (!Valid_Session((Session_Struct_t *)hSession,&rSession)){
-      st_err_log(40, __FILE__, __LINE__);
+      ock_log_err(OCK_E_SESS_HANDLE_INV);
       return CKR_SESSION_HANDLE_INVALID;
    }
 
@@ -4425,7 +4425,7 @@ C_SignRecoverInit ( CK_SESSION_HANDLE hSession,
    }
    // Validate Session
    if (!Valid_Session((Session_Struct_t *)hSession,&rSession)){
-      st_err_log(40, __FILE__, __LINE__);
+      ock_log_err(OCK_E_SESS_HANDLE_INV);
       return CKR_SESSION_HANDLE_INVALID;
    }
 
@@ -4491,7 +4491,7 @@ C_SignUpdate ( CK_SESSION_HANDLE hSession,
    }
    // Validate Session
    if (!Valid_Session((Session_Struct_t *)hSession,&rSession)){
-      st_err_log(40, __FILE__, __LINE__);
+      ock_log_err(OCK_E_SESS_HANDLE_INV);
       return CKR_SESSION_HANDLE_INVALID;
    }
 
@@ -4566,7 +4566,7 @@ C_UnwrapKey ( CK_SESSION_HANDLE    hSession,
 
    // Validate Session
    if (!Valid_Session((Session_Struct_t *)hSession,&rSession)){
-      st_err_log(40, __FILE__, __LINE__);
+      ock_log_err(OCK_E_SESS_HANDLE_INV);
       return CKR_SESSION_HANDLE_INVALID;
    }
 
@@ -4633,7 +4633,7 @@ C_Verify ( CK_SESSION_HANDLE hSession,
    }
    // Validate Session
    if (!Valid_Session((Session_Struct_t *)hSession,&rSession)){
-      st_err_log(40, __FILE__, __LINE__);
+      ock_log_err(OCK_E_SESS_HANDLE_INV);
       return CKR_SESSION_HANDLE_INVALID;
    }
 
@@ -4691,7 +4691,7 @@ C_VerifyFinal ( CK_SESSION_HANDLE hSession,
    }
    // Validate Session
    if (!Valid_Session((Session_Struct_t *)hSession,&rSession)){
-      st_err_log(40, __FILE__, __LINE__);
+      ock_log_err(OCK_E_SESS_HANDLE_INV);
       return CKR_SESSION_HANDLE_INVALID;
    }
 
@@ -4753,7 +4753,7 @@ C_VerifyInit ( CK_SESSION_HANDLE hSession,
    }
    // Validate Session
    if (!Valid_Session((Session_Struct_t *)hSession,&rSession)){
-      st_err_log(40, __FILE__, __LINE__);
+      ock_log_err(OCK_E_SESS_HANDLE_INV);
       return CKR_SESSION_HANDLE_INVALID;
    }
 
@@ -4814,7 +4814,7 @@ C_VerifyRecover ( CK_SESSION_HANDLE hSession,
    }
    // Validate Session
    if (!Valid_Session((Session_Struct_t *)hSession,&rSession)){
-      st_err_log(40, __FILE__, __LINE__);
+      ock_log_err(OCK_E_SESS_HANDLE_INV);
       return CKR_SESSION_HANDLE_INVALID;
    }
 
@@ -4872,7 +4872,7 @@ C_VerifyRecoverInit ( CK_SESSION_HANDLE hSession,
    }
    // Validate Session
    if (!Valid_Session((Session_Struct_t *)hSession,&rSession)){
-      st_err_log(40, __FILE__, __LINE__);
+      ock_log_err(OCK_E_SESS_HANDLE_INV);
       return CKR_SESSION_HANDLE_INVALID;
    }
 
@@ -4930,7 +4930,7 @@ C_VerifyUpdate ( CK_SESSION_HANDLE hSession,
    }
    // Validate Session
    if (!Valid_Session((Session_Struct_t *)hSession,&rSession)){
-      st_err_log(40, __FILE__, __LINE__);
+      ock_log_err(OCK_E_SESS_HANDLE_INV);
       return CKR_SESSION_HANDLE_INVALID;
    }
 
@@ -5137,7 +5137,7 @@ C_WrapKey ( CK_SESSION_HANDLE hSession,
 
    // Validate Session
    if (!Valid_Session((Session_Struct_t *)hSession,&rSession)){
-      st_err_log(40, __FILE__, __LINE__);
+      ock_log_err(OCK_E_SESS_HANDLE_INV);
       return CKR_SESSION_HANDLE_INVALID;
    }
 
