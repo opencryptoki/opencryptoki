@@ -2364,7 +2364,7 @@ CK_RV SC_EncryptUpdate( ST_SESSION_HANDLE  sSession,
                                  pPart,          ulPartLen,
                                  pEncryptedPart, pulEncryptedPartLen );
    if (rc != CKR_OK) {
-      st_err_log(176, __FILE__, __LINE__);
+      ock_log_err(OCK_E_ENCRYPT_MGR_ENCRYPT_UPDATE);
    }
 
 done:
