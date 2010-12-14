@@ -1648,7 +1648,7 @@ ssl3_key_and_mac_derive( SESSION           * sess,
                           params->RandomInfo.ulServerRandomLen,
                           &(key_block[16*26]) );
       if (rc != CKR_OK){
-         st_err_log(137, __FILE__, __LINE__); 
+         ock_log_err(OCK_E_SSL3_MD5);
          goto error;
       }
       client_write_key_value = &(key_block[16*26]);
@@ -1662,7 +1662,7 @@ ssl3_key_and_mac_derive( SESSION           * sess,
                           params->RandomInfo.ulClientRandomLen,
                           &(key_block[16*26+16]) );
       if (rc != CKR_OK){
-         st_err_log(137, __FILE__, __LINE__); 
+         ock_log_err(OCK_E_SSL3_MD5);
          goto error;
       }
       server_write_key_value = &(key_block[16*26+16]);
@@ -1678,7 +1678,7 @@ ssl3_key_and_mac_derive( SESSION           * sess,
                              params->RandomInfo.ulServerRandomLen,
                              &(key_block[16*26+2*16]) );
          if (rc != CKR_OK){
-            st_err_log(137, __FILE__, __LINE__); 
+            ock_log_err(OCK_E_SSL3_MD5);
             goto error;
          }
          client_IV = &(key_block[16*26+2*16]);
@@ -1692,7 +1692,7 @@ ssl3_key_and_mac_derive( SESSION           * sess,
                              params->RandomInfo.ulClientRandomLen,
                              &(key_block[16*26+3*16]) );
          if (rc != CKR_OK){
-            st_err_log(137, __FILE__, __LINE__); 
+            ock_log_err(OCK_E_SSL3_MD5);
             goto error;
          }
          server_IV = &(key_block[16*26+3*16]);
