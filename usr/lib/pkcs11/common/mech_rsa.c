@@ -646,7 +646,7 @@ rsa_pkcs_encrypt( SESSION           *sess,
 
    rc = rsa_format_block( in_data, in_data_len, clear, modulus_bytes, PKCS_BT_2 );
    if (rc != CKR_OK){
-      st_err_log(131, __FILE__, __LINE__);
+      ock_log_err(OCK_E_RSA_FORMAT_BLOCK);
       return rc;
    }
    rc = ckm_rsa_encrypt( clear, modulus_bytes, cipher, key_obj );
@@ -781,7 +781,7 @@ rsa_pkcs_sign( SESSION             *sess,
 
    rc = rsa_format_block( in_data, in_data_len, data, modulus_bytes, PKCS_BT_1 );
    if (rc != CKR_OK){
-      st_err_log(131, __FILE__, __LINE__);
+      ock_log_err(OCK_E_RSA_FORMAT_BLOCK);
       return rc;
    }
    // signing is a private key operation --> decrypt
