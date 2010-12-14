@@ -1296,7 +1296,7 @@ ssl3_master_key_derive( SESSION           * sess,
                            key_data );
 
    if (rc != CKR_OK){
-      st_err_log(136, __FILE__, __LINE__); 
+      ock_log_err(OCK_E_SSL_SHA);
       goto error;
    }
    rc = ssl3_sha_then_md5( sess,
@@ -1309,7 +1309,7 @@ ssl3_master_key_derive( SESSION           * sess,
                            2,
                            &key_data[16] );
    if (rc != CKR_OK){
-      st_err_log(136, __FILE__, __LINE__); 
+      ock_log_err(OCK_E_SSL_SHA);
       goto error;
    }
    rc = ssl3_sha_then_md5( sess,
@@ -1322,7 +1322,7 @@ ssl3_master_key_derive( SESSION           * sess,
                            3,
                            &key_data[32] );
    if (rc != CKR_OK){
-      st_err_log(136, __FILE__, __LINE__); 
+      ock_log_err(OCK_E_SSL_SHA);
       goto error;
    }
    // build the key skeleton
@@ -1614,7 +1614,7 @@ ssl3_key_and_mac_derive( SESSION           * sess,
                               i+1,
                               &(key_block[i*16]) );
       if (rc != CKR_OK){
-         st_err_log(136, __FILE__, __LINE__); 
+         ock_log_err(OCK_E_SSL_SHA);
          goto error;
       }
    }
