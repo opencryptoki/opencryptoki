@@ -1379,7 +1379,7 @@ sha1_hmac_verify( SESSION              * sess,
                        in_data, in_data_len,
                        hmac,   &len );
    if (rc != CKR_OK){
-      st_err_log(128, __FILE__, __LINE__);
+      ock_log_err(OCK_E_SIGN_UPDATE);
       goto done;
    }
    if ((len != hmac_len) || (len != sig_len)) {
@@ -1431,7 +1431,7 @@ sha2_hmac_verify( SESSION              * sess,
                        in_data, in_data_len,
                        hmac,   &len );
    if (rc != CKR_OK){
-      st_err_log(128, __FILE__, __LINE__);
+      ock_log_err(OCK_E_SIGN_UPDATE);
       goto done;
    }
    if ((len != hmac_len) || (len != sig_len)) {
@@ -1483,7 +1483,7 @@ sha3_hmac_verify( SESSION              * sess,
                        in_data, in_data_len,
                        hmac,   &len );
    if (rc != CKR_OK){
-      st_err_log(128, __FILE__, __LINE__);
+      ock_log_err(OCK_E_SIGN_UPDATE);
       goto done;
    }
    if ((len != hmac_len) || (len != sig_len)) {
@@ -1535,7 +1535,7 @@ sha5_hmac_verify( SESSION              * sess,
                        in_data, in_data_len,
                        hmac,   &len );
    if (rc != CKR_OK){
-      st_err_log(128, __FILE__, __LINE__);
+      ock_log_err(OCK_E_SIGN_UPDATE);
       goto done;
    }
    if ((len != hmac_len) || (len != sig_len)) {

@@ -1384,7 +1384,7 @@ rsa_hash_pkcs_sign( SESSION              * sess,
    //rc = sign_mgr_sign( sess, length_only, &sign_ctx, hash, hash_len, signature, sig_len );
    rc = sign_mgr_sign( sess, length_only, &sign_ctx, ber_data, ber_data_len, signature, sig_len );
    if (rc != CKR_OK)
-      st_err_log(128, __FILE__, __LINE__);
+      ock_log_err(OCK_E_SIGN_UPDATE);
 
 error:
    if (octet_str) free( octet_str );
@@ -1669,7 +1669,7 @@ rsa_hash_pkcs_sign_final( SESSION              * sess,
    //rc = sign_mgr_sign( sess, length_only, &sign_ctx, hash, hash_len, signature, sig_len );
    rc = sign_mgr_sign( sess, length_only, &sign_ctx, ber_data, ber_data_len, signature, sig_len );
    if (rc != CKR_OK)
-      st_err_log(128, __FILE__, __LINE__);
+      ock_log_err(OCK_E_SIGN_UPDATE);
 
    if (length_only == TRUE || rc == CKR_BUFFER_TOO_SMALL) {
       sign_mgr_cleanup( &sign_ctx );

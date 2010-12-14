@@ -3247,7 +3247,7 @@ CK_RV SC_SignUpdate( ST_SESSION_HANDLE  sSession,
 
 	rc = sign_mgr_sign_update( sess, &sess->sign_ctx, pPart, ulPartLen );
 	if (rc != CKR_OK){ 
-		st_err_log(128, __FILE__, __LINE__);
+		ock_log_err(OCK_E_SIGN_UPDATE);
 	}
 
  done:

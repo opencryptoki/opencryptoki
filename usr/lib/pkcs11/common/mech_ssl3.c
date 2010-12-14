@@ -713,7 +713,7 @@ ssl3_mac_verify( SESSION              * sess,
                        in_data, in_data_len,
                        mac,     &len );
    if (rc != CKR_OK){
-      st_err_log(128, __FILE__, __LINE__); 
+      ock_log_err(OCK_E_SIGN_UPDATE);
       goto error;
    }
    if ((len != mac_len) || (len != sig_len)) {
