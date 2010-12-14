@@ -746,7 +746,7 @@ rsa_hash_pkcs_verify( SESSION              * sess,
    //rc = verify_mgr_verify( sess, &verify_ctx, hash, hash_len, signature, sig_len );
    rc = verify_mgr_verify( sess, &verify_ctx, ber_data, ber_data_len, signature, sig_len );
    if (rc != CKR_OK)
-      st_err_log(168, __FILE__, __LINE__);
+      ock_log_err(OCK_E_VERIFY);
 done:
    if (octet_str) free( octet_str );
    if (ber_data)  free( ber_data );
@@ -977,7 +977,7 @@ rsa_hash_pkcs_verify_final( SESSION              * sess,
    //rc = verify_mgr_verify( sess, &verify_ctx, hash, hash_len, signature, sig_len );
    rc = verify_mgr_verify( sess, &verify_ctx, ber_data, ber_data_len, signature, sig_len );
    if (rc != CKR_OK)
-      st_err_log(168, __FILE__, __LINE__);
+      ock_log_err(OCK_E_VERIFY);
 done:
    if (octet_str) free( octet_str );
    if (ber_data)  free( ber_data );

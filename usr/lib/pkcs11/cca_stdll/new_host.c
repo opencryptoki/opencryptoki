@@ -3270,7 +3270,7 @@ CK_RV SC_Verify( ST_SESSION_HANDLE  sSession,
 				pData,      ulDataLen,
 				pSignature, ulSignatureLen );
 	if (rc != CKR_OK){ 
-		st_err_log(168, __FILE__, __LINE__);
+		ock_log_err(OCK_E_VERIFY);
 	}
 
  done:
