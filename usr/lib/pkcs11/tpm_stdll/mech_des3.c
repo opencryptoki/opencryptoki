@@ -73,7 +73,7 @@ des3_ecb_encrypt( SESSION           *sess,
    }
    rc = object_mgr_find_in_map1( ctx->key, &key );
    if (rc != CKR_OK){
-      st_err_log(110, __FILE__, __LINE__);
+      ock_log_err(OCK_E_OBJ_MGR_FIND_IN_MAP);
       return rc;
    }
    rc = template_attribute_find( key->template, CKA_KEY_TYPE, &attr );
@@ -143,7 +143,7 @@ des3_ecb_decrypt( SESSION           *sess,
    }
    rc = object_mgr_find_in_map1( ctx->key, &key );
    if (rc != CKR_OK){
-      st_err_log(110, __FILE__, __LINE__);
+      ock_log_err(OCK_E_OBJ_MGR_FIND_IN_MAP);
       return rc; 
    }
    rc = template_attribute_find( key->template, CKA_KEY_TYPE, &attr );
@@ -213,7 +213,7 @@ des3_cbc_encrypt( SESSION           *sess,
 
    rc = object_mgr_find_in_map1( ctx->key, &key );
    if (rc != CKR_OK){
-      st_err_log(110, __FILE__, __LINE__);
+      ock_log_err(OCK_E_OBJ_MGR_FIND_IN_MAP);
       return rc;
    }
    rc = template_attribute_find( key->template, CKA_KEY_TYPE, &attr );
@@ -283,7 +283,7 @@ des3_cbc_decrypt( SESSION            *sess,
    }
    rc = object_mgr_find_in_map1( ctx->key, &key );
    if (rc != CKR_OK){
-      st_err_log(110, __FILE__, __LINE__);
+      ock_log_err(OCK_E_OBJ_MGR_FIND_IN_MAP);
       return rc;
    }
    rc = template_attribute_find( key->template, CKA_KEY_TYPE, &attr );
@@ -358,7 +358,7 @@ des3_cbc_pad_encrypt( SESSION           *sess,
 
    rc = object_mgr_find_in_map1( ctx->key, &key );
    if (rc != CKR_OK){
-      st_err_log(110, __FILE__, __LINE__);
+      ock_log_err(OCK_E_OBJ_MGR_FIND_IN_MAP);
       return rc;
    }
    rc = template_attribute_find( key->template, CKA_KEY_TYPE, &attr );
@@ -451,7 +451,7 @@ des3_cbc_pad_decrypt( SESSION            *sess,
 
    rc = object_mgr_find_in_map1( ctx->key, &key );
    if (rc != CKR_OK){
-      st_err_log(110, __FILE__, __LINE__);
+      ock_log_err(OCK_E_OBJ_MGR_FIND_IN_MAP);
       return rc;
    }
    rc = template_attribute_find( key->template, CKA_KEY_TYPE, &attr );
@@ -561,7 +561,7 @@ des3_ecb_encrypt_update( SESSION           *sess,
 
       rc = object_mgr_find_in_map1( ctx->key, &key );
       if (rc != CKR_OK){
-         st_err_log(110, __FILE__, __LINE__);
+         ock_log_err(OCK_E_OBJ_MGR_FIND_IN_MAP);
          return rc;
       }
       rc = template_attribute_find( key->template, CKA_KEY_TYPE, &attr );
@@ -666,7 +666,7 @@ des3_ecb_decrypt_update( SESSION           *sess,
 
       rc = object_mgr_find_in_map1( ctx->key, &key );
       if (rc != CKR_OK){
-         st_err_log(110, __FILE__, __LINE__);
+         ock_log_err(OCK_E_OBJ_MGR_FIND_IN_MAP);
          return rc;
       }
       rc = template_attribute_find( key->template, CKA_KEY_TYPE, &attr );
@@ -772,7 +772,7 @@ des3_cbc_encrypt_update( SESSION           *sess,
 
       rc = object_mgr_find_in_map1( ctx->key, &key );
       if (rc != CKR_OK){
-         st_err_log(110, __FILE__, __LINE__);
+         ock_log_err(OCK_E_OBJ_MGR_FIND_IN_MAP);
          return rc;
       }
       rc = template_attribute_find( key->template, CKA_KEY_TYPE, &attr );
@@ -888,7 +888,7 @@ des3_cbc_decrypt_update( SESSION           *sess,
 
       rc = object_mgr_find_in_map1( ctx->key, &key );
       if (rc != CKR_OK){
-         st_err_log(110, __FILE__, __LINE__);
+         ock_log_err(OCK_E_OBJ_MGR_FIND_IN_MAP);
          return rc;
       }
       rc = template_attribute_find( key->template, CKA_KEY_TYPE, &attr );
@@ -1014,7 +1014,7 @@ des3_cbc_pad_encrypt_update( SESSION           *sess,
       //
       rc = object_mgr_find_in_map1( ctx->key, &key );
       if (rc != CKR_OK){
-         st_err_log(110, __FILE__, __LINE__);
+         ock_log_err(OCK_E_OBJ_MGR_FIND_IN_MAP);
          return rc;
       }
       rc = template_attribute_find( key->template, CKA_KEY_TYPE, &attr );
@@ -1136,7 +1136,7 @@ des3_cbc_pad_decrypt_update( SESSION           *sess,
       //
       rc = object_mgr_find_in_map1( ctx->key, &key );
       if (rc != CKR_OK){
-         st_err_log(110, __FILE__, __LINE__);
+         ock_log_err(OCK_E_OBJ_MGR_FIND_IN_MAP);
          return rc;
       }
       rc = template_attribute_find( key->template, CKA_KEY_TYPE, &attr );
@@ -1362,7 +1362,7 @@ des3_cbc_pad_encrypt_final( SESSION           *sess,
 
    rc = object_mgr_find_in_map1( ctx->key, &key );
    if (rc != CKR_OK){
-      st_err_log(110, __FILE__, __LINE__);
+      ock_log_err(OCK_E_OBJ_MGR_FIND_IN_MAP);
       return rc;
    }
    rc = template_attribute_find( key->template, CKA_KEY_TYPE, &attr );
@@ -1444,7 +1444,7 @@ des3_cbc_pad_decrypt_final( SESSION           *sess,
    }
    rc = object_mgr_find_in_map1( ctx->key, &key );
    if (rc != CKR_OK){
-      st_err_log(110, __FILE__, __LINE__);
+      ock_log_err(OCK_E_OBJ_MGR_FIND_IN_MAP);
       return rc;
    }
    rc = template_attribute_find( key->template, CKA_KEY_TYPE, &attr );

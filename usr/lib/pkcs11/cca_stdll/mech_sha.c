@@ -351,7 +351,7 @@ sha1_hmac_sign( SESSION              * sess,
 
    rc = object_mgr_find_in_map1( ctx->key, &key_obj );
    if (rc != CKR_OK){
-      st_err_log(110, __FILE__, __LINE__);
+      ock_log_err(OCK_E_OBJ_MGR_FIND_IN_MAP);
       return rc;
    }
    rc = template_attribute_find( key_obj->template, CKA_VALUE, &attr );
@@ -526,7 +526,7 @@ sha2_hmac_sign( SESSION              * sess,
 
    rc = object_mgr_find_in_map1( ctx->key, &key_obj );
    if (rc != CKR_OK){
-      st_err_log(110, __FILE__, __LINE__);
+      ock_log_err(OCK_E_OBJ_MGR_FIND_IN_MAP);
       return rc;
    }
    rc = template_attribute_find( key_obj->template, CKA_VALUE, &attr );

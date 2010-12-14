@@ -613,7 +613,7 @@ object_mgr_copy( SESSION          * sess,
 
    rc = object_mgr_find_in_map1( old_handle, &old_obj );
    if (rc != CKR_OK){
-      st_err_log(110, __FILE__, __LINE__);
+      ock_log_err(OCK_E_OBJ_MGR_FIND_IN_MAP);
       goto done;
    }
    rc = object_copy( pTemplate, ulCount, old_obj, &new_obj );
@@ -1041,7 +1041,7 @@ object_mgr_destroy_object( SESSION          * sess,
 
    rc = object_mgr_find_in_map1( handle, &obj );
    if (rc != CKR_OK){
-      st_err_log(110, __FILE__, __LINE__);
+      ock_log_err(OCK_E_OBJ_MGR_FIND_IN_MAP);
       goto done;
    }
    sess_obj = object_is_session_object( obj );
@@ -1135,7 +1135,7 @@ object_mgr_destroy_token_objects( void )
          object_mgr_invalidate_handle1( handle );
       }
       else{
-         st_err_log(110, __FILE__, __LINE__);
+         ock_log_err(OCK_E_OBJ_MGR_FIND_IN_MAP);
       }
       delete_token_object( obj );
       object_free( obj );
@@ -1155,7 +1155,7 @@ object_mgr_destroy_token_objects( void )
          object_mgr_invalidate_handle1( handle );
       }
       else{
-         st_err_log(110, __FILE__, __LINE__);
+         ock_log_err(OCK_E_OBJ_MGR_FIND_IN_MAP);
       }
       delete_token_object( obj );
       object_free( obj );
@@ -1534,7 +1534,7 @@ object_mgr_find_build_list( SESSION      * sess,
       if (match) {
          rc = object_mgr_find_in_map2( obj, &handle );
          if (rc != CKR_OK) {
-            //st_err_log(110, __FILE__, __LINE__);
+            //ock_log_err(OCK_E_OBJ_MGR_FIND_IN_MAP);
             rc = object_mgr_add_to_map( sess, obj, &handle );
             if (rc != CKR_OK){
                ock_log_err(OCK_E_FUNC);
@@ -1634,7 +1634,7 @@ object_mgr_get_attribute_values( SESSION           * sess,
 
    rc = object_mgr_find_in_map1( handle, &obj );
    if (rc != CKR_OK){
-      st_err_log(110, __FILE__, __LINE__);
+      ock_log_err(OCK_E_OBJ_MGR_FIND_IN_MAP);
       goto done;
    }
    priv_obj = object_is_private( obj );
@@ -1833,7 +1833,7 @@ object_mgr_purge_session_objects( SESSION       * sess,
             object_free( obj );
          }
          else
-            st_err_log(110, __FILE__, __LINE__);
+            ock_log_err(OCK_E_OBJ_MGR_FIND_IN_MAP);
 
          next = node->next;
          sess_obj_list = dlist_remove_node( sess_obj_list, node );
@@ -1896,7 +1896,7 @@ object_mgr_purge_token_objects( )
       if (rc == CKR_OK)
          object_mgr_invalidate_handle1( handle );
       else{
-         st_err_log(110, __FILE__, __LINE__);
+         ock_log_err(OCK_E_OBJ_MGR_FIND_IN_MAP);
       }
       object_free( obj );
 
@@ -1936,7 +1936,7 @@ object_mgr_purge_private_token_objects( void )
          object_mgr_invalidate_handle1( handle );
       }
       else{
-         st_err_log(110, __FILE__, __LINE__);
+         ock_log_err(OCK_E_OBJ_MGR_FIND_IN_MAP);
       }
       object_free( obj );
 
@@ -2058,7 +2058,7 @@ object_mgr_set_attribute_values( SESSION           * sess,
    MY_UnlockMutex( &obj_list_mutex );
 
    if (rc != CKR_OK) {
-      st_err_log(110, __FILE__, __LINE__);
+      ock_log_err(OCK_E_OBJ_MGR_FIND_IN_MAP);
       return CKR_OBJECT_HANDLE_INVALID;
    }
 
@@ -2508,7 +2508,7 @@ object_mgr_update_publ_tok_obj_from_shm()
       if (val < 0) {
          rc = object_mgr_find_in_map2( obj, &handle );
          if (rc == CKR_OK){
-            st_err_log(110, __FILE__, __LINE__);
+            ock_log_err(OCK_E_OBJ_MGR_FIND_IN_MAP);
             object_mgr_invalidate_handle1( handle );
          }
          object_free( obj );
@@ -2591,7 +2591,7 @@ object_mgr_update_publ_tok_obj_from_shm()
 
          rc = object_mgr_find_in_map2( obj, &handle );
          if (rc == CKR_OK){
-            st_err_log(110, __FILE__, __LINE__);
+            ock_log_err(OCK_E_OBJ_MGR_FIND_IN_MAP);
             object_mgr_invalidate_handle1( handle );
          }
          object_free( obj );
@@ -2649,7 +2649,7 @@ object_mgr_update_priv_tok_obj_from_shm()
       if (val < 0) {
          rc = object_mgr_find_in_map2( obj, &handle );
          if (rc == CKR_OK){
-            st_err_log(110, __FILE__, __LINE__);
+            ock_log_err(OCK_E_OBJ_MGR_FIND_IN_MAP);
             object_mgr_invalidate_handle1( handle );
          }
          object_free( obj );
@@ -2732,7 +2732,7 @@ object_mgr_update_priv_tok_obj_from_shm()
 
          rc = object_mgr_find_in_map2( obj, &handle );
          if (rc == CKR_OK){
-            st_err_log(110, __FILE__, __LINE__);
+            ock_log_err(OCK_E_OBJ_MGR_FIND_IN_MAP);
             object_mgr_invalidate_handle1( handle );
          }
          object_free( obj );

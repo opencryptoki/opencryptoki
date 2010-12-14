@@ -221,7 +221,7 @@ rsa_pkcs_encrypt( SESSION           *sess,
 
    rc = object_mgr_find_in_map1( ctx->key, &key_obj );
    if (rc != CKR_OK){
-      st_err_log(110, __FILE__, __LINE__);
+      ock_log_err(OCK_E_OBJ_MGR_FIND_IN_MAP);
       return rc;
    }
    flag = template_attribute_find( key_obj->template, CKA_MODULUS, &attr );
@@ -277,7 +277,7 @@ rsa_pkcs_decrypt( SESSION           *sess,
 
    rc = object_mgr_find_in_map1( ctx->key, &key_obj );
    if (rc != CKR_OK){
-      st_err_log(110, __FILE__, __LINE__);
+      ock_log_err(OCK_E_OBJ_MGR_FIND_IN_MAP);
       return rc;
    }
    flag = template_attribute_find( key_obj->template, CKA_MODULUS, &attr );
@@ -337,7 +337,7 @@ rsa_pkcs_sign( SESSION             *sess,
    }
    rc = object_mgr_find_in_map1( ctx->key, &key_obj );
    if (rc != CKR_OK){
-      st_err_log(110, __FILE__, __LINE__);
+      ock_log_err(OCK_E_OBJ_MGR_FIND_IN_MAP);
       return rc;
    }
    flag = template_attribute_find( key_obj->template, CKA_MODULUS, &attr );
@@ -402,7 +402,7 @@ rsa_pkcs_verify( SESSION             * sess,
 
    rc = object_mgr_find_in_map1( ctx->key, &key_obj );
    if (rc != CKR_OK){
-      st_err_log(110, __FILE__, __LINE__);
+      ock_log_err(OCK_E_OBJ_MGR_FIND_IN_MAP);
       return rc;
    }
    flag = template_attribute_find( key_obj->template, CKA_MODULUS, &attr );
@@ -470,7 +470,7 @@ rsa_pkcs_verify_recover( SESSION             * sess,
    }
    rc = object_mgr_find_in_map1( ctx->key, &key_obj );
    if (rc != CKR_OK){
-      st_err_log(110, __FILE__, __LINE__);
+      ock_log_err(OCK_E_OBJ_MGR_FIND_IN_MAP);
       return rc;
    }
    flag = template_attribute_find( key_obj->template, CKA_MODULUS, &attr );
