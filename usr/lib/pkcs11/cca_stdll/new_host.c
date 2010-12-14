@@ -2324,7 +2324,7 @@ CK_RV SC_DecryptInit( ST_SESSION_HANDLE  sSession,
 
 	rc = decr_mgr_init( sess, &sess->decr_ctx, OP_DECRYPT_INIT, pMechanism, hKey );
 	if (rc != CKR_OK) {
-		st_err_log(179, __FILE__, __LINE__);
+		ock_log_err(OCK_E_DECRYPT_MGR_INIT);
 	}
 
  done:
