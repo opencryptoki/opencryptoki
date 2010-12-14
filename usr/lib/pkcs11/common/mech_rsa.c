@@ -367,7 +367,7 @@ rsa_format_block( CK_BYTE   * in_data,
      * encryption blocks.
      */
     if ((type == 1 || type == 2) && ((padding_len) < 8)) {
-        st_err_log(109, __FILE__, __LINE__);
+        ock_log_err(OCK_E_DATA_LEN2);
         rc = CKR_DATA_LEN_RANGE;
         return rc;
     }
@@ -629,7 +629,7 @@ rsa_pkcs_encrypt( SESSION           *sess,
    // check input data length restrictions
    //
    if (in_data_len > (modulus_bytes - 11)){
-      st_err_log(109, __FILE__, __LINE__);
+      ock_log_err(OCK_E_DATA_LEN2);
       return CKR_DATA_LEN_RANGE;
    }
 
@@ -765,7 +765,7 @@ rsa_pkcs_sign( SESSION             *sess,
    // check input data length restrictions
    //
    if (in_data_len > (modulus_bytes - 11)){
-      st_err_log(109, __FILE__, __LINE__);
+      ock_log_err(OCK_E_DATA_LEN2);
       return CKR_DATA_LEN_RANGE;
    }
    if (length_only == TRUE) {
@@ -969,7 +969,7 @@ rsa_x509_encrypt( SESSION           *sess,
    // CKM_RSA_X_509 requires input data length to be no bigger than the modulus
    //
    if (in_data_len > modulus_bytes){
-      st_err_log(109, __FILE__, __LINE__);
+      ock_log_err(OCK_E_DATA_LEN2);
       return CKR_DATA_LEN_RANGE;
    }
    if (length_only == TRUE) {
@@ -1110,7 +1110,7 @@ rsa_x509_sign( SESSION             *sess,
    // check input data length restrictions
    //
    if (in_data_len > modulus_bytes){
-      st_err_log(109, __FILE__, __LINE__);
+      ock_log_err(OCK_E_DATA_LEN2);
       return CKR_DATA_LEN_RANGE;
    }
    if (length_only == TRUE) {

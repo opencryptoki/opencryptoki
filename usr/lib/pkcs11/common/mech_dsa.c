@@ -353,7 +353,7 @@ dsa_sign( SESSION             * sess,
    // hash of the data so the input to the DSA operation must be 20 bytes
    //
    if (in_data_len != 20){
-      st_err_log(109, __FILE__, __LINE__);
+      ock_log_err(OCK_E_DATA_LEN2);
       return CKR_DATA_LEN_RANGE;
    }
    if (length_only == TRUE) {
@@ -415,7 +415,7 @@ dsa_verify( SESSION             * sess,
       return CKR_SIGNATURE_LEN_RANGE;
    }
    if (in_data_len != 20){
-      st_err_log(109, __FILE__, __LINE__);
+      ock_log_err(OCK_E_DATA_LEN2);
       return CKR_DATA_LEN_RANGE;
    }
    rc = ckm_dsa_verify( signature, in_data, key_obj );

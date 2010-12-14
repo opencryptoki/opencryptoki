@@ -63,7 +63,7 @@ rsa_pkcs_encrypt( SESSION           *sess,
    // check input data length restrictions
    //
    if (in_data_len > (modulus_bytes - 11)){
-      st_err_log(109, __FILE__, __LINE__);
+      ock_log_err(OCK_E_DATA_LEN2);
       return CKR_DATA_LEN_RANGE;
    }
 
@@ -134,7 +134,7 @@ rsa_pkcs_decrypt( SESSION           *sess,
       st_err_log(133, __FILE__, __LINE__);
 
    if (rc == CKR_DATA_LEN_RANGE){
-      st_err_log(109, __FILE__, __LINE__);
+      ock_log_err(OCK_E_DATA_LEN2);
       return CKR_ENCRYPTED_DATA_LEN_RANGE;
    }
    return rc;
@@ -178,7 +178,7 @@ rsa_pkcs_sign( SESSION             *sess,
    // check input data length restrictions
    //
    if (in_data_len > modulus_bytes - 11) {
-      st_err_log(109, __FILE__, __LINE__);
+      ock_log_err(OCK_E_DATA_LEN2);
       return CKR_DATA_LEN_RANGE;
    }
    if (length_only == TRUE) {

@@ -793,7 +793,7 @@ os_specific_rsa_keygen(TEMPLATE *publ_tmpl,  TEMPLATE *priv_tmpl)
    }
     
    if(publ_exp->ulValueLen > (mod_bits * 8)){
-     st_err_log(109, __FILE__, __LINE__);
+     ock_log_err(OCK_E_DATA_LEN2);
      return CKR_DATA_LEN_RANGE;
    }
 
