@@ -929,7 +929,7 @@ key_mgr_wrap_key( SESSION           * sess,
       case CKK_GENERIC_SECRET:
          rc = generic_secret_wrap_get_data( key2_obj->template, length_only, &data, &data_len );
          if (rc != CKR_OK){
-            st_err_log(96, __FILE__, __LINE__);
+            ock_log_err(OCK_E_GENERIC_SECRET_WRAP_GET_DATA);
             return rc;
          }
          break;
