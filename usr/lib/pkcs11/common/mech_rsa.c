@@ -843,17 +843,17 @@ rsa_pkcs_verify( SESSION             * sess,
       rc = rsa_parse_block( out, modulus_bytes, out_data, &out_data_len, PKCS_BT_1);
       if (rc == CKR_OK) {
          if (in_data_len != out_data_len){
-            st_err_log(47, __FILE__, __LINE__);
+            ock_log_err(OCK_E_SIG_INV);
             return CKR_SIGNATURE_INVALID;
          }
 
          if (memcmp(in_data, out_data, out_data_len) != 0){
-            st_err_log(47, __FILE__, __LINE__);
+            ock_log_err(OCK_E_SIG_INV);
             return CKR_SIGNATURE_INVALID;
          }
       }
       else if (rc == CKR_ENCRYPTED_DATA_INVALID ) {
-         st_err_log(47, __FILE__, __LINE__);
+         ock_log_err(OCK_E_SIG_INV);
          return CKR_SIGNATURE_INVALID;
       } else {
          ock_log_err(OCK_E_FUNC);
@@ -920,7 +920,7 @@ rsa_pkcs_verify_recover( SESSION             * sess,
    if (rc == CKR_OK) {
       rc = rsa_parse_block(out, modulus_bytes, out_data, out_data_len, PKCS_BT_1);
       if (rc == CKR_ENCRYPTED_DATA_INVALID ) {
-         st_err_log(47, __FILE__, __LINE__);
+         ock_log_err(OCK_E_SIG_INV);
          return CKR_SIGNATURE_INVALID;
       } else if (rc != CKR_OK) {
          ock_log_err(OCK_E_FUNC);
@@ -1200,13 +1200,13 @@ rsa_x509_verify( SESSION             * sess,
       //
 
       if ((in_data_len - pos1) != (modulus_bytes - pos2)){
-         st_err_log(47, __FILE__, __LINE__);
+         ock_log_err(OCK_E_SIG_INV);
          return CKR_SIGNATURE_INVALID;
       }
       len = in_data_len - pos1;
 
       if (memcmp(&in_data[pos1], &out[pos2], len) != 0){
-         st_err_log(47, __FILE__, __LINE__);
+         ock_log_err(OCK_E_SIG_INV);
          return CKR_SIGNATURE_INVALID;
       }
       return CKR_OK;

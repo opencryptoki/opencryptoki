@@ -425,12 +425,12 @@ rsa_pkcs_verify( SESSION             * sess,
    rc = ckm_rsa_encrypt( signature, modulus_bytes, out, &out_len, key_obj );
    if (rc == CKR_OK) {
       if (out_len != in_data_len){
-         st_err_log(47, __FILE__, __LINE__);
+         ock_log_err(OCK_E_SIG_INV);
          return CKR_SIGNATURE_INVALID;
       }
 
       if (memcmp(in_data, &out, out_len) != 0){
-         st_err_log(47, __FILE__, __LINE__);
+         ock_log_err(OCK_E_SIG_INV);
          return CKR_SIGNATURE_INVALID;
       }
       return CKR_OK;

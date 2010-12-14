@@ -418,7 +418,7 @@ sha1_hmac_verify( SESSION              * sess,
    }
 
    if (memcmp(hmac, signature, hmac_len) != 0){
-      st_err_log(47, __FILE__, __LINE__);
+      ock_log_err(OCK_E_SIG_INV);
       rc = CKR_SIGNATURE_INVALID;
    }
 done:

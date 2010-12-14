@@ -723,7 +723,7 @@ ssl3_mac_verify( SESSION              * sess,
    }
 
    if (memcmp(mac, signature, mac_len) != 0){
-      st_err_log(47, __FILE__, __LINE__); 
+      ock_log_err(OCK_E_SIG_INV);
       rc = CKR_SIGNATURE_INVALID;
    }
 error:
@@ -915,12 +915,12 @@ ssl3_mac_verify_final( SESSION              * sess,
       return rc;
    }
    if ((mac_len != sig_len) || (mac_len > hash_len)){
-      st_err_log(47, __FILE__, __LINE__);
+      ock_log_err(OCK_E_SIG_INV);
       rc = CKR_SIGNATURE_INVALID;
    }
    else if (memcmp(signature, hash, sig_len) != 0){
       rc = CKR_SIGNATURE_INVALID;
-      st_err_log(47, __FILE__, __LINE__);
+      ock_log_err(OCK_E_SIG_INV);
    }
 
    return rc;

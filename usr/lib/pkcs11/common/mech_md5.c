@@ -631,7 +631,7 @@ md5_hmac_verify( SESSION              * sess,
       return CKR_SIGNATURE_LEN_RANGE;
    }
    if (memcmp(hmac, signature, hmac_len) != 0){
-      st_err_log(47, __FILE__, __LINE__);
+      ock_log_err(OCK_E_SIG_INV);
       rc = CKR_SIGNATURE_INVALID;
    }
    sign_mgr_cleanup( &hmac_ctx );

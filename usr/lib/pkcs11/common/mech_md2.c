@@ -649,7 +649,7 @@ md2_hmac_verify( SESSION              * sess,
       return CKR_SIGNATURE_LEN_RANGE;
    }
    if (memcmp(hmac, signature, hmac_len) != 0){
-      st_err_log(47, __FILE__, __LINE__);
+      ock_log_err(OCK_E_SIG_INV);
       return CKR_SIGNATURE_INVALID;
    }
    return CKR_OK;
