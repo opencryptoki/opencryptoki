@@ -3273,7 +3273,7 @@ generic_secret_wrap_get_data( TEMPLATE   * tmpl,
    rc = template_attribute_find( tmpl, CKA_IBM_OPAQUE, &attr );
 #endif
    if (rc == FALSE){
-      st_err_log(26, __FILE__, __LINE__);
+      ock_log_err(OCK_E_KEY_NOT_WRAPPABLE);
       return CKR_KEY_NOT_WRAPPABLE;
    }
    *data_len = attr->ulValueLen;
@@ -3946,7 +3946,7 @@ des_wrap_get_data( TEMPLATE   * tmpl,
 
    rc = template_attribute_find( tmpl, CKA_VALUE, &attr );
    if (rc == FALSE){
-      st_err_log(26, __FILE__, __LINE__);
+      ock_log_err(OCK_E_KEY_NOT_WRAPPABLE);
       return CKR_KEY_NOT_WRAPPABLE;
    }
    *data_len = attr->ulValueLen;
@@ -4287,7 +4287,7 @@ des3_wrap_get_data( TEMPLATE   * tmpl,
 
    rc = template_attribute_find( tmpl, CKA_VALUE, &attr );
    if (rc == FALSE){
-      st_err_log(26, __FILE__, __LINE__);
+      ock_log_err(OCK_E_KEY_NOT_WRAPPABLE);
       return CKR_KEY_NOT_WRAPPABLE;
    }
    *data_len = attr->ulValueLen;
@@ -5266,7 +5266,7 @@ aes_wrap_get_data( TEMPLATE   * tmpl,
 
    rc = template_attribute_find( tmpl, CKA_VALUE, &attr );
    if (rc == FALSE){
-      st_err_log(26, __FILE__, __LINE__);
+      ock_log_err(OCK_E_KEY_NOT_WRAPPABLE);
       return CKR_KEY_NOT_WRAPPABLE;
    }
    *data_len = attr->ulValueLen;

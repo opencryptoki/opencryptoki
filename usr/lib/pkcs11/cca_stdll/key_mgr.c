@@ -811,13 +811,13 @@ key_mgr_wrap_key( SESSION           * sess,
    //
    rc = template_attribute_find( key2_obj->template, CKA_EXTRACTABLE, &attr );
    if (rc == FALSE){
-      st_err_log(26, __FILE__, __LINE__);
+      ock_log_err(OCK_E_KEY_NOT_WRAPPABLE);
       return CKR_KEY_NOT_WRAPPABLE;  // could happen if user tries to wrap a public key
    }
    else {
       flag = *(CK_BBOOL *)attr->pValue;
       if (flag == FALSE){
-         st_err_log(26, __FILE__, __LINE__);
+         ock_log_err(OCK_E_KEY_NOT_WRAPPABLE);
          return CKR_KEY_NOT_WRAPPABLE;
       }
    }
@@ -828,7 +828,7 @@ key_mgr_wrap_key( SESSION           * sess,
    //
    rc = template_attribute_find( key2_obj->template, CKA_CLASS, &attr );
    if (rc == FALSE){
-      st_err_log(26, __FILE__, __LINE__);
+      ock_log_err(OCK_E_KEY_NOT_WRAPPABLE);
       return CKR_KEY_NOT_WRAPPABLE;
    }
    else
@@ -846,7 +846,7 @@ key_mgr_wrap_key( SESSION           * sess,
       case CKM_AES_ECB:
       case CKM_AES_CBC:
          if (class != CKO_SECRET_KEY){
-            st_err_log(26, __FILE__, __LINE__);
+            ock_log_err(OCK_E_KEY_NOT_WRAPPABLE);
             return CKR_KEY_NOT_WRAPPABLE;
          }
          break;
@@ -864,13 +864,13 @@ key_mgr_wrap_key( SESSION           * sess,
       case CKM_RSA_PKCS:
       case CKM_RSA_X_509:
          if (class != CKO_SECRET_KEY){
-            st_err_log(26, __FILE__, __LINE__);
+            ock_log_err(OCK_E_KEY_NOT_WRAPPABLE);
             return CKR_KEY_NOT_WRAPPABLE;
          }
          break;
 
       default:
-         st_err_log(26, __FILE__, __LINE__);
+         ock_log_err(OCK_E_KEY_NOT_WRAPPABLE);
          return CKR_KEY_NOT_WRAPPABLE;
    }
 
@@ -879,7 +879,7 @@ key_mgr_wrap_key( SESSION           * sess,
    //
    rc = template_attribute_find( key2_obj->template, CKA_KEY_TYPE, &attr );
    if (rc == FALSE){
-      st_err_log(26, __FILE__, __LINE__);
+      ock_log_err(OCK_E_KEY_NOT_WRAPPABLE);
       return CKR_KEY_NOT_WRAPPABLE;
    }
    else
@@ -943,7 +943,7 @@ key_mgr_wrap_key( SESSION           * sess,
 	 break;
 #endif
       default:
-         st_err_log(26, __FILE__, __LINE__);
+         ock_log_err(OCK_E_KEY_NOT_WRAPPABLE);
          return CKR_KEY_NOT_WRAPPABLE;
    }
 
@@ -996,7 +996,7 @@ key_mgr_wrap_key( SESSION           * sess,
          break;
 
       default:
-         st_err_log(26, __FILE__, __LINE__);
+         ock_log_err(OCK_E_KEY_NOT_WRAPPABLE);
          return CKR_KEY_NOT_WRAPPABLE;
    }
 
