@@ -476,7 +476,7 @@ dp_object_validate_attribute( TEMPLATE *tmpl, CK_ATTRIBUTE *attr, CK_ULONG mode)
 
       case CKA_LOCAL:
 	 if (mode == MODE_CREATE || mode == MODE_KEYGEN) {
-	    st_err_log(8, __FILE__, __LINE__);
+	    ock_log_err(OCK_E_ATTR_TYPE_INV);
 	    return CKR_ATTRIBUTE_TYPE_INVALID;
 	 }
 	 return CKR_OK;

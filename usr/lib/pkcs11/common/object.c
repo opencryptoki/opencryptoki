@@ -383,7 +383,7 @@ object_create( CK_ATTRIBUTE  * pTemplate,
 	// Return CKR_ATTRIBUTE_TYPE_INVALID when trying to create a
 	// vendor-defined object.
 	if (class >= CKO_VENDOR_DEFINED) {
-		st_err_log(8, __FILE__, __LINE__);
+		ock_log_err(OCK_E_ATTR_TYPE_INV);
 		return CKR_ATTRIBUTE_TYPE_INVALID;
 	}
 
@@ -791,7 +791,7 @@ object_get_attribute_values( OBJECT        * obj,
 
       flag = template_attribute_find( obj_tmpl, pTemplate[i].type, &attr );
       if (flag == FALSE) {
-         st_err_log(8, __FILE__, __LINE__); 
+         ock_log_err(OCK_E_ATTR_TYPE_INV);
          rc = CKR_ATTRIBUTE_TYPE_INVALID;
          pTemplate[i].ulValueLen = (CK_ULONG)-1;
          continue;

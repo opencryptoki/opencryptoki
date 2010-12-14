@@ -530,7 +530,7 @@ key_object_validate_attribute( TEMPLATE *tmpl, CK_ATTRIBUTE *attr, CK_ULONG mode
          return template_validate_base_attribute( tmpl, attr, mode );
    }
 
-   st_err_log(8, __FILE__, __LINE__);
+   ock_log_err(OCK_E_ATTR_TYPE_INV);
    return CKR_ATTRIBUTE_TYPE_INVALID;
 }
 
@@ -658,7 +658,7 @@ publ_key_validate_attribute( TEMPLATE *tmpl, CK_ATTRIBUTE *attr, CK_ULONG mode )
          return key_object_validate_attribute( tmpl, attr, mode );
    }
 
-   st_err_log(8, __FILE__, __LINE__);
+   ock_log_err(OCK_E_ATTR_TYPE_INV);
    return CKR_ATTRIBUTE_TYPE_INVALID;
 }
 
@@ -964,7 +964,7 @@ FALSE){
          return key_object_validate_attribute( tmpl, attr, mode );
    }
 
-   st_err_log(8, __FILE__, __LINE__);
+   ock_log_err(OCK_E_ATTR_TYPE_INV);
    return CKR_ATTRIBUTE_TYPE_INVALID;
 }
 
@@ -1301,7 +1301,7 @@ MODE_KEYGEN) && (value != FALSE)){
          return key_object_validate_attribute( tmpl, attr, mode );
    }
 
-   st_err_log(8, __FILE__, __LINE__);
+   ock_log_err(OCK_E_ATTR_TYPE_INV);
    return CKR_ATTRIBUTE_TYPE_INVALID;
 }
 
