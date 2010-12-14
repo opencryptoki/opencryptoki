@@ -922,7 +922,7 @@ restore_private_token_object( CK_BYTE  * data,
 #endif
  
    if (rc != CKR_OK){
-      // st_err_log(106, __FILE__, __LINE__);
+      // ock_log_err(OCK_E_TDES_CBC_DECRYPT);
       goto done;
    }
 
@@ -1049,7 +1049,7 @@ load_masterkey_so( void )
 #endif
 
    if (rc != CKR_OK){
-      st_err_log(106, __FILE__, __LINE__);
+      ock_log_err(OCK_E_TDES_CBC_DECRYPT);
       goto done;
    }
    memcpy( (CK_BYTE *)&mk, clear, sizeof(mk) );
@@ -1149,7 +1149,7 @@ load_masterkey_user( void )
 #endif
 
    if (rc != CKR_OK){
-      st_err_log(106, __FILE__, __LINE__);
+      ock_log_err(OCK_E_TDES_CBC_DECRYPT);
       goto done;
    }
    memcpy( (CK_BYTE *)&mk, clear, sizeof(mk) );
