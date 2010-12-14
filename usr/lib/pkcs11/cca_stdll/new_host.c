@@ -371,7 +371,7 @@ ST_Initialize(void **FunctionList,
 	MY_CreateMutex( &pkcs_mutex      );
 	MY_CreateMutex( &obj_list_mutex  );
 	if (pthread_rwlock_init(&obj_list_rw_mutex, NULL)) {
-		st_err_log(145, __FILE__, __LINE__);
+		ock_log_err(OCK_E_TOKEN_SPECIFIC_INIT);
 	}
 	MY_CreateMutex( &sess_list_mutex );
 	MY_CreateMutex( &login_mutex     );
@@ -409,7 +409,7 @@ ST_Initialize(void **FunctionList,
 		rc =  token_specific.t_init(Correlator,SlotNumber);
 		if (rc != 0) {   // Zero means success, right?!?
 			*FunctionList = NULL;
-			st_err_log(145, __FILE__, __LINE__);
+			ock_log_err(OCK_E_TOKEN_SPECIFIC_INIT);
 			goto done;
 		}
 	}
@@ -417,7 +417,7 @@ ST_Initialize(void **FunctionList,
 	rc = load_token_data();
 	if (rc != CKR_OK) {
 		*FunctionList = NULL;
-		st_err_log(145, __FILE__, __LINE__);
+		ock_log_err(OCK_E_TOKEN_SPECIFIC_INIT);
 		goto done;
 	}
 
@@ -437,7 +437,7 @@ ST_Initialize(void **FunctionList,
  done:
 	ReleaseMutex( native_mutex );
 	if (rc != 0)
-		st_err_log(145, __FILE__, __LINE__);
+		ock_log_err(OCK_E_TOKEN_SPECIFIC_INIT);
 	return rc;
 }
 
