@@ -85,7 +85,7 @@ dh_pkcs_derive( SESSION           * sess,
             keyclass = *(CK_OBJECT_CLASS *)pTemplate[i].pValue;
             if (keyclass != CKO_SECRET_KEY)
             {
-               st_err_log(49, __FILE__, __LINE__);
+               ock_log_err(OCK_E_TMPL_INCONS);
                return CKR_TEMPLATE_INCONSISTENT;
             }
          }

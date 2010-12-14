@@ -1700,7 +1700,7 @@ template_validate_base_attribute( TEMPLATE      * tmpl,
          break;
 
       default:
-         st_err_log(49, __FILE__, __LINE__); 
+         ock_log_err(OCK_E_TMPL_INCONS);
          return CKR_TEMPLATE_INCONSISTENT;
    }
 

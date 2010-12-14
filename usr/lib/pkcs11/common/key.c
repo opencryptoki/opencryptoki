@@ -3870,7 +3870,7 @@ des_validate_attribute( TEMPLATE *tmpl, CK_ATTRIBUTE *attr, CK_ULONG mode )
             } 
          }
          else{
-            st_err_log(49, __FILE__, __LINE__);
+            ock_log_err(OCK_E_TMPL_INCONS);
             return CKR_TEMPLATE_INCONSISTENT;
          }
       default:
@@ -4032,7 +4032,7 @@ des2_validate_attribute( TEMPLATE *tmpl, CK_ATTRIBUTE *attr, CK_ULONG mode )
             }
          }
          else{
-            st_err_log(49, __FILE__, __LINE__);
+            ock_log_err(OCK_E_TMPL_INCONS);
             return CKR_TEMPLATE_INCONSISTENT;
          }
       default:
@@ -4200,7 +4200,7 @@ des3_validate_attribute( TEMPLATE *tmpl, CK_ATTRIBUTE *attr, CK_ULONG mode )
             }
          }
          else{
-            st_err_log(49, __FILE__, __LINE__);
+            ock_log_err(OCK_E_TMPL_INCONS);
             return CKR_TEMPLATE_INCONSISTENT;
          }
       default:
@@ -4818,7 +4818,7 @@ cdmf_validate_attribute( TEMPLATE *tmpl, CK_ATTRIBUTE *attr, CK_ULONG mode )
                }
             }
             else{
-               st_err_log(49, __FILE__, __LINE__);
+               ock_log_err(OCK_E_TMPL_INCONS);
                return CKR_TEMPLATE_INCONSISTENT;
             }
          }
@@ -5178,7 +5178,7 @@ aes_validate_attribute( TEMPLATE *tmpl, CK_ATTRIBUTE *attr, CK_ULONG mode )
 	    return CKR_OK;
          }
          else{
-            st_err_log(49, __FILE__, __LINE__);
+            ock_log_err(OCK_E_TMPL_INCONS);
             return CKR_TEMPLATE_INCONSISTENT;
          }
       default:

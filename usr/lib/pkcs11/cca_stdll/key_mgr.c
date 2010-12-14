@@ -354,7 +354,7 @@ key_mgr_generate_key( SESSION           * sess,
       if (pTemplate[i].type == CKA_CLASS) {
          keyclass = *(CK_OBJECT_CLASS *)pTemplate[i].pValue;
          if (keyclass != CKO_SECRET_KEY){
-            st_err_log(49, __FILE__, __LINE__);
+            ock_log_err(OCK_E_TMPL_INCONS);
             return CKR_TEMPLATE_INCONSISTENT;
          }
       }
@@ -367,7 +367,7 @@ key_mgr_generate_key( SESSION           * sess,
    switch (mech->mechanism) {
       case CKM_DES_KEY_GEN:
          if (subclass != 0 && subclass != CKK_DES){
-            st_err_log(49, __FILE__, __LINE__);
+            ock_log_err(OCK_E_TMPL_INCONS);
             return CKR_TEMPLATE_INCONSISTENT;
          }
 
@@ -376,7 +376,7 @@ key_mgr_generate_key( SESSION           * sess,
 
       case CKM_DES3_KEY_GEN:
          if (subclass != 0 && subclass != CKK_DES3){
-            st_err_log(49, __FILE__, __LINE__);
+            ock_log_err(OCK_E_TMPL_INCONS);
             return CKR_TEMPLATE_INCONSISTENT;
          }
 
@@ -386,7 +386,7 @@ key_mgr_generate_key( SESSION           * sess,
 #if !(NOCDMF)
       case CKM_CDMF_KEY_GEN:
          if (subclass != 0 && subclass != CKK_CDMF){
-            st_err_log(49, __FILE__, __LINE__);
+            ock_log_err(OCK_E_TMPL_INCONS);
             return CKR_TEMPLATE_INCONSISTENT;
          }
 
@@ -396,7 +396,7 @@ key_mgr_generate_key( SESSION           * sess,
 
       case CKM_SSL3_PRE_MASTER_KEY_GEN:
          if (subclass != 0 && subclass != CKK_GENERIC_SECRET){
-            st_err_log(49, __FILE__, __LINE__);
+            ock_log_err(OCK_E_TMPL_INCONS);
             return CKR_TEMPLATE_INCONSISTENT;
          }
          if (mech->ulParameterLen != sizeof(CK_VERSION)){
@@ -408,7 +408,7 @@ key_mgr_generate_key( SESSION           * sess,
 
       case CKM_AES_KEY_GEN:
 	 if (subclass != 0 && subclass != CKK_AES){
-	    st_err_log(49, __FILE__, __LINE__);
+	    ock_log_err(OCK_E_TMPL_INCONS);
 	    return CKR_TEMPLATE_INCONSISTENT;
 	 }
 
@@ -575,7 +575,7 @@ key_mgr_generate_key_pair( SESSION           * sess,
       if (publ_tmpl[i].type == CKA_CLASS) {
          keyclass = *(CK_OBJECT_CLASS *)publ_tmpl[i].pValue;
          if (keyclass != CKO_PUBLIC_KEY){
-            st_err_log(49, __FILE__, __LINE__);
+            ock_log_err(OCK_E_TMPL_INCONS);
             return CKR_TEMPLATE_INCONSISTENT;
          }
       }
@@ -589,7 +589,7 @@ key_mgr_generate_key_pair( SESSION           * sess,
       if (priv_tmpl[i].type == CKA_CLASS) {
          keyclass = *(CK_OBJECT_CLASS *)priv_tmpl[i].pValue;
          if (keyclass != CKO_PRIVATE_KEY){
-            st_err_log(49, __FILE__, __LINE__);
+            ock_log_err(OCK_E_TMPL_INCONS);
             return CKR_TEMPLATE_INCONSISTENT;
          }
       }
@@ -597,7 +597,7 @@ key_mgr_generate_key_pair( SESSION           * sess,
       if (priv_tmpl[i].type == CKA_KEY_TYPE) {
          CK_ULONG temp = *(CK_ULONG *)priv_tmpl[i].pValue;
          if (temp != subclass){
-            st_err_log(49, __FILE__, __LINE__);
+            ock_log_err(OCK_E_TMPL_INCONS);
             return CKR_TEMPLATE_INCONSISTENT;
          }
       }
@@ -607,7 +607,7 @@ key_mgr_generate_key_pair( SESSION           * sess,
    switch (mech->mechanism) {
       case CKM_RSA_PKCS_KEY_PAIR_GEN:
          if (subclass != 0 && subclass != CKK_RSA){
-            st_err_log(49, __FILE__, __LINE__);
+            ock_log_err(OCK_E_TMPL_INCONS);
             return CKR_TEMPLATE_INCONSISTENT;
           }
 
@@ -617,7 +617,7 @@ key_mgr_generate_key_pair( SESSION           * sess,
 #if !(NODSA)
       case CKM_DSA_KEY_PAIR_GEN:
          if (subclass != 0 && subclass != CKK_DSA){
-           st_err_log(49, __FILE__, __LINE__);
+           ock_log_err(OCK_E_TMPL_INCONS);
            return CKR_TEMPLATE_INCONSISTENT;
          }
          subclass = CKK_DSA;
@@ -628,7 +628,7 @@ key_mgr_generate_key_pair( SESSION           * sess,
 #if !(NODH)
       case CKM_DH_PKCS_KEY_PAIR_GEN:
          if (subclass != 0 && subclass != CKK_DH){
-           st_err_log(49, __FILE__, __LINE__);
+           ock_log_err(OCK_E_TMPL_INCONS);
            return CKR_TEMPLATE_INCONSISTENT;
          }
          subclass = CKK_DH;
@@ -1137,7 +1137,7 @@ CKO_PRIVATE_KEY)){
       case CKM_RSA_PKCS:
       case CKM_RSA_X_509:
          if (keyclass != CKO_SECRET_KEY){
-            st_err_log(49, __FILE__, __LINE__);
+            ock_log_err(OCK_E_TMPL_INCONS);
             return CKR_TEMPLATE_INCONSISTENT;
          }
          break;
@@ -1153,7 +1153,7 @@ CKO_PRIVATE_KEY)){
       case CKM_AES_ECB:
       case CKM_AES_CBC:
          if (keyclass != CKO_SECRET_KEY){
-            st_err_log(49, __FILE__, __LINE__);
+            ock_log_err(OCK_E_TMPL_INCONS);
             return CKR_TEMPLATE_INCONSISTENT;
          }
          break;

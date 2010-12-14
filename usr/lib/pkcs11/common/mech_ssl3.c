@@ -1259,21 +1259,21 @@ ssl3_master_key_derive( SESSION           * sess,
       if (attr->type == CKA_CLASS) {
          class = *(CK_OBJECT_CLASS *)attr->pValue;
          if (class != CKO_SECRET_KEY){
-            st_err_log(49, __FILE__, __LINE__); 
+            ock_log_err(OCK_E_TMPL_INCONS);
             return CKR_TEMPLATE_INCONSISTENT;
          }
       }
       else if (attr->type == CKA_KEY_TYPE) {
          keytype = *(CK_KEY_TYPE *)attr->pValue;
          if (keytype != CKK_GENERIC_SECRET){
-            st_err_log(49, __FILE__, __LINE__); 
+            ock_log_err(OCK_E_TMPL_INCONS);
             return CKR_TEMPLATE_INCONSISTENT;
          }
       }
       else if (attr->type == CKA_VALUE_LEN) {
          value_len = *(CK_ULONG *)attr->pValue;
          if (value_len != 48){
-            st_err_log(49, __FILE__, __LINE__); 
+            ock_log_err(OCK_E_TMPL_INCONS);
             return CKR_TEMPLATE_INCONSISTENT;
          }
       }
@@ -1538,7 +1538,7 @@ ssl3_key_and_mac_derive( SESSION           * sess,
       else if (attr->type == CKA_SENSITIVE) {
          tmp = *(CK_BBOOL *)attr->pValue;
          if (tmp != base_sensitive){
-            st_err_log(49, __FILE__, __LINE__); 
+            ock_log_err(OCK_E_TMPL_INCONS);
             return CKR_TEMPLATE_INCONSISTENT;
          }
       }
@@ -1546,7 +1546,7 @@ ssl3_key_and_mac_derive( SESSION           * sess,
       else if (attr->type == CKA_ALWAYS_SENSITIVE) {
          tmp = *(CK_BBOOL *)attr->pValue;
          if (tmp != base_always_sensitive){
-            st_err_log(49, __FILE__, __LINE__); 
+            ock_log_err(OCK_E_TMPL_INCONS);
             return CKR_TEMPLATE_INCONSISTENT;
          }
       }
@@ -1554,7 +1554,7 @@ ssl3_key_and_mac_derive( SESSION           * sess,
       else if (attr->type == CKA_EXTRACTABLE) {
          tmp = *(CK_BBOOL *)attr->pValue;
          if (tmp != base_extractable){
-            st_err_log(49, __FILE__, __LINE__); 
+            ock_log_err(OCK_E_TMPL_INCONS);
             return CKR_TEMPLATE_INCONSISTENT;
          }
       }
@@ -1562,7 +1562,7 @@ ssl3_key_and_mac_derive( SESSION           * sess,
       else if (attr->type == CKA_NEVER_EXTRACTABLE) {
          tmp = *(CK_BBOOL *)attr->pValue;
          if (tmp != base_never_extractable){
-            st_err_log(49, __FILE__, __LINE__); 
+            ock_log_err(OCK_E_TMPL_INCONS);
             return CKR_TEMPLATE_INCONSISTENT;
          }
       }
@@ -1570,7 +1570,7 @@ ssl3_key_and_mac_derive( SESSION           * sess,
       else if (attr->type == CKA_CLASS) {
          CK_OBJECT_CLASS cl = *(CK_OBJECT_CLASS *)attr->pValue;
          if (cl != CKO_SECRET_KEY){
-            st_err_log(49, __FILE__, __LINE__); 
+            ock_log_err(OCK_E_TMPL_INCONS);
             return CKR_TEMPLATE_INCONSISTENT;
          }
       }

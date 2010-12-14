@@ -525,7 +525,7 @@ object_copy( CK_ATTRIBUTE  * pTemplate,
 
    found = template_get_class( tmpl, &class, &subclass );
    if (found == FALSE) {
-      st_err_log(49, __FILE__, __LINE__); 
+      ock_log_err(OCK_E_TMPL_INCONS);
       rc = CKR_TEMPLATE_INCONSISTENT;
       goto error;
    }
