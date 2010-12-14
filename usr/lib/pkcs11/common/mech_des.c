@@ -745,7 +745,7 @@ des_ecb_encrypt_update( SESSION            *sess,
          context->len = remain;
       }
       else
-         st_err_log(115, __FILE__, __LINE__);
+         ock_log_err(OCK_E_DES_ECB_ENCRYPT);
       free( clear );
       return rc;
    }
