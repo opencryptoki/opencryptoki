@@ -1102,7 +1102,7 @@ CK_RV SC_OpenSession(CK_SLOT_ID             sid,
 	locked = FALSE;
 	rc = session_mgr_new( flags, &sess );
 	if (rc != CKR_OK){
-		st_err_log(152, __FILE__, __LINE__); 
+		ock_log_err(OCK_E_SESS_MGR_NEW);
 		goto done;
 	}
 	*phSession = (CK_SESSION_HANDLE_PTR) sess;
