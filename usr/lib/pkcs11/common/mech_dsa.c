@@ -488,7 +488,7 @@ ckm_dsa_sign( CK_BYTE   * in_data,
 
    rc = tok_dsa_sign(in_data, signature, priv_key);
    if (rc != CKR_OK)
-      st_err_log(122, __FILE__, __LINE__);
+      ock_log_err(OCK_E_DSA_SIGN);
    return rc;
 }
 
