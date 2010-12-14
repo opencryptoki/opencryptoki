@@ -3029,7 +3029,7 @@ CK_RV SC_SignFinal( ST_SESSION_HANDLE  sSession,
 				  &sess->sign_ctx,
 				  pSignature, pulSignatureLen );
 	if (rc != CKR_OK){ 
-		st_err_log(129, __FILE__, __LINE__);
+		ock_log_err(OCK_E_SIGN_FINAL);
 	}
 
  done:
