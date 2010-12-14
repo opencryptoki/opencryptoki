@@ -589,7 +589,7 @@ digest_mgr_digest_key( SESSION          * sess,
    //
    rc = template_attribute_find( key_obj->template, CKA_CLASS, &attr );
    if (rc == FALSE) {
-      st_err_log(24, __FILE__, __LINE__);
+      ock_log_err(OCK_E_KEY_INDIGESTIBLE);
       rc = CKR_KEY_INDIGESTIBLE;
       goto out;
    }
@@ -597,7 +597,7 @@ digest_mgr_digest_key( SESSION          * sess,
       class = *(CK_OBJECT_CLASS *)attr->pValue;
 
    if (class != CKO_SECRET_KEY){
-      st_err_log(24, __FILE__, __LINE__);
+      ock_log_err(OCK_E_KEY_INDIGESTIBLE);
       rc =  CKR_KEY_INDIGESTIBLE;
       goto out;
    }
@@ -606,7 +606,7 @@ digest_mgr_digest_key( SESSION          * sess,
    //
    rc = template_attribute_find( key_obj->template, CKA_VALUE, &attr );
    if (!rc){
-      st_err_log(24, __FILE__, __LINE__);
+      ock_log_err(OCK_E_KEY_INDIGESTIBLE);
       rc = CKR_KEY_INDIGESTIBLE;
       goto out;
    }
@@ -615,7 +615,7 @@ digest_mgr_digest_key( SESSION          * sess,
                                   attr->pValue,
                                   attr->ulValueLen );
    if (rc != CKR_OK){
-      st_err_log(24, __FILE__, __LINE__);
+      ock_log_err(OCK_E_KEY_INDIGESTIBLE);
    }
 
 out:
