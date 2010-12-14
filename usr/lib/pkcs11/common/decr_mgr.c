@@ -787,7 +787,7 @@ decr_mgr_decrypt( SESSION           *sess,
       return CKR_FUNCTION_FAILED;
    }
    if (ctx->active == FALSE){
-      st_err_log(32, __FILE__, __LINE__);
+      ock_log_err(OCK_E_OP_NOT_INIT);
       return CKR_OPERATION_NOT_INITIALIZED;
    }
    // if the caller just wants the decrypted length, there is no reason to
@@ -902,7 +902,7 @@ decr_mgr_decrypt_update( SESSION            *sess,
    }
 
    if (ctx->active == FALSE){
-      st_err_log(32, __FILE__, __LINE__);
+      ock_log_err(OCK_E_OP_NOT_INIT);
       return CKR_OPERATION_NOT_INITIALIZED;
    }
    ctx->multi = TRUE;

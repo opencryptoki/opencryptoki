@@ -454,7 +454,7 @@ digest_mgr_digest( SESSION         *sess,
       return CKR_FUNCTION_FAILED;
    }
    if (ctx->active == FALSE){
-      st_err_log(32, __FILE__, __LINE__);
+      ock_log_err(OCK_E_OP_NOT_INIT);
       return CKR_OPERATION_NOT_INITIALIZED;
    }
 
@@ -525,7 +525,7 @@ digest_mgr_digest_update( SESSION         *sess,
       return CKR_FUNCTION_FAILED;
    }
    if (ctx->active == FALSE){
-      st_err_log(32, __FILE__, __LINE__);
+      ock_log_err(OCK_E_OP_NOT_INIT);
       return CKR_OPERATION_NOT_INITIALIZED;
    }
 
@@ -640,7 +640,7 @@ digest_mgr_digest_final( SESSION         *sess,
       return CKR_FUNCTION_FAILED;
    }
    if (ctx->active == FALSE){
-      st_err_log(32, __FILE__, __LINE__);
+      ock_log_err(OCK_E_OP_NOT_INIT);
       return CKR_OPERATION_NOT_INITIALIZED;
    }
 

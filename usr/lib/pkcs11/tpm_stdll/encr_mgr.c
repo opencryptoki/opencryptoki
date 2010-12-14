@@ -525,7 +525,7 @@ encr_mgr_encrypt( SESSION           *sess,
       return CKR_FUNCTION_FAILED;
    }
    if (ctx->active == FALSE){
-      st_err_log(32, __FILE__, __LINE__);
+      ock_log_err(OCK_E_OP_NOT_INIT);
       return CKR_OPERATION_NOT_INITIALIZED;
    }
    // if the caller just wants the encrypted length, there is no reason to
@@ -637,7 +637,7 @@ encr_mgr_encrypt_update( SESSION            *sess,
    }
 
    if (ctx->active == FALSE){
-      st_err_log(32, __FILE__, __LINE__, __FUNCTION__);
+      ock_log_err(OCK_E_OP_NOT_INIT);
       return CKR_OPERATION_NOT_INITIALIZED;
    }
    ctx->multi = TRUE;
@@ -723,7 +723,7 @@ encr_mgr_encrypt_final( SESSION            *sess,
       return CKR_FUNCTION_FAILED;
    }
    if (ctx->active == FALSE){
-      st_err_log(32, __FILE__, __LINE__, __FUNCTION__);
+      ock_log_err(OCK_E_OP_NOT_INIT);
       return CKR_OPERATION_NOT_INITIALIZED;
    }
    switch (ctx->mech.mechanism) {

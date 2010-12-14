@@ -1595,7 +1595,7 @@ object_mgr_find_final( SESSION *sess )
       return CKR_FUNCTION_FAILED;
    }
    if (sess->find_active == FALSE){
-      st_err_log(32, __FILE__, __LINE__, __FUNCTION__); 
+      ock_log_err(OCK_E_OP_NOT_INIT);
       return CKR_OPERATION_NOT_INITIALIZED;
    }
    free( sess->find_list );

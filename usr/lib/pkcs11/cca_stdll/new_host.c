@@ -1933,7 +1933,7 @@ CK_RV SC_FindObjects( ST_SESSION_HANDLE     sSession,
 	}
 
 	if (sess->find_active == FALSE) {
-		st_err_log(32, __FILE__, __LINE__);
+		ock_log_err(OCK_E_OP_NOT_INIT);
 		rc = CKR_OPERATION_NOT_INITIALIZED;
 		goto done;
 	}
@@ -1986,7 +1986,7 @@ CK_RV SC_FindObjectsFinal( ST_SESSION_HANDLE  sSession )
 	}
 
 	if (sess->find_active == FALSE) {
-		st_err_log(32, __FILE__, __LINE__);
+		ock_log_err(OCK_E_OP_NOT_INIT);
 		rc = CKR_OPERATION_NOT_INITIALIZED;
 		goto done;
 	}
@@ -2106,7 +2106,7 @@ CK_RV SC_Encrypt( ST_SESSION_HANDLE  sSession,
 	}
 
 	if (sess->encr_ctx.active == FALSE) {
-		st_err_log(32, __FILE__, __LINE__);
+		ock_log_err(OCK_E_OP_NOT_INIT);
 		rc = CKR_OPERATION_NOT_INITIALIZED;
 		goto done;
 	}
@@ -2170,7 +2170,7 @@ CK_RV SC_EncryptUpdate( ST_SESSION_HANDLE  sSession,
 	}
 
 	if (sess->encr_ctx.active == FALSE) {
-		st_err_log(32, __FILE__, __LINE__);
+		ock_log_err(OCK_E_OP_NOT_INIT);
 		rc = CKR_OPERATION_NOT_INITIALIZED;
 		goto done;
 	}
@@ -2251,7 +2251,7 @@ CK_RV SC_EncryptFinal( ST_SESSION_HANDLE  sSession,
 	}
 
 	if (sess->encr_ctx.active == FALSE) {
-		st_err_log(32, __FILE__, __LINE__);
+		ock_log_err(OCK_E_OP_NOT_INIT);
 		rc = CKR_OPERATION_NOT_INITIALIZED;
 		goto done;
 	}
@@ -2372,7 +2372,7 @@ CK_RV SC_Decrypt( ST_SESSION_HANDLE  sSession,
 	}
 
 	if (sess->decr_ctx.active == FALSE) {
-		st_err_log(32, __FILE__, __LINE__);
+		ock_log_err(OCK_E_OP_NOT_INIT);
 		rc = CKR_OPERATION_NOT_INITIALIZED;
 		goto done;
 	}
@@ -2436,7 +2436,7 @@ CK_RV SC_DecryptUpdate( ST_SESSION_HANDLE  sSession,
 	}
 
 	if (sess->decr_ctx.active == FALSE) {
-		st_err_log(32, __FILE__, __LINE__);
+		ock_log_err(OCK_E_OP_NOT_INIT);
 		rc = CKR_OPERATION_NOT_INITIALIZED;
 		goto done;
 	}
@@ -2498,7 +2498,7 @@ CK_RV SC_DecryptFinal( ST_SESSION_HANDLE  sSession,
 	}
 
 	if (sess->decr_ctx.active == FALSE) {
-		st_err_log(32, __FILE__, __LINE__);
+		ock_log_err(OCK_E_OP_NOT_INIT);
 		rc = CKR_OPERATION_NOT_INITIALIZED;
 		goto done;
 	}
@@ -2683,7 +2683,7 @@ CK_RV SC_DigestUpdate( ST_SESSION_HANDLE  sSession,
 	}
 
 	if (sess->digest_ctx.active == FALSE) {
-		st_err_log(32, __FILE__, __LINE__);
+		ock_log_err(OCK_E_OP_NOT_INIT);
 		rc = CKR_OPERATION_NOT_INITIALIZED;
 		goto done;
 	}
@@ -2728,7 +2728,7 @@ CK_RV SC_DigestKey( ST_SESSION_HANDLE  sSession,
 	}
 
 	if (sess->digest_ctx.active == FALSE) {
-		st_err_log(32, __FILE__, __LINE__);
+		ock_log_err(OCK_E_OP_NOT_INIT);
 		rc = CKR_OPERATION_NOT_INITIALIZED;
 		goto done;
 	}
@@ -2781,7 +2781,7 @@ CK_RV SC_DigestFinal( ST_SESSION_HANDLE  sSession,
 	}
 
 	if (sess->digest_ctx.active == FALSE) {
-		st_err_log(32, __FILE__, __LINE__);
+		ock_log_err(OCK_E_OP_NOT_INIT);
 		rc = CKR_OPERATION_NOT_INITIALIZED;
 		goto done;
 	}
@@ -2900,7 +2900,7 @@ CK_RV SC_Sign( ST_SESSION_HANDLE  sSession,
 	}
 
 	if (sess->sign_ctx.active == FALSE) {
-		st_err_log(32, __FILE__, __LINE__);
+		ock_log_err(OCK_E_OP_NOT_INIT);
 		rc = CKR_OPERATION_NOT_INITIALIZED;
 		goto done;
 	}
@@ -2961,7 +2961,7 @@ CK_RV SC_SignUpdate( ST_SESSION_HANDLE  sSession,
 	}
 
 	if (sess->sign_ctx.active == FALSE) {
-		st_err_log(32, __FILE__, __LINE__);
+		ock_log_err(OCK_E_OP_NOT_INIT);
 		rc = CKR_OPERATION_NOT_INITIALIZED;
 		goto done;
 	}
@@ -3017,7 +3017,7 @@ CK_RV SC_SignFinal( ST_SESSION_HANDLE  sSession,
 	}
 
 	if (sess->sign_ctx.active == FALSE) {
-		st_err_log(32, __FILE__, __LINE__);
+		ock_log_err(OCK_E_OP_NOT_INIT);
 		rc = CKR_OPERATION_NOT_INITIALIZED;
 		goto done;
 	}
@@ -3140,7 +3140,7 @@ CK_RV SC_SignRecover( ST_SESSION_HANDLE  sSession,
 
 	if ((sess->sign_ctx.active == FALSE) || (sess->sign_ctx.recover == FALSE)) {
 		rc = CKR_OPERATION_NOT_INITIALIZED;
-		st_err_log(32, __FILE__, __LINE__);
+		ock_log_err(OCK_E_OP_NOT_INIT);
 		goto done;
 	}
 
@@ -3261,7 +3261,7 @@ CK_RV SC_Verify( ST_SESSION_HANDLE  sSession,
 
 	if (sess->verify_ctx.active == FALSE) {
 		rc = CKR_OPERATION_NOT_INITIALIZED;
-		st_err_log(32, __FILE__, __LINE__);
+		ock_log_err(OCK_E_OP_NOT_INIT);
 		goto done;
 	}
 
@@ -3318,7 +3318,7 @@ CK_RV SC_VerifyUpdate( ST_SESSION_HANDLE  sSession,
 
 	if (sess->verify_ctx.active == FALSE) {
 		rc = CKR_OPERATION_NOT_INITIALIZED;
-		st_err_log(32, __FILE__, __LINE__);
+		ock_log_err(OCK_E_OP_NOT_INIT);
 		goto done;
 	}
 
@@ -3373,7 +3373,7 @@ CK_RV SC_VerifyFinal( ST_SESSION_HANDLE  sSession,
 
 	if (sess->verify_ctx.active == FALSE) {
 		rc = CKR_OPERATION_NOT_INITIALIZED;
-		st_err_log(32, __FILE__, __LINE__);
+		ock_log_err(OCK_E_OP_NOT_INIT);
 		goto done;
 	}
 
@@ -3488,7 +3488,7 @@ CK_RV SC_VerifyRecover( ST_SESSION_HANDLE  sSession,
 
 	if ((sess->verify_ctx.active == FALSE) || (sess->verify_ctx.recover == FALSE)) {
 		rc = CKR_OPERATION_NOT_INITIALIZED;
-		st_err_log(32, __FILE__, __LINE__);
+		ock_log_err(OCK_E_OP_NOT_INIT);
 		goto done;
 	}
 

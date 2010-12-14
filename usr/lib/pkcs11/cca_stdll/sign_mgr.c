@@ -425,11 +425,11 @@ sign_mgr_sign( SESSION              * sess,
       return CKR_FUNCTION_FAILED;
    }
    if (ctx->active == FALSE){
-      st_err_log(32, __FILE__, __LINE__); 
+      ock_log_err(OCK_E_OP_NOT_INIT);
       return CKR_OPERATION_NOT_INITIALIZED;
    }
    if (ctx->recover == TRUE){
-      st_err_log(32, __FILE__, __LINE__); 
+      ock_log_err(OCK_E_OP_NOT_INIT);
       return CKR_OPERATION_NOT_INITIALIZED;
    }
 
@@ -527,11 +527,11 @@ sign_mgr_sign_update( SESSION             * sess,
    }
 
    if (ctx->active == FALSE){
-      st_err_log(32, __FILE__, __LINE__); 
+      ock_log_err(OCK_E_OP_NOT_INIT);
       return CKR_OPERATION_NOT_INITIALIZED;
    }
    if (ctx->recover == TRUE){
-      st_err_log(32, __FILE__, __LINE__); 
+      ock_log_err(OCK_E_OP_NOT_INIT);
       return CKR_OPERATION_NOT_INITIALIZED;
    }
    ctx->multi = TRUE;
@@ -571,11 +571,11 @@ sign_mgr_sign_final( SESSION             * sess,
       return CKR_FUNCTION_FAILED;
    }
    if (ctx->active == FALSE){
-      st_err_log(32, __FILE__, __LINE__); 
+      ock_log_err(OCK_E_OP_NOT_INIT);
       return CKR_OPERATION_NOT_INITIALIZED;
    }
    if (ctx->recover == TRUE){
-      st_err_log(32, __FILE__, __LINE__); 
+      ock_log_err(OCK_E_OP_NOT_INIT);
       return CKR_OPERATION_NOT_INITIALIZED;
    }
    switch (ctx->mech.mechanism) {
@@ -616,11 +616,11 @@ sign_mgr_sign_recover( SESSION             * sess,
       return CKR_FUNCTION_FAILED;
    }
    if (ctx->active == FALSE){
-      st_err_log(32, __FILE__, __LINE__); 
+      ock_log_err(OCK_E_OP_NOT_INIT);
       return CKR_OPERATION_NOT_INITIALIZED;
    }
    if (ctx->recover == FALSE){
-      st_err_log(32, __FILE__, __LINE__); 
+      ock_log_err(OCK_E_OP_NOT_INIT);
       return CKR_OPERATION_NOT_INITIALIZED;
    }
 
