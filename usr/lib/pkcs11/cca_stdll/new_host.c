@@ -887,7 +887,7 @@ CK_RV SC_InitPIN( ST_SESSION_HANDLE  sSession,
 	rc  = compute_sha( pPin, ulPinLen, hash_sha );
 	rc |= compute_md5( pPin, ulPinLen, hash_md5 );
 	if (rc != CKR_OK){
-		st_err_log(148, __FILE__, __LINE__); 	
+		ock_log_err(OCK_E_HASH);
 		goto done;
 	}
 	rc = XProcLock( xproclock );
@@ -957,7 +957,7 @@ CK_RV SC_SetPIN( ST_SESSION_HANDLE  sSession,
 	}
 	rc = compute_sha( pOldPin, ulOldLen, old_hash_sha );
 	if (rc != CKR_OK){
-		st_err_log(148, __FILE__, __LINE__); 	
+		ock_log_err(OCK_E_HASH);
 		goto done;
 	}
 	/* From the PKCS#11 2.20 spec: "C_SetPIN modifies the PIN of
@@ -976,7 +976,7 @@ CK_RV SC_SetPIN( ST_SESSION_HANDLE  sSession,
 		rc  = compute_sha( pNewPin, ulNewLen, new_hash_sha );
 		rc |= compute_md5( pNewPin, ulNewLen, hash_md5 );
 		if (rc != CKR_OK){
-			st_err_log(148, __FILE__, __LINE__); 	
+			ock_log_err(OCK_E_HASH);
 			goto done;
 		}
 		/* The old PIN matches, now make sure its different
@@ -1015,7 +1015,7 @@ CK_RV SC_SetPIN( ST_SESSION_HANDLE  sSession,
 		rc = compute_sha(pNewPin, ulNewLen, new_hash_sha);
 		rc |= compute_md5(pNewPin, ulNewLen, hash_md5);
 		if (rc != CKR_OK){
-			st_err_log(148, __FILE__, __LINE__);
+			ock_log_err(OCK_E_HASH);
 			goto done;
 		}
 		/* The old PIN matches, now make sure its different
