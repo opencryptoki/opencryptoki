@@ -1714,7 +1714,7 @@ ssl3_key_and_mac_derive( SESSION           * sess,
                                      &server_write_handle, server_write_key_value,
                                      write_len );
    if (rc != CKR_OK){
-      st_err_log(139, __FILE__, __LINE__); 
+      ock_log_err(OCK_E_SSL3_PROCESS_WRITE_KEYS);
       goto error;
    }
 
