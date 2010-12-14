@@ -1842,7 +1842,7 @@ CK_RV SC_CreateObject( ST_SESSION_HANDLE    sSession,
    
 	rc = object_mgr_add( sess, pTemplate, ulCount, phObject );
 	if (rc != CKR_OK) {
-		st_err_log(157, __FILE__, __LINE__);
+		ock_log_err(OCK_E_OBJ_MGR_ADD_TO_MAP);
 	}
 
  done:

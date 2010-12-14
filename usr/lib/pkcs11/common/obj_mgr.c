@@ -335,7 +335,7 @@ object_mgr_add( SESSION          * sess,
 
    rc = object_create( pTemplate, ulCount, &o );
    if (rc != CKR_OK){
-      st_err_log(157, __FILE__, __LINE__); 
+      ock_log_err(OCK_E_OBJ_MGR_ADD_TO_MAP);
       goto done;
    }
    // check whether session has permissions to create the object, etc
@@ -481,7 +481,7 @@ object_mgr_add( SESSION          * sess,
    if (rc != CKR_OK) {
       DL_NODE *node = NULL;
 
-      // st_err_log(157, __FILE__, __LINE__);
+      // ock_log_err(OCK_E_OBJ_MGR_ADD_TO_MAP);
       // this is messy but we need to remove the object from whatever
       // list we just added it to
       //
@@ -746,7 +746,7 @@ object_mgr_copy( SESSION          * sess,
    if (rc != CKR_OK) {
       DL_NODE *node = NULL;
       
-      st_err_log(157, __FILE__, __LINE__); 
+      ock_log_err(OCK_E_OBJ_MGR_ADD_TO_MAP);
 
       // this is messy but we need to remove the object from whatever
       // list we just added it to
@@ -971,7 +971,7 @@ object_mgr_create_final( SESSION           * sess,
    if (rc != CKR_OK) {
       DL_NODE *node = NULL;
 
-      st_err_log(157, __FILE__, __LINE__); 
+      ock_log_err(OCK_E_OBJ_MGR_ADD_TO_MAP);
       // this is messy but we need to remove the object from whatever
       // list we just added it to
       //
