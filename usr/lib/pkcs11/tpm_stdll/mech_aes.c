@@ -65,7 +65,7 @@ aes_ecb_encrypt( SESSION           *sess,
       return CKR_FUNCTION_FAILED;
    }
    if (in_data_len % AES_BLOCK_SIZE != 0){
-      st_err_log(11, __FILE__, __LINE__);
+      ock_log_err(OCK_E_DATA_LEN);
       return CKR_DATA_LEN_RANGE;
    }
    rc = object_mgr_find_in_map1( ctx->key, &key );
@@ -198,7 +198,7 @@ aes_cbc_encrypt( SESSION           *sess,
    // multiple of the block size
    //
    if (in_data_len % AES_BLOCK_SIZE != 0){
-      st_err_log(11, __FILE__, __LINE__);
+      ock_log_err(OCK_E_DATA_LEN);
       return CKR_DATA_LEN_RANGE;
    }
 
@@ -1167,7 +1167,7 @@ aes_ecb_encrypt_final( SESSION           *sess,
    // that the overall data length was not a multiple of the blocksize
    //
    if (context->len != 0){
-      st_err_log(11, __FILE__, __LINE__);
+      ock_log_err(OCK_E_DATA_LEN);
       return CKR_DATA_LEN_RANGE;
    }
    *out_data_len = 0;
@@ -1202,7 +1202,7 @@ aes_ecb_decrypt_final( SESSION           *sess,
    // that the overall data length was not a multiple of the blocksize
    //
    if (context->len != 0){
-      st_err_log(11, __FILE__, __LINE__);
+      ock_log_err(OCK_E_DATA_LEN);
       return CKR_DATA_LEN_RANGE;
    }
    *out_data_len = 0;
@@ -1237,7 +1237,7 @@ aes_cbc_encrypt_final( SESSION           *sess,
    // that the overall data length was not a multiple of the blocksize
    //
    if (context->len != 0){
-      st_err_log(11, __FILE__, __LINE__);
+      ock_log_err(OCK_E_DATA_LEN);
       return CKR_DATA_LEN_RANGE;
    }
    *out_data_len = 0;
@@ -1268,7 +1268,7 @@ aes_cbc_decrypt_final( SESSION           *sess,
    context = (AES_CONTEXT *)ctx->context;
 
    if (context->len != 0){
-      st_err_log(11, __FILE__, __LINE__);
+      ock_log_err(OCK_E_DATA_LEN);
       return CKR_DATA_LEN_RANGE;
    }
    *out_data_len = 0;

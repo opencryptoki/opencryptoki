@@ -363,7 +363,7 @@ token_rng(CK_BYTE *output, CK_ULONG bytes)
     rc = CR_get_random(&rand_num, (INT32) bytes) ;
     if (rc != SUCCESS) 
     {
-        st_err_log(11, __FILE__, __LINE__);
+        ock_log_err(OCK_E_DATA_LEN);
         return CKR_FUNCTION_FAILED;
     }
 
@@ -961,7 +961,7 @@ token_specific_des_ecb(CK_BYTE * in_data,
 	// the des decrypt will only fail if the data length is not evenly divisible
 	// by 8
 	if (in_data_len % 8 ){
-		st_err_log(11, __FILE__, __LINE__);
+		ock_log_err(OCK_E_DATA_LEN);
 		return CKR_DATA_LEN_RANGE;
 	}
 
@@ -1016,7 +1016,7 @@ token_specific_des_cbc(CK_BYTE * in_data,
 	// the des decrypt will only fail if the data length is not evenly divisible
 	// by 8
 	if (in_data_len % 8 ){
-		st_err_log(11, __FILE__, __LINE__);
+		ock_log_err(OCK_E_DATA_LEN);
 		return CKR_DATA_LEN_RANGE;
 	}
 
@@ -1064,7 +1064,7 @@ token_specific_tdes_ecb(CK_BYTE * in_data,
 	// the des decrypt will only fail if the data length is not evenly divisible
 	// by 8
 	if (in_data_len % 8 ){
-		st_err_log(11, __FILE__, __LINE__);
+		ock_log_err(OCK_E_DATA_LEN);
 		return CKR_DATA_LEN_RANGE;
 	}
 
@@ -1131,7 +1131,7 @@ token_specific_tdes_cbc(CK_BYTE * in_data,
 	// the des decrypt will only fail if the data length is not evenly divisible
 	// by 8
 	if (in_data_len % 8 ){
-		st_err_log(11, __FILE__, __LINE__);
+		ock_log_err(OCK_E_DATA_LEN);
 		return CKR_DATA_LEN_RANGE;
 	}
 

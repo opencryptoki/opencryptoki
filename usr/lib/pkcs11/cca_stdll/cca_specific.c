@@ -1281,7 +1281,7 @@ sw_des3_cbc(CK_BYTE * in_data,
 	// the des decrypt will only fail if the data length is not evenly divisible
 	// by 8
 	if (in_data_len % 8) {
-		st_err_log(11, __FILE__, __LINE__);
+		ock_log_err(OCK_E_DATA_LEN);
 		DBG("CKR_DATA_LEN_RANGE");
 		return CKR_DATA_LEN_RANGE;
 	}

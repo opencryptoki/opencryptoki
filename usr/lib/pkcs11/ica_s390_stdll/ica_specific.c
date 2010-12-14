@@ -2062,7 +2062,7 @@ token_specific_rsa_encrypt( CK_BYTE   * in_data,
     * be of the same length of the key */
    // FIXME: we're not cheking the size in bits of in_data - but how could we?
    if (publKey->key_length != in_data_len) {
-      st_err_log(11, __FILE__, __LINE__);
+      ock_log_err(OCK_E_DATA_LEN);
       rc = CKR_DATA_LEN_RANGE;
       goto cleanup_pubkey;
    }
@@ -2142,7 +2142,7 @@ token_specific_rsa_decrypt( CK_BYTE   * in_data,
       }
       /* same check as above */
       if (crtKey->key_length != in_data_len) {
-         st_err_log(11, __FILE__, __LINE__);
+         ock_log_err(OCK_E_DATA_LEN);
          rc = CKR_ENCRYPTED_DATA_LEN_RANGE;
          goto crt_cleanup;
       }
@@ -2172,7 +2172,7 @@ token_specific_rsa_decrypt( CK_BYTE   * in_data,
        * be the same */
       // FIXME: we're not cheking the size in bits of in_data - but how could we?
       if (modexpoKey->key_length != in_data_len) {
-         st_err_log(11, __FILE__, __LINE__);
+         ock_log_err(OCK_E_DATA_LEN);
          rc = CKR_ENCRYPTED_DATA_LEN_RANGE;
          goto modexpo_cleanup;
       }
