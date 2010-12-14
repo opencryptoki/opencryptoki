@@ -1548,7 +1548,7 @@ object_mgr_find_build_list( SESSION      * sess,
 	        (template_attribute_find(obj->template, CKA_CLASS, &attr) == TRUE)) {
 	       //axelrh: prevent segfault if pValue set to NULL (bad parse)
 	       if (attr->pValue == NULL) {
-                  st_err_log(3, __FILE__, __LINE__, __FUNCTION__);
+                  ock_log_err(OCK_E_GENERAL_ERR);
                   return CKR_FUNCTION_FAILED;
                }
                if (*(CK_OBJECT_CLASS *)attr->pValue == CKO_HW_FEATURE)

@@ -3355,7 +3355,7 @@ C_Initialize ( CK_VOID_PTR pVoid )
                      // occured
                      free(Anchor);
                      Anchor=NULL;
-                     st_err_log(3, __FILE__, __LINE__);
+                     ock_log_err(OCK_E_GENERAL_ERR);
                      return CKR_GENERAL_ERROR;
                   }
                }
@@ -5081,7 +5081,7 @@ C_WaitForSlotEvent ( CK_FLAGS       flags,
          procp->blocking = 0;
          if ( procp->error ) {
             unlock_shm();
-            st_err_log(3, __FILE__, __LINE__);
+            ock_log_err(OCK_E_GENERAL_ERR);
             return CKR_GENERAL_ERROR; // We bailed on this because we were terminating
             // General error should cause the calling thread to not try anything
             // else...  We need to look at how this holds up in practice.

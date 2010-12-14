@@ -341,7 +341,7 @@ token_rng(CK_BYTE *output, CK_ULONG bytes)
 
       if (rc != 0) {
          pthread_mutex_unlock(&rngmtx);
-         st_err_log(3, __FILE__, __LINE__);
+         ock_log_err(OCK_E_GENERAL_ERR);
          return CKR_GENERAL_ERROR;
          /* report error */
       }
