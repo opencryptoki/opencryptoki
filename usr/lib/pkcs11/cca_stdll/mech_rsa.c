@@ -361,7 +361,7 @@ rsa_hash_pkcs_sign( SESSION              * sess,
    hash_len = sizeof(hash);
    rc = digest_mgr_digest( sess, length_only, &digest_ctx, in_data, in_data_len, hash, &hash_len );
    if (rc != CKR_OK){
-      st_err_log(124, __FILE__, __LINE__);
+      ock_log_err(OCK_E_DIGEST);
       return rc;
    }
       // build the BER-encodings
@@ -510,7 +510,7 @@ rsa_hash_pkcs_verify( SESSION              * sess,
    hash_len = sizeof(hash);
    rc = digest_mgr_digest( sess, FALSE, &digest_ctx, in_data, in_data_len, hash, &hash_len );
    if (rc != CKR_OK){
-      st_err_log(124, __FILE__, __LINE__);
+      ock_log_err(OCK_E_DIGEST);
       return rc;
    }
 

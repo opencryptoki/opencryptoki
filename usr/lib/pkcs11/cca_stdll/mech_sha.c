@@ -382,7 +382,7 @@ sha1_hmac_sign( SESSION              * sess,
                               attr->ulValueLen,
                               hash,  &hash_len );
       if (rc != CKR_OK) {
-         st_err_log(124, __FILE__, __LINE__);
+         ock_log_err(OCK_E_DIGEST);
          return rc;
       }
 
@@ -557,7 +557,7 @@ sha2_hmac_sign( SESSION              * sess,
                               attr->ulValueLen,
                               hash,  &hash_len );
       if (rc != CKR_OK) {
-         st_err_log(124, __FILE__, __LINE__);
+         ock_log_err(OCK_E_DIGEST);
          return rc;
       }
 

@@ -2915,7 +2915,7 @@ CK_RV SC_Digest( ST_SESSION_HANDLE  sSession,
 				pData,   ulDataLen,
 				pDigest, pulDigestLen );
 	if (rc != CKR_OK) {
-		st_err_log(124, __FILE__, __LINE__);
+		ock_log_err(OCK_E_DIGEST);
 	}
 
  done:
@@ -2970,7 +2970,7 @@ CK_RV SC_DigestUpdate( ST_SESSION_HANDLE  sSession,
 	if (pPart){
 		rc = digest_mgr_digest_update( sess, &sess->digest_ctx, pPart, ulPartLen );
 		if (rc != CKR_OK) {
-			st_err_log(124, __FILE__, __LINE__);
+			ock_log_err(OCK_E_DIGEST);
 		}
 	}
  done:
@@ -3014,7 +3014,7 @@ CK_RV SC_DigestKey( ST_SESSION_HANDLE  sSession,
 
 	rc = digest_mgr_digest_key( sess, &sess->digest_ctx, hKey );
 	if (rc != CKR_OK){ 
-		st_err_log(124, __FILE__, __LINE__);
+		ock_log_err(OCK_E_DIGEST);
 	}
 
  done:
