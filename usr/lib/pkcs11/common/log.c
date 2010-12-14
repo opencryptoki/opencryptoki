@@ -458,11 +458,11 @@ stlogit(char *fmt, ...)
         } while (0)
 
 #define _ock_log_stderr(level, fmt, ...)                                \
-        do {
+        do {                                                            \
         } while (0)
 #endif
 
-#define ock_log_err(code, ...)                                        \
+#define ock_log_err(code, ...)                                          \
         do {                                                            \
                 ock_api_log(LOG_ERR, err_msg[code], ## __VA_ARGS__);    \
         } while (0)
@@ -749,24 +749,24 @@ const char* err_msg[] = {
         [OCK_E_DATA_INV]                        ="Data Invalid",
         [OCK_E_DATA_LEN]                        ="Data Length out of Range",
         [OCK_E_DEV_ERR]                         ="Device Error",
-        [OCK_E_DEV_REMOVED]                     ="Device Removed",
+        [OCK_E_DEV_REMOVED]                     ="Device Removed",      /* unused */
         [OCK_E_ENCRYPTED_DATA_INV]              ="Encrypted Data Invalid",
         //15
-        [OCK_E_ENCRYPTED_DATA_LEN]              ="Encrypted Data Length out of Range",
-        [OCK_E_FUNC_CANCELED]                   ="Function Cancelled",
+        [OCK_E_ENCRYPTED_DATA_LEN]              ="Encrypted Data Length out of Range",  /* unused */
+        [OCK_E_FUNC_CANCELED]                   ="Function Cancelled",  /* unused */
         [OCK_E_FUNC_NOT_PARALLEL]               ="Function Not Parallel",
         [OCK_E_KEY_HANDLE_INV]                  ="Key Handle Invalid",
         [OCK_E_KEY_SIZE]                        ="Key Size out of Range",
         //20
         [OCK_E_KEY_INCONS]                      ="Key Type Inconsistent",
         [OCK_E_KEY_NOT_NEEDED]                  ="Key Not Needed",
-        [OCK_E_KEY_CHANGED]                     ="Key Changed",
+        [OCK_E_KEY_CHANGED]                     ="Key Changed", /* unused */
         [OCK_E_KEY_NEEDED]                      ="Key Needed",
         [OCK_E_KEY_INDIGESTIBLE]                ="Key Indigestible",
         //25
-        [OCK_E_KEY_FUNC_NOT_PERMITTED]          ="Key Function Not Permitted",
+        [OCK_E_KEY_FUNC_NOT_PERMITTED]          ="Key Function Not Permitted", /* unused */
         [OCK_E_KEY_NOT_WRAPPABLE]               ="Key Not Wrappable",
-        [OCK_E_KEY_UNEXTRACTABLE]               ="Key Unextractable",
+        [OCK_E_KEY_UNEXTRACTABLE]               ="Key Unextractable",   /* unused */
         [OCK_E_MECH_INV]                        ="Mechanism Invalid",
         [OCK_E_MECH_PARAM_INV]                  ="Mechanism Param Invalid",
         //30
@@ -779,14 +779,14 @@ const char* err_msg[] = {
         [OCK_E_PIN_LEN]                         ="Pin Length out of Range",
         [OCK_E_PIN_EXP]                         ="Pin Expired",
         [OCK_E_PIN_LOCK]                        ="Pin Locked",
-        [OCK_E_SESS_CLOSED]                     ="Session Closed",
-        [OCK_E_SESS_COUNT]                      ="Session Count",
+        [OCK_E_SESS_CLOSED]                     ="Session Closed",      /* unused */
+        [OCK_E_SESS_COUNT]                      ="Session Count",       /* unused */
         //40
         [OCK_E_SESS_HANDLE_INV]                 ="Session Handle Invalid",
         [OCK_E_PARALLEL_SESS]                   ="Parallel Session Not Supported",
         [OCK_E_SESS_READONLY]                   ="Session Read Only",
         [OCK_E_SESS_EXISTS]                     ="Session Exists",
-        [OCK_E_SESS_READONLY_EXISTS]            ="Session Read only Exists",
+        [OCK_E_SESS_READONLY_EXISTS]            ="Session Read only Exists",    /* unused */
         //45
         [OCK_E_SESS_READWRITE_EXISTS]           ="Session Read Write Exists",
         [OCK_E_SIG_LEN]                         ="Signature Length out of Range",
@@ -795,26 +795,26 @@ const char* err_msg[] = {
         [OCK_E_TMPL_INCONS]                     ="Template Inconsistent",
         //50
         [OCK_E_TOK_NOT_PRESENT]                 ="Token Not Present",
-        [OCK_E_TOK_NOT_RECOGNIZED]              ="Token Not Recognized",
-        [OCK_E_TOK_WRITE_PROTECTED]             ="Token Write Protected",
-        [OCK_E_UNWRAP_KEY_HANDLE_INV]           ="Unwrapping Key Handle Invalid",
-        [OCK_E_UNWRAP_KEY_SIZE]                 ="Unwrapping Key Size Range Invalid",
+        [OCK_E_TOK_NOT_RECOGNIZED]              ="Token Not Recognized",        /* unused */
+        [OCK_E_TOK_WRITE_PROTECTED]             ="Token Write Protected",       /* unused */
+        [OCK_E_UNWRAP_KEY_HANDLE_INV]           ="Unwrapping Key Handle Invalid",       /* unused */
+        [OCK_E_UNWRAP_KEY_SIZE]                 ="Unwrapping Key Size Range Invalid",   /* unused */
         //55
-        [OCK_E_UNWRAP_KEY_INCONS]               ="Unwrapping Key Type Inconsistent",
+        [OCK_E_UNWRAP_KEY_INCONS]               ="Unwrapping Key Type Inconsistent",    /* unused */
         [OCK_E_USER_ALREADY_LOGGED_IN]          ="User Already Logged In",
         [OCK_E_USER_NOT_LOGGED_IN]              ="User Not Logged In",
-        [OCK_E_USER_PIN_NOT_INIT]               ="User PIN Not Initialized",
+        [OCK_E_USER_PIN_NOT_INIT]               ="User PIN Not Initialized",    /* unused */
         [OCK_E_USER_TYPE_INV]                   ="User Type Invalid",
         //60
         [OCK_E_ANOTHER_USER_ALREADY_LOGGED_IN]  ="Another User Already Logged In",
-        [OCK_E_TOO_MANY_USER_TYPES]             ="Too Many User Types",
+        [OCK_E_TOO_MANY_USER_TYPES]             ="Too Many User Types", /* unused */
         [OCK_E_WRAPPED_KEY_INV]                 ="Wrapped Key Invalid",
-        [OCK_E_WRAPPED_KEY_LEN]                 ="Wrapped Key Length Out of Range",
-        [OCK_E_WRAPPING_KEY_SIZE]               ="Wrapping Key Size out of Range",
+        [OCK_E_WRAPPED_KEY_LEN]                 ="Wrapped Key Length Out of Range",     /* unused */
+        [OCK_E_WRAPPING_KEY_SIZE]               ="Wrapping Key Size out of Range",      /* unused */
         //65
-        [OCK_E_WRAPPING_KEY_INCONS]             ="Wrapping Key Type Inconsistent",
-        [OCK_E_RAND_SEED_NOT_SUPP]              ="Random Seed Not Supported",
-        [OCK_E_RAND_NUMBER_INV]                 ="Random Number Invalid",
+        [OCK_E_WRAPPING_KEY_INCONS]             ="Wrapping Key Type Inconsistent",      /* unused */
+        [OCK_E_RAND_SEED_NOT_SUPP]              ="Random Seed Not Supported",   /* unused */
+        [OCK_E_RAND_NUMBER_INV]                 ="Random Number Invalid",       /* unused */
         [OCK_E_BUFFER_TOO_SMALL]                ="Buffer Too Small",
         [OCK_E_SAVED_STATE_INV]                 ="Saved State Invalid",
         //70
@@ -822,15 +822,15 @@ const char* err_msg[] = {
         [OCK_E_STATE_UNSAVEABLE]                ="State Unsaveable",
         [OCK_E_API_NOT_INIT]                    ="API not initialized",
         [OCK_E_API_ALREADY_INIT]                ="API already Initialized",
-        [OCK_E_MUTEX_BAD]                       ="Mutex Bad",
+        [OCK_E_MUTEX_BAD]                       ="Mutex Bad",   /* unused */
         //75
-        [OCK_E_MUTEX_LOCK_INV]                  ="Mutex Lock Invalid",
+        [OCK_E_MUTEX_LOCK_INV]                  ="Mutex Lock Invalid",  /* unused */
         [OCK_E_ENCODR_INT]                      ="Encode Integer Failed",
         [OCK_E_ENCODE_OSTRING]                  ="Encode Octet String Failed",
         [OCK_E_ENCODE_SEQ]                      ="Encode Sequence Failed",
         [OCK_E_DECODE_INT]                      ="Decode Integer Failed",
         //80
-        [OCK_E_DECODE_OSTRING]                  ="Decode Octet String Failed",
+        [OCK_E_DECODE_OSTRING]                  ="Decode Octet String Failed",  /* unused */
         [OCK_E_DECODE_SEQ]                      ="Decode Sequence Failed",
         [OCK_E_ENCODE_PRIVKEY]                  ="Encode Private Key Failed",
         [OCK_E_DECODE_PRIVKEY]                  ="Decode Private Key Failed",
@@ -857,7 +857,7 @@ const char* err_msg[] = {
         [OCK_E_DECRYPT_MGR_DECRYPT]             ="Decryption Mgr Decrypt Failed",
         [OCK_E_FLATTEN_OBJ]                     ="Flatten Object Failed",
         [OCK_E_KEY_MGR_GET_PRIVKEY_TYPE]        ="Key Mgr Get Priv Key Type Failed",
-        [OCK_E_DECRYPT_PRIVKEY_INFO]             ="Decrypt Private Key Info Failed",
+        [OCK_E_DECRYPT_PRIVKEY_INFO]             ="Decrypt Private Key Info Failed",    /* unused */
         [OCK_E_SAVE_TOKEN]                      ="Save Token Failed",
         //105
         [OCK_E_TDES_CBC_ENCRYPT]                ="Triple DES CBC Encrypt Failed",
@@ -915,13 +915,13 @@ const char* err_msg[] = {
         [OCK_E_SAVE_MASTERKEY]                  ="Save Master Key Failed",
         //150
         [OCK_E_PROCESS_LOCK]                    ="Process Lock Failed",
-        [OCK_E_PROCESS_UNLOCK]                  ="Process Unlock Failed",
+        [OCK_E_PROCESS_UNLOCK]                  ="Process Unlock Failed",       /* unused */
         [OCK_E_SESS_MGR_NEW]                    ="Session Mgr New Failed",
         [OCK_E_CLOSE_ALL_SESS]                  ="Close all Sessions Failed",
         [OCK_E_SESS_MGR_GET_OK_STATE]           ="Session Mgr Get Op State Failed",
         //155
         [OCK_E_LOAD_MASTERKEY]                  ="Load Master Key Failed",
-        [OCK_E_OBJ_CREATE]                      ="Object Create Failed",
+        [OCK_E_OBJ_CREATE]                      ="Object Create Failed",        /* unused */
         [OCK_E_OBJ_MGR_ADD_TO_MAP]              ="Object Mgr Add to Map Failed",
         [OCK_E_OBJ_COPY]                        ="Object Copy Failed",
         [OCK_E_OBJ_GET_ATTR_VALUE]              ="Object Get Attribute Values Failed",
@@ -944,7 +944,7 @@ const char* err_msg[] = {
         [OCK_E_UNWRAP_KEY]                      ="Unwrap Key Failed",
         [OCK_E_SESS_MGR]                        ="Session Mgr New Failed",
         //175
-        [OCK_E_MERGE_ATTR]                      ="Merge Attributes Failed",
+        [OCK_E_MERGE_ATTR]                      ="Merge Attributes Failed",     /* unused */
         [OCK_E_ENCRYPT_MGR_ENCRYPT_UPDATE]      ="Encryption Mgr Encrypt Update Failed",
         [OCK_E_ENCRYPT_MGR_ENCRYPT_FINAL]       ="Encryption Mgr Encrypt Final Failed",
         [OCK_E_UPDATE_ATTR]                     ="Update Attribute Failed",
