@@ -1164,7 +1164,7 @@ CK_RV SC_CloseAllSessions( CK_SLOT_ID  sid )
 	}
 	rc = session_mgr_close_all_sessions();
 	if (rc != CKR_OK){
-		st_err_log(153, __FILE__, __LINE__);
+		ock_log_err(OCK_E_CLOSE_ALL_SESS);
 	}
  done:
 	LLOCK;

@@ -458,7 +458,7 @@ C_CloseAllSessions ( CK_SLOT_ID slotID )
             // need to  abort this operation.  This path should not occur
             // unless 
             LOGIT(LOG_DEBUG,"CloseAllSessions STDLL Problem");
-            st_err_log(153, __FILE__, __LINE__);
+            ock_log_err(OCK_E_CLOSE_ALL_SESS);
             return rv;
          }
       }  else {
