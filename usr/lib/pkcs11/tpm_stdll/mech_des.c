@@ -1453,7 +1453,7 @@ ckm_des_ecb_encrypt( CK_BYTE   * in_data,
    rc = token_specific.t_des_ecb(in_data,in_data_len,out_data,out_data_len,key_value,1);//  token specifics return CKR_ errors ... 
 
    if (rc != CKR_OK)
-      st_err_log(117, __FILE__, __LINE__);
+      ock_log_err(OCK_E_TOKEN_SPECIFIC_DEC_ECB);
    return rc;
 }
 
@@ -1484,7 +1484,7 @@ ckm_des_ecb_decrypt( CK_BYTE   * in_data,
    rc = token_specific.t_des_ecb(in_data,in_data_len,out_data,
          out_data_len,key_value,0);  // last parm is the encrypt flag
    if (rc != CKR_OK)
-      st_err_log(117, __FILE__, __LINE__);
+      ock_log_err(OCK_E_TOKEN_SPECIFIC_DEC_ECB);
    return rc;
 }
 
