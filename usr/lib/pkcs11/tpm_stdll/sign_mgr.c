@@ -60,7 +60,7 @@ sign_mgr_init( SESSION                * sess,
 
 
    if (!sess || !ctx){
-      st_err_log(4, __FILE__, __LINE__, __FUNCTION__); 
+      ock_log_err(OCK_E_FUNC);
       return CKR_FUNCTION_FAILED;
    }
    if (ctx->active != FALSE){
@@ -166,14 +166,14 @@ sign_mgr_init( SESSION                * sess,
             //
             flag = template_attribute_find( key_obj->template, CKA_CLASS, &attr );
             if (flag == FALSE){
-               st_err_log(4, __FILE__, __LINE__, __FUNCTION__); 
+               ock_log_err(OCK_E_FUNC);
                return CKR_FUNCTION_FAILED;
             }
             else
                class = *(CK_OBJECT_CLASS *)attr->pValue;
 
             if (class != CKO_PRIVATE_KEY){
-               st_err_log(4, __FILE__, __LINE__, __FUNCTION__); 
+               ock_log_err(OCK_E_FUNC);
                return CKR_FUNCTION_FAILED;
             }
             ctx->context_len = sizeof(RSA_DIGEST_CONTEXT);
@@ -391,7 +391,7 @@ CK_RV
 sign_mgr_cleanup( SIGN_VERIFY_CONTEXT *ctx )
 {
    if (!ctx){
-      st_err_log(4, __FILE__, __LINE__, __FUNCTION__); 
+      ock_log_err(OCK_E_FUNC);
       return CKR_FUNCTION_FAILED;
    }
    ctx->key                 = 0;
@@ -428,7 +428,7 @@ sign_mgr_sign( SESSION              * sess,
                CK_ULONG             * out_data_len )
 {
    if (!sess || !ctx){
-      st_err_log(4, __FILE__, __LINE__, __FUNCTION__); 
+      ock_log_err(OCK_E_FUNC);
       return CKR_FUNCTION_FAILED;
    }
    if (ctx->active == FALSE){
@@ -444,7 +444,7 @@ sign_mgr_sign( SESSION              * sess,
    // specify the input data.  I just need the input data length
    //
    if ((length_only == FALSE) && (!in_data || !out_data)){
-      st_err_log(4, __FILE__, __LINE__, __FUNCTION__); 
+      ock_log_err(OCK_E_FUNC);
       return CKR_FUNCTION_FAILED;
    }
    if (ctx->multi == TRUE){
@@ -504,7 +504,7 @@ sign_mgr_sign( SESSION              * sess,
          return CKR_MECHANISM_INVALID;
    }
 
-   st_err_log(4, __FILE__, __LINE__, __FUNCTION__); 
+   ock_log_err(OCK_E_FUNC);
    return CKR_FUNCTION_FAILED;
 }
 
@@ -518,7 +518,7 @@ sign_mgr_sign_update( SESSION             * sess,
                       CK_ULONG              in_data_len )
 {
    if (!sess || !ctx || !in_data){
-      st_err_log(4, __FILE__, __LINE__, __FUNCTION__); 
+      ock_log_err(OCK_E_FUNC);
       return CKR_FUNCTION_FAILED;
    }
 
@@ -563,7 +563,7 @@ sign_mgr_sign_final( SESSION             * sess,
                      CK_ULONG            * sig_len )
 {
    if (!sess || !ctx){
-      st_err_log(4, __FILE__, __LINE__, __FUNCTION__); 
+      ock_log_err(OCK_E_FUNC);
       return CKR_FUNCTION_FAILED;
    }
    if (ctx->active == FALSE){
@@ -608,7 +608,7 @@ sign_mgr_sign_recover( SESSION             * sess,
                        CK_ULONG            * out_data_len )
 {
    if (!sess || !ctx){
-      st_err_log(4, __FILE__, __LINE__, __FUNCTION__); 
+      ock_log_err(OCK_E_FUNC);
       return CKR_FUNCTION_FAILED;
    }
    if (ctx->active == FALSE){
@@ -624,7 +624,7 @@ sign_mgr_sign_recover( SESSION             * sess,
    // specify the input data.  I just need the input data length
    //
    if ((length_only == FALSE) && (!in_data || !out_data)){
-      st_err_log(4, __FILE__, __LINE__, __FUNCTION__); 
+      ock_log_err(OCK_E_FUNC);
       return CKR_FUNCTION_FAILED;
    }
    if (ctx->multi == TRUE){
@@ -644,6 +644,6 @@ sign_mgr_sign_recover( SESSION             * sess,
          return CKR_MECHANISM_INVALID;
    }
 
-   st_err_log(4, __FILE__, __LINE__, __FUNCTION__); 
+   ock_log_err(OCK_E_FUNC);
    return CKR_FUNCTION_FAILED;
 }

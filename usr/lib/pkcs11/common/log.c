@@ -738,7 +738,7 @@ const char* err_msg[] = {
         [OCK_E_CTX_MEM_INSUF]                   = "Memory in Context insuficient",      /*unused*/
         [OCK_E_SLOT_INV]                        = "Slot Invalid",
         [OCK_E_GENERAL_ERR]                     = "General Error",
-        [OCK_E_FUNC]                            = "%s Function Failed",
+        [OCK_E_FUNC]                            = "Function Failed",
         //#5
         [OCK_E_BAD_ARG]                         = "%s Bad Arguments",
         [OCK_E_NO_EVENT]                        ="No Event",

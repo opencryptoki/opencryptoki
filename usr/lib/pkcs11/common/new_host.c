@@ -616,11 +616,11 @@ ST_Initialize(void **FunctionList,
 				}
 			}
 			if (rc == 0 ){
-				st_err_log(4, __FILE__, __LINE__, __FUNCTION__);
+				ock_log_err(OCK_E_FUNC);
 				return CKR_FUNCTION_FAILED;
 			}
 		} else {
-			st_err_log(4, __FILE__, __LINE__, __FUNCTION__);
+			ock_log_err(OCK_E_FUNC);
 			return CKR_FUNCTION_FAILED;
 		}
 	}
@@ -843,7 +843,7 @@ CK_RV SC_GetTokenInfo( CK_SLOT_ID         sid,
 		goto done;
 	}
 	if (!pInfo) {
-		st_err_log(4, __FILE__, __LINE__, __FUNCTION__);
+		ock_log_err(OCK_E_FUNC);
 		rc = CKR_FUNCTION_FAILED;
 		goto done;
 	}
@@ -936,7 +936,7 @@ CK_RV SC_GetMechanismList(CK_SLOT_ID sid,
 		goto out;
 	}
 	if (count == NULL) {
-		st_err_log(4, __FILE__, __LINE__, __FUNCTION__);
+		ock_log_err(OCK_E_FUNC);
 		rc = CKR_FUNCTION_FAILED;
 		goto out;
 	}
@@ -946,7 +946,7 @@ CK_RV SC_GetMechanismList(CK_SLOT_ID sid,
 		goto out;
 	}
 	if (!token_specific.t_get_mechanism_list) {
-		st_err_log(4, __FILE__, __LINE__);
+		ock_log_err(OCK_E_FUNC);
 		rc = CKR_GENERAL_ERROR;
 		goto out;
 	}
@@ -982,7 +982,7 @@ CK_RV SC_GetMechanismInfo(CK_SLOT_ID sid,
 		goto out;
 	}
 	if (pInfo == NULL) {
-		st_err_log(4, __FILE__, __LINE__, __FUNCTION__);
+		ock_log_err(OCK_E_FUNC);
 		rc = CKR_FUNCTION_FAILED;
 		goto out;
 	}
@@ -992,7 +992,7 @@ CK_RV SC_GetMechanismInfo(CK_SLOT_ID sid,
 		goto out;
 	}
 	if (!token_specific.t_get_mechanism_info) {
-		st_err_log(4, __FILE__, __LINE__);
+		ock_log_err(OCK_E_FUNC);
 		rc = CKR_GENERAL_ERROR;
 		goto out;
 	}
@@ -1054,7 +1054,7 @@ CK_RV SC_InitToken( CK_SLOT_ID   sid,
 	}
 	rc  = rng_generate( master_key, 3 * DES_KEY_SIZE );
 	if (rc != CKR_OK) {
-		st_err_log(4, __FILE__, __LINE__, __FUNCTION__);
+		ock_log_err(OCK_E_FUNC);
 		rc = CKR_FUNCTION_FAILED;
 		goto done;
 	}
@@ -1351,7 +1351,7 @@ CK_RV SC_OpenSession(CK_SLOT_ID             sid,
 		goto done;
 	}
 	if (phSession == NULL) {
-		st_err_log(4, __FILE__, __LINE__, __FUNCTION__);
+		ock_log_err(OCK_E_FUNC);
 		rc = CKR_FUNCTION_FAILED;
 		goto done;
 	}
@@ -2218,7 +2218,7 @@ CK_RV SC_FindObjects( ST_SESSION_HANDLE     sSession,
 	}
 
 	if (!sess->find_list) {
-		st_err_log(4, __FILE__, __LINE__, __FUNCTION__);
+		ock_log_err(OCK_E_FUNC);
 		rc = CKR_FUNCTION_FAILED;
 		goto done;
 	}

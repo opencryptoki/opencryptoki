@@ -365,7 +365,7 @@ md2_hash( SESSION         * sess,
 
 
    if (!sess || !ctx || !out_data_len){
-      st_err_log(4, __FILE__, __LINE__, __FUNCTION__);
+      ock_log_err(OCK_E_FUNC);
       return CKR_FUNCTION_FAILED;
    }
 
@@ -376,7 +376,7 @@ md2_hash( SESSION         * sess,
 
    rc = md2_hash_update( sess, ctx, in_data, in_data_len );
    if (rc != CKR_OK){
-      st_err_log(4, __FILE__, __LINE__, __FUNCTION__);
+      ock_log_err(OCK_E_FUNC);
       return CKR_FUNCTION_FAILED;
    }
    return md2_hash_final( sess,      FALSE,
@@ -394,7 +394,7 @@ md2_hash_update( SESSION         * sess,
                  CK_ULONG          in_data_len )
 {
    if (!sess || !ctx || !in_data){
-      st_err_log(4, __FILE__, __LINE__, __FUNCTION__);
+      ock_log_err(OCK_E_FUNC);
       return CKR_FUNCTION_FAILED;
    }
    return ckm_md2_update( (MD2_CONTEXT *)ctx->context,
@@ -414,7 +414,7 @@ md2_hash_final( SESSION         * sess,
    CK_RV      rc;
 
    if (!sess || !ctx || !out_data_len){
-      st_err_log(4, __FILE__, __LINE__, __FUNCTION__);
+      ock_log_err(OCK_E_FUNC);
       return CKR_FUNCTION_FAILED;
    }
    if (length_only == TRUE) {
@@ -460,7 +460,7 @@ md2_hmac_sign( SESSION              * sess,
 
 
    if (!sess || !ctx || !out_data_len){
-      st_err_log(4, __FILE__, __LINE__, __FUNCTION__);
+      ock_log_err(OCK_E_FUNC);
       return CKR_FUNCTION_FAILED;
    }
 
@@ -491,7 +491,7 @@ md2_hmac_sign( SESSION              * sess,
    }
    rc = template_attribute_find( key_obj->template, CKA_VALUE, &attr );
    if (rc == FALSE){
-      st_err_log(4, __FILE__, __LINE__, __FUNCTION__);
+      ock_log_err(OCK_E_FUNC);
       return CKR_FUNCTION_FAILED;
    }
    else
@@ -621,7 +621,7 @@ md2_hmac_verify( SESSION              * sess,
    CK_RV                rc;
 
    if (!sess || !ctx || !in_data || !signature){
-      st_err_log(4, __FILE__, __LINE__, __FUNCTION__);
+      ock_log_err(OCK_E_FUNC);
       return CKR_FUNCTION_FAILED;
    }
    if (ctx->mech.mechanism == CKM_MD2_HMAC_GENERAL)
@@ -713,7 +713,7 @@ ckm_md2_final( MD2_CONTEXT  * context,
    CK_ULONG index, padLen;
 
    if (!context || !out_data || (out_data_len < MD2_HASH_SIZE)){
-      st_err_log(4, __FILE__, __LINE__, __FUNCTION__);
+      ock_log_err(OCK_E_FUNC);
       return CKR_FUNCTION_FAILED;
    }
    // Pad input to 16-byte multiple (1 - 16 pad bytes)

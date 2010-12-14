@@ -383,7 +383,7 @@ CK_RV
 data_object_validate_attribute( TEMPLATE *tmpl, CK_ATTRIBUTE *attr, CK_ULONG mode )
 {
    if (!attr){
-      st_err_log(4, __FILE__, __LINE__, __FUNCTION__);
+      ock_log_err(OCK_E_FUNC);
       return CKR_FUNCTION_FAILED;
    }
    switch (attr->type) {

@@ -347,7 +347,7 @@ object_create( CK_ATTRIBUTE  * pTemplate,
    unsigned int    i;
 
    if (!pTemplate){
-      st_err_log(4, __FILE__, __LINE__, __FUNCTION__);
+      ock_log_err(OCK_E_FUNC);
       return CKR_FUNCTION_FAILED;
    }
    // extract the object class and subclass
@@ -411,7 +411,7 @@ object_create( CK_ATTRIBUTE  * pTemplate,
    if (class == CKO_PRIVATE_KEY || class == CKO_SECRET_KEY) {
       rc = template_attribute_find( o->template, CKA_SENSITIVE, &attr );
       if (rc == FALSE) {
-         st_err_log(4, __FILE__, __LINE__, __FUNCTION__);
+         ock_log_err(OCK_E_FUNC);
          rc = CKR_FUNCTION_FAILED;
          goto error;
       }
@@ -426,7 +426,7 @@ object_create( CK_ATTRIBUTE  * pTemplate,
 
       rc = template_attribute_find( o->template, CKA_EXTRACTABLE, &attr );
       if (rc == FALSE) {
-         st_err_log(4, __FILE__, __LINE__, __FUNCTION__);
+         ock_log_err(OCK_E_FUNC);
          rc = CKR_FUNCTION_FAILED;
          goto error;
       }
@@ -486,7 +486,7 @@ object_copy( CK_ATTRIBUTE  * pTemplate,
 
 
    if (!old_obj || !pTemplate || !new_obj){
-      st_err_log(4, __FILE__, __LINE__, __FUNCTION__);
+      ock_log_err(OCK_E_FUNC);
       return CKR_FUNCTION_FAILED; 
    }
    o        = (OBJECT   *)malloc(sizeof(OBJECT));
@@ -589,7 +589,7 @@ object_flatten( OBJECT    * obj,
    long         rc;
 
    if (!obj){
-      st_err_log(4, __FILE__, __LINE__, __FUNCTION__);
+      ock_log_err(OCK_E_FUNC);
       return CKR_FUNCTION_FAILED;
    }
    count    = template_get_count( obj->template );
@@ -829,13 +829,13 @@ object_set_attribute_values( OBJECT        * obj,
 
 
    if (!obj || !pTemplate){
-      st_err_log(4, __FILE__, __LINE__, __FUNCTION__);
+      ock_log_err(OCK_E_FUNC);
       return CKR_FUNCTION_FAILED;
    }
 
    found = template_get_class( obj->template, &class, &subclass );
    if (found == FALSE) {
-      st_err_log(4, __FILE__, __LINE__, __FUNCTION__);
+      ock_log_err(OCK_E_FUNC);
       rc = CKR_FUNCTION_FAILED;
       goto error;
    }
@@ -905,7 +905,7 @@ object_restore_withSize( CK_BYTE *data, OBJECT **new_obj, CK_BBOOL replace, int 
    CK_RV       rc;
 
    if (!data || !new_obj){
-      st_err_log(4, __FILE__, __LINE__, __FUNCTION__);
+      ock_log_err(OCK_E_FUNC);
       return CKR_FUNCTION_FAILED;
    }
    obj = (OBJECT *)malloc(sizeof(OBJECT));
@@ -972,11 +972,11 @@ object_create_skel( CK_ATTRIBUTE  * pTemplate,
 
 
    if (!obj){
-      st_err_log(4, __FILE__, __LINE__, __FUNCTION__);
+      ock_log_err(OCK_E_FUNC);
       return CKR_FUNCTION_FAILED;
    }
    if (!pTemplate && (ulCount != 0)){
-      st_err_log(4, __FILE__, __LINE__, __FUNCTION__);
+      ock_log_err(OCK_E_FUNC);
       return CKR_FUNCTION_FAILED;
    }
    o     = (OBJECT *)malloc(sizeof(OBJECT));

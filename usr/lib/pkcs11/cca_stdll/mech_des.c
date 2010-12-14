@@ -43,7 +43,7 @@ pk_des_ecb_encrypt( SESSION           *sess,
 
 
    if (!sess || !ctx || !out_data_len){
-      st_err_log(4, __FILE__, __LINE__, __FUNCTION__);
+      ock_log_err(OCK_E_FUNC);
       return CKR_FUNCTION_FAILED;
    }
    // CKM_DES_ECB requires the input data to be an integral
@@ -60,7 +60,7 @@ pk_des_ecb_encrypt( SESSION           *sess,
    }
    rc = template_attribute_find( key->template, CKA_IBM_OPAQUE, &attr );
    if (rc == FALSE){
-      st_err_log(4, __FILE__, __LINE__, __FUNCTION__);
+      ock_log_err(OCK_E_FUNC);
       return CKR_FUNCTION_FAILED;
    }
    if (length_only == TRUE) {
@@ -96,7 +96,7 @@ des_ecb_decrypt( SESSION           *sess,
 
 
    if (!sess || !ctx || !out_data_len){
-      st_err_log(4, __FILE__, __LINE__, __FUNCTION__);
+      ock_log_err(OCK_E_FUNC);
       return CKR_FUNCTION_FAILED;
    }
 
@@ -114,7 +114,7 @@ des_ecb_decrypt( SESSION           *sess,
    }
    rc = template_attribute_find( key->template, CKA_IBM_OPAQUE, &attr );
    if (rc == FALSE){
-      st_err_log(4, __FILE__, __LINE__, __FUNCTION__);
+      ock_log_err(OCK_E_FUNC);
       return CKR_FUNCTION_FAILED;
    }
    if (length_only == TRUE) {
@@ -149,7 +149,7 @@ pk_des_cbc_encrypt( SESSION           *sess,
    CK_RV         rc;
 
    if (!sess || !ctx || !out_data_len){
-      st_err_log(4, __FILE__, __LINE__, __FUNCTION__);
+      ock_log_err(OCK_E_FUNC);
       return CKR_FUNCTION_FAILED;
    }
    // CKM_DES_CBC requires the input data to be an integral
@@ -166,7 +166,7 @@ pk_des_cbc_encrypt( SESSION           *sess,
    }
    rc = template_attribute_find( key->template, CKA_IBM_OPAQUE, &attr );
    if (rc == FALSE){
-      st_err_log(4, __FILE__, __LINE__, __FUNCTION__);
+      ock_log_err(OCK_E_FUNC);
       return CKR_FUNCTION_FAILED;
    }
    if (length_only == TRUE) {
@@ -204,7 +204,7 @@ des_cbc_decrypt( SESSION            *sess,
 
 
    if (!sess || !ctx || !out_data_len){
-      st_err_log(4, __FILE__, __LINE__, __FUNCTION__);
+      ock_log_err(OCK_E_FUNC);
       return CKR_FUNCTION_FAILED;
    }
    // CKM_DES_CBC requires the input data to be an integral
@@ -221,7 +221,7 @@ des_cbc_decrypt( SESSION            *sess,
    }
    rc = template_attribute_find( key->template, CKA_IBM_OPAQUE, &attr );
    if (rc == FALSE){
-      st_err_log(4, __FILE__, __LINE__, __FUNCTION__);
+      ock_log_err(OCK_E_FUNC);
       return CKR_FUNCTION_FAILED;
    }
    if (length_only == TRUE) {
@@ -260,7 +260,7 @@ des_cbc_pad_encrypt( SESSION           *sess,
    CK_RV         rc;
 
    if (!sess || !ctx || !out_data_len){
-      st_err_log(4, __FILE__, __LINE__, __FUNCTION__);
+      ock_log_err(OCK_E_FUNC);
       return CKR_FUNCTION_FAILED;
    }
    // DES-CBC-PAD has no input length requirements
@@ -273,7 +273,7 @@ des_cbc_pad_encrypt( SESSION           *sess,
    }
    rc = template_attribute_find( key->template, CKA_IBM_OPAQUE, &attr  );
    if (rc == FALSE){
-      st_err_log(4, __FILE__, __LINE__, __FUNCTION__);
+      ock_log_err(OCK_E_FUNC);
       return CKR_FUNCTION_FAILED;
    }
    // compute the output length, accounting for padding
@@ -333,7 +333,7 @@ des_cbc_pad_decrypt( SESSION            *sess,
 
 
    if (!sess || !ctx || !out_data_len){
-      st_err_log(4, __FILE__, __LINE__, __FUNCTION__);
+      ock_log_err(OCK_E_FUNC);
       return CKR_FUNCTION_FAILED;
    }
    //
@@ -347,7 +347,7 @@ des_cbc_pad_decrypt( SESSION            *sess,
    }
    rc = template_attribute_find( key->template, CKA_IBM_OPAQUE, &attr );
    if (rc == FALSE){
-      st_err_log(4, __FILE__, __LINE__, __FUNCTION__);
+      ock_log_err(OCK_E_FUNC);
       return CKR_FUNCTION_FAILED;
    }
    // we're decrypting so even with CBC-PAD, we should have an integral
@@ -409,7 +409,7 @@ des_ecb_encrypt_update( SESSION            *sess,
    CK_RV          rc;
 
    if (!sess || !ctx || !out_data_len){
-      st_err_log(4, __FILE__, __LINE__, __FUNCTION__);
+      ock_log_err(OCK_E_FUNC);
       return CKR_FUNCTION_FAILED;
    }
    context = (DES_CONTEXT *)ctx->context;
@@ -442,7 +442,7 @@ des_ecb_encrypt_update( SESSION            *sess,
       }
       rc = template_attribute_find( key->template, CKA_IBM_OPAQUE, &attr );
       if (rc == FALSE){
-         st_err_log(4, __FILE__, __LINE__, __FUNCTION__);
+         ock_log_err(OCK_E_FUNC);
          return CKR_FUNCTION_FAILED;
       }
       clear  = (CK_BYTE *)malloc( out_len );
@@ -473,7 +473,7 @@ des_ecb_encrypt_update( SESSION            *sess,
       return rc;
    }
 
-   st_err_log(4, __FILE__, __LINE__, __FUNCTION__);
+   ock_log_err(OCK_E_FUNC);
    return CKR_FUNCTION_FAILED;  // shouldn't reach this
 }
 
@@ -497,7 +497,7 @@ des_ecb_decrypt_update( SESSION           *sess,
    CK_RV          rc;
 
    if (!sess || !ctx || !out_data_len){
-      st_err_log(4, __FILE__, __LINE__, __FUNCTION__);
+      ock_log_err(OCK_E_FUNC);
       return CKR_FUNCTION_FAILED;
    }
    context = (DES_CONTEXT *)ctx->context;
@@ -531,7 +531,7 @@ des_ecb_decrypt_update( SESSION           *sess,
       }
       rc = template_attribute_find( key->template, CKA_IBM_OPAQUE, &attr );
       if (rc == FALSE){
-         st_err_log(4, __FILE__, __LINE__, __FUNCTION__);
+         ock_log_err(OCK_E_FUNC);
          return CKR_FUNCTION_FAILED;
       }
 
@@ -562,7 +562,7 @@ des_ecb_decrypt_update( SESSION           *sess,
       return rc;
    }
 
-   st_err_log(4, __FILE__, __LINE__, __FUNCTION__);
+   ock_log_err(OCK_E_FUNC);
    return CKR_FUNCTION_FAILED;  // shouldn't reach this
 }
 #endif
@@ -587,7 +587,7 @@ des_cbc_encrypt_update( SESSION           *sess,
 
 
    if (!sess || !ctx || !out_data_len){
-      st_err_log(4, __FILE__, __LINE__, __FUNCTION__);
+      ock_log_err(OCK_E_FUNC);
       return CKR_FUNCTION_FAILED;
    }
    context = (DES_CONTEXT *)ctx->context;
@@ -621,7 +621,7 @@ des_cbc_encrypt_update( SESSION           *sess,
       }
       rc = template_attribute_find( key->template, CKA_IBM_OPAQUE, &attr );
       if (rc == FALSE){
-         st_err_log(4, __FILE__, __LINE__, __FUNCTION__);
+         ock_log_err(OCK_E_FUNC);
          return CKR_FUNCTION_FAILED;
       }
 
@@ -661,7 +661,7 @@ des_cbc_encrypt_update( SESSION           *sess,
       return rc;
    }
 
-   st_err_log(4, __FILE__, __LINE__, __FUNCTION__);
+   ock_log_err(OCK_E_FUNC);
    return CKR_FUNCTION_FAILED;
 }
 
@@ -686,7 +686,7 @@ des_cbc_decrypt_update( SESSION           *sess,
 
 
    if (!sess || !ctx || !out_data_len){
-      st_err_log(4, __FILE__, __LINE__, __FUNCTION__);
+      ock_log_err(OCK_E_FUNC);
       return CKR_FUNCTION_FAILED;
    }
    context = (DES_CONTEXT *)ctx->context;
@@ -720,7 +720,7 @@ des_cbc_decrypt_update( SESSION           *sess,
       }
       rc = template_attribute_find( key->template, CKA_IBM_OPAQUE, &attr );
       if (rc == FALSE){
-         st_err_log(4, __FILE__, __LINE__, __FUNCTION__);
+         ock_log_err(OCK_E_FUNC);
          return CKR_FUNCTION_FAILED;
       }
 
@@ -760,7 +760,7 @@ des_cbc_decrypt_update( SESSION           *sess,
       return rc;
    }
 
-   st_err_log(4, __FILE__, __LINE__, __FUNCTION__);
+   ock_log_err(OCK_E_FUNC);
    return CKR_FUNCTION_FAILED;
 }
 
@@ -785,7 +785,7 @@ des_cbc_pad_encrypt_update( SESSION           *sess,
 
 
    if (!sess || !ctx || !out_data_len){
-      st_err_log(4, __FILE__, __LINE__, __FUNCTION__);
+      ock_log_err(OCK_E_FUNC);
       return CKR_FUNCTION_FAILED;
    }
    context = (DES_CONTEXT *)ctx->context;
@@ -830,7 +830,7 @@ des_cbc_pad_encrypt_update( SESSION           *sess,
       }
       rc = template_attribute_find( key->template, CKA_IBM_OPAQUE, &attr );
       if (rc == FALSE){
-         st_err_log(4, __FILE__, __LINE__, __FUNCTION__);
+         ock_log_err(OCK_E_FUNC);
          return CKR_FUNCTION_FAILED;
       }
 
@@ -894,7 +894,7 @@ des_cbc_pad_decrypt_update( SESSION           *sess,
 
 
    if (!sess || !ctx || !out_data_len){
-      st_err_log(4, __FILE__, __LINE__, __FUNCTION__);
+      ock_log_err(OCK_E_FUNC);
       return CKR_FUNCTION_FAILED;
    }
    context = (DES_CONTEXT *)ctx->context;
@@ -939,7 +939,7 @@ des_cbc_pad_decrypt_update( SESSION           *sess,
       }
       rc = template_attribute_find( key->template, CKA_IBM_OPAQUE, &attr );
       if (rc == FALSE){
-         st_err_log(4, __FILE__, __LINE__, __FUNCTION__);
+         ock_log_err(OCK_E_FUNC);
          return CKR_FUNCTION_FAILED;
       }
 
@@ -976,7 +976,7 @@ des_cbc_pad_decrypt_update( SESSION           *sess,
       return rc;
    }
 
-   st_err_log(4, __FILE__, __LINE__, __FUNCTION__);
+   ock_log_err(OCK_E_FUNC);
    return CKR_FUNCTION_FAILED;
 }
 
@@ -994,7 +994,7 @@ des_ecb_encrypt_final( SESSION           *sess,
    DES_CONTEXT *context   = NULL;
 
    if (!sess || !ctx || !out_data_len){
-      st_err_log(4, __FILE__, __LINE__, __FUNCTION__);
+      ock_log_err(OCK_E_FUNC);
       return CKR_FUNCTION_FAILED;
    }
    // satisfy the compiler
@@ -1029,7 +1029,7 @@ des_ecb_decrypt_final( SESSION           *sess,
    DES_CONTEXT *context   = NULL;
 
    if (!sess || !ctx || !out_data_len){
-      st_err_log(4, __FILE__, __LINE__, __FUNCTION__);
+      ock_log_err(OCK_E_FUNC);
       return CKR_FUNCTION_FAILED; 
    }
    // satisfy the compiler
@@ -1064,7 +1064,7 @@ des_cbc_encrypt_final( SESSION           *sess,
    DES_CONTEXT *context   = NULL;
 
    if (!sess || !ctx || !out_data_len){
-      st_err_log(4, __FILE__, __LINE__, __FUNCTION__);
+      ock_log_err(OCK_E_FUNC);
       return CKR_FUNCTION_FAILED;
    }
    // satisfy the compiler
@@ -1099,7 +1099,7 @@ des_cbc_decrypt_final( SESSION           *sess,
    DES_CONTEXT *context   = NULL;
 
    if (!sess || !ctx || !out_data_len){
-      st_err_log(4, __FILE__, __LINE__, __FUNCTION__);
+      ock_log_err(OCK_E_FUNC);
       return CKR_FUNCTION_FAILED;
    }
    // satisfy the compiler
@@ -1140,7 +1140,7 @@ des_cbc_pad_encrypt_final( SESSION           *sess,
 
 
    if (!sess || !ctx || !out_data_len){
-      st_err_log(4, __FILE__, __LINE__, __FUNCTION__);
+      ock_log_err(OCK_E_FUNC);
       return CKR_FUNCTION_FAILED;
    }
 
@@ -1151,7 +1151,7 @@ des_cbc_pad_encrypt_final( SESSION           *sess,
    }
    rc = template_attribute_find( key->template, CKA_IBM_OPAQUE, &attr );
    if (rc == FALSE){
-      st_err_log(4, __FILE__, __LINE__, __FUNCTION__);
+      ock_log_err(OCK_E_FUNC);
       return CKR_FUNCTION_FAILED;
    }
    context = (DES_CONTEXT *)ctx->context;
@@ -1207,7 +1207,7 @@ des_cbc_pad_decrypt_final( SESSION           *sess,
    CK_RV         rc;
 
    if (!sess || !ctx || !out_data_len){
-      st_err_log(4, __FILE__, __LINE__, __FUNCTION__);
+      ock_log_err(OCK_E_FUNC);
       return CKR_FUNCTION_FAILED;
    }
    rc = object_mgr_find_in_map1( ctx->key, &key );
@@ -1217,7 +1217,7 @@ des_cbc_pad_decrypt_final( SESSION           *sess,
    }
    rc = template_attribute_find( key->template, CKA_IBM_OPAQUE, &attr );
    if (rc == FALSE){
-      st_err_log(4, __FILE__, __LINE__, __FUNCTION__);
+      ock_log_err(OCK_E_FUNC);
       return CKR_FUNCTION_FAILED;
    }
    context = (DES_CONTEXT *)ctx->context;
@@ -1298,7 +1298,7 @@ ckm_des_key_gen( TEMPLATE *tmpl )
       if (class_attr)    free( class_attr );
       if (local_attr)    free( local_attr );
 
-      st_err_log(4, __FILE__, __LINE__, __FUNCTION__);
+      ock_log_err(OCK_E_FUNC);
       return CKR_FUNCTION_FAILED;
    }
 
@@ -1375,7 +1375,7 @@ ckm_cdmf_key_gen( TEMPLATE *tmpl )
       if (class_attr)    free( class_attr );
       if (local_attr)    free( local_attr );
 
-      st_err_log(4, __FILE__, __LINE__, __FUNCTION__);
+      ock_log_err(OCK_E_FUNC);
       return CKR_FUNCTION_FAILED;
    }
 
@@ -1424,11 +1424,11 @@ ckm_des_ecb_encrypt( CK_BYTE   * in_data,
 
 
    if (!in_data || !out_data || !key_value){
-      st_err_log(4, __FILE__, __LINE__, __FUNCTION__);
+      ock_log_err(OCK_E_FUNC);
       return CKR_FUNCTION_FAILED;
    }
    if (*out_data_len < in_data_len){
-      st_err_log(4, __FILE__, __LINE__, __FUNCTION__);
+      ock_log_err(OCK_E_FUNC);
       return CKR_FUNCTION_FAILED;
    }
    rc = token_specific.t_des_ecb(in_data,in_data_len,out_data,out_data_len,key_value,1);//  token specifics return CKR_ errors ... 
@@ -1453,11 +1453,11 @@ ckm_des_ecb_decrypt( CK_BYTE   * in_data,
 
 
    if (!in_data || !out_data || !key_value){
-      st_err_log(4, __FILE__, __LINE__, __FUNCTION__);
+      ock_log_err(OCK_E_FUNC);
       return CKR_FUNCTION_FAILED;
    }
    if (*out_data_len < in_data_len){
-      st_err_log(4, __FILE__, __LINE__, __FUNCTION__);
+      ock_log_err(OCK_E_FUNC);
       return CKR_FUNCTION_FAILED;
    }
 
@@ -1483,12 +1483,12 @@ ckm_des_cbc_encrypt( CK_BYTE   * in_data,
 
 
    if (!in_data || !out_data || !init_v || !key_value){
-      st_err_log(4, __FILE__, __LINE__, __FUNCTION__);
+      ock_log_err(OCK_E_FUNC);
       return CKR_FUNCTION_FAILED;
    }
    if (*out_data_len < in_data_len){
 #if 0
-      st_err_log(4, __FILE__, __LINE__, __FUNCTION__);
+      ock_log_err(OCK_E_FUNC);
       return CKR_FUNCTION_FAILED;
 #else
       *out_data_len = in_data_len;
@@ -1519,11 +1519,11 @@ ckm_des_cbc_decrypt( CK_BYTE   * in_data,
 
 
    if (!in_data || !out_data || !init_v || !key_value){
-      st_err_log(4, __FILE__, __LINE__, __FUNCTION__);
+      ock_log_err(OCK_E_FUNC);
       return CKR_FUNCTION_FAILED;
    }
    if (*out_data_len < in_data_len){
-      st_err_log(4, __FILE__, __LINE__, __FUNCTION__);
+      ock_log_err(OCK_E_FUNC);
       return CKR_FUNCTION_FAILED;
    }
 

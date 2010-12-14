@@ -356,7 +356,7 @@ ssl3_mac_sign( SESSION              * sess,
 
 
    if (!sess || !ctx || !out_data_len){
-      st_err_log(4, __FILE__, __LINE__, __FUNCTION__);
+      ock_log_err(OCK_E_FUNC);
       return CKR_FUNCTION_FAILED;
    }
    mac_len = *(CK_ULONG *)ctx->mech.pParameter;
@@ -381,7 +381,7 @@ ssl3_mac_sign( SESSION              * sess,
    }
    rc = template_attribute_find( key_obj->template, CKA_VALUE, &attr );
    if (rc == FALSE){
-      st_err_log(4, __FILE__, __LINE__, __FUNCTION__);
+      ock_log_err(OCK_E_FUNC);
       return CKR_FUNCTION_FAILED;
    }
    else {
@@ -497,7 +497,7 @@ ssl3_mac_sign_update( SESSION              * sess,
 
 
    if (!sess || !ctx){
-      st_err_log(4, __FILE__, __LINE__, __FUNCTION__);
+      ock_log_err(OCK_E_FUNC);
       return CKR_FUNCTION_FAILED;
    }
    context = (SSL3_MAC_CONTEXT *)ctx->context;
@@ -510,7 +510,7 @@ ssl3_mac_sign_update( SESSION              * sess,
       }
       rc = template_attribute_find( key_obj->template, CKA_VALUE, &attr );
       if (rc == FALSE) {
-         st_err_log(4, __FILE__, __LINE__, __FUNCTION__);
+         ock_log_err(OCK_E_FUNC);
          return CKR_FUNCTION_FAILED;
       }
       else {
@@ -587,7 +587,7 @@ ssl3_mac_sign_final( SESSION              * sess,
 
 
    if (!sess || !ctx || !out_data_len){
-      st_err_log(4, __FILE__, __LINE__, __FUNCTION__);
+      ock_log_err(OCK_E_FUNC);
       return CKR_FUNCTION_FAILED;
    }
    mac_len = *(CK_ULONG *)ctx->mech.pParameter;
@@ -612,7 +612,7 @@ ssl3_mac_sign_final( SESSION              * sess,
    }
    rc = template_attribute_find( key_obj->template, CKA_VALUE, &attr );
    if (rc == FALSE) {
-      st_err_log(4, __FILE__, __LINE__, __FUNCTION__);
+      ock_log_err(OCK_E_FUNC);
       return CKR_FUNCTION_FAILED;
    }
    else {
@@ -696,7 +696,7 @@ ssl3_mac_verify( SESSION              * sess,
    CK_RV                rc;
 
    if (!sess || !ctx || !in_data || !signature){
-      st_err_log(4, __FILE__, __LINE__, __FUNCTION__);
+      ock_log_err(OCK_E_FUNC);
       return CKR_FUNCTION_FAILED;
    }
    mac_len = *(CK_ULONG *)ctx->mech.pParameter;
@@ -752,7 +752,7 @@ ssl3_mac_verify_update( SESSION              * sess,
 
 
    if (!sess || !ctx){
-      st_err_log(4, __FILE__, __LINE__, __FUNCTION__);
+      ock_log_err(OCK_E_FUNC);
       return CKR_FUNCTION_FAILED;
    }
    context = (SSL3_MAC_CONTEXT *)ctx->context;
@@ -765,7 +765,7 @@ ssl3_mac_verify_update( SESSION              * sess,
       }
       rc = template_attribute_find( key_obj->template, CKA_VALUE, &attr );
       if (rc == FALSE) {
-         st_err_log(4, __FILE__, __LINE__, __FUNCTION__);
+         ock_log_err(OCK_E_FUNC);
          return CKR_FUNCTION_FAILED;
       }
       else {
@@ -840,7 +840,7 @@ ssl3_mac_verify_final( SESSION              * sess,
 
 
    if (!sess || !ctx || !signature){
-      st_err_log(4, __FILE__, __LINE__, __FUNCTION__);
+      ock_log_err(OCK_E_FUNC);
       return CKR_FUNCTION_FAILED;
    }
    mac_len = *(CK_ULONG *)ctx->mech.pParameter;
@@ -854,7 +854,7 @@ ssl3_mac_verify_final( SESSION              * sess,
    }
    rc = template_attribute_find( key_obj->template, CKA_VALUE, &attr );
    if (rc == FALSE) {
-      st_err_log(4, __FILE__, __LINE__, __FUNCTION__);
+      ock_log_err(OCK_E_FUNC);
       return CKR_FUNCTION_FAILED;
    }
    else {
@@ -946,7 +946,7 @@ ckm_ssl3_pre_master_key_gen( TEMPLATE     * tmpl,
 
    rc = rng_generate( key, 48 );
    if (rc != CKR_OK){
-      st_err_log(4, __FILE__, __LINE__, __FUNCTION__);
+      ock_log_err(OCK_E_FUNC);
       return CKR_FUNCTION_FAILED;
    }
    value_attr     = (CK_ATTRIBUTE *)malloc(sizeof(CK_ATTRIBUTE) + 48 );
@@ -1217,7 +1217,7 @@ ssl3_master_key_derive( SESSION           * sess,
 
 
    if (!sess || !mech){
-      st_err_log(4, __FILE__, __LINE__, __FUNCTION__);
+      ock_log_err(OCK_E_FUNC);
       return CKR_FUNCTION_FAILED;
    }
    params = (CK_SSL3_MASTER_KEY_DERIVE_PARAMS *)mech->pParameter;
@@ -1229,7 +1229,7 @@ ssl3_master_key_derive( SESSION           * sess,
    }
    rc = template_attribute_find( base_key_obj->template, CKA_VALUE, &attr );
    if (rc == FALSE){
-      st_err_log(4, __FILE__, __LINE__, __FUNCTION__);
+      ock_log_err(OCK_E_FUNC);
       return CKR_FUNCTION_FAILED;
    }
    else {
@@ -1237,7 +1237,7 @@ ssl3_master_key_derive( SESSION           * sess,
       base_key_value = attr->pValue;
 
       if (base_key_len != 48){
-         st_err_log(4, __FILE__, __LINE__, __FUNCTION__);
+         ock_log_err(OCK_E_FUNC);
          return CKR_FUNCTION_FAILED;
       }
    }
@@ -1358,7 +1358,7 @@ ssl3_master_key_derive( SESSION           * sess,
    //
    rc = template_attribute_find( base_key_obj->template, CKA_ALWAYS_SENSITIVE, &attr );
    if (rc == FALSE) {
-      st_err_log(4, __FILE__, __LINE__, __FUNCTION__);
+      ock_log_err(OCK_E_FUNC);
       rc = CKR_FUNCTION_FAILED;
       goto error;
    }
@@ -1367,7 +1367,7 @@ ssl3_master_key_derive( SESSION           * sess,
    if (flag == TRUE) {
       rc = template_attribute_find( derived_key_obj->template, CKA_SENSITIVE, &attr );
       if (rc == FALSE) {
-         st_err_log(4, __FILE__, __LINE__, __FUNCTION__);
+         ock_log_err(OCK_E_FUNC);
          rc = CKR_FUNCTION_FAILED;
          goto error;
       }
@@ -1385,7 +1385,7 @@ ssl3_master_key_derive( SESSION           * sess,
    //
    rc = template_attribute_find( base_key_obj->template, CKA_NEVER_EXTRACTABLE, &attr );
    if (rc == FALSE) {
-      st_err_log(4, __FILE__, __LINE__, __FUNCTION__);
+      ock_log_err(OCK_E_FUNC);
       rc = CKR_FUNCTION_FAILED;
       goto error;
    }
@@ -1394,7 +1394,7 @@ ssl3_master_key_derive( SESSION           * sess,
    if (flag == TRUE) {
       rc = template_attribute_find( derived_key_obj->template, CKA_EXTRACTABLE, &attr );
       if (rc == FALSE) {
-         st_err_log(4, __FILE__, __LINE__, __FUNCTION__);
+         ock_log_err(OCK_E_FUNC);
          rc = CKR_FUNCTION_FAILED;
          goto error;
       }
@@ -1487,7 +1487,7 @@ ssl3_key_and_mac_derive( SESSION           * sess,
 
 
    if (!sess || !mech){
-      st_err_log(4, __FILE__, __LINE__, __FUNCTION__);
+      ock_log_err(OCK_E_FUNC);
       return CKR_FUNCTION_FAILED;
    }
    params = (CK_SSL3_KEY_MAT_PARAMS *)mech->pParameter;
@@ -1499,7 +1499,7 @@ ssl3_key_and_mac_derive( SESSION           * sess,
    }
    rc = template_attribute_find( base_key_obj->template, CKA_VALUE, &attr );
    if (rc == FALSE){
-      st_err_log(4, __FILE__, __LINE__, __FUNCTION__);
+      ock_log_err(OCK_E_FUNC);
       return CKR_FUNCTION_FAILED;
    }
    else
@@ -1509,7 +1509,7 @@ ssl3_key_and_mac_derive( SESSION           * sess,
 
    for (i=0; i < 4; i++) {
       if (base_attrs[i].found == FALSE){
-         st_err_log(4, __FILE__, __LINE__, __FUNCTION__);
+         ock_log_err(OCK_E_FUNC);
          return CKR_FUNCTION_FAILED;
       }
    }
@@ -1594,7 +1594,7 @@ ssl3_key_and_mac_derive( SESSION           * sess,
    // we stop at 'ZZZZ....'  presumably this is enough for all cases?
    //
    if (key_material_loop_count > 26 * 16){
-      st_err_log(4, __FILE__, __LINE__, __FUNCTION__);
+      ock_log_err(OCK_E_FUNC);
       return CKR_FUNCTION_FAILED;
    }
    key_material_loop_count = (key_material_loop_count + 15) / 16;

@@ -46,7 +46,7 @@ decr_mgr_init( SESSION           *sess,
 
 
    if (!sess){
-      st_err_log(4, __FILE__, __LINE__, __FUNCTION__);
+      ock_log_err(OCK_E_FUNC);
       return CKR_FUNCTION_FAILED;
    }
    if (ctx->active != FALSE){
@@ -90,20 +90,20 @@ decr_mgr_init( SESSION           *sess,
       //
       rc = template_attribute_find( key_obj->template, CKA_UNWRAP, &attr );
       if (rc == FALSE){
-         st_err_log(4, __FILE__, __LINE__, __FUNCTION__);
+         ock_log_err(OCK_E_FUNC);
          return CKR_FUNCTION_FAILED; // Cryptoki doesn't define a better return code
       }
       else
       {
          flag = *(CK_BBOOL *)attr->pValue;
          if (flag == FALSE){
-            st_err_log(4, __FILE__, __LINE__, __FUNCTION__);
+            ock_log_err(OCK_E_FUNC);
             return CKR_FUNCTION_FAILED;
          }
       }
    }
    else{
-      st_err_log(4, __FILE__, __LINE__, __FUNCTION__);
+      ock_log_err(OCK_E_FUNC);
       return CKR_FUNCTION_FAILED;
    }
    // is the mechanism supported?  is the key type correct?  is a
@@ -473,7 +473,7 @@ CK_RV
 decr_mgr_cleanup( ENCR_DECR_CONTEXT *ctx )
 {
    if (!ctx){
-      st_err_log(4, __FILE__, __LINE__, __FUNCTION__);
+      ock_log_err(OCK_E_FUNC);
       return CKR_FUNCTION_FAILED;
    }
    ctx->key                 = 0;
@@ -509,7 +509,7 @@ decr_mgr_decrypt( SESSION           *sess,
                   CK_ULONG          *out_data_len )
 {
    if (!sess || !ctx){
-      st_err_log(4, __FILE__, __LINE__, __FUNCTION__);
+      ock_log_err(OCK_E_FUNC);
       return CKR_FUNCTION_FAILED;
    }
    if (ctx->active == FALSE){
@@ -520,7 +520,7 @@ decr_mgr_decrypt( SESSION           *sess,
    // specify the input data.  I just need the data length
    //
    if ((length_only == FALSE) && (!in_data || !out_data)){
-      st_err_log(4, __FILE__, __LINE__, __FUNCTION__);
+      ock_log_err(OCK_E_FUNC);
       return CKR_FUNCTION_FAILED;
    }
    if (ctx->multi == TRUE){
@@ -606,7 +606,7 @@ decr_mgr_decrypt( SESSION           *sess,
          return CKR_MECHANISM_INVALID;
    }
 
-   st_err_log(4, __FILE__, __LINE__, __FUNCTION__);
+   ock_log_err(OCK_E_FUNC);
    return CKR_FUNCTION_FAILED;
 }
 
@@ -623,12 +623,12 @@ decr_mgr_decrypt_update( SESSION            *sess,
                          CK_ULONG           *out_data_len )
 {
    if (!sess || !in_data || !ctx){
-      st_err_log(4, __FILE__, __LINE__, __FUNCTION__);
+      ock_log_err(OCK_E_FUNC);
       return CKR_FUNCTION_FAILED;
    }
 
    if (!out_data && !length_only){
-      st_err_log(4, __FILE__, __LINE__, __FUNCTION__);
+      ock_log_err(OCK_E_FUNC);
       return CKR_FUNCTION_FAILED;
    }
 
@@ -705,7 +705,7 @@ decr_mgr_decrypt_update( SESSION            *sess,
          st_err_log(28, __FILE__, __LINE__);
          return CKR_MECHANISM_INVALID;
    }
-   st_err_log(4, __FILE__, __LINE__, __FUNCTION__);
+   ock_log_err(OCK_E_FUNC);
    return CKR_FUNCTION_FAILED;
 }
 
@@ -720,7 +720,7 @@ decr_mgr_decrypt_final( SESSION            *sess,
                         CK_ULONG           *out_data_len )
 {
    if (!sess || !ctx){
-      st_err_log(4, __FILE__, __LINE__, __FUNCTION__);
+      ock_log_err(OCK_E_FUNC);
       return CKR_FUNCTION_FAILED;
    }
    if (ctx->active == FALSE){
@@ -786,7 +786,7 @@ decr_mgr_decrypt_final( SESSION            *sess,
          st_err_log(28, __FILE__, __LINE__);
          return CKR_MECHANISM_INVALID;
    }
-   st_err_log(4, __FILE__, __LINE__, __FUNCTION__);
+   ock_log_err(OCK_E_FUNC);
 
    return CKR_FUNCTION_FAILED;
 }

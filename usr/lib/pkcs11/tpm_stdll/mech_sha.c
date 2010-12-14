@@ -140,7 +140,7 @@ sha1_hash( SESSION         *sess,
    CK_RV rv;
    
    if (!sess || !ctx || !out_data_len){
-      st_err_log(4, __FILE__, __LINE__, __FUNCTION__);
+      ock_log_err(OCK_E_FUNC);
       return CKR_FUNCTION_FAILED;
    }
    if (length_only == TRUE) {
@@ -167,7 +167,7 @@ sha1_hash_update( SESSION        * sess,
                   CK_ULONG         in_data_len )
 {
    if (!sess || !in_data){
-      st_err_log(4, __FILE__, __LINE__, __FUNCTION__);
+      ock_log_err(OCK_E_FUNC);
       return CKR_FUNCTION_FAILED;
    }
    return ckm_sha1_update( ctx, in_data, in_data_len );
@@ -184,7 +184,7 @@ sha1_hash_final( SESSION         * sess,
                  CK_ULONG        * out_data_len )
 {
    if (!sess || !ctx || !out_data_len){
-      st_err_log(4, __FILE__, __LINE__, __FUNCTION__);
+      ock_log_err(OCK_E_FUNC);
       return CKR_FUNCTION_FAILED;
    }
    if (length_only == TRUE) {
@@ -222,7 +222,7 @@ sha1_hmac_sign( SESSION              * sess,
 
 
    if (!sess || !ctx || !out_data_len){
-      st_err_log(4, __FILE__, __LINE__, __FUNCTION__);
+      ock_log_err(OCK_E_FUNC);
       return CKR_FUNCTION_FAILED;
    }
 
@@ -252,7 +252,7 @@ sha1_hmac_sign( SESSION              * sess,
    }
    rc = template_attribute_find( key_obj->template, CKA_VALUE, &attr );
    if (rc == FALSE){
-      st_err_log(4, __FILE__, __LINE__, __FUNCTION__);
+      ock_log_err(OCK_E_FUNC);
       return CKR_FUNCTION_FAILED;
    }
    else
@@ -388,7 +388,7 @@ sha1_hmac_verify( SESSION              * sess,
    CK_RV                rc;
 
    if (!sess || !ctx || !in_data || !signature){
-      st_err_log(4, __FILE__, __LINE__, __FUNCTION__);
+      ock_log_err(OCK_E_FUNC);
       return CKR_FUNCTION_FAILED;
    }
    if (ctx->mech.mechanism == CKM_SHA_1_HMAC_GENERAL)
@@ -440,7 +440,7 @@ ckm_sha1_update( DIGEST_CONTEXT * ctx,
 {
     if( token_specific.t_sha_update == NULL ){
 	if (!ctx || !in_data){
-	    st_err_log(4, __FILE__, __LINE__, __FUNCTION__);
+	    ock_log_err(OCK_E_FUNC);
 	    return CKR_FUNCTION_FAILED;
 	}
 	shaUpdate( (SHA1_CONTEXT *)ctx->context, in_data, in_data_len );
@@ -460,11 +460,11 @@ ckm_sha1_final( DIGEST_CONTEXT * ctx,
 {
     if (token_specific.t_sha_final  == NULL ){
 	if (!ctx || !out_data || !out_data_len){
-	    st_err_log(4, __FILE__, __LINE__, __FUNCTION__);
+	    ock_log_err(OCK_E_FUNC);
 	    return CKR_FUNCTION_FAILED;
 	}
 	if (*out_data_len < SHA1_HASH_SIZE){
-	    st_err_log(4, __FILE__, __LINE__, __FUNCTION__);
+	    ock_log_err(OCK_E_FUNC);
 	    return CKR_FUNCTION_FAILED;
 	}
 	shaFinal( (SHA1_CONTEXT *)ctx->context, out_data );

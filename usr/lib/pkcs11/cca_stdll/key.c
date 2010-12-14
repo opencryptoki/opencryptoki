@@ -831,7 +831,7 @@ priv_key_unwrap( TEMPLATE *tmpl,
    }
 
    if (rc != CKR_OK) {
-      st_err_log(4, __FILE__, __LINE__, __FUNCTION__);
+      ock_log_err(OCK_E_FUNC);
       return rc;
    }
 
@@ -1728,41 +1728,41 @@ rsa_priv_wrap_get_data( TEMPLATE  *tmpl,
    // compute the total length of the BER-encoded data
    //
    if (template_attribute_find(tmpl, CKA_MODULUS, &modulus) == FALSE){
-      st_err_log(4, __FILE__, __LINE__, __FUNCTION__);
+      ock_log_err(OCK_E_FUNC);
       return CKR_FUNCTION_FAILED; 
    }
    if (template_attribute_find(tmpl, CKA_PUBLIC_EXPONENT, &publ_exp) == FALSE){
-      st_err_log(4, __FILE__, __LINE__, __FUNCTION__);
+      ock_log_err(OCK_E_FUNC);
       return CKR_FUNCTION_FAILED;
    }
    if (template_attribute_find(tmpl, CKA_IBM_OPAQUE, &opaque) == FALSE){
-      st_err_log(4, __FILE__, __LINE__, __FUNCTION__);
+      ock_log_err(OCK_E_FUNC);
       return CKR_FUNCTION_FAILED;
    }
 #if 0
    if (template_attribute_find(tmpl, CKA_PRIVATE_EXPONENT, &priv_exp) ==
 FALSE){
-      st_err_log(4, __FILE__, __LINE__, __FUNCTION__);
+      ock_log_err(OCK_E_FUNC);
       return CKR_FUNCTION_FAILED;
    }
    if (template_attribute_find(tmpl, CKA_PRIME_1, &prime1) == FALSE){
-      st_err_log(4, __FILE__, __LINE__, __FUNCTION__);
+      ock_log_err(OCK_E_FUNC);
       return CKR_FUNCTION_FAILED;
    }
    if (template_attribute_find(tmpl, CKA_PRIME_2, &prime2) == FALSE){
-      st_err_log(4, __FILE__, __LINE__, __FUNCTION__);
+      ock_log_err(OCK_E_FUNC);
       return CKR_FUNCTION_FAILED;
    }
    if (template_attribute_find(tmpl, CKA_EXPONENT_1, &exponent1) == FALSE){
-      st_err_log(4, __FILE__, __LINE__, __FUNCTION__);
+      ock_log_err(OCK_E_FUNC);
       return CKR_FUNCTION_FAILED;
    }
    if (template_attribute_find(tmpl, CKA_EXPONENT_2, &exponent2) == FALSE){
-      st_err_log(4, __FILE__, __LINE__, __FUNCTION__);
+      ock_log_err(OCK_E_FUNC);
       return CKR_FUNCTION_FAILED;
    }
    if (template_attribute_find(tmpl, CKA_COEFFICIENT, &coeff) == FALSE){
-      st_err_log(4, __FILE__, __LINE__, __FUNCTION__);
+      ock_log_err(OCK_E_FUNC);
       return CKR_FUNCTION_FAILED;
    }
    rc = ber_encode_RSAPrivateKey( length_only, data, data_len,
@@ -2246,19 +2246,19 @@ dsa_priv_wrap_get_data( TEMPLATE  *tmpl,
    // compute the total length of the BER-encoded data
    //
    if (template_attribute_find(tmpl, CKA_PRIME, &prime) == FALSE){
-      st_err_log(4, __FILE__, __LINE__, __FUNCTION__);
+      ock_log_err(OCK_E_FUNC);
       return CKR_FUNCTION_FAILED;
    }
    if (template_attribute_find(tmpl, CKA_SUBPRIME, &subprime) == FALSE){
-      st_err_log(4, __FILE__, __LINE__, __FUNCTION__);
+      ock_log_err(OCK_E_FUNC);
       return CKR_FUNCTION_FAILED;
    }
    if (template_attribute_find(tmpl, CKA_BASE, &base) == FALSE){
-      st_err_log(4, __FILE__, __LINE__, __FUNCTION__);
+      ock_log_err(OCK_E_FUNC);
       return CKR_FUNCTION_FAILED;
    }
    if (template_attribute_find(tmpl, CKA_VALUE, &value) == FALSE){
-      st_err_log(4, __FILE__, __LINE__, __FUNCTION__);
+      ock_log_err(OCK_E_FUNC);
       return CKR_FUNCTION_FAILED;
    }
    rc = ber_encode_DSAPrivateKey( length_only, data, data_len,
@@ -3262,7 +3262,7 @@ generic_secret_wrap_get_data( TEMPLATE   * tmpl,
 
 
    if (!tmpl || !data_len){
-      st_err_log(4, __FILE__, __LINE__, __FUNCTION__);
+      ock_log_err(OCK_E_FUNC);
       return CKR_FUNCTION_FAILED;
    }
 
@@ -3940,7 +3940,7 @@ des_wrap_get_data( TEMPLATE   * tmpl,
 
 
    if (!tmpl || !data_len){
-      st_err_log(4, __FILE__, __LINE__, __FUNCTION__);
+      ock_log_err(OCK_E_FUNC);
       return CKR_FUNCTION_FAILED;
    }
 
@@ -4281,7 +4281,7 @@ des3_wrap_get_data( TEMPLATE   * tmpl,
 
 
    if (!tmpl || !data_len){
-      st_err_log(4, __FILE__, __LINE__, __FUNCTION__);
+      ock_log_err(OCK_E_FUNC);
       return CKR_FUNCTION_FAILED;
    }
 
@@ -5260,7 +5260,7 @@ aes_wrap_get_data( TEMPLATE   * tmpl,
 
 
    if (!tmpl || !data_len){
-      st_err_log(4, __FILE__, __LINE__, __FUNCTION__);
+      ock_log_err(OCK_E_FUNC);
       return CKR_FUNCTION_FAILED;
    }
 

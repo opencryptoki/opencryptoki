@@ -331,7 +331,7 @@ ber_encode_INTEGER( CK_BBOOL    length_only,
    else if (data_len < (1 << 24))
       len = 1 + (1 + 3) + data_len;
    else{
-      st_err_log(4, __FILE__, __LINE__, __FUNCTION__);
+      ock_log_err(OCK_E_FUNC);
       return CKR_FUNCTION_FAILED;
    }
    if (length_only == TRUE) {
@@ -393,7 +393,7 @@ ber_encode_INTEGER( CK_BBOOL    length_only,
    // we should never reach this
    //
    free( buf );
-   st_err_log(4, __FILE__, __LINE__, __FUNCTION__);
+   ock_log_err(OCK_E_FUNC);
    return CKR_FUNCTION_FAILED;
 }
 
@@ -409,11 +409,11 @@ ber_decode_INTEGER( CK_BYTE   * ber_int,
    CK_ULONG  len, length_octets;
 
    if (!ber_int){
-      st_err_log(4, __FILE__, __LINE__, __FUNCTION__);
+      ock_log_err(OCK_E_FUNC);
       return CKR_FUNCTION_FAILED;
    }
    if (ber_int[0] != 0x02){
-      st_err_log(4, __FILE__, __LINE__, __FUNCTION__);
+      ock_log_err(OCK_E_FUNC);
       return CKR_FUNCTION_FAILED;
    }
    // short form lengths are easy
@@ -465,7 +465,7 @@ ber_decode_INTEGER( CK_BYTE   * ber_int,
    // > 3 length octets implies a length > 16MB which isn't possible for
    // the coprocessor
    //
-   st_err_log(4, __FILE__, __LINE__, __FUNCTION__);
+   ock_log_err(OCK_E_FUNC);
    return CKR_FUNCTION_FAILED;
 }
 
@@ -499,7 +499,7 @@ ber_encode_OCTET_STRING( CK_BBOOL    length_only,
    else if (data_len < (1 << 24))
       len = 1 + (1 + 3) + data_len;
    else{
-      st_err_log(4, __FILE__, __LINE__, __FUNCTION__);
+      ock_log_err(OCK_E_FUNC);
       return CKR_FUNCTION_FAILED;
    }
    if (length_only == TRUE) {
@@ -565,7 +565,7 @@ ber_encode_OCTET_STRING( CK_BBOOL    length_only,
    // we should never reach this
    //
    free( buf );
-   st_err_log(4, __FILE__, __LINE__, __FUNCTION__);
+   ock_log_err(OCK_E_FUNC);
    return CKR_FUNCTION_FAILED;
 }
 
@@ -584,11 +584,11 @@ ber_decode_OCTET_STRING( CK_BYTE  * str,
    //
 
    if (!str){
-      st_err_log(4, __FILE__, __LINE__, __FUNCTION__);
+      ock_log_err(OCK_E_FUNC);
       return CKR_FUNCTION_FAILED;
    }
    if (str[0] != 0x04){
-      st_err_log(4, __FILE__, __LINE__, __FUNCTION__);
+      ock_log_err(OCK_E_FUNC);
       return CKR_FUNCTION_FAILED;
    }
    // short form lengths are easy
@@ -639,7 +639,7 @@ ber_decode_OCTET_STRING( CK_BYTE  * str,
 
    // > 3 length octets implies a length > 16MB
    //
-   st_err_log(4, __FILE__, __LINE__, __FUNCTION__);
+   ock_log_err(OCK_E_FUNC);
    return CKR_FUNCTION_FAILED;
 }
 
@@ -669,7 +669,7 @@ ber_encode_SEQUENCE( CK_BBOOL    length_only,
    else if (data_len < (1 << 24))
       len = 1 + (1 + 3) + data_len;
    else{
-      st_err_log(4, __FILE__, __LINE__, __FUNCTION__);
+      ock_log_err(OCK_E_FUNC);
       return CKR_FUNCTION_FAILED;
    }
    if (length_only == TRUE) {
@@ -732,7 +732,7 @@ ber_encode_SEQUENCE( CK_BBOOL    length_only,
       return CKR_OK;
    }
 
-   st_err_log(4, __FILE__, __LINE__, __FUNCTION__);
+   ock_log_err(OCK_E_FUNC);
    return CKR_FUNCTION_FAILED;
 }
 
@@ -749,11 +749,11 @@ ber_decode_SEQUENCE( CK_BYTE  * seq,
 
 
    if (!seq){ 
-      st_err_log(4, __FILE__, __LINE__, __FUNCTION__);
+      ock_log_err(OCK_E_FUNC);
       return CKR_FUNCTION_FAILED;
    }
    if (seq[0] != 0x30){
-      st_err_log(4, __FILE__, __LINE__, __FUNCTION__);
+      ock_log_err(OCK_E_FUNC);
       return CKR_FUNCTION_FAILED;
    }
    // short form lengths are easy
@@ -804,7 +804,7 @@ ber_decode_SEQUENCE( CK_BYTE  * seq,
 
    // > 3 length octets implies a length > 16MB
    //
-   st_err_log(4, __FILE__, __LINE__, __FUNCTION__);
+   ock_log_err(OCK_E_FUNC);
    return CKR_FUNCTION_FAILED;
 }
 
@@ -923,7 +923,7 @@ ber_decode_PrivateKeyInfo( CK_BYTE   * data,
    CK_RV     rc;
 
    if (!data || (data_len == 0)){
-      st_err_log(4, __FILE__, __LINE__, __FUNCTION__);
+      ock_log_err(OCK_E_FUNC);
       return CKR_FUNCTION_FAILED;
    }
    rc = ber_decode_SEQUENCE( data, &buf, &buf_len, &field_len );
@@ -1004,7 +1004,7 @@ ber_encode_RSAPrivateKey( CK_BBOOL    length_only,
    rc |= ber_encode_INTEGER( TRUE, NULL, &len, NULL,     coeff->ulValueLen ); offset += len;
 
    if (rc != CKR_OK){
-      st_err_log(4, __FILE__, __LINE__, __FUNCTION__);
+      ock_log_err(OCK_E_FUNC);
       return CKR_FUNCTION_FAILED;
    }
    if (length_only == TRUE) {
@@ -1170,7 +1170,7 @@ ber_decode_RSAPrivateKey( CK_BYTE    * data,
    // make sure we're dealing with an RSA key
    //
    if (memcmp(alg, ber_rsaEncryption, ber_rsaEncryptionLen) != 0){
-      st_err_log(4, __FILE__, __LINE__, __FUNCTION__);
+      ock_log_err(OCK_E_FUNC);
       return CKR_FUNCTION_FAILED;  // probably ought to use a different error
    }
    rc = ber_decode_SEQUENCE( rsa_priv_key, &buf, &buf_len, &field_len );
@@ -1263,7 +1263,7 @@ ber_decode_RSAPrivateKey( CK_BYTE    * data,
    offset += field_len;
 
    if (offset > buf_len){
-      st_err_log(4, __FILE__, __LINE__, __FUNCTION__);
+      ock_log_err(OCK_E_FUNC);
       return CKR_FUNCTION_FAILED;
    }
    //
@@ -1474,7 +1474,7 @@ ber_encode_DSAPrivateKey( CK_BBOOL    length_only,
    rc |= ber_encode_INTEGER( TRUE, NULL, &len, NULL, base->ulValueLen   );  offset += len;
 
    if (rc != CKR_OK){
-      st_err_log(4, __FILE__, __LINE__, __FUNCTION__);
+      ock_log_err(OCK_E_FUNC);
       return CKR_FUNCTION_FAILED;
    }
    if (length_only == TRUE) {
@@ -1634,7 +1634,7 @@ ber_decode_DSAPrivateKey( CK_BYTE     * data,
    // IDENTIFIER
    //
    if (memcmp(alg, ber_idDSA, ber_idDSALen) != 0){
-      st_err_log(4, __FILE__, __LINE__, __FUNCTION__);
+      ock_log_err(OCK_E_FUNC);
       return CKR_FUNCTION_FAILED;
    }
 
@@ -1675,7 +1675,7 @@ ber_decode_DSAPrivateKey( CK_BYTE     * data,
    offset += field_len;
 
    if (offset > buf_len){
-      st_err_log(4, __FILE__, __LINE__, __FUNCTION__);
+      ock_log_err(OCK_E_FUNC);
       return CKR_FUNCTION_FAILED;
    }
    //

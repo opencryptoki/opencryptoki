@@ -65,14 +65,14 @@ dh_pkcs_derive( SESSION           * sess,
         (mech->ulParameterLen != 192) &&
         (mech->ulParameterLen != 256)))
    {
-      st_err_log(4, __FILE__, __LINE__, __FUNCTION__);
+      ock_log_err(OCK_E_FUNC);
       return CKR_FUNCTION_FAILED;
    }
       
    // Check valid object handle on base_key
    if (&base_key == NULL)
    {
-      st_err_log(4, __FILE__, __LINE__, __FUNCTION__);
+      ock_log_err(OCK_E_FUNC);
       return CKR_FUNCTION_FAILED;
    }
 

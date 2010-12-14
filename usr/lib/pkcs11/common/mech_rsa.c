@@ -344,7 +344,7 @@ rsa_format_block( CK_BYTE   * in_data,
     CK_RV           rc;
 
     if (!in_data || !in_data_len || !out_data || !out_data_len) {
-        st_err_log(4, __FILE__, __LINE__, __FUNCTION__);
+        ock_log_err(OCK_E_FUNC);
         rc = CKR_FUNCTION_FAILED;
         return rc;
     }
@@ -464,13 +464,13 @@ rsa_parse_block( CK_BYTE  * in_data,
     CK_RV           rc;
 
     if (!in_data || !out_data || !out_data_len) {
-        st_err_log(4, __FILE__, __LINE__, __FUNCTION__);
+        ock_log_err(OCK_E_FUNC);
         rc = CKR_FUNCTION_FAILED;
         return rc;
     }
 
     if (in_data_len <= 11) {
-        st_err_log(4, __FILE__, __LINE__, __FUNCTION__);
+        ock_log_err(OCK_E_FUNC);
         rc = CKR_FUNCTION_FAILED;
         return rc;
     }
@@ -620,7 +620,7 @@ rsa_pkcs_encrypt( SESSION           *sess,
    }
    flag = template_attribute_find( key_obj->template, CKA_MODULUS, &attr );
    if (flag == FALSE){
-      st_err_log(4, __FILE__, __LINE__, __FUNCTION__);
+      ock_log_err(OCK_E_FUNC);
       return CKR_FUNCTION_FAILED;
    }
    else
@@ -752,7 +752,7 @@ rsa_pkcs_sign( SESSION             *sess,
 
 
    if (!sess || !ctx || !out_data_len){
-      st_err_log(4, __FILE__, __LINE__, __FUNCTION__);
+      ock_log_err(OCK_E_FUNC);
       return CKR_FUNCTION_FAILED;
    }
    rc = object_mgr_find_in_map1( ctx->key, &key_obj );
@@ -822,7 +822,7 @@ rsa_pkcs_verify( SESSION             * sess,
    }
    flag = template_attribute_find( key_obj->template, CKA_MODULUS, &attr );
    if (flag == FALSE){
-      st_err_log(4, __FILE__, __LINE__, __FUNCTION__);
+      ock_log_err(OCK_E_FUNC);
       return CKR_FUNCTION_FAILED;
    }
    else
@@ -856,7 +856,7 @@ rsa_pkcs_verify( SESSION             * sess,
          st_err_log(47, __FILE__, __LINE__);
          return CKR_SIGNATURE_INVALID;
       } else {
-         st_err_log(4, __FILE__, __LINE__, __FUNCTION__);
+         ock_log_err(OCK_E_FUNC);
          return CKR_FUNCTION_FAILED;
       }
    }
@@ -887,7 +887,7 @@ rsa_pkcs_verify_recover( SESSION             * sess,
 
 
    if (!sess || !ctx || !out_data_len){
-      st_err_log(4, __FILE__, __LINE__, __FUNCTION__);
+      ock_log_err(OCK_E_FUNC);
       return CKR_FUNCTION_FAILED;
    }
    rc = object_mgr_find_in_map1( ctx->key, &key_obj );
@@ -897,7 +897,7 @@ rsa_pkcs_verify_recover( SESSION             * sess,
    }
    flag = template_attribute_find( key_obj->template, CKA_MODULUS, &attr );
    if (flag == FALSE){
-      st_err_log(4, __FILE__, __LINE__, __FUNCTION__);
+      ock_log_err(OCK_E_FUNC);
       return CKR_FUNCTION_FAILED;
    }
    else
@@ -923,7 +923,7 @@ rsa_pkcs_verify_recover( SESSION             * sess,
          st_err_log(47, __FILE__, __LINE__);
          return CKR_SIGNATURE_INVALID;
       } else if (rc != CKR_OK) {
-         st_err_log(4, __FILE__, __LINE__, __FUNCTION__);
+         ock_log_err(OCK_E_FUNC);
          return rc;
       }
    }
@@ -960,7 +960,7 @@ rsa_x509_encrypt( SESSION           *sess,
    }
    flag = template_attribute_find( key_obj->template, CKA_MODULUS, &attr );
    if (flag == FALSE){
-      st_err_log(4, __FILE__, __LINE__, __FUNCTION__);
+      ock_log_err(OCK_E_FUNC);
       return CKR_FUNCTION_FAILED;
    }
    else
@@ -1089,7 +1089,7 @@ rsa_x509_sign( SESSION             *sess,
 
 
    if (!sess || !ctx || !out_data_len){
-      st_err_log(4, __FILE__, __LINE__, __FUNCTION__);
+      ock_log_err(OCK_E_FUNC);
       return CKR_FUNCTION_FAILED;
    }
    rc = object_mgr_find_in_map1( ctx->key, &key_obj );
@@ -1165,7 +1165,7 @@ rsa_x509_verify( SESSION             * sess,
    }
    flag = template_attribute_find( key_obj->template, CKA_MODULUS, &attr );
    if (flag == FALSE){
-      st_err_log(4, __FILE__, __LINE__, __FUNCTION__);
+      ock_log_err(OCK_E_FUNC);
       return CKR_FUNCTION_FAILED;
    }
    else
@@ -1238,7 +1238,7 @@ rsa_x509_verify_recover( SESSION             * sess,
 
 
    if (!sess || !ctx || !out_data_len){
-      st_err_log(4, __FILE__, __LINE__, __FUNCTION__);
+      ock_log_err(OCK_E_FUNC);
       return CKR_FUNCTION_FAILED;
    }
    rc = object_mgr_find_in_map1( ctx->key, &key_obj );
@@ -1248,7 +1248,7 @@ rsa_x509_verify_recover( SESSION             * sess,
    }
    flag = template_attribute_find( key_obj->template, CKA_MODULUS, &attr );
    if (flag == FALSE){
-      st_err_log(4, __FILE__, __LINE__, __FUNCTION__);
+      ock_log_err(OCK_E_FUNC);
       return CKR_FUNCTION_FAILED;
    }
    else
@@ -1316,7 +1316,7 @@ rsa_hash_pkcs_sign( SESSION              * sess,
    CK_RV                rc;
 
    if (!sess || !ctx || !in_data){
-      st_err_log(4, __FILE__, __LINE__, __FUNCTION__);
+      ock_log_err(OCK_E_FUNC);
       return CKR_FUNCTION_FAILED;
    }
    memset( &digest_ctx, 0x0, sizeof(digest_ctx) );
@@ -1407,7 +1407,7 @@ rsa_hash_pkcs_sign_update( SESSION              * sess,
    CK_RV                 rc;
 
    if (!sess || !ctx || !in_data){
-      st_err_log(4, __FILE__, __LINE__, __FUNCTION__);
+      ock_log_err(OCK_E_FUNC);
       return CKR_FUNCTION_FAILED;
    }
    context = (RSA_DIGEST_CONTEXT *)ctx->context;
@@ -1465,7 +1465,7 @@ rsa_hash_pkcs_verify( SESSION              * sess,
    CK_RV                rc;
 
    if (!sess || !ctx || !in_data){
-      st_err_log(4, __FILE__, __LINE__, __FUNCTION__);
+      ock_log_err(OCK_E_FUNC);
       return CKR_FUNCTION_FAILED;
    }
    memset( &digest_ctx, 0x0, sizeof(digest_ctx) );
@@ -1554,7 +1554,7 @@ rsa_hash_pkcs_verify_update( SESSION              * sess,
    CK_RV                 rc;
 
    if (!sess || !ctx || !in_data){
-      st_err_log(4, __FILE__, __LINE__, __FUNCTION__);
+      ock_log_err(OCK_E_FUNC);
       return CKR_FUNCTION_FAILED;
    }
    context = (RSA_DIGEST_CONTEXT *)ctx->context;
@@ -1611,7 +1611,7 @@ rsa_hash_pkcs_sign_final( SESSION              * sess,
    CK_RV                 rc;
 
    if (!sess || !ctx || !sig_len){
-      st_err_log(4, __FILE__, __LINE__, __FUNCTION__);
+      ock_log_err(OCK_E_FUNC);
       return CKR_FUNCTION_FAILED;
    }
 
@@ -1706,7 +1706,7 @@ rsa_hash_pkcs_verify_final( SESSION              * sess,
    CK_RV                 rc;
 
    if (!sess || !ctx || !signature){
-      st_err_log(4, __FILE__, __LINE__, __FUNCTION__);
+      ock_log_err(OCK_E_FUNC);
       return CKR_FUNCTION_FAILED;
    }
    if (ctx->mech.mechanism == CKM_MD2_RSA_PKCS) {
@@ -1833,7 +1833,7 @@ ckm_rsa_encrypt( CK_BYTE   * in_data,
 
    rc = template_attribute_find( key_obj->template, CKA_CLASS, &attr );
    if (rc == FALSE){
-      st_err_log(4, __FILE__, __LINE__, __FUNCTION__);
+      ock_log_err(OCK_E_FUNC);
       return CKR_FUNCTION_FAILED;
    }
    else
@@ -1842,7 +1842,7 @@ ckm_rsa_encrypt( CK_BYTE   * in_data,
    // this had better be a public key
    //
    if (keyclass != CKO_PUBLIC_KEY){
-      st_err_log(4, __FILE__, __LINE__, __FUNCTION__);
+      ock_log_err(OCK_E_FUNC);
       return CKR_FUNCTION_FAILED;
    }
    
@@ -1870,7 +1870,7 @@ ckm_rsa_decrypt( CK_BYTE   * in_data,
 
    rc = template_attribute_find( key_obj->template, CKA_CLASS, &attr );
    if (rc == FALSE){
-      st_err_log(4, __FILE__, __LINE__, __FUNCTION__);
+      ock_log_err(OCK_E_FUNC);
       return CKR_FUNCTION_FAILED;
    }
    else
@@ -1879,7 +1879,7 @@ ckm_rsa_decrypt( CK_BYTE   * in_data,
    // this had better be a private key
    //
    if (keyclass != CKO_PRIVATE_KEY){
-      st_err_log(4, __FILE__, __LINE__, __FUNCTION__);
+      ock_log_err(OCK_E_FUNC);
       return CKR_FUNCTION_FAILED;
    }
    rc = token_specific.t_rsa_decrypt(in_data,in_data_len,out_data,key_obj);

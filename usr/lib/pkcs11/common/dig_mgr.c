@@ -315,7 +315,7 @@ digest_mgr_init( SESSION           *sess,
    CK_BYTE  * ptr = NULL;
 
    if (!sess || !ctx){
-      st_err_log(4, __FILE__, __LINE__, __FUNCTION__);
+      ock_log_err(OCK_E_FUNC);
       return CKR_FUNCTION_FAILED;
    }
    if (ctx->active != FALSE){
@@ -461,7 +461,7 @@ CK_RV
 digest_mgr_cleanup( DIGEST_CONTEXT *ctx )
 {
    if (!ctx){
-      st_err_log(4, __FILE__, __LINE__, __FUNCTION__);
+      ock_log_err(OCK_E_FUNC);
       return CKR_FUNCTION_FAILED;
    }
    ctx->mech.ulParameterLen = 0;
@@ -499,7 +499,7 @@ digest_mgr_digest( SESSION         *sess,
    CK_RV        rc;
 
    if (!sess || !ctx){
-      st_err_log(4, __FILE__, __LINE__, __FUNCTION__);
+      ock_log_err(OCK_E_FUNC);
       return CKR_FUNCTION_FAILED;
    }
    if (ctx->active == FALSE){
@@ -511,7 +511,7 @@ digest_mgr_digest( SESSION         *sess,
    // specify the input data.  I just need the data length
    //
    if ((length_only == FALSE) && (!in_data || !out_data)){
-      st_err_log(4, __FILE__, __LINE__, __FUNCTION__);
+      ock_log_err(OCK_E_FUNC);
       rc = CKR_FUNCTION_FAILED;
       goto out;
    }
@@ -561,7 +561,7 @@ digest_mgr_digest( SESSION         *sess,
          break;
 
       default:
-         st_err_log(4, __FILE__, __LINE__, __FUNCTION__);
+         ock_log_err(OCK_E_FUNC);
          rc = CKR_FUNCTION_FAILED;  // shouldn't happen
    }
 
@@ -590,7 +590,7 @@ digest_mgr_digest_update( SESSION         *sess,
    CK_RV        rc;
 
    if (!sess || !ctx){
-      st_err_log(4, __FILE__, __LINE__, __FUNCTION__);
+      ock_log_err(OCK_E_FUNC);
       return CKR_FUNCTION_FAILED;
    }
    if (ctx->active == FALSE){
@@ -655,7 +655,7 @@ digest_mgr_digest_key( SESSION          * sess,
 
 
    if (!sess || !ctx){
-      st_err_log(4, __FILE__, __LINE__, __FUNCTION__);
+      ock_log_err(OCK_E_FUNC);
       return CKR_FUNCTION_FAILED;
    }
 
@@ -718,7 +718,7 @@ digest_mgr_digest_final( SESSION         *sess,
    CK_RV        rc;
 
    if (!sess || !ctx){
-      st_err_log(4, __FILE__, __LINE__, __FUNCTION__);
+      ock_log_err(OCK_E_FUNC);
       return CKR_FUNCTION_FAILED;
    }
    if (ctx->active == FALSE){

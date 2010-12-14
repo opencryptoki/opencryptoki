@@ -2516,7 +2516,7 @@ C_GetInfo ( CK_INFO_PTR pInfo )
    }
 
    if ( !pInfo ) {
-      st_err_log(4, __FILE__, __LINE__, __FUNCTION__);
+      ock_log_err(OCK_E_FUNC);
       return CKR_FUNCTION_FAILED;
    }
 
@@ -2548,7 +2548,7 @@ C_GetInfo ( CK_INFO_PTR pInfo )
    }
 
    if ( !pInfo ) {
-      st_err_log(4, __FILE__, __LINE__, __FUNCTION__);
+      ock_log_err(OCK_E_FUNC);
       return CKR_FUNCTION_FAILED;
    }
 
@@ -2906,7 +2906,7 @@ C_GetSlotInfo ( CK_SLOT_ID       slotID,
    }
 
    if ( !pInfo ) {
-      st_err_log(4, __FILE__, __LINE__, __FUNCTION__);
+      ock_log_err(OCK_E_FUNC);
       return CKR_FUNCTION_FAILED;
    }
 
@@ -2924,7 +2924,7 @@ C_GetSlotInfo ( CK_SLOT_ID       slotID,
    // a registered STDLL, then this is a FUnction Failed case
    if ( sinfp->present == FALSE ){
       //LOGIT(LOG_DEBUG,"    Not present");
-      st_err_log(4, __FILE__, __LINE__, __FUNCTION__);
+      ock_log_err(OCK_E_FUNC);
       return CKR_FUNCTION_FAILED;
 
    }
@@ -2975,7 +2975,7 @@ C_GetSlotInfo ( CK_SLOT_ID       slotID,
    }
 
    if ( !pInfo ) {
-      st_err_log(4, __FILE__, __LINE__, __FUNCTION__);
+      ock_log_err(OCK_E_FUNC);
       return CKR_FUNCTION_FAILED;
    }
 
@@ -2993,7 +2993,7 @@ C_GetSlotInfo ( CK_SLOT_ID       slotID,
    // a registered STDLL, then this is a FUnction Failed case
    if ( sinfp->present == FALSE ){
       //LOGIT(LOG_DEBUG,"    Not present");
-      st_err_log(4, __FILE__, __LINE__, __FUNCTION__);
+      ock_log_err(OCK_E_FUNC);
       return CKR_FUNCTION_FAILED;
 
    }
@@ -3045,7 +3045,7 @@ C_GetSlotList ( CK_BBOOL       tokenPresent,
 
    // Null pSlotList is valid to get count for array allocation
    if (pulCount == NULL){
-      st_err_log(4, __FILE__, __LINE__, __FUNCTION__);
+      ock_log_err(OCK_E_FUNC);
       return CKR_FUNCTION_FAILED;
    }
 
@@ -3410,7 +3410,7 @@ C_Initialize ( CK_VOID_PTR pVoid )
          detach_shared_memory(Anchor->SharedMemP);
          free((void *)Anchor); Anchor=NULL;
          pthread_mutex_unlock(&GlobMutex);
-         st_err_log(4, __FILE__, __LINE__, __FUNCTION__);
+         ock_log_err(OCK_E_FUNC);
          return CKR_FUNCTION_FAILED;
       }
 
@@ -3751,7 +3751,7 @@ C_OpenSession ( CK_SLOT_ID            slotID,
    }
 
    if (!phSession) {
-      st_err_log(4, __FILE__, __LINE__, __FUNCTION__);
+      ock_log_err(OCK_E_FUNC);
       return CKR_FUNCTION_FAILED;
    }
 
@@ -5062,7 +5062,7 @@ C_WaitForSlotEvent ( CK_FLAGS       flags,
          if (procp->blocking) {
             LOGIT(LOG_DEBUG,"WaitForSlot event called by process twice");
             unlock_shm();  // Unlock aftersetting
-            st_err_log(4, __FILE__, __LINE__, __FUNCTION__);
+            ock_log_err(OCK_E_FUNC);
             return CKR_FUNCTION_FAILED;
          }
          procp->error = 0;

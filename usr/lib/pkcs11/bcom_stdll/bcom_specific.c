@@ -1277,7 +1277,7 @@ token_specific_dh_pkcs_derive( CK_BYTE   *z,
      ctx=BN_CTX_new();
      if (ctx == NULL)
      {
-        st_err_log(4, __FILE__, __LINE__, __FUNCTION__);
+        ock_log_err(OCK_E_FUNC);
         return CKR_FUNCTION_FAILED;
      }
  
@@ -1296,7 +1296,7 @@ token_specific_dh_pkcs_derive( CK_BYTE   *z,
         BN_free(bn_p);
         BN_CTX_free(ctx);
  
-        st_err_log(4, __FILE__, __LINE__, __FUNCTION__);
+        ock_log_err(OCK_E_FUNC);
         return CKR_FUNCTION_FAILED;
      }
  
@@ -1340,20 +1340,20 @@ token_specific_dh_pkcs_key_pair_gen( TEMPLATE  * publ_tmpl,
     rc &= template_attribute_find( publ_tmpl, CKA_BASE, &base_attr );
  
     if (rc == FALSE) {
-        st_err_log(4, __FILE__, __LINE__, __FUNCTION__);
+        ock_log_err(OCK_E_FUNC);
         return CKR_FUNCTION_FAILED;
     }
  
     if ((prime_attr->ulValueLen > 256) || (prime_attr->ulValueLen < 64))
     {
-        st_err_log(4, __FILE__, __LINE__, __FUNCTION__);
+        ock_log_err(OCK_E_FUNC);
         return CKR_FUNCTION_FAILED;
     }
  
     dh = DH_new() ;
     if (dh == NULL)
     {
-        st_err_log(4, __FILE__, __LINE__, __FUNCTION__);
+        ock_log_err(OCK_E_FUNC);
         return CKR_FUNCTION_FAILED;
     }
 
@@ -1378,7 +1378,7 @@ token_specific_dh_pkcs_key_pair_gen( TEMPLATE  * publ_tmpl,
     // Generate the DH Key
     if (!DH_generate_key(dh))
     {
-        st_err_log(4, __FILE__, __LINE__, __FUNCTION__);
+        ock_log_err(OCK_E_FUNC);
         return CKR_FUNCTION_FAILED;
     }
  

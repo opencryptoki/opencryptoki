@@ -831,7 +831,7 @@ template_copy( TEMPLATE *dest, TEMPLATE *src )
    DL_NODE  *node;
 
    if (!dest || !src){
-      st_err_log(4, __FILE__, __LINE__, __FUNCTION__); 
+      ock_log_err(OCK_E_FUNC);
       return CKR_FUNCTION_FAILED;
    }
    node = src->attribute_list;
@@ -877,7 +877,7 @@ template_flatten( TEMPLATE  * tmpl,
    long_len = sizeof(CK_ULONG);
 
    if (!tmpl || !dest){
-      st_err_log(4, __FILE__, __LINE__, __FUNCTION__); 
+      ock_log_err(OCK_E_FUNC);
       return CKR_FUNCTION_FAILED;
    }
    ptr = dest;
@@ -968,7 +968,7 @@ template_unflatten_withSize( TEMPLATE ** new_tmpl,
 
 
    if (!new_tmpl || !buf){
-      st_err_log(4, __FILE__, __LINE__, __FUNCTION__); 
+      ock_log_err(OCK_E_FUNC);
       return CKR_FUNCTION_FAILED;
    }
    tmpl = (TEMPLATE *)malloc(sizeof(TEMPLATE));
@@ -1330,7 +1330,7 @@ template_merge( TEMPLATE *dest, TEMPLATE **src )
    CK_RV     rc;
 
    if (!dest || !src){
-      st_err_log(4, __FILE__, __LINE__, __FUNCTION__); 
+      ock_log_err(OCK_E_FUNC);
       return CKR_FUNCTION_FAILED;
    }
    node = (*src)->attribute_list;
@@ -1437,7 +1437,7 @@ template_update_attribute( TEMPLATE *tmpl, CK_ATTRIBUTE *new_attr )
 
 
    if (!tmpl || !new_attr){
-      st_err_log(4, __FILE__, __LINE__, __FUNCTION__); 
+      ock_log_err(OCK_E_FUNC);
       return CKR_FUNCTION_FAILED;
    }
    node = tmpl->attribute_list;
@@ -1672,7 +1672,7 @@ template_validate_base_attribute( TEMPLATE      * tmpl,
                                   CK_ULONG         mode )
 {
    if (!tmpl || !attr){
-      st_err_log(4, __FILE__, __LINE__, __FUNCTION__); 
+      ock_log_err(OCK_E_FUNC);
       return CKR_FUNCTION_FAILED;
    }
    switch (attr->type) {

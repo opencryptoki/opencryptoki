@@ -884,7 +884,7 @@ os_specific_rsa_keygen(TEMPLATE *publ_tmpl,  TEMPLATE *priv_tmpl)
 	rsa = RSA_generate_key(mod_bits, e, NULL, NULL);
 
 	if (rsa == NULL) {
-                st_err_log(4, __FILE__, __LINE__);
+                ock_log_err(OCK_E_FUNC);
                 return CKR_FUNCTION_FAILED;
         }
 	RSA_blinding_off(rsa);
@@ -1117,7 +1117,7 @@ token_specific_rsa_encrypt( CK_BYTE   * in_data,
 	// Convert the local representation to an RSA representation
 	rsa = (RSA *)rsa_convert_public_key(key_obj);
 	if (rsa==NULL) {
-		st_err_log(4, __FILE__, __LINE__, __FUNCTION__);
+		ock_log_err(OCK_E_FUNC);
 		rc = CKR_FUNCTION_FAILED;
 		return rc;
 	}
@@ -1125,7 +1125,7 @@ token_specific_rsa_encrypt( CK_BYTE   * in_data,
 	size = RSA_public_encrypt(in_data_len, in_data, out_data, rsa, RSA_NO_PADDING);
 
 	if (size == -1) {
-		st_err_log(4, __FILE__, __LINE__, __FUNCTION__);
+		ock_log_err(OCK_E_FUNC);
 		rc = CKR_FUNCTION_FAILED;
 		goto done;
 	}
@@ -1151,7 +1151,7 @@ token_specific_rsa_decrypt( CK_BYTE   * in_data,
 	// Convert the local key representation to an RSA key representaion
 	rsa = (RSA *)rsa_convert_private_key(key_obj);
 	if (rsa == NULL) {
-		st_err_log(4, __FILE__, __LINE__, __FUNCTION__);
+		ock_log_err(OCK_E_FUNC);
 		rc = CKR_FUNCTION_FAILED;
 		return rc;
 	}
@@ -1159,7 +1159,7 @@ token_specific_rsa_decrypt( CK_BYTE   * in_data,
 	size = RSA_private_decrypt(in_data_len, in_data, out_data, rsa, RSA_NO_PADDING);
 
 	if (size == -1) {
-		st_err_log(4, __FILE__, __LINE__, __FUNCTION__);
+		ock_log_err(OCK_E_FUNC);
 		rc = CKR_FUNCTION_FAILED;
 		goto done;
 	}
@@ -1290,7 +1290,7 @@ token_specific_dh_pkcs_derive( CK_BYTE   *z,
      ctx=BN_CTX_new();
      if (ctx == NULL)
      {
-        st_err_log(4, __FILE__, __LINE__, __FUNCTION__);
+        ock_log_err(OCK_E_FUNC);
         return CKR_FUNCTION_FAILED;
      }
  
@@ -1309,7 +1309,7 @@ token_specific_dh_pkcs_derive( CK_BYTE   *z,
         BN_free(bn_p);
         BN_CTX_free(ctx);
  
-        st_err_log(4, __FILE__, __LINE__, __FUNCTION__);
+        ock_log_err(OCK_E_FUNC);
         return CKR_FUNCTION_FAILED;
      }
  
@@ -1353,20 +1353,20 @@ token_specific_dh_pkcs_key_pair_gen( TEMPLATE  * publ_tmpl,
     rc &= template_attribute_find( publ_tmpl, CKA_BASE, &base_attr );
  
     if (rc == FALSE) {
-        st_err_log(4, __FILE__, __LINE__, __FUNCTION__);
+        ock_log_err(OCK_E_FUNC);
         return CKR_FUNCTION_FAILED;
     }
  
     if ((prime_attr->ulValueLen > 256) || (prime_attr->ulValueLen < 64))
     {
-        st_err_log(4, __FILE__, __LINE__, __FUNCTION__);
+        ock_log_err(OCK_E_FUNC);
         return CKR_FUNCTION_FAILED;
     }
  
     dh = DH_new() ;
     if (dh == NULL)
     {
-        st_err_log(4, __FILE__, __LINE__, __FUNCTION__);
+        ock_log_err(OCK_E_FUNC);
         return CKR_FUNCTION_FAILED;
     }
 
@@ -1389,7 +1389,7 @@ token_specific_dh_pkcs_key_pair_gen( TEMPLATE  * publ_tmpl,
     // Generate the DH Key
     if (!DH_generate_key(dh))
     {
-        st_err_log(4, __FILE__, __LINE__, __FUNCTION__);
+        ock_log_err(OCK_E_FUNC);
         return CKR_FUNCTION_FAILED;
     }
  

@@ -580,7 +580,7 @@ session_mgr_close_session( SESSION *sess )
    }
    node = dlist_find( sess_list, sess );
    if (!node) {
-      st_err_log(4, __FILE__, __LINE__, __FUNCTION__); 
+      ock_log_err(OCK_E_FUNC);
       rc = CKR_FUNCTION_FAILED;
       goto done;
    }
@@ -820,7 +820,7 @@ session_mgr_get_op_state( SESSION   *sess,
    CK_ULONG        offset;
 
    if (!sess){
-      st_err_log(4, __FILE__, __LINE__, __FUNCTION__); 
+      ock_log_err(OCK_E_FUNC);
       return CKR_FUNCTION_FAILED;
    }
 
@@ -1059,7 +1059,7 @@ session_mgr_set_op_state( SESSION           * sess,
 
 
    if (!sess || !data){
-      st_err_log(4, __FILE__, __LINE__, __FUNCTION__); 
+      ock_log_err(OCK_E_FUNC);
       return CKR_FUNCTION_FAILED;
    }
    op_data = (OP_STATE_DATA *)data;

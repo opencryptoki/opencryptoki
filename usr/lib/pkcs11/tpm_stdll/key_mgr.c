@@ -70,11 +70,11 @@ key_mgr_generate_key( SESSION           * sess,
 
 
    if (!sess || !mech || !handle){
-      st_err_log(4, __FILE__, __LINE__, __FUNCTION__);
+      ock_log_err(OCK_E_FUNC);
       return CKR_FUNCTION_FAILED;
    }
    if (!pTemplate && (ulCount != 0)){
-      st_err_log(4, __FILE__, __LINE__, __FUNCTION__);
+      ock_log_err(OCK_E_FUNC);
       return CKR_FUNCTION_FAILED;
    }
    // it's silly but Cryptoki allows the user to specify the CKA_CLASS
@@ -220,7 +220,7 @@ key_mgr_generate_key( SESSION           * sess,
 
    } else {
       rc = CKR_FUNCTION_FAILED;
-      st_err_log(4, __FILE__, __LINE__, __FUNCTION__);
+      ock_log_err(OCK_E_FUNC);
       goto error;
    }
 
@@ -241,7 +241,7 @@ key_mgr_generate_key( SESSION           * sess,
 
    } else {
       rc = CKR_FUNCTION_FAILED;
-      st_err_log(4, __FILE__, __LINE__, __FUNCTION__);
+      ock_log_err(OCK_E_FUNC);
       goto error;
    }
 
@@ -286,15 +286,15 @@ key_mgr_generate_key_pair( SESSION           * sess,
    CK_RV           rc;
 
    if (!sess || !mech || !publ_key_handle || !priv_key_handle){
-      st_err_log(4, __FILE__, __LINE__, __FUNCTION__);
+      ock_log_err(OCK_E_FUNC);
       return CKR_FUNCTION_FAILED;
    }
    if (!publ_tmpl && (publ_count != 0)){
-      st_err_log(4, __FILE__, __LINE__, __FUNCTION__);
+      ock_log_err(OCK_E_FUNC);
       return CKR_FUNCTION_FAILED;
    }
    if (!priv_tmpl && (priv_count != 0)){
-      st_err_log(4, __FILE__, __LINE__, __FUNCTION__);
+      ock_log_err(OCK_E_FUNC);
       return CKR_FUNCTION_FAILED;
    }
 
@@ -449,7 +449,7 @@ key_mgr_generate_key_pair( SESSION           * sess,
       template_update_attribute( priv_key_obj->template, new_attr );
 
    } else {
-      st_err_log(4, __FILE__, __LINE__, __FUNCTION__);
+      ock_log_err(OCK_E_FUNC);
       rc = CKR_FUNCTION_FAILED;
       goto error;
    }
@@ -470,7 +470,7 @@ key_mgr_generate_key_pair( SESSION           * sess,
       template_update_attribute( priv_key_obj->template, new_attr );
 
    } else {
-      st_err_log(4, __FILE__, __LINE__, __FUNCTION__);
+      ock_log_err(OCK_E_FUNC);
       rc = CKR_FUNCTION_FAILED;
       goto error;
    }
@@ -530,7 +530,7 @@ key_mgr_wrap_key( SESSION           * sess,
 
 
    if (!sess || !wrapped_key_len){
-      st_err_log(4, __FILE__, __LINE__, __FUNCTION__);
+      ock_log_err(OCK_E_FUNC);
       return CKR_FUNCTION_FAILED;
    }
 
@@ -787,7 +787,7 @@ key_mgr_unwrap_key( SESSION           * sess,
 
 
    if (!sess || !wrapped_key || !h_unwrapped_key){
-      st_err_log(4, __FILE__, __LINE__, __FUNCTION__);
+      ock_log_err(OCK_E_FUNC);
       return CKR_FUNCTION_FAILED;
    }
 
@@ -1074,11 +1074,11 @@ key_mgr_derive_key( SESSION           * sess,
                     CK_ULONG            ulCount )
 {
    if (!sess || !mech){
-      st_err_log(4, __FILE__, __LINE__, __FUNCTION__);
+      ock_log_err(OCK_E_FUNC);
       return CKR_FUNCTION_FAILED;
    }
    if (!pTemplate && (ulCount != 0)){
-      st_err_log(4, __FILE__, __LINE__, __FUNCTION__);
+      ock_log_err(OCK_E_FUNC);
       return CKR_FUNCTION_FAILED;
    }
    switch (mech->mechanism)
@@ -1086,7 +1086,7 @@ key_mgr_derive_key( SESSION           * sess,
       case CKM_SSL3_MASTER_KEY_DERIVE:
       {
          if (!derived_key){
-            st_err_log(4, __FILE__, __LINE__, __FUNCTION__);
+            ock_log_err(OCK_E_FUNC);
             return CKR_FUNCTION_FAILED;
          }
          return ssl3_master_key_derive( sess, mech, base_key,
@@ -1113,7 +1113,7 @@ key_mgr_derive_key( SESSION           * sess,
       case CKM_DH_PKCS_DERIVE:
       {
          if (!derived_key){
-            st_err_log(4, __FILE__, __LINE__, __FUNCTION__);
+            ock_log_err(OCK_E_FUNC);
             return CKR_FUNCTION_FAILED;
          }
          return dh_pkcs_derive( sess, mech, base_key,

@@ -480,7 +480,7 @@ save_token_data()
    if (!fp){
       fp = fopen((char *)fname, "w");
       if (!fp) {
-         st_err_log(4, __FILE__, __LINE__, __FUNCTION__);
+         ock_log_err(OCK_E_FUNC);
          rc = CKR_FUNCTION_FAILED;
          goto done;
       }
@@ -577,7 +577,7 @@ save_token_object( OBJECT *obj )
    //fp = fopen("/tmp/TOK_OBJ/OBJ.IDX", "a");
    fp = fopen((char *)fname, "a");
    if (!fp){
-      st_err_log(4, __FILE__, __LINE__, __FUNCTION__);
+      ock_log_err(OCK_E_FUNC);
       return CKR_FUNCTION_FAILED;
    }
    set_perm(fileno(fp));
@@ -624,7 +624,7 @@ save_public_token_object( OBJECT *obj )
    }
    fp = fopen( (char *)fname, "w" );
    if (!fp) {
-      st_err_log(4, __FILE__, __LINE__, __FUNCTION__);
+      ock_log_err(OCK_E_FUNC);
       rc = CKR_FUNCTION_FAILED;
       goto error;
    }
@@ -749,7 +749,7 @@ save_private_token_object( OBJECT *obj )
 
    fp = fopen( (char *)fname, "w" );
    if (!fp) {
-      st_err_log(4, __FILE__, __LINE__, __FUNCTION__);
+      ock_log_err(OCK_E_FUNC);
       rc = CKR_FUNCTION_FAILED;
       goto error;
    }
@@ -1021,7 +1021,7 @@ restore_private_token_object( CK_BYTE  * data,
    // the key was incorrect
    //
    if (cleartxt_len > len) {
-      st_err_log(4, __FILE__, __LINE__, __FUNCTION__);
+      ock_log_err(OCK_E_FUNC);
       rc = CKR_FUNCTION_FAILED;
       goto done;
    }
@@ -1032,7 +1032,7 @@ restore_private_token_object( CK_BYTE  * data,
 
    //axelrh: prevent buffer overrun in sha_update
    if (obj_data_len > cleartxt_len) {
-      st_err_log(4, __FILE__, __LINE__, __FUNCTION__);
+      ock_log_err(OCK_E_FUNC);
       rc = CKR_FUNCTION_FAILED;
       goto done;
    }
@@ -1046,7 +1046,7 @@ restore_private_token_object( CK_BYTE  * data,
    ptr += obj_data_len;
 
    if (memcmp(ptr, hash_sha, SHA1_HASH_SIZE) != 0) {
-      st_err_log(4, __FILE__, __LINE__, __FUNCTION__);
+      ock_log_err(OCK_E_FUNC);
       rc = CKR_FUNCTION_FAILED;
       goto done;
    }
@@ -1094,7 +1094,7 @@ load_masterkey_so( void )
    //fp = fopen("/tmp/MK_SO", "r");
    fp = fopen((char *)fname, "r");
    if (!fp) {
-      st_err_log(4, __FILE__, __LINE__, __FUNCTION__);
+      ock_log_err(OCK_E_FUNC);
       rc = CKR_FUNCTION_FAILED;
       goto done;
    }
@@ -1104,7 +1104,7 @@ load_masterkey_so( void )
 
    rc = fread( cipher, cipher_len, 1, fp );
    if (rc != 1) {
-      st_err_log(4, __FILE__, __LINE__, __FUNCTION__);
+      ock_log_err(OCK_E_FUNC);
       rc = CKR_FUNCTION_FAILED;
       goto done;
    }
@@ -1140,7 +1140,7 @@ load_masterkey_so( void )
    compute_sha( mk.key, 3 * DES_KEY_SIZE, hash_sha );
 
    if (memcmp(hash_sha, mk.sha_hash, SHA1_HASH_SIZE) != 0) {
-      st_err_log(4, __FILE__, __LINE__, __FUNCTION__);
+      ock_log_err(OCK_E_FUNC);
       rc = CKR_FUNCTION_FAILED;
       goto done;
    }
@@ -1180,7 +1180,7 @@ load_masterkey_user( void )
    //fp = fopen( "/tmp/MK_USER", "r" );
    fp = fopen( (char *)fname, "r" );
    if (!fp) {
-      st_err_log(4, __FILE__, __LINE__, __FUNCTION__);
+      ock_log_err(OCK_E_FUNC);
       rc = CKR_FUNCTION_FAILED;
       goto done;
    }
@@ -1190,7 +1190,7 @@ load_masterkey_user( void )
 
    rc = fread( cipher, cipher_len, 1, fp );
    if (rc != 1) {
-      st_err_log(4, __FILE__, __LINE__, __FUNCTION__);
+      ock_log_err(OCK_E_FUNC);
       rc = CKR_FUNCTION_FAILED;
       goto done;
    }
@@ -1226,7 +1226,7 @@ load_masterkey_user( void )
    compute_sha( mk.key, 3 * DES_KEY_SIZE, hash_sha );
 
    if (memcmp(hash_sha, mk.sha_hash, SHA1_HASH_SIZE) != 0) {
-      st_err_log(4, __FILE__, __LINE__, __FUNCTION__);
+      ock_log_err(OCK_E_FUNC);
       rc = CKR_FUNCTION_FAILED;
       goto done;
    }
@@ -1293,7 +1293,7 @@ save_masterkey_so( void )
    //fp = fopen( "/tmp/MK_SO", "w" );
    fp = fopen( (char *)fname, "w" );
    if (!fp) {
-      st_err_log(4, __FILE__, __LINE__, __FUNCTION__);
+      ock_log_err(OCK_E_FUNC);
       rc = CKR_FUNCTION_FAILED;
       goto done;
    }
@@ -1301,7 +1301,7 @@ save_masterkey_so( void )
 
    rc = fwrite( ciphertxt, ciphertxt_len, 1, fp );
    if (rc != 1) {
-      st_err_log(4, __FILE__, __LINE__, __FUNCTION__);
+      ock_log_err(OCK_E_FUNC);
       rc = CKR_FUNCTION_FAILED;
       goto done;
    }
@@ -1369,7 +1369,7 @@ save_masterkey_user( void )
    //fp = fopen( "/tmp/MK_USER", "w" );
    fp = fopen( (char *)fname, "w" );
    if (!fp) {
-      st_err_log(4, __FILE__, __LINE__, __FUNCTION__);
+      ock_log_err(OCK_E_FUNC);
       rc = CKR_FUNCTION_FAILED;
       goto done;
    }
@@ -1377,7 +1377,7 @@ save_masterkey_user( void )
    set_perm(fileno(fp));
    rc = fwrite( ciphertxt, ciphertxt_len, 1, fp );
    if (rc != 1) {
-      st_err_log(4, __FILE__, __LINE__, __FUNCTION__);
+      ock_log_err(OCK_E_FUNC);
       rc = CKR_FUNCTION_FAILED;
       goto done;
    }
@@ -1421,7 +1421,7 @@ reload_token_object( OBJECT *obj )
 
    fp = fopen( (char *)fname, "r" );
    if (!fp) {
-      st_err_log(4, __FILE__, __LINE__, __FUNCTION__);
+      ock_log_err(OCK_E_FUNC);
       rc = CKR_FUNCTION_FAILED;
       goto done;
    }
@@ -1510,7 +1510,7 @@ delete_token_object( OBJECT *obj )
    if (!fp1 || !fp2) {
       if (fp1) fclose(fp1);
       if (fp2) fclose(fp2);
-      st_err_log(4, __FILE__, __LINE__, __FUNCTION__);
+      ock_log_err(OCK_E_FUNC);
       return CKR_FUNCTION_FAILED;
    }
 
@@ -1536,7 +1536,7 @@ delete_token_object( OBJECT *obj )
    if (!fp1 || !fp2) {
       if (fp1) fclose(fp1);
       if (fp2) fclose(fp2);
-      st_err_log(4, __FILE__, __LINE__, __FUNCTION__);
+      ock_log_err(OCK_E_FUNC);
       return CKR_FUNCTION_FAILED;
    }
 

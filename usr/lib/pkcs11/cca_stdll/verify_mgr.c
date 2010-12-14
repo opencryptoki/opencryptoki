@@ -45,7 +45,7 @@ verify_mgr_init( SESSION             * sess,
 
 
    if (!sess || !ctx){
-      st_err_log(4, __FILE__, __LINE__, __FUNCTION__);
+      ock_log_err(OCK_E_FUNC);
       return CKR_FUNCTION_FAILED;
    }
    if (ctx->active != FALSE){
@@ -105,14 +105,14 @@ verify_mgr_init( SESSION             * sess,
             //
             flag = template_attribute_find( key_obj->template, CKA_CLASS, &attr );
             if (flag == FALSE){
-               st_err_log(4, __FILE__, __LINE__, __FUNCTION__);
+               ock_log_err(OCK_E_FUNC);
                return CKR_FUNCTION_FAILED;
             }
             else
                class = *(CK_OBJECT_CLASS *)attr->pValue;
 
             if (class != CKO_PUBLIC_KEY){
-               st_err_log(4, __FILE__, __LINE__, __FUNCTION__);
+               ock_log_err(OCK_E_FUNC);
                return CKR_FUNCTION_FAILED;
             }
             // PKCS #11 doesn't allow multi-part RSA operations
@@ -147,14 +147,14 @@ verify_mgr_init( SESSION             * sess,
             //
             flag = template_attribute_find( key_obj->template, CKA_CLASS, &attr );
             if (flag == FALSE){
-               st_err_log(4, __FILE__, __LINE__, __FUNCTION__);
+               ock_log_err(OCK_E_FUNC);
                return CKR_FUNCTION_FAILED;
             }
             else
                class = *(CK_OBJECT_CLASS *)attr->pValue;
 
             if (class != CKO_PUBLIC_KEY){
-               st_err_log(4, __FILE__, __LINE__, __FUNCTION__);
+               ock_log_err(OCK_E_FUNC);
                return CKR_FUNCTION_FAILED;
             }
             ctx->context_len = sizeof(RSA_DIGEST_CONTEXT);
@@ -191,14 +191,14 @@ verify_mgr_init( SESSION             * sess,
             //
             flag = template_attribute_find( key_obj->template, CKA_CLASS, &attr );
             if (flag == FALSE){
-               st_err_log(4, __FILE__, __LINE__, __FUNCTION__);
+               ock_log_err(OCK_E_FUNC);
                return CKR_FUNCTION_FAILED;
             }
             else
                class = *(CK_OBJECT_CLASS *)attr->pValue;
 
             if (class != CKO_PUBLIC_KEY){
-               st_err_log(4, __FILE__, __LINE__, __FUNCTION__);
+               ock_log_err(OCK_E_FUNC);
                return CKR_FUNCTION_FAILED;
             }
             // PKCS #11 doesn't allow multi-part DSA operations
@@ -366,7 +366,7 @@ CK_RV
 verify_mgr_cleanup( SIGN_VERIFY_CONTEXT *ctx )
 {
    if (!ctx){
-      st_err_log(4, __FILE__, __LINE__, __FUNCTION__);
+      ock_log_err(OCK_E_FUNC);
       return CKR_FUNCTION_FAILED;
    }
    ctx->key                 = 0;
@@ -402,7 +402,7 @@ verify_mgr_verify( SESSION             * sess,
                    CK_ULONG              sig_len )
 {
    if (!sess || !ctx){
-      st_err_log(4, __FILE__, __LINE__, __FUNCTION__);
+      ock_log_err(OCK_E_FUNC);
       return CKR_FUNCTION_FAILED;
    }
    if (ctx->active == FALSE){
@@ -418,7 +418,7 @@ verify_mgr_verify( SESSION             * sess,
    // specify the input data.  I just need the input data length
    //
    if (!in_data || !signature){
-      st_err_log(4, __FILE__, __LINE__, __FUNCTION__);
+      ock_log_err(OCK_E_FUNC);
       return CKR_FUNCTION_FAILED;
    }
    if (ctx->multi == TRUE){
@@ -488,7 +488,7 @@ verify_mgr_verify( SESSION             * sess,
          return CKR_MECHANISM_INVALID;
    }
 
-   st_err_log(4, __FILE__, __LINE__, __FUNCTION__);
+   ock_log_err(OCK_E_FUNC);
    return CKR_FUNCTION_FAILED;
 }
 
@@ -502,7 +502,7 @@ verify_mgr_verify_update( SESSION             * sess,
                           CK_ULONG              in_data_len )
 {
    if (!sess || !ctx || !in_data){
-      st_err_log(4, __FILE__, __LINE__, __FUNCTION__);
+      ock_log_err(OCK_E_FUNC);
       return CKR_FUNCTION_FAILED;
    }
    if (ctx->active == FALSE){
@@ -544,7 +544,7 @@ verify_mgr_verify_final( SESSION             * sess,
                          CK_ULONG              sig_len )
 {
    if (!sess || !ctx){
-      st_err_log(4, __FILE__, __LINE__, __FUNCTION__);
+      ock_log_err(OCK_E_FUNC);
       return CKR_FUNCTION_FAILED;
    }
    if (ctx->active == FALSE){
@@ -587,7 +587,7 @@ verify_mgr_verify_recover( SESSION             * sess,
                            CK_ULONG            * out_len )
 {
    if (!sess || !ctx){
-      st_err_log(4, __FILE__, __LINE__, __FUNCTION__);
+      ock_log_err(OCK_E_FUNC);
       return CKR_FUNCTION_FAILED;
    }
    if (ctx->active == FALSE){
@@ -603,7 +603,7 @@ verify_mgr_verify_recover( SESSION             * sess,
    // specify the input data.  I just need the input data length
    //
    if (!signature || !out_len){
-      st_err_log(4, __FILE__, __LINE__, __FUNCTION__);
+      ock_log_err(OCK_E_FUNC);
       return CKR_FUNCTION_FAILED;
    }
    if (ctx->multi == TRUE){
@@ -629,6 +629,6 @@ verify_mgr_verify_recover( SESSION             * sess,
          return CKR_MECHANISM_INVALID;
    }
 
-   st_err_log(4, __FILE__, __LINE__, __FUNCTION__);
+   ock_log_err(OCK_E_FUNC);
    return CKR_FUNCTION_FAILED;
 }

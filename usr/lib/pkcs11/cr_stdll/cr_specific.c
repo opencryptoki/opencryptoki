@@ -1283,7 +1283,7 @@ token_specific_dh_pkcs_derive( CK_BYTE   *z,
     else
     {
         ret_val = CKR_FUNCTION_FAILED;
-        st_err_log(4, __FILE__, __LINE__);
+        ock_log_err(OCK_E_FUNC);
     }
  
     /* Corrent library may return results after triming leading zeros. Insert the leading
@@ -1332,14 +1332,14 @@ token_specific_dh_pkcs_key_pair_gen( TEMPLATE  * publ_tmpl,
     rc &= template_attribute_find( publ_tmpl, CKA_BASE, &base_attr );
  
     if (rc == FALSE) {
-        st_err_log(4, __FILE__, __LINE__, __FUNCTION__);
+        ock_log_err(OCK_E_FUNC);
         return CKR_FUNCTION_FAILED;
     }
  
     if ((prime_attr->ulValueLen > CR_MAX_MODULUS_SIZE_BYTES) ||
         (prime_attr->ulValueLen < 64))
     {
-        st_err_log(4, __FILE__, __LINE__, __FUNCTION__);
+        ock_log_err(OCK_E_FUNC);
         return CKR_FUNCTION_FAILED;
     }
 
@@ -1366,7 +1366,7 @@ token_specific_dh_pkcs_key_pair_gen( TEMPLATE  * publ_tmpl,
         priv_key_value_len = *(CK_ULONG *)temp_value_bits_attr->pValue ;
         if (priv_key_value_len > CR_MAX_MODULUS_SIZE_BITS)
         {
-            st_err_log(4, __FILE__, __LINE__, __FUNCTION__);
+            ock_log_err(OCK_E_FUNC);
             return CKR_FUNCTION_FAILED;
         }
  
@@ -1409,7 +1409,7 @@ token_specific_dh_pkcs_key_pair_gen( TEMPLATE  * publ_tmpl,
     rc = CR_mod_exp_mont(&pub_key_t, &base_t, &prime_t, &priv_key_t) ;
     if ( rc != SUCCESS )
     {
-        st_err_log(4, __FILE__, __LINE__);
+        ock_log_err(OCK_E_FUNC);
         return CKR_FUNCTION_FAILED ;
     }
 
