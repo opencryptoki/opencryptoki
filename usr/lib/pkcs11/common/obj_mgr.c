@@ -2143,7 +2143,7 @@ object_mgr_set_attribute_values( SESSION           * sess,
                                              obj, &index );
 
          if (rc != CKR_OK) {
-            st_err_log(162, __FILE__, __LINE__); 
+            ock_log_err(OCK_E_OBJ_MGR_SEARCH_OBJ);
             XProcUnLock(xproclock);
             return rc;
          }
@@ -2155,7 +2155,7 @@ object_mgr_set_attribute_values( SESSION           * sess,
                                              0, global_shm->num_publ_tok_obj-1,
                                              obj, &index );
          if (rc != CKR_OK) {
-            st_err_log(162, __FILE__, __LINE__); 
+            ock_log_err(OCK_E_OBJ_MGR_SEARCH_OBJ);
             XProcUnLock(xproclock);
             return rc;
          }
