@@ -415,7 +415,7 @@ key_mgr_generate_key( SESSION           * sess,
 	 break;
 
       default:
-         st_err_log(28, __FILE__, __LINE__);
+         ock_log_err(OCK_E_MECH_INV);
          return CKR_MECHANISM_INVALID;
    }
 
@@ -459,7 +459,7 @@ key_mgr_generate_key( SESSION           * sess,
 	    break;
 #endif
       default:
-         st_err_log(28, __FILE__, __LINE__);
+         ock_log_err(OCK_E_MECH_INV);
          rc = CKR_MECHANISM_INVALID;
    }
 
@@ -636,7 +636,7 @@ key_mgr_generate_key_pair( SESSION           * sess,
 /* End  code contributed by Corrent corp. */
 
       default:
-         st_err_log(28, __FILE__, __LINE__);
+         ock_log_err(OCK_E_MECH_INV);
          return CKR_MECHANISM_INVALID;
    }
 
@@ -688,7 +688,7 @@ key_mgr_generate_key_pair( SESSION           * sess,
 /* End code contributed by Corrent corp. */
 
       default:
-         st_err_log(28, __FILE__, __LINE__);
+         ock_log_err(OCK_E_MECH_INV);
          rc = CKR_MECHANISM_INVALID;
          break;
    }
@@ -1152,7 +1152,7 @@ CKO_PRIVATE_KEY)){
          break;
 
       default:
-         st_err_log(28, __FILE__, __LINE__);
+         ock_log_err(OCK_E_MECH_INV);
          return CKR_MECHANISM_INVALID;
    }
 
@@ -1371,7 +1371,7 @@ key_mgr_derive_key( SESSION           * sess,
 /* End code contributed by Corrent corp. */
       
       default:
-         st_err_log(28, __FILE__, __LINE__);
+         ock_log_err(OCK_E_MECH_INV);
          return CKR_MECHANISM_INVALID;
    }
 }

@@ -955,7 +955,7 @@ C_DecryptInit ( CK_SESSION_HANDLE hSession,
 
    // Null mechanism pointer is not good
    if ( !pMechanism ) {
-      st_err_log(28, __FILE__, __LINE__); 
+      ock_log_err(OCK_E_MECH_INV);
       return CKR_MECHANISM_INVALID;
    }
 
@@ -1155,7 +1155,7 @@ C_DeriveKey ( CK_SESSION_HANDLE    hSession,
    //if (!phKey ) return CKR_ARGUMENTS_BAD;
 
    if  (!pMechanism ){
-      st_err_log(28, __FILE__, __LINE__); 
+      ock_log_err(OCK_E_MECH_INV);
       return CKR_MECHANISM_INVALID;
    }
 
@@ -1467,7 +1467,7 @@ C_DigestInit ( CK_SESSION_HANDLE hSession,
    }
 
    if (!pMechanism ){
-      st_err_log(28, __FILE__, __LINE__); 
+      ock_log_err(OCK_E_MECH_INV);
       return CKR_MECHANISM_INVALID;
    }
    // Validate Session
@@ -1765,7 +1765,7 @@ C_EncryptInit ( CK_SESSION_HANDLE hSession,
    }
 
    if (!pMechanism){
-      st_err_log(28, __FILE__, __LINE__); 
+      ock_log_err(OCK_E_MECH_INV);
       return CKR_MECHANISM_INVALID;
    }
    // Validate Session
@@ -2140,7 +2140,7 @@ C_GenerateKey ( CK_SESSION_HANDLE    hSession,
    }
 
    if (!pMechanism ){
-      st_err_log(28, __FILE__, __LINE__); 
+      ock_log_err(OCK_E_MECH_INV);
       return CKR_MECHANISM_INVALID;
    }
    if (!phKey ){
@@ -2208,7 +2208,7 @@ C_GenerateKeyPair ( CK_SESSION_HANDLE    hSession,
    }
 
    if (!pMechanism){
-      st_err_log(28, __FILE__, __LINE__); 
+      ock_log_err(OCK_E_MECH_INV);
       return CKR_MECHANISM_INVALID;
    }
    if (!phPublicKey || !phPrivateKey){
@@ -4297,7 +4297,7 @@ C_SignInit ( CK_SESSION_HANDLE hSession,
    }
 
    if (!pMechanism){
-      st_err_log(28, __FILE__, __LINE__); 
+      ock_log_err(OCK_E_MECH_INV);
       return CKR_MECHANISM_INVALID;
    }
    // Validate Session
@@ -4420,7 +4420,7 @@ C_SignRecoverInit ( CK_SESSION_HANDLE hSession,
    }
 
    if (!pMechanism){
-      st_err_log(28, __FILE__, __LINE__); 
+      ock_log_err(OCK_E_MECH_INV);
       return CKR_MECHANISM_INVALID;
    }
    // Validate Session
@@ -4554,7 +4554,7 @@ C_UnwrapKey ( CK_SESSION_HANDLE    hSession,
    }
 
    if (!pMechanism){
-      st_err_log(28, __FILE__, __LINE__); 
+      ock_log_err(OCK_E_MECH_INV);
       return CKR_MECHANISM_INVALID;
    }
    if (!phKey){
@@ -4748,7 +4748,7 @@ C_VerifyInit ( CK_SESSION_HANDLE hSession,
    }
 
    if (!pMechanism){
-      st_err_log(28, __FILE__, __LINE__); 
+      ock_log_err(OCK_E_MECH_INV);
       return CKR_MECHANISM_INVALID;
    }
    // Validate Session
@@ -4867,7 +4867,7 @@ C_VerifyRecoverInit ( CK_SESSION_HANDLE hSession,
    }
 
    if (!pMechanism){
-      st_err_log(28, __FILE__, __LINE__); 
+      ock_log_err(OCK_E_MECH_INV);
       return CKR_MECHANISM_INVALID;
    }
    // Validate Session
@@ -5130,7 +5130,7 @@ C_WrapKey ( CK_SESSION_HANDLE hSession,
    }
 
    if (!pMechanism){
-      st_err_log(28, __FILE__, __LINE__); 
+      ock_log_err(OCK_E_MECH_INV);
       return CKR_MECHANISM_INVALID;
    }
    //   other pointers???

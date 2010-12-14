@@ -334,7 +334,7 @@ verify_mgr_init( SESSION             * sess,
          break;
 
       default:
-         st_err_log(28, __FILE__, __LINE__);
+         ock_log_err(OCK_E_MECH_INV);
          return CKR_MECHANISM_INVALID;
    }
 
@@ -484,7 +484,7 @@ verify_mgr_verify( SESSION             * sess,
                                  signature, sig_len );
 
       default:
-         st_err_log(28, __FILE__, __LINE__);
+         ock_log_err(OCK_E_MECH_INV);
          return CKR_MECHANISM_INVALID;
    }
 
@@ -527,10 +527,10 @@ verify_mgr_verify_update( SESSION             * sess,
          return ssl3_mac_verify_update( sess, ctx, in_data, in_data_len );
 
       default:
-         st_err_log(28, __FILE__, __LINE__);
+         ock_log_err(OCK_E_MECH_INV);
          return CKR_MECHANISM_INVALID;
    }
-   st_err_log(28, __FILE__, __LINE__);
+   ock_log_err(OCK_E_MECH_INV);
    return CKR_MECHANISM_INVALID;
 }
 
@@ -566,11 +566,11 @@ verify_mgr_verify_final( SESSION             * sess,
          return ssl3_mac_verify_final( sess, ctx, signature, sig_len );
 
       default:
-         st_err_log(28, __FILE__, __LINE__);
+         ock_log_err(OCK_E_MECH_INV);
          return CKR_MECHANISM_INVALID;
    }
 
-   st_err_log(28, __FILE__, __LINE__);
+   ock_log_err(OCK_E_MECH_INV);
    return CKR_MECHANISM_INVALID;
 }
 
@@ -625,7 +625,7 @@ verify_mgr_verify_recover( SESSION             * sess,
                                          out_data,  out_len );
 #endif
       default:
-         st_err_log(28, __FILE__, __LINE__);
+         ock_log_err(OCK_E_MECH_INV);
          return CKR_MECHANISM_INVALID;
    }
 

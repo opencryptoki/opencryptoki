@@ -432,7 +432,7 @@ digest_mgr_init( SESSION           *sess,
          break;
 
       default:
-         st_err_log(28, __FILE__, __LINE__);     
+         ock_log_err(OCK_E_MECH_INV);
          return CKR_MECHANISM_INVALID;
    }
 
@@ -628,7 +628,7 @@ digest_mgr_digest_update( SESSION         *sess,
          break;
 
       default:
-         st_err_log(28, __FILE__, __LINE__);
+         ock_log_err(OCK_E_MECH_INV);
          rc = CKR_MECHANISM_INVALID;
    }
 
@@ -771,7 +771,7 @@ digest_mgr_digest_final( SESSION         *sess,
          break;
 
       default:
-         st_err_log(28, __FILE__, __LINE__);
+         ock_log_err(OCK_E_MECH_INV);
          rc = CKR_MECHANISM_INVALID;   // shouldn't happen
    }
 

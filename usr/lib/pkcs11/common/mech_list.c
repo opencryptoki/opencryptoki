@@ -386,7 +386,7 @@ ock_generic_get_mechanism_info(CK_MECHANISM_TYPE type,
 			goto out;
 		}
 	}
-	st_err_log(28, __FILE__, __LINE__); 
+	ock_log_err(OCK_E_MECH_INV);
 	rc = CKR_MECHANISM_INVALID;
  out:
 	return rc;

@@ -352,7 +352,7 @@ sign_mgr_init( SESSION                * sess,
          break;
 
       default:
-         st_err_log(28, __FILE__, __LINE__); 
+         ock_log_err(OCK_E_MECH_INV);
          return CKR_MECHANISM_INVALID;
    }
 
@@ -504,7 +504,7 @@ sign_mgr_sign( SESSION              * sess,
                                out_data, out_data_len );
 
       default:
-         st_err_log(28, __FILE__, __LINE__); 
+         ock_log_err(OCK_E_MECH_INV);
          return CKR_MECHANISM_INVALID;
    }
 
@@ -549,10 +549,10 @@ sign_mgr_sign_update( SESSION             * sess,
          return ssl3_mac_sign_update( sess, ctx, in_data, in_data_len );
 
       default:
-         st_err_log(28, __FILE__, __LINE__); 
+         ock_log_err(OCK_E_MECH_INV);
          return CKR_MECHANISM_INVALID;
    }
-   st_err_log(28, __FILE__, __LINE__); 
+   ock_log_err(OCK_E_MECH_INV);
    return CKR_MECHANISM_INVALID;
 }
 
@@ -591,11 +591,11 @@ sign_mgr_sign_final( SESSION             * sess,
          return ssl3_mac_sign_final( sess, length_only, ctx, signature, sig_len );
 
       default:
-         st_err_log(28, __FILE__, __LINE__); 
+         ock_log_err(OCK_E_MECH_INV);
          return CKR_MECHANISM_INVALID;
    }
 
-   st_err_log(28, __FILE__, __LINE__); 
+   ock_log_err(OCK_E_MECH_INV);
    return CKR_MECHANISM_INVALID;
 }
 
@@ -649,7 +649,7 @@ sign_mgr_sign_recover( SESSION             * sess,
                                out_data, out_data_len );
 #endif
       default:
-         st_err_log(28, __FILE__, __LINE__); 
+         ock_log_err(OCK_E_MECH_INV);
          return CKR_MECHANISM_INVALID;
    }
 

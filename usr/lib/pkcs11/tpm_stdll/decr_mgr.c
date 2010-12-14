@@ -453,7 +453,7 @@ decr_mgr_init( SESSION           *sess,
 	 break;
 	 
       default:
-         st_err_log(28, __FILE__, __LINE__);
+         ock_log_err(OCK_E_MECH_INV);
          return CKR_MECHANISM_INVALID;
    }
 
@@ -698,7 +698,7 @@ decr_mgr_decrypt_update( SESSION            *sess,
                                             out_data, out_data_len );
 #endif
       default:
-         st_err_log(28, __FILE__, __LINE__);
+         ock_log_err(OCK_E_MECH_INV);
          return CKR_MECHANISM_INVALID;
    }
    ock_log_err(OCK_E_FUNC);
@@ -720,7 +720,7 @@ decr_mgr_decrypt_final( SESSION            *sess,
       return CKR_FUNCTION_FAILED;
    }
    if (ctx->active == FALSE){
-      st_err_log(28, __FILE__, __LINE__);
+      ock_log_err(OCK_E_MECH_INV);
       return CKR_OPERATION_NOT_INITIALIZED;
       }
 
@@ -774,7 +774,7 @@ decr_mgr_decrypt_final( SESSION            *sess,
                                            out_data, out_data_len );
 #endif
       default:
-         st_err_log(28, __FILE__, __LINE__);
+         ock_log_err(OCK_E_MECH_INV);
          return CKR_MECHANISM_INVALID;
    }
    ock_log_err(OCK_E_FUNC);
