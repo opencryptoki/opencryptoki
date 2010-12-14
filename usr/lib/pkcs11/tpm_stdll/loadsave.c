@@ -538,7 +538,7 @@ save_token_object( OBJECT *obj )
       rc = save_public_token_object( obj );
 
    if (rc != CKR_OK){
-      st_err_log(104, __FILE__, __LINE__);
+      ock_log_err(OCK_E_SAVE_TOKEN);
       return rc;
    }
    // update the index file if it exists

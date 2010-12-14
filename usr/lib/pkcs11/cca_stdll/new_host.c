@@ -816,7 +816,7 @@ CK_RV SC_InitToken( CK_SLOT_ID   sid,
 	nv_token_data->token_info.flags |= CKF_TOKEN_INITIALIZED;
 	rc = save_token_data();
 	if (rc != CKR_OK){
-		st_err_log(104, __FILE__, __LINE__, __FUNCTION__);
+		ock_log_err(OCK_E_SAVE_TOKEN);
 		goto done;
 	}
 	rc = save_masterkey_so();
@@ -903,7 +903,7 @@ CK_RV SC_InitPIN( ST_SESSION_HANDLE  sSession,
 	memcpy( user_pin_md5, hash_md5, MD5_HASH_SIZE  );
 	rc = save_token_data();
 	if (rc != CKR_OK){
-		st_err_log(104, __FILE__, __LINE__);
+		ock_log_err(OCK_E_SAVE_TOKEN);
 		goto done;
 	}
 	rc = save_masterkey_user();
@@ -1001,7 +1001,7 @@ CK_RV SC_SetPIN( ST_SESSION_HANDLE  sSession,
 		XProcUnLock( xproclock );
 		rc = save_token_data();
 		if (rc != CKR_OK){
-			st_err_log(104, __FILE__, __LINE__);
+			ock_log_err(OCK_E_SAVE_TOKEN);
 			goto done;
 		}
 		rc = save_masterkey_user();
@@ -1038,7 +1038,7 @@ CK_RV SC_SetPIN( ST_SESSION_HANDLE  sSession,
 		XProcUnLock( xproclock );
 		rc = save_token_data();
 		if (rc != CKR_OK){
-			st_err_log(104, __FILE__, __LINE__);
+			ock_log_err(OCK_E_SAVE_TOKEN);
 			goto done;
 		}
 		rc = save_masterkey_so();

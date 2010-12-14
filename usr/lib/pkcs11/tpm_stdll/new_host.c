@@ -935,7 +935,7 @@ CK_RV SC_InitToken( CK_SLOT_ID   sid,
 
    rc = save_token_data();
    if (rc != CKR_OK){
-      st_err_log(104, __FILE__, __LINE__, __FUNCTION__);
+      ock_log_err(OCK_E_SAVE_TOKEN);
       goto done;
    }
 #if 0
@@ -1020,7 +1020,7 @@ CK_RV SC_InitPIN( ST_SESSION_HANDLE  sSession,
 
       rc = save_token_data();
       if (rc != CKR_OK){
-	 st_err_log(104, __FILE__, __LINE__);
+	 ock_log_err(OCK_E_SAVE_TOKEN);
 	 goto done;
       }
    }
@@ -1047,7 +1047,7 @@ CK_RV SC_InitPIN( ST_SESSION_HANDLE  sSession,
 
    rc = save_token_data();
    if (rc != CKR_OK){
-      st_err_log(104, __FILE__, __LINE__);
+      ock_log_err(OCK_E_SAVE_TOKEN);
       goto done;
    }
    rc = save_masterkey_user();
@@ -1158,7 +1158,7 @@ CK_RV SC_SetPIN( ST_SESSION_HANDLE  sSession,
          rc = save_token_data();
 
       if (rc != CKR_OK){
-          st_err_log(104, __FILE__, __LINE__);
+          ock_log_err(OCK_E_SAVE_TOKEN);
           goto done;
       }
       rc = save_masterkey_user();
@@ -1201,7 +1201,7 @@ CK_RV SC_SetPIN( ST_SESSION_HANDLE  sSession,
          rc = save_token_data();
 
       if (rc != CKR_OK){
-          st_err_log(104, __FILE__, __LINE__);
+          ock_log_err(OCK_E_SAVE_TOKEN);
          goto done;
       }
       
