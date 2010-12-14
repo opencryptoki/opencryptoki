@@ -1174,7 +1174,7 @@ ber_decode_RSAPrivateKey( CK_BYTE    * data,
 
    rc = ber_decode_PrivateKeyInfo( data, data_len, &alg, &len, &rsa_priv_key );
    if (rc != CKR_OK){
-      st_err_log(83, __FILE__, __LINE__);
+      ock_log_err(OCK_E_DECODE_PRIVKEY);
       return rc;
    }
    // make sure we're dealing with an RSA key
