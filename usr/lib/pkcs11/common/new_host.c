@@ -1982,7 +1982,7 @@ CK_RV SC_GetObjectSize( ST_SESSION_HANDLE  sSession,
 
 	rc = object_mgr_get_object_size( hObject, pulSize );
 	if (rc != CKR_OK){
-		st_err_log(184, __FILE__, __LINE__);
+		ock_log_err(OCK_E_OBJ_MGR_GET_SIZE);
 	}
 
  done:
