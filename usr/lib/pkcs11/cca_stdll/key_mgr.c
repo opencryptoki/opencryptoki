@@ -1191,7 +1191,7 @@ CKO_PRIVATE_KEY)){
                           wrapped_key, wrapped_key_len,
                           data,       &data_len );
    if (rc != CKR_OK){
-      st_err_log(100, __FILE__, __LINE__);
+      ock_log_err(OCK_E_DECRYPT_MGR_DECRYPT);
       goto error;
    }
    data = (CK_BYTE *)malloc(data_len);
@@ -1211,7 +1211,7 @@ CKO_PRIVATE_KEY)){
    free( ctx );
 
    if (rc != CKR_OK){
-      st_err_log(100, __FILE__, __LINE__);
+      ock_log_err(OCK_E_DECRYPT_MGR_DECRYPT);
       goto error;
    }
    // if we use X.509, the data will be padded from the front with zeros.

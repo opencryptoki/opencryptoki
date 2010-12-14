@@ -2664,7 +2664,7 @@ CK_RV SC_Decrypt( ST_SESSION_HANDLE  sSession,
 			       pEncryptedData, ulEncryptedDataLen,
 			       pData,          pulDataLen );
 	if (rc != CKR_OK) {
-		st_err_log(100, __FILE__, __LINE__);
+		ock_log_err(OCK_E_DECRYPT_MGR_DECRYPT);
 	}
 
  done:
