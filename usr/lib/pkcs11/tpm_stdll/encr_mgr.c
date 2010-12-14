@@ -65,7 +65,7 @@ encr_mgr_init( SESSION           * sess,
       return CKR_FUNCTION_FAILED;
    }
    if (ctx->active != FALSE){
-      st_err_log(31, __FILE__, __LINE__);
+      ock_log_err(OCK_E_OP_ACTIVE);
       return CKR_OPERATION_ACTIVE;
    }
 
@@ -536,7 +536,7 @@ encr_mgr_encrypt( SESSION           *sess,
       return CKR_FUNCTION_FAILED;
    }
    if (ctx->multi == TRUE){
-      st_err_log(31, __FILE__, __LINE__);
+      ock_log_err(OCK_E_OP_ACTIVE);
       return CKR_OPERATION_ACTIVE;
    }
    switch (ctx->mech.mechanism) {

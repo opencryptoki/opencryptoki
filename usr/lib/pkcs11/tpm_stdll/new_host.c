@@ -2046,7 +2046,7 @@ CK_RV SC_FindObjectsInit( ST_SESSION_HANDLE   sSession,
    }
    
    if (sess->find_active == TRUE) {
-      st_err_log(31, __FILE__, __LINE__);
+      ock_log_err(OCK_E_OP_ACTIVE);
       rc = CKR_OPERATION_ACTIVE;
       goto done;
    }
@@ -2233,7 +2233,7 @@ CK_RV SC_EncryptInit( ST_SESSION_HANDLE  sSession,
    }
    
    if (sess->encr_ctx.active == TRUE) {
-      st_err_log(31, __FILE__, __LINE__);
+      ock_log_err(OCK_E_OP_ACTIVE);
       rc = CKR_OPERATION_ACTIVE;
       goto done;
    }
@@ -2498,7 +2498,7 @@ CK_RV SC_DecryptInit( ST_SESSION_HANDLE  sSession,
    }
    
    if (sess->decr_ctx.active == TRUE) {
-      st_err_log(31, __FILE__, __LINE__);
+      ock_log_err(OCK_E_OP_ACTIVE);
       rc = CKR_OPERATION_ACTIVE;
       goto done;
    }
@@ -2746,7 +2746,7 @@ CK_RV SC_DigestInit( ST_SESSION_HANDLE  sSession,
    }
    
    if (sess->digest_ctx.active == TRUE) {
-      st_err_log(31, __FILE__, __LINE__);
+      ock_log_err(OCK_E_OP_ACTIVE);
       rc = CKR_OPERATION_ACTIVE;
       goto done;
    }
@@ -3027,7 +3027,7 @@ CK_RV SC_SignInit( ST_SESSION_HANDLE  sSession,
    
    if (sess->sign_ctx.active == TRUE) {
       rc = CKR_OPERATION_ACTIVE;
-      st_err_log(31, __FILE__, __LINE__);
+      ock_log_err(OCK_E_OP_ACTIVE);
       goto done;
    }
 
@@ -3266,7 +3266,7 @@ CK_RV SC_SignRecoverInit( ST_SESSION_HANDLE  sSession,
    
    if (sess->sign_ctx.active == TRUE) {
       rc = CKR_OPERATION_ACTIVE;
-      st_err_log(31, __FILE__, __LINE__);
+      ock_log_err(OCK_E_OP_ACTIVE);
       goto done;
    }
 
@@ -3388,7 +3388,7 @@ CK_RV SC_VerifyInit( ST_SESSION_HANDLE  sSession,
    
    if (sess->verify_ctx.active == TRUE) {
       rc = CKR_OPERATION_ACTIVE;
-      st_err_log(31, __FILE__, __LINE__);
+      ock_log_err(OCK_E_OP_ACTIVE);
       goto done;
    }
 
@@ -3614,7 +3614,7 @@ CK_RV SC_VerifyRecoverInit( ST_SESSION_HANDLE  sSession,
    
    if (sess->verify_ctx.active == TRUE) {
       rc = CKR_OPERATION_ACTIVE;
-      st_err_log(31, __FILE__, __LINE__);
+      ock_log_err(OCK_E_OP_ACTIVE);
       goto done;
    }
 

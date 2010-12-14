@@ -321,7 +321,7 @@ digest_mgr_init( SESSION           *sess,
       return CKR_FUNCTION_FAILED;
    }
    if (ctx->active != FALSE){
-      st_err_log(31, __FILE__, __LINE__);
+      ock_log_err(OCK_E_OP_ACTIVE);
       return CKR_OPERATION_ACTIVE;
    }
 
@@ -468,7 +468,7 @@ digest_mgr_digest( SESSION         *sess,
    }
 
    if (ctx->multi == TRUE){
-      st_err_log(31, __FILE__, __LINE__);
+      ock_log_err(OCK_E_OP_ACTIVE);
       rc = CKR_FUNCTION_FAILED;
       goto out;
    }

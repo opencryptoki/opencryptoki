@@ -65,7 +65,7 @@ verify_mgr_init( SESSION             * sess,
       return CKR_FUNCTION_FAILED;
    }
    if (ctx->active != FALSE){
-      st_err_log(31, __FILE__, __LINE__);
+      ock_log_err(OCK_E_OP_ACTIVE);
       return CKR_OPERATION_ACTIVE;
    }
 
@@ -431,7 +431,7 @@ verify_mgr_verify( SESSION             * sess,
       return CKR_FUNCTION_FAILED;
    }
    if (ctx->multi == TRUE){
-      st_err_log(31, __FILE__, __LINE__);
+      ock_log_err(OCK_E_OP_ACTIVE);
       return CKR_OPERATION_ACTIVE;
    }
 
@@ -605,7 +605,7 @@ verify_mgr_verify_recover( SESSION             * sess,
       return CKR_FUNCTION_FAILED;
    }
    if (ctx->multi == TRUE){
-      st_err_log(31, __FILE__, __LINE__);
+      ock_log_err(OCK_E_OP_ACTIVE);
       return CKR_OPERATION_ACTIVE;
    }
 

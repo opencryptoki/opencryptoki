@@ -1401,7 +1401,7 @@ object_mgr_find_init( SESSION      * sess,
    }
    if (sess->find_active != FALSE){
       return CKR_OPERATION_ACTIVE;
-      st_err_log(31, __FILE__, __LINE__); 
+      ock_log_err(OCK_E_OP_ACTIVE);
    }
    // initialize the found object list.  if it doesn't exist, allocate
    // a list big enough for 10 handles.  we'll reallocate if we need more
