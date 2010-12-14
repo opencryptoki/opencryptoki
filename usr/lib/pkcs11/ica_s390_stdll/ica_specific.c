@@ -2190,7 +2190,7 @@ token_specific_rsa_decrypt( CK_BYTE   * in_data,
    }
    else {
       /* should never happen */
-      st_err_log(165, __FILE__, __LINE__);
+      ock_log_err(OCK_E_CHECK_REQUIRED_ATTR);
       rc = CKR_MECHANISM_PARAM_INVALID;
       goto done;
    }

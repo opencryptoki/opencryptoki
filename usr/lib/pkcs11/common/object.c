@@ -540,14 +540,14 @@ object_copy( CK_ATTRIBUTE  * pTemplate,
    //
    rc = template_validate_attributes( new_tmpl, class, subclass, MODE_COPY );
    if (rc != CKR_OK){
-      st_err_log(165, __FILE__, __LINE__); 
+      ock_log_err(OCK_E_CHECK_REQUIRED_ATTR);
       goto error;
    }
    // merge in the new attributes
    //
    rc = template_merge( tmpl, &new_tmpl );
    if (rc != CKR_OK){
-      st_err_log(165, __FILE__, __LINE__); 
+      ock_log_err(OCK_E_CHECK_REQUIRED_ATTR);
       goto error;
    }
    // do we need this?  since an attribute cannot be removed, the original
@@ -862,7 +862,7 @@ object_set_attribute_values( OBJECT        * obj,
    //
    rc = template_validate_attributes( new_tmpl, class, subclass, MODE_MODIFY );
    if (rc != CKR_OK){
-      st_err_log(165, __FILE__, __LINE__); 
+      ock_log_err(OCK_E_CHECK_REQUIRED_ATTR);
       goto error;
    }
 
@@ -870,7 +870,7 @@ object_set_attribute_values( OBJECT        * obj,
    //
    rc = template_merge( obj->template, &new_tmpl );
    if (rc != CKR_OK){
-      st_err_log(165, __FILE__, __LINE__); 
+      ock_log_err(OCK_E_CHECK_REQUIRED_ATTR);
       return rc;
    }
    return CKR_OK;
@@ -1008,7 +1008,7 @@ object_create_skel( CK_ATTRIBUTE  * pTemplate,
 
    rc = template_validate_attributes( tmpl2, class, subclass, mode );
    if (rc != CKR_OK){
-      st_err_log(165, __FILE__, __LINE__); 
+      ock_log_err(OCK_E_CHECK_REQUIRED_ATTR);
       goto done;
    }
 
@@ -1025,7 +1025,7 @@ object_create_skel( CK_ATTRIBUTE  * pTemplate,
 
    rc = template_merge( tmpl, &tmpl2 );
    if (rc != CKR_OK){
-      st_err_log(165, __FILE__, __LINE__); 
+      ock_log_err(OCK_E_CHECK_REQUIRED_ATTR);
       goto done;
    }
    // at this point, we should have a valid object with correct attributes
