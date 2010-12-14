@@ -932,7 +932,7 @@ ber_decode_PrivateKeyInfo( CK_BYTE   * data,
    }
    rc = ber_decode_SEQUENCE( data, &buf, &buf_len, &field_len );
    if (rc != CKR_OK){
-      st_err_log(81, __FILE__, __LINE__);
+      ock_log_err(OCK_E_DECODE_SEQ);
       return rc;
    }
    // version -- we just ignore this
@@ -949,7 +949,7 @@ ber_decode_PrivateKeyInfo( CK_BYTE   * data,
    //
    rc = ber_decode_SEQUENCE( buf+offset, &alg, &len, &field_len );
    if (rc != CKR_OK){
-      st_err_log(81, __FILE__, __LINE__);
+      ock_log_err(OCK_E_DECODE_SEQ);
       return rc;
    }
    *algorithm = alg;
@@ -957,7 +957,7 @@ ber_decode_PrivateKeyInfo( CK_BYTE   * data,
 
    rc = ber_decode_OCTET_STRING( alg + len, priv_key, &buf_len, &field_len );
    if (rc != CKR_OK)
-      st_err_log(81, __FILE__, __LINE__);
+      ock_log_err(OCK_E_DECODE_SEQ);
    return rc;
 }
 
@@ -1684,7 +1684,7 @@ ber_decode_DSAPrivateKey( CK_BYTE     * data,
    //
    rc = ber_decode_SEQUENCE( alg + ber_idDSALen, &buf, &buf_len, &field_len );
    if (rc != CKR_OK){
-      st_err_log(81, __FILE__, __LINE__);
+      ock_log_err(OCK_E_DECODE_SEQ);
       return rc;
    }
    offset = 0;
