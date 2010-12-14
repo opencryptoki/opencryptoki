@@ -1800,7 +1800,7 @@ CK_RV  SC_CopyObject( ST_SESSION_HANDLE    sSession,
    
    rc = object_mgr_copy( sess, pTemplate, ulCount, hObject, phNewObject );
    if (rc != CKR_OK) {
-      st_err_log(158, __FILE__, __LINE__);
+      ock_log_err(OCK_E_OBJ_COPY);
    }
 
 done:

@@ -618,7 +618,7 @@ object_mgr_copy( SESSION          * sess,
    }
    rc = object_copy( pTemplate, ulCount, old_obj, &new_obj );
    if (rc != CKR_OK){
-      st_err_log(158, __FILE__, __LINE__);
+      ock_log_err(OCK_E_OBJ_COPY);
       goto done;
    }
 
