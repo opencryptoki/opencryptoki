@@ -1048,7 +1048,7 @@ CK_RV SC_InitToken( CK_SLOT_ID   sid,
 	}
 	rc = compute_sha( pPin, ulPinLen, hash_sha );
 	if (memcmp(nv_token_data->so_pin_sha, hash_sha, SHA1_HASH_SIZE) != 0) {
-		st_err_log(33, __FILE__, __LINE__);
+		ock_log_err(OCK_E_PIN_WRONG);
 		rc = CKR_PIN_INCORRECT;
 		goto done;
 	}
@@ -1247,7 +1247,7 @@ CK_RV SC_SetPIN( ST_SESSION_HANDLE  sSession,
 	    (sess->session_info.state == CKS_RW_PUBLIC_SESSION)) {
 		if (memcmp(nv_token_data->user_pin_sha, old_hash_sha, 
 			   SHA1_HASH_SIZE) != 0) {
-			st_err_log(33, __FILE__, __LINE__); 	
+			ock_log_err(OCK_E_PIN_WRONG);
 			rc = CKR_PIN_INCORRECT;
 			goto done;
 		}
@@ -1287,7 +1287,7 @@ CK_RV SC_SetPIN( ST_SESSION_HANDLE  sSession,
 		if (memcmp(nv_token_data->so_pin_sha, old_hash_sha, 
 			   SHA1_HASH_SIZE) != 0) {
 			rc = CKR_PIN_INCORRECT;
-			st_err_log(33, __FILE__, __LINE__);
+			ock_log_err(OCK_E_PIN_WRONG);
 			goto done;
 		}
 		rc = compute_sha(pNewPin, ulNewLen, new_hash_sha);
@@ -1630,7 +1630,7 @@ CK_RV SC_Login( ST_SESSION_HANDLE   sSession,
 
 	if (!pPin || ulPinLen > MAX_PIN_LEN) {
 		set_login_flags(userType, flags);
-		st_err_log(33, __FILE__, __LINE__);
+		ock_log_err(OCK_E_PIN_WRONG);
 		rc = CKR_PIN_INCORRECT;
 		goto done;
 	}
@@ -1678,7 +1678,7 @@ CK_RV SC_Login( ST_SESSION_HANDLE   sSession,
 
 		if (memcmp(nv_token_data->user_pin_sha,
 			   "00000000000000000000", SHA1_HASH_SIZE) == 0) {
-			st_err_log(33, __FILE__, __LINE__);
+			ock_log_err(OCK_E_PIN_WRONG);
 			rc = CKR_USER_PIN_NOT_INITIALIZED;
 			goto done;
 		}
@@ -1686,7 +1686,7 @@ CK_RV SC_Login( ST_SESSION_HANDLE   sSession,
 		rc = compute_sha( pPin, ulPinLen, hash_sha );
 		if (memcmp(nv_token_data->user_pin_sha, hash_sha, SHA1_HASH_SIZE) != 0) {
 			set_login_flags(userType, flags);
-			st_err_log(33, __FILE__, __LINE__);
+			ock_log_err(OCK_E_PIN_WRONG);
 			rc = CKR_PIN_INCORRECT;
 			goto done;
 		}
@@ -1722,7 +1722,7 @@ CK_RV SC_Login( ST_SESSION_HANDLE   sSession,
 		rc = compute_sha( pPin, ulPinLen, hash_sha );
 		if (memcmp(nv_token_data->so_pin_sha, hash_sha, SHA1_HASH_SIZE) != 0) {
 			set_login_flags(userType, flags);
-			st_err_log(33, __FILE__, __LINE__);
+			ock_log_err(OCK_E_PIN_WRONG);
 			rc = CKR_PIN_INCORRECT;
 			goto done;
 		}
