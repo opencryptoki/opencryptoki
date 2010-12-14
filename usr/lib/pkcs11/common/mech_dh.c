@@ -417,7 +417,7 @@ dh_pkcs_derive( SESSION           * sess,
    //
    rc = object_mgr_create_final( sess, temp_obj, handle );
    if (rc != CKR_OK) {
-      st_err_log(90, __FILE__, __LINE__);
+      ock_log_err(OCK_E_OBJ_MGR_CREATE_FINAL);
       object_free( temp_obj );
       return rc;  
    }

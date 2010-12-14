@@ -1419,7 +1419,7 @@ ssl3_master_key_derive( SESSION           * sess,
    //
    rc = object_mgr_create_final( sess, derived_key_obj, handle );
    if (rc != CKR_OK) {
-      st_err_log(90, __FILE__, __LINE__); 
+      ock_log_err(OCK_E_OBJ_MGR_CREATE_FINAL);
       object_free( derived_key_obj );
       return rc;  // do NOT goto error
    }
@@ -1908,12 +1908,12 @@ ssl3_kmd_process_mac_keys( SESSION           * sess,
 
    rc = object_mgr_create_final( sess, client_obj, client_handle );
    if (rc != CKR_OK){
-      st_err_log(90, __FILE__, __LINE__); 
+      ock_log_err(OCK_E_OBJ_MGR_CREATE_FINAL);
       goto error;
    }
    rc = object_mgr_create_final( sess, server_obj, server_handle );
    if (rc != CKR_OK){
-      st_err_log(90, __FILE__, __LINE__); 
+      ock_log_err(OCK_E_OBJ_MGR_CREATE_FINAL);
       goto error;
    }
 
@@ -2165,12 +2165,12 @@ ssl3_kmd_process_write_keys( SESSION           * sess,
    //
    rc = object_mgr_create_final( sess, client_obj, client_handle );
    if (rc != CKR_OK){
-      st_err_log(90, __FILE__, __LINE__); 
+      ock_log_err(OCK_E_OBJ_MGR_CREATE_FINAL);
       goto error;
    }
    rc = object_mgr_create_final( sess, server_obj, server_handle );
    if (rc != CKR_OK){
-      st_err_log(90, __FILE__, __LINE__); 
+      ock_log_err(OCK_E_OBJ_MGR_CREATE_FINAL);
       goto error;
    }
    return CKR_OK;

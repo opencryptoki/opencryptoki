@@ -516,7 +516,7 @@ key_mgr_generate_key( SESSION           * sess,
    //
    rc = object_mgr_create_final( sess, key_obj, handle );
    if (rc != CKR_OK){
-      st_err_log(90, __FILE__, __LINE__);
+      ock_log_err(OCK_E_OBJ_MGR_CREATE_FINAL);
       goto error;
    }
    return rc;
@@ -746,12 +746,12 @@ key_mgr_generate_key_pair( SESSION           * sess,
    //
    rc = object_mgr_create_final( sess, publ_key_obj, publ_key_handle );
    if (rc != CKR_OK){
-      st_err_log(90, __FILE__, __LINE__);
+      ock_log_err(OCK_E_OBJ_MGR_CREATE_FINAL);
       goto error;
    }
    rc = object_mgr_create_final( sess, priv_key_obj, priv_key_handle );
    if (rc != CKR_OK){
-      st_err_log(90, __FILE__, __LINE__);
+      ock_log_err(OCK_E_OBJ_MGR_CREATE_FINAL);
       // just calling object_free in the error path below would lead to a double
       // free error on session close - KEY 09/26/07
       object_mgr_destroy_object( sess, *publ_key_handle );
@@ -1265,7 +1265,7 @@ CKO_PRIVATE_KEY)){
    //
    rc = object_mgr_create_final( sess, key_obj, h_unwrapped_key );
    if (rc != CKR_OK){
-      st_err_log(90, __FILE__, __LINE__);
+      ock_log_err(OCK_E_OBJ_MGR_CREATE_FINAL);
       goto error;
    }
    if (data) free(data);

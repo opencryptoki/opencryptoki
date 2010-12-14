@@ -923,7 +923,7 @@ token_store_priv_key(TSS_HKEY hKey, int key_type, CK_OBJECT_HANDLE *ckKey)
 	template_update_attribute( priv_key_obj->template, new_attr );
 
 	if ((rc = object_mgr_create_final(&dummy_sess, priv_key_obj, ckKey))) {
-		st_err_log(90, __FILE__, __LINE__);
+		ock_log_err(OCK_E_OBJ_MGR_CREATE_FINAL);
 	}
 
 	return rc;
@@ -993,7 +993,7 @@ token_store_pub_key(TSS_HKEY hKey, int key_type, CK_OBJECT_HANDLE *ckKey)
 	template_update_attribute( pub_key_obj->template, new_attr );
 
 	if ((rc = object_mgr_create_final(&dummy_sess, pub_key_obj, ckKey))) {
-		st_err_log(90, __FILE__, __LINE__);
+		ock_log_err(OCK_E_OBJ_MGR_CREATE_FINAL);
 		goto done;
 	}
 
