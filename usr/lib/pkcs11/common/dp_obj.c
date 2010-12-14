@@ -494,28 +494,28 @@ dp_dsa_validate_attribute( TEMPLATE *tmpl, CK_ATTRIBUTE *attr, CK_ULONG mode)
    switch (attr->type) {
       case CKA_PRIME: 
 	 if (mode == MODE_KEYGEN) {
-	    st_err_log(193, __FILE__, __LINE__);
+	    ock_log_err(OCK_E_DOMAIN_PARAM);
 	    return CKR_DOMAIN_PARAMS_INVALID;
 	 }   
 	 return CKR_OK;
 	 
       case CKA_PRIME_BITS:
 	 if (mode == MODE_CREATE) {
-	    st_err_log(193, __FILE__, __LINE__);
+	    ock_log_err(OCK_E_DOMAIN_PARAM);
 	    return CKR_DOMAIN_PARAMS_INVALID;
 	 }   
 	 return CKR_OK;
 	 
       case CKA_BASE:
 	 if (mode == MODE_KEYGEN) {
-	    st_err_log(193, __FILE__, __LINE__);
+	    ock_log_err(OCK_E_DOMAIN_PARAM);
 	    return CKR_DOMAIN_PARAMS_INVALID;
 	 }   
 	 return CKR_OK;
 	 
       case CKA_SUBPRIME:
 	 if (mode == MODE_KEYGEN) {
-	    st_err_log(193, __FILE__, __LINE__);
+	    ock_log_err(OCK_E_DOMAIN_PARAM);
 	    return CKR_DOMAIN_PARAMS_INVALID;
 	 }   
 	 return CKR_OK;
@@ -533,21 +533,21 @@ dp_dh_validate_attribute( TEMPLATE *tmpl, CK_ATTRIBUTE *attr, CK_ULONG mode)
    switch (attr->type) {
       case CKA_PRIME: 
 	 if (mode == MODE_KEYGEN) {
-	    st_err_log(193, __FILE__, __LINE__);
+	    ock_log_err(OCK_E_DOMAIN_PARAM);
 	    return CKR_DOMAIN_PARAMS_INVALID;
 	 }   
 	 return CKR_OK;
 	 
       case CKA_PRIME_BITS:
 	 if (mode == MODE_CREATE) {
-	    st_err_log(193, __FILE__, __LINE__);
+	    ock_log_err(OCK_E_DOMAIN_PARAM);
 	    return CKR_DOMAIN_PARAMS_INVALID;
 	 }
 	 return CKR_OK;
       
       case CKA_BASE:
 	 if (mode == MODE_KEYGEN) {
-	    st_err_log(193, __FILE__, __LINE__);
+	    ock_log_err(OCK_E_DOMAIN_PARAM);
 	    return CKR_DOMAIN_PARAMS_INVALID;
 	 }   
 	 return CKR_OK;
@@ -565,35 +565,35 @@ dp_x9dh_validate_attribute( TEMPLATE *tmpl, CK_ATTRIBUTE *attr, CK_ULONG mode)
    switch (attr->type) {
       case CKA_PRIME: 
 	 if (mode == MODE_KEYGEN) {
-	    st_err_log(193, __FILE__, __LINE__);
+	    ock_log_err(OCK_E_DOMAIN_PARAM);
 	    return CKR_DOMAIN_PARAMS_INVALID;
 	 }   
 	 return CKR_OK;
 	 
       case CKA_PRIME_BITS:
 	 if (mode == MODE_CREATE) {
-	    st_err_log(193, __FILE__, __LINE__);
+	    ock_log_err(OCK_E_DOMAIN_PARAM);
 	    return CKR_DOMAIN_PARAMS_INVALID;
 	 }
 	 return CKR_OK;
 
       case CKA_BASE:
 	 if (mode == MODE_KEYGEN) {
-	    st_err_log(193, __FILE__, __LINE__);
+	    ock_log_err(OCK_E_DOMAIN_PARAM);
 	    return CKR_DOMAIN_PARAMS_INVALID;
 	 }   
 	 return CKR_OK;
 	 
       case CKA_SUBPRIME:
 	 if (mode == MODE_KEYGEN) {
-	    st_err_log(193, __FILE__, __LINE__);
+	    ock_log_err(OCK_E_DOMAIN_PARAM);
 	    return CKR_DOMAIN_PARAMS_INVALID;
 	 }   
 	 return CKR_OK;
 	 
       case CKA_SUBPRIME_BITS:
 	 if (mode == MODE_CREATE) {
-	    st_err_log(193, __FILE__, __LINE__);
+	    ock_log_err(OCK_E_DOMAIN_PARAM);
 	    return CKR_DOMAIN_PARAMS_INVALID;
 	 }
 	 return CKR_OK;
