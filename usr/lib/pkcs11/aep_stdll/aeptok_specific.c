@@ -577,14 +577,14 @@ os_specific_rsa_keygen(TEMPLATE *publ_tmpl,  TEMPLATE *priv_tmpl)
 
 	flag = template_attribute_find( publ_tmpl, CKA_MODULUS_BITS, &attr );
 	if (!flag){
-		st_err_log(48, __FILE__, __LINE__);
+		ock_log_err(OCK_E_TMPL_INCOMPLETE);
 		return CKR_TEMPLATE_INCOMPLETE;  // should never happen
         }
 	mod_bits = *(CK_ULONG *)attr->pValue;
 	flag = template_attribute_find( publ_tmpl, CKA_PUBLIC_EXPONENT, 
 					&publ_exp );
 	if (!flag){
-		st_err_log(48, __FILE__, __LINE__);
+		ock_log_err(OCK_E_TMPL_INCOMPLETE);
 		return CKR_TEMPLATE_INCOMPLETE;
 	}
 

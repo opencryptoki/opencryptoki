@@ -319,7 +319,7 @@ dp_object_check_required_attributes( TEMPLATE *tmpl, CK_ULONG mode )
    found = template_attribute_find( tmpl, CKA_KEY_TYPE, &attr );
    if (!found) {
       if (mode == MODE_CREATE){
-         st_err_log(48, __FILE__, __LINE__);
+         ock_log_err(OCK_E_TMPL_INCOMPLETE);
          return CKR_TEMPLATE_INCOMPLETE;
       }
    }
@@ -336,25 +336,25 @@ dp_dsa_check_required_attributes( TEMPLATE *tmpl, CK_ULONG mode)
    if (mode == MODE_CREATE){
       found = template_attribute_find( tmpl, CKA_PRIME, &attr );
       if (!found) {
-         st_err_log(48, __FILE__, __LINE__);
+         ock_log_err(OCK_E_TMPL_INCOMPLETE);
          return CKR_TEMPLATE_INCOMPLETE;
       }
       
       found = template_attribute_find( tmpl, CKA_SUBPRIME, &attr );
       if (!found) {
-         st_err_log(48, __FILE__, __LINE__);
+         ock_log_err(OCK_E_TMPL_INCOMPLETE);
          return CKR_TEMPLATE_INCOMPLETE;
       }
       
       found = template_attribute_find( tmpl, CKA_BASE, &attr );
       if (!found) {
-         st_err_log(48, __FILE__, __LINE__);
+         ock_log_err(OCK_E_TMPL_INCOMPLETE);
          return CKR_TEMPLATE_INCOMPLETE;
       }
    } else if (mode == MODE_KEYGEN) {
       found = template_attribute_find( tmpl, CKA_PRIME_BITS, &attr );
       if (!found) {
-         st_err_log(48, __FILE__, __LINE__);
+         ock_log_err(OCK_E_TMPL_INCOMPLETE);
          return CKR_TEMPLATE_INCOMPLETE;
       }
    }
@@ -372,19 +372,19 @@ dp_dh_check_required_attributes( TEMPLATE *tmpl, CK_ULONG mode)
    if (mode == MODE_CREATE){
       found = template_attribute_find( tmpl, CKA_PRIME, &attr );
       if (!found) {
-         st_err_log(48, __FILE__, __LINE__);
+         ock_log_err(OCK_E_TMPL_INCOMPLETE);
          return CKR_TEMPLATE_INCOMPLETE;
       }
 
       found = template_attribute_find( tmpl, CKA_BASE, &attr );
       if (!found) {
-         st_err_log(48, __FILE__, __LINE__);
+         ock_log_err(OCK_E_TMPL_INCOMPLETE);
          return CKR_TEMPLATE_INCOMPLETE;
       }
    } else if (mode == MODE_KEYGEN) {
       found = template_attribute_find( tmpl, CKA_PRIME_BITS, &attr );
       if (!found) {
-         st_err_log(48, __FILE__, __LINE__);
+         ock_log_err(OCK_E_TMPL_INCOMPLETE);
          return CKR_TEMPLATE_INCOMPLETE;
       }
    }
@@ -403,30 +403,30 @@ dp_x9dh_check_required_attributes( TEMPLATE *tmpl, CK_ULONG mode)
    if (mode == MODE_CREATE){
       found = template_attribute_find( tmpl, CKA_PRIME, &attr );
       if (!found) {
-         st_err_log(48, __FILE__, __LINE__);
+         ock_log_err(OCK_E_TMPL_INCOMPLETE);
          return CKR_TEMPLATE_INCOMPLETE;
       }
 
       found = template_attribute_find( tmpl, CKA_SUBPRIME, &attr );
       if (!found) {
-         st_err_log(48, __FILE__, __LINE__);
+         ock_log_err(OCK_E_TMPL_INCOMPLETE);
          return CKR_TEMPLATE_INCOMPLETE;
       }
 
       found = template_attribute_find( tmpl, CKA_BASE, &attr );
       if (!found) {
-         st_err_log(48, __FILE__, __LINE__);
+         ock_log_err(OCK_E_TMPL_INCOMPLETE);
          return CKR_TEMPLATE_INCOMPLETE;
       }
    } else if (mode == MODE_KEYGEN) {
       found = template_attribute_find( tmpl, CKA_PRIME_BITS, &attr );
       if (!found) {
-         st_err_log(48, __FILE__, __LINE__);
+         ock_log_err(OCK_E_TMPL_INCOMPLETE);
          return CKR_TEMPLATE_INCOMPLETE;
       }
       found = template_attribute_find( tmpl, CKA_SUBPRIME_BITS, &attr );
       if (!found) {
-         st_err_log(48, __FILE__, __LINE__);
+         ock_log_err(OCK_E_TMPL_INCOMPLETE);
          return CKR_TEMPLATE_INCOMPLETE;
       }
    }

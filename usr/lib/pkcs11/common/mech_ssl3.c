@@ -1579,7 +1579,7 @@ ssl3_key_and_mac_derive( SESSION           * sess,
    // a key type must be specified for the client and server write keys
    //
    if (keytype == 0xFFFFFFFF){
-      st_err_log(48, __FILE__, __LINE__); 
+      ock_log_err(OCK_E_TMPL_INCOMPLETE);
       return CKR_TEMPLATE_INCOMPLETE;
    }
 

@@ -331,7 +331,7 @@ cert_check_required_attributes( TEMPLATE *tmpl, CK_ULONG mode )
    if (mode == MODE_CREATE) {
       found = template_attribute_find( tmpl, CKA_CERTIFICATE_TYPE, &attr );
       if (found == FALSE){
-         st_err_log(48, __FILE__, __LINE__);
+         ock_log_err(OCK_E_TMPL_INCOMPLETE);
          return CKR_TEMPLATE_INCOMPLETE;
       }
       // don't bother checking the value.  it was checked in the 'validate'

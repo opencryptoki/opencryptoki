@@ -1127,7 +1127,7 @@ key_mgr_unwrap_key( SESSION           * sess,
    //
    if (found_class == FALSE || (found_type == FALSE && keyclass !=
 CKO_PRIVATE_KEY)){
-      st_err_log(48, __FILE__, __LINE__);
+      ock_log_err(OCK_E_TMPL_INCOMPLETE);
       return CKR_TEMPLATE_INCOMPLETE;
    }
 
@@ -1327,7 +1327,7 @@ key_mgr_get_private_key_type( CK_BYTE     *keydata,
       }
    }
 
-   st_err_log(48, __FILE__, __LINE__);
+   ock_log_err(OCK_E_TMPL_INCOMPLETE);
    return CKR_TEMPLATE_INCOMPLETE;
 }
 

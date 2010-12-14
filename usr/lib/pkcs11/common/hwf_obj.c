@@ -319,7 +319,7 @@ hwf_object_check_required_attributes( TEMPLATE *tmpl, CK_ULONG mode )
    found = template_attribute_find( tmpl, CKA_HW_FEATURE_TYPE, &attr );
    if (!found) {
       if (mode == MODE_CREATE){
-         st_err_log(48, __FILE__, __LINE__);
+         ock_log_err(OCK_E_TMPL_INCOMPLETE);
          return CKR_TEMPLATE_INCOMPLETE;
       }
    }
@@ -336,7 +336,7 @@ clock_check_required_attributes( TEMPLATE *tmpl, CK_ULONG mode )
    if (mode == MODE_CREATE){
       found = template_attribute_find( tmpl, CKA_VALUE, &attr );
       if (!found) {
-         st_err_log(48, __FILE__, __LINE__);
+         ock_log_err(OCK_E_TMPL_INCOMPLETE);
          return CKR_TEMPLATE_INCOMPLETE;
       }
    }
@@ -353,19 +353,19 @@ counter_check_required_attributes( TEMPLATE *tmpl, CK_ULONG mode )
    if (mode == MODE_CREATE){
       found = template_attribute_find( tmpl, CKA_VALUE, &attr );
       if (!found) {
-         st_err_log(48, __FILE__, __LINE__);
+         ock_log_err(OCK_E_TMPL_INCOMPLETE);
          return CKR_TEMPLATE_INCOMPLETE;
       }
       
       found = template_attribute_find( tmpl, CKA_HAS_RESET, &attr );
       if (!found) {
-         st_err_log(48, __FILE__, __LINE__);
+         ock_log_err(OCK_E_TMPL_INCOMPLETE);
          return CKR_TEMPLATE_INCOMPLETE;
       }
       
       found = template_attribute_find( tmpl, CKA_RESET_ON_INIT, &attr );
       if (!found) {
-         st_err_log(48, __FILE__, __LINE__);
+         ock_log_err(OCK_E_TMPL_INCOMPLETE);
          return CKR_TEMPLATE_INCOMPLETE;
       }
    }

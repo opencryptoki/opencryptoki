@@ -376,7 +376,7 @@ object_create( CK_ATTRIBUTE  * pTemplate,
    }
 
    if (class_given == FALSE){
-      st_err_log(48, __FILE__, __LINE__);
+      ock_log_err(OCK_E_TMPL_INCOMPLETE);
       return CKR_TEMPLATE_INCOMPLETE;
    }
 
@@ -388,7 +388,7 @@ object_create( CK_ATTRIBUTE  * pTemplate,
 	}
 
    if (class != CKO_DATA && subclass_given != TRUE){
-      st_err_log(48, __FILE__, __LINE__);
+      ock_log_err(OCK_E_TMPL_INCOMPLETE);
       return CKR_TEMPLATE_INCOMPLETE;
    }
 

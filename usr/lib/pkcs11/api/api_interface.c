@@ -666,13 +666,13 @@ C_CreateObject ( CK_SESSION_HANDLE    hSession,
    // Null template is invalid...    An object needs a minimal
    // template for creation.
    if ( !pTemplate ){
-      st_err_log(48, __FILE__, __LINE__); 
+      ock_log_err(OCK_E_TMPL_INCOMPLETE);
       return CKR_TEMPLATE_INCOMPLETE;
    }
 
    // A 0 count for the template is bad
    if ( ulCount == 0 ){
-      st_err_log(48, __FILE__, __LINE__); 
+      ock_log_err(OCK_E_TMPL_INCOMPLETE);
       return CKR_TEMPLATE_INCOMPLETE;
    }
 
@@ -2342,11 +2342,11 @@ C_GetAttributeValue ( CK_SESSION_HANDLE hSession,
    }
 
    if (!pTemplate){
-      st_err_log(48, __FILE__, __LINE__); 
+      ock_log_err(OCK_E_TMPL_INCOMPLETE);
       return CKR_TEMPLATE_INCOMPLETE;
    }
    if ( ulCount == 0 ){
-      st_err_log(48, __FILE__, __LINE__); 
+      ock_log_err(OCK_E_TMPL_INCOMPLETE);
       return CKR_TEMPLATE_INCOMPLETE;
    }
    // Validate Session
@@ -3911,11 +3911,11 @@ C_SetAttributeValue ( CK_SESSION_HANDLE hSession,
    }
    
    if (!pTemplate){
-      st_err_log(48, __FILE__, __LINE__); 
+      ock_log_err(OCK_E_TMPL_INCOMPLETE);
       return CKR_TEMPLATE_INCOMPLETE;
    }
    if (!ulCount){
-      st_err_log(48, __FILE__, __LINE__); 
+      ock_log_err(OCK_E_TMPL_INCOMPLETE);
       return CKR_TEMPLATE_INCOMPLETE;
    }
    // Get local pointers to session
