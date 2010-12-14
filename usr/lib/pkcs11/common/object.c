@@ -556,7 +556,7 @@ object_copy( CK_ATTRIBUTE  * pTemplate,
    //
    rc = template_check_required_attributes( tmpl, class, subclass, MODE_COPY );
    if (rc != CKR_OK){
-      st_err_log(166, __FILE__, __LINE__); 
+      ock_log_err(OCK_E_UNFLATTEN_TMPL);
       goto error;
    }
    // at this point, we should have a valid object with correct attributes
@@ -930,7 +930,7 @@ object_restore_withSize( CK_BYTE *data, OBJECT **new_obj, CK_BBOOL replace, int 
 
    rc = template_unflatten_withSize( &tmpl, data + offset, count, data_size );
    if (rc != CKR_OK){
-      st_err_log(166, __FILE__, __LINE__);
+      ock_log_err(OCK_E_UNFLATTEN_TMPL);
       goto error;
    }
    obj->template = tmpl;
@@ -1014,7 +1014,7 @@ object_create_skel( CK_ATTRIBUTE  * pTemplate,
 
    rc = template_check_required_attributes( tmpl2, class, subclass, mode );
    if (rc != CKR_OK){
-      st_err_log(166, __FILE__, __LINE__); 
+      ock_log_err(OCK_E_UNFLATTEN_TMPL);
       goto done;
    }
 
