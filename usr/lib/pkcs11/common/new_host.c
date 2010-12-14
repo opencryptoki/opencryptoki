@@ -1152,7 +1152,7 @@ CK_RV SC_InitPIN( ST_SESSION_HANDLE  sSession,
 		goto done;
 	}
 	if (sess->session_info.state != CKS_RW_SO_FUNCTIONS) {
-		st_err_log(57, __FILE__, __LINE__);
+		ock_log_err(OCK_E_USER_NOT_LOGGED_IN);
 		rc = CKR_USER_NOT_LOGGED_IN;
 		goto done;
 	}
@@ -1784,14 +1784,14 @@ CK_RV SC_Logout( ST_SESSION_HANDLE  sSession )
 	// all sessions have the same state so we just have to check one
 	//
 	if (session_mgr_public_session_exists()) {
-		st_err_log(57, __FILE__, __LINE__);
+		ock_log_err(OCK_E_USER_NOT_LOGGED_IN);
 		rc = CKR_USER_NOT_LOGGED_IN;
 		goto done;
 	}
 
 	rc = session_mgr_logout_all();
 	if (rc != CKR_OK){
-		st_err_log(57, __FILE__, __LINE__);
+		ock_log_err(OCK_E_USER_NOT_LOGGED_IN);
 	}
 	memset( user_pin_md5, 0x0, MD5_HASH_SIZE );
 	memset( so_pin_md5,   0x0, MD5_HASH_SIZE );

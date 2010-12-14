@@ -353,7 +353,7 @@ object_mgr_add( SESSION          * sess,
 
    if (sess->session_info.state == CKS_RO_PUBLIC_SESSION) {
       if (priv_obj) {
-         st_err_log(57, __FILE__, __LINE__); 
+         ock_log_err(OCK_E_USER_NOT_LOGGED_IN);
          rc = CKR_USER_NOT_LOGGED_IN;
          goto done;
       }
@@ -375,7 +375,7 @@ object_mgr_add( SESSION          * sess,
 
    if (sess->session_info.state == CKS_RW_PUBLIC_SESSION) {
       if (priv_obj) {
-         st_err_log(57, __FILE__, __LINE__);
+         ock_log_err(OCK_E_USER_NOT_LOGGED_IN);
          rc = CKR_USER_NOT_LOGGED_IN;
          goto done;
       }
@@ -383,7 +383,7 @@ object_mgr_add( SESSION          * sess,
 
    if (sess->session_info.state == CKS_RW_SO_FUNCTIONS) {
       if (priv_obj) {
-         st_err_log(57, __FILE__, __LINE__);
+         ock_log_err(OCK_E_USER_NOT_LOGGED_IN);
          rc = CKR_USER_NOT_LOGGED_IN;
          goto done;
       }
@@ -637,7 +637,7 @@ object_mgr_copy( SESSION          * sess,
 
    if (sess->session_info.state == CKS_RO_PUBLIC_SESSION) {
       if (priv_obj) {
-         st_err_log(57, __FILE__, __LINE__); 
+         ock_log_err(OCK_E_USER_NOT_LOGGED_IN);
          rc = CKR_USER_NOT_LOGGED_IN;
          goto done;
       }
@@ -659,7 +659,7 @@ object_mgr_copy( SESSION          * sess,
 
    if (sess->session_info.state == CKS_RW_PUBLIC_SESSION) {
       if (priv_obj) {
-         st_err_log(57, __FILE__, __LINE__); 
+         ock_log_err(OCK_E_USER_NOT_LOGGED_IN);
          rc = CKR_USER_NOT_LOGGED_IN;
          goto done;
       }
@@ -667,7 +667,7 @@ object_mgr_copy( SESSION          * sess,
 
    if (sess->session_info.state == CKS_RW_SO_FUNCTIONS) {
       if (priv_obj) {
-         st_err_log(57, __FILE__, __LINE__); 
+         ock_log_err(OCK_E_USER_NOT_LOGGED_IN);
          rc = CKR_USER_NOT_LOGGED_IN;
          goto done;
       }
@@ -838,7 +838,7 @@ object_mgr_create_skel( SESSION       * sess,
    if (sess->session_info.state == CKS_RO_PUBLIC_SESSION) {
       if (priv_obj) {
          object_free( o );
-         st_err_log(57, __FILE__, __LINE__); 
+         ock_log_err(OCK_E_USER_NOT_LOGGED_IN);
          return CKR_USER_NOT_LOGGED_IN;
       }
 
@@ -860,7 +860,7 @@ object_mgr_create_skel( SESSION       * sess,
    if (sess->session_info.state == CKS_RW_PUBLIC_SESSION) {
       if (priv_obj) {
          object_free( o );
-         st_err_log(57, __FILE__, __LINE__); 
+         ock_log_err(OCK_E_USER_NOT_LOGGED_IN);
          return CKR_USER_NOT_LOGGED_IN;
       }
    }
@@ -868,7 +868,7 @@ object_mgr_create_skel( SESSION       * sess,
    if (sess->session_info.state == CKS_RW_SO_FUNCTIONS) {
       if (priv_obj) {
          object_free( o );
-         st_err_log(57, __FILE__, __LINE__); 
+         ock_log_err(OCK_E_USER_NOT_LOGGED_IN);
          return CKR_USER_NOT_LOGGED_IN;
       }
    }
@@ -1643,7 +1643,7 @@ object_mgr_get_attribute_values( SESSION           * sess,
       if (sess->session_info.state == CKS_RO_PUBLIC_SESSION ||
           sess->session_info.state == CKS_RW_PUBLIC_SESSION)
       {
-         st_err_log(57, __FILE__, __LINE__); 
+         ock_log_err(OCK_E_USER_NOT_LOGGED_IN);
          rc = CKR_USER_NOT_LOGGED_IN;
          goto done;
       }
@@ -2078,7 +2078,7 @@ object_mgr_set_attribute_values( SESSION           * sess,
    }
    if (sess->session_info.state == CKS_RO_PUBLIC_SESSION) {
       if (priv_obj){
-         st_err_log(57, __FILE__, __LINE__); 
+         ock_log_err(OCK_E_USER_NOT_LOGGED_IN);
          return CKR_USER_NOT_LOGGED_IN;
       }
       if (!sess_obj){
@@ -2096,14 +2096,14 @@ object_mgr_set_attribute_values( SESSION           * sess,
 
    if (sess->session_info.state == CKS_RW_PUBLIC_SESSION) {
       if (priv_obj){
-         st_err_log(57, __FILE__, __LINE__); 
+         ock_log_err(OCK_E_USER_NOT_LOGGED_IN);
          return CKR_USER_NOT_LOGGED_IN;
       }
    }
 
    if (sess->session_info.state == CKS_RW_SO_FUNCTIONS) {
       if (priv_obj){
-         st_err_log(57, __FILE__, __LINE__); 
+         ock_log_err(OCK_E_USER_NOT_LOGGED_IN);
          return CKR_USER_NOT_LOGGED_IN;
       }
    }
