@@ -837,7 +837,7 @@ ber_encode_PrivateKeyInfo( CK_BBOOL    length_only,
 
    rc = ber_encode_INTEGER( TRUE, NULL, &total, version, sizeof(version) );
    if (rc != CKR_OK){
-      st_err_log(76, __FILE__, __LINE__);
+      ock_log_err(OCK_E_ENCODR_INT);
       return rc;
    }
    else
@@ -875,7 +875,7 @@ ber_encode_PrivateKeyInfo( CK_BBOOL    length_only,
    len = 0;
    rc = ber_encode_INTEGER( FALSE, &tmp, &total, version, sizeof(version) );
    if (rc != CKR_OK){
-      st_err_log(76, __FILE__, __LINE__);
+      ock_log_err(OCK_E_ENCODR_INT);
       goto error;
    }
    memcpy( buf+len, tmp, total );
@@ -1034,7 +1034,7 @@ ber_encode_RSAPrivateKey( CK_BBOOL    length_only,
 
    rc = ber_encode_INTEGER( FALSE, &buf2, &len, version, sizeof(version) );
    if (rc != CKR_OK){
-      st_err_log(76, __FILE__, __LINE__);
+      ock_log_err(OCK_E_ENCODR_INT);
       goto error;
    }
    memcpy( buf+offset, buf2, len );
@@ -1043,7 +1043,7 @@ ber_encode_RSAPrivateKey( CK_BBOOL    length_only,
 
    rc = ber_encode_INTEGER( FALSE, &buf2, &len, (CK_BYTE *)modulus + sizeof(CK_ATTRIBUTE), modulus->ulValueLen );
    if (rc != CKR_OK){
-      st_err_log(76, __FILE__, __LINE__);
+      ock_log_err(OCK_E_ENCODR_INT);
       goto error;
    }
    memcpy( buf+offset, buf2, len );
@@ -1052,7 +1052,7 @@ ber_encode_RSAPrivateKey( CK_BBOOL    length_only,
 
    rc = ber_encode_INTEGER( FALSE, &buf2, &len, (CK_BYTE *)publ_exp + sizeof(CK_ATTRIBUTE), publ_exp->ulValueLen );
    if (rc != CKR_OK){
-      st_err_log(76, __FILE__, __LINE__);
+      ock_log_err(OCK_E_ENCODR_INT);
       goto error;
    }
    memcpy( buf+offset, buf2, len );
@@ -1061,7 +1061,7 @@ ber_encode_RSAPrivateKey( CK_BBOOL    length_only,
 
    rc = ber_encode_INTEGER( FALSE, &buf2, &len, (CK_BYTE *)priv_exp  + sizeof(CK_ATTRIBUTE),  priv_exp->ulValueLen );
    if (rc != CKR_OK){
-      st_err_log(76, __FILE__, __LINE__);
+      ock_log_err(OCK_E_ENCODR_INT);
       goto error;
    }
    memcpy( buf+offset, buf2, len );
@@ -1070,7 +1070,7 @@ ber_encode_RSAPrivateKey( CK_BBOOL    length_only,
 
    rc = ber_encode_INTEGER( FALSE, &buf2, &len, (CK_BYTE *)prime1    + sizeof(CK_ATTRIBUTE),    prime1->ulValueLen );
    if (rc != CKR_OK){
-      st_err_log(76, __FILE__, __LINE__);
+      ock_log_err(OCK_E_ENCODR_INT);
       goto error;
    }
    memcpy( buf+offset, buf2, len );
@@ -1079,7 +1079,7 @@ ber_encode_RSAPrivateKey( CK_BBOOL    length_only,
 
    rc = ber_encode_INTEGER( FALSE, &buf2, &len, (CK_BYTE *)prime2    + sizeof(CK_ATTRIBUTE),    prime2->ulValueLen );
    if (rc != CKR_OK){
-      st_err_log(76, __FILE__, __LINE__);
+      ock_log_err(OCK_E_ENCODR_INT);
       goto error;
    }
    memcpy( buf+offset, buf2, len );
@@ -1088,7 +1088,7 @@ ber_encode_RSAPrivateKey( CK_BBOOL    length_only,
 
    rc = ber_encode_INTEGER( FALSE, &buf2, &len, (CK_BYTE *)exponent1 + sizeof(CK_ATTRIBUTE), exponent1->ulValueLen );
    if (rc != CKR_OK){
-      st_err_log(76, __FILE__, __LINE__);
+      ock_log_err(OCK_E_ENCODR_INT);
       goto error;
    }
    memcpy( buf+offset, buf2, len );
@@ -1097,7 +1097,7 @@ ber_encode_RSAPrivateKey( CK_BBOOL    length_only,
 
    rc = ber_encode_INTEGER( FALSE, &buf2, &len, (CK_BYTE *)exponent2 + sizeof(CK_ATTRIBUTE), exponent2->ulValueLen );
    if (rc != CKR_OK){
-      st_err_log(76, __FILE__, __LINE__);
+      ock_log_err(OCK_E_ENCODR_INT);
       goto error;
    }
    memcpy( buf+offset, buf2, len );
@@ -1106,7 +1106,7 @@ ber_encode_RSAPrivateKey( CK_BBOOL    length_only,
 
    rc = ber_encode_INTEGER( FALSE, &buf2, &len, (CK_BYTE *)coeff     + sizeof(CK_ATTRIBUTE),     coeff->ulValueLen );
    if (rc != CKR_OK){
-      st_err_log(76, __FILE__, __LINE__);
+      ock_log_err(OCK_E_ENCODR_INT);
       goto error;
    }
    memcpy( buf+offset, buf2, len );
@@ -1485,7 +1485,7 @@ ber_encode_DSAPrivateKey( CK_BBOOL    length_only,
       }
       rc = ber_encode_INTEGER( TRUE, NULL, &len, NULL, priv_key->ulValueLen );
       if (rc != CKR_OK){
-         st_err_log(76, __FILE__, __LINE__);
+         ock_log_err(OCK_E_ENCODR_INT);
          return rc;
       }
       rc = ber_encode_PrivateKeyInfo( TRUE,
@@ -1510,7 +1510,7 @@ ber_encode_DSAPrivateKey( CK_BBOOL    length_only,
 
    rc = ber_encode_INTEGER( FALSE, &tmp, &len, (CK_BYTE *)prime1 + sizeof(CK_ATTRIBUTE), prime1->ulValueLen );
    if (rc != CKR_OK){
-      st_err_log(76, __FILE__, __LINE__);
+      ock_log_err(OCK_E_ENCODR_INT);
       goto error;
    }
    memcpy( buf+offset, tmp, len );
@@ -1520,7 +1520,7 @@ ber_encode_DSAPrivateKey( CK_BBOOL    length_only,
 
    rc = ber_encode_INTEGER( FALSE, &tmp, &len, (CK_BYTE *)prime2 + sizeof(CK_ATTRIBUTE), prime2->ulValueLen );
    if (rc != CKR_OK){
-      st_err_log(76, __FILE__, __LINE__);
+      ock_log_err(OCK_E_ENCODR_INT);
       goto error;
    }
    memcpy( buf+offset, tmp, len );
@@ -1530,7 +1530,7 @@ ber_encode_DSAPrivateKey( CK_BBOOL    length_only,
 
    rc = ber_encode_INTEGER( FALSE, &tmp, &len, (CK_BYTE *)base   + sizeof(CK_ATTRIBUTE), base->ulValueLen   );
    if (rc != CKR_OK){
-      st_err_log(76, __FILE__, __LINE__);
+      ock_log_err(OCK_E_ENCODR_INT);
       goto error;
    }
    memcpy( buf+offset, tmp, len );
@@ -1579,7 +1579,7 @@ ber_encode_DSAPrivateKey( CK_BBOOL    length_only,
    //
    rc = ber_encode_INTEGER( FALSE, &buf, &len, (CK_BYTE *)priv_key + sizeof(CK_ATTRIBUTE), priv_key->ulValueLen );
    if (rc != CKR_OK){
-      st_err_log(76, __FILE__, __LINE__);
+      ock_log_err(OCK_E_ENCODR_INT);
       goto error;
    }
 
