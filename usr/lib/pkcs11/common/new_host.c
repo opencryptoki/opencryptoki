@@ -1644,7 +1644,7 @@ CK_RV SC_Login( ST_SESSION_HANDLE   sSession,
 			rc = CKR_USER_ANOTHER_ALREADY_LOGGED_IN;
 		}
 		if (session_mgr_user_session_exists()){
-			st_err_log(56, __FILE__, __LINE__);
+			ock_log_err(OCK_E_USER_ALREADY_LOGGED_IN);
 			rc = CKR_USER_ALREADY_LOGGED_IN;
 		}
 	}
@@ -1654,7 +1654,7 @@ CK_RV SC_Login( ST_SESSION_HANDLE   sSession,
 			rc = CKR_USER_ANOTHER_ALREADY_LOGGED_IN;
 		}
 		if (session_mgr_so_session_exists()){
-			st_err_log(56, __FILE__, __LINE__);
+			ock_log_err(OCK_E_USER_ALREADY_LOGGED_IN);
 			rc = CKR_USER_ALREADY_LOGGED_IN;
 		}
 		if (session_mgr_readonly_session_exists()){
