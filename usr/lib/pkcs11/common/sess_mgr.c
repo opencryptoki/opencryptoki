@@ -445,7 +445,7 @@ done:
       MY_UnlockMutex( &sess_list_mutex );
 
    if (rc != CKR_OK && new_session != NULL){
-      st_err_log(147, __FILE__, __LINE__); 
+      ock_log_err(OCK_E_MUTEX_UNLOCK);
       free( new_session );
    }
    return rc;

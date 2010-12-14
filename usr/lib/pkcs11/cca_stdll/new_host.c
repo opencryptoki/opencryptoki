@@ -480,7 +480,7 @@ CK_RV SC_Finalize( CK_SLOT_ID sid )
 	}
 	rc = MY_UnlockMutex( &pkcs_mutex );
 	if (rc != CKR_OK){
-		st_err_log(147, __FILE__, __LINE__);
+		ock_log_err(OCK_E_MUTEX_UNLOCK);
 		return rc;
 	}
 	return CKR_OK;
