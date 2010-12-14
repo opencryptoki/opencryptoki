@@ -4061,7 +4061,7 @@ CK_RV SC_UnwrapKey( ST_SESSION_HANDLE     sSession,
                             pWrappedKey,    ulWrappedKeyLen,
                             hUnwrappingKey, phKey );
    if (rc != CKR_OK){ 
-      st_err_log(189, __FILE__, __LINE__);
+      ock_log_err(OCK_E_UNWRAP_KEY2);
    }
 
 done:
