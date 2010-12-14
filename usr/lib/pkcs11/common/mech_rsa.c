@@ -390,7 +390,7 @@ rsa_format_block( CK_BYTE   * in_data,
          */
         case 0:
             if (in_data[0] == (CK_BYTE)0) {
-                st_err_log(10, __FILE__, __LINE__, __FUNCTION__);
+                ock_log_err(OCK_E_DATA_INV);
                 rc = CKR_DATA_INVALID;
                 return rc;
             }
@@ -433,7 +433,7 @@ rsa_format_block( CK_BYTE   * in_data,
             break;
 
         default:
-            st_err_log(10, __FILE__, __LINE__);
+            ock_log_err(OCK_E_DATA_INV);
             rc = CKR_DATA_INVALID;
             return rc;
     }

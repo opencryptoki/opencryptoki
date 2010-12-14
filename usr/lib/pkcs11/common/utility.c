@@ -1105,7 +1105,7 @@ strip_pkcs_padding( CK_BYTE   * ptr,
 
    pad_value = ptr[total_len - 1];
    if (pad_value > total_len)
-       st_err_log(10, __FILE__, __LINE__);
+       ock_log_err(OCK_E_DATA_INV);
        return CKR_ENCRYPTED_DATA_INVALID;
 
    // thus, we have 'pad_value' bytes of 'pad_value' appended to the end
