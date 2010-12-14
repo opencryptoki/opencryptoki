@@ -98,7 +98,7 @@ encr_mgr_init( SESSION           * sess,
    {
       rc = object_mgr_find_in_map1( key_handle, &key_obj );
       if (rc != CKR_OK){
-         st_err_log(62, __FILE__, __LINE__);
+         ock_log_err(OCK_E_WRAPPED_KEY_INV);
          return CKR_WRAPPING_KEY_HANDLE_INVALID;
       }
       // is key allowed to wrap other keys?

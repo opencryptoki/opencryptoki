@@ -826,7 +826,7 @@ priv_key_unwrap( TEMPLATE *tmpl,
          break;
 #endif
       default:
-         st_err_log(62, __FILE__, __LINE__);
+         ock_log_err(OCK_E_WRAPPED_KEY_INV);
          return CKR_WRAPPED_KEY_INVALID;
    }
 
@@ -1166,7 +1166,7 @@ secret_key_unwrap( TEMPLATE *tmpl,
          break;
 
       default:
-         st_err_log(62, __FILE__, __LINE__);
+         ock_log_err(OCK_E_WRAPPED_KEY_INV);
          return CKR_WRAPPED_KEY_INVALID;
    }
 
@@ -3821,7 +3821,7 @@ des_unwrap( TEMPLATE *tmpl,
 
 
    if (data_len < DES_BLOCK_SIZE){
-      st_err_log(62, __FILE__, __LINE__);
+      ock_log_err(OCK_E_WRAPPED_KEY_INV);
       return CKR_WRAPPED_KEY_INVALID;
    }
    if (fromend == TRUE)
@@ -4162,7 +4162,7 @@ des3_unwrap( TEMPLATE *tmpl,
 
 
    if (data_len < 3 * DES_BLOCK_SIZE){
-      st_err_log(62, __FILE__, __LINE__);
+      ock_log_err(OCK_E_WRAPPED_KEY_INV);
       return CKR_WRAPPED_KEY_INVALID;
    }
    if (fromend == TRUE)
@@ -5314,7 +5314,7 @@ aes_unwrap( TEMPLATE *tmpl,
    if (key_size != AES_KEY_SIZE_128 &&
        key_size != AES_KEY_SIZE_192 &&
        key_size != AES_KEY_SIZE_256){
-      st_err_log(62, __FILE__, __LINE__);
+      ock_log_err(OCK_E_WRAPPED_KEY_INV);
       return CKR_ATTRIBUTE_VALUE_INVALID;
    }
    if (fromend == TRUE)

@@ -536,7 +536,7 @@ key_mgr_wrap_key( SESSION           * sess,
 
    rc = object_mgr_find_in_map1( h_wrapping_key, &key1_obj );
    if (rc != CKR_OK){
-      st_err_log(62, __FILE__, __LINE__);
+      ock_log_err(OCK_E_WRAPPED_KEY_INV);
       return CKR_WRAPPING_KEY_HANDLE_INVALID;
    }
    rc = object_mgr_find_in_map1( h_key, &key2_obj );
@@ -793,7 +793,7 @@ key_mgr_unwrap_key( SESSION           * sess,
 
    rc = object_mgr_find_in_map1( h_unwrapping_key, &key_obj );
    if (rc != CKR_OK){
-      st_err_log(62, __FILE__, __LINE__);
+      ock_log_err(OCK_E_WRAPPED_KEY_INV);
       return CKR_WRAPPING_KEY_HANDLE_INVALID;
    }
 
