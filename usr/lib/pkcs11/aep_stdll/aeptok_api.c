@@ -96,7 +96,7 @@ GetAEPConnection(AEP_CONNECTION_HNDL *hConnection)
 			cryptoki_aep_avail = FALSE;
 			aep_initialised = FALSE;
 			recorded_pid = 0;
-			st_err_log(12, __FILE__, __LINE__);
+			ock_log_err(OCK_E_DEV_ERR);
 			goto end;
 		}
 		
@@ -120,7 +120,7 @@ GetAEPConnection(AEP_CONNECTION_HNDL *hConnection)
 			if ( rv != AEP_R_OK){
 				// a problem here, assume AEP subsystem is dead !
 				cryptoki_aep_avail = FALSE;
-				st_err_log(12, __FILE__, __LINE__);
+				ock_log_err(OCK_E_DEV_ERR);
 				goto end;
 			}
 			aep_app_conn_table[count].conn_state = InUse;		
