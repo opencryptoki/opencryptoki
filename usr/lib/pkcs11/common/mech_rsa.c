@@ -420,7 +420,7 @@ rsa_format_block( CK_BYTE   * in_data,
             for (i = 2; i < (padding_len + 2); i++) {
                 rc = rng_generate(&out_data[i], 1);
                 if (rc != CKR_OK) {
-                    st_err_log(130, __FILE__, __LINE__);
+                    ock_log_err(OCK_E_RNG);
                     return rc;
                 }
                 if (out_data[i] == (CK_BYTE)0) {
