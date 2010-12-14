@@ -380,7 +380,7 @@ C_CancelFunction ( CK_SESSION_HANDLE hSession )
 {
    LOG("C_CancelFunction");
    if (API_Initialized() == FALSE ){
-      st_err_log(72, __FILE__, __LINE__);
+      ock_log_err(OCK_E_API_NOT_INIT);
       return CKR_CRYPTOKI_NOT_INITIALIZED;
    }
    ock_log_err(OCK_E_FUNC_NOT_PARALLEL);
@@ -414,7 +414,7 @@ C_CloseAllSessions ( CK_SLOT_ID slotID )
    
    LOG("CloseAllSessions");
    if (API_Initialized() == FALSE ){
-      st_err_log(72, __FILE__, __LINE__);
+      ock_log_err(OCK_E_API_NOT_INIT);
       return CKR_CRYPTOKI_NOT_INITIALIZED;
    }
 
@@ -499,7 +499,7 @@ C_CloseSession ( CK_SESSION_HANDLE hSession )
 
    LOG("C_CloseSession");
    if (API_Initialized() == FALSE ){
-      st_err_log(72, __FILE__, __LINE__);
+      ock_log_err(OCK_E_API_NOT_INIT);
       return CKR_CRYPTOKI_NOT_INITIALIZED;
    }
 
@@ -577,7 +577,7 @@ C_CopyObject ( CK_SESSION_HANDLE    hSession,
 
    LOG("C_CopyObject");
    if (API_Initialized() == FALSE ){
-      st_err_log(72, __FILE__, __LINE__);
+      ock_log_err(OCK_E_API_NOT_INIT);
       return CKR_CRYPTOKI_NOT_INITIALIZED;
    }
 
@@ -653,7 +653,7 @@ C_CreateObject ( CK_SESSION_HANDLE    hSession,
 
    LOG("C_CreateObject");
    if (API_Initialized() == FALSE ){
-      st_err_log(72, __FILE__, __LINE__);
+      ock_log_err(OCK_E_API_NOT_INIT);
       return CKR_CRYPTOKI_NOT_INITIALIZED;
    }
 
@@ -736,7 +736,7 @@ C_Decrypt ( CK_SESSION_HANDLE hSession,
 
    LOG("C_Decrypt");
    if (API_Initialized() == FALSE ){
-      st_err_log(72, __FILE__, __LINE__);
+      ock_log_err(OCK_E_API_NOT_INIT);
       return CKR_CRYPTOKI_NOT_INITIALIZED;
    }
 
@@ -803,7 +803,7 @@ C_DecryptDigestUpdate ( CK_SESSION_HANDLE hSession,
 
    LOG("C_DecryptDigestUpdate");
    if (API_Initialized() == FALSE ){
-      st_err_log(72, __FILE__, __LINE__);
+      ock_log_err(OCK_E_API_NOT_INIT);
       return CKR_CRYPTOKI_NOT_INITIALIZED;
    }
 
@@ -872,7 +872,7 @@ C_DecryptFinal ( CK_SESSION_HANDLE hSession,
 
    LOG("C_DecryptFinal");
    if (API_Initialized() == FALSE ){
-      st_err_log(72, __FILE__, __LINE__);
+      ock_log_err(OCK_E_API_NOT_INIT);
       return CKR_CRYPTOKI_NOT_INITIALIZED;
    }
 
@@ -943,7 +943,7 @@ C_DecryptInit ( CK_SESSION_HANDLE hSession,
 
    LOG("C_DecryptInit");
    if (API_Initialized() == FALSE ){
-      st_err_log(72, __FILE__, __LINE__);
+      ock_log_err(OCK_E_API_NOT_INIT);
       return CKR_CRYPTOKI_NOT_INITIALIZED;
    }
 
@@ -1009,7 +1009,7 @@ C_DecryptUpdate ( CK_SESSION_HANDLE hSession,
 
    LOG("C_DecryptUpdate");
    if (API_Initialized() == FALSE ){
-      st_err_log(72, __FILE__, __LINE__);
+      ock_log_err(OCK_E_API_NOT_INIT);
       return CKR_CRYPTOKI_NOT_INITIALIZED;
    }
 
@@ -1073,7 +1073,7 @@ C_DecryptVerifyUpdate ( CK_SESSION_HANDLE hSession,
 
    LOG("C_DecryptVerifyUpdate");
    if (API_Initialized() == FALSE ){
-      st_err_log(72, __FILE__, __LINE__);
+      ock_log_err(OCK_E_API_NOT_INIT);
       return CKR_CRYPTOKI_NOT_INITIALIZED;
    }
 
@@ -1137,7 +1137,7 @@ C_DeriveKey ( CK_SESSION_HANDLE    hSession,
 
    LOG("C_DeriveKey");
    if (API_Initialized() == FALSE ){
-      st_err_log(72, __FILE__, __LINE__);
+      ock_log_err(OCK_E_API_NOT_INIT);
       return CKR_CRYPTOKI_NOT_INITIALIZED;
    }
 
@@ -1218,7 +1218,7 @@ C_DestroyObject ( CK_SESSION_HANDLE hSession,
 
    LOG("C_DestrypObject");
    if (API_Initialized() == FALSE ){
-      st_err_log(72, __FILE__, __LINE__);
+      ock_log_err(OCK_E_API_NOT_INIT);
       return CKR_CRYPTOKI_NOT_INITIALIZED;
    }
 
@@ -1275,7 +1275,7 @@ C_Digest ( CK_SESSION_HANDLE hSession,
 
    LOG("C_Digest");
    if (API_Initialized() == FALSE ){
-      st_err_log(72, __FILE__, __LINE__);
+      ock_log_err(OCK_E_API_NOT_INIT);
       return CKR_CRYPTOKI_NOT_INITIALIZED;
    }
 
@@ -1337,7 +1337,7 @@ C_DigestEncryptUpdate ( CK_SESSION_HANDLE hSession,
 
    LOG("C_DigestEncryptUpdate");
    if (API_Initialized() == FALSE ){
-      st_err_log(72, __FILE__, __LINE__);
+      ock_log_err(OCK_E_API_NOT_INIT);
       return CKR_CRYPTOKI_NOT_INITIALIZED;
    }
 
@@ -1401,7 +1401,7 @@ C_DigestFinal ( CK_SESSION_HANDLE hSession,
 
    LOG("C_DigestFinal");
    if (API_Initialized() == FALSE ){
-      st_err_log(72, __FILE__, __LINE__);
+      ock_log_err(OCK_E_API_NOT_INIT);
       return CKR_CRYPTOKI_NOT_INITIALIZED;
    }
 
@@ -1462,7 +1462,7 @@ C_DigestInit ( CK_SESSION_HANDLE hSession,
 
    LOG("C_DigestInit");
    if (API_Initialized() == FALSE ){
-      st_err_log(72, __FILE__, __LINE__);
+      ock_log_err(OCK_E_API_NOT_INIT);
       return CKR_CRYPTOKI_NOT_INITIALIZED;
    }
 
@@ -1522,7 +1522,7 @@ C_DigestKey ( CK_SESSION_HANDLE hSession,
 
    LOG("C_DigestKey");
    if (API_Initialized() == FALSE ){
-      st_err_log(72, __FILE__, __LINE__);
+      ock_log_err(OCK_E_API_NOT_INIT);
       return CKR_CRYPTOKI_NOT_INITIALIZED;
    }
 
@@ -1578,7 +1578,7 @@ C_DigestUpdate ( CK_SESSION_HANDLE hSession,
 
    LOG("C_DigestUpdate");
    if (API_Initialized() == FALSE ){
-      st_err_log(72, __FILE__, __LINE__);
+      ock_log_err(OCK_E_API_NOT_INIT);
       return CKR_CRYPTOKI_NOT_INITIALIZED;
    }
 
@@ -1641,7 +1641,7 @@ C_Encrypt ( CK_SESSION_HANDLE hSession,
 
    LOG("C_Encrypt");
    if (API_Initialized() == FALSE ){
-      st_err_log(72, __FILE__, __LINE__);
+      ock_log_err(OCK_E_API_NOT_INIT);
       return CKR_CRYPTOKI_NOT_INITIALIZED;
    }
 
@@ -1699,7 +1699,7 @@ C_EncryptFinal ( CK_SESSION_HANDLE hSession,
 
    LOG("C_EncryptFinal");
    if (API_Initialized() == FALSE ){
-      st_err_log(72, __FILE__, __LINE__);
+      ock_log_err(OCK_E_API_NOT_INIT);
       return CKR_CRYPTOKI_NOT_INITIALIZED;
    }
 
@@ -1760,7 +1760,7 @@ C_EncryptInit ( CK_SESSION_HANDLE hSession,
 
    LOG("C_EncryptInit");
    if (API_Initialized() == FALSE ){
-      st_err_log(72, __FILE__, __LINE__);
+      ock_log_err(OCK_E_API_NOT_INIT);
       return CKR_CRYPTOKI_NOT_INITIALIZED;
    }
 
@@ -1822,7 +1822,7 @@ C_EncryptUpdate ( CK_SESSION_HANDLE hSession,
 
    LOG("C_EncryptUpdate");
    if (API_Initialized() == FALSE ){
-      st_err_log(72, __FILE__, __LINE__);
+      ock_log_err(OCK_E_API_NOT_INIT);
       return CKR_CRYPTOKI_NOT_INITIALIZED;
    }
 
@@ -1883,7 +1883,7 @@ C_Finalize ( CK_VOID_PTR pReserved )
    LOG("C_Finalize");
 
    if (API_Initialized() == FALSE ){
-      st_err_log(72, __FILE__, __LINE__);
+      ock_log_err(OCK_E_API_NOT_INIT);
       return CKR_CRYPTOKI_NOT_INITIALIZED;
    }
 
@@ -1955,7 +1955,7 @@ C_FindObjects ( CK_SESSION_HANDLE    hSession,
 
    LOG("C_FindObjects");
    if (API_Initialized() == FALSE ){
-      st_err_log(72, __FILE__, __LINE__);
+      ock_log_err(OCK_E_API_NOT_INIT);
       return CKR_CRYPTOKI_NOT_INITIALIZED;
    }
    
@@ -2016,7 +2016,7 @@ C_FindObjectsFinal ( CK_SESSION_HANDLE hSession )
 
    LOG("C_FindObjectsFinal");
    if (API_Initialized() == FALSE ){
-      st_err_log(72, __FILE__, __LINE__);
+      ock_log_err(OCK_E_API_NOT_INIT);
       return CKR_CRYPTOKI_NOT_INITIALIZED;
    }
 
@@ -2076,7 +2076,7 @@ C_FindObjectsInit ( CK_SESSION_HANDLE hSession,
 
    LOG("C_FindObjectsInit");
    if (API_Initialized() == FALSE ){
-      st_err_log(72, __FILE__, __LINE__);
+      ock_log_err(OCK_E_API_NOT_INIT);
       return CKR_CRYPTOKI_NOT_INITIALIZED;
    }
 
@@ -2135,7 +2135,7 @@ C_GenerateKey ( CK_SESSION_HANDLE    hSession,
 
    LOG("C_GenerateKey");
    if (API_Initialized() == FALSE ){
-      st_err_log(72, __FILE__, __LINE__);
+      ock_log_err(OCK_E_API_NOT_INIT);
       return CKR_CRYPTOKI_NOT_INITIALIZED;
    }
 
@@ -2203,7 +2203,7 @@ C_GenerateKeyPair ( CK_SESSION_HANDLE    hSession,
 
    LOG("C_GenerateKeyPair");
    if (API_Initialized() == FALSE ){
-      st_err_log(72, __FILE__, __LINE__);
+      ock_log_err(OCK_E_API_NOT_INIT);
       return CKR_CRYPTOKI_NOT_INITIALIZED;
    }
 
@@ -2272,7 +2272,7 @@ C_GenerateRandom ( CK_SESSION_HANDLE hSession,
 
    LOG("C_GenerateRandom");
    if (API_Initialized() == FALSE ){
-      st_err_log(72, __FILE__, __LINE__);
+      ock_log_err(OCK_E_API_NOT_INIT);
       return CKR_CRYPTOKI_NOT_INITIALIZED;
    }
 
@@ -2337,7 +2337,7 @@ C_GetAttributeValue ( CK_SESSION_HANDLE hSession,
 
    LOG("C_GetAttributeValue");
    if (API_Initialized() == FALSE ){
-      st_err_log(72, __FILE__, __LINE__);
+      ock_log_err(OCK_E_API_NOT_INIT);
       return CKR_CRYPTOKI_NOT_INITIALIZED;
    }
 
@@ -2485,7 +2485,7 @@ C_GetFunctionStatus ( CK_SESSION_HANDLE hSession )
 {
    LOG("C_GetFunctionStatus");
    if (API_Initialized() == FALSE ){
-      st_err_log(72, __FILE__, __LINE__);
+      ock_log_err(OCK_E_API_NOT_INIT);
       return CKR_CRYPTOKI_NOT_INITIALIZED;
    }
    ock_log_err(OCK_E_FUNC_NOT_PARALLEL);
@@ -2511,7 +2511,7 @@ C_GetInfo ( CK_INFO_PTR pInfo )
 
    LOG("C_GetInfo"); 
    if (! API_Initialized() ) {
-      st_err_log(72, __FILE__, __LINE__);
+      ock_log_err(OCK_E_API_NOT_INIT);
       return CKR_CRYPTOKI_NOT_INITIALIZED;
    }
 
@@ -2543,7 +2543,7 @@ C_GetInfo ( CK_INFO_PTR pInfo )
 
    LOG("C_GetInfo"); 
    if (! API_Initialized() ) {
-      st_err_log(72, __FILE__, __LINE__);
+      ock_log_err(OCK_E_API_NOT_INIT);
       return CKR_CRYPTOKI_NOT_INITIALIZED;
    }
 
@@ -2581,7 +2581,7 @@ C_GetMechanismInfo ( CK_SLOT_ID            slotID,
 
    LOGIT(LOG_DEBUG,"C_GetMechansimInfo %d  %x  %x",slotID,type,pInfo);
    if (API_Initialized() == FALSE ){
-      st_err_log(72, __FILE__, __LINE__);
+      ock_log_err(OCK_E_API_NOT_INIT);
       return CKR_CRYPTOKI_NOT_INITIALIZED;
    }
 
@@ -2633,7 +2633,7 @@ C_GetMechanismList ( CK_SLOT_ID            slotID,
 
    LOGIT(LOG_DEBUG,"C_GetMechanismList  (%d  %x  %d)",slotID,pMechanismList,*pulCount);
    if (API_Initialized() == FALSE ){
-      st_err_log(72, __FILE__, __LINE__);
+      ock_log_err(OCK_E_API_NOT_INIT);
       return CKR_CRYPTOKI_NOT_INITIALIZED;
    }
 
@@ -2706,7 +2706,7 @@ C_GetObjectSize ( CK_SESSION_HANDLE hSession,
 
    LOG("C_GetObjectSize");
    if (API_Initialized() == FALSE ){
-      st_err_log(72, __FILE__, __LINE__);
+      ock_log_err(OCK_E_API_NOT_INIT);
       return CKR_CRYPTOKI_NOT_INITIALIZED;
    }
 
@@ -2764,7 +2764,7 @@ C_GetOperationState ( CK_SESSION_HANDLE hSession,
 
    LOG("C_GetOperateionState");
    if (API_Initialized() == FALSE ){
-      st_err_log(72, __FILE__, __LINE__);
+      ock_log_err(OCK_E_API_NOT_INIT);
       return CKR_CRYPTOKI_NOT_INITIALIZED;
    }
 
@@ -2830,7 +2830,7 @@ C_GetSessionInfo ( CK_SESSION_HANDLE   hSession,
 
    LOGIT(LOG_DEBUG,"C_GetSessionInfo  %x  %x",hSession,pInfo);
    if (API_Initialized() == FALSE ){
-      st_err_log(72, __FILE__, __LINE__);
+      ock_log_err(OCK_E_API_NOT_INIT);
       return CKR_CRYPTOKI_NOT_INITIALIZED;
    }
 
@@ -2901,7 +2901,7 @@ C_GetSlotInfo ( CK_SLOT_ID       slotID,
    //LOGIT(LOG_DEBUG,"  Slot %d ",slotID);
 
    if (API_Initialized() == FALSE ) {
-      st_err_log(72, __FILE__, __LINE__);
+      ock_log_err(OCK_E_API_NOT_INIT);
       return CKR_CRYPTOKI_NOT_INITIALIZED;
    }
 
@@ -2970,7 +2970,7 @@ C_GetSlotInfo ( CK_SLOT_ID       slotID,
    //LOGIT(LOG_DEBUG,"  Slot %d ",slotID);
 
    if (API_Initialized() == FALSE ) {
-      st_err_log(72, __FILE__, __LINE__);
+      ock_log_err(OCK_E_API_NOT_INIT);
       return CKR_CRYPTOKI_NOT_INITIALIZED;
    }
 
@@ -3038,7 +3038,7 @@ C_GetSlotList ( CK_BBOOL       tokenPresent,
    LOG("C_GetSlotList");
    LOGIT(LOG_DEBUG," Pres %d Count %d",tokenPresent,*pulCount);
    if (API_Initialized() == FALSE ){
-      st_err_log(72, __FILE__, __LINE__);
+      ock_log_err(OCK_E_API_NOT_INIT);
       return CKR_CRYPTOKI_NOT_INITIALIZED;
    }
 
@@ -3180,7 +3180,7 @@ C_GetTokenInfo ( CK_SLOT_ID        slotID,
 
    LOG("C_GetTokenInfo");
    if (API_Initialized() == FALSE ){
-      st_err_log(72, __FILE__, __LINE__);
+      ock_log_err(OCK_E_API_NOT_INIT);
       return CKR_CRYPTOKI_NOT_INITIALIZED;
    }
 
@@ -3461,7 +3461,7 @@ C_InitPIN ( CK_SESSION_HANDLE hSession,
 
    LOG("C_InitPin");
    if (API_Initialized() == FALSE ){
-      st_err_log(72, __FILE__, __LINE__);
+      ock_log_err(OCK_E_API_NOT_INIT);
       return CKR_CRYPTOKI_NOT_INITIALIZED;
    }
 
@@ -3529,7 +3529,7 @@ C_InitToken ( CK_SLOT_ID  slotID,
 
    LOG("C_InitToken");
    if (API_Initialized() == FALSE ){
-      st_err_log(72, __FILE__, __LINE__);
+      ock_log_err(OCK_E_API_NOT_INIT);
       return CKR_CRYPTOKI_NOT_INITIALIZED;
    }
 
@@ -3609,7 +3609,7 @@ C_Login ( CK_SESSION_HANDLE hSession,
 
    LOG("C_Login");
    if (API_Initialized() == FALSE ){
-      st_err_log(72, __FILE__, __LINE__);
+      ock_log_err(OCK_E_API_NOT_INIT);
       return CKR_CRYPTOKI_NOT_INITIALIZED;
    }
 
@@ -3674,7 +3674,7 @@ C_Logout ( CK_SESSION_HANDLE hSession )
    ST_SESSION_T rSession;
 
    if (API_Initialized() == FALSE ){
-      st_err_log(72, __FILE__, __LINE__);
+      ock_log_err(OCK_E_API_NOT_INIT);
       return CKR_CRYPTOKI_NOT_INITIALIZED;
    }
 
@@ -3741,7 +3741,7 @@ C_OpenSession ( CK_SLOT_ID            slotID,
    LOGIT(LOG_DEBUG,"C_OpenSession  %d  %x %x %x  %x",slotID,flags,pApplication,
          Notify,phSession);
    if (API_Initialized() == FALSE ){
-      st_err_log(72, __FILE__, __LINE__);
+      ock_log_err(OCK_E_API_NOT_INIT);
       return CKR_CRYPTOKI_NOT_INITIALIZED;
    }
 
@@ -3831,7 +3831,7 @@ C_SeedRandom ( CK_SESSION_HANDLE hSession,
 
    LOG("C_SeedRandom");
    if (API_Initialized() == FALSE ){
-      st_err_log(72, __FILE__, __LINE__);
+      ock_log_err(OCK_E_API_NOT_INIT);
       return CKR_CRYPTOKI_NOT_INITIALIZED;
    }
 
@@ -3900,7 +3900,7 @@ C_SetAttributeValue ( CK_SESSION_HANDLE hSession,
 
    LOG("C_SetAttributeValue");
    if (API_Initialized() == FALSE ){
-      st_err_log(72, __FILE__, __LINE__);
+      ock_log_err(OCK_E_API_NOT_INIT);
       return CKR_CRYPTOKI_NOT_INITIALIZED;
    }
 
@@ -3964,7 +3964,7 @@ C_SetOperationState ( CK_SESSION_HANDLE hSession,
 
    LOG("C_SetOperationState");
    if (API_Initialized() == FALSE ){
-      st_err_log(72, __FILE__, __LINE__);
+      ock_log_err(OCK_E_API_NOT_INIT);
       return CKR_CRYPTOKI_NOT_INITIALIZED;
    }
 
@@ -4034,7 +4034,7 @@ C_SetPIN ( CK_SESSION_HANDLE hSession,
 
    LOG("C_SetPIN");
    if (API_Initialized() == FALSE ){
-      st_err_log(72, __FILE__, __LINE__);
+      ock_log_err(OCK_E_API_NOT_INIT);
       return CKR_CRYPTOKI_NOT_INITIALIZED;
    }
 
@@ -4099,7 +4099,7 @@ C_Sign ( CK_SESSION_HANDLE hSession,
 
    LOG("C_Sign");
    if (API_Initialized() == FALSE ){
-      st_err_log(72, __FILE__, __LINE__);
+      ock_log_err(OCK_E_API_NOT_INIT);
       return CKR_CRYPTOKI_NOT_INITIALIZED;
    }
 
@@ -4159,7 +4159,7 @@ C_SignEncryptUpdate ( CK_SESSION_HANDLE hSession,
 
    LOG("C_SignEncryptUpdate");
    if (API_Initialized() == FALSE ){
-      st_err_log(72, __FILE__, __LINE__);
+      ock_log_err(OCK_E_API_NOT_INIT);
       return CKR_CRYPTOKI_NOT_INITIALIZED;
    }
 
@@ -4225,7 +4225,7 @@ C_SignFinal ( CK_SESSION_HANDLE hSession,
 
    LOG("C_SignEncryptUpdate");
    if (API_Initialized() == FALSE ){
-      st_err_log(72, __FILE__, __LINE__);
+      ock_log_err(OCK_E_API_NOT_INIT);
       return CKR_CRYPTOKI_NOT_INITIALIZED;
    }
 
@@ -4292,7 +4292,7 @@ C_SignInit ( CK_SESSION_HANDLE hSession,
 
    LOG("C_SignInit");
    if (API_Initialized() == FALSE ){
-      st_err_log(72, __FILE__, __LINE__);
+      ock_log_err(OCK_E_API_NOT_INIT);
       return CKR_CRYPTOKI_NOT_INITIALIZED;
    }
 
@@ -4352,7 +4352,7 @@ C_SignRecover ( CK_SESSION_HANDLE hSession,
 
    LOG("C_SignRecover");
    if (API_Initialized() == FALSE ){
-      st_err_log(72, __FILE__, __LINE__);
+      ock_log_err(OCK_E_API_NOT_INIT);
       return CKR_CRYPTOKI_NOT_INITIALIZED;
    }
 
@@ -4415,7 +4415,7 @@ C_SignRecoverInit ( CK_SESSION_HANDLE hSession,
 
    LOG("C_SignRecoverInit");
    if (API_Initialized() == FALSE ){
-      st_err_log(72, __FILE__, __LINE__);
+      ock_log_err(OCK_E_API_NOT_INIT);
       return CKR_CRYPTOKI_NOT_INITIALIZED;
    }
 
@@ -4481,7 +4481,7 @@ C_SignUpdate ( CK_SESSION_HANDLE hSession,
 
    LOG("C_SignUpdate");
    if (API_Initialized() == FALSE ){
-      st_err_log(72, __FILE__, __LINE__);
+      ock_log_err(OCK_E_API_NOT_INIT);
       return CKR_CRYPTOKI_NOT_INITIALIZED;
    }
 
@@ -4549,7 +4549,7 @@ C_UnwrapKey ( CK_SESSION_HANDLE    hSession,
 
    LOG("C_UnwrapKey");
    if (API_Initialized() == FALSE ){
-      st_err_log(72, __FILE__, __LINE__);
+      ock_log_err(OCK_E_API_NOT_INIT);
       return CKR_CRYPTOKI_NOT_INITIALIZED;
    }
 
@@ -4623,7 +4623,7 @@ C_Verify ( CK_SESSION_HANDLE hSession,
 
    LOG("C_Verify");
    if (API_Initialized() == FALSE ){
-      st_err_log(72, __FILE__, __LINE__);
+      ock_log_err(OCK_E_API_NOT_INIT);
       return CKR_CRYPTOKI_NOT_INITIALIZED;
    }
 
@@ -4681,7 +4681,7 @@ C_VerifyFinal ( CK_SESSION_HANDLE hSession,
 
    LOG("C_VerifyFinal");
    if (API_Initialized() == FALSE ){
-      st_err_log(72, __FILE__, __LINE__);
+      ock_log_err(OCK_E_API_NOT_INIT);
       return CKR_CRYPTOKI_NOT_INITIALIZED;
    }
 
@@ -4743,7 +4743,7 @@ C_VerifyInit ( CK_SESSION_HANDLE hSession,
 
    LOG("C_VerifyInit");
    if (API_Initialized() == FALSE ){
-      st_err_log(72, __FILE__, __LINE__);
+      ock_log_err(OCK_E_API_NOT_INIT);
       return CKR_CRYPTOKI_NOT_INITIALIZED;
    }
 
@@ -4805,7 +4805,7 @@ C_VerifyRecover ( CK_SESSION_HANDLE hSession,
 
    LOG("C_VerifyRecover");
    if (API_Initialized() == FALSE ){
-      st_err_log(72, __FILE__, __LINE__);
+      ock_log_err(OCK_E_API_NOT_INIT);
       return CKR_CRYPTOKI_NOT_INITIALIZED;
    }
    if (!pSignature || !pulDataLen){
@@ -4862,7 +4862,7 @@ C_VerifyRecoverInit ( CK_SESSION_HANDLE hSession,
 
    LOG("C_VerifyRecoverInit");
    if (API_Initialized() == FALSE ){
-      st_err_log(72, __FILE__, __LINE__);
+      ock_log_err(OCK_E_API_NOT_INIT);
       return CKR_CRYPTOKI_NOT_INITIALIZED;
    }
 
@@ -4920,7 +4920,7 @@ C_VerifyUpdate ( CK_SESSION_HANDLE hSession,
 
    LOG("C_VerifyUpdate");
    if (API_Initialized() == FALSE ){
-      st_err_log(72, __FILE__, __LINE__);
+      ock_log_err(OCK_E_API_NOT_INIT);
       return CKR_CRYPTOKI_NOT_INITIALIZED;
    }
 
@@ -5000,7 +5000,7 @@ C_WaitForSlotEvent ( CK_FLAGS       flags,
 
 
    if (API_Initialized() == FALSE ){
-      st_err_log(72, __FILE__, __LINE__);
+      ock_log_err(OCK_E_API_NOT_INIT);
          return CKR_CRYPTOKI_NOT_INITIALIZED;
    }
 
@@ -5125,7 +5125,7 @@ C_WrapKey ( CK_SESSION_HANDLE hSession,
 
    LOG("C_WrapKey");
    if (API_Initialized() == FALSE ){
-      st_err_log(72, __FILE__, __LINE__);
+      ock_log_err(OCK_E_API_NOT_INIT);
       return CKR_CRYPTOKI_NOT_INITIALIZED;
    }
 
