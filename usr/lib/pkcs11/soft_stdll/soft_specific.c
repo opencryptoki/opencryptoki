@@ -835,7 +835,7 @@ os_specific_rsa_keygen(TEMPLATE *publ_tmpl,  TEMPLATE *priv_tmpl)
 	mod_bits = *(CK_ULONG *)attr->pValue;
 
 	if (mod_bits < 512 || mod_bits > 4096) {
-		st_err_log(19, __FILE__, __LINE__);
+		ock_log_err(OCK_E_KEY_SIZE);
 		return CKR_KEY_SIZE_RANGE;
 	}
 
@@ -847,7 +847,7 @@ os_specific_rsa_keygen(TEMPLATE *publ_tmpl,  TEMPLATE *priv_tmpl)
 
 	// Sanity check of public exponent length.
 	if (publ_exp->ulValueLen > sizeof(unsigned long)) {
-		st_err_log(19, __FILE__, __LINE__);
+		ock_log_err(OCK_E_KEY_SIZE);
 		return CKR_KEY_SIZE_RANGE;
 	}
 

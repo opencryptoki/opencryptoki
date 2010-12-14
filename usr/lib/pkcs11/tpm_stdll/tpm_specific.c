@@ -2398,7 +2398,7 @@ token_specific_rsa_generate_keypair( TEMPLATE  * publ_tmpl,
 	mod_bits = *(CK_ULONG *)attr->pValue;
 
 	if ((initFlags = util_get_keysize_flag(mod_bits)) == 0) {
-		st_err_log(19, __FILE__, __LINE__);
+		ock_log_err(OCK_E_KEY_SIZE);
 		return CKR_KEY_SIZE_RANGE;
 	}
 

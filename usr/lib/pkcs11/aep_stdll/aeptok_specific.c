@@ -589,7 +589,7 @@ os_specific_rsa_keygen(TEMPLATE *publ_tmpl,  TEMPLATE *priv_tmpl)
 	}
 
 	if (mod_bits < 512 || mod_bits > 2048) {
-		st_err_log(19, __FILE__, __LINE__);
+		ock_log_err(OCK_E_KEY_SIZE);
 		return CKR_KEY_SIZE_RANGE;
 	}
 
