@@ -1651,7 +1651,7 @@ object_mgr_get_attribute_values( SESSION           * sess,
 
    rc = object_get_attribute_values( obj, pTemplate, ulCount );
    if (rc != CKR_OK)
-         st_err_log(159, __FILE__, __LINE__); 
+         ock_log_err(OCK_E_OBJ_GET_ATTR_VALUE);
 done:
    if (locked)
       MY_UnlockMutex( &obj_list_mutex );
