@@ -1463,7 +1463,7 @@ CK_RV SC_Login( ST_SESSION_HANDLE   sSession,
 
 	rc = session_mgr_login_all( userType );
 	if (rc != CKR_OK) {
-		st_err_log(174, __FILE__, __LINE__);
+		ock_log_err(OCK_E_SESS_MGR);
 	}
 
  done:
