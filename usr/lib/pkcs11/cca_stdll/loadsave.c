@@ -549,7 +549,7 @@ load_private_token_objects( void )
          rc = restore_private_token_object( buf, size, NULL );
 	MY_UnlockMutex(&obj_list_mutex);
          if (rc != CKR_OK){
-            st_err_log(107, __FILE__, __LINE__);
+            ock_log_err(OCK_E_RESTORE_PRIV_TOKEN);
             goto error;
          }
 
@@ -1081,7 +1081,7 @@ reload_token_object( OBJECT *obj )
    if (priv){
       rc = restore_private_token_object( buf, size_64, obj );
       if (rc != CKR_OK)
-         st_err_log(107, __FILE__, __LINE__);
+         ock_log_err(OCK_E_RESTORE_PRIV_TOKEN);
    }
    else{
       rc = object_mgr_restore_obj( buf, obj );
