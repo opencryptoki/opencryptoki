@@ -1085,7 +1085,7 @@ CK_RV SC_OpenSession(CK_SLOT_ID             sid,
 	flags |= CKF_SERIAL_SESSION;
 	if ((flags & CKF_RW_SESSION) == 0) {
 		if (session_mgr_so_session_exists()) {
-			st_err_log(45, __FILE__, __LINE__); 
+			ock_log_err(OCK_E_SESS_READWRITE_EXISTS);
 			rc = CKR_SESSION_READ_WRITE_SO_EXISTS;
 			goto done;
 		}
