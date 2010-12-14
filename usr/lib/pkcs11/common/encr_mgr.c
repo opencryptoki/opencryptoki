@@ -395,7 +395,7 @@ encr_mgr_init( SESSION           * sess,
       case CKM_DES_ECB:
          {
             if (mech->ulParameterLen != 0){
-               st_err_log(29, __FILE__, __LINE__);
+               ock_log_err(OCK_E_MECH_PARAM_INV);
                return CKR_MECHANISM_PARAM_INVALID;
             }
             // is the key type correct?
@@ -432,7 +432,7 @@ encr_mgr_init( SESSION           * sess,
       case CKM_CDMF_ECB:
          {
             if (mech->ulParameterLen != 0){
-               st_err_log(29, __FILE__, __LINE__);
+               ock_log_err(OCK_E_MECH_PARAM_INV);
                return CKR_MECHANISM_PARAM_INVALID;
             }
             // is the key type correct?
@@ -465,7 +465,7 @@ encr_mgr_init( SESSION           * sess,
       case CKM_DES_CBC_PAD:
          {
             if (mech->ulParameterLen != DES_BLOCK_SIZE){
-               st_err_log(29, __FILE__, __LINE__);
+               ock_log_err(OCK_E_MECH_PARAM_INV);
                return CKR_MECHANISM_PARAM_INVALID;
             }
             // is the key type correct?
@@ -503,7 +503,7 @@ encr_mgr_init( SESSION           * sess,
       case CKM_CDMF_CBC_PAD:
          {
             if (mech->ulParameterLen != DES_BLOCK_SIZE){
-               st_err_log(29, __FILE__, __LINE__);
+               ock_log_err(OCK_E_MECH_PARAM_INV);
                return CKR_MECHANISM_PARAM_INVALID;
             }
             // is the key type correct?
@@ -536,7 +536,7 @@ encr_mgr_init( SESSION           * sess,
       case CKM_DES3_ECB:
          {
             if (mech->ulParameterLen != 0){
-               st_err_log(29, __FILE__, __LINE__);
+               ock_log_err(OCK_E_MECH_PARAM_INV);
                return CKR_MECHANISM_PARAM_INVALID;
             }
 
@@ -575,7 +575,7 @@ encr_mgr_init( SESSION           * sess,
       case CKM_DES3_CBC_PAD:
          {
             if (mech->ulParameterLen != DES_BLOCK_SIZE){
-               st_err_log(29, __FILE__, __LINE__);
+               ock_log_err(OCK_E_MECH_PARAM_INV);
                return CKR_MECHANISM_PARAM_INVALID;
             }
             // is the key type correct?
@@ -613,7 +613,7 @@ encr_mgr_init( SESSION           * sess,
       case CKM_RSA_PKCS:
          {
             if (mech->ulParameterLen != 0){
-               st_err_log(29, __FILE__, __LINE__);
+               ock_log_err(OCK_E_MECH_PARAM_INV);
                return CKR_MECHANISM_PARAM_INVALID;
             }
             rc = template_attribute_find( key_obj->template, CKA_KEY_TYPE, &attr );
@@ -648,7 +648,7 @@ encr_mgr_init( SESSION           * sess,
 	    // XXX Copied in from DES3, should be verified - KEY
 		
             if (mech->ulParameterLen != 0){
-               st_err_log(29, __FILE__, __LINE__);
+               ock_log_err(OCK_E_MECH_PARAM_INV);
                return CKR_MECHANISM_PARAM_INVALID;
             }
 
@@ -685,7 +685,7 @@ encr_mgr_init( SESSION           * sess,
 	    // XXX Copied in from DES3, should be verified - KEY
 		
             if (mech->ulParameterLen != AES_INIT_VECTOR_SIZE){
-               st_err_log(29, __FILE__, __LINE__);
+               ock_log_err(OCK_E_MECH_PARAM_INV);
                return CKR_MECHANISM_PARAM_INVALID;
             }
             // is the key type correct?
@@ -716,7 +716,7 @@ encr_mgr_init( SESSION           * sess,
 	 break;
 	 
       default:
-         st_err_log(29, __FILE__, __LINE__);
+         ock_log_err(OCK_E_MECH_PARAM_INV);
          return CKR_MECHANISM_INVALID;
    }
 
@@ -874,7 +874,7 @@ encr_mgr_encrypt( SESSION           *sess,
 #endif
 
       default:
-         st_err_log(29, __FILE__, __LINE__);
+         ock_log_err(OCK_E_MECH_PARAM_INV);
          return CKR_MECHANISM_INVALID;
    }
    ock_log_err(OCK_E_FUNC);

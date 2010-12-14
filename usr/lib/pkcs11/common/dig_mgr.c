@@ -328,7 +328,7 @@ digest_mgr_init( SESSION           *sess,
       case CKM_SHA_1:
          {
             if (mech->ulParameterLen != 0){
-               st_err_log(29, __FILE__, __LINE__);
+               ock_log_err(OCK_E_MECH_PARAM_INV);
                return CKR_MECHANISM_PARAM_INVALID;
             }
 
@@ -346,7 +346,7 @@ digest_mgr_init( SESSION           *sess,
       case CKM_SHA256:
          {
             if (mech->ulParameterLen != 0){
-               st_err_log(29, __FILE__, __LINE__);
+               ock_log_err(OCK_E_MECH_PARAM_INV);
                return CKR_MECHANISM_PARAM_INVALID;
             }
 
@@ -364,7 +364,7 @@ digest_mgr_init( SESSION           *sess,
       case CKM_SHA384:
          {
             if (mech->ulParameterLen != 0){
-               st_err_log(29, __FILE__, __LINE__);
+               ock_log_err(OCK_E_MECH_PARAM_INV);
                return CKR_MECHANISM_PARAM_INVALID;
             }
 
@@ -382,7 +382,7 @@ digest_mgr_init( SESSION           *sess,
       case CKM_SHA512:
          {
             if (mech->ulParameterLen != 0){
-               st_err_log(29, __FILE__, __LINE__);
+               ock_log_err(OCK_E_MECH_PARAM_INV);
                return CKR_MECHANISM_PARAM_INVALID;
             }
 
@@ -400,7 +400,7 @@ digest_mgr_init( SESSION           *sess,
       case CKM_MD2:
          {
             if (mech->ulParameterLen != 0){
-               st_err_log(29, __FILE__, __LINE__);     
+               ock_log_err(OCK_E_MECH_PARAM_INV);
                return CKR_MECHANISM_PARAM_INVALID;
             }
             ctx->context_len = sizeof(MD2_CONTEXT);
@@ -417,7 +417,7 @@ digest_mgr_init( SESSION           *sess,
       case CKM_MD5:
          {
             if (mech->ulParameterLen != 0){
-               st_err_log(29, __FILE__, __LINE__);     
+               ock_log_err(OCK_E_MECH_PARAM_INV);
                return CKR_MECHANISM_PARAM_INVALID;
             }
             ctx->context_len = sizeof(MD5_CONTEXT);

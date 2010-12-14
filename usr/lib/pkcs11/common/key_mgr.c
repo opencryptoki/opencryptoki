@@ -399,7 +399,7 @@ key_mgr_generate_key( SESSION           * sess,
             return CKR_TEMPLATE_INCONSISTENT;
          }
          if (mech->ulParameterLen != sizeof(CK_VERSION)){
-            st_err_log(29, __FILE__, __LINE__);
+            ock_log_err(OCK_E_MECH_PARAM_INV);
             return CKR_MECHANISM_PARAM_INVALID;
          }
          subclass = CKK_GENERIC_SECRET;

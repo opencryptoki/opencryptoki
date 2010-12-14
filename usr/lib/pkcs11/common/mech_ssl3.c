@@ -1520,7 +1520,7 @@ ssl3_key_and_mac_derive( SESSION           * sess,
    //
    if (params->bIsExport      != FALSE &&
        params->ulIVSizeInBits >  128){
-      st_err_log(29, __FILE__, __LINE__);
+      ock_log_err(OCK_E_MECH_PARAM_INV);
       return CKR_MECHANISM_PARAM_INVALID;
    }
    // the template must specify the key type for the client and server keys

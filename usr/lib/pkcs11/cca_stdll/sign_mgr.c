@@ -86,7 +86,7 @@ sign_mgr_init( SESSION                * sess,
       case CKM_RSA_PKCS:
          {
             if (mech->ulParameterLen != 0){
-               st_err_log(29, __FILE__, __LINE__); 
+               ock_log_err(OCK_E_MECH_PARAM_INV);
                return CKR_MECHANISM_PARAM_INVALID;
             }
             rc = template_attribute_find( key_obj->template, CKA_KEY_TYPE, &attr );
@@ -133,7 +133,7 @@ sign_mgr_init( SESSION                * sess,
       case CKM_SHA1_RSA_PKCS:
          {
             if (mech->ulParameterLen != 0){
-               st_err_log(29, __FILE__, __LINE__); 
+               ock_log_err(OCK_E_MECH_PARAM_INV);
                return CKR_MECHANISM_PARAM_INVALID;
             }
             rc = template_attribute_find( key_obj->template, CKA_KEY_TYPE, &attr );
@@ -178,7 +178,7 @@ sign_mgr_init( SESSION                * sess,
       case CKM_DSA:
          {
             if (mech->ulParameterLen != 0){
-               st_err_log(29, __FILE__, __LINE__); 
+               ock_log_err(OCK_E_MECH_PARAM_INV);
                return CKR_MECHANISM_PARAM_INVALID;
             }
             rc = template_attribute_find( key_obj->template, CKA_KEY_TYPE, &attr );
@@ -227,7 +227,7 @@ sign_mgr_init( SESSION                * sess,
       case CKM_SHA256_HMAC:
          {
             if (mech->ulParameterLen != 0){
-               st_err_log(29, __FILE__, __LINE__); 
+               ock_log_err(OCK_E_MECH_PARAM_INV);
                return CKR_MECHANISM_PARAM_INVALID;
             }
             rc = template_attribute_find( key_obj->template, CKA_KEY_TYPE, &attr );
@@ -260,27 +260,27 @@ sign_mgr_init( SESSION                * sess,
             CK_MAC_GENERAL_PARAMS *param = (CK_MAC_GENERAL_PARAMS *)mech->pParameter;
 
             if (mech->ulParameterLen != sizeof(CK_MAC_GENERAL_PARAMS)){
-               st_err_log(29, __FILE__, __LINE__); 
+               ock_log_err(OCK_E_MECH_PARAM_INV);
                return CKR_MECHANISM_PARAM_INVALID;
             }
 
 #if  !(NOMD2)
             if ((mech->mechanism == CKM_MD2_HMAC_GENERAL) && (*param > 16)){
-               st_err_log(29, __FILE__, __LINE__); 
+               ock_log_err(OCK_E_MECH_PARAM_INV);
                return CKR_MECHANISM_PARAM_INVALID;
             }
 #endif
 
             if ((mech->mechanism == CKM_MD5_HMAC_GENERAL) && (*param > 16)){
-               st_err_log(29, __FILE__, __LINE__); 
+               ock_log_err(OCK_E_MECH_PARAM_INV);
                return CKR_MECHANISM_PARAM_INVALID;
             }
             if ((mech->mechanism == CKM_SHA_1_HMAC_GENERAL) && (*param > 20)){
-               st_err_log(29, __FILE__, __LINE__); 
+               ock_log_err(OCK_E_MECH_PARAM_INV);
                return CKR_MECHANISM_PARAM_INVALID;
             }
             if ((mech->mechanism == CKM_SHA256_HMAC_GENERAL) && (*param > 32)){
-               st_err_log(29, __FILE__, __LINE__); 
+               ock_log_err(OCK_E_MECH_PARAM_INV);
                return CKR_MECHANISM_PARAM_INVALID;
             }
             rc = template_attribute_find( key_obj->template, CKA_KEY_TYPE, &attr );
@@ -309,21 +309,21 @@ sign_mgr_init( SESSION                * sess,
             CK_MAC_GENERAL_PARAMS *param = (CK_MAC_GENERAL_PARAMS *)mech->pParameter;
 
             if (mech->ulParameterLen != sizeof(CK_MAC_GENERAL_PARAMS)){
-               st_err_log(29, __FILE__, __LINE__); 
+               ock_log_err(OCK_E_MECH_PARAM_INV);
                return CKR_MECHANISM_PARAM_INVALID;
             }
             // FIXME - Netscape sets the parameter == 16.  PKCS #11 limit is 8
             //
             if (mech->mechanism == CKM_SSL3_MD5_MAC) {
                if (*param < 4 || *param > 16){
-                  st_err_log(29, __FILE__, __LINE__); 
+                  ock_log_err(OCK_E_MECH_PARAM_INV);
                   return CKR_MECHANISM_PARAM_INVALID;
                }
             }
 
             if (mech->mechanism == CKM_SSL3_SHA1_MAC) {
                if (*param < 4 || *param > 20){
-                  st_err_log(29, __FILE__, __LINE__); 
+                  ock_log_err(OCK_E_MECH_PARAM_INV);
                   return CKR_MECHANISM_PARAM_INVALID;
                }
             }

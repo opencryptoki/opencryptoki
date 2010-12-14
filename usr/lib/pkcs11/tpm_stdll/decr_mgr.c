@@ -133,7 +133,7 @@ decr_mgr_init( SESSION           *sess,
       case CKM_DES_ECB:
          {
             if (mech->ulParameterLen != 0){
-               st_err_log(29, __FILE__, __LINE__);
+               ock_log_err(OCK_E_MECH_PARAM_INV);
                return CKR_MECHANISM_PARAM_INVALID;
             }
             // is the key type correct?
@@ -170,7 +170,7 @@ decr_mgr_init( SESSION           *sess,
       case CKM_CDMF_ECB:
          {
             if (mech->ulParameterLen != 0){
-               st_err_log(29, __FILE__, __LINE__);
+               ock_log_err(OCK_E_MECH_PARAM_INV);
                return CKR_MECHANISM_PARAM_INVALID;
             }
             // is the key type correct?
@@ -208,7 +208,7 @@ decr_mgr_init( SESSION           *sess,
       case CKM_DES_CBC_PAD:
          {
             if (mech->ulParameterLen != DES_BLOCK_SIZE){
-               st_err_log(29, __FILE__, __LINE__);
+               ock_log_err(OCK_E_MECH_PARAM_INV);
                return CKR_MECHANISM_PARAM_INVALID;
             }
             // is the key type correct?
@@ -246,7 +246,7 @@ decr_mgr_init( SESSION           *sess,
       case CKM_CDMF_CBC_PAD:
          {
             if (mech->ulParameterLen != DES_BLOCK_SIZE){
-               st_err_log(29, __FILE__, __LINE__);
+               ock_log_err(OCK_E_MECH_PARAM_INV);
                return CKR_MECHANISM_PARAM_INVALID;
             }
             // is the key type correct?
