@@ -861,7 +861,7 @@ CK_RV SC_InitToken( CK_SLOT_ID   sid,
    }
 
    if (nv_token_data->token_info.flags & CKF_SO_PIN_LOCKED) {
-      st_err_log(37, __FILE__, __LINE__);
+      ock_log_err(OCK_E_PIN_LOCK);
       rc = CKR_PIN_LOCKED;
       goto done;
    }
@@ -991,7 +991,7 @@ CK_RV SC_InitPIN( ST_SESSION_HANDLE  sSession,
    }
 
    if (pin_locked(&sess->session_info, nv_token_data->token_info.flags) == TRUE) {
-      st_err_log(37, __FILE__, __LINE__);
+      ock_log_err(OCK_E_PIN_LOCK);
       rc = CKR_PIN_LOCKED;
       goto done;
    }
@@ -1101,7 +1101,7 @@ CK_RV SC_SetPIN( ST_SESSION_HANDLE  sSession,
    }
 
    if (pin_locked(&sess->session_info, nv_token_data->token_info.flags) == TRUE) {
-      st_err_log(37, __FILE__, __LINE__);
+      ock_log_err(OCK_E_PIN_LOCK);
       rc = CKR_PIN_LOCKED;
       goto done;
    }
@@ -1601,7 +1601,7 @@ CK_RV SC_Login( ST_SESSION_HANDLE   sSession,
 
 	if (userType == CKU_USER) {
 		if (*flags & CKF_USER_PIN_LOCKED) {
-			st_err_log(37, __FILE__, __LINE__);
+			ock_log_err(OCK_E_PIN_LOCK);
 			rc = CKR_PIN_LOCKED;
 			goto done;
 		}
@@ -1620,7 +1620,7 @@ CK_RV SC_Login( ST_SESSION_HANDLE   sSession,
 		}
 	} else {
 		if (*flags & CKF_SO_PIN_LOCKED) {
-			st_err_log(37, __FILE__, __LINE__);
+			ock_log_err(OCK_E_PIN_LOCK);
 			rc = CKR_PIN_LOCKED;
 			goto done;
 		}
