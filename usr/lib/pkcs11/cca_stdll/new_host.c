@@ -1872,7 +1872,7 @@ CK_RV SC_FindObjectsInit( ST_SESSION_HANDLE   sSession,
 
 	rc = object_mgr_find_init( sess, pTemplate, ulCount );
 	if (rc != CKR_OK){
-		st_err_log(185, __FILE__, __LINE__);
+		ock_log_err(OCK_E_OBJ_MGR_FIND_INIT);
 	}
 
  done:
