@@ -1366,7 +1366,7 @@ rsa_hash_pkcs_sign( SESSION              * sess,
 
     rc = ber_encode_SEQUENCE( FALSE, &ber_data, &ber_data_len, tmp, (oid_len + octet_str_len) );
     if (rc != CKR_OK){
-       st_err_log(78, __FILE__, __LINE__);
+       ock_log_err(OCK_E_ENCODE_SEQ);
        goto error;
     }
     // sign the BER-encoded data block
@@ -1516,7 +1516,7 @@ rsa_hash_pkcs_verify( SESSION              * sess,
 
    rc = ber_encode_SEQUENCE( FALSE, &ber_data, &ber_data_len, tmp, (oid_len + octet_str_len) );
    if (rc != CKR_OK){
-      st_err_log(78, __FILE__, __LINE__);
+      ock_log_err(OCK_E_ENCODE_SEQ);
       goto done;
    }
    // Verify the Signed BER-encoded Data block
@@ -1651,7 +1651,7 @@ rsa_hash_pkcs_sign_final( SESSION              * sess,
 
    rc = ber_encode_SEQUENCE( FALSE, &ber_data, &ber_data_len, tmp, (oid_len + octet_str_len) );
    if (rc != CKR_OK){
-      st_err_log(78, __FILE__, __LINE__);
+      ock_log_err(OCK_E_ENCODE_SEQ);
       goto done;
    }
    // sign the BER-encoded data block
@@ -1745,7 +1745,7 @@ rsa_hash_pkcs_verify_final( SESSION              * sess,
 
    rc = ber_encode_SEQUENCE( FALSE, &ber_data, &ber_data_len, tmp, (oid_len + octet_str_len) );
    if (rc != CKR_OK){
-      st_err_log(78, __FILE__, __LINE__);
+      ock_log_err(OCK_E_ENCODE_SEQ);
       goto done;
    }
    // verify the signed BER-encoded data block

@@ -863,7 +863,7 @@ ber_encode_PrivateKeyInfo( CK_BBOOL    length_only,
       if (rc == CKR_OK)
          *data_len = total;
       if (rc != CKR_OK)
-         st_err_log(78, __FILE__, __LINE__);
+         ock_log_err(OCK_E_ENCODE_SEQ);
       return rc;
    }
 
@@ -899,7 +899,7 @@ ber_encode_PrivateKeyInfo( CK_BBOOL    length_only,
 
    rc = ber_encode_SEQUENCE( FALSE, data, data_len, buf, len );
    if (rc != CKR_OK)
-      st_err_log(78, __FILE__, __LINE__);
+      ock_log_err(OCK_E_ENCODE_SEQ);
 
 error:
    free( buf );
@@ -1010,7 +1010,7 @@ ber_encode_RSAPrivateKey( CK_BBOOL    length_only,
    if (length_only == TRUE) {
       rc = ber_encode_SEQUENCE( TRUE, NULL, &len, NULL, offset );
       if (rc != CKR_OK){
-         st_err_log(78, __FILE__, __LINE__);
+         ock_log_err(OCK_E_ENCODE_SEQ);
          return rc;
       }
       rc = ber_encode_PrivateKeyInfo( TRUE,
@@ -1115,7 +1115,7 @@ ber_encode_RSAPrivateKey( CK_BBOOL    length_only,
 
    rc = ber_encode_SEQUENCE( FALSE, &buf2, &len, buf, offset );
    if (rc != CKR_OK){
-      st_err_log(78, __FILE__, __LINE__);
+      ock_log_err(OCK_E_ENCODE_SEQ);
       goto error;
    }
    rc = ber_encode_PrivateKeyInfo( FALSE,
@@ -1480,7 +1480,7 @@ ber_encode_DSAPrivateKey( CK_BBOOL    length_only,
    if (length_only == TRUE) {
       rc = ber_encode_SEQUENCE( TRUE, NULL, &param_len, NULL, offset );
       if (rc != CKR_OK){
-         st_err_log(78, __FILE__, __LINE__);
+         ock_log_err(OCK_E_ENCODE_SEQ);
          return rc;
       }
       rc = ber_encode_INTEGER( TRUE, NULL, &len, NULL, priv_key->ulValueLen );
@@ -1540,7 +1540,7 @@ ber_encode_DSAPrivateKey( CK_BBOOL    length_only,
 
    rc = ber_encode_SEQUENCE( FALSE, &param, &param_len, buf, offset );
    if (rc != CKR_OK) {
-      st_err_log(78, __FILE__, __LINE__);
+      ock_log_err(OCK_E_ENCODE_SEQ);
       free(buf);
       return rc;
    }
@@ -1569,7 +1569,7 @@ ber_encode_DSAPrivateKey( CK_BBOOL    length_only,
 
    rc = ber_encode_SEQUENCE( FALSE, &alg, &alg_len, buf, len );
    if (rc != CKR_OK){
-      st_err_log(78, __FILE__, __LINE__);
+      ock_log_err(OCK_E_ENCODE_SEQ);
       goto error;
    }
    free( buf );
