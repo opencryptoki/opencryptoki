@@ -359,7 +359,7 @@ object_mgr_add( SESSION          * sess,
       }
 
       if (!sess_obj) {
-         st_err_log(42, __FILE__, __LINE__); 
+         ock_log_err(OCK_E_SESS_READONLY);
          rc = CKR_SESSION_READ_ONLY;
          goto done;
       }
@@ -367,7 +367,7 @@ object_mgr_add( SESSION          * sess,
 
    if (sess->session_info.state == CKS_RO_USER_FUNCTIONS) {
       if (!sess_obj) {
-         st_err_log(42, __FILE__, __LINE__);
+         ock_log_err(OCK_E_SESS_READONLY);
          rc = CKR_SESSION_READ_ONLY;
          goto done;
       }
@@ -643,7 +643,7 @@ object_mgr_copy( SESSION          * sess,
       }
 
       if (!sess_obj) {
-         st_err_log(42, __FILE__, __LINE__); 
+         ock_log_err(OCK_E_SESS_READONLY);
          rc = CKR_SESSION_READ_ONLY;
          goto done;
       }
@@ -651,7 +651,7 @@ object_mgr_copy( SESSION          * sess,
 
    if (sess->session_info.state == CKS_RO_USER_FUNCTIONS) {
       if (!sess_obj) {
-         st_err_log(42, __FILE__, __LINE__); 
+         ock_log_err(OCK_E_SESS_READONLY);
          rc = CKR_SESSION_READ_ONLY;
          goto done;
       }
@@ -844,7 +844,7 @@ object_mgr_create_skel( SESSION       * sess,
 
       if (!sess_obj) {
          object_free( o );
-         st_err_log(42, __FILE__, __LINE__); 
+         ock_log_err(OCK_E_SESS_READONLY);
          return CKR_SESSION_READ_ONLY;
       }
    }
@@ -852,7 +852,7 @@ object_mgr_create_skel( SESSION       * sess,
    if (sess->session_info.state == CKS_RO_USER_FUNCTIONS) {
       if (!sess_obj) {
          object_free( o );
-         st_err_log(42, __FILE__, __LINE__); 
+         ock_log_err(OCK_E_SESS_READONLY);
          return CKR_SESSION_READ_ONLY;
       }
    }
@@ -2082,14 +2082,14 @@ object_mgr_set_attribute_values( SESSION           * sess,
          return CKR_USER_NOT_LOGGED_IN;
       }
       if (!sess_obj){
-         st_err_log(42, __FILE__, __LINE__); 
+         ock_log_err(OCK_E_SESS_READONLY);
          return CKR_SESSION_READ_ONLY;
       }
    }
 
    if (sess->session_info.state == CKS_RO_USER_FUNCTIONS) {
       if (!sess_obj){
-         st_err_log(42, __FILE__, __LINE__); 
+         ock_log_err(OCK_E_SESS_READONLY);
          return CKR_SESSION_READ_ONLY;
       }
    }
