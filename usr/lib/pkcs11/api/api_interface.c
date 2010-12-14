@@ -3267,7 +3267,7 @@ C_Initialize ( CK_VOID_PTR pVoid )
          }
       } else {
          // Linux the atfork routines handle this
-         st_err_log(73, __FILE__, __LINE__);
+         ock_log_err(OCK_E_API_ALREADY_INIT);
          return CKR_CRYPTOKI_ALREADY_INITIALIZED;
       }
 
