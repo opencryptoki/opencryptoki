@@ -3780,7 +3780,7 @@ CK_RV SC_VerifyRecover( ST_SESSION_HANDLE  sSession,
 					pSignature, ulSignatureLen,
 					pData,      pulDataLen );
 	if (rc != CKR_OK){ 
-		st_err_log(187, __FILE__, __LINE__);
+		ock_log_err(OCK_E_VERIFY_RECOVER);
 	}
 
  done:
