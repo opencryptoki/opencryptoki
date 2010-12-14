@@ -1303,7 +1303,7 @@ secret_key_check_exportability( CK_ATTRIBUTE_TYPE type )
 {
    switch (type) {
       case CKA_VALUE:
-         st_err_log(86, __FILE__, __LINE__);
+         ock_log_err(OCK_E_KEY_NOT_EXPORTABLE);
          return FALSE;
    }
 
@@ -1671,7 +1671,7 @@ rsa_priv_check_exportability( CK_ATTRIBUTE_TYPE type )
       case CKA_EXPONENT_1:
       case CKA_EXPONENT_2:
       case CKA_COEFFICIENT:
-         st_err_log(86, __FILE__, __LINE__);
+         ock_log_err(OCK_E_KEY_NOT_EXPORTABLE);
          return FALSE;
    }
 
