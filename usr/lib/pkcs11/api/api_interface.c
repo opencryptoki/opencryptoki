@@ -515,12 +515,12 @@ C_CloseSession ( CK_SESSION_HANDLE hSession )
 
    sltp = &(Anchor->SltList[slotID]);
    if (sltp->DLLoaded == FALSE ){
-      st_err_log(50, __FILE__, __LINE__);
+      ock_log_err(OCK_E_TOK_NOT_PRESENT);
       
       return CKR_TOKEN_NOT_PRESENT;
    }
    if ( (fcn=sltp->FcnList) == NULL ){
-      st_err_log(50, __FILE__, __LINE__); 
+      ock_log_err(OCK_E_TOK_NOT_PRESENT);
       return CKR_TOKEN_NOT_PRESENT;
    }
    if (fcn->ST_CloseSession){
@@ -609,11 +609,11 @@ C_CopyObject ( CK_SESSION_HANDLE    hSession,
    sltp = &(Anchor->SltList[slotID]);
    if (sltp->DLLoaded == FALSE ){
       
-      st_err_log(50, __FILE__, __LINE__);
+      ock_log_err(OCK_E_TOK_NOT_PRESENT);
       return CKR_TOKEN_NOT_PRESENT;
    }
    if ( (fcn=sltp->FcnList) == NULL ){ 
-      st_err_log(50, __FILE__, __LINE__);
+      ock_log_err(OCK_E_TOK_NOT_PRESENT);
       return CKR_TOKEN_NOT_PRESENT;
    }
    if (fcn->ST_CopyObject){
@@ -690,12 +690,12 @@ C_CreateObject ( CK_SESSION_HANDLE    hSession,
 
    sltp = &(Anchor->SltList[slotID]);
    if (sltp->DLLoaded == FALSE ){
-      st_err_log(50, __FILE__, __LINE__);
+      ock_log_err(OCK_E_TOK_NOT_PRESENT);
       
       return CKR_TOKEN_NOT_PRESENT;
    }
    if ( (fcn=sltp->FcnList) == NULL ){
-      st_err_log(50, __FILE__, __LINE__);
+      ock_log_err(OCK_E_TOK_NOT_PRESENT);
       return CKR_TOKEN_NOT_PRESENT;
    }
    if (fcn->ST_CreateObject){
@@ -759,12 +759,12 @@ C_Decrypt ( CK_SESSION_HANDLE hSession,
 
    sltp = &(Anchor->SltList[slotID]);
    if (sltp->DLLoaded == FALSE ){
-      st_err_log(50, __FILE__, __LINE__);
+      ock_log_err(OCK_E_TOK_NOT_PRESENT);
       
       return CKR_TOKEN_NOT_PRESENT;
    }
    if ( (fcn=sltp->FcnList) == NULL ){
-      st_err_log(50, __FILE__, __LINE__);
+      ock_log_err(OCK_E_TOK_NOT_PRESENT);
       return CKR_TOKEN_NOT_PRESENT;
    }
    if (fcn->ST_Decrypt){
@@ -826,12 +826,12 @@ C_DecryptDigestUpdate ( CK_SESSION_HANDLE hSession,
 
    sltp = &(Anchor->SltList[slotID]);
    if (sltp->DLLoaded == FALSE ){
-      st_err_log(50, __FILE__, __LINE__);
+      ock_log_err(OCK_E_TOK_NOT_PRESENT);
       
       return CKR_TOKEN_NOT_PRESENT;
    }
    if ( (fcn=sltp->FcnList) == NULL ){
-      st_err_log(50, __FILE__, __LINE__);
+      ock_log_err(OCK_E_TOK_NOT_PRESENT);
       return CKR_TOKEN_NOT_PRESENT;
    }
    if (fcn->ST_DecryptDigestUpdate){
@@ -898,12 +898,12 @@ C_DecryptFinal ( CK_SESSION_HANDLE hSession,
 
    sltp = &(Anchor->SltList[slotID]);
    if (sltp->DLLoaded == FALSE ){
-      st_err_log(50, __FILE__, __LINE__);
+      ock_log_err(OCK_E_TOK_NOT_PRESENT);
       
       return CKR_TOKEN_NOT_PRESENT;
    }
    if ( (fcn=sltp->FcnList) == NULL ){
-      st_err_log(50, __FILE__, __LINE__);
+      ock_log_err(OCK_E_TOK_NOT_PRESENT);
 
       return CKR_TOKEN_NOT_PRESENT;
    }
@@ -964,12 +964,12 @@ C_DecryptInit ( CK_SESSION_HANDLE hSession,
 
    sltp = &(Anchor->SltList[slotID]);
    if (sltp->DLLoaded == FALSE ){
-      st_err_log(50, __FILE__, __LINE__);
+      ock_log_err(OCK_E_TOK_NOT_PRESENT);
       
       return CKR_TOKEN_NOT_PRESENT;
    }
    if ( (fcn=sltp->FcnList) == NULL ){
-      st_err_log(50, __FILE__, __LINE__);
+      ock_log_err(OCK_E_TOK_NOT_PRESENT);
       return CKR_TOKEN_NOT_PRESENT;
    }
    if (fcn->ST_DecryptInit){
@@ -1031,12 +1031,12 @@ C_DecryptUpdate ( CK_SESSION_HANDLE hSession,
 
    sltp = &(Anchor->SltList[slotID]);
    if (sltp->DLLoaded == FALSE ){
-      st_err_log(50, __FILE__, __LINE__);
+      ock_log_err(OCK_E_TOK_NOT_PRESENT);
       
       return CKR_TOKEN_NOT_PRESENT;
    }
    if ( (fcn=sltp->FcnList) == NULL ){
-      st_err_log(50, __FILE__, __LINE__);
+      ock_log_err(OCK_E_TOK_NOT_PRESENT);
       return CKR_TOKEN_NOT_PRESENT;
    }
    if (fcn->ST_DecryptUpdate){
@@ -1094,12 +1094,12 @@ C_DecryptVerifyUpdate ( CK_SESSION_HANDLE hSession,
 
    sltp = &(Anchor->SltList[slotID]);
    if (sltp->DLLoaded == FALSE ){
-      st_err_log(50, __FILE__, __LINE__);
+      ock_log_err(OCK_E_TOK_NOT_PRESENT);
       
       return CKR_TOKEN_NOT_PRESENT;
    }
    if ( (fcn=sltp->FcnList) == NULL ){
-      st_err_log(50, __FILE__, __LINE__);
+      ock_log_err(OCK_E_TOK_NOT_PRESENT);
       return CKR_TOKEN_NOT_PRESENT;
    }
    if (fcn->ST_DecryptVerifyUpdate){
@@ -1173,12 +1173,12 @@ C_DeriveKey ( CK_SESSION_HANDLE    hSession,
 
    sltp = &(Anchor->SltList[slotID]);
    if (sltp->DLLoaded == FALSE ){
-      st_err_log(50, __FILE__, __LINE__);
+      ock_log_err(OCK_E_TOK_NOT_PRESENT);
       
       return CKR_TOKEN_NOT_PRESENT;
    }
    if ( (fcn=sltp->FcnList) == NULL ){
-      st_err_log(50, __FILE__, __LINE__);
+      ock_log_err(OCK_E_TOK_NOT_PRESENT);
       return CKR_TOKEN_NOT_PRESENT;
    }
    if (fcn->ST_DeriveKey){
@@ -1233,12 +1233,12 @@ C_DestroyObject ( CK_SESSION_HANDLE hSession,
 
    sltp = &(Anchor->SltList[slotID]);
    if (sltp->DLLoaded == FALSE ){
-      st_err_log(50, __FILE__, __LINE__);
+      ock_log_err(OCK_E_TOK_NOT_PRESENT);
       
       return CKR_TOKEN_NOT_PRESENT;
    }
    if ( (fcn=sltp->FcnList) == NULL ){
-      st_err_log(50, __FILE__, __LINE__);
+      ock_log_err(OCK_E_TOK_NOT_PRESENT);
 
       return CKR_TOKEN_NOT_PRESENT;
    }
@@ -1295,12 +1295,12 @@ C_Digest ( CK_SESSION_HANDLE hSession,
 
    sltp = &(Anchor->SltList[slotID]);
    if (sltp->DLLoaded == FALSE ){
-      st_err_log(50, __FILE__, __LINE__);
+      ock_log_err(OCK_E_TOK_NOT_PRESENT);
       
       return CKR_TOKEN_NOT_PRESENT;
    }
    if ( (fcn=sltp->FcnList) == NULL ){
-      st_err_log(50, __FILE__, __LINE__); 
+      ock_log_err(OCK_E_TOK_NOT_PRESENT);
       return CKR_TOKEN_NOT_PRESENT;
    }
    if (fcn->ST_Digest){
@@ -1361,12 +1361,12 @@ C_DigestEncryptUpdate ( CK_SESSION_HANDLE hSession,
 
    sltp = &(Anchor->SltList[slotID]);
    if (sltp->DLLoaded == FALSE ){
-      st_err_log(50, __FILE__, __LINE__); 
+      ock_log_err(OCK_E_TOK_NOT_PRESENT);
       return CKR_TOKEN_NOT_PRESENT;
    }
 
    if ( (fcn=sltp->FcnList) == NULL ){
-      st_err_log(50, __FILE__, __LINE__); 
+      ock_log_err(OCK_E_TOK_NOT_PRESENT);
       return CKR_TOKEN_NOT_PRESENT;
    }
    if (fcn->ST_DigestEncryptUpdate){
@@ -1421,12 +1421,12 @@ C_DigestFinal ( CK_SESSION_HANDLE hSession,
 
    sltp = &(Anchor->SltList[slotID]);
    if (sltp->DLLoaded == FALSE ){
-      st_err_log(50, __FILE__, __LINE__); 
+      ock_log_err(OCK_E_TOK_NOT_PRESENT);
       
       return CKR_TOKEN_NOT_PRESENT;
    }
    if ( (fcn=sltp->FcnList) == NULL ){
-      st_err_log(50, __FILE__, __LINE__); 
+      ock_log_err(OCK_E_TOK_NOT_PRESENT);
       return CKR_TOKEN_NOT_PRESENT;
    }
    if (fcn->ST_DigestFinal){
@@ -1483,12 +1483,12 @@ C_DigestInit ( CK_SESSION_HANDLE hSession,
 
    sltp = &(Anchor->SltList[slotID]);
    if (sltp->DLLoaded == FALSE ){
-      st_err_log(50, __FILE__, __LINE__); 
+      ock_log_err(OCK_E_TOK_NOT_PRESENT);
       
       return CKR_TOKEN_NOT_PRESENT;
    }
    if ( (fcn=sltp->FcnList) == NULL ){
-      st_err_log(50, __FILE__, __LINE__); 
+      ock_log_err(OCK_E_TOK_NOT_PRESENT);
       return CKR_TOKEN_NOT_PRESENT;
    }
    if (fcn->ST_DigestInit){
@@ -1538,12 +1538,12 @@ C_DigestKey ( CK_SESSION_HANDLE hSession,
 
    sltp = &(Anchor->SltList[slotID]);
    if (sltp->DLLoaded == FALSE ){
-      st_err_log(50, __FILE__, __LINE__); 
+      ock_log_err(OCK_E_TOK_NOT_PRESENT);
       
       return CKR_TOKEN_NOT_PRESENT;
    }
    if ( (fcn=sltp->FcnList) == NULL ){
-      st_err_log(50, __FILE__, __LINE__); 
+      ock_log_err(OCK_E_TOK_NOT_PRESENT);
       return CKR_TOKEN_NOT_PRESENT;
    }
    if (fcn->ST_DigestKey){
@@ -1598,12 +1598,12 @@ C_DigestUpdate ( CK_SESSION_HANDLE hSession,
 
    sltp = &(Anchor->SltList[slotID]);
    if (sltp->DLLoaded == FALSE ){
-      st_err_log(50, __FILE__, __LINE__); 
+      ock_log_err(OCK_E_TOK_NOT_PRESENT);
       
       return CKR_TOKEN_NOT_PRESENT;
    }
    if ( (fcn=sltp->FcnList) == NULL ){
-      st_err_log(50, __FILE__, __LINE__); 
+      ock_log_err(OCK_E_TOK_NOT_PRESENT);
       return CKR_TOKEN_NOT_PRESENT;
    }
    if (fcn->ST_DigestUpdate){
@@ -1660,12 +1660,12 @@ C_Encrypt ( CK_SESSION_HANDLE hSession,
 
    sltp = &(Anchor->SltList[slotID]);
    if (sltp->DLLoaded == FALSE ){
-      st_err_log(50, __FILE__, __LINE__); 
+      ock_log_err(OCK_E_TOK_NOT_PRESENT);
       
       return CKR_TOKEN_NOT_PRESENT;
    }
    if ( (fcn=sltp->FcnList) == NULL ){
-      st_err_log(50, __FILE__, __LINE__); 
+      ock_log_err(OCK_E_TOK_NOT_PRESENT);
       return CKR_TOKEN_NOT_PRESENT;
    }
    if (fcn->ST_Encrypt){
@@ -1720,12 +1720,12 @@ C_EncryptFinal ( CK_SESSION_HANDLE hSession,
 
    sltp = &(Anchor->SltList[slotID]);
    if (sltp->DLLoaded == FALSE ){
-      st_err_log(50, __FILE__, __LINE__); 
+      ock_log_err(OCK_E_TOK_NOT_PRESENT);
       
       return CKR_TOKEN_NOT_PRESENT;
    }
    if ( (fcn=sltp->FcnList) == NULL ){
-      st_err_log(50, __FILE__, __LINE__); 
+      ock_log_err(OCK_E_TOK_NOT_PRESENT);
       return CKR_TOKEN_NOT_PRESENT;
    }
    if (fcn->ST_EncryptFinal){
@@ -1779,12 +1779,12 @@ C_EncryptInit ( CK_SESSION_HANDLE hSession,
 
    sltp = &(Anchor->SltList[slotID]);
    if (sltp->DLLoaded == FALSE ){
-      st_err_log(50, __FILE__, __LINE__); 
+      ock_log_err(OCK_E_TOK_NOT_PRESENT);
       
       return CKR_TOKEN_NOT_PRESENT;
    }
    if ( (fcn=sltp->FcnList) == NULL ){
-      st_err_log(50, __FILE__, __LINE__); 
+      ock_log_err(OCK_E_TOK_NOT_PRESENT);
       return CKR_TOKEN_NOT_PRESENT;
    }
    if (fcn->ST_EncryptInit){
@@ -1843,12 +1843,12 @@ C_EncryptUpdate ( CK_SESSION_HANDLE hSession,
 
    sltp = &(Anchor->SltList[slotID]);
    if (sltp->DLLoaded == FALSE ){
-      st_err_log(50, __FILE__, __LINE__); 
+      ock_log_err(OCK_E_TOK_NOT_PRESENT);
       
       return CKR_TOKEN_NOT_PRESENT;
    }
    if ( (fcn=sltp->FcnList) == NULL ){
-      st_err_log(50, __FILE__, __LINE__); 
+      ock_log_err(OCK_E_TOK_NOT_PRESENT);
       return CKR_TOKEN_NOT_PRESENT;
    }
    if (fcn->ST_EncryptUpdate){
@@ -1974,12 +1974,12 @@ C_FindObjects ( CK_SESSION_HANDLE    hSession,
 
    sltp = &(Anchor->SltList[slotID]);
    if (sltp->DLLoaded == FALSE ){
-      st_err_log(50, __FILE__, __LINE__); 
+      ock_log_err(OCK_E_TOK_NOT_PRESENT);
       
       return CKR_TOKEN_NOT_PRESENT;
    }
    if ( (fcn=sltp->FcnList) == NULL ){
-      st_err_log(50, __FILE__, __LINE__); 
+      ock_log_err(OCK_E_TOK_NOT_PRESENT);
       return CKR_TOKEN_NOT_PRESENT;
    }
    if (fcn->ST_FindObjects){
@@ -2031,12 +2031,12 @@ C_FindObjectsFinal ( CK_SESSION_HANDLE hSession )
 
    sltp = &(Anchor->SltList[slotID]);
    if (sltp->DLLoaded == FALSE ){
-      st_err_log(50, __FILE__, __LINE__); 
+      ock_log_err(OCK_E_TOK_NOT_PRESENT);
       
       return CKR_TOKEN_NOT_PRESENT;
    }
    if ( (fcn=sltp->FcnList) == NULL ){
-      st_err_log(50, __FILE__, __LINE__); 
+      ock_log_err(OCK_E_TOK_NOT_PRESENT);
       return CKR_TOKEN_NOT_PRESENT;
    }
    if (fcn->ST_FindObjectsFinal){
@@ -2093,12 +2093,12 @@ C_FindObjectsInit ( CK_SESSION_HANDLE hSession,
 
    sltp = &(Anchor->SltList[slotID]);
    if (sltp->DLLoaded == FALSE ){
-      st_err_log(50, __FILE__, __LINE__); 
+      ock_log_err(OCK_E_TOK_NOT_PRESENT);
       
       return CKR_TOKEN_NOT_PRESENT;
    }
    if ( (fcn=sltp->FcnList) == NULL ){
-      st_err_log(50, __FILE__, __LINE__); 
+      ock_log_err(OCK_E_TOK_NOT_PRESENT);
       return CKR_TOKEN_NOT_PRESENT;
    }
    if (fcn->ST_FindObjectsInit){
@@ -2158,12 +2158,12 @@ C_GenerateKey ( CK_SESSION_HANDLE    hSession,
 
    sltp = &(Anchor->SltList[slotID]);
    if (sltp->DLLoaded == FALSE ){
-      st_err_log(50, __FILE__, __LINE__); 
+      ock_log_err(OCK_E_TOK_NOT_PRESENT);
       
       return CKR_TOKEN_NOT_PRESENT;
    }
    if ( (fcn=sltp->FcnList) == NULL ){
-      st_err_log(50, __FILE__, __LINE__); 
+      ock_log_err(OCK_E_TOK_NOT_PRESENT);
       return CKR_TOKEN_NOT_PRESENT;
    }
    if (fcn->ST_GenerateKey){
@@ -2230,12 +2230,12 @@ C_GenerateKeyPair ( CK_SESSION_HANDLE    hSession,
 
    sltp = &(Anchor->SltList[slotID]);
    if (sltp->DLLoaded == FALSE ){
-      st_err_log(50, __FILE__, __LINE__); 
+      ock_log_err(OCK_E_TOK_NOT_PRESENT);
       
       return CKR_TOKEN_NOT_PRESENT;
    }
    if ( (fcn=sltp->FcnList) == NULL ){
-      st_err_log(50, __FILE__, __LINE__); 
+      ock_log_err(OCK_E_TOK_NOT_PRESENT);
       return CKR_TOKEN_NOT_PRESENT;
    }
    if (fcn->ST_GenerateKeyPair){
@@ -2290,12 +2290,12 @@ C_GenerateRandom ( CK_SESSION_HANDLE hSession,
 
    sltp = &(Anchor->SltList[slotID]);
    if (sltp->DLLoaded == FALSE ){
-      st_err_log(50, __FILE__, __LINE__); 
+      ock_log_err(OCK_E_TOK_NOT_PRESENT);
       
       return CKR_TOKEN_NOT_PRESENT;
    }
    if ( (fcn=sltp->FcnList) == NULL ){
-      st_err_log(50, __FILE__, __LINE__); 
+      ock_log_err(OCK_E_TOK_NOT_PRESENT);
       return CKR_TOKEN_NOT_PRESENT;
    }
    if (fcn->ST_GenerateRandom){
@@ -2360,12 +2360,12 @@ C_GetAttributeValue ( CK_SESSION_HANDLE hSession,
 
    sltp = &(Anchor->SltList[slotID]);
    if (sltp->DLLoaded == FALSE ){
-      st_err_log(50, __FILE__, __LINE__); 
+      ock_log_err(OCK_E_TOK_NOT_PRESENT);
       
       return CKR_TOKEN_NOT_PRESENT;
    }
    if ( (fcn=sltp->FcnList) == NULL ){
-      st_err_log(50, __FILE__, __LINE__); 
+      ock_log_err(OCK_E_TOK_NOT_PRESENT);
       return CKR_TOKEN_NOT_PRESENT;
    }
    if (fcn->ST_GetAttributeValue){
@@ -2592,12 +2592,12 @@ C_GetMechanismInfo ( CK_SLOT_ID            slotID,
 
    sltp = &(Anchor->SltList[slotID]);
    if (sltp->DLLoaded == FALSE ){
-      st_err_log(50, __FILE__, __LINE__); 
+      ock_log_err(OCK_E_TOK_NOT_PRESENT);
       
       return CKR_TOKEN_NOT_PRESENT;
    }
    if ( (fcn=sltp->FcnList) == NULL ){
-      st_err_log(50, __FILE__, __LINE__); 
+      ock_log_err(OCK_E_TOK_NOT_PRESENT);
       return CKR_TOKEN_NOT_PRESENT;
    }
    if (fcn->ST_GetMechanismInfo){
@@ -2651,12 +2651,12 @@ C_GetMechanismList ( CK_SLOT_ID            slotID,
 
    sltp = &(Anchor->SltList[slotID]);
    if (sltp->DLLoaded == FALSE ){
-      st_err_log(50, __FILE__, __LINE__); 
+      ock_log_err(OCK_E_TOK_NOT_PRESENT);
       
       return CKR_TOKEN_NOT_PRESENT;
    }
    if ( (fcn=sltp->FcnList) == NULL ){
-      st_err_log(50, __FILE__, __LINE__); 
+      ock_log_err(OCK_E_TOK_NOT_PRESENT);
       return CKR_TOKEN_NOT_PRESENT;
    }
    if (fcn->ST_GetMechanismList){
@@ -2725,12 +2725,12 @@ C_GetObjectSize ( CK_SESSION_HANDLE hSession,
 
    sltp = &(Anchor->SltList[slotID]);
    if (sltp->DLLoaded == FALSE ){
-      st_err_log(50, __FILE__, __LINE__); 
+      ock_log_err(OCK_E_TOK_NOT_PRESENT);
       
       return CKR_TOKEN_NOT_PRESENT;
    }
    if ( (fcn=sltp->FcnList) == NULL ){
-      st_err_log(50, __FILE__, __LINE__); 
+      ock_log_err(OCK_E_TOK_NOT_PRESENT);
       return CKR_TOKEN_NOT_PRESENT;
    }
    if (fcn->ST_GetObjectSize){
@@ -2786,12 +2786,12 @@ C_GetOperationState ( CK_SESSION_HANDLE hSession,
 
    sltp = &(Anchor->SltList[slotID]);
    if (sltp->DLLoaded == FALSE ){
-      st_err_log(50, __FILE__, __LINE__); 
+      ock_log_err(OCK_E_TOK_NOT_PRESENT);
       
       return CKR_TOKEN_NOT_PRESENT;
    }
    if ( (fcn=sltp->FcnList) == NULL ){
-      st_err_log(50, __FILE__, __LINE__); 
+      ock_log_err(OCK_E_TOK_NOT_PRESENT);
       return CKR_TOKEN_NOT_PRESENT;
    }
    if (fcn->ST_GetOperationState){
@@ -2850,12 +2850,12 @@ C_GetSessionInfo ( CK_SESSION_HANDLE   hSession,
 
    sltp = &(Anchor->SltList[slotID]);
    if (sltp->DLLoaded == FALSE ){
-      st_err_log(50, __FILE__, __LINE__); 
+      ock_log_err(OCK_E_TOK_NOT_PRESENT);
       
       return CKR_TOKEN_NOT_PRESENT;
    }
    if ( (fcn=sltp->FcnList) == NULL ) {
-      st_err_log(50, __FILE__, __LINE__); 
+      ock_log_err(OCK_E_TOK_NOT_PRESENT);
       return CKR_TOKEN_NOT_PRESENT;
    }
    if (fcn->ST_GetSessionInfo){
@@ -3196,7 +3196,7 @@ C_GetTokenInfo ( CK_SLOT_ID        slotID,
    sltp = &(Anchor->SltList[slotID]);
    LOGIT(LOG_DEBUG,"Slot p = %x id %d", sltp,slotID);
    if (sltp->DLLoaded == FALSE ){
-      st_err_log(50, __FILE__, __LINE__); 
+      ock_log_err(OCK_E_TOK_NOT_PRESENT);
       
       return CKR_TOKEN_NOT_PRESENT;
    }
@@ -3206,11 +3206,11 @@ C_GetTokenInfo ( CK_SLOT_ID        slotID,
    shm = Anchor->SharedMemP;
    sinfp = shm->slot_info;
    if  (sinfp[slotID].present == FALSE ){
-      st_err_log(50, __FILE__, __LINE__); 
+      ock_log_err(OCK_E_TOK_NOT_PRESENT);
       return CKR_TOKEN_NOT_PRESENT;
    }
    if ( (fcn=sltp->FcnList) == NULL ){
-      st_err_log(50, __FILE__, __LINE__); 
+      ock_log_err(OCK_E_TOK_NOT_PRESENT);
       return CKR_TOKEN_NOT_PRESENT;
    }
    if (fcn->ST_GetTokenInfo){
@@ -3489,12 +3489,12 @@ C_InitPIN ( CK_SESSION_HANDLE hSession,
 
    sltp = &(Anchor->SltList[slotID]);
    if (sltp->DLLoaded == FALSE ){
-      st_err_log(50, __FILE__, __LINE__); 
+      ock_log_err(OCK_E_TOK_NOT_PRESENT);
       
       return CKR_TOKEN_NOT_PRESENT;
    }
    if ( (fcn=sltp->FcnList) == NULL ){
-      st_err_log(50, __FILE__, __LINE__); 
+      ock_log_err(OCK_E_TOK_NOT_PRESENT);
       return CKR_TOKEN_NOT_PRESENT;
    }
    if (fcn->ST_InitPIN){
@@ -3565,12 +3565,12 @@ C_InitToken ( CK_SLOT_ID  slotID,
 
    sltp = &(Anchor->SltList[slotID]);
    if (sltp->DLLoaded == FALSE ){
-      st_err_log(50, __FILE__, __LINE__); 
+      ock_log_err(OCK_E_TOK_NOT_PRESENT);
       
       return CKR_TOKEN_NOT_PRESENT;
    }
    if ( (fcn=sltp->FcnList) == NULL ){
-      st_err_log(50, __FILE__, __LINE__); 
+      ock_log_err(OCK_E_TOK_NOT_PRESENT);
       return CKR_TOKEN_NOT_PRESENT;
    }
    if (fcn->ST_InitToken){
@@ -3633,12 +3633,12 @@ C_Login ( CK_SESSION_HANDLE hSession,
 
    sltp = &(Anchor->SltList[slotID]);
    if (sltp->DLLoaded == FALSE ){
-      st_err_log(50, __FILE__, __LINE__); 
+      ock_log_err(OCK_E_TOK_NOT_PRESENT);
       
       return CKR_TOKEN_NOT_PRESENT;
    }
    if ( (fcn=sltp->FcnList) == NULL ){
-      st_err_log(50, __FILE__, __LINE__); 
+      ock_log_err(OCK_E_TOK_NOT_PRESENT);
       return CKR_TOKEN_NOT_PRESENT;
    }
    if (fcn->ST_Login){
@@ -3689,12 +3689,12 @@ C_Logout ( CK_SESSION_HANDLE hSession )
 
    sltp = &(Anchor->SltList[slotID]);
    if (sltp->DLLoaded == FALSE ){
-      st_err_log(50, __FILE__, __LINE__); 
+      ock_log_err(OCK_E_TOK_NOT_PRESENT);
       
       return CKR_TOKEN_NOT_PRESENT;
    }
    if ( (fcn=sltp->FcnList) == NULL ){
-      st_err_log(50, __FILE__, __LINE__); 
+      ock_log_err(OCK_E_TOK_NOT_PRESENT);
       return CKR_TOKEN_NOT_PRESENT;
    }
    if (fcn->ST_Logout){
@@ -3763,14 +3763,14 @@ C_OpenSession ( CK_SLOT_ID            slotID,
 
    sltp = &(Anchor->SltList[slotID]);
    if (sltp->DLLoaded == FALSE ){
-      st_err_log(50, __FILE__, __LINE__); 
+      ock_log_err(OCK_E_TOK_NOT_PRESENT);
       
       return CKR_TOKEN_NOT_PRESENT;
       // 
       // Need to handle the failure of a load here...
    }
    if ( (fcn=sltp->FcnList) == NULL ){
-      st_err_log(50, __FILE__, __LINE__); 
+      ock_log_err(OCK_E_TOK_NOT_PRESENT);
       return CKR_TOKEN_NOT_PRESENT;
    }
    if (fcn->ST_OpenSession){
@@ -3852,12 +3852,12 @@ C_SeedRandom ( CK_SESSION_HANDLE hSession,
 
    sltp = &(Anchor->SltList[slotID]);
    if (sltp->DLLoaded == FALSE ){
-      st_err_log(50, __FILE__, __LINE__); 
+      ock_log_err(OCK_E_TOK_NOT_PRESENT);
       
       return CKR_TOKEN_NOT_PRESENT;
    }
    if ( (fcn=sltp->FcnList) == NULL ){
-      st_err_log(50, __FILE__, __LINE__); 
+      ock_log_err(OCK_E_TOK_NOT_PRESENT);
       return CKR_TOKEN_NOT_PRESENT;
    }
    if (fcn->ST_SeedRandom){
@@ -3923,12 +3923,12 @@ C_SetAttributeValue ( CK_SESSION_HANDLE hSession,
 
    sltp = &(Anchor->SltList[slotID]);
    if (sltp->DLLoaded == FALSE ){
-      st_err_log(50, __FILE__, __LINE__); 
+      ock_log_err(OCK_E_TOK_NOT_PRESENT);
       
       return CKR_TOKEN_NOT_PRESENT;
    }
    if ( (fcn=sltp->FcnList) == NULL ){
-      st_err_log(50, __FILE__, __LINE__); 
+      ock_log_err(OCK_E_TOK_NOT_PRESENT);
       return CKR_TOKEN_NOT_PRESENT;
    }
    if (fcn->ST_SetAttributeValue){
@@ -3984,12 +3984,12 @@ C_SetOperationState ( CK_SESSION_HANDLE hSession,
 
    sltp = &(Anchor->SltList[slotID]);
    if (sltp->DLLoaded == FALSE ){
-      st_err_log(50, __FILE__, __LINE__); 
+      ock_log_err(OCK_E_TOK_NOT_PRESENT);
       
       return CKR_TOKEN_NOT_PRESENT;
    }
    if ( (fcn=sltp->FcnList) == NULL ){
-      st_err_log(50, __FILE__, __LINE__); 
+      ock_log_err(OCK_E_TOK_NOT_PRESENT);
       return CKR_TOKEN_NOT_PRESENT;
    }
    if (fcn->ST_SetOperationState){
@@ -4052,12 +4052,12 @@ C_SetPIN ( CK_SESSION_HANDLE hSession,
 
    sltp = &(Anchor->SltList[slotID]);
    if (sltp->DLLoaded == FALSE ){
-      st_err_log(50, __FILE__, __LINE__); 
+      ock_log_err(OCK_E_TOK_NOT_PRESENT);
       
       return CKR_TOKEN_NOT_PRESENT;
    }
    if ( (fcn=sltp->FcnList) == NULL ) {
-      st_err_log(50, __FILE__, __LINE__); 
+      ock_log_err(OCK_E_TOK_NOT_PRESENT);
       return CKR_TOKEN_NOT_PRESENT;
    }
    if (fcn->ST_SetPIN){
@@ -4118,12 +4118,12 @@ C_Sign ( CK_SESSION_HANDLE hSession,
 
    sltp = &(Anchor->SltList[slotID]);
    if (sltp->DLLoaded == FALSE ){
-      st_err_log(50, __FILE__, __LINE__); 
+      ock_log_err(OCK_E_TOK_NOT_PRESENT);
       
       return CKR_TOKEN_NOT_PRESENT;
    }
    if ( (fcn=sltp->FcnList) == NULL ) {
-      st_err_log(50, __FILE__, __LINE__); 
+      ock_log_err(OCK_E_TOK_NOT_PRESENT);
       return CKR_TOKEN_NOT_PRESENT;
    }
    if (fcn->ST_Sign){
@@ -4179,12 +4179,12 @@ C_SignEncryptUpdate ( CK_SESSION_HANDLE hSession,
 
    sltp = &(Anchor->SltList[slotID]);
    if (sltp->DLLoaded == FALSE ){
-      st_err_log(50, __FILE__, __LINE__); 
+      ock_log_err(OCK_E_TOK_NOT_PRESENT);
       
       return CKR_TOKEN_NOT_PRESENT;
    }
    if ( (fcn=sltp->FcnList) == NULL ){
-      st_err_log(50, __FILE__, __LINE__); 
+      ock_log_err(OCK_E_TOK_NOT_PRESENT);
       return CKR_TOKEN_NOT_PRESENT;
    }
    if (fcn->ST_SignEncryptUpdate){
@@ -4246,12 +4246,12 @@ C_SignFinal ( CK_SESSION_HANDLE hSession,
 
    sltp = &(Anchor->SltList[slotID]);
    if (sltp->DLLoaded == FALSE ){
-      st_err_log(50, __FILE__, __LINE__); 
+      ock_log_err(OCK_E_TOK_NOT_PRESENT);
       
       return CKR_TOKEN_NOT_PRESENT;
    }
    if ( (fcn=sltp->FcnList) == NULL ) {
-      st_err_log(50, __FILE__, __LINE__); 
+      ock_log_err(OCK_E_TOK_NOT_PRESENT);
       return CKR_TOKEN_NOT_PRESENT;
    }
    if (fcn->ST_SignFinal){
@@ -4311,12 +4311,12 @@ C_SignInit ( CK_SESSION_HANDLE hSession,
 
    sltp = &(Anchor->SltList[slotID]);
    if (sltp->DLLoaded == FALSE ){
-      st_err_log(50, __FILE__, __LINE__); 
+      ock_log_err(OCK_E_TOK_NOT_PRESENT);
       
       return CKR_TOKEN_NOT_PRESENT;
    }
    if ( (fcn=sltp->FcnList) == NULL ) {
-      st_err_log(50, __FILE__, __LINE__); 
+      ock_log_err(OCK_E_TOK_NOT_PRESENT);
       return CKR_TOKEN_NOT_PRESENT;
    }
    if (fcn->ST_SignInit){
@@ -4372,12 +4372,12 @@ C_SignRecover ( CK_SESSION_HANDLE hSession,
 
    sltp = &(Anchor->SltList[slotID]);
    if (sltp->DLLoaded == FALSE ){
-      st_err_log(50, __FILE__, __LINE__); 
+      ock_log_err(OCK_E_TOK_NOT_PRESENT);
       
       return CKR_TOKEN_NOT_PRESENT;
    }
    if ( (fcn=sltp->FcnList) == NULL ){
-      st_err_log(50, __FILE__, __LINE__); 
+      ock_log_err(OCK_E_TOK_NOT_PRESENT);
       return CKR_TOKEN_NOT_PRESENT;
    }
    if (fcn->ST_SignRecover){
@@ -4435,12 +4435,12 @@ C_SignRecoverInit ( CK_SESSION_HANDLE hSession,
 
    sltp = &(Anchor->SltList[slotID]);
    if (sltp->DLLoaded == FALSE ){
-      st_err_log(50, __FILE__, __LINE__); 
+      ock_log_err(OCK_E_TOK_NOT_PRESENT);
       
       return CKR_TOKEN_NOT_PRESENT;
    }
    if ( (fcn=sltp->FcnList) == NULL ){
-      st_err_log(50, __FILE__, __LINE__); 
+      ock_log_err(OCK_E_TOK_NOT_PRESENT);
       return CKR_TOKEN_NOT_PRESENT;
    }
    if (fcn->ST_SignRecoverInit){
@@ -4501,12 +4501,12 @@ C_SignUpdate ( CK_SESSION_HANDLE hSession,
 
    sltp = &(Anchor->SltList[slotID]);
    if (sltp->DLLoaded == FALSE ){
-      st_err_log(50, __FILE__, __LINE__); 
+      ock_log_err(OCK_E_TOK_NOT_PRESENT);
       
       return CKR_TOKEN_NOT_PRESENT;
    }
    if ( (fcn=sltp->FcnList) == NULL ){
-      st_err_log(50, __FILE__, __LINE__); 
+      ock_log_err(OCK_E_TOK_NOT_PRESENT);
       return CKR_TOKEN_NOT_PRESENT;
    }
    if (fcn->ST_SignUpdate){
@@ -4576,12 +4576,12 @@ C_UnwrapKey ( CK_SESSION_HANDLE    hSession,
 
    sltp = &(Anchor->SltList[slotID]);
    if (sltp->DLLoaded == FALSE ){
-      st_err_log(50, __FILE__, __LINE__); 
+      ock_log_err(OCK_E_TOK_NOT_PRESENT);
       
       return CKR_TOKEN_NOT_PRESENT;
    }
    if ( (fcn=sltp->FcnList) == NULL ){
-      st_err_log(50, __FILE__, __LINE__); 
+      ock_log_err(OCK_E_TOK_NOT_PRESENT);
       return CKR_TOKEN_NOT_PRESENT;
    }
    if (fcn->ST_UnwrapKey){
@@ -4642,12 +4642,12 @@ C_Verify ( CK_SESSION_HANDLE hSession,
 
    sltp = &(Anchor->SltList[slotID]);
    if (sltp->DLLoaded == FALSE ){
-      st_err_log(50, __FILE__, __LINE__); 
+      ock_log_err(OCK_E_TOK_NOT_PRESENT);
       
       return CKR_TOKEN_NOT_PRESENT;
    }
    if ( (fcn=sltp->FcnList) == NULL ){
-      st_err_log(50, __FILE__, __LINE__); 
+      ock_log_err(OCK_E_TOK_NOT_PRESENT);
       return CKR_TOKEN_NOT_PRESENT;
    }
    if (fcn->ST_Verify){
@@ -4701,12 +4701,12 @@ C_VerifyFinal ( CK_SESSION_HANDLE hSession,
 
    sltp = &(Anchor->SltList[slotID]);
    if (sltp->DLLoaded == FALSE ){
-      st_err_log(50, __FILE__, __LINE__); 
+      ock_log_err(OCK_E_TOK_NOT_PRESENT);
       
       return CKR_TOKEN_NOT_PRESENT;
    }
    if ( (fcn=sltp->FcnList) == NULL ){
-      st_err_log(50, __FILE__, __LINE__); 
+      ock_log_err(OCK_E_TOK_NOT_PRESENT);
       return CKR_TOKEN_NOT_PRESENT;
    }
    if (fcn->ST_VerifyFinal){
@@ -4762,12 +4762,12 @@ C_VerifyInit ( CK_SESSION_HANDLE hSession,
 
    sltp = &(Anchor->SltList[slotID]);
    if (sltp->DLLoaded == FALSE ){
-      st_err_log(50, __FILE__, __LINE__); 
+      ock_log_err(OCK_E_TOK_NOT_PRESENT);
       
       return CKR_TOKEN_NOT_PRESENT;
    }
    if ( (fcn=sltp->FcnList) == NULL ){
-      st_err_log(50, __FILE__, __LINE__); 
+      ock_log_err(OCK_E_TOK_NOT_PRESENT);
       return CKR_TOKEN_NOT_PRESENT;
    }
    if (fcn->ST_VerifyInit){
@@ -4823,12 +4823,12 @@ C_VerifyRecover ( CK_SESSION_HANDLE hSession,
 
    sltp = &(Anchor->SltList[slotID]);
    if (sltp->DLLoaded == FALSE ){
-      st_err_log(50, __FILE__, __LINE__); 
+      ock_log_err(OCK_E_TOK_NOT_PRESENT);
       
       return CKR_TOKEN_NOT_PRESENT;
    }
    if ( (fcn=sltp->FcnList) == NULL ){
-      st_err_log(50, __FILE__, __LINE__); 
+      ock_log_err(OCK_E_TOK_NOT_PRESENT);
       return CKR_TOKEN_NOT_PRESENT;
    }
    if (fcn->ST_VerifyRecover){
@@ -4881,12 +4881,12 @@ C_VerifyRecoverInit ( CK_SESSION_HANDLE hSession,
 
    sltp = &(Anchor->SltList[slotID]);
    if (sltp->DLLoaded == FALSE ){
-      st_err_log(50, __FILE__, __LINE__); 
+      ock_log_err(OCK_E_TOK_NOT_PRESENT);
       
       return CKR_TOKEN_NOT_PRESENT;
    }
    if ( (fcn=sltp->FcnList) == NULL ){
-      st_err_log(50, __FILE__, __LINE__); 
+      ock_log_err(OCK_E_TOK_NOT_PRESENT);
       return CKR_TOKEN_NOT_PRESENT;
    }
    if (fcn->ST_VerifyRecoverInit){
@@ -4940,12 +4940,12 @@ C_VerifyUpdate ( CK_SESSION_HANDLE hSession,
 
    sltp = &(Anchor->SltList[slotID]);
    if (sltp->DLLoaded == FALSE ){
-      st_err_log(50, __FILE__, __LINE__); 
+      ock_log_err(OCK_E_TOK_NOT_PRESENT);
       
       return CKR_TOKEN_NOT_PRESENT;
    }
    if ( (fcn=sltp->FcnList) == NULL ){
-      st_err_log(50, __FILE__, __LINE__); 
+      ock_log_err(OCK_E_TOK_NOT_PRESENT);
       return CKR_TOKEN_NOT_PRESENT;
    } 
    if (fcn->ST_VerifyUpdate){
@@ -5147,12 +5147,12 @@ C_WrapKey ( CK_SESSION_HANDLE hSession,
 
    sltp = &(Anchor->SltList[slotID]);
    if (sltp->DLLoaded == FALSE ){
-      st_err_log(50, __FILE__, __LINE__); 
+      ock_log_err(OCK_E_TOK_NOT_PRESENT);
       
       return CKR_TOKEN_NOT_PRESENT;
    }
    if ( (fcn=sltp->FcnList) == NULL ){
-      st_err_log(50, __FILE__, __LINE__); 
+      ock_log_err(OCK_E_TOK_NOT_PRESENT);
       return CKR_TOKEN_NOT_PRESENT;
    }
    if (fcn->ST_WrapKey){
