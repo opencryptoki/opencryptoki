@@ -1085,7 +1085,7 @@ session_mgr_set_op_state( SESSION           * sess,
                return CKR_SAVED_STATE_INVALID;
             }
             if (auth_key != 0){
-               st_err_log(21, __FILE__, __LINE__); 
+               ock_log_err(OCK_E_KEY_NOT_NEEDED);
                return CKR_KEY_NOT_NEEDED;
             }
             if (encr_key == 0){
@@ -1133,7 +1133,7 @@ session_mgr_set_op_state( SESSION           * sess,
                return CKR_KEY_NEEDED;
             }
             if (encr_key != 0){
-               st_err_log(21, __FILE__, __LINE__); 
+               ock_log_err(OCK_E_KEY_NOT_NEEDED);
                return CKR_KEY_NOT_NEEDED;
             }
             ptr1 = (CK_BYTE *)ctx;
