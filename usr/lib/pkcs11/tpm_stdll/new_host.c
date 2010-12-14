@@ -427,7 +427,7 @@ CK_RV ST_Initialize( void **FunctionList,
 	// make sure that the same process tried to to the init...
 	// thread issues should be caught up above...
 	if (st_Initialized() == TRUE){
-		st_err_log(143, __FILE__, __LINE__);
+		ock_log_err(OCK_E_TOKEN_ALREADY_INIT);
 		goto done;
 	}
 #endif
