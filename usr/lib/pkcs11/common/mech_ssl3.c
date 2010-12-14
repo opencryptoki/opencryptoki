@@ -1333,7 +1333,7 @@ ssl3_master_key_derive( SESSION           * sess,
                                 CKO_SECRET_KEY,  CKK_GENERIC_SECRET,
                                 &derived_key_obj );
    if (rc != CKR_OK){
-      st_err_log(89, __FILE__, __LINE__); 
+      ock_log_err(OCK_E_OBJ_MGR_CREATE_SKELETON);
       goto error;
    }
 
@@ -1861,7 +1861,7 @@ ssl3_kmd_process_mac_keys( SESSION           * sess,
                                 CKK_GENERIC_SECRET,
                                 &client_obj );
    if (rc != CKR_OK){
-      st_err_log(89, __FILE__, __LINE__); 
+      ock_log_err(OCK_E_OBJ_MGR_CREATE_SKELETON);
       goto error;
    }
    rc = object_mgr_create_skel( sess,
@@ -1871,7 +1871,7 @@ ssl3_kmd_process_mac_keys( SESSION           * sess,
                                 CKK_GENERIC_SECRET,
                                 &server_obj );
    if (rc != CKR_OK){
-      st_err_log(89, __FILE__, __LINE__); 
+      ock_log_err(OCK_E_OBJ_MGR_CREATE_SKELETON);
       goto error;
    }
    for (i=0; i < ulCount; i++)
@@ -2046,7 +2046,7 @@ ssl3_kmd_process_write_keys( SESSION           * sess,
                                 keytype,
                                 &client_obj );
    if (rc != CKR_OK){
-      st_err_log(89, __FILE__, __LINE__); 
+      ock_log_err(OCK_E_OBJ_MGR_CREATE_SKELETON);
       goto error;
    }
    rc = object_mgr_create_skel( sess,
@@ -2056,7 +2056,7 @@ ssl3_kmd_process_write_keys( SESSION           * sess,
                                 keytype,
                                 &server_obj );
    if (rc != CKR_OK){
-      st_err_log(89, __FILE__, __LINE__); 
+      ock_log_err(OCK_E_OBJ_MGR_CREATE_SKELETON);
       goto error;
    }
    for (i=0; i < ulCount; i++) {

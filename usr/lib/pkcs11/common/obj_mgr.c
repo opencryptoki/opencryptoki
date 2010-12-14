@@ -829,7 +829,7 @@ object_mgr_create_skel( SESSION       * sess,
                             obj_type, sub_class,
                             &o );
    if (rc != CKR_OK){
-      st_err_log(89, __FILE__, __LINE__); 
+      ock_log_err(OCK_E_OBJ_MGR_CREATE_SKELETON);
       return rc;
    }
    sess_obj = object_is_session_object( o );

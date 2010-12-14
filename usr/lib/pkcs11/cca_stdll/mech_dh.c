@@ -122,7 +122,7 @@ dh_pkcs_derive( SESSION           * sess,
                                 keyclass,  keytype,
                                 &temp_obj );
    if (rc != CKR_OK){
-      st_err_log(89, __FILE__, __LINE__);
+      ock_log_err(OCK_E_OBJ_MGR_CREATE_SKELETON);
       return rc;  
    }
 

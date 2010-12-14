@@ -427,7 +427,7 @@ key_mgr_generate_key( SESSION           * sess,
                                 CKO_SECRET_KEY, subclass,
                                 &key_obj );
    if (rc != CKR_OK){
-      st_err_log(89, __FILE__, __LINE__);
+      ock_log_err(OCK_E_OBJ_MGR_CREATE_SKELETON);
       goto error;
    }
 
@@ -648,7 +648,7 @@ key_mgr_generate_key_pair( SESSION           * sess,
                                 CKO_PUBLIC_KEY,  subclass,
                                 &publ_key_obj );
    if (rc != CKR_OK){
-      st_err_log(89, __FILE__, __LINE__);
+      ock_log_err(OCK_E_OBJ_MGR_CREATE_SKELETON);
       goto error;
    }
    rc = object_mgr_create_skel( sess,
@@ -657,7 +657,7 @@ key_mgr_generate_key_pair( SESSION           * sess,
                                 CKO_PRIVATE_KEY, subclass,
                                 &priv_key_obj );
    if (rc != CKR_OK){
-      st_err_log(89, __FILE__, __LINE__);
+      ock_log_err(OCK_E_OBJ_MGR_CREATE_SKELETON);
       goto error;
    }
 
@@ -1247,7 +1247,7 @@ CKO_PRIVATE_KEY)){
                                 keyclass,      keytype,
                                 &key_obj );
    if (rc != CKR_OK){
-      st_err_log(89, __FILE__, __LINE__);
+      ock_log_err(OCK_E_OBJ_MGR_CREATE_SKELETON);
       goto error;
    }
    // at this point, 'key_obj' should contain a skeleton key.  depending on
