@@ -328,7 +328,7 @@ object_mgr_add( SESSION          * sess,
 
    rc = MY_LockMutex( &obj_list_mutex );
    if (rc != CKR_OK){
-      st_err_log(146, __FILE__, __LINE__); 
+      ock_log_err(OCK_E_MUTEX_LOCK);
       return rc;
    }
    locked = TRUE;
@@ -606,7 +606,7 @@ object_mgr_copy( SESSION          * sess,
 
    rc = MY_LockMutex( &obj_list_mutex );
    if (rc != CKR_OK){
-      st_err_log(146, __FILE__, __LINE__); 
+      ock_log_err(OCK_E_MUTEX_LOCK);
       return rc;
    }
    locked = TRUE;
@@ -894,7 +894,7 @@ object_mgr_create_final( SESSION           * sess,
    }
    rc = MY_LockMutex( &obj_list_mutex );
    if (rc != CKR_OK){
-      st_err_log(146, __FILE__, __LINE__); 
+      ock_log_err(OCK_E_MUTEX_LOCK);
       return rc;
    }
    locked = TRUE;
@@ -1034,7 +1034,7 @@ object_mgr_destroy_object( SESSION          * sess,
    }
    rc = MY_LockMutex( &obj_list_mutex );
    if (rc != CKR_OK){
-      st_err_log(146, __FILE__, __LINE__); 
+      ock_log_err(OCK_E_MUTEX_LOCK);
       goto done;
    }
    locked = TRUE;
@@ -1117,7 +1117,7 @@ object_mgr_destroy_token_objects( void )
 
    rc = MY_LockMutex( &obj_list_mutex );
    if (rc != CKR_OK){
-      st_err_log(146, __FILE__, __LINE__); 
+      ock_log_err(OCK_E_MUTEX_LOCK);
       goto done;
    }
    else
@@ -1627,7 +1627,7 @@ object_mgr_get_attribute_values( SESSION           * sess,
    }
    rc = MY_LockMutex( &obj_list_mutex );
    if (rc != CKR_OK){
-      st_err_log(146, __FILE__, __LINE__); 
+      ock_log_err(OCK_E_MUTEX_LOCK);
       return rc;
    }
    locked = TRUE;
@@ -1671,7 +1671,7 @@ object_mgr_get_object_size( CK_OBJECT_HANDLE   handle,
 
    rc = MY_LockMutex( &obj_list_mutex );
    if (rc != CKR_OK){
-      st_err_log(146, __FILE__, __LINE__); 
+      ock_log_err(OCK_E_MUTEX_LOCK);
       return rc;
    }
    rc = object_mgr_find_in_map1( handle, &obj );
@@ -1801,7 +1801,7 @@ object_mgr_purge_session_objects( SESSION       * sess,
 
    rc = MY_LockMutex( &obj_list_mutex );
    if (rc != CKR_OK){
-      st_err_log(146, __FILE__, __LINE__); 
+      ock_log_err(OCK_E_MUTEX_LOCK);
       return FALSE;
    }
    node = sess_obj_list;
@@ -1863,7 +1863,7 @@ object_mgr_purge_token_objects( )
 
    rc = MY_LockMutex( &obj_list_mutex );
    if (rc != CKR_OK){
-      st_err_log(146, __FILE__, __LINE__); 
+      ock_log_err(OCK_E_MUTEX_LOCK);
       return FALSE;
    }
    node = publ_token_obj_list;
@@ -1921,7 +1921,7 @@ object_mgr_purge_private_token_objects( void )
 
    rc = MY_LockMutex( &obj_list_mutex );
    if (rc != CKR_OK){
-      st_err_log(146, __FILE__, __LINE__); 
+      ock_log_err(OCK_E_MUTEX_LOCK);
       return FALSE;
    }
    node = priv_token_obj_list;
@@ -2051,7 +2051,7 @@ object_mgr_set_attribute_values( SESSION           * sess,
    }
    rc = MY_LockMutex( &obj_list_mutex );
    if (rc != CKR_OK){
-      st_err_log(146, __FILE__, __LINE__); 
+      ock_log_err(OCK_E_MUTEX_LOCK);
       return rc;
    }
    rc = object_mgr_find_in_map1( handle, &obj );

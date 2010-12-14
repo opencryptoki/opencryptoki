@@ -732,7 +732,7 @@ CK_RV SC_Finalize( CK_SLOT_ID sid )
 	}
 	rc = MY_LockMutex( &pkcs_mutex );
 	if (rc != CKR_OK){
-		st_err_log(146, __FILE__, __LINE__);
+		ock_log_err(OCK_E_MUTEX_LOCK);
 		return rc;
 	} 
 	// If somebody else has taken care of things, leave...
@@ -1371,7 +1371,7 @@ CK_RV SC_OpenSession(CK_SLOT_ID             sid,
 	// Get the mutex because we may modify the pid_list
 	rc = MY_LockMutex( &pkcs_mutex );
 	if (rc != CKR_OK){
-		st_err_log(146, __FILE__, __LINE__); 
+		ock_log_err(OCK_E_MUTEX_LOCK);
 		goto done;
 	}
 	locked = TRUE;
@@ -1610,7 +1610,7 @@ CK_RV SC_Login( ST_SESSION_HANDLE   sSession,
 	// specific flags may need to be set for a bad login. - KEY
 	rc = MY_LockMutex( &login_mutex );
 	if (rc != CKR_OK){
-	        st_err_log(146, __FILE__, __LINE__);
+	        ock_log_err(OCK_E_MUTEX_LOCK);
 		return CKR_FUNCTION_FAILED;
 	}
 	  

@@ -325,7 +325,7 @@ session_mgr_find( CK_SESSION_HANDLE handle )
 
    rc = MY_LockMutex( &sess_list_mutex );
    if (rc != CKR_OK){
-      st_err_log(146, __FILE__, __LINE__); 
+      ock_log_err(OCK_E_MUTEX_LOCK);
       return NULL;
    }
 
@@ -382,7 +382,7 @@ session_mgr_new( CK_ULONG flags, SESSION **sess )
 
    rc = MY_LockMutex( &pkcs_mutex );      // this protects next_session_handle
    if (rc != CKR_OK){
-      st_err_log(146, __FILE__, __LINE__);
+      ock_log_err(OCK_E_MUTEX_LOCK);
       return rc;
    }
    pkcs_locked = TRUE;
@@ -406,7 +406,7 @@ session_mgr_new( CK_ULONG flags, SESSION **sess )
 
    rc = MY_LockMutex( &sess_list_mutex );
    if (rc != CKR_OK){
-      st_err_log(146, __FILE__, __LINE__);
+      ock_log_err(OCK_E_MUTEX_LOCK);
       return rc;
    }
    sess_locked = TRUE;
@@ -467,7 +467,7 @@ session_mgr_so_session_exists( void )
    /* we must acquire sess_list_mutex in order to inspect glogal_login_state */
    rc = MY_LockMutex( &sess_list_mutex );
    if (rc != CKR_OK){
-      st_err_log(146, __FILE__, __LINE__); 
+      ock_log_err(OCK_E_MUTEX_LOCK);
       return FALSE;      // FIXME: make this function return proper errors
    }
 
@@ -493,7 +493,7 @@ session_mgr_user_session_exists( void )
    /* we must acquire sess_list_mutex in order to inspect glogal_login_state */
    rc = MY_LockMutex( &sess_list_mutex );
    if (rc != CKR_OK){
-      st_err_log(146, __FILE__, __LINE__); 
+      ock_log_err(OCK_E_MUTEX_LOCK);
       return FALSE;        // FIXME: return proper errors
    }
 
@@ -519,7 +519,7 @@ session_mgr_public_session_exists( void )
    /* we must acquire sess_list_mutex in order to inspect glogal_login_state */
    rc = MY_LockMutex( &sess_list_mutex );
    if (rc != CKR_OK){
-      st_err_log(146, __FILE__, __LINE__); 
+      ock_log_err(OCK_E_MUTEX_LOCK);
       return FALSE;      // FIXME: return proper errors
    }
 
@@ -544,7 +544,7 @@ session_mgr_readonly_session_exists( void )
    /* we must acquire sess_list_mutex in order to inspect glogal_login_state */
    rc = MY_LockMutex( &sess_list_mutex );
    if (rc != CKR_OK){
-      st_err_log(146, __FILE__, __LINE__); 
+      ock_log_err(OCK_E_MUTEX_LOCK);
       return rc;
    }
 
@@ -575,7 +575,7 @@ session_mgr_close_session( SESSION *sess )
 
    rc = MY_LockMutex( &sess_list_mutex );
    if (rc != CKR_OK){
-      st_err_log(146, __FILE__, __LINE__); 
+      ock_log_err(OCK_E_MUTEX_LOCK);
       return CKR_FUNCTION_FAILED;
    }
    node = dlist_find( sess_list, sess );
@@ -671,7 +671,7 @@ session_mgr_close_all_sessions( void )
 
    rc = MY_LockMutex( &sess_list_mutex );
    if (rc != CKR_OK){
-      st_err_log(146, __FILE__, __LINE__); 
+      ock_log_err(OCK_E_MUTEX_LOCK);
       return CKR_FUNCTION_FAILED;
    }
    while (sess_list) {
@@ -740,7 +740,7 @@ session_mgr_login_all( CK_USER_TYPE user_type )
 
    rc = MY_LockMutex( &sess_list_mutex );
    if (rc != CKR_OK){
-      st_err_log(146, __FILE__, __LINE__); 
+      ock_log_err(OCK_E_MUTEX_LOCK);
       return CKR_FUNCTION_FAILED;
    }
    node = sess_list;
@@ -780,7 +780,7 @@ session_mgr_logout_all( void )
 
    rc = MY_LockMutex( &sess_list_mutex );
    if (rc != CKR_OK){
-      st_err_log(146, __FILE__, __LINE__); 
+      ock_log_err(OCK_E_MUTEX_LOCK);
       return CKR_FUNCTION_FAILED;
    }
    node = sess_list;
