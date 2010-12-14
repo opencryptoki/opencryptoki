@@ -1552,7 +1552,7 @@ ckm_aes_ecb_encrypt( CK_BYTE     * in_data,
 				 key_value,key_len,1);
    
    if (rc != CKR_OK)
-      st_err_log(120, __FILE__, __LINE__);
+      ock_log_err(OCK_E_TOKEN_SPECIFIC_TDES_ECB);
    return rc;
 }
 
@@ -1584,7 +1584,7 @@ ckm_aes_ecb_decrypt( CK_BYTE     * in_data,
 				 key_value,key_len,0);
    
    if (rc != CKR_OK)
-      st_err_log(120, __FILE__, __LINE__);
+      ock_log_err(OCK_E_TOKEN_SPECIFIC_TDES_ECB);
 
    return rc;
 }
