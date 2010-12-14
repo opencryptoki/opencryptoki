@@ -80,7 +80,7 @@ rsa_pkcs_encrypt( SESSION           *sess,
 
    rc = ckm_rsa_encrypt( in_data, in_data_len, out_data, out_data_len, key_obj );
    if (rc != CKR_OK)
-      st_err_log(132, __FILE__, __LINE__);
+      ock_log_err(OCK_E_RSA_ENCRYPT);
    return rc;
 }
 
@@ -237,7 +237,7 @@ rsa_pkcs_verify( SESSION             * sess,
    }
    rc = ckm_rsa_verify( in_data, in_data_len, signature, sig_len, key_obj );
    if (rc != CKR_OK)
-      st_err_log(132, __FILE__, __LINE__);
+      ock_log_err(OCK_E_RSA_ENCRYPT);
 
    return rc;
 }
@@ -294,7 +294,7 @@ rsa_pkcs_verify_recover( SESSION             * sess,
    //
    rc = ckm_rsa_encrypt( signature, modulus_bytes, out_data, out_data_len, key_obj );
    if (rc != CKR_OK)
-      st_err_log(132, __FILE__, __LINE__);
+      ock_log_err(OCK_E_RSA_ENCRYPT);
 
    return rc;
 }

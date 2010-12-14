@@ -655,7 +655,7 @@ rsa_pkcs_encrypt( SESSION           *sess,
       *out_data_len = modulus_bytes;
    }
    else
-      st_err_log(132, __FILE__, __LINE__);
+      ock_log_err(OCK_E_RSA_ENCRYPT);
    return rc;
 }
 
@@ -861,7 +861,7 @@ rsa_pkcs_verify( SESSION             * sess,
       }
    }
    else
-      st_err_log(132, __FILE__, __LINE__);
+      ock_log_err(OCK_E_RSA_ENCRYPT);
 
    return rc;
 }
@@ -928,7 +928,7 @@ rsa_pkcs_verify_recover( SESSION             * sess,
       }
    }
    else
-      st_err_log(132, __FILE__, __LINE__);
+      ock_log_err(OCK_E_RSA_ENCRYPT);
 
    return rc;
 }
@@ -994,7 +994,7 @@ rsa_x509_encrypt( SESSION           *sess,
       *out_data_len = modulus_bytes;
    }
    else
-      st_err_log(132, __FILE__, __LINE__);
+      ock_log_err(OCK_E_RSA_ENCRYPT);
 
    return rc;
 }
@@ -1212,7 +1212,7 @@ rsa_x509_verify( SESSION             * sess,
       return CKR_OK;
    }
    else
-      st_err_log(132, __FILE__, __LINE__);
+      ock_log_err(OCK_E_RSA_ENCRYPT);
 
    return rc;
 }
@@ -1283,7 +1283,7 @@ rsa_x509_verify_recover( SESSION             * sess,
       return CKR_OK;
    }
    else
-      st_err_log(132, __FILE__, __LINE__);
+      ock_log_err(OCK_E_RSA_ENCRYPT);
 
    return rc;
 }
