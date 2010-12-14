@@ -2974,7 +2974,7 @@ CK_RV SC_DigestFinal( ST_SESSION_HANDLE  sSession,
                                 &sess->digest_ctx,
                                  pDigest, pulDigestLen );
    if (rc != CKR_OK){ 
-      st_err_log(126, __FILE__, __LINE__);
+      ock_log_err(OCK_E_DIGEST_FINAL);
    }
 
 done:

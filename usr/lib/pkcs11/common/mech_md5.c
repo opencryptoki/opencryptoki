@@ -540,7 +540,7 @@ md5_hmac_sign( SESSION              * sess,
    rc = digest_mgr_digest_final( sess, FALSE, &digest_ctx, hash, &hash_len );
    if (rc != CKR_OK)
    {
-      st_err_log(126, __FILE__, __LINE__);
+      ock_log_err(OCK_E_DIGEST_FINAL);
       return rc;
    }
 
@@ -574,7 +574,7 @@ md5_hmac_sign( SESSION              * sess,
    rc = digest_mgr_digest_final( sess, FALSE, &digest_ctx, hash, &hash_len );
    if (rc != CKR_OK)
    {
-      st_err_log(126, __FILE__, __LINE__);
+      ock_log_err(OCK_E_DIGEST_FINAL);
       return rc;
    }
 

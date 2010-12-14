@@ -569,7 +569,7 @@ md2_hmac_sign( SESSION              * sess,
    hash_len = sizeof(hash);
    rc = digest_mgr_digest_final( sess, FALSE, &digest_ctx, hash, &hash_len );
    if (rc != CKR_OK){
-      st_err_log(126, __FILE__, __LINE__);
+      ock_log_err(OCK_E_DIGEST_FINAL);
       return rc;
    }
    memset( &digest_ctx, 0x0, sizeof(DIGEST_CONTEXT) );
@@ -595,7 +595,7 @@ md2_hmac_sign( SESSION              * sess,
    hash_len = sizeof(hash);
    rc = digest_mgr_digest_final( sess, FALSE, &digest_ctx, hash, &hash_len );
    if (rc != CKR_OK){
-      st_err_log(126, __FILE__, __LINE__);
+      ock_log_err(OCK_E_DIGEST_FINAL);
       return rc;
    }
    memcpy( out_data, hash, hmac_len );

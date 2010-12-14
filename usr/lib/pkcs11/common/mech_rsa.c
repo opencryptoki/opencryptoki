@@ -1635,7 +1635,7 @@ rsa_hash_pkcs_sign_final( SESSION              * sess,
    hash_len = sizeof(hash);
    rc = digest_mgr_digest_final( sess, length_only, &context->hash_context, hash, &hash_len );
    if (rc != CKR_OK){
-      st_err_log(126, __FILE__, __LINE__);
+      ock_log_err(OCK_E_DIGEST_FINAL);
       return rc;
    }
    // Build the BER Encoded Data block
@@ -1729,7 +1729,7 @@ rsa_hash_pkcs_verify_final( SESSION              * sess,
    hash_len = sizeof(hash);
    rc = digest_mgr_digest_final( sess, FALSE, &context->hash_context, hash, &hash_len );
    if (rc != CKR_OK){
-      st_err_log(126, __FILE__, __LINE__);
+      ock_log_err(OCK_E_DIGEST_FINAL);
       return rc;
    }
    // Build the BER encoding

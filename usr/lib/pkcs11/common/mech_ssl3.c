@@ -433,7 +433,7 @@ ssl3_mac_sign( SESSION              * sess,
    hash_len = sizeof(hash);
    rc = digest_mgr_digest_final( sess, FALSE, &digest_ctx,  hash, &hash_len );
    if (rc != CKR_OK){
-      st_err_log(126, __FILE__, __LINE__);
+      ock_log_err(OCK_E_DIGEST_FINAL);
       return rc;
    }
    memset( &digest_ctx, 0x0, sizeof(DIGEST_CONTEXT) );
@@ -467,7 +467,7 @@ ssl3_mac_sign( SESSION              * sess,
    hash_len = sizeof(hash);
    rc = digest_mgr_digest_final( sess, FALSE, &digest_ctx, hash, &hash_len );
    if (rc != CKR_OK){
-      st_err_log(126, __FILE__, __LINE__);
+      ock_log_err(OCK_E_DIGEST_FINAL);
       return rc;
    }
    memcpy( out_data, hash, mac_len );
@@ -625,7 +625,7 @@ ssl3_mac_sign_final( SESSION              * sess,
    hash_len = sizeof(hash);
    rc = digest_mgr_digest_final( sess, FALSE, &context->hash_context, hash, &hash_len );
    if (rc != CKR_OK){
-      st_err_log(126, __FILE__, __LINE__);
+      ock_log_err(OCK_E_DIGEST_FINAL);
       return rc;
    }
    // now, do the outer hash
@@ -669,7 +669,7 @@ ssl3_mac_sign_final( SESSION              * sess,
    hash_len = sizeof(hash);
    rc = digest_mgr_digest_final( sess, FALSE, &context->hash_context, hash, &hash_len );
    if (rc != CKR_OK){
-      st_err_log(126, __FILE__, __LINE__);
+      ock_log_err(OCK_E_DIGEST_FINAL);
       return rc;
    }
    memcpy( out_data, hash, mac_len );
@@ -867,7 +867,7 @@ ssl3_mac_verify_final( SESSION              * sess,
    hash_len = sizeof(hash);
    rc = digest_mgr_digest_final( sess, FALSE, &context->hash_context, hash, &hash_len );
    if (rc != CKR_OK){
-      st_err_log(126, __FILE__, __LINE__);
+      ock_log_err(OCK_E_DIGEST_FINAL);
       return rc;
    }
    // now, do the outer hash
@@ -911,7 +911,7 @@ ssl3_mac_verify_final( SESSION              * sess,
    hash_len = sizeof(hash);
    rc = digest_mgr_digest_final( sess, FALSE, &context->hash_context, hash, &hash_len );
    if (rc != CKR_OK){
-      st_err_log(126, __FILE__, __LINE__);
+      ock_log_err(OCK_E_DIGEST_FINAL);
       return rc;
    }
    if ((mac_len != sig_len) || (mac_len > hash_len)){
@@ -1077,7 +1077,7 @@ ssl3_sha_then_md5( SESSION   * sess,
    len = sizeof(hash);
    rc = digest_mgr_digest_final( sess, FALSE, &digest_ctx, hash, &len );
    if (rc != CKR_OK){
-      st_err_log(126, __FILE__, __LINE__);
+      ock_log_err(OCK_E_DIGEST_FINAL);
       return rc;
    }
 
@@ -1110,7 +1110,7 @@ ssl3_sha_then_md5( SESSION   * sess,
       memcpy( outBuff, hash, len );
    }
    else
-      st_err_log(126, __FILE__, __LINE__);
+      ock_log_err(OCK_E_DIGEST_FINAL);
 
    return rc;
 }
@@ -1182,7 +1182,7 @@ ssl3_md5_only( SESSION   * sess,
    rc = digest_mgr_digest_final( sess, FALSE, &digest_ctx, hash, &len );
 
    if (rc == CKR_OK){
-      st_err_log(126, __FILE__, __LINE__);
+      ock_log_err(OCK_E_DIGEST_FINAL);
       memcpy( outBuff, hash, len );
    }
 
