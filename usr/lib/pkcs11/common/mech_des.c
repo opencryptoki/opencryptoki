@@ -382,7 +382,7 @@ des_ecb_decrypt( SESSION           *sess,
    // multiple of the block size
    //
    if (in_data_len % DES_BLOCK_SIZE != 0){
-      st_err_log(112, __FILE__, __LINE__);
+      ock_log_err(OCK_E_ENCRYPT_DATA_LEN2);
       return CKR_ENCRYPTED_DATA_LEN_RANGE;
    }
    rc = object_mgr_find_in_map1( ctx->key, &key );
@@ -489,7 +489,7 @@ des_cbc_decrypt( SESSION            *sess,
    // multiple of the block size
    //
    if (in_data_len % DES_BLOCK_SIZE != 0){
-      st_err_log(112, __FILE__, __LINE__);
+      ock_log_err(OCK_E_ENCRYPT_DATA_LEN2);
       return CKR_ENCRYPTED_DATA_LEN_RANGE;
    }
    rc = object_mgr_find_in_map1( ctx->key, &key );
@@ -632,7 +632,7 @@ des_cbc_pad_decrypt( SESSION            *sess,
    // number of block to decrypt
    //
    if (in_data_len % DES_BLOCK_SIZE != 0){
-      st_err_log(112, __FILE__, __LINE__);
+      ock_log_err(OCK_E_ENCRYPT_DATA_LEN2);
       return CKR_ENCRYPTED_DATA_LEN_RANGE;
    }
    // the amount of cleartext after stripping the padding will actually be less
@@ -1501,7 +1501,7 @@ des_cbc_pad_decrypt_final( SESSION           *sess,
    // there had better be a full block in the context buffer
    //
    if (context->len != DES_BLOCK_SIZE){
-      st_err_log(112, __FILE__, __LINE__);
+      ock_log_err(OCK_E_ENCRYPT_DATA_LEN2);
       return CKR_ENCRYPTED_DATA_LEN_RANGE;
    }
    // we don't know a priori how much data we'll be returning.  we won't

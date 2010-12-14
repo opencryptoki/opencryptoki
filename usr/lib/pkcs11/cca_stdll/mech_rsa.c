@@ -118,7 +118,7 @@ rsa_pkcs_decrypt( SESSION           *sess,
    // check input data length restrictions
    //
    if (in_data_len != modulus_bytes){
-      st_err_log(112, __FILE__, __LINE__);
+      ock_log_err(OCK_E_ENCRYPT_DATA_LEN2);
       return CKR_ENCRYPTED_DATA_LEN_RANGE;
    }
    if (length_only == TRUE) {

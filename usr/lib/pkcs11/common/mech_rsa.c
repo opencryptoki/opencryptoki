@@ -687,7 +687,7 @@ rsa_pkcs_decrypt( SESSION           *sess,
    // check input data length restrictions
    //
    if (in_data_len != modulus_bytes){
-      st_err_log(112, __FILE__, __LINE__);
+      ock_log_err(OCK_E_ENCRYPT_DATA_LEN2);
       return CKR_ENCRYPTED_DATA_LEN_RANGE;
    }
    if (length_only == TRUE) {
@@ -707,7 +707,7 @@ rsa_pkcs_decrypt( SESSION           *sess,
    rc = ckm_rsa_decrypt( in_data, modulus_bytes, out, key_obj );
    if (rc != CKR_OK) {
       if (rc == CKR_DATA_LEN_RANGE) {
-         st_err_log(112, __FILE__, __LINE__);
+         ock_log_err(OCK_E_ENCRYPT_DATA_LEN2);
          return CKR_ENCRYPTED_DATA_LEN_RANGE;
       }
 
@@ -726,7 +726,7 @@ rsa_pkcs_decrypt( SESSION           *sess,
     * modulus_bytes - 11.
     */
    if (*out_data_len > (modulus_bytes - 11)) {
-      st_err_log(112, __FILE__, __LINE__);
+      ock_log_err(OCK_E_ENCRYPT_DATA_LEN2);
       return CKR_ENCRYPTED_DATA_LEN_RANGE;
    }
 
@@ -1035,7 +1035,7 @@ rsa_x509_decrypt( SESSION           *sess,
    // check input data length restrictions
    //
    if (in_data_len != modulus_bytes){
-      st_err_log(112, __FILE__, __LINE__);
+      ock_log_err(OCK_E_ENCRYPT_DATA_LEN2);
       return CKR_ENCRYPTED_DATA_LEN_RANGE;
    }
    if (length_only == TRUE) {
@@ -1064,7 +1064,7 @@ rsa_x509_decrypt( SESSION           *sess,
    // the return code accordingly
    //
    if (rc == CKR_DATA_LEN_RANGE){
-      st_err_log(112, __FILE__, __LINE__);
+      ock_log_err(OCK_E_ENCRYPT_DATA_LEN2);
       return CKR_ENCRYPTED_DATA_LEN_RANGE;
    }
    return rc;
