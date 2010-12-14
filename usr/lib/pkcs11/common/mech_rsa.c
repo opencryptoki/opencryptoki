@@ -711,13 +711,13 @@ rsa_pkcs_decrypt( SESSION           *sess,
          return CKR_ENCRYPTED_DATA_LEN_RANGE;
       }
 
-      st_err_log(133, __FILE__, __LINE__);
+      ock_log_err(OCK_E_RSA_DECRYPT);
       return rc;
    }
 
    rc = rsa_parse_block(out, modulus_bytes, out_data, out_data_len, PKCS_BT_2);
    if (rc != CKR_OK) {
-      st_err_log(133, __FILE__, __LINE__);
+      ock_log_err(OCK_E_RSA_DECRYPT);
       return rc;
    }
 
@@ -792,7 +792,7 @@ rsa_pkcs_sign( SESSION             *sess,
       *out_data_len = modulus_bytes;
    }
    else
-      st_err_log(133, __FILE__, __LINE__);
+      ock_log_err(OCK_E_RSA_DECRYPT);
    return rc;
 }
 
@@ -1059,7 +1059,7 @@ rsa_x509_decrypt( SESSION           *sess,
       *out_data_len = modulus_bytes;
    }
    else
-      st_err_log(133, __FILE__, __LINE__);
+      ock_log_err(OCK_E_RSA_DECRYPT);
    // ckm_rsa_operation is used for all RSA operations so we need to adjust
    // the return code accordingly
    //
@@ -1135,7 +1135,7 @@ rsa_x509_sign( SESSION             *sess,
       *out_data_len = modulus_bytes;
    }
    else
-      st_err_log(133, __FILE__, __LINE__);
+      ock_log_err(OCK_E_RSA_DECRYPT);
    return rc;
 }
 

@@ -131,7 +131,7 @@ rsa_pkcs_decrypt( SESSION           *sess,
 
    rc = ckm_rsa_decrypt( in_data, modulus_bytes, out_data, out_data_len, key_obj );
    if (rc != CKR_OK)
-      st_err_log(133, __FILE__, __LINE__);
+      ock_log_err(OCK_E_RSA_DECRYPT);
 
    if (rc == CKR_DATA_LEN_RANGE){
       ock_log_err(OCK_E_DATA_LEN2);
@@ -194,7 +194,7 @@ rsa_pkcs_sign( SESSION             *sess,
 
    rc = ckm_rsa_sign( in_data, in_data_len, out_data, out_data_len, key_obj );
    if (rc != CKR_OK)
-      st_err_log(133, __FILE__, __LINE__);
+      ock_log_err(OCK_E_RSA_DECRYPT);
    return rc;
 }
 
