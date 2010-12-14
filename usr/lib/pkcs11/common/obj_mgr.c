@@ -1207,7 +1207,7 @@ object_mgr_find_in_map_nocache( CK_OBJECT_HANDLE    handle,
    }
 
    if (!handle) {
-      st_err_log(30, __FILE__, __LINE__);
+      ock_log_err(OCK_E_OBJ_HANDLE_INV);
       return CKR_OBJECT_HANDLE_INVALID;
    }
 
@@ -1236,7 +1236,7 @@ object_mgr_find_in_map_nocache( CK_OBJECT_HANDLE    handle,
    }
 
    if (obj == NULL) {
-      st_err_log(30, __FILE__, __LINE__);
+      ock_log_err(OCK_E_OBJ_HANDLE_INV);
       return CKR_OBJECT_HANDLE_INVALID;
    }
 
@@ -1278,7 +1278,7 @@ object_mgr_find_in_map1( CK_OBJECT_HANDLE    handle,
    *ptr = NULL;
 
    if (!handle){
-      st_err_log(30, __FILE__, __LINE__);
+      ock_log_err(OCK_E_OBJ_HANDLE_INV);
       return CKR_OBJECT_HANDLE_INVALID;
    }
    //
@@ -1307,7 +1307,7 @@ object_mgr_find_in_map1( CK_OBJECT_HANDLE    handle,
 
 
    if (obj == NULL) {
-      st_err_log(30, __FILE__, __LINE__);
+      ock_log_err(OCK_E_OBJ_HANDLE_INV);
       return CKR_OBJECT_HANDLE_INVALID;
    }
 
@@ -1366,7 +1366,7 @@ object_mgr_find_in_map2( OBJECT           * obj,
    pthread_rwlock_unlock(&obj_list_rw_mutex);
 
    if (node == NULL) {
-//      st_err_log(30, __FILE__, __LINE__); 
+//      ock_log_err(OCK_E_OBJ_HANDLE_INV);
       return CKR_OBJECT_HANDLE_INVALID;
    }
 
@@ -1676,7 +1676,7 @@ object_mgr_get_object_size( CK_OBJECT_HANDLE   handle,
    }
    rc = object_mgr_find_in_map1( handle, &obj );
    if (rc != CKR_OK) {
-      st_err_log(30, __FILE__, __LINE__);
+      ock_log_err(OCK_E_OBJ_HANDLE_INV);
       rc = CKR_OBJECT_HANDLE_INVALID;
       goto done;
    }
