@@ -541,7 +541,7 @@ save_public_token_object( OBJECT *obj )
 
    rc = object_flatten( obj, &cleartxt, &cleartxt_len );
    if (rc != CKR_OK){
-      // st_err_log(101, __FILE__, __LINE__);
+      // ock_log_err(OCK_E_FLATTEN_OBJ);
       goto error;
    }
    fp = fopen( (char *)fname, "w" );
@@ -597,7 +597,7 @@ save_private_token_object( OBJECT *obj )
    rc = object_flatten( obj, &obj_data, &obj_data_len );
    obj_data_len_32 = obj_data_len;
    if (rc != CKR_OK){
-      // st_err_log(101, __FILE__, __LINE__);
+      // ock_log_err(OCK_E_FLATTEN_OBJ);
       goto error;
    }
    //

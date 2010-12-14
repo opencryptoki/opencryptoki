@@ -1215,7 +1215,7 @@ CKO_PRIVATE_KEY)){
    if (keyclass == CKO_PRIVATE_KEY) {
       rc = key_mgr_get_private_key_type( data, data_len, &keytype );
       if (rc != CKR_OK){
-         st_err_log(101, __FILE__, __LINE__);
+         ock_log_err(OCK_E_FLATTEN_OBJ);
          goto error;
       }
    }
