@@ -1653,7 +1653,7 @@ template_validate_attributes( TEMPLATE * tmpl,
 
       rc = template_validate_attribute( tmpl, attr, class, subclass, mode );
       if (rc != CKR_OK){
-         st_err_log(140, __FILE__, __LINE__); 
+         ock_log_err(OCK_E_VALIDATE_ATTR);
          return rc;
       }
       node = node->next;

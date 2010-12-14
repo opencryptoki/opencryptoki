@@ -2117,7 +2117,7 @@ ssl3_kmd_process_write_keys( SESSION           * sess,
                                                keytype,
                                                MODE_CREATE );
             if (rc != CKR_OK){
-               st_err_log(140, __FILE__, __LINE__); 
+               ock_log_err(OCK_E_VALIDATE_ATTR);
                goto error;
             }
             template_update_attribute( client_obj->template, client_val_attr );
@@ -2147,7 +2147,7 @@ ssl3_kmd_process_write_keys( SESSION           * sess,
                                                keytype,
                                                MODE_CREATE );
             if (rc != CKR_OK){
-               st_err_log(140, __FILE__, __LINE__); 
+               ock_log_err(OCK_E_VALIDATE_ATTR);
                goto error;
             }
             template_update_attribute( client_obj->template, client_val_attr );
