@@ -3814,7 +3814,7 @@ CK_RV SC_WrapKey( ST_SESSION_HANDLE  sSession,
 			       hWrappingKey, hKey,
 			       pWrappedKey,  pulWrappedKeyLen );
 	if (rc != CKR_OK){ 
-		st_err_log(188, __FILE__, __LINE__);
+		ock_log_err(OCK_E_WRAP_KEY);
 	}
 
  done:
