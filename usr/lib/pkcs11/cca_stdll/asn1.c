@@ -851,7 +851,7 @@ ber_encode_PrivateKeyInfo( CK_BBOOL    length_only,
 
    rc = ber_encode_OCTET_STRING( TRUE, NULL, &total, priv_key, priv_key_len );
    if (rc != CKR_OK){
-      st_err_log(77, __FILE__, __LINE__);
+      ock_log_err(OCK_E_ENCODE_OSTRING);
       return rc;
    }
    else
@@ -891,7 +891,7 @@ ber_encode_PrivateKeyInfo( CK_BBOOL    length_only,
 
    rc = ber_encode_OCTET_STRING( FALSE, &tmp, &total, priv_key, priv_key_len );
    if (rc != CKR_OK){
-      st_err_log(77, __FILE__, __LINE__);
+      ock_log_err(OCK_E_ENCODE_OSTRING);
       goto error;
    }
    memcpy( buf+len, tmp, total );

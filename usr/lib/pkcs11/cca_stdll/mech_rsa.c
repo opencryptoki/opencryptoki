@@ -368,7 +368,7 @@ rsa_hash_pkcs_sign( SESSION              * sess,
      
     rc = ber_encode_OCTET_STRING( FALSE, &octet_str, &octet_str_len, hash, hash_len );
     if (rc != CKR_OK){
-       st_err_log(77, __FILE__, __LINE__);
+       ock_log_err(OCK_E_ENCODE_OSTRING);
        goto error;
     }
     tmp = (CK_BYTE *)buf1;
@@ -518,7 +518,7 @@ rsa_hash_pkcs_verify( SESSION              * sess,
    //
    rc = ber_encode_OCTET_STRING( FALSE, &octet_str, &octet_str_len, hash, hash_len );
    if (rc != CKR_OK){
-      st_err_log(77, __FILE__, __LINE__);
+      ock_log_err(OCK_E_ENCODE_OSTRING);
       goto done;
    }
    tmp = (CK_BYTE *)buf1;
@@ -653,7 +653,7 @@ rsa_hash_pkcs_sign_final( SESSION              * sess,
    //
    rc = ber_encode_OCTET_STRING( FALSE, &octet_str, &octet_str_len, hash, hash_len );
    if (rc != CKR_OK){
-      st_err_log(77, __FILE__, __LINE__);
+      ock_log_err(OCK_E_ENCODE_OSTRING);
       goto done;
    }
    tmp = (CK_BYTE *)buf1;
@@ -747,7 +747,7 @@ rsa_hash_pkcs_verify_final( SESSION              * sess,
    //
    rc = ber_encode_OCTET_STRING( FALSE, &octet_str, &octet_str_len, hash, hash_len );
    if (rc != CKR_OK){
-      st_err_log(77, __FILE__, __LINE__);
+      ock_log_err(OCK_E_ENCODE_OSTRING);
       goto done;
    }
    tmp = (CK_BYTE *)buf1;
