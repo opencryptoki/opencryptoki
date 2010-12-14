@@ -1761,7 +1761,7 @@ FALSE){
                                   exponent1, exponent2,
                                   coeff );
    if (rc != CKR_OK){
-      st_err_log(87, __FILE__, __LINE__);
+      ock_log_err(OCK_E_ENCODE_PRIVKEY2);
    }
    return rc;
 }
@@ -2234,7 +2234,7 @@ dsa_priv_wrap_get_data( TEMPLATE  *tmpl,
    rc = ber_encode_DSAPrivateKey( length_only, data, data_len,
                                   prime, subprime, base, value );
    if (rc != CKR_OK){
-      st_err_log(87, __FILE__, __LINE__);
+      ock_log_err(OCK_E_ENCODE_PRIVKEY2);
    }
 
    return rc;
