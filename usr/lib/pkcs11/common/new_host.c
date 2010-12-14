@@ -4235,7 +4235,7 @@ CK_RV SC_DeriveKey( ST_SESSION_HANDLE     sSession,
 				 hBaseKey,  phKey,
 				 pTemplate, ulCount );
 	if (rc != CKR_OK){ 
-		st_err_log(190, __FILE__, __LINE__);
+		ock_log_err(OCK_E_DERIVE);
 	}
 
  done:
