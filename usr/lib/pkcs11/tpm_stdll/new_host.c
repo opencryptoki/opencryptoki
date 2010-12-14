@@ -1138,7 +1138,7 @@ CK_RV SC_SetPIN( ST_SESSION_HANDLE  sSession,
        * If so, reset the CKF_USER_PIN_TO_BE_CHANGED flag. -KEY 
        */
       if (memcmp(old_hash_sha, new_hash_sha, SHA1_HASH_SIZE) == 0) {
-	 st_err_log(34, __FILE__, __LINE__);
+	 ock_log_err(OCK_E_PIN_INV);
 	 rc = CKR_PIN_INVALID;
 	 goto done;
       }
@@ -1181,7 +1181,7 @@ CK_RV SC_SetPIN( ST_SESSION_HANDLE  sSession,
        * If so, reset the CKF_SO_PIN_TO_BE_CHANGED flag. - KEY 
        */
       if (memcmp(old_hash_sha, new_hash_sha, SHA1_HASH_SIZE) == 0) {
-	 st_err_log(34, __FILE__, __LINE__);
+	 ock_log_err(OCK_E_PIN_INV);
 	 rc = CKR_PIN_INVALID;
 	 goto done;
       }
