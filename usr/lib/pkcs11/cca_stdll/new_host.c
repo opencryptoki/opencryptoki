@@ -1664,7 +1664,7 @@ CK_RV SC_DestroyObject( ST_SESSION_HANDLE  sSession,
    
 	rc = object_mgr_destroy_object( sess, hObject );
 	if (rc != CKR_OK){
-		st_err_log(182, __FILE__, __LINE__);
+		ock_log_err(OCK_E_OBJ_MGR_DESTROY);
 	}
  done:
 	LLOCK;
