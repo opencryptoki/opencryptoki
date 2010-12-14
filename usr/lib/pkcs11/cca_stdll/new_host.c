@@ -570,7 +570,7 @@ CK_RV SC_GetTokenInfo( CK_SLOT_ID         sid,
 		goto done;
 	}
 	if (slot_id > MAX_SLOT_ID) {
-		st_err_log(2, __FILE__, __LINE__); 
+		ock_log_err(OCK_E_SLOT_INV);
 		rc = CKR_SLOT_ID_INVALID;
 		goto done;
 	}
@@ -663,7 +663,7 @@ CK_RV SC_GetMechanismList(CK_SLOT_ID sid,
 		goto out;
 	}
 	if (slot_id > MAX_SLOT_ID) {
-		st_err_log(2, __FILE__, __LINE__); 
+		ock_log_err(OCK_E_SLOT_INV);
 		rc = CKR_SLOT_ID_INVALID;
 		goto out;
 	}
@@ -709,7 +709,7 @@ CK_RV SC_GetMechanismInfo(CK_SLOT_ID sid,
 		goto out;
 	}
 	if (slot_id > MAX_SLOT_ID) {
-		st_err_log(2, __FILE__, __LINE__); 
+		ock_log_err(OCK_E_SLOT_INV);
 		rc = CKR_SLOT_ID_INVALID;
 		goto out;
 	}
@@ -1078,7 +1078,7 @@ CK_RV SC_OpenSession(CK_SLOT_ID             sid,
 		goto done;
 	}
 	if (slot_id > MAX_SLOT_ID) {
-		st_err_log(2, __FILE__, __LINE__); 
+		ock_log_err(OCK_E_SLOT_INV);
 		rc = CKR_SLOT_ID_INVALID;
 		goto done;
 	}

@@ -419,7 +419,7 @@ C_CloseAllSessions ( CK_SLOT_ID slotID )
    }
 
    if (slotID >= NUMBER_SLOTS_MANAGED ) {
-      st_err_log(2, __FILE__, __LINE__);
+      ock_log_err(OCK_E_SLOT_INV);
       return CKR_SLOT_ID_INVALID;
    }
 
@@ -2586,7 +2586,7 @@ C_GetMechanismInfo ( CK_SLOT_ID            slotID,
    }
 
    if ( slotID >= NUMBER_SLOTS_MANAGED ) {
-      st_err_log(2, __FILE__, __LINE__);
+      ock_log_err(OCK_E_SLOT_INV);
       return CKR_SLOT_ID_INVALID;
    }
 
@@ -2645,7 +2645,7 @@ C_GetMechanismList ( CK_SLOT_ID            slotID,
    // Null PMechanism is valid to get a count of mechanisms
 
    if (slotID >= NUMBER_SLOTS_MANAGED ) {
-      st_err_log(2, __FILE__, __LINE__);
+      ock_log_err(OCK_E_SLOT_INV);
       return CKR_SLOT_ID_INVALID;
    }
 
@@ -2916,7 +2916,7 @@ C_GetSlotInfo ( CK_SLOT_ID       slotID,
    count = 0;
 
    if (slotID >= NUMBER_SLOTS_MANAGED ) {
-      st_err_log(2, __FILE__, __LINE__);
+      ock_log_err(OCK_E_SLOT_INV);
       return CKR_SLOT_ID_INVALID;
    }
    // Netscape and others appear to call
@@ -2985,7 +2985,7 @@ C_GetSlotInfo ( CK_SLOT_ID       slotID,
    count = 0;
 
    if (slotID >= NUMBER_SLOTS_MANAGED ) {
-      st_err_log(2, __FILE__, __LINE__);
+      ock_log_err(OCK_E_SLOT_INV);
       return CKR_SLOT_ID_INVALID;
    }
    // Netscape and others appear to call
@@ -3189,7 +3189,7 @@ C_GetTokenInfo ( CK_SLOT_ID        slotID,
       return CKR_ARGUMENTS_BAD;
    }
    if (slotID >= NUMBER_SLOTS_MANAGED ) {
-      st_err_log(2, __FILE__, __LINE__);
+      ock_log_err(OCK_E_SLOT_INV);
       return CKR_SLOT_ID_INVALID;
    }
 
@@ -3483,7 +3483,7 @@ C_InitPIN ( CK_SESSION_HANDLE hSession,
 
    // Move this to after the session validation...
    if (slotID >= NUMBER_SLOTS_MANAGED ) {
-      st_err_log(2, __FILE__, __LINE__);
+      ock_log_err(OCK_E_SLOT_INV);
       return CKR_SLOT_ID_INVALID;
    }
 
@@ -3534,7 +3534,7 @@ C_InitToken ( CK_SLOT_ID  slotID,
    }
 
    if (slotID >= NUMBER_SLOTS_MANAGED ) {
-      st_err_log(2, __FILE__, __LINE__);
+      ock_log_err(OCK_E_SLOT_INV);
       return CKR_SLOT_ID_INVALID;
    }
 
@@ -3746,7 +3746,7 @@ C_OpenSession ( CK_SLOT_ID            slotID,
    }
 
    if (slotID >= NUMBER_SLOTS_MANAGED ) {
-      st_err_log(2, __FILE__, __LINE__);
+      ock_log_err(OCK_E_SLOT_INV);
       return CKR_SLOT_ID_INVALID;
    }
 
