@@ -508,7 +508,7 @@ md2_hmac_sign( SESSION              * sess,
 
       rc = digest_mgr_init( sess, &digest_ctx, &digest_mech );
       if (rc != CKR_OK){
-         st_err_log(123, __FILE__, __LINE__);
+         ock_log_err(OCK_E_DIGEST_INIT);
          return rc;
       }
       hash_len = sizeof(hash);
@@ -553,7 +553,7 @@ md2_hmac_sign( SESSION              * sess,
    //
    rc = digest_mgr_init( sess, &digest_ctx, &digest_mech );
    if (rc != CKR_OK){
-      st_err_log(123, __FILE__, __LINE__);
+      ock_log_err(OCK_E_DIGEST_INIT);
       return rc;
    }
    rc = digest_mgr_digest_update( sess, &digest_ctx, k_ipad, MD2_BLOCK_SIZE );
@@ -563,7 +563,7 @@ md2_hmac_sign( SESSION              * sess,
    }
    rc = digest_mgr_digest_update( sess, &digest_ctx, in_data, in_data_len );
    if (rc != CKR_OK){
-      st_err_log(123, __FILE__, __LINE__);
+      ock_log_err(OCK_E_DIGEST_INIT);
       return rc;
    }
    hash_len = sizeof(hash);
@@ -579,17 +579,17 @@ md2_hmac_sign( SESSION              * sess,
    //
    rc = digest_mgr_init( sess, &digest_ctx, &digest_mech );
    if (rc != CKR_OK){
-      st_err_log(123, __FILE__, __LINE__);
+      ock_log_err(OCK_E_DIGEST_INIT);
       return rc;
    }
    rc = digest_mgr_digest_update( sess, &digest_ctx, k_opad, MD2_BLOCK_SIZE );
    if (rc != CKR_OK){
-      st_err_log(123, __FILE__, __LINE__);
+      ock_log_err(OCK_E_DIGEST_INIT);
       return rc;
    }
    rc = digest_mgr_digest_update( sess, &digest_ctx, hash, hash_len );
    if (rc != CKR_OK){
-      st_err_log(123, __FILE__, __LINE__);
+      ock_log_err(OCK_E_DIGEST_INIT);
       return rc;
    }
    hash_len = sizeof(hash);

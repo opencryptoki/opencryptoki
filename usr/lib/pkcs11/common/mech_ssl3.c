@@ -407,12 +407,12 @@ ssl3_mac_sign( SESSION              * sess,
    //
    rc = digest_mgr_init( sess, &digest_ctx, &digest_mech );
    if (rc != CKR_OK){
-      st_err_log(123, __FILE__, __LINE__);
+      ock_log_err(OCK_E_DIGEST_INIT);
       return rc;
    }
    rc = digest_mgr_digest_update( sess, &digest_ctx, key_data, key_bytes );
    if (rc != CKR_OK){
-      st_err_log(123, __FILE__, __LINE__);
+      ock_log_err(OCK_E_DIGEST_INIT);
       return rc;
    }
    if (ctx->mech.mechanism == CKM_SSL3_MD5_MAC){
@@ -422,12 +422,12 @@ ssl3_mac_sign( SESSION              * sess,
       rc = digest_mgr_digest_update( sess, &digest_ctx, inner, 40 );
    }
    if (rc != CKR_OK){
-      st_err_log(123, __FILE__, __LINE__);
+      ock_log_err(OCK_E_DIGEST_INIT);
       return rc;
    }
    rc = digest_mgr_digest_update( sess, &digest_ctx, in_data, in_data_len );
    if (rc != CKR_OK){
-      st_err_log(123, __FILE__, __LINE__);
+      ock_log_err(OCK_E_DIGEST_INIT);
       return rc;
    }
    hash_len = sizeof(hash);
@@ -443,12 +443,12 @@ ssl3_mac_sign( SESSION              * sess,
    //
    rc = digest_mgr_init( sess, &digest_ctx, &digest_mech );
    if (rc != CKR_OK){
-      st_err_log(123, __FILE__, __LINE__);
+      ock_log_err(OCK_E_DIGEST_INIT);
       return rc;
    }
    rc = digest_mgr_digest_update( sess, &digest_ctx, key_data, key_bytes );
    if (rc != CKR_OK){
-      st_err_log(123, __FILE__, __LINE__);
+      ock_log_err(OCK_E_DIGEST_INIT);
       return rc;
    }
    if (ctx->mech.mechanism == CKM_SSL3_MD5_MAC)
@@ -456,12 +456,12 @@ ssl3_mac_sign( SESSION              * sess,
    else
       rc = digest_mgr_digest_update( sess, &digest_ctx, outer, 40 );
    if (rc != CKR_OK){
-      st_err_log(123, __FILE__, __LINE__);
+      ock_log_err(OCK_E_DIGEST_INIT);
       return rc;
    }
    rc = digest_mgr_digest_update( sess, &digest_ctx, hash, hash_len );
    if (rc != CKR_OK){
-      st_err_log(123, __FILE__, __LINE__);
+      ock_log_err(OCK_E_DIGEST_INIT);
       return rc;
    }
    hash_len = sizeof(hash);
@@ -535,12 +535,12 @@ ssl3_mac_sign_update( SESSION              * sess,
       //
       rc = digest_mgr_init( sess, &context->hash_context, &digest_mech );
       if (rc != CKR_OK){
-         st_err_log(123, __FILE__, __LINE__);
+         ock_log_err(OCK_E_DIGEST_INIT);
          return rc;
       }
       rc = digest_mgr_digest_update( sess, &context->hash_context, key_data, key_bytes );
       if (rc != CKR_OK){
-         st_err_log(123, __FILE__, __LINE__);
+         ock_log_err(OCK_E_DIGEST_INIT);
          return rc;
       }
       if (ctx->mech.mechanism == CKM_SSL3_MD5_MAC)
@@ -548,7 +548,7 @@ ssl3_mac_sign_update( SESSION              * sess,
       else
          rc = digest_mgr_digest_update( sess, &context->hash_context, inner, 40 );
       if (rc != CKR_OK){
-         st_err_log(123, __FILE__, __LINE__);
+         ock_log_err(OCK_E_DIGEST_INIT);
          return rc;
       }
       context->flag = TRUE;
@@ -557,7 +557,7 @@ ssl3_mac_sign_update( SESSION              * sess,
 
    rc = digest_mgr_digest_update( sess, &context->hash_context, in_data, in_data_len );
    if (rc != CKR_OK){
-      st_err_log(123, __FILE__, __LINE__);
+      ock_log_err(OCK_E_DIGEST_INIT);
       return rc;
    }
 
@@ -644,12 +644,12 @@ ssl3_mac_sign_final( SESSION              * sess,
 
    rc = digest_mgr_init( sess, &context->hash_context, &digest_mech );
    if (rc != CKR_OK){
-      st_err_log(123, __FILE__, __LINE__);
+      ock_log_err(OCK_E_DIGEST_INIT);
       return rc;
    }
    rc = digest_mgr_digest_update( sess, &context->hash_context, key_data, key_bytes );
    if (rc != CKR_OK){
-      st_err_log(123, __FILE__, __LINE__);
+      ock_log_err(OCK_E_DIGEST_INIT);
       return rc;
    }
    if (ctx->mech.mechanism == CKM_SSL3_MD5_MAC)
@@ -658,12 +658,12 @@ ssl3_mac_sign_final( SESSION              * sess,
       rc = digest_mgr_digest_update( sess, &context->hash_context, outer, 40 );
 
    if (rc != CKR_OK){
-      st_err_log(123, __FILE__, __LINE__);
+      ock_log_err(OCK_E_DIGEST_INIT);
       return rc;
    }
    rc = digest_mgr_digest_update( sess, &context->hash_context, hash, hash_len );
    if (rc != CKR_OK){
-      st_err_log(123, __FILE__, __LINE__);
+      ock_log_err(OCK_E_DIGEST_INIT);
       return rc;
    }
    hash_len = sizeof(hash);
@@ -790,12 +790,12 @@ ssl3_mac_verify_update( SESSION              * sess,
       //
       rc = digest_mgr_init( sess, &context->hash_context, &digest_mech );
       if (rc != CKR_OK){
-         st_err_log(123, __FILE__, __LINE__);
+         ock_log_err(OCK_E_DIGEST_INIT);
          return rc;
       }
       rc = digest_mgr_digest_update( sess, &context->hash_context, key_data, key_bytes );
       if (rc != CKR_OK){
-         st_err_log(123, __FILE__, __LINE__);
+         ock_log_err(OCK_E_DIGEST_INIT);
          return rc;
       }
       if (ctx->mech.mechanism == CKM_SSL3_MD5_MAC)
@@ -803,7 +803,7 @@ ssl3_mac_verify_update( SESSION              * sess,
       else
          rc = digest_mgr_digest_update( sess, &context->hash_context, inner, 40 );
       if (rc != CKR_OK){
-         st_err_log(123, __FILE__, __LINE__);
+         ock_log_err(OCK_E_DIGEST_INIT);
          return rc;
       }
       context->flag = TRUE;
@@ -811,7 +811,7 @@ ssl3_mac_verify_update( SESSION              * sess,
 
    rc = digest_mgr_digest_update( sess, &context->hash_context, in_data, in_data_len );
    if (rc != CKR_OK){
-      st_err_log(123, __FILE__, __LINE__);
+      ock_log_err(OCK_E_DIGEST_INIT);
       return rc;
    }
 
@@ -886,12 +886,12 @@ ssl3_mac_verify_final( SESSION              * sess,
 
    rc = digest_mgr_init( sess, &context->hash_context, &digest_mech );
    if (rc != CKR_OK){
-      st_err_log(123, __FILE__, __LINE__);
+      ock_log_err(OCK_E_DIGEST_INIT);
       return rc;
    }
    rc = digest_mgr_digest_update( sess, &context->hash_context, key_data, key_bytes );
    if (rc != CKR_OK){
-      st_err_log(123, __FILE__, __LINE__);
+      ock_log_err(OCK_E_DIGEST_INIT);
       return rc;
    }
    if (ctx->mech.mechanism == CKM_SSL3_MD5_MAC)
@@ -900,12 +900,12 @@ ssl3_mac_verify_final( SESSION              * sess,
       rc = digest_mgr_digest_update( sess, &context->hash_context, outer, 40 );
 
    if (rc != CKR_OK){
-      st_err_log(123, __FILE__, __LINE__);
+      ock_log_err(OCK_E_DIGEST_INIT);
       return rc;
    }
    rc = digest_mgr_digest_update( sess, &context->hash_context, hash, hash_len );
    if (rc != CKR_OK){
-      st_err_log(123, __FILE__, __LINE__);
+      ock_log_err(OCK_E_DIGEST_INIT);
       return rc;
    }
    hash_len = sizeof(hash);
@@ -1042,7 +1042,7 @@ ssl3_sha_then_md5( SESSION   * sess,
 
    rc = digest_mgr_init( sess, &digest_ctx, &digest_mech );
    if (rc != CKR_OK){
-      st_err_log(123, __FILE__, __LINE__);
+      ock_log_err(OCK_E_DIGEST_INIT);
       return rc;
    }
    rc = digest_mgr_digest_update( sess,
@@ -1050,12 +1050,12 @@ ssl3_sha_then_md5( SESSION   * sess,
                                   variableData,
                                   variableDataLen );
    if (rc != CKR_OK){
-      st_err_log(123, __FILE__, __LINE__);
+      ock_log_err(OCK_E_DIGEST_INIT);
       return rc;
    }
    rc = digest_mgr_digest_update( sess, &digest_ctx, secret, 48 );
    if (rc != CKR_OK){
-      st_err_log(123, __FILE__, __LINE__);
+      ock_log_err(OCK_E_DIGEST_INIT);
       return rc;
    }
    rc = digest_mgr_digest_update( sess,
@@ -1063,7 +1063,7 @@ ssl3_sha_then_md5( SESSION   * sess,
                                   firstRandom,
                                   firstRandomLen );
    if (rc != CKR_OK){
-      st_err_log(123, __FILE__, __LINE__);
+      ock_log_err(OCK_E_DIGEST_INIT);
       return rc;
    }
    rc = digest_mgr_digest_update( sess,
@@ -1071,7 +1071,7 @@ ssl3_sha_then_md5( SESSION   * sess,
                                   secondRandom,
                                   secondRandomLen );
    if (rc != CKR_OK){
-      st_err_log(123, __FILE__, __LINE__);
+      ock_log_err(OCK_E_DIGEST_INIT);
       return rc;
    }
    len = sizeof(hash);
@@ -1090,17 +1090,17 @@ ssl3_sha_then_md5( SESSION   * sess,
 
    rc = digest_mgr_init( sess, &digest_ctx, &digest_mech );
    if (rc != CKR_OK){
-      st_err_log(123, __FILE__, __LINE__);
+      ock_log_err(OCK_E_DIGEST_INIT);
       return rc;
    }
    rc = digest_mgr_digest_update( sess, &digest_ctx, secret, 48 );
    if (rc != CKR_OK){
-      st_err_log(123, __FILE__, __LINE__);
+      ock_log_err(OCK_E_DIGEST_INIT);
       return rc;
    }
    rc = digest_mgr_digest_update( sess, &digest_ctx, hash, len );
    if (rc != CKR_OK){
-      st_err_log(123, __FILE__, __LINE__);
+      ock_log_err(OCK_E_DIGEST_INIT);
       return rc;
    }
    len = sizeof(hash);
@@ -1148,7 +1148,7 @@ ssl3_md5_only( SESSION   * sess,
 
    rc = digest_mgr_init( sess, &digest_ctx, &digest_mech );
    if (rc != CKR_OK){
-      st_err_log(123, __FILE__, __LINE__);
+      ock_log_err(OCK_E_DIGEST_INIT);
       return rc;
    }
    if (firstString != NULL) {
@@ -1157,7 +1157,7 @@ ssl3_md5_only( SESSION   * sess,
                                      firstString,
                                      firstStringLen );
       if (rc != CKR_OK){
-         st_err_log(123, __FILE__, __LINE__);
+         ock_log_err(OCK_E_DIGEST_INIT);
          return rc;
       }
    }
@@ -1167,7 +1167,7 @@ ssl3_md5_only( SESSION   * sess,
                                   secondString,
                                   secondStringLen );
    if (rc != CKR_OK){
-      st_err_log(123, __FILE__, __LINE__);
+      ock_log_err(OCK_E_DIGEST_INIT);
       return rc;
    }
    rc = digest_mgr_digest_update( sess,
@@ -1175,7 +1175,7 @@ ssl3_md5_only( SESSION   * sess,
                                   thirdString,
                                   thirdStringLen );
    if (rc != CKR_OK){
-      st_err_log(123, __FILE__, __LINE__);
+      ock_log_err(OCK_E_DIGEST_INIT);
       return rc;
    }
    len = sizeof(hash);

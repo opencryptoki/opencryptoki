@@ -1344,7 +1344,7 @@ rsa_hash_pkcs_sign( SESSION              * sess,
 
    rc = digest_mgr_init( sess, &digest_ctx, &digest_mech );
    if (rc != CKR_OK){
-      st_err_log(123, __FILE__, __LINE__);
+      ock_log_err(OCK_E_DIGEST_INIT);
       return rc;
    }
    hash_len = sizeof(hash);
@@ -1425,7 +1425,7 @@ rsa_hash_pkcs_sign_update( SESSION              * sess,
 
       rc = digest_mgr_init( sess, &context->hash_context, &digest_mech );
       if (rc != CKR_OK){
-         st_err_log(123, __FILE__, __LINE__);
+         ock_log_err(OCK_E_DIGEST_INIT);
          return rc;
       }
       context->flag = TRUE;
@@ -1433,7 +1433,7 @@ rsa_hash_pkcs_sign_update( SESSION              * sess,
 
    rc = digest_mgr_digest_update( sess, &context->hash_context, in_data, in_data_len );
    if (rc != CKR_OK){
-      st_err_log(123, __FILE__, __LINE__);
+      ock_log_err(OCK_E_DIGEST_INIT);
       return rc;
    }
    return CKR_OK;
@@ -1493,7 +1493,7 @@ rsa_hash_pkcs_verify( SESSION              * sess,
 
    rc = digest_mgr_init( sess, &digest_ctx, &digest_mech );
    if (rc != CKR_OK){
-      st_err_log(123, __FILE__, __LINE__);
+      ock_log_err(OCK_E_DIGEST_INIT);
       return rc;
    }
    hash_len = sizeof(hash);
@@ -1572,7 +1572,7 @@ rsa_hash_pkcs_verify_update( SESSION              * sess,
 
       rc = digest_mgr_init( sess, &context->hash_context, &digest_mech );
       if (rc != CKR_OK){
-         st_err_log(123, __FILE__, __LINE__);
+         ock_log_err(OCK_E_DIGEST_INIT);
          return rc;
       }
       context->flag = TRUE;
@@ -1580,7 +1580,7 @@ rsa_hash_pkcs_verify_update( SESSION              * sess,
 
    rc = digest_mgr_digest_update( sess, &context->hash_context, in_data, in_data_len );
    if (rc != CKR_OK){
-      st_err_log(123, __FILE__, __LINE__);
+      ock_log_err(OCK_E_DIGEST_INIT);
       return rc;
    }
    return CKR_OK;

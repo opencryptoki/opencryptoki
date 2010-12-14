@@ -2572,7 +2572,7 @@ CK_RV SC_DigestInit( ST_SESSION_HANDLE  sSession,
 
 	rc = digest_mgr_init( sess, &sess->digest_ctx, pMechanism );
 	if (rc != CKR_OK) {
-		st_err_log(123, __FILE__, __LINE__);
+		ock_log_err(OCK_E_DIGEST_INIT);
 	}
 
  done:
