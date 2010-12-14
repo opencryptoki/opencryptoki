@@ -2804,7 +2804,7 @@ CK_RV SC_Digest( ST_SESSION_HANDLE  sSession,
    }
 
    if (sess->digest_ctx.active == FALSE) {
-      st_err_log(85, __FILE__, __LINE__);
+      ock_log_err(OCK_E_FUNCTION_NOT_PERMITTED);
       rc = CKR_OPERATION_NOT_INITIALIZED;
       goto done;
    }

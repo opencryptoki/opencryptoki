@@ -83,14 +83,14 @@ decr_mgr_init( SESSION           *sess,
       //
       rc = template_attribute_find( key_obj->template, CKA_DECRYPT, &attr );
       if (rc == FALSE){
-         st_err_log(85, __FILE__, __LINE__);
+         ock_log_err(OCK_E_FUNCTION_NOT_PERMITTED);
          return CKR_KEY_FUNCTION_NOT_PERMITTED;
       }
       else
       {
          flag = *(CK_BBOOL *)attr->pValue;
          if (flag != TRUE){
-            st_err_log(85, __FILE__, __LINE__);
+            ock_log_err(OCK_E_FUNCTION_NOT_PERMITTED);
             return CKR_KEY_FUNCTION_NOT_PERMITTED;
          }
       }
