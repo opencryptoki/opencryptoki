@@ -64,7 +64,7 @@ verify_mgr_init( SESSION             * sess,
    //
    rc = template_attribute_find( key_obj->template, CKA_VERIFY, &attr );
    if (rc == FALSE){
-      st_err_log(20, __FILE__, __LINE__);
+      ock_log_err(OCK_E_KEY_INCONS);
       return CKR_KEY_TYPE_INCONSISTENT;
    }
    else {
@@ -90,13 +90,13 @@ verify_mgr_init( SESSION             * sess,
             }
             rc = template_attribute_find( key_obj->template, CKA_KEY_TYPE, &attr );
             if (rc == FALSE){
-               st_err_log(20, __FILE__, __LINE__);
+               ock_log_err(OCK_E_KEY_INCONS);
                return CKR_KEY_TYPE_INCONSISTENT;
             }
             else {
                keytype = *(CK_KEY_TYPE *)attr->pValue;
                if (keytype != CKK_RSA){
-                  st_err_log(20, __FILE__, __LINE__);
+                  ock_log_err(OCK_E_KEY_INCONS);
                   return CKR_KEY_TYPE_INCONSISTENT;
                }
             }
@@ -132,13 +132,13 @@ verify_mgr_init( SESSION             * sess,
             }
             rc = template_attribute_find( key_obj->template, CKA_KEY_TYPE, &attr );
             if (rc == FALSE){
-               st_err_log(20, __FILE__, __LINE__);
+               ock_log_err(OCK_E_KEY_INCONS);
                return CKR_KEY_TYPE_INCONSISTENT;
             }
             else {
                keytype = *(CK_KEY_TYPE *)attr->pValue;
                if (keytype != CKK_RSA){
-                  st_err_log(20, __FILE__, __LINE__);
+                  ock_log_err(OCK_E_KEY_INCONS);
                   return CKR_KEY_TYPE_INCONSISTENT;
                }
             }
@@ -176,13 +176,13 @@ verify_mgr_init( SESSION             * sess,
             }
             rc = template_attribute_find( key_obj->template, CKA_KEY_TYPE, &attr );
             if (rc == FALSE){
-               st_err_log(20, __FILE__, __LINE__);
+               ock_log_err(OCK_E_KEY_INCONS);
                return CKR_KEY_TYPE_INCONSISTENT;
             }
             else {
                keytype = *(CK_KEY_TYPE *)attr->pValue;
                if (keytype != CKK_DSA){
-                  st_err_log(20, __FILE__, __LINE__);
+                  ock_log_err(OCK_E_KEY_INCONS);
                   return CKR_KEY_TYPE_INCONSISTENT;
                }
             }
@@ -220,13 +220,13 @@ verify_mgr_init( SESSION             * sess,
             }
             rc = template_attribute_find( key_obj->template, CKA_KEY_TYPE, &attr );
             if (rc == FALSE){
-               st_err_log(20, __FILE__, __LINE__);
+               ock_log_err(OCK_E_KEY_INCONS);
                return CKR_KEY_TYPE_INCONSISTENT;
             }
             else {
                keytype = *(CK_KEY_TYPE *)attr->pValue;
                if (keytype != CKK_GENERIC_SECRET){
-                  st_err_log(20, __FILE__, __LINE__);
+                  ock_log_err(OCK_E_KEY_INCONS);
                   return CKR_KEY_TYPE_INCONSISTENT;
                }
             }
@@ -267,13 +267,13 @@ verify_mgr_init( SESSION             * sess,
             }
             rc = template_attribute_find( key_obj->template, CKA_KEY_TYPE, &attr );
             if (rc == FALSE){
-               st_err_log(20, __FILE__, __LINE__);
+               ock_log_err(OCK_E_KEY_INCONS);
                return CKR_KEY_TYPE_INCONSISTENT;
             }
             else {
                keytype = *(CK_KEY_TYPE *)attr->pValue;
                if (keytype != CKK_GENERIC_SECRET){
-                  st_err_log(20, __FILE__, __LINE__);
+                  ock_log_err(OCK_E_KEY_INCONS);
                   return CKR_KEY_TYPE_INCONSISTENT;
                }
             }
@@ -312,13 +312,13 @@ verify_mgr_init( SESSION             * sess,
 
             rc = template_attribute_find( key_obj->template, CKA_CLASS, &attr );
             if (rc == FALSE){
-               st_err_log(20, __FILE__, __LINE__);
+               ock_log_err(OCK_E_KEY_INCONS);
                return CKR_KEY_TYPE_INCONSISTENT;
             }
             else {
                class = *(CK_OBJECT_CLASS *)attr->pValue;
                if (class != CKO_SECRET_KEY){
-                  st_err_log(20, __FILE__, __LINE__);
+                  ock_log_err(OCK_E_KEY_INCONS);
                   return CKR_KEY_TYPE_INCONSISTENT;
                }
             }

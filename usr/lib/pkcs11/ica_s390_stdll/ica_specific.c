@@ -1799,7 +1799,7 @@ os_specific_rsa_keygen(TEMPLATE *publ_tmpl,  TEMPLATE *priv_tmpl)
    ptr = publKey->exponent + publKey->key_length - sizeof (unsigned long);
    if ( *( (unsigned long *)ptr) != 0 &&
         *( (unsigned long *)ptr) % 2 == 0 ) {
-     st_err_log(20, __FILE__, __LINE__);
+     ock_log_err(OCK_E_KEY_INCONS);
      return CKR_TEMPLATE_INCONSISTENT;
    }
 

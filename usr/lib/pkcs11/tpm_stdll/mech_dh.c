@@ -174,7 +174,7 @@ ckm_dh_pkcs_derive( CK_VOID_PTR        other_pubkey,
    rc = template_attribute_find( base_key_obj->template, CKA_VALUE, &temp_attr );
    if (rc == FALSE)
    {
-      st_err_log(20, __FILE__, __LINE__);
+      ock_log_err(OCK_E_KEY_INCONS);
       return CKR_KEY_TYPE_INCONSISTENT;
    }
    else 
@@ -188,7 +188,7 @@ ckm_dh_pkcs_derive( CK_VOID_PTR        other_pubkey,
    rc = template_attribute_find( base_key_obj->template, CKA_PRIME, &temp_attr );
    if (rc == FALSE)
    {
-      st_err_log(20, __FILE__, __LINE__);
+      ock_log_err(OCK_E_KEY_INCONS);
       return CKR_KEY_TYPE_INCONSISTENT;
    }
    else 

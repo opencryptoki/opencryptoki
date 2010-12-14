@@ -875,7 +875,7 @@ os_specific_rsa_keygen(TEMPLATE *publ_tmpl,  TEMPLATE *priv_tmpl)
                 e |= 0x01;              // make it odd
         }
         else if ( e % 2 == 0 ) {
-                st_err_log(20, __FILE__, __LINE__);
+                ock_log_err(OCK_E_KEY_INCONS);
                 return CKR_TEMPLATE_INCONSISTENT;
         }
 

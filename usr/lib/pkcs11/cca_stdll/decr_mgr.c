@@ -125,14 +125,14 @@ decr_mgr_init( SESSION           *sess,
             //
             rc = template_attribute_find( key_obj->template, CKA_KEY_TYPE, &attr );
             if (rc == FALSE){
-               st_err_log(20, __FILE__, __LINE__);
+               ock_log_err(OCK_E_KEY_INCONS);
                return CKR_KEY_TYPE_INCONSISTENT;
             }
             else
             {
                keytype = *(CK_KEY_TYPE *)attr->pValue;
                if (keytype != CKK_DES){
-                  st_err_log(20, __FILE__, __LINE__);
+                  ock_log_err(OCK_E_KEY_INCONS);
                   return CKR_KEY_TYPE_INCONSISTENT;
                }
             }
@@ -162,14 +162,14 @@ decr_mgr_init( SESSION           *sess,
             //
             rc = template_attribute_find( key_obj->template, CKA_KEY_TYPE, &attr );
             if (rc == FALSE){
-               st_err_log(20, __FILE__, __LINE__);
+               ock_log_err(OCK_E_KEY_INCONS);
                return CKR_KEY_TYPE_INCONSISTENT;
             }
             else
             {
                keytype = *(CK_KEY_TYPE *)attr->pValue;
                if (keytype != CKK_CDMF){
-                  st_err_log(20, __FILE__, __LINE__);
+                  ock_log_err(OCK_E_KEY_INCONS);
                   return CKR_KEY_TYPE_INCONSISTENT;
                }
             }
@@ -201,14 +201,14 @@ decr_mgr_init( SESSION           *sess,
             //
             rc = template_attribute_find( key_obj->template, CKA_KEY_TYPE, &attr );
             if (rc == FALSE){
-               st_err_log(20, __FILE__, __LINE__);
+               ock_log_err(OCK_E_KEY_INCONS);
                return CKR_KEY_TYPE_INCONSISTENT;
             }
             else
             {
                keytype = *(CK_KEY_TYPE *)attr->pValue;
                if (keytype != CKK_DES){
-                  st_err_log(20, __FILE__, __LINE__);
+                  ock_log_err(OCK_E_KEY_INCONS);
                   return CKR_KEY_TYPE_INCONSISTENT;
                }
             }
@@ -239,14 +239,14 @@ decr_mgr_init( SESSION           *sess,
             //
             rc = template_attribute_find( key_obj->template, CKA_KEY_TYPE, &attr );
             if (rc == FALSE){
-               st_err_log(20, __FILE__, __LINE__);
+               ock_log_err(OCK_E_KEY_INCONS);
                return CKR_KEY_TYPE_INCONSISTENT;
             }
             else
             {
                keytype = *(CK_KEY_TYPE *)attr->pValue;
                if (keytype != CKK_CDMF){
-                  st_err_log(20, __FILE__, __LINE__);
+                  ock_log_err(OCK_E_KEY_INCONS);
                   return CKR_KEY_TYPE_INCONSISTENT;
                }
             }
@@ -273,14 +273,14 @@ decr_mgr_init( SESSION           *sess,
             //
             rc = template_attribute_find( key_obj->template, CKA_KEY_TYPE, &attr );
             if (rc == FALSE){
-               st_err_log(20, __FILE__, __LINE__);
+               ock_log_err(OCK_E_KEY_INCONS);
                return CKR_KEY_TYPE_INCONSISTENT;
             }
             else
             {
                keytype = *(CK_KEY_TYPE *)attr->pValue;
                if (keytype != CKK_DES3 && keytype != CKK_DES2){
-                  st_err_log(20, __FILE__, __LINE__);
+                  ock_log_err(OCK_E_KEY_INCONS);
                   return CKR_KEY_TYPE_INCONSISTENT;
                }
             }
@@ -310,14 +310,14 @@ decr_mgr_init( SESSION           *sess,
             //
             rc = template_attribute_find( key_obj->template, CKA_KEY_TYPE, &attr );
             if (rc == FALSE){
-               st_err_log(20, __FILE__, __LINE__);
+               ock_log_err(OCK_E_KEY_INCONS);
                return CKR_KEY_TYPE_INCONSISTENT;
             }
             else
             {
                keytype = *(CK_KEY_TYPE *)attr->pValue;
                if (keytype != CKK_DES3 && keytype != CKK_DES2){
-                  st_err_log(20, __FILE__, __LINE__);
+                  ock_log_err(OCK_E_KEY_INCONS);
                   return CKR_KEY_TYPE_INCONSISTENT;
                }
             }
@@ -345,14 +345,14 @@ decr_mgr_init( SESSION           *sess,
 
             rc = template_attribute_find( key_obj->template, CKA_KEY_TYPE, &attr );
             if (rc == FALSE){
-               st_err_log(20, __FILE__, __LINE__);
+               ock_log_err(OCK_E_KEY_INCONS);
                return CKR_KEY_TYPE_INCONSISTENT;
             }
             else
             {
                keytype = *(CK_KEY_TYPE *)attr->pValue;
                if (keytype != CKK_RSA){
-                  st_err_log(20, __FILE__, __LINE__);
+                  ock_log_err(OCK_E_KEY_INCONS);
                   return CKR_KEY_TYPE_INCONSISTENT;
                }
             }
@@ -384,14 +384,14 @@ decr_mgr_init( SESSION           *sess,
             //
             rc = template_attribute_find( key_obj->template, CKA_KEY_TYPE, &attr );
             if (rc == FALSE){
-               st_err_log(20, __FILE__, __LINE__);
+               ock_log_err(OCK_E_KEY_INCONS);
                return CKR_KEY_TYPE_INCONSISTENT;
             }
             else
             {
                keytype = *(CK_KEY_TYPE *)attr->pValue;
                if (keytype != CKK_AES){
-                  st_err_log(20, __FILE__, __LINE__);
+                  ock_log_err(OCK_E_KEY_INCONS);
                   return CKR_KEY_TYPE_INCONSISTENT;
                }
             }
@@ -418,14 +418,14 @@ decr_mgr_init( SESSION           *sess,
             //
             rc = template_attribute_find( key_obj->template, CKA_KEY_TYPE, &attr );
             if (rc == FALSE){
-               st_err_log(20, __FILE__, __LINE__);
+               ock_log_err(OCK_E_KEY_INCONS);
                return CKR_KEY_TYPE_INCONSISTENT;
             }
             else
             {
                keytype = *(CK_KEY_TYPE *)attr->pValue;
                if (keytype != CKK_AES){
-                  st_err_log(20, __FILE__, __LINE__);
+                  ock_log_err(OCK_E_KEY_INCONS);
                   return CKR_KEY_TYPE_INCONSISTENT;
                }
             }

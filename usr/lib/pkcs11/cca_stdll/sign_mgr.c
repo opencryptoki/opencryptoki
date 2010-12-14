@@ -65,7 +65,7 @@ sign_mgr_init( SESSION                * sess,
    //
    rc = template_attribute_find( key_obj->template, CKA_SIGN, &attr );
    if (rc == FALSE){
-      st_err_log(20, __FILE__, __LINE__); 
+      ock_log_err(OCK_E_KEY_INCONS);
       return CKR_KEY_TYPE_INCONSISTENT;
    }
    else {
@@ -91,13 +91,13 @@ sign_mgr_init( SESSION                * sess,
             }
             rc = template_attribute_find( key_obj->template, CKA_KEY_TYPE, &attr );
             if (rc == FALSE){
-               st_err_log(20, __FILE__, __LINE__); 
+               ock_log_err(OCK_E_KEY_INCONS);
                return CKR_KEY_TYPE_INCONSISTENT;
             }
             else {
                keytype = *(CK_KEY_TYPE *)attr->pValue;
                if (keytype != CKK_RSA){
-                  st_err_log(20, __FILE__, __LINE__); 
+                  ock_log_err(OCK_E_KEY_INCONS);
                   return CKR_KEY_TYPE_INCONSISTENT;
                }
             }
@@ -106,7 +106,7 @@ sign_mgr_init( SESSION                * sess,
             //
             flag = template_attribute_find( key_obj->template, CKA_CLASS, &attr );
             if (flag == FALSE){
-               st_err_log(20, __FILE__, __LINE__); 
+               ock_log_err(OCK_E_KEY_INCONS);
                return CKR_KEY_TYPE_INCONSISTENT;
             }
             else
@@ -116,7 +116,7 @@ sign_mgr_init( SESSION                * sess,
             // that somehow a public key got assigned a CKA_SIGN attribute
             //
             if (class != CKO_PRIVATE_KEY){
-               st_err_log(20, __FILE__, __LINE__); 
+               ock_log_err(OCK_E_KEY_INCONS);
                return CKR_KEY_TYPE_INCONSISTENT;
             }
             // PKCS #11 doesn't allow multi-part RSA operations
@@ -138,13 +138,13 @@ sign_mgr_init( SESSION                * sess,
             }
             rc = template_attribute_find( key_obj->template, CKA_KEY_TYPE, &attr );
             if (rc == FALSE){
-               st_err_log(20, __FILE__, __LINE__); 
+               ock_log_err(OCK_E_KEY_INCONS);
                return CKR_KEY_TYPE_INCONSISTENT;
             }
             else {
                keytype = *(CK_KEY_TYPE *)attr->pValue;
                if (keytype != CKK_RSA){
-                  st_err_log(20, __FILE__, __LINE__); 
+                  ock_log_err(OCK_E_KEY_INCONS);
                   return CKR_KEY_TYPE_INCONSISTENT;
                }
             }
@@ -183,13 +183,13 @@ sign_mgr_init( SESSION                * sess,
             }
             rc = template_attribute_find( key_obj->template, CKA_KEY_TYPE, &attr );
             if (rc == FALSE){
-               st_err_log(20, __FILE__, __LINE__); 
+               ock_log_err(OCK_E_KEY_INCONS);
                return CKR_KEY_TYPE_INCONSISTENT;
             }
             else {
                keytype = *(CK_KEY_TYPE *)attr->pValue;
                if (keytype != CKK_DSA){
-                  st_err_log(20, __FILE__, __LINE__); 
+                  ock_log_err(OCK_E_KEY_INCONS);
                   return CKR_KEY_TYPE_INCONSISTENT;
                }
             }
@@ -198,7 +198,7 @@ sign_mgr_init( SESSION                * sess,
             //
             flag = template_attribute_find( key_obj->template, CKA_CLASS, &attr );
             if (flag == FALSE){
-               st_err_log(20, __FILE__, __LINE__); 
+               ock_log_err(OCK_E_KEY_INCONS);
                return CKR_KEY_TYPE_INCONSISTENT;
             }
             else
@@ -208,7 +208,7 @@ sign_mgr_init( SESSION                * sess,
             // that somehow a public key got assigned a CKA_SIGN attribute
             //
             if (class != CKO_PRIVATE_KEY){
-               st_err_log(20, __FILE__, __LINE__); 
+               ock_log_err(OCK_E_KEY_INCONS);
                return CKR_KEY_TYPE_INCONSISTENT;
             }
             // PKCS #11 doesn't allow multi-part DSA operations
@@ -232,13 +232,13 @@ sign_mgr_init( SESSION                * sess,
             }
             rc = template_attribute_find( key_obj->template, CKA_KEY_TYPE, &attr );
             if (rc == FALSE){
-               st_err_log(20, __FILE__, __LINE__); 
+               ock_log_err(OCK_E_KEY_INCONS);
                return CKR_KEY_TYPE_INCONSISTENT;
             }
             else {
                keytype = *(CK_KEY_TYPE *)attr->pValue;
                if (keytype != CKK_GENERIC_SECRET){
-                  st_err_log(20, __FILE__, __LINE__); 
+                  ock_log_err(OCK_E_KEY_INCONS);
                   return CKR_KEY_TYPE_INCONSISTENT;
                }
             }
@@ -285,13 +285,13 @@ sign_mgr_init( SESSION                * sess,
             }
             rc = template_attribute_find( key_obj->template, CKA_KEY_TYPE, &attr );
             if (rc == FALSE){
-               st_err_log(20, __FILE__, __LINE__); 
+               ock_log_err(OCK_E_KEY_INCONS);
                return CKR_KEY_TYPE_INCONSISTENT;
             }
             else {
                keytype = *(CK_KEY_TYPE *)attr->pValue;
                if (keytype != CKK_GENERIC_SECRET){
-                  st_err_log(20, __FILE__, __LINE__); 
+                  ock_log_err(OCK_E_KEY_INCONS);
                   return CKR_KEY_TYPE_INCONSISTENT;
                }
             }
@@ -330,13 +330,13 @@ sign_mgr_init( SESSION                * sess,
 
             rc = template_attribute_find( key_obj->template, CKA_CLASS, &attr );
             if (rc == FALSE){
-               st_err_log(20, __FILE__, __LINE__); 
+               ock_log_err(OCK_E_KEY_INCONS);
                return CKR_KEY_TYPE_INCONSISTENT;
             }
             else {
                class = *(CK_OBJECT_CLASS *)attr->pValue;
                if (class != CKO_SECRET_KEY){
-                  st_err_log(20, __FILE__, __LINE__); 
+                  ock_log_err(OCK_E_KEY_INCONS);
                   return CKR_KEY_TYPE_INCONSISTENT;
                }
             }
