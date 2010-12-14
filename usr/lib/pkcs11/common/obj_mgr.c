@@ -408,7 +408,7 @@ object_mgr_add( SESSION          * sess,
       //
       rc = XProcLock( xproclock );
       if (rc != CKR_OK){
-         st_err_log(150, __FILE__, __LINE__); 
+         ock_log_err(OCK_E_PROCESS_LOCK);
          goto done;
       }
       else {
@@ -508,7 +508,7 @@ object_mgr_add( SESSION          * sess,
 
          rc = XProcLock( xproclock );
          if (rc != CKR_OK){
-            st_err_log(150, __FILE__, __LINE__); 
+            ock_log_err(OCK_E_PROCESS_LOCK);
             goto done;
          }
          object_mgr_del_from_shm( o );
@@ -692,7 +692,7 @@ object_mgr_copy( SESSION          * sess,
       //
       rc = XProcLock( xproclock );
       if (rc != CKR_OK){
-         st_err_log(150, __FILE__, __LINE__); 
+         ock_log_err(OCK_E_PROCESS_LOCK);
          goto done;
       }
       else {
@@ -774,7 +774,7 @@ object_mgr_copy( SESSION          * sess,
 
          rc = XProcLock( xproclock );
          if (rc != CKR_OK){
-            st_err_log(150, __FILE__, __LINE__); 
+            ock_log_err(OCK_E_PROCESS_LOCK);
             goto done;
          }
          object_mgr_del_from_shm( new_obj );
@@ -917,7 +917,7 @@ object_mgr_create_final( SESSION           * sess,
       //
       rc = XProcLock( xproclock );
       if (rc != CKR_OK){
-         st_err_log(150, __FILE__, __LINE__); 
+         ock_log_err(OCK_E_PROCESS_LOCK);
          goto done;
       }
       else {
@@ -998,7 +998,7 @@ object_mgr_create_final( SESSION           * sess,
 
          rc = XProcLock( xproclock );
          if (rc != CKR_OK){
-            st_err_log(150, __FILE__, __LINE__); 
+            ock_log_err(OCK_E_PROCESS_LOCK);
             goto done;
          }
          object_mgr_del_from_shm( obj );
@@ -1074,7 +1074,7 @@ object_mgr_destroy_object( SESSION          * sess,
       if (node) {
          rc = XProcLock( xproclock );
          if (rc != CKR_OK){
-            st_err_log(150, __FILE__, __LINE__); 
+            ock_log_err(OCK_E_PROCESS_LOCK);
             goto done;
          }
          object_mgr_del_from_shm( obj );
@@ -1176,7 +1176,7 @@ object_mgr_destroy_token_objects( void )
       memset( &global_shm->priv_tok_objs, 0x0, MAX_TOK_OBJS * sizeof(TOK_OBJ_ENTRY) );
    }
    else
-      st_err_log(150, __FILE__, __LINE__); 
+      ock_log_err(OCK_E_PROCESS_LOCK);
 
 done:
    if (locked1 == TRUE) MY_UnlockMutex( &obj_list_mutex );
@@ -2134,7 +2134,7 @@ object_mgr_set_attribute_values( SESSION           * sess,
 
       rc = XProcLock( xproclock );
       if (rc != CKR_OK){
-         st_err_log(150, __FILE__, __LINE__); 
+         ock_log_err(OCK_E_PROCESS_LOCK);
          return rc;
       }
       if (priv_obj) {

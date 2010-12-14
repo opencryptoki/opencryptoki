@@ -73,7 +73,7 @@ load_token_data()
 
    rc = XProcLock( xproclock );
    if (rc != CKR_OK){
-      st_err_log(150, __FILE__, __LINE__);
+      ock_log_err(OCK_E_PROCESS_LOCK);
       goto out_nolock;
    }
 
@@ -87,7 +87,7 @@ load_token_data()
          init_token_data();
          rc = XProcLock( xproclock );
          if (rc != CKR_OK){
-            st_err_log(150, __FILE__, __LINE__);
+            ock_log_err(OCK_E_PROCESS_LOCK);
             goto out_nolock;
          }
 
@@ -143,7 +143,7 @@ save_token_data()
 
    rc = XProcLock( xproclock );
    if (rc != CKR_OK){
-      st_err_log(150, __FILE__, __LINE__);
+      ock_log_err(OCK_E_PROCESS_LOCK);
       goto out_nolock;
    }
 

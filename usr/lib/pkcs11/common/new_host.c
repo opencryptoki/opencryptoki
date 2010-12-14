@@ -1170,7 +1170,7 @@ CK_RV SC_InitPIN( ST_SESSION_HANDLE  sSession,
 	}
 	rc = XProcLock( xproclock );
 	if (rc != CKR_OK){
-		st_err_log(150, __FILE__, __LINE__);
+		ock_log_err(OCK_E_PROCESS_LOCK);
 		goto done;
 	}
 	memcpy(nv_token_data->user_pin_sha, hash_sha, SHA1_HASH_SIZE);
@@ -1268,7 +1268,7 @@ CK_RV SC_SetPIN( ST_SESSION_HANDLE  sSession,
 		}
 		rc = XProcLock( xproclock );
 		if (rc != CKR_OK){
-			st_err_log(150, __FILE__, __LINE__);
+			ock_log_err(OCK_E_PROCESS_LOCK);
 			goto done;
 		}
 		memcpy(nv_token_data->user_pin_sha, new_hash_sha,
@@ -1307,7 +1307,7 @@ CK_RV SC_SetPIN( ST_SESSION_HANDLE  sSession,
 		}
 		rc = XProcLock( xproclock );
 		if (rc != CKR_OK){
-			st_err_log(150, __FILE__, __LINE__);
+			ock_log_err(OCK_E_PROCESS_LOCK);
 			goto done;
 		}
 		memcpy(nv_token_data->so_pin_sha, new_hash_sha, SHA1_HASH_SIZE);
