@@ -90,7 +90,7 @@ ckm_rsa_encrypt( CK_BYTE   * in_data,
 
    rc = token_specific.t_rsa_encrypt(in_data, in_data_len, out_data, out_data_len, key_obj);
    if (rc != CKR_OK)
-      st_err_log(134, __FILE__, __LINE__);
+      ock_log_err(OCK_E_TOKEN_SPECIFIC_RSA_ENCRYPT);
 
    return rc;
 }
