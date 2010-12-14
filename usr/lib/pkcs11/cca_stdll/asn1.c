@@ -940,7 +940,7 @@ ber_decode_PrivateKeyInfo( CK_BYTE   * data,
    offset = 0;
    rc = ber_decode_INTEGER( buf+offset, &ver, &len, &field_len );
    if (rc != CKR_OK){
-      st_err_log(79, __FILE__, __LINE__);
+      ock_log_err(OCK_E_DECODE_INT);
       return rc;
    }
    offset += field_len;
@@ -1195,7 +1195,7 @@ ber_decode_RSAPrivateKey( CK_BYTE    * data,
    //
    rc = ber_decode_INTEGER( buf+offset, &tmp, &len, &field_len );
    if (rc != CKR_OK){
-      st_err_log(79, __FILE__, __LINE__);
+      ock_log_err(OCK_E_DECODE_INT);
       goto cleanup;
    }
    offset += field_len;
@@ -1204,7 +1204,7 @@ ber_decode_RSAPrivateKey( CK_BYTE    * data,
    //
    rc = ber_decode_INTEGER( buf+offset, &tmp, &len, &field_len );
    if (rc != CKR_OK){
-      st_err_log(79, __FILE__, __LINE__);
+      ock_log_err(OCK_E_DECODE_INT);
       goto cleanup;
    }
    offset += field_len;
@@ -1213,7 +1213,7 @@ ber_decode_RSAPrivateKey( CK_BYTE    * data,
    //
    rc = ber_decode_INTEGER( buf+offset, &tmp, &len, &field_len );
    if (rc != CKR_OK){
-      st_err_log(79, __FILE__, __LINE__);
+      ock_log_err(OCK_E_DECODE_INT);
       goto cleanup;
    }
    offset += field_len;
@@ -1222,7 +1222,7 @@ ber_decode_RSAPrivateKey( CK_BYTE    * data,
    //
    rc = ber_decode_OCTET_STRING( buf+offset, &tmp, &len, &field_len );
    if (rc != CKR_OK){
-      st_err_log(79, __FILE__, __LINE__);
+      ock_log_err(OCK_E_DECODE_INT);
       goto cleanup;
    }
    offset += field_len;
@@ -1232,7 +1232,7 @@ ber_decode_RSAPrivateKey( CK_BYTE    * data,
    //
    rc = ber_decode_INTEGER( buf+offset, &tmp, &len, &field_len );
    if (rc != CKR_OK){
-      st_err_log(79, __FILE__, __LINE__);
+      ock_log_err(OCK_E_DECODE_INT);
       goto cleanup;
    }
    offset += field_len;
@@ -1241,7 +1241,7 @@ ber_decode_RSAPrivateKey( CK_BYTE    * data,
    //
    rc = ber_decode_INTEGER( buf+offset, &tmp, &len, &field_len );
    if (rc != CKR_OK){
-      st_err_log(79, __FILE__, __LINE__);
+      ock_log_err(OCK_E_DECODE_INT);
       goto cleanup;
    }
    offset += field_len;
@@ -1250,7 +1250,7 @@ ber_decode_RSAPrivateKey( CK_BYTE    * data,
    //
    rc = ber_decode_INTEGER( buf+offset, &tmp, &len, &field_len );
    if (rc != CKR_OK){
-      st_err_log(79, __FILE__, __LINE__);
+      ock_log_err(OCK_E_DECODE_INT);
       goto cleanup;
    }
    offset += field_len;
@@ -1259,7 +1259,7 @@ ber_decode_RSAPrivateKey( CK_BYTE    * data,
    //
    rc = ber_decode_INTEGER( buf+offset, &tmp, &len, &field_len );
    if (rc != CKR_OK){
-      st_err_log(79, __FILE__, __LINE__);
+      ock_log_err(OCK_E_DECODE_INT);
       goto cleanup;
    }
    offset += field_len;
@@ -1268,7 +1268,7 @@ ber_decode_RSAPrivateKey( CK_BYTE    * data,
    //
    rc = ber_decode_INTEGER( buf+offset, &tmp, &len, &field_len );
    if (rc != CKR_OK){
-      st_err_log(79, __FILE__, __LINE__);
+      ock_log_err(OCK_E_DECODE_INT);
       goto cleanup;
    }
    offset += field_len;
@@ -1277,7 +1277,7 @@ ber_decode_RSAPrivateKey( CK_BYTE    * data,
    //
    rc = ber_decode_INTEGER( buf+offset, &tmp, &len, &field_len );
    if (rc != CKR_OK){
-      st_err_log(79, __FILE__, __LINE__);
+      ock_log_err(OCK_E_DECODE_INT);
       goto cleanup;
    }
    offset += field_len;
@@ -1297,7 +1297,7 @@ ber_decode_RSAPrivateKey( CK_BYTE    * data,
    //
    rc = ber_decode_INTEGER( buf+offset, &tmp, &len, &field_len );
    if (rc != CKR_OK){
-      st_err_log(79, __FILE__, __LINE__);
+      ock_log_err(OCK_E_DECODE_INT);
       goto cleanup;
    }
    offset += field_len;
@@ -1306,7 +1306,7 @@ ber_decode_RSAPrivateKey( CK_BYTE    * data,
    //
    rc = ber_decode_INTEGER( buf+offset, &tmp, &len, &field_len );
    if (rc != CKR_OK){
-      st_err_log(79, __FILE__, __LINE__);
+      ock_log_err(OCK_E_DECODE_INT);
       goto cleanup;
    }
    else {
@@ -1322,7 +1322,7 @@ ber_decode_RSAPrivateKey( CK_BYTE    * data,
    //
    rc = ber_decode_INTEGER( buf+offset, &tmp, &len, &field_len );
    if (rc != CKR_OK){
-      st_err_log(79, __FILE__, __LINE__);
+      ock_log_err(OCK_E_DECODE_INT);
       goto cleanup;
    }
    else {
@@ -1338,7 +1338,7 @@ ber_decode_RSAPrivateKey( CK_BYTE    * data,
    //
    rc = ber_decode_OCTET_STRING( buf+offset, &tmp, &len, &field_len );
    if (rc != CKR_OK){
-      st_err_log(79, __FILE__, __LINE__);
+      ock_log_err(OCK_E_DECODE_INT);
       goto cleanup;
    }
    else {
@@ -1355,7 +1355,7 @@ ber_decode_RSAPrivateKey( CK_BYTE    * data,
    //
    rc = ber_decode_INTEGER( buf+offset, &tmp, &len, &field_len );
    if (rc != CKR_OK){
-      st_err_log(79, __FILE__, __LINE__);
+      ock_log_err(OCK_E_DECODE_INT);
       goto cleanup;
    }
    else {
@@ -1371,7 +1371,7 @@ ber_decode_RSAPrivateKey( CK_BYTE    * data,
    //
    rc = ber_decode_INTEGER( buf+offset, &tmp, &len, &field_len );
    if (rc != CKR_OK){
-      st_err_log(79, __FILE__, __LINE__);
+      ock_log_err(OCK_E_DECODE_INT);
       goto cleanup;
    }
    else {
@@ -1387,7 +1387,7 @@ ber_decode_RSAPrivateKey( CK_BYTE    * data,
    //
    rc = ber_decode_INTEGER( buf+offset, &tmp, &len, &field_len );
    if (rc != CKR_OK){
-      st_err_log(79, __FILE__, __LINE__);
+      ock_log_err(OCK_E_DECODE_INT);
       goto cleanup;
    }
    else {
@@ -1403,7 +1403,7 @@ ber_decode_RSAPrivateKey( CK_BYTE    * data,
    //
    rc = ber_decode_INTEGER( buf+offset, &tmp, &len, &field_len );
    if (rc != CKR_OK){
-      st_err_log(79, __FILE__, __LINE__);
+      ock_log_err(OCK_E_DECODE_INT);
       goto cleanup;
    }
    else {
@@ -1419,7 +1419,7 @@ ber_decode_RSAPrivateKey( CK_BYTE    * data,
    //
    rc = ber_decode_INTEGER( buf+offset, &tmp, &len, &field_len );
    if (rc != CKR_OK){
-      st_err_log(79, __FILE__, __LINE__);
+      ock_log_err(OCK_E_DECODE_INT);
       goto cleanup;
    }
    else {
@@ -1435,7 +1435,7 @@ ber_decode_RSAPrivateKey( CK_BYTE    * data,
    //
    rc = ber_decode_INTEGER( buf+offset, &tmp, &len, &field_len );
    if (rc != CKR_OK){
-      st_err_log(79, __FILE__, __LINE__);
+      ock_log_err(OCK_E_DECODE_INT);
       goto cleanup;
    }
    else {
@@ -1693,7 +1693,7 @@ ber_decode_DSAPrivateKey( CK_BYTE     * data,
    //
    rc = ber_decode_INTEGER( buf+offset, &tmp, &len, &field_len );
    if (rc != CKR_OK){
-      st_err_log(79, __FILE__, __LINE__);
+      ock_log_err(OCK_E_DECODE_INT);
       goto cleanup;
    }
    offset += field_len;
@@ -1702,7 +1702,7 @@ ber_decode_DSAPrivateKey( CK_BYTE     * data,
    //
    rc = ber_decode_INTEGER( buf+offset, &tmp, &len, &field_len );
    if (rc != CKR_OK){
-      st_err_log(79, __FILE__, __LINE__);
+      ock_log_err(OCK_E_DECODE_INT);
       goto cleanup;
    }
    offset += field_len;
@@ -1711,7 +1711,7 @@ ber_decode_DSAPrivateKey( CK_BYTE     * data,
    //
    rc = ber_decode_INTEGER( buf+offset, &tmp, &len, &field_len );
    if (rc != CKR_OK){
-      st_err_log(79, __FILE__, __LINE__);
+      ock_log_err(OCK_E_DECODE_INT);
       goto cleanup;
    }
    offset += field_len;
@@ -1730,7 +1730,7 @@ ber_decode_DSAPrivateKey( CK_BYTE     * data,
    //
    rc = ber_decode_INTEGER( buf+offset, &tmp, &len, &field_len );
    if (rc != CKR_OK){
-      st_err_log(79, __FILE__, __LINE__);
+      ock_log_err(OCK_E_DECODE_INT);
       goto cleanup;
    }
    else {
@@ -1746,7 +1746,7 @@ ber_decode_DSAPrivateKey( CK_BYTE     * data,
    //
    rc = ber_decode_INTEGER( buf+offset, &tmp, &len, &field_len );
    if (rc != CKR_OK){
-      st_err_log(79, __FILE__, __LINE__);
+      ock_log_err(OCK_E_DECODE_INT);
       goto cleanup;
    }
    else {
@@ -1762,7 +1762,7 @@ ber_decode_DSAPrivateKey( CK_BYTE     * data,
    //
    rc = ber_decode_INTEGER( buf+offset, &tmp, &len, &field_len );
    if (rc != CKR_OK){
-      st_err_log(79, __FILE__, __LINE__);
+      ock_log_err(OCK_E_DECODE_INT);
       goto cleanup;
    }
    else {
@@ -1778,7 +1778,7 @@ ber_decode_DSAPrivateKey( CK_BYTE     * data,
    //
    rc = ber_decode_INTEGER( dsakey, &tmp, &len, &field_len );
    if (rc != CKR_OK){
-      st_err_log(79, __FILE__, __LINE__);
+      ock_log_err(OCK_E_DECODE_INT);
       goto cleanup;
    }
    else {
