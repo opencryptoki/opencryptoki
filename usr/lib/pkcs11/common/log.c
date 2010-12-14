@@ -740,7 +740,7 @@ const char* err_msg[] = {
         [OCK_E_GENERAL_ERR]                     = "General Error",
         [OCK_E_FUNC]                            = "Function Failed",
         //#5
-        [OCK_E_BAD_ARG]                         = "%s Bad Arguments",
+        [OCK_E_BAD_ARG]                         = "Bad Arguments",
         [OCK_E_NO_EVENT]                        ="No Event",
         [OCK_E_ATTR_READONLY]                   ="Attribute Read Only",
         [OCK_E_ATTR_TYPE_INV]                   ="Attribute Type Invalid",

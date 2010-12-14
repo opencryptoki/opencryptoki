@@ -588,7 +588,7 @@ C_CopyObject ( CK_SESSION_HANDLE    hSession,
    }
 
    if ( !phNewObject ){
-      st_err_log(5, __FILE__, __LINE__, __FUNCTION__); 
+      ock_log_err(OCK_E_BAD_ARG);
       return CKR_ARGUMENTS_BAD;
    } 
 
@@ -597,7 +597,7 @@ C_CopyObject ( CK_SESSION_HANDLE    hSession,
    // Template with 0 count is not a problem.  we can let
    // the STDLL handle that...
    if ( !pTemplate && ulCount ){
-      st_err_log(5, __FILE__, __LINE__, __FUNCTION__); 
+      ock_log_err(OCK_E_BAD_ARG);
       return CKR_ARGUMENTS_BAD;
    }
 
@@ -680,7 +680,7 @@ C_CreateObject ( CK_SESSION_HANDLE    hSession,
    // A Null pointer to return the handle in is also bad
    // since we could de-reference incorrectly.
    if (! phObject ) {
-      st_err_log(5, __FILE__, __LINE__, __FUNCTION__); 
+      ock_log_err(OCK_E_BAD_ARG);
       return CKR_ARGUMENTS_BAD;
    }
 
@@ -749,7 +749,7 @@ C_Decrypt ( CK_SESSION_HANDLE hSession,
    // Null encrypted data is invalid, null pData buffer is invalid
    // as is null location to put the response into.
    if ( !pEncryptedData ||  !pulDataLen) {
-      st_err_log(5, __FILE__, __LINE__, __FUNCTION__); 
+      ock_log_err(OCK_E_BAD_ARG);
       return CKR_ARGUMENTS_BAD;
    }
 
@@ -816,7 +816,7 @@ C_DecryptDigestUpdate ( CK_SESSION_HANDLE hSession,
 
    // This may have to go to the STDLL for validation 
    if ( !pEncryptedPart || !pulPartLen) {
-      st_err_log(5, __FILE__, __LINE__, __FUNCTION__); 
+      ock_log_err(OCK_E_BAD_ARG);
       return CKR_ARGUMENTS_BAD;
    }
 
@@ -888,7 +888,7 @@ C_DecryptFinal ( CK_SESSION_HANDLE hSession,
    // The spec is unclear if a second call to Final is needed
    // if there is no data in the last part.
    if (!pulLastPartLen ){
-      st_err_log(5, __FILE__, __LINE__, __FUNCTION__); 
+      ock_log_err(OCK_E_BAD_ARG);
       return CKR_ARGUMENTS_BAD;
    }
 
@@ -1021,7 +1021,7 @@ C_DecryptUpdate ( CK_SESSION_HANDLE hSession,
 
    // May have to let these go through and let the STDLL handle them
    if ( !pEncryptedPart ||  !pulPartLen ){
-      st_err_log(5, __FILE__, __LINE__, __FUNCTION__); 
+      ock_log_err(OCK_E_BAD_ARG);
       return CKR_ARGUMENTS_BAD;
    }
 
@@ -1085,7 +1085,7 @@ C_DecryptVerifyUpdate ( CK_SESSION_HANDLE hSession,
 
    // May have to let these go through and let the STDLL handle them
    if ( !pEncryptedPart || !pulPartLen ){
-      st_err_log(5, __FILE__, __LINE__, __FUNCTION__); 
+      ock_log_err(OCK_E_BAD_ARG);
       return CKR_ARGUMENTS_BAD;
    }
    // Get local pointers to session
@@ -1162,7 +1162,7 @@ C_DeriveKey ( CK_SESSION_HANDLE    hSession,
    // Null template with attribute count is bad
    //  but we will let a template with len 0 pass through
    if (!pTemplate && ulAttributeCount ){
-      st_err_log(5, __FILE__, __LINE__, __FUNCTION__); 
+      ock_log_err(OCK_E_BAD_ARG);
       return CKR_ARGUMENTS_BAD;
    }
 
@@ -1344,7 +1344,7 @@ C_DigestEncryptUpdate ( CK_SESSION_HANDLE hSession,
    
    // May have to pass on through to the STDLL
    if (!pPart || !pulEncryptedPartLen ){
-      st_err_log(5, __FILE__, __LINE__, __FUNCTION__); 
+      ock_log_err(OCK_E_BAD_ARG);
       return CKR_ARGUMENTS_BAD;
    }
 
@@ -1406,7 +1406,7 @@ C_DigestFinal ( CK_SESSION_HANDLE hSession,
    }
 
    if (!pulDigestLen ) {
-      st_err_log(5, __FILE__, __LINE__, __FUNCTION__); 
+      ock_log_err(OCK_E_BAD_ARG);
       return CKR_ARGUMENTS_BAD;
    }
    // Validate Session
@@ -1583,7 +1583,7 @@ C_DigestUpdate ( CK_SESSION_HANDLE hSession,
    }
 
    if (!ulPartLen){
-      st_err_log(5, __FILE__, __LINE__, __FUNCTION__); 
+      ock_log_err(OCK_E_BAD_ARG);
       return CKR_ARGUMENTS_BAD;
    }
    // Validate Session
@@ -1646,7 +1646,7 @@ C_Encrypt ( CK_SESSION_HANDLE hSession,
    }
 
    if (!pData || !pulEncryptedDataLen){
-      st_err_log(5, __FILE__, __LINE__, __FUNCTION__); 
+      ock_log_err(OCK_E_BAD_ARG);
       return CKR_ARGUMENTS_BAD;
    }
    // Validate Session
@@ -1705,7 +1705,7 @@ C_EncryptFinal ( CK_SESSION_HANDLE hSession,
 
    // See comments for DecryptFinal
    if ( !pulLastEncryptedPartLen){
-      st_err_log(5, __FILE__, __LINE__, __FUNCTION__); 
+      ock_log_err(OCK_E_BAD_ARG);
       return CKR_ARGUMENTS_BAD;
    }
    // Validate Session
@@ -1828,7 +1828,7 @@ C_EncryptUpdate ( CK_SESSION_HANDLE hSession,
 
 
    if (!pPart || !pulEncryptedPartLen){
-      st_err_log(5, __FILE__, __LINE__, __FUNCTION__); 
+      ock_log_err(OCK_E_BAD_ARG);
       return CKR_ARGUMENTS_BAD;
    }
    // Validate Session
@@ -1888,7 +1888,7 @@ C_Finalize ( CK_VOID_PTR pReserved )
    }
 
    if (pReserved != NULL) {
-      st_err_log(5, __FILE__, __LINE__, __FUNCTION__); 
+      ock_log_err(OCK_E_BAD_ARG);
       return CKR_ARGUMENTS_BAD;
    }
 
@@ -1960,7 +1960,7 @@ C_FindObjects ( CK_SESSION_HANDLE    hSession,
    }
    
    if (!phObject || !pulObjectCount ){
-      st_err_log(5, __FILE__, __LINE__, __FUNCTION__); 
+      ock_log_err(OCK_E_BAD_ARG);
       return CKR_ARGUMENTS_BAD;
    }
    // Validate Session
@@ -2144,7 +2144,7 @@ C_GenerateKey ( CK_SESSION_HANDLE    hSession,
       return CKR_MECHANISM_INVALID;
    }
    if (!phKey ){
-      st_err_log(5, __FILE__, __LINE__, __FUNCTION__); 
+      ock_log_err(OCK_E_BAD_ARG);
       return CKR_ARGUMENTS_BAD;
    }
    // Validate Session
@@ -2212,7 +2212,7 @@ C_GenerateKeyPair ( CK_SESSION_HANDLE    hSession,
       return CKR_MECHANISM_INVALID;
    }
    if (!phPublicKey || !phPrivateKey){
-      st_err_log(5, __FILE__, __LINE__, __FUNCTION__); 
+      ock_log_err(OCK_E_BAD_ARG);
       return CKR_ARGUMENTS_BAD;
    }
    //   what other validation of parameters ... What about
@@ -2470,7 +2470,7 @@ C_GetFunctionList ( CK_FUNCTION_LIST_PTR_PTR ppFunctionList )
      return CKR_OK;
    }
    else{
-      st_err_log(5, __FILE__, __LINE__, __FUNCTION__); 
+      ock_log_err(OCK_E_BAD_ARG);
      return CKR_ARGUMENTS_BAD;
    }
 }
@@ -2639,7 +2639,7 @@ C_GetMechanismList ( CK_SLOT_ID            slotID,
 
    // Always have to have a pulCount
    if (!pulCount){
-      st_err_log(5, __FILE__, __LINE__, __FUNCTION__); 
+      ock_log_err(OCK_E_BAD_ARG);
       return CKR_ARGUMENTS_BAD;
    }
    // Null PMechanism is valid to get a count of mechanisms
@@ -2711,7 +2711,7 @@ C_GetObjectSize ( CK_SESSION_HANDLE hSession,
    }
 
    if (!pulSize){
-      st_err_log(5, __FILE__, __LINE__, __FUNCTION__); 
+      ock_log_err(OCK_E_BAD_ARG);
       return CKR_ARGUMENTS_BAD;
    }
    // Validate Session
@@ -2772,7 +2772,7 @@ C_GetOperationState ( CK_SESSION_HANDLE hSession,
    // NULL pOperationState is valid to get buffer
    // size
    if (!pulOperationStateLen){
-      st_err_log(5, __FILE__, __LINE__, __FUNCTION__); 
+      ock_log_err(OCK_E_BAD_ARG);
       return CKR_ARGUMENTS_BAD;
    }
    // Validate Session
@@ -2835,7 +2835,7 @@ C_GetSessionInfo ( CK_SESSION_HANDLE   hSession,
    }
 
    if (!pInfo){
-      st_err_log(5, __FILE__, __LINE__, __FUNCTION__); 
+      ock_log_err(OCK_E_BAD_ARG);
       return CKR_ARGUMENTS_BAD;
    }
 
@@ -3185,7 +3185,7 @@ C_GetTokenInfo ( CK_SLOT_ID        slotID,
    }
 
    if (!pInfo){
-      st_err_log(5, __FILE__, __LINE__, __FUNCTION__); 
+      ock_log_err(OCK_E_BAD_ARG);
       return CKR_ARGUMENTS_BAD;
    }
    if (slotID >= NUMBER_SLOTS_MANAGED ) {
@@ -3293,7 +3293,7 @@ C_Initialize ( CK_VOID_PTR pVoid )
          if ( pArg->pReserved != NULL ){
             free(Anchor);
             Anchor= NULL;
-            st_err_log(5, __FILE__, __LINE__, __FUNCTION__); 
+            ock_log_err(OCK_E_BAD_ARG);
             return CKR_ARGUMENTS_BAD;  // we only support Native OS locking
          }
 
@@ -3310,7 +3310,7 @@ C_Initialize ( CK_VOID_PTR pVoid )
                free(Anchor);
                Anchor = NULL;
                logit(LOG_DEBUG,"C_Initialize:  Invalid number of functions passed in argument structure");
-               st_err_log(5, __FILE__, __LINE__, __FUNCTION__); 
+               ock_log_err(OCK_E_BAD_ARG);
                return CKR_ARGUMENTS_BAD;  // we only support Native OS locking
             }
          }
@@ -3468,7 +3468,7 @@ C_InitPIN ( CK_SESSION_HANDLE hSession,
    // A Null Pin with a Len is invalid
    // A  Null pin with a 0 len is no pin at all?
    if (!pPin && ulPinLen) {
-      st_err_log(5, __FILE__, __LINE__, __FUNCTION__); 
+      ock_log_err(OCK_E_BAD_ARG);
       return CKR_ARGUMENTS_BAD;
    }
 
@@ -3540,11 +3540,11 @@ C_InitToken ( CK_SLOT_ID  slotID,
 
    // Null pPin and a pinlen is a problem
    if (!pPin && ulPinLen){
-      st_err_log(5, __FILE__, __LINE__, __FUNCTION__); 
+      ock_log_err(OCK_E_BAD_ARG);
       return CKR_ARGUMENTS_BAD;
    }
    if (!pLabel ){
-      st_err_log(5, __FILE__, __LINE__, __FUNCTION__); 
+      ock_log_err(OCK_E_BAD_ARG);
       return CKR_ARGUMENTS_BAD;
    }
    // Prior to invoking the Tokens initialization, the 
@@ -3837,7 +3837,7 @@ C_SeedRandom ( CK_SESSION_HANDLE hSession,
 
 
    if (!pSeed && ulSeedLen ){
-      st_err_log(5, __FILE__, __LINE__, __FUNCTION__); 
+      ock_log_err(OCK_E_BAD_ARG);
       return CKR_ARGUMENTS_BAD;
    }
    // Validate Session
@@ -3976,7 +3976,7 @@ C_SetOperationState ( CK_SESSION_HANDLE hSession,
 
 
    if (!pOperationState || ulOperationStateLen == 0 ){
-      st_err_log(5, __FILE__, __LINE__, __FUNCTION__); 
+      ock_log_err(OCK_E_BAD_ARG);
       return CKR_ARGUMENTS_BAD;
    }
    // Get local pointers to session
@@ -4104,7 +4104,7 @@ C_Sign ( CK_SESSION_HANDLE hSession,
    }
 
    if (!pData || !pulSignatureLen){
-      st_err_log(5, __FILE__, __LINE__, __FUNCTION__); 
+      ock_log_err(OCK_E_BAD_ARG);
       return CKR_ARGUMENTS_BAD;
    }
    // Validate Session
@@ -4164,7 +4164,7 @@ C_SignEncryptUpdate ( CK_SESSION_HANDLE hSession,
    }
 
    if (!pPart || !pulEncryptedPartLen){
-      st_err_log(5, __FILE__, __LINE__, __FUNCTION__); 
+      ock_log_err(OCK_E_BAD_ARG);
       return CKR_ARGUMENTS_BAD;
    }
    // Validate Session
@@ -4230,7 +4230,7 @@ C_SignFinal ( CK_SESSION_HANDLE hSession,
    }
 
    if (!pulSignatureLen){
-      st_err_log(5, __FILE__, __LINE__, __FUNCTION__); 
+      ock_log_err(OCK_E_BAD_ARG);
       return CKR_ARGUMENTS_BAD;
    }
 
@@ -4357,7 +4357,7 @@ C_SignRecover ( CK_SESSION_HANDLE hSession,
    }
 
    if (!pData || !pulSignatureLen){
-      st_err_log(5, __FILE__, __LINE__, __FUNCTION__); 
+      ock_log_err(OCK_E_BAD_ARG);
       return CKR_ARGUMENTS_BAD;
    }
    // Validate Session
@@ -4486,7 +4486,7 @@ C_SignUpdate ( CK_SESSION_HANDLE hSession,
    }
 
    if (!pPart){
-      st_err_log(5, __FILE__, __LINE__, __FUNCTION__); 
+      ock_log_err(OCK_E_BAD_ARG);
       return CKR_ARGUMENTS_BAD;
    }
    // Validate Session
@@ -4558,7 +4558,7 @@ C_UnwrapKey ( CK_SESSION_HANDLE    hSession,
       return CKR_MECHANISM_INVALID;
    }
    if (!phKey){
-      st_err_log(5, __FILE__, __LINE__, __FUNCTION__); 
+      ock_log_err(OCK_E_BAD_ARG);
       return CKR_ARGUMENTS_BAD;
    }
    //  what about the other pointers... probably need
@@ -4628,7 +4628,7 @@ C_Verify ( CK_SESSION_HANDLE hSession,
    }
 
    if (!pData || !pSignature){
-      st_err_log(5, __FILE__, __LINE__, __FUNCTION__); 
+      ock_log_err(OCK_E_BAD_ARG);
       return CKR_ARGUMENTS_BAD;
    }
    // Validate Session
@@ -4686,7 +4686,7 @@ C_VerifyFinal ( CK_SESSION_HANDLE hSession,
    }
 
    if (!pSignature){
-      st_err_log(5, __FILE__, __LINE__, __FUNCTION__); 
+      ock_log_err(OCK_E_BAD_ARG);
       return CKR_ARGUMENTS_BAD;
    }
    // Validate Session
@@ -4809,7 +4809,7 @@ C_VerifyRecover ( CK_SESSION_HANDLE hSession,
       return CKR_CRYPTOKI_NOT_INITIALIZED;
    }
    if (!pSignature || !pulDataLen){
-      st_err_log(5, __FILE__, __LINE__, __FUNCTION__); 
+      ock_log_err(OCK_E_BAD_ARG);
       return CKR_ARGUMENTS_BAD;
    }
    // Validate Session
@@ -4925,7 +4925,7 @@ C_VerifyUpdate ( CK_SESSION_HANDLE hSession,
    }
 
    if (!pPart){
-      st_err_log(5, __FILE__, __LINE__, __FUNCTION__); 
+      ock_log_err(OCK_E_BAD_ARG);
       return CKR_ARGUMENTS_BAD;
    }
    // Validate Session

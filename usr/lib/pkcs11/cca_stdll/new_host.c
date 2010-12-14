@@ -759,7 +759,7 @@ CK_RV SC_InitToken( CK_SLOT_ID   sid,
 		goto done;
 	}
 	if (!pPin || !pLabel) {
-		st_err_log(5, __FILE__, __LINE__, __FUNCTION__);
+		ock_log_err(OCK_E_BAD_ARG);
 		rc = CKR_ARGUMENTS_BAD;
 		goto done;
 	}
@@ -857,7 +857,7 @@ CK_RV SC_InitPIN( ST_SESSION_HANDLE  sSession,
 		goto done;
 	}
 	if (!pPin) {
-		st_err_log(5, __FILE__, __LINE__, __FUNCTION__);
+		ock_log_err(OCK_E_BAD_ARG);
 		rc = CKR_ARGUMENTS_BAD;
 		goto done;
 	}
@@ -1190,7 +1190,7 @@ CK_RV SC_GetSessionInfo( ST_SESSION_HANDLE   sSession,
 	}
 
 	if (!pInfo) {
-		st_err_log(5, __FILE__, __LINE__, __FUNCTION__);
+		ock_log_err(OCK_E_BAD_ARG);
 		rc = CKR_ARGUMENTS_BAD;
 		goto done;
 	}
@@ -1229,7 +1229,7 @@ CK_RV SC_GetOperationState( ST_SESSION_HANDLE  sSession,
 	}
 
 	if (!pulOperationStateLen) {
-		st_err_log(5, __FILE__, __LINE__, __FUNCTION__);
+		ock_log_err(OCK_E_BAD_ARG);
 		rc = CKR_ARGUMENTS_BAD;
 		goto done;
 	}
@@ -1283,7 +1283,7 @@ CK_RV SC_SetOperationState( ST_SESSION_HANDLE  sSession,
 	}
 
 	if (!pOperationState || (ulOperationStateLen == 0)) {
-		st_err_log(5, __FILE__, __LINE__, __FUNCTION__);
+		ock_log_err(OCK_E_BAD_ARG);
 		rc = CKR_ARGUMENTS_BAD;
 		goto done;
 	}
@@ -1920,7 +1920,7 @@ CK_RV SC_FindObjects( ST_SESSION_HANDLE     sSession,
 	}
 
 	if (!phObject || !pulObjectCount) {
-		st_err_log(5, __FILE__, __LINE__, __FUNCTION__);
+		ock_log_err(OCK_E_BAD_ARG);
 		rc = CKR_ARGUMENTS_BAD;
 		goto done;
 	}
@@ -2031,7 +2031,7 @@ CK_RV SC_EncryptInit( ST_SESSION_HANDLE  sSession,
 	}
 
 	if (!pMechanism) {
-		st_err_log(5, __FILE__, __LINE__, __FUNCTION__);
+		ock_log_err(OCK_E_BAD_ARG);
 		rc = CKR_ARGUMENTS_BAD;
 		goto done;
 	}
@@ -2093,7 +2093,7 @@ CK_RV SC_Encrypt( ST_SESSION_HANDLE  sSession,
 	}
 
 	if (!pData || !pulEncryptedDataLen) {
-		st_err_log(5, __FILE__, __LINE__, __FUNCTION__);
+		ock_log_err(OCK_E_BAD_ARG);
 		rc = CKR_ARGUMENTS_BAD;
 		goto done;
 	}
@@ -2157,7 +2157,7 @@ CK_RV SC_EncryptUpdate( ST_SESSION_HANDLE  sSession,
 	}
 
 	if (!pPart || !pulEncryptedPartLen) {
-		st_err_log(5, __FILE__, __LINE__, __FUNCTION__);
+		ock_log_err(OCK_E_BAD_ARG);
 		rc = CKR_ARGUMENTS_BAD;
 		goto done;
 	}
@@ -2238,7 +2238,7 @@ CK_RV SC_EncryptFinal( ST_SESSION_HANDLE  sSession,
 	}
 
 	if (!pulLastEncryptedPartLen) {
-		st_err_log(5, __FILE__, __LINE__, __FUNCTION__);
+		ock_log_err(OCK_E_BAD_ARG);
 		rc = CKR_ARGUMENTS_BAD;
 		goto done;
 	}
@@ -2297,7 +2297,7 @@ CK_RV SC_DecryptInit( ST_SESSION_HANDLE  sSession,
 	}
 
 	if (!pMechanism) {
-		st_err_log(5, __FILE__, __LINE__, __FUNCTION__);
+		ock_log_err(OCK_E_BAD_ARG);
 		rc = CKR_ARGUMENTS_BAD;
 		goto done;
 	}
@@ -2359,7 +2359,7 @@ CK_RV SC_Decrypt( ST_SESSION_HANDLE  sSession,
 	}
 
 	if (!pEncryptedData || !pulDataLen) {
-		st_err_log(5, __FILE__, __LINE__, __FUNCTION__);
+		ock_log_err(OCK_E_BAD_ARG);
 		rc = CKR_ARGUMENTS_BAD;
 		goto done;
 	}
@@ -2423,7 +2423,7 @@ CK_RV SC_DecryptUpdate( ST_SESSION_HANDLE  sSession,
 	}
 
 	if (!pEncryptedPart || !pulPartLen) {
-		st_err_log(5, __FILE__, __LINE__, __FUNCTION__);
+		ock_log_err(OCK_E_BAD_ARG);
 		rc = CKR_ARGUMENTS_BAD;
 		goto done;
 	}
@@ -2485,7 +2485,7 @@ CK_RV SC_DecryptFinal( ST_SESSION_HANDLE  sSession,
 	}
 
 	if (!pulLastPartLen) {
-		st_err_log(5, __FILE__, __LINE__, __FUNCTION__);
+		ock_log_err(OCK_E_BAD_ARG);
 		rc = CKR_ARGUMENTS_BAD;
 		goto done;
 	}
@@ -2543,7 +2543,7 @@ CK_RV SC_DigestInit( ST_SESSION_HANDLE  sSession,
 		goto done;
 	}
 	if (!pMechanism) {
-		st_err_log(5, __FILE__, __LINE__, __FUNCTION__);
+		ock_log_err(OCK_E_BAD_ARG);
 		rc = CKR_ARGUMENTS_BAD;
 		goto done;
 	}
@@ -2610,7 +2610,7 @@ CK_RV SC_Digest( ST_SESSION_HANDLE  sSession,
 	// but never for Digest.  It doesn't really make sense to allow it here
 	//
 	if (!pData || !pulDigestLen) {
-		st_err_log(5, __FILE__, __LINE__, __FUNCTION__);
+		ock_log_err(OCK_E_BAD_ARG);
 		rc = CKR_ARGUMENTS_BAD;
 		goto done;
 	}
@@ -2670,7 +2670,7 @@ CK_RV SC_DigestUpdate( ST_SESSION_HANDLE  sSession,
 	// Netscape has been known to pass a null pPart with ulPartLen == 0...
 	//
 	if (!pPart && ulPartLen != 0) {
-		st_err_log(5, __FILE__, __LINE__, __FUNCTION__);
+		ock_log_err(OCK_E_BAD_ARG);
 		rc = CKR_ARGUMENTS_BAD;
 		goto done;
 	}
@@ -2768,7 +2768,7 @@ CK_RV SC_DigestFinal( ST_SESSION_HANDLE  sSession,
 	}
 
 	if (!pulDigestLen) {
-		st_err_log(5, __FILE__, __LINE__, __FUNCTION__);
+		ock_log_err(OCK_E_BAD_ARG);
 		rc = CKR_ARGUMENTS_BAD;
 		goto done;
 	}
@@ -2825,7 +2825,7 @@ CK_RV SC_SignInit( ST_SESSION_HANDLE  sSession,
 	}
 
 	if (!pMechanism ){
-		st_err_log(5, __FILE__, __LINE__, __FUNCTION__);
+		ock_log_err(OCK_E_BAD_ARG);
 		rc = CKR_ARGUMENTS_BAD;
 		goto done;
 	}
@@ -2887,7 +2887,7 @@ CK_RV SC_Sign( ST_SESSION_HANDLE  sSession,
 	}
 
 	if (!pData || !pulSignatureLen) {
-		st_err_log(5, __FILE__, __LINE__, __FUNCTION__);
+		ock_log_err(OCK_E_BAD_ARG);
 		rc = CKR_ARGUMENTS_BAD;
 		goto done;
 	}
@@ -2948,7 +2948,7 @@ CK_RV SC_SignUpdate( ST_SESSION_HANDLE  sSession,
 	}
 
 	if (!pPart) {
-		st_err_log(5, __FILE__, __LINE__, __FUNCTION__);
+		ock_log_err(OCK_E_BAD_ARG);
 		rc = CKR_ARGUMENTS_BAD;
 		goto done;
 	}
@@ -3004,7 +3004,7 @@ CK_RV SC_SignFinal( ST_SESSION_HANDLE  sSession,
 	}
 
 	if (!pulSignatureLen) {
-		st_err_log(5, __FILE__, __LINE__, __FUNCTION__);
+		ock_log_err(OCK_E_BAD_ARG);
 		rc = CKR_ARGUMENTS_BAD;
 		goto done;
 	}
@@ -3064,7 +3064,7 @@ CK_RV SC_SignRecoverInit( ST_SESSION_HANDLE  sSession,
 		goto done;
 	}
 	if (!pMechanism ){
-		st_err_log(5, __FILE__, __LINE__, __FUNCTION__);
+		ock_log_err(OCK_E_BAD_ARG);
 		rc = CKR_ARGUMENTS_BAD;
 		goto done;
 	}
@@ -3126,7 +3126,7 @@ CK_RV SC_SignRecover( ST_SESSION_HANDLE  sSession,
 		}
 
 	if (!pData || !pulSignatureLen) {
-		st_err_log(5, __FILE__, __LINE__, __FUNCTION__);
+		ock_log_err(OCK_E_BAD_ARG);
 		rc = CKR_ARGUMENTS_BAD;
 		goto done;
 	}
@@ -3186,7 +3186,7 @@ CK_RV SC_VerifyInit( ST_SESSION_HANDLE  sSession,
 		goto done;
 	}
 	if (!pMechanism ){
-		st_err_log(5, __FILE__, __LINE__, __FUNCTION__);
+		ock_log_err(OCK_E_BAD_ARG);
 		rc = CKR_ARGUMENTS_BAD;
 		goto done;
 	}
@@ -3247,7 +3247,7 @@ CK_RV SC_Verify( ST_SESSION_HANDLE  sSession,
 	}
 
 	if (!pData || !pSignature) {
-		st_err_log(5, __FILE__, __LINE__, __FUNCTION__);
+		ock_log_err(OCK_E_BAD_ARG);
 		rc = CKR_ARGUMENTS_BAD;
 		goto done;
 	}
@@ -3304,7 +3304,7 @@ CK_RV SC_VerifyUpdate( ST_SESSION_HANDLE  sSession,
 	}
 
 	if (!pPart) {
-		st_err_log(5, __FILE__, __LINE__, __FUNCTION__);
+		ock_log_err(OCK_E_BAD_ARG);
 		rc = CKR_ARGUMENTS_BAD;
 		goto done;
 	}
@@ -3359,7 +3359,7 @@ CK_RV SC_VerifyFinal( ST_SESSION_HANDLE  sSession,
 	}
 
 	if (!pSignature) {
-		st_err_log(5, __FILE__, __LINE__, __FUNCTION__);
+		ock_log_err(OCK_E_BAD_ARG);
 		rc = CKR_ARGUMENTS_BAD;
 		goto done;
 	}
@@ -3412,7 +3412,7 @@ CK_RV SC_VerifyRecoverInit( ST_SESSION_HANDLE  sSession,
 		goto done;
 	}
 	if (!pMechanism ){
-		st_err_log(5, __FILE__, __LINE__, __FUNCTION__);
+		ock_log_err(OCK_E_BAD_ARG);
 		rc = CKR_ARGUMENTS_BAD;
 		goto done;
 	}
@@ -3474,7 +3474,7 @@ CK_RV SC_VerifyRecover( ST_SESSION_HANDLE  sSession,
 	}
 
 	if (!pSignature || !pulDataLen) {
-		st_err_log(5, __FILE__, __LINE__, __FUNCTION__);
+		ock_log_err(OCK_E_BAD_ARG);
 		rc = CKR_ARGUMENTS_BAD;
 		goto done;
 	}
@@ -3611,7 +3611,7 @@ CK_RV SC_GenerateKey( ST_SESSION_HANDLE     sSession,
 	}
 
 	if (!pMechanism || !phKey || (pTemplate == NULL && ulCount != 0)) {
-		st_err_log(5, __FILE__, __LINE__, __FUNCTION__);
+		ock_log_err(OCK_E_BAD_ARG);
 		rc = CKR_ARGUMENTS_BAD;
 		goto done;
 	}
@@ -3688,7 +3688,7 @@ CK_RV SC_GenerateKeyPair( ST_SESSION_HANDLE     sSession,
 	    (!pPublicKeyTemplate && (ulPublicKeyAttributeCount != 0)) ||
 	    (!pPrivateKeyTemplate && (ulPrivateKeyAttributeCount != 0)))
 	{
-		st_err_log(5, __FILE__, __LINE__, __FUNCTION__);
+		ock_log_err(OCK_E_BAD_ARG);
 		rc = CKR_ARGUMENTS_BAD;
 		goto done;
 	}
@@ -3787,7 +3787,7 @@ CK_RV SC_WrapKey( ST_SESSION_HANDLE  sSession,
 	}
 
 	if (!pMechanism || !pulWrappedKeyLen) {
-		st_err_log(5, __FILE__, __LINE__, __FUNCTION__);
+		ock_log_err(OCK_E_BAD_ARG);
 		rc = CKR_ARGUMENTS_BAD;
 		goto done;
 	}
@@ -3856,7 +3856,7 @@ CK_RV SC_UnwrapKey( ST_SESSION_HANDLE     sSession,
 	if (!pMechanism || !pWrappedKey ||
 	    (!pTemplate && ulCount != 0) || !phKey)
 	{
-		st_err_log(5, __FILE__, __LINE__, __FUNCTION__);
+		ock_log_err(OCK_E_BAD_ARG);
 		rc = CKR_ARGUMENTS_BAD;
 		goto done;
 	}
@@ -3933,7 +3933,7 @@ CK_RV SC_DeriveKey( ST_SESSION_HANDLE     sSession,
 	}
 
 	if (!pMechanism || (!pTemplate && ulCount != 0)) {
-		st_err_log(5, __FILE__, __LINE__, __FUNCTION__);
+		ock_log_err(OCK_E_BAD_ARG);
 		rc = CKR_ARGUMENTS_BAD;
 		goto done;
 	}
@@ -4044,7 +4044,7 @@ CK_RV SC_GenerateRandom( ST_SESSION_HANDLE  sSession,
 	}
 
 	if (!pRandomData && ulRandomLen != 0) {
-		st_err_log(5, __FILE__, __LINE__, __FUNCTION__);
+		ock_log_err(OCK_E_BAD_ARG);
 		rc = CKR_ARGUMENTS_BAD;
 		goto done;
 	}
