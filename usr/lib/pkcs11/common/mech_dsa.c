@@ -420,7 +420,7 @@ dsa_verify( SESSION             * sess,
    }
    rc = ckm_dsa_verify( signature, in_data, key_obj );
    if (rc != CKR_OK)
-      st_err_log(121, __FILE__, __LINE__);
+      ock_log_err(OCK_E_DSA_VERIFY);
    return rc;
 }
 
@@ -525,7 +525,7 @@ ckm_dsa_verify( CK_BYTE   * signature,
    }
    rc = tok_dsa_verify( signature, data, publ_key);
    if (rc != CKR_OK)
-      st_err_log(121, __FILE__, __LINE__);
+      ock_log_err(OCK_E_DSA_VERIFY);
    return rc;
 }
 
