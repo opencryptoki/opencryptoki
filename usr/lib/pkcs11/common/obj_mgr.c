@@ -2073,7 +2073,7 @@ object_mgr_set_attribute_values( SESSION           * sess,
    // is issuing the request...
    //
    if (!modifiable){
-      st_err_log(7, __FILE__, __LINE__); 
+      ock_log_err(OCK_E_ATTR_READONLY);
       return CKR_ATTRIBUTE_READ_ONLY;
    }
    if (sess->session_info.state == CKS_RO_PUBLIC_SESSION) {

@@ -353,7 +353,7 @@ cert_validate_attribute( TEMPLATE *tmpl, CK_ATTRIBUTE *attr, CK_ULONG mode )
       case CKA_CERTIFICATE_TYPE:
          {
             if (mode != MODE_CREATE){
-               st_err_log(7, __FILE__, __LINE__);
+               ock_log_err(OCK_E_ATTR_READONLY);
                return CKR_ATTRIBUTE_READ_ONLY;
             }
             type = *(CK_CERTIFICATE_TYPE *)attr->pValue;
@@ -457,7 +457,7 @@ cert_x509_validate_attribute( TEMPLATE *tmpl, CK_ATTRIBUTE *attr, CK_ULONG mode 
    switch (attr->type) {
       case CKA_SUBJECT:
          if (mode != MODE_CREATE){
-            st_err_log(7, __FILE__, __LINE__);
+            ock_log_err(OCK_E_ATTR_READONLY);
             return CKR_ATTRIBUTE_READ_ONLY;
          }
          else
@@ -470,7 +470,7 @@ cert_x509_validate_attribute( TEMPLATE *tmpl, CK_ATTRIBUTE *attr, CK_ULONG mode 
 
       case CKA_VALUE:
          if (mode != MODE_CREATE){
-            st_err_log(7, __FILE__, __LINE__);
+            ock_log_err(OCK_E_ATTR_READONLY);
             return CKR_ATTRIBUTE_READ_ONLY;
          }
          else

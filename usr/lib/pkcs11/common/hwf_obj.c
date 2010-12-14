@@ -410,7 +410,7 @@ hwf_validate_attribute( TEMPLATE *tmpl, CK_ATTRIBUTE *attr, CK_ULONG mode)
          if (mode == MODE_CREATE)
             return CKR_OK;
          else{
-            st_err_log(7, __FILE__, __LINE__);
+            ock_log_err(OCK_E_ATTR_READONLY);
             return CKR_ATTRIBUTE_READ_ONLY;
          }
 
@@ -449,7 +449,7 @@ counter_validate_attribute( TEMPLATE *tmpl, CK_ATTRIBUTE *attr, CK_ULONG mode)
       case CKA_HAS_RESET:
 	 /* Fall Through */
       case CKA_RESET_ON_INIT:
-            st_err_log(7, __FILE__, __LINE__);
+            ock_log_err(OCK_E_ATTR_READONLY);
             return CKR_ATTRIBUTE_READ_ONLY;
 
       default:

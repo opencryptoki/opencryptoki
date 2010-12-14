@@ -1704,7 +1704,7 @@ template_validate_base_attribute( TEMPLATE      * tmpl,
          return CKR_TEMPLATE_INCONSISTENT;
    }
 
-   st_err_log(7, __FILE__, __LINE__); 
+   ock_log_err(OCK_E_ATTR_READONLY);
    return CKR_ATTRIBUTE_READ_ONLY;
 }
 
