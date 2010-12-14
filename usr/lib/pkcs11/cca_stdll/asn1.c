@@ -1013,7 +1013,7 @@ ber_encode_RSAPrivateKey( CK_BBOOL    length_only,
                                       NULL, ber_AlgIdRSAEncryptionLen,
                                       NULL, len );
       if (rc != CKR_OK){
-         st_err_log(82, __FILE__, __LINE__);
+         ock_log_err(OCK_E_ENCODE_PRIVKEY);
          return rc;
       }
       return rc;
@@ -1128,7 +1128,7 @@ ber_encode_RSAPrivateKey( CK_BBOOL    length_only,
                                    ber_AlgIdRSAEncryption, ber_AlgIdRSAEncryptionLen,
                                    buf2,  len );
    if (rc != CKR_OK) {
-      st_err_log(82, __FILE__, __LINE__);
+      ock_log_err(OCK_E_ENCODE_PRIVKEY);
    }
 error:
    if (buf2) free( buf2 );
@@ -1535,7 +1535,7 @@ ber_encode_DSAPrivateKey( CK_BBOOL    length_only,
                                       NULL,  ber_idDSALen + param_len,
                                       NULL,  len );
       if (rc != CKR_OK){
-         st_err_log(82, __FILE__, __LINE__);
+         ock_log_err(OCK_E_ENCODE_PRIVKEY);
       }
       return rc;
    }
@@ -1630,7 +1630,7 @@ ber_encode_DSAPrivateKey( CK_BBOOL    length_only,
                                    alg,     alg_len,
                                    buf,     len );
    if (rc != CKR_OK){
-      st_err_log(82, __FILE__, __LINE__);
+      ock_log_err(OCK_E_ENCODE_PRIVKEY);
       goto error;
    }
 
@@ -1668,7 +1668,7 @@ ber_decode_DSAPrivateKey( CK_BYTE     * data,
 
    rc = ber_decode_PrivateKeyInfo( data, data_len, &alg, &len, &dsakey );
    if (rc != CKR_OK){
-      st_err_log(82, __FILE__, __LINE__);
+      ock_log_err(OCK_E_ENCODE_PRIVKEY);
       return rc;
    }
 
