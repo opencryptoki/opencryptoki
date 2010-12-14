@@ -1422,7 +1422,7 @@ CK_RV SC_Login( ST_SESSION_HANDLE   sSession,
 
 		rc = load_masterkey_user();
 		if (rc != CKR_OK){
-			st_err_log(155, __FILE__, __LINE__);
+			ock_log_err(OCK_E_LOAD_MASTERKEY);
 			goto done;
 		}
 		/* no need to return error here, that would only prevent the stdll from loading. We
@@ -1457,7 +1457,7 @@ CK_RV SC_Login( ST_SESSION_HANDLE   sSession,
 
 		rc = load_masterkey_so();
 		if (rc != CKR_OK) {
-			st_err_log(155, __FILE__, __LINE__);
+			ock_log_err(OCK_E_LOAD_MASTERKEY);
 		}
 	}
 
