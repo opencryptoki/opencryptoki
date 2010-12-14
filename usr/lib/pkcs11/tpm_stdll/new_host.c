@@ -1004,7 +1004,7 @@ CK_RV SC_InitPIN( ST_SESSION_HANDLE  sSession,
 
 #if 0
    if ((ulPinLen < MIN_PIN_LEN) || (ulPinLen > MAX_PIN_LEN)) {
-      st_err_log(35, __FILE__, __LINE__); 
+      ock_log_err(OCK_E_PIN_LEN);
       rc = CKR_PIN_LEN_RANGE;
       goto done;
    }
@@ -1110,7 +1110,7 @@ CK_RV SC_SetPIN( ST_SESSION_HANDLE  sSession,
 
 #if 0
    if ((ulNewLen < MIN_PIN_LEN) || (ulNewLen > MAX_PIN_LEN)) {
-      st_err_log(35, __FILE__, __LINE__); 
+      ock_log_err(OCK_E_PIN_LEN);
       rc = CKR_PIN_LEN_RANGE;
       goto done;
    }
