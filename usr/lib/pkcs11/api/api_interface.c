@@ -3119,7 +3119,7 @@ C_GetSlotList ( CK_BBOOL       tokenPresent,
    } else {
    // Verify that the buffer passed is large enough
       if (*pulCount < count ) {
-         st_err_log(68, __FILE__, __LINE__);
+         ock_log_err(OCK_E_BUFFER_TOO_SMALL);
          return CKR_BUFFER_TOO_SMALL;
       }
      // Walk through the slot manager information and copy in the

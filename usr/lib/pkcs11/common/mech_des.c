@@ -1766,7 +1766,7 @@ ckm_des_cbc_encrypt( CK_BYTE   * in_data,
       return CKR_FUNCTION_FAILED;
 #else
       *out_data_len = in_data_len;
-      st_err_log(68, __FILE__, __FUNCTION__);
+      ock_log_err(OCK_E_BUFFER_TOO_SMALL);
       return CKR_BUFFER_TOO_SMALL;
 #endif
    }

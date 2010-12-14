@@ -350,7 +350,7 @@ rsa_format_block( CK_BYTE   * in_data,
     }
 
     if (out_data_len < (in_data_len + 11)) {
-      st_err_log(68, __FILE__, __LINE__);
+      ock_log_err(OCK_E_BUFFER_TOO_SMALL);
       rc = CKR_BUFFER_TOO_SMALL;
       return rc;
     }
@@ -582,7 +582,7 @@ rsa_parse_block( CK_BYTE  * in_data,
     }
 
     if (*out_data_len < (in_data_len - i)) {
-      st_err_log(68, __FILE__, __LINE__);
+      ock_log_err(OCK_E_BUFFER_TOO_SMALL);
       rc = CKR_BUFFER_TOO_SMALL;
       return rc;
     }
@@ -640,7 +640,7 @@ rsa_pkcs_encrypt( SESSION           *sess,
 
    if (*out_data_len < modulus_bytes) {
       *out_data_len = modulus_bytes;
-      st_err_log(68, __FILE__, __LINE__);
+      ock_log_err(OCK_E_BUFFER_TOO_SMALL);
       return CKR_BUFFER_TOO_SMALL;
    }
 
@@ -700,7 +700,7 @@ rsa_pkcs_decrypt( SESSION           *sess,
 
    if (*out_data_len < (modulus_bytes - 11)) {
       *out_data_len = modulus_bytes - 11;
-      st_err_log(68, __FILE__, __LINE__);
+      ock_log_err(OCK_E_BUFFER_TOO_SMALL);
       return CKR_BUFFER_TOO_SMALL;
    }
 
@@ -775,7 +775,7 @@ rsa_pkcs_sign( SESSION             *sess,
 
    if (*out_data_len < modulus_bytes) {
       *out_data_len = modulus_bytes;
-      st_err_log(68, __FILE__, __LINE__);
+      ock_log_err(OCK_E_BUFFER_TOO_SMALL);
       return CKR_BUFFER_TOO_SMALL;
    }
 
@@ -979,7 +979,7 @@ rsa_x509_encrypt( SESSION           *sess,
 
    if (*out_data_len < modulus_bytes) {
       *out_data_len = modulus_bytes;
-      st_err_log(68, __FILE__, __LINE__);
+      ock_log_err(OCK_E_BUFFER_TOO_SMALL);
       return CKR_BUFFER_TOO_SMALL;
    }
 
@@ -1049,7 +1049,7 @@ rsa_x509_decrypt( SESSION           *sess,
    //
    if (*out_data_len < modulus_bytes) {
       *out_data_len = modulus_bytes;
-      st_err_log(68, __FILE__, __LINE__);
+      ock_log_err(OCK_E_BUFFER_TOO_SMALL);
       return CKR_BUFFER_TOO_SMALL;
    }
 
@@ -1120,7 +1120,7 @@ rsa_x509_sign( SESSION             *sess,
 
    if (*out_data_len < modulus_bytes) {
       *out_data_len = modulus_bytes;
-      st_err_log(68, __FILE__, __LINE__);
+      ock_log_err(OCK_E_BUFFER_TOO_SMALL);
       return CKR_BUFFER_TOO_SMALL;
    }
 
@@ -1269,7 +1269,7 @@ rsa_x509_verify_recover( SESSION             * sess,
    //
    if (*out_data_len < modulus_bytes) {
       *out_data_len = modulus_bytes;
-      st_err_log(68, __FILE__, __LINE__);
+      ock_log_err(OCK_E_BUFFER_TOO_SMALL);
       return CKR_BUFFER_TOO_SMALL;
    }
 
