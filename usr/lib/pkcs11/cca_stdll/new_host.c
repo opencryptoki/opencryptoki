@@ -4080,7 +4080,7 @@ CK_RV SC_GetFunctionStatus( ST_SESSION_HANDLE  sSession )
 			st_err_log(72, __FILE__, __LINE__);
 			return CKR_CRYPTOKI_NOT_INITIALIZED;
 		}
-	st_err_log(17, __FILE__, __LINE__);
+	ock_log_err(OCK_E_FUNC_NOT_PARALLEL);
 	return CKR_FUNCTION_NOT_PARALLEL;
 }
 
@@ -4094,7 +4094,7 @@ CK_RV SC_CancelFunction( ST_SESSION_HANDLE  sSession )
 			st_err_log(72, __FILE__, __LINE__);
 			return CKR_CRYPTOKI_NOT_INITIALIZED;
 		}
-	st_err_log(17, __FILE__, __LINE__);
+	ock_log_err(OCK_E_FUNC_NOT_PARALLEL);
 	return CKR_FUNCTION_NOT_PARALLEL;
 }
 
