@@ -1457,7 +1457,7 @@ CK_RV SC_GetOperationState( ST_SESSION_HANDLE  sSession,
                                   pOperationState,
                                   pulOperationStateLen );
    if (rc != CKR_OK){
-      st_err_log(154, __FILE__, __LINE__);
+      ock_log_err(OCK_E_SESS_MGR_GET_OK_STATE);
    }
 done:
    LLOCK;
@@ -1508,7 +1508,7 @@ CK_RV SC_SetOperationState( ST_SESSION_HANDLE  sSession,
                                   pOperationState, ulOperationStateLen );
 
    if (rc != CKR_OK){
-      st_err_log(154, __FILE__, __LINE__);
+      ock_log_err(OCK_E_SESS_MGR_GET_OK_STATE);
    }
 done:
    LLOCK;
