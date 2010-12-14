@@ -328,14 +328,14 @@ dsa_sign( SESSION             * sess,
 
    rc = object_mgr_find_in_map1( ctx->key, &key_obj );
    if (rc != CKR_OK){
-      st_err_log(118, __FILE__, __LINE__);
+      ock_log_err(OCK_E_TOKEN_SPECIFIC_DES_CBC);
       return rc;
    }
    // must be a PRIVATE key operation
    //
    flag = template_attribute_find( key_obj->template, CKA_CLASS, &attr );
    if (flag == FALSE){
-      st_err_log(118, __FILE__, __LINE__);
+      ock_log_err(OCK_E_TOKEN_SPECIFIC_DES_CBC);
       return CKR_FUNCTION_FAILED;
    }
    else
@@ -345,7 +345,7 @@ dsa_sign( SESSION             * sess,
    // that somehow a public key got assigned a CKA_SIGN attribute
    //
    if (class != CKO_PRIVATE_KEY){
-      st_err_log(118, __FILE__, __LINE__);
+      ock_log_err(OCK_E_TOKEN_SPECIFIC_DES_CBC);
       return CKR_FUNCTION_FAILED;
    }
 
@@ -390,21 +390,21 @@ dsa_verify( SESSION             * sess,
 
    rc = object_mgr_find_in_map1( ctx->key, &key_obj );
    if (rc != CKR_OK){
-      st_err_log(118, __FILE__, __LINE__);
+      ock_log_err(OCK_E_TOKEN_SPECIFIC_DES_CBC);
       return rc;
    }
    // must be a PUBLIC key operation
    //
    flag = template_attribute_find( key_obj->template, CKA_CLASS, &attr );
    if (flag == FALSE){
-      st_err_log(118, __FILE__, __LINE__);
+      ock_log_err(OCK_E_TOKEN_SPECIFIC_DES_CBC);
       return CKR_FUNCTION_FAILED;
    }
    else
       class = *(CK_OBJECT_CLASS *)attr->pValue;
 
    if (class != CKO_PUBLIC_KEY){
-      st_err_log(118, __FILE__, __LINE__);
+      ock_log_err(OCK_E_TOKEN_SPECIFIC_DES_CBC);
       return CKR_FUNCTION_FAILED;
    }
 
@@ -473,7 +473,7 @@ ckm_dsa_sign( CK_BYTE   * in_data,
 
    rc = template_attribute_find( priv_key->template, CKA_CLASS, &attr );
    if (rc == FALSE){
-      st_err_log(118, __FILE__, __LINE__);
+      ock_log_err(OCK_E_TOKEN_SPECIFIC_DES_CBC);
       return CKR_FUNCTION_FAILED;
    }
    else
@@ -482,7 +482,7 @@ ckm_dsa_sign( CK_BYTE   * in_data,
    // this had better be a private key
    //
    if (keyclass != CKO_PRIVATE_KEY){
-      st_err_log(118, __FILE__, __LINE__);
+      ock_log_err(OCK_E_TOKEN_SPECIFIC_DES_CBC);
       return CKR_FUNCTION_FAILED;
    }
 
@@ -511,7 +511,7 @@ ckm_dsa_verify( CK_BYTE   * signature,
 
    rc = template_attribute_find( publ_key->template, CKA_CLASS, &attr );
    if (rc == FALSE){
-      st_err_log(118, __FILE__, __LINE__);
+      ock_log_err(OCK_E_TOKEN_SPECIFIC_DES_CBC);
       return CKR_FUNCTION_FAILED;
    }
    else
@@ -520,7 +520,7 @@ ckm_dsa_verify( CK_BYTE   * signature,
    // this had better be a private key
    //
    if (keyclass != CKO_PUBLIC_KEY){
-      st_err_log(118, __FILE__, __LINE__);
+      ock_log_err(OCK_E_TOKEN_SPECIFIC_DES_CBC);
       return CKR_FUNCTION_FAILED;
    }
    rc = tok_dsa_verify( signature, data, publ_key);

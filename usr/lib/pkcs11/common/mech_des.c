@@ -1774,7 +1774,7 @@ ckm_des_cbc_encrypt( CK_BYTE   * in_data,
          out_data_len,key_value,init_v,1);  // last parm is the encrypt flag
 
    if (rc != CKR_OK)
-      st_err_log(118, __FILE__, __LINE__);
+      ock_log_err(OCK_E_TOKEN_SPECIFIC_DES_CBC);
    return rc;
 }
 
@@ -1805,7 +1805,7 @@ ckm_des_cbc_decrypt( CK_BYTE   * in_data,
          out_data_len,key_value,init_v,0);  // last parm is the encrypt flag
 
    if (rc != CKR_OK)
-      st_err_log(118, __FILE__, __LINE__);
+      ock_log_err(OCK_E_TOKEN_SPECIFIC_DES_CBC);
    return rc;
 }
 
