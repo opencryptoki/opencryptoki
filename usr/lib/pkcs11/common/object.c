@@ -512,7 +512,7 @@ object_copy( CK_ATTRIBUTE  * pTemplate,
    }
    rc = template_add_attributes( new_tmpl, pTemplate, ulCount );
    if (rc != CKR_OK){
-      st_err_log(164, __FILE__, __LINE__); 
+      ock_log_err(OCK_E_ADD_ATTR);
       goto error;
    }
    // at this point, the new object has the list of attributes.  we need
@@ -849,7 +849,7 @@ object_set_attribute_values( OBJECT        * obj,
 
    rc = template_add_attributes( new_tmpl, pTemplate, ulCount );
    if (rc != CKR_OK){
-      st_err_log(164, __FILE__, __LINE__); 
+      ock_log_err(OCK_E_ADD_ATTR);
       goto error;
    }
 
