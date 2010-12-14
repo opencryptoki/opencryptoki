@@ -3559,7 +3559,7 @@ C_InitToken ( CK_SLOT_ID  slotID,
    // variable needs to be checked, and held locked until the operation
    // is complete.
    if (sessions_exist(slotID)){
-      st_err_log(43, __FILE__, __LINE__); 
+      ock_log_err(OCK_E_SESS_EXISTS);
       return CKR_SESSION_EXISTS;
    }
 
