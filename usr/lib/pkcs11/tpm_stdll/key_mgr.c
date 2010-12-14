@@ -704,7 +704,7 @@ key_mgr_wrap_key( SESSION           * sess,
       case CKM_AES_CBC:
 	 rc = ckm_aes_wrap_format( length_only, &data, &data_len );
 	 if (rc != CKR_OK) {
-	    st_err_log(192, __FILE__, __LINE__);
+	    ock_log_err(OCK_E_AES_WRAP_FORMAT);
 	    if (data) free( data );
 	    return rc;
 	 }
