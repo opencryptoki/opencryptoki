@@ -960,7 +960,7 @@ key_mgr_wrap_key( SESSION           * sess,
       case CKM_DES3_CBC:
          rc = ckm_des_wrap_format( length_only, &data, &data_len );
          if (rc != CKR_OK) {
-            st_err_log(97, __FILE__, __LINE__);
+            ock_log_err(OCK_E_DES_WRAP_FORMAT);
             if (data) free( data );
             return rc;
          }
