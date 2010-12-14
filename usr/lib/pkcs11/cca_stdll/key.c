@@ -1422,19 +1422,19 @@ rsa_publ_validate_attribute( TEMPLATE *tmpl, CK_ATTRIBUTE *attr, CK_ULONG mode )
       case CKA_MODULUS_BITS:
          if (mode == MODE_KEYGEN) {
             if (attr->ulValueLen != sizeof(CK_ULONG)){
-               st_err_log(9, __FILE__, __LINE__);
+               ock_log_err(OCK_E_ATTR_VALUE_INV);
                return CKR_ATTRIBUTE_VALUE_INVALID;
             }
             else {
                CK_ULONG mod_bits = *(CK_ULONG *)attr->pValue;
 
                if (mod_bits < 512 || mod_bits > 4096){
-                  st_err_log(9, __FILE__, __LINE__);
+                  ock_log_err(OCK_E_ATTR_VALUE_INV);
                   return CKR_ATTRIBUTE_VALUE_INVALID;
                }
 
                if (mod_bits % 8 != 0){
-                  st_err_log(9, __FILE__, __LINE__);
+                  ock_log_err(OCK_E_ATTR_VALUE_INV);
                   return CKR_ATTRIBUTE_VALUE_INVALID;
                }
                return CKR_OK;
@@ -1977,7 +1977,7 @@ dsa_publ_validate_attribute( TEMPLATE *tmpl, CK_ATTRIBUTE *attr, CK_ULONG mode )
             //
             size = attr->ulValueLen;
             if (size < 64 || size > 128 || (size % 8 != 0)){
-               st_err_log(9, __FILE__, __LINE__);
+               ock_log_err(OCK_E_ATTR_VALUE_INV);
                return CKR_ATTRIBUTE_VALUE_INVALID;
             }
             p11_attribute_trim( attr );
@@ -1993,7 +1993,7 @@ dsa_publ_validate_attribute( TEMPLATE *tmpl, CK_ATTRIBUTE *attr, CK_ULONG mode )
             // subprime must be 160 bits
             //
             if (attr->ulValueLen != 20){
-               st_err_log(9, __FILE__, __LINE__);
+               ock_log_err(OCK_E_ATTR_VALUE_INV);
                return CKR_ATTRIBUTE_VALUE_INVALID;
             }
             p11_attribute_trim( attr );
@@ -2151,7 +2151,7 @@ dsa_priv_validate_attribute( TEMPLATE *tmpl, CK_ATTRIBUTE *attr, CK_ULONG mode )
             //
             size = attr->ulValueLen;
             if (size < 64 || size > 128 || (size % 8 != 0)){
-               st_err_log(9, __FILE__, __LINE__);
+               ock_log_err(OCK_E_ATTR_VALUE_INV);
                return CKR_ATTRIBUTE_VALUE_INVALID;
                }
             p11_attribute_trim( attr );
@@ -2167,7 +2167,7 @@ dsa_priv_validate_attribute( TEMPLATE *tmpl, CK_ATTRIBUTE *attr, CK_ULONG mode )
             // subprime must be 160 bits
             //
             if (attr->ulValueLen != 20){
-               st_err_log(9, __FILE__, __LINE__);
+               ock_log_err(OCK_E_ATTR_VALUE_INV);
                return CKR_ATTRIBUTE_VALUE_INVALID;
             }
             p11_attribute_trim( attr );
@@ -3320,7 +3320,7 @@ generic_secret_unwrap( TEMPLATE *tmpl,
    if (rc) {
       len = *(CK_ULONG *)attr->pValue;
       if (len > data_len) {
-         st_err_log(9, __FILE__, __LINE__);
+         ock_log_err(OCK_E_ATTR_VALUE_INV);
          rc = CKR_ATTRIBUTE_VALUE_INVALID;
          goto error;
       }
@@ -3467,7 +3467,7 @@ rc2_validate_attribute( TEMPLATE *tmpl, CK_ATTRIBUTE *attr, CK_ULONG mode )
             }
             len = *(CK_ULONG *)attr->pValue;
             if (len > 128){
-               st_err_log(9, __FILE__, __LINE__);
+               ock_log_err(OCK_E_ATTR_VALUE_INV);
                return CKR_ATTRIBUTE_VALUE_INVALID;
             }
             else
@@ -3570,7 +3570,7 @@ rc4_validate_attribute( TEMPLATE *tmpl, CK_ATTRIBUTE *attr, CK_ULONG mode )
             // key length <= 256 bytes
             //
             if (attr->ulValueLen > 256){
-               st_err_log(9, __FILE__, __LINE__);
+               ock_log_err(OCK_E_ATTR_VALUE_INV);
                return CKR_ATTRIBUTE_VALUE_INVALID;
             }
             else
@@ -3587,7 +3587,7 @@ rc4_validate_attribute( TEMPLATE *tmpl, CK_ATTRIBUTE *attr, CK_ULONG mode )
             }
             len = *(CK_ULONG *)attr->pValue;
             if (len > 255){
-               st_err_log(9, __FILE__, __LINE__);
+               ock_log_err(OCK_E_ATTR_VALUE_INV);
                return CKR_ATTRIBUTE_VALUE_INVALID;
             }
             else
@@ -3690,7 +3690,7 @@ rc5_validate_attribute( TEMPLATE *tmpl, CK_ATTRIBUTE *attr, CK_ULONG mode )
             // key length <= 256 bytes
             //
             if (attr->ulValueLen > 255){
-               st_err_log(9, __FILE__, __LINE__);
+               ock_log_err(OCK_E_ATTR_VALUE_INV);
                return CKR_ATTRIBUTE_VALUE_INVALID;
             }
             else
@@ -3707,7 +3707,7 @@ rc5_validate_attribute( TEMPLATE *tmpl, CK_ATTRIBUTE *attr, CK_ULONG mode )
             }
             len = *(CK_ULONG *)attr->pValue;
             if (len > 255){
-               st_err_log(9, __FILE__, __LINE__);
+               ock_log_err(OCK_E_ATTR_VALUE_INV);
                return CKR_ATTRIBUTE_VALUE_INVALID;
             }
             else
@@ -3833,7 +3833,7 @@ des_unwrap( TEMPLATE *tmpl,
    if (nv_token_data->tweak_vector.check_des_parity == TRUE) {
       for (i=0; i < DES_KEY_SIZE; i++) {
          if (parity_is_odd(ptr[i]) == FALSE){
-               st_err_log(9, __FILE__, __LINE__);
+               ock_log_err(OCK_E_ATTR_VALUE_INV);
             return CKR_ATTRIBUTE_VALUE_INVALID;
          }
       }
@@ -3877,14 +3877,14 @@ des_validate_attribute( TEMPLATE *tmpl, CK_ATTRIBUTE *attr, CK_ULONG mode )
          //
          if (mode == MODE_CREATE) {
             if (attr->ulValueLen != DES_KEY_SIZE){
-               st_err_log(9, __FILE__, __LINE__);
+               ock_log_err(OCK_E_ATTR_VALUE_INV);
                return CKR_ATTRIBUTE_VALUE_INVALID;
             }
             if (nv_token_data->tweak_vector.check_des_parity == TRUE) {
                ptr = attr->pValue;
                for (i=0; i < DES_KEY_SIZE; i++) {
                   if (parity_is_odd(ptr[i]) == FALSE){
-                     st_err_log(9, __FILE__, __LINE__);
+                     ock_log_err(OCK_E_ATTR_VALUE_INV);
                      return CKR_ATTRIBUTE_VALUE_INVALID;
                   }
                }
@@ -3905,7 +3905,7 @@ des_validate_attribute( TEMPLATE *tmpl, CK_ATTRIBUTE *attr, CK_ULONG mode )
             {
                CK_ULONG len = *(CK_ULONG *)attr->pValue;
                if (len != DES_KEY_SIZE){
-                  st_err_log(9, __FILE__, __LINE__);
+                  ock_log_err(OCK_E_ATTR_VALUE_INV);
                   return CKR_ATTRIBUTE_VALUE_INVALID;
                }
                else
@@ -4040,14 +4040,14 @@ des2_validate_attribute( TEMPLATE *tmpl, CK_ATTRIBUTE *attr, CK_ULONG mode )
          //
          if (mode == MODE_CREATE) {
             if (attr->ulValueLen != (2 * DES_KEY_SIZE)){
-               st_err_log(9, __FILE__, __LINE__);
+               ock_log_err(OCK_E_ATTR_VALUE_INV);
                return CKR_ATTRIBUTE_VALUE_INVALID;
             }
             if (nv_token_data->tweak_vector.check_des_parity == TRUE) {
                ptr = attr->pValue;
                for (i=0; i < 2*DES_KEY_SIZE; i++) {
                   if (parity_is_odd(ptr[i]) == FALSE){
-                     st_err_log(9, __FILE__, __LINE__);
+                     ock_log_err(OCK_E_ATTR_VALUE_INV);
                      return CKR_ATTRIBUTE_VALUE_INVALID;
                   }
                }
@@ -4067,7 +4067,7 @@ des2_validate_attribute( TEMPLATE *tmpl, CK_ATTRIBUTE *attr, CK_ULONG mode )
             {
                CK_ULONG len = *(CK_ULONG *)attr->pValue;
                if (len != (2 * DES_KEY_SIZE)){
-                  st_err_log(9, __FILE__, __LINE__);
+                  ock_log_err(OCK_E_ATTR_VALUE_INV);
                   return CKR_ATTRIBUTE_VALUE_INVALID;
                } 
                else
@@ -4174,7 +4174,7 @@ des3_unwrap( TEMPLATE *tmpl,
    if (nv_token_data->tweak_vector.check_des_parity == TRUE) {
       for (i=0; i < 3*DES_KEY_SIZE; i++) {
          if (parity_is_odd(ptr[i]) == FALSE){
-            st_err_log(9, __FILE__, __LINE__);
+            ock_log_err(OCK_E_ATTR_VALUE_INV);
             return CKR_ATTRIBUTE_VALUE_INVALID;
          }
       }
@@ -4221,14 +4221,14 @@ des3_validate_attribute( TEMPLATE *tmpl, CK_ATTRIBUTE *attr, CK_ULONG mode )
          //
          if (mode == MODE_CREATE) {
             if (attr->ulValueLen != (3 * DES_KEY_SIZE)){
-               st_err_log(9, __FILE__, __LINE__);
+               ock_log_err(OCK_E_ATTR_VALUE_INV);
                return CKR_ATTRIBUTE_VALUE_INVALID;
             }
             if (nv_token_data->tweak_vector.check_des_parity == TRUE) {
                ptr = attr->pValue;
                for (i=0; i < 3*DES_KEY_SIZE; i++) {
                   if (parity_is_odd(ptr[i]) == FALSE){
-                     st_err_log(9, __FILE__, __LINE__);
+                     ock_log_err(OCK_E_ATTR_VALUE_INV);
                      return CKR_ATTRIBUTE_VALUE_INVALID;
                   }
                }
@@ -4398,7 +4398,7 @@ cast_validate_attribute( TEMPLATE *tmpl, CK_ATTRIBUTE *attr, CK_ULONG mode )
                return CKR_ATTRIBUTE_READ_ONLY;
             }
             if (attr->ulValueLen > 8 || attr->ulValueLen < 1){
-               st_err_log(9, __FILE__, __LINE__);
+               ock_log_err(OCK_E_ATTR_VALUE_INV);
                return CKR_ATTRIBUTE_VALUE_INVALID;
             }
             else
@@ -4413,7 +4413,7 @@ cast_validate_attribute( TEMPLATE *tmpl, CK_ATTRIBUTE *attr, CK_ULONG mode )
             }
             len = *(CK_ULONG *)attr->pValue;
             if (len > 8 || len < 1){
-               st_err_log(9, __FILE__, __LINE__);
+               ock_log_err(OCK_E_ATTR_VALUE_INV);
                return CKR_ATTRIBUTE_VALUE_INVALID;
             }
             else
@@ -4519,7 +4519,7 @@ cast3_validate_attribute( TEMPLATE *tmpl, CK_ATTRIBUTE *attr, CK_ULONG mode )
                return CKR_ATTRIBUTE_READ_ONLY;
             }
             if (attr->ulValueLen > 8 || attr->ulValueLen < 1){
-               st_err_log(9, __FILE__, __LINE__);
+               ock_log_err(OCK_E_ATTR_VALUE_INV);
                return CKR_ATTRIBUTE_VALUE_INVALID;
             }
             else
@@ -4534,7 +4534,7 @@ cast3_validate_attribute( TEMPLATE *tmpl, CK_ATTRIBUTE *attr, CK_ULONG mode )
             }
             len = *(CK_ULONG *)attr->pValue;
             if (len > 8 || len < 1){
-               st_err_log(9, __FILE__, __LINE__);
+               ock_log_err(OCK_E_ATTR_VALUE_INV);
                return CKR_ATTRIBUTE_VALUE_INVALID;
             }
             else
@@ -4635,7 +4635,7 @@ cast5_validate_attribute( TEMPLATE *tmpl, CK_ATTRIBUTE *attr, CK_ULONG mode )
                return CKR_ATTRIBUTE_READ_ONLY;
             }
             if (attr->ulValueLen > 16 || attr->ulValueLen < 1){
-               st_err_log(9, __FILE__, __LINE__);
+               ock_log_err(OCK_E_ATTR_VALUE_INV);
                return CKR_ATTRIBUTE_VALUE_INVALID;
             }
             else
@@ -4650,7 +4650,7 @@ cast5_validate_attribute( TEMPLATE *tmpl, CK_ATTRIBUTE *attr, CK_ULONG mode )
             }
             len = *(CK_ULONG *)attr->pValue;
             if (len < 1 || len > 16){
-               st_err_log(9, __FILE__, __LINE__);
+               ock_log_err(OCK_E_ATTR_VALUE_INV);
                return CKR_ATTRIBUTE_VALUE_INVALID;
             }
             else
@@ -4733,7 +4733,7 @@ idea_validate_attribute( TEMPLATE *tmpl, CK_ATTRIBUTE *attr, CK_ULONG mode )
                return CKR_ATTRIBUTE_READ_ONLY;
             }
             if (attr->ulValueLen != 16){
-               st_err_log(9, __FILE__, __LINE__);
+               ock_log_err(OCK_E_ATTR_VALUE_INV);
                return CKR_ATTRIBUTE_VALUE_INVALID;
             }
             else
@@ -4827,7 +4827,7 @@ cdmf_validate_attribute( TEMPLATE *tmpl, CK_ATTRIBUTE *attr, CK_ULONG mode )
                return CKR_ATTRIBUTE_READ_ONLY;
             }
             if (attr->ulValueLen != DES_KEY_SIZE){
-               st_err_log(9, __FILE__, __LINE__);
+               ock_log_err(OCK_E_ATTR_VALUE_INV);
                return CKR_ATTRIBUTE_VALUE_INVALID;
             }
 #if 0
@@ -4864,7 +4864,7 @@ cdmf_validate_attribute( TEMPLATE *tmpl, CK_ATTRIBUTE *attr, CK_ULONG mode )
                if (mode == MODE_CREATE || mode == MODE_KEYGEN) {
                   len = *(CK_ULONG *)attr->pValue;
                   if (len != DES_KEY_SIZE){
-                     st_err_log(9, __FILE__, __LINE__);
+                     ock_log_err(OCK_E_ATTR_VALUE_INV);
                      return CKR_ATTRIBUTE_VALUE_INVALID;
                   }
                   else
@@ -4959,7 +4959,7 @@ skipjack_validate_attribute( TEMPLATE *tmpl, CK_ATTRIBUTE *attr, CK_ULONG mode )
                return CKR_ATTRIBUTE_READ_ONLY;
             }
             if (attr->ulValueLen != 20){
-               st_err_log(9, __FILE__, __LINE__);
+               ock_log_err(OCK_E_ATTR_VALUE_INV);
                return CKR_ATTRIBUTE_VALUE_INVALID;
             }
             else
@@ -5043,7 +5043,7 @@ baton_validate_attribute( TEMPLATE *tmpl, CK_ATTRIBUTE *attr, CK_ULONG mode )
                return CKR_ATTRIBUTE_READ_ONLY;
             }
             if (attr->ulValueLen != 40){
-               st_err_log(9, __FILE__, __LINE__);
+               ock_log_err(OCK_E_ATTR_VALUE_INV);
                return CKR_ATTRIBUTE_VALUE_INVALID;
             }
             else
@@ -5127,7 +5127,7 @@ juniper_validate_attribute( TEMPLATE *tmpl, CK_ATTRIBUTE *attr, CK_ULONG mode )
                return CKR_ATTRIBUTE_READ_ONLY;
             }
             if (attr->ulValueLen != 40){
-               st_err_log(9, __FILE__, __LINE__);
+               ock_log_err(OCK_E_ATTR_VALUE_INV);
                return CKR_ATTRIBUTE_VALUE_INVALID;
             }
             else
@@ -5215,7 +5215,7 @@ aes_validate_attribute( TEMPLATE *tmpl, CK_ATTRIBUTE *attr, CK_ULONG mode )
 		attr->ulValueLen != AES_KEY_SIZE_192 &&
 		attr->ulValueLen != AES_KEY_SIZE_256   )
 	    {
-               st_err_log(9, __FILE__, __LINE__);
+               ock_log_err(OCK_E_ATTR_VALUE_INV);
                return CKR_ATTRIBUTE_VALUE_INVALID;
             }
             return CKR_OK;
@@ -5326,7 +5326,7 @@ aes_unwrap( TEMPLATE *tmpl,
    if (nv_token_data->tweak_vector.check_des_parity == TRUE) {
       for (i=0; i < 3*DES_KEY_SIZE; i++) {
          if (parity_is_odd(ptr[i]) == FALSE){
-            st_err_log(9, __FILE__, __LINE__);
+            ock_log_err(OCK_E_ATTR_VALUE_INV);
             return CKR_ATTRIBUTE_VALUE_INVALID;
          }
       }

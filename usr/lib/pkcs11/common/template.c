@@ -419,7 +419,7 @@ template_add_default_attributes( TEMPLATE * tmpl,
                return kea_publ_set_default_attributes( tmpl, mode );
 
             default:
-               st_err_log(9, __FILE__, __LINE__); 
+               ock_log_err(OCK_E_ATTR_VALUE_INV);
                return CKR_ATTRIBUTE_VALUE_INVALID;  // unknown key type
          }
 
@@ -442,7 +442,7 @@ template_add_default_attributes( TEMPLATE * tmpl,
                return kea_priv_set_default_attributes( tmpl, mode );
 
             default:
-               st_err_log(9, __FILE__, __LINE__); 
+               ock_log_err(OCK_E_ATTR_VALUE_INV);
                return CKR_ATTRIBUTE_VALUE_INVALID;  // unknown key type
          }
 
@@ -500,7 +500,7 @@ template_add_default_attributes( TEMPLATE * tmpl,
 	       return aes_set_default_attributes( tmpl, mode );
 
             default:
-               st_err_log(9, __FILE__, __LINE__); 
+               ock_log_err(OCK_E_ATTR_VALUE_INV);
                return CKR_ATTRIBUTE_VALUE_INVALID;  // unknown key type
          }
 
@@ -514,7 +514,7 @@ template_add_default_attributes( TEMPLATE * tmpl,
 	       return counter_set_default_attributes( tmpl, mode );
 
 	    default:
-	       st_err_log(9, __FILE__, __LINE__);
+	       ock_log_err(OCK_E_ATTR_VALUE_INV);
 	       return CKR_ATTRIBUTE_VALUE_INVALID;
 	 }
 
@@ -531,12 +531,12 @@ template_add_default_attributes( TEMPLATE * tmpl,
 	       return dp_x9dh_set_default_attributes( tmpl, mode );
 
 	    default:
-	       st_err_log(9, __FILE__, __LINE__);
+	       ock_log_err(OCK_E_ATTR_VALUE_INV);
 	       return CKR_ATTRIBUTE_VALUE_INVALID;
 	 }
 
       default:
-         st_err_log(9, __FILE__, __LINE__); 
+         ock_log_err(OCK_E_ATTR_VALUE_INV);
          return CKR_ATTRIBUTE_VALUE_INVALID;
    }
 }
@@ -634,7 +634,7 @@ template_check_required_attributes( TEMPLATE  * tmpl,
             return kea_publ_check_required_attributes( tmpl, mode );
 
          default:
-            st_err_log(9, __FILE__, __LINE__); 
+            ock_log_err(OCK_E_ATTR_VALUE_INV);
             return CKR_ATTRIBUTE_VALUE_INVALID;  // unknown key type
       }
    }
@@ -658,7 +658,7 @@ template_check_required_attributes( TEMPLATE  * tmpl,
             return kea_priv_check_required_attributes( tmpl, mode );
 
          default:
-            st_err_log(9, __FILE__, __LINE__); 
+            ock_log_err(OCK_E_ATTR_VALUE_INV);
             return CKR_ATTRIBUTE_VALUE_INVALID;  // unknown key type
       }
    }
@@ -717,7 +717,7 @@ template_check_required_attributes( TEMPLATE  * tmpl,
 	    return aes_check_required_attributes( tmpl, mode );
 
          default:
-            st_err_log(9, __FILE__, __LINE__); 
+            ock_log_err(OCK_E_ATTR_VALUE_INV);
             return CKR_ATTRIBUTE_VALUE_INVALID;  // unknown key type
       }
    }
@@ -732,7 +732,7 @@ template_check_required_attributes( TEMPLATE  * tmpl,
             return counter_check_required_attributes( tmpl, mode );
 
          default:
-            st_err_log(9, __FILE__, __LINE__);
+            ock_log_err(OCK_E_ATTR_VALUE_INV);
             return CKR_ATTRIBUTE_VALUE_INVALID;
       }
    }
@@ -750,12 +750,12 @@ template_check_required_attributes( TEMPLATE  * tmpl,
             return dp_x9dh_check_required_attributes( tmpl, mode );
 
          default:
-            st_err_log(9, __FILE__, __LINE__);
+            ock_log_err(OCK_E_ATTR_VALUE_INV);
             return CKR_ATTRIBUTE_VALUE_INVALID;
       }
    }
 
-   st_err_log(9, __FILE__, __LINE__); 
+   ock_log_err(OCK_E_ATTR_VALUE_INV);
    return CKR_ATTRIBUTE_VALUE_INVALID;   // default fallthru
 }
 
@@ -1304,7 +1304,7 @@ template_check_exportability( TEMPLATE *tmpl, CK_ATTRIBUTE_TYPE type )
             return kea_priv_check_exportability( type );
 
          default:
-            st_err_log(9, __FILE__, __LINE__); 
+            ock_log_err(OCK_E_ATTR_VALUE_INV);
             return CKR_ATTRIBUTE_VALUE_INVALID;  // unknown key type
       }
    }
@@ -1312,7 +1312,7 @@ template_check_exportability( TEMPLATE *tmpl, CK_ATTRIBUTE_TYPE type )
       return secret_key_check_exportability( type );
    }
 
-   st_err_log(9, __FILE__, __LINE__); 
+   ock_log_err(OCK_E_ATTR_VALUE_INV);
    return CKR_ATTRIBUTE_VALUE_INVALID;
 }
 
@@ -1507,7 +1507,7 @@ template_validate_attribute( TEMPLATE     * tmpl,
             return kea_publ_validate_attribute( tmpl, attr, mode );
 
          default:
-            st_err_log(9, __FILE__, __LINE__); 
+            ock_log_err(OCK_E_ATTR_VALUE_INV);
             return CKR_ATTRIBUTE_VALUE_INVALID;  // unknown key type
       }
    }
@@ -1531,7 +1531,7 @@ template_validate_attribute( TEMPLATE     * tmpl,
             return kea_priv_validate_attribute( tmpl, attr, mode );
 
          default:
-            st_err_log(9, __FILE__, __LINE__); 
+            ock_log_err(OCK_E_ATTR_VALUE_INV);
             return CKR_ATTRIBUTE_VALUE_INVALID;  // unknown key type
       }
    }
@@ -1590,7 +1590,7 @@ template_validate_attribute( TEMPLATE     * tmpl,
 	    return aes_validate_attribute( tmpl, attr, mode );
 
          default:
-            st_err_log(9, __FILE__, __LINE__); 
+            ock_log_err(OCK_E_ATTR_VALUE_INV);
             return CKR_ATTRIBUTE_VALUE_INVALID;  // unknown key type
       }
    }
@@ -1605,7 +1605,7 @@ template_validate_attribute( TEMPLATE     * tmpl,
             return counter_validate_attribute( tmpl, attr, mode );
 
          default:
-            st_err_log(9, __FILE__, __LINE__);
+            ock_log_err(OCK_E_ATTR_VALUE_INV);
             return CKR_ATTRIBUTE_VALUE_INVALID;
       }
    }
@@ -1623,12 +1623,12 @@ template_validate_attribute( TEMPLATE     * tmpl,
             return dp_x9dh_validate_attribute( tmpl, attr, mode );
 
          default:
-            st_err_log(9, __FILE__, __LINE__);
+            ock_log_err(OCK_E_ATTR_VALUE_INV);
             return CKR_ATTRIBUTE_VALUE_INVALID;
       }
    }
 
-   st_err_log(9, __FILE__, __LINE__); 
+   ock_log_err(OCK_E_ATTR_VALUE_INV);
    return CKR_ATTRIBUTE_VALUE_INVALID;   // default fallthru
 }
 

@@ -360,7 +360,7 @@ cert_validate_attribute( TEMPLATE *tmpl, CK_ATTRIBUTE *attr, CK_ULONG mode )
             if (type == CKC_X_509 || type >= CKC_VENDOR_DEFINED)
                return CKR_OK;
             else{
-               st_err_log(9, __FILE__, __LINE__);
+               ock_log_err(OCK_E_ATTR_VALUE_INV);
                return CKR_ATTRIBUTE_VALUE_INVALID;
             }
          }
@@ -384,12 +384,12 @@ cert_x509_check_required_attributes( TEMPLATE *tmpl, CK_ULONG mode )
 
    found = template_attribute_find( tmpl, CKA_SUBJECT, &attr );
    if (!found){
-      st_err_log(9, __FILE__, __LINE__);
+      ock_log_err(OCK_E_ATTR_VALUE_INV);
       return CKR_TEMPLATE_INCOMPLETE;
    }
    found = template_attribute_find( tmpl, CKA_VALUE, &attr );
    if (!found){
-      st_err_log(9, __FILE__, __LINE__);
+      ock_log_err(OCK_E_ATTR_VALUE_INV);
       return CKR_TEMPLATE_INCOMPLETE;
    }
    return cert_check_required_attributes( tmpl, mode );
