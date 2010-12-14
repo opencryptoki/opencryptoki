@@ -478,7 +478,7 @@ key_mgr_generate_key( SESSION           * sess,
 
       rc = build_attribute( CKA_ALWAYS_SENSITIVE, &flag, sizeof(CK_BBOOL), &new_attr );
       if (rc != CKR_OK){
-         st_err_log(84, __FILE__, __LINE__);
+         ock_log_err(OCK_E_BUILD_ATTR);
          goto error;
       }
       template_update_attribute( key_obj->template, new_attr );
@@ -496,7 +496,7 @@ key_mgr_generate_key( SESSION           * sess,
 
       rc = build_attribute( CKA_NEVER_EXTRACTABLE, &true, sizeof(CK_BBOOL), &new_attr );
       if (rc != CKR_OK){
-         st_err_log(84, __FILE__, __LINE__);
+         ock_log_err(OCK_E_BUILD_ATTR);
          goto error;
       }
       if (flag == TRUE)
@@ -708,7 +708,7 @@ key_mgr_generate_key_pair( SESSION           * sess,
 
       rc = build_attribute( CKA_ALWAYS_SENSITIVE, &flag, sizeof(CK_BBOOL), &new_attr );
       if (rc != CKR_OK){
-         st_err_log(84, __FILE__, __LINE__);
+         ock_log_err(OCK_E_BUILD_ATTR);
          goto error;
       }
       template_update_attribute( priv_key_obj->template, new_attr );
@@ -726,7 +726,7 @@ key_mgr_generate_key_pair( SESSION           * sess,
 
       rc = build_attribute( CKA_NEVER_EXTRACTABLE, &true, sizeof(CK_BBOOL), &new_attr );
       if (rc != CKR_OK){
-         st_err_log(84, __FILE__, __LINE__);
+         ock_log_err(OCK_E_BUILD_ATTR);
          goto error;
       }
       if (flag == TRUE)

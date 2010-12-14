@@ -384,7 +384,7 @@ dh_pkcs_derive( SESSION           * sess,
                             base_key, secret_key_value, &secret_key_value_len );
    if (rc != CKR_OK)
    {
-      st_err_log(84, __FILE__, __LINE__);
+      ock_log_err(OCK_E_BUILD_ATTR);
       return CKR_FUNCTION_FAILED ;
    }
 
@@ -392,7 +392,7 @@ dh_pkcs_derive( SESSION           * sess,
    rc = build_attribute( CKA_VALUE, secret_key_value, secret_key_value_len, &new_attr );
    if (rc != CKR_OK)
    {
-      st_err_log(84, __FILE__, __LINE__);
+      ock_log_err(OCK_E_BUILD_ATTR);
       return CKR_FUNCTION_FAILED ;
    }
 

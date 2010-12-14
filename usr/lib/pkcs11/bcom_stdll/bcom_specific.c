@@ -820,7 +820,7 @@ os_specific_rsa_keygen(TEMPLATE *publ_tmpl,  TEMPLATE *priv_tmpl)
 	rc = build_swapped_attribute( CKA_MODULUS, (unsigned char *)rsa_pub->n, 
 				      ubsec_bits_to_bytes(rsa_pub->n_len), &attr); // length in bytes
 	if (rc != CKR_OK){
-		st_err_log(84, __FILE__, __LINE__);
+		ock_log_err(OCK_E_BUILD_ATTR);
 		goto done;
         }
 	template_update_attribute( publ_tmpl, attr );
@@ -829,7 +829,7 @@ os_specific_rsa_keygen(TEMPLATE *publ_tmpl,  TEMPLATE *priv_tmpl)
         rc = build_swapped_attribute( CKA_PUBLIC_EXPONENT, (unsigned char*)rsa_pub->e, 
 				      ubsec_bits_to_bytes(rsa_pub->e_len), &attr);
         if (rc != CKR_OK){
-                st_err_log(84, __FILE__, __LINE__);
+                ock_log_err(OCK_E_BUILD_ATTR);
                 goto done;
         }
         template_update_attribute( publ_tmpl, attr );
@@ -838,7 +838,7 @@ os_specific_rsa_keygen(TEMPLATE *publ_tmpl,  TEMPLATE *priv_tmpl)
 	flag = TRUE;
 	rc = build_attribute( CKA_LOCAL, &flag, sizeof(CK_BBOOL), &attr );
 	if (rc != CKR_OK){
-	  st_err_log(84, __FILE__, __LINE__);
+	  ock_log_err(OCK_E_BUILD_ATTR);
 	  goto done;
 	}
 	template_update_attribute( publ_tmpl, attr );
@@ -850,7 +850,7 @@ os_specific_rsa_keygen(TEMPLATE *publ_tmpl,  TEMPLATE *priv_tmpl)
 	// Add the modulus to the private key information
 	rc = build_swapped_attribute( CKA_MODULUS, (unsigned char*)rsa_pub->n, ubsec_bits_to_bytes(rsa_pub->n_len) ,&attr ); 
 	if (rc != CKR_OK){
-		st_err_log(84, __FILE__, __LINE__);
+		ock_log_err(OCK_E_BUILD_ATTR);
 		goto done;
 	}
 	template_update_attribute( priv_tmpl, attr );
@@ -859,7 +859,7 @@ os_specific_rsa_keygen(TEMPLATE *publ_tmpl,  TEMPLATE *priv_tmpl)
         rc = build_swapped_attribute( CKA_PRIVATE_EXPONENT, (unsigned char*)rsa_priv->d, 
 				      ubsec_bits_to_bytes(rsa_priv->d_len), &attr );
         if (rc != CKR_OK){
-                st_err_log(84, __FILE__, __LINE__);
+                ock_log_err(OCK_E_BUILD_ATTR);
                 goto done;
         }
         template_update_attribute( priv_tmpl, attr );
@@ -868,7 +868,7 @@ os_specific_rsa_keygen(TEMPLATE *publ_tmpl,  TEMPLATE *priv_tmpl)
 	rc = build_swapped_attribute( CKA_PRIME_1, (unsigned char*)rsa_priv->p, 
 				      ubsec_bits_to_bytes(rsa_priv->p_len), &attr );
 	if (rc != CKR_OK){
-		st_err_log(84, __FILE__, __LINE__);
+		ock_log_err(OCK_E_BUILD_ATTR);
 		goto done;
 	}
 	template_update_attribute( priv_tmpl, attr );
@@ -877,7 +877,7 @@ os_specific_rsa_keygen(TEMPLATE *publ_tmpl,  TEMPLATE *priv_tmpl)
 	rc = build_swapped_attribute( CKA_PRIME_2, (unsigned char*)rsa_priv->q, 
 				      ubsec_bits_to_bytes(rsa_priv->q_len), &attr );
 	if (rc != CKR_OK){
-		st_err_log(84, __FILE__, __LINE__);
+		ock_log_err(OCK_E_BUILD_ATTR);
 		goto done;
 	}
 	template_update_attribute( priv_tmpl, attr );
@@ -886,7 +886,7 @@ os_specific_rsa_keygen(TEMPLATE *publ_tmpl,  TEMPLATE *priv_tmpl)
 	rc = build_swapped_attribute( CKA_EXPONENT_1, (unsigned char*)rsa_priv->dp, 
 				      ubsec_bits_to_bytes(rsa_priv->dp_len), &attr );
 	if (rc != CKR_OK){
-		st_err_log(84, __FILE__, __LINE__);
+		ock_log_err(OCK_E_BUILD_ATTR);
 		goto done;
 	}
 	template_update_attribute( priv_tmpl, attr );
@@ -895,7 +895,7 @@ os_specific_rsa_keygen(TEMPLATE *publ_tmpl,  TEMPLATE *priv_tmpl)
 	rc = build_swapped_attribute( CKA_EXPONENT_2, (unsigned char*)rsa_priv->dq, 
 				      ubsec_bits_to_bytes(rsa_priv->dq_len), &attr );
 	if (rc != CKR_OK){
-		st_err_log(84, __FILE__, __LINE__);
+		ock_log_err(OCK_E_BUILD_ATTR);
 		goto done;
 	}
 	template_update_attribute( priv_tmpl, attr );
@@ -904,7 +904,7 @@ os_specific_rsa_keygen(TEMPLATE *publ_tmpl,  TEMPLATE *priv_tmpl)
 	rc = build_swapped_attribute( CKA_COEFFICIENT, (unsigned char*)rsa_priv->pinv, 
 				      ubsec_bits_to_bytes(rsa_priv->pinv_len), &attr );
 	if (rc != CKR_OK){
-		st_err_log(84, __FILE__, __LINE__);
+		ock_log_err(OCK_E_BUILD_ATTR);
 		goto done;
 	}
 	template_update_attribute( priv_tmpl, attr );
@@ -913,7 +913,7 @@ os_specific_rsa_keygen(TEMPLATE *publ_tmpl,  TEMPLATE *priv_tmpl)
 	flag = TRUE;
 	rc = build_attribute( CKA_LOCAL, &flag, sizeof(CK_BBOOL), &attr );
 	if (rc != CKR_OK){
-		st_err_log(84, __FILE__, __LINE__);
+		ock_log_err(OCK_E_BUILD_ATTR);
 		goto done;
 	}
 	template_update_attribute( priv_tmpl, attr );
@@ -1396,7 +1396,7 @@ token_specific_dh_pkcs_key_pair_gen( TEMPLATE  * publ_tmpl,
     rc = build_attribute( CKA_VALUE, temp_byte, temp_bn_len, &temp_attr ); // in bytes
     if (rc != CKR_OK)
     {
-        st_err_log(84, __FILE__, __LINE__);
+        ock_log_err(OCK_E_BUILD_ATTR);
         return CKR_FUNCTION_FAILED;
     }
     template_update_attribute( publ_tmpl, temp_attr );
@@ -1413,7 +1413,7 @@ token_specific_dh_pkcs_key_pair_gen( TEMPLATE  * publ_tmpl,
     rc = build_attribute( CKA_VALUE, temp_byte, temp_bn_len, &temp_attr ); // in bytes
     if (rc != CKR_OK)
     {
-        st_err_log(84, __FILE__, __LINE__);
+        ock_log_err(OCK_E_BUILD_ATTR);
         return CKR_FUNCTION_FAILED;
     }
     template_update_attribute( priv_tmpl, temp_attr );
@@ -1432,7 +1432,7 @@ token_specific_dh_pkcs_key_pair_gen( TEMPLATE  * publ_tmpl,
                           prime_attr->ulValueLen, &temp_attr ); // in bytes
     if (rc != CKR_OK)
     {
-        st_err_log(84, __FILE__, __LINE__);
+        ock_log_err(OCK_E_BUILD_ATTR);
         return CKR_FUNCTION_FAILED;
     }
     template_update_attribute( priv_tmpl, temp_attr );
@@ -1441,7 +1441,7 @@ token_specific_dh_pkcs_key_pair_gen( TEMPLATE  * publ_tmpl,
                           base_attr->ulValueLen, &temp_attr ); // in bytes
     if (rc != CKR_OK)
     {
-        st_err_log(84, __FILE__, __LINE__);
+        ock_log_err(OCK_E_BUILD_ATTR);
         return CKR_FUNCTION_FAILED;
     }
     template_update_attribute( priv_tmpl, temp_attr );

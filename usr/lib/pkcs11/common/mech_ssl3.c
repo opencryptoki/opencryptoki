@@ -1339,12 +1339,12 @@ ssl3_master_key_derive( SESSION           * sess,
 
    rc = build_attribute( CKA_VALUE, key_data, 48, &value_attr );
    if (rc != CKR_OK){
-      st_err_log(84, __FILE__, __LINE__); 
+      ock_log_err(OCK_E_BUILD_ATTR);
       goto error;
    }
    rc = build_attribute( CKA_VALUE_LEN, (CK_BYTE *)&base_key_len, sizeof(CK_ULONG), &value_len_attr );
    if (rc != CKR_OK){
-      st_err_log(84, __FILE__, __LINE__); 
+      ock_log_err(OCK_E_BUILD_ATTR);
       goto error;
    }
 
@@ -1376,7 +1376,7 @@ ssl3_master_key_derive( SESSION           * sess,
 
    rc = build_attribute( CKA_ALWAYS_SENSITIVE, &flag, sizeof(CK_BBOOL), &always_sens_attr );
    if (rc != CKR_OK){
-      st_err_log(84, __FILE__, __LINE__); 
+      ock_log_err(OCK_E_BUILD_ATTR);
       goto error;
    }
 
@@ -1406,7 +1406,7 @@ ssl3_master_key_derive( SESSION           * sess,
 
    rc = build_attribute( CKA_NEVER_EXTRACTABLE, &flag, sizeof(CK_BBOOL), &extract_attr );
    if (rc != CKR_OK){
-      st_err_log(84, __FILE__, __LINE__); 
+      ock_log_err(OCK_E_BUILD_ATTR);
       goto error;
    }
    template_update_attribute( derived_key_obj->template, value_attr );
@@ -1882,22 +1882,22 @@ ssl3_kmd_process_mac_keys( SESSION           * sess,
 
    rc = build_attribute( CKA_VALUE, client_value, mac_len, &client_val_attr );
    if (rc != CKR_OK){
-      st_err_log(84, __FILE__, __LINE__); 
+      ock_log_err(OCK_E_BUILD_ATTR);
       goto error;
    }
    rc = build_attribute( CKA_VALUE, server_value, mac_len, &server_val_attr );
    if (rc != CKR_OK){
-      st_err_log(84, __FILE__, __LINE__); 
+      ock_log_err(OCK_E_BUILD_ATTR);
       goto error;
    }
    rc = build_attribute( CKA_VALUE_LEN, (CK_BYTE *)&mac_len, sizeof(CK_ULONG), &client_val_len_attr );
    if (rc != CKR_OK){
-      st_err_log(84, __FILE__, __LINE__); 
+      ock_log_err(OCK_E_BUILD_ATTR);
       goto error;
    }
    rc = build_attribute( CKA_VALUE_LEN, (CK_BYTE *)&mac_len, sizeof(CK_ULONG), &server_val_len_attr );
    if (rc != CKR_OK){
-      st_err_log(84, __FILE__, __LINE__); 
+      ock_log_err(OCK_E_BUILD_ATTR);
       goto error;
    }
    template_update_attribute( client_obj->template, client_val_attr );
@@ -2070,7 +2070,7 @@ ssl3_kmd_process_write_keys( SESSION           * sess,
    rc  = build_attribute( CKA_VALUE, client_value, write_len, &client_val_attr );
    rc |= build_attribute( CKA_VALUE, server_value, write_len, &server_val_attr );
    if (rc != CKR_OK){
-      st_err_log(84, __FILE__, __LINE__); 
+      ock_log_err(OCK_E_BUILD_ATTR);
       goto error;
    }
    switch (keytype) {
@@ -2088,7 +2088,7 @@ ssl3_kmd_process_write_keys( SESSION           * sess,
             rc  = build_attribute( CKA_VALUE_LEN, (CK_BYTE *)&write_len, sizeof(CK_ULONG), &client_val_len_attr );
             rc |= build_attribute( CKA_VALUE_LEN, (CK_BYTE *)&write_len, sizeof(CK_ULONG), &server_val_len_attr );
             if (rc != CKR_OK){
-               st_err_log(84, __FILE__, __LINE__); 
+               ock_log_err(OCK_E_BUILD_ATTR);
                goto error;
             }
             rc  = template_validate_attribute( client_obj->template,

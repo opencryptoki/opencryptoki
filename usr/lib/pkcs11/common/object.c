@@ -420,7 +420,7 @@ object_create( CK_ATTRIBUTE  * pTemplate,
 
       rc = build_attribute( CKA_ALWAYS_SENSITIVE, &flag, sizeof(CK_BYTE), &sensitive );
       if (rc != CKR_OK){
-         st_err_log(84, __FILE__, __LINE__); 
+         ock_log_err(OCK_E_BUILD_ATTR);
          goto error;
       }
 
@@ -436,7 +436,7 @@ object_create( CK_ATTRIBUTE  * pTemplate,
 
       rc = build_attribute( CKA_NEVER_EXTRACTABLE, &flag, sizeof(CK_BYTE), &extractable );
       if (rc != CKR_OK){
-         st_err_log(84, __FILE__, __LINE__); 
+         ock_log_err(OCK_E_BUILD_ATTR);
          goto error;
       }
       template_update_attribute( o->template, sensitive );

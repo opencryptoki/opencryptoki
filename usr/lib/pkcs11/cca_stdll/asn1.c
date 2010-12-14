@@ -1312,7 +1312,7 @@ ber_decode_RSAPrivateKey( CK_BYTE    * data,
    else {
       rc = build_attribute( CKA_MODULUS, tmp, len, &n_attr );
       if (rc != CKR_OK){
-         st_err_log(84, __FILE__, __LINE__);
+         ock_log_err(OCK_E_BUILD_ATTR);
          goto cleanup;
       }
       offset += field_len;
@@ -1328,7 +1328,7 @@ ber_decode_RSAPrivateKey( CK_BYTE    * data,
    else {
       rc = build_attribute( CKA_PUBLIC_EXPONENT, tmp, len, &e_attr );
       if (rc != CKR_OK){
-         st_err_log(84, __FILE__, __LINE__);
+         ock_log_err(OCK_E_BUILD_ATTR);
          goto cleanup;
       }
       offset += field_len;
@@ -1344,7 +1344,7 @@ ber_decode_RSAPrivateKey( CK_BYTE    * data,
    else {
       rc = build_attribute( CKA_IBM_OPAQUE, tmp, len, &o_attr );
       if (rc != CKR_OK){
-         st_err_log(84, __FILE__, __LINE__);
+         ock_log_err(OCK_E_BUILD_ATTR);
          goto cleanup;
       }
       offset += field_len;
@@ -1361,7 +1361,7 @@ ber_decode_RSAPrivateKey( CK_BYTE    * data,
    else {
       rc = build_attribute( CKA_PRIVATE_EXPONENT, tmp, len, &d_attr );
       if (rc != CKR_OK){
-         st_err_log(84, __FILE__, __LINE__);
+         ock_log_err(OCK_E_BUILD_ATTR);
          goto cleanup;
       }
       offset += field_len;
@@ -1377,7 +1377,7 @@ ber_decode_RSAPrivateKey( CK_BYTE    * data,
    else {
       rc = build_attribute( CKA_PRIME_1, tmp, len, &p_attr );
       if (rc != CKR_OK){
-         st_err_log(84, __FILE__, __LINE__);
+         ock_log_err(OCK_E_BUILD_ATTR);
          goto cleanup;
       }
       offset += field_len;
@@ -1393,7 +1393,7 @@ ber_decode_RSAPrivateKey( CK_BYTE    * data,
    else {
       rc = build_attribute( CKA_PRIME_2, tmp, len, &q_attr );
       if (rc != CKR_OK){
-         st_err_log(84, __FILE__, __LINE__);
+         ock_log_err(OCK_E_BUILD_ATTR);
          goto cleanup;
       }
       offset += field_len;
@@ -1409,7 +1409,7 @@ ber_decode_RSAPrivateKey( CK_BYTE    * data,
    else {
       rc = build_attribute( CKA_EXPONENT_1, tmp, len, &e1_attr );
       if (rc != CKR_OK){
-         st_err_log(84, __FILE__, __LINE__);
+         ock_log_err(OCK_E_BUILD_ATTR);
          goto cleanup;
       }
       offset += field_len;
@@ -1425,7 +1425,7 @@ ber_decode_RSAPrivateKey( CK_BYTE    * data,
    else {
       rc = build_attribute( CKA_EXPONENT_2, tmp, len, &e2_attr );
       if (rc != CKR_OK){
-         st_err_log(84, __FILE__, __LINE__);
+         ock_log_err(OCK_E_BUILD_ATTR);
          goto cleanup;
       }
       offset += field_len;
@@ -1441,7 +1441,7 @@ ber_decode_RSAPrivateKey( CK_BYTE    * data,
    else {
       rc = build_attribute( CKA_COEFFICIENT, tmp, len, &coeff_attr );
       if (rc != CKR_OK){
-         st_err_log(84, __FILE__, __LINE__);
+         ock_log_err(OCK_E_BUILD_ATTR);
          goto cleanup;
       }
       offset += len;
@@ -1736,7 +1736,7 @@ ber_decode_DSAPrivateKey( CK_BYTE     * data,
    else {
       rc = build_attribute( CKA_PRIME, tmp, len, &p_attr );
       if (rc != CKR_OK){
-         st_err_log(84, __FILE__, __LINE__);
+         ock_log_err(OCK_E_BUILD_ATTR);
          goto cleanup;
       }
       offset += field_len;
@@ -1752,7 +1752,7 @@ ber_decode_DSAPrivateKey( CK_BYTE     * data,
    else {
       rc = build_attribute( CKA_SUBPRIME, tmp, len, &q_attr );
       if (rc != CKR_OK){
-         st_err_log(84, __FILE__, __LINE__);
+         ock_log_err(OCK_E_BUILD_ATTR);
          goto cleanup;
       }
       offset += field_len;
@@ -1768,7 +1768,7 @@ ber_decode_DSAPrivateKey( CK_BYTE     * data,
    else {
       rc = build_attribute( CKA_BASE, tmp, len, &g_attr );
       if (rc != CKR_OK){
-         st_err_log(84, __FILE__, __LINE__);
+         ock_log_err(OCK_E_BUILD_ATTR);
          goto cleanup;
       }
       offset += field_len;
@@ -1784,7 +1784,7 @@ ber_decode_DSAPrivateKey( CK_BYTE     * data,
    else {
       rc = build_attribute( CKA_VALUE, tmp, len, &x_attr );
       if (rc != CKR_OK){
-         st_err_log(84, __FILE__, __LINE__);
+         ock_log_err(OCK_E_BUILD_ATTR);
          goto cleanup;
       }
       offset += field_len;

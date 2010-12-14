@@ -517,7 +517,7 @@ token_wrap_key_object( CK_OBJECT_HANDLE ckObject, TSS_HKEY hParentKey, TSS_HKEY 
 
 	/* insert the key blob into the object */
 	if ((rc = build_attribute(CKA_IBM_OPAQUE, rgbBlob, ulBlobLen, &new_attr))) {
-		st_err_log(84, __FILE__, __LINE__);
+		ock_log_err(OCK_E_BUILD_ATTR);
 		Tspi_Context_FreeMemory(tspContext, rgbBlob);
 		return rc;
 	}
@@ -857,7 +857,7 @@ token_store_priv_key(TSS_HKEY hKey, int key_type, CK_OBJECT_HANDLE *ckKey)
 
 	/* add the ID attribute */
 	if ((rc = build_attribute(CKA_ID, key_id, strlen((char *)key_id), &new_attr))) {
-		st_err_log(84, __FILE__, __LINE__);
+		ock_log_err(OCK_E_BUILD_ATTR);
 		Tspi_Context_FreeMemory(tspContext, rgbBlob);
 		Tspi_Context_FreeMemory(tspContext, rgbPrivBlob);
 		free(key_id);
@@ -868,7 +868,7 @@ token_store_priv_key(TSS_HKEY hKey, int key_type, CK_OBJECT_HANDLE *ckKey)
 
 	/* add the key blob to the PKCS#11 object template */
 	if ((rc = build_attribute(CKA_IBM_OPAQUE, rgbBlob, ulBlobLen, &new_attr))) {
-		st_err_log(84, __FILE__, __LINE__);
+		ock_log_err(OCK_E_BUILD_ATTR);
 		Tspi_Context_FreeMemory(tspContext, rgbBlob);
 		Tspi_Context_FreeMemory(tspContext, rgbPrivBlob);
 		return rc;
@@ -878,7 +878,7 @@ token_store_priv_key(TSS_HKEY hKey, int key_type, CK_OBJECT_HANDLE *ckKey)
 
 	/* add the private key blob to the PKCS#11 object template */
 	if ((rc = build_attribute(CKA_MODULUS, rgbPrivBlob, ulPrivBlobLen, &new_attr))) {
-		st_err_log(84, __FILE__, __LINE__);
+		ock_log_err(OCK_E_BUILD_ATTR);
 		Tspi_Context_FreeMemory(tspContext, rgbPrivBlob);
 		return rc;
 	}
@@ -888,7 +888,7 @@ token_store_priv_key(TSS_HKEY hKey, int key_type, CK_OBJECT_HANDLE *ckKey)
 	/* add the HIDDEN attribute */
 	flag = TRUE;
 	if ((rc = build_attribute(CKA_HIDDEN, &flag, sizeof(CK_BBOOL), &new_attr))) {
-		st_err_log(84, __FILE__, __LINE__);
+		ock_log_err(OCK_E_BUILD_ATTR);
 		free(key_id);
 		return rc;
 	}
@@ -896,28 +896,28 @@ token_store_priv_key(TSS_HKEY hKey, int key_type, CK_OBJECT_HANDLE *ckKey)
 
 	/*  set CKA_ALWAYS_SENSITIVE to true */
 	if ((rc = build_attribute( CKA_ALWAYS_SENSITIVE, &flag, sizeof(CK_BBOOL), &new_attr ))) {
-		st_err_log(84, __FILE__, __LINE__);
+		ock_log_err(OCK_E_BUILD_ATTR);
 		return rc;
 	}
 	template_update_attribute( priv_key_obj->template, new_attr );
 
 	/*  set CKA_NEVER_EXTRACTABLE to true */
 	if ((rc = build_attribute( CKA_NEVER_EXTRACTABLE, &flag, sizeof(CK_BBOOL), &new_attr ))) {
-		st_err_log(84, __FILE__, __LINE__);
+		ock_log_err(OCK_E_BUILD_ATTR);
 		return rc;
 	}
 	template_update_attribute( priv_key_obj->template, new_attr );
 
 	/* make the object reside on the token, as if that were possible */
 	if ((rc = build_attribute( CKA_TOKEN, &flag, sizeof(CK_BBOOL), &new_attr ))) {
-		st_err_log(84, __FILE__, __LINE__);
+		ock_log_err(OCK_E_BUILD_ATTR);
 		return rc;
 	}
 	template_update_attribute( priv_key_obj->template, new_attr );
 
 	flag = FALSE;
 	if ((rc = build_attribute( CKA_PRIVATE, &flag, sizeof(CK_BBOOL), &new_attr ))) {
-		st_err_log(84, __FILE__, __LINE__);
+		ock_log_err(OCK_E_BUILD_ATTR);
 		return rc;
 	}
 	template_update_attribute( priv_key_obj->template, new_attr );
@@ -980,14 +980,14 @@ token_store_pub_key(TSS_HKEY hKey, int key_type, CK_OBJECT_HANDLE *ckKey)
 
 	/* make the object reside on the token, as if that were possible */
 	if ((rc = build_attribute( CKA_TOKEN, &flag, sizeof(CK_BBOOL), &new_attr ))) {
-		st_err_log(84, __FILE__, __LINE__);
+		ock_log_err(OCK_E_BUILD_ATTR);
 		goto done;
 	}
 	template_update_attribute( pub_key_obj->template, new_attr );
 
 	/* set the object to be hidden */
 	if ((rc = build_attribute( CKA_HIDDEN, &flag, sizeof(CK_BBOOL), &new_attr ))) {
-		st_err_log(84, __FILE__, __LINE__);
+		ock_log_err(OCK_E_BUILD_ATTR);
 		goto done;
 	}
 	template_update_attribute( pub_key_obj->template, new_attr );
@@ -2287,13 +2287,13 @@ token_wrap_auth_data(CK_BYTE *authData, TEMPLATE *publ_tmpl, TEMPLATE *priv_tmpl
 	}
 
 	if ((rc = build_attribute( CKA_ENC_AUTHDATA, blob, blob_size, &new_attr ))) {
-		st_err_log(84, __FILE__, __LINE__);
+		ock_log_err(OCK_E_BUILD_ATTR);
 		return rc;
 	}
 	template_update_attribute( publ_tmpl, new_attr );
 
 	if ((rc = build_attribute( CKA_ENC_AUTHDATA, blob, blob_size, &new_attr ))) {
-		st_err_log(84, __FILE__, __LINE__);
+		ock_log_err(OCK_E_BUILD_ATTR);
 		return rc;
 	}
 	template_update_attribute( priv_tmpl, new_attr );
@@ -2451,13 +2451,13 @@ token_specific_rsa_generate_keypair( TEMPLATE  * publ_tmpl,
 	}
 
 	if ((rc = build_attribute(CKA_IBM_OPAQUE, rgbBlob, ulBlobLen, &attr))) {
-		st_err_log(84, __FILE__, __LINE__);
+		ock_log_err(OCK_E_BUILD_ATTR);
 		Tspi_Context_FreeMemory(tspContext, rgbBlob);
 		return rc;
 	}
 	template_update_attribute( priv_tmpl, attr );
 	if ((rc = build_attribute(CKA_IBM_OPAQUE, rgbBlob, ulBlobLen, &attr))) {
-		st_err_log(84, __FILE__, __LINE__);
+		ock_log_err(OCK_E_BUILD_ATTR);
 		Tspi_Context_FreeMemory(tspContext, rgbBlob);
 		return rc;
 	}
@@ -2475,7 +2475,7 @@ token_specific_rsa_generate_keypair( TEMPLATE  * publ_tmpl,
 
 	/* add the public key blob to the object template */
 	if ((rc = build_attribute(CKA_MODULUS, rgbBlob, ulBlobLen, &attr))) {
-		st_err_log(84, __FILE__, __LINE__);
+		ock_log_err(OCK_E_BUILD_ATTR);
 		Tspi_Context_FreeMemory(tspContext, rgbBlob);
 		return rc;
 	}
@@ -2483,7 +2483,7 @@ token_specific_rsa_generate_keypair( TEMPLATE  * publ_tmpl,
 
 	/* add the public key blob to the object template */
 	if ((rc = build_attribute(CKA_MODULUS, rgbBlob, ulBlobLen, &attr))) {
-		st_err_log(84, __FILE__, __LINE__);
+		ock_log_err(OCK_E_BUILD_ATTR);
 		Tspi_Context_FreeMemory(tspContext, rgbBlob);
 		return rc;
 	}
@@ -3040,7 +3040,7 @@ token_specific_dh_pkcs_key_pair_gen( TEMPLATE  * publ_tmpl,
 	rc = build_attribute( CKA_VALUE, temp_byte, temp_bn_len, &temp_attr ); // in bytes
 	if (rc != CKR_OK)
 	{
-		st_err_log(84, __FILE__, __LINE__);
+		ock_log_err(OCK_E_BUILD_ATTR);
 		return CKR_FUNCTION_FAILED;
 	}
 	template_update_attribute( publ_tmpl, temp_attr );
@@ -3057,7 +3057,7 @@ token_specific_dh_pkcs_key_pair_gen( TEMPLATE  * publ_tmpl,
 	rc = build_attribute( CKA_VALUE, temp_byte, temp_bn_len, &temp_attr ); // in bytes
 	if (rc != CKR_OK)
 	{
-		st_err_log(84, __FILE__, __LINE__);
+		ock_log_err(OCK_E_BUILD_ATTR);
 		return CKR_FUNCTION_FAILED;
 	}
 	template_update_attribute( priv_tmpl, temp_attr );
@@ -3076,7 +3076,7 @@ token_specific_dh_pkcs_key_pair_gen( TEMPLATE  * publ_tmpl,
 			prime_attr->ulValueLen, &temp_attr ); // in bytes
 	if (rc != CKR_OK)
 	{
-		st_err_log(84, __FILE__, __LINE__);
+		ock_log_err(OCK_E_BUILD_ATTR);
 		return CKR_FUNCTION_FAILED;
 	}
 	template_update_attribute( priv_tmpl, temp_attr );
@@ -3085,7 +3085,7 @@ token_specific_dh_pkcs_key_pair_gen( TEMPLATE  * publ_tmpl,
 			base_attr->ulValueLen, &temp_attr ); // in bytes
 	if (rc != CKR_OK)
 	{
-		st_err_log(84, __FILE__, __LINE__);
+		ock_log_err(OCK_E_BUILD_ATTR);
 		return CKR_FUNCTION_FAILED;
 	}
 	template_update_attribute( priv_tmpl, temp_attr );

@@ -842,27 +842,27 @@ priv_key_unwrap( TEMPLATE *tmpl,
    //
    rc = build_attribute( CKA_LOCAL,  &false, 1, &local );
    if (rc != CKR_OK){
-      st_err_log(84, __FILE__, __LINE__);
+      ock_log_err(OCK_E_BUILD_ATTR);
       goto cleanup;
    }
    rc = build_attribute( CKA_ALWAYS_SENSITIVE,  &false, 1, &always_sens );
    if (rc != CKR_OK){
-      st_err_log(84, __FILE__, __LINE__);
+      ock_log_err(OCK_E_BUILD_ATTR);
       goto cleanup;
    }
    rc = build_attribute( CKA_SENSITIVE,         &false, 1, &sensitive );
    if (rc != CKR_OK){
-      st_err_log(84, __FILE__, __LINE__);
+      ock_log_err(OCK_E_BUILD_ATTR);
       goto cleanup;
    }
    rc = build_attribute( CKA_EXTRACTABLE,       &true,  1, &extractable );
    if (rc != CKR_OK){
-      st_err_log(84, __FILE__, __LINE__);
+      ock_log_err(OCK_E_BUILD_ATTR);
       goto cleanup;
    }
    rc = build_attribute( CKA_NEVER_EXTRACTABLE, &false, 1, &never_extract );
    if (rc != CKR_OK){
-      st_err_log(84, __FILE__, __LINE__);
+      ock_log_err(OCK_E_BUILD_ATTR);
       goto cleanup;
    }
    template_update_attribute( tmpl, local );
@@ -1171,27 +1171,27 @@ secret_key_unwrap( TEMPLATE *tmpl,
    //
    rc = build_attribute( CKA_LOCAL,             &false, 1, &local );
    if (rc != CKR_OK){
-      st_err_log(84, __FILE__, __LINE__);
+      ock_log_err(OCK_E_BUILD_ATTR);
       goto cleanup;
    }
    rc = build_attribute( CKA_ALWAYS_SENSITIVE,  &false, 1, &always_sens );
    if (rc != CKR_OK){
-      st_err_log(84, __FILE__, __LINE__);
+      ock_log_err(OCK_E_BUILD_ATTR);
       goto cleanup;
    }
    rc = build_attribute( CKA_SENSITIVE,         &false, 1, &sensitive );
    if (rc != CKR_OK){
-      st_err_log(84, __FILE__, __LINE__);
+      ock_log_err(OCK_E_BUILD_ATTR);
       goto cleanup;
    }
    rc = build_attribute( CKA_EXTRACTABLE,       &true,  1, &extractable );
    if (rc != CKR_OK){
-      st_err_log(84, __FILE__, __LINE__);
+      ock_log_err(OCK_E_BUILD_ATTR);
       goto cleanup;
    }
    rc = build_attribute( CKA_NEVER_EXTRACTABLE, &false, 1, &never_extract );
    if (rc != CKR_OK){
-      st_err_log(84, __FILE__, __LINE__);
+      ock_log_err(OCK_E_BUILD_ATTR);
       goto cleanup;
    }
    template_update_attribute( tmpl, local );
@@ -3296,13 +3296,13 @@ generic_secret_unwrap( TEMPLATE *tmpl,
 
    rc = build_attribute( CKA_VALUE, ptr, data_len, &value_attr );
    if (rc != CKR_OK){
-      st_err_log(84, __FILE__, __LINE__);
+      ock_log_err(OCK_E_BUILD_ATTR);
       goto error;
    }
    if (data_len != len) {
       rc = build_attribute( CKA_VALUE_LEN, (CK_BYTE *)&data_len, sizeof(CK_ULONG), &value_len_attr );
       if (rc != CKR_OK){
-         st_err_log(84, __FILE__, __LINE__);
+         ock_log_err(OCK_E_BUILD_ATTR);
          goto error;
       }
    }
