@@ -205,7 +205,7 @@ ckm_dh_pkcs_derive( CK_VOID_PTR        other_pubkey,
                                         other_pubkey_len, x, x_len, p, p_len );
    if (rc != CKR_OK)
    {
-      st_err_log(191, __FILE__, __LINE__);
+      ock_log_err(OCK_E_AES_WRAP_GET_DATA);
       return CKR_FUNCTION_FAILED ;
    }
 
