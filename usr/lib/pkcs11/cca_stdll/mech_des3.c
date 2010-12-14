@@ -1595,7 +1595,7 @@ ckm_des3_cbc_encrypt( CK_BYTE     * in_data,
          key_value,init_v,1);
 
    if (rc != CKR_OK)
-      st_err_log(119, __FILE__, __LINE__);
+      ock_log_err(OCK_E_TOKEN_SPECIFIC_TDES_CBC);
    return rc;
 }
 
@@ -1625,7 +1625,7 @@ ckm_des3_cbc_decrypt( CK_BYTE     * in_data,
          key_value,init_v,0);
 
    if (rc != CKR_OK)
-      st_err_log(119, __FILE__, __LINE__);
+      ock_log_err(OCK_E_TOKEN_SPECIFIC_TDES_CBC);
    return rc;
 }
 
