@@ -2638,7 +2638,7 @@ token_specific_rsa_decrypt( CK_BYTE   * in_data,
 	}
 
 	if (*out_data_len < buf_size) {
-		st_err_log(111, __FILE__, __LINE__);
+		ock_log_err(OCK_E_TOKEN_SPECIFIC_RNG);
 		Tspi_Context_FreeMemory(tspContext, buf);
 		return CKR_BUFFER_TOO_SMALL;
 	}

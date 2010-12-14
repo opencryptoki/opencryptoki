@@ -370,7 +370,7 @@ token_specific_des_cbc(CK_BYTE  *in_data,
 	if ((local_out != out_data) && ((CK_ULONG)length > *out_data_len)) {
 		DBG("CKR_BUFFER_TOO_SMALL: %ld bytes to write into %ld bytes space",
 		    length, *out_data_len);
-		st_err_log(111, __FILE__, __LINE__);
+		ock_log_err(OCK_E_TOKEN_SPECIFIC_RNG);
 		free(local_out);
 		return CKR_BUFFER_TOO_SMALL;
 	} else if (local_out != out_data) {
@@ -1172,7 +1172,7 @@ token_specific_aes_cbc(CK_BYTE  *in_data,
 	if ((local_out != out_data) && ((CK_ULONG)length > *out_data_len)) {
 		DBG("CKR_BUFFER_TOO_SMALL: %ld bytes to write into %ld bytes space",
 		    length, *out_data_len);
-		st_err_log(111, __FILE__, __LINE__);
+		ock_log_err(OCK_E_TOKEN_SPECIFIC_RNG);
 		free(local_out);
 		return CKR_BUFFER_TOO_SMALL;
 	} else if (local_out != out_data) {
@@ -1229,7 +1229,7 @@ token_specific_get_mechanism_list(CK_MECHANISM_TYPE *pMechanismList, CK_ULONG *p
 
 	if ((*pulCount) < mech_list_len) {
 		(*pulCount) = mech_list_len;
-		st_err_log(111, __FILE__, __LINE__);
+		ock_log_err(OCK_E_TOKEN_SPECIFIC_RNG);
 		return CKR_BUFFER_TOO_SMALL;
 	}
 

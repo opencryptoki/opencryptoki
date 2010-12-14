@@ -734,7 +734,7 @@ CK_RV SC_GetMechanismList( CK_SLOT_ID             sid,
 
    if (*count < mech_list_len) {
       *count = mech_list_len;
-      st_err_log(111, __FILE__, __LINE__); 
+      ock_log_err(OCK_E_TOKEN_SPECIFIC_RNG);
       rc = CKR_BUFFER_TOO_SMALL;
       goto done;
    }

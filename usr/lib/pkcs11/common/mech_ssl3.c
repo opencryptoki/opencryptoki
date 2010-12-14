@@ -368,7 +368,7 @@ ssl3_mac_sign( SESSION              * sess,
 
    if (*out_data_len < mac_len) {
       *out_data_len = mac_len;
-      st_err_log(111, __FILE__, __LINE__);
+      ock_log_err(OCK_E_TOKEN_SPECIFIC_RNG);
       return CKR_BUFFER_TOO_SMALL;
    }
 
@@ -599,7 +599,7 @@ ssl3_mac_sign_final( SESSION              * sess,
 
    if (*out_data_len < mac_len) {
       *out_data_len = mac_len;
-      st_err_log(111, __FILE__, __LINE__);
+      ock_log_err(OCK_E_TOKEN_SPECIFIC_RNG);
       return CKR_BUFFER_TOO_SMALL;
    }
 

@@ -318,6 +318,6 @@ rng_generate( CK_BYTE *output, CK_ULONG bytes )
 
    rc = token_rng(output, bytes);
    if (rc != CKR_OK)
-      st_err_log(111, __FILE__, __LINE__);
+      ock_log_err(OCK_E_TOKEN_SPECIFIC_RNG);
    return rc;
 }

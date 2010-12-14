@@ -86,7 +86,7 @@ des3_ecb_encrypt( SESSION           *sess,
 
    if (*out_data_len < in_data_len) {
       *out_data_len = in_data_len;
-      st_err_log(111, __FILE__, __LINE__);
+      ock_log_err(OCK_E_TOKEN_SPECIFIC_RNG);
       return CKR_BUFFER_TOO_SMALL;
    }
 
@@ -156,7 +156,7 @@ des3_ecb_decrypt( SESSION           *sess,
 
    if (*out_data_len < in_data_len) {
       *out_data_len = in_data_len;
-      st_err_log(111, __FILE__, __LINE__);
+      ock_log_err(OCK_E_TOKEN_SPECIFIC_RNG);
       return CKR_BUFFER_TOO_SMALL;
    }
 
@@ -221,7 +221,7 @@ des3_cbc_encrypt( SESSION           *sess,
 
    if (*out_data_len < in_data_len) {
       *out_data_len = in_data_len;
-      st_err_log(111, __FILE__, __LINE__);
+      ock_log_err(OCK_E_TOKEN_SPECIFIC_RNG);
       return CKR_BUFFER_TOO_SMALL;
    }
 
@@ -293,7 +293,7 @@ des3_cbc_decrypt( SESSION            *sess,
 
    if (*out_data_len < in_data_len) {
       *out_data_len = in_data_len;
-      st_err_log(111, __FILE__, __LINE__);
+      ock_log_err(OCK_E_TOKEN_SPECIFIC_RNG);
       return CKR_BUFFER_TOO_SMALL;
    }
 
@@ -360,7 +360,7 @@ des3_cbc_pad_encrypt( SESSION           *sess,
 
    if (*out_data_len < padded_len) {
       *out_data_len = padded_len;
-      st_err_log(111, __FILE__, __LINE__);
+      ock_log_err(OCK_E_TOKEN_SPECIFIC_RNG);
       return CKR_BUFFER_TOO_SMALL;
    }
 
