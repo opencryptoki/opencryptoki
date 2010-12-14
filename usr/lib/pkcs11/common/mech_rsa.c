@@ -1527,7 +1527,7 @@ rsa_hash_pkcs_verify( SESSION              * sess,
 
    rc = verify_mgr_init( sess, &verify_ctx, &verify_mech, FALSE, ctx->key );
    if (rc != CKR_OK){
-      st_err_log(167, __FILE__, __LINE__);
+      ock_log_err(OCK_E_VERIFY_INIT);
       goto done;
    }
    //rc = verify_mgr_verify( sess, &verify_ctx, hash, hash_len, signature, sig_len );
@@ -1757,7 +1757,7 @@ rsa_hash_pkcs_verify_final( SESSION              * sess,
 
    rc = verify_mgr_init( sess, &verify_ctx, &verify_mech, FALSE, ctx->key );
    if (rc != CKR_OK){
-      st_err_log(167, __FILE__, __LINE__);
+      ock_log_err(OCK_E_VERIFY_INIT);
       goto done;
    }
    //rc = verify_mgr_verify( sess, &verify_ctx, hash, hash_len, signature, sig_len );

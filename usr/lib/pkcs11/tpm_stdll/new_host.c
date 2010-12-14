@@ -3394,7 +3394,7 @@ CK_RV SC_VerifyInit( ST_SESSION_HANDLE  sSession,
 
    rc = verify_mgr_init( sess, &sess->verify_ctx, pMechanism, FALSE, hKey );
    if (rc != CKR_OK){ 
-      st_err_log(167, __FILE__, __LINE__);
+      ock_log_err(OCK_E_VERIFY_INIT);
    }
 
 done:
@@ -3620,7 +3620,7 @@ CK_RV SC_VerifyRecoverInit( ST_SESSION_HANDLE  sSession,
 
    rc = verify_mgr_init( sess, &sess->verify_ctx, pMechanism, TRUE, hKey );
    if (rc != CKR_OK){ 
-      st_err_log(167, __FILE__, __LINE__);
+      ock_log_err(OCK_E_VERIFY_INIT);
    }
 
 done:
