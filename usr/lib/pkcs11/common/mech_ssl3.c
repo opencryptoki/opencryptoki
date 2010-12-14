@@ -1705,7 +1705,7 @@ ssl3_key_and_mac_derive( SESSION           * sess,
                                    &server_MAC_handle, server_MAC_key_value,
                                    MAC_len );
    if (rc != CKR_OK){
-      st_err_log(138, __FILE__, __LINE__); 
+      ock_log_err(OCK_E_SSL3_PROCESS_MAC_KEYS);
       goto error;
    }
 
