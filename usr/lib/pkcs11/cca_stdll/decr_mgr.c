@@ -145,7 +145,7 @@ decr_mgr_init( SESSION           *sess,
             ctx->context_len = sizeof(DES_CONTEXT);
             ctx->context     = (CK_BYTE *)malloc(sizeof(DES_CONTEXT));
             if (!ctx->context){
-               st_err_log(1, __FILE__, __LINE__);
+               ock_log_err(OCK_E_MEM_ALLOC);
                return CKR_HOST_MEMORY;
             }
             memset( ctx->context, 0x0, sizeof(DES_CONTEXT) );
@@ -182,7 +182,7 @@ decr_mgr_init( SESSION           *sess,
             ctx->context_len = sizeof(DES_CONTEXT);
             ctx->context     = (CK_BYTE *)malloc(sizeof(DES_CONTEXT));
             if (!ctx->context){
-               st_err_log(1, __FILE__, __LINE__);
+               ock_log_err(OCK_E_MEM_ALLOC);
                return CKR_HOST_MEMORY;
             }
             memset( ctx->context, 0x0, sizeof(DES_CONTEXT) );
@@ -221,7 +221,7 @@ decr_mgr_init( SESSION           *sess,
             ctx->context_len = sizeof(DES_CONTEXT);
             ctx->context     = (CK_BYTE *)malloc(sizeof(DES_CONTEXT));
             if (!ctx->context){
-               st_err_log(1, __FILE__, __LINE__);
+               ock_log_err(OCK_E_MEM_ALLOC);
                return CKR_HOST_MEMORY;
             }
             memset( ctx->context, 0x0, sizeof(DES_CONTEXT) );
@@ -255,7 +255,7 @@ decr_mgr_init( SESSION           *sess,
             ctx->context_len = sizeof(DES_CONTEXT);
             ctx->context     = (CK_BYTE *)malloc(sizeof(DES_CONTEXT));
             if (!ctx->context){
-               st_err_log(1, __FILE__, __LINE__);
+               ock_log_err(OCK_E_MEM_ALLOC);
                return CKR_HOST_MEMORY;
             }
             memset( ctx->context, 0x0, sizeof(DES_CONTEXT) );
@@ -293,7 +293,7 @@ decr_mgr_init( SESSION           *sess,
             ctx->context_len = sizeof(DES_CONTEXT);
             ctx->context     = (CK_BYTE *)malloc(sizeof(DES_CONTEXT));
             if (!ctx->context){
-               st_err_log(1, __FILE__, __LINE__);
+               ock_log_err(OCK_E_MEM_ALLOC);
                return CKR_HOST_MEMORY;
             }
             memset( ctx->context, 0x0, sizeof(DES_CONTEXT) );
@@ -330,7 +330,7 @@ decr_mgr_init( SESSION           *sess,
             ctx->context_len = sizeof(DES_CONTEXT);
             ctx->context     = (CK_BYTE *)malloc(sizeof(DES_CONTEXT));
             if (!ctx->context){
-               st_err_log(1, __FILE__, __LINE__);
+               ock_log_err(OCK_E_MEM_ALLOC);
                return CKR_HOST_MEMORY;
             }
             memset( ctx->context, 0x0, sizeof(DES_CONTEXT) );
@@ -399,7 +399,7 @@ decr_mgr_init( SESSION           *sess,
             ctx->context_len = sizeof(AES_CONTEXT);
             ctx->context     = (CK_BYTE *)malloc(sizeof(AES_CONTEXT));
             if (!ctx->context){
-               st_err_log(1, __FILE__, __LINE__);
+               ock_log_err(OCK_E_MEM_ALLOC);
                return CKR_HOST_MEMORY;
             }
             memset( ctx->context, 0x0, sizeof(AES_CONTEXT) );
@@ -433,7 +433,7 @@ decr_mgr_init( SESSION           *sess,
             ctx->context_len = sizeof(AES_CONTEXT);
             ctx->context     = (CK_BYTE *)malloc(sizeof(AES_CONTEXT));
             if (!ctx->context){
-               st_err_log(1, __FILE__, __LINE__);
+               ock_log_err(OCK_E_MEM_ALLOC);
                return CKR_HOST_MEMORY;
             }
             memset( ctx->context, 0x0, sizeof(AES_CONTEXT) );
@@ -450,7 +450,7 @@ decr_mgr_init( SESSION           *sess,
    if (mech->ulParameterLen > 0) {
       ptr = (CK_BYTE *)malloc(mech->ulParameterLen);
       if (!ptr){
-         st_err_log(1, __FILE__, __LINE__);
+         ock_log_err(OCK_E_MEM_ALLOC);
          return CKR_HOST_MEMORY;
       }
       memcpy( ptr, mech->pParameter, mech->ulParameterLen );

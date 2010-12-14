@@ -369,7 +369,7 @@ session_mgr_new( CK_ULONG flags, SESSION **sess )
 
    new_session = (SESSION *)malloc(sizeof(SESSION));
    if (!new_session) {
-      st_err_log(0, __FILE__, __LINE__);
+      ock_log_err(OCK_E_MEM_ALLOC);
       rc = CKR_HOST_MEMORY;
       goto done;
    }
@@ -1099,7 +1099,7 @@ session_mgr_set_op_state( SESSION           * sess,
             if (ctx->context_len) {
                context = (CK_BYTE *)malloc( ctx->context_len );
                if (!context){
-                  st_err_log(0, __FILE__, __LINE__);
+                  ock_log_err(OCK_E_MEM_ALLOC);
                   return CKR_HOST_MEMORY;
                }
                memcpy( context, ptr2, ctx->context_len );
@@ -1110,7 +1110,7 @@ session_mgr_set_op_state( SESSION           * sess,
                if (!mech_param) {
                   if (context)
                      free( context );
-                  st_err_log(0, __FILE__, __LINE__);
+                  ock_log_err(OCK_E_MEM_ALLOC);
                   return CKR_HOST_MEMORY;
                }
                memcpy( mech_param, ptr3, ctx->mech.ulParameterLen );
@@ -1143,7 +1143,7 @@ session_mgr_set_op_state( SESSION           * sess,
             if (ctx->context_len) {
                context = (CK_BYTE *)malloc( ctx->context_len );
                if (!context){
-                  st_err_log(0, __FILE__, __LINE__);
+                  ock_log_err(OCK_E_MEM_ALLOC);
                   return CKR_HOST_MEMORY;
                }
                memcpy( context, ptr2, ctx->context_len );
@@ -1154,7 +1154,7 @@ session_mgr_set_op_state( SESSION           * sess,
                if (!mech_param) {
                   if (context)
                      free( context );
-                  st_err_log(0, __FILE__, __LINE__);
+                  ock_log_err(OCK_E_MEM_ALLOC);
                   return CKR_HOST_MEMORY;
                }
                memcpy( mech_param, ptr3, ctx->mech.ulParameterLen );
@@ -1186,7 +1186,7 @@ session_mgr_set_op_state( SESSION           * sess,
             if (ctx->context_len) {
                context = (CK_BYTE *)malloc( ctx->context_len );
                if (!context){
-                  st_err_log(0, __FILE__, __LINE__);
+                  ock_log_err(OCK_E_MEM_ALLOC);
                   return CKR_HOST_MEMORY;
                }
                memcpy( context, ptr2, ctx->context_len );
@@ -1197,7 +1197,7 @@ session_mgr_set_op_state( SESSION           * sess,
                if (!mech_param) {
                   if (context)
                      free( context );
-                  st_err_log(0, __FILE__, __LINE__);
+                  ock_log_err(OCK_E_MEM_ALLOC);
                   return CKR_HOST_MEMORY;
                }
                memcpy( mech_param, ptr3, ctx->mech.ulParameterLen );

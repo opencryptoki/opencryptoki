@@ -341,7 +341,7 @@ ber_encode_INTEGER( CK_BBOOL    length_only,
 
    buf = (CK_BYTE *)malloc( len );
    if (!buf){
-      st_err_log(1, __FILE__, __LINE__);
+      ock_log_err(OCK_E_MEM_ALLOC);
       return CKR_HOST_MEMORY;
    }
    if (data_len < 128) {
@@ -509,7 +509,7 @@ ber_encode_OCTET_STRING( CK_BBOOL    length_only,
 
    buf = (CK_BYTE *)malloc( len );
    if (!buf){
-      st_err_log(1, __FILE__, __LINE__);
+      ock_log_err(OCK_E_MEM_ALLOC);
       return CKR_HOST_MEMORY;
    }
 
@@ -679,7 +679,7 @@ ber_encode_SEQUENCE( CK_BBOOL    length_only,
 
    buf = (CK_BYTE *)malloc( len );
    if (!buf){
-      st_err_log(1, __FILE__, __LINE__);
+      ock_log_err(OCK_E_MEM_ALLOC);
       return CKR_HOST_MEMORY;
    }
 
@@ -869,7 +869,7 @@ ber_encode_PrivateKeyInfo( CK_BBOOL    length_only,
 
    buf = (CK_BYTE *)malloc(len);
    if (!buf){
-      st_err_log(1, __FILE__, __LINE__);
+      ock_log_err(OCK_E_MEM_ALLOC);
       return CKR_HOST_MEMORY;
    }
    len = 0;
@@ -1026,7 +1026,7 @@ ber_encode_RSAPrivateKey( CK_BBOOL    length_only,
 
    buf = (CK_BYTE *)malloc(offset);
    if (!buf){
-      st_err_log(1, __FILE__, __LINE__);
+      ock_log_err(OCK_E_MEM_ALLOC);
       return CKR_HOST_MEMORY;
    }
    offset = 0;
@@ -1502,7 +1502,7 @@ ber_encode_DSAPrivateKey( CK_BBOOL    length_only,
    //
    buf = (CK_BYTE *)malloc(offset);
    if (!buf){
-      st_err_log(1, __FILE__, __LINE__);
+      ock_log_err(OCK_E_MEM_ALLOC);
       return CKR_HOST_MEMORY;
    }
    len = 0;
@@ -1558,7 +1558,7 @@ ber_encode_DSAPrivateKey( CK_BBOOL    length_only,
    len = ber_idDSALen + param_len;
    buf = (CK_BYTE *)malloc( len );
    if (!buf){
-      st_err_log(1, __FILE__, __LINE__);
+      ock_log_err(OCK_E_MEM_ALLOC);
       goto error;
    }
    memcpy( buf,                ber_idDSA, ber_idDSALen );

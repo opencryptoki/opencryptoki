@@ -965,7 +965,7 @@ ckm_ssl3_pre_master_key_gen( TEMPLATE     * tmpl,
       if (local_attr)     free( local_attr );
       if (derive_attr)    free( derive_attr );
 
-      st_err_log(0, __FILE__, __LINE__); 
+      ock_log_err(OCK_E_MEM_ALLOC);
       return CKR_HOST_MEMORY;
    }
 
@@ -1813,7 +1813,7 @@ ssl3_kmd_process_mac_keys( SESSION           * sess,
       attr->pValue       = (CK_BBOOL *)malloc(sizeof(CK_BBOOL));
       if (!attr->pValue) {
          rc = CKR_HOST_MEMORY;
-         st_err_log(0, __FILE__, __LINE__); 
+         ock_log_err(OCK_E_MEM_ALLOC);
          goto error;
       }
       *(CK_BBOOL *)attr->pValue = TRUE;
@@ -1825,7 +1825,7 @@ ssl3_kmd_process_mac_keys( SESSION           * sess,
       attr->pValue       = (CK_BBOOL *)malloc(sizeof(CK_BBOOL));
       if (!attr->pValue) {
          rc = CKR_HOST_MEMORY;
-         st_err_log(0, __FILE__, __LINE__); 
+         ock_log_err(OCK_E_MEM_ALLOC);
          goto error;
       }
       *(CK_BBOOL *)attr->pValue = FALSE;
@@ -1841,7 +1841,7 @@ ssl3_kmd_process_mac_keys( SESSION           * sess,
          attr->pValue     = (char *)malloc(attr->ulValueLen);
          if (!attr->pValue) {
             rc = CKR_HOST_MEMORY;
-            st_err_log(0, __FILE__, __LINE__); 
+            ock_log_err(OCK_E_MEM_ALLOC);
             goto error;
          }
          memcpy( attr->pValue, pTemplate[i].pValue, attr->ulValueLen );
@@ -2002,7 +2002,7 @@ ssl3_kmd_process_write_keys( SESSION           * sess,
       attr->ulValueLen   = sizeof(CK_BBOOL);
       attr->pValue       = (CK_BBOOL *)malloc(sizeof(CK_BBOOL));
       if (!attr->pValue) {
-         st_err_log(0, __FILE__, __LINE__); 
+         ock_log_err(OCK_E_MEM_ALLOC);
          goto error;
       }
       *(CK_BBOOL *)attr->pValue = TRUE;
@@ -2013,7 +2013,7 @@ ssl3_kmd_process_write_keys( SESSION           * sess,
       attr->ulValueLen   = sizeof(CK_BBOOL);
       attr->pValue       = (CK_BBOOL *)malloc(sizeof(CK_BBOOL));
       if (!attr->pValue) {
-         st_err_log(0, __FILE__, __LINE__); 
+         ock_log_err(OCK_E_MEM_ALLOC);
          goto error;
       }
       *(CK_BBOOL *)attr->pValue = FALSE;
@@ -2028,7 +2028,7 @@ ssl3_kmd_process_write_keys( SESSION           * sess,
          attr->ulValueLen = pTemplate[i].ulValueLen;
          attr->pValue     = (char *)malloc(attr->ulValueLen);
          if (!attr->pValue) {
-            st_err_log(0, __FILE__, __LINE__); 
+            ock_log_err(OCK_E_MEM_ALLOC);
             goto error;
          }
          memcpy( attr->pValue, pTemplate[i].pValue, attr->ulValueLen );

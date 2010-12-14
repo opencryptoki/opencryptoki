@@ -735,7 +735,7 @@ key_mgr_wrap_key( SESSION           * sess,
 
    ctx = (ENCR_DECR_CONTEXT *)malloc(sizeof(ENCR_DECR_CONTEXT));
    if (!ctx){
-      st_err_log(0, __FILE__, __LINE__);
+      ock_log_err(OCK_E_MEM_ALLOC);
       return CKR_HOST_MEMORY;
    }
    memset( ctx, 0x0, sizeof(ENCR_DECR_CONTEXT) );
@@ -907,7 +907,7 @@ CKO_PRIVATE_KEY)){
    //
    ctx = (ENCR_DECR_CONTEXT *)malloc(sizeof(ENCR_DECR_CONTEXT));
    if (!ctx){
-      st_err_log(0, __FILE__, __LINE__);
+      ock_log_err(OCK_E_MEM_ALLOC);
       return CKR_HOST_MEMORY;
    }
    memset( ctx, 0x0, sizeof(ENCR_DECR_CONTEXT) );
@@ -927,7 +927,7 @@ CKO_PRIVATE_KEY)){
    }
    data = (CK_BYTE *)malloc(data_len);
    if (!data) {
-      st_err_log(0, __FILE__, __LINE__);
+      ock_log_err(OCK_E_MEM_ALLOC);
       rc = CKR_HOST_MEMORY;
       goto error;
    }

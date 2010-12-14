@@ -445,7 +445,7 @@ dp_object_set_default_attributes( TEMPLATE *tmpl, CK_ULONG mode )
    local_attr     = (CK_ATTRIBUTE *)malloc( sizeof(CK_ATTRIBUTE) + sizeof(CK_BBOOL) );
 
    if (!local_attr) {
-      st_err_log(1, __FILE__, __LINE__);
+      ock_log_err(OCK_E_MEM_ALLOC);
       return CKR_HOST_MEMORY;
    }
 
@@ -630,7 +630,7 @@ dp_dsa_set_default_attributes( TEMPLATE *tmpl, CK_ULONG mode )
       if (base_attr) free( base_attr );
       if (primebits_attr) free( primebits_attr );
       if (type_attr) free( type_attr );
-      st_err_log(1, __FILE__, __LINE__);
+      ock_log_err(OCK_E_MEM_ALLOC);
       return CKR_HOST_MEMORY;
    }
 
@@ -691,7 +691,7 @@ dp_dh_set_default_attributes( TEMPLATE *tmpl, CK_ULONG mode )
       if (base_attr) free( base_attr );
       if (primebits_attr) free( primebits_attr );
       if (type_attr) free( type_attr );
-      st_err_log(1, __FILE__, __LINE__);
+      ock_log_err(OCK_E_MEM_ALLOC);
       return CKR_HOST_MEMORY;
    }
 
@@ -751,7 +751,7 @@ dp_x9dh_set_default_attributes( TEMPLATE *tmpl, CK_ULONG mode )
       if (primebits_attr) free( primebits_attr );
       if (subprimebits_attr) free( subprimebits_attr );
       if (type_attr) free( type_attr );
-      st_err_log(1, __FILE__, __LINE__);
+      ock_log_err(OCK_E_MEM_ALLOC);
       return CKR_HOST_MEMORY;
    }
 

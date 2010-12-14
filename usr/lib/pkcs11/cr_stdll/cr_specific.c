@@ -604,13 +604,13 @@ os_specific_rsa_keygen(TEMPLATE *publ_tmpl, TEMPLATE *priv_tmpl)
 	// 3 as an exponent in RSA key generation
 	rsa = RSA_new();
 	if (rsa == NULL) {
-		st_err_log(1, __FILE__, __LINE__);
+		ock_log_err(OCK_E_MEM_ALLOC);
 		return CKR_HOST_MEMORY;
 	}
 	RSA_blinding_off(rsa);
 	rsa = RSA_generate_key(mod_bits, three, NULL, NULL);
 	if (rsa == NULL) {
-		st_err_log(1, __FILE__, __LINE__);
+		ock_log_err(OCK_E_MEM_ALLOC);
 		return CKR_HOST_MEMORY;
 	}
 
@@ -622,7 +622,7 @@ os_specific_rsa_keygen(TEMPLATE *publ_tmpl, TEMPLATE *priv_tmpl)
 	BNLength = BN_num_bytes(bignum);
 	ssl_ptr = malloc(BNLength);
 	if (ssl_ptr == NULL) {
-		st_err_log(1, __FILE__, __LINE__);
+		ock_log_err(OCK_E_MEM_ALLOC);
 		rc = CKR_HOST_MEMORY;
 		goto done;
 	}
@@ -640,7 +640,7 @@ os_specific_rsa_keygen(TEMPLATE *publ_tmpl, TEMPLATE *priv_tmpl)
         BNLength = BN_num_bytes(bignum);
         ssl_ptr = malloc(BNLength);
 	if (ssl_ptr == NULL) {
-		st_err_log(1, __FILE__, __LINE__);
+		ock_log_err(OCK_E_MEM_ALLOC);
 		rc = CKR_HOST_MEMORY;
 		goto done;
 	}
@@ -675,7 +675,7 @@ os_specific_rsa_keygen(TEMPLATE *publ_tmpl, TEMPLATE *priv_tmpl)
 	BNLength = BN_num_bytes(bignum);
 	ssl_ptr = malloc(BNLength);
 	if (ssl_ptr == NULL) {
-		st_err_log(1, __FILE__, __LINE__);
+		ock_log_err(OCK_E_MEM_ALLOC);
 		rc = CKR_HOST_MEMORY;
 		goto done;
 	}
@@ -694,7 +694,7 @@ os_specific_rsa_keygen(TEMPLATE *publ_tmpl, TEMPLATE *priv_tmpl)
         BNLength = BN_num_bytes(bignum);
         ssl_ptr = malloc( BNLength);
 	if (ssl_ptr == NULL) {
-		st_err_log(1, __FILE__, __LINE__);
+		ock_log_err(OCK_E_MEM_ALLOC);
 		rc = CKR_HOST_MEMORY;
 		goto done;
 	}
@@ -713,7 +713,7 @@ os_specific_rsa_keygen(TEMPLATE *publ_tmpl, TEMPLATE *priv_tmpl)
 	BNLength = BN_num_bytes(bignum);
 	ssl_ptr = malloc(BNLength);
 	if (ssl_ptr == NULL) {
-		st_err_log(1, __FILE__, __LINE__);
+		ock_log_err(OCK_E_MEM_ALLOC);
 		rc = CKR_HOST_MEMORY;
 		goto done;
 	}
@@ -732,7 +732,7 @@ os_specific_rsa_keygen(TEMPLATE *publ_tmpl, TEMPLATE *priv_tmpl)
 	BNLength = BN_num_bytes(bignum);
 	ssl_ptr = malloc(BNLength);
 	if (ssl_ptr == NULL) {
-		st_err_log(1, __FILE__, __LINE__);
+		ock_log_err(OCK_E_MEM_ALLOC);
 		rc = CKR_HOST_MEMORY;
 		goto done;
 	}
@@ -751,7 +751,7 @@ os_specific_rsa_keygen(TEMPLATE *publ_tmpl, TEMPLATE *priv_tmpl)
 	BNLength = BN_num_bytes(bignum);
 	ssl_ptr = malloc(BNLength);
 	if (ssl_ptr == NULL) {
-		st_err_log(1, __FILE__, __LINE__);
+		ock_log_err(OCK_E_MEM_ALLOC);
 		rc = CKR_HOST_MEMORY;
 		goto done;
 	}
@@ -770,7 +770,7 @@ os_specific_rsa_keygen(TEMPLATE *publ_tmpl, TEMPLATE *priv_tmpl)
 	BNLength = BN_num_bytes(bignum);
 	ssl_ptr = malloc(BNLength);
 	if (ssl_ptr == NULL) {
-		st_err_log(1, __FILE__, __LINE__);
+		ock_log_err(OCK_E_MEM_ALLOC);
 		rc = CKR_HOST_MEMORY;
 		goto done;
 	}
@@ -789,7 +789,7 @@ os_specific_rsa_keygen(TEMPLATE *publ_tmpl, TEMPLATE *priv_tmpl)
 	BNLength = BN_num_bytes(bignum);
 	ssl_ptr = malloc(BNLength);
 	if (ssl_ptr == NULL) {
-		st_err_log(1, __FILE__, __LINE__);
+		ock_log_err(OCK_E_MEM_ALLOC);
 		rc = CKR_HOST_MEMORY;
 		goto done;
 	}

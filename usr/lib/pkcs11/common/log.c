@@ -735,7 +735,7 @@ enum {
 
 const char* err_msg[] = {
         [OCK_E_MEM_ALLOC]                       = "Memory allocation Failed",
-        [OCK_E_CTX_MEM_INSUF]                   = "Memory in Context insuficient",
+        [OCK_E_CTX_MEM_INSUF]                   = "Memory in Context insuficient",      /*unused*/
         [OCK_E_SLOT_INV]                        = "Slot Invalid",
         [OCK_E_GENERAL_ERR]                     = "General Error",
         [OCK_E_FUNC]                            = "%s Function Failed",

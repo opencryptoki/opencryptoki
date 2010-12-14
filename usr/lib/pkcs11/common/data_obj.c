@@ -350,7 +350,7 @@ data_object_set_default_attributes( TEMPLATE *tmpl, CK_ULONG mode )
       if (class_attr) free( class_attr );
       if (app_attr)   free( app_attr );
       if (value_attr) free( value_attr );
-      st_err_log(1, __FILE__, __LINE__);
+      ock_log_err(OCK_E_MEM_ALLOC);
       return CKR_HOST_MEMORY;
    }
 

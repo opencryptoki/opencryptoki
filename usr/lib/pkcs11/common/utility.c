@@ -1050,7 +1050,7 @@ build_attribute( CK_ATTRIBUTE_TYPE  type,
 
    attr = (CK_ATTRIBUTE *)malloc( sizeof(CK_ATTRIBUTE) + data_len );
    if (!attr){
-      st_err_log(0, __FILE__, __LINE__);
+      ock_log_err(OCK_E_MEM_ALLOC);
       return CKR_DEVICE_MEMORY;
    }
    attr->type  = type;

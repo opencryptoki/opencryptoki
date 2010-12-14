@@ -3262,7 +3262,7 @@ C_Initialize ( CK_VOID_PTR pVoid )
       if (!Anchor ) {
          Anchor = (API_Proc_Struct_t *)malloc(sizeof(API_Proc_Struct_t));
          if ( Anchor == NULL ){
-            st_err_log(0, __FILE__, __LINE__);
+            ock_log_err(OCK_E_MEM_ALLOC);
             return CKR_HOST_MEMORY;
          }
       } else {
@@ -3757,7 +3757,7 @@ C_OpenSession ( CK_SLOT_ID            slotID,
 
    // allocate the api session block
    if ( (apiSessp = (Session_Struct_t *)malloc(sizeof(Session_Struct_t))) == NULL ){
-      st_err_log(0, __FILE__, __LINE__);
+      ock_log_err(OCK_E_MEM_ALLOC);
       return CKR_HOST_MEMORY;
    }
 

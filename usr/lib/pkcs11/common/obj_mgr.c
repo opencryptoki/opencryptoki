@@ -418,7 +418,7 @@ object_mgr_add( SESSION          * sess,
          if (priv_obj) {
             if (global_shm->num_priv_tok_obj >= MAX_TOK_OBJS) {
                rc = CKR_HOST_MEMORY;
-               st_err_log(1, __FILE__, __LINE__); 
+               ock_log_err(OCK_E_MEM_ALLOC);
                XProcUnLock(xproclock);
                goto done;
             }
@@ -426,7 +426,7 @@ object_mgr_add( SESSION          * sess,
          else {
             if (global_shm->num_publ_tok_obj >= MAX_TOK_OBJS) {
                rc = CKR_HOST_MEMORY;
-               st_err_log(1, __FILE__, __LINE__); 
+               ock_log_err(OCK_E_MEM_ALLOC);
                XProcUnLock(xproclock);
                goto done;
             }
@@ -549,7 +549,7 @@ object_mgr_add_to_map( SESSION          * sess,
 
    map_node = (OBJECT_MAP *)malloc(sizeof(OBJECT_MAP));
    if (!map_node){
-      st_err_log(0, __FILE__, __LINE__); 
+      ock_log_err(OCK_E_MEM_ALLOC);
       return CKR_HOST_MEMORY;
    }
    map_node->session  = sess;
@@ -702,7 +702,7 @@ object_mgr_copy( SESSION          * sess,
          if (priv_obj) {
             if (global_shm->num_priv_tok_obj >= MAX_TOK_OBJS) {
                XProcUnLock(xproclock);
-               st_err_log(1, __FILE__, __LINE__); 
+               ock_log_err(OCK_E_MEM_ALLOC);
                rc = CKR_HOST_MEMORY;
                goto done;
             }
@@ -710,7 +710,7 @@ object_mgr_copy( SESSION          * sess,
          else {
             if (global_shm->num_publ_tok_obj >= MAX_TOK_OBJS) {
                XProcUnLock(xproclock);
-               st_err_log(1, __FILE__, __LINE__); 
+               ock_log_err(OCK_E_MEM_ALLOC);
                rc = CKR_HOST_MEMORY;
                goto done;
             }
@@ -927,7 +927,7 @@ object_mgr_create_final( SESSION           * sess,
          if (priv_obj) {
             if (global_shm->num_priv_tok_obj >= MAX_TOK_OBJS) {
                XProcUnLock(xproclock);
-               st_err_log(1, __FILE__, __LINE__); 
+               ock_log_err(OCK_E_MEM_ALLOC);
                rc = CKR_HOST_MEMORY;
                goto done;
             }
@@ -935,7 +935,7 @@ object_mgr_create_final( SESSION           * sess,
          else {
             if (global_shm->num_publ_tok_obj >= MAX_TOK_OBJS) {
                XProcUnLock(xproclock);
-               st_err_log(1, __FILE__, __LINE__); 
+               ock_log_err(OCK_E_MEM_ALLOC);
                rc = CKR_HOST_MEMORY;
                goto done;
             }
@@ -1412,7 +1412,7 @@ object_mgr_find_init( SESSION      * sess,
    else {
       sess->find_list = (CK_OBJECT_HANDLE *)malloc(10 * sizeof(CK_OBJECT_HANDLE));
       if (!sess->find_list){
-         st_err_log(0, __FILE__, __LINE__); 
+         ock_log_err(OCK_E_MEM_ALLOC);
          return CKR_HOST_MEMORY;
       }
       else {
@@ -1571,7 +1571,7 @@ object_mgr_find_build_list( SESSION      * sess,
                sess->find_list = (CK_OBJECT_HANDLE *)realloc( sess->find_list,
                                                               sess->find_len * sizeof(CK_OBJECT_HANDLE) );
                if (!sess->find_list){
-                  st_err_log(0, __FILE__, __LINE__); 
+                  ock_log_err(OCK_E_MEM_ALLOC);
                   return CKR_HOST_MEMORY;
                }
             }
@@ -2001,7 +2001,7 @@ object_mgr_restore_obj_withSize( CK_BYTE *data, OBJECT *oldObj, int data_size )
                if (global_shm->num_priv_tok_obj < MAX_TOK_OBJS) 
                   object_mgr_add_to_shm( obj );
                else{
-                  st_err_log(1, __FILE__, __LINE__); 
+                  ock_log_err(OCK_E_MEM_ALLOC);
                   rc = CKR_HOST_MEMORY;
                }
             }
@@ -2010,7 +2010,7 @@ object_mgr_restore_obj_withSize( CK_BYTE *data, OBJECT *oldObj, int data_size )
                if (global_shm->num_publ_tok_obj < MAX_TOK_OBJS) 
                   object_mgr_add_to_shm( obj );
                else{
-                  st_err_log(1, __FILE__, __LINE__); 
+                  ock_log_err(OCK_E_MEM_ALLOC);
                   rc = CKR_HOST_MEMORY;
                }
             }

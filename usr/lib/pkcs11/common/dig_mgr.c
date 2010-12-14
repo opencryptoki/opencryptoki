@@ -337,7 +337,7 @@ digest_mgr_init( SESSION           *sess,
 
             if (!ctx->context) {
                digest_mgr_cleanup(ctx);  // to de-initialize context above
-               st_err_log(1, __FILE__, __LINE__);
+               ock_log_err(OCK_E_MEM_ALLOC);
                return CKR_HOST_MEMORY;
             }
          }
@@ -355,7 +355,7 @@ digest_mgr_init( SESSION           *sess,
 
             if (!ctx->context) {
                digest_mgr_cleanup(ctx);  // to de-initialize context above
-               st_err_log(1, __FILE__, __LINE__);
+               ock_log_err(OCK_E_MEM_ALLOC);
                return CKR_HOST_MEMORY;
             }
          }
@@ -373,7 +373,7 @@ digest_mgr_init( SESSION           *sess,
 
             if (!ctx->context) {
                digest_mgr_cleanup(ctx);  // to de-initialize context above
-               st_err_log(1, __FILE__, __LINE__);
+               ock_log_err(OCK_E_MEM_ALLOC);
                return CKR_HOST_MEMORY;
             }
          }
@@ -391,7 +391,7 @@ digest_mgr_init( SESSION           *sess,
 
             if (!ctx->context) {
                digest_mgr_cleanup(ctx);  // to de-initialize context above
-               st_err_log(1, __FILE__, __LINE__);
+               ock_log_err(OCK_E_MEM_ALLOC);
                return CKR_HOST_MEMORY;
             }
          }
@@ -407,7 +407,7 @@ digest_mgr_init( SESSION           *sess,
             ctx->context     = (CK_BYTE *)malloc(sizeof(MD2_CONTEXT));
             if (!ctx->context){
                digest_mgr_cleanup(ctx);  // to de-initialize context above
-               st_err_log(1, __FILE__, __LINE__);     
+               ock_log_err(OCK_E_MEM_ALLOC);
                return CKR_HOST_MEMORY;
             }
             memset( ctx->context, 0x0, sizeof(MD2_CONTEXT) );
@@ -424,7 +424,7 @@ digest_mgr_init( SESSION           *sess,
             ctx->context     = (CK_BYTE *)malloc(sizeof(MD5_CONTEXT));
             if (!ctx->context){
                digest_mgr_cleanup(ctx);  // to de-initialize context above
-               st_err_log(1, __FILE__, __LINE__);     
+               ock_log_err(OCK_E_MEM_ALLOC);
                return CKR_HOST_MEMORY;
             }
             ckm_md5_init( (MD5_CONTEXT *)ctx->context );
@@ -440,7 +440,7 @@ digest_mgr_init( SESSION           *sess,
       ptr = (CK_BYTE *)malloc(mech->ulParameterLen);
       if (!ptr){
          digest_mgr_cleanup(ctx);  // to de-initialize context above
-         st_err_log(1, __FILE__, __LINE__);     
+         ock_log_err(OCK_E_MEM_ALLOC);
          return CKR_HOST_MEMORY;
       }
       memcpy( ptr, mech->pParameter, mech->ulParameterLen );

@@ -424,7 +424,7 @@ cert_x509_set_default_attributes( TEMPLATE *tmpl, CK_ULONG mode )
       if (id_attr)      free( id_attr     );
       if (issuer_attr)  free( issuer_attr );
       if (serial_attr)  free( serial_attr );
-      st_err_log(1, __FILE__, __LINE__);
+      ock_log_err(OCK_E_MEM_ALLOC);
 
       return CKR_HOST_MEMORY;
    }

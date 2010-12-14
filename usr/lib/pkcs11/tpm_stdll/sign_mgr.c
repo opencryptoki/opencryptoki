@@ -179,7 +179,7 @@ sign_mgr_init( SESSION                * sess,
             ctx->context_len = sizeof(RSA_DIGEST_CONTEXT);
             ctx->context     = (CK_BYTE *)malloc(sizeof(RSA_DIGEST_CONTEXT));
             if (!ctx->context){
-               st_err_log(0, __FILE__, __LINE__); 
+               ock_log_err(OCK_E_MEM_ALLOC);
                return CKR_HOST_MEMORY;
             }
             memset( ctx->context, 0x0, sizeof(RSA_DIGEST_CONTEXT));
@@ -351,7 +351,7 @@ sign_mgr_init( SESSION                * sess,
             ctx->context_len = sizeof(SSL3_MAC_CONTEXT);
             ctx->context     = (CK_BYTE *)malloc(sizeof(SSL3_MAC_CONTEXT));
             if (!ctx->context){
-               st_err_log(0, __FILE__, __LINE__); 
+               ock_log_err(OCK_E_MEM_ALLOC);
                return CKR_HOST_MEMORY;
             }
             memset( ctx->context, 0x0, sizeof(SSL3_MAC_CONTEXT));
@@ -367,7 +367,7 @@ sign_mgr_init( SESSION                * sess,
    if (mech->ulParameterLen > 0) {
       ptr = (CK_BYTE *)malloc(mech->ulParameterLen);
       if (!ptr){
-         st_err_log(0, __FILE__, __LINE__); 
+         ock_log_err(OCK_E_MEM_ALLOC);
          return CKR_HOST_MEMORY;
       }
       memcpy( ptr, mech->pParameter, mech->ulParameterLen );

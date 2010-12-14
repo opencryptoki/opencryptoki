@@ -1692,7 +1692,7 @@ ckm_sha1_init( DIGEST_CONTEXT * ctx)
 	ctx->context_len = sizeof(SHA1_CONTEXT);
 	ctx->context = (CK_BYTE *)malloc(sizeof(SHA1_CONTEXT));
 	if( ctx->context == NULL ) {
-                st_err_log(0, __FILE__, __LINE__, __FUNCTION__);
+                ock_log_err(OCK_E_MEM_ALLOC);
                 // TODO: propagate error up?
 		return;
         }

@@ -571,7 +571,7 @@ des_cbc_pad_encrypt( SESSION           *sess,
 
    clear = (CK_BYTE *)malloc( padded_len );
    if (!clear){
-      st_err_log(0, __FILE__, __LINE__);
+      ock_log_err(OCK_E_MEM_ALLOC);
       return CKR_HOST_MEMORY;
    }
    memcpy( clear, in_data, in_data_len );
@@ -647,7 +647,7 @@ des_cbc_pad_decrypt( SESSION            *sess,
 
    clear = (CK_BYTE *)malloc( padded_len );
    if (!clear){
-      st_err_log(0, __FILE__, __LINE__);
+      ock_log_err(OCK_E_MEM_ALLOC);
       return CKR_HOST_MEMORY;
    }
    rc = ckm_des_cbc_decrypt( in_data, in_data_len,
@@ -724,7 +724,7 @@ des_ecb_encrypt_update( SESSION            *sess,
       }
       clear  = (CK_BYTE *)malloc( out_len );
       if (!clear){
-         st_err_log(0, __FILE__, __LINE__);
+         ock_log_err(OCK_E_MEM_ALLOC);
          return CKR_HOST_MEMORY;
       }
       // copy any data left over from the previous encryption operation first
@@ -814,7 +814,7 @@ des_ecb_decrypt_update( SESSION           *sess,
 
       cipher = (CK_BYTE *)malloc( out_len );
       if (!cipher){
-         st_err_log(0, __FILE__, __LINE__);
+         ock_log_err(OCK_E_MEM_ALLOC);
          return CKR_HOST_MEMORY;
       }
       // copy any data left over from the previous decryption operation first
@@ -906,7 +906,7 @@ des_cbc_encrypt_update( SESSION           *sess,
       //
       clear  = (CK_BYTE *)malloc( out_len );
       if (!clear){
-         st_err_log(0, __FILE__, __LINE__);
+         ock_log_err(OCK_E_MEM_ALLOC);
          return CKR_HOST_MEMORY;
       }
       // copy any data left over from the previous encryption operation first
@@ -1005,7 +1005,7 @@ des_cbc_decrypt_update( SESSION           *sess,
       //
       cipher = (CK_BYTE *)malloc( out_len );
       if (!cipher){
-         st_err_log(0, __FILE__, __LINE__);
+         ock_log_err(OCK_E_MEM_ALLOC);
          return CKR_HOST_MEMORY;
       }
       // copy any data left over from the previous decryption operation first
@@ -1115,7 +1115,7 @@ des_cbc_pad_encrypt_update( SESSION           *sess,
       //
       clear = (CK_BYTE *)malloc( out_len );
       if (!clear){
-         st_err_log(0, __FILE__, __LINE__);
+         ock_log_err(OCK_E_MEM_ALLOC);
          return CKR_HOST_MEMORY;
       }
       // copy any data left over from the previous encryption operation first
@@ -1224,7 +1224,7 @@ des_cbc_pad_decrypt_update( SESSION           *sess,
       //
       cipher = (CK_BYTE *)malloc( out_len );
       if (!cipher){
-         st_err_log(0, __FILE__, __LINE__);
+         ock_log_err(OCK_E_MEM_ALLOC);
          return CKR_HOST_MEMORY;
       }
       // copy any data left over from the previous decryption operation first
@@ -1838,7 +1838,7 @@ ckm_des_wrap_format( CK_BBOOL    length_only,
       if (length_only == FALSE) {
          ptr = (CK_BYTE *)realloc(*data, len2);
          if (!ptr){
-            st_err_log(0, __FILE__, __LINE__);
+            ock_log_err(OCK_E_MEM_ALLOC);
             return CKR_HOST_MEMORY;
          }
          else

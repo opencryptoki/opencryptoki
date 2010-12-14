@@ -385,7 +385,7 @@ hwf_object_set_default_attributes( TEMPLATE *tmpl, CK_ULONG mode )
    local_attr     = (CK_ATTRIBUTE *)malloc( sizeof(CK_ATTRIBUTE) + sizeof(CK_BBOOL) );
 
    if (!local_attr) {
-      st_err_log(1, __FILE__, __LINE__);
+      ock_log_err(OCK_E_MEM_ALLOC);
       return CKR_HOST_MEMORY;
    }
 
@@ -471,7 +471,7 @@ clock_set_default_attributes( TEMPLATE *tmpl, CK_ULONG mode )
    value_attr = (CK_ATTRIBUTE *)malloc( sizeof(CK_ATTRIBUTE) );
 
    if (!value_attr) {
-      st_err_log(1, __FILE__, __LINE__);
+      ock_log_err(OCK_E_MEM_ALLOC);
       return CKR_HOST_MEMORY;
    }
 
@@ -504,7 +504,7 @@ counter_set_default_attributes( TEMPLATE *tmpl, CK_ULONG mode )
       if (value_attr) free( value_attr );
       if (hasreset_attr) free( hasreset_attr );
       if (resetoninit_attr) free( resetoninit_attr );
-      st_err_log(1, __FILE__, __LINE__);
+      ock_log_err(OCK_E_MEM_ALLOC);
       return CKR_HOST_MEMORY;
    }
 

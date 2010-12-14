@@ -463,7 +463,7 @@ key_object_set_default_attributes( TEMPLATE *tmpl, CK_ULONG mode )
       if (edate_attr)   free( edate_attr  );
       if (derive_attr)  free( derive_attr );
       if (local_attr)   free( local_attr  );
-      st_err_log(1, __FILE__, __LINE__);
+      ock_log_err(OCK_E_MEM_ALLOC);
       return CKR_HOST_MEMORY;
    }
 
@@ -588,7 +588,7 @@ publ_key_set_default_attributes( TEMPLATE *tmpl, CK_ULONG mode )
       if (verify_recover_attr) free( verify_recover_attr );
       if (wrap_attr)           free( wrap_attr );
 
-      st_err_log(1, __FILE__, __LINE__);
+      ock_log_err(OCK_E_MEM_ALLOC);
       return CKR_HOST_MEMORY;
    }
 
@@ -727,7 +727,7 @@ priv_key_set_default_attributes( TEMPLATE *tmpl, CK_ULONG mode )
       if (always_sens_attr)  free( always_sens_attr );
       if (never_extr_attr)   free( never_extr_attr );
 
-      st_err_log(1, __FILE__, __LINE__);
+      ock_log_err(OCK_E_MEM_ALLOC);
       return CKR_HOST_MEMORY;
    }
 
@@ -941,7 +941,7 @@ FALSE){
 
                attr = (CK_ATTRIBUTE *)malloc(sizeof(CK_ATTRIBUTE) + sizeof(CK_BBOOL) );
                if (!attr){
-                  st_err_log(1, __FILE__, __LINE__);
+                  ock_log_err(OCK_E_MEM_ALLOC);
                   return CKR_HOST_MEMORY;
                }
                attr->type       = CKA_NEVER_EXTRACTABLE;
@@ -1034,7 +1034,7 @@ secret_key_set_default_attributes( TEMPLATE *tmpl, CK_ULONG mode )
       if (extractable_attr) free( extractable_attr );
       if (never_extr_attr)  free( never_extr_attr );
       if (always_sens_attr) free( always_sens_attr );
-      st_err_log(1, __FILE__, __LINE__);
+      ock_log_err(OCK_E_MEM_ALLOC);
 
       return CKR_HOST_MEMORY;
    }
@@ -1269,7 +1269,7 @@ MODE_KEYGEN) && (value != FALSE)){
 
                attr = (CK_ATTRIBUTE *)malloc(sizeof(CK_ATTRIBUTE) + sizeof(CK_BBOOL) );
                if (!attr){
-                  st_err_log(1, __FILE__, __LINE__);
+                  ock_log_err(OCK_E_MEM_ALLOC);
                   return CKR_HOST_MEMORY;
                }
                attr->type = CKA_NEVER_EXTRACTABLE;
@@ -1372,7 +1372,7 @@ rsa_publ_set_default_attributes( TEMPLATE *tmpl, TEMPLATE *basetmpl, CK_ULONG mo
       if (modulus_attr)      free( modulus_attr );
       if (modulus_bits_attr) free( modulus_bits_attr );
       if (public_exp_attr)   free( public_exp_attr );
-      st_err_log(1, __FILE__, __LINE__);
+      ock_log_err(OCK_E_MEM_ALLOC);
 
       return CKR_HOST_MEMORY;
    }
@@ -1593,7 +1593,7 @@ rsa_priv_set_default_attributes( TEMPLATE *tmpl, CK_ULONG mode )
       if (public_exp_attr)  free( public_exp_attr );
       if (private_exp_attr) free( private_exp_attr );
 
-      st_err_log(1, __FILE__, __LINE__);
+      ock_log_err(OCK_E_MEM_ALLOC);
       return CKR_HOST_MEMORY;
    }
 
@@ -1893,7 +1893,7 @@ dsa_publ_set_default_attributes( TEMPLATE *tmpl, CK_ULONG mode )
       if (subprime_attr) free( subprime_attr );
       if (base_attr)     free( base_attr );
       if (value_attr)    free( value_attr );
-      st_err_log(1, __FILE__, __LINE__);
+      ock_log_err(OCK_E_MEM_ALLOC);
 
       return CKR_HOST_MEMORY;
    }
@@ -2067,7 +2067,7 @@ dsa_priv_set_default_attributes( TEMPLATE *tmpl, CK_ULONG mode )
       if (subprime_attr) free( subprime_attr );
       if (base_attr)     free( base_attr );
       if (value_attr)    free( value_attr );
-      st_err_log(1, __FILE__, __LINE__);
+      ock_log_err(OCK_E_MEM_ALLOC);
 
       return CKR_HOST_MEMORY;
    }
@@ -2326,7 +2326,7 @@ ecdsa_publ_set_default_attributes( TEMPLATE *tmpl, CK_ULONG mode )
       if (type_attr)     free( type_attr );
       if (params_attr)   free( params_attr );
       if (ec_point_attr) free( ec_point_attr );
-      st_err_log(1, __FILE__, __LINE__);
+      ock_log_err(OCK_E_MEM_ALLOC);
 
       return CKR_HOST_MEMORY;
    }
@@ -2429,7 +2429,7 @@ ecdsa_priv_set_default_attributes( TEMPLATE *tmpl, CK_ULONG mode )
       if (type_attr)   free( type_attr );
       if (params_attr) free( params_attr );
       if (value_attr)  free( value_attr );
-      st_err_log(1, __FILE__, __LINE__);
+      ock_log_err(OCK_E_MEM_ALLOC);
 
       return CKR_HOST_MEMORY;
    }
@@ -2559,7 +2559,7 @@ dh_publ_set_default_attributes( TEMPLATE *tmpl, CK_ULONG mode )
       if (prime_attr) free( prime_attr );
       if (base_attr)  free( base_attr );
       if (value_attr) free( value_attr );
-      st_err_log(1, __FILE__, __LINE__);
+      ock_log_err(OCK_E_MEM_ALLOC);
 
       return CKR_HOST_MEMORY;
    }
@@ -2694,7 +2694,7 @@ dh_priv_set_default_attributes( TEMPLATE *tmpl, CK_ULONG mode )
       if (base_attr)       free( base_attr );
       if (value_attr)      free( value_attr );
       if (value_bits_attr) free( value_bits_attr );
-      st_err_log(1, __FILE__, __LINE__);
+      ock_log_err(OCK_E_MEM_ALLOC);
 
       return CKR_HOST_MEMORY;
    }
@@ -2857,7 +2857,7 @@ kea_publ_set_default_attributes( TEMPLATE *tmpl, CK_ULONG mode )
       if (subprime_attr) free( subprime_attr );
       if (base_attr)     free( base_attr );
       if (value_attr)    free( value_attr );
-      st_err_log(1, __FILE__, __LINE__);
+      ock_log_err(OCK_E_MEM_ALLOC);
 
       return CKR_HOST_MEMORY;
    }
@@ -2997,7 +2997,7 @@ kea_priv_set_default_attributes( TEMPLATE *tmpl, CK_ULONG mode )
       if (subprime_attr) free( subprime_attr );
       if (base_attr)     free( base_attr );
       if (value_attr)    free( value_attr );
-      st_err_log(1, __FILE__, __LINE__);
+      ock_log_err(OCK_E_MEM_ALLOC);
 
       return CKR_HOST_MEMORY;
    }
@@ -3137,7 +3137,7 @@ generic_secret_set_default_attributes( TEMPLATE *tmpl, CK_ULONG mode )
       if (type_attr)      free( type_attr );
       if (value_attr)     free( value_attr );
       if (value_len_attr) free( value_len_attr );
-      st_err_log(1, __FILE__, __LINE__);
+      ock_log_err(OCK_E_MEM_ALLOC);
 
       return CKR_HOST_MEMORY;
    }
@@ -3243,7 +3243,7 @@ generic_secret_wrap_get_data( TEMPLATE   * tmpl,
    if (length_only == FALSE) {
       ptr = (CK_BYTE *)malloc( attr->ulValueLen );
       if (!ptr){
-         st_err_log(1, __FILE__, __LINE__);
+         ock_log_err(OCK_E_MEM_ALLOC);
          return CKR_HOST_MEMORY;
       }
       memcpy( ptr, attr->pValue, attr->ulValueLen );
@@ -3370,7 +3370,7 @@ rc2_set_default_attributes( TEMPLATE *tmpl, CK_ULONG mode )
       if (type_attr)      free( type_attr );
       if (value_attr)     free( value_attr );
       if (value_len_attr) free( value_len_attr );
-      st_err_log(1, __FILE__, __LINE__);
+      ock_log_err(OCK_E_MEM_ALLOC);
 
       return CKR_HOST_MEMORY;
    }
@@ -3458,7 +3458,7 @@ rc4_set_default_attributes( TEMPLATE *tmpl, CK_ULONG mode )
       if (type_attr)      free( type_attr );
       if (value_attr)     free( value_attr );
       if (value_len_attr) free( value_len_attr );
-      st_err_log(1, __FILE__, __LINE__);
+      ock_log_err(OCK_E_MEM_ALLOC);
 
       return CKR_HOST_MEMORY;
    }
@@ -3606,7 +3606,7 @@ rc5_set_default_attributes( TEMPLATE *tmpl, CK_ULONG mode )
       if (type_attr)      free( type_attr );
       if (value_attr)     free( value_attr );
       if (value_len_attr) free( value_len_attr );
-      st_err_log(1, __FILE__, __LINE__);
+      ock_log_err(OCK_E_MEM_ALLOC);
 
       return CKR_HOST_MEMORY;
    }
@@ -3744,7 +3744,7 @@ des_set_default_attributes( TEMPLATE *tmpl, CK_ULONG mode )
    if (!value_attr || !type_attr) {
       if (value_attr) free( value_attr );
       if (type_attr)  free( type_attr );
-      st_err_log(1, __FILE__, __LINE__);
+      ock_log_err(OCK_E_MEM_ALLOC);
 
       return CKR_HOST_MEMORY;
    }
@@ -3801,7 +3801,7 @@ des_unwrap( TEMPLATE *tmpl,
    if (!value_attr) {
       if (value_attr)
          free( value_attr );
-      st_err_log(1, __FILE__, __LINE__);
+      ock_log_err(OCK_E_MEM_ALLOC);
 
       return CKR_HOST_MEMORY;
    }
@@ -3907,7 +3907,7 @@ des_wrap_get_data( TEMPLATE   * tmpl,
    if (length_only == FALSE) {
       ptr = (CK_BYTE *)malloc( attr->ulValueLen );
       if (!ptr){
-         st_err_log(1, __FILE__, __LINE__);
+         ock_log_err(OCK_E_MEM_ALLOC);
          return CKR_HOST_MEMORY;
       }
       memcpy( ptr, attr->pValue, attr->ulValueLen );
@@ -3958,7 +3958,7 @@ des2_set_default_attributes( TEMPLATE *tmpl, CK_ULONG mode )
    if (!value_attr || !type_attr) {
       if (value_attr) free( value_attr );
       if (type_attr)  free( type_attr );
-      st_err_log(1, __FILE__, __LINE__);
+      ock_log_err(OCK_E_MEM_ALLOC);
 
       return CKR_HOST_MEMORY;
    }
@@ -4080,7 +4080,7 @@ des3_set_default_attributes( TEMPLATE *tmpl, CK_ULONG mode )
    if (!value_attr || !type_attr) {
       if (value_attr) free( value_attr );
       if (type_attr)  free( type_attr );
-      st_err_log(1, __FILE__, __LINE__);
+      ock_log_err(OCK_E_MEM_ALLOC);
 
       return CKR_HOST_MEMORY;
    }
@@ -4137,7 +4137,7 @@ des3_unwrap( TEMPLATE *tmpl,
    if (!value_attr) {
       if (value_attr)
          free( value_attr );
-      st_err_log(0, __FILE__, __LINE__);
+      ock_log_err(OCK_E_MEM_ALLOC);
 
       return CKR_HOST_MEMORY;
    }
@@ -4237,7 +4237,7 @@ des3_wrap_get_data( TEMPLATE   * tmpl,
    if (length_only == FALSE) {
       ptr = (CK_BYTE *)malloc( attr->ulValueLen );
       if (!ptr){
-         st_err_log(0, __FILE__, __LINE__);
+         ock_log_err(OCK_E_MEM_ALLOC);
          return CKR_HOST_MEMORY;
       }
       memcpy( ptr, attr->pValue, attr->ulValueLen );
@@ -4298,7 +4298,7 @@ cast_set_default_attributes( TEMPLATE *tmpl, CK_ULONG mode )
       if (type_attr)      free( type_attr );
       if (value_attr)     free( value_attr );
       if (value_len_attr) free( value_len_attr );
-      st_err_log(1, __FILE__, __LINE__);
+      ock_log_err(OCK_E_MEM_ALLOC);
 
       return CKR_HOST_MEMORY;
    }
@@ -4419,7 +4419,7 @@ cast3_set_default_attributes( TEMPLATE *tmpl, CK_ULONG mode )
       if (type_attr)      free( type_attr );
       if (value_attr)     free( value_attr );
       if (value_len_attr) free( value_len_attr );
-      st_err_log(1, __FILE__, __LINE__);
+      ock_log_err(OCK_E_MEM_ALLOC);
 
       return CKR_HOST_MEMORY;
    }
@@ -4535,7 +4535,7 @@ cast5_set_default_attributes( TEMPLATE *tmpl, CK_ULONG mode )
       if (type_attr)      free( type_attr );
       if (value_attr)     free( value_attr );
       if (value_len_attr) free( value_len_attr );
-      st_err_log(1, __FILE__, __LINE__);
+      ock_log_err(OCK_E_MEM_ALLOC);
 
       return CKR_HOST_MEMORY;
    }
@@ -4642,7 +4642,7 @@ idea_set_default_attributes( TEMPLATE *tmpl, CK_ULONG mode )
    if (!type_attr || !value_attr) {
       if (type_attr)  free( type_attr );
       if (value_attr) free( value_attr );
-      st_err_log(1, __FILE__, __LINE__);
+      ock_log_err(OCK_E_MEM_ALLOC);
 
       return CKR_HOST_MEMORY;
    }
@@ -4727,7 +4727,7 @@ cdmf_set_default_attributes( TEMPLATE *tmpl, CK_ULONG mode )
    if (!type_attr || !value_attr) {
       if (type_attr)  free( type_attr );
       if (value_attr) free( value_attr );
-      st_err_log(1, __FILE__, __LINE__);
+      ock_log_err(OCK_E_MEM_ALLOC);
 
       return CKR_HOST_MEMORY;
    }
@@ -4868,7 +4868,7 @@ skipjack_set_default_attributes( TEMPLATE *tmpl, CK_ULONG mode )
    if (!type_attr || !value_attr) {
       if (type_attr)  free( type_attr );
       if (value_attr) free( value_attr );
-      st_err_log(1, __FILE__, __LINE__);
+      ock_log_err(OCK_E_MEM_ALLOC);
 
       return CKR_HOST_MEMORY;
    }
@@ -4952,7 +4952,7 @@ baton_set_default_attributes( TEMPLATE *tmpl, CK_ULONG mode )
    if (!type_attr || !value_attr) {
       if (type_attr)  free( type_attr );
       if (value_attr) free( value_attr );
-      st_err_log(1, __FILE__, __LINE__);
+      ock_log_err(OCK_E_MEM_ALLOC);
 
       return CKR_HOST_MEMORY;
    }
@@ -5036,7 +5036,7 @@ juniper_set_default_attributes( TEMPLATE *tmpl, CK_ULONG mode )
    if (!type_attr || !value_attr) {
       if (type_attr)  free( type_attr );
       if (value_attr) free( value_attr );
-      st_err_log(1, __FILE__, __LINE__);
+      ock_log_err(OCK_E_MEM_ALLOC);
 
       return CKR_HOST_MEMORY;
    }
@@ -5101,7 +5101,7 @@ aes_set_default_attributes( TEMPLATE *tmpl, CK_ULONG mode )
    if (!value_attr || !type_attr) {
       if (value_attr) free( value_attr );
       if (type_attr)  free( type_attr );
-      st_err_log(1, __FILE__, __LINE__);
+      ock_log_err(OCK_E_MEM_ALLOC);
 
       return CKR_HOST_MEMORY;
    }
@@ -5215,7 +5215,7 @@ aes_wrap_get_data( TEMPLATE   * tmpl,
    if (length_only == FALSE) {
       ptr = (CK_BYTE *)malloc( attr->ulValueLen );
       if (!ptr){
-         st_err_log(1, __FILE__, __LINE__);
+         ock_log_err(OCK_E_MEM_ALLOC);
          return CKR_HOST_MEMORY;
       }
       memcpy( ptr, attr->pValue, attr->ulValueLen );
@@ -5282,7 +5282,7 @@ aes_unwrap( TEMPLATE *tmpl,
    if (!value_attr) {
       if (value_attr)
          free( value_attr );
-      st_err_log(0, __FILE__, __LINE__);
+      ock_log_err(OCK_E_MEM_ALLOC);
 
       return CKR_HOST_MEMORY;
    }

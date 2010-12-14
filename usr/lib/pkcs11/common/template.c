@@ -343,7 +343,7 @@ template_add_attributes( TEMPLATE     * tmpl,
       }
       attr = (CK_ATTRIBUTE *)malloc(sizeof(CK_ATTRIBUTE) + pTemplate[i].ulValueLen);
       if (!attr){
-         st_err_log(0, __FILE__, __LINE__);
+         ock_log_err(OCK_E_MEM_ALLOC);
          return CKR_HOST_MEMORY;
       }
       attr->type       = pTemplate[i].type;
@@ -845,7 +845,7 @@ template_copy( TEMPLATE *dest, TEMPLATE *src )
 
       new_attr = (CK_ATTRIBUTE *)malloc(len);
       if (!new_attr){
-         st_err_log(0, __FILE__, __LINE__);
+         ock_log_err(OCK_E_MEM_ALLOC);
          return CKR_HOST_MEMORY;
       }
       memcpy( new_attr, attr, len );
@@ -891,7 +891,7 @@ template_flatten( TEMPLATE  * tmpl,
    } else {
          attr_32 = malloc(sizeof(CK_ATTRIBUTE_32));
          if (!attr_32) {
-            st_err_log(0, __FILE__, __LINE__);
+            ock_log_err(OCK_E_MEM_ALLOC);
             return CKR_HOST_MEMORY;
          }
          attr_32->type = attr->type;
@@ -973,7 +973,7 @@ template_unflatten_withSize( TEMPLATE ** new_tmpl,
    }
    tmpl = (TEMPLATE *)malloc(sizeof(TEMPLATE));
    if (!tmpl){
-      st_err_log(0, __FILE__, __LINE__);
+      ock_log_err(OCK_E_MEM_ALLOC);
       return CKR_HOST_MEMORY;
    }
    memset( tmpl, 0x0, sizeof(TEMPLATE) );
@@ -991,7 +991,7 @@ template_unflatten_withSize( TEMPLATE ** new_tmpl,
       a2 = (CK_ATTRIBUTE *)malloc(len);
       if (!a2) {
          template_free( tmpl );
-         st_err_log(0, __FILE__, __LINE__);
+         ock_log_err(OCK_E_MEM_ALLOC);
          return CKR_HOST_MEMORY;
       }
 
@@ -1018,7 +1018,7 @@ template_unflatten_withSize( TEMPLATE ** new_tmpl,
 
          a2 = (CK_ATTRIBUTE *)malloc(len);
          if (!a2){
-            st_err_log(0, __FILE__, __LINE__);
+            ock_log_err(OCK_E_MEM_ALLOC);
             return CKR_HOST_MEMORY;
          }
          a2->type = a1->type;
@@ -1387,7 +1387,7 @@ template_set_default_common_attributes( TEMPLATE *tmpl )
       if (mod_attr)   free( mod_attr );
       if (label_attr) free( label_attr);
 
-      st_err_log(0, __FILE__, __LINE__);
+      ock_log_err(OCK_E_MEM_ALLOC);
       return CKR_HOST_MEMORY;
    }
 

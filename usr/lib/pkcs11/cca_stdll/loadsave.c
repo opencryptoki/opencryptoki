@@ -340,7 +340,7 @@ save_private_token_object( OBJECT *obj )
    cleartxt  = (CK_BYTE *)malloc( padded_len );
    ciphertxt = (CK_BYTE *)malloc( padded_len );
    if (!cleartxt || !ciphertxt) {
-      st_err_log(0, __FILE__, __LINE__);
+      ock_log_err(OCK_E_MEM_ALLOC);
       rc = CKR_HOST_MEMORY;
       goto error;
    }
@@ -598,7 +598,7 @@ restore_private_token_object( CK_BYTE  * data,
 
    cleartxt  = (CK_BYTE *)malloc(len);
    if (!cleartxt) {
-      st_err_log(0, __FILE__, __LINE__);
+      ock_log_err(OCK_E_MEM_ALLOC);
       rc = CKR_HOST_MEMORY;
       goto done;
    }

@@ -800,14 +800,14 @@ os_specific_rsa_keygen(TEMPLATE *publ_tmpl,  TEMPLATE *priv_tmpl)
 
    publKey = (ICA_KEY_RSA_MODEXPO *) malloc(sizeof(ICA_KEY_RSA_MODEXPO));
    if (publKey == NULL) {
-      st_err_log(1, __FILE__, __LINE__);
+      ock_log_err(OCK_E_MEM_ALLOC);
       return CKR_HOST_MEMORY;
    }
  
 
    privKey = (ICA_KEY_RSA_CRT *) malloc(sizeof(ICA_KEY_RSA_CRT));
    if (privKey == NULL) {
-     st_err_log(1, __FILE__, __LINE__);
+     ock_log_err(OCK_E_MEM_ALLOC);
      rc = CKR_HOST_MEMORY;
      goto pubkey_cleanup;
    }
@@ -1461,7 +1461,7 @@ token_specific_dh_pkcs_derive( CK_BYTE   *z,
 	     if (bn_x) BN_free(bn_x);
 	     if (bn_p) BN_free(bn_p);
 	     if (bn_z) BN_free(bn_z);
-	     st_err_log(1, __FILE__, __LINE__);
+	     ock_log_err(OCK_E_MEM_ALLOC);
 	     return CKR_HOST_MEMORY;
      }
      
@@ -1559,7 +1559,7 @@ token_specific_dh_pkcs_key_pair_gen( TEMPLATE  * publ_tmpl,
     if (bn_g == NULL || bn_p == NULL) {
 	if (bn_g) BN_free(bn_g);
 	if (bn_p) BN_free(bn_p);
-	st_err_log(1, __FILE__, __LINE__);
+	ock_log_err(OCK_E_MEM_ALLOC);
 	return CKR_HOST_MEMORY;
     }
     BN_init(bn_p);

@@ -599,7 +599,7 @@ CK_RV token_specific_sha_generic_init(DIGEST_CONTEXT *ctx,
 	ctx->context_len = sizeof(struct oc_sha_ctx);
 	ctx->context = malloc(sizeof(struct oc_sha_ctx));
 	if(ctx->context == NULL) {
-                st_err_log(1, __FILE__, __LINE__);
+                ock_log_err(OCK_E_MEM_ALLOC);
 		return CKR_HOST_MEMORY;
 	}
 	memset(ctx->context, 0, ctx->context_len);
@@ -628,7 +628,7 @@ CK_RV token_specific_sha_generic_init(DIGEST_CONTEXT *ctx,
 	sc->dev_ctx = malloc(dev_ctx_size);
 	if(sc->dev_ctx == NULL){
 		free(ctx->context);
-                st_err_log(1, __FILE__, __LINE__);
+                ock_log_err(OCK_E_MEM_ALLOC);
 		return CKR_HOST_MEMORY;
 	}
 	memset(sc->dev_ctx, 0, dev_ctx_size);
@@ -1559,7 +1559,7 @@ rsa_convert_mod_expo_key( CK_ATTRIBUTE * modulus,
 
    modexpokey = (ica_rsa_key_mod_expo_t *) calloc(1, sizeof(ica_rsa_key_mod_expo_t));
    if (modexpokey == NULL) {
-      st_err_log(1, __FILE__, __LINE__);
+      ock_log_err(OCK_E_MEM_ALLOC);
       goto err;
    }
 
@@ -1584,7 +1584,7 @@ rsa_convert_mod_expo_key( CK_ATTRIBUTE * modulus,
    modexpokey->modulus = (unsigned char *) calloc(1, modexpokey->key_length);
 
    if (modexpokey->modulus == NULL) {
-      st_err_log(1, __FILE__, __LINE__);
+      ock_log_err(OCK_E_MEM_ALLOC);
       goto err;
    }
 
@@ -1594,7 +1594,7 @@ rsa_convert_mod_expo_key( CK_ATTRIBUTE * modulus,
 
    modexpokey->exponent = (unsigned char *) calloc(1, modexpokey->key_length);
    if (modexpokey->exponent == NULL) {
-      st_err_log(1, __FILE__, __LINE__);
+      ock_log_err(OCK_E_MEM_ALLOC);
       goto err;
    }
 
@@ -1634,7 +1634,7 @@ rsa_convert_crt_key( CK_ATTRIBUTE * modulus,
    else {
       crtkey = (ica_rsa_key_crt_t *) calloc(1, sizeof(ica_rsa_key_crt_t));
       if (crtkey == NULL) {
-         st_err_log(1, __FILE__, __LINE__);
+         ock_log_err(OCK_E_MEM_ALLOC);
          return NULL;
       }
       /* use modulus length in bytes as key_length */
@@ -1660,7 +1660,7 @@ rsa_convert_crt_key( CK_ATTRIBUTE * modulus,
       }
       crtkey->p = (unsigned char *) calloc(1, (crtkey->key_length/2) + 8);
       if (crtkey->p == NULL) {
-         st_err_log(1, __FILE__, __LINE__);
+         ock_log_err(OCK_E_MEM_ALLOC);
          goto err_crtkey;
       }
       ptr = crtkey->p + (crtkey->key_length/2) + 8 - prime1->ulValueLen;
@@ -1669,7 +1669,7 @@ rsa_convert_crt_key( CK_ATTRIBUTE * modulus,
       crtkey->q = (unsigned char *) calloc(1, crtkey->key_length/2);
 
       if (crtkey->q == NULL) {
-         st_err_log(1, __FILE__, __LINE__);
+         ock_log_err(OCK_E_MEM_ALLOC);
          goto err_crtkey;
       }
       ptr = crtkey->q + (crtkey->key_length/2) - prime2->ulValueLen;
@@ -1677,7 +1677,7 @@ rsa_convert_crt_key( CK_ATTRIBUTE * modulus,
 
       crtkey->dp = (unsigned char *) calloc(1, (crtkey->key_length/2) + 8);
       if (crtkey->dp == NULL) {
-         st_err_log(1, __FILE__, __LINE__);
+         ock_log_err(OCK_E_MEM_ALLOC);
          goto err_crtkey;
       }
       ptr = crtkey->dp + (crtkey->key_length/2) + 8 - exp1->ulValueLen;
@@ -1685,7 +1685,7 @@ rsa_convert_crt_key( CK_ATTRIBUTE * modulus,
 
       crtkey->dq = (unsigned char *) calloc(1, crtkey->key_length/2);
       if (crtkey->dq == NULL) {
-         st_err_log(1, __FILE__, __FILE__);
+         ock_log_err(OCK_E_MEM_ALLOC);
          goto err_crtkey;
       }
       ptr = crtkey->dq + (crtkey->key_length/2) - exp2->ulValueLen;
@@ -1693,7 +1693,7 @@ rsa_convert_crt_key( CK_ATTRIBUTE * modulus,
 
       crtkey->qInverse = (unsigned char *) calloc(1, (crtkey->key_length/2) + 8);
       if (crtkey->qInverse == NULL) {
-         st_err_log(1, __FILE__, __LINE__);
+         ock_log_err(OCK_E_MEM_ALLOC);
          goto err_crtkey;
       }
       ptr = crtkey->qInverse + (crtkey->key_length/2) + 8 - coeff->ulValueLen;
@@ -1744,7 +1744,7 @@ os_specific_rsa_keygen(TEMPLATE *publ_tmpl,  TEMPLATE *priv_tmpl)
 
    // FIXME: is this check really necessary?
    if (mod_bits < 512 || mod_bits > 4096) {
-      st_err_log(19, __FILE__, __LINE__);
+     ock_log_err(OCK_E_MEM_ALLOC);
      return CKR_KEY_SIZE_RANGE;
    }
 
@@ -1752,7 +1752,7 @@ os_specific_rsa_keygen(TEMPLATE *publ_tmpl,  TEMPLATE *priv_tmpl)
     * can't be larger than the size of an unsigned long
     */
    if (publ_exp->ulValueLen > sizeof (unsigned long)) {
-      st_err_log(19, __FILE__, __LINE__);
+     ock_log_err(OCK_E_MEM_ALLOC);
      return CKR_KEY_SIZE_RANGE;
    }
 
@@ -1762,7 +1762,7 @@ os_specific_rsa_keygen(TEMPLATE *publ_tmpl,  TEMPLATE *priv_tmpl)
     * use calloc() so that memory is zeroed (right alignment) */
    publKey = (ica_rsa_key_mod_expo_t *) calloc(1, sizeof(ica_rsa_key_mod_expo_t));
    if (publKey == NULL) {
-      st_err_log(1, __FILE__, __LINE__);
+      ock_log_err(OCK_E_MEM_ALLOC);
       return CKR_HOST_MEMORY;
    }
 
@@ -1771,14 +1771,14 @@ os_specific_rsa_keygen(TEMPLATE *publ_tmpl,  TEMPLATE *priv_tmpl)
 
    publKey->modulus = (unsigned char *) calloc(1, publKey->key_length);
    if (publKey->modulus == NULL) {
-      st_err_log(1, __FILE, __LINE__);
+      ock_log_err(OCK_E_MEM_ALLOC);
       rc = CKR_HOST_MEMORY;
       goto pubkey_cleanup;
    }
 
    publKey->exponent = (unsigned char *) calloc(1, publKey->key_length);
    if (publKey->exponent == NULL) {
-      st_err_log(1, __FILE, __LINE___);
+      ocK_log_err(OCK_E_MEM_ALLOC);
       rc = CKR_HOST_MEMORY;
       goto pubkey_cleanup;
    }
@@ -1810,7 +1810,7 @@ os_specific_rsa_keygen(TEMPLATE *publ_tmpl,  TEMPLATE *priv_tmpl)
     * p, dp and qInverse have an additional 8-byte padding */
    privKey = (ica_rsa_key_crt_t *) calloc(1, sizeof(ica_rsa_key_crt_t));
    if (privKey == NULL) {
-     st_err_log(1, __FILE__, __LINE__);
+     ock_log_err(OCK_E_MEM_ALLOC);
      rc = CKR_HOST_MEMORY;
      goto pubkey_cleanup;
    }
@@ -1820,35 +1820,35 @@ os_specific_rsa_keygen(TEMPLATE *publ_tmpl,  TEMPLATE *priv_tmpl)
 
    privKey->p = (unsigned char *) calloc(1, (privKey->key_length/2) + 8);
    if (privKey->p == NULL) {
-      st_err_log(1, __FILE__, __LINE__);
+      ock_log_err(OCK_E_MEM_ALLOC);
       rc = CKR_HOST_MEMORY;
       goto privkey_cleanup;
    }
 
    privKey->q = (unsigned char *) calloc(1, privKey->key_length/2);
    if (privKey->q == NULL) {
-      st_err_log(1, __FILE__, __LINE__);
+      ock_log_err(OCK_E_MEM_ALLOC);
       rc = CKR_HOST_MEMORY;
       goto privkey_cleanup;
    }
 
    privKey->dp = (unsigned char *) calloc(1, (privKey->key_length/2) + 8);
    if (privKey->dp == NULL) {
-      st_err_log(1, __FILE__, __LINE__);
+      ock_log_err(OCK_E_MEM_ALLOC);
       rc = CKR_HOST_MEMORY;
       goto privkey_cleanup;
    }
 
    privKey->dq = (unsigned char *) calloc(1, privKey->key_length/2);
    if (privKey->dq == NULL) {
-      st_err_log(1, __FILE__, __LINE__);
+      ock_log_err(OCK_E_MEM_ALLOC);
       rc = CKR_HOST_MEMORY;
       goto privkey_cleanup;
    }
 
    privKey->qInverse = (unsigned char *) calloc(1, (privKey->key_length/2) + 8);
    if (privKey->qInverse == NULL) {
-      st_err_log(1, __FILE__, __LINE__);
+      ock_log_err(OCK_E_MEM_ALLOC);
       rc = CKR_HOST_MEMORY;
       goto privkey_cleanup;
    }
@@ -2334,7 +2334,7 @@ token_specific_dh_pkcs_derive( CK_BYTE   *z,
 	     if (bn_x) BN_free(bn_x);
 	     if (bn_p) BN_free(bn_p);
 	     if (bn_z) BN_free(bn_z);
-	     st_err_log(1, __FILE__, __LINE__);
+	     ock_log_err(OCK_E_MEM_ALLOC);
 	     return CKR_HOST_MEMORY;
      }
      
@@ -2432,7 +2432,7 @@ token_specific_dh_pkcs_key_pair_gen( TEMPLATE  * publ_tmpl,
     if (bn_g == NULL || bn_p == NULL) {
 	if (bn_g) BN_free(bn_g);
 	if (bn_p) BN_free(bn_p);
-	st_err_log(1, __FILE__, __LINE__);
+	ock_log_err(OCK_E_MEM_ALLOC);
 	return CKR_HOST_MEMORY;
     }
     BN_init(bn_p);
@@ -2461,6 +2461,10 @@ token_specific_dh_pkcs_key_pair_gen( TEMPLATE  * publ_tmpl,
     temp_bn = dh->pub_key;
     temp_bn_len = BN_num_bytes(temp_bn);
     temp_byte = malloc(temp_bn_len);
+    if (temp_byte == NULL) {
+       ock_log_err(OCK_E_MEM_ALLOC);
+       return CKR_HOST_MEMORY;
+    }
     temp_bn_len = BN_bn2bin(temp_bn, temp_byte);
     rc = build_attribute( CKA_VALUE, temp_byte, temp_bn_len, &temp_attr ); // in bytes
     if (rc != CKR_OK)
@@ -2478,6 +2482,10 @@ token_specific_dh_pkcs_key_pair_gen( TEMPLATE  * publ_tmpl,
     temp_bn = dh->priv_key;
     temp_bn_len = BN_num_bytes(temp_bn);
     temp_byte = malloc(temp_bn_len);
+    if (temp_byte == NULL) {
+       ock_log_err(OCK_E_MEM_ALLOC);
+       return CKR_HOST_MEMORY;
+    }
     temp_bn_len = BN_bn2bin(temp_bn, temp_byte);
     rc = build_attribute( CKA_VALUE, temp_byte, temp_bn_len, &temp_attr ); // in bytes
     if (rc != CKR_OK)
@@ -2490,6 +2498,10 @@ token_specific_dh_pkcs_key_pair_gen( TEMPLATE  * publ_tmpl,
  
     // Update CKA_VALUE_BITS attribute in the private key
     value_bits_attr = (CK_ATTRIBUTE *)malloc( sizeof(CK_ATTRIBUTE) + sizeof(CK_ULONG) );
+    if (value_bits_attr == NULL) {
+       ock_err_log(OCK_E_MEM_ALLOC);
+       return CKR_HOST_MEMORY;
+    }
     value_bits_attr->type       = CKA_VALUE_BITS;
     value_bits_attr->ulValueLen = sizeof(CK_ULONG);
     value_bits_attr->pValue     = (CK_BYTE *)value_bits_attr + sizeof(CK_ATTRIBUTE);

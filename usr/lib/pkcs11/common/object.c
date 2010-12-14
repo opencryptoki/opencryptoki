@@ -495,7 +495,7 @@ object_copy( CK_ATTRIBUTE  * pTemplate,
 
    if (!o || !tmpl || !new_tmpl) {
       rc = CKR_HOST_MEMORY;
-      st_err_log(0, __FILE__, __LINE__);
+      ock_log_err(OCK_E_MEM_ALLOC);
       goto error;
    }
 
@@ -599,7 +599,7 @@ object_flatten( OBJECT    * obj,
 
    buf = (CK_BYTE *)malloc(total_len);
    if (!buf){ // SAB  XXX FIXME  This was DATA
-      st_err_log(0, __FILE__, __LINE__);
+      ock_log_err(OCK_E_MEM_ALLOC);
       return CKR_HOST_MEMORY;
    }
 
@@ -842,7 +842,7 @@ object_set_attribute_values( OBJECT        * obj,
 
    new_tmpl = (TEMPLATE *)malloc(sizeof(TEMPLATE));
    if (!new_tmpl){
-      st_err_log(0, __FILE__, __LINE__);
+      ock_log_err(OCK_E_MEM_ALLOC);
       return CKR_HOST_MEMORY;
    }
    memset( new_tmpl, 0x0, sizeof(TEMPLATE) );
@@ -910,7 +910,7 @@ object_restore_withSize( CK_BYTE *data, OBJECT **new_obj, CK_BBOOL replace, int 
    }
    obj = (OBJECT *)malloc(sizeof(OBJECT));
    if (!obj) {
-      st_err_log(0, __FILE__, __LINE__);
+      ock_log_err(OCK_E_MEM_ALLOC);
       rc = CKR_HOST_MEMORY;
       goto error;
    }
@@ -984,7 +984,7 @@ object_create_skel( CK_ATTRIBUTE  * pTemplate,
    tmpl2 = (TEMPLATE *)malloc(sizeof(TEMPLATE));
 
    if (!o || !tmpl || !tmpl2) {
-      st_err_log(0, __FILE__, __LINE__);
+      ock_log_err(OCK_E_MEM_ALLOC);
       rc = CKR_HOST_MEMORY;
       goto done;
    }
