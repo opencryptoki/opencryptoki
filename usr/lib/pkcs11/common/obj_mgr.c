@@ -2018,7 +2018,7 @@ object_mgr_restore_obj_withSize( CK_BYTE *data, OBJECT *oldObj, int data_size )
 
          XProcUnLock( xproclock );
       } else {
-         st_err_log(160, __FILE__, __LINE__); 
+         ock_log_err(OCK_E_OBJ_RESTORE_DATA);
       }
    }
 
