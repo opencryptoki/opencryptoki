@@ -806,7 +806,7 @@ key_mgr_wrap_key( SESSION           * sess,
    }
    rc = object_mgr_find_in_map1( h_key, &key2_obj );
    if (rc != CKR_OK){
-      st_err_log(18, __FILE__, __LINE__);
+      ock_log_err(OCK_E_KEY_HANDLE_INV);
       return CKR_KEY_HANDLE_INVALID;
    }
 

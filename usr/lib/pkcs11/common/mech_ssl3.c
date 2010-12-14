@@ -1224,7 +1224,7 @@ ssl3_master_key_derive( SESSION           * sess,
 
    rc = object_mgr_find_in_map1( base_key, &base_key_obj );
    if (rc != CKR_OK){
-      st_err_log(18, __FILE__, __LINE__); 
+      ock_log_err(OCK_E_KEY_HANDLE_INV);
       return CKR_KEY_HANDLE_INVALID;
    }
    rc = template_attribute_find( base_key_obj->template, CKA_VALUE, &attr );
@@ -1494,7 +1494,7 @@ ssl3_key_and_mac_derive( SESSION           * sess,
 
    rc = object_mgr_find_in_map1( base_key, &base_key_obj );
    if (rc != CKR_OK){
-      st_err_log(18, __FILE__, __LINE__);
+      ock_log_err(OCK_E_KEY_HANDLE_INV);
       return CKR_KEY_HANDLE_INVALID;
    }
    rc = template_attribute_find( base_key_obj->template, CKA_VALUE, &attr );

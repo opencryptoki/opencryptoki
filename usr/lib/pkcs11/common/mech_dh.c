@@ -449,7 +449,7 @@ ckm_dh_pkcs_derive( CK_VOID_PTR        other_pubkey,
 
    rc = object_mgr_find_in_map1( base_key, &base_key_obj );
    if (rc != CKR_OK){
-      st_err_log(18, __FILE__, __LINE__);
+      ock_log_err(OCK_E_KEY_HANDLE_INV);
       return CKR_KEY_HANDLE_INVALID;
    }
 

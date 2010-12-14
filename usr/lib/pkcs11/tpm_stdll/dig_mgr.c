@@ -581,7 +581,7 @@ digest_mgr_digest_key( SESSION          * sess,
 
    rc = object_mgr_find_in_map1( key_handle, &key_obj );
    if (rc != CKR_OK){
-      st_err_log(18, __FILE__, __LINE__);
+      ock_log_err(OCK_E_KEY_HANDLE_INV);
       rc = CKR_KEY_HANDLE_INVALID;
       goto out;
    }
