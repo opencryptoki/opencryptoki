@@ -590,7 +590,7 @@ rsa_hash_pkcs_sign( SESSION              * sess,
 
    rc = sign_mgr_init( sess, &sign_ctx, &sign_mech, FALSE, ctx->key );
    if (rc != CKR_OK){
-      st_err_log(127, __FILE__, __LINE__);
+      ock_log_err(OCK_E_SIGN_INIT);
       goto error;
    }
    //rc = sign_mgr_sign( sess, length_only, &sign_ctx, hash, hash_len, signature, sig_len );
@@ -877,7 +877,7 @@ rsa_hash_pkcs_sign_final( SESSION              * sess,
 
    rc = sign_mgr_init( sess, &sign_ctx, &sign_mech, FALSE, ctx->key );
    if (rc != CKR_OK){
-      st_err_log(127, __FILE__, __LINE__);
+      ock_log_err(OCK_E_SIGN_INIT);
       goto done;
    }
    //rc = sign_mgr_sign( sess, length_only, &sign_ctx, hash, hash_len, signature, sig_len );

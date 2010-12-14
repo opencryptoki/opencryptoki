@@ -2852,7 +2852,7 @@ CK_RV SC_SignInit( ST_SESSION_HANDLE  sSession,
 
 	rc = sign_mgr_init( sess, &sess->sign_ctx, pMechanism, FALSE, hKey );
 	if (rc != CKR_OK){ 
-		st_err_log(127, __FILE__, __LINE__);
+		ock_log_err(OCK_E_SIGN_INIT);
 	}
 
  done:
@@ -3091,7 +3091,7 @@ CK_RV SC_SignRecoverInit( ST_SESSION_HANDLE  sSession,
 
 	rc = sign_mgr_init( sess, &sess->sign_ctx, pMechanism, TRUE, hKey );
 	if (rc != CKR_OK){ 
-		st_err_log(127, __FILE__, __LINE__);
+		ock_log_err(OCK_E_SIGN_INIT);
 	}
 
  done:

@@ -400,7 +400,7 @@ sha1_hmac_verify( SESSION              * sess,
 
    rc = sign_mgr_init( sess, &hmac_ctx, &ctx->mech, FALSE, ctx->key );
    if (rc != CKR_OK){
-      st_err_log(127, __FILE__, __LINE__);
+      ock_log_err(OCK_E_SIGN_INIT);
       goto done;
    }
    len = sizeof(hmac);
