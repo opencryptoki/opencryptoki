@@ -479,7 +479,7 @@ rsa_parse_block( CK_BYTE  * in_data,
      * Check for the leading 00 octet.
      */
     if (in_data[0] != (CK_BYTE)0) {
-        st_err_log(14, __FILE__, __LINE__);
+        ock_log_err(OCK_E_ENCRYPTED_DATA_INV);
         rc = CKR_ENCRYPTED_DATA_INVALID;
         return rc;
     }
@@ -488,7 +488,7 @@ rsa_parse_block( CK_BYTE  * in_data,
      * Check the block type.
      */
     if (in_data[1] != (CK_BYTE)type) {
-        st_err_log(14, __FILE__, __LINE__);
+        ock_log_err(OCK_E_ENCRYPTED_DATA_INV);
         rc = CKR_ENCRYPTED_DATA_INVALID;
         return rc;
     }
@@ -535,7 +535,7 @@ rsa_parse_block( CK_BYTE  * in_data,
                         break;
                     }
 
-                    st_err_log(14, __FILE__, __LINE__);
+                    ock_log_err(OCK_E_ENCRYPTED_DATA_INV);
                     rc = CKR_ENCRYPTED_DATA_INVALID;
                     return rc;
                 }
@@ -558,7 +558,7 @@ rsa_parse_block( CK_BYTE  * in_data,
             break;
 
         default:
-            st_err_log(14, __FILE__, __LINE__);
+            ock_log_err(OCK_E_ENCRYPTED_DATA_INV);
             rc = CKR_ENCRYPTED_DATA_INVALID;
             return rc;
     }
@@ -570,13 +570,13 @@ rsa_parse_block( CK_BYTE  * in_data,
      * encryption blocks.
      */
     if ((type == 1 || type == 2) && ((i - 3) < 8)) {
-        st_err_log(14, __FILE__, __LINE__);
+        ock_log_err(OCK_E_ENCRYPTED_DATA_INV);
         rc = CKR_ENCRYPTED_DATA_INVALID;
         return rc;
     }
 
     if (in_data_len <= i) {
-        st_err_log(14, __FILE__, __LINE__);
+        ock_log_err(OCK_E_ENCRYPTED_DATA_INV);
         rc = CKR_ENCRYPTED_DATA_INVALID;
         return rc;
     }
