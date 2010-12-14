@@ -2443,7 +2443,7 @@ CK_RV SC_EncryptFinal( ST_SESSION_HANDLE  sSession,
    rc = encr_mgr_encrypt_final( sess,  length_only, &sess->encr_ctx,
                                 pLastEncryptedPart, pulLastEncryptedPartLen );
    if (rc != CKR_OK) {
-      st_err_log(177, __FILE__, __LINE__);
+      ock_log_err(OCK_E_ENCRYPT_MGR_ENCRYPT_FINAL);
    }
 
 done:
