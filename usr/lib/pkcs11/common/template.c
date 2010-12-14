@@ -359,7 +359,7 @@ template_add_attributes( TEMPLATE     * tmpl,
       rc = template_update_attribute( tmpl, attr );
       if (rc != CKR_OK) {
          free( attr );
-         st_err_log(178, __FILE__, __LINE__); 
+         ock_log_err(OCK_E_UPDATE_ATTR);
          return rc;
       }
    }
@@ -1340,7 +1340,7 @@ template_merge( TEMPLATE *dest, TEMPLATE **src )
 
       rc = template_update_attribute( dest, attr );
       if (rc != CKR_OK){
-         st_err_log(178, __FILE__, __LINE__); 
+         ock_log_err(OCK_E_UPDATE_ATTR);
          return rc;
       }
       // we've assigned the node's data to a node in 'dest'
