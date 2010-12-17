@@ -44,6 +44,8 @@
 #include "tok_spec_struct.h"
 #include "pkcs32.h"
 
+#include "log.h"
+
 #if (SPINXPL)
 #include <sys/file.h>
 #endif

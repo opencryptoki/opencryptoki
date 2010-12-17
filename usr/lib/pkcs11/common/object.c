@@ -319,6 +319,8 @@
 #include "tok_spec_struct.h"
 #include "pkcs32.h"
 
+#include "log.h"
+
 // object_create()
 //
 // Args:   void *  attributes : (INPUT)  pointer to data block containing ATTRIBUTEs

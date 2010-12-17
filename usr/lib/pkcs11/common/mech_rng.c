@@ -309,6 +309,8 @@
 #include "tok_spec_struct.h"
 #include "tok_specific.h"
 
+#include "log.h"
+
 //
 //
 CK_RV

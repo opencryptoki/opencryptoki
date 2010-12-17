@@ -413,6 +413,8 @@
 
 #include "tok_spec_struct.h"
 
+#include "log.h"
+
 
 // key_object_check_required_attributes()
 //

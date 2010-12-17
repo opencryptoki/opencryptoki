@@ -49,6 +49,7 @@
 #include "tok_spec_struct.h"
 //#include "args.h"
 
+#include "log.h"
 
 static CK_BBOOL true = TRUE, false = FALSE;
 

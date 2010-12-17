@@ -32,6 +32,8 @@
 #include <openssl/dh.h>
 #endif
 
+#include "log.h"
+
 typedef unsigned int uint32_t;
 
 pthread_mutex_t  rngmtx = PTHREAD_MUTEX_INITIALIZER;

@@ -302,6 +302,7 @@
 #include <errno.h>
 #include <pwd.h>
 
+#include "log.h"
 
 #include "pkcs11types.h"
 #include "defs.h"

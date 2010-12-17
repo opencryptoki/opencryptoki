@@ -1988,52 +1988,6 @@ extern token_spec_t token_specific;
 #pragma options align=full
 #endif
 
-#include <stdio.h>
-#define APPID	"TPM_STDLL"
-/* log to stdout */
-#define LogMessage(dest, priority, layer, fmt, ...) \
-	do { \
-		fprintf(dest, "%s %s %s:%d " fmt "\n", priority, layer, __FILE__, __LINE__, ## __VA_ARGS__); \
-	} while (0)
-
-#define LogMessage1(dest, priority, layer, data) \
-	do { \
-		fprintf(dest, "%s %s %s:%d %s\n", priority, layer, __FILE__, __LINE__, data); \
-	} while (0)
-
-/* Debug logging */
-#ifdef DEBUG
-#define LogDebug(fmt, ...)      LogMessage(stdout, "LOG_DEBUG", APPID, fmt, ##__VA_ARGS__)
-#define LogDebug1(data)         LogMessage1(stdout, "LOG_DEBUG", APPID, data)
-
-/* Error logging */
-#define LogError(fmt, ...)      LogMessage(stderr, "LOG_ERR", APPID, "ERROR: " fmt, ##__VA_ARGS__)
-#define LogError1(data)         LogMessage1(stderr, "LOG_ERR", APPID, "ERROR: " data)
-
-/* Warn logging */
-#define LogWarn(fmt, ...)       LogMessage(stdout, "LOG_WARNING", APPID, "WARNING: " fmt, ##__VA_ARGS__)
-#define LogWarn1(data)          LogMessage1(stdout, "LOG_WARNING", APPID, "WARNING: " data)
-
-/* Info Logging */
-#define LogInfo(fmt, ...)       LogMessage(stdout, "LOG_INFO", APPID, fmt, ##__VA_ARGS__)
-#define LogInfo1(data)          LogMessage1(stdout, "LOG_INFO", APPID, data)
-
-#define st_err_log(...)		LogMessage(stderr, "ST MSG", APPID, "whammy")
-#else
-#define LogDebug(...)		do { } while (0)
-#define LogDebug1(...)		do { } while (0)
-#define LogBlob(...)		do { } while (0)
-#define LogError(...)		do { } while (0)
-#define LogError1(...)		do { } while (0)
-#define LogWarn(...)		do { } while (0)
-#define LogWarn1(...)		do { } while (0)
-#define LogInfo(...)		do { } while (0)
-#define LogInfo1(...)		do { } while (0)
-
-#define st_err_log(...)		do { } while (0)
-#endif
-
-
 /* custom attributes for the TPM token */
 /* CKA_HIDDEN will be used to filter return results on a C_FindObjects call. Used
  * for objects internal to the TPM token for management */

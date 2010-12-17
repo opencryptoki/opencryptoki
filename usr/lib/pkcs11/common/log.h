@@ -1,9 +1,4 @@
 /*
- * $Header: /cvsroot/opencryptoki/opencryptoki/usr/lib/pkcs11/common/msg.h,v 1.2 2005/08/04 22:11:46 kyoder Exp $
- */
-
-//
-/*
              Common Public License Version 0.5
 
              THE ACCOMPANYING PROGRAM IS PROVIDED UNDER THE TERMS OF
@@ -13,10 +8,10 @@
 
              1. DEFINITIONS
 
-             "Contribution" means: 
+             "Contribution" means:
                    a) in the case of the initial Contributor, the
                    initial code and documentation distributed under
-                   this Agreement, and 
+                   this Agreement, and
 
                    b) in the case of each subsequent Contributor:
                    i) changes to the Program, and
@@ -40,7 +35,7 @@
              "Licensed Patents " mean patent claims licensable by a
              Contributor which are necessarily infringed by the use or
              sale of its Contribution alone or when combined with the
-             Program. 
+             Program.
 
              "Program" means the Contributions distributed in
              accordance with this Agreement.
@@ -135,7 +130,7 @@
                    a) it must be made available under this Agreement;
                    and
                    b) a copy of this Agreement must be included with
-                   each copy of the Program. 
+                   each copy of the Program.
 
              Contributors may not remove or alter any copyright notices
              contained within the Program.
@@ -143,7 +138,7 @@
              Each Contributor must identify itself as the originator of
              its Contribution, if any, in a manner that reasonably
              allows subsequent Recipients to identify the originator of
-             the Contribution. 
+             the Contribution.
 
 
              4. COMMERCIAL DISTRIBUTION
@@ -204,7 +199,7 @@
              Agreement, including but not limited to the risks and
              costs of program errors, compliance with applicable laws,
              damage to or loss of data, programs or equipment, and
-             unavailability or interruption of operations. 
+             unavailability or interruption of operations.
 
              6. DISCLAIMER OF LIABILITY
              EXCEPT AS EXPRESSLY SET FORTH IN THIS AGREEMENT, NEITHER
@@ -253,7 +248,7 @@
              use and distribution of the Program as soon as reasonably
              practicable. However, Recipient's obligations under this
              Agreement and any licenses granted by Recipient relating
-             to the Program shall continue and survive. 
+             to the Program shall continue and survive.
 
              Everyone is permitted to copy and distribute copies of
              this Agreement, but in order to avoid inconsistency the
@@ -285,20 +280,346 @@
              States of America. No party to this Agreement will bring a
              legal action under this Agreement more than one year after
              the cause of action arose. Each party waives its rights to
-             a jury trial in any resulting litigation. 
+             a jury trial in any resulting litigation.
 
 
 
 */
 
 /* (C) COPYRIGHT International Business Machines Corp. 2001,2002          */
+#ifndef LOG_H
+#define LOG_H
 
-// File: msg.h
-// Error messages reported by st_err_log
+#include <syslog.h>
+#include <stdio.h>
+#include <string.h>
 
-#ifndef __MSG_H__
-#define __MSG_H__
 
-extern char* err_msg[];
+#ifdef DEBUG
+#define _ock_log_stderr(level, fmt, ...)                                \
+        do {                                                            \
+                char buf[512] = "%s:%d %s() - ";                        \
+                strncat(buf, fmt, 512);                                 \
+                strncat(buf, "\n", 512);                                \
+                fflush(stdout);                                         \
+                fprintf(stderr, buf,                                    \
+                        __FILE__, __LINE__, __func__, ## __VA_ARGS__);  \
+                fflush(stderr);                                         \
+        } while (0)
+
+#else
+
+#define _ock_log_stderr(level, fmt, ...)                                \
+        do {                                                            \
+        } while (0)
+#endif
+
+
+
+#define ock_api_log(level, fmt, ...)                                    \
+        do {                                                            \
+                char buf[512] = "opencryptoki-library: %s:%d %s() - ";  \
+                strncat(buf, fmt, 512);                                 \
+                syslog(level | LOG_USER, buf,                           \
+                       __FILE__, __LINE__, __func__, ## __VA_ARGS__);   \
+                _ock_log_stderr(level, fmt, ## __VA_ARGS__);            \
+        } while (0)
+
+
+#ifdef DEBUG
+#define ock_log_warn(code, ...)                                         \
+        do {                                                            \
+                ock_api_log(LOG_WARNING, err_msg[code], ## __VA_ARGS__);\
+        } while (0)
+
+#define ock_log_warn_ex(code, fmt, ...)                                 \
+        do {                                                            \
+                char warnbuf[512] = "";                                 \
+                strncat(warnbuf, err_msg[code], 512);                   \
+                strncat(warnbuf, " :", 512);                            \
+                strncat(warnbuf, fmt, 512);                             \
+                ock_api_log(LOG_WARNING, warnbuf, ## __VA_ARGS__);      \
+        } while (0)
+
+#define ock_log_debug(fmt, ...)                                         \
+        do {                                                            \
+                ock_api_log(LOG_DEBUG, fmt, ## __VA_ARGS__);            \
+        } while (0)
+
+#else
+
+#define ock_log_warn(code, ...)                                         \
+        do {                                                            \
+        } while (0)
+
+#define ock_log_warn_ex(code, fmt, ...)                                 \
+        do {                                                            \
+        } while (0)
+
+#define ock_log_debug(fmt, ...)                                         \
+        do {                                                            \
+        } while (0)
 
 #endif
+
+#define ock_log_err(code, ...)                                          \
+        do {                                                            \
+                ock_api_log(LOG_ERR, err_msg[code], ## __VA_ARGS__);    \
+        } while (0)
+
+#define ock_log_err_ex(code, fmt, ...)                                  \
+        do {                                                            \
+                char errbuf[512] = "";                                  \
+                strncat(errbuf, err_msg[code], 512);                    \
+                strncat(errbuf, " :", 512);                             \
+                strncat(errbuf, fmt, 512);                              \
+                ock_api_log(LOG_ERR, errbuf, ## __VA_ARGS__);           \
+        } while (0)
+
+
+
+
+
+
+enum {
+        OCK_E_MEM_ALLOC = 0,
+        OCK_E_CTX_MEM_INSUF,
+        OCK_E_SLOT_INV,
+        OCK_E_GENERAL_ERR,
+        OCK_E_FUNC,
+        //#5
+        OCK_E_BAD_ARG,
+        OCK_E_NO_EVENT,
+        OCK_E_ATTR_READONLY,
+        OCK_E_ATTR_TYPE_INV,
+        OCK_E_ATTR_VALUE_INV,
+        //#10
+        OCK_E_DATA_INV,
+        OCK_E_DATA_LEN,
+        OCK_E_DEV_ERR,
+        OCK_E_DEV_REMOVED,
+        OCK_E_ENCRYPTED_DATA_INV,
+        //15
+        OCK_E_ENCRYPTED_DATA_LEN,
+        OCK_E_FUNC_CANCELED,
+        OCK_E_FUNC_NOT_PARALLEL,
+        OCK_E_KEY_HANDLE_INV,
+        OCK_E_KEY_SIZE,
+        //20
+        OCK_E_KEY_INCONS,
+        OCK_E_KEY_NOT_NEEDED,
+        OCK_E_KEY_CHANGED,
+        OCK_E_KEY_NEEDED,
+        OCK_E_KEY_INDIGESTIBLE,
+        //25
+        OCK_E_KEY_FUNC_NOT_PERMITTED,
+        OCK_E_KEY_NOT_WRAPPABLE,
+        OCK_E_KEY_UNEXTRACTABLE,
+        OCK_E_MECH_INV,
+        OCK_E_MECH_PARAM_INV,
+        //30
+        OCK_E_OBJ_HANDLE_INV,
+        OCK_E_OP_ACTIVE,
+        OCK_E_OP_NOT_INIT,
+        OCK_E_PIN_WRONG,
+        OCK_E_PIN_INV,
+        //35
+        OCK_E_PIN_LEN,
+        OCK_E_PIN_EXP,
+        OCK_E_PIN_LOCK,
+        OCK_E_SESS_CLOSED,
+        OCK_E_SESS_COUNT,
+        //40
+        OCK_E_SESS_HANDLE_INV,
+        OCK_E_PARALLEL_SESS,
+        OCK_E_SESS_READONLY,
+        OCK_E_SESS_EXISTS,
+        OCK_E_SESS_READONLY_EXISTS,
+        //45
+        OCK_E_SESS_READWRITE_EXISTS,
+        OCK_E_SIG_LEN,
+        OCK_E_SIG_INV,
+        OCK_E_TMPL_INCOMPLETE,
+        OCK_E_TMPL_INCONS,
+        //50
+        OCK_E_TOK_NOT_PRESENT,
+        OCK_E_TOK_NOT_RECOGNIZED,
+        OCK_E_TOK_WRITE_PROTECTED,
+        OCK_E_UNWRAP_KEY_HANDLE_INV,
+        OCK_E_UNWRAP_KEY_SIZE,
+        //55
+        OCK_E_UNWRAP_KEY_INCONS,
+        OCK_E_USER_ALREADY_LOGGED_IN,
+        OCK_E_USER_NOT_LOGGED_IN,
+        OCK_E_USER_PIN_NOT_INIT,
+        OCK_E_USER_TYPE_INV,
+        //60
+        OCK_E_ANOTHER_USER_ALREADY_LOGGED_IN,
+        OCK_E_TOO_MANY_USER_TYPES,
+        OCK_E_WRAPPED_KEY_INV,
+        OCK_E_WRAPPED_KEY_LEN,
+        OCK_E_WRAPPING_KEY_SIZE,
+        //65
+        OCK_E_WRAPPING_KEY_INCONS,
+        OCK_E_RAND_SEED_NOT_SUPP,
+        OCK_E_RAND_NUMBER_INV,
+        OCK_E_BUFFER_TOO_SMALL,
+        OCK_E_SAVED_STATE_INV,
+        //70
+        OCK_E_INFORMATION_SENSITIVE,
+        OCK_E_STATE_UNSAVEABLE,
+        OCK_E_API_NOT_INIT,
+        OCK_E_API_ALREADY_INIT,
+        OCK_E_MUTEX_BAD,
+        //75
+        OCK_E_MUTEX_LOCK_INV,
+        OCK_E_ENCODR_INT,
+        OCK_E_ENCODE_OSTRING,
+        OCK_E_ENCODE_SEQ,
+        OCK_E_DECODE_INT,
+        //80
+        OCK_E_DECODE_OSTRING,
+        OCK_E_DECODE_SEQ,
+        OCK_E_ENCODE_PRIVKEY,
+        OCK_E_DECODE_PRIVKEY,
+        OCK_E_BUILD_ATTR,
+        //85
+        OCK_E_FUNCTION_NOT_PERMITTED,
+        OCK_E_KEY_NOT_EXPORTABLE,
+        OCK_E_ENCODE_PRIVKEY2,
+        OCK_E_DECODE_PRIVKEY2,
+        OCK_E_OBJ_MGR_CREATE_SKELETON,
+        //90
+        OCK_E_OBJ_MGR_CREATE_FINAL,
+        OCK_E_KEY_GENERATION,
+        OCK_E_DES_WRAP_GET_DATA,
+        OCK_E_TDES_WRAP_GET_DATA,
+        OCK_E_RSA_WRAP_GET_DATA,
+        //95
+        OCK_E_DSA_WRAP_GET_DATA,
+        OCK_E_GENERIC_SECRET_WRAP_GET_DATA,
+        OCK_E_DES_WRAP_FORMAT,
+        OCK_E_ENCRYPT_MGR_INIT,
+        OCK_E_ENCRYPT_MGR_ENCRYPT,
+        //100
+        OCK_E_DECRYPT_MGR_DECRYPT,
+        OCK_E_FLATTEN_OBJ,
+        OCK_E_KEY_MGR_GET_PRIVKEY_TYPE,
+        OCK_E_DECRYPT_PRIVKEY_INFO,
+        OCK_E_SAVE_TOKEN,
+        //105
+        OCK_E_TDES_CBC_ENCRYPT,
+        OCK_E_TDES_CBC_DECRYPT,
+        OCK_E_RESTORE_PRIV_TOKEN,
+        OCK_E_RESTORE_OBJ,
+        OCK_E_DATA_LEN2,
+        //110
+        OCK_E_OBJ_MGR_FIND_IN_MAP,
+        OCK_E_TOKEN_SPECIFIC_RNG,
+        OCK_E_ENCRYPT_DATA_LEN2,
+        OCK_E_DES_CBC_ENCRYPT,
+        OCK_E_DES_CBC_DECRYPT,
+        //115
+        OCK_E_DES_ECB_ENCRYPT,
+        OCK_E_DES_ECB_DECRYPT,
+        OCK_E_TOKEN_SPECIFIC_DEC_ECB,
+        OCK_E_TOKEN_SPECIFIC_DES_CBC,
+        OCK_E_TOKEN_SPECIFIC_TDES_CBC,
+        //120
+        OCK_E_TOKEN_SPECIFIC_TDES_ECB,
+        OCK_E_DSA_VERIFY,
+        OCK_E_DSA_SIGN,
+        OCK_E_DIGEST_INIT,
+        OCK_E_DIGEST,
+        //125
+        OCK_E_DIGEST_UPDATE,
+        OCK_E_DIGEST_FINAL,
+        OCK_E_SIGN_INIT,
+        OCK_E_SIGN_UPDATE,
+        OCK_E_SIGN_FINAL,
+        //130
+        OCK_E_RNG,
+        OCK_E_RSA_FORMAT_BLOCK,
+        OCK_E_RSA_ENCRYPT,
+        OCK_E_RSA_DECRYPT,
+        OCK_E_TOKEN_SPECIFIC_RSA_ENCRYPT,
+        //135
+        OCK_E_TOKEN_SPECIFIC_RSA_DECRYPT,
+        OCK_E_SSL_SHA,
+        OCK_E_SSL3_MD5,
+        OCK_E_SSL3_PROCESS_MAC_KEYS,
+        OCK_E_SSL3_PROCESS_WRITE_KEYS,
+        //140
+        OCK_E_VALIDATE_ATTR,
+        OCK_E_SSL3_PROCESS_WRITE_KEYS2,
+        OCK_E_FUNCTION_NOT_SUPP,
+        OCK_E_TOKEN_ALREADY_INIT,
+        OCK_E_CANNOT_ATTACH_SHMEM,
+        //145
+        OCK_E_TOKEN_SPECIFIC_INIT,
+        OCK_E_MUTEX_LOCK,
+        OCK_E_MUTEX_UNLOCK,
+        OCK_E_HASH,
+        OCK_E_SAVE_MASTERKEY,
+        //150
+        OCK_E_PROCESS_LOCK,
+        OCK_E_PROCESS_UNLOCK,
+        OCK_E_SESS_MGR_NEW,
+        OCK_E_CLOSE_ALL_SESS,
+        OCK_E_SESS_MGR_GET_OK_STATE,
+        //155
+        OCK_E_LOAD_MASTERKEY,
+        OCK_E_OBJ_CREATE,
+        OCK_E_OBJ_MGR_ADD_TO_MAP,
+        OCK_E_OBJ_COPY,
+        OCK_E_OBJ_GET_ATTR_VALUE,
+        //160
+        OCK_E_OBJ_RESTORE_DATA,
+        OCK_E_OBJ_SET_ATTR,
+        OCK_E_OBJ_MGR_SEARCH_OBJ,
+        OCK_E_COPY_TMPL,
+        OCK_E_ADD_ATTR,
+        //165
+        OCK_E_CHECK_REQUIRED_ATTR,
+        OCK_E_UNFLATTEN_TMPL,
+        OCK_E_VERIFY_INIT,
+        OCK_E_VERIFY,
+        OCK_E_VERIFY_UPDATE,
+        //170
+        OCK_E_VERIFY_FINAL,
+        OCK_E_SIGN,
+        OCK_E_SET_DEFAULT_ATTR,
+        OCK_E_UNWRAP_KEY,
+        OCK_E_SESS_MGR,
+        //175
+        OCK_E_MERGE_ATTR,
+        OCK_E_ENCRYPT_MGR_ENCRYPT_UPDATE,
+        OCK_E_ENCRYPT_MGR_ENCRYPT_FINAL,
+        OCK_E_UPDATE_ATTR,
+        OCK_E_DECRYPT_MGR_INIT,
+        //180
+        OCK_E_DECRYPT_MGR_UPDATE,
+        OCK_E_DECRYPT_MGR_FINAL,
+        OCK_E_OBJ_MGR_DESTROY,
+        OCK_E_ATTR_UNDEF,
+        OCK_E_OBJ_MGR_GET_SIZE,
+        //185
+        OCK_E_OBJ_MGR_FIND_INIT,
+        OCK_E_SIGN_RECOVER,
+        OCK_E_VERIFY_RECOVER,
+        OCK_E_WRAP_KEY,
+        OCK_E_UNWRAP_KEY2,
+        //190
+        OCK_E_DERIVE,
+        OCK_E_AES_WRAP_GET_DATA,
+        OCK_E_AES_WRAP_FORMAT,
+        OCK_E_DOMAIN_PARAM,
+        OCK_E_CANT_OPEN_FILE,
+        //195
+        OCK_E_GENERIC
+};
+
+
+extern const char* err_msg[];
+
+#endif          // #ifdef LOG_H

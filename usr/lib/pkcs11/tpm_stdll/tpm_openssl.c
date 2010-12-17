@@ -52,6 +52,8 @@
 #include "tok_specific.h"
 #include "tok_spec_struct.h"
 
+#include "log.h"
+
 #include "tpm_specific.h"
 
 #ifdef DEBUG

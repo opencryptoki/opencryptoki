@@ -36,6 +36,7 @@
 #include <fcntl.h>
 
 #include "aeptok_api.h"
+#include "log.h"
 
 extern int cryptoki_aep_avail;
 

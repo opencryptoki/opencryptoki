@@ -42,6 +42,8 @@
 #include "tok_spec_struct.h"
 #include "h_extern.h"
 
+#include "log.h"
+
 //
 //
 CK_RV

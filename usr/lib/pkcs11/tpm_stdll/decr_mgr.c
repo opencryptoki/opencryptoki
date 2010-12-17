@@ -42,6 +42,7 @@
 #include "tok_spec_struct.h"
 //#include "args.h"
 
+#include "log.h"
 
 //
 //

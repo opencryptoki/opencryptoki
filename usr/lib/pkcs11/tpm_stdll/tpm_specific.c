@@ -77,6 +77,8 @@
 
 #include "../api/apiproto.h"
 
+#include "log.h"
+
 TSS_RESULT util_set_public_modulus(TSS_HKEY, unsigned long, unsigned char *);
 
 CK_CHAR manuf[] = "IBM Corp.";

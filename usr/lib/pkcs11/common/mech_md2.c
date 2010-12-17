@@ -303,6 +303,8 @@
 #include "tok_spec_struct.h"
 //#include "args.h"
 
+#include "log.h"
+
 
 // Permutation of 0..255 constructed from the digits of pi. It gives a
 // "random" nonlinear byte substitution operation.

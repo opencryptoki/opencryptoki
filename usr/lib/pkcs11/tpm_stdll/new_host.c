@@ -54,6 +54,8 @@
 
 #include "tpm_specific.h"
 
+#include "log.h"
+
 #include "../api/apiproto.h"
 
 /* Declared in obj_mgr.c */
@@ -120,11 +122,6 @@ CK_ULONG  usage_count = 0; // variable for number of times the DLL has been used
 
 CK_C_INITIALIZE_ARGS cinit_args = { NULL, NULL, NULL, NULL, 0, NULL };
 
-
-extern void stlogterm();
-extern void stloginit();
-extern void stlogit2(int type,char *fmt, ...);
-
 CK_BBOOL
 st_Initialized()
 {
@@ -148,8 +145,6 @@ void
 Fork_Initializer(void)
 {
   //    initialized == FALSE; // Get the initialization to be not true
-	stlogterm();
-        stloginit(); // Initialize Logging so we can capture EVERYTHING
 
 #ifdef SPINXPL
 	spinxplfd = -1;
@@ -340,9 +335,6 @@ CK_RV ST_Initialize( void **FunctionList,
 	struct passwd  *pw,*epw; // SAB XXX XXX
 	uid_t    userid,euserid;
 
-
-	stlogterm();
-	stloginit();
 
 
 	// Check for root user or Group PKCS#11 Membershp

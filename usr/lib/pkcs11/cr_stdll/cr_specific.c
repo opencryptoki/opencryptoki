@@ -328,6 +328,8 @@
 #include "typhoon.h"
 #include "tok_struct.h"
 
+#include "log.h"
+
 typedef unsigned int uint32_t;
 int crfd ;
 

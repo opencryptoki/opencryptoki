@@ -307,6 +307,7 @@
 #include "h_extern.h"
 #include "tok_spec_struct.h"
 
+#include "log.h"
 
 // in the Shallow token we have the modulus so we can just get it
 // from that attribute... in the cryptolite token we have to use the

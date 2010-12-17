@@ -321,9 +321,6 @@ int XProcLock(void *);
 int XProcUnLock(void *);
 
 void _init(void);
-void loginit();
-void logterm();
-void logit( int, char *, ...);
 void decr_sess_counts(CK_SLOT_ID);
 void incr_sess_counts(CK_SLOT_ID);
 void AddToSessionList(Session_Struct_t *);

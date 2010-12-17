@@ -322,6 +322,8 @@
 #include "pkcs32.h"
 #include "p11util.h"
 
+#include "log.h"
+
 // template_add_attributes()
 //
 // blindly add the given attributes to the template.  do no sanity checking

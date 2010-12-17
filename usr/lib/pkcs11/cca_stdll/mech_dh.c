@@ -32,6 +32,8 @@
 #include "h_extern.h"
 #include "tok_spec_struct.h"
 
+#include "log.h"
+
 #ifndef NODH
 
 //

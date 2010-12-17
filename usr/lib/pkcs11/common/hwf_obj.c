@@ -305,6 +305,8 @@
 
 #include "tok_spec_struct.h"
 
+#include "log.h"
+
 
 // hwf_object_check_required_attributes()
 //

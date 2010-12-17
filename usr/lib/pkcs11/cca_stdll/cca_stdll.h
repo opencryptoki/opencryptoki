@@ -75,10 +75,4 @@
 #define DBG(...)			do { } while (0)
 #endif
 
-#define LOG(priority, fmt, ...) \
-	do { \
-		openlog("openCryptoki(CCA)", LOG_NDELAY|LOG_PID, LOG_USER); \
-		syslog(priority, "%s " fmt, __FILE__, ##__VA_ARGS__); \
-	} while (0)
-
 #endif

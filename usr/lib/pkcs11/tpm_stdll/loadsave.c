@@ -319,6 +319,8 @@
 #include "pkcs32.h"
 //#include "args.h"
 
+#include "log.h"
+
 #include "../api/apiproto.h"
 #include "tpm_specific.h"
 

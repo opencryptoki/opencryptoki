@@ -321,6 +321,8 @@
 
 #include "../api/apiproto.h"
 
+#include "log.h"
+
 void
 set_perm(int file)
 {

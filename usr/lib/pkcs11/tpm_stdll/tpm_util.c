@@ -49,6 +49,8 @@
 #include "../common/args.h"
 #include "h_extern.h"
 
+#include "log.h"
+
 #include "tpm_specific.h"
 
 extern TSS_HCONTEXT tspContext;

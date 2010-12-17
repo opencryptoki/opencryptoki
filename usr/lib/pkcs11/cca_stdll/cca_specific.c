@@ -34,6 +34,8 @@
 #include "tok_struct.h"
 #include "h_extern.h"
 
+#include "log.h"
+
 #include "csulincl.h"
 
 CK_CHAR manuf[] = "IBM Corp.";

@@ -90,10 +90,4 @@ CK_ULONG util_check_public_exponent(TEMPLATE *);
 
 #define MK_SIZE (AES_KEY_SIZE_256)
 
-#define LOG(priority, fmt, ...) \
-        do { \
-                openlog("openCryptoki(TPM)", LOG_NDELAY|LOG_PID, LOG_USER); \
-                syslog(priority, "%s " fmt, __FILE__, ##__VA_ARGS__); \
-        } while (0)
-
 #endif

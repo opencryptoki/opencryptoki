@@ -305,7 +305,7 @@
 #include "host_defs.h"
 #include "h_extern.h"
 
-
+#include "log.h"
 
 
 //

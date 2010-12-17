@@ -306,6 +306,8 @@
 #include "h_extern.h"
 #include "tok_spec_struct.h"
 
+#include "log.h"
+
 #include "../api/apiproto.h"
 
 pthread_rwlock_t obj_list_rw_mutex = PTHREAD_RWLOCK_INITIALIZER;

@@ -36,6 +36,8 @@
 #include "ubsec_lib.h"
 // SAB end Bcom Add
 
+#include "log.h"
+
 typedef unsigned int U32_t;
 
 pthread_mutex_t  rngmtx = PTHREAD_MUTEX_INITIALIZER;

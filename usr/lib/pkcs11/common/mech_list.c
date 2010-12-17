@@ -297,6 +297,8 @@
 #include "h_extern.h"
 #include "tok_spec_struct.h"
 
+#include "log.h"
+
 void mech_array_to_list(struct mech_list_item *head,
 			MECH_LIST_ELEMENT mech_list_arr[],
 			int list_len) {

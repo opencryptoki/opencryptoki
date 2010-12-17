@@ -55,6 +55,8 @@
 #include "h_extern.h"
 #include "tok_spec_struct.h"
 
+#include "log.h"
+
 #define SHA_HARDWARE_THRESHHOLD 128000
 
 // The SHA f()-functions.  The f1 and f3 functions can be optimized to
