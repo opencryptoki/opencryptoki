@@ -127,12 +127,12 @@ token_rng(CK_BYTE *output, CK_ULONG bytes)
         BYTE *random_bytes = NULL;
 
         if ((rc = Tspi_Context_GetTpmObject(tspContext, &hTPM))) {
-                LogError("Tspi_Context_GetTpmObject: %x", rc);
+                ock_log_err_ex(OCK_E_GENERIC, "Tspi_Context_GetTpmObject: %x", rc);
                 return CKR_FUNCTION_FAILED;
         }
 
         if ((rc = Tspi_TPM_GetRandom(hTPM, bytes, &random_bytes))) {
-                LogError("Tspi_TPM_GetRandom failed. rc=0x%x", rc);
+                ock_log_err_ex(OCK_E_GENERIC, "Tspi_TPM_GetRandom failed. rc=0x%x", rc);
                 return CKR_FUNCTION_FAILED;
         }
 
@@ -154,17 +154,17 @@ token_specific_init(char *Correlator, CK_SLOT_ID SlotNumber)
 	TSS_RESULT result;
 
 	if ((result = Tspi_Context_Create(&tspContext))) {
-                LogError("Tspi_Context_Create failed. rc=0x%x", result);
+                ock_log_err_ex(OCK_E_GENERIC, "Tspi_Context_Create failed. rc=0x%x", result);
                 return CKR_FUNCTION_FAILED;
 	}
 
 	if ((result = Tspi_Context_Connect(tspContext, NULL))) {
-                LogError("Tspi_Context_Connect failed. rc=0x%x", result);
+                ock_log_err_ex(OCK_E_GENERIC, "Tspi_Context_Connect failed. rc=0x%x", result);
                 return CKR_FUNCTION_FAILED;
         }
 
 	if ((result = Tspi_Context_GetDefaultPolicy(tspContext, &hDefaultPolicy))) {
-                LogError("Tspi_Context_GetDefaultPolicy failed. rc=0x%x", result);
+                ock_log_err_ex(OCK_E_GENERIC, "Tspi_Context_GetDefaultPolicy failed. rc=0x%x", result);
                 return CKR_FUNCTION_FAILED;
 	}
 
@@ -207,7 +207,7 @@ token_find_key(int key_type, CK_OBJECT_CLASS class, CK_OBJECT_HANDLE *handle)
 		rc = CKR_KEY_NOT_FOUND;
 		goto done;
 	} else if (ulObjCount < 1) {
-		LogError("key with ID=\"%s\" not found in the store!", key_id);
+		ock_log_err_ex(OCK_E_GENERIC, "key with ID=\"%s\" not found in the store!", key_id);
 		rc = CKR_KEY_NOT_FOUND;
 		goto done;
 	}
@@ -235,13 +235,13 @@ token_get_key_blob(CK_OBJECT_HANDLE ckKey, CK_ULONG *blob_size, CK_BYTE **ret_bl
 
 	/* find object the first time to return the size of the buffer needed */
 	if ((rc = object_mgr_get_attribute_values(&dummy_sess, ckKey, tmpl, 1))) {
-		LogError("object_mgr_get_attribute_values failed. rc=0x%lx", rc);
+		ock_log_err_ex(OCK_E_GENERIC, "object_mgr_get_attribute_values failed. rc=0x%lx", rc);
 		goto done;
 	}
 
 	blob = malloc(tmpl[0].ulValueLen);
 	if (blob == NULL) {
-		LogError("malloc of %ld bytes failed.", tmpl[0].ulValueLen);
+		ock_log_err_ex(OCK_E_GENERIC, "malloc of %ld bytes failed.", tmpl[0].ulValueLen);
 		rc = CKR_HOST_MEMORY;
 		goto done;
 	}
@@ -249,7 +249,7 @@ token_get_key_blob(CK_OBJECT_HANDLE ckKey, CK_ULONG *blob_size, CK_BYTE **ret_bl
 	tmpl[0].pValue = blob;
 	/* find object the 2nd time to fill the buffer with data */
 	if ((rc = object_mgr_get_attribute_values(&dummy_sess, ckKey, tmpl, 1))) {
-		LogError("object_mgr_get_attribute_values failed. rc=0x%lx", rc);
+		ock_log_err_ex(OCK_E_GENERIC, "object_mgr_get_attribute_values failed. rc=0x%lx", rc);
 		goto done;
 	}
 
@@ -270,7 +270,7 @@ token_wrap_sw_key(int size_n, unsigned char *n, int size_p, unsigned char *p,
 
 	key_size = util_get_keysize_flag(size_n * 8);
 	if (initFlags == 0) {
-		LogError("Invalid key size.");
+		ock_log_err_ex(OCK_E_GENERIC, "Invalid key size.");
 		return CKR_FUNCTION_FAILED;
 	}
 
@@ -279,13 +279,13 @@ token_wrap_sw_key(int size_n, unsigned char *n, int size_p, unsigned char *p,
 					   TSS_KEY_MIGRATABLE | initFlags | key_size,
 					   phKey);
 	if (result != TSS_SUCCESS) {
-		LogError("Tspi_Context_CreateObject failed: rc=0x%x", result);
+		ock_log_err_ex(OCK_E_GENERIC, "Tspi_Context_CreateObject failed: rc=0x%x", result);
 		return result;
 	}
 
 	result = util_set_public_modulus(*phKey, size_n, n);
 	if (result != TSS_SUCCESS) {
-		LogError("util_set_public_modulus failed: rc=0x%x", result);
+		ock_log_err_ex(OCK_E_GENERIC, "util_set_public_modulus failed: rc=0x%x", result);
 		Tspi_Context_CloseObject(tspContext, *phKey);
 		*phKey = NULL_HKEY;
 		return result;
@@ -295,7 +295,7 @@ token_wrap_sw_key(int size_n, unsigned char *n, int size_p, unsigned char *p,
 	result = Tspi_SetAttribData(*phKey, TSS_TSPATTRIB_KEY_BLOB,
 			TSS_TSPATTRIB_KEYBLOB_PRIVATE_KEY, size_p, p);
 	if (result != TSS_SUCCESS) {
-		LogError("Tspi_SetAttribData failed: rc=0x%x", result);
+		ock_log_err_ex(OCK_E_GENERIC, "Tspi_SetAttribData failed: rc=0x%x", result);
 		Tspi_Context_CloseObject(tspContext, *phKey);
 		*phKey = NULL_HKEY;
 		return result;
@@ -310,11 +310,11 @@ token_wrap_sw_key(int size_n, unsigned char *n, int size_p, unsigned char *p,
 		result = Tspi_Key_GetPubKey(hParentKey, &pubKeySize, &pubKey);
 		if (result != TSS_SUCCESS) {
 			if (result == TPM_E_INVALID_KEYHANDLE) {
-				LOG(LOG_WARNING, "Warning: Your TPM is not configured to allow "
+				ock_log_warn_ex(OCK_E_GENERIC, "Warning: Your TPM is not configured to allow "
 				    "reading the public SRK by anyone but the owner. Use "
 				    "tpm_restrictsrk -a to allow reading the public SRK");
 			} else {
-				LogError("Tspi_Key_GetPubKey failed: rc=0x%x", result);
+				ock_log_err_ex(OCK_E_GENERIC, "Tspi_Key_GetPubKey failed: rc=0x%x", result);
 			}
 			Tspi_Context_CloseObject(tspContext, *phKey);
 			*phKey = NULL_HKEY;
@@ -327,7 +327,7 @@ token_wrap_sw_key(int size_n, unsigned char *n, int size_p, unsigned char *p,
 	result = Tspi_Context_CreateObject(tspContext, TSS_OBJECT_TYPE_POLICY, TSS_POLICY_MIGRATION,
 					   &hPolicy);
 	if (result != TSS_SUCCESS) {
-		LogError("Tspi_Context_CreateObject: 0x%x", result);
+		ock_log_err_ex(OCK_E_GENERIC, "Tspi_Context_CreateObject: 0x%x", result);
 		Tspi_Context_CloseObject(tspContext, *phKey);
 		*phKey = NULL_HKEY;
 		return result;
@@ -335,7 +335,7 @@ token_wrap_sw_key(int size_n, unsigned char *n, int size_p, unsigned char *p,
 
 	result = Tspi_Policy_SetSecret(hPolicy, TSS_SECRET_MODE_NONE, 0, NULL);
 	if (result != TSS_SUCCESS) {
-		LogError("Tspi_Policy_SetSecret failed. rc=0x%x", result);
+		ock_log_err_ex(OCK_E_GENERIC, "Tspi_Policy_SetSecret failed. rc=0x%x", result);
 		Tspi_Context_CloseObject(tspContext, *phKey);
 		Tspi_Context_CloseObject(tspContext, hPolicy);
 		*phKey = NULL_HKEY;
@@ -344,7 +344,7 @@ token_wrap_sw_key(int size_n, unsigned char *n, int size_p, unsigned char *p,
 
 	result = Tspi_Policy_AssignToObject(hPolicy, *phKey);
 	if (result != TSS_SUCCESS) {
-		LogError("Tspi_Policy_AssignToObject: 0x%x", result);
+		ock_log_err_ex(OCK_E_GENERIC, "Tspi_Policy_AssignToObject: 0x%x", result);
 		Tspi_Context_CloseObject(tspContext, *phKey);
 		Tspi_Context_CloseObject(tspContext, hPolicy);
 		*phKey = NULL_HKEY;
@@ -355,7 +355,7 @@ token_wrap_sw_key(int size_n, unsigned char *n, int size_p, unsigned char *p,
 		if ((result = Tspi_SetAttribUint32(*phKey, TSS_TSPATTRIB_KEY_INFO,
 						   TSS_TSPATTRIB_KEYINFO_ENCSCHEME,
 						   TSS_ES_RSAESPKCSV15))) {
-			LogError("Tspi_SetAttribUint32 failed. rc=0x%x", result);
+			ock_log_err_ex(OCK_E_GENERIC, "Tspi_SetAttribUint32 failed. rc=0x%x", result);
 			Tspi_Context_CloseObject(tspContext, *phKey);
 			Tspi_Context_CloseObject(tspContext, hPolicy);
 			return result;
@@ -364,7 +364,7 @@ token_wrap_sw_key(int size_n, unsigned char *n, int size_p, unsigned char *p,
 		if ((result = Tspi_SetAttribUint32(*phKey, TSS_TSPATTRIB_KEY_INFO,
 						   TSS_TSPATTRIB_KEYINFO_SIGSCHEME,
 						   TSS_SS_RSASSAPKCS1V15_DER))) {
-			LogError("Tspi_SetAttribUint32 failed. rc=0x%x", result);
+			ock_log_err_ex(OCK_E_GENERIC, "Tspi_SetAttribUint32 failed. rc=0x%x", result);
 			Tspi_Context_CloseObject(tspContext, *phKey);
 			Tspi_Context_CloseObject(tspContext, hPolicy);
 			return result;
@@ -373,7 +373,7 @@ token_wrap_sw_key(int size_n, unsigned char *n, int size_p, unsigned char *p,
 
 	result = Tspi_Key_WrapKey(*phKey, hParentKey, NULL_HPCRS);
 	if (result != TSS_SUCCESS) {
-		LogError("Tspi_Key_WrapKey failed: rc=0x%x", result);
+		ock_log_err_ex(OCK_E_GENERIC, "Tspi_Key_WrapKey failed: rc=0x%x", result);
 		Tspi_Context_CloseObject(tspContext, *phKey);
 		*phKey = NULL_HKEY;
 	}
@@ -400,7 +400,7 @@ token_wrap_key_object( CK_OBJECT_HANDLE ckObject, TSS_HKEY hParentKey, TSS_HKEY 
 	UINT32		ulBlobLen;
 
 	if ((rc = object_mgr_find_in_map1(ckObject, &obj))) {
-		LogError("object_mgr_find_in_map1 failed. rc=0x%lx", rc);
+		ock_log_err_ex(OCK_E_GENERIC, "object_mgr_find_in_map1 failed. rc=0x%lx", rc);
 		return rc;
 	}
 
@@ -413,7 +413,7 @@ token_wrap_key_object( CK_OBJECT_HANDLE ckObject, TSS_HKEY hParentKey, TSS_HKEY 
 	key_type = *((CK_ULONG *)attr->pValue);
 
 	if (key_type != CKK_RSA) {
-		LogError("%s: Bad key type!", __FUNCTION__);
+		ock_log_err_ex(OCK_E_GENERIC, "%s: Bad key type!", __FUNCTION__);
 		return CKR_FUNCTION_FAILED;
 	}
 
@@ -441,7 +441,7 @@ token_wrap_key_object( CK_OBJECT_HANDLE ckObject, TSS_HKEY hParentKey, TSS_HKEY 
 
 		/* Make sure the public exponent is usable */
 		if ((util_check_public_exponent(obj->template))) {
-			LogError("Invalid public exponent");
+			ock_log_err_ex(OCK_E_GENERIC, "Invalid public exponent");
 			return CKR_TEMPLATE_INCONSISTENT;
 		}
 
@@ -455,7 +455,7 @@ token_wrap_key_object( CK_OBJECT_HANDLE ckObject, TSS_HKEY hParentKey, TSS_HKEY 
 		/* make sure the key size is usable */
 		initFlags = util_get_keysize_flag(attr->ulValueLen * 8);
 		if (initFlags == 0) {
-			LogError("Invalid key size.");
+			ock_log_err_ex(OCK_E_GENERIC, "Invalid key size.");
 			return CKR_TEMPLATE_INCONSISTENT;
 		}
 
@@ -466,13 +466,13 @@ token_wrap_key_object( CK_OBJECT_HANDLE ckObject, TSS_HKEY hParentKey, TSS_HKEY 
 					    hParentKey,
 					    TSS_KEY_TYPE_LEGACY | TSS_KEY_NO_AUTHORIZATION,
 					    phKey))) {
-			LogError("token_wrap_sw_key failed. rc=0x%lu", rc);
+			ock_log_err_ex(OCK_E_GENERIC, "token_wrap_sw_key failed. rc=0x%lu", rc);
 			return rc;
 		}
 	} else if (class == CKO_PUBLIC_KEY) {
 		/* Make sure the public exponent is usable */
 		if ((util_check_public_exponent(obj->template))) {
-			LogError("Invalid public exponent");
+			ock_log_err_ex(OCK_E_GENERIC, "Invalid public exponent");
 			return CKR_TEMPLATE_INCONSISTENT;
 		}
 
@@ -486,7 +486,7 @@ token_wrap_key_object( CK_OBJECT_HANDLE ckObject, TSS_HKEY hParentKey, TSS_HKEY 
 		/* make sure the key size is usable */
 		initFlags = util_get_keysize_flag(attr->ulValueLen * 8);
 		if (initFlags == 0) {
-			LogError("Invalid key size.");
+			ock_log_err_ex(OCK_E_GENERIC, "Invalid key size.");
 			return CKR_TEMPLATE_INCONSISTENT;
 		}
 
@@ -494,18 +494,18 @@ token_wrap_key_object( CK_OBJECT_HANDLE ckObject, TSS_HKEY hParentKey, TSS_HKEY 
 
 		if ((result = Tspi_Context_CreateObject(tspContext, TSS_OBJECT_TYPE_RSAKEY,
 							initFlags, phKey))) {
-			LogError("Tspi_Context_CreateObject failed. rc=0x%x", result);
+			ock_log_err_ex(OCK_E_GENERIC, "Tspi_Context_CreateObject failed. rc=0x%x", result);
 			return result;
 		}
 
 		if ((result = util_set_public_modulus(*phKey, attr->ulValueLen, attr->pValue))) {
-			LogError("util_set_public_modulus failed: 0x%x", result);
+			ock_log_err_ex(OCK_E_GENERIC, "util_set_public_modulus failed: 0x%x", result);
 			Tspi_Context_CloseObject(tspContext, *phKey);
 			*phKey = NULL_HKEY;
 			return CKR_FUNCTION_FAILED;
 		}
 	} else {
-		LogError("%s: Bad key class!", __FUNCTION__);
+		ock_log_err_ex(OCK_E_GENERIC, "%s: Bad key class!", __FUNCTION__);
 		return CKR_FUNCTION_FAILED;
 	}
 
@@ -513,7 +513,7 @@ token_wrap_key_object( CK_OBJECT_HANDLE ckObject, TSS_HKEY hParentKey, TSS_HKEY 
 	if ((result = Tspi_GetAttribData(*phKey, TSS_TSPATTRIB_KEY_BLOB,
 					TSS_TSPATTRIB_KEYBLOB_BLOB,
 					&ulBlobLen, &rgbBlob))) {
-		LogError("Tspi_GetAttribData failed with rc: 0x%x", result);
+		ock_log_err_ex(OCK_E_GENERIC, "Tspi_GetAttribData failed with rc: 0x%x", result);
 		return CKR_FUNCTION_FAILED;
 	}
 
@@ -549,14 +549,14 @@ token_load_key(CK_OBJECT_HANDLE ckKey, TSS_HKEY hParentKey, CK_CHAR_PTR passHash
 
 	if ((rc = token_get_key_blob(ckKey, &ulBlobSize, &blob))) {
 		if (rc != CKR_ATTRIBUTE_TYPE_INVALID) {
-			LogError("token_get_key_blob failed. rc=0x%lx", rc);
+			ock_log_err_ex(OCK_E_GENERIC, "token_get_key_blob failed. rc=0x%lx", rc);
 			return rc;
 		}
 		/* the key blob wasn't found, so check for a modulus
 		 * to load */
 		LogError1("key blob not found, checking for modulus");
 		if ((rc = token_wrap_key_object(ckKey, hParentKey, phKey))) {
-			LogError("token_wrap_key_object failed. rc=0x%lx", rc);
+			ock_log_err_ex(OCK_E_GENERIC, "token_wrap_key_object failed. rc=0x%lx", rc);
 			return rc;
 		}
 	}
@@ -565,19 +565,19 @@ token_load_key(CK_OBJECT_HANDLE ckKey, TSS_HKEY hParentKey, CK_CHAR_PTR passHash
 		/* load the key inside the TSS */
 		if ((result = Tspi_Context_LoadKeyByBlob(tspContext, hParentKey, ulBlobSize,
 						blob, phKey))) {
-			LogError("Tspi_Context_LoadKeyByBlob: 0x%x", result);
+			ock_log_err_ex(OCK_E_GENERIC, "Tspi_Context_LoadKeyByBlob: 0x%x", result);
 			goto done;
 		}
 	}
 #if 0
 	if ((result = Tspi_GetPolicyObject(*phKey, TSS_POLICY_USAGE, &hPolicy))) {
-		LogError("Tspi_GetPolicyObject: 0x%x", result);
+		ock_log_err_ex(OCK_E_GENERIC, "Tspi_GetPolicyObject: 0x%x", result);
 		goto done;
 	}
 #else
 	if ((result = Tspi_Context_CreateObject(tspContext, TSS_OBJECT_TYPE_POLICY,
 						TSS_POLICY_USAGE, &hPolicy))) {
-		LogError("Tspi_Context_CreateObject: 0x%x", result);
+		ock_log_err_ex(OCK_E_GENERIC, "Tspi_Context_CreateObject: 0x%x", result);
 		goto done;
 	}
 #endif
@@ -589,12 +589,12 @@ token_load_key(CK_OBJECT_HANDLE ckKey, TSS_HKEY hParentKey, CK_CHAR_PTR passHash
 						SHA1_HASH_SIZE, passHash);
 	}
 	if (result != TSS_SUCCESS) {
-		LogError("Tspi_Policy_SetSecret: 0x%x", result);
+		ock_log_err_ex(OCK_E_GENERIC, "Tspi_Policy_SetSecret: 0x%x", result);
 		goto done;
 	}
 
 	if ((result = Tspi_Policy_AssignToObject(hPolicy, *phKey))) {
-		LogError("Tspi_Policy_AssignToObject: 0x%x", result);
+		ock_log_err_ex(OCK_E_GENERIC, "Tspi_Policy_AssignToObject: 0x%x", result);
 		goto done;
 	}
 done:
@@ -615,30 +615,30 @@ token_load_srk()
 	/* load the SRK */
 	if ((result = Tspi_Context_LoadKeyByUUID(tspContext, TSS_PS_TYPE_SYSTEM, SRK_UUID,
 						&hSRK))) {
-		LogError("Tspi_Context_LoadKeyByUUID failed. rc=0x%x", result);
+		ock_log_err_ex(OCK_E_GENERIC, "Tspi_Context_LoadKeyByUUID failed. rc=0x%x", result);
 		goto done;
 	}
 
 #if 0
 	if ((result = Tspi_GetPolicyObject(hSRK, TSS_POLICY_USAGE, &hPolicy))) {
-		LogError("Tspi_GetPolicyObject failed. rc=0x%x", result);
+		ock_log_err_ex(OCK_E_GENERIC, "Tspi_GetPolicyObject failed. rc=0x%x", result);
 		goto done;
 	}
 #else
 	if ((result = Tspi_Context_CreateObject(tspContext, TSS_OBJECT_TYPE_POLICY,
 						TSS_POLICY_USAGE, &hPolicy))) {
-		LogError("Tspi_Context_CreateObject failed. rc=0x%x", result);
+		ock_log_err_ex(OCK_E_GENERIC, "Tspi_Context_CreateObject failed. rc=0x%x", result);
 		goto done;
 	}
 
 	if ((result = Tspi_Policy_AssignToObject(hPolicy, hSRK))) {
-		LogError("Tspi_Policy_AssignToObject failed. rc=0x%x", result);
+		ock_log_err_ex(OCK_E_GENERIC, "Tspi_Policy_AssignToObject failed. rc=0x%x", result);
 		goto done;
 	}
 #endif
 
 	if ((result = Tspi_Policy_SetSecret(hPolicy, TSS_SECRET_MODE_PLAIN, 0, NULL))) {
-		LogError("Tspi_Policy_SetSecret failed. rc=0x%x", result);
+		ock_log_err_ex(OCK_E_GENERIC, "Tspi_Policy_SetSecret failed. rc=0x%x", result);
 	}
 
 done:
@@ -656,23 +656,23 @@ token_load_public_root_key()
 		return TSS_SUCCESS;
 
 	if ((result = token_load_srk())) {
-		LogError("token_load_srk failed. rc=0x%x", result);
+		ock_log_err_ex(OCK_E_GENERIC, "token_load_srk failed. rc=0x%x", result);
 		return result;
 	}
 
 	if ((result = token_find_key(TPMTOK_PUBLIC_ROOT_KEY, CKO_PRIVATE_KEY,  &ckPublicRootKey))) {
-		LogError("token_find_key failed. rc=0x%x", result);
+		ock_log_err_ex(OCK_E_GENERIC, "token_find_key failed. rc=0x%x", result);
 		return CKR_FUNCTION_FAILED;
 	}
 
 	if ((result = token_get_key_blob(ckPublicRootKey, &blob_size, &blob))) {
-		LogError("token_get_key_blob failed. rc=0x%x", result);
+		ock_log_err_ex(OCK_E_GENERIC, "token_get_key_blob failed. rc=0x%x", result);
 		return CKR_FUNCTION_FAILED;
 	}
 
 	/* load the Public Root Key */
 	if ((result = Tspi_Context_LoadKeyByBlob(tspContext, hSRK, blob_size, blob, &hPublicRootKey))) {
-		LogError("Tspi_Context_LoadKeyByBlob failed. rc=0x%x", result);
+		ock_log_err_ex(OCK_E_GENERIC, "Tspi_Context_LoadKeyByBlob failed. rc=0x%x", result);
 		free(blob);
 		return CKR_FUNCTION_FAILED;
 	}
@@ -689,19 +689,19 @@ tss_generate_key(TSS_FLAG initFlags, BYTE *passHash, TSS_HKEY hParentKey, TSS_HK
 
 	if ((result = Tspi_Context_CreateObject(tspContext, TSS_OBJECT_TYPE_RSAKEY, initFlags,
 						phKey))) {
-		LogError("Tspi_Context_CreateObject failed. rc=0x%x", result);
+		ock_log_err_ex(OCK_E_GENERIC, "Tspi_Context_CreateObject failed. rc=0x%x", result);
 		return result;
 	}
 #if 0
 	if ((result = Tspi_GetPolicyObject(*phKey, TSS_POLICY_USAGE, &hPolicy))) {
-		LogError("Tspi_GetPolicyObject failed. rc=0x%x", result);
+		ock_log_err_ex(OCK_E_GENERIC, "Tspi_GetPolicyObject failed. rc=0x%x", result);
 		Tspi_Context_CloseObject(tspContext, *phKey);
 		return result;
 	}
 #else
 	if ((result = Tspi_Context_CreateObject(tspContext, TSS_OBJECT_TYPE_POLICY,
 						TSS_POLICY_USAGE, &hPolicy))) {
-		LogError("Tspi_Context_CreateObject: 0x%x", result);
+		ock_log_err_ex(OCK_E_GENERIC, "Tspi_Context_CreateObject: 0x%x", result);
 		Tspi_Context_CloseObject(tspContext, *phKey);
 		return result;
 	}
@@ -713,14 +713,14 @@ tss_generate_key(TSS_FLAG initFlags, BYTE *passHash, TSS_HKEY hParentKey, TSS_HK
 		result = Tspi_Policy_SetSecret(hPolicy, TSS_SECRET_MODE_SHA1, 20, passHash);
 	}
 	if (result != TSS_SUCCESS) {
-		LogError("Tspi_Policy_SetSecret failed. rc=0x%x", result);
+		ock_log_err_ex(OCK_E_GENERIC, "Tspi_Policy_SetSecret failed. rc=0x%x", result);
 		Tspi_Context_CloseObject(tspContext, *phKey);
 		Tspi_Context_CloseObject(tspContext, hPolicy);
 		return result;
 	}
 
 	if ((result = Tspi_Policy_AssignToObject(hPolicy, *phKey))) {
-		LogError("Tspi_Policy_AssignToObject: 0x%x", result);
+		ock_log_err_ex(OCK_E_GENERIC, "Tspi_Policy_AssignToObject: 0x%x", result);
 		Tspi_Context_CloseObject(tspContext, *phKey);
 		Tspi_Context_CloseObject(tspContext, hPolicy);
 		return result;
@@ -729,7 +729,7 @@ tss_generate_key(TSS_FLAG initFlags, BYTE *passHash, TSS_HKEY hParentKey, TSS_HK
 	if (TPMTOK_TSS_KEY_MIG_TYPE(initFlags) == TSS_KEY_MIGRATABLE) {
 		if ((result = Tspi_Context_CreateObject(tspContext, TSS_OBJECT_TYPE_POLICY,
 							TSS_POLICY_MIGRATION, &hMigPolicy))) {
-			LogError("Tspi_Context_CreateObject: 0x%x", result);
+			ock_log_err_ex(OCK_E_GENERIC, "Tspi_Context_CreateObject: 0x%x", result);
 			Tspi_Context_CloseObject(tspContext, *phKey);
 			Tspi_Context_CloseObject(tspContext, hPolicy);
 			return result;
@@ -743,7 +743,7 @@ tss_generate_key(TSS_FLAG initFlags, BYTE *passHash, TSS_HKEY hParentKey, TSS_HK
 		}
 
 		if (result != TSS_SUCCESS) {
-			LogError("Tspi_Policy_SetSecret failed. rc=0x%x", result);
+			ock_log_err_ex(OCK_E_GENERIC, "Tspi_Policy_SetSecret failed. rc=0x%x", result);
 			Tspi_Context_CloseObject(tspContext, *phKey);
 			Tspi_Context_CloseObject(tspContext, hPolicy);
 			Tspi_Context_CloseObject(tspContext, hMigPolicy);
@@ -751,7 +751,7 @@ tss_generate_key(TSS_FLAG initFlags, BYTE *passHash, TSS_HKEY hParentKey, TSS_HK
 		}
 
 		if ((result = Tspi_Policy_AssignToObject(hMigPolicy, *phKey))) {
-			LogError("Tspi_Policy_AssignToObject: 0x%x", result);
+			ock_log_err_ex(OCK_E_GENERIC, "Tspi_Policy_AssignToObject: 0x%x", result);
 			Tspi_Context_CloseObject(tspContext, *phKey);
 			Tspi_Context_CloseObject(tspContext, hPolicy);
 			Tspi_Context_CloseObject(tspContext, hMigPolicy);
@@ -763,7 +763,7 @@ tss_generate_key(TSS_FLAG initFlags, BYTE *passHash, TSS_HKEY hParentKey, TSS_HK
 		if ((result = Tspi_SetAttribUint32(*phKey, TSS_TSPATTRIB_KEY_INFO,
 							TSS_TSPATTRIB_KEYINFO_ENCSCHEME,
 							TSS_ES_RSAESPKCSV15))) {
-			LogError("Tspi_SetAttribUint32 failed. rc=0x%x", result);
+			ock_log_err_ex(OCK_E_GENERIC, "Tspi_SetAttribUint32 failed. rc=0x%x", result);
 			Tspi_Context_CloseObject(tspContext, *phKey);
 			Tspi_Context_CloseObject(tspContext, hPolicy);
 			Tspi_Context_CloseObject(tspContext, hMigPolicy);
@@ -773,7 +773,7 @@ tss_generate_key(TSS_FLAG initFlags, BYTE *passHash, TSS_HKEY hParentKey, TSS_HK
 		if ((result = Tspi_SetAttribUint32(*phKey, TSS_TSPATTRIB_KEY_INFO,
 							TSS_TSPATTRIB_KEYINFO_SIGSCHEME,
 							TSS_SS_RSASSAPKCS1V15_DER))) {
-			LogError("Tspi_SetAttribUint32 failed. rc=0x%x", result);
+			ock_log_err_ex(OCK_E_GENERIC, "Tspi_SetAttribUint32 failed. rc=0x%x", result);
 			Tspi_Context_CloseObject(tspContext, *phKey);
 			Tspi_Context_CloseObject(tspContext, hPolicy);
 			Tspi_Context_CloseObject(tspContext, hMigPolicy);
@@ -782,7 +782,7 @@ tss_generate_key(TSS_FLAG initFlags, BYTE *passHash, TSS_HKEY hParentKey, TSS_HK
 	}
 
 	if ((result = Tspi_Key_CreateKey(*phKey, hParentKey, 0))) {
-		LogError("Tspi_Key_CreateKey failed with rc: 0x%x", result);
+		ock_log_err_ex(OCK_E_GENERIC, "Tspi_Key_CreateKey failed with rc: 0x%x", result);
 		Tspi_Context_CloseObject(tspContext, *phKey);
 		Tspi_Context_CloseObject(tspContext, hPolicy);
 		Tspi_Context_CloseObject(tspContext, hMigPolicy);
@@ -799,17 +799,17 @@ tss_change_auth(TSS_HKEY hObjectToChange, TSS_HKEY hParentObject, CK_CHAR *passH
 
 	if ((result = Tspi_Context_CreateObject(tspContext, TSS_OBJECT_TYPE_POLICY,
 						TSS_POLICY_USAGE, &hPolicy))) {
-		LogError("Tspi_Context_CreateObject failed: 0x%x", result);
+		ock_log_err_ex(OCK_E_GENERIC, "Tspi_Context_CreateObject failed: 0x%x", result);
 		return result;
 	}
 
 	if ((result = Tspi_Policy_SetSecret(hPolicy, TSS_SECRET_MODE_SHA1, SHA1_HASH_SIZE, passHash))) {
-		LogError("Tspi_Policy_SetSecret failed: 0x%x", result);
+		ock_log_err_ex(OCK_E_GENERIC, "Tspi_Policy_SetSecret failed: 0x%x", result);
 		return result;
 	}
 
 	if ((result = Tspi_ChangeAuth(hObjectToChange, hParentObject, hPolicy))) {
-		LogError("Tspi_ChangeAuth failed: 0x%x", result);
+		ock_log_err_ex(OCK_E_GENERIC, "Tspi_ChangeAuth failed: 0x%x", result);
 	}
 
 	return result;
@@ -834,7 +834,7 @@ token_store_priv_key(TSS_HKEY hKey, int key_type, CK_OBJECT_HANDLE *ckKey)
 	/* grab the entire key blob to put into the PKCS#11 private key object */
 	if ((rc = Tspi_GetAttribData(hKey, TSS_TSPATTRIB_KEY_BLOB, TSS_TSPATTRIB_KEYBLOB_BLOB,
 					&ulBlobLen, &rgbBlob))) {
-		LogError("Tspi_GetAttribData failed with rc: 0x%lx", rc);
+		ock_log_err_ex(OCK_E_GENERIC, "Tspi_GetAttribData failed with rc: 0x%lx", rc);
 		free(key_id);
 		return rc;
 	}
@@ -842,7 +842,7 @@ token_store_priv_key(TSS_HKEY hKey, int key_type, CK_OBJECT_HANDLE *ckKey)
 	/* grab the encrypted provate key to put into the object */
 	if ((rc = Tspi_GetAttribData(hKey, TSS_TSPATTRIB_KEY_BLOB, TSS_TSPATTRIB_KEYBLOB_PRIVATE_KEY,
 					&ulPrivBlobLen, &rgbPrivBlob))) {
-		LogError("Tspi_GetAttribData failed with rc: 0x%lx", rc);
+		ock_log_err_ex(OCK_E_GENERIC, "Tspi_GetAttribData failed with rc: 0x%lx", rc);
 		Tspi_Context_FreeMemory(tspContext, rgbBlob);
 		free(key_id);
 		return rc;
@@ -850,7 +850,7 @@ token_store_priv_key(TSS_HKEY hKey, int key_type, CK_OBJECT_HANDLE *ckKey)
 
 	/* create skeleton for the private key object */
 	if ((rc = object_create_skel(NULL, 0, MODE_KEYGEN, CKO_PRIVATE_KEY, CKK_RSA, &priv_key_obj))) {
-		LogError("objectr_create_skel: 0x%lx", rc);
+		ock_log_err_ex(OCK_E_GENERIC, "objectr_create_skel: 0x%lx", rc);
 		Tspi_Context_FreeMemory(tspContext, rgbBlob);
 		Tspi_Context_FreeMemory(tspContext, rgbPrivBlob);
 		free(key_id);
@@ -962,7 +962,7 @@ token_store_pub_key(TSS_HKEY hKey, int key_type, CK_OBJECT_HANDLE *ckKey)
 	if ((result = Tspi_GetAttribData(hKey, TSS_TSPATTRIB_RSAKEY_INFO,
 					 TSS_TSPATTRIB_KEYINFO_RSA_MODULUS,
 					 &ulBlobLen, &rgbPubBlob))) {
-		LogError("Tspi_GetAttribData failed with rc: 0x%x", result);
+		ock_log_err_ex(OCK_E_GENERIC, "Tspi_GetAttribData failed with rc: 0x%x", result);
 		Tspi_Context_CloseObject(tspContext, hKey);
 		free(key_id);
 		return result;
@@ -973,7 +973,7 @@ token_store_pub_key(TSS_HKEY hKey, int key_type, CK_OBJECT_HANDLE *ckKey)
 
 	/* create skeleton for the private key object */
 	if ((rc = object_create_skel(pub_tmpl, 5, MODE_CREATE, CKO_PUBLIC_KEY, CKK_RSA, &pub_key_obj))) {
-		LogError("object_create_skel: 0x%lx", rc);
+		ock_log_err_ex(OCK_E_GENERIC, "object_create_skel: 0x%lx", rc);
 		Tspi_Context_CloseObject(tspContext, hKey);
 		free(key_id);
 		return rc;
@@ -1016,18 +1016,18 @@ token_update_private_key(TSS_HKEY hKey, int key_type)
 
 	/* find the private key portion of the key */
 	if ((rc = token_find_key(key_type, CKO_PRIVATE_KEY, &ckHandle))) {
-		LogError("token_find_key failed: 0x%lx", rc);
+		ock_log_err_ex(OCK_E_GENERIC, "token_find_key failed: 0x%lx", rc);
 		return rc;
 	}
 
 	/* destroy the private key and create a new one */
 	if ((rc = object_mgr_destroy_object(&dummy_sess, ckHandle))) {
-		LogError("object_mgr_destroy_object failed: 0x%lx", rc);
+		ock_log_err_ex(OCK_E_GENERIC, "object_mgr_destroy_object failed: 0x%lx", rc);
 		return rc;
 	}
 
 	if ((rc = token_store_priv_key(hKey, key_type, &ckHandle))) {
-		LogError("token_store_priv_key failed: 0x%lx", rc);
+		ock_log_err_ex(OCK_E_GENERIC, "token_store_priv_key failed: 0x%lx", rc);
 	}
 
 	return rc;
@@ -1040,13 +1040,13 @@ token_store_tss_key(TSS_HKEY hKey, int key_type, CK_OBJECT_HANDLE *ckKey)
 
 	/* create a PKCS#11 pub key object for the key */
 	if ((rc = token_store_pub_key(hKey, key_type, ckKey))) {
-		LogError("token_store_pub_key failed. rc=0x%lx", rc);
+		ock_log_err_ex(OCK_E_GENERIC, "token_store_pub_key failed. rc=0x%lx", rc);
 		return rc;
 	}
 
 	/* create a PKCS#11 private key object for the key */
 	if ((rc = token_store_priv_key(hKey, key_type, ckKey))) {
-		LogError("token_store_priv_key failed. rc=0x%lx", rc);
+		ock_log_err_ex(OCK_E_GENERIC, "token_store_priv_key failed. rc=0x%lx", rc);
 	}
 
 	return rc;
@@ -1078,12 +1078,12 @@ token_generate_leaf_key(int key_type, CK_CHAR_PTR passHash, TSS_HKEY *phKey)
 	}
 
 	if ((result = tss_generate_key(initFlags, passHash, hParentKey, phKey))) {
-		LogError("tss_generate_key returned 0x%x", result);
+		ock_log_err_ex(OCK_E_GENERIC, "tss_generate_key returned 0x%x", result);
 		return result;
 	}
 
 	if ((rc = token_store_tss_key(*phKey, key_type, ckKey))) {
-		LogError("token_store_tss_key failed. rc=0x%x", result);
+		ock_log_err_ex(OCK_E_GENERIC, "token_store_tss_key failed. rc=0x%x", result);
 	}
 
 done:
@@ -1102,12 +1102,12 @@ token_verify_pin(TSS_HKEY hKey)
 
 	if ((result = Tspi_Context_CreateObject(tspContext, TSS_OBJECT_TYPE_ENCDATA,
 					   TSS_ENCDATA_BIND, &hEncData))) {
-		LogError("Tspi_Context_CreateObject failed. rc=0x%x", result);
+		ock_log_err_ex(OCK_E_GENERIC, "Tspi_Context_CreateObject failed. rc=0x%x", result);
 		goto done;
 	}
 
 	if ((result = Tspi_Data_Bind(hEncData, hKey, strlen(rgbData), (BYTE *)rgbData))) {
-		LogError("%s: Bind returned 0x%x", __FUNCTION__, result);
+		ock_log_err_ex(OCK_E_GENERIC, "%s: Bind returned 0x%x", __FUNCTION__, result);
 		goto done;
 	}
 
@@ -1115,10 +1115,10 @@ token_verify_pin(TSS_HKEY hKey)
 	result = Tspi_Data_Unbind(hEncData, hKey, &ulUnboundDataLen, &rgbUnboundData);
 	if (result == TCPA_E_AUTHFAIL) {
 		rc = CKR_PIN_INCORRECT;
-		LogError("%s: Unbind returned TCPA_AUTHFAIL", __FUNCTION__);
+		ock_log_err_ex(OCK_E_GENERIC, "%s: Unbind returned TCPA_AUTHFAIL", __FUNCTION__);
 		goto done;
 	} else if (result != TSS_SUCCESS) {
-		LogError("%s: Unbind returned 0x%x", __FUNCTION__, result);
+		ock_log_err_ex(OCK_E_GENERIC, "%s: Unbind returned 0x%x", __FUNCTION__, result);
 		goto done;
 	}
 
@@ -1152,7 +1152,7 @@ token_create_private_tree(CK_BYTE *pinHash, CK_BYTE *pPin)
 	if ((rc = token_wrap_sw_key(size_n, n, size_p, p, hSRK,
 				    TSS_KEY_NO_AUTHORIZATION | TSS_KEY_TYPE_STORAGE,
 				    &hPrivateRootKey))) {
-		LogError("token_wrap_sw_key failed. rc=0x%lu", rc);
+		ock_log_err_ex(OCK_E_GENERIC, "token_wrap_sw_key failed. rc=0x%lu", rc);
 		return rc;
 	}
 
@@ -1166,12 +1166,12 @@ token_create_private_tree(CK_BYTE *pinHash, CK_BYTE *pPin)
 
 	/* store the user base key in a PKCS#11 object internally */
 	if ((rc = token_store_tss_key(hPrivateRootKey, TPMTOK_PRIVATE_ROOT_KEY, &ckPrivateRootKey))) {
-		LogError("token_store_tss_key failed. rc=0x%lx", rc);
+		ock_log_err_ex(OCK_E_GENERIC, "token_store_tss_key failed. rc=0x%lx", rc);
 		return rc;
 	}
 
 	if ((result = Tspi_Key_LoadKey(hPrivateRootKey, hSRK))) {
-		LogError("Tspi_Key_LoadKey: 0x%x", result);
+		ock_log_err_ex(OCK_E_GENERIC, "Tspi_Key_LoadKey: 0x%x", result);
 		Tspi_Context_CloseObject(tspContext, hPrivateRootKey);
 		hPrivateRootKey = NULL_HKEY;
 		return CKR_FUNCTION_FAILED;
@@ -1179,12 +1179,12 @@ token_create_private_tree(CK_BYTE *pinHash, CK_BYTE *pPin)
 
 	/* generate the private leaf key */
 	if ((rc = token_generate_leaf_key(TPMTOK_PRIVATE_LEAF_KEY, pinHash, &hPrivateLeafKey))) {
-		LogError("token_generate_leaf_key failed. rc=0x%lx", rc);
+		ock_log_err_ex(OCK_E_GENERIC, "token_generate_leaf_key failed. rc=0x%lx", rc);
 		return rc;
 	}
 
 	if ((result = Tspi_Key_LoadKey(hPrivateLeafKey, hPrivateRootKey))) {
-		LogError("Tspi_Key_LoadKey: 0x%x", result);
+		ock_log_err_ex(OCK_E_GENERIC, "Tspi_Key_LoadKey: 0x%x", result);
 		Tspi_Context_CloseObject(tspContext, hPrivateRootKey);
 		hPrivateRootKey = NULL_HKEY;
 		Tspi_Context_CloseObject(tspContext, hPrivateLeafKey);
@@ -1217,7 +1217,7 @@ token_create_public_tree(CK_BYTE *pinHash, CK_BYTE *pPin)
 	if ((rc = token_wrap_sw_key(size_n, n, size_p, p, hSRK,
 				    TSS_KEY_NO_AUTHORIZATION | TSS_KEY_TYPE_STORAGE,
 				    &hPublicRootKey))) {
-		LogError("token_wrap_sw_key failed. rc=0x%lx", rc);
+		ock_log_err_ex(OCK_E_GENERIC, "token_wrap_sw_key failed. rc=0x%lx", rc);
 		return rc;
 	}
 
@@ -1230,25 +1230,25 @@ token_create_public_tree(CK_BYTE *pinHash, CK_BYTE *pPin)
 	RSA_free(rsa);
 
 	if ((result = Tspi_Key_LoadKey(hPublicRootKey, hSRK))) {
-		LogError("Tspi_Key_LoadKey: 0x%x", result);
+		ock_log_err_ex(OCK_E_GENERIC, "Tspi_Key_LoadKey: 0x%x", result);
 		Tspi_Context_CloseObject(tspContext, hPublicRootKey);
 		hPublicRootKey = NULL_HKEY;
 		return CKR_FUNCTION_FAILED;
 	}
 
 	if ((rc = token_store_tss_key(hPublicRootKey, TPMTOK_PUBLIC_ROOT_KEY, &ckPublicRootKey))) {
-		LogError("token_store_tss_key failed. rc=0x%lx", rc);
+		ock_log_err_ex(OCK_E_GENERIC, "token_store_tss_key failed. rc=0x%lx", rc);
 		return rc;
 	}
 
 	/* create the SO's leaf key */
 	if ((rc = token_generate_leaf_key(TPMTOK_PUBLIC_LEAF_KEY, pinHash, &hPublicLeafKey))) {
-		LogError("token_generate_leaf_key failed. rc=0x%lx", rc);
+		ock_log_err_ex(OCK_E_GENERIC, "token_generate_leaf_key failed. rc=0x%lx", rc);
 		return rc;
 	}
 
 	if ((result = Tspi_Key_LoadKey(hPublicLeafKey, hPublicRootKey))) {
-		LogError("Tspi_Key_LoadKey: 0x%x", result);
+		ock_log_err_ex(OCK_E_GENERIC, "Tspi_Key_LoadKey: 0x%x", result);
 		Tspi_Context_CloseObject(tspContext, hPublicRootKey);
 		hPublicRootKey = NULL_HKEY;
 		Tspi_Context_CloseObject(tspContext, hPublicLeafKey);
@@ -1306,14 +1306,14 @@ token_migrate(int key_type, CK_BYTE *pin)
 	if ((rc = token_wrap_sw_key(size_n, n, size_p, p, hSRK,
 				    TSS_KEY_TYPE_STORAGE | TSS_KEY_NO_AUTHORIZATION,
 				    phKey))) {
-		LogError("token_wrap_sw_key failed. rc=0x%lx", rc);
+		ock_log_err_ex(OCK_E_GENERIC, "token_wrap_sw_key failed. rc=0x%lx", rc);
 		RSA_free(rsa);
 		return rc;
 	}
 	RSA_free(rsa);
 
 	if ((result = Tspi_Key_LoadKey(*phKey, hSRK))) {
-		LogError("Tspi_Key_LoadKey: 0x%x", result);
+		ock_log_err_ex(OCK_E_GENERIC, "Tspi_Key_LoadKey: 0x%x", result);
 		Tspi_Context_CloseObject(tspContext, *phKey);
 		*phKey = NULL_HKEY;
 		return CKR_FUNCTION_FAILED;
@@ -1323,27 +1323,27 @@ token_migrate(int key_type, CK_BYTE *pin)
 	 * and store them anew.
 	 */
 	if ((rc = token_find_key(key_type, CKO_PUBLIC_KEY, ckHandle))) {
-		LogError("token_find_key failed. rc=0x%lx", rc);
+		ock_log_err_ex(OCK_E_GENERIC, "token_find_key failed. rc=0x%lx", rc);
 		return CKR_FUNCTION_FAILED;
 	}
 
 	if ((rc = object_mgr_destroy_object(&dummy_sess, *ckHandle))) {
-		LogError("object_mgr_destroy_object failed: 0x%lx", rc);
+		ock_log_err_ex(OCK_E_GENERIC, "object_mgr_destroy_object failed: 0x%lx", rc);
 		return rc;
 	}
 
 	if ((rc = token_find_key(key_type, CKO_PRIVATE_KEY, ckHandle))) {
-		LogError("token_find_key failed. rc=0x%lx", rc);
+		ock_log_err_ex(OCK_E_GENERIC, "token_find_key failed. rc=0x%lx", rc);
 		return CKR_FUNCTION_FAILED;
 	}
 
 	if ((rc = object_mgr_destroy_object(&dummy_sess, *ckHandle))) {
-		LogError("object_mgr_destroy_object failed: 0x%lx", rc);
+		ock_log_err_ex(OCK_E_GENERIC, "object_mgr_destroy_object failed: 0x%lx", rc);
 		return rc;
 	}
 
 	if ((rc = token_store_tss_key(*phKey, key_type, ckHandle))) {
-		LogError("token_store_tss_key failed: 0x%lx", rc);
+		ock_log_err_ex(OCK_E_GENERIC, "token_store_tss_key failed: 0x%lx", rc);
 		return rc;
 	}
 
@@ -1365,7 +1365,7 @@ save_masterkey_private()
 	UINT32		encrypted_masterkey_size;
 
 	if ((pw = getpwuid(getuid())) == NULL) {
-		LogError("getpwuid failed: %s", strerror(errno));
+		ock_log_err_ex(OCK_E_GENERIC, "getpwuid failed: %s", strerror(errno));
 		return CKR_FUNCTION_FAILED;
 	}
 
@@ -1383,19 +1383,19 @@ save_masterkey_private()
 	/* encrypt the private masterkey using the private leaf key */
 	if ((result = Tspi_Context_CreateObject(tspContext, TSS_OBJECT_TYPE_ENCDATA,
 					TSS_ENCDATA_BIND, &hEncData))) {
-		LogError("Tspi_Context_CreateObject failed. rc=0x%x", result);
+		ock_log_err_ex(OCK_E_GENERIC, "Tspi_Context_CreateObject failed. rc=0x%x", result);
 		return CKR_FUNCTION_FAILED;
 	}
 
 	if ((result = Tspi_Data_Bind(hEncData, hPrivateLeafKey, MK_SIZE, master_key_private))) {
-		LogError("Tspi_Data_Bind failed. rc=0x%x", result);
+		ock_log_err_ex(OCK_E_GENERIC, "Tspi_Data_Bind failed. rc=0x%x", result);
 		return CKR_FUNCTION_FAILED;
 	}
 
 	if ((result = Tspi_GetAttribData(hEncData, TSS_TSPATTRIB_ENCDATA_BLOB,
 					TSS_TSPATTRIB_ENCDATABLOB_BLOB, &encrypted_masterkey_size,
 					&encrypted_masterkey))) {
-		LogError("Tspi_GetAttribData failed. rc=0x%x", result);
+		ock_log_err_ex(OCK_E_GENERIC, "Tspi_GetAttribData failed. rc=0x%x", result);
 		return CKR_FUNCTION_FAILED;
 	}
 
@@ -1406,13 +1406,13 @@ save_masterkey_private()
 
 	/* write the encrypted key to disk */
 	if ((fp = fopen((char *)fname, "w")) == NULL) {
-		LogError("Error opening %s for write: %s", fname, strerror(errno));
+		ock_log_err_ex(OCK_E_GENERIC, "Error opening %s for write: %s", fname, strerror(errno));
 		Tspi_Context_FreeMemory(tspContext, encrypted_masterkey);
 		return CKR_FUNCTION_FAILED;
 	}
 
 	if ((err = fwrite(encrypted_masterkey, encrypted_masterkey_size, 1, fp)) == 0) {
-		LogError("Error writing %s: %s", fname, strerror(errno));
+		ock_log_err_ex(OCK_E_GENERIC, "Error writing %s: %s", fname, strerror(errno));
 		Tspi_Context_FreeMemory(tspContext, encrypted_masterkey);
 		fclose(fp);
 		return CKR_FUNCTION_FAILED;
@@ -1441,7 +1441,7 @@ load_masterkey_private()
 	UINT32		masterkey_size, encrypted_masterkey_size = 256;
 
 	if ((pw = getpwuid(getuid())) == NULL) {
-		LogError("getpwuid failed: %s", strerror(errno));
+		ock_log_err_ex(OCK_E_GENERIC, "getpwuid failed: %s", strerror(errno));
 		return CKR_FUNCTION_FAILED;
 	}
 
@@ -1458,25 +1458,25 @@ load_masterkey_private()
 
 		/* create the private master key, then save */
 		if ((rc = token_rng(master_key_private, MK_SIZE))) {
-			LogError("token_rng failed. rc=0x%lx", rc);
+			ock_log_err_ex(OCK_E_GENERIC, "token_rng failed. rc=0x%lx", rc);
 			return rc;
 		}
 
 		return save_masterkey_private();
 	} else {
 		/* some error other than file doesn't exist */
-		LogError("stat of private masterkey failed: %s", strerror(errno));
+		ock_log_err_ex(OCK_E_GENERIC, "stat of private masterkey failed: %s", strerror(errno));
 		return CKR_FUNCTION_FAILED;
 	}
 
 	//fp = fopen("/etc/pkcs11/tpm/MK_PUBLIC", "r");
 	if ((fp = fopen((char *)fname, "r")) == NULL) {
-		LogError("Error opening %s: %s", fname, strerror(errno));
+		ock_log_err_ex(OCK_E_GENERIC, "Error opening %s: %s", fname, strerror(errno));
 		return CKR_FUNCTION_FAILED;
 	}
 
 	if (fread(encrypted_masterkey, encrypted_masterkey_size, 1, fp) == 0) {
-		LogError("Error reading %s: %s", fname, strerror(errno));
+		ock_log_err_ex(OCK_E_GENERIC, "Error reading %s: %s", fname, strerror(errno));
 		fclose(fp);
 		return CKR_FUNCTION_FAILED;
 	}
@@ -1485,24 +1485,24 @@ load_masterkey_private()
 	/* decrypt the private masterkey using the private leaf key */
 	if ((result = Tspi_Context_CreateObject(tspContext, TSS_OBJECT_TYPE_ENCDATA,
 					TSS_ENCDATA_BIND, &hEncData))) {
-		LogError("Tspi_Context_CreateObject failed. rc=0x%x", result);
+		ock_log_err_ex(OCK_E_GENERIC, "Tspi_Context_CreateObject failed. rc=0x%x", result);
 		return CKR_FUNCTION_FAILED;
 	}
 
 	if ((result = Tspi_SetAttribData(hEncData, TSS_TSPATTRIB_ENCDATA_BLOB,
 					TSS_TSPATTRIB_ENCDATABLOB_BLOB, encrypted_masterkey_size,
 					encrypted_masterkey))) {
-		LogError("Tspi_SetAttribData failed. rc=0x%x", result);
+		ock_log_err_ex(OCK_E_GENERIC, "Tspi_SetAttribData failed. rc=0x%x", result);
 		return CKR_FUNCTION_FAILED;
 	}
 
 	if ((result = Tspi_Data_Unbind(hEncData, hPrivateLeafKey, &masterkey_size, &masterkey))) {
-		LogError("Tspi_Data_Unbind failed. rc=0x%x", result);
+		ock_log_err_ex(OCK_E_GENERIC, "Tspi_Data_Unbind failed. rc=0x%x", result);
 		return CKR_FUNCTION_FAILED;
 	}
 
 	if (masterkey_size != MK_SIZE) {
-		LogError("decrypted private master key size is %u, should be %u",
+		ock_log_err_ex(OCK_E_GENERIC, "decrypted private master key size is %u, should be %u",
 				masterkey_size, MK_SIZE);
 		Tspi_Context_FreeMemory(tspContext, masterkey);
 		return CKR_FUNCTION_FAILED;
@@ -1523,19 +1523,19 @@ token_specific_login(CK_USER_TYPE userType, CK_CHAR_PTR pPin, CK_ULONG ulPinLen)
 	TSS_RESULT result;
 
 	if ((result = token_load_srk())) {
-		LogError("token_load_srk failed. rc=0x%x", result);
+		ock_log_err_ex(OCK_E_GENERIC, "token_load_srk failed. rc=0x%x", result);
 		return CKR_FUNCTION_FAILED;
 	}
 
 	if ((rc = compute_sha(pPin, ulPinLen, hash_sha))) {
-		LogError("compute_sha failed. rc=0x%lx", rc);
+		ock_log_err_ex(OCK_E_GENERIC, "compute_sha failed. rc=0x%lx", rc);
 		return CKR_FUNCTION_FAILED;
 	}
 
 	if (userType == CKU_USER) {
 		/* If the public root key doesn't exist yet, the SO hasn't init'd the token */
 		if ((result = token_load_public_root_key())) {
-			LogError("token_load_public_root_key failed. rc=0x%x", result);
+			ock_log_err_ex(OCK_E_GENERIC, "token_load_public_root_key failed. rc=0x%x", result);
 			return CKR_USER_PIN_NOT_INITIALIZED;
 		}
 
@@ -1543,7 +1543,7 @@ token_specific_login(CK_USER_TYPE userType, CK_CHAR_PTR pPin, CK_ULONG ulPinLen)
 		if ((rc = token_find_key(TPMTOK_PRIVATE_ROOT_KEY, CKO_PRIVATE_KEY, &ckPrivateRootKey))) {
 			/* user's key chain not found, this must be the initial login */
 			if (memcmp(hash_sha, default_user_pin_sha, SHA1_HASH_SIZE)) {
-				LogError("token_find_key failed and PIN != default");
+				ock_log_err_ex(OCK_E_GENERIC, "token_find_key failed and PIN != default");
 				return CKR_PIN_INCORRECT;
 			}
 
@@ -1552,7 +1552,7 @@ token_specific_login(CK_USER_TYPE userType, CK_CHAR_PTR pPin, CK_ULONG ulPinLen)
 		}
 
 		if ((rc = token_load_key(ckPrivateRootKey, hSRK, NULL, &hPrivateRootKey))) {
-			LogError("token_load_key failed. rc=0x%lx", rc);
+			ock_log_err_ex(OCK_E_GENERIC, "token_load_key failed. rc=0x%lx", rc);
 
 			/* Here, we've found the private root key, but its load failed.
 			 * This should only happen in a migration path, where we have
@@ -1563,7 +1563,7 @@ token_specific_login(CK_USER_TYPE userType, CK_CHAR_PTR pPin, CK_ULONG ulPinLen)
 			 * re-wrap the private root key to the new SRK.
 			 */
 			if ((token_migrate(TPMTOK_PRIVATE_ROOT_KEY, pPin))) {
-				LogError("token_migrate. rc=0x%lx", rc);
+				ock_log_err_ex(OCK_E_GENERIC, "token_migrate. rc=0x%lx", rc);
 				return rc;
 			}
 
@@ -1575,17 +1575,17 @@ token_specific_login(CK_USER_TYPE userType, CK_CHAR_PTR pPin, CK_ULONG ulPinLen)
 
 		/* find, load the user leaf key */
 		if ((rc = token_find_key(TPMTOK_PRIVATE_LEAF_KEY, CKO_PRIVATE_KEY, &ckPrivateLeafKey))) {
-			LogError("token_find_key failed. rc=0x%lx", rc);
+			ock_log_err_ex(OCK_E_GENERIC, "token_find_key failed. rc=0x%lx", rc);
 			return CKR_FUNCTION_FAILED;
 		}
 
 		if ((rc = token_load_key(ckPrivateLeafKey, hPrivateRootKey, hash_sha, &hPrivateLeafKey))) {
-			LogError("token_load_key failed. rc=0x%lx", rc);
+			ock_log_err_ex(OCK_E_GENERIC, "token_load_key failed. rc=0x%lx", rc);
 			return CKR_FUNCTION_FAILED;
 		}
 
 		if ((rc = token_verify_pin(hPrivateLeafKey))) {
-			LogError("token_verify_pin failed. failed. rc=0x%lx", rc);
+			ock_log_err_ex(OCK_E_GENERIC, "token_verify_pin failed. failed. rc=0x%lx", rc);
 			return rc;
 		}
 
@@ -1593,7 +1593,7 @@ token_specific_login(CK_USER_TYPE userType, CK_CHAR_PTR pPin, CK_ULONG ulPinLen)
 
 		/* load private data encryption key here */
 		if ((rc = load_masterkey_private())) {
-			LogError("load_masterkey_private failed. rc=0x%lx", rc);
+			ock_log_err_ex(OCK_E_GENERIC, "load_masterkey_private failed. rc=0x%lx", rc);
 			Tspi_Key_UnloadKey(hPrivateLeafKey);
 			hPrivateLeafKey = NULL_HKEY;
 			return rc;
@@ -1612,7 +1612,7 @@ token_specific_login(CK_USER_TYPE userType, CK_CHAR_PTR pPin, CK_ULONG ulPinLen)
 			/* The SO hasn't set her PIN yet, compare the login pin with
 			 * the hard-coded value */
 			if (memcmp(default_so_pin_sha, hash_sha, SHA1_HASH_SIZE)) {
-				LogError("token_find_key failed and PIN != default");
+				ock_log_err_ex(OCK_E_GENERIC, "token_find_key failed and PIN != default");
 				return CKR_PIN_INCORRECT;
 			}
 
@@ -1623,7 +1623,7 @@ token_specific_login(CK_USER_TYPE userType, CK_CHAR_PTR pPin, CK_ULONG ulPinLen)
 		/* The SO's key hierarchy has previously been created, so load the key
 		 * hierarchy and verify the pin using the TPM. */
 		if ((rc = token_load_key(ckPublicRootKey, hSRK, NULL, &hPublicRootKey))) {
-			LogError("token_load_key failed. rc=0x%lx", rc);
+			ock_log_err_ex(OCK_E_GENERIC, "token_load_key failed. rc=0x%lx", rc);
 
 			/* Here, we've found the public root key, but its load failed.
 			 * This should only happen in a migration path, where we have
@@ -1634,7 +1634,7 @@ token_specific_login(CK_USER_TYPE userType, CK_CHAR_PTR pPin, CK_ULONG ulPinLen)
 			 * re-wrap the public root key to the new SRK.
 			 */
 			if ((token_migrate(TPMTOK_PUBLIC_ROOT_KEY, pPin))) {
-				LogError("token_migrate. rc=0x%lx", rc);
+				ock_log_err_ex(OCK_E_GENERIC, "token_migrate. rc=0x%lx", rc);
 				return rc;
 			}
 
@@ -1646,17 +1646,17 @@ token_specific_login(CK_USER_TYPE userType, CK_CHAR_PTR pPin, CK_ULONG ulPinLen)
 
 		/* find, load the public leaf key */
 		if ((rc = token_find_key(TPMTOK_PUBLIC_LEAF_KEY, CKO_PRIVATE_KEY, &ckPublicLeafKey))) {
-			LogError("token_find_key failed. rc=0x%lx", rc);
+			ock_log_err_ex(OCK_E_GENERIC, "token_find_key failed. rc=0x%lx", rc);
 			return CKR_FUNCTION_FAILED;
 		}
 
 		if ((rc = token_load_key(ckPublicLeafKey, hPublicRootKey, hash_sha, &hPublicLeafKey))) {
-		  LogError("token_load_key failed. rc=0x%lx", rc);
+		  ock_log_err_ex(OCK_E_GENERIC, "token_load_key failed. rc=0x%lx", rc);
 			return CKR_FUNCTION_FAILED;
 		}
 
 		if ((rc = token_verify_pin(hPublicLeafKey))) {
-			LogError("token_verify_pin failed. rc=0x%lx", rc);
+			ock_log_err_ex(OCK_E_GENERIC, "token_verify_pin failed. rc=0x%lx", rc);
 			return rc;
 		}
 
@@ -1704,18 +1704,18 @@ check_pin_properties(CK_USER_TYPE userType, CK_BYTE *pinHash, CK_ULONG ulPinLen)
 	/* make sure the new PIN is different */
 	if (userType == CKU_USER) {
 		if (!memcmp(pinHash, default_user_pin_sha, SHA1_HASH_SIZE)) {
-			LogError("new PIN must not be the default");
+			ock_log_err_ex(OCK_E_GENERIC, "new PIN must not be the default");
 			return CKR_PIN_INVALID;
 		}
 	} else {
 		if (!memcmp(pinHash, default_so_pin_sha, SHA1_HASH_SIZE)) {
-			LogError("new PIN must not be the default");
+			ock_log_err_ex(OCK_E_GENERIC, "new PIN must not be the default");
 			return CKR_PIN_INVALID;
 		}
 	}
 
 	if (ulPinLen > MAX_PIN_LEN || ulPinLen < MIN_PIN_LEN) {
-		LogError("New PIN is out of size range");
+		ock_log_err_ex(OCK_E_GENERIC, "New PIN is out of size range");
 		return CKR_PIN_LEN_RANGE;
 	}
 
@@ -1735,31 +1735,31 @@ verify_user_pin(CK_BYTE *hash_sha)
 	/* find, load the private root key */
 	if ((rc = token_find_key(TPMTOK_PRIVATE_ROOT_KEY, CKO_PRIVATE_KEY,
 					&ckPrivateRootKey))) {
-		LogError("token_find_key failed. rc=0x%lx", rc);
+		ock_log_err_ex(OCK_E_GENERIC, "token_find_key failed. rc=0x%lx", rc);
 		return CKR_FUNCTION_FAILED;
 	}
 
 	if ((rc = token_load_key(ckPrivateRootKey, hSRK, NULL,
 					&hPrivateRootKey))) {
-		LogError("token_load_key failed. rc=0x%lx", rc);
+		ock_log_err_ex(OCK_E_GENERIC, "token_load_key failed. rc=0x%lx", rc);
 		return CKR_FUNCTION_FAILED;
 	}
 
 	/* find, load the user leaf key */
 	if ((rc = token_find_key(TPMTOK_PRIVATE_LEAF_KEY, CKO_PRIVATE_KEY,
 					&ckPrivateLeafKey))) {
-		LogError("token_find_key failed. rc=0x%lx", rc);
+		ock_log_err_ex(OCK_E_GENERIC, "token_find_key failed. rc=0x%lx", rc);
 		return CKR_FUNCTION_FAILED;
 	}
 
 	if ((rc = token_load_key(ckPrivateLeafKey, hPrivateRootKey, hash_sha,
 					&hPrivateLeafKey))) {
-		LogError("token_load_key failed. rc=0x%lx", rc);
+		ock_log_err_ex(OCK_E_GENERIC, "token_load_key failed. rc=0x%lx", rc);
 		return CKR_FUNCTION_FAILED;
 	}
 
 	if ((rc = token_verify_pin(hPrivateLeafKey))) {
-		LogError("token_verify_pin failed. failed. rc=0x%lx", rc);
+		ock_log_err_ex(OCK_E_GENERIC, "token_verify_pin failed. failed. rc=0x%lx", rc);
 		return rc;
 	}
 
@@ -1783,16 +1783,16 @@ token_specific_set_pin(ST_SESSION_HANDLE session,
 	}
 
 	if ((rc = compute_sha(pOldPin, ulOldPinLen, oldpin_hash))) {
-		LogError("compute_sha failed. rc=0x%lx", rc);
+		ock_log_err_ex(OCK_E_GENERIC, "compute_sha failed. rc=0x%lx", rc);
 		return CKR_FUNCTION_FAILED;
 	}
 	if ((rc = compute_sha(pNewPin, ulNewPinLen, newpin_hash))) {
-		LogError("compute_sha failed. rc=0x%lx", rc);
+		ock_log_err_ex(OCK_E_GENERIC, "compute_sha failed. rc=0x%lx", rc);
 		return CKR_FUNCTION_FAILED;
 	}
 
 	if ((result = token_load_srk())) {
-		LogError("token_load_srk failed. rc=0x%x", result);
+		ock_log_err_ex(OCK_E_GENERIC, "token_load_srk failed. rc=0x%x", result);
 		return CKR_FUNCTION_FAILED;
 	}
 
@@ -1805,7 +1805,7 @@ token_specific_set_pin(ST_SESSION_HANDLE session,
 		if (not_initialized) {
 			if (memcmp(oldpin_hash, default_user_pin_sha,
 				   SHA1_HASH_SIZE)) {
-				LogError("old PIN != default for an uninitialized user");
+				ock_log_err_ex(OCK_E_GENERIC, "old PIN != default for an uninitialized user");
 				return CKR_PIN_INCORRECT;
 			}
 
@@ -1830,7 +1830,7 @@ token_specific_set_pin(ST_SESSION_HANDLE session,
 			/* if we're already logged in, just verify the hash */
 			if (memcmp(current_user_pin_sha, oldpin_hash,
 				   SHA1_HASH_SIZE)) {
-				LogError("USER pin incorrect");
+				ock_log_err_ex(OCK_E_GENERIC, "USER pin incorrect");
 				return CKR_PIN_INCORRECT;
 			}
 		} else {
@@ -1878,7 +1878,7 @@ token_specific_set_pin(ST_SESSION_HANDLE session,
 	} else if (sess->session_info.state == CKS_RW_SO_FUNCTIONS) {
 		if (not_initialized) {
 			if (memcmp(default_so_pin_sha, oldpin_hash, SHA1_HASH_SIZE)) {
-				LogError("old PIN != default for an uninitialized SO");
+				ock_log_err_ex(OCK_E_GENERIC, "old PIN != default for an uninitialized SO");
 				return CKR_PIN_INCORRECT;
 			}
 
@@ -1897,7 +1897,7 @@ token_specific_set_pin(ST_SESSION_HANDLE session,
 		}
 
 		if (memcmp(current_so_pin_sha, oldpin_hash, SHA1_HASH_SIZE)) {
-			LogError("SO PIN incorrect");
+			ock_log_err_ex(OCK_E_GENERIC, "SO PIN incorrect");
 			return CKR_PIN_INCORRECT;
 		}
 
@@ -1951,7 +1951,7 @@ token_specific_verify_so_pin(CK_CHAR_PTR pPin, CK_ULONG ulPinLen)
 	CK_RV rc;
 
 	if ((rc = compute_sha(pPin, ulPinLen, hash_sha))) {
-		LogError("compute_sha failed. rc=0x%lx", rc);
+		ock_log_err_ex(OCK_E_GENERIC, "compute_sha failed. rc=0x%lx", rc);
 		return CKR_FUNCTION_FAILED;
 	}
 
@@ -1960,7 +1960,7 @@ token_specific_verify_so_pin(CK_CHAR_PTR pPin, CK_ULONG ulPinLen)
 		/* The SO hasn't set her PIN yet, compare the login pin with
 		 * the hard-coded value */
 		if (memcmp(default_so_pin_sha, hash_sha, SHA1_HASH_SIZE)) {
-			LogError("token_find_key failed and PIN != default");
+			ock_log_err_ex(OCK_E_GENERIC, "token_find_key failed and PIN != default");
 			return CKR_PIN_INCORRECT;
 		}
 
@@ -1968,19 +1968,19 @@ token_specific_verify_so_pin(CK_CHAR_PTR pPin, CK_ULONG ulPinLen)
 	}
 
 	if ((rc = token_load_srk())) {
-		LogError("token_load_srk failed. rc = 0x%lx", rc);
+		ock_log_err_ex(OCK_E_GENERIC, "token_load_srk failed. rc = 0x%lx", rc);
 		return CKR_FUNCTION_FAILED;
 	}
 
 	/* we found the root key, so check by loading the chain */
 	if ((rc = token_load_key(ckPublicRootKey, hSRK, NULL, &hPublicRootKey))) {
-		LogError("token_load_key failed. rc=0x%lx", rc);
+		ock_log_err_ex(OCK_E_GENERIC, "token_load_key failed. rc=0x%lx", rc);
 		return CKR_FUNCTION_FAILED;
 	}
 
 	/* find, load the public leaf key */
 	if ((rc = token_find_key(TPMTOK_PUBLIC_LEAF_KEY, CKO_PRIVATE_KEY, &ckPublicLeafKey))) {
-		LogError("token_find_key failed. rc=0x%lx", rc);
+		ock_log_err_ex(OCK_E_GENERIC, "token_find_key failed. rc=0x%lx", rc);
 		return CKR_FUNCTION_FAILED;
 	}
 
@@ -1990,7 +1990,7 @@ token_specific_verify_so_pin(CK_CHAR_PTR pPin, CK_ULONG ulPinLen)
 	}
 
 	if ((rc = token_verify_pin(hPublicLeafKey))) {
-		LogError("token_verify_pin failed. rc=0x%lx", rc);
+		ock_log_err_ex(OCK_E_GENERIC, "token_verify_pin failed. rc=0x%lx", rc);
 		return rc;
 	}
 
@@ -2003,7 +2003,7 @@ token_specific_final()
 	TSS_RESULT result;
 
         if ((result = Tspi_Context_Close(tspContext))) {
-                LogError("Tspi_Context_Close failed. rc=0x%x", result);
+                ock_log_err_ex(OCK_E_GENERIC, "Tspi_Context_Close failed. rc=0x%x", result);
                 return CKR_FUNCTION_FAILED;
         }
 
@@ -2260,7 +2260,7 @@ token_wrap_auth_data(CK_BYTE *authData, TEMPLATE *publ_tmpl, TEMPLATE *priv_tmpl
 	UINT32		blob_size;
 
 	if ((hPrivateLeafKey == NULL_HKEY) && (hPublicLeafKey == NULL_HKEY)) {
-		LogError("Shouldn't be wrapping auth data in a public path!");
+		ock_log_err_ex(OCK_E_GENERIC, "Shouldn't be wrapping auth data in a public path!");
 		return CKR_FUNCTION_FAILED;
 	} else if (hPublicLeafKey != NULL_HKEY) {
 		hParentKey = hPublicLeafKey;
@@ -2271,12 +2271,12 @@ token_wrap_auth_data(CK_BYTE *authData, TEMPLATE *publ_tmpl, TEMPLATE *priv_tmpl
 	/* create the encrypted data object */
 	if ((rc = Tspi_Context_CreateObject(tspContext, TSS_OBJECT_TYPE_ENCDATA,
 					TSS_ENCDATA_BIND, &hEncData))) {
-		LogError("Tspi_Context_CreateObject failed. rc=0x%lx", rc);
+		ock_log_err_ex(OCK_E_GENERIC, "Tspi_Context_CreateObject failed. rc=0x%lx", rc);
 		return rc;
 	}
 
 	if ((rc = Tspi_Data_Bind(hEncData, hParentKey, SHA1_HASH_SIZE, authData))) {
-		LogError("Tspi_Data_Bind failed. rc=0x%lx", rc);
+		ock_log_err_ex(OCK_E_GENERIC, "Tspi_Data_Bind failed. rc=0x%lx", rc);
 		return rc;
 	}
 
@@ -2284,7 +2284,7 @@ token_wrap_auth_data(CK_BYTE *authData, TEMPLATE *publ_tmpl, TEMPLATE *priv_tmpl
 	if ((rc = Tspi_GetAttribData(hEncData, TSS_TSPATTRIB_ENCDATA_BLOB,
 					TSS_TSPATTRIB_ENCDATABLOB_BLOB, &blob_size,
 					&blob))) {
-		LogError("Tspi_SetAttribData failed. rc=0x%lx", rc);
+		ock_log_err_ex(OCK_E_GENERIC, "Tspi_SetAttribData failed. rc=0x%lx", rc);
 		return rc;
 	}
 
@@ -2314,25 +2314,25 @@ token_unwrap_auth_data(CK_BYTE *encAuthData, CK_ULONG encAuthDataLen, TSS_HKEY h
 
 	if ((result = Tspi_Context_CreateObject(tspContext, TSS_OBJECT_TYPE_ENCDATA,
 					TSS_ENCDATA_BIND, &hEncData))) {
-		LogError("Tspi_Context_CreateObject failed. rc=0x%x", result);
+		ock_log_err_ex(OCK_E_GENERIC, "Tspi_Context_CreateObject failed. rc=0x%x", result);
 		return CKR_FUNCTION_FAILED;
 	}
 
 	if ((result = Tspi_SetAttribData(hEncData, TSS_TSPATTRIB_ENCDATA_BLOB,
 					TSS_TSPATTRIB_ENCDATABLOB_BLOB, encAuthDataLen,
 					encAuthData))) {
-		LogError("Tspi_SetAttribData failed. rc=0x%x", result);
+		ock_log_err_ex(OCK_E_GENERIC, "Tspi_SetAttribData failed. rc=0x%x", result);
 		return CKR_FUNCTION_FAILED;
 	}
 
 	/* unbind the data, receiving the plaintext back */
 	if ((result = Tspi_Data_Unbind(hEncData, hKey, &buf_size, &buf))) {
-		LogError("Tspi_Data_Unbind failed: rc=0x%x", result);
+		ock_log_err_ex(OCK_E_GENERIC, "Tspi_Data_Unbind failed: rc=0x%x", result);
 		return CKR_FUNCTION_FAILED;
 	}
 
 	if (buf_size != SHA1_HASH_SIZE) {
-		LogError("auth data decrypt error.");
+		ock_log_err_ex(OCK_E_GENERIC, "auth data decrypt error.");
 		return CKR_FUNCTION_FAILED;
 	}
 
@@ -2358,7 +2358,7 @@ rsa_convert_public_key(OBJECT *key_obj)
 
 	ret = malloc(modulus->ulValueLen);
 	if (ret == NULL) {
-		LogError("Out of memory.");
+		ock_log_err_ex(OCK_E_GENERIC, "Out of memory.");
 		return NULL;
 	}
 
@@ -2388,7 +2388,7 @@ token_specific_rsa_generate_keypair( TEMPLATE  * publ_tmpl,
 
 	/* Make sure the public exponent is usable */
 	if ((util_check_public_exponent(publ_tmpl))) {
-		LogError("Invalid public exponent");
+		ock_log_err_ex(OCK_E_GENERIC, "Invalid public exponent");
 		return CKR_TEMPLATE_INCONSISTENT;
 	}
 
@@ -2410,7 +2410,7 @@ token_specific_rsa_generate_keypair( TEMPLATE  * publ_tmpl,
 		initFlags |= TSS_KEY_TYPE_LEGACY | TSS_KEY_NO_AUTHORIZATION | TSS_KEY_MIGRATABLE;
 
 		if ((result = token_load_public_root_key())) {
-			LogError("token_load_public_root_key failed. rc=%x", result);
+			ock_log_err_ex(OCK_E_GENERIC, "token_load_public_root_key failed. rc=%x", result);
 			return CKR_FUNCTION_FAILED;
 		}
 
@@ -2421,7 +2421,7 @@ token_specific_rsa_generate_keypair( TEMPLATE  * publ_tmpl,
 
 		/* get a random SHA1 hash for the auth data */
 		if ((rc = token_rng(authHash, SHA1_HASH_SIZE))) {
-			LogError("token_rng failed. rc=%lx", rc);
+			ock_log_err_ex(OCK_E_GENERIC, "token_rng failed. rc=%lx", rc);
 			return CKR_FUNCTION_FAILED;
 		}
 
@@ -2433,7 +2433,7 @@ token_specific_rsa_generate_keypair( TEMPLATE  * publ_tmpl,
 
 		/* get a random SHA1 hash for the auth data */
 		if ((rc = token_rng(authHash, SHA1_HASH_SIZE))) {
-			LogError("token_rng failed. rc=0x%lx", rc);
+			ock_log_err_ex(OCK_E_GENERIC, "token_rng failed. rc=0x%lx", rc);
 			return CKR_FUNCTION_FAILED;
 		}
 
@@ -2442,13 +2442,13 @@ token_specific_rsa_generate_keypair( TEMPLATE  * publ_tmpl,
 	}
 
 	if ((result = tss_generate_key(initFlags, authData, hParentKey, &hKey))) {
-		LogError("tss_generate_key returned 0x%x", result);
+		ock_log_err_ex(OCK_E_GENERIC, "tss_generate_key returned 0x%x", result);
 		return result;
 	}
 
 	if ((result = Tspi_GetAttribData(hKey, TSS_TSPATTRIB_KEY_BLOB, TSS_TSPATTRIB_KEYBLOB_BLOB,
 				&ulBlobLen, &rgbBlob))) {
-		LogError("Tspi_GetAttribData failed with rc: 0x%x", result);
+		ock_log_err_ex(OCK_E_GENERIC, "Tspi_GetAttribData failed with rc: 0x%x", result);
 		return CKR_FUNCTION_FAILED;
 	}
 
@@ -2471,7 +2471,7 @@ token_specific_rsa_generate_keypair( TEMPLATE  * publ_tmpl,
 	if ((result = Tspi_GetAttribData(hKey, TSS_TSPATTRIB_RSAKEY_INFO,
 					 TSS_TSPATTRIB_KEYINFO_RSA_MODULUS, &ulBlobLen,
 					 &rgbBlob))) {
-		LogError("Tspi_GetAttribData failed with rc: 0x%x", result);
+		ock_log_err_ex(OCK_E_GENERIC, "Tspi_GetAttribData failed with rc: 0x%x", result);
 		return result;
 	}
 
@@ -2495,7 +2495,7 @@ token_specific_rsa_generate_keypair( TEMPLATE  * publ_tmpl,
 	/* wrap the authdata and put it into an object */
 	if (authData != NULL) {
 		if ((rc = token_wrap_auth_data(authData, publ_tmpl, priv_tmpl))) {
-			LogError("token_wrap_auth_data failed with rc: 0x%lx", rc);
+			ock_log_err_ex(OCK_E_GENERIC, "token_wrap_auth_data failed with rc: 0x%lx", rc);
 		}
 	}
 
@@ -2517,7 +2517,7 @@ token_rsa_load_key( OBJECT * key_obj, TSS_HKEY * phKey )
 		hParentKey = hPrivateRootKey;
 	} else {
 		if ((result = token_load_public_root_key())) {
-			LogError("token_load_public_root_key failed. rc=%x", result);
+			ock_log_err_ex(OCK_E_GENERIC, "token_load_public_root_key failed. rc=%x", result);
 			return CKR_FUNCTION_FAILED;
 		}
 
@@ -2530,27 +2530,27 @@ token_rsa_load_key( OBJECT * key_obj, TSS_HKEY * phKey )
           if (rc != CKR_OK)
             return CKR_FUNCTION_FAILED;
           if ((rc = token_load_key(handle, hParentKey, NULL, phKey))) {
-            LogError("token_load_key failed. rc=0x%lx", rc);
+            ock_log_err_ex(OCK_E_GENERIC, "token_load_key failed. rc=0x%lx", rc);
             return rc;
           }
           /* try again to get the CKA_IBM_OPAQUE attr */
           if ((rc = template_attribute_find( key_obj->template, CKA_IBM_OPAQUE, &attr )) == FALSE)
             {
-              LogError("Could not find key blob");
+              ock_log_err_ex(OCK_E_GENERIC, "Could not find key blob");
               return rc;
             }
         }
 
 	if ((result = Tspi_Context_LoadKeyByBlob(tspContext, hParentKey, attr->ulValueLen,
 					attr->pValue, phKey))) {
-		LogError("Tspi_Context_LoadKeyByBlob failed. rc=0x%x", result);
+		ock_log_err_ex(OCK_E_GENERIC, "Tspi_Context_LoadKeyByBlob failed. rc=0x%x", result);
 		return CKR_FUNCTION_FAILED;
 	}
 
 	/* auth data may be required */
 	if (template_attribute_find( key_obj->template, CKA_ENC_AUTHDATA, &attr) == TRUE && attr) {
 		if ((hPrivateLeafKey == NULL_HKEY) && (hPublicLeafKey == NULL_HKEY)) {
-			LogError("Shouldn't be in a public session here");
+			ock_log_err_ex(OCK_E_GENERIC, "Shouldn't be in a public session here");
 			return CKR_FUNCTION_FAILED;
 		} else if (hPublicLeafKey != NULL_HKEY) {
 			hParentKey = hPublicLeafKey;
@@ -2559,12 +2559,12 @@ token_rsa_load_key( OBJECT * key_obj, TSS_HKEY * phKey )
 		}
 
 		if ((result = token_unwrap_auth_data(attr->pValue, attr->ulValueLen, hParentKey, &authData))) {
-			LogError("token_unwrap_auth_data: 0x%x", result);
+			ock_log_err_ex(OCK_E_GENERIC, "token_unwrap_auth_data: 0x%x", result);
 			return CKR_FUNCTION_FAILED;
 		}
 
 		if ((result = Tspi_GetPolicyObject(*phKey, TSS_POLICY_USAGE, &hPolicy))) {
-			LogError("Tspi_GetPolicyObject: 0x%x", result);
+			ock_log_err_ex(OCK_E_GENERIC, "Tspi_GetPolicyObject: 0x%x", result);
 			return CKR_FUNCTION_FAILED;
 		}
 
@@ -2574,23 +2574,23 @@ token_rsa_load_key( OBJECT * key_obj, TSS_HKEY * phKey )
 		if (hPolicy == hDefaultPolicy) {
 			if ((result = Tspi_Context_CreateObject(tspContext, TSS_OBJECT_TYPE_POLICY,
 								TSS_POLICY_USAGE, &hPolicy))) {
-				LogError("Tspi_Context_CreateObject: 0x%x", result);
+				ock_log_err_ex(OCK_E_GENERIC, "Tspi_Context_CreateObject: 0x%x", result);
 				return CKR_FUNCTION_FAILED;
 			}
 
 			if ((result = Tspi_Policy_SetSecret(hPolicy, TSS_SECRET_MODE_SHA1,
 							    SHA1_HASH_SIZE, authData))) {
-				LogError("Tspi_Policy_SetSecret failed. rc=0x%x", result);
+				ock_log_err_ex(OCK_E_GENERIC, "Tspi_Policy_SetSecret failed. rc=0x%x", result);
 				return CKR_FUNCTION_FAILED;
 			}
 
 			if ((result = Tspi_Policy_AssignToObject(hPolicy, *phKey))) {
-				LogError("Tspi_Policy_AssignToObject failed. rc=0x%x", result);
+				ock_log_err_ex(OCK_E_GENERIC, "Tspi_Policy_AssignToObject failed. rc=0x%x", result);
 				return CKR_FUNCTION_FAILED;
 			}
 		} else if ((result = Tspi_Policy_SetSecret(hPolicy, TSS_SECRET_MODE_SHA1,
 							   SHA1_HASH_SIZE, authData))) {
-			LogError("Tspi_Policy_SetSecret failed. rc=0x%x", result);
+			ock_log_err_ex(OCK_E_GENERIC, "Tspi_Policy_SetSecret failed. rc=0x%x", result);
 			return CKR_FUNCTION_FAILED;
 		}
 
@@ -2615,27 +2615,27 @@ token_specific_rsa_decrypt( CK_BYTE   * in_data,
 	BYTE            *buf = NULL;
 
 	if ((rc = token_rsa_load_key(key_obj, &hKey))) {
-		LogError("token_rsa_load_key failed. rc=0x%lx", rc);
+		ock_log_err_ex(OCK_E_GENERIC, "token_rsa_load_key failed. rc=0x%lx", rc);
 		return rc;
 	}
 
 	/* push the data into the encrypted data object */
 	if ((result = Tspi_Context_CreateObject(tspContext, TSS_OBJECT_TYPE_ENCDATA,
 					TSS_ENCDATA_BIND, &hEncData))) {
-		LogError("Tspi_Context_CreateObject failed. rc=0x%x", result);
+		ock_log_err_ex(OCK_E_GENERIC, "Tspi_Context_CreateObject failed. rc=0x%x", result);
 		return CKR_FUNCTION_FAILED;
 	}
 
 	if ((result = Tspi_SetAttribData(hEncData, TSS_TSPATTRIB_ENCDATA_BLOB,
 					TSS_TSPATTRIB_ENCDATABLOB_BLOB, in_data_len, in_data))) {
-		LogError("Tspi_SetAttribData failed. rc=0x%x", result);
+		ock_log_err_ex(OCK_E_GENERIC, "Tspi_SetAttribData failed. rc=0x%x", result);
 		return CKR_FUNCTION_FAILED;
 	}
 
 	/* unbind the data, receiving the plaintext back */
-	LogError("unbinding data with size: %ld", in_data_len);
+	ock_log_err_ex(OCK_E_GENERIC, "unbinding data with size: %ld", in_data_len);
 	if ((result = Tspi_Data_Unbind(hEncData, hKey, &buf_size, &buf))) {
-		LogError("Tspi_Data_Unbind failed: 0x%x", result);
+		ock_log_err_ex(OCK_E_GENERIC, "Tspi_Data_Unbind failed: 0x%x", result);
 		return CKR_FUNCTION_FAILED;
 	}
 
@@ -2665,20 +2665,20 @@ token_specific_rsa_verify( CK_BYTE   * in_data,
 	CK_RV		rc;
 
 	if ((rc = token_rsa_load_key(key_obj, &hKey))) {
-		LogError("token_rsa_load_key failed. rc=0x%lx", rc);
+		ock_log_err_ex(OCK_E_GENERIC, "token_rsa_load_key failed. rc=0x%lx", rc);
 		return rc;
 	}
 
 	/* Create the hash object we'll use to sign */
 	if ((result = Tspi_Context_CreateObject(tspContext, TSS_OBJECT_TYPE_HASH,
 					TSS_HASH_OTHER, &hHash))) {
-		LogError("Tspi_Context_CreateObject failed. rc=0x%x", result);
+		ock_log_err_ex(OCK_E_GENERIC, "Tspi_Context_CreateObject failed. rc=0x%x", result);
 		return CKR_FUNCTION_FAILED;
 	}
 
 	/* Insert the data into the hash object */
 	if ((result = Tspi_Hash_SetHashValue(hHash, in_data_len, in_data))) {
-		LogError("Tspi_Hash_SetHashValue failed. rc=0x%x", result);
+		ock_log_err_ex(OCK_E_GENERIC, "Tspi_Hash_SetHashValue failed. rc=0x%x", result);
 		return CKR_FUNCTION_FAILED;
 	}
 
@@ -2686,7 +2686,7 @@ token_specific_rsa_verify( CK_BYTE   * in_data,
 	result = Tspi_Hash_VerifySignature(hHash, hKey, sig_len, sig);
 	if (result != TSS_SUCCESS &&
 	    TPMTOK_TSS_ERROR_CODE(result) != TSS_E_FAIL) {
-		LogError("Tspi_Hash_VerifySignature failed. rc=0x%x", result);
+		ock_log_err_ex(OCK_E_GENERIC, "Tspi_Hash_VerifySignature failed. rc=0x%x", result);
 	}
 
 	if (TPMTOK_TSS_ERROR_CODE(result) == TSS_E_FAIL) {
@@ -2713,31 +2713,31 @@ token_specific_rsa_sign( CK_BYTE   * in_data,
 	CK_RV		rc;
 
 	if ((rc = token_rsa_load_key(key_obj, &hKey))) {
-		LogError("token_rsa_load_key failed. rc=0x%lx", rc);
+		ock_log_err_ex(OCK_E_GENERIC, "token_rsa_load_key failed. rc=0x%lx", rc);
 		return rc;
 	}
 
 	/* Create the hash object we'll use to sign */
 	if ((result = Tspi_Context_CreateObject(tspContext, TSS_OBJECT_TYPE_HASH,
 					TSS_HASH_OTHER, &hHash))) {
-		LogError("Tspi_Context_CreateObject failed. rc=0x%x", result);
+		ock_log_err_ex(OCK_E_GENERIC, "Tspi_Context_CreateObject failed. rc=0x%x", result);
 		return CKR_FUNCTION_FAILED;
 	}
 
 	/* Insert the data into the hash object */
 	if ((result = Tspi_Hash_SetHashValue(hHash, in_data_len, in_data))) {
-		LogError("Tspi_Hash_SetHashValue failed. rc=0x%x", result);
+		ock_log_err_ex(OCK_E_GENERIC, "Tspi_Hash_SetHashValue failed. rc=0x%x", result);
 		return CKR_FUNCTION_FAILED;
 	}
 
 	/* Sign */
 	if ((result = Tspi_Hash_Sign(hHash, hKey, &sig_len, &sig))) {
-		LogError("Tspi_Hash_Sign failed. rc=0x%x", result);
+		ock_log_err_ex(OCK_E_GENERIC, "Tspi_Hash_Sign failed. rc=0x%x", result);
 		return CKR_FUNCTION_FAILED;
 	}
 
 	if (sig_len > *out_data_len) {
-		LogError("%s: Error: Buffer too small to hold result.", __FUNCTION__);
+		ock_log_err_ex(OCK_E_GENERIC, "%s: Error: Buffer too small to hold result.", __FUNCTION__);
 		Tspi_Context_FreeMemory(tspContext, sig);
 		return CKR_BUFFER_TOO_SMALL;
 	}
@@ -2765,29 +2765,29 @@ token_specific_rsa_encrypt( CK_BYTE   * in_data,
 	CK_RV		rc;
 
 	if ((rc = token_rsa_load_key(key_obj, &hKey))) {
-		LogError("token_rsa_load_key failed. rc=0x%lx", rc);
+		ock_log_err_ex(OCK_E_GENERIC, "token_rsa_load_key failed. rc=0x%lx", rc);
 		return rc;
 	}
 
 	if ((result = Tspi_Context_CreateObject(tspContext, TSS_OBJECT_TYPE_ENCDATA,
 					TSS_ENCDATA_BIND, &hEncData))) {
-		LogError("Tspi_Context_CreateObject failed. rc=0x%x", result);
+		ock_log_err_ex(OCK_E_GENERIC, "Tspi_Context_CreateObject failed. rc=0x%x", result);
 		return CKR_FUNCTION_FAILED;
 	}
 
 	if ((result = Tspi_Data_Bind(hEncData, hKey, in_data_len, in_data))) {
-		LogError("Tspi_Data_Bind failed. rc=0x%x", result);
+		ock_log_err_ex(OCK_E_GENERIC, "Tspi_Data_Bind failed. rc=0x%x", result);
 		return CKR_FUNCTION_FAILED;
 	}
 
 	if ((result = Tspi_GetAttribData(hEncData, TSS_TSPATTRIB_ENCDATA_BLOB,
 					TSS_TSPATTRIB_ENCDATABLOB_BLOB, &dataBlobSize, &dataBlob))) {
-		LogError("Tspi_SetAttribData failed. rc=0x%x", result);
+		ock_log_err_ex(OCK_E_GENERIC, "Tspi_SetAttribData failed. rc=0x%x", result);
 		return CKR_FUNCTION_FAILED;
 	}
 
 	if (dataBlobSize > *out_data_len) {
-		LogError("CKR_DATA_LEN_RANGE");
+		ock_log_err_ex(OCK_E_GENERIC, "CKR_DATA_LEN_RANGE");
 		Tspi_Context_FreeMemory(tspContext, dataBlob);
 		return CKR_DATA_LEN_RANGE;
 	}

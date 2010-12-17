@@ -305,7 +305,7 @@ init_data_store(char *directory)
 		pk_dir =  (char *) malloc(strlen(pkdir)+1024);
 		memset(pk_dir, 0, strlen(pkdir)+1024);
 		sprintf(pk_dir,"%s/%s",pkdir,SUB_DIR);
-		LogError("Using custom data store location: %s", pk_dir);
+		ock_log_err_ex(OCK_E_GENERIC, "Using custom data store location: %s", pk_dir);
 	} else {
 		pk_dir  = (char *)malloc(strlen(directory)+25);
 		memset(pk_dir, 0, strlen(directory)+25);
@@ -882,7 +882,7 @@ CK_RV SC_InitToken( CK_SLOT_ID   sid,
 
    errno = 0;
    if ((pw = getpwuid(getuid())) == NULL) {
-	   LogError("%s: Error getting username: %s", __FUNCTION__, strerror(errno));
+	   ock_log_err_ex(OCK_E_GENERIC, "%s: Error getting username: %s", __FUNCTION__, strerror(errno));
 	   rc = CKR_FUNCTION_FAILED;
 	   goto done;
    }

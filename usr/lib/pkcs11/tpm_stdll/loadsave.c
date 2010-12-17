@@ -365,7 +365,7 @@ load_token_data()
    struct passwd *pw = NULL;
 
    if ((pw = getpwuid(getuid())) == NULL){
-      LogError("getpwuid failed: %s", strerror(errno));
+      ock_log_err_ex(OCK_E_GENERIC, "getpwuid failed: %s", strerror(errno));
       return CKR_FUNCTION_FAILED;
    }
 
@@ -400,7 +400,7 @@ load_token_data()
             // were really hosed here since the created
             // did not occur
             //ock_log_err(OCK_E_CANT_OPEN_FILE);
-	    LogError("failed opening %s for read: %s", fname, strerror(errno));
+	    ock_log_err_ex(OCK_E_GENERIC, "failed opening %s for read: %s", fname, strerror(errno));
             rc = CKR_FUNCTION_FAILED;
             goto out_unlock;
          }
@@ -464,7 +464,7 @@ save_token_data()
    struct passwd *pw = NULL;
 
    if ((pw = getpwuid(getuid())) == NULL){
-      LogError("getpwuid failed: %s", strerror(errno));
+      ock_log_err_ex(OCK_E_GENERIC, "getpwuid failed: %s", strerror(errno));
       return CKR_FUNCTION_FAILED;
    }
 
@@ -546,7 +546,7 @@ save_token_object( OBJECT *obj )
    // update the index file if it exists
    //
    if ((pw = getpwuid(getuid())) == NULL){
-      LogError("getpwuid failed: %s", strerror(errno));
+      ock_log_err_ex(OCK_E_GENERIC, "getpwuid failed: %s", strerror(errno));
       return CKR_FUNCTION_FAILED;
    }
 
@@ -608,7 +608,7 @@ save_public_token_object( OBJECT *obj )
    struct passwd *pw = NULL;
 
    if ((pw = getpwuid(getuid())) == NULL){
-      LogError("getpwuid failed: %s", strerror(errno));
+      ock_log_err_ex(OCK_E_GENERIC, "getpwuid failed: %s", strerror(errno));
       return CKR_FUNCTION_FAILED;
    }
 
@@ -675,7 +675,7 @@ save_private_token_object( OBJECT *obj )
    struct passwd    * pw = NULL;
 
    if ((pw = getpwuid(getuid())) == NULL){
-      LogError("getpwuid failed: %s", strerror(errno));
+      ock_log_err_ex(OCK_E_GENERIC, "getpwuid failed: %s", strerror(errno));
       return CKR_FUNCTION_FAILED;
    }
 
@@ -798,7 +798,7 @@ load_public_token_objects( void )
    size_t buf_size;
 
    if ((pw = getpwuid(getuid())) == NULL){
-      LogError("getpwuid failed: %s", strerror(errno));
+      ock_log_err_ex(OCK_E_GENERIC, "getpwuid failed: %s", strerror(errno));
       return CKR_FUNCTION_FAILED;
    }
 
@@ -837,7 +837,7 @@ load_public_token_objects( void )
          buf = (CK_BYTE *)malloc(size);
          if (!buf) {
             fclose(fp2);
-	    LOG(LOG_ERR, "Cannot malloc %u bytes to read in token object %s (ignoring it)",
+	    ock_log_err_ex(OCK_E_GENERIC, "Cannot malloc %u bytes to read in token object %s (ignoring it)",
 		size, fname);
 	    continue;
          }
@@ -846,14 +846,14 @@ load_public_token_objects( void )
 	 if (buf_size != size) {
 	    free(buf);
             fclose(fp2);
-	    LOG(LOG_ERR, "Cannot read in token object %s (ignoring it)", fname);
+	    ock_log_err_ex(OCK_E_GENERIC, "Cannot read in token object %s (ignoring it)", fname);
 	    continue;
 	 }
 
          // ... grab object mutex here.
          MY_LockMutex(&obj_list_mutex);
          if (object_mgr_restore_obj_withSize( buf, NULL, size ) != CKR_OK) {
-	    LOG(LOG_ERR, "Cannot restore token object %s (ignoring it)", fname);
+	    ock_log_err_ex(OCK_E_GENERIC, "Cannot restore token object %s (ignoring it)", fname);
 	 }
          MY_UnlockMutex(&obj_list_mutex);
          free( buf );
@@ -882,7 +882,7 @@ load_private_token_objects( void )
    size_t         buf_size;
 
    if ((pw = getpwuid(getuid())) == NULL){
-      LogError("getpwuid failed: %s", strerror(errno));
+      ock_log_err_ex(OCK_E_GENERIC, "getpwuid failed: %s", strerror(errno));
       return CKR_FUNCTION_FAILED;
    }
 
@@ -920,7 +920,7 @@ load_private_token_objects( void )
          buf = (CK_BYTE *)malloc(size);
          if (!buf) {
 	    fclose(fp2);
-	    LOG(LOG_ERR, "Cannot malloc %u bytes to read in token object %s (ignoring it)",
+	    ock_log_err_ex(OCK_E_GENERIC, "Cannot malloc %u bytes to read in token object %s (ignoring it)",
 		size, fname);
 	    continue;
          }
@@ -929,7 +929,7 @@ load_private_token_objects( void )
          if (rc != 1) {
 	    free(buf);
             fclose(fp2);
-	    LOG(LOG_ERR, "Cannot read in token object %s (ignoring it)", fname);
+	    ock_log_err_ex(OCK_E_GENERIC, "Cannot read in token object %s (ignoring it)", fname);
 	    continue;
          }
 
@@ -1408,7 +1408,7 @@ reload_token_object( OBJECT *obj )
    size_t         read_size;
 
    if ((pw = getpwuid(getuid())) == NULL){
-      LogError("getpwuid failed: %s", strerror(errno));
+      ock_log_err_ex(OCK_E_GENERIC, "getpwuid failed: %s", strerror(errno));
       return CKR_FUNCTION_FAILED;
    }
 
@@ -1437,7 +1437,7 @@ reload_token_object( OBJECT *obj )
 
    buf = (CK_BYTE *)malloc(size);
    if (!buf) {
-      LOG(LOG_ERR, "Cannot malloc %u bytes to read in token object %s (ignoring it)", size, fname);
+      ock_log_err_ex(OCK_E_GENERIC, "Cannot malloc %u bytes to read in token object %s (ignoring it)", size, fname);
       rc = CKR_HOST_MEMORY;
       goto done;
    }
@@ -1447,7 +1447,7 @@ reload_token_object( OBJECT *obj )
    //axelrh: make sure the buffer size read in is at least as big
    //as the reported size of the token
    if (read_size < size) {
-      LOG(LOG_ERR, "Token object %s appears corrupted (ignoring it)", fname);
+      ock_log_err_ex(OCK_E_GENERIC, "Token object %s appears corrupted (ignoring it)", fname);
       rc = CKR_FUNCTION_FAILED;
       goto done;
    }
@@ -1486,7 +1486,7 @@ delete_token_object( OBJECT *obj )
    struct passwd *pw = NULL;
 
    if ((pw = getpwuid(getuid())) == NULL){
-      LogError("getpwuid failed: %s", strerror(errno));
+      ock_log_err_ex(OCK_E_GENERIC, "getpwuid failed: %s", strerror(errno));
       return CKR_FUNCTION_FAILED;
    }
 

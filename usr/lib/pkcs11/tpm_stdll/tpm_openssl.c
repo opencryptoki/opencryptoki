@@ -121,7 +121,7 @@ openssl_write_key(RSA *rsa, char *filename, CK_BYTE *pPin)
 
 	errno = 0;
 	if ((pw = getpwuid(getuid())) == NULL) {
-		LogError("%s: Error getting username: %s", __FUNCTION__, strerror(errno));
+		ock_log_err_ex(OCK_E_GENERIC, "%s: Error getting username: %s", __FUNCTION__, strerror(errno));
 		return -1;
 	}
 
@@ -129,13 +129,13 @@ openssl_write_key(RSA *rsa, char *filename, CK_BYTE *pPin)
 
 	b = BIO_new_file(loc, "w");
 	if (!b) {
-		LogError("%s: Error opening file for write: %s", __FUNCTION__, loc);
+		ock_log_err_ex(OCK_E_GENERIC, "%s: Error opening file for write: %s", __FUNCTION__, loc);
 		return -1;
 	}
 
 	if (!PEM_write_bio_RSAPrivateKey(b, rsa, EVP_aes_256_cbc(), NULL, 0, 0, pPin)) {
 		BIO_free(b);
-		LogError("Writing key %s to disk failed.", loc);
+		ock_log_err_ex(OCK_E_GENERIC, "Writing key %s to disk failed.", loc);
 		DEBUG_openssl_print_errors();
 		return -1;
 	}
@@ -143,7 +143,7 @@ openssl_write_key(RSA *rsa, char *filename, CK_BYTE *pPin)
 	BIO_free(b);
 
 	if (util_set_file_mode(loc, (S_IRUSR|S_IWUSR))) {
-		LogError("Setting file mode of %s failed", loc);
+		ock_log_err_ex(OCK_E_GENERIC, "Setting file mode of %s failed", loc);
 	}
 
 	return 0;
@@ -160,7 +160,7 @@ openssl_read_key(char *filename, CK_BYTE *pPin, RSA **ret)
 
 	errno = 0;
 	if ((pw = getpwuid(getuid())) == NULL) {
-		LogError("%s: Error getting username: %s", __FUNCTION__, strerror(errno));
+		ock_log_err_ex(OCK_E_GENERIC, "%s: Error getting username: %s", __FUNCTION__, strerror(errno));
 		return CKR_FUNCTION_FAILED;
 	}
 
@@ -173,12 +173,12 @@ openssl_read_key(char *filename, CK_BYTE *pPin, RSA **ret)
 
 	b = BIO_new_file(loc, "r+");
 	if (b == NULL) {
-		LogError("%s: Error opening file for read: %s", __FUNCTION__, loc);
+		ock_log_err_ex(OCK_E_GENERIC, "%s: Error opening file for read: %s", __FUNCTION__, loc);
 		return CKR_FILE_NOT_FOUND;
 	}
 
 	if ((rsa = PEM_read_bio_RSAPrivateKey(b, NULL, 0, pPin)) == NULL) {
-		LogError("Reading key %s from disk failed.", loc);
+		ock_log_err_ex(OCK_E_GENERIC, "Reading key %s from disk failed.", loc);
 		DEBUG_openssl_print_errors();
 		if (ERR_GET_REASON(ERR_get_error()) == PEM_R_BAD_DECRYPT) {
 			rc = CKR_PIN_INCORRECT;

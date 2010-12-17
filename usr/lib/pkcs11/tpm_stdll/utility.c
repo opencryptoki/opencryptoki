@@ -900,7 +900,7 @@ attach_shm()
 	// token object database
 	if (stat(pk_dir, &statbuf) < 0) {
 		ock_log_err(OCK_E_FUNC);
-		LogError("pk_dir = \"%s\"", pk_dir);
+		ock_log_err_ex(OCK_E_GENERIC, "pk_dir = \"%s\"", pk_dir);
 		return CKR_FUNCTION_FAILED;
 	}
 
@@ -986,7 +986,7 @@ attach_shm()
 		errno = 0;
 		pw = getpwuid(getuid());
 		if (pw == NULL) {
-			LogError("getpwuid failed: %s", strerror(errno));
+			ock_log_err_ex(OCK_E_GENERIC, "getpwuid failed: %s", strerror(errno));
 			return CKR_FUNCTION_FAILED;
 		}
 
@@ -1002,20 +1002,20 @@ attach_shm()
 		// if the user specific directory doesn't exist, create it and userdir/TOK_OBJ
 		if (stat(dirname, &statbuf) < 0) {
 			if (mkdir(dirname, mode) == -1) {
-				LogError("%s: mkdir(%s): %s", __FUNCTION__, dirname,
+				ock_log_err_ex(OCK_E_GENERIC, "%s: mkdir(%s): %s", __FUNCTION__, dirname,
 						strerror(errno));
 				rc = CKR_FUNCTION_FAILED;
 				goto err_out;
 			}
 			fd = open(dirname, O_RDONLY);
 			if (fd < 0) {
-				LogError("%s: open(%s): %s", __FUNCTION__, dirname,
+				ock_log_err_ex(OCK_E_GENERIC, "%s: open(%s): %s", __FUNCTION__, dirname,
 						strerror(errno));
 				rc = CKR_FUNCTION_FAILED;
 				goto err_out;
 			}
 			if (fchmod(fd, mode) == -1) {
-				LogError("%s: fchmod(%s): %s", __FUNCTION__, dirname,
+				ock_log_err_ex(OCK_E_GENERIC, "%s: fchmod(%s): %s", __FUNCTION__, dirname,
 						strerror(errno));
 				close(fd);
 				rc = CKR_FUNCTION_FAILED;
@@ -1027,20 +1027,20 @@ attach_shm()
 			strncat(dirname, "/", 1);
 			strncat(dirname, PK_LITE_OBJ_DIR, strlen(PK_LITE_OBJ_DIR));
 			if (mkdir(dirname, mode) == -1) {
-				LogError("%s: mkdir \"%s\": %s", __FUNCTION__, dirname,
+				ock_log_err_ex(OCK_E_GENERIC, "%s: mkdir \"%s\": %s", __FUNCTION__, dirname,
 						strerror(errno));
 				rc = CKR_FUNCTION_FAILED;
 				goto err_out;
 			}
 			fd = open(dirname, O_RDONLY);
 			if (fd < 0) {
-				LogError("%s: open(%s): %s", __FUNCTION__, dirname,
+				ock_log_err_ex(OCK_E_GENERIC, "%s: open(%s): %s", __FUNCTION__, dirname,
 						strerror(errno));
 				rc = CKR_FUNCTION_FAILED;
 				goto err_out;
 			}
 			if (fchmod(fd, mode) == -1) {
-				LogError("%s: fchmod(%s): %s", __FUNCTION__, dirname,
+				ock_log_err_ex(OCK_E_GENERIC, "%s: fchmod(%s): %s", __FUNCTION__, dirname,
 						strerror(errno));
 				close(fd);
 				rc = CKR_FUNCTION_FAILED;
@@ -1062,7 +1062,7 @@ attach_shm()
 			// File does not exist Create it
 			fd = open(fname,O_RDWR|O_CREAT,mode);
 			if (fd < 0 ){
-				LogError("open of %s failed: %s", fname, strerror(errno));
+				ock_log_err_ex(OCK_E_GENERIC, "open of %s failed: %s", fname, strerror(errno));
 				return CKR_FUNCTION_FAILED;  //Failed
 			}
 			i = sizeof(LW_SHM_TYPE);
@@ -1074,7 +1074,7 @@ attach_shm()
 		} else {
 			fd = open(fname,O_RDWR,mode);
 			if (fd < 0 ){
-				LogError("open of %s failed: %s", fname, strerror(errno));
+				ock_log_err_ex(OCK_E_GENERIC, "open of %s failed: %s", fname, strerror(errno));
 				return CKR_FUNCTION_FAILED;  //Failed
 			}
 		}

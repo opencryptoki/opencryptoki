@@ -974,7 +974,7 @@ attach_shm()
 			// File does not exist Create it
 			fd = open(fname,O_RDWR|O_CREAT,mode);
 			if (fd < 0 ){
-				LogError("open of %s failed: %s", fname, strerror(errno));
+				ock_log_err_ex(OCK_E_GENERIC, "open of %s failed: %s", fname, strerror(errno));
 				free(fname);
 				return CKR_FUNCTION_FAILED;  //Failed
 			}
@@ -986,7 +986,7 @@ attach_shm()
 		} else {
 			fd = open(fname,O_RDWR,mode);
 			if (fd < 0 ){
-				LogError("open of %s failed: %s", fname, strerror(errno));
+				ock_log_err_ex(OCK_E_GENERIC, "open of %s failed: %s", fname, strerror(errno));
 				free(fname);
 				return CKR_FUNCTION_FAILED;  //Failed
 			}

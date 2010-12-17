@@ -85,7 +85,7 @@ util_create_id(int type)
 		case TPMTOK_PRIVATE_ROOT_KEY:
 			size = TPMTOK_PRIVATE_ROOT_KEY_ID_SIZE + 1;
 			if ((ret = malloc(size)) == NULL) {
-				LogError("malloc of %d bytes failed.",
+				ock_log_err_ex(OCK_E_GENERIC, "malloc of %d bytes failed.",
 						size);
 				break;
 			}
@@ -95,7 +95,7 @@ util_create_id(int type)
 		case TPMTOK_PUBLIC_ROOT_KEY:
 			size = TPMTOK_PUBLIC_ROOT_KEY_ID_SIZE + 1;
 			if ((ret = malloc(size)) == NULL) {
-				LogError("malloc of %d bytes failed.",
+				ock_log_err_ex(OCK_E_GENERIC, "malloc of %d bytes failed.",
 						size);
 				break;
 			}
@@ -105,7 +105,7 @@ util_create_id(int type)
 		case TPMTOK_PUBLIC_LEAF_KEY:
 			size = TPMTOK_PUBLIC_LEAF_KEY_ID_SIZE + 1;
 			if ((ret = malloc(size)) == NULL) {
-				LogError("malloc of %d bytes failed.",
+				ock_log_err_ex(OCK_E_GENERIC, "malloc of %d bytes failed.",
 						size);
 				break;
 			}
@@ -115,7 +115,7 @@ util_create_id(int type)
 		case TPMTOK_PRIVATE_LEAF_KEY:
 			size = TPMTOK_PRIVATE_LEAF_KEY_ID_SIZE + 1;
 			if ((ret = malloc(size)) == NULL) {
-				LogError("malloc of %d bytes failed.",
+				ock_log_err_ex(OCK_E_GENERIC, "malloc of %d bytes failed.",
 						size);
 				break;
 			}
@@ -123,7 +123,7 @@ util_create_id(int type)
 			sprintf((char *)ret, "%s", TPMTOK_PRIVATE_LEAF_KEY_ID);
 			break;
 		default:
-			LogError("Unknown type passed to %s: %d", __FUNCTION__, type);
+			ock_log_err_ex(OCK_E_GENERIC, "Unknown type passed to %s: %d", __FUNCTION__, type);
 			break;
 	}
 
@@ -136,11 +136,11 @@ util_set_file_mode(char *filename, mode_t mode)
 	struct stat file_stat;
 
 	if (stat(filename, &file_stat) == -1) {
-		LogError("%s: stat: %s", __FUNCTION__, strerror(errno));
+		ock_log_err_ex(OCK_E_GENERIC, "%s: stat: %s", __FUNCTION__, strerror(errno));
 		return -1;
 	} else if ((file_stat.st_mode ^ mode) != 0) {
 		if (chmod(filename, mode) == -1) {
-			LogError("chmod(%s) failed: %s", filename, strerror(errno));
+			ock_log_err_ex(OCK_E_GENERIC, "chmod(%s) failed: %s", filename, strerror(errno));
 			return -1;
 		}
 	}
@@ -159,7 +159,7 @@ util_check_public_exponent(TEMPLATE *tmpl)
 
 	flag = template_attribute_find(tmpl, CKA_PUBLIC_EXPONENT, &publ_exp_attr);
 	if (!flag){
-		LogError("Couldn't find public exponent attribute");
+		ock_log_err_ex(OCK_E_GENERIC, "Couldn't find public exponent attribute");
 		return CKR_TEMPLATE_INCOMPLETE;
 	}
 
@@ -192,14 +192,14 @@ util_set_public_modulus(TSS_HKEY hKey, unsigned long size_n, unsigned char *n)
 	result = Tspi_GetAttribData(hKey, TSS_TSPATTRIB_KEY_BLOB, TSS_TSPATTRIB_KEYBLOB_PUBLIC_KEY,
 				    &blob_size, &blob);
 	if (result != TSS_SUCCESS) {
-		LogError("Tspi_GetAttribData failed: rc=0x%x", result);
+		ock_log_err_ex(OCK_E_GENERIC, "Tspi_GetAttribData failed: rc=0x%x", result);
 		return result;
 	}
 
 	offset = 0;
 	result = Trspi_UnloadBlob_PUBKEY(&offset, blob, &pub_key);
 	if (result != TSS_SUCCESS) {
-		LogError("Tspi_GetAttribData failed: rc=0x%x", result);
+		ock_log_err_ex(OCK_E_GENERIC, "Tspi_GetAttribData failed: rc=0x%x", result);
 		return result;
 	}
 
@@ -219,7 +219,7 @@ util_set_public_modulus(TSS_HKEY hKey, unsigned long size_n, unsigned char *n)
 	result = Tspi_SetAttribData(hKey, TSS_TSPATTRIB_KEY_BLOB, TSS_TSPATTRIB_KEYBLOB_PUBLIC_KEY,
 				    (UINT32)offset, pub_blob);
 	if (result != TSS_SUCCESS) {
-		LogError("Tspi_SetAttribData failed: rc=0x%x", result);
+		ock_log_err_ex(OCK_E_GENERIC, "Tspi_SetAttribData failed: rc=0x%x", result);
 		return result;
 	}
 

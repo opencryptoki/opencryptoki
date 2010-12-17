@@ -97,7 +97,7 @@ load_token_data()
          if (!fp) {
             // were really hosed here since the created
             // did not occur
-	    LogError("failed opening %s for read: %s", fname, strerror(errno));
+	    ock_log_err_ex(OCK_E_GENERIC, "failed opening %s for read: %s", fname, strerror(errno));
             rc = CKR_FUNCTION_FAILED;
             goto out_unlock;
          }
@@ -462,14 +462,14 @@ load_public_token_objects( void )
          buf = (CK_BYTE *)malloc(size);
          if (!buf) {
             fclose(fp2);
-	    LOG(LOG_ERR, "Cannot malloc %u bytes to read in token object %s (ignoring it)",
+	    ock_log_err_ex(OCK_E_GENERIC, "Cannot malloc %u bytes to read in token object %s (ignoring it)",
 		size, fname);
 	    continue;
          }
 
          read_size = fread( buf, 1, size, fp2 );
 	 if (read_size < size) {
-	    LOG(LOG_ERR, "Cannot read in token object %s (ignoring it)", fname);
+	    ock_log_err_ex(OCK_E_GENERIC, "Cannot read in token object %s (ignoring it)", fname);
             fclose(fp2);
 	    free(buf);
 	    continue;
@@ -478,7 +478,7 @@ load_public_token_objects( void )
          // ... grab object mutex here.
          MY_LockMutex(&obj_list_mutex);
 	 if (object_mgr_restore_obj_withSize(buf, NULL, size) != CKR_OK) {
-	    LOG(LOG_ERR, "Cannot restore token object %s (ignoring it)", fname);
+	    ock_log_err_ex(OCK_E_GENERIC, "Cannot restore token object %s (ignoring it)", fname);
 	 }
          MY_UnlockMutex(&obj_list_mutex);
          free( buf );
@@ -534,14 +534,14 @@ load_private_token_objects( void )
          buf = (CK_BYTE *)malloc(size);
          if (!buf) {
 	    fclose( fp2 );
-	    LOG(LOG_ERR, "Cannot malloc %u bytes to read in token object %s (ignoring it)",
+	    ock_log_err_ex(OCK_E_GENERIC, "Cannot malloc %u bytes to read in token object %s (ignoring it)",
 		size, fname);
 	    continue;
          }
 
          rc = fread( (char *)buf, size, 1, fp2 );
          if (rc != 1) {
-	    LOG(LOG_ERR, "Cannot read in token object %s (ignoring it)", fname);
+	    ock_log_err_ex(OCK_E_GENERIC, "Cannot read in token object %s (ignoring it)", fname);
 	    fclose( fp2 );
 	    continue;
          }
@@ -802,7 +802,7 @@ load_masterkey_user( void )
    //
    fp = fopen( (char *)fname, "r" );
    if (!fp) {
-      LogError("fopen(%s): %s", fname, strerror(errno));
+      ock_log_err_ex(OCK_E_GENERIC, "fopen(%s): %s", fname, strerror(errno));
       rc = CKR_FUNCTION_FAILED;
       goto done;
    }
@@ -1072,7 +1072,7 @@ reload_token_object( OBJECT *obj )
    buf = (CK_BYTE *)malloc(size);
    if (!buf) {
       rc = CKR_HOST_MEMORY;
-      LOG(LOG_ERR, "Cannot malloc %u bytes to read in token object %s (ignoring it)", size, fname);
+      ock_log_err_ex(OCK_E_GENERIC, "Cannot malloc %u bytes to read in token object %s (ignoring it)", size, fname);
       goto done;
    }
 
