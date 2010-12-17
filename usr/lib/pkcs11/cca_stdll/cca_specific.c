@@ -183,10 +183,10 @@ token_specific_init(char *Correlator, CK_SLOT_ID SlotNumber)
 
 	/* This value should be 2 if the master key is set in the card */
 	if (memcmp(&rule_array[CCA_STATCCAE_SYM_CMK_OFFSET], "2       ", 8)) {
-		LOG(LOG_WARNING, "Warning: CCA symmetric master key is not yet loaded");
+		ock_log_warn_ex(OCK_E_GENERIC, "Warning: CCA symmetric master key is not yet loaded");
 	}
 	if (memcmp(&rule_array[CCA_STATCCAE_ASYM_CMK_OFFSET], "2       ", 8)) {
-		LOG(LOG_WARNING, "Warning: CCA asymmetric master key is not yet loaded");
+		ock_log_warn_ex(OCK_E_GENERIC, "Warning: CCA asymmetric master key is not yet loaded");
 	}
 
 	return CKR_OK;
