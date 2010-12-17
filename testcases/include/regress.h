@@ -179,6 +179,7 @@ int get_user_pin(CK_BYTE_PTR);
                 if (rc != CKR_OK) {                                     \
                         testcase_error("C_OpenSession() rc = %s",       \
                                 p11_get_ckr(rc));                       \
+                        session = CK_INVALID_HANDLE;                    \
                         goto testcase_cleanup;                          \
                 }                                                       \
         } while (0)
@@ -191,17 +192,20 @@ int get_user_pin(CK_BYTE_PTR);
                 if (rc != CKR_OK) {                                     \
                         testcase_error("C_OpenSession() rc = %s",       \
                                 p11_get_ckr(rc));                       \
+                        session = CK_INVALID_HANDLE;                    \
                         goto testcase_cleanup;                          \
                 }                                                       \
         } while (0)
 
-#define testcase_close_session()                                        \
-        do {                                                            \
-                rc = funcs->C_CloseSession(session);                    \
-                if (rc != CKR_OK) {                                     \
-                        testcase_error("C_CloseSession() rc = %s",      \
-                                p11_get_ckr(rc));                       \
-                }                                                       \
+#define testcase_close_session()                                                \
+        do {                                                                    \
+                if (session != CK_INVALID_HANDLE) {                             \
+                        rc = funcs->C_CloseSession(session);                    \
+                        if (rc != CKR_OK) {                                     \
+                                testcase_error("C_CloseSession() rc = %s",      \
+                                                p11_get_ckr(rc));               \
+                        }                                                       \
+                }                                                               \
         } while (0)
 
 #define testcase_closeall_session()                                     \
