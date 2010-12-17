@@ -290,6 +290,9 @@
 
 
 #include <stdlib.h>
+#include <stdio.h>
+#include <string.h>
+
 #include "pkcs11types.h"
 
 #define _sym2str(X)     case X: return #X

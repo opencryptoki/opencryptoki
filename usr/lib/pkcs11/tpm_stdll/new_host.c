@@ -663,7 +663,7 @@ CK_RV SC_GetTokenInfo( CK_SLOT_ID         sid,
 done:
    LLOCK;
    if (debugfile) {
-      stlogit2(debugfile, "%-25s:  rc = 0x%08x\n", "C_GetTokenInfo", rc );
+      ock_log_debug( "%-25s:  rc = 0x%08x\n", "C_GetTokenInfo", rc );
 
    }
 
@@ -761,7 +761,7 @@ CK_RV SC_GetMechanismList( CK_SLOT_ID             sid,
 done:
    LLOCK;
    if (debugfile) {
-      stlogit2(debugfile, "%-25s:  rc = 0x%08x, # mechanisms:  %d\n", "C_GetMechanismList", rc, *count );
+      ock_log_debug( "%-25s:  rc = 0x%08x, # mechanisms:  %d\n", "C_GetMechanismList", rc, *count );
    }
   UNLOCKIT;
    return rc;
@@ -811,7 +811,7 @@ CK_RV SC_GetMechanismInfo( CK_SLOT_ID             sid,
 done:
    LLOCK;
    if (debugfile) {
-      stlogit2(debugfile, "%-25s:  rc = 0x%08x, mech type = 0x%08x\n", "C_GetMechanismInfo", rc, type );
+      ock_log_debug( "%-25s:  rc = 0x%08x, mech type = 0x%08x\n", "C_GetMechanismInfo", rc, type );
    }
 
    UNLOCKIT;
@@ -941,7 +941,7 @@ CK_RV SC_InitToken( CK_SLOT_ID   sid,
 done:
    LLOCK;
    if (debugfile) {
-      stlogit2(debugfile, "%-25s:  rc = 0x%08x\n", "C_InitToken", rc );
+      ock_log_debug( "%-25s:  rc = 0x%08x\n", "C_InitToken", rc );
    }
    UNLOCKIT;
 
@@ -1052,7 +1052,7 @@ done:
    LLOCK;
 
    if (debugfile) {
-      stlogit2(debugfile, "%-25s:  session = %08x\n", "C_InitPin", rc, hSession );
+      ock_log_debug( "%-25s:  session = %08x\n", "C_InitPin", rc, hSession );
    }
 
    UNLOCKIT;
@@ -1208,7 +1208,7 @@ CK_RV SC_SetPIN( ST_SESSION_HANDLE  sSession,
 done:
    LLOCK;
    if (debugfile) {
-      stlogit2(debugfile, "%-25s:  session = %08x\n", "C_SetPin", rc, hSession );
+      ock_log_debug( "%-25s:  session = %08x\n", "C_SetPin", rc, hSession );
    }
 
    UNLOCKIT;
@@ -1293,10 +1293,10 @@ done:
 
    LLOCK;
    if (debugfile) {
-      stlogit2(debugfile, "%-25s:  rc = 0x%08x  ", "C_OpenSession", rc );
+      ock_log_debug( "%-25s:  rc = 0x%08x  ", "C_OpenSession", rc );
       if (rc == CKR_OK)
-	stlogit2(debugfile, "sess = %d", (sess == NULL)?-1:(CK_LONG)sess->handle );
-      stlogit2(debugfile, "\n");
+	ock_log_debug( "sess = %d", (sess == NULL)?-1:(CK_LONG)sess->handle );
+      ock_log_debug( "\n");
    }
 
    UNLOCKIT;
@@ -1331,7 +1331,7 @@ CK_RV SC_CloseSession( ST_SESSION_HANDLE  sSession )
 done:
    LLOCK;
    if (debugfile) {
-      stlogit2(debugfile, "%-25s:  rc = 0x%08x  sess = %d\n", "C_CloseSession", rc, hSession );
+      ock_log_debug( "%-25s:  rc = 0x%08x  sess = %d\n", "C_CloseSession", rc, hSession );
    }
 
    UNLOCKIT;
@@ -1361,7 +1361,7 @@ CK_RV SC_CloseAllSessions( CK_SLOT_ID  sid )
 done:
    LLOCK;
    if (debugfile) {
-      stlogit2(debugfile, "%-25s:  rc = 0x%08x  slot = %d\n", "C_CloseAllSessions", rc, slot_id );
+      ock_log_debug( "%-25s:  rc = 0x%08x  slot = %d\n", "C_CloseAllSessions", rc, slot_id );
    }
 
    UNLOCKIT;
@@ -1402,7 +1402,7 @@ CK_RV SC_GetSessionInfo( ST_SESSION_HANDLE   sSession,
 
 done:
    if (debugfile) {
-      stlogit2(debugfile, "%-25s:  session = %08d\n", "C_GetSessionInfo", hSession );
+      ock_log_debug( "%-25s:  session = %08d\n", "C_GetSessionInfo", hSession );
    }
    UNLOCKIT;
    return rc;
@@ -1454,7 +1454,7 @@ CK_RV SC_GetOperationState( ST_SESSION_HANDLE  sSession,
 done:
    LLOCK;
    if (debugfile) {
-      stlogit2(debugfile, "%-25s:  session = %08x\n", "C_GetOperationState", rc, hSession );
+      ock_log_debug( "%-25s:  session = %08x\n", "C_GetOperationState", rc, hSession );
    }
 
    UNLOCKIT;
@@ -1505,7 +1505,7 @@ CK_RV SC_SetOperationState( ST_SESSION_HANDLE  sSession,
 done:
    LLOCK;
    if (debugfile) {
-      stlogit2(debugfile, "%-25s:  session = %08x\n", "C_SetOperationState", rc, hSession );
+      ock_log_debug( "%-25s:  session = %08x\n", "C_SetOperationState", rc, hSession );
    }
 
    UNLOCKIT;
@@ -1639,7 +1639,7 @@ CK_RV SC_Login( ST_SESSION_HANDLE   sSession,
 done:
 	LLOCK;
 	if (debugfile) {
-		stlogit2(debugfile, "%-25s:  rc = 0x%08x\n", "C_Login", rc );
+		ock_log_debug( "%-25s:  rc = 0x%08x\n", "C_Login", rc );
 	}
 
 	UNLOCKIT;
@@ -1695,7 +1695,7 @@ CK_RV SC_Logout( ST_SESSION_HANDLE  sSession )
 done:
 	LLOCK;
 	if (debugfile) {
-		stlogit2(debugfile, "%-25s:  rc = 0x%08x\n", "C_Logout", rc );
+		ock_log_debug( "%-25s:  rc = 0x%08x\n", "C_Logout", rc );
 	}
 
 	UNLOCKIT; return rc;
@@ -1742,14 +1742,14 @@ CK_RV SC_CreateObject( ST_SESSION_HANDLE    sSession,
 done:
    LLOCK;
    if (debugfile) {
-      stlogit2(debugfile, "%-25s:  rc = %08x\n", "C_CreateObject", rc );
+      ock_log_debug( "%-25s:  rc = %08x\n", "C_CreateObject", rc );
 
       for (i = 0; i < ulCount; i++) {
          if (pTemplate[i].type == CKA_CLASS)
-           stlogit2(debugfile, "%28s:  0x%02x\n", "Object Type", *(CK_ULONG *)pTemplate[i].pValue );
+           ock_log_debug( "%28s:  0x%02x\n", "Object Type", *(CK_ULONG *)pTemplate[i].pValue );
       }
       if (rc == CKR_OK)
-        stlogit2(debugfile, "%28s:  %d\n", "Handle", *phObject );
+        ock_log_debug( "%28s:  %d\n", "Handle", *phObject );
 
    }
 
@@ -1798,7 +1798,7 @@ CK_RV  SC_CopyObject( ST_SESSION_HANDLE    sSession,
 done:
    LLOCK;
    if (debugfile) {
-      stlogit2(debugfile, "%-25s:  rc = %08x, old handle = %d, new handle = %d\n", "C_CopyObject", rc, hObject, *phNewObject );
+      ock_log_debug( "%-25s:  rc = %08x, old handle = %d, new handle = %d\n", "C_CopyObject", rc, hObject, *phNewObject );
    }
 
    UNLOCKIT; return rc;
@@ -1842,7 +1842,7 @@ CK_RV SC_DestroyObject( ST_SESSION_HANDLE  sSession,
 done:
    LLOCK;
    if (debugfile) {
-      stlogit2(debugfile, "%-25s:  rc = %08x, handle = %d\n", "C_DestroyObject", rc, hObject );
+      ock_log_debug( "%-25s:  rc = %08x, handle = %d\n", "C_DestroyObject", rc, hObject );
    }
 
    UNLOCKIT; return rc;
@@ -1882,7 +1882,7 @@ CK_RV SC_GetObjectSize( ST_SESSION_HANDLE  sSession,
 done:
    LLOCK;
    if (debugfile) {
-      stlogit2(debugfile, "%-25s:  rc = %08x, handle = %d\n", "C_GetObjectSize", rc, hObject );
+      ock_log_debug( "%-25s:  rc = %08x, handle = %d\n", "C_GetObjectSize", rc, hObject );
    }
 
    UNLOCKIT; return rc;
@@ -1927,19 +1927,19 @@ CK_RV SC_GetAttributeValue( ST_SESSION_HANDLE  sSession,
 done:
    LLOCK;
    if (debugfile) {
-      stlogit2(debugfile, "%-25s:  rc = %08x, handle = %d\n", "C_GetAttributeValue", rc, hObject );
+      ock_log_debug( "%-25s:  rc = %08x, handle = %d\n", "C_GetAttributeValue", rc, hObject );
 
       attr = pTemplate;
       for (i = 0; i < ulCount; i++, attr++) {
          ptr = (CK_BYTE *)attr->pValue;
 
-         stlogit2(debugfile, "   %3d:  Attribute type:  0x%08x\n", i, attr->type );
-         stlogit2(debugfile, "         Value Length:    %08d\n",   attr->ulValueLen );
+         ock_log_debug( "   %3d:  Attribute type:  0x%08x\n", i, attr->type );
+         ock_log_debug( "         Value Length:    %08d\n",   attr->ulValueLen );
 
          if (attr->ulValueLen != (CK_ULONG)(-1) && (ptr != NULL))
-            stlogit2(debugfile, "         First 4 bytes:   %02x %02x %02x %02x", ptr[0], ptr[1], ptr[2], ptr[3] );
+            ock_log_debug( "         First 4 bytes:   %02x %02x %02x %02x", ptr[0], ptr[1], ptr[2], ptr[3] );
 
-         stlogit2(debugfile, "\n\n");
+         ock_log_debug( "\n\n");
       }
 
    }
@@ -1984,19 +1984,19 @@ CK_RV  SC_SetAttributeValue( ST_SESSION_HANDLE    sSession,
 done:
    LLOCK;
    if (debugfile) {
-      stlogit2(debugfile, "%-25s:  rc = %08x, handle = %d\n", "C_SetAttributeValue", rc, hObject );
+      ock_log_debug( "%-25s:  rc = %08x, handle = %d\n", "C_SetAttributeValue", rc, hObject );
 
       attr = pTemplate;
       for (i = 0; i < ulCount; i++, attr++) {
          CK_BYTE *ptr = (CK_BYTE *)attr->pValue;
 
-         stlogit2(debugfile, "   %3d:  Attribute type:  0x%08x\n", i, attr->type );
-         stlogit2(debugfile, "         Value Length:    %08d\n",   attr->ulValueLen );
+         ock_log_debug( "   %3d:  Attribute type:  0x%08x\n", i, attr->type );
+         ock_log_debug( "         Value Length:    %08d\n",   attr->ulValueLen );
 
          if (attr->ulValueLen != (CK_ULONG)(-1) && (ptr != NULL))
-            stlogit2(debugfile, "         First 4 bytes:   %02x %02x %02x %02x", ptr[0], ptr[1], ptr[2], ptr[3] );
+            ock_log_debug( "         First 4 bytes:   %02x %02x %02x %02x", ptr[0], ptr[1], ptr[2], ptr[3] );
 
-         stlogit2(debugfile, "\n\n");
+         ock_log_debug( "\n\n");
       }
 
    }
@@ -2051,19 +2051,19 @@ CK_RV SC_FindObjectsInit( ST_SESSION_HANDLE   sSession,
 done:
    LLOCK;
    if (debugfile) {
-      stlogit2(debugfile, "%-25s:  rc = %08x\n", "C_FindObjectsInit", rc );
+      ock_log_debug( "%-25s:  rc = %08x\n", "C_FindObjectsInit", rc );
 
       attr = pTemplate;
       for (i = 0; i < ulCount; i++, attr++) {
          CK_BYTE *ptr = (CK_BYTE *)attr->pValue;
 
-         stlogit2(debugfile, "   %3d:  Attribute type:  0x%08x\n", i, attr->type );
-         stlogit2(debugfile, "         Value Length:    %08d\n",   attr->ulValueLen );
+         ock_log_debug( "   %3d:  Attribute type:  0x%08x\n", i, attr->type );
+         ock_log_debug( "         Value Length:    %08d\n",   attr->ulValueLen );
 
          if (attr->ulValueLen != (CK_ULONG)(-1) && (ptr != NULL))
-            stlogit2(debugfile, "         First 4 bytes:   %02x %02x %02x %02x", ptr[0], ptr[1], ptr[2], ptr[3] );
+            ock_log_debug( "         First 4 bytes:   %02x %02x %02x %02x", ptr[0], ptr[1], ptr[2], ptr[3] );
 
-         stlogit2(debugfile, "\n\n");
+         ock_log_debug( "\n\n");
       }
 
    }
@@ -2127,7 +2127,7 @@ CK_RV SC_FindObjects( ST_SESSION_HANDLE     sSession,
 done:
    LLOCK;
    if (debugfile) {
-      stlogit2(debugfile, "%-25s:  rc = %08x, returned %d objects\n", "C_FindObjects", rc, count );
+      ock_log_debug( "%-25s:  rc = %08x, returned %d objects\n", "C_FindObjects", rc, count );
    }
 
    UNLOCKIT; return rc;
@@ -2177,7 +2177,7 @@ CK_RV SC_FindObjectsFinal( ST_SESSION_HANDLE  sSession )
 done:
    LLOCK;
    if (debugfile) {
-      stlogit2(debugfile, "%-25s:  rc = %08x\n", "C_FindObjectsFinal", rc );
+      ock_log_debug( "%-25s:  rc = %08x\n", "C_FindObjectsFinal", rc );
    }
 
    UNLOCKIT; return rc;
@@ -2237,7 +2237,7 @@ CK_RV SC_EncryptInit( ST_SESSION_HANDLE  sSession,
 done:
    LLOCK;
    if (debugfile) {
-      stlogit2(debugfile, "%-25s:  rc = %08x, sess = %d, key = %d, mech = 0x%x\n", "C_EncryptInit", rc,(sess == NULL)?-1:(CK_LONG)sess->handle, hKey, pMechanism->mechanism );
+      ock_log_debug( "%-25s:  rc = %08x, sess = %d, key = %d, mech = 0x%x\n", "C_EncryptInit", rc,(sess == NULL)?-1:(CK_LONG)sess->handle, hKey, pMechanism->mechanism );
    }
 
    UNLOCKIT; return rc;
@@ -2301,7 +2301,7 @@ done:
       encr_mgr_cleanup( &sess->encr_ctx );
 
    if (debugfile) {
-      stlogit2(debugfile, "%-25s:  rc = %08x, sess = %d, amount = %d\n", "C_Encrypt", rc, (sess == NULL)?-1:(CK_LONG)sess->handle, ulDataLen );
+      ock_log_debug( "%-25s:  rc = %08x, sess = %d, amount = %d\n", "C_Encrypt", rc, (sess == NULL)?-1:(CK_LONG)sess->handle, ulDataLen );
    }
 
    UNLOCKIT; return rc;
@@ -2365,7 +2365,7 @@ done:
       encr_mgr_cleanup( &sess->encr_ctx );
 
    if (debugfile) {
-      stlogit2(debugfile, "%-25s:  rc = %08x, sess = %d, amount = %d\n", "C_EncryptUpdate", rc, (sess == NULL)?-1:(CK_LONG)sess->handle, ulPartLen );
+      ock_log_debug( "%-25s:  rc = %08x, sess = %d, amount = %d\n", "C_EncryptUpdate", rc, (sess == NULL)?-1:(CK_LONG)sess->handle, ulPartLen );
    }
 
    UNLOCKIT; return rc;
@@ -2444,7 +2444,7 @@ done:
       encr_mgr_cleanup( &sess->encr_ctx );
 
    if (debugfile) {
-      stlogit2(debugfile, "%-25s:  rc = %08x, sess = %d\n", "C_EncryptFinal", rc, (sess == NULL)?-1:(CK_LONG)sess->handle );
+      ock_log_debug( "%-25s:  rc = %08x, sess = %d\n", "C_EncryptFinal", rc, (sess == NULL)?-1:(CK_LONG)sess->handle );
    }
 
    UNLOCKIT; return rc;
@@ -2503,7 +2503,7 @@ CK_RV SC_DecryptInit( ST_SESSION_HANDLE  sSession,
 done:
    LLOCK;
    if (debugfile) {
-      stlogit2(debugfile, "%-25s:  rc = %08x, sess = %d, key = %d, mech = 0x%x\n", "C_DecryptInit", rc, (sess == NULL)?-1:(CK_LONG)sess->handle, hKey, pMechanism->mechanism );
+      ock_log_debug( "%-25s:  rc = %08x, sess = %d, key = %d, mech = 0x%x\n", "C_DecryptInit", rc, (sess == NULL)?-1:(CK_LONG)sess->handle, hKey, pMechanism->mechanism );
    }
 
    UNLOCKIT; return rc;
@@ -2567,7 +2567,7 @@ done:
       decr_mgr_cleanup( &sess->decr_ctx );
 
    if (debugfile) {
-      stlogit2(debugfile, "%-25s:  rc = %08x, sess = %d, amount = %d\n", "C_Decrypt", rc, (sess == NULL)?-1:(CK_LONG)sess->handle, ulEncryptedDataLen );
+      ock_log_debug( "%-25s:  rc = %08x, sess = %d, amount = %d\n", "C_Decrypt", rc, (sess == NULL)?-1:(CK_LONG)sess->handle, ulEncryptedDataLen );
    }
 
    UNLOCKIT; return rc;
@@ -2631,7 +2631,7 @@ done:
       decr_mgr_cleanup( &sess->decr_ctx );
 
    if (debugfile) {
-      stlogit2(debugfile, "%-25s:  rc = %08x, sess = %d, amount = %d\n", "C_DecryptUpdate", rc, (sess == NULL)?-1:(CK_LONG)sess->handle, ulEncryptedPartLen );
+      ock_log_debug( "%-25s:  rc = %08x, sess = %d, amount = %d\n", "C_DecryptUpdate", rc, (sess == NULL)?-1:(CK_LONG)sess->handle, ulEncryptedPartLen );
    }
 
    UNLOCKIT; return rc;
@@ -2692,7 +2692,7 @@ done:
       decr_mgr_cleanup( &sess->decr_ctx );
 
    if (debugfile) {
-      stlogit2(debugfile, "%-25s:  rc = %08x, sess = %d, amount = %d\n", "C_DecryptFinal", rc, (sess == NULL)?-1:(CK_LONG)sess->handle, *pulLastPartLen );
+      ock_log_debug( "%-25s:  rc = %08x, sess = %d, amount = %d\n", "C_DecryptFinal", rc, (sess == NULL)?-1:(CK_LONG)sess->handle, *pulLastPartLen );
    }
 
    UNLOCKIT; return rc;
@@ -2751,7 +2751,7 @@ CK_RV SC_DigestInit( ST_SESSION_HANDLE  sSession,
 done:
    LLOCK;
    if (debugfile) {
-      stlogit2(debugfile, "%-25s:  rc = %08x, sess = %d, mech = %x\n", "C_DigestInit", rc, (sess == NULL)?-1:(CK_LONG)sess->handle, pMechanism->mechanism );
+      ock_log_debug( "%-25s:  rc = %08x, sess = %d, mech = %x\n", "C_DigestInit", rc, (sess == NULL)?-1:(CK_LONG)sess->handle, pMechanism->mechanism );
    }
 
    UNLOCKIT; return rc;
@@ -2815,7 +2815,7 @@ CK_RV SC_Digest( ST_SESSION_HANDLE  sSession,
 done:
    LLOCK;
    if (debugfile) {
-      stlogit2(debugfile, "%-25s:  rc = %08x, sess = %d, datalen = %d\n", "C_Digest", rc, (sess == NULL)?-1:(CK_LONG)sess->handle, ulDataLen );
+      ock_log_debug( "%-25s:  rc = %08x, sess = %d, datalen = %d\n", "C_Digest", rc, (sess == NULL)?-1:(CK_LONG)sess->handle, ulDataLen );
    }
 
    UNLOCKIT; return rc;
@@ -2870,7 +2870,7 @@ CK_RV SC_DigestUpdate( ST_SESSION_HANDLE  sSession,
 done:
    LLOCK;
    if (debugfile) {
-      stlogit2(debugfile, "%-25s:  rc = %08x, sess = %d, datalen = %d\n", "C_DigestUpdate", rc, (sess == NULL)?-1:(CK_LONG)sess->handle, ulPartLen );
+      ock_log_debug( "%-25s:  rc = %08x, sess = %d, datalen = %d\n", "C_DigestUpdate", rc, (sess == NULL)?-1:(CK_LONG)sess->handle, ulPartLen );
    }
 
    UNLOCKIT; return rc;
@@ -2914,7 +2914,7 @@ CK_RV SC_DigestKey( ST_SESSION_HANDLE  sSession,
 done:
    LLOCK;
    if (debugfile) {
-      stlogit2(debugfile, "%-25s:  rc = %08x, sess = %d, key = %d\n", "C_DigestKey", rc, (sess == NULL)?-1:(CK_LONG)sess->handle, hKey );
+      ock_log_debug( "%-25s:  rc = %08x, sess = %d, key = %d\n", "C_DigestKey", rc, (sess == NULL)?-1:(CK_LONG)sess->handle, hKey );
    }
 
    UNLOCKIT; return rc;
@@ -2972,7 +2972,7 @@ CK_RV SC_DigestFinal( ST_SESSION_HANDLE  sSession,
 done:
    LLOCK;
    if (debugfile) {
-      stlogit2(debugfile, "%-25s:  rc = %08x, sess = %d\n", "C_DigestFinal", rc, (sess == NULL)?-1:(CK_LONG)sess->handle );
+      ock_log_debug( "%-25s:  rc = %08x, sess = %d\n", "C_DigestFinal", rc, (sess == NULL)?-1:(CK_LONG)sess->handle );
    }
 
    UNLOCKIT; return rc;
@@ -3031,7 +3031,7 @@ CK_RV SC_SignInit( ST_SESSION_HANDLE  sSession,
 done:
    LLOCK;
    if (debugfile) {
-      stlogit2(debugfile, "%-25s:  rc = %08x, sess = %d, mech = %x\n", "C_SignInit", rc, (sess == NULL)?-1:(CK_LONG)sess->handle, pMechanism->mechanism );
+      ock_log_debug( "%-25s:  rc = %08x, sess = %d, mech = %x\n", "C_SignInit", rc, (sess == NULL)?-1:(CK_LONG)sess->handle, pMechanism->mechanism );
    }
 
    UNLOCKIT; return rc;
@@ -3095,7 +3095,7 @@ done:
 
    LLOCK;
    if (debugfile) {
-      stlogit2(debugfile, "%-25s:  rc = %08x, sess = %d, datalen = %d\n", "C_Sign", rc, (sess == NULL)?-1:(CK_LONG)sess->handle, ulDataLen );
+      ock_log_debug( "%-25s:  rc = %08x, sess = %d, datalen = %d\n", "C_Sign", rc, (sess == NULL)?-1:(CK_LONG)sess->handle, ulDataLen );
    }
 
    UNLOCKIT; return rc;
@@ -3150,7 +3150,7 @@ done:
 
    LLOCK;
    if (debugfile) {
-      stlogit2(debugfile, "%-25s:  rc = %08x, sess = %d, datalen = %d\n", "C_SignUpdate", rc, (sess == NULL)?-1:(CK_LONG)sess->handle, ulPartLen );
+      ock_log_debug( "%-25s:  rc = %08x, sess = %d, datalen = %d\n", "C_SignUpdate", rc, (sess == NULL)?-1:(CK_LONG)sess->handle, ulPartLen );
    }
 
    UNLOCKIT; return rc;
@@ -3212,7 +3212,7 @@ done:
    LLOCK;
    if (debugfile)
    {
-      stlogit2(debugfile, "%-25s:  rc = %08x, sess = %d\n", "C_SignFinal", rc, (sess == NULL)?-1:(CK_LONG)sess->handle );
+      ock_log_debug( "%-25s:  rc = %08x, sess = %d\n", "C_SignFinal", rc, (sess == NULL)?-1:(CK_LONG)sess->handle );
    }
 
    UNLOCKIT; return rc;
@@ -3270,7 +3270,7 @@ CK_RV SC_SignRecoverInit( ST_SESSION_HANDLE  sSession,
 done:
    LLOCK;
    if (debugfile) {
-      stlogit2(debugfile, "%-25s:  rc = %08x, sess = %d, mech = %x\n", "C_SignRecoverInit", rc, (sess == NULL)?-1:(CK_LONG)sess->handle, pMechanism->mechanism );
+      ock_log_debug( "%-25s:  rc = %08x, sess = %d, mech = %x\n", "C_SignRecoverInit", rc, (sess == NULL)?-1:(CK_LONG)sess->handle, pMechanism->mechanism );
    }
 
    UNLOCKIT; return rc;
@@ -3334,7 +3334,7 @@ done:
 
    LLOCK;
    if (debugfile) {
-      stlogit2(debugfile, "%-25s:  rc = %08x, sess = %d, datalen = %d\n", "C_SignRecover", rc, (sess == NULL)?-1:(CK_LONG)sess->handle, ulDataLen );
+      ock_log_debug( "%-25s:  rc = %08x, sess = %d, datalen = %d\n", "C_SignRecover", rc, (sess == NULL)?-1:(CK_LONG)sess->handle, ulDataLen );
    }
 
    UNLOCKIT; return rc;
@@ -3392,7 +3392,7 @@ CK_RV SC_VerifyInit( ST_SESSION_HANDLE  sSession,
 done:
    LLOCK;
    if (debugfile) {
-      stlogit2(debugfile, "%-25s:  rc = %08x, sess = %d, mech = %x\n", "C_VerifyInit", rc, (sess == NULL)?-1:(CK_LONG)sess->handle, pMechanism->mechanism );
+      ock_log_debug( "%-25s:  rc = %08x, sess = %d, mech = %x\n", "C_VerifyInit", rc, (sess == NULL)?-1:(CK_LONG)sess->handle, pMechanism->mechanism );
    }
 
    UNLOCKIT; return rc;
@@ -3451,7 +3451,7 @@ done:
 
    LLOCK;
    if (debugfile) {
-      stlogit2(debugfile, "%-25s:  rc = %08x, sess = %d, datalen = %d\n", "C_Verify", rc, (sess == NULL)?-1:(CK_LONG)sess->handle, ulDataLen );
+      ock_log_debug( "%-25s:  rc = %08x, sess = %d, datalen = %d\n", "C_Verify", rc, (sess == NULL)?-1:(CK_LONG)sess->handle, ulDataLen );
    }
 
    UNLOCKIT; return rc;
@@ -3506,7 +3506,7 @@ done:
 
    LLOCK;
    if (debugfile) {
-      stlogit2(debugfile, "%-25s:  rc = %08x, sess = %d, datalen = %d\n", "C_VerifyUpdate", rc, (sess == NULL)?-1:(CK_LONG)sess->handle, ulPartLen );
+      ock_log_debug( "%-25s:  rc = %08x, sess = %d, datalen = %d\n", "C_VerifyUpdate", rc, (sess == NULL)?-1:(CK_LONG)sess->handle, ulPartLen );
    }
 
    UNLOCKIT; return rc;
@@ -3560,7 +3560,7 @@ done:
 
    LLOCK;
    if (debugfile) {
-      stlogit2(debugfile, "%-25s:  rc = %08x, sess = %d\n", "C_VerifyFinal", rc, (sess == NULL)?-1:(CK_LONG)sess->handle );
+      ock_log_debug( "%-25s:  rc = %08x, sess = %d\n", "C_VerifyFinal", rc, (sess == NULL)?-1:(CK_LONG)sess->handle );
    }
 
    UNLOCKIT; return rc;
@@ -3618,7 +3618,7 @@ CK_RV SC_VerifyRecoverInit( ST_SESSION_HANDLE  sSession,
 done:
    LLOCK;
    if (debugfile) {
-      stlogit2(debugfile, "%-25s:  rc = %08x, sess = %d, mech = %x\n", "C_VerifyRecoverInit", rc, (sess == NULL)?-1:(CK_LONG)sess->handle, pMechanism->mechanism );
+      ock_log_debug( "%-25s:  rc = %08x, sess = %d, mech = %x\n", "C_VerifyRecoverInit", rc, (sess == NULL)?-1:(CK_LONG)sess->handle, pMechanism->mechanism );
    }
 
    UNLOCKIT; return rc;
@@ -3683,7 +3683,7 @@ done:
 
    LLOCK;
    if (debugfile) {
-      stlogit2(debugfile, "%-25s:  rc = %08x, sess = %d, recover len = %d, length_only = %d\n", "C_VerifyRecover", rc, (sess == NULL)?-1:(CK_LONG)sess->handle, *pulDataLen, length_only );
+      ock_log_debug( "%-25s:  rc = %08x, sess = %d, recover len = %d, length_only = %d\n", "C_VerifyRecover", rc, (sess == NULL)?-1:(CK_LONG)sess->handle, *pulDataLen, length_only );
    }
 
    UNLOCKIT; return rc;
@@ -3814,18 +3814,18 @@ done:
       CK_ATTRIBUTE *attr = pTemplate;
       CK_ULONG      i;
 
-      stlogit2(debugfile, "%-25s:  rc = %08x, sess = %d, handle = %d, mech = %x\n", "C_GenerateKey", rc, (sess == NULL)?-1:(CK_LONG)sess->handle, *phKey, pMechanism->mechanism );
+      ock_log_debug( "%-25s:  rc = %08x, sess = %d, handle = %d, mech = %x\n", "C_GenerateKey", rc, (sess == NULL)?-1:(CK_LONG)sess->handle, *phKey, pMechanism->mechanism );
 
       for (i = 0; i < ulCount; i++, attr++) {
          CK_BYTE *ptr = (CK_BYTE *)attr->pValue;
 
-         stlogit2(debugfile, "   %3d:  Attribute type:  0x%08x\n", i, attr->type );
-         stlogit2(debugfile, "         Value Length:    %08d\n",   attr->ulValueLen );
+         ock_log_debug( "   %3d:  Attribute type:  0x%08x\n", i, attr->type );
+         ock_log_debug( "         Value Length:    %08d\n",   attr->ulValueLen );
 
          if (attr->ulValueLen != (CK_ULONG)(-1) && (ptr != NULL))
-            stlogit2(debugfile, "         First 4 bytes:   %02x %02x %02x %02x", ptr[0], ptr[1], ptr[2], ptr[3] );
+            ock_log_debug( "         First 4 bytes:   %02x %02x %02x %02x", ptr[0], ptr[1], ptr[2], ptr[3] );
 
-         stlogit2(debugfile, "\n\n");
+         ock_log_debug( "\n\n");
       }
 
    }
@@ -3894,41 +3894,41 @@ done:
       CK_ATTRIBUTE *attr = NULL;
       CK_ULONG      i;
 
-      stlogit2(debugfile, "%-25s:  rc = %08x, sess = %d, mech = %x\n", "C_GenerateKeyPair", rc, (sess == NULL)?-1:(CK_LONG)sess->handle, pMechanism->mechanism );
+      ock_log_debug( "%-25s:  rc = %08x, sess = %d, mech = %x\n", "C_GenerateKeyPair", rc, (sess == NULL)?-1:(CK_LONG)sess->handle, pMechanism->mechanism );
 
       if (rc == CKR_OK) {
-         stlogit2(debugfile, "   Public  handle:  %d\n", *phPublicKey );
-         stlogit2(debugfile, "   Private handle:  %d\n", *phPrivateKey );
+         ock_log_debug( "   Public  handle:  %d\n", *phPublicKey );
+         ock_log_debug( "   Private handle:  %d\n", *phPrivateKey );
       }
 
-      stlogit2(debugfile, "   Public Template:\n");
+      ock_log_debug( "   Public Template:\n");
 
       attr = pPublicKeyTemplate;
       for (i = 0; i < ulPublicKeyAttributeCount; i++, attr++) {
          CK_BYTE *ptr = (CK_BYTE *)attr->pValue;
 
-         stlogit2(debugfile, "   %3d:  Attribute type:  0x%08x\n", i, attr->type );
-         stlogit2(debugfile, "         Value Length:    %08d\n",   attr->ulValueLen );
+         ock_log_debug( "   %3d:  Attribute type:  0x%08x\n", i, attr->type );
+         ock_log_debug( "         Value Length:    %08d\n",   attr->ulValueLen );
 
          if (attr->ulValueLen != (CK_ULONG)(-1) && (ptr != NULL))
-            stlogit2(debugfile, "         First 4 bytes:   %02x %02x %02x %02x", ptr[0], ptr[1], ptr[2], ptr[3] );
+            ock_log_debug( "         First 4 bytes:   %02x %02x %02x %02x", ptr[0], ptr[1], ptr[2], ptr[3] );
 
-         stlogit2(debugfile, "\n\n");
+         ock_log_debug( "\n\n");
       }
 
-      stlogit2(debugfile, "   Private Template:\n");
+      ock_log_debug( "   Private Template:\n");
 
       attr = pPrivateKeyTemplate;
       for (i = 0; i < ulPrivateKeyAttributeCount; i++, attr++) {
          CK_BYTE *ptr = (CK_BYTE *)attr->pValue;
 
-         stlogit2(debugfile, "   %3d:  Attribute type:  0x%08x\n", i, attr->type );
-         stlogit2(debugfile, "         Value Length:    %08d\n",   attr->ulValueLen );
+         ock_log_debug( "   %3d:  Attribute type:  0x%08x\n", i, attr->type );
+         ock_log_debug( "         Value Length:    %08d\n",   attr->ulValueLen );
 
          if (attr->ulValueLen != (CK_ULONG)(-1) && (ptr != NULL))
-            stlogit2(debugfile, "         First 4 bytes:   %02x %02x %02x %02x", ptr[0], ptr[1], ptr[2], ptr[3] );
+            ock_log_debug( "         First 4 bytes:   %02x %02x %02x %02x", ptr[0], ptr[1], ptr[2], ptr[3] );
 
-         stlogit2(debugfile, "\n\n");
+         ock_log_debug( "\n\n");
       }
 
    }
@@ -3993,7 +3993,7 @@ CK_RV SC_WrapKey( ST_SESSION_HANDLE  sSession,
 done:
    LLOCK;
    if (debugfile) {
-      stlogit2(debugfile, "%-25s:  rc = %08x, sess = %d, encrypting key = %d, wrapped key = %d\n", "C_WrapKey", rc, (sess == NULL)?-1:(CK_LONG)sess->handle, hWrappingKey, hKey );
+      ock_log_debug( "%-25s:  rc = %08x, sess = %d, encrypting key = %d, wrapped key = %d\n", "C_WrapKey", rc, (sess == NULL)?-1:(CK_LONG)sess->handle, hWrappingKey, hKey );
    }
 
    UNLOCKIT; return rc;
@@ -4060,19 +4060,19 @@ done:
 //   if (rc == CKR_OBJECT_HANDLE_INVALID)  brkpt();
    LLOCK;
    if (debugfile) {
-      stlogit2(debugfile, "%-25s:  rc = %08x, sess = %d, decrypting key = %d, unwrapped key = %d\n", "C_UnwrapKey", rc, (sess == NULL)?-1:(CK_LONG)sess->handle, hUnwrappingKey, *phKey );
+      ock_log_debug( "%-25s:  rc = %08x, sess = %d, decrypting key = %d, unwrapped key = %d\n", "C_UnwrapKey", rc, (sess == NULL)?-1:(CK_LONG)sess->handle, hUnwrappingKey, *phKey );
 
       attr = pTemplate;
       for (i = 0; i < ulCount; i++, attr++) {
          ptr = (CK_BYTE *)attr->pValue;
 
-         stlogit2(debugfile, "   %3d:  Attribute type:  0x%08x\n", i, attr->type );
-         stlogit2(debugfile, "         Value Length:    %08d\n",   attr->ulValueLen );
+         ock_log_debug( "   %3d:  Attribute type:  0x%08x\n", i, attr->type );
+         ock_log_debug( "         Value Length:    %08d\n",   attr->ulValueLen );
 
          if (attr->ulValueLen != (CK_ULONG)(-1) && (ptr != NULL))
-            stlogit2(debugfile, "         First 4 bytes:   %02x %02x %02x %02x", ptr[0], ptr[1], ptr[2], ptr[3] );
+            ock_log_debug( "         First 4 bytes:   %02x %02x %02x %02x", ptr[0], ptr[1], ptr[2], ptr[3] );
 
-         stlogit2(debugfile, "\n\n");
+         ock_log_debug( "\n\n");
       }
 
    }
@@ -4135,7 +4135,7 @@ CK_RV SC_DeriveKey( ST_SESSION_HANDLE     sSession,
 done:
    LLOCK;
    if (debugfile) {
-      stlogit2(debugfile, "%-25s:  rc = %08x, sess = %d, base key = %d, mech = %x\n", "C_DeriveKey", rc, (sess == NULL)?-1:(CK_LONG)sess->handle, hBaseKey, pMechanism->mechanism );
+      ock_log_debug( "%-25s:  rc = %08x, sess = %d, base key = %d, mech = %x\n", "C_DeriveKey", rc, (sess == NULL)?-1:(CK_LONG)sess->handle, hBaseKey, pMechanism->mechanism );
 
       if (rc == CKR_OK) {
          switch (pMechanism->mechanism) {
@@ -4146,21 +4146,21 @@ done:
                pReq = (CK_SSL3_KEY_MAT_PARAMS *)pMechanism->pParameter;
                pPtr = pReq->pReturnedKeyMaterial;
 
-               stlogit2(debugfile, "   Client MAC key:  %d\n", pPtr->hClientMacSecret );
-               stlogit2(debugfile, "   Server MAC key:  %d\n", pPtr->hServerMacSecret );
-               stlogit2(debugfile, "   Client Key:      %d\n", pPtr->hClientKey );
-               stlogit2(debugfile, "   Server Key:      %d\n", pPtr->hServerKey );
+               ock_log_debug( "   Client MAC key:  %d\n", pPtr->hClientMacSecret );
+               ock_log_debug( "   Server MAC key:  %d\n", pPtr->hServerMacSecret );
+               ock_log_debug( "   Client Key:      %d\n", pPtr->hClientKey );
+               ock_log_debug( "   Server Key:      %d\n", pPtr->hServerKey );
             }
             break;
 
             case CKM_DH_PKCS_DERIVE:
             {
-               stlogit2(debugfile, "   DH Shared Secret:  \n" );
+               ock_log_debug( "   DH Shared Secret:  \n" );
             }
             break ;
 
             default:
-               stlogit2(debugfile, "   Derived key:     %d\n", *phKey );
+               ock_log_debug( "   Derived key:     %d\n", *phKey );
          }
       }
 
@@ -4169,13 +4169,13 @@ done:
       for (i = 0; i < ulCount; i++, attr++) {
          ptr = (CK_BYTE *)attr->pValue;
 
-         stlogit2(debugfile, "   %3d:  Attribute type:  0x%08x\n", i, attr->type );
-         stlogit2(debugfile, "         Value Length:    %08d\n",   attr->ulValueLen );
+         ock_log_debug( "   %3d:  Attribute type:  0x%08x\n", i, attr->type );
+         ock_log_debug( "         Value Length:    %08d\n",   attr->ulValueLen );
 
          if (attr->ulValueLen != (CK_ULONG)(-1) && (ptr != NULL))
-            stlogit2(debugfile, "         First 4 bytes:   %02x %02x %02x %02x", ptr[0], ptr[1], ptr[2], ptr[3] );
+            ock_log_debug( "         First 4 bytes:   %02x %02x %02x %02x", ptr[0], ptr[1], ptr[2], ptr[3] );
 
-         stlogit2(debugfile, "\n\n");
+         ock_log_debug( "\n\n");
       }
 
    }
@@ -4237,7 +4237,7 @@ CK_RV SC_GenerateRandom( ST_SESSION_HANDLE  sSession,
 done:
    LLOCK;
    if (debugfile) {
-      stlogit2(debugfile, "%-25s:  rc = %08x, %d bytes\n", "C_GenerateRandom", rc, ulRandomLen );
+      ock_log_debug( "%-25s:  rc = %08x, %d bytes\n", "C_GenerateRandom", rc, ulRandomLen );
    }
 
    UNLOCKIT; return rc;

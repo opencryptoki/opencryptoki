@@ -1165,7 +1165,7 @@ CK_RV communicate( CK_ULONG    cmd_id, CK_SLOT_ID   slot_id,
                // XXX FIXME   just bail for now.
 
 #ifdef DEBUGON
-   logit(LOG_DEBUG, "%-25s: socket failed to connect errno %d \n","communicate",errno);
+   ock_log_debug( "%-25s: socket failed to connect errno %d \n","communicate",errno);
 #endif
                pthread_mutex_unlock(&smtx);
                return CKR_FUNCTION_FAILED;
@@ -1192,7 +1192,7 @@ CK_RV communicate( CK_ULONG    cmd_id, CK_SLOT_ID   slot_id,
 
 
 #ifdef DEBUGON
-   logit(LOG_DEBUG, "\t\t%-25s:  slot_id %d  %d, 0x%x \n","communicate",slot_id,slot_id-1,cmd_id);
+   ock_log_debug( "\t\t%-25s:  slot_id %d  %d, 0x%x \n","communicate",slot_id,slot_id-1,cmd_id);
 #endif
 
    // this probably isn't guaranteed to be longword-aligned...
@@ -1236,17 +1236,17 @@ CK_RV communicate( CK_ULONG    cmd_id, CK_SLOT_ID   slot_id,
   pthread_mutex_lock(&smtx);
 
 #ifdef DEBUGON
-   logit(LOG_DEBUG, "\t\t%-25s:  writing   \n","communicate");
+   ock_log_debug( "\t\t%-25s:  writing   \n","communicate");
 #endif
    //rv = write(adapter_handle[slot_id -1 ],send_packet,send_len);
    rv = write(sock,send_packet,send_len);
 #ifdef DEBUGON
-   logit(LOG_DEBUG, "\t\t%-25s:  wrote  %d  \n","communicate",rv);
+   ock_log_debug( "\t\t%-25s:  wrote  %d  \n","communicate",rv);
 #endif
 
    if (rv == -1) {
 #ifdef DEBUGON
-   logit(LOG_DEBUG, "\t\t%-25s: write failed  %d  errno %d \n","communicate",rv,errno);
+   ock_log_debug( "\t\t%-25s: write failed  %d  errno %d \n","communicate",rv,errno);
 #endif
       rc = CKR_FUNCTION_FAILED; // socket failure
       close(sock);
@@ -1262,13 +1262,13 @@ CK_RV communicate( CK_ULONG    cmd_id, CK_SLOT_ID   slot_id,
 
    while ( (total_read < sizeof(proxy_resp_t)) && ( rv != -1)){ 
 #ifdef DEBUGON
-//   logit(LOG_DEBUG, "\t\t%-25s: reading  header  %d   \n","communicate",total_read);
-//   logit(LOG_DEBUG, "\t\t%-25s: reading  into %x  \n","communicate", rpkt + total_read);
+//   ock_log_debug( "\t\t%-25s: reading  header  %d   \n","communicate",total_read);
+//   ock_log_debug( "\t\t%-25s: reading  into %x  \n","communicate", rpkt + total_read);
 #endif
       // rv = read(sock,recv_packet + total_read,recv_len-total_read);
       rv = read(sock,rpkt + total_read,sizeof(proxy_resp_t)-total_read);
 #ifdef DEBUGON
-//   logit(LOG_DEBUG, "\t\t%-25s: reading   %d   \n","communicate",rv);
+//   ock_log_debug( "\t\t%-25s: reading   %d   \n","communicate",rv);
 #endif
       if (rv > 0 )
          total_read += rv;
@@ -1280,9 +1280,9 @@ CK_RV communicate( CK_ULONG    cmd_id, CK_SLOT_ID   slot_id,
    };
 
 #ifdef DEBUGON
-//   logit(LOG_DEBUG, "\t\t%-25s: second phase read   %d  resp %d %d  \n","communicate",
+//   ock_log_debug( "\t\t%-25s: second phase read   %d  resp %d %d  \n","communicate",
 //         total_read,(CTOHL(recv_packet->repl_len)),(CTOHL(recv_packet->in_len)));
-//   logit(LOG_DEBUG, "\t\t%-25s: rpkt %x %x  \n","communicate",
+//   ock_log_debug( "\t\t%-25s: rpkt %x %x  \n","communicate",
 //         rpkt,rpkt + total_read);
 #endif
 
@@ -1298,8 +1298,8 @@ CK_RV communicate( CK_ULONG    cmd_id, CK_SLOT_ID   slot_id,
                (CTOHL(recv_packet->in_len)))) {
 
 #ifdef DEBUGON
-//         logit(LOG_DEBUG, "\t\t%-25s: reading  rest  %d   \n","communicate", total_read);
-//         logit(LOG_DEBUG, "\t\t%-25s: reading  into %x  \n","communicate", rpkt);
+//         ock_log_debug( "\t\t%-25s: reading  rest  %d   \n","communicate", total_read);
+//         ock_log_debug( "\t\t%-25s: reading  into %x  \n","communicate", rpkt);
 #endif
          rv = read(sock,rpkt,
           ((CTOHL(recv_packet->repl_len)) + (CTOHL(recv_packet->in_len)))-local_count);
@@ -1311,8 +1311,8 @@ CK_RV communicate( CK_ULONG    cmd_id, CK_SLOT_ID   slot_id,
          }
 
 #ifdef DEBUGON
-//         logit(LOG_DEBUG, "\t\t%-25s: read  %d   \n","communicate", rv);
-//         logit(LOG_DEBUG, "\t\t%-25s: total  %d   \n","communicate", total_read);
+//         ock_log_debug( "\t\t%-25s: read  %d   \n","communicate", rv);
+//         ock_log_debug( "\t\t%-25s: total  %d   \n","communicate", total_read);
 #endif
 
          if (rv == 0 && total_read < 
@@ -1326,7 +1326,7 @@ CK_RV communicate( CK_ULONG    cmd_id, CK_SLOT_ID   slot_id,
       }
    } else {
 #ifdef DEBUGON
-   logit(LOG_DEBUG, "\t\t%-25s: we are screwed  %d   \n","communicate",total_read);
+   ock_log_debug( "\t\t%-25s: we are screwed  %d   \n","communicate",total_read);
 #endif
       rc = CKR_FUNCTION_FAILED;
       pthread_mutex_unlock(&smtx);
@@ -1340,7 +1340,7 @@ CK_RV communicate( CK_ULONG    cmd_id, CK_SLOT_ID   slot_id,
 
    if (rv == -1  && total_read == 0) {
 #ifdef DEBUGON
-   logit(LOG_DEBUG, "\t\t%-25s: eof on socket  %d  errno %d \n","communicate",rv,errno);
+   ock_log_debug( "\t\t%-25s: eof on socket  %d  errno %d \n","communicate",rv,errno);
 #endif
       rc = CKR_FUNCTION_FAILED;
    pthread_mutex_unlock(&smtx);
@@ -1357,7 +1357,7 @@ CK_RV communicate( CK_ULONG    cmd_id, CK_SLOT_ID   slot_id,
 
 
    if ( total_read < sizeof(proxy_resp_t)) {
-      logit(LOG_DEBUG, "\t\t%-25s: Total read not enough    %d   \n","communicate",total_read);
+      ock_log_debug( "\t\t%-25s: Total read not enough    %d   \n","communicate",total_read);
       rc = CKR_FUNCTION_FAILED;
       goto error;
    }
@@ -1372,8 +1372,8 @@ CK_RV communicate( CK_ULONG    cmd_id, CK_SLOT_ID   slot_id,
        (CTOHL(recv_packet->in_len) >  in_len))
    {
 #ifdef DEBUGON
-   logit(LOG_DEBUG, "\t\t%-25s: rep length delta %d a %d  \n","communicate",*repl_len,CTOHL(recv_packet->repl_len));
-   logit(LOG_DEBUG, "\t\t%-25s: in length delta %d  %d \n","communicate",in_len,
+   ock_log_debug( "\t\t%-25s: rep length delta %d a %d  \n","communicate",*repl_len,CTOHL(recv_packet->repl_len));
+   ock_log_debug( "\t\t%-25s: in length delta %d  %d \n","communicate",in_len,
          CTOHL(recv_packet->in_len));
 #endif
       rc = CKR_FUNCTION_FAILED;
@@ -1382,7 +1382,7 @@ CK_RV communicate( CK_ULONG    cmd_id, CK_SLOT_ID   slot_id,
 
 
    if (total_read < (CTOHL(recv_packet->repl_len) + CTOHL(recv_packet->in_len))){
-      logit(LOG_DEBUG, "\t\t%-25s: Total read not enough    %d  expected %d  \n","communicate",
+      ock_log_debug( "\t\t%-25s: Total read not enough    %d  expected %d  \n","communicate",
             total_read,(CTOHL(recv_packet->repl_len) + CTOHL(recv_packet->in_len)));
       rc = CKR_FUNCTION_FAILED;
       goto error;
@@ -1401,7 +1401,7 @@ CK_RV communicate( CK_ULONG    cmd_id, CK_SLOT_ID   slot_id,
    rc = CTOHL(recv_packet->return_code);
 
 #ifdef DEBUGON
-   logit(LOG_DEBUG, "\t\t%-25s: Card returned  %d  \n","communicate",rc);
+   ock_log_debug( "\t\t%-25s: Card returned  %d  \n","communicate",rc);
 #endif
 
 error:
@@ -1452,9 +1452,6 @@ CK_RV SC_Initialize( void **FunctionList,
       leeds_id.Instance[0] = PKCS_11_INSTANCE;
       leeds_id.Queue[0]    = PKCS_11_QUEUE;
 
-#ifdef DEBUGON
-      loginit();
-#endif
 
       // Zero out the adapter handle array
       //  an adapter handle of 0 indicates that the particular adapter has
@@ -1533,7 +1530,7 @@ CK_RV SC_Initialize( void **FunctionList,
 rc = 0;
 #ifndef ALLSOCK
 #ifdef DEBUGON
-   logit(LOG_DEBUG, "%-25s:  slot_id %d, \n","SC_Initialize",i);
+   ock_log_debug( "%-25s:  slot_id %d, \n","SC_Initialize",i);
 #endif
    {
       int j;
@@ -1553,7 +1550,7 @@ rc = 0;
             if ( connect (adapter_handle[i],(struct sockaddr *)&saddr,sizeof(struct sockaddr_in)) < 0 ){
                // XXX FIXME   just bail for now.
 #ifdef DEBUGON
-   logit(LOG_DEBUG, "%-25s: connect errno %d \n","SC_Initialize",errno);
+   ock_log_debug( "%-25s: connect errno %d \n","SC_Initialize",errno);
 #endif
                ReleaseMutex(pkcs_mutex);
                return CKR_FUNCTION_FAILED;
@@ -1563,7 +1560,7 @@ rc = 0;
 
          } else {
 #ifdef DEBUGON
-   logit(LOG_DEBUG, "%-25s: open errno %d \n","SC_Initialize",errno);
+   ock_log_debug( "%-25s: open errno %d \n","SC_Initialize",errno);
 #endif
             ReleaseMutex(pkcs_mutex);
             return CKR_FUNCTION_FAILED;
@@ -1601,7 +1598,7 @@ CK_RV SC_Finalize( CK_SLOT_ID sid )
    SLT_CHECK
 
 #ifdef DEBUGON
-   logit(LOG_DEBUG, "%-25s:  sid %d slot_id %d, \n","SC_Finalize",sid,slot_id);
+   ock_log_debug( "%-25s:  sid %d slot_id %d, \n","SC_Finalize",sid,slot_id);
 #endif
 
    WaitForSingleObject( pkcs_mutex, INFINITE );
@@ -1620,7 +1617,7 @@ CK_RV SC_Finalize( CK_SLOT_ID sid )
 
    {
 #ifdef DEBUGON
-   logit(LOG_DEBUG, "\t Slot %x  pid list %x %x\n",slot_id,pid_list[slot_id],pid_list[slot_id-1]);
+   ock_log_debug( "\t Slot %x  pid list %x %x\n",slot_id,pid_list[slot_id],pid_list[slot_id-1]);
 #endif
 
       if (pid_list[slot_id -1 ] != 0){
@@ -1736,7 +1733,7 @@ CK_RV SC_GetTokenInfo( CK_SLOT_ID         sid,
    //pInfo->firmwareVersion      = long_reverse( pInfo->firmwareVersion      );
    //
 #ifdef DEBUGON
-   logit(LOG_DEBUG, "%-25s:  rc = %08x\n", "C_GetTokenInfo", rc );
+   ock_log_debug( "%-25s:  rc = %08x\n", "C_GetTokenInfo", rc );
 #endif
 
 
@@ -1796,7 +1793,7 @@ CK_RV SC_GetTokenInfo( CK_SLOT_ID         sid,
    //pInfo->firmwareVersion      = long_reverse( pInfo->firmwareVersion      );
    //
 #ifdef DEBUGON
-   logit(LOG_DEBUG, "%-25s:  rc = %08x\n", "C_GetTokenInfo", rc );
+   ock_log_debug( "%-25s:  rc = %08x\n", "C_GetTokenInfo", rc );
 #endif
 
 
@@ -1876,7 +1873,7 @@ CK_RV SC_GetMechanismList( CK_SLOT_ID             sid,
 	
          for (i=0; i < *count; i++) {
 #ifdef DEBUGON
-   logit(LOG_DEBUG, "%-25s:  Mechanism[%d] = 0x%08x \n", "C_GetMechanismList", i, pMechList[i] );
+   ock_log_debug( "%-25s:  Mechanism[%d] = 0x%08x \n", "C_GetMechanismList", i, pMechList[i] );
 #endif
          printf("%-25s:  Mechanism[%d] = 0x%08x \n", "C_GetMechanismList", i, CTOHL(mechp[i]) );
             pMechList[i] = CTOHL( mechp[i] );
@@ -1889,7 +1886,7 @@ CK_RV SC_GetMechanismList( CK_SLOT_ID             sid,
 
          for (i=0; i < *count; i++) {
 #ifdef DEBUGON
-   logit(LOG_DEBUG, "%-25s:  Mechanism[%d] = 0x%08x \n", "C_GetMechanismList", i, pMechList[i] );
+   ock_log_debug( "%-25s:  Mechanism[%d] = 0x%08x \n", "C_GetMechanismList", i, pMechList[i] );
 #endif
             pMechList[i] = CTOHL( pMechList[i] );
 
@@ -1902,7 +1899,7 @@ CK_RV SC_GetMechanismList( CK_SLOT_ID             sid,
    free( reply );
 
 #ifdef DEBUGON
-   logit(LOG_DEBUG, "%-25s:  rc = %08x, # mechanisms:  %d\n", "C_GetMechanismList", rc, *count );
+   ock_log_debug( "%-25s:  rc = %08x, # mechanisms:  %d\n", "C_GetMechanismList", rc, *count );
 #endif
 
 
@@ -1970,7 +1967,7 @@ CK_RV SC_GetMechanismList( CK_SLOT_ID             sid,
 
          for (i=0; i < *count; i++) {
 #ifdef DEBUGON
-   logit(LOG_DEBUG, "%-25s:  Mechanism[%d] = 0x%08x \n", "C_GetMechanismList", i, pMechList[i] );
+   ock_log_debug( "%-25s:  Mechanism[%d] = 0x%08x \n", "C_GetMechanismList", i, pMechList[i] );
 #endif
             pMechList[i] = CTOHL( pMechList[i] );
 
@@ -1981,7 +1978,7 @@ CK_RV SC_GetMechanismList( CK_SLOT_ID             sid,
    free( reply );
 
 #ifdef DEBUGON
-   logit(LOG_DEBUG, "%-25s:  rc = %08x, # mechanisms:  %d\n", "C_GetMechanismList", rc, *count );
+   ock_log_debug( "%-25s:  rc = %08x, # mechanisms:  %d\n", "C_GetMechanismList", rc, *count );
 #endif
 
 
@@ -2046,7 +2043,7 @@ CK_RV SC_GetMechanismInfo( CK_SLOT_ID             sid,
 #endif
    }
 #ifdef DEBUGON
-   logit(LOG_DEBUG, "%-25s:  rc = %08x, mech type = %08x\n", "C_GetMechanismInfo", rc, type );
+   ock_log_debug( "%-25s:  rc = %08x, mech type = %08x\n", "C_GetMechanismInfo", rc, type );
 #endif
 
    return rc;
@@ -2093,7 +2090,7 @@ CK_RV SC_GetMechanismInfo( CK_SLOT_ID             sid,
       pInfo->flags        = CTOHL( pInfo->flags        );
    }
 #ifdef DEBUGON
-   logit(LOG_DEBUG, "%-25s:  rc = %08x, mech type = %08x\n", "C_GetMechanismInfo", rc, type );
+   ock_log_debug( "%-25s:  rc = %08x, mech type = %08x\n", "C_GetMechanismInfo", rc, type );
 #endif
 
    return rc;
@@ -2150,7 +2147,7 @@ CK_RV SC_InitPIN( ST_SESSION_HANDLE  sSession,
    // there is no reply data
    //
 #ifdef DEBUGON
-   logit(LOG_DEBUG,"%-25s:  rc = %x\n", "C_InitPIN", rc );
+   ock_log_debug("%-25s:  rc = %x\n", "C_InitPIN", rc );
 #endif
 
    return rc;
@@ -2211,7 +2208,7 @@ CK_RV SC_SetPIN( ST_SESSION_HANDLE  sSession,
    // there is no reply data
    //
 #ifdef DEBUGON
-   logit(LOG_DEBUG, "%-25s:  rc = %08x\n", "C_SetPIN", rc );
+   ock_log_debug( "%-25s:  rc = %08x\n", "C_SetPIN", rc );
 #endif
 
    return rc;
@@ -2233,7 +2230,7 @@ CK_RV SC_OpenSession( CK_SLOT_ID             sid,
    SLT_CHECK
 
 #ifdef DEBUGON
-   logit(LOG_DEBUG, "%-25s:   sid %d slot_id %d, \n",">SC_OpenSession",sid,slot_id);
+   ock_log_debug( "%-25s:   sid %d slot_id %d, \n",">SC_OpenSession",sid,slot_id);
 #endif
 
    if (Initialized() == FALSE)
@@ -2248,7 +2245,7 @@ CK_RV SC_OpenSession( CK_SLOT_ID             sid,
    rc = MY_LockMutex();
    if (rc != CKR_OK) {
 #ifdef DEBUGON
-      logit(LOG_DEBUG, "%-25s:  rc = %08x sid %d slotid %d\n", "C_OpenSession", rc,sid,slot_id );
+      ock_log_debug( "%-25s:  rc = %08x sid %d slotid %d\n", "C_OpenSession", rc,sid,slot_id );
 #endif
       return rc;
    }
@@ -2335,9 +2332,9 @@ CK_RV SC_OpenSession( CK_SLOT_ID             sid,
    MY_UnlockMutex();
 
 #ifdef DEBUGON
-   logit(LOG_DEBUG, "%-25s:  rc = %08x  ", "C_OpenSession", rc );
+   ock_log_debug( "%-25s:  rc = %08x  ", "C_OpenSession", rc );
    if (rc == CKR_OK)
-      logit(LOG_DEBUG, "sess = %d", *phSession );
+      ock_log_debug( "sess = %d", *phSession );
 #endif
 
    return rc;
@@ -2359,7 +2356,7 @@ CK_RV SC_OpenSession( CK_SLOT_ID             sid,
    SLT_CHECK
 
 #ifdef DEBUGON
-   logit(LOG_DEBUG, "%-25s:   sid %d slot_id %d, \n",">SC_OpenSession",sid,slot_id);
+   ock_log_debug( "%-25s:   sid %d slot_id %d, \n",">SC_OpenSession",sid,slot_id);
 #endif
 
    if (Initialized() == FALSE)
@@ -2374,7 +2371,7 @@ CK_RV SC_OpenSession( CK_SLOT_ID             sid,
    rc = MY_LockMutex();
    if (rc != CKR_OK) {
 #ifdef DEBUGON
-      logit(LOG_DEBUG, "%-25s:  rc = %08x sid %d slotid %d\n", "C_OpenSession", rc,sid,slot_id );
+      ock_log_debug( "%-25s:  rc = %08x sid %d slotid %d\n", "C_OpenSession", rc,sid,slot_id );
 #endif
       return rc;
    }
@@ -2454,9 +2451,9 @@ CK_RV SC_OpenSession( CK_SLOT_ID             sid,
    MY_UnlockMutex();
 
 #ifdef DEBUGON
-   logit(LOG_DEBUG, "%-25s:  rc = %08x  ", "C_OpenSession", rc );
+   ock_log_debug( "%-25s:  rc = %08x  ", "C_OpenSession", rc );
    if (rc == CKR_OK)
-      logit(LOG_DEBUG, "sess = %d", *phSession );
+      ock_log_debug( "sess = %d", *phSession );
 #endif
 
    return rc;
@@ -2500,7 +2497,7 @@ CK_RV SC_CloseSession( ST_SESSION_HANDLE  sSession )
                       NULL,  0 );
 
 #ifdef DEBUGON
-   logit(LOG_DEBUG, "%-25s:  rc = %08x  sess = %d\n", "C_CloseSession", rc, SESSION );
+   ock_log_debug( "%-25s:  rc = %08x  sess = %d\n", "C_CloseSession", rc, SESSION );
 #endif
 
    return rc;
@@ -2528,7 +2525,7 @@ CK_RV SC_CloseAllSessions( CK_SLOT_ID sid )
                       NULL,  0 );
 
 #ifdef DEBUGON
-   logit(LOG_DEBUG, "%-25s:  rc = %08x\n", "C_CloseAllSessions", rc );
+   ock_log_debug( "%-25s:  rc = %08x\n", "C_CloseAllSessions", rc );
 #endif
 
    return rc;
@@ -2600,7 +2597,7 @@ CK_RV SC_GetSessionInfo( ST_SESSION_HANDLE   sSession,
       pInfo->ulDeviceError = CTOHL( pInfo->ulDeviceError );
    }
 #ifdef DEBUGON
-   logit(LOG_DEBUG, "%-25s:  rc = %08x, sess = %d\n", "C_GetSessionInfo", rc, SESSION );
+   ock_log_debug( "%-25s:  rc = %08x, sess = %d\n", "C_GetSessionInfo", rc, SESSION );
 #endif
 
    return rc;
@@ -2657,7 +2654,7 @@ CK_RV SC_GetSessionInfo( ST_SESSION_HANDLE   sSession,
       pInfo->ulDeviceError = CTOHL( pInfo->ulDeviceError );
    }
 #ifdef DEBUGON
-   logit(LOG_DEBUG, "%-25s:  rc = %08x, sess = %d\n", "C_GetSessionInfo", rc, SESSION );
+   ock_log_debug( "%-25s:  rc = %08x, sess = %d\n", "C_GetSessionInfo", rc, SESSION );
 #endif
 
    return rc;
@@ -2708,7 +2705,7 @@ CK_RV SC_Login( ST_SESSION_HANDLE   sSession,
                       NULL,  0 );
 
 #ifdef DEBUGON
-   logit(LOG_DEBUG, "%-25s:  rc = %08x\n", "C_Login", rc );
+   ock_log_debug( "%-25s:  rc = %08x\n", "C_Login", rc );
 #endif
 
    return rc;
@@ -2748,7 +2745,7 @@ CK_RV SC_Logout( ST_SESSION_HANDLE  sSession )
                       NULL,  0 );
 
 #ifdef DEBUGON
-   logit(LOG_DEBUG, "%-25s:  rc = %08x\n", "C_Logout", rc );
+   ock_log_debug( "%-25s:  rc = %08x\n", "C_Logout", rc );
 #endif
 
    return rc;
@@ -2776,7 +2773,7 @@ CK_RV SC_CreateObject( ST_SESSION_HANDLE    sSession,
    SESS_SET
 
 #ifdef DEBUGON
-   logit(LOG_DEBUG, "%-25s:  \n", ">>C_CreateObject" );
+   ock_log_debug( "%-25s:  \n", ">>C_CreateObject" );
 #endif
 
    if (Initialized() == FALSE)
@@ -2840,18 +2837,18 @@ CK_RV SC_CreateObject( ST_SESSION_HANDLE    sSession,
 #endif
 
 #ifdef DEBUGON
-   logit(LOG_DEBUG, "\t\t\t>>%-25s:  \n", "C_CreateObject -- as passed before endian adjust" );
+   ock_log_debug( "\t\t\t>>%-25s:  \n", "C_CreateObject -- as passed before endian adjust" );
    {
       CK_BYTE *p;
       p = (CK_BYTE *)attr->pValue;
 
-      logit(LOG_DEBUG, "\t\t\t\t>>%3d:  Attribute type:  0x%08x\n", i, attr->type );
-      logit(LOG_DEBUG, "\t\t\t\t>>Value Length:    %08d\n",   attr->ulValueLen );
+      ock_log_debug( "\t\t\t\t>>%3d:  Attribute type:  0x%08x\n", i, attr->type );
+      ock_log_debug( "\t\t\t\t>>Value Length:    %08d\n",   attr->ulValueLen );
 
       if (attr->ulValueLen != (CK_ULONG)(-1) && (p != NULL))
-         logit(LOG_DEBUG, "\t\t\t\t>>First 4 bytes:   %02x %02x %02x %02x", p[0], p[1], p[2], p[3] );
+         ock_log_debug( "\t\t\t\t>>First 4 bytes:   %02x %02x %02x %02x", p[0], p[1], p[2], p[3] );
 
-      logit(LOG_DEBUG, "\n\n");
+      ock_log_debug( "\n\n");
    }
 #endif
 
@@ -2924,17 +2921,17 @@ CK_RV SC_CreateObject( ST_SESSION_HANDLE    sSession,
 
    free( args );
 #ifdef DEBUGON
-   logit(LOG_DEBUG, "%-25s:  rc = %08x\n", "C_CreateObject", rc );
+   ock_log_debug( "%-25s:  rc = %08x\n", "C_CreateObject", rc );
 
    {
       int i;
       for (i=0; i < ulCount; i++) {
          if (pTemplate[i].type == CKA_CLASS)
-           logit(LOG_DEBUG, "%28s:  0x%02X\n", "Object Type", *(CK_ULONG *)pTemplate[i].pValue );
+           ock_log_debug( "%28s:  0x%02X\n", "Object Type", *(CK_ULONG *)pTemplate[i].pValue );
       }
    }
    if (rc == CKR_OK)
-     logit(LOG_DEBUG, "%28s:  %d\n", "Handle", *phObject );
+     ock_log_debug( "%28s:  %d\n", "Handle", *phObject );
 
 #endif
 
@@ -3083,7 +3080,7 @@ CK_RV  SC_CopyObject( ST_SESSION_HANDLE    sSession,
 
    free( args );
 #ifdef DEBUGON
-   logit(LOG_DEBUG, "%-25s:  rc = %08x, old handle = %d, new handle = %d\n", "C_CopyObject", rc, hObject, *phNewObject );
+   ock_log_debug( "%-25s:  rc = %08x, old handle = %d, new handle = %d\n", "C_CopyObject", rc, hObject, *phNewObject );
 #endif
 
 
@@ -3127,7 +3124,7 @@ CK_RV SC_DestroyObject( ST_SESSION_HANDLE  sSession,
                       NULL,  0 );
 
 #ifdef DEBUGON
-   logit(LOG_DEBUG, "%-25s:  rc = %08x, handle = %d\n", "C_DestroyObject", rc, hObject );
+   ock_log_debug( "%-25s:  rc = %08x, handle = %d\n", "C_DestroyObject", rc, hObject );
 #endif
 
    return rc;
@@ -3178,7 +3175,7 @@ CK_RV SC_GetObjectSize( ST_SESSION_HANDLE  sSession,
       *pulSize = CTOHL( size );
 
 #ifdef DEBUGON
-   logit(LOG_DEBUG, "%-25s:  rc = %08x, handle = %d\n", "C_GetObjectSize", rc, hObject );
+   ock_log_debug( "%-25s:  rc = %08x, handle = %d\n", "C_GetObjectSize", rc, hObject );
 #endif
 
    return rc;
@@ -3419,7 +3416,7 @@ CK_RV SC_GetAttributeValue( ST_SESSION_HANDLE  sSession,
       free( buffer );
 
 #ifdef DEBUGON
-   logit(LOG_DEBUG, "%-25s:  rc = %08x, handle = %d\n", "C_GetAttributeValue", rc, hObject );
+   ock_log_debug( "%-25s:  rc = %08x, handle = %d\n", "C_GetAttributeValue", rc, hObject );
 
    {
       CK_ATTRIBUTE  *attr = NULL;
@@ -3429,13 +3426,13 @@ CK_RV SC_GetAttributeValue( ST_SESSION_HANDLE  sSession,
       for (i=0; i < ulCount; i++, attr++) {
          ptr = (CK_BYTE *)attr->pValue;
 
-         logit(LOG_DEBUG, "   %3d:  Attribute type:  0x%08x\n", i, attr->type );
-         logit(LOG_DEBUG, "         Value Length:    %08d\n",   attr->ulValueLen );
+         ock_log_debug( "   %3d:  Attribute type:  0x%08x\n", i, attr->type );
+         ock_log_debug( "         Value Length:    %08d\n",   attr->ulValueLen );
 
          if (attr->ulValueLen != (CK_ULONG)(-1) && (ptr != NULL))
-            logit(LOG_DEBUG, "         First 4 bytes:   %02x %02x %02x %02x", ptr[0], ptr[1], ptr[2], ptr[3] );
+            ock_log_debug( "         First 4 bytes:   %02x %02x %02x %02x", ptr[0], ptr[1], ptr[2], ptr[3] );
 
-         logit(LOG_DEBUG, "\n\n");
+         ock_log_debug( "\n\n");
       }
    }
 
@@ -3615,7 +3612,7 @@ CK_RV SC_GetAttributeValue( ST_SESSION_HANDLE  sSession,
       free( buffer );
 
 #ifdef DEBUGON
-   logit(LOG_DEBUG, "%-25s:  rc = %08x, handle = %d\n", "C_GetAttributeValue", rc, hObject );
+   ock_log_debug( "%-25s:  rc = %08x, handle = %d\n", "C_GetAttributeValue", rc, hObject );
 
    {
       CK_ATTRIBUTE  *attr = NULL;
@@ -3625,13 +3622,13 @@ CK_RV SC_GetAttributeValue( ST_SESSION_HANDLE  sSession,
       for (i=0; i < ulCount; i++, attr++) {
          ptr = (CK_BYTE *)attr->pValue;
 
-         logit(LOG_DEBUG, "   %3d:  Attribute type:  0x%08x\n", i, attr->type );
-         logit(LOG_DEBUG, "         Value Length:    %08d\n",   attr->ulValueLen );
+         ock_log_debug( "   %3d:  Attribute type:  0x%08x\n", i, attr->type );
+         ock_log_debug( "         Value Length:    %08d\n",   attr->ulValueLen );
 
          if (attr->ulValueLen != (CK_ULONG)(-1) && (ptr != NULL))
-            logit(LOG_DEBUG, "         First 4 bytes:   %02x %02x %02x %02x", ptr[0], ptr[1], ptr[2], ptr[3] );
+            ock_log_debug( "         First 4 bytes:   %02x %02x %02x %02x", ptr[0], ptr[1], ptr[2], ptr[3] );
 
-         logit(LOG_DEBUG, "\n\n");
+         ock_log_debug( "\n\n");
       }
    }
 
@@ -3789,19 +3786,19 @@ CK_RV  SC_SetAttributeValue( ST_SESSION_HANDLE    sSession,
 
    free( args );
 #ifdef DEBUGON
-   logit(LOG_DEBUG, "%-25s:  rc = %08x, handle = %d\n", "C_SetAttributeValue", rc, hObject );
+   ock_log_debug( "%-25s:  rc = %08x, handle = %d\n", "C_SetAttributeValue", rc, hObject );
 
    attr = pTemplate;
    for (i=0; i < ulCount; i++, attr++) {
       ptr = (CK_BYTE *)attr->pValue;
 
-      logit(LOG_DEBUG, "   %3d:  Attribute type:  0x%08x\n", i, attr->type );
-      logit(LOG_DEBUG, "         Value Length:    %08d\n",   attr->ulValueLen );
+      ock_log_debug( "   %3d:  Attribute type:  0x%08x\n", i, attr->type );
+      ock_log_debug( "         Value Length:    %08d\n",   attr->ulValueLen );
 
       if (attr->ulValueLen != (CK_ULONG)(-1) && (ptr != NULL))
-         logit(LOG_DEBUG, "         First 4 bytes:   %02x %02x %02x %02x", ptr[0], ptr[1], ptr[2], ptr[3] );
+         ock_log_debug( "         First 4 bytes:   %02x %02x %02x %02x", ptr[0], ptr[1], ptr[2], ptr[3] );
 
-      logit(LOG_DEBUG, "\n\n");
+      ock_log_debug( "\n\n");
    }
 #endif
 
@@ -3943,19 +3940,19 @@ CK_RV SC_FindObjectsInit( ST_SESSION_HANDLE   sSession,
 
    free( args );
 #ifdef DEBUGON
-   logit(LOG_DEBUG, "%-25s:  rc = %08x\n", "C_FindObjectsInit", rc );
+   ock_log_debug( "%-25s:  rc = %08x\n", "C_FindObjectsInit", rc );
 
    attr = pTemplate;
    for (i=0; i < ulCount; i++, attr++) {
       ptr = (CK_BYTE *)attr->pValue;
 
-      logit(LOG_DEBUG, "   %3d:  Attribute type:  0x%08x\n", i, attr->type );
-      logit(LOG_DEBUG, "         Value Length:    %08d\n",   attr->ulValueLen );
+      ock_log_debug( "   %3d:  Attribute type:  0x%08x\n", i, attr->type );
+      ock_log_debug( "         Value Length:    %08d\n",   attr->ulValueLen );
 
       if (attr->ulValueLen != (CK_ULONG)(-1) && (ptr != NULL))
-         logit(LOG_DEBUG, "         First 4 bytes:   %02x %02x %02x %02x", ptr[0], ptr[1], ptr[2], ptr[3] );
+         ock_log_debug( "         First 4 bytes:   %02x %02x %02x %02x", ptr[0], ptr[1], ptr[2], ptr[3] );
 
-      logit(LOG_DEBUG, "\n\n");
+      ock_log_debug( "\n\n");
    }
 #endif
 
@@ -4046,7 +4043,7 @@ CK_RV SC_FindObjects( ST_SESSION_HANDLE     sSession,
 
    free( reply );
 #ifdef DEBUGON
-   logit(LOG_DEBUG, "%-25s:  rc = %08x, returned %d objects\n", "C_FindObjects", rc, *pulObjectCount );
+   ock_log_debug( "%-25s:  rc = %08x, returned %d objects\n", "C_FindObjects", rc, *pulObjectCount );
 #endif
 
    return rc;
@@ -4115,7 +4112,7 @@ CK_RV SC_FindObjects( ST_SESSION_HANDLE     sSession,
 
    free( reply );
 #ifdef DEBUGON
-   logit(LOG_DEBUG, "%-25s:  rc = %08x, returned %d objects\n", "C_FindObjects", rc, *pulObjectCount );
+   ock_log_debug( "%-25s:  rc = %08x, returned %d objects\n", "C_FindObjects", rc, *pulObjectCount );
 #endif
 
    return rc;
@@ -4158,7 +4155,7 @@ CK_RV SC_FindObjectsFinal( ST_SESSION_HANDLE  sSession )
                       NULL,  0 );
 
 #ifdef DEBUGON
-   logit(LOG_DEBUG, "%-25s:  rc = %08x\n", "C_FindObjectsFinal", rc );
+   ock_log_debug( "%-25s:  rc = %08x\n", "C_FindObjectsFinal", rc );
 #endif
 
    return rc;
@@ -4233,7 +4230,7 @@ CK_RV SC_GenerateRandom( ST_SESSION_HANDLE  sSession,
    }
 
 #ifdef DEBUGON
-   logit(LOG_DEBUG, "%-25s:  rc = %08x, %d bytes\n", "C_GenerateRandom", rc, ulRandomLen );
+   ock_log_debug( "%-25s:  rc = %08x, %d bytes\n", "C_GenerateRandom", rc, ulRandomLen );
 #endif
 
 
@@ -4418,19 +4415,19 @@ CK_RV SC_GenerateKey( ST_SESSION_HANDLE     sSession,
    free( args );
 
 #ifdef DEBUGON
-   logit(LOG_DEBUG, "%-25s:  rc = %08x, sess = %d, handle = %d, mech = 0x%X\n", "C_GenerateKey", rc, SESSION, *phKey, pMechanism->mechanism );
+   ock_log_debug( "%-25s:  rc = %08x, sess = %d, handle = %d, mech = 0x%X\n", "C_GenerateKey", rc, SESSION, *phKey, pMechanism->mechanism );
 
    attr = pTemplate;
    for (i=0; i < ulCount; i++, attr++) {
       ptr = (CK_BYTE *)attr->pValue;
 
-      logit(LOG_DEBUG, "   %3d:  Attribute type:  0x%08x\n", i, attr->type );
-      logit(LOG_DEBUG, "         Value Length:    %08d\n",   attr->ulValueLen );
+      ock_log_debug( "   %3d:  Attribute type:  0x%08x\n", i, attr->type );
+      ock_log_debug( "         Value Length:    %08d\n",   attr->ulValueLen );
 
       if (attr->ulValueLen != (CK_ULONG)(-1) && (ptr != NULL))
-         logit(LOG_DEBUG, "         First 4 bytes:   %02x %02x %02x %02x", ptr[0], ptr[1], ptr[2], ptr[3] );
+         ock_log_debug( "         First 4 bytes:   %02x %02x %02x %02x", ptr[0], ptr[1], ptr[2], ptr[3] );
 
-      logit(LOG_DEBUG, "\n\n");
+      ock_log_debug( "\n\n");
    }
 
 #endif
@@ -4508,7 +4505,7 @@ CK_RV SC_EncryptInit( ST_SESSION_HANDLE  sSession,
 
    free( args );
 #ifdef DEBUGON
-   logit(LOG_DEBUG, "%-25s:  rc = %08x, sess = %d, key = %d, mech = 0x%X\n", "C_EncryptInit", rc, SESSION, hKey, pMechanism->mechanism );
+   ock_log_debug( "%-25s:  rc = %08x, sess = %d, key = %d, mech = 0x%X\n", "C_EncryptInit", rc, SESSION, hKey, pMechanism->mechanism );
 #endif
 
    return rc;
@@ -4582,7 +4579,7 @@ CK_RV SC_Encrypt( ST_SESSION_HANDLE  sSession,
 // does communicate replace that value.   repl_len won't get swapped .
 
 #ifdef DEBUGON
-   logit(LOG_DEBUG, "%-25s:  rc = %08x, sess = %d, amount = %d\n", "C_Encrypt", rc, SESSION, ulDataLen );
+   ock_log_debug( "%-25s:  rc = %08x, sess = %d, amount = %d\n", "C_Encrypt", rc, SESSION, ulDataLen );
 #endif
 
 #ifdef _BIG_ENDIAN
@@ -4716,7 +4713,7 @@ CK_RV SC_EncryptUpdate( ST_SESSION_HANDLE  sSession,
       free( reply );
 
 #ifdef DEBUGON
-   logit(LOG_DEBUG, "%-25s:  rc = %08x, sess = %d, amount = %d\n", "C_EncryptUpdate", rc, SESSION, ulPartLen );
+   ock_log_debug( "%-25s:  rc = %08x, sess = %d, amount = %d\n", "C_EncryptUpdate", rc, SESSION, ulPartLen );
 #endif
 
    return rc;
@@ -4839,7 +4836,7 @@ CK_RV SC_EncryptFinal( ST_SESSION_HANDLE  sSession,
    free( args );
    free( reply );
 #ifdef DEBUGON
-   logit(LOG_DEBUG, "%-25s:  rc = %08x, sess = %d\n", "C_EncryptFinal", rc, SESSION );
+   ock_log_debug( "%-25s:  rc = %08x, sess = %d\n", "C_EncryptFinal", rc, SESSION );
 #endif
 
    return rc;
@@ -4914,7 +4911,7 @@ CK_RV SC_DecryptInit( ST_SESSION_HANDLE  sSession,
 
    free( args );
 #ifdef DEBUGON
-   logit(LOG_DEBUG, "%-25s:  rc = %08x, sess = %d, key = %d, mech = 0x%X\n", "C_DecryptInit", rc, SESSION, hKey, pMechanism->mechanism );
+   ock_log_debug( "%-25s:  rc = %08x, sess = %d, key = %d, mech = 0x%X\n", "C_DecryptInit", rc, SESSION, hKey, pMechanism->mechanism );
 #endif
 
    return rc;
@@ -4983,7 +4980,7 @@ CK_RV SC_Decrypt( ST_SESSION_HANDLE  sSession,
 #endif
 
 #ifdef DEBUGON
-   logit(LOG_DEBUG, "%-25s:  rc = %08x, sess = %d, amount = %d\n", "C_Decrypt", rc, SESSION, ulEncryptedDataLen );
+   ock_log_debug( "%-25s:  rc = %08x, sess = %d, amount = %d\n", "C_Decrypt", rc, SESSION, ulEncryptedDataLen );
 #endif
 #ifdef _BIG_ENDIAN
    {
@@ -5094,7 +5091,7 @@ CK_RV SC_DecryptUpdate( ST_SESSION_HANDLE  sSession,
       free( reply );
 
 #ifdef DEBUGON
-   logit(LOG_DEBUG, "%-25s:  rc = %08x, sess = %d, amount = %d\n", "C_DecryptUpdate", rc, SESSION, ulEncryptedPartLen );
+   ock_log_debug( "%-25s:  rc = %08x, sess = %d, amount = %d\n", "C_DecryptUpdate", rc, SESSION, ulEncryptedPartLen );
 #endif
 
    return rc;
@@ -5193,7 +5190,7 @@ CK_RV SC_DecryptFinal( ST_SESSION_HANDLE  sSession,
       free( reply );
 
 #ifdef DEBUGON
-   logit(LOG_DEBUG, "%-25s:  rc = %08x, sess = %d\n", "C_DecryptFinal", rc, SESSION );
+   ock_log_debug( "%-25s:  rc = %08x, sess = %d\n", "C_DecryptFinal", rc, SESSION );
 #endif
 
    return rc;
@@ -5318,7 +5315,7 @@ CK_RV SC_WrapKey( ST_SESSION_HANDLE  sSession,
       free( reply );
 
 #ifdef DEBUGON
-   logit(LOG_DEBUG, "%-25s:  rc = %08x, sess = %d, encrypting key = %d, wrapped key = %d\n", "C_WrapKey", rc, SESSION, hWrappingKey, hKey );
+   ock_log_debug( "%-25s:  rc = %08x, sess = %d, encrypting key = %d, wrapped key = %d\n", "C_WrapKey", rc, SESSION, hWrappingKey, hKey );
 #endif
 
    return rc;
@@ -5515,19 +5512,19 @@ CK_RV SC_UnwrapKey( ST_SESSION_HANDLE     sSession,
 
    free( args );
 #ifdef DEBUGON
-   logit(LOG_DEBUG, "%-25s:  rc = %08x, sess = %d, decrypting key = %d, unwrapped key = %d mech 0x%X\n", "C_UnwrapKey", rc, SESSION, hUnwrappingKey, *phKey,pMechanism->mechanism );
+   ock_log_debug( "%-25s:  rc = %08x, sess = %d, decrypting key = %d, unwrapped key = %d mech 0x%X\n", "C_UnwrapKey", rc, SESSION, hUnwrappingKey, *phKey,pMechanism->mechanism );
 
    attr = pTemplate;
    for (i=0; i < ulAttributeCount; i++, attr++) {
       ptr = (CK_BYTE *)attr->pValue;
 
-      logit(LOG_DEBUG, "   %3d:  Attribute type:  0x%08x\n", i, attr->type );
-      logit(LOG_DEBUG, "         Value Length:    %08d\n",   attr->ulValueLen );
+      ock_log_debug( "   %3d:  Attribute type:  0x%08x\n", i, attr->type );
+      ock_log_debug( "         Value Length:    %08d\n",   attr->ulValueLen );
 
       if (attr->ulValueLen != (CK_ULONG)(-1) && (ptr != NULL))
-         logit(LOG_DEBUG, "         First 4 bytes:   %02x %02x %02x %02x", ptr[0], ptr[1], ptr[2], ptr[3] );
+         ock_log_debug( "         First 4 bytes:   %02x %02x %02x %02x", ptr[0], ptr[1], ptr[2], ptr[3] );
 
-      logit(LOG_DEBUG, "\n\n");
+      ock_log_debug( "\n\n");
    }
 #endif
 
@@ -5600,7 +5597,7 @@ CK_RV SC_DigestInit( ST_SESSION_HANDLE  sSession,
    free( args );
 
 #ifdef DEBUGON
-   logit(LOG_DEBUG, "%-25s:  rc = %08x, sess = %d, mech = 0x%X\n", "C_DigestInit", rc, SESSION, pMechanism->mechanism );
+   ock_log_debug( "%-25s:  rc = %08x, sess = %d, mech = 0x%X\n", "C_DigestInit", rc, SESSION, pMechanism->mechanism );
 #endif
 
    return rc;
@@ -5704,7 +5701,7 @@ CK_RV SC_Digest( ST_SESSION_HANDLE  sSession,
    }
 
 #ifdef DEBUGON
-   logit(LOG_DEBUG, "%-25s:  rc = %08x, sess = %d, datalen = %d\n", "C_Digest", rc, SESSION, ulDataLen );
+   ock_log_debug( "%-25s:  rc = %08x, sess = %d, datalen = %d\n", "C_Digest", rc, SESSION, ulDataLen );
 #endif
 
    return rc;
@@ -5758,7 +5755,7 @@ CK_RV SC_DigestUpdate( ST_SESSION_HANDLE  sSession,
    free( args );
 
 #ifdef DEBUGON
-   logit(LOG_DEBUG, "%-25s:  rc = %08x, sess = %d, datalen = %d\n", "C_DigestUpdate", rc, SESSION, ulPartLen );
+   ock_log_debug( "%-25s:  rc = %08x, sess = %d, datalen = %d\n", "C_DigestUpdate", rc, SESSION, ulPartLen );
 #endif
 
    return rc;
@@ -5799,7 +5796,7 @@ CK_RV SC_DigestKey( ST_SESSION_HANDLE  sSession,
 
 
 #ifdef DEBUGON
-   logit(LOG_DEBUG, "%-25s:  rc = %08x, sess = %d, key = %d\n", "C_DigestKey", rc, SESSION, hKey );
+   ock_log_debug( "%-25s:  rc = %08x, sess = %d, key = %d\n", "C_DigestKey", rc, SESSION, hKey );
 #endif
 
    return rc;
@@ -5901,7 +5898,7 @@ CK_RV SC_DigestFinal( ST_SESSION_HANDLE  sSession,
    free( reply );
 
 #ifdef DEBUGON
-   logit(LOG_DEBUG, "%-25s:  rc = %08x, sess = %d\n", "C_DigestFinal", rc, SESSION );
+   ock_log_debug( "%-25s:  rc = %08x, sess = %d\n", "C_DigestFinal", rc, SESSION );
 #endif
 
    return rc;
@@ -6155,41 +6152,41 @@ CK_RV SC_GenerateKeyPair( ST_SESSION_HANDLE     sSession,
    free( args );
 
 #ifdef DEBUGON
-   logit(LOG_DEBUG, "%-25s:  rc = %08x, sess = %d, mech = 0x%X\n", "C_GenerateKeyPair", rc, SESSION, pMechanism->mechanism );
+   ock_log_debug( "%-25s:  rc = %08x, sess = %d, mech = 0x%X\n", "C_GenerateKeyPair", rc, SESSION, pMechanism->mechanism );
 
    if (rc == CKR_OK) {
-      logit(LOG_DEBUG, "   Public  handle:  %d\n", *phPublicKey );
-      logit(LOG_DEBUG, "   Private handle:  %d\n", *phPrivateKey );
+      ock_log_debug( "   Public  handle:  %d\n", *phPublicKey );
+      ock_log_debug( "   Private handle:  %d\n", *phPrivateKey );
    }
 
-   logit(LOG_DEBUG, "   Public Template:\n");
+   ock_log_debug( "   Public Template:\n");
 
    attr = pPublicKeyTemplate;
    for (i=0; i < ulPublicKeyAttributeCount; i++, attr++) {
       ptr = (CK_BYTE *)attr->pValue;
 
-      logit(LOG_DEBUG, "   %3d:  Attribute type:  0x%08x\n", i, attr->type );
-      logit(LOG_DEBUG, "         Value Length:    %08d\n",   attr->ulValueLen );
+      ock_log_debug( "   %3d:  Attribute type:  0x%08x\n", i, attr->type );
+      ock_log_debug( "         Value Length:    %08d\n",   attr->ulValueLen );
 
       if (attr->ulValueLen != (CK_ULONG)(-1) && (ptr != NULL))
-         logit(LOG_DEBUG, "         First 4 bytes:   %02x %02x %02x %02x", ptr[0], ptr[1], ptr[2], ptr[3] );
+         ock_log_debug( "         First 4 bytes:   %02x %02x %02x %02x", ptr[0], ptr[1], ptr[2], ptr[3] );
 
-      logit(LOG_DEBUG, "\n\n");
+      ock_log_debug( "\n\n");
    }
 
-   logit(LOG_DEBUG, "   Private Template:\n");
+   ock_log_debug( "   Private Template:\n");
 
    attr = pPrivateKeyTemplate;
    for (i=0; i < ulPrivateKeyAttributeCount; i++, attr++) {
       ptr = (CK_BYTE *)attr->pValue;
 
-      logit(LOG_DEBUG, "   %3d:  Attribute type:  0x%08x\n", i, attr->type );
-      logit(LOG_DEBUG, "         Value Length:    %08d\n",   attr->ulValueLen );
+      ock_log_debug( "   %3d:  Attribute type:  0x%08x\n", i, attr->type );
+      ock_log_debug( "         Value Length:    %08d\n",   attr->ulValueLen );
 
       if (attr->ulValueLen != (CK_ULONG)(-1) && (ptr != NULL))
-         logit(LOG_DEBUG, "         First 4 bytes:   %02x %02x %02x %02x", ptr[0], ptr[1], ptr[2], ptr[3] );
+         ock_log_debug( "         First 4 bytes:   %02x %02x %02x %02x", ptr[0], ptr[1], ptr[2], ptr[3] );
 
-      logit(LOG_DEBUG, "\n\n");
+      ock_log_debug( "\n\n");
    }
 
 #endif
@@ -6267,8 +6264,8 @@ CK_RV SC_SignInit( ST_SESSION_HANDLE  sSession,
    free( args );
 
 #ifdef DEBUGON
-   logit(LOG_DEBUG, "%-25s:  rc = %08x, sess = %d, mech = 0x%X\n", "C_SignInit", rc, SESSION, pMechanism->mechanism );
-   logit(LOG_DEBUG, "%-25s:  hKey %d \n", "C_SignInit", hKey);
+   ock_log_debug( "%-25s:  rc = %08x, sess = %d, mech = 0x%X\n", "C_SignInit", rc, SESSION, pMechanism->mechanism );
+   ock_log_debug( "%-25s:  hKey %d \n", "C_SignInit", hKey);
 #endif
 
    return rc;
@@ -6375,7 +6372,7 @@ CK_RV SC_Sign( ST_SESSION_HANDLE  sSession,
       free( reply );
 
 #ifdef DEBUGON
-   logit(LOG_DEBUG, "%-25s:  rc = %08x, sess = %d, datalen = %d\n", "C_Sign", rc, SESSION, ulDataLen );
+   ock_log_debug( "%-25s:  rc = %08x, sess = %d, datalen = %d\n", "C_Sign", rc, SESSION, ulDataLen );
 #endif
 
    return rc;
@@ -6428,7 +6425,7 @@ CK_RV SC_SignUpdate ( ST_SESSION_HANDLE  sSession,
    free( args );
 
 #ifdef DEBUGON
-   logit(LOG_DEBUG, "%-25s:  rc = %08x, sess = %d, datalen = %d\n", "C_SignUpdate", rc, SESSION, ulPartLen );
+   ock_log_debug( "%-25s:  rc = %08x, sess = %d, datalen = %d\n", "C_SignUpdate", rc, SESSION, ulPartLen );
 #endif
 
    return rc;
@@ -6518,7 +6515,7 @@ CK_RV SC_SignFinal ( ST_SESSION_HANDLE  sSession,
    free( reply );
 
 #ifdef DEBUGON
-   logit(LOG_DEBUG, "%-25s:  rc = %08x, sess = %d\n", "C_SignFinal", rc, SESSION );
+   ock_log_debug( "%-25s:  rc = %08x, sess = %d\n", "C_SignFinal", rc, SESSION );
 #endif
 
    return rc;
@@ -6590,7 +6587,7 @@ CK_RV SC_VerifyInit( ST_SESSION_HANDLE  sSession,
    free( args );
 
 #ifdef DEBUGON
-   logit(LOG_DEBUG, "%-25s:  rc = %08x, sess = %d, mech = 0x%X\n", "C_VerifyInit", rc, SESSION, pMechanism->mechanism );
+   ock_log_debug( "%-25s:  rc = %08x, sess = %d, mech = 0x%X\n", "C_VerifyInit", rc, SESSION, pMechanism->mechanism );
 #endif
 
    return rc;
@@ -6650,7 +6647,7 @@ CK_RV SC_Verify( ST_SESSION_HANDLE  sSession,
    free( args );
 
 #ifdef DEBUGON
-   logit(LOG_DEBUG, "%-25s:  rc = %08x, sess = %d, datalen = %d, siglen = %d\n", "C_Verify", rc, SESSION, ulDataLen, ulSignatureLen );
+   ock_log_debug( "%-25s:  rc = %08x, sess = %d, datalen = %d, siglen = %d\n", "C_Verify", rc, SESSION, ulDataLen, ulSignatureLen );
 #endif
 
    return rc;
@@ -6705,7 +6702,7 @@ CK_RV SC_VerifyUpdate( ST_SESSION_HANDLE  sSession,
    free( args );
 
 #ifdef DEBUGON
-   logit(LOG_DEBUG, "%-25s:  rc = %08x, sess = %d, datalen = %d\n", "C_VerifyUpdate", rc, SESSION, ulPartLen );
+   ock_log_debug( "%-25s:  rc = %08x, sess = %d, datalen = %d\n", "C_VerifyUpdate", rc, SESSION, ulPartLen );
 #endif
 
    return rc;
@@ -6758,7 +6755,7 @@ CK_RV SC_VerifyFinal( ST_SESSION_HANDLE  sSession,
    free( args );
 
 #ifdef DEBUGON
-   logit(LOG_DEBUG, "%-25s:  rc = %08x, sess = %d\n", "C_VerifyFinal", rc, SESSION );
+   ock_log_debug( "%-25s:  rc = %08x, sess = %d\n", "C_VerifyFinal", rc, SESSION );
 #endif
 
    return rc;
@@ -6828,7 +6825,7 @@ CK_RV SC_SignRecoverInit( ST_SESSION_HANDLE  sSession,
    free( args );
 
 #ifdef DEBUGON
-   logit(LOG_DEBUG, "%-25s:  rc = %08x, sess = %d, mech = 0x%X\n", "C_SignRecoverInit", rc, SESSION, pMechanism->mechanism );
+   ock_log_debug( "%-25s:  rc = %08x, sess = %d, mech = 0x%X\n", "C_SignRecoverInit", rc, SESSION, pMechanism->mechanism );
 #endif
 
    return rc;
@@ -6934,7 +6931,7 @@ CK_RV SC_SignRecover( ST_SESSION_HANDLE  sSession,
       free( reply );
 
 #ifdef DEBUGON
-   logit(LOG_DEBUG, "%-25s:  rc = %08x, sess = %d, datalen = %d\n", "C_SignRecover", rc, SESSION, ulDataLen );
+   ock_log_debug( "%-25s:  rc = %08x, sess = %d, datalen = %d\n", "C_SignRecover", rc, SESSION, ulDataLen );
 #endif
 
    return rc;
@@ -7004,7 +7001,7 @@ CK_RV SC_VerifyRecoverInit( ST_SESSION_HANDLE  sSession,
    free( args );
 
 #ifdef DEBUGON
-   logit(LOG_DEBUG, "%-25s:  rc = %08x, sess = %d, mech = 0x%X\n", "C_VerifyRecoverInit", rc, SESSION, pMechanism->mechanism );
+   ock_log_debug( "%-25s:  rc = %08x, sess = %d, mech = 0x%X\n", "C_VerifyRecoverInit", rc, SESSION, pMechanism->mechanism );
 #endif
 
    return rc;
@@ -7113,7 +7110,7 @@ CK_RV SC_VerifyRecover( ST_SESSION_HANDLE  sSession,
       free( reply );
 
 #ifdef DEBUGON
-   logit(LOG_DEBUG, "%-25s:  rc = %08x, sess = %d, recover len = %d\n", "C_VerifyRecover", rc, SESSION, *pulDataLen );
+   ock_log_debug( "%-25s:  rc = %08x, sess = %d, recover len = %d\n", "C_VerifyRecover", rc, SESSION, *pulDataLen );
 #endif
 
    return rc;
@@ -7216,7 +7213,7 @@ CK_RV SC_GetOperationState( ST_SESSION_HANDLE  sSession,
    free( reply );
 
 #ifdef DEBUGON
-   logit(LOG_DEBUG, "%-25s:  rc = %08x, sess = %d\n", "C_GetOperationState", rc, SESSION );
+   ock_log_debug( "%-25s:  rc = %08x, sess = %d\n", "C_GetOperationState", rc, SESSION );
 #endif
 
    return rc;
@@ -7271,7 +7268,7 @@ CK_RV SC_SetOperationState( ST_SESSION_HANDLE  sSession,
    free( args );
 
 #ifdef DEBUGON
-   logit(LOG_DEBUG, "%-25s:  rc = %08x, sess = %d\n", "C_SetOperationState", rc, SESSION );
+   ock_log_debug( "%-25s:  rc = %08x, sess = %d\n", "C_SetOperationState", rc, SESSION );
 #endif
 
    return rc;
@@ -7325,7 +7322,7 @@ CK_RV SC_InitToken( CK_SLOT_ID   sid,
    free( args );
 
 #ifdef DEBUGON
-   logit(LOG_DEBUG, "%-25s:  rc = %08x\n", "C_InitToken", rc );
+   ock_log_debug( "%-25s:  rc = %08x\n", "C_InitToken", rc );
 #endif
 
    return rc;
@@ -7618,19 +7615,19 @@ CK_RV SC_InitToken( CK_SLOT_ID   sid,
 //
 //#ifdef DEBUGON
 //   LOG_DEBUG = fopen( DEBUGFILEPATH, "a" );
-//   logit(LOG_DEBUG, "%-25s:  rc = %08x, sess = %d, handle = %d, mech = %x\n", "C_DeriveKey", rc, node->handle, *phKey, pMechanism->mechanism );
+//   ock_log_debug( "%-25s:  rc = %08x, sess = %d, handle = %d, mech = %x\n", "C_DeriveKey", rc, node->handle, *phKey, pMechanism->mechanism );
 //
 //   attr = pTemplate;
 //   for (i=0; i < ulAttributeCount; i++, attr++) {
 //      ptr = (CK_BYTE *)attr->pValue;
 //
-//      logit(LOG_DEBUG, "   %3d:  Attribute type:  0x%08x\n", i, attr->type );
-//      logit(LOG_DEBUG, "         Value Length:    %08d\n",   attr->ulValueLen );
+//      ock_log_debug( "   %3d:  Attribute type:  0x%08x\n", i, attr->type );
+//      ock_log_debug( "         Value Length:    %08d\n",   attr->ulValueLen );
 //
 //      if (attr->ulValueLen != (CK_ULONG)(-1) && (ptr != NULL))
-//         logit(LOG_DEBUG, "         First 4 bytes:   %02x %02x %02x %02x", ptr[0], ptr[1], ptr[2], ptr[3] );
+//         ock_log_debug( "         First 4 bytes:   %02x %02x %02x %02x", ptr[0], ptr[1], ptr[2], ptr[3] );
 //
-//      logit(LOG_DEBUG, "\n\n");
+//      ock_log_debug( "\n\n");
 //   }
 //
 //   fflush(LOG_DEBUG);
@@ -8043,8 +8040,8 @@ error:
 
 
 #ifdef DEBUGON
-   logit(LOG_DEBUG, "%-25s:  rc = %08x, sess = %d, base key = %d, mech = %x\n", "C_DeriveKey", rc, SESSION, hBaseKey, pMechanism->mechanism );
-   logit(LOG_DEBUG, "%-25s:  requestlen %d mechparmlen %d  sizeof(DeriveKey_Args) %d passedparm %d\n", "C_DeriveKey", req_len,pMechanism->ulParameterLen,sizeof(DeriveKey_Args), param_len);
+   ock_log_debug( "%-25s:  rc = %08x, sess = %d, base key = %d, mech = %x\n", "C_DeriveKey", rc, SESSION, hBaseKey, pMechanism->mechanism );
+   ock_log_debug( "%-25s:  requestlen %d mechparmlen %d  sizeof(DeriveKey_Args) %d passedparm %d\n", "C_DeriveKey", req_len,pMechanism->ulParameterLen,sizeof(DeriveKey_Args), param_len);
 
    if (rc == CKR_OK)
    switch (pMechanism->mechanism) {
@@ -8055,15 +8052,15 @@ error:
             pReq = (CK_SSL3_KEY_MAT_PARAMS *)pMechanism->pParameter;
             pPtr = pReq->pReturnedKeyMaterial;
 
-            logit(LOG_DEBUG, "   Client MAC key:  %d\n", pPtr->hClientMacSecret );
-            logit(LOG_DEBUG, "   Server MAC key:  %d\n", pPtr->hServerMacSecret );
-            logit(LOG_DEBUG, "   Client Key:      %d\n", pPtr->hClientKey );
-            logit(LOG_DEBUG, "   Server Key:      %d\n", pPtr->hServerKey );
+            ock_log_debug( "   Client MAC key:  %d\n", pPtr->hClientMacSecret );
+            ock_log_debug( "   Server MAC key:  %d\n", pPtr->hServerMacSecret );
+            ock_log_debug( "   Client Key:      %d\n", pPtr->hClientKey );
+            ock_log_debug( "   Server Key:      %d\n", pPtr->hServerKey );
          }
          break;
 
       default:
-         logit(LOG_DEBUG, "   Derived key:     %d\n", *phKey );
+         ock_log_debug( "   Derived key:     %d\n", *phKey );
    }
 
 
@@ -8071,13 +8068,13 @@ error:
    for (i=0; i < ulAttributeCount; i++, attr++) {
       ptr = (CK_BYTE *)attr->pValue;
 
-      logit(LOG_DEBUG, "   %3d:  Attribute type:  0x%08x\n", i, attr->type );
-      logit(LOG_DEBUG, "         Value Length:    %08d\n",   attr->ulValueLen );
+      ock_log_debug( "   %3d:  Attribute type:  0x%08x\n", i, attr->type );
+      ock_log_debug( "         Value Length:    %08d\n",   attr->ulValueLen );
 
       if (attr->ulValueLen != (CK_ULONG)(-1) && (ptr != NULL))
-         logit(LOG_DEBUG, "         First 4 bytes:   %02x %02x %02x %02x", ptr[0], ptr[1], ptr[2], ptr[3] );
+         ock_log_debug( "         First 4 bytes:   %02x %02x %02x %02x", ptr[0], ptr[1], ptr[2], ptr[3] );
 
-      logit(LOG_DEBUG, "\n\n");
+      ock_log_debug( "\n\n");
    }
 #endif
 
@@ -8116,7 +8113,7 @@ CK_RV FCVFunction( CK_SLOT_ID sid, CK_BYTE *FCV, CK_ULONG len )
    }
 
 #ifdef DEBUGON
-	logit(LOG_DEBUG, "%-25s:  rc = %08x\n", "FCVFUNCTION", rc );
+	ock_log_debug( "%-25s:  rc = %08x\n", "FCVFUNCTION", rc );
 #endif
 
    return rc;
