@@ -353,7 +353,7 @@
 #include <nl_types.h>
 
 #include <sys/ipc.h>
-#include <linux/limits.h>
+#include <limits.h>
 #include <sys/shm.h>
 #include <sys/stat.h>
 #include <sys/types.h>

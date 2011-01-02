@@ -296,7 +296,7 @@
 
 
 #include <pkcs11types.h>
-#include <linux/limits.h>
+#include <limits.h>
 #include <local_types.h>
 #include <stdll.h>
 #include <slotmgr.h>
