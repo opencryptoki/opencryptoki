@@ -2390,7 +2390,7 @@ CK_RV
 C_GetFunctionList ( CK_FUNCTION_LIST_PTR_PTR ppFunctionList )
 {
 
-   _init();
+   api_init();
    
    LOG("C_GetFunctionList");
    FuncList.version.major = VERSION_MAJOR;
@@ -5168,7 +5168,11 @@ C_WrapKey ( CK_SESSION_HANDLE hSession,
 
 }
 
+#ifdef __sun
+#pragma init(api_init)
+#else
 void api_init(void) __attribute__((constructor));
+#endif
 
 void
 api_init(void)
@@ -5194,7 +5198,11 @@ api_init(void)
 
 }
 
+#ifdef __sun
+#pragma fini(api_fini)
+#else
 void api_fini(void) __attribute__((destructor));
+#endif
 
 void
 api_fini()
