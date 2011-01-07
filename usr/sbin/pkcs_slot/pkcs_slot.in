@@ -356,12 +356,14 @@ fi
 DEVICE=$1
 DEPTH=$2
 
+# Ensure that any directories created are group-accessible
+umask 002
+
 # Check for the existance of the directories 
 if [ ! -d @localstatedir@/lib/opencryptoki ]
 then
 	@MKDIR_P@ @localstatedir@/lib/opencryptoki
         @CHGRP@ pkcs11 @localstatedir@/lib/opencryptoki
-	@CHMOD@ -R g+rwX @localstatedir@/lib/opencryptoki
 fi
 
 
@@ -502,7 +504,6 @@ then
 echo "TRUE|0|$SLOT_DESCRIPTION|$MANUFACTURER|TRUE|FALSE|TRUE|0|0|1|1|NONE|$CCA_DLL|$CCA_INIT" >>$CFGFILE
 fi
 
-@CHMOD@ -R g+wrX @localstatedir@/lib/opencryptoki
 
 
 
