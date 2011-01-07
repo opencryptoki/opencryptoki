@@ -15,18 +15,18 @@ opencryptoki_libopencryptoki_la_CFLAGS = -DSPINXPL -DAPI -DDEV -D_THREAD_SAFE \
 opencryptoki_libopencryptoki_la_SOURCES = api_interface.c shrd_mem.c apiutil.c
 
 install-data-hook:
+	$(MKDIR_P) $(DESTDIR)$(libdir)/opencryptoki/stdll
+	$(MKDIR_P) $(DESTDIR)$(libdir)/pkcs11
 	cd $(DESTDIR)$(libdir)/opencryptoki && \
 		ln -sf libopencryptoki.so PKCS11_API.so 
 	cd $(DESTDIR)$(libdir)/opencryptoki && \
 		ln -sf $(sbindir) methods
-	$(MKDIR_P) $(DESTDIR)$(libdir)/pkcs11
 	cd $(DESTDIR)$(libdir)/pkcs11 && \
 		ln -sf $(sbindir) methods
 	cd $(DESTDIR)$(libdir)/pkcs11 && \
 		ln -sf ../opencryptoki/libopencryptoki.so PKCS11_API.so
 	cd $(DESTDIR)$(libdir)/pkcs11 && \
 		ln -sf ../opencryptoki/libopencryptoki.so libopencryptoki.so
-	$(MKDIR_P) $(DESTDIR)$(libdir)/opencryptoki/stdll
 	cd $(DESTDIR)$(libdir)/pkcs11 && \
 		ln -sf ../opencryptoki/stdll/ stdll
 
