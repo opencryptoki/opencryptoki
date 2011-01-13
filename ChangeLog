@@ -1,3 +1,12 @@
+* opencryptoki-2.3.3 (Jan 13 2011)
+- Moderate fixes and clean-ups to key unwrapping mechanisms
+- several pkcsconf fixes, some minor changes
+- Important fix to CCA library name in pkcs11_startup
+- PKCS padding length fix for symmetric ciphers
+- Better RSA public exponent validations in all supported tokens
+- Huge testsuite refactor
+- Several other minor fixes and cleanups
+
 * opencryptoki-2.3.2 (Jul 29 2010)
 - Significant clean-ups to the building and packaging systems and many
   small fixes by Klaus Heinrich Kiwi <klausk@linux.vnet.ibm.com>

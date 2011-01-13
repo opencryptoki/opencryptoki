@@ -1,6 +1,6 @@
 Name:			opencryptoki
 Summary:		Implementation of the PKCS#11 (Cryptoki) specification v2.11
-Version:		2.3.2
+Version:		2.3.3
 Release:		1%{?dist}
 License:		CPL
 Group:			System Environment/Base
