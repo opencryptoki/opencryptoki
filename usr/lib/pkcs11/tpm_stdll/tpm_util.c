@@ -53,6 +53,10 @@
 
 #include "tpm_specific.h"
 
+#ifndef UINT64
+#define UINT64 unsigned long long
+#endif
+
 extern TSS_HCONTEXT tspContext;
 
 UINT32

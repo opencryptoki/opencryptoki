@@ -374,10 +374,20 @@ int CreateSharedMemory ( void ) {
 
 
    if ( shmid < 0 ) {
-      ErrLog(SLOTD_MSG(SHMEMCR, 
-              "Shared memory creation failed (0x%X)\n"), errno);
-      ErrLog(SLOTD_MSG(IPCRM, "perform ipcrm -M 0x%X\n"), tok);
-      return FALSE;
+      ErrLog(SLOTD_MSG(SHMEMCR,
+                       "Shared memory creation failed (0x%X)\n"), errno);
+      ErrLog(SLOTD_MSG(SHMEMCR, "Reclaiming 0x%X\n"), tok);
+      shmid = shmget( tok, sizeof( Slot_Mgr_Shr_t ), 0 );
+      DestroySharedMemory();
+      shmid = shmget( tok, sizeof( Slot_Mgr_Shr_t ),
+                      IPC_CREAT | IPC_EXCL |  S_IRUSR |
+	              S_IRGRP  | S_IWUSR | S_IWGRP   );
+      if ( shmid < 0 ) {
+          ErrLog(SLOTD_MSG(SHMEMCR,
+                           "Shared memory reclamation failed (0x%X)\n"), errno);
+          ErrLog(SLOTD_MSG(IPCRM, "perform ipcrm -M 0x%X\n"), tok);
+          return FALSE;
+      }
    }
 
    // SAB Set the group ownership of the shared mem segment..
