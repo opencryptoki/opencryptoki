@@ -56,3 +56,10 @@ noinst_HEADERS = h_extern.h tok_spec_struct.h defs.h	\
 
 install-data-hook:
 	$(MKDIR_P) $(DESTDIR)$(localstatedir)/lib/opencryptoki/tpm
+	cd $(DESTDIR)$(libdir)/opencryptoki/stdll && \
+		ln -sf libpkcs11_tpm.so PKCS11_TPM.so
+
+uninstall-hook:
+	if test -d $(DESTDIR)$(libdir)/opencryptoki/stdll; then \
+		cd $(DESTDIR)$(libdir)/opencryptoki/stdll && \
+		rm -rf PKCS11_TPM.so; fi
