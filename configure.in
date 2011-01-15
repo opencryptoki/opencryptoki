@@ -1,11 +1,11 @@
 dnl Process this file with autoconf to produce a configure script.
-AC_INIT([openCryptoki], [2.3.3], [opencryptoki-tech@lists.sourceforge.net])
+AC_INIT([openCryptoki],[2.3.3],[opencryptoki-tech@lists.sourceforge.net])
 
 AM_INIT_AUTOMAKE([foreign 1.6])
 
 dnl Checks for header files.
 AC_DISABLE_STATIC
-AC_PROG_LIBTOOL
+LT_INIT
 
 AC_HEADER_STDC
 AC_CHECK_HEADERS([fcntl.h limits.h strings.h sys/file.h syslog.h unistd.h])
@@ -39,29 +39,25 @@ dnl ---
 
 dnl --- Debugging support
 AC_ARG_ENABLE([debug],
-	AC_HELP_STRING([--enable-debug],
-	[enable debugging build @<:@default=no@:>@]),
+	AS_HELP_STRING([--enable-debug],[enable debugging build @<:@default=no@:>@]),
 	[],
 	[enable_debug=no])
 
 dnl --- build testcases
 AC_ARG_ENABLE([testcases],
-	AC_HELP_STRING([--enable-testcases],
-	[build the test cases @<:@default=no@:>@]),
+	AS_HELP_STRING([--enable-testcases],[build the test cases @<:@default=no@:>@]),
 	[],
 	[enable_testcases=no])
 
 dnl --- Check if building daemon
 AC_ARG_ENABLE([daemon],
-	AC_HELP_STRING([--enable-daemon],
-	[build pkcsslotd daemon @<:@default=yes@:>@]),
+	AS_HELP_STRING([--enable-daemon],[build pkcsslotd daemon @<:@default=yes@:>@]),
 	[],
 	[enable_daemon=yes])
 
 dnl --- Check if building library
 AC_ARG_ENABLE([library],
-	AC_HELP_STRING([--enable-library],
-	[build opencryptoki libraries @<:@default=yes@:>@]),
+	AS_HELP_STRING([--enable-library],[build opencryptoki libraries @<:@default=yes@:>@]),
 	[],
 	[enable_library=yes])
 
@@ -71,65 +67,56 @@ dnl --- that it will enable it by default it dependencies are met
 
 dnl --- ICA token
 AC_ARG_ENABLE([icatok],
-	AC_HELP_STRING([--enable-icatok],
-	[build ica token @<:@default=enabled if libica is present@:>@]),
+	AS_HELP_STRING([--enable-icatok],[build ica token @<:@default=enabled if libica is present@:>@]),
 	[],
 	[enable_icatok=check])
 
 dnl --- CCA token
 AC_ARG_ENABLE([ccatok],
-	AC_HELP_STRING([--enable-ccatok],
-	[build cca token (IBM Common Cryptographic Architecture) @<:@default=enabled in s390 arch@:>@]),
+	AS_HELP_STRING([--enable-ccatok],[build cca token (IBM Common Cryptographic Architecture) @<:@default=enabled in s390 arch@:>@]),
 	[],
 	[enable_ccatok=check])
 
 dnl --- software token
 AC_ARG_ENABLE([swtok],
-	AC_HELP_STRING([--enable-swtok],
-	[build software token @<:@default=enabled@:>@]),
+	AS_HELP_STRING([--enable-swtok],[build software token @<:@default=enabled@:>@]),
 	[],
 	[enable_swtok=yes])
 
 dnl --- TPM token
 AC_ARG_ENABLE([tpmtok],
-	AC_HELP_STRING([--enable-tpmtok],
-	[build tpm token (Trusted Platform Module) @<:@default=enabled if TrouSerS is present@:>@]),
+	AS_HELP_STRING([--enable-tpmtok],[build tpm token (Trusted Platform Module) @<:@default=enabled if TrouSerS is present@:>@]),
 	[],
 	[enable_tpmtok=check])
 
 dnl --- icc token (IBM 4758 PCICC hardware)
 AC_ARG_ENABLE([icctok],
-	AC_HELP_STRING([--enable-icctok],
-	[build icc token (IBM 4758 hardware) @<:@default=enabled if SCC library is present@:>@]),
+	AS_HELP_STRING([--enable-icctok],[build icc token (IBM 4758 hardware) @<:@default=enabled if SCC library is present@:>@]),
 	[],
 	[enable_icctok=check])
 
 dnl --- aep token (AEP Crypto Accelerator hardware)
 AC_ARG_ENABLE([aeptok],
-	AC_HELP_STRING([--enable-aeptok],
-	[build aep token (AEP Crypto Accelerator) @<:@default=enabled if AEP library is present@:>@]),
+	AS_HELP_STRING([--enable-aeptok],[build aep token (AEP Crypto Accelerator) @<:@default=enabled if AEP library is present@:>@]),
 	[],
 	[enable_aeptok=check])
 
 dnl --- bcom token (Broadcom Crypto Accelerator hardware)
 AC_ARG_ENABLE([bcomtok],
-	AC_HELP_STRING([--enable-bcomtok],
-	[build bcom token (Broadcom Crypto Accelerator) @<:@default=enabled if uBSec library is present@:>@]),
+	AS_HELP_STRING([--enable-bcomtok],[build bcom token (Broadcom Crypto Accelerator) @<:@default=enabled if uBSec library is present@:>@]),
 	[],
 	[enable_bcomtok=check])
 
 dnl -- cr token (Corrent Crypto Accelerator hardware)
 AC_ARG_ENABLE([crtok],
-	AC_HELP_STRING([--enable-crtok],
-	[build cr token (Corrent Crypto Accelerator) @<:@default=enabled if SocketArmor library is present@:>@]),
+	AS_HELP_STRING([--enable-crtok],[build cr token (Corrent Crypto Accelerator) @<:@default=enabled if SocketArmor library is present@:>@]),
 	[],
 	[enable_crtok=check])
 
 dnl --- token-specific stuff
 dnl --- pkcscca_migrate
 AC_ARG_ENABLE([pkcscca_migrate],
-	AC_HELP_STRING([--enable-pkcscca_migrate],
-	[build pkcscca_migrate (CCA token key migration tool) @<:@default=enabled if CCA library is present@:>@]),
+	AS_HELP_STRING([--enable-pkcscca_migrate],[build pkcscca_migrate (CCA token key migration tool) @<:@default=enabled if CCA library is present@:>@]),
 	[],
 	[enable_pkcscca_migrate=check])
 
@@ -139,49 +126,49 @@ dnl --- Define what to check based on enabled features
 
 dnl --- Openssl development files
 AC_ARG_WITH([openssl],
-	AC_HELP_STRING([--with-openssl@<:@=DIR@:>@], [OpenSSL development files location]),
+	AS_HELP_STRING([--with-openssl@<:@=DIR@:>@],[OpenSSL development files location]),
 	[],
 	[with_openssl=check])
 
 dnl --- Libica development files
 AC_ARG_WITH([libica],
-	AC_HELP_STRING([--with-libica@<:@=DIR@:>@], [libica development files location]),
+	AS_HELP_STRING([--with-libica@<:@=DIR@:>@],[libica development files location]),
 	[],
 	[with_libica=check])
 
 dnl --- TSS (TrouSerS) development files
 AC_ARG_WITH([tss],
-	AC_HELP_STRING([--with-tss@<:@=DIR@:>@], [TrouSerS development files location]),
+	AS_HELP_STRING([--with-tss@<:@=DIR@:>@],[TrouSerS development files location]),
 	[],
 	[with_tss=check])
 
 dnl --- SCC development files (IBM 4758 PCI Cryptographic Coprocessor)
 AC_ARG_WITH([scc],
-	AC_HELP_STRING([--with-scc@<:@=DIR@:>@], [SCC library location]),
+	AS_HELP_STRING([--with-scc@<:@=DIR@:>@],[SCC library location]),
 	[],
 	[with_scc=check])
 
 dnl --- AEP development files (AEP crypto hardware)
 AC_ARG_WITH([aep],
-	AC_HELP_STRING([--with-aep@<:@=DIR@:>@], [AEP development files location]),
+	AS_HELP_STRING([--with-aep@<:@=DIR@:>@],[AEP development files location]),
 	[],
 	[with_aep=check])
 
 dnl --- uBSec development files (Broadcom crypto hardware)
 AC_ARG_WITH([ubsec],
-	AC_HELP_STRING([--with-ubsec@<:@=DIR@:>@], [uBSec library location]),
+	AS_HELP_STRING([--with-ubsec@<:@=DIR@:>@],[uBSec library location]),
 	[],
 	[with_ubsec=check])
 
 dnl --- Socketarmor development files (Corrent crypto hardware)
 AC_ARG_WITH([socketarmor],
-	AC_HELP_STRING([--with-socketarmor@<:@=DIR@:>@], [Socketarmor library location]),
+	AS_HELP_STRING([--with-socketarmor@<:@=DIR@:>@],[Socketarmor library location]),
 	[],
 	[with_socketarmor=check])
 
 dnl --- xcryptolinz development files (IBM CCA development files)
 AC_ARG_WITH([xcryptolinz],
-	AC_HELP_STRING([--with-xcryptolinz@<:@=DIR@:>@], [CCA library (xcryptolinz) location]),
+	AS_HELP_STRING([--with-xcryptolinz@<:@=DIR@:>@],[CCA library (xcryptolinz) location]),
 	[],
 	[with_xcryptolinz=check])
 
@@ -626,7 +613,7 @@ CFLAGS+=' -DCONFIG_PATH=\"$(localstatedir)/lib/opencryptoki\" -DSBIN_PATH=\"$(sb
 # At this point, CFLAGS is set to something sensible
 AC_PROG_CC
 
-AC_OUTPUT([Makefile usr/Makefile \
+AC_CONFIG_FILES([Makefile usr/Makefile \
           usr/include/Makefile \
           usr/include/pkcs11/Makefile \
           usr/lib/Makefile \
@@ -675,6 +662,7 @@ AC_OUTPUT([Makefile usr/Makefile \
 	  man/man7/opencryptoki.7 \
 	  man/man8/Makefile \
 	  man/man8/pkcsslotd.8])
+AC_OUTPUT
 
 echo "Enabled features:"
 echo "	Debug build:		$enable_debug"
