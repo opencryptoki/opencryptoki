@@ -16,6 +16,7 @@ opencryptoki_stdll_libpkcs11_cca_la_LDFLAGS = -shared -Wl,-Bsymbolic	\
 	-lcrypto -lpthread -nostartfiles -Wl,-soname,$@
 
 opencryptoki_stdll_libpkcs11_cca_la_SOURCES = asn1.c			\
+					      ../common/btree.c		\
 					      ../common/dig_mgr.c	\
 					      ../common/hwf_obj.c	\
 					      ../common/log.c		\

@@ -1765,11 +1765,10 @@ verify_user_pin(CK_BYTE *hash_sha)
 }
 
 CK_RV
-token_specific_set_pin(ST_SESSION_HANDLE session,
+token_specific_set_pin(SESSION *sess,
 		       CK_CHAR_PTR pOldPin, CK_ULONG ulOldPinLen,
 		       CK_CHAR_PTR pNewPin, CK_ULONG ulNewPinLen)
 {
-	SESSION		*sess = session_mgr_find( session.sessionh );
 	CK_BYTE		oldpin_hash[SHA1_HASH_SIZE], newpin_hash[SHA1_HASH_SIZE];
 	CK_RV		rc;
 	RSA		*rsa_root;

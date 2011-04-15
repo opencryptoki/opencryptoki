@@ -304,20 +304,6 @@
 #ifndef _APILOCAL_H
 #define _APILOCAL_H
 
-
-typedef struct _Session_struct {
-   void *Previous;
-   void *Next;
-   CK_SLOT_ID   SltId;             // Slot ID for indexing into the function list pointer
-   CK_SESSION_HANDLE  RealHandle;  // Handle returned by the STDLL
-   struct _Session_struct *Handle; // our own handle, cheap check for valid session
-} Session_Struct_t;
-
-#ifdef PK64
-// 64Bit work...  Need to have a pointer to session struct 
-typedef Session_Struct_t *     SessStructP ;
-#endif
-
 // SAB Add a linked list of STDLL's loaded to
 // only load and get list once, but let multiple slots us it.
 
@@ -335,10 +321,7 @@ typedef struct {
    STDLL_FcnList_t   *FcnList;  // Function list pointer for the STDLL
    DLL_Load_t  *dll_information;  
    void            (*pSTfini)();  // Addition of Final function.
-   void            (*pSTcloseall)();  // Addition of close all for leeds code
-#ifdef PK64
-   SessStructP   Slot_Sess[65535];  // allocate sessions for 2**16 sessions
-#endif
+   CK_RV           (*pSTcloseall)();  // Addition of close all for leeds code
 } API_Slot_t;
 
 
@@ -351,16 +334,12 @@ typedef struct {
    pthread_mutex_t  ProcMutex;      // Mutex for the process level should this be necessary
    key_t             shm_tok;
 
-   Session_Struct_t  *SessListBeg;  // Beginning of the session linked list for this process
-   Session_Struct_t  *SessListEnd;  // 
-   pthread_mutex_t   SessListMutex;
+   struct btree     sess_btree;
+   pthread_mutex_t  SessListMutex; /*used to lock around btree accesses */
    void              *SharedMemP;
    uint16            MgrProcIndex; // Index into shared memory for This process ctl block
    API_Slot_t        SltList[NUMBER_SLOTS_MANAGED];
    DLL_Load_t        DLLs[NUMBER_SLOTS_MANAGED]; // worst case we have a separate DLL per slot
-
-
-
 } API_Proc_Struct_t;
 
 #endif

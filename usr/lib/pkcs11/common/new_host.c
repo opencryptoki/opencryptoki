@@ -481,13 +481,9 @@ CK_SLOT_ID  snum;
    }
 
 
-#define SESSION_HANDLE   sSession.sessionh
+//#define SESSION_HANDLE   sSession.sessionh
+#define SESS_HANDLE(s)	((s)->sessionh)
 #define SLOTID    APISlot2Local(sSession.slotID)
-
-#define SESS_SET \
-   CK_SESSION_HANDLE  hSession; \
-\
-   hSession = sSession.sessionh;
 
 
 // More efficient long reverse
@@ -770,27 +766,6 @@ copy_token_contents_sensibly(CK_TOKEN_INFO_PTR pInfo, TOKEN_DATA *nv_token_data)
 	memcpy(pInfo, &nv_token_data->token_info, sizeof(CK_TOKEN_INFO_32));
 	pInfo->flags = nv_token_data->token_info.flags;
 
-	if ( nv_token_data->token_info.ulMaxSessionCount == (CK_ULONG_32)CK_UNAVAILABLE_INFORMATION ) {
-	  pInfo->ulMaxSessionCount = (CK_ULONG)CK_UNAVAILABLE_INFORMATION;
-	} else {
-	  pInfo->ulMaxSessionCount = nv_token_data->token_info.ulMaxSessionCount;
-	}
-	if ( nv_token_data->token_info.ulSessionCount == (CK_ULONG_32)CK_UNAVAILABLE_INFORMATION ) {
-	  pInfo->ulSessionCount = (CK_ULONG)CK_UNAVAILABLE_INFORMATION;
-	} else {
-	  pInfo->ulSessionCount = nv_token_data->token_info.ulSessionCount;
-	}
-	if ( nv_token_data->token_info.ulMaxRwSessionCount == (CK_ULONG_32)CK_UNAVAILABLE_INFORMATION ) {
-	  pInfo->ulMaxRwSessionCount = (CK_ULONG)CK_UNAVAILABLE_INFORMATION;
-	} else {
-	  pInfo->ulMaxRwSessionCount = 	nv_token_data->token_info.ulMaxRwSessionCount;
-	}
-	if ( nv_token_data->token_info.ulRwSessionCount == (CK_ULONG_32)CK_UNAVAILABLE_INFORMATION ) {
-	  pInfo->ulRwSessionCount = (CK_ULONG)CK_UNAVAILABLE_INFORMATION;
-	} else {
-	  pInfo->ulRwSessionCount = nv_token_data->token_info.ulRwSessionCount;
-	}
-
 	pInfo->ulMaxPinLen = nv_token_data->token_info.ulMaxPinLen;
 	pInfo->ulMinPinLen = nv_token_data->token_info.ulMinPinLen;
 
@@ -818,10 +793,11 @@ copy_token_contents_sensibly(CK_TOKEN_INFO_PTR pInfo, TOKEN_DATA *nv_token_data)
 	pInfo->hardwareVersion = nv_token_data->token_info.hardwareVersion;
 	pInfo->firmwareVersion = nv_token_data->token_info.firmwareVersion;
 	pInfo->flags = long_reverse(pInfo->flags);
-	pInfo->ulMaxSessionCount = long_reverse(pInfo->ulMaxSessionCount);
-	pInfo->ulSessionCount = long_reverse(pInfo->ulSessionCount);
-	pInfo->ulMaxRwSessionCount = long_reverse(pInfo->ulMaxRwSessionCount);
-	pInfo->ulRwSessionCount = long_reverse(pInfo->ulRwSessionCount);
+	pInfo->ulMaxSessionCount = ULONG_MAX - 1;
+	/* pInfo->ulSessionCount is set at the API level */
+	pInfo->ulMaxRwSessionCount = ULONG_MAX - 1;
+	pInfo->ulRwSessionCount = CK_UNAVAILABLE_INFORMATION;
+
 	pInfo->ulMaxPinLen = long_reverse(pInfo->ulMaxPinLen);
 	pInfo->ulMinPinLen = long_reverse(pInfo->ulMinPinLen);
 	pInfo->ulTotalPublicMemory = long_reverse(pInfo->ulTotalPublicMemory);
@@ -1119,7 +1095,7 @@ CK_RV SC_InitToken( CK_SLOT_ID   sid,
 
 //
 //
-CK_RV SC_InitPIN( ST_SESSION_HANDLE  sSession,
+CK_RV SC_InitPIN( ST_SESSION_HANDLE  *sSession,
                   CK_CHAR_PTR        pPin,
                   CK_ULONG           ulPinLen )
 {
@@ -1127,7 +1103,7 @@ CK_RV SC_InitPIN( ST_SESSION_HANDLE  sSession,
 	CK_BYTE           hash_sha[SHA1_HASH_SIZE];
 	CK_BYTE           hash_md5[MD5_HASH_SIZE];
 	CK_RV             rc = CKR_OK;
-	SESS_SET;
+	CK_SESSION_HANDLE hSession = SESS_HANDLE(sSession);
 	LOCKIT;
 	if (st_Initialized() == FALSE) {
 		st_err_log(72, __FILE__, __LINE__);
@@ -1198,7 +1174,7 @@ CK_RV SC_InitPIN( ST_SESSION_HANDLE  sSession,
 	return rc;
 }
 
-CK_RV SC_SetPIN( ST_SESSION_HANDLE  sSession,
+CK_RV SC_SetPIN( ST_SESSION_HANDLE  *sSession,
                  CK_CHAR_PTR        pOldPin,
                  CK_ULONG           ulOldLen,
                  CK_CHAR_PTR        pNewPin,
@@ -1209,7 +1185,7 @@ CK_RV SC_SetPIN( ST_SESSION_HANDLE  sSession,
 	CK_BYTE new_hash_sha[SHA1_HASH_SIZE];
 	CK_BYTE hash_md5[MD5_HASH_SIZE];
 	CK_RV rc = CKR_OK;
-	SESS_SET;
+	CK_SESSION_HANDLE hSession = SESS_HANDLE(sSession);
 	LOCKIT;
 	if (st_Initialized() == FALSE) {
 		st_err_log(72, __FILE__, __LINE__);
@@ -1340,7 +1316,6 @@ CK_RV SC_OpenSession(CK_SLOT_ID             sid,
 		     CK_FLAGS               flags,
 		     CK_SESSION_HANDLE_PTR  phSession)
 {
-	SESSION              * sess;
 	CK_BBOOL               locked = FALSE;
 	CK_RV                  rc = CKR_OK;
 	SLT_CHECK;
@@ -1378,14 +1353,11 @@ CK_RV SC_OpenSession(CK_SLOT_ID             sid,
 	token_specific.t_session(slot_id);
 	MY_UnlockMutex( &pkcs_mutex );
 	locked = FALSE;
-	rc = session_mgr_new( flags, &sess );
+	rc = session_mgr_new( flags, sid, phSession );
 	if (rc != CKR_OK){
 		st_err_log(152, __FILE__, __LINE__); 
 		goto done;
 	}
-	*phSession = (CK_SESSION_HANDLE_PTR) sess;
-	// Set the correct slot ID here. Was hard coded to 1. - KEY
-	sess->session_info.slotID = sid;
  done:
 	if (locked)
 		MY_UnlockMutex( &pkcs_mutex );
@@ -1393,33 +1365,23 @@ CK_RV SC_OpenSession(CK_SLOT_ID             sid,
 	if (debugfile) {
 		stlogit2(debugfile, "%-25s:  rc = 0x%08x  ", "C_OpenSession",
 			 rc);
-		if (rc == CKR_OK)
-			stlogit2(debugfile, "sess = %d", 
-				 ((sess == NULL) ? -1 : (CK_LONG)sess->handle));
-		stlogit2(debugfile, "\n");
 	}
 	UNLOCKIT;
 	return rc;
 }
 
-CK_RV SC_CloseSession( ST_SESSION_HANDLE  sSession )
+CK_RV SC_CloseSession( ST_SESSION_HANDLE  *sSession )
 {
 	SESSION  * sess = NULL;
 	CK_RV      rc = CKR_OK;
-	SESS_SET;
+	CK_SESSION_HANDLE hSession = SESS_HANDLE(sSession);
 	LOCKIT;
 	if (st_Initialized() == FALSE) {
 		st_err_log(72, __FILE__, __LINE__);
 		rc = CKR_CRYPTOKI_NOT_INITIALIZED;
 		goto done;
 	}
-	sess = SESSION_MGR_FIND( hSession );
-	if (!sess) {
-		st_err_log(40, __FILE__, __LINE__);
-		rc = CKR_SESSION_HANDLE_INVALID;
-		goto done;
-	}
-	rc = session_mgr_close_session( sess );
+	rc = session_mgr_close_session(hSession);
  done:
 	LLOCK;
 	if (debugfile) {
@@ -1454,12 +1416,12 @@ CK_RV SC_CloseAllSessions( CK_SLOT_ID  sid )
 	return rc;
 }
 
-CK_RV SC_GetSessionInfo( ST_SESSION_HANDLE   sSession,
+CK_RV SC_GetSessionInfo( ST_SESSION_HANDLE   *sSession,
 			 CK_SESSION_INFO_PTR pInfo )
 {
 	SESSION  * sess = NULL;
 	CK_RV      rc = CKR_OK;
-	SESS_SET;
+	CK_SESSION_HANDLE hSession = SESS_HANDLE(sSession);
 	LOCKIT;
 	if (st_Initialized() == FALSE) {
 		st_err_log(72, __FILE__, __LINE__);
@@ -1491,14 +1453,14 @@ CK_RV SC_GetSessionInfo( ST_SESSION_HANDLE   sSession,
 	return rc;
 }
 
-CK_RV SC_GetOperationState( ST_SESSION_HANDLE  sSession,
+CK_RV SC_GetOperationState( ST_SESSION_HANDLE  *sSession,
 			    CK_BYTE_PTR        pOperationState,
 			    CK_ULONG_PTR       pulOperationStateLen )
 {
 	SESSION  * sess = NULL;
 	CK_BBOOL   length_only = FALSE;
 	CK_RV      rc = CKR_OK;
-	SESS_SET;
+	CK_SESSION_HANDLE hSession = SESS_HANDLE(sSession);
 	LOCKIT;
 	if (st_Initialized() == FALSE) {
 		st_err_log(72, __FILE__, __LINE__);
@@ -1542,7 +1504,7 @@ CK_RV SC_GetOperationState( ST_SESSION_HANDLE  sSession,
 
 //
 //
-CK_RV SC_SetOperationState( ST_SESSION_HANDLE  sSession,
+CK_RV SC_SetOperationState( ST_SESSION_HANDLE  *sSession,
 			    CK_BYTE_PTR        pOperationState,
 			    CK_ULONG           ulOperationStateLen,
 			    CK_OBJECT_HANDLE   hEncryptionKey,
@@ -1550,7 +1512,7 @@ CK_RV SC_SetOperationState( ST_SESSION_HANDLE  sSession,
 {
 	SESSION  * sess = NULL;
 	CK_RV      rc = CKR_OK;
-	SESS_SET
+	CK_SESSION_HANDLE hSession = SESS_HANDLE(sSession);
 
 
 		LOCKIT;
@@ -1594,7 +1556,7 @@ CK_RV SC_SetOperationState( ST_SESSION_HANDLE  sSession,
 
 //
 //
-CK_RV SC_Login( ST_SESSION_HANDLE   sSession,
+CK_RV SC_Login( ST_SESSION_HANDLE  *sSession,
                 CK_USER_TYPE        userType,
                 CK_CHAR_PTR         pPin,
                 CK_ULONG            ulPinLen )
@@ -1604,7 +1566,7 @@ CK_RV SC_Login( ST_SESSION_HANDLE   sSession,
 	CK_BYTE          hash_sha[SHA1_HASH_SIZE];
 	CK_RV            rc = CKR_OK;
 
-	SESS_SET
+	CK_SESSION_HANDLE hSession = SESS_HANDLE(sSession);
 		LOCKIT;
 	// In v2.11, logins should be exclusive, since token
 	// specific flags may need to be set for a bad login. - KEY
@@ -1760,12 +1722,12 @@ CK_RV SC_Login( ST_SESSION_HANDLE   sSession,
 
 //
 //
-CK_RV SC_Logout( ST_SESSION_HANDLE  sSession )
+CK_RV SC_Logout( ST_SESSION_HANDLE  *sSession )
 {
 	SESSION  * sess = NULL;
 	CK_RV      rc = CKR_OK;
 
-	SESS_SET
+	CK_SESSION_HANDLE hSession = SESS_HANDLE(sSession);
 	
 		LOCKIT;
 	if (st_Initialized() == FALSE) {
@@ -1810,7 +1772,7 @@ CK_RV SC_Logout( ST_SESSION_HANDLE  sSession )
 
 // This is a Leeds-Lite solution so we have to store objects on the host.
 //
-CK_RV SC_CreateObject( ST_SESSION_HANDLE    sSession,
+CK_RV SC_CreateObject( ST_SESSION_HANDLE    *sSession,
 		       CK_ATTRIBUTE_PTR     pTemplate,
 		       CK_ULONG             ulCount,
 		       CK_OBJECT_HANDLE_PTR phObject )
@@ -1818,7 +1780,7 @@ CK_RV SC_CreateObject( ST_SESSION_HANDLE    sSession,
 	SESSION               * sess = NULL;
 	CK_ULONG                i;
 	CK_RV                   rc = CKR_OK;
-	SESS_SET
+	CK_SESSION_HANDLE hSession = SESS_HANDLE(sSession);
 
 		LOCKIT;
 	if (st_Initialized() == FALSE) {
@@ -1866,7 +1828,7 @@ CK_RV SC_CreateObject( ST_SESSION_HANDLE    sSession,
 
 //
 //
-CK_RV  SC_CopyObject( ST_SESSION_HANDLE    sSession,
+CK_RV  SC_CopyObject( ST_SESSION_HANDLE   *sSession,
 		      CK_OBJECT_HANDLE     hObject,
 		      CK_ATTRIBUTE_PTR     pTemplate,
 		      CK_ULONG             ulCount,
@@ -1874,7 +1836,7 @@ CK_RV  SC_CopyObject( ST_SESSION_HANDLE    sSession,
 {
 	SESSION              * sess = NULL;
 	CK_RV                  rc = CKR_OK;
-	SESS_SET
+	CK_SESSION_HANDLE hSession = SESS_HANDLE(sSession);
 
 		LOCKIT;
 	if (st_Initialized() == FALSE) {
@@ -1913,12 +1875,12 @@ CK_RV  SC_CopyObject( ST_SESSION_HANDLE    sSession,
 
 //
 //
-CK_RV SC_DestroyObject( ST_SESSION_HANDLE  sSession,
+CK_RV SC_DestroyObject( ST_SESSION_HANDLE  *sSession,
 			CK_OBJECT_HANDLE   hObject )
 {
 	SESSION               * sess = NULL;
 	CK_RV                   rc = CKR_OK;
-	SESS_SET
+	CK_SESSION_HANDLE hSession = SESS_HANDLE(sSession);
 
 
 		LOCKIT;
@@ -1957,13 +1919,13 @@ CK_RV SC_DestroyObject( ST_SESSION_HANDLE  sSession,
 
 //
 //
-CK_RV SC_GetObjectSize( ST_SESSION_HANDLE  sSession,
+CK_RV SC_GetObjectSize( ST_SESSION_HANDLE  *sSession,
 			CK_OBJECT_HANDLE   hObject,
 			CK_ULONG_PTR       pulSize )
 {
 	SESSION               * sess = NULL;
 	CK_RV                   rc = CKR_OK;
-	SESS_SET
+	CK_SESSION_HANDLE hSession = SESS_HANDLE(sSession);
 
 
 		LOCKIT;
@@ -1997,7 +1959,7 @@ CK_RV SC_GetObjectSize( ST_SESSION_HANDLE  sSession,
 
 //
 //
-CK_RV SC_GetAttributeValue( ST_SESSION_HANDLE  sSession,
+CK_RV SC_GetAttributeValue( ST_SESSION_HANDLE  *sSession,
 			    CK_OBJECT_HANDLE   hObject,
 			    CK_ATTRIBUTE_PTR   pTemplate,
 			    CK_ULONG           ulCount )
@@ -2007,7 +1969,7 @@ CK_RV SC_GetAttributeValue( ST_SESSION_HANDLE  sSession,
 	CK_BYTE        * ptr  = NULL;
 	CK_ULONG         i;
 	CK_RV            rc = CKR_OK;
-	SESS_SET
+	CK_SESSION_HANDLE hSession = SESS_HANDLE(sSession);
 
 
 		LOCKIT;
@@ -2056,7 +2018,7 @@ CK_RV SC_GetAttributeValue( ST_SESSION_HANDLE  sSession,
 
 //
 //
-CK_RV  SC_SetAttributeValue( ST_SESSION_HANDLE    sSession,
+CK_RV  SC_SetAttributeValue( ST_SESSION_HANDLE   *sSession,
 			     CK_OBJECT_HANDLE     hObject,
 			     CK_ATTRIBUTE_PTR     pTemplate,
 			     CK_ULONG             ulCount )
@@ -2065,7 +2027,7 @@ CK_RV  SC_SetAttributeValue( ST_SESSION_HANDLE    sSession,
 	CK_ATTRIBUTE  * attr = NULL;
 	CK_ULONG        i;
 	CK_RV           rc = CKR_OK;
-	SESS_SET
+	CK_SESSION_HANDLE hSession = SESS_HANDLE(sSession);
 
 
 		LOCKIT;
@@ -2113,7 +2075,7 @@ CK_RV  SC_SetAttributeValue( ST_SESSION_HANDLE    sSession,
 
 //
 //
-CK_RV SC_FindObjectsInit( ST_SESSION_HANDLE   sSession,
+CK_RV SC_FindObjectsInit( ST_SESSION_HANDLE  *sSession,
 			  CK_ATTRIBUTE_PTR    pTemplate,
 			  CK_ULONG            ulCount )
 {
@@ -2121,7 +2083,7 @@ CK_RV SC_FindObjectsInit( ST_SESSION_HANDLE   sSession,
 	CK_ATTRIBUTE   * attr = NULL;
 	CK_ULONG         i;
 	CK_RV            rc = CKR_OK;
-	SESS_SET
+	CK_SESSION_HANDLE hSession = SESS_HANDLE(sSession);
 
 		LOCKIT;
 	if (st_Initialized() == FALSE) {
@@ -2180,7 +2142,7 @@ CK_RV SC_FindObjectsInit( ST_SESSION_HANDLE   sSession,
 
 //
 //
-CK_RV SC_FindObjects( ST_SESSION_HANDLE     sSession,
+CK_RV SC_FindObjects( ST_SESSION_HANDLE    *sSession,
 		      CK_OBJECT_HANDLE_PTR  phObject,
 		      CK_ULONG              ulMaxObjectCount,
 		      CK_ULONG_PTR          pulObjectCount )
@@ -2188,7 +2150,7 @@ CK_RV SC_FindObjects( ST_SESSION_HANDLE     sSession,
 	SESSION    * sess  = NULL;
 	CK_ULONG     count = 0;
 	CK_RV        rc = CKR_OK;
-	SESS_SET
+	CK_SESSION_HANDLE hSession = SESS_HANDLE(sSession);
 
 
 		LOCKIT;
@@ -2243,11 +2205,11 @@ CK_RV SC_FindObjects( ST_SESSION_HANDLE     sSession,
 
 //
 //
-CK_RV SC_FindObjectsFinal( ST_SESSION_HANDLE  sSession )
+CK_RV SC_FindObjectsFinal( ST_SESSION_HANDLE *sSession )
 {
 	SESSION     * sess = NULL;
 	CK_RV         rc = CKR_OK;
-	SESS_SET
+	CK_SESSION_HANDLE hSession = SESS_HANDLE(sSession);
 
 
 		LOCKIT;
@@ -2293,13 +2255,13 @@ CK_RV SC_FindObjectsFinal( ST_SESSION_HANDLE  sSession )
 
 //
 //
-CK_RV SC_EncryptInit( ST_SESSION_HANDLE  sSession,
+CK_RV SC_EncryptInit( ST_SESSION_HANDLE  *sSession,
 		      CK_MECHANISM_PTR   pMechanism,
 		      CK_OBJECT_HANDLE   hKey )
 {
 	SESSION               * sess = NULL;
 	CK_RV                   rc = CKR_OK;
-	SESS_SET
+	CK_SESSION_HANDLE hSession = SESS_HANDLE(sSession);
 
 
 		LOCKIT;
@@ -2352,7 +2314,7 @@ CK_RV SC_EncryptInit( ST_SESSION_HANDLE  sSession,
 
 //
 //
-CK_RV SC_Encrypt( ST_SESSION_HANDLE  sSession,
+CK_RV SC_Encrypt( ST_SESSION_HANDLE  *sSession,
 		  CK_BYTE_PTR        pData,
 		  CK_ULONG           ulDataLen,
 		  CK_BYTE_PTR        pEncryptedData,
@@ -2361,7 +2323,7 @@ CK_RV SC_Encrypt( ST_SESSION_HANDLE  sSession,
 	SESSION        * sess = NULL;
 	CK_BBOOL         length_only = FALSE;
 	CK_RV            rc = CKR_OK;
-	SESS_SET
+	CK_SESSION_HANDLE hSession = SESS_HANDLE(sSession);
 
 
 		LOCKIT;
@@ -2416,7 +2378,7 @@ CK_RV SC_Encrypt( ST_SESSION_HANDLE  sSession,
 
 //
 //
-CK_RV SC_EncryptUpdate( ST_SESSION_HANDLE  sSession,
+CK_RV SC_EncryptUpdate( ST_SESSION_HANDLE  *sSession,
 			CK_BYTE_PTR        pPart,
 			CK_ULONG           ulPartLen,
 			CK_BYTE_PTR        pEncryptedPart,
@@ -2425,7 +2387,7 @@ CK_RV SC_EncryptUpdate( ST_SESSION_HANDLE  sSession,
 	SESSION        * sess = NULL;
 	CK_BBOOL         length_only = FALSE;
 	CK_RV            rc = CKR_OK;
-	SESS_SET
+	CK_SESSION_HANDLE hSession = SESS_HANDLE(sSession);
 
 
 		LOCKIT;
@@ -2499,14 +2461,14 @@ CK_RV SC_EncryptUpdate( ST_SESSION_HANDLE  sSession,
 // have simply included a "give-me-the-length-only flag" as an argument.
 //
 //
-CK_RV SC_EncryptFinal( ST_SESSION_HANDLE  sSession,
+CK_RV SC_EncryptFinal( ST_SESSION_HANDLE  *sSession,
 		       CK_BYTE_PTR        pLastEncryptedPart,
 		       CK_ULONG_PTR       pulLastEncryptedPartLen )
 {
 	SESSION     * sess = NULL;
 	CK_BBOOL      length_only = FALSE;
 	CK_RV         rc = CKR_OK;
-	SESS_SET
+	CK_SESSION_HANDLE hSession = SESS_HANDLE(sSession);
 
 
 		LOCKIT;
@@ -2559,13 +2521,13 @@ CK_RV SC_EncryptFinal( ST_SESSION_HANDLE  sSession,
 
 //
 //
-CK_RV SC_DecryptInit( ST_SESSION_HANDLE  sSession,
+CK_RV SC_DecryptInit( ST_SESSION_HANDLE  *sSession,
 		      CK_MECHANISM_PTR   pMechanism,
 		      CK_OBJECT_HANDLE   hKey )
 {
 	SESSION   * sess = NULL;
 	CK_RV       rc = CKR_OK;
-	SESS_SET
+	CK_SESSION_HANDLE hSession = SESS_HANDLE(sSession);
 
 
 		LOCKIT;
@@ -2618,7 +2580,7 @@ CK_RV SC_DecryptInit( ST_SESSION_HANDLE  sSession,
 
 //
 //
-CK_RV SC_Decrypt( ST_SESSION_HANDLE  sSession,
+CK_RV SC_Decrypt( ST_SESSION_HANDLE  *sSession,
 		  CK_BYTE_PTR        pEncryptedData,
 		  CK_ULONG           ulEncryptedDataLen,
 		  CK_BYTE_PTR        pData,
@@ -2627,7 +2589,7 @@ CK_RV SC_Decrypt( ST_SESSION_HANDLE  sSession,
 	SESSION  * sess = NULL;
 	CK_BBOOL   length_only = FALSE;
 	CK_RV      rc = CKR_OK;
-	SESS_SET
+	CK_SESSION_HANDLE hSession = SESS_HANDLE(sSession);
 
 
 		LOCKIT;
@@ -2682,7 +2644,7 @@ CK_RV SC_Decrypt( ST_SESSION_HANDLE  sSession,
 
 //
 //
-CK_RV SC_DecryptUpdate( ST_SESSION_HANDLE  sSession,
+CK_RV SC_DecryptUpdate( ST_SESSION_HANDLE  *sSession,
 			CK_BYTE_PTR        pEncryptedPart,
 			CK_ULONG           ulEncryptedPartLen,
 			CK_BYTE_PTR        pPart,
@@ -2691,7 +2653,7 @@ CK_RV SC_DecryptUpdate( ST_SESSION_HANDLE  sSession,
 	SESSION   * sess = NULL;
 	CK_BBOOL    length_only = FALSE;
 	CK_RV       rc = CKR_OK;
-	SESS_SET
+	CK_SESSION_HANDLE hSession = SESS_HANDLE(sSession);
 
 
 		LOCKIT;
@@ -2746,14 +2708,14 @@ CK_RV SC_DecryptUpdate( ST_SESSION_HANDLE  sSession,
 
 //
 //
-CK_RV SC_DecryptFinal( ST_SESSION_HANDLE  sSession,
+CK_RV SC_DecryptFinal( ST_SESSION_HANDLE  *sSession,
 		       CK_BYTE_PTR        pLastPart,
 		       CK_ULONG_PTR       pulLastPartLen )
 {
 	SESSION   * sess = NULL;
 	CK_BBOOL    length_only = FALSE;
 	CK_RV       rc = CKR_OK;
-	SESS_SET
+	CK_SESSION_HANDLE hSession = SESS_HANDLE(sSession);
 
 
 		LOCKIT;
@@ -2807,12 +2769,12 @@ CK_RV SC_DecryptFinal( ST_SESSION_HANDLE  sSession,
 
 //
 //
-CK_RV SC_DigestInit( ST_SESSION_HANDLE  sSession,
+CK_RV SC_DigestInit( ST_SESSION_HANDLE  *sSession,
 		     CK_MECHANISM_PTR   pMechanism )
 {
 	SESSION   * sess = NULL;
 	CK_RV       rc = CKR_OK;
-	SESS_SET
+	CK_SESSION_HANDLE hSession = SESS_HANDLE(sSession);
 
 
 		LOCKIT;
@@ -2866,7 +2828,7 @@ CK_RV SC_DigestInit( ST_SESSION_HANDLE  sSession,
 
 //
 //
-CK_RV SC_Digest( ST_SESSION_HANDLE  sSession,
+CK_RV SC_Digest( ST_SESSION_HANDLE  *sSession,
 		 CK_BYTE_PTR        pData,
 		 CK_ULONG           ulDataLen,
 		 CK_BYTE_PTR        pDigest,
@@ -2875,7 +2837,7 @@ CK_RV SC_Digest( ST_SESSION_HANDLE  sSession,
 	SESSION  * sess = NULL;
 	CK_BBOOL   length_only = FALSE;
 	CK_RV      rc = CKR_OK;
-	SESS_SET
+	CK_SESSION_HANDLE hSession = SESS_HANDLE(sSession);
 
 
 		LOCKIT;
@@ -2930,13 +2892,13 @@ CK_RV SC_Digest( ST_SESSION_HANDLE  sSession,
 
 //
 //
-CK_RV SC_DigestUpdate( ST_SESSION_HANDLE  sSession,
+CK_RV SC_DigestUpdate( ST_SESSION_HANDLE  *sSession,
 		       CK_BYTE_PTR        pPart,
 		       CK_ULONG           ulPartLen )
 {
 	SESSION  * sess = NULL;
 	CK_RV      rc   = CKR_OK;
-	SESS_SET
+	CK_SESSION_HANDLE hSession = SESS_HANDLE(sSession);
 
 
 		LOCKIT;
@@ -2985,12 +2947,12 @@ CK_RV SC_DigestUpdate( ST_SESSION_HANDLE  sSession,
 
 //
 //
-CK_RV SC_DigestKey( ST_SESSION_HANDLE  sSession,
+CK_RV SC_DigestKey( ST_SESSION_HANDLE  *sSession,
 		    CK_OBJECT_HANDLE   hKey )
 {
 	SESSION  * sess = NULL;
 	CK_RV      rc = CKR_OK;
-	SESS_SET
+	CK_SESSION_HANDLE hSession = SESS_HANDLE(sSession);
 
 		LOCKIT;
 	if (st_Initialized() == FALSE) {
@@ -3029,14 +2991,14 @@ CK_RV SC_DigestKey( ST_SESSION_HANDLE  sSession,
 
 //
 //
-CK_RV SC_DigestFinal( ST_SESSION_HANDLE  sSession,
+CK_RV SC_DigestFinal( ST_SESSION_HANDLE  *sSession,
 		      CK_BYTE_PTR        pDigest,
 		      CK_ULONG_PTR       pulDigestLen )
 {
 	SESSION  * sess = NULL;
 	CK_BBOOL   length_only = FALSE;
 	CK_RV      rc = CKR_OK;
-	SESS_SET
+	CK_SESSION_HANDLE hSession = SESS_HANDLE(sSession);
 
 
 		LOCKIT;
@@ -3087,13 +3049,13 @@ CK_RV SC_DigestFinal( ST_SESSION_HANDLE  sSession,
 
 //
 //
-CK_RV SC_SignInit( ST_SESSION_HANDLE  sSession,
+CK_RV SC_SignInit( ST_SESSION_HANDLE  *sSession,
 		   CK_MECHANISM_PTR   pMechanism,
 		   CK_OBJECT_HANDLE   hKey )
 {
 	SESSION   * sess = NULL;
 	CK_RV       rc = CKR_OK;
-	SESS_SET
+	CK_SESSION_HANDLE hSession = SESS_HANDLE(sSession);
 
 
 		LOCKIT;
@@ -3146,7 +3108,7 @@ CK_RV SC_SignInit( ST_SESSION_HANDLE  sSession,
 
 //
 //
-CK_RV SC_Sign( ST_SESSION_HANDLE  sSession,
+CK_RV SC_Sign( ST_SESSION_HANDLE  *sSession,
 	       CK_BYTE_PTR        pData,
 	       CK_ULONG           ulDataLen,
 	       CK_BYTE_PTR        pSignature,
@@ -3155,7 +3117,7 @@ CK_RV SC_Sign( ST_SESSION_HANDLE  sSession,
 	SESSION  * sess = NULL;
 	CK_BBOOL   length_only = FALSE;
 	CK_RV      rc = CKR_OK;
-	SESS_SET
+	CK_SESSION_HANDLE hSession = SESS_HANDLE(sSession);
 
 
 		LOCKIT;
@@ -3210,13 +3172,13 @@ CK_RV SC_Sign( ST_SESSION_HANDLE  sSession,
 
 //
 //
-CK_RV SC_SignUpdate( ST_SESSION_HANDLE  sSession,
+CK_RV SC_SignUpdate( ST_SESSION_HANDLE  *sSession,
 		     CK_BYTE_PTR        pPart,
 		     CK_ULONG           ulPartLen )
 {
 	SESSION  * sess = NULL;
 	CK_RV      rc   = CKR_OK;
-	SESS_SET
+	CK_SESSION_HANDLE hSession = SESS_HANDLE(sSession);
 
 
 		LOCKIT;
@@ -3265,14 +3227,14 @@ CK_RV SC_SignUpdate( ST_SESSION_HANDLE  sSession,
 
 //
 //
-CK_RV SC_SignFinal( ST_SESSION_HANDLE  sSession,
+CK_RV SC_SignFinal( ST_SESSION_HANDLE  *sSession,
 		    CK_BYTE_PTR        pSignature,
 		    CK_ULONG_PTR       pulSignatureLen )
 {
 	SESSION  * sess = NULL;
 	CK_BBOOL   length_only = FALSE;
 	CK_RV      rc = CKR_OK;
-	SESS_SET
+	CK_SESSION_HANDLE hSession = SESS_HANDLE(sSession);
 
 
 		LOCKIT;
@@ -3327,13 +3289,13 @@ CK_RV SC_SignFinal( ST_SESSION_HANDLE  sSession,
 
 //
 //
-CK_RV SC_SignRecoverInit( ST_SESSION_HANDLE  sSession,
+CK_RV SC_SignRecoverInit( ST_SESSION_HANDLE  *sSession,
 			  CK_MECHANISM_PTR   pMechanism,
 			  CK_OBJECT_HANDLE   hKey )
 {
 	SESSION   * sess = NULL;
 	CK_RV       rc = CKR_OK;
-	SESS_SET
+	CK_SESSION_HANDLE hSession = SESS_HANDLE(sSession);
 
 
 		LOCKIT;
@@ -3385,7 +3347,7 @@ CK_RV SC_SignRecoverInit( ST_SESSION_HANDLE  sSession,
 
 //
 //
-CK_RV SC_SignRecover( ST_SESSION_HANDLE  sSession,
+CK_RV SC_SignRecover( ST_SESSION_HANDLE  *sSession,
 		      CK_BYTE_PTR        pData,
 		      CK_ULONG           ulDataLen,
 		      CK_BYTE_PTR        pSignature,
@@ -3394,7 +3356,7 @@ CK_RV SC_SignRecover( ST_SESSION_HANDLE  sSession,
 	SESSION  * sess = NULL;
 	CK_BBOOL   length_only = FALSE;
 	CK_RV      rc = CKR_OK;
-	SESS_SET
+	CK_SESSION_HANDLE hSession = SESS_HANDLE(sSession);
 
 
 		if (st_Initialized() == FALSE) {
@@ -3449,13 +3411,13 @@ CK_RV SC_SignRecover( ST_SESSION_HANDLE  sSession,
 
 //
 //
-CK_RV SC_VerifyInit( ST_SESSION_HANDLE  sSession,
+CK_RV SC_VerifyInit( ST_SESSION_HANDLE  *sSession,
 		     CK_MECHANISM_PTR   pMechanism,
 		     CK_OBJECT_HANDLE   hKey )
 {
 	SESSION   * sess = NULL;
 	CK_RV       rc = CKR_OK;
-	SESS_SET
+	CK_SESSION_HANDLE hSession = SESS_HANDLE(sSession);
 
 
 		LOCKIT;
@@ -3507,7 +3469,7 @@ CK_RV SC_VerifyInit( ST_SESSION_HANDLE  sSession,
 
 //
 //
-CK_RV SC_Verify( ST_SESSION_HANDLE  sSession,
+CK_RV SC_Verify( ST_SESSION_HANDLE  *sSession,
 		 CK_BYTE_PTR        pData,
 		 CK_ULONG           ulDataLen,
 		 CK_BYTE_PTR        pSignature,
@@ -3515,7 +3477,7 @@ CK_RV SC_Verify( ST_SESSION_HANDLE  sSession,
 {
 	SESSION  * sess = NULL;
 	CK_RV      rc = CKR_OK;
-	SESS_SET
+	CK_SESSION_HANDLE hSession = SESS_HANDLE(sSession);
 
 
 		LOCKIT;
@@ -3566,13 +3528,13 @@ CK_RV SC_Verify( ST_SESSION_HANDLE  sSession,
 
 //
 //
-CK_RV SC_VerifyUpdate( ST_SESSION_HANDLE  sSession,
+CK_RV SC_VerifyUpdate( ST_SESSION_HANDLE  *sSession,
 		       CK_BYTE_PTR        pPart,
 		       CK_ULONG           ulPartLen )
 {
 	SESSION  * sess = NULL;
 	CK_RV      rc   = CKR_OK;
-	SESS_SET
+	CK_SESSION_HANDLE hSession = SESS_HANDLE(sSession);
 
 
 		LOCKIT;
@@ -3621,13 +3583,13 @@ CK_RV SC_VerifyUpdate( ST_SESSION_HANDLE  sSession,
 
 //
 //
-CK_RV SC_VerifyFinal( ST_SESSION_HANDLE  sSession,
+CK_RV SC_VerifyFinal( ST_SESSION_HANDLE  *sSession,
 		      CK_BYTE_PTR        pSignature,
 		      CK_ULONG           ulSignatureLen )
 {
 	SESSION  * sess = NULL;
 	CK_RV      rc = CKR_OK;
-	SESS_SET
+	CK_SESSION_HANDLE hSession = SESS_HANDLE(sSession);
 
 
 		LOCKIT;
@@ -3675,13 +3637,13 @@ CK_RV SC_VerifyFinal( ST_SESSION_HANDLE  sSession,
 
 //
 //
-CK_RV SC_VerifyRecoverInit( ST_SESSION_HANDLE  sSession,
+CK_RV SC_VerifyRecoverInit( ST_SESSION_HANDLE  *sSession,
 			    CK_MECHANISM_PTR   pMechanism,
 			    CK_OBJECT_HANDLE   hKey )
 {
 	SESSION   * sess = NULL;
 	CK_RV       rc = CKR_OK;
-	SESS_SET
+	CK_SESSION_HANDLE hSession = SESS_HANDLE(sSession);
 
 
 		LOCKIT;
@@ -3733,7 +3695,7 @@ CK_RV SC_VerifyRecoverInit( ST_SESSION_HANDLE  sSession,
 
 //
 //
-CK_RV SC_VerifyRecover( ST_SESSION_HANDLE  sSession,
+CK_RV SC_VerifyRecover( ST_SESSION_HANDLE  *sSession,
 			CK_BYTE_PTR        pSignature,
 			CK_ULONG           ulSignatureLen,
 			CK_BYTE_PTR        pData,
@@ -3742,7 +3704,7 @@ CK_RV SC_VerifyRecover( ST_SESSION_HANDLE  sSession,
 	SESSION  * sess = NULL;
 	CK_BBOOL   length_only = FALSE;
 	CK_RV      rc = CKR_OK;
-	SESS_SET
+	CK_SESSION_HANDLE hSession = SESS_HANDLE(sSession);
 
 
 		LOCKIT;
@@ -3798,13 +3760,13 @@ CK_RV SC_VerifyRecover( ST_SESSION_HANDLE  sSession,
 
 //
 //
-CK_RV SC_DigestEncryptUpdate( ST_SESSION_HANDLE  sSession,
+CK_RV SC_DigestEncryptUpdate( ST_SESSION_HANDLE  *sSession,
 			      CK_BYTE_PTR        pPart,
 			      CK_ULONG           ulPartLen,
 			      CK_BYTE_PTR        pEncryptedPart,
 			      CK_ULONG_PTR       pulEncryptedPartLen )
 {
-	SESS_SET
+	CK_SESSION_HANDLE hSession = SESS_HANDLE(sSession);
 		if (st_Initialized() == FALSE){
 			st_err_log(72, __FILE__, __LINE__);
 			return CKR_CRYPTOKI_NOT_INITIALIZED;
@@ -3816,13 +3778,13 @@ CK_RV SC_DigestEncryptUpdate( ST_SESSION_HANDLE  sSession,
 
 //
 //
-CK_RV SC_DecryptDigestUpdate( ST_SESSION_HANDLE  sSession,
+CK_RV SC_DecryptDigestUpdate( ST_SESSION_HANDLE  *sSession,
 			      CK_BYTE_PTR        pEncryptedPart,
 			      CK_ULONG           ulEncryptedPartLen,
 			      CK_BYTE_PTR        pPart,
 			      CK_ULONG_PTR       pulPartLen )
 {
-	SESS_SET
+	CK_SESSION_HANDLE hSession = SESS_HANDLE(sSession);
 		if (st_Initialized() == FALSE){
 			st_err_log(72, __FILE__, __LINE__);
 			return CKR_CRYPTOKI_NOT_INITIALIZED;
@@ -3835,13 +3797,13 @@ CK_RV SC_DecryptDigestUpdate( ST_SESSION_HANDLE  sSession,
 
 //
 //
-CK_RV SC_SignEncryptUpdate( ST_SESSION_HANDLE  sSession,
+CK_RV SC_SignEncryptUpdate( ST_SESSION_HANDLE  *sSession,
 			    CK_BYTE_PTR        pPart,
 			    CK_ULONG           ulPartLen,
 			    CK_BYTE_PTR        pEncryptedPart,
 			    CK_ULONG_PTR       pulEncryptedPartLen )
 {
-	SESS_SET
+	CK_SESSION_HANDLE hSession = SESS_HANDLE(sSession);
 		if (st_Initialized() == FALSE){
 			st_err_log(72, __FILE__, __LINE__);
 			return CKR_CRYPTOKI_NOT_INITIALIZED;
@@ -3853,13 +3815,13 @@ CK_RV SC_SignEncryptUpdate( ST_SESSION_HANDLE  sSession,
 
 //
 //
-CK_RV SC_DecryptVerifyUpdate( ST_SESSION_HANDLE  sSession,
+CK_RV SC_DecryptVerifyUpdate( ST_SESSION_HANDLE  *sSession,
 			      CK_BYTE_PTR        pEncryptedPart,
 			      CK_ULONG           ulEncryptedPartLen,
 			      CK_BYTE_PTR        pPart,
 			      CK_ULONG_PTR       pulPartLen )
 {
-	SESS_SET
+	CK_SESSION_HANDLE hSession = SESS_HANDLE(sSession);
 		if (st_Initialized() == FALSE){
 			st_err_log(72, __FILE__, __LINE__);
 			return CKR_CRYPTOKI_NOT_INITIALIZED;
@@ -3871,7 +3833,7 @@ CK_RV SC_DecryptVerifyUpdate( ST_SESSION_HANDLE  sSession,
 
 //
 //
-CK_RV SC_GenerateKey( ST_SESSION_HANDLE     sSession,
+CK_RV SC_GenerateKey( ST_SESSION_HANDLE    *sSession,
 		      CK_MECHANISM_PTR      pMechanism,
 		      CK_ATTRIBUTE_PTR      pTemplate,
 		      CK_ULONG              ulCount,
@@ -3879,7 +3841,7 @@ CK_RV SC_GenerateKey( ST_SESSION_HANDLE     sSession,
 {
 	SESSION       * sess = NULL;
 	CK_RV           rc = CKR_OK;
-	SESS_SET
+	CK_SESSION_HANDLE hSession = SESS_HANDLE(sSession);
 
 
 		LOCKIT;
@@ -3942,7 +3904,7 @@ CK_RV SC_GenerateKey( ST_SESSION_HANDLE     sSession,
 
 //
 //
-CK_RV SC_GenerateKeyPair( ST_SESSION_HANDLE     sSession,
+CK_RV SC_GenerateKeyPair( ST_SESSION_HANDLE    *sSession,
 			  CK_MECHANISM_PTR      pMechanism,
 			  CK_ATTRIBUTE_PTR      pPublicKeyTemplate,
 			  CK_ULONG              ulPublicKeyAttributeCount,
@@ -3953,7 +3915,7 @@ CK_RV SC_GenerateKeyPair( ST_SESSION_HANDLE     sSession,
 {
 	SESSION       * sess = NULL;
 	CK_RV           rc = CKR_OK;
-	SESS_SET
+	CK_SESSION_HANDLE hSession = SESS_HANDLE(sSession);
 
 
 		LOCKIT;
@@ -4045,7 +4007,7 @@ CK_RV SC_GenerateKeyPair( ST_SESSION_HANDLE     sSession,
 
 //
 //
-CK_RV SC_WrapKey( ST_SESSION_HANDLE  sSession,
+CK_RV SC_WrapKey( ST_SESSION_HANDLE  *sSession,
 		  CK_MECHANISM_PTR   pMechanism,
 		  CK_OBJECT_HANDLE   hWrappingKey,
 		  CK_OBJECT_HANDLE   hKey,
@@ -4055,7 +4017,7 @@ CK_RV SC_WrapKey( ST_SESSION_HANDLE  sSession,
 	SESSION  * sess = NULL;
 	CK_BBOOL   length_only = FALSE;
 	CK_RV      rc = CKR_OK;
-	SESS_SET
+	CK_SESSION_HANDLE hSession = SESS_HANDLE(sSession);
 
 
 		LOCKIT;
@@ -4108,7 +4070,7 @@ CK_RV SC_WrapKey( ST_SESSION_HANDLE  sSession,
 
 //
 //
-CK_RV SC_UnwrapKey( ST_SESSION_HANDLE     sSession,
+CK_RV SC_UnwrapKey( ST_SESSION_HANDLE    *sSession,
 		    CK_MECHANISM_PTR      pMechanism,
 		    CK_OBJECT_HANDLE      hUnwrappingKey,
 		    CK_BYTE_PTR           pWrappedKey,
@@ -4122,7 +4084,7 @@ CK_RV SC_UnwrapKey( ST_SESSION_HANDLE     sSession,
 	CK_BYTE        * ptr  = NULL;
 	CK_ULONG         i;
 	CK_RV            rc = CKR_OK;
-	SESS_SET
+	CK_SESSION_HANDLE hSession = SESS_HANDLE(sSession);
 
 
 		LOCKIT;
@@ -4189,7 +4151,7 @@ CK_RV SC_UnwrapKey( ST_SESSION_HANDLE     sSession,
 
 //
 //
-CK_RV SC_DeriveKey( ST_SESSION_HANDLE     sSession,
+CK_RV SC_DeriveKey( ST_SESSION_HANDLE    *sSession,
 		    CK_MECHANISM_PTR      pMechanism,
 		    CK_OBJECT_HANDLE      hBaseKey,
 		    CK_ATTRIBUTE_PTR      pTemplate,
@@ -4201,7 +4163,7 @@ CK_RV SC_DeriveKey( ST_SESSION_HANDLE     sSession,
 	CK_BYTE        * ptr  = NULL;
 	CK_ULONG         i;
 	CK_RV            rc = CKR_OK;
-	SESS_SET
+	CK_SESSION_HANDLE hSession = SESS_HANDLE(sSession);
 
 
 		LOCKIT;
@@ -4292,11 +4254,11 @@ CK_RV SC_DeriveKey( ST_SESSION_HANDLE     sSession,
 
 //
 //
-CK_RV SC_SeedRandom( ST_SESSION_HANDLE  sSession,
+CK_RV SC_SeedRandom( ST_SESSION_HANDLE  *sSession,
 		     CK_BYTE_PTR        pSeed,
 		     CK_ULONG           ulSeedLen )
 {
-	SESS_SET
+	CK_SESSION_HANDLE hSession = SESS_HANDLE(sSession);
 		if (st_Initialized() == FALSE){
 			st_err_log(72, __FILE__, __LINE__);
 			return CKR_CRYPTOKI_NOT_INITIALIZED;
@@ -4307,13 +4269,13 @@ CK_RV SC_SeedRandom( ST_SESSION_HANDLE  sSession,
 
 //
 //
-CK_RV SC_GenerateRandom( ST_SESSION_HANDLE  sSession,
+CK_RV SC_GenerateRandom( ST_SESSION_HANDLE  *sSession,
 			 CK_BYTE_PTR        pRandomData,
 			 CK_ULONG           ulRandomLen )
 {
 	SESSION *sess = NULL;
 	CK_RV    rc = CKR_OK;
-	SESS_SET
+	CK_SESSION_HANDLE hSession = SESS_HANDLE(sSession);
 
 		LOCKIT;
 	if (st_Initialized() == FALSE) {
@@ -4352,9 +4314,9 @@ CK_RV SC_GenerateRandom( ST_SESSION_HANDLE  sSession,
 
 //
 //
-CK_RV SC_GetFunctionStatus( ST_SESSION_HANDLE  sSession )
+CK_RV SC_GetFunctionStatus( ST_SESSION_HANDLE *sSession )
 {
-	SESS_SET
+	CK_SESSION_HANDLE hSession = SESS_HANDLE(sSession);
 		if (st_Initialized() == FALSE){
 			st_err_log(72, __FILE__, __LINE__);
 			return CKR_CRYPTOKI_NOT_INITIALIZED;
@@ -4366,9 +4328,9 @@ CK_RV SC_GetFunctionStatus( ST_SESSION_HANDLE  sSession )
 
 //
 //
-CK_RV SC_CancelFunction( ST_SESSION_HANDLE  sSession )
+CK_RV SC_CancelFunction( ST_SESSION_HANDLE *sSession )
 {
-	SESS_SET
+	CK_SESSION_HANDLE hSession = SESS_HANDLE(sSession);
 		if (st_Initialized() == FALSE){
 			st_err_log(72, __FILE__, __LINE__);
 			return CKR_CRYPTOKI_NOT_INITIALIZED;

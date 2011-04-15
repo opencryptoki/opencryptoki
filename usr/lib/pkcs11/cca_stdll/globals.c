@@ -47,7 +47,7 @@ int   xprocsemid = -1;
 
 void *xproclock;
 
-DL_NODE  *sess_list      = NULL;
+struct btree sess_btree = { NULL, NULL, 0UL, 0UL };
 DL_NODE  *sess_obj_list  = NULL;
 DL_NODE  *publ_token_obj_list = NULL;
 DL_NODE  *priv_token_obj_list = NULL;

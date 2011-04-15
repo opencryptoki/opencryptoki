@@ -53,7 +53,7 @@ extern  void *xproclock;
 
 extern MUTEX    pkcs_mutex, obj_list_mutex, sess_list_mutex, login_mutex;
 
-extern DL_NODE *sess_list;
+extern struct btree sess_btree;
 extern DL_NODE *sess_obj_list;
 extern DL_NODE *publ_token_obj_list;
 extern DL_NODE *priv_token_obj_list;
@@ -1552,11 +1552,11 @@ CK_RV     verify_mgr_verify_final( SESSION             * sess,
 // session manager routines
 //
 CK_RV  session_mgr_close_all_sessions( void );
-CK_RV  session_mgr_close_session( SESSION *sess );
+CK_RV  session_mgr_close_session( CK_SESSION_HANDLE );
 SESSION * session_mgr_find( CK_SESSION_HANDLE handle );
 CK_RV  session_mgr_login_all ( CK_USER_TYPE user_type );
 CK_RV  session_mgr_logout_all( void );
-CK_RV  session_mgr_new( CK_ULONG flags, SESSION **sess );
+CK_RV  session_mgr_new( CK_ULONG flags, CK_SLOT_ID, CK_SESSION_HANDLE_PTR );
 
 CK_BBOOL  session_mgr_readonly_session_exists( void );
 CK_BBOOL  session_mgr_so_session_exists    ( void );

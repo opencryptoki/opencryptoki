@@ -14,6 +14,7 @@ opencryptoki_stdll_libpkcs11_sw_la_CFLAGS = -DSPINXPL -DDEV -D_THREAD_SAFE  \
 					    -I../common -DSTDLL_NAME=\"swtok\"
 
 opencryptoki_stdll_libpkcs11_sw_la_SOURCES = ../common/asn1.c		\
+					     ../common/btree.c		\
 					     ../common/cert.c		\
 					     ../common/hwf_obj.c	\
 					     ../common/dp_obj.c		\

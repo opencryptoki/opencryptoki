@@ -324,14 +324,15 @@ void _init(void);
 void loginit();
 void logterm();
 void logit( int, char *, ...);
-void decr_sess_counts(CK_SLOT_ID);
+void get_sess_count(CK_SLOT_ID, CK_ULONG *);
 void incr_sess_counts(CK_SLOT_ID);
-void AddToSessionList(Session_Struct_t *);
-void RemoveFromSessionList(Session_Struct_t *);
+void decr_sess_counts(CK_SLOT_ID);
+unsigned long AddToSessionList(ST_SESSION_T *);
+void RemoveFromSessionList(CK_SESSION_HANDLE);
+int Valid_Session(CK_SESSION_HANDLE, ST_SESSION_T *);
 void DL_UnLoad( API_Slot_t  *, CK_SLOT_ID);
 void DL_Unload(API_Slot_t  *);
 
-int Valid_Session(Session_Struct_t *, ST_SESSION_T *);
 int sessions_exist(CK_SLOT_ID);
 
 #endif

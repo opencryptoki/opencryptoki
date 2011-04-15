@@ -303,6 +303,7 @@
 #include <syslog.h>
 
 #include <stdlib.h>
+#include <stdint.h>
 
 #include <errno.h>
 
@@ -403,10 +404,8 @@ C_CancelFunction ( CK_SESSION_HANDLE hSession )
 CK_RV
 C_CloseAllSessions ( CK_SLOT_ID slotID )
 {
-   Session_Struct_t *pCur,*pPrev;
    CK_RV    rv;
    API_Slot_t  *sltp;
-   ST_SESSION_T  hSession;
 
    // Although why does modutil do a close all sessions.  It is a single
    // application it can only close its sessions...
@@ -423,53 +422,9 @@ C_CloseAllSessions ( CK_SLOT_ID slotID )
       return CKR_SLOT_ID_INVALID;
    }
 
-   // Proc Mutex is locked when we remove from the seesion list in 
-   // Close SEssion.  Therefore we don't need to do any locking
-   // the atomic operations are controled when we use the linked list
-   pCur = Anchor->SessListBeg;
-   while (pCur){
-      //LOGIT(LOG_DEBUG,"Pcur Loop %x Slot %d  Pslot %d ",pCur,slotID,pCur->SltId);
-      // Session owned by the slot we are working on
-      // There is a basic problem here.  We are using th pCur to point to
-      // the current one, however we delete it from the linked list and
-      // can no longer go Forward.  So we have to use the fact that this
-      // is a doubly linked list and get the previous pointer.  After
-      // deletion, the next pointer of this block will point to the 
-      // next one in the list...
-      // If the value is Null, then this was the first one in the list
-      // and we just set pCur to the SessListBeg.
-      if (pCur->SltId == slotID ){
-         hSession.sessionh = pCur->RealHandle;  // use this since after close session
-         hSession.slotID = pCur->SltId;
-         pPrev = pCur->Previous;
-         rv = C_CloseSession((CK_SESSION_HANDLE)pCur);  // Call the local copy
-         if (rv == CKR_OK  || 
-             rv == CKR_SESSION_CLOSED ||
-             rv == CKR_SESSION_HANDLE_INVALID) {
-                  if (pPrev == NULL){
-                     //LOGIT(LOG_DEBUG,"Re-wind since we removed the head");
-                     pCur = Anchor->SessListBeg;
-                  } else {
-                     //LOGIT(LOG_DEBUG,"XXX Prev %x  PrevNext %x",pPrev,pPrev->Next);
-                     pCur = pPrev->Next;
-                  }
-         } else {
-            // We have had a problem deleting a session and
-            // need to  abort this operation.  This path should not occur
-            // unless 
-            LOGIT(LOG_DEBUG,"CloseAllSessions STDLL Problem");
-            st_err_log(153, __FILE__, __LINE__);
-            return rv;
-         }
-      }  else {
-         pCur = pCur->Next;
-      }
-   }
-
-   sltp = &(Anchor->SltList[slotID]);
-   if (sltp->pSTcloseall) {
-      sltp->pSTcloseall(slotID);  // call the terminate function..
-   }
+   /* for every node in the API-level session tree, if the session's slot matches slotID,
+    * close it */
+   CloseAllSessions(slotID);
 
    LOG("CloseAllSessions OK");
    return CKR_OK;
@@ -493,8 +448,6 @@ C_CloseSession ( CK_SESSION_HANDLE hSession )
    CK_RV   rv;
    API_Slot_t  *sltp;
    STDLL_FcnList_t  *fcn;
-   CK_SLOT_ID        slotID;
-   Session_Struct_t   *sessp;
    ST_SESSION_T rSession;
 
    LOG("C_CloseSession");
@@ -502,18 +455,12 @@ C_CloseSession ( CK_SESSION_HANDLE hSession )
       st_err_log(72, __FILE__, __LINE__);
       return CKR_CRYPTOKI_NOT_INITIALIZED;
    }
-
-   // Validate Session
-   if (!Valid_Session((Session_Struct_t *)hSession,&rSession)){
+   if (!Valid_Session(hSession, &rSession)){
       st_err_log(40, __FILE__, __LINE__);
       return CKR_SESSION_HANDLE_INVALID;
    }
 
-   // Get local pointers to session
-   slotID = rSession.slotID;
-
-
-   sltp = &(Anchor->SltList[slotID]);
+   sltp = &(Anchor->SltList[rSession.slotID]);
    if (sltp->DLLoaded == FALSE ){
       st_err_log(50, __FILE__, __LINE__);
       
@@ -525,21 +472,19 @@ C_CloseSession ( CK_SESSION_HANDLE hSession )
    }
    if (fcn->ST_CloseSession){
       // Map the Session to the slot session
-      rv = fcn->ST_CloseSession(rSession);
+      rv = fcn->ST_CloseSession(&rSession);
       LOGIT(LOG_DEBUG,"Called STDLL rv = 0x%x",rv);
       //  If the STDLL successfuly closed the session
       //  we can free it.. Otherwise we will have to leave it
       //  lying arround.
       if (rv == CKR_OK) {
-         sessp = (Session_Struct_t *)hSession;
-         RemoveFromSessionList(sessp);
-
+	 RemoveFromSessionList(hSession);
          // Need to decrement the global slot session count as well
          // as the per process slot session count to allow for
          // proper tracking of the number of sessions on a slot.
          // This allows things like InitToken to properly work in case
          // other applications have the token active. 
-         decr_sess_counts(slotID);
+         decr_sess_counts(rSession.slotID);
       }
    } else {
       st_err_log(142, __FILE__, __LINE__, __FUNCTION__); 
@@ -572,7 +517,6 @@ C_CopyObject ( CK_SESSION_HANDLE    hSession,
    CK_RV   rv;
    API_Slot_t  *sltp;
    STDLL_FcnList_t  *fcn;
-   CK_SLOT_ID        slotID;
    ST_SESSION_T rSession;
 
    LOG("C_CopyObject");
@@ -581,8 +525,7 @@ C_CopyObject ( CK_SESSION_HANDLE    hSession,
       return CKR_CRYPTOKI_NOT_INITIALIZED;
    }
 
-   // Validate Session
-   if (!Valid_Session((Session_Struct_t *)hSession,&rSession)){
+   if (!Valid_Session(hSession, &rSession)){
       st_err_log(40, __FILE__, __LINE__);
       return CKR_SESSION_HANDLE_INVALID;
    }
@@ -601,12 +544,7 @@ C_CopyObject ( CK_SESSION_HANDLE    hSession,
       return CKR_ARGUMENTS_BAD;
    }
 
-
-   // Get local pointers to session
-
-   slotID = rSession.slotID;
-
-   sltp = &(Anchor->SltList[slotID]);
+   sltp = &(Anchor->SltList[rSession.slotID]);
    if (sltp->DLLoaded == FALSE ){
       
       st_err_log(50, __FILE__, __LINE__);
@@ -618,7 +556,7 @@ C_CopyObject ( CK_SESSION_HANDLE    hSession,
    }
    if (fcn->ST_CopyObject){
       // Map the Session to the slot session
-      rv = fcn->ST_CopyObject(rSession,hObject,pTemplate,ulCount,phNewObject);
+      rv = fcn->ST_CopyObject(&rSession,hObject,pTemplate,ulCount,phNewObject);
       LOGIT(LOG_DEBUG,"Called STDLL rv = 0x%x",rv);
    } else {
       st_err_log(142, __FILE__, __LINE__, __FUNCTION__); 
@@ -648,7 +586,6 @@ C_CreateObject ( CK_SESSION_HANDLE    hSession,
    CK_RV   rv;
    API_Slot_t  *sltp;
    STDLL_FcnList_t  *fcn;
-   CK_SLOT_ID        slotID;
    ST_SESSION_T rSession;
 
    LOG("C_CreateObject");
@@ -657,8 +594,7 @@ C_CreateObject ( CK_SESSION_HANDLE    hSession,
       return CKR_CRYPTOKI_NOT_INITIALIZED;
    }
 
-   // Validate Session
-   if (!Valid_Session((Session_Struct_t *)hSession,&rSession)){
+   if (!Valid_Session(hSession, &rSession)){
       st_err_log(40, __FILE__, __LINE__);
       return CKR_SESSION_HANDLE_INVALID;
    }
@@ -684,11 +620,7 @@ C_CreateObject ( CK_SESSION_HANDLE    hSession,
       return CKR_ARGUMENTS_BAD;
    }
 
-   // Get local pointers to session
-
-   slotID = rSession.slotID;
-
-   sltp = &(Anchor->SltList[slotID]);
+   sltp = &(Anchor->SltList[rSession.slotID]);
    if (sltp->DLLoaded == FALSE ){
       st_err_log(50, __FILE__, __LINE__);
       
@@ -700,7 +632,7 @@ C_CreateObject ( CK_SESSION_HANDLE    hSession,
    }
    if (fcn->ST_CreateObject){
       // Map the Session to the slot session
-      rv = fcn->ST_CreateObject(rSession,pTemplate,ulCount,phObject);
+      rv = fcn->ST_CreateObject(&rSession,pTemplate,ulCount,phObject);
       LOGIT(LOG_DEBUG,"Called STDLL rv = 0x%x",rv);
    } else {
       st_err_log(142, __FILE__, __LINE__, __FUNCTION__); 
@@ -731,7 +663,6 @@ C_Decrypt ( CK_SESSION_HANDLE hSession,
    CK_RV   rv;
    API_Slot_t  *sltp;
    STDLL_FcnList_t  *fcn;
-   CK_SLOT_ID        slotID;
    ST_SESSION_T rSession;
 
    LOG("C_Decrypt");
@@ -740,8 +671,7 @@ C_Decrypt ( CK_SESSION_HANDLE hSession,
       return CKR_CRYPTOKI_NOT_INITIALIZED;
    }
 
-   // Validate Session
-   if (!Valid_Session((Session_Struct_t *)hSession,&rSession)){
+   if (!Valid_Session(hSession, &rSession)){
       st_err_log(40, __FILE__, __LINE__);
       return CKR_SESSION_HANDLE_INVALID;
    }
@@ -753,11 +683,7 @@ C_Decrypt ( CK_SESSION_HANDLE hSession,
       return CKR_ARGUMENTS_BAD;
    }
 
-   // Get local pointers to session
-   slotID = rSession.slotID;
-
-
-   sltp = &(Anchor->SltList[slotID]);
+   sltp = &(Anchor->SltList[rSession.slotID]);
    if (sltp->DLLoaded == FALSE ){
       st_err_log(50, __FILE__, __LINE__);
       
@@ -769,7 +695,7 @@ C_Decrypt ( CK_SESSION_HANDLE hSession,
    }
    if (fcn->ST_Decrypt){
       // Map the Session to the slot session
-      rv = fcn->ST_Decrypt(rSession,pEncryptedData,ulEncryptedDataLen,pData,pulDataLen);
+      rv = fcn->ST_Decrypt(&rSession,pEncryptedData,ulEncryptedDataLen,pData,pulDataLen);
       LOGIT(LOG_DEBUG,"Called STDLL rv = 0x%x",rv);
    } else {
       st_err_log(142, __FILE__, __LINE__, __FUNCTION__); 
@@ -798,7 +724,6 @@ C_DecryptDigestUpdate ( CK_SESSION_HANDLE hSession,
    CK_RV   rv;
    API_Slot_t  *sltp;
    STDLL_FcnList_t  *fcn;
-   CK_SLOT_ID        slotID;
    ST_SESSION_T rSession;
 
    LOG("C_DecryptDigestUpdate");
@@ -807,8 +732,7 @@ C_DecryptDigestUpdate ( CK_SESSION_HANDLE hSession,
       return CKR_CRYPTOKI_NOT_INITIALIZED;
    }
 
-   // Validate Session
-   if (!Valid_Session((Session_Struct_t *)hSession,&rSession)){
+   if (!Valid_Session(hSession, &rSession)){
       st_err_log(40, __FILE__, __LINE__);
       return CKR_SESSION_HANDLE_INVALID;
    }
@@ -820,11 +744,7 @@ C_DecryptDigestUpdate ( CK_SESSION_HANDLE hSession,
       return CKR_ARGUMENTS_BAD;
    }
 
-   // Get local pointers to session
-   slotID = rSession.slotID;
-
-
-   sltp = &(Anchor->SltList[slotID]);
+   sltp = &(Anchor->SltList[rSession.slotID]);
    if (sltp->DLLoaded == FALSE ){
       st_err_log(50, __FILE__, __LINE__);
       
@@ -836,7 +756,7 @@ C_DecryptDigestUpdate ( CK_SESSION_HANDLE hSession,
    }
    if (fcn->ST_DecryptDigestUpdate){
       // Map the Session to the slot session
-      rv = fcn->ST_DecryptDigestUpdate(rSession,pEncryptedPart,ulEncryptedPartLen,pPart,pulPartLen);
+      rv = fcn->ST_DecryptDigestUpdate(&rSession,pEncryptedPart,ulEncryptedPartLen,pPart,pulPartLen);
       LOGIT(LOG_DEBUG,"Called STDLL rv = 0x%x",rv);
    } else {
       st_err_log(142, __FILE__, __LINE__, __FUNCTION__); 
@@ -867,7 +787,6 @@ C_DecryptFinal ( CK_SESSION_HANDLE hSession,
    CK_RV   rv;
    API_Slot_t  *sltp;
    STDLL_FcnList_t  *fcn;
-   CK_SLOT_ID        slotID;
    ST_SESSION_T rSession;
 
    LOG("C_DecryptFinal");
@@ -876,8 +795,7 @@ C_DecryptFinal ( CK_SESSION_HANDLE hSession,
       return CKR_CRYPTOKI_NOT_INITIALIZED;
    }
 
-   // Validate Session
-   if (!Valid_Session((Session_Struct_t *)hSession,&rSession)){
+   if (!Valid_Session(hSession, &rSession)){
       st_err_log(40, __FILE__, __LINE__);
       return CKR_SESSION_HANDLE_INVALID;
    }
@@ -892,11 +810,7 @@ C_DecryptFinal ( CK_SESSION_HANDLE hSession,
       return CKR_ARGUMENTS_BAD;
    }
 
-   // Get local pointers to session
-   slotID = rSession.slotID;
-
-
-   sltp = &(Anchor->SltList[slotID]);
+   sltp = &(Anchor->SltList[rSession.slotID]);
    if (sltp->DLLoaded == FALSE ){
       st_err_log(50, __FILE__, __LINE__);
       
@@ -909,7 +823,7 @@ C_DecryptFinal ( CK_SESSION_HANDLE hSession,
    }
    if (fcn->ST_DecryptFinal){
       // Map the Session to the slot session
-      rv = fcn->ST_DecryptFinal(rSession,pLastPart,pulLastPartLen);
+      rv = fcn->ST_DecryptFinal(&rSession,pLastPart,pulLastPartLen);
       LOGIT(LOG_DEBUG,"Called STDLL rv = 0x%x",rv);
    } else {
       st_err_log(142, __FILE__, __LINE__, __FUNCTION__); 
@@ -938,7 +852,6 @@ C_DecryptInit ( CK_SESSION_HANDLE hSession,
    CK_RV   rv;
    API_Slot_t  *sltp;
    STDLL_FcnList_t  *fcn;
-   CK_SLOT_ID        slotID;
    ST_SESSION_T rSession;
 
    LOG("C_DecryptInit");
@@ -947,8 +860,7 @@ C_DecryptInit ( CK_SESSION_HANDLE hSession,
       return CKR_CRYPTOKI_NOT_INITIALIZED;
    }
 
-   // Validate Session
-   if (!Valid_Session((Session_Struct_t *)hSession,&rSession)){
+   if (!Valid_Session(hSession, &rSession)){
       st_err_log(40, __FILE__, __LINE__);
       return CKR_SESSION_HANDLE_INVALID;
    }
@@ -959,10 +871,7 @@ C_DecryptInit ( CK_SESSION_HANDLE hSession,
       return CKR_MECHANISM_INVALID;
    }
 
-   // Get local pointers to session
-   slotID = rSession.slotID;
-
-   sltp = &(Anchor->SltList[slotID]);
+   sltp = &(Anchor->SltList[rSession.slotID]);
    if (sltp->DLLoaded == FALSE ){
       st_err_log(50, __FILE__, __LINE__);
       
@@ -974,7 +883,7 @@ C_DecryptInit ( CK_SESSION_HANDLE hSession,
    }
    if (fcn->ST_DecryptInit){
       // Map the Session to the slot session
-      rv = fcn->ST_DecryptInit(rSession,pMechanism,hKey);
+      rv = fcn->ST_DecryptInit(&rSession,pMechanism,hKey);
       LOGIT(LOG_DEBUG,"Called STDLL rv = 0x%x",rv);
    } else {
       st_err_log(142, __FILE__, __LINE__, __FUNCTION__); 
@@ -1004,7 +913,6 @@ C_DecryptUpdate ( CK_SESSION_HANDLE hSession,
    CK_RV   rv;
    API_Slot_t  *sltp;
    STDLL_FcnList_t  *fcn;
-   CK_SLOT_ID        slotID;
    ST_SESSION_T rSession;
 
    LOG("C_DecryptUpdate");
@@ -1013,8 +921,7 @@ C_DecryptUpdate ( CK_SESSION_HANDLE hSession,
       return CKR_CRYPTOKI_NOT_INITIALIZED;
    }
 
-   // Validate Session
-   if (!Valid_Session((Session_Struct_t *)hSession,&rSession)){
+   if (!Valid_Session(hSession, &rSession)){
       st_err_log(40, __FILE__, __LINE__);
       return CKR_SESSION_HANDLE_INVALID;
    }
@@ -1025,11 +932,7 @@ C_DecryptUpdate ( CK_SESSION_HANDLE hSession,
       return CKR_ARGUMENTS_BAD;
    }
 
-   // Get local pointers to session
-   slotID = rSession.slotID;
-
-
-   sltp = &(Anchor->SltList[slotID]);
+   sltp = &(Anchor->SltList[rSession.slotID]);
    if (sltp->DLLoaded == FALSE ){
       st_err_log(50, __FILE__, __LINE__);
       
@@ -1041,7 +944,7 @@ C_DecryptUpdate ( CK_SESSION_HANDLE hSession,
    }
    if (fcn->ST_DecryptUpdate){
       // Map the Session to the slot session
-      rv = fcn->ST_DecryptUpdate(rSession,pEncryptedPart,ulEncryptedPartLen,pPart,pulPartLen);
+      rv = fcn->ST_DecryptUpdate(&rSession,pEncryptedPart,ulEncryptedPartLen,pPart,pulPartLen);
       LOGIT(LOG_DEBUG,"Called STDLL rv = 0x%x",rv);
    } else {
       st_err_log(142, __FILE__, __LINE__, __FUNCTION__); 
@@ -1068,7 +971,6 @@ C_DecryptVerifyUpdate ( CK_SESSION_HANDLE hSession,
    CK_RV   rv;
    API_Slot_t  *sltp;
    STDLL_FcnList_t  *fcn;
-   CK_SLOT_ID        slotID;
    ST_SESSION_T rSession;
 
    LOG("C_DecryptVerifyUpdate");
@@ -1077,8 +979,7 @@ C_DecryptVerifyUpdate ( CK_SESSION_HANDLE hSession,
       return CKR_CRYPTOKI_NOT_INITIALIZED;
    }
 
-   // Validate Session
-   if (!Valid_Session((Session_Struct_t *)hSession,&rSession)){
+   if (!Valid_Session(hSession, &rSession)){
       st_err_log(40, __FILE__, __LINE__);
       return CKR_SESSION_HANDLE_INVALID;
    }
@@ -1088,11 +989,8 @@ C_DecryptVerifyUpdate ( CK_SESSION_HANDLE hSession,
       st_err_log(5, __FILE__, __LINE__, __FUNCTION__); 
       return CKR_ARGUMENTS_BAD;
    }
-   // Get local pointers to session
-   slotID = rSession.slotID;
 
-
-   sltp = &(Anchor->SltList[slotID]);
+   sltp = &(Anchor->SltList[rSession.slotID]);
    if (sltp->DLLoaded == FALSE ){
       st_err_log(50, __FILE__, __LINE__);
       
@@ -1104,7 +1002,7 @@ C_DecryptVerifyUpdate ( CK_SESSION_HANDLE hSession,
    }
    if (fcn->ST_DecryptVerifyUpdate){
       // Map the Session to the slot session
-      rv = fcn->ST_DecryptVerifyUpdate(rSession,pEncryptedPart,ulEncryptedPartLen,pPart,pulPartLen);
+      rv = fcn->ST_DecryptVerifyUpdate(&rSession,pEncryptedPart,ulEncryptedPartLen,pPart,pulPartLen);
       LOGIT(LOG_DEBUG,"Called STDLL rv = 0x%x",rv);
    } else {
       st_err_log(142, __FILE__, __LINE__, __FUNCTION__); 
@@ -1132,7 +1030,6 @@ C_DeriveKey ( CK_SESSION_HANDLE    hSession,
    CK_RV   rv;
    API_Slot_t  *sltp;
    STDLL_FcnList_t  *fcn;
-   CK_SLOT_ID        slotID;
    ST_SESSION_T rSession;
 
    LOG("C_DeriveKey");
@@ -1141,8 +1038,7 @@ C_DeriveKey ( CK_SESSION_HANDLE    hSession,
       return CKR_CRYPTOKI_NOT_INITIALIZED;
    }
 
-   // Validate Session
-   if (!Valid_Session((Session_Struct_t *)hSession,&rSession)){
+   if (!Valid_Session(hSession, &rSession)){
       st_err_log(40, __FILE__, __LINE__);
       return CKR_SESSION_HANDLE_INVALID;
    }
@@ -1166,12 +1062,7 @@ C_DeriveKey ( CK_SESSION_HANDLE    hSession,
       return CKR_ARGUMENTS_BAD;
    }
 
-
-   // Get local pointers to session
-   slotID = rSession.slotID;
-
-
-   sltp = &(Anchor->SltList[slotID]);
+   sltp = &(Anchor->SltList[rSession.slotID]);
    if (sltp->DLLoaded == FALSE ){
       st_err_log(50, __FILE__, __LINE__);
       
@@ -1183,7 +1074,7 @@ C_DeriveKey ( CK_SESSION_HANDLE    hSession,
    }
    if (fcn->ST_DeriveKey){
       // Map the Session to the slot session
-      rv = fcn->ST_DeriveKey(rSession,pMechanism,hBaseKey,pTemplate,ulAttributeCount,phKey);
+      rv = fcn->ST_DeriveKey(&rSession,pMechanism,hBaseKey,pTemplate,ulAttributeCount,phKey);
       LOGIT(LOG_DEBUG,"Called STDLL rv = 0x%x",rv);
    } else {
       st_err_log(142, __FILE__, __LINE__, __FUNCTION__); 
@@ -1213,7 +1104,6 @@ C_DestroyObject ( CK_SESSION_HANDLE hSession,
    CK_RV   rv;
    API_Slot_t  *sltp;
    STDLL_FcnList_t  *fcn;
-   CK_SLOT_ID        slotID;
    ST_SESSION_T rSession;
 
    LOG("C_DestrypObject");
@@ -1222,16 +1112,12 @@ C_DestroyObject ( CK_SESSION_HANDLE hSession,
       return CKR_CRYPTOKI_NOT_INITIALIZED;
    }
 
-   // Validate Session
-   if (!Valid_Session((Session_Struct_t *)hSession,&rSession)){
+   if (!Valid_Session(hSession, &rSession)){
       st_err_log(40, __FILE__, __LINE__);
       return CKR_SESSION_HANDLE_INVALID;
    }
 
-   // Get local pointers to session
-   slotID = rSession.slotID;
-
-   sltp = &(Anchor->SltList[slotID]);
+   sltp = &(Anchor->SltList[rSession.slotID]);
    if (sltp->DLLoaded == FALSE ){
       st_err_log(50, __FILE__, __LINE__);
       
@@ -1244,7 +1130,7 @@ C_DestroyObject ( CK_SESSION_HANDLE hSession,
    }
    if (fcn->ST_DestroyObject){
       // Map the Session to the slot session
-      rv = fcn->ST_DestroyObject(rSession,hObject);
+      rv = fcn->ST_DestroyObject(&rSession,hObject);
       LOGIT(LOG_DEBUG,"Called STDLL rv = 0x%x",rv);
    } else {
       st_err_log(142, __FILE__, __LINE__, __FUNCTION__); 
@@ -1270,7 +1156,6 @@ C_Digest ( CK_SESSION_HANDLE hSession,
    CK_RV   rv;
    API_Slot_t  *sltp;
    STDLL_FcnList_t  *fcn;
-   CK_SLOT_ID        slotID;
    ST_SESSION_T rSession;
 
    LOG("C_Digest");
@@ -1279,8 +1164,7 @@ C_Digest ( CK_SESSION_HANDLE hSession,
       return CKR_CRYPTOKI_NOT_INITIALIZED;
    }
 
-   // Validate Session
-   if (!Valid_Session((Session_Struct_t *)hSession,&rSession)){
+   if (!Valid_Session(hSession, &rSession)){
       st_err_log(40, __FILE__, __LINE__);
       return CKR_SESSION_HANDLE_INVALID;
    }
@@ -1289,11 +1173,7 @@ C_Digest ( CK_SESSION_HANDLE hSession,
    // Null data for digest is bad
    if (!pData || !pulDigestLen ) return CKR_ARGUMENTS_BAD;
 
-   // Get local pointers to session
-   slotID = rSession.slotID;
-
-
-   sltp = &(Anchor->SltList[slotID]);
+   sltp = &(Anchor->SltList[rSession.slotID]);
    if (sltp->DLLoaded == FALSE ){
       st_err_log(50, __FILE__, __LINE__);
       
@@ -1305,7 +1185,7 @@ C_Digest ( CK_SESSION_HANDLE hSession,
    }
    if (fcn->ST_Digest){
       // Map the Session to the slot session
-      rv = fcn->ST_Digest(rSession,pData,ulDataLen,pDigest,pulDigestLen);
+      rv = fcn->ST_Digest(&rSession,pData,ulDataLen,pDigest,pulDigestLen);
       LOGIT(LOG_DEBUG,"Called STDLL rv = 0x%x",rv);
    } else {
       st_err_log(142, __FILE__, __LINE__, __FUNCTION__); 
@@ -1332,7 +1212,6 @@ C_DigestEncryptUpdate ( CK_SESSION_HANDLE hSession,
    CK_RV   rv;
    API_Slot_t  *sltp;
    STDLL_FcnList_t  *fcn;
-   CK_SLOT_ID        slotID;
    ST_SESSION_T rSession;
 
    LOG("C_DigestEncryptUpdate");
@@ -1348,18 +1227,12 @@ C_DigestEncryptUpdate ( CK_SESSION_HANDLE hSession,
       return CKR_ARGUMENTS_BAD;
    }
 
-   // Validate Session
-   if (!Valid_Session((Session_Struct_t *)hSession,&rSession)){
+   if (!Valid_Session(hSession, &rSession)){
       st_err_log(40, __FILE__, __LINE__);
       return CKR_SESSION_HANDLE_INVALID;
    }
 
-
-   // Get local pointers to session
-   slotID = rSession.slotID;
-
-
-   sltp = &(Anchor->SltList[slotID]);
+   sltp = &(Anchor->SltList[rSession.slotID]);
    if (sltp->DLLoaded == FALSE ){
       st_err_log(50, __FILE__, __LINE__); 
       return CKR_TOKEN_NOT_PRESENT;
@@ -1371,7 +1244,7 @@ C_DigestEncryptUpdate ( CK_SESSION_HANDLE hSession,
    }
    if (fcn->ST_DigestEncryptUpdate){
       // Map the Session to the slot session
-      rv = fcn->ST_DigestEncryptUpdate(rSession,pPart,ulPartLen,pEncryptedPart,pulEncryptedPartLen);
+      rv = fcn->ST_DigestEncryptUpdate(&rSession,pPart,ulPartLen,pEncryptedPart,pulEncryptedPartLen);
       LOGIT(LOG_DEBUG,"Called STDLL rv = 0x%x",rv);
    } else {
       st_err_log(142, __FILE__, __LINE__, __FUNCTION__); 
@@ -1396,7 +1269,6 @@ C_DigestFinal ( CK_SESSION_HANDLE hSession,
    CK_RV   rv;
    API_Slot_t  *sltp;
    STDLL_FcnList_t  *fcn;
-   CK_SLOT_ID        slotID;
    ST_SESSION_T rSession;
 
    LOG("C_DigestFinal");
@@ -1409,17 +1281,12 @@ C_DigestFinal ( CK_SESSION_HANDLE hSession,
       st_err_log(5, __FILE__, __LINE__, __FUNCTION__); 
       return CKR_ARGUMENTS_BAD;
    }
-   // Validate Session
-   if (!Valid_Session((Session_Struct_t *)hSession,&rSession)){
+   if (!Valid_Session(hSession, &rSession)){
       st_err_log(40, __FILE__, __LINE__);
       return CKR_SESSION_HANDLE_INVALID;
    }
 
-   // Get local pointers to session
-   slotID = rSession.slotID;
-
-
-   sltp = &(Anchor->SltList[slotID]);
+   sltp = &(Anchor->SltList[rSession.slotID]);
    if (sltp->DLLoaded == FALSE ){
       st_err_log(50, __FILE__, __LINE__); 
       
@@ -1431,7 +1298,7 @@ C_DigestFinal ( CK_SESSION_HANDLE hSession,
    }
    if (fcn->ST_DigestFinal){
       // Map the Session to the slot session
-      rv = fcn->ST_DigestFinal(rSession,pDigest,pulDigestLen);
+      rv = fcn->ST_DigestFinal(&rSession,pDigest,pulDigestLen);
       LOGIT(LOG_DEBUG,"Called STDLL rv = 0x%x",rv);
    } else {
       st_err_log(142, __FILE__, __LINE__, __FUNCTION__); 
@@ -1457,7 +1324,6 @@ C_DigestInit ( CK_SESSION_HANDLE hSession,
    CK_RV   rv;
    API_Slot_t  *sltp;
    STDLL_FcnList_t  *fcn;
-   CK_SLOT_ID        slotID;
    ST_SESSION_T rSession;
 
    LOG("C_DigestInit");
@@ -1470,18 +1336,12 @@ C_DigestInit ( CK_SESSION_HANDLE hSession,
       st_err_log(28, __FILE__, __LINE__); 
       return CKR_MECHANISM_INVALID;
    }
-   // Validate Session
-   if (!Valid_Session((Session_Struct_t *)hSession,&rSession)){
+   if (!Valid_Session(hSession, &rSession)){
       st_err_log(40, __FILE__, __LINE__);
       return CKR_SESSION_HANDLE_INVALID;
    }
 
-
-   // Get local pointers to session
-   slotID = rSession.slotID;
-
-
-   sltp = &(Anchor->SltList[slotID]);
+   sltp = &(Anchor->SltList[rSession.slotID]);
    if (sltp->DLLoaded == FALSE ){
       st_err_log(50, __FILE__, __LINE__); 
       
@@ -1493,7 +1353,7 @@ C_DigestInit ( CK_SESSION_HANDLE hSession,
    }
    if (fcn->ST_DigestInit){
       // Map the Session to the slot session
-      rv = fcn->ST_DigestInit(rSession,pMechanism);
+      rv = fcn->ST_DigestInit(&rSession,pMechanism);
       LOGIT(LOG_DEBUG,"Called STDLL rv = 0x%x",rv);
    } else { 
       st_err_log(142, __FILE__, __LINE__, __FUNCTION__); 
@@ -1517,7 +1377,6 @@ C_DigestKey ( CK_SESSION_HANDLE hSession,
    CK_RV   rv;
    API_Slot_t  *sltp;
    STDLL_FcnList_t  *fcn;
-   CK_SLOT_ID        slotID;
    ST_SESSION_T rSession;
 
    LOG("C_DigestKey");
@@ -1526,17 +1385,12 @@ C_DigestKey ( CK_SESSION_HANDLE hSession,
       return CKR_CRYPTOKI_NOT_INITIALIZED;
    }
 
-   // Validate Session
-   if (!Valid_Session((Session_Struct_t *)hSession,&rSession)){
+   if (!Valid_Session(hSession, &rSession)){
       st_err_log(40, __FILE__, __LINE__);
       return CKR_SESSION_HANDLE_INVALID;
    }
 
-   // Get local pointers to session
-   slotID = rSession.slotID;
-
-
-   sltp = &(Anchor->SltList[slotID]);
+   sltp = &(Anchor->SltList[rSession.slotID]);
    if (sltp->DLLoaded == FALSE ){
       st_err_log(50, __FILE__, __LINE__); 
       
@@ -1548,7 +1402,7 @@ C_DigestKey ( CK_SESSION_HANDLE hSession,
    }
    if (fcn->ST_DigestKey){
       // Map the Session to the slot session
-      rv = fcn->ST_DigestKey(rSession,hKey);
+      rv = fcn->ST_DigestKey(&rSession,hKey);
       LOGIT(LOG_DEBUG,"Called STDLL rv = 0x%x",rv);
    } else {
       st_err_log(142, __FILE__, __LINE__, __FUNCTION__); 
@@ -1573,7 +1427,6 @@ C_DigestUpdate ( CK_SESSION_HANDLE hSession,
    CK_RV   rv;
    API_Slot_t  *sltp;
    STDLL_FcnList_t  *fcn;
-   CK_SLOT_ID        slotID;
    ST_SESSION_T rSession;
 
    LOG("C_DigestUpdate");
@@ -1586,17 +1439,12 @@ C_DigestUpdate ( CK_SESSION_HANDLE hSession,
       st_err_log(5, __FILE__, __LINE__, __FUNCTION__); 
       return CKR_ARGUMENTS_BAD;
    }
-   // Validate Session
-   if (!Valid_Session((Session_Struct_t *)hSession,&rSession)){
+   if (!Valid_Session(hSession, &rSession)){
       st_err_log(40, __FILE__, __LINE__);
       return CKR_SESSION_HANDLE_INVALID;
    }
 
-   // Get local pointers to session
-   slotID = rSession.slotID;
-
-
-   sltp = &(Anchor->SltList[slotID]);
+   sltp = &(Anchor->SltList[rSession.slotID]);
    if (sltp->DLLoaded == FALSE ){
       st_err_log(50, __FILE__, __LINE__); 
       
@@ -1608,7 +1456,7 @@ C_DigestUpdate ( CK_SESSION_HANDLE hSession,
    }
    if (fcn->ST_DigestUpdate){
       // Map the Session to the slot session
-      rv = fcn->ST_DigestUpdate(rSession,pPart,ulPartLen);
+      rv = fcn->ST_DigestUpdate(&rSession,pPart,ulPartLen);
       LOGIT(LOG_DEBUG,"Called STDLL rv = 0x%x",rv);
    } else {
       st_err_log(142, __FILE__, __LINE__, __FUNCTION__); 
@@ -1636,7 +1484,6 @@ C_Encrypt ( CK_SESSION_HANDLE hSession,
    CK_RV   rv;
    API_Slot_t  *sltp;
    STDLL_FcnList_t  *fcn;
-   CK_SLOT_ID        slotID;
    ST_SESSION_T rSession;
 
    LOG("C_Encrypt");
@@ -1649,16 +1496,12 @@ C_Encrypt ( CK_SESSION_HANDLE hSession,
       st_err_log(5, __FILE__, __LINE__, __FUNCTION__); 
       return CKR_ARGUMENTS_BAD;
    }
-   // Validate Session
-   if (!Valid_Session((Session_Struct_t *)hSession,&rSession)){
+   if (!Valid_Session(hSession, &rSession)){
       st_err_log(40, __FILE__, __LINE__);
       return CKR_SESSION_HANDLE_INVALID;
    }
 
-   // Get local pointers to session
-   slotID = rSession.slotID;
-
-   sltp = &(Anchor->SltList[slotID]);
+   sltp = &(Anchor->SltList[rSession.slotID]);
    if (sltp->DLLoaded == FALSE ){
       st_err_log(50, __FILE__, __LINE__); 
       
@@ -1670,7 +1513,7 @@ C_Encrypt ( CK_SESSION_HANDLE hSession,
    }
    if (fcn->ST_Encrypt){
       // Map the Session to the slot session
-      rv = fcn->ST_Encrypt(rSession,pData,ulDataLen,pEncryptedData,pulEncryptedDataLen);
+      rv = fcn->ST_Encrypt(&rSession,pData,ulDataLen,pEncryptedData,pulEncryptedDataLen);
       LOGIT(LOG_DEBUG,"Called STDLL rv = 0x%x",rv);
    } else {
       st_err_log(142, __FILE__, __LINE__, __FUNCTION__); 
@@ -1694,7 +1537,6 @@ C_EncryptFinal ( CK_SESSION_HANDLE hSession,
    CK_RV   rv;
    API_Slot_t  *sltp;
    STDLL_FcnList_t  *fcn;
-   CK_SLOT_ID        slotID;
    ST_SESSION_T rSession;
 
    LOG("C_EncryptFinal");
@@ -1708,17 +1550,12 @@ C_EncryptFinal ( CK_SESSION_HANDLE hSession,
       st_err_log(5, __FILE__, __LINE__, __FUNCTION__); 
       return CKR_ARGUMENTS_BAD;
    }
-   // Validate Session
-   if (!Valid_Session((Session_Struct_t *)hSession,&rSession)){
+   if (!Valid_Session(hSession, &rSession)){
       st_err_log(40, __FILE__, __LINE__);
       return CKR_SESSION_HANDLE_INVALID;
    }
 
-   // Get local pointers to session
-   slotID = rSession.slotID;
-
-
-   sltp = &(Anchor->SltList[slotID]);
+   sltp = &(Anchor->SltList[rSession.slotID]);
    if (sltp->DLLoaded == FALSE ){
       st_err_log(50, __FILE__, __LINE__); 
       
@@ -1730,7 +1567,7 @@ C_EncryptFinal ( CK_SESSION_HANDLE hSession,
    }
    if (fcn->ST_EncryptFinal){
       // Map the Session to the slot session
-      rv = fcn->ST_EncryptFinal(rSession,pLastEncryptedPart,pulLastEncryptedPartLen);
+      rv = fcn->ST_EncryptFinal(&rSession,pLastEncryptedPart,pulLastEncryptedPartLen);
       LOGIT(LOG_DEBUG,"Called STDLL rv = 0x%x",rv);
    } else {
       st_err_log(142, __FILE__, __LINE__, __FUNCTION__); 
@@ -1755,7 +1592,6 @@ C_EncryptInit ( CK_SESSION_HANDLE hSession,
    CK_RV   rv;
    API_Slot_t  *sltp;
    STDLL_FcnList_t  *fcn;
-   CK_SLOT_ID        slotID;
    ST_SESSION_T rSession;
 
    LOG("C_EncryptInit");
@@ -1768,16 +1604,12 @@ C_EncryptInit ( CK_SESSION_HANDLE hSession,
       st_err_log(28, __FILE__, __LINE__); 
       return CKR_MECHANISM_INVALID;
    }
-   // Validate Session
-   if (!Valid_Session((Session_Struct_t *)hSession,&rSession)){
+   if (!Valid_Session(hSession, &rSession)){
       st_err_log(40, __FILE__, __LINE__);
       return CKR_SESSION_HANDLE_INVALID;
    }
 
-   // Get local pointers to session
-   slotID = rSession.slotID;
-
-   sltp = &(Anchor->SltList[slotID]);
+   sltp = &(Anchor->SltList[rSession.slotID]);
    if (sltp->DLLoaded == FALSE ){
       st_err_log(50, __FILE__, __LINE__); 
       
@@ -1789,7 +1621,7 @@ C_EncryptInit ( CK_SESSION_HANDLE hSession,
    }
    if (fcn->ST_EncryptInit){
       // Map the Session to the slot session
-      rv = fcn->ST_EncryptInit(rSession,pMechanism,hKey);
+      rv = fcn->ST_EncryptInit(&rSession,pMechanism,hKey);
       LOGIT(LOG_DEBUG,"Called STDLL rv = 0x%x",rv);
    } else {
       st_err_log(142, __FILE__, __LINE__, __FUNCTION__); 
@@ -1817,7 +1649,6 @@ C_EncryptUpdate ( CK_SESSION_HANDLE hSession,
    CK_RV   rv;
    API_Slot_t  *sltp;
    STDLL_FcnList_t  *fcn;
-   CK_SLOT_ID        slotID;
    ST_SESSION_T rSession;
 
    LOG("C_EncryptUpdate");
@@ -1831,17 +1662,12 @@ C_EncryptUpdate ( CK_SESSION_HANDLE hSession,
       st_err_log(5, __FILE__, __LINE__, __FUNCTION__); 
       return CKR_ARGUMENTS_BAD;
    }
-   // Validate Session
-   if (!Valid_Session((Session_Struct_t *)hSession,&rSession)){
+   if (!Valid_Session(hSession, &rSession)){
       st_err_log(40, __FILE__, __LINE__);
       return CKR_SESSION_HANDLE_INVALID;
    }
 
-   // Get local pointers to session
-   slotID = rSession.slotID;
-
-
-   sltp = &(Anchor->SltList[slotID]);
+   sltp = &(Anchor->SltList[rSession.slotID]);
    if (sltp->DLLoaded == FALSE ){
       st_err_log(50, __FILE__, __LINE__); 
       
@@ -1853,7 +1679,7 @@ C_EncryptUpdate ( CK_SESSION_HANDLE hSession,
    }
    if (fcn->ST_EncryptUpdate){
       // Map the Session to the slot session
-      rv = fcn->ST_EncryptUpdate(rSession,pPart,ulPartLen,pEncryptedPart,pulEncryptedPartLen);
+      rv = fcn->ST_EncryptUpdate(&rSession,pPart,ulPartLen,pEncryptedPart,pulEncryptedPartLen);
       LOGIT(LOG_DEBUG,"Called STDLL rv = 0x%x",rv);
    } else {
       st_err_log(142, __FILE__, __LINE__, __FUNCTION__); 
@@ -1877,7 +1703,7 @@ CK_RV
 C_Finalize ( CK_VOID_PTR pReserved )
 {
    API_Slot_t *sltp;
-   CK_SLOT_ID slotID;
+   CK_SLOT_ID  slotID;
 
 
    LOG("C_Finalize");
@@ -1906,7 +1732,14 @@ C_Finalize ( CK_VOID_PTR pReserved )
    for (slotID=0;slotID<NUMBER_SLOTS_MANAGED;slotID++){
       sltp = &(Anchor->SltList[slotID]);
       if (sltp->pSTcloseall) {
-         sltp->pSTcloseall(slotID);  // call the terminate function..
+#if 0
+         (void)sltp->pSTcloseall(slotID);  // call the terminate function..
+#else
+	 /* pSTcloseall is just a pointer to the STDLL's SC_CloseAllSessions() function, so calling
+	  * it won't clean up shared memory, or the API layer's session btree. Instead, call
+	  * CloseAllSessions, which will clean everything up */
+         CloseAllSessions(slotID);
+#endif
       }
       if (sltp->pSTfini){
          sltp->pSTfini(slotID);  // call the terminate function..
@@ -1950,7 +1783,6 @@ C_FindObjects ( CK_SESSION_HANDLE    hSession,
    CK_RV   rv;
    API_Slot_t  *sltp;
    STDLL_FcnList_t  *fcn;
-   CK_SLOT_ID        slotID;
    ST_SESSION_T rSession;
 
    LOG("C_FindObjects");
@@ -1963,16 +1795,12 @@ C_FindObjects ( CK_SESSION_HANDLE    hSession,
       st_err_log(5, __FILE__, __LINE__, __FUNCTION__); 
       return CKR_ARGUMENTS_BAD;
    }
-   // Validate Session
-   if (!Valid_Session((Session_Struct_t *)hSession,&rSession)){
+   if (!Valid_Session(hSession, &rSession)){
       st_err_log(40, __FILE__, __LINE__);
       return CKR_SESSION_HANDLE_INVALID;
    }
 
-   // Get local pointers to session
-   slotID = rSession.slotID;
-
-   sltp = &(Anchor->SltList[slotID]);
+   sltp = &(Anchor->SltList[rSession.slotID]);
    if (sltp->DLLoaded == FALSE ){
       st_err_log(50, __FILE__, __LINE__); 
       
@@ -1984,7 +1812,7 @@ C_FindObjects ( CK_SESSION_HANDLE    hSession,
    }
    if (fcn->ST_FindObjects){
       // Map the Session to the slot session
-      rv = fcn->ST_FindObjects(rSession,phObject,ulMaxObjectCount,pulObjectCount);
+      rv = fcn->ST_FindObjects(&rSession,phObject,ulMaxObjectCount,pulObjectCount);
       LOGIT(LOG_DEBUG,"Called STDLL rv = 0x%x",rv);
    } else {
       st_err_log(142, __FILE__, __LINE__, __FUNCTION__); 
@@ -2011,7 +1839,6 @@ C_FindObjectsFinal ( CK_SESSION_HANDLE hSession )
    CK_RV   rv;
    API_Slot_t  *sltp;
    STDLL_FcnList_t  *fcn;
-   CK_SLOT_ID        slotID;
    ST_SESSION_T rSession;
 
    LOG("C_FindObjectsFinal");
@@ -2020,16 +1847,12 @@ C_FindObjectsFinal ( CK_SESSION_HANDLE hSession )
       return CKR_CRYPTOKI_NOT_INITIALIZED;
    }
 
-   // Validate Session
-   if (!Valid_Session((Session_Struct_t *)hSession,&rSession)){
+   if (!Valid_Session(hSession, &rSession)){
       st_err_log(40, __FILE__, __LINE__);
       return CKR_SESSION_HANDLE_INVALID;
    }
 
-   // Get local pointers to session
-   slotID = rSession.slotID;
-
-   sltp = &(Anchor->SltList[slotID]);
+   sltp = &(Anchor->SltList[rSession.slotID]);
    if (sltp->DLLoaded == FALSE ){
       st_err_log(50, __FILE__, __LINE__); 
       
@@ -2041,7 +1864,7 @@ C_FindObjectsFinal ( CK_SESSION_HANDLE hSession )
    }
    if (fcn->ST_FindObjectsFinal){
       // Map the Session to the slot session
-      rv = fcn->ST_FindObjectsFinal(rSession);
+      rv = fcn->ST_FindObjectsFinal(&rSession);
       LOGIT(LOG_DEBUG,"Called STDLL rv = 0x%x",rv);
    } else {
       st_err_log(142, __FILE__, __LINE__, __FUNCTION__); 
@@ -2071,7 +1894,6 @@ C_FindObjectsInit ( CK_SESSION_HANDLE hSession,
    CK_RV   rv;
    API_Slot_t  *sltp;
    STDLL_FcnList_t  *fcn;
-   CK_SLOT_ID        slotID;
    ST_SESSION_T rSession;
 
    LOG("C_FindObjectsInit");
@@ -2082,16 +1904,12 @@ C_FindObjectsInit ( CK_SESSION_HANDLE hSession,
 
    // What does a NULL template really mean 
 
-   // Validate Session
-   if (!Valid_Session((Session_Struct_t *)hSession,&rSession)){
+   if (!Valid_Session(hSession, &rSession)){
       st_err_log(40, __FILE__, __LINE__);
       return CKR_SESSION_HANDLE_INVALID;
    }
 
-   // Get local pointers to session
-   slotID = rSession.slotID;
-
-   sltp = &(Anchor->SltList[slotID]);
+   sltp = &(Anchor->SltList[rSession.slotID]);
    if (sltp->DLLoaded == FALSE ){
       st_err_log(50, __FILE__, __LINE__); 
       
@@ -2103,7 +1921,7 @@ C_FindObjectsInit ( CK_SESSION_HANDLE hSession,
    }
    if (fcn->ST_FindObjectsInit){
       // Map the Session to the slot session
-      rv = fcn->ST_FindObjectsInit(rSession,pTemplate,ulCount);
+      rv = fcn->ST_FindObjectsInit(&rSession,pTemplate,ulCount);
       LOGIT(LOG_DEBUG,"Called STDLL rv = 0x%x",rv);
    } else {
       st_err_log(142, __FILE__, __LINE__, __FUNCTION__); 
@@ -2130,7 +1948,6 @@ C_GenerateKey ( CK_SESSION_HANDLE    hSession,
    CK_RV   rv;
    API_Slot_t  *sltp;
    STDLL_FcnList_t  *fcn;
-   CK_SLOT_ID        slotID;
    ST_SESSION_T rSession;
 
    LOG("C_GenerateKey");
@@ -2147,16 +1964,12 @@ C_GenerateKey ( CK_SESSION_HANDLE    hSession,
       st_err_log(5, __FILE__, __LINE__, __FUNCTION__); 
       return CKR_ARGUMENTS_BAD;
    }
-   // Validate Session
-   if (!Valid_Session((Session_Struct_t *)hSession,&rSession)){
+   if (!Valid_Session(hSession, &rSession)){
       st_err_log(40, __FILE__, __LINE__);
       return CKR_SESSION_HANDLE_INVALID;
    }
 
-   // Get local pointers to session
-   slotID = rSession.slotID;
-
-   sltp = &(Anchor->SltList[slotID]);
+   sltp = &(Anchor->SltList[rSession.slotID]);
    if (sltp->DLLoaded == FALSE ){
       st_err_log(50, __FILE__, __LINE__); 
       
@@ -2168,7 +1981,7 @@ C_GenerateKey ( CK_SESSION_HANDLE    hSession,
    }
    if (fcn->ST_GenerateKey){
       // Map the Session to the slot session
-      rv = fcn->ST_GenerateKey(rSession,pMechanism,pTemplate,ulCount,phKey);
+      rv = fcn->ST_GenerateKey(&rSession,pMechanism,pTemplate,ulCount,phKey);
       LOGIT(LOG_DEBUG,"Called STDLL rv = 0x%x",rv);
    } else {
       st_err_log(142, __FILE__, __LINE__, __FUNCTION__); 
@@ -2198,7 +2011,6 @@ C_GenerateKeyPair ( CK_SESSION_HANDLE    hSession,
    CK_RV   rv;
    API_Slot_t  *sltp;
    STDLL_FcnList_t  *fcn;
-   CK_SLOT_ID        slotID;
    ST_SESSION_T rSession;
 
    LOG("C_GenerateKeyPair");
@@ -2219,16 +2031,12 @@ C_GenerateKeyPair ( CK_SESSION_HANDLE    hSession,
    // template pointers is a Null template pointer valid in generate
    // key...  Are there defaults.
 
-   // Validate Session
-   if (!Valid_Session((Session_Struct_t *)hSession,&rSession)){
+   if (!Valid_Session(hSession, &rSession)){
       st_err_log(40, __FILE__, __LINE__);
       return CKR_SESSION_HANDLE_INVALID;
    }
 
-   // Get local pointers to session
-   slotID = rSession.slotID;
-
-   sltp = &(Anchor->SltList[slotID]);
+   sltp = &(Anchor->SltList[rSession.slotID]);
    if (sltp->DLLoaded == FALSE ){
       st_err_log(50, __FILE__, __LINE__); 
       
@@ -2240,7 +2048,7 @@ C_GenerateKeyPair ( CK_SESSION_HANDLE    hSession,
    }
    if (fcn->ST_GenerateKeyPair){
       // Map the Session to the slot session
-      rv = fcn->ST_GenerateKeyPair(rSession,pMechanism,pPublicKeyTemplate,
+      rv = fcn->ST_GenerateKeyPair(&rSession,pMechanism,pPublicKeyTemplate,
                                    ulPublicKeyAttributeCount,pPrivateKeyTemplate,
                                    ulPrivateKeyAttributeCount,phPublicKey,phPrivateKey);
       LOGIT(LOG_DEBUG,"Called STDLL rv = 0x%x",rv);
@@ -2267,7 +2075,6 @@ C_GenerateRandom ( CK_SESSION_HANDLE hSession,
    CK_RV   rv;
    API_Slot_t  *sltp;
    STDLL_FcnList_t  *fcn;
-   CK_SLOT_ID        slotID;
    ST_SESSION_T rSession;
 
    LOG("C_GenerateRandom");
@@ -2279,16 +2086,12 @@ C_GenerateRandom ( CK_SESSION_HANDLE hSession,
 
    if (!RandomData) return CKR_ARGUMENTS_BAD;
 
-   // Validate Session
-   if (!Valid_Session((Session_Struct_t *)hSession,&rSession)){
+   if (!Valid_Session(hSession, &rSession)){
       st_err_log(40, __FILE__, __LINE__);
       return CKR_SESSION_HANDLE_INVALID;
    }
 
-   // Get local pointers to session
-   slotID = rSession.slotID;
-
-   sltp = &(Anchor->SltList[slotID]);
+   sltp = &(Anchor->SltList[rSession.slotID]);
    if (sltp->DLLoaded == FALSE ){
       st_err_log(50, __FILE__, __LINE__); 
       
@@ -2300,7 +2103,7 @@ C_GenerateRandom ( CK_SESSION_HANDLE hSession,
    }
    if (fcn->ST_GenerateRandom){
       // Map the Session to the slot session
-      rv = fcn->ST_GenerateRandom(rSession,RandomData,ulRandomLen);
+      rv = fcn->ST_GenerateRandom(&rSession,RandomData,ulRandomLen);
       LOGIT(LOG_DEBUG,"Called STDLL rv = 0x%x",rv);
    } else {
       st_err_log(142, __FILE__, __LINE__, __FUNCTION__); 
@@ -2332,7 +2135,6 @@ C_GetAttributeValue ( CK_SESSION_HANDLE hSession,
    CK_RV   rv;
    API_Slot_t  *sltp;
    STDLL_FcnList_t  *fcn;
-   CK_SLOT_ID        slotID;
    ST_SESSION_T rSession;
 
    LOG("C_GetAttributeValue");
@@ -2349,16 +2151,12 @@ C_GetAttributeValue ( CK_SESSION_HANDLE hSession,
       st_err_log(48, __FILE__, __LINE__); 
       return CKR_TEMPLATE_INCOMPLETE;
    }
-   // Validate Session
-   if (!Valid_Session((Session_Struct_t *)hSession,&rSession)){
+   if (!Valid_Session(hSession, &rSession)){
       st_err_log(40, __FILE__, __LINE__);
       return CKR_SESSION_HANDLE_INVALID;
    }
 
-   // Get local pointers to session
-   slotID = rSession.slotID;
-
-   sltp = &(Anchor->SltList[slotID]);
+   sltp = &(Anchor->SltList[rSession.slotID]);
    if (sltp->DLLoaded == FALSE ){
       st_err_log(50, __FILE__, __LINE__); 
       
@@ -2370,7 +2168,7 @@ C_GetAttributeValue ( CK_SESSION_HANDLE hSession,
    }
    if (fcn->ST_GetAttributeValue){
       // Map the Session to the slot session
-      rv = fcn->ST_GetAttributeValue(rSession,hObject,pTemplate,ulCount);
+      rv = fcn->ST_GetAttributeValue(&rSession,hObject,pTemplate,ulCount);
       LOGIT(LOG_DEBUG,"Called STDLL rv = 0x%x",rv);
    } else {
       st_err_log(142, __FILE__, __LINE__, __FUNCTION__); 
@@ -2701,7 +2499,6 @@ C_GetObjectSize ( CK_SESSION_HANDLE hSession,
    CK_RV   rv;
    API_Slot_t  *sltp;
    STDLL_FcnList_t  *fcn;
-   CK_SLOT_ID        slotID;
    ST_SESSION_T rSession;
 
    LOG("C_GetObjectSize");
@@ -2714,16 +2511,12 @@ C_GetObjectSize ( CK_SESSION_HANDLE hSession,
       st_err_log(5, __FILE__, __LINE__, __FUNCTION__); 
       return CKR_ARGUMENTS_BAD;
    }
-   // Validate Session
-   if (!Valid_Session((Session_Struct_t *)hSession,&rSession)){
+   if (!Valid_Session(hSession, &rSession)){
       st_err_log(40, __FILE__, __LINE__);
       return CKR_SESSION_HANDLE_INVALID;
    }
 
-   // Get local pointers to session
-   slotID = rSession.slotID;
-
-   sltp = &(Anchor->SltList[slotID]);
+   sltp = &(Anchor->SltList[rSession.slotID]);
    if (sltp->DLLoaded == FALSE ){
       st_err_log(50, __FILE__, __LINE__); 
       
@@ -2735,7 +2528,7 @@ C_GetObjectSize ( CK_SESSION_HANDLE hSession,
    }
    if (fcn->ST_GetObjectSize){
       // Map the Session to the slot session
-      rv = fcn->ST_GetObjectSize(rSession,hObject,pulSize);
+      rv = fcn->ST_GetObjectSize(&rSession,hObject,pulSize);
       LOGIT(LOG_DEBUG,"Called STDLL rv = 0x%x",rv);
    } else {
       st_err_log(142, __FILE__, __LINE__, __FUNCTION__); 
@@ -2759,7 +2552,6 @@ C_GetOperationState ( CK_SESSION_HANDLE hSession,
    CK_RV   rv;
    API_Slot_t  *sltp;
    STDLL_FcnList_t  *fcn;
-   CK_SLOT_ID        slotID;
    ST_SESSION_T rSession;
 
    LOG("C_GetOperateionState");
@@ -2775,16 +2567,12 @@ C_GetOperationState ( CK_SESSION_HANDLE hSession,
       st_err_log(5, __FILE__, __LINE__, __FUNCTION__); 
       return CKR_ARGUMENTS_BAD;
    }
-   // Validate Session
-   if (!Valid_Session((Session_Struct_t *)hSession,&rSession)){
+   if (!Valid_Session(hSession, &rSession)){
       st_err_log(40, __FILE__, __LINE__);
       return CKR_SESSION_HANDLE_INVALID;
    }
 
-   // Get local pointers to session
-   slotID = rSession.slotID;
-
-   sltp = &(Anchor->SltList[slotID]);
+   sltp = &(Anchor->SltList[rSession.slotID]);
    if (sltp->DLLoaded == FALSE ){
       st_err_log(50, __FILE__, __LINE__); 
       
@@ -2796,7 +2584,7 @@ C_GetOperationState ( CK_SESSION_HANDLE hSession,
    }
    if (fcn->ST_GetOperationState){
       // Map the Session to the slot session
-      rv = fcn->ST_GetOperationState(rSession,pOperationState,pulOperationStateLen);
+      rv = fcn->ST_GetOperationState(&rSession,pOperationState,pulOperationStateLen);
       LOGIT(LOG_DEBUG,"Called STDLL rv = 0x%x",rv);
    } else {
       st_err_log(142, __FILE__, __LINE__, __FUNCTION__); 
@@ -2824,8 +2612,6 @@ C_GetSessionInfo ( CK_SESSION_HANDLE   hSession,
    CK_RV   rv;
    API_Slot_t  *sltp;
    STDLL_FcnList_t  *fcn;
-   CK_SLOT_ID        slotID;
-
    ST_SESSION_T rSession;
 
    LOGIT(LOG_DEBUG,"C_GetSessionInfo  %x  %x",hSession,pInfo);
@@ -2839,16 +2625,12 @@ C_GetSessionInfo ( CK_SESSION_HANDLE   hSession,
       return CKR_ARGUMENTS_BAD;
    }
 
-   // Validate Session
-   if (!Valid_Session((Session_Struct_t *)hSession,&rSession)){
+   if (!Valid_Session(hSession, &rSession)){
       st_err_log(40, __FILE__, __LINE__);
       return CKR_SESSION_HANDLE_INVALID;
    }
 
-   // Get local pointers to session
-   slotID = rSession.slotID;
-
-   sltp = &(Anchor->SltList[slotID]);
+   sltp = &(Anchor->SltList[rSession.slotID]);
    if (sltp->DLLoaded == FALSE ){
       st_err_log(50, __FILE__, __LINE__); 
       
@@ -2860,7 +2642,7 @@ C_GetSessionInfo ( CK_SESSION_HANDLE   hSession,
    }
    if (fcn->ST_GetSessionInfo){
       // Map the Session to the slot session
-      rv = fcn->ST_GetSessionInfo(rSession,pInfo);
+      rv = fcn->ST_GetSessionInfo(&rSession,pInfo);
 
       LOGIT(LOG_DEBUG,"Called STDLL rv = 0x%x",rv);
       LOGIT(LOG_DEBUG,"Slot %d  State %x  Flags %x DevErr %x",
@@ -3216,8 +2998,10 @@ C_GetTokenInfo ( CK_SLOT_ID        slotID,
    if (fcn->ST_GetTokenInfo){
       LOGIT(LOG_DEBUG,"Calling STDLL ");
       rv = fcn->ST_GetTokenInfo(slotID,pInfo);
+      if (rv == CKR_OK) {
+	 get_sess_count(slotID, &(pInfo->ulSessionCount));
+      }
       LOGIT(LOG_DEBUG,"rv %d  CK_TOKEN_INFO Flags %x",rv,pInfo->flags);
-      
    } else {
       st_err_log(142, __FILE__, __LINE__, __FUNCTION__); 
       rv = CKR_FUNCTION_NOT_SUPPORTED;
@@ -3456,7 +3240,6 @@ C_InitPIN ( CK_SESSION_HANDLE hSession,
    CK_RV   rv;
    API_Slot_t  *sltp;
    STDLL_FcnList_t  *fcn;
-   CK_SLOT_ID        slotID;
    ST_SESSION_T rSession;
 
    LOG("C_InitPin");
@@ -3472,22 +3255,19 @@ C_InitPIN ( CK_SESSION_HANDLE hSession,
       return CKR_ARGUMENTS_BAD;
    }
 
-   // Validate Session
-   if (!Valid_Session((Session_Struct_t *)hSession,&rSession)){
+   if (!Valid_Session(hSession, &rSession)){
       st_err_log(40, __FILE__, __LINE__);
       return CKR_SESSION_HANDLE_INVALID;
    }
 
-   // Get local pointers to session
-   slotID = rSession.slotID;
-
+   // XXX Remove me, this test should be completely unnecessary
    // Move this to after the session validation...
-   if (slotID >= NUMBER_SLOTS_MANAGED ) {
+   if (rSession.slotID >= NUMBER_SLOTS_MANAGED ) {
       st_err_log(2, __FILE__, __LINE__);
       return CKR_SLOT_ID_INVALID;
    }
 
-   sltp = &(Anchor->SltList[slotID]);
+   sltp = &(Anchor->SltList[rSession.slotID]);
    if (sltp->DLLoaded == FALSE ){
       st_err_log(50, __FILE__, __LINE__); 
       
@@ -3499,7 +3279,7 @@ C_InitPIN ( CK_SESSION_HANDLE hSession,
    }
    if (fcn->ST_InitPIN){
       // Map the Session to the slot session
-      rv = fcn->ST_InitPIN(rSession,pPin,ulPinLen);
+      rv = fcn->ST_InitPIN(&rSession,pPin,ulPinLen);
       LOGIT(LOG_DEBUG,"Called STDLL rv = 0x%x",rv);
    } else {
       st_err_log(142, __FILE__, __LINE__, __FUNCTION__); 
@@ -3604,7 +3384,6 @@ C_Login ( CK_SESSION_HANDLE hSession,
    CK_RV   rv;
    API_Slot_t  *sltp;
    STDLL_FcnList_t  *fcn;
-   CK_SLOT_ID        slotID;
    ST_SESSION_T rSession;
 
    LOG("C_Login");
@@ -3622,16 +3401,12 @@ C_Login ( CK_SESSION_HANDLE hSession,
    }
 #endif
 
-   // Validate Session
-   if (!Valid_Session((Session_Struct_t *)hSession,&rSession)){
+   if (!Valid_Session(hSession, &rSession)){
       st_err_log(40, __FILE__, __LINE__);
       return CKR_SESSION_HANDLE_INVALID;
    }
 
-   // Get local pointers to session
-   slotID = rSession.slotID;
-
-   sltp = &(Anchor->SltList[slotID]);
+   sltp = &(Anchor->SltList[rSession.slotID]);
    if (sltp->DLLoaded == FALSE ){
       st_err_log(50, __FILE__, __LINE__); 
       
@@ -3643,7 +3418,7 @@ C_Login ( CK_SESSION_HANDLE hSession,
    }
    if (fcn->ST_Login){
       // Map the Session to the slot session
-      rv = fcn->ST_Login(rSession,userType,pPin,ulPinLen);
+      rv = fcn->ST_Login(&rSession,userType,pPin,ulPinLen);
       LOGIT(LOG_DEBUG,"Called STDLL rv = 0x%x",rv);
    } else {
       st_err_log(142, __FILE__, __LINE__, __FUNCTION__); 
@@ -3670,7 +3445,6 @@ C_Logout ( CK_SESSION_HANDLE hSession )
    CK_RV   rv;
    API_Slot_t  *sltp;
    STDLL_FcnList_t  *fcn;
-   CK_SLOT_ID        slotID;
    ST_SESSION_T rSession;
 
    if (API_Initialized() == FALSE ){
@@ -3678,16 +3452,12 @@ C_Logout ( CK_SESSION_HANDLE hSession )
       return CKR_CRYPTOKI_NOT_INITIALIZED;
    }
 
-   // Validate Session
-   if (!Valid_Session((Session_Struct_t *)hSession,&rSession)){
+   if (!Valid_Session(hSession, &rSession)){
       st_err_log(40, __FILE__, __LINE__);
       return CKR_SESSION_HANDLE_INVALID;
    }
 
-   // Get local pointers to session
-   slotID = rSession.slotID;
-
-   sltp = &(Anchor->SltList[slotID]);
+   sltp = &(Anchor->SltList[rSession.slotID]);
    if (sltp->DLLoaded == FALSE ){
       st_err_log(50, __FILE__, __LINE__); 
       
@@ -3699,7 +3469,7 @@ C_Logout ( CK_SESSION_HANDLE hSession )
    }
    if (fcn->ST_Logout){
       // Map the Session to the slot session
-      rv = fcn->ST_Logout(rSession);
+      rv = fcn->ST_Logout(&rSession);
       LOGIT(LOG_DEBUG,"Called STDLL rv = 0x%x",rv);
    } else {
       st_err_log(142, __FILE__, __LINE__, __FUNCTION__); 
@@ -3736,7 +3506,7 @@ C_OpenSession ( CK_SLOT_ID            slotID,
    CK_RV   rv;
    API_Slot_t  *sltp;
    STDLL_FcnList_t  *fcn;
-   Session_Struct_t  *apiSessp;
+   ST_SESSION_T *apiSessp;
 
    LOGIT(LOG_DEBUG,"C_OpenSession  %d  %x %x %x  %x",slotID,flags,pApplication,
          Notify,phSession);
@@ -3755,12 +3525,6 @@ C_OpenSession ( CK_SLOT_ID            slotID,
       return CKR_FUNCTION_FAILED;
    }
 
-   // allocate the api session block
-   if ( (apiSessp = (Session_Struct_t *)malloc(sizeof(Session_Struct_t))) == NULL ){
-      st_err_log(0, __FILE__, __LINE__);
-      return CKR_HOST_MEMORY;
-   }
-
    sltp = &(Anchor->SltList[slotID]);
    if (sltp->DLLoaded == FALSE ){
       st_err_log(50, __FILE__, __LINE__); 
@@ -3773,24 +3537,34 @@ C_OpenSession ( CK_SLOT_ID            slotID,
       st_err_log(50, __FILE__, __LINE__); 
       return CKR_TOKEN_NOT_PRESENT;
    }
+
+   if ( (apiSessp = (ST_SESSION_T *)malloc(sizeof(ST_SESSION_T))) == NULL ){
+      st_err_log(0, __FILE__, __LINE__);
+      return CKR_HOST_MEMORY;
+   }
+
    if (fcn->ST_OpenSession){
-      rv = fcn->ST_OpenSession(slotID,flags,&(apiSessp->RealHandle));
+      rv = fcn->ST_OpenSession(slotID,flags,&(apiSessp->sessionh));
       LOGIT(LOG_DEBUG,"Called STDLL rv = 0x%x",rv);
 
       // If the session allocation is successful, then we need to 
       // complete the API session block and  return.  Otherwise
       // we free the API session block and exit
       if ( rv == CKR_OK ){
-         *phSession = (CK_SESSION_HANDLE)apiSessp; // Set applications session to the
-                                                   // address of the api session
-                                                   // handle this ensures
-                                                   // uniqueness.                                                
+	 /* add a refernece to this handle/slot_id pair to the binary tree we maintain at the
+	  * API level, returning the API-level object's handle as the session handle the app
+	  * will get */
+	 *phSession = AddToSessionList(apiSessp);
+	 if (*phSession == 0) {
+	    /* failed to add the object to the API-level tree, close the STDLL-level session
+	     * and return failure */
+	    fcn->ST_CloseSession(apiSessp);
+	    free(apiSessp);
+	    rv = CKR_HOST_MEMORY;
+	    goto done;
+	 }
+	 apiSessp->slotID = slotID;
 
-
-         apiSessp->Handle = apiSessp;
-         apiSessp->SltId = slotID;
-         // Add to the linked list
-         AddToSessionList(apiSessp); 
          // NOTE:  Need to add Session counter to the shared 
          // memory slot value.... Atomic operation.
          // sharedmem->slot_info[slotID].sessioncount incremented
@@ -3808,6 +3582,7 @@ C_OpenSession ( CK_SLOT_ID            slotID,
       st_err_log(142, __FILE__, __LINE__, __FUNCTION__); 
       rv = CKR_FUNCTION_NOT_SUPPORTED;
    }
+done:
    return rv;
 
 } // end of C_OpenSession
@@ -3826,7 +3601,6 @@ C_SeedRandom ( CK_SESSION_HANDLE hSession,
    CK_RV   rv;
    API_Slot_t  *sltp;
    STDLL_FcnList_t  *fcn;
-   CK_SLOT_ID        slotID;
    ST_SESSION_T rSession;
 
    LOG("C_SeedRandom");
@@ -3840,17 +3614,12 @@ C_SeedRandom ( CK_SESSION_HANDLE hSession,
       st_err_log(5, __FILE__, __LINE__, __FUNCTION__); 
       return CKR_ARGUMENTS_BAD;
    }
-   // Validate Session
-   if (!Valid_Session((Session_Struct_t *)hSession,&rSession)){
+   if (!Valid_Session(hSession, &rSession)){
       st_err_log(40, __FILE__, __LINE__);
       return CKR_SESSION_HANDLE_INVALID;
    }
 
-   // Get local pointers to session
-   slotID = rSession.slotID;
-
-
-   sltp = &(Anchor->SltList[slotID]);
+   sltp = &(Anchor->SltList[rSession.slotID]);
    if (sltp->DLLoaded == FALSE ){
       st_err_log(50, __FILE__, __LINE__); 
       
@@ -3862,7 +3631,7 @@ C_SeedRandom ( CK_SESSION_HANDLE hSession,
    }
    if (fcn->ST_SeedRandom){
       // Map the Session to the slot session
-      rv = fcn->ST_SeedRandom(rSession,pSeed,ulSeedLen);
+      rv = fcn->ST_SeedRandom(&rSession,pSeed,ulSeedLen);
       LOGIT(LOG_DEBUG,"Called STDLL rv = 0x%x",rv);
    } else {
       st_err_log(142, __FILE__, __LINE__, __FUNCTION__); 
@@ -3895,7 +3664,6 @@ C_SetAttributeValue ( CK_SESSION_HANDLE hSession,
    CK_RV   rv;
    API_Slot_t  *sltp;
    STDLL_FcnList_t  *fcn;
-   CK_SLOT_ID        slotID;
    ST_SESSION_T rSession;
 
    LOG("C_SetAttributeValue");
@@ -3904,8 +3672,7 @@ C_SetAttributeValue ( CK_SESSION_HANDLE hSession,
       return CKR_CRYPTOKI_NOT_INITIALIZED;
    }
 
-   // Validate Session
-   if (!Valid_Session((Session_Struct_t *)hSession,&rSession)){
+   if (!Valid_Session(hSession, &rSession)){
       st_err_log(40, __FILE__, __LINE__);
       return CKR_SESSION_HANDLE_INVALID;
    }
@@ -3918,10 +3685,8 @@ C_SetAttributeValue ( CK_SESSION_HANDLE hSession,
       st_err_log(48, __FILE__, __LINE__); 
       return CKR_TEMPLATE_INCOMPLETE;
    }
-   // Get local pointers to session
-   slotID = rSession.slotID;
 
-   sltp = &(Anchor->SltList[slotID]);
+   sltp = &(Anchor->SltList[rSession.slotID]);
    if (sltp->DLLoaded == FALSE ){
       st_err_log(50, __FILE__, __LINE__); 
       
@@ -3933,7 +3698,7 @@ C_SetAttributeValue ( CK_SESSION_HANDLE hSession,
    }
    if (fcn->ST_SetAttributeValue){
       // Map the Session to the slot session
-      rv = fcn->ST_SetAttributeValue(rSession,hObject,pTemplate,ulCount);
+      rv = fcn->ST_SetAttributeValue(&rSession,hObject,pTemplate,ulCount);
       LOGIT(LOG_DEBUG,"Called STDLL rv = 0x%x",rv);
    } else {
       st_err_log(142, __FILE__, __LINE__, __FUNCTION__); 
@@ -3959,7 +3724,6 @@ C_SetOperationState ( CK_SESSION_HANDLE hSession,
    CK_RV   rv;
    API_Slot_t  *sltp;
    STDLL_FcnList_t  *fcn;
-   CK_SLOT_ID        slotID;
    ST_SESSION_T rSession;
 
    LOG("C_SetOperationState");
@@ -3968,8 +3732,7 @@ C_SetOperationState ( CK_SESSION_HANDLE hSession,
       return CKR_CRYPTOKI_NOT_INITIALIZED;
    }
 
-   // Validate Session
-   if (!Valid_Session((Session_Struct_t *)hSession,&rSession)){
+   if (!Valid_Session(hSession, &rSession)){
       st_err_log(40, __FILE__, __LINE__);
       return CKR_SESSION_HANDLE_INVALID;
    }
@@ -3979,10 +3742,8 @@ C_SetOperationState ( CK_SESSION_HANDLE hSession,
       st_err_log(5, __FILE__, __LINE__, __FUNCTION__); 
       return CKR_ARGUMENTS_BAD;
    }
-   // Get local pointers to session
-   slotID = rSession.slotID;
 
-   sltp = &(Anchor->SltList[slotID]);
+   sltp = &(Anchor->SltList[rSession.slotID]);
    if (sltp->DLLoaded == FALSE ){
       st_err_log(50, __FILE__, __LINE__); 
       
@@ -3994,7 +3755,7 @@ C_SetOperationState ( CK_SESSION_HANDLE hSession,
    }
    if (fcn->ST_SetOperationState){
       // Map the Session to the slot session
-      rv = fcn->ST_SetOperationState(rSession,pOperationState,ulOperationStateLen,hEncryptionKey,
+      rv = fcn->ST_SetOperationState(&rSession,pOperationState,ulOperationStateLen,hEncryptionKey,
                hAuthenticationKey);
       LOGIT(LOG_DEBUG,"Called STDLL rv = 0x%x",rv);
    } else {
@@ -4029,7 +3790,6 @@ C_SetPIN ( CK_SESSION_HANDLE hSession,
    CK_RV   rv;
    API_Slot_t  *sltp;
    STDLL_FcnList_t  *fcn;
-   CK_SLOT_ID        slotID;
    ST_SESSION_T rSession;
 
    LOG("C_SetPIN");
@@ -4041,16 +3801,12 @@ C_SetPIN ( CK_SESSION_HANDLE hSession,
    if (!pOldPin || !pNewPin) return CKR_PIN_INVALID;
 
 
-   // Validate Session
-   if (!Valid_Session((Session_Struct_t *)hSession,&rSession)){
+   if (!Valid_Session(hSession, &rSession)){
       st_err_log(40, __FILE__, __LINE__);
       return CKR_SESSION_HANDLE_INVALID;
    }
 
-   // Get local pointers to session
-   slotID = rSession.slotID;
-
-   sltp = &(Anchor->SltList[slotID]);
+   sltp = &(Anchor->SltList[rSession.slotID]);
    if (sltp->DLLoaded == FALSE ){
       st_err_log(50, __FILE__, __LINE__); 
       
@@ -4062,7 +3818,7 @@ C_SetPIN ( CK_SESSION_HANDLE hSession,
    }
    if (fcn->ST_SetPIN){
       // Map the Session to the slot session
-      rv = fcn->ST_SetPIN(rSession,pOldPin,ulOldLen,pNewPin,ulNewLen);
+      rv = fcn->ST_SetPIN(&rSession,pOldPin,ulOldLen,pNewPin,ulNewLen);
       LOGIT(LOG_DEBUG,"Called STDLL rv = 0x%x",rv);
    } else {
       st_err_log(142, __FILE__, __LINE__, __FUNCTION__); 
@@ -4094,7 +3850,6 @@ C_Sign ( CK_SESSION_HANDLE hSession,
    CK_RV   rv;
    API_Slot_t  *sltp;
    STDLL_FcnList_t  *fcn;
-   CK_SLOT_ID        slotID;
    ST_SESSION_T rSession;
 
    LOG("C_Sign");
@@ -4107,16 +3862,12 @@ C_Sign ( CK_SESSION_HANDLE hSession,
       st_err_log(5, __FILE__, __LINE__, __FUNCTION__); 
       return CKR_ARGUMENTS_BAD;
    }
-   // Validate Session
-   if (!Valid_Session((Session_Struct_t *)hSession,&rSession)){
+   if (!Valid_Session(hSession, &rSession)){
       st_err_log(40, __FILE__, __LINE__);
       return CKR_SESSION_HANDLE_INVALID;
    }
 
-   // Get local pointers to session
-   slotID = rSession.slotID;
-
-   sltp = &(Anchor->SltList[slotID]);
+   sltp = &(Anchor->SltList[rSession.slotID]);
    if (sltp->DLLoaded == FALSE ){
       st_err_log(50, __FILE__, __LINE__); 
       
@@ -4128,7 +3879,7 @@ C_Sign ( CK_SESSION_HANDLE hSession,
    }
    if (fcn->ST_Sign){
       // Map the Session to the slot session
-      rv = fcn->ST_Sign(rSession,pData,ulDataLen,pSignature,pulSignatureLen);
+      rv = fcn->ST_Sign(&rSession,pData,ulDataLen,pSignature,pulSignatureLen);
       LOGIT(LOG_DEBUG,"Called STDLL rv = 0x%x",rv);
    } else {
       st_err_log(142, __FILE__, __LINE__, __FUNCTION__); 
@@ -4154,7 +3905,6 @@ C_SignEncryptUpdate ( CK_SESSION_HANDLE hSession,
    CK_RV   rv;
    API_Slot_t  *sltp;
    STDLL_FcnList_t  *fcn;
-   CK_SLOT_ID        slotID;
    ST_SESSION_T rSession;
 
    LOG("C_SignEncryptUpdate");
@@ -4167,17 +3917,12 @@ C_SignEncryptUpdate ( CK_SESSION_HANDLE hSession,
       st_err_log(5, __FILE__, __LINE__, __FUNCTION__); 
       return CKR_ARGUMENTS_BAD;
    }
-   // Validate Session
-   if (!Valid_Session((Session_Struct_t *)hSession,&rSession)){
+   if (!Valid_Session(hSession, &rSession)){
       st_err_log(40, __FILE__, __LINE__);
       return CKR_SESSION_HANDLE_INVALID;
    }
 
-   // Get local pointers to session
-   slotID = rSession.slotID;
-
-
-   sltp = &(Anchor->SltList[slotID]);
+   sltp = &(Anchor->SltList[rSession.slotID]);
    if (sltp->DLLoaded == FALSE ){
       st_err_log(50, __FILE__, __LINE__); 
       
@@ -4189,7 +3934,7 @@ C_SignEncryptUpdate ( CK_SESSION_HANDLE hSession,
    }
    if (fcn->ST_SignEncryptUpdate){
       // Map the Session to the slot session
-      rv = fcn->ST_SignEncryptUpdate(rSession,pPart,ulPartLen,pEncryptedPart,pulEncryptedPartLen);
+      rv = fcn->ST_SignEncryptUpdate(&rSession,pPart,ulPartLen,pEncryptedPart,pulEncryptedPartLen);
       LOGIT(LOG_DEBUG,"Called STDLL rv = 0x%x",rv);
    } else {
       st_err_log(142, __FILE__, __LINE__, __FUNCTION__); 
@@ -4220,7 +3965,6 @@ C_SignFinal ( CK_SESSION_HANDLE hSession,
    CK_RV   rv;
    API_Slot_t  *sltp;
    STDLL_FcnList_t  *fcn;
-   CK_SLOT_ID        slotID;
    ST_SESSION_T rSession;
 
    LOG("C_SignEncryptUpdate");
@@ -4234,17 +3978,12 @@ C_SignFinal ( CK_SESSION_HANDLE hSession,
       return CKR_ARGUMENTS_BAD;
    }
 
-   // Validate Session
-   if (!Valid_Session((Session_Struct_t *)hSession,&rSession)){
+   if (!Valid_Session(hSession, &rSession)){
       st_err_log(40, __FILE__, __LINE__);
       return CKR_SESSION_HANDLE_INVALID;
    }
 
-   // Get local pointers to session
-   slotID = rSession.slotID;
-
-
-   sltp = &(Anchor->SltList[slotID]);
+   sltp = &(Anchor->SltList[rSession.slotID]);
    if (sltp->DLLoaded == FALSE ){
       st_err_log(50, __FILE__, __LINE__); 
       
@@ -4256,7 +3995,7 @@ C_SignFinal ( CK_SESSION_HANDLE hSession,
    }
    if (fcn->ST_SignFinal){
       // Map the Session to the slot session
-      rv = fcn->ST_SignFinal(rSession,pSignature,pulSignatureLen);
+      rv = fcn->ST_SignFinal(&rSession,pSignature,pulSignatureLen);
       LOGIT(LOG_DEBUG,"Called STDLL rv = 0x%x",rv);
    } else {
       st_err_log(142, __FILE__, __LINE__, __FUNCTION__); 
@@ -4287,7 +4026,6 @@ C_SignInit ( CK_SESSION_HANDLE hSession,
    CK_RV   rv;
    API_Slot_t  *sltp;
    STDLL_FcnList_t  *fcn;
-   CK_SLOT_ID        slotID;
    ST_SESSION_T rSession;
 
    LOG("C_SignInit");
@@ -4300,16 +4038,12 @@ C_SignInit ( CK_SESSION_HANDLE hSession,
       st_err_log(28, __FILE__, __LINE__); 
       return CKR_MECHANISM_INVALID;
    }
-   // Validate Session
-   if (!Valid_Session((Session_Struct_t *)hSession,&rSession)){
+   if (!Valid_Session(hSession, &rSession)){
       st_err_log(40, __FILE__, __LINE__);
       return CKR_SESSION_HANDLE_INVALID;
    }
 
-   // Get local pointers to session
-   slotID = rSession.slotID;
-
-   sltp = &(Anchor->SltList[slotID]);
+   sltp = &(Anchor->SltList[rSession.slotID]);
    if (sltp->DLLoaded == FALSE ){
       st_err_log(50, __FILE__, __LINE__); 
       
@@ -4321,7 +4055,7 @@ C_SignInit ( CK_SESSION_HANDLE hSession,
    }
    if (fcn->ST_SignInit){
       // Map the Session to the slot session
-      rv = fcn->ST_SignInit(rSession,pMechanism,hKey);
+      rv = fcn->ST_SignInit(&rSession,pMechanism,hKey);
       LOGIT(LOG_DEBUG,"Called STDLL rv = 0x%x",rv);
    } else {
       st_err_log(142, __FILE__, __LINE__, __FUNCTION__); 
@@ -4347,7 +4081,6 @@ C_SignRecover ( CK_SESSION_HANDLE hSession,
    CK_RV   rv;
    API_Slot_t  *sltp;
    STDLL_FcnList_t  *fcn;
-   CK_SLOT_ID        slotID;
    ST_SESSION_T rSession;
 
    LOG("C_SignRecover");
@@ -4360,17 +4093,12 @@ C_SignRecover ( CK_SESSION_HANDLE hSession,
       st_err_log(5, __FILE__, __LINE__, __FUNCTION__); 
       return CKR_ARGUMENTS_BAD;
    }
-   // Validate Session
-   if (!Valid_Session((Session_Struct_t *)hSession,&rSession)){
+   if (!Valid_Session(hSession, &rSession)){
       st_err_log(40, __FILE__, __LINE__);
       return CKR_SESSION_HANDLE_INVALID;
    }
 
-   // Get local pointers to session
-   slotID = rSession.slotID;
-
-
-   sltp = &(Anchor->SltList[slotID]);
+   sltp = &(Anchor->SltList[rSession.slotID]);
    if (sltp->DLLoaded == FALSE ){
       st_err_log(50, __FILE__, __LINE__); 
       
@@ -4382,7 +4110,7 @@ C_SignRecover ( CK_SESSION_HANDLE hSession,
    }
    if (fcn->ST_SignRecover){
       // Map the Session to the slot session
-      rv = fcn->ST_SignRecover(rSession,pData,ulDataLen,pSignature,pulSignatureLen);
+      rv = fcn->ST_SignRecover(&rSession,pData,ulDataLen,pSignature,pulSignatureLen);
       LOGIT(LOG_DEBUG,"Called STDLL rv = 0x%x",rv);
    } else {
       st_err_log(142, __FILE__, __LINE__, __FUNCTION__); 
@@ -4410,7 +4138,6 @@ C_SignRecoverInit ( CK_SESSION_HANDLE hSession,
    CK_RV   rv;
    API_Slot_t  *sltp;
    STDLL_FcnList_t  *fcn;
-   CK_SLOT_ID        slotID;
    ST_SESSION_T rSession;
 
    LOG("C_SignRecoverInit");
@@ -4423,17 +4150,12 @@ C_SignRecoverInit ( CK_SESSION_HANDLE hSession,
       st_err_log(28, __FILE__, __LINE__); 
       return CKR_MECHANISM_INVALID;
    }
-   // Validate Session
-   if (!Valid_Session((Session_Struct_t *)hSession,&rSession)){
+   if (!Valid_Session(hSession, &rSession)){
       st_err_log(40, __FILE__, __LINE__);
       return CKR_SESSION_HANDLE_INVALID;
    }
 
-   // Get local pointers to session
-   slotID = rSession.slotID;
-
-
-   sltp = &(Anchor->SltList[slotID]);
+   sltp = &(Anchor->SltList[rSession.slotID]);
    if (sltp->DLLoaded == FALSE ){
       st_err_log(50, __FILE__, __LINE__); 
       
@@ -4445,7 +4167,7 @@ C_SignRecoverInit ( CK_SESSION_HANDLE hSession,
    }
    if (fcn->ST_SignRecoverInit){
       // Map the Session to the slot session
-      rv = fcn->ST_SignRecoverInit(rSession,pMechanism,hKey);
+      rv = fcn->ST_SignRecoverInit(&rSession,pMechanism,hKey);
       LOGIT(LOG_DEBUG,"Called STDLL rv = 0x%x",rv);
    } else {
       st_err_log(142, __FILE__, __LINE__, __FUNCTION__); 
@@ -4476,7 +4198,6 @@ C_SignUpdate ( CK_SESSION_HANDLE hSession,
    CK_RV   rv;
    API_Slot_t  *sltp;
    STDLL_FcnList_t  *fcn;
-   CK_SLOT_ID        slotID;
    ST_SESSION_T rSession;
 
    LOG("C_SignUpdate");
@@ -4489,17 +4210,12 @@ C_SignUpdate ( CK_SESSION_HANDLE hSession,
       st_err_log(5, __FILE__, __LINE__, __FUNCTION__); 
       return CKR_ARGUMENTS_BAD;
    }
-   // Validate Session
-   if (!Valid_Session((Session_Struct_t *)hSession,&rSession)){
+   if (!Valid_Session(hSession, &rSession)){
       st_err_log(40, __FILE__, __LINE__);
       return CKR_SESSION_HANDLE_INVALID;
    }
 
-   // Get local pointers to session
-   slotID = rSession.slotID;
-
-
-   sltp = &(Anchor->SltList[slotID]);
+   sltp = &(Anchor->SltList[rSession.slotID]);
    if (sltp->DLLoaded == FALSE ){
       st_err_log(50, __FILE__, __LINE__); 
       
@@ -4511,7 +4227,7 @@ C_SignUpdate ( CK_SESSION_HANDLE hSession,
    }
    if (fcn->ST_SignUpdate){
       // Map the Session to the slot session
-      rv = fcn->ST_SignUpdate(rSession,pPart,ulPartLen);
+      rv = fcn->ST_SignUpdate(&rSession,pPart,ulPartLen);
       LOGIT(LOG_DEBUG,"Called STDLL rv = 0x%x",rv);
    } else {
       st_err_log(142, __FILE__, __LINE__, __FUNCTION__); 
@@ -4544,7 +4260,6 @@ C_UnwrapKey ( CK_SESSION_HANDLE    hSession,
    CK_RV   rv;
    API_Slot_t  *sltp;
    STDLL_FcnList_t  *fcn;
-   CK_SLOT_ID        slotID;
    ST_SESSION_T rSession;
 
    LOG("C_UnwrapKey");
@@ -4564,17 +4279,12 @@ C_UnwrapKey ( CK_SESSION_HANDLE    hSession,
    //  what about the other pointers... probably need
    // to be set correctly
 
-   // Validate Session
-   if (!Valid_Session((Session_Struct_t *)hSession,&rSession)){
+   if (!Valid_Session(hSession, &rSession)){
       st_err_log(40, __FILE__, __LINE__);
       return CKR_SESSION_HANDLE_INVALID;
    }
 
-   // Get local pointers to session
-   slotID = rSession.slotID;
-
-
-   sltp = &(Anchor->SltList[slotID]);
+   sltp = &(Anchor->SltList[rSession.slotID]);
    if (sltp->DLLoaded == FALSE ){
       st_err_log(50, __FILE__, __LINE__); 
       
@@ -4586,7 +4296,7 @@ C_UnwrapKey ( CK_SESSION_HANDLE    hSession,
    }
    if (fcn->ST_UnwrapKey){
       // Map the Session to the slot session
-      rv = fcn->ST_UnwrapKey(rSession,pMechanism,hUnwrappingKey,pWrappedKey,ulWrappedKeyLen,
+      rv = fcn->ST_UnwrapKey(&rSession,pMechanism,hUnwrappingKey,pWrappedKey,ulWrappedKeyLen,
                pTemplate,ulAttributeCount,phKey);
       LOGIT(LOG_DEBUG,"Called STDLL rv = 0x%x",rv);
    } else {
@@ -4618,7 +4328,6 @@ C_Verify ( CK_SESSION_HANDLE hSession,
    CK_RV   rv;
    API_Slot_t  *sltp;
    STDLL_FcnList_t  *fcn;
-   CK_SLOT_ID        slotID;
    ST_SESSION_T rSession;
 
    LOG("C_Verify");
@@ -4631,16 +4340,12 @@ C_Verify ( CK_SESSION_HANDLE hSession,
       st_err_log(5, __FILE__, __LINE__, __FUNCTION__); 
       return CKR_ARGUMENTS_BAD;
    }
-   // Validate Session
-   if (!Valid_Session((Session_Struct_t *)hSession,&rSession)){
+   if (!Valid_Session(hSession, &rSession)){
       st_err_log(40, __FILE__, __LINE__);
       return CKR_SESSION_HANDLE_INVALID;
    }
 
-   // Get local pointers to session
-   slotID = rSession.slotID;
-
-   sltp = &(Anchor->SltList[slotID]);
+   sltp = &(Anchor->SltList[rSession.slotID]);
    if (sltp->DLLoaded == FALSE ){
       st_err_log(50, __FILE__, __LINE__); 
       
@@ -4652,7 +4357,7 @@ C_Verify ( CK_SESSION_HANDLE hSession,
    }
    if (fcn->ST_Verify){
       // Map the Session to the slot session
-      rv = fcn->ST_Verify(rSession,pData,ulDataLen,pSignature,ulSignatureLen);
+      rv = fcn->ST_Verify(&rSession,pData,ulDataLen,pSignature,ulSignatureLen);
       LOGIT(LOG_DEBUG,"Called STDLL rv = 0x%x",rv);
    } else {
       st_err_log(142, __FILE__, __LINE__, __FUNCTION__); 
@@ -4676,7 +4381,6 @@ C_VerifyFinal ( CK_SESSION_HANDLE hSession,
    CK_RV   rv;
    API_Slot_t  *sltp;
    STDLL_FcnList_t  *fcn;
-   CK_SLOT_ID        slotID;
    ST_SESSION_T rSession;
 
    LOG("C_VerifyFinal");
@@ -4689,17 +4393,12 @@ C_VerifyFinal ( CK_SESSION_HANDLE hSession,
       st_err_log(5, __FILE__, __LINE__, __FUNCTION__); 
       return CKR_ARGUMENTS_BAD;
    }
-   // Validate Session
-   if (!Valid_Session((Session_Struct_t *)hSession,&rSession)){
+   if (!Valid_Session(hSession, &rSession)){
       st_err_log(40, __FILE__, __LINE__);
       return CKR_SESSION_HANDLE_INVALID;
    }
 
-   // Get local pointers to session
-   slotID = rSession.slotID;
-
-
-   sltp = &(Anchor->SltList[slotID]);
+   sltp = &(Anchor->SltList[rSession.slotID]);
    if (sltp->DLLoaded == FALSE ){
       st_err_log(50, __FILE__, __LINE__); 
       
@@ -4711,7 +4410,7 @@ C_VerifyFinal ( CK_SESSION_HANDLE hSession,
    }
    if (fcn->ST_VerifyFinal){
       // Map the Session to the slot session
-      rv = fcn->ST_VerifyFinal(rSession,pSignature,ulSignatureLen);
+      rv = fcn->ST_VerifyFinal(&rSession,pSignature,ulSignatureLen);
       LOGIT(LOG_DEBUG,"Called STDLL rv = 0x%x",rv);
    } else {
       st_err_log(142, __FILE__, __LINE__, __FUNCTION__); 
@@ -4738,7 +4437,6 @@ C_VerifyInit ( CK_SESSION_HANDLE hSession,
    CK_RV   rv;
    API_Slot_t  *sltp;
    STDLL_FcnList_t  *fcn;
-   CK_SLOT_ID        slotID;
    ST_SESSION_T rSession;
 
    LOG("C_VerifyInit");
@@ -4751,16 +4449,12 @@ C_VerifyInit ( CK_SESSION_HANDLE hSession,
       st_err_log(28, __FILE__, __LINE__); 
       return CKR_MECHANISM_INVALID;
    }
-   // Validate Session
-   if (!Valid_Session((Session_Struct_t *)hSession,&rSession)){
+   if (!Valid_Session(hSession, &rSession)){
       st_err_log(40, __FILE__, __LINE__);
       return CKR_SESSION_HANDLE_INVALID;
    }
 
-   // Get local pointers to session
-   slotID = rSession.slotID;
-
-   sltp = &(Anchor->SltList[slotID]);
+   sltp = &(Anchor->SltList[rSession.slotID]);
    if (sltp->DLLoaded == FALSE ){
       st_err_log(50, __FILE__, __LINE__); 
       
@@ -4772,7 +4466,7 @@ C_VerifyInit ( CK_SESSION_HANDLE hSession,
    }
    if (fcn->ST_VerifyInit){
       // Map the Session to the slot session
-      rv = fcn->ST_VerifyInit(rSession,pMechanism,hKey);
+      rv = fcn->ST_VerifyInit(&rSession,pMechanism,hKey);
       LOGIT(LOG_DEBUG,"Called STDLL rv = 0x%x",rv);
    } else {
       st_err_log(142, __FILE__, __LINE__, __FUNCTION__); 
@@ -4800,7 +4494,6 @@ C_VerifyRecover ( CK_SESSION_HANDLE hSession,
    CK_RV   rv;
    API_Slot_t  *sltp;
    STDLL_FcnList_t  *fcn;
-   CK_SLOT_ID        slotID;
    ST_SESSION_T rSession;
 
    LOG("C_VerifyRecover");
@@ -4812,16 +4505,12 @@ C_VerifyRecover ( CK_SESSION_HANDLE hSession,
       st_err_log(5, __FILE__, __LINE__, __FUNCTION__); 
       return CKR_ARGUMENTS_BAD;
    }
-   // Validate Session
-   if (!Valid_Session((Session_Struct_t *)hSession,&rSession)){
+   if (!Valid_Session(hSession, &rSession)){
       st_err_log(40, __FILE__, __LINE__);
       return CKR_SESSION_HANDLE_INVALID;
    }
 
-   // Get local pointers to session
-   slotID = rSession.slotID;
-
-   sltp = &(Anchor->SltList[slotID]);
+   sltp = &(Anchor->SltList[rSession.slotID]);
    if (sltp->DLLoaded == FALSE ){
       st_err_log(50, __FILE__, __LINE__); 
       
@@ -4833,7 +4522,7 @@ C_VerifyRecover ( CK_SESSION_HANDLE hSession,
    }
    if (fcn->ST_VerifyRecover){
       // Map the Session to the slot session
-      rv = fcn->ST_VerifyRecover(rSession,pSignature,ulSignatureLen,pData,pulDataLen);
+      rv = fcn->ST_VerifyRecover(&rSession,pSignature,ulSignatureLen,pData,pulDataLen);
       LOGIT(LOG_DEBUG,"Called STDLL rv = 0x%x",rv);
    } else {
       st_err_log(142, __FILE__, __LINE__, __FUNCTION__); 
@@ -4857,7 +4546,6 @@ C_VerifyRecoverInit ( CK_SESSION_HANDLE hSession,
    CK_RV   rv;
    API_Slot_t  *sltp;
    STDLL_FcnList_t  *fcn;
-   CK_SLOT_ID        slotID;
    ST_SESSION_T rSession;
 
    LOG("C_VerifyRecoverInit");
@@ -4870,16 +4558,12 @@ C_VerifyRecoverInit ( CK_SESSION_HANDLE hSession,
       st_err_log(28, __FILE__, __LINE__); 
       return CKR_MECHANISM_INVALID;
    }
-   // Validate Session
-   if (!Valid_Session((Session_Struct_t *)hSession,&rSession)){
+   if (!Valid_Session(hSession, &rSession)){
       st_err_log(40, __FILE__, __LINE__);
       return CKR_SESSION_HANDLE_INVALID;
    }
 
-   // Get local pointers to session
-   slotID = rSession.slotID;
-
-   sltp = &(Anchor->SltList[slotID]);
+   sltp = &(Anchor->SltList[rSession.slotID]);
    if (sltp->DLLoaded == FALSE ){
       st_err_log(50, __FILE__, __LINE__); 
       
@@ -4891,7 +4575,7 @@ C_VerifyRecoverInit ( CK_SESSION_HANDLE hSession,
    }
    if (fcn->ST_VerifyRecoverInit){
       // Map the Session to the slot session
-      rv = fcn->ST_VerifyRecoverInit(rSession,pMechanism,hKey);
+      rv = fcn->ST_VerifyRecoverInit(&rSession,pMechanism,hKey);
       LOGIT(LOG_DEBUG,"Called STDLL rv = 0x%x",rv);
    } else {
       st_err_log(142, __FILE__, __LINE__, __FUNCTION__); 
@@ -4915,7 +4599,6 @@ C_VerifyUpdate ( CK_SESSION_HANDLE hSession,
    CK_RV   rv;
    API_Slot_t  *sltp;
    STDLL_FcnList_t  *fcn;
-   CK_SLOT_ID        slotID;
    ST_SESSION_T rSession;
 
    LOG("C_VerifyUpdate");
@@ -4928,17 +4611,12 @@ C_VerifyUpdate ( CK_SESSION_HANDLE hSession,
       st_err_log(5, __FILE__, __LINE__, __FUNCTION__); 
       return CKR_ARGUMENTS_BAD;
    }
-   // Validate Session
-   if (!Valid_Session((Session_Struct_t *)hSession,&rSession)){
+   if (!Valid_Session(hSession, &rSession)){
       st_err_log(40, __FILE__, __LINE__);
       return CKR_SESSION_HANDLE_INVALID;
    }
 
-   // Get local pointers to session
-   slotID = rSession.slotID;
-
-
-   sltp = &(Anchor->SltList[slotID]);
+   sltp = &(Anchor->SltList[rSession.slotID]);
    if (sltp->DLLoaded == FALSE ){
       st_err_log(50, __FILE__, __LINE__); 
       
@@ -4950,7 +4628,7 @@ C_VerifyUpdate ( CK_SESSION_HANDLE hSession,
    } 
    if (fcn->ST_VerifyUpdate){
       // Map the Session to the slot session
-      rv = fcn->ST_VerifyUpdate(rSession,pPart,ulPartLen);
+      rv = fcn->ST_VerifyUpdate(&rSession,pPart,ulPartLen);
       LOGIT(LOG_DEBUG,"Called STDLL rv = 0x%x",rv);
    } else {
       st_err_log(142, __FILE__, __LINE__, __FUNCTION__); 
@@ -5120,7 +4798,6 @@ C_WrapKey ( CK_SESSION_HANDLE hSession,
    CK_RV   rv;
    API_Slot_t  *sltp;
    STDLL_FcnList_t  *fcn;
-   CK_SLOT_ID        slotID;
    ST_SESSION_T rSession;
 
    LOG("C_WrapKey");
@@ -5135,17 +4812,12 @@ C_WrapKey ( CK_SESSION_HANDLE hSession,
    }
    //   other pointers???
 
-   // Validate Session
-   if (!Valid_Session((Session_Struct_t *)hSession,&rSession)){
+   if (!Valid_Session(hSession, &rSession)){
       st_err_log(40, __FILE__, __LINE__);
       return CKR_SESSION_HANDLE_INVALID;
    }
 
-   // Get local pointers to session
-   slotID = rSession.slotID;
-
-
-   sltp = &(Anchor->SltList[slotID]);
+   sltp = &(Anchor->SltList[rSession.slotID]);
    if (sltp->DLLoaded == FALSE ){
       st_err_log(50, __FILE__, __LINE__); 
       
@@ -5157,7 +4829,7 @@ C_WrapKey ( CK_SESSION_HANDLE hSession,
    }
    if (fcn->ST_WrapKey){
       // Map the Session to the slot session
-      rv = fcn->ST_WrapKey(rSession,pMechanism,hWrappingKey,hKey,pWrappedKey,pulWrappedKeyLen);
+      rv = fcn->ST_WrapKey(&rSession,pMechanism,hWrappingKey,hKey,pWrappedKey,pulWrappedKeyLen);
       LOGIT(LOG_DEBUG,"Called STDLL rv = 0x%x",rv);
    } else {
       st_err_log(142, __FILE__, __LINE__, __FUNCTION__); 

@@ -300,6 +300,7 @@
 #include <pthread.h>
 #endif
 
+#include <stdint.h>
 #include <stdlib.h>
 #include <stdio.h>
 #include <string.h>
@@ -470,117 +471,95 @@ XProcUnLock(void *x)
 #endif
 }
 
-
-void
-AddToSessionList(pSess)
-   Session_Struct_t *pSess;
+unsigned long
+AddToSessionList(ST_SESSION_T *pSess)
 {
-   Session_Struct_t *pCur;
-
+   unsigned long handle;
 
    pthread_mutex_lock(&(Anchor->SessListMutex));
 
    //LOGIT(LOG_DEBUG,"AddToSessionList %x",pSess);
-   pCur = Anchor->SessListBeg;
+   handle = bt_node_add(&(Anchor->sess_btree), pSess);
 
-   if (!pCur ) { // first time to add
-      //LOGIT(LOG_DEBUG,"\t\tFirst Addition");
-      pthread_mutex_lock(&(Anchor->ProcMutex));
-      Anchor->SessListBeg = pSess;
-      pthread_mutex_unlock(&(Anchor->ProcMutex));
-      pSess->Previous = pSess->Next = NULL;
-   } else {
-      // Go to the end of the list..
-      while (pCur->Next != NULL ){
-         //LOGIT(LOG_DEBUG,"\t\tPcur = %x  Next = %x",pCur,pCur->Next);
-         pCur = pCur->Next;
-      }
-      // Append this one
-      pCur->Next = pSess;
-      pSess->Previous = pCur;
-      pSess->Next = NULL;
-   }
+   pthread_mutex_unlock(&(Anchor->SessListMutex));
+
+   return handle;
+}
+
+void
+RemoveFromSessionList(CK_SESSION_HANDLE handle)
+{
+   pthread_mutex_lock(&(Anchor->SessListMutex));
+
+   bt_node_free(&(Anchor->sess_btree), handle, free);
 
    pthread_mutex_unlock(&(Anchor->SessListMutex));
 }
 
+/* CloseMe
+ *
+ * Callback function used to close an individual session for a slot
+ */
 void
-RemoveFromSessionList(pSess)
-   Session_Struct_t *pSess;
+CloseMe(void *node_value, unsigned long node_handle, void *arg)
 {
-   Session_Struct_t *pCur,*pTmp;
+   CK_RV rv;
+   CK_SLOT_ID slot_id = *(CK_SLOT_ID *)arg;
+   ST_SESSION_T *s = (ST_SESSION_T *)node_value;
+   API_Slot_t *sltp;
+   STDLL_FcnList_t  *fcn;
 
-   pthread_mutex_lock(&(Anchor->SessListMutex));
-
-   pCur = Anchor->SessListBeg;
-   // Just in case check that there really is a list although
-   // the call to ValidSession should have caught this already.
-   // But someone may have removed the session already 
-   // while we were validating the call.
-   if ( pCur)  {
-      // Are we the beginning of the list
-      if (pCur == pSess){
-           pthread_mutex_lock(&(Anchor->ProcMutex));
-           pTmp = pSess->Next;
-           Anchor->SessListBeg = pSess->Next;
-           if (pTmp){
-              pTmp->Previous = NULL;
-           }
-           free(pSess);
-           pthread_mutex_unlock(&(Anchor->ProcMutex));
-           pCur = NULL; // Force out of the loop
-      } else {
-         // First check for a Null element then check next against 
-         // the desired element.  This will allow the loop to terminate
-         // at the end of the list even if the desired element is not in
-         // the list (should not happen, but be defensive).
-         while (pCur && pCur->Next != pSess) {
-               pCur = pCur->Next;
-         }
-         // We did not hit the end of the list without finding
-         // our element so we can continue to remove it
-         if (pCur != NULL ){
-            pTmp = pSess->Next;
-            pCur->Next = pTmp;
-            if (pTmp) {
-               pTmp->Previous = pCur;
-            }
-            free(pSess);
-         }
+   if (s->slotID == slot_id) {
+      /* the single ugliest part about moving to a binary tree: these are the guts of
+       * the C_CloseSession function, copied here without tests for validity, since if we're
+       * here, they must already have been valid */
+      sltp = &(Anchor->SltList[slot_id]);
+      fcn = sltp->FcnList;
+      rv = fcn->ST_CloseSession(s);
+      if (rv == CKR_OK) {
+         decr_sess_counts(slot_id);
+	 bt_node_free(&(Anchor->sess_btree), node_handle, free);
       }
    }
+}
+
+/* CloseAllSessions
+ *
+ * Run through all the nodes in the binary tree and call CloseMe on each one. CloseMe will look at
+ * @slot_id and if it matches, will close the session. Once all the nodes are closed, we check
+ * to see if the tree is empty and if so, destroy it
+ */
+void
+CloseAllSessions(CK_SLOT_ID slot_id)
+{
+   pthread_mutex_lock(&(Anchor->SessListMutex));
+
+   /* for every node in the API-level session tree, call CloseMe on it */
+   bt_for_each_node(&(Anchor->sess_btree), CloseMe, (void *)&slot_id);
+
+   if (bt_is_empty(&(Anchor->sess_btree)))
+	   bt_destroy(&(Anchor->sess_btree), NULL);
 
    pthread_mutex_unlock(&(Anchor->SessListMutex));
 }
 
 int
-Valid_Session(pSession,rSession)
-   Session_Struct_t *pSession;
-   ST_SESSION_T   *rSession;
+Valid_Session(CK_SESSION_HANDLE handle, ST_SESSION_T *rSession)
 {
-
-   int rv=FALSE;  // Assume that it is not on the list
-   Session_Struct_t  *cSessionp;
-
-   if ( !pSession )
-      return rv;
+   ST_SESSION_T *tmp;
 
    pthread_mutex_lock(&(Anchor->SessListMutex));
 
-   // Try to dereference pSession and double-check by
-   // comparing the handle value. MAY segfault if the
-   // session handle pSession is invalid, but that
-   // often means that the caller is buggy.
-   if ( pSession->Handle == pSession ) {
-      rSession->sessionh = pSession->RealHandle;
-      rSession->slotID = pSession->SltId;
-      rv = TRUE;
+   tmp = bt_get_node_value(&(Anchor->sess_btree), handle);
+   if (tmp) {
+	   rSession->slotID = tmp->slotID;
+	   rSession->sessionh = tmp->sessionh;
    }
 
    pthread_mutex_unlock(&(Anchor->SessListMutex));
-   return rv;
-}
 
+   return (tmp ? TRUE : FALSE);
+}
 
 int 
 API_Initialized()
@@ -616,6 +595,23 @@ slot_present(id)
 
    return TRUE;
 
+}
+
+void
+get_sess_count(CK_SLOT_ID slotID, CK_ULONG *ret)
+{
+   Slot_Mgr_Shr_t  *shm;
+   Slot_Info_t_64      *sinfp;
+   Slot_Mgr_Proc_t_64  *procp;
+
+   shm = Anchor->SharedMemP;
+
+   XProcLock(&(shm->slt_mutex));
+
+   sinfp = &(shm->slot_info[slotID]);
+   *ret = sinfp->global_sessions;
+
+   XProcUnLock(&(shm->slt_mutex));
 }
 
 void
@@ -1003,9 +999,10 @@ DL_Load( sinfp,sltp,dllload)
       dllload[i].dll_load_count=1;;
 
    } else {
+	   char *e = dlerror();
 	   syslog(LOG_ERR, "%s: dlopen() failed for [%s]; dlerror = [%s]\n",
-			   __FUNCTION__, sinfp->dll_location, dlerror());
-      LOGIT(LOG_DEBUG,"\tDL_Load of %s failed, dlerror: %s",sinfp->dll_location,dlerror());
+			   __FUNCTION__, sinfp->dll_location, e);
+      LOGIT(LOG_DEBUG,"DL_Load of %s failed, dlerror: %s",sinfp->dll_location,e);
       sltp->dlop_p = NULL;
       return 0;
    }
@@ -1116,7 +1113,7 @@ DL_Load_and_Init(sltp,slotID )
       pSTfini = (void (*)())dlsym(sltp->dlop_p,"SC_Finalize");
       sltp->pSTfini = pSTfini;
 
-      sltp->pSTcloseall = (void (*)())dlsym(sltp->dlop_p,"SC_CloseAllSessions");
+      sltp->pSTcloseall = (CK_RV (*)())dlsym(sltp->dlop_p,"SC_CloseAllSessions");
       return TRUE;
    }
 

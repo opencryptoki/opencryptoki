@@ -143,7 +143,7 @@ struct token_specific_struct{
    CK_RV (*t_login)(CK_USER_TYPE, CK_CHAR_PTR, CK_ULONG);
    CK_RV (*t_logout)();
    CK_RV (*t_init_pin)(CK_CHAR_PTR, CK_ULONG);
-   CK_RV (*t_set_pin)(ST_SESSION_HANDLE, CK_CHAR_PTR, CK_ULONG, CK_CHAR_PTR, CK_ULONG);
+   CK_RV (*t_set_pin)(SESSION *, CK_CHAR_PTR, CK_ULONG, CK_CHAR_PTR, CK_ULONG);
    CK_RV (*t_verify_so_pin)(CK_CHAR_PTR, CK_ULONG);
 };
 

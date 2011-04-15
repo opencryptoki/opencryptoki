@@ -305,6 +305,37 @@ typedef unsigned short uint16;
 typedef unsigned int   uint32;
 // typedef int            int32;
 
+
+#define BT_FLAG_FREE	1
+
+/* Binary tree node
+ * - 20 bytes on 32bit platform
+ * - 40 bytes on 64bit platform
+ */
+struct btnode
+{
+	struct btnode *left;
+	struct btnode *right;
+	struct btnode *parent;
+	unsigned long flags;
+	void *value;
+};
+
+/* Binary tree root */
+struct btree
+{
+	struct btnode *free_list;
+	struct btnode *top;
+	unsigned long size;
+	unsigned long free_nodes;
+};
+
+struct btnode *bt_get_node(struct btree *t, unsigned long node_num);
+void *bt_get_node_value(struct btree *t, unsigned long node_num);
+inline int bt_is_empty(struct btree *t);
+void bt_for_each_node(struct btree *t, void (*)(void *, unsigned long, void *), void *);
+unsigned long bt_nodes_in_use(struct btree *t);
+
 #endif
 
 

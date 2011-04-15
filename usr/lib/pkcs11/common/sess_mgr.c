@@ -299,6 +299,7 @@
 #include <string.h>  // for memcmp() et al
 
 #include "pkcs11types.h"
+#include "local_types.h"
 #include "defs.h"
 #include "host_defs.h"
 #include "h_extern.h"
@@ -315,7 +316,7 @@
 SESSION *
 session_mgr_find( CK_SESSION_HANDLE handle )
 {
-   DL_NODE  * node   = NULL;
+   struct btnode *n;
    SESSION  * result = NULL;
    CK_RV      rc;
 
@@ -328,16 +329,7 @@ session_mgr_find( CK_SESSION_HANDLE handle )
       st_err_log(146, __FILE__, __LINE__); 
       return NULL;
    }
-
-   result = (SESSION *) handle;
-
-   // Try to dereference result and double-check by
-   // comparing the handle value. MAY segfault if
-   // handle is invalid, but that often means that
-   // the caller is buggy.
-   if ( result->handle != handle ) {
-      result = NULL;
-   }
+   result = bt_get_node_value(&sess_btree, handle);
 
    MY_UnlockMutex( &sess_list_mutex );
    return result;
@@ -355,11 +347,10 @@ session_mgr_find( CK_SESSION_HANDLE handle )
 // Returns:  CK_RV
 //
 CK_RV
-session_mgr_new( CK_ULONG flags, SESSION **sess )
+session_mgr_new( CK_ULONG flags, CK_SLOT_ID slot_id, CK_SESSION_HANDLE_PTR phSession )
 {
    SESSION  * new_session  = NULL;
    SESSION  * s            = NULL;
-   DL_NODE  * node         = NULL;
    CK_BBOOL   user_session = FALSE;
    CK_BBOOL   so_session   = FALSE;
    CK_BBOOL   pkcs_locked  = TRUE;
@@ -387,13 +378,11 @@ session_mgr_new( CK_ULONG flags, SESSION **sess )
    }
    pkcs_locked = TRUE;
 
-   new_session->handle = (CK_SESSION_HANDLE) new_session;
-
    MY_UnlockMutex( &pkcs_mutex );
    pkcs_locked = FALSE;
 
 
-   new_session->session_info.slotID        = 1;
+   new_session->session_info.slotID        = slot_id;
    new_session->session_info.flags         = flags;
    new_session->session_info.ulDeviceError = 0;
 
@@ -434,8 +423,11 @@ session_mgr_new( CK_ULONG flags, SESSION **sess )
       }
    }
 
-   sess_list = dlist_add_as_first( sess_list, new_session );
-   *sess = new_session;
+   *phSession = bt_node_add(&sess_btree, new_session);
+   if (*phSession == 0) {
+      rc = CKR_HOST_MEMORY;
+      /* new_session will be free'd below */
+   }
 
 done:
    if (pkcs_locked)
@@ -565,9 +557,10 @@ session_mgr_readonly_session_exists( void )
 // Returns:  TRUE on success else FALSE
 //
 CK_RV
-session_mgr_close_session( SESSION *sess )
+session_mgr_close_session( CK_SESSION_HANDLE handle )
 {
-   DL_NODE  * node = NULL;
+   struct btnode *n;
+   SESSION *sess;
    CK_RV      rc = CKR_OK;
 
    if (!sess)
@@ -578,11 +571,12 @@ session_mgr_close_session( SESSION *sess )
       st_err_log(146, __FILE__, __LINE__); 
       return CKR_FUNCTION_FAILED;
    }
-   node = dlist_find( sess_list, sess );
-   if (!node) {
-      st_err_log(4, __FILE__, __LINE__, __FUNCTION__); 
-      rc = CKR_FUNCTION_FAILED;
-      goto done;
+
+   sess = bt_get_node_value(&sess_btree, handle);
+   if (!sess) {
+	   st_err_log(40, __FILE__, __LINE__);
+	   rc = CKR_SESSION_HANDLE_INVALID;
+	   goto done;
    }
 
    object_mgr_purge_session_objects( sess, ALL );
@@ -628,9 +622,7 @@ session_mgr_close_session( SESSION *sess )
    if (sess->verify_ctx.mech.pParameter)
       free( sess->verify_ctx.mech.pParameter );
 
-   free( sess );
-
-   sess_list = dlist_remove_node( sess_list, node );
+   bt_node_free(&sess_btree, handle, free);
 
    // XXX XXX  Not having this is a problem
    //  for IHS.  The spec states that there is an implicit logout
@@ -641,17 +633,17 @@ session_mgr_close_session( SESSION *sess )
    //  objects EVERY time.   If we are logged out, we MUST purge the private
    //  objects from this process..  
    //
-   if (sess_list == NULL) {
-	// SAB  XXX  if all sessions are closed.  Is this effectivly logging out
-	   object_mgr_purge_private_token_objects();
-   
-		global_login_state = CKS_RO_PUBLIC_SESSION;
+   if (bt_is_empty(&sess_btree)) {
+      // SAB  XXX  if all sessions are closed.  Is this effectivly logging out
+      object_mgr_purge_private_token_objects();
+
+      global_login_state = CKS_RO_PUBLIC_SESSION;
       // The objects really need to be purged .. but this impacts the
       // performance under linux.   So we need to make sure that the 
       // login state is valid.    I don't really like this.
-    	MY_LockMutex( &obj_list_mutex );
-   	object_mgr_purge_map((SESSION *)0xFFFF, PRIVATE);
-     	MY_UnlockMutex( &obj_list_mutex );
+      MY_LockMutex( &obj_list_mutex );
+      object_mgr_purge_map((SESSION *)0xFFFF, PRIVATE);
+      MY_UnlockMutex( &obj_list_mutex );
    }
 
 done:
@@ -659,6 +651,54 @@ done:
    return rc;
 }
 
+/* session_free
+ *
+ * Callback used to free an individual SESSION object
+ */
+void
+session_free(void *node_value, unsigned long node_idx, void *p3)
+{
+   SESSION *sess = (SESSION *)node_value;
+
+   object_mgr_purge_session_objects( sess, ALL );
+   sess->handle = CK_INVALID_HANDLE;
+
+   if (sess->find_list)
+      free( sess->find_list );
+
+   if (sess->encr_ctx.context)
+      free( sess->encr_ctx.context );
+
+   if (sess->encr_ctx.mech.pParameter)
+      free( sess->encr_ctx.mech.pParameter);
+
+   if (sess->decr_ctx.context)
+      free( sess->decr_ctx.context );
+
+   if (sess->decr_ctx.mech.pParameter)
+      free( sess->decr_ctx.mech.pParameter);
+
+   if (sess->digest_ctx.context)
+      free( sess->digest_ctx.context );
+
+   if (sess->digest_ctx.mech.pParameter)
+      free( sess->digest_ctx.mech.pParameter);
+
+   if (sess->sign_ctx.context)
+      free( sess->sign_ctx.context );
+
+   if (sess->sign_ctx.mech.pParameter)
+      free( sess->sign_ctx.mech.pParameter);
+
+   if (sess->verify_ctx.context)
+      free( sess->verify_ctx.context );
+
+   if (sess->verify_ctx.mech.pParameter)
+      free( sess->verify_ctx.mech.pParameter);
+
+   /* NB: any access to sess or @node_value after this returns will segfault */
+   bt_node_free(&sess_btree, node_idx, free);
+}
 
 // session_mgr_close_all_sessions()
 //
@@ -668,56 +708,16 @@ CK_RV
 session_mgr_close_all_sessions( void )
 {
    CK_RV   rc = CKR_OK;
+   SESSION *sess;
+   unsigned long i;
 
    rc = MY_LockMutex( &sess_list_mutex );
    if (rc != CKR_OK){
-      st_err_log(146, __FILE__, __LINE__); 
+      st_err_log(146, __FILE__, __LINE__);
       return CKR_FUNCTION_FAILED;
    }
-   while (sess_list) {
-      SESSION *sess = (SESSION *)sess_list->data;
 
-      object_mgr_purge_session_objects( sess, ALL );
-
-      sess->handle = CK_INVALID_HANDLE;
-
-      if (sess->find_list)
-         free( sess->find_list );
-
-      if (sess->encr_ctx.context)
-         free( sess->encr_ctx.context );
-
-      if (sess->encr_ctx.mech.pParameter)
-         free( sess->encr_ctx.mech.pParameter);
-
-      if (sess->decr_ctx.context)
-         free( sess->decr_ctx.context );
-
-      if (sess->decr_ctx.mech.pParameter)
-         free( sess->decr_ctx.mech.pParameter);
-
-      if (sess->digest_ctx.context)
-         free( sess->digest_ctx.context );
-
-      if (sess->digest_ctx.mech.pParameter)
-         free( sess->digest_ctx.mech.pParameter);
-
-      if (sess->sign_ctx.context)
-         free( sess->sign_ctx.context );
-
-      if (sess->sign_ctx.mech.pParameter)
-         free( sess->sign_ctx.mech.pParameter);
-
-      if (sess->verify_ctx.context)
-         free( sess->verify_ctx.context );
-
-      if (sess->verify_ctx.mech.pParameter)
-         free( sess->verify_ctx.mech.pParameter);
-
-      free( sess );
-
-      sess_list = dlist_remove_node( sess_list, sess_list );
-   }
+   bt_for_each_node(&sess_btree, session_free, NULL);
 
    ro_session_count = 0;
 
@@ -725,6 +725,28 @@ session_mgr_close_all_sessions( void )
    return CKR_OK;
 }
 
+/* session_login
+ *
+ * Callback used to update a SESSION object's login state to logged in based on user type
+ */
+void
+session_login(void *node_value, unsigned long node_idx, void *p3)
+{
+   SESSION *s = (SESSION *)node_value;
+   CK_USER_TYPE user_type = *(CK_USER_TYPE *)p3;
+
+   if (s->session_info.flags & CKF_RW_SESSION) {
+      if (user_type == CKU_USER)
+         s->session_info.state = CKS_RW_USER_FUNCTIONS;
+      else
+         s->session_info.state = CKS_RW_SO_FUNCTIONS;
+   } else {
+      if (user_type == CKU_USER)
+         s->session_info.state = CKS_RO_USER_FUNCTIONS;
+   }
+
+   global_login_state = s->session_info.state; // SAB
+}
 
 // session_mgr_login_all()
 //
@@ -735,7 +757,9 @@ session_mgr_close_all_sessions( void )
 CK_RV
 session_mgr_login_all( CK_USER_TYPE user_type )
 {
-   DL_NODE  * node = NULL;
+   struct btnode *n;
+   unsigned long i;
+   SESSION *s;
    CK_RV      rc = CKR_OK;
 
    rc = MY_LockMutex( &sess_list_mutex );
@@ -743,29 +767,34 @@ session_mgr_login_all( CK_USER_TYPE user_type )
       st_err_log(146, __FILE__, __LINE__); 
       return CKR_FUNCTION_FAILED;
    }
-   node = sess_list;
-   while (node) {
-      SESSION *s = (SESSION *)node->data;
 
-      if (s->session_info.flags & CKF_RW_SESSION) {
-         if (user_type == CKU_USER)
-            s->session_info.state = CKS_RW_USER_FUNCTIONS;
-         else
-            s->session_info.state = CKS_RW_SO_FUNCTIONS;
-      }
-      else {
-         if (user_type == CKU_USER)
-            s->session_info.state = CKS_RO_USER_FUNCTIONS;
-      }
-
-      global_login_state = s->session_info.state; // SAB 
-      node = node->next;
-   }
+   bt_for_each_node(&sess_btree, session_login, (void *)&user_type);
 
    MY_UnlockMutex( &sess_list_mutex );
    return CKR_OK;
 }
 
+/* session_logout
+ *
+ * Callback used to update a SESSION object's login state to be logged out
+ */
+void
+session_logout(void *node_value, unsigned long node_idx, void *p3)
+{
+   SESSION *s = (SESSION *)node_value;
+
+   // all sessions get logged out so destroy any private objects
+   // public objects are left alone
+   //
+   object_mgr_purge_session_objects( s, PRIVATE );
+
+   if (s->session_info.flags & CKF_RW_SESSION)
+      s->session_info.state = CKS_RW_PUBLIC_SESSION;
+   else
+      s->session_info.state = CKS_RO_PUBLIC_SESSION;
+
+   global_login_state = s->session_info.state; // SAB
+}
 
 // session_mgr_logout_all()
 //
@@ -774,7 +803,7 @@ session_mgr_login_all( CK_USER_TYPE user_type )
 CK_RV
 session_mgr_logout_all( void )
 {
-   DL_NODE  * node = NULL;
+   unsigned long i;
    SESSION  * s    = NULL;
    CK_RV      rc   = CKR_OK;
 
@@ -783,24 +812,8 @@ session_mgr_logout_all( void )
       st_err_log(146, __FILE__, __LINE__); 
       return CKR_FUNCTION_FAILED;
    }
-   node = sess_list;
-   while (node) {
-      s = (SESSION *)node->data;
 
-      // all sessions get logged out so destroy any private objects
-      // public objects are left alone
-      //
-      object_mgr_purge_session_objects( s, PRIVATE );
-
-      if (s->session_info.flags & CKF_RW_SESSION)
-         s->session_info.state = CKS_RW_PUBLIC_SESSION;
-      else
-         s->session_info.state = CKS_RO_PUBLIC_SESSION;
-
-      global_login_state = s->session_info.state; // SAB 
-
-      node = node->next;
-   }
+   bt_for_each_node(&sess_btree, session_logout, NULL);
 
    MY_UnlockMutex( &sess_list_mutex );
    return CKR_OK;
