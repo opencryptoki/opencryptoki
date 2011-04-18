@@ -92,13 +92,6 @@ if test $? -ne $CKR_PIN_INVALID; then
 	exit
 fi
 
-# Try to do something after logging in before PIN is set
-./digest_init $* -user -pass $DEFAULT_USER_PIN
-if test $? -ne $CKR_PIN_EXPIRED; then
-	echo "TEST FAIL"
-	exit
-fi
-
 # Do a legitimate pin set for the USER
 ./set_pin $* -user -old $DEFAULT_USER_PIN -new $NEW_USER_PIN1
 if test $? -ne $CKR_OK; then
