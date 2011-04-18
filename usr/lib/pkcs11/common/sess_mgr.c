@@ -563,9 +563,6 @@ session_mgr_close_session( CK_SESSION_HANDLE handle )
    SESSION *sess;
    CK_RV      rc = CKR_OK;
 
-   if (!sess)
-      return FALSE;
-
    rc = MY_LockMutex( &sess_list_mutex );
    if (rc != CKR_OK){
       st_err_log(146, __FILE__, __LINE__); 
@@ -718,6 +715,7 @@ session_mgr_close_all_sessions( void )
    }
 
    bt_for_each_node(&sess_btree, session_free, NULL);
+   global_login_state = CKS_RO_PUBLIC_SESSION;
 
    ro_session_count = 0;
 
