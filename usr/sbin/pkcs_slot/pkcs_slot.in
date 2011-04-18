@@ -357,7 +357,7 @@ DEVICE=$1
 DEPTH=$2
 
 # Ensure that any directories created are group-accessible
-umask 002
+umask 007
 
 # Check for the existance of the directories 
 if [ ! -d @localstatedir@/lib/opencryptoki ]
@@ -366,43 +366,77 @@ then
         @CHGRP@ pkcs11 @localstatedir@/lib/opencryptoki
 fi
 
+function create_token_dirs
+{
+	# $1 = the directory to create
+	if test ! -d ${1}/TOK_OBJ; then
+		mkdir -p ${1}/TOK_OBJ
+		if test $? -ne 0; then
+			echo "Creation of token's data directory ${1}/TOK_OBJ failed." 1>&2
+			echo "You will need to create ${1}/TOK_OBJ manually, including" 1>&2
+			echo "all sub directories." 1>&2
+		fi
+	fi
+
+	# Set group pkcs11 on the directories
+	@CHGRP@ pkcs11 ${1}
+	if test $? -ne 0; then
+		echo "Setting group pkcs11 on ${1} failed. You need to" 1>&2
+		echo "do this manually, or this token may not function properly." 1>&2
+	fi
+	@CHGRP@ pkcs11 ${1}/TOK_OBJ
+	if test $? -ne 0; then
+		echo "Setting group pkcs11 on ${1}/TOK_OBJ failed. You need to" 1>&2
+		echo "do this manually, or this token may not function properly." 1>&2
+	fi
+
+	# Set group writable, other w/o rwx
+	@CHMOD@ 0770 ${1}
+	if test $? -ne 0; then
+		echo "Setting chmod 0770 on ${1} failed. You need to" 1>&2
+		echo "do this manually, or this token may not function properly." 1>&2
+	fi
+	@CHMOD@ 0770 ${1}/TOK_OBJ
+	if test $? -ne 0; then
+		echo "Setting chmod 0770 on ${1}/TOK_OBJ failed. You need to" 1>&2
+		echo "do this manually, or this token may not function properly." 1>&2
+	fi
+}
 
 # If the depth is "soft" then we are configuring the soft token....
 if [ $DEPTH = "soft" ]
 then
-    test  -d $SOFT_DIR
-    if [ $? -ne 0 ]
-    then
-	mkdir  $SOFT_DIR
-	@CHGRP@ pkcs11 $SOFT_DIR
-	mkdir "$SOFT_DIR"/TOK_OBJ
-	@CHGRP@ pkcs11 "$SOFT_DIR"/TOK_OBJ
-    fi
+    create_token_dirs ${SOFT_DIR}
     SYS_SLOT="Soft"
 fi
 
 # If the depth is "tpm" then we are configuring the tpm token....
 if [ $DEPTH = "tpm" ]
 then
-    test  -d $TPM_DIR
-    if [ $? -ne 0 ]
-    then
-	mkdir  $TPM_DIR
-	@CHGRP@ pkcs11 $TPM_DIR
+    if test ! -d ${TPM_DIR}; then
+	mkdir -p  ${TPM_DIR}
+	if test $? -ne 0; then
+		echo "Creation of TPM token's data directory failed." 1>&2
+		echo "You will need to create ${TPM_DIR} manually." 1>&2
+	fi
+    fi
+    @CHGRP@ pkcs11 ${TPM_DIR}
+    if test $? -ne 0; then
+	    echo "Setting group pkcs11 on ${TPM_DIR} failed. You need to" 1>&2
+	    echo "do this manually, or your token may not function properly." 1>&2
+    fi
+    # Set group writable, other w/o rwx
+    @CHMOD@ 0770 ${TPM_DIR}
+    if test $? -ne 0; then
+	    echo "Setting chmod 0770 on ${1} failed. You need to" 1>&2
+	    echo "do this manually, or this token may not function properly." 1>&2
     fi
     SYS_SLOT="TPM"
 fi
 
 if [ $DEPTH = "cca" ]
 then
-    test  -d $CCA_DIR
-    if [ $? -ne 0 ]
-    then
-       mkdir  $CCA_DIR
-       @CHGRP@ pkcs11 $CCA_DIR
-       mkdir "$CCA_DIR"/TOK_OBJ
-       @CHGRP@ pkcs11 "$CCA_DIR"/TOK_OBJ
-    fi
+    create_token_dirs ${CCA_DIR}
     SYS_SLOT="CCA"
 fi
 
@@ -413,53 +447,25 @@ fi
 
 if [ $DEPTH = "ica" ]
 then
-    test  -d $ICA_DIR
-    if [ $? -ne 0 ]
-    then
-	mkdir  $ICA_DIR
-	@CHGRP@ pkcs11 $ICA_DIR
-	mkdir "$ICA_DIR"/TOK_OBJ
-	@CHGRP@ pkcs11 "$ICA_DIR"/TOK_OBJ
-    fi
+    create_token_dirs ${ICA_DIR}
     SYS_SLOT="ICA"
 fi
 
 if [ $DEPTH = "bcom" ]
 then
-    test  -d $BCOM_DIR
-    if [ $? -ne 0 ]
-    then
-	mkdir  $BCOM_DIR
-	@CHGRP@ pkcs11 $BCOM_DIR
-	mkdir "$BCOM_DIR"/TOK_OBJ
-	@CHGRP@ pkcs11 "$BCOM_DIR"/TOK_OBJ
-    fi
+    create_token_dirs ${BCOM_DIR}
     SYS_SLOT="BCOM"
 fi
 
 if [ $DEPTH = "aep" ]
 then
-    test  -d $AEP_DIR
-    if [ $? -ne 0 ]
-    then
-	mkdir  $AEP_DIR
-	@CHGRP@ pkcs11 $AEP_DIR
-	mkdir "$AEP_DIR"/TOK_OBJ
-	@CHGRP@ pkcs11 "$AEP_DIR"/TOK_OBJ
-    fi
+    create_token_dirs ${AEP_DIR}
     SYS_SLOT="AEP"
 fi
 
 if [ $DEPTH = "cr" ]
 then
-    test  -d $CR_DIR
-    if [ $? -ne 0 ]
-    then
-        mkdir  $CR_DIR
-        @CHGRP@ pkcs11 $CR_DIR
-        mkdir "$CR_DIR"/TOK_OBJ
-        @CHGRP@ pkcs11 "$CR_DIR"/TOK_OBJ
-    fi
+    create_token_dirs ${CR_DIR}
     SYS_SLOT="CRNT"
 fi
 
