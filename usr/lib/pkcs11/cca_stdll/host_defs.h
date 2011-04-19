@@ -253,16 +253,16 @@ typedef struct _OBJECT
    CK_ULONG          count_hi;  // only significant for token objects
    CK_ULONG          count_lo;  // only significant for token objects
    CK_ULONG	     index;  // SAB  Index into the SHM
+   CK_OBJECT_HANDLE  map_handle;
 } OBJECT;
 
 
 typedef struct _OBJECT_MAP
 {
-   CK_OBJECT_HANDLE     handle;
+   CK_OBJECT_HANDLE     obj_handle;
    CK_BBOOL             is_private;
    CK_BBOOL             is_session_obj;
    SESSION            * session;
-   OBJECT             * ptr;
 } OBJECT_MAP;
 
 /* FIXME: Compile-time check that sizeof(void *) == sizeof(CK_OBJECT_HANDLE) */

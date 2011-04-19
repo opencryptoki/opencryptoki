@@ -278,15 +278,12 @@ CK_RV do_CopyObject( void )
 
 	// now, try to extract CKA_PRIME from a bogus object handle.  this should not exist
 	//
-        /* Commenting-out this test as opencryptoki now segfaults when referencing invalid
-         * object handles
 	rc = funcs->C_GetAttributeValue( h_session, 98765, prime_attribs, 1 );
 	if (rc != CKR_OBJECT_HANDLE_INVALID) {
 		show_error("   C_GetAttributeValue #4", rc );
 		PRINT_ERR("   Expected CKR_OBJECT_HANDLE_INVALID\n");
 		return rc;
 	}
-        */
 
 	// now, get the size of the original object
 	//
@@ -306,34 +303,26 @@ CK_RV do_CopyObject( void )
 
 	// now, destroy a non-existant object
 	//
-        /* Commenting-out this test as opencryptoki now segfaults when referencing invalid
-         * object handles
 	rc = funcs->C_DestroyObject( h_session, h_data );
 	if (rc != CKR_OBJECT_HANDLE_INVALID) {
 		show_error("   C_DestroyObject #2", rc );
 		PRINT_ERR("   Expected CKR_OBJECT_HANDLE_INVALID\n");
 		return rc;
 	}
-        */
 
 
 	// now, get the size of a non-existent object
 	//
-        /* Commenting-out this test as opencryptoki now segfaults when referencing invalid
-         * object handles
 	rc = funcs->C_GetObjectSize( h_session, h_data, &obj_size );
 	if (rc != CKR_OBJECT_HANDLE_INVALID) {
 		show_error("   C_GetObjectSize #2", rc );
 		PRINT_ERR("   Expected CKR_OBJECT_HANDLE_INVALID\n");
 		return rc;
 	}
-        */
 
 
 	// now, try to extract CKA_PRIME from the original.  the object should not exist
 	//
-        /* Commenting-out this test as opencryptoki now segfaults when referencing invalid
-         * object handles
 	prime_attribs[0].ulValueLen = sizeof(buf2);
 	rc = funcs->C_GetAttributeValue( h_session, h_data, prime_attribs, 1 );
 	if (rc != CKR_OBJECT_HANDLE_INVALID) {
@@ -341,7 +330,6 @@ CK_RV do_CopyObject( void )
 		PRINT_ERR("   Expected CKR_OBJECT_HANDLE_INVALID\n");
 		return rc;
 	}
-        */
 
 
 	// done...close the session and verify the object is deleted
@@ -357,8 +345,6 @@ CK_RV do_CopyObject( void )
 	// try to extract CKA_APPLICATION from the copy.  this should fail since all sessions
 	// are now closed.
 	//
-        /* Commenting-out this test as opencryptoki now segfaults when referencing invalid
-         * session handles
 	verify_attribs[0].ulValueLen = sizeof(buf1);
 	rc = funcs->C_GetAttributeValue( h_session, h_copy, verify_attribs, 1 );
 	if (rc != CKR_SESSION_HANDLE_INVALID) {
@@ -366,8 +352,8 @@ CK_RV do_CopyObject( void )
 		PRINT_ERR("   Expected CKR_SESSION_HANDLE_INVALID\n");
 		return rc;
 	}
-        */
 
+	rc = CKR_OK;
 	testcase_pass("Looks okay...");
 	return rc;
 }
@@ -1388,6 +1374,7 @@ CK_RV do_HWFeatureSearch(void)
                 testcase_fail("C_CreateObject() rc = %s", p11_get_ckr(rc));
 		goto destroy_2;
 	}
+
 
 	if( (rc = funcs->C_CreateObject(h_session, counter2_template, 6, &h_counter2)) != CKR_OK) {
                 testcase_fail("C_CreateObject() rc = %s", p11_get_ckr(rc));

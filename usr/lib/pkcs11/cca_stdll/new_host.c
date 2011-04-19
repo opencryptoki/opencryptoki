@@ -139,27 +139,11 @@ Fork_Initializer(void)
 	// This should clear the entire session list out
 	session_mgr_close_all_sessions();
 
-	//next_session_handle = 1; // Make is so sessions start with 1
-	//next_object_handle = 1;
-
 	// Clean out the global login state variable
 	// When implemented...  Although logout_all should clear this up.
 
-	// Once the object_map is flushed, the obj_lists (public and
-	// private) are both just linked lists that have to be freed
-	// up...  //logit("%s:%d: tokenobj publ 0x%08x priv
-	// 0x%08x",__FILE__,__LINE__,publ_token_obj_list,
-	// priv_token_obj_list);
-	while (priv_token_obj_list) {
-		priv_token_obj_list = dlist_remove_node(priv_token_obj_list,
-							priv_token_obj_list);
-	}
-
-	while (publ_token_obj_list) {
-		publ_token_obj_list = 
-			dlist_remove_node(publ_token_obj_list,
-					  publ_token_obj_list);
-	}
+	bt_destroy(&priv_token_obj_btree, object_free);
+	bt_destroy(&publ_token_obj_btree, object_free);
 
 	// Need to do something to prevent the shared memory from
 	// having the objects loaded again.... The most likely place

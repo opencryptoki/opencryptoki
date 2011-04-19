@@ -63,10 +63,10 @@ extern  void *xproclock;
 extern MUTEX    pkcs_mutex, obj_list_mutex, sess_list_mutex, login_mutex;
 
 extern struct btree sess_btree;
-extern DL_NODE *sess_obj_list;
-extern DL_NODE *publ_token_obj_list;
-extern DL_NODE *priv_token_obj_list;
-extern DL_NODE *object_map;
+extern struct btree sess_obj_btree;
+extern struct btree priv_token_obj_btree;
+extern struct btree publ_token_obj_btree;
+extern struct btree object_map_btree;
 
 #define MK_SIZE	(AES_KEY_SIZE_256)
 extern CK_BYTE master_key_private[MK_SIZE];
@@ -1471,6 +1471,7 @@ CK_RV    object_mgr_add( SESSION          * sess,
 
 CK_RV    object_mgr_add_to_map( SESSION          * sess,
                                 OBJECT           * obj,
+				unsigned long      obj_handle,
                                 CK_OBJECT_HANDLE * handle );
 
 CK_RV    object_mgr_add_to_shm  ( OBJECT *obj );
@@ -1559,6 +1560,45 @@ CK_RV    object_mgr_set_attribute_values( SESSION          * sess,
 // SAB FIXME FIXME
 CK_BBOOL object_mgr_purge_map( SESSION       * sess,
                                SESS_OBJ_TYPE   type );
+
+/* structures used to hold arguments to callback functions triggered by either bt_for_each_node
+ * or bt_node_free */
+struct find_args
+{
+	int done;
+	OBJECT *obj;
+	CK_OBJECT_HANDLE *handle;
+};
+
+struct find_by_name_args
+{
+	int done;
+	char *name;
+};
+
+struct find_build_list_args
+{
+	CK_ATTRIBUTE *pTemplate;
+	SESSION *sess;
+	CK_ULONG ulCount;
+	CK_BBOOL hw_feature;
+	CK_BBOOL hidden_object;
+	CK_BBOOL public_only;
+};
+
+struct purge_args
+{
+	SESSION *sess;
+	SESS_OBJ_TYPE type;
+};
+
+struct update_tok_obj_args
+{
+	TOK_OBJ_ENTRY *entries;
+	CK_ULONG_32 *num_entries;
+	struct btree *t;
+};
+
 
 // object routines
 //
@@ -2019,6 +2059,9 @@ extern token_spec_t token_specific;
 #define LogInfo1(data)          LogMessage1(stdout, "LOG_INFO", APPID, data)
 
 #define st_err_log(...)		LogMessage(stderr, "ST MSG", APPID, "whammy")
+
+void dump_shm(const char *);
+#define DUMP_SHM(x)		dump_shm(x)
 #else
 #define LogDebug(...)		do { } while (0)
 #define LogDebug1(...)		do { } while (0)
@@ -2031,6 +2074,8 @@ extern token_spec_t token_specific;
 #define LogInfo1(...)		do { } while (0)
 
 #define st_err_log(...)		do { } while (0)
+
+#define DUMP_SHM(x)
 #endif
 
 

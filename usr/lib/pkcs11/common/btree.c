@@ -282,7 +282,7 @@ bt_for_each_node(struct btree *t, void (*func)(void *p1, unsigned long p2, void 
 /* bt_destroy
  *
  * Walk a binary tree backwards (largest index to smallest), deleting nodes along the way.
- * Call @func on node->value before freeing it.
+ * Call @func on node->value before freeing the node.
  */
 void
 bt_destroy(struct btree *t, void (*func)(void *))

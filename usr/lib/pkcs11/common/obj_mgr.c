@@ -320,6 +320,7 @@ object_mgr_add( SESSION          * sess,
    CK_BBOOL    priv_obj, sess_obj;
    CK_BBOOL    locked = FALSE;
    CK_RV       rc;
+   unsigned long obj_handle;
 
    if (!sess || !pTemplate || !handle){
       st_err_log(4, __FILE__, __LINE__, __FUNCTION__);
@@ -397,7 +398,11 @@ object_mgr_add( SESSION          * sess,
       o->session = sess;
       memset( o->name, 0x00, sizeof(CK_BYTE) * 8 );
 
-      sess_obj_list = dlist_add_as_first( sess_obj_list, o );
+      if ((obj_handle = bt_node_add(&sess_obj_btree, o)) == 0) {
+	 st_err_log(1, __FILE__, __LINE__);
+	 rc = CKR_HOST_MEMORY;
+	 goto done;
+      }
    }
    else {
       CK_BYTE current[8];
@@ -469,26 +474,27 @@ object_mgr_add( SESSION          * sess,
 
       }
 
-      // now, store the object in the appropriate local token object list
+      // now, store the object in the appropriate btree
       //
       if (priv_obj)
-         priv_token_obj_list = dlist_add_as_last( priv_token_obj_list, o );
+         obj_handle = bt_node_add(&priv_token_obj_btree, o);
       else
-         publ_token_obj_list = dlist_add_as_last( publ_token_obj_list, o );
+         obj_handle = bt_node_add(&publ_token_obj_btree, o);
+
+      if (!obj_handle) {
+	 st_err_log(1, __FILE__, __LINE__);
+	 rc = CKR_HOST_MEMORY;
+	 goto done;
+      }
    }
 
-   rc = object_mgr_add_to_map( sess, o, handle );
+   rc = object_mgr_add_to_map( sess, o, obj_handle, handle );
    if (rc != CKR_OK) {
-      DL_NODE *node = NULL;
-
-      // st_err_log(157, __FILE__, __LINE__);
-      // this is messy but we need to remove the object from whatever
-      // list we just added it to
-      //
+      // we need to remove the object from whatever btree we just added it to
       if (sess_obj) {
-         node = dlist_find( sess_obj_list, o );
-         if (node)
-            sess_obj_list = dlist_remove_node( sess_obj_list, node );
+	 // put the binary tree node which holds o on the free list, but pass NULL here, so that
+	 // o (the binary tree node's value pointer) isn't touched. It is free'd below
+	 bt_node_free(&sess_obj_btree, obj_handle, NULL);
       }
       else {
          // we'll want to delete the token object file too!
@@ -496,14 +502,14 @@ object_mgr_add( SESSION          * sess,
          delete_token_object( o );
 
          if (priv_obj) {
-            node = dlist_find( priv_token_obj_list, o );
-            if (node)
-               priv_token_obj_list = dlist_remove_node( priv_token_obj_list, node );
+	    // put the binary tree node which holds o on the free list, but pass NULL here, so that
+	    // o (the binary tree node's value pointer) isn't touched. It is free'd below
+	    bt_node_free(&priv_token_obj_btree, obj_handle, NULL);
          }
          else {
-            node = dlist_find( publ_token_obj_list, o );
-            if (node)
-               publ_token_obj_list = dlist_remove_node( publ_token_obj_list, node );
+	    // put the binary tree node which holds o on the free list, but pass NULL here, so that
+	    // o (the binary tree node's value pointer) isn't touched. It is free'd below
+	    bt_node_free(&publ_token_obj_btree, obj_handle, NULL);
          }
 
          rc = XProcLock( xproclock );
@@ -534,11 +540,12 @@ done:
 CK_RV
 object_mgr_add_to_map( SESSION          * sess,
                        OBJECT           * obj,
-                       CK_OBJECT_HANDLE * handle )
+		       unsigned long      obj_handle,
+                       CK_OBJECT_HANDLE * map_handle )
 {
    OBJECT_MAP  *map_node = NULL;
 
-   if (!sess || !obj || !handle){
+   if (!sess || !obj || !map_handle){
       st_err_log(4, __FILE__, __LINE__, __FUNCTION__); 
       return CKR_FUNCTION_FAILED;
    }
@@ -553,26 +560,41 @@ object_mgr_add_to_map( SESSION          * sess,
       return CKR_HOST_MEMORY;
    }
    map_node->session  = sess;
-   map_node->ptr      = obj;
 
    if (obj->session != NULL)
       map_node->is_session_obj = TRUE;
    else
       map_node->is_session_obj = FALSE;
 
+   map_node->is_private = object_is_private( obj );
+
    // add the new map entry to the list
    if (pthread_rwlock_wrlock(&obj_list_rw_mutex)) {
+      free(map_node);
       st_err_log(4, __FILE__, __LINE__, __FUNCTION__);
       return CKR_FUNCTION_FAILED;
    }
-   object_map = dlist_add_as_first( object_map, map_node );
-   map_node->handle   = (CK_SESSION_HANDLE) object_map;  // handle is the DL_NODE pointer and
-                                                         // dlist_add_as_first() will return
-                                                         // this newly added DL_NODE as it is the
-                                                         // new head of the list
+
+   // map_node->obj_handle will store the index of the btree node in one of these lists:
+   // publ_token_obj_btree - for public token object
+   // priv_token_obj_btree - for private token objects
+   // sess_obj_btree - for session objects
+   //
+   // *map_handle, the application's CK_OBJECT_HANDLE, will then be the index of the btree node
+   // in the object_map_btree
+   //
+   map_node->obj_handle = obj_handle;
+   *map_handle = bt_node_add(&object_map_btree, map_node);
+
    pthread_rwlock_unlock(&obj_list_rw_mutex);
 
-   *handle = map_node->handle;
+   if (*map_handle == 0) {
+      free(map_node);
+      st_err_log(1, __FILE__, __LINE__);
+      return CKR_HOST_MEMORY;
+   }
+   obj->map_handle = *map_handle;
+
    return CKR_OK;
 }
 
@@ -598,6 +620,7 @@ object_mgr_copy( SESSION          * sess,
    CK_BBOOL    sess_obj;
    CK_BBOOL    locked = FALSE;
    CK_RV       rc;
+   unsigned long obj_handle;
 
    if (!sess || !pTemplate || !new_handle){
       st_err_log(4, __FILE__, __LINE__, __FUNCTION__); 
@@ -681,7 +704,11 @@ object_mgr_copy( SESSION          * sess,
       new_obj->session = sess;
       memset( &new_obj->name, 0x00, sizeof(CK_BYTE) * 8 );
 
-      sess_obj_list = dlist_add_as_first( sess_obj_list, new_obj );
+      if ((obj_handle = bt_node_add(&sess_obj_btree, new_obj)) == 0) {
+	 st_err_log(1, __FILE__, __LINE__);
+	 rc = CKR_HOST_MEMORY;
+	 goto done;
+      }
    }
    else {
       CK_BYTE current[8];
@@ -734,27 +761,31 @@ object_mgr_copy( SESSION          * sess,
          save_token_data();
       }
 
-      // now, store the object in the token object list in RAM for speed
+      // now, store the object in the token object btree
       //
       if (priv_obj)
-         priv_token_obj_list = dlist_add_as_last( priv_token_obj_list, new_obj );
+         obj_handle = bt_node_add(&priv_token_obj_btree, new_obj);
       else
-         publ_token_obj_list = dlist_add_as_last( publ_token_obj_list, new_obj );
+         obj_handle = bt_node_add(&publ_token_obj_btree, new_obj);
+
+      if (!obj_handle) {
+	 st_err_log(1, __FILE__, __LINE__);
+	 rc = CKR_HOST_MEMORY;
+	 goto done;
+      }
    }
 
-   rc = object_mgr_add_to_map( sess, new_obj, new_handle );
+   rc = object_mgr_add_to_map( sess, new_obj, obj_handle, new_handle );
    if (rc != CKR_OK) {
-      DL_NODE *node = NULL;
-      
       st_err_log(157, __FILE__, __LINE__); 
 
       // this is messy but we need to remove the object from whatever
       // list we just added it to
       //
       if (sess_obj) {
-         node = dlist_find( sess_obj_list, new_obj );
-         if (node)
-            sess_obj_list = dlist_remove_node( sess_obj_list, node );
+	 // put the binary tree node which holds new_obj on the free list, but pass NULL here, so
+	 // that new_obj (the binary tree node's value pointer) isn't touched. It is free'd below
+	 bt_node_free(&sess_obj_btree, obj_handle, NULL);
       }
       else {
          // FIXME - need to destroy the token object file too
@@ -762,14 +793,16 @@ object_mgr_copy( SESSION          * sess,
          delete_token_object( new_obj );
 
          if (priv_obj) {
-            node = dlist_find( priv_token_obj_list, new_obj );
-            if (node)
-               priv_token_obj_list = dlist_remove_node( priv_token_obj_list, node );
+	    // put the binary tree node which holds new_obj on the free list, but pass NULL here,
+	    // so that new_obj (the binary tree node's value pointer) isn't touched. It is free'd
+	    // below
+	    bt_node_free(&priv_token_obj_btree, obj_handle, NULL);
          }
          else {
-            node = dlist_find( publ_token_obj_list, new_obj );
-            if (node)
-               publ_token_obj_list = dlist_remove_node( publ_token_obj_list, node );
+	    // put the binary tree node which holds new_obj on the free list, but pass NULL here,
+	    // so that new_obj (the binary tree node's value pointer) isn't touched. It is free'd
+	    // below
+	    bt_node_free(&publ_token_obj_btree, obj_handle, NULL);
          }
 
          rc = XProcLock( xproclock );
@@ -887,6 +920,7 @@ object_mgr_create_final( SESSION           * sess,
    CK_BBOOL  priv_obj;
    CK_BBOOL  locked = FALSE;
    CK_RV     rc;
+   unsigned long obj_handle;
 
    if (!sess || !obj || !handle){
       st_err_log(4, __FILE__, __LINE__, __FUNCTION__); 
@@ -906,7 +940,11 @@ object_mgr_create_final( SESSION           * sess,
       obj->session = sess;
       memset( obj->name, 0x0, sizeof(CK_BYTE) * 8 );
 
-      sess_obj_list = dlist_add_as_first( sess_obj_list, obj );
+      if ((obj_handle = bt_node_add(&sess_obj_btree, obj)) == 0) {
+	 st_err_log(1, __FILE__, __LINE__);
+	 rc = CKR_HOST_MEMORY;
+	 goto done;
+      }
    }
    else {
       CK_BYTE current[8];
@@ -959,26 +997,30 @@ object_mgr_create_final( SESSION           * sess,
          save_token_data();
       }
 
-      // now, store the object in the token object list in RAM for speed
+      // now, store the object in the token object btree
       //
       if (priv_obj)
-         priv_token_obj_list = dlist_add_as_last( priv_token_obj_list, obj );
+         obj_handle = bt_node_add(&priv_token_obj_btree, obj);
       else
-         publ_token_obj_list = dlist_add_as_last( publ_token_obj_list, obj );
+         obj_handle = bt_node_add(&publ_token_obj_btree, obj);
+
+      if (!obj_handle) {
+	 st_err_log(1, __FILE__, __LINE__);
+	 rc = CKR_HOST_MEMORY;
+	 goto done;
+      }
    }
 
-   rc = object_mgr_add_to_map( sess, obj, handle );
+   rc = object_mgr_add_to_map( sess, obj, obj_handle, handle );
    if (rc != CKR_OK) {
-      DL_NODE *node = NULL;
-
       st_err_log(157, __FILE__, __LINE__); 
       // this is messy but we need to remove the object from whatever
       // list we just added it to
       //
       if (sess_obj) {
-         node = dlist_find( sess_obj_list, obj );
-         if (node)
-            sess_obj_list = dlist_remove_node( sess_obj_list, node );
+	 // put the binary tree node which holds obj on the free list, but pass NULL here, so
+	 // that obj (the binary tree node's value pointer) isn't touched. It is free'd below
+	 bt_node_free(&sess_obj_btree, obj_handle, NULL);
       }
       else {
          // FIXME - need to destroy the token object file too
@@ -986,14 +1028,16 @@ object_mgr_create_final( SESSION           * sess,
          delete_token_object( obj );
 
          if (priv_obj) {
-            node = dlist_find( priv_token_obj_list, obj );
-            if (node)
-               priv_token_obj_list = dlist_remove_node( priv_token_obj_list, node );
+	    // put the binary tree node which holds obj on the free list, but pass NULL here,
+	    // so that obj (the binary tree node's value pointer) isn't touched. It is free'd
+	    // below
+	    bt_node_free(&priv_token_obj_btree, obj_handle, NULL);
          }
          else {
-            node = dlist_find( publ_token_obj_list, obj );
-            if (node)
-               publ_token_obj_list = dlist_remove_node( publ_token_obj_list, node );
+	    // put the binary tree node which holds obj on the free list, but pass NULL here,
+	    // so that obj (the binary tree node's value pointer) isn't touched. It is free'd
+	    // below
+	    bt_node_free(&publ_token_obj_btree, obj_handle, NULL);
          }
 
          rc = XProcLock( xproclock );
@@ -1014,16 +1058,57 @@ done:
    return rc;
 }
 
+/* destroy_object_cb
+ *
+ * Callback used to delete an object from the object map btree and whichever other btree its
+ * in (based on its type)
+ */
+void
+destroy_object_cb(void *node)
+{
+	OBJECT_MAP *map = (OBJECT_MAP *)node;
+	OBJECT *o;
 
-//
+	if (map->is_session_obj)
+		bt_node_free(&sess_obj_btree, map->obj_handle, object_free);
+	else {
+		if (map->is_private)
+			o = bt_get_node_value(&priv_token_obj_btree, map->obj_handle);
+		else
+			o = bt_get_node_value(&publ_token_obj_btree, map->obj_handle);
+
+		if (!o)
+			return;
+
+		delete_token_object(o);
+
+		/* Use the same calling convention as the old code, if XProcLock fails, don't
+		 * delete from shm and don't free the object in its other btree */
+		if (XProcLock(xproclock)) {
+			st_err_log(150, __FILE__, __LINE__);
+			goto done;
+		}
+		DUMP_SHM("before");
+		object_mgr_del_from_shm(o);
+		DUMP_SHM("after");
+
+		XProcUnLock( xproclock );
+
+		if (map->is_private)
+			bt_node_free(&priv_token_obj_btree, map->obj_handle, object_free);
+		else
+			bt_node_free(&publ_token_obj_btree, map->obj_handle, object_free);
+	}
+done:
+	free(map);
+}
+
+// XXX Why does this function take @sess as an argument?
 //
 CK_RV
 object_mgr_destroy_object( SESSION          * sess,
                            CK_OBJECT_HANDLE   handle )
 {
-   OBJECT    * obj = NULL;
-   CK_BBOOL    sess_obj;
-   CK_BBOOL    priv_obj;
    CK_BBOOL    locked = FALSE;
    CK_RV       rc;
 
@@ -1038,67 +1123,18 @@ object_mgr_destroy_object( SESSION          * sess,
       goto done;
    }
    locked = TRUE;
-
-   rc = object_mgr_find_in_map1( handle, &obj );
-   if (rc != CKR_OK){
-      st_err_log(110, __FILE__, __LINE__);
-      goto done;
-   }
-   sess_obj = object_is_session_object( obj );
-   priv_obj = object_is_private( obj );
-
-   if (sess_obj) {
-      DL_NODE *node;
-
-      node = dlist_find( sess_obj_list, obj );
-      if (node) {
-         object_mgr_invalidate_handle1( handle );
-
-         object_free( obj );
-         sess_obj_list = dlist_remove_node( sess_obj_list, node );
-
-         rc = CKR_OK;
-         goto done;
-      }
-   }
-   else {
-      DL_NODE *node = NULL;
-
-      delete_token_object( obj );
-
-      if (priv_obj)
-         node = dlist_find( priv_token_obj_list, obj );
-      else
-         node = dlist_find( publ_token_obj_list, obj );
-
-      if (node) {
-         rc = XProcLock( xproclock );
-         if (rc != CKR_OK){
-            st_err_log(150, __FILE__, __LINE__); 
-            goto done;
-         }
-         object_mgr_del_from_shm( obj );
-
-         XProcUnLock( xproclock );
-
-         object_mgr_invalidate_handle1( handle );
-
-         object_free( obj );
-
-
-         if (priv_obj)
-            priv_token_obj_list = dlist_remove_node( priv_token_obj_list, node );
-         else
-            publ_token_obj_list = dlist_remove_node( publ_token_obj_list, node );
-
-         rc = CKR_OK;
-         goto done;
-      }
+   if (pthread_rwlock_wrlock(&obj_list_rw_mutex)) {
+	   st_err_log(4, __FILE__, __LINE__, __FUNCTION__);
+	   rc = CKR_FUNCTION_FAILED;
+	   goto done; // FIXME: Proper error messages
    }
 
-   st_err_log(4, __FILE__, __LINE__, __FUNCTION__); 
-   rc = CKR_FUNCTION_FAILED;
+   if (!bt_node_free(&object_map_btree, handle, destroy_object_cb)) {
+      st_err_log(30, __FILE__, __LINE__);
+      rc = CKR_OBJECT_HANDLE_INVALID;
+   }
 
+   pthread_rwlock_unlock(&obj_list_rw_mutex);
 done:
    if (locked)
       MY_UnlockMutex( &obj_list_mutex );
@@ -1106,6 +1142,47 @@ done:
    return rc;
 }
 
+/* delete_token_obj_cb
+ *
+ * Callback to delete an object if its a token object
+ */
+void
+delete_token_obj_cb(void *node, unsigned long map_handle, void *p3)
+{
+	OBJECT_MAP *map = (OBJECT_MAP *)node;
+	OBJECT *o;
+
+	if (!(map->is_session_obj)) {
+		if (map->is_private)
+			o = bt_get_node_value(&priv_token_obj_btree, map->obj_handle);
+		else
+			o = bt_get_node_value(&publ_token_obj_btree, map->obj_handle);
+
+		if (!o)
+			goto done;
+
+		delete_token_object(o);
+
+		/* Use the same calling convention as the old code, if XProcLock fails, don't
+		 * delete from shm and don't free the object in its other btree */
+		if (XProcLock(xproclock)) {
+			st_err_log(150, __FILE__, __LINE__);
+			goto done;
+		}
+
+		object_mgr_del_from_shm(o);
+
+		XProcUnLock( xproclock );
+
+		if (map->is_private)
+			bt_node_free(&priv_token_obj_btree, map->obj_handle, object_free);
+		else
+			bt_node_free(&publ_token_obj_btree, map->obj_handle, object_free);
+	}
+done:
+	/* delete @node from this btree */
+	bt_node_free(&object_map_btree, map_handle, free);
+}
 
 // this routine will destroy all token objects in the system
 //
@@ -1122,46 +1199,7 @@ object_mgr_destroy_token_objects( void )
    }
    else
       locked1 = TRUE;
-
-   while (publ_token_obj_list) {
-      OBJECT *obj = (OBJECT *)publ_token_obj_list->data;
-
-      CK_OBJECT_HANDLE handle;
-
-      rc = object_mgr_find_in_map2( obj, &handle );
-      if (rc == CKR_OK) {
-         // only if it's found in the object map.  it might not be there
-         //
-         object_mgr_invalidate_handle1( handle );
-      }
-      else{
-         st_err_log(110, __FILE__, __LINE__);
-      }
-      delete_token_object( obj );
-      object_free( obj );
-
-      publ_token_obj_list = dlist_remove_node( publ_token_obj_list, publ_token_obj_list );
-   }
-
-   while (priv_token_obj_list) {
-      OBJECT *obj = (OBJECT *)priv_token_obj_list->data;
-
-      CK_OBJECT_HANDLE handle;
-
-      rc = object_mgr_find_in_map2( obj, &handle );
-      if (rc == CKR_OK) {
-         // only if it's found in the object map.  it might not be there
-         //
-         object_mgr_invalidate_handle1( handle );
-      }
-      else{
-         st_err_log(110, __FILE__, __LINE__);
-      }
-      delete_token_object( obj );
-      object_free( obj );
-
-      priv_token_obj_list = dlist_remove_node( priv_token_obj_list, priv_token_obj_list );
-   }
+   bt_for_each_node(&object_map_btree, delete_token_obj_cb, NULL);
 
    // now we want to purge the token object list in shared memory
    //
@@ -1176,8 +1214,7 @@ object_mgr_destroy_token_objects( void )
       memset( &global_shm->priv_tok_objs, 0x0, MAX_TOK_OBJS * sizeof(TOK_OBJ_ENTRY) );
    }
    else
-      st_err_log(150, __FILE__, __LINE__); 
-
+      st_err_log(150, __FILE__, __LINE__);
 done:
    if (locked1 == TRUE) MY_UnlockMutex( &obj_list_mutex );
    if (locked2 == TRUE) XProcUnLock( xproclock );
@@ -1198,7 +1235,7 @@ object_mgr_find_in_map_nocache( CK_OBJECT_HANDLE    handle,
    DL_NODE    * node = NULL;
    OBJECT_MAP * map  = NULL;
    OBJECT     * obj  = NULL;
-   CK_RV      result = CKR_OK;
+   CK_RV      rc = CKR_OK;
 
 
    if (!ptr){
@@ -1219,40 +1256,32 @@ object_mgr_find_in_map_nocache( CK_OBJECT_HANDLE    handle,
      st_err_log(4, __FILE__, __LINE__, __FUNCTION__);
      return CKR_FUNCTION_FAILED;
    }
-   node = (DL_NODE *) handle;
 
-   // Try to dereference 'node' and double-check by
-   // comparing the handle value. MAY segfault if
-   // 'node' is an invalid handle, but that often
-   // means that the caller is buggy.
-   map = (OBJECT_MAP *) node->data;
-   if ( map->handle == handle ){
-      obj = map->ptr;
-   }
-
-   pthread_rwlock_unlock(&obj_list_rw_mutex);
-   if (result != CKR_OK) {
-      return result;
-   }
-
-   if (obj == NULL) {
+   map = bt_get_node_value(&object_map_btree, handle);
+   if (!map) {
       st_err_log(30, __FILE__, __LINE__);
-      return CKR_OBJECT_HANDLE_INVALID;
+      rc = CKR_OBJECT_HANDLE_INVALID;
+      goto done;
    }
 
-   //
-   // if this is a token object, we need to check the shared memory segment
-   // to see if any other processes have updated the object
-   //
+   if (map->is_session_obj)
+      obj = bt_get_node_value(&sess_obj_btree, map->obj_handle);
+   else if (map->is_private)
+      obj = bt_get_node_value(&priv_token_obj_btree, map->obj_handle);
+   else
+      obj = bt_get_node_value(&publ_token_obj_btree, map->obj_handle);
 
-   if (object_is_session_object(obj) == TRUE) {
-      *ptr = obj;
-      return CKR_OK;
+   if (!obj) {
+      st_err_log(30, __FILE__, __LINE__);
+      rc = CKR_OBJECT_HANDLE_INVALID;
+      goto done;
    }
-
 
    *ptr = obj;
-   return CKR_OK;
+done:
+   pthread_rwlock_unlock(&obj_list_rw_mutex);
+
+   return rc;
 }
 
 // object_mgr_find_in_map1()
@@ -1263,62 +1292,38 @@ CK_RV
 object_mgr_find_in_map1( CK_OBJECT_HANDLE    handle,
                          OBJECT           ** ptr )
 {
-   DL_NODE    * node = NULL;
    OBJECT_MAP * map  = NULL;
    OBJECT     * obj  = NULL;
-   CK_RV      result = CKR_OK;
+   CK_RV      rc = CKR_OK;
 
 
    if (!ptr){
       st_err_log(4, __FILE__, __LINE__, __FUNCTION__); 
       return CKR_FUNCTION_FAILED;
    }
-
-   // Initialize *ptr to NULL in case we return in error
-   *ptr = NULL;
-
-   if (!handle){
-      st_err_log(30, __FILE__, __LINE__);
-      return CKR_OBJECT_HANDLE_INVALID;
-   }
-   //
-   // no mutex here.  the calling function should have locked the mutex
-   //
-
    if (pthread_rwlock_rdlock(&obj_list_rw_mutex)) {
      st_err_log(4, __FILE__, __LINE__, __FUNCTION__);
      return CKR_FUNCTION_FAILED;
    }
-   node = (DL_NODE *) handle;
 
-   // Try to dereference 'node' and double-check by
-   // comparing the handle value. MAY segfault if
-   // 'node' is an invalid handle, but that often
-   // means that the caller is buggy.
-   map = (OBJECT_MAP *) node->data;
-   if ( handle == map->handle ){
-      obj = map->ptr;
-   }
-
-   pthread_rwlock_unlock(&obj_list_rw_mutex);
-   if (result != CKR_OK) {
-      return result;
-   }
-
-
-   if (obj == NULL) {
+   map = bt_get_node_value(&object_map_btree, handle);
+   if (!map) {
       st_err_log(30, __FILE__, __LINE__);
-      return CKR_OBJECT_HANDLE_INVALID;
+      rc = CKR_OBJECT_HANDLE_INVALID;
+      goto done;
    }
 
-   //
-   // if this is a token object, we need to check the shared memory segment
-   // to see if any other processes have updated the object
-   //
+   if (map->is_session_obj)
+      obj = bt_get_node_value(&sess_obj_btree, map->obj_handle);
+   else if (map->is_private)
+      obj = bt_get_node_value(&priv_token_obj_btree, map->obj_handle);
+   else
+      obj = bt_get_node_value(&publ_token_obj_btree, map->obj_handle);
 
-   if (object_is_session_object(obj) == TRUE) {
-      *ptr = obj;
-      return CKR_OK;
+   if (!obj) {
+      st_err_log(30, __FILE__, __LINE__);
+      rc = CKR_OBJECT_HANDLE_INVALID;
+      goto done;
    }
 
 // SAB XXX Fix me.. need to make it more efficient than just looking for the object to be changed
@@ -1327,9 +1332,39 @@ object_mgr_find_in_map1( CK_OBJECT_HANDLE    handle,
    object_mgr_check_shm( obj );
 
    *ptr = obj;
-   return CKR_OK;
+done:
+   pthread_rwlock_unlock(&obj_list_rw_mutex);
+
+   return rc;
 }
 
+void
+find_obj_cb(void *node, unsigned long map_handle, void *p3)
+{
+	OBJECT_MAP *map = (OBJECT_MAP *)node;
+	OBJECT     *obj;
+	struct find_args *fa = (struct find_args *)p3;
+
+	if (fa->done)
+		return;
+
+	if (map->is_session_obj)
+		obj = bt_get_node_value(&sess_obj_btree, map->obj_handle);
+	else if (map->is_private)
+		obj = bt_get_node_value(&priv_token_obj_btree, map->obj_handle);
+	else
+		obj = bt_get_node_value(&publ_token_obj_btree, map->obj_handle);
+
+	if (!obj)
+		return;
+
+	/* if this object is the one we're looking for (matches p3->obj), return
+	 * its handle in p3->handle */
+	if (obj == fa->obj) {
+		*fa->handle = map->obj_handle;
+		fa->done = TRUE;
+	}
+}
 
 // object_mgr_find_in_map2()
 //
@@ -1337,8 +1372,7 @@ CK_RV
 object_mgr_find_in_map2( OBJECT           * obj,
                          CK_OBJECT_HANDLE * handle )
 {
-   DL_NODE           * node = NULL;
-   CK_OBJECT_HANDLE    h    = (CK_OBJECT_HANDLE)NULL;
+   struct find_args fa;
 
    if (!obj || !handle){
       st_err_log(4, __FILE__, __LINE__, __FUNCTION__); 
@@ -1352,46 +1386,101 @@ object_mgr_find_in_map2( OBJECT           * obj,
      st_err_log(4, __FILE__, __LINE__, __FUNCTION__);
      return CKR_FUNCTION_FAILED;
    }
-   node = object_map;
-   while (node) {
-      OBJECT_MAP *map = (OBJECT_MAP *)node->data;
 
-      if (map->ptr == obj) {
-         h = map->handle;
-         break;
-      }
+   fa.done = FALSE;
+   fa.obj = obj;
+   fa.handle = handle;
 
-      node = node->next;
-   }
+   // pass the fa structure with the values to operate on in the find_obj_cb function
+   bt_for_each_node(&object_map_btree, find_obj_cb, &fa);
+
    pthread_rwlock_unlock(&obj_list_rw_mutex);
 
-   if (node == NULL) {
-//      st_err_log(30, __FILE__, __LINE__); 
+   if (fa.done == FALSE || *handle == 0) {
       return CKR_OBJECT_HANDLE_INVALID;
    }
-
-   //
-   // if this is a token object, we need to check the shared memory segment
-   // to see if any other processes have updated the object
-   //
-
-   if (object_is_session_object(obj) == TRUE) {
-      *handle = h;
-      return CKR_OK;
-   }
-
    object_mgr_check_shm( obj );
 
-   *handle = h;
    return CKR_OK;
 }
 
+void
+find_build_list_cb(void *node, unsigned long obj_handle, void *p3)
+{
+   OBJECT *obj = (OBJECT *)node;
+   struct find_build_list_args *fa = (struct find_build_list_args *)p3;
+   CK_OBJECT_HANDLE map_handle;
+   CK_ATTRIBUTE *attr;
+   CK_BBOOL match = FALSE;
+   CK_RV rc;
+
+   if ((object_is_private(obj) == FALSE) || (fa->public_only == FALSE)) {
+      // if the user doesn't specify any template attributes then we return
+      // all objects
+      //
+      if (fa->pTemplate == NULL || fa->ulCount == 0)
+         match = TRUE;
+      else
+         match = template_compare( fa->pTemplate, fa->ulCount, obj->template );
+   }
+
+   // if we have a match, find the object in the map (add it if necessary)
+   // then add the object to the list of found objects //
+   if (match) {
+      rc = object_mgr_find_in_map2( obj, &map_handle );
+      if (rc != CKR_OK) {
+         //st_err_log(110, __FILE__, __LINE__);
+         rc = object_mgr_add_to_map( fa->sess, obj, obj_handle, &map_handle );
+         if (rc != CKR_OK){
+            st_err_log(4, __FILE__, __LINE__, __FUNCTION__);
+            return;
+         }
+      }
+
+      // If hw_feature is false here, we need to filter out all objects
+      // that have the CKO_HW_FEATURE attribute set. - KEY
+      if ((fa->hw_feature == FALSE) &&
+	  (template_attribute_find(obj->template, CKA_CLASS, &attr) == TRUE)) {
+	 //axelrh: prevent segfault if pValue set to NULL (bad parse)
+	 if (attr->pValue == NULL) {
+	    st_err_log(3, __FILE__, __LINE__, __FUNCTION__);
+	    return;
+	 }
+	 if (*(CK_OBJECT_CLASS *)attr->pValue == CKO_HW_FEATURE)
+	    return;
+      }
+
+      /* Don't find objects that have been created with the CKA_HIDDEN
+       * attribute set */
+      if ((fa->hidden_object == FALSE) &&
+	  (template_attribute_find(obj->template, CKA_HIDDEN, &attr) == TRUE)) {
+	 if (*(CK_BBOOL *)attr->pValue == TRUE)
+	    return;
+      }
+
+      fa->sess->find_list[ fa->sess->find_count ] = map_handle;
+      fa->sess->find_count++;
+
+      if (fa->sess->find_count >= fa->sess->find_len) {
+	 fa->sess->find_len += 15;
+	 fa->sess->find_list =
+		 (CK_OBJECT_HANDLE *)realloc(fa->sess->find_list,
+					     fa->sess->find_len * sizeof(CK_OBJECT_HANDLE));
+	 if (!fa->sess->find_list) {
+	    st_err_log(0, __FILE__, __LINE__);
+	    return;
+	 }
+      }
+   }
+}
 
 CK_RV
 object_mgr_find_init( SESSION      * sess,
                       CK_ATTRIBUTE * pTemplate,
                       CK_ULONG       ulCount )
 {
+   struct find_build_list_args fa;
+   CK_ULONG i;
    // it is possible the pTemplate == NULL
    //
 
@@ -1434,61 +1523,6 @@ object_mgr_find_init( SESSION      * sess,
    //   User Session:     all session objects,    all token objects
    //   SO session:       public session objects, public token objects
    //
-   switch (sess->session_info.state) {
-      case CKS_RO_PUBLIC_SESSION:
-      case CKS_RW_PUBLIC_SESSION:
-      case CKS_RW_SO_FUNCTIONS:
-         object_mgr_find_build_list( sess, pTemplate, ulCount, publ_token_obj_list, TRUE );
-         object_mgr_find_build_list( sess, pTemplate, ulCount, sess_obj_list,       TRUE );
-         break;
-
-      case CKS_RO_USER_FUNCTIONS:
-      case CKS_RW_USER_FUNCTIONS:
-         object_mgr_find_build_list( sess, pTemplate, ulCount, priv_token_obj_list, FALSE );
-         object_mgr_find_build_list( sess, pTemplate, ulCount, publ_token_obj_list, FALSE );
-         object_mgr_find_build_list( sess, pTemplate, ulCount, sess_obj_list,  FALSE );
-         break;
-   }
-   MY_UnlockMutex(&obj_list_mutex);
-
-   sess->find_active = TRUE;
-
-   return CKR_OK;
-}
-
-
-//
-//
-CK_RV
-object_mgr_find_build_list( SESSION      * sess,
-                            CK_ATTRIBUTE * pTemplate,
-                            CK_ULONG       ulCount,
-                            DL_NODE      * obj_list,
-                            CK_BBOOL       public_only )
-{
-   OBJECT           * obj  = NULL;
-   DL_NODE          * node = NULL;
-   CK_OBJECT_HANDLE   handle;
-   CK_BBOOL           is_priv;
-   CK_BBOOL           match;
-   CK_BBOOL           hw_feature = FALSE;
-   CK_BBOOL           hidden_object = FALSE;
-   CK_RV              rc;
-   CK_ATTRIBUTE     * attr;
-   unsigned int	      i;
-
-   // pTemplate == NULL is a legal condition here
-   //
-
-   if (!sess){
-      st_err_log(4, __FILE__, __LINE__, __FUNCTION__); 
-      return CKR_FUNCTION_FAILED;
-   }
-   // it's possible that the object list is empty
-   //
-   if (!obj_list)
-      return CKR_OK;
-
    // PKCS#11 v2.11 (pg. 79): "When searching using C_FindObjectsInit
    // and C_FindObjects, hardware feature objects are not returned
    // unless the CKA_CLASS attribute in the template has the value
@@ -1497,7 +1531,7 @@ object_mgr_find_build_list( SESSION      * sess,
    for (i = 0; i < ulCount; i++) {
       if (pTemplate[i].type == CKA_CLASS) {
 	 if (*(CK_ULONG *)pTemplate[i].pValue == CKO_HW_FEATURE) {
-	    hw_feature = TRUE;
+	    fa.hw_feature = TRUE;
 	    break;
 	 }
       }
@@ -1505,85 +1539,42 @@ object_mgr_find_build_list( SESSION      * sess,
       /* only find CKA_HIDDEN objects if its specified in the template. */
       if (pTemplate[i].type == CKA_HIDDEN) {
 	 if (*(CK_BBOOL *)pTemplate[i].pValue == TRUE) {
-	    hidden_object = TRUE;
+	    fa.hidden_object = TRUE;
 	    break;
 	 }
       }
    }
 
-   node = obj_list;
-   while (node) {
-      match   = FALSE;
-      obj     = (OBJECT *)node->data;
-      is_priv = object_is_private( obj );
+   fa.sess = sess;
+   fa.pTemplate = pTemplate;
+   fa.ulCount = ulCount;
 
+   switch (sess->session_info.state) {
+      case CKS_RO_PUBLIC_SESSION:
+      case CKS_RW_PUBLIC_SESSION:
+      case CKS_RW_SO_FUNCTIONS:
+	 fa.public_only = TRUE;
 
-      if ((is_priv == FALSE) || (public_only == FALSE)) {
-         // if the user doesn't specify any template attributes then we return
-         // all objects
-         //
-         if (pTemplate == NULL || ulCount == 0)
-            match = TRUE;
-         else
-            match = template_compare( pTemplate, ulCount, obj->template );
-      }
+	 bt_for_each_node(&publ_token_obj_btree, find_build_list_cb, &fa);
+	 bt_for_each_node(&sess_obj_btree, find_build_list_cb, &fa);
+         break;
 
-      // if we have a match, find the object in the map (add it if necessary)
-      // then add the object to the list of found objects
-      //
-      if (match) {
-         rc = object_mgr_find_in_map2( obj, &handle );
-         if (rc != CKR_OK) {
-            //st_err_log(110, __FILE__, __LINE__);
-            rc = object_mgr_add_to_map( sess, obj, &handle );
-            if (rc != CKR_OK){
-               st_err_log(4, __FILE__, __LINE__, __FUNCTION__); 
-               return CKR_FUNCTION_FAILED;
-            }
-         }
-         if (rc == CKR_OK) {
-	    // If hw_feature is false here, we need to filter out all objects
-	    // that have the CKO_HW_FEATURE attribute set. - KEY
-            if ((hw_feature == FALSE) && 
-	        (template_attribute_find(obj->template, CKA_CLASS, &attr) == TRUE)) {
-	       //axelrh: prevent segfault if pValue set to NULL (bad parse)
-	       if (attr->pValue == NULL) {
-                  st_err_log(3, __FILE__, __LINE__, __FUNCTION__);
-                  return CKR_FUNCTION_FAILED;
-               }
-               if (*(CK_OBJECT_CLASS *)attr->pValue == CKO_HW_FEATURE)
-	          goto next_loop;
-	    }
-	    
-	    /* Don't find objects that have been created with the CKA_HIDDEN
-             * attribute set */
-            if ((hidden_object == FALSE) &&
-                (template_attribute_find(obj->template, CKA_HIDDEN, &attr) == TRUE)) {
-               if (*(CK_BBOOL *)attr->pValue == TRUE)
-	          goto next_loop;
-	    }
+      case CKS_RO_USER_FUNCTIONS:
+      case CKS_RW_USER_FUNCTIONS:
+	 fa.public_only = FALSE;
 
-            sess->find_list[ sess->find_count ] = handle;
-            sess->find_count++;
-
-            if (sess->find_count >= sess->find_len) {
-               sess->find_len += 15;
-               sess->find_list = (CK_OBJECT_HANDLE *)realloc( sess->find_list,
-                                                              sess->find_len * sizeof(CK_OBJECT_HANDLE) );
-               if (!sess->find_list){
-                  st_err_log(0, __FILE__, __LINE__); 
-                  return CKR_HOST_MEMORY;
-               }
-            }
-         }
-      }
-next_loop:
-      node = node->next;
+	 bt_for_each_node(&priv_token_obj_btree, find_build_list_cb, &fa);
+	 bt_for_each_node(&publ_token_obj_btree, find_build_list_cb, &fa);
+	 bt_for_each_node(&sess_obj_btree, find_build_list_cb, &fa);
+         break;
    }
+
+   MY_UnlockMutex(&obj_list_mutex);
+
+   sess->find_active = TRUE;
 
    return CKR_OK;
 }
-
 
 //
 //
@@ -1688,95 +1679,34 @@ done:
    return rc;
 }
 
-
-// object_mgr_invalidate_handle1()
-//
-// Returns:  TRUE  if successfully removes the node
-//           FALSE if cannot remove the node (not found, etc)
-//
-CK_BBOOL
-object_mgr_invalidate_handle1( CK_OBJECT_HANDLE handle )
+void
+purge_session_obj_cb(void *node, unsigned long obj_handle, void *p3)
 {
-   DL_NODE     *node = NULL;
-   OBJECT_MAP  *map  = NULL;
-   CK_BBOOL    result;
+   OBJECT *obj = (OBJECT *)node;
+   struct purge_args *pa = (struct purge_args *)p3;
+   CK_BBOOL del = FALSE;
 
-   //
-   // no mutex stuff here.  the calling routine should have locked the mutex
-   //
-
-   if (!handle){
-     return FALSE;
-   }
-
-   if (pthread_rwlock_wrlock(&obj_list_rw_mutex)) {
-     st_err_log(4, __FILE__, __LINE__, __FUNCTION__);
-     return FALSE; // FIXME: Proper error messages
-   }
-
-   node = (DL_NODE *)handle;
-
-   // Try to dereference 'node' and double-check by
-   // comparing the handle value. MAY segfault if
-   // 'node' is an invalid handle, but that often
-   // means that the caller is buggy.
-   map = (OBJECT_MAP *)node->data;
-
-   if ( handle == map->handle ) {
-      object_map = dlist_remove_node( object_map, node );
-      free( map );
-      result = TRUE;
-   }
-   else {
-     result = FALSE;
-   }
-
-   pthread_rwlock_unlock(&obj_list_rw_mutex);
-   return result;
-
-}
-
-
-// object_mgr_invalidate_handle2()
-//
-// Returns:  TRUE  if successfully removes the node
-//           FALSE if cannot remove the node (not found, etc)
-//
-CK_BBOOL
-object_mgr_invalidate_handle2( OBJECT *obj )
-{
-   DL_NODE *node = NULL;
-
-   if (!obj)
-      return FALSE;
-
-   //
-   // no mutex stuff here.  the calling routine should have locked the mutex
-   //
-
-   if (pthread_rwlock_wrlock(&obj_list_rw_mutex)) {
-     st_err_log(4, __FILE__, __LINE__, __FUNCTION__);
-     return CKR_FUNCTION_FAILED;
-   }
-   node = object_map;
-
-   while (node) {
-      OBJECT_MAP *map = (OBJECT_MAP *)node->data;
-      // I think we can do this because even token objects exist in RAM
-      if (map->ptr == obj) {
-         object_map = dlist_remove_node( object_map, node );
-         free( map );
-	 pthread_rwlock_unlock(&obj_list_rw_mutex);
-         return TRUE;
+   if (obj->session == pa->sess) {
+      if (pa->type == PRIVATE) {
+         if (object_is_private(obj))
+            del = TRUE;
       }
-      node = node->next;
+      else if (pa->type == PUBLIC) {
+         if (object_is_public(obj))
+            del = TRUE;
+      }
+      else if (pa->type == ALL) {
+         del = TRUE;
+      }
+
+      if (del == TRUE) {
+         if (obj->map_handle)
+	    bt_node_free(&object_map_btree, obj->map_handle, free);
+
+	 bt_node_free(&sess_obj_btree, obj_handle, object_free);
+      }
    }
-   pthread_rwlock_unlock(&obj_list_rw_mutex);
-
-   return FALSE;
-
 }
-
 
 // object_mgr_purge_session_objects()
 //
@@ -1790,10 +1720,7 @@ CK_BBOOL
 object_mgr_purge_session_objects( SESSION       * sess,
                                   SESS_OBJ_TYPE   type )
 {
-   DL_NODE   *node = NULL;
-   DL_NODE   *next = NULL;
-   OBJECT    *obj = NULL;
-   CK_BBOOL   del;
+   struct purge_args pa = { sess, type };
    CK_RV      rc;
 
    if (!sess)
@@ -1804,50 +1731,29 @@ object_mgr_purge_session_objects( SESSION       * sess,
       st_err_log(146, __FILE__, __LINE__); 
       return FALSE;
    }
-   node = sess_obj_list;
 
-   while (node) {
-      obj = (OBJECT *)node->data;
-      del = FALSE;
-
-      if (obj->session == sess) {
-         if (type == PRIVATE) {
-            if (object_is_private(obj))
-               del = TRUE;
-         }
-         else if (type == PUBLIC) {
-            if (object_is_public(obj))
-               del = TRUE;
-         }
-         else if (type == ALL)
-            del = TRUE;
-      }
-
-      if (del == TRUE) {
-         CK_OBJECT_HANDLE handle;
-         CK_RV            rc;
-
-         rc = object_mgr_find_in_map2( obj, &handle );
-         if (rc == CKR_OK) {
-            object_mgr_invalidate_handle1( handle );
-            object_free( obj );
-         }
-         else
-            st_err_log(110, __FILE__, __LINE__);
-
-         next = node->next;
-         sess_obj_list = dlist_remove_node( sess_obj_list, node );
-         node = next;
-      }
-      else
-         node = node->next;
-   }
+   bt_for_each_node(&sess_obj_btree, purge_session_obj_cb, &pa);
 
    MY_UnlockMutex( &obj_list_mutex );
 
    return TRUE;
 }
 
+/* purge_token_obj_cb
+ *
+ * @p3 is the btree we're purging from
+ */
+void
+purge_token_obj_cb(void *node, unsigned long obj_handle, void *p3)
+{
+   OBJECT *obj = (OBJECT *)node;
+   struct btree *t = (struct btree *)p3;
+
+   if (obj->map_handle)
+      bt_node_free(&object_map_btree, obj->map_handle, free);
+
+   bt_node_free(t, obj_handle, object_free);
+}
 
 // this routine cleans up the list of token objects.  in general, we don't
 // need to do this but when tracing memory leaks, it's best that we free everything
@@ -1856,9 +1762,6 @@ object_mgr_purge_session_objects( SESSION       * sess,
 CK_BBOOL
 object_mgr_purge_token_objects( )
 {
-   DL_NODE   *node = NULL;
-   DL_NODE   *next = NULL;
-   OBJECT    *obj = NULL;
    CK_RV      rc;
 
    rc = MY_LockMutex( &obj_list_mutex );
@@ -1866,44 +1769,9 @@ object_mgr_purge_token_objects( )
       st_err_log(146, __FILE__, __LINE__); 
       return FALSE;
    }
-   node = publ_token_obj_list;
-   while (publ_token_obj_list) {
-      CK_OBJECT_HANDLE handle;
-      CK_RV            rc;
 
-      obj = (OBJECT *)node->data;
-
-      rc = object_mgr_find_in_map2( obj, &handle );
-      if (rc == CKR_OK){
-         object_mgr_invalidate_handle1( handle );
-      }
-      object_free( obj );
-
-      next = node->next;
-      publ_token_obj_list = dlist_remove_node( publ_token_obj_list, node );
-      node = next;
-   }
-
-   node = priv_token_obj_list;
-
-   while (priv_token_obj_list) {
-      CK_OBJECT_HANDLE handle;
-      CK_RV            rc;
-
-      obj = (OBJECT *)node->data;
-
-      rc = object_mgr_find_in_map2( obj, &handle );
-      if (rc == CKR_OK)
-         object_mgr_invalidate_handle1( handle );
-      else{
-         st_err_log(110, __FILE__, __LINE__);
-      }
-      object_free( obj );
-
-      next = node->next;
-      priv_token_obj_list = dlist_remove_node( priv_token_obj_list, node );
-      node = next;
-   }
+   bt_for_each_node(&priv_token_obj_btree, purge_token_obj_cb, &priv_token_obj_btree);
+   bt_for_each_node(&publ_token_obj_btree, purge_token_obj_cb, &publ_token_obj_btree);
 
    MY_UnlockMutex( &obj_list_mutex );
 
@@ -1914,9 +1782,6 @@ object_mgr_purge_token_objects( )
 CK_BBOOL
 object_mgr_purge_private_token_objects( void )
 {
-   OBJECT   * obj  = NULL;
-   DL_NODE  * node = NULL;
-   DL_NODE  * next = NULL;
    CK_RV      rc;
 
    rc = MY_LockMutex( &obj_list_mutex );
@@ -1924,26 +1789,8 @@ object_mgr_purge_private_token_objects( void )
       st_err_log(146, __FILE__, __LINE__); 
       return FALSE;
    }
-   node = priv_token_obj_list;
-   while (priv_token_obj_list) {
-      CK_OBJECT_HANDLE handle;
-      CK_RV            rc;
 
-      obj = (OBJECT *)node->data;
-
-      rc = object_mgr_find_in_map2( obj, &handle );
-      if (rc == CKR_OK){
-         object_mgr_invalidate_handle1( handle );
-      }
-      else{
-         st_err_log(110, __FILE__, __LINE__);
-      }
-      object_free( obj );
-
-      next = node->next;
-      priv_token_obj_list = dlist_remove_node( priv_token_obj_list, node );
-      node = next;
-   }
+   bt_for_each_node(&priv_token_obj_btree, purge_token_obj_cb, &priv_token_obj_btree);
 
    MY_UnlockMutex( &obj_list_mutex );
 
@@ -1974,11 +1821,6 @@ object_mgr_restore_obj_withSize( CK_BYTE *data, OBJECT *oldObj, int data_size )
    }
    // The calling stack MUST have the mutex
    // to many grab it now.
-#if 0
-   rc = MY_LockMutex( &obj_list_mutex );
-   if (rc != CKR_OK)
-      return rc;
-#endif
 
    if (oldObj != NULL) {
       obj = oldObj;
@@ -1989,10 +1831,17 @@ object_mgr_restore_obj_withSize( CK_BYTE *data, OBJECT *oldObj, int data_size )
       if (rc == CKR_OK) {
          priv = object_is_private( obj );
 
-         if (priv)
-            priv_token_obj_list = dlist_add_as_last( priv_token_obj_list, obj );
-         else
-            publ_token_obj_list = dlist_add_as_last( publ_token_obj_list, obj );
+	 if (priv) {
+	    if (!bt_node_add(&priv_token_obj_btree, obj)) {
+               st_err_log(1, __FILE__, __LINE__);
+               return CKR_HOST_MEMORY;
+	    }
+	 } else {
+	    if (!bt_node_add(&publ_token_obj_btree, obj)) {
+               st_err_log(1, __FILE__, __LINE__);
+               return CKR_HOST_MEMORY;
+	    }
+	 }
 
          XProcLock( xproclock );
            
@@ -2022,11 +1871,6 @@ object_mgr_restore_obj_withSize( CK_BYTE *data, OBJECT *oldObj, int data_size )
       }
    }
 
-   // make the callers have to have the mutes
-   // to many grab it now.
-#if 0
-   MY_UnlockMutex( &obj_list_mutex );
-#endif
    return rc;
 }
 
@@ -2054,14 +1898,15 @@ object_mgr_set_attribute_values( SESSION           * sess,
       st_err_log(146, __FILE__, __LINE__); 
       return rc;
    }
+
    rc = object_mgr_find_in_map1( handle, &obj );
+
    MY_UnlockMutex( &obj_list_mutex );
 
    if (rc != CKR_OK) {
       st_err_log(110, __FILE__, __LINE__);
       return CKR_OBJECT_HANDLE_INVALID;
    }
-
 
    // determine whether the session is allowed to modify the object
    //
@@ -2241,19 +2086,16 @@ object_mgr_del_from_shm( OBJECT *obj )
       // 10 from 9.)
       //
       global_shm->num_priv_tok_obj--;
-#if 1 // XXX SAB   when the index is a higher number than the number maintained in shm, the count goes astronomical causing a core dump
 	if (index > global_shm->num_priv_tok_obj) {
 	      count = index - global_shm->num_priv_tok_obj;
 	} else {
 	      count = global_shm->num_priv_tok_obj - index;
-	}	
-#else
-      count = global_shm->num_priv_tok_obj - index;
-#endif
+	}
 
       if (count > 0) {  // If we are not deleting the last element in the list
          // Move up count number of elements effectively deleting the index
-         memcpy((char *)&global_shm->priv_tok_objs[index],
+	 // NB: memmove is required since the copied regions may overlap
+         memmove((char *)&global_shm->priv_tok_objs[index],
                 (char *)&global_shm->priv_tok_objs[index+1],
                 sizeof(TOK_OBJ_ENTRY) * count );
          // We need to zero out the last entry... Since the memcopy
@@ -2277,18 +2119,15 @@ object_mgr_del_from_shm( OBJECT *obj )
       global_shm->num_publ_tok_obj--;
 
 
-#if 1 // XXX SAB   when the index is a higher number than the number maintained in shm, the count goes astronomical causing a core dump
 	if (index > global_shm->num_publ_tok_obj) {
 	      count = index - global_shm->num_publ_tok_obj;
 	} else {
 	      count = global_shm->num_publ_tok_obj - index;
-	}	
-#else
-      count = global_shm->num_publ_tok_obj - index;
-#endif
+	}
 
       if (count > 0) {
-         memcpy((char *)&global_shm->publ_tok_objs[index],
+	 // NB: memmove is required since the copied regions may overlap
+         memmove((char *)&global_shm->publ_tok_objs[index],
                 (char *)&global_shm->publ_tok_objs[index+1],
                 sizeof(TOK_OBJ_ENTRY) * count);
          // We need to zero out the last entry... Since the memcopy
@@ -2393,46 +2232,6 @@ object_mgr_search_shm_for_obj( TOK_OBJ_ENTRY  * obj_list,
    }
    st_err_log(4, __FILE__, __LINE__, __FUNCTION__); 
    return CKR_FUNCTION_FAILED;
-	
-#if 0
-#if 1
-   CK_ULONG   idx;
-   for (idx=0;idx<=hi;idx++){
-      if (memcmp(obj->name, obj_list[idx].name,8) == 0) {
-         *index = idx;
-         return CKR_OK;
-      }
-   }
-   st_err_log(4, __FILE__, __LINE__, __FUNCTION__); 
-   return CKR_FUNCTION_FAILED;
-#else
-
-   if (lo == hi) {
-      if (memcmp(obj->name, obj_list[lo].name, 8) == 0) {
-         *index = lo;
-         return CKR_OK;
-      }
-      else{ 
-         st_err_log(4, __FILE__, __LINE__, __FUNCTION__); 
-         return CKR_FUNCTION_FAILED;
-      }
-   }
-
-   mid = (lo + hi) / 2;
-
-   val = memcmp( obj->name, obj_list[mid].name, 8 );
-
-   if (val == 0) {
-      *index = mid;
-      return CKR_OK;
-   }
-
-   if (val < 0)
-      return object_mgr_search_shm_for_obj( obj_list, lo, mid-1, obj, index );
-   else
-      return object_mgr_search_shm_for_obj( obj_list, mid+1, hi, obj, index );
-#endif
-#endif
 }
 
 
@@ -2476,318 +2275,179 @@ object_mgr_update_from_shm( void )
    return CKR_OK;
 }
 
+void
+delete_objs_from_btree_cb(void *node, unsigned long obj_handle, void *p3)
+{
+   struct update_tok_obj_args * ua = (struct update_tok_obj_args *)p3;
+   TOK_OBJ_ENTRY              * shm_te = NULL;
+   OBJECT                     * obj = (OBJECT *)node;
+   CK_ULONG                     index;
 
-//
-//
+   /* for each TOK_OBJ_ENTRY in the SHM list */
+   for (index = 0; index < *(ua->num_entries); index++) {
+      shm_te = &(ua->entries[index]);
+
+      /* found it, return */
+      if (!memcmp(obj->name, shm_te->name, 8)) {
+	 return;
+      }
+   }
+
+   /* didn't find it in SHM, delete it from its btree */
+   bt_node_free(ua->t, obj_handle, object_free);
+}
+
+void
+find_by_name_cb(void *node, unsigned long obj_handle, void *p3)
+{
+	OBJECT *obj                  = (OBJECT *)node;
+	struct find_by_name_args *fa = (struct find_by_name_args *)p3;
+
+	if (fa->done)
+		return;
+
+	if (!memcmp(obj->name, fa->name, 8)) {
+		fa->done = TRUE;
+	}
+}
+
 CK_RV
 object_mgr_update_publ_tok_obj_from_shm()
 {
-   DL_NODE           * node = NULL;
-   DL_NODE           * next = NULL;
-   TOK_OBJ_ENTRY     * te   = NULL;
-   OBJECT            * obj  = NULL;
-   CK_OBJECT_HANDLE    handle;
-   CK_ULONG            index;
-   int                 val;
-   CK_RV               rc;
+	struct update_tok_obj_args   ua;
+	struct find_by_name_args     fa;
+	TOK_OBJ_ENTRY              * shm_te = NULL;
+	CK_ULONG                     index;
+	OBJECT                     * new_obj;
 
-   node  = publ_token_obj_list;
-   index = 0;
+	ua.entries = global_shm->publ_tok_objs;
+	ua.num_entries = &(global_shm->num_publ_tok_obj);
+	ua.t = &publ_token_obj_btree;
 
-   while ((node != NULL) && (index < global_shm->num_publ_tok_obj)) {
-      te = &global_shm->publ_tok_objs[index];
-      obj = (OBJECT *)node->data;
+	/* delete any objects not in SHM from the btree */
+	bt_for_each_node(&publ_token_obj_btree, delete_objs_from_btree_cb, &ua);
 
-      val = memcmp( obj->name, te->name, 8 );
+	/* for each item in SHM, add it to the btree if its not there */
+	for (index = 0; index < global_shm->num_publ_tok_obj; index++) {
+		shm_te = &global_shm->publ_tok_objs[index];
 
-      // 3 cases:
-      //    1) object in local list but not in the global list.  need to remove from local list
-      //    2) object in both lists.  need to compare counters and update as needed
-      //    3) object in global list but not in the local list.  need to add the object here.
-      //
-      if (val < 0) {
-         rc = object_mgr_find_in_map2( obj, &handle );
-         if (rc == CKR_OK){
-            st_err_log(110, __FILE__, __LINE__);
-            object_mgr_invalidate_handle1( handle );
-         }
-         object_free( obj );
+		fa.done = FALSE;
+		fa.name = shm_te->name;
 
-         // we don't call delete_token_object since we assume it has been called by
-         // another process already.  we just want to remove it from the local list
-         //
-         next = node->next;
-         publ_token_obj_list = dlist_remove_node( publ_token_obj_list, node );
+		/* find an object from SHM in the btree */
+		bt_for_each_node(&publ_token_obj_btree, find_by_name_cb, &fa);
 
-         // don't increment the index
-      }
-      else if (val == 0) {
-         if ((te->count_hi != obj->count_hi) || (te->count_lo != obj->count_lo)) {
-            reload_token_object( obj );
-			obj->count_hi = te->count_hi;
-			obj->count_lo = te->count_lo;
-		 }
+		/* we didn't find it in the btree, so add it */
+		if (fa.done == FALSE) {
+			new_obj = (OBJECT *)malloc(sizeof(OBJECT));
+			memset( new_obj, 0x0, sizeof(OBJECT) );
 
-         next = node->next;
-         index++;
-      }
-      else {
-         DL_NODE  *new_node = NULL;
-         OBJECT   *new_obj  = NULL;
+			memcpy( new_obj->name, shm_te->name, 8 );
+			reload_token_object( new_obj );
+			bt_node_add(&publ_token_obj_btree, new_obj);
+		}
+	}
 
-         new_obj = (OBJECT *)malloc(sizeof(OBJECT));
-         memset( new_obj, 0x0, sizeof(OBJECT) );
-
-         memcpy( new_obj->name, te->name, 8 );
-         reload_token_object( new_obj );
-
-         // insert the new object into this position in the local list.  I don't
-         // like accessing the DL_NODE internals like this but this is the best
-         // way for the time being...
-         //
-         // We really need a dlist_insert() routine!
-         //
-         new_node = (DL_NODE *)malloc(sizeof(DL_NODE));
-         new_node->data = new_obj;
-
-         // this won't work if the list doesn't already exist but that's not a problem
-         // here because if it doesn't exist we won't fall through this
-         //
-         new_node->next = node->next;
-         node->next     = new_node;
-         new_node->prev = node;
-
-         next = new_node->next;
-         index++;
-      }
-
-      node = next;
-   }
-
-   if ((node == NULL) && (index < global_shm->num_publ_tok_obj)) {
-      OBJECT   *new_obj  = NULL;
-      unsigned int i;
-
-      // new items added to the end of the list
-      //
-
-      for (i=index; i < global_shm->num_publ_tok_obj; i++) {
-         new_obj = (OBJECT *)malloc(sizeof(OBJECT));
-         memset( new_obj, 0x0, sizeof(OBJECT) );
-
-         te = &global_shm->publ_tok_objs[index];
-
-         memcpy( new_obj->name, te->name, 8 );
-         reload_token_object( new_obj );
-
-         // insert the new object at the end of the local list
-         //
-         publ_token_obj_list = dlist_add_as_last( publ_token_obj_list, new_obj );
-      }
-   }
-   else if ((node != NULL) && (index >= global_shm->num_publ_tok_obj)) {
-      while (node) {
-         obj = (OBJECT *)node->data;
-
-         rc = object_mgr_find_in_map2( obj, &handle );
-         if (rc == CKR_OK){
-            st_err_log(110, __FILE__, __LINE__);
-            object_mgr_invalidate_handle1( handle );
-         }
-         object_free( obj );
-
-         // we don't call delete_token_object since we assume it has been called by
-         // another process already.  we just want to remove it from the local list
-         //
-         next = node->next;
-         publ_token_obj_list = dlist_remove_node( publ_token_obj_list, node );
-
-         node = next;
-      }
-   }
-
-   return CKR_OK;
+	return CKR_OK;
 }
 
-
-//
-//
 CK_RV
 object_mgr_update_priv_tok_obj_from_shm()
 {
-   DL_NODE           * node = NULL;
-   DL_NODE           * next = NULL;
-   TOK_OBJ_ENTRY     * te   = NULL;
-   OBJECT            * obj  = NULL;
-   CK_OBJECT_HANDLE    handle;
-   CK_ULONG            index;
-   int                 val;
-   CK_RV               rc;
+	struct update_tok_obj_args   ua;
+	struct find_by_name_args     fa;
+	TOK_OBJ_ENTRY              * shm_te = NULL;
+	CK_ULONG                     index;
+	OBJECT                     * new_obj;
 
-   node  = priv_token_obj_list;
-   index = 0;
+	// SAB XXX don't bother doing this call if we are not in the correct
+	// login state
+	if ( !(global_login_state == CKS_RW_USER_FUNCTIONS ||
+	       global_login_state == CKS_RO_USER_FUNCTIONS) ) {
+		return CKR_OK;
+	}
 
-   // SAB XXX don't bother doing this call if we are not in the correct
-   // login state
-   if ( !(global_login_state == CKS_RW_USER_FUNCTIONS ||
-          global_login_state == CKS_RO_USER_FUNCTIONS)){
-      return CKR_OK;
-   }
+	ua.entries = global_shm->priv_tok_objs;
+	ua.num_entries = &(global_shm->num_priv_tok_obj);
+	ua.t = &priv_token_obj_btree;
 
+	/* delete any objects not in SHM from the btree */
+	bt_for_each_node(&priv_token_obj_btree, delete_objs_from_btree_cb, &ua);
 
-   while ((node != NULL) && (index < global_shm->num_priv_tok_obj)) {
-      te = &global_shm->priv_tok_objs[index];
-      obj = (OBJECT *)node->data;
+	/* for each item in SHM, add it to the btree if its not there */
+	for (index = 0; index < global_shm->num_priv_tok_obj; index++) {
+		shm_te = &global_shm->priv_tok_objs[index];
 
-      val = memcmp( obj->name, te->name, 8 );
+		fa.done = FALSE;
+		fa.name = shm_te->name;
 
-      // 3 cases:
-      //    1) object in local list but not in the global list.  need to remove from local list
-      //    2) object in both lists.  need to compare counters and update as needed
-      //    3) object in global list but not in the local list.  need to add the object here.
-      //
-      if (val < 0) {
-         rc = object_mgr_find_in_map2( obj, &handle );
-         if (rc == CKR_OK){
-            st_err_log(110, __FILE__, __LINE__);
-            object_mgr_invalidate_handle1( handle );
-         }
-         object_free( obj );
+		/* find an object from SHM in the btree */
+		bt_for_each_node(&priv_token_obj_btree, find_by_name_cb, &fa);
 
-         // we don't call delete_token_object since we assume it has been called by
-         // another process already.  we just want to remove it from the local list
-         //
-         next = node->next;
-         priv_token_obj_list = dlist_remove_node( priv_token_obj_list, node );
+		/* we didn't find it in the btree, so add it */
+		if (fa.done == FALSE) {
+			new_obj = (OBJECT *)malloc(sizeof(OBJECT));
+			memset( new_obj, 0x0, sizeof(OBJECT) );
 
-         // don't increment the index
-      }
-      else if (val == 0) {
-         if ((te->count_hi != obj->count_hi) || (te->count_lo != obj->count_lo)){
-            reload_token_object( obj );
-			obj->count_hi = te->count_hi;
-			obj->count_lo = te->count_lo;
-		 }
+			memcpy( new_obj->name, shm_te->name, 8 );
+			reload_token_object( new_obj );
+			bt_node_add(&priv_token_obj_btree, new_obj);
+		}
+	}
 
-         next = node->next;
-         index++;
-      }
-      else {
-         DL_NODE  *new_node = NULL;
-         OBJECT   *new_obj  = NULL;
-
-         new_obj = (OBJECT *)malloc(sizeof(OBJECT));
-         memset( new_obj, 0x0, sizeof(OBJECT) );
-
-         memcpy( new_obj->name, te->name, 8 );
-         reload_token_object( new_obj );
-
-         // insert the new object into this position in the local list.  I don't
-         // like accessing the DL_NODE internals like this but this is the best
-         // way for the time being...
-         //
-         // We really need a dlist_insert() routine!
-         //
-         new_node = (DL_NODE *)malloc(sizeof(DL_NODE));
-         new_node->data = new_obj;
-
-         // this won't work if the list doesn't already exist but that's not a problem
-         // here because if it doesn't exist we won't fall through this
-         //
-         new_node->next = node->next;
-         node->next     = new_node;
-         new_node->prev = node;
-
-         next = new_node->next;
-         index++;
-      }
-
-      node = next;
-   }
-
-   if ((node == NULL) && (index < global_shm->num_priv_tok_obj)) {
-      OBJECT   *new_obj  = NULL;
-      unsigned int i;
-
-      // new items added to the end of the list
-      //
-
-      for (i=index; i < global_shm->num_priv_tok_obj; i++) {
-         new_obj = (OBJECT *)malloc(sizeof(OBJECT));
-         memset( new_obj, 0x0, sizeof(OBJECT) );
-
-         te = &global_shm->priv_tok_objs[index];
-
-         memcpy( new_obj->name, te->name, 8 );
-         reload_token_object( new_obj );
-
-         // insert the new object at the end of the local list
-         //
-         priv_token_obj_list = dlist_add_as_last( priv_token_obj_list, new_obj );
-      }
-   }
-   else if ((node != NULL) && (index >= global_shm->num_priv_tok_obj)) {
-      while (node) {
-         obj = (OBJECT *)node->data;
-
-         rc = object_mgr_find_in_map2( obj, &handle );
-         if (rc == CKR_OK){
-            st_err_log(110, __FILE__, __LINE__);
-            object_mgr_invalidate_handle1( handle );
-         }
-         object_free( obj );
-
-         // we don't call delete_token_object since we assume it has been called by
-         // another process already.  we just want to remove it from the local list
-         //
-         next = node->next;
-         priv_token_obj_list = dlist_remove_node( priv_token_obj_list, node );
-
-         node = next;
-      }
-   }
-
-   return CKR_OK;
+	return CKR_OK;
 }
 
 // SAB FIXME FIXME
+
+void
+purge_map_by_type_cb(void *node, unsigned long map_handle, void *p3)
+{
+   OBJECT_MAP    *map  = (OBJECT_MAP *)node;
+   SESS_OBJ_TYPE  type = *(SESS_OBJ_TYPE *)p3;
+
+   if (type == PRIVATE) {
+      if (map->is_private) {
+	 bt_node_free(&object_map_btree, map_handle, free);
+      }
+   } else if (type == PUBLIC) {
+      if (!map->is_private) {
+	 bt_node_free(&object_map_btree, map_handle, free);
+      }
+   }
+}
 
 CK_BBOOL
 object_mgr_purge_map(
                       SESSION       * sess,
                       SESS_OBJ_TYPE   type )
 {
-   DL_NODE *node = NULL;
-   DL_NODE *next = NULL;
-
-//  if (!proc || !sess)
-//      return FALSE;
-
    if (pthread_rwlock_wrlock(&obj_list_rw_mutex)) {
      st_err_log(4, __FILE__, __LINE__, __FUNCTION__);
      return CKR_FUNCTION_FAILED;
    }
-   node = object_map;
-   while (node) {
-      OBJECT_MAP *map = (OBJECT_MAP *)node->data;
-      OBJECT     *obj = (OBJECT *)map->ptr;
-      next = node->next;
-      if (type == PRIVATE) {
-         if (object_is_private(obj)) {
-            object_map = dlist_remove_node( object_map, node );
-            free( map );
-         }
-      }
-      if (type == PUBLIC) {
-         if (object_is_public(obj)) {
-            object_map = dlist_remove_node( object_map, node );
-            free( map );
-         }
-      }
-      node = next;
-   }
+
+   bt_for_each_node(&object_map_btree, purge_map_by_type_cb, &type);
+
    pthread_rwlock_unlock(&obj_list_rw_mutex);
 
    return TRUE;
 }
+
+#ifdef DEBUG
+void
+dump_shm(const char *s)
+{
+	CK_ULONG i;
+	LogDebug("%s: dump_shm priv:", s);
+
+	for (i = 0; i < global_shm->num_priv_tok_obj; i++) {
+		LogDebug("[%lu]: %.8s", i, global_shm->priv_tok_objs[i].name);
+	}
+	LogDebug("%s: dump_shm publ:", s);
+	for (i = 0; i < global_shm->num_publ_tok_obj; i++) {
+		LogDebug("[%lu]: %.8s", i, global_shm->publ_tok_objs[i].name);
+	}
+}
+#endif
 

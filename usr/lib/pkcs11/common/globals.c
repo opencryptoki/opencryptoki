@@ -324,10 +324,10 @@ int   xprocsemid = -1;
 void *xproclock;
 
 struct btree sess_btree = { NULL, NULL, 0UL, 0UL };
-DL_NODE  *sess_obj_list  = NULL;
-DL_NODE  *publ_token_obj_list = NULL;
-DL_NODE  *priv_token_obj_list = NULL;
-DL_NODE  *object_map     = NULL;
+struct btree sess_obj_btree = { NULL, NULL, 0UL, 0UL };
+struct btree publ_token_obj_btree = { NULL, NULL, 0UL, 0UL };
+struct btree priv_token_obj_btree = { NULL, NULL, 0UL, 0UL };
+struct btree object_map_btree = { NULL, NULL, 0UL, 0UL };
 
 CK_ULONG  ro_session_count = 0;
 
