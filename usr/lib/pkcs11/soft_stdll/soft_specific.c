@@ -411,10 +411,9 @@ token_specific_des_key_gen(CK_BYTE  *des_key,CK_ULONG len)
 	// random data...  Validation handles the rest
 	rng_generate(des_key,len);
         
-	// TODO: we really need to validate the key for parity etc...
+	// we really need to validate the key for parity etc...
 	// we should do that here... The caller validates the single des keys
 	// against the known and suspected poor keys..
-        // also: check rng_generate() return value
 	return CKR_OK;
 }
 
@@ -824,8 +823,7 @@ os_specific_rsa_keygen(TEMPLATE *publ_tmpl,  TEMPLATE *priv_tmpl)
 	RSA *rsa;
 	BIGNUM *bignum;
 	CK_BYTE *ssl_ptr;
-	unsigned long e = 0;
-        unsigned int i;
+	void *e = NULL;
 
 	flag = template_attribute_find( publ_tmpl, CKA_MODULUS_BITS, &attr );
 	if (!flag){
@@ -851,37 +849,28 @@ os_specific_rsa_keygen(TEMPLATE *publ_tmpl,  TEMPLATE *priv_tmpl)
 		return CKR_KEY_SIZE_RANGE;
 	}
 
+	e = calloc(1, sizeof(unsigned long));
+	if (e == NULL) {
+		st_err_log(1, __FILE__, __LINE__);
+		return CKR_HOST_MEMORY;
+	}
+
 #ifndef __BYTE_ORDER
 #error "Architecture endianness is not defined."
 #endif
 
-        /* PKCS#11 defines "Big number" as a BIG-ENDIAN value*/
 #if __BYTE_ORDER == __LITTLE_ENDIAN
-        for (i = 0; i < publ_exp->ulValueLen; i ++){
-                ((CK_BYTE *) &e)[i] = ((CK_BYTE *) publ_exp->pValue)[publ_exp->ulValueLen - 1 - i];
-        }
+	memcpy(e, publ_exp->pValue, publ_exp->ulValueLen);
+
 #else
-	memcpy(&e + (sizeof(unsigned long) - publ_exp->ulValueLen), publ_exp->pValue, publ_exp->ulValueLen);
+	memcpy(e + (sizeof(unsigned long) - publ_exp->ulValueLen), publ_exp->pValue, publ_exp->ulValueLen);
 
 #endif
-        // Now that we have the publ_exp in our 'local' representation,
-        // we can check for a valid public exponent.
-        // 1st) generate even number if e=0
-        if (e == 0) {
-                rc = rng_generate((CK_BYTE_PTR) &e, sizeof(e));
-                if (rc != CKR_OK) {
-                        return CKR_FUNCTION_FAILED;
-                }
-                e |= 0x01;              // make it odd
-        }
-        else if ( e % 2 == 0 ) {
-                st_err_log(20, __FILE__, __LINE__);
-                return CKR_TEMPLATE_INCONSISTENT;
-        }
 
+	rsa = RSA_generate_key(mod_bits, *(unsigned long *)e, NULL, NULL);
 
-
-	rsa = RSA_generate_key(mod_bits, e, NULL, NULL);
+	free(e);
+	e = NULL;
 
 	if (rsa == NULL) {
                 st_err_log(4, __FILE__, __LINE__);
