@@ -1297,6 +1297,7 @@ template_check_exportability( TEMPLATE *tmpl, CK_ATTRIBUTE_TYPE type )
          case CKK_ECDSA:
             return ecdsa_priv_check_exportability( type );
 
+         case CKK_X9_42_DH:
          case CKK_DH:
             return dh_priv_check_exportability( type );
 
@@ -1305,7 +1306,7 @@ template_check_exportability( TEMPLATE *tmpl, CK_ATTRIBUTE_TYPE type )
 
          default:
             st_err_log(9, __FILE__, __LINE__); 
-            return CKR_ATTRIBUTE_VALUE_INVALID;  // unknown key type
+            return TRUE;
       }
    }
    else if (class == CKO_SECRET_KEY) {
@@ -1313,7 +1314,7 @@ template_check_exportability( TEMPLATE *tmpl, CK_ATTRIBUTE_TYPE type )
    }
 
    st_err_log(9, __FILE__, __LINE__); 
-   return CKR_ATTRIBUTE_VALUE_INVALID;
+   return TRUE;
 }
 
 
