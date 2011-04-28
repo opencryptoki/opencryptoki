@@ -1459,7 +1459,7 @@ testcase_cleanup:
 CK_RV run_GenerateEncryptDecryptRSAPKCS()
 {
         int     i;
-        CK_RV   rv;
+        CK_RV   rv = 0;
 
         struct  _inputparam {
                 CK_MECHANISM_TYPE mechtype;
@@ -1477,11 +1477,6 @@ CK_RV run_GenerateEncryptDecryptRSAPKCS()
          * This means that publ_exp must be in BIG ENDIAN byte-order    */
 
         // mod bits = 512. Input up to 53 bytes
-                // publ exp = 0 (generate)
-                { CKM_RSA_PKCS, 512 , 0, { 0x00, 0x00, 0x00, 0x00 }, 1   , FALSE },
-                { CKM_RSA_PKCS, 512 , 0, { 0x00, 0x00, 0x00, 0x00 }, 1   , TRUE  },
-                { CKM_RSA_PKCS, 512 , 0, { 0x00, 0x00, 0x00, 0x00 }, 53  , FALSE },
-                { CKM_RSA_PKCS, 512 , 0, { 0x00, 0x00, 0x00, 0x00 }, 53  , TRUE  },
                 // publ exp = 3
                 { CKM_RSA_PKCS, 512 , 1, { 0x03, 0x00, 0x00, 0x00 }, 1   , FALSE },
                 { CKM_RSA_PKCS, 512 , 1, { 0x03, 0x00, 0x00, 0x00 }, 1   , TRUE  },
@@ -1503,11 +1498,6 @@ CK_RV run_GenerateEncryptDecryptRSAPKCS()
                 { CKM_RSA_PKCS, 512 , 4, { 0xFF, 0xFF, 0xFF, 0x11 }, 53  , FALSE },
                 { CKM_RSA_PKCS, 512 , 4, { 0x22, 0x33, 0x44, 0x11 }, 53  , TRUE  },
         // mod bits = 768. Input up to 85 bytes
-                // publ exp = 0 (generate)
-                { CKM_RSA_PKCS, 768 , 0, { 0x00, 0x00, 0x00, 0x00 }, 1   , FALSE },
-                { CKM_RSA_PKCS, 768 , 0, { 0x00, 0x00, 0x00, 0x00 }, 1   , TRUE  },
-                { CKM_RSA_PKCS, 768 , 0, { 0x00, 0x00, 0x00, 0x00 }, 85  , FALSE },
-                { CKM_RSA_PKCS, 768 , 0, { 0x00, 0x00, 0x00, 0x00 }, 85  , TRUE  },
                 // publ exp = 3
                 { CKM_RSA_PKCS, 768 , 1, { 0x03, 0x00, 0x00, 0x00 }, 1   , FALSE },
                 { CKM_RSA_PKCS, 768 , 1, { 0x03, 0x00, 0x00, 0x00 }, 1   , TRUE  },
@@ -1529,11 +1519,6 @@ CK_RV run_GenerateEncryptDecryptRSAPKCS()
                 { CKM_RSA_PKCS, 768 , 4, { 0xFF, 0xFF, 0xFF, 0x11 }, 85  , FALSE },
                 { CKM_RSA_PKCS, 768 , 4, { 0x22, 0x33, 0x44, 0x11 }, 85  , TRUE  },
         // mod bits = 1024. Input up to 117 bytes
-                // publ exp = 0 (generate)
-                { CKM_RSA_PKCS, 1024, 0, { 0x00, 0x00, 0x00, 0x00 }, 1   , FALSE },
-                { CKM_RSA_PKCS, 1024, 0, { 0x00, 0x00, 0x00, 0x00 }, 1   , TRUE  },
-                { CKM_RSA_PKCS, 1024, 0, { 0x00, 0x00, 0x00, 0x00 }, 117 , FALSE },
-                { CKM_RSA_PKCS, 1024, 0, { 0x00, 0x00, 0x00, 0x00 }, 117 , TRUE  },
                 // publ exp = 3
                 { CKM_RSA_PKCS, 1024, 1, { 0x03, 0x00, 0x00, 0x00 }, 1   , FALSE },
                 { CKM_RSA_PKCS, 1024, 1, { 0x03, 0x00, 0x00, 0x00 }, 1   , TRUE  },
@@ -1555,11 +1540,6 @@ CK_RV run_GenerateEncryptDecryptRSAPKCS()
                 { CKM_RSA_PKCS, 1024, 4, { 0xFF, 0xFF, 0xFF, 0x11 }, 117 , FALSE },
                 { CKM_RSA_PKCS, 1024, 4, { 0x22, 0x33, 0x44, 0x11 }, 117 , TRUE  },
         // mod bits = 2048. Input up to 245 bytes
-                // publ exp = 0 (generate)
-                { CKM_RSA_PKCS, 2048, 0, { 0x00, 0x00, 0x00, 0x00 }, 1   , FALSE },
-                { CKM_RSA_PKCS, 2048, 0, { 0x00, 0x00, 0x00, 0x00 }, 1   , TRUE  },
-                { CKM_RSA_PKCS, 2048, 0, { 0x00, 0x00, 0x00, 0x00 }, 245 , FALSE },
-                { CKM_RSA_PKCS, 2048, 0, { 0x00, 0x00, 0x00, 0x00 }, 245 , TRUE  },
                 // publ exp = 3
                 { CKM_RSA_PKCS, 2048, 1, { 0x03, 0x00, 0x00, 0x00 }, 1   , FALSE },
                 { CKM_RSA_PKCS, 2048, 1, { 0x03, 0x00, 0x00, 0x00 }, 1   , TRUE  },
@@ -1581,11 +1561,6 @@ CK_RV run_GenerateEncryptDecryptRSAPKCS()
                 { CKM_RSA_PKCS, 2048, 4, { 0xFF, 0xFF, 0xFF, 0x11 }, 245 , FALSE },
                 { CKM_RSA_PKCS, 2048, 4, { 0x22, 0x33, 0x44, 0x11 }, 245 , TRUE  },
         // mod bits = 4096. Input up to 501 bytes
-                // publ exp = 0 (generate)
-                { CKM_RSA_PKCS, 4096, 0, { 0x00, 0x00, 0x00, 0x00 }, 1   , FALSE },
-                { CKM_RSA_PKCS, 4096, 0, { 0x00, 0x00, 0x00, 0x00 }, 1   , TRUE  },
-                { CKM_RSA_PKCS, 4096, 0, { 0x00, 0x00, 0x00, 0x00 }, 501 , FALSE },
-                { CKM_RSA_PKCS, 4096, 0, { 0x00, 0x00, 0x00, 0x00 }, 501 , TRUE  },
                 // publ exp = 3
                 { CKM_RSA_PKCS, 4096, 1, { 0x03, 0x00, 0x00, 0x00 }, 1   , FALSE },
                 { CKM_RSA_PKCS, 4096, 1, { 0x03, 0x00, 0x00, 0x00 }, 1   , TRUE  },
@@ -1629,7 +1604,7 @@ CK_RV run_GenerateEncryptDecryptRSAPKCS()
 CK_RV run_GenerateSignVerifyRSAPKCS()
 {
         int     i;
-        CK_RV   rv;
+        CK_RV   rv = 0;
 
         struct  _inputparam {
                 CK_MECHANISM_TYPE mechtype;
@@ -1647,11 +1622,6 @@ CK_RV run_GenerateSignVerifyRSAPKCS()
          * This means that publ_exp must be in BIG ENDIAN byte-order    */
 
         // mod bits = 512. Input up to 53 bytes
-                // publ exp = 0 (generate)
-                { CKM_RSA_PKCS, 512 , 0, { 0x00, 0x00, 0x00, 0x00 }, 1   , FALSE },
-                { CKM_RSA_PKCS, 512 , 0, { 0x00, 0x00, 0x00, 0x00 }, 1   , TRUE  },
-                { CKM_RSA_PKCS, 512 , 0, { 0x00, 0x00, 0x00, 0x00 }, 53  , FALSE },
-                { CKM_RSA_PKCS, 512 , 0, { 0x00, 0x00, 0x00, 0x00 }, 53  , TRUE  },
                 // publ exp = 3
                 { CKM_RSA_PKCS, 512 , 1, { 0x03, 0x00, 0x00, 0x00 }, 1   , FALSE },
                 { CKM_RSA_PKCS, 512 , 1, { 0x03, 0x00, 0x00, 0x00 }, 1   , TRUE  },
@@ -1673,11 +1643,6 @@ CK_RV run_GenerateSignVerifyRSAPKCS()
                 { CKM_RSA_PKCS, 512 , 4, { 0xFF, 0xFF, 0xFF, 0x11 }, 53  , FALSE },
                 { CKM_RSA_PKCS, 512 , 4, { 0xFF, 0xFF, 0xFF, 0x11 }, 53  , TRUE  },
         // mod bits = 768. Input up to 85 bytes
-                // publ exp = 0 (generate)
-                { CKM_RSA_PKCS, 768 , 0, { 0x00, 0x00, 0x00, 0x00 }, 1   , FALSE },
-                { CKM_RSA_PKCS, 768 , 0, { 0x00, 0x00, 0x00, 0x00 }, 1   , TRUE  },
-                { CKM_RSA_PKCS, 768 , 0, { 0x00, 0x00, 0x00, 0x00 }, 85  , FALSE },
-                { CKM_RSA_PKCS, 768 , 0, { 0x00, 0x00, 0x00, 0x00 }, 85  , TRUE  },
                 // publ exp = 3
                 { CKM_RSA_PKCS, 768 , 1, { 0x03, 0x00, 0x00, 0x00 }, 1   , FALSE },
                 { CKM_RSA_PKCS, 768 , 1, { 0x03, 0x00, 0x00, 0x00 }, 1   , TRUE  },
@@ -1699,11 +1664,6 @@ CK_RV run_GenerateSignVerifyRSAPKCS()
                 { CKM_RSA_PKCS, 768 , 4, { 0xFF, 0xFF, 0xFF, 0x11 }, 85  , FALSE },
                 { CKM_RSA_PKCS, 768 , 4, { 0xFF, 0xFF, 0xFF, 0x11 }, 85  , TRUE  },
         // mod bits = 1024. Input up to 117 bytes
-                // publ exp = 0 (generate)
-                { CKM_RSA_PKCS, 1024, 0, { 0x00, 0x00, 0x00, 0x00 }, 1   , FALSE },
-                { CKM_RSA_PKCS, 1024, 0, { 0x00, 0x00, 0x00, 0x00 }, 1   , TRUE  },
-                { CKM_RSA_PKCS, 1024, 0, { 0x00, 0x00, 0x00, 0x00 }, 117 , FALSE },
-                { CKM_RSA_PKCS, 1024, 0, { 0x00, 0x00, 0x00, 0x00 }, 117 , TRUE  },
                 // publ exp = 3
                 { CKM_RSA_PKCS, 1024, 1, { 0x03, 0x00, 0x00, 0x00 }, 1   , FALSE },
                 { CKM_RSA_PKCS, 1024, 1, { 0x03, 0x00, 0x00, 0x00 }, 1   , TRUE  },
@@ -1725,11 +1685,6 @@ CK_RV run_GenerateSignVerifyRSAPKCS()
                 { CKM_RSA_PKCS, 1024, 4, { 0xFF, 0xFF, 0xFF, 0x11 }, 117 , FALSE },
                 { CKM_RSA_PKCS, 1024, 4, { 0xFF, 0xFF, 0xFF, 0x11 }, 117 , TRUE  },
         // mod bits = 2048. Input up to 245 bytes
-                // publ exp = 0 (generate)
-                { CKM_RSA_PKCS, 2048, 0, { 0x00, 0x00, 0x00, 0x00 }, 1   , FALSE },
-                { CKM_RSA_PKCS, 2048, 0, { 0x00, 0x00, 0x00, 0x00 }, 1   , TRUE  },
-                { CKM_RSA_PKCS, 2048, 0, { 0x00, 0x00, 0x00, 0x00 }, 245 , FALSE },
-                { CKM_RSA_PKCS, 2048, 0, { 0x00, 0x00, 0x00, 0x00 }, 245 , TRUE  },
                 // publ exp = 3
                 { CKM_RSA_PKCS, 2048, 1, { 0x03, 0x00, 0x00, 0x00 }, 1   , FALSE },
                 { CKM_RSA_PKCS, 2048, 1, { 0x03, 0x00, 0x00, 0x00 }, 1   , TRUE  },
@@ -1751,11 +1706,6 @@ CK_RV run_GenerateSignVerifyRSAPKCS()
                 { CKM_RSA_PKCS, 2048, 4, { 0xFF, 0xFF, 0xFF, 0x11 }, 245 , FALSE },
                 { CKM_RSA_PKCS, 2048, 4, { 0xFF, 0xFF, 0xFF, 0x11 }, 245 , TRUE  },
         // mod bits = 4096. Input up to 501 bytes
-                // publ exp = 0 (generate)
-                { CKM_RSA_PKCS, 4096, 0, { 0x00, 0x00, 0x00, 0x00 }, 1   , FALSE },
-                { CKM_RSA_PKCS, 4096, 0, { 0x00, 0x00, 0x00, 0x00 }, 1   , TRUE  },
-                { CKM_RSA_PKCS, 4096, 0, { 0x00, 0x00, 0x00, 0x00 }, 501 , FALSE },
-                { CKM_RSA_PKCS, 4096, 0, { 0x00, 0x00, 0x00, 0x00 }, 501 , TRUE  },
                 // publ exp = 3
                 { CKM_RSA_PKCS, 4096, 1, { 0x03, 0x00, 0x00, 0x00 }, 1   , FALSE },
                 { CKM_RSA_PKCS, 4096, 1, { 0x03, 0x00, 0x00, 0x00 }, 1   , TRUE  },
@@ -1799,7 +1749,7 @@ CK_RV run_GenerateSignVerifyRSAPKCS()
 CK_RV run_GenerateEncryptDecryptRSAX509()
 {
         int     i;
-        CK_RV   rv;
+        CK_RV   rv = 0;
 
         struct  _inputparam {
                 CK_MECHANISM_TYPE mechtype;
@@ -1817,11 +1767,6 @@ CK_RV run_GenerateEncryptDecryptRSAX509()
          * This means that publ_exp must be in BIG ENDIAN byte-order    */
 
         // mod bits = 512. Input up to 64 bytes
-                // publ exp = 0 (generate)
-                { CKM_RSA_X_509, 512 , 0, { 0x00, 0x00, 0x00, 0x00 }, 1   , FALSE },
-                { CKM_RSA_X_509, 512 , 0, { 0x00, 0x00, 0x00, 0x00 }, 1   , TRUE  },
-                { CKM_RSA_X_509, 512 , 0, { 0x00, 0x00, 0x00, 0x00 }, 64  , FALSE },
-                { CKM_RSA_X_509, 512 , 0, { 0x00, 0x00, 0x00, 0x00 }, 64  , TRUE  },
                 // publ exp = 3
                 { CKM_RSA_X_509, 512 , 1, { 0x03, 0x00, 0x00, 0x00 }, 1   , FALSE },
                 { CKM_RSA_X_509, 512 , 1, { 0x03, 0x00, 0x00, 0x00 }, 1   , TRUE  },
@@ -1843,11 +1788,6 @@ CK_RV run_GenerateEncryptDecryptRSAX509()
                 { CKM_RSA_X_509, 512 , 4, { 0xFF, 0xFF, 0xFF, 0x11 }, 64  , FALSE },
                 { CKM_RSA_X_509, 512 , 4, { 0x22, 0x33, 0x44, 0x11 }, 64  , TRUE  },
         // mod bits = 768. Input up to 96 bytes
-                // publ exp = 0 (generate)
-                { CKM_RSA_X_509, 768 , 0, { 0x00, 0x00, 0x00, 0x00 }, 1   , FALSE },
-                { CKM_RSA_X_509, 768 , 0, { 0x00, 0x00, 0x00, 0x00 }, 1   , TRUE  },
-                { CKM_RSA_X_509, 768 , 0, { 0x00, 0x00, 0x00, 0x00 }, 96  , FALSE },
-                { CKM_RSA_X_509, 768 , 0, { 0x00, 0x00, 0x00, 0x00 }, 96  , TRUE  },
                 // publ exp = 3
                 { CKM_RSA_X_509, 768 , 1, { 0x03, 0x00, 0x00, 0x00 }, 1   , FALSE },
                 { CKM_RSA_X_509, 768 , 1, { 0x03, 0x00, 0x00, 0x00 }, 1   , TRUE  },
@@ -1869,11 +1809,6 @@ CK_RV run_GenerateEncryptDecryptRSAX509()
                 { CKM_RSA_X_509, 768 , 4, { 0xFF, 0xFF, 0xFF, 0x11 }, 96  , FALSE },
                 { CKM_RSA_X_509, 768 , 4, { 0x22, 0x33, 0x44, 0x11 }, 96  , TRUE  },
         // mod bits = 1024. Input up to 128 bytes
-                // publ exp = 0 (generate)
-                { CKM_RSA_X_509, 1024, 0, { 0x00, 0x00, 0x00, 0x00 }, 1   , FALSE },
-                { CKM_RSA_X_509, 1024, 0, { 0x00, 0x00, 0x00, 0x00 }, 1   , TRUE  },
-                { CKM_RSA_X_509, 1024, 0, { 0x00, 0x00, 0x00, 0x00 }, 128 , FALSE },
-                { CKM_RSA_X_509, 1024, 0, { 0x00, 0x00, 0x00, 0x00 }, 128 , TRUE  },
                 // publ exp = 3
                 { CKM_RSA_X_509, 1024, 1, { 0x03, 0x00, 0x00, 0x00 }, 1   , FALSE },
                 { CKM_RSA_X_509, 1024, 1, { 0x03, 0x00, 0x00, 0x00 }, 1   , TRUE  },
@@ -1895,11 +1830,6 @@ CK_RV run_GenerateEncryptDecryptRSAX509()
                 { CKM_RSA_X_509, 1024, 4, { 0xFF, 0xFF, 0xFF, 0x11 }, 128 , FALSE },
                 { CKM_RSA_X_509, 1024, 4, { 0x22, 0x33, 0x44, 0x11 }, 128 , TRUE  },
         // mod bits = 2048. Input up to 256 bytes
-                // publ exp = 0 (generate)
-                { CKM_RSA_X_509, 2048, 0, { 0x00, 0x00, 0x00, 0x00 }, 1   , FALSE },
-                { CKM_RSA_X_509, 2048, 0, { 0x00, 0x00, 0x00, 0x00 }, 1   , TRUE  },
-                { CKM_RSA_X_509, 2048, 0, { 0x00, 0x00, 0x00, 0x00 }, 256 , FALSE },
-                { CKM_RSA_X_509, 2048, 0, { 0x00, 0x00, 0x00, 0x00 }, 256 , TRUE  },
                 // publ exp = 3
                 { CKM_RSA_X_509, 2048, 1, { 0x03, 0x00, 0x00, 0x00 }, 1   , FALSE },
                 { CKM_RSA_X_509, 2048, 1, { 0x03, 0x00, 0x00, 0x00 }, 1   , TRUE  },
@@ -1921,11 +1851,6 @@ CK_RV run_GenerateEncryptDecryptRSAX509()
                 { CKM_RSA_X_509, 2048, 4, { 0xFF, 0xFF, 0xFF, 0x11 }, 256 , FALSE },
                 { CKM_RSA_X_509, 2048, 4, { 0x22, 0x33, 0x44, 0x11 }, 256 , TRUE  },
         // mod bits = 4096. Input up to 512 bytes
-                // publ exp = 0 (generate)
-                { CKM_RSA_X_509, 4096, 0, { 0x00, 0x00, 0x00, 0x00 }, 1   , FALSE },
-                { CKM_RSA_X_509, 4096, 0, { 0x00, 0x00, 0x00, 0x00 }, 1   , TRUE  },
-                { CKM_RSA_X_509, 4096, 0, { 0x00, 0x00, 0x00, 0x00 }, 512 , FALSE },
-                { CKM_RSA_X_509, 4096, 0, { 0x00, 0x00, 0x00, 0x00 }, 512 , TRUE  },
                 // publ exp = 3
                 { CKM_RSA_X_509, 4096, 1, { 0x03, 0x00, 0x00, 0x00 }, 1   , FALSE },
                 { CKM_RSA_X_509, 4096, 1, { 0x03, 0x00, 0x00, 0x00 }, 1   , TRUE  },
@@ -1969,7 +1894,7 @@ CK_RV run_GenerateEncryptDecryptRSAX509()
 CK_RV run_GenerateSignVerifyRSAX509()
 {
         int     i;
-        CK_RV   rv;
+        CK_RV   rv = 0;
 
         struct  _inputparam {
                 CK_MECHANISM_TYPE mechtype;
@@ -1987,11 +1912,6 @@ CK_RV run_GenerateSignVerifyRSAX509()
          * This means that publ_exp must be in BIG ENDIAN byte-order    */
 
         // mod bits = 512. Input up to 64 bytes
-                // publ exp = 0 (generate)
-                { CKM_RSA_X_509, 512 , 0, { 0x00, 0x00, 0x00, 0x00 }, 1   , FALSE },
-                { CKM_RSA_X_509, 512 , 0, { 0x00, 0x00, 0x00, 0x00 }, 1   , TRUE  },
-                { CKM_RSA_X_509, 512 , 0, { 0x00, 0x00, 0x00, 0x00 }, 64  , FALSE },
-                { CKM_RSA_X_509, 512 , 0, { 0x00, 0x00, 0x00, 0x00 }, 64  , TRUE  },
                 // publ exp = 3
                 { CKM_RSA_X_509, 512 , 1, { 0x03, 0x00, 0x00, 0x00 }, 1   , FALSE },
                 { CKM_RSA_X_509, 512 , 1, { 0x03, 0x00, 0x00, 0x00 }, 1   , TRUE  },
@@ -2013,11 +1933,6 @@ CK_RV run_GenerateSignVerifyRSAX509()
                 { CKM_RSA_X_509, 512 , 4, { 0xFF, 0xFF, 0xFF, 0x11 }, 64  , FALSE },
                 { CKM_RSA_X_509, 512 , 4, { 0xFF, 0xFF, 0xFF, 0x11 }, 64  , TRUE  },
         // mod bits = 768. Input up to 96 bytes
-                // publ exp = 0 (generate)
-                { CKM_RSA_X_509, 768 , 0, { 0x00, 0x00, 0x00, 0x00 }, 1   , FALSE },
-                { CKM_RSA_X_509, 768 , 0, { 0x00, 0x00, 0x00, 0x00 }, 1   , TRUE  },
-                { CKM_RSA_X_509, 768 , 0, { 0x00, 0x00, 0x00, 0x00 }, 96  , FALSE },
-                { CKM_RSA_X_509, 768 , 0, { 0x00, 0x00, 0x00, 0x00 }, 96  , TRUE  },
                 // publ exp = 3
                 { CKM_RSA_X_509, 768 , 1, { 0x03, 0x00, 0x00, 0x00 }, 1   , FALSE },
                 { CKM_RSA_X_509, 768 , 1, { 0x03, 0x00, 0x00, 0x00 }, 1   , TRUE  },
@@ -2039,11 +1954,6 @@ CK_RV run_GenerateSignVerifyRSAX509()
                 { CKM_RSA_X_509, 768 , 4, { 0xFF, 0xFF, 0xFF, 0x11 }, 96  , FALSE },
                 { CKM_RSA_X_509, 768 , 4, { 0xFF, 0xFF, 0xFF, 0x11 }, 96  , TRUE  },
         // mod bits = 1024. Input up to 128 bytes
-                // publ exp = 0 (generate)
-                { CKM_RSA_X_509, 1024, 0, { 0x00, 0x00, 0x00, 0x00 }, 1   , FALSE },
-                { CKM_RSA_X_509, 1024, 0, { 0x00, 0x00, 0x00, 0x00 }, 1   , TRUE  },
-                { CKM_RSA_X_509, 1024, 0, { 0x00, 0x00, 0x00, 0x00 }, 128 , FALSE },
-                { CKM_RSA_X_509, 1024, 0, { 0x00, 0x00, 0x00, 0x00 }, 128 , TRUE  },
                 // publ exp = 3
                 { CKM_RSA_X_509, 1024, 1, { 0x03, 0x00, 0x00, 0x00 }, 1   , FALSE },
                 { CKM_RSA_X_509, 1024, 1, { 0x03, 0x00, 0x00, 0x00 }, 1   , TRUE  },
@@ -2065,11 +1975,6 @@ CK_RV run_GenerateSignVerifyRSAX509()
                 { CKM_RSA_X_509, 1024, 4, { 0xFF, 0xFF, 0xFF, 0x11 }, 128 , FALSE },
                 { CKM_RSA_X_509, 1024, 4, { 0xFF, 0xFF, 0xFF, 0x11 }, 128 , TRUE  },
         // mod bits = 2048. Input up to 256 bytes
-                // publ exp = 0 (generate)
-                { CKM_RSA_X_509, 2048, 0, { 0x00, 0x00, 0x00, 0x00 }, 1   , FALSE },
-                { CKM_RSA_X_509, 2048, 0, { 0x00, 0x00, 0x00, 0x00 }, 1   , TRUE  },
-                { CKM_RSA_X_509, 2048, 0, { 0x00, 0x00, 0x00, 0x00 }, 256 , FALSE },
-                { CKM_RSA_X_509, 2048, 0, { 0x00, 0x00, 0x00, 0x00 }, 256 , TRUE  },
                 // publ exp = 3
                 { CKM_RSA_X_509, 2048, 1, { 0x03, 0x00, 0x00, 0x00 }, 1   , FALSE },
                 { CKM_RSA_X_509, 2048, 1, { 0x03, 0x00, 0x00, 0x00 }, 1   , TRUE  },
@@ -2091,11 +1996,6 @@ CK_RV run_GenerateSignVerifyRSAX509()
                 { CKM_RSA_X_509, 2048, 4, { 0xFF, 0xFF, 0xFF, 0x11 }, 256 , FALSE },
                 { CKM_RSA_X_509, 2048, 4, { 0xFF, 0xFF, 0xFF, 0x11 }, 256 , TRUE  },
         // mod bits = 4096. Input up to 512 bytes
-                // publ exp = 0 (generate)
-                { CKM_RSA_X_509, 4096, 0, { 0x00, 0x00, 0x00, 0x00 }, 1   , FALSE },
-                { CKM_RSA_X_509, 4096, 0, { 0x00, 0x00, 0x00, 0x00 }, 1   , TRUE  },
-                { CKM_RSA_X_509, 4096, 0, { 0x00, 0x00, 0x00, 0x00 }, 512 , FALSE },
-                { CKM_RSA_X_509, 4096, 0, { 0x00, 0x00, 0x00, 0x00 }, 512 , TRUE  },
                 // publ exp = 3
                 { CKM_RSA_X_509, 4096, 1, { 0x03, 0x00, 0x00, 0x00 }, 1   , FALSE },
                 { CKM_RSA_X_509, 4096, 1, { 0x03, 0x00, 0x00, 0x00 }, 1   , TRUE  },
@@ -2141,7 +2041,7 @@ CK_RV run_GenerateSignVerifyRSAX509()
 CK_RV run_GenerateSignVerifyRSAMD2()
 {
         int     i;
-        CK_RV   rv;
+        CK_RV   rv = 0;
 
         struct  _inputparam {
                 CK_MECHANISM_TYPE mechtype;
@@ -2159,9 +2059,6 @@ CK_RV run_GenerateSignVerifyRSAMD2()
          * This means that publ_exp must be in BIG ENDIAN byte-order    */
 
         // mod bits = 512.
-                // publ exp = 0 (generate)
-                { CKM_MD2_RSA_PKCS, 512 , 0, { 0x00, 0x00, 0x00, 0x00 }, 1   , FALSE },
-                { CKM_MD2_RSA_PKCS, 512 , 0, { 0x00, 0x00, 0x00, 0x00 }, 1000  , FALSE },
                 // publ exp = 3
                 { CKM_MD2_RSA_PKCS, 512 , 1, { 0x03, 0x00, 0x00, 0x00 }, 1   , FALSE },
                 { CKM_MD2_RSA_PKCS, 512 , 1, { 0x03, 0x00, 0x00, 0x00 }, 1000  , FALSE },
@@ -2175,9 +2072,6 @@ CK_RV run_GenerateSignVerifyRSAMD2()
                 { CKM_MD2_RSA_PKCS, 512 , 4, { 0xFF, 0xFF, 0xFF, 0x11 }, 1   , FALSE },
                 { CKM_MD2_RSA_PKCS, 512 , 4, { 0xFF, 0xFF, 0xFF, 0x11 }, 1000  , FALSE },
         // mod bits = 768
-                // publ exp = 0 (generate)
-                { CKM_MD2_RSA_PKCS, 768 , 0, { 0x00, 0x00, 0x00, 0x00 }, 1   , FALSE },
-                { CKM_MD2_RSA_PKCS, 768 , 0, { 0x00, 0x00, 0x00, 0x00 }, 1000  , FALSE },
                 // publ exp = 3
                 { CKM_MD2_RSA_PKCS, 768 , 1, { 0x03, 0x00, 0x00, 0x00 }, 1   , FALSE },
                 { CKM_MD2_RSA_PKCS, 768 , 1, { 0x03, 0x00, 0x00, 0x00 }, 1000  , FALSE },
@@ -2191,9 +2085,6 @@ CK_RV run_GenerateSignVerifyRSAMD2()
                 { CKM_MD2_RSA_PKCS, 768 , 4, { 0xFF, 0xFF, 0xFF, 0x11 }, 1   , FALSE },
                 { CKM_MD2_RSA_PKCS, 768 , 4, { 0xFF, 0xFF, 0xFF, 0x11 }, 1000  , FALSE },
         // mod bits = 1024
-                // publ exp = 0 (generate)
-                { CKM_MD2_RSA_PKCS, 1024, 0, { 0x00, 0x00, 0x00, 0x00 }, 1   , FALSE },
-                { CKM_MD2_RSA_PKCS, 1024, 0, { 0x00, 0x00, 0x00, 0x00 }, 1000 , FALSE },
                 // publ exp = 3
                 { CKM_MD2_RSA_PKCS, 1024, 1, { 0x03, 0x00, 0x00, 0x00 }, 1   , FALSE },
                 { CKM_MD2_RSA_PKCS, 1024, 1, { 0x03, 0x00, 0x00, 0x00 }, 1000 , FALSE },
@@ -2207,9 +2098,6 @@ CK_RV run_GenerateSignVerifyRSAMD2()
                 { CKM_MD2_RSA_PKCS, 1024, 4, { 0xFF, 0xFF, 0xFF, 0x11 }, 1   , FALSE },
                 { CKM_MD2_RSA_PKCS, 1024, 4, { 0xFF, 0xFF, 0xFF, 0x11 }, 1000 , FALSE },
         // mod bits = 2048
-                // publ exp = 0 (generate)
-                { CKM_MD2_RSA_PKCS, 2048, 0, { 0x00, 0x00, 0x00, 0x00 }, 1   , FALSE },
-                { CKM_MD2_RSA_PKCS, 2048, 0, { 0x00, 0x00, 0x00, 0x00 }, 1000 , FALSE },
                 // publ exp = 3
                 { CKM_MD2_RSA_PKCS, 2048, 1, { 0x03, 0x00, 0x00, 0x00 }, 1   , FALSE },
                 { CKM_MD2_RSA_PKCS, 2048, 1, { 0x03, 0x00, 0x00, 0x00 }, 1000 , FALSE },
@@ -2223,9 +2111,6 @@ CK_RV run_GenerateSignVerifyRSAMD2()
                 { CKM_MD2_RSA_PKCS, 2048, 4, { 0xFF, 0xFF, 0xFF, 0x11 }, 1   , FALSE },
                 { CKM_MD2_RSA_PKCS, 2048, 4, { 0xFF, 0xFF, 0xFF, 0x11 }, 1000 , FALSE },
         // mod bits = 4096
-                // publ exp = 0 (generate)
-                { CKM_MD2_RSA_PKCS, 4096, 0, { 0x00, 0x00, 0x00, 0x00 }, 1   , FALSE },
-                { CKM_MD2_RSA_PKCS, 4096, 0, { 0x00, 0x00, 0x00, 0x00 }, 1000 , FALSE },
                 // publ exp = 3
                 { CKM_MD2_RSA_PKCS, 4096, 1, { 0x03, 0x00, 0x00, 0x00 }, 1   , FALSE },
                 { CKM_MD2_RSA_PKCS, 4096, 1, { 0x03, 0x00, 0x00, 0x00 }, 1000 , FALSE },
@@ -2263,7 +2148,7 @@ CK_RV run_GenerateSignVerifyRSAMD2()
 CK_RV run_GenerateSignVerifyRSAMD5()
 {
         int     i;
-        CK_RV   rv;
+        CK_RV   rv = 0;
 
         struct  _inputparam {
                 CK_MECHANISM_TYPE mechtype;
@@ -2281,9 +2166,6 @@ CK_RV run_GenerateSignVerifyRSAMD5()
          * This means that publ_exp must be in BIG ENDIAN byte-order    */
 
         // mod bits = 512.
-                // publ exp = 0 (generate)
-                { CKM_MD5_RSA_PKCS, 512 , 0, { 0x00, 0x00, 0x00, 0x00 }, 1   , FALSE },
-                { CKM_MD5_RSA_PKCS, 512 , 0, { 0x00, 0x00, 0x00, 0x00 }, 1000  , FALSE },
                 // publ exp = 3
                 { CKM_MD5_RSA_PKCS, 512 , 1, { 0x03, 0x00, 0x00, 0x00 }, 1   , FALSE },
                 { CKM_MD5_RSA_PKCS, 512 , 1, { 0x03, 0x00, 0x00, 0x00 }, 1000  , FALSE },
@@ -2297,9 +2179,6 @@ CK_RV run_GenerateSignVerifyRSAMD5()
                 { CKM_MD5_RSA_PKCS, 512 , 4, { 0xFF, 0xFF, 0xFF, 0x11 }, 1   , FALSE },
                 { CKM_MD5_RSA_PKCS, 512 , 4, { 0xFF, 0xFF, 0xFF, 0x11 }, 1000  , FALSE },
         // mod bits = 768
-                // publ exp = 0 (generate)
-                { CKM_MD5_RSA_PKCS, 768 , 0, { 0x00, 0x00, 0x00, 0x00 }, 1   , FALSE },
-                { CKM_MD5_RSA_PKCS, 768 , 0, { 0x00, 0x00, 0x00, 0x00 }, 1000  , FALSE },
                 // publ exp = 3
                 { CKM_MD5_RSA_PKCS, 768 , 1, { 0x03, 0x00, 0x00, 0x00 }, 1   , FALSE },
                 { CKM_MD5_RSA_PKCS, 768 , 1, { 0x03, 0x00, 0x00, 0x00 }, 1000  , FALSE },
@@ -2313,9 +2192,6 @@ CK_RV run_GenerateSignVerifyRSAMD5()
                 { CKM_MD5_RSA_PKCS, 768 , 4, { 0xFF, 0xFF, 0xFF, 0x11 }, 1   , FALSE },
                 { CKM_MD5_RSA_PKCS, 768 , 4, { 0xFF, 0xFF, 0xFF, 0x11 }, 1000  , FALSE },
         // mod bits = 1024
-                // publ exp = 0 (generate)
-                { CKM_MD5_RSA_PKCS, 1024, 0, { 0x00, 0x00, 0x00, 0x00 }, 1   , FALSE },
-                { CKM_MD5_RSA_PKCS, 1024, 0, { 0x00, 0x00, 0x00, 0x00 }, 1000 , FALSE },
                 // publ exp = 3
                 { CKM_MD5_RSA_PKCS, 1024, 1, { 0x03, 0x00, 0x00, 0x00 }, 1   , FALSE },
                 { CKM_MD5_RSA_PKCS, 1024, 1, { 0x03, 0x00, 0x00, 0x00 }, 1000 , FALSE },
@@ -2329,9 +2205,6 @@ CK_RV run_GenerateSignVerifyRSAMD5()
                 { CKM_MD5_RSA_PKCS, 1024, 4, { 0xFF, 0xFF, 0xFF, 0x11 }, 1   , FALSE },
                 { CKM_MD5_RSA_PKCS, 1024, 4, { 0xFF, 0xFF, 0xFF, 0x11 }, 1000 , FALSE },
         // mod bits = 2048
-                // publ exp = 0 (generate)
-                { CKM_MD5_RSA_PKCS, 2048, 0, { 0x00, 0x00, 0x00, 0x00 }, 1   , FALSE },
-                { CKM_MD5_RSA_PKCS, 2048, 0, { 0x00, 0x00, 0x00, 0x00 }, 1000 , FALSE },
                 // publ exp = 3
                 { CKM_MD5_RSA_PKCS, 2048, 1, { 0x03, 0x00, 0x00, 0x00 }, 1   , FALSE },
                 { CKM_MD5_RSA_PKCS, 2048, 1, { 0x03, 0x00, 0x00, 0x00 }, 1000 , FALSE },
@@ -2345,9 +2218,6 @@ CK_RV run_GenerateSignVerifyRSAMD5()
                 { CKM_MD5_RSA_PKCS, 2048, 4, { 0xFF, 0xFF, 0xFF, 0x11 }, 1   , FALSE },
                 { CKM_MD5_RSA_PKCS, 2048, 4, { 0xFF, 0xFF, 0xFF, 0x11 }, 1000 , FALSE },
         // mod bits = 4096
-                // publ exp = 0 (generate)
-                { CKM_MD5_RSA_PKCS, 4096, 0, { 0x00, 0x00, 0x00, 0x00 }, 1   , FALSE },
-                { CKM_MD5_RSA_PKCS, 4096, 0, { 0x00, 0x00, 0x00, 0x00 }, 1000 , FALSE },
                 // publ exp = 3
                 { CKM_MD5_RSA_PKCS, 4096, 1, { 0x03, 0x00, 0x00, 0x00 }, 1   , FALSE },
                 { CKM_MD5_RSA_PKCS, 4096, 1, { 0x03, 0x00, 0x00, 0x00 }, 1000 , FALSE },
@@ -2385,7 +2255,7 @@ CK_RV run_GenerateSignVerifyRSAMD5()
 CK_RV run_GenerateSignVerifyRSASHA1()
 {
         int     i;
-        CK_RV   rv;
+        CK_RV   rv = 0;
 
         struct  _inputparam {
                 CK_MECHANISM_TYPE mechtype;
@@ -2403,9 +2273,6 @@ CK_RV run_GenerateSignVerifyRSASHA1()
          * This means that publ_exp must be in BIG ENDIAN byte-order    */
 
         // mod bits = 512.
-                // publ exp = 0 (generate)
-                { CKM_SHA1_RSA_PKCS, 512 , 0, { 0x00, 0x00, 0x00, 0x00 }, 1   , FALSE },
-                { CKM_SHA1_RSA_PKCS, 512 , 0, { 0x00, 0x00, 0x00, 0x00 }, 1000  , FALSE },
                 // publ exp = 3
                 { CKM_SHA1_RSA_PKCS, 512 , 1, { 0x03, 0x00, 0x00, 0x00 }, 1   , FALSE },
                 { CKM_SHA1_RSA_PKCS, 512 , 1, { 0x03, 0x00, 0x00, 0x00 }, 1000  , FALSE },
@@ -2419,9 +2286,6 @@ CK_RV run_GenerateSignVerifyRSASHA1()
                 { CKM_SHA1_RSA_PKCS, 512 , 4, { 0xFF, 0xFF, 0xFF, 0x11 }, 1   , FALSE },
                 { CKM_SHA1_RSA_PKCS, 512 , 4, { 0xFF, 0xFF, 0xFF, 0x11 }, 1000  , FALSE },
         // mod bits = 768
-                // publ exp = 0 (generate)
-                { CKM_SHA1_RSA_PKCS, 768 , 0, { 0x00, 0x00, 0x00, 0x00 }, 1   , FALSE },
-                { CKM_SHA1_RSA_PKCS, 768 , 0, { 0x00, 0x00, 0x00, 0x00 }, 1000  , FALSE },
                 // publ exp = 3
                 { CKM_SHA1_RSA_PKCS, 768 , 1, { 0x03, 0x00, 0x00, 0x00 }, 1   , FALSE },
                 { CKM_SHA1_RSA_PKCS, 768 , 1, { 0x03, 0x00, 0x00, 0x00 }, 1000  , FALSE },
@@ -2435,9 +2299,6 @@ CK_RV run_GenerateSignVerifyRSASHA1()
                 { CKM_SHA1_RSA_PKCS, 768 , 4, { 0xFF, 0xFF, 0xFF, 0x11 }, 1   , FALSE },
                 { CKM_SHA1_RSA_PKCS, 768 , 4, { 0xFF, 0xFF, 0xFF, 0x11 }, 1000  , FALSE },
         // mod bits = 1024
-                // publ exp = 0 (generate)
-                { CKM_SHA1_RSA_PKCS, 1024, 0, { 0x00, 0x00, 0x00, 0x00 }, 1   , FALSE },
-                { CKM_SHA1_RSA_PKCS, 1024, 0, { 0x00, 0x00, 0x00, 0x00 }, 1000 , FALSE },
                 // publ exp = 3
                 { CKM_SHA1_RSA_PKCS, 1024, 1, { 0x03, 0x00, 0x00, 0x00 }, 1   , FALSE },
                 { CKM_SHA1_RSA_PKCS, 1024, 1, { 0x03, 0x00, 0x00, 0x00 }, 1000 , FALSE },
@@ -2451,9 +2312,6 @@ CK_RV run_GenerateSignVerifyRSASHA1()
                 { CKM_SHA1_RSA_PKCS, 1024, 4, { 0xFF, 0xFF, 0xFF, 0x11 }, 1   , FALSE },
                 { CKM_SHA1_RSA_PKCS, 1024, 4, { 0xFF, 0xFF, 0xFF, 0x11 }, 1000 , FALSE },
         // mod bits = 2048
-                // publ exp = 0 (generate)
-                { CKM_SHA1_RSA_PKCS, 2048, 0, { 0x00, 0x00, 0x00, 0x00 }, 1   , FALSE },
-                { CKM_SHA1_RSA_PKCS, 2048, 0, { 0x00, 0x00, 0x00, 0x00 }, 1000 , FALSE },
                 // publ exp = 3
                 { CKM_SHA1_RSA_PKCS, 2048, 1, { 0x03, 0x00, 0x00, 0x00 }, 1   , FALSE },
                 { CKM_SHA1_RSA_PKCS, 2048, 1, { 0x03, 0x00, 0x00, 0x00 }, 1000 , FALSE },
@@ -2467,9 +2325,6 @@ CK_RV run_GenerateSignVerifyRSASHA1()
                 { CKM_SHA1_RSA_PKCS, 2048, 4, { 0xFF, 0xFF, 0xFF, 0x11 }, 1   , FALSE },
                 { CKM_SHA1_RSA_PKCS, 2048, 4, { 0xFF, 0xFF, 0xFF, 0x11 }, 1000 , FALSE },
         // mod bits = 4096
-                // publ exp = 0 (generate)
-                { CKM_SHA1_RSA_PKCS, 4096, 0, { 0x00, 0x00, 0x00, 0x00 }, 1   , FALSE },
-                { CKM_SHA1_RSA_PKCS, 4096, 0, { 0x00, 0x00, 0x00, 0x00 }, 1000 , FALSE },
                 // publ exp = 3
                 { CKM_SHA1_RSA_PKCS, 4096, 1, { 0x03, 0x00, 0x00, 0x00 }, 1   , FALSE },
                 { CKM_SHA1_RSA_PKCS, 4096, 1, { 0x03, 0x00, 0x00, 0x00 }, 1000 , FALSE },
@@ -2506,7 +2361,7 @@ CK_RV run_GenerateSignVerifyRSASHA1()
 CK_RV run_GenerateMultipartSignVerifyRSAMD2()
 {
         int     i;
-        CK_RV   rv;
+        CK_RV   rv = 0;
 
         struct  _inputparam {
                 CK_MECHANISM_TYPE mechtype;
@@ -2524,9 +2379,6 @@ CK_RV run_GenerateMultipartSignVerifyRSAMD2()
          * This means that publ_exp must be in BIG ENDIAN byte-order    */
 
         // mod bits = 512. Input up to 64 bytes
-                // publ exp = 0 (generate)
-                { CKM_MD2_RSA_PKCS, 512 , 0, { 0x00, 0x00, 0x00, 0x00 }, 1   , {50} },
-                { CKM_MD2_RSA_PKCS, 512 , 0, { 0x00, 0x00, 0x00, 0x00 }, 3   , {10, 0, 10}  },
                 // publ exp = 3
                 { CKM_MD2_RSA_PKCS, 512 , 1, { 0x03, 0x00, 0x00, 0x00 }, 1   , {50} },
                 { CKM_MD2_RSA_PKCS, 512 , 1, { 0x03, 0x00, 0x00, 0x00 }, 3   , {10, 0, 10}  },
@@ -2540,9 +2392,6 @@ CK_RV run_GenerateMultipartSignVerifyRSAMD2()
                 { CKM_MD2_RSA_PKCS, 512 , 4, { 0xFF, 0xFF, 0xFF, 0x11 }, 1   , {50} },
                 { CKM_MD2_RSA_PKCS, 512 , 4, { 0xFF, 0xFF, 0xFF, 0x11 }, 3   , {10, 0, 10}  },
         // mod bits = 768. Input up to 64 bytes
-                // publ exp = 0 (generate)
-                { CKM_MD2_RSA_PKCS, 768 , 0, { 0x00, 0x00, 0x00, 0x00 }, 1   , {50} },
-                { CKM_MD2_RSA_PKCS, 768 , 0, { 0x00, 0x00, 0x00, 0x00 }, 3   , {10, 0, 10}  },
                 // publ exp = 3
                 { CKM_MD2_RSA_PKCS, 768 , 1, { 0x03, 0x00, 0x00, 0x00 }, 1   , {50} },
                 { CKM_MD2_RSA_PKCS, 768 , 1, { 0x03, 0x00, 0x00, 0x00 }, 3   , {10, 0, 10}  },
@@ -2556,9 +2405,6 @@ CK_RV run_GenerateMultipartSignVerifyRSAMD2()
                 { CKM_MD2_RSA_PKCS, 768 , 4, { 0xFF, 0xFF, 0xFF, 0x11 }, 1   , {50} },
                 { CKM_MD2_RSA_PKCS, 768 , 4, { 0xFF, 0xFF, 0xFF, 0x11 }, 3   , {10, 0, 10}  },
         // mod bits = 768. Input up to 64 bytes
-                // publ exp = 0 (generate)
-                { CKM_MD2_RSA_PKCS, 768 , 0, { 0x00, 0x00, 0x00, 0x00 }, 1   , {50} },
-                { CKM_MD2_RSA_PKCS, 768 , 0, { 0x00, 0x00, 0x00, 0x00 }, 3   , {10, 0, 10}  },
                 // publ exp = 3
                 { CKM_MD2_RSA_PKCS, 768 , 1, { 0x03, 0x00, 0x00, 0x00 }, 1   , {50} },
                 { CKM_MD2_RSA_PKCS, 768 , 1, { 0x03, 0x00, 0x00, 0x00 }, 3   , {10, 0, 10}  },
@@ -2572,9 +2418,6 @@ CK_RV run_GenerateMultipartSignVerifyRSAMD2()
                 { CKM_MD2_RSA_PKCS, 768 , 4, { 0xFF, 0xFF, 0xFF, 0x11 }, 1   , {50} },
                 { CKM_MD2_RSA_PKCS, 768 , 4, { 0xFF, 0xFF, 0xFF, 0x11 }, 3   , {10, 0, 10}  },
         // mod bits = 1024. Input up to 64 bytes
-                // publ exp = 0 (generate)
-                { CKM_MD2_RSA_PKCS, 1024, 0, { 0x00, 0x00, 0x00, 0x00 }, 1   , {50} },
-                { CKM_MD2_RSA_PKCS, 1024, 0, { 0x00, 0x00, 0x00, 0x00 }, 3   , {10, 0, 10}  },
                 // publ exp = 3
                 { CKM_MD2_RSA_PKCS, 1024, 1, { 0x03, 0x00, 0x00, 0x00 }, 1   , {50} },
                 { CKM_MD2_RSA_PKCS, 1024, 1, { 0x03, 0x00, 0x00, 0x00 }, 3   , {10, 0, 10}  },
@@ -2588,9 +2431,6 @@ CK_RV run_GenerateMultipartSignVerifyRSAMD2()
                 { CKM_MD2_RSA_PKCS, 1024, 4, { 0xFF, 0xFF, 0xFF, 0x11 }, 1   , {50} },
                 { CKM_MD2_RSA_PKCS, 1024, 4, { 0xFF, 0xFF, 0xFF, 0x11 }, 3   , {10, 0, 10}  },
         // mod bits = 2048. Input up to 64 bytes
-                // publ exp = 0 (generate)
-                { CKM_MD2_RSA_PKCS, 2048, 0, { 0x00, 0x00, 0x00, 0x00 }, 1   , {50} },
-                { CKM_MD2_RSA_PKCS, 2048, 0, { 0x00, 0x00, 0x00, 0x00 }, 3   , {10, 0, 10}  },
                 // publ exp = 3
                 { CKM_MD2_RSA_PKCS, 2048, 1, { 0x03, 0x00, 0x00, 0x00 }, 1   , {50} },
                 { CKM_MD2_RSA_PKCS, 2048, 1, { 0x03, 0x00, 0x00, 0x00 }, 3   , {10, 0, 10}  },
@@ -2604,9 +2444,6 @@ CK_RV run_GenerateMultipartSignVerifyRSAMD2()
                 { CKM_MD2_RSA_PKCS, 2048, 4, { 0xFF, 0xFF, 0xFF, 0x11 }, 1   , {50} },
                 { CKM_MD2_RSA_PKCS, 2048, 4, { 0xFF, 0xFF, 0xFF, 0x11 }, 3   , {10, 0, 10}  },
         // mod bits = 4096. Input up to 64 bytes
-                // publ exp = 0 (generate)
-                { CKM_MD2_RSA_PKCS, 4096, 0, { 0x00, 0x00, 0x00, 0x00 }, 1   , {50} },
-                { CKM_MD2_RSA_PKCS, 4096, 0, { 0x00, 0x00, 0x00, 0x00 }, 3   , {10, 0, 10}  },
                 // publ exp = 3
                 { CKM_MD2_RSA_PKCS, 4096, 1, { 0x03, 0x00, 0x00, 0x00 }, 1   , {50} },
                 { CKM_MD2_RSA_PKCS, 4096, 1, { 0x03, 0x00, 0x00, 0x00 }, 3   , {10, 0, 10}  },
@@ -2642,7 +2479,7 @@ CK_RV run_GenerateMultipartSignVerifyRSAMD2()
 CK_RV run_GenerateMultipartSignVerifyRSAMD5()
 {
         int     i;
-        CK_RV   rv;
+        CK_RV   rv = 0;
 
         struct  _inputparam {
                 CK_MECHANISM_TYPE mechtype;
@@ -2660,9 +2497,6 @@ CK_RV run_GenerateMultipartSignVerifyRSAMD5()
          * This means that publ_exp must be in BIG ENDIAN byte-order    */
 
         // mod bits = 512. Input up to 64 bytes
-                // publ exp = 0 (generate)
-                { CKM_MD5_RSA_PKCS, 512 , 0, { 0x00, 0x00, 0x00, 0x00 }, 1   , {50} },
-                { CKM_MD5_RSA_PKCS, 512 , 0, { 0x00, 0x00, 0x00, 0x00 }, 3   , {10, 0, 10}  },
                 // publ exp = 3
                 { CKM_MD5_RSA_PKCS, 512 , 1, { 0x03, 0x00, 0x00, 0x00 }, 1   , {50} },
                 { CKM_MD5_RSA_PKCS, 512 , 1, { 0x03, 0x00, 0x00, 0x00 }, 3   , {10, 0, 10}  },
@@ -2676,9 +2510,6 @@ CK_RV run_GenerateMultipartSignVerifyRSAMD5()
                 { CKM_MD5_RSA_PKCS, 512 , 4, { 0xFF, 0xFF, 0xFF, 0x11 }, 1   , {50} },
                 { CKM_MD5_RSA_PKCS, 512 , 4, { 0xFF, 0xFF, 0xFF, 0x11 }, 3   , {10, 0, 10}  },
         // mod bits = 768. Input up to 64 bytes
-                // publ exp = 0 (generate)
-                { CKM_MD5_RSA_PKCS, 768 , 0, { 0x00, 0x00, 0x00, 0x00 }, 1   , {50} },
-                { CKM_MD5_RSA_PKCS, 768 , 0, { 0x00, 0x00, 0x00, 0x00 }, 3   , {10, 0, 10}  },
                 // publ exp = 3
                 { CKM_MD5_RSA_PKCS, 768 , 1, { 0x03, 0x00, 0x00, 0x00 }, 1   , {50} },
                 { CKM_MD5_RSA_PKCS, 768 , 1, { 0x03, 0x00, 0x00, 0x00 }, 3   , {10, 0, 10}  },
@@ -2692,9 +2523,6 @@ CK_RV run_GenerateMultipartSignVerifyRSAMD5()
                 { CKM_MD5_RSA_PKCS, 768 , 4, { 0xFF, 0xFF, 0xFF, 0x11 }, 1   , {50} },
                 { CKM_MD5_RSA_PKCS, 768 , 4, { 0xFF, 0xFF, 0xFF, 0x11 }, 3   , {10, 0, 10}  },
         // mod bits = 768. Input up to 64 bytes
-                // publ exp = 0 (generate)
-                { CKM_MD5_RSA_PKCS, 768 , 0, { 0x00, 0x00, 0x00, 0x00 }, 1   , {50} },
-                { CKM_MD5_RSA_PKCS, 768 , 0, { 0x00, 0x00, 0x00, 0x00 }, 3   , {10, 0, 10}  },
                 // publ exp = 3
                 { CKM_MD5_RSA_PKCS, 768 , 1, { 0x03, 0x00, 0x00, 0x00 }, 1   , {50} },
                 { CKM_MD5_RSA_PKCS, 768 , 1, { 0x03, 0x00, 0x00, 0x00 }, 3   , {10, 0, 10}  },
@@ -2708,9 +2536,6 @@ CK_RV run_GenerateMultipartSignVerifyRSAMD5()
                 { CKM_MD5_RSA_PKCS, 768 , 4, { 0xFF, 0xFF, 0xFF, 0x11 }, 1   , {50} },
                 { CKM_MD5_RSA_PKCS, 768 , 4, { 0xFF, 0xFF, 0xFF, 0x11 }, 3   , {10, 0, 10}  },
         // mod bits = 1024. Input up to 64 bytes
-                // publ exp = 0 (generate)
-                { CKM_MD5_RSA_PKCS, 1024, 0, { 0x00, 0x00, 0x00, 0x00 }, 1   , {50} },
-                { CKM_MD5_RSA_PKCS, 1024, 0, { 0x00, 0x00, 0x00, 0x00 }, 3   , {10, 0, 10}  },
                 // publ exp = 3
                 { CKM_MD5_RSA_PKCS, 1024, 1, { 0x03, 0x00, 0x00, 0x00 }, 1   , {50} },
                 { CKM_MD5_RSA_PKCS, 1024, 1, { 0x03, 0x00, 0x00, 0x00 }, 3   , {10, 0, 10}  },
@@ -2724,9 +2549,6 @@ CK_RV run_GenerateMultipartSignVerifyRSAMD5()
                 { CKM_MD5_RSA_PKCS, 1024, 4, { 0xFF, 0xFF, 0xFF, 0x11 }, 1   , {50} },
                 { CKM_MD5_RSA_PKCS, 1024, 4, { 0xFF, 0xFF, 0xFF, 0x11 }, 3   , {10, 0, 10}  },
         // mod bits = 2048. Input up to 64 bytes
-                // publ exp = 0 (generate)
-                { CKM_MD5_RSA_PKCS, 2048, 0, { 0x00, 0x00, 0x00, 0x00 }, 1   , {50} },
-                { CKM_MD5_RSA_PKCS, 2048, 0, { 0x00, 0x00, 0x00, 0x00 }, 3   , {10, 0, 10}  },
                 // publ exp = 3
                 { CKM_MD5_RSA_PKCS, 2048, 1, { 0x03, 0x00, 0x00, 0x00 }, 1   , {50} },
                 { CKM_MD5_RSA_PKCS, 2048, 1, { 0x03, 0x00, 0x00, 0x00 }, 3   , {10, 0, 10}  },
@@ -2740,9 +2562,6 @@ CK_RV run_GenerateMultipartSignVerifyRSAMD5()
                 { CKM_MD5_RSA_PKCS, 2048, 4, { 0xFF, 0xFF, 0xFF, 0x11 }, 1   , {50} },
                 { CKM_MD5_RSA_PKCS, 2048, 4, { 0xFF, 0xFF, 0xFF, 0x11 }, 3   , {10, 0, 10}  },
         // mod bits = 4096. Input up to 64 bytes
-                // publ exp = 0 (generate)
-                { CKM_MD5_RSA_PKCS, 4096, 0, { 0x00, 0x00, 0x00, 0x00 }, 1   , {50} },
-                { CKM_MD5_RSA_PKCS, 4096, 0, { 0x00, 0x00, 0x00, 0x00 }, 3   , {10, 0, 10}  },
                 // publ exp = 3
                 { CKM_MD5_RSA_PKCS, 4096, 1, { 0x03, 0x00, 0x00, 0x00 }, 1   , {50} },
                 { CKM_MD5_RSA_PKCS, 4096, 1, { 0x03, 0x00, 0x00, 0x00 }, 3   , {10, 0, 10}  },
@@ -2779,7 +2598,7 @@ CK_RV run_GenerateMultipartSignVerifyRSAMD5()
 CK_RV run_GenerateMultipartSignVerifyRSASHA1()
 {
         int     i;
-        CK_RV   rv;
+        CK_RV   rv = 0;
 
         struct  _inputparam {
                 CK_MECHANISM_TYPE mechtype;
@@ -2797,9 +2616,6 @@ CK_RV run_GenerateMultipartSignVerifyRSASHA1()
          * This means that publ_exp must be in BIG ENDIAN byte-order    */
 
         // mod bits = 512. Input up to 64 bytes
-                // publ exp = 0 (generate)
-                { CKM_SHA1_RSA_PKCS, 512 , 0, { 0x00, 0x00, 0x00, 0x00 }, 1   , {50} },
-                { CKM_SHA1_RSA_PKCS, 512 , 0, { 0x00, 0x00, 0x00, 0x00 }, 3   , {10, 0, 10}  },
                 // publ exp = 3
                 { CKM_SHA1_RSA_PKCS, 512 , 1, { 0x03, 0x00, 0x00, 0x00 }, 1   , {50} },
                 { CKM_SHA1_RSA_PKCS, 512 , 1, { 0x03, 0x00, 0x00, 0x00 }, 3   , {10, 0, 10}  },
@@ -2813,9 +2629,6 @@ CK_RV run_GenerateMultipartSignVerifyRSASHA1()
                 { CKM_SHA1_RSA_PKCS, 512 , 4, { 0xFF, 0xFF, 0xFF, 0x11 }, 1   , {50} },
                 { CKM_SHA1_RSA_PKCS, 512 , 4, { 0xFF, 0xFF, 0xFF, 0x11 }, 3   , {10, 0, 10}  },
         // mod bits = 768. Input up to 64 bytes
-                // publ exp = 0 (generate)
-                { CKM_SHA1_RSA_PKCS, 768 , 0, { 0x00, 0x00, 0x00, 0x00 }, 1   , {50} },
-                { CKM_SHA1_RSA_PKCS, 768 , 0, { 0x00, 0x00, 0x00, 0x00 }, 3   , {10, 0, 10}  },
                 // publ exp = 3
                 { CKM_SHA1_RSA_PKCS, 768 , 1, { 0x03, 0x00, 0x00, 0x00 }, 1   , {50} },
                 { CKM_SHA1_RSA_PKCS, 768 , 1, { 0x03, 0x00, 0x00, 0x00 }, 3   , {10, 0, 10}  },
@@ -2829,9 +2642,6 @@ CK_RV run_GenerateMultipartSignVerifyRSASHA1()
                 { CKM_SHA1_RSA_PKCS, 768 , 4, { 0xFF, 0xFF, 0xFF, 0x11 }, 1   , {50} },
                 { CKM_SHA1_RSA_PKCS, 768 , 4, { 0xFF, 0xFF, 0xFF, 0x11 }, 3   , {10, 0, 10}  },
         // mod bits = 768. Input up to 64 bytes
-                // publ exp = 0 (generate)
-                { CKM_SHA1_RSA_PKCS, 768 , 0, { 0x00, 0x00, 0x00, 0x00 }, 1   , {50} },
-                { CKM_SHA1_RSA_PKCS, 768 , 0, { 0x00, 0x00, 0x00, 0x00 }, 3   , {10, 0, 10}  },
                 // publ exp = 3
                 { CKM_SHA1_RSA_PKCS, 768 , 1, { 0x03, 0x00, 0x00, 0x00 }, 1   , {50} },
                 { CKM_SHA1_RSA_PKCS, 768 , 1, { 0x03, 0x00, 0x00, 0x00 }, 3   , {10, 0, 10}  },
@@ -2845,9 +2655,6 @@ CK_RV run_GenerateMultipartSignVerifyRSASHA1()
                 { CKM_SHA1_RSA_PKCS, 768 , 4, { 0xFF, 0xFF, 0xFF, 0x11 }, 1   , {50} },
                 { CKM_SHA1_RSA_PKCS, 768 , 4, { 0xFF, 0xFF, 0xFF, 0x11 }, 3   , {10, 0, 10}  },
         // mod bits = 1024. Input up to 64 bytes
-                // publ exp = 0 (generate)
-                { CKM_SHA1_RSA_PKCS, 1024, 0, { 0x00, 0x00, 0x00, 0x00 }, 1   , {50} },
-                { CKM_SHA1_RSA_PKCS, 1024, 0, { 0x00, 0x00, 0x00, 0x00 }, 3   , {10, 0, 10}  },
                 // publ exp = 3
                 { CKM_SHA1_RSA_PKCS, 1024, 1, { 0x03, 0x00, 0x00, 0x00 }, 1   , {50} },
                 { CKM_SHA1_RSA_PKCS, 1024, 1, { 0x03, 0x00, 0x00, 0x00 }, 3   , {10, 0, 10}  },
@@ -2861,9 +2668,6 @@ CK_RV run_GenerateMultipartSignVerifyRSASHA1()
                 { CKM_SHA1_RSA_PKCS, 1024, 4, { 0xFF, 0xFF, 0xFF, 0x11 }, 1   , {50} },
                 { CKM_SHA1_RSA_PKCS, 1024, 4, { 0xFF, 0xFF, 0xFF, 0x11 }, 3   , {10, 0, 10}  },
         // mod bits = 2048. Input up to 64 bytes
-                // publ exp = 0 (generate)
-                { CKM_SHA1_RSA_PKCS, 2048, 0, { 0x00, 0x00, 0x00, 0x00 }, 1   , {50} },
-                { CKM_SHA1_RSA_PKCS, 2048, 0, { 0x00, 0x00, 0x00, 0x00 }, 3   , {10, 0, 10}  },
                 // publ exp = 3
                 { CKM_SHA1_RSA_PKCS, 2048, 1, { 0x03, 0x00, 0x00, 0x00 }, 1   , {50} },
                 { CKM_SHA1_RSA_PKCS, 2048, 1, { 0x03, 0x00, 0x00, 0x00 }, 3   , {10, 0, 10}  },
@@ -2877,9 +2681,6 @@ CK_RV run_GenerateMultipartSignVerifyRSASHA1()
                 { CKM_SHA1_RSA_PKCS, 2048, 4, { 0xFF, 0xFF, 0xFF, 0x11 }, 1   , {50} },
                 { CKM_SHA1_RSA_PKCS, 2048, 4, { 0xFF, 0xFF, 0xFF, 0x11 }, 3   , {10, 0, 10}  },
         // mod bits = 4096. Input up to 64 bytes
-                // publ exp = 0 (generate)
-                { CKM_SHA1_RSA_PKCS, 4096, 0, { 0x00, 0x00, 0x00, 0x00 }, 1   , {50} },
-                { CKM_SHA1_RSA_PKCS, 4096, 0, { 0x00, 0x00, 0x00, 0x00 }, 3   , {10, 0, 10}  },
                 // publ exp = 3
                 { CKM_SHA1_RSA_PKCS, 4096, 1, { 0x03, 0x00, 0x00, 0x00 }, 1   , {50} },
                 { CKM_SHA1_RSA_PKCS, 4096, 1, { 0x03, 0x00, 0x00, 0x00 }, 3   , {10, 0, 10}  },
@@ -2917,7 +2718,7 @@ CK_RV run_GenerateMultipartSignVerifyRSASHA1()
 CK_RV run_GenerateWrapUnwrapRSAPKCS()
 {
         int     i;
-        CK_RV   rv;
+        CK_RV   rv = 0;
 
         struct  _inputparam {
                 CK_MECHANISM_TYPE mechtype;
@@ -2935,14 +2736,6 @@ CK_RV run_GenerateWrapUnwrapRSAPKCS()
          * This means that publ_exp must be in BIG ENDIAN byte-order    */
 
         // mod bits = 512. Secret keys up to 64 bytes
-                // publ exp = 0 (generate)
-                { CKM_RSA_PKCS, 512 , 0, { 0x00, 0x00, 0x00, 0x00 }, 1   , CKM_GENERIC_SECRET_KEY_GEN  },
-                { CKM_RSA_PKCS, 512 , 0, { 0x00, 0x00, 0x00, 0x00 }, 8   , CKM_CDMF_KEY_GEN            },
-                { CKM_RSA_PKCS, 512 , 0, { 0x00, 0x00, 0x00, 0x00 }, 8   , CKM_DES_KEY_GEN             },
-                { CKM_RSA_PKCS, 512 , 0, { 0x00, 0x00, 0x00, 0x00 }, 24  , CKM_DES3_KEY_GEN            },
-                { CKM_RSA_PKCS, 512 , 0, { 0x00, 0x00, 0x00, 0x00 }, 16  , CKM_AES_KEY_GEN             },
-                { CKM_RSA_PKCS, 512 , 0, { 0x00, 0x00, 0x00, 0x00 }, 32  , CKM_AES_KEY_GEN             },
-                { CKM_RSA_PKCS, 512 , 0, { 0x00, 0x00, 0x00, 0x00 }, 64  , CKM_GENERIC_SECRET_KEY_GEN  },
                 // publ exp = 3
                 { CKM_RSA_PKCS, 512 , 1, { 0x03, 0x00, 0x00, 0x00 }, 1   , CKM_GENERIC_SECRET_KEY_GEN  },
                 { CKM_RSA_PKCS, 512 , 1, { 0x03, 0x00, 0x00, 0x00 }, 8   , CKM_CDMF_KEY_GEN            },
@@ -2976,14 +2769,6 @@ CK_RV run_GenerateWrapUnwrapRSAPKCS()
                 { CKM_RSA_PKCS, 512 , 4, { 0xFF, 0xFF, 0xFF, 0x11 }, 32  , CKM_AES_KEY_GEN             },
                 { CKM_RSA_PKCS, 512 , 4, { 0xFF, 0xFF, 0xFF, 0x11 }, 64  , CKM_GENERIC_SECRET_KEY_GEN  },
         // mod bits = 768. Secret keys up to 96 bytes
-                // publ exp = 0 (generate)
-                { CKM_RSA_PKCS, 768 , 0, { 0x00, 0x00, 0x00, 0x00 }, 1   , CKM_GENERIC_SECRET_KEY_GEN  },
-                { CKM_RSA_PKCS, 768 , 0, { 0x00, 0x00, 0x00, 0x00 }, 8   , CKM_CDMF_KEY_GEN            },
-                { CKM_RSA_PKCS, 768 , 0, { 0x00, 0x00, 0x00, 0x00 }, 8   , CKM_DES_KEY_GEN             },
-                { CKM_RSA_PKCS, 768 , 0, { 0x00, 0x00, 0x00, 0x00 }, 24  , CKM_DES3_KEY_GEN            },
-                { CKM_RSA_PKCS, 768 , 0, { 0x00, 0x00, 0x00, 0x00 }, 16  , CKM_AES_KEY_GEN             },
-                { CKM_RSA_PKCS, 768 , 0, { 0x00, 0x00, 0x00, 0x00 }, 32  , CKM_AES_KEY_GEN             },
-                { CKM_RSA_PKCS, 768 , 0, { 0x00, 0x00, 0x00, 0x00 }, 96  , CKM_GENERIC_SECRET_KEY_GEN  },
                 // publ exp = 3
                 { CKM_RSA_PKCS, 768 , 1, { 0x03, 0x00, 0x00, 0x00 }, 1   , CKM_GENERIC_SECRET_KEY_GEN  },
                 { CKM_RSA_PKCS, 768 , 1, { 0x03, 0x00, 0x00, 0x00 }, 8   , CKM_CDMF_KEY_GEN            },
@@ -3017,14 +2802,6 @@ CK_RV run_GenerateWrapUnwrapRSAPKCS()
                 { CKM_RSA_PKCS, 768 , 4, { 0xFF, 0xFF, 0xFF, 0x11 }, 32  , CKM_AES_KEY_GEN             },
                 { CKM_RSA_PKCS, 768 , 4, { 0xFF, 0xFF, 0xFF, 0x11 }, 96  , CKM_GENERIC_SECRET_KEY_GEN  },
         // mod bits = 1024. Secret keys up to 128 bytes
-                // publ exp = 0 (generate)
-                { CKM_RSA_PKCS, 1024, 0, { 0x00, 0x00, 0x00, 0x00 }, 1   , CKM_GENERIC_SECRET_KEY_GEN  },
-                { CKM_RSA_PKCS, 1024, 0, { 0x00, 0x00, 0x00, 0x00 }, 8   , CKM_CDMF_KEY_GEN            },
-                { CKM_RSA_PKCS, 1024, 0, { 0x00, 0x00, 0x00, 0x00 }, 8   , CKM_DES_KEY_GEN             },
-                { CKM_RSA_PKCS, 1024, 0, { 0x00, 0x00, 0x00, 0x00 }, 24  , CKM_DES3_KEY_GEN            },
-                { CKM_RSA_PKCS, 1024, 0, { 0x00, 0x00, 0x00, 0x00 }, 16  , CKM_AES_KEY_GEN             },
-                { CKM_RSA_PKCS, 1024, 0, { 0x00, 0x00, 0x00, 0x00 }, 32  , CKM_AES_KEY_GEN             },
-                { CKM_RSA_PKCS, 1024, 0, { 0x00, 0x00, 0x00, 0x00 }, 128 , CKM_GENERIC_SECRET_KEY_GEN  },
                 // publ exp = 3
                 { CKM_RSA_PKCS, 1024, 1, { 0x03, 0x00, 0x00, 0x00 }, 1   , CKM_GENERIC_SECRET_KEY_GEN  },
                 { CKM_RSA_PKCS, 1024, 1, { 0x03, 0x00, 0x00, 0x00 }, 8   , CKM_CDMF_KEY_GEN            },
@@ -3058,14 +2835,6 @@ CK_RV run_GenerateWrapUnwrapRSAPKCS()
                 { CKM_RSA_PKCS, 1024, 4, { 0xFF, 0xFF, 0xFF, 0x11 }, 32  , CKM_AES_KEY_GEN             },
                 { CKM_RSA_PKCS, 1024, 4, { 0xFF, 0xFF, 0xFF, 0x11 }, 128 , CKM_GENERIC_SECRET_KEY_GEN  },
         // mod bits = 2048. Secret keys up to 256 bytes
-                // publ exp = 0 (generate)
-                { CKM_RSA_PKCS, 2048, 0, { 0x00, 0x00, 0x00, 0x00 }, 1   , CKM_GENERIC_SECRET_KEY_GEN  },
-                { CKM_RSA_PKCS, 2048, 0, { 0x00, 0x00, 0x00, 0x00 }, 8   , CKM_CDMF_KEY_GEN            },
-                { CKM_RSA_PKCS, 2048, 0, { 0x00, 0x00, 0x00, 0x00 }, 8   , CKM_DES_KEY_GEN             },
-                { CKM_RSA_PKCS, 2048, 0, { 0x00, 0x00, 0x00, 0x00 }, 24  , CKM_DES3_KEY_GEN            },
-                { CKM_RSA_PKCS, 2048, 0, { 0x00, 0x00, 0x00, 0x00 }, 16  , CKM_AES_KEY_GEN             },
-                { CKM_RSA_PKCS, 2048, 0, { 0x00, 0x00, 0x00, 0x00 }, 32  , CKM_AES_KEY_GEN             },
-                { CKM_RSA_PKCS, 2048, 0, { 0x00, 0x00, 0x00, 0x00 }, 256 , CKM_GENERIC_SECRET_KEY_GEN  },
                 // publ exp = 3
                 { CKM_RSA_PKCS, 2048, 1, { 0x03, 0x00, 0x00, 0x00 }, 1   , CKM_GENERIC_SECRET_KEY_GEN  },
                 { CKM_RSA_PKCS, 2048, 1, { 0x03, 0x00, 0x00, 0x00 }, 8   , CKM_CDMF_KEY_GEN            },
@@ -3099,14 +2868,6 @@ CK_RV run_GenerateWrapUnwrapRSAPKCS()
                 { CKM_RSA_PKCS, 2048, 4, { 0xFF, 0xFF, 0xFF, 0x11 }, 32  , CKM_AES_KEY_GEN             },
                 { CKM_RSA_PKCS, 2048, 4, { 0xFF, 0xFF, 0xFF, 0x11 }, 256 , CKM_GENERIC_SECRET_KEY_GEN  },
         // mod bits = 4096. Secret keys up to 512 bytes
-                // publ exp = 0 (generate)
-                { CKM_RSA_PKCS, 4096, 0, { 0x00, 0x00, 0x00, 0x00 }, 1   , CKM_GENERIC_SECRET_KEY_GEN  },
-                { CKM_RSA_PKCS, 4096, 0, { 0x00, 0x00, 0x00, 0x00 }, 8   , CKM_CDMF_KEY_GEN            },
-                { CKM_RSA_PKCS, 4096, 0, { 0x00, 0x00, 0x00, 0x00 }, 8   , CKM_DES_KEY_GEN             },
-                { CKM_RSA_PKCS, 4096, 0, { 0x00, 0x00, 0x00, 0x00 }, 24  , CKM_DES3_KEY_GEN            },
-                { CKM_RSA_PKCS, 4096, 0, { 0x00, 0x00, 0x00, 0x00 }, 16  , CKM_AES_KEY_GEN             },
-                { CKM_RSA_PKCS, 4096, 0, { 0x00, 0x00, 0x00, 0x00 }, 32  , CKM_AES_KEY_GEN             },
-                { CKM_RSA_PKCS, 4096, 0, { 0x00, 0x00, 0x00, 0x00 }, 512 , CKM_GENERIC_SECRET_KEY_GEN  },
                 // publ exp = 3
                 { CKM_RSA_PKCS, 4096, 1, { 0x03, 0x00, 0x00, 0x00 }, 1   , CKM_GENERIC_SECRET_KEY_GEN  },
                 { CKM_RSA_PKCS, 4096, 1, { 0x03, 0x00, 0x00, 0x00 }, 8   , CKM_CDMF_KEY_GEN            },
@@ -3163,7 +2924,7 @@ CK_RV run_GenerateWrapUnwrapRSAPKCS()
 CK_RV run_GenerateWrapUnwrapRSAX509()
 {
         int     i;
-        CK_RV   rv;
+        CK_RV   rv = 0;
 
         struct  _inputparam {
                 CK_MECHANISM_TYPE mechtype;
@@ -3181,14 +2942,6 @@ CK_RV run_GenerateWrapUnwrapRSAX509()
          * This means that publ_exp must be in BIG ENDIAN byte-order    */
 
         // mod bits = 512. Secret keys up to 64 bytes
-                // publ exp = 0 (generate)
-                { CKM_RSA_X_509, 512 , 0, { 0x00, 0x00, 0x00, 0x00 }, 1   , CKM_GENERIC_SECRET_KEY_GEN  },
-                { CKM_RSA_X_509, 512 , 0, { 0x00, 0x00, 0x00, 0x00 }, 8   , CKM_CDMF_KEY_GEN            },
-                { CKM_RSA_X_509, 512 , 0, { 0x00, 0x00, 0x00, 0x00 }, 8   , CKM_DES_KEY_GEN             },
-                { CKM_RSA_X_509, 512 , 0, { 0x00, 0x00, 0x00, 0x00 }, 24  , CKM_DES3_KEY_GEN            },
-                { CKM_RSA_X_509, 512 , 0, { 0x00, 0x00, 0x00, 0x00 }, 16  , CKM_AES_KEY_GEN             },
-                { CKM_RSA_X_509, 512 , 0, { 0x00, 0x00, 0x00, 0x00 }, 32  , CKM_AES_KEY_GEN             },
-                { CKM_RSA_X_509, 512 , 0, { 0x00, 0x00, 0x00, 0x00 }, 64  , CKM_GENERIC_SECRET_KEY_GEN  },
                 // publ exp = 3
                 { CKM_RSA_X_509, 512 , 1, { 0x03, 0x00, 0x00, 0x00 }, 1   , CKM_GENERIC_SECRET_KEY_GEN  },
                 { CKM_RSA_X_509, 512 , 1, { 0x03, 0x00, 0x00, 0x00 }, 8   , CKM_CDMF_KEY_GEN            },
@@ -3222,14 +2975,6 @@ CK_RV run_GenerateWrapUnwrapRSAX509()
                 { CKM_RSA_X_509, 512 , 4, { 0xFF, 0xFF, 0xFF, 0x11 }, 32  , CKM_AES_KEY_GEN             },
                 { CKM_RSA_X_509, 512 , 4, { 0xFF, 0xFF, 0xFF, 0x11 }, 64  , CKM_GENERIC_SECRET_KEY_GEN  },
         // mod bits = 768. Secret keys up to 96 bytes
-                // publ exp = 0 (generate)
-                { CKM_RSA_X_509, 768 , 0, { 0x00, 0x00, 0x00, 0x00 }, 1   , CKM_GENERIC_SECRET_KEY_GEN  },
-                { CKM_RSA_X_509, 768 , 0, { 0x00, 0x00, 0x00, 0x00 }, 8   , CKM_CDMF_KEY_GEN            },
-                { CKM_RSA_X_509, 768 , 0, { 0x00, 0x00, 0x00, 0x00 }, 8   , CKM_DES_KEY_GEN             },
-                { CKM_RSA_X_509, 768 , 0, { 0x00, 0x00, 0x00, 0x00 }, 24  , CKM_DES3_KEY_GEN            },
-                { CKM_RSA_X_509, 768 , 0, { 0x00, 0x00, 0x00, 0x00 }, 16  , CKM_AES_KEY_GEN             },
-                { CKM_RSA_X_509, 768 , 0, { 0x00, 0x00, 0x00, 0x00 }, 32  , CKM_AES_KEY_GEN             },
-                { CKM_RSA_X_509, 768 , 0, { 0x00, 0x00, 0x00, 0x00 }, 96  , CKM_GENERIC_SECRET_KEY_GEN  },
                 // publ exp = 3
                 { CKM_RSA_X_509, 768 , 1, { 0x03, 0x00, 0x00, 0x00 }, 1   , CKM_GENERIC_SECRET_KEY_GEN  },
                 { CKM_RSA_X_509, 768 , 1, { 0x03, 0x00, 0x00, 0x00 }, 8   , CKM_CDMF_KEY_GEN            },
@@ -3263,14 +3008,6 @@ CK_RV run_GenerateWrapUnwrapRSAX509()
                 { CKM_RSA_X_509, 768 , 4, { 0xFF, 0xFF, 0xFF, 0x11 }, 32  , CKM_AES_KEY_GEN             },
                 { CKM_RSA_X_509, 768 , 4, { 0xFF, 0xFF, 0xFF, 0x11 }, 96  , CKM_GENERIC_SECRET_KEY_GEN  },
         // mod bits = 1024. Secret keys up to 128 bytes
-                // publ exp = 0 (generate)
-                { CKM_RSA_X_509, 1024, 0, { 0x00, 0x00, 0x00, 0x00 }, 1   , CKM_GENERIC_SECRET_KEY_GEN  },
-                { CKM_RSA_X_509, 1024, 0, { 0x00, 0x00, 0x00, 0x00 }, 8   , CKM_CDMF_KEY_GEN            },
-                { CKM_RSA_X_509, 1024, 0, { 0x00, 0x00, 0x00, 0x00 }, 8   , CKM_DES_KEY_GEN             },
-                { CKM_RSA_X_509, 1024, 0, { 0x00, 0x00, 0x00, 0x00 }, 24  , CKM_DES3_KEY_GEN            },
-                { CKM_RSA_X_509, 1024, 0, { 0x00, 0x00, 0x00, 0x00 }, 16  , CKM_AES_KEY_GEN             },
-                { CKM_RSA_X_509, 1024, 0, { 0x00, 0x00, 0x00, 0x00 }, 32  , CKM_AES_KEY_GEN             },
-                { CKM_RSA_X_509, 1024, 0, { 0x00, 0x00, 0x00, 0x00 }, 128 , CKM_GENERIC_SECRET_KEY_GEN  },
                 // publ exp = 3
                 { CKM_RSA_X_509, 1024, 1, { 0x03, 0x00, 0x00, 0x00 }, 1   , CKM_GENERIC_SECRET_KEY_GEN  },
                 { CKM_RSA_X_509, 1024, 1, { 0x03, 0x00, 0x00, 0x00 }, 8   , CKM_CDMF_KEY_GEN            },
@@ -3304,14 +3041,6 @@ CK_RV run_GenerateWrapUnwrapRSAX509()
                 { CKM_RSA_X_509, 1024, 4, { 0xFF, 0xFF, 0xFF, 0x11 }, 32  , CKM_AES_KEY_GEN             },
                 { CKM_RSA_X_509, 1024, 4, { 0xFF, 0xFF, 0xFF, 0x11 }, 128 , CKM_GENERIC_SECRET_KEY_GEN  },
         // mod bits = 2048. Secret keys up to 256 bytes
-                // publ exp = 0 (generate)
-                { CKM_RSA_X_509, 2048, 0, { 0x00, 0x00, 0x00, 0x00 }, 1   , CKM_GENERIC_SECRET_KEY_GEN  },
-                { CKM_RSA_X_509, 2048, 0, { 0x00, 0x00, 0x00, 0x00 }, 8   , CKM_CDMF_KEY_GEN            },
-                { CKM_RSA_X_509, 2048, 0, { 0x00, 0x00, 0x00, 0x00 }, 8   , CKM_DES_KEY_GEN             },
-                { CKM_RSA_X_509, 2048, 0, { 0x00, 0x00, 0x00, 0x00 }, 24  , CKM_DES3_KEY_GEN            },
-                { CKM_RSA_X_509, 2048, 0, { 0x00, 0x00, 0x00, 0x00 }, 16  , CKM_AES_KEY_GEN             },
-                { CKM_RSA_X_509, 2048, 0, { 0x00, 0x00, 0x00, 0x00 }, 32  , CKM_AES_KEY_GEN             },
-                { CKM_RSA_X_509, 2048, 0, { 0x00, 0x00, 0x00, 0x00 }, 256 , CKM_GENERIC_SECRET_KEY_GEN  },
                 // publ exp = 3
                 { CKM_RSA_X_509, 2048, 1, { 0x03, 0x00, 0x00, 0x00 }, 1   , CKM_GENERIC_SECRET_KEY_GEN  },
                 { CKM_RSA_X_509, 2048, 1, { 0x03, 0x00, 0x00, 0x00 }, 8   , CKM_CDMF_KEY_GEN            },
@@ -3345,14 +3074,6 @@ CK_RV run_GenerateWrapUnwrapRSAX509()
                 { CKM_RSA_X_509, 2048, 4, { 0xFF, 0xFF, 0xFF, 0x11 }, 32  , CKM_AES_KEY_GEN             },
                 { CKM_RSA_X_509, 2048, 4, { 0xFF, 0xFF, 0xFF, 0x11 }, 256 , CKM_GENERIC_SECRET_KEY_GEN  },
         // mod bits = 4096. Secret keys up to 512 bytes
-                // publ exp = 0 (generate)
-                { CKM_RSA_X_509, 4096, 0, { 0x00, 0x00, 0x00, 0x00 }, 1   , CKM_GENERIC_SECRET_KEY_GEN  },
-                { CKM_RSA_X_509, 4096, 0, { 0x00, 0x00, 0x00, 0x00 }, 8   , CKM_CDMF_KEY_GEN            },
-                { CKM_RSA_X_509, 4096, 0, { 0x00, 0x00, 0x00, 0x00 }, 8   , CKM_DES_KEY_GEN             },
-                { CKM_RSA_X_509, 4096, 0, { 0x00, 0x00, 0x00, 0x00 }, 24  , CKM_DES3_KEY_GEN            },
-                { CKM_RSA_X_509, 4096, 0, { 0x00, 0x00, 0x00, 0x00 }, 16  , CKM_AES_KEY_GEN             },
-                { CKM_RSA_X_509, 4096, 0, { 0x00, 0x00, 0x00, 0x00 }, 32  , CKM_AES_KEY_GEN             },
-                { CKM_RSA_X_509, 4096, 0, { 0x00, 0x00, 0x00, 0x00 }, 512 , CKM_GENERIC_SECRET_KEY_GEN  },
                 // publ exp = 3
                 { CKM_RSA_X_509, 4096, 1, { 0x03, 0x00, 0x00, 0x00 }, 1   , CKM_GENERIC_SECRET_KEY_GEN  },
                 { CKM_RSA_X_509, 4096, 1, { 0x03, 0x00, 0x00, 0x00 }, 8   , CKM_CDMF_KEY_GEN            },
@@ -3409,7 +3130,7 @@ int main(int argc, char **argv)
 {
 	CK_C_INITIALIZE_ARGS cinit_args;
 	int rc;
-	CK_RV rv;
+	CK_RV rv = 0;
 
 	rc = do_ParseArgs(argc, argv);
 	if ( rc != 1)
