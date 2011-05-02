@@ -1359,9 +1359,9 @@ find_obj_cb(void *node, unsigned long map_handle, void *p3)
 		return;
 
 	/* if this object is the one we're looking for (matches p3->obj), return
-	 * its handle in p3->handle */
+	 * its map_handle in p3->map_handle */
 	if (obj == fa->obj) {
-		*fa->handle = map->obj_handle;
+		fa->map_handle = map_handle;
 		fa->done = TRUE;
 	}
 }
@@ -1389,16 +1389,18 @@ object_mgr_find_in_map2( OBJECT           * obj,
 
    fa.done = FALSE;
    fa.obj = obj;
-   fa.handle = handle;
+   fa.map_handle = 0;
 
    // pass the fa structure with the values to operate on in the find_obj_cb function
    bt_for_each_node(&object_map_btree, find_obj_cb, &fa);
 
    pthread_rwlock_unlock(&obj_list_rw_mutex);
 
-   if (fa.done == FALSE || *handle == 0) {
+   if (fa.done == FALSE || fa.map_handle == 0) {
       return CKR_OBJECT_HANDLE_INVALID;
    }
+
+   *handle = fa.map_handle;
    object_mgr_check_shm( obj );
 
    return CKR_OK;
@@ -1517,6 +1519,12 @@ object_mgr_find_init( SESSION      * sess,
    MY_LockMutex(&obj_list_mutex);
    object_mgr_update_from_shm();
 
+   fa.hw_feature = FALSE;
+   fa.hidden_object = FALSE;
+   fa.sess = sess;
+   fa.pTemplate = pTemplate;
+   fa.ulCount = ulCount;
+
    // which objects can be returned:
    //
    //   Public Session:   public session objects, public token objects
@@ -1544,10 +1552,6 @@ object_mgr_find_init( SESSION      * sess,
 	 }
       }
    }
-
-   fa.sess = sess;
-   fa.pTemplate = pTemplate;
-   fa.ulCount = ulCount;
 
    switch (sess->session_info.state) {
       case CKS_RO_PUBLIC_SESSION:

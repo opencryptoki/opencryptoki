@@ -1953,7 +1953,7 @@ struct find_args
 {
 	int done;
 	OBJECT *obj;
-	CK_OBJECT_HANDLE *handle;
+	CK_OBJECT_HANDLE map_handle;
 };
 
 struct find_by_name_args
