@@ -915,6 +915,15 @@ os_specific_rsa_keygen(TEMPLATE *publ_tmpl,  TEMPLATE *priv_tmpl)
                 goto done;
         }
         template_update_attribute( publ_tmpl, attr );
+
+	/* add public exponent to the private template. Its already an attribute in the
+	 * private template at this point, we're just making its value correct */
+        rc = build_attribute( CKA_PUBLIC_EXPONENT, ssl_ptr, BNLength, &attr );
+        if (rc != CKR_OK){
+                st_err_log(84, __FILE__, __LINE__);
+                goto done;
+        }
+        template_update_attribute( priv_tmpl, attr );
         free(ssl_ptr);
 
 

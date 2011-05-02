@@ -388,7 +388,7 @@ token_wrap_key_object( CK_OBJECT_HANDLE ckObject, TSS_HKEY hParentKey, TSS_HKEY 
 {
 	CK_RV		rc = CKR_OK;
 	CK_ATTRIBUTE	*attr = NULL, *new_attr, *prime_attr;
-	CK_ULONG	class, key_type, pub_exp;
+	CK_ULONG	class, key_type;
 	CK_BBOOL	found;
 	OBJECT		*obj;
 
@@ -940,7 +940,7 @@ token_store_pub_key(TSS_HKEY hKey, int key_type, CK_OBJECT_HANDLE *ckKey)
 	CK_OBJECT_CLASS pub_class = CKO_PUBLIC_KEY;
 	CK_KEY_TYPE type = CKK_RSA;
 	CK_BYTE *key_id = util_create_id(key_type);
-	CK_BYTE pub_exp[] = { 0x1, 0x0, 0x1 }; // 65537
+	CK_BYTE pub_exp[] = { 1, 0, 1 };  // 65537
 	CK_ATTRIBUTE pub_tmpl[] = {
 		{CKA_CLASS, &pub_class, sizeof(pub_class)},
 		{CKA_KEY_TYPE, &type, sizeof(type)},
@@ -2373,6 +2373,7 @@ token_specific_rsa_generate_keypair( TEMPLATE  * publ_tmpl,
 	CK_ULONG	mod_bits = 0;
 	CK_BBOOL	flag;
 	CK_RV		rc;
+	CK_BYTE         tpm_pubexp[3] = { 1, 0, 1 }; // 65537
 
 	TSS_FLAG	initFlags = 0;
 	BYTE		authHash[SHA1_HASH_SIZE];
@@ -2488,6 +2489,13 @@ token_specific_rsa_generate_keypair( TEMPLATE  * publ_tmpl,
 	}
 	template_update_attribute( priv_tmpl, attr );
 	Tspi_Context_FreeMemory(tspContext, rgbBlob);
+
+	/* put the public exponent into the private key object */
+	if ((rc = build_attribute(CKA_PUBLIC_EXPONENT, tpm_pubexp, sizeof(tpm_pubexp), &attr))) {
+		st_err_log(84, __FILE__, __LINE__);
+		return rc;
+	}
+	template_update_attribute( priv_tmpl, attr );
 
 	/* wrap the authdata and put it into an object */
 	if (authData != NULL) {

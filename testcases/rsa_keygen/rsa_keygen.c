@@ -59,7 +59,7 @@ do_GenerateRSAKeyPair(CK_ULONG bits)
          show_error("   C_Login #1", rc );
 	   return rc;
       }
-
+#if 0
    // Use 3 as pub exp
    {
       CK_BYTE   pub_exp[] = { 0x3 };
@@ -80,7 +80,7 @@ do_GenerateRSAKeyPair(CK_ULONG bits)
       }
 
    }
-
+#endif
    // Use 65537 as pub exp
    {
       CK_BYTE   pub_exp[] = { 0x1, 0x0, 0x1 };
@@ -162,26 +162,6 @@ do_GenerateRSAKeyPair(CK_ULONG bits)
       free(modulus);
    }
 
-   // Use an invalid pub exp
-   {
-      CK_BYTE   pub_exp[] = { 0x1, 0x0, 0x2 };
-
-      CK_ATTRIBUTE pub_tmpl[] =
-      {
-         {CKA_MODULUS_BITS,    &bits,    sizeof(bits)    },
-         {CKA_PUBLIC_EXPONENT, &pub_exp, sizeof(pub_exp) }
-      };
-
-      rc = funcs->C_GenerateKeyPair( session,   &mech,
-                                     pub_tmpl,   2,
-                                     NULL,       0,
-                                     &publ_key, &priv_key );
-      if (rc != CKR_TEMPLATE_INCONSISTENT) {
-         show_error("   C_GenerateKeyPair #3", rc );
-         return rc;
-   }
-   }
-
    // Use no pub exp
    {
       CK_ATTRIBUTE pub_tmpl[] =
@@ -194,7 +174,7 @@ do_GenerateRSAKeyPair(CK_ULONG bits)
                                      NULL,       0,
                                      &publ_key, &priv_key );
       if (rc != CKR_TEMPLATE_INCOMPLETE) {
-         show_error("   C_GenerateKeyPair #3", rc );
+         show_error("   C_GenerateKeyPair #1", rc );
          return rc;
    }
 
@@ -214,11 +194,68 @@ do_GenerateRSAKeyPair(CK_ULONG bits)
                                      NULL,       0,
                                      &publ_key, &priv_key );
       if (rc != CKR_TEMPLATE_INCOMPLETE) {
-         show_error("   C_GenerateKeyPair #3", rc );
+         show_error("   C_GenerateKeyPair #2", rc );
          return rc;
-   }
+      }
 
    }
+
+   // Check for public exponent in the private key, SF bug 3131950
+   // Prior implementations of opencryptoki created CKA_PUBLIC_EXPONENT
+   // in the private key, but left its value as 0
+   {
+      CK_BYTE   pub_exp[] = { 0x1, 0x0, 0x1 }, test_exp[3];
+
+      CK_ATTRIBUTE pub_tmpl[] =
+      {
+         {CKA_PUBLIC_EXPONENT, &pub_exp, sizeof(pub_exp) },
+         {CKA_MODULUS_BITS,    &bits,    sizeof(bits)    }
+      };
+      CK_ATTRIBUTE test_tmpl[] =
+      {
+	 {CKA_PUBLIC_EXPONENT, NULL, 0}
+      };
+
+      rc = funcs->C_GenerateKeyPair( session,   &mech,
+                                     pub_tmpl,   2,
+                                     NULL,       0,
+                                     &publ_key, &priv_key );
+      if (rc != CKR_OK) {
+         show_error("   C_GenerateKeyPair #3", rc );
+         return rc;
+      }
+
+      rc = funcs->C_GetAttributeValue( session, priv_key, test_tmpl, 1);
+      if (rc != CKR_OK) {
+         show_error("   C_GetAttributeValue #1", rc );
+         return rc;
+      }
+
+      if (test_tmpl[0].ulValueLen != pub_tmpl[0].ulValueLen) {
+	 testcase_fail("length of private key's public exponent value (%lu)"
+		       " doesn't match public key's (%lu)", test_tmpl[0].ulValueLen,
+		       pub_tmpl[0].ulValueLen);
+         rc = -1;
+	 goto done;
+      }
+
+      test_tmpl[0].pValue = test_exp;
+      rc = funcs->C_GetAttributeValue( session, priv_key, test_tmpl, 1);
+      if (rc != CKR_OK) {
+         show_error("   C_GetAttributeValue #2", rc );
+         goto done;
+      }
+
+      if (memcmp(test_exp, pub_exp, sizeof(test_exp))) {
+	 testcase_fail("value of private key's public exponent value"
+		       " doesn't match public key's");
+         rc = -1;
+	 goto done;
+      }
+
+   }
+
+done:
    rc = funcs->C_CloseSession( session );
    if (rc != CKR_OK) {
 	   show_error("   C_CloseSession #3", rc );
