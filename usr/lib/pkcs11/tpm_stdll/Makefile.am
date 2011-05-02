@@ -47,7 +47,7 @@ opencryptoki_stdll_libpkcs11_tpm_la_SOURCES = ../common/asn1.c           \
                                               mech_des3.c      \
                                               ../common/mech_md5.c       \
                                               ../common/mech_ssl3.c      \
-                                              ../common/sess_mgr.c       \
+                                              sess_mgr.c       \
                                               verify_mgr.c               \
                                               tpm_specific.c             \
                                               tpm_openssl.c tpm_util.c
