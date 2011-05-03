@@ -574,7 +574,7 @@ typedef struct {
 #endif
 
 #ifndef CRYPTOKI_API_MINOR_V
-#define CRYPTOKI_API_MINOR_V 0xb
+#define CRYPTOKI_API_MINOR_V 0x14
 #endif
 
 #define LIB_MAJOR_V 1
