@@ -298,6 +298,7 @@
  
  
 ****************************************************************************/
+#define _BSD_SOURCE
 
 #include <pthread.h>
 #include <string.h>            // for memcmp() et al
@@ -316,7 +317,7 @@
 #include <sys/types.h>
 #include <sys/stat.h>
 #include <fcntl.h>
-
+#include <endian.h>
 
 #include <openssl/des.h>
 #include <openssl/rand.h>
@@ -823,7 +824,7 @@ os_specific_rsa_keygen(TEMPLATE *publ_tmpl,  TEMPLATE *priv_tmpl)
 	RSA *rsa;
 	BIGNUM *bignum;
 	CK_BYTE *ssl_ptr;
-	void *e = NULL;
+	unsigned long e = 0;
 
 	flag = template_attribute_find( publ_tmpl, CKA_MODULUS_BITS, &attr );
 	if (!flag){
@@ -832,6 +833,7 @@ os_specific_rsa_keygen(TEMPLATE *publ_tmpl,  TEMPLATE *priv_tmpl)
         }
 	mod_bits = *(CK_ULONG *)attr->pValue;
 
+	// we don't support less than 1024 bit keys in the sw
 	if (mod_bits < 512 || mod_bits > 4096) {
 		st_err_log(19, __FILE__, __LINE__);
 		return CKR_KEY_SIZE_RANGE;
@@ -843,35 +845,23 @@ os_specific_rsa_keygen(TEMPLATE *publ_tmpl,  TEMPLATE *priv_tmpl)
 		return CKR_TEMPLATE_INCOMPLETE;
 	}
 
-	// Sanity check of public exponent length.
-	if (publ_exp->ulValueLen > sizeof(unsigned long)) {
-		st_err_log(19, __FILE__, __LINE__);
-		return CKR_KEY_SIZE_RANGE;
+	if (publ_exp->ulValueLen > sizeof(CK_ULONG)) {
+		st_err_log(9, __FILE__, __LINE__);
+		return CKR_ATTRIBUTE_VALUE_INVALID;
 	}
 
-	e = calloc(1, sizeof(unsigned long));
-	if (e == NULL) {
-		st_err_log(1, __FILE__, __LINE__);
-		return CKR_HOST_MEMORY;
+	if (publ_exp->ulValueLen == sizeof(CK_ULONG)) {
+		e = *(CK_ULONG *)publ_exp->pValue;
+	} else {
+		memcpy(&e, publ_exp->pValue, publ_exp->ulValueLen);
+
+		if (sizeof(CK_ULONG) == 4)
+			e = le32toh(e);
+		else
+			e = le64toh(e);
 	}
 
-#ifndef __BYTE_ORDER
-#error "Architecture endianness is not defined."
-#endif
-
-#if __BYTE_ORDER == __LITTLE_ENDIAN
-	memcpy(e, publ_exp->pValue, publ_exp->ulValueLen);
-
-#else
-	memcpy(e + (sizeof(unsigned long) - publ_exp->ulValueLen), publ_exp->pValue, publ_exp->ulValueLen);
-
-#endif
-
-	rsa = RSA_generate_key(mod_bits, *(unsigned long *)e, NULL, NULL);
-
-	free(e);
-	e = NULL;
-
+	rsa = RSA_generate_key(mod_bits, e, NULL, NULL);
 	if (rsa == NULL) {
                 st_err_log(4, __FILE__, __LINE__);
                 return CKR_FUNCTION_FAILED;
