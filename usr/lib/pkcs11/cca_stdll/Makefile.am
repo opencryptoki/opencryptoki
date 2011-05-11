@@ -29,6 +29,7 @@ opencryptoki_stdll_libpkcs11_cca_la_SOURCES = asn1.c			\
 					      ../common/dp_obj.c	\
 					      mech_aes.c		\
 					      mech_rsa.c		\
+					      mech_ec.c			\
 					      ../common/obj_mgr.c	\
 					      ../common/template.c	\
 					      ../common/data_obj.c	\

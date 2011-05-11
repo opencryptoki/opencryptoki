@@ -47,6 +47,12 @@ static struct timeval timevr;
 
 #include "p11util.h"
 
+extern CK_ULONG t_total;		// total test assertions
+extern CK_ULONG t_ran;			// number of assertions ran
+extern CK_ULONG t_passed;		// number of assertions passed
+extern CK_ULONG t_failed;		// number of assertions failed
+extern CK_ULONG t_skipped;		// number of assertions skipped
+
 void process_time(SYSTEMTIME t1, SYSTEMTIME t2);
 void show_error( char *str, CK_RV rc );
 void print_hex( CK_BYTE *buf, CK_ULONG len );
@@ -97,6 +103,9 @@ int get_user_pin(CK_BYTE_PTR);
 		__FILE__, __LINE__, _str, _rc, _rc,			\
 		p11_get_ckr(_rc))
 
+#define testcase_setup(total)						\
+	t_total = total;
+
 #define testcase_begin(_fmt, ...)                                       \
         do {                                                            \
                 gettimeofday(&timev1, NULL);                            \
@@ -111,6 +120,8 @@ int get_user_pin(CK_BYTE_PTR);
                         _func, ## __VA_ARGS__);                         \
         } while (0)
 
+#define testcase_new_assertion()					\
+		t_ran++;
 
 #define testcase_pass(_fmt, ...)                                        \
         do {                                                            \
@@ -119,6 +130,7 @@ int get_user_pin(CK_BYTE_PTR);
                 printf("* TESTCASE %s PASS (elapsed time %lds %ldus) " _fmt "\n\n",\
                         __func__, timevr.tv_sec, timevr.tv_usec,        \
                         ## __VA_ARGS__);                                \
+		t_passed++;						\
         } while (0)
 
 #define testcase_pass_f(_func, _fmt, ...)                               \
@@ -127,6 +139,7 @@ int get_user_pin(CK_BYTE_PTR);
                 printf("* TESTCASE %s PASS (elapsed time %lds %ldus) " _fmt "\n\n",\
                        _func, timevr.tv_sec, timevr.tv_usec,            \
                         ## __VA_ARGS__);                                \
+		t_passed++;						\
         } while (0)
 
 #define testcase_skip(_fmt, ...)                                        \
@@ -134,6 +147,7 @@ int get_user_pin(CK_BYTE_PTR);
                 printf("* TESTCASE %s SKIP " _fmt "\n\n",               \
                         __func__, ## __VA_ARGS__);                      \
                 testcase_skip = TRUE;                                   \
+		t_skipped++;						\
         } while (0)
 
 #define testcase_skip_f(_func, _fmt, ...)                               \
@@ -141,6 +155,7 @@ int get_user_pin(CK_BYTE_PTR);
                 printf("* TESTCASE %s SKIP " _fmt "\n\n",               \
                         _func, ## __VA_ARGS__);                         \
                 testcase_skip = TRUE;                                   \
+		t_skipped++;						\
         } while (0)
 
 #define testcase_notice(_fmt, ...)                                      \
@@ -152,14 +167,20 @@ int get_user_pin(CK_BYTE_PTR);
                 _func, ## __VA_ARGS__)
 
 #define testcase_fail(_fmt, ...)                                        \
-        printf("* TESTCASE %s FAIL (%s:%d) " _fmt "\n",                 \
+        do {                                                            \
+		printf("* TESTCASE %s FAIL (%s:%d) " _fmt "\n",		\
                         __func__, __FILE__, __LINE__,                   \
-                        ## __VA_ARGS__)
+                        ## __VA_ARGS__);				\
+		t_failed++;						\
+        } while (0)
 
 #define testcase_fail_f(_func, _fmt, ...)                               \
-        printf("* TESTCASE %s FAIL (%s:%d) " _fmt "\n",                 \
+        do {                                                            \
+		printf("* TESTCASE %s FAIL (%s:%d) " _fmt "\n",		\
                         _func, __FILE__, __LINE__,                      \
-                        ## __VA_ARGS__)
+                        ## __VA_ARGS__);				\
+		t_failed++;						\
+        } while (0)
 
 #define testcase_error(_fmt, ...)                                       \
         printf("* TESTCASE %s ERROR (%s:%d)) " _fmt "\n",               \
@@ -170,6 +191,10 @@ int get_user_pin(CK_BYTE_PTR);
         printf("* TESTCASE %s ERROR (%s:%d)) " _fmt "\n",               \
                         _func, __FILE__, __LINE__,                      \
                         ## __VA_ARGS__)
+
+#define testcase_print_result()						\
+	printf("Total=%lu, Ran=%lu, Passed=%lu, Failed=%lu, Skipped=%lu\n", \
+			t_total, t_ran, t_passed, t_failed, t_skipped);
 
 #define testcase_rw_session()                                           \
         do {                                                            \

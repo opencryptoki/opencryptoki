@@ -122,6 +122,47 @@ verify_mgr_init( SESSION             * sess,
          }
          break;
 
+      case CKM_ECDSA:
+         {
+            if (mech->ulParameterLen != 0){
+               st_err_log(29, __FILE__, __LINE__);
+               return CKR_MECHANISM_PARAM_INVALID;
+            }
+            rc = template_attribute_find( key_obj->template, CKA_KEY_TYPE, &attr );
+            if (rc == FALSE){
+               st_err_log(20, __FILE__, __LINE__);
+               return CKR_KEY_TYPE_INCONSISTENT;
+            }
+            else {
+               keytype = *(CK_KEY_TYPE *)attr->pValue;
+               if (keytype != CKK_EC){
+                  st_err_log(20, __FILE__, __LINE__);
+                  return CKR_KEY_TYPE_INCONSISTENT;
+               }
+            }
+
+            // must be a PUBLIC key operation
+            //
+            flag = template_attribute_find( key_obj->template, CKA_CLASS, &attr );
+            if (flag == FALSE){
+               st_err_log(4, __FILE__, __LINE__, __FUNCTION__);
+               return CKR_FUNCTION_FAILED;
+            }
+            else
+               class = *(CK_OBJECT_CLASS *)attr->pValue;
+
+            if (class != CKO_PUBLIC_KEY){
+               st_err_log(4, __FILE__, __LINE__, __FUNCTION__);
+               return CKR_FUNCTION_FAILED;
+            }
+
+	    // No multi part
+            //
+            ctx->context_len = 0;
+            ctx->context     = NULL;
+         }
+         break;
+
       case CKM_MD2_RSA_PKCS:
       case CKM_MD5_RSA_PKCS:
       case CKM_SHA1_RSA_PKCS:
@@ -480,6 +521,11 @@ verify_mgr_verify( SESSION             * sess,
       case CKM_SSL3_MD5_MAC:
       case CKM_SSL3_SHA1_MAC:
          return ssl3_mac_verify( sess,      ctx,
+                                 in_data,   in_data_len,
+                                 signature, sig_len );
+
+      case CKM_ECDSA:
+         return ec_verify( sess,	ctx,
                                  in_data,   in_data_len,
                                  signature, sig_len );
 

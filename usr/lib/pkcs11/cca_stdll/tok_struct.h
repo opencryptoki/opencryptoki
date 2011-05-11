@@ -44,7 +44,10 @@ token_spec_t token_specific  = {
      &token_specific_rsa_encrypt,
      &token_specific_rsa_sign,
      &token_specific_rsa_verify,
+     &token_specific_ec_sign,
+     &token_specific_ec_verify,
      &token_specific_rsa_generate_keypair,
+     &token_specific_ec_generate_keypair,
 #ifndef NODH
 /* Begin code contributed by Corrent corp. */
      // DH

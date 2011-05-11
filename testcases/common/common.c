@@ -7,6 +7,12 @@
 #include "pkcs11types.h"
 #include "regress.h"
 
+CK_ULONG t_total = 0;		// total test assertions
+CK_ULONG t_ran = 0;		// number of assertions ran
+CK_ULONG t_passed = 0;		// number of assertions passed
+CK_ULONG t_failed = 0;		// number of assertions failed
+CK_ULONG t_skipped = 0;		// number of assertions skipped
+
 int
 get_so_pin(CK_BYTE *dest)
 {

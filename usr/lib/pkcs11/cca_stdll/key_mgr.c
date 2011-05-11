@@ -614,6 +614,15 @@ key_mgr_generate_key_pair( SESSION           * sess,
          subclass = CKK_RSA;
          break;
 
+      case CKM_EC_KEY_PAIR_GEN:
+         if (subclass != 0 && subclass != CKK_EC){
+            st_err_log(49, __FILE__, __LINE__);
+            return CKR_TEMPLATE_INCONSISTENT;
+          }
+
+         subclass = CKK_EC;
+         break;
+
 #if !(NODSA)
       case CKM_DSA_KEY_PAIR_GEN:
          if (subclass != 0 && subclass != CKK_DSA){
@@ -670,6 +679,11 @@ key_mgr_generate_key_pair( SESSION           * sess,
       case CKM_RSA_PKCS_KEY_PAIR_GEN:
          rc = ckm_rsa_key_pair_gen( publ_key_obj->template,
                                     priv_key_obj->template );
+         break;
+
+      case CKM_EC_KEY_PAIR_GEN:
+         rc = ckm_ec_key_pair_gen( publ_key_obj->template,
+                                   priv_key_obj->template );
          break;
 
 #if !(NODSA)

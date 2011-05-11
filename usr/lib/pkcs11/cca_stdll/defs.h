@@ -102,14 +102,18 @@ enum {
 #define DES_KEY_SIZE    8
 #define DES_BLOCK_SIZE  8
 
-#define SHA1_HASH_SIZE  20
-#define SHA1_BLOCK_SIZE 64
+#define SHA1_HASH_SIZE		20
+#define SHA1_BLOCK_SIZE		64
+#define SHA224_HASH_SIZE	28
+#define SHA256_HASH_SIZE	32
+#define SHA384_HASH_SIZE	48
+#define SHA512_HASH_SIZE	64
 
 typedef struct _sha1_ctx {
    unsigned char hash[SHA1_HASH_SIZE+1];
    unsigned int hash_len, tail_len;
    int message_part;	/* needs to be seen across calls to update and final */
-   char tail[64];	/* save the last (up to) 64 bytes which may need to be shaved */ 
+   char tail[64];	/* save the last (up to) 64 bytes which may need to be shaved */
    void *dev_ctx;
 } oc_sha1_ctx;
 
@@ -122,7 +126,7 @@ typedef struct _sha2_ctx {
    int message_part; /* needs to be seen across calls to update and
 		      * final */
    char tail[64]; /* save the last (up to) 64 bytes which may need to
-		   * be shaved */ 
+		   * be shaved */
    void *dev_ctx;
 } oc_sha2_ctx;
 

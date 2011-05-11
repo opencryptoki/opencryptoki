@@ -90,7 +90,9 @@ MECH_LIST_ELEMENT mech_list[] = {
    { CKM_MD5_HMAC_GENERAL,           { 0,    0, CKF_SIGN | CKF_VERIFY } },
    { CKM_MD2,                        { 0,    0, CKF_DIGEST } },
    { CKM_MD2_HMAC,                   { 0,    0, CKF_SIGN | CKF_VERIFY } },
-   { CKM_MD2_HMAC_GENERAL,           { 0,    0, CKF_SIGN | CKF_VERIFY } }
+   { CKM_MD2_HMAC_GENERAL,           { 0,    0, CKF_SIGN | CKF_VERIFY } },
+   { CKM_EC_KEY_PAIR_GEN,	     { 160,    521, CKF_HW | CKF_GENERATE_KEY_PAIR } },
+   { CKM_ECDSA,			     { 160,    521, CKF_HW | CKF_SIGN | CKF_VERIFY } }
 };
 
 CK_ULONG mech_list_len = (sizeof(mech_list) / sizeof(MECH_LIST_ELEMENT));
@@ -644,7 +646,7 @@ token_specific_rsa_generate_keypair(TEMPLATE *publ_tmpl,
 
         CSNDPKB(&return_code,
                 &reason_code,
-                NULL,
+		NULL,
                 NULL,
                 &rule_array_count,
                 rule_array,
@@ -1324,3 +1326,362 @@ sw_des3_cbc(CK_BYTE * in_data,
 	return CKR_OK;
 }
 
+CK_RV
+build_update_attribute(TEMPLATE *tmpl,
+		CK_ATTRIBUTE_TYPE  type,
+		CK_BYTE *data,
+		CK_ULONG data_len)
+{
+	CK_ATTRIBUTE *attr;
+	CK_RV rv;
+	if (rv = build_attribute(type, data, data_len, &attr)) {
+		DBG("Build attribute for type=%d failed rv=0x%lx\n", type, rv);
+		return rv;
+	}
+	template_update_attribute(tmpl, attr);
+	return CKR_OK;
+}
+
+uint16_t
+cca_ec_privkey_offset(CK_BYTE *tok)
+{
+	uint8_t privkey_id = CCA_PRIVKEY_ID, privkey_rec;
+	privkey_rec = ntohs(*(uint8_t*)&tok[CCA_EC_HEADER_SIZE]);
+	if ((memcmp(&privkey_rec, &privkey_id, sizeof(uint8_t)) == 0)) {
+		return CCA_EC_HEADER_SIZE;
+	}
+	DBG("+++++++++ Token key private section is CORRUPTED");
+	return CCA_EC_HEADER_SIZE;
+}
+
+uint16_t
+cca_ec_publkey_offset(CK_BYTE *tok)
+{
+	uint16_t priv_offset, privSec_len;
+	uint8_t publkey_id = CCA_PUBLKEY_ID, publkey_rec;
+
+	priv_offset = cca_ec_privkey_offset(tok);
+	privSec_len = ntohs(*(uint16_t*)&tok[priv_offset + CCA_SECTION_LEN_OFFSET]);
+	publkey_rec = ntohs(*(uint8_t*)&tok[priv_offset + privSec_len]);
+	if ((memcmp(&publkey_rec, &publkey_id, sizeof(uint8_t)) == 0)) {
+		return (priv_offset + privSec_len);
+	}
+	DBG("++++++++ Token key public section is CORRUPTED");
+	return (priv_offset + privSec_len);
+}
+
+CK_RV
+token_create_ec_keypair(TEMPLATE *publ_tmpl,
+		TEMPLATE *priv_tmpl,
+		CK_ULONG tok_len,
+		CK_BYTE *tok)
+{
+	uint16_t pubkey_offset, qlen_offset, q_offset;
+	uint16_t p_len, p_len_offset, i;
+	CK_ULONG q_len;
+	CK_BYTE q[CCATOK_EC_MAX_Q_LEN];
+	CK_BBOOL found = FALSE;
+	CK_RV rv;
+
+	/*
+	 * The token includes the header section first,
+	 * the private key section in the middle,
+	 * and the public key section last.
+	 */
+
+	/*
+	 * Get Q data for public and private key.
+	 */
+	pubkey_offset = cca_ec_publkey_offset(tok);
+
+	qlen_offset =  pubkey_offset + CCA_EC_INTTOK_PUBKEY_Q_LEN_OFFSET;
+	q_len = *(uint16_t *)&tok[qlen_offset];
+	q_len = ntohs(q_len);
+
+	if (q_len > CCATOK_EC_MAX_Q_LEN) {
+		DBG("Not enough room to return q.  (Got %d, need %ld)\n", CCATOK_EC_MAX_Q_LEN, q_len);
+		return CKR_FUNCTION_FAILED;
+	}
+
+	q_offset = pubkey_offset + CCA_EC_INTTOK_PUBKEY_Q_OFFSET;
+	memcpy(q, &tok[q_offset], (size_t)q_len);
+
+	if ((rv = build_update_attribute(publ_tmpl, CKA_EC_POINT, q, q_len)))
+	{
+		DBG("Build and update attribute for q failed rv=0x%lx\n", rv);
+		return rv;
+	}
+
+	if ((rv = build_update_attribute(priv_tmpl, CKA_EC_POINT, q, q_len)))
+	{
+		DBG("Build and update attribute for q failed rv=0x%lx\n", rv);
+		return rv;
+	}
+
+	/*
+	 * Get ECDSA PAMRAMS for both keys.
+	 */
+	p_len_offset = pubkey_offset + CCA_PUBL_P_LEN_OFFSET;
+	p_len = *(uint16_t *)&tok[p_len_offset];
+	p_len = ntohs(p_len);
+
+	for (i = 0; i < NUMEC; i++) {
+		if (p_len == der_ec_supported[i].len_bits) {
+			found = TRUE;
+			break;
+		}
+	}
+
+	if(found == FALSE) {
+		DBG("The p len %lx is not valid.\n", p_len);
+		return CKR_FUNCTION_FAILED;
+	}
+
+	if ((rv = build_update_attribute(publ_tmpl, CKA_ECDSA_PARAMS,
+					der_ec_supported[i].data,
+					der_ec_supported[i].data_size))) {
+		DBG("Build and update attribute for der data failed rv=0x%lx\n", rv);
+		return rv;
+	}
+
+	if ((rv = build_update_attribute(priv_tmpl, CKA_ECDSA_PARAMS,
+					der_ec_supported[i].data,
+					der_ec_supported[i].data_size))) {
+		DBG("Build and update attribute for der data failed rv=0x%lx\n", rv);
+		return rv;
+	}
+
+	/*
+	 * Save the CKA_IBM_OPAQUE for both keys.
+	 */
+	if ((rv = build_update_attribute(publ_tmpl, CKA_IBM_OPAQUE, tok, tok_len))) {
+		DBG("Build and update attribute for tok failed rv=0x%lx\n", rv);
+		return rv;
+	}
+
+	if ((rv = build_update_attribute(priv_tmpl, CKA_IBM_OPAQUE, tok, tok_len))) {
+		DBG("Build and update attribute for tok failed rv=0x%lx\n", rv);
+		return rv;
+	}
+
+	return CKR_OK;
+}
+
+CK_RV
+token_specific_ec_generate_keypair(TEMPLATE *publ_tmpl,
+				TEMPLATE *priv_tmpl)
+{
+	long return_code, reason_code, rule_array_count, exit_data_len = 0;
+	unsigned char *exit_data = NULL;
+	unsigned char rule_array[CCA_RULE_ARRAY_SIZE] = { 0, };
+	long key_value_structure_length, private_key_name_length, key_token_length;
+	unsigned char key_value_structure[CCA_EC_KEY_VALUE_STRUCT_SIZE] = { 0, };
+	unsigned char private_key_name[CCA_PRIVATE_KEY_NAME_SIZE] = { 0, };
+	unsigned char key_token[CCA_KEY_TOKEN_SIZE] = { 0, };
+	long regeneration_data_length, generated_key_token_length;
+	unsigned char regeneration_data[CCA_REGENERATION_DATA_SIZE] = { 0, };
+	unsigned char transport_key_identifier[CCA_KEY_ID_SIZE] = { 0, };
+	unsigned char generated_key_token[CCA_KEY_TOKEN_SIZE] = { 0, };
+	unsigned int i;
+	CK_BBOOL found = FALSE;
+	CK_ATTRIBUTE *attr = NULL;
+	CK_RV rv;
+	long param1=0;
+	unsigned char *param2=NULL;
+
+	DBG("Entering EC Generate Keypair");
+
+	if (!template_attribute_find(publ_tmpl, CKA_ECDSA_PARAMS, &attr)) {
+		st_err_log(48, __FILE__, __LINE__);
+		return CKR_TEMPLATE_INCOMPLETE;
+	}
+
+	for (i = 0; i < NUMEC; i++) {
+		if ((attr->ulValueLen == der_ec_supported[i].data_size) &&
+				(memcmp(attr->pValue, der_ec_supported[i].data,
+				attr->ulValueLen) == 0)) {
+			found = TRUE;
+			break;
+		}
+	}
+
+	if(found == FALSE) {
+		st_err_log(141, __FILE__, __LINE__);
+		return CKR_MECHANISM_PARAM_INVALID;
+	}
+
+	/*
+	 * See CCA doc: page 94 for offset of data in key_value_structure
+	 */
+	memcpy(key_value_structure,
+			&(der_ec_supported[i].curve_type), sizeof(uint8_t));
+	memcpy(&key_value_structure[CCA_PKB_EC_LEN_OFFSET],
+			&(der_ec_supported[i].len_bits), sizeof(uint16_t));
+
+	key_value_structure_length = CCA_EC_KEY_VALUE_STRUCT_SIZE;
+
+	rule_array_count = 1;
+	memcpy(rule_array, "ECC-PAIR", (size_t)(CCA_KEYWORD_SIZE));
+
+	private_key_name_length = 0;
+
+	key_token_length = CCA_KEY_TOKEN_SIZE;
+
+	CSNDPKB(&return_code,
+			&reason_code,
+			&exit_data_len,
+			exit_data,
+			&rule_array_count,
+			rule_array,
+			&key_value_structure_length,
+			key_value_structure,
+			&private_key_name_length,
+			private_key_name,
+			&param1,
+			param2,
+			&param1,
+			param2,
+			&param1,
+			param2,
+			&param1,
+			param2,
+			&param1,
+			param2,
+			&key_token_length,
+			key_token);
+
+	if (return_code != CCA_SUCCESS) {
+		CCADBG("CSNDPKB (EC KEY TOKEN BUILD)", return_code, reason_code);
+		return CKR_FUNCTION_FAILED;
+	}
+
+	rule_array_count = 1;
+	memset(rule_array, 0, sizeof(rule_array));
+	memcpy(rule_array, "MASTER  ", (size_t)CCA_KEYWORD_SIZE);
+
+	generated_key_token_length = CCA_KEY_TOKEN_SIZE;
+
+	regeneration_data_length = 0;
+
+	CSNDPKG(&return_code,
+			&reason_code,
+			NULL,
+			NULL,
+			&rule_array_count,
+			rule_array,
+			&regeneration_data_length,
+			regeneration_data,
+			&key_token_length,
+			key_token,
+			transport_key_identifier,
+			&generated_key_token_length,
+			generated_key_token);
+
+	if (return_code != CCA_SUCCESS) {
+			CCADBG("CSNDPKG (EC KEY GENERATE)", return_code, reason_code);
+			return CKR_FUNCTION_FAILED;
+	}
+
+	DBG("ECC secure key token generated. size: %ld", generated_key_token_length);
+
+	rv = token_create_ec_keypair(publ_tmpl, priv_tmpl,
+			generated_key_token_length, generated_key_token);
+	if (rv != CKR_OK) {
+		DBG("token_create_ec_keypair failed. rv: %lu", rv);
+		return rv;
+	}
+
+	return rv;
+}
+
+CK_RV
+token_specific_ec_sign(CK_BYTE  * in_data,
+			CK_ULONG   in_data_len,
+			CK_BYTE  * out_data,
+			CK_ULONG * out_data_len,
+			OBJECT   * key_obj )
+{
+	long return_code, reason_code, rule_array_count;
+	unsigned char rule_array[CCA_RULE_ARRAY_SIZE] = { 0, };
+	long signature_bit_length;
+	CK_ATTRIBUTE *attr;
+
+	DBG("Entering EC Sign, in_data_len is %lu.", in_data_len);
+
+	/* Find the secure key token */
+	if (!template_attribute_find(key_obj->template, CKA_IBM_OPAQUE, &attr)) {
+		st_err_log(48, __FILE__, __LINE__);
+		return CKR_TEMPLATE_INCOMPLETE;
+	}
+
+	/* CCA doc: page 113 */
+	rule_array_count = 1;
+	memcpy(rule_array, "ECDSA   ", CCA_KEYWORD_SIZE);
+
+	CSNDDSG(&return_code,
+			&reason_code,
+			NULL,
+			NULL,
+			&rule_array_count,
+			rule_array,
+			(long *)&(attr->ulValueLen),
+			attr->pValue,
+			(long *)&in_data_len,
+			in_data,
+			(long *)out_data_len,
+			&signature_bit_length,
+			out_data);
+
+	if (return_code != CCA_SUCCESS) {
+			CCADBG("CSNDDSG (EC SIGN)", return_code, reason_code);
+			return CKR_FUNCTION_FAILED;
+	}
+
+	return CKR_OK;
+}
+
+CK_RV
+token_specific_ec_verify(CK_BYTE  * in_data,
+			  CK_ULONG   in_data_len,
+			  CK_BYTE  * out_data,
+			  CK_ULONG   out_data_len,
+			  OBJECT   * key_obj )
+{
+	long return_code, reason_code, rule_array_count;
+	unsigned char rule_array[CCA_RULE_ARRAY_SIZE] = { 0, };
+	CK_ATTRIBUTE *attr;
+
+	DBG("Entering EC Verify");
+
+	/* Find the secure key token */
+	if (!template_attribute_find(key_obj->template, CKA_IBM_OPAQUE, &attr))	{
+		st_err_log(48, __FILE__, __LINE__);
+		return CKR_TEMPLATE_INCOMPLETE;
+	}
+
+	/* CCA doc: page 118 */
+	rule_array_count = 1;
+	memcpy(rule_array, "ECDSA   ", CCA_KEYWORD_SIZE);
+
+	CSNDDSV(&return_code,
+			&reason_code,
+			NULL,
+			NULL,
+			&rule_array_count,
+			rule_array,
+			(long *)&(attr->ulValueLen),
+			attr->pValue,
+			(long *)&in_data_len,
+			in_data,
+			(long *)&out_data_len,
+			out_data);
+
+	if (return_code == 4 && reason_code == 429) {
+		return CKR_SIGNATURE_INVALID;
+	} else if (return_code != CCA_SUCCESS) {
+		CCADBG("CSNDDSV (EC VERIFY)", return_code, reason_code);
+		return CKR_FUNCTION_FAILED;
+	}
+
+	return CKR_OK;
+}
