@@ -2338,6 +2338,12 @@ ckm_aes_ctr_encrypt( CK_BYTE    *in_data,
       st_err_log(29, __FILE__, __LINE__);
       return CKR_MECHANISM_PARAM_INVALID;
    }
+
+   if (token_specific.t_aes_ctr == NULL) {
+      st_err_log(28, __FILE__, __LINE__);
+      return CKR_MECHANISM_INVALID;
+   }
+
    rc = token_specific.t_aes_ctr(in_data, in_data_len,
                                  out_data, out_data_len,
                                  key_value, key_len,
@@ -2377,6 +2383,12 @@ ckm_aes_ctr_decrypt( CK_BYTE       *in_data,
       st_err_log(29, __FILE__, __LINE__);
       return CKR_MECHANISM_PARAM_INVALID;
    }
+
+   if (token_specific.t_aes_ctr == NULL) {
+      st_err_log(28, __FILE__, __LINE__);
+      return CKR_MECHANISM_INVALID;
+   }
+
    rc = token_specific.t_aes_ctr(in_data, in_data_len,
                                  out_data,out_data_len,
                                  key_value,key_len,
