@@ -351,6 +351,7 @@ token_spec_t token_specific  = {
      &token_specific_aes_key_gen,
      &token_specific_aes_ecb,
      &token_specific_aes_cbc,
+     &token_specific_aes_ctr,
 #endif
      &token_specific_get_mechanism_list,
      &token_specific_get_mechanism_info

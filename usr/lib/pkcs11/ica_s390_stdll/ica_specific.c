@@ -2299,6 +2299,51 @@ token_specific_aes_cbc(CK_BYTE         *in_data,
 	}
 	return rc;
 }
+CK_RV
+token_specific_aes_ctr(CK_BYTE          *in_data,
+		       CK_ULONG		 in_data_len,
+		       CK_BYTE 		*out_data,
+		       CK_ULONG		*out_data_len,
+		       CK_BYTE		*key_value,
+		       CK_ULONG		 key_len,
+		       CK_BYTE          *counterblock,
+		       CK_ULONG          counter_width,
+		       CK_BYTE 		 encrypt)
+{
+   CK_RV rc;
+   /*
+    * checks for input and output data length and block sizes
+    * are already being carried out in mech_aes.c
+    * so we skip those
+    */
+  /* in libica for AES-Counter Mode if uses one function for both encrypt and decrypt
+   * so they use variable direction to know if the data is to be encrypted or decrypted
+   * 0 -- Decrypt
+   * 1 -- Encrypt
+   */
+   if (encrypt){
+      rc = ica_aes_ctr( in_data, out_data, (unsigned int) in_data_len,
+                        key_value, (unsigned int) key_len,
+                        counterblock, (unsigned int ) counter_width,
+		        1);
+   }
+   else{
+      rc = ica_aes_ctr( in_data, out_data, (unsigned int) in_data_len,
+                        key_value, (unsigned int) key_len,
+                        counterblock, (unsigned int ) counter_width,
+                        0);
+   }
+   if( rc != 0){
+     (*out_data_len) = 0;
+     rc = CKR_FUNCTION_FAILED;
+   }
+   else
+   {
+     (*out_data_len) = in_data_len;
+     rc = CKR_OK;
+   }
+   return rc;
+}
 #endif
 
 #ifndef NODH 
@@ -2649,6 +2694,9 @@ MECH_LIST_ELEMENT mech_list[] = {
    { CKM_AES_CBC,                    16,   32, CKF_HW      |
    					       CKF_ENCRYPT | CKF_DECRYPT |
    					       CKF_WRAP    | CKF_UNWRAP },
+   { CKM_AES_CTR,                    16,   32, CKF_HW      |
+					       CKF_ENCRYPT | CKF_DECRYPT |
+					       CKF_WRAP    | CKF_UNWRAP },
    { CKM_AES_MAC,                    16,   32, CKF_HW | CKF_SIGN | CKF_VERIFY },
    { CKM_AES_MAC_GENERAL,            16,   32, CKF_HW | CKF_SIGN | CKF_VERIFY },
    { CKM_AES_CBC_PAD,                16,   32, CKF_HW      |

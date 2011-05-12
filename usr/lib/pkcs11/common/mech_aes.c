@@ -741,8 +741,132 @@ aes_cbc_pad_decrypt( SESSION            *sess,
    free( clear );
    return rc;
 }
+//
+//
+CK_RV
+aes_ctr_encrypt( SESSION           *sess,
+                 CK_BBOOL           length_only,
+		 ENCR_DECR_CONTEXT *ctx,
+                 CK_BYTE           *in_data,
+                 CK_ULONG           in_data_len,
+                 CK_BYTE           *out_data,
+                 CK_ULONG 	   *out_data_len )
+{
+   OBJECT *key = NULL;
+   CK_ATTRIBUTE *attr = NULL;
+   CK_BYTE key_value[AES_KEY_SIZE_256];
+   CK_KEY_TYPE keytype;
+   CK_RV rc;
+   CK_AES_CTR_PARAMS *aesctr = NULL;
 
+   if (!sess || !ctx || !out_data_len){
+      st_err_log(4, __FILE__, __LINE__, __FUNCTION__);
+      return CKR_FUNCTION_FAILED;
+   }
+   if (in_data_len % AES_BLOCK_SIZE != 0){
+      st_err_log(11, __FILE__, __LINE__);
+      return CKR_DATA_LEN_RANGE;
+   }
+   rc = object_mgr_find_in_map1( ctx->key, &key );
+   if (rc != CKR_OK){
+      st_err_log(110, __FILE__, __LINE__);
+      return rc;
+   }
+   rc = template_attribute_find( key->template, CKA_KEY_TYPE, &attr );
+   if (rc == FALSE){
+      st_err_log(4, __FILE__, __LINE__, __FUNCTION__);
+      return CKR_FUNCTION_FAILED;
+   }
+   keytype = *(CK_KEY_TYPE *)attr->pValue;
 
+   rc = template_attribute_find( key->template, CKA_VALUE, &attr );
+   if (rc == FALSE){
+      st_err_log(4, __FILE__, __LINE__, __FUNCTION__);
+      return CKR_FUNCTION_FAILED;
+   }
+   memcpy( key_value, attr->pValue, attr->ulValueLen );
+
+   if (length_only == TRUE) {
+      *out_data_len = in_data_len;
+       return CKR_OK;
+   }
+
+   if (*out_data_len < in_data_len) {
+      *out_data_len = in_data_len;
+      st_err_log(111, __FILE__, __LINE__);
+      return CKR_BUFFER_TOO_SMALL;
+   }
+
+   aesctr = (CK_AES_CTR_PARAMS *)ctx->mech.pParameter;
+
+   return ckm_aes_ctr_encrypt( in_data,   in_data_len,
+                               out_data,  out_data_len,
+                               (CK_BYTE *)aesctr->cb, (CK_ULONG)aesctr->ulCounterBits,
+                               key_value, attr->ulValueLen );
+}
+//
+//
+CK_RV
+aes_ctr_decrypt( SESSION           *sess,
+                 CK_BBOOL           length_only,
+		 ENCR_DECR_CONTEXT *ctx,
+                 CK_BYTE           *in_data,
+                 CK_ULONG           in_data_len,
+                 CK_BYTE           *out_data,
+                 CK_ULONG 	   *out_data_len )
+{
+   OBJECT *key = NULL;
+   CK_ATTRIBUTE *attr = NULL;
+   CK_BYTE key_value[AES_KEY_SIZE_256];
+   CK_KEY_TYPE keytype;
+   CK_RV rc;
+   CK_AES_CTR_PARAMS *aesctr = NULL;
+
+   if (!sess || !ctx || !out_data_len){
+      st_err_log(4, __FILE__, __LINE__, __FUNCTION__);
+      return CKR_FUNCTION_FAILED;
+   }
+   if (in_data_len % AES_BLOCK_SIZE != 0){
+      st_err_log(11, __FILE__, __LINE__);
+      return CKR_DATA_LEN_RANGE;
+   }
+   rc = object_mgr_find_in_map1( ctx->key, &key );
+   if (rc != CKR_OK){
+      st_err_log(110, __FILE__, __LINE__);
+      return rc;
+   }
+   rc = template_attribute_find( key->template, CKA_KEY_TYPE, &attr );
+   if (rc == FALSE){
+      st_err_log(4, __FILE__, __LINE__, __FUNCTION__);
+      return CKR_FUNCTION_FAILED;
+   }
+   keytype = *(CK_KEY_TYPE *)attr->pValue;
+
+   rc = template_attribute_find( key->template, CKA_VALUE, &attr );
+   if (rc == FALSE){
+      st_err_log(4, __FILE__, __LINE__, __FUNCTION__);
+      return CKR_FUNCTION_FAILED;
+   }
+   memcpy( key_value, attr->pValue, attr->ulValueLen );
+
+   if (length_only == TRUE) {
+      *out_data_len = in_data_len;
+       return CKR_OK;
+   }
+
+   if (*out_data_len < in_data_len) {
+      *out_data_len = in_data_len;
+       st_err_log(111, __FILE__, __LINE__);
+       return CKR_BUFFER_TOO_SMALL;
+   }
+
+   aesctr = (CK_AES_CTR_PARAMS *)ctx->mech.pParameter;
+
+   return ckm_aes_ctr_decrypt( in_data,   in_data_len,
+                               out_data,  out_data_len,
+                               (CK_BYTE *)aesctr->cb, (CK_ULONG)aesctr->ulCounterBits,
+                               key_value, attr->ulValueLen );
+}
 //
 //
 CK_RV
@@ -1401,8 +1525,185 @@ aes_cbc_pad_decrypt_update( SESSION           *sess,
    st_err_log(4, __FILE__, __LINE__, __FUNCTION__);
    return CKR_FUNCTION_FAILED;
 }
+//
+//
+CK_RV
+aes_ctr_encrypt_update( SESSION                *sess,
+                        CK_BBOOL 		 length_only,
+			ENCR_DECR_CONTEXT 	*ctx,
+                        CK_BYTE                 *in_data,
+                        CK_ULONG 		 in_data_len,
+                        CK_BYTE                 *out_data,
+			CK_ULONG 		*out_data_len )
+{
+   AES_CONTEXT  * context   = NULL;
+   CK_ATTRIBUTE * attr      = NULL;
+   OBJECT       * key       = NULL;
+   CK_BYTE      * clear     = NULL;
+   CK_BYTE        key_value[AES_KEY_SIZE_256];
+   CK_KEY_TYPE    keytype;
+   CK_ULONG       total, remain, out_len;
+   CK_RV          rc;
+   CK_AES_CTR_PARAMS *aesctr = NULL;
+   if ( !sess || !ctx || !out_data_len)
+   {
+      st_err_log( 4, __FILE__, __LINE__, __FUNCTION__);
+      CKR_FUNCTION_FAILED;
+   }
+   context = (AES_CONTEXT *)ctx -> context;
+   total = (context->len + in_data_len);
+   if( total < AES_BLOCK_SIZE){
+     if(length_only == FALSE){
+        memcpy( context->data + context->len, in_data, in_data_len);
+	context->len += in_data_len;
+     }
+     *out_data_len = 0;
+     return CKR_OK;
+   }
+   else
+   {
+     // we atleast have 1 block
+     remain = (total % AES_BLOCK_SIZE);
+     out_len = total -remain;
+     if (length_only == TRUE){
+	*out_data_len = out_len;
+	 return CKR_OK;
+     }
+     rc = object_mgr_find_in_map_nocache(ctx->key, &key);
+     if(rc != CKR_OK){
+       st_err_log(110, __FILE__, __LINE__);
+	return rc;
+     }
+     rc = template_attribute_find( key->template, CKA_KEY_TYPE, &attr);
+     if ( rc == FALSE){
+	st_err_log(4, __FILE__, __LINE__, __FUNCTION__);
+	return CKR_FUNCTION_FAILED;
+     }
+     keytype = *(CK_KEY_TYPE*)attr->pValue;
+     rc = template_attribute_find( key->template, CKA_VALUE, &attr);
+     if( rc == FALSE){
+       st_err_log(4, __FILE__, __LINE__, __FUNCTION__);
+       return CKR_FUNCTION_FAILED;
+     }
+     memcpy ( key_value, attr->pValue, attr->ulValueLen);
+     //these buffers need to be longword aligned
+     clear = (CK_BYTE*) malloc (out_len);
+     if (!clear){
+	st_err_log(0, __FILE__, __LINE__);
+        return CKR_HOST_MEMORY;
+     }
+     //copy all the leftover data  from the previous encryption operation first
+     memcpy ( clear,		     context->data, context->len);
+     memcpy ( clear+context->len, in_data, out_len - context->len);
+     aesctr = (CK_AES_CTR_PARAMS *)ctx->mech.pParameter;
+     rc = ckm_aes_ctr_encrypt( clear,    out_len,
+                               out_data, out_data_len,
+                               (CK_BYTE *)aesctr->cb,(CK_ULONG)aesctr->ulCounterBits,
+                               key_value, attr->ulValueLen );
+     if (rc == CKR_OK){
+	*out_data_len = out_len;
+	// copy the remaining 'new' input data to the context buffer
+        if (remain != 0)
+           memcpy( context->data, in_data + (in_data_len - remain), remain );
+           context->len = remain;
+      }
+      else
+          st_err_log(105, __FILE__, __LINE__);
+      free( clear );
+      return rc;
+      }
+  st_err_log(4, __FILE__, __LINE__, __FUNCTION__);
+  return CKR_FUNCTION_FAILED;
+}
+//
+//
+CK_RV
+aes_ctr_decrypt_update( SESSION                 *sess,
+                        CK_BBOOL 		 length_only,
+			ENCR_DECR_CONTEXT 	*ctx,
+                        CK_BYTE                 *in_data,
+                        CK_ULONG 		 in_data_len,
+                        CK_BYTE                 *out_data,
+                        CK_ULONG 		*out_data_len )
+{
+   AES_CONTEXT  * context   = NULL;
+   CK_ATTRIBUTE * attr      = NULL;
+   OBJECT       * key       = NULL;
+   CK_BYTE      * clear     = NULL;
+   CK_BYTE        key_value[AES_KEY_SIZE_256];
+   CK_KEY_TYPE    keytype;
+   CK_ULONG       total, remain, out_len;
+   CK_RV          rc;
+   CK_AES_CTR_PARAMS *aesctr = NULL;
+   if ( !sess || !ctx || !out_data_len){
+      st_err_log( 4, __FILE__, __LINE__, __FUNCTION__);
+      CKR_FUNCTION_FAILED;
+   }
+   context = (AES_CONTEXT *)ctx -> context;
+   total = (context->len + in_data_len);
+   if( total < AES_BLOCK_SIZE){
+     if(length_only == FALSE){
+       memcpy( context->data + context->len, in_data, in_data_len);
+       context->len += in_data_len;
+     }
+     *out_data_len = 0;
+     return CKR_OK;
+   }
+   else{
+     // we atleast have 1 block
+     remain = (total % AES_BLOCK_SIZE);
+     out_len = total -remain;
+     if (length_only == TRUE){
+	*out_data_len = out_len;
+	return CKR_OK;
+     }
+     rc = object_mgr_find_in_map_nocache(ctx->key, &key);
+     if(rc != CKR_OK){
+       st_err_log(110, __FILE__, __LINE__);
+       return rc;
+     }
+     rc = template_attribute_find( key->template, CKA_KEY_TYPE, &attr);
+     if ( rc == FALSE){
+	st_err_log(4, __FILE__, __LINE__, __FUNCTION__);
+	return CKR_FUNCTION_FAILED;
+     }
+     keytype = *(CK_KEY_TYPE*)attr->pValue;
+     rc = template_attribute_find( key->template, CKA_VALUE, &attr);
+     if( rc == FALSE){
+       st_err_log(4, __FILE__, __LINE__, __FUNCTION__);
+       return CKR_FUNCTION_FAILED;
+     }
+     memcpy ( key_value, attr->pValue, attr->ulValueLen);
+     //these buffers need to be longword aligned
+     clear = (CK_BYTE*) malloc (out_len);
+     if (!clear){
+	st_err_log(0, __FILE__, __LINE__);
+	return CKR_HOST_MEMORY;
+     }
+     //copy all the leftover data  from the previous encryption operation first
+     memcpy ( clear,		     context->data, context->len);
+     memcpy ( clear+context->len, in_data, out_len - context->len);
+     aesctr = (CK_AES_CTR_PARAMS *)ctx->mech.pParameter;
+     rc = ckm_aes_ctr_decrypt( clear,    out_len,
+                               out_data, out_data_len,
+                               (CK_BYTE *)aesctr->cb, (CK_ULONG)aesctr->ulCounterBits,
+                               key_value, attr->ulValueLen );
+     if (rc == CKR_OK){
+	*out_data_len = out_len;
+	// copy the remaining 'new' input data to the context buffer
+        if (remain != 0)
+           memcpy( context->data, in_data + (in_data_len - remain), remain );
+        context->len = remain;
+     }
+     else
+        st_err_log(105, __FILE__, __LINE__);
 
-
+     free( clear );
+     return rc;
+     }
+     st_err_log(4, __FILE__, __LINE__, __FUNCTION__);
+     return CKR_FUNCTION_FAILED;
+}
 //
 //
 CK_RV
@@ -1699,6 +2000,89 @@ aes_cbc_pad_decrypt_final( SESSION           *sess,
    }
 }
 
+//
+//
+CK_RV
+aes_ctr_encrypt_final( SESSION           *sess,
+                       CK_BBOOL           length_only,
+                       ENCR_DECR_CONTEXT *ctx,
+                       CK_BYTE           *out_data,
+                       CK_ULONG          *out_data_len )
+{
+   AES_CONTEXT *context   = NULL;
+   CK_AES_CTR_PARAMS *aesctr = NULL;
+
+   if (!sess || !ctx || !out_data_len){
+      st_err_log(4, __FILE__, __LINE__, __FUNCTION__);
+      return CKR_FUNCTION_FAILED;
+   }
+   // satisfy the compiler
+   //
+   if (length_only)
+      context = NULL;
+
+   context = (AES_CONTEXT *)ctx->context;
+
+   // DES3-CBC does no padding so there had better not be
+   // any data in the context buffer.  if there is it means
+   // that the overall data length was not a multiple of the blocksize
+   //
+   if (context->len != 0){
+      st_err_log(11, __FILE__, __LINE__);
+      return CKR_DATA_LEN_RANGE;
+   }
+   aesctr = (CK_AES_CTR_PARAMS *)ctx->mech.pParameter;
+   //to check that the counter buffer doesnot overflow
+   if ( ((CK_ULONG)aesctr->ulCounterBits) > ((CK_ULONG)aesctr->ulCounterBits+1) )
+   {
+	st_err_log(11,__FILE__,__LINE__);
+	return CKR_DATA_LEN_RANGE;
+   }
+
+   *out_data_len = 0;
+   return CKR_OK;
+}
+//
+//
+CK_RV
+aes_ctr_decrypt_final( SESSION           *sess,
+                       CK_BBOOL           length_only,
+                       ENCR_DECR_CONTEXT *ctx,
+                       CK_BYTE           *out_data,
+                       CK_ULONG          *out_data_len )
+{
+   AES_CONTEXT *context   = NULL;
+   CK_AES_CTR_PARAMS *aesctr = NULL;
+
+   if (!sess || !ctx || !out_data_len){
+      st_err_log(4, __FILE__, __LINE__, __FUNCTION__);
+      return CKR_FUNCTION_FAILED;
+   }
+   // satisfy the compiler
+   //
+   if (length_only)
+      context = NULL;
+
+   context = (AES_CONTEXT *)ctx->context;
+
+   // DES3-CBC does no padding so there had better not be
+   // any data in the context buffer.  if there is it means
+   // that the overall data length was not a multiple of the blocksize
+   //
+   if (context->len != 0){
+      st_err_log(11, __FILE__, __LINE__);
+      return CKR_DATA_LEN_RANGE;
+   }
+   aesctr = (CK_AES_CTR_PARAMS *)ctx->mech.pParameter;
+   //to check that the counter buffer doesnot overflow
+   if ( ((CK_ULONG)aesctr->ulCounterBits) > ((CK_ULONG)aesctr->ulCounterBits+1) )
+   {
+	st_err_log(11,__FILE__,__LINE__);
+	return CKR_DATA_LEN_RANGE;
+   }
+   *out_data_len = 0;
+   return CKR_OK;
+}
 
 //
 // mechanisms
@@ -1923,7 +2307,84 @@ ckm_aes_cbc_decrypt( CK_BYTE     * in_data,
       st_err_log(119, __FILE__, __LINE__);
    return rc;
 }
-
+//
+//
+CK_RV
+ckm_aes_ctr_encrypt( CK_BYTE    *in_data,
+                     CK_ULONG    in_data_len,
+                     CK_BYTE    *out_data,
+                     CK_ULONG 	*out_data_len,
+                     CK_BYTE    *counterblock,
+                     CK_ULONG    counter_width,
+                     CK_BYTE  	*key_value,
+	             CK_ULONG 	 key_len)
+{
+   CK_ULONG         rc;
+   if (!in_data || !out_data || !counterblock || !key_value){
+      st_err_log(4, __FILE__, __LINE__, __FUNCTION__);
+      return CKR_FUNCTION_FAILED;
+   }
+   if (*out_data_len < in_data_len){
+      #if 0
+        st_err_log(4, __FILE__, __LINE__, __FUNCTION__);
+        return CKR_FUNCTION_FAILED;
+      #else
+      *out_data_len = in_data_len;
+      st_err_log(68, __FILE__, __FUNCTION__);
+      return CKR_BUFFER_TOO_SMALL;
+      #endif
+   }
+   if (counter_width % 8 != 0){
+      st_err_log(29, __FILE__, __LINE__);
+      return CKR_MECHANISM_PARAM_INVALID;
+   }
+   rc = token_specific.t_aes_ctr(in_data, in_data_len,
+                                 out_data, out_data_len,
+                                 key_value, key_len,
+				 counterblock,counter_width,1);
+   if (rc != CKR_OK)
+      st_err_log(195, __FILE__, __LINE__);
+   return rc;
+}
+//
+//
+CK_RV
+ckm_aes_ctr_decrypt( CK_BYTE       *in_data,
+                     CK_ULONG       in_data_len,
+                     CK_BYTE       *out_data,
+                     CK_ULONG      *out_data_len,
+                     CK_BYTE       *counterblock,
+                     CK_ULONG       counter_width,
+		     CK_BYTE       *key_value,
+		     CK_ULONG       key_len)
+{
+   CK_ULONG         rc;
+   if (!in_data || !out_data || !counterblock || !key_value){
+      st_err_log(4, __FILE__, __LINE__, __FUNCTION__);
+      return CKR_FUNCTION_FAILED;
+   }
+   if (*out_data_len < in_data_len){
+      #if 0
+        st_err_log(4, __FILE__, __LINE__, __FUNCTION__);
+        return CKR_FUNCTION_FAILED;
+      #else
+      *out_data_len = in_data_len;
+      st_err_log(68, __FILE__, __FUNCTION__);
+      return CKR_BUFFER_TOO_SMALL;
+      #endif
+   }
+   if (counter_width % 8 != 0){
+      st_err_log(29, __FILE__, __LINE__);
+      return CKR_MECHANISM_PARAM_INVALID;
+   }
+   rc = token_specific.t_aes_ctr(in_data, in_data_len,
+                                 out_data,out_data_len,
+                                 key_value,key_len,
+				 counterblock,counter_width,0);
+   if (rc != CKR_OK)
+      st_err_log(195, __FILE__, __LINE__);
+   return rc;
+}
 //
 //
 CK_RV

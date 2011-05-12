@@ -304,6 +304,7 @@
 #include "h_extern.h"
 #include "tok_spec_struct.h"
 
+CK_AES_CTR_PARAMS aesctr;
 
 //
 //
@@ -713,15 +714,51 @@ decr_mgr_init( SESSION           *sess,
             memset( ctx->context, 0x0, sizeof(AES_CONTEXT) );
 
 	 }
-	 break;
-	 
+         break;
+      case CKM_AES_CTR:
+         {
+	   if (mech->ulParameterLen != sizeof(CK_AES_CTR_PARAMS)){
+	      st_err_log(29, __FILE__, __LINE__);
+	      return CKR_MECHANISM_PARAM_INVALID;
+	   }
+	   // is the key type correct?
+           rc = template_attribute_find( key_obj->template, CKA_KEY_TYPE, &attr );
+           if (rc == FALSE){
+              st_err_log(20, __FILE__, __LINE__);
+              return CKR_KEY_TYPE_INCONSISTENT;
+           }
+           else
+           {
+             keytype = *(CK_KEY_TYPE *)attr->pValue;
+             if (keytype != CKK_AES){
+                st_err_log(20, __FILE__, __LINE__);
+                return CKR_KEY_TYPE_INCONSISTENT;
+            }
+	    }
+
+            ctx->context_len = sizeof(AES_CONTEXT);
+            ctx->context     = (CK_BYTE *)malloc(sizeof(AES_CONTEXT));
+            if (!ctx->context){
+               st_err_log(1, __FILE__, __LINE__);
+               return CKR_HOST_MEMORY;
+            }
+            memset( ctx->context, 0x0, sizeof(AES_CONTEXT) );
+        }
+        break;
       default:
          st_err_log(28, __FILE__, __LINE__);
          return CKR_MECHANISM_INVALID;
    }
 
-
-   if (mech->ulParameterLen > 0) {
+   if ((mech->mechanism == CKM_AES_CTR) || (mech->ulParameterLen > 0)){
+	ptr = (CK_AES_CTR_PARAMS *) malloc(mech->ulParameterLen);
+	if (!ptr){
+	   st_err_log(1, __FILE__, __LINE__);
+	   return CKR_HOST_MEMORY;
+	}
+	memcpy( ptr, mech->pParameter, mech->ulParameterLen );
+   }
+   else if (mech->ulParameterLen > 0) {
       ptr = (CK_BYTE *)malloc(mech->ulParameterLen);
       if (!ptr){
          st_err_log(1, __FILE__, __LINE__);
@@ -736,11 +773,8 @@ decr_mgr_init( SESSION           *sess,
    ctx->mech.pParameter     = ptr;
    ctx->multi               = FALSE;
    ctx->active              = TRUE;
-
    return CKR_OK;
 }
-
-
 //
 //
 CK_RV
@@ -769,8 +803,6 @@ decr_mgr_cleanup( ENCR_DECR_CONTEXT *ctx )
 
    return CKR_OK;
 }
-
-
 //
 //
 CK_RV
@@ -870,6 +902,11 @@ decr_mgr_decrypt( SESSION           *sess,
                                      ctx,
                                      in_data,  in_data_len,
                                      out_data, out_data_len );
+      case CKM_AES_CTR:
+	 return aes_ctr_decrypt( sess,     length_only,
+				 ctx,
+				 in_data,  in_data_len,
+				 out_data, out_data_len );
 #endif
       default:
          return CKR_MECHANISM_INVALID;
@@ -878,8 +915,6 @@ decr_mgr_decrypt( SESSION           *sess,
    st_err_log(4, __FILE__, __LINE__, __FUNCTION__);
    return CKR_FUNCTION_FAILED;
 }
-
-
 //
 //
 CK_RV
@@ -964,6 +999,12 @@ decr_mgr_decrypt_update( SESSION            *sess,
                                             ctx,
                                             in_data,  in_data_len,
                                             out_data, out_data_len );
+
+      case CKM_AES_CTR:
+	 return aes_ctr_decrypt_update( sess,     length_only,
+                                        ctx,
+					in_data,  in_data_len,
+					out_data, out_data_len);
 #endif
       default:
          st_err_log(28, __FILE__, __LINE__);
@@ -972,8 +1013,6 @@ decr_mgr_decrypt_update( SESSION            *sess,
    st_err_log(4, __FILE__, __LINE__, __FUNCTION__);
    return CKR_FUNCTION_FAILED;
 }
-
-
 //
 //
 CK_RV
@@ -1040,6 +1079,11 @@ decr_mgr_decrypt_final( SESSION            *sess,
          return aes_cbc_pad_decrypt_final( sess,     length_only,
                                            ctx,
                                            out_data, out_data_len );
+
+      case CKM_AES_CTR:
+	 return aes_ctr_decrypt_final( sess,    length_only,
+				       ctx,
+				       out_data, out_data_len);
 #endif
       default:
          st_err_log(28, __FILE__, __LINE__);

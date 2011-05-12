@@ -1,5 +1,3 @@
-/* File: aes_func.c */
-
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -7,21 +5,10 @@
 
 #include "pkcs11types.h"
 #include "regress.h"
+#include "aes.h"
 
-#ifndef AES_KEY_SIZE_128
-#define AES_KEY_SIZE_128 16
-#endif
-
-#ifndef AES_KEY_SIZE_192
-#define AES_KEY_SIZE_192 24
-#endif
-
-#ifndef AES_KEY_SIZE_256
-#define AES_KEY_SIZE_256 32
-#endif
-
-#ifndef AES_BLOCK_SIZE
-#define AES_BLOCK_SIZE 16
+#ifndef AES_COUNTER_VALUE
+#define AES_COUNTER_VALUE "0123456789012345"
 #endif
 
 #ifndef AES_IV_VALUE
@@ -32,847 +19,474 @@
 #define AES_KEY_LEN 32
 #endif
 
-CK_RV do_EncryptAES_ECB(CK_ULONG key_len)
-{
-	CK_BYTE             data1[BIG_REQUEST];
-	CK_BYTE             data2[BIG_REQUEST];
-	CK_SLOT_ID          slot_id;
-	CK_SESSION_HANDLE   session;
-	CK_MECHANISM        mech;
-	CK_OBJECT_HANDLE    h_key;
-	CK_FLAGS            flags;
-	CK_BYTE             user_pin[PKCS11_MAX_PIN_LEN];
-	CK_ULONG            user_pin_len;
-	CK_ULONG            i;
-	CK_ULONG            len1, len2, key_size = key_len;
-	CK_RV               rc, loc_rc;
-	CK_ATTRIBUTE        key_gen_tmpl[] = {
-		{CKA_VALUE_LEN, &key_size, sizeof(CK_ULONG) }
-	};
 
-	printf("do_EncryptAES_ECB...\n");
+CK_ULONG key_lens[] = {16, 24, 32};
+
+CK_RV do_EncryptAES(struct test_suite_info tsuite)
+{
+	int 			i, j;
+	CK_SLOT_ID		slot_id;
+        CK_SESSION_HANDLE	session;
+        CK_MECHANISM		mech;
+        CK_OBJECT_HANDLE	h_key;
+        CK_BYTE			user_pin[PKCS11_MAX_PIN_LEN];
+        CK_ULONG		user_pin_len;
+	CK_BYTE			data[BIG_REQUEST];
+	CK_BYTE			mpdata[BIG_REQUEST];
+	CK_ULONG		datalen, len, mplen;
+	CK_RV			rc, rv;
+	CK_FLAGS		flags;
+	CK_BYTE			init_v[AES_BLOCK_SIZE];
+	CK_OBJECT_CLASS		keyClass = CKO_SECRET_KEY;
+	CK_KEY_TYPE		keyType = CKK_AES;
+	CK_BBOOL 		true = TRUE;
+	CK_BBOOL 		false = FALSE;
+	CK_BYTE			value[MAX_KEY_SIZE];
+
+	CK_AES_CTR_PARAMS aesctr;
 
 	slot_id = SLOT_ID;
 	flags = CKF_SERIAL_SESSION | CKF_RW_SESSION;
-	rc = funcs->C_OpenSession( slot_id, flags, NULL, NULL, &session );
-	if (rc != CKR_OK) {
-		show_error("   C_OpenSession #1", rc );
-		return rc;
-	}
+	rc = funcs->C_OpenSession(slot_id, flags, NULL, NULL, &session);
+        if (rc != CKR_OK) {
+                show_error("C_OpenSession", rc);
+                return rc;
+        }
 
-	if (get_user_pin(user_pin))
-		return CKR_FUNCTION_FAILED;
-	user_pin_len = (CK_ULONG)strlen((char *)user_pin);
+        if (get_user_pin(user_pin))
+                return CKR_FUNCTION_FAILED;
+        user_pin_len = (CK_ULONG)strlen((char *)user_pin);
 
-	rc = funcs->C_Login( session, CKU_USER, user_pin, user_pin_len );
-	if (rc != CKR_OK) {
-		show_error("   C_Login #1", rc );
-		goto error;
-	}
-	mech.mechanism      = CKM_AES_KEY_GEN;
-	mech.ulParameterLen = 0;
-	mech.pParameter     = NULL;
-	rc = funcs->C_GenerateKey( session, &mech, key_gen_tmpl, 1, &h_key );
-	if (rc != CKR_OK) {
-		show_error("   C_GenerateKey #1", rc );
-		goto error;
-	}
-	len1 = len2 = BIG_REQUEST;
+        rc = funcs->C_Login(session, CKU_USER, user_pin, user_pin_len);
+        if (rc != CKR_OK) {
+                show_error("C_Login", rc);
+                goto close;
+        }
 
-	for (i=0; i < len1; i++) {
-		data1[i] = i % 255;
-		data2[i] = i % 255;
-	}
-	mech.mechanism      = CKM_AES_ECB;
-	mech.ulParameterLen = 0;
-	mech.pParameter     = NULL;
-	rc = funcs->C_EncryptInit( session, &mech, h_key );
-	if (rc != CKR_OK) {
-		show_error("   C_EncryptInit #1", rc );
-		goto error;
-	}
-	rc = funcs->C_Encrypt( session, data1, len1, data1, &len1 );
-	if (rc != CKR_OK) {
-		show_error("   C_Encrypt #1", rc );
-		goto error;
-	}
-	rc = funcs->C_DecryptInit( session, &mech, h_key );
-	if (rc != CKR_OK) {
-		show_error("   C_DecryptInit #1", rc );
-		goto error;
-	}
-	rc = funcs->C_Decrypt( session, data1, len1, data1, &len1 );
-	if (rc != CKR_OK) {
-		show_error("   C_Decrypt #1", rc );
-		goto error;
-	}
-	if (len1 != len2) {
-		PRINT_ERR("   ERROR:  lengths don't match\n");
-		rc = -1;
-		goto error;
-	}
-	for (i=0; i <len1; i++) {
-		if (data1[i] != data2[i]) {
-			PRINT_ERR("   ERROR:  data mismatch at byte %ld\n", i );
-			rc = -1;
-			goto error;
-		}
-	}
-	rc = funcs->C_CloseAllSessions( slot_id );
-	if (rc != CKR_OK) {
-		show_error("   C_CloseAllSessions #1", rc );
-		return rc;
-	}
-	printf("Pass\n");
-	return 0;
-error:
-	loc_rc = funcs->C_CloseSession (session);
-	if (loc_rc != CKR_OK)
-		show_error ("   C_CloseSession #2", loc_rc);
-	return rc;
-}
+	rc = 0;
 
+	for (i = 0; i < tsuite.tvcount; i++) {
 
-//
-//
-CK_RV do_EncryptAES_Multipart_ECB(CK_ULONG key_len)
-{
-	CK_BYTE             original[BIG_REQUEST];
-	CK_BYTE             crypt1  [BIG_REQUEST];
-	CK_BYTE             crypt2  [BIG_REQUEST];
-	CK_BYTE             decrypt1[BIG_REQUEST];
-	CK_BYTE             decrypt2[BIG_REQUEST];
+		CK_ATTRIBUTE	keyTemplate[] = {
+			{CKA_CLASS,	&keyClass,	sizeof(keyClass)},
+			{CKA_KEY_TYPE, 	&keyType,	sizeof(keyType)},
+			{CKA_ENCRYPT, 	&true,		sizeof(true)},
+			{CKA_TOKEN, 	&false,		sizeof(false)},
+			{CKA_VALUE, 	value,		tsuite.ctv[i].klen}
+		};
 
-	CK_SLOT_ID          slot_id;
-	CK_SESSION_HANDLE   session;
-	CK_MECHANISM        mech;
-	CK_OBJECT_HANDLE    h_key;
-	CK_FLAGS            flags;
-	CK_BYTE             user_pin[PKCS11_MAX_PIN_LEN];
-	CK_ULONG            user_pin_len;
-	CK_ULONG            i, k;
-	CK_ULONG            orig_len;
-	CK_ULONG            crypt1_len, crypt2_len, decrypt1_len, decrypt2_len;
-	CK_ULONG            tmp, key_size = key_len;
-	CK_RV               rc, loc_rc;
-	CK_ATTRIBUTE        key_gen_tmpl[] = {
-		{CKA_VALUE_LEN, &key_size, sizeof(CK_ULONG) }
-	};
+		/* Create an Object for the key. */
+		memset(value, 0, sizeof(value));
+		memcpy(value, tsuite.ctv[i].key, tsuite.ctv[i].klen);
 
-	printf("do_EncryptAES_Multipart_ECB...\n");
-
-	slot_id = SLOT_ID;
-	flags = CKF_SERIAL_SESSION | CKF_RW_SESSION;
-	rc = funcs->C_OpenSession( slot_id, flags, NULL, NULL, &session );
-	if (rc != CKR_OK) {
-		show_error("   C_OpenSession #1", rc );
-		return rc;
-	}
-
-
-	if (get_user_pin(user_pin))
-		return CKR_FUNCTION_FAILED;
-	user_pin_len = (CK_ULONG)strlen((char *)user_pin);
-
-	rc = funcs->C_Login( session, CKU_USER, user_pin, user_pin_len );
-	if (rc != CKR_OK) {
-		show_error("   C_Login #1", rc );
-		goto error;
-	}
-
-	mech.mechanism      = CKM_AES_KEY_GEN;
-	mech.ulParameterLen = 0;
-	mech.pParameter     = NULL;
-
-
-	// first, generate a AES key
-	//
-	rc = funcs->C_GenerateKey( session, &mech, key_gen_tmpl, 1, &h_key );
-	if (rc != CKR_OK) {
-		show_error("   C_GenerateKey #1", rc );
-		goto error;
-	}
-
-
-	// now, encrypt some data
-	//
-	orig_len    = sizeof(original);
-	for (i=0; i < orig_len; i++) {
-		original[i] = i % 255;
-	}
-
-	mech.mechanism      = CKM_AES_ECB;
-	mech.ulParameterLen = 0;
-	mech.pParameter     = NULL;
-
-	rc = funcs->C_EncryptInit( session, &mech, h_key );
-	if (rc != CKR_OK) {
-		show_error("   C_EncryptInit #1", rc );
-		goto error;
-	}
-
-	// use normal ecb mode to encrypt data1
-	//
-	crypt1_len = sizeof(crypt1);
-	rc = funcs->C_Encrypt( session, original, orig_len, crypt1, &crypt1_len );
-	if (rc != CKR_OK) {
-		show_error("   C_Encrypt #1", rc );
-		goto error;
-	}
-
-	// use multipart ecb mode to encrypt data2 in 5 byte chunks
-	//
-	rc = funcs->C_EncryptInit( session, &mech, h_key );
-	if (rc != CKR_OK) {
-		show_error("   C_EncryptInit #2", rc );
-		goto error;
-	}
-
-	i = k = 0;
-	crypt2_len = sizeof(crypt2);
-
-	while (i < orig_len) {
-		CK_ULONG rem = orig_len - i;
-		CK_ULONG chunk;
-
-		if (rem < 100)
-			chunk = rem;
-		else
-			chunk = 100;
-
-		tmp = crypt2_len - k;  // how much room is left in crypt2?
-
-		rc = funcs->C_EncryptUpdate( session, &original[i],  chunk,
-				&crypt2[k],   &tmp );
+		rc = funcs->C_CreateObject(session, keyTemplate, 5, &h_key);
 		if (rc != CKR_OK) {
-			show_error("   C_EncryptUpdate #1", rc );
+			show_error("C_CreateObject", rc);
+			goto close;
+		}
+
+		/* Initialize */
+		if (tsuite.ctv[i].counterlen != 0)
+		{
+			memcpy(aesctr.cb, tsuite.ctv[i].counter, tsuite.ctv[i].counterlen);
+			aesctr.ulCounterBits = tsuite.ctv[i].counterbits;
+			mech.ulParameterLen = sizeof (CK_AES_CTR_PARAMS);
+			mech.pParameter = &aesctr ;
+		}
+		else if (tsuite.ctv[i].ivlen != 0) {
+			memcpy(init_v, tsuite.ctv[i].iv, tsuite.ctv[i].ivlen);
+			mech.ulParameterLen = tsuite.ctv[i].ivlen;
+			mech.pParameter = init_v;
+		} else {
+			mech.ulParameterLen = 0;
+			mech.pParameter = NULL;
+		}
+		mech.mechanism = tsuite.mechcrypt;
+		rc = funcs->C_EncryptInit(session, &mech, h_key);
+	        if (rc != CKR_OK) {
+			show_error("C_EncryptInit", rc);
 			goto error;
 		}
 
-		k += tmp;
-		i += chunk;
-	}
+		/* do some preparation */
 
-	crypt2_len = k;
-
-	// AES-ECB shouldn't return anything for EncryptFinal per the spec
-	//
-	rc = funcs->C_EncryptFinal( session, NULL, &tmp );
-	if (rc != CKR_OK) {
-		show_error("   C_EncryptFinal #2", rc );
-		goto error;
-	}
-
-	if (tmp != 0) {
-		PRINT_ERR("   ERROR:  DecryptFinal wants to return %ld bytes\n", tmp );
-		goto error;
-	}
-
-	if (crypt2_len != crypt1_len) {
-		PRINT_ERR("   ERROR:  crypt1_len = %ld, crypt2_len = %ld\n", crypt1_len, crypt2_len );
-		goto error;
-	}
+		memset(data, 0, sizeof(data));
+		memset(mpdata, 0, sizeof(mpdata));
+		memcpy(data, tsuite.ctv[i].plaintext, tsuite.ctv[i].plen);
+		memcpy(mpdata, tsuite.ctv[i].plaintext, tsuite.ctv[i].plen);
+		datalen = len = mplen = tsuite.ctv[i].plen;
 
 
-	// compare both encrypted blocks.  they'd better be equal
-	//
-	for (i=0; i < crypt1_len; i++) {
-		if (crypt1[i] != crypt2[i]) {
-			PRINT_ERR("   ERROR:  mismatch.  crypt1 != crypt2 at byte %ld\n", i );
-			goto error;
-		}
-	}
-
-	// now, decrypt the data
-	//
-	rc = funcs->C_DecryptInit( session, &mech, h_key );
-	if (rc != CKR_OK) {
-		show_error("   C_DecryptInit #1", rc );
-		goto error;
-	}
-
-	decrypt1_len = sizeof(decrypt1);
-	rc = funcs->C_Decrypt( session, crypt1, crypt1_len, decrypt1, &decrypt1_len );
-	if (rc != CKR_OK) {
-		show_error("   C_Decrypt #1", rc );
-		goto error;
-	}
-
-	// use multipart ecb mode to encrypt data2 in 1024 byte chunks
-	//
-	rc = funcs->C_DecryptInit( session, &mech, h_key );
-	if (rc != CKR_OK) {
-		show_error("   C_DecryptInit #1", rc );
-		goto error;
-	}
-
-	i = k = 0;
-	decrypt2_len = sizeof(decrypt2);
-
-	while (i < crypt1_len) {
-		CK_ULONG rem = crypt1_len - i;
-		CK_ULONG chunk;
-
-		if (rem < 101)
-			chunk = rem;
-		else
-			chunk = 101;
-
-		tmp = decrypt2_len - k;
-
-		rc = funcs->C_DecryptUpdate( session, &crypt1[i],    chunk,
-				&decrypt2[k], &tmp );
+		/* now do the single encryption */
+		rc = funcs->C_Encrypt(session, data, datalen, data, &len);
 		if (rc != CKR_OK) {
-			show_error("   C_DecryptUpdate #1", rc );
+			show_error("C_Encrypt", rc);
 			goto error;
 		}
 
-		k += tmp;
-		i += chunk;
-	}
+		/* now do Encryption in multiple parts. */
+		rc = funcs->C_EncryptInit(session, &mech, h_key);
+	        if (rc != CKR_OK) {
+			show_error("C_EncryptInit", rc);
+			goto error;
+		}
 
-	decrypt2_len = k;
+		j = 0;
+		while (j < datalen) {
 
-	// AES-ECB shouldn't return anything for EncryptFinal per the spec
-	//
-	rc = funcs->C_DecryptFinal( session, NULL, &tmp );
-	if (rc != CKR_OK) {
-		show_error("   C_DecryptFinal #2", rc );
-		goto error;
-	}
+			rc = funcs->C_EncryptUpdate(session, &mpdata[j], AES_BLOCK_SIZE, &mpdata[j], &mplen );
+			if (rc != CKR_OK) {
+				show_error("C_EncryptUpdate", rc);
+				goto error;
+			}
 
-	if (tmp != 0) {
-		PRINT_ERR("   ERROR:  DecryptFinal wants to return %ld bytes\n", tmp );
-		rc = -1;
-		goto error;
-	}
+			j += mplen;
+			mplen = datalen - mplen;
+		}
 
-	if (decrypt1_len != decrypt2_len) {
-		PRINT_ERR("   ERROR:  decrypt1_len = %ld, decrypt2_len = %ld\n", decrypt1_len, decrypt2_len );
-		rc = -1;
-		goto error;
-	}
+		/*
+		   According to pkcs11 spec, nothing should
+		   be returned in final.
+		*/
+		rc = funcs->C_EncryptFinal(session, &mpdata[j], &mplen);
+		if (rc != CKR_OK) {
+			show_error("C_EncryptFinal", rc );
+			goto error;
+		}
 
-	if (decrypt1_len != orig_len) {
-		PRINT_ERR("   ERROR:  decrypted lengths = %ld, original length = %ld\n", decrypt1_len, orig_len );
-		rc = -1;
-		goto error;
-	}
+		if (mplen != 0) {
+			PRINT_ERR("ERROR:%s, test %d, EncryptFinal wants to return %ld bytes\n", tsuite.name, i, len);
+			goto error;
+		}
 
-	// compare both decrypted blocks.  they'd better be equal
-	//
-	for (i=0; i < decrypt1_len; i++) {
-		if (decrypt1[i] != decrypt2[i]) {
-			PRINT_ERR("   ERROR:  mismatch.  decrypt1 != decrypt2 at byte %ld\n", i );
+		/* compare results from the single encryption,
+		   multipart encryption and  expected
+		   results in the test vector.
+                 */
+		if (len != j) {
+			PRINT_ERR("ERROR:%s, test %d, single and multipart encryption lengths do not match.\n", tsuite.name, i);
 			rc = -1;
 			goto error;
 		}
-	}
 
-	// compare the multi-part decrypted block with the 'control' block
-	//
-	for (i=0; i < orig_len; i++) {
-		if (original[i] != decrypt1[i]) {
-			PRINT_ERR("   ERROR:  decrypted mismatch: original != decrypt at byte %ld\n", i );
+		if (len != tsuite.ctv[i].clen) {
+			PRINT_ERR("ERROR:%s, test %d, lengths do not match test vector length.\n", tsuite.name, i);
 			rc = -1;
 			goto error;
 		}
+
+		if (memcmp(data, mpdata, tsuite.ctv[i].clen)) {
+			PRINT_ERR("ERROR:%s, test %d, single and multipart encryption does not match.\n", tsuite.name, i);
+			rc = -1;
+			goto error;
+		}
+
+		if (memcmp(data, tsuite.ctv[i].ciphertext, tsuite.ctv[i].clen)) {
+			PRINT_ERR("ERROR:%s, test %d, encrypted data does not match test vector.\n", tsuite.name, i);
+			rc = -1;
+			goto error;
+		}
+
+		rc = funcs->C_DestroyObject(session, h_key);
+		if (rc != CKR_OK) {
+			show_error("C_DestroyObject", rc );
+			goto close;
+		}
 	}
-
-
-	rc = funcs->C_CloseAllSessions( slot_id );
-	if (rc != CKR_OK) {
-		show_error("   C_CloseAllSessions #1", rc );
-		return rc;
-	}
-
-	printf("Success.\n");
-	return 0;
+	goto close;
 
 error:
-	loc_rc = funcs->C_CloseSession (session);
-	if (loc_rc != CKR_OK)
-		show_error ("   C_CloseSession #2", loc_rc);
+	rv = funcs->C_DestroyObject(session, h_key);
+	if (rv != CKR_OK)
+		show_error("C_DestroyObject", rv );
+
+close:
+        rv = funcs->C_CloseAllSessions(slot_id);
+        if (rv != CKR_OK)
+                show_error("C_CloseAllSessions", rv );
+
+	if (!rc)
+		printf("%s encrypt tests Passed.\n", tsuite.name);
 
 	return rc;
 }
 
-
-//
-//
-CK_RV do_EncryptAES_CBC(CK_ULONG key_len)
+CK_RV do_DecryptAES(struct test_suite_info tsuite)
 {
-	CK_BYTE             data1[BIG_REQUEST];
-	CK_BYTE             data2[BIG_REQUEST];
-	CK_SLOT_ID          slot_id;
-	CK_SESSION_HANDLE   session;
-	CK_MECHANISM        mech;
-	CK_OBJECT_HANDLE    h_key;
-	CK_FLAGS            flags;
-	CK_BYTE             user_pin[PKCS11_MAX_PIN_LEN];
-	CK_ULONG            user_pin_len;
-	CK_BYTE             init_v[AES_BLOCK_SIZE];
-	CK_ULONG            i, key_size = key_len;
-	CK_ULONG            len1, len2;
-	CK_RV               rc;
-	CK_ATTRIBUTE        key_gen_tmpl[] = {
-		{CKA_VALUE_LEN, &key_size, sizeof(CK_ULONG) }
-	};
+	int 			i, j;
+	CK_SLOT_ID		slot_id;
+        CK_SESSION_HANDLE	session;
+        CK_MECHANISM		mech;
+        CK_OBJECT_HANDLE	h_key;
+        CK_BYTE			user_pin[PKCS11_MAX_PIN_LEN];
+        CK_ULONG		user_pin_len;
+	CK_BYTE			data[BIG_REQUEST];
+	CK_BYTE			mpdata[BIG_REQUEST];
+	CK_ULONG		datalen, len, mplen;
+	CK_RV			rc, rv;
+	CK_FLAGS		flags;
+	CK_BYTE			init_v[AES_BLOCK_SIZE];
 
-	printf("do_EncryptAES_CBC...\n");
+	CK_OBJECT_CLASS		keyClass = CKO_SECRET_KEY;
+	CK_KEY_TYPE		keyType = CKK_AES;
+	CK_BBOOL 		true = TRUE;
+	CK_BBOOL 		false = FALSE;
+	CK_BYTE			value[MAX_KEY_SIZE];
 
 	slot_id = SLOT_ID;
 	flags = CKF_SERIAL_SESSION | CKF_RW_SESSION;
-	rc = funcs->C_OpenSession( slot_id, flags, NULL, NULL, &session );
-	if (rc != CKR_OK) {
-		show_error("   C_OpenSession #1", rc );
-		return rc;
-	}
+	rc = funcs->C_OpenSession(slot_id, flags, NULL, NULL, &session);
+        if (rc != CKR_OK) {
+                show_error("C_OpenSession", rc);
+                return rc;
+        }
 
+        if (get_user_pin(user_pin))
+                return CKR_FUNCTION_FAILED;
+        user_pin_len = (CK_ULONG)strlen((char *)user_pin);
 
-	if (get_user_pin(user_pin))
-		return CKR_FUNCTION_FAILED;
-	user_pin_len = (CK_ULONG)strlen((char *)user_pin);
+        rc = funcs->C_Login(session, CKU_USER, user_pin, user_pin_len);
+        if (rc != CKR_OK) {
+                show_error("C_Login", rc);
+                goto close;
+        }
 
-	rc = funcs->C_Login( session, CKU_USER, user_pin, user_pin_len );
-	if (rc != CKR_OK) {
-		show_error("   C_Login #1", rc );
-		return rc;
-	}
+	rc = 0;
 
+	for (i = 0; i < tsuite.tvcount; i++) {
 
-	mech.mechanism      = CKM_AES_KEY_GEN;
-	mech.ulParameterLen = 0;
-	mech.pParameter     = NULL;
+		CK_ATTRIBUTE	keyTemplate[] = {
+			{CKA_CLASS,	&keyClass,	sizeof(keyClass)},
+			{CKA_KEY_TYPE, 	&keyType,	sizeof(keyType)},
+			{CKA_ENCRYPT, 	&true,		sizeof(true)},
+			{CKA_TOKEN, 	&false,		sizeof(false)},
+			{CKA_VALUE, 	value,		tsuite.ctv[i].klen}
+		};
 
+		/* Create an Object for the key. */
+		memset(value, 0, sizeof(value));
+		memcpy(value, tsuite.ctv[i].key, tsuite.ctv[i].klen);
 
-	// first, generate a AES key
-	//
-	rc = funcs->C_GenerateKey( session, &mech, key_gen_tmpl, 1, &h_key );
-	if (rc != CKR_OK) {
-		show_error("   C_GenerateKey #1", rc );
-		return rc;
-	}
+		rc = funcs->C_CreateObject(session, keyTemplate, 5, &h_key);
+		if (rc != CKR_OK) {
+			show_error("C_CreateObject", rc);
+			goto close;
+		}
 
+		/* Initialize */
+		if (tsuite.ctv[i].ivlen != 0) {
+			memcpy(init_v, tsuite.ctv[i].iv, tsuite.ctv[i].ivlen);
+			mech.ulParameterLen = tsuite.ctv[i].ivlen;
+			mech.pParameter = init_v;
+		} else {
+			mech.ulParameterLen = 0;
+			mech.pParameter = NULL;
+		}
+		mech.mechanism = tsuite.mechcrypt;
 
-	// now, encrypt some data
-	//
-	len1 = len2 = BIG_REQUEST;
+		rc = funcs->C_DecryptInit(session, &mech, h_key);
+	        if (rc != CKR_OK) {
+			show_error("C_DecryptInit", rc);
+			goto error;
+		}
 
-	for (i=0; i < len1; i++) {
-		data1[i] = i % 255;
-		data2[i] = i % 255;
-	}
+		/* do some preparation */
 
-	memcpy( init_v, AES_IV_VALUE, AES_BLOCK_SIZE );
+		memset(data, 0, sizeof(data));
+		memset(mpdata, 0, sizeof(mpdata));
+		memcpy(data, tsuite.ctv[i].ciphertext, tsuite.ctv[i].clen);
+		memcpy(mpdata, tsuite.ctv[i].ciphertext, tsuite.ctv[i].clen);
+		datalen = len = mplen = tsuite.ctv[i].clen;
 
-	mech.mechanism      = CKM_AES_CBC;
-	mech.ulParameterLen = AES_BLOCK_SIZE;
-	mech.pParameter     = init_v;
+		/* now do the single decryption */
+		rc = funcs->C_Decrypt(session, data, datalen, data, &len);
+		if (rc != CKR_OK) {
+			show_error("C_Decrypt", rc);
+			goto error;
+		}
 
-	rc = funcs->C_EncryptInit( session, &mech, h_key );
-	if (rc != CKR_OK) {
-		show_error("   C_EncryptInit #1", rc );
-		return rc;
-	}
+		/* now do Decryption in multiple parts. */
+		rc = funcs->C_DecryptInit(session, &mech, h_key);
+	        if (rc != CKR_OK) {
+			show_error("C_DecryptInit", rc);
+			goto error;
+		}
 
-	rc = funcs->C_Encrypt( session, data1, len1, data1, &len1 );
-	if (rc != CKR_OK) {
-		show_error("   C_Encrypt #1", rc );
-		return rc;
-	}
+		j = 0;
+		while (j < datalen) {
 
-	// now, decrypt the data
-	//
-	rc = funcs->C_DecryptInit( session, &mech, h_key );
-	if (rc != CKR_OK) {
-		show_error("   C_DecryptInit #1", rc );
-		return rc;
-	}
+			rc = funcs->C_DecryptUpdate(session, &mpdata[j], AES_BLOCK_SIZE, &mpdata[j], &mplen );
+			if (rc != CKR_OK) {
+				show_error("C_DecryptUpdate", rc);
+				goto error;
+			}
 
-	rc = funcs->C_Decrypt( session, data1, len1, data1, &len1 );
-	if (rc != CKR_OK) {
-		show_error("   C_Decrypt #1", rc );
-		return rc;
-	}
+			j += mplen;
+			mplen = datalen - mplen;
+		}
 
-	if (len1 != len2) {
-		PRINT_ERR("   ERROR:  lengths don't match\n");
-		return -1;
-	}
+		/*
+		   According to pkcs11 spec, nothing should
+		   be returned in final.
+		*/
+		rc = funcs->C_DecryptFinal(session, &mpdata[j], &mplen);
+		if (rc != CKR_OK) {
+			show_error("C_DecryptFinal", rc );
+			goto error;
+		}
 
-	for (i=0; i <len1; i++) {
-		if (data1[i] != data2[i]) {
-			PRINT_ERR("   ERROR:  mismatch at byte %ld\n", i );
-			return -1;
+		if (mplen != 0) {
+			PRINT_ERR("ERROR:%s, test %d, DecryptFinal wants to return %ld bytes\n", tsuite.name, i, len);
+			goto error;
+		}
+
+		/* compare results from the single encryption,
+		   multipart encryption and  expected
+		   results in the test vector.
+                 */
+		if (len != j) {
+			PRINT_ERR("ERROR:%s, test %d, single and multipart decryption lengths do not match.\n", tsuite.name, i);
+			rc = -1;
+			goto error;
+		}
+
+		if (len != tsuite.ctv[i].plen) {
+			PRINT_ERR("ERROR:%s, test %d, lengths do not match test vector length.\n", tsuite.name, i);
+			rc = -1;
+			goto error;
+		}
+
+		if (memcmp(data, mpdata, tsuite.ctv[i].plen)) {
+			PRINT_ERR("ERROR:%s, test %d, single and multipart decryption does not match.\n", tsuite.name, i);
+			rc = -1;
+			goto error;
+		}
+
+		if (memcmp(data, tsuite.ctv[i].plaintext, tsuite.ctv[i].plen)) {
+			PRINT_ERR("ERROR:%s, test %d, decrypted data does not match test vector.\n", tsuite.name, i);
+			rc = -1;
+			goto error;
+		}
+
+		rc = funcs->C_DestroyObject(session, h_key);
+		if (rc != CKR_OK) {
+			show_error("C_DestroyObject", rc );
+			goto close;
 		}
 	}
+	goto close;
 
-	rc = funcs->C_CloseAllSessions( slot_id );
-	if (rc != CKR_OK) {
-		show_error("   C_CloseAllSessions #1", rc );
-		return rc;
-	}
+error:
+	rv = funcs->C_DestroyObject(session, h_key);
+	if (rv != CKR_OK)
+		show_error("C_DestroyObject", rv );
 
-	printf("Success.\n");
-	return 0;
+close:
+        rv = funcs->C_CloseAllSessions(slot_id);
+        if (rv != CKR_OK)
+                show_error("C_CloseAllSessions", rv );
+
+	if (!rc)
+		printf("%s decrypt tests Passed.\n", tsuite.name);
+
+	return rc;
 }
 
-
-//
-//
-CK_RV do_EncryptAES_Multipart_CBC(CK_ULONG key_len)
+CK_RV do_PadAES(CK_ULONG key_len, struct test_suite_info tsuite)
 {
-	CK_BYTE             original[BIG_REQUEST];
-	CK_BYTE             crypt1  [BIG_REQUEST];
-	CK_BYTE             crypt2  [BIG_REQUEST];
-	CK_BYTE             decrypt1[BIG_REQUEST];
-	CK_BYTE             decrypt2[BIG_REQUEST];
+	CK_BYTE	original[BIG_REQUEST];
+	CK_BYTE	crypt1[BIG_REQUEST + AES_BLOCK_SIZE];  /* account for padding */
+        CK_BYTE	crypt2[BIG_REQUEST + AES_BLOCK_SIZE];
+	CK_BYTE	decrypt1[BIG_REQUEST + AES_BLOCK_SIZE];
+	CK_BYTE	decrypt2[BIG_REQUEST + AES_BLOCK_SIZE];
 
-	CK_SLOT_ID          slot_id;
-	CK_SESSION_HANDLE   session;
-	CK_MECHANISM        mech;
-	CK_OBJECT_HANDLE    h_key;
-	CK_FLAGS            flags;
-	CK_BYTE             init_v[AES_BLOCK_SIZE];
-	CK_BYTE             user_pin[PKCS11_MAX_PIN_LEN];
-	CK_ULONG            user_pin_len;
-	CK_ULONG            i, k;
-	CK_ULONG            orig_len;
-	CK_ULONG            crypt1_len, crypt2_len, decrypt1_len, decrypt2_len;
-	CK_ULONG            tmp, key_size = key_len;
-	CK_RV               rc;
-	CK_ATTRIBUTE        key_gen_tmpl[] = {
-		{CKA_VALUE_LEN, &key_size, sizeof(CK_ULONG) }
-	};
-
-	printf("do_EncryptAES_Multipart_CBC...\n");
+	CK_SLOT_ID		slot_id;
+	CK_SESSION_HANDLE	session;
+	CK_MECHANISM		mech;
+	CK_OBJECT_HANDLE	h_key;
+	CK_FLAGS		flags;
+	CK_BYTE			init_v[AES_BLOCK_SIZE];
+	CK_BYTE			user_pin[PKCS11_MAX_PIN_LEN];
+	CK_ULONG		user_pin_len;
+	CK_ULONG		i, k;
+	CK_ULONG		orig_len, crypt1_len, crypt2_len, decrypt1_len, decrypt2_len;
+	CK_RV			rc, key_size = key_len;
+	CK_ATTRIBUTE		key_gen_tmpl[] = {
+					{CKA_VALUE_LEN, &key_size, sizeof(CK_ULONG) }
+				};
 
 	slot_id = SLOT_ID;
 	flags = CKF_SERIAL_SESSION | CKF_RW_SESSION;
-	rc = funcs->C_OpenSession( slot_id, flags, NULL, NULL, &session );
+	rc = funcs->C_OpenSession(slot_id, flags, NULL, NULL, &session);
 	if (rc != CKR_OK) {
-		show_error("   C_OpenSession #1", rc );
+		show_error("C_OpenSession #1", rc );
 		return rc;
 	}
-
 
 	if (get_user_pin(user_pin))
 		return CKR_FUNCTION_FAILED;
 	user_pin_len = (CK_ULONG)strlen((char *)user_pin);
 
-	rc = funcs->C_Login( session, CKU_USER, user_pin, user_pin_len );
+	rc = funcs->C_Login(session, CKU_USER, user_pin, user_pin_len);
 	if (rc != CKR_OK) {
-		show_error("   C_Login #1", rc );
+	show_error("C_Login #1", rc);
 		return rc;
 	}
 
-	mech.mechanism      = CKM_AES_KEY_GEN;
-	mech.ulParameterLen = 0;
-	mech.pParameter     = NULL;
+        mech.mechanism      = CKM_AES_KEY_GEN;
+        mech.ulParameterLen = 0;
+        mech.pParameter     = NULL;
 
+        /* first, generate a AES key */
+        rc = funcs->C_GenerateKey( session, &mech, key_gen_tmpl, 1, &h_key );
+        if (rc != CKR_OK) {
+                show_error("   C_GenerateKey #1", rc );
+                return rc;
+        }
 
-	// first, generate a AES key
-	//
-	rc = funcs->C_GenerateKey( session, &mech, key_gen_tmpl, 1, &h_key );
-	if (rc != CKR_OK) {
-		show_error("   C_GenerateKey #1", rc );
-		return rc;
-	}
+	/* clear out the buffers */
+	memset(original,0,sizeof(original));
+	memset(crypt1,0,sizeof(crypt1));
+	memset(crypt2,0,sizeof(crypt2));
+	memset(decrypt1,0,sizeof(decrypt1));
+	memset(decrypt2,0,sizeof(decrypt2));
 
-
-	// now, encrypt some data
-	//
-	orig_len = sizeof(original);
-	for (i=0; i < orig_len; i++) {
-		original[i] = i % 255;
-	}
-
-	memcpy( init_v, AES_IV_VALUE, AES_BLOCK_SIZE );
-
-	mech.mechanism      = CKM_AES_CBC;
-	mech.ulParameterLen = AES_BLOCK_SIZE;
-	mech.pParameter     = init_v;
-
-	rc = funcs->C_EncryptInit( session, &mech, h_key );
-	if (rc != CKR_OK) {
-		show_error("   C_EncryptInit #1", rc );
-		return rc;
-	}
-
-	// use normal ecb mode to encrypt data1
-	//
-	crypt1_len = sizeof(crypt1);
-	rc = funcs->C_Encrypt( session, original, orig_len, crypt1, &crypt1_len );
-	if (rc != CKR_OK) {
-		show_error("   C_Encrypt #1", rc );
-		return rc;
-	}
-
-	// use multipart cbc mode to encrypt data2 in 1024 byte chunks
-	//
-	rc = funcs->C_EncryptInit( session, &mech, h_key );
-	if (rc != CKR_OK) {
-		show_error("   C_EncryptInit #2", rc );
-		return rc;
-	}
-
-	i = k = 0;
-	crypt2_len = sizeof(crypt2);
-
-	while (i < orig_len) {
-		CK_ULONG rem = orig_len - i;
-		CK_ULONG chunk;
-
-		if (rem < 100)
-			chunk = rem;
-		else
-			chunk = 100;
-
-		tmp = crypt2_len - k;  // how much room is left in crypt2?
-
-		rc = funcs->C_EncryptUpdate( session, &original[i],  chunk,
-				&crypt2[k],   &tmp );
-		if (rc != CKR_OK) {
-			show_error("   C_EncryptUpdate #1", rc );
-			return rc;
-		}
-
-		k += tmp;
-		i += chunk;
-	}
-
-	crypt2_len = k;
-
-	rc = funcs->C_EncryptFinal( session, NULL, &tmp );
-	if (rc != CKR_OK) {
-		show_error("   C_EncryptFinal #2", rc );
-		return rc;
-	}
-
-	if (tmp != 0) {
-		PRINT_ERR("   ERROR:  EncryptFinal wants to return %ld bytes\n", tmp );
-		return -1;
-	}
-
-
-	if (crypt2_len != crypt1_len) {
-		PRINT_ERR("   ERROR:  crypt1_len = %ld, crypt2_len = %ld\n", crypt1_len, crypt2_len );
-		return -1;
-	}
-
-	// compare both encrypted blocks.  they'd better be equal
-	//
-	for (i=0; i < crypt1_len; i++) {
-		if (crypt1[i] != crypt2[i]) {
-			PRINT_ERR("   ERROR:  mismatch.  crypt1 != crypt2 at byte %ld\n", i );
-			return -1;
-		}
-	}
-
-
-
-	// now, decrypt the data
-	//
-	rc = funcs->C_DecryptInit( session, &mech, h_key );
-	if (rc != CKR_OK) {
-		show_error("   C_DecryptInit #1", rc );
-		return rc;
-	}
-
-	decrypt1_len = sizeof(decrypt1);
-	rc = funcs->C_Decrypt( session, crypt1, crypt1_len, decrypt1, &decrypt1_len );
-	if (rc != CKR_OK) {
-		show_error("   C_Decrypt #1", rc );
-		return rc;
-	}
-
-	// use multipart cbc mode to encrypt data2 in 1024 byte chunks
-	//
-	rc = funcs->C_DecryptInit( session, &mech, h_key );
-	if (rc != CKR_OK) {
-		show_error("   C_DecryptInit #1", rc );
-		return rc;
-	}
-
-
-	i = k = 0;
-	decrypt2_len = sizeof(decrypt2);
-
-	while (i < crypt1_len) {
-		CK_ULONG rem = crypt1_len - i;
-		CK_ULONG chunk;
-
-		if (rem < 101)
-			chunk = rem;
-		else
-			chunk = 101;
-
-		tmp = decrypt2_len - k;
-
-		rc = funcs->C_DecryptUpdate( session, &crypt1[i],    chunk,
-				&decrypt2[k], &tmp );
-		if (rc != CKR_OK) {
-			show_error("   C_DecryptUpdate #1", rc );
-			return rc;
-		}
-
-		k += tmp;
-		i += chunk;
-	}
-
-	decrypt2_len = k;
-
-	rc = funcs->C_DecryptFinal( session, NULL, &tmp );
-	if (rc != CKR_OK) {
-		show_error("   C_DecryptFinal #2", rc );
-		return rc;
-	}
-
-	if (tmp != 0) {
-		PRINT_ERR("   ERROR:  DecryptFinal wants to return %ld bytes\n", tmp );
-		return -1;
-	}
-
-	if (decrypt2_len != decrypt1_len) {
-		PRINT_ERR("   ERROR:  decrypt1_len = %ld, decrypt2_len = %ld\n", decrypt1_len, decrypt2_len );
-		return -1;
-	}
-
-	// compare both decrypted blocks.  they'd better be equal
-	//
-	for (i=0; i < decrypt1_len; i++) {
-		if (crypt1[i] != crypt2[i]) {
-			PRINT_ERR("   ERROR:  mismatch.  decrypt1 != decrypt2 at byte %ld\n", i );
-			return -1;
-		}
-	}
-
-	// compare the multi-part decrypted block with the 'control' block
-	//
-	for (i=0; i < orig_len; i++) {
-		if (original[i] != decrypt1[i]) {
-			PRINT_ERR("   ERROR:  decrypted mismatch: original != decrypt at byte %ld\n", i );
-			return -1;
-		}
-	}
-
-
-	rc = funcs->C_CloseAllSessions( slot_id );
-	if (rc != CKR_OK) {
-		show_error("   C_CloseAllSessions #1", rc );
-		return rc;
-	}
-
-	printf("Success.\n");
-	return 0;
-}
-
-
-//
-//
-CK_RV do_EncryptAES_Multipart_CBC_PAD(CK_ULONG key_len)
-{
-	CK_BYTE             original[BIG_REQUEST];
-
-	CK_BYTE             crypt1[BIG_REQUEST + AES_BLOCK_SIZE];  // account for padding
-	CK_BYTE             crypt2[BIG_REQUEST + AES_BLOCK_SIZE];  // account for padding
-
-	CK_BYTE             decrypt1[BIG_REQUEST + AES_BLOCK_SIZE];  // account for padding
-	CK_BYTE             decrypt2[BIG_REQUEST + AES_BLOCK_SIZE];  // account for padding
-
-
-	CK_SLOT_ID          slot_id;
-	CK_SESSION_HANDLE   session;
-	CK_MECHANISM        mech;
-	CK_OBJECT_HANDLE    h_key;
-	CK_FLAGS            flags;
-	CK_BYTE             init_v[AES_BLOCK_SIZE];
-	CK_BYTE             user_pin[PKCS11_MAX_PIN_LEN];
-	CK_ULONG            user_pin_len;
-	CK_ULONG            i, k;
-	CK_ULONG            orig_len, crypt1_len, crypt2_len, decrypt1_len, decrypt2_len;
-	CK_RV               rc, key_size = key_len;
-	CK_ATTRIBUTE        key_gen_tmpl[] = {
-		{CKA_VALUE_LEN, &key_size, sizeof(CK_ULONG) }
-	};
-
-	printf("do_EncryptAES_Multipart_CBC_PAD...\n");
-
-	slot_id = SLOT_ID;
-	flags = CKF_SERIAL_SESSION | CKF_RW_SESSION;
-	rc = funcs->C_OpenSession( slot_id, flags, NULL, NULL, &session );
-	if (rc != CKR_OK) {
-		show_error("   C_OpenSession #1", rc );
-		return rc;
-	}
-
-
-	if (get_user_pin(user_pin))
-		return CKR_FUNCTION_FAILED;
-	user_pin_len = (CK_ULONG)strlen((char *)user_pin);
-
-	rc = funcs->C_Login( session, CKU_USER, user_pin, user_pin_len );
-	if (rc != CKR_OK) {
-		show_error("   C_Login #1", rc );
-		return rc;
-	}
-
-	mech.mechanism      = CKM_AES_KEY_GEN;
-	mech.ulParameterLen = 0;
-	mech.pParameter     = NULL;
-
-
-	// first, generate a AES key
-	//
-	rc = funcs->C_GenerateKey( session, &mech, key_gen_tmpl, 1, &h_key );
-	if (rc != CKR_OK) {
-		show_error("   C_GenerateKey #1", rc );
-		return rc;
-	}
-
-
-	// now, encrypt some data
-	//
+	/* now, encrypt some data */
 	orig_len = sizeof(original);
 
 	for (i=0; i < orig_len; i++) {
 		original[i] = i % 255;
 	}
 
-	memcpy( init_v, AES_IV_VALUE, AES_BLOCK_SIZE );
+	memcpy(init_v, AES_IV_VALUE, AES_BLOCK_SIZE);
 
-	mech.mechanism      = CKM_AES_CBC_PAD;
-	mech.ulParameterLen = AES_BLOCK_SIZE;
-	mech.pParameter     = init_v;
+	mech.mechanism = tsuite.mechpad;
+        mech.ulParameterLen = AES_BLOCK_SIZE;
+	mech.pParameter = init_v;
 
-	rc = funcs->C_EncryptInit( session, &mech, h_key );
+	rc = funcs->C_EncryptInit(session, &mech, h_key);
 	if (rc != CKR_OK) {
-		show_error("   C_EncryptInit #1", rc );
+		show_error("C_EncryptInit #1", rc);
 		return rc;
 	}
 
-	// use normal ecb mode to encrypt data1
-	//
+	/* use normal ecb mode to encrypt data1 */
 	crypt1_len = sizeof(crypt1);
-	rc = funcs->C_Encrypt( session, original, orig_len, crypt1, &crypt1_len );
+	rc = funcs->C_Encrypt(session, original, orig_len, crypt1, &crypt1_len);
 	if (rc != CKR_OK) {
-		show_error("   C_Encrypt #1", rc );
+		show_error("C_Encrypt #1", rc);
 		return rc;
 	}
 
-	// use multipart cbc mode to encrypt data2 in chunks
-	//
-	rc = funcs->C_EncryptInit( session, &mech, h_key );
-	if (rc != CKR_OK) {
-		show_error("   C_EncryptInit #2", rc );
-		return rc;
-	}
+        /* use multipart cbc mode to encrypt data2 in chunks */
+        rc = funcs->C_EncryptInit(session, &mech, h_key);
+        if (rc != CKR_OK) {
+                show_error("C_EncryptInit #2", rc);
+                return rc;
+        }
 
 	i = k = 0;
-
 	crypt2_len = sizeof(crypt2);
-
 	while (i < orig_len) {
 		CK_ULONG rem =  orig_len - i;
 		CK_ULONG chunk, len;
@@ -883,10 +497,9 @@ CK_RV do_EncryptAES_Multipart_CBC_PAD(CK_ULONG key_len)
 			chunk = 100;
 
 		len = crypt2_len - k;
-		rc = funcs->C_EncryptUpdate( session, &original[i],  chunk,
-				&crypt2[k],    &len );
+		rc = funcs->C_EncryptUpdate(session, &original[i], chunk, &crypt2[k],  &len);
 		if (rc != CKR_OK) {
-			show_error("   C_EncryptUpdate #1", rc );
+			show_error("C_EncryptUpdate", rc);
 			return rc;
 		}
 
@@ -905,45 +518,37 @@ CK_RV do_EncryptAES_Multipart_CBC_PAD(CK_ULONG key_len)
 	crypt2_len += k;
 
 	if (crypt2_len != crypt1_len) {
-		PRINT_ERR("   ERROR:  encrypted lengths don't match\n");
-		PRINT_ERR("           crypt2_len == %ld,  crypt1_len == %ld\n", crypt2_len, crypt1_len );
+		PRINT_ERR("ERROR:  encrypted lengths don't match\n");
+		PRINT_ERR("crypt2_len == %ld,  crypt1_len == %ld\n", crypt2_len, crypt1_len );
 		return -1;
 	}
 
-	// compare both encrypted blocks.  they'd better be equal
-	//
-	for (i=0; i < crypt2_len; i++) {
-		if (crypt1[i] != crypt2[i]) {
-			PRINT_ERR("   ERROR:  encrypted mismatch: crypt1 != crypt2 at byte %ld\n", i );
-			return -1;
-		}
+	/* compare both encrypted blocks.  they'd better be equal */
+	if (memcmp(crypt1, crypt2, crypt2_len)) {
+		PRINT_ERR("ERROR: single and multipart encryptions do not match.\n");
+		return -1;
 	}
 
-
-
-	// now, decrypt the data
-	//
-	rc = funcs->C_DecryptInit( session, &mech, h_key );
+	/* now, decrypt the data */
+	rc = funcs->C_DecryptInit(session, &mech, h_key);
 	if (rc != CKR_OK) {
-		show_error("   C_DecryptInit #1", rc );
+		show_error("C_DecryptInit", rc);
 		return rc;
 	}
 
 	decrypt1_len = sizeof(decrypt1);
-	rc = funcs->C_Decrypt( session, crypt1, crypt1_len, decrypt1, &decrypt1_len );
+	rc = funcs->C_Decrypt(session, crypt1, crypt1_len, decrypt1, &decrypt1_len);
 	if (rc != CKR_OK) {
-		show_error("   C_Decrypt #1", rc );
+		show_error("C_Decrypt", rc);
 		return rc;
 	}
 
-	// use multipart cbc mode to encrypt data2 in 1024 byte chunks
-	//
-	rc = funcs->C_DecryptInit( session, &mech, h_key );
+	/* use multipart cbc mode to decrypt data2 in 1024 byte chunks */
+	rc = funcs->C_DecryptInit(session, &mech, h_key);
 	if (rc != CKR_OK) {
-		show_error("   C_DecryptInit #1", rc );
+		show_error("C_DecryptInit", rc);
 		return rc;
 	}
-
 
 	i = k = 0;
 
@@ -956,13 +561,12 @@ CK_RV do_EncryptAES_Multipart_CBC_PAD(CK_ULONG key_len)
 		if (rem < 101)
 			chunk = rem;
 		else
-			chunk = 101;
+			chunk = 100;
 
 		len = decrypt2_len - k;
-		rc = funcs->C_DecryptUpdate( session, &crypt2[i],   chunk,
-				&decrypt2[k], &len );
+		rc = funcs->C_DecryptUpdate(session, &crypt2[i], chunk, &decrypt2[k], &len);
 		if (rc != CKR_OK) {
-			show_error("   C_DecryptUpdate #1", rc );
+			show_error("C_DecryptUpdate", rc);
 			return rc;
 		}
 
@@ -971,65 +575,53 @@ CK_RV do_EncryptAES_Multipart_CBC_PAD(CK_ULONG key_len)
 	}
 
 	decrypt2_len = sizeof(decrypt2) - k;
-
-	rc = funcs->C_DecryptFinal( session, &decrypt2[k], &decrypt2_len );
+	rc = funcs->C_DecryptFinal(session, &decrypt2[k], &decrypt2_len);
 	if (rc != CKR_OK) {
-		show_error("   C_DecryptFinal #2", rc );
+		show_error("C_DecryptFinal", rc);
 		return rc;
 	}
 
 	decrypt2_len += k;
 
 	if (decrypt2_len != decrypt1_len) {
-		PRINT_ERR("   ERROR:  decrypted lengths don't match\n");
-		PRINT_ERR("           decrypt1_len == %ld,  decrypt2_len == %ld\n", decrypt1_len, decrypt2_len );
+		PRINT_ERR("ERROR: single and multipart decrypted lengths don't match\n");
+		PRINT_ERR("decrypt1_len == %ld, decrypt2_len == %ld\n", decrypt1_len, decrypt2_len);
 		return -1;
 	}
 
 	if (decrypt2_len != orig_len) {
-		PRINT_ERR("   ERROR:  decrypted lengths don't match the original\n");
-		PRINT_ERR("           decrypt_len == %ld,  orig_len == %ld\n", decrypt1_len, orig_len );
+		PRINT_ERR("ERROR: decrypted lengths don't match the original\n");
+		PRINT_ERR("decrypt_len == %ld, orig_len == %ld\n", decrypt1_len, orig_len);
 		return -1;
 	}
 
-
-	// compare both decrypted blocks.  they'd better be equal
-	//
-	for (i=0; i < decrypt1_len; i++) {
-		if (decrypt1[i] != decrypt2[i]) {
-			PRINT_ERR("   ERROR:  decrypted mismatch: data1 != data2 at byte %ld\n", i );
-			return -1;
-		}
+	/* compare both decrypted blocks.  they'd better be equal */
+	if (memcmp(decrypt1, decrypt2, decrypt2_len)) {
+		PRINT_ERR("ERROR: single and multipart decryptions don't match.\n");
+		return -1;
 	}
 
-	// compare the multi-part decrypted block with the 'control' block
-	//
-	for (i=0; i < orig_len; i++) {
-		if (original[i] != decrypt2[i]) {
-			PRINT_ERR("   ERROR:  decrypted mismatch: original != decrypted at byte %ld\n", i );
-			return -1;
-		}
+	/* compare the multi-part decrypted block with the 'control' block */
+	if (memcmp(original, decrypt2, orig_len)) {
+		PRINT_ERR("ERROR: decrypted mismatch: original != decrypted\n");
+		return -1;
 	}
 
-
-	rc = funcs->C_CloseAllSessions( slot_id );
+	rc = funcs->C_CloseAllSessions(slot_id);
 	if (rc != CKR_OK) {
-		show_error("   C_CloseAllSessions #1", rc );
+		show_error("C_CloseAllSessions", rc);
 		return rc;
 	}
 
-	printf("Success.\n");
+	printf("%s padding test with key length %d,  passed.\n", tsuite.name, key_len);
 	return 0;
 }
-
-
-//
-//
-CK_RV do_WrapUnwrapAES_ECB(CK_ULONG key_len)
+//wrap and unwrap function for aes counter mode
+CK_RV do_WrapUnwrapAESCTR (CK_ULONG key_len)
 {
-	CK_BYTE             data1[BIG_REQUEST];
-	CK_BYTE             data2[BIG_REQUEST];
-	CK_BYTE             wrapped_data[3 * AES_BLOCK_SIZE];
+	CK_BYTE		    data1[BIG_REQUEST];
+	CK_BYTE		    data2[BIG_REQUEST];
+	CK_BYTE		    wrapped_data[3 * AES_BLOCK_SIZE];
 	CK_SLOT_ID          slot_id;
 	CK_SESSION_HANDLE   session;
 	CK_MECHANISM        mech;
@@ -1038,11 +630,13 @@ CK_RV do_WrapUnwrapAES_ECB(CK_ULONG key_len)
 	CK_OBJECT_HANDLE    uw_key;
 	CK_FLAGS            flags;
 	CK_BYTE             user_pin[PKCS11_MAX_PIN_LEN];
+	CK_BYTE             counterblock[MAX_COUNTER_SIZE] = AES_COUNTER_VALUE;
 	CK_ULONG            user_pin_len;
 	CK_ULONG            wrapped_data_len;
 	CK_ULONG            i;
 	CK_ULONG            len1, len2, key_size = key_len;
 	CK_RV               rc, loc_rc;
+	CK_AES_CTR_PARAMS   aesctr;
 	CK_ATTRIBUTE        key_gen_tmpl[] = {
 		{CKA_VALUE_LEN, &key_size, sizeof(CK_ULONG) }
 	};
@@ -1051,14 +645,13 @@ CK_RV do_WrapUnwrapAES_ECB(CK_ULONG key_len)
 	CK_KEY_TYPE         key_type  = CKK_AES;
 	CK_ULONG            tmpl_count = 3;
 	CK_ATTRIBUTE   template[] =
-	{
-		{ CKA_CLASS,     &key_class,  sizeof(key_class) },
-		{ CKA_KEY_TYPE,  &key_type,   sizeof(key_type)  },
-		{ CKA_VALUE_LEN, &key_size, sizeof(key_size) }
-	};
+		{
+			{ CKA_CLASS,     &key_class,  sizeof(key_class) },
+			{ CKA_KEY_TYPE,  &key_type,   sizeof(key_type)  },
+			{ CKA_VALUE_LEN, &key_size, sizeof(key_size) }
+		};
 
-
-	printf("do_WrapUnwrapAES_ECB...\n");
+	printf("doWrapUnwrapAESCTR \n");
 
 	slot_id = SLOT_ID;
 	flags = CKF_SERIAL_SESSION | CKF_RW_SESSION;
@@ -1067,7 +660,6 @@ CK_RV do_WrapUnwrapAES_ECB(CK_ULONG key_len)
 		show_error("   C_OpenSession #1", rc );
 		return rc;
 	}
-
 
 	if (get_user_pin(user_pin))
 		return CKR_FUNCTION_FAILED;
@@ -1080,97 +672,95 @@ CK_RV do_WrapUnwrapAES_ECB(CK_ULONG key_len)
 	}
 
 	mech.mechanism      = CKM_AES_KEY_GEN;
-	mech.ulParameterLen = 0;
-	mech.pParameter     = NULL;
+        mech.ulParameterLen = 0;
+        mech.pParameter     = NULL;
 
-
-	// first, generate a AES key and a wrapping key
-	//
-	rc = funcs->C_GenerateKey( session, &mech, key_gen_tmpl, 1, &h_key );
-	if (rc != CKR_OK) {
-		show_error("   C_GenerateKey #1", rc );
+	//first generate a AES Key and a wrapping key
+	rc = funcs->C_GenerateKey ( session, &mech, key_gen_tmpl, 1, &h_key);
+	if (rc != CKR_OK)
+	{
+		show_error(" C_GenerateKey 1 #",rc);
 		goto error;
 	}
 
-	rc = funcs->C_GenerateKey( session, &mech, key_gen_tmpl, 1, &w_key );
-	if (rc != CKR_OK) {
-		show_error("   C_GenerateKey #2", rc );
+	rc =  funcs->C_GenerateKey ( session, &mech, key_gen_tmpl, 1, &w_key);
+	if (rc != CKR_OK)
+	{
+		show_error(" C_GenerateKey 2 #",rc);
 		goto error;
 	}
 
-
-	// now, encrypt some data
-	//
+	// encrypt the data
 	len1 = len2 = BIG_REQUEST;
-
-	for (i=0; i < len1; i++) {
+	for ( i=0; i<len1; i++)
+	{
 		data1[i] = i % 255;
 		data2[i] = i % 255;
 	}
 
-	mech.mechanism      = CKM_AES_ECB;
-	mech.ulParameterLen = 0;
-	mech.pParameter     = NULL;
+	mech.mechanism      = CKM_AES_CTR;
+	mech.ulParameterLen = sizeof(CK_AES_CTR_PARAMS);
+	mech.pParameter     = &aesctr;
 
-	rc = funcs->C_EncryptInit( session, &mech, h_key );
+	// Initiate the encrypt
+	rc = funcs->C_EncryptInit(session, &mech, h_key);
 	if (rc != CKR_OK) {
-		show_error("   C_EncryptInit #1", rc );
+                show_error("C_EncryptInit", rc);
 		goto error;
 	}
 
-	rc = funcs->C_Encrypt( session, data1, len1, data1, &len1 );
-	if (rc != CKR_OK) {
-		show_error("   C_Encrypt #1", rc );
+	//Contiune with encrypt
+	rc = funcs->C_Encrypt( session, data1, len1, data1, &len1);
+	if ( rc != CKR_OK)
+	{
+		show_error("C_Encrypt",rc);
 		goto error;
 	}
 
-
-	// now, wrap the key.  we'll just use the same ECB mechanism
-	//
+	// now wrap the key....the mechanism is same for all the modes
 	wrapped_data_len = 3 * AES_KEY_LEN;
 
-	rc = funcs->C_WrapKey( session,    &mech,
-			w_key,      h_key,
-			(CK_BYTE *)&wrapped_data, &wrapped_data_len );
-	if (rc != CKR_OK) {
-		show_error("   C_WrapKey #1", rc );
+	rc = funcs->C_WrapKey( session, &mech, w_key, h_key, (CK_BYTE *) &wrapped_data, &wrapped_data_len);
+	if ( rc != CKR_OK)
+	{
+		show_error("C_WrapKey #1",rc);
 		goto error;
 	}
 
-	rc = funcs->C_UnwrapKey( session, &mech,
-			w_key,
-			wrapped_data, wrapped_data_len,
-			template,  tmpl_count,
-			&uw_key );
-	if (rc != CKR_OK) {
-		show_error("   C_UnWrapKey #1", rc );
+	rc = funcs->C_UnwrapKey( session, &mech, w_key, wrapped_data, wrapped_data_len, template, tmpl_count, &uw_key);
+	if ( rc != CKR_OK)
+	{
+		show_error("C_UnwrapKey #1",rc);
 		goto error;
 	}
 
-
-	// now, decrypt the data using the unwrapped key.
-	//
-	rc = funcs->C_DecryptInit( session, &mech, uw_key );
-	if (rc != CKR_OK) {
-		show_error("   C_DecryptInit #1", rc );
+	// now decrypting the data using unwrap key
+	rc = funcs->C_DecryptInit( session, &mech, uw_key);
+	if ( rc != CKR_OK)
+	{
+		show_error("C_DecryptInit #1",rc);
 		goto error;
 	}
 
-	rc = funcs->C_Decrypt( session, data1, len1, data1, &len1 );
-	if (rc != CKR_OK) {
-		show_error("   C_Decrypt #1", rc );
+	rc = funcs->C_Decrypt( session, data1, len1, data1, &len1);
+	if( rc != CKR_OK)
+	{
+		show_error (" C_Decrypt #1", rc);
 		goto error;
 	}
 
-	if (len1 != len2) {
-		PRINT_ERR("   ERROR:  lengths don't match\n");
+	if (len1 != len2)
+	{
+		PRINT_ERR(" ERROR: lengths don't match \n");
 		rc = -1;
 		goto error;
 	}
 
-	for (i=0; i <len1; i++) {
-		if (data1[i] != data2[i]) {
-			PRINT_ERR("   ERROR:  mismatch at byte %ld\n", i );
+	for ( i=0; i<len1; i++)
+	{
+		if ( data1[i] != data2[i] )
+		{
+			PRINT_ERR(" ERROR: Bytes don't match %ld\n", i);
 			rc = -1;
 			goto error;
 		}
@@ -1242,222 +832,7 @@ error:
 	return rc;
 }
 
-
-//
-//
-CK_RV do_WrapUnwrapAES_CBC(CK_ULONG key_len)
-{
-	CK_BYTE             data1[BIG_REQUEST];
-	CK_BYTE             data2[BIG_REQUEST];
-	CK_BYTE             wrapped_data[3 * AES_BLOCK_SIZE];
-	CK_SLOT_ID          slot_id;
-	CK_SESSION_HANDLE   session;
-	CK_MECHANISM        mech;
-	CK_OBJECT_HANDLE    h_key;
-	CK_OBJECT_HANDLE    w_key;
-	CK_OBJECT_HANDLE    uw_key;
-	CK_FLAGS            flags;
-	CK_BYTE             user_pin[PKCS11_MAX_PIN_LEN];
-	CK_BYTE             init_v[AES_BLOCK_SIZE] = AES_IV_VALUE;
-	CK_ULONG            user_pin_len;
-	CK_ULONG            wrapped_data_len;
-	CK_ULONG            i;
-	CK_ULONG            len1, len2;
-	CK_RV               rc, key_size = key_len;
-	CK_ATTRIBUTE        key_gen_tmpl[] = {
-		{CKA_VALUE_LEN, &key_size, sizeof(CK_ULONG) }
-	};
-
-	CK_OBJECT_CLASS     key_class = CKO_SECRET_KEY;
-	CK_KEY_TYPE         key_type  = CKK_AES;
-	CK_ULONG            tmpl_count = 3;
-	CK_ATTRIBUTE   template[] =
-	{
-		{ CKA_CLASS,     &key_class,  sizeof(key_class) },
-		{ CKA_KEY_TYPE,  &key_type,   sizeof(key_type)  },
-		{ CKA_VALUE_LEN, &key_size, sizeof(key_size) }
-	};
-
-
-	printf("do_WrapUnwrapAES_CBC...\n");
-
-	slot_id = SLOT_ID;
-	flags = CKF_SERIAL_SESSION | CKF_RW_SESSION;
-	rc = funcs->C_OpenSession( slot_id, flags, NULL, NULL, &session );
-	if (rc != CKR_OK) {
-		show_error("   C_OpenSession #1", rc );
-		return rc;
-	}
-
-
-	if (get_user_pin(user_pin))
-		return CKR_FUNCTION_FAILED;
-	user_pin_len = (CK_ULONG)strlen((char *)user_pin);
-
-	rc = funcs->C_Login( session, CKU_USER, user_pin, user_pin_len );
-	if (rc != CKR_OK) {
-		show_error("   C_Login #1", rc );
-		return rc;
-	}
-
-	mech.mechanism      = CKM_AES_KEY_GEN;
-	mech.ulParameterLen = 0;
-	mech.pParameter     = NULL;
-
-
-	// first, generate a AES key and a wrapping key
-	//
-	rc = funcs->C_GenerateKey( session, &mech, key_gen_tmpl, 1, &h_key );
-	if (rc != CKR_OK) {
-		show_error("   C_GenerateKey #1", rc );
-		return rc;
-	}
-
-	rc = funcs->C_GenerateKey( session, &mech, key_gen_tmpl, 1, &w_key );
-	if (rc != CKR_OK) {
-		show_error("   C_GenerateKey #2", rc );
-		return rc;
-	}
-
-
-	// now, encrypt some data
-	//
-	len1 = len2 = BIG_REQUEST;
-
-	for (i=0; i < len1; i++) {
-		data1[i] = i % 255;
-		data2[i] = i % 255;
-	}
-
-	mech.mechanism      = CKM_AES_CBC;
-	mech.ulParameterLen = sizeof(init_v);
-	mech.pParameter     = init_v;
-
-	rc = funcs->C_EncryptInit( session, &mech, h_key );
-	if (rc != CKR_OK) {
-		show_error("   C_EncryptInit #1", rc );
-		return rc;
-	}
-
-	rc = funcs->C_Encrypt( session, data1, len1, data1, &len1 );
-	if (rc != CKR_OK) {
-		show_error("   C_Encrypt #1", rc );
-		return rc;
-	}
-
-
-	// now, wrap the key.  we'll just use the same ECB mechanism
-	//
-	wrapped_data_len = 3 * AES_KEY_LEN;
-
-	rc = funcs->C_WrapKey( session,    &mech,
-			w_key,      h_key,
-			(CK_BYTE *)&wrapped_data, &wrapped_data_len );
-	if (rc != CKR_OK) {
-		show_error("   C_WrapKey #1", rc );
-		return rc;
-	}
-
-	rc = funcs->C_UnwrapKey( session, &mech,
-			w_key,
-			wrapped_data, wrapped_data_len,
-			template,  tmpl_count,
-			&uw_key );
-	if (rc != CKR_OK) {
-		show_error("   C_UnWrapKey #1", rc );
-		return rc;
-	}
-
-
-	// now, decrypt the data using the unwrapped key.
-	//
-	rc = funcs->C_DecryptInit( session, &mech, uw_key );
-	if (rc != CKR_OK) {
-		show_error("   C_DecryptInit #1", rc );
-		return rc;
-	}
-
-	rc = funcs->C_Decrypt( session, data1, len1, data1, &len1 );
-	if (rc != CKR_OK) {
-		show_error("   C_Decrypt #1", rc );
-		return rc;
-	}
-
-	if (len1 != len2) {
-		PRINT_ERR("   ERROR:  lengths don't match\n");
-		return -1;
-	}
-
-	for (i=0; i <len1; i++) {
-		if (data1[i] != data2[i]) {
-			PRINT_ERR("   ERROR:  mismatch at byte %ld\n", i );
-			return -1;
-		}
-	}
-
-	// now, try to wrap an RSA private key.  this should fail.  we'll
-	// create a fake key object instead of generating a new one
-	//
-	{
-		CK_OBJECT_CLASS keyclass = CKO_PRIVATE_KEY;
-		CK_KEY_TYPE     keytype  = CKK_RSA;
-
-		CK_BYTE  modulus[]   = { 1,2,3,4,5,6,7,8,9,0 };
-		CK_BYTE  publ_exp[]  = { 1,2,3,4,5,6,7,8,9,0 };
-		CK_BYTE  priv_exp[]  = { 1,2,3,4,5,6,7,8,9,0 };
-		CK_BYTE  prime_1[]   = { 1,2,3,4,5,6,7,8,9,0 };
-		CK_BYTE  prime_2[]   = { 1,2,3,4,5,6,7,8,9,0 };
-		CK_BYTE  exp_1[]     = { 1,2,3,4,5,6,7,8,9,0 };
-		CK_BYTE  exp_2[]     = { 1,2,3,4,5,6,7,8,9,0 };
-		CK_BYTE  coeff[]     = { 1,2,3,4,5,6,7,8,9,0 };
-
-		CK_ATTRIBUTE  tmpl[] = {
-			{ CKA_CLASS,           &keyclass, sizeof(keyclass) },
-			{ CKA_KEY_TYPE,        &keytype,  sizeof(keytype)  },
-			{ CKA_MODULUS,          modulus,  sizeof(modulus)  },
-			{ CKA_PUBLIC_EXPONENT,  publ_exp, sizeof(publ_exp) },
-			{ CKA_PRIVATE_EXPONENT, priv_exp, sizeof(priv_exp) },
-			{ CKA_PRIME_1,          prime_1,  sizeof(prime_1)  },
-			{ CKA_PRIME_2,          prime_2,  sizeof(prime_2)  },
-			{ CKA_EXPONENT_1,       exp_1,    sizeof(exp_1)    },
-			{ CKA_EXPONENT_2,       exp_2,    sizeof(exp_2)    },
-			{ CKA_COEFFICIENT,      coeff,    sizeof(coeff)    }
-		};
-		CK_OBJECT_HANDLE priv_key;
-		CK_BYTE data[1024];
-		CK_ULONG data_len = sizeof(data);
-
-
-		rc = funcs->C_CreateObject( session, tmpl, 10, &priv_key );
-		if (rc != CKR_OK) {
-			show_error("   C_CreateObject #1", rc );
-			return rc;
-		}
-
-		rc = funcs->C_WrapKey( session,  &mech,
-				w_key,     priv_key,
-				data,     &data_len );
-		if (rc != CKR_KEY_NOT_WRAPPABLE) {
-			show_error("   C_WrapKey #2", rc );
-			PRINT_ERR("   Expected CKR_KEY_NOT_WRAPPABLE\n" );
-			return rc;
-		}
-	}
-
-	rc = funcs->C_CloseAllSessions( slot_id );
-	if (rc != CKR_OK) {
-		show_error("   C_CloseAllSessions #1", rc );
-		return rc;
-	}
-
-	printf("Success.\n");
-	return 0;
-}
-
-
-//
-//
-CK_RV do_WrapUnwrapAES_CBC_PAD(CK_ULONG key_len)
+CK_RV do_WrapUnwrapPadAES( CK_ULONG key_len, struct test_suite_info tsuite)
 {
 	CK_BYTE             original[BIG_REQUEST];
 	CK_BYTE             cipher  [BIG_REQUEST + AES_BLOCK_SIZE];
@@ -1493,8 +868,7 @@ CK_RV do_WrapUnwrapAES_CBC_PAD(CK_ULONG key_len)
 		{ CKA_VALUE_LEN, &key_size,   sizeof(key_size)  }
 	};
 
-
-	printf("do_WrapUnwrapAES_CBC_PAD...\n");
+	printf (" do_WrapUnwrapPadAES \n");
 
 	slot_id = SLOT_ID;
 	flags = CKF_SERIAL_SESSION | CKF_RW_SESSION;
@@ -1503,7 +877,6 @@ CK_RV do_WrapUnwrapAES_CBC_PAD(CK_ULONG key_len)
 		show_error("   C_OpenSession #1", rc );
 		return rc;
 	}
-
 
 	if (get_user_pin(user_pin))
 		return CKR_FUNCTION_FAILED;
@@ -1519,30 +892,29 @@ CK_RV do_WrapUnwrapAES_CBC_PAD(CK_ULONG key_len)
 	mech.ulParameterLen = 0;
 	mech.pParameter     = NULL;
 
-
-	// first, generate a AES key and a wrapping key
-	//
-	rc = funcs->C_GenerateKey( session, &mech, key_gen_tmpl, 1, &h_key );
-	if (rc != CKR_OK) {
-		show_error("   C_GenerateKey #1", rc );
+	//first generate AES key and wrap key
+	rc = funcs->C_GenerateKey ( session, &mech, key_gen_tmpl, 1, &h_key);
+	if (rc != CKR_OK)
+	{
+		show_error(" C_GenerateKey #1", rc);
 		return rc;
 	}
 
-	rc = funcs->C_GenerateKey( session, &mech, key_gen_tmpl, 1, &w_key );
-	if (rc != CKR_OK) {
-		show_error("   C_GenerateKey #2", rc );
+	rc = funcs->C_GenerateKey ( session, &mech, key_gen_tmpl, 1, &w_key);
+	if ( rc != CKR_OK)
+	{
+		show_error( " C_GenerateKey #2", rc);
 		return rc;
 	}
 
-
-	// now, encrypt some data
-	//
+	//now lets encrypt some data
 	orig_len = sizeof(original);
-	for (i=0; i < orig_len; i++) {
+	for (i=0; i < orig_len; i++)
+	{
 		original[i] = i % 255;
 	}
 
-	mech.mechanism      = CKM_AES_CBC_PAD;
+	mech.mechanism = tsuite.mechpad;
 	mech.ulParameterLen = sizeof(init_v);
 	mech.pParameter     = init_v;
 
@@ -1729,137 +1101,109 @@ CK_RV do_WrapUnwrapAES_CBC_PAD(CK_ULONG key_len)
 	return 0;
 }
 
-CK_RV aes_functions()
+int main  (int argc, char **argv)
 {
-	SYSTEMTIME t1, t2;
-	CK_RV rc;
-	CK_ULONG i, key_lens[] = { AES_KEY_SIZE_128, AES_KEY_SIZE_192, AES_KEY_SIZE_256 };
-
-	for (i = 0; i < 3; i++) {
-		GetSystemTime(&t1);
-		rc = do_EncryptAES_ECB(key_lens[i]);
-		if (rc) {
-			PRINT_ERR("ERROR do_EncryptAES_ECB failed, rc = 0x%lx\n", rc);
-			if (!no_stop)
-				return rc;
-		}
-		GetSystemTime(&t2);
-		process_time( t1, t2 );
-
-		GetSystemTime(&t1);
-		rc = do_EncryptAES_CBC(key_lens[i]);
-		if (rc) {
-			PRINT_ERR("ERROR do_EncryptAES_CBC failed, rc = 0x%lx\n", rc);
-			if (!no_stop)
-				return rc;
-		}
-		GetSystemTime(&t2);
-		process_time( t1, t2 );
-
-		GetSystemTime(&t1);
-		rc = do_EncryptAES_Multipart_ECB(key_lens[i]);
-		if (rc) {
-			PRINT_ERR("ERROR do_EncryptAES_Multipart_ECB failed, rc = 0x%lx\n", rc);
-			if (!no_stop)
-				return rc;
-		}
-		GetSystemTime(&t2);
-		process_time( t1, t2 );
-
-		GetSystemTime(&t1);
-		rc = do_EncryptAES_Multipart_CBC(key_lens[i]);
-		if (rc) {
-			PRINT_ERR("ERROR do_EncryptAES_Multipart_CBC failed, rc = 0x%lx\n", rc);
-			if (!no_stop)
-				return rc;
-		}
-		GetSystemTime(&t2);
-		process_time( t1, t2 );
-
-		GetSystemTime(&t1);
-		rc = do_EncryptAES_Multipart_CBC_PAD(key_lens[i]);
-		if (rc) {
-			PRINT_ERR("ERROR do_EncryptAES_Multipart_CBC_PAD failed, rc = 0x%lx\n", rc);
-			if (!no_stop)
-				return rc;
-		}
-		GetSystemTime(&t2);
-		process_time( t1, t2 );
-
-		GetSystemTime(&t1);
-		rc = do_WrapUnwrapAES_ECB(key_lens[i]);
-		if (rc) {
-			PRINT_ERR("ERROR do_WrapUnwrapAES_EBC failed, rc = 0x%lx\n", rc);
-			if (!no_stop)
-				return rc;
-		}
-		GetSystemTime(&t2);
-		process_time( t1, t2 );
-
-		GetSystemTime(&t1);
-		rc = do_WrapUnwrapAES_CBC(key_lens[i]);
-		if (rc) {
-			PRINT_ERR("ERROR do_WrapUnwrapAES_CBC failed, rc = 0x%lx\n", rc);
-			if (!no_stop)
-				return rc;
-		}
-		GetSystemTime(&t2);
-		process_time( t1, t2 );
-
-		GetSystemTime(&t1);
-		rc = do_WrapUnwrapAES_CBC_PAD(key_lens[i]);
-		if (rc) {
-			PRINT_ERR("ERROR do_WrapUnwrapAES_CBC_PAD failed, rc = 0x%lx\n", rc);
-			if (!no_stop)
-				return rc;
-		}
-		GetSystemTime(&t2);
-		process_time( t1, t2 );
-	}
-
-	return 0;
-}
-
-int main(int argc, char **argv)
-{
+	int rc, i, fcount;
 	CK_C_INITIALIZE_ARGS cinit_args;
-	int rc;
 	CK_RV rv;
-
-	rc = do_ParseArgs(argc, argv);
-	if ( rc != 1)
-		return rc;
+	SYSTEMTIME t1, t2;
 
 	printf("Using slot #%lu...\n\n", SLOT_ID );
 	printf("With option: no_stop: %d\n", no_stop);
 
-	rc = do_GetFunctionList();
-	if (!rc) {
-		PRINT_ERR("ERROR do_GetFunctionList() Failed , rc = 0x%0x\n", rc);
-		return rc;
+        rc = do_GetFunctionList();
+        if (!rc) {
+                PRINT_ERR("ERROR do_GetFunctionList() Failed , rc = 0x%0x\n", rc);
+                return rc;
+        }
+
+        memset( &cinit_args, 0x0, sizeof(cinit_args) );
+        cinit_args.flags = CKF_OS_LOCKING_OK;
+
+        // SAB Add calls to ALL functions before the C_Initialize gets hit
+
+        funcs->C_Initialize( &cinit_args );
+
+        {
+                CK_SESSION_HANDLE  hsess = 0;
+
+                rc = funcs->C_GetFunctionStatus(hsess);
+                if (rc  != CKR_FUNCTION_NOT_PARALLEL)
+                        return rc;
+
+                rc = funcs->C_CancelFunction(hsess);
+                if (rc  != CKR_FUNCTION_NOT_PARALLEL)
+                        return rc;
+        }
+
+	rv = 0;
+	fcount = 0;
+	for (i = 0; i < NUM_OF_TESTSUITES; i++) {
+		if (test_suites[i].mechcrypt) {
+			GetSystemTime(&t1);
+			rc = do_EncryptAES(test_suites[i]);
+			GetSystemTime(&t2);
+			process_time(t1, t2);
+			if (rc)
+				fcount++;
+
+			GetSystemTime(&t1);
+			rc = do_DecryptAES(test_suites[i]);
+			GetSystemTime(&t2);
+			process_time(t1, t2);
+			if (rc)
+				fcount++;
+		}
+
+		if (test_suites[i].mechpad) {
+			CK_ULONG j;
+			for (j = 0; j < 3; j++) {
+				GetSystemTime(&t1);
+				rc = do_PadAES(key_lens[j], test_suites[i]);
+				GetSystemTime(&t2);
+				process_time(t1, t2);
+				if (rc)
+						fcount++;
+			}
+		}
+		if (test_suites[i].mechpad)
+		{
+			CK_ULONG j;
+			for (j =0; j<3; j++)
+			{
+				GetSystemTime(&t1);
+				rc = do_WrapUnwrapPadAES( key_lens[j], test_suites[i]);
+				GetSystemTime(&t2);
+				process_time(t1, t2);
+				if (rc)
+				{
+					fcount;
+				}
+			}
+		}
+
+		if (fcount) {
+			PRINT_ERR("ERROR test suite %s failed.\n", test_suites[i].name);
+			rv = -1;
+		}
 	}
 
-	memset( &cinit_args, 0x0, sizeof(cinit_args) );
-	cinit_args.flags = CKF_OS_LOCKING_OK;
-
-	// SAB Add calls to ALL functions before the C_Initialize gets hit
-
-	funcs->C_Initialize( &cinit_args );
-
+	/* function to make sure that the wrap and unwrap function work for aes counter mode */
+	CK_ULONG j;
+	for (j =0; j<3; j++)
 	{
-		CK_SESSION_HANDLE  hsess = 0;
-
-		rc = funcs->C_GetFunctionStatus(hsess);
-		if (rc  != CKR_FUNCTION_NOT_PARALLEL)
+		GetSystemTime(&t1);
+		rc = do_WrapUnwrapAESCTR( key_lens[j]);
+		GetSystemTime(&t2);
+		process_time(t1, t2);
+		if (rc)
+		{
+			PRINT_ERR("ERROR do_WrapUnwrapAES_CTR failed, rc = 0x%lx\n", rc);
+			if (!no_stop)
 			return rc;
-
-		rc = funcs->C_CancelFunction(hsess);
-		if (rc  != CKR_FUNCTION_NOT_PARALLEL)
-			return rc;
-
+		}
 	}
 
-	rv = aes_functions();
-	/* make sure we return non-zero if rv is non-zero */
-	return ((rv==0) || (rv % 256) ? rv : -1);
+        /* make sure we return non-zero if rv is non-zero */
+        return (rv);
 }

@@ -1343,6 +1343,16 @@ CK_RV  aes_cbc_pad_decrypt( SESSION  *sess,     CK_BBOOL  length_only,
                             CK_BYTE  *in_data,  CK_ULONG  in_data_len,
                             CK_BYTE  *out_data, CK_ULONG *out_data_len );
 
+CK_RV  aes_ctr_encrypt( SESSION  *sess,       CK_BBOOL length_only,
+			ENCR_DECR_CONTEXT *context,
+			CK_BYTE  *in_data,    CK_ULONG  in_data_len,
+			CK_BYTE  *out_data,   CK_ULONG *out_data_len);
+
+CK_RV  aes_ctr_decrypt( SESSION  *sess,       CK_BBOOL  length_only,
+			ENCR_DECR_CONTEXT   *context,
+			CK_BYTE  *in_data,    CK_ULONG  in_data_len,
+			CK_BYTE  *out_data,   CK_ULONG *out_data_len);
+
 CK_RV  aes_ecb_encrypt_update( SESSION  *sess,     CK_BBOOL  length_only,
                                ENCR_DECR_CONTEXT *context,
                                CK_BYTE  *in_data,  CK_ULONG  in_data_len,
@@ -1369,6 +1379,15 @@ CK_RV  aes_cbc_pad_decrypt_update( SESSION  *sess,     CK_BBOOL  length_only,
                                    ENCR_DECR_CONTEXT *context,
                                    CK_BYTE  *in_data,  CK_ULONG  in_data_len,
                                    CK_BYTE  *out_data, CK_ULONG *out_data_len );
+CK_RV  aes_ctr_encrypt_update( SESSION *sess,    CK_BBOOL length_only,
+			       ENCR_DECR_CONTEXT *context,
+			       CK_BYTE *in_data, CK_ULONG in_data_len,
+			       CK_BYTE *out_data,CK_ULONG *out_data_len );
+
+CK_RV  aes_ctr_decrypt_update( SESSION *sess,    CK_BBOOL length_only,
+			       ENCR_DECR_CONTEXT *context,
+			       CK_BYTE *in_data, CK_ULONG in_data_len,
+			       CK_BYTE *out_data,CK_ULONG *out_data_len );
 
 CK_RV  aes_ecb_encrypt_final( SESSION *sess,  CK_BBOOL length_only,
                               ENCR_DECR_CONTEXT *context,
@@ -1390,6 +1409,14 @@ CK_RV  aes_cbc_pad_encrypt_final( SESSION *sess,  CK_BBOOL length_only,
 CK_RV  aes_cbc_pad_decrypt_final( SESSION *sess,  CK_BBOOL length_only,
                                   ENCR_DECR_CONTEXT *context,
                                   CK_BYTE  *out_data, CK_ULONG *out_data_len );
+
+CK_RV  aes_ctr_encrypt_final( SESSION *sess,     CK_BBOOL length_only,
+			      ENCR_DECR_CONTEXT  *context,
+			      CK_BYTE *out_data, CK_ULONG *out_data_len );
+
+CK_RV  aes_ctr_decrypt_final( SESSION *sess,     CK_BBOOL length_only,
+			      ENCR_DECR_CONTEXT  *context,
+			      CK_BYTE *out_data, CK_ULONG *out_data_len );
 
 
 
@@ -1413,6 +1440,17 @@ CK_RV  ckm_aes_cbc_decrypt( CK_BYTE  *in_data,   CK_ULONG    in_data_len,
                             CK_BYTE  *out_data,  CK_ULONG   *out_data_len,
                             CK_BYTE  *init_v,    CK_BYTE    *key_value,
 			    CK_ULONG  key_len );
+
+CK_RV ckm_aes_ctr_encrypt( CK_BYTE *in_data,  CK_ULONG in_data_len,
+			   CK_BYTE *out_data, CK_ULONG *out_data_len,
+                           CK_BYTE *counterblock,CK_ULONG counter_width,
+                           CK_BYTE *key_value, CK_ULONG key_len);
+
+CK_RV ckm_aes_ctr_decrypt( CK_BYTE *in_data,  CK_ULONG in_data_len,
+			   CK_BYTE *out_data, CK_ULONG *out_data_len,
+                           CK_BYTE *counterblock,CK_ULONG counter_width,
+                           CK_BYTE *key_value, CK_ULONG key_len);
+
 
 CK_RV ckm_aes_wrap_format( CK_BBOOL    length_only,
 			   CK_BYTE  ** data,

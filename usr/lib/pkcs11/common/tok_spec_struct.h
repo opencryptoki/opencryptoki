@@ -426,6 +426,17 @@ struct token_specific_struct{
 			CK_ULONG,
 			CK_BYTE *,
 			CK_BYTE);
+
+   CK_RV (*t_aes_ctr)(
+			CK_BYTE *,
+			CK_ULONG,
+			CK_BYTE *,
+			CK_ULONG *,
+			CK_BYTE *,
+			CK_ULONG ,
+			CK_BYTE *,
+			CK_ULONG ,
+			CK_BYTE);
 #endif
 	CK_RV (*t_get_mechanism_list)(CK_MECHANISM_TYPE_PTR,
 				      CK_ULONG_PTR);

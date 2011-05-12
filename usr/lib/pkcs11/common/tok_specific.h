@@ -486,6 +486,17 @@ token_specific_aes_cbc( CK_BYTE  *,
                         CK_ULONG  ,
                         CK_BYTE  *,
                         CK_BYTE     );
+
+CK_RV
+token_specific_aes_ctr( CK_BYTE  *,
+                        CK_ULONG  ,
+                        CK_BYTE  *,
+                        CK_ULONG *,
+                        CK_BYTE *,
+                        CK_ULONG ,
+                        CK_BYTE  *,
+			CK_ULONG  ,
+                        CK_BYTE     );
 #endif
 
 CK_RV

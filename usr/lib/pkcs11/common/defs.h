@@ -380,6 +380,7 @@ enum {
 #define AES_KEY_SIZE_128	16
 #define AES_BLOCK_SIZE		16
 #define AES_INIT_VECTOR_SIZE	AES_BLOCK_SIZE
+#define AES_COUNTER_SIZE        16
 
 #define DES_KEY_SIZE    8
 #define DES_BLOCK_SIZE  8

@@ -651,6 +651,7 @@ p11_get_ckm(CK_ULONG mechanism)
 	_sym2str(CKM_AES_MAC);
 	_sym2str(CKM_AES_MAC_GENERAL);
 	_sym2str(CKM_AES_CBC_PAD);
+	_sym2str(CKM_AES_CTR);
 	_sym2str(CKM_DSA_PARAMETER_GEN);
 	_sym2str(CKM_DH_PKCS_PARAMETER_GEN);
 	_sym2str(CKM_X9_42_DH_PARAMETER_GEN);

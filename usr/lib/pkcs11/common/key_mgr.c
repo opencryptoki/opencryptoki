@@ -852,6 +852,13 @@ key_mgr_wrap_key( SESSION           * sess,
             st_err_log(26, __FILE__, __LINE__);
             return CKR_KEY_NOT_WRAPPABLE;
          }
+	 break;
+      case CKM_AES_CTR:
+	 if (class != CKO_SECRET_KEY)
+	 {
+		st_err_log(26, __FILE__, __LINE__);
+		return CKR_KEY_NOT_WRAPPABLE;
+	 }
          break;
 
 #if !(NOCDMF)
@@ -975,6 +982,15 @@ key_mgr_wrap_key( SESSION           * sess,
 	    return rc;
 	 }
 	 break;
+      case CKM_AES_CTR:
+	 rc = ckm_aes_wrap_format( length_only, &data, &data_len );
+	 if (rc != CKR_OK)
+	 {
+		st_err_log(192, __FILE__, __LINE__);
+		if (data) free( data );
+		return rc;
+         }
+	 break;
 #endif
 #if !(NOCMF)
       case CKM_CDMF_CBC_PAD:
@@ -1082,6 +1098,10 @@ key_mgr_unwrap_key( SESSION           * sess,
          keyclass = CKO_SECRET_KEY;
          found_class = TRUE;
          break;
+      case CKM_AES_CTR:
+	 keyclass = CKO_SECRET_KEY;
+	 found_class = TRUE;
+	 break;
 
 #if !(NOCMF)
       case CKM_CDMF_CBC_PAD:
@@ -1142,6 +1162,13 @@ CKO_PRIVATE_KEY)){
             return CKR_TEMPLATE_INCONSISTENT;
          }
          break;
+      case CKM_AES_CTR:
+	 if (keyclass != CKO_SECRET_KEY){
+	    st_err_log(49, __FILE__, __LINE__);
+            return CKR_TEMPLATE_INCONSISTENT;
+         }
+         break;
+
 
 #if !(NOCMF)
       case CKM_CDMF_CBC_PAD:

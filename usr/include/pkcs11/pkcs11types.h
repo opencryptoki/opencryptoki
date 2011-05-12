@@ -1066,6 +1066,7 @@ typedef CK_ULONG          CK_MECHANISM_TYPE;
 #define CKM_AES_MAC                    0x00001083
 #define CKM_AES_MAC_GENERAL            0x00001084
 #define CKM_AES_CBC_PAD                0x00001085
+#define CKM_AES_CTR                    0x00001086
 #define CKM_DSA_PARAMETER_GEN          0x00002000
 #define CKM_DH_PKCS_PARAMETER_GEN      0x00002001
 #define CKM_X9_42_DH_PARAMETER_GEN     0x00002002
@@ -1383,6 +1384,13 @@ typedef struct CK_RC5_PARAMS {
 
 typedef CK_RC5_PARAMS CK_PTR CK_RC5_PARAMS_PTR;
 
+/* CK_AES_CTR_PARAMS is new for PKCS #11 v2.20 amendment 3 */
+typedef struct CK_AES_CTR_PARAMS {
+    CK_ULONG ulCounterBits;
+    CK_BYTE cb[16];
+} CK_AES_CTR_PARAMS;
+
+typedef CK_AES_CTR_PARAMS CK_PTR CK_AES_CTR_PARAMS_PTR;
 
 /* CK_RC5_CBC_PARAMS provides the parameters to the CKM_RC5_CBC
  * mechanism */

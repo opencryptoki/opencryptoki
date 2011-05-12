@@ -673,6 +673,8 @@ struct messages err_msg[]={
 		{"AES Wrap Get Data Failed"},
 		{"AES Wrap Format Failed"},
 		{"Domain Parameter Invalid"},
-		{"File \"%s\" could not be opened, errno=%d"}
+		{"File \"%s\" could not be opened, errno=%d"},
+		//195
+		{"Token Specific AES CTR Failed"}
 };
 
