@@ -30,6 +30,7 @@ testcases/driver/des_tests
 testcases/driver/dh_tests
 testcases/driver/digest_tests
 testcases/driver/dsa_tests
+testcases/driver/ec_tests
 testcases/driver/misc_tests
 testcases/driver/obj_mgmt_tests
 testcases/driver/rijndael_tests

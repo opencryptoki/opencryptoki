@@ -834,6 +834,7 @@ display_mechanism_name(CK_MECHANISM_TYPE mech)
 	for (i = 0; pkcs11_mech_list[i].name; i++) {
 		if (pkcs11_mech_list[i].mech == mech) {
 			printf("(%s)", pkcs11_mech_list[i].name);
+			return;
 		}
 	}
 }
@@ -860,7 +861,8 @@ display_mechanism_flags(CK_FLAGS flags)
 }
 
 CK_RV
-display_mechanism_info(int slot_id){
+print_mech_info(int slot_id)
+{
     CK_RV                   rc;                     // Return Code
     CK_MECHANISM_TYPE_PTR   MechanismList   = NULL; // Head to Mechanism list
     CK_MECHANISM_INFO       MechanismInfo;          // Structure to hold Mechanism Info
@@ -914,6 +916,25 @@ display_mechanism_info(int slot_id){
 
     /* Free the memory we allocated for the mechanism list */
     free (MechanismList);
+    return CKR_OK;
+}
+
+CK_RV
+display_mechanism_info(int slot_id){
+    CK_MECHANISM_TYPE_PTR   MechanismList   = NULL; // Head to Mechanism list
+    CK_MECHANISM_INFO       MechanismInfo;          // Structure to hold Mechanism Info
+    CK_ULONG                MechanismCount  = 0;    // Number of supported mechanisms
+    unsigned int            i;
+    CK_ULONG                lcv;
+
+    if (slot_id == -1) {
+	for (lcv = 0; lcv < SlotCount; lcv++) {
+	    printf("Mechanism Info for Slot #%lu:\n", SlotList[lcv]);
+	    print_mech_info(SlotList[lcv]);
+	}
+    } else
+	return print_mech_info(slot_id);
+
     return CKR_OK;
 }
 
