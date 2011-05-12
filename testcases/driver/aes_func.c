@@ -224,6 +224,7 @@ CK_RV do_DecryptAES(struct test_suite_info tsuite)
 	CK_BYTE			mpdata[BIG_REQUEST];
 	CK_ULONG		datalen, len, mplen;
 	CK_RV			rc, rv;
+	CK_AES_CTR_PARAMS       aesctr;
 	CK_FLAGS		flags;
 	CK_BYTE			init_v[AES_BLOCK_SIZE];
 
@@ -274,6 +275,13 @@ CK_RV do_DecryptAES(struct test_suite_info tsuite)
 		}
 
 		/* Initialize */
+		if (tsuite.ctv[i].counterlen != 0) {
+			memcpy(aesctr.cb, tsuite.ctv[i].counter, tsuite.ctv[i].counterlen);
+			aesctr.ulCounterBits = tsuite.ctv[i].counterbits;
+			mech.ulParameterLen = sizeof (CK_AES_CTR_PARAMS);
+			mech.pParameter = &aesctr;
+		}
+
 		if (tsuite.ctv[i].ivlen != 0) {
 			memcpy(init_v, tsuite.ctv[i].iv, tsuite.ctv[i].ivlen);
 			mech.ulParameterLen = tsuite.ctv[i].ivlen;
