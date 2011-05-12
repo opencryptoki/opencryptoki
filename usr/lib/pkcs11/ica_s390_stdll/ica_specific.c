@@ -2592,11 +2592,6 @@ MECH_LIST_ELEMENT mech_list[] = {
                                                CKF_SIGN         | CKF_VERIFY  |
                                                CKF_SIGN_RECOVER | CKF_VERIFY_RECOVER },
 #endif
-#if !(NOMD2)
-   { CKM_MD2_RSA_PKCS,              512, 4096, CKF_HW      |
-                                               CKF_SIGN    | CKF_VERIFY },
-
-#endif
 #if !(NOMD5)
    { CKM_MD5_RSA_PKCS,              512, 4096, CKF_HW      |
                                                CKF_SIGN    | CKF_VERIFY },
@@ -2606,11 +2601,6 @@ MECH_LIST_ELEMENT mech_list[] = {
                                                CKF_SIGN    | CKF_VERIFY },
 #endif
 
-
-#if !(NODSA)
-   { CKM_DSA,                       512, 1024, CKF_HW      |
-                                               CKF_SIGN    | CKF_VERIFY },
-#endif
 
 /* Begin code contributed by Corrent corp. */
 #if !(NODH)
@@ -2630,16 +2620,6 @@ MECH_LIST_ELEMENT mech_list[] = {
    { CKM_DES_CBC_PAD,                 8,    8, CKF_HW      |
                                                CKF_ENCRYPT | CKF_DECRYPT |
                                                CKF_WRAP    | CKF_UNWRAP },
-
-#if !(NOCDMF)
-   { CKM_CDMF_ECB,                    0,    0, CKF_HW      |
-                                               CKF_ENCRYPT | CKF_DECRYPT |
-                                               CKF_WRAP    | CKF_UNWRAP },
-
-   { CKM_CDMF_CBC,                    0,    0, CKF_HW      |
-                                               CKF_ENCRYPT | CKF_DECRYPT |
-                                               CKF_WRAP    | CKF_UNWRAP },
-#endif
 
    { CKM_DES3_ECB,                    24,    24, CKF_HW      |
                                                CKF_ENCRYPT | CKF_DECRYPT |
@@ -2668,12 +2648,6 @@ MECH_LIST_ELEMENT mech_list[] = {
    { CKM_SHA512_HMAC_GENERAL,          0,    0, CKF_HW | CKF_SIGN | CKF_VERIFY },
 #endif
 
-#if !(NOMD2)
-   { CKM_MD2,                         0,    0, CKF_HW | CKF_DIGEST },
-   { CKM_MD2_HMAC,                    0,    0, CKF_HW | CKF_SIGN | CKF_VERIFY },
-   { CKM_MD2_HMAC_GENERAL,            0,    0, CKF_HW | CKF_SIGN | CKF_VERIFY },
-#endif
-
 #if !(NOMD5)
    { CKM_MD5,                         0,    0, CKF_HW | CKF_DIGEST },
    { CKM_MD5_HMAC,                    0,    0, CKF_HW | CKF_SIGN | CKF_VERIFY },
@@ -2697,20 +2671,9 @@ MECH_LIST_ELEMENT mech_list[] = {
    { CKM_AES_CTR,                    16,   32, CKF_HW      |
 					       CKF_ENCRYPT | CKF_DECRYPT |
 					       CKF_WRAP    | CKF_UNWRAP },
-   { CKM_AES_MAC,                    16,   32, CKF_HW | CKF_SIGN | CKF_VERIFY },
-   { CKM_AES_MAC_GENERAL,            16,   32, CKF_HW | CKF_SIGN | CKF_VERIFY },
    { CKM_AES_CBC_PAD,                16,   32, CKF_HW      |
    					       CKF_ENCRYPT | CKF_DECRYPT |
    					       CKF_WRAP    | CKF_UNWRAP },
-#endif
-	
-#if !(NORIPE)
-   { CKM_RIPEMD128,			0,   0, CKF_HW | CKF_DIGEST },
-   { CKM_RIPEMD128_HMAC,		0,   0, CKF_HW | CKF_SIGN | CKF_VERIFY },
-   { CKM_RIPEMD128_HMAC_GENERAL,	0,   0, CKF_HW | CKF_SIGN | CKF_VERIFY },
-   { CKM_RIPEMD160,			0,   0, CKF_HW | CKF_DIGEST },
-   { CKM_RIPEMD160_HMAC,		0,   0, CKF_HW | CKF_SIGN | CKF_VERIFY },
-   { CKM_RIPEMD160_HMAC_GENERAL,	0,   0, CKF_HW | CKF_SIGN | CKF_VERIFY },
 #endif
 };
 

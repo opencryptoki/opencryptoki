@@ -49,8 +49,6 @@ MECH_LIST_ELEMENT mech_list[] = {
    { CKM_RSA_PKCS,                 { 512, 4096, CKF_HW           |
                                                 CKF_ENCRYPT      | CKF_DECRYPT |
                                                 CKF_SIGN         | CKF_VERIFY } },
-   { CKM_MD2_RSA_PKCS,             { 512, 4096, CKF_HW      |
-                                                CKF_SIGN    | CKF_VERIFY } },
    { CKM_MD5_RSA_PKCS,             { 512, 4096, CKF_HW      |
                                                 CKF_SIGN    | CKF_VERIFY } },
    { CKM_SHA1_RSA_PKCS,            { 512, 4096, CKF_HW      |
@@ -74,23 +72,15 @@ MECH_LIST_ELEMENT mech_list[] = {
    { CKM_AES_CBC,                    16,   32, CKF_HW      |
    					       CKF_ENCRYPT | CKF_DECRYPT |
    					       CKF_WRAP    | CKF_UNWRAP },
-   { CKM_AES_MAC,                    16,   32, CKF_HW | CKF_SIGN | CKF_VERIFY },
-   { CKM_AES_MAC_GENERAL,            16,   32, CKF_HW | CKF_SIGN | CKF_VERIFY },
    { CKM_AES_CBC_PAD,                16,   32, CKF_HW      |
    					       CKF_ENCRYPT | CKF_DECRYPT |
    					       CKF_WRAP    | CKF_UNWRAP },
    { CKM_SHA_1,                      { 0,    0, CKF_DIGEST } },
    { CKM_SHA_1_HMAC,                 { 0,    0, CKF_SIGN | CKF_VERIFY } },
    { CKM_SHA_1_HMAC_GENERAL,         { 0,    0, CKF_SIGN | CKF_VERIFY } },
-   { CKM_SHA256,                     { 0,    0, CKF_HW | CKF_DIGEST } },
-   { CKM_SHA256_HMAC,                { 0,    0, CKF_HW | CKF_SIGN | CKF_VERIFY } },
-   { CKM_SHA256_HMAC_GENERAL,        { 0,    0, CKF_HW | CKF_SIGN | CKF_VERIFY } },
    { CKM_MD5,                        { 0,    0, CKF_DIGEST } },
    { CKM_MD5_HMAC,                   { 0,    0, CKF_SIGN | CKF_VERIFY } },
    { CKM_MD5_HMAC_GENERAL,           { 0,    0, CKF_SIGN | CKF_VERIFY } },
-   { CKM_MD2,                        { 0,    0, CKF_DIGEST } },
-   { CKM_MD2_HMAC,                   { 0,    0, CKF_SIGN | CKF_VERIFY } },
-   { CKM_MD2_HMAC_GENERAL,           { 0,    0, CKF_SIGN | CKF_VERIFY } },
    { CKM_EC_KEY_PAIR_GEN,	     { 160,    521, CKF_HW | CKF_GENERATE_KEY_PAIR } },
    { CKM_ECDSA,			     { 160,    521, CKF_HW | CKF_SIGN | CKF_VERIFY } }
 };

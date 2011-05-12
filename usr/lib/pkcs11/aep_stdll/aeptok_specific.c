@@ -1344,22 +1344,10 @@ MECH_LIST_ELEMENT mech_list[] = {
    { CKM_AES_CBC,                    16,   32, CKF_HW      |
    					       CKF_ENCRYPT | CKF_DECRYPT |
    					       CKF_WRAP    | CKF_UNWRAP },
-   { CKM_AES_MAC,                    16,   32, CKF_HW | CKF_SIGN | CKF_VERIFY },
-   { CKM_AES_MAC_GENERAL,            16,   32, CKF_HW | CKF_SIGN | CKF_VERIFY },
    { CKM_AES_CBC_PAD,                16,   32, CKF_HW      |
    					       CKF_ENCRYPT | CKF_DECRYPT |
    					       CKF_WRAP    | CKF_UNWRAP },
 #endif
-	
-#if !(NORIPE)
-   { CKM_RIPEMD128,			0,   0, CKF_HW | CKF_DIGEST },
-   { CKM_RIPEMD128_HMAC,		0,   0, CKF_HW | CKF_SIGN | CKF_VERIFY },
-   { CKM_RIPEMD128_HMAC_GENERAL,	0,   0, CKF_HW | CKF_SIGN | CKF_VERIFY },
-   { CKM_RIPEMD160,			0,   0, CKF_HW | CKF_DIGEST },
-   { CKM_RIPEMD160_HMAC,		0,   0, CKF_HW | CKF_SIGN | CKF_VERIFY },
-   { CKM_RIPEMD160_HMAC_GENERAL,	0,   0, CKF_HW | CKF_SIGN | CKF_VERIFY },
-#endif
-   
 };
 
 CK_ULONG mech_list_len = (sizeof(mech_list) / sizeof(MECH_LIST_ELEMENT));

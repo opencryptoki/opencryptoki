@@ -298,8 +298,6 @@ MECH_LIST_ELEMENT mech_list[] = {
   { CKM_AES_CBC,                    {16,   32,
 				     CKF_ENCRYPT | CKF_DECRYPT |
 				     CKF_WRAP    | CKF_UNWRAP} },
-  { CKM_AES_MAC,                    {16,   32, CKF_SIGN | CKF_VERIFY} },
-  { CKM_AES_MAC_GENERAL,            {16,   32, CKF_SIGN | CKF_VERIFY} },
   { CKM_AES_CBC_PAD,                {16,   32,
 				     CKF_ENCRYPT | CKF_DECRYPT |
 				     CKF_WRAP    | CKF_UNWRAP} },
