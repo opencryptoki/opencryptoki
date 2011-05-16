@@ -1133,7 +1133,6 @@ secret_key_unwrap( TEMPLATE *tmpl,
    CK_RV      rc;
 
    switch (keytype) {
-#if 0
       case CKK_CDMF:
       case CKK_DES:
          rc = des_unwrap( tmpl, data, data_len, fromend );
@@ -1146,14 +1145,6 @@ secret_key_unwrap( TEMPLATE *tmpl,
       case CKK_AES:
 	 rc = aes_unwrap( tmpl, data, data_len, fromend );
 	 break;
-#else
-      case CKK_CDMF:
-      case CKK_DES:
-      case CKK_DES3:
-      case CKK_AES:
-	 rc = aes_unwrap( tmpl, data, data_len, fromend );
-	 break;
-#endif
 
       case CKK_GENERIC_SECRET:
       case CKK_RC2:
