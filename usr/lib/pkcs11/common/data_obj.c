@@ -350,7 +350,7 @@ data_object_set_default_attributes( TEMPLATE *tmpl, CK_ULONG mode )
       if (class_attr) free( class_attr );
       if (app_attr)   free( app_attr );
       if (value_attr) free( value_attr );
-      st_err_log(1, __FILE__, __LINE__);
+      OCK_LOG_ERR(ERR_HOST_MEMORY);
       return CKR_HOST_MEMORY;
    }
 
@@ -383,7 +383,7 @@ CK_RV
 data_object_validate_attribute( TEMPLATE *tmpl, CK_ATTRIBUTE *attr, CK_ULONG mode )
 {
    if (!attr){
-      st_err_log(4, __FILE__, __LINE__, __FUNCTION__);
+      OCK_LOG_ERR(ERR_FUNCTION_FAILED);
       return CKR_FUNCTION_FAILED;
    }
    switch (attr->type) {

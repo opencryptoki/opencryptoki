@@ -65,14 +65,14 @@ dh_pkcs_derive( SESSION           * sess,
         (mech->ulParameterLen != 192) &&
         (mech->ulParameterLen != 256)))
    {
-      st_err_log(4, __FILE__, __LINE__, __FUNCTION__);
+      OCK_LOG_ERR(ERR_FUNCTION_FAILED);
       return CKR_FUNCTION_FAILED;
    }
       
    // Check valid object handle on base_key
    if (&base_key == NULL)
    {
-      st_err_log(4, __FILE__, __LINE__, __FUNCTION__);
+      OCK_LOG_ERR(ERR_FUNCTION_FAILED);
       return CKR_FUNCTION_FAILED;
    }
 
@@ -84,7 +84,7 @@ dh_pkcs_derive( SESSION           * sess,
             keyclass = *(CK_OBJECT_CLASS *)pTemplate[i].pValue;
             if (keyclass != CKO_SECRET_KEY)
             {
-               st_err_log(49, __FILE__, __LINE__);
+               OCK_LOG_ERR(ERR_TEMPLATE_INCONSISTENT);
                return CKR_TEMPLATE_INCONSISTENT;
             }
          }
@@ -100,7 +100,7 @@ dh_pkcs_derive( SESSION           * sess,
                             base_key, secret_key_value, &secret_key_value_len );
    if (rc != CKR_OK)
    {
-      st_err_log(84, __FILE__, __LINE__);
+      OCK_LOG_ERR(ERR_FUNCTION_FAILED);
       return CKR_FUNCTION_FAILED ;
    }
 
@@ -108,7 +108,7 @@ dh_pkcs_derive( SESSION           * sess,
    rc = build_attribute( CKA_VALUE, secret_key_value, secret_key_value_len, &new_attr );
    if (rc != CKR_OK)
    {
-      st_err_log(84, __FILE__, __LINE__);
+      OCK_LOG_ERR(ERR_FUNCTION_FAILED);
       return CKR_FUNCTION_FAILED ;
    }
 
@@ -121,7 +121,7 @@ dh_pkcs_derive( SESSION           * sess,
                                 keyclass,  keytype,
                                 &temp_obj );
    if (rc != CKR_OK){
-      st_err_log(89, __FILE__, __LINE__);
+      OCK_LOG_ERR(ERR_OBJMGR_CREATE_SKEL);
       return rc;  
    }
 
@@ -133,7 +133,7 @@ dh_pkcs_derive( SESSION           * sess,
    //
    rc = object_mgr_create_final( sess, temp_obj, handle );
    if (rc != CKR_OK) {
-      st_err_log(90, __FILE__, __LINE__);
+      OCK_LOG_ERR(ERR_OBJMGR_CREATE_FINAL);
       object_free( temp_obj );
       return rc;  
    }
@@ -166,7 +166,7 @@ ckm_dh_pkcs_derive( CK_VOID_PTR        other_pubkey,
 
    rc = object_mgr_find_in_map1( base_key, &base_key_obj );
    if (rc != CKR_OK){
-      st_err_log(18, __FILE__, __LINE__);
+      OCK_LOG_ERR(ERR_KEY_HANDLE_INVALID);
       return CKR_KEY_HANDLE_INVALID;
    }
 
@@ -174,7 +174,7 @@ ckm_dh_pkcs_derive( CK_VOID_PTR        other_pubkey,
    rc = template_attribute_find( base_key_obj->template, CKA_VALUE, &temp_attr );
    if (rc == FALSE)
    {
-      st_err_log(20, __FILE__, __LINE__);
+      OCK_LOG_ERR(ERR_KEY_TYPE_INCONSISTENT);
       return CKR_KEY_TYPE_INCONSISTENT;
    }
    else 
@@ -188,7 +188,7 @@ ckm_dh_pkcs_derive( CK_VOID_PTR        other_pubkey,
    rc = template_attribute_find( base_key_obj->template, CKA_PRIME, &temp_attr );
    if (rc == FALSE)
    {
-      st_err_log(20, __FILE__, __LINE__);
+      OCK_LOG_ERR(ERR_KEY_TYPE_INCONSISTENT);
       return CKR_KEY_TYPE_INCONSISTENT;
    }
    else 
@@ -205,7 +205,7 @@ ckm_dh_pkcs_derive( CK_VOID_PTR        other_pubkey,
                                         other_pubkey_len, x, x_len, p, p_len );
    if (rc != CKR_OK)
    {
-      st_err_log(191, __FILE__, __LINE__);
+      OCK_LOG_ERR(ERR_FUNCTION_FAILED);
       return CKR_FUNCTION_FAILED ;
    }
 
@@ -223,7 +223,7 @@ ckm_dh_pkcs_key_pair_gen( TEMPLATE  * publ_tmpl,
    rc = token_specific.t_dh_pkcs_key_pair_gen(publ_tmpl,priv_tmpl);
    if (rc != CKR_OK)
    {
-      st_err_log(91, __FILE__, __LINE__);
+      OCK_LOG_ERR(ERR_KEYGEN);
    }
 
    return rc;

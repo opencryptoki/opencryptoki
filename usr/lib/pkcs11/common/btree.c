@@ -36,10 +36,13 @@
 #include "local_types.h"
 
 #ifdef DEBUG
-#define DBG(fmt, ...)	fprintf(stderr, "%s:%d " fmt "\n", __FILE__, __LINE__, ##__VA_ARGS__)
+#define OCK_LOG_DEBUG	ock_logit
+#define DBG(fmt, ...)	OCK_LOG_DEBUG("%s:%d " fmt "\n", __FILE__, __LINE__, ##__VA_ARGS__)
 #else
+#define OCK_LOG_DEBUG(fmt, ...)
 #define DBG(fmt, ...)
 #endif
+
 
 #define GET_NODE_HANDLE(n)	get_node_handle(n, 1)
 #define TREE_DUMP(t)		tree_dump((t)->top, 0)

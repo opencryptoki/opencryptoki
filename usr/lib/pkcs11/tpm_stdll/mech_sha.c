@@ -140,7 +140,7 @@ sha1_hash( SESSION         *sess,
    CK_RV rv;
    
    if (!sess || !ctx || !out_data_len){
-      st_err_log(4, __FILE__, __LINE__, __FUNCTION__);
+      OCK_LOG_ERR(ERR_FUNCTION_FAILED);
       return CKR_FUNCTION_FAILED;
    }
    if (length_only == TRUE) {
@@ -167,7 +167,7 @@ sha1_hash_update( SESSION        * sess,
                   CK_ULONG         in_data_len )
 {
    if (!sess || !in_data){
-      st_err_log(4, __FILE__, __LINE__, __FUNCTION__);
+      OCK_LOG_ERR(ERR_FUNCTION_FAILED);
       return CKR_FUNCTION_FAILED;
    }
    return ckm_sha1_update( ctx, in_data, in_data_len );
@@ -184,7 +184,7 @@ sha1_hash_final( SESSION         * sess,
                  CK_ULONG        * out_data_len )
 {
    if (!sess || !ctx || !out_data_len){
-      st_err_log(4, __FILE__, __LINE__, __FUNCTION__);
+      OCK_LOG_ERR(ERR_FUNCTION_FAILED);
       return CKR_FUNCTION_FAILED;
    }
    if (length_only == TRUE) {
@@ -222,7 +222,7 @@ sha1_hmac_sign( SESSION              * sess,
 
 
    if (!sess || !ctx || !out_data_len){
-      st_err_log(4, __FILE__, __LINE__, __FUNCTION__);
+      OCK_LOG_ERR(ERR_FUNCTION_FAILED);
       return CKR_FUNCTION_FAILED;
    }
 
@@ -247,12 +247,12 @@ sha1_hmac_sign( SESSION              * sess,
 
    rc = object_mgr_find_in_map1( ctx->key, &key_obj );
    if (rc != CKR_OK){
-      st_err_log(110, __FILE__, __LINE__);
+      OCK_LOG_ERR(ERR_OBJMGR_FIND_MAP);
       return rc;
    }
    rc = template_attribute_find( key_obj->template, CKA_VALUE, &attr );
    if (rc == FALSE){
-      st_err_log(4, __FILE__, __LINE__, __FUNCTION__);
+      OCK_LOG_ERR(ERR_FUNCTION_FAILED);
       return CKR_FUNCTION_FAILED;
    }
    else
@@ -268,7 +268,7 @@ sha1_hmac_sign( SESSION              * sess,
 
       rc = digest_mgr_init( sess, &digest_ctx, &digest_mech );
       if (rc != CKR_OK) {
-         st_err_log(123, __FILE__, __LINE__);
+         OCK_LOG_ERR(ERR_DIGEST_INIT);
          return rc;
       }
 
@@ -278,7 +278,7 @@ sha1_hmac_sign( SESSION              * sess,
                               attr->ulValueLen,
                               hash,  &hash_len );
       if (rc != CKR_OK) {
-         st_err_log(124, __FILE__, __LINE__);
+         OCK_LOG_ERR(ERR_DIGEST);
          return rc;
       }
 
@@ -312,26 +312,26 @@ sha1_hmac_sign( SESSION              * sess,
    //
    rc = digest_mgr_init( sess, &digest_ctx, &digest_mech );
    if (rc != CKR_OK) {
-      st_err_log(123, __FILE__, __LINE__);
+      OCK_LOG_ERR(ERR_DIGEST_INIT);
       return rc;
    }
 
    rc = digest_mgr_digest_update( sess, &digest_ctx, k_ipad, SHA1_BLOCK_SIZE );
    if (rc != CKR_OK) {
-      st_err_log(123, __FILE__, __LINE__);
+      OCK_LOG_ERR(ERR_DIGEST_UPDATE);
       return rc;
    }
 
    rc = digest_mgr_digest_update( sess, &digest_ctx, in_data, in_data_len );
    if (rc != CKR_OK) {
-      st_err_log(123, __FILE__, __LINE__);
+      OCK_LOG_ERR(ERR_DIGEST_UPDATE);
       return rc;
    }
 
    hash_len = sizeof(hash);
    rc = digest_mgr_digest_final( sess, FALSE, &digest_ctx, hash, &hash_len );
    if (rc != CKR_OK) {
-      st_err_log(126, __FILE__, __LINE__);
+      OCK_LOG_ERR(ERR_DIGEST_FINAL);
       return rc;
    }
 
@@ -342,26 +342,26 @@ sha1_hmac_sign( SESSION              * sess,
    //
    rc = digest_mgr_init( sess, &digest_ctx, &digest_mech );
    if (rc != CKR_OK) {
-      st_err_log(123, __FILE__, __LINE__);
+      OCK_LOG_ERR(ERR_DIGEST_INIT);
       return rc;
    }
 
    rc = digest_mgr_digest_update( sess, &digest_ctx, k_opad, SHA1_BLOCK_SIZE );
    if (rc != CKR_OK) {
-      st_err_log(123, __FILE__, __LINE__);
+      OCK_LOG_ERR(ERR_DIGEST_UPDATE);
       return rc;
    }
 
    rc = digest_mgr_digest_update( sess, &digest_ctx, hash, hash_len );
    if (rc != CKR_OK) {
-      st_err_log(123, __FILE__, __LINE__);
+      OCK_LOG_ERR(ERR_DIGEST_UPDATE);
       return rc;
    }
 
    hash_len = sizeof(hash);
    rc = digest_mgr_digest_final( sess, FALSE, &digest_ctx, hash, &hash_len );
    if (rc != CKR_OK) {
-      st_err_log(126, __FILE__, __LINE__);
+      OCK_LOG_ERR(ERR_DIGEST_FINAL);
       return rc;
    }
 
@@ -388,7 +388,7 @@ sha1_hmac_verify( SESSION              * sess,
    CK_RV                rc;
 
    if (!sess || !ctx || !in_data || !signature){
-      st_err_log(4, __FILE__, __LINE__, __FUNCTION__);
+      OCK_LOG_ERR(ERR_FUNCTION_FAILED);
       return CKR_FUNCTION_FAILED;
    }
    if (ctx->mech.mechanism == CKM_SHA_1_HMAC_GENERAL)
@@ -400,7 +400,7 @@ sha1_hmac_verify( SESSION              * sess,
 
    rc = sign_mgr_init( sess, &hmac_ctx, &ctx->mech, FALSE, ctx->key );
    if (rc != CKR_OK){
-      st_err_log(127, __FILE__, __LINE__);
+      OCK_LOG_ERR(ERR_SIGN_INIT);
       goto done;
    }
    len = sizeof(hmac);
@@ -408,17 +408,17 @@ sha1_hmac_verify( SESSION              * sess,
                        in_data, in_data_len,
                        hmac,   &len );
    if (rc != CKR_OK){
-      st_err_log(128, __FILE__, __LINE__);
+      OCK_LOG_ERR(ERR_SIGN);
       goto done;
    }
    if ((len != hmac_len) || (len != sig_len)) {
-      st_err_log(46, __FILE__, __LINE__);
+      OCK_LOG_ERR(ERR_SIGNATURE_LEN_RANGE);
       rc = CKR_SIGNATURE_LEN_RANGE;
       goto done;
    }
 
    if (memcmp(hmac, signature, hmac_len) != 0){
-      st_err_log(47, __FILE__, __LINE__);
+      OCK_LOG_ERR(ERR_SIGNATURE_INVALID);
       rc = CKR_SIGNATURE_INVALID;
    }
 done:
@@ -440,7 +440,7 @@ ckm_sha1_update( DIGEST_CONTEXT * ctx,
 {
     if( token_specific.t_sha_update == NULL ){
 	if (!ctx || !in_data){
-	    st_err_log(4, __FILE__, __LINE__, __FUNCTION__);
+	    OCK_LOG_ERR(ERR_FUNCTION_FAILED);
 	    return CKR_FUNCTION_FAILED;
 	}
 	shaUpdate( (SHA1_CONTEXT *)ctx->context, in_data, in_data_len );
@@ -460,11 +460,11 @@ ckm_sha1_final( DIGEST_CONTEXT * ctx,
 {
     if (token_specific.t_sha_final  == NULL ){
 	if (!ctx || !out_data || !out_data_len){
-	    st_err_log(4, __FILE__, __LINE__, __FUNCTION__);
+	    OCK_LOG_ERR(ERR_FUNCTION_FAILED);
 	    return CKR_FUNCTION_FAILED;
 	}
 	if (*out_data_len < SHA1_HASH_SIZE){
-	    st_err_log(4, __FILE__, __LINE__, __FUNCTION__);
+	    OCK_LOG_ERR(ERR_FUNCTION_FAILED);
 	    return CKR_FUNCTION_FAILED;
 	}
 	shaFinal( (SHA1_CONTEXT *)ctx->context, out_data );

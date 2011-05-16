@@ -87,9 +87,6 @@ void SC_SetFunctionList(void);
 //
 #define MAXFILENAME 1024
 
-static char *debugfilepathbuffer;
-static int debugon = 1;
-int  debugfile = 0;
 #define FFLUSH(x) 
 
 pid_t  initedpid=0;  // for initialized pid
@@ -98,10 +95,6 @@ CK_ULONG  usage_count = 0; // variable for number of times the DLL has
 			   // been used.
 
 CK_C_INITIALIZE_ARGS cinit_args = { NULL, NULL, NULL, NULL, 0, NULL };
-
-extern void stlogterm();
-extern void stloginit();
-extern void stlogit2(int type,char *fmt, ...);
 
 CK_BBOOL
 st_Initialized()
@@ -118,9 +111,6 @@ extern int spin_created;
 void
 Fork_Initializer(void)
 {
-	stlogterm();
-        stloginit(); // Initialize Logging so we can capture
-		     // EVERYTHING
 
 #ifdef SPINXPL
 	spinxplfd = -1;
@@ -217,7 +207,7 @@ validate_mechanism(CK_MECHANISM_PTR  pMechanism)
 			return CKR_OK;
 		}
 	}
-	st_err_log(28, __FILE__, __LINE__);
+	OCK_LOG_ERR(ERR_MECHANISM_INVALID);
 	return CKR_MECHANISM_INVALID;
 }
 
@@ -262,9 +252,6 @@ ST_Initialize(void **FunctionList,
 	CK_RV  rc = CKR_OK;
 	struct passwd  *pw,*epw; // SAB XXX XXX
 	uid_t    userid,euserid;
-
-	stlogterm();
-	stloginit();
 
 	// Check for root user or Group PKCS#11 Membershp
 	// Only these are allowed.
@@ -316,11 +303,11 @@ ST_Initialize(void **FunctionList,
 				}
 			}
 			if (rc == 0 ){
-				st_err_log(4, __FILE__, __LINE__, __FUNCTION__);
+				OCK_LOG_ERR(ERR_FUNCTION_FAILED);
 				return CKR_FUNCTION_FAILED;
 			}
 		} else {
-			st_err_log(4, __FILE__, __LINE__, __FUNCTION__);
+			OCK_LOG_ERR(ERR_FUNCTION_FAILED);
 			return CKR_FUNCTION_FAILED;
 		}
 	}
@@ -349,15 +336,10 @@ ST_Initialize(void **FunctionList,
 	MY_CreateMutex( &pkcs_mutex      );
 	MY_CreateMutex( &obj_list_mutex  );
 	if (pthread_rwlock_init(&obj_list_rw_mutex, NULL)) {
-		st_err_log(145, __FILE__, __LINE__);
+		OCK_LOG_DEBUG("pthread_rwlock_init failed\n");
 	}
 	MY_CreateMutex( &sess_list_mutex );
 	MY_CreateMutex( &login_mutex     );
-
-
-	if ( (debugfilepathbuffer = getenv( "CRYPTOKI_DEBUG")) != NULL) {
-		debugon=1;
-	}
 
 	init_data_store((char *)PK_DIR);
 
@@ -370,14 +352,12 @@ ST_Initialize(void **FunctionList,
 		CreateXProcLock(xproclock);
 #endif
 		if ( (rc = attach_shm()) != CKR_OK) {
-			st_err_log(144, __FILE__, __LINE__);
+			OCK_LOG_ERR(ERR_SHM);
 			goto done;
 		}
       
 
 		nv_token_data = &global_shm->nv_token_data;
-
-		stloginit();
 
 		initialized = TRUE;
 		initedpid = getpid();
@@ -387,7 +367,7 @@ ST_Initialize(void **FunctionList,
 		rc =  token_specific.t_init(Correlator,SlotNumber);
 		if (rc != 0) {   // Zero means success, right?!?
 			*FunctionList = NULL;
-			st_err_log(145, __FILE__, __LINE__);
+			OCK_LOG_ERR(ERR_TOKEN_INIT);
 			goto done;
 		}
 	}
@@ -395,7 +375,7 @@ ST_Initialize(void **FunctionList,
 	rc = load_token_data();
 	if (rc != CKR_OK) {
 		*FunctionList = NULL;
-		st_err_log(145, __FILE__, __LINE__);
+		OCK_LOG_ERR(ERR_TOKEN_LOAD_DATA);
 		goto done;
 	}
 
@@ -415,7 +395,7 @@ ST_Initialize(void **FunctionList,
  done:
 	ReleaseMutex( native_mutex );
 	if (rc != 0)
-		st_err_log(145, __FILE__, __LINE__);
+		OCK_LOG_ERR(ERR_TOKEN_INIT);
 	return rc;
 }
 
@@ -427,12 +407,12 @@ CK_RV SC_Finalize( CK_SLOT_ID sid )
 	CK_RV          rc;
 	SLT_CHECK;
 	if (st_Initialized() == FALSE) {	
-		st_err_log(72, __FILE__, __LINE__);
+		OCK_LOG_ERR(ERR_CRYPTOKI_NOT_INITIALIZED);
 		return CKR_CRYPTOKI_NOT_INITIALIZED;
 	}
 	rc = MY_LockMutex( &pkcs_mutex );
 	if (rc != CKR_OK){
-		st_err_log(146, __FILE__, __LINE__);
+		OCK_LOG_ERR(ERR_MUTEX_LOCK);
 		return rc;
 	} 
 	// If somebody else has taken care of things, leave...
@@ -440,7 +420,7 @@ CK_RV SC_Finalize( CK_SLOT_ID sid )
 		MY_UnlockMutex( &pkcs_mutex ); // ? Somebody else has
 					       // also destroyed the
 					       // mutex...
-		st_err_log(72, __FILE__, __LINE__);
+		OCK_LOG_ERR(ERR_CRYPTOKI_NOT_INITIALIZED);
 		return CKR_CRYPTOKI_NOT_INITIALIZED;
 	}
 	usage_count--;
@@ -458,7 +438,7 @@ CK_RV SC_Finalize( CK_SLOT_ID sid )
 	}
 	rc = MY_UnlockMutex( &pkcs_mutex );
 	if (rc != CKR_OK){
-		st_err_log(147, __FILE__, __LINE__);
+		OCK_LOG_ERR(ERR_MUTEX_UNLOCK);
 		return rc;
 	}
 	return CKR_OK;
@@ -518,17 +498,17 @@ CK_RV SC_GetTokenInfo( CK_SLOT_ID         sid,
 	SLT_CHECK;
 	LOCKIT;
 	if (st_Initialized() == FALSE) {
-		st_err_log(72, __FILE__, __LINE__);
+		OCK_LOG_ERR(ERR_CRYPTOKI_NOT_INITIALIZED);
 		rc = CKR_CRYPTOKI_NOT_INITIALIZED;
 		goto done;
 	}
 	if (!pInfo) {
-		st_err_log(4, __FILE__, __LINE__, __FUNCTION__);
+		OCK_LOG_ERR(ERR_FUNCTION_FAILED);
 		rc = CKR_FUNCTION_FAILED;
 		goto done;
 	}
 	if (slot_id > MAX_SLOT_ID) {
-		st_err_log(2, __FILE__, __LINE__); 
+		OCK_LOG_ERR(ERR_SLOT_ID_INVALID); 
 		rc = CKR_SLOT_ID_INVALID;
 		goto done;
 	}
@@ -546,10 +526,7 @@ CK_RV SC_GetTokenInfo( CK_SLOT_ID         sid,
 
  done:
 	LLOCK;
-	if (debugfile) {
-		stlogit2(debugfile, "%-25s:  rc = 0x%08x\n", "C_GetTokenInfo", rc );
-
-	}
+	OCK_LOG_DEBUG("%s:  rc = 0x%08x\n", "C_GetTokenInfo", rc);
 
 	UNLOCKIT;
 	return rc;
@@ -560,10 +537,10 @@ CK_RV SC_WaitForSlotEvent( CK_FLAGS        flags,
 			   CK_VOID_PTR     pReserved )
 {
 	if (st_Initialized() == FALSE){
-		st_err_log(72, __FILE__, __LINE__);
+		OCK_LOG_ERR(ERR_CRYPTOKI_NOT_INITIALIZED);
 		return CKR_CRYPTOKI_NOT_INITIALIZED;
 	}
-	st_err_log(142, __FILE__, __LINE__, __FUNCTION__);
+	OCK_LOG_ERR(ERR_FUNCTION_NOT_SUPPORTED);
 	return CKR_FUNCTION_NOT_SUPPORTED;
 }
 
@@ -611,22 +588,22 @@ CK_RV SC_GetMechanismList(CK_SLOT_ID sid,
 	SLT_CHECK;
 	LOCKIT;
 	if (st_Initialized() == FALSE) {
-		st_err_log(72, __FILE__, __LINE__);
+		OCK_LOG_ERR(ERR_CRYPTOKI_NOT_INITIALIZED);
 		rc = CKR_CRYPTOKI_NOT_INITIALIZED;
 		goto out;
 	}
 	if (count == NULL) {
-		st_err_log(4, __FILE__, __LINE__, __FUNCTION__);
+		OCK_LOG_ERR(ERR_FUNCTION_FAILED);
 		rc = CKR_FUNCTION_FAILED;
 		goto out;
 	}
 	if (slot_id > MAX_SLOT_ID) {
-		st_err_log(2, __FILE__, __LINE__); 
+		OCK_LOG_ERR(ERR_SLOT_ID_INVALID); 
 		rc = CKR_SLOT_ID_INVALID;
 		goto out;
 	}
 	if (!token_specific.t_get_mechanism_list) {
-		st_err_log(4, __FILE__, __LINE__);
+		OCK_LOG_ERR(ERR_GENERAL_ERROR);
 		rc = CKR_GENERAL_ERROR;
 		goto out;
 	}
@@ -638,10 +615,7 @@ CK_RV SC_GetMechanismList(CK_SLOT_ID sid,
 	}
  out:
 	LLOCK;
-	if (debugfile) {
-		stlogit2(debugfile, "%-25s:  rc = 0x%08x, # mechanisms:  %d\n",
-			 "C_GetMechanismList", rc, *count );
-	}
+	OCK_LOG_DEBUG("%5s: rc = 0x%08x, # mechanisms: %d\n", "C_GetMechanismList", rc, *count);
 	UNLOCKIT;
 	return rc;
 }
@@ -657,32 +631,30 @@ CK_RV SC_GetMechanismInfo(CK_SLOT_ID sid,
 	SLT_CHECK;
 	LOCKIT;
 	if (st_Initialized() == FALSE) {
-		st_err_log(72, __FILE__, __LINE__);
+		OCK_LOG_ERR(ERR_CRYPTOKI_NOT_INITIALIZED);
 		rc = CKR_CRYPTOKI_NOT_INITIALIZED;
 		goto out;
 	}
 	if (pInfo == NULL) {
-		st_err_log(4, __FILE__, __LINE__, __FUNCTION__);
+		OCK_LOG_ERR(ERR_FUNCTION_FAILED);
 		rc = CKR_FUNCTION_FAILED;
 		goto out;
 	}
 	if (slot_id > MAX_SLOT_ID) {
-		st_err_log(2, __FILE__, __LINE__); 
+		OCK_LOG_ERR(ERR_SLOT_ID_INVALID); 
 		rc = CKR_SLOT_ID_INVALID;
 		goto out;
 	}
 	if (!token_specific.t_get_mechanism_info) {
-		st_err_log(4, __FILE__, __LINE__);
+		OCK_LOG_ERR(ERR_GENERAL_ERROR);
 		rc = CKR_GENERAL_ERROR;
 		goto out;
 	}
 	rc = token_specific.t_get_mechanism_info(type, pInfo);
  out:
 	LLOCK;
-	if (debugfile) {
-		stlogit2(debugfile, "%-25s:  rc = 0x%08x, mech type = 0x%08x\n",
-			 "C_GetMechanismInfo", rc, type );
-	}
+	OCK_LOG_DEBUG("%s:  rc = 0x%08x, mech type = 0x%08x\n",
+			 "C_GetMechanismInfo", rc, type);
 	
 	UNLOCKIT;
 	return rc;
@@ -712,29 +684,29 @@ CK_RV SC_InitToken( CK_SLOT_ID   sid,
 	slotID = slot_id;
 	LOCKIT;
 	if (st_Initialized() == FALSE) {
-		st_err_log(72, __FILE__, __LINE__);
+		OCK_LOG_ERR(ERR_CRYPTOKI_NOT_INITIALIZED);
 		rc = CKR_CRYPTOKI_NOT_INITIALIZED;
 		goto done;
 	}
 	if (!pPin || !pLabel) {
-		st_err_log(5, __FILE__, __LINE__, __FUNCTION__);
+		OCK_LOG_ERR(ERR_ARGUMENTS_BAD);
 		rc = CKR_ARGUMENTS_BAD;
 		goto done;
 	}
 	if (nv_token_data->token_info.flags & CKF_SO_PIN_LOCKED) {
-		st_err_log(37, __FILE__, __LINE__);
+		OCK_LOG_ERR(ERR_PIN_LOCKED);
 		rc = CKR_PIN_LOCKED;
 		goto done;
 	}
 	rc = compute_sha( pPin, ulPinLen, hash_sha );
 	if (memcmp(nv_token_data->so_pin_sha, hash_sha, SHA1_HASH_SIZE) != 0) {
-		st_err_log(33, __FILE__, __LINE__);
+		OCK_LOG_ERR(ERR_PIN_INCORRECT);
 		rc = CKR_PIN_INCORRECT;
 		goto done;
 	}
 	rc  = token_specific.t_des_key_gen( master_key, MASTER_KEY_SIZE, 3 * DES_KEY_SIZE );
 	if (rc != CKR_OK) {
-		st_err_log(4, __FILE__, __LINE__, __FUNCTION__);
+		OCK_LOG_ERR(ERR_FUNCTION_FAILED);
 		rc = CKR_FUNCTION_FAILED;
 		goto done;
 	}
@@ -774,21 +746,18 @@ CK_RV SC_InitToken( CK_SLOT_ID   sid,
 	nv_token_data->token_info.flags |= CKF_TOKEN_INITIALIZED;
 	rc = save_token_data();
 	if (rc != CKR_OK){
-		st_err_log(104, __FILE__, __LINE__, __FUNCTION__);
+		OCK_LOG_ERR(ERR_TOKEN_SAVE);
 		goto done;
 	}
 	rc = save_masterkey_so();
 	if (rc != CKR_OK){
-		st_err_log(149, __FILE__, __LINE__, __FUNCTION__);
+		OCK_LOG_ERR(ERR_MASTER_KEY_SAVE);
 		goto done;
 	}
  done:
  out:
 	LLOCK;
-	if (debugfile) {
-		stlogit2(debugfile, "%-25s:  rc = 0x%08x\n", "C_InitToken",
-			 rc );
-	}
+	OCK_LOG_DEBUG("%s:  rc = 0x%08x\n", "C_InitToken", rc);
 	UNLOCKIT;
 	if (pk_full_path) {
 		free(pk_full_path);
@@ -810,34 +779,34 @@ CK_RV SC_InitPIN( ST_SESSION_HANDLE  *sSession,
 	CK_SESSION_HANDLE hSession = SESS_HANDLE(sSession);
 	LOCKIT;
 	if (st_Initialized() == FALSE) {
-		st_err_log(72, __FILE__, __LINE__);
+		OCK_LOG_ERR(ERR_CRYPTOKI_NOT_INITIALIZED);
 		rc = CKR_CRYPTOKI_NOT_INITIALIZED;
 		goto done;
 	}
 	if (!pPin) {
-		st_err_log(5, __FILE__, __LINE__, __FUNCTION__);
+		OCK_LOG_ERR(ERR_ARGUMENTS_BAD);
 		rc = CKR_ARGUMENTS_BAD;
 		goto done;
 	}
 	sess = SESSION_MGR_FIND( hSession );
 	if (!sess) {
-		st_err_log(40, __FILE__, __LINE__);
+		OCK_LOG_ERR(ERR_SESSION_HANDLE_INVALID);
 		rc = CKR_SESSION_HANDLE_INVALID;
 		goto done;
 	}
 	if (pin_locked(&sess->session_info, nv_token_data->token_info.flags)
 	    == TRUE) {
-		st_err_log(37, __FILE__, __LINE__);
+		OCK_LOG_ERR(ERR_PIN_LOCKED);
 		rc = CKR_PIN_LOCKED;
 		goto done;
 	}
 	if (sess->session_info.state != CKS_RW_SO_FUNCTIONS) {
-		st_err_log(57, __FILE__, __LINE__);
+		OCK_LOG_ERR(ERR_USER_NOT_LOGGED_IN);
 		rc = CKR_USER_NOT_LOGGED_IN;
 		goto done;
 	}
 	if ((ulPinLen < MIN_PIN_LEN) || (ulPinLen > MAX_PIN_LEN)) {
-		st_err_log(35, __FILE__, __LINE__); 
+		OCK_LOG_ERR(ERR_PIN_LEN_RANGE); 
 		rc = CKR_PIN_LEN_RANGE;
 		goto done;
 	}
@@ -845,12 +814,12 @@ CK_RV SC_InitPIN( ST_SESSION_HANDLE  *sSession,
 	rc  = compute_sha( pPin, ulPinLen, hash_sha );
 	rc |= compute_md5( pPin, ulPinLen, hash_md5 );
 	if (rc != CKR_OK){
-		st_err_log(148, __FILE__, __LINE__); 	
+		OCK_LOG_ERR(ERR_HASH_COMPUTATION); 	
 		goto done;
 	}
 	rc = XProcLock( xproclock );
 	if (rc != CKR_OK){
-		st_err_log(150, __FILE__, __LINE__);
+		OCK_LOG_ERR(ERR_PROCESS_LOCK);
 		goto done;
 	}
 	memcpy(nv_token_data->user_pin_sha, hash_sha, SHA1_HASH_SIZE);
@@ -861,19 +830,16 @@ CK_RV SC_InitPIN( ST_SESSION_HANDLE  *sSession,
 	memcpy( user_pin_md5, hash_md5, MD5_HASH_SIZE  );
 	rc = save_token_data();
 	if (rc != CKR_OK){
-		st_err_log(104, __FILE__, __LINE__);
+		OCK_LOG_ERR(ERR_TOKEN_SAVE);
 		goto done;
 	}
 	rc = save_masterkey_user();
 	if (rc != CKR_OK){
-		st_err_log(149, __FILE__, __LINE__);
+		OCK_LOG_ERR(ERR_MASTER_KEY_SAVE);
 	}
  done:
 	LLOCK;
-	if (debugfile) {
-		stlogit2(debugfile, "%-25s:  session = %08x\n", "C_InitPin", rc, 
-			 hSession);
-	}
+	OCK_LOG_DEBUG("%s:  rc = 0x%08x, session = %08x\n", "C_InitPin", rc, hSession);
 	UNLOCKIT;
 	return rc;
 }
@@ -892,30 +858,30 @@ CK_RV SC_SetPIN( ST_SESSION_HANDLE  *sSession,
 	CK_SESSION_HANDLE hSession = SESS_HANDLE(sSession);
 	LOCKIT;
 	if (st_Initialized() == FALSE) {
-		st_err_log(72, __FILE__, __LINE__);
+		OCK_LOG_ERR(ERR_CRYPTOKI_NOT_INITIALIZED);
 		rc = CKR_CRYPTOKI_NOT_INITIALIZED;
 		goto done;
 	}
 	sess = SESSION_MGR_FIND( hSession );
 	if (!sess) {
-		st_err_log(40, __FILE__, __LINE__);
+		OCK_LOG_ERR(ERR_SESSION_HANDLE_INVALID);
 		rc = CKR_SESSION_HANDLE_INVALID;
 		goto done;
 	}
 	if (pin_locked(&sess->session_info, 
 		       nv_token_data->token_info.flags) == TRUE) {
-		st_err_log(37, __FILE__, __LINE__);
+		OCK_LOG_ERR(ERR_PIN_LOCKED);
 		rc = CKR_PIN_LOCKED;
 		goto done;
 	}
 	if ((ulNewLen < MIN_PIN_LEN) || (ulNewLen > MAX_PIN_LEN)) {
-		st_err_log(35, __FILE__, __LINE__); 
+		OCK_LOG_ERR(ERR_PIN_LEN_RANGE); 
 		rc = CKR_PIN_LEN_RANGE;
 		goto done;
 	}
 	rc = compute_sha( pOldPin, ulOldLen, old_hash_sha );
 	if (rc != CKR_OK){
-		st_err_log(148, __FILE__, __LINE__); 	
+		OCK_LOG_ERR(ERR_HASH_COMPUTATION); 	
 		goto done;
 	}
 	/* From the PKCS#11 2.20 spec: "C_SetPIN modifies the PIN of
@@ -927,14 +893,14 @@ CK_RV SC_SetPIN( ST_SESSION_HANDLE  *sSession,
 	    (sess->session_info.state == CKS_RW_PUBLIC_SESSION)) {
 		if (memcmp(nv_token_data->user_pin_sha, old_hash_sha, 
 			   SHA1_HASH_SIZE) != 0) {
-			st_err_log(33, __FILE__, __LINE__); 	
+			OCK_LOG_ERR(ERR_PIN_INCORRECT); 	
 			rc = CKR_PIN_INCORRECT;
 			goto done;
 		}
 		rc  = compute_sha( pNewPin, ulNewLen, new_hash_sha );
 		rc |= compute_md5( pNewPin, ulNewLen, hash_md5 );
 		if (rc != CKR_OK){
-			st_err_log(148, __FILE__, __LINE__); 	
+			OCK_LOG_ERR(ERR_HASH_COMPUTATION); 	
 			goto done;
 		}
 		/* The old PIN matches, now make sure its different
@@ -942,13 +908,13 @@ CK_RV SC_SetPIN( ST_SESSION_HANDLE  *sSession,
 		if ((memcmp(old_hash_sha, new_hash_sha, SHA1_HASH_SIZE) == 0) ||
 		    (memcmp(new_hash_sha, default_user_pin_sha, SHA1_HASH_SIZE)
 		     == 0)) {
-			st_err_log(34, __FILE__, __LINE__);
+			OCK_LOG_ERR(ERR_PIN_INVALID);
 			rc = CKR_PIN_INVALID;
 			goto done;
 		}
 		rc = XProcLock( xproclock );
 		if (rc != CKR_OK){
-			st_err_log(150, __FILE__, __LINE__);
+			OCK_LOG_ERR(ERR_PROCESS_LOCK);
 			goto done;
 		}
 		memcpy(nv_token_data->user_pin_sha, new_hash_sha,
@@ -959,7 +925,7 @@ CK_RV SC_SetPIN( ST_SESSION_HANDLE  *sSession,
 		XProcUnLock( xproclock );
 		rc = save_token_data();
 		if (rc != CKR_OK){
-			st_err_log(104, __FILE__, __LINE__);
+			OCK_LOG_ERR(ERR_TOKEN_SAVE);
 			goto done;
 		}
 		rc = save_masterkey_user();
@@ -967,13 +933,13 @@ CK_RV SC_SetPIN( ST_SESSION_HANDLE  *sSession,
 		if (memcmp(nv_token_data->so_pin_sha, old_hash_sha, 
 			   SHA1_HASH_SIZE) != 0) {
 			rc = CKR_PIN_INCORRECT;
-			st_err_log(33, __FILE__, __LINE__);
+			OCK_LOG_ERR(ERR_PIN_INCORRECT);
 			goto done;
 		}
 		rc = compute_sha(pNewPin, ulNewLen, new_hash_sha);
 		rc |= compute_md5(pNewPin, ulNewLen, hash_md5);
 		if (rc != CKR_OK){
-			st_err_log(148, __FILE__, __LINE__);
+			OCK_LOG_ERR(ERR_HASH_COMPUTATION);
 			goto done;
 		}
 		/* The old PIN matches, now make sure its different
@@ -981,13 +947,13 @@ CK_RV SC_SetPIN( ST_SESSION_HANDLE  *sSession,
 		if ((memcmp(old_hash_sha, new_hash_sha, SHA1_HASH_SIZE) == 0) ||
 		    (memcmp(new_hash_sha, default_so_pin_sha, SHA1_HASH_SIZE)
 		     == 0)) {
-			st_err_log(34, __FILE__, __LINE__);
+			OCK_LOG_ERR(ERR_PIN_INVALID);
 			rc = CKR_PIN_INVALID;
 			goto done;
 		}
 		rc = XProcLock( xproclock );
 		if (rc != CKR_OK){
-			st_err_log(150, __FILE__, __LINE__);
+			OCK_LOG_ERR(ERR_PROCESS_LOCK);
 			goto done;
 		}
 		memcpy(nv_token_data->so_pin_sha, new_hash_sha, SHA1_HASH_SIZE);
@@ -996,23 +962,20 @@ CK_RV SC_SetPIN( ST_SESSION_HANDLE  *sSession,
 		XProcUnLock( xproclock );
 		rc = save_token_data();
 		if (rc != CKR_OK){
-			st_err_log(104, __FILE__, __LINE__);
+			OCK_LOG_ERR(ERR_TOKEN_SAVE);
 			goto done;
 		}
 		rc = save_masterkey_so();
 	} else {
-		st_err_log(142, __FILE__, __LINE__);
+		OCK_LOG_ERR(ERR_SESSION_READ_ONLY);
 		rc = CKR_SESSION_READ_ONLY;
 	}
  done:
 	LLOCK;
-	if (debugfile) {
-		stlogit2(debugfile, "%-25s:  session = %08x\n", "C_SetPin", rc,
-			 hSession );
-	}
+	OCK_LOG_DEBUG("%s:  rc = 0x%08x, session = %08x\n", "C_SetPin", rc, hSession);
 	UNLOCKIT;
 	if (rc != CKR_SESSION_READ_ONLY && rc != CKR_OK)
-		st_err_log(149, __FILE__, __LINE__);
+		OCK_LOG_ERR(ERR_MASTER_KEY_SAVE);
 	return rc;
 }
 
@@ -1025,24 +988,24 @@ CK_RV SC_OpenSession(CK_SLOT_ID             sid,
 	SLT_CHECK;
 	LOCKIT;
 	if (st_Initialized() == FALSE) {
-		st_err_log(72, __FILE__, __LINE__);
+		OCK_LOG_ERR(ERR_CRYPTOKI_NOT_INITIALIZED);
 		rc = CKR_CRYPTOKI_NOT_INITIALIZED;
 		goto done;
 	}
 	if (phSession == NULL) {
-		st_err_log(4, __FILE__, __LINE__, __FUNCTION__);
+		OCK_LOG_ERR(ERR_FUNCTION_FAILED);
 		rc = CKR_FUNCTION_FAILED;
 		goto done;
 	}
 	if (sid > MAX_SLOT_ID) {
-		st_err_log(2, __FILE__, __LINE__); 
+		OCK_LOG_ERR(ERR_SLOT_ID_INVALID); 
 		rc = CKR_SLOT_ID_INVALID;
 		goto done;
 	}
 	flags |= CKF_SERIAL_SESSION;
 	if ((flags & CKF_RW_SESSION) == 0) {
 		if (session_mgr_so_session_exists()) {
-			st_err_log(45, __FILE__, __LINE__); 
+			OCK_LOG_ERR(ERR_SESSION_READ_WRITE_SO_EXISTS); 
 			rc = CKR_SESSION_READ_WRITE_SO_EXISTS;
 			goto done;
 		}
@@ -1050,7 +1013,7 @@ CK_RV SC_OpenSession(CK_SLOT_ID             sid,
 	// Get the mutex because we may modify the pid_list
 	rc = MY_LockMutex( &pkcs_mutex );
 	if (rc != CKR_OK){
-		st_err_log(146, __FILE__, __LINE__); 
+		OCK_LOG_ERR(ERR_MUTEX_LOCK); 
 		goto done;
 	}
 	locked = TRUE;
@@ -1059,17 +1022,14 @@ CK_RV SC_OpenSession(CK_SLOT_ID             sid,
 	locked = FALSE;
 	rc = session_mgr_new( flags, sid, phSession );
 	if (rc != CKR_OK){
-		st_err_log(152, __FILE__, __LINE__); 
+		OCK_LOG_ERR(ERR_SESSMGR_NEW); 
 		goto done;
 	}
  done:
 	if (locked)
 		MY_UnlockMutex( &pkcs_mutex );
 	LLOCK;
-	if (debugfile) {
-		stlogit2(debugfile, "%-25s:  rc = 0x%08x  ", "C_OpenSession",
-			 rc);
-	}
+	OCK_LOG_DEBUG("%s:  rc = 0x%08x\n", "C_OpenSession", rc);
 	UNLOCKIT;
 	return rc;
 }
@@ -1081,7 +1041,7 @@ CK_RV SC_CloseSession( ST_SESSION_HANDLE  *sSession )
 	CK_SESSION_HANDLE hSession = SESS_HANDLE(sSession);
 	LOCKIT;
 	if (st_Initialized() == FALSE) {
-		st_err_log(72, __FILE__, __LINE__);
+		OCK_LOG_ERR(ERR_CRYPTOKI_NOT_INITIALIZED);
 		rc = CKR_CRYPTOKI_NOT_INITIALIZED;
 		goto done;
 	}
@@ -1089,10 +1049,7 @@ CK_RV SC_CloseSession( ST_SESSION_HANDLE  *sSession )
 	rc = session_mgr_close_session( hSession );
  done:
 	LLOCK;
-	if (debugfile) {
-		stlogit2(debugfile, "%-25s:  rc = 0x%08x  sess = %d\n",
-			 "C_CloseSession", rc, hSession );
-	}
+	OCK_LOG_DEBUG("%s:  rc = 0x%08x  sess = %d\n", "C_CloseSession", rc, hSession);
 	UNLOCKIT;
 	return rc;
 }
@@ -1103,20 +1060,17 @@ CK_RV SC_CloseAllSessions( CK_SLOT_ID  sid )
 	SLT_CHECK;
 	LOCKIT;
 	if (st_Initialized() == FALSE) {
-		st_err_log(72, __FILE__, __LINE__);
+		OCK_LOG_ERR(ERR_CRYPTOKI_NOT_INITIALIZED);
 		rc = CKR_CRYPTOKI_NOT_INITIALIZED;
 		goto done;
 	}
 	rc = session_mgr_close_all_sessions();
 	if (rc != CKR_OK){
-		st_err_log(153, __FILE__, __LINE__);
+		OCK_LOG_ERR(ERR_SESSION_CLOSEALL);
 	}
  done:
 	LLOCK;
-	if (debugfile) {
-		stlogit2(debugfile, "%-25s:  rc = 0x%08x  slot = %d\n",
-			 "C_CloseAllSessions", rc, slot_id );
-	}
+	OCK_LOG_DEBUG("%s:  rc = 0x%08x  slot = %d\n", "C_CloseAllSessions", rc, slot_id);
 	UNLOCKIT;
 	return rc;
 }
@@ -1129,20 +1083,20 @@ CK_RV SC_GetSessionInfo( ST_SESSION_HANDLE   *sSession,
 	CK_SESSION_HANDLE hSession = SESS_HANDLE(sSession);
 	LOCKIT;
 	if (st_Initialized() == FALSE) {
-		st_err_log(72, __FILE__, __LINE__);
+		OCK_LOG_ERR(ERR_CRYPTOKI_NOT_INITIALIZED);
 		rc = CKR_CRYPTOKI_NOT_INITIALIZED;
 		goto done;
 	}
 
 	if (!pInfo) {
-		st_err_log(5, __FILE__, __LINE__, __FUNCTION__);
+		OCK_LOG_ERR(ERR_ARGUMENTS_BAD);
 		rc = CKR_ARGUMENTS_BAD;
 		goto done;
 	}
 
 	sess = SESSION_MGR_FIND( hSession );
 	if (!sess) {
-		st_err_log(40, __FILE__, __LINE__);
+		OCK_LOG_ERR(ERR_SESSION_HANDLE_INVALID);
 		rc = CKR_SESSION_HANDLE_INVALID;
 		goto done;
 	}
@@ -1150,10 +1104,7 @@ CK_RV SC_GetSessionInfo( ST_SESSION_HANDLE   *sSession,
 	memcpy( pInfo, &sess->session_info, sizeof(CK_SESSION_INFO) );
 
  done:
-	if (debugfile) {
-		stlogit2(debugfile, "%-25s:  session = %08d\n",
-			 "C_GetSessionInfo", hSession );
-	}
+	OCK_LOG_DEBUG("%s:  session = %d\n", "C_GetSessionInfo", hSession);
 	UNLOCKIT;
 	return rc;
 }
@@ -1168,13 +1119,13 @@ CK_RV SC_GetOperationState( ST_SESSION_HANDLE  *sSession,
 	CK_SESSION_HANDLE hSession = SESS_HANDLE(sSession);
 	LOCKIT;
 	if (st_Initialized() == FALSE) {
-		st_err_log(72, __FILE__, __LINE__);
+		OCK_LOG_ERR(ERR_CRYPTOKI_NOT_INITIALIZED);
 		rc = CKR_CRYPTOKI_NOT_INITIALIZED;
 		goto done;
 	}
 
 	if (!pulOperationStateLen) {
-		st_err_log(5, __FILE__, __LINE__, __FUNCTION__);
+		OCK_LOG_ERR(ERR_ARGUMENTS_BAD);
 		rc = CKR_ARGUMENTS_BAD;
 		goto done;
 	}
@@ -1184,7 +1135,7 @@ CK_RV SC_GetOperationState( ST_SESSION_HANDLE  *sSession,
 
 	sess = SESSION_MGR_FIND( hSession );
 	if (!sess) {
-		st_err_log(40, __FILE__, __LINE__);
+		OCK_LOG_ERR(ERR_SESSION_HANDLE_INVALID);
 		rc = CKR_SESSION_HANDLE_INVALID;
 		goto done;
 	}
@@ -1194,13 +1145,11 @@ CK_RV SC_GetOperationState( ST_SESSION_HANDLE  *sSession,
 				       pOperationState,
 				       pulOperationStateLen );
 	if (rc != CKR_OK){
-		st_err_log(154, __FILE__, __LINE__);
+		OCK_LOG_ERR(ERR_SESSMGR_GETOPT_STATE);
 	}
  done:
 	LLOCK;
-	if (debugfile) {
-		stlogit2(debugfile, "%-25s:  session = %08x\n", "C_GetOperationState", rc, hSession );
-	}
+	OCK_LOG_DEBUG("%s:  rc = 0x%08x, session = %d\n", "C_GetOperationState", rc, hSession);
 
 	UNLOCKIT;
 	return rc;
@@ -1222,20 +1171,20 @@ CK_RV SC_SetOperationState( ST_SESSION_HANDLE  *sSession,
 
 		LOCKIT;
 	if (st_Initialized() == FALSE) {
-		st_err_log(72, __FILE__, __LINE__);
+		OCK_LOG_ERR(ERR_CRYPTOKI_NOT_INITIALIZED);
 		rc = CKR_CRYPTOKI_NOT_INITIALIZED;
 		goto done;
 	}
 
 	if (!pOperationState || (ulOperationStateLen == 0)) {
-		st_err_log(5, __FILE__, __LINE__, __FUNCTION__);
+		OCK_LOG_ERR(ERR_ARGUMENTS_BAD);
 		rc = CKR_ARGUMENTS_BAD;
 		goto done;
 	}
 
 	sess = SESSION_MGR_FIND( hSession );
 	if (!sess) {
-		st_err_log(40, __FILE__, __LINE__);
+		OCK_LOG_ERR(ERR_SESSION_HANDLE_INVALID);
 		rc = CKR_SESSION_HANDLE_INVALID;
 		goto done;
 	}
@@ -1245,13 +1194,11 @@ CK_RV SC_SetOperationState( ST_SESSION_HANDLE  *sSession,
 				       pOperationState, ulOperationStateLen );
 
 	if (rc != CKR_OK){
-		st_err_log(154, __FILE__, __LINE__);
+		OCK_LOG_ERR(ERR_SESSMGR_GETOPT_STATE);
 	}
  done:
 	LLOCK;
-	if (debugfile) {
-		stlogit2(debugfile, "%-25s:  session = %08x\n", "C_SetOperationState", rc, hSession );
-	}
+	OCK_LOG_DEBUG("%s:  rc = 0x%08x, session = %d\n", "C_SetOperationState", rc, hSession);
 
 	UNLOCKIT;
 	return rc;
@@ -1277,19 +1224,19 @@ CK_RV SC_Login( ST_SESSION_HANDLE   *sSession,
 	// specific flags may need to be set for a bad login. - KEY
 	rc = MY_LockMutex( &login_mutex );
 	if (rc != CKR_OK){
-	        st_err_log(146, __FILE__, __LINE__);
+	        OCK_LOG_ERR(ERR_FUNCTION_FAILED);
 		return CKR_FUNCTION_FAILED;
 	}
 	  
 	if (st_Initialized() == FALSE) {
-		st_err_log(72, __FILE__, __LINE__);
+		OCK_LOG_ERR(ERR_CRYPTOKI_NOT_INITIALIZED);
 		rc = CKR_CRYPTOKI_NOT_INITIALIZED;
 		goto done;
 	}
 	
 	sess = SESSION_MGR_FIND( hSession );
 	if (!sess) {
-		st_err_log(40, __FILE__, __LINE__);
+		OCK_LOG_ERR(ERR_SESSION_HANDLE_INVALID);
 		rc = CKR_SESSION_HANDLE_INVALID;
 		goto done;
 	}
@@ -1297,7 +1244,7 @@ CK_RV SC_Login( ST_SESSION_HANDLE   *sSession,
 
 	if (!pPin || ulPinLen > MAX_PIN_LEN) {
 		set_login_flags(userType, flags);
-		st_err_log(33, __FILE__, __LINE__);
+		OCK_LOG_ERR(ERR_PIN_INCORRECT);
 		rc = CKR_PIN_INCORRECT;
 		goto done;
 	}
@@ -1307,45 +1254,45 @@ CK_RV SC_Login( ST_SESSION_HANDLE   *sSession,
 	//
 	if (userType == CKU_USER) {
 		if (session_mgr_so_session_exists()){
-			st_err_log(60, __FILE__, __LINE__);
+			OCK_LOG_ERR(ERR_USER_ANOTHER_ALREADY_LOGGED_IN);
 			rc = CKR_USER_ANOTHER_ALREADY_LOGGED_IN;
 		}
 		if (session_mgr_user_session_exists()){
-			st_err_log(56, __FILE__, __LINE__);
+			OCK_LOG_ERR(ERR_USER_ALREADY_LOGGED_IN);
 			rc = CKR_USER_ALREADY_LOGGED_IN;
 		}
 	}
 	else if (userType == CKU_SO) {
 		if (session_mgr_user_session_exists()){
-			st_err_log(60, __FILE__, __LINE__);
+			OCK_LOG_ERR(ERR_USER_ANOTHER_ALREADY_LOGGED_IN);
 			rc = CKR_USER_ANOTHER_ALREADY_LOGGED_IN;
 		}
 		if (session_mgr_so_session_exists()){
-			st_err_log(56, __FILE__, __LINE__);
+			OCK_LOG_ERR(ERR_USER_ALREADY_LOGGED_IN);
 			rc = CKR_USER_ALREADY_LOGGED_IN;
 		}
 		if (session_mgr_readonly_session_exists()){
-			st_err_log(142, __FILE__, __LINE__);
+			OCK_LOG_ERR(ERR_SESSION_READ_ONLY_EXISTS);
 			rc = CKR_SESSION_READ_ONLY_EXISTS;
 		}
 	}
 	else {
 		rc = CKR_USER_TYPE_INVALID;
-		st_err_log(59, __FILE__, __LINE__);
+		OCK_LOG_ERR(ERR_USER_TYPE_INVALID);
 	}
 	if (rc != CKR_OK)
 		goto done;
 
 	if (userType == CKU_USER) {
 		if (*flags & CKF_USER_PIN_LOCKED) {
-			st_err_log(37, __FILE__, __LINE__);
+			OCK_LOG_ERR(ERR_PIN_LOCKED);
 			rc = CKR_PIN_LOCKED;
 			goto done;
 		}
 
 		if (memcmp(nv_token_data->user_pin_sha,
 			   "00000000000000000000", SHA1_HASH_SIZE) == 0) {
-			st_err_log(33, __FILE__, __LINE__);
+			OCK_LOG_ERR(ERR_USER_PIN_NOT_INITIALIZED);
 			rc = CKR_USER_PIN_NOT_INITIALIZED;
 			goto done;
 		}
@@ -1353,7 +1300,7 @@ CK_RV SC_Login( ST_SESSION_HANDLE   *sSession,
 		rc = compute_sha( pPin, ulPinLen, hash_sha );
 		if (memcmp(nv_token_data->user_pin_sha, hash_sha, SHA1_HASH_SIZE) != 0) {
 			set_login_flags(userType, flags);
-			st_err_log(33, __FILE__, __LINE__);
+			OCK_LOG_ERR(ERR_PIN_INCORRECT);
 			rc = CKR_PIN_INCORRECT;
 			goto done;
 		}
@@ -1367,7 +1314,7 @@ CK_RV SC_Login( ST_SESSION_HANDLE   *sSession,
 
 		rc = load_masterkey_user();
 		if (rc != CKR_OK){
-			st_err_log(155, __FILE__, __LINE__);
+			OCK_LOG_ERR(ERR_MASTER_KEY_LOAD);
 			goto done;
 		}
 		/* no need to return error here, that would only prevent the stdll from loading. We
@@ -1381,14 +1328,14 @@ CK_RV SC_Login( ST_SESSION_HANDLE   *sSession,
 	}
 	else {
 		if (*flags & CKF_SO_PIN_LOCKED) {
-			st_err_log(37, __FILE__, __LINE__);
+			OCK_LOG_ERR(ERR_PIN_LOCKED);
 			rc = CKR_PIN_LOCKED;
 			goto done;
 		}
 		rc = compute_sha( pPin, ulPinLen, hash_sha );
 		if (memcmp(nv_token_data->so_pin_sha, hash_sha, SHA1_HASH_SIZE) != 0) {
 			set_login_flags(userType, flags);
-			st_err_log(33, __FILE__, __LINE__);
+			OCK_LOG_ERR(ERR_PIN_INCORRECT);
 			rc = CKR_PIN_INCORRECT;
 			goto done;
 		}
@@ -1402,20 +1349,18 @@ CK_RV SC_Login( ST_SESSION_HANDLE   *sSession,
 
 		rc = load_masterkey_so();
 		if (rc != CKR_OK) {
-			st_err_log(155, __FILE__, __LINE__);
+			OCK_LOG_ERR(ERR_MASTER_KEY_LOAD);
 		}
 	}
 
 	rc = session_mgr_login_all( userType );
 	if (rc != CKR_OK) {
-		st_err_log(174, __FILE__, __LINE__);
+		OCK_LOG_ERR(ERR_SESSMGR_LOGIN);
 	}
 
  done:
 	LLOCK;
-	if (debugfile) {
-		stlogit2(debugfile, "%-25s:  rc = 0x%08x\n", "C_Login", rc );
-	}
+	OCK_LOG_DEBUG("%s:  rc = 0x%08x\n", "C_Login", rc);
 
 	UNLOCKIT;
 	save_token_data();
@@ -1435,14 +1380,14 @@ CK_RV SC_Logout( ST_SESSION_HANDLE  *sSession )
 	
 		LOCKIT;
 	if (st_Initialized() == FALSE) {
-		st_err_log(72, __FILE__, __LINE__);
+		OCK_LOG_ERR(ERR_CRYPTOKI_NOT_INITIALIZED);
 		rc = CKR_CRYPTOKI_NOT_INITIALIZED;
 		goto done;
 	}
 	
 	sess = SESSION_MGR_FIND( hSession );
 	if (!sess) {
-		st_err_log(40, __FILE__, __LINE__);
+		OCK_LOG_ERR(ERR_SESSION_HANDLE_INVALID);
 		rc = CKR_SESSION_HANDLE_INVALID;
 		goto done;
 	}
@@ -1450,14 +1395,14 @@ CK_RV SC_Logout( ST_SESSION_HANDLE  *sSession )
 	// all sessions have the same state so we just have to check one
 	//
 	if (session_mgr_public_session_exists()) {
-		st_err_log(57, __FILE__, __LINE__);
+		OCK_LOG_ERR(ERR_USER_NOT_LOGGED_IN);
 		rc = CKR_USER_NOT_LOGGED_IN;
 		goto done;
 	}
 
 	rc = session_mgr_logout_all();
 	if (rc != CKR_OK){
-		st_err_log(57, __FILE__, __LINE__);
+		OCK_LOG_ERR(ERR_SESSMGR_LOGOUT);
 	}
 	memset( user_pin_md5, 0x0, MD5_HASH_SIZE );
 	memset( so_pin_md5,   0x0, MD5_HASH_SIZE );
@@ -1466,9 +1411,7 @@ CK_RV SC_Logout( ST_SESSION_HANDLE  *sSession )
 	
  done:
 	LLOCK;
-	if (debugfile) {
-		stlogit2(debugfile, "%-25s:  rc = 0x%08x\n", "C_Logout", rc );
-	}
+	OCK_LOG_DEBUG("%s:  rc = 0x%08x\n", "C_Logout", rc);
    
 	UNLOCKIT; return rc;
 }
@@ -1488,42 +1431,42 @@ CK_RV SC_CreateObject( ST_SESSION_HANDLE    *sSession,
 
 		LOCKIT;
 	if (st_Initialized() == FALSE) {
-		st_err_log(72, __FILE__, __LINE__);
+		OCK_LOG_ERR(ERR_CRYPTOKI_NOT_INITIALIZED);
 		rc = CKR_CRYPTOKI_NOT_INITIALIZED;
 		goto done;
 	}
 
 	sess = SESSION_MGR_FIND( hSession );
 	if (!sess) {
-		st_err_log(40, __FILE__, __LINE__);
+		OCK_LOG_ERR(ERR_SESSION_HANDLE_INVALID);
 		rc = CKR_SESSION_HANDLE_INVALID;
 		goto done;
 	}
 
 	if (pin_expired(&sess->session_info, nv_token_data->token_info.flags) == TRUE) {
-		st_err_log(36, __FILE__, __LINE__);
+		OCK_LOG_ERR(ERR_PIN_EXPIRED);
 		rc = CKR_PIN_EXPIRED;
 		goto done;
 	}
    
 	rc = object_mgr_add( sess, pTemplate, ulCount, phObject );
 	if (rc != CKR_OK) {
-		st_err_log(157, __FILE__, __LINE__);
+		OCK_LOG_ERR(ERR_OBJMGR_MAP_ADD);
 	}
 
  done:
 	LLOCK;
-	if (debugfile) {
-		stlogit2(debugfile, "%-25s:  rc = %08x\n", "C_CreateObject", rc );
-
-		for (i = 0; i < ulCount; i++) {
-			if (pTemplate[i].type == CKA_CLASS)
-				stlogit2(debugfile, "%28s:  0x%02x\n", "Object Type", *(CK_ULONG *)pTemplate[i].pValue );
-		}
-		if (rc == CKR_OK)
-			stlogit2(debugfile, "%28s:  %d\n", "Handle", *phObject );
-
+	OCK_LOG_DEBUG("%s:  rc = %08x\n", "C_CreateObject", rc);
+#ifdef DEBUG
+	for (i = 0; i < ulCount; i++) {
+		if (pTemplate[i].type == CKA_CLASS)
+			OCK_LOG_DEBUG("%s:  0x%02x\n", "Object Type", *(CK_ULONG *)pTemplate[i].pValue);
 	}
+
+	if (rc == CKR_OK)
+		OCK_LOG_DEBUG("%s:  %d\n", "Handle", *phObject);
+
+#endif /* DEBUG */
 
 	UNLOCKIT; return rc;
 }
@@ -1544,34 +1487,32 @@ CK_RV  SC_CopyObject( ST_SESSION_HANDLE    *sSession,
 
 		LOCKIT;
 	if (st_Initialized() == FALSE) {
-		st_err_log(72, __FILE__, __LINE__);
+		OCK_LOG_ERR(ERR_CRYPTOKI_NOT_INITIALIZED);
 		rc = CKR_CRYPTOKI_NOT_INITIALIZED;
 		goto done;
 	}
 
 	sess = SESSION_MGR_FIND( hSession );
 	if (!sess) {
-		st_err_log(40, __FILE__, __LINE__);
+		OCK_LOG_ERR(ERR_SESSION_HANDLE_INVALID);
 		rc = CKR_SESSION_HANDLE_INVALID;
 		goto done;
 	}
    
 	if (pin_expired(&sess->session_info, nv_token_data->token_info.flags) == TRUE) {
-		st_err_log(36, __FILE__, __LINE__);
+		OCK_LOG_ERR(ERR_PIN_EXPIRED);
 		rc = CKR_PIN_EXPIRED;
 		goto done;
 	}
    
 	rc = object_mgr_copy( sess, pTemplate, ulCount, hObject, phNewObject );
 	if (rc != CKR_OK) {
-		st_err_log(158, __FILE__, __LINE__);
+		OCK_LOG_ERR(ERR_OBJ_COPY);
 	}
 
  done:
 	LLOCK;
-	if (debugfile) {
-		stlogit2(debugfile, "%-25s:  rc = %08x, old handle = %d, new handle = %d\n", "C_CopyObject", rc, hObject, *phNewObject );
-	}
+	OCK_LOG_DEBUG("%s:  rc = %08x, old handle = %d, new handle = %d\n", "C_CopyObject", rc, hObject, *phNewObject);
 
 	UNLOCKIT; return rc;
 }
@@ -1589,34 +1530,31 @@ CK_RV SC_DestroyObject( ST_SESSION_HANDLE  *sSession,
 
 		LOCKIT;
 	if (st_Initialized() == FALSE) {
-		st_err_log(72, __FILE__, __LINE__);
+		OCK_LOG_ERR(ERR_CRYPTOKI_NOT_INITIALIZED);
 		rc = CKR_CRYPTOKI_NOT_INITIALIZED;
 		goto done;
 	}
 
 	sess = SESSION_MGR_FIND( hSession );
 	if (!sess) {
-		st_err_log(40, __FILE__, __LINE__);
+		OCK_LOG_ERR(ERR_SESSION_HANDLE_INVALID);
 		rc = CKR_SESSION_HANDLE_INVALID;
 		goto done;
 	}
 
 	if (pin_expired(&sess->session_info, nv_token_data->token_info.flags) == TRUE) {
-		st_err_log(36, __FILE__, __LINE__);
+		OCK_LOG_ERR(ERR_PIN_EXPIRED);
 		rc = CKR_PIN_EXPIRED;
 		goto done;
 	}
    
 	rc = object_mgr_destroy_object( sess, hObject );
 	if (rc != CKR_OK){
-		st_err_log(182, __FILE__, __LINE__);
+		OCK_LOG_ERR(ERR_OBJMGR_DESTROY);
 	}
  done:
 	LLOCK;
-	if (debugfile) {
-		stlogit2(debugfile, "%-25s:  rc = %08x, handle = %d\n", "C_DestroyObject", rc, hObject );
-	}
-
+	OCK_LOG_DEBUG("%s:  rc = %08x, handle = %d\n", "C_DestroyObject", rc, hObject);
 	UNLOCKIT; return rc;
 }
 
@@ -1634,28 +1572,26 @@ CK_RV SC_GetObjectSize( ST_SESSION_HANDLE  *sSession,
 
 		LOCKIT;
 	if (st_Initialized() == FALSE) {
-		st_err_log(72, __FILE__, __LINE__);
+		OCK_LOG_ERR(ERR_CRYPTOKI_NOT_INITIALIZED);
 		rc = CKR_CRYPTOKI_NOT_INITIALIZED;
 		goto done;
 	}
 
 	sess = SESSION_MGR_FIND( hSession );
 	if (!sess) {
-		st_err_log(40, __FILE__, __LINE__);
+		OCK_LOG_ERR(ERR_SESSION_HANDLE_INVALID);
 		rc = CKR_SESSION_HANDLE_INVALID;
 		goto done;
 	}
 
 	rc = object_mgr_get_object_size( hObject, pulSize );
 	if (rc != CKR_OK){
-		st_err_log(184, __FILE__, __LINE__);
+		OCK_LOG_ERR(ERR_OBJMGR_GETSIZE);
 	}
 
  done:
 	LLOCK;
-	if (debugfile) {
-		stlogit2(debugfile, "%-25s:  rc = %08x, handle = %d\n", "C_GetObjectSize", rc, hObject );
-	}
+	OCK_LOG_DEBUG("%s:  rc = %08x, handle = %d\n", "C_GetObjectSize", rc, hObject);
 
 	UNLOCKIT; return rc;
 }
@@ -1678,43 +1614,39 @@ CK_RV SC_GetAttributeValue( ST_SESSION_HANDLE  *sSession,
 
 		LOCKIT;
 	if (st_Initialized() == FALSE) {
-		st_err_log(72, __FILE__, __LINE__);
+		OCK_LOG_ERR(ERR_CRYPTOKI_NOT_INITIALIZED);
 		rc = CKR_CRYPTOKI_NOT_INITIALIZED;
 		goto done;
 	}
 
 	sess = SESSION_MGR_FIND( hSession );
 	if (!sess) {
-		st_err_log(40, __FILE__, __LINE__);
+		OCK_LOG_ERR(ERR_SESSION_HANDLE_INVALID);
 		rc = CKR_SESSION_HANDLE_INVALID;
 		goto done;
 	}
 
 	rc = object_mgr_get_attribute_values( sess, hObject, pTemplate, ulCount );
 	if (rc != CKR_OK){
-		st_err_log(159, __FILE__, __LINE__);
+		OCK_LOG_ERR(ERR_OBJ_GETATTR_VALUES);
 	}
 
 
  done:
 	LLOCK;
-	if (debugfile) {
-		stlogit2(debugfile, "%-25s:  rc = %08x, handle = %d\n", "C_GetAttributeValue", rc, hObject );
+	OCK_LOG_DEBUG("C_GetAttributeValue:  rc = %08x, handle = %d\n", rc, hObject);
+#ifdef DEBUG
+	attr = pTemplate;
+	for (i = 0; i < ulCount; i++, attr++) {
+		ptr = (CK_BYTE *)attr->pValue;
 
-		attr = pTemplate;
-		for (i = 0; i < ulCount; i++, attr++) {
-			ptr = (CK_BYTE *)attr->pValue;
+		OCK_LOG_DEBUG("%d:  Attribute type:  0x%08x, Value Length: %d\n", i, attr->type, attr->ulValueLen);
 
-			stlogit2(debugfile, "   %3d:  Attribute type:  0x%08x\n", i, attr->type );
-			stlogit2(debugfile, "         Value Length:    %08d\n",   attr->ulValueLen );
-
-			if (attr->ulValueLen != (CK_ULONG)(-1) && (ptr != NULL))
-				stlogit2(debugfile, "         First 4 bytes:   %02x %02x %02x %02x", ptr[0], ptr[1], ptr[2], ptr[3] );
-
-			stlogit2(debugfile, "\n\n");
-		}
+		if (attr->ulValueLen != (CK_ULONG)(-1) && (ptr != NULL))
+			OCK_LOG_DEBUG("First 4 bytes:  %02x %02x %02x %02x\n", ptr[0], ptr[1], ptr[2], ptr[3]);
 
 	}
+#endif
 
 	UNLOCKIT; return rc;
 }
@@ -1736,43 +1668,39 @@ CK_RV  SC_SetAttributeValue( ST_SESSION_HANDLE    *sSession,
 
 		LOCKIT;
 	if (st_Initialized() == FALSE) {
-		st_err_log(72, __FILE__, __LINE__);
+		OCK_LOG_ERR(ERR_CRYPTOKI_NOT_INITIALIZED);
 		rc = CKR_CRYPTOKI_NOT_INITIALIZED;
 		goto done;
 	}
 
 	sess = SESSION_MGR_FIND( hSession );
 	if (!sess) {
-		st_err_log(40, __FILE__, __LINE__);
+		OCK_LOG_ERR(ERR_SESSION_HANDLE_INVALID);
 		rc = CKR_SESSION_HANDLE_INVALID;
 		goto done;
 	}
 
 	rc = object_mgr_set_attribute_values( sess, hObject, pTemplate, ulCount);
 	if (rc != CKR_OK){
-		st_err_log(161, __FILE__, __LINE__);
+		OCK_LOG_ERR(ERR_OBJ_SETATTR_VALUES);
 	}
 
  done:
 	LLOCK;
-	if (debugfile) {
-		stlogit2(debugfile, "%-25s:  rc = %08x, handle = %d\n", "C_SetAttributeValue", rc, hObject );
+	OCK_LOG_DEBUG("%s:  rc = %08x, handle = %d\n", "C_SetAttributeValue", rc, hObject);
 
-		attr = pTemplate;
-		for (i = 0; i < ulCount; i++, attr++) {
-			CK_BYTE *ptr = (CK_BYTE *)attr->pValue;
+#ifdef DEBUG
+	attr = pTemplate;
+	for (i = 0; i < ulCount; i++, attr++) {
+		CK_BYTE *ptr = (CK_BYTE *)attr->pValue;
 
-			stlogit2(debugfile, "   %3d:  Attribute type:  0x%08x\n", i, attr->type );
-			stlogit2(debugfile, "         Value Length:    %08d\n",   attr->ulValueLen );
+		OCK_LOG_DEBUG("%d:  Attribute type:  0x%08x, Value Length: %d\n", i, attr->type, attr->ulValueLen);
 
-			if (attr->ulValueLen != (CK_ULONG)(-1) && (ptr != NULL))
-				stlogit2(debugfile, "         First 4 bytes:   %02x %02x %02x %02x", ptr[0], ptr[1], ptr[2], ptr[3] );
-
-			stlogit2(debugfile, "\n\n");
-		}
+		if (attr->ulValueLen != (CK_ULONG)(-1) && (ptr != NULL))
+			OCK_LOG_DEBUG("First 4 bytes:  %02x %02x %02x %02x\n", ptr[0], ptr[1], ptr[2], ptr[3]);
 
 	}
-
+#endif
 	UNLOCKIT; return rc;
 }
 
@@ -1791,54 +1719,51 @@ CK_RV SC_FindObjectsInit( ST_SESSION_HANDLE   *sSession,
 
 		LOCKIT;
 	if (st_Initialized() == FALSE) {
-		st_err_log(72, __FILE__, __LINE__);
+		OCK_LOG_ERR(ERR_CRYPTOKI_NOT_INITIALIZED);
 		rc = CKR_CRYPTOKI_NOT_INITIALIZED;
 		goto done;
 	}
 
 	sess = SESSION_MGR_FIND( hSession );
 	if (!sess) {
-		st_err_log(40, __FILE__, __LINE__);
+		OCK_LOG_ERR(ERR_SESSION_HANDLE_INVALID);
 		rc = CKR_SESSION_HANDLE_INVALID;
 		goto done;
 	}
 
 	if (pin_expired(&sess->session_info, nv_token_data->token_info.flags) == TRUE) {
-		st_err_log(36, __FILE__, __LINE__);
+		OCK_LOG_ERR(ERR_PIN_EXPIRED);
 		rc = CKR_PIN_EXPIRED;
 		goto done;
 	}
    
 	if (sess->find_active == TRUE) {
-		st_err_log(31, __FILE__, __LINE__);
+		OCK_LOG_ERR(ERR_OPERATION_ACTIVE);
 		rc = CKR_OPERATION_ACTIVE;
 		goto done;
 	}
 
 	rc = object_mgr_find_init( sess, pTemplate, ulCount );
 	if (rc != CKR_OK){
-		st_err_log(185, __FILE__, __LINE__);
+		OCK_LOG_ERR(ERR_OBJMGR_FIND_INIT);
 	}
 
  done:
 	LLOCK;
-	if (debugfile) {
-		stlogit2(debugfile, "%-25s:  rc = %08x\n", "C_FindObjectsInit", rc );
+	OCK_LOG_DEBUG("C_FindObjectsInit:  rc = %08x\n", rc);
 
-		attr = pTemplate;
-		for (i = 0; i < ulCount; i++, attr++) {
-			CK_BYTE *ptr = (CK_BYTE *)attr->pValue;
+#ifdef DEBUG
+	attr = pTemplate;
+	for (i = 0; i < ulCount; i++, attr++) {
+		CK_BYTE *ptr = (CK_BYTE *)attr->pValue;
 
-			stlogit2(debugfile, "   %3d:  Attribute type:  0x%08x\n", i, attr->type );
-			stlogit2(debugfile, "         Value Length:    %08d\n",   attr->ulValueLen );
+		OCK_LOG_DEBUG("%d:  Attribute type:  0x%08x, Value Length: %d\n", i, attr->type, attr->ulValueLen);
 
-			if (attr->ulValueLen != (CK_ULONG)(-1) && (ptr != NULL))
-				stlogit2(debugfile, "         First 4 bytes:   %02x %02x %02x %02x", ptr[0], ptr[1], ptr[2], ptr[3] );
-
-			stlogit2(debugfile, "\n\n");
-		}
+		if (attr->ulValueLen != (CK_ULONG)(-1) && (ptr != NULL))
+			OCK_LOG_DEBUG("First 4 bytes:  %02x %02x %02x %02x\n", ptr[0], ptr[1], ptr[2], ptr[3]);
 
 	}
+#endif
 
 	UNLOCKIT; return rc;
 }
@@ -1859,32 +1784,32 @@ CK_RV SC_FindObjects( ST_SESSION_HANDLE     *sSession,
 
 		LOCKIT;
 	if (st_Initialized() == FALSE) {
-		st_err_log(72, __FILE__, __LINE__);
+		OCK_LOG_ERR(ERR_CRYPTOKI_NOT_INITIALIZED);
 		rc = CKR_CRYPTOKI_NOT_INITIALIZED;
 		goto done;
 	}
 
 	if (!phObject || !pulObjectCount) {
-		st_err_log(5, __FILE__, __LINE__, __FUNCTION__);
+		OCK_LOG_ERR(ERR_ARGUMENTS_BAD);
 		rc = CKR_ARGUMENTS_BAD;
 		goto done;
 	}
 
 	sess = SESSION_MGR_FIND( hSession );
 	if (!sess) {
-		st_err_log(40, __FILE__, __LINE__);
+		OCK_LOG_ERR(ERR_SESSION_HANDLE_INVALID);
 		rc = CKR_SESSION_HANDLE_INVALID;
 		goto done;
 	}
 
 	if (sess->find_active == FALSE) {
-		st_err_log(32, __FILE__, __LINE__);
+		OCK_LOG_ERR(ERR_OPERATION_NOT_INITIALIZED);
 		rc = CKR_OPERATION_NOT_INITIALIZED;
 		goto done;
 	}
 
 	if (!sess->find_list) {
-		st_err_log(4, __FILE__, __LINE__, __FUNCTION__);
+		OCK_LOG_ERR(ERR_FUNCTION_FAILED);
 		rc = CKR_FUNCTION_FAILED;
 		goto done;
 	}
@@ -1898,9 +1823,7 @@ CK_RV SC_FindObjects( ST_SESSION_HANDLE     *sSession,
 
  done:
 	LLOCK;
-	if (debugfile) {
-		stlogit2(debugfile, "%-25s:  rc = %08x, returned %d objects\n", "C_FindObjects", rc, count );
-	}
+	OCK_LOG_DEBUG("%s:  rc = %08x, returned %d objects\n", "C_FindObjects", rc, count);
 
 	UNLOCKIT; return rc;
 }
@@ -1918,20 +1841,20 @@ CK_RV SC_FindObjectsFinal( ST_SESSION_HANDLE  *sSession )
 
 		LOCKIT;
 	if (st_Initialized() == FALSE) {
-		st_err_log(72, __FILE__, __LINE__);
+		OCK_LOG_ERR(ERR_CRYPTOKI_NOT_INITIALIZED);
 		rc = CKR_CRYPTOKI_NOT_INITIALIZED;
 		goto done;
 	}
 
 	sess = SESSION_MGR_FIND( hSession );
 	if (!sess) {
-		st_err_log(40, __FILE__, __LINE__);
+		OCK_LOG_ERR(ERR_SESSION_HANDLE_INVALID);
 		rc = CKR_SESSION_HANDLE_INVALID;
 		goto done;
 	}
 
 	if (sess->find_active == FALSE) {
-		st_err_log(32, __FILE__, __LINE__);
+		OCK_LOG_ERR(ERR_OPERATION_NOT_INITIALIZED);
 		rc = CKR_OPERATION_NOT_INITIALIZED;
 		goto done;
 	}
@@ -1948,9 +1871,7 @@ CK_RV SC_FindObjectsFinal( ST_SESSION_HANDLE  *sSession )
 
  done:
 	LLOCK;
-	if (debugfile) {
-		stlogit2(debugfile, "%-25s:  rc = %08x\n", "C_FindObjectsFinal", rc );
-	}
+	OCK_LOG_DEBUG("%s:  rc = %08x\n", "C_FindObjectsFinal", rc);
 
 	UNLOCKIT; return rc;
 }
@@ -1970,13 +1891,13 @@ CK_RV SC_EncryptInit( ST_SESSION_HANDLE  *sSession,
 
 		LOCKIT;
 	if (st_Initialized() == FALSE) {
-		st_err_log(72, __FILE__, __LINE__);
+		OCK_LOG_ERR(ERR_CRYPTOKI_NOT_INITIALIZED);
 		rc = CKR_CRYPTOKI_NOT_INITIALIZED;
 		goto done;
 	}
 
 	if (!pMechanism) {
-		st_err_log(5, __FILE__, __LINE__, __FUNCTION__);
+		OCK_LOG_ERR(ERR_ARGUMENTS_BAD);
 		rc = CKR_ARGUMENTS_BAD;
 		goto done;
 	}
@@ -1985,32 +1906,30 @@ CK_RV SC_EncryptInit( ST_SESSION_HANDLE  *sSession,
 
 	sess = SESSION_MGR_FIND( hSession );
 	if (!sess) {
-		st_err_log(40, __FILE__, __LINE__);
+		OCK_LOG_ERR(ERR_SESSION_HANDLE_INVALID);
 		rc = CKR_SESSION_HANDLE_INVALID;
 		goto done;
 	}
 
 	if (pin_expired(&sess->session_info, nv_token_data->token_info.flags) == TRUE) {
-		st_err_log(36, __FILE__, __LINE__);
+		OCK_LOG_ERR(ERR_PIN_EXPIRED);
 		rc = CKR_PIN_EXPIRED;
 		goto done;
 	}
    
 	if (sess->encr_ctx.active == TRUE) {
-		st_err_log(31, __FILE__, __LINE__);
+		OCK_LOG_ERR(ERR_OPERATION_ACTIVE);
 		rc = CKR_OPERATION_ACTIVE;
 		goto done;
 	}
 
 	rc = encr_mgr_init( sess, &sess->encr_ctx, OP_ENCRYPT_INIT, pMechanism, hKey );
 	if (rc != CKR_OK) {
-		st_err_log(98, __FILE__, __LINE__);
+		OCK_LOG_ERR(ERR_ENCRYPTMGR_INIT);
 	}
  done:
 	LLOCK;
-	if (debugfile) {
-		stlogit2(debugfile, "%-25s:  rc = %08x, sess = %d, key = %d, mech = 0x%x\n", "C_EncryptInit", rc,(sess == NULL)?-1:(CK_LONG)sess->handle, hKey, pMechanism->mechanism );
-	}
+	OCK_LOG_DEBUG("%s:  rc = %08x, sess = %d, key = %d, mech = 0x%x\n", "C_EncryptInit", rc,(sess == NULL)?-1:(CK_LONG)sess->handle, hKey, pMechanism->mechanism);
 
 	UNLOCKIT; return rc;
 }
@@ -2032,26 +1951,26 @@ CK_RV SC_Encrypt( ST_SESSION_HANDLE  *sSession,
 
 		LOCKIT;
 	if (st_Initialized() == FALSE) {
-		st_err_log(72, __FILE__, __LINE__);
+		OCK_LOG_ERR(ERR_CRYPTOKI_NOT_INITIALIZED);
 		rc = CKR_CRYPTOKI_NOT_INITIALIZED;
 		goto done;
 	}
 
 	if (!pData || !pulEncryptedDataLen) {
-		st_err_log(5, __FILE__, __LINE__, __FUNCTION__);
+		OCK_LOG_ERR(ERR_ARGUMENTS_BAD);
 		rc = CKR_ARGUMENTS_BAD;
 		goto done;
 	}
 
 	sess = SESSION_MGR_FIND( hSession );
 	if (!sess) {
-		st_err_log(40, __FILE__, __LINE__);
+		OCK_LOG_ERR(ERR_SESSION_HANDLE_INVALID);
 		rc = CKR_SESSION_HANDLE_INVALID;
 		goto done;
 	}
 
 	if (sess->encr_ctx.active == FALSE) {
-		st_err_log(32, __FILE__, __LINE__);
+		OCK_LOG_ERR(ERR_OPERATION_NOT_INITIALIZED);
 		rc = CKR_OPERATION_NOT_INITIALIZED;
 		goto done;
 	}
@@ -2064,7 +1983,7 @@ CK_RV SC_Encrypt( ST_SESSION_HANDLE  *sSession,
 			       pData,          ulDataLen,
 			       pEncryptedData, pulEncryptedDataLen );
 	if (rc != CKR_OK) {
-		st_err_log(99, __FILE__, __LINE__);
+		OCK_LOG_ERR(ERR_ENCRYPTMGR_ENCRYPT);
 	}
 
  done:
@@ -2072,9 +1991,7 @@ CK_RV SC_Encrypt( ST_SESSION_HANDLE  *sSession,
 	if (rc != CKR_BUFFER_TOO_SMALL && (rc != CKR_OK || length_only != TRUE))
 		encr_mgr_cleanup( &sess->encr_ctx );
 
-	if (debugfile) {
-		stlogit2(debugfile, "%-25s:  rc = %08x, sess = %d, amount = %d\n", "C_Encrypt", rc, (sess == NULL)?-1:(CK_LONG)sess->handle, ulDataLen );
-	}
+	OCK_LOG_DEBUG("%s:  rc = %08x, sess = %d, amount = %d\n", "C_Encrypt", rc, (sess == NULL)?-1:(CK_LONG)sess->handle, ulDataLen);
 
 	UNLOCKIT; return rc;
 }
@@ -2096,26 +2013,26 @@ CK_RV SC_EncryptUpdate( ST_SESSION_HANDLE  *sSession,
 
 		LOCKIT;
 	if (st_Initialized() == FALSE) {
-		st_err_log(72, __FILE__, __LINE__);
+		OCK_LOG_ERR(ERR_CRYPTOKI_NOT_INITIALIZED);
 		rc = CKR_CRYPTOKI_NOT_INITIALIZED;
 		goto done;
 	}
 
 	if (!pPart || !pulEncryptedPartLen) {
-		st_err_log(5, __FILE__, __LINE__, __FUNCTION__);
+		OCK_LOG_ERR(ERR_ARGUMENTS_BAD);
 		rc = CKR_ARGUMENTS_BAD;
 		goto done;
 	}
 
 	sess = SESSION_MGR_FIND( hSession );
 	if (!sess) {
-		st_err_log(40, __FILE__, __LINE__);
+		OCK_LOG_ERR(ERR_SESSION_HANDLE_INVALID);
 		rc = CKR_SESSION_HANDLE_INVALID;
 		goto done;
 	}
 
 	if (sess->encr_ctx.active == FALSE) {
-		st_err_log(32, __FILE__, __LINE__);
+		OCK_LOG_ERR(ERR_OPERATION_NOT_INITIALIZED);
 		rc = CKR_OPERATION_NOT_INITIALIZED;
 		goto done;
 	}
@@ -2128,7 +2045,7 @@ CK_RV SC_EncryptUpdate( ST_SESSION_HANDLE  *sSession,
 				      pPart,          ulPartLen,
 				      pEncryptedPart, pulEncryptedPartLen );
 	if (rc != CKR_OK) {
-		st_err_log(176, __FILE__, __LINE__);
+		OCK_LOG_ERR(ERR_ENCRYPTMGR_UPDATE);
 	}
 
  done:
@@ -2136,9 +2053,7 @@ CK_RV SC_EncryptUpdate( ST_SESSION_HANDLE  *sSession,
 	if (rc != CKR_OK && rc != CKR_BUFFER_TOO_SMALL)
 		encr_mgr_cleanup( &sess->encr_ctx );
 
-	if (debugfile) {
-		stlogit2(debugfile, "%-25s:  rc = %08x, sess = %d, amount = %d\n", "C_EncryptUpdate", rc, (sess == NULL)?-1:(CK_LONG)sess->handle, ulPartLen );
-	}
+	OCK_LOG_DEBUG("%s:  rc = %08x, sess = %d, amount = %d\n", "C_EncryptUpdate", rc, (sess == NULL)?-1:(CK_LONG)sess->handle, ulPartLen);
 
 	UNLOCKIT; return rc;
 }
@@ -2177,26 +2092,26 @@ CK_RV SC_EncryptFinal( ST_SESSION_HANDLE  *sSession,
 
 		LOCKIT;
 	if (st_Initialized() == FALSE) {
-		st_err_log(72, __FILE__, __LINE__);
+		OCK_LOG_ERR(ERR_CRYPTOKI_NOT_INITIALIZED);
 		rc = CKR_CRYPTOKI_NOT_INITIALIZED;
 		goto done;
 	}
 
 	if (!pulLastEncryptedPartLen) {
-		st_err_log(5, __FILE__, __LINE__, __FUNCTION__);
+		OCK_LOG_ERR(ERR_ARGUMENTS_BAD);
 		rc = CKR_ARGUMENTS_BAD;
 		goto done;
 	}
 
 	sess = SESSION_MGR_FIND( hSession );
 	if (!sess) {
-		st_err_log(40, __FILE__, __LINE__);
+		OCK_LOG_ERR(ERR_SESSION_HANDLE_INVALID);
 		rc = CKR_SESSION_HANDLE_INVALID;
 		goto done;
 	}
 
 	if (sess->encr_ctx.active == FALSE) {
-		st_err_log(32, __FILE__, __LINE__);
+		OCK_LOG_ERR(ERR_OPERATION_NOT_INITIALIZED);
 		rc = CKR_OPERATION_NOT_INITIALIZED;
 		goto done;
 	}
@@ -2207,7 +2122,7 @@ CK_RV SC_EncryptFinal( ST_SESSION_HANDLE  *sSession,
 	rc = encr_mgr_encrypt_final( sess,  length_only, &sess->encr_ctx,
 				     pLastEncryptedPart, pulLastEncryptedPartLen );
 	if (rc != CKR_OK) {
-		st_err_log(177, __FILE__, __LINE__);
+		OCK_LOG_ERR(ERR_ENCRYPTMGR_FINAL);
 	}
 
  done:
@@ -2215,9 +2130,7 @@ CK_RV SC_EncryptFinal( ST_SESSION_HANDLE  *sSession,
 	if (rc != CKR_BUFFER_TOO_SMALL && (rc != CKR_OK || length_only != TRUE))
 		encr_mgr_cleanup( &sess->encr_ctx );
 
-	if (debugfile) {
-		stlogit2(debugfile, "%-25s:  rc = %08x, sess = %d\n", "C_EncryptFinal", rc, (sess == NULL)?-1:(CK_LONG)sess->handle );
-	}
+	OCK_LOG_DEBUG("%s:  rc = %08x, sess = %d\n", "C_EncryptFinal", rc, (sess == NULL)?-1:(CK_LONG)sess->handle);
 
 	UNLOCKIT; return rc;
 }
@@ -2236,13 +2149,13 @@ CK_RV SC_DecryptInit( ST_SESSION_HANDLE  *sSession,
 
 		LOCKIT;
 	if (st_Initialized() == FALSE) {
-		st_err_log(72, __FILE__, __LINE__);
+		OCK_LOG_ERR(ERR_CRYPTOKI_NOT_INITIALIZED);
 		rc = CKR_CRYPTOKI_NOT_INITIALIZED;
 		goto done;
 	}
 
 	if (!pMechanism) {
-		st_err_log(5, __FILE__, __LINE__, __FUNCTION__);
+		OCK_LOG_ERR(ERR_ARGUMENTS_BAD);
 		rc = CKR_ARGUMENTS_BAD;
 		goto done;
 	}
@@ -2250,34 +2163,31 @@ CK_RV SC_DecryptInit( ST_SESSION_HANDLE  *sSession,
 
 	sess = SESSION_MGR_FIND( hSession );
 	if (!sess) {
-		st_err_log(40, __FILE__, __LINE__);
+		OCK_LOG_ERR(ERR_SESSION_HANDLE_INVALID);
 		rc = CKR_SESSION_HANDLE_INVALID;
 		goto done;
 	}
 
 	if (pin_expired(&sess->session_info, nv_token_data->token_info.flags) == TRUE) {
-		st_err_log(36, __FILE__, __LINE__);
+		OCK_LOG_ERR(ERR_PIN_EXPIRED);
 		rc = CKR_PIN_EXPIRED;
 		goto done;
 	}
    
 	if (sess->decr_ctx.active == TRUE) {
-		st_err_log(31, __FILE__, __LINE__);
+		OCK_LOG_ERR(ERR_OPERATION_ACTIVE);
 		rc = CKR_OPERATION_ACTIVE;
 		goto done;
 	}
 
 	rc = decr_mgr_init( sess, &sess->decr_ctx, OP_DECRYPT_INIT, pMechanism, hKey );
 	if (rc != CKR_OK) {
-		st_err_log(179, __FILE__, __LINE__);
+		OCK_LOG_ERR(ERR_DECRYPTMGR_INIT);
 	}
 
  done:
 	LLOCK;
-	if (debugfile) {
-		stlogit2(debugfile, "%-25s:  rc = %08x, sess = %d, key = %d, mech = 0x%x\n", "C_DecryptInit", rc, (sess == NULL)?-1:(CK_LONG)sess->handle, hKey, pMechanism->mechanism );
-	}
-
+	OCK_LOG_DEBUG("%s:  rc = %08x, sess = %d, key = %d, mech = 0x%x\n", "C_DecryptInit", rc, (sess == NULL)?-1:(CK_LONG)sess->handle, hKey, pMechanism->mechanism);
 	UNLOCKIT; return rc;
 }
 
@@ -2298,26 +2208,26 @@ CK_RV SC_Decrypt( ST_SESSION_HANDLE  *sSession,
 
 		LOCKIT;
 	if (st_Initialized() == FALSE) {
-		st_err_log(72, __FILE__, __LINE__);
+		OCK_LOG_ERR(ERR_CRYPTOKI_NOT_INITIALIZED);
 		rc = CKR_CRYPTOKI_NOT_INITIALIZED;
 		goto done;
 	}
 
 	if (!pEncryptedData || !pulDataLen) {
-		st_err_log(5, __FILE__, __LINE__, __FUNCTION__);
+		OCK_LOG_ERR(ERR_ARGUMENTS_BAD);
 		rc = CKR_ARGUMENTS_BAD;
 		goto done;
 	}
 
 	sess = SESSION_MGR_FIND( hSession );
 	if (!sess) {
-		st_err_log(40, __FILE__, __LINE__);
+		OCK_LOG_ERR(ERR_SESSION_HANDLE_INVALID);
 		rc = CKR_SESSION_HANDLE_INVALID;
 		goto done;
 	}
 
 	if (sess->decr_ctx.active == FALSE) {
-		st_err_log(32, __FILE__, __LINE__);
+		OCK_LOG_ERR(ERR_OPERATION_NOT_INITIALIZED);
 		rc = CKR_OPERATION_NOT_INITIALIZED;
 		goto done;
 	}
@@ -2330,7 +2240,7 @@ CK_RV SC_Decrypt( ST_SESSION_HANDLE  *sSession,
 			       pEncryptedData, ulEncryptedDataLen,
 			       pData,          pulDataLen );
 	if (rc != CKR_OK) {
-		st_err_log(100, __FILE__, __LINE__);
+		OCK_LOG_ERR(ERR_DECRYPTMGR_DECRYPT);
 	}
 
  done:
@@ -2338,9 +2248,7 @@ CK_RV SC_Decrypt( ST_SESSION_HANDLE  *sSession,
 	if (rc != CKR_BUFFER_TOO_SMALL && (rc != CKR_OK || length_only != TRUE))
 		decr_mgr_cleanup( &sess->decr_ctx );
 
-	if (debugfile) {
-		stlogit2(debugfile, "%-25s:  rc = %08x, sess = %d, amount = %d\n", "C_Decrypt", rc, (sess == NULL)?-1:(CK_LONG)sess->handle, ulEncryptedDataLen );
-	}
+	OCK_LOG_DEBUG("%s:  rc = %08x, sess = %d, amount = %d\n", "C_Decrypt", rc, (sess == NULL)?-1:(CK_LONG)sess->handle, ulEncryptedDataLen);
 
 	UNLOCKIT; return rc;
 }
@@ -2362,26 +2270,26 @@ CK_RV SC_DecryptUpdate( ST_SESSION_HANDLE  *sSession,
 
 		LOCKIT;
 	if (st_Initialized() == FALSE) {
-		st_err_log(72, __FILE__, __LINE__);
+		OCK_LOG_ERR(ERR_CRYPTOKI_NOT_INITIALIZED);
 		rc = CKR_CRYPTOKI_NOT_INITIALIZED;
 		goto done;
 	}
 
 	if (!pEncryptedPart || !pulPartLen) {
-		st_err_log(5, __FILE__, __LINE__, __FUNCTION__);
+		OCK_LOG_ERR(ERR_ARGUMENTS_BAD);
 		rc = CKR_ARGUMENTS_BAD;
 		goto done;
 	}
 
 	sess = SESSION_MGR_FIND( hSession );
 	if (!sess) {
-		st_err_log(40, __FILE__, __LINE__);
+		OCK_LOG_ERR(ERR_SESSION_HANDLE_INVALID);
 		rc = CKR_SESSION_HANDLE_INVALID;
 		goto done;
 	}
 
 	if (sess->decr_ctx.active == FALSE) {
-		st_err_log(32, __FILE__, __LINE__);
+		OCK_LOG_ERR(ERR_OPERATION_NOT_INITIALIZED);
 		rc = CKR_OPERATION_NOT_INITIALIZED;
 		goto done;
 	}
@@ -2394,7 +2302,7 @@ CK_RV SC_DecryptUpdate( ST_SESSION_HANDLE  *sSession,
 				      pEncryptedPart, ulEncryptedPartLen,
 				      pPart,          pulPartLen );
 	if (rc != CKR_OK) {
-		st_err_log(180, __FILE__, __LINE__);
+		OCK_LOG_ERR(ERR_DECRYPTMGR_UPDATE);
 	}
 
  done:
@@ -2402,9 +2310,7 @@ CK_RV SC_DecryptUpdate( ST_SESSION_HANDLE  *sSession,
 	if (rc != CKR_OK && rc != CKR_BUFFER_TOO_SMALL)
 		decr_mgr_cleanup( &sess->decr_ctx );
 
-	if (debugfile) {
-		stlogit2(debugfile, "%-25s:  rc = %08x, sess = %d, amount = %d\n", "C_DecryptUpdate", rc, (sess == NULL)?-1:(CK_LONG)sess->handle, ulEncryptedPartLen );
-	}
+	OCK_LOG_DEBUG("%s:  rc = %08x, sess = %d, amount = %d\n", "C_DecryptUpdate", rc, (sess == NULL)?-1:(CK_LONG)sess->handle, ulEncryptedPartLen);
 
 	UNLOCKIT; return rc;
 }
@@ -2424,26 +2330,26 @@ CK_RV SC_DecryptFinal( ST_SESSION_HANDLE  *sSession,
 
 		LOCKIT;
 	if (st_Initialized() == FALSE) {
-		st_err_log(72, __FILE__, __LINE__);
+		OCK_LOG_ERR(ERR_CRYPTOKI_NOT_INITIALIZED);
 		rc = CKR_CRYPTOKI_NOT_INITIALIZED;
 		goto done;
 	}
 
 	if (!pulLastPartLen) {
-		st_err_log(5, __FILE__, __LINE__, __FUNCTION__);
+		OCK_LOG_ERR(ERR_ARGUMENTS_BAD);
 		rc = CKR_ARGUMENTS_BAD;
 		goto done;
 	}
 
 	sess = SESSION_MGR_FIND( hSession );
 	if (!sess) {
-		st_err_log(40, __FILE__, __LINE__);
+		OCK_LOG_ERR(ERR_SESSION_HANDLE_INVALID);
 		rc = CKR_SESSION_HANDLE_INVALID;
 		goto done;
 	}
 
 	if (sess->decr_ctx.active == FALSE) {
-		st_err_log(32, __FILE__, __LINE__);
+		OCK_LOG_ERR(ERR_OPERATION_NOT_INITIALIZED);
 		rc = CKR_OPERATION_NOT_INITIALIZED;
 		goto done;
 	}
@@ -2456,16 +2362,14 @@ CK_RV SC_DecryptFinal( ST_SESSION_HANDLE  *sSession,
 				     pLastPart, pulLastPartLen );
 
 	if (rc != CKR_OK) {
-		st_err_log(181, __FILE__, __LINE__);
+		OCK_LOG_ERR(ERR_DECRYPTMGR_FINAL);
 	}
  done:
 	LLOCK;
 	if (rc != CKR_BUFFER_TOO_SMALL && (rc != CKR_OK || length_only != TRUE))
 		decr_mgr_cleanup( &sess->decr_ctx );
 
-	if (debugfile) {
-		stlogit2(debugfile, "%-25s:  rc = %08x, sess = %d, amount = %d\n", "C_DecryptFinal", rc, (sess == NULL)?-1:(CK_LONG)sess->handle, *pulLastPartLen );
-	}
+	OCK_LOG_DEBUG("%s:  rc = %08x, sess = %d, amount = %d\n", "C_DecryptFinal", rc, (sess == NULL)?-1:(CK_LONG)sess->handle, *pulLastPartLen);
 
 	UNLOCKIT; return rc;
 }
@@ -2483,12 +2387,12 @@ CK_RV SC_DigestInit( ST_SESSION_HANDLE  *sSession,
 
 		LOCKIT;
 	if (st_Initialized() == FALSE) {
-		st_err_log(72, __FILE__, __LINE__);
+		OCK_LOG_ERR(ERR_CRYPTOKI_NOT_INITIALIZED);
 		rc = CKR_CRYPTOKI_NOT_INITIALIZED;
 		goto done;
 	}
 	if (!pMechanism) {
-		st_err_log(5, __FILE__, __LINE__, __FUNCTION__);
+		OCK_LOG_ERR(ERR_ARGUMENTS_BAD);
 		rc = CKR_ARGUMENTS_BAD;
 		goto done;
 	}
@@ -2498,33 +2402,31 @@ CK_RV SC_DigestInit( ST_SESSION_HANDLE  *sSession,
 
 	sess = SESSION_MGR_FIND( hSession );
 	if (!sess) {
-		st_err_log(40, __FILE__, __LINE__);
+		OCK_LOG_ERR(ERR_SESSION_HANDLE_INVALID);
 		rc = CKR_SESSION_HANDLE_INVALID;
 		goto done;
 	}
 
 	if (pin_expired(&sess->session_info, nv_token_data->token_info.flags) == TRUE) {
-		st_err_log(36, __FILE__, __LINE__);
+		OCK_LOG_ERR(ERR_PIN_EXPIRED);
 		rc = CKR_PIN_EXPIRED;
 		goto done;
 	}
    
 	if (sess->digest_ctx.active == TRUE) {
-		st_err_log(31, __FILE__, __LINE__);
+		OCK_LOG_ERR(ERR_OPERATION_ACTIVE);
 		rc = CKR_OPERATION_ACTIVE;
 		goto done;
 	}
 
 	rc = digest_mgr_init( sess, &sess->digest_ctx, pMechanism );
 	if (rc != CKR_OK) {
-		st_err_log(123, __FILE__, __LINE__);
+		OCK_LOG_ERR(ERR_DIGEST_INIT);
 	}
 
  done:
 	LLOCK;
-	if (debugfile) {
-		stlogit2(debugfile, "%-25s:  rc = %08x, sess = %d, mech = %x\n", "C_DigestInit", rc, (sess == NULL)?-1:(CK_LONG)sess->handle, pMechanism->mechanism );
-	}
+	OCK_LOG_DEBUG("%s:  rc = %08x, sess = %d, mech = %x\n", "C_DigestInit", rc, (sess == NULL)?-1:(CK_LONG)sess->handle, pMechanism->mechanism);
 
 	UNLOCKIT; return rc;
 }
@@ -2546,7 +2448,7 @@ CK_RV SC_Digest( ST_SESSION_HANDLE  *sSession,
 
 		LOCKIT;
 	if (st_Initialized() == FALSE) {
-		st_err_log(72, __FILE__, __LINE__);
+		OCK_LOG_ERR(ERR_CRYPTOKI_NOT_INITIALIZED);
 		rc = CKR_CRYPTOKI_NOT_INITIALIZED;
 		goto done;
 	}
@@ -2555,20 +2457,20 @@ CK_RV SC_Digest( ST_SESSION_HANDLE  *sSession,
 	// but never for Digest.  It doesn't really make sense to allow it here
 	//
 	if (!pData || !pulDigestLen) {
-		st_err_log(5, __FILE__, __LINE__, __FUNCTION__);
+		OCK_LOG_ERR(ERR_ARGUMENTS_BAD);
 		rc = CKR_ARGUMENTS_BAD;
 		goto done;
 	}
 
 	sess = SESSION_MGR_FIND( hSession );
 	if (!sess) {
-		st_err_log(40, __FILE__, __LINE__);
+		OCK_LOG_ERR(ERR_SESSION_HANDLE_INVALID);
 		rc = CKR_SESSION_HANDLE_INVALID;
 		goto done;
 	}
 
 	if (sess->digest_ctx.active == FALSE) {
-		st_err_log(85, __FILE__, __LINE__);
+		OCK_LOG_ERR(ERR_KEY_FUNCTION_NOT_PERMITTED);
 		rc = CKR_OPERATION_NOT_INITIALIZED;
 		goto done;
 	}
@@ -2581,14 +2483,12 @@ CK_RV SC_Digest( ST_SESSION_HANDLE  *sSession,
 				pData,   ulDataLen,
 				pDigest, pulDigestLen );
 	if (rc != CKR_OK) {
-		st_err_log(124, __FILE__, __LINE__);
+		OCK_LOG_ERR(ERR_DIGEST);
 	}
 
  done:
 	LLOCK;
-	if (debugfile) {
-		stlogit2(debugfile, "%-25s:  rc = %08x, sess = %d, datalen = %d\n", "C_Digest", rc, (sess == NULL)?-1:(CK_LONG)sess->handle, ulDataLen );
-	}
+	OCK_LOG_DEBUG("%s:  rc = %08x, sess = %d, datalen = %d\n", "C_Digest", rc, (sess == NULL)?-1:(CK_LONG)sess->handle, ulDataLen);
 
 	UNLOCKIT; return rc;
 }
@@ -2607,7 +2507,7 @@ CK_RV SC_DigestUpdate( ST_SESSION_HANDLE  *sSession,
 
 		LOCKIT;
 	if (st_Initialized() == FALSE) {
-		st_err_log(72, __FILE__, __LINE__);
+		OCK_LOG_ERR(ERR_CRYPTOKI_NOT_INITIALIZED);
 		rc = CKR_CRYPTOKI_NOT_INITIALIZED;
 		goto done;
 	}
@@ -2615,20 +2515,20 @@ CK_RV SC_DigestUpdate( ST_SESSION_HANDLE  *sSession,
 	// Netscape has been known to pass a null pPart with ulPartLen == 0...
 	//
 	if (!pPart && ulPartLen != 0) {
-		st_err_log(5, __FILE__, __LINE__, __FUNCTION__);
+		OCK_LOG_ERR(ERR_ARGUMENTS_BAD);
 		rc = CKR_ARGUMENTS_BAD;
 		goto done;
 	}
 
 	sess = SESSION_MGR_FIND( hSession );
 	if (!sess) {
-		st_err_log(40, __FILE__, __LINE__);
+		OCK_LOG_ERR(ERR_SESSION_HANDLE_INVALID);
 		rc = CKR_SESSION_HANDLE_INVALID;
 		goto done;
 	}
 
 	if (sess->digest_ctx.active == FALSE) {
-		st_err_log(32, __FILE__, __LINE__);
+		OCK_LOG_ERR(ERR_OPERATION_NOT_INITIALIZED);
 		rc = CKR_OPERATION_NOT_INITIALIZED;
 		goto done;
 	}
@@ -2636,14 +2536,12 @@ CK_RV SC_DigestUpdate( ST_SESSION_HANDLE  *sSession,
 	if (pPart){
 		rc = digest_mgr_digest_update( sess, &sess->digest_ctx, pPart, ulPartLen );
 		if (rc != CKR_OK) {
-			st_err_log(124, __FILE__, __LINE__);
+			OCK_LOG_ERR(ERR_DIGEST_UPDATE);
 		}
 	}
  done:
 	LLOCK;
-	if (debugfile) {
-		stlogit2(debugfile, "%-25s:  rc = %08x, sess = %d, datalen = %d\n", "C_DigestUpdate", rc, (sess == NULL)?-1:(CK_LONG)sess->handle, ulPartLen );
-	}
+	OCK_LOG_DEBUG("%s:  rc = %08x, sess = %d, datalen = %d\n", "C_DigestUpdate", rc, (sess == NULL)?-1:(CK_LONG)sess->handle, ulPartLen);
 
 	UNLOCKIT; return rc;
 }
@@ -2660,34 +2558,32 @@ CK_RV SC_DigestKey( ST_SESSION_HANDLE  *sSession,
 
 		LOCKIT;
 	if (st_Initialized() == FALSE) {
-		st_err_log(72, __FILE__, __LINE__);
+		OCK_LOG_ERR(ERR_CRYPTOKI_NOT_INITIALIZED);
 		rc = CKR_CRYPTOKI_NOT_INITIALIZED;
 		goto done;
 	}
 
 	sess = SESSION_MGR_FIND( hSession );
 	if (!sess) {
-		st_err_log(40, __FILE__, __LINE__);
+		OCK_LOG_ERR(ERR_SESSION_HANDLE_INVALID);
 		rc = CKR_SESSION_HANDLE_INVALID;
 		goto done;
 	}
 
 	if (sess->digest_ctx.active == FALSE) {
-		st_err_log(32, __FILE__, __LINE__);
+		OCK_LOG_ERR(ERR_OPERATION_NOT_INITIALIZED);
 		rc = CKR_OPERATION_NOT_INITIALIZED;
 		goto done;
 	}
 
 	rc = digest_mgr_digest_key( sess, &sess->digest_ctx, hKey );
 	if (rc != CKR_OK){ 
-		st_err_log(124, __FILE__, __LINE__);
+		OCK_LOG_ERR(ERR_DIGEST);
 	}
 
  done:
 	LLOCK;
-	if (debugfile) {
-		stlogit2(debugfile, "%-25s:  rc = %08x, sess = %d, key = %d\n", "C_DigestKey", rc, (sess == NULL)?-1:(CK_LONG)sess->handle, hKey );
-	}
+	OCK_LOG_DEBUG("%s:  rc = %08x, sess = %d, key = %d\n", "C_DigestKey", rc, (sess == NULL)?-1:(CK_LONG)sess->handle, hKey);
 
 	UNLOCKIT; return rc;
 }
@@ -2707,26 +2603,26 @@ CK_RV SC_DigestFinal( ST_SESSION_HANDLE  *sSession,
 
 		LOCKIT;
 	if (st_Initialized() == FALSE) {
-		st_err_log(72, __FILE__, __LINE__);
+		OCK_LOG_ERR(ERR_CRYPTOKI_NOT_INITIALIZED);
 		rc = CKR_CRYPTOKI_NOT_INITIALIZED;
 		goto done;
 	}
 
 	if (!pulDigestLen) {
-		st_err_log(5, __FILE__, __LINE__, __FUNCTION__);
+		OCK_LOG_ERR(ERR_ARGUMENTS_BAD);
 		rc = CKR_ARGUMENTS_BAD;
 		goto done;
 	}
 
 	sess = SESSION_MGR_FIND( hSession );
 	if (!sess) {
-		st_err_log(40, __FILE__, __LINE__);
+		OCK_LOG_ERR(ERR_SESSION_HANDLE_INVALID);
 		rc = CKR_SESSION_HANDLE_INVALID;
 		goto done;
 	}
 
 	if (sess->digest_ctx.active == FALSE) {
-		st_err_log(32, __FILE__, __LINE__);
+		OCK_LOG_ERR(ERR_OPERATION_NOT_INITIALIZED);
 		rc = CKR_OPERATION_NOT_INITIALIZED;
 		goto done;
 	}
@@ -2738,14 +2634,12 @@ CK_RV SC_DigestFinal( ST_SESSION_HANDLE  *sSession,
 				      &sess->digest_ctx,
 				      pDigest, pulDigestLen );
 	if (rc != CKR_OK){ 
-		st_err_log(126, __FILE__, __LINE__);
+		OCK_LOG_ERR(ERR_DIGEST_FINAL);
 	}
 
  done:
 	LLOCK;
-	if (debugfile) {
-		stlogit2(debugfile, "%-25s:  rc = %08x, sess = %d\n", "C_DigestFinal", rc, (sess == NULL)?-1:(CK_LONG)sess->handle );
-	}
+	OCK_LOG_DEBUG("%s:  rc = %08x, sess = %d\n", "C_DigestFinal", rc, (sess == NULL)?-1:(CK_LONG)sess->handle);
 
 	UNLOCKIT; return rc;
 }
@@ -2764,47 +2658,45 @@ CK_RV SC_SignInit( ST_SESSION_HANDLE  *sSession,
 
 		LOCKIT;
 	if (st_Initialized() == FALSE) {
-		st_err_log(72, __FILE__, __LINE__);
+		OCK_LOG_ERR(ERR_CRYPTOKI_NOT_INITIALIZED);
 		rc = CKR_CRYPTOKI_NOT_INITIALIZED;
 		goto done;
 	}
 
 	if (!pMechanism ){
-		st_err_log(5, __FILE__, __LINE__, __FUNCTION__);
+		OCK_LOG_ERR(ERR_ARGUMENTS_BAD);
 		rc = CKR_ARGUMENTS_BAD;
 		goto done;
 	}
 
 	sess = SESSION_MGR_FIND( hSession );
 	if (!sess) {
-		st_err_log(40, __FILE__, __LINE__);
+		OCK_LOG_ERR(ERR_SESSION_HANDLE_INVALID);
 		rc = CKR_SESSION_HANDLE_INVALID;
 		goto done;
 	}
 	VALID_MECH(pMechanism);
 
 	if (pin_expired(&sess->session_info, nv_token_data->token_info.flags) == TRUE) {
-		st_err_log(36, __FILE__, __LINE__);
+		OCK_LOG_ERR(ERR_PIN_EXPIRED);
 		rc = CKR_PIN_EXPIRED;
 		goto done;
 	}
    
 	if (sess->sign_ctx.active == TRUE) {
 		rc = CKR_OPERATION_ACTIVE;
-		st_err_log(31, __FILE__, __LINE__);
+		OCK_LOG_ERR(ERR_OPERATION_ACTIVE);
 		goto done;
 	}
 
 	rc = sign_mgr_init( sess, &sess->sign_ctx, pMechanism, FALSE, hKey );
 	if (rc != CKR_OK){ 
-		st_err_log(127, __FILE__, __LINE__);
+		OCK_LOG_ERR(ERR_SIGN_INIT);
 	}
 
  done:
 	LLOCK;
-	if (debugfile) {
-		stlogit2(debugfile, "%-25s:  rc = %08x, sess = %d, mech = %x\n", "C_SignInit", rc, (sess == NULL)?-1:(CK_LONG)sess->handle, pMechanism->mechanism );
-	}
+	OCK_LOG_DEBUG("%s:  rc = %08x, sess = %d, mech = %x\n", "C_SignInit", rc, (sess == NULL)?-1:(CK_LONG)sess->handle, pMechanism->mechanism);
 
 	UNLOCKIT; return rc;
 }
@@ -2826,26 +2718,26 @@ CK_RV SC_Sign( ST_SESSION_HANDLE  *sSession,
 
 		LOCKIT;
 	if (st_Initialized() == FALSE) {
-		st_err_log(72, __FILE__, __LINE__);
+		OCK_LOG_ERR(ERR_CRYPTOKI_NOT_INITIALIZED);
 		rc = CKR_CRYPTOKI_NOT_INITIALIZED;
 		goto done;
 	}
 
 	if (!pData || !pulSignatureLen) {
-		st_err_log(5, __FILE__, __LINE__, __FUNCTION__);
+		OCK_LOG_ERR(ERR_ARGUMENTS_BAD);
 		rc = CKR_ARGUMENTS_BAD;
 		goto done;
 	}
 
 	sess = SESSION_MGR_FIND( hSession );
 	if (!sess) {
-		st_err_log(40, __FILE__, __LINE__);
+		OCK_LOG_ERR(ERR_SESSION_HANDLE_INVALID);
 		rc = CKR_SESSION_HANDLE_INVALID;
 		goto done;
 	}
 
 	if (sess->sign_ctx.active == FALSE) {
-		st_err_log(32, __FILE__, __LINE__);
+		OCK_LOG_ERR(ERR_OPERATION_NOT_INITIALIZED);
 		rc = CKR_OPERATION_NOT_INITIALIZED;
 		goto done;
 	}
@@ -2858,7 +2750,7 @@ CK_RV SC_Sign( ST_SESSION_HANDLE  *sSession,
 			    pData,      ulDataLen,
 			    pSignature, pulSignatureLen );
 	if (rc != CKR_OK){ 
-		st_err_log(171, __FILE__, __LINE__);
+		OCK_LOG_ERR(ERR_SIGN);
 	}
 
  done:
@@ -2866,9 +2758,7 @@ CK_RV SC_Sign( ST_SESSION_HANDLE  *sSession,
 		sign_mgr_cleanup( &sess->sign_ctx );
 
 	LLOCK;
-	if (debugfile) {
-		stlogit2(debugfile, "%-25s:  rc = %08x, sess = %d, datalen = %d\n", "C_Sign", rc, (sess == NULL)?-1:(CK_LONG)sess->handle, ulDataLen );
-	}
+	OCK_LOG_DEBUG("%s:  rc = %08x, sess = %d, datalen = %d\n", "C_Sign", rc, (sess == NULL)?-1:(CK_LONG)sess->handle, ulDataLen);
 
 	UNLOCKIT; return rc;
 }
@@ -2887,33 +2777,33 @@ CK_RV SC_SignUpdate( ST_SESSION_HANDLE  *sSession,
 
 		LOCKIT;
 	if (st_Initialized() == FALSE) {
-		st_err_log(72, __FILE__, __LINE__);
+		OCK_LOG_ERR(ERR_CRYPTOKI_NOT_INITIALIZED);
 		rc = CKR_CRYPTOKI_NOT_INITIALIZED;
 		goto done;
 	}
 
 	if (!pPart) {
-		st_err_log(5, __FILE__, __LINE__, __FUNCTION__);
+		OCK_LOG_ERR(ERR_ARGUMENTS_BAD);
 		rc = CKR_ARGUMENTS_BAD;
 		goto done;
 	}
 
 	sess = SESSION_MGR_FIND( hSession );
 	if (!sess) {
-		st_err_log(40, __FILE__, __LINE__);
+		OCK_LOG_ERR(ERR_SESSION_HANDLE_INVALID);
 		rc = CKR_SESSION_HANDLE_INVALID;
 		goto done;
 	}
 
 	if (sess->sign_ctx.active == FALSE) {
-		st_err_log(32, __FILE__, __LINE__);
+		OCK_LOG_ERR(ERR_OPERATION_NOT_INITIALIZED);
 		rc = CKR_OPERATION_NOT_INITIALIZED;
 		goto done;
 	}
 
 	rc = sign_mgr_sign_update( sess, &sess->sign_ctx, pPart, ulPartLen );
 	if (rc != CKR_OK){ 
-		st_err_log(128, __FILE__, __LINE__);
+		OCK_LOG_ERR(ERR_SIGN_UPDATE);
 	}
 
  done:
@@ -2921,9 +2811,7 @@ CK_RV SC_SignUpdate( ST_SESSION_HANDLE  *sSession,
 		sign_mgr_cleanup( &sess->sign_ctx );
 
 	LLOCK;
-	if (debugfile) {
-		stlogit2(debugfile, "%-25s:  rc = %08x, sess = %d, datalen = %d\n", "C_SignUpdate", rc, (sess == NULL)?-1:(CK_LONG)sess->handle, ulPartLen );
-	}
+	OCK_LOG_DEBUG("%s:  rc = %08x, sess = %d, datalen = %d\n", "C_SignUpdate", rc, (sess == NULL)?-1:(CK_LONG)sess->handle, ulPartLen);
 
 	UNLOCKIT; return rc;
 }
@@ -2943,26 +2831,26 @@ CK_RV SC_SignFinal( ST_SESSION_HANDLE  *sSession,
 
 		LOCKIT;
 	if (st_Initialized() == FALSE) {
-		st_err_log(72, __FILE__, __LINE__);
+		OCK_LOG_ERR(ERR_CRYPTOKI_NOT_INITIALIZED);
 		rc = CKR_CRYPTOKI_NOT_INITIALIZED;
 		goto done;
 	}
 
 	if (!pulSignatureLen) {
-		st_err_log(5, __FILE__, __LINE__, __FUNCTION__);
+		OCK_LOG_ERR(ERR_ARGUMENTS_BAD);
 		rc = CKR_ARGUMENTS_BAD;
 		goto done;
 	}
 
 	sess = SESSION_MGR_FIND( hSession );
 	if (!sess) {
-		st_err_log(40, __FILE__, __LINE__);
+		OCK_LOG_ERR(ERR_SESSION_HANDLE_INVALID);
 		rc = CKR_SESSION_HANDLE_INVALID;
 		goto done;
 	}
 
 	if (sess->sign_ctx.active == FALSE) {
-		st_err_log(32, __FILE__, __LINE__);
+		OCK_LOG_ERR(ERR_OPERATION_NOT_INITIALIZED);
 		rc = CKR_OPERATION_NOT_INITIALIZED;
 		goto done;
 	}
@@ -2974,7 +2862,7 @@ CK_RV SC_SignFinal( ST_SESSION_HANDLE  *sSession,
 				  &sess->sign_ctx,
 				  pSignature, pulSignatureLen );
 	if (rc != CKR_OK){ 
-		st_err_log(129, __FILE__, __LINE__);
+		OCK_LOG_ERR(ERR_SIGN_FINAL);
 	}
 
  done:
@@ -2982,10 +2870,7 @@ CK_RV SC_SignFinal( ST_SESSION_HANDLE  *sSession,
 		sign_mgr_cleanup( &sess->sign_ctx );
 
 	LLOCK;
-	if (debugfile)
-	{
-		stlogit2(debugfile, "%-25s:  rc = %08x, sess = %d\n", "C_SignFinal", rc, (sess == NULL)?-1:(CK_LONG)sess->handle );
-	}
+	OCK_LOG_DEBUG("%s:  rc = %08x, sess = %d\n", "C_SignFinal", rc, (sess == NULL)?-1:(CK_LONG)sess->handle);
 
 	UNLOCKIT; return rc;
 }
@@ -3004,12 +2889,12 @@ CK_RV SC_SignRecoverInit( ST_SESSION_HANDLE  *sSession,
 
 		LOCKIT;
 	if (st_Initialized() == FALSE) {
-		st_err_log(72, __FILE__, __LINE__);
+		OCK_LOG_ERR(ERR_CRYPTOKI_NOT_INITIALIZED);
 		rc = CKR_CRYPTOKI_NOT_INITIALIZED;
 		goto done;
 	}
 	if (!pMechanism ){
-		st_err_log(5, __FILE__, __LINE__, __FUNCTION__);
+		OCK_LOG_ERR(ERR_ARGUMENTS_BAD);
 		rc = CKR_ARGUMENTS_BAD;
 		goto done;
 	}
@@ -3017,33 +2902,31 @@ CK_RV SC_SignRecoverInit( ST_SESSION_HANDLE  *sSession,
 
 	sess = SESSION_MGR_FIND( hSession );
 	if (!sess) {
-		st_err_log(40, __FILE__, __LINE__);
+		OCK_LOG_ERR(ERR_SESSION_HANDLE_INVALID);
 		rc = CKR_SESSION_HANDLE_INVALID;
 		goto done;
 	}
 
 	if (pin_expired(&sess->session_info, nv_token_data->token_info.flags) == TRUE) {
-		st_err_log(36, __FILE__, __LINE__);
+		OCK_LOG_ERR(ERR_PIN_EXPIRED);
 		rc = CKR_PIN_EXPIRED;
 		goto done;
 	}
    
 	if (sess->sign_ctx.active == TRUE) {
 		rc = CKR_OPERATION_ACTIVE;
-		st_err_log(31, __FILE__, __LINE__);
+		OCK_LOG_ERR(ERR_OPERATION_ACTIVE);
 		goto done;
 	}
 
 	rc = sign_mgr_init( sess, &sess->sign_ctx, pMechanism, TRUE, hKey );
 	if (rc != CKR_OK){ 
-		st_err_log(127, __FILE__, __LINE__);
+		OCK_LOG_ERR(ERR_SIGN_INIT);
 	}
 
  done:
 	LLOCK;
-	if (debugfile) {
-		stlogit2(debugfile, "%-25s:  rc = %08x, sess = %d, mech = %x\n", "C_SignRecoverInit", rc, (sess == NULL)?-1:(CK_LONG)sess->handle, pMechanism->mechanism );
-	}
+	OCK_LOG_DEBUG("%s:  rc = %08x, sess = %d, mech = %x\n", "C_SignRecoverInit", rc, (sess == NULL)?-1:(CK_LONG)sess->handle, pMechanism->mechanism);
 
 	UNLOCKIT; return rc;
 }
@@ -3064,28 +2947,28 @@ CK_RV SC_SignRecover( ST_SESSION_HANDLE  *sSession,
 
 
 		if (st_Initialized() == FALSE) {
-			st_err_log(72, __FILE__, __LINE__);
+			OCK_LOG_ERR(ERR_CRYPTOKI_NOT_INITIALIZED);
 			LOCKIT;
 			rc = CKR_CRYPTOKI_NOT_INITIALIZED;
 			goto done;
 		}
 
 	if (!pData || !pulSignatureLen) {
-		st_err_log(5, __FILE__, __LINE__, __FUNCTION__);
+		OCK_LOG_ERR(ERR_ARGUMENTS_BAD);
 		rc = CKR_ARGUMENTS_BAD;
 		goto done;
 	}
 
 	sess = SESSION_MGR_FIND( hSession );
 	if (!sess) {
-		st_err_log(40, __FILE__, __LINE__);
+		OCK_LOG_ERR(ERR_SESSION_HANDLE_INVALID);
 		rc = CKR_SESSION_HANDLE_INVALID;
 		goto done;
 	}
 
 	if ((sess->sign_ctx.active == FALSE) || (sess->sign_ctx.recover == FALSE)) {
 		rc = CKR_OPERATION_NOT_INITIALIZED;
-		st_err_log(32, __FILE__, __LINE__);
+		OCK_LOG_ERR(ERR_OPERATION_NOT_INITIALIZED);
 		goto done;
 	}
 
@@ -3097,7 +2980,7 @@ CK_RV SC_SignRecover( ST_SESSION_HANDLE  *sSession,
 				    pData,      ulDataLen,
 				    pSignature, pulSignatureLen );
 	if (rc != CKR_OK){ 
-		st_err_log(186, __FILE__, __LINE__);
+		OCK_LOG_ERR(ERR_SIGN_RECOVER);
 	}
 
  done:
@@ -3105,9 +2988,7 @@ CK_RV SC_SignRecover( ST_SESSION_HANDLE  *sSession,
 		sign_mgr_cleanup( &sess->sign_ctx );
 
 	LLOCK;
-	if (debugfile) {
-		stlogit2(debugfile, "%-25s:  rc = %08x, sess = %d, datalen = %d\n", "C_SignRecover", rc, (sess == NULL)?-1:(CK_LONG)sess->handle, ulDataLen );
-	}
+	OCK_LOG_DEBUG("%s:  rc = %08x, sess = %d, datalen = %d\n", "C_SignRecover", rc, (sess == NULL)?-1:(CK_LONG)sess->handle, ulDataLen);
 
 	UNLOCKIT; return rc;
 }
@@ -3126,12 +3007,12 @@ CK_RV SC_VerifyInit( ST_SESSION_HANDLE  *sSession,
 
 		LOCKIT;
 	if (st_Initialized() == FALSE) {
-		st_err_log(72, __FILE__, __LINE__);
+		OCK_LOG_ERR(ERR_CRYPTOKI_NOT_INITIALIZED);
 		rc = CKR_CRYPTOKI_NOT_INITIALIZED;
 		goto done;
 	}
 	if (!pMechanism ){
-		st_err_log(5, __FILE__, __LINE__, __FUNCTION__);
+		OCK_LOG_ERR(ERR_ARGUMENTS_BAD);
 		rc = CKR_ARGUMENTS_BAD;
 		goto done;
 	}
@@ -3139,33 +3020,31 @@ CK_RV SC_VerifyInit( ST_SESSION_HANDLE  *sSession,
 
 	sess = SESSION_MGR_FIND( hSession );
 	if (!sess) {
-		st_err_log(40, __FILE__, __LINE__);
+		OCK_LOG_ERR(ERR_SESSION_HANDLE_INVALID);
 		rc = CKR_SESSION_HANDLE_INVALID;
 		goto done;
 	}
 
 	if (pin_expired(&sess->session_info, nv_token_data->token_info.flags) == TRUE) {
-		st_err_log(36, __FILE__, __LINE__);
+		OCK_LOG_ERR(ERR_PIN_EXPIRED);
 		rc = CKR_PIN_EXPIRED;
 		goto done;
 	}
    
 	if (sess->verify_ctx.active == TRUE) {
 		rc = CKR_OPERATION_ACTIVE;
-		st_err_log(31, __FILE__, __LINE__);
+		OCK_LOG_ERR(ERR_OPERATION_ACTIVE);
 		goto done;
 	}
 
 	rc = verify_mgr_init( sess, &sess->verify_ctx, pMechanism, FALSE, hKey );
 	if (rc != CKR_OK){ 
-		st_err_log(167, __FILE__, __LINE__);
+		OCK_LOG_ERR(ERR_VERIFY_INIT);
 	}
 
  done:
 	LLOCK;
-	if (debugfile) {
-		stlogit2(debugfile, "%-25s:  rc = %08x, sess = %d, mech = %x\n", "C_VerifyInit", rc, (sess == NULL)?-1:(CK_LONG)sess->handle, pMechanism->mechanism );
-	}
+	OCK_LOG_DEBUG("%s:  rc = %08x, sess = %d, mech = %x\n", "C_VerifyInit", rc, (sess == NULL)?-1:(CK_LONG)sess->handle, pMechanism->mechanism);
 
 	UNLOCKIT; return rc;
 }
@@ -3186,27 +3065,27 @@ CK_RV SC_Verify( ST_SESSION_HANDLE  *sSession,
 
 		LOCKIT;
 	if (st_Initialized() == FALSE) {
-		st_err_log(72, __FILE__, __LINE__);
+		OCK_LOG_ERR(ERR_CRYPTOKI_NOT_INITIALIZED);
 		rc = CKR_CRYPTOKI_NOT_INITIALIZED;
 		goto done;
 	}
 
 	if (!pData || !pSignature) {
-		st_err_log(5, __FILE__, __LINE__, __FUNCTION__);
+		OCK_LOG_ERR(ERR_ARGUMENTS_BAD);
 		rc = CKR_ARGUMENTS_BAD;
 		goto done;
 	}
 
 	sess = SESSION_MGR_FIND( hSession );
 	if (!sess) {
-		st_err_log(40, __FILE__, __LINE__);
+		OCK_LOG_ERR(ERR_SESSION_HANDLE_INVALID);
 		rc = CKR_SESSION_HANDLE_INVALID;
 		goto done;
 	}
 
 	if (sess->verify_ctx.active == FALSE) {
 		rc = CKR_OPERATION_NOT_INITIALIZED;
-		st_err_log(32, __FILE__, __LINE__);
+		OCK_LOG_ERR(ERR_OPERATION_NOT_INITIALIZED);
 		goto done;
 	}
 
@@ -3215,16 +3094,14 @@ CK_RV SC_Verify( ST_SESSION_HANDLE  *sSession,
 				pData,      ulDataLen,
 				pSignature, ulSignatureLen );
 	if (rc != CKR_OK){ 
-		st_err_log(168, __FILE__, __LINE__);
+		OCK_LOG_ERR(ERR_VERIFY);
 	}
 
  done:
 	verify_mgr_cleanup( &sess->verify_ctx );
 
 	LLOCK;
-	if (debugfile) {
-		stlogit2(debugfile, "%-25s:  rc = %08x, sess = %d, datalen = %d\n", "C_Verify", rc, (sess == NULL)?-1:(CK_LONG)sess->handle, ulDataLen );
-	}
+	OCK_LOG_DEBUG("%-25s:  rc = %08x, sess = %d, datalen = %d\n", "C_Verify", rc, (sess == NULL)?-1:(CK_LONG)sess->handle, ulDataLen);
 
 	UNLOCKIT; return rc;
 }
@@ -3243,33 +3120,33 @@ CK_RV SC_VerifyUpdate( ST_SESSION_HANDLE  *sSession,
 
 		LOCKIT;
 	if (st_Initialized() == FALSE) {
-		st_err_log(72, __FILE__, __LINE__);
+		OCK_LOG_ERR(ERR_CRYPTOKI_NOT_INITIALIZED);
 		rc = CKR_CRYPTOKI_NOT_INITIALIZED;
 		goto done;
 	}
 
 	if (!pPart) {
-		st_err_log(5, __FILE__, __LINE__, __FUNCTION__);
+		OCK_LOG_ERR(ERR_ARGUMENTS_BAD);
 		rc = CKR_ARGUMENTS_BAD;
 		goto done;
 	}
 
 	sess = SESSION_MGR_FIND( hSession );
 	if (!sess) {
-		st_err_log(40, __FILE__, __LINE__);
+		OCK_LOG_ERR(ERR_SESSION_HANDLE_INVALID);
 		rc = CKR_SESSION_HANDLE_INVALID;
 		goto done;
 	}
 
 	if (sess->verify_ctx.active == FALSE) {
 		rc = CKR_OPERATION_NOT_INITIALIZED;
-		st_err_log(32, __FILE__, __LINE__);
+		OCK_LOG_ERR(ERR_OPERATION_NOT_INITIALIZED);
 		goto done;
 	}
 
 	rc = verify_mgr_verify_update( sess, &sess->verify_ctx, pPart, ulPartLen );
 	if (rc != CKR_OK){ 
-		st_err_log(169, __FILE__, __LINE__);
+		OCK_LOG_ERR(ERR_VERIFY_UPDATE);
 	}
 
  done:
@@ -3277,9 +3154,7 @@ CK_RV SC_VerifyUpdate( ST_SESSION_HANDLE  *sSession,
 		verify_mgr_cleanup( &sess->verify_ctx );
 
 	LLOCK;
-	if (debugfile) {
-		stlogit2(debugfile, "%-25s:  rc = %08x, sess = %d, datalen = %d\n", "C_VerifyUpdate", rc, (sess == NULL)?-1:(CK_LONG)sess->handle, ulPartLen );
-	}
+	OCK_LOG_DEBUG("%s:  rc = %08x, sess = %d, datalen = %d\n", "C_VerifyUpdate", rc, (sess == NULL)?-1:(CK_LONG)sess->handle, ulPartLen);
 
 	UNLOCKIT; return rc;
 }
@@ -3298,42 +3173,40 @@ CK_RV SC_VerifyFinal( ST_SESSION_HANDLE  *sSession,
 
 		LOCKIT;
 	if (st_Initialized() == FALSE) {
-		st_err_log(72, __FILE__, __LINE__);
+		OCK_LOG_ERR(ERR_CRYPTOKI_NOT_INITIALIZED);
 		rc = CKR_CRYPTOKI_NOT_INITIALIZED;
 		goto done;
 	}
 
 	if (!pSignature) {
-		st_err_log(5, __FILE__, __LINE__, __FUNCTION__);
+		OCK_LOG_ERR(ERR_ARGUMENTS_BAD);
 		rc = CKR_ARGUMENTS_BAD;
 		goto done;
 	}
 
 	sess = SESSION_MGR_FIND( hSession );
 	if (!sess) {
-		st_err_log(40, __FILE__, __LINE__);
+		OCK_LOG_ERR(ERR_SESSION_HANDLE_INVALID);
 		rc = CKR_SESSION_HANDLE_INVALID;
 		goto done;
 	}
 
 	if (sess->verify_ctx.active == FALSE) {
 		rc = CKR_OPERATION_NOT_INITIALIZED;
-		st_err_log(32, __FILE__, __LINE__);
+		OCK_LOG_ERR(ERR_OPERATION_NOT_INITIALIZED);
 		goto done;
 	}
 
 	rc = verify_mgr_verify_final( sess, &sess->verify_ctx, pSignature, ulSignatureLen );
 	if (rc != CKR_OK){ 
-		st_err_log(170, __FILE__, __LINE__);
+		OCK_LOG_ERR(ERR_VERIFY_FINAL);
 	}
 
  done:
 	verify_mgr_cleanup( &sess->verify_ctx );
 
 	LLOCK;
-	if (debugfile) {
-		stlogit2(debugfile, "%-25s:  rc = %08x, sess = %d\n", "C_VerifyFinal", rc, (sess == NULL)?-1:(CK_LONG)sess->handle );
-	}
+	OCK_LOG_DEBUG("%s:  rc = %08x, sess = %d\n", "C_VerifyFinal", rc, (sess == NULL)?-1:(CK_LONG)sess->handle);
 
 	UNLOCKIT; return rc;
 }
@@ -3352,12 +3225,12 @@ CK_RV SC_VerifyRecoverInit( ST_SESSION_HANDLE  *sSession,
 
 		LOCKIT;
 	if (st_Initialized() == FALSE) {
-		st_err_log(72, __FILE__, __LINE__);
+		OCK_LOG_ERR(ERR_CRYPTOKI_NOT_INITIALIZED);
 		rc = CKR_CRYPTOKI_NOT_INITIALIZED;
 		goto done;
 	}
 	if (!pMechanism ){
-		st_err_log(5, __FILE__, __LINE__, __FUNCTION__);
+		OCK_LOG_ERR(ERR_ARGUMENTS_BAD);
 		rc = CKR_ARGUMENTS_BAD;
 		goto done;
 	}
@@ -3365,33 +3238,31 @@ CK_RV SC_VerifyRecoverInit( ST_SESSION_HANDLE  *sSession,
 
 	sess = SESSION_MGR_FIND( hSession );
 	if (!sess) {
-		st_err_log(40, __FILE__, __LINE__);
+		OCK_LOG_ERR(ERR_SESSION_HANDLE_INVALID);
 		rc = CKR_SESSION_HANDLE_INVALID;
 		goto done;
 	}
 
 	if (pin_expired(&sess->session_info, nv_token_data->token_info.flags) == TRUE) {
-		st_err_log(36, __FILE__, __LINE__);
+		OCK_LOG_ERR(ERR_PIN_EXPIRED);
 		rc = CKR_PIN_EXPIRED;
 		goto done;
 	}
    
 	if (sess->verify_ctx.active == TRUE) {
 		rc = CKR_OPERATION_ACTIVE;
-		st_err_log(31, __FILE__, __LINE__);
+		OCK_LOG_ERR(ERR_OPERATION_ACTIVE);
 		goto done;
 	}
 
 	rc = verify_mgr_init( sess, &sess->verify_ctx, pMechanism, TRUE, hKey );
 	if (rc != CKR_OK){ 
-		st_err_log(167, __FILE__, __LINE__);
+		OCK_LOG_ERR(ERR_VERIFY_INIT);
 	}
 
  done:
 	LLOCK;
-	if (debugfile) {
-		stlogit2(debugfile, "%-25s:  rc = %08x, sess = %d, mech = %x\n", "C_VerifyRecoverInit", rc, (sess == NULL)?-1:(CK_LONG)sess->handle, pMechanism->mechanism );
-	}
+	OCK_LOG_DEBUG("%s:  rc = %08x, sess = %d, mech = %x\n", "C_VerifyRecoverInit", rc, (sess == NULL)?-1:(CK_LONG)sess->handle, pMechanism->mechanism);
 
 	UNLOCKIT; return rc;
 }
@@ -3413,27 +3284,27 @@ CK_RV SC_VerifyRecover( ST_SESSION_HANDLE  *sSession,
 
 		LOCKIT;
 	if (st_Initialized() == FALSE) {
-		st_err_log(72, __FILE__, __LINE__);
+		OCK_LOG_ERR(ERR_CRYPTOKI_NOT_INITIALIZED);
 		rc = CKR_CRYPTOKI_NOT_INITIALIZED;
 		goto done;
 	}
 
 	if (!pSignature || !pulDataLen) {
-		st_err_log(5, __FILE__, __LINE__, __FUNCTION__);
+		OCK_LOG_ERR(ERR_ARGUMENTS_BAD);
 		rc = CKR_ARGUMENTS_BAD;
 		goto done;
 	}
 
 	sess = SESSION_MGR_FIND( hSession );
 	if (!sess) {
-		st_err_log(40, __FILE__, __LINE__);
+		OCK_LOG_ERR(ERR_SESSION_HANDLE_INVALID);
 		rc = CKR_SESSION_HANDLE_INVALID;
 		goto done;
 	}
 
 	if ((sess->verify_ctx.active == FALSE) || (sess->verify_ctx.recover == FALSE)) {
 		rc = CKR_OPERATION_NOT_INITIALIZED;
-		st_err_log(32, __FILE__, __LINE__);
+		OCK_LOG_ERR(ERR_OPERATION_NOT_INITIALIZED);
 		goto done;
 	}
 
@@ -3446,7 +3317,7 @@ CK_RV SC_VerifyRecover( ST_SESSION_HANDLE  *sSession,
 					pSignature, ulSignatureLen,
 					pData,      pulDataLen );
 	if (rc != CKR_OK){ 
-		st_err_log(187, __FILE__, __LINE__);
+		OCK_LOG_ERR(ERR_VERIFY_RECOVER);
 	}
 
  done:
@@ -3454,9 +3325,7 @@ CK_RV SC_VerifyRecover( ST_SESSION_HANDLE  *sSession,
 		verify_mgr_cleanup( &sess->verify_ctx );
 
 	LLOCK;
-	if (debugfile) {
-		stlogit2(debugfile, "%-25s:  rc = %08x, sess = %d, recover len = %d, length_only = %d\n", "C_VerifyRecover", rc, (sess == NULL)?-1:(CK_LONG)sess->handle, *pulDataLen, length_only );
-	}
+	OCK_LOG_DEBUG("%s:  rc = %08x, sess = %d, recover len = %d, length_only = %d\n", "C_VerifyRecover", rc, (sess == NULL)?-1:(CK_LONG)sess->handle, *pulDataLen, length_only);
 
 	UNLOCKIT; return rc;
 }
@@ -3472,10 +3341,10 @@ CK_RV SC_DigestEncryptUpdate( ST_SESSION_HANDLE  *sSession,
 {
 	CK_SESSION_HANDLE hSession = SESS_HANDLE(sSession);
 		if (st_Initialized() == FALSE){
-			st_err_log(72, __FILE__, __LINE__);
+			OCK_LOG_ERR(ERR_CRYPTOKI_NOT_INITIALIZED);
 			return CKR_CRYPTOKI_NOT_INITIALIZED;
 		}
-	st_err_log(142, __FILE__, __LINE__, __FUNCTION__);
+	OCK_LOG_ERR(ERR_FUNCTION_NOT_SUPPORTED);
 	return CKR_FUNCTION_NOT_SUPPORTED;
 }
 
@@ -3490,11 +3359,11 @@ CK_RV SC_DecryptDigestUpdate( ST_SESSION_HANDLE  *sSession,
 {
 	CK_SESSION_HANDLE hSession = SESS_HANDLE(sSession);
 		if (st_Initialized() == FALSE){
-			st_err_log(72, __FILE__, __LINE__);
+			OCK_LOG_ERR(ERR_CRYPTOKI_NOT_INITIALIZED);
 			return CKR_CRYPTOKI_NOT_INITIALIZED;
 		}
 
-	st_err_log(142, __FILE__, __LINE__, __FUNCTION__);
+	OCK_LOG_ERR(ERR_FUNCTION_NOT_SUPPORTED);
 	return CKR_FUNCTION_NOT_SUPPORTED;
 }
 
@@ -3509,10 +3378,10 @@ CK_RV SC_SignEncryptUpdate( ST_SESSION_HANDLE  *sSession,
 {
 	CK_SESSION_HANDLE hSession = SESS_HANDLE(sSession);
 		if (st_Initialized() == FALSE){
-			st_err_log(72, __FILE__, __LINE__);
+			OCK_LOG_ERR(ERR_CRYPTOKI_NOT_INITIALIZED);
 			return CKR_CRYPTOKI_NOT_INITIALIZED;
 		}
-	st_err_log(142, __FILE__, __LINE__, __FUNCTION__);
+	OCK_LOG_ERR(ERR_FUNCTION_NOT_SUPPORTED);
 	return CKR_FUNCTION_NOT_SUPPORTED;
 }
 
@@ -3527,10 +3396,10 @@ CK_RV SC_DecryptVerifyUpdate( ST_SESSION_HANDLE  *sSession,
 {
 	CK_SESSION_HANDLE hSession = SESS_HANDLE(sSession);
 		if (st_Initialized() == FALSE){
-			st_err_log(72, __FILE__, __LINE__);
+			OCK_LOG_ERR(ERR_CRYPTOKI_NOT_INITIALIZED);
 			return CKR_CRYPTOKI_NOT_INITIALIZED;
 		}
-	st_err_log(142, __FILE__, __LINE__, __FUNCTION__);
+	OCK_LOG_ERR(ERR_FUNCTION_NOT_SUPPORTED);
 	return CKR_FUNCTION_NOT_SUPPORTED;
 }
 
@@ -3546,17 +3415,19 @@ CK_RV SC_GenerateKey( ST_SESSION_HANDLE     *sSession,
 	SESSION       * sess = NULL;
 	CK_RV           rc = CKR_OK;
 	CK_SESSION_HANDLE hSession = SESS_HANDLE(sSession);
+	CK_ATTRIBUTE  * attr = NULL;
+	CK_ULONG	i;
 
 
 		LOCKIT;
 	if (st_Initialized() == FALSE) {
-		st_err_log(72, __FILE__, __LINE__);
+		OCK_LOG_ERR(ERR_CRYPTOKI_NOT_INITIALIZED);
 		rc = CKR_CRYPTOKI_NOT_INITIALIZED;
 		goto done;
 	}
 
 	if (!pMechanism || !phKey || (pTemplate == NULL && ulCount != 0)) {
-		st_err_log(5, __FILE__, __LINE__, __FUNCTION__);
+		OCK_LOG_ERR(ERR_ARGUMENTS_BAD);
 		rc = CKR_ARGUMENTS_BAD;
 		goto done;
 	}
@@ -3564,43 +3435,39 @@ CK_RV SC_GenerateKey( ST_SESSION_HANDLE     *sSession,
 
 	sess = SESSION_MGR_FIND( hSession );
 	if (!sess) {
-		st_err_log(40, __FILE__, __LINE__);
+		OCK_LOG_ERR(ERR_SESSION_HANDLE_INVALID);
 		rc = CKR_SESSION_HANDLE_INVALID;
 		goto done;
 	}
 
 	if (pin_expired(&sess->session_info, nv_token_data->token_info.flags) == TRUE) {
-		st_err_log(36, __FILE__, __LINE__);
+		OCK_LOG_ERR(ERR_PIN_EXPIRED);
 		rc = CKR_PIN_EXPIRED;
 		goto done;
 	}
    
 	rc = key_mgr_generate_key( sess, pMechanism, pTemplate, ulCount, phKey );
 	if (rc != CKR_OK){ 
-		st_err_log(91, __FILE__, __LINE__);
+		OCK_LOG_ERR(ERR_KEYGEN);
 	}
 
  done:
 	LLOCK;
-	if (debugfile) {
-		CK_ATTRIBUTE *attr = pTemplate;
-		CK_ULONG      i;
 
-		stlogit2(debugfile, "%-25s:  rc = %08x, sess = %d, handle = %d, mech = %x\n", "C_GenerateKey", rc, (sess == NULL)?-1:(CK_LONG)sess->handle, *phKey, pMechanism->mechanism );
+	OCK_LOG_DEBUG("C_GenerateKey:  rc = %08x, sess = %d, handle = %d, mech = %x\n", rc, (sess == NULL)?-1:(CK_LONG)sess->handle, *phKey, pMechanism->mechanism);
 
-		for (i = 0; i < ulCount; i++, attr++) {
-			CK_BYTE *ptr = (CK_BYTE *)attr->pValue;
+#ifdef DEBUG
+	attr = pTemplate;
+	for (i = 0; i < ulCount; i++, attr++) {
+		CK_BYTE *ptr = (CK_BYTE *)attr->pValue;
 
-			stlogit2(debugfile, "   %3d:  Attribute type:  0x%08x\n", i, attr->type );
-			stlogit2(debugfile, "         Value Length:    %08d\n",   attr->ulValueLen );
+		OCK_LOG_DEBUG("%d:  Attribute type:  0x%08x, Value Length: %d\n", i, attr->type, attr->ulValueLen);
 
-			if (attr->ulValueLen != (CK_ULONG)(-1) && (ptr != NULL))
-				stlogit2(debugfile, "         First 4 bytes:   %02x %02x %02x %02x", ptr[0], ptr[1], ptr[2], ptr[3] );
-
-			stlogit2(debugfile, "\n\n");
-		}
+		if (attr->ulValueLen != (CK_ULONG)(-1) && (ptr != NULL))
+			OCK_LOG_DEBUG("First 4 bytes:  %02x %02x %02x %02x\n", ptr[0], ptr[1], ptr[2], ptr[3]);
 
 	}
+#endif
 
 	UNLOCKIT; return rc;
 }
@@ -3620,11 +3487,13 @@ CK_RV SC_GenerateKeyPair( ST_SESSION_HANDLE     *sSession,
 	SESSION       * sess = NULL;
 	CK_RV           rc = CKR_OK;
 	CK_SESSION_HANDLE hSession = SESS_HANDLE(sSession);
+	CK_ATTRIBUTE  * attr = NULL;
+	CK_ULONG	i;
 
 
 		LOCKIT;
 	if (st_Initialized() == FALSE) {
-		st_err_log(72, __FILE__, __LINE__);
+		OCK_LOG_ERR(ERR_CRYPTOKI_NOT_INITIALIZED);
 		rc = CKR_CRYPTOKI_NOT_INITIALIZED;
 		goto done;
 	}
@@ -3633,7 +3502,7 @@ CK_RV SC_GenerateKeyPair( ST_SESSION_HANDLE     *sSession,
 	    (!pPublicKeyTemplate && (ulPublicKeyAttributeCount != 0)) ||
 	    (!pPrivateKeyTemplate && (ulPrivateKeyAttributeCount != 0)))
 	{
-		st_err_log(5, __FILE__, __LINE__, __FUNCTION__);
+		OCK_LOG_ERR(ERR_ARGUMENTS_BAD);
 		rc = CKR_ARGUMENTS_BAD;
 		goto done;
 	}
@@ -3641,13 +3510,13 @@ CK_RV SC_GenerateKeyPair( ST_SESSION_HANDLE     *sSession,
 
 	sess = SESSION_MGR_FIND( hSession );
 	if (!sess) {
-		st_err_log(40, __FILE__, __LINE__);
+		OCK_LOG_ERR(ERR_SESSION_HANDLE_INVALID);
 		rc = CKR_SESSION_HANDLE_INVALID;
 		goto done;
 	}
 
 	if (pin_expired(&sess->session_info, nv_token_data->token_info.flags) == TRUE) {
-		st_err_log(36, __FILE__, __LINE__);
+		OCK_LOG_ERR(ERR_PIN_EXPIRED);
 		rc = CKR_PIN_EXPIRED;
 		goto done;
 	}
@@ -3657,53 +3526,44 @@ CK_RV SC_GenerateKeyPair( ST_SESSION_HANDLE     *sSession,
 					pPrivateKeyTemplate, ulPrivateKeyAttributeCount,
 					phPublicKey,         phPrivateKey );
 	if (rc != CKR_OK){ 
-		st_err_log(91, __FILE__, __LINE__);
+		OCK_LOG_ERR(ERR_KEYGEN);
 	}
 
  done:
 	LLOCK;
-	if (debugfile) {
-		CK_ATTRIBUTE *attr = NULL;
-		CK_ULONG      i;
 
-		stlogit2(debugfile, "%-25s:  rc = %08x, sess = %d, mech = %x\n", "C_GenerateKeyPair", rc, (sess == NULL)?-1:(CK_LONG)sess->handle, pMechanism->mechanism );
+	OCK_LOG_DEBUG("C_GenerateKeyPair:  rc = %08x, sess = %d, mech = %x\n", rc, (sess == NULL)?-1:(CK_LONG)sess->handle, pMechanism->mechanism);
 
-		if (rc == CKR_OK) {
-			stlogit2(debugfile, "   Public  handle:  %d\n", *phPublicKey );
-			stlogit2(debugfile, "   Private handle:  %d\n", *phPrivateKey );
-		}
+#ifdef DEBUG
+	if (rc == CKR_OK)
+		OCK_LOG_DEBUG("Public  handle:  %d, Private handle:  %d\n", *phPublicKey, *phPrivateKey);
 
-		stlogit2(debugfile, "   Public Template:\n");
+	OCK_LOG_DEBUG("Public Template:\n");
 
-		attr = pPublicKeyTemplate;
-		for (i = 0; i < ulPublicKeyAttributeCount; i++, attr++) {
-			CK_BYTE *ptr = (CK_BYTE *)attr->pValue;
+	attr = pPublicKeyTemplate;
+	for (i = 0; i < ulPublicKeyAttributeCount; i++, attr++) {
+		CK_BYTE *ptr = (CK_BYTE *)attr->pValue;
 
-			stlogit2(debugfile, "   %3d:  Attribute type:  0x%08x\n", i, attr->type );
-			stlogit2(debugfile, "         Value Length:    %08d\n",   attr->ulValueLen );
+		OCK_LOG_DEBUG("%d:  Attribute type:  0x%08x, Value Length: %d\n", i, attr->type, attr->ulValueLen);
 
-			if (attr->ulValueLen != (CK_ULONG)(-1) && (ptr != NULL))
-				stlogit2(debugfile, "         First 4 bytes:   %02x %02x %02x %02x", ptr[0], ptr[1], ptr[2], ptr[3] );
-
-			stlogit2(debugfile, "\n\n");
-		}
-
-		stlogit2(debugfile, "   Private Template:\n");
-
-		attr = pPrivateKeyTemplate;
-		for (i = 0; i < ulPrivateKeyAttributeCount; i++, attr++) {
-			CK_BYTE *ptr = (CK_BYTE *)attr->pValue;
-
-			stlogit2(debugfile, "   %3d:  Attribute type:  0x%08x\n", i, attr->type );
-			stlogit2(debugfile, "         Value Length:    %08d\n",   attr->ulValueLen );
-
-			if (attr->ulValueLen != (CK_ULONG)(-1) && (ptr != NULL))
-				stlogit2(debugfile, "         First 4 bytes:   %02x %02x %02x %02x", ptr[0], ptr[1], ptr[2], ptr[3] );
-
-			stlogit2(debugfile, "\n\n");
-		}
+		if (attr->ulValueLen != (CK_ULONG)(-1) && (ptr != NULL))
+			OCK_LOG_DEBUG("First 4 bytes:  %02x %02x %02x %02x\n", ptr[0], ptr[1], ptr[2], ptr[3]);
 
 	}
+
+	OCK_LOG_DEBUG("Private Template:\n");
+
+	attr = pPublicKeyTemplate;
+	for (i = 0; i < ulPublicKeyAttributeCount; i++, attr++) {
+		CK_BYTE *ptr = (CK_BYTE *)attr->pValue;
+
+		OCK_LOG_DEBUG("%d:  Attribute type:  0x%08x, Value Length: %d\n", i, attr->type, attr->ulValueLen);
+
+		if (attr->ulValueLen != (CK_ULONG)(-1) && (ptr != NULL))
+			OCK_LOG_DEBUG("First 4 bytes:  %02x %02x %02x %02x\n", ptr[0], ptr[1], ptr[2], ptr[3]);
+
+	}
+#endif
 
 	UNLOCKIT; return rc;
 }
@@ -3726,13 +3586,13 @@ CK_RV SC_WrapKey( ST_SESSION_HANDLE  *sSession,
 
 		LOCKIT;
 	if (st_Initialized() == FALSE) {
-		st_err_log(72, __FILE__, __LINE__);
+		OCK_LOG_ERR(ERR_CRYPTOKI_NOT_INITIALIZED);
 		rc = CKR_CRYPTOKI_NOT_INITIALIZED;
 		goto done;
 	}
 
 	if (!pMechanism || !pulWrappedKeyLen) {
-		st_err_log(5, __FILE__, __LINE__, __FUNCTION__);
+		OCK_LOG_ERR(ERR_ARGUMENTS_BAD);
 		rc = CKR_ARGUMENTS_BAD;
 		goto done;
 	}
@@ -3743,13 +3603,13 @@ CK_RV SC_WrapKey( ST_SESSION_HANDLE  *sSession,
 
 	sess = SESSION_MGR_FIND( hSession );
 	if (!sess) {
-		st_err_log(40, __FILE__, __LINE__);
+		OCK_LOG_ERR(ERR_SESSION_HANDLE_INVALID);
 		rc = CKR_SESSION_HANDLE_INVALID;
 		goto done;
 	}
 
 	if (pin_expired(&sess->session_info, nv_token_data->token_info.flags) == TRUE) {
-		st_err_log(36, __FILE__, __LINE__);
+		OCK_LOG_ERR(ERR_PIN_EXPIRED);
 		rc = CKR_PIN_EXPIRED;
 		goto done;
 	}
@@ -3759,14 +3619,12 @@ CK_RV SC_WrapKey( ST_SESSION_HANDLE  *sSession,
 			       hWrappingKey, hKey,
 			       pWrappedKey,  pulWrappedKeyLen );
 	if (rc != CKR_OK){ 
-		st_err_log(188, __FILE__, __LINE__);
+		OCK_LOG_ERR(ERR_KEY_WRAP);
 	}
 
  done:
 	LLOCK;
-	if (debugfile) {
-		stlogit2(debugfile, "%-25s:  rc = %08x, sess = %d, encrypting key = %d, wrapped key = %d\n", "C_WrapKey", rc, (sess == NULL)?-1:(CK_LONG)sess->handle, hWrappingKey, hKey );
-	}
+	OCK_LOG_DEBUG("%s:  rc = %08x, sess = %d, encrypting key = %d, wrapped key = %d\n", "C_WrapKey", rc, (sess == NULL)?-1:(CK_LONG)sess->handle, hWrappingKey, hKey);
 
 	UNLOCKIT; return rc;
 }
@@ -3793,7 +3651,7 @@ CK_RV SC_UnwrapKey( ST_SESSION_HANDLE     *sSession,
 
 		LOCKIT;
 	if (st_Initialized() == FALSE) {
-		st_err_log(72, __FILE__, __LINE__);
+		OCK_LOG_ERR(ERR_CRYPTOKI_NOT_INITIALIZED);
 		rc = CKR_CRYPTOKI_NOT_INITIALIZED;
 		goto done;
 	}
@@ -3801,7 +3659,7 @@ CK_RV SC_UnwrapKey( ST_SESSION_HANDLE     *sSession,
 	if (!pMechanism || !pWrappedKey ||
 	    (!pTemplate && ulCount != 0) || !phKey)
 	{
-		st_err_log(5, __FILE__, __LINE__, __FUNCTION__);
+		OCK_LOG_ERR(ERR_ARGUMENTS_BAD);
 		rc = CKR_ARGUMENTS_BAD;
 		goto done;
 	}
@@ -3809,13 +3667,13 @@ CK_RV SC_UnwrapKey( ST_SESSION_HANDLE     *sSession,
 
 	sess = SESSION_MGR_FIND( hSession );
 	if (!sess) {
-		st_err_log(40, __FILE__, __LINE__);
+		OCK_LOG_ERR(ERR_SESSION_HANDLE_INVALID);
 		rc = CKR_SESSION_HANDLE_INVALID;
 		goto done;
 	}
 
 	if (pin_expired(&sess->session_info, nv_token_data->token_info.flags) == TRUE) {
-		st_err_log(36, __FILE__, __LINE__);
+		OCK_LOG_ERR(ERR_PIN_EXPIRED);
 		rc = CKR_PIN_EXPIRED;
 		goto done;
 	}
@@ -3825,30 +3683,26 @@ CK_RV SC_UnwrapKey( ST_SESSION_HANDLE     *sSession,
 				 pWrappedKey,    ulWrappedKeyLen,
 				 hUnwrappingKey, phKey );
 	if (rc != CKR_OK){ 
-		st_err_log(189, __FILE__, __LINE__);
+		OCK_LOG_ERR(ERR_KEY_UNWRAP);
 	}
 
  done:
 //   if (rc == CKR_OBJECT_HANDLE_INVALID)  brkpt();
 	LLOCK;
-	if (debugfile) {
-		stlogit2(debugfile, "%-25s:  rc = %08x, sess = %d, decrypting key = %d, unwrapped key = %d\n", "C_UnwrapKey", rc, (sess == NULL)?-1:(CK_LONG)sess->handle, hUnwrappingKey, *phKey );
+	OCK_LOG_DEBUG("C_UnwrapKey:  rc = %08x, sess = %d, decrypting key = %d, unwrapped key = %d\n", rc, (sess == NULL)?-1:(CK_LONG)sess->handle, hUnwrappingKey, *phKey);
 
-		attr = pTemplate;
-		for (i = 0; i < ulCount; i++, attr++) {
-			ptr = (CK_BYTE *)attr->pValue;
+#ifdef DEBUG
+	attr = pTemplate;
+	for (i = 0; i < ulCount; i++, attr++) {
+		ptr = (CK_BYTE *)attr->pValue;
 
-			stlogit2(debugfile, "   %3d:  Attribute type:  0x%08x\n", i, attr->type );
-			stlogit2(debugfile, "         Value Length:    %08d\n",   attr->ulValueLen );
+		OCK_LOG_DEBUG("%d:  Attribute type:  0x%08x, Value Length: %d\n", i, attr->type, attr->ulValueLen);
 
-			if (attr->ulValueLen != (CK_ULONG)(-1) && (ptr != NULL))
-				stlogit2(debugfile, "         First 4 bytes:   %02x %02x %02x %02x", ptr[0], ptr[1], ptr[2], ptr[3] );
-
-			stlogit2(debugfile, "\n\n");
-		}
+		if (attr->ulValueLen != (CK_ULONG)(-1) && (ptr != NULL))
+			OCK_LOG_DEBUG("First 4 bytes:  %02x %02x %02x %02x\n", ptr[0], ptr[1], ptr[2], ptr[3]);
 
 	}
-
+#endif
 	UNLOCKIT; return rc;
 }
 
@@ -3872,13 +3726,13 @@ CK_RV SC_DeriveKey( ST_SESSION_HANDLE     *sSession,
 
 		LOCKIT;
 	if (st_Initialized() == FALSE) {
-		st_err_log(72, __FILE__, __LINE__);
+		OCK_LOG_ERR(ERR_CRYPTOKI_NOT_INITIALIZED);
 		rc = CKR_CRYPTOKI_NOT_INITIALIZED;
 		goto done;
 	}
 
 	if (!pMechanism || (!pTemplate && ulCount != 0)) {
-		st_err_log(5, __FILE__, __LINE__, __FUNCTION__);
+		OCK_LOG_ERR(ERR_ARGUMENTS_BAD);
 		rc = CKR_ARGUMENTS_BAD;
 		goto done;
 	}
@@ -3886,13 +3740,13 @@ CK_RV SC_DeriveKey( ST_SESSION_HANDLE     *sSession,
 
 	sess = SESSION_MGR_FIND( hSession );
 	if (!sess) {
-		st_err_log(40, __FILE__, __LINE__);
+		OCK_LOG_ERR(ERR_SESSION_HANDLE_INVALID);
 		rc = CKR_SESSION_HANDLE_INVALID;
 		goto done;
 	}
 
 	if (pin_expired(&sess->session_info, nv_token_data->token_info.flags) == TRUE) {
-		st_err_log(36, __FILE__, __LINE__);
+		OCK_LOG_ERR(ERR_PIN_EXPIRED);
 		rc = CKR_PIN_EXPIRED;
 		goto done;
 	}
@@ -3901,56 +3755,49 @@ CK_RV SC_DeriveKey( ST_SESSION_HANDLE     *sSession,
 				 hBaseKey,  phKey,
 				 pTemplate, ulCount );
 	if (rc != CKR_OK){ 
-		st_err_log(190, __FILE__, __LINE__);
+		OCK_LOG_ERR(ERR_KEY_DERIVE);
 	}
 
  done:
 	LLOCK;
-	if (debugfile) {
-		stlogit2(debugfile, "%-25s:  rc = %08x, sess = %d, base key = %d, mech = %x\n", "C_DeriveKey", rc, (sess == NULL)?-1:(CK_LONG)sess->handle, hBaseKey, pMechanism->mechanism );
+	OCK_LOG_DEBUG("C_DeriveKey:  rc = %08x, sess = %d, base key = %d, mech = %x\n", rc, (sess == NULL)?-1:(CK_LONG)sess->handle, hBaseKey, pMechanism->mechanism);
+#ifdef DEBUG
+	if (rc == CKR_OK) {
+		switch (pMechanism->mechanism) {
+		case CKM_SSL3_KEY_AND_MAC_DERIVE:
+		{
+			CK_SSL3_KEY_MAT_PARAMS *pReq;
+			CK_SSL3_KEY_MAT_OUT    *pPtr;
+			pReq = (CK_SSL3_KEY_MAT_PARAMS *)pMechanism->pParameter;
+			pPtr = pReq->pReturnedKeyMaterial;
 
-		if (rc == CKR_OK) {
-			switch (pMechanism->mechanism) {
-			case CKM_SSL3_KEY_AND_MAC_DERIVE:
-			{
-				CK_SSL3_KEY_MAT_PARAMS *pReq;
-				CK_SSL3_KEY_MAT_OUT    *pPtr;
-				pReq = (CK_SSL3_KEY_MAT_PARAMS *)pMechanism->pParameter;
-				pPtr = pReq->pReturnedKeyMaterial;
-
-				stlogit2(debugfile, "   Client MAC key:  %d\n", pPtr->hClientMacSecret );
-				stlogit2(debugfile, "   Server MAC key:  %d\n", pPtr->hServerMacSecret );
-				stlogit2(debugfile, "   Client Key:      %d\n", pPtr->hClientKey );
-				stlogit2(debugfile, "   Server Key:      %d\n", pPtr->hServerKey );
-			}
-			break;
-
-			case CKM_DH_PKCS_DERIVE:
-			{
-				stlogit2(debugfile, "   DH Shared Secret:  \n" );
-			}
-			break ;
-
-			default:
-				stlogit2(debugfile, "   Derived key:     %d\n", *phKey );
-			}
+			OCK_LOG_DEBUG("Client MAC key: %d, Server MAC key: %d, Client Key: %d, Server Key: %d\n", pPtr->hClientMacSecret, pPtr->hServerMacSecret, pPtr->hClientKey, pPtr->hServerKey);
 		}
+		break;
 
-
-		attr = pTemplate;
-		for (i = 0; i < ulCount; i++, attr++) {
-			ptr = (CK_BYTE *)attr->pValue;
-
-			stlogit2(debugfile, "   %3d:  Attribute type:  0x%08x\n", i, attr->type );
-			stlogit2(debugfile, "         Value Length:    %08d\n",   attr->ulValueLen );
-
-			if (attr->ulValueLen != (CK_ULONG)(-1) && (ptr != NULL))
-				stlogit2(debugfile, "         First 4 bytes:   %02x %02x %02x %02x", ptr[0], ptr[1], ptr[2], ptr[3] );
-
-			stlogit2(debugfile, "\n\n");
+		case CKM_DH_PKCS_DERIVE:
+		{
+			OCK_LOG_DEBUG("DH Shared Secret: \n");
 		}
+		break ;
+
+		default:
+			OCK_LOG_DEBUG("Derived key: %d\n", *phKey);
+		}
+	}
+
+
+	attr = pTemplate;
+	for (i = 0; i < ulCount; i++, attr++) {
+		ptr = (CK_BYTE *)attr->pValue;
+
+		OCK_LOG_DEBUG("%d:  Attribute type:  0x%08x, Value Length: %d\n", i, attr->type, attr->ulValueLen);
+
+		if (attr->ulValueLen != (CK_ULONG)(-1) && (ptr != NULL))
+			OCK_LOG_DEBUG("First 4 bytes:  %02x %02x %02x %02x\n", ptr[0], ptr[1], ptr[2], ptr[3]);
 
 	}
+#endif /* DEBUG */
 
 	UNLOCKIT; return rc;
 }
@@ -3964,7 +3811,7 @@ CK_RV SC_SeedRandom( ST_SESSION_HANDLE  *sSession,
 {
 	CK_SESSION_HANDLE hSession = SESS_HANDLE(sSession);
 		if (st_Initialized() == FALSE){
-			st_err_log(72, __FILE__, __LINE__);
+			OCK_LOG_ERR(ERR_CRYPTOKI_NOT_INITIALIZED);
 			return CKR_CRYPTOKI_NOT_INITIALIZED;
 		}
 	return CKR_OK;
@@ -3983,34 +3830,32 @@ CK_RV SC_GenerateRandom( ST_SESSION_HANDLE  *sSession,
 
 		LOCKIT;
 	if (st_Initialized() == FALSE) {
-		st_err_log(72, __FILE__, __LINE__);
+		OCK_LOG_ERR(ERR_CRYPTOKI_NOT_INITIALIZED);
 		rc = CKR_CRYPTOKI_NOT_INITIALIZED;
 		goto done;
 	}
 
 	if (!pRandomData && ulRandomLen != 0) {
-		st_err_log(5, __FILE__, __LINE__, __FUNCTION__);
+		OCK_LOG_ERR(ERR_ARGUMENTS_BAD);
 		rc = CKR_ARGUMENTS_BAD;
 		goto done;
 	}
 
 	sess = SESSION_MGR_FIND( hSession );
 	if (!sess) {
-		st_err_log(40, __FILE__, __LINE__);
+		OCK_LOG_ERR(ERR_SESSION_HANDLE_INVALID);
 		rc = CKR_SESSION_HANDLE_INVALID;
 		goto done;
 	}
 
 	rc = rng_generate( pRandomData, ulRandomLen );
 	if (rc != CKR_OK){ 
-		st_err_log(130, __FILE__, __LINE__, __FUNCTION__);
+		OCK_LOG_ERR(ERR_RNG);
 	}
 
  done:
 	LLOCK;
-	if (debugfile) {
-		stlogit2(debugfile, "%-25s:  rc = %08x, %d bytes\n", "C_GenerateRandom", rc, ulRandomLen );
-	}
+	OCK_LOG_DEBUG("%s:  rc = %08x, %d bytes\n", "C_GenerateRandom", rc, ulRandomLen);
 
 	UNLOCKIT; return rc;
 }
@@ -4022,10 +3867,10 @@ CK_RV SC_GetFunctionStatus( ST_SESSION_HANDLE  *sSession )
 {
 	CK_SESSION_HANDLE hSession = SESS_HANDLE(sSession);
 		if (st_Initialized() == FALSE){
-			st_err_log(72, __FILE__, __LINE__);
+			OCK_LOG_ERR(ERR_CRYPTOKI_NOT_INITIALIZED);
 			return CKR_CRYPTOKI_NOT_INITIALIZED;
 		}
-	st_err_log(17, __FILE__, __LINE__);
+	OCK_LOG_ERR(ERR_FUNCTION_NOT_PARALLEL);
 	return CKR_FUNCTION_NOT_PARALLEL;
 }
 
@@ -4036,10 +3881,10 @@ CK_RV SC_CancelFunction( ST_SESSION_HANDLE  *sSession )
 {
 	CK_SESSION_HANDLE hSession = SESS_HANDLE(sSession);
 		if (st_Initialized() == FALSE){
-			st_err_log(72, __FILE__, __LINE__);
+			OCK_LOG_ERR(ERR_CRYPTOKI_NOT_INITIALIZED);
 			return CKR_CRYPTOKI_NOT_INITIALIZED;
 		}
-	st_err_log(17, __FILE__, __LINE__);
+	OCK_LOG_ERR(ERR_FUNCTION_NOT_PARALLEL);
 	return CKR_FUNCTION_NOT_PARALLEL;
 }
 
@@ -4047,7 +3892,7 @@ CK_RV SC_CancelFunction( ST_SESSION_HANDLE  *sSession )
 //
 CK_RV QueryTweakValues( void )
 {
-	st_err_log(142, __FILE__, __LINE__, __FUNCTION__);
+	OCK_LOG_ERR(ERR_FUNCTION_NOT_SUPPORTED);
 	return CKR_FUNCTION_NOT_SUPPORTED;
 }
 
@@ -4056,7 +3901,7 @@ CK_RV QueryTweakValues( void )
 //
 CK_RV UpdateTweakValues( void )
 {
-	st_err_log(142, __FILE__, __LINE__, __FUNCTION__);
+	OCK_LOG_ERR(ERR_FUNCTION_NOT_SUPPORTED);
 	return CKR_FUNCTION_NOT_SUPPORTED;
 }
 

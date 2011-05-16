@@ -331,7 +331,7 @@ cert_check_required_attributes( TEMPLATE *tmpl, CK_ULONG mode )
    if (mode == MODE_CREATE) {
       found = template_attribute_find( tmpl, CKA_CERTIFICATE_TYPE, &attr );
       if (found == FALSE){
-         st_err_log(48, __FILE__, __LINE__);
+         OCK_LOG_ERR(ERR_TEMPLATE_INCOMPLETE);
          return CKR_TEMPLATE_INCOMPLETE;
       }
       // don't bother checking the value.  it was checked in the 'validate'
@@ -353,14 +353,14 @@ cert_validate_attribute( TEMPLATE *tmpl, CK_ATTRIBUTE *attr, CK_ULONG mode )
       case CKA_CERTIFICATE_TYPE:
          {
             if (mode != MODE_CREATE){
-               st_err_log(7, __FILE__, __LINE__);
+               OCK_LOG_ERR(ERR_ATTRIBUTE_READ_ONLY);
                return CKR_ATTRIBUTE_READ_ONLY;
             }
             type = *(CK_CERTIFICATE_TYPE *)attr->pValue;
             if (type == CKC_X_509 || type >= CKC_VENDOR_DEFINED)
                return CKR_OK;
             else{
-               st_err_log(9, __FILE__, __LINE__);
+               OCK_LOG_ERR(ERR_ATTRIBUTE_VALUE_INVALID);
                return CKR_ATTRIBUTE_VALUE_INVALID;
             }
          }
@@ -384,12 +384,12 @@ cert_x509_check_required_attributes( TEMPLATE *tmpl, CK_ULONG mode )
 
    found = template_attribute_find( tmpl, CKA_SUBJECT, &attr );
    if (!found){
-      st_err_log(9, __FILE__, __LINE__);
+      OCK_LOG_ERR(ERR_TEMPLATE_INCOMPLETE);
       return CKR_TEMPLATE_INCOMPLETE;
    }
    found = template_attribute_find( tmpl, CKA_VALUE, &attr );
    if (!found){
-      st_err_log(9, __FILE__, __LINE__);
+      OCK_LOG_ERR(ERR_TEMPLATE_INCOMPLETE);
       return CKR_TEMPLATE_INCOMPLETE;
    }
    return cert_check_required_attributes( tmpl, mode );
@@ -424,7 +424,7 @@ cert_x509_set_default_attributes( TEMPLATE *tmpl, CK_ULONG mode )
       if (id_attr)      free( id_attr     );
       if (issuer_attr)  free( issuer_attr );
       if (serial_attr)  free( serial_attr );
-      st_err_log(1, __FILE__, __LINE__);
+      OCK_LOG_ERR(ERR_HOST_MEMORY);
 
       return CKR_HOST_MEMORY;
    }
@@ -457,7 +457,7 @@ cert_x509_validate_attribute( TEMPLATE *tmpl, CK_ATTRIBUTE *attr, CK_ULONG mode 
    switch (attr->type) {
       case CKA_SUBJECT:
          if (mode != MODE_CREATE){
-            st_err_log(7, __FILE__, __LINE__);
+            OCK_LOG_ERR(ERR_ATTRIBUTE_READ_ONLY);
             return CKR_ATTRIBUTE_READ_ONLY;
          }
          else
@@ -470,7 +470,7 @@ cert_x509_validate_attribute( TEMPLATE *tmpl, CK_ATTRIBUTE *attr, CK_ULONG mode 
 
       case CKA_VALUE:
          if (mode != MODE_CREATE){
-            st_err_log(7, __FILE__, __LINE__);
+            OCK_LOG_ERR(ERR_ATTRIBUTE_READ_ONLY);
             return CKR_ATTRIBUTE_READ_ONLY;
          }
          else

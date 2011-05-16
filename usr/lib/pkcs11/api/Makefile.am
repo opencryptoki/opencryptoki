@@ -10,10 +10,11 @@ opencryptoki_libopencryptoki_la_LDFLAGS = -shared -Wl,-Bsymbolic -lc -ldl \
 
 # Not all versions of automake observe libname_CFLAGS
 opencryptoki_libopencryptoki_la_CFLAGS = -DSPINXPL -DAPI -DDEV -D_THREAD_SAFE \
-					 -fPIC -I../. -I../../../include/pkcs11
+					 -fPIC -I../. -I../../../include/pkcs11 \
+					 -I ../common -DSTDLL_NAME=\"api\"
 
 opencryptoki_libopencryptoki_la_SOURCES = api_interface.c shrd_mem.c apiutil.c \
-					  ../common/btree.c
+					  ../common/btree.c ../common/log.c
 
 install-data-hook:
 	$(MKDIR_P) $(DESTDIR)$(libdir)/opencryptoki/stdll

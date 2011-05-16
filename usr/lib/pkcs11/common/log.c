@@ -289,392 +289,291 @@
 /* (C) COPYRIGHT International Business Machines Corp. 2001,2002          */
 
 
-#include <pthread.h>
-#include <stdlib.h>
-#include <stdio.h>
-#include <dlfcn.h>
-#include <errno.h>
-#include <sys/syslog.h>
-
-#include <sys/ipc.h>
-
-#include <stdarg.h>
-#include <pthread.h>
-
-#include <pkcs11types.h>
-
-#include "defs.h"
-#include "host_defs.h"
-
-#include "tok_spec_struct.h"
-extern token_spec_t token_specific;
-
-#include "tokenlocal.h"
-
-
-
-#include "msg.h"  // HACK  
-
-void stlogit(char *, ...);
-//extern char **err_msg;
-
 #include <sys/types.h>
-#include <sys/stat.h>
+#include <sys/param.h>
+#include <string.h>
+#include <stdio.h>
+#include <stdlib.h>
+#include <stdarg.h>
+#include <unistd.h>
+#include <time.h>
+#include <sys/time.h>
+#include <sys/types.h>
+#include <sys/file.h>
 
-#if 0
-extern FILE  *debugfile;
-char  lfname[1024];
-#else
-extern int  debugfile;
-#endif
-pthread_mutex_t  lmtx=PTHREAD_MUTEX_INITIALIZER;
+#include <pthread.h>
+#include <sys/syslog.h>
+#include <dlfcn.h>
 
-static int enabled=0;
-static int logging=0;
-static int env_log_check=0; 
+#include "pkcs11types.h"
+#include "defs.h"
+#include "host_defs.h" 
+#include "h_extern.h"
+#include "msg.h"
 
-// Logging types.  Ultimately this will allow
-// us to log to different log files.  The logger will also
-// handle keeping the files to a decent size.
-// Much work needs to be done on this capability... 
-// Other logging types need to be implemented
+pthread_mutex_t  lmtx = PTHREAD_MUTEX_INITIALIZER;
 
-void 
-stloginit(){
-   char *logval;
-   if (!env_log_check){
-      logval = getenv("PKCS_ERROR_LOG");
-      env_log_check = 1;
-      if (logval != NULL)
-         logging = 1;
-      else
-         logging = 0;
-   }
-   if (!enabled && logging){
-      enabled=1;
-      openlog((const char *)DBGTAG,LOG_PID|LOG_NDELAY,LOG_LOCAL6);
-      setlogmask(LOG_UPTO(LOG_DEBUG));
-
-
-#ifdef DEBUG
-      debugfile = 1;
-#else
-      debugfile = 0;
-#endif
-#if 0
-      sprintf(lfname,"%s/%s.%d",CONFIG_PATH,DBGTAG,getpid());
-      debugfile = fopen(lfname,"w+");
-      if (debugfile) {
-         fchmod(fileno(debugfile),
-         S_IRUSR|S_IWUSR|S_IRGRP|S_IWGRP|S_IROTH|S_IWOTH);
-      }
-#endif
-      stlogit("Log initialized");
-   }
-}
-
-void
-stlogterm()
-{
-  enabled = 0;
-}
-
-void
-stlogit2(int type,char *fmt, ...)
-{
-      va_list pvar;
-      char buffer[4096*4];
-//      char buf1[4096];
-
-   if (!enabled)  stloginit();
-
-   if ( enabled && debugfile){
-//         sprintf(buf1,"Tid %d",pthread_self());
-//         syslog_r(LOG_DEBUG,&log_data,buf1);
-         va_start(pvar, fmt);
-         vsprintf(buffer,fmt,pvar);
-         va_end(pvar);
-         pthread_mutex_lock(&lmtx);
-         syslog(LOG_DEBUG,buffer);
-         pthread_mutex_unlock(&lmtx);
-#if 0
-	if (debugfile) {
-         pthread_mutex_lock(&lmtx);
-         fprintf(debugfile,"[%d]:%s\n",getpid(),buffer);
-          fflush(debugfile);
-         pthread_mutex_unlock(&lmtx);
- 	}
-#endif
-   }
-
-}
-
-
-
-void
-stlogit(char *fmt, ...)
-{
-      va_list pvar;
-      char buffer[4096*4];
-
-   if (!enabled)  stloginit();
-
-   if ( enabled && debugfile){
-         va_start(pvar, fmt);
-         vsprintf(buffer,fmt,pvar);
-         va_end(pvar);
-         pthread_mutex_lock(&lmtx);
-         syslog(LOG_DEBUG,buffer);
-         pthread_mutex_unlock(&lmtx);
-#if 0
-	if (debugfile) {
-         pthread_mutex_lock(&lmtx);
-         fprintf(debugfile,"[%d]:%s\n",getpid(),buffer);
-          fflush(debugfile);
-         pthread_mutex_unlock(&lmtx);
- 	}
-#endif
-   }
-
-}
-
-/* moved in from msg.h */
-
-struct messages err_msg[]={
-		{"Malloc Failed"},
-		{"Not Enough Memory in Context"},
-		{"Slot Invalid"},
-		{"General Error"},
-		{"%s Function Failed"},
-		//#5
-		{"%s Bad Arguments"},
-		{"No Event"},
-		{"Attribute Read Only"},
-		{"Attribute Type Invalid"},
-		{"Attribute Value Invalid"},
-		//#10
-		{"Data Invalid"},
-		{"Data Length out of Range"},
-		{"Device Error"},
-		{"Device Removed"},
-		{"Encrypted Data Invalid"},
-		//15
-		{"Encrypted Data Length out of Range"},
-		{"Function Cancelled"},
-		{"Function Not Parallel"},
-		{"Key Handle Invalid"},
-		{"Key Size out of Range"},
-		//20
-		{"Key Type Inconsistent"},
-		{"Key Not Needed"},
-		{"Key Changed"},
-		{"Key Needed"},
-		{"Key Indigestible"},
-		//25
-		{"Key Function Not Permitted"},
-		{"Key Not Wrappable"},
-		{"Key Unextractable"},
-		{"Mechanism Invalid"},
-		{"Mechanism Param Invalid"},
-		//30
-		{"Object Handle Invalid"},
-		{"Operation Active"},
-		{"Operation Not Initialized"},
-		{"Pin Incorrect"},
-		{"Pin Invalid"},
-		//35
-		{"Pin Length out of Range"},
-		{"Pin Expired"},
-		{"Pin Locked"},
-		{"Session Closed"},
-		{"Session Count"},
-		//40
-		{"Session Handle Invalid"},
-		{"Parallel Session Not Supported"},
-		{"Session Read Only"},
-		{"Session Exists"},
-		{"Session Read only Exists"},
-		//45
-		{"Session Read Write Exists"},
-		{"Signature Length out of Range"},
-		{"Signature Invalid"},
-		{"Template Incomplete"},
-		{"Template Inconsistent"},
-		//50
-		{"Token Not Present"},
-		{"Token Not Recognized"},
-		{"Token Write Protected"},
-		{"Unwrapping Key Handle Invalid"},
-		{"Unwrapping Key Size Range Invalid"},
-		//55
-		{"Unwrapping Key Type Inconsistent"},
-		{"User Already Logged In"},
-		{"User Not Logged In"},
-		{"User PIN Not Initialized"},
-		{"User Type Invalid"},
-		//60
-		{"Another User Already Logged In"},
-		{"Too Many User Types"},
-		{"Wrapped Key Invalid"},
-		{"Wrapped Key Length Out of Range"},
-		{"Wrapping Key Size out of Range"},
-		//65
-		{"Wrapping Key Type Inconsistent"},
-		{"Random Seed Not Supported"},
-		{"Random Number Invalid"},
-		{"Buffer Too Small"},
-		{"Saved State Invalid"},
-		//70
-		{"Information Sensitive"},
-		{"State Unsaveable"},
-		{"API not initialized"},
-		{"API already Initialized"},
-		{"Mutex Bad"},
-		//75
-		{"Mutex Lock Invalid"},
-		{"Encode Integer Failed"},
-		{"Encode Octet String Failed"},
-		{"Encode Sequence Failed"},
-		{"Decode Integer Failed"},
-		//80
-		{"Decode Octet String Failed"},
-		{"Decode Sequence Failed"},
-		{"Encode Private Key Failed"},
-		{"Decode Private Key Failed"},
-		{"Build Attribute Failed"},
-		//85
-		{"Function Not Permitted"},
-		{"Key Not Exportable"},
-		{"Encode Private Key failed"},
-		{"Decode Private Key failed"},
-		{"Object Mgr Create Skeleton failed"},
-		//90
-		{"Object Mgr Create Final failed"},
-		{"Key Generation failed"},
-		{"DES Wrap Get Data Failed"},
-		{"DES3 Wrap Get Data Failed"},
-		{"RSA Wrap Get Data Failed"},
-		//95
-		{"DSA Wrap Get Data Failed"},
-		{"Generic Secret Wrap Get Data Failed"},
-		{"DES Wrap Format Failed"},
-		{"Encryption Mgr Init Failed"},
-		{"Encryption Mgr Encrypt Failed"},
-		//100
-		{"Decryption Mgr Decrypt Failed"},
-		{"Flatten Object Failed"},
-		{"Key Mgr Get Priv Key Type Failed"},
-		{"Decrypt Private Key Info Failed"},
-		{"Save Token Failed"},
-		//105
-		{"Triple DES CBC Encrypt Failed"},
-		{"Triple DES CBC Decrypt Failed"},
-		{"Restore Private Token Failed"},
-		{"Restore Object Failed"},
-		{"Data Length Out of Range"},
-		//110
-		{"Object Manager Find in Map Failed"},
-		{"Token Specific RNG Failed"},
-		{"Encrypted Data Length Out of Range"},
-		{"DES CBC Encrypt Failed"},
-		{"DES CBC Decrypt Failed"},
-		//115
-		{"DES ECB Encrypt Failed"},
-		{"DES ECB Decrypt Failed"},
-		{"Token Specific DES ECB Failed"},
-		{"Token Specific DES CBC Failed"},
-		{"Token Specific 3DES CBC Failed"},
-		//120
-		{"Token Specific 3DES ECB Failed"},
-		{"DSA Verify Failed"},
-		{"DSA Sign Failed"},
-		{"Digest Init Failed"},
-		{"Digest Failed"},
-		//125
-		{"Digest Update Failed"},
-		{"Digest Final Failed"},
-		{"Sign Init Failed"},
-		{"Sign Update Failed"},
-		{"Sign Final Failed"},
-		//130
-		{"Random Number Generate Failed"},
-		{"RSA Format Block Failed"},
-		{"RSA Encrypt Failed"},
-		{"RSA Decrypt Failed"},
-		{"Token Specific RSA Encrypt Failed"},
-		//135
-		{"Token Specific RSA Decrypt Failed"},
-		{"SSL SHA Failed"},
-		{"SSL3 MD5 Failed"},
-		{"SSL3 Process MAC Keys Failed"},
-		{"SSL3 Process Write Keys Failed"},
-		//140
-		{"Validate Attribute Failed"},
-		{"SSL3 Process Write Keys Failed"},
-		{"%s Function Not Supported"},
-		{"Token Already Initialized"},
-		{"Cannot Attach to Shared Memory"},
-		//145
-		{"Token Specific Init Failed"},
-		{"Mutex Lock Failed"},
-		{"Mutex Unlock Failed"},
-		{"Hash Computation Failed"},
-		{"Save Master Key Failed"},
-		//150
-		{"Process Lock Failed"},
-		{"Process Unlock Failed"},
-		{"Session Mgr New Failed"},
-		{"Close all Sessions Failed"},
-		{"Session Mgr Get Op State Failed"},
-		//155
-		{"Load Master Key Failed"},
-		{"Object Create Failed"},
-		{"Object Mgr Add to Map Failed"},
-		{"Object Copy Failed"},
-		{"Object Get Attribute Values Failed"},
-		//160
-		{"Object Restore Data Failed"},
-		{"Object Set Attribute Values Failed"},
-		{"Object Mgr Search for Object Failed"},
-		{"Copy Template Failed"},
-		{"Add Attribute Failed"},
-		//165
-		{"Check Required Attributes Failed"},
-		{"Unflatten Template Failed"},
-		{"Verify Init Failed"},
-		{"Verify Failed"},
-		{"Verify Update Failed"},
-		//170
-		{"Verify Final Failed"},
-		{"Sign Failed"},
-		{"Set Default Attributes Failed"},
-		{"Unwrap Key Failed"},
-		{"Session Mgr New Failed"},
-		//175
-		{"Merge Attributes Failed"},
-		{"Encryption Mgr Encrypt Update Failed"},
-		{"Encryption Mgr Encrypt Final Failed"},
-		{"Update Attribute Failed"},
-		{"Decryption Mgr Init Failed"},
-		//180
-		{"Decryption Mgr Update Failed"},
-		{"Decryption Mgr Final Failed"},
-		{"Object Mgr Destroy Failed"},
-		{"Attribute Undefined"},
-		{"Object Mgr Get Size Failed"},
-		//185
-		{"Object Manager Find Init Failed"},
-		{"Sign Recover Failed"},
-		{"Verify Recover Failed"},
-		{"Wrap Key Failed"},
-		{"Unwrap Key Failed"},
-		//190
-		{"Derive Key Failed"},
-		{"AES Wrap Get Data Failed"},
-		{"AES Wrap Format Failed"},
-		{"Domain Parameter Invalid"},
-		{"File \"%s\" could not be opened, errno=%d"},
-		//195
-		{"Token Specific AES CTR Failed"}
+static const char *ock_err_msg[] = {
+"Malloc Failed",			/*ERR_HOST_MEMORY*/
+"Slot Invalid",				/*ERR_SLOT_ID_INVALID*/
+"General Error",			/*ERR_GENERAL_ERROR*/
+"Function Failed",			/*ERR_FUNCTION_FAILED*/
+"Bad Arguments",			/*ERR_ARGUMENTS_BAD*/
+"No Event",				/*ERR_NO_EVENT 5*/
+"Attribute Read Only",			/*ERR_ATTRIBUTE_READ_ONLY*/
+"Attribute Sensitive",			/*ERR_ATTRIBUTE_SENSITIVE*/
+"Attribute Type Invalid",		/*ERR_ATTRIBUTE_TYPE_INVALID*/
+"Attribute Value Invalid",		/*ERR_ATTRIBUTE_VALUE_INVALID*/
+"Data Invalid",				/*ERR_DATA_INVALID 10*/
+"Data Length out of Range",		/*ERR_DATA_LEN_RANGE*/
+"Device Error",				/*ERR_DEVICE_ERROR*/
+"Device does not have Sufficient Memory",	/*ERR_DEVICE_MEMORY*/
+"Device Removed",			/*ERR_DEVICE_REMOVED*/
+"Encrypted Data Invalid",		/*ERR_ENCRYPTED_DATA_INVALID 15*/
+"Encrypted Data Length out of Range",	/*ERR_ENCRYPTED_DATA_LEN_RANGE*/
+"Function Cancelled",			/*ERR_FUNCTION_CANCELED*/
+"Function Not Parallel",		/*ERR_FUNCTION_NOT_PARALLEL*/
+"Function Not Supported",		/*ERR_FUNCTION_NOT_SUPPORTED*/
+"Key Changed",				/*ERR_KEY_CHANGED 20*/
+"Key Function Not Permitted",		/*ERR_KEY_FUNCTION_NOT_PERMITTED*/
+"Key Handle Invalid",			/*ERR_KEY_HANDLE_INVALID*/
+"Key Indigestible",			/*ERR_KEY_INDIGESTIBLE*/
+"Key Needed",				/*ERR_KEY_NEEDED*/
+"Key Not Needed",			/*ERR_KEY_NOT_NEEDED 25*/
+"Key Not Wrappable",			/*ERR_KEY_NOT_WRAPPABLE*/
+"Key Size out of Range",		/*ERR_KEY_SIZE_RANGE*/
+"Key Type Inconsistent",		/*ERR_KEY_TYPE_INCONSISTENT*/
+"Key Unextractable",			/*ERR_KEY_UNEXTRACTABLE*/
+"Mechanism Invalid",			/*ERR_MECHANISM_INVALID 30*/
+"Mechanism Param Invalid",		/*ERR_MECHANISM_PARAM_INVALID*/
+"Object Handle Invalid",		/*ERR_OBJECT_HANDLE_INVALID*/
+"Operation Active",			/*ERR_OPERATION_ACTIVE*/
+"Operation Not Initialized",		/*ERR_OPERATION_NOT_INITIALIZED*/
+"Pin Incorrect",			/*ERR_PIN_INCORRECT 35*/
+"Pin Invalid",				/*ERR_PIN_INVALID*/
+"Pin Length out of Range",		/*ERR_PIN_LEN_RANGE*/
+"Pin Expired",				/*ERR_PIN_EXPIRED*/
+"Pin Locked",				/*ERR_PIN_LOCKED*/
+"Session Closed",			/*ERR_SESSION_CLOSED 40*/
+"Session Count",			/*ERR_SESSION_COUNT*/
+"Session Handle Invalid",		/*ERR_SESSION_HANDLE_INVALID*/
+"Parallel Session Not Supported",	/*ERR_SESSION_PARALLEL_NOT_SUPPORTED*/
+"Session Read Only",			/*ERR_SESSION_READ_ONLY*/
+"Session Exists",			/*ERR_SESSION_EXISTS 45*/
+"Session Read only Exists",		/*ERR_SESSION_READ_ONLY_EXISTS*/
+"Session Read Write Exists",		/*ERR_SESSION_READ_WRITE_SO_EXISTS*/
+"Signature Invalid",			/*ERR_SIGNATURE_INVALID*/
+"Signature Length out of Range",	/*ERR_SIGNATURE_LEN_RANGE*/
+"Template Incomplete",			/*ERR_TEMPLATE_INCOMPLETE 50*/
+"Template Inconsistent",		/*ERR_TEMPLATE_INCONSISTENT*/
+"Token Not Present",			/*ERR_TOKEN_NOT_PRESENT*/
+"Token Not Recognized",			/*ERR_TOKEN_NOT_RECOGNIZED*/
+"Token Write Protected",		/*ERR_TOKEN_WRITE_PROTECTED*/
+"Unwrapping Key Handle Invalid",	/*ERR_UNWRAPPING_KEY_HANDLE_INVALID 55*/
+"Unwrapping Key Size Range Invalid",	/*ERR_UNWRAPPING_KEY_SIZE_RANGE*/
+"Unwrapping Key Type Inconsistent",	/*ERR_UNWRAPPING_KEY_TYPE_INCONSISTENT*/
+"User Already Logged In",		/*ERR_USER_ALREADY_LOGGED_IN*/
+"User Not Logged In",			/*ERR_USER_NOT_LOGGED_IN*/
+"User PIN Not Initialized",		/*ERR_USER_PIN_NOT_INITIALIZED 60*/
+"User Type Invalid",			/*ERR_USER_TYPE_INVALID*/
+"Another User Already Logged In",	/*ERR_USER_ANOTHER_ALREADY_LOGGED_IN*/
+"Too Many User Types",			/*ERR_USER_TOO_MANY_TYPES*/
+"Wrapped Key Invalid", 			/*ERR_WRAPPED_KEY_INVALID*/
+"Wrapping Key Handle Invalid",		/*ERR_WRAPPING_KEY_HANDLE_INVALID 65*/
+"Wrapping Key Size out of Range",	/*ERR_WRAPPING_KEY_SIZE_RANGE*/
+"Wrapping Key Type Inconsistent",	/*ERR_WRAPPING_KEY_TYPE_INCONSISTENT*/
+"Random Seed Not Supported",		/*ERR_RANDOM_SEED_NOT_SUPPORTED*/
+"Domain Parameter Invalid",		/*ERR_DOMAIN_PARAMS_INVALID*/
+"Buffer Too Small",			/*ERR_BUFFER_TOO_SMALL 70*/
+"Saved State Invalid",			/*ERR_SAVED_STATE_INVALID*/
+"Information Sensitive",		/*ERR_INFORMATION_SENSITIVE*/
+"State Unsaveable",			/*ERR_STATE_UNSAVEABLE*/
+"API not initialized",			/*ERR_CRYPTOKI_NOT_INITIALIZED*/
+"API already Initialized",		/*ERR_CRYPTOKI_ALREADY_INITIALIZED 75*/
+"Mutex Invalid",			/*ERR_MUTEX_BAD*/
+"Mutex was not locked",			/*ERR_MUTEX_NOT_LOCKED*/
+"AES CBC Decrypt Failed",		/*ERR_AES_CBC_DECRYPT*/
+"AES CBC Encrypt Failed",		/*ERR_AES_CBC_ENCRYPT*/
+"Token Specific AES CBC Failed",	/*ERR_AES_CBC_TOK_SPEC 80*/
+"AES CTR Encrypt Failed", 		/*ERR_AES_CTR_ENCRYPT*/
+"Token Specific AES CTR Failed", 	/*ERR_AES_CTR_TOK_SPEC*/
+"AES ECB Decrypt Failed",		/*ERR_AES_ECB_DECRYPT*/
+"Token Specific AES ECB Failed",	/*ERR_AES_ECB_TOK_SPEC*/
+"AES Wrap Format Failed",		/*ERR_AES_WRAP_FORMAT*/
+"AES Wrap Get Data Failed",		/*ERR_AES_WRAP_GETDATA*/
+"Add Attribute Failed",			/*ERR_ATTR_ADD 85*/
+"Merge Attributes Failed",		/*ERR_ATTR_MERGE*/
+"Check Required Attributes Failed",	/*ERR_ATTR_REQD_CHECK*/
+"Set Default Attributes Failed",	/*ERR_ATTR_SET_DEFAULT*/
+"Update Attribute Failed",		/*ERR_ATTR_UPDATE*/
+"Validate Attribute Failed",		/*ERR_ATTR_VALIDATE 90*/
+"Build Attribute Failed",		/*ERR_BLD_ATTR*/
+"Decode Integer Failed",		/*ERR_DECODE_INT*/
+"Decode Octet String Failed",		/*ERR_DECODE_OCTET*/
+"Decode Private Key Failed",		/*ERR_DECODE_PRIVKEY*/
+"Decode Sequence Failed",		/*ERR_DECODE_SEQ 95*/
+"Decryption Mgr Decrypt Failed",	/*ERR_DECRYPTMGR_DECRYPT*/
+"Decryption Mgr Final Failed",		/*ERR_DECRYPTMGR_FINAL*/
+"Decryption Mgr Init Failed",		/*ERR_DECRYPTMGR_INIT*/
+"Decryption Mgr Update Failed"		/*ERR_DECRYPTMGR_UPDATE*/
+"DES CBC Decrypt Failed",		/*ERR_DES_CBC_DECRYPT 100*/
+"DES CBC Encrypt Failed",		/*ERR_DES_CBC_ENCRYPT*/
+"Token Specific DES CBC Failed",	/*ERR_DES_CBC_TOK_SPEC*/
+"DES ECB Decrypt Failed",		/*ERR_DES_ECB_DECRYPT*/
+"DES ECB Encrypt Failed",		/*ERR_DES_ECB_ENCRYPT*/
+"Token Specific DES ECB Failed",	/*ERR_DES_ECB_TOK_SPEC 105*/
+"DES Wrap Format Failed",		/*ERR_DES_WRAP_FORMAT*/
+"DES Wrap Get Data Failed",		/*ERR_DES_WRAP_GETDATA*/
+"Triple DES CBC Decrypt Failed",	/*ERR_DES3_CBC_DECRYPT*/
+"Triple DES CBC Encrypt Failed",	/*ERR_DES3_CBC_ENCRYPT*/
+"Token Specific 3DES CBC Failed",	/*ERR_DES3_CBC_TOK_SPEC 110*/
+"Triple DES ECB Decrypt Failed",	/*ERR_DES3_ECB_DECRYPT */
+"Token Specific 3DES ECB Failed",	/*ERR_DES3_ECB_TOK_SPEC*/
+"DES3 Wrap Get Data Failed",		/*ERR_DES3_WRAP_GETDATA*/
+"Digest Failed",			/*ERR_DIGEST*/
+"Digest Final Failed",			/*ERR_DIGEST_FINAL*/
+"Digest Init Failed",			/*ERR_DIGEST_INIT 115*/
+"Digest Update Failed",			/*ERR_DIGEST_UPDATE*/
+"DSA Sign Failed",			/*ERR_DSA_SIGN*/
+"DSA Verify Failed",			/*ERR_DSA_VERIFY*/
+"DSA Wrap Get Data Failed",		/*ERR_DSA_WRAP_GETDATA*/
+"EC Sign Failed",			/*ERR_EC_SIGN*/
+"EC Verify Failed",			/*ERR_EC_VERIFY*/
+"Encryption Mgr Encrypt Failed",	/*ERR_ENCRYPTMGR_ENCRYPT 120*/
+"Encryption Mgr Encrypt Final Failed",	/*ERR_ENCRYPTMGR_FINAL*/
+"Encryption Mgr Init Failed",		/*ERR_ENCRYPTMGR_INIT*/
+"Encryption Mgr Encrypt Update Failed",	/*ERR_ENCRYPTMGR_UPDATE*/
+"Encode Integer Failed",		/*ERR_ENCODE_INT*/
+"Encode Octet String Failed",		/*ERR_ENCODE_OCTET 125*/
+"Encode Private Key Failed",		/*ERR_ENCODE_PRIVKEY*/
+"Encode Sequence Failed",		/*ERR_ENCODE_SEQ*/
+"Generic Secret Wrap Get Data Failed",	/*ERR_GENERIC_WRAP_GETDATA*/
+"Hash Computation Failed",		/*ERR_HASH_COMPUTATION*/
+"Derive Key Failed",			/*ERR_KEY_DERIVE 130*/
+"Unwrap Key Failed",			/*ERR_KEY_UNWRAP*/
+"Wrap Key Failed",			/*ERR_KEY_WRAP*/
+"Key Generation failed",		/*ERR_KEYGEN*/
+"Key Mgr Get Priv Key Type Failed",	/*ERR_KEYMGR_GETPRIVKEY*/
+"Load Master Key Failed",		/*ERR_MASTER_KEY_LOAD 135*/
+"Save Master Key Failed",		/*ERR_MASTER_KEY_SAVE*/
+"Mutex Lock Failed",			/*ERR_MUTEX_LOCK*/
+"Mutex Unlock Failed",			/*ERR_MUTEX_UNLOCK*/
+"Object Copy Failed",			/*ERR_OBJ_COPY*/
+"Object Create Failed",		 	/*ERR_OBJ_CREATE 140*/
+"Flatten Object Failed",		/*ERR_OBJ_FLATTEN*/
+"Object Get Attribute Values Failed",	/*ERR_OBJ_GETATTR_VALUES*/
+"Restore Object Failed",		/*ERR_OBJ_RESTORE*/
+"Object Restore Data Failed",		/*ERR_OBJ_RESTORE_DATA*/
+"Object Set Attribute Values Failed",	/*ERR_OBJ_SETATTR_VALUES 145*/
+"Object Mgr Create Skeleton failed",	/*ERR_OBJMGR_CREATE_SKEL*/
+"Object Mgr Create Final failed",	/*ERR_OBJMGR_CREATE_FINAL*/
+"Object Mgr Destroy Failed",		/*ERR_OBJMGR_DESTROY*/
+"Object Manager Find Init Failed",	/*ERR_OBJMGR_FIND_INIT*/
+"Object Manager Find in Map Failed",	/*ERR_OBJMGR_FIND_MAP 150*/
+"Object Mgr Get Size Failed",		/*ERR_OBJMGR_GETSIZE*/
+"Object Mgr Add to Map Failed",		/*ERR_OBJMGR_MAP_ADD*/
+"Object Mgr Search for Object Failed",	/*ERR_OBJMGR_SEARCH*/
+"Process Lock Failed",			/*ERR_PROCESS_LOCK*/
+"Random Number Generate Failed",	/*ERR_RNG 155*/
+"RSA Decrypt Failed",			/*ERR_RSA_DECRYPT*/
+"Token Specific RSA Decrypt Failed",	/*ERR_RSA_DECRYPT_TOK_SPEC*/
+"RSA Encrypt Failed",			/*ERR_RSA_ENCRYPT*/
+"Token Specific RSA Encrypt Failed",	/*ERR_RSA_ENCRYPT_TOK_SPEC*/
+"RSA Format Block Failed",		/*ERR_RSA_FORM_BLOCK 160*/
+"RSA Sign Failed",			/*ERR_RSA_SIGN*/
+"Token Specific RSA Sign Failed",	/*ERR_RSA_SIGN_TOK_SPEC*/
+"RSA Verify Failed",			/*ERR_RSA_VERIFY*/
+"RSA Wrap Get Data Failed",		/*ERR_RSA_WRAP_GETDATA*/
+"Close all Sessions Failed",		/*ERR_SESSION_CLOSEALL 165*/
+"Session Mgr Get Op State Failed",	/*ERR_SESSMGR_GETOPT_STATE*/
+"Session Mgr Login Failed",		/*ERR_SESSMGR_LOGIN*/
+"Session Mgr Logout Failed",		/*ERR_SESSMGR_LOGOUT*/
+"Session Mgr New Failed",		/*ERR_SESSMGR_NEW*/
+"Cannot Attach to Shared Memory",	/*ERR_SHM 170*/
+"Sign Failed",				/*ERR_SIGN*/
+"Sign Final Failed",			/*ERR_SIGN_FINAL*/
+"Sign Init Failed",			/*ERR_SIGN_INIT*/
+"Sign Recover Failed",			/*ERR_SIGN_RECOVER*/
+"Sign Update Failed",			/*ERR_SIGN_UPDATE 175*/
+"SSL SHA Failed",			/*ERR_SSL_SHA*/
+"SSL3 Process MAC Keys Failed",		/*ERR_SSL3_MAC_KEYS*/
+"SSL3 MD5 Failed",			/*ERR_SSL3_MD5*/
+"SSL3 Process Write Keys Failed",	/*ERR_SSL3_WRITE_KEYS*/
+"Copy Template Failed",			/*ERR_TEMPLATE_COPY 180*/
+"Merge Template Failed",		/*ERR_TEMPLATE_MERGE*/
+"Unflatten Template Failed",		/*ERR_TEMPLATE_UNFLATTEN*/
+"Token Already Initialized",		/*ERR_TOKEN_ALREADY_INIT*/
+"Token Specific Init Failed",		/*ERR_TOKEN_INIT*/
+"Failed to Load Token Data",		/*ERR_TOKEN_LOAD_DATA 185*/
+"Restore Private Token Failed",		/*ERR_TOKEN_RESTORE_PRIV*/
+"Save Token Failed",			/*ERR_TOKEN_SAVE*/
+"Verify Failed",			/*ERR_VERIFY*/
+"Verify Init Failed",			/*ERR_VERIFY_INIT*/
+"Verify Final Failed",			/*ERR_VERIFY_FINAL 190*/
+"Verify Recover Failed",		/*ERR_VERIFY_RECOVER*/
+"Verify Update Failed",			/*ERR_VERIFY_UPDATE*/
 };
 
+
+void
+ock_err_log(int num, const char *layer, const char *file, int line)
+{ 
+	if ( num < 0 || num > ERR_MAX)
+		num = ERR_MAX; 
+	
+	OCK_LOG_DEBUG("ERROR %s %s:%d %s\n", layer, file, line, ock_err_msg[num]);
+}
+
+void 
+ock_logit(const char *fmt, ...)
+{
+	va_list 	ap;
+	int 		fd;
+	char 		*logfile = NULL;
+	
+	logfile = getenv("OPENCRYPTOKI_DEBUG_FILE");
+	if (logfile != NULL) {
+		
+		time_t t;
+		struct tm *tm;
+		char buf[1024];
+		char *pbuf;
+		int buflen, len;
+
+		pbuf = buf;
+		buflen = sizeof(buf);
+
+		/* add pid */
+		len = snprintf(pbuf, buflen, "[%d]: ", getpid());
+		pbuf +=len;
+		buflen -= len;
+
+
+		/* add the current time */
+		t = time(0);
+		tm = localtime(&t);
+		len = strftime(pbuf, buflen, "%m/%d/%Y %H:%M:%S ", tm);
+		pbuf +=len;
+		buflen -= len;
+
+		/* add the format */
+		va_start(ap, fmt);
+		vsnprintf(pbuf, buflen, fmt, ap);
+		va_end(ap);
+
+		/* ok, open the file and append the message */
+		fd = open(logfile, O_RDWR|O_APPEND|O_CREAT); 
+		if (fd >= 0) {
+			if (!(flock(fd, LOCK_EX))) {
+
+				/* serialize appends to the debug file */
+				pthread_mutex_lock(&lmtx);
+				write(fd, buf, strlen(buf));
+				pthread_mutex_unlock(&lmtx);
+				flock(fd, LOCK_UN);
+			}
+			close(fd);
+		}	
+
+	}
+}

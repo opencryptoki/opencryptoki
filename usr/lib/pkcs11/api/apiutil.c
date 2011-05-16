@@ -313,9 +313,6 @@
 
 #include <sys/ipc.h>
 
-#include "msg.h" //HACK
-
-
 #include <pkcs11types.h>
 #include <apiclient.h>  // Function prototypes for PKCS11
 #include <slotmgr.h>
@@ -336,8 +333,6 @@ static int xplfd=-1;
 
 
 extern  API_Proc_Struct_t  *Anchor;
-/* KEY XXX extern  pthread_mutex_t    logmutex; */
-extern  int                 logging;
 
 #include <stdarg.h>
 
@@ -350,68 +345,6 @@ set_perm(int file)
    fchmod(file,S_IRUSR|S_IWUSR|S_IRGRP|S_IWGRP|S_IROTH|S_IWOTH);
 
 }
-
-
-
-#ifdef DEBUG
-#define LOGIT  logit
-#else
-#define LOGIT(...) 
-#endif
-
-#define SYSLOG
-
-
-void logit( int, char *, ...);
-
-
-static int enabled=0;
-// Logging types.  Ultimately this will allow
-// us to log to different log files.  The logger will also
-// handle keeping the files to a decent size.
-// Much work needs to be done on this capability... 
-// Other logging types need to be implemented
-
-void 
-loginit(){
-
-//   if (!logging) return;  // WE will always log...
-
-   if (!enabled){
-      enabled=1;
-      openlog("openCryptokiModule",LOG_PID|LOG_NDELAY,LOG_DAEMON);
-      setlogmask(LOG_UPTO(LOG_DEBUG));
-	logit(LOG_DEBUG,"Logging enabled %d enabled",enabled);
-   }
-
-}
-
-void
-logterm()
-{ 
-enabled = 0;
-}
-
-void
-logit(int type,char *fmt, ...)
-{
-      va_list pvar;
-      char buffer[PATH_MAX];
-      
-
-   if ( enabled){
-      // Verify that the requested logging level is less than or 
-      // equal to that which is set at compile time.
-      if ( type <= logging ){
-         va_start(pvar, fmt);
-         vsprintf(buffer,fmt,pvar);
-         va_end(pvar);
-          syslog(type,buffer);
-      }
-   }
-
-}
-
 
 #if SYSVSEM
 #include <sys/sem.h>
@@ -478,7 +411,7 @@ AddToSessionList(ST_SESSION_T *pSess)
 
    pthread_mutex_lock(&(Anchor->SessListMutex));
 
-   //LOGIT(LOG_DEBUG,"AddToSessionList %x",pSess);
+   //OCK_LOG_DEBUG("AddToSessionList %x\n",pSess);
    handle = bt_node_add(&(Anchor->sess_btree), pSess);
 
    pthread_mutex_unlock(&(Anchor->SessListMutex));
@@ -752,7 +685,7 @@ Terminate_All_Process_Sessions()
    CK_RV        rv;
 
 
-   LOGIT(LOG_DEBUG,"Terminate_All_Process_Sessions");
+   OCK_LOG_DEBUG("Terminate_All_Process_Sessions\n");
    for (id=0;id<NUMBER_SLOTS_MANAGED;id++){
       // Check if the slot is present in the slot manager
       // if not just skip it...
@@ -765,7 +698,7 @@ Terminate_All_Process_Sessions()
       // since we are terminating the session.  
       // For now we will just log it
       if (rv != CKR_OK){
-         LOGIT(LOG_DEBUG,"Terminate_All_Process_Sessions RV %x",rv);
+         OCK_LOG_DEBUG("Terminate_All_Process_Sessions RV %x\n",rv);
       }
    }
    
@@ -859,7 +792,7 @@ API_Register()
    Anchor->MgrProcIndex=indx;
 
 
-   LOGIT(LOG_DEBUG,"API_Register MgrProcIndc %d  pid %d \n",procp->proc_id,Anchor->MgrProcIndex);
+   OCK_LOG_DEBUG("API_Register MgrProcIndc %d  pid %d \n",procp->proc_id,Anchor->MgrProcIndex);
 
    //??? What to do about the Mutex and cond variable
    //Does initializing them in the slotd allow for them to not be 
@@ -953,7 +886,7 @@ DL_Loaded( location, dllload)
 
    for (i=0;i< NUMBER_SLOTS_MANAGED;i++){
       if ( dllload[i].dll_name != NULL){
-	 LOGIT(LOG_DEBUG,"DL_LOADED Looking for index %d name %s",i,dllload[i].dll_name);
+	 OCK_LOG_DEBUG("DL_LOADED Looking for index %d name %s\n",i,dllload[i].dll_name);
          if (strcmp(location,dllload[i].dll_name)== 0) {
             return i; // Return the index of the dll
          }
@@ -976,16 +909,16 @@ DL_Load( sinfp,sltp,dllload)
 {
    int i;
 
- LOGIT(LOG_DEBUG,"DL_LOAD");
+ OCK_LOG_DEBUG("DL_LOAD\n");
 
    for (i=0;i<NUMBER_SLOTS_MANAGED;i++){
       if (dllload[i].dll_name == NULL){
-         LOGIT(LOG_DEBUG,"Empty slot at %d ", i);
+         OCK_LOG_DEBUG("Empty slot at %d \n", i);
          break;
       }
    }
    if (i == NUMBER_SLOTS_MANAGED){  
-	LOGIT(LOG_DEBUG,"No empty slots ");
+	OCK_LOG_DEBUG("No empty slots.\n");
 	return 0; // Failed to find it..
    }
 
@@ -1000,9 +933,9 @@ DL_Load( sinfp,sltp,dllload)
 
    } else {
 	   char *e = dlerror();
-	   syslog(LOG_ERR, "%s: dlopen() failed for [%s]; dlerror = [%s]\n",
+	   OCK_SYSLOG(LOG_ERR, "%s: dlopen() failed for [%s]; dlerror = [%s]\n",
 			   __FUNCTION__, sinfp->dll_location, e);
-      LOGIT(LOG_DEBUG,"DL_Load of %s failed, dlerror: %s",sinfp->dll_location,e);
+      OCK_LOG_DEBUG("DL_Load of %s failed, dlerror: %s\n",sinfp->dll_location,e);
       sltp->dlop_p = NULL;
       return 0;
    }
@@ -1072,7 +1005,7 @@ DL_Load_and_Init(sltp,slotID )
          sltp->dll_information = &dllload[dl_index];
          sltp->dlop_p = dllload[dl_index].dlop_p;
       } else {
-         LOGIT(LOG_DEBUG,"DL_Load_and_Init dll_location %s",sinfp->dll_location);
+         OCK_LOG_DEBUG("DL_Load_and_Init dll_location %s\n",sinfp->dll_location);
          DL_Load(sinfp,sltp,dllload);
       }
    } else {
@@ -1081,7 +1014,7 @@ DL_Load_and_Init(sltp,slotID )
 
 
    if (! sltp->dlop_p ){
-      LOGIT(LOG_DEBUG,"DL_Load_and_Init pointer %x",sltp->dlop_p);
+      OCK_LOG_DEBUG("DL_Load_and_Init pointer %x\n",sltp->dlop_p);
    
       return FALSE;
    }
@@ -1100,7 +1033,7 @@ DL_Load_and_Init(sltp,slotID )
 
    // Returns true or false
    rv = pSTinit(&(sltp->FcnList),slotID,sinfp->correlator);
-   LOGIT(LOG_DEBUG,"return from STDDLL Init = %x",rv);
+   OCK_LOG_DEBUG("return from STDDLL Init = %x\n",rv);
    
    if (rv != CKR_OK ){
       // clean up and unload
@@ -1120,19 +1053,3 @@ DL_Load_and_Init(sltp,slotID )
    return TRUE;
 
 }
-void
-st_err_log(int num, ...)
-{
-      va_list pvar;
-      char buffer[4096*4];
-   if (!enabled)  loginit();
-
-   if ( enabled ){
-         va_start(pvar, num);
-         vsprintf(buffer,err_msg[num].msg,pvar);
-         va_end(pvar);
-         syslog(LOG_ERR,buffer);
-   }
-
-}
-

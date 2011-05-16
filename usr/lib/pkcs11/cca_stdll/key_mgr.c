@@ -336,11 +336,11 @@ key_mgr_generate_key( SESSION           * sess,
 
 
    if (!sess || !mech || !handle){
-      st_err_log(4, __FILE__, __LINE__, __FUNCTION__);
+      OCK_LOG_ERR(ERR_FUNCTION_FAILED);
       return CKR_FUNCTION_FAILED;
    }
    if (!pTemplate && (ulCount != 0)){
-      st_err_log(4, __FILE__, __LINE__, __FUNCTION__);
+      OCK_LOG_ERR(ERR_FUNCTION_FAILED);
       return CKR_FUNCTION_FAILED;
    }
    // it's silly but Cryptoki allows the user to specify the CKA_CLASS
@@ -354,7 +354,7 @@ key_mgr_generate_key( SESSION           * sess,
       if (pTemplate[i].type == CKA_CLASS) {
          keyclass = *(CK_OBJECT_CLASS *)pTemplate[i].pValue;
          if (keyclass != CKO_SECRET_KEY){
-            st_err_log(49, __FILE__, __LINE__);
+            OCK_LOG_ERR(ERR_TEMPLATE_INCONSISTENT);
             return CKR_TEMPLATE_INCONSISTENT;
          }
       }
@@ -367,7 +367,7 @@ key_mgr_generate_key( SESSION           * sess,
    switch (mech->mechanism) {
       case CKM_DES_KEY_GEN:
          if (subclass != 0 && subclass != CKK_DES){
-            st_err_log(49, __FILE__, __LINE__);
+            OCK_LOG_ERR(ERR_TEMPLATE_INCONSISTENT);
             return CKR_TEMPLATE_INCONSISTENT;
          }
 
@@ -376,7 +376,7 @@ key_mgr_generate_key( SESSION           * sess,
 
       case CKM_DES3_KEY_GEN:
          if (subclass != 0 && subclass != CKK_DES3){
-            st_err_log(49, __FILE__, __LINE__);
+            OCK_LOG_ERR(ERR_TEMPLATE_INCONSISTENT);
             return CKR_TEMPLATE_INCONSISTENT;
          }
 
@@ -386,7 +386,7 @@ key_mgr_generate_key( SESSION           * sess,
 #if !(NOCDMF)
       case CKM_CDMF_KEY_GEN:
          if (subclass != 0 && subclass != CKK_CDMF){
-            st_err_log(49, __FILE__, __LINE__);
+            OCK_LOG_ERR(ERR_TEMPLATE_INCONSISTENT);
             return CKR_TEMPLATE_INCONSISTENT;
          }
 
@@ -396,11 +396,11 @@ key_mgr_generate_key( SESSION           * sess,
 
       case CKM_SSL3_PRE_MASTER_KEY_GEN:
          if (subclass != 0 && subclass != CKK_GENERIC_SECRET){
-            st_err_log(49, __FILE__, __LINE__);
+            OCK_LOG_ERR(ERR_TEMPLATE_INCONSISTENT);
             return CKR_TEMPLATE_INCONSISTENT;
          }
          if (mech->ulParameterLen != sizeof(CK_VERSION)){
-            st_err_log(29, __FILE__, __LINE__);
+            OCK_LOG_ERR(ERR_MECHANISM_PARAM_INVALID);
             return CKR_MECHANISM_PARAM_INVALID;
          }
          subclass = CKK_GENERIC_SECRET;
@@ -408,7 +408,7 @@ key_mgr_generate_key( SESSION           * sess,
 
       case CKM_AES_KEY_GEN:
 	 if (subclass != 0 && subclass != CKK_AES){
-	    st_err_log(49, __FILE__, __LINE__);
+	    OCK_LOG_ERR(ERR_TEMPLATE_INCONSISTENT);
 	    return CKR_TEMPLATE_INCONSISTENT;
 	 }
 
@@ -416,7 +416,7 @@ key_mgr_generate_key( SESSION           * sess,
 	 break;
 
       default:
-         st_err_log(28, __FILE__, __LINE__);
+         OCK_LOG_ERR(ERR_MECHANISM_INVALID);
          return CKR_MECHANISM_INVALID;
    }
 
@@ -427,7 +427,7 @@ key_mgr_generate_key( SESSION           * sess,
                                 CKO_SECRET_KEY, subclass,
                                 &key_obj );
    if (rc != CKR_OK){
-      st_err_log(89, __FILE__, __LINE__);
+      OCK_LOG_ERR(ERR_OBJMGR_CREATE_SKEL);
       goto error;
    }
 
@@ -460,12 +460,12 @@ key_mgr_generate_key( SESSION           * sess,
 	    break;
 #endif
       default:
-         st_err_log(28, __FILE__, __LINE__);
+         OCK_LOG_ERR(ERR_MECHANISM_INVALID);
          rc = CKR_MECHANISM_INVALID;
    }
 
    if (rc != CKR_OK){
-      st_err_log(91, __FILE__, __LINE__);
+      OCK_LOG_ERR(ERR_KEYGEN);
       goto error;
    }
 
@@ -479,14 +479,14 @@ key_mgr_generate_key( SESSION           * sess,
 
       rc = build_attribute( CKA_ALWAYS_SENSITIVE, &flag, sizeof(CK_BBOOL), &new_attr );
       if (rc != CKR_OK){
-         st_err_log(84, __FILE__, __LINE__);
+         OCK_LOG_ERR(ERR_BLD_ATTR);
          goto error;
       }
       template_update_attribute( key_obj->template, new_attr );
 
    } else {
       rc = CKR_FUNCTION_FAILED;
-      st_err_log(4, __FILE__, __LINE__, __FUNCTION__);
+      OCK_LOG_ERR(ERR_FUNCTION_FAILED);
       goto error;
    }
 
@@ -497,7 +497,7 @@ key_mgr_generate_key( SESSION           * sess,
 
       rc = build_attribute( CKA_NEVER_EXTRACTABLE, &true, sizeof(CK_BBOOL), &new_attr );
       if (rc != CKR_OK){
-         st_err_log(84, __FILE__, __LINE__);
+         OCK_LOG_ERR(ERR_BLD_ATTR);
          goto error;
       }
       if (flag == TRUE)
@@ -507,7 +507,7 @@ key_mgr_generate_key( SESSION           * sess,
 
    } else {
       rc = CKR_FUNCTION_FAILED;
-      st_err_log(4, __FILE__, __LINE__, __FUNCTION__);
+      OCK_LOG_ERR(ERR_FUNCTION_FAILED);
       goto error;
    }
 
@@ -517,7 +517,7 @@ key_mgr_generate_key( SESSION           * sess,
    //
    rc = object_mgr_create_final( sess, key_obj, handle );
    if (rc != CKR_OK){
-      st_err_log(90, __FILE__, __LINE__);
+      OCK_LOG_ERR(ERR_OBJMGR_CREATE_FINAL);
       goto error;
    }
    return rc;
@@ -552,15 +552,15 @@ key_mgr_generate_key_pair( SESSION           * sess,
    CK_RV           rc;
 
    if (!sess || !mech || !publ_key_handle || !priv_key_handle){
-      st_err_log(4, __FILE__, __LINE__, __FUNCTION__);
+      OCK_LOG_ERR(ERR_FUNCTION_FAILED);
       return CKR_FUNCTION_FAILED;
    }
    if (!publ_tmpl && (publ_count != 0)){
-      st_err_log(4, __FILE__, __LINE__, __FUNCTION__);
+      OCK_LOG_ERR(ERR_FUNCTION_FAILED);
       return CKR_FUNCTION_FAILED;
    }
    if (!priv_tmpl && (priv_count != 0)){
-      st_err_log(4, __FILE__, __LINE__, __FUNCTION__);
+      OCK_LOG_ERR(ERR_FUNCTION_FAILED);
       return CKR_FUNCTION_FAILED;
    }
 
@@ -575,7 +575,7 @@ key_mgr_generate_key_pair( SESSION           * sess,
       if (publ_tmpl[i].type == CKA_CLASS) {
          keyclass = *(CK_OBJECT_CLASS *)publ_tmpl[i].pValue;
          if (keyclass != CKO_PUBLIC_KEY){
-            st_err_log(49, __FILE__, __LINE__);
+            OCK_LOG_ERR(ERR_TEMPLATE_INCONSISTENT);
             return CKR_TEMPLATE_INCONSISTENT;
          }
       }
@@ -589,7 +589,7 @@ key_mgr_generate_key_pair( SESSION           * sess,
       if (priv_tmpl[i].type == CKA_CLASS) {
          keyclass = *(CK_OBJECT_CLASS *)priv_tmpl[i].pValue;
          if (keyclass != CKO_PRIVATE_KEY){
-            st_err_log(49, __FILE__, __LINE__);
+            OCK_LOG_ERR(ERR_TEMPLATE_INCONSISTENT);
             return CKR_TEMPLATE_INCONSISTENT;
          }
       }
@@ -597,7 +597,7 @@ key_mgr_generate_key_pair( SESSION           * sess,
       if (priv_tmpl[i].type == CKA_KEY_TYPE) {
          CK_ULONG temp = *(CK_ULONG *)priv_tmpl[i].pValue;
          if (temp != subclass){
-            st_err_log(49, __FILE__, __LINE__);
+            OCK_LOG_ERR(ERR_TEMPLATE_INCONSISTENT);
             return CKR_TEMPLATE_INCONSISTENT;
          }
       }
@@ -607,7 +607,7 @@ key_mgr_generate_key_pair( SESSION           * sess,
    switch (mech->mechanism) {
       case CKM_RSA_PKCS_KEY_PAIR_GEN:
          if (subclass != 0 && subclass != CKK_RSA){
-            st_err_log(49, __FILE__, __LINE__);
+            OCK_LOG_ERR(ERR_TEMPLATE_INCONSISTENT);
             return CKR_TEMPLATE_INCONSISTENT;
           }
 
@@ -616,7 +616,7 @@ key_mgr_generate_key_pair( SESSION           * sess,
 
       case CKM_EC_KEY_PAIR_GEN:
          if (subclass != 0 && subclass != CKK_EC){
-            st_err_log(49, __FILE__, __LINE__);
+            OCK_LOG_ERR(ERR_TEMPLATE_INCONSISTENT);
             return CKR_TEMPLATE_INCONSISTENT;
           }
 
@@ -626,7 +626,7 @@ key_mgr_generate_key_pair( SESSION           * sess,
 #if !(NODSA)
       case CKM_DSA_KEY_PAIR_GEN:
          if (subclass != 0 && subclass != CKK_DSA){
-           st_err_log(49, __FILE__, __LINE__);
+           OCK_LOG_ERR(ERR_TEMPLATE_INCONSISTENT);
            return CKR_TEMPLATE_INCONSISTENT;
          }
          subclass = CKK_DSA;
@@ -637,7 +637,7 @@ key_mgr_generate_key_pair( SESSION           * sess,
 #if !(NODH)
       case CKM_DH_PKCS_KEY_PAIR_GEN:
          if (subclass != 0 && subclass != CKK_DH){
-           st_err_log(49, __FILE__, __LINE__);
+           OCK_LOG_ERR(ERR_TEMPLATE_INCONSISTENT);
            return CKR_TEMPLATE_INCONSISTENT;
          }
          subclass = CKK_DH;
@@ -646,7 +646,7 @@ key_mgr_generate_key_pair( SESSION           * sess,
 /* End  code contributed by Corrent corp. */
 
       default:
-         st_err_log(28, __FILE__, __LINE__);
+         OCK_LOG_ERR(ERR_MECHANISM_INVALID);
          return CKR_MECHANISM_INVALID;
    }
 
@@ -657,7 +657,7 @@ key_mgr_generate_key_pair( SESSION           * sess,
                                 CKO_PUBLIC_KEY,  subclass,
                                 &publ_key_obj );
    if (rc != CKR_OK){
-      st_err_log(89, __FILE__, __LINE__);
+      OCK_LOG_ERR(ERR_OBJMGR_CREATE_SKEL);
       goto error;
    }
    rc = object_mgr_create_skel( sess,
@@ -666,7 +666,7 @@ key_mgr_generate_key_pair( SESSION           * sess,
                                 CKO_PRIVATE_KEY, subclass,
                                 &priv_key_obj );
    if (rc != CKR_OK){
-      st_err_log(89, __FILE__, __LINE__);
+      OCK_LOG_ERR(ERR_OBJMGR_CREATE_SKEL);
       goto error;
    }
 
@@ -703,13 +703,13 @@ key_mgr_generate_key_pair( SESSION           * sess,
 /* End code contributed by Corrent corp. */
 
       default:
-         st_err_log(28, __FILE__, __LINE__);
+         OCK_LOG_ERR(ERR_MECHANISM_INVALID);
          rc = CKR_MECHANISM_INVALID;
          break;
    }
 
    if (rc != CKR_OK){
-      st_err_log(91, __FILE__, __LINE__);
+      OCK_LOG_ERR(ERR_KEYGEN);
       goto error;
    }
 
@@ -723,13 +723,13 @@ key_mgr_generate_key_pair( SESSION           * sess,
 
       rc = build_attribute( CKA_ALWAYS_SENSITIVE, &flag, sizeof(CK_BBOOL), &new_attr );
       if (rc != CKR_OK){
-         st_err_log(84, __FILE__, __LINE__);
+         OCK_LOG_ERR(ERR_BLD_ATTR);
          goto error;
       }
       template_update_attribute( priv_key_obj->template, new_attr );
 
    } else {
-      st_err_log(4, __FILE__, __LINE__, __FUNCTION__);
+      OCK_LOG_ERR(ERR_FUNCTION_FAILED);
       rc = CKR_FUNCTION_FAILED;
       goto error;
    }
@@ -741,7 +741,7 @@ key_mgr_generate_key_pair( SESSION           * sess,
 
       rc = build_attribute( CKA_NEVER_EXTRACTABLE, &true, sizeof(CK_BBOOL), &new_attr );
       if (rc != CKR_OK){
-         st_err_log(84, __FILE__, __LINE__);
+         OCK_LOG_ERR(ERR_BLD_ATTR);
          goto error;
       }
       if (flag == TRUE)
@@ -750,7 +750,7 @@ key_mgr_generate_key_pair( SESSION           * sess,
       template_update_attribute( priv_key_obj->template, new_attr );
 
    } else {
-      st_err_log(4, __FILE__, __LINE__, __FUNCTION__);
+      OCK_LOG_ERR(ERR_FUNCTION_FAILED);
       rc = CKR_FUNCTION_FAILED;
       goto error;
    }
@@ -761,12 +761,12 @@ key_mgr_generate_key_pair( SESSION           * sess,
    //
    rc = object_mgr_create_final( sess, publ_key_obj, publ_key_handle );
    if (rc != CKR_OK){
-      st_err_log(90, __FILE__, __LINE__);
+      OCK_LOG_ERR(ERR_OBJMGR_CREATE_FINAL);
       goto error;
    }
    rc = object_mgr_create_final( sess, priv_key_obj, priv_key_handle );
    if (rc != CKR_OK){
-      st_err_log(90, __FILE__, __LINE__);
+      OCK_LOG_ERR(ERR_OBJMGR_CREATE_FINAL);
       goto error;
    }
    return rc;
@@ -806,18 +806,18 @@ key_mgr_wrap_key( SESSION           * sess,
 
 
    if (!sess || !wrapped_key_len){
-      st_err_log(4, __FILE__, __LINE__, __FUNCTION__);
+      OCK_LOG_ERR(ERR_FUNCTION_FAILED);
       return CKR_FUNCTION_FAILED;
    }
 
    rc = object_mgr_find_in_map1( h_wrapping_key, &key1_obj );
    if (rc != CKR_OK){
-      st_err_log(62, __FILE__, __LINE__);
+      OCK_LOG_ERR(ERR_WRAPPING_KEY_HANDLE_INVALID);
       return CKR_WRAPPING_KEY_HANDLE_INVALID;
    }
    rc = object_mgr_find_in_map1( h_key, &key2_obj );
    if (rc != CKR_OK){
-      st_err_log(18, __FILE__, __LINE__);
+      OCK_LOG_ERR(ERR_KEY_HANDLE_INVALID);
       return CKR_KEY_HANDLE_INVALID;
    }
 
@@ -825,13 +825,13 @@ key_mgr_wrap_key( SESSION           * sess,
    //
    rc = template_attribute_find( key2_obj->template, CKA_EXTRACTABLE, &attr );
    if (rc == FALSE){
-      st_err_log(26, __FILE__, __LINE__);
+      OCK_LOG_ERR(ERR_KEY_NOT_WRAPPABLE);
       return CKR_KEY_NOT_WRAPPABLE;  // could happen if user tries to wrap a public key
    }
    else {
       flag = *(CK_BBOOL *)attr->pValue;
       if (flag == FALSE){
-         st_err_log(26, __FILE__, __LINE__);
+         OCK_LOG_ERR(ERR_KEY_NOT_WRAPPABLE);
          return CKR_KEY_NOT_WRAPPABLE;
       }
    }
@@ -842,7 +842,7 @@ key_mgr_wrap_key( SESSION           * sess,
    //
    rc = template_attribute_find( key2_obj->template, CKA_CLASS, &attr );
    if (rc == FALSE){
-      st_err_log(26, __FILE__, __LINE__);
+      OCK_LOG_ERR(ERR_KEY_NOT_WRAPPABLE);
       return CKR_KEY_NOT_WRAPPABLE;
    }
    else
@@ -860,7 +860,7 @@ key_mgr_wrap_key( SESSION           * sess,
       case CKM_AES_ECB:
       case CKM_AES_CBC:
          if (class != CKO_SECRET_KEY){
-            st_err_log(26, __FILE__, __LINE__);
+            OCK_LOG_ERR(ERR_KEY_NOT_WRAPPABLE);
             return CKR_KEY_NOT_WRAPPABLE;
          }
          break;
@@ -878,13 +878,13 @@ key_mgr_wrap_key( SESSION           * sess,
       case CKM_RSA_PKCS:
       case CKM_RSA_X_509:
          if (class != CKO_SECRET_KEY){
-            st_err_log(26, __FILE__, __LINE__);
+            OCK_LOG_ERR(ERR_KEY_NOT_WRAPPABLE);
             return CKR_KEY_NOT_WRAPPABLE;
          }
          break;
 
       default:
-         st_err_log(26, __FILE__, __LINE__);
+         OCK_LOG_ERR(ERR_KEY_NOT_WRAPPABLE);
          return CKR_KEY_NOT_WRAPPABLE;
    }
 
@@ -893,7 +893,7 @@ key_mgr_wrap_key( SESSION           * sess,
    //
    rc = template_attribute_find( key2_obj->template, CKA_KEY_TYPE, &attr );
    if (rc == FALSE){
-      st_err_log(26, __FILE__, __LINE__);
+      OCK_LOG_ERR(ERR_KEY_NOT_WRAPPABLE);
       return CKR_KEY_NOT_WRAPPABLE;
    }
    else
@@ -907,7 +907,7 @@ key_mgr_wrap_key( SESSION           * sess,
       case CKK_DES:
          rc = des_wrap_get_data( key2_obj->template, length_only, &data, &data_len );
          if (rc != CKR_OK){
-            st_err_log(92, __FILE__, __LINE__);
+            OCK_LOG_ERR(ERR_DES_WRAP_GETDATA);
             return rc;
          }
          break;
@@ -915,7 +915,7 @@ key_mgr_wrap_key( SESSION           * sess,
       case CKK_DES3:
          rc = des3_wrap_get_data( key2_obj->template, length_only, &data, &data_len );
          if (rc != CKR_OK){
-            st_err_log(93, __FILE__, __LINE__);
+            OCK_LOG_ERR(ERR_DES3_WRAP_GETDATA);
             return rc;
          }
          break;
@@ -924,7 +924,7 @@ key_mgr_wrap_key( SESSION           * sess,
       case CKK_RSA:
          rc = rsa_priv_wrap_get_data( key2_obj->template, length_only, &data, &data_len );
          if (rc != CKR_OK){
-            st_err_log(94, __FILE__, __LINE__);
+            OCK_LOG_ERR(ERR_RSA_WRAP_GETDATA);
             return rc;
          }
          break;
@@ -932,7 +932,7 @@ key_mgr_wrap_key( SESSION           * sess,
       case CKK_DSA:
          rc = dsa_priv_wrap_get_data( key2_obj->template, length_only, &data, &data_len );
          if (rc != CKR_OK){
-            st_err_log(95, __FILE__, __LINE__);
+            OCK_LOG_ERR(ERR_DSA_WRAP_GETDATA);
             return rc;
          }
          break;
@@ -943,7 +943,7 @@ key_mgr_wrap_key( SESSION           * sess,
       case CKK_GENERIC_SECRET:
          rc = generic_secret_wrap_get_data( key2_obj->template, length_only, &data, &data_len );
          if (rc != CKR_OK){
-            st_err_log(96, __FILE__, __LINE__);
+            OCK_LOG_ERR(ERR_GENERIC_WRAP_GETDATA);
             return rc;
          }
          break;
@@ -951,13 +951,13 @@ key_mgr_wrap_key( SESSION           * sess,
       case CKK_AES:
 	 rc = aes_wrap_get_data( key2_obj->template, length_only, &data, &data_len );
 	 if (rc != CKR_OK){
-	    st_err_log(191, __FILE__, __LINE__);
+	    OCK_LOG_ERR(ERR_AES_WRAP_GETDATA);
 	    return rc;
 	 }
 	 break;
 #endif
       default:
-         st_err_log(26, __FILE__, __LINE__);
+         OCK_LOG_ERR(ERR_KEY_NOT_WRAPPABLE);
          return CKR_KEY_NOT_WRAPPABLE;
    }
 
@@ -974,7 +974,7 @@ key_mgr_wrap_key( SESSION           * sess,
       case CKM_DES3_CBC:
          rc = ckm_des_wrap_format( length_only, &data, &data_len );
          if (rc != CKR_OK) {
-            st_err_log(97, __FILE__, __LINE__);
+            OCK_LOG_ERR(ERR_DES_WRAP_FORMAT);
             if (data) free( data );
             return rc;
          }
@@ -984,7 +984,7 @@ key_mgr_wrap_key( SESSION           * sess,
       case CKM_AES_CBC:
 	 rc = ckm_aes_wrap_format( length_only, &data, &data_len );
 	 if (rc != CKR_OK) {
-	    st_err_log(192, __FILE__, __LINE__);
+	    OCK_LOG_ERR(ERR_AES_WRAP_FORMAT);
 	    if (data) free( data );
 	    return rc;
 	 }
@@ -1010,13 +1010,13 @@ key_mgr_wrap_key( SESSION           * sess,
          break;
 
       default:
-         st_err_log(26, __FILE__, __LINE__);
+         OCK_LOG_ERR(ERR_KEY_NOT_WRAPPABLE);
          return CKR_KEY_NOT_WRAPPABLE;
    }
 
    ctx = (ENCR_DECR_CONTEXT *)malloc(sizeof(ENCR_DECR_CONTEXT));
    if (!ctx){
-      st_err_log(0, __FILE__, __LINE__);
+      OCK_LOG_ERR(ERR_HOST_MEMORY);
       return CKR_HOST_MEMORY;
    }
    memset( ctx, 0x0, sizeof(ENCR_DECR_CONTEXT) );
@@ -1025,7 +1025,7 @@ key_mgr_wrap_key( SESSION           * sess,
    //
    rc = encr_mgr_init( sess, ctx, OP_WRAP, mech, h_wrapping_key );
    if (rc != CKR_OK){
-      st_err_log(98, __FILE__, __LINE__);
+      OCK_LOG_ERR(ERR_ENCRYPTMGR_INIT);
       return rc;
    }
    // do the encryption and clean up.  at this point, 'value' may or may not
@@ -1068,13 +1068,13 @@ key_mgr_unwrap_key( SESSION           * sess,
 
 
    if (!sess || !wrapped_key || !h_unwrapped_key){
-      st_err_log(4, __FILE__, __LINE__, __FUNCTION__);
+      OCK_LOG_ERR(ERR_FUNCTION_FAILED);
       return CKR_FUNCTION_FAILED;
    }
 
    rc = object_mgr_find_in_map1( h_unwrapping_key, &key_obj );
    if (rc != CKR_OK){
-      st_err_log(62, __FILE__, __LINE__);
+      OCK_LOG_ERR(ERR_WRAPPING_KEY_HANDLE_INVALID);
       return CKR_WRAPPING_KEY_HANDLE_INVALID;
    }
 
@@ -1141,7 +1141,7 @@ key_mgr_unwrap_key( SESSION           * sess,
    //
    if (found_class == FALSE || (found_type == FALSE && keyclass !=
 CKO_PRIVATE_KEY)){
-      st_err_log(48, __FILE__, __LINE__);
+      OCK_LOG_ERR(ERR_TEMPLATE_INCOMPLETE);
       return CKR_TEMPLATE_INCOMPLETE;
    }
 
@@ -1151,7 +1151,7 @@ CKO_PRIVATE_KEY)){
       case CKM_RSA_PKCS:
       case CKM_RSA_X_509:
          if (keyclass != CKO_SECRET_KEY){
-            st_err_log(49, __FILE__, __LINE__);
+            OCK_LOG_ERR(ERR_TEMPLATE_INCONSISTENT);
             return CKR_TEMPLATE_INCONSISTENT;
          }
          break;
@@ -1167,7 +1167,7 @@ CKO_PRIVATE_KEY)){
       case CKM_AES_ECB:
       case CKM_AES_CBC:
          if (keyclass != CKO_SECRET_KEY){
-            st_err_log(49, __FILE__, __LINE__);
+            OCK_LOG_ERR(ERR_TEMPLATE_INCONSISTENT);
             return CKR_TEMPLATE_INCONSISTENT;
          }
          break;
@@ -1181,7 +1181,7 @@ CKO_PRIVATE_KEY)){
          break;
 
       default:
-         st_err_log(28, __FILE__, __LINE__);
+         OCK_LOG_ERR(ERR_MECHANISM_INVALID);
          return CKR_MECHANISM_INVALID;
    }
 
@@ -1190,7 +1190,7 @@ CKO_PRIVATE_KEY)){
    //
    ctx = (ENCR_DECR_CONTEXT *)malloc(sizeof(ENCR_DECR_CONTEXT));
    if (!ctx){
-      st_err_log(0, __FILE__, __LINE__);
+      OCK_LOG_ERR(ERR_HOST_MEMORY);
       return CKR_HOST_MEMORY;
    }
    memset( ctx, 0x0, sizeof(ENCR_DECR_CONTEXT) );
@@ -1205,12 +1205,12 @@ CKO_PRIVATE_KEY)){
                           wrapped_key, wrapped_key_len,
                           data,       &data_len );
    if (rc != CKR_OK){
-      st_err_log(100, __FILE__, __LINE__);
+      OCK_LOG_ERR(ERR_DECRYPTMGR_DECRYPT);
       goto error;
    }
    data = (CK_BYTE *)malloc(data_len);
    if (!data) {
-      st_err_log(0, __FILE__, __LINE__);
+      OCK_LOG_ERR(ERR_HOST_MEMORY);
       rc = CKR_HOST_MEMORY;
       goto error;
    }
@@ -1225,7 +1225,7 @@ CKO_PRIVATE_KEY)){
    free( ctx );
 
    if (rc != CKR_OK){
-      st_err_log(100, __FILE__, __LINE__);
+      OCK_LOG_ERR(ERR_DECRYPTMGR_DECRYPT);
       goto error;
    }
    // if we use X.509, the data will be padded from the front with zeros.
@@ -1244,7 +1244,7 @@ CKO_PRIVATE_KEY)){
    if (keyclass == CKO_PRIVATE_KEY) {
       rc = key_mgr_get_private_key_type( data, data_len, &keytype );
       if (rc != CKR_OK){
-         st_err_log(101, __FILE__, __LINE__);
+         OCK_LOG_ERR(ERR_KEYMGR_GETPRIVKEY);
          goto error;
       }
    }
@@ -1261,7 +1261,7 @@ CKO_PRIVATE_KEY)){
                                 keyclass,      keytype,
                                 &key_obj );
    if (rc != CKR_OK){
-      st_err_log(89, __FILE__, __LINE__);
+      OCK_LOG_ERR(ERR_OBJMGR_CREATE_SKEL);
       goto error;
    }
    // at this point, 'key_obj' should contain a skeleton key.  depending on
@@ -1286,7 +1286,7 @@ CKO_PRIVATE_KEY)){
    }
 
    if (rc != CKR_OK){
-      st_err_log(173, __FILE__, __LINE__);
+      OCK_LOG_ERR(ERR_KEY_UNWRAP);
       goto error;
    }
    // at this point, the key should be fully constructed...assign
@@ -1294,7 +1294,7 @@ CKO_PRIVATE_KEY)){
    //
    rc = object_mgr_create_final( sess, key_obj, h_unwrapped_key );
    if (rc != CKR_OK){
-      st_err_log(90, __FILE__, __LINE__);
+      OCK_LOG_ERR(ERR_OBJMGR_CREATE_FINAL);
       goto error;
    }
    if (data) free(data);
@@ -1320,7 +1320,7 @@ key_mgr_get_private_key_type( CK_BYTE     *keydata,
 
    rc = ber_decode_PrivateKeyInfo( keydata, keylen, &alg, &alg_len, &priv_key );
    if (rc != CKR_OK){
-      st_err_log(102, __FILE__, __LINE__);
+      OCK_LOG_ERR(ERR_DECODE_PRIVKEY);
       return rc;
    }
    // check the entire AlgorithmIdentifier for RSA
@@ -1341,7 +1341,7 @@ key_mgr_get_private_key_type( CK_BYTE     *keydata,
       }
    }
 
-   st_err_log(48, __FILE__, __LINE__);
+   OCK_LOG_ERR(ERR_TEMPLATE_INCOMPLETE);
    return CKR_TEMPLATE_INCOMPLETE;
 }
 
@@ -1357,11 +1357,11 @@ key_mgr_derive_key( SESSION           * sess,
                     CK_ULONG            ulCount )
 {
    if (!sess || !mech){
-      st_err_log(4, __FILE__, __LINE__, __FUNCTION__);
+      OCK_LOG_ERR(ERR_FUNCTION_FAILED);
       return CKR_FUNCTION_FAILED;
    }
    if (!pTemplate && (ulCount != 0)){
-      st_err_log(4, __FILE__, __LINE__, __FUNCTION__);
+      OCK_LOG_ERR(ERR_FUNCTION_FAILED);
       return CKR_FUNCTION_FAILED;
    }
    switch (mech->mechanism)
@@ -1369,7 +1369,7 @@ key_mgr_derive_key( SESSION           * sess,
       case CKM_SSL3_MASTER_KEY_DERIVE:
       {
          if (!derived_key){
-            st_err_log(4, __FILE__, __LINE__, __FUNCTION__);
+            OCK_LOG_ERR(ERR_FUNCTION_FAILED);
             return CKR_FUNCTION_FAILED;
          }
          return ssl3_master_key_derive( sess, mech, base_key,
@@ -1396,7 +1396,7 @@ key_mgr_derive_key( SESSION           * sess,
       case CKM_DH_PKCS_DERIVE:
       {
          if (!derived_key){
-            st_err_log(4, __FILE__, __LINE__, __FUNCTION__);
+            OCK_LOG_ERR(ERR_FUNCTION_FAILED);
             return CKR_FUNCTION_FAILED;
          }
          return dh_pkcs_derive( sess, mech, base_key,
@@ -1407,7 +1407,7 @@ key_mgr_derive_key( SESSION           * sess,
 /* End code contributed by Corrent corp. */
       
       default:
-         st_err_log(28, __FILE__, __LINE__);
+         OCK_LOG_ERR(ERR_MECHANISM_INVALID);
          return CKR_MECHANISM_INVALID;
    }
 }

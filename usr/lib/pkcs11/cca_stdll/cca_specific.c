@@ -149,7 +149,7 @@ token_specific_init(char *Correlator, CK_SLOT_ID SlotNumber)
 	
 	lib_csulcca = dlopen("libcsulcca.so",  (RTLD_GLOBAL | RTLD_NOW));
 	if (lib_csulcca == NULL) {
-		syslog(LOG_ERR, "%s: Error loading library: [%s]\n", __FUNCTION__, dlerror());
+		OCK_SYSLOG(LOG_ERR, "%s: Error loading library: [%s]\n", __FUNCTION__, dlerror());
 		return CKR_FUNCTION_FAILED;
 	}
 
@@ -173,10 +173,10 @@ token_specific_init(char *Correlator, CK_SLOT_ID SlotNumber)
 
 	/* This value should be 2 if the master key is set in the card */
 	if (memcmp(&rule_array[CCA_STATCCAE_SYM_CMK_OFFSET], "2       ", 8)) {
-		LOG(LOG_WARNING, "Warning: CCA symmetric master key is not yet loaded");
+		OCK_SYSLOG(LOG_WARNING, "Warning: CCA symmetric master key is not yet loaded");
 	}
 	if (memcmp(&rule_array[CCA_STATCCAE_ASYM_CMK_OFFSET], "2       ", 8)) {
-		LOG(LOG_WARNING, "Warning: CCA asymmetric master key is not yet loaded");
+		OCK_SYSLOG(LOG_WARNING, "Warning: CCA asymmetric master key is not yet loaded");
 	}
 
 	return CKR_OK;
@@ -362,7 +362,7 @@ token_specific_des_cbc(CK_BYTE  *in_data,
 	if ((local_out != out_data) && ((CK_ULONG)length > *out_data_len)) {
 		DBG("CKR_BUFFER_TOO_SMALL: %ld bytes to write into %ld bytes space",
 		    length, *out_data_len);
-		st_err_log(111, __FILE__, __LINE__);
+		OCK_LOG_ERR(ERR_BUFFER_TOO_SMALL);
 		free(local_out);
 		return CKR_BUFFER_TOO_SMALL;
 	} else if (local_out != out_data) {
@@ -567,7 +567,7 @@ token_specific_rsa_generate_keypair(TEMPLATE *publ_tmpl,
 
 
 	if (!template_attribute_find(publ_tmpl, CKA_MODULUS_BITS, &attr)) {
-		st_err_log(48, __FILE__, __LINE__);
+		OCK_LOG_ERR(ERR_TEMPLATE_INCOMPLETE);
 		return CKR_TEMPLATE_INCOMPLETE;
 	}
 	mod_bits = *(CK_ULONG *)attr->pValue;
@@ -720,7 +720,7 @@ token_specific_rsa_encrypt(CK_BYTE  *in_data,
 
 	/* Find the secure key token */
 	if (!template_attribute_find(key_obj->template, CKA_IBM_OPAQUE, &attr)) {
-		st_err_log(48, __FILE__, __LINE__);
+		OCK_LOG_ERR(ERR_TEMPLATE_INCOMPLETE);
 		return CKR_TEMPLATE_INCOMPLETE;
 	}
 
@@ -770,7 +770,7 @@ token_specific_rsa_decrypt(CK_BYTE  *in_data,
 
 	/* Find the secure key token */
 	if (!template_attribute_find(key_obj->template, CKA_IBM_OPAQUE, &attr)) {
-		st_err_log(48, __FILE__, __LINE__);
+		OCK_LOG_ERR(ERR_TEMPLATE_INCOMPLETE);
 		return CKR_TEMPLATE_INCOMPLETE;
 	}
 
@@ -821,7 +821,7 @@ token_specific_rsa_sign(CK_BYTE  * in_data,
 
 	/* Find the secure key token */
 	if (!template_attribute_find(key_obj->template, CKA_IBM_OPAQUE, &attr)) {
-		st_err_log(48, __FILE__, __LINE__);
+		OCK_LOG_ERR(ERR_TEMPLATE_INCOMPLETE);
 		return CKR_TEMPLATE_INCOMPLETE;
 	}
 
@@ -863,7 +863,7 @@ token_specific_rsa_verify(CK_BYTE  * in_data,
 
 	/* Find the secure key token */
 	if (!template_attribute_find(key_obj->template, CKA_IBM_OPAQUE, &attr)) {
-		st_err_log(48, __FILE__, __LINE__);
+		OCK_LOG_ERR(ERR_TEMPLATE_INCOMPLETE);
 		return CKR_TEMPLATE_INCOMPLETE;
 	}
 
@@ -1164,7 +1164,7 @@ token_specific_aes_cbc(CK_BYTE  *in_data,
 	if ((local_out != out_data) && ((CK_ULONG)length > *out_data_len)) {
 		DBG("CKR_BUFFER_TOO_SMALL: %ld bytes to write into %ld bytes space",
 		    length, *out_data_len);
-		st_err_log(111, __FILE__, __LINE__);
+		OCK_LOG_ERR(ERR_BUFFER_TOO_SMALL);
 		free(local_out);
 		return CKR_BUFFER_TOO_SMALL;
 	} else if (local_out != out_data) {
@@ -1221,7 +1221,7 @@ token_specific_get_mechanism_list(CK_MECHANISM_TYPE *pMechanismList, CK_ULONG *p
 
 	if ((*pulCount) < mech_list_len) {
 		(*pulCount) = mech_list_len;
-		st_err_log(111, __FILE__, __LINE__);
+		OCK_LOG_ERR(ERR_BUFFER_TOO_SMALL);
 		return CKR_BUFFER_TOO_SMALL;
 	}
 
@@ -1247,7 +1247,7 @@ token_specific_get_mechanism_info(CK_MECHANISM_TYPE type, CK_MECHANISM_INFO *pIn
                 }
         }
 
-        st_err_log(28, __FILE__, __LINE__);
+        OCK_LOG_ERR(ERR_MECHANISM_INVALID);
         return CKR_MECHANISM_INVALID;
 }
 
@@ -1273,7 +1273,7 @@ sw_des3_cbc(CK_BYTE * in_data,
 	// the des decrypt will only fail if the data length is not evenly divisible
 	// by 8
 	if (in_data_len % 8) {
-		st_err_log(11, __FILE__, __LINE__);
+		OCK_LOG_ERR(ERR_DATA_LEN_RANGE);
 		DBG("CKR_DATA_LEN_RANGE");
 		return CKR_DATA_LEN_RANGE;
 	}
@@ -1482,7 +1482,7 @@ token_specific_ec_generate_keypair(TEMPLATE *publ_tmpl,
 	DBG("Entering EC Generate Keypair");
 
 	if (!template_attribute_find(publ_tmpl, CKA_ECDSA_PARAMS, &attr)) {
-		st_err_log(48, __FILE__, __LINE__);
+		OCK_LOG_ERR(ERR_TEMPLATE_INCOMPLETE);
 		return CKR_TEMPLATE_INCOMPLETE;
 	}
 
@@ -1496,7 +1496,7 @@ token_specific_ec_generate_keypair(TEMPLATE *publ_tmpl,
 	}
 
 	if(found == FALSE) {
-		st_err_log(141, __FILE__, __LINE__);
+		OCK_LOG_ERR(ERR_MECHANISM_PARAM_INVALID);
 		return CKR_MECHANISM_PARAM_INVALID;
 	}
 
@@ -1600,7 +1600,7 @@ token_specific_ec_sign(CK_BYTE  * in_data,
 
 	/* Find the secure key token */
 	if (!template_attribute_find(key_obj->template, CKA_IBM_OPAQUE, &attr)) {
-		st_err_log(48, __FILE__, __LINE__);
+		OCK_LOG_ERR(ERR_TEMPLATE_INCOMPLETE);
 		return CKR_TEMPLATE_INCOMPLETE;
 	}
 
@@ -1645,7 +1645,7 @@ token_specific_ec_verify(CK_BYTE  * in_data,
 
 	/* Find the secure key token */
 	if (!template_attribute_find(key_obj->template, CKA_IBM_OPAQUE, &attr))	{
-		st_err_log(48, __FILE__, __LINE__);
+		OCK_LOG_ERR(ERR_TEMPLATE_INCOMPLETE);
 		return CKR_TEMPLATE_INCOMPLETE;
 	}
 

@@ -317,11 +317,11 @@ digest_mgr_init( SESSION           *sess,
 
 
    if (!sess || !ctx){
-      st_err_log(4, __FILE__, __LINE__, __FUNCTION__);
+      OCK_LOG_ERR(ERR_FUNCTION_FAILED);
       return CKR_FUNCTION_FAILED;
    }
    if (ctx->active != FALSE){
-      st_err_log(31, __FILE__, __LINE__);
+      OCK_LOG_ERR(ERR_OPERATION_ACTIVE);
       return CKR_OPERATION_ACTIVE;
    }
 
@@ -331,7 +331,7 @@ digest_mgr_init( SESSION           *sess,
       case CKM_SHA_1:
          {
             if (mech->ulParameterLen != 0){
-               st_err_log(29, __FILE__, __LINE__);
+               OCK_LOG_ERR(ERR_MECHANISM_PARAM_INVALID);
                return CKR_MECHANISM_PARAM_INVALID;
             }
 
@@ -340,7 +340,7 @@ digest_mgr_init( SESSION           *sess,
 
             if (!ctx->context) {
                digest_mgr_cleanup(ctx);  // to de-initialize context above
-               st_err_log(1, __FILE__, __LINE__);
+               OCK_LOG_ERR(ERR_HOST_MEMORY);
                return CKR_HOST_MEMORY;
             }
          }
@@ -349,14 +349,14 @@ digest_mgr_init( SESSION           *sess,
       case CKM_MD2:
          {
             if (mech->ulParameterLen != 0){
-               st_err_log(29, __FILE__, __LINE__);
+               OCK_LOG_ERR(ERR_MECHANISM_PARAM_INVALID);
                return CKR_MECHANISM_PARAM_INVALID;
             }
             ctx->context_len = sizeof(MD2_CONTEXT);
             ctx->context     = (CK_BYTE *)malloc(sizeof(MD2_CONTEXT));
             if (!ctx->context){
                digest_mgr_cleanup(ctx);  // to de-initialize context above
-               st_err_log(1, __FILE__, __LINE__);
+               OCK_LOG_ERR(ERR_HOST_MEMORY);
                return CKR_HOST_MEMORY;
             }
             memset( ctx->context, 0x0, sizeof(MD2_CONTEXT) );
@@ -366,14 +366,14 @@ digest_mgr_init( SESSION           *sess,
       case CKM_MD5:
          {
             if (mech->ulParameterLen != 0){
-               st_err_log(29, __FILE__, __LINE__);
+               OCK_LOG_ERR(ERR_MECHANISM_PARAM_INVALID);
                return CKR_MECHANISM_PARAM_INVALID;
             }
             ctx->context_len = sizeof(MD5_CONTEXT);
             ctx->context     = (CK_BYTE *)malloc(sizeof(MD5_CONTEXT));
             if (!ctx->context){
                digest_mgr_cleanup(ctx);  // to de-initialize context above
-               st_err_log(1, __FILE__, __LINE__);
+               OCK_LOG_ERR(ERR_HOST_MEMORY);
                return CKR_HOST_MEMORY;
             }
             ckm_md5_init( (MD5_CONTEXT *)ctx->context );
@@ -381,7 +381,7 @@ digest_mgr_init( SESSION           *sess,
          break;
 
       default:
-         st_err_log(28, __FILE__, __LINE__);     
+         OCK_LOG_ERR(ERR_MECHANISM_INVALID);     
          return CKR_MECHANISM_INVALID;
    }
 
@@ -390,7 +390,7 @@ digest_mgr_init( SESSION           *sess,
       ptr = (CK_BYTE *)malloc(mech->ulParameterLen);
       if (!ptr){
          digest_mgr_cleanup(ctx);  // to de-initialize context above
-         st_err_log(1, __FILE__, __LINE__);     
+         OCK_LOG_ERR(ERR_HOST_MEMORY);     
          return CKR_HOST_MEMORY;
       }
       memcpy( ptr, mech->pParameter, mech->ulParameterLen );
@@ -412,7 +412,7 @@ CK_RV
 digest_mgr_cleanup( DIGEST_CONTEXT *ctx )
 {
    if (!ctx){
-      st_err_log(4, __FILE__, __LINE__, __FUNCTION__);
+      OCK_LOG_ERR(ERR_FUNCTION_FAILED);
       return CKR_FUNCTION_FAILED;
    }
    ctx->mech.ulParameterLen = 0;
@@ -450,11 +450,11 @@ digest_mgr_digest( SESSION         *sess,
    CK_RV        rc;
 
    if (!sess || !ctx){
-      st_err_log(4, __FILE__, __LINE__, __FUNCTION__);
+      OCK_LOG_ERR(ERR_FUNCTION_FAILED);
       return CKR_FUNCTION_FAILED;
    }
    if (ctx->active == FALSE){
-      st_err_log(32, __FILE__, __LINE__);
+      OCK_LOG_ERR(ERR_OPERATION_NOT_INITIALIZED);
       return CKR_OPERATION_NOT_INITIALIZED;
    }
 
@@ -462,13 +462,13 @@ digest_mgr_digest( SESSION         *sess,
    // specify the input data.  I just need the data length
    //
    if ((length_only == FALSE) && (!in_data || !out_data)){
-      st_err_log(4, __FILE__, __LINE__, __FUNCTION__);
+      OCK_LOG_ERR(ERR_FUNCTION_FAILED);
       rc = CKR_FUNCTION_FAILED;
       goto out;
    }
 
    if (ctx->multi == TRUE){
-      st_err_log(31, __FILE__, __LINE__);
+      OCK_LOG_ERR(ERR_FUNCTION_FAILED);
       rc = CKR_FUNCTION_FAILED;
       goto out;
    }
@@ -494,7 +494,7 @@ digest_mgr_digest( SESSION         *sess,
          break;
 
       default:
-         st_err_log(4, __FILE__, __LINE__, __FUNCTION__);
+         OCK_LOG_ERR(ERR_FUNCTION_FAILED);
          rc = CKR_FUNCTION_FAILED;  // shouldn't happen
    }
 out:
@@ -521,11 +521,11 @@ digest_mgr_digest_update( SESSION         *sess,
    CK_RV        rc;
 
    if (!sess || !ctx){
-      st_err_log(4, __FILE__, __LINE__, __FUNCTION__);
+      OCK_LOG_ERR(ERR_FUNCTION_FAILED);
       return CKR_FUNCTION_FAILED;
    }
    if (ctx->active == FALSE){
-      st_err_log(32, __FILE__, __LINE__);
+      OCK_LOG_ERR(ERR_OPERATION_NOT_INITIALIZED);
       return CKR_OPERATION_NOT_INITIALIZED;
    }
 
@@ -547,7 +547,7 @@ digest_mgr_digest_update( SESSION         *sess,
          break;
 
       default:
-         st_err_log(28, __FILE__, __LINE__);
+         OCK_LOG_ERR(ERR_MECHANISM_INVALID);
          rc = CKR_MECHANISM_INVALID;
    }
 
@@ -575,13 +575,13 @@ digest_mgr_digest_key( SESSION          * sess,
 
 
    if (!sess || !ctx){
-      st_err_log(4, __FILE__, __LINE__, __FUNCTION__);
+      OCK_LOG_ERR(ERR_FUNCTION_FAILED);
       return CKR_FUNCTION_FAILED;
    }
 
    rc = object_mgr_find_in_map1( key_handle, &key_obj );
    if (rc != CKR_OK){
-      st_err_log(18, __FILE__, __LINE__);
+      OCK_LOG_ERR(ERR_KEY_HANDLE_INVALID);
       rc = CKR_KEY_HANDLE_INVALID;
       goto out;
    }
@@ -589,7 +589,7 @@ digest_mgr_digest_key( SESSION          * sess,
    //
    rc = template_attribute_find( key_obj->template, CKA_CLASS, &attr );
    if (rc == FALSE) {
-      st_err_log(24, __FILE__, __LINE__);
+      OCK_LOG_ERR(ERR_KEY_INDIGESTIBLE);
       rc = CKR_KEY_INDIGESTIBLE;
       goto out;
    }
@@ -597,7 +597,7 @@ digest_mgr_digest_key( SESSION          * sess,
       class = *(CK_OBJECT_CLASS *)attr->pValue;
 
    if (class != CKO_SECRET_KEY){
-      st_err_log(24, __FILE__, __LINE__);
+      OCK_LOG_ERR(ERR_KEY_INDIGESTIBLE);
       rc =  CKR_KEY_INDIGESTIBLE;
       goto out;
    }
@@ -606,7 +606,7 @@ digest_mgr_digest_key( SESSION          * sess,
    //
    rc = template_attribute_find( key_obj->template, CKA_VALUE, &attr );
    if (!rc){
-      st_err_log(24, __FILE__, __LINE__);
+      OCK_LOG_ERR(ERR_KEY_INDIGESTIBLE);
       rc = CKR_KEY_INDIGESTIBLE;
       goto out;
    }
@@ -615,7 +615,7 @@ digest_mgr_digest_key( SESSION          * sess,
                                   attr->pValue,
                                   attr->ulValueLen );
    if (rc != CKR_OK){
-      st_err_log(24, __FILE__, __LINE__);
+      OCK_LOG_ERR(ERR_DIGEST_UPDATE);
    }
 
 out:
@@ -636,11 +636,11 @@ digest_mgr_digest_final( SESSION         *sess,
                          CK_ULONG        *hash_len )
 {
    if (!sess || !ctx){
-      st_err_log(4, __FILE__, __LINE__, __FUNCTION__);
+      OCK_LOG_ERR(ERR_FUNCTION_FAILED);
       return CKR_FUNCTION_FAILED;
    }
    if (ctx->active == FALSE){
-      st_err_log(32, __FILE__, __LINE__);
+      OCK_LOG_ERR(ERR_OPERATION_NOT_INITIALIZED);
       return CKR_OPERATION_NOT_INITIALIZED;
    }
 
@@ -668,10 +668,10 @@ digest_mgr_digest_final( SESSION         *sess,
                                 hash, hash_len );
 
       default:
-         st_err_log(28, __FILE__, __LINE__);
+         OCK_LOG_ERR(ERR_MECHANISM_INVALID);
          return CKR_MECHANISM_INVALID;   // shouldn't happen
    }
 
-   st_err_log(28, __FILE__, __LINE__);
+   OCK_LOG_ERR(ERR_MECHANISM_INVALID);
    return CKR_MECHANISM_INVALID;
 }

@@ -326,7 +326,7 @@ session_mgr_find( CK_SESSION_HANDLE handle )
 
    rc = MY_LockMutex( &sess_list_mutex );
    if (rc != CKR_OK){
-      st_err_log(146, __FILE__, __LINE__); 
+      OCK_LOG_ERR(ERR_MUTEX_LOCK); 
       return NULL;
    }
    result = bt_get_node_value(&sess_btree, handle);
@@ -360,7 +360,7 @@ session_mgr_new( CK_ULONG flags, CK_SLOT_ID slot_id, CK_SESSION_HANDLE_PTR phSes
 
    new_session = (SESSION *)malloc(sizeof(SESSION));
    if (!new_session) {
-      st_err_log(0, __FILE__, __LINE__);
+      OCK_LOG_ERR(ERR_HOST_MEMORY);
       rc = CKR_HOST_MEMORY;
       goto done;
    }
@@ -373,7 +373,7 @@ session_mgr_new( CK_ULONG flags, CK_SLOT_ID slot_id, CK_SESSION_HANDLE_PTR phSes
 
    rc = MY_LockMutex( &pkcs_mutex );      // this protects next_session_handle
    if (rc != CKR_OK){
-      st_err_log(146, __FILE__, __LINE__);
+      OCK_LOG_ERR(ERR_MUTEX_LOCK);
       return rc;
    }
    pkcs_locked = TRUE;
@@ -395,7 +395,7 @@ session_mgr_new( CK_ULONG flags, CK_SLOT_ID slot_id, CK_SESSION_HANDLE_PTR phSes
 
    rc = MY_LockMutex( &sess_list_mutex );
    if (rc != CKR_OK){
-      st_err_log(146, __FILE__, __LINE__);
+      OCK_LOG_ERR(ERR_MUTEX_LOCK);
       return rc;
    }
    sess_locked = TRUE;
@@ -437,7 +437,7 @@ done:
       MY_UnlockMutex( &sess_list_mutex );
 
    if (rc != CKR_OK && new_session != NULL){
-      st_err_log(147, __FILE__, __LINE__); 
+      OCK_LOG_ERR(ERR_MUTEX_UNLOCK); 
       free( new_session );
    }
    return rc;
@@ -459,7 +459,7 @@ session_mgr_so_session_exists( void )
    /* we must acquire sess_list_mutex in order to inspect glogal_login_state */
    rc = MY_LockMutex( &sess_list_mutex );
    if (rc != CKR_OK){
-      st_err_log(146, __FILE__, __LINE__); 
+      OCK_LOG_ERR(ERR_MUTEX_LOCK); 
       return FALSE;      // FIXME: make this function return proper errors
    }
 
@@ -485,7 +485,7 @@ session_mgr_user_session_exists( void )
    /* we must acquire sess_list_mutex in order to inspect glogal_login_state */
    rc = MY_LockMutex( &sess_list_mutex );
    if (rc != CKR_OK){
-      st_err_log(146, __FILE__, __LINE__); 
+      OCK_LOG_ERR(ERR_MUTEX_LOCK); 
       return FALSE;        // FIXME: return proper errors
    }
 
@@ -511,7 +511,7 @@ session_mgr_public_session_exists( void )
    /* we must acquire sess_list_mutex in order to inspect glogal_login_state */
    rc = MY_LockMutex( &sess_list_mutex );
    if (rc != CKR_OK){
-      st_err_log(146, __FILE__, __LINE__); 
+      OCK_LOG_ERR(ERR_MUTEX_LOCK); 
       return FALSE;      // FIXME: return proper errors
    }
 
@@ -536,7 +536,7 @@ session_mgr_readonly_session_exists( void )
    /* we must acquire sess_list_mutex in order to inspect glogal_login_state */
    rc = MY_LockMutex( &sess_list_mutex );
    if (rc != CKR_OK){
-      st_err_log(146, __FILE__, __LINE__); 
+      OCK_LOG_ERR(ERR_MUTEX_LOCK); 
       return rc;
    }
 
@@ -565,13 +565,13 @@ session_mgr_close_session( CK_SESSION_HANDLE handle )
 
    rc = MY_LockMutex( &sess_list_mutex );
    if (rc != CKR_OK){
-      st_err_log(146, __FILE__, __LINE__); 
+      OCK_LOG_ERR(ERR_MUTEX_LOCK); 
       return CKR_FUNCTION_FAILED;
    }
 
    sess = bt_get_node_value(&sess_btree, handle);
    if (!sess) {
-	   st_err_log(40, __FILE__, __LINE__);
+	   OCK_LOG_ERR(ERR_SESSION_HANDLE_INVALID);
 	   rc = CKR_SESSION_HANDLE_INVALID;
 	   goto done;
    }
@@ -710,7 +710,7 @@ session_mgr_close_all_sessions( void )
 
    rc = MY_LockMutex( &sess_list_mutex );
    if (rc != CKR_OK){
-      st_err_log(146, __FILE__, __LINE__);
+      OCK_LOG_ERR(ERR_MUTEX_LOCK);
       return CKR_FUNCTION_FAILED;
    }
 
@@ -762,7 +762,7 @@ session_mgr_login_all( CK_USER_TYPE user_type )
 
    rc = MY_LockMutex( &sess_list_mutex );
    if (rc != CKR_OK){
-      st_err_log(146, __FILE__, __LINE__); 
+      OCK_LOG_ERR(ERR_MUTEX_LOCK); 
       return CKR_FUNCTION_FAILED;
    }
 
@@ -807,7 +807,7 @@ session_mgr_logout_all( void )
 
    rc = MY_LockMutex( &sess_list_mutex );
    if (rc != CKR_OK){
-      st_err_log(146, __FILE__, __LINE__); 
+      OCK_LOG_ERR(ERR_MUTEX_LOCK); 
       return CKR_FUNCTION_FAILED;
    }
 
@@ -831,19 +831,19 @@ session_mgr_get_op_state( SESSION   *sess,
    CK_ULONG        offset;
 
    if (!sess){
-      st_err_log(4, __FILE__, __LINE__, __FUNCTION__); 
+      OCK_LOG_ERR(ERR_FUNCTION_FAILED); 
       return CKR_FUNCTION_FAILED;
    }
 
    // ensure that at least one operation is active
    //
    if (sess->find_active == TRUE){
-      st_err_log(71, __FILE__, __LINE__); 
+      OCK_LOG_ERR(ERR_STATE_UNSAVEABLE); 
       return CKR_STATE_UNSAVEABLE;
    }
    if (sess->encr_ctx.active == TRUE) {
       if (op_data != NULL){
-         st_err_log(71, __FILE__, __LINE__); 
+         OCK_LOG_ERR(ERR_STATE_UNSAVEABLE); 
          return CKR_STATE_UNSAVEABLE;
       }
       op_data_len = sizeof(OP_STATE_DATA)      +
@@ -884,7 +884,7 @@ session_mgr_get_op_state( SESSION   *sess,
 
    if (sess->decr_ctx.active == TRUE) {
       if (op_data != NULL){
-         st_err_log(71, __FILE__, __LINE__); 
+         OCK_LOG_ERR(ERR_STATE_UNSAVEABLE); 
          return CKR_STATE_UNSAVEABLE;
       }
       op_data_len = sizeof(OP_STATE_DATA)      +
@@ -925,7 +925,7 @@ session_mgr_get_op_state( SESSION   *sess,
 
    if (sess->digest_ctx.active == TRUE) {
       if (op_data != NULL){
-         st_err_log(71, __FILE__, __LINE__); 
+         OCK_LOG_ERR(ERR_STATE_UNSAVEABLE); 
          return CKR_STATE_UNSAVEABLE;
       }
       op_data_len = sizeof(OP_STATE_DATA)        +
@@ -966,7 +966,7 @@ session_mgr_get_op_state( SESSION   *sess,
 
    if (sess->sign_ctx.active == TRUE) {
       if (op_data != NULL){
-         st_err_log(71, __FILE__, __LINE__); 
+         OCK_LOG_ERR(ERR_STATE_UNSAVEABLE); 
          return CKR_STATE_UNSAVEABLE;
       }
       op_data_len = sizeof(OP_STATE_DATA)       +
@@ -1007,7 +1007,7 @@ session_mgr_get_op_state( SESSION   *sess,
 
    if (sess->verify_ctx.active == TRUE) {
       if (op_data != NULL){
-         st_err_log(71, __FILE__, __LINE__); 
+         OCK_LOG_ERR(ERR_STATE_UNSAVEABLE); 
          return CKR_STATE_UNSAVEABLE;
       }
       op_data_len = sizeof(OP_STATE_DATA)        +
@@ -1070,7 +1070,7 @@ session_mgr_set_op_state( SESSION           * sess,
 
 
    if (!sess || !data){
-      st_err_log(4, __FILE__, __LINE__, __FUNCTION__); 
+      OCK_LOG_ERR(ERR_FUNCTION_FAILED); 
       return CKR_FUNCTION_FAILED;
    }
    op_data = (OP_STATE_DATA *)data;
@@ -1078,7 +1078,7 @@ session_mgr_set_op_state( SESSION           * sess,
    // make sure the session states are compatible
    //
    if (sess->session_info.state != op_data->session_state){
-      st_err_log(69, __FILE__, __LINE__); 
+      OCK_LOG_ERR(ERR_SAVED_STATE_INVALID); 
       return CKR_SAVED_STATE_INVALID;
    }
    // validate the new state information.  don't touch the session
@@ -1092,15 +1092,15 @@ session_mgr_set_op_state( SESSION           * sess,
 
             len = sizeof(ENCR_DECR_CONTEXT) + ctx->context_len + ctx->mech.ulParameterLen;
             if (len != op_data->data_len){
-               st_err_log(69, __FILE__, __LINE__); 
+               OCK_LOG_ERR(ERR_SAVED_STATE_INVALID); 
                return CKR_SAVED_STATE_INVALID;
             }
             if (auth_key != 0){
-               st_err_log(21, __FILE__, __LINE__); 
+               OCK_LOG_ERR(ERR_KEY_NOT_NEEDED); 
                return CKR_KEY_NOT_NEEDED;
             }
             if (encr_key == 0){
-               st_err_log(23, __FILE__, __LINE__); 
+               OCK_LOG_ERR(ERR_KEY_NEEDED); 
                return CKR_KEY_NEEDED;
             }
             ptr1 = (CK_BYTE *)ctx;
@@ -1110,7 +1110,7 @@ session_mgr_set_op_state( SESSION           * sess,
             if (ctx->context_len) {
                context = (CK_BYTE *)malloc( ctx->context_len );
                if (!context){
-                  st_err_log(0, __FILE__, __LINE__);
+                  OCK_LOG_ERR(ERR_HOST_MEMORY);
                   return CKR_HOST_MEMORY;
                }
                memcpy( context, ptr2, ctx->context_len );
@@ -1121,7 +1121,7 @@ session_mgr_set_op_state( SESSION           * sess,
                if (!mech_param) {
                   if (context)
                      free( context );
-                  st_err_log(0, __FILE__, __LINE__);
+                  OCK_LOG_ERR(ERR_HOST_MEMORY);
                   return CKR_HOST_MEMORY;
                }
                memcpy( mech_param, ptr3, ctx->mech.ulParameterLen );
@@ -1136,15 +1136,15 @@ session_mgr_set_op_state( SESSION           * sess,
 
             len = sizeof(SIGN_VERIFY_CONTEXT) + ctx->context_len + ctx->mech.ulParameterLen;
             if (len != op_data->data_len){
-               st_err_log(69, __FILE__, __LINE__); 
+               OCK_LOG_ERR(ERR_SAVED_STATE_INVALID); 
                return CKR_SAVED_STATE_INVALID;
             }
             if (auth_key == 0){
-               st_err_log(23, __FILE__, __LINE__); 
+               OCK_LOG_ERR(ERR_KEY_NEEDED); 
                return CKR_KEY_NEEDED;
             }
             if (encr_key != 0){
-               st_err_log(21, __FILE__, __LINE__); 
+               OCK_LOG_ERR(ERR_KEY_NOT_NEEDED); 
                return CKR_KEY_NOT_NEEDED;
             }
             ptr1 = (CK_BYTE *)ctx;
@@ -1154,7 +1154,7 @@ session_mgr_set_op_state( SESSION           * sess,
             if (ctx->context_len) {
                context = (CK_BYTE *)malloc( ctx->context_len );
                if (!context){
-                  st_err_log(0, __FILE__, __LINE__);
+                  OCK_LOG_ERR(ERR_HOST_MEMORY);
                   return CKR_HOST_MEMORY;
                }
                memcpy( context, ptr2, ctx->context_len );
@@ -1165,7 +1165,7 @@ session_mgr_set_op_state( SESSION           * sess,
                if (!mech_param) {
                   if (context)
                      free( context );
-                  st_err_log(0, __FILE__, __LINE__);
+                  OCK_LOG_ERR(ERR_HOST_MEMORY);
                   return CKR_HOST_MEMORY;
                }
                memcpy( mech_param, ptr3, ctx->mech.ulParameterLen );
@@ -1179,15 +1179,15 @@ session_mgr_set_op_state( SESSION           * sess,
 
             len = sizeof(DIGEST_CONTEXT) + ctx->context_len + ctx->mech.ulParameterLen;
             if (len != op_data->data_len){
-               st_err_log(69, __FILE__, __LINE__); 
+               OCK_LOG_ERR(ERR_SAVED_STATE_INVALID); 
                return CKR_SAVED_STATE_INVALID;
             }
             if (auth_key != 0){
-               st_err_log(23, __FILE__, __LINE__); 
+               OCK_LOG_ERR(ERR_KEY_NOT_NEEDED); 
                return CKR_KEY_NOT_NEEDED;
             }
             if (encr_key != 0){
-               st_err_log(23, __FILE__, __LINE__); 
+               OCK_LOG_ERR(ERR_KEY_NOT_NEEDED); 
                return CKR_KEY_NOT_NEEDED;
             }
             ptr1 = (CK_BYTE *)ctx;
@@ -1197,7 +1197,7 @@ session_mgr_set_op_state( SESSION           * sess,
             if (ctx->context_len) {
                context = (CK_BYTE *)malloc( ctx->context_len );
                if (!context){
-                  st_err_log(0, __FILE__, __LINE__);
+                  OCK_LOG_ERR(ERR_HOST_MEMORY);
                   return CKR_HOST_MEMORY;
                }
                memcpy( context, ptr2, ctx->context_len );
@@ -1208,7 +1208,7 @@ session_mgr_set_op_state( SESSION           * sess,
                if (!mech_param) {
                   if (context)
                      free( context );
-                  st_err_log(0, __FILE__, __LINE__);
+                  OCK_LOG_ERR(ERR_HOST_MEMORY);
                   return CKR_HOST_MEMORY;
                }
                memcpy( mech_param, ptr3, ctx->mech.ulParameterLen );
@@ -1217,7 +1217,7 @@ session_mgr_set_op_state( SESSION           * sess,
          break;
 
       default:
-         st_err_log(69, __FILE__, __LINE__); 
+         OCK_LOG_ERR(ERR_SAVED_STATE_INVALID); 
          return CKR_SAVED_STATE_INVALID;
    }
 

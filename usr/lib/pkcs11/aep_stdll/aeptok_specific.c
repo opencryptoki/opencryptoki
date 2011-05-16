@@ -145,7 +145,7 @@ token_specific_des_ecb(CK_BYTE * in_data,
 	// the des decrypt will only fail if the data length is not 
 	// evenly divisible by 8
 	if (in_data_len % 8 ){
-		st_err_log(11, __FILE__, __LINE__);
+		OCK_LOG_ERR(ERR_DATA_LEN_RANGE);
 		return CKR_DATA_LEN_RANGE;
 	}
 
@@ -202,7 +202,7 @@ token_specific_des_cbc(CK_BYTE * in_data,
 	// the des decrypt will only fail if the data length is not 
 	// evenly divisible by 8
 	if (in_data_len % 8 ){
-		st_err_log(11, __FILE__, __LINE__);
+		OCK_LOG_ERR(ERR_DATA_LEN_RANGE);
 		return CKR_DATA_LEN_RANGE;
 	}
 
@@ -251,7 +251,7 @@ token_specific_tdes_ecb(CK_BYTE * in_data,
 	// the des decrypt will only fail if the data length is not 
 	// evenly divisible by 8
 	if (in_data_len % 8 ){
-		st_err_log(11, __FILE__, __LINE__);
+		OCK_LOG_ERR(ERR_DATA_LEN_RANGE);
 		return CKR_DATA_LEN_RANGE;
 	}
 
@@ -318,7 +318,7 @@ token_specific_tdes_cbc(CK_BYTE * in_data,
 	// the des decrypt will only fail if the data length is not
 	// evenly divisible by 8
 	if (in_data_len % 8 ){
-		st_err_log(11, __FILE__, __LINE__);
+		OCK_LOG_ERR(ERR_DATA_LEN_RANGE);
 		return CKR_DATA_LEN_RANGE;
 	}
 
@@ -577,19 +577,19 @@ os_specific_rsa_keygen(TEMPLATE *publ_tmpl,  TEMPLATE *priv_tmpl)
 
 	flag = template_attribute_find( publ_tmpl, CKA_MODULUS_BITS, &attr );
 	if (!flag){
-		st_err_log(48, __FILE__, __LINE__);
+		OCK_LOG_ERR(ERR_TEMPLATE_INCOMPLETE);
 		return CKR_TEMPLATE_INCOMPLETE;  // should never happen
         }
 	mod_bits = *(CK_ULONG *)attr->pValue;
 	flag = template_attribute_find( publ_tmpl, CKA_PUBLIC_EXPONENT, 
 					&publ_exp );
 	if (!flag){
-		st_err_log(48, __FILE__, __LINE__);
+		OCK_LOG_ERR(ERR_TEMPLATE_INCOMPLETE);
 		return CKR_TEMPLATE_INCOMPLETE;
 	}
 
 	if (mod_bits < 512 || mod_bits > 2048) {
-		st_err_log(19, __FILE__, __LINE__);
+		OCK_LOG_ERR(ERR_KEY_SIZE_RANGE);
 		return CKR_KEY_SIZE_RANGE;
 	}
 
@@ -598,13 +598,13 @@ os_specific_rsa_keygen(TEMPLATE *publ_tmpl,  TEMPLATE *priv_tmpl)
 
 	rsa = RSA_new();
 	if (rsa == NULL) {
-		st_err_log(1, __FILE__, __LINE__);
+		OCK_LOG_ERR(ERR_HOST_MEMORY);
 		return CKR_HOST_MEMORY;
 	}
 	RSA_blinding_off(rsa);
 	rsa = RSA_generate_key(mod_bits, three, NULL, NULL);
 	if (rsa == NULL) {
-		st_err_log(4, __FILE__, __LINE__);
+		OCK_LOG_ERR(ERR_FUNCTION_FAILED);
 		return CKR_FUNCTION_FAILED;
 	}
 
@@ -616,7 +616,7 @@ os_specific_rsa_keygen(TEMPLATE *publ_tmpl,  TEMPLATE *priv_tmpl)
 	BNLength = BN_num_bytes(bignum);
 	ssl_ptr = malloc(BNLength);
 	if (ssl_ptr == NULL) {
-		st_err_log(1, __FILE__, __LINE__);
+		OCK_LOG_ERR(ERR_HOST_MEMORY);
 		rc = CKR_HOST_MEMORY;
 		goto done;
 	}
@@ -624,7 +624,7 @@ os_specific_rsa_keygen(TEMPLATE *publ_tmpl,  TEMPLATE *priv_tmpl)
 	rc = build_attribute( CKA_MODULUS, ssl_ptr, 
 			      BNLength, &attr ); // in bytes
 	if (rc != CKR_OK){
-		st_err_log(84, __FILE__, __LINE__);
+		OCK_LOG_ERR(ERR_BLD_ATTR);
 		goto done;
         }
 	template_update_attribute( publ_tmpl, attr );
@@ -635,7 +635,7 @@ os_specific_rsa_keygen(TEMPLATE *publ_tmpl,  TEMPLATE *priv_tmpl)
         BNLength = BN_num_bytes(bignum);
         ssl_ptr = malloc(BNLength);
 	if (ssl_ptr == NULL) {
-		st_err_log(1, __FILE__, __LINE__);
+		OCK_LOG_ERR(ERR_HOST_MEMORY);
 		rc = CKR_HOST_MEMORY;
 		goto done;
 	}
@@ -643,7 +643,7 @@ os_specific_rsa_keygen(TEMPLATE *publ_tmpl,  TEMPLATE *priv_tmpl)
         rc = build_attribute( CKA_PUBLIC_EXPONENT, ssl_ptr, 
 			      BNLength, &attr ); // in bytes
         if (rc != CKR_OK){
-                st_err_log(84, __FILE__, __LINE__);
+                OCK_LOG_ERR(ERR_BLD_ATTR);
                 goto done;
         }
         template_update_attribute( publ_tmpl, attr );
@@ -654,7 +654,7 @@ os_specific_rsa_keygen(TEMPLATE *publ_tmpl,  TEMPLATE *priv_tmpl)
 	flag = TRUE;
 	rc = build_attribute( CKA_LOCAL, &flag, sizeof(CK_BBOOL), &attr );
 	if (rc != CKR_OK){
-		st_err_log(84, __FILE__, __LINE__);
+		OCK_LOG_ERR(ERR_BLD_ATTR);
 		goto done;
 	}
 	template_update_attribute( publ_tmpl, attr );
@@ -671,7 +671,7 @@ os_specific_rsa_keygen(TEMPLATE *publ_tmpl,  TEMPLATE *priv_tmpl)
 	BNLength = BN_num_bytes(bignum);
 	ssl_ptr = malloc(BNLength);
 	if (ssl_ptr == NULL) {
-		st_err_log(1, __FILE__, __LINE__);
+		OCK_LOG_ERR(ERR_HOST_MEMORY);
 		rc = CKR_HOST_MEMORY;
 		goto done;
 	}
@@ -679,7 +679,7 @@ os_specific_rsa_keygen(TEMPLATE *publ_tmpl,  TEMPLATE *priv_tmpl)
 	rc = build_attribute( CKA_MODULUS, ssl_ptr, 
 			      BNLength ,&attr ); // in bytes
 	if (rc != CKR_OK){
-		st_err_log(84, __FILE__, __LINE__);
+		OCK_LOG_ERR(ERR_BLD_ATTR);
 		goto done;
 	}
 	template_update_attribute( priv_tmpl, attr );
@@ -691,14 +691,14 @@ os_specific_rsa_keygen(TEMPLATE *publ_tmpl,  TEMPLATE *priv_tmpl)
         BNLength = BN_num_bytes(bignum);
         ssl_ptr = malloc( BNLength);
 	if (ssl_ptr == NULL) {
-		st_err_log(1, __FILE__, __LINE__);
+		OCK_LOG_ERR(ERR_HOST_MEMORY);
 		rc = CKR_HOST_MEMORY;
 		goto done;
 	}
         BNLength = BN_bn2bin(bignum, ssl_ptr);
         rc = build_attribute( CKA_PRIVATE_EXPONENT, ssl_ptr, BNLength, &attr );
         if (rc != CKR_OK){
-                st_err_log(84, __FILE__, __LINE__);
+                OCK_LOG_ERR(ERR_BLD_ATTR);
                 goto done;
         }
         template_update_attribute( priv_tmpl, attr );
@@ -710,14 +710,14 @@ os_specific_rsa_keygen(TEMPLATE *publ_tmpl,  TEMPLATE *priv_tmpl)
 	BNLength = BN_num_bytes(bignum);
 	ssl_ptr = malloc(BNLength);
 	if (ssl_ptr == NULL) {
-		st_err_log(1, __FILE__, __LINE__);
+		OCK_LOG_ERR(ERR_HOST_MEMORY);
 		rc = CKR_HOST_MEMORY;
 		goto done;
 	}
 	BNLength = BN_bn2bin(bignum, ssl_ptr);
 	rc = build_attribute( CKA_PRIME_1, ssl_ptr, BNLength, &attr );
 	if (rc != CKR_OK){
-		st_err_log(84, __FILE__, __LINE__);
+		OCK_LOG_ERR(ERR_BLD_ATTR);
 		goto done;
 	}
 	template_update_attribute( priv_tmpl, attr );
@@ -729,14 +729,14 @@ os_specific_rsa_keygen(TEMPLATE *publ_tmpl,  TEMPLATE *priv_tmpl)
 	BNLength = BN_num_bytes(bignum);
 	ssl_ptr = malloc(BNLength);
 	if (ssl_ptr == NULL) {
-		st_err_log(1, __FILE__, __LINE__);
+		OCK_LOG_ERR(ERR_HOST_MEMORY);
 		rc = CKR_HOST_MEMORY;
 		goto done;
 	}
 	BNLength = BN_bn2bin(bignum, ssl_ptr);
 	rc = build_attribute( CKA_PRIME_2, ssl_ptr, BNLength, &attr );
 	if (rc != CKR_OK){
-		st_err_log(84, __FILE__, __LINE__);
+		OCK_LOG_ERR(ERR_BLD_ATTR);
 		goto done;
 	}
 	template_update_attribute( priv_tmpl, attr );
@@ -748,14 +748,14 @@ os_specific_rsa_keygen(TEMPLATE *publ_tmpl,  TEMPLATE *priv_tmpl)
 	BNLength = BN_num_bytes(bignum);
 	ssl_ptr = malloc(BNLength);
 	if (ssl_ptr == NULL) {
-		st_err_log(1, __FILE__, __LINE__);
+		OCK_LOG_ERR(ERR_HOST_MEMORY);
 		rc = CKR_HOST_MEMORY;
 		goto done;
 	}
 	BNLength = BN_bn2bin(bignum, ssl_ptr);
 	rc = build_attribute( CKA_EXPONENT_1, ssl_ptr, BNLength, &attr );
 	if (rc != CKR_OK){
-		st_err_log(84, __FILE__, __LINE__);
+		OCK_LOG_ERR(ERR_BLD_ATTR);
 		goto done;
 	}
 	template_update_attribute( priv_tmpl, attr );
@@ -767,14 +767,14 @@ os_specific_rsa_keygen(TEMPLATE *publ_tmpl,  TEMPLATE *priv_tmpl)
 	BNLength = BN_num_bytes(bignum);
 	ssl_ptr = malloc(BNLength);
 	if (ssl_ptr == NULL) {
-		st_err_log(1, __FILE__, __LINE__);
+		OCK_LOG_ERR(ERR_HOST_MEMORY);
 		rc = CKR_HOST_MEMORY;
 		goto done;
 	}
 	BNLength = BN_bn2bin(bignum, ssl_ptr);
 	rc = build_attribute( CKA_EXPONENT_2, ssl_ptr, BNLength, &attr );
 	if (rc != CKR_OK){
-		st_err_log(84, __FILE__, __LINE__);
+		OCK_LOG_ERR(ERR_BLD_ATTR);
 		goto done;
 	}
 	template_update_attribute( priv_tmpl, attr );
@@ -786,14 +786,14 @@ os_specific_rsa_keygen(TEMPLATE *publ_tmpl,  TEMPLATE *priv_tmpl)
 	BNLength = BN_num_bytes(bignum);
 	ssl_ptr = malloc(BNLength);
 	if (ssl_ptr == NULL) {
-		st_err_log(1, __FILE__, __LINE__);
+		OCK_LOG_ERR(ERR_HOST_MEMORY);
 		rc = CKR_HOST_MEMORY;
 		goto done;
 	}
 	BNLength = BN_bn2bin(bignum, ssl_ptr);
 	rc = build_attribute( CKA_COEFFICIENT, ssl_ptr, BNLength, &attr );
 	if (rc != CKR_OK){
-		st_err_log(84, __FILE__, __LINE__);
+		OCK_LOG_ERR(ERR_BLD_ATTR);
 		goto done;
 	}
 	template_update_attribute( priv_tmpl, attr );
@@ -802,7 +802,7 @@ os_specific_rsa_keygen(TEMPLATE *publ_tmpl,  TEMPLATE *priv_tmpl)
 	flag = TRUE;
 	rc = build_attribute( CKA_LOCAL, &flag, sizeof(CK_BBOOL), &attr );
 	if (rc != CKR_OK){
-		st_err_log(84, __FILE__, __LINE__);
+		OCK_LOG_ERR(ERR_BLD_ATTR);
 		goto done;
 	}
 	template_update_attribute( priv_tmpl, attr );
@@ -820,7 +820,7 @@ token_specific_rsa_generate_keypair( TEMPLATE  * publ_tmpl,
 	
 	rc = os_specific_rsa_keygen(publ_tmpl,priv_tmpl);
 	if (rc != CKR_OK)
-		st_err_log(91, __FILE__, __LINE__);
+		OCK_LOG_ERR(ERR_KEYGEN);
 	return rc;
 }
 
@@ -838,7 +838,7 @@ token_specific_rsa_encrypt( CK_BYTE   * in_data,
 	// Convert the local representation to an RSA representation
 	rsa = (RSA *)rsa_convert_public_key(key_obj, &mLen);
 	if (rsa==NULL) {
-		st_err_log(4, __FILE__, __LINE__, __FUNCTION__);
+		OCK_LOG_ERR(ERR_FUNCTION_FAILED);
 		rc = CKR_FUNCTION_FAILED;
 		goto done;
 	}
@@ -864,7 +864,7 @@ token_specific_rsa_encrypt( CK_BYTE   * in_data,
 	if (rc != 0) {
 		rc = CKR_OK;
 	} else {
-		st_err_log(4, __FILE__, __LINE__, __FUNCTION__);
+		OCK_LOG_ERR(ERR_FUNCTION_FAILED);
 		rc = CKR_FUNCTION_FAILED;
 	}
 	// Clean up after ourselves
@@ -888,7 +888,7 @@ token_specific_rsa_decrypt( CK_BYTE   * in_data,
 	// Convert the local key representation to an RSA key representaion
 	rsa = (RSA *)rsa_convert_private_key(key_obj, &mLen);
 	if (rsa == NULL) {
-		st_err_log(4, __FILE__, __LINE__, __FUNCTION__);
+		OCK_LOG_ERR(ERR_FUNCTION_FAILED);
 		rc = CKR_FUNCTION_FAILED;
 		goto done;
 	}
@@ -912,7 +912,7 @@ token_specific_rsa_decrypt( CK_BYTE   * in_data,
 	if (rc != 0) {
 		rc = CKR_OK;
 	} else {
-		st_err_log(4, __FILE__, __LINE__, __FUNCTION__);
+		OCK_LOG_ERR(ERR_FUNCTION_FAILED);
 		rc = CKR_FUNCTION_FAILED;
 	}
 	
@@ -1037,7 +1037,7 @@ token_specific_dh_pkcs_derive( CK_BYTE   *z,
 	     if (bn_x) BN_free(bn_x);
 	     if (bn_p) BN_free(bn_p);
 	     if (bn_z) BN_free(bn_z);
-	     st_err_log(1, __FILE__, __LINE__);
+	     OCK_LOG_ERR(ERR_HOST_MEMORY);
 	     return CKR_HOST_MEMORY;
      }
      
@@ -1049,7 +1049,7 @@ token_specific_dh_pkcs_derive( CK_BYTE   *z,
      ctx=BN_CTX_new();
      if (ctx == NULL)
      {
-        st_err_log(4, __FILE__, __LINE__, __FUNCTION__);
+        OCK_LOG_ERR(ERR_FUNCTION_FAILED);
         return CKR_FUNCTION_FAILED;
      }
  
@@ -1068,7 +1068,7 @@ token_specific_dh_pkcs_derive( CK_BYTE   *z,
         BN_free(bn_p);
         BN_CTX_free(ctx);
  
-        st_err_log(4, __FILE__, __LINE__, __FUNCTION__);
+        OCK_LOG_ERR(ERR_FUNCTION_FAILED);
         return CKR_FUNCTION_FAILED;
      }
  
@@ -1112,20 +1112,20 @@ token_specific_dh_pkcs_key_pair_gen( TEMPLATE  * publ_tmpl,
     rc &= template_attribute_find( publ_tmpl, CKA_BASE, &base_attr );
  
     if (rc == FALSE) {
-        st_err_log(4, __FILE__, __LINE__, __FUNCTION__);
+        OCK_LOG_ERR(ERR_FUNCTION_FAILED);
         return CKR_FUNCTION_FAILED;
     }
  
     if ((prime_attr->ulValueLen > 256) || (prime_attr->ulValueLen < 64))
     {
-        st_err_log(4, __FILE__, __LINE__, __FUNCTION__);
+        OCK_LOG_ERR(ERR_FUNCTION_FAILED);
         return CKR_FUNCTION_FAILED;
     }
  
     dh = DH_new() ;
     if (dh == NULL)
     {
-        st_err_log(4, __FILE__, __LINE__, __FUNCTION__);
+        OCK_LOG_ERR(ERR_FUNCTION_FAILED);
         return CKR_FUNCTION_FAILED;
     }
 
@@ -1135,7 +1135,7 @@ token_specific_dh_pkcs_key_pair_gen( TEMPLATE  * publ_tmpl,
     if (bn_g == NULL || bn_p == NULL) {
 	if (bn_g) BN_free(bn_g);
 	if (bn_p) BN_free(bn_p);
-	st_err_log(1, __FILE__, __LINE__);
+	OCK_LOG_ERR(ERR_HOST_MEMORY);
 	return CKR_HOST_MEMORY;
     }
     BN_init(bn_p);
@@ -1150,7 +1150,7 @@ token_specific_dh_pkcs_key_pair_gen( TEMPLATE  * publ_tmpl,
     // Generate the DH Key
     if (!DH_generate_key(dh))
     {
-        st_err_log(4, __FILE__, __LINE__, __FUNCTION__);
+        OCK_LOG_ERR(ERR_FUNCTION_FAILED);
         return CKR_FUNCTION_FAILED;
     }
  
@@ -1168,7 +1168,7 @@ token_specific_dh_pkcs_key_pair_gen( TEMPLATE  * publ_tmpl,
     rc = build_attribute( CKA_VALUE, temp_byte, temp_bn_len, &temp_attr ); // in bytes
     if (rc != CKR_OK)
     {
-        st_err_log(84, __FILE__, __LINE__);
+        OCK_LOG_ERR(ERR_FUNCTION_FAILED);
         return CKR_FUNCTION_FAILED;
     }
     template_update_attribute( publ_tmpl, temp_attr );
@@ -1185,7 +1185,7 @@ token_specific_dh_pkcs_key_pair_gen( TEMPLATE  * publ_tmpl,
     rc = build_attribute( CKA_VALUE, temp_byte, temp_bn_len, &temp_attr ); // in bytes
     if (rc != CKR_OK)
     {
-        st_err_log(84, __FILE__, __LINE__);
+        OCK_LOG_ERR(ERR_FUNCTION_FAILED);
         return CKR_FUNCTION_FAILED;
     }
     template_update_attribute( priv_tmpl, temp_attr );
@@ -1204,7 +1204,7 @@ token_specific_dh_pkcs_key_pair_gen( TEMPLATE  * publ_tmpl,
                           prime_attr->ulValueLen, &temp_attr ); // in bytes
     if (rc != CKR_OK)
     {
-        st_err_log(84, __FILE__, __LINE__);
+        OCK_LOG_ERR(ERR_FUNCTION_FAILED);
         return CKR_FUNCTION_FAILED;
     }
     template_update_attribute( priv_tmpl, temp_attr );
@@ -1213,7 +1213,7 @@ token_specific_dh_pkcs_key_pair_gen( TEMPLATE  * publ_tmpl,
                           base_attr->ulValueLen, &temp_attr ); // in bytes
     if (rc != CKR_OK)
     {
-        st_err_log(84, __FILE__, __LINE__);
+        OCK_LOG_ERR(ERR_FUNCTION_FAILED);
         return CKR_FUNCTION_FAILED;
     }
     template_update_attribute( priv_tmpl, temp_attr );
@@ -1348,6 +1348,7 @@ MECH_LIST_ELEMENT mech_list[] = {
    					       CKF_ENCRYPT | CKF_DECRYPT |
    					       CKF_WRAP    | CKF_UNWRAP },
 #endif
+	
 };
 
 CK_ULONG mech_list_len = (sizeof(mech_list) / sizeof(MECH_LIST_ELEMENT));

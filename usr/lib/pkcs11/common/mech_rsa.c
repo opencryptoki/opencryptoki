@@ -344,13 +344,13 @@ rsa_format_block( CK_BYTE   * in_data,
     CK_RV           rc;
 
     if (!in_data || !in_data_len || !out_data || !out_data_len) {
-        st_err_log(4, __FILE__, __LINE__, __FUNCTION__);
+        OCK_LOG_ERR(ERR_FUNCTION_FAILED);
         rc = CKR_FUNCTION_FAILED;
         return rc;
     }
 
     if (out_data_len < (in_data_len + 11)) {
-      st_err_log(68, __FILE__, __LINE__);
+      OCK_LOG_ERR(ERR_BUFFER_TOO_SMALL);
       rc = CKR_BUFFER_TOO_SMALL;
       return rc;
     }
@@ -367,7 +367,7 @@ rsa_format_block( CK_BYTE   * in_data,
      * encryption blocks.
      */
     if ((type == 1 || type == 2) && ((padding_len) < 8)) {
-        st_err_log(109, __FILE__, __LINE__);
+        OCK_LOG_ERR(ERR_DATA_LEN_RANGE);
         rc = CKR_DATA_LEN_RANGE;
         return rc;
     }
@@ -390,7 +390,7 @@ rsa_format_block( CK_BYTE   * in_data,
          */
         case 0:
             if (in_data[0] == (CK_BYTE)0) {
-                st_err_log(10, __FILE__, __LINE__, __FUNCTION__);
+                OCK_LOG_ERR(ERR_DATA_INVALID);
                 rc = CKR_DATA_INVALID;
                 return rc;
             }
@@ -420,7 +420,7 @@ rsa_format_block( CK_BYTE   * in_data,
             for (i = 2; i < (padding_len + 2); i++) {
                 rc = rng_generate(&out_data[i], 1);
                 if (rc != CKR_OK) {
-                    st_err_log(130, __FILE__, __LINE__);
+                    OCK_LOG_ERR(ERR_RNG);
                     return rc;
                 }
                 if (out_data[i] == (CK_BYTE)0) {
@@ -433,7 +433,7 @@ rsa_format_block( CK_BYTE   * in_data,
             break;
 
         default:
-            st_err_log(10, __FILE__, __LINE__);
+            OCK_LOG_ERR(ERR_DATA_INVALID);
             rc = CKR_DATA_INVALID;
             return rc;
     }
@@ -464,13 +464,13 @@ rsa_parse_block( CK_BYTE  * in_data,
     CK_RV           rc;
 
     if (!in_data || !out_data || !out_data_len) {
-        st_err_log(4, __FILE__, __LINE__, __FUNCTION__);
+        OCK_LOG_ERR(ERR_FUNCTION_FAILED);
         rc = CKR_FUNCTION_FAILED;
         return rc;
     }
 
     if (in_data_len <= 11) {
-        st_err_log(4, __FILE__, __LINE__, __FUNCTION__);
+        OCK_LOG_ERR(ERR_FUNCTION_FAILED);
         rc = CKR_FUNCTION_FAILED;
         return rc;
     }
@@ -479,7 +479,7 @@ rsa_parse_block( CK_BYTE  * in_data,
      * Check for the leading 00 octet.
      */
     if (in_data[0] != (CK_BYTE)0) {
-        st_err_log(14, __FILE__, __LINE__);
+        OCK_LOG_ERR(ERR_ENCRYPTED_DATA_INVALID);
         rc = CKR_ENCRYPTED_DATA_INVALID;
         return rc;
     }
@@ -488,7 +488,7 @@ rsa_parse_block( CK_BYTE  * in_data,
      * Check the block type.
      */
     if (in_data[1] != (CK_BYTE)type) {
-        st_err_log(14, __FILE__, __LINE__);
+        OCK_LOG_ERR(ERR_ENCRYPTED_DATA_INVALID);
         rc = CKR_ENCRYPTED_DATA_INVALID;
         return rc;
     }
@@ -535,7 +535,7 @@ rsa_parse_block( CK_BYTE  * in_data,
                         break;
                     }
 
-                    st_err_log(14, __FILE__, __LINE__);
+                    OCK_LOG_ERR(ERR_ENCRYPTED_DATA_INVALID);
                     rc = CKR_ENCRYPTED_DATA_INVALID;
                     return rc;
                 }
@@ -558,7 +558,7 @@ rsa_parse_block( CK_BYTE  * in_data,
             break;
 
         default:
-            st_err_log(14, __FILE__, __LINE__);
+            OCK_LOG_ERR(ERR_ENCRYPTED_DATA_INVALID);
             rc = CKR_ENCRYPTED_DATA_INVALID;
             return rc;
     }
@@ -570,19 +570,19 @@ rsa_parse_block( CK_BYTE  * in_data,
      * encryption blocks.
      */
     if ((type == 1 || type == 2) && ((i - 3) < 8)) {
-        st_err_log(14, __FILE__, __LINE__);
+        OCK_LOG_ERR(ERR_ENCRYPTED_DATA_INVALID);
         rc = CKR_ENCRYPTED_DATA_INVALID;
         return rc;
     }
 
     if (in_data_len <= i) {
-        st_err_log(14, __FILE__, __LINE__);
+        OCK_LOG_ERR(ERR_ENCRYPTED_DATA_INVALID);
         rc = CKR_ENCRYPTED_DATA_INVALID;
         return rc;
     }
 
     if (*out_data_len < (in_data_len - i)) {
-      st_err_log(68, __FILE__, __LINE__);
+      OCK_LOG_ERR(ERR_BUFFER_TOO_SMALL);
       rc = CKR_BUFFER_TOO_SMALL;
       return rc;
     }
@@ -615,12 +615,12 @@ rsa_pkcs_encrypt( SESSION           *sess,
 
    rc = object_mgr_find_in_map1( ctx->key, &key_obj );
    if (rc != CKR_OK){
-      st_err_log(110, __FILE__, __LINE__);
+      OCK_LOG_ERR(ERR_OBJMGR_FIND_MAP);
       return rc;
    }
    flag = template_attribute_find( key_obj->template, CKA_MODULUS, &attr );
    if (flag == FALSE){
-      st_err_log(4, __FILE__, __LINE__, __FUNCTION__);
+      OCK_LOG_ERR(ERR_FUNCTION_FAILED);
       return CKR_FUNCTION_FAILED;
    }
    else
@@ -629,7 +629,7 @@ rsa_pkcs_encrypt( SESSION           *sess,
    // check input data length restrictions
    //
    if (in_data_len > (modulus_bytes - 11)){
-      st_err_log(109, __FILE__, __LINE__);
+      OCK_LOG_ERR(ERR_DATA_LEN_RANGE);
       return CKR_DATA_LEN_RANGE;
    }
 
@@ -640,13 +640,13 @@ rsa_pkcs_encrypt( SESSION           *sess,
 
    if (*out_data_len < modulus_bytes) {
       *out_data_len = modulus_bytes;
-      st_err_log(68, __FILE__, __LINE__);
+      OCK_LOG_ERR(ERR_BUFFER_TOO_SMALL);
       return CKR_BUFFER_TOO_SMALL;
    }
 
    rc = rsa_format_block( in_data, in_data_len, clear, modulus_bytes, PKCS_BT_2 );
    if (rc != CKR_OK){
-      st_err_log(131, __FILE__, __LINE__);
+      OCK_LOG_ERR(ERR_RSA_FORM_BLOCK);
       return rc;
    }
    rc = ckm_rsa_encrypt( clear, modulus_bytes, cipher, key_obj );
@@ -655,7 +655,7 @@ rsa_pkcs_encrypt( SESSION           *sess,
       *out_data_len = modulus_bytes;
    }
    else
-      st_err_log(132, __FILE__, __LINE__);
+      OCK_LOG_ERR(ERR_RSA_ENCRYPT);
    return rc;
 }
 
@@ -679,7 +679,7 @@ rsa_pkcs_decrypt( SESSION           *sess,
 
    rc = object_mgr_find_in_map1( ctx->key, &key_obj );
    if (rc != CKR_OK){
-      st_err_log(110, __FILE__, __LINE__);
+      OCK_LOG_ERR(ERR_OBJMGR_FIND_MAP);
       return rc;
    }
    modulus_bytes = rsa_get_key_len(key_obj);
@@ -687,7 +687,7 @@ rsa_pkcs_decrypt( SESSION           *sess,
    // check input data length restrictions
    //
    if (in_data_len != modulus_bytes){
-      st_err_log(112, __FILE__, __LINE__);
+      OCK_LOG_ERR(ERR_ENCRYPTED_DATA_LEN_RANGE);
       return CKR_ENCRYPTED_DATA_LEN_RANGE;
    }
    if (length_only == TRUE) {
@@ -700,24 +700,24 @@ rsa_pkcs_decrypt( SESSION           *sess,
 
    if (*out_data_len < (modulus_bytes - 11)) {
       *out_data_len = modulus_bytes - 11;
-      st_err_log(68, __FILE__, __LINE__);
+      OCK_LOG_ERR(ERR_BUFFER_TOO_SMALL);
       return CKR_BUFFER_TOO_SMALL;
    }
 
    rc = ckm_rsa_decrypt( in_data, modulus_bytes, out, key_obj );
    if (rc != CKR_OK) {
       if (rc == CKR_DATA_LEN_RANGE) {
-         st_err_log(112, __FILE__, __LINE__);
+         OCK_LOG_ERR(ERR_ENCRYPTED_DATA_LEN_RANGE);
          return CKR_ENCRYPTED_DATA_LEN_RANGE;
       }
 
-      st_err_log(133, __FILE__, __LINE__);
+      OCK_LOG_ERR(ERR_RSA_DECRYPT);
       return rc;
    }
 
    rc = rsa_parse_block(out, modulus_bytes, out_data, out_data_len, PKCS_BT_2);
    if (rc != CKR_OK) {
-      st_err_log(133, __FILE__, __LINE__);
+      OCK_LOG_ERR(ERR_RSA_DECRYPT);
       return rc;
    }
 
@@ -726,7 +726,7 @@ rsa_pkcs_decrypt( SESSION           *sess,
     * modulus_bytes - 11.
     */
    if (*out_data_len > (modulus_bytes - 11)) {
-      st_err_log(112, __FILE__, __LINE__);
+      OCK_LOG_ERR(ERR_ENCRYPTED_DATA_LEN_RANGE);
       return CKR_ENCRYPTED_DATA_LEN_RANGE;
    }
 
@@ -752,12 +752,12 @@ rsa_pkcs_sign( SESSION             *sess,
 
 
    if (!sess || !ctx || !out_data_len){
-      st_err_log(4, __FILE__, __LINE__, __FUNCTION__);
+      OCK_LOG_ERR(ERR_FUNCTION_FAILED);
       return CKR_FUNCTION_FAILED;
    }
    rc = object_mgr_find_in_map1( ctx->key, &key_obj );
    if (rc != CKR_OK){
-      st_err_log(110, __FILE__, __LINE__);
+      OCK_LOG_ERR(ERR_OBJMGR_FIND_MAP);
       return rc;
    }
    modulus_bytes = rsa_get_key_len(key_obj);
@@ -765,7 +765,7 @@ rsa_pkcs_sign( SESSION             *sess,
    // check input data length restrictions
    //
    if (in_data_len > (modulus_bytes - 11)){
-      st_err_log(109, __FILE__, __LINE__);
+      OCK_LOG_ERR(ERR_DATA_LEN_RANGE);
       return CKR_DATA_LEN_RANGE;
    }
    if (length_only == TRUE) {
@@ -775,13 +775,13 @@ rsa_pkcs_sign( SESSION             *sess,
 
    if (*out_data_len < modulus_bytes) {
       *out_data_len = modulus_bytes;
-      st_err_log(68, __FILE__, __LINE__);
+      OCK_LOG_ERR(ERR_BUFFER_TOO_SMALL);
       return CKR_BUFFER_TOO_SMALL;
    }
 
    rc = rsa_format_block( in_data, in_data_len, data, modulus_bytes, PKCS_BT_1 );
    if (rc != CKR_OK){
-      st_err_log(131, __FILE__, __LINE__);
+      OCK_LOG_ERR(ERR_RSA_FORM_BLOCK);
       return rc;
    }
    // signing is a private key operation --> decrypt
@@ -792,7 +792,7 @@ rsa_pkcs_sign( SESSION             *sess,
       *out_data_len = modulus_bytes;
    }
    else
-      st_err_log(133, __FILE__, __LINE__);
+      OCK_LOG_ERR(ERR_RSA_DECRYPT);
    return rc;
 }
 
@@ -817,12 +817,12 @@ rsa_pkcs_verify( SESSION             * sess,
 
    rc = object_mgr_find_in_map1( ctx->key, &key_obj );
    if (rc != CKR_OK){
-      st_err_log(110, __FILE__, __LINE__);
+      OCK_LOG_ERR(ERR_OBJMGR_FIND_MAP);
       return rc;
    }
    flag = template_attribute_find( key_obj->template, CKA_MODULUS, &attr );
    if (flag == FALSE){
-      st_err_log(4, __FILE__, __LINE__, __FUNCTION__);
+      OCK_LOG_ERR(ERR_FUNCTION_FAILED);
       return CKR_FUNCTION_FAILED;
    }
    else
@@ -831,7 +831,7 @@ rsa_pkcs_verify( SESSION             * sess,
    // check input data length restrictions
    //
    if (sig_len != modulus_bytes){
-      st_err_log(46, __FILE__, __LINE__);
+      OCK_LOG_ERR(ERR_SIGNATURE_LEN_RANGE);
       return CKR_SIGNATURE_LEN_RANGE;
    }
    // verifying is a public key operation --> encrypt
@@ -843,25 +843,25 @@ rsa_pkcs_verify( SESSION             * sess,
       rc = rsa_parse_block( out, modulus_bytes, out_data, &out_data_len, PKCS_BT_1);
       if (rc == CKR_OK) {
          if (in_data_len != out_data_len){
-            st_err_log(47, __FILE__, __LINE__);
+            OCK_LOG_ERR(ERR_SIGNATURE_INVALID);
             return CKR_SIGNATURE_INVALID;
          }
 
          if (memcmp(in_data, out_data, out_data_len) != 0){
-            st_err_log(47, __FILE__, __LINE__);
+            OCK_LOG_ERR(ERR_SIGNATURE_INVALID);
             return CKR_SIGNATURE_INVALID;
          }
       }
       else if (rc == CKR_ENCRYPTED_DATA_INVALID ) {
-         st_err_log(47, __FILE__, __LINE__);
+         OCK_LOG_ERR(ERR_SIGNATURE_INVALID);
          return CKR_SIGNATURE_INVALID;
       } else {
-         st_err_log(4, __FILE__, __LINE__, __FUNCTION__);
+         OCK_LOG_ERR(ERR_FUNCTION_FAILED);
          return CKR_FUNCTION_FAILED;
       }
    }
    else
-      st_err_log(132, __FILE__, __LINE__);
+      OCK_LOG_ERR(ERR_RSA_ENCRYPT);
 
    return rc;
 }
@@ -887,17 +887,17 @@ rsa_pkcs_verify_recover( SESSION             * sess,
 
 
    if (!sess || !ctx || !out_data_len){
-      st_err_log(4, __FILE__, __LINE__, __FUNCTION__);
+      OCK_LOG_ERR(ERR_FUNCTION_FAILED);
       return CKR_FUNCTION_FAILED;
    }
    rc = object_mgr_find_in_map1( ctx->key, &key_obj );
    if (rc != CKR_OK){
-      st_err_log(110, __FILE__, __LINE__);
+      OCK_LOG_ERR(ERR_OBJMGR_FIND_MAP);
       return rc;
    }
    flag = template_attribute_find( key_obj->template, CKA_MODULUS, &attr );
    if (flag == FALSE){
-      st_err_log(4, __FILE__, __LINE__, __FUNCTION__);
+      OCK_LOG_ERR(ERR_FUNCTION_FAILED);
       return CKR_FUNCTION_FAILED;
    }
    else
@@ -906,7 +906,7 @@ rsa_pkcs_verify_recover( SESSION             * sess,
    // check input data length restrictions
    //
    if (sig_len != modulus_bytes){
-      st_err_log(46, __FILE__, __LINE__);
+      OCK_LOG_ERR(ERR_SIGNATURE_LEN_RANGE);
       return CKR_SIGNATURE_LEN_RANGE;
    }
    if (length_only == TRUE) {
@@ -920,15 +920,15 @@ rsa_pkcs_verify_recover( SESSION             * sess,
    if (rc == CKR_OK) {
       rc = rsa_parse_block(out, modulus_bytes, out_data, out_data_len, PKCS_BT_1);
       if (rc == CKR_ENCRYPTED_DATA_INVALID ) {
-         st_err_log(47, __FILE__, __LINE__);
+         OCK_LOG_ERR(ERR_SIGNATURE_INVALID);
          return CKR_SIGNATURE_INVALID;
       } else if (rc != CKR_OK) {
-         st_err_log(4, __FILE__, __LINE__, __FUNCTION__);
+         OCK_LOG_ERR(ERR_FUNCTION_FAILED);
          return rc;
       }
    }
    else
-      st_err_log(132, __FILE__, __LINE__);
+      OCK_LOG_ERR(ERR_RSA_ENCRYPT);
 
    return rc;
 }
@@ -955,12 +955,12 @@ rsa_x509_encrypt( SESSION           *sess,
 
    rc = object_mgr_find_in_map1( ctx->key, &key_obj );
    if (rc != CKR_OK){
-      st_err_log(110, __FILE__, __LINE__);
+      OCK_LOG_ERR(ERR_OBJMGR_FIND_MAP);
       return rc;
    }
    flag = template_attribute_find( key_obj->template, CKA_MODULUS, &attr );
    if (flag == FALSE){
-      st_err_log(4, __FILE__, __LINE__, __FUNCTION__);
+      OCK_LOG_ERR(ERR_FUNCTION_FAILED);
       return CKR_FUNCTION_FAILED;
    }
    else
@@ -969,7 +969,7 @@ rsa_x509_encrypt( SESSION           *sess,
    // CKM_RSA_X_509 requires input data length to be no bigger than the modulus
    //
    if (in_data_len > modulus_bytes){
-      st_err_log(109, __FILE__, __LINE__);
+      OCK_LOG_ERR(ERR_DATA_LEN_RANGE);
       return CKR_DATA_LEN_RANGE;
    }
    if (length_only == TRUE) {
@@ -979,7 +979,7 @@ rsa_x509_encrypt( SESSION           *sess,
 
    if (*out_data_len < modulus_bytes) {
       *out_data_len = modulus_bytes;
-      st_err_log(68, __FILE__, __LINE__);
+      OCK_LOG_ERR(ERR_BUFFER_TOO_SMALL);
       return CKR_BUFFER_TOO_SMALL;
    }
 
@@ -994,7 +994,7 @@ rsa_x509_encrypt( SESSION           *sess,
       *out_data_len = modulus_bytes;
    }
    else
-      st_err_log(132, __FILE__, __LINE__);
+      OCK_LOG_ERR(ERR_RSA_ENCRYPT);
 
    return rc;
 }
@@ -1019,7 +1019,7 @@ rsa_x509_decrypt( SESSION           *sess,
 
    rc = object_mgr_find_in_map1( ctx->key, &key_obj );
    if (rc != CKR_OK){
-      st_err_log(110, __FILE__, __LINE__);
+      OCK_LOG_ERR(ERR_OBJMGR_FIND_MAP);
       return rc;
    }
 #if 0
@@ -1035,7 +1035,7 @@ rsa_x509_decrypt( SESSION           *sess,
    // check input data length restrictions
    //
    if (in_data_len != modulus_bytes){
-      st_err_log(112, __FILE__, __LINE__);
+      OCK_LOG_ERR(ERR_ENCRYPTED_DATA_LEN_RANGE);
       return CKR_ENCRYPTED_DATA_LEN_RANGE;
    }
    if (length_only == TRUE) {
@@ -1049,7 +1049,7 @@ rsa_x509_decrypt( SESSION           *sess,
    //
    if (*out_data_len < modulus_bytes) {
       *out_data_len = modulus_bytes;
-      st_err_log(68, __FILE__, __LINE__);
+      OCK_LOG_ERR(ERR_BUFFER_TOO_SMALL);
       return CKR_BUFFER_TOO_SMALL;
    }
 
@@ -1059,12 +1059,12 @@ rsa_x509_decrypt( SESSION           *sess,
       *out_data_len = modulus_bytes;
    }
    else
-      st_err_log(133, __FILE__, __LINE__);
+      OCK_LOG_ERR(ERR_RSA_DECRYPT);
    // ckm_rsa_operation is used for all RSA operations so we need to adjust
    // the return code accordingly
    //
    if (rc == CKR_DATA_LEN_RANGE){
-      st_err_log(112, __FILE__, __LINE__);
+      OCK_LOG_ERR(ERR_ENCRYPTED_DATA_LEN_RANGE);
       return CKR_ENCRYPTED_DATA_LEN_RANGE;
    }
    return rc;
@@ -1089,12 +1089,12 @@ rsa_x509_sign( SESSION             *sess,
 
 
    if (!sess || !ctx || !out_data_len){
-      st_err_log(4, __FILE__, __LINE__, __FUNCTION__);
+      OCK_LOG_ERR(ERR_FUNCTION_FAILED);
       return CKR_FUNCTION_FAILED;
    }
    rc = object_mgr_find_in_map1( ctx->key, &key_obj );
    if (rc != CKR_OK){
-      st_err_log(110, __FILE__, __LINE__);
+      OCK_LOG_ERR(ERR_OBJMGR_FIND_MAP);
       return rc;
    }
 #if 0
@@ -1110,7 +1110,7 @@ rsa_x509_sign( SESSION             *sess,
    // check input data length restrictions
    //
    if (in_data_len > modulus_bytes){
-      st_err_log(109, __FILE__, __LINE__);
+      OCK_LOG_ERR(ERR_DATA_LEN_RANGE);
       return CKR_DATA_LEN_RANGE;
    }
    if (length_only == TRUE) {
@@ -1120,7 +1120,7 @@ rsa_x509_sign( SESSION             *sess,
 
    if (*out_data_len < modulus_bytes) {
       *out_data_len = modulus_bytes;
-      st_err_log(68, __FILE__, __LINE__);
+      OCK_LOG_ERR(ERR_BUFFER_TOO_SMALL);
       return CKR_BUFFER_TOO_SMALL;
    }
 
@@ -1135,7 +1135,7 @@ rsa_x509_sign( SESSION             *sess,
       *out_data_len = modulus_bytes;
    }
    else
-      st_err_log(133, __FILE__, __LINE__);
+      OCK_LOG_ERR(ERR_RSA_DECRYPT);
    return rc;
 }
 
@@ -1160,12 +1160,12 @@ rsa_x509_verify( SESSION             * sess,
 
    rc = object_mgr_find_in_map1( ctx->key, &key_obj );
    if (rc != CKR_OK){
-      st_err_log(110, __FILE__, __LINE__);
+      OCK_LOG_ERR(ERR_OBJMGR_FIND_MAP);
       return rc;
    }
    flag = template_attribute_find( key_obj->template, CKA_MODULUS, &attr );
    if (flag == FALSE){
-      st_err_log(4, __FILE__, __LINE__, __FUNCTION__);
+      OCK_LOG_ERR(ERR_FUNCTION_FAILED);
       return CKR_FUNCTION_FAILED;
    }
    else
@@ -1174,7 +1174,7 @@ rsa_x509_verify( SESSION             * sess,
    // check input data length restrictions
    //
    if (sig_len != modulus_bytes){
-      st_err_log(46, __FILE__, __LINE__);
+      OCK_LOG_ERR(ERR_SIGNATURE_LEN_RANGE);
       return CKR_SIGNATURE_LEN_RANGE;
    }
    // verify is a public key operation --> encrypt
@@ -1200,19 +1200,19 @@ rsa_x509_verify( SESSION             * sess,
       //
 
       if ((in_data_len - pos1) != (modulus_bytes - pos2)){
-         st_err_log(47, __FILE__, __LINE__);
+         OCK_LOG_ERR(ERR_SIGNATURE_INVALID);
          return CKR_SIGNATURE_INVALID;
       }
       len = in_data_len - pos1;
 
       if (memcmp(&in_data[pos1], &out[pos2], len) != 0){
-         st_err_log(47, __FILE__, __LINE__);
+         OCK_LOG_ERR(ERR_SIGNATURE_INVALID);
          return CKR_SIGNATURE_INVALID;
       }
       return CKR_OK;
    }
    else
-      st_err_log(132, __FILE__, __LINE__);
+      OCK_LOG_ERR(ERR_RSA_ENCRYPT);
 
    return rc;
 }
@@ -1238,17 +1238,17 @@ rsa_x509_verify_recover( SESSION             * sess,
 
 
    if (!sess || !ctx || !out_data_len){
-      st_err_log(4, __FILE__, __LINE__, __FUNCTION__);
+      OCK_LOG_ERR(ERR_FUNCTION_FAILED);
       return CKR_FUNCTION_FAILED;
    }
    rc = object_mgr_find_in_map1( ctx->key, &key_obj );
    if (rc != CKR_OK){
-      st_err_log(110, __FILE__, __LINE__);
+      OCK_LOG_ERR(ERR_OBJMGR_FIND_MAP);
       return rc;
    }
    flag = template_attribute_find( key_obj->template, CKA_MODULUS, &attr );
    if (flag == FALSE){
-      st_err_log(4, __FILE__, __LINE__, __FUNCTION__);
+      OCK_LOG_ERR(ERR_FUNCTION_FAILED);
       return CKR_FUNCTION_FAILED;
    }
    else
@@ -1257,7 +1257,7 @@ rsa_x509_verify_recover( SESSION             * sess,
    // check input data length restrictions
    //
    if (sig_len != modulus_bytes){
-      st_err_log(46, __FILE__, __LINE__);
+      OCK_LOG_ERR(ERR_SIGNATURE_LEN_RANGE);
       return CKR_SIGNATURE_LEN_RANGE;
    }
    if (length_only == TRUE) {
@@ -1269,7 +1269,7 @@ rsa_x509_verify_recover( SESSION             * sess,
    //
    if (*out_data_len < modulus_bytes) {
       *out_data_len = modulus_bytes;
-      st_err_log(68, __FILE__, __LINE__);
+      OCK_LOG_ERR(ERR_BUFFER_TOO_SMALL);
       return CKR_BUFFER_TOO_SMALL;
    }
 
@@ -1283,7 +1283,7 @@ rsa_x509_verify_recover( SESSION             * sess,
       return CKR_OK;
    }
    else
-      st_err_log(132, __FILE__, __LINE__);
+      OCK_LOG_ERR(ERR_RSA_ENCRYPT);
 
    return rc;
 }
@@ -1316,7 +1316,7 @@ rsa_hash_pkcs_sign( SESSION              * sess,
    CK_RV                rc;
 
    if (!sess || !ctx || !in_data){
-      st_err_log(4, __FILE__, __LINE__, __FUNCTION__);
+      OCK_LOG_ERR(ERR_FUNCTION_FAILED);
       return CKR_FUNCTION_FAILED;
    }
    memset( &digest_ctx, 0x0, sizeof(digest_ctx) );
@@ -1344,20 +1344,20 @@ rsa_hash_pkcs_sign( SESSION              * sess,
 
    rc = digest_mgr_init( sess, &digest_ctx, &digest_mech );
    if (rc != CKR_OK){
-      st_err_log(123, __FILE__, __LINE__);
+      OCK_LOG_ERR(ERR_DIGEST_INIT);
       return rc;
    }
    hash_len = sizeof(hash);
    rc = digest_mgr_digest( sess, length_only, &digest_ctx, in_data, in_data_len, hash, &hash_len );
    if (rc != CKR_OK){
-      st_err_log(124, __FILE__, __LINE__);
+      OCK_LOG_ERR(ERR_DIGEST);
       return rc;
    }
       // build the BER-encodings
 
     rc = ber_encode_OCTET_STRING( FALSE, &octet_str, &octet_str_len, hash, hash_len );
     if (rc != CKR_OK){
-       st_err_log(77, __FILE__, __LINE__);
+       OCK_LOG_ERR(ERR_ENCODE_OCTET);
        goto error;
     }
     tmp = (CK_BYTE *)buf1;
@@ -1366,7 +1366,7 @@ rsa_hash_pkcs_sign( SESSION              * sess,
 
     rc = ber_encode_SEQUENCE( FALSE, &ber_data, &ber_data_len, tmp, (oid_len + octet_str_len) );
     if (rc != CKR_OK){
-       st_err_log(78, __FILE__, __LINE__);
+       OCK_LOG_ERR(ERR_ENCODE_SEQ);
        goto error;
     }
     // sign the BER-encoded data block
@@ -1378,13 +1378,13 @@ rsa_hash_pkcs_sign( SESSION              * sess,
 
    rc = sign_mgr_init( sess, &sign_ctx, &sign_mech, FALSE, ctx->key );
    if (rc != CKR_OK){
-      st_err_log(127, __FILE__, __LINE__);
+      OCK_LOG_ERR(ERR_SIGN_INIT);
       goto error;
    }
    //rc = sign_mgr_sign( sess, length_only, &sign_ctx, hash, hash_len, signature, sig_len );
    rc = sign_mgr_sign( sess, length_only, &sign_ctx, ber_data, ber_data_len, signature, sig_len );
    if (rc != CKR_OK)
-      st_err_log(128, __FILE__, __LINE__);
+      OCK_LOG_ERR(ERR_SIGN);
 
 error:
    if (octet_str) free( octet_str );
@@ -1407,7 +1407,7 @@ rsa_hash_pkcs_sign_update( SESSION              * sess,
    CK_RV                 rc;
 
    if (!sess || !ctx || !in_data){
-      st_err_log(4, __FILE__, __LINE__, __FUNCTION__);
+      OCK_LOG_ERR(ERR_FUNCTION_FAILED);
       return CKR_FUNCTION_FAILED;
    }
    context = (RSA_DIGEST_CONTEXT *)ctx->context;
@@ -1425,7 +1425,7 @@ rsa_hash_pkcs_sign_update( SESSION              * sess,
 
       rc = digest_mgr_init( sess, &context->hash_context, &digest_mech );
       if (rc != CKR_OK){
-         st_err_log(123, __FILE__, __LINE__);
+         OCK_LOG_ERR(ERR_DIGEST_INIT);
          return rc;
       }
       context->flag = TRUE;
@@ -1433,7 +1433,7 @@ rsa_hash_pkcs_sign_update( SESSION              * sess,
 
    rc = digest_mgr_digest_update( sess, &context->hash_context, in_data, in_data_len );
    if (rc != CKR_OK){
-      st_err_log(123, __FILE__, __LINE__);
+      OCK_LOG_ERR(ERR_DIGEST_UPDATE);
       return rc;
    }
    return CKR_OK;
@@ -1465,7 +1465,7 @@ rsa_hash_pkcs_verify( SESSION              * sess,
    CK_RV                rc;
 
    if (!sess || !ctx || !in_data){
-      st_err_log(4, __FILE__, __LINE__, __FUNCTION__);
+      OCK_LOG_ERR(ERR_FUNCTION_FAILED);
       return CKR_FUNCTION_FAILED;
    }
    memset( &digest_ctx, 0x0, sizeof(digest_ctx) );
@@ -1493,13 +1493,13 @@ rsa_hash_pkcs_verify( SESSION              * sess,
 
    rc = digest_mgr_init( sess, &digest_ctx, &digest_mech );
    if (rc != CKR_OK){
-      st_err_log(123, __FILE__, __LINE__);
+      OCK_LOG_ERR(ERR_DIGEST_INIT);
       return rc;
    }
    hash_len = sizeof(hash);
    rc = digest_mgr_digest( sess, FALSE, &digest_ctx, in_data, in_data_len, hash, &hash_len );
    if (rc != CKR_OK){
-      st_err_log(124, __FILE__, __LINE__);
+      OCK_LOG_ERR(ERR_DIGEST);
       return rc;
    }
 
@@ -1507,7 +1507,7 @@ rsa_hash_pkcs_verify( SESSION              * sess,
    //
    rc = ber_encode_OCTET_STRING( FALSE, &octet_str, &octet_str_len, hash, hash_len );
    if (rc != CKR_OK){
-      st_err_log(77, __FILE__, __LINE__);
+      OCK_LOG_ERR(ERR_ENCODE_OCTET);
       goto done;
    }
    tmp = (CK_BYTE *)buf1;
@@ -1516,7 +1516,7 @@ rsa_hash_pkcs_verify( SESSION              * sess,
 
    rc = ber_encode_SEQUENCE( FALSE, &ber_data, &ber_data_len, tmp, (oid_len + octet_str_len) );
    if (rc != CKR_OK){
-      st_err_log(78, __FILE__, __LINE__);
+      OCK_LOG_ERR(ERR_ENCODE_SEQ);
       goto done;
    }
    // Verify the Signed BER-encoded Data block
@@ -1527,13 +1527,13 @@ rsa_hash_pkcs_verify( SESSION              * sess,
 
    rc = verify_mgr_init( sess, &verify_ctx, &verify_mech, FALSE, ctx->key );
    if (rc != CKR_OK){
-      st_err_log(167, __FILE__, __LINE__);
+      OCK_LOG_ERR(ERR_VERIFY_INIT);
       goto done;
    }
    //rc = verify_mgr_verify( sess, &verify_ctx, hash, hash_len, signature, sig_len );
    rc = verify_mgr_verify( sess, &verify_ctx, ber_data, ber_data_len, signature, sig_len );
    if (rc != CKR_OK)
-      st_err_log(168, __FILE__, __LINE__);
+      OCK_LOG_ERR(ERR_VERIFY);
 done:
    if (octet_str) free( octet_str );
    if (ber_data)  free( ber_data );
@@ -1554,7 +1554,7 @@ rsa_hash_pkcs_verify_update( SESSION              * sess,
    CK_RV                 rc;
 
    if (!sess || !ctx || !in_data){
-      st_err_log(4, __FILE__, __LINE__, __FUNCTION__);
+      OCK_LOG_ERR(ERR_FUNCTION_FAILED);
       return CKR_FUNCTION_FAILED;
    }
    context = (RSA_DIGEST_CONTEXT *)ctx->context;
@@ -1572,7 +1572,7 @@ rsa_hash_pkcs_verify_update( SESSION              * sess,
 
       rc = digest_mgr_init( sess, &context->hash_context, &digest_mech );
       if (rc != CKR_OK){
-         st_err_log(123, __FILE__, __LINE__);
+         OCK_LOG_ERR(ERR_DIGEST_INIT);
          return rc;
       }
       context->flag = TRUE;
@@ -1580,7 +1580,7 @@ rsa_hash_pkcs_verify_update( SESSION              * sess,
 
    rc = digest_mgr_digest_update( sess, &context->hash_context, in_data, in_data_len );
    if (rc != CKR_OK){
-      st_err_log(123, __FILE__, __LINE__);
+      OCK_LOG_ERR(ERR_DIGEST_UPDATE);
       return rc;
    }
    return CKR_OK;
@@ -1611,7 +1611,7 @@ rsa_hash_pkcs_sign_final( SESSION              * sess,
    CK_RV                 rc;
 
    if (!sess || !ctx || !sig_len){
-      st_err_log(4, __FILE__, __LINE__, __FUNCTION__);
+      OCK_LOG_ERR(ERR_FUNCTION_FAILED);
       return CKR_FUNCTION_FAILED;
    }
 
@@ -1635,14 +1635,14 @@ rsa_hash_pkcs_sign_final( SESSION              * sess,
    hash_len = sizeof(hash);
    rc = digest_mgr_digest_final( sess, length_only, &context->hash_context, hash, &hash_len );
    if (rc != CKR_OK){
-      st_err_log(126, __FILE__, __LINE__);
+      OCK_LOG_ERR(ERR_DIGEST_FINAL);
       return rc;
    }
    // Build the BER Encoded Data block
    //
    rc = ber_encode_OCTET_STRING( FALSE, &octet_str, &octet_str_len, hash, hash_len );
    if (rc != CKR_OK){
-      st_err_log(77, __FILE__, __LINE__);
+      OCK_LOG_ERR(ERR_ENCODE_OCTET);
       return rc;
    }
    tmp = (CK_BYTE *)buf1;
@@ -1651,7 +1651,7 @@ rsa_hash_pkcs_sign_final( SESSION              * sess,
 
    rc = ber_encode_SEQUENCE( FALSE, &ber_data, &ber_data_len, tmp, (oid_len + octet_str_len) );
    if (rc != CKR_OK){
-      st_err_log(78, __FILE__, __LINE__);
+      OCK_LOG_ERR(ERR_ENCODE_SEQ);
       goto done;
    }
    // sign the BER-encoded data block
@@ -1663,13 +1663,13 @@ rsa_hash_pkcs_sign_final( SESSION              * sess,
 
    rc = sign_mgr_init( sess, &sign_ctx, &sign_mech, FALSE, ctx->key );
    if (rc != CKR_OK){
-      st_err_log(127, __FILE__, __LINE__);
+      OCK_LOG_ERR(ERR_SIGN_INIT);
       goto done;
    }
    //rc = sign_mgr_sign( sess, length_only, &sign_ctx, hash, hash_len, signature, sig_len );
    rc = sign_mgr_sign( sess, length_only, &sign_ctx, ber_data, ber_data_len, signature, sig_len );
    if (rc != CKR_OK)
-      st_err_log(128, __FILE__, __LINE__);
+      OCK_LOG_ERR(ERR_SIGN);
 
    if (length_only == TRUE || rc == CKR_BUFFER_TOO_SMALL) {
       sign_mgr_cleanup( &sign_ctx );
@@ -1706,7 +1706,7 @@ rsa_hash_pkcs_verify_final( SESSION              * sess,
    CK_RV                 rc;
 
    if (!sess || !ctx || !signature){
-      st_err_log(4, __FILE__, __LINE__, __FUNCTION__);
+      OCK_LOG_ERR(ERR_FUNCTION_FAILED);
       return CKR_FUNCTION_FAILED;
    }
    if (ctx->mech.mechanism == CKM_MD2_RSA_PKCS) {
@@ -1729,14 +1729,14 @@ rsa_hash_pkcs_verify_final( SESSION              * sess,
    hash_len = sizeof(hash);
    rc = digest_mgr_digest_final( sess, FALSE, &context->hash_context, hash, &hash_len );
    if (rc != CKR_OK){
-      st_err_log(126, __FILE__, __LINE__);
+      OCK_LOG_ERR(ERR_DIGEST_FINAL);
       return rc;
    }
    // Build the BER encoding
    //
    rc = ber_encode_OCTET_STRING( FALSE, &octet_str, &octet_str_len, hash, hash_len );
    if (rc != CKR_OK){
-      st_err_log(77, __FILE__, __LINE__);
+      OCK_LOG_ERR(ERR_ENCODE_OCTET);
       goto done;
    }
    tmp = (CK_BYTE *)buf1;
@@ -1745,7 +1745,7 @@ rsa_hash_pkcs_verify_final( SESSION              * sess,
 
    rc = ber_encode_SEQUENCE( FALSE, &ber_data, &ber_data_len, tmp, (oid_len + octet_str_len) );
    if (rc != CKR_OK){
-      st_err_log(78, __FILE__, __LINE__);
+      OCK_LOG_ERR(ERR_ENCODE_SEQ);
       goto done;
    }
    // verify the signed BER-encoded data block
@@ -1757,13 +1757,13 @@ rsa_hash_pkcs_verify_final( SESSION              * sess,
 
    rc = verify_mgr_init( sess, &verify_ctx, &verify_mech, FALSE, ctx->key );
    if (rc != CKR_OK){
-      st_err_log(167, __FILE__, __LINE__);
+      OCK_LOG_ERR(ERR_VERIFY_INIT);
       goto done;
    }
    //rc = verify_mgr_verify( sess, &verify_ctx, hash, hash_len, signature, sig_len );
    rc = verify_mgr_verify( sess, &verify_ctx, ber_data, ber_data_len, signature, sig_len );
    if (rc != CKR_OK)
-      st_err_log(168, __FILE__, __LINE__);
+      OCK_LOG_ERR(ERR_VERIFY);
 done:
    if (octet_str) free( octet_str );
    if (ber_data)  free( ber_data );
@@ -1793,14 +1793,14 @@ ckm_rsa_key_pair_gen( TEMPLATE  * publ_tmpl,
 
    flag = template_attribute_find( publ_tmpl, CKA_MODULUS_BITS, &attr );
    if (!flag){
-      st_err_log(48, __FILE__, __LINE__);
+      OCK_LOG_ERR(ERR_TEMPLATE_INCOMPLETE);
       return CKR_TEMPLATE_INCOMPLETE;  // should never happen
    }
    mod_bits = *(CK_ULONG *)attr->pValue;
 
    flag = template_attribute_find( publ_tmpl, CKA_PUBLIC_EXPONENT, &publ_exp );
    if (!flag){
-      st_err_log(48, __FILE__, __LINE__);
+      OCK_LOG_ERR(ERR_TEMPLATE_INCOMPLETE);
       return CKR_TEMPLATE_INCOMPLETE;
    }
 
@@ -1811,7 +1811,7 @@ ckm_rsa_key_pair_gen( TEMPLATE  * publ_tmpl,
    // once.... SAB..
    rc = token_specific.t_rsa_generate_keypair(publ_tmpl, priv_tmpl);
    if (rc != CKR_OK)
-      st_err_log(91, __FILE__, __LINE__);
+      OCK_LOG_ERR(ERR_KEYGEN);
 
    return rc;
 }
@@ -1833,7 +1833,7 @@ ckm_rsa_encrypt( CK_BYTE   * in_data,
 
    rc = template_attribute_find( key_obj->template, CKA_CLASS, &attr );
    if (rc == FALSE){
-      st_err_log(4, __FILE__, __LINE__, __FUNCTION__);
+      OCK_LOG_ERR(ERR_FUNCTION_FAILED);
       return CKR_FUNCTION_FAILED;
    }
    else
@@ -1842,13 +1842,13 @@ ckm_rsa_encrypt( CK_BYTE   * in_data,
    // this had better be a public key
    //
    if (keyclass != CKO_PUBLIC_KEY){
-      st_err_log(4, __FILE__, __LINE__, __FUNCTION__);
+      OCK_LOG_ERR(ERR_FUNCTION_FAILED);
       return CKR_FUNCTION_FAILED;
    }
    
    rc = token_specific.t_rsa_encrypt(in_data,in_data_len,out_data,key_obj);
    if (rc != CKR_OK)
-      st_err_log(134, __FILE__, __LINE__);
+      OCK_LOG_ERR(ERR_RSA_ENCRYPT_TOK_SPEC);
 
    return rc;
 }
@@ -1870,7 +1870,7 @@ ckm_rsa_decrypt( CK_BYTE   * in_data,
 
    rc = template_attribute_find( key_obj->template, CKA_CLASS, &attr );
    if (rc == FALSE){
-      st_err_log(4, __FILE__, __LINE__, __FUNCTION__);
+      OCK_LOG_ERR(ERR_FUNCTION_FAILED);
       return CKR_FUNCTION_FAILED;
    }
    else
@@ -1879,15 +1879,12 @@ ckm_rsa_decrypt( CK_BYTE   * in_data,
    // this had better be a private key
    //
    if (keyclass != CKO_PRIVATE_KEY){
-      st_err_log(4, __FILE__, __LINE__, __FUNCTION__);
+      OCK_LOG_ERR(ERR_FUNCTION_FAILED);
       return CKR_FUNCTION_FAILED;
    }
    rc = token_specific.t_rsa_decrypt(in_data,in_data_len,out_data,key_obj);
    if (rc != CKR_OK)
-      st_err_log(135, __FILE__, __LINE__);
+      OCK_LOG_ERR(ERR_RSA_DECRYPT_TOK_SPEC);
 
    return rc;
 }
-
-
-

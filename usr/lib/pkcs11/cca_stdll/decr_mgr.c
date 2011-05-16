@@ -46,11 +46,11 @@ decr_mgr_init( SESSION           *sess,
 
 
    if (!sess){
-      st_err_log(4, __FILE__, __LINE__, __FUNCTION__);
+      OCK_LOG_ERR(ERR_FUNCTION_FAILED);
       return CKR_FUNCTION_FAILED;
    }
    if (ctx->active != FALSE){
-      st_err_log(31, __FILE__, __LINE__);
+      OCK_LOG_ERR(ERR_OPERATION_ACTIVE);
       return CKR_OPERATION_ACTIVE;
    }
 
@@ -60,21 +60,21 @@ decr_mgr_init( SESSION           *sess,
    {
       rc = object_mgr_find_in_map1( key_handle, &key_obj );
       if (rc != CKR_OK){
-         st_err_log(18, __FILE__, __LINE__);
+         OCK_LOG_ERR(ERR_KEY_HANDLE_INVALID);
          return CKR_KEY_HANDLE_INVALID;
       }
       // is key allowed to do general decryption?
       //
       rc = template_attribute_find( key_obj->template, CKA_DECRYPT, &attr );
       if (rc == FALSE){
-         st_err_log(85, __FILE__, __LINE__);
+         OCK_LOG_ERR(ERR_KEY_FUNCTION_NOT_PERMITTED);
          return CKR_KEY_FUNCTION_NOT_PERMITTED;
       }
       else
       {
          flag = *(CK_BBOOL *)attr->pValue;
          if (flag != TRUE){
-            st_err_log(85, __FILE__, __LINE__);
+            OCK_LOG_ERR(ERR_KEY_FUNCTION_NOT_PERMITTED);
             return CKR_KEY_FUNCTION_NOT_PERMITTED;
          }
       }
@@ -83,27 +83,27 @@ decr_mgr_init( SESSION           *sess,
    {
       rc = object_mgr_find_in_map1( key_handle, &key_obj );
       if (rc != CKR_OK){
-         st_err_log(62, __FILE__, __LINE__);
+         OCK_LOG_ERR(ERR_WRAPPING_KEY_HANDLE_INVALID);
          return CKR_WRAPPING_KEY_HANDLE_INVALID;
       }
       // is key allowed to unwrap other keys?
       //
       rc = template_attribute_find( key_obj->template, CKA_UNWRAP, &attr );
       if (rc == FALSE){
-         st_err_log(4, __FILE__, __LINE__, __FUNCTION__);
+         OCK_LOG_ERR(ERR_FUNCTION_FAILED);
          return CKR_FUNCTION_FAILED; // Cryptoki doesn't define a better return code
       }
       else
       {
          flag = *(CK_BBOOL *)attr->pValue;
          if (flag == FALSE){
-            st_err_log(4, __FILE__, __LINE__, __FUNCTION__);
+            OCK_LOG_ERR(ERR_FUNCTION_FAILED);
             return CKR_FUNCTION_FAILED;
          }
       }
    }
    else{
-      st_err_log(4, __FILE__, __LINE__, __FUNCTION__);
+      OCK_LOG_ERR(ERR_FUNCTION_FAILED);
       return CKR_FUNCTION_FAILED;
    }
    // is the mechanism supported?  is the key type correct?  is a
@@ -118,21 +118,21 @@ decr_mgr_init( SESSION           *sess,
       case CKM_DES_ECB:
          {
             if (mech->ulParameterLen != 0){
-               st_err_log(29, __FILE__, __LINE__);
+               OCK_LOG_ERR(ERR_MECHANISM_PARAM_INVALID);
                return CKR_MECHANISM_PARAM_INVALID;
             }
             // is the key type correct?
             //
             rc = template_attribute_find( key_obj->template, CKA_KEY_TYPE, &attr );
             if (rc == FALSE){
-               st_err_log(20, __FILE__, __LINE__);
+               OCK_LOG_ERR(ERR_KEY_TYPE_INCONSISTENT);
                return CKR_KEY_TYPE_INCONSISTENT;
             }
             else
             {
                keytype = *(CK_KEY_TYPE *)attr->pValue;
                if (keytype != CKK_DES){
-                  st_err_log(20, __FILE__, __LINE__);
+                  OCK_LOG_ERR(ERR_KEY_TYPE_INCONSISTENT);
                   return CKR_KEY_TYPE_INCONSISTENT;
                }
             }
@@ -145,7 +145,7 @@ decr_mgr_init( SESSION           *sess,
             ctx->context_len = sizeof(DES_CONTEXT);
             ctx->context     = (CK_BYTE *)malloc(sizeof(DES_CONTEXT));
             if (!ctx->context){
-               st_err_log(1, __FILE__, __LINE__);
+               OCK_LOG_ERR(ERR_HOST_MEMORY);
                return CKR_HOST_MEMORY;
             }
             memset( ctx->context, 0x0, sizeof(DES_CONTEXT) );
@@ -155,21 +155,21 @@ decr_mgr_init( SESSION           *sess,
       case CKM_CDMF_ECB:
          {
             if (mech->ulParameterLen != 0){
-               st_err_log(29, __FILE__, __LINE__);
+               OCK_LOG_ERR(ERR_MECHANISM_PARAM_INVALID);
                return CKR_MECHANISM_PARAM_INVALID;
             }
             // is the key type correct?
             //
             rc = template_attribute_find( key_obj->template, CKA_KEY_TYPE, &attr );
             if (rc == FALSE){
-               st_err_log(20, __FILE__, __LINE__);
+               OCK_LOG_ERR(ERR_KEY_TYPE_INCONSISTENT);
                return CKR_KEY_TYPE_INCONSISTENT;
             }
             else
             {
                keytype = *(CK_KEY_TYPE *)attr->pValue;
                if (keytype != CKK_CDMF){
-                  st_err_log(20, __FILE__, __LINE__);
+                  OCK_LOG_ERR(ERR_KEY_TYPE_INCONSISTENT);
                   return CKR_KEY_TYPE_INCONSISTENT;
                }
             }
@@ -182,7 +182,7 @@ decr_mgr_init( SESSION           *sess,
             ctx->context_len = sizeof(DES_CONTEXT);
             ctx->context     = (CK_BYTE *)malloc(sizeof(DES_CONTEXT));
             if (!ctx->context){
-               st_err_log(1, __FILE__, __LINE__);
+               OCK_LOG_ERR(ERR_HOST_MEMORY);
                return CKR_HOST_MEMORY;
             }
             memset( ctx->context, 0x0, sizeof(DES_CONTEXT) );
@@ -194,21 +194,21 @@ decr_mgr_init( SESSION           *sess,
       case CKM_DES_CBC_PAD:
          {
             if (mech->ulParameterLen != DES_BLOCK_SIZE){
-               st_err_log(29, __FILE__, __LINE__);
+               OCK_LOG_ERR(ERR_MECHANISM_PARAM_INVALID);
                return CKR_MECHANISM_PARAM_INVALID;
             }
             // is the key type correct?
             //
             rc = template_attribute_find( key_obj->template, CKA_KEY_TYPE, &attr );
             if (rc == FALSE){
-               st_err_log(20, __FILE__, __LINE__);
+               OCK_LOG_ERR(ERR_KEY_TYPE_INCONSISTENT);
                return CKR_KEY_TYPE_INCONSISTENT;
             }
             else
             {
                keytype = *(CK_KEY_TYPE *)attr->pValue;
                if (keytype != CKK_DES){
-                  st_err_log(20, __FILE__, __LINE__);
+                  OCK_LOG_ERR(ERR_KEY_TYPE_INCONSISTENT);
                   return CKR_KEY_TYPE_INCONSISTENT;
                }
             }
@@ -221,7 +221,7 @@ decr_mgr_init( SESSION           *sess,
             ctx->context_len = sizeof(DES_CONTEXT);
             ctx->context     = (CK_BYTE *)malloc(sizeof(DES_CONTEXT));
             if (!ctx->context){
-               st_err_log(1, __FILE__, __LINE__);
+               OCK_LOG_ERR(ERR_HOST_MEMORY);
                return CKR_HOST_MEMORY;
             }
             memset( ctx->context, 0x0, sizeof(DES_CONTEXT) );
@@ -232,21 +232,21 @@ decr_mgr_init( SESSION           *sess,
       case CKM_CDMF_CBC_PAD:
          {
             if (mech->ulParameterLen != DES_BLOCK_SIZE){
-               st_err_log(29, __FILE__, __LINE__);
+               OCK_LOG_ERR(ERR_MECHANISM_PARAM_INVALID);
                return CKR_MECHANISM_PARAM_INVALID;
             }
             // is the key type correct?
             //
             rc = template_attribute_find( key_obj->template, CKA_KEY_TYPE, &attr );
             if (rc == FALSE){
-               st_err_log(20, __FILE__, __LINE__);
+               OCK_LOG_ERR(ERR_KEY_TYPE_INCONSISTENT);
                return CKR_KEY_TYPE_INCONSISTENT;
             }
             else
             {
                keytype = *(CK_KEY_TYPE *)attr->pValue;
                if (keytype != CKK_CDMF){
-                  st_err_log(20, __FILE__, __LINE__);
+                  OCK_LOG_ERR(ERR_KEY_TYPE_INCONSISTENT);
                   return CKR_KEY_TYPE_INCONSISTENT;
                }
             }
@@ -255,7 +255,7 @@ decr_mgr_init( SESSION           *sess,
             ctx->context_len = sizeof(DES_CONTEXT);
             ctx->context     = (CK_BYTE *)malloc(sizeof(DES_CONTEXT));
             if (!ctx->context){
-               st_err_log(1, __FILE__, __LINE__);
+               OCK_LOG_ERR(ERR_HOST_MEMORY);
                return CKR_HOST_MEMORY;
             }
             memset( ctx->context, 0x0, sizeof(DES_CONTEXT) );
@@ -273,14 +273,14 @@ decr_mgr_init( SESSION           *sess,
             //
             rc = template_attribute_find( key_obj->template, CKA_KEY_TYPE, &attr );
             if (rc == FALSE){
-               st_err_log(20, __FILE__, __LINE__);
+               OCK_LOG_ERR(ERR_KEY_TYPE_INCONSISTENT);
                return CKR_KEY_TYPE_INCONSISTENT;
             }
             else
             {
                keytype = *(CK_KEY_TYPE *)attr->pValue;
                if (keytype != CKK_DES3 && keytype != CKK_DES2){
-                  st_err_log(20, __FILE__, __LINE__);
+                  OCK_LOG_ERR(ERR_KEY_TYPE_INCONSISTENT);
                   return CKR_KEY_TYPE_INCONSISTENT;
                }
             }
@@ -293,7 +293,7 @@ decr_mgr_init( SESSION           *sess,
             ctx->context_len = sizeof(DES_CONTEXT);
             ctx->context     = (CK_BYTE *)malloc(sizeof(DES_CONTEXT));
             if (!ctx->context){
-               st_err_log(1, __FILE__, __LINE__);
+               OCK_LOG_ERR(ERR_HOST_MEMORY);
                return CKR_HOST_MEMORY;
             }
             memset( ctx->context, 0x0, sizeof(DES_CONTEXT) );
@@ -310,14 +310,14 @@ decr_mgr_init( SESSION           *sess,
             //
             rc = template_attribute_find( key_obj->template, CKA_KEY_TYPE, &attr );
             if (rc == FALSE){
-               st_err_log(20, __FILE__, __LINE__);
+               OCK_LOG_ERR(ERR_KEY_TYPE_INCONSISTENT);
                return CKR_KEY_TYPE_INCONSISTENT;
             }
             else
             {
                keytype = *(CK_KEY_TYPE *)attr->pValue;
                if (keytype != CKK_DES3 && keytype != CKK_DES2){
-                  st_err_log(20, __FILE__, __LINE__);
+                  OCK_LOG_ERR(ERR_KEY_TYPE_INCONSISTENT);
                   return CKR_KEY_TYPE_INCONSISTENT;
                }
             }
@@ -330,7 +330,7 @@ decr_mgr_init( SESSION           *sess,
             ctx->context_len = sizeof(DES_CONTEXT);
             ctx->context     = (CK_BYTE *)malloc(sizeof(DES_CONTEXT));
             if (!ctx->context){
-               st_err_log(1, __FILE__, __LINE__);
+               OCK_LOG_ERR(ERR_HOST_MEMORY);
                return CKR_HOST_MEMORY;
             }
             memset( ctx->context, 0x0, sizeof(DES_CONTEXT) );
@@ -345,14 +345,14 @@ decr_mgr_init( SESSION           *sess,
 
             rc = template_attribute_find( key_obj->template, CKA_KEY_TYPE, &attr );
             if (rc == FALSE){
-               st_err_log(20, __FILE__, __LINE__);
+               OCK_LOG_ERR(ERR_KEY_TYPE_INCONSISTENT);
                return CKR_KEY_TYPE_INCONSISTENT;
             }
             else
             {
                keytype = *(CK_KEY_TYPE *)attr->pValue;
                if (keytype != CKK_RSA){
-                  st_err_log(20, __FILE__, __LINE__);
+                  OCK_LOG_ERR(ERR_KEY_TYPE_INCONSISTENT);
                   return CKR_KEY_TYPE_INCONSISTENT;
                }
             }
@@ -384,14 +384,14 @@ decr_mgr_init( SESSION           *sess,
             //
             rc = template_attribute_find( key_obj->template, CKA_KEY_TYPE, &attr );
             if (rc == FALSE){
-               st_err_log(20, __FILE__, __LINE__);
+               OCK_LOG_ERR(ERR_KEY_TYPE_INCONSISTENT);
                return CKR_KEY_TYPE_INCONSISTENT;
             }
             else
             {
                keytype = *(CK_KEY_TYPE *)attr->pValue;
                if (keytype != CKK_AES){
-                  st_err_log(20, __FILE__, __LINE__);
+                  OCK_LOG_ERR(ERR_KEY_TYPE_INCONSISTENT);
                   return CKR_KEY_TYPE_INCONSISTENT;
                }
             }
@@ -399,7 +399,7 @@ decr_mgr_init( SESSION           *sess,
             ctx->context_len = sizeof(AES_CONTEXT);
             ctx->context     = (CK_BYTE *)malloc(sizeof(AES_CONTEXT));
             if (!ctx->context){
-               st_err_log(1, __FILE__, __LINE__);
+               OCK_LOG_ERR(ERR_HOST_MEMORY);
                return CKR_HOST_MEMORY;
             }
             memset( ctx->context, 0x0, sizeof(AES_CONTEXT) );
@@ -418,14 +418,14 @@ decr_mgr_init( SESSION           *sess,
             //
             rc = template_attribute_find( key_obj->template, CKA_KEY_TYPE, &attr );
             if (rc == FALSE){
-               st_err_log(20, __FILE__, __LINE__);
+               OCK_LOG_ERR(ERR_KEY_TYPE_INCONSISTENT);
                return CKR_KEY_TYPE_INCONSISTENT;
             }
             else
             {
                keytype = *(CK_KEY_TYPE *)attr->pValue;
                if (keytype != CKK_AES){
-                  st_err_log(20, __FILE__, __LINE__);
+                  OCK_LOG_ERR(ERR_KEY_TYPE_INCONSISTENT);
                   return CKR_KEY_TYPE_INCONSISTENT;
                }
             }
@@ -433,7 +433,7 @@ decr_mgr_init( SESSION           *sess,
             ctx->context_len = sizeof(AES_CONTEXT);
             ctx->context     = (CK_BYTE *)malloc(sizeof(AES_CONTEXT));
             if (!ctx->context){
-               st_err_log(1, __FILE__, __LINE__);
+               OCK_LOG_ERR(ERR_HOST_MEMORY);
                return CKR_HOST_MEMORY;
             }
             memset( ctx->context, 0x0, sizeof(AES_CONTEXT) );
@@ -442,7 +442,7 @@ decr_mgr_init( SESSION           *sess,
 	 break;
 #endif
       default:
-         st_err_log(28, __FILE__, __LINE__);
+         OCK_LOG_ERR(ERR_MECHANISM_INVALID);
          return CKR_MECHANISM_INVALID;
    }
 
@@ -450,7 +450,7 @@ decr_mgr_init( SESSION           *sess,
    if (mech->ulParameterLen > 0) {
       ptr = (CK_BYTE *)malloc(mech->ulParameterLen);
       if (!ptr){
-         st_err_log(1, __FILE__, __LINE__);
+         OCK_LOG_ERR(ERR_HOST_MEMORY);
          return CKR_HOST_MEMORY;
       }
       memcpy( ptr, mech->pParameter, mech->ulParameterLen );
@@ -473,7 +473,7 @@ CK_RV
 decr_mgr_cleanup( ENCR_DECR_CONTEXT *ctx )
 {
    if (!ctx){
-      st_err_log(4, __FILE__, __LINE__, __FUNCTION__);
+      OCK_LOG_ERR(ERR_FUNCTION_FAILED);
       return CKR_FUNCTION_FAILED;
    }
    ctx->key                 = 0;
@@ -509,22 +509,22 @@ decr_mgr_decrypt( SESSION           *sess,
                   CK_ULONG          *out_data_len )
 {
    if (!sess || !ctx){
-      st_err_log(4, __FILE__, __LINE__, __FUNCTION__);
+      OCK_LOG_ERR(ERR_FUNCTION_FAILED);
       return CKR_FUNCTION_FAILED;
    }
    if (ctx->active == FALSE){
-      st_err_log(32, __FILE__, __LINE__);
+      OCK_LOG_ERR(ERR_OPERATION_NOT_INITIALIZED);
       return CKR_OPERATION_NOT_INITIALIZED;
    }
    // if the caller just wants the decrypted length, there is no reason to
    // specify the input data.  I just need the data length
    //
    if ((length_only == FALSE) && (!in_data || !out_data)){
-      st_err_log(4, __FILE__, __LINE__, __FUNCTION__);
+      OCK_LOG_ERR(ERR_FUNCTION_FAILED);
       return CKR_FUNCTION_FAILED;
    }
    if (ctx->multi == TRUE){
-      st_err_log(31, __FILE__, __LINE__);
+      OCK_LOG_ERR(ERR_OPERATION_ACTIVE);
       return CKR_OPERATION_ACTIVE;
    }
    switch (ctx->mech.mechanism) {
@@ -606,7 +606,7 @@ decr_mgr_decrypt( SESSION           *sess,
          return CKR_MECHANISM_INVALID;
    }
 
-   st_err_log(4, __FILE__, __LINE__, __FUNCTION__);
+   OCK_LOG_ERR(ERR_FUNCTION_FAILED);
    return CKR_FUNCTION_FAILED;
 }
 
@@ -623,17 +623,17 @@ decr_mgr_decrypt_update( SESSION            *sess,
                          CK_ULONG           *out_data_len )
 {
    if (!sess || !in_data || !ctx){
-      st_err_log(4, __FILE__, __LINE__, __FUNCTION__);
+      OCK_LOG_ERR(ERR_FUNCTION_FAILED);
       return CKR_FUNCTION_FAILED;
    }
 
    if (!out_data && !length_only){
-      st_err_log(4, __FILE__, __LINE__, __FUNCTION__);
+      OCK_LOG_ERR(ERR_FUNCTION_FAILED);
       return CKR_FUNCTION_FAILED;
    }
 
    if (ctx->active == FALSE){
-      st_err_log(32, __FILE__, __LINE__);
+      OCK_LOG_ERR(ERR_OPERATION_NOT_INITIALIZED);
       return CKR_OPERATION_NOT_INITIALIZED;
    }
    ctx->multi = TRUE;
@@ -702,10 +702,10 @@ decr_mgr_decrypt_update( SESSION            *sess,
                                             out_data, out_data_len );
 #endif
       default:
-         st_err_log(28, __FILE__, __LINE__);
+         OCK_LOG_ERR(ERR_MECHANISM_INVALID);
          return CKR_MECHANISM_INVALID;
    }
-   st_err_log(4, __FILE__, __LINE__, __FUNCTION__);
+   OCK_LOG_ERR(ERR_FUNCTION_FAILED);
    return CKR_FUNCTION_FAILED;
 }
 
@@ -720,11 +720,11 @@ decr_mgr_decrypt_final( SESSION            *sess,
                         CK_ULONG           *out_data_len )
 {
    if (!sess || !ctx){
-      st_err_log(4, __FILE__, __LINE__, __FUNCTION__);
+      OCK_LOG_ERR(ERR_FUNCTION_FAILED);
       return CKR_FUNCTION_FAILED;
    }
    if (ctx->active == FALSE){
-      st_err_log(28, __FILE__, __LINE__);
+      OCK_LOG_ERR(ERR_OPERATION_NOT_INITIALIZED);
       return CKR_OPERATION_NOT_INITIALIZED;
       }
 
@@ -783,10 +783,10 @@ decr_mgr_decrypt_final( SESSION            *sess,
                                            out_data, out_data_len );
 #endif
       default:
-         st_err_log(28, __FILE__, __LINE__);
+         OCK_LOG_ERR(ERR_MECHANISM_INVALID);
          return CKR_MECHANISM_INVALID;
    }
-   st_err_log(4, __FILE__, __LINE__, __FUNCTION__);
+   OCK_LOG_ERR(ERR_FUNCTION_FAILED);
 
    return CKR_FUNCTION_FAILED;
 }

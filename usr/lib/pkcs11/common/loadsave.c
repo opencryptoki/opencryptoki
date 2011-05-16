@@ -343,7 +343,7 @@ set_perm(int file)
 
 error:
    //TODO: More detailed error for this scenario. Possibly propagate error better
-   st_err_log(4, __FILE__, __LINE__, __FUNCTION__);
+   OCK_LOG_ERR(ERR_FUNCTION_FAILED);
 }
 
 //
@@ -361,7 +361,7 @@ load_token_data()
 
    rc = XProcLock( xproclock );
    if (rc != CKR_OK){
-      st_err_log(150, __FILE__, __LINE__);
+      OCK_LOG_ERR(ERR_PROCESS_LOCK);
       goto out_nolock;
    }
 
@@ -375,7 +375,7 @@ load_token_data()
          init_token_data();
          rc = XProcLock( xproclock );
          if (rc != CKR_OK){
-            st_err_log(150, __FILE__, __LINE__);
+            OCK_LOG_ERR(ERR_PROCESS_LOCK);
             goto out_nolock;
          }
 
@@ -383,14 +383,14 @@ load_token_data()
          if (!fp) {
             // were really hosed here since the created
             // did not occur
-            st_err_log(194, __FILE__, __LINE__, (char *)fname, errno);
-	    // LogError("failed opening %s for read: %s", fname, strerror(errno));
+            OCK_LOG_ERR(ERR_FUNCTION_FAILED);
+	    // OCK_LOG_DEBUG("failed opening %s for read: %s\n", fname, strerror(errno));
             rc = CKR_FUNCTION_FAILED;
             goto out_unlock;
          }
       } else {
          /* Could not open file for some unknown reason */
-         st_err_log(194, __FILE__, __LINE__, (char *)fname, errno);
+         OCK_LOG_ERR(ERR_FUNCTION_FAILED);
          rc = CKR_FUNCTION_FAILED;
          goto out_unlock;
       }
@@ -432,7 +432,7 @@ save_token_data()
 
    rc = XProcLock( xproclock );
    if (rc != CKR_OK){
-      st_err_log(150, __FILE__, __LINE__);
+      OCK_LOG_ERR(ERR_PROCESS_LOCK);
       goto out_nolock;
    }
 
@@ -440,7 +440,7 @@ save_token_data()
    if (!fp){
       fp = fopen((char *)fname, "w");
       if (!fp) {
-         st_err_log(4, __FILE__, __LINE__, __FUNCTION__);
+         OCK_LOG_ERR(ERR_FUNCTION_FAILED);
          rc = CKR_FUNCTION_FAILED;
          goto done;
       }
@@ -478,7 +478,7 @@ save_token_object( OBJECT *obj )
       rc = save_public_token_object( obj );
 
    if (rc != CKR_OK){
-      // st_err_log(104, __FILE__, __LINE__);
+      // OCK_LOG_ERR(ERR_TOKEN_SAVE);
       return rc;
    }
    // update the index file if it exists
@@ -507,7 +507,7 @@ save_token_object( OBJECT *obj )
    //
    fp = fopen((char *)fname, "a");
    if (!fp){
-      st_err_log(4, __FILE__, __LINE__, __FUNCTION__);
+      OCK_LOG_ERR(ERR_FUNCTION_FAILED);
       return CKR_FUNCTION_FAILED;
    }
    set_perm(fileno(fp));
@@ -541,12 +541,12 @@ save_public_token_object( OBJECT *obj )
 
    rc = object_flatten( obj, &cleartxt, &cleartxt_len );
    if (rc != CKR_OK){
-      // st_err_log(101, __FILE__, __LINE__);
+      // OCK_LOG_ERR(ERR_OBJ_FLATTEN);
       goto error;
    }
    fp = fopen( (char *)fname, "w" );
    if (!fp) {
-      st_err_log(4, __FILE__, __LINE__, __FUNCTION__);
+      OCK_LOG_ERR(ERR_FUNCTION_FAILED);
       rc = CKR_FUNCTION_FAILED;
       goto error;
    }
@@ -597,7 +597,7 @@ save_private_token_object( OBJECT *obj )
    rc = object_flatten( obj, &obj_data, &obj_data_len );
    obj_data_len_32 = obj_data_len;
    if (rc != CKR_OK){
-      // st_err_log(101, __FILE__, __LINE__);
+      // OCK_LOG_ERR(ERR_OBJ_FLATTEN);
       goto error;
    }
    //
@@ -629,7 +629,7 @@ save_private_token_object( OBJECT *obj )
    cleartxt  = (CK_BYTE *)malloc( padded_len );
    ciphertxt = (CK_BYTE *)malloc( padded_len );
    if (!cleartxt || !ciphertxt) {
-      st_err_log(0, __FILE__, __LINE__);
+      OCK_LOG_ERR(ERR_HOST_MEMORY);
       rc = CKR_HOST_MEMORY;
       goto error;
    }
@@ -657,7 +657,7 @@ save_private_token_object( OBJECT *obj )
 				 ciphertxt,  &ciphertxt_len,
 			         initial_vector, des3_key );
    } else {
-      st_err_log(0, __FILE__, __LINE__);
+      OCK_LOG_ERR(ERR_HOST_MEMORY);
       rc = CKR_HOST_MEMORY;
    }
 }
@@ -666,7 +666,7 @@ save_private_token_object( OBJECT *obj )
    rc = CKR_OK;
 #endif
    if (rc != CKR_OK){
-      // st_err_log(105, __FILE__, __LINE__);
+      // OCK_LOG_ERR(ERR_DES3_CBC_ENCRYPT);
       goto error;
    }
 
@@ -674,7 +674,7 @@ save_private_token_object( OBJECT *obj )
 
    fp = fopen( (char *)fname, "w" );
    if (!fp) {
-      st_err_log(4, __FILE__, __LINE__, __FUNCTION__);
+      OCK_LOG_ERR(ERR_FUNCTION_FAILED);
       rc = CKR_FUNCTION_FAILED;
       goto error;
    }
@@ -750,7 +750,7 @@ load_public_token_objects( void )
          buf = (CK_BYTE *)malloc(size);
          if (!buf) {
             fclose(fp2);
-	    LOG(LOG_ERR, "Cannot malloc %u bytes to read in token object %s (ignoring it)",
+	    OCK_SYSLOG(LOG_ERR, "Cannot malloc %u bytes to read in token object %s (ignoring it)",
 		size, fname);
 	    continue;
          }
@@ -759,14 +759,14 @@ load_public_token_objects( void )
 	 if (read_size != size) {
             fclose(fp2);
 	    free(buf);
-	    LOG(LOG_ERR, "Cannot read token object %s (ignoring it)", fname);
+	    OCK_SYSLOG(LOG_ERR, "Cannot read token object %s (ignoring it)", fname);
 	    continue;
 	 }
 
          // ... grab object mutex here.
          MY_LockMutex(&obj_list_mutex);
 	 if (object_mgr_restore_obj_withSize(buf, NULL, size) != CKR_OK) {
-	    LOG(LOG_ERR, "Cannot restore token object %s (ignoring it)", fname);
+	    OCK_SYSLOG(LOG_ERR, "Cannot restore token object %s (ignoring it)", fname);
 	 }
          MY_UnlockMutex(&obj_list_mutex);
          free( buf );
@@ -823,7 +823,7 @@ load_private_token_objects( void )
          buf = (CK_BYTE *)malloc(size);
          if (!buf) {
 	    fclose( fp2 );
-	    LOG(LOG_ERR, "Cannot malloc %u bytes to read in token object %s (ignoring it)",
+	    OCK_SYSLOG(LOG_ERR, "Cannot malloc %u bytes to read in token object %s (ignoring it)",
 		size, fname);
 	    continue;
          }
@@ -832,7 +832,7 @@ load_private_token_objects( void )
          if (read_size != size) {
 	    free( buf );
 	    fclose( fp2 );
-	    LOG(LOG_ERR, "Cannot read token object %s (ignoring it)", fname);
+	    OCK_SYSLOG(LOG_ERR, "Cannot read token object %s (ignoring it)", fname);
 	    continue;
          }
 
@@ -841,7 +841,7 @@ load_private_token_objects( void )
          rc = restore_private_token_object( buf, size, NULL );
 	MY_UnlockMutex(&obj_list_mutex);
          if (rc != CKR_OK){
-            // st_err_log(107, __FILE__, __LINE__);
+            // OCK_LOG_ERR(ERR_TOKEN_RESTORE_PRIV);
             goto error;
          }
 
@@ -890,7 +890,7 @@ restore_private_token_object( CK_BYTE  * data,
 
    cleartxt  = (CK_BYTE *)malloc(len);
    if (!cleartxt) {
-      st_err_log(0, __FILE__, __LINE__);
+      OCK_LOG_ERR(ERR_HOST_MEMORY);
       rc = CKR_HOST_MEMORY;
       goto done;
    }
@@ -912,7 +912,7 @@ restore_private_token_object( CK_BYTE  * data,
                                  cleartxt,  &len,
                                  initial_vector, des3_key );
    } else {
-      st_err_log(0, __FILE__, __LINE__);
+      OCK_LOG_ERR(ERR_HOST_MEMORY);
       rc = CKR_HOST_MEMORY;
    }
 }
@@ -922,7 +922,7 @@ restore_private_token_object( CK_BYTE  * data,
 #endif
  
    if (rc != CKR_OK){
-      // st_err_log(106, __FILE__, __LINE__);
+      // OCK_LOG_ERR(ERR_DES3_CBC_DECRYPT);
       goto done;
    }
 
@@ -932,7 +932,7 @@ restore_private_token_object( CK_BYTE  * data,
    // the key was incorrect
    //
    if (rc != CKR_OK || (cleartxt_len > len) ) {
-      st_err_log(4, __FILE__, __LINE__, __FUNCTION__);
+      OCK_LOG_ERR(ERR_FUNCTION_FAILED);
       rc = CKR_FUNCTION_FAILED;
       goto done;
    }
@@ -943,7 +943,7 @@ restore_private_token_object( CK_BYTE  * data,
 
    // prevent buffer overflow in sha_update
    if (obj_data_len > cleartxt_len) {
-      st_err_log(4, __FILE__, __LINE__, __FUNCTION__);
+      OCK_LOG_ERR(ERR_FUNCTION_FAILED);
       rc = CKR_FUNCTION_FAILED;
       goto done;
    }
@@ -960,7 +960,7 @@ restore_private_token_object( CK_BYTE  * data,
    ptr += obj_data_len;
 
    if (memcmp(ptr, hash_sha, SHA1_HASH_SIZE) != 0) {
-      st_err_log(4, __FILE__, __LINE__, __FUNCTION__);
+      OCK_LOG_ERR(ERR_FUNCTION_FAILED);
       rc = CKR_FUNCTION_FAILED;
       goto done;
    }
@@ -1006,7 +1006,7 @@ load_masterkey_so( void )
    //
    fp = fopen((char *)fname, "r");
    if (!fp) {
-      st_err_log(4, __FILE__, __LINE__, __FUNCTION__);
+      OCK_LOG_ERR(ERR_FUNCTION_FAILED);
       rc = CKR_FUNCTION_FAILED;
       goto done;
    }
@@ -1016,7 +1016,7 @@ load_masterkey_so( void )
 
    rc = fread( cipher, cipher_len, 1, fp );
    if (rc != 1) {
-      st_err_log(4, __FILE__, __LINE__, __FUNCTION__);
+      OCK_LOG_ERR(ERR_FUNCTION_FAILED);
       rc = CKR_FUNCTION_FAILED;
       goto done;
    }
@@ -1039,7 +1039,7 @@ load_masterkey_so( void )
                                  clear,  &clear_len,
                                  initial_vector, des3_key );
    } else {
-      st_err_log(0, __FILE__, __LINE__);
+      OCK_LOG_ERR(ERR_HOST_MEMORY);
       rc = CKR_HOST_MEMORY;
    }
 }
@@ -1049,7 +1049,7 @@ load_masterkey_so( void )
 #endif
 
    if (rc != CKR_OK){
-      st_err_log(106, __FILE__, __LINE__);
+      OCK_LOG_ERR(ERR_DES3_CBC_DECRYPT);
       goto done;
    }
    memcpy( (CK_BYTE *)&mk, clear, sizeof(mk) );
@@ -1068,7 +1068,7 @@ load_masterkey_so( void )
    }
 
    if (memcmp(hash_sha, mk.sha_hash, SHA1_HASH_SIZE) != 0) {
-      st_err_log(4, __FILE__, __LINE__, __FUNCTION__);
+      OCK_LOG_ERR(ERR_FUNCTION_FAILED);
       rc = CKR_FUNCTION_FAILED;
       goto done;
    }
@@ -1106,7 +1106,7 @@ load_masterkey_user( void )
    //
    fp = fopen( (char *)fname, "r" );
    if (!fp) {
-      LogError("fopen(%s): %s", fname, strerror(errno));
+      OCK_LOG_DEBUG("fopen(%s): %s\n", fname, strerror(errno));
       rc = CKR_FUNCTION_FAILED;
       goto done;
    }
@@ -1116,7 +1116,7 @@ load_masterkey_user( void )
 
    rc = fread( cipher, cipher_len, 1, fp );
    if (rc != 1) {
-      st_err_log(4, __FILE__, __LINE__, __FUNCTION__);
+      OCK_LOG_ERR(ERR_FUNCTION_FAILED);
       rc = CKR_FUNCTION_FAILED;
       goto done;
    }
@@ -1139,7 +1139,7 @@ load_masterkey_user( void )
                                  clear,  &clear_len,
                                  initial_vector, des3_key );
    } else {
-      st_err_log(0, __FILE__, __LINE__);
+      OCK_LOG_ERR(ERR_HOST_MEMORY);
       rc = CKR_HOST_MEMORY;
    }
 }
@@ -1149,7 +1149,7 @@ load_masterkey_user( void )
 #endif
 
    if (rc != CKR_OK){
-      st_err_log(106, __FILE__, __LINE__);
+      OCK_LOG_ERR(ERR_DES3_CBC_DECRYPT);
       goto done;
    }
    memcpy( (CK_BYTE *)&mk, clear, sizeof(mk) );
@@ -1168,7 +1168,7 @@ load_masterkey_user( void )
    }
 
    if (memcmp(hash_sha, mk.sha_hash, SHA1_HASH_SIZE) != 0) {
-      st_err_log(4, __FILE__, __LINE__, __FUNCTION__);
+      OCK_LOG_ERR(ERR_FUNCTION_FAILED);
       rc = CKR_FUNCTION_FAILED;
       goto done;
    }
@@ -1227,7 +1227,7 @@ save_masterkey_so( void )
                                  ciphertxt,  &ciphertxt_len,
                                  initial_vector, des3_key );
    } else {
-      st_err_log(0, __FILE__, __LINE__);
+      OCK_LOG_ERR(ERR_HOST_MEMORY);
       rc = CKR_HOST_MEMORY;
    }
 }
@@ -1237,7 +1237,7 @@ save_masterkey_so( void )
 #endif
 
    if (rc != CKR_OK){
-      // st_err_log(105, __FILE__, __LINE__);
+      // OCK_LOG_ERR(ERR_DES3_CBC_ENCRYPT);
       goto done;
    }
 
@@ -1248,7 +1248,7 @@ save_masterkey_so( void )
    sprintf((char *)fname,"%s/MK_SO",pk_dir);
    fp = fopen( (char *)fname, "w" );
    if (!fp) {
-      st_err_log(4, __FILE__, __LINE__, __FUNCTION__);
+      OCK_LOG_ERR(ERR_FUNCTION_FAILED);
       rc = CKR_FUNCTION_FAILED;
       goto done;
    }
@@ -1256,7 +1256,7 @@ save_masterkey_so( void )
 
    rc = fwrite( ciphertxt, ciphertxt_len, 1, fp );
    if (rc != 1) {
-      st_err_log(4, __FILE__, __LINE__, __FUNCTION__);
+      OCK_LOG_ERR(ERR_FUNCTION_FAILED);
       rc = CKR_FUNCTION_FAILED;
       goto done;
    }
@@ -1313,7 +1313,7 @@ save_masterkey_user( void )
                                  ciphertxt,  &ciphertxt_len,
                                  initial_vector, des3_key );
    } else {
-      st_err_log(0, __FILE__, __LINE__);
+      OCK_LOG_ERR(ERR_HOST_MEMORY);
       rc = CKR_HOST_MEMORY;
    }
 }
@@ -1323,7 +1323,7 @@ save_masterkey_user( void )
 #endif
 
    if (rc != CKR_OK){
-      // st_err_log(105, __FILE__, __LINE__);
+      // OCK_LOG_ERR(ERR_DES3_CBC_ENCRYPT);
       goto done;
    }
 
@@ -1335,7 +1335,7 @@ save_masterkey_user( void )
    sprintf((char *)fname,"%s/MK_USER", pk_dir);
    fp = fopen( (char *)fname, "w" );
    if (!fp) {
-      st_err_log(4, __FILE__, __LINE__, __FUNCTION__);
+      OCK_LOG_ERR(ERR_FUNCTION_FAILED);
       rc = CKR_FUNCTION_FAILED;
       goto done;
    }
@@ -1343,7 +1343,7 @@ save_masterkey_user( void )
    set_perm(fileno(fp));
    rc = fwrite( ciphertxt, ciphertxt_len, 1, fp );
    if (rc != 1) {
-      st_err_log(4, __FILE__, __LINE__, __FUNCTION__);
+      OCK_LOG_ERR(ERR_FUNCTION_FAILED);
       rc = CKR_FUNCTION_FAILED;
       goto done;
    }
@@ -1379,7 +1379,7 @@ reload_token_object( OBJECT *obj )
 
    fp = fopen( (char *)fname, "r" );
    if (!fp) {
-      st_err_log(4, __FILE__, __LINE__, __FUNCTION__);
+      OCK_LOG_ERR(ERR_FUNCTION_FAILED);
       rc = CKR_FUNCTION_FAILED;
       goto done;
    }
@@ -1394,13 +1394,13 @@ reload_token_object( OBJECT *obj )
    buf = (CK_BYTE *)malloc(size);
    if (!buf) {
       rc = CKR_HOST_MEMORY;
-      LOG(LOG_ERR, "Cannot malloc %u bytes to read in token object %s (ignoring it)", size, fname);
+      OCK_SYSLOG(LOG_ERR, "Cannot malloc %u bytes to read in token object %s (ignoring it)", size, fname);
       goto done;
    }
 
    read_size = fread( buf, 1, size, fp );
    if (read_size != size) {
-      LOG(LOG_ERR, "Token object %s appears corrupted (ignoring it)", fname);
+      OCK_SYSLOG(LOG_ERR, "Token object %s appears corrupted (ignoring it)", fname);
       rc = CKR_FUNCTION_FAILED;
       goto done;
    }
@@ -1410,13 +1410,13 @@ reload_token_object( OBJECT *obj )
    if (priv){
       rc = restore_private_token_object( buf, size_64, obj );
       if (rc != CKR_OK)
-         // st_err_log(107, __FILE__, __LINE__);
+         // OCK_LOG_ERR(ERR_TOKEN_RESTORE_PRIV);
       {}
    }
    else{
       rc = object_mgr_restore_obj( buf, obj );
       if (rc != CKR_OK)
-         // st_err_log(108, __FILE__, __LINE__);
+         // OCK_LOG_ERR(ERR_OBJ_RESTORE);
       {}
    }
 
@@ -1455,7 +1455,7 @@ delete_token_object( OBJECT *obj )
    if (!fp1 || !fp2) {
       if (fp1) fclose(fp1);
       if (fp2) fclose(fp2);
-      st_err_log(4, __FILE__, __LINE__, __FUNCTION__);
+      OCK_LOG_ERR(ERR_FUNCTION_FAILED);
       return CKR_FUNCTION_FAILED;
    }
 
@@ -1479,7 +1479,7 @@ delete_token_object( OBJECT *obj )
    if (!fp1 || !fp2) {
       if (fp1) fclose(fp1);
       if (fp2) fclose(fp2);
-      st_err_log(4, __FILE__, __LINE__, __FUNCTION__);
+      OCK_LOG_ERR(ERR_FUNCTION_FAILED);
       return CKR_FUNCTION_FAILED;
    }
 

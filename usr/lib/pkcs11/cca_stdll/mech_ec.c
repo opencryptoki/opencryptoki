@@ -28,7 +28,7 @@ ckm_ec_key_pair_gen( TEMPLATE  * publ_tmpl,
 	CK_RV rc;
 	rc = token_specific.t_ec_generate_keypair(publ_tmpl, priv_tmpl);
 	if (rc != CKR_OK)
-		st_err_log(91, __FILE__, __LINE__);
+		OCK_LOG_ERR(ERR_KEYGEN);
 	return rc;
 }
 
@@ -45,7 +45,7 @@ ckm_ec_sign( CK_BYTE		*in_data,
 
 	rc = template_attribute_find( key_obj->template, CKA_CLASS, &attr );
 	if (rc == FALSE){
-		st_err_log(4, __FILE__, __LINE__, __FUNCTION__);
+		OCK_LOG_ERR(ERR_FUNCTION_FAILED);
 		return CKR_FUNCTION_FAILED;
 	}
 	else
@@ -54,13 +54,13 @@ ckm_ec_sign( CK_BYTE		*in_data,
 	// this had better be a private key
 	//
 	if (keyclass != CKO_PRIVATE_KEY){
-		st_err_log(4, __FILE__, __LINE__, __FUNCTION__);
+		OCK_LOG_ERR(ERR_FUNCTION_FAILED);
 		return CKR_FUNCTION_FAILED;
 	}
 	rc = token_specific.t_ec_sign(in_data, in_data_len, out_data,
 					out_data_len, key_obj);
 	if (rc != CKR_OK)
-		st_err_log(135, __FILE__, __LINE__);
+		OCK_LOG_ERR(ERR_EC_SIGN);
 
 	return rc;
 }
@@ -81,13 +81,13 @@ ec_sign( SESSION			*sess,
 	CK_RV            rc;
 
 	if (!sess || !ctx || !out_data_len){
-		st_err_log(4, __FILE__, __LINE__, __FUNCTION__);
+		OCK_LOG_ERR(ERR_FUNCTION_FAILED);
 		return CKR_FUNCTION_FAILED;
 	}
 
 	rc = object_mgr_find_in_map1( ctx->key, &key_obj );
 	if (rc != CKR_OK){
-		st_err_log(110, __FILE__, __LINE__);
+		OCK_LOG_ERR(ERR_OBJMGR_FIND_MAP);
 		return rc;
 	}
 
@@ -106,7 +106,7 @@ ec_sign( SESSION			*sess,
 	rc = ckm_ec_sign( in_data, in_data_len, out_data,
 			out_data_len, key_obj );
 	if (rc != CKR_OK)
-		st_err_log(133, __FILE__, __LINE__);
+		OCK_LOG_ERR(ERR_EC_SIGN);
 
 	return rc;
 }
@@ -124,7 +124,7 @@ ckm_ec_verify( CK_BYTE		*in_data,
 
 	rc = template_attribute_find( key_obj->template, CKA_CLASS, &attr );
 	if (rc == FALSE){
-		st_err_log(4, __FILE__, __LINE__, __FUNCTION__);
+		OCK_LOG_ERR(ERR_FUNCTION_FAILED);
 		return CKR_FUNCTION_FAILED;
 	}
 	else
@@ -133,14 +133,14 @@ ckm_ec_verify( CK_BYTE		*in_data,
 	// this had better be a public key
 	//
 	if (keyclass != CKO_PUBLIC_KEY){
-		st_err_log(4, __FILE__, __LINE__, __FUNCTION__);
+		OCK_LOG_ERR(ERR_FUNCTION_FAILED);
 		return CKR_FUNCTION_FAILED;
 	}
 
 	rc = token_specific.t_ec_verify(in_data, in_data_len,
 			out_data, out_data_len, key_obj);
 	if (rc != CKR_OK)
-		st_err_log(135, __FILE__, __LINE__);
+		OCK_LOG_ERR(ERR_EC_VERIFY);
 
 	return rc;
 }
@@ -162,7 +162,7 @@ ec_verify(SESSION		*sess,
 
 	rc = object_mgr_find_in_map1(ctx->key, &key_obj);
 	if (rc != CKR_OK){
-		st_err_log(110, __FILE__, __LINE__);
+		OCK_LOG_ERR(ERR_OBJMGR_FIND_MAP);
 		return rc;
 	}
 	flag = template_attribute_find( key_obj->template,
@@ -175,13 +175,13 @@ ec_verify(SESSION		*sess,
 	// check input data length restrictions
 	//
 	if (sig_len > public_key_len){
-		st_err_log(46, __FILE__, __LINE__);
+		OCK_LOG_ERR(ERR_SIGNATURE_LEN_RANGE);
 		return CKR_SIGNATURE_LEN_RANGE;
 	}
 	rc = ckm_ec_verify(in_data, in_data_len, signature,
 			sig_len, key_obj);
 	if (rc != CKR_OK)
-		st_err_log(132, __FILE__, __LINE__);
+		OCK_LOG_ERR(ERR_EC_VERIFY);
 
 	return rc;
 }

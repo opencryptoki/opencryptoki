@@ -328,14 +328,14 @@ dsa_sign( SESSION             * sess,
 
    rc = object_mgr_find_in_map1( ctx->key, &key_obj );
    if (rc != CKR_OK){
-      st_err_log(118, __FILE__, __LINE__);
+      OCK_LOG_ERR(ERR_OBJMGR_FIND_MAP);
       return rc;
    }
    // must be a PRIVATE key operation
    //
    flag = template_attribute_find( key_obj->template, CKA_CLASS, &attr );
    if (flag == FALSE){
-      st_err_log(118, __FILE__, __LINE__);
+      OCK_LOG_ERR(ERR_FUNCTION_FAILED);
       return CKR_FUNCTION_FAILED;
    }
    else
@@ -345,7 +345,7 @@ dsa_sign( SESSION             * sess,
    // that somehow a public key got assigned a CKA_SIGN attribute
    //
    if (class != CKO_PRIVATE_KEY){
-      st_err_log(118, __FILE__, __LINE__);
+      OCK_LOG_ERR(ERR_FUNCTION_FAILED);
       return CKR_FUNCTION_FAILED;
    }
 
@@ -353,7 +353,7 @@ dsa_sign( SESSION             * sess,
    // hash of the data so the input to the DSA operation must be 20 bytes
    //
    if (in_data_len != 20){
-      st_err_log(109, __FILE__, __LINE__);
+      OCK_LOG_ERR(ERR_DATA_LEN_RANGE);
       return CKR_DATA_LEN_RANGE;
    }
    if (length_only == TRUE) {
@@ -390,37 +390,37 @@ dsa_verify( SESSION             * sess,
 
    rc = object_mgr_find_in_map1( ctx->key, &key_obj );
    if (rc != CKR_OK){
-      st_err_log(118, __FILE__, __LINE__);
+      OCK_LOG_ERR(ERR_OBJMGR_FIND_MAP);
       return rc;
    }
    // must be a PUBLIC key operation
    //
    flag = template_attribute_find( key_obj->template, CKA_CLASS, &attr );
    if (flag == FALSE){
-      st_err_log(118, __FILE__, __LINE__);
+      OCK_LOG_ERR(ERR_FUNCTION_FAILED);
       return CKR_FUNCTION_FAILED;
    }
    else
       class = *(CK_OBJECT_CLASS *)attr->pValue;
 
    if (class != CKO_PUBLIC_KEY){
-      st_err_log(118, __FILE__, __LINE__);
+      OCK_LOG_ERR(ERR_FUNCTION_FAILED);
       return CKR_FUNCTION_FAILED;
    }
 
    // check input data length restrictions
    //
    if (sig_len != DSA_SIGNATURE_SIZE){
-      st_err_log(46, __FILE__, __LINE__);
+      OCK_LOG_ERR(ERR_SIGNATURE_LEN_RANGE);
       return CKR_SIGNATURE_LEN_RANGE;
    }
    if (in_data_len != 20){
-      st_err_log(109, __FILE__, __LINE__);
+      OCK_LOG_ERR(ERR_DATA_LEN_RANGE);
       return CKR_DATA_LEN_RANGE;
    }
    rc = ckm_dsa_verify( signature, in_data, key_obj );
    if (rc != CKR_OK)
-      st_err_log(121, __FILE__, __LINE__);
+      OCK_LOG_ERR(ERR_DSA_VERIFY);
    return rc;
 }
 
@@ -450,7 +450,7 @@ ckm_dsa_key_pair_gen( TEMPLATE  * publ_tmpl,
 
    rc = token_specific_dsa_generate_keypair(publ_tmpl,priv_tmpl);
    if (rc != CKR_OK)
-      st_err_log(91, __FILE__, __LINE__);
+      OCK_LOG_ERR(ERR_KEYGEN);
    return rc;
 }
 
@@ -473,7 +473,7 @@ ckm_dsa_sign( CK_BYTE   * in_data,
 
    rc = template_attribute_find( priv_key->template, CKA_CLASS, &attr );
    if (rc == FALSE){
-      st_err_log(118, __FILE__, __LINE__);
+      OCK_LOG_ERR(ERR_FUNCTION_FAILED);
       return CKR_FUNCTION_FAILED;
    }
    else
@@ -482,13 +482,13 @@ ckm_dsa_sign( CK_BYTE   * in_data,
    // this had better be a private key
    //
    if (keyclass != CKO_PRIVATE_KEY){
-      st_err_log(118, __FILE__, __LINE__);
+      OCK_LOG_ERR(ERR_FUNCTION_FAILED);
       return CKR_FUNCTION_FAILED;
    }
 
    rc = tok_dsa_sign(in_data, signature, priv_key);
    if (rc != CKR_OK)
-      st_err_log(122, __FILE__, __LINE__);
+      OCK_LOG_ERR(ERR_DSA_SIGN);
    return rc;
 }
 
@@ -511,7 +511,7 @@ ckm_dsa_verify( CK_BYTE   * signature,
 
    rc = template_attribute_find( publ_key->template, CKA_CLASS, &attr );
    if (rc == FALSE){
-      st_err_log(118, __FILE__, __LINE__);
+      OCK_LOG_ERR(ERR_FUNCTION_FAILED);
       return CKR_FUNCTION_FAILED;
    }
    else
@@ -520,12 +520,12 @@ ckm_dsa_verify( CK_BYTE   * signature,
    // this had better be a private key
    //
    if (keyclass != CKO_PUBLIC_KEY){
-      st_err_log(118, __FILE__, __LINE__);
+      OCK_LOG_ERR(ERR_FUNCTION_FAILED);
       return CKR_FUNCTION_FAILED;
    }
    rc = tok_dsa_verify( signature, data, publ_key);
    if (rc != CKR_OK)
-      st_err_log(121, __FILE__, __LINE__);
+      OCK_LOG_ERR(ERR_DSA_VERIFY);
    return rc;
 }
 

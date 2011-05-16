@@ -323,20 +323,20 @@ object_mgr_add( SESSION          * sess,
    unsigned long obj_handle;
 
    if (!sess || !pTemplate || !handle){
-      st_err_log(4, __FILE__, __LINE__, __FUNCTION__);
+      OCK_LOG_ERR(ERR_FUNCTION_FAILED);
       return CKR_FUNCTION_FAILED;
    }
 
    rc = MY_LockMutex( &obj_list_mutex );
    if (rc != CKR_OK){
-      st_err_log(146, __FILE__, __LINE__); 
+      OCK_LOG_ERR(ERR_MUTEX_LOCK); 
       return rc;
    }
    locked = TRUE;
 
    rc = object_create( pTemplate, ulCount, &o );
    if (rc != CKR_OK){
-      st_err_log(157, __FILE__, __LINE__); 
+      OCK_LOG_ERR(ERR_OBJ_CREATE); 
       goto done;
    }
    // check whether session has permissions to create the object, etc
@@ -354,13 +354,13 @@ object_mgr_add( SESSION          * sess,
 
    if (sess->session_info.state == CKS_RO_PUBLIC_SESSION) {
       if (priv_obj) {
-         st_err_log(57, __FILE__, __LINE__); 
+         OCK_LOG_ERR(ERR_USER_NOT_LOGGED_IN); 
          rc = CKR_USER_NOT_LOGGED_IN;
          goto done;
       }
 
       if (!sess_obj) {
-         st_err_log(42, __FILE__, __LINE__); 
+         OCK_LOG_ERR(ERR_SESSION_READ_ONLY); 
          rc = CKR_SESSION_READ_ONLY;
          goto done;
       }
@@ -368,7 +368,7 @@ object_mgr_add( SESSION          * sess,
 
    if (sess->session_info.state == CKS_RO_USER_FUNCTIONS) {
       if (!sess_obj) {
-         st_err_log(42, __FILE__, __LINE__);
+         OCK_LOG_ERR(ERR_SESSION_READ_ONLY);
          rc = CKR_SESSION_READ_ONLY;
          goto done;
       }
@@ -376,7 +376,7 @@ object_mgr_add( SESSION          * sess,
 
    if (sess->session_info.state == CKS_RW_PUBLIC_SESSION) {
       if (priv_obj) {
-         st_err_log(57, __FILE__, __LINE__);
+         OCK_LOG_ERR(ERR_USER_NOT_LOGGED_IN);
          rc = CKR_USER_NOT_LOGGED_IN;
          goto done;
       }
@@ -384,7 +384,7 @@ object_mgr_add( SESSION          * sess,
 
    if (sess->session_info.state == CKS_RW_SO_FUNCTIONS) {
       if (priv_obj) {
-         st_err_log(57, __FILE__, __LINE__);
+         OCK_LOG_ERR(ERR_USER_NOT_LOGGED_IN);
          rc = CKR_USER_NOT_LOGGED_IN;
          goto done;
       }
@@ -399,7 +399,7 @@ object_mgr_add( SESSION          * sess,
       memset( o->name, 0x00, sizeof(CK_BYTE) * 8 );
 
       if ((obj_handle = bt_node_add(&sess_obj_btree, o)) == 0) {
-	 st_err_log(1, __FILE__, __LINE__);
+	 OCK_LOG_ERR(ERR_HOST_MEMORY);
 	 rc = CKR_HOST_MEMORY;
 	 goto done;
       }
@@ -413,7 +413,7 @@ object_mgr_add( SESSION          * sess,
       //
       rc = XProcLock( xproclock );
       if (rc != CKR_OK){
-         st_err_log(150, __FILE__, __LINE__); 
+         OCK_LOG_ERR(ERR_PROCESS_LOCK); 
          goto done;
       }
       else {
@@ -423,7 +423,7 @@ object_mgr_add( SESSION          * sess,
          if (priv_obj) {
             if (global_shm->num_priv_tok_obj >= MAX_TOK_OBJS) {
                rc = CKR_HOST_MEMORY;
-               st_err_log(1, __FILE__, __LINE__); 
+               OCK_LOG_ERR(ERR_HOST_MEMORY); 
                XProcUnLock(xproclock);
                goto done;
             }
@@ -431,7 +431,7 @@ object_mgr_add( SESSION          * sess,
          else {
             if (global_shm->num_publ_tok_obj >= MAX_TOK_OBJS) {
                rc = CKR_HOST_MEMORY;
-               st_err_log(1, __FILE__, __LINE__); 
+               OCK_LOG_ERR(ERR_HOST_MEMORY); 
                XProcUnLock(xproclock);
                goto done;
             }
@@ -482,7 +482,7 @@ object_mgr_add( SESSION          * sess,
          obj_handle = bt_node_add(&publ_token_obj_btree, o);
 
       if (!obj_handle) {
-	 st_err_log(1, __FILE__, __LINE__);
+	 OCK_LOG_ERR(ERR_HOST_MEMORY);
 	 rc = CKR_HOST_MEMORY;
 	 goto done;
       }
@@ -514,7 +514,7 @@ object_mgr_add( SESSION          * sess,
 
          rc = XProcLock( xproclock );
          if (rc != CKR_OK){
-            st_err_log(150, __FILE__, __LINE__); 
+            OCK_LOG_ERR(ERR_PROCESS_LOCK); 
             goto done;
          }
          object_mgr_del_from_shm( o );
@@ -546,7 +546,7 @@ object_mgr_add_to_map( SESSION          * sess,
    OBJECT_MAP  *map_node = NULL;
 
    if (!sess || !obj || !map_handle){
-      st_err_log(4, __FILE__, __LINE__, __FUNCTION__); 
+      OCK_LOG_ERR(ERR_FUNCTION_FAILED); 
       return CKR_FUNCTION_FAILED;
    }
    //
@@ -556,7 +556,7 @@ object_mgr_add_to_map( SESSION          * sess,
 
    map_node = (OBJECT_MAP *)malloc(sizeof(OBJECT_MAP));
    if (!map_node){
-      st_err_log(0, __FILE__, __LINE__); 
+      OCK_LOG_ERR(ERR_HOST_MEMORY); 
       return CKR_HOST_MEMORY;
    }
    map_node->session  = sess;
@@ -571,7 +571,7 @@ object_mgr_add_to_map( SESSION          * sess,
    // add the new map entry to the list
    if (pthread_rwlock_wrlock(&obj_list_rw_mutex)) {
       free(map_node);
-      st_err_log(4, __FILE__, __LINE__, __FUNCTION__);
+      OCK_LOG_ERR(ERR_FUNCTION_FAILED);
       return CKR_FUNCTION_FAILED;
    }
 
@@ -590,7 +590,7 @@ object_mgr_add_to_map( SESSION          * sess,
 
    if (*map_handle == 0) {
       free(map_node);
-      st_err_log(1, __FILE__, __LINE__);
+      OCK_LOG_ERR(ERR_HOST_MEMORY);
       return CKR_HOST_MEMORY;
    }
    obj->map_handle = *map_handle;
@@ -623,25 +623,25 @@ object_mgr_copy( SESSION          * sess,
    unsigned long obj_handle;
 
    if (!sess || !pTemplate || !new_handle){
-      st_err_log(4, __FILE__, __LINE__, __FUNCTION__); 
+      OCK_LOG_ERR(ERR_FUNCTION_FAILED); 
       return CKR_FUNCTION_FAILED;
    }
 
    rc = MY_LockMutex( &obj_list_mutex );
    if (rc != CKR_OK){
-      st_err_log(146, __FILE__, __LINE__); 
+      OCK_LOG_ERR(ERR_MUTEX_LOCK); 
       return rc;
    }
    locked = TRUE;
 
    rc = object_mgr_find_in_map1( old_handle, &old_obj );
    if (rc != CKR_OK){
-      st_err_log(110, __FILE__, __LINE__);
+      OCK_LOG_ERR(ERR_OBJMGR_FIND_MAP);
       goto done;
    }
    rc = object_copy( pTemplate, ulCount, old_obj, &new_obj );
    if (rc != CKR_OK){
-      st_err_log(158, __FILE__, __LINE__);
+      OCK_LOG_ERR(ERR_OBJ_COPY);
       goto done;
    }
 
@@ -660,13 +660,13 @@ object_mgr_copy( SESSION          * sess,
 
    if (sess->session_info.state == CKS_RO_PUBLIC_SESSION) {
       if (priv_obj) {
-         st_err_log(57, __FILE__, __LINE__); 
+         OCK_LOG_ERR(ERR_USER_NOT_LOGGED_IN); 
          rc = CKR_USER_NOT_LOGGED_IN;
          goto done;
       }
 
       if (!sess_obj) {
-         st_err_log(42, __FILE__, __LINE__); 
+         OCK_LOG_ERR(ERR_SESSION_READ_ONLY); 
          rc = CKR_SESSION_READ_ONLY;
          goto done;
       }
@@ -674,7 +674,7 @@ object_mgr_copy( SESSION          * sess,
 
    if (sess->session_info.state == CKS_RO_USER_FUNCTIONS) {
       if (!sess_obj) {
-         st_err_log(42, __FILE__, __LINE__); 
+         OCK_LOG_ERR(ERR_SESSION_READ_ONLY); 
          rc = CKR_SESSION_READ_ONLY;
          goto done;
       }
@@ -682,7 +682,7 @@ object_mgr_copy( SESSION          * sess,
 
    if (sess->session_info.state == CKS_RW_PUBLIC_SESSION) {
       if (priv_obj) {
-         st_err_log(57, __FILE__, __LINE__); 
+         OCK_LOG_ERR(ERR_USER_NOT_LOGGED_IN); 
          rc = CKR_USER_NOT_LOGGED_IN;
          goto done;
       }
@@ -690,7 +690,7 @@ object_mgr_copy( SESSION          * sess,
 
    if (sess->session_info.state == CKS_RW_SO_FUNCTIONS) {
       if (priv_obj) {
-         st_err_log(57, __FILE__, __LINE__); 
+         OCK_LOG_ERR(ERR_USER_NOT_LOGGED_IN); 
          rc = CKR_USER_NOT_LOGGED_IN;
          goto done;
       }
@@ -705,7 +705,7 @@ object_mgr_copy( SESSION          * sess,
       memset( &new_obj->name, 0x00, sizeof(CK_BYTE) * 8 );
 
       if ((obj_handle = bt_node_add(&sess_obj_btree, new_obj)) == 0) {
-	 st_err_log(1, __FILE__, __LINE__);
+	 OCK_LOG_ERR(ERR_HOST_MEMORY);
 	 rc = CKR_HOST_MEMORY;
 	 goto done;
       }
@@ -719,7 +719,7 @@ object_mgr_copy( SESSION          * sess,
       //
       rc = XProcLock( xproclock );
       if (rc != CKR_OK){
-         st_err_log(150, __FILE__, __LINE__); 
+         OCK_LOG_ERR(ERR_PROCESS_LOCK); 
          goto done;
       }
       else {
@@ -729,7 +729,7 @@ object_mgr_copy( SESSION          * sess,
          if (priv_obj) {
             if (global_shm->num_priv_tok_obj >= MAX_TOK_OBJS) {
                XProcUnLock(xproclock);
-               st_err_log(1, __FILE__, __LINE__); 
+               OCK_LOG_ERR(ERR_HOST_MEMORY); 
                rc = CKR_HOST_MEMORY;
                goto done;
             }
@@ -737,7 +737,7 @@ object_mgr_copy( SESSION          * sess,
          else {
             if (global_shm->num_publ_tok_obj >= MAX_TOK_OBJS) {
                XProcUnLock(xproclock);
-               st_err_log(1, __FILE__, __LINE__); 
+               OCK_LOG_ERR(ERR_HOST_MEMORY); 
                rc = CKR_HOST_MEMORY;
                goto done;
             }
@@ -769,7 +769,7 @@ object_mgr_copy( SESSION          * sess,
          obj_handle = bt_node_add(&publ_token_obj_btree, new_obj);
 
       if (!obj_handle) {
-	 st_err_log(1, __FILE__, __LINE__);
+	 OCK_LOG_ERR(ERR_HOST_MEMORY);
 	 rc = CKR_HOST_MEMORY;
 	 goto done;
       }
@@ -777,7 +777,7 @@ object_mgr_copy( SESSION          * sess,
 
    rc = object_mgr_add_to_map( sess, new_obj, obj_handle, new_handle );
    if (rc != CKR_OK) {
-      st_err_log(157, __FILE__, __LINE__); 
+      OCK_LOG_ERR(ERR_OBJMGR_MAP_ADD); 
 
       // this is messy but we need to remove the object from whatever
       // list we just added it to
@@ -807,7 +807,7 @@ object_mgr_copy( SESSION          * sess,
 
          rc = XProcLock( xproclock );
          if (rc != CKR_OK){
-            st_err_log(150, __FILE__, __LINE__); 
+            OCK_LOG_ERR(ERR_PROCESS_LOCK); 
             goto done;
          }
          object_mgr_del_from_shm( new_obj );
@@ -846,11 +846,11 @@ object_mgr_create_skel( SESSION       * sess,
    CK_BBOOL    sess_obj;
 
    if (!sess || !obj){
-      st_err_log(4, __FILE__, __LINE__, __FUNCTION__); 
+      OCK_LOG_ERR(ERR_FUNCTION_FAILED); 
       return CKR_FUNCTION_FAILED;
    }
    if (!pTemplate && (ulCount != 0)){
-      st_err_log(4, __FILE__, __LINE__, __FUNCTION__); 
+      OCK_LOG_ERR(ERR_FUNCTION_FAILED); 
       return CKR_FUNCTION_FAILED;
    }
    //
@@ -862,7 +862,7 @@ object_mgr_create_skel( SESSION       * sess,
                             obj_type, sub_class,
                             &o );
    if (rc != CKR_OK){
-      st_err_log(89, __FILE__, __LINE__); 
+      OCK_LOG_ERR(ERR_OBJMGR_CREATE_SKEL); 
       return rc;
    }
    sess_obj = object_is_session_object( o );
@@ -871,13 +871,13 @@ object_mgr_create_skel( SESSION       * sess,
    if (sess->session_info.state == CKS_RO_PUBLIC_SESSION) {
       if (priv_obj) {
          object_free( o );
-         st_err_log(57, __FILE__, __LINE__); 
+         OCK_LOG_ERR(ERR_USER_NOT_LOGGED_IN); 
          return CKR_USER_NOT_LOGGED_IN;
       }
 
       if (!sess_obj) {
          object_free( o );
-         st_err_log(42, __FILE__, __LINE__); 
+         OCK_LOG_ERR(ERR_SESSION_READ_ONLY); 
          return CKR_SESSION_READ_ONLY;
       }
    }
@@ -885,7 +885,7 @@ object_mgr_create_skel( SESSION       * sess,
    if (sess->session_info.state == CKS_RO_USER_FUNCTIONS) {
       if (!sess_obj) {
          object_free( o );
-         st_err_log(42, __FILE__, __LINE__); 
+         OCK_LOG_ERR(ERR_SESSION_READ_ONLY); 
          return CKR_SESSION_READ_ONLY;
       }
    }
@@ -893,7 +893,7 @@ object_mgr_create_skel( SESSION       * sess,
    if (sess->session_info.state == CKS_RW_PUBLIC_SESSION) {
       if (priv_obj) {
          object_free( o );
-         st_err_log(57, __FILE__, __LINE__); 
+         OCK_LOG_ERR(ERR_USER_NOT_LOGGED_IN); 
          return CKR_USER_NOT_LOGGED_IN;
       }
    }
@@ -901,7 +901,7 @@ object_mgr_create_skel( SESSION       * sess,
    if (sess->session_info.state == CKS_RW_SO_FUNCTIONS) {
       if (priv_obj) {
          object_free( o );
-         st_err_log(57, __FILE__, __LINE__); 
+         OCK_LOG_ERR(ERR_USER_NOT_LOGGED_IN); 
          return CKR_USER_NOT_LOGGED_IN;
       }
    }
@@ -923,12 +923,12 @@ object_mgr_create_final( SESSION           * sess,
    unsigned long obj_handle;
 
    if (!sess || !obj || !handle){
-      st_err_log(4, __FILE__, __LINE__, __FUNCTION__); 
+      OCK_LOG_ERR(ERR_FUNCTION_FAILED); 
       return CKR_FUNCTION_FAILED;
    }
    rc = MY_LockMutex( &obj_list_mutex );
    if (rc != CKR_OK){
-      st_err_log(146, __FILE__, __LINE__); 
+      OCK_LOG_ERR(ERR_MUTEX_LOCK); 
       return rc;
    }
    locked = TRUE;
@@ -941,7 +941,7 @@ object_mgr_create_final( SESSION           * sess,
       memset( obj->name, 0x0, sizeof(CK_BYTE) * 8 );
 
       if ((obj_handle = bt_node_add(&sess_obj_btree, obj)) == 0) {
-	 st_err_log(1, __FILE__, __LINE__);
+	 OCK_LOG_ERR(ERR_HOST_MEMORY);
 	 rc = CKR_HOST_MEMORY;
 	 goto done;
       }
@@ -955,7 +955,7 @@ object_mgr_create_final( SESSION           * sess,
       //
       rc = XProcLock( xproclock );
       if (rc != CKR_OK){
-         st_err_log(150, __FILE__, __LINE__); 
+         OCK_LOG_ERR(ERR_PROCESS_LOCK); 
          goto done;
       }
       else {
@@ -965,7 +965,7 @@ object_mgr_create_final( SESSION           * sess,
          if (priv_obj) {
             if (global_shm->num_priv_tok_obj >= MAX_TOK_OBJS) {
                XProcUnLock(xproclock);
-               st_err_log(1, __FILE__, __LINE__); 
+               OCK_LOG_ERR(ERR_HOST_MEMORY); 
                rc = CKR_HOST_MEMORY;
                goto done;
             }
@@ -973,7 +973,7 @@ object_mgr_create_final( SESSION           * sess,
          else {
             if (global_shm->num_publ_tok_obj >= MAX_TOK_OBJS) {
                XProcUnLock(xproclock);
-               st_err_log(1, __FILE__, __LINE__); 
+               OCK_LOG_ERR(ERR_HOST_MEMORY); 
                rc = CKR_HOST_MEMORY;
                goto done;
             }
@@ -1005,7 +1005,7 @@ object_mgr_create_final( SESSION           * sess,
          obj_handle = bt_node_add(&publ_token_obj_btree, obj);
 
       if (!obj_handle) {
-	 st_err_log(1, __FILE__, __LINE__);
+	 OCK_LOG_ERR(ERR_HOST_MEMORY);
 	 rc = CKR_HOST_MEMORY;
 	 goto done;
       }
@@ -1013,7 +1013,7 @@ object_mgr_create_final( SESSION           * sess,
 
    rc = object_mgr_add_to_map( sess, obj, obj_handle, handle );
    if (rc != CKR_OK) {
-      st_err_log(157, __FILE__, __LINE__); 
+      OCK_LOG_ERR(ERR_OBJMGR_MAP_ADD); 
       // this is messy but we need to remove the object from whatever
       // list we just added it to
       //
@@ -1042,7 +1042,7 @@ object_mgr_create_final( SESSION           * sess,
 
          rc = XProcLock( xproclock );
          if (rc != CKR_OK){
-            st_err_log(150, __FILE__, __LINE__); 
+            OCK_LOG_ERR(ERR_PROCESS_LOCK); 
             goto done;
          }
          object_mgr_del_from_shm( obj );
@@ -1085,7 +1085,7 @@ destroy_object_cb(void *node)
 		/* Use the same calling convention as the old code, if XProcLock fails, don't
 		 * delete from shm and don't free the object in its other btree */
 		if (XProcLock(xproclock)) {
-			st_err_log(150, __FILE__, __LINE__);
+			OCK_LOG_ERR(ERR_PROCESS_LOCK);
 			goto done;
 		}
 		DUMP_SHM("before");
@@ -1114,23 +1114,23 @@ object_mgr_destroy_object( SESSION          * sess,
 
 
    if (!sess){
-      st_err_log(4, __FILE__, __LINE__, __FUNCTION__); 
+      OCK_LOG_ERR(ERR_FUNCTION_FAILED); 
       return CKR_FUNCTION_FAILED;
    }
    rc = MY_LockMutex( &obj_list_mutex );
    if (rc != CKR_OK){
-      st_err_log(146, __FILE__, __LINE__); 
+      OCK_LOG_ERR(ERR_MUTEX_LOCK); 
       goto done;
    }
    locked = TRUE;
    if (pthread_rwlock_wrlock(&obj_list_rw_mutex)) {
-	   st_err_log(4, __FILE__, __LINE__, __FUNCTION__);
+	   OCK_LOG_ERR(ERR_FUNCTION_FAILED);
 	   rc = CKR_FUNCTION_FAILED;
 	   goto done; // FIXME: Proper error messages
    }
 
    if (!bt_node_free(&object_map_btree, handle, destroy_object_cb)) {
-      st_err_log(30, __FILE__, __LINE__);
+      OCK_LOG_ERR(ERR_OBJECT_HANDLE_INVALID);
       rc = CKR_OBJECT_HANDLE_INVALID;
    }
 
@@ -1166,7 +1166,7 @@ delete_token_obj_cb(void *node, unsigned long map_handle, void *p3)
 		/* Use the same calling convention as the old code, if XProcLock fails, don't
 		 * delete from shm and don't free the object in its other btree */
 		if (XProcLock(xproclock)) {
-			st_err_log(150, __FILE__, __LINE__);
+			OCK_LOG_ERR(ERR_PROCESS_LOCK);
 			goto done;
 		}
 
@@ -1194,7 +1194,7 @@ object_mgr_destroy_token_objects( void )
 
    rc = MY_LockMutex( &obj_list_mutex );
    if (rc != CKR_OK){
-      st_err_log(146, __FILE__, __LINE__); 
+      OCK_LOG_ERR(ERR_MUTEX_LOCK); 
       goto done;
    }
    else
@@ -1214,7 +1214,7 @@ object_mgr_destroy_token_objects( void )
       memset( &global_shm->priv_tok_objs, 0x0, MAX_TOK_OBJS * sizeof(TOK_OBJ_ENTRY) );
    }
    else
-      st_err_log(150, __FILE__, __LINE__);
+      OCK_LOG_ERR(ERR_PROCESS_LOCK);
 done:
    if (locked1 == TRUE) MY_UnlockMutex( &obj_list_mutex );
    if (locked2 == TRUE) XProcUnLock( xproclock );
@@ -1239,12 +1239,12 @@ object_mgr_find_in_map_nocache( CK_OBJECT_HANDLE    handle,
 
 
    if (!ptr){
-      st_err_log(4, __FILE__, __LINE__, __FUNCTION__); 
+      OCK_LOG_ERR(ERR_FUNCTION_FAILED); 
       return CKR_FUNCTION_FAILED;
    }
 
    if (!handle) {
-      st_err_log(30, __FILE__, __LINE__);
+      OCK_LOG_ERR(ERR_OBJECT_HANDLE_INVALID);
       return CKR_OBJECT_HANDLE_INVALID;
    }
 
@@ -1253,13 +1253,13 @@ object_mgr_find_in_map_nocache( CK_OBJECT_HANDLE    handle,
    //
 
    if (pthread_rwlock_rdlock(&obj_list_rw_mutex)) {
-     st_err_log(4, __FILE__, __LINE__, __FUNCTION__);
+     OCK_LOG_ERR(ERR_FUNCTION_FAILED);
      return CKR_FUNCTION_FAILED;
    }
 
    map = bt_get_node_value(&object_map_btree, handle);
    if (!map) {
-      st_err_log(30, __FILE__, __LINE__);
+      OCK_LOG_ERR(ERR_OBJECT_HANDLE_INVALID);
       rc = CKR_OBJECT_HANDLE_INVALID;
       goto done;
    }
@@ -1272,7 +1272,7 @@ object_mgr_find_in_map_nocache( CK_OBJECT_HANDLE    handle,
       obj = bt_get_node_value(&publ_token_obj_btree, map->obj_handle);
 
    if (!obj) {
-      st_err_log(30, __FILE__, __LINE__);
+      OCK_LOG_ERR(ERR_OBJECT_HANDLE_INVALID);
       rc = CKR_OBJECT_HANDLE_INVALID;
       goto done;
    }
@@ -1298,17 +1298,17 @@ object_mgr_find_in_map1( CK_OBJECT_HANDLE    handle,
 
 
    if (!ptr){
-      st_err_log(4, __FILE__, __LINE__, __FUNCTION__); 
+      OCK_LOG_ERR(ERR_FUNCTION_FAILED); 
       return CKR_FUNCTION_FAILED;
    }
    if (pthread_rwlock_rdlock(&obj_list_rw_mutex)) {
-     st_err_log(4, __FILE__, __LINE__, __FUNCTION__);
+     OCK_LOG_ERR(ERR_FUNCTION_FAILED);
      return CKR_FUNCTION_FAILED;
    }
 
    map = bt_get_node_value(&object_map_btree, handle);
    if (!map) {
-      st_err_log(30, __FILE__, __LINE__);
+      OCK_LOG_ERR(ERR_OBJECT_HANDLE_INVALID);
       rc = CKR_OBJECT_HANDLE_INVALID;
       goto done;
    }
@@ -1321,7 +1321,7 @@ object_mgr_find_in_map1( CK_OBJECT_HANDLE    handle,
       obj = bt_get_node_value(&publ_token_obj_btree, map->obj_handle);
 
    if (!obj) {
-      st_err_log(30, __FILE__, __LINE__);
+      OCK_LOG_ERR(ERR_OBJECT_HANDLE_INVALID);
       rc = CKR_OBJECT_HANDLE_INVALID;
       goto done;
    }
@@ -1375,7 +1375,7 @@ object_mgr_find_in_map2( OBJECT           * obj,
    struct find_args fa;
 
    if (!obj || !handle){
-      st_err_log(4, __FILE__, __LINE__, __FUNCTION__); 
+      OCK_LOG_ERR(ERR_FUNCTION_FAILED); 
       return CKR_FUNCTION_FAILED;
    }
    //
@@ -1383,7 +1383,7 @@ object_mgr_find_in_map2( OBJECT           * obj,
    //
 
    if (pthread_rwlock_rdlock(&obj_list_rw_mutex)) {
-     st_err_log(4, __FILE__, __LINE__, __FUNCTION__);
+     OCK_LOG_ERR(ERR_FUNCTION_FAILED);
      return CKR_FUNCTION_FAILED;
    }
 
@@ -1431,10 +1431,10 @@ find_build_list_cb(void *node, unsigned long obj_handle, void *p3)
    if (match) {
       rc = object_mgr_find_in_map2( obj, &map_handle );
       if (rc != CKR_OK) {
-         //st_err_log(110, __FILE__, __LINE__);
+         //OCK_LOG_ERR(ERR_OBJMGR_FIND_MAP);
          rc = object_mgr_add_to_map( fa->sess, obj, obj_handle, &map_handle );
          if (rc != CKR_OK){
-            st_err_log(4, __FILE__, __LINE__, __FUNCTION__);
+            OCK_LOG_ERR(ERR_FUNCTION_FAILED);
             return;
          }
       }
@@ -1445,7 +1445,7 @@ find_build_list_cb(void *node, unsigned long obj_handle, void *p3)
 	  (template_attribute_find(obj->template, CKA_CLASS, &attr) == TRUE)) {
 	 //axelrh: prevent segfault if pValue set to NULL (bad parse)
 	 if (attr->pValue == NULL) {
-	    st_err_log(3, __FILE__, __LINE__, __FUNCTION__);
+	    OCK_LOG_ERR(ERR_GENERAL_ERROR);
 	    return;
 	 }
 	 if (*(CK_OBJECT_CLASS *)attr->pValue == CKO_HW_FEATURE)
@@ -1469,7 +1469,7 @@ find_build_list_cb(void *node, unsigned long obj_handle, void *p3)
 		 (CK_OBJECT_HANDLE *)realloc(fa->sess->find_list,
 					     fa->sess->find_len * sizeof(CK_OBJECT_HANDLE));
 	 if (!fa->sess->find_list) {
-	    st_err_log(0, __FILE__, __LINE__);
+	    OCK_LOG_ERR(ERR_HOST_MEMORY);
 	    return;
 	 }
       }
@@ -1487,12 +1487,12 @@ object_mgr_find_init( SESSION      * sess,
    //
 
    if (!sess){
-      st_err_log(4, __FILE__, __LINE__, __FUNCTION__); 
+      OCK_LOG_ERR(ERR_FUNCTION_FAILED); 
       return CKR_FUNCTION_FAILED;
    }
    if (sess->find_active != FALSE){
       return CKR_OPERATION_ACTIVE;
-      st_err_log(31, __FILE__, __LINE__); 
+      OCK_LOG_ERR(ERR_OPERATION_ACTIVE); 
    }
    // initialize the found object list.  if it doesn't exist, allocate
    // a list big enough for 10 handles.  we'll reallocate if we need more
@@ -1503,7 +1503,7 @@ object_mgr_find_init( SESSION      * sess,
    else {
       sess->find_list = (CK_OBJECT_HANDLE *)malloc(10 * sizeof(CK_OBJECT_HANDLE));
       if (!sess->find_list){
-         st_err_log(0, __FILE__, __LINE__); 
+         OCK_LOG_ERR(ERR_HOST_MEMORY); 
          return CKR_HOST_MEMORY;
       }
       else {
@@ -1586,11 +1586,11 @@ CK_RV
 object_mgr_find_final( SESSION *sess )
 {
    if (!sess){
-      st_err_log(4, __FILE__, __LINE__, __FUNCTION__); 
+      OCK_LOG_ERR(ERR_FUNCTION_FAILED); 
       return CKR_FUNCTION_FAILED;
    }
    if (sess->find_active == FALSE){
-      st_err_log(32, __FILE__, __LINE__, __FUNCTION__); 
+      OCK_LOG_ERR(ERR_OPERATION_NOT_INITIALIZED); 
       return CKR_OPERATION_NOT_INITIALIZED;
    }
    free( sess->find_list );
@@ -1617,19 +1617,19 @@ object_mgr_get_attribute_values( SESSION           * sess,
    CK_RV      rc;
 
    if (!pTemplate){
-      st_err_log(4, __FILE__, __LINE__, __FUNCTION__); 
+      OCK_LOG_ERR(ERR_FUNCTION_FAILED); 
       return CKR_FUNCTION_FAILED;
    }
    rc = MY_LockMutex( &obj_list_mutex );
    if (rc != CKR_OK){
-      st_err_log(146, __FILE__, __LINE__); 
+      OCK_LOG_ERR(ERR_MUTEX_LOCK); 
       return rc;
    }
    locked = TRUE;
 
    rc = object_mgr_find_in_map1( handle, &obj );
    if (rc != CKR_OK){
-      st_err_log(110, __FILE__, __LINE__);
+      OCK_LOG_ERR(ERR_OBJMGR_FIND_MAP);
       goto done;
    }
    priv_obj = object_is_private( obj );
@@ -1638,7 +1638,7 @@ object_mgr_get_attribute_values( SESSION           * sess,
       if (sess->session_info.state == CKS_RO_PUBLIC_SESSION ||
           sess->session_info.state == CKS_RW_PUBLIC_SESSION)
       {
-         st_err_log(57, __FILE__, __LINE__); 
+         OCK_LOG_ERR(ERR_USER_NOT_LOGGED_IN); 
          rc = CKR_USER_NOT_LOGGED_IN;
          goto done;
       }
@@ -1646,7 +1646,7 @@ object_mgr_get_attribute_values( SESSION           * sess,
 
    rc = object_get_attribute_values( obj, pTemplate, ulCount );
    if (rc != CKR_OK)
-         st_err_log(159, __FILE__, __LINE__); 
+         OCK_LOG_ERR(ERR_OBJ_GETATTR_VALUES); 
 done:
    if (locked)
       MY_UnlockMutex( &obj_list_mutex );
@@ -1666,12 +1666,12 @@ object_mgr_get_object_size( CK_OBJECT_HANDLE   handle,
 
    rc = MY_LockMutex( &obj_list_mutex );
    if (rc != CKR_OK){
-      st_err_log(146, __FILE__, __LINE__); 
+      OCK_LOG_ERR(ERR_MUTEX_LOCK); 
       return rc;
    }
    rc = object_mgr_find_in_map1( handle, &obj );
    if (rc != CKR_OK) {
-      st_err_log(30, __FILE__, __LINE__);
+      OCK_LOG_ERR(ERR_OBJECT_HANDLE_INVALID);
       rc = CKR_OBJECT_HANDLE_INVALID;
       goto done;
    }
@@ -1732,7 +1732,7 @@ object_mgr_purge_session_objects( SESSION       * sess,
 
    rc = MY_LockMutex( &obj_list_mutex );
    if (rc != CKR_OK){
-      st_err_log(146, __FILE__, __LINE__); 
+      OCK_LOG_ERR(ERR_MUTEX_LOCK); 
       return FALSE;
    }
 
@@ -1770,7 +1770,7 @@ object_mgr_purge_token_objects( )
 
    rc = MY_LockMutex( &obj_list_mutex );
    if (rc != CKR_OK){
-      st_err_log(146, __FILE__, __LINE__); 
+      OCK_LOG_ERR(ERR_MUTEX_LOCK); 
       return FALSE;
    }
 
@@ -1790,7 +1790,7 @@ object_mgr_purge_private_token_objects( void )
 
    rc = MY_LockMutex( &obj_list_mutex );
    if (rc != CKR_OK){
-      st_err_log(146, __FILE__, __LINE__); 
+      OCK_LOG_ERR(ERR_MUTEX_LOCK); 
       return FALSE;
    }
 
@@ -1820,7 +1820,7 @@ object_mgr_restore_obj_withSize( CK_BYTE *data, OBJECT *oldObj, int data_size )
    CK_RV       rc;
 
    if (!data){
-      st_err_log(4, __FILE__, __LINE__, __FUNCTION__); 
+      OCK_LOG_ERR(ERR_FUNCTION_FAILED); 
       return CKR_FUNCTION_FAILED;
    }
    // The calling stack MUST have the mutex
@@ -1837,12 +1837,12 @@ object_mgr_restore_obj_withSize( CK_BYTE *data, OBJECT *oldObj, int data_size )
 
 	 if (priv) {
 	    if (!bt_node_add(&priv_token_obj_btree, obj)) {
-               st_err_log(1, __FILE__, __LINE__);
+               OCK_LOG_ERR(ERR_HOST_MEMORY);
                return CKR_HOST_MEMORY;
 	    }
 	 } else {
 	    if (!bt_node_add(&publ_token_obj_btree, obj)) {
-               st_err_log(1, __FILE__, __LINE__);
+               OCK_LOG_ERR(ERR_HOST_MEMORY);
                return CKR_HOST_MEMORY;
 	    }
 	 }
@@ -1854,7 +1854,7 @@ object_mgr_restore_obj_withSize( CK_BYTE *data, OBJECT *oldObj, int data_size )
                if (global_shm->num_priv_tok_obj < MAX_TOK_OBJS) 
                   object_mgr_add_to_shm( obj );
                else{
-                  st_err_log(1, __FILE__, __LINE__); 
+                  OCK_LOG_ERR(ERR_HOST_MEMORY); 
                   rc = CKR_HOST_MEMORY;
                }
             }
@@ -1863,7 +1863,7 @@ object_mgr_restore_obj_withSize( CK_BYTE *data, OBJECT *oldObj, int data_size )
                if (global_shm->num_publ_tok_obj < MAX_TOK_OBJS) 
                   object_mgr_add_to_shm( obj );
                else{
-                  st_err_log(1, __FILE__, __LINE__); 
+                  OCK_LOG_ERR(ERR_HOST_MEMORY); 
                   rc = CKR_HOST_MEMORY;
                }
             }
@@ -1871,7 +1871,7 @@ object_mgr_restore_obj_withSize( CK_BYTE *data, OBJECT *oldObj, int data_size )
 
          XProcUnLock( xproclock );
       } else {
-         st_err_log(160, __FILE__, __LINE__); 
+         OCK_LOG_ERR(ERR_OBJ_RESTORE_DATA); 
       }
    }
 
@@ -1894,12 +1894,12 @@ object_mgr_set_attribute_values( SESSION           * sess,
 
 
    if (!pTemplate){
-      st_err_log(4, __FILE__, __LINE__, __FUNCTION__); 
+      OCK_LOG_ERR(ERR_FUNCTION_FAILED); 
       return CKR_FUNCTION_FAILED;
    }
    rc = MY_LockMutex( &obj_list_mutex );
    if (rc != CKR_OK){
-      st_err_log(146, __FILE__, __LINE__); 
+      OCK_LOG_ERR(ERR_MUTEX_LOCK); 
       return rc;
    }
 
@@ -1908,7 +1908,7 @@ object_mgr_set_attribute_values( SESSION           * sess,
    MY_UnlockMutex( &obj_list_mutex );
 
    if (rc != CKR_OK) {
-      st_err_log(110, __FILE__, __LINE__);
+      OCK_LOG_ERR(ERR_OBJMGR_FIND_MAP);
       return CKR_OBJECT_HANDLE_INVALID;
    }
 
@@ -1922,37 +1922,37 @@ object_mgr_set_attribute_values( SESSION           * sess,
    // is issuing the request...
    //
    if (!modifiable){
-      st_err_log(7, __FILE__, __LINE__); 
+      OCK_LOG_ERR(ERR_ATTRIBUTE_READ_ONLY); 
       return CKR_ATTRIBUTE_READ_ONLY;
    }
    if (sess->session_info.state == CKS_RO_PUBLIC_SESSION) {
       if (priv_obj){
-         st_err_log(57, __FILE__, __LINE__); 
+         OCK_LOG_ERR(ERR_USER_NOT_LOGGED_IN); 
          return CKR_USER_NOT_LOGGED_IN;
       }
       if (!sess_obj){
-         st_err_log(42, __FILE__, __LINE__); 
+         OCK_LOG_ERR(ERR_SESSION_READ_ONLY); 
          return CKR_SESSION_READ_ONLY;
       }
    }
 
    if (sess->session_info.state == CKS_RO_USER_FUNCTIONS) {
       if (!sess_obj){
-         st_err_log(42, __FILE__, __LINE__); 
+         OCK_LOG_ERR(ERR_SESSION_READ_ONLY); 
          return CKR_SESSION_READ_ONLY;
       }
    }
 
    if (sess->session_info.state == CKS_RW_PUBLIC_SESSION) {
       if (priv_obj){
-         st_err_log(57, __FILE__, __LINE__); 
+         OCK_LOG_ERR(ERR_USER_NOT_LOGGED_IN); 
          return CKR_USER_NOT_LOGGED_IN;
       }
    }
 
    if (sess->session_info.state == CKS_RW_SO_FUNCTIONS) {
       if (priv_obj){
-         st_err_log(57, __FILE__, __LINE__); 
+         OCK_LOG_ERR(ERR_USER_NOT_LOGGED_IN); 
          return CKR_USER_NOT_LOGGED_IN;
       }
    }
@@ -1960,7 +1960,7 @@ object_mgr_set_attribute_values( SESSION           * sess,
 
    rc = object_set_attribute_values( obj, pTemplate, ulCount );
    if (rc != CKR_OK){
-      st_err_log(161, __FILE__, __LINE__); 
+      OCK_LOG_ERR(ERR_OBJ_SETATTR_VALUES); 
       return rc;
    }
    // okay.  the object has been updated.  if it's a session object,
@@ -1983,7 +1983,7 @@ object_mgr_set_attribute_values( SESSION           * sess,
 
       rc = XProcLock( xproclock );
       if (rc != CKR_OK){
-         st_err_log(150, __FILE__, __LINE__); 
+         OCK_LOG_ERR(ERR_PROCESS_LOCK); 
          return rc;
       }
       if (priv_obj) {
@@ -1992,7 +1992,7 @@ object_mgr_set_attribute_values( SESSION           * sess,
                                              obj, &index );
 
          if (rc != CKR_OK) {
-            st_err_log(162, __FILE__, __LINE__); 
+            OCK_LOG_ERR(ERR_OBJMGR_SEARCH); 
             XProcUnLock(xproclock);
             return rc;
          }
@@ -2004,7 +2004,7 @@ object_mgr_set_attribute_values( SESSION           * sess,
                                              0, global_shm->num_publ_tok_obj-1,
                                              obj, &index );
          if (rc != CKR_OK) {
-            st_err_log(162, __FILE__, __LINE__); 
+            OCK_LOG_ERR(ERR_OBJMGR_SEARCH); 
             XProcUnLock(xproclock);
             return rc;
          }
@@ -2079,7 +2079,7 @@ object_mgr_del_from_shm( OBJECT *obj )
                                           0, global_shm->num_priv_tok_obj-1,
                                           obj, &index );
       if (rc != CKR_OK){
-         st_err_log(4, __FILE__, __LINE__, __FUNCTION__); 
+         OCK_LOG_ERR(ERR_FUNCTION_FAILED); 
          return CKR_FUNCTION_FAILED;
       }
       // Since the number of objects starts at 1 and index starts at zero, we
@@ -2117,7 +2117,7 @@ object_mgr_del_from_shm( OBJECT *obj )
                                           0, global_shm->num_publ_tok_obj-1,
                                           obj, &index );
       if (rc != CKR_OK){
-         st_err_log(4, __FILE__, __LINE__, __FUNCTION__); 
+         OCK_LOG_ERR(ERR_FUNCTION_FAILED); 
          return CKR_FUNCTION_FAILED;
       }
       global_shm->num_publ_tok_obj--;
@@ -2174,7 +2174,7 @@ object_mgr_check_shm( OBJECT *obj )
                                           0, global_shm->num_priv_tok_obj-1,
                                           obj, &index );
       if (rc != CKR_OK){
-         st_err_log(4, __FILE__, __LINE__, __FUNCTION__); 
+         OCK_LOG_ERR(ERR_FUNCTION_FAILED); 
          return CKR_FUNCTION_FAILED;
       }
       entry = &global_shm->priv_tok_objs[index];
@@ -2184,7 +2184,7 @@ object_mgr_check_shm( OBJECT *obj )
                                           0, global_shm->num_publ_tok_obj-1,
                                           obj, &index );
       if (rc != CKR_OK){
-         st_err_log(4, __FILE__, __LINE__, __FUNCTION__); 
+         OCK_LOG_ERR(ERR_FUNCTION_FAILED); 
          return CKR_FUNCTION_FAILED;
       }
       entry = &global_shm->publ_tok_objs[index];
@@ -2234,7 +2234,7 @@ object_mgr_search_shm_for_obj( TOK_OBJ_ENTRY  * obj_list,
 	   }
         }
    }
-   st_err_log(4, __FILE__, __LINE__, __FUNCTION__); 
+   OCK_LOG_ERR(ERR_FUNCTION_FAILED); 
    return CKR_FUNCTION_FAILED;
 }
 
@@ -2427,7 +2427,7 @@ object_mgr_purge_map(
                       SESS_OBJ_TYPE   type )
 {
    if (pthread_rwlock_wrlock(&obj_list_rw_mutex)) {
-     st_err_log(4, __FILE__, __LINE__, __FUNCTION__);
+     OCK_LOG_ERR(ERR_FUNCTION_FAILED);
      return CKR_FUNCTION_FAILED;
    }
 
@@ -2443,15 +2443,14 @@ void
 dump_shm(const char *s)
 {
 	CK_ULONG i;
-	LogDebug("%s: dump_shm priv:", s);
+	OCK_LOG_DEBUG("%s: dump_shm priv:", s);
 
 	for (i = 0; i < global_shm->num_priv_tok_obj; i++) {
-		LogDebug("[%lu]: %.8s", i, global_shm->priv_tok_objs[i].name);
+		OCK_LOG_DEBUG("[%lu]: %.8s", i, global_shm->priv_tok_objs[i].name);
 	}
-	LogDebug("%s: dump_shm publ:", s);
+	OCK_LOG_DEBUG("%s: dump_shm publ:", s);
 	for (i = 0; i < global_shm->num_publ_tok_obj; i++) {
-		LogDebug("[%lu]: %.8s", i, global_shm->publ_tok_objs[i].name);
+		OCK_LOG_DEBUG("[%lu]: %.8s", i, global_shm->publ_tok_objs[i].name);
 	}
 }
 #endif
-

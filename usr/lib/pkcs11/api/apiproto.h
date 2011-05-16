@@ -305,6 +305,7 @@
 #define _APIEXT_H
 
 #include "apictl.h"
+#include "msg.h"
 
 void *attach_shared_memory();
 void  detach_shared_memory(char *);
@@ -321,9 +322,6 @@ int XProcLock(void *);
 int XProcUnLock(void *);
 
 void _init(void);
-void loginit();
-void logterm();
-void logit( int, char *, ...);
 void get_sess_count(CK_SLOT_ID, CK_ULONG *);
 void incr_sess_counts(CK_SLOT_ID);
 void decr_sess_counts(CK_SLOT_ID);
@@ -334,5 +332,15 @@ void DL_UnLoad( API_Slot_t  *, CK_SLOT_ID);
 void DL_Unload(API_Slot_t  *);
 
 int sessions_exist(CK_SLOT_ID);
+
+#ifdef DEBUG
+#define OCK_LOG_ERR(errnum)  ock_err_log(errnum, STDLL_NAME, __FILE__, __LINE__)
+#define OCK_LOG_DEBUG(fmt, ...)           ock_logit("%s:%d " fmt, __FILE__, __LINE__, ##__VA_ARGS__)
+#else
+#define OCK_LOG_ERR(errnum)
+#define OCK_LOG_DEBUG(fmt, ...)
+#endif
+#define OCK_SYSLOG(priority, fmt, ...) \
+        syslog(priority, "%s " fmt, __FILE__, ##__VA_ARGS__);
 
 #endif

@@ -316,15 +316,6 @@
 #include <apiproto.h>
 
 void api_init();
-void st_err_log(int, ...);
-
-#ifdef DEBUG
-#define LOG(x)  logit(LOG_DEBUG,x)
-#define LOGIT   logit
-#else
-#define LOG(...)
-#define LOGIT(...)
-#endif
 
 // NOTES:
 // In many cases the specificaiton does not allow returns
@@ -346,8 +337,6 @@ void st_err_log(int, ...);
 API_Proc_Struct_t  *Anchor=NULL;  // Initialized to NULL 
 unsigned int   Initialized = 0;  // Initialized flag
 pthread_mutex_t     GlobMutex;    // Global Mutex
-/* KEY XXX pthread_mutex_t     logmutex;*/    // logging mutex ... Keep to a minimum..
-int                 logging=LOG_ERR; // Highest level to log to syslog
 CK_FUNCTION_LIST    FuncList;
 
 
@@ -366,8 +355,6 @@ child_fork_initializer()
       free(Anchor);
       Anchor = NULL;
    }
-   logterm();
-   loginit(); // _init is NOT invoked on fork
 }
 
 
@@ -379,12 +366,12 @@ child_fork_initializer()
 CK_RV
 C_CancelFunction ( CK_SESSION_HANDLE hSession )
 {
-   LOG("C_CancelFunction");
+   OCK_LOG_DEBUG("C_CancelFunction\n");
    if (API_Initialized() == FALSE ){
-      st_err_log(72, __FILE__, __LINE__);
+      OCK_LOG_ERR(ERR_CRYPTOKI_NOT_INITIALIZED);
       return CKR_CRYPTOKI_NOT_INITIALIZED;
    }
-   st_err_log(17, __FILE__, __LINE__);
+   OCK_LOG_ERR(ERR_FUNCTION_NOT_PARALLEL);
    return CKR_FUNCTION_NOT_PARALLEL; // PER Spec pg 170
 }
 
@@ -411,14 +398,14 @@ C_CloseAllSessions ( CK_SLOT_ID slotID )
    // application it can only close its sessions...
    // And all sessions should be closed anyhow.
    
-   LOG("CloseAllSessions");
+   OCK_LOG_DEBUG("CloseAllSessions\n");
    if (API_Initialized() == FALSE ){
-      st_err_log(72, __FILE__, __LINE__);
+      OCK_LOG_ERR(ERR_CRYPTOKI_NOT_INITIALIZED);
       return CKR_CRYPTOKI_NOT_INITIALIZED;
    }
 
    if (slotID >= NUMBER_SLOTS_MANAGED ) {
-      st_err_log(2, __FILE__, __LINE__);
+      OCK_LOG_ERR(ERR_SLOT_ID_INVALID);
       return CKR_SLOT_ID_INVALID;
    }
 
@@ -426,7 +413,7 @@ C_CloseAllSessions ( CK_SLOT_ID slotID )
     * close it */
    CloseAllSessions(slotID);
 
-   LOG("CloseAllSessions OK");
+   OCK_LOG_DEBUG("CloseAllSessions OK\n");
    return CKR_OK;
 
   
@@ -450,30 +437,30 @@ C_CloseSession ( CK_SESSION_HANDLE hSession )
    STDLL_FcnList_t  *fcn;
    ST_SESSION_T rSession;
 
-   LOG("C_CloseSession");
+   OCK_LOG_DEBUG("C_CloseSession\n");
    if (API_Initialized() == FALSE ){
-      st_err_log(72, __FILE__, __LINE__);
+      OCK_LOG_ERR(ERR_CRYPTOKI_NOT_INITIALIZED);
       return CKR_CRYPTOKI_NOT_INITIALIZED;
    }
    if (!Valid_Session(hSession, &rSession)){
-      st_err_log(40, __FILE__, __LINE__);
+      OCK_LOG_ERR(ERR_SESSION_HANDLE_INVALID);
       return CKR_SESSION_HANDLE_INVALID;
    }
 
    sltp = &(Anchor->SltList[rSession.slotID]);
    if (sltp->DLLoaded == FALSE ){
-      st_err_log(50, __FILE__, __LINE__);
+      OCK_LOG_ERR(ERR_TOKEN_NOT_PRESENT);
       
       return CKR_TOKEN_NOT_PRESENT;
    }
    if ( (fcn=sltp->FcnList) == NULL ){
-      st_err_log(50, __FILE__, __LINE__); 
+      OCK_LOG_ERR(ERR_TOKEN_NOT_PRESENT); 
       return CKR_TOKEN_NOT_PRESENT;
    }
    if (fcn->ST_CloseSession){
       // Map the Session to the slot session
       rv = fcn->ST_CloseSession(&rSession);
-      LOGIT(LOG_DEBUG,"Called STDLL rv = 0x%x",rv);
+      OCK_LOG_DEBUG("Called STDLL rv = 0x%x\n",rv);
       //  If the STDLL successfuly closed the session
       //  we can free it.. Otherwise we will have to leave it
       //  lying arround.
@@ -487,7 +474,7 @@ C_CloseSession ( CK_SESSION_HANDLE hSession )
          decr_sess_counts(rSession.slotID);
       }
    } else {
-      st_err_log(142, __FILE__, __LINE__, __FUNCTION__); 
+      OCK_LOG_ERR(ERR_FUNCTION_NOT_SUPPORTED); 
       rv = CKR_FUNCTION_NOT_SUPPORTED;
    }
    return rv;
@@ -519,19 +506,19 @@ C_CopyObject ( CK_SESSION_HANDLE    hSession,
    STDLL_FcnList_t  *fcn;
    ST_SESSION_T rSession;
 
-   LOG("C_CopyObject");
+   OCK_LOG_DEBUG("C_CopyObject\n");
    if (API_Initialized() == FALSE ){
-      st_err_log(72, __FILE__, __LINE__);
+      OCK_LOG_ERR(ERR_CRYPTOKI_NOT_INITIALIZED);
       return CKR_CRYPTOKI_NOT_INITIALIZED;
    }
 
    if (!Valid_Session(hSession, &rSession)){
-      st_err_log(40, __FILE__, __LINE__);
+      OCK_LOG_ERR(ERR_SESSION_HANDLE_INVALID);
       return CKR_SESSION_HANDLE_INVALID;
    }
 
    if ( !phNewObject ){
-      st_err_log(5, __FILE__, __LINE__, __FUNCTION__); 
+      OCK_LOG_ERR(ERR_ARGUMENTS_BAD); 
       return CKR_ARGUMENTS_BAD;
    } 
 
@@ -540,26 +527,26 @@ C_CopyObject ( CK_SESSION_HANDLE    hSession,
    // Template with 0 count is not a problem.  we can let
    // the STDLL handle that...
    if ( !pTemplate && ulCount ){
-      st_err_log(5, __FILE__, __LINE__, __FUNCTION__); 
+      OCK_LOG_ERR(ERR_ARGUMENTS_BAD); 
       return CKR_ARGUMENTS_BAD;
    }
 
    sltp = &(Anchor->SltList[rSession.slotID]);
    if (sltp->DLLoaded == FALSE ){
       
-      st_err_log(50, __FILE__, __LINE__);
+      OCK_LOG_ERR(ERR_TOKEN_NOT_PRESENT);
       return CKR_TOKEN_NOT_PRESENT;
    }
    if ( (fcn=sltp->FcnList) == NULL ){ 
-      st_err_log(50, __FILE__, __LINE__);
+      OCK_LOG_ERR(ERR_TOKEN_NOT_PRESENT);
       return CKR_TOKEN_NOT_PRESENT;
    }
    if (fcn->ST_CopyObject){
       // Map the Session to the slot session
       rv = fcn->ST_CopyObject(&rSession,hObject,pTemplate,ulCount,phNewObject);
-      LOGIT(LOG_DEBUG,"Called STDLL rv = 0x%x",rv);
+      OCK_LOG_DEBUG("Called STDLL rv = 0x%x\n",rv);
    } else {
-      st_err_log(142, __FILE__, __LINE__, __FUNCTION__); 
+      OCK_LOG_ERR(ERR_FUNCTION_NOT_SUPPORTED); 
       rv = CKR_FUNCTION_NOT_SUPPORTED;
    }
    return rv;
@@ -588,27 +575,27 @@ C_CreateObject ( CK_SESSION_HANDLE    hSession,
    STDLL_FcnList_t  *fcn;
    ST_SESSION_T rSession;
 
-   LOG("C_CreateObject");
+   OCK_LOG_DEBUG("C_CreateObject\n");
    if (API_Initialized() == FALSE ){
-      st_err_log(72, __FILE__, __LINE__);
+      OCK_LOG_ERR(ERR_CRYPTOKI_NOT_INITIALIZED);
       return CKR_CRYPTOKI_NOT_INITIALIZED;
    }
 
    if (!Valid_Session(hSession, &rSession)){
-      st_err_log(40, __FILE__, __LINE__);
+      OCK_LOG_ERR(ERR_SESSION_HANDLE_INVALID);
       return CKR_SESSION_HANDLE_INVALID;
    }
 
    // Null template is invalid...    An object needs a minimal
    // template for creation.
    if ( !pTemplate ){
-      st_err_log(48, __FILE__, __LINE__); 
+      OCK_LOG_ERR(ERR_TEMPLATE_INCOMPLETE); 
       return CKR_TEMPLATE_INCOMPLETE;
    }
 
    // A 0 count for the template is bad
    if ( ulCount == 0 ){
-      st_err_log(48, __FILE__, __LINE__); 
+      OCK_LOG_ERR(ERR_TEMPLATE_INCOMPLETE); 
       return CKR_TEMPLATE_INCOMPLETE;
    }
 
@@ -616,26 +603,26 @@ C_CreateObject ( CK_SESSION_HANDLE    hSession,
    // A Null pointer to return the handle in is also bad
    // since we could de-reference incorrectly.
    if (! phObject ) {
-      st_err_log(5, __FILE__, __LINE__, __FUNCTION__); 
+      OCK_LOG_ERR(ERR_ARGUMENTS_BAD); 
       return CKR_ARGUMENTS_BAD;
    }
 
    sltp = &(Anchor->SltList[rSession.slotID]);
    if (sltp->DLLoaded == FALSE ){
-      st_err_log(50, __FILE__, __LINE__);
+      OCK_LOG_ERR(ERR_TOKEN_NOT_PRESENT);
       
       return CKR_TOKEN_NOT_PRESENT;
    }
    if ( (fcn=sltp->FcnList) == NULL ){
-      st_err_log(50, __FILE__, __LINE__);
+      OCK_LOG_ERR(ERR_TOKEN_NOT_PRESENT);
       return CKR_TOKEN_NOT_PRESENT;
    }
    if (fcn->ST_CreateObject){
       // Map the Session to the slot session
       rv = fcn->ST_CreateObject(&rSession,pTemplate,ulCount,phObject);
-      LOGIT(LOG_DEBUG,"Called STDLL rv = 0x%x",rv);
+      OCK_LOG_DEBUG("Called STDLL rv = 0x%x\n",rv);
    } else {
-      st_err_log(142, __FILE__, __LINE__, __FUNCTION__); 
+      OCK_LOG_ERR(ERR_FUNCTION_NOT_SUPPORTED); 
       rv = CKR_FUNCTION_NOT_SUPPORTED;
    }
    return rv;
@@ -665,40 +652,40 @@ C_Decrypt ( CK_SESSION_HANDLE hSession,
    STDLL_FcnList_t  *fcn;
    ST_SESSION_T rSession;
 
-   LOG("C_Decrypt");
+   OCK_LOG_DEBUG("C_Decrypt\n");
    if (API_Initialized() == FALSE ){
-      st_err_log(72, __FILE__, __LINE__);
+      OCK_LOG_ERR(ERR_CRYPTOKI_NOT_INITIALIZED);
       return CKR_CRYPTOKI_NOT_INITIALIZED;
    }
 
    if (!Valid_Session(hSession, &rSession)){
-      st_err_log(40, __FILE__, __LINE__);
+      OCK_LOG_ERR(ERR_SESSION_HANDLE_INVALID);
       return CKR_SESSION_HANDLE_INVALID;
    }
 
    // Null encrypted data is invalid, null pData buffer is invalid
    // as is null location to put the response into.
    if ( !pEncryptedData ||  !pulDataLen) {
-      st_err_log(5, __FILE__, __LINE__, __FUNCTION__); 
+      OCK_LOG_ERR(ERR_ARGUMENTS_BAD); 
       return CKR_ARGUMENTS_BAD;
    }
 
    sltp = &(Anchor->SltList[rSession.slotID]);
    if (sltp->DLLoaded == FALSE ){
-      st_err_log(50, __FILE__, __LINE__);
+      OCK_LOG_ERR(ERR_TOKEN_NOT_PRESENT);
       
       return CKR_TOKEN_NOT_PRESENT;
    }
    if ( (fcn=sltp->FcnList) == NULL ){
-      st_err_log(50, __FILE__, __LINE__);
+      OCK_LOG_ERR(ERR_TOKEN_NOT_PRESENT);
       return CKR_TOKEN_NOT_PRESENT;
    }
    if (fcn->ST_Decrypt){
       // Map the Session to the slot session
       rv = fcn->ST_Decrypt(&rSession,pEncryptedData,ulEncryptedDataLen,pData,pulDataLen);
-      LOGIT(LOG_DEBUG,"Called STDLL rv = 0x%x",rv);
+      OCK_LOG_DEBUG("Called STDLL rv = 0x%x\n",rv);
    } else {
-      st_err_log(142, __FILE__, __LINE__, __FUNCTION__); 
+      OCK_LOG_ERR(ERR_FUNCTION_NOT_SUPPORTED); 
       rv = CKR_FUNCTION_NOT_SUPPORTED;
    }
    return rv;
@@ -726,40 +713,40 @@ C_DecryptDigestUpdate ( CK_SESSION_HANDLE hSession,
    STDLL_FcnList_t  *fcn;
    ST_SESSION_T rSession;
 
-   LOG("C_DecryptDigestUpdate");
+   OCK_LOG_DEBUG("C_DecryptDigestUpdate\n");
    if (API_Initialized() == FALSE ){
-      st_err_log(72, __FILE__, __LINE__);
+      OCK_LOG_ERR(ERR_CRYPTOKI_NOT_INITIALIZED);
       return CKR_CRYPTOKI_NOT_INITIALIZED;
    }
 
    if (!Valid_Session(hSession, &rSession)){
-      st_err_log(40, __FILE__, __LINE__);
+      OCK_LOG_ERR(ERR_SESSION_HANDLE_INVALID);
       return CKR_SESSION_HANDLE_INVALID;
    }
 
 
    // This may have to go to the STDLL for validation 
    if ( !pEncryptedPart || !pulPartLen) {
-      st_err_log(5, __FILE__, __LINE__, __FUNCTION__); 
+      OCK_LOG_ERR(ERR_ARGUMENTS_BAD); 
       return CKR_ARGUMENTS_BAD;
    }
 
    sltp = &(Anchor->SltList[rSession.slotID]);
    if (sltp->DLLoaded == FALSE ){
-      st_err_log(50, __FILE__, __LINE__);
+      OCK_LOG_ERR(ERR_TOKEN_NOT_PRESENT);
       
       return CKR_TOKEN_NOT_PRESENT;
    }
    if ( (fcn=sltp->FcnList) == NULL ){
-      st_err_log(50, __FILE__, __LINE__);
+      OCK_LOG_ERR(ERR_TOKEN_NOT_PRESENT);
       return CKR_TOKEN_NOT_PRESENT;
    }
    if (fcn->ST_DecryptDigestUpdate){
       // Map the Session to the slot session
       rv = fcn->ST_DecryptDigestUpdate(&rSession,pEncryptedPart,ulEncryptedPartLen,pPart,pulPartLen);
-      LOGIT(LOG_DEBUG,"Called STDLL rv = 0x%x",rv);
+      OCK_LOG_DEBUG("Called STDLL rv = 0x%x\n",rv);
    } else {
-      st_err_log(142, __FILE__, __LINE__, __FUNCTION__); 
+      OCK_LOG_ERR(ERR_FUNCTION_NOT_SUPPORTED); 
       rv = CKR_FUNCTION_NOT_SUPPORTED;
    }
    return rv;
@@ -789,14 +776,14 @@ C_DecryptFinal ( CK_SESSION_HANDLE hSession,
    STDLL_FcnList_t  *fcn;
    ST_SESSION_T rSession;
 
-   LOG("C_DecryptFinal");
+   OCK_LOG_DEBUG("C_DecryptFinal\n");
    if (API_Initialized() == FALSE ){
-      st_err_log(72, __FILE__, __LINE__);
+      OCK_LOG_ERR(ERR_CRYPTOKI_NOT_INITIALIZED);
       return CKR_CRYPTOKI_NOT_INITIALIZED;
    }
 
    if (!Valid_Session(hSession, &rSession)){
-      st_err_log(40, __FILE__, __LINE__);
+      OCK_LOG_ERR(ERR_SESSION_HANDLE_INVALID);
       return CKR_SESSION_HANDLE_INVALID;
    }
 
@@ -806,27 +793,27 @@ C_DecryptFinal ( CK_SESSION_HANDLE hSession,
    // The spec is unclear if a second call to Final is needed
    // if there is no data in the last part.
    if (!pulLastPartLen ){
-      st_err_log(5, __FILE__, __LINE__, __FUNCTION__); 
+      OCK_LOG_ERR(ERR_ARGUMENTS_BAD); 
       return CKR_ARGUMENTS_BAD;
    }
 
    sltp = &(Anchor->SltList[rSession.slotID]);
    if (sltp->DLLoaded == FALSE ){
-      st_err_log(50, __FILE__, __LINE__);
+      OCK_LOG_ERR(ERR_TOKEN_NOT_PRESENT);
       
       return CKR_TOKEN_NOT_PRESENT;
    }
    if ( (fcn=sltp->FcnList) == NULL ){
-      st_err_log(50, __FILE__, __LINE__);
+      OCK_LOG_ERR(ERR_TOKEN_NOT_PRESENT);
 
       return CKR_TOKEN_NOT_PRESENT;
    }
    if (fcn->ST_DecryptFinal){
       // Map the Session to the slot session
       rv = fcn->ST_DecryptFinal(&rSession,pLastPart,pulLastPartLen);
-      LOGIT(LOG_DEBUG,"Called STDLL rv = 0x%x",rv);
+      OCK_LOG_DEBUG("Called STDLL rv = 0x%x\n",rv);
    } else {
-      st_err_log(142, __FILE__, __LINE__, __FUNCTION__); 
+      OCK_LOG_ERR(ERR_FUNCTION_NOT_SUPPORTED); 
       rv = CKR_FUNCTION_NOT_SUPPORTED;
    }
    return rv;
@@ -854,39 +841,39 @@ C_DecryptInit ( CK_SESSION_HANDLE hSession,
    STDLL_FcnList_t  *fcn;
    ST_SESSION_T rSession;
 
-   LOG("C_DecryptInit");
+   OCK_LOG_DEBUG("C_DecryptInit\n");
    if (API_Initialized() == FALSE ){
-      st_err_log(72, __FILE__, __LINE__);
+      OCK_LOG_ERR(ERR_CRYPTOKI_NOT_INITIALIZED);
       return CKR_CRYPTOKI_NOT_INITIALIZED;
    }
 
    if (!Valid_Session(hSession, &rSession)){
-      st_err_log(40, __FILE__, __LINE__);
+      OCK_LOG_ERR(ERR_SESSION_HANDLE_INVALID);
       return CKR_SESSION_HANDLE_INVALID;
    }
 
    // Null mechanism pointer is not good
    if ( !pMechanism ) {
-      st_err_log(28, __FILE__, __LINE__); 
+      OCK_LOG_ERR(ERR_MECHANISM_INVALID); 
       return CKR_MECHANISM_INVALID;
    }
 
    sltp = &(Anchor->SltList[rSession.slotID]);
    if (sltp->DLLoaded == FALSE ){
-      st_err_log(50, __FILE__, __LINE__);
+      OCK_LOG_ERR(ERR_TOKEN_NOT_PRESENT);
       
       return CKR_TOKEN_NOT_PRESENT;
    }
    if ( (fcn=sltp->FcnList) == NULL ){
-      st_err_log(50, __FILE__, __LINE__);
+      OCK_LOG_ERR(ERR_TOKEN_NOT_PRESENT);
       return CKR_TOKEN_NOT_PRESENT;
    }
    if (fcn->ST_DecryptInit){
       // Map the Session to the slot session
       rv = fcn->ST_DecryptInit(&rSession,pMechanism,hKey);
-      LOGIT(LOG_DEBUG,"Called STDLL rv = 0x%x",rv);
+      OCK_LOG_DEBUG("Called STDLL rv = 0x%x\n",rv);
    } else {
-      st_err_log(142, __FILE__, __LINE__, __FUNCTION__); 
+      OCK_LOG_ERR(ERR_FUNCTION_NOT_SUPPORTED); 
       rv = CKR_FUNCTION_NOT_SUPPORTED;
    }
    return rv;
@@ -915,39 +902,39 @@ C_DecryptUpdate ( CK_SESSION_HANDLE hSession,
    STDLL_FcnList_t  *fcn;
    ST_SESSION_T rSession;
 
-   LOG("C_DecryptUpdate");
+   OCK_LOG_DEBUG("C_DecryptUpdate\n");
    if (API_Initialized() == FALSE ){
-      st_err_log(72, __FILE__, __LINE__);
+      OCK_LOG_ERR(ERR_CRYPTOKI_NOT_INITIALIZED);
       return CKR_CRYPTOKI_NOT_INITIALIZED;
    }
 
    if (!Valid_Session(hSession, &rSession)){
-      st_err_log(40, __FILE__, __LINE__);
+      OCK_LOG_ERR(ERR_SESSION_HANDLE_INVALID);
       return CKR_SESSION_HANDLE_INVALID;
    }
 
    // May have to let these go through and let the STDLL handle them
    if ( !pEncryptedPart ||  !pulPartLen ){
-      st_err_log(5, __FILE__, __LINE__, __FUNCTION__); 
+      OCK_LOG_ERR(ERR_ARGUMENTS_BAD); 
       return CKR_ARGUMENTS_BAD;
    }
 
    sltp = &(Anchor->SltList[rSession.slotID]);
    if (sltp->DLLoaded == FALSE ){
-      st_err_log(50, __FILE__, __LINE__);
+      OCK_LOG_ERR(ERR_TOKEN_NOT_PRESENT);
       
       return CKR_TOKEN_NOT_PRESENT;
    }
    if ( (fcn=sltp->FcnList) == NULL ){
-      st_err_log(50, __FILE__, __LINE__);
+      OCK_LOG_ERR(ERR_TOKEN_NOT_PRESENT);
       return CKR_TOKEN_NOT_PRESENT;
    }
    if (fcn->ST_DecryptUpdate){
       // Map the Session to the slot session
       rv = fcn->ST_DecryptUpdate(&rSession,pEncryptedPart,ulEncryptedPartLen,pPart,pulPartLen);
-      LOGIT(LOG_DEBUG,"Called STDLL rv = 0x%x",rv);
+      OCK_LOG_DEBUG("Called STDLL rv = 0x%x\n",rv);
    } else {
-      st_err_log(142, __FILE__, __LINE__, __FUNCTION__); 
+      OCK_LOG_ERR(ERR_FUNCTION_NOT_SUPPORTED); 
       rv = CKR_FUNCTION_NOT_SUPPORTED;
    }
    return rv;
@@ -973,39 +960,39 @@ C_DecryptVerifyUpdate ( CK_SESSION_HANDLE hSession,
    STDLL_FcnList_t  *fcn;
    ST_SESSION_T rSession;
 
-   LOG("C_DecryptVerifyUpdate");
+   OCK_LOG_DEBUG("C_DecryptVerifyUpdate\n");
    if (API_Initialized() == FALSE ){
-      st_err_log(72, __FILE__, __LINE__);
+      OCK_LOG_ERR(ERR_CRYPTOKI_NOT_INITIALIZED);
       return CKR_CRYPTOKI_NOT_INITIALIZED;
    }
 
    if (!Valid_Session(hSession, &rSession)){
-      st_err_log(40, __FILE__, __LINE__);
+      OCK_LOG_ERR(ERR_SESSION_HANDLE_INVALID);
       return CKR_SESSION_HANDLE_INVALID;
    }
 
    // May have to let these go through and let the STDLL handle them
    if ( !pEncryptedPart || !pulPartLen ){
-      st_err_log(5, __FILE__, __LINE__, __FUNCTION__); 
+      OCK_LOG_ERR(ERR_ARGUMENTS_BAD); 
       return CKR_ARGUMENTS_BAD;
    }
 
    sltp = &(Anchor->SltList[rSession.slotID]);
    if (sltp->DLLoaded == FALSE ){
-      st_err_log(50, __FILE__, __LINE__);
+      OCK_LOG_ERR(ERR_TOKEN_NOT_PRESENT);
       
       return CKR_TOKEN_NOT_PRESENT;
    }
    if ( (fcn=sltp->FcnList) == NULL ){
-      st_err_log(50, __FILE__, __LINE__);
+      OCK_LOG_ERR(ERR_TOKEN_NOT_PRESENT);
       return CKR_TOKEN_NOT_PRESENT;
    }
    if (fcn->ST_DecryptVerifyUpdate){
       // Map the Session to the slot session
       rv = fcn->ST_DecryptVerifyUpdate(&rSession,pEncryptedPart,ulEncryptedPartLen,pPart,pulPartLen);
-      LOGIT(LOG_DEBUG,"Called STDLL rv = 0x%x",rv);
+      OCK_LOG_DEBUG("Called STDLL rv = 0x%x\n",rv);
    } else {
-      st_err_log(142, __FILE__, __LINE__, __FUNCTION__); 
+      OCK_LOG_ERR(ERR_FUNCTION_NOT_SUPPORTED); 
       rv = CKR_FUNCTION_NOT_SUPPORTED;
    }
    return rv;
@@ -1032,14 +1019,14 @@ C_DeriveKey ( CK_SESSION_HANDLE    hSession,
    STDLL_FcnList_t  *fcn;
    ST_SESSION_T rSession;
 
-   LOG("C_DeriveKey");
+   OCK_LOG_DEBUG("C_DeriveKey\n");
    if (API_Initialized() == FALSE ){
-      st_err_log(72, __FILE__, __LINE__);
+      OCK_LOG_ERR(ERR_CRYPTOKI_NOT_INITIALIZED);
       return CKR_CRYPTOKI_NOT_INITIALIZED;
    }
 
    if (!Valid_Session(hSession, &rSession)){
-      st_err_log(40, __FILE__, __LINE__);
+      OCK_LOG_ERR(ERR_SESSION_HANDLE_INVALID);
       return CKR_SESSION_HANDLE_INVALID;
    }
 
@@ -1051,33 +1038,33 @@ C_DeriveKey ( CK_SESSION_HANDLE    hSession,
    //if (!phKey ) return CKR_ARGUMENTS_BAD;
 
    if  (!pMechanism ){
-      st_err_log(28, __FILE__, __LINE__); 
+      OCK_LOG_ERR(ERR_MECHANISM_INVALID); 
       return CKR_MECHANISM_INVALID;
    }
 
    // Null template with attribute count is bad
    //  but we will let a template with len 0 pass through
    if (!pTemplate && ulAttributeCount ){
-      st_err_log(5, __FILE__, __LINE__, __FUNCTION__); 
+      OCK_LOG_ERR(ERR_ARGUMENTS_BAD); 
       return CKR_ARGUMENTS_BAD;
    }
 
    sltp = &(Anchor->SltList[rSession.slotID]);
    if (sltp->DLLoaded == FALSE ){
-      st_err_log(50, __FILE__, __LINE__);
+      OCK_LOG_ERR(ERR_TOKEN_NOT_PRESENT);
       
       return CKR_TOKEN_NOT_PRESENT;
    }
    if ( (fcn=sltp->FcnList) == NULL ){
-      st_err_log(50, __FILE__, __LINE__);
+      OCK_LOG_ERR(ERR_TOKEN_NOT_PRESENT);
       return CKR_TOKEN_NOT_PRESENT;
    }
    if (fcn->ST_DeriveKey){
       // Map the Session to the slot session
       rv = fcn->ST_DeriveKey(&rSession,pMechanism,hBaseKey,pTemplate,ulAttributeCount,phKey);
-      LOGIT(LOG_DEBUG,"Called STDLL rv = 0x%x",rv);
+      OCK_LOG_DEBUG("Called STDLL rv = 0x%x\n",rv);
    } else {
-      st_err_log(142, __FILE__, __LINE__, __FUNCTION__); 
+      OCK_LOG_ERR(ERR_FUNCTION_NOT_SUPPORTED); 
       rv = CKR_FUNCTION_NOT_SUPPORTED;
    }
    return rv;
@@ -1106,34 +1093,34 @@ C_DestroyObject ( CK_SESSION_HANDLE hSession,
    STDLL_FcnList_t  *fcn;
    ST_SESSION_T rSession;
 
-   LOG("C_DestrypObject");
+   OCK_LOG_DEBUG("C_DestrypObject\n");
    if (API_Initialized() == FALSE ){
-      st_err_log(72, __FILE__, __LINE__);
+      OCK_LOG_ERR(ERR_CRYPTOKI_NOT_INITIALIZED);
       return CKR_CRYPTOKI_NOT_INITIALIZED;
    }
 
    if (!Valid_Session(hSession, &rSession)){
-      st_err_log(40, __FILE__, __LINE__);
+      OCK_LOG_ERR(ERR_SESSION_HANDLE_INVALID);
       return CKR_SESSION_HANDLE_INVALID;
    }
 
    sltp = &(Anchor->SltList[rSession.slotID]);
    if (sltp->DLLoaded == FALSE ){
-      st_err_log(50, __FILE__, __LINE__);
+      OCK_LOG_ERR(ERR_TOKEN_NOT_PRESENT);
       
       return CKR_TOKEN_NOT_PRESENT;
    }
    if ( (fcn=sltp->FcnList) == NULL ){
-      st_err_log(50, __FILE__, __LINE__);
+      OCK_LOG_ERR(ERR_TOKEN_NOT_PRESENT);
 
       return CKR_TOKEN_NOT_PRESENT;
    }
    if (fcn->ST_DestroyObject){
       // Map the Session to the slot session
       rv = fcn->ST_DestroyObject(&rSession,hObject);
-      LOGIT(LOG_DEBUG,"Called STDLL rv = 0x%x",rv);
+      OCK_LOG_DEBUG("Called STDLL rv = 0x%x\n",rv);
    } else {
-      st_err_log(142, __FILE__, __LINE__, __FUNCTION__); 
+      OCK_LOG_ERR(ERR_FUNCTION_NOT_SUPPORTED); 
       rv = CKR_FUNCTION_NOT_SUPPORTED;
    }
    return rv;
@@ -1158,14 +1145,14 @@ C_Digest ( CK_SESSION_HANDLE hSession,
    STDLL_FcnList_t  *fcn;
    ST_SESSION_T rSession;
 
-   LOG("C_Digest");
+   OCK_LOG_DEBUG("C_Digest\n");
    if (API_Initialized() == FALSE ){
-      st_err_log(72, __FILE__, __LINE__);
+      OCK_LOG_ERR(ERR_CRYPTOKI_NOT_INITIALIZED);
       return CKR_CRYPTOKI_NOT_INITIALIZED;
    }
 
    if (!Valid_Session(hSession, &rSession)){
-      st_err_log(40, __FILE__, __LINE__);
+      OCK_LOG_ERR(ERR_SESSION_HANDLE_INVALID);
       return CKR_SESSION_HANDLE_INVALID;
    }
 
@@ -1175,20 +1162,20 @@ C_Digest ( CK_SESSION_HANDLE hSession,
 
    sltp = &(Anchor->SltList[rSession.slotID]);
    if (sltp->DLLoaded == FALSE ){
-      st_err_log(50, __FILE__, __LINE__);
+      OCK_LOG_ERR(ERR_TOKEN_NOT_PRESENT);
       
       return CKR_TOKEN_NOT_PRESENT;
    }
    if ( (fcn=sltp->FcnList) == NULL ){
-      st_err_log(50, __FILE__, __LINE__); 
+      OCK_LOG_ERR(ERR_TOKEN_NOT_PRESENT); 
       return CKR_TOKEN_NOT_PRESENT;
    }
    if (fcn->ST_Digest){
       // Map the Session to the slot session
       rv = fcn->ST_Digest(&rSession,pData,ulDataLen,pDigest,pulDigestLen);
-      LOGIT(LOG_DEBUG,"Called STDLL rv = 0x%x",rv);
+      OCK_LOG_DEBUG("Called STDLL rv = 0x%x\n",rv);
    } else {
-      st_err_log(142, __FILE__, __LINE__, __FUNCTION__); 
+      OCK_LOG_ERR(ERR_FUNCTION_NOT_SUPPORTED); 
       rv = CKR_FUNCTION_NOT_SUPPORTED;
    }
    return rv;
@@ -1214,40 +1201,40 @@ C_DigestEncryptUpdate ( CK_SESSION_HANDLE hSession,
    STDLL_FcnList_t  *fcn;
    ST_SESSION_T rSession;
 
-   LOG("C_DigestEncryptUpdate");
+   OCK_LOG_DEBUG("C_DigestEncryptUpdate\n");
    if (API_Initialized() == FALSE ){
-      st_err_log(72, __FILE__, __LINE__);
+      OCK_LOG_ERR(ERR_CRYPTOKI_NOT_INITIALIZED);
       return CKR_CRYPTOKI_NOT_INITIALIZED;
    }
 
    
    // May have to pass on through to the STDLL
    if (!pPart || !pulEncryptedPartLen ){
-      st_err_log(5, __FILE__, __LINE__, __FUNCTION__); 
+      OCK_LOG_ERR(ERR_ARGUMENTS_BAD); 
       return CKR_ARGUMENTS_BAD;
    }
 
    if (!Valid_Session(hSession, &rSession)){
-      st_err_log(40, __FILE__, __LINE__);
+      OCK_LOG_ERR(ERR_SESSION_HANDLE_INVALID);
       return CKR_SESSION_HANDLE_INVALID;
    }
 
    sltp = &(Anchor->SltList[rSession.slotID]);
    if (sltp->DLLoaded == FALSE ){
-      st_err_log(50, __FILE__, __LINE__); 
+      OCK_LOG_ERR(ERR_TOKEN_NOT_PRESENT); 
       return CKR_TOKEN_NOT_PRESENT;
    }
 
    if ( (fcn=sltp->FcnList) == NULL ){
-      st_err_log(50, __FILE__, __LINE__); 
+      OCK_LOG_ERR(ERR_TOKEN_NOT_PRESENT); 
       return CKR_TOKEN_NOT_PRESENT;
    }
    if (fcn->ST_DigestEncryptUpdate){
       // Map the Session to the slot session
       rv = fcn->ST_DigestEncryptUpdate(&rSession,pPart,ulPartLen,pEncryptedPart,pulEncryptedPartLen);
-      LOGIT(LOG_DEBUG,"Called STDLL rv = 0x%x",rv);
+      OCK_LOG_DEBUG("Called STDLL rv = 0x%x\n",rv);
    } else {
-      st_err_log(142, __FILE__, __LINE__, __FUNCTION__); 
+      OCK_LOG_ERR(ERR_FUNCTION_NOT_SUPPORTED); 
       rv = CKR_FUNCTION_NOT_SUPPORTED;
    }
    return rv;
@@ -1271,43 +1258,43 @@ C_DigestFinal ( CK_SESSION_HANDLE hSession,
    STDLL_FcnList_t  *fcn;
    ST_SESSION_T rSession;
 
-   LOG("C_DigestFinal");
+   OCK_LOG_DEBUG("C_DigestFinal\n");
    if (API_Initialized() == FALSE ){
-      st_err_log(72, __FILE__, __LINE__);
+      OCK_LOG_ERR(ERR_CRYPTOKI_NOT_INITIALIZED);
       return CKR_CRYPTOKI_NOT_INITIALIZED;
    }
 
    if (!pulDigestLen ) {
-      st_err_log(5, __FILE__, __LINE__, __FUNCTION__); 
+      OCK_LOG_ERR(ERR_ARGUMENTS_BAD); 
       return CKR_ARGUMENTS_BAD;
    }
    if (!Valid_Session(hSession, &rSession)){
-      st_err_log(40, __FILE__, __LINE__);
+      OCK_LOG_ERR(ERR_SESSION_HANDLE_INVALID);
       return CKR_SESSION_HANDLE_INVALID;
    }
 
    sltp = &(Anchor->SltList[rSession.slotID]);
    if (sltp->DLLoaded == FALSE ){
-      st_err_log(50, __FILE__, __LINE__); 
+      OCK_LOG_ERR(ERR_TOKEN_NOT_PRESENT); 
       
       return CKR_TOKEN_NOT_PRESENT;
    }
    if ( (fcn=sltp->FcnList) == NULL ){
-      st_err_log(50, __FILE__, __LINE__); 
+      OCK_LOG_ERR(ERR_TOKEN_NOT_PRESENT); 
       return CKR_TOKEN_NOT_PRESENT;
    }
    if (fcn->ST_DigestFinal){
       // Map the Session to the slot session
       rv = fcn->ST_DigestFinal(&rSession,pDigest,pulDigestLen);
-      LOGIT(LOG_DEBUG,"Called STDLL rv = 0x%x",rv);
+      OCK_LOG_DEBUG("Called STDLL rv = 0x%x\n",rv);
    } else {
-      st_err_log(142, __FILE__, __LINE__, __FUNCTION__); 
+      OCK_LOG_ERR(ERR_FUNCTION_NOT_SUPPORTED); 
       rv = CKR_FUNCTION_NOT_SUPPORTED;
    }
    return rv;
 
 
-   st_err_log(142, __FILE__, __LINE__, __FUNCTION__); 
+   OCK_LOG_ERR(ERR_FUNCTION_NOT_SUPPORTED); 
    return CKR_FUNCTION_NOT_SUPPORTED;
 }
 
@@ -1326,37 +1313,37 @@ C_DigestInit ( CK_SESSION_HANDLE hSession,
    STDLL_FcnList_t  *fcn;
    ST_SESSION_T rSession;
 
-   LOG("C_DigestInit");
+   OCK_LOG_DEBUG("C_DigestInit\n");
    if (API_Initialized() == FALSE ){
-      st_err_log(72, __FILE__, __LINE__);
+      OCK_LOG_ERR(ERR_CRYPTOKI_NOT_INITIALIZED);
       return CKR_CRYPTOKI_NOT_INITIALIZED;
    }
 
    if (!pMechanism ){
-      st_err_log(28, __FILE__, __LINE__); 
+      OCK_LOG_ERR(ERR_MECHANISM_INVALID); 
       return CKR_MECHANISM_INVALID;
    }
    if (!Valid_Session(hSession, &rSession)){
-      st_err_log(40, __FILE__, __LINE__);
+      OCK_LOG_ERR(ERR_SESSION_HANDLE_INVALID);
       return CKR_SESSION_HANDLE_INVALID;
    }
 
    sltp = &(Anchor->SltList[rSession.slotID]);
    if (sltp->DLLoaded == FALSE ){
-      st_err_log(50, __FILE__, __LINE__); 
+      OCK_LOG_ERR(ERR_TOKEN_NOT_PRESENT); 
       
       return CKR_TOKEN_NOT_PRESENT;
    }
    if ( (fcn=sltp->FcnList) == NULL ){
-      st_err_log(50, __FILE__, __LINE__); 
+      OCK_LOG_ERR(ERR_TOKEN_NOT_PRESENT); 
       return CKR_TOKEN_NOT_PRESENT;
    }
    if (fcn->ST_DigestInit){
       // Map the Session to the slot session
       rv = fcn->ST_DigestInit(&rSession,pMechanism);
-      LOGIT(LOG_DEBUG,"Called STDLL rv = 0x%x",rv);
+      OCK_LOG_DEBUG("Called STDLL rv = 0x%x\n",rv);
    } else { 
-      st_err_log(142, __FILE__, __LINE__, __FUNCTION__); 
+      OCK_LOG_ERR(ERR_FUNCTION_NOT_SUPPORTED); 
       rv = CKR_FUNCTION_NOT_SUPPORTED;
    }
    return rv;
@@ -1379,33 +1366,33 @@ C_DigestKey ( CK_SESSION_HANDLE hSession,
    STDLL_FcnList_t  *fcn;
    ST_SESSION_T rSession;
 
-   LOG("C_DigestKey");
+   OCK_LOG_DEBUG("C_DigestKey\n");
    if (API_Initialized() == FALSE ){
-      st_err_log(72, __FILE__, __LINE__);
+      OCK_LOG_ERR(ERR_CRYPTOKI_NOT_INITIALIZED);
       return CKR_CRYPTOKI_NOT_INITIALIZED;
    }
 
    if (!Valid_Session(hSession, &rSession)){
-      st_err_log(40, __FILE__, __LINE__);
+      OCK_LOG_ERR(ERR_SESSION_HANDLE_INVALID);
       return CKR_SESSION_HANDLE_INVALID;
    }
 
    sltp = &(Anchor->SltList[rSession.slotID]);
    if (sltp->DLLoaded == FALSE ){
-      st_err_log(50, __FILE__, __LINE__); 
+      OCK_LOG_ERR(ERR_TOKEN_NOT_PRESENT); 
       
       return CKR_TOKEN_NOT_PRESENT;
    }
    if ( (fcn=sltp->FcnList) == NULL ){
-      st_err_log(50, __FILE__, __LINE__); 
+      OCK_LOG_ERR(ERR_TOKEN_NOT_PRESENT); 
       return CKR_TOKEN_NOT_PRESENT;
    }
    if (fcn->ST_DigestKey){
       // Map the Session to the slot session
       rv = fcn->ST_DigestKey(&rSession,hKey);
-      LOGIT(LOG_DEBUG,"Called STDLL rv = 0x%x",rv);
+      OCK_LOG_DEBUG("Called STDLL rv = 0x%x\n",rv);
    } else {
-      st_err_log(142, __FILE__, __LINE__, __FUNCTION__); 
+      OCK_LOG_ERR(ERR_FUNCTION_NOT_SUPPORTED); 
       rv = CKR_FUNCTION_NOT_SUPPORTED;
    }
    return rv;
@@ -1429,37 +1416,37 @@ C_DigestUpdate ( CK_SESSION_HANDLE hSession,
    STDLL_FcnList_t  *fcn;
    ST_SESSION_T rSession;
 
-   LOG("C_DigestUpdate");
+   OCK_LOG_DEBUG("C_DigestUpdate\n");
    if (API_Initialized() == FALSE ){
-      st_err_log(72, __FILE__, __LINE__);
+      OCK_LOG_ERR(ERR_CRYPTOKI_NOT_INITIALIZED);
       return CKR_CRYPTOKI_NOT_INITIALIZED;
    }
 
    if (!ulPartLen){
-      st_err_log(5, __FILE__, __LINE__, __FUNCTION__); 
+      OCK_LOG_ERR(ERR_ARGUMENTS_BAD); 
       return CKR_ARGUMENTS_BAD;
    }
    if (!Valid_Session(hSession, &rSession)){
-      st_err_log(40, __FILE__, __LINE__);
+      OCK_LOG_ERR(ERR_SESSION_HANDLE_INVALID);
       return CKR_SESSION_HANDLE_INVALID;
    }
 
    sltp = &(Anchor->SltList[rSession.slotID]);
    if (sltp->DLLoaded == FALSE ){
-      st_err_log(50, __FILE__, __LINE__); 
+      OCK_LOG_ERR(ERR_TOKEN_NOT_PRESENT); 
       
       return CKR_TOKEN_NOT_PRESENT;
    }
    if ( (fcn=sltp->FcnList) == NULL ){
-      st_err_log(50, __FILE__, __LINE__); 
+      OCK_LOG_ERR(ERR_TOKEN_NOT_PRESENT); 
       return CKR_TOKEN_NOT_PRESENT;
    }
    if (fcn->ST_DigestUpdate){
       // Map the Session to the slot session
       rv = fcn->ST_DigestUpdate(&rSession,pPart,ulPartLen);
-      LOGIT(LOG_DEBUG,"Called STDLL rv = 0x%x",rv);
+      OCK_LOG_DEBUG("Called STDLL rv = 0x%x\n",rv);
    } else {
-      st_err_log(142, __FILE__, __LINE__, __FUNCTION__); 
+      OCK_LOG_ERR(ERR_FUNCTION_NOT_SUPPORTED); 
       rv = CKR_FUNCTION_NOT_SUPPORTED;
    }
    return rv;
@@ -1486,37 +1473,37 @@ C_Encrypt ( CK_SESSION_HANDLE hSession,
    STDLL_FcnList_t  *fcn;
    ST_SESSION_T rSession;
 
-   LOG("C_Encrypt");
+   OCK_LOG_DEBUG("C_Encrypt\n");
    if (API_Initialized() == FALSE ){
-      st_err_log(72, __FILE__, __LINE__);
+      OCK_LOG_ERR(ERR_CRYPTOKI_NOT_INITIALIZED);
       return CKR_CRYPTOKI_NOT_INITIALIZED;
    }
 
    if (!pData || !pulEncryptedDataLen){
-      st_err_log(5, __FILE__, __LINE__, __FUNCTION__); 
+      OCK_LOG_ERR(ERR_ARGUMENTS_BAD); 
       return CKR_ARGUMENTS_BAD;
    }
    if (!Valid_Session(hSession, &rSession)){
-      st_err_log(40, __FILE__, __LINE__);
+      OCK_LOG_ERR(ERR_SESSION_HANDLE_INVALID);
       return CKR_SESSION_HANDLE_INVALID;
    }
 
    sltp = &(Anchor->SltList[rSession.slotID]);
    if (sltp->DLLoaded == FALSE ){
-      st_err_log(50, __FILE__, __LINE__); 
+      OCK_LOG_ERR(ERR_TOKEN_NOT_PRESENT); 
       
       return CKR_TOKEN_NOT_PRESENT;
    }
    if ( (fcn=sltp->FcnList) == NULL ){
-      st_err_log(50, __FILE__, __LINE__); 
+      OCK_LOG_ERR(ERR_TOKEN_NOT_PRESENT); 
       return CKR_TOKEN_NOT_PRESENT;
    }
    if (fcn->ST_Encrypt){
       // Map the Session to the slot session
       rv = fcn->ST_Encrypt(&rSession,pData,ulDataLen,pEncryptedData,pulEncryptedDataLen);
-      LOGIT(LOG_DEBUG,"Called STDLL rv = 0x%x",rv);
+      OCK_LOG_DEBUG("Called STDLL rv = 0x%x\n",rv);
    } else {
-      st_err_log(142, __FILE__, __LINE__, __FUNCTION__); 
+      OCK_LOG_ERR(ERR_FUNCTION_NOT_SUPPORTED); 
       rv = CKR_FUNCTION_NOT_SUPPORTED;
    }
    return rv;
@@ -1539,38 +1526,38 @@ C_EncryptFinal ( CK_SESSION_HANDLE hSession,
    STDLL_FcnList_t  *fcn;
    ST_SESSION_T rSession;
 
-   LOG("C_EncryptFinal");
+   OCK_LOG_DEBUG("C_EncryptFinal\n");
    if (API_Initialized() == FALSE ){
-      st_err_log(72, __FILE__, __LINE__);
+      OCK_LOG_ERR(ERR_CRYPTOKI_NOT_INITIALIZED);
       return CKR_CRYPTOKI_NOT_INITIALIZED;
    }
 
    // See comments for DecryptFinal
    if ( !pulLastEncryptedPartLen){
-      st_err_log(5, __FILE__, __LINE__, __FUNCTION__); 
+      OCK_LOG_ERR(ERR_ARGUMENTS_BAD); 
       return CKR_ARGUMENTS_BAD;
    }
    if (!Valid_Session(hSession, &rSession)){
-      st_err_log(40, __FILE__, __LINE__);
+      OCK_LOG_ERR(ERR_SESSION_HANDLE_INVALID);
       return CKR_SESSION_HANDLE_INVALID;
    }
 
    sltp = &(Anchor->SltList[rSession.slotID]);
    if (sltp->DLLoaded == FALSE ){
-      st_err_log(50, __FILE__, __LINE__); 
+      OCK_LOG_ERR(ERR_TOKEN_NOT_PRESENT); 
       
       return CKR_TOKEN_NOT_PRESENT;
    }
    if ( (fcn=sltp->FcnList) == NULL ){
-      st_err_log(50, __FILE__, __LINE__); 
+      OCK_LOG_ERR(ERR_TOKEN_NOT_PRESENT); 
       return CKR_TOKEN_NOT_PRESENT;
    }
    if (fcn->ST_EncryptFinal){
       // Map the Session to the slot session
       rv = fcn->ST_EncryptFinal(&rSession,pLastEncryptedPart,pulLastEncryptedPartLen);
-      LOGIT(LOG_DEBUG,"Called STDLL rv = 0x%x",rv);
+      OCK_LOG_DEBUG("Called STDLL rv = 0x%x\n",rv);
    } else {
-      st_err_log(142, __FILE__, __LINE__, __FUNCTION__); 
+      OCK_LOG_ERR(ERR_FUNCTION_NOT_SUPPORTED); 
       rv = CKR_FUNCTION_NOT_SUPPORTED;
    }
    return rv;
@@ -1594,42 +1581,42 @@ C_EncryptInit ( CK_SESSION_HANDLE hSession,
    STDLL_FcnList_t  *fcn;
    ST_SESSION_T rSession;
 
-   LOG("C_EncryptInit");
+   OCK_LOG_DEBUG("C_EncryptInit\n");
    if (API_Initialized() == FALSE ){
-      st_err_log(72, __FILE__, __LINE__);
+      OCK_LOG_ERR(ERR_CRYPTOKI_NOT_INITIALIZED);
       return CKR_CRYPTOKI_NOT_INITIALIZED;
    }
 
    if (!pMechanism){
-      st_err_log(28, __FILE__, __LINE__); 
+      OCK_LOG_ERR(ERR_MECHANISM_INVALID); 
       return CKR_MECHANISM_INVALID;
    }
    if (!Valid_Session(hSession, &rSession)){
-      st_err_log(40, __FILE__, __LINE__);
+      OCK_LOG_ERR(ERR_SESSION_HANDLE_INVALID);
       return CKR_SESSION_HANDLE_INVALID;
    }
 
    sltp = &(Anchor->SltList[rSession.slotID]);
    if (sltp->DLLoaded == FALSE ){
-      st_err_log(50, __FILE__, __LINE__); 
+      OCK_LOG_ERR(ERR_TOKEN_NOT_PRESENT); 
       
       return CKR_TOKEN_NOT_PRESENT;
    }
    if ( (fcn=sltp->FcnList) == NULL ){
-      st_err_log(50, __FILE__, __LINE__); 
+      OCK_LOG_ERR(ERR_TOKEN_NOT_PRESENT); 
       return CKR_TOKEN_NOT_PRESENT;
    }
    if (fcn->ST_EncryptInit){
       // Map the Session to the slot session
       rv = fcn->ST_EncryptInit(&rSession,pMechanism,hKey);
-      LOGIT(LOG_DEBUG,"Called STDLL rv = 0x%x",rv);
+      OCK_LOG_DEBUG("Called STDLL rv = 0x%x\n",rv);
    } else {
-      st_err_log(142, __FILE__, __LINE__, __FUNCTION__); 
+      OCK_LOG_ERR(ERR_FUNCTION_NOT_SUPPORTED); 
       rv = CKR_FUNCTION_NOT_SUPPORTED;
    }
    return rv;
 
-      st_err_log(142, __FILE__, __LINE__, __FUNCTION__); 
+      OCK_LOG_ERR(ERR_FUNCTION_NOT_SUPPORTED); 
    return CKR_FUNCTION_NOT_SUPPORTED;
 }
 
@@ -1651,38 +1638,38 @@ C_EncryptUpdate ( CK_SESSION_HANDLE hSession,
    STDLL_FcnList_t  *fcn;
    ST_SESSION_T rSession;
 
-   LOG("C_EncryptUpdate");
+   OCK_LOG_DEBUG("C_EncryptUpdate\n");
    if (API_Initialized() == FALSE ){
-      st_err_log(72, __FILE__, __LINE__);
+      OCK_LOG_ERR(ERR_CRYPTOKI_NOT_INITIALIZED);
       return CKR_CRYPTOKI_NOT_INITIALIZED;
    }
 
 
    if (!pPart || !pulEncryptedPartLen){
-      st_err_log(5, __FILE__, __LINE__, __FUNCTION__); 
+      OCK_LOG_ERR(ERR_ARGUMENTS_BAD); 
       return CKR_ARGUMENTS_BAD;
    }
    if (!Valid_Session(hSession, &rSession)){
-      st_err_log(40, __FILE__, __LINE__);
+      OCK_LOG_ERR(ERR_SESSION_HANDLE_INVALID);
       return CKR_SESSION_HANDLE_INVALID;
    }
 
    sltp = &(Anchor->SltList[rSession.slotID]);
    if (sltp->DLLoaded == FALSE ){
-      st_err_log(50, __FILE__, __LINE__); 
+      OCK_LOG_ERR(ERR_TOKEN_NOT_PRESENT); 
       
       return CKR_TOKEN_NOT_PRESENT;
    }
    if ( (fcn=sltp->FcnList) == NULL ){
-      st_err_log(50, __FILE__, __LINE__); 
+      OCK_LOG_ERR(ERR_TOKEN_NOT_PRESENT); 
       return CKR_TOKEN_NOT_PRESENT;
    }
    if (fcn->ST_EncryptUpdate){
       // Map the Session to the slot session
       rv = fcn->ST_EncryptUpdate(&rSession,pPart,ulPartLen,pEncryptedPart,pulEncryptedPartLen);
-      LOGIT(LOG_DEBUG,"Called STDLL rv = 0x%x",rv);
+      OCK_LOG_DEBUG("Called STDLL rv = 0x%x\n",rv);
    } else {
-      st_err_log(142, __FILE__, __LINE__, __FUNCTION__); 
+      OCK_LOG_ERR(ERR_FUNCTION_NOT_SUPPORTED); 
       rv = CKR_FUNCTION_NOT_SUPPORTED;
    }
    return rv;
@@ -1706,15 +1693,15 @@ C_Finalize ( CK_VOID_PTR pReserved )
    CK_SLOT_ID  slotID;
 
 
-   LOG("C_Finalize");
+   OCK_LOG_DEBUG("C_Finalize\n");
 
    if (API_Initialized() == FALSE ){
-      st_err_log(72, __FILE__, __LINE__);
+      OCK_LOG_ERR(ERR_CRYPTOKI_NOT_INITIALIZED);
       return CKR_CRYPTOKI_NOT_INITIALIZED;
    }
 
    if (pReserved != NULL) {
-      st_err_log(5, __FILE__, __LINE__, __FUNCTION__); 
+      OCK_LOG_ERR(ERR_ARGUMENTS_BAD); 
       return CKR_ARGUMENTS_BAD;
    }
 
@@ -1785,37 +1772,37 @@ C_FindObjects ( CK_SESSION_HANDLE    hSession,
    STDLL_FcnList_t  *fcn;
    ST_SESSION_T rSession;
 
-   LOG("C_FindObjects");
+   OCK_LOG_DEBUG("C_FindObjects\n");
    if (API_Initialized() == FALSE ){
-      st_err_log(72, __FILE__, __LINE__);
+      OCK_LOG_ERR(ERR_CRYPTOKI_NOT_INITIALIZED);
       return CKR_CRYPTOKI_NOT_INITIALIZED;
    }
    
    if (!phObject || !pulObjectCount ){
-      st_err_log(5, __FILE__, __LINE__, __FUNCTION__); 
+      OCK_LOG_ERR(ERR_ARGUMENTS_BAD); 
       return CKR_ARGUMENTS_BAD;
    }
    if (!Valid_Session(hSession, &rSession)){
-      st_err_log(40, __FILE__, __LINE__);
+      OCK_LOG_ERR(ERR_SESSION_HANDLE_INVALID);
       return CKR_SESSION_HANDLE_INVALID;
    }
 
    sltp = &(Anchor->SltList[rSession.slotID]);
    if (sltp->DLLoaded == FALSE ){
-      st_err_log(50, __FILE__, __LINE__); 
+      OCK_LOG_ERR(ERR_TOKEN_NOT_PRESENT); 
       
       return CKR_TOKEN_NOT_PRESENT;
    }
    if ( (fcn=sltp->FcnList) == NULL ){
-      st_err_log(50, __FILE__, __LINE__); 
+      OCK_LOG_ERR(ERR_TOKEN_NOT_PRESENT); 
       return CKR_TOKEN_NOT_PRESENT;
    }
    if (fcn->ST_FindObjects){
       // Map the Session to the slot session
       rv = fcn->ST_FindObjects(&rSession,phObject,ulMaxObjectCount,pulObjectCount);
-      LOGIT(LOG_DEBUG,"Called STDLL rv = 0x%x",rv);
+      OCK_LOG_DEBUG("Called STDLL rv = 0x%x\n",rv);
    } else {
-      st_err_log(142, __FILE__, __LINE__, __FUNCTION__); 
+      OCK_LOG_ERR(ERR_FUNCTION_NOT_SUPPORTED); 
       rv = CKR_FUNCTION_NOT_SUPPORTED;
    }
    return rv;
@@ -1841,33 +1828,33 @@ C_FindObjectsFinal ( CK_SESSION_HANDLE hSession )
    STDLL_FcnList_t  *fcn;
    ST_SESSION_T rSession;
 
-   LOG("C_FindObjectsFinal");
+   OCK_LOG_DEBUG("C_FindObjectsFinal\n");
    if (API_Initialized() == FALSE ){
-      st_err_log(72, __FILE__, __LINE__);
+      OCK_LOG_ERR(ERR_CRYPTOKI_NOT_INITIALIZED);
       return CKR_CRYPTOKI_NOT_INITIALIZED;
    }
 
    if (!Valid_Session(hSession, &rSession)){
-      st_err_log(40, __FILE__, __LINE__);
+      OCK_LOG_ERR(ERR_SESSION_HANDLE_INVALID);
       return CKR_SESSION_HANDLE_INVALID;
    }
 
    sltp = &(Anchor->SltList[rSession.slotID]);
    if (sltp->DLLoaded == FALSE ){
-      st_err_log(50, __FILE__, __LINE__); 
+      OCK_LOG_ERR(ERR_TOKEN_NOT_PRESENT); 
       
       return CKR_TOKEN_NOT_PRESENT;
    }
    if ( (fcn=sltp->FcnList) == NULL ){
-      st_err_log(50, __FILE__, __LINE__); 
+      OCK_LOG_ERR(ERR_TOKEN_NOT_PRESENT); 
       return CKR_TOKEN_NOT_PRESENT;
    }
    if (fcn->ST_FindObjectsFinal){
       // Map the Session to the slot session
       rv = fcn->ST_FindObjectsFinal(&rSession);
-      LOGIT(LOG_DEBUG,"Called STDLL rv = 0x%x",rv);
+      OCK_LOG_DEBUG("Called STDLL rv = 0x%x\n",rv);
    } else {
-      st_err_log(142, __FILE__, __LINE__, __FUNCTION__); 
+      OCK_LOG_ERR(ERR_FUNCTION_NOT_SUPPORTED); 
       rv = CKR_FUNCTION_NOT_SUPPORTED;
    }
    return rv;
@@ -1896,35 +1883,35 @@ C_FindObjectsInit ( CK_SESSION_HANDLE hSession,
    STDLL_FcnList_t  *fcn;
    ST_SESSION_T rSession;
 
-   LOG("C_FindObjectsInit");
+   OCK_LOG_DEBUG("C_FindObjectsInit\n");
    if (API_Initialized() == FALSE ){
-      st_err_log(72, __FILE__, __LINE__);
+      OCK_LOG_ERR(ERR_CRYPTOKI_NOT_INITIALIZED);
       return CKR_CRYPTOKI_NOT_INITIALIZED;
    }
 
    // What does a NULL template really mean 
 
    if (!Valid_Session(hSession, &rSession)){
-      st_err_log(40, __FILE__, __LINE__);
+      OCK_LOG_ERR(ERR_SESSION_HANDLE_INVALID);
       return CKR_SESSION_HANDLE_INVALID;
    }
 
    sltp = &(Anchor->SltList[rSession.slotID]);
    if (sltp->DLLoaded == FALSE ){
-      st_err_log(50, __FILE__, __LINE__); 
+      OCK_LOG_ERR(ERR_TOKEN_NOT_PRESENT); 
       
       return CKR_TOKEN_NOT_PRESENT;
    }
    if ( (fcn=sltp->FcnList) == NULL ){
-      st_err_log(50, __FILE__, __LINE__); 
+      OCK_LOG_ERR(ERR_TOKEN_NOT_PRESENT); 
       return CKR_TOKEN_NOT_PRESENT;
    }
    if (fcn->ST_FindObjectsInit){
       // Map the Session to the slot session
       rv = fcn->ST_FindObjectsInit(&rSession,pTemplate,ulCount);
-      LOGIT(LOG_DEBUG,"Called STDLL rv = 0x%x",rv);
+      OCK_LOG_DEBUG("Called STDLL rv = 0x%x\n",rv);
    } else {
-      st_err_log(142, __FILE__, __LINE__, __FUNCTION__); 
+      OCK_LOG_ERR(ERR_FUNCTION_NOT_SUPPORTED); 
       rv = CKR_FUNCTION_NOT_SUPPORTED;
    }
    return rv;
@@ -1950,41 +1937,41 @@ C_GenerateKey ( CK_SESSION_HANDLE    hSession,
    STDLL_FcnList_t  *fcn;
    ST_SESSION_T rSession;
 
-   LOG("C_GenerateKey");
+   OCK_LOG_DEBUG("C_GenerateKey\n");
    if (API_Initialized() == FALSE ){
-      st_err_log(72, __FILE__, __LINE__);
+      OCK_LOG_ERR(ERR_CRYPTOKI_NOT_INITIALIZED);
       return CKR_CRYPTOKI_NOT_INITIALIZED;
    }
 
    if (!pMechanism ){
-      st_err_log(28, __FILE__, __LINE__); 
+      OCK_LOG_ERR(ERR_MECHANISM_INVALID); 
       return CKR_MECHANISM_INVALID;
    }
    if (!phKey ){
-      st_err_log(5, __FILE__, __LINE__, __FUNCTION__); 
+      OCK_LOG_ERR(ERR_ARGUMENTS_BAD); 
       return CKR_ARGUMENTS_BAD;
    }
    if (!Valid_Session(hSession, &rSession)){
-      st_err_log(40, __FILE__, __LINE__);
+      OCK_LOG_ERR(ERR_SESSION_HANDLE_INVALID);
       return CKR_SESSION_HANDLE_INVALID;
    }
 
    sltp = &(Anchor->SltList[rSession.slotID]);
    if (sltp->DLLoaded == FALSE ){
-      st_err_log(50, __FILE__, __LINE__); 
+      OCK_LOG_ERR(ERR_TOKEN_NOT_PRESENT); 
       
       return CKR_TOKEN_NOT_PRESENT;
    }
    if ( (fcn=sltp->FcnList) == NULL ){
-      st_err_log(50, __FILE__, __LINE__); 
+      OCK_LOG_ERR(ERR_TOKEN_NOT_PRESENT); 
       return CKR_TOKEN_NOT_PRESENT;
    }
    if (fcn->ST_GenerateKey){
       // Map the Session to the slot session
       rv = fcn->ST_GenerateKey(&rSession,pMechanism,pTemplate,ulCount,phKey);
-      LOGIT(LOG_DEBUG,"Called STDLL rv = 0x%x",rv);
+      OCK_LOG_DEBUG("Called STDLL rv = 0x%x\n",rv);
    } else {
-      st_err_log(142, __FILE__, __LINE__, __FUNCTION__); 
+      OCK_LOG_ERR(ERR_FUNCTION_NOT_SUPPORTED); 
       rv = CKR_FUNCTION_NOT_SUPPORTED;
    }
    return rv;
@@ -2013,18 +2000,18 @@ C_GenerateKeyPair ( CK_SESSION_HANDLE    hSession,
    STDLL_FcnList_t  *fcn;
    ST_SESSION_T rSession;
 
-   LOG("C_GenerateKeyPair");
+   OCK_LOG_DEBUG("C_GenerateKeyPair\n");
    if (API_Initialized() == FALSE ){
-      st_err_log(72, __FILE__, __LINE__);
+      OCK_LOG_ERR(ERR_CRYPTOKI_NOT_INITIALIZED);
       return CKR_CRYPTOKI_NOT_INITIALIZED;
    }
 
    if (!pMechanism){
-      st_err_log(28, __FILE__, __LINE__); 
+      OCK_LOG_ERR(ERR_MECHANISM_INVALID); 
       return CKR_MECHANISM_INVALID;
    }
    if (!phPublicKey || !phPrivateKey){
-      st_err_log(5, __FILE__, __LINE__, __FUNCTION__); 
+      OCK_LOG_ERR(ERR_ARGUMENTS_BAD); 
       return CKR_ARGUMENTS_BAD;
    }
    //   what other validation of parameters ... What about
@@ -2032,18 +2019,18 @@ C_GenerateKeyPair ( CK_SESSION_HANDLE    hSession,
    // key...  Are there defaults.
 
    if (!Valid_Session(hSession, &rSession)){
-      st_err_log(40, __FILE__, __LINE__);
+      OCK_LOG_ERR(ERR_SESSION_HANDLE_INVALID);
       return CKR_SESSION_HANDLE_INVALID;
    }
 
    sltp = &(Anchor->SltList[rSession.slotID]);
    if (sltp->DLLoaded == FALSE ){
-      st_err_log(50, __FILE__, __LINE__); 
+      OCK_LOG_ERR(ERR_TOKEN_NOT_PRESENT); 
       
       return CKR_TOKEN_NOT_PRESENT;
    }
    if ( (fcn=sltp->FcnList) == NULL ){
-      st_err_log(50, __FILE__, __LINE__); 
+      OCK_LOG_ERR(ERR_TOKEN_NOT_PRESENT); 
       return CKR_TOKEN_NOT_PRESENT;
    }
    if (fcn->ST_GenerateKeyPair){
@@ -2051,9 +2038,9 @@ C_GenerateKeyPair ( CK_SESSION_HANDLE    hSession,
       rv = fcn->ST_GenerateKeyPair(&rSession,pMechanism,pPublicKeyTemplate,
                                    ulPublicKeyAttributeCount,pPrivateKeyTemplate,
                                    ulPrivateKeyAttributeCount,phPublicKey,phPrivateKey);
-      LOGIT(LOG_DEBUG,"Called STDLL rv = 0x%x",rv);
+      OCK_LOG_DEBUG("Called STDLL rv = 0x%x\n",rv);
    } else {
-      st_err_log(142, __FILE__, __LINE__, __FUNCTION__); 
+      OCK_LOG_ERR(ERR_FUNCTION_NOT_SUPPORTED); 
       rv = CKR_FUNCTION_NOT_SUPPORTED;
    }
    return rv;
@@ -2077,9 +2064,9 @@ C_GenerateRandom ( CK_SESSION_HANDLE hSession,
    STDLL_FcnList_t  *fcn;
    ST_SESSION_T rSession;
 
-   LOG("C_GenerateRandom");
+   OCK_LOG_DEBUG("C_GenerateRandom\n");
    if (API_Initialized() == FALSE ){
-      st_err_log(72, __FILE__, __LINE__);
+      OCK_LOG_ERR(ERR_CRYPTOKI_NOT_INITIALIZED);
       return CKR_CRYPTOKI_NOT_INITIALIZED;
    }
 
@@ -2087,32 +2074,32 @@ C_GenerateRandom ( CK_SESSION_HANDLE hSession,
    if (!RandomData) return CKR_ARGUMENTS_BAD;
 
    if (!Valid_Session(hSession, &rSession)){
-      st_err_log(40, __FILE__, __LINE__);
+      OCK_LOG_ERR(ERR_SESSION_HANDLE_INVALID);
       return CKR_SESSION_HANDLE_INVALID;
    }
 
    sltp = &(Anchor->SltList[rSession.slotID]);
    if (sltp->DLLoaded == FALSE ){
-      st_err_log(50, __FILE__, __LINE__); 
+      OCK_LOG_ERR(ERR_TOKEN_NOT_PRESENT); 
       
       return CKR_TOKEN_NOT_PRESENT;
    }
    if ( (fcn=sltp->FcnList) == NULL ){
-      st_err_log(50, __FILE__, __LINE__); 
+      OCK_LOG_ERR(ERR_TOKEN_NOT_PRESENT); 
       return CKR_TOKEN_NOT_PRESENT;
    }
    if (fcn->ST_GenerateRandom){
       // Map the Session to the slot session
       rv = fcn->ST_GenerateRandom(&rSession,RandomData,ulRandomLen);
-      LOGIT(LOG_DEBUG,"Called STDLL rv = 0x%x",rv);
+      OCK_LOG_DEBUG("Called STDLL rv = 0x%x\n",rv);
    } else {
-      st_err_log(142, __FILE__, __LINE__, __FUNCTION__); 
+      OCK_LOG_ERR(ERR_FUNCTION_NOT_SUPPORTED); 
       rv = CKR_FUNCTION_NOT_SUPPORTED;
    }
    return rv;
 
 
-      st_err_log(142, __FILE__, __LINE__, __FUNCTION__); 
+      OCK_LOG_ERR(ERR_FUNCTION_NOT_SUPPORTED); 
   return CKR_FUNCTION_NOT_SUPPORTED;
 }
 
@@ -2137,41 +2124,41 @@ C_GetAttributeValue ( CK_SESSION_HANDLE hSession,
    STDLL_FcnList_t  *fcn;
    ST_SESSION_T rSession;
 
-   LOG("C_GetAttributeValue");
+   OCK_LOG_DEBUG("C_GetAttributeValue\n");
    if (API_Initialized() == FALSE ){
-      st_err_log(72, __FILE__, __LINE__);
+      OCK_LOG_ERR(ERR_CRYPTOKI_NOT_INITIALIZED);
       return CKR_CRYPTOKI_NOT_INITIALIZED;
    }
 
    if (!pTemplate){
-      st_err_log(48, __FILE__, __LINE__); 
+      OCK_LOG_ERR(ERR_TEMPLATE_INCOMPLETE); 
       return CKR_TEMPLATE_INCOMPLETE;
    }
    if ( ulCount == 0 ){
-      st_err_log(48, __FILE__, __LINE__); 
+      OCK_LOG_ERR(ERR_TEMPLATE_INCOMPLETE); 
       return CKR_TEMPLATE_INCOMPLETE;
    }
    if (!Valid_Session(hSession, &rSession)){
-      st_err_log(40, __FILE__, __LINE__);
+      OCK_LOG_ERR(ERR_SESSION_HANDLE_INVALID);
       return CKR_SESSION_HANDLE_INVALID;
    }
 
    sltp = &(Anchor->SltList[rSession.slotID]);
    if (sltp->DLLoaded == FALSE ){
-      st_err_log(50, __FILE__, __LINE__); 
+      OCK_LOG_ERR(ERR_TOKEN_NOT_PRESENT); 
       
       return CKR_TOKEN_NOT_PRESENT;
    }
    if ( (fcn=sltp->FcnList) == NULL ){
-      st_err_log(50, __FILE__, __LINE__); 
+      OCK_LOG_ERR(ERR_TOKEN_NOT_PRESENT); 
       return CKR_TOKEN_NOT_PRESENT;
    }
    if (fcn->ST_GetAttributeValue){
       // Map the Session to the slot session
       rv = fcn->ST_GetAttributeValue(&rSession,hObject,pTemplate,ulCount);
-      LOGIT(LOG_DEBUG,"Called STDLL rv = 0x%x",rv);
+      OCK_LOG_DEBUG("Called STDLL rv = 0x%x\n",rv);
    } else {
-      st_err_log(142, __FILE__, __LINE__, __FUNCTION__); 
+      OCK_LOG_ERR(ERR_FUNCTION_NOT_SUPPORTED); 
       rv = CKR_FUNCTION_NOT_SUPPORTED;
    }
    return rv;
@@ -2190,7 +2177,7 @@ C_GetFunctionList ( CK_FUNCTION_LIST_PTR_PTR ppFunctionList )
 
    api_init();
    
-   LOG("C_GetFunctionList");
+   OCK_LOG_DEBUG("C_GetFunctionList\n");
    FuncList.version.major = VERSION_MAJOR;
    FuncList.version.minor = VERSION_MINOR;
    FuncList.C_Initialize = C_Initialize;
@@ -2268,7 +2255,7 @@ C_GetFunctionList ( CK_FUNCTION_LIST_PTR_PTR ppFunctionList )
      return CKR_OK;
    }
    else{
-      st_err_log(5, __FILE__, __LINE__, __FUNCTION__); 
+      OCK_LOG_ERR(ERR_ARGUMENTS_BAD); 
      return CKR_ARGUMENTS_BAD;
    }
 }
@@ -2281,12 +2268,12 @@ C_GetFunctionList ( CK_FUNCTION_LIST_PTR_PTR ppFunctionList )
 CK_RV
 C_GetFunctionStatus ( CK_SESSION_HANDLE hSession )
 {
-   LOG("C_GetFunctionStatus");
+   OCK_LOG_DEBUG("C_GetFunctionStatus\n");
    if (API_Initialized() == FALSE ){
-      st_err_log(72, __FILE__, __LINE__);
+      OCK_LOG_ERR(ERR_CRYPTOKI_NOT_INITIALIZED);
       return CKR_CRYPTOKI_NOT_INITIALIZED;
    }
-   st_err_log(17, __FILE__, __LINE__);
+   OCK_LOG_ERR(ERR_FUNCTION_NOT_PARALLEL);
    return CKR_FUNCTION_NOT_PARALLEL; // PER Specification PG 170
 }
 
@@ -2307,14 +2294,14 @@ C_GetInfo ( CK_INFO_PTR pInfo )
 {
    Slot_Mgr_Shr_t  *shm;
 
-   LOG("C_GetInfo"); 
+   OCK_LOG_DEBUG("C_GetInfo\n"); 
    if (! API_Initialized() ) {
-      st_err_log(72, __FILE__, __LINE__);
+      OCK_LOG_ERR(ERR_CRYPTOKI_NOT_INITIALIZED);
       return CKR_CRYPTOKI_NOT_INITIALIZED;
    }
 
    if ( !pInfo ) {
-      st_err_log(4, __FILE__, __LINE__, __FUNCTION__);
+      OCK_LOG_ERR(ERR_FUNCTION_FAILED);
       return CKR_FUNCTION_FAILED;
    }
 
@@ -2339,14 +2326,14 @@ C_GetInfo ( CK_INFO_PTR pInfo )
 {
    Slot_Mgr_Shr_t  *shm;
 
-   LOG("C_GetInfo"); 
+   OCK_LOG_DEBUG("C_GetInfo\n"); 
    if (! API_Initialized() ) {
-      st_err_log(72, __FILE__, __LINE__);
+      OCK_LOG_ERR(ERR_CRYPTOKI_NOT_INITIALIZED);
       return CKR_CRYPTOKI_NOT_INITIALIZED;
    }
 
    if ( !pInfo ) {
-      st_err_log(4, __FILE__, __LINE__, __FUNCTION__);
+      OCK_LOG_ERR(ERR_FUNCTION_FAILED);
       return CKR_FUNCTION_FAILED;
    }
 
@@ -2377,32 +2364,32 @@ C_GetMechanismInfo ( CK_SLOT_ID            slotID,
    API_Slot_t  *sltp;
    STDLL_FcnList_t  *fcn;
 
-   LOGIT(LOG_DEBUG,"C_GetMechansimInfo %d  %x  %x",slotID,type,pInfo);
+   OCK_LOG_DEBUG("C_GetMechansimInfo %d  %x  %x\n",slotID,type,pInfo);
    if (API_Initialized() == FALSE ){
-      st_err_log(72, __FILE__, __LINE__);
+      OCK_LOG_ERR(ERR_CRYPTOKI_NOT_INITIALIZED);
       return CKR_CRYPTOKI_NOT_INITIALIZED;
    }
 
    if ( slotID >= NUMBER_SLOTS_MANAGED ) {
-      st_err_log(2, __FILE__, __LINE__);
+      OCK_LOG_ERR(ERR_SLOT_ID_INVALID);
       return CKR_SLOT_ID_INVALID;
    }
 
    sltp = &(Anchor->SltList[slotID]);
    if (sltp->DLLoaded == FALSE ){
-      st_err_log(50, __FILE__, __LINE__); 
+      OCK_LOG_ERR(ERR_TOKEN_NOT_PRESENT); 
       
       return CKR_TOKEN_NOT_PRESENT;
    }
    if ( (fcn=sltp->FcnList) == NULL ){
-      st_err_log(50, __FILE__, __LINE__); 
+      OCK_LOG_ERR(ERR_TOKEN_NOT_PRESENT); 
       return CKR_TOKEN_NOT_PRESENT;
    }
    if (fcn->ST_GetMechanismInfo){
       rv = fcn->ST_GetMechanismInfo(slotID,type,pInfo);
-      LOGIT(LOG_DEBUG,"Called STDLL rv = 0x%x",rv);
+      OCK_LOG_DEBUG("Called STDLL rv = 0x%x\n",rv);
    } else {
-      st_err_log(142, __FILE__, __LINE__, __FUNCTION__); 
+      OCK_LOG_ERR(ERR_FUNCTION_NOT_SUPPORTED); 
       rv = CKR_FUNCTION_NOT_SUPPORTED;
    }
    return rv;
@@ -2429,49 +2416,49 @@ C_GetMechanismList ( CK_SLOT_ID            slotID,
    API_Slot_t  *sltp;
    STDLL_FcnList_t  *fcn;
 
-   LOGIT(LOG_DEBUG,"C_GetMechanismList  (%d  %x  %d)",slotID,pMechanismList,*pulCount);
+   OCK_LOG_DEBUG("C_GetMechanismList  (%d  %x  %d)\n",slotID,pMechanismList,*pulCount);
    if (API_Initialized() == FALSE ){
-      st_err_log(72, __FILE__, __LINE__);
+      OCK_LOG_ERR(ERR_CRYPTOKI_NOT_INITIALIZED);
       return CKR_CRYPTOKI_NOT_INITIALIZED;
    }
 
    // Always have to have a pulCount
    if (!pulCount){
-      st_err_log(5, __FILE__, __LINE__, __FUNCTION__); 
+      OCK_LOG_ERR(ERR_ARGUMENTS_BAD); 
       return CKR_ARGUMENTS_BAD;
    }
    // Null PMechanism is valid to get a count of mechanisms
 
    if (slotID >= NUMBER_SLOTS_MANAGED ) {
-      st_err_log(2, __FILE__, __LINE__);
+      OCK_LOG_ERR(ERR_SLOT_ID_INVALID);
       return CKR_SLOT_ID_INVALID;
    }
 
    sltp = &(Anchor->SltList[slotID]);
    if (sltp->DLLoaded == FALSE ){
-      st_err_log(50, __FILE__, __LINE__); 
+      OCK_LOG_ERR(ERR_TOKEN_NOT_PRESENT); 
       
       return CKR_TOKEN_NOT_PRESENT;
    }
    if ( (fcn=sltp->FcnList) == NULL ){
-      st_err_log(50, __FILE__, __LINE__); 
+      OCK_LOG_ERR(ERR_TOKEN_NOT_PRESENT); 
       return CKR_TOKEN_NOT_PRESENT;
    }
    if (fcn->ST_GetMechanismList){
-      LOG("Calling STDLL");
+      OCK_LOG_DEBUG("Calling STDLL\n");
       rv = fcn->ST_GetMechanismList(slotID,pMechanismList,pulCount);
-      LOGIT(LOG_DEBUG,"Called STDLL rv = 0x%x",rv);
+      OCK_LOG_DEBUG("Called STDLL rv = 0x%x\n",rv);
    } else {
-      st_err_log(142, __FILE__, __LINE__, __FUNCTION__); 
+      OCK_LOG_ERR(ERR_FUNCTION_NOT_SUPPORTED); 
       rv = CKR_FUNCTION_NOT_SUPPORTED;
    }
 
-   LOGIT(LOG_DEBUG,"GetMechanismList RV %x",rv);
+   OCK_LOG_DEBUG("GetMechanismList RV %x\n",rv);
    if (rv == CKR_OK ) {
       if ( pMechanismList ) {
          unsigned long i;
          for (i=0;i< *pulCount;i++){
-            LOGIT(LOG_DEBUG,"Mechanism[%d] 0x%08X ",i,pMechanismList[i]);
+            OCK_LOG_DEBUG("Mechanism[%d] 0x%08X \n",i,pMechanismList[i]);
          }
       }
 
@@ -2501,37 +2488,37 @@ C_GetObjectSize ( CK_SESSION_HANDLE hSession,
    STDLL_FcnList_t  *fcn;
    ST_SESSION_T rSession;
 
-   LOG("C_GetObjectSize");
+   OCK_LOG_DEBUG("C_GetObjectSize\n");
    if (API_Initialized() == FALSE ){
-      st_err_log(72, __FILE__, __LINE__);
+      OCK_LOG_ERR(ERR_CRYPTOKI_NOT_INITIALIZED);
       return CKR_CRYPTOKI_NOT_INITIALIZED;
    }
 
    if (!pulSize){
-      st_err_log(5, __FILE__, __LINE__, __FUNCTION__); 
+      OCK_LOG_ERR(ERR_ARGUMENTS_BAD); 
       return CKR_ARGUMENTS_BAD;
    }
    if (!Valid_Session(hSession, &rSession)){
-      st_err_log(40, __FILE__, __LINE__);
+      OCK_LOG_ERR(ERR_SESSION_HANDLE_INVALID);
       return CKR_SESSION_HANDLE_INVALID;
    }
 
    sltp = &(Anchor->SltList[rSession.slotID]);
    if (sltp->DLLoaded == FALSE ){
-      st_err_log(50, __FILE__, __LINE__); 
+      OCK_LOG_ERR(ERR_TOKEN_NOT_PRESENT); 
       
       return CKR_TOKEN_NOT_PRESENT;
    }
    if ( (fcn=sltp->FcnList) == NULL ){
-      st_err_log(50, __FILE__, __LINE__); 
+      OCK_LOG_ERR(ERR_TOKEN_NOT_PRESENT); 
       return CKR_TOKEN_NOT_PRESENT;
    }
    if (fcn->ST_GetObjectSize){
       // Map the Session to the slot session
       rv = fcn->ST_GetObjectSize(&rSession,hObject,pulSize);
-      LOGIT(LOG_DEBUG,"Called STDLL rv = 0x%x",rv);
+      OCK_LOG_DEBUG("Called STDLL rv = 0x%x\n",rv);
    } else {
-      st_err_log(142, __FILE__, __LINE__, __FUNCTION__); 
+      OCK_LOG_ERR(ERR_FUNCTION_NOT_SUPPORTED); 
       rv = CKR_FUNCTION_NOT_SUPPORTED;
    }
    return rv;
@@ -2554,9 +2541,9 @@ C_GetOperationState ( CK_SESSION_HANDLE hSession,
    STDLL_FcnList_t  *fcn;
    ST_SESSION_T rSession;
 
-   LOG("C_GetOperateionState");
+   OCK_LOG_DEBUG("C_GetOperateionState\n");
    if (API_Initialized() == FALSE ){
-      st_err_log(72, __FILE__, __LINE__);
+      OCK_LOG_ERR(ERR_CRYPTOKI_NOT_INITIALIZED);
       return CKR_CRYPTOKI_NOT_INITIALIZED;
    }
 
@@ -2564,30 +2551,30 @@ C_GetOperationState ( CK_SESSION_HANDLE hSession,
    // NULL pOperationState is valid to get buffer
    // size
    if (!pulOperationStateLen){
-      st_err_log(5, __FILE__, __LINE__, __FUNCTION__); 
+      OCK_LOG_ERR(ERR_ARGUMENTS_BAD); 
       return CKR_ARGUMENTS_BAD;
    }
    if (!Valid_Session(hSession, &rSession)){
-      st_err_log(40, __FILE__, __LINE__);
+      OCK_LOG_ERR(ERR_SESSION_HANDLE_INVALID);
       return CKR_SESSION_HANDLE_INVALID;
    }
 
    sltp = &(Anchor->SltList[rSession.slotID]);
    if (sltp->DLLoaded == FALSE ){
-      st_err_log(50, __FILE__, __LINE__); 
+      OCK_LOG_ERR(ERR_TOKEN_NOT_PRESENT); 
       
       return CKR_TOKEN_NOT_PRESENT;
    }
    if ( (fcn=sltp->FcnList) == NULL ){
-      st_err_log(50, __FILE__, __LINE__); 
+      OCK_LOG_ERR(ERR_TOKEN_NOT_PRESENT); 
       return CKR_TOKEN_NOT_PRESENT;
    }
    if (fcn->ST_GetOperationState){
       // Map the Session to the slot session
       rv = fcn->ST_GetOperationState(&rSession,pOperationState,pulOperationStateLen);
-      LOGIT(LOG_DEBUG,"Called STDLL rv = 0x%x",rv);
+      OCK_LOG_DEBUG("Called STDLL rv = 0x%x\n",rv);
    } else {
-      st_err_log(142, __FILE__, __LINE__, __FUNCTION__); 
+      OCK_LOG_ERR(ERR_FUNCTION_NOT_SUPPORTED); 
       rv = CKR_FUNCTION_NOT_SUPPORTED;
    }
    return rv;
@@ -2614,42 +2601,42 @@ C_GetSessionInfo ( CK_SESSION_HANDLE   hSession,
    STDLL_FcnList_t  *fcn;
    ST_SESSION_T rSession;
 
-   LOGIT(LOG_DEBUG,"C_GetSessionInfo  %x  %x",hSession,pInfo);
+   OCK_LOG_DEBUG("C_GetSessionInfo  %x  %x\n",hSession,pInfo);
    if (API_Initialized() == FALSE ){
-      st_err_log(72, __FILE__, __LINE__);
+      OCK_LOG_ERR(ERR_CRYPTOKI_NOT_INITIALIZED);
       return CKR_CRYPTOKI_NOT_INITIALIZED;
    }
 
    if (!pInfo){
-      st_err_log(5, __FILE__, __LINE__, __FUNCTION__); 
+      OCK_LOG_ERR(ERR_ARGUMENTS_BAD); 
       return CKR_ARGUMENTS_BAD;
    }
 
    if (!Valid_Session(hSession, &rSession)){
-      st_err_log(40, __FILE__, __LINE__);
+      OCK_LOG_ERR(ERR_SESSION_HANDLE_INVALID);
       return CKR_SESSION_HANDLE_INVALID;
    }
 
    sltp = &(Anchor->SltList[rSession.slotID]);
    if (sltp->DLLoaded == FALSE ){
-      st_err_log(50, __FILE__, __LINE__); 
+      OCK_LOG_ERR(ERR_TOKEN_NOT_PRESENT); 
       
       return CKR_TOKEN_NOT_PRESENT;
    }
    if ( (fcn=sltp->FcnList) == NULL ) {
-      st_err_log(50, __FILE__, __LINE__); 
+      OCK_LOG_ERR(ERR_TOKEN_NOT_PRESENT); 
       return CKR_TOKEN_NOT_PRESENT;
    }
    if (fcn->ST_GetSessionInfo){
       // Map the Session to the slot session
       rv = fcn->ST_GetSessionInfo(&rSession,pInfo);
 
-      LOGIT(LOG_DEBUG,"Called STDLL rv = 0x%x",rv);
-      LOGIT(LOG_DEBUG,"Slot %d  State %x  Flags %x DevErr %x",
+      OCK_LOG_DEBUG("Called STDLL rv = 0x%x\n",rv);
+      OCK_LOG_DEBUG("Slot %d  State %x  Flags %x DevErr %x\n",
                   pInfo->slotID,pInfo->state, pInfo->flags,pInfo->ulDeviceError);
 
    } else {
-      st_err_log(142, __FILE__, __LINE__, __FUNCTION__); 
+      OCK_LOG_ERR(ERR_FUNCTION_NOT_SUPPORTED); 
       rv = CKR_FUNCTION_NOT_SUPPORTED;
    }
    return rv;
@@ -2679,16 +2666,16 @@ C_GetSlotInfo ( CK_SLOT_ID       slotID,
    Slot_Info_t_64 *sinfp;
 
 
-   LOGIT(LOG_DEBUG,"C_GetSlotInfo Slot=%d  ptr=%x",slotID,pInfo);
-   //LOGIT(LOG_DEBUG,"  Slot %d ",slotID);
+   OCK_LOG_DEBUG("C_GetSlotInfo Slot=%d  ptr=%x\n",slotID,pInfo);
+   //OCK_LOG_DEBUG("  Slot %d \n",slotID);
 
    if (API_Initialized() == FALSE ) {
-      st_err_log(72, __FILE__, __LINE__);
+      OCK_LOG_ERR(ERR_CRYPTOKI_NOT_INITIALIZED);
       return CKR_CRYPTOKI_NOT_INITIALIZED;
    }
 
    if ( !pInfo ) {
-      st_err_log(4, __FILE__, __LINE__, __FUNCTION__);
+      OCK_LOG_ERR(ERR_FUNCTION_FAILED);
       return CKR_FUNCTION_FAILED;
    }
 
@@ -2698,21 +2685,21 @@ C_GetSlotInfo ( CK_SLOT_ID       slotID,
    count = 0;
 
    if (slotID >= NUMBER_SLOTS_MANAGED ) {
-      st_err_log(2, __FILE__, __LINE__);
+      OCK_LOG_ERR(ERR_SLOT_ID_INVALID);
       return CKR_SLOT_ID_INVALID;
    }
    // Netscape and others appear to call
    // this for every slot.  If the slot does not have
    // a registered STDLL, then this is a FUnction Failed case
    if ( sinfp->present == FALSE ){
-      //LOGIT(LOG_DEBUG,"    Not present");
-      st_err_log(4, __FILE__, __LINE__, __FUNCTION__);
+      //OCK_LOG_DEBUG("    Not present\n");
+      OCK_LOG_ERR(ERR_FUNCTION_FAILED);
       return CKR_FUNCTION_FAILED;
 
    }
 
-   //LOGIT(LOG_DEBUG," %32s ",sinfp->pk_slot.slotDescription);
-   //LOGIT(LOG_DEBUG," %32s ",sinfp->pk_slot.manufacturerID);
+   //OCK_LOG_DEBUG(" %32s \n",sinfp->pk_slot.slotDescription);
+   //OCK_LOG_DEBUG(" %32s \n",sinfp->pk_slot.manufacturerID);
 
 #ifdef __64BIT__
 
@@ -2748,16 +2735,16 @@ C_GetSlotInfo ( CK_SLOT_ID       slotID,
    Slot_Info_t    *sinfp;
 
 
-   LOGIT(LOG_DEBUG,"C_GetSlotInfo Slot=%d  ptr=%x",slotID,pInfo);
-   //LOGIT(LOG_DEBUG,"  Slot %d ",slotID);
+   OCK_LOG_DEBUG("C_GetSlotInfo Slot=%d  ptr=%x\n",slotID,pInfo);
+   //OCK_LOG_DEBUG("  Slot %d \n",slotID);
 
    if (API_Initialized() == FALSE ) {
-      st_err_log(72, __FILE__, __LINE__);
+      OCK_LOG_ERR(ERR_CRYPTOKI_NOT_INITIALIZED);
       return CKR_CRYPTOKI_NOT_INITIALIZED;
    }
 
    if ( !pInfo ) {
-      st_err_log(4, __FILE__, __LINE__, __FUNCTION__);
+      OCK_LOG_ERR(ERR_FUNCTION_FAILED);
       return CKR_FUNCTION_FAILED;
    }
 
@@ -2767,21 +2754,21 @@ C_GetSlotInfo ( CK_SLOT_ID       slotID,
    count = 0;
 
    if (slotID >= NUMBER_SLOTS_MANAGED ) {
-      st_err_log(2, __FILE__, __LINE__);
+      OCK_LOG_ERR(ERR_SLOT_ID_INVALID);
       return CKR_SLOT_ID_INVALID;
    }
    // Netscape and others appear to call
    // this for every slot.  If the slot does not have
    // a registered STDLL, then this is a FUnction Failed case
    if ( sinfp->present == FALSE ){
-      //LOGIT(LOG_DEBUG,"    Not present");
-      st_err_log(4, __FILE__, __LINE__, __FUNCTION__);
+      //OCK_LOG_DEBUG("    Not present\n");
+      OCK_LOG_ERR(ERR_FUNCTION_FAILED);
       return CKR_FUNCTION_FAILED;
 
    }
 
-   //LOGIT(LOG_DEBUG," %32s ",sinfp->pk_slot.slotDescription);
-   //LOGIT(LOG_DEBUG," %32s ",sinfp->pk_slot.manufacturerID);
+   //OCK_LOG_DEBUG(" %32s \n",sinfp->pk_slot.slotDescription);
+   //OCK_LOG_DEBUG(" %32s \n",sinfp->pk_slot.manufacturerID);
    memcpy(pInfo, (char *)&(sinfp->pk_slot), sizeof(CK_SLOT_INFO));
 
    return CKR_OK;
@@ -2817,17 +2804,17 @@ C_GetSlotList ( CK_BBOOL       tokenPresent,
 #endif
 
 
-   LOG("C_GetSlotList");
-   LOGIT(LOG_DEBUG," Pres %d Count %d",tokenPresent,*pulCount);
+   OCK_LOG_DEBUG("C_GetSlotList\n");
+   OCK_LOG_DEBUG(" Pres %d Count %d\n",tokenPresent,*pulCount);
    if (API_Initialized() == FALSE ){
-      st_err_log(72, __FILE__, __LINE__);
+      OCK_LOG_ERR(ERR_CRYPTOKI_NOT_INITIALIZED);
       return CKR_CRYPTOKI_NOT_INITIALIZED;
    }
 
 
    // Null pSlotList is valid to get count for array allocation
    if (pulCount == NULL){
-      st_err_log(4, __FILE__, __LINE__, __FUNCTION__);
+      OCK_LOG_ERR(ERR_FUNCTION_FAILED);
       return CKR_FUNCTION_FAILED;
    }
 
@@ -2901,7 +2888,7 @@ C_GetSlotList ( CK_BBOOL       tokenPresent,
    } else {
    // Verify that the buffer passed is large enough
       if (*pulCount < count ) {
-         st_err_log(68, __FILE__, __LINE__);
+         OCK_LOG_ERR(ERR_BUFFER_TOO_SMALL);
          return CKR_BUFFER_TOO_SMALL;
       }
      // Walk through the slot manager information and copy in the
@@ -2960,25 +2947,25 @@ C_GetTokenInfo ( CK_SLOT_ID        slotID,
    Slot_Info_t    *sinfp;
 #endif
 
-   LOG("C_GetTokenInfo");
+   OCK_LOG_DEBUG("C_GetTokenInfo\n");
    if (API_Initialized() == FALSE ){
-      st_err_log(72, __FILE__, __LINE__);
+      OCK_LOG_ERR(ERR_CRYPTOKI_NOT_INITIALIZED);
       return CKR_CRYPTOKI_NOT_INITIALIZED;
    }
 
    if (!pInfo){
-      st_err_log(5, __FILE__, __LINE__, __FUNCTION__); 
+      OCK_LOG_ERR(ERR_ARGUMENTS_BAD); 
       return CKR_ARGUMENTS_BAD;
    }
    if (slotID >= NUMBER_SLOTS_MANAGED ) {
-      st_err_log(2, __FILE__, __LINE__);
+      OCK_LOG_ERR(ERR_SLOT_ID_INVALID);
       return CKR_SLOT_ID_INVALID;
    }
 
    sltp = &(Anchor->SltList[slotID]);
-   LOGIT(LOG_DEBUG,"Slot p = %x id %d", sltp,slotID);
+   OCK_LOG_DEBUG("Slot p = %x id %d\n", sltp,slotID);
    if (sltp->DLLoaded == FALSE ){
-      st_err_log(50, __FILE__, __LINE__); 
+      OCK_LOG_ERR(ERR_TOKEN_NOT_PRESENT); 
       
       return CKR_TOKEN_NOT_PRESENT;
    }
@@ -2988,22 +2975,22 @@ C_GetTokenInfo ( CK_SLOT_ID        slotID,
    shm = Anchor->SharedMemP;
    sinfp = shm->slot_info;
    if  (sinfp[slotID].present == FALSE ){
-      st_err_log(50, __FILE__, __LINE__); 
+      OCK_LOG_ERR(ERR_TOKEN_NOT_PRESENT); 
       return CKR_TOKEN_NOT_PRESENT;
    }
    if ( (fcn=sltp->FcnList) == NULL ){
-      st_err_log(50, __FILE__, __LINE__); 
+      OCK_LOG_ERR(ERR_TOKEN_NOT_PRESENT); 
       return CKR_TOKEN_NOT_PRESENT;
    }
    if (fcn->ST_GetTokenInfo){
-      LOGIT(LOG_DEBUG,"Calling STDLL ");
+      OCK_LOG_DEBUG("Calling STDLL \n");
       rv = fcn->ST_GetTokenInfo(slotID,pInfo);
       if (rv == CKR_OK) {
 	 get_sess_count(slotID, &(pInfo->ulSessionCount));
       }
-      LOGIT(LOG_DEBUG,"rv %d  CK_TOKEN_INFO Flags %x",rv,pInfo->flags);
+      OCK_LOG_DEBUG("rv %d  CK_TOKEN_INFO Flags %x\n",rv,pInfo->flags);
    } else {
-      st_err_log(142, __FILE__, __LINE__, __FUNCTION__); 
+      OCK_LOG_ERR(ERR_FUNCTION_NOT_SUPPORTED); 
       rv = CKR_FUNCTION_NOT_SUPPORTED;
    }
    return rv;
@@ -3012,7 +2999,7 @@ C_GetTokenInfo ( CK_SLOT_ID        slotID,
 
 void
 Call_Finalize(){
-//   LOG("Call_Finalize");
+//   OCK_LOG_DEBUG("Call_Finalize\n");
    C_Finalize(NULL);
    return;
 }
@@ -3034,7 +3021,7 @@ C_Initialize ( CK_VOID_PTR pVoid )
 
 
 
-   LOGIT(LOG_DEBUG,"C_Initialize");
+   OCK_LOG_DEBUG("C_Initialize\n");
       //if ( API_Proc_Struct NOT allocated )
       //       allocate Structure
       //    if ( allocation fails )
@@ -3046,19 +3033,19 @@ C_Initialize ( CK_VOID_PTR pVoid )
       if (!Anchor ) {
          Anchor = (API_Proc_Struct_t *)malloc(sizeof(API_Proc_Struct_t));
          if ( Anchor == NULL ){
-            st_err_log(0, __FILE__, __LINE__);
+            OCK_LOG_ERR(ERR_HOST_MEMORY);
             return CKR_HOST_MEMORY;
          }
       } else {
          // Linux the atfork routines handle this
-         st_err_log(73, __FILE__, __LINE__);
+         OCK_LOG_ERR(ERR_CRYPTOKI_ALREADY_INITIALIZED);
          return CKR_CRYPTOKI_ALREADY_INITIALIZED;
       }
 
       memset(slot_loaded, 0, sizeof(int)*NUMBER_SLOTS_MANAGED); // Clear out the load list
 
 
-      LOGIT(LOG_DEBUG,"Anchor allocated at %x",(char *)Anchor);
+      OCK_LOG_DEBUG("Anchor allocated at %x\n",(char *)Anchor);
 
 
       // Validation of the parameters passed
@@ -3068,7 +3055,7 @@ C_Initialize ( CK_VOID_PTR pVoid )
       // locks anyhow.  
       //
       if (pVoid != NULL ){
-         LOGIT(LOG_DEBUG,"Initialization arg = %x   Flags %d", pVoid,
+         OCK_LOG_DEBUG("Initialization arg = %x   Flags %d\n", pVoid,
                ((CK_C_INITIALIZE_ARGS *)pVoid)->flags);
 
          pArg = (CK_C_INITIALIZE_ARGS *)pVoid;
@@ -3077,7 +3064,7 @@ C_Initialize ( CK_VOID_PTR pVoid )
          if ( pArg->pReserved != NULL ){
             free(Anchor);
             Anchor= NULL;
-            st_err_log(5, __FILE__, __LINE__, __FUNCTION__); 
+            OCK_LOG_ERR(ERR_ARGUMENTS_BAD); 
             return CKR_ARGUMENTS_BAD;  // we only support Native OS locking
          }
 
@@ -3093,8 +3080,8 @@ C_Initialize ( CK_VOID_PTR pVoid )
             if (fcnmap != 0x0f ) {
                free(Anchor);
                Anchor = NULL;
-               logit(LOG_DEBUG,"C_Initialize:  Invalid number of functions passed in argument structure");
-               st_err_log(5, __FILE__, __LINE__, __FUNCTION__); 
+               OCK_SYSLOG(LOG_ERR, "C_Initialize:  Invalid number of functions passed in argument structure.");
+               OCK_LOG_ERR(ERR_ARGUMENTS_BAD); 
                return CKR_ARGUMENTS_BAD;  // we only support Native OS locking
             }
          }
@@ -3105,7 +3092,7 @@ C_Initialize ( CK_VOID_PTR pVoid )
          // check is irrelavant.
          if ( pArg->flags & 
                   CKF_LIBRARY_CANT_CREATE_OS_THREADS ) {
-            LOGIT(LOG_DEBUG,"Can't create OS threads.... This is OK");
+            OCK_LOG_DEBUG("Can't create OS threads.... This is OK\n");
          }
 
          // Since this is an initialization path, we will be verbose in the
@@ -3127,8 +3114,8 @@ C_Initialize ( CK_VOID_PTR pVoid )
                if ( !(pArg->flags & CKF_OS_LOCKING_OK) && fcnmap ){
                   free(Anchor);
                   Anchor = NULL;
-                  logit(LOG_ERR,"C_Initialize:Application specified that OS locking is invalid ");
-                  logit(LOG_ERR,"C_Initialize: PKCS11 Module requires OS locking ");
+                  OCK_SYSLOG(LOG_ERR,"C_Initialize:Application specified that OS locking is invalid.");
+                  OCK_SYSLOG(LOG_ERR,"C_Initialize: PKCS11 Module requires OS locking.");
                   return CKR_CANT_LOCK;  // we only support Native OS locking
                }  else {
                   // Case 4  Flag set and fcn pointers set
@@ -3139,7 +3126,7 @@ C_Initialize ( CK_VOID_PTR pVoid )
                      // occured
                      free(Anchor);
                      Anchor=NULL;
-                     st_err_log(3, __FILE__, __LINE__);
+                     OCK_LOG_ERR(ERR_GENERAL_ERROR);
                      return CKR_GENERAL_ERROR;
                   }
                }
@@ -3147,10 +3134,10 @@ C_Initialize ( CK_VOID_PTR pVoid )
          }
 
                
-         //LOGIT(LOG_DEBUG,"Init args Create %x ",((CK_C_INITIALIZE_ARGS *)pVoid)->CreateMutex);
-         //LOGIT(LOG_DEBUG,"Init args Destroy %x ",((CK_C_INITIALIZE_ARGS *)pVoid)->DestroyMutex);
-         //LOGIT(LOG_DEBUG,"Init args Lock %x ",((CK_C_INITIALIZE_ARGS *)pVoid)->LockMutex);
-         //LOGIT(LOG_DEBUG,"Init args unLock %x ",((CK_C_INITIALIZE_ARGS *)pVoid)->UnlockMutex);
+         //OCK_LOG_DEBUG("Init args Create %x \n",((CK_C_INITIALIZE_ARGS *)pVoid)->CreateMutex);
+         //OCK_LOG_DEBUG("Init args Destroy %x \n",((CK_C_INITIALIZE_ARGS *)pVoid)->DestroyMutex);
+         //OCK_LOG_DEBUG("Init args Lock %x \n",((CK_C_INITIALIZE_ARGS *)pVoid)->LockMutex);
+         //OCK_LOG_DEBUG("Init args unLock %x \n",((CK_C_INITIALIZE_ARGS *)pVoid)->UnlockMutex);
 
       } else {
          // Pointer to void...
@@ -3167,7 +3154,6 @@ C_Initialize ( CK_VOID_PTR pVoid )
       pthread_mutex_init(&(Anchor->ProcMutex),NULL);  // This is not shared across apps.
       pthread_mutex_init(&(Anchor->SessListMutex),NULL);  // This is not shared across apps.
       pthread_mutex_init(&GlobMutex,NULL);
-      /* KEY XXX pthread_mutex_init(&logmutex,NULL); */
       pthread_mutex_lock(&GlobMutex);
       Anchor->Pid = getpid();
 
@@ -3176,12 +3162,11 @@ C_Initialize ( CK_VOID_PTR pVoid )
          free((void *)Anchor);
          Anchor = NULL;
          pthread_mutex_unlock(&GlobMutex);
-         LOGIT(LOG_ERR,"C_Initialize:  Module failed to attach to shared memory.  Verify that the slot management \
-               daemon is running %d",errno);
-         st_err_log(144, __FILE__, __LINE__);
+         OCK_SYSLOG(LOG_ERR,"C_Initialize:  Module failed to attach to shared memory.  Verify that the slot management daemon is running, errno=%d",errno);
+         OCK_LOG_ERR(ERR_HOST_MEMORY);
          return CKR_HOST_MEMORY;
       }
-      LOGIT(LOG_DEBUG,"Shared memory %x ",Anchor->SharedMemP);
+      OCK_LOG_DEBUG("Shared memory %x \n",Anchor->SharedMemP);
 
 
       // Initialize structure values
@@ -3194,7 +3179,7 @@ C_Initialize ( CK_VOID_PTR pVoid )
          detach_shared_memory(Anchor->SharedMemP);
          free((void *)Anchor); Anchor=NULL;
          pthread_mutex_unlock(&GlobMutex);
-         st_err_log(4, __FILE__, __LINE__, __FUNCTION__);
+         OCK_LOG_ERR(ERR_FUNCTION_FAILED);
          return CKR_FUNCTION_FAILED;
       }
 
@@ -3206,7 +3191,7 @@ C_Initialize ( CK_VOID_PTR pVoid )
 
    for (slotID=0;slotID<NUMBER_SLOTS_MANAGED;slotID++){
       sltp = &(Anchor->SltList[slotID]);
-      // LOGIT(LOG_DEBUG,"Init SLTP = %x ID %d",sltp,slotID);
+      // OCK_LOG_DEBUG("Init SLTP = %x ID %d\n",sltp,slotID);
       slot_loaded[slotID] = DL_Load_and_Init(sltp,slotID);
    }
 
@@ -3242,47 +3227,47 @@ C_InitPIN ( CK_SESSION_HANDLE hSession,
    STDLL_FcnList_t  *fcn;
    ST_SESSION_T rSession;
 
-   LOG("C_InitPin");
+   OCK_LOG_DEBUG("C_InitPin\n");
    if (API_Initialized() == FALSE ){
-      st_err_log(72, __FILE__, __LINE__);
+      OCK_LOG_ERR(ERR_CRYPTOKI_NOT_INITIALIZED);
       return CKR_CRYPTOKI_NOT_INITIALIZED;
    }
 
    // A Null Pin with a Len is invalid
    // A  Null pin with a 0 len is no pin at all?
    if (!pPin && ulPinLen) {
-      st_err_log(5, __FILE__, __LINE__, __FUNCTION__); 
+      OCK_LOG_ERR(ERR_ARGUMENTS_BAD); 
       return CKR_ARGUMENTS_BAD;
    }
 
    if (!Valid_Session(hSession, &rSession)){
-      st_err_log(40, __FILE__, __LINE__);
+      OCK_LOG_ERR(ERR_SESSION_HANDLE_INVALID);
       return CKR_SESSION_HANDLE_INVALID;
    }
 
    // XXX Remove me, this test should be completely unnecessary
    // Move this to after the session validation...
    if (rSession.slotID >= NUMBER_SLOTS_MANAGED ) {
-      st_err_log(2, __FILE__, __LINE__);
+      OCK_LOG_ERR(ERR_SLOT_ID_INVALID);
       return CKR_SLOT_ID_INVALID;
    }
 
    sltp = &(Anchor->SltList[rSession.slotID]);
    if (sltp->DLLoaded == FALSE ){
-      st_err_log(50, __FILE__, __LINE__); 
+      OCK_LOG_ERR(ERR_TOKEN_NOT_PRESENT); 
       
       return CKR_TOKEN_NOT_PRESENT;
    }
    if ( (fcn=sltp->FcnList) == NULL ){
-      st_err_log(50, __FILE__, __LINE__); 
+      OCK_LOG_ERR(ERR_TOKEN_NOT_PRESENT); 
       return CKR_TOKEN_NOT_PRESENT;
    }
    if (fcn->ST_InitPIN){
       // Map the Session to the slot session
       rv = fcn->ST_InitPIN(&rSession,pPin,ulPinLen);
-      LOGIT(LOG_DEBUG,"Called STDLL rv = 0x%x",rv);
+      OCK_LOG_DEBUG("Called STDLL rv = 0x%x\n",rv);
    } else {
-      st_err_log(142, __FILE__, __LINE__, __FUNCTION__); 
+      OCK_LOG_ERR(ERR_FUNCTION_NOT_SUPPORTED); 
       rv = CKR_FUNCTION_NOT_SUPPORTED;
    }
    return rv;
@@ -3307,24 +3292,24 @@ C_InitToken ( CK_SLOT_ID  slotID,
    API_Slot_t  *sltp;
    STDLL_FcnList_t  *fcn;
 
-   LOG("C_InitToken");
+   OCK_LOG_DEBUG("C_InitToken\n");
    if (API_Initialized() == FALSE ){
-      st_err_log(72, __FILE__, __LINE__);
+      OCK_LOG_ERR(ERR_CRYPTOKI_NOT_INITIALIZED);
       return CKR_CRYPTOKI_NOT_INITIALIZED;
    }
 
    if (slotID >= NUMBER_SLOTS_MANAGED ) {
-      st_err_log(2, __FILE__, __LINE__);
+      OCK_LOG_ERR(ERR_SLOT_ID_INVALID);
       return CKR_SLOT_ID_INVALID;
    }
 
    // Null pPin and a pinlen is a problem
    if (!pPin && ulPinLen){
-      st_err_log(5, __FILE__, __LINE__, __FUNCTION__); 
+      OCK_LOG_ERR(ERR_ARGUMENTS_BAD); 
       return CKR_ARGUMENTS_BAD;
    }
    if (!pLabel ){
-      st_err_log(5, __FILE__, __LINE__, __FUNCTION__); 
+      OCK_LOG_ERR(ERR_ARGUMENTS_BAD); 
       return CKR_ARGUMENTS_BAD;
    }
    // Prior to invoking the Tokens initialization, the 
@@ -3339,25 +3324,25 @@ C_InitToken ( CK_SLOT_ID  slotID,
    // variable needs to be checked, and held locked until the operation
    // is complete.
    if (sessions_exist(slotID)){
-      st_err_log(43, __FILE__, __LINE__); 
+      OCK_LOG_ERR(ERR_SESSION_EXISTS); 
       return CKR_SESSION_EXISTS;
    }
 
    sltp = &(Anchor->SltList[slotID]);
    if (sltp->DLLoaded == FALSE ){
-      st_err_log(50, __FILE__, __LINE__); 
+      OCK_LOG_ERR(ERR_TOKEN_NOT_PRESENT); 
       
       return CKR_TOKEN_NOT_PRESENT;
    }
    if ( (fcn=sltp->FcnList) == NULL ){
-      st_err_log(50, __FILE__, __LINE__); 
+      OCK_LOG_ERR(ERR_TOKEN_NOT_PRESENT); 
       return CKR_TOKEN_NOT_PRESENT;
    }
    if (fcn->ST_InitToken){
       rv = fcn->ST_InitToken(slotID,pPin,ulPinLen,pLabel);
-      LOGIT(LOG_DEBUG,"Called STDLL rv = 0x%x",rv);
+      OCK_LOG_DEBUG("Called STDLL rv = 0x%x\n",rv);
    } else {
-      st_err_log(142, __FILE__, __LINE__, __FUNCTION__); 
+      OCK_LOG_ERR(ERR_FUNCTION_NOT_SUPPORTED); 
       rv = CKR_FUNCTION_NOT_SUPPORTED;
    }
    return rv;
@@ -3386,9 +3371,9 @@ C_Login ( CK_SESSION_HANDLE hSession,
    STDLL_FcnList_t  *fcn;
    ST_SESSION_T rSession;
 
-   LOG("C_Login");
+   OCK_LOG_DEBUG("C_Login\n");
    if (API_Initialized() == FALSE ){
-      st_err_log(72, __FILE__, __LINE__);
+      OCK_LOG_ERR(ERR_CRYPTOKI_NOT_INITIALIZED);
       return CKR_CRYPTOKI_NOT_INITIALIZED;
    }
 
@@ -3402,26 +3387,26 @@ C_Login ( CK_SESSION_HANDLE hSession,
 #endif
 
    if (!Valid_Session(hSession, &rSession)){
-      st_err_log(40, __FILE__, __LINE__);
+      OCK_LOG_ERR(ERR_SESSION_HANDLE_INVALID);
       return CKR_SESSION_HANDLE_INVALID;
    }
 
    sltp = &(Anchor->SltList[rSession.slotID]);
    if (sltp->DLLoaded == FALSE ){
-      st_err_log(50, __FILE__, __LINE__); 
+      OCK_LOG_ERR(ERR_TOKEN_NOT_PRESENT); 
       
       return CKR_TOKEN_NOT_PRESENT;
    }
    if ( (fcn=sltp->FcnList) == NULL ){
-      st_err_log(50, __FILE__, __LINE__); 
+      OCK_LOG_ERR(ERR_TOKEN_NOT_PRESENT); 
       return CKR_TOKEN_NOT_PRESENT;
    }
    if (fcn->ST_Login){
       // Map the Session to the slot session
       rv = fcn->ST_Login(&rSession,userType,pPin,ulPinLen);
-      LOGIT(LOG_DEBUG,"Called STDLL rv = 0x%x",rv);
+      OCK_LOG_DEBUG("Called STDLL rv = 0x%x\n",rv);
    } else {
-      st_err_log(142, __FILE__, __LINE__, __FUNCTION__); 
+      OCK_LOG_ERR(ERR_FUNCTION_NOT_SUPPORTED); 
       rv = CKR_FUNCTION_NOT_SUPPORTED;
    }
    return rv;
@@ -3448,31 +3433,31 @@ C_Logout ( CK_SESSION_HANDLE hSession )
    ST_SESSION_T rSession;
 
    if (API_Initialized() == FALSE ){
-      st_err_log(72, __FILE__, __LINE__);
+      OCK_LOG_ERR(ERR_CRYPTOKI_NOT_INITIALIZED);
       return CKR_CRYPTOKI_NOT_INITIALIZED;
    }
 
    if (!Valid_Session(hSession, &rSession)){
-      st_err_log(40, __FILE__, __LINE__);
+      OCK_LOG_ERR(ERR_SESSION_HANDLE_INVALID);
       return CKR_SESSION_HANDLE_INVALID;
    }
 
    sltp = &(Anchor->SltList[rSession.slotID]);
    if (sltp->DLLoaded == FALSE ){
-      st_err_log(50, __FILE__, __LINE__); 
+      OCK_LOG_ERR(ERR_TOKEN_NOT_PRESENT); 
       
       return CKR_TOKEN_NOT_PRESENT;
    }
    if ( (fcn=sltp->FcnList) == NULL ){
-      st_err_log(50, __FILE__, __LINE__); 
+      OCK_LOG_ERR(ERR_TOKEN_NOT_PRESENT); 
       return CKR_TOKEN_NOT_PRESENT;
    }
    if (fcn->ST_Logout){
       // Map the Session to the slot session
       rv = fcn->ST_Logout(&rSession);
-      LOGIT(LOG_DEBUG,"Called STDLL rv = 0x%x",rv);
+      OCK_LOG_DEBUG("Called STDLL rv = 0x%x\n",rv);
    } else {
-      st_err_log(142, __FILE__, __LINE__, __FUNCTION__); 
+      OCK_LOG_ERR(ERR_FUNCTION_NOT_SUPPORTED); 
       rv = CKR_FUNCTION_NOT_SUPPORTED;
    }
    return rv;
@@ -3508,44 +3493,44 @@ C_OpenSession ( CK_SLOT_ID            slotID,
    STDLL_FcnList_t  *fcn;
    ST_SESSION_T *apiSessp;
 
-   LOGIT(LOG_DEBUG,"C_OpenSession  %d  %x %x %x  %x",slotID,flags,pApplication,
+   OCK_LOG_DEBUG("C_OpenSession  %d  %x %x %x  %x\n",slotID,flags,pApplication,
          Notify,phSession);
    if (API_Initialized() == FALSE ){
-      st_err_log(72, __FILE__, __LINE__);
+      OCK_LOG_ERR(ERR_CRYPTOKI_NOT_INITIALIZED);
       return CKR_CRYPTOKI_NOT_INITIALIZED;
    }
 
    if (slotID >= NUMBER_SLOTS_MANAGED ) {
-      st_err_log(2, __FILE__, __LINE__);
+      OCK_LOG_ERR(ERR_SLOT_ID_INVALID);
       return CKR_SLOT_ID_INVALID;
    }
 
    if (!phSession) {
-      st_err_log(4, __FILE__, __LINE__, __FUNCTION__);
+      OCK_LOG_ERR(ERR_FUNCTION_FAILED);
       return CKR_FUNCTION_FAILED;
    }
 
    sltp = &(Anchor->SltList[slotID]);
    if (sltp->DLLoaded == FALSE ){
-      st_err_log(50, __FILE__, __LINE__); 
+      OCK_LOG_ERR(ERR_TOKEN_NOT_PRESENT); 
       
       return CKR_TOKEN_NOT_PRESENT;
       // 
       // Need to handle the failure of a load here...
    }
    if ( (fcn=sltp->FcnList) == NULL ){
-      st_err_log(50, __FILE__, __LINE__); 
+      OCK_LOG_ERR(ERR_TOKEN_NOT_PRESENT); 
       return CKR_TOKEN_NOT_PRESENT;
    }
 
    if ( (apiSessp = (ST_SESSION_T *)malloc(sizeof(ST_SESSION_T))) == NULL ){
-      st_err_log(0, __FILE__, __LINE__);
+      OCK_LOG_ERR(ERR_HOST_MEMORY);
       return CKR_HOST_MEMORY;
    }
 
    if (fcn->ST_OpenSession){
       rv = fcn->ST_OpenSession(slotID,flags,&(apiSessp->sessionh));
-      LOGIT(LOG_DEBUG,"Called STDLL rv = 0x%x",rv);
+      OCK_LOG_DEBUG("Called STDLL rv = 0x%x\n",rv);
 
       // If the session allocation is successful, then we need to 
       // complete the API session block and  return.  Otherwise
@@ -3579,7 +3564,7 @@ C_OpenSession ( CK_SLOT_ID            slotID,
          free(apiSessp);
       }
    } else {
-      st_err_log(142, __FILE__, __LINE__, __FUNCTION__); 
+      OCK_LOG_ERR(ERR_FUNCTION_NOT_SUPPORTED); 
       rv = CKR_FUNCTION_NOT_SUPPORTED;
    }
 done:
@@ -3603,44 +3588,44 @@ C_SeedRandom ( CK_SESSION_HANDLE hSession,
    STDLL_FcnList_t  *fcn;
    ST_SESSION_T rSession;
 
-   LOG("C_SeedRandom");
+   OCK_LOG_DEBUG("C_SeedRandom\n");
    if (API_Initialized() == FALSE ){
-      st_err_log(72, __FILE__, __LINE__);
+      OCK_LOG_ERR(ERR_CRYPTOKI_NOT_INITIALIZED);
       return CKR_CRYPTOKI_NOT_INITIALIZED;
    }
 
 
    if (!pSeed && ulSeedLen ){
-      st_err_log(5, __FILE__, __LINE__, __FUNCTION__); 
+      OCK_LOG_ERR(ERR_ARGUMENTS_BAD); 
       return CKR_ARGUMENTS_BAD;
    }
    if (!Valid_Session(hSession, &rSession)){
-      st_err_log(40, __FILE__, __LINE__);
+      OCK_LOG_ERR(ERR_SESSION_HANDLE_INVALID);
       return CKR_SESSION_HANDLE_INVALID;
    }
 
    sltp = &(Anchor->SltList[rSession.slotID]);
    if (sltp->DLLoaded == FALSE ){
-      st_err_log(50, __FILE__, __LINE__); 
+      OCK_LOG_ERR(ERR_TOKEN_NOT_PRESENT); 
       
       return CKR_TOKEN_NOT_PRESENT;
    }
    if ( (fcn=sltp->FcnList) == NULL ){
-      st_err_log(50, __FILE__, __LINE__); 
+      OCK_LOG_ERR(ERR_TOKEN_NOT_PRESENT); 
       return CKR_TOKEN_NOT_PRESENT;
    }
    if (fcn->ST_SeedRandom){
       // Map the Session to the slot session
       rv = fcn->ST_SeedRandom(&rSession,pSeed,ulSeedLen);
-      LOGIT(LOG_DEBUG,"Called STDLL rv = 0x%x",rv);
+      OCK_LOG_DEBUG("Called STDLL rv = 0x%x\n",rv);
    } else {
-      st_err_log(142, __FILE__, __LINE__, __FUNCTION__); 
+      OCK_LOG_ERR(ERR_FUNCTION_NOT_SUPPORTED); 
       rv = CKR_FUNCTION_NOT_SUPPORTED;
    }
    return rv;
 
 
-      st_err_log(142, __FILE__, __LINE__, __FUNCTION__); 
+      OCK_LOG_ERR(ERR_FUNCTION_NOT_SUPPORTED); 
    return CKR_FUNCTION_NOT_SUPPORTED;
 }
 
@@ -3666,42 +3651,42 @@ C_SetAttributeValue ( CK_SESSION_HANDLE hSession,
    STDLL_FcnList_t  *fcn;
    ST_SESSION_T rSession;
 
-   LOG("C_SetAttributeValue");
+   OCK_LOG_DEBUG("C_SetAttributeValue\n");
    if (API_Initialized() == FALSE ){
-      st_err_log(72, __FILE__, __LINE__);
+      OCK_LOG_ERR(ERR_CRYPTOKI_NOT_INITIALIZED);
       return CKR_CRYPTOKI_NOT_INITIALIZED;
    }
 
    if (!Valid_Session(hSession, &rSession)){
-      st_err_log(40, __FILE__, __LINE__);
+      OCK_LOG_ERR(ERR_SESSION_HANDLE_INVALID);
       return CKR_SESSION_HANDLE_INVALID;
    }
    
    if (!pTemplate){
-      st_err_log(48, __FILE__, __LINE__); 
+      OCK_LOG_ERR(ERR_TEMPLATE_INCOMPLETE); 
       return CKR_TEMPLATE_INCOMPLETE;
    }
    if (!ulCount){
-      st_err_log(48, __FILE__, __LINE__); 
+      OCK_LOG_ERR(ERR_TEMPLATE_INCOMPLETE); 
       return CKR_TEMPLATE_INCOMPLETE;
    }
 
    sltp = &(Anchor->SltList[rSession.slotID]);
    if (sltp->DLLoaded == FALSE ){
-      st_err_log(50, __FILE__, __LINE__); 
+      OCK_LOG_ERR(ERR_TOKEN_NOT_PRESENT); 
       
       return CKR_TOKEN_NOT_PRESENT;
    }
    if ( (fcn=sltp->FcnList) == NULL ){
-      st_err_log(50, __FILE__, __LINE__); 
+      OCK_LOG_ERR(ERR_TOKEN_NOT_PRESENT); 
       return CKR_TOKEN_NOT_PRESENT;
    }
    if (fcn->ST_SetAttributeValue){
       // Map the Session to the slot session
       rv = fcn->ST_SetAttributeValue(&rSession,hObject,pTemplate,ulCount);
-      LOGIT(LOG_DEBUG,"Called STDLL rv = 0x%x",rv);
+      OCK_LOG_DEBUG("Called STDLL rv = 0x%x\n",rv);
    } else {
-      st_err_log(142, __FILE__, __LINE__, __FUNCTION__); 
+      OCK_LOG_ERR(ERR_FUNCTION_NOT_SUPPORTED); 
       rv = CKR_FUNCTION_NOT_SUPPORTED;
    }
    return rv;
@@ -3726,45 +3711,45 @@ C_SetOperationState ( CK_SESSION_HANDLE hSession,
    STDLL_FcnList_t  *fcn;
    ST_SESSION_T rSession;
 
-   LOG("C_SetOperationState");
+   OCK_LOG_DEBUG("C_SetOperationState\n");
    if (API_Initialized() == FALSE ){
-      st_err_log(72, __FILE__, __LINE__);
+      OCK_LOG_ERR(ERR_CRYPTOKI_NOT_INITIALIZED);
       return CKR_CRYPTOKI_NOT_INITIALIZED;
    }
 
    if (!Valid_Session(hSession, &rSession)){
-      st_err_log(40, __FILE__, __LINE__);
+      OCK_LOG_ERR(ERR_SESSION_HANDLE_INVALID);
       return CKR_SESSION_HANDLE_INVALID;
    }
 
 
    if (!pOperationState || ulOperationStateLen == 0 ){
-      st_err_log(5, __FILE__, __LINE__, __FUNCTION__); 
+      OCK_LOG_ERR(ERR_ARGUMENTS_BAD); 
       return CKR_ARGUMENTS_BAD;
    }
 
    sltp = &(Anchor->SltList[rSession.slotID]);
    if (sltp->DLLoaded == FALSE ){
-      st_err_log(50, __FILE__, __LINE__); 
+      OCK_LOG_ERR(ERR_TOKEN_NOT_PRESENT); 
       
       return CKR_TOKEN_NOT_PRESENT;
    }
    if ( (fcn=sltp->FcnList) == NULL ){
-      st_err_log(50, __FILE__, __LINE__); 
+      OCK_LOG_ERR(ERR_TOKEN_NOT_PRESENT); 
       return CKR_TOKEN_NOT_PRESENT;
    }
    if (fcn->ST_SetOperationState){
       // Map the Session to the slot session
       rv = fcn->ST_SetOperationState(&rSession,pOperationState,ulOperationStateLen,hEncryptionKey,
                hAuthenticationKey);
-      LOGIT(LOG_DEBUG,"Called STDLL rv = 0x%x",rv);
+      OCK_LOG_DEBUG("Called STDLL rv = 0x%x\n",rv);
    } else {
-      st_err_log(142, __FILE__, __LINE__, __FUNCTION__); 
+      OCK_LOG_ERR(ERR_FUNCTION_NOT_SUPPORTED); 
       rv = CKR_FUNCTION_NOT_SUPPORTED;
    }
    return rv;
 
-      st_err_log(142, __FILE__, __LINE__, __FUNCTION__); 
+      OCK_LOG_ERR(ERR_FUNCTION_NOT_SUPPORTED); 
    return CKR_FUNCTION_NOT_SUPPORTED;
 }
 
@@ -3792,9 +3777,9 @@ C_SetPIN ( CK_SESSION_HANDLE hSession,
    STDLL_FcnList_t  *fcn;
    ST_SESSION_T rSession;
 
-   LOG("C_SetPIN");
+   OCK_LOG_DEBUG("C_SetPIN\n");
    if (API_Initialized() == FALSE ){
-      st_err_log(72, __FILE__, __LINE__);
+      OCK_LOG_ERR(ERR_CRYPTOKI_NOT_INITIALIZED);
       return CKR_CRYPTOKI_NOT_INITIALIZED;
    }
 
@@ -3802,26 +3787,26 @@ C_SetPIN ( CK_SESSION_HANDLE hSession,
 
 
    if (!Valid_Session(hSession, &rSession)){
-      st_err_log(40, __FILE__, __LINE__);
+      OCK_LOG_ERR(ERR_SESSION_HANDLE_INVALID);
       return CKR_SESSION_HANDLE_INVALID;
    }
 
    sltp = &(Anchor->SltList[rSession.slotID]);
    if (sltp->DLLoaded == FALSE ){
-      st_err_log(50, __FILE__, __LINE__); 
+      OCK_LOG_ERR(ERR_TOKEN_NOT_PRESENT); 
       
       return CKR_TOKEN_NOT_PRESENT;
    }
    if ( (fcn=sltp->FcnList) == NULL ) {
-      st_err_log(50, __FILE__, __LINE__); 
+      OCK_LOG_ERR(ERR_TOKEN_NOT_PRESENT); 
       return CKR_TOKEN_NOT_PRESENT;
    }
    if (fcn->ST_SetPIN){
       // Map the Session to the slot session
       rv = fcn->ST_SetPIN(&rSession,pOldPin,ulOldLen,pNewPin,ulNewLen);
-      LOGIT(LOG_DEBUG,"Called STDLL rv = 0x%x",rv);
+      OCK_LOG_DEBUG("Called STDLL rv = 0x%x\n",rv);
    } else {
-      st_err_log(142, __FILE__, __LINE__, __FUNCTION__); 
+      OCK_LOG_ERR(ERR_FUNCTION_NOT_SUPPORTED); 
       rv = CKR_FUNCTION_NOT_SUPPORTED;
    }
    return rv;
@@ -3852,37 +3837,37 @@ C_Sign ( CK_SESSION_HANDLE hSession,
    STDLL_FcnList_t  *fcn;
    ST_SESSION_T rSession;
 
-   LOG("C_Sign");
+   OCK_LOG_DEBUG("C_Sign\n");
    if (API_Initialized() == FALSE ){
-      st_err_log(72, __FILE__, __LINE__);
+      OCK_LOG_ERR(ERR_CRYPTOKI_NOT_INITIALIZED);
       return CKR_CRYPTOKI_NOT_INITIALIZED;
    }
 
    if (!pData || !pulSignatureLen){
-      st_err_log(5, __FILE__, __LINE__, __FUNCTION__); 
+      OCK_LOG_ERR(ERR_ARGUMENTS_BAD); 
       return CKR_ARGUMENTS_BAD;
    }
    if (!Valid_Session(hSession, &rSession)){
-      st_err_log(40, __FILE__, __LINE__);
+      OCK_LOG_ERR(ERR_SESSION_HANDLE_INVALID);
       return CKR_SESSION_HANDLE_INVALID;
    }
 
    sltp = &(Anchor->SltList[rSession.slotID]);
    if (sltp->DLLoaded == FALSE ){
-      st_err_log(50, __FILE__, __LINE__); 
+      OCK_LOG_ERR(ERR_TOKEN_NOT_PRESENT); 
       
       return CKR_TOKEN_NOT_PRESENT;
    }
    if ( (fcn=sltp->FcnList) == NULL ) {
-      st_err_log(50, __FILE__, __LINE__); 
+      OCK_LOG_ERR(ERR_TOKEN_NOT_PRESENT); 
       return CKR_TOKEN_NOT_PRESENT;
    }
    if (fcn->ST_Sign){
       // Map the Session to the slot session
       rv = fcn->ST_Sign(&rSession,pData,ulDataLen,pSignature,pulSignatureLen);
-      LOGIT(LOG_DEBUG,"Called STDLL rv = 0x%x",rv);
+      OCK_LOG_DEBUG("Called STDLL rv = 0x%x\n",rv);
    } else {
-      st_err_log(142, __FILE__, __LINE__, __FUNCTION__); 
+      OCK_LOG_ERR(ERR_FUNCTION_NOT_SUPPORTED); 
       rv = CKR_FUNCTION_NOT_SUPPORTED;
    }
    return rv;
@@ -3907,43 +3892,43 @@ C_SignEncryptUpdate ( CK_SESSION_HANDLE hSession,
    STDLL_FcnList_t  *fcn;
    ST_SESSION_T rSession;
 
-   LOG("C_SignEncryptUpdate");
+   OCK_LOG_DEBUG("C_SignEncryptUpdate\n");
    if (API_Initialized() == FALSE ){
-      st_err_log(72, __FILE__, __LINE__);
+      OCK_LOG_ERR(ERR_CRYPTOKI_NOT_INITIALIZED);
       return CKR_CRYPTOKI_NOT_INITIALIZED;
    }
 
    if (!pPart || !pulEncryptedPartLen){
-      st_err_log(5, __FILE__, __LINE__, __FUNCTION__); 
+      OCK_LOG_ERR(ERR_ARGUMENTS_BAD); 
       return CKR_ARGUMENTS_BAD;
    }
    if (!Valid_Session(hSession, &rSession)){
-      st_err_log(40, __FILE__, __LINE__);
+      OCK_LOG_ERR(ERR_SESSION_HANDLE_INVALID);
       return CKR_SESSION_HANDLE_INVALID;
    }
 
    sltp = &(Anchor->SltList[rSession.slotID]);
    if (sltp->DLLoaded == FALSE ){
-      st_err_log(50, __FILE__, __LINE__); 
+      OCK_LOG_ERR(ERR_TOKEN_NOT_PRESENT); 
       
       return CKR_TOKEN_NOT_PRESENT;
    }
    if ( (fcn=sltp->FcnList) == NULL ){
-      st_err_log(50, __FILE__, __LINE__); 
+      OCK_LOG_ERR(ERR_TOKEN_NOT_PRESENT); 
       return CKR_TOKEN_NOT_PRESENT;
    }
    if (fcn->ST_SignEncryptUpdate){
       // Map the Session to the slot session
       rv = fcn->ST_SignEncryptUpdate(&rSession,pPart,ulPartLen,pEncryptedPart,pulEncryptedPartLen);
-      LOGIT(LOG_DEBUG,"Called STDLL rv = 0x%x",rv);
+      OCK_LOG_DEBUG("Called STDLL rv = 0x%x\n",rv);
    } else {
-      st_err_log(142, __FILE__, __LINE__, __FUNCTION__); 
+      OCK_LOG_ERR(ERR_FUNCTION_NOT_SUPPORTED); 
       rv = CKR_FUNCTION_NOT_SUPPORTED;
    }
    return rv;
 
 
-      st_err_log(142, __FILE__, __LINE__, __FUNCTION__); 
+      OCK_LOG_ERR(ERR_FUNCTION_NOT_SUPPORTED); 
    return CKR_FUNCTION_NOT_SUPPORTED;
 }
 
@@ -3967,44 +3952,44 @@ C_SignFinal ( CK_SESSION_HANDLE hSession,
    STDLL_FcnList_t  *fcn;
    ST_SESSION_T rSession;
 
-   LOG("C_SignEncryptUpdate");
+   OCK_LOG_DEBUG("C_SignEncryptUpdate\n");
    if (API_Initialized() == FALSE ){
-      st_err_log(72, __FILE__, __LINE__);
+      OCK_LOG_ERR(ERR_CRYPTOKI_NOT_INITIALIZED);
       return CKR_CRYPTOKI_NOT_INITIALIZED;
    }
 
    if (!pulSignatureLen){
-      st_err_log(5, __FILE__, __LINE__, __FUNCTION__); 
+      OCK_LOG_ERR(ERR_ARGUMENTS_BAD); 
       return CKR_ARGUMENTS_BAD;
    }
 
    if (!Valid_Session(hSession, &rSession)){
-      st_err_log(40, __FILE__, __LINE__);
+      OCK_LOG_ERR(ERR_SESSION_HANDLE_INVALID);
       return CKR_SESSION_HANDLE_INVALID;
    }
 
    sltp = &(Anchor->SltList[rSession.slotID]);
    if (sltp->DLLoaded == FALSE ){
-      st_err_log(50, __FILE__, __LINE__); 
+      OCK_LOG_ERR(ERR_TOKEN_NOT_PRESENT); 
       
       return CKR_TOKEN_NOT_PRESENT;
    }
    if ( (fcn=sltp->FcnList) == NULL ) {
-      st_err_log(50, __FILE__, __LINE__); 
+      OCK_LOG_ERR(ERR_TOKEN_NOT_PRESENT); 
       return CKR_TOKEN_NOT_PRESENT;
    }
    if (fcn->ST_SignFinal){
       // Map the Session to the slot session
       rv = fcn->ST_SignFinal(&rSession,pSignature,pulSignatureLen);
-      LOGIT(LOG_DEBUG,"Called STDLL rv = 0x%x",rv);
+      OCK_LOG_DEBUG("Called STDLL rv = 0x%x\n",rv);
    } else {
-      st_err_log(142, __FILE__, __LINE__, __FUNCTION__); 
+      OCK_LOG_ERR(ERR_FUNCTION_NOT_SUPPORTED); 
       rv = CKR_FUNCTION_NOT_SUPPORTED;
    }
    return rv;
 
 
-      st_err_log(142, __FILE__, __LINE__, __FUNCTION__); 
+      OCK_LOG_ERR(ERR_FUNCTION_NOT_SUPPORTED); 
    return CKR_FUNCTION_NOT_SUPPORTED;
 } // end of C_SignFinal
 
@@ -4028,37 +4013,37 @@ C_SignInit ( CK_SESSION_HANDLE hSession,
    STDLL_FcnList_t  *fcn;
    ST_SESSION_T rSession;
 
-   LOG("C_SignInit");
+   OCK_LOG_DEBUG("C_SignInit\n");
    if (API_Initialized() == FALSE ){
-      st_err_log(72, __FILE__, __LINE__);
+      OCK_LOG_ERR(ERR_CRYPTOKI_NOT_INITIALIZED);
       return CKR_CRYPTOKI_NOT_INITIALIZED;
    }
 
    if (!pMechanism){
-      st_err_log(28, __FILE__, __LINE__); 
+      OCK_LOG_ERR(ERR_MECHANISM_INVALID); 
       return CKR_MECHANISM_INVALID;
    }
    if (!Valid_Session(hSession, &rSession)){
-      st_err_log(40, __FILE__, __LINE__);
+      OCK_LOG_ERR(ERR_SESSION_HANDLE_INVALID);
       return CKR_SESSION_HANDLE_INVALID;
    }
 
    sltp = &(Anchor->SltList[rSession.slotID]);
    if (sltp->DLLoaded == FALSE ){
-      st_err_log(50, __FILE__, __LINE__); 
+      OCK_LOG_ERR(ERR_TOKEN_NOT_PRESENT); 
       
       return CKR_TOKEN_NOT_PRESENT;
    }
    if ( (fcn=sltp->FcnList) == NULL ) {
-      st_err_log(50, __FILE__, __LINE__); 
+      OCK_LOG_ERR(ERR_TOKEN_NOT_PRESENT); 
       return CKR_TOKEN_NOT_PRESENT;
    }
    if (fcn->ST_SignInit){
       // Map the Session to the slot session
       rv = fcn->ST_SignInit(&rSession,pMechanism,hKey);
-      LOGIT(LOG_DEBUG,"Called STDLL rv = 0x%x",rv);
+      OCK_LOG_DEBUG("Called STDLL rv = 0x%x\n",rv);
    } else {
-      st_err_log(142, __FILE__, __LINE__, __FUNCTION__); 
+      OCK_LOG_ERR(ERR_FUNCTION_NOT_SUPPORTED); 
       rv = CKR_FUNCTION_NOT_SUPPORTED;
    }
    return rv;
@@ -4083,43 +4068,43 @@ C_SignRecover ( CK_SESSION_HANDLE hSession,
    STDLL_FcnList_t  *fcn;
    ST_SESSION_T rSession;
 
-   LOG("C_SignRecover");
+   OCK_LOG_DEBUG("C_SignRecover\n");
    if (API_Initialized() == FALSE ){
-      st_err_log(72, __FILE__, __LINE__);
+      OCK_LOG_ERR(ERR_CRYPTOKI_NOT_INITIALIZED);
       return CKR_CRYPTOKI_NOT_INITIALIZED;
    }
 
    if (!pData || !pulSignatureLen){
-      st_err_log(5, __FILE__, __LINE__, __FUNCTION__); 
+      OCK_LOG_ERR(ERR_ARGUMENTS_BAD); 
       return CKR_ARGUMENTS_BAD;
    }
    if (!Valid_Session(hSession, &rSession)){
-      st_err_log(40, __FILE__, __LINE__);
+      OCK_LOG_ERR(ERR_SESSION_HANDLE_INVALID);
       return CKR_SESSION_HANDLE_INVALID;
    }
 
    sltp = &(Anchor->SltList[rSession.slotID]);
    if (sltp->DLLoaded == FALSE ){
-      st_err_log(50, __FILE__, __LINE__); 
+      OCK_LOG_ERR(ERR_TOKEN_NOT_PRESENT); 
       
       return CKR_TOKEN_NOT_PRESENT;
    }
    if ( (fcn=sltp->FcnList) == NULL ){
-      st_err_log(50, __FILE__, __LINE__); 
+      OCK_LOG_ERR(ERR_TOKEN_NOT_PRESENT); 
       return CKR_TOKEN_NOT_PRESENT;
    }
    if (fcn->ST_SignRecover){
       // Map the Session to the slot session
       rv = fcn->ST_SignRecover(&rSession,pData,ulDataLen,pSignature,pulSignatureLen);
-      LOGIT(LOG_DEBUG,"Called STDLL rv = 0x%x",rv);
+      OCK_LOG_DEBUG("Called STDLL rv = 0x%x\n",rv);
    } else {
-      st_err_log(142, __FILE__, __LINE__, __FUNCTION__); 
+      OCK_LOG_ERR(ERR_FUNCTION_NOT_SUPPORTED); 
       rv = CKR_FUNCTION_NOT_SUPPORTED;
    }
    return rv;
 
 
-      st_err_log(142, __FILE__, __LINE__, __FUNCTION__); 
+      OCK_LOG_ERR(ERR_FUNCTION_NOT_SUPPORTED); 
    return CKR_FUNCTION_NOT_SUPPORTED;
 }
 
@@ -4140,43 +4125,43 @@ C_SignRecoverInit ( CK_SESSION_HANDLE hSession,
    STDLL_FcnList_t  *fcn;
    ST_SESSION_T rSession;
 
-   LOG("C_SignRecoverInit");
+   OCK_LOG_DEBUG("C_SignRecoverInit\n");
    if (API_Initialized() == FALSE ){
-      st_err_log(72, __FILE__, __LINE__);
+      OCK_LOG_ERR(ERR_CRYPTOKI_NOT_INITIALIZED);
       return CKR_CRYPTOKI_NOT_INITIALIZED;
    }
 
    if (!pMechanism){
-      st_err_log(28, __FILE__, __LINE__); 
+      OCK_LOG_ERR(ERR_MECHANISM_INVALID); 
       return CKR_MECHANISM_INVALID;
    }
    if (!Valid_Session(hSession, &rSession)){
-      st_err_log(40, __FILE__, __LINE__);
+      OCK_LOG_ERR(ERR_SESSION_HANDLE_INVALID);
       return CKR_SESSION_HANDLE_INVALID;
    }
 
    sltp = &(Anchor->SltList[rSession.slotID]);
    if (sltp->DLLoaded == FALSE ){
-      st_err_log(50, __FILE__, __LINE__); 
+      OCK_LOG_ERR(ERR_TOKEN_NOT_PRESENT); 
       
       return CKR_TOKEN_NOT_PRESENT;
    }
    if ( (fcn=sltp->FcnList) == NULL ){
-      st_err_log(50, __FILE__, __LINE__); 
+      OCK_LOG_ERR(ERR_TOKEN_NOT_PRESENT); 
       return CKR_TOKEN_NOT_PRESENT;
    }
    if (fcn->ST_SignRecoverInit){
       // Map the Session to the slot session
       rv = fcn->ST_SignRecoverInit(&rSession,pMechanism,hKey);
-      LOGIT(LOG_DEBUG,"Called STDLL rv = 0x%x",rv);
+      OCK_LOG_DEBUG("Called STDLL rv = 0x%x\n",rv);
    } else {
-      st_err_log(142, __FILE__, __LINE__, __FUNCTION__); 
+      OCK_LOG_ERR(ERR_FUNCTION_NOT_SUPPORTED); 
       rv = CKR_FUNCTION_NOT_SUPPORTED;
    }
    return rv;
 
 
-      st_err_log(142, __FILE__, __LINE__, __FUNCTION__); 
+      OCK_LOG_ERR(ERR_FUNCTION_NOT_SUPPORTED); 
    return CKR_FUNCTION_NOT_SUPPORTED;
 }
 
@@ -4200,43 +4185,43 @@ C_SignUpdate ( CK_SESSION_HANDLE hSession,
    STDLL_FcnList_t  *fcn;
    ST_SESSION_T rSession;
 
-   LOG("C_SignUpdate");
+   OCK_LOG_DEBUG("C_SignUpdate\n");
    if (API_Initialized() == FALSE ){
-      st_err_log(72, __FILE__, __LINE__);
+      OCK_LOG_ERR(ERR_CRYPTOKI_NOT_INITIALIZED);
       return CKR_CRYPTOKI_NOT_INITIALIZED;
    }
 
    if (!pPart){
-      st_err_log(5, __FILE__, __LINE__, __FUNCTION__); 
+      OCK_LOG_ERR(ERR_ARGUMENTS_BAD); 
       return CKR_ARGUMENTS_BAD;
    }
    if (!Valid_Session(hSession, &rSession)){
-      st_err_log(40, __FILE__, __LINE__);
+      OCK_LOG_ERR(ERR_SESSION_HANDLE_INVALID);
       return CKR_SESSION_HANDLE_INVALID;
    }
 
    sltp = &(Anchor->SltList[rSession.slotID]);
    if (sltp->DLLoaded == FALSE ){
-      st_err_log(50, __FILE__, __LINE__); 
+      OCK_LOG_ERR(ERR_TOKEN_NOT_PRESENT); 
       
       return CKR_TOKEN_NOT_PRESENT;
    }
    if ( (fcn=sltp->FcnList) == NULL ){
-      st_err_log(50, __FILE__, __LINE__); 
+      OCK_LOG_ERR(ERR_TOKEN_NOT_PRESENT); 
       return CKR_TOKEN_NOT_PRESENT;
    }
    if (fcn->ST_SignUpdate){
       // Map the Session to the slot session
       rv = fcn->ST_SignUpdate(&rSession,pPart,ulPartLen);
-      LOGIT(LOG_DEBUG,"Called STDLL rv = 0x%x",rv);
+      OCK_LOG_DEBUG("Called STDLL rv = 0x%x\n",rv);
    } else {
-      st_err_log(142, __FILE__, __LINE__, __FUNCTION__); 
+      OCK_LOG_ERR(ERR_FUNCTION_NOT_SUPPORTED); 
       rv = CKR_FUNCTION_NOT_SUPPORTED;
    }
    return rv;
 
 
-      st_err_log(142, __FILE__, __LINE__, __FUNCTION__); 
+      OCK_LOG_ERR(ERR_FUNCTION_NOT_SUPPORTED); 
    return CKR_FUNCTION_NOT_SUPPORTED;
 } // end of C_SignUpdate
 
@@ -4262,51 +4247,51 @@ C_UnwrapKey ( CK_SESSION_HANDLE    hSession,
    STDLL_FcnList_t  *fcn;
    ST_SESSION_T rSession;
 
-   LOG("C_UnwrapKey");
+   OCK_LOG_DEBUG("C_UnwrapKey\n");
    if (API_Initialized() == FALSE ){
-      st_err_log(72, __FILE__, __LINE__);
+      OCK_LOG_ERR(ERR_CRYPTOKI_NOT_INITIALIZED);
       return CKR_CRYPTOKI_NOT_INITIALIZED;
    }
 
    if (!pMechanism){
-      st_err_log(28, __FILE__, __LINE__); 
+      OCK_LOG_ERR(ERR_MECHANISM_INVALID); 
       return CKR_MECHANISM_INVALID;
    }
    if (!phKey){
-      st_err_log(5, __FILE__, __LINE__, __FUNCTION__); 
+      OCK_LOG_ERR(ERR_ARGUMENTS_BAD); 
       return CKR_ARGUMENTS_BAD;
    }
    //  what about the other pointers... probably need
    // to be set correctly
 
    if (!Valid_Session(hSession, &rSession)){
-      st_err_log(40, __FILE__, __LINE__);
+      OCK_LOG_ERR(ERR_SESSION_HANDLE_INVALID);
       return CKR_SESSION_HANDLE_INVALID;
    }
 
    sltp = &(Anchor->SltList[rSession.slotID]);
    if (sltp->DLLoaded == FALSE ){
-      st_err_log(50, __FILE__, __LINE__); 
+      OCK_LOG_ERR(ERR_TOKEN_NOT_PRESENT); 
       
       return CKR_TOKEN_NOT_PRESENT;
    }
    if ( (fcn=sltp->FcnList) == NULL ){
-      st_err_log(50, __FILE__, __LINE__); 
+      OCK_LOG_ERR(ERR_TOKEN_NOT_PRESENT); 
       return CKR_TOKEN_NOT_PRESENT;
    }
    if (fcn->ST_UnwrapKey){
       // Map the Session to the slot session
       rv = fcn->ST_UnwrapKey(&rSession,pMechanism,hUnwrappingKey,pWrappedKey,ulWrappedKeyLen,
                pTemplate,ulAttributeCount,phKey);
-      LOGIT(LOG_DEBUG,"Called STDLL rv = 0x%x",rv);
+      OCK_LOG_DEBUG("Called STDLL rv = 0x%x\n",rv);
    } else {
-      st_err_log(142, __FILE__, __LINE__, __FUNCTION__); 
+      OCK_LOG_ERR(ERR_FUNCTION_NOT_SUPPORTED); 
       rv = CKR_FUNCTION_NOT_SUPPORTED;
    }
    return rv;
 
 
-      st_err_log(142, __FILE__, __LINE__, __FUNCTION__); 
+      OCK_LOG_ERR(ERR_FUNCTION_NOT_SUPPORTED); 
    return CKR_FUNCTION_NOT_SUPPORTED;
 }
 
@@ -4330,37 +4315,37 @@ C_Verify ( CK_SESSION_HANDLE hSession,
    STDLL_FcnList_t  *fcn;
    ST_SESSION_T rSession;
 
-   LOG("C_Verify");
+   OCK_LOG_DEBUG("C_Verify\n");
    if (API_Initialized() == FALSE ){
-      st_err_log(72, __FILE__, __LINE__);
+      OCK_LOG_ERR(ERR_CRYPTOKI_NOT_INITIALIZED);
       return CKR_CRYPTOKI_NOT_INITIALIZED;
    }
 
    if (!pData || !pSignature){
-      st_err_log(5, __FILE__, __LINE__, __FUNCTION__); 
+      OCK_LOG_ERR(ERR_ARGUMENTS_BAD); 
       return CKR_ARGUMENTS_BAD;
    }
    if (!Valid_Session(hSession, &rSession)){
-      st_err_log(40, __FILE__, __LINE__);
+      OCK_LOG_ERR(ERR_SESSION_HANDLE_INVALID);
       return CKR_SESSION_HANDLE_INVALID;
    }
 
    sltp = &(Anchor->SltList[rSession.slotID]);
    if (sltp->DLLoaded == FALSE ){
-      st_err_log(50, __FILE__, __LINE__); 
+      OCK_LOG_ERR(ERR_TOKEN_NOT_PRESENT); 
       
       return CKR_TOKEN_NOT_PRESENT;
    }
    if ( (fcn=sltp->FcnList) == NULL ){
-      st_err_log(50, __FILE__, __LINE__); 
+      OCK_LOG_ERR(ERR_TOKEN_NOT_PRESENT); 
       return CKR_TOKEN_NOT_PRESENT;
    }
    if (fcn->ST_Verify){
       // Map the Session to the slot session
       rv = fcn->ST_Verify(&rSession,pData,ulDataLen,pSignature,ulSignatureLen);
-      LOGIT(LOG_DEBUG,"Called STDLL rv = 0x%x",rv);
+      OCK_LOG_DEBUG("Called STDLL rv = 0x%x\n",rv);
    } else {
-      st_err_log(142, __FILE__, __LINE__, __FUNCTION__); 
+      OCK_LOG_ERR(ERR_FUNCTION_NOT_SUPPORTED); 
       rv = CKR_FUNCTION_NOT_SUPPORTED;
    }
    return rv;
@@ -4383,43 +4368,43 @@ C_VerifyFinal ( CK_SESSION_HANDLE hSession,
    STDLL_FcnList_t  *fcn;
    ST_SESSION_T rSession;
 
-   LOG("C_VerifyFinal");
+   OCK_LOG_DEBUG("C_VerifyFinal\n");
    if (API_Initialized() == FALSE ){
-      st_err_log(72, __FILE__, __LINE__);
+      OCK_LOG_ERR(ERR_CRYPTOKI_NOT_INITIALIZED);
       return CKR_CRYPTOKI_NOT_INITIALIZED;
    }
 
    if (!pSignature){
-      st_err_log(5, __FILE__, __LINE__, __FUNCTION__); 
+      OCK_LOG_ERR(ERR_ARGUMENTS_BAD); 
       return CKR_ARGUMENTS_BAD;
    }
    if (!Valid_Session(hSession, &rSession)){
-      st_err_log(40, __FILE__, __LINE__);
+      OCK_LOG_ERR(ERR_SESSION_HANDLE_INVALID);
       return CKR_SESSION_HANDLE_INVALID;
    }
 
    sltp = &(Anchor->SltList[rSession.slotID]);
    if (sltp->DLLoaded == FALSE ){
-      st_err_log(50, __FILE__, __LINE__); 
+      OCK_LOG_ERR(ERR_TOKEN_NOT_PRESENT); 
       
       return CKR_TOKEN_NOT_PRESENT;
    }
    if ( (fcn=sltp->FcnList) == NULL ){
-      st_err_log(50, __FILE__, __LINE__); 
+      OCK_LOG_ERR(ERR_TOKEN_NOT_PRESENT); 
       return CKR_TOKEN_NOT_PRESENT;
    }
    if (fcn->ST_VerifyFinal){
       // Map the Session to the slot session
       rv = fcn->ST_VerifyFinal(&rSession,pSignature,ulSignatureLen);
-      LOGIT(LOG_DEBUG,"Called STDLL rv = 0x%x",rv);
+      OCK_LOG_DEBUG("Called STDLL rv = 0x%x\n",rv);
    } else {
-      st_err_log(142, __FILE__, __LINE__, __FUNCTION__); 
+      OCK_LOG_ERR(ERR_FUNCTION_NOT_SUPPORTED); 
       rv = CKR_FUNCTION_NOT_SUPPORTED;
    }
    return rv;
 
 
-      st_err_log(142, __FILE__, __LINE__, __FUNCTION__); 
+      OCK_LOG_ERR(ERR_FUNCTION_NOT_SUPPORTED); 
    return CKR_FUNCTION_NOT_SUPPORTED;
 }
 
@@ -4439,37 +4424,37 @@ C_VerifyInit ( CK_SESSION_HANDLE hSession,
    STDLL_FcnList_t  *fcn;
    ST_SESSION_T rSession;
 
-   LOG("C_VerifyInit");
+   OCK_LOG_DEBUG("C_VerifyInit\n");
    if (API_Initialized() == FALSE ){
-      st_err_log(72, __FILE__, __LINE__);
+      OCK_LOG_ERR(ERR_CRYPTOKI_NOT_INITIALIZED);
       return CKR_CRYPTOKI_NOT_INITIALIZED;
    }
 
    if (!pMechanism){
-      st_err_log(28, __FILE__, __LINE__); 
+      OCK_LOG_ERR(ERR_MECHANISM_INVALID); 
       return CKR_MECHANISM_INVALID;
    }
    if (!Valid_Session(hSession, &rSession)){
-      st_err_log(40, __FILE__, __LINE__);
+      OCK_LOG_ERR(ERR_SESSION_HANDLE_INVALID);
       return CKR_SESSION_HANDLE_INVALID;
    }
 
    sltp = &(Anchor->SltList[rSession.slotID]);
    if (sltp->DLLoaded == FALSE ){
-      st_err_log(50, __FILE__, __LINE__); 
+      OCK_LOG_ERR(ERR_TOKEN_NOT_PRESENT); 
       
       return CKR_TOKEN_NOT_PRESENT;
    }
    if ( (fcn=sltp->FcnList) == NULL ){
-      st_err_log(50, __FILE__, __LINE__); 
+      OCK_LOG_ERR(ERR_TOKEN_NOT_PRESENT); 
       return CKR_TOKEN_NOT_PRESENT;
    }
    if (fcn->ST_VerifyInit){
       // Map the Session to the slot session
       rv = fcn->ST_VerifyInit(&rSession,pMechanism,hKey);
-      LOGIT(LOG_DEBUG,"Called STDLL rv = 0x%x",rv);
+      OCK_LOG_DEBUG("Called STDLL rv = 0x%x\n",rv);
    } else {
-      st_err_log(142, __FILE__, __LINE__, __FUNCTION__); 
+      OCK_LOG_ERR(ERR_FUNCTION_NOT_SUPPORTED); 
       rv = CKR_FUNCTION_NOT_SUPPORTED;
    }
    return rv;
@@ -4496,36 +4481,36 @@ C_VerifyRecover ( CK_SESSION_HANDLE hSession,
    STDLL_FcnList_t  *fcn;
    ST_SESSION_T rSession;
 
-   LOG("C_VerifyRecover");
+   OCK_LOG_DEBUG("C_VerifyRecover\n");
    if (API_Initialized() == FALSE ){
-      st_err_log(72, __FILE__, __LINE__);
+      OCK_LOG_ERR(ERR_CRYPTOKI_NOT_INITIALIZED);
       return CKR_CRYPTOKI_NOT_INITIALIZED;
    }
    if (!pSignature || !pulDataLen){
-      st_err_log(5, __FILE__, __LINE__, __FUNCTION__); 
+      OCK_LOG_ERR(ERR_ARGUMENTS_BAD); 
       return CKR_ARGUMENTS_BAD;
    }
    if (!Valid_Session(hSession, &rSession)){
-      st_err_log(40, __FILE__, __LINE__);
+      OCK_LOG_ERR(ERR_SESSION_HANDLE_INVALID);
       return CKR_SESSION_HANDLE_INVALID;
    }
 
    sltp = &(Anchor->SltList[rSession.slotID]);
    if (sltp->DLLoaded == FALSE ){
-      st_err_log(50, __FILE__, __LINE__); 
+      OCK_LOG_ERR(ERR_TOKEN_NOT_PRESENT); 
       
       return CKR_TOKEN_NOT_PRESENT;
    }
    if ( (fcn=sltp->FcnList) == NULL ){
-      st_err_log(50, __FILE__, __LINE__); 
+      OCK_LOG_ERR(ERR_TOKEN_NOT_PRESENT); 
       return CKR_TOKEN_NOT_PRESENT;
    }
    if (fcn->ST_VerifyRecover){
       // Map the Session to the slot session
       rv = fcn->ST_VerifyRecover(&rSession,pSignature,ulSignatureLen,pData,pulDataLen);
-      LOGIT(LOG_DEBUG,"Called STDLL rv = 0x%x",rv);
+      OCK_LOG_DEBUG("Called STDLL rv = 0x%x\n",rv);
    } else {
-      st_err_log(142, __FILE__, __LINE__, __FUNCTION__); 
+      OCK_LOG_ERR(ERR_FUNCTION_NOT_SUPPORTED); 
       rv = CKR_FUNCTION_NOT_SUPPORTED;
    }
    return rv;
@@ -4548,37 +4533,37 @@ C_VerifyRecoverInit ( CK_SESSION_HANDLE hSession,
    STDLL_FcnList_t  *fcn;
    ST_SESSION_T rSession;
 
-   LOG("C_VerifyRecoverInit");
+   OCK_LOG_DEBUG("C_VerifyRecoverInit\n");
    if (API_Initialized() == FALSE ){
-      st_err_log(72, __FILE__, __LINE__);
+      OCK_LOG_ERR(ERR_CRYPTOKI_NOT_INITIALIZED);
       return CKR_CRYPTOKI_NOT_INITIALIZED;
    }
 
    if (!pMechanism){
-      st_err_log(28, __FILE__, __LINE__); 
+      OCK_LOG_ERR(ERR_MECHANISM_INVALID); 
       return CKR_MECHANISM_INVALID;
    }
    if (!Valid_Session(hSession, &rSession)){
-      st_err_log(40, __FILE__, __LINE__);
+      OCK_LOG_ERR(ERR_SESSION_HANDLE_INVALID);
       return CKR_SESSION_HANDLE_INVALID;
    }
 
    sltp = &(Anchor->SltList[rSession.slotID]);
    if (sltp->DLLoaded == FALSE ){
-      st_err_log(50, __FILE__, __LINE__); 
+      OCK_LOG_ERR(ERR_TOKEN_NOT_PRESENT); 
       
       return CKR_TOKEN_NOT_PRESENT;
    }
    if ( (fcn=sltp->FcnList) == NULL ){
-      st_err_log(50, __FILE__, __LINE__); 
+      OCK_LOG_ERR(ERR_TOKEN_NOT_PRESENT); 
       return CKR_TOKEN_NOT_PRESENT;
    }
    if (fcn->ST_VerifyRecoverInit){
       // Map the Session to the slot session
       rv = fcn->ST_VerifyRecoverInit(&rSession,pMechanism,hKey);
-      LOGIT(LOG_DEBUG,"Called STDLL rv = 0x%x",rv);
+      OCK_LOG_DEBUG("Called STDLL rv = 0x%x\n",rv);
    } else {
-      st_err_log(142, __FILE__, __LINE__, __FUNCTION__); 
+      OCK_LOG_ERR(ERR_FUNCTION_NOT_SUPPORTED); 
       rv = CKR_FUNCTION_NOT_SUPPORTED;
    }
    return rv;
@@ -4601,37 +4586,37 @@ C_VerifyUpdate ( CK_SESSION_HANDLE hSession,
    STDLL_FcnList_t  *fcn;
    ST_SESSION_T rSession;
 
-   LOG("C_VerifyUpdate");
+   OCK_LOG_DEBUG("C_VerifyUpdate\n");
    if (API_Initialized() == FALSE ){
-      st_err_log(72, __FILE__, __LINE__);
+      OCK_LOG_ERR(ERR_CRYPTOKI_NOT_INITIALIZED);
       return CKR_CRYPTOKI_NOT_INITIALIZED;
    }
 
    if (!pPart){
-      st_err_log(5, __FILE__, __LINE__, __FUNCTION__); 
+      OCK_LOG_ERR(ERR_ARGUMENTS_BAD); 
       return CKR_ARGUMENTS_BAD;
    }
    if (!Valid_Session(hSession, &rSession)){
-      st_err_log(40, __FILE__, __LINE__);
+      OCK_LOG_ERR(ERR_SESSION_HANDLE_INVALID);
       return CKR_SESSION_HANDLE_INVALID;
    }
 
    sltp = &(Anchor->SltList[rSession.slotID]);
    if (sltp->DLLoaded == FALSE ){
-      st_err_log(50, __FILE__, __LINE__); 
+      OCK_LOG_ERR(ERR_TOKEN_NOT_PRESENT); 
       
       return CKR_TOKEN_NOT_PRESENT;
    }
    if ( (fcn=sltp->FcnList) == NULL ){
-      st_err_log(50, __FILE__, __LINE__); 
+      OCK_LOG_ERR(ERR_TOKEN_NOT_PRESENT); 
       return CKR_TOKEN_NOT_PRESENT;
    } 
    if (fcn->ST_VerifyUpdate){
       // Map the Session to the slot session
       rv = fcn->ST_VerifyUpdate(&rSession,pPart,ulPartLen);
-      LOGIT(LOG_DEBUG,"Called STDLL rv = 0x%x",rv);
+      OCK_LOG_DEBUG("Called STDLL rv = 0x%x\n",rv);
    } else {
-      st_err_log(142, __FILE__, __LINE__, __FUNCTION__); 
+      OCK_LOG_ERR(ERR_FUNCTION_NOT_SUPPORTED); 
       rv = CKR_FUNCTION_NOT_SUPPORTED;
    }
    return rv;
@@ -4674,11 +4659,11 @@ C_WaitForSlotEvent ( CK_FLAGS       flags,
 #endif
 #endif
 
-   LOG("C_WaitForSlotEvent");
+   OCK_LOG_DEBUG("C_WaitForSlotEvent\n");
 
 
    if (API_Initialized() == FALSE ){
-      st_err_log(72, __FILE__, __LINE__);
+      OCK_LOG_ERR(ERR_CRYPTOKI_NOT_INITIALIZED);
          return CKR_CRYPTOKI_NOT_INITIALIZED;
    }
 
@@ -4690,7 +4675,7 @@ C_WaitForSlotEvent ( CK_FLAGS       flags,
    // has not been fully implemented at this time, although the
    // design and structure of the shared memory in slotd do.
 
-      st_err_log(142, __FILE__, __LINE__, __FUNCTION__); 
+      OCK_LOG_ERR(ERR_FUNCTION_NOT_SUPPORTED); 
    return CKR_FUNCTION_NOT_SUPPORTED;
 #else
    //  Get the pointer to the process element..
@@ -4738,9 +4723,9 @@ C_WaitForSlotEvent ( CK_FLAGS       flags,
          // for this process.  According to the spec this behavior is undefined.
          // We will choose to fail the call.
          if (procp->blocking) {
-            LOGIT(LOG_DEBUG,"WaitForSlot event called by process twice");
+            OCK_LOG_DEBUG("WaitForSlot event called by process twice.\n");
             unlock_shm();  // Unlock aftersetting
-            st_err_log(4, __FILE__, __LINE__, __FUNCTION__);
+            OCK_LOG_ERR(ERR_FUNCTION_FAILED);
             return CKR_FUNCTION_FAILED;
          }
          procp->error = 0;
@@ -4759,7 +4744,7 @@ C_WaitForSlotEvent ( CK_FLAGS       flags,
          procp->blocking = 0;
          if ( procp->error ) {
             unlock_shm();
-            st_err_log(3, __FILE__, __LINE__);
+            OCK_LOG_ERR(ERR_GENERAL_ERROR);
             return CKR_GENERAL_ERROR; // We bailed on this because we were terminating
             // General error should cause the calling thread to not try anything
             // else...  We need to look at how this holds up in practice.
@@ -4800,39 +4785,39 @@ C_WrapKey ( CK_SESSION_HANDLE hSession,
    STDLL_FcnList_t  *fcn;
    ST_SESSION_T rSession;
 
-   LOG("C_WrapKey");
+   OCK_LOG_DEBUG("C_WrapKey\n");
    if (API_Initialized() == FALSE ){
-      st_err_log(72, __FILE__, __LINE__);
+      OCK_LOG_ERR(ERR_CRYPTOKI_NOT_INITIALIZED);
       return CKR_CRYPTOKI_NOT_INITIALIZED;
    }
 
    if (!pMechanism){
-      st_err_log(28, __FILE__, __LINE__); 
+      OCK_LOG_ERR(ERR_MECHANISM_INVALID); 
       return CKR_MECHANISM_INVALID;
    }
    //   other pointers???
 
    if (!Valid_Session(hSession, &rSession)){
-      st_err_log(40, __FILE__, __LINE__);
+      OCK_LOG_ERR(ERR_SESSION_HANDLE_INVALID);
       return CKR_SESSION_HANDLE_INVALID;
    }
 
    sltp = &(Anchor->SltList[rSession.slotID]);
    if (sltp->DLLoaded == FALSE ){
-      st_err_log(50, __FILE__, __LINE__); 
+      OCK_LOG_ERR(ERR_TOKEN_NOT_PRESENT); 
       
       return CKR_TOKEN_NOT_PRESENT;
    }
    if ( (fcn=sltp->FcnList) == NULL ){
-      st_err_log(50, __FILE__, __LINE__); 
+      OCK_LOG_ERR(ERR_TOKEN_NOT_PRESENT); 
       return CKR_TOKEN_NOT_PRESENT;
    }
    if (fcn->ST_WrapKey){
       // Map the Session to the slot session
       rv = fcn->ST_WrapKey(&rSession,pMechanism,hWrappingKey,hKey,pWrappedKey,pulWrappedKeyLen);
-      LOGIT(LOG_DEBUG,"Called STDLL rv = 0x%x",rv);
+      OCK_LOG_DEBUG("Called STDLL rv = 0x%x\n",rv);
    } else {
-      st_err_log(142, __FILE__, __LINE__, __FUNCTION__); 
+      OCK_LOG_ERR(ERR_FUNCTION_NOT_SUPPORTED); 
       rv = CKR_FUNCTION_NOT_SUPPORTED;
    }
    return rv;
@@ -4849,18 +4834,6 @@ void api_init(void) __attribute__((constructor));
 void
 api_init(void)
 {
-   char  *env;
-
-   // Turn on logging.  This can only occure
-   // at the application initialization time....
-   // Simplify things by using environment variables
-   if ( (env = (char *)getenv("PKCS11_API_LOG_DEBUG")) != NULL ){
-      logging=LOG_DEBUG;
-   } else {
-	logging = 0;
-   }
-
-   loginit();  // called once per application... rules for C_Initialize apply
 
    // Should only have to do the atfork stuff at load time...
    if (!Initialized){ 
@@ -4879,7 +4852,6 @@ void api_fini(void) __attribute__((destructor));
 void
 api_fini()
 {
-   logterm();
    if ( API_Initialized() == TRUE ) {
 	   Call_Finalize();
    }

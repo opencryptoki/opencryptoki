@@ -36,6 +36,8 @@
 #ifndef _H_EXTERN_H
 #define _H_EXTERN_H
 
+#include "msg.h"
+
 #if (LEEDS_BUILD)
 #pragma options align=packed
 #endif
@@ -2030,53 +2032,28 @@ extern token_spec_t token_specific;
 
 #include <stdio.h>
 #define APPID	"TPM_STDLL"
-/* log to stdout */
-#define LogMessage(dest, priority, layer, fmt, ...) \
-	do { \
-		fprintf(dest, "%s %s %s:%d " fmt "\n", priority, layer, __FILE__, __LINE__, ## __VA_ARGS__); \
-	} while (0)
 
-#define LogMessage1(dest, priority, layer, data) \
-	do { \
-		fprintf(dest, "%s %s %s:%d %s\n", priority, layer, __FILE__, __LINE__, data); \
-	} while (0)
+/* logging */
 
-/* Debug logging */
+void ock_err_log(int num, const char *layer, const char *file, int line);
+void ock_logit(const char *fmt, ...);
+
 #ifdef DEBUG
-#define LogDebug(fmt, ...)      LogMessage(stdout, "LOG_DEBUG", APPID, fmt, ##__VA_ARGS__)
-#define LogDebug1(data)         LogMessage1(stdout, "LOG_DEBUG", APPID, data)
-
-/* Error logging */
-#define LogError(fmt, ...)      LogMessage(stderr, "LOG_ERR", APPID, "ERROR: " fmt, ##__VA_ARGS__)
-#define LogError1(data)         LogMessage1(stderr, "LOG_ERR", APPID, "ERROR: " data)
-
-/* Warn logging */
-#define LogWarn(fmt, ...)       LogMessage(stdout, "LOG_WARNING", APPID, "WARNING: " fmt, ##__VA_ARGS__)
-#define LogWarn1(data)          LogMessage1(stdout, "LOG_WARNING", APPID, "WARNING: " data)
-
-/* Info Logging */
-#define LogInfo(fmt, ...)       LogMessage(stdout, "LOG_INFO", APPID, fmt, ##__VA_ARGS__)
-#define LogInfo1(data)          LogMessage1(stdout, "LOG_INFO", APPID, data)
-
-#define st_err_log(...)		LogMessage(stderr, "ST MSG", APPID, "whammy")
-
+#define OCK_LOG_ERR(errnum)  ock_err_log(errnum, STDLL_NAME, __FILE__, __LINE__)
+#define OCK_LOG_DEBUG(fmt, ...)           ock_logit("%s:%d " fmt, __FILE__, __LINE__, ##__VA_ARGS__)
 void dump_shm(const char *);
-#define DUMP_SHM(x)		dump_shm(x)
+#define DUMP_SHM(x)             dump_shm(x)
+
 #else
-#define LogDebug(...)		do { } while (0)
-#define LogDebug1(...)		do { } while (0)
-#define LogBlob(...)		do { } while (0)
-#define LogError(...)		do { } while (0)
-#define LogError1(...)		do { } while (0)
-#define LogWarn(...)		do { } while (0)
-#define LogWarn1(...)		do { } while (0)
-#define LogInfo(...)		do { } while (0)
-#define LogInfo1(...)		do { } while (0)
 
-#define st_err_log(...)		do { } while (0)
-
+#define OCK_LOG_ERR(errnum)
+#define OCK_LOG_DEBUG(fmt, ...)
 #define DUMP_SHM(x)
+
 #endif
+
+#define OCK_SYSLOG(priority, fmt, ...) \
+        syslog(priority, "%s " fmt, __FILE__, ##__VA_ARGS__); 
 
 
 /* custom attributes for the TPM token */

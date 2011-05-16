@@ -333,7 +333,7 @@ md5_hash( SESSION         * sess,
 
 
    if (!sess || !ctx || !out_data_len){
-      st_err_log(4, __FILE__, __LINE__, __FUNCTION__);
+      OCK_LOG_ERR(ERR_FUNCTION_FAILED);
       return CKR_FUNCTION_FAILED;
    }
 
@@ -344,7 +344,7 @@ md5_hash( SESSION         * sess,
 
    rc = md5_hash_update( sess, ctx, in_data, in_data_len );
    if (rc != CKR_OK){
-      st_err_log(4, __FILE__, __LINE__, __FUNCTION__);
+      OCK_LOG_ERR(ERR_FUNCTION_FAILED);
       return CKR_FUNCTION_FAILED;
    }
    return md5_hash_final( sess,      FALSE,
@@ -362,7 +362,7 @@ md5_hash_update( SESSION         * sess,
                  CK_ULONG          in_data_len )
 {
    if (!sess || !ctx || !in_data){
-      st_err_log(4, __FILE__, __LINE__, __FUNCTION__);
+      OCK_LOG_ERR(ERR_FUNCTION_FAILED);
       return CKR_FUNCTION_FAILED;
    }
    return ckm_md5_update( (MD5_CONTEXT *)ctx->context,
@@ -383,7 +383,7 @@ md5_hash_final( SESSION         * sess,
 
 
    if (!sess || !ctx || !out_data_len){
-      st_err_log(4, __FILE__, __LINE__, __FUNCTION__);
+      OCK_LOG_ERR(ERR_FUNCTION_FAILED);
       return CKR_FUNCTION_FAILED;
    }
    if (length_only == TRUE) {
@@ -429,7 +429,7 @@ md5_hmac_sign( SESSION              * sess,
 
 
    if (!sess || !ctx || !out_data_len){
-      st_err_log(4, __FILE__, __LINE__, __FUNCTION__);
+      OCK_LOG_ERR(ERR_FUNCTION_FAILED);
       return CKR_FUNCTION_FAILED;
    }
 
@@ -458,7 +458,7 @@ md5_hmac_sign( SESSION              * sess,
 
    rc = template_attribute_find( key_obj->template, CKA_VALUE, &attr );
    if (rc == FALSE){
-      st_err_log(4, __FILE__, __LINE__, __FUNCTION__);
+      OCK_LOG_ERR(ERR_FUNCTION_FAILED);
       return CKR_FUNCTION_FAILED;
    }
    else
@@ -518,21 +518,21 @@ md5_hmac_sign( SESSION              * sess,
    rc = digest_mgr_init( sess, &digest_ctx, &digest_mech );
    if (rc != CKR_OK)
    {
-      st_err_log(123, __FILE__, __LINE__);
+      OCK_LOG_ERR(ERR_DIGEST_INIT);
       return rc;
    }
 
    rc = digest_mgr_digest_update( sess, &digest_ctx, k_ipad, MD5_BLOCK_SIZE );
    if (rc != CKR_OK)
    {
-      st_err_log(123, __FILE__, __LINE__);
+      OCK_LOG_ERR(ERR_DIGEST_UPDATE);
       return rc;
    }
 
    rc = digest_mgr_digest_update( sess, &digest_ctx, in_data, in_data_len );
    if (rc != CKR_OK)
    {
-      st_err_log(123, __FILE__, __LINE__);
+      OCK_LOG_ERR(ERR_DIGEST_UPDATE);
       return rc;
    }
 
@@ -540,7 +540,7 @@ md5_hmac_sign( SESSION              * sess,
    rc = digest_mgr_digest_final( sess, FALSE, &digest_ctx, hash, &hash_len );
    if (rc != CKR_OK)
    {
-      st_err_log(126, __FILE__, __LINE__);
+      OCK_LOG_ERR(ERR_DIGEST_FINAL);
       return rc;
    }
 
@@ -552,21 +552,21 @@ md5_hmac_sign( SESSION              * sess,
    rc = digest_mgr_init( sess, &digest_ctx, &digest_mech );
    if (rc != CKR_OK)
    {
-      st_err_log(123, __FILE__, __LINE__);
+      OCK_LOG_ERR(ERR_DIGEST_INIT);
       return rc;
    }
 
    rc = digest_mgr_digest_update( sess, &digest_ctx, k_opad, MD5_BLOCK_SIZE );
    if (rc != CKR_OK)
    {
-      st_err_log(123, __FILE__, __LINE__);
+      OCK_LOG_ERR(ERR_DIGEST_UPDATE);
       return rc;
    }
 
    rc = digest_mgr_digest_update( sess, &digest_ctx, hash, hash_len );
    if (rc != CKR_OK)
    {
-      st_err_log(123, __FILE__, __LINE__);
+      OCK_LOG_ERR(ERR_DIGEST_UPDATE);
       return rc;
    }
 
@@ -574,7 +574,7 @@ md5_hmac_sign( SESSION              * sess,
    rc = digest_mgr_digest_final( sess, FALSE, &digest_ctx, hash, &hash_len );
    if (rc != CKR_OK)
    {
-      st_err_log(126, __FILE__, __LINE__);
+      OCK_LOG_ERR(ERR_DIGEST_FINAL);
       return rc;
    }
 
@@ -601,7 +601,7 @@ md5_hmac_verify( SESSION              * sess,
    CK_RV                rc;
 
    if (!sess || !ctx || !in_data || !signature){
-      st_err_log(4, __FILE__, __LINE__, __FUNCTION__);
+      OCK_LOG_ERR(ERR_FUNCTION_FAILED);
       return CKR_FUNCTION_FAILED;
    }
    if (ctx->mech.mechanism == CKM_MD5_HMAC_GENERAL)
@@ -627,11 +627,11 @@ md5_hmac_verify( SESSION              * sess,
    }
 
    if ((len != hmac_len) || (len != sig_len)){
-      st_err_log(46, __FILE__, __LINE__);
+      OCK_LOG_ERR(ERR_SIGNATURE_LEN_RANGE);
       return CKR_SIGNATURE_LEN_RANGE;
    }
    if (memcmp(hmac, signature, hmac_len) != 0){
-      st_err_log(47, __FILE__, __LINE__);
+      OCK_LOG_ERR(ERR_SIGNATURE_INVALID);
       rc = CKR_SIGNATURE_INVALID;
    }
    sign_mgr_cleanup( &hmac_ctx );
@@ -716,7 +716,7 @@ ckm_md5_final( MD5_CONTEXT *context,
   CK_ULONG  padLen;
 
    if (!out_data || (out_data_len < MD5_HASH_SIZE)){
-      st_err_log(4, __FILE__, __LINE__, __FUNCTION__);
+      OCK_LOG_ERR(ERR_FUNCTION_FAILED);
       return CKR_FUNCTION_FAILED;
    }
   // save number of bits

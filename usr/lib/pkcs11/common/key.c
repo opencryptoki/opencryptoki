@@ -426,7 +426,7 @@ key_object_check_required_attributes( TEMPLATE *tmpl, CK_ULONG mode )
    found = template_attribute_find( tmpl, CKA_KEY_TYPE, &attr );
    if (!found) {
       if (mode == MODE_CREATE){
-         st_err_log(48, __FILE__, __LINE__);
+         OCK_LOG_ERR(ERR_TEMPLATE_INCOMPLETE);
          return CKR_TEMPLATE_INCOMPLETE;
       }
    }
@@ -463,7 +463,7 @@ key_object_set_default_attributes( TEMPLATE *tmpl, CK_ULONG mode )
       if (edate_attr)   free( edate_attr  );
       if (derive_attr)  free( derive_attr );
       if (local_attr)   free( local_attr  );
-      st_err_log(1, __FILE__, __LINE__);
+      OCK_LOG_ERR(ERR_HOST_MEMORY);
       return CKR_HOST_MEMORY;
    }
 
@@ -510,7 +510,7 @@ key_object_validate_attribute( TEMPLATE *tmpl, CK_ATTRIBUTE *attr, CK_ULONG mode
              mode == MODE_KEYGEN || mode == MODE_UNWRAP)
             return CKR_OK;
          else{
-            st_err_log(7, __FILE__, __LINE__);
+            OCK_LOG_ERR(ERR_ATTRIBUTE_READ_ONLY);
             return CKR_ATTRIBUTE_READ_ONLY;
          }
       case CKA_ID:
@@ -522,14 +522,14 @@ key_object_validate_attribute( TEMPLATE *tmpl, CK_ATTRIBUTE *attr, CK_ULONG mode
       case CKA_LOCAL:
          // CKA_LOCAL is only set by the key-generate routine
          //
-         st_err_log(7, __FILE__, __LINE__);
+         OCK_LOG_ERR(ERR_ATTRIBUTE_READ_ONLY);
          return CKR_ATTRIBUTE_READ_ONLY;
 
       default:
          return template_validate_base_attribute( tmpl, attr, mode );
    }
 
-   st_err_log(8, __FILE__, __LINE__);
+   OCK_LOG_ERR(ERR_ATTRIBUTE_TYPE_INVALID);
    return CKR_ATTRIBUTE_TYPE_INVALID;
 }
 
@@ -566,7 +566,7 @@ publ_key_set_default_attributes( TEMPLATE *tmpl, CK_ULONG mode )
 
    rc = key_object_set_default_attributes( tmpl, mode );
    if (rc != CKR_OK){
-      st_err_log(172, __FILE__, __LINE__);
+      OCK_LOG_ERR(ERR_ATTR_SET_DEFAULT);
       return rc;
    }
    // add the default CKO_PUBLIC_KEY attributes
@@ -588,7 +588,7 @@ publ_key_set_default_attributes( TEMPLATE *tmpl, CK_ULONG mode )
       if (verify_recover_attr) free( verify_recover_attr );
       if (wrap_attr)           free( wrap_attr );
 
-      st_err_log(1, __FILE__, __LINE__);
+      OCK_LOG_ERR(ERR_HOST_MEMORY);
       return CKR_HOST_MEMORY;
    }
 
@@ -648,7 +648,7 @@ publ_key_validate_attribute( TEMPLATE *tmpl, CK_ATTRIBUTE *attr, CK_ULONG mode )
          if (mode == MODE_MODIFY) {
             if (nv_token_data->tweak_vector.allow_key_mods == TRUE)
                return CKR_OK;
-            st_err_log(7, __FILE__, __LINE__);
+            OCK_LOG_ERR(ERR_ATTRIBUTE_READ_ONLY);
             return CKR_ATTRIBUTE_READ_ONLY;
          }
          return CKR_OK;
@@ -657,7 +657,7 @@ publ_key_validate_attribute( TEMPLATE *tmpl, CK_ATTRIBUTE *attr, CK_ULONG mode )
          return key_object_validate_attribute( tmpl, attr, mode );
    }
 
-   st_err_log(8, __FILE__, __LINE__);
+   OCK_LOG_ERR(ERR_ATTRIBUTE_TYPE_INVALID);
    return CKR_ATTRIBUTE_TYPE_INVALID;
 }
 
@@ -696,7 +696,7 @@ priv_key_set_default_attributes( TEMPLATE *tmpl, CK_ULONG mode )
 
    rc = key_object_set_default_attributes( tmpl, mode );
    if (rc != CKR_OK){
-      st_err_log(172, __FILE__, __LINE__);
+      OCK_LOG_ERR(ERR_ATTR_SET_DEFAULT);
       return rc;
    }
    // add the default CKO_PUBLIC_KEY attributes
@@ -727,7 +727,7 @@ priv_key_set_default_attributes( TEMPLATE *tmpl, CK_ULONG mode )
       if (always_sens_attr)  free( always_sens_attr );
       if (never_extr_attr)   free( never_extr_attr );
 
-      st_err_log(1, __FILE__, __LINE__);
+      OCK_LOG_ERR(ERR_HOST_MEMORY);
       return CKR_HOST_MEMORY;
    }
 
@@ -825,12 +825,12 @@ priv_key_unwrap( TEMPLATE *tmpl,
          break;
 
       default:
-         st_err_log(62, __FILE__, __LINE__);
+         OCK_LOG_ERR(ERR_WRAPPED_KEY_INVALID);
          return CKR_WRAPPED_KEY_INVALID;
    }
 
    if (rc != CKR_OK) {
-      st_err_log(4, __FILE__, __LINE__, __FUNCTION__);
+      OCK_LOG_ERR(ERR_FUNCTION_FAILED);
       return rc;
    }
 
@@ -842,27 +842,27 @@ priv_key_unwrap( TEMPLATE *tmpl,
    //
    rc = build_attribute( CKA_LOCAL,  &false, 1, &local );
    if (rc != CKR_OK){
-      st_err_log(84, __FILE__, __LINE__);
+      OCK_LOG_ERR(ERR_BLD_ATTR);
       goto cleanup;
    }
    rc = build_attribute( CKA_ALWAYS_SENSITIVE,  &false, 1, &always_sens );
    if (rc != CKR_OK){
-      st_err_log(84, __FILE__, __LINE__);
+      OCK_LOG_ERR(ERR_BLD_ATTR);
       goto cleanup;
    }
    rc = build_attribute( CKA_SENSITIVE,         &false, 1, &sensitive );
    if (rc != CKR_OK){
-      st_err_log(84, __FILE__, __LINE__);
+      OCK_LOG_ERR(ERR_BLD_ATTR);
       goto cleanup;
    }
    rc = build_attribute( CKA_EXTRACTABLE,       &true,  1, &extractable );
    if (rc != CKR_OK){
-      st_err_log(84, __FILE__, __LINE__);
+      OCK_LOG_ERR(ERR_BLD_ATTR);
       goto cleanup;
    }
    rc = build_attribute( CKA_NEVER_EXTRACTABLE, &false, 1, &never_extract );
    if (rc != CKR_OK){
-      st_err_log(84, __FILE__, __LINE__);
+      OCK_LOG_ERR(ERR_BLD_ATTR);
       goto cleanup;
    }
    template_update_attribute( tmpl, local );
@@ -902,7 +902,7 @@ priv_key_validate_attribute( TEMPLATE *tmpl, CK_ATTRIBUTE *attr, CK_ULONG mode )
          if (mode == MODE_MODIFY) {
             if (nv_token_data->tweak_vector.allow_key_mods == TRUE)
                return CKR_OK;
-            st_err_log(7, __FILE__, __LINE__);
+            OCK_LOG_ERR(ERR_ATTRIBUTE_READ_ONLY);
             return CKR_ATTRIBUTE_READ_ONLY;
          }
          return CKR_OK;
@@ -918,7 +918,7 @@ priv_key_validate_attribute( TEMPLATE *tmpl, CK_ATTRIBUTE *attr, CK_ULONG mode )
 
             value = *(CK_BBOOL *)attr->pValue;
             if (value != TRUE){
-               st_err_log(7, __FILE__, __LINE__);
+               OCK_LOG_ERR(ERR_ATTRIBUTE_READ_ONLY);
                return CKR_ATTRIBUTE_READ_ONLY;
             }
          }
@@ -933,7 +933,7 @@ priv_key_validate_attribute( TEMPLATE *tmpl, CK_ATTRIBUTE *attr, CK_ULONG mode )
             value = *(CK_BBOOL *)attr->pValue;
             if ((mode != MODE_CREATE && mode != MODE_KEYGEN) && value !=
 FALSE){
-               st_err_log(7, __FILE__, __LINE__);
+               OCK_LOG_ERR(ERR_ATTRIBUTE_READ_ONLY);
                return CKR_ATTRIBUTE_READ_ONLY;
             }
             if (value == FALSE) {
@@ -941,7 +941,7 @@ FALSE){
 
                attr = (CK_ATTRIBUTE *)malloc(sizeof(CK_ATTRIBUTE) + sizeof(CK_BBOOL) );
                if (!attr){
-                  st_err_log(1, __FILE__, __LINE__);
+                  OCK_LOG_ERR(ERR_HOST_MEMORY);
                   return CKR_HOST_MEMORY;
                }
                attr->type       = CKA_NEVER_EXTRACTABLE;
@@ -956,14 +956,14 @@ FALSE){
 
       case CKA_ALWAYS_SENSITIVE:
       case CKA_NEVER_EXTRACTABLE:
-         st_err_log(7, __FILE__, __LINE__);
+         OCK_LOG_ERR(ERR_ATTRIBUTE_READ_ONLY);
          return CKR_ATTRIBUTE_READ_ONLY;
 
       default:
          return key_object_validate_attribute( tmpl, attr, mode );
    }
 
-   st_err_log(8, __FILE__, __LINE__);
+   OCK_LOG_ERR(ERR_ATTRIBUTE_TYPE_INVALID);
    return CKR_ATTRIBUTE_TYPE_INVALID;
 }
 
@@ -1034,7 +1034,7 @@ secret_key_set_default_attributes( TEMPLATE *tmpl, CK_ULONG mode )
       if (extractable_attr) free( extractable_attr );
       if (never_extr_attr)  free( never_extr_attr );
       if (always_sens_attr) free( always_sens_attr );
-      st_err_log(1, __FILE__, __LINE__);
+      OCK_LOG_ERR(ERR_HOST_MEMORY);
 
       return CKR_HOST_MEMORY;
    }
@@ -1156,7 +1156,7 @@ secret_key_unwrap( TEMPLATE *tmpl,
          break;
 
       default:
-         st_err_log(62, __FILE__, __LINE__);
+         OCK_LOG_ERR(ERR_WRAPPED_KEY_INVALID);
          return CKR_WRAPPED_KEY_INVALID;
    }
 
@@ -1171,27 +1171,27 @@ secret_key_unwrap( TEMPLATE *tmpl,
    //
    rc = build_attribute( CKA_LOCAL,             &false, 1, &local );
    if (rc != CKR_OK){
-      st_err_log(84, __FILE__, __LINE__);
+      OCK_LOG_ERR(ERR_BLD_ATTR);
       goto cleanup;
    }
    rc = build_attribute( CKA_ALWAYS_SENSITIVE,  &false, 1, &always_sens );
    if (rc != CKR_OK){
-      st_err_log(84, __FILE__, __LINE__);
+      OCK_LOG_ERR(ERR_BLD_ATTR);
       goto cleanup;
    }
    rc = build_attribute( CKA_SENSITIVE,         &false, 1, &sensitive );
    if (rc != CKR_OK){
-      st_err_log(84, __FILE__, __LINE__);
+      OCK_LOG_ERR(ERR_BLD_ATTR);
       goto cleanup;
    }
    rc = build_attribute( CKA_EXTRACTABLE,       &true,  1, &extractable );
    if (rc != CKR_OK){
-      st_err_log(84, __FILE__, __LINE__);
+      OCK_LOG_ERR(ERR_BLD_ATTR);
       goto cleanup;
    }
    rc = build_attribute( CKA_NEVER_EXTRACTABLE, &false, 1, &never_extract );
    if (rc != CKR_OK){
-      st_err_log(84, __FILE__, __LINE__);
+      OCK_LOG_ERR(ERR_BLD_ATTR);
       goto cleanup;
    }
    template_update_attribute( tmpl, local );
@@ -1230,7 +1230,7 @@ secret_key_validate_attribute( TEMPLATE *tmpl, CK_ATTRIBUTE *attr, CK_ULONG mode
          if (mode == MODE_MODIFY) {
             if (nv_token_data->tweak_vector.allow_key_mods == TRUE)
                return CKR_OK;
-            st_err_log(7, __FILE__, __LINE__);
+            OCK_LOG_ERR(ERR_ATTRIBUTE_READ_ONLY);
             return CKR_ATTRIBUTE_READ_ONLY;
          }
          return CKR_OK;
@@ -1244,7 +1244,7 @@ secret_key_validate_attribute( TEMPLATE *tmpl, CK_ATTRIBUTE *attr, CK_ULONG mode
             value = *(CK_BBOOL *)attr->pValue;
             if ((mode != MODE_CREATE && mode != MODE_DERIVE && mode !=
 MODE_KEYGEN) && (value != TRUE)){
-               st_err_log(7, __FILE__, __LINE__);
+               OCK_LOG_ERR(ERR_ATTRIBUTE_READ_ONLY);
                return CKR_ATTRIBUTE_READ_ONLY;
             }
          }
@@ -1261,7 +1261,7 @@ MODE_KEYGEN) && (value != TRUE)){
             value = *(CK_BBOOL *)attr->pValue;
             if ((mode != MODE_CREATE && mode != MODE_DERIVE && mode !=
 MODE_KEYGEN) && (value != FALSE)){
-               st_err_log(7, __FILE__, __LINE__);
+               OCK_LOG_ERR(ERR_ATTRIBUTE_READ_ONLY);
                return CKR_ATTRIBUTE_READ_ONLY;
             }
             if (value == FALSE) {
@@ -1269,7 +1269,7 @@ MODE_KEYGEN) && (value != FALSE)){
 
                attr = (CK_ATTRIBUTE *)malloc(sizeof(CK_ATTRIBUTE) + sizeof(CK_BBOOL) );
                if (!attr){
-                  st_err_log(1, __FILE__, __LINE__);
+                  OCK_LOG_ERR(ERR_HOST_MEMORY);
                   return CKR_HOST_MEMORY;
                }
                attr->type = CKA_NEVER_EXTRACTABLE;
@@ -1284,14 +1284,14 @@ MODE_KEYGEN) && (value != FALSE)){
 
       case CKA_ALWAYS_SENSITIVE:
       case CKA_NEVER_EXTRACTABLE:
-         st_err_log(7, __FILE__, __LINE__);
+         OCK_LOG_ERR(ERR_ATTRIBUTE_READ_ONLY);
          return CKR_ATTRIBUTE_READ_ONLY;
 
       default:
          return key_object_validate_attribute( tmpl, attr, mode );
    }
 
-   st_err_log(8, __FILE__, __LINE__);
+   OCK_LOG_ERR(ERR_ATTRIBUTE_TYPE_INVALID);
    return CKR_ATTRIBUTE_TYPE_INVALID;
 }
 
@@ -1303,7 +1303,7 @@ secret_key_check_exportability( CK_ATTRIBUTE_TYPE type )
 {
    switch (type) {
       case CKA_VALUE:
-         st_err_log(86, __FILE__, __LINE__);
+         OCK_LOG_ERR(ERR_KEY_UNEXTRACTABLE);
          return FALSE;
    }
 
@@ -1323,7 +1323,7 @@ rsa_publ_check_required_attributes( TEMPLATE *tmpl, CK_ULONG mode )
    found = template_attribute_find( tmpl, CKA_MODULUS, &attr );
    if (!found) {
       if (mode == MODE_CREATE){
-         st_err_log(48, __FILE__, __LINE__);
+         OCK_LOG_ERR(ERR_TEMPLATE_INCOMPLETE);
          return CKR_TEMPLATE_INCOMPLETE;
       }
    }
@@ -1331,7 +1331,7 @@ rsa_publ_check_required_attributes( TEMPLATE *tmpl, CK_ULONG mode )
    found = template_attribute_find( tmpl, CKA_MODULUS_BITS, &attr );
    if (!found) {
       if (mode == MODE_KEYGEN){
-         st_err_log(48, __FILE__, __LINE__);
+         OCK_LOG_ERR(ERR_TEMPLATE_INCOMPLETE);
          return CKR_TEMPLATE_INCOMPLETE;
       }
    }
@@ -1339,7 +1339,7 @@ rsa_publ_check_required_attributes( TEMPLATE *tmpl, CK_ULONG mode )
    found = template_attribute_find( tmpl, CKA_PUBLIC_EXPONENT, &attr );
    if (!found) {
       if (mode == MODE_CREATE || mode == MODE_KEYGEN){
-         st_err_log(48, __FILE__, __LINE__);
+         OCK_LOG_ERR(ERR_TEMPLATE_INCOMPLETE);
          return CKR_TEMPLATE_INCOMPLETE;
       }
    }
@@ -1372,7 +1372,7 @@ rsa_publ_set_default_attributes( TEMPLATE *tmpl, TEMPLATE *basetmpl, CK_ULONG mo
       if (modulus_attr)      free( modulus_attr );
       if (modulus_bits_attr) free( modulus_bits_attr );
       if (public_exp_attr)   free( public_exp_attr );
-      st_err_log(1, __FILE__, __LINE__);
+      OCK_LOG_ERR(ERR_HOST_MEMORY);
 
       return CKR_HOST_MEMORY;
    }
@@ -1419,26 +1419,26 @@ rsa_publ_validate_attribute( TEMPLATE *tmpl, CK_ATTRIBUTE *attr, CK_ULONG mode )
       case CKA_MODULUS_BITS:
          if (mode == MODE_KEYGEN) {
             if (attr->ulValueLen != sizeof(CK_ULONG)){
-               st_err_log(9, __FILE__, __LINE__);
+               OCK_LOG_ERR(ERR_ATTRIBUTE_VALUE_INVALID);
                return CKR_ATTRIBUTE_VALUE_INVALID;
             }
             else {
                CK_ULONG mod_bits = *(CK_ULONG *)attr->pValue;
 
                if (mod_bits < 512 || mod_bits > 4096){
-                  st_err_log(9, __FILE__, __LINE__);
+                  OCK_LOG_ERR(ERR_ATTRIBUTE_VALUE_INVALID);
                   return CKR_ATTRIBUTE_VALUE_INVALID;
                }
 
                if (mod_bits % 8 != 0){
-                  st_err_log(9, __FILE__, __LINE__);
+                  OCK_LOG_ERR(ERR_ATTRIBUTE_VALUE_INVALID);
                   return CKR_ATTRIBUTE_VALUE_INVALID;
                }
                return CKR_OK;
             }
          }
          else{ 
-            st_err_log(7, __FILE__, __LINE__);
+            OCK_LOG_ERR(ERR_ATTRIBUTE_READ_ONLY);
             return CKR_ATTRIBUTE_READ_ONLY;
          }
       case CKA_MODULUS:
@@ -1447,7 +1447,7 @@ rsa_publ_validate_attribute( TEMPLATE *tmpl, CK_ATTRIBUTE *attr, CK_ULONG mode )
             return CKR_OK;
          }
          else{
-            st_err_log(7, __FILE__, __LINE__);
+            OCK_LOG_ERR(ERR_ATTRIBUTE_READ_ONLY);
             return CKR_ATTRIBUTE_READ_ONLY;
          }
       case CKA_PUBLIC_EXPONENT:
@@ -1456,7 +1456,7 @@ rsa_publ_validate_attribute( TEMPLATE *tmpl, CK_ATTRIBUTE *attr, CK_ULONG mode )
             return CKR_OK;
          }
          else{
-            st_err_log(7, __FILE__, __LINE__);
+            OCK_LOG_ERR(ERR_ATTRIBUTE_READ_ONLY);
             return CKR_ATTRIBUTE_READ_ONLY;
          }
       default:
@@ -1477,7 +1477,7 @@ rsa_priv_check_required_attributes( TEMPLATE *tmpl, CK_ULONG mode )
    found = template_attribute_find( tmpl, CKA_MODULUS, &attr );
    if (!found) {
       if (mode == MODE_CREATE){
-         st_err_log(48, __FILE__, __LINE__);
+         OCK_LOG_ERR(ERR_TEMPLATE_INCOMPLETE);
          return CKR_TEMPLATE_INCOMPLETE;
       }
    }
@@ -1505,7 +1505,7 @@ rsa_priv_check_required_attributes( TEMPLATE *tmpl, CK_ULONG mode )
    found = template_attribute_find( tmpl, CKA_PUBLIC_EXPONENT, &attr );
    if (!found) {
       if (mode == MODE_CREATE){
-         st_err_log(48, __FILE__, __LINE__);
+         OCK_LOG_ERR(ERR_TEMPLATE_INCOMPLETE);
          return CKR_TEMPLATE_INCOMPLETE;
       }
    }
@@ -1513,7 +1513,7 @@ rsa_priv_check_required_attributes( TEMPLATE *tmpl, CK_ULONG mode )
    found = template_attribute_find( tmpl, CKA_PRIVATE_EXPONENT, &attr );
    if (!found) {
       if (mode == MODE_CREATE){
-         st_err_log(48, __FILE__, __LINE__);
+         OCK_LOG_ERR(ERR_TEMPLATE_INCOMPLETE);
          return CKR_TEMPLATE_INCOMPLETE;
       }
    }
@@ -1521,7 +1521,7 @@ rsa_priv_check_required_attributes( TEMPLATE *tmpl, CK_ULONG mode )
    found = template_attribute_find( tmpl, CKA_PRIME_1, &attr );
    if (!found) {
       if (mode == MODE_CREATE){
-         st_err_log(48, __FILE__, __LINE__);
+         OCK_LOG_ERR(ERR_TEMPLATE_INCOMPLETE);
          return CKR_TEMPLATE_INCOMPLETE;
       }
    }
@@ -1529,7 +1529,7 @@ rsa_priv_check_required_attributes( TEMPLATE *tmpl, CK_ULONG mode )
    found = template_attribute_find( tmpl, CKA_PRIME_2, &attr );
    if (!found) {
       if (mode == MODE_CREATE){
-         st_err_log(48, __FILE__, __LINE__);
+         OCK_LOG_ERR(ERR_TEMPLATE_INCOMPLETE);
          return CKR_TEMPLATE_INCOMPLETE;
       }
    }
@@ -1537,7 +1537,7 @@ rsa_priv_check_required_attributes( TEMPLATE *tmpl, CK_ULONG mode )
    found = template_attribute_find( tmpl, CKA_EXPONENT_1, &attr );
    if (!found) {
       if (mode == MODE_CREATE){
-         st_err_log(48, __FILE__, __LINE__);
+         OCK_LOG_ERR(ERR_TEMPLATE_INCOMPLETE);
          return CKR_TEMPLATE_INCOMPLETE;
       }
    }
@@ -1545,7 +1545,7 @@ rsa_priv_check_required_attributes( TEMPLATE *tmpl, CK_ULONG mode )
    found = template_attribute_find( tmpl, CKA_EXPONENT_2, &attr );
    if (!found) {
       if (mode == MODE_CREATE){
-         st_err_log(48, __FILE__, __LINE__);
+         OCK_LOG_ERR(ERR_TEMPLATE_INCOMPLETE);
          return CKR_TEMPLATE_INCOMPLETE;
       }
    }
@@ -1553,7 +1553,7 @@ rsa_priv_check_required_attributes( TEMPLATE *tmpl, CK_ULONG mode )
    found = template_attribute_find( tmpl, CKA_COEFFICIENT, &attr );
    if (!found) {
       if (mode == MODE_CREATE){
-         st_err_log(48, __FILE__, __LINE__);
+         OCK_LOG_ERR(ERR_TEMPLATE_INCOMPLETE);
          return CKR_TEMPLATE_INCOMPLETE;
       }
    }
@@ -1593,7 +1593,7 @@ rsa_priv_set_default_attributes( TEMPLATE *tmpl, CK_ULONG mode )
       if (public_exp_attr)  free( public_exp_attr );
       if (private_exp_attr) free( private_exp_attr );
 
-      st_err_log(1, __FILE__, __LINE__);
+      OCK_LOG_ERR(ERR_HOST_MEMORY);
       return CKR_HOST_MEMORY;
    }
 
@@ -1636,7 +1636,7 @@ rsa_priv_validate_attribute( TEMPLATE *tmpl, CK_ATTRIBUTE *attr, CK_ULONG mode )
             return CKR_OK;
          }
          else{
-            st_err_log(7, __FILE__, __LINE__);
+            OCK_LOG_ERR(ERR_ATTRIBUTE_READ_ONLY);
             return CKR_ATTRIBUTE_READ_ONLY;
          }
       case CKA_PUBLIC_EXPONENT:
@@ -1650,7 +1650,7 @@ rsa_priv_validate_attribute( TEMPLATE *tmpl, CK_ATTRIBUTE *attr, CK_ULONG mode )
             return CKR_OK;
          }
          else{
-            st_err_log(7, __FILE__, __LINE__);
+            OCK_LOG_ERR(ERR_ATTRIBUTE_READ_ONLY);
             return CKR_ATTRIBUTE_READ_ONLY;
          }
       default:
@@ -1671,7 +1671,7 @@ rsa_priv_check_exportability( CK_ATTRIBUTE_TYPE type )
       case CKA_EXPONENT_1:
       case CKA_EXPONENT_2:
       case CKA_COEFFICIENT:
-         st_err_log(86, __FILE__, __LINE__);
+         OCK_LOG_ERR(ERR_KEY_UNEXTRACTABLE);
          return FALSE;
    }
 
@@ -1722,36 +1722,36 @@ rsa_priv_wrap_get_data( TEMPLATE  *tmpl,
    // compute the total length of the BER-encoded data
    //
    if (template_attribute_find(tmpl, CKA_MODULUS, &modulus) == FALSE){
-      st_err_log(4, __FILE__, __LINE__, __FUNCTION__);
+      OCK_LOG_ERR(ERR_FUNCTION_FAILED);
       return CKR_FUNCTION_FAILED; 
    }
    if (template_attribute_find(tmpl, CKA_PUBLIC_EXPONENT, &publ_exp) == FALSE){
-      st_err_log(4, __FILE__, __LINE__, __FUNCTION__);
+      OCK_LOG_ERR(ERR_FUNCTION_FAILED);
       return CKR_FUNCTION_FAILED;
    }
    if (template_attribute_find(tmpl, CKA_PRIVATE_EXPONENT, &priv_exp) ==
 FALSE){
-      st_err_log(4, __FILE__, __LINE__, __FUNCTION__);
+      OCK_LOG_ERR(ERR_FUNCTION_FAILED);
       return CKR_FUNCTION_FAILED;
    }
    if (template_attribute_find(tmpl, CKA_PRIME_1, &prime1) == FALSE){
-      st_err_log(4, __FILE__, __LINE__, __FUNCTION__);
+      OCK_LOG_ERR(ERR_FUNCTION_FAILED);
       return CKR_FUNCTION_FAILED;
    }
    if (template_attribute_find(tmpl, CKA_PRIME_2, &prime2) == FALSE){
-      st_err_log(4, __FILE__, __LINE__, __FUNCTION__);
+      OCK_LOG_ERR(ERR_FUNCTION_FAILED);
       return CKR_FUNCTION_FAILED;
    }
    if (template_attribute_find(tmpl, CKA_EXPONENT_1, &exponent1) == FALSE){
-      st_err_log(4, __FILE__, __LINE__, __FUNCTION__);
+      OCK_LOG_ERR(ERR_FUNCTION_FAILED);
       return CKR_FUNCTION_FAILED;
    }
    if (template_attribute_find(tmpl, CKA_EXPONENT_2, &exponent2) == FALSE){
-      st_err_log(4, __FILE__, __LINE__, __FUNCTION__);
+      OCK_LOG_ERR(ERR_FUNCTION_FAILED);
       return CKR_FUNCTION_FAILED;
    }
    if (template_attribute_find(tmpl, CKA_COEFFICIENT, &coeff) == FALSE){
-      st_err_log(4, __FILE__, __LINE__, __FUNCTION__);
+      OCK_LOG_ERR(ERR_FUNCTION_FAILED);
       return CKR_FUNCTION_FAILED;
    }
    rc = ber_encode_RSAPrivateKey( length_only, data, data_len,
@@ -1761,7 +1761,7 @@ FALSE){
                                   exponent1, exponent2,
                                   coeff );
    if (rc != CKR_OK){
-      st_err_log(87, __FILE__, __LINE__);
+      OCK_LOG_ERR(ERR_ENCODE_PRIVKEY);
    }
    return rc;
 }
@@ -1796,7 +1796,7 @@ rsa_priv_unwrap( TEMPLATE *tmpl,
                                   &coeff );
 
    if (rc != CKR_OK){
-      st_err_log(88, __FILE__, __LINE__);
+      OCK_LOG_ERR(ERR_DECODE_PRIVKEY);
       return rc;
    }
    p11_attribute_trim( modulus );
@@ -1833,14 +1833,14 @@ dsa_publ_check_required_attributes( TEMPLATE *tmpl, CK_ULONG mode )
    found = template_attribute_find( tmpl, CKA_PRIME, &attr );
    if (!found) {
       if (mode == MODE_CREATE || mode == MODE_KEYGEN){
-         st_err_log(48, __FILE__, __LINE__);
+         OCK_LOG_ERR(ERR_TEMPLATE_INCOMPLETE);
          return CKR_TEMPLATE_INCOMPLETE;
       }
    }
    found = template_attribute_find( tmpl, CKA_SUBPRIME, &attr );
    if (!found) {
       if (mode == MODE_CREATE || mode == MODE_KEYGEN){
-         st_err_log(48, __FILE__, __LINE__);
+         OCK_LOG_ERR(ERR_TEMPLATE_INCOMPLETE);
          return CKR_TEMPLATE_INCOMPLETE;
       }
    }
@@ -1848,7 +1848,7 @@ dsa_publ_check_required_attributes( TEMPLATE *tmpl, CK_ULONG mode )
    found = template_attribute_find( tmpl, CKA_BASE, &attr );
    if (!found) {
       if (mode == MODE_CREATE || mode == MODE_KEYGEN){
-         st_err_log(48, __FILE__, __LINE__);
+         OCK_LOG_ERR(ERR_TEMPLATE_INCOMPLETE);
          return CKR_TEMPLATE_INCOMPLETE;
       }
    }
@@ -1856,7 +1856,7 @@ dsa_publ_check_required_attributes( TEMPLATE *tmpl, CK_ULONG mode )
    found = template_attribute_find( tmpl, CKA_VALUE, &attr );
    if (!found) {
       if (mode == MODE_CREATE){
-         st_err_log(48, __FILE__, __LINE__);
+         OCK_LOG_ERR(ERR_TEMPLATE_INCOMPLETE);
          return CKR_TEMPLATE_INCOMPLETE;
       }
    }
@@ -1893,7 +1893,7 @@ dsa_publ_set_default_attributes( TEMPLATE *tmpl, CK_ULONG mode )
       if (subprime_attr) free( subprime_attr );
       if (base_attr)     free( base_attr );
       if (value_attr)    free( value_attr );
-      st_err_log(1, __FILE__, __LINE__);
+      OCK_LOG_ERR(ERR_HOST_MEMORY);
 
       return CKR_HOST_MEMORY;
    }
@@ -1940,14 +1940,14 @@ dsa_publ_validate_attribute( TEMPLATE *tmpl, CK_ATTRIBUTE *attr, CK_ULONG mode )
             CK_ULONG size;
 
             if (mode != MODE_CREATE && mode != MODE_KEYGEN){
-               st_err_log(7, __FILE__, __LINE__);
+               OCK_LOG_ERR(ERR_ATTRIBUTE_READ_ONLY);
                return CKR_ATTRIBUTE_READ_ONLY;
             }
             // must be between [512, 1024] bits, and a multiple of 64 bits
             //
             size = attr->ulValueLen;
             if (size < 64 || size > 128 || (size % 8 != 0)){
-               st_err_log(9, __FILE__, __LINE__);
+               OCK_LOG_ERR(ERR_ATTRIBUTE_VALUE_INVALID);
                return CKR_ATTRIBUTE_VALUE_INVALID;
             }
             p11_attribute_trim( attr );
@@ -1957,13 +1957,13 @@ dsa_publ_validate_attribute( TEMPLATE *tmpl, CK_ATTRIBUTE *attr, CK_ULONG mode )
       case CKA_SUBPRIME:
          {
             if (mode != MODE_CREATE && mode != MODE_KEYGEN){
-               st_err_log(7, __FILE__, __LINE__);
+               OCK_LOG_ERR(ERR_ATTRIBUTE_READ_ONLY);
                return CKR_ATTRIBUTE_READ_ONLY;
             }
             // subprime must be 160 bits
             //
             if (attr->ulValueLen != 20){
-               st_err_log(9, __FILE__, __LINE__);
+               OCK_LOG_ERR(ERR_ATTRIBUTE_VALUE_INVALID);
                return CKR_ATTRIBUTE_VALUE_INVALID;
             }
             p11_attribute_trim( attr );
@@ -1976,7 +1976,7 @@ dsa_publ_validate_attribute( TEMPLATE *tmpl, CK_ATTRIBUTE *attr, CK_ULONG mode )
             return CKR_OK;
          }
          else{
-            st_err_log(7, __FILE__, __LINE__);
+            OCK_LOG_ERR(ERR_ATTRIBUTE_READ_ONLY);
             return CKR_ATTRIBUTE_READ_ONLY;
          }
       case CKA_VALUE:
@@ -1985,7 +1985,7 @@ dsa_publ_validate_attribute( TEMPLATE *tmpl, CK_ATTRIBUTE *attr, CK_ULONG mode )
             return CKR_OK;
          }
          else{
-            st_err_log(7, __FILE__, __LINE__);
+            OCK_LOG_ERR(ERR_ATTRIBUTE_READ_ONLY);
             return CKR_ATTRIBUTE_READ_ONLY;
          }
       default:
@@ -2006,7 +2006,7 @@ dsa_priv_check_required_attributes( TEMPLATE *tmpl, CK_ULONG mode )
    found = template_attribute_find( tmpl, CKA_PRIME, &attr );
    if (!found) {
       if (mode == MODE_CREATE){
-         st_err_log(48, __FILE__, __LINE__);
+         OCK_LOG_ERR(ERR_TEMPLATE_INCOMPLETE);
          return CKR_TEMPLATE_INCOMPLETE;
       }
    }
@@ -2014,7 +2014,7 @@ dsa_priv_check_required_attributes( TEMPLATE *tmpl, CK_ULONG mode )
    found = template_attribute_find( tmpl, CKA_SUBPRIME, &attr );
    if (!found) {
       if (mode == MODE_CREATE){
-         st_err_log(48, __FILE__, __LINE__);
+         OCK_LOG_ERR(ERR_TEMPLATE_INCOMPLETE);
          return CKR_TEMPLATE_INCOMPLETE;
       }
    }
@@ -2022,7 +2022,7 @@ dsa_priv_check_required_attributes( TEMPLATE *tmpl, CK_ULONG mode )
    found = template_attribute_find( tmpl, CKA_BASE, &attr );
    if (!found) {
       if (mode == MODE_CREATE){
-         st_err_log(48, __FILE__, __LINE__);
+         OCK_LOG_ERR(ERR_TEMPLATE_INCOMPLETE);
          return CKR_TEMPLATE_INCOMPLETE;
       }
    }
@@ -2030,7 +2030,7 @@ dsa_priv_check_required_attributes( TEMPLATE *tmpl, CK_ULONG mode )
    found = template_attribute_find( tmpl, CKA_VALUE, &attr );
    if (!found) {
       if (mode == MODE_CREATE){
-         st_err_log(48, __FILE__, __LINE__);
+         OCK_LOG_ERR(ERR_TEMPLATE_INCOMPLETE);
          return CKR_TEMPLATE_INCOMPLETE;
       }
    }
@@ -2067,7 +2067,7 @@ dsa_priv_set_default_attributes( TEMPLATE *tmpl, CK_ULONG mode )
       if (subprime_attr) free( subprime_attr );
       if (base_attr)     free( base_attr );
       if (value_attr)    free( value_attr );
-      st_err_log(1, __FILE__, __LINE__);
+      OCK_LOG_ERR(ERR_HOST_MEMORY);
 
       return CKR_HOST_MEMORY;
    }
@@ -2114,14 +2114,14 @@ dsa_priv_validate_attribute( TEMPLATE *tmpl, CK_ATTRIBUTE *attr, CK_ULONG mode )
             CK_ULONG size;
 
             if (mode != MODE_CREATE){
-               st_err_log(7, __FILE__, __LINE__);
+               OCK_LOG_ERR(ERR_ATTRIBUTE_READ_ONLY);
                return CKR_ATTRIBUTE_READ_ONLY;
             }
             // must be between [512, 1024] bits, and a multiple of 64 bits
             //
             size = attr->ulValueLen;
             if (size < 64 || size > 128 || (size % 8 != 0)){
-               st_err_log(9, __FILE__, __LINE__);
+               OCK_LOG_ERR(ERR_ATTRIBUTE_VALUE_INVALID);
                return CKR_ATTRIBUTE_VALUE_INVALID;
                }
             p11_attribute_trim( attr );
@@ -2131,13 +2131,13 @@ dsa_priv_validate_attribute( TEMPLATE *tmpl, CK_ATTRIBUTE *attr, CK_ULONG mode )
       case CKA_SUBPRIME:
          {
             if (mode != MODE_CREATE){
-               st_err_log(7, __FILE__, __LINE__);
+               OCK_LOG_ERR(ERR_ATTRIBUTE_READ_ONLY);
                return CKR_ATTRIBUTE_READ_ONLY;
             }
             // subprime must be 160 bits
             //
             if (attr->ulValueLen != 20){
-               st_err_log(9, __FILE__, __LINE__);
+               OCK_LOG_ERR(ERR_ATTRIBUTE_VALUE_INVALID);
                return CKR_ATTRIBUTE_VALUE_INVALID;
             }
             p11_attribute_trim( attr );
@@ -2151,7 +2151,7 @@ dsa_priv_validate_attribute( TEMPLATE *tmpl, CK_ATTRIBUTE *attr, CK_ULONG mode )
             return CKR_OK;
          }
          else{
-            st_err_log(7, __FILE__, __LINE__);
+            OCK_LOG_ERR(ERR_ATTRIBUTE_READ_ONLY);
             return CKR_ATTRIBUTE_READ_ONLY;
          }
       default:
@@ -2216,25 +2216,25 @@ dsa_priv_wrap_get_data( TEMPLATE  *tmpl,
    // compute the total length of the BER-encoded data
    //
    if (template_attribute_find(tmpl, CKA_PRIME, &prime) == FALSE){
-      st_err_log(4, __FILE__, __LINE__, __FUNCTION__);
+      OCK_LOG_ERR(ERR_FUNCTION_FAILED);
       return CKR_FUNCTION_FAILED;
    }
    if (template_attribute_find(tmpl, CKA_SUBPRIME, &subprime) == FALSE){
-      st_err_log(4, __FILE__, __LINE__, __FUNCTION__);
+      OCK_LOG_ERR(ERR_FUNCTION_FAILED);
       return CKR_FUNCTION_FAILED;
    }
    if (template_attribute_find(tmpl, CKA_BASE, &base) == FALSE){
-      st_err_log(4, __FILE__, __LINE__, __FUNCTION__);
+      OCK_LOG_ERR(ERR_FUNCTION_FAILED);
       return CKR_FUNCTION_FAILED;
    }
    if (template_attribute_find(tmpl, CKA_VALUE, &value) == FALSE){
-      st_err_log(4, __FILE__, __LINE__, __FUNCTION__);
+      OCK_LOG_ERR(ERR_FUNCTION_FAILED);
       return CKR_FUNCTION_FAILED;
    }
    rc = ber_encode_DSAPrivateKey( length_only, data, data_len,
                                   prime, subprime, base, value );
    if (rc != CKR_OK){
-      st_err_log(87, __FILE__, __LINE__);
+      OCK_LOG_ERR(ERR_ENCODE_PRIVKEY);
    }
 
    return rc;
@@ -2258,7 +2258,7 @@ dsa_priv_unwrap( TEMPLATE *tmpl,
                                   &prime, &subprime, &base, &value );
 
    if (rc != CKR_OK){
-      st_err_log(88, __FILE__, __LINE__);
+      OCK_LOG_ERR(ERR_DECODE_PRIVKEY);
       return rc;
    }
    p11_attribute_trim( prime );
@@ -2287,7 +2287,7 @@ ecdsa_publ_check_required_attributes( TEMPLATE *tmpl, CK_ULONG mode )
    found = template_attribute_find( tmpl, CKA_ECDSA_PARAMS, &attr );
    if (!found) {
       if (mode == MODE_CREATE || mode == MODE_KEYGEN){
-         st_err_log(48, __FILE__, __LINE__);
+         OCK_LOG_ERR(ERR_TEMPLATE_INCOMPLETE);
          return CKR_TEMPLATE_INCOMPLETE;
       }
    }
@@ -2295,7 +2295,7 @@ ecdsa_publ_check_required_attributes( TEMPLATE *tmpl, CK_ULONG mode )
    found = template_attribute_find( tmpl, CKA_EC_POINT, &attr );
    if (!found) {
       if (mode == MODE_CREATE){
-         st_err_log(48, __FILE__, __LINE__);
+         OCK_LOG_ERR(ERR_TEMPLATE_INCOMPLETE);
          return CKR_TEMPLATE_INCOMPLETE;
       }
    }
@@ -2326,7 +2326,7 @@ ecdsa_publ_set_default_attributes( TEMPLATE *tmpl, CK_ULONG mode )
       if (type_attr)     free( type_attr );
       if (params_attr)   free( params_attr );
       if (ec_point_attr) free( ec_point_attr );
-      st_err_log(1, __FILE__, __LINE__);
+      OCK_LOG_ERR(ERR_HOST_MEMORY);
 
       return CKR_HOST_MEMORY;
    }
@@ -2362,14 +2362,14 @@ ecdsa_publ_validate_attribute( TEMPLATE *tmpl, CK_ATTRIBUTE *attr, CK_ULONG mode
          if (mode == MODE_CREATE || mode == MODE_KEYGEN)
             return CKR_OK;
          else{
-            st_err_log(7, __FILE__, __LINE__);
+            OCK_LOG_ERR(ERR_ATTRIBUTE_READ_ONLY);
             return CKR_ATTRIBUTE_READ_ONLY;
          }
       case CKA_EC_POINT:
          if (mode == MODE_CREATE)
             return CKR_OK;
          else{
-            st_err_log(7, __FILE__, __LINE__);
+            OCK_LOG_ERR(ERR_ATTRIBUTE_READ_ONLY);
             return CKR_ATTRIBUTE_READ_ONLY;
          }
       default:
@@ -2390,7 +2390,7 @@ ecdsa_priv_check_required_attributes( TEMPLATE *tmpl, CK_ULONG mode )
    found = template_attribute_find( tmpl, CKA_ECDSA_PARAMS, &attr );
    if (!found) {
       if (mode == MODE_CREATE){
-         st_err_log(48, __FILE__, __LINE__);
+         OCK_LOG_ERR(ERR_TEMPLATE_INCOMPLETE);
          return CKR_TEMPLATE_INCOMPLETE;
       }
    }
@@ -2398,7 +2398,7 @@ ecdsa_priv_check_required_attributes( TEMPLATE *tmpl, CK_ULONG mode )
    found = template_attribute_find( tmpl, CKA_EC_POINT, &attr );
    if (!found) {
       if (mode == MODE_CREATE){
-         st_err_log(48, __FILE__, __LINE__);
+         OCK_LOG_ERR(ERR_TEMPLATE_INCOMPLETE);
          return CKR_TEMPLATE_INCOMPLETE;
       }
    }
@@ -2429,7 +2429,7 @@ ecdsa_priv_set_default_attributes( TEMPLATE *tmpl, CK_ULONG mode )
       if (type_attr)   free( type_attr );
       if (params_attr) free( params_attr );
       if (value_attr)  free( value_attr );
-      st_err_log(1, __FILE__, __LINE__);
+      OCK_LOG_ERR(ERR_HOST_MEMORY);
 
       return CKR_HOST_MEMORY;
    }
@@ -2465,7 +2465,7 @@ ecdsa_priv_validate_attribute( TEMPLATE *tmpl, CK_ATTRIBUTE *attr, CK_ULONG mode
          if (mode == MODE_CREATE)
             return CKR_OK;
          else{
-            st_err_log(7, __FILE__, __LINE__);
+            OCK_LOG_ERR(ERR_ATTRIBUTE_READ_ONLY);
             return CKR_ATTRIBUTE_READ_ONLY;
          }
       case CKA_VALUE:
@@ -2474,7 +2474,7 @@ ecdsa_priv_validate_attribute( TEMPLATE *tmpl, CK_ATTRIBUTE *attr, CK_ULONG mode
             return CKR_OK;
          }
          else{
-            st_err_log(7, __FILE__, __LINE__);
+            OCK_LOG_ERR(ERR_ATTRIBUTE_READ_ONLY);
             return CKR_ATTRIBUTE_READ_ONLY;
          }
       default:
@@ -2509,7 +2509,7 @@ dh_publ_check_required_attributes( TEMPLATE *tmpl, CK_ULONG mode )
    found = template_attribute_find( tmpl, CKA_PRIME, &attr );
    if (!found) {
       if (mode == MODE_CREATE || mode == MODE_KEYGEN){
-         st_err_log(48, __FILE__, __LINE__);
+         OCK_LOG_ERR(ERR_TEMPLATE_INCOMPLETE);
          return CKR_TEMPLATE_INCOMPLETE;
       }
    }
@@ -2517,7 +2517,7 @@ dh_publ_check_required_attributes( TEMPLATE *tmpl, CK_ULONG mode )
    found = template_attribute_find( tmpl, CKA_BASE, &attr );
    if (!found) {
       if (mode == MODE_CREATE || mode == MODE_KEYGEN){
-         st_err_log(48, __FILE__, __LINE__);
+         OCK_LOG_ERR(ERR_TEMPLATE_INCOMPLETE);
          return CKR_TEMPLATE_INCOMPLETE;
       }
    }
@@ -2525,7 +2525,7 @@ dh_publ_check_required_attributes( TEMPLATE *tmpl, CK_ULONG mode )
    found = template_attribute_find( tmpl, CKA_VALUE, &attr );
    if (!found) {
       if (mode == MODE_CREATE){
-         st_err_log(48, __FILE__, __LINE__);
+         OCK_LOG_ERR(ERR_TEMPLATE_INCOMPLETE);
          return CKR_TEMPLATE_INCOMPLETE;
       }
    }
@@ -2559,7 +2559,7 @@ dh_publ_set_default_attributes( TEMPLATE *tmpl, CK_ULONG mode )
       if (prime_attr) free( prime_attr );
       if (base_attr)  free( base_attr );
       if (value_attr) free( value_attr );
-      st_err_log(1, __FILE__, __LINE__);
+      OCK_LOG_ERR(ERR_HOST_MEMORY);
 
       return CKR_HOST_MEMORY;
    }
@@ -2605,7 +2605,7 @@ dh_publ_validate_attribute( TEMPLATE *tmpl, CK_ATTRIBUTE *attr, CK_ULONG mode )
             return CKR_OK;
          }
          else{
-            st_err_log(7, __FILE__, __LINE__);
+            OCK_LOG_ERR(ERR_ATTRIBUTE_READ_ONLY);
             return CKR_ATTRIBUTE_READ_ONLY;
          }
       case CKA_VALUE:
@@ -2614,7 +2614,7 @@ dh_publ_validate_attribute( TEMPLATE *tmpl, CK_ATTRIBUTE *attr, CK_ULONG mode )
             return CKR_OK;
          }
          else{
-            st_err_log(7, __FILE__, __LINE__);
+            OCK_LOG_ERR(ERR_ATTRIBUTE_READ_ONLY);
             return CKR_ATTRIBUTE_READ_ONLY;
          }
       default:
@@ -2635,7 +2635,7 @@ dh_priv_check_required_attributes( TEMPLATE *tmpl, CK_ULONG mode )
    found = template_attribute_find( tmpl, CKA_PRIME, &attr );
    if (!found) {
       if (mode == MODE_CREATE){
-         st_err_log(48, __FILE__, __LINE__);
+         OCK_LOG_ERR(ERR_TEMPLATE_INCOMPLETE);
          return CKR_TEMPLATE_INCOMPLETE;
       }
    }
@@ -2643,7 +2643,7 @@ dh_priv_check_required_attributes( TEMPLATE *tmpl, CK_ULONG mode )
    found = template_attribute_find( tmpl, CKA_BASE, &attr );
    if (!found) {
       if (mode == MODE_CREATE){
-         st_err_log(48, __FILE__, __LINE__);
+         OCK_LOG_ERR(ERR_TEMPLATE_INCOMPLETE);
          return CKR_TEMPLATE_INCOMPLETE;
       }
    }
@@ -2651,7 +2651,7 @@ dh_priv_check_required_attributes( TEMPLATE *tmpl, CK_ULONG mode )
    found = template_attribute_find( tmpl, CKA_VALUE, &attr );
    if (!found) {
       if (mode == MODE_CREATE){
-         st_err_log(48, __FILE__, __LINE__);
+         OCK_LOG_ERR(ERR_TEMPLATE_INCOMPLETE);
          return CKR_TEMPLATE_INCOMPLETE;
       }
    }
@@ -2659,7 +2659,7 @@ dh_priv_check_required_attributes( TEMPLATE *tmpl, CK_ULONG mode )
    found = template_attribute_find( tmpl, CKA_VALUE_BITS, &attr );
    if (found) {
       if (mode == MODE_CREATE || mode == MODE_UNWRAP){
-         st_err_log(7, __FILE__, __LINE__);
+         OCK_LOG_ERR(ERR_ATTRIBUTE_READ_ONLY);
          return CKR_ATTRIBUTE_READ_ONLY;
       }
    }
@@ -2694,7 +2694,7 @@ dh_priv_set_default_attributes( TEMPLATE *tmpl, CK_ULONG mode )
       if (base_attr)       free( base_attr );
       if (value_attr)      free( value_attr );
       if (value_bits_attr) free( value_bits_attr );
-      st_err_log(1, __FILE__, __LINE__);
+      OCK_LOG_ERR(ERR_HOST_MEMORY);
 
       return CKR_HOST_MEMORY;
    }
@@ -2745,7 +2745,7 @@ dh_priv_validate_attribute( TEMPLATE *tmpl, CK_ATTRIBUTE *attr, CK_ULONG mode )
             return CKR_OK;
          }
          else{
-            st_err_log(7, __FILE__, __LINE__);
+            OCK_LOG_ERR(ERR_ATTRIBUTE_READ_ONLY);
             return CKR_ATTRIBUTE_READ_ONLY;
          }
       // I'm not sure what to do about VALUE_BITS...we don't really support
@@ -2758,7 +2758,7 @@ dh_priv_validate_attribute( TEMPLATE *tmpl, CK_ATTRIBUTE *attr, CK_ULONG mode )
       //                  attribute for creating DH priv object.  The above is 
       //                  an older comment.
       case CKA_VALUE_BITS:
-      //   st_err_log(7, __FILE__, __LINE__);
+      //   OCK_LOG_ERR(ERR_ATTRIBUTE_READ_ONLY);
       //   return CKR_ATTRIBUTE_READ_ONLY;
            return CKR_OK ;
            break ;
@@ -2795,7 +2795,7 @@ kea_publ_check_required_attributes( TEMPLATE *tmpl, CK_ULONG mode )
    found = template_attribute_find( tmpl, CKA_PRIME, &attr );
    if (!found) {
       if (mode == MODE_CREATE || mode == MODE_KEYGEN){
-         st_err_log(48, __FILE__, __LINE__);
+         OCK_LOG_ERR(ERR_TEMPLATE_INCOMPLETE);
          return CKR_TEMPLATE_INCOMPLETE;
       }
    }
@@ -2803,7 +2803,7 @@ kea_publ_check_required_attributes( TEMPLATE *tmpl, CK_ULONG mode )
    found = template_attribute_find( tmpl, CKA_SUBPRIME, &attr );
    if (!found) {
       if (mode == MODE_CREATE || mode == MODE_KEYGEN){
-         st_err_log(48, __FILE__, __LINE__);
+         OCK_LOG_ERR(ERR_TEMPLATE_INCOMPLETE);
          return CKR_TEMPLATE_INCOMPLETE;
       }
    }
@@ -2811,7 +2811,7 @@ kea_publ_check_required_attributes( TEMPLATE *tmpl, CK_ULONG mode )
    found = template_attribute_find( tmpl, CKA_BASE, &attr );
    if (!found) {
       if (mode == MODE_CREATE || mode == MODE_KEYGEN){
-         st_err_log(48, __FILE__, __LINE__);
+         OCK_LOG_ERR(ERR_TEMPLATE_INCOMPLETE);
          return CKR_TEMPLATE_INCOMPLETE;
       }
    }
@@ -2819,7 +2819,7 @@ kea_publ_check_required_attributes( TEMPLATE *tmpl, CK_ULONG mode )
    found = template_attribute_find( tmpl, CKA_VALUE, &attr );
    if (!found) {
       if (mode == MODE_CREATE){
-         st_err_log(48, __FILE__, __LINE__);
+         OCK_LOG_ERR(ERR_TEMPLATE_INCOMPLETE);
          return CKR_TEMPLATE_INCOMPLETE;
       }
    }
@@ -2857,7 +2857,7 @@ kea_publ_set_default_attributes( TEMPLATE *tmpl, CK_ULONG mode )
       if (subprime_attr) free( subprime_attr );
       if (base_attr)     free( base_attr );
       if (value_attr)    free( value_attr );
-      st_err_log(1, __FILE__, __LINE__);
+      OCK_LOG_ERR(ERR_HOST_MEMORY);
 
       return CKR_HOST_MEMORY;
    }
@@ -2907,7 +2907,7 @@ kea_publ_validate_attribute( TEMPLATE *tmpl, CK_ATTRIBUTE *attr, CK_ULONG mode )
             return CKR_OK;
          }
          else{
-            st_err_log(7, __FILE__, __LINE__);
+            OCK_LOG_ERR(ERR_ATTRIBUTE_READ_ONLY);
             return CKR_ATTRIBUTE_READ_ONLY;
          }
       case CKA_VALUE:
@@ -2916,7 +2916,7 @@ kea_publ_validate_attribute( TEMPLATE *tmpl, CK_ATTRIBUTE *attr, CK_ULONG mode )
             return CKR_OK;
          }
          else{
-            st_err_log(7, __FILE__, __LINE__);
+            OCK_LOG_ERR(ERR_ATTRIBUTE_READ_ONLY);
             return CKR_ATTRIBUTE_READ_ONLY;
          }
       default:
@@ -2937,7 +2937,7 @@ kea_priv_check_required_attributes( TEMPLATE *tmpl, CK_ULONG mode )
    found = template_attribute_find( tmpl, CKA_PRIME, &attr );
    if (!found) {
       if (mode == MODE_CREATE){
-         st_err_log(48, __FILE__, __LINE__);
+         OCK_LOG_ERR(ERR_TEMPLATE_INCOMPLETE);
          return CKR_TEMPLATE_INCOMPLETE;
       }
    }
@@ -2945,7 +2945,7 @@ kea_priv_check_required_attributes( TEMPLATE *tmpl, CK_ULONG mode )
    found = template_attribute_find( tmpl, CKA_SUBPRIME, &attr );
    if (!found) {
       if (mode == MODE_CREATE){
-         st_err_log(48, __FILE__, __LINE__);
+         OCK_LOG_ERR(ERR_TEMPLATE_INCOMPLETE);
          return CKR_TEMPLATE_INCOMPLETE;
       }
    }
@@ -2953,7 +2953,7 @@ kea_priv_check_required_attributes( TEMPLATE *tmpl, CK_ULONG mode )
    found = template_attribute_find( tmpl, CKA_BASE, &attr );
    if (!found) {
       if (mode == MODE_CREATE){
-         st_err_log(48, __FILE__, __LINE__);
+         OCK_LOG_ERR(ERR_TEMPLATE_INCOMPLETE);
          return CKR_TEMPLATE_INCOMPLETE;
       }
    }
@@ -2961,7 +2961,7 @@ kea_priv_check_required_attributes( TEMPLATE *tmpl, CK_ULONG mode )
    found = template_attribute_find( tmpl, CKA_VALUE, &attr );
    if (!found) {
       if (mode == MODE_CREATE){
-         st_err_log(48, __FILE__, __LINE__);
+         OCK_LOG_ERR(ERR_TEMPLATE_INCOMPLETE);
          return CKR_TEMPLATE_INCOMPLETE;
       }
    }
@@ -2997,7 +2997,7 @@ kea_priv_set_default_attributes( TEMPLATE *tmpl, CK_ULONG mode )
       if (subprime_attr) free( subprime_attr );
       if (base_attr)     free( base_attr );
       if (value_attr)    free( value_attr );
-      st_err_log(1, __FILE__, __LINE__);
+      OCK_LOG_ERR(ERR_HOST_MEMORY);
 
       return CKR_HOST_MEMORY;
    }
@@ -3048,7 +3048,7 @@ kea_priv_validate_attribute( TEMPLATE *tmpl, CK_ATTRIBUTE *attr, CK_ULONG mode )
             return CKR_OK;
          }
          else{
-            st_err_log(7, __FILE__, __LINE__);
+            OCK_LOG_ERR(ERR_ATTRIBUTE_READ_ONLY);
             return CKR_ATTRIBUTE_READ_ONLY;
          }
       default:
@@ -3082,7 +3082,7 @@ generic_secret_check_required_attributes( TEMPLATE *tmpl, CK_ULONG mode )
    found = template_attribute_find( tmpl, CKA_VALUE, &attr );
    if (!found) {
       if (mode == MODE_CREATE){
-         st_err_log(48, __FILE__, __LINE__);
+         OCK_LOG_ERR(ERR_TEMPLATE_INCOMPLETE);
          return CKR_TEMPLATE_INCOMPLETE;
       }
    }
@@ -3105,7 +3105,7 @@ generic_secret_check_required_attributes( TEMPLATE *tmpl, CK_ULONG mode )
       // when unwrapping.
       //
       if (mode == MODE_CREATE){
-         st_err_log(7, __FILE__, __LINE__);
+         OCK_LOG_ERR(ERR_ATTRIBUTE_READ_ONLY);
          return CKR_ATTRIBUTE_READ_ONLY;
       }
    }
@@ -3137,7 +3137,7 @@ generic_secret_set_default_attributes( TEMPLATE *tmpl, CK_ULONG mode )
       if (type_attr)      free( type_attr );
       if (value_attr)     free( value_attr );
       if (value_len_attr) free( value_len_attr );
-      st_err_log(1, __FILE__, __LINE__);
+      OCK_LOG_ERR(ERR_HOST_MEMORY);
 
       return CKR_HOST_MEMORY;
    }
@@ -3174,7 +3174,7 @@ generic_secret_validate_attribute( TEMPLATE *tmpl, CK_ATTRIBUTE *attr, CK_ULONG 
          if (mode == MODE_CREATE)
             return CKR_OK;
          else{
-            st_err_log(7, __FILE__, __LINE__);
+            OCK_LOG_ERR(ERR_ATTRIBUTE_READ_ONLY);
             return CKR_ATTRIBUTE_READ_ONLY;
          }
       // Another contradiction within the spec:  When describing the key types
@@ -3191,7 +3191,7 @@ generic_secret_validate_attribute( TEMPLATE *tmpl, CK_ATTRIBUTE *attr, CK_ULONG 
                if (nv_token_data->tweak_vector.netscape_mods == TRUE)
                   return CKR_OK;
             }
-            st_err_log(7, __FILE__, __LINE__);
+            OCK_LOG_ERR(ERR_ATTRIBUTE_READ_ONLY);
             return CKR_ATTRIBUTE_READ_ONLY;
          }
 
@@ -3229,13 +3229,13 @@ generic_secret_wrap_get_data( TEMPLATE   * tmpl,
 
 
    if (!tmpl || !data_len){
-      st_err_log(4, __FILE__, __LINE__, __FUNCTION__);
+      OCK_LOG_ERR(ERR_FUNCTION_FAILED);
       return CKR_FUNCTION_FAILED;
    }
 
    rc = template_attribute_find( tmpl, CKA_VALUE, &attr );
    if (rc == FALSE){
-      st_err_log(26, __FILE__, __LINE__);
+      OCK_LOG_ERR(ERR_KEY_NOT_WRAPPABLE);
       return CKR_KEY_NOT_WRAPPABLE;
    }
    *data_len = attr->ulValueLen;
@@ -3243,7 +3243,7 @@ generic_secret_wrap_get_data( TEMPLATE   * tmpl,
    if (length_only == FALSE) {
       ptr = (CK_BYTE *)malloc( attr->ulValueLen );
       if (!ptr){
-         st_err_log(1, __FILE__, __LINE__);
+         OCK_LOG_ERR(ERR_HOST_MEMORY);
          return CKR_HOST_MEMORY;
       }
       memcpy( ptr, attr->pValue, attr->ulValueLen );
@@ -3282,7 +3282,7 @@ generic_secret_unwrap( TEMPLATE *tmpl,
    if (rc) {
       len = *(CK_ULONG *)attr->pValue;
       if (len > data_len) {
-         st_err_log(9, __FILE__, __LINE__);
+         OCK_LOG_ERR(ERR_ATTRIBUTE_VALUE_INVALID);
          rc = CKR_ATTRIBUTE_VALUE_INVALID;
          goto error;
       }
@@ -3296,13 +3296,13 @@ generic_secret_unwrap( TEMPLATE *tmpl,
 
    rc = build_attribute( CKA_VALUE, ptr, data_len, &value_attr );
    if (rc != CKR_OK){
-      st_err_log(84, __FILE__, __LINE__);
+      OCK_LOG_ERR(ERR_BLD_ATTR);
       goto error;
    }
    if (data_len != len) {
       rc = build_attribute( CKA_VALUE_LEN, (CK_BYTE *)&data_len, sizeof(CK_ULONG), &value_len_attr );
       if (rc != CKR_OK){
-         st_err_log(84, __FILE__, __LINE__);
+         OCK_LOG_ERR(ERR_BLD_ATTR);
          goto error;
       }
    }
@@ -3333,7 +3333,7 @@ rc2_check_required_attributes( TEMPLATE *tmpl, CK_ULONG mode )
    found = template_attribute_find( tmpl, CKA_VALUE, &attr );
    if (!found) {
       if (mode == MODE_CREATE){
-         st_err_log(48, __FILE__, __LINE__);
+         OCK_LOG_ERR(ERR_TEMPLATE_INCOMPLETE);
          return CKR_TEMPLATE_INCOMPLETE;
       }
    }
@@ -3341,7 +3341,7 @@ rc2_check_required_attributes( TEMPLATE *tmpl, CK_ULONG mode )
    found = template_attribute_find( tmpl, CKA_VALUE_LEN, &attr );
    if (!found) {
       if (mode == MODE_KEYGEN){
-         st_err_log(48, __FILE__, __LINE__);
+         OCK_LOG_ERR(ERR_TEMPLATE_INCOMPLETE);
          return CKR_TEMPLATE_INCOMPLETE;
       }
    }
@@ -3370,7 +3370,7 @@ rc2_set_default_attributes( TEMPLATE *tmpl, CK_ULONG mode )
       if (type_attr)      free( type_attr );
       if (value_attr)     free( value_attr );
       if (value_len_attr) free( value_len_attr );
-      st_err_log(1, __FILE__, __LINE__);
+      OCK_LOG_ERR(ERR_HOST_MEMORY);
 
       return CKR_HOST_MEMORY;
    }
@@ -3405,7 +3405,7 @@ rc2_validate_attribute( TEMPLATE *tmpl, CK_ATTRIBUTE *attr, CK_ULONG mode )
    switch (attr->type) {
       case CKA_VALUE:
          if (mode != MODE_CREATE){
-            st_err_log(7, __FILE__, __LINE__);
+            OCK_LOG_ERR(ERR_ATTRIBUTE_READ_ONLY);
             return CKR_ATTRIBUTE_READ_ONLY;
          }
          // rc2 key length <= 128 bytes
@@ -3420,12 +3420,12 @@ rc2_validate_attribute( TEMPLATE *tmpl, CK_ATTRIBUTE *attr, CK_ULONG mode )
             CK_ULONG len;
 
             if (mode != MODE_KEYGEN && mode != MODE_DERIVE){
-               st_err_log(7, __FILE__, __LINE__);
+               OCK_LOG_ERR(ERR_ATTRIBUTE_READ_ONLY);
                return CKR_ATTRIBUTE_READ_ONLY;
             }
             len = *(CK_ULONG *)attr->pValue;
             if (len > 128){
-               st_err_log(9, __FILE__, __LINE__);
+               OCK_LOG_ERR(ERR_ATTRIBUTE_VALUE_INVALID);
                return CKR_ATTRIBUTE_VALUE_INVALID;
             }
             else
@@ -3458,7 +3458,7 @@ rc4_set_default_attributes( TEMPLATE *tmpl, CK_ULONG mode )
       if (type_attr)      free( type_attr );
       if (value_attr)     free( value_attr );
       if (value_len_attr) free( value_len_attr );
-      st_err_log(1, __FILE__, __LINE__);
+      OCK_LOG_ERR(ERR_HOST_MEMORY);
 
       return CKR_HOST_MEMORY;
    }
@@ -3496,7 +3496,7 @@ rc4_check_required_attributes( TEMPLATE *tmpl, CK_ULONG mode )
    found = template_attribute_find( tmpl, CKA_VALUE, &attr );
    if (!found) {
       if (mode == MODE_CREATE){
-         st_err_log(48, __FILE__, __LINE__);
+         OCK_LOG_ERR(ERR_TEMPLATE_INCOMPLETE);
          return CKR_TEMPLATE_INCOMPLETE;
       }
    }
@@ -3504,7 +3504,7 @@ rc4_check_required_attributes( TEMPLATE *tmpl, CK_ULONG mode )
    found = template_attribute_find( tmpl, CKA_VALUE_LEN, &attr );
    if (!found) {
       if (mode == MODE_KEYGEN){
-         st_err_log(48, __FILE__, __LINE__);
+         OCK_LOG_ERR(ERR_TEMPLATE_INCOMPLETE);
          return CKR_TEMPLATE_INCOMPLETE;
       }
    }
@@ -3522,13 +3522,13 @@ rc4_validate_attribute( TEMPLATE *tmpl, CK_ATTRIBUTE *attr, CK_ULONG mode )
       case CKA_VALUE:
          {
             if (mode != MODE_CREATE){
-               st_err_log(7, __FILE__, __LINE__);
+               OCK_LOG_ERR(ERR_ATTRIBUTE_READ_ONLY);
                return CKR_ATTRIBUTE_READ_ONLY;
 	    }
             // key length <= 256 bytes
             //
             if (attr->ulValueLen > 256){
-               st_err_log(9, __FILE__, __LINE__);
+               OCK_LOG_ERR(ERR_ATTRIBUTE_VALUE_INVALID);
                return CKR_ATTRIBUTE_VALUE_INVALID;
             }
             else
@@ -3540,12 +3540,12 @@ rc4_validate_attribute( TEMPLATE *tmpl, CK_ATTRIBUTE *attr, CK_ULONG mode )
             CK_ULONG len;
 
             if (mode != MODE_KEYGEN && mode != MODE_DERIVE){
-               st_err_log(7, __FILE__, __LINE__);
+               OCK_LOG_ERR(ERR_ATTRIBUTE_READ_ONLY);
                return CKR_ATTRIBUTE_READ_ONLY;
             }
             len = *(CK_ULONG *)attr->pValue;
             if (len > 255){
-               st_err_log(9, __FILE__, __LINE__);
+               OCK_LOG_ERR(ERR_ATTRIBUTE_VALUE_INVALID);
                return CKR_ATTRIBUTE_VALUE_INVALID;
             }
             else
@@ -3569,7 +3569,7 @@ rc5_check_required_attributes( TEMPLATE *tmpl, CK_ULONG mode )
    found = template_attribute_find( tmpl, CKA_VALUE, &attr );
    if (!found) {
       if (mode == MODE_CREATE){
-         st_err_log(48, __FILE__, __LINE__);
+         OCK_LOG_ERR(ERR_TEMPLATE_INCOMPLETE);
          return CKR_TEMPLATE_INCOMPLETE;
       }
    }
@@ -3577,7 +3577,7 @@ rc5_check_required_attributes( TEMPLATE *tmpl, CK_ULONG mode )
    found = template_attribute_find( tmpl, CKA_VALUE_LEN, &attr );
    if (!found) {
       if (mode == MODE_KEYGEN){
-         st_err_log(48, __FILE__, __LINE__);
+         OCK_LOG_ERR(ERR_TEMPLATE_INCOMPLETE);
          return CKR_TEMPLATE_INCOMPLETE;
       }
    }
@@ -3606,7 +3606,7 @@ rc5_set_default_attributes( TEMPLATE *tmpl, CK_ULONG mode )
       if (type_attr)      free( type_attr );
       if (value_attr)     free( value_attr );
       if (value_len_attr) free( value_len_attr );
-      st_err_log(1, __FILE__, __LINE__);
+      OCK_LOG_ERR(ERR_HOST_MEMORY);
 
       return CKR_HOST_MEMORY;
    }
@@ -3642,13 +3642,13 @@ rc5_validate_attribute( TEMPLATE *tmpl, CK_ATTRIBUTE *attr, CK_ULONG mode )
       case CKA_VALUE:
          {
             if (mode != MODE_CREATE){
-               st_err_log(7, __FILE__, __LINE__);
+               OCK_LOG_ERR(ERR_ATTRIBUTE_READ_ONLY);
                return CKR_ATTRIBUTE_READ_ONLY;
             }
             // key length <= 256 bytes
             //
             if (attr->ulValueLen > 255){
-               st_err_log(9, __FILE__, __LINE__);
+               OCK_LOG_ERR(ERR_ATTRIBUTE_VALUE_INVALID);
                return CKR_ATTRIBUTE_VALUE_INVALID;
             }
             else
@@ -3660,12 +3660,12 @@ rc5_validate_attribute( TEMPLATE *tmpl, CK_ATTRIBUTE *attr, CK_ULONG mode )
             CK_ULONG len;
 
             if (mode != MODE_KEYGEN && mode != MODE_DERIVE){
-               st_err_log(7, __FILE__, __LINE__);
+               OCK_LOG_ERR(ERR_ATTRIBUTE_READ_ONLY);
                return CKR_ATTRIBUTE_READ_ONLY;
             }
             len = *(CK_ULONG *)attr->pValue;
             if (len > 255){
-               st_err_log(9, __FILE__, __LINE__);
+               OCK_LOG_ERR(ERR_ATTRIBUTE_VALUE_INVALID);
                return CKR_ATTRIBUTE_VALUE_INVALID;
             }
             else
@@ -3689,7 +3689,7 @@ des_check_required_attributes( TEMPLATE *tmpl, CK_ULONG mode )
    found = template_attribute_find( tmpl, CKA_VALUE, &attr );
    if (!found) {
       if (mode == MODE_CREATE){
-         st_err_log(48, __FILE__, __LINE__);
+         OCK_LOG_ERR(ERR_TEMPLATE_INCOMPLETE);
          return CKR_TEMPLATE_INCOMPLETE;
       }
    }
@@ -3744,7 +3744,7 @@ des_set_default_attributes( TEMPLATE *tmpl, CK_ULONG mode )
    if (!value_attr || !type_attr) {
       if (value_attr) free( value_attr );
       if (type_attr)  free( type_attr );
-      st_err_log(1, __FILE__, __LINE__);
+      OCK_LOG_ERR(ERR_HOST_MEMORY);
 
       return CKR_HOST_MEMORY;
    }
@@ -3779,7 +3779,7 @@ des_unwrap( TEMPLATE *tmpl,
 
 
    if (data_len < DES_BLOCK_SIZE){
-      st_err_log(62, __FILE__, __LINE__);
+      OCK_LOG_ERR(ERR_WRAPPED_KEY_INVALID);
       return CKR_WRAPPED_KEY_INVALID;
    }
    if (fromend == TRUE)
@@ -3790,7 +3790,7 @@ des_unwrap( TEMPLATE *tmpl,
    if (nv_token_data->tweak_vector.check_des_parity == TRUE) {
       for (i=0; i < DES_KEY_SIZE; i++) {
          if (parity_is_odd(ptr[i]) == FALSE){
-               st_err_log(9, __FILE__, __LINE__);
+               OCK_LOG_ERR(ERR_ATTRIBUTE_VALUE_INVALID);
             return CKR_ATTRIBUTE_VALUE_INVALID;
          }
       }
@@ -3801,7 +3801,7 @@ des_unwrap( TEMPLATE *tmpl,
    if (!value_attr) {
       if (value_attr)
          free( value_attr );
-      st_err_log(1, __FILE__, __LINE__);
+      OCK_LOG_ERR(ERR_HOST_MEMORY);
 
       return CKR_HOST_MEMORY;
    }
@@ -3830,14 +3830,14 @@ des_validate_attribute( TEMPLATE *tmpl, CK_ATTRIBUTE *attr, CK_ULONG mode )
          //
          if (mode == MODE_CREATE) {
             if (attr->ulValueLen != DES_KEY_SIZE){
-               st_err_log(9, __FILE__, __LINE__);
+               OCK_LOG_ERR(ERR_ATTRIBUTE_VALUE_INVALID);
                return CKR_ATTRIBUTE_VALUE_INVALID;
             }
             if (nv_token_data->tweak_vector.check_des_parity == TRUE) {
                ptr = attr->pValue;
                for (i=0; i < DES_KEY_SIZE; i++) {
                   if (parity_is_odd(ptr[i]) == FALSE){
-                     st_err_log(9, __FILE__, __LINE__);
+                     OCK_LOG_ERR(ERR_ATTRIBUTE_VALUE_INVALID);
                      return CKR_ATTRIBUTE_VALUE_INVALID;
                   }
                }
@@ -3846,7 +3846,7 @@ des_validate_attribute( TEMPLATE *tmpl, CK_ATTRIBUTE *attr, CK_ULONG mode )
             return CKR_OK;
          }
          else{
-            st_err_log(7, __FILE__, __LINE__);
+            OCK_LOG_ERR(ERR_ATTRIBUTE_READ_ONLY);
             return CKR_ATTRIBUTE_READ_ONLY;
          }
       case CKA_VALUE_LEN:
@@ -3858,19 +3858,19 @@ des_validate_attribute( TEMPLATE *tmpl, CK_ATTRIBUTE *attr, CK_ULONG mode )
             {
                CK_ULONG len = *(CK_ULONG *)attr->pValue;
                if (len != DES_KEY_SIZE){
-                  st_err_log(9, __FILE__, __LINE__);
+                  OCK_LOG_ERR(ERR_ATTRIBUTE_VALUE_INVALID);
                   return CKR_ATTRIBUTE_VALUE_INVALID;
                }
                else
                   return CKR_OK;
             }
             else{
-               st_err_log(7, __FILE__, __LINE__);
+               OCK_LOG_ERR(ERR_ATTRIBUTE_READ_ONLY);
                return CKR_ATTRIBUTE_READ_ONLY;
             } 
          }
          else{
-            st_err_log(49, __FILE__, __LINE__);
+            OCK_LOG_ERR(ERR_TEMPLATE_INCONSISTENT);
             return CKR_TEMPLATE_INCONSISTENT;
          }
       default:
@@ -3893,13 +3893,13 @@ des_wrap_get_data( TEMPLATE   * tmpl,
 
 
    if (!tmpl || !data_len){
-      st_err_log(4, __FILE__, __LINE__, __FUNCTION__);
+      OCK_LOG_ERR(ERR_FUNCTION_FAILED);
       return CKR_FUNCTION_FAILED;
    }
 
    rc = template_attribute_find( tmpl, CKA_VALUE, &attr );
    if (rc == FALSE){
-      st_err_log(26, __FILE__, __LINE__);
+      OCK_LOG_ERR(ERR_KEY_NOT_WRAPPABLE);
       return CKR_KEY_NOT_WRAPPABLE;
    }
    *data_len = attr->ulValueLen;
@@ -3907,7 +3907,7 @@ des_wrap_get_data( TEMPLATE   * tmpl,
    if (length_only == FALSE) {
       ptr = (CK_BYTE *)malloc( attr->ulValueLen );
       if (!ptr){
-         st_err_log(1, __FILE__, __LINE__);
+         OCK_LOG_ERR(ERR_HOST_MEMORY);
          return CKR_HOST_MEMORY;
       }
       memcpy( ptr, attr->pValue, attr->ulValueLen );
@@ -3930,7 +3930,7 @@ des2_check_required_attributes( TEMPLATE *tmpl, CK_ULONG mode )
    found = template_attribute_find( tmpl, CKA_VALUE, &attr );
    if (!found) {
       if (mode == MODE_CREATE){
-         st_err_log(48, __FILE__, __LINE__);
+         OCK_LOG_ERR(ERR_TEMPLATE_INCOMPLETE);
          return CKR_TEMPLATE_INCOMPLETE;
       }
    }
@@ -3958,7 +3958,7 @@ des2_set_default_attributes( TEMPLATE *tmpl, CK_ULONG mode )
    if (!value_attr || !type_attr) {
       if (value_attr) free( value_attr );
       if (type_attr)  free( type_attr );
-      st_err_log(1, __FILE__, __LINE__);
+      OCK_LOG_ERR(ERR_HOST_MEMORY);
 
       return CKR_HOST_MEMORY;
    }
@@ -3993,14 +3993,14 @@ des2_validate_attribute( TEMPLATE *tmpl, CK_ATTRIBUTE *attr, CK_ULONG mode )
          //
          if (mode == MODE_CREATE) {
             if (attr->ulValueLen != (2 * DES_KEY_SIZE)){
-               st_err_log(9, __FILE__, __LINE__);
+               OCK_LOG_ERR(ERR_ATTRIBUTE_VALUE_INVALID);
                return CKR_ATTRIBUTE_VALUE_INVALID;
             }
             if (nv_token_data->tweak_vector.check_des_parity == TRUE) {
                ptr = attr->pValue;
                for (i=0; i < 2*DES_KEY_SIZE; i++) {
                   if (parity_is_odd(ptr[i]) == FALSE){
-                     st_err_log(9, __FILE__, __LINE__);
+                     OCK_LOG_ERR(ERR_ATTRIBUTE_VALUE_INVALID);
                      return CKR_ATTRIBUTE_VALUE_INVALID;
                   }
                }
@@ -4008,7 +4008,7 @@ des2_validate_attribute( TEMPLATE *tmpl, CK_ATTRIBUTE *attr, CK_ULONG mode )
             return CKR_OK;
          }
          else{
-            st_err_log(7, __FILE__, __LINE__);
+            OCK_LOG_ERR(ERR_ATTRIBUTE_READ_ONLY);
             return CKR_ATTRIBUTE_READ_ONLY;
          }
       case CKA_VALUE_LEN:
@@ -4020,19 +4020,19 @@ des2_validate_attribute( TEMPLATE *tmpl, CK_ATTRIBUTE *attr, CK_ULONG mode )
             {
                CK_ULONG len = *(CK_ULONG *)attr->pValue;
                if (len != (2 * DES_KEY_SIZE)){
-                  st_err_log(9, __FILE__, __LINE__);
+                  OCK_LOG_ERR(ERR_ATTRIBUTE_VALUE_INVALID);
                   return CKR_ATTRIBUTE_VALUE_INVALID;
                } 
                else
                   return CKR_OK;
             }
             else{
-               st_err_log(7, __FILE__, __LINE__);
+               OCK_LOG_ERR(ERR_ATTRIBUTE_READ_ONLY);
                return CKR_ATTRIBUTE_READ_ONLY;
             }
          }
          else{
-            st_err_log(49, __FILE__, __LINE__);
+            OCK_LOG_ERR(ERR_TEMPLATE_INCONSISTENT);
             return CKR_TEMPLATE_INCONSISTENT;
          }
       default:
@@ -4052,7 +4052,7 @@ des3_check_required_attributes( TEMPLATE *tmpl, CK_ULONG mode )
    found = template_attribute_find( tmpl, CKA_VALUE, &attr );
    if (!found) {
       if (mode == MODE_CREATE){
-         st_err_log(48, __FILE__, __LINE__);
+         OCK_LOG_ERR(ERR_TEMPLATE_INCOMPLETE);
          return CKR_TEMPLATE_INCOMPLETE;
       }
    }
@@ -4080,7 +4080,7 @@ des3_set_default_attributes( TEMPLATE *tmpl, CK_ULONG mode )
    if (!value_attr || !type_attr) {
       if (value_attr) free( value_attr );
       if (type_attr)  free( type_attr );
-      st_err_log(1, __FILE__, __LINE__);
+      OCK_LOG_ERR(ERR_HOST_MEMORY);
 
       return CKR_HOST_MEMORY;
    }
@@ -4115,7 +4115,7 @@ des3_unwrap( TEMPLATE *tmpl,
 
 
    if (data_len < 3 * DES_BLOCK_SIZE){
-      st_err_log(62, __FILE__, __LINE__);
+      OCK_LOG_ERR(ERR_WRAPPED_KEY_INVALID);
       return CKR_WRAPPED_KEY_INVALID;
    }
    if (fromend == TRUE)
@@ -4126,7 +4126,7 @@ des3_unwrap( TEMPLATE *tmpl,
    if (nv_token_data->tweak_vector.check_des_parity == TRUE) {
       for (i=0; i < 3*DES_KEY_SIZE; i++) {
          if (parity_is_odd(ptr[i]) == FALSE){
-            st_err_log(9, __FILE__, __LINE__);
+            OCK_LOG_ERR(ERR_ATTRIBUTE_VALUE_INVALID);
             return CKR_ATTRIBUTE_VALUE_INVALID;
          }
       }
@@ -4137,7 +4137,7 @@ des3_unwrap( TEMPLATE *tmpl,
    if (!value_attr) {
       if (value_attr)
          free( value_attr );
-      st_err_log(0, __FILE__, __LINE__);
+      OCK_LOG_ERR(ERR_HOST_MEMORY);
 
       return CKR_HOST_MEMORY;
    }
@@ -4167,14 +4167,14 @@ des3_validate_attribute( TEMPLATE *tmpl, CK_ATTRIBUTE *attr, CK_ULONG mode )
          //
          if (mode == MODE_CREATE) {
             if (attr->ulValueLen != (3 * DES_KEY_SIZE)){
-               st_err_log(9, __FILE__, __LINE__);
+               OCK_LOG_ERR(ERR_ATTRIBUTE_VALUE_INVALID);
                return CKR_ATTRIBUTE_VALUE_INVALID;
             }
             if (nv_token_data->tweak_vector.check_des_parity == TRUE) {
                ptr = attr->pValue;
                for (i=0; i < 3*DES_KEY_SIZE; i++) {
                   if (parity_is_odd(ptr[i]) == FALSE){
-                     st_err_log(9, __FILE__, __LINE__);
+                     OCK_LOG_ERR(ERR_ATTRIBUTE_VALUE_INVALID);
                      return CKR_ATTRIBUTE_VALUE_INVALID;
                   }
                }
@@ -4182,7 +4182,7 @@ des3_validate_attribute( TEMPLATE *tmpl, CK_ATTRIBUTE *attr, CK_ULONG mode )
             return CKR_OK;
          }
          else{
-            st_err_log(7, __FILE__, __LINE__);
+            OCK_LOG_ERR(ERR_ATTRIBUTE_READ_ONLY);
             return CKR_ATTRIBUTE_READ_ONLY;
          }
       case CKA_VALUE_LEN:
@@ -4195,12 +4195,12 @@ des3_validate_attribute( TEMPLATE *tmpl, CK_ATTRIBUTE *attr, CK_ULONG mode )
                   return CKR_OK;
             }
             else{
-               st_err_log(7, __FILE__, __LINE__);
+               OCK_LOG_ERR(ERR_ATTRIBUTE_READ_ONLY);
                return CKR_ATTRIBUTE_READ_ONLY;
             }
          }
          else{
-            st_err_log(49, __FILE__, __LINE__);
+            OCK_LOG_ERR(ERR_TEMPLATE_INCONSISTENT);
             return CKR_TEMPLATE_INCONSISTENT;
          }
       default:
@@ -4223,13 +4223,13 @@ des3_wrap_get_data( TEMPLATE   * tmpl,
 
 
    if (!tmpl || !data_len){
-      st_err_log(4, __FILE__, __LINE__, __FUNCTION__);
+      OCK_LOG_ERR(ERR_FUNCTION_FAILED);
       return CKR_FUNCTION_FAILED;
    }
 
    rc = template_attribute_find( tmpl, CKA_VALUE, &attr );
    if (rc == FALSE){
-      st_err_log(26, __FILE__, __LINE__);
+      OCK_LOG_ERR(ERR_KEY_NOT_WRAPPABLE);
       return CKR_KEY_NOT_WRAPPABLE;
    }
    *data_len = attr->ulValueLen;
@@ -4237,7 +4237,7 @@ des3_wrap_get_data( TEMPLATE   * tmpl,
    if (length_only == FALSE) {
       ptr = (CK_BYTE *)malloc( attr->ulValueLen );
       if (!ptr){
-         st_err_log(0, __FILE__, __LINE__);
+         OCK_LOG_ERR(ERR_HOST_MEMORY);
          return CKR_HOST_MEMORY;
       }
       memcpy( ptr, attr->pValue, attr->ulValueLen );
@@ -4260,7 +4260,7 @@ cast_check_required_attributes( TEMPLATE *tmpl, CK_ULONG mode )
    found = template_attribute_find( tmpl, CKA_VALUE, &attr );
    if (!found) {
       if (mode == MODE_CREATE){
-         st_err_log(48, __FILE__, __LINE__);
+         OCK_LOG_ERR(ERR_TEMPLATE_INCOMPLETE);
          return CKR_TEMPLATE_INCOMPLETE;
       }
    }
@@ -4268,7 +4268,7 @@ cast_check_required_attributes( TEMPLATE *tmpl, CK_ULONG mode )
    found = template_attribute_find( tmpl, CKA_VALUE_LEN, &attr );
    if (!found) {
       if (mode == MODE_KEYGEN){
-         st_err_log(48, __FILE__, __LINE__);
+         OCK_LOG_ERR(ERR_TEMPLATE_INCOMPLETE);
          return CKR_TEMPLATE_INCOMPLETE;
       }
    }
@@ -4298,7 +4298,7 @@ cast_set_default_attributes( TEMPLATE *tmpl, CK_ULONG mode )
       if (type_attr)      free( type_attr );
       if (value_attr)     free( value_attr );
       if (value_len_attr) free( value_len_attr );
-      st_err_log(1, __FILE__, __LINE__);
+      OCK_LOG_ERR(ERR_HOST_MEMORY);
 
       return CKR_HOST_MEMORY;
    }
@@ -4336,11 +4336,11 @@ cast_validate_attribute( TEMPLATE *tmpl, CK_ATTRIBUTE *attr, CK_ULONG mode )
       case CKA_VALUE:
          {
             if (mode != MODE_CREATE){
-               st_err_log(7, __FILE__, __LINE__);
+               OCK_LOG_ERR(ERR_ATTRIBUTE_READ_ONLY);
                return CKR_ATTRIBUTE_READ_ONLY;
             }
             if (attr->ulValueLen > 8 || attr->ulValueLen < 1){
-               st_err_log(9, __FILE__, __LINE__);
+               OCK_LOG_ERR(ERR_ATTRIBUTE_VALUE_INVALID);
                return CKR_ATTRIBUTE_VALUE_INVALID;
             }
             else
@@ -4350,12 +4350,12 @@ cast_validate_attribute( TEMPLATE *tmpl, CK_ATTRIBUTE *attr, CK_ULONG mode )
       case CKA_VALUE_LEN:
          {
             if (mode != MODE_KEYGEN && mode != MODE_DERIVE){
-               st_err_log(7, __FILE__, __LINE__);
+               OCK_LOG_ERR(ERR_ATTRIBUTE_READ_ONLY);
                return CKR_ATTRIBUTE_READ_ONLY;
             }
             len = *(CK_ULONG *)attr->pValue;
             if (len > 8 || len < 1){
-               st_err_log(9, __FILE__, __LINE__);
+               OCK_LOG_ERR(ERR_ATTRIBUTE_VALUE_INVALID);
                return CKR_ATTRIBUTE_VALUE_INVALID;
             }
             else
@@ -4380,7 +4380,7 @@ cast3_check_required_attributes( TEMPLATE *tmpl, CK_ULONG mode )
    found = template_attribute_find( tmpl, CKA_VALUE, &attr );
    if (!found) {
       if (mode == MODE_CREATE){
-         st_err_log(48, __FILE__, __LINE__);
+         OCK_LOG_ERR(ERR_TEMPLATE_INCOMPLETE);
          return CKR_TEMPLATE_INCOMPLETE;
       }
    }
@@ -4388,7 +4388,7 @@ cast3_check_required_attributes( TEMPLATE *tmpl, CK_ULONG mode )
    found = template_attribute_find( tmpl, CKA_VALUE_LEN, &attr );
    if (!found) {
       if (mode == MODE_KEYGEN){
-         st_err_log(48, __FILE__, __LINE__);
+         OCK_LOG_ERR(ERR_TEMPLATE_INCOMPLETE);
          return CKR_TEMPLATE_INCOMPLETE;
       }
    }
@@ -4419,7 +4419,7 @@ cast3_set_default_attributes( TEMPLATE *tmpl, CK_ULONG mode )
       if (type_attr)      free( type_attr );
       if (value_attr)     free( value_attr );
       if (value_len_attr) free( value_len_attr );
-      st_err_log(1, __FILE__, __LINE__);
+      OCK_LOG_ERR(ERR_HOST_MEMORY);
 
       return CKR_HOST_MEMORY;
    }
@@ -4457,11 +4457,11 @@ cast3_validate_attribute( TEMPLATE *tmpl, CK_ATTRIBUTE *attr, CK_ULONG mode )
       case CKA_VALUE:
          {
             if (mode != MODE_CREATE){
-               st_err_log(7, __FILE__, __LINE__);
+               OCK_LOG_ERR(ERR_ATTRIBUTE_READ_ONLY);
                return CKR_ATTRIBUTE_READ_ONLY;
             }
             if (attr->ulValueLen > 8 || attr->ulValueLen < 1){
-               st_err_log(9, __FILE__, __LINE__);
+               OCK_LOG_ERR(ERR_ATTRIBUTE_VALUE_INVALID);
                return CKR_ATTRIBUTE_VALUE_INVALID;
             }
             else
@@ -4471,12 +4471,12 @@ cast3_validate_attribute( TEMPLATE *tmpl, CK_ATTRIBUTE *attr, CK_ULONG mode )
       case CKA_VALUE_LEN:
          {
             if (mode != MODE_KEYGEN && mode != MODE_DERIVE){
-               st_err_log(7, __FILE__, __LINE__);
+               OCK_LOG_ERR(ERR_ATTRIBUTE_READ_ONLY);
                return CKR_ATTRIBUTE_READ_ONLY;
             }
             len = *(CK_ULONG *)attr->pValue;
             if (len > 8 || len < 1){
-               st_err_log(9, __FILE__, __LINE__);
+               OCK_LOG_ERR(ERR_ATTRIBUTE_VALUE_INVALID);
                return CKR_ATTRIBUTE_VALUE_INVALID;
             }
             else
@@ -4500,14 +4500,14 @@ cast5_check_required_attributes( TEMPLATE *tmpl, CK_ULONG mode )
    found = template_attribute_find( tmpl, CKA_VALUE, &attr );
    if (!found) {
       if (mode == MODE_CREATE){
-         st_err_log(48, __FILE__, __LINE__);
+         OCK_LOG_ERR(ERR_TEMPLATE_INCOMPLETE);
          return CKR_TEMPLATE_INCOMPLETE;
       }
    }
    found = template_attribute_find( tmpl, CKA_VALUE_LEN, &attr );
    if (!found) {
       if (mode == MODE_KEYGEN){
-         st_err_log(48, __FILE__, __LINE__);
+         OCK_LOG_ERR(ERR_TEMPLATE_INCOMPLETE);
          return CKR_TEMPLATE_INCOMPLETE;
       }
    }
@@ -4535,7 +4535,7 @@ cast5_set_default_attributes( TEMPLATE *tmpl, CK_ULONG mode )
       if (type_attr)      free( type_attr );
       if (value_attr)     free( value_attr );
       if (value_len_attr) free( value_len_attr );
-      st_err_log(1, __FILE__, __LINE__);
+      OCK_LOG_ERR(ERR_HOST_MEMORY);
 
       return CKR_HOST_MEMORY;
    }
@@ -4573,11 +4573,11 @@ cast5_validate_attribute( TEMPLATE *tmpl, CK_ATTRIBUTE *attr, CK_ULONG mode )
       case CKA_VALUE:
          {
             if (mode != MODE_CREATE){
-               st_err_log(7, __FILE__, __LINE__);
+               OCK_LOG_ERR(ERR_ATTRIBUTE_READ_ONLY);
                return CKR_ATTRIBUTE_READ_ONLY;
             }
             if (attr->ulValueLen > 16 || attr->ulValueLen < 1){
-               st_err_log(9, __FILE__, __LINE__);
+               OCK_LOG_ERR(ERR_ATTRIBUTE_VALUE_INVALID);
                return CKR_ATTRIBUTE_VALUE_INVALID;
             }
             else
@@ -4587,12 +4587,12 @@ cast5_validate_attribute( TEMPLATE *tmpl, CK_ATTRIBUTE *attr, CK_ULONG mode )
       case CKA_VALUE_LEN:
          {
             if (mode != MODE_KEYGEN && mode != MODE_DERIVE){
-               st_err_log(7, __FILE__, __LINE__);
+               OCK_LOG_ERR(ERR_ATTRIBUTE_READ_ONLY);
                return CKR_ATTRIBUTE_READ_ONLY;
             }
             len = *(CK_ULONG *)attr->pValue;
             if (len < 1 || len > 16){
-               st_err_log(9, __FILE__, __LINE__);
+               OCK_LOG_ERR(ERR_ATTRIBUTE_VALUE_INVALID);
                return CKR_ATTRIBUTE_VALUE_INVALID;
             }
             else
@@ -4616,7 +4616,7 @@ idea_check_required_attributes( TEMPLATE *tmpl, CK_ULONG mode )
    found = template_attribute_find( tmpl, CKA_VALUE, &attr );
    if (!found) {
       if (mode == MODE_CREATE){
-         st_err_log(48, __FILE__, __LINE__);
+         OCK_LOG_ERR(ERR_TEMPLATE_INCOMPLETE);
          return CKR_TEMPLATE_INCOMPLETE;
       }
    }
@@ -4642,7 +4642,7 @@ idea_set_default_attributes( TEMPLATE *tmpl, CK_ULONG mode )
    if (!type_attr || !value_attr) {
       if (type_attr)  free( type_attr );
       if (value_attr) free( value_attr );
-      st_err_log(1, __FILE__, __LINE__);
+      OCK_LOG_ERR(ERR_HOST_MEMORY);
 
       return CKR_HOST_MEMORY;
    }
@@ -4671,11 +4671,11 @@ idea_validate_attribute( TEMPLATE *tmpl, CK_ATTRIBUTE *attr, CK_ULONG mode )
       case CKA_VALUE:
          {
             if (mode != MODE_CREATE){
-               st_err_log(7, __FILE__, __LINE__);
+               OCK_LOG_ERR(ERR_ATTRIBUTE_READ_ONLY);
                return CKR_ATTRIBUTE_READ_ONLY;
             }
             if (attr->ulValueLen != 16){
-               st_err_log(9, __FILE__, __LINE__);
+               OCK_LOG_ERR(ERR_ATTRIBUTE_VALUE_INVALID);
                return CKR_ATTRIBUTE_VALUE_INVALID;
             }
             else
@@ -4699,7 +4699,7 @@ cdmf_check_required_attributes( TEMPLATE *tmpl, CK_ULONG mode )
    found = template_attribute_find( tmpl, CKA_VALUE, &attr );
    if (!found) {
       if (mode == MODE_CREATE){
-         st_err_log(48, __FILE__, __LINE__);
+         OCK_LOG_ERR(ERR_TEMPLATE_INCOMPLETE);
          return CKR_TEMPLATE_INCOMPLETE;
       }
    }
@@ -4727,7 +4727,7 @@ cdmf_set_default_attributes( TEMPLATE *tmpl, CK_ULONG mode )
    if (!type_attr || !value_attr) {
       if (type_attr)  free( type_attr );
       if (value_attr) free( value_attr );
-      st_err_log(1, __FILE__, __LINE__);
+      OCK_LOG_ERR(ERR_HOST_MEMORY);
 
       return CKR_HOST_MEMORY;
    }
@@ -4765,11 +4765,11 @@ cdmf_validate_attribute( TEMPLATE *tmpl, CK_ATTRIBUTE *attr, CK_ULONG mode )
             CK_RV                rc;
 
             if (mode != MODE_CREATE){
-               st_err_log(7, __FILE__, __LINE__);
+               OCK_LOG_ERR(ERR_ATTRIBUTE_READ_ONLY);
                return CKR_ATTRIBUTE_READ_ONLY;
             }
             if (attr->ulValueLen != DES_KEY_SIZE){
-               st_err_log(9, __FILE__, __LINE__);
+               OCK_LOG_ERR(ERR_ATTRIBUTE_VALUE_INVALID);
                return CKR_ATTRIBUTE_VALUE_INVALID;
             }
 #if 0
@@ -4806,19 +4806,19 @@ cdmf_validate_attribute( TEMPLATE *tmpl, CK_ATTRIBUTE *attr, CK_ULONG mode )
                if (mode == MODE_CREATE || mode == MODE_KEYGEN) {
                   len = *(CK_ULONG *)attr->pValue;
                   if (len != DES_KEY_SIZE){
-                     st_err_log(9, __FILE__, __LINE__);
+                     OCK_LOG_ERR(ERR_ATTRIBUTE_VALUE_INVALID);
                      return CKR_ATTRIBUTE_VALUE_INVALID;
                   }
                   else
                      return CKR_OK;
                }
                else{
-                  st_err_log(7, __FILE__, __LINE__);
+                  OCK_LOG_ERR(ERR_ATTRIBUTE_READ_ONLY);
                   return CKR_ATTRIBUTE_READ_ONLY;
                }
             }
             else{
-               st_err_log(49, __FILE__, __LINE__);
+               OCK_LOG_ERR(ERR_TEMPLATE_INCONSISTENT);
                return CKR_TEMPLATE_INCONSISTENT;
             }
          }
@@ -4841,7 +4841,7 @@ skipjack_check_required_attributes( TEMPLATE *tmpl, CK_ULONG mode )
    found = template_attribute_find( tmpl, CKA_VALUE, &attr );
    if (!found) {
       if (mode == MODE_CREATE){
-         st_err_log(48, __FILE__, __LINE__);
+         OCK_LOG_ERR(ERR_TEMPLATE_INCOMPLETE);
          return CKR_TEMPLATE_INCOMPLETE;
       }
    }
@@ -4868,7 +4868,7 @@ skipjack_set_default_attributes( TEMPLATE *tmpl, CK_ULONG mode )
    if (!type_attr || !value_attr) {
       if (type_attr)  free( type_attr );
       if (value_attr) free( value_attr );
-      st_err_log(1, __FILE__, __LINE__);
+      OCK_LOG_ERR(ERR_HOST_MEMORY);
 
       return CKR_HOST_MEMORY;
    }
@@ -4897,11 +4897,11 @@ skipjack_validate_attribute( TEMPLATE *tmpl, CK_ATTRIBUTE *attr, CK_ULONG mode )
       case CKA_VALUE:
          {
             if (mode != MODE_CREATE){
-               st_err_log(7, __FILE__, __LINE__);
+               OCK_LOG_ERR(ERR_ATTRIBUTE_READ_ONLY);
                return CKR_ATTRIBUTE_READ_ONLY;
             }
             if (attr->ulValueLen != 20){
-               st_err_log(9, __FILE__, __LINE__);
+               OCK_LOG_ERR(ERR_ATTRIBUTE_VALUE_INVALID);
                return CKR_ATTRIBUTE_VALUE_INVALID;
             }
             else
@@ -4925,7 +4925,7 @@ baton_check_required_attributes( TEMPLATE *tmpl, CK_ULONG mode )
    found = template_attribute_find( tmpl, CKA_VALUE, &attr );
    if (!found) {
       if (mode == MODE_CREATE){
-         st_err_log(48, __FILE__, __LINE__);
+         OCK_LOG_ERR(ERR_TEMPLATE_INCOMPLETE);
          return CKR_TEMPLATE_INCOMPLETE;
       }
    }
@@ -4952,7 +4952,7 @@ baton_set_default_attributes( TEMPLATE *tmpl, CK_ULONG mode )
    if (!type_attr || !value_attr) {
       if (type_attr)  free( type_attr );
       if (value_attr) free( value_attr );
-      st_err_log(1, __FILE__, __LINE__);
+      OCK_LOG_ERR(ERR_HOST_MEMORY);
 
       return CKR_HOST_MEMORY;
    }
@@ -4981,11 +4981,11 @@ baton_validate_attribute( TEMPLATE *tmpl, CK_ATTRIBUTE *attr, CK_ULONG mode )
       case CKA_VALUE:
          {
             if (mode != MODE_CREATE){
-               st_err_log(7, __FILE__, __LINE__);
+               OCK_LOG_ERR(ERR_ATTRIBUTE_READ_ONLY);
                return CKR_ATTRIBUTE_READ_ONLY;
             }
             if (attr->ulValueLen != 40){
-               st_err_log(9, __FILE__, __LINE__);
+               OCK_LOG_ERR(ERR_ATTRIBUTE_VALUE_INVALID);
                return CKR_ATTRIBUTE_VALUE_INVALID;
             }
             else
@@ -5009,7 +5009,7 @@ juniper_check_required_attributes( TEMPLATE *tmpl, CK_ULONG mode )
    found = template_attribute_find( tmpl, CKA_VALUE, &attr );
    if (!found) {
       if (mode == MODE_CREATE){
-         st_err_log(48, __FILE__, __LINE__);
+         OCK_LOG_ERR(ERR_TEMPLATE_INCOMPLETE);
          return CKR_TEMPLATE_INCOMPLETE;
       }
    }
@@ -5036,7 +5036,7 @@ juniper_set_default_attributes( TEMPLATE *tmpl, CK_ULONG mode )
    if (!type_attr || !value_attr) {
       if (type_attr)  free( type_attr );
       if (value_attr) free( value_attr );
-      st_err_log(1, __FILE__, __LINE__);
+      OCK_LOG_ERR(ERR_HOST_MEMORY);
 
       return CKR_HOST_MEMORY;
    }
@@ -5065,11 +5065,11 @@ juniper_validate_attribute( TEMPLATE *tmpl, CK_ATTRIBUTE *attr, CK_ULONG mode )
       case CKA_VALUE:
          {
             if (mode != MODE_CREATE){
-               st_err_log(7, __FILE__, __LINE__);
+               OCK_LOG_ERR(ERR_ATTRIBUTE_READ_ONLY);
                return CKR_ATTRIBUTE_READ_ONLY;
             }
             if (attr->ulValueLen != 40){
-               st_err_log(9, __FILE__, __LINE__);
+               OCK_LOG_ERR(ERR_ATTRIBUTE_VALUE_INVALID);
                return CKR_ATTRIBUTE_VALUE_INVALID;
             }
             else
@@ -5101,7 +5101,7 @@ aes_set_default_attributes( TEMPLATE *tmpl, CK_ULONG mode )
    if (!value_attr || !type_attr) {
       if (value_attr) free( value_attr );
       if (type_attr)  free( type_attr );
-      st_err_log(1, __FILE__, __LINE__);
+      OCK_LOG_ERR(ERR_HOST_MEMORY);
 
       return CKR_HOST_MEMORY;
    }
@@ -5132,7 +5132,7 @@ aes_check_required_attributes( TEMPLATE *tmpl, CK_ULONG mode )
    found = template_attribute_find( tmpl, CKA_VALUE, &attr );
    if (!found) {
       if (mode == MODE_CREATE){
-         st_err_log(48, __FILE__, __LINE__);
+         OCK_LOG_ERR(ERR_TEMPLATE_INCOMPLETE);
          return CKR_TEMPLATE_INCOMPLETE;
       }
    }
@@ -5156,12 +5156,12 @@ aes_validate_attribute( TEMPLATE *tmpl, CK_ATTRIBUTE *attr, CK_ULONG mode )
 		attr->ulValueLen != AES_KEY_SIZE_192 &&
 		attr->ulValueLen != AES_KEY_SIZE_256   )
 	    {
-               st_err_log(9, __FILE__, __LINE__);
+               OCK_LOG_ERR(ERR_ATTRIBUTE_VALUE_INVALID);
                return CKR_ATTRIBUTE_VALUE_INVALID;
             }
             return CKR_OK;
 	 } else {
-            st_err_log(7, __FILE__, __LINE__);
+            OCK_LOG_ERR(ERR_ATTRIBUTE_READ_ONLY);
             return CKR_ATTRIBUTE_READ_ONLY;
          }
       case CKA_VALUE_LEN:
@@ -5172,13 +5172,13 @@ aes_validate_attribute( TEMPLATE *tmpl, CK_ATTRIBUTE *attr, CK_ULONG mode )
             if (val != AES_KEY_SIZE_128 &&
 		val != AES_KEY_SIZE_192 &&
 		val != AES_KEY_SIZE_256   ){
-               st_err_log(7, __FILE__, __LINE__);
+               OCK_LOG_ERR(ERR_ATTRIBUTE_READ_ONLY);
                return CKR_TEMPLATE_INCONSISTENT;
             }
 	    return CKR_OK;
          }
          else{
-            st_err_log(49, __FILE__, __LINE__);
+            OCK_LOG_ERR(ERR_TEMPLATE_INCONSISTENT);
             return CKR_TEMPLATE_INCONSISTENT;
          }
       default:
@@ -5201,13 +5201,13 @@ aes_wrap_get_data( TEMPLATE   * tmpl,
 
 
    if (!tmpl || !data_len){
-      st_err_log(4, __FILE__, __LINE__, __FUNCTION__);
+      OCK_LOG_ERR(ERR_FUNCTION_FAILED);
       return CKR_FUNCTION_FAILED;
    }
 
    rc = template_attribute_find( tmpl, CKA_VALUE, &attr );
    if (rc == FALSE){
-      st_err_log(26, __FILE__, __LINE__);
+      OCK_LOG_ERR(ERR_KEY_NOT_WRAPPABLE);
       return CKR_KEY_NOT_WRAPPABLE;
    }
    *data_len = attr->ulValueLen;
@@ -5215,7 +5215,7 @@ aes_wrap_get_data( TEMPLATE   * tmpl,
    if (length_only == FALSE) {
       ptr = (CK_BYTE *)malloc( attr->ulValueLen );
       if (!ptr){
-         st_err_log(1, __FILE__, __LINE__);
+         OCK_LOG_ERR(ERR_HOST_MEMORY);
          return CKR_HOST_MEMORY;
       }
       memcpy( ptr, attr->pValue, attr->ulValueLen );
@@ -5257,7 +5257,7 @@ aes_unwrap( TEMPLATE *tmpl,
    if (key_size != AES_KEY_SIZE_128 &&
        key_size != AES_KEY_SIZE_192 &&
        key_size != AES_KEY_SIZE_256){
-      st_err_log(62, __FILE__, __LINE__);
+      OCK_LOG_ERR(ERR_WRAPPING_KEY_HANDLE_INVALID);
       return CKR_ATTRIBUTE_VALUE_INVALID;
    }
    if (fromend == TRUE)
@@ -5270,7 +5270,7 @@ aes_unwrap( TEMPLATE *tmpl,
    if (nv_token_data->tweak_vector.check_des_parity == TRUE) {
       for (i=0; i < 3*DES_KEY_SIZE; i++) {
          if (parity_is_odd(ptr[i]) == FALSE){
-            st_err_log(9, __FILE__, __LINE__);
+            OCK_LOG_ERR(ERR_ATTRIBUTE_VALUE_INVALID);
             return CKR_ATTRIBUTE_VALUE_INVALID;
          }
       }
@@ -5282,7 +5282,7 @@ aes_unwrap( TEMPLATE *tmpl,
    if (!value_attr) {
       if (value_attr)
          free( value_attr );
-      st_err_log(0, __FILE__, __LINE__);
+      OCK_LOG_ERR(ERR_HOST_MEMORY);
 
       return CKR_HOST_MEMORY;
    }

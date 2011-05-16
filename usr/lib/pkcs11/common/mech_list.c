@@ -362,7 +362,7 @@ ock_generic_get_mechanism_list(CK_MECHANISM_TYPE_PTR pMechanismList,
 	}
 	if ((*pulCount) < mech_list_len) {
 		(*pulCount) = mech_list_len;
-		st_err_log(111, __FILE__, __LINE__); 
+		OCK_LOG_ERR(ERR_BUFFER_TOO_SMALL); 
 		rc = CKR_BUFFER_TOO_SMALL;
 		goto out;
 	}
@@ -386,7 +386,7 @@ ock_generic_get_mechanism_info(CK_MECHANISM_TYPE type,
 			goto out;
 		}
 	}
-	st_err_log(28, __FILE__, __LINE__); 
+	OCK_LOG_ERR(ERR_MECHANISM_INVALID); 
 	rc = CKR_MECHANISM_INVALID;
  out:
 	return rc;

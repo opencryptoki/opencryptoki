@@ -311,7 +311,7 @@ _CreateMsem( sem_t *msem )
 		//if (!sem_init( msem,1, 1)) // parm 2 non-0 means pshared  1 is unlocked 0 is locked
 		return CKR_OK;
 	else{
-		st_err_log(4, __FILE__, __LINE__, __FUNCTION__);
+		OCK_LOG_ERR(ERR_FUNCTION_FAILED);
 		return CKR_FUNCTION_FAILED;
 	}
 }
@@ -333,7 +333,7 @@ _DestroyMsem( sem_t *msem )
 	if (!sem_destroy(msem))
 		return CKR_OK;
 	else{
-		st_err_log(4, __FILE__, __LINE__, __FUNCTION__);
+		OCK_LOG_ERR(ERR_FUNCTION_FAILED);
 		return CKR_FUNCTION_FAILED;
 	}
 }
@@ -351,13 +351,13 @@ CK_RV
 _LockMsem( sem_t *msem )
 {
 	if (!msem){
-		st_err_log(4, __FILE__, __LINE__, __FUNCTION__);
+		OCK_LOG_ERR(ERR_FUNCTION_FAILED);
 		return CKR_FUNCTION_FAILED;
 	}
 	if(!sem_wait(msem)) // block until the semaphore is free
 		return CKR_OK;
 	else{
-		st_err_log(4, __FILE__, __LINE__, __FUNCTION__);
+		OCK_LOG_ERR(ERR_FUNCTION_FAILED);
 		return CKR_FUNCTION_FAILED;
 	}
 }
@@ -374,13 +374,13 @@ CK_RV
 _UnlockMsem( sem_t *msem )
 {
 	if (!msem){
-		st_err_log(4, __FILE__, __LINE__, __FUNCTION__);
+		OCK_LOG_ERR(ERR_FUNCTION_FAILED);
 		return CKR_FUNCTION_FAILED;
 	}
 	if (!sem_post(msem))
 		return CKR_OK;
 	else{
-		st_err_log(4, __FILE__, __LINE__, __FUNCTION__);
+		OCK_LOG_ERR(ERR_FUNCTION_FAILED);
 		return CKR_FUNCTION_FAILED;
 	}
 }
@@ -440,12 +440,12 @@ CreateXProcLock(void *xproc)
 			if (errno == EEXIST) {
 				if ( (semid = semget(tok,0,0)) < 0) {
 					pthread_mutex_unlock(&semmtx);
-					st_err_log(4, __FILE__, __LINE__, __FUNCTION__); 
+					OCK_LOG_ERR(ERR_FUNCTION_FAILED); 
 					return CKR_FUNCTION_FAILED;
 				}
 			} else {
 				pthread_mutex_unlock(&semmtx);
-				st_err_log(4, __FILE__, __LINE__, __FUNCTION__); 
+				OCK_LOG_ERR(ERR_FUNCTION_FAILED); 
 				return CKR_FUNCTION_FAILED;
 			}
 		}
@@ -700,18 +700,18 @@ init_token_data( void )
 #if 0
 	rc  = rng_generate( master_key, 3 * DES_KEY_SIZE );
 	if (rc != CKR_OK){
-		st_err_log(4, __FILE__, __LINE__, __FUNCTION__); 
+		OCK_LOG_ERR(ERR_FUNCTION_FAILED); 
 		return CKR_FUNCTION_FAILED;
 	}
 	rc = save_masterkey_so();
 	if (rc != CKR_OK){
-		st_err_log(4, __FILE__, __LINE__, __FUNCTION__); 
+		OCK_LOG_ERR(ERR_FUNCTION_FAILED); 
 		return CKR_FUNCTION_FAILED;
 	}
 #endif
 	rc = save_token_data();
 	if (rc != CKR_OK)
-		st_err_log(4, __FILE__, __LINE__, __FUNCTION__); 
+		OCK_LOG_ERR(ERR_FUNCTION_FAILED); 
 	return rc;
 }
 
@@ -731,7 +731,7 @@ compute_next_token_obj_name( CK_BYTE *current, CK_BYTE *next )
 	int i;
 
 	if (!current || !next){
-		st_err_log(4, __FILE__, __LINE__, __FUNCTION__); 
+		OCK_LOG_ERR(ERR_FUNCTION_FAILED); 
 		return CKR_FUNCTION_FAILED;
 	}
 	// Convert to integral base 36
@@ -789,7 +789,7 @@ build_attribute( CK_ATTRIBUTE_TYPE  type,
 
 	attr = (CK_ATTRIBUTE *)malloc( sizeof(CK_ATTRIBUTE) + data_len );
 	if (!attr){
-		st_err_log(0, __FILE__, __LINE__);
+		OCK_LOG_ERR(ERR_DEVICE_MEMORY);
 		return CKR_DEVICE_MEMORY;
 	}
 	attr->type  = type;
@@ -823,7 +823,7 @@ add_pkcs_padding( CK_BYTE  * ptr,
 	pad_value = (CK_BYTE)pad_len;
 
 	if (data_len + pad_len > total_len){
-		st_err_log(4, __FILE__, __LINE__, __FUNCTION__); 
+		OCK_LOG_ERR(ERR_FUNCTION_FAILED); 
 		return CKR_FUNCTION_FAILED;
 	}
 	for (i = 0; i < pad_len; i++)
@@ -897,8 +897,8 @@ attach_shm()
 	// have a unique key shared memory for each 
 	// token object database
 	if (stat(pk_dir, &statbuf) < 0) {
-		st_err_log(4, __FILE__, __LINE__, __FUNCTION__); 
-		LogError("pk_dir = \"%s\"", pk_dir);
+		OCK_LOG_ERR(ERR_FUNCTION_FAILED); 
+		OCK_LOG_DEBUG("pk_dir = \"%s\"\n", pk_dir);
 		return CKR_FUNCTION_FAILED;
 	}
 
@@ -915,7 +915,7 @@ attach_shm()
 #if 0
 		if ((errno != EACCES) && (errno != EEXIST)) {
 			fflush(stdout); fflush(stderr);
-			st_err_log(4, __FILE__, __LINE__, __FUNCTION__);
+			OCK_LOG_ERR(ERR_FUNCTION_FAILED);
 			return CKR_FUNCTION_FAILED;
 		}
 #endif
@@ -934,7 +934,7 @@ attach_shm()
 		//if ((errno != EACCES) && (errno != EEXIST)) {
 		if (shm_id < 0) {
 			fflush(stdout); fflush(stderr);
-			st_err_log(4, __FILE__, __LINE__, __FUNCTION__);
+			OCK_LOG_ERR(ERR_FUNCTION_FAILED);
 			return CKR_FUNCTION_FAILED;
 		}
 	} else {
@@ -943,7 +943,7 @@ attach_shm()
 
 	global_shm = (void *)shmat( shm_id, NULL, 0 );
 	if (!global_shm){
-		st_err_log(4, __FILE__, __LINE__, __FUNCTION__);
+		OCK_LOG_ERR(ERR_FUNCTION_FAILED);
 		return CKR_FUNCTION_FAILED;
 	}
 	if (created == TRUE) {
@@ -984,7 +984,7 @@ attach_shm()
 		errno = 0;
 		pw = getpwuid(getuid());
 		if (pw == NULL) {
-			LogError("getpwuid failed: %s", strerror(errno));
+			OCK_LOG_DEBUG("getpwuid failed: %s\n", strerror(errno));
 			return CKR_FUNCTION_FAILED;
 		}
 
@@ -993,27 +993,27 @@ attach_shm()
 		if (dirname) {
 			sprintf(dirname, "%s/%s", pk_dir, pw->pw_name);
 		} else {
-			st_err_log(4, __FILE__, __LINE__, __FUNCTION__);
+			OCK_LOG_ERR(ERR_HOST_MEMORY);
 			return CKR_HOST_MEMORY;
 		}
 
 		// if the user specific directory doesn't exist, create it and userdir/TOK_OBJ
 		if (stat(dirname, &statbuf) < 0) {
 			if (mkdir(dirname, mode) == -1) {
-				LogError("%s: mkdir(%s): %s", __FUNCTION__, dirname,
+				OCK_LOG_DEBUG("%s: mkdir(%s): %s\n", __FUNCTION__, dirname,
 						strerror(errno));
 				rc = CKR_FUNCTION_FAILED;
 				goto err_out;
 			}
 			fd = open(dirname, O_RDONLY);
 			if (fd < 0) {
-				LogError("%s: open(%s): %s", __FUNCTION__, dirname,
+				OCK_LOG_DEBUG("%s: open(%s): %s\n", __FUNCTION__, dirname,
 						strerror(errno));
 				rc = CKR_FUNCTION_FAILED;
 				goto err_out;
 			}
 			if (fchmod(fd, mode) == -1) {
-				LogError("%s: fchmod(%s): %s", __FUNCTION__, dirname,
+				OCK_LOG_DEBUG("%s: fchmod(%s): %s\n", __FUNCTION__, dirname,
 						strerror(errno));
 				close(fd);
 				rc = CKR_FUNCTION_FAILED;
@@ -1025,20 +1025,20 @@ attach_shm()
 			strncat(dirname, "/", 1);
 			strncat(dirname, PK_LITE_OBJ_DIR, strlen(PK_LITE_OBJ_DIR));
 			if (mkdir(dirname, mode) == -1) {
-				LogError("%s: mkdir \"%s\": %s", __FUNCTION__, dirname,
+				OCK_LOG_DEBUG("%s: mkdir \"%s\": %s\n", __FUNCTION__, dirname,
 						strerror(errno));
 				rc = CKR_FUNCTION_FAILED;
 				goto err_out;
 			}
 			fd = open(dirname, O_RDONLY);
 			if (fd < 0) {
-				LogError("%s: open(%s): %s", __FUNCTION__, dirname,
+				OCK_LOG_DEBUG("%s: open(%s): %s\n", __FUNCTION__, dirname,
 						strerror(errno));
 				rc = CKR_FUNCTION_FAILED;
 				goto err_out;
 			}
 			if (fchmod(fd, mode) == -1) {
-				LogError("%s: fchmod(%s): %s", __FUNCTION__, dirname,
+				OCK_LOG_DEBUG("%s: fchmod(%s): %s\n", __FUNCTION__, dirname,
 						strerror(errno));
 				close(fd);
 				rc = CKR_FUNCTION_FAILED;
@@ -1052,7 +1052,7 @@ attach_shm()
 		if (fname ) {
 			sprintf(fname, "%s/%s/%s", pk_dir, pw->pw_name, FILENAME);
 		} else {
-			st_err_log(4, __FILE__, __LINE__, __FUNCTION__);
+			OCK_LOG_ERR(ERR_HOST_MEMORY);
 			return CKR_HOST_MEMORY;
 		}
 
@@ -1060,7 +1060,7 @@ attach_shm()
 			// File does not exist Create it
 			fd = open(fname,O_RDWR|O_CREAT,mode);
 			if (fd < 0 ){
-				LogError("open of %s failed: %s", fname, strerror(errno));
+				OCK_LOG_DEBUG("open of %s failed: %s\n", fname, strerror(errno));
 				return CKR_FUNCTION_FAILED;  //Failed
 			}
 			i = sizeof(LW_SHM_TYPE);
@@ -1072,7 +1072,7 @@ attach_shm()
 		} else {
 			fd = open(fname,O_RDWR,mode);
 			if (fd < 0 ){
-				LogError("open of %s failed: %s", fname, strerror(errno));
+				OCK_LOG_DEBUG("open of %s failed: %s\n", fname, strerror(errno));
 				return CKR_FUNCTION_FAILED;  //Failed
 			}
 		}
