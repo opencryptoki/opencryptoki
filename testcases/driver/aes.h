@@ -10,10 +10,9 @@
 #endif
 
 #define MAX_KEY_SIZE  64
-#define MAX_TEXT_SIZE  64
+#define MAX_TEXT_SIZE 128 
 #define MAX_IV_SIZE  64
 #define MAX_COUNTER_SIZE 16
-
 #define AES_BLOCK_SIZE	16
 
 struct cipher_test_vector {
@@ -304,6 +303,7 @@ const struct test_suite_info test_suites[] = {
 		.tvcount = 3,
 		.ctv = aes_ecb_cipher_tv,
 		.mechcrypt = CKM_AES_ECB,
+		.mechpad = 0,
 	}, {
 		.name = "aes_cbc",
 		.tvcount = 3,
@@ -316,5 +316,6 @@ const struct test_suite_info test_suites[] = {
 		.tvcount = 3,
 		.ctv =  aes_ctr_cipher_tv,
 		.mechcrypt = CKM_AES_CTR,
+		.mechpad = 0,
 	}
 };
