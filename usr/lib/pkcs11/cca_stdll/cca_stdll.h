@@ -78,6 +78,12 @@
 #define CCATOK_MAX_N_LEN		512
 #define CCATOK_MAX_E_LEN		256
 
+enum cca_key_type
+{
+	CCA_AES_KEY,
+	CCA_DES_KEY
+};
+
 #define sw_des3_cbc_encrypt(clear, len, cipher, len2, iv, key) \
 	sw_des3_cbc(clear, len, cipher, len2, iv, key, 1)
 

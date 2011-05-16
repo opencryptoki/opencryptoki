@@ -188,8 +188,8 @@ token_specific_final()
 	return CKR_OK;
 }
 
-CK_RV cca_key_gen(CK_BYTE *key, unsigned char *key_form, unsigned char *key_type_1, 
-		  CK_ULONG key_size)
+CK_RV cca_key_gen(enum cca_key_type type, CK_BYTE *key, unsigned char *key_form,
+		  unsigned char *key_type_1, CK_ULONG key_size)
 {
 
 	long return_code, reason_code;
@@ -200,15 +200,24 @@ CK_RV cca_key_gen(CK_BYTE *key, unsigned char *key_form, unsigned char *key_type
 	unsigned char *generated_key_identifier_1 = key;
 	unsigned char generated_key_identifier_2[CCA_KEY_ID_SIZE] = { 0, };
 
-	switch (key_size) {
+	if (type == CCA_DES_KEY) {
+		switch (key_size) {
 		case 8:
 			memcpy(key_length, "KEYLN8  ", (size_t)CCA_KEYWORD_SIZE);
 			break;
-#if 0
+		case 24:
+			memcpy(key_length, "KEYLN24 ", (size_t)CCA_KEYWORD_SIZE);
+			break;
+		default:
+			DBG("Invalid key length: %lu", key_size);
+			OCK_LOG_ERR(ERR_KEY_SIZE_RANGE);
+			return CKR_KEY_SIZE_RANGE;
+		}
+	} else if (type == CCA_AES_KEY) {
+		switch (key_size) {
 		case 16:
 			memcpy(key_length, "KEYLN16 ", CCA_KEYWORD_SIZE);
 			break;
-#endif
 		case 24:
 			memcpy(key_length, "KEYLN24 ", (size_t)CCA_KEYWORD_SIZE);
 			break;
@@ -217,9 +226,14 @@ CK_RV cca_key_gen(CK_BYTE *key, unsigned char *key_form, unsigned char *key_type
 			break;
 		default:
 			DBG("Invalid key length: %lu", key_size);
+			OCK_LOG_ERR(ERR_KEY_SIZE_RANGE);
 			return CKR_KEY_SIZE_RANGE;
+		}
+	} else {
+		OCK_LOG_ERR(ERR_FUNCTION_FAILED);
+		return CKR_FUNCTION_FAILED;
 	}
-//check if DES 32 bytes keys are supported supported
+
 	CSNBKGN(&return_code,
 		&reason_code,
 		NULL,
@@ -256,7 +270,7 @@ token_specific_des_key_gen(CK_BYTE *des_key, CK_ULONG len, CK_ULONG key_size)
 	memcpy(key_form, "OP      ", (size_t)CCA_KEYWORD_SIZE);
 	memcpy(key_type_1, "DATA    ", (size_t)CCA_KEYWORD_SIZE);
 
-	return cca_key_gen(des_key, key_form, key_type_1, key_size);
+	return cca_key_gen(CCA_DES_KEY, des_key, key_form, key_type_1, key_size);
 }
 
 CK_RV
@@ -966,7 +980,7 @@ token_specific_aes_key_gen(CK_BYTE *aes_key, CK_ULONG key_size)
 	memcpy(key_type, "AESTOKEN", (size_t) CCA_KEYWORD_SIZE);
 	memcpy(aes_key, key_token, (size_t)CCA_KEY_ID_SIZE);
 
-	return cca_key_gen(aes_key, key_form, key_type, key_size);
+	return cca_key_gen(CCA_AES_KEY, aes_key, key_form, key_type, key_size);
 }
 
 CK_RV
