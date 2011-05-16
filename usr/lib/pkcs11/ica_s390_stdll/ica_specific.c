@@ -1567,7 +1567,7 @@ rsa_convert_mod_expo_key( CK_ATTRIBUTE * modulus,
     * using the modulus + private exponent representation may also go
     * through this path. Use modulus length in bytes as key_length if
     * no mod_bits is present */
-   if (mod_bits != NULL) {
+   if (mod_bits != NULL && mod_bits->ulValueLen && (*(CK_ULONG *)mod_bits->pValue)) {
       modexpokey->key_length = ((* (CK_ULONG *) mod_bits->pValue) + 7 ) / 8;
    }
    else {
