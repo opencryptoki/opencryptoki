@@ -298,11 +298,8 @@
 #include <unistd.h>
 #include <time.h>
 #include <sys/time.h>
-#include <sys/types.h>
 #include <sys/file.h>
-
 #include <pthread.h>
-#include <sys/syslog.h>
 #include <dlfcn.h>
 
 #include "pkcs11types.h"
@@ -530,6 +527,7 @@ ock_logit(const char *fmt, ...)
 	va_list 	ap;
 	int 		fd;
 	char 		*logfile = NULL;
+	mode_t		mode;
 	
 	logfile = getenv("OPENCRYPTOKI_DEBUG_FILE");
 	if (logfile != NULL) {
@@ -561,8 +559,11 @@ ock_logit(const char *fmt, ...)
 		vsnprintf(pbuf, buflen, fmt, ap);
 		va_end(ap);
 
+		/* set the mode */
+		mode = (S_IRUSR | S_IWUSR | S_IRGRP | S_IROTH);
+
 		/* ok, open the file and append the message */
-		fd = open(logfile, O_RDWR|O_APPEND|O_CREAT); 
+		fd = open(logfile, O_RDWR|O_APPEND|O_CREAT, mode); 
 		if (fd >= 0) {
 			if (!(flock(fd, LOCK_EX))) {
 
