@@ -297,7 +297,7 @@ static struct cipher_test_vector aes_ctr_cipher_tv[] = {
 
 # define NUM_OF_TESTSUITES	3
 
-const struct test_suite_info test_suites[] = {
+struct test_suite_info test_suites[] = {
 	{
 		.name="aes_ecb",
 		.tvcount = 3,

@@ -22,7 +22,7 @@
 
 CK_ULONG key_lens[] = {16, 24, 32};
 
-CK_RV do_EncryptAES(struct test_suite_info tsuite)
+CK_RV do_EncryptAES(struct test_suite_info *tsuite)
 {
 	int 			i, j;
 	CK_SLOT_ID		slot_id;
@@ -65,19 +65,19 @@ CK_RV do_EncryptAES(struct test_suite_info tsuite)
 
 	rc = 0;
 
-	for (i = 0; i < tsuite.tvcount; i++) {
+	for (i = 0; i < tsuite->tvcount; i++) {
 
 		CK_ATTRIBUTE	keyTemplate[] = {
 			{CKA_CLASS,	&keyClass,	sizeof(keyClass)},
 			{CKA_KEY_TYPE, 	&keyType,	sizeof(keyType)},
 			{CKA_ENCRYPT, 	&true,		sizeof(true)},
 			{CKA_TOKEN, 	&false,		sizeof(false)},
-			{CKA_VALUE, 	value,		tsuite.ctv[i].klen}
+			{CKA_VALUE, 	value,		tsuite->ctv[i].klen}
 		};
 
 		/* Create an Object for the key. */
 		memset(value, 0, sizeof(value));
-		memcpy(value, tsuite.ctv[i].key, tsuite.ctv[i].klen);
+		memcpy(value, tsuite->ctv[i].key, tsuite->ctv[i].klen);
 
 		rc = funcs->C_CreateObject(session, keyTemplate, 5, &h_key);
 		if (rc != CKR_OK) {
@@ -86,20 +86,20 @@ CK_RV do_EncryptAES(struct test_suite_info tsuite)
 		}
 
 		/* Initialize */
-		if (tsuite.ctv[i].counterlen != 0) {
-			memcpy(aesctr.cb, tsuite.ctv[i].counter, tsuite.ctv[i].counterlen);
-			aesctr.ulCounterBits = tsuite.ctv[i].counterbits;
+		if (tsuite->ctv[i].counterlen != 0) {
+			memcpy(aesctr.cb, tsuite->ctv[i].counter, tsuite->ctv[i].counterlen);
+			aesctr.ulCounterBits = tsuite->ctv[i].counterbits;
 			mech.ulParameterLen = sizeof (CK_AES_CTR_PARAMS);
 			mech.pParameter = &aesctr ;
-		} else if (tsuite.ctv[i].ivlen != 0) {
-			memcpy(init_v, tsuite.ctv[i].iv, tsuite.ctv[i].ivlen);
-			mech.ulParameterLen = tsuite.ctv[i].ivlen;
+		} else if (tsuite->ctv[i].ivlen != 0) {
+			memcpy(init_v, tsuite->ctv[i].iv, tsuite->ctv[i].ivlen);
+			mech.ulParameterLen = tsuite->ctv[i].ivlen;
 			mech.pParameter = init_v;
 		} else {
 			mech.ulParameterLen = 0;
 			mech.pParameter = NULL;
 		}
-		mech.mechanism = tsuite.mechcrypt;
+		mech.mechanism = tsuite->mechcrypt;
 		rc = funcs->C_EncryptInit(session, &mech, h_key);
 	        if (rc != CKR_OK) {
 			show_error("C_EncryptInit", rc);
@@ -110,9 +110,9 @@ CK_RV do_EncryptAES(struct test_suite_info tsuite)
 
 		memset(data, 0, sizeof(data));
 		memset(mpdata, 0, sizeof(mpdata));
-		memcpy(data, tsuite.ctv[i].plaintext, tsuite.ctv[i].plen);
-		memcpy(mpdata, tsuite.ctv[i].plaintext, tsuite.ctv[i].plen);
-		datalen = len = mplen = tsuite.ctv[i].plen;
+		memcpy(data, tsuite->ctv[i].plaintext, tsuite->ctv[i].plen);
+		memcpy(mpdata, tsuite->ctv[i].plaintext, tsuite->ctv[i].plen);
+		datalen = len = mplen = tsuite->ctv[i].plen;
 
 
 		/* now do the single encryption */
@@ -153,7 +153,7 @@ CK_RV do_EncryptAES(struct test_suite_info tsuite)
 		}
 
 		if (mplen != 0) {
-			PRINT_ERR("ERROR:%s, test %d, EncryptFinal wants to return %ld bytes\n", tsuite.name, i, len);
+			PRINT_ERR("ERROR:%s, test %d, EncryptFinal wants to return %ld bytes\n", tsuite->name, i, len);
 			goto error;
 		}
 
@@ -162,25 +162,25 @@ CK_RV do_EncryptAES(struct test_suite_info tsuite)
 		   results in the test vector.
                  */
 		if (len != j) {
-			PRINT_ERR("ERROR:%s, test %d, single and multipart encryption lengths do not match.\n", tsuite.name, i);
+			PRINT_ERR("ERROR:%s, test %d, single and multipart encryption lengths do not match.\n", tsuite->name, i);
 			rc = -1;
 			goto error;
 		}
 
-		if (len != tsuite.ctv[i].clen) {
-			PRINT_ERR("ERROR:%s, test %d, lengths do not match test vector length.\n", tsuite.name, i);
+		if (len != tsuite->ctv[i].clen) {
+			PRINT_ERR("ERROR:%s, test %d, lengths do not match test vector length.\n", tsuite->name, i);
 			rc = -1;
 			goto error;
 		}
 
-		if (memcmp(data, mpdata, tsuite.ctv[i].clen)) {
-			PRINT_ERR("ERROR:%s, test %d, single and multipart encryption does not match.\n", tsuite.name, i);
+		if (memcmp(data, mpdata, tsuite->ctv[i].clen)) {
+			PRINT_ERR("ERROR:%s, test %d, single and multipart encryption does not match.\n", tsuite->name, i);
 			rc = -1;
 			goto error;
 		}
 
-		if (memcmp(data, tsuite.ctv[i].ciphertext, tsuite.ctv[i].clen)) {
-			PRINT_ERR("ERROR:%s, test %d, encrypted data does not match test vector.\n", tsuite.name, i);
+		if (memcmp(data, tsuite->ctv[i].ciphertext, tsuite->ctv[i].clen)) {
+			PRINT_ERR("ERROR:%s, test %d, encrypted data does not match test vector.\n", tsuite->name, i);
 			rc = -1;
 			goto error;
 		}
@@ -204,12 +204,12 @@ close:
                 show_error("C_CloseSession", rv );
 
 	if (!rc)
-		printf("%s encrypt tests Passed.\n", tsuite.name);
+		printf("%s encrypt tests Passed.\n", tsuite->name);
 
 	return rc;
 }
 
-CK_RV do_DecryptAES(struct test_suite_info tsuite)
+CK_RV do_DecryptAES(struct test_suite_info *tsuite)
 {
 	int 			i, j;
 	CK_SLOT_ID		slot_id;
@@ -252,19 +252,19 @@ CK_RV do_DecryptAES(struct test_suite_info tsuite)
 
 	rc = 0;
 
-	for (i = 0; i < tsuite.tvcount; i++) {
+	for (i = 0; i < tsuite->tvcount; i++) {
 
 		CK_ATTRIBUTE	keyTemplate[] = {
 			{CKA_CLASS,	&keyClass,	sizeof(keyClass)},
 			{CKA_KEY_TYPE, 	&keyType,	sizeof(keyType)},
 			{CKA_ENCRYPT, 	&true,		sizeof(true)},
 			{CKA_TOKEN, 	&false,		sizeof(false)},
-			{CKA_VALUE, 	value,		tsuite.ctv[i].klen}
+			{CKA_VALUE, 	value,		tsuite->ctv[i].klen}
 		};
 
 		/* Create an Object for the key. */
 		memset(value, 0, sizeof(value));
-		memcpy(value, tsuite.ctv[i].key, tsuite.ctv[i].klen);
+		memcpy(value, tsuite->ctv[i].key, tsuite->ctv[i].klen);
 
 		rc = funcs->C_CreateObject(session, keyTemplate, 5, &h_key);
 		if (rc != CKR_OK) {
@@ -273,20 +273,20 @@ CK_RV do_DecryptAES(struct test_suite_info tsuite)
 		}
 
 		/* Initialize */
-		if (tsuite.ctv[i].counterlen != 0) {
-			memcpy(aesctr.cb, tsuite.ctv[i].counter, tsuite.ctv[i].counterlen);
-			aesctr.ulCounterBits = tsuite.ctv[i].counterbits;
+		if (tsuite->ctv[i].counterlen != 0) {
+			memcpy(aesctr.cb, tsuite->ctv[i].counter, tsuite->ctv[i].counterlen);
+			aesctr.ulCounterBits = tsuite->ctv[i].counterbits;
 			mech.ulParameterLen = sizeof (CK_AES_CTR_PARAMS);
 			mech.pParameter = &aesctr;
-		} else if (tsuite.ctv[i].ivlen != 0) {
-			memcpy(init_v, tsuite.ctv[i].iv, tsuite.ctv[i].ivlen);
-			mech.ulParameterLen = tsuite.ctv[i].ivlen;
+		} else if (tsuite->ctv[i].ivlen != 0) {
+			memcpy(init_v, tsuite->ctv[i].iv, tsuite->ctv[i].ivlen);
+			mech.ulParameterLen = tsuite->ctv[i].ivlen;
 			mech.pParameter = init_v;
 		} else {
 			mech.ulParameterLen = 0;
 			mech.pParameter = NULL;
 		}
-		mech.mechanism = tsuite.mechcrypt;
+		mech.mechanism = tsuite->mechcrypt;
 
 		rc = funcs->C_DecryptInit(session, &mech, h_key);
 	        if (rc != CKR_OK) {
@@ -298,9 +298,9 @@ CK_RV do_DecryptAES(struct test_suite_info tsuite)
 
 		memset(data, 0, sizeof(data));
 		memset(mpdata, 0, sizeof(mpdata));
-		memcpy(data, tsuite.ctv[i].ciphertext, tsuite.ctv[i].clen);
-		memcpy(mpdata, tsuite.ctv[i].ciphertext, tsuite.ctv[i].clen);
-		datalen = len = mplen = tsuite.ctv[i].clen;
+		memcpy(data, tsuite->ctv[i].ciphertext, tsuite->ctv[i].clen);
+		memcpy(mpdata, tsuite->ctv[i].ciphertext, tsuite->ctv[i].clen);
+		datalen = len = mplen = tsuite->ctv[i].clen;
 
 		/* now do the single decryption */
 		rc = funcs->C_Decrypt(session, data, datalen, data, &len);
@@ -340,7 +340,7 @@ CK_RV do_DecryptAES(struct test_suite_info tsuite)
 		}
 
 		if (mplen != 0) {
-			PRINT_ERR("ERROR:%s, test %d, DecryptFinal wants to return %ld bytes\n", tsuite.name, i, len);
+			PRINT_ERR("ERROR:%s, test %d, DecryptFinal wants to return %ld bytes\n", tsuite->name, i, len);
 			goto error;
 		}
 
@@ -349,25 +349,25 @@ CK_RV do_DecryptAES(struct test_suite_info tsuite)
 		   results in the test vector.
 		*/
 		if (len != j) {
-			PRINT_ERR("ERROR:%s, test %d, single and multipart decryption lengths do not match.\n", tsuite.name, i);
+			PRINT_ERR("ERROR:%s, test %d, single and multipart decryption lengths do not match.\n", tsuite->name, i);
 			rc = -1;
 			goto error;
 		}
 
-		if (len != tsuite.ctv[i].plen) {
-			PRINT_ERR("ERROR:%s, test %d, lengths do not match test vector length.\n", tsuite.name, i);
+		if (len != tsuite->ctv[i].plen) {
+			PRINT_ERR("ERROR:%s, test %d, lengths do not match test vector length.\n", tsuite->name, i);
 			rc = -1;
 			goto error;
 		}
 
-		if (memcmp(data, mpdata, tsuite.ctv[i].plen)) {
-			PRINT_ERR("ERROR:%s, test %d, single and multipart decryption does not match.\n", tsuite.name, i);
+		if (memcmp(data, mpdata, tsuite->ctv[i].plen)) {
+			PRINT_ERR("ERROR:%s, test %d, single and multipart decryption does not match.\n", tsuite->name, i);
 			rc = -1;
 			goto error;
 		}
 
-		if (memcmp(data, tsuite.ctv[i].plaintext, tsuite.ctv[i].plen)) {
-			PRINT_ERR("ERROR:%s, test %d, decrypted data does not match test vector.\n", tsuite.name, i);
+		if (memcmp(data, tsuite->ctv[i].plaintext, tsuite->ctv[i].plen)) {
+			PRINT_ERR("ERROR:%s, test %d, decrypted data does not match test vector.\n", tsuite->name, i);
 			rc = -1;
 			goto error;
 		}
@@ -391,12 +391,12 @@ close:
 			show_error("C_CloseAllSessions", rv );
 
 	if (!rc)
-		printf("%s decrypt tests Passed.\n", tsuite.name);
+		printf("%s decrypt tests Passed.\n", tsuite->name);
 
 	return rc;
 }
 
-CK_RV do_PadAES(CK_ULONG key_len, struct test_suite_info tsuite)
+CK_RV do_PadAES(CK_ULONG key_len, struct test_suite_info *tsuite)
 {
 	CK_BYTE	original[BIG_REQUEST];
 	CK_BYTE	crypt1[BIG_REQUEST + AES_BLOCK_SIZE];  /* account for padding */
@@ -464,7 +464,7 @@ CK_RV do_PadAES(CK_ULONG key_len, struct test_suite_info tsuite)
 
 	memcpy(init_v, AES_IV_VALUE, AES_BLOCK_SIZE);
 
-	mech.mechanism = tsuite.mechpad;
+	mech.mechanism = tsuite->mechpad;
 	mech.ulParameterLen = AES_BLOCK_SIZE;
 	mech.pParameter = init_v;
 
@@ -615,7 +615,7 @@ CK_RV do_PadAES(CK_ULONG key_len, struct test_suite_info tsuite)
 		goto error;
 	}
 
-	printf("%s padding test with key length %ld,  passed.\n", tsuite.name, key_len);
+	printf("%s padding test with key length %ld,  passed.\n", tsuite->name, key_len);
 
 error:
 	rc = funcs->C_CloseSession(session);
@@ -625,7 +625,7 @@ error:
 	return rc;
 }
 
-CK_RV do_WrapUnwrapAES(CK_ULONG key_len, struct test_suite_info tsuite)
+CK_RV do_WrapUnwrapAES(CK_ULONG key_len, struct test_suite_info *tsuite)
 {
 	CK_BYTE		    data1[BIG_REQUEST];
 	CK_BYTE		    data2[BIG_REQUEST];
@@ -659,7 +659,7 @@ CK_RV do_WrapUnwrapAES(CK_ULONG key_len, struct test_suite_info tsuite)
 			{ CKA_VALUE_LEN, &key_size, sizeof(key_size) }
 		};
 
-	printf("do_WrapUnwrapAES %s with key length %d\n", tsuite.name,key_len);
+	printf("do_WrapUnwrapAES %s with key length %d\n", tsuite->name, (int)key_len);
 
 	slot_id = SLOT_ID;
 	flags = CKF_SERIAL_SESSION | CKF_RW_SESSION;
@@ -704,18 +704,18 @@ CK_RV do_WrapUnwrapAES(CK_ULONG key_len, struct test_suite_info tsuite)
 	}
 
 	/* Initialize */
-	if (tsuite.ctv[0].counterlen != 0) {
+	if (tsuite->ctv[0].counterlen != 0) {
 		aesctr.ulCounterBits = 128;
 		mech.ulParameterLen = sizeof(CK_AES_CTR_PARAMS);
 		mech.pParameter = &aesctr;
-	} else if (tsuite.ctv[0].ivlen != 0) {
+	} else if (tsuite->ctv[0].ivlen != 0) {
 		mech.ulParameterLen = sizeof(init_v);
 		mech.pParameter = init_v;
 	} else {
 		mech.ulParameterLen = 0;
 		mech.pParameter = NULL;
 	}
-	mech.mechanism = tsuite.mechcrypt;
+	mech.mechanism = tsuite->mechcrypt;
 
 	// Initiate the encrypt
 	rc = funcs->C_EncryptInit(session, &mech, h_key);
@@ -837,7 +837,7 @@ error:
 	return rc;
 }
 
-CK_RV do_WrapUnwrapPadAES( CK_ULONG key_len, struct test_suite_info tsuite)
+CK_RV do_WrapUnwrapPadAES( CK_ULONG key_len, struct test_suite_info *tsuite)
 {
 	CK_BYTE             original[BIG_REQUEST];
 	CK_BYTE             cipher  [BIG_REQUEST + AES_BLOCK_SIZE];
@@ -873,7 +873,7 @@ CK_RV do_WrapUnwrapPadAES( CK_ULONG key_len, struct test_suite_info tsuite)
 		{ CKA_VALUE_LEN, &key_size,   sizeof(key_size)  }
 	};
 
-	printf (" do_WrapUnwrapPadAES for %s with key length %d\n", tsuite.name, key_len);
+	printf (" do_WrapUnwrapPadAES for %s with key length %d\n", tsuite->name, (int)key_len);
 
 	slot_id = SLOT_ID;
 	flags = CKF_SERIAL_SESSION | CKF_RW_SESSION;
@@ -919,7 +919,7 @@ CK_RV do_WrapUnwrapPadAES( CK_ULONG key_len, struct test_suite_info tsuite)
 		original[i] = i % 255;
 	}
 
-	mech.mechanism = tsuite.mechpad;
+	mech.mechanism = tsuite->mechpad;
 	mech.ulParameterLen = sizeof(init_v);
 	mech.pParameter     = init_v;
 
@@ -1157,11 +1157,11 @@ int main  (int argc, char **argv)
 	for (i = 0; i < NUM_OF_TESTSUITES; i++) {
 		if (test_suites[i].mechcrypt) {
 			GetSystemTime(&t1);
-			rv = do_EncryptAES(test_suites[i]);
+			rv = do_EncryptAES(&test_suites[i]);
 			GetSystemTime(&t2);
 			process_time(t1, t2);
 			if (rv) {
-				PRINT_ERR("ERROR do_EncryptAES test_suite[%d] failed, rv = 0x%lx\n", i, rv);
+				PRINT_ERR("ERROR do_EncryptAES tests for %s failed, rv = 0x%lx\n", test_suites[i].name, rv);
 				if (!no_stop)	
 					return -1;
 				else
@@ -1169,11 +1169,11 @@ int main  (int argc, char **argv)
 			}
 
 			GetSystemTime(&t1);
-			rv = do_DecryptAES(test_suites[i]);
+			rv = do_DecryptAES(&test_suites[i]);
 			GetSystemTime(&t2);
 			process_time(t1, t2);
 			if (rv) {
-				PRINT_ERR("ERROR do_DecryptAES test_suite[%d] failed, rv = 0x%lx\n", i, rv);
+				PRINT_ERR("ERROR do_DecryptAES tests for %s failed, rv = 0x%lx\n", test_suites[i].name, rv);
 				if (!no_stop)	
 					return -1;
 				else
@@ -1182,7 +1182,7 @@ int main  (int argc, char **argv)
 
 			for (j = 0; j < 3; j++) {
 				GetSystemTime(&t1);
-				rv = do_WrapUnwrapAES(key_lens[j], test_suites[i]);
+				rv = do_WrapUnwrapAES(key_lens[j], &test_suites[i]);
 				GetSystemTime(&t2);
 				process_time(t1, t2);
 				if (rv) {
@@ -1198,11 +1198,11 @@ int main  (int argc, char **argv)
 		if (test_suites[i].mechpad) {
 			for (j = 0; j < 3; j++) {
 				GetSystemTime(&t1);
-				rc = do_PadAES(key_lens[j], test_suites[i]);
+				rc = do_PadAES(key_lens[j], &test_suites[i]);
 				GetSystemTime(&t2);
 				process_time(t1, t2);
 				if (rv) {
-					PRINT_ERR("ERROR do_PadAES test_suite[%d] failed, rv = 0x%lx\n", i, rv);
+					PRINT_ERR("ERROR do_PadAES tests for %s failed, rv = 0x%lx\n",test_suites[i].name, rv);
 					if (!no_stop)	
 						return -1;
 					else
@@ -1211,11 +1211,11 @@ int main  (int argc, char **argv)
 			}
 			for (j = 0; j < 3; j++) {
 				GetSystemTime(&t1);
-				rc = do_WrapUnwrapPadAES(key_lens[j], test_suites[i]);
+				rc = do_WrapUnwrapPadAES(key_lens[j], &test_suites[i]);
 				GetSystemTime(&t2);
 				process_time(t1, t2);
 				if (rv) {
-					PRINT_ERR("ERROR do_PadAES test_suite[%d] failed, rv = 0x%lx\n", i, rv);
+					PRINT_ERR("ERROR do_PadAES tests for %s failed, rv = 0x%lx\n", test_suites[i].name, rv);
 					if (!no_stop)	
 						return -1;
 					else
