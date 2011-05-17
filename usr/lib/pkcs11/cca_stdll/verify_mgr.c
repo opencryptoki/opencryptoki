@@ -123,6 +123,7 @@ verify_mgr_init( SESSION             * sess,
          break;
 
       case CKM_ECDSA:
+      case CKM_ECDSA_SHA1:
          {
             if (mech->ulParameterLen != 0){
                OCK_LOG_ERR(ERR_MECHANISM_PARAM_INVALID);
@@ -156,10 +157,18 @@ verify_mgr_init( SESSION             * sess,
                return CKR_FUNCTION_FAILED;
             }
 
-	    // No multi part
-            //
-            ctx->context_len = 0;
-            ctx->context     = NULL;
+	    if (mech->mechanism == CKM_ECDSA) {
+	       ctx->context_len = 0;
+	       ctx->context     = NULL;
+	    } else {
+               ctx->context_len = sizeof(RSA_DIGEST_CONTEXT);
+	       ctx->context     = (CK_BYTE *)malloc(sizeof(RSA_DIGEST_CONTEXT));
+	       if (!ctx->context){
+                  OCK_LOG_ERR(ERR_HOST_MEMORY);
+		  return CKR_HOST_MEMORY;
+	       }
+	       memset( ctx->context, 0x0, sizeof(RSA_DIGEST_CONTEXT));
+	    }
          }
          break;
 
@@ -524,6 +533,10 @@ verify_mgr_verify( SESSION             * sess,
                                  in_data,   in_data_len,
                                  signature, sig_len );
 
+      case CKM_ECDSA_SHA1:
+         return ec_hash_verify( sess,	ctx,
+                                 in_data,   in_data_len,
+                                 signature, sig_len );
       case CKM_ECDSA:
          return ec_verify( sess,	ctx,
                                  in_data,   in_data_len,
@@ -572,6 +585,9 @@ verify_mgr_verify_update( SESSION             * sess,
       case CKM_SSL3_SHA1_MAC:
          return ssl3_mac_verify_update( sess, ctx, in_data, in_data_len );
 
+      case CKM_ECDSA_SHA1:
+	 return ec_hash_verify_update( sess, ctx, in_data, in_data_len );
+
       default:
          OCK_LOG_ERR(ERR_MECHANISM_INVALID);
          return CKR_MECHANISM_INVALID;
@@ -610,6 +626,9 @@ verify_mgr_verify_final( SESSION             * sess,
       case CKM_SSL3_MD5_MAC:
       case CKM_SSL3_SHA1_MAC:
          return ssl3_mac_verify_final( sess, ctx, signature, sig_len );
+
+      case CKM_ECDSA_SHA1:
+	 return ec_hash_verify_final( sess, ctx, signature, sig_len );
 
       default:
          OCK_LOG_ERR(ERR_MECHANISM_INVALID);

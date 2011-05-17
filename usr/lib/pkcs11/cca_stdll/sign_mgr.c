@@ -127,6 +127,7 @@ sign_mgr_init( SESSION                * sess,
          break;
 
       case CKM_ECDSA:
+      case CKM_ECDSA_SHA1:
          {
             if (mech->ulParameterLen != 0){
                OCK_LOG_ERR(ERR_MECHANISM_PARAM_INVALID);
@@ -160,10 +161,18 @@ sign_mgr_init( SESSION                * sess,
                return CKR_KEY_TYPE_INCONSISTENT;
             }
 
-	    // No multi part
-	    //
-            ctx->context_len = 0;
-            ctx->context     = NULL;
+	    if (mech->mechanism == CKM_ECDSA) {
+		    ctx->context_len = 0;
+		    ctx->context     = NULL;
+	    } else {
+		    ctx->context_len = sizeof(RSA_DIGEST_CONTEXT);
+		    ctx->context     = (CK_BYTE *)malloc(sizeof(RSA_DIGEST_CONTEXT));
+		    if (!ctx->context){
+			    OCK_LOG_ERR(ERR_HOST_MEMORY);
+			    return CKR_HOST_MEMORY;
+		    }
+		    memset( ctx->context, 0x0, sizeof(RSA_DIGEST_CONTEXT));
+	    }
          }
          break;
 
@@ -542,8 +551,13 @@ sign_mgr_sign( SESSION              * sess,
       case CKM_SSL3_SHA1_MAC:
          return ssl3_mac_sign( sess,     length_only, ctx,
                                in_data,  in_data_len,
+			       out_data, out_data_len );
+      case CKM_ECDSA_SHA1:
+         return ec_hash_sign( sess, length_only, ctx,
+                               in_data,  in_data_len,
                                out_data, out_data_len );
-	  case CKM_ECDSA:
+
+      case CKM_ECDSA:
          return ec_sign( sess, length_only, ctx,
                                in_data,  in_data_len,
                                out_data, out_data_len );
@@ -593,6 +607,9 @@ sign_mgr_sign_update( SESSION             * sess,
       case CKM_SSL3_SHA1_MAC:
          return ssl3_mac_sign_update( sess, ctx, in_data, in_data_len );
 
+      case CKM_ECDSA_SHA1:
+	 return ec_hash_sign_update( sess, ctx, in_data, in_data_len );
+
       default:
          OCK_LOG_ERR(ERR_MECHANISM_INVALID);
          return CKR_MECHANISM_INVALID;
@@ -634,6 +651,9 @@ sign_mgr_sign_final( SESSION             * sess,
       case CKM_SSL3_MD5_MAC:
       case CKM_SSL3_SHA1_MAC:
          return ssl3_mac_sign_final( sess, length_only, ctx, signature, sig_len );
+
+      case CKM_ECDSA_SHA1:
+	 return ec_hash_sign_final (sess, length_only, ctx, signature, sig_len );
 
       default:
          OCK_LOG_ERR(ERR_MECHANISM_INVALID);

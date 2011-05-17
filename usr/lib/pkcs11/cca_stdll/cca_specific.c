@@ -81,8 +81,12 @@ MECH_LIST_ELEMENT mech_list[] = {
    { CKM_MD5,                        { 0,    0, CKF_DIGEST } },
    { CKM_MD5_HMAC,                   { 0,    0, CKF_SIGN | CKF_VERIFY } },
    { CKM_MD5_HMAC_GENERAL,           { 0,    0, CKF_SIGN | CKF_VERIFY } },
-   { CKM_EC_KEY_PAIR_GEN,	     { 160,    521, CKF_HW | CKF_GENERATE_KEY_PAIR } },
-   { CKM_ECDSA,			     { 160,    521, CKF_HW | CKF_SIGN | CKF_VERIFY } }
+   { CKM_EC_KEY_PAIR_GEN,	     { 160,    521, CKF_HW | CKF_GENERATE_KEY_PAIR |
+				                    CKF_EC_NAMEDCURVE | CKF_EC_F_P } },
+   { CKM_ECDSA,			     { 160,    521, CKF_HW | CKF_SIGN | CKF_VERIFY |
+				                    CKF_EC_NAMEDCURVE | CKF_EC_F_P } },
+   { CKM_ECDSA_SHA1,		     { 160,    521, CKF_HW | CKF_SIGN | CKF_VERIFY |
+				                    CKF_EC_NAMEDCURVE | CKF_EC_F_P } }
 };
 
 CK_ULONG mech_list_len = (sizeof(mech_list) / sizeof(MECH_LIST_ELEMENT));
