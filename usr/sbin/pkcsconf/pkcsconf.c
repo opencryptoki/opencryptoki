@@ -306,10 +306,6 @@
 #include "pkcsconf_msg.h"
 #include "p11util.h"
 
-#define MSG_SET MS_PKCSINIT
-nl_catd catd;
-#define PKCSINIT_MSG(n,s) catgets(catd,MSG_SET,n,s)
-
 #define LEEDS_DEFAULT_PIN "87654321"
 #define PIN_SIZE 80
 #define BACK_SPACE 8
@@ -367,17 +363,12 @@ main(int argc, char *argv[]){
        newpinlen, newpin2len,
        errflag = 0;            // Error Flag
 
-   /* Open the Message Catalog */
-   setlocale(LC_ALL, "");
-   catd = catopen(MF_PKCSCONF,0);
-
    /* Parse the command line parameters */
    while ((c = getopt (argc, argv, "itsmMIc:S:U:upPn:lh")) != (-1)){
       switch (c){
          case 'c':  /* a specific card (slot) is specified */
             if (flags & CFG_SLOT) {
-                printf(PKCSINIT_MSG(SINGLESLOT,
-                        "Must specify a single slot.\n"));
+                printf("Must specify a single slot.\n");
                 fflush(stdout);
                 errflag++;
             }
@@ -389,8 +380,7 @@ main(int argc, char *argv[]){
             break;
          case 'S':  /* the SO pin */
             if (flags & CFG_SO_PIN) {
-                printf(PKCSINIT_MSG(SINGLESOPIN,
-                        "Must specify a single SO PIN.\n"));
+                printf("Must specify a single SO PIN.\n");
                 fflush(stdout);
                 errflag++;
             }
@@ -402,8 +392,7 @@ main(int argc, char *argv[]){
             break;
          case 'U':  /* the user pin */
             if (flags & CFG_USER_PIN) {
-                printf(PKCSINIT_MSG(SINGLEUSERPIN,
-                        "Must specify a single user PIN.\n"));
+                printf("Must specify a single user PIN.\n");
                 fflush(stdout);
                 errflag++;
             }
@@ -415,8 +404,7 @@ main(int argc, char *argv[]){
             break;
          case 'n':  /* the new pin */
             if (flags & CFG_NEW_PIN) {
-                printf(PKCSINIT_MSG(SINGLENEWPIN,
-                        "Must specify a single new PIN.\n"));
+                printf("Must specify a single new PIN.\n");
                 fflush(stdout);
                 errflag++;
             }
@@ -487,8 +475,7 @@ main(int argc, char *argv[]){
    /* If the user tries to set the user and SO pin at the same time print an
     * error massage and exit indicating the function failed */
    if ((flags & CFG_SET_USER) && (flags & CFG_SET_SO)) {
-      printf(PKCSINIT_MSG(EXCLUSION,
-               "Setting the SO and user PINs are mutually exclusive.\n"));
+      printf("Setting the SO and user PINs are mutually exclusive.\n");
       fflush(stdout);
       return CKR_FUNCTION_FAILED;
    }
@@ -525,7 +512,7 @@ main(int argc, char *argv[]){
             if (~flags & CFG_SO_PIN){
                 int rc;
                 do {
-                    printf(PKCSINIT_MSG(SOPIN, "Enter the SO PIN: "));
+                    printf("Enter the SO PIN: ");
                     fflush(stdout);
                     rc = get_pin(&(sopin));
                 } while (rc == -EINVAL);
@@ -533,7 +520,7 @@ main(int argc, char *argv[]){
             rc = init_token(in_slot, sopin);
         }
        else {
-           printf(PKCSINIT_MSG(SLOTREQ, "Must specify one slot"));
+           printf("Must specify one slot");
            fflush(stdout);
            rc = -EINVAL;
        }
@@ -547,7 +534,7 @@ main(int argc, char *argv[]){
             if (~flags & CFG_SO_PIN) {
                 int rc;
                 do {
-                    printf(PKCSINIT_MSG(SOPIN, "Enter the SO PIN: "));
+                    printf("Enter the SO PIN: ");
                     fflush(stdout);
                     rc = get_pin(&sopin);
                 } while (rc == -EINVAL);
@@ -555,20 +542,19 @@ main(int argc, char *argv[]){
             if (~flags & CFG_NEW_PIN) {
                 int rc;
                 do {
-                    printf(PKCSINIT_MSG(NEWUSER, "Enter the new user PIN: "));
+                    printf("Enter the new user PIN: ");
                     fflush(stdout);
                     rc = get_pin(&newpin);
                 } while (rc == -EINVAL);
                 newpinlen = strlen(newpin);
                 do {
-                    printf(PKCSINIT_MSG(VNEWUSER,
-                                "Re-enter the new user PIN: "));
+                    printf("Re-enter the new user PIN: ");
                     fflush(stdout);
                     rc = get_pin(&newpin2);
                 } while (rc == -EINVAL);
                 newpin2len = strlen(newpin2);
                 if (newpinlen != newpin2len || memcmp(newpin, newpin2, strlen((char *)newpin)) != 0) {
-                    printf(PKCSINIT_MSG(PINMISMATCH, "New PINs do not match.\n"));
+                    printf("New PINs do not match.\n");
                     fflush(stdout);
                     exit(CKR_PIN_INVALID);
                 }
@@ -576,7 +562,7 @@ main(int argc, char *argv[]){
             rc = init_user_pin(in_slot, newpin, sopin);
         }
         else {
-            printf(PKCSINIT_MSG(SLOTREQ, "Must specify one slot"));
+            printf("Must specify one slot");
             fflush(stdout);
             rc = -EINVAL;
         }
@@ -590,7 +576,7 @@ main(int argc, char *argv[]){
                 int rc;
 
                 do {
-                    printf(PKCSINIT_MSG(SOPIN, "Enter the SO PIN: "));
+                    printf("Enter the SO PIN: ");
                     fflush(stdout);
                     rc = get_pin(&sopin);
                 } while (rc == -EINVAL);
@@ -599,19 +585,19 @@ main(int argc, char *argv[]){
                 int rc;
 
                 do {
-                    printf(PKCSINIT_MSG(NEWSO, "Enter the new SO PIN: "));
+                    printf("Enter the new SO PIN: ");
                     fflush(stdout);
                     rc = get_pin(&newpin);
                 } while (rc == -EINVAL);
                 newpinlen = strlen(newpin);
                 do {
-                    printf(PKCSINIT_MSG(VNEWSO, "Re-enter the new SO PIN: "));
+                    printf("Re-enter the new SO PIN: ");
                     fflush(stdout);
                     rc = get_pin(&newpin2);
                 } while (rc == -EINVAL);
                 newpin2len = strlen(newpin2);
                 if (newpinlen != newpin2len || memcmp(newpin, newpin2, strlen((char *)newpin)) != 0) {
-                    printf(PKCSINIT_MSG(PINMISMATCH, "New PINs do not match.\n"));
+                    printf("New PINs do not match.\n");
                     fflush(stdout);
                     exit(CKR_PIN_INVALID);
                 }
@@ -619,7 +605,7 @@ main(int argc, char *argv[]){
             rc = set_user_pin(in_slot, CKU_SO, sopin, newpin);
         }
         else {
-            printf(PKCSINIT_MSG(SLOTREQ, "Must specify one slot"));
+            printf("Must specify one slot");
             fflush(stdout);
             rc = -EINVAL;
         }
@@ -633,26 +619,26 @@ main(int argc, char *argv[]){
                 int rc;
 
                 do {
-                    printf(PKCSINIT_MSG(USERPIN, "Enter user PIN: "));
+                    printf("Enter user PIN: ");
                     fflush(stdout);
                     rc = get_pin(&pin);
                 } while (rc == -EINVAL);
             }
             if (~flags & CFG_NEW_PIN) {
                 do {
-                    printf(PKCSINIT_MSG(NEWUSER, "Enter the new user PIN: "));
+                    printf("Enter the new user PIN: ");
                     fflush(stdout);
                     rc = get_pin(&newpin);
                 } while (rc == -EINVAL);
                 newpinlen = strlen(newpin);
                 do {
-                    printf(PKCSINIT_MSG(VNEWUSER, "Re-enter the new user PIN: "));
+                    printf("Re-enter the new user PIN: ");
                     fflush(stdout);
                     rc = get_pin(&newpin2);
                 } while (rc == -EINVAL);
                 newpin2len = strlen(newpin2);
                 if (newpinlen != newpin2len || memcmp(newpin, newpin2, strlen((char *)newpin)) != 0) {
-                    printf(PKCSINIT_MSG(PINMISMATCH, "New PINs do not match.\n"));
+                    printf("New PINs do not match.\n");
                     fflush(stdout);
                     exit(CKR_PIN_INVALID);
                 }
@@ -660,7 +646,7 @@ main(int argc, char *argv[]){
             rc = set_user_pin(in_slot, CKU_USER, pin, newpin);
         }
         else {
-            printf(PKCSINIT_MSG(SLOTREQ, "Must specify one slot"));
+            printf("Must specify one slot");
             fflush(stdout);
             rc = -EINVAL;
         }
@@ -777,20 +763,18 @@ display_pkcs11_info(void){
    /* Get the PKCS11 infomation structure and if fails print message */
    rc = FunctionPtr->C_GetInfo(&CryptokiInfo);
    if (rc != CKR_OK) {
-      printf(PKCSINIT_MSG(INFOERROR, "Error getting PKCS#11 info: 0x%X (%s)\n"), rc, p11_get_ckr(rc));
+      printf("Error getting PKCS#11 info: 0x%X (%s)\n", rc, p11_get_ckr(rc));
       return rc;
    }
 
    /* display the header and information */
-   printf(PKCSINIT_MSG(PKCSINFO, "PKCS#11 Info\n"));
-   printf(PKCSINIT_MSG(VERSION, "\tVersion %d.%d \n"), CryptokiInfo.cryptokiVersion.major,
+   printf("PKCS#11 Info\n");
+   printf("\tVersion %d.%d \n", CryptokiInfo.cryptokiVersion.major,
          CryptokiInfo.cryptokiVersion.minor);
-   printf(PKCSINIT_MSG(MANUFACT, "\tManufacturer: %32s \n"), CryptokiInfo.manufacturerID);
-   printf(PKCSINIT_MSG(FLAGS, "\tFlags: 0x%X  \n"), CryptokiInfo.flags);
-   printf(PKCSINIT_MSG(LIBDESCRIPT, "\tLibrary Description: %32s \n"),
-         CryptokiInfo.libraryDescription);
-   printf(PKCSINIT_MSG(LIBVERSION, "\tLibrary Version %d.%d \n"),
-         CryptokiInfo.libraryVersion.major,
+   printf("\tManufacturer: %32s \n", CryptokiInfo.manufacturerID);
+   printf("\tFlags: 0x%X  \n", CryptokiInfo.flags);
+   printf("\tLibrary Description: %32s \n", CryptokiInfo.libraryDescription);
+   printf("\tLibrary Version %d.%d \n", CryptokiInfo.libraryVersion.major,
          CryptokiInfo.libraryVersion.minor);
 
    return rc;
@@ -804,7 +788,7 @@ get_slot_list(){
    /* Find out how many tokens are present in slots */
    rc = FunctionPtr->C_GetSlotList(TRUE, NULL_PTR, &SlotCount);
    if (rc != CKR_OK) {
-      printf(PKCSINIT_MSG(SLOTERROR, "Error getting number of slots: 0x%X (%s)\n"), rc, p11_get_ckr(rc));
+      printf("Error getting number of slots: 0x%X (%s)\n", rc, p11_get_ckr(rc));
       return rc;
    }
 
@@ -819,7 +803,7 @@ get_slot_list(){
 
    rc = FunctionPtr->C_GetSlotList(TRUE, SlotList, &SlotCount);
    if (rc != CKR_OK) {
-      printf(PKCSINIT_MSG(LISTERROR, "Error getting slot list: 0x%X (%s)\n"), rc, p11_get_ckr(rc));
+      printf("Error getting slot list: 0x%X (%s)\n", rc, p11_get_ckr(rc));
       return rc;
    }
 
@@ -870,10 +854,9 @@ print_mech_info(int slot_id)
     unsigned int            i;
 
     /* For each slot find out how many mechanisms are supported */
-    rc = FunctionPtr->C_GetMechanismList(slot_id, NULL_PTR,
-            &MechanismCount);
+    rc = FunctionPtr->C_GetMechanismList(slot_id, NULL_PTR, &MechanismCount);
     if (rc != CKR_OK) {
-        printf(PKCSINIT_MSG(MECHERROR, "Error getting number of mechanisms: 0x%X (%s)\n"),
+        printf("Error getting number of mechanisms: 0x%X (%s)\n",
                 rc, p11_get_ckr(rc));
         return rc;
     }
@@ -886,7 +869,7 @@ print_mech_info(int slot_id)
     rc = FunctionPtr->C_GetMechanismList(slot_id, MechanismList,
             &MechanismCount);
     if (rc != CKR_OK) {
-        printf(PKCSINIT_MSG(LISTERROR2, "Error getting mechanisms list: 0x%X (%s)\n"), rc, p11_get_ckr(rc));
+        printf("Error getting mechanisms list: 0x%X (%s)\n", rc, p11_get_ckr(rc));
         return rc;
     }
 
@@ -897,18 +880,18 @@ print_mech_info(int slot_id)
         rc = FunctionPtr->C_GetMechanismInfo(slot_id,
                 MechanismList[i], &MechanismInfo);
         if (rc != CKR_OK) {
-            printf(PKCSINIT_MSG(INFOERROR2, "Error getting mechanisms info: 0x%X (%s)\n"), rc, p11_get_ckr(rc));
+            printf("Error getting mechanisms info: 0x%X (%s)\n", rc, p11_get_ckr(rc));
             return rc;
         }
-        printf(PKCSINIT_MSG(MECH, "Mechanism #%d\n"), i);
-        printf(PKCSINIT_MSG(MECHLABEL, "\tMechanism: 0x%X "), MechanismList[i]);
+        printf("Mechanism #%d\n", i);
+        printf("\tMechanism: 0x%X ", MechanismList[i]);
 
         display_mechanism_name(MechanismList[i]);
         printf("\n");
 
-        printf(PKCSINIT_MSG(KEYSIZE, "\tKey Size: %d-%d\n"), MechanismInfo.ulMinKeySize,
+        printf("\tKey Size: %d-%d\n", MechanismInfo.ulMinKeySize,
                 MechanismInfo.ulMaxKeySize);
-        printf(PKCSINIT_MSG(FLAGS, "\tFlags: 0x%X "), MechanismInfo.flags);
+        printf("\tFlags: 0x%X ", MechanismInfo.flags);
 
         display_mechanism_flags(MechanismInfo.flags);
         printf("\n");
@@ -942,24 +925,22 @@ void
 print_slot_info(int slot_id, CK_SLOT_INFO *SlotInfo)
 {
       /* Display the slot information */
-      printf(PKCSINIT_MSG(SLOTINFO, "Slot #%d Info\n"), slot_id);
-      printf(PKCSINIT_MSG(SLOTDESC, "\tDescription: %.64s\n"), SlotInfo->slotDescription);
-      printf(PKCSINIT_MSG(MANUFACT, "\tManufacturer: %.32s\n"), SlotInfo->manufacturerID);
-      printf(PKCSINIT_MSG(FLAGS, "\tFlags: 0x%X ("), SlotInfo->flags);
+      printf("Slot #%d Info\n", slot_id);
+      printf("\tDescription: %.64s\n", SlotInfo->slotDescription);
+      printf("\tManufacturer: %.32s\n", SlotInfo->manufacturerID);
+      printf("\tFlags: 0x%X (", SlotInfo->flags);
 
       if (SlotInfo->flags & CKF_TOKEN_PRESENT)
-	      printf(PKCSINIT_MSG(FLAGS, "TOKEN_PRESENT|"));
+	      printf("TOKEN_PRESENT|");
       if (SlotInfo->flags & CKF_REMOVABLE_DEVICE)
-	      printf(PKCSINIT_MSG(FLAGS, "REMOVABLE_DEVICE|"));
+	      printf("REMOVABLE_DEVICE|");
       if (SlotInfo->flags & CKF_HW_SLOT)
-	      printf(PKCSINIT_MSG(FLAGS, "HW_SLOT|"));
+	      printf("HW_SLOT|");
       printf(")\n");
 
-      printf(PKCSINIT_MSG(HWVERSION, "\tHardware Version: %d.%d\n"),
-            SlotInfo->hardwareVersion.major,
+      printf("\tHardware Version: %d.%d\n", SlotInfo->hardwareVersion.major,
             SlotInfo->hardwareVersion.minor);
-      printf(PKCSINIT_MSG(FWVERSION, "\tFirmware Version: %d.%d\n"),
-            SlotInfo->firmwareVersion.major,
+      printf("\tFirmware Version: %d.%d\n", SlotInfo->firmwareVersion.major,
             SlotInfo->firmwareVersion.minor);
 }
 
@@ -973,7 +954,7 @@ display_slot_info(int slot_id)
    if (slot_id != -1) {
       rc = FunctionPtr->C_GetSlotInfo(slot_id, &SlotInfo);
       if (rc != CKR_OK) {
-         printf(PKCSINIT_MSG(SLOTERROR2, "Error getting slot info: 0x%X (%s) \n"), rc,
+         printf("Error getting slot info: 0x%X (%s) \n", rc,
 		p11_get_ckr(rc));
          return rc;
       }
@@ -986,7 +967,7 @@ display_slot_info(int slot_id)
       /* Get the info for the slot we are examining and store in SlotInfo*/
       rc = FunctionPtr->C_GetSlotInfo(SlotList[lcv], &SlotInfo);
       if (rc != CKR_OK) {
-         printf(PKCSINIT_MSG(SLOTERROR2, "Error getting slot info: 0x%X (%s) \n"), rc, p11_get_ckr(rc));
+         printf("Error getting slot info: 0x%X (%s) \n", rc, p11_get_ckr(rc));
          return rc;
       }
 
@@ -1005,13 +986,13 @@ list_slot(int slot_id){
     if (slot_id != -1) {
         rc = FunctionPtr->C_GetSlotInfo(slot_id, &SlotInfo);
         if (rc != CKR_OK) {
-            printf(PKCSINIT_MSG(SLOTERROR2, "Error getting slot info: 0x%X (%s)\n"), rc, p11_get_ckr(rc));
+            printf("Error getting slot info: 0x%X (%s)\n", rc, p11_get_ckr(rc));
             return rc;
         }
 
         /* Display the slot description */
         printf("%ld:", SlotList[lcv]);
-        printf(PKCSINIT_MSG(SLOTDESC, "\tDescription: %.64s\n"), SlotInfo.slotDescription);
+        printf("\tDescription: %.64s\n", SlotInfo.slotDescription);
 
         return CKR_OK;
     }
@@ -1021,13 +1002,13 @@ list_slot(int slot_id){
         /* Get the info for the slot we are examining and store in SlotInfo*/
         rc = FunctionPtr->C_GetSlotInfo(SlotList[lcv], &SlotInfo);
         if (rc != CKR_OK) {
-            printf(PKCSINIT_MSG(SLOTERROR2, "Error getting slot info: 0x%X (%s)\n"), rc, p11_get_ckr(rc));
+            printf("Error getting slot info: 0x%X (%s)\n", rc, p11_get_ckr(rc));
             return rc;
         }
 
         /* Display the slot description */
         printf("%ld:", SlotList[lcv]);
-        printf(PKCSINIT_MSG(SLOTDESC, "\tDescription: %.64s\n"), SlotInfo.slotDescription);
+        printf("\tDescription: %.64s\n", SlotInfo.slotDescription);
     }
     return CKR_OK;
 }
@@ -1036,68 +1017,67 @@ void
 print_token_info(int slot_id, CK_TOKEN_INFO *TokenInfo)
 {
       /* Display the token information */
-      printf(PKCSINIT_MSG(TOKINFO, "Token #%d Info:\n"), slot_id);
-      printf(PKCSINIT_MSG(TOKLABEL, "\tLabel: %.32s\n"), TokenInfo->label);
-      printf(PKCSINIT_MSG(MANUFACT, "\tManufacturer: %.32s\n"), TokenInfo->manufacturerID);
-      printf(PKCSINIT_MSG(MODEL, "\tModel: %.16s\n"), TokenInfo->model);
-      printf(PKCSINIT_MSG(SERIAL, "\tSerial Number: %.16s\n"), TokenInfo->serialNumber);
-      printf(PKCSINIT_MSG(FLAGS, "\tFlags: 0x%X ("), TokenInfo->flags);
+      printf("Token #%d Info:\n", slot_id);
+      printf("\tLabel: %.32s\n", TokenInfo->label);
+      printf("\tManufacturer: %.32s\n", TokenInfo->manufacturerID);
+      printf("\tModel: %.16s\n", TokenInfo->model);
+      printf("\tSerial Number: %.16s\n", TokenInfo->serialNumber);
+      printf("\tFlags: 0x%X (", TokenInfo->flags);
 
       /* print more informative flag message */
       if (TokenInfo->flags & CKF_RNG)
-	      printf(PKCSINIT_MSG(FLAGS, "RNG|"));
+	      printf("RNG|");
       if (TokenInfo->flags & CKF_WRITE_PROTECTED)
-	      printf(PKCSINIT_MSG(FLAGS, "WRITE_PROTECTED|"));
+	      printf("WRITE_PROTECTED|");
       if (TokenInfo->flags & CKF_LOGIN_REQUIRED)
-	      printf(PKCSINIT_MSG(FLAGS, "LOGIN_REQUIRED|"));
+	      printf("LOGIN_REQUIRED|");
       if (TokenInfo->flags & CKF_USER_PIN_INITIALIZED)
-	      printf(PKCSINIT_MSG(FLAGS, "USER_PIN_INITIALIZED|"));
+	      printf("USER_PIN_INITIALIZED|");
       if (TokenInfo->flags & CKF_RESTORE_KEY_NOT_NEEDED)
-	      printf(PKCSINIT_MSG(FLAGS, "RESTORE_KEY_NOT_NEEDED|"));
+	      printf("RESTORE_KEY_NOT_NEEDED|");
       if (TokenInfo->flags & CKF_CLOCK_ON_TOKEN)
-	      printf(PKCSINIT_MSG(FLAGS, "CLOCK_ON_TOKEN|"));
+	      printf("CLOCK_ON_TOKEN|");
       if (TokenInfo->flags & CKF_PROTECTED_AUTHENTICATION_PATH)
-	      printf(PKCSINIT_MSG(FLAGS, "PROTECTED_AUTHENTICATION_PATH|"));
+	      printf("PROTECTED_AUTHENTICATION_PATH|");
       if (TokenInfo->flags & CKF_DUAL_CRYPTO_OPERATIONS)
-	      printf(PKCSINIT_MSG(FLAGS, "DUAL_CRYPTO_OPERATIONS|"));
+	      printf("DUAL_CRYPTO_OPERATIONS|");
       if (TokenInfo->flags & CKF_TOKEN_INITIALIZED)
-	      printf(PKCSINIT_MSG(FLAGS, "TOKEN_INITIALIZED|"));
+	      printf("TOKEN_INITIALIZED|");
       if (TokenInfo->flags & CKF_SECONDARY_AUTHENTICATION)
-	      printf(PKCSINIT_MSG(FLAGS, "SECONDARY_AUTHENTICATION|"));
+	      printf("SECONDARY_AUTHENTICATION|");
       if (TokenInfo->flags & CKF_USER_PIN_COUNT_LOW)
-	      printf(PKCSINIT_MSG(FLAGS, "USER_PIN_COUNT_LOW|"));
+	      printf("USER_PIN_COUNT_LOW|");
       if (TokenInfo->flags & CKF_USER_PIN_FINAL_TRY)
-	      printf(PKCSINIT_MSG(FLAGS, "USER_PIN_FINAL_TRY|"));
+	      printf("USER_PIN_FINAL_TRY|");
       if (TokenInfo->flags & CKF_USER_PIN_LOCKED)
-	      printf(PKCSINIT_MSG(FLAGS, "USER_PIN_LOCKED|"));
+	      printf("USER_PIN_LOCKED|");
       if (TokenInfo->flags & CKF_USER_PIN_TO_BE_CHANGED)
-	      printf(PKCSINIT_MSG(FLAGS, "USER_PIN_TO_BE_CHANGED|"));
+	      printf("USER_PIN_TO_BE_CHANGED|");
       if (TokenInfo->flags & CKF_SO_PIN_COUNT_LOW)
-	      printf(PKCSINIT_MSG(FLAGS, "SO_PIN_COUNT_LOW|"));
+	      printf("SO_PIN_COUNT_LOW|");
       if (TokenInfo->flags & CKF_SO_PIN_FINAL_TRY)
-	      printf(PKCSINIT_MSG(FLAGS, "SO_PIN_FINAL_TRY|"));
+	      printf("SO_PIN_FINAL_TRY|");
       if (TokenInfo->flags & CKF_SO_PIN_LOCKED)
-	      printf(PKCSINIT_MSG(FLAGS, "SO_PIN_LOCKED|"));
+	      printf("SO_PIN_LOCKED|");
       if (TokenInfo->flags & CKF_SO_PIN_TO_BE_CHANGED)
-	      printf(PKCSINIT_MSG(FLAGS, "SO_PIN_TO_BE_CHANGED|"));
+	      printf("SO_PIN_TO_BE_CHANGED|");
       printf(")\n");
 
-      printf(PKCSINIT_MSG(SESSIONS, "\tSessions: %d/%d\n"), TokenInfo->ulSessionCount,
+      printf("\tSessions: %d/%d\n", TokenInfo->ulSessionCount,
             TokenInfo->ulMaxSessionCount);
-      printf(PKCSINIT_MSG(RWSESSIONS, "\tR/W Sessions: %d/%d\n"),
-            TokenInfo->ulRwSessionCount, TokenInfo->ulMaxRwSessionCount);
-      printf(PKCSINIT_MSG(PINLEN, "\tPIN Length: %d-%d\n"), TokenInfo->ulMinPinLen,
-            TokenInfo->ulMaxPinLen);
-      printf(PKCSINIT_MSG(PUBMEM, "\tPublic Memory: 0x%X/0x%X\n"),
-            TokenInfo->ulFreePublicMemory, TokenInfo->ulTotalPublicMemory);
-      printf(PKCSINIT_MSG(PRIVMEM, "\tPrivate Memory: 0x%X/0x%X\n"),
-            TokenInfo->ulFreePrivateMemory, TokenInfo->ulTotalPrivateMemory);
-      printf(PKCSINIT_MSG(HWVERSION, "\tHardware Version: %d.%d\n"), TokenInfo->hardwareVersion.major,
+      printf("\tR/W Sessions: %d/%d\n", TokenInfo->ulRwSessionCount,
+	    TokenInfo->ulMaxRwSessionCount);
+      printf("\tPIN Length: %d-%d\n", TokenInfo->ulMinPinLen,
+	    TokenInfo->ulMaxPinLen);
+      printf("\tPublic Memory: 0x%X/0x%X\n", TokenInfo->ulFreePublicMemory,
+	    TokenInfo->ulTotalPublicMemory);
+      printf("\tPrivate Memory: 0x%X/0x%X\n", TokenInfo->ulFreePrivateMemory,
+	    TokenInfo->ulTotalPrivateMemory);
+      printf("\tHardware Version: %d.%d\n", TokenInfo->hardwareVersion.major,
             TokenInfo->hardwareVersion.minor);
-      printf(PKCSINIT_MSG(FWVERSION, "\tFirmware Version: %d.%d\n"),
-            TokenInfo->firmwareVersion.major,
+      printf("\tFirmware Version: %d.%d\n", TokenInfo->firmwareVersion.major,
             TokenInfo->firmwareVersion.minor);
-      printf(PKCSINIT_MSG(TIME, "\tTime: %.16s\n"), TokenInfo->utcTime);
+      printf("\tTime: %.16s\n", TokenInfo->utcTime);
 }
 
 CK_RV
@@ -1110,8 +1090,7 @@ display_token_info(int slot_id)
    if (slot_id != -1) {
       rc = FunctionPtr->C_GetTokenInfo(slot_id, &TokenInfo);
       if (rc != CKR_OK) {
-         printf(PKCSINIT_MSG(TOKERROR, "Error getting token info: 0x%X (%s)\n"), rc,
-		p11_get_ckr(rc));
+         printf("Error getting token info: 0x%X (%s)\n", rc, p11_get_ckr(rc));
          return rc;
       }
 
@@ -1123,7 +1102,7 @@ display_token_info(int slot_id)
       /* Get the Token info for each slot in the system */
       rc = FunctionPtr->C_GetTokenInfo(SlotList[lcv], &TokenInfo);
       if (rc != CKR_OK) {
-         printf(PKCSINIT_MSG(TOKERROR, "Error getting token info: 0x%X (%s)\n"), rc, p11_get_ckr(rc));
+         printf("Error getting token info: 0x%X (%s)\n", rc, p11_get_ckr(rc));
          return rc;
       }
 
@@ -1156,7 +1135,7 @@ init_token(int slot_id, CK_CHAR_PTR pin){
     /* Get the token label from the user, NOTE it states to give a unique label
      * but it is never verified as unique.  This is becuase Netscape requires a
      * unique token label; however the PKCS11 spec does not.  */
-    printf(PKCSINIT_MSG(GETLABEL, "Enter a unique token label: "));
+    printf("Enter a unique token label: ");
     fflush(stdout);
     fgets((char *)enteredlabel, sizeof(enteredlabel), stdin);
 
@@ -1169,11 +1148,11 @@ init_token(int slot_id, CK_CHAR_PTR pin){
             pinlen, label);
     if (rc != CKR_OK) {
         if (rc == CKR_PIN_INCORRECT) {
-            printf(PKCSINIT_MSG(INCORRECTPIN, "Incorrect PIN Entered.\n"));
+            printf("Incorrect PIN Entered.\n");
             fflush(stdout);
         }
         else {
-            printf(PKCSINIT_MSG(INITERROR, "Error initializing token: 0x%X (%s)\n"), rc, p11_get_ckr(rc));
+            printf("Error initializing token: 0x%X (%s)\n", rc, p11_get_ckr(rc));
             fflush(stdout);
         }
         return rc;
@@ -1202,7 +1181,7 @@ init_user_pin(int slot_id, CK_CHAR_PTR pin, CK_CHAR_PTR sopin){
     rc = FunctionPtr->C_OpenSession(slot_id, flags, NULL, NULL,
             &session_handle);
     if (rc != CKR_OK){
-        printf(PKCSINIT_MSG(OPENERROR, "Error opening session: 0x%X (%s)\n"), rc, p11_get_ckr(rc));
+        printf("Error opening session: 0x%X (%s)\n", rc, p11_get_ckr(rc));
         fflush(stdout);
         return rc;
     }
@@ -1211,11 +1190,11 @@ init_user_pin(int slot_id, CK_CHAR_PTR pin, CK_CHAR_PTR sopin){
     rc = FunctionPtr->C_Login(session_handle, CKU_SO, sopin, sopinlen);
     if (rc != CKR_OK){
         if (rc == CKR_PIN_INCORRECT) {
-            printf(PKCSINIT_MSG(INCORRECTPIN, "Incorrect PIN Entered.\n"));
+            printf("Incorrect PIN Entered.\n");
             fflush(stdout);
         }
         else {
-            printf(PKCSINIT_MSG(LOGINERROR, "Error logging in: 0x%X (%s)\n"), rc, p11_get_ckr(rc));
+            printf("Error logging in: 0x%X (%s)\n", rc, p11_get_ckr(rc));
             fflush(stdout);
         }
         return rc;
@@ -1224,21 +1203,21 @@ init_user_pin(int slot_id, CK_CHAR_PTR pin, CK_CHAR_PTR sopin){
     /* Call the function to Init the PIN */
     rc = FunctionPtr->C_InitPIN(session_handle, pin, pinlen);
     if (rc != CKR_OK){
-        printf(PKCSINIT_MSG(SETPIN, "Error setting PIN: 0x%X (%s)\n"), rc, p11_get_ckr(rc));
+        printf("Error setting PIN: 0x%X (%s)\n", rc, p11_get_ckr(rc));
         fflush(stdout);
     }
 
     /* Logout so that others can use the PIN */
     rc = FunctionPtr->C_Logout(session_handle);
     if (rc != CKR_OK){
-        printf(PKCSINIT_MSG(LOGOUTERROR, "Error logging out: 0x%X (%s)\n"), rc, p11_get_ckr(rc));
+        printf("Error logging out: 0x%X (%s)\n", rc, p11_get_ckr(rc));
         fflush(stdout);
     }
 
     /* Close the session */
     rc = FunctionPtr->C_CloseSession(session_handle);
     if (rc != CKR_OK){
-        printf(PKCSINIT_MSG(CLOSEERROR, "Error closing session: 0x%X (%s)\n"), rc, p11_get_ckr(rc));
+        printf("Error closing session: 0x%X (%s)\n", rc, p11_get_ckr(rc));
         fflush(stdout);
         return rc;
     }
@@ -1267,7 +1246,7 @@ set_user_pin(int slot_id, CK_USER_TYPE user, CK_CHAR_PTR oldpin, CK_CHAR_PTR new
     rc = FunctionPtr->C_OpenSession(slot_id, flags, NULL, NULL,
             &session_handle);
     if (rc != CKR_OK){
-        printf(PKCSINIT_MSG(OPENERROR, "Error opening session: 0x%X (%s)\n"), rc, p11_get_ckr(rc));
+        printf("Error opening session: 0x%X (%s)\n", rc, p11_get_ckr(rc));
         fflush(stdout);
         return rc;
     }
@@ -1276,11 +1255,11 @@ set_user_pin(int slot_id, CK_USER_TYPE user, CK_CHAR_PTR oldpin, CK_CHAR_PTR new
     rc = FunctionPtr->C_Login(session_handle, user, oldpin, oldpinlen);
     if (rc != CKR_OK){
         if (rc == CKR_PIN_INCORRECT) {
-            printf(PKCSINIT_MSG(INCORRECTPIN, "Incorrect PIN Entered.\n"));
+            printf("Incorrect PIN Entered.\n");
             fflush(stdout);
         }
         else {
-            printf(PKCSINIT_MSG(LOGINERROR, "Error logging in: 0x%X (%s)\n"), rc, p11_get_ckr(rc));
+            printf("Error logging in: 0x%X (%s)\n", rc, p11_get_ckr(rc));
             fflush(stdout);
         }
         return rc;
@@ -1290,14 +1269,14 @@ set_user_pin(int slot_id, CK_USER_TYPE user, CK_CHAR_PTR oldpin, CK_CHAR_PTR new
     rc = FunctionPtr->C_SetPIN(session_handle, oldpin, oldpinlen,
             newpin, newpinlen);
     if (rc != CKR_OK){
-        printf(PKCSINIT_MSG(SETPIN, "Error setting PIN: 0x%X (%s)\n"), rc, p11_get_ckr(rc));
+        printf("Error setting PIN: 0x%X (%s)\n", rc, p11_get_ckr(rc));
         fflush(stdout);
     }
 
     /* and of course clean up after ourselves */
     rc = FunctionPtr->C_CloseSession(session_handle);
     if (rc != CKR_OK){
-        printf(PKCSINIT_MSG(CLOSEERROR, "Error closing session: 0x%X (%s)\n"), rc, p11_get_ckr(rc));
+        printf("Error closing session: 0x%X (%s)\n", rc, p11_get_ckr(rc));
         fflush(stdout);
         return rc;
     }
@@ -1316,8 +1295,8 @@ init(void){
     * LD_LIBRARY_PATH */
    dllPtr = dlopen("libopencryptoki.so", RTLD_NOW);
    if (!dllPtr) {
-      printf(PKCSINIT_MSG(LOADERROR, "Error loading PKCS#11 library\n"));
-      printf(PKCSINIT_MSG(LOADERROR, "dlopen error: %s\n"), dlerror());
+      printf("Error loading PKCS#11 library\n");
+      printf("dlopen error: %s\n", dlerror());
       fflush(stdout);
       return -1;
    }
@@ -1326,7 +1305,7 @@ init(void){
    symPtr = (void (*)())dlsym(dllPtr, "C_GetFunctionList");
    if (!symPtr) {
       rc = errno;
-      printf(PKCSINIT_MSG(FUNCTERROR, "Error getting function list: 0x%X (%s)\n"), rc, p11_get_ckr(rc));
+      printf("Error getting function list: 0x%X (%s)\n", rc, p11_get_ckr(rc));
       fflush(stdout);
       return rc;
    }
@@ -1337,7 +1316,7 @@ init(void){
     * calls, so we will execute the PKCS11 Initilize command. */
    rc = FunctionPtr->C_Initialize(NULL);
    if (rc != CKR_OK) {
-      printf(PKCSINIT_MSG(LIBERROR, "Error initializing the PKCS11 library: 0x%X (%s)\n"), rc, p11_get_ckr(rc));
+      printf("Error initializing the PKCS11 library: 0x%X (%s)\n", rc, p11_get_ckr(rc));
       fflush(stdout);
       cleanup();
    }
@@ -1363,18 +1342,17 @@ void
 usage(char *progname){
 
    /* If we get here the user needs help, so give it to them */
-   printf(PKCSINIT_MSG(USAGE,
-           "usage:\t%s [-itsmMIupPh] [-c slotnumber -U userPIN -S SOPin -n newpin]\n"),
-           progname);
-   printf(PKCSINIT_MSG(USAGE1, "\t-i display PKCS11 info\n"));
-   printf(PKCSINIT_MSG(USAGE2, "\t-t display token info\n"));
-   printf(PKCSINIT_MSG(USAGE3, "\t-s display slot info\n"));
-   printf(PKCSINIT_MSG(USAGE4, "\t-m display mechanism list\n"));
-   printf(PKCSINIT_MSG(USAGE6, "\t-I initialize token \n"));
-   printf(PKCSINIT_MSG(USAGE7, "\t-u initialize user PIN\n"));
-   printf(PKCSINIT_MSG(USAGE8, "\t-p set the user PIN\n"));
-   printf(PKCSINIT_MSG(USAGE9, "\t-P set the SO PIN\n"));
-   printf(PKCSINIT_MSG(USAGE10, "\t-h show this help\n"));
+   printf("usage:\t%s [-itsmMIupPh] [-c slotnumber -U userPIN -S SOPin -n newpin]\n", progname);
+   printf("\t-i display PKCS11 info\n");
+   printf("\t-t display token info\n");
+   printf("\t-s display slot info\n");
+   printf("\t-m display mechanism list\n");
+   printf("\t-l display slot description\n");
+   printf("\t-I initialize token \n");
+   printf("\t-u initialize user PIN\n");
+   printf("\t-p set the user PIN\n");
+   printf("\t-P set the SO PIN\n");
+   printf("\t-h show this help\n");
 
    exit(-1);
 }
