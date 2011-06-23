@@ -991,7 +991,7 @@ list_slot(int slot_id){
         }
 
         /* Display the slot description */
-        printf("%ld:", SlotList[lcv]);
+        printf("%ld:", slot_id);
         printf("\tDescription: %.64s\n", SlotInfo.slotDescription);
 
         return CKR_OK;
@@ -1126,8 +1126,6 @@ init_token(int slot_id, CK_CHAR_PTR pin){
     CK_ULONG    pinlen;           // Length of the PIN
     CK_CHAR     label[32],        // What we want to set the Label of the card to
                 enteredlabel[33]; // Max size of 32 + carriage return;
-
-    unsigned int lcv;             // Loop Control Varable
 
     /* Find out the size of the entered PIN */
     pinlen = strlen((char *)pin);
