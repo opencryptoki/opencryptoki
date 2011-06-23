@@ -33,10 +33,6 @@
 #include <openssl/rand.h>
 
 #include <tss/platform.h>
-#include <tss/tcpa_defines.h>
-#include <tss/tcpa_typedef.h>
-#include <tss/tcpa_struct.h>
-#include <tss/tcpa_error.h>
 #include <tss/tss_defines.h>
 #include <tss/tss_typedef.h>
 #include <tss/tss_structs.h>

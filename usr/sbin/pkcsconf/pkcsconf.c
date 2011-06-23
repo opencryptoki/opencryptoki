@@ -546,13 +546,13 @@ main(int argc, char *argv[]){
                     fflush(stdout);
                     rc = get_pin(&newpin);
                 } while (rc == -EINVAL);
-                newpinlen = strlen(newpin);
+                newpinlen = strlen((char *)newpin);
                 do {
                     printf("Re-enter the new user PIN: ");
                     fflush(stdout);
                     rc = get_pin(&newpin2);
                 } while (rc == -EINVAL);
-                newpin2len = strlen(newpin2);
+                newpin2len = strlen((char *)newpin2);
                 if (newpinlen != newpin2len || memcmp(newpin, newpin2, strlen((char *)newpin)) != 0) {
                     printf("New PINs do not match.\n");
                     fflush(stdout);
@@ -589,13 +589,13 @@ main(int argc, char *argv[]){
                     fflush(stdout);
                     rc = get_pin(&newpin);
                 } while (rc == -EINVAL);
-                newpinlen = strlen(newpin);
+                newpinlen = strlen((char *)newpin);
                 do {
                     printf("Re-enter the new SO PIN: ");
                     fflush(stdout);
                     rc = get_pin(&newpin2);
                 } while (rc == -EINVAL);
-                newpin2len = strlen(newpin2);
+                newpin2len = strlen((char *)newpin2);
                 if (newpinlen != newpin2len || memcmp(newpin, newpin2, strlen((char *)newpin)) != 0) {
                     printf("New PINs do not match.\n");
                     fflush(stdout);
@@ -630,13 +630,13 @@ main(int argc, char *argv[]){
                     fflush(stdout);
                     rc = get_pin(&newpin);
                 } while (rc == -EINVAL);
-                newpinlen = strlen(newpin);
+                newpinlen = strlen((char *)newpin);
                 do {
                     printf("Re-enter the new user PIN: ");
                     fflush(stdout);
                     rc = get_pin(&newpin2);
                 } while (rc == -EINVAL);
-                newpin2len = strlen(newpin2);
+                newpin2len = strlen((char *)newpin2);
                 if (newpinlen != newpin2len || memcmp(newpin, newpin2, strlen((char *)newpin)) != 0) {
                     printf("New PINs do not match.\n");
                     fflush(stdout);
