@@ -771,9 +771,9 @@ display_pkcs11_info(void){
    printf("PKCS#11 Info\n");
    printf("\tVersion %d.%d \n", CryptokiInfo.cryptokiVersion.major,
          CryptokiInfo.cryptokiVersion.minor);
-   printf("\tManufacturer: %32s \n", CryptokiInfo.manufacturerID);
+   printf("\tManufacturer: %.32s \n", CryptokiInfo.manufacturerID);
    printf("\tFlags: 0x%X  \n", CryptokiInfo.flags);
-   printf("\tLibrary Description: %32s \n", CryptokiInfo.libraryDescription);
+   printf("\tLibrary Description: %.32s \n", CryptokiInfo.libraryDescription);
    printf("\tLibrary Version %d.%d \n", CryptokiInfo.libraryVersion.major,
          CryptokiInfo.libraryVersion.minor);
 
@@ -1132,18 +1132,23 @@ init_token(int slot_id, CK_CHAR_PTR pin){
 
     /* Get the token label from the user, NOTE it states to give a unique label
      * but it is never verified as unique.  This is becuase Netscape requires a
-     * unique token label; however the PKCS11 spec does not.  */
+     * unique token label; however the PKCS11 spec does not.
+     */
     printf("Enter a unique token label: ");
     fflush(stdout);
-    fgets((char *)enteredlabel, sizeof(enteredlabel), stdin);
+    memset(enteredlabel, 0, sizeof(enteredlabel));
+
+    if (fgets((char *)enteredlabel, sizeof(enteredlabel), stdin) == NULL)
+	printf("\n");
+    else
+	enteredlabel[strcspn((const char*)enteredlabel,"\n")] = '\0';
 
     /* First clear the label array. Per PKCS#11 spec, We must PAD this field to
      * 32 bytes, and it should NOT be null-terminated */
-    memset(label, ' ', 32);
-    strncpy((char *)label, (char *)enteredlabel, strlen((char *)enteredlabel) - 1);   // Strip the \n
+    memset(label, ' ', sizeof(label));
+    strncpy((char *)label, (char *)enteredlabel, strlen((char *)enteredlabel));
 
-    rc = FunctionPtr->C_InitToken(slot_id, pin,
-            pinlen, label);
+    rc = FunctionPtr->C_InitToken(slot_id, pin, pinlen, label);
     if (rc != CKR_OK) {
         if (rc == CKR_PIN_INCORRECT) {
             printf("Incorrect PIN Entered.\n");
