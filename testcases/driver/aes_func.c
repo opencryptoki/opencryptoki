@@ -6,1130 +6,1393 @@
 #include "pkcs11types.h"
 #include "regress.h"
 #include "aes.h"
-
-#ifndef AES_COUNTER_VALUE
-#define AES_COUNTER_VALUE "0123456789012345"
-#endif
-
-#ifndef AES_IV_VALUE
-#define AES_IV_VALUE "1234567890123456"
-#endif
-
-#ifndef AES_KEY_LEN
-#define AES_KEY_LEN 32
-#endif
-
+#include "common.c"
 
 CK_ULONG key_lens[] = {16, 24, 32};
 
-CK_RV do_EncryptAES(struct test_suite_info *tsuite)
+/* aes-ctr has 3encck+3decck+3encsk+3decsk+3keywrap+1RSA
+ * aes-ecb has 3encck+3decck+3encsk+3decsk+3keywrap+1RSA
+ * aec-cbc has 3encck+3decck+3encsk+3decsk+3keywrap+3encpad+3decpad+
+ * 	       3keywrappad+2RSA
+ * Note: securekey and clearkey both have 3enc and 3dec, so number
+ * of assertions is the same whether using clearkey or securekey.
+ */
+
+CK_RV do_EncryptDecryptAES(struct generated_test_suite_info *tsuite)
 {
-	int 			i, j;
-	CK_SLOT_ID		slot_id;
-        CK_SESSION_HANDLE	session;
-        CK_MECHANISM		mech;
-        CK_OBJECT_HANDLE	h_key;
-        CK_BYTE			user_pin[PKCS11_MAX_PIN_LEN];
-        CK_ULONG		user_pin_len;
-	CK_BYTE			data[BIG_REQUEST];
-	CK_BYTE			mpdata[BIG_REQUEST];
-	CK_ULONG		datalen, len, mplen;
-	CK_RV			rc, rv;
+	int		i;
+	CK_BYTE		original[BIG_REQUEST];
+	CK_BYTE		crypt[BIG_REQUEST + AES_BLOCK_SIZE];
+	CK_BYTE		decrypt[BIG_REQUEST + AES_BLOCK_SIZE];
+	CK_BYTE		user_pin[PKCS11_MAX_PIN_LEN];
+	CK_ULONG	j;
+	CK_ULONG	user_pin_len;
+	CK_ULONG	orig_len, crypt_len, decrypt_len;
+
+	CK_SESSION_HANDLE	session;
+	CK_MECHANISM		mechkey, mech;
+	CK_OBJECT_HANDLE	h_key;
 	CK_FLAGS		flags;
-	CK_BYTE			init_v[AES_BLOCK_SIZE];
-	CK_OBJECT_CLASS		keyClass = CKO_SECRET_KEY;
-	CK_KEY_TYPE		keyType = CKK_AES;
-	CK_BBOOL 		true = TRUE;
-	CK_BBOOL 		false = FALSE;
-	CK_BYTE			value[MAX_KEY_SIZE];
+	CK_RV			rc = 0;
+	CK_SLOT_ID	       slot_id = SLOT_ID;
 
-	CK_AES_CTR_PARAMS aesctr;
+	testsuite_begin("%s Encryption/Decryption.",tsuite->name);
+	testcase_rw_session();
+	testcase_user_login();
 
-	slot_id = SLOT_ID;
-	flags = CKF_SERIAL_SESSION | CKF_RW_SESSION;
-	rc = funcs->C_OpenSession(slot_id, flags, NULL, NULL, &session);
-        if (rc != CKR_OK) {
-                show_error("C_OpenSession", rc);
-                return rc;
-        }
-
-        if (get_user_pin(user_pin))
-                return CKR_FUNCTION_FAILED;
-        user_pin_len = (CK_ULONG)strlen((char *)user_pin);
-
-        rc = funcs->C_Login(session, CKU_USER, user_pin, user_pin_len);
-        if (rc != CKR_OK) {
-                show_error("C_Login", rc);
-                goto close;
-        }
-
-	rc = 0;
-
-	for (i = 0; i < tsuite->tvcount; i++) {
-
-		CK_ATTRIBUTE	keyTemplate[] = {
-			{CKA_CLASS,	&keyClass,	sizeof(keyClass)},
-			{CKA_KEY_TYPE, 	&keyType,	sizeof(keyType)},
-			{CKA_ENCRYPT, 	&true,		sizeof(true)},
-			{CKA_TOKEN, 	&false,		sizeof(false)},
-			{CKA_VALUE, 	value,		tsuite->ctv[i].klen}
-		};
-
-		/* Create an Object for the key. */
-		memset(value, 0, sizeof(value));
-		memcpy(value, tsuite->ctv[i].key, tsuite->ctv[i].klen);
-
-		rc = funcs->C_CreateObject(session, keyTemplate, 5, &h_key);
-		if (rc != CKR_OK) {
-			show_error("C_CreateObject", rc);
-			goto close;
-		}
-
-		/* Initialize */
-		if (tsuite->ctv[i].counterlen != 0) {
-			memcpy(aesctr.cb, tsuite->ctv[i].counter, tsuite->ctv[i].counterlen);
-			aesctr.ulCounterBits = tsuite->ctv[i].counterbits;
-			mech.ulParameterLen = sizeof (CK_AES_CTR_PARAMS);
-			mech.pParameter = &aesctr ;
-		} else if (tsuite->ctv[i].ivlen != 0) {
-			memcpy(init_v, tsuite->ctv[i].iv, tsuite->ctv[i].ivlen);
-			mech.ulParameterLen = tsuite->ctv[i].ivlen;
-			mech.pParameter = init_v;
-		} else {
-			mech.ulParameterLen = 0;
-			mech.pParameter = NULL;
-		}
-		mech.mechanism = tsuite->mechcrypt;
-		rc = funcs->C_EncryptInit(session, &mech, h_key);
-	        if (rc != CKR_OK) {
-			show_error("C_EncryptInit", rc);
-			goto error;
-		}
-
-		/* do some preparation */
-
-		memset(data, 0, sizeof(data));
-		memset(mpdata, 0, sizeof(mpdata));
-		memcpy(data, tsuite->ctv[i].plaintext, tsuite->ctv[i].plen);
-		memcpy(mpdata, tsuite->ctv[i].plaintext, tsuite->ctv[i].plen);
-		datalen = len = mplen = tsuite->ctv[i].plen;
-
-
-		/* now do the single encryption */
-		rc = funcs->C_Encrypt(session, data, datalen, data, &len);
-		if (rc != CKR_OK) {
-			show_error("C_Encrypt", rc);
-			goto error;
-		}
-
-		/* now do Encryption in multiple parts. */
-		rc = funcs->C_EncryptInit(session, &mech, h_key);
-	        if (rc != CKR_OK) {
-			show_error("C_EncryptInit", rc);
-			goto error;
-		}
-
-		j = 0;
-		while (j < datalen) {
-
-			rc = funcs->C_EncryptUpdate(session, &mpdata[j], AES_BLOCK_SIZE, &mpdata[j], &mplen );
-			if (rc != CKR_OK) {
-				show_error("C_EncryptUpdate", rc);
-				goto error;
-			}
-
-			j += mplen;
-			mplen = datalen - mplen;
-		}
-
-		/*
-		   According to pkcs11 spec, nothing should
-		   be returned in final.
-		*/
-		rc = funcs->C_EncryptFinal(session, &mpdata[j], &mplen);
-		if (rc != CKR_OK) {
-			show_error("C_EncryptFinal", rc );
-			goto error;
-		}
-
-		if (mplen != 0) {
-			PRINT_ERR("ERROR:%s, test %d, EncryptFinal wants to return %ld bytes\n", tsuite->name, i, len);
-			goto error;
-		}
-
-		/* compare results from the single encryption,
-		   multipart encryption and  expected
-		   results in the test vector.
-                 */
-		if (len != j) {
-			PRINT_ERR("ERROR:%s, test %d, single and multipart encryption lengths do not match.\n", tsuite->name, i);
-			rc = -1;
-			goto error;
-		}
-
-		if (len != tsuite->ctv[i].clen) {
-			PRINT_ERR("ERROR:%s, test %d, lengths do not match test vector length.\n", tsuite->name, i);
-			rc = -1;
-			goto error;
-		}
-
-		if (memcmp(data, mpdata, tsuite->ctv[i].clen)) {
-			PRINT_ERR("ERROR:%s, test %d, single and multipart encryption does not match.\n", tsuite->name, i);
-			rc = -1;
-			goto error;
-		}
-
-		if (memcmp(data, tsuite->ctv[i].ciphertext, tsuite->ctv[i].clen)) {
-			PRINT_ERR("ERROR:%s, test %d, encrypted data does not match test vector.\n", tsuite->name, i);
-			rc = -1;
-			goto error;
-		}
-
-		rc = funcs->C_DestroyObject(session, h_key);
-		if (rc != CKR_OK) {
-			show_error("C_DestroyObject", rc );
-			goto close;
-		}
+	/** skip tests if the slot doesn't support this mechanism **/
+	if (! mech_supported(slot_id, tsuite->mech.mechanism)){
+		testsuite_skip(3,
+			"Slot %u doesn't support %u",
+			(unsigned int) slot_id,
+			(unsigned int) tsuite->mech.mechanism);
+		goto testcase_cleanup;
 	}
-	goto close;
+
+
+	/** iterate over test key sizes **/
+	for (i = 0; i < 3; i++) {
+
+		testcase_begin("%s Encryption/Decryption with key len=%ld.",
+			tsuite->name, key_lens[i]);
+
+		/** generate key **/
+		mechkey = aes_keygen;
+		rc = generate_AESKey(session, key_lens[i], &mechkey, &h_key);
+
+		if (rc != CKR_OK) {
+			testcase_error("C_GenerateKey rc=%s",
+				p11_get_ckr(rc));
+			goto testcase_cleanup;
+		}
+
+		/** clear buffers **/
+		memset(original,0,sizeof(original));
+		memset(crypt,0,sizeof(crypt));
+		memset(decrypt,0,sizeof(decrypt));
+
+		/** generate data **/
+		orig_len = sizeof(original);
+
+		for (j=0; j < orig_len; j++)
+			original[j] = j % 255;
+
+		/** set crypto mech **/
+		mech = tsuite->mech;
+
+		/** single encryption **/
+		rc = funcs->C_EncryptInit(session, &mech, h_key);
+		if (rc != CKR_OK) {
+			testcase_error("C_EncryptInit rc=%s",
+				p11_get_ckr(rc));
+			goto error;
+		}
+
+		crypt_len = sizeof(crypt);
+
+		rc = funcs->C_Encrypt(session,
+				original,
+				orig_len,
+				crypt,
+				&crypt_len);
+
+		if (rc != CKR_OK) {
+			testcase_error("C_Encrypt rc=%s",
+				p11_get_ckr(rc));
+			goto error;
+		}
+
+		/** single decryption **/
+		rc = funcs->C_DecryptInit(session, &mech, h_key);
+		if (rc != CKR_OK) {
+			testcase_error("C_DecryptInit rc=%s",
+				p11_get_ckr(rc));
+			goto testcase_cleanup;
+		}
+
+		decrypt_len = sizeof(decrypt);
+
+		rc = funcs->C_Decrypt(session,
+				crypt,
+				crypt_len,
+				decrypt,
+				&decrypt_len);
+
+		if (rc != CKR_OK) {
+			testcase_error("C_Decrypt rc=%s",
+				p11_get_ckr(rc));
+			goto testcase_cleanup;
+		}
+
+		/** compare actual results with expected results **/
+		testcase_new_assertion();
+
+		if (decrypt_len != orig_len) {
+		       testcase_fail("decrypted data length does not "
+				"match original data length.\nexpected "					"length=%ld, but found length=%ld\n",
+				orig_len, decrypt_len);
+		}
+
+		else if (memcmp(decrypt, original, orig_len)){
+			testcase_fail("decrypted data does not match "
+				"original data");
+		}
+
+		else {
+			testcase_pass("%s Encryption/Decryption with "
+				"key length %ld passed.", tsuite->name, 					key_lens[i]);
+		}
+
+	}
+	/** clean up **/
+	rc = funcs->C_DestroyObject(session, h_key);
+	if (rc != CKR_OK) {
+		testcase_error("C_DestroyObject rc=%s", p11_get_ckr(rc));
+	}
+	goto testcase_cleanup;
 
 error:
-	rv = funcs->C_DestroyObject(session, h_key);
-	if (rv != CKR_OK)
-		show_error("C_DestroyObject", rv );
+	rc = funcs->C_DestroyObject(session, h_key);
+	if (rc != CKR_OK)
+		testcase_error("C_DestroyObject rc=%s.", p11_get_ckr(rc));
 
-close:
-        rv = funcs->C_CloseSession(session);
-        if (rv != CKR_OK)
-                show_error("C_CloseSession", rv );
-
-	if (!rc)
-		printf("%s encrypt tests Passed.\n", tsuite->name);
-
+testcase_cleanup:
+	testcase_user_logout();
+	rc = funcs->C_CloseAllSessions(slot_id);
+	if (rc != CKR_OK) {
+		testcase_error("C_CloseAllSessions rc=%s", p11_get_ckr(rc));
+	}
 	return rc;
 }
 
-CK_RV do_DecryptAES(struct test_suite_info *tsuite)
+CK_RV do_EncryptDecryptUpdateAES(struct generated_test_suite_info *tsuite)
 {
-	int 			i, j;
-	CK_SLOT_ID		slot_id;
-        CK_SESSION_HANDLE	session;
-        CK_MECHANISM		mech;
-        CK_OBJECT_HANDLE	h_key;
-        CK_BYTE			user_pin[PKCS11_MAX_PIN_LEN];
-        CK_ULONG		user_pin_len;
-	CK_BYTE			data[BIG_REQUEST];
-	CK_BYTE			mpdata[BIG_REQUEST];
-	CK_ULONG		datalen, len, mplen;
-	CK_RV			rc, rv;
-	CK_AES_CTR_PARAMS       aesctr;
+	int		i;
+	CK_BYTE		original[BIG_REQUEST];
+	CK_BYTE		crypt[BIG_REQUEST + AES_BLOCK_SIZE];
+	CK_BYTE		decrypt[BIG_REQUEST + AES_BLOCK_SIZE];
+	CK_BYTE		user_pin[PKCS11_MAX_PIN_LEN];
+	CK_ULONG	j, k, tmp;
+	CK_ULONG	user_pin_len;
+	CK_ULONG	orig_len, crypt_len, decrypt_len;
+
+	CK_SLOT_ID	      	slot_id = SLOT_ID;
+	CK_SESSION_HANDLE	session;
+	CK_MECHANISM		mechkey, mech;
+	CK_OBJECT_HANDLE	h_key;
 	CK_FLAGS		flags;
-	CK_BYTE			init_v[AES_BLOCK_SIZE];
+	CK_RV			rc = 0;
 
-	CK_OBJECT_CLASS		keyClass = CKO_SECRET_KEY;
-	CK_KEY_TYPE		keyType = CKK_AES;
-	CK_BBOOL 		true = TRUE;
-	CK_BBOOL 		false = FALSE;
-	CK_BYTE			value[MAX_KEY_SIZE];
+	/** begin testsuite **/
+	testsuite_begin("%s Multipart Encryption/Decryption.", tsuite->name);
+	testcase_rw_session();
+	testcase_user_login();
 
-	slot_id = SLOT_ID;
-	flags = CKF_SERIAL_SESSION | CKF_RW_SESSION;
-	rc = funcs->C_OpenSession(slot_id, flags, NULL, NULL, &session);
-        if (rc != CKR_OK) {
-                show_error("C_OpenSession", rc);
-                return rc;
-        }
+	/** skip test if the slot doesn't support this mechanism **/
+	if (! mech_supported(slot_id, tsuite->mech.mechanism)){
+		testcase_skip("Slot %u doesn't support %u",
+			(unsigned int) slot_id,
+			(unsigned int)tsuite->mech.mechanism);
+		goto testcase_cleanup;
+	}
 
-        if (get_user_pin(user_pin))
-                return CKR_FUNCTION_FAILED;
-        user_pin_len = (CK_ULONG)strlen((char *)user_pin);
+	/** iterate over key sizes **/
+	for (i = 0; i < 3; i++) {
 
-        rc = funcs->C_Login(session, CKU_USER, user_pin, user_pin_len);
-        if (rc != CKR_OK) {
-                show_error("C_Login", rc);
-                goto close;
-        }
+		testcase_begin("%s Multipart Encryption/Decryption with "
+			"key len=%ld.", tsuite->name, key_lens[i]);
 
-	rc = 0;
+		/** generate key **/
+		mechkey = aes_keygen;
+		rc = generate_AESKey(session, key_lens[i], &mechkey, &h_key);
 
-	for (i = 0; i < tsuite->tvcount; i++) {
-
-		CK_ATTRIBUTE	keyTemplate[] = {
-			{CKA_CLASS,	&keyClass,	sizeof(keyClass)},
-			{CKA_KEY_TYPE, 	&keyType,	sizeof(keyType)},
-			{CKA_ENCRYPT, 	&true,		sizeof(true)},
-			{CKA_TOKEN, 	&false,		sizeof(false)},
-			{CKA_VALUE, 	value,		tsuite->ctv[i].klen}
-		};
-
-		/* Create an Object for the key. */
-		memset(value, 0, sizeof(value));
-		memcpy(value, tsuite->ctv[i].key, tsuite->ctv[i].klen);
-
-		rc = funcs->C_CreateObject(session, keyTemplate, 5, &h_key);
 		if (rc != CKR_OK) {
-			show_error("C_CreateObject", rc);
-			goto close;
+			testcase_error("C_GenerateKey rc=%s", p11_get_ckr(rc));
+			goto testcase_cleanup;
 		}
 
-		/* Initialize */
-		if (tsuite->ctv[i].counterlen != 0) {
-			memcpy(aesctr.cb, tsuite->ctv[i].counter, tsuite->ctv[i].counterlen);
-			aesctr.ulCounterBits = tsuite->ctv[i].counterbits;
-			mech.ulParameterLen = sizeof (CK_AES_CTR_PARAMS);
-			mech.pParameter = &aesctr;
-		} else if (tsuite->ctv[i].ivlen != 0) {
-			memcpy(init_v, tsuite->ctv[i].iv, tsuite->ctv[i].ivlen);
-			mech.ulParameterLen = tsuite->ctv[i].ivlen;
-			mech.pParameter = init_v;
-		} else {
-			mech.ulParameterLen = 0;
-			mech.pParameter = NULL;
-		}
-		mech.mechanism = tsuite->mechcrypt;
+		/** clear buffers **/
+		memset(original,0,sizeof(original));
+		memset(crypt,0,sizeof(crypt));
+		memset(decrypt,0,sizeof(decrypt));
 
-		rc = funcs->C_DecryptInit(session, &mech, h_key);
-	        if (rc != CKR_OK) {
-			show_error("C_DecryptInit", rc);
+		/** generate data **/
+		orig_len = sizeof(original);
+
+		for (j=0; j < orig_len; j++)
+			original[j] = j % 255;
+
+		/** set crypto mech **/
+		mech = tsuite->mech;
+
+		/** multipart encryption **/
+		rc = funcs->C_EncryptInit( session, &mech, h_key );
+		if (rc != CKR_OK) {
+			testcase_error("C_EncryptInit rc=%s", p11_get_ckr(rc));
 			goto error;
 		}
 
-		/* do some preparation */
+		j = k = 0;      // j indexes source buffer
+				// k indexes destination buffer
+		crypt_len = sizeof(crypt);
+		while (j < orig_len) {
+			tmp = crypt_len - k;  // room is left in mpcrypt
+			rc = funcs->C_EncryptUpdate(session,
+						&original[j],
+						AES_BLOCK_SIZE,
+						&crypt[k],
+						&tmp);
 
-		memset(data, 0, sizeof(data));
-		memset(mpdata, 0, sizeof(mpdata));
-		memcpy(data, tsuite->ctv[i].ciphertext, tsuite->ctv[i].clen);
-		memcpy(mpdata, tsuite->ctv[i].ciphertext, tsuite->ctv[i].clen);
-		datalen = len = mplen = tsuite->ctv[i].clen;
-
-		/* now do the single decryption */
-		rc = funcs->C_Decrypt(session, data, datalen, data, &len);
-		if (rc != CKR_OK) {
-			show_error("C_Decrypt", rc);
-			goto error;
-		}
-
-		/* now do Decryption in multiple parts. */
-		rc = funcs->C_DecryptInit(session, &mech, h_key);
-		if (rc != CKR_OK) {
-			show_error("C_DecryptInit", rc);
-			goto error;
-		}
-
-		j = 0;
-		while (j < datalen) {
-
-			rc = funcs->C_DecryptUpdate(session, &mpdata[j], AES_BLOCK_SIZE, &mpdata[j], &mplen );
 			if (rc != CKR_OK) {
-				show_error("C_DecryptUpdate", rc);
+				testcase_error("C_EncryptUpdate rc=%s",
+						p11_get_ckr(rc));
 				goto error;
 			}
-
-			j += mplen;
-			mplen = datalen - mplen;
+			k += tmp;
+			j += AES_BLOCK_SIZE;
 		}
 
-		/*
-		   According to pkcs11 spec, nothing should
-		   be returned in final.
-		*/
-		rc = funcs->C_DecryptFinal(session, &mpdata[j], &mplen);
+		crypt_len = sizeof(crypt) - k;
+
+		rc = funcs->C_EncryptFinal(session, &crypt[k], &crypt_len);
 		if (rc != CKR_OK) {
-			show_error("C_DecryptFinal", rc );
+			testcase_error("C_EncryptFinal rc=%s", p11_get_ckr(rc));
 			goto error;
 		}
 
-		if (mplen != 0) {
-			PRINT_ERR("ERROR:%s, test %d, DecryptFinal wants to return %ld bytes\n", tsuite->name, i, len);
-			goto error;
-		}
+		crypt_len += k;
 
-		/* compare results from the single encryption,
-		   multipart encryption and  expected
-		   results in the test vector.
-		*/
-		if (len != j) {
-			PRINT_ERR("ERROR:%s, test %d, single and multipart decryption lengths do not match.\n", tsuite->name, i);
-			rc = -1;
-			goto error;
-		}
-
-		if (len != tsuite->ctv[i].plen) {
-			PRINT_ERR("ERROR:%s, test %d, lengths do not match test vector length.\n", tsuite->name, i);
-			rc = -1;
-			goto error;
-		}
-
-		if (memcmp(data, mpdata, tsuite->ctv[i].plen)) {
-			PRINT_ERR("ERROR:%s, test %d, single and multipart decryption does not match.\n", tsuite->name, i);
-			rc = -1;
-			goto error;
-		}
-
-		if (memcmp(data, tsuite->ctv[i].plaintext, tsuite->ctv[i].plen)) {
-			PRINT_ERR("ERROR:%s, test %d, decrypted data does not match test vector.\n", tsuite->name, i);
-			rc = -1;
-			goto error;
-		}
-
-		rc = funcs->C_DestroyObject(session, h_key);
+		/** multipart decryption **/
+		rc = funcs->C_DecryptInit( session, &mech, h_key );
 		if (rc != CKR_OK) {
-			show_error("C_DestroyObject", rc );
-			goto close;
+			testcase_error("C_DecryptInit rc=%s", p11_get_ckr(rc));
+			goto error;
+		}
+
+		j = k = 0;      // j indexes source buffer,
+				// k indexes destination buffer
+		decrypt_len = sizeof(decrypt);
+		while (j < crypt_len) {
+			tmp = decrypt_len - k;	// room left in mpdecrypt
+			rc = funcs->C_DecryptUpdate(session,
+						&crypt[j],
+						AES_BLOCK_SIZE,
+						&decrypt[k],
+						&tmp);
+			if (rc != CKR_OK) {
+				testcase_error("C_DecryptUpdate rc=%s",
+						p11_get_ckr(rc));
+				goto error;
+			}
+			k += tmp;
+			j += AES_BLOCK_SIZE;
+		}
+
+		decrypt_len = sizeof(decrypt) - k;
+
+		rc = funcs->C_DecryptFinal(session, &decrypt[k], &decrypt_len);
+		if (rc != CKR_OK) {
+			testcase_error("C_DecryptFinal rc=%s", p11_get_ckr(rc));
+			goto error;
+		}
+
+		decrypt_len += k;
+
+		/** compare actual results with expected results **/
+		testcase_new_assertion();
+
+		if (decrypt_len != orig_len) {
+		       testcase_fail("decrypted multipart data length does not"
+				" match original data length.\nexpected "
+				"length=%ld, but found length=%ld\n",
+				orig_len, decrypt_len);
+		}
+
+		else if (memcmp(decrypt, original, orig_len)){
+			testcase_fail("decrypted multipart data does not match"
+				" original data");
+		}
+
+		else {
+			testcase_pass("%s Multipart Encryption/Decryption with"
+				" key length %ld passed.",
+				tsuite->name, key_lens[i]);
 		}
 	}
-	goto close;
+
+	/** clean up **/
+	rc = funcs->C_DestroyObject(session, h_key);
+	if (rc != CKR_OK) {
+		testcase_error("C_DestroyObject rc=%s", p11_get_ckr(rc));
+	}
+	goto testcase_cleanup;
 
 error:
-	rv = funcs->C_DestroyObject(session, h_key);
-	if (rv != CKR_OK)
-		show_error("C_DestroyObject", rv );
+	rc = funcs->C_DestroyObject(session, h_key);
+	if (rc != CKR_OK)
+		testcase_error("C_DestroyObject rc=%s.", p11_get_ckr(rc));
 
-close:
-		rv = funcs->C_CloseSession(session);
-		if (rv != CKR_OK)
-			show_error("C_CloseAllSessions", rv );
-
-	if (!rc)
-		printf("%s decrypt tests Passed.\n", tsuite->name);
-
+testcase_cleanup:
+	testcase_user_logout();
+	rc = funcs->C_CloseAllSessions(slot_id);
+	if (rc != CKR_OK) {
+		testcase_error("C_CloseAllSessions rc=%s", p11_get_ckr(rc));
+	}
 	return rc;
 }
 
-CK_RV do_PadAES(CK_ULONG key_len, struct test_suite_info *tsuite)
+CK_RV do_EncryptAES(struct published_test_suite_info *tsuite)
 {
-	CK_BYTE	original[BIG_REQUEST];
-	CK_BYTE	crypt1[BIG_REQUEST + AES_BLOCK_SIZE];  /* account for padding */
-	CK_BYTE	crypt2[BIG_REQUEST + AES_BLOCK_SIZE];
-	CK_BYTE	decrypt1[BIG_REQUEST + AES_BLOCK_SIZE];
-	CK_BYTE	decrypt2[BIG_REQUEST + AES_BLOCK_SIZE];
-
-	CK_SLOT_ID		slot_id;
+	int			i;
+	CK_BYTE			actual[BIG_REQUEST];    // encryption buffer
+	CK_BYTE			expected[BIG_REQUEST];  // encrypted data
+	CK_ULONG		actual_len, expected_len;
+	CK_ULONG		user_pin_len;
+	CK_BYTE			user_pin[PKCS11_MAX_PIN_LEN];
 	CK_SESSION_HANDLE	session;
 	CK_MECHANISM		mech;
 	CK_OBJECT_HANDLE	h_key;
+	CK_RV			rc;
 	CK_FLAGS		flags;
-	CK_BYTE			init_v[AES_BLOCK_SIZE];
-	CK_BYTE			user_pin[PKCS11_MAX_PIN_LEN];
-	CK_ULONG		user_pin_len;
-	CK_ULONG		i, k;
-	CK_ULONG		orig_len, crypt1_len, crypt2_len, decrypt1_len, decrypt2_len;
-	CK_RV			rc = 0, key_size = key_len;
-	CK_ATTRIBUTE		key_gen_tmpl[] = {
-					{CKA_VALUE_LEN, &key_size, sizeof(CK_ULONG) }
-				};
+	CK_SLOT_ID		slot_id = SLOT_ID;
 
-	slot_id = SLOT_ID;
-	flags = CKF_SERIAL_SESSION | CKF_RW_SESSION;
-	rc = funcs->C_OpenSession(slot_id, flags, NULL, NULL, &session);
-	if (rc != CKR_OK) {
-		show_error("C_OpenSession #1", rc );
-		return rc;
+	/** begin testsuite **/
+	testsuite_begin("%s Encryption.", tsuite->name);
+	testcase_rw_session();
+	testcase_user_login();
+
+	/** skip test if the slot doesn't support this mechanism **/
+	if (! mech_supported(slot_id, tsuite->mech.mechanism)){
+		testsuite_skip(tsuite->tvcount,
+			"Slot %u doesn't support %u",
+			(unsigned int) slot_id,
+			(unsigned int)tsuite->mech.mechanism);
+		goto testcase_cleanup;
 	}
 
-	if (get_user_pin(user_pin))
-		return CKR_FUNCTION_FAILED;
-	user_pin_len = (CK_ULONG)strlen((char *)user_pin);
+	for (i = 0; i < tsuite->tvcount; i++) {
 
-	rc = funcs->C_Login(session, CKU_USER, user_pin, user_pin_len);
-	if (rc != CKR_OK) {
-		show_error("C_Login #1", rc);
-		goto error;
-	}
+		testcase_begin("%s Encryption with published test vector %d.",
+			tsuite->name, i);
 
-	mech.mechanism      = CKM_AES_KEY_GEN;
-	mech.ulParameterLen = 0;
-	mech.pParameter     = NULL;
+		rc = CKR_OK;
 
-	/* first, generate a AES key */
-	rc = funcs->C_GenerateKey( session, &mech, key_gen_tmpl, 1, &h_key );
-	if (rc != CKR_OK) {
-		show_error("C_GenerateKey #1", rc );
-		goto error;
-	}
+		/** create key handle **/
+		rc = create_AESKey(session,
+				tsuite->tv[i].key,
+				tsuite->tv[i].klen,
+				&h_key);
 
-	/* clear out the buffers */
-	memset(original,0,sizeof(original));
-	memset(crypt1,0,sizeof(crypt1));
-	memset(crypt2,0,sizeof(crypt2));
-	memset(decrypt1,0,sizeof(decrypt1));
-	memset(decrypt2,0,sizeof(decrypt2));
-
-	/* now, encrypt some data */
-	orig_len = sizeof(original);
-
-	for (i=0; i < orig_len; i++) {
-		original[i] = i % 255;
-	}
-
-	memcpy(init_v, AES_IV_VALUE, AES_BLOCK_SIZE);
-
-	mech.mechanism = tsuite->mechpad;
-	mech.ulParameterLen = AES_BLOCK_SIZE;
-	mech.pParameter = init_v;
-
-	rc = funcs->C_EncryptInit(session, &mech, h_key);
-	if (rc != CKR_OK) {
-		show_error("C_EncryptInit #1", rc);
-		goto error;
-	}
-
-	/* use normal ecb mode to encrypt data1 */
-	crypt1_len = sizeof(crypt1);
-	rc = funcs->C_Encrypt(session, original, orig_len, crypt1, &crypt1_len);
-	if (rc != CKR_OK) {
-		show_error("C_Encrypt #1", rc);
-		goto error;	
-	}
-
-	/* use multipart cbc mode to encrypt data2 in chunks */
-	rc = funcs->C_EncryptInit(session, &mech, h_key);
-	if (rc != CKR_OK) {
-		show_error("C_EncryptInit #2", rc);
-		goto error;
-	}
-
-	i = k = 0;
-	crypt2_len = sizeof(crypt2);
-	while (i < orig_len) {
-		CK_ULONG rem =  orig_len - i;
-		CK_ULONG chunk, len;
-
-		if (rem < 100)
-			chunk = rem;
-		else
-			chunk = 100;
-
-		len = crypt2_len - k;
-		rc = funcs->C_EncryptUpdate(session, &original[i], chunk, &crypt2[k],  &len);
 		if (rc != CKR_OK) {
-			show_error("C_EncryptUpdate", rc);
+			testcase_error("C_CreateObject rc=%s", p11_get_ckr(rc));
 			goto error;
 		}
 
-		k += len;
-		i += chunk;
-	}
+		/** get mech **/
+		mech = tsuite->mech;
 
-	crypt2_len = sizeof(crypt2) - k;
+		/** clear buffers **/
+		memset(expected, 0, sizeof(expected));
+		memset(actual, 0, sizeof(actual));
 
-	rc = funcs->C_EncryptFinal( session, &crypt2[k], &crypt2_len );
-	if (rc != CKR_OK) {
-		show_error("C_EncryptFinal #2", rc );
-		goto error;
-	}
+		/** get ciphertext (expected results) **/
+		expected_len = tsuite->tv[i].clen;
+		memcpy(expected, tsuite->tv[i].ciphertext, expected_len);
 
-	crypt2_len += k;
+		/** get plaintext **/
+		actual_len = tsuite->tv[i].plen;
+		memcpy(actual, tsuite->tv[i].plaintext, actual_len);
 
-	if (crypt2_len != crypt1_len) {
-		PRINT_ERR("ERROR:  encrypted lengths don't match\n");
-		PRINT_ERR("crypt2_len == %ld,  crypt1_len == %ld\n", crypt2_len, crypt1_len );
-		goto error;
-	}
-
-	/* compare both encrypted blocks.  they'd better be equal */
-	if (memcmp(crypt1, crypt2, crypt2_len)) {
-		PRINT_ERR("ERROR: single and multipart encryptions do not match.\n");
-		goto error;
-	}
-
-	/* now, decrypt the data */
-	rc = funcs->C_DecryptInit(session, &mech, h_key);
-	if (rc != CKR_OK) {
-		show_error("C_DecryptInit", rc);
-		goto error;
-	}
-
-	decrypt1_len = sizeof(decrypt1);
-	rc = funcs->C_Decrypt(session, crypt1, crypt1_len, decrypt1, &decrypt1_len);
-	if (rc != CKR_OK) {
-		show_error("C_Decrypt", rc);
-		goto error;
-	}
-
-	/* use multipart cbc mode to decrypt data2 in 1024 byte chunks */
-	rc = funcs->C_DecryptInit(session, &mech, h_key);
-	if (rc != CKR_OK) {
-		show_error("C_DecryptInit", rc);
-		goto error;
-	}
-
-	i = k = 0;
-
-	decrypt2_len = sizeof(decrypt2);
-
-	while (i < crypt2_len) {
-		CK_ULONG rem = crypt2_len - i;
-		CK_ULONG chunk, len;
-
-		if (rem < 101)
-			chunk = rem;
-		else
-			chunk = 100;
-
-		len = decrypt2_len - k;
-		rc = funcs->C_DecryptUpdate(session, &crypt2[i], chunk, &decrypt2[k], &len);
+		/** single (in-place) encryption **/
+		rc = funcs->C_EncryptInit(session, &mech, h_key);
 		if (rc != CKR_OK) {
-			show_error("C_DecryptUpdate", rc);
+			testcase_error("C_EncryptInit rc=%s", p11_get_ckr(rc));
 			goto error;
 		}
 
-		k += len;
-		i += chunk;
-	}
+		rc = funcs->C_Encrypt(session,
+				actual,
+				actual_len,
+				actual,
+				&actual_len);
 
-	decrypt2_len = sizeof(decrypt2) - k;
-	rc = funcs->C_DecryptFinal(session, &decrypt2[k], &decrypt2_len);
+		if (rc != CKR_OK) {
+			testcase_error("C_Encrypt rc=%s", p11_get_ckr(rc));
+			goto error;
+		}
+
+		/** compare actual results with expected results. **/
+		testcase_new_assertion();
+
+		if (actual_len != expected_len) {
+			testcase_fail("encrypted data length does not match "
+				"test vector's encrypted data length.\n\n"
+				"expected length=%ld, but found length=%ld\n",
+				expected_len, actual_len);
+		}
+
+		else if (memcmp(actual, expected, expected_len)) {
+			testcase_fail("encrypted data does not match test "
+				"vector's encrypted data");
+		}
+
+		else {
+			testcase_pass("%s Encryption with test vector %d "
+				"passed.", tsuite->name, i);
+		}
+	}
+	/** clean up **/
+	rc = funcs->C_DestroyObject(session, h_key);
 	if (rc != CKR_OK) {
-		show_error("C_DecryptFinal", rc);
-		goto error;
+		testcase_error("C_DestroyObject rc=%s", p11_get_ckr(rc));
+		goto testcase_cleanup;
 	}
 
-	decrypt2_len += k;
-
-	if (decrypt2_len != decrypt1_len) {
-		PRINT_ERR("ERROR: single and multipart decrypted lengths don't match\n");
-		PRINT_ERR("decrypt1_len == %ld, decrypt2_len == %ld\n", decrypt1_len, decrypt2_len);
-		rc = -1;
-		goto error;
-	}
-
-	if (decrypt2_len != orig_len) {
-		PRINT_ERR("ERROR: decrypted lengths don't match the original\n");
-		PRINT_ERR("decrypt_len == %ld, orig_len == %ld\n", decrypt1_len, orig_len);
-		rc = -1;
-		goto error;
-	}
-
-	/* compare both decrypted blocks.  they'd better be equal */
-	if (memcmp(decrypt1, decrypt2, decrypt2_len)) {
-		PRINT_ERR("ERROR: single and multipart decryptions don't match.\n");
-		rc = -1;
-		goto error;
-	}
-
-	/* compare the multi-part decrypted block with the 'control' block */
-	if (memcmp(original, decrypt2, orig_len)) {
-		PRINT_ERR("ERROR: decrypted mismatch: original != decrypted\n");
-		rc = -1;
-		goto error;
-	}
-
-	printf("%s padding test with key length %ld,  passed.\n", tsuite->name, key_len);
+	goto testcase_cleanup;
 
 error:
-	rc = funcs->C_CloseSession(session);
-	if (rc != CKR_OK) 
-		show_error("C_CloseSession", rc);
-
-	return rc;
-}
-
-CK_RV do_WrapUnwrapAES(CK_ULONG key_len, struct test_suite_info *tsuite)
-{
-	CK_BYTE		    data1[BIG_REQUEST];
-	CK_BYTE		    data2[BIG_REQUEST];
-	CK_BYTE		    wrapped_data[3 * AES_BLOCK_SIZE];
-	CK_SLOT_ID          slot_id;
-	CK_SESSION_HANDLE   session;
-	CK_MECHANISM        mech;
-	CK_OBJECT_HANDLE    h_key;
-	CK_OBJECT_HANDLE    w_key;
-	CK_OBJECT_HANDLE    uw_key;
-	CK_FLAGS            flags;
-	CK_BYTE             user_pin[PKCS11_MAX_PIN_LEN];
-	CK_ULONG            user_pin_len;
-	CK_ULONG            wrapped_data_len;
-	CK_ULONG            i;
-	CK_ULONG            len1, len2, key_size = key_len;
-	CK_RV               rc, loc_rc;
-	CK_AES_CTR_PARAMS   aesctr;
-	CK_BYTE		    init_v[AES_BLOCK_SIZE] = AES_IV_VALUE;
-	CK_ATTRIBUTE        key_gen_tmpl[] = {
-		{CKA_VALUE_LEN, &key_size, sizeof(CK_ULONG) }
-	};
-
-	CK_OBJECT_CLASS     key_class = CKO_SECRET_KEY;
-	CK_KEY_TYPE         key_type  = CKK_AES;
-	CK_ULONG            tmpl_count = 3;
-	CK_ATTRIBUTE   template[] =
-		{
-			{ CKA_CLASS,     &key_class,  sizeof(key_class) },
-			{ CKA_KEY_TYPE,  &key_type,   sizeof(key_type)  },
-			{ CKA_VALUE_LEN, &key_size, sizeof(key_size) }
-		};
-
-	printf("do_WrapUnwrapAES %s with key length %d\n", tsuite->name, (int)key_len);
-
-	slot_id = SLOT_ID;
-	flags = CKF_SERIAL_SESSION | CKF_RW_SESSION;
-	rc = funcs->C_OpenSession( slot_id, flags, NULL, NULL, &session );
-	if (rc != CKR_OK) {
-		show_error("   C_OpenSession #1", rc );
-		return rc;
-	}
-
-	if (get_user_pin(user_pin))
-		return CKR_FUNCTION_FAILED;
-	user_pin_len = (CK_ULONG)strlen((char *)user_pin);
-
-	rc = funcs->C_Login( session, CKU_USER, user_pin, user_pin_len );
-	if (rc != CKR_OK) {
-		show_error("   C_Login #1", rc );
-		goto error;
-	}
-
-	mech.mechanism = CKM_AES_KEY_GEN;
-	mech.ulParameterLen = 0;
-	mech.pParameter = NULL;
-
-	//first generate a AES Key and a wrapping key
-	rc = funcs->C_GenerateKey ( session, &mech, key_gen_tmpl, 1, &h_key);
-	if (rc != CKR_OK) {
-		show_error(" C_GenerateKey 1 ",rc);
-		goto error;
-	}
-
-	rc =  funcs->C_GenerateKey ( session, &mech, key_gen_tmpl, 1, &w_key);
-	if (rc != CKR_OK) {
-		show_error(" C_GenerateKey 2 ",rc);
-		goto error;
-	}
-
-	// encrypt the data
-	len1 = len2 = BIG_REQUEST;
-	for (i=0; i<len1; i++) {
-		data1[i] = i % 255;
-		data2[i] = i % 255;
-	}
-
-	/* Initialize */
-	if (tsuite->ctv[0].counterlen != 0) {
-		aesctr.ulCounterBits = 128;
-		mech.ulParameterLen = sizeof(CK_AES_CTR_PARAMS);
-		mech.pParameter = &aesctr;
-	} else if (tsuite->ctv[0].ivlen != 0) {
-		mech.ulParameterLen = sizeof(init_v);
-		mech.pParameter = init_v;
-	} else {
-		mech.ulParameterLen = 0;
-		mech.pParameter = NULL;
-	}
-	mech.mechanism = tsuite->mechcrypt;
-
-	// Initiate the encrypt
-	rc = funcs->C_EncryptInit(session, &mech, h_key);
-	if (rc != CKR_OK) {
-		show_error("C_EncryptInit", rc);
-		goto error;
-	}
-
-	//Continue with encrypt
-	rc = funcs->C_Encrypt( session, data1, len1, data1, &len1);
-	if (rc != CKR_OK) {
-		show_error("C_Encrypt",rc);
-		goto error;
-	}
-
-	// now wrap the key....the mechanism is same for all the modes
-	wrapped_data_len = 3 * AES_KEY_LEN;
-
-	rc = funcs->C_WrapKey( session, &mech, w_key, h_key, (CK_BYTE *) &wrapped_data, &wrapped_data_len);
-	if (rc != CKR_OK) {
-		show_error("C_WrapKey ",rc);
-		goto error;
-	}
-
-	rc = funcs->C_UnwrapKey( session, &mech, w_key, wrapped_data, wrapped_data_len, template, tmpl_count, &uw_key);
-	if (rc != CKR_OK) {
-		show_error("C_UnwrapKey ",rc);
-		goto error;
-	}
-
-	// now decrypting the data using the unwrapped key
-	rc = funcs->C_DecryptInit( session, &mech, uw_key);
-	if (rc != CKR_OK) {
-		show_error("C_DecryptInit ",rc);
-		goto error;
-	}
-
-	rc = funcs->C_Decrypt( session, data1, len1, data1, &len1);
-	if(rc != CKR_OK) {
-		show_error ("C_Decrypt ", rc);
-		goto error;
-	}
-
-	if (len1 != len2) {
-		PRINT_ERR(" ERROR: lengths don't match \n");
-		rc = -1;
-		goto error;
-	}
-
-	if (memcmp(data1, data2, len1)) {
-		PRINT_ERR(" ERROR: Bytes don't match %ld\n", i);
-		rc = -1;
-		goto error;
-	}
-
-	// now, try to wrap an RSA private key.  this should fail.  we'll
-	// create a fake key object instead of generating a new one
-	//
-	{
-		CK_OBJECT_CLASS keyclass = CKO_PRIVATE_KEY;
-		CK_KEY_TYPE     keytype  = CKK_RSA;
-
-		CK_BYTE  modulus[]   = { 1,2,3,4,5,6,7,8,9,0 };
-		CK_BYTE  publ_exp[]  = { 1,2,3,4,5,6,7,8,9,0 };
-		CK_BYTE  priv_exp[]  = { 1,2,3,4,5,6,7,8,9,0 };
-		CK_BYTE  prime_1[]   = { 1,2,3,4,5,6,7,8,9,0 };
-		CK_BYTE  prime_2[]   = { 1,2,3,4,5,6,7,8,9,0 };
-		CK_BYTE  exp_1[]     = { 1,2,3,4,5,6,7,8,9,0 };
-		CK_BYTE  exp_2[]     = { 1,2,3,4,5,6,7,8,9,0 };
-		CK_BYTE  coeff[]     = { 1,2,3,4,5,6,7,8,9,0 };
-
-		CK_ATTRIBUTE  tmpl[] = {
-			{ CKA_CLASS,           &keyclass, sizeof(keyclass) },
-			{ CKA_KEY_TYPE,        &keytype,  sizeof(keytype)  },
-			{ CKA_MODULUS,          modulus,  sizeof(modulus)  },
-			{ CKA_PUBLIC_EXPONENT,  publ_exp, sizeof(publ_exp) },
-			{ CKA_PRIVATE_EXPONENT, priv_exp, sizeof(priv_exp) },
-			{ CKA_PRIME_1,          prime_1,  sizeof(prime_1)  },
-			{ CKA_PRIME_2,          prime_2,  sizeof(prime_2)  },
-			{ CKA_EXPONENT_1,       exp_1,    sizeof(exp_1)    },
-			{ CKA_EXPONENT_2,       exp_2,    sizeof(exp_2)    },
-			{ CKA_COEFFICIENT,      coeff,    sizeof(coeff)    }
-		};
-		CK_OBJECT_HANDLE priv_key;
-		CK_BYTE data[1024];
-		CK_ULONG data_len = sizeof(data);
-
-
-		rc = funcs->C_CreateObject( session, tmpl, 10, &priv_key );
-		if (rc != CKR_OK) {
-			show_error("   C_CreateObject #1", rc );
-			goto error;
-		}
-
-		rc = funcs->C_WrapKey( session,  &mech,
-				w_key,     priv_key,
-				data,     &data_len );
-		if (rc != CKR_KEY_NOT_WRAPPABLE) {
-			show_error("   C_WrapKey #2", rc );
-			PRINT_ERR("   Expected CKR_KEY_NOT_WRAPPABLE\n" );
-			goto error;
-		}
-	}
-
-        rc = funcs->C_CloseAllSessions( slot_id );
-        if (rc != CKR_OK) {
-                show_error("   C_CloseAllSessions #1", rc );
-                return rc;
-        }
-
-        printf("Success.\n");
-        return 0;
-
-error:
-	loc_rc = funcs->C_CloseSession (session);
-	if (loc_rc != CKR_OK)
-		show_error ("   C_CloseSession #2", loc_rc);
-
-	return rc;
-}
-
-CK_RV do_WrapUnwrapPadAES( CK_ULONG key_len, struct test_suite_info *tsuite)
-{
-	CK_BYTE             original[BIG_REQUEST];
-	CK_BYTE             cipher  [BIG_REQUEST + AES_BLOCK_SIZE];
-	CK_BYTE             decipher[BIG_REQUEST + AES_BLOCK_SIZE];
-
-	CK_BYTE             wrapped_data[BIG_REQUEST + AES_BLOCK_SIZE];
-
-	CK_SLOT_ID          slot_id;
-	CK_SESSION_HANDLE   session;
-	CK_MECHANISM        mech;
-	CK_OBJECT_HANDLE    h_key;
-	CK_OBJECT_HANDLE    w_key;
-	CK_OBJECT_HANDLE    uw_key;
-	CK_FLAGS            flags;
-	CK_BYTE             user_pin[PKCS11_MAX_PIN_LEN];
-	CK_BYTE             init_v[AES_BLOCK_SIZE] = AES_IV_VALUE;
-	CK_ULONG            user_pin_len;
-	CK_ULONG            wrapped_data_len;
-	CK_ULONG            i;
-	CK_ULONG            orig_len, cipher_len, decipher_len;
-	CK_RV               rc = 0, key_size = key_len;
-	CK_ATTRIBUTE        key_gen_tmpl[] = {
-		{CKA_VALUE_LEN, &key_size, sizeof(CK_ULONG) }
-	};
-
-	CK_OBJECT_CLASS     key_class = CKO_SECRET_KEY;
-	CK_KEY_TYPE         key_type  = CKK_AES;
-	CK_ULONG            tmpl_count = 3;
-	CK_ATTRIBUTE   template[] =
-	{
-		{ CKA_CLASS,     &key_class,  sizeof(key_class) },
-		{ CKA_KEY_TYPE,  &key_type,   sizeof(key_type)  },
-		{ CKA_VALUE_LEN, &key_size,   sizeof(key_size)  }
-	};
-
-	printf (" do_WrapUnwrapPadAES for %s with key length %d\n", tsuite->name, (int)key_len);
-
-	slot_id = SLOT_ID;
-	flags = CKF_SERIAL_SESSION | CKF_RW_SESSION;
-	rc = funcs->C_OpenSession( slot_id, flags, NULL, NULL, &session );
-	if (rc != CKR_OK) {
-		show_error("   C_OpenSession #1", rc );
-		return rc;
-	}
-
-	if (get_user_pin(user_pin))
-		return CKR_FUNCTION_FAILED;
-	user_pin_len = (CK_ULONG)strlen((char *)user_pin);
-
-	rc = funcs->C_Login( session, CKU_USER, user_pin, user_pin_len );
-	if (rc != CKR_OK) {
-		show_error("   C_Login #1", rc );
-		goto error;
-	}
-
-	mech.mechanism      = CKM_AES_KEY_GEN;
-	mech.ulParameterLen = 0;
-	mech.pParameter     = NULL;
-
-	//first generate AES key and wrap key
-	rc = funcs->C_GenerateKey ( session, &mech, key_gen_tmpl, 1, &h_key);
+	rc = funcs->C_DestroyObject(session, h_key);
 	if (rc != CKR_OK)
-	{
-		show_error(" C_GenerateKey #1", rc);
-		goto error;
+		testcase_error("C_DestroyObject rc=%s", p11_get_ckr(rc));
+
+testcase_cleanup:
+	testcase_user_logout();
+	rc = funcs->C_CloseAllSessions(slot_id);
+	if(rc != CKR_OK) {
+		testcase_error("C_CloseAllSessions rc=%s", p11_get_ckr(rc));
+	}
+	return rc;
+}
+
+CK_RV do_EncryptUpdateAES(struct published_test_suite_info *tsuite)
+{
+	int			i;
+	CK_BYTE			actual[BIG_REQUEST];    // encryption buffer
+	CK_BYTE			expected[BIG_REQUEST];  // encrypted data
+	CK_ULONG		actual_len, expected_len, original_len, k;
+	CK_ULONG		user_pin_len;
+	CK_BYTE			user_pin[PKCS11_MAX_PIN_LEN];
+	CK_SESSION_HANDLE	session;
+	CK_MECHANISM		mech;
+	CK_OBJECT_HANDLE	h_key;
+	CK_RV			rc;
+	CK_FLAGS		flags;
+	CK_SLOT_ID	      slot_id = SLOT_ID;
+
+	testsuite_begin("%s Multipart Encryption.", tsuite->name);
+	testcase_rw_session();
+	testcase_user_login();
+
+	rc = CKR_OK;
+
+	/** skip test if the slot doesn't support this mechanism **/
+	if (! mech_supported(slot_id, tsuite->mech.mechanism)){
+		testsuite_skip(tsuite->tvcount, "Slot %u doesn't support %u",
+			(unsigned int) slot_id,
+			(unsigned int)tsuite->mech.mechanism);
+		goto testcase_cleanup;
 	}
 
-	rc = funcs->C_GenerateKey ( session, &mech, key_gen_tmpl, 1, &w_key);
-	if ( rc != CKR_OK)
-	{
-		show_error( " C_GenerateKey #2", rc);
-		goto error;	
-	}
+	for (i = 0; i < tsuite->tvcount; i++) {
 
-	//now lets encrypt some data
-	orig_len = sizeof(original);
-	for (i=0; i < orig_len; i++)
-	{
-		original[i] = i % 255;
-	}
+		testcase_begin("%s Multipart Encryption with published test "
+			"vector %d.", tsuite->name, i);
 
-	mech.mechanism = tsuite->mechpad;
-	mech.ulParameterLen = sizeof(init_v);
-	mech.pParameter     = init_v;
+		rc = CKR_OK;
 
-	rc = funcs->C_EncryptInit( session, &mech, h_key );
-	if (rc != CKR_OK) {
-		show_error("   C_EncryptInit #1", rc );
-		goto error;
-	}
+		/** create key handle **/
+		rc = create_AESKey(session,
+				tsuite->tv[i].key,
+				tsuite->tv[i].klen,
+				&h_key);
 
-	cipher_len = sizeof(cipher);
-	rc = funcs->C_Encrypt( session, original, orig_len, cipher, &cipher_len );
-	if (rc != CKR_OK) {
-		show_error("   C_Encrypt #1", rc );
-		goto error;
-	}
-
-
-	// now, wrap the key.
-	//
-	wrapped_data_len = sizeof(wrapped_data);
-
-	rc = funcs->C_WrapKey( session,      &mech,
-			w_key,         h_key,
-			wrapped_data, &wrapped_data_len );
-	if (rc != CKR_OK) {
-		show_error("   C_WrapKey #1", rc );
-		goto error;
-	}
-
-	rc = funcs->C_UnwrapKey( session, &mech,
-			w_key,
-			wrapped_data, wrapped_data_len,
-			template,  tmpl_count,
-			&uw_key );
-	if (rc != CKR_OK) {
-		show_error("   C_UnWrapKey #1", rc );
-		goto error;	
-	}
-
-
-	// now, decrypt the data using the unwrapped key.
-	//
-	rc = funcs->C_DecryptInit( session, &mech, uw_key );
-	if (rc != CKR_OK) {
-		show_error("   C_DecryptInit #1", rc );
-		goto error;	
-	}
-
-	decipher_len = sizeof(decipher);
-	rc = funcs->C_Decrypt( session, cipher, cipher_len, decipher, &decipher_len );
-	if (rc != CKR_OK) {
-		show_error("   C_Decrypt #1", rc );
-		goto error;
-	}
-
-	if (orig_len != decipher_len) {
-		PRINT_ERR("   ERROR:  lengths don't match:  %ld vs %ld\n", orig_len, decipher_len );
-		rc = -1;
-		goto error;
-	}
-
-	for (i=0; i < orig_len; i++) {
-		if (original[i] != decipher[i]) {
-			PRINT_ERR("   ERROR:  mismatch at byte %ld\n", i );
-			rc = -1;
-			goto error;
-		}
-	}
-
-	// we'll generate an RSA keypair here so we can make sure it works
-	//
-	{
-		CK_MECHANISM      mech2;
-		CK_OBJECT_HANDLE  publ_key, priv_key;
-
-		CK_ULONG     bits = 1024;
-		CK_BYTE      pub_exp[] = { 0x3 };
-
-		CK_ATTRIBUTE pub_tmpl[] = {
-			{CKA_MODULUS_BITS,    &bits,    sizeof(bits)    },
-			{CKA_PUBLIC_EXPONENT, &pub_exp, sizeof(pub_exp) }
-		};
-
-		CK_OBJECT_CLASS  keyclass = CKO_PRIVATE_KEY;
-		CK_KEY_TYPE      keytype  = CKK_RSA;
-		CK_ATTRIBUTE uw_tmpl[] = {
-			{CKA_CLASS,    &keyclass,  sizeof(keyclass) },
-			{CKA_KEY_TYPE, &keytype,   sizeof(keytype) }
-		};
-
-		mech2.mechanism      = CKM_RSA_PKCS_KEY_PAIR_GEN;
-		mech2.ulParameterLen = 0;
-		mech2.pParameter     = NULL;
-
-		rc = funcs->C_GenerateKeyPair( session,   &mech2,
-				pub_tmpl,   2,
-				NULL,       0,
-				&publ_key, &priv_key );
 		if (rc != CKR_OK) {
-			show_error("   C_GenerateKeyPair #1", rc );
+			testcase_error("C_CreateObject rc=%s", p11_get_ckr(rc));
 			goto error;
 		}
 
+		/** get mech **/
+		mech = tsuite->mech;
 
-		// now, wrap the key.
-		//
-		wrapped_data_len = sizeof(wrapped_data);
+		/** clear buffers **/
+		memset(expected, 0, sizeof(expected));
+		memset(actual, 0, sizeof(actual));
 
-		rc = funcs->C_WrapKey( session,      &mech,
-				w_key,         priv_key,
-				wrapped_data, &wrapped_data_len );
+		/** get ciphertext (expected results) **/
+		expected_len = tsuite->tv[i].clen;
+		memcpy(expected, tsuite->tv[i].ciphertext, expected_len);
+
+		/** get plaintext **/
+		original_len = tsuite->tv[i].plen;
+		actual_len = original_len;
+		memcpy(actual, tsuite->tv[i].plaintext, actual_len);
+
+		/** multipart (in-place) encryption **/
+		rc = funcs->C_EncryptInit(session, &mech, h_key);
 		if (rc != CKR_OK) {
-			show_error("   C_WrapKey #2", rc );
+			testcase_error("C_EncryptInit rc=%s", p11_get_ckr(rc));
 			goto error;
 		}
 
-		rc = funcs->C_UnwrapKey( session, &mech,
-				w_key,
-				wrapped_data, wrapped_data_len,
-				uw_tmpl,  2,
-				&uw_key );
-		if (rc != CKR_OK) {
-			show_error("   C_UnWrapKey #2", rc );
-			goto error;
-		}
+		k = original_len;
+		actual_len = 0;
+		while (actual_len < original_len) {
+			rc = funcs->C_EncryptUpdate(session,
+					&actual[actual_len],
+					AES_BLOCK_SIZE,
+					&actual[actual_len],
+					&k);
 
-		// encrypt something with the public key
-		//
-		mech2.mechanism      = CKM_RSA_PKCS;
-		mech2.ulParameterLen = 0;
-		mech2.pParameter     = NULL;
-
-		rc = funcs->C_EncryptInit( session, &mech2, publ_key );
-		if (rc != CKR_OK) {
-			show_error("   C_EncryptInit #2", rc );
-			goto error;
-		}
-
-		// for RSA operations, keep the input data size smaller than
-		// the modulus
-		//
-		orig_len = 30;
-
-		cipher_len = sizeof(cipher);
-		rc = funcs->C_Encrypt( session, original, orig_len, cipher, &cipher_len );
-		if (rc != CKR_OK) {
-			show_error("   C_Encrypt #2", rc );
-			goto error;
-		}
-
-		// now, decrypt the data using the unwrapped private key.
-		//
-		rc = funcs->C_DecryptInit( session, &mech2, uw_key );
-		if (rc != CKR_OK) {
-			show_error("   C_DecryptInit #1", rc );
-			goto error;
-		}
-
-		decipher_len = sizeof(decipher);
-		rc = funcs->C_Decrypt( session, cipher, cipher_len, decipher, &decipher_len );
-		if (rc != CKR_OK) {
-			show_error("   C_Decrypt #1", rc );
-			goto error;
-		}
-
-		if (orig_len != decipher_len) {
-			PRINT_ERR("   ERROR:  lengths don't match:  %ld vs %ld\n", orig_len, decipher_len );
-			rc = -1;
-			goto error;
-		}
-
-		for (i=0; i < orig_len; i++) {
-			if (original[i] != decipher[i]) {
-				PRINT_ERR("   ERROR:  mismatch at byte %ld\n", i );
-				rc = -1;
+			if (rc != CKR_OK) {
+				testcase_error("C_EncryptUpdate rc=%s",
+					p11_get_ckr(rc));
 				goto error;
 			}
-		}
-	}
 
-	printf("Success.\n");
+			actual_len += k;
+			k = original_len - k;
+		}
+
+		/** according to pkcs11 spec,
+			nothing should be returned in final. **/
+		rc = funcs->C_EncryptFinal(session, &actual[actual_len], &k);
+		if (rc != CKR_OK) {
+			testcase_error("C_EncryptFinal rc=%s", p11_get_ckr(rc));
+			goto error;
+		}
+
+		/** compare encryption results with expected results. **/
+		testcase_new_assertion();
+
+		if (actual_len != expected_len) {
+			testcase_fail("encrypted multipart data length does "
+				"not match test vector's encrypted data length."				"\n\nexpected length=%ld, but found length=%ld"
+				"\n", expected_len, actual_len);
+		}
+
+		else if (memcmp(actual, expected, expected_len)) {
+			testcase_fail("encrypted multipart data does not match"
+				" test vector's encrypted data.\n");
+		}
+
+		else {
+			testcase_pass("%s Multipart Encryption with test "
+				"vector %d passed.", tsuite->name, i);
+		}
+
+	}
+	/** clean up **/
+	rc = funcs->C_DestroyObject(session, h_key);
+	if (rc != CKR_OK) {
+		testcase_error("C_DestroyObject rc=%s",	p11_get_ckr(rc));
+		goto testcase_cleanup;
+	}
+	goto testcase_cleanup;
 
 error:
-	rc = funcs->C_CloseAllSessions( slot_id );
-	if (rc != CKR_OK) {
-		show_error("   C_CloseAllSessions #1", rc );
-		goto error;
-	}
+	rc = funcs->C_DestroyObject(session, h_key);
+	if (rc != CKR_OK)
+		testcase_error("C_DestroyObject rc=%s", p11_get_ckr(rc));
 
+testcase_cleanup:
+	testcase_user_logout();
+	rc = funcs->C_CloseAllSessions(slot_id);
+	if (rc != CKR_OK){
+		testcase_error("C_CloseAllSessions rc=%s", p11_get_ckr(rc));
+	}
 	return rc;
 }
 
-int main  (int argc, char **argv)
+CK_RV do_DecryptAES(struct published_test_suite_info *tsuite)
 {
-	int rc, i, fcount;
-	CK_C_INITIALIZE_ARGS cinit_args;
+	int			i;
+	CK_BYTE			actual[BIG_REQUEST];    // decryption buffer
+	CK_BYTE			expected[BIG_REQUEST];  // decrypted data
+	CK_ULONG		actual_len, expected_len;
+	CK_ULONG		user_pin_len;
+	CK_BYTE			user_pin[PKCS11_MAX_PIN_LEN];
+	CK_SESSION_HANDLE	session;
+	CK_MECHANISM		mech;
+	CK_OBJECT_HANDLE	h_key;
+	CK_RV			rc;
+	CK_FLAGS		flags;
+	CK_SLOT_ID	      	slot_id = SLOT_ID;
+
+	testsuite_begin("%s Decryption.", tsuite->name);
+	testcase_rw_session();
+	testcase_user_login();
+
+	rc = CKR_OK;
+
+	/** skip test if the slot doesn't support this mechanism **/
+	if (! mech_supported(slot_id, tsuite->mech.mechanism)){
+		testsuite_skip(tsuite->tvcount,
+			"Slot %u doesn't support %u",
+			(unsigned int) slot_id,
+			(unsigned int)tsuite->mech.mechanism);
+		goto testcase_cleanup;
+	}
+
+	for (i = 0; i < tsuite->tvcount; i++) {
+
+		testcase_begin("%s Decryption with published test vector %d.",
+			tsuite->name, i);
+
+		rc = CKR_OK;
+
+		/** create key handle **/
+		rc = create_AESKey(session,
+			tsuite->tv[i].key,
+			tsuite->tv[i].klen,
+			&h_key);
+
+		if (rc != CKR_OK) {
+			testcase_error("C_CreateObject rc=%s", p11_get_ckr(rc));
+			goto error;
+		}
+
+		/** get mech **/
+		mech = tsuite->mech;
+
+		/** clear buffers **/
+		memset(expected, 0, sizeof(expected));
+		memset(actual, 0, sizeof(actual));
+
+		/** get plaintext (expected results) **/
+		expected_len = tsuite->tv[i].plen;
+		memcpy(expected, tsuite->tv[i].plaintext, expected_len);
+
+		/** get ciphertext **/
+		actual_len = tsuite->tv[i].clen;
+		memcpy(actual, tsuite->tv[i].ciphertext, actual_len);
+
+		/** single (in-place) decryption **/
+		rc = funcs->C_DecryptInit(session, &mech, h_key);
+		if (rc != CKR_OK) {
+			testcase_error("C_DecryptInit rc=%s", p11_get_ckr(rc));
+			goto error;
+		}
+
+		rc = funcs->C_Decrypt(session,
+				actual,
+				actual_len,
+				actual,
+				&actual_len);
+
+		if (rc != CKR_OK) {
+			testcase_error("C_Decrypt rc=%s", p11_get_ckr(rc));
+			goto error;
+		}
+
+		/** compare actual results with expected results. **/
+		testcase_new_assertion();
+
+		if (actual_len != expected_len) {
+			testcase_fail("decrypted data length does not match "
+				"test vector's decrypted data length.\n\n"
+				"expected length=%ld, but found length=%ld\n",
+				expected_len, actual_len);
+		}
+
+		else if (memcmp(actual, expected, expected_len)) {
+			testcase_fail("decrypted data does not match test "
+				"vector's decrypted data");
+		}
+
+		else {
+			testcase_pass("%s Decryption with test vector %d "
+				"passed.", tsuite->name, i);
+		}
+
+	}
+	/** clean up **/
+	rc = funcs->C_DestroyObject(session, h_key);
+	if (rc != CKR_OK) {
+		testcase_error("C_DestroyObject rc=%s",	p11_get_ckr(rc));
+	}
+	goto testcase_cleanup;
+
+error:
+	rc = funcs->C_DestroyObject(session, h_key);
+	if (rc != CKR_OK)
+		testcase_error("C_DestroyObject rc=%s", p11_get_ckr(rc));
+
+testcase_cleanup:
+	testcase_user_logout();
+	rc = funcs->C_CloseAllSessions(slot_id);
+        if (rc != CKR_OK) {
+                testcase_error("C_CloseAllSessions rc=%s", p11_get_ckr(rc));
+        }
+        return rc;
+}
+
+CK_RV do_DecryptUpdateAES(struct published_test_suite_info *tsuite)
+{
+	int			i;
+	CK_BYTE			actual[BIG_REQUEST];    // decryption buffer
+	CK_BYTE			expected[BIG_REQUEST];  // decrypted data
+	CK_ULONG		actual_len, expected_len, original_len, k;
+	CK_ULONG		user_pin_len;
+	CK_BYTE			user_pin[PKCS11_MAX_PIN_LEN];
+	CK_SESSION_HANDLE	session;
+	CK_MECHANISM		mech;
+	CK_OBJECT_HANDLE	h_key;
+	CK_RV			rc;
+	CK_FLAGS		flags;
+	CK_SLOT_ID	      slot_id = SLOT_ID;
+
+	testsuite_begin("%s Multipart Decryption.", tsuite->name);
+	testcase_rw_session();
+	testcase_user_login();
+
+	/** skip tests if the slot doesn't support this mechanism **/
+	if (! mech_supported(slot_id, tsuite->mech.mechanism)){
+		testsuite_skip(tsuite->tvcount,
+			"Slot %u doesn't support %u",
+			(unsigned int) slot_id,
+			(unsigned int)tsuite->mech.mechanism);
+		goto testcase_cleanup;
+	}
+
+	for (i = 0; i < tsuite->tvcount; i++) {
+
+		testcase_begin("%s Multipart Decryption with published test "
+			"vector %d.", tsuite->name, i);
+
+		/** create key handle **/
+		rc = create_AESKey(session,
+			tsuite->tv[i].key,
+			tsuite->tv[i].klen,
+			&h_key);
+
+		if (rc != CKR_OK) {
+			testcase_error("C_CreateObject rc=%s", p11_get_ckr(rc));
+			goto error;
+		}
+
+		/** get mech **/
+		mech = tsuite->mech;
+
+		/** clear buffers **/
+		memset(expected, 0, sizeof(expected));
+		memset(actual, 0, sizeof(actual));
+
+		/** get plaintext (expected results) **/
+		expected_len = tsuite->tv[i].plen;
+		memcpy(expected, tsuite->tv[i].plaintext, expected_len);
+
+		/** get plaintext **/
+		original_len = tsuite->tv[i].clen;
+		actual_len = original_len;
+		memcpy(actual, tsuite->tv[i].ciphertext, actual_len);
+
+		/** multipart (in-place) decryption **/
+		rc = funcs->C_DecryptInit(session, &mech, h_key);
+		if (rc != CKR_OK) {
+			testcase_error("C_DecryptInit rc=%s", p11_get_ckr(rc));
+			goto error;
+		}
+
+		k = original_len;
+		actual_len = 0;
+		while (actual_len < original_len) {
+			rc = funcs->C_DecryptUpdate(session,
+						&actual[actual_len],
+						AES_BLOCK_SIZE,
+						&actual[actual_len],
+						&k);
+
+			if (rc != CKR_OK) {
+				testcase_error("C_DecryptUpdate rc=%s",
+					p11_get_ckr(rc));
+				goto error;
+			}
+
+			actual_len += k;
+			k = original_len - k;
+		}
+
+		/** according to pkcs11 spec,
+			nothing should be returned in final. **/
+		rc = funcs->C_DecryptFinal(session, &actual[actual_len], &k);
+		if (rc != CKR_OK) {
+			testcase_error("C_EncryptFinal rc=%s", p11_get_ckr(rc));
+				goto error;
+		}
+
+		/** compare decryption results with expected results. **/
+		testcase_new_assertion();
+
+		if (actual_len != expected_len) {
+			testcase_fail("decrypted multipart data length does "
+				"not match test vector's decrypted data "
+				"length.\n\nexpected length=%ld, but found "
+				"length=%ld\n", expected_len, actual_len);
+		}
+
+		else if (memcmp(actual, expected, expected_len)) {
+			testcase_fail("decrypted multipart data does not match"
+				" test vector's decrypted data.\n");
+		}
+
+		else {
+			testcase_pass("%s Multipart Decryption with test "
+				"vector %d passed.", tsuite->name, i);
+		}
+	}
+	/** clean up **/
+	rc = funcs->C_DestroyObject(session, h_key);
+	if (rc != CKR_OK) {
+		testcase_error("C_DestroyObject rc=%s", p11_get_ckr(rc));
+		goto testcase_cleanup;
+	}
+	goto testcase_cleanup;
+
+error:
+	rc = funcs->C_DestroyObject(session, h_key);
+	if (rc != CKR_OK)
+		testcase_error("C_DestroyObject rc=%s", p11_get_ckr(rc));
+
+testcase_cleanup:
+	testcase_user_logout();
+        rc = funcs->C_CloseAllSessions(slot_id);
+        if (rc != CKR_OK) {
+                testcase_error("C_CloseAllSessions rc=%s", p11_get_ckr(rc));
+        }
+        return rc;
+}
+
+CK_RV do_WrapUnwrapAES(struct generated_test_suite_info *tsuite)
+{
+	int			i,j;
+	CK_BYTE			original[BIG_REQUEST + AES_BLOCK_SIZE];
+	CK_BYTE			crypt[BIG_REQUEST + AES_BLOCK_SIZE];
+	CK_BYTE			decrypt[BIG_REQUEST + AES_BLOCK_SIZE];
+	CK_BYTE			wrapped_data[3 * AES_BLOCK_SIZE];
+	CK_BYTE			user_pin[PKCS11_MAX_PIN_LEN];
+	CK_SESSION_HANDLE	session;
+	CK_MECHANISM		mechkey, mech;
+	CK_OBJECT_HANDLE	h_key;
+	CK_OBJECT_HANDLE	w_key;
+	CK_OBJECT_HANDLE	uw_key;
+	CK_ULONG		wrapped_data_len;
+	CK_ULONG		user_pin_len;
+	CK_ULONG		orig_len, crypt_len, decrypt_len;
+	CK_ULONG		tmpl_count = 3;
+	CK_ULONG		key_size;
+	CK_FLAGS		flags;
+	CK_RV			rc;
+	CK_SLOT_ID	      	slot_id = SLOT_ID;
+	CK_OBJECT_CLASS		key_class = CKO_SECRET_KEY;
+	CK_KEY_TYPE		key_type  = CKK_AES;
+	CK_ATTRIBUTE		template[] = {
+				{CKA_CLASS, &key_class, sizeof(key_class)},
+				{CKA_KEY_TYPE, &key_type, sizeof(key_type)},
+				{CKA_VALUE_LEN, &key_size, sizeof(key_size)}};
+
+	testsuite_begin("%s Wrap/Unwrap.", tsuite->name);
+	testcase_rw_session();
+	testcase_user_login();
+
+	/** skip test if the slot doesn't support this mechanism **/
+	if (! mech_supported(slot_id, tsuite->mech.mechanism)){
+		testsuite_skip(3,
+			"Slot %u doesn't support %u",
+			(unsigned int) slot_id,
+			(unsigned int)tsuite->mech.mechanism);
+		goto testcase_cleanup;
+	}
+
+	for (i = 0; i < 3; i++) {
+
+		testcase_begin("%s Wrap/Unwrap key test with keylength=%ld.",
+			tsuite->name, key_lens[i]);
+
+		/** set mechanisms **/
+		mech = tsuite->mech;
+		mechkey = aes_keygen;
+
+		/** set key_size **/
+		key_size = key_lens[i];
+
+		/** generate crypto key **/
+		rc = generate_AESKey(session, key_lens[i], &mechkey, &h_key);
+		if (rc != CKR_OK) {
+			testcase_error("C_GenerateKey rc=%s", p11_get_ckr(rc));
+			goto error;
+		}
+
+		/** generate wrapping key **/
+		rc = generate_AESKey(session, key_lens[i], &mechkey, &w_key);
+		if (rc != CKR_OK) {
+			testcase_error("C_GenerateKey rc=%s", p11_get_ckr(rc));
+			goto error;
+		}
+
+		/** generate data **/
+		orig_len = BIG_REQUEST;
+		crypt_len = BIG_REQUEST + AES_BLOCK_SIZE;
+		decrypt_len = BIG_REQUEST + AES_BLOCK_SIZE;
+		for (j = 0; j < orig_len; j++) {
+			original[j] = j % 255;
+		}
+
+		/** initiate the encrypt **/
+		rc = funcs->C_EncryptInit(session, &mech, h_key);
+		if (rc != CKR_OK) {
+			testcase_error("C_EncryptInit rc=%s", p11_get_ckr(rc));
+			goto error;
+		}
+
+		/** continue with encrypt **/
+		rc = funcs->C_Encrypt(session,
+				original,
+				orig_len,
+				crypt,
+				&crypt_len);
+
+		if (rc != CKR_OK) {
+			testcase_error("C_Encrypt rc=%s", p11_get_ckr(rc));
+			goto error;
+		}
+
+		/** wrap key **/
+		wrapped_data_len = 3 * AES_KEY_LEN;
+
+		rc = funcs->C_WrapKey(session,
+				&mech,
+				w_key,
+				h_key,
+				(CK_BYTE *) &wrapped_data,
+				&wrapped_data_len);
+
+		if (rc != CKR_OK) {
+			testcase_error("C_WrapKey rc=%s", p11_get_ckr(rc));
+			goto error;
+		}
+
+		/** unwrap key **/
+		rc = funcs->C_UnwrapKey(session,
+				&mech,
+				w_key,
+				wrapped_data,
+				wrapped_data_len,
+				template,
+				tmpl_count,
+				&uw_key);
+
+		if (rc != CKR_OK) {
+			testcase_error("C_UnwrapKey rc=%s", p11_get_ckr(rc));
+			goto error;
+		}
+
+		/** initiate decryption (with unwrapped key) **/
+		rc = funcs->C_DecryptInit(session, &mech, uw_key);
+		if (rc != CKR_OK) {
+			testcase_error("C_DecryptInit rc=%s", p11_get_ckr(rc));
+			goto error;
+		}
+
+		/** do decryption (with the unwrapped key) **/
+		rc = funcs->C_Decrypt(session,
+				crypt,
+				crypt_len,
+				decrypt,
+				&decrypt_len);
+
+		if(rc != CKR_OK) {
+			testcase_error("C_Decrypt rc=%s", p11_get_ckr(rc));
+			goto error;
+		}
+
+		/** compare actual results with expected results **/
+		testcase_new_assertion();
+
+		if (decrypt_len != orig_len) {
+			testcase_fail("Decrypted length doesn't match the "
+				"original plaintext length.");
+			rc = CKR_GENERAL_ERROR;
+		}
+
+		else if (memcmp(decrypt, original, orig_len)) {
+			testcase_fail("Decrypted data does not match original "
+				"plaintext data.");
+			rc = CKR_GENERAL_ERROR;
+		}
+
+		else {
+			testcase_pass("%s Wrap/UnWrap test with key length "
+				"%u passed.", tsuite->name,
+				(unsigned int)key_lens[i]);
+		}
+	}
+	/** clean up **/
+	rc = funcs->C_DestroyObject(session, h_key);
+	if (rc != CKR_OK) {
+		testcase_error("C_DestroyObject rc=%s.", p11_get_ckr(rc));
+	}
+
+	rc = funcs->C_DestroyObject(session, w_key);
+	if (rc != CKR_OK) {
+		testcase_error("C_DestroyObject rc=%s.", p11_get_ckr(rc));
+	}
+
+	rc = funcs->C_DestroyObject(session, uw_key);
+	if (rc != CKR_OK) {
+		testcase_error("C_DestroyObject rc=%s.", p11_get_ckr(rc));
+	}
+	goto testcase_cleanup;
+error:
+	rc = funcs->C_DestroyObject(session, h_key);
+	if (rc != CKR_OK) {
+		testcase_error("C_DestroyObject rc=%s.", p11_get_ckr(rc));
+	}
+
+	rc = funcs->C_DestroyObject(session, w_key);
+	if (rc != CKR_OK) {
+		testcase_error("C_DestroyObject rc=%s.", p11_get_ckr(rc));
+	}
+
+	rc = funcs->C_DestroyObject(session, uw_key);
+	if (rc != CKR_OK) {
+		testcase_error("C_DestroyObject rc=%s.", p11_get_ckr(rc));
+	}
+	goto testcase_cleanup;
+
+testcase_cleanup:
+	rc = funcs->C_CloseAllSessions(slot_id);
+	if (rc != CKR_OK) {
+		testcase_error("C_CloseAllSessions rc=%s", p11_get_ckr(rc));
+	}
+	return rc;
+}
+
+CK_RV do_WrapUnwrapRSA(struct generated_test_suite_info *tsuite)
+{
+
+	int			i;
+	CK_BYTE			original[BIG_REQUEST];
+	CK_BYTE			decipher[BIG_REQUEST + AES_BLOCK_SIZE];
+	CK_BYTE			cipher[BIG_REQUEST + AES_BLOCK_SIZE];
+	CK_BYTE			wrapped_data[BIG_REQUEST + AES_BLOCK_SIZE];
+	CK_BYTE			user_pin[PKCS11_MAX_PIN_LEN];
+	CK_BYTE			pub_exp[] = { 0x3 };
+	CK_MECHANISM		mech, mech2;
+	CK_MECHANISM_INFO	mech_info;
+	CK_OBJECT_HANDLE	publ_key, priv_key, w_key, uw_key;
+	CK_ULONG		orig_len, cipher_len, decipher_len;
+	CK_ULONG		bits = 1024;
+	CK_ULONG		wrapped_data_len;
+	CK_ULONG		user_pin_len;
+	CK_ULONG		key_size;
+	CK_RV			rc;
+	CK_FLAGS		flags;
+	CK_SESSION_HANDLE	session;
+	CK_OBJECT_CLASS		keyclass = CKO_PRIVATE_KEY;
+	CK_KEY_TYPE		keytype  = CKK_RSA;
+	CK_SLOT_ID	      	slot_id = SLOT_ID;
+
+	CK_ATTRIBUTE		pub_tmpl[] = {
+				{CKA_MODULUS_BITS,  &bits, sizeof(bits)},
+				{CKA_PUBLIC_EXPONENT,&pub_exp,sizeof(pub_exp)}};
+	CK_ATTRIBUTE 		uw_tmpl[] = {
+				{CKA_CLASS,    &keyclass,  sizeof(keyclass)},
+				{CKA_KEY_TYPE, &keytype,   sizeof(keytype)}};
+	CK_ATTRIBUTE		 key_gen_tmpl[] = {
+				{CKA_VALUE_LEN, &key_size, sizeof(CK_ULONG)}};
+
+	testsuite_begin("%s wrap/unwrap of RSA key.", tsuite->name);
+	testcase_rw_session();
+	testcase_user_login();
+
+	/** skip test if the slot doesn't support this mechanism **/
+	if (! mech_supported(slot_id, tsuite->mech.mechanism)){
+		testsuite_skip(3,
+			"Slot %u doesn't support %u",
+			(unsigned int) slot_id,
+			(unsigned int)tsuite->mech.mechanism);
+		goto testcase_cleanup;
+	}
+
+	for(i = 0; i < 3; i++){
+
+		testcase_begin("%s wrap/unwrap of RSA key for key length=%ld.",
+			tsuite->name, key_lens[i]);
+
+		key_size = key_lens[i];
+
+		/** first mechanism generate AES wrapping key **/
+		mech.mechanism = CKM_AES_KEY_GEN;
+		mech.ulParameterLen = 0;
+		mech.pParameter = NULL;
+
+		/** mechanism to generate an RSA key pair to be wrapped **/
+		mech2.mechanism  = CKM_RSA_PKCS_KEY_PAIR_GEN;
+		mech2.ulParameterLen = 0;
+		mech2.pParameter = NULL;
+
+		/** generate an RSA key pair. **/
+		rc = funcs->C_GenerateKeyPair(session,
+					&mech2,
+					pub_tmpl,
+					2,
+					NULL,
+					0,
+					&publ_key,
+					&priv_key);
+
+		if (rc != CKR_OK) {
+			testcase_error("C_GenerateKeyPair rc=%s",
+				p11_get_ckr(rc));
+			goto testcase_cleanup;
+		}
+
+		/** generate the wrapping key **/
+		rc = funcs->C_GenerateKey(session,
+					&mech,
+					key_gen_tmpl,
+					1,
+					&w_key);
+
+		if (rc != CKR_OK) {
+			testcase_error("C_GenerateKey rc=%s", p11_get_ckr(rc));
+			goto testcase_cleanup;
+		}
+
+		/** set the mech for AES crypto **/
+		mech = tsuite->mech;
+
+		/** wrap the key **/
+		wrapped_data_len = sizeof(wrapped_data);
+
+		/** get mech info **/
+		rc = funcs->C_GetMechanismInfo(slot_id,
+					mech.mechanism,
+					&mech_info);
+
+		if (rc != CKR_OK){
+			testcase_error("C_GetMechanismInfo rc=%s",
+				p11_get_ckr(rc));
+			goto testcase_cleanup;
+		}
+
+		/** key is wrappable **/
+		if (mech_info.flags & CKF_WRAP) {
+
+			/** wrap key **/
+			rc = funcs->C_WrapKey(session,
+					&mech,
+					w_key,
+					priv_key,
+					wrapped_data,
+					&wrapped_data_len);
+
+			if (rc != CKR_OK){
+				testcase_error("C_WrapKey rc=%s",
+					p11_get_ckr(rc));
+				goto testcase_cleanup;
+			}
+
+			/** unwrap key **/
+			rc = funcs->C_UnwrapKey(session,
+					&mech,
+					w_key,
+					wrapped_data,
+					wrapped_data_len,
+					uw_tmpl,
+					2,
+					&uw_key);
+
+			if (rc != CKR_OK) {
+				testcase_error("C_UnWrapKey rc=%s",
+					p11_get_ckr(rc));
+				goto testcase_cleanup;
+			}
+
+			/** generate data **/
+			orig_len = 30;
+			for (i = 0; i < orig_len; i++)
+				original[i] = i % 255;
+
+			/** set mech2 for RSA crypto **/
+			mech2.mechanism  = CKM_RSA_PKCS;
+			mech2.ulParameterLen = 0;
+			mech2.pParameter = NULL;
+
+			/** initialize RSA encryption (with public key) **/
+			rc = funcs->C_EncryptInit(session, &mech2, publ_key);
+			if (rc != CKR_OK) {
+				testcase_error("C_EncryptInit rc=%s",
+					p11_get_ckr(rc));
+				goto testcase_cleanup;
+			}
+
+			cipher_len = sizeof(cipher); // set cipher buffer size
+
+			/** do RSA encryption (with public key) **/
+			rc = funcs->C_Encrypt(session,
+					original,
+					orig_len,
+					cipher,
+					&cipher_len);
+
+			if (rc != CKR_OK) {
+				testcase_error("C_Encrypt rc=%s",
+					p11_get_ckr(rc));
+				goto testcase_cleanup;
+			}
+
+			/** initialize RSA decryption
+				(with unwrapped private key) **/
+			rc = funcs->C_DecryptInit(session, &mech2, uw_key);
+			if (rc != CKR_OK) {
+				testcase_error("C_DecryptInit rc=%s",
+					p11_get_ckr(rc));
+				goto testcase_cleanup;
+			}
+
+			decipher_len = sizeof(decipher);
+
+			/** do RSA decryption (with unwrapped private key) **/
+			rc = funcs->C_Decrypt(session,
+					cipher,
+					cipher_len,
+					decipher,
+					&decipher_len);
+
+			if (rc != CKR_OK) {
+				testcase_error("C_Decrypt rc=%s",
+					p11_get_ckr(rc));
+				goto testcase_cleanup;
+			}
+
+			/** compare actual results with expected results **/
+			testcase_new_assertion();
+			if (orig_len != decipher_len) {
+				testcase_fail("lengths don't match: "
+					"%ld vs %ld\n", orig_len, decipher_len);
+				rc = CKR_GENERAL_ERROR;
+			}
+
+			else if (memcmp(original, decipher, orig_len)) {
+				testcase_fail("deciphered data does not match"
+					" original data");
+				rc = CKR_GENERAL_ERROR;
+			}
+
+			else{
+				testcase_pass("%s passed wrap/unwrap RSA key "
+					"test.", tsuite->name);
+			}
+
+
+		}
+
+		/** key is not wrappable **/
+		else {
+			testcase_new_assertion();
+
+			/** try to wrap key **/
+			rc = funcs->C_WrapKey(session,
+					&mech,
+					w_key,
+					priv_key,
+					wrapped_data,
+					&wrapped_data_len);
+
+			if (rc != CKR_KEY_NOT_WRAPPABLE){
+				testcase_fail("Expected CKR_KEY_NOT_WRAPPABLE");
+			}
+
+			else{
+				testcase_pass("%s passed wrap/unwrap RSA key "
+					"test.", tsuite->name);
+			}
+		}
+
+
+	}
+	goto testcase_cleanup;
+
+testcase_cleanup:
+	testcase_close_session();
+	return rc;
+}
+
+CK_RV aes_funcs() {
+	int i, generate_key;
 	CK_RV rv;
-	SYSTEMTIME t1, t2;
-	CK_ULONG j;
+	CK_BBOOL no_init, no_stop;
+
+
+	SLOT_ID = 0;
+	no_init = FALSE;
+	no_stop = TRUE;
+
+	generate_key = get_key_type(); // true if mech requires secure key
+				       // generate keys and skip published tests
+	if (generate_key == -1) {
+		return -1;
+	}
+
+	for (i = 0; i < NUM_OF_PUBLISHED_TESTSUITES; i++) {
+		if (!generate_key) {
+			rv = do_EncryptAES(&published_test_suites[i]);
+			if (rv != CKR_OK && (!no_stop))
+				break;
+
+			rv = do_DecryptAES(&published_test_suites[i]);
+			if (rv != CKR_OK && (!no_stop))
+				break;
+
+			rv = do_EncryptUpdateAES(&published_test_suites[i]);
+			if (rv != CKR_OK && (!no_stop))
+				break;
+
+			rv = do_DecryptUpdateAES(&published_test_suites[i]);
+			if (rv != CKR_OK && (!no_stop))
+				break;
+		}
+
+	}
+
+	for (i = 0; i < NUM_OF_GENERATED_TESTSUITES; i++) {
+		do_EncryptDecryptAES(&generated_test_suites[i]);
+		if (rv != CKR_OK && (!no_stop))
+			break;
+
+		do_EncryptDecryptUpdateAES(&generated_test_suites[i]);
+		if (rv != CKR_OK && (!no_stop))
+			break;
+
+		do_WrapUnwrapAES(&generated_test_suites[i]);
+		if (rv != CKR_OK && (!no_stop))
+			break;
+
+		do_WrapUnwrapRSA(&generated_test_suites[i]);
+		if (rv != CKR_OK && (!no_stop))
+			break;
+
+	}
+
+	return rv;
+}
+
+int main  (int argc, char **argv) {
+	int rc;
+	CK_C_INITIALIZE_ARGS cinit_args;
+	CK_RV rv = 0;
 
 	rc = do_ParseArgs(argc, argv);
 	if (rc != 1)
 		return rc;
 
 	printf("Using slot #%lu...\n\n", SLOT_ID );
-	printf("With option: no_stop: %d\n", no_stop);
+	printf("With option: nostop: %d\n", no_stop);
 
 	rc = do_GetFunctionList();
 	if (!rc) {
-		PRINT_ERR("ERROR do_GetFunctionList() Failed , rc = 0x%0x\n", rc);
+		testcase_error("do_getFunctionList(), rc=%s", p11_get_ckr(rc));
 		return rc;
 	}
 
@@ -1152,84 +1415,10 @@ int main  (int argc, char **argv)
 			return rc;
 	}
 
-	rv = 0;
-	fcount = 0;
-	for (i = 0; i < NUM_OF_TESTSUITES; i++) {
-		if (test_suites[i].mechcrypt) {
-			GetSystemTime(&t1);
-			rv = do_EncryptAES(&test_suites[i]);
-			GetSystemTime(&t2);
-			process_time(t1, t2);
-			if (rv) {
-				PRINT_ERR("ERROR do_EncryptAES tests for %s failed, rv = 0x%lx\n", test_suites[i].name, rv);
-				if (!no_stop)	
-					return -1;
-				else
-					fcount++;
-			}
-
-			GetSystemTime(&t1);
-			rv = do_DecryptAES(&test_suites[i]);
-			GetSystemTime(&t2);
-			process_time(t1, t2);
-			if (rv) {
-				PRINT_ERR("ERROR do_DecryptAES tests for %s failed, rv = 0x%lx\n", test_suites[i].name, rv);
-				if (!no_stop)	
-					return -1;
-				else
-					fcount++;
-			}
-
-			for (j = 0; j < 3; j++) {
-				GetSystemTime(&t1);
-				rv = do_WrapUnwrapAES(key_lens[j], &test_suites[i]);
-				GetSystemTime(&t2);
-				process_time(t1, t2);
-				if (rv) {
-					PRINT_ERR("ERROR do_WrapUnwrapAES tests for %s failed, rv = 0x%lx\n", test_suites[i].name, rv);
-					if (!no_stop)	
-						return -1;
-					else
-						fcount++;
-				}
-			}
-		}
-
-		if (test_suites[i].mechpad) {
-			for (j = 0; j < 3; j++) {
-				GetSystemTime(&t1);
-				rc = do_PadAES(key_lens[j], &test_suites[i]);
-				GetSystemTime(&t2);
-				process_time(t1, t2);
-				if (rv) {
-					PRINT_ERR("ERROR do_PadAES tests for %s failed, rv = 0x%lx\n",test_suites[i].name, rv);
-					if (!no_stop)	
-						return -1;
-					else
-						fcount++;
-				}
-			}
-			for (j = 0; j < 3; j++) {
-				GetSystemTime(&t1);
-				rc = do_WrapUnwrapPadAES(key_lens[j], &test_suites[i]);
-				GetSystemTime(&t2);
-				process_time(t1, t2);
-				if (rv) {
-					PRINT_ERR("ERROR do_PadAES tests for %s failed, rv = 0x%lx\n", test_suites[i].name, rv);
-					if (!no_stop)	
-						return -1;
-					else
-						fcount++;
-				}
-			}
-		}
-
-		if (fcount) {
-			PRINT_ERR("ERROR test suite %s failed.\n", test_suites[i].name);
-			rv = -1;
-		}
-	}
+	testcase_setup(0); //TODO
+	rc = aes_funcs();
+	testcase_print_result();
 
 	/* make sure we return non-zero if rv is non-zero */
-	return (rv);
+	return ((rv == 0) || (rv % 256) ? rv : -1);
 }
