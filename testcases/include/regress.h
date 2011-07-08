@@ -52,6 +52,7 @@ extern CK_ULONG t_ran;			// number of assertions ran
 extern CK_ULONG t_passed;		// number of assertions passed
 extern CK_ULONG t_failed;		// number of assertions failed
 extern CK_ULONG t_skipped;		// number of assertions skipped
+extern CK_ULONG t_errors;               // number of errors
 
 void process_time(SYSTEMTIME t1, SYSTEMTIME t2);
 void show_error( char *str, CK_RV rc );
@@ -104,7 +105,15 @@ int get_user_pin(CK_BYTE_PTR);
 		p11_get_ckr(_rc))
 
 #define testcase_setup(total)						\
-	t_total = total;
+	t_total = 0;                                                    \
+	t_errors = 0;
+
+#define testsuite_begin(_fmt, ...)                                       \
+        do {                                                            \
+                gettimeofday(&timev1, NULL);                            \
+                printf("------\n* TESTSUITE %s BEGIN " _fmt "\n",        \
+                        __func__, ## __VA_ARGS__);                      \
+        } while (0)
 
 #define testcase_begin(_fmt, ...)                                       \
         do {                                                            \
@@ -142,11 +151,17 @@ int get_user_pin(CK_BYTE_PTR);
 		t_passed++;						\
         } while (0)
 
+#define testsuite_skip(_n,_fmt, ...)                                    \
+        do {                                                            \
+                printf("* TESTSUITE %s SKIP " _fmt "\n\n",              \
+                        __func__, ## __VA_ARGS__);                      \
+		t_skipped+= _n;						\
+        } while (0)
+
 #define testcase_skip(_fmt, ...)                                        \
         do {                                                            \
                 printf("* TESTCASE %s SKIP " _fmt "\n\n",               \
                         __func__, ## __VA_ARGS__);                      \
-                testcase_skip = TRUE;                                   \
 		t_skipped++;						\
         } while (0)
 
@@ -154,8 +169,7 @@ int get_user_pin(CK_BYTE_PTR);
         do {                                                            \
                 printf("* TESTCASE %s SKIP " _fmt "\n\n",               \
                         _func, ## __VA_ARGS__);                         \
-                testcase_skip = TRUE;                                   \
-		t_skipped++;						\
+                t_skipped++;						\
         } while (0)
 
 #define testcase_notice(_fmt, ...)                                      \
@@ -183,18 +197,24 @@ int get_user_pin(CK_BYTE_PTR);
         } while (0)
 
 #define testcase_error(_fmt, ...)                                       \
-        printf("* TESTCASE %s ERROR (%s:%d)) " _fmt "\n",               \
+	do {								\
+		printf("* TESTCASE %s ERROR (%s:%d)) " _fmt "\n",       \
                         __func__, __FILE__, __LINE__,                   \
-                        ## __VA_ARGS__)
+                        ## __VA_ARGS__);                                \
+		t_errors++;                                             \
+	} while (0)
 
 #define testcase_error_f(_func, _fmt, ...)                              \
-        printf("* TESTCASE %s ERROR (%s:%d)) " _fmt "\n",               \
+	do {								\
+		printf("* TESTCASE %s ERROR (%s:%d)) " _fmt "\n",       \
                         _func, __FILE__, __LINE__,                      \
-                        ## __VA_ARGS__)
+                        ## __VA_ARGS__);                                \
+		t_errors++;                                             \
+	} while (0)
 
 #define testcase_print_result()						\
-	printf("Total=%lu, Ran=%lu, Passed=%lu, Failed=%lu, Skipped=%lu\n", \
-			t_total, t_ran, t_passed, t_failed, t_skipped);
+	printf("Total=%lu, Ran=%lu, Passed=%lu, Failed=%lu, Skipped=%lu, Errors=%lu\n", \
+			(t_ran + t_skipped), t_ran, t_passed, t_failed, t_skipped, t_errors);
 
 #define testcase_rw_session()                                           \
         do {                                                            \
@@ -259,6 +279,16 @@ int get_user_pin(CK_BYTE_PTR);
                         goto testcase_cleanup;                          \
                 }                                                       \
         } while (0)
+
+#define testcase_user_logout()                                          \
+        rc = funcs->C_Logout(session);                                  \
+        if (rc != CKR_OK) {                                             \
+                testcase_error("C_Logout() rc = %s",                    \
+                                p11_get_ckr(rc));                       \
+                goto testcase_cleanup;                                  \
+        }                                                               \
+                                                                        \
+
 
 #define testcase_so_login()                                             \
         do {                                                            \

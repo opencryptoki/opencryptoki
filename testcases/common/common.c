@@ -1,4 +1,3 @@
-
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -12,9 +11,173 @@ CK_ULONG t_ran = 0;		// number of assertions ran
 CK_ULONG t_passed = 0;		// number of assertions passed
 CK_ULONG t_failed = 0;		// number of assertions failed
 CK_ULONG t_skipped = 0;		// number of assertions skipped
+CK_ULONG t_errors = 0;		// number of errors
 
-int
-get_so_pin(CK_BYTE *dest)
+#define MAX_MODEL 4
+
+#define DES_KEY_SIZE 8
+#define DES3_KEY_SIZE 24
+
+struct	modelinfo {
+	const char *name;
+	int seckey;
+};
+
+struct modelinfo modellist[] = {
+	{ .name="TPM", .seckey = 1, },
+	{ .name="CCA", .seckey = 1, },
+	{ .name="ICA", .seckey = 0, },
+	{ .name="SoftTok", .seckey = 0, }
+};
+
+int get_key_type(void)
+{
+	int 		i;
+	CK_RV		rc;
+	CK_TOKEN_INFO	tokinfo;
+
+	rc = funcs->C_GetTokenInfo(SLOT_ID, &tokinfo);
+	if (rc != CKR_OK)
+		return -1;
+
+	for (i=0; i < MAX_MODEL; i++) {
+		if (strstr((const char *)tokinfo.model, modellist[i].name))
+			return(modellist[i].seckey);
+	}
+
+	return -1;
+}
+
+int mech_supported(CK_SLOT_ID slot_id, CK_ULONG mechanism) {
+        CK_MECHANISM_INFO mech_info;
+        int rc;
+        rc = funcs->C_GetMechanismInfo(slot_id, mechanism, &mech_info);
+        return (rc == CKR_OK);
+}
+
+int create_AESKey(CK_SESSION_HANDLE session,
+                char key[],
+                unsigned char key_len,
+                CK_OBJECT_HANDLE *h_key)
+{
+        CK_RV           rc;
+        CK_BBOOL        true = TRUE;
+        CK_BBOOL        false = FALSE;
+        CK_OBJECT_CLASS keyClass = CKO_SECRET_KEY;
+        CK_KEY_TYPE     keyType = CKK_AES;
+        CK_ATTRIBUTE    keyTemplate[] =
+        {
+                        {CKA_CLASS,     &keyClass,      sizeof(keyClass)},
+                        {CKA_KEY_TYPE,  &keyType,       sizeof(keyType)},
+                        {CKA_ENCRYPT,   &true,          sizeof(true)},
+                        {CKA_TOKEN,     &false,         sizeof(false)},
+                        {CKA_VALUE,     key,            key_len}
+        };
+
+        rc = funcs->C_CreateObject(session, keyTemplate, 5, h_key);
+        return rc;
+}
+
+int generate_AESKey(CK_SESSION_HANDLE session,
+                CK_ULONG key_len,
+                CK_MECHANISM *mechkey,
+                CK_OBJECT_HANDLE *h_key)
+{
+        CK_ATTRIBUTE    key_gen_tmpl[] =
+                {{CKA_VALUE_LEN, &key_len, sizeof(CK_ULONG)}};
+
+        CK_RV rc = funcs->C_GenerateKey(session,
+                                        mechkey,
+                                        key_gen_tmpl,
+                                        1,
+                                        h_key);
+        return rc;
+}
+
+int create_DESKey(CK_SESSION_HANDLE session,
+                char key[],
+                unsigned char klen,
+                CK_OBJECT_HANDLE *h_key)
+{
+        CK_RV           rc;
+        CK_OBJECT_CLASS keyClass = CKO_SECRET_KEY;
+        CK_KEY_TYPE     keyType = CKK_DES;
+        CK_BYTE         value[DES_KEY_SIZE];
+        CK_BBOOL        true = TRUE;
+        CK_BBOOL        false = FALSE;
+
+        CK_ATTRIBUTE keyTemplate[] =
+        {
+                {CKA_CLASS,     &keyClass,      sizeof(keyClass)},
+                {CKA_KEY_TYPE,  &keyType,       sizeof(keyType)},
+                {CKA_ENCRYPT,   &true,          sizeof(true)},
+                {CKA_TOKEN,     &false,         sizeof(false)},
+                {CKA_VALUE,     value,          klen}
+        };
+
+        memset(value, 0, sizeof(value));
+        memcpy(value, key, klen);
+        rc = funcs->C_CreateObject(session, keyTemplate, 5, h_key);
+        if (rc != CKR_OK) {
+                testcase_error("C_CreateObject rc=%s", p11_get_ckr(rc));
+        }
+        return rc;
+}
+
+int create_DES3Key(CK_SESSION_HANDLE session,
+                char key[],
+                unsigned char klen,
+                CK_OBJECT_HANDLE *h_key)
+{
+        CK_RV           rc;
+        CK_OBJECT_CLASS keyClass = CKO_SECRET_KEY;
+        CK_KEY_TYPE     keyType = CKK_DES3;
+        CK_BYTE         value[DES3_KEY_SIZE];
+        CK_BBOOL        true = TRUE;
+        CK_BBOOL        false = FALSE;
+        CK_ATTRIBUTE    keyTemplate[] =
+        {
+                {CKA_CLASS,     &keyClass,      sizeof(keyClass)},
+                {CKA_KEY_TYPE,  &keyType,       sizeof(keyType)},
+                {CKA_ENCRYPT,   &true,          sizeof(true)},
+                {CKA_TOKEN,     &false,         sizeof(false)},
+                {CKA_VALUE,     value,          klen}
+        };
+
+        memset(value, 0, sizeof(value));
+        memcpy(value, key, klen);
+        rc = funcs->C_CreateObject(session, keyTemplate, 5, h_key);
+        if (rc != CKR_OK) {
+                testcase_error("C_CreateObject rc=%s", p11_get_ckr(rc));
+        }
+        return rc;
+}
+
+int create_GenericSecretKey(CK_SESSION_HANDLE session,
+                        CK_BYTE key[],
+                        CK_ULONG key_len,
+                        CK_OBJECT_HANDLE *h_key)
+{
+        CK_OBJECT_CLASS key_class  = CKO_SECRET_KEY;
+        CK_KEY_TYPE     key_type   = CKK_GENERIC_SECRET;
+        CK_BBOOL        false      = FALSE;
+        CK_RV           rc;
+        CK_ATTRIBUTE    key_attribs[] =
+        {
+                {CKA_CLASS,       &key_class,   sizeof(key_class)       },
+                {CKA_KEY_TYPE,    &key_type,    sizeof(key_type)        },
+                {CKA_TOKEN,       &false,       sizeof(false)           },
+                {CKA_VALUE,       key,          key_len                 }
+        };
+
+        rc = funcs->C_CreateObject(session, key_attribs, 4, h_key);
+        if (rc != CKR_OK) {
+                testcase_error("C_CreateObject rc=%s", p11_get_ckr(rc));
+        }
+        return rc;
+}
+
+int get_so_pin(CK_BYTE *dest)
 {
 	char *val;
 
@@ -37,8 +200,7 @@ get_so_pin(CK_BYTE *dest)
 	return 0;
 }
 
-int
-get_user_pin(CK_BYTE *dest)
+int get_user_pin(CK_BYTE *dest)
 {
 	char *val;
 
@@ -105,7 +267,7 @@ void usage (char *fct)
 
 	return;
 }
-	
+
 
 int do_ParseArgs(int argc, char **argv)
 {
@@ -131,7 +293,7 @@ int do_ParseArgs(int argc, char **argv)
 		}
 		else if (strcmp (argv[i], "-noinit") == 0)
 			no_init = TRUE;
-		
+
 		else if (strcmp (argv[i], "-nostop") == 0)
 			no_stop = TRUE;
 		else {
@@ -170,7 +332,7 @@ int do_GetFunctionList( void )
    rc = pfoo(&funcs);
 
    if (rc != CKR_OK) {
-      show_error("   C_GetFunctionList", rc );
+      testcase_error("C_GetFunctionList rc=%s", p11_get_ckr(rc));
       return FALSE;
    }
 
