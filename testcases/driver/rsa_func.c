@@ -1313,7 +1313,7 @@ CK_RV do_GenerateWrapUnwrapRSA(
          * specified in the template for the length of the key are taken
          * from the end of this sequence of bytes."
          */
-        if (mechtype == CKM_RSA_X_509 && keytype == CKM_AES_KEY_GEN) {
+        if ((mechtype == CKM_RSA_X_509) && (keytype == CKM_AES_KEY_GEN)) {
                 unwrap_tmpl[2].type = CKA_VALUE_LEN;
                 unwrap_tmpl[2].ulValueLen = sizeof(keylen);
                 unwrap_tmpl[2].pValue = &keylen;
@@ -1335,37 +1335,30 @@ CK_RV do_GenerateWrapUnwrapRSA(
 
         /* Get CKA_VALUE_LEN (if applicable) from both keys,    *
          * compare                                              */
-        switch(keytype) {
-                case CKM_GENERIC_SECRET_KEY_GEN:        /* generic key */
-                case CKM_RC4_KEY_GEN:                   /* RC4 */
-                case CKM_RC5_KEY_GEN:                   /* RC5 */
-                case CKM_AES_KEY_GEN:                   /* AES */
-                        /* Note that RC2, CAST, CAST3 and CAST128 also  *
-                         * require CKA_VALUE_LEN                        */
-                        rc = funcs->C_GetAttributeValue(session, secret_key,
-                                        secret_value_len, 1);
-                        if (rc != CKR_OK) {
-                                testcase_fail("C_GetAttributeValue() rc = %s",
-                                                p11_get_ckr(rc));
-                                goto testcase_cleanup;
-                        }
+	if (keytype == CKM_AES_KEY_GEN) {
 
-                        rc = funcs->C_GetAttributeValue(session, unwrapped_key,
-                                        unwrapped_value_len, 1);
-                        if (rc != CKR_OK) {
-                                testcase_fail("C_GetAttributeValue() rc = %s",
-                                                p11_get_ckr(rc));
-                                goto testcase_cleanup;
-                        }
+		rc = funcs->C_GetAttributeValue(session, secret_key,
+						secret_value_len, 1);
+		if (rc != CKR_OK) {
+			testcase_fail("C_GetAttributeValue() rc = %s",
+				       p11_get_ckr(rc));
+			goto testcase_cleanup;
+		}
 
-                        if ( *((CK_ULONG_PTR) secret_value_len[0].pValue) !=
-                             *((CK_ULONG_PTR) unwrapped_value_len[0].pValue) ) {
-                                testcase_fail("CKA_VALUE_LEN value differs (original %lu, unwrapped %lu)",
-                                                *((CK_ULONG_PTR) secret_value_len[0].pValue),
-                                                *((CK_ULONG_PTR) unwrapped_value_len[0].pValue));
-                                rc = -1;
-                                goto testcase_cleanup;
-                        }
+		rc = funcs->C_GetAttributeValue(session, unwrapped_key,
+						unwrapped_value_len, 1);
+		if (rc != CKR_OK) {
+			testcase_fail("C_GetAttributeValue() rc = %s",
+				       p11_get_ckr(rc));
+			goto testcase_cleanup;
+		}
+
+		if (*((CK_ULONG_PTR) secret_value_len[0].pValue) !=
+		    *((CK_ULONG_PTR) unwrapped_value_len[0].pValue)) {
+			testcase_fail("CKA_VALUE_LEN value differs (original %lu, unwrapped %lu)", *((CK_ULONG_PTR) secret_value_len[0].pValue), *((CK_ULONG_PTR) unwrapped_value_len[0].pValue));
+			rc = -1;
+			goto testcase_cleanup;
+		}
         }
 
         /* Now need to get CKA_VALUE from both original and     *
@@ -2563,132 +2556,100 @@ CK_RV run_GenerateWrapUnwrapRSAPKCS()
 
         // mod bits = 512. Secret keys up to 64 bytes
                 // publ exp = 3
-                { CKM_RSA_PKCS, 512 , 1, { 0x03, 0x00, 0x00, 0x00 }, 1   , CKM_GENERIC_SECRET_KEY_GEN  },
                 { CKM_RSA_PKCS, 512 , 1, { 0x03, 0x00, 0x00, 0x00 }, 8   , CKM_CDMF_KEY_GEN            },
                 { CKM_RSA_PKCS, 512 , 1, { 0x03, 0x00, 0x00, 0x00 }, 8   , CKM_DES_KEY_GEN             },
                 { CKM_RSA_PKCS, 512 , 1, { 0x03, 0x00, 0x00, 0x00 }, 24  , CKM_DES3_KEY_GEN            },
                 { CKM_RSA_PKCS, 512 , 1, { 0x03, 0x00, 0x00, 0x00 }, 16  , CKM_AES_KEY_GEN             },
                 { CKM_RSA_PKCS, 512 , 1, { 0x03, 0x00, 0x00, 0x00 }, 32  , CKM_AES_KEY_GEN             },
-                { CKM_RSA_PKCS, 512 , 1, { 0x03, 0x00, 0x00, 0x00 }, 64  , CKM_GENERIC_SECRET_KEY_GEN  },
                 // publ exp = 17 (big endian format)
-                { CKM_RSA_PKCS, 512 , 2, { 0x00, 0x11, 0x00, 0x00 }, 1   , CKM_GENERIC_SECRET_KEY_GEN  },
                 { CKM_RSA_PKCS, 512 , 2, { 0x00, 0x11, 0x00, 0x00 }, 8   , CKM_CDMF_KEY_GEN            },
                 { CKM_RSA_PKCS, 512 , 2, { 0x00, 0x11, 0x00, 0x00 }, 8   , CKM_DES_KEY_GEN             },
                 { CKM_RSA_PKCS, 512 , 2, { 0x00, 0x11, 0x00, 0x00 }, 24  , CKM_DES3_KEY_GEN            },
                 { CKM_RSA_PKCS, 512 , 2, { 0x00, 0x11, 0x00, 0x00 }, 16  , CKM_AES_KEY_GEN             },
                 { CKM_RSA_PKCS, 512 , 2, { 0x00, 0x11, 0x00, 0x00 }, 32  , CKM_AES_KEY_GEN             },
-                { CKM_RSA_PKCS, 512 , 2, { 0x00, 0x11, 0x00, 0x00 }, 64  , CKM_GENERIC_SECRET_KEY_GEN  },
                 // publ exp = 65537
-                { CKM_RSA_PKCS, 512 , 3, { 0x01, 0x00, 0x01, 0x00 }, 1   , CKM_GENERIC_SECRET_KEY_GEN  },
                 { CKM_RSA_PKCS, 512 , 3, { 0x01, 0x00, 0x01, 0x00 }, 8   , CKM_CDMF_KEY_GEN            },
                 { CKM_RSA_PKCS, 512 , 3, { 0x01, 0x00, 0x01, 0x00 }, 8   , CKM_DES_KEY_GEN             },
                 { CKM_RSA_PKCS, 512 , 3, { 0x01, 0x00, 0x01, 0x00 }, 24  , CKM_DES3_KEY_GEN            },
                 { CKM_RSA_PKCS, 512 , 3, { 0x01, 0x00, 0x01, 0x00 }, 16  , CKM_AES_KEY_GEN             },
                 { CKM_RSA_PKCS, 512 , 3, { 0x01, 0x00, 0x01, 0x00 }, 32  , CKM_AES_KEY_GEN             },
-                { CKM_RSA_PKCS, 512 , 3, { 0x01, 0x00, 0x01, 0x00 }, 64  , CKM_GENERIC_SECRET_KEY_GEN  },
         // mod bits = 768. Secret keys up to 96 bytes
                 // publ exp = 3
-                { CKM_RSA_PKCS, 768 , 1, { 0x03, 0x00, 0x00, 0x00 }, 1   , CKM_GENERIC_SECRET_KEY_GEN  },
                 { CKM_RSA_PKCS, 768 , 1, { 0x03, 0x00, 0x00, 0x00 }, 8   , CKM_CDMF_KEY_GEN            },
                 { CKM_RSA_PKCS, 768 , 1, { 0x03, 0x00, 0x00, 0x00 }, 8   , CKM_DES_KEY_GEN             },
                 { CKM_RSA_PKCS, 768 , 1, { 0x03, 0x00, 0x00, 0x00 }, 24  , CKM_DES3_KEY_GEN            },
                 { CKM_RSA_PKCS, 768 , 1, { 0x03, 0x00, 0x00, 0x00 }, 16  , CKM_AES_KEY_GEN             },
                 { CKM_RSA_PKCS, 768 , 1, { 0x03, 0x00, 0x00, 0x00 }, 32  , CKM_AES_KEY_GEN             },
-                { CKM_RSA_PKCS, 768 , 1, { 0x03, 0x00, 0x00, 0x00 }, 96  , CKM_GENERIC_SECRET_KEY_GEN  },
                 // publ exp = 17 (big endian format)
-                { CKM_RSA_PKCS, 768 , 2, { 0x00, 0x11, 0x00, 0x00 }, 1   , CKM_GENERIC_SECRET_KEY_GEN  },
                 { CKM_RSA_PKCS, 768 , 2, { 0x00, 0x11, 0x00, 0x00 }, 8   , CKM_CDMF_KEY_GEN            },
                 { CKM_RSA_PKCS, 768 , 2, { 0x00, 0x11, 0x00, 0x00 }, 8   , CKM_DES_KEY_GEN             },
                 { CKM_RSA_PKCS, 768 , 2, { 0x00, 0x11, 0x00, 0x00 }, 24  , CKM_DES3_KEY_GEN            },
                 { CKM_RSA_PKCS, 768 , 2, { 0x00, 0x11, 0x00, 0x00 }, 16  , CKM_AES_KEY_GEN             },
                 { CKM_RSA_PKCS, 768 , 2, { 0x00, 0x11, 0x00, 0x00 }, 32  , CKM_AES_KEY_GEN             },
-                { CKM_RSA_PKCS, 768 , 2, { 0x00, 0x11, 0x00, 0x00 }, 96  , CKM_GENERIC_SECRET_KEY_GEN  },
                 // publ exp = 65537
-                { CKM_RSA_PKCS, 768 , 3, { 0x01, 0x00, 0x01, 0x00 }, 1   , CKM_GENERIC_SECRET_KEY_GEN  },
                 { CKM_RSA_PKCS, 768 , 3, { 0x01, 0x00, 0x01, 0x00 }, 8   , CKM_CDMF_KEY_GEN            },
                 { CKM_RSA_PKCS, 768 , 3, { 0x01, 0x00, 0x01, 0x00 }, 8   , CKM_DES_KEY_GEN             },
                 { CKM_RSA_PKCS, 768 , 3, { 0x01, 0x00, 0x01, 0x00 }, 24  , CKM_DES3_KEY_GEN            },
                 { CKM_RSA_PKCS, 768 , 3, { 0x01, 0x00, 0x01, 0x00 }, 16  , CKM_AES_KEY_GEN             },
                 { CKM_RSA_PKCS, 768 , 3, { 0x01, 0x00, 0x01, 0x00 }, 32  , CKM_AES_KEY_GEN             },
-                { CKM_RSA_PKCS, 768 , 3, { 0x01, 0x00, 0x01, 0x00 }, 96  , CKM_GENERIC_SECRET_KEY_GEN  },
         // mod bits = 1024. Secret keys up to 128 bytes
                 // publ exp = 3
-                { CKM_RSA_PKCS, 1024, 1, { 0x03, 0x00, 0x00, 0x00 }, 1   , CKM_GENERIC_SECRET_KEY_GEN  },
                 { CKM_RSA_PKCS, 1024, 1, { 0x03, 0x00, 0x00, 0x00 }, 8   , CKM_CDMF_KEY_GEN            },
                 { CKM_RSA_PKCS, 1024, 1, { 0x03, 0x00, 0x00, 0x00 }, 8   , CKM_DES_KEY_GEN             },
                 { CKM_RSA_PKCS, 1024, 1, { 0x03, 0x00, 0x00, 0x00 }, 24  , CKM_DES3_KEY_GEN            },
                 { CKM_RSA_PKCS, 1024, 1, { 0x03, 0x00, 0x00, 0x00 }, 16  , CKM_AES_KEY_GEN             },
                 { CKM_RSA_PKCS, 1024, 1, { 0x03, 0x00, 0x00, 0x00 }, 32  , CKM_AES_KEY_GEN             },
-                { CKM_RSA_PKCS, 1024, 1, { 0x03, 0x00, 0x00, 0x00 }, 128 , CKM_GENERIC_SECRET_KEY_GEN  },
                 // publ exp = 17 (big endian format)
-                { CKM_RSA_PKCS, 1024, 2, { 0x00, 0x11, 0x00, 0x00 }, 1   , CKM_GENERIC_SECRET_KEY_GEN  },
                 { CKM_RSA_PKCS, 1024, 2, { 0x00, 0x11, 0x00, 0x00 }, 8   , CKM_CDMF_KEY_GEN            },
                 { CKM_RSA_PKCS, 1024, 2, { 0x00, 0x11, 0x00, 0x00 }, 8   , CKM_DES_KEY_GEN             },
                 { CKM_RSA_PKCS, 1024, 2, { 0x00, 0x11, 0x00, 0x00 }, 24  , CKM_DES3_KEY_GEN            },
                 { CKM_RSA_PKCS, 1024, 2, { 0x00, 0x11, 0x00, 0x00 }, 16  , CKM_AES_KEY_GEN             },
                 { CKM_RSA_PKCS, 1024, 2, { 0x00, 0x11, 0x00, 0x00 }, 32  , CKM_AES_KEY_GEN             },
-                { CKM_RSA_PKCS, 1024, 2, { 0x00, 0x11, 0x00, 0x00 }, 128 , CKM_GENERIC_SECRET_KEY_GEN  },
                 // publ exp = 65537
-                { CKM_RSA_PKCS, 1024, 3, { 0x01, 0x00, 0x01, 0x00 }, 1   , CKM_GENERIC_SECRET_KEY_GEN  },
                 { CKM_RSA_PKCS, 1024, 3, { 0x01, 0x00, 0x01, 0x00 }, 8   , CKM_CDMF_KEY_GEN            },
                 { CKM_RSA_PKCS, 1024, 3, { 0x01, 0x00, 0x01, 0x00 }, 8   , CKM_DES_KEY_GEN             },
                 { CKM_RSA_PKCS, 1024, 3, { 0x01, 0x00, 0x01, 0x00 }, 24  , CKM_DES3_KEY_GEN            },
                 { CKM_RSA_PKCS, 1024, 3, { 0x01, 0x00, 0x01, 0x00 }, 16  , CKM_AES_KEY_GEN             },
                 { CKM_RSA_PKCS, 1024, 3, { 0x01, 0x00, 0x01, 0x00 }, 32  , CKM_AES_KEY_GEN             },
-                { CKM_RSA_PKCS, 1024, 3, { 0x01, 0x00, 0x01, 0x00 }, 128 , CKM_GENERIC_SECRET_KEY_GEN  },
         // mod bits = 2048. Secret keys up to 256 bytes
                 // publ exp = 3
-                { CKM_RSA_PKCS, 2048, 1, { 0x03, 0x00, 0x00, 0x00 }, 1   , CKM_GENERIC_SECRET_KEY_GEN  },
                 { CKM_RSA_PKCS, 2048, 1, { 0x03, 0x00, 0x00, 0x00 }, 8   , CKM_CDMF_KEY_GEN            },
                 { CKM_RSA_PKCS, 2048, 1, { 0x03, 0x00, 0x00, 0x00 }, 8   , CKM_DES_KEY_GEN             },
                 { CKM_RSA_PKCS, 2048, 1, { 0x03, 0x00, 0x00, 0x00 }, 24  , CKM_DES3_KEY_GEN            },
                 { CKM_RSA_PKCS, 2048, 1, { 0x03, 0x00, 0x00, 0x00 }, 16  , CKM_AES_KEY_GEN             },
                 { CKM_RSA_PKCS, 2048, 1, { 0x03, 0x00, 0x00, 0x00 }, 32  , CKM_AES_KEY_GEN             },
-                { CKM_RSA_PKCS, 2048, 1, { 0x03, 0x00, 0x00, 0x00 }, 256 , CKM_GENERIC_SECRET_KEY_GEN  },
                 // publ exp = 17 (big endian format)
-                { CKM_RSA_PKCS, 2048, 2, { 0x00, 0x11, 0x00, 0x00 }, 1   , CKM_GENERIC_SECRET_KEY_GEN  },
                 { CKM_RSA_PKCS, 2048, 2, { 0x00, 0x11, 0x00, 0x00 }, 8   , CKM_CDMF_KEY_GEN            },
                 { CKM_RSA_PKCS, 2048, 2, { 0x00, 0x11, 0x00, 0x00 }, 8   , CKM_DES_KEY_GEN             },
                 { CKM_RSA_PKCS, 2048, 2, { 0x00, 0x11, 0x00, 0x00 }, 24  , CKM_DES3_KEY_GEN            },
                 { CKM_RSA_PKCS, 2048, 2, { 0x00, 0x11, 0x00, 0x00 }, 16  , CKM_AES_KEY_GEN             },
                 { CKM_RSA_PKCS, 2048, 2, { 0x00, 0x11, 0x00, 0x00 }, 32  , CKM_AES_KEY_GEN             },
-                { CKM_RSA_PKCS, 2048, 2, { 0x00, 0x11, 0x00, 0x00 }, 256 , CKM_GENERIC_SECRET_KEY_GEN  },
                 // publ exp = 65537
-                { CKM_RSA_PKCS, 2048, 3, { 0x01, 0x00, 0x01, 0x00 }, 1   , CKM_GENERIC_SECRET_KEY_GEN  },
                 { CKM_RSA_PKCS, 2048, 3, { 0x01, 0x00, 0x01, 0x00 }, 8   , CKM_CDMF_KEY_GEN            },
                 { CKM_RSA_PKCS, 2048, 3, { 0x01, 0x00, 0x01, 0x00 }, 8   , CKM_DES_KEY_GEN             },
                 { CKM_RSA_PKCS, 2048, 3, { 0x01, 0x00, 0x01, 0x00 }, 24  , CKM_DES3_KEY_GEN            },
                 { CKM_RSA_PKCS, 2048, 3, { 0x01, 0x00, 0x01, 0x00 }, 16  , CKM_AES_KEY_GEN             },
                 { CKM_RSA_PKCS, 2048, 3, { 0x01, 0x00, 0x01, 0x00 }, 32  , CKM_AES_KEY_GEN             },
-                { CKM_RSA_PKCS, 2048, 3, { 0x01, 0x00, 0x01, 0x00 }, 256 , CKM_GENERIC_SECRET_KEY_GEN  },
         // mod bits = 4096. Secret keys up to 512 bytes
                 // publ exp = 3
-                { CKM_RSA_PKCS, 4096, 1, { 0x03, 0x00, 0x00, 0x00 }, 1   , CKM_GENERIC_SECRET_KEY_GEN  },
                 { CKM_RSA_PKCS, 4096, 1, { 0x03, 0x00, 0x00, 0x00 }, 8   , CKM_CDMF_KEY_GEN            },
                 { CKM_RSA_PKCS, 4096, 1, { 0x03, 0x00, 0x00, 0x00 }, 8   , CKM_DES_KEY_GEN             },
                 { CKM_RSA_PKCS, 4096, 1, { 0x03, 0x00, 0x00, 0x00 }, 24  , CKM_DES3_KEY_GEN            },
                 { CKM_RSA_PKCS, 4096, 1, { 0x03, 0x00, 0x00, 0x00 }, 16  , CKM_AES_KEY_GEN             },
                 { CKM_RSA_PKCS, 4096, 1, { 0x03, 0x00, 0x00, 0x00 }, 32  , CKM_AES_KEY_GEN             },
-                { CKM_RSA_PKCS, 4096, 1, { 0x03, 0x00, 0x00, 0x00 }, 512 , CKM_GENERIC_SECRET_KEY_GEN  },
                 // publ exp = 17 (big endian format)
-                { CKM_RSA_PKCS, 4096, 2, { 0x00, 0x11, 0x00, 0x00 }, 1   , CKM_GENERIC_SECRET_KEY_GEN  },
                 { CKM_RSA_PKCS, 4096, 2, { 0x00, 0x11, 0x00, 0x00 }, 8   , CKM_CDMF_KEY_GEN            },
                 { CKM_RSA_PKCS, 4096, 2, { 0x00, 0x11, 0x00, 0x00 }, 8   , CKM_DES_KEY_GEN             },
                 { CKM_RSA_PKCS, 4096, 2, { 0x00, 0x11, 0x00, 0x00 }, 24  , CKM_DES3_KEY_GEN            },
                 { CKM_RSA_PKCS, 4096, 2, { 0x00, 0x11, 0x00, 0x00 }, 16  , CKM_AES_KEY_GEN             },
                 { CKM_RSA_PKCS, 4096, 2, { 0x00, 0x11, 0x00, 0x00 }, 32  , CKM_AES_KEY_GEN             },
-                { CKM_RSA_PKCS, 4096, 2, { 0x00, 0x11, 0x00, 0x00 }, 512 , CKM_GENERIC_SECRET_KEY_GEN  },
                 // publ exp = 65537
-                { CKM_RSA_PKCS, 4096, 3, { 0x01, 0x00, 0x01, 0x00 }, 1   , CKM_GENERIC_SECRET_KEY_GEN  },
                 { CKM_RSA_PKCS, 4096, 3, { 0x01, 0x00, 0x01, 0x00 }, 8   , CKM_CDMF_KEY_GEN            },
                 { CKM_RSA_PKCS, 4096, 3, { 0x01, 0x00, 0x01, 0x00 }, 8   , CKM_DES_KEY_GEN             },
                 { CKM_RSA_PKCS, 4096, 3, { 0x01, 0x00, 0x01, 0x00 }, 24  , CKM_DES3_KEY_GEN            },
                 { CKM_RSA_PKCS, 4096, 3, { 0x01, 0x00, 0x01, 0x00 }, 16  , CKM_AES_KEY_GEN             },
                 { CKM_RSA_PKCS, 4096, 3, { 0x01, 0x00, 0x01, 0x00 }, 32  , CKM_AES_KEY_GEN             },
-                { CKM_RSA_PKCS, 4096, 3, { 0x01, 0x00, 0x01, 0x00 }, 512 , CKM_GENERIC_SECRET_KEY_GEN  },
         };
-
-
 
         for (i = 0;
                 i < (sizeof(inputdata) / sizeof(struct _inputparam));
@@ -2729,132 +2690,100 @@ CK_RV run_GenerateWrapUnwrapRSAX509()
 
         // mod bits = 512. Secret keys up to 64 bytes
                 // publ exp = 3
-                { CKM_RSA_X_509, 512 , 1, { 0x03, 0x00, 0x00, 0x00 }, 1   , CKM_GENERIC_SECRET_KEY_GEN  },
                 { CKM_RSA_X_509, 512 , 1, { 0x03, 0x00, 0x00, 0x00 }, 8   , CKM_CDMF_KEY_GEN            },
                 { CKM_RSA_X_509, 512 , 1, { 0x03, 0x00, 0x00, 0x00 }, 8   , CKM_DES_KEY_GEN             },
                 { CKM_RSA_X_509, 512 , 1, { 0x03, 0x00, 0x00, 0x00 }, 24  , CKM_DES3_KEY_GEN            },
                 { CKM_RSA_X_509, 512 , 1, { 0x03, 0x00, 0x00, 0x00 }, 16  , CKM_AES_KEY_GEN             },
                 { CKM_RSA_X_509, 512 , 1, { 0x03, 0x00, 0x00, 0x00 }, 32  , CKM_AES_KEY_GEN             },
-                { CKM_RSA_X_509, 512 , 1, { 0x03, 0x00, 0x00, 0x00 }, 64  , CKM_GENERIC_SECRET_KEY_GEN  },
                 // publ exp = 17 (big endian format)
-                { CKM_RSA_X_509, 512 , 2, { 0x00, 0x11, 0x00, 0x00 }, 1   , CKM_GENERIC_SECRET_KEY_GEN  },
                 { CKM_RSA_X_509, 512 , 2, { 0x00, 0x11, 0x00, 0x00 }, 8   , CKM_CDMF_KEY_GEN            },
                 { CKM_RSA_X_509, 512 , 2, { 0x00, 0x11, 0x00, 0x00 }, 8   , CKM_DES_KEY_GEN             },
                 { CKM_RSA_X_509, 512 , 2, { 0x00, 0x11, 0x00, 0x00 }, 24  , CKM_DES3_KEY_GEN            },
                 { CKM_RSA_X_509, 512 , 2, { 0x00, 0x11, 0x00, 0x00 }, 16  , CKM_AES_KEY_GEN             },
                 { CKM_RSA_X_509, 512 , 2, { 0x00, 0x11, 0x00, 0x00 }, 32  , CKM_AES_KEY_GEN             },
-                { CKM_RSA_X_509, 512 , 2, { 0x00, 0x11, 0x00, 0x00 }, 64  , CKM_GENERIC_SECRET_KEY_GEN  },
                 // publ exp = 65537
-                { CKM_RSA_X_509, 512 , 3, { 0x01, 0x00, 0x01, 0x00 }, 1   , CKM_GENERIC_SECRET_KEY_GEN  },
                 { CKM_RSA_X_509, 512 , 3, { 0x01, 0x00, 0x01, 0x00 }, 8   , CKM_CDMF_KEY_GEN            },
                 { CKM_RSA_X_509, 512 , 3, { 0x01, 0x00, 0x01, 0x00 }, 8   , CKM_DES_KEY_GEN             },
                 { CKM_RSA_X_509, 512 , 3, { 0x01, 0x00, 0x01, 0x00 }, 24  , CKM_DES3_KEY_GEN            },
                 { CKM_RSA_X_509, 512 , 3, { 0x01, 0x00, 0x01, 0x00 }, 16  , CKM_AES_KEY_GEN             },
                 { CKM_RSA_X_509, 512 , 3, { 0x01, 0x00, 0x01, 0x00 }, 32  , CKM_AES_KEY_GEN             },
-                { CKM_RSA_X_509, 512 , 3, { 0x01, 0x00, 0x01, 0x00 }, 64  , CKM_GENERIC_SECRET_KEY_GEN  },
         // mod bits = 768. Secret keys up to 96 bytes
                 // publ exp = 3
-                { CKM_RSA_X_509, 768 , 1, { 0x03, 0x00, 0x00, 0x00 }, 1   , CKM_GENERIC_SECRET_KEY_GEN  },
                 { CKM_RSA_X_509, 768 , 1, { 0x03, 0x00, 0x00, 0x00 }, 8   , CKM_CDMF_KEY_GEN            },
                 { CKM_RSA_X_509, 768 , 1, { 0x03, 0x00, 0x00, 0x00 }, 8   , CKM_DES_KEY_GEN             },
                 { CKM_RSA_X_509, 768 , 1, { 0x03, 0x00, 0x00, 0x00 }, 24  , CKM_DES3_KEY_GEN            },
                 { CKM_RSA_X_509, 768 , 1, { 0x03, 0x00, 0x00, 0x00 }, 16  , CKM_AES_KEY_GEN             },
                 { CKM_RSA_X_509, 768 , 1, { 0x03, 0x00, 0x00, 0x00 }, 32  , CKM_AES_KEY_GEN             },
-                { CKM_RSA_X_509, 768 , 1, { 0x03, 0x00, 0x00, 0x00 }, 96  , CKM_GENERIC_SECRET_KEY_GEN  },
                 // publ exp = 17 (big endian format)
-                { CKM_RSA_X_509, 768 , 2, { 0x00, 0x11, 0x00, 0x00 }, 1   , CKM_GENERIC_SECRET_KEY_GEN  },
                 { CKM_RSA_X_509, 768 , 2, { 0x00, 0x11, 0x00, 0x00 }, 8   , CKM_CDMF_KEY_GEN            },
                 { CKM_RSA_X_509, 768 , 2, { 0x00, 0x11, 0x00, 0x00 }, 8   , CKM_DES_KEY_GEN             },
                 { CKM_RSA_X_509, 768 , 2, { 0x00, 0x11, 0x00, 0x00 }, 24  , CKM_DES3_KEY_GEN            },
                 { CKM_RSA_X_509, 768 , 2, { 0x00, 0x11, 0x00, 0x00 }, 16  , CKM_AES_KEY_GEN             },
                 { CKM_RSA_X_509, 768 , 2, { 0x00, 0x11, 0x00, 0x00 }, 32  , CKM_AES_KEY_GEN             },
-                { CKM_RSA_X_509, 768 , 2, { 0x00, 0x11, 0x00, 0x00 }, 96  , CKM_GENERIC_SECRET_KEY_GEN  },
                 // publ exp = 65537
-                { CKM_RSA_X_509, 768 , 3, { 0x01, 0x00, 0x01, 0x00 }, 1   , CKM_GENERIC_SECRET_KEY_GEN  },
                 { CKM_RSA_X_509, 768 , 3, { 0x01, 0x00, 0x01, 0x00 }, 8   , CKM_CDMF_KEY_GEN            },
                 { CKM_RSA_X_509, 768 , 3, { 0x01, 0x00, 0x01, 0x00 }, 8   , CKM_DES_KEY_GEN             },
                 { CKM_RSA_X_509, 768 , 3, { 0x01, 0x00, 0x01, 0x00 }, 24  , CKM_DES3_KEY_GEN            },
                 { CKM_RSA_X_509, 768 , 3, { 0x01, 0x00, 0x01, 0x00 }, 16  , CKM_AES_KEY_GEN             },
                 { CKM_RSA_X_509, 768 , 3, { 0x01, 0x00, 0x01, 0x00 }, 32  , CKM_AES_KEY_GEN             },
-                { CKM_RSA_X_509, 768 , 3, { 0x01, 0x00, 0x01, 0x00 }, 96  , CKM_GENERIC_SECRET_KEY_GEN  },
         // mod bits = 1024. Secret keys up to 128 bytes
                 // publ exp = 3
-                { CKM_RSA_X_509, 1024, 1, { 0x03, 0x00, 0x00, 0x00 }, 1   , CKM_GENERIC_SECRET_KEY_GEN  },
                 { CKM_RSA_X_509, 1024, 1, { 0x03, 0x00, 0x00, 0x00 }, 8   , CKM_CDMF_KEY_GEN            },
                 { CKM_RSA_X_509, 1024, 1, { 0x03, 0x00, 0x00, 0x00 }, 8   , CKM_DES_KEY_GEN             },
                 { CKM_RSA_X_509, 1024, 1, { 0x03, 0x00, 0x00, 0x00 }, 24  , CKM_DES3_KEY_GEN            },
                 { CKM_RSA_X_509, 1024, 1, { 0x03, 0x00, 0x00, 0x00 }, 16  , CKM_AES_KEY_GEN             },
                 { CKM_RSA_X_509, 1024, 1, { 0x03, 0x00, 0x00, 0x00 }, 32  , CKM_AES_KEY_GEN             },
-                { CKM_RSA_X_509, 1024, 1, { 0x03, 0x00, 0x00, 0x00 }, 128 , CKM_GENERIC_SECRET_KEY_GEN  },
                 // publ exp = 17 (big endian format)
-                { CKM_RSA_X_509, 1024, 2, { 0x00, 0x11, 0x00, 0x00 }, 1   , CKM_GENERIC_SECRET_KEY_GEN  },
                 { CKM_RSA_X_509, 1024, 2, { 0x00, 0x11, 0x00, 0x00 }, 8   , CKM_CDMF_KEY_GEN            },
                 { CKM_RSA_X_509, 1024, 2, { 0x00, 0x11, 0x00, 0x00 }, 8   , CKM_DES_KEY_GEN             },
                 { CKM_RSA_X_509, 1024, 2, { 0x00, 0x11, 0x00, 0x00 }, 24  , CKM_DES3_KEY_GEN            },
                 { CKM_RSA_X_509, 1024, 2, { 0x00, 0x11, 0x00, 0x00 }, 16  , CKM_AES_KEY_GEN             },
                 { CKM_RSA_X_509, 1024, 2, { 0x00, 0x11, 0x00, 0x00 }, 32  , CKM_AES_KEY_GEN             },
-                { CKM_RSA_X_509, 1024, 2, { 0x00, 0x11, 0x00, 0x00 }, 128 , CKM_GENERIC_SECRET_KEY_GEN  },
                 // publ exp = 65537
-                { CKM_RSA_X_509, 1024, 3, { 0x01, 0x00, 0x01, 0x00 }, 1   , CKM_GENERIC_SECRET_KEY_GEN  },
                 { CKM_RSA_X_509, 1024, 3, { 0x01, 0x00, 0x01, 0x00 }, 8   , CKM_CDMF_KEY_GEN            },
                 { CKM_RSA_X_509, 1024, 3, { 0x01, 0x00, 0x01, 0x00 }, 8   , CKM_DES_KEY_GEN             },
                 { CKM_RSA_X_509, 1024, 3, { 0x01, 0x00, 0x01, 0x00 }, 24  , CKM_DES3_KEY_GEN            },
                 { CKM_RSA_X_509, 1024, 3, { 0x01, 0x00, 0x01, 0x00 }, 16  , CKM_AES_KEY_GEN             },
                 { CKM_RSA_X_509, 1024, 3, { 0x01, 0x00, 0x01, 0x00 }, 32  , CKM_AES_KEY_GEN             },
-                { CKM_RSA_X_509, 1024, 3, { 0x01, 0x00, 0x01, 0x00 }, 128 , CKM_GENERIC_SECRET_KEY_GEN  },
         // mod bits = 2048. Secret keys up to 256 bytes
                 // publ exp = 3
-                { CKM_RSA_X_509, 2048, 1, { 0x03, 0x00, 0x00, 0x00 }, 1   , CKM_GENERIC_SECRET_KEY_GEN  },
                 { CKM_RSA_X_509, 2048, 1, { 0x03, 0x00, 0x00, 0x00 }, 8   , CKM_CDMF_KEY_GEN            },
                 { CKM_RSA_X_509, 2048, 1, { 0x03, 0x00, 0x00, 0x00 }, 8   , CKM_DES_KEY_GEN             },
                 { CKM_RSA_X_509, 2048, 1, { 0x03, 0x00, 0x00, 0x00 }, 24  , CKM_DES3_KEY_GEN            },
                 { CKM_RSA_X_509, 2048, 1, { 0x03, 0x00, 0x00, 0x00 }, 16  , CKM_AES_KEY_GEN             },
                 { CKM_RSA_X_509, 2048, 1, { 0x03, 0x00, 0x00, 0x00 }, 32  , CKM_AES_KEY_GEN             },
-                { CKM_RSA_X_509, 2048, 1, { 0x03, 0x00, 0x00, 0x00 }, 256 , CKM_GENERIC_SECRET_KEY_GEN  },
                 // publ exp = 17 (big endian format)
-                { CKM_RSA_X_509, 2048, 2, { 0x00, 0x11, 0x00, 0x00 }, 1   , CKM_GENERIC_SECRET_KEY_GEN  },
                 { CKM_RSA_X_509, 2048, 2, { 0x00, 0x11, 0x00, 0x00 }, 8   , CKM_CDMF_KEY_GEN            },
                 { CKM_RSA_X_509, 2048, 2, { 0x00, 0x11, 0x00, 0x00 }, 8   , CKM_DES_KEY_GEN             },
                 { CKM_RSA_X_509, 2048, 2, { 0x00, 0x11, 0x00, 0x00 }, 24  , CKM_DES3_KEY_GEN            },
                 { CKM_RSA_X_509, 2048, 2, { 0x00, 0x11, 0x00, 0x00 }, 16  , CKM_AES_KEY_GEN             },
                 { CKM_RSA_X_509, 2048, 2, { 0x00, 0x11, 0x00, 0x00 }, 32  , CKM_AES_KEY_GEN             },
-                { CKM_RSA_X_509, 2048, 2, { 0x00, 0x11, 0x00, 0x00 }, 256 , CKM_GENERIC_SECRET_KEY_GEN  },
                 // publ exp = 65537
-                { CKM_RSA_X_509, 2048, 3, { 0x01, 0x00, 0x01, 0x00 }, 1   , CKM_GENERIC_SECRET_KEY_GEN  },
                 { CKM_RSA_X_509, 2048, 3, { 0x01, 0x00, 0x01, 0x00 }, 8   , CKM_CDMF_KEY_GEN            },
                 { CKM_RSA_X_509, 2048, 3, { 0x01, 0x00, 0x01, 0x00 }, 8   , CKM_DES_KEY_GEN             },
                 { CKM_RSA_X_509, 2048, 3, { 0x01, 0x00, 0x01, 0x00 }, 24  , CKM_DES3_KEY_GEN            },
                 { CKM_RSA_X_509, 2048, 3, { 0x01, 0x00, 0x01, 0x00 }, 16  , CKM_AES_KEY_GEN             },
                 { CKM_RSA_X_509, 2048, 3, { 0x01, 0x00, 0x01, 0x00 }, 32  , CKM_AES_KEY_GEN             },
-                { CKM_RSA_X_509, 2048, 3, { 0x01, 0x00, 0x01, 0x00 }, 256 , CKM_GENERIC_SECRET_KEY_GEN  },
         // mod bits = 4096. Secret keys up to 512 bytes
                 // publ exp = 3
-                { CKM_RSA_X_509, 4096, 1, { 0x03, 0x00, 0x00, 0x00 }, 1   , CKM_GENERIC_SECRET_KEY_GEN  },
                 { CKM_RSA_X_509, 4096, 1, { 0x03, 0x00, 0x00, 0x00 }, 8   , CKM_CDMF_KEY_GEN            },
                 { CKM_RSA_X_509, 4096, 1, { 0x03, 0x00, 0x00, 0x00 }, 8   , CKM_DES_KEY_GEN             },
                 { CKM_RSA_X_509, 4096, 1, { 0x03, 0x00, 0x00, 0x00 }, 24  , CKM_DES3_KEY_GEN            },
                 { CKM_RSA_X_509, 4096, 1, { 0x03, 0x00, 0x00, 0x00 }, 16  , CKM_AES_KEY_GEN             },
                 { CKM_RSA_X_509, 4096, 1, { 0x03, 0x00, 0x00, 0x00 }, 32  , CKM_AES_KEY_GEN             },
-                { CKM_RSA_X_509, 4096, 1, { 0x03, 0x00, 0x00, 0x00 }, 512 , CKM_GENERIC_SECRET_KEY_GEN  },
                 // publ exp = 17 (big endian format)
-                { CKM_RSA_X_509, 4096, 2, { 0x00, 0x11, 0x00, 0x00 }, 1   , CKM_GENERIC_SECRET_KEY_GEN  },
                 { CKM_RSA_X_509, 4096, 2, { 0x00, 0x11, 0x00, 0x00 }, 8   , CKM_CDMF_KEY_GEN            },
                 { CKM_RSA_X_509, 4096, 2, { 0x00, 0x11, 0x00, 0x00 }, 8   , CKM_DES_KEY_GEN             },
                 { CKM_RSA_X_509, 4096, 2, { 0x00, 0x11, 0x00, 0x00 }, 24  , CKM_DES3_KEY_GEN            },
                 { CKM_RSA_X_509, 4096, 2, { 0x00, 0x11, 0x00, 0x00 }, 16  , CKM_AES_KEY_GEN             },
                 { CKM_RSA_X_509, 4096, 2, { 0x00, 0x11, 0x00, 0x00 }, 32  , CKM_AES_KEY_GEN             },
-                { CKM_RSA_X_509, 4096, 2, { 0x00, 0x11, 0x00, 0x00 }, 512 , CKM_GENERIC_SECRET_KEY_GEN  },
                 // publ exp = 65537
-                { CKM_RSA_X_509, 4096, 3, { 0x01, 0x00, 0x01, 0x00 }, 1   , CKM_GENERIC_SECRET_KEY_GEN  },
                 { CKM_RSA_X_509, 4096, 3, { 0x01, 0x00, 0x01, 0x00 }, 8   , CKM_CDMF_KEY_GEN            },
                 { CKM_RSA_X_509, 4096, 3, { 0x01, 0x00, 0x01, 0x00 }, 8   , CKM_DES_KEY_GEN             },
                 { CKM_RSA_X_509, 4096, 3, { 0x01, 0x00, 0x01, 0x00 }, 24  , CKM_DES3_KEY_GEN            },
                 { CKM_RSA_X_509, 4096, 3, { 0x01, 0x00, 0x01, 0x00 }, 16  , CKM_AES_KEY_GEN             },
                 { CKM_RSA_X_509, 4096, 3, { 0x01, 0x00, 0x01, 0x00 }, 32  , CKM_AES_KEY_GEN             },
-                { CKM_RSA_X_509, 4096, 3, { 0x01, 0x00, 0x01, 0x00 }, 512 , CKM_GENERIC_SECRET_KEY_GEN  },
         };
-
-
 
         for (i = 0;
                 i < (sizeof(inputdata) / sizeof(struct _inputparam));
