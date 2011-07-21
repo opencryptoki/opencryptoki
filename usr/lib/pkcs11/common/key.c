@@ -5241,59 +5241,68 @@ aes_unwrap( TEMPLATE *tmpl,
    CK_BBOOL	   found        = FALSE;
 
    
-   /*
-    * CKA_VALUE_LEN attribute is optional in the key template. Default
-    * is to use AES_BLOCK_SIZE and truncate if no value is specified. --KlausK
+   /* pkcs#11v2.20: CKA_VALUE_LEN must not be specified when an AES key object
+    * is unwwrapped with C_UnwrapKey. We make an exception when X.509 is 
+    * the wrapping key since we need to extract key from padding.
     */
    found = template_attribute_find( tmpl, CKA_VALUE_LEN, &val_len_attr );
-   if (found){
-      key_size = *(CK_ULONG *)val_len_attr->pValue;
-   }
+   if (found) {
+      if (fromend == TRUE) {
+      	   key_size = *(CK_ULONG *)val_len_attr->pValue;
+      	   ptr = data + data_len - key_size;
+      } else {
+           OCK_LOG_ERR(ERR_TEMPLATE_INCONSISTENT)
+           return CKR_TEMPLATE_INCONSISTENT;
+      }
+   } 
    else {
-      key_size = AES_BLOCK_SIZE;		/* same as AES_KEY_SIZE_128 */
-   }
+      if (fromend == TRUE) {
+         OCK_LOG_ERR(ERR_TEMPLATE_INCOMPLETE)
+         return CKR_TEMPLATE_INCOMPLETE;
+      } else
+         key_size = data_len;
+         ptr = data;
+  }
       
-   /* key_size should be one of AES's possible sizes */
+   /* check validity of data_len */
    if (key_size != AES_KEY_SIZE_128 &&
        key_size != AES_KEY_SIZE_192 &&
-       key_size != AES_KEY_SIZE_256){
-      OCK_LOG_ERR(ERR_WRAPPING_KEY_HANDLE_INVALID);
-      return CKR_ATTRIBUTE_VALUE_INVALID;
+       key_size != AES_KEY_SIZE_256) {
+         OCK_LOG_ERR(ERR_WRAPPED_KEY_LEN_RANGE);
+         return CKR_WRAPPED_KEY_LEN_RANGE;
    }
-   if (fromend == TRUE)
-      ptr = data + data_len - key_size;
-   else
-      ptr = data;
-   
-#if 0
-   CK_ULONG        i;
-   if (nv_token_data->tweak_vector.check_des_parity == TRUE) {
-      for (i=0; i < 3*DES_KEY_SIZE; i++) {
-         if (parity_is_odd(ptr[i]) == FALSE){
-            OCK_LOG_ERR(ERR_ATTRIBUTE_VALUE_INVALID);
-            return CKR_ATTRIBUTE_VALUE_INVALID;
-         }
-      }
-   }
-#endif
-   
+
    value_attr = (CK_ATTRIBUTE *)malloc( sizeof(CK_ATTRIBUTE) + key_size );
 
    if (!value_attr) {
-      if (value_attr)
-         free( value_attr );
       OCK_LOG_ERR(ERR_HOST_MEMORY);
-
       return CKR_HOST_MEMORY;
    }
 
-   value_attr->type       = CKA_VALUE;
+   value_attr->type = CKA_VALUE;
    value_attr->ulValueLen = key_size;
-   value_attr->pValue     = (CK_BYTE *)value_attr + sizeof(CK_ATTRIBUTE);
+   value_attr->pValue = (CK_BYTE *)value_attr + sizeof(CK_ATTRIBUTE);
    memcpy( value_attr->pValue, ptr, key_size );
 
    template_update_attribute( tmpl, value_attr );
 
+
+   /* pkcs11v2-20: CKA_VALUE and CKA_VALUE_LEN given for aes key object. */
+   if (!found) {
+      val_len_attr = (CK_ATTRIBUTE *) malloc(sizeof(CK_ATTRIBUTE) + sizeof(CK_ULONG));
+      if (!val_len_attr) {
+         OCK_LOG_ERR(ERR_HOST_MEMORY);
+         return CKR_HOST_MEMORY;
+      }
+	
+      val_len_attr->type = CKA_VALUE_LEN;
+      val_len_attr->ulValueLen = sizeof(CK_ULONG);
+      val_len_attr->pValue = (CK_BYTE *)val_len_attr + sizeof(CK_ATTRIBUTE);
+      *((CK_ULONG *)val_len_attr->pValue) = key_size;
+
+      template_update_attribute(tmpl, val_len_attr);
+   }
+		
    return CKR_OK;
 }
 

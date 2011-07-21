@@ -5305,24 +5305,13 @@ aes_unwrap( TEMPLATE *tmpl,
    if (key_size != AES_KEY_SIZE_128 &&
        key_size != AES_KEY_SIZE_192 &&
        key_size != AES_KEY_SIZE_256){
-      OCK_LOG_ERR(ERR_WRAPPING_KEY_HANDLE_INVALID);
-      return CKR_ATTRIBUTE_VALUE_INVALID;
+      OCK_LOG_ERR(ERR_WRAPPED_KEY_LEN_RANGE);
+      return CKR_WRAPPED_KEY_LEN_RANGE;
    }
    if (fromend == TRUE)
       ptr = data + data_len - key_size;
    else
       ptr = data;
-   
-#if 0
-   if (nv_token_data->tweak_vector.check_des_parity == TRUE) {
-      for (i=0; i < 3*DES_KEY_SIZE; i++) {
-         if (parity_is_odd(ptr[i]) == FALSE){
-            OCK_LOG_ERR(ERR_ATTRIBUTE_VALUE_INVALID);
-            return CKR_ATTRIBUTE_VALUE_INVALID;
-         }
-      }
-   }
-#endif
    
    value_attr = (CK_ATTRIBUTE *)malloc( sizeof(CK_ATTRIBUTE) + CCA_KEY_ID_SIZE );
 
