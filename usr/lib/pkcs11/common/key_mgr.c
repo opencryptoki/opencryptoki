@@ -1067,8 +1067,8 @@ key_mgr_unwrap_key( SESSION           * sess,
       return CKR_WRAPPING_KEY_HANDLE_INVALID;
    }
 
-   found_class    = FALSE;
-   found_type     = FALSE;
+   found_class = FALSE;
+   found_type = FALSE;
 
    // pkcs11v2-20rc3, page 178
    // C_WrapKey can be used in following situations:
@@ -1114,11 +1114,10 @@ key_mgr_unwrap_key( SESSION           * sess,
          return CKR_MECHANISM_INVALID;
    }
 
-
    // extract key type and key class from the template if they exist.  we
    // have to scan the entire template in case the CKA_CLASS or CKA_KEY_TYPE
    // attributes are duplicated
-   //
+
    for (i=0; i < attrib_count; i++) {
       switch (attributes[i].type) {
          case CKA_CLASS:
@@ -1136,8 +1135,8 @@ key_mgr_unwrap_key( SESSION           * sess,
    // if we're unwrapping a private key, we can extract the key type from
    // the BER-encoded information
 
-   if (found_class == FALSE || (found_type == FALSE && keyclass !=
-CKO_PRIVATE_KEY)){
+   if (found_class == FALSE || 
+       (found_type == FALSE && keyclass != CKO_PRIVATE_KEY)) {
       OCK_LOG_ERR(ERR_TEMPLATE_INCOMPLETE);
       return CKR_TEMPLATE_INCOMPLETE;
    }
@@ -1151,7 +1150,7 @@ CKO_PRIVATE_KEY)){
       }
    }
 
-   // looks okay...do the decryption
+   // looks okay... do the decryption
    //
    ctx = (ENCR_DECR_CONTEXT *)malloc(sizeof(ENCR_DECR_CONTEXT));
    if (!ctx){
@@ -1213,7 +1212,6 @@ CKO_PRIVATE_KEY)){
          goto error;
       }
    }
-
 
    // we have decrypted the wrapped key data.  we also
    // know what type of key it is.  now we need to construct a new key

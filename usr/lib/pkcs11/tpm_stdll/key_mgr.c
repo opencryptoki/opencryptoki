@@ -789,7 +789,7 @@ key_mgr_unwrap_key( SESSION           * sess,
    CK_ULONG            data_len;
    CK_ULONG            keyclass, keytype;
    CK_ULONG            i;
-   CK_BBOOL            found_class, found_type, fromend;
+   CK_BBOOL            found_class, found_type;
    CK_RV               rc;
 
 
@@ -843,6 +843,9 @@ key_mgr_unwrap_key( SESSION           * sess,
          // these mechanisms can wrap any type of key so nothing is implied
          //
          break;
+     default:
+	OCK_LOG_ERROR(ERR_MECHANISM_INVALID);
+	return CKR_MECHANISM_INVALID;
    }
 
    // extract key type and key class from the template if they exist.  we
@@ -866,18 +869,16 @@ key_mgr_unwrap_key( SESSION           * sess,
    // if we're unwrapping a private key, we can extract the key type from
    // the BER-encoded information
    //
-   if (found_class == FALSE || (found_type == FALSE && keyclass !=
-CKO_PRIVATE_KEY)){
+   if (found_class == FALSE || 
+       (found_type == FALSE && keyclass != CKO_PRIVATE_KEY)){
       OCK_LOG_ERR(ERR_TEMPLATE_INCOMPLETE);
       return CKR_TEMPLATE_INCOMPLETE;
    }
 
    // Check again that a public key only wraps/unwraps a secret key.
-   if (mech->mechanism == CKM_RSA_PKCS) {
-         if (keyclass != CKO_SECRET_KEY){
-            OCK_LOG_ERR(ERR_TEMPLATE_INCONSISTENT);
-            return CKR_TEMPLATE_INCONSISTENT;
-         }
+   if ((mech->mechanism == CKM_RSA_PKCS) && (keyclass != CKO_SECRET_KEY)){
+      OCK_LOG_ERR(ERR_TEMPLATE_INCONSISTENT);
+      return CKR_TEMPLATE_INCONSISTENT;
    }
 
    // looks okay...do the decryption
@@ -922,16 +923,6 @@ CKO_PRIVATE_KEY)){
       OCK_LOG_ERR(ERR_DECRYPTMGR_DECRYPT);
       goto error;
    }
-   // if we use X.509, the data will be padded from the front with zeros.
-   // PKCS #11 specifies that for this mechanism, CK_VALUE is to be read
-   // from the end of the data.
-   //
-   // Note: the PKCS #11 reference implementation gets this wrong.
-   //
-   if (mech->mechanism == CKM_RSA_X_509)
-      fromend = TRUE;
-   else
-      fromend = FALSE;
 
    // extract the key type from the PrivateKeyInfo::AlgorithmIndicator
    //
@@ -967,7 +958,7 @@ CKO_PRIVATE_KEY)){
    //
    switch (keyclass) {
       case CKO_SECRET_KEY:
-         rc = secret_key_unwrap( key_obj->template, keytype, data, data_len, fromend );
+         rc = secret_key_unwrap( key_obj->template, keytype, data, data_len, FALSE );
          break;
 
       case CKO_PRIVATE_KEY:

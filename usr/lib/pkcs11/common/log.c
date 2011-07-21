@@ -316,89 +316,90 @@ static const char *ock_err_msg[] = {
 "General Error",			/*ERR_GENERAL_ERROR*/
 "Function Failed",			/*ERR_FUNCTION_FAILED*/
 "Bad Arguments",			/*ERR_ARGUMENTS_BAD*/
-"No Event",				/*ERR_NO_EVENT 5*/
+"No Event",				/*ERR_NO_EVENT */
 "Attribute Read Only",			/*ERR_ATTRIBUTE_READ_ONLY*/
 "Attribute Sensitive",			/*ERR_ATTRIBUTE_SENSITIVE*/
 "Attribute Type Invalid",		/*ERR_ATTRIBUTE_TYPE_INVALID*/
 "Attribute Value Invalid",		/*ERR_ATTRIBUTE_VALUE_INVALID*/
-"Data Invalid",				/*ERR_DATA_INVALID 10*/
+"Data Invalid",				/*ERR_DATA_INVALID */
 "Data Length out of Range",		/*ERR_DATA_LEN_RANGE*/
 "Device Error",				/*ERR_DEVICE_ERROR*/
 "Device does not have Sufficient Memory",	/*ERR_DEVICE_MEMORY*/
 "Device Removed",			/*ERR_DEVICE_REMOVED*/
-"Encrypted Data Invalid",		/*ERR_ENCRYPTED_DATA_INVALID 15*/
+"Encrypted Data Invalid",		/*ERR_ENCRYPTED_DATA_INVALID */
 "Encrypted Data Length out of Range",	/*ERR_ENCRYPTED_DATA_LEN_RANGE*/
 "Function Cancelled",			/*ERR_FUNCTION_CANCELED*/
 "Function Not Parallel",		/*ERR_FUNCTION_NOT_PARALLEL*/
 "Function Not Supported",		/*ERR_FUNCTION_NOT_SUPPORTED*/
-"Key Changed",				/*ERR_KEY_CHANGED 20*/
+"Key Changed",				/*ERR_KEY_CHANGED */
 "Key Function Not Permitted",		/*ERR_KEY_FUNCTION_NOT_PERMITTED*/
 "Key Handle Invalid",			/*ERR_KEY_HANDLE_INVALID*/
 "Key Indigestible",			/*ERR_KEY_INDIGESTIBLE*/
 "Key Needed",				/*ERR_KEY_NEEDED*/
-"Key Not Needed",			/*ERR_KEY_NOT_NEEDED 25*/
+"Key Not Needed",			/*ERR_KEY_NOT_NEEDED */
 "Key Not Wrappable",			/*ERR_KEY_NOT_WRAPPABLE*/
 "Key Size out of Range",		/*ERR_KEY_SIZE_RANGE*/
 "Key Type Inconsistent",		/*ERR_KEY_TYPE_INCONSISTENT*/
 "Key Unextractable",			/*ERR_KEY_UNEXTRACTABLE*/
-"Mechanism Invalid",			/*ERR_MECHANISM_INVALID 30*/
+"Mechanism Invalid",			/*ERR_MECHANISM_INVALID */
 "Mechanism Param Invalid",		/*ERR_MECHANISM_PARAM_INVALID*/
 "Object Handle Invalid",		/*ERR_OBJECT_HANDLE_INVALID*/
 "Operation Active",			/*ERR_OPERATION_ACTIVE*/
 "Operation Not Initialized",		/*ERR_OPERATION_NOT_INITIALIZED*/
-"Pin Incorrect",			/*ERR_PIN_INCORRECT 35*/
+"Pin Incorrect",			/*ERR_PIN_INCORRECT */
 "Pin Invalid",				/*ERR_PIN_INVALID*/
 "Pin Length out of Range",		/*ERR_PIN_LEN_RANGE*/
 "Pin Expired",				/*ERR_PIN_EXPIRED*/
 "Pin Locked",				/*ERR_PIN_LOCKED*/
-"Session Closed",			/*ERR_SESSION_CLOSED 40*/
+"Session Closed",			/*ERR_SESSION_CLOSED */
 "Session Count",			/*ERR_SESSION_COUNT*/
 "Session Handle Invalid",		/*ERR_SESSION_HANDLE_INVALID*/
 "Parallel Session Not Supported",	/*ERR_SESSION_PARALLEL_NOT_SUPPORTED*/
 "Session Read Only",			/*ERR_SESSION_READ_ONLY*/
-"Session Exists",			/*ERR_SESSION_EXISTS 45*/
+"Session Exists",			/*ERR_SESSION_EXISTS */
 "Session Read only Exists",		/*ERR_SESSION_READ_ONLY_EXISTS*/
 "Session Read Write Exists",		/*ERR_SESSION_READ_WRITE_SO_EXISTS*/
 "Signature Invalid",			/*ERR_SIGNATURE_INVALID*/
 "Signature Length out of Range",	/*ERR_SIGNATURE_LEN_RANGE*/
-"Template Incomplete",			/*ERR_TEMPLATE_INCOMPLETE 50*/
+"Template Incomplete",			/*ERR_TEMPLATE_INCOMPLETE */
 "Template Inconsistent",		/*ERR_TEMPLATE_INCONSISTENT*/
 "Token Not Present",			/*ERR_TOKEN_NOT_PRESENT*/
 "Token Not Recognized",			/*ERR_TOKEN_NOT_RECOGNIZED*/
 "Token Write Protected",		/*ERR_TOKEN_WRITE_PROTECTED*/
-"Unwrapping Key Handle Invalid",	/*ERR_UNWRAPPING_KEY_HANDLE_INVALID 55*/
+"Unwrapping Key Handle Invalid",	/*ERR_UNWRAPPING_KEY_HANDLE_INVALID*/
 "Unwrapping Key Size Range Invalid",	/*ERR_UNWRAPPING_KEY_SIZE_RANGE*/
 "Unwrapping Key Type Inconsistent",	/*ERR_UNWRAPPING_KEY_TYPE_INCONSISTENT*/
 "User Already Logged In",		/*ERR_USER_ALREADY_LOGGED_IN*/
 "User Not Logged In",			/*ERR_USER_NOT_LOGGED_IN*/
-"User PIN Not Initialized",		/*ERR_USER_PIN_NOT_INITIALIZED 60*/
+"User PIN Not Initialized",		/*ERR_USER_PIN_NOT_INITIALIZED */
 "User Type Invalid",			/*ERR_USER_TYPE_INVALID*/
 "Another User Already Logged In",	/*ERR_USER_ANOTHER_ALREADY_LOGGED_IN*/
 "Too Many User Types",			/*ERR_USER_TOO_MANY_TYPES*/
 "Wrapped Key Invalid", 			/*ERR_WRAPPED_KEY_INVALID*/
-"Wrapping Key Handle Invalid",		/*ERR_WRAPPING_KEY_HANDLE_INVALID 65*/
+"Wrapped Key Length Invalid",		/*ERR_WRAPPED_KEY_LEN_RANGE*/
+"Wrapping Key Handle Invalid",		/*ERR_WRAPPING_KEY_HANDLE_INVALID*/
 "Wrapping Key Size out of Range",	/*ERR_WRAPPING_KEY_SIZE_RANGE*/
 "Wrapping Key Type Inconsistent",	/*ERR_WRAPPING_KEY_TYPE_INCONSISTENT*/
 "Random Seed Not Supported",		/*ERR_RANDOM_SEED_NOT_SUPPORTED*/
 "Domain Parameter Invalid",		/*ERR_DOMAIN_PARAMS_INVALID*/
-"Buffer Too Small",			/*ERR_BUFFER_TOO_SMALL 70*/
+"Buffer Too Small",			/*ERR_BUFFER_TOO_SMALL */
 "Saved State Invalid",			/*ERR_SAVED_STATE_INVALID*/
 "Information Sensitive",		/*ERR_INFORMATION_SENSITIVE*/
 "State Unsaveable",			/*ERR_STATE_UNSAVEABLE*/
 "API not initialized",			/*ERR_CRYPTOKI_NOT_INITIALIZED*/
-"API already Initialized",		/*ERR_CRYPTOKI_ALREADY_INITIALIZED 75*/
+"API already Initialized",		/*ERR_CRYPTOKI_ALREADY_INITIALIZED*/
 "Mutex Invalid",			/*ERR_MUTEX_BAD*/
 "Mutex was not locked",			/*ERR_MUTEX_NOT_LOCKED*/
 "AES CBC Decrypt Failed",		/*ERR_AES_CBC_DECRYPT*/
 "AES CBC Encrypt Failed",		/*ERR_AES_CBC_ENCRYPT*/
-"Token Specific AES CBC Failed",	/*ERR_AES_CBC_TOK_SPEC 80*/
+"Token Specific AES CBC Failed",	/*ERR_AES_CBC_TOK_SPEC*/
 "AES CTR Encrypt Failed", 		/*ERR_AES_CTR_ENCRYPT*/
 "Token Specific AES CTR Failed", 	/*ERR_AES_CTR_TOK_SPEC*/
 "AES ECB Decrypt Failed",		/*ERR_AES_ECB_DECRYPT*/
 "Token Specific AES ECB Failed",	/*ERR_AES_ECB_TOK_SPEC*/
 "AES Wrap Format Failed",		/*ERR_AES_WRAP_FORMAT*/
 "AES Wrap Get Data Failed",		/*ERR_AES_WRAP_GETDATA*/
-"Add Attribute Failed",			/*ERR_ATTR_ADD 85*/
+"Add Attribute Failed",			/*ERR_ATTR_ADD*/
 "Merge Attributes Failed",		/*ERR_ATTR_MERGE*/
 "Check Required Attributes Failed",	/*ERR_ATTR_REQD_CHECK*/
 "Set Default Attributes Failed",	/*ERR_ATTR_SET_DEFAULT*/
@@ -408,105 +409,105 @@ static const char *ock_err_msg[] = {
 "Decode Integer Failed",		/*ERR_DECODE_INT*/
 "Decode Octet String Failed",		/*ERR_DECODE_OCTET*/
 "Decode Private Key Failed",		/*ERR_DECODE_PRIVKEY*/
-"Decode Sequence Failed",		/*ERR_DECODE_SEQ 95*/
+"Decode Sequence Failed",		/*ERR_DECODE_SEQ*/
 "Decryption Mgr Decrypt Failed",	/*ERR_DECRYPTMGR_DECRYPT*/
 "Decryption Mgr Final Failed",		/*ERR_DECRYPTMGR_FINAL*/
 "Decryption Mgr Init Failed",		/*ERR_DECRYPTMGR_INIT*/
 "Decryption Mgr Update Failed"		/*ERR_DECRYPTMGR_UPDATE*/
-"DES CBC Decrypt Failed",		/*ERR_DES_CBC_DECRYPT 100*/
+"DES CBC Decrypt Failed",		/*ERR_DES_CBC_DECRYPT*/
 "DES CBC Encrypt Failed",		/*ERR_DES_CBC_ENCRYPT*/
 "Token Specific DES CBC Failed",	/*ERR_DES_CBC_TOK_SPEC*/
 "DES ECB Decrypt Failed",		/*ERR_DES_ECB_DECRYPT*/
 "DES ECB Encrypt Failed",		/*ERR_DES_ECB_ENCRYPT*/
-"Token Specific DES ECB Failed",	/*ERR_DES_ECB_TOK_SPEC 105*/
+"Token Specific DES ECB Failed",	/*ERR_DES_ECB_TOK_SPEC*/
 "DES Wrap Format Failed",		/*ERR_DES_WRAP_FORMAT*/
 "DES Wrap Get Data Failed",		/*ERR_DES_WRAP_GETDATA*/
 "Triple DES CBC Decrypt Failed",	/*ERR_DES3_CBC_DECRYPT*/
 "Triple DES CBC Encrypt Failed",	/*ERR_DES3_CBC_ENCRYPT*/
-"Token Specific 3DES CBC Failed",	/*ERR_DES3_CBC_TOK_SPEC 110*/
+"Token Specific 3DES CBC Failed",	/*ERR_DES3_CBC_TOK_SPEC*/
 "Triple DES ECB Decrypt Failed",	/*ERR_DES3_ECB_DECRYPT */
 "Token Specific 3DES ECB Failed",	/*ERR_DES3_ECB_TOK_SPEC*/
 "DES3 Wrap Get Data Failed",		/*ERR_DES3_WRAP_GETDATA*/
 "Digest Failed",			/*ERR_DIGEST*/
 "Digest Final Failed",			/*ERR_DIGEST_FINAL*/
-"Digest Init Failed",			/*ERR_DIGEST_INIT 115*/
+"Digest Init Failed",			/*ERR_DIGEST_INIT*/
 "Digest Update Failed",			/*ERR_DIGEST_UPDATE*/
 "DSA Sign Failed",			/*ERR_DSA_SIGN*/
 "DSA Verify Failed",			/*ERR_DSA_VERIFY*/
 "DSA Wrap Get Data Failed",		/*ERR_DSA_WRAP_GETDATA*/
 "EC Sign Failed",			/*ERR_EC_SIGN*/
 "EC Verify Failed",			/*ERR_EC_VERIFY*/
-"Encryption Mgr Encrypt Failed",	/*ERR_ENCRYPTMGR_ENCRYPT 120*/
+"Encryption Mgr Encrypt Failed",	/*ERR_ENCRYPTMGR_ENCRYPT*/
 "Encryption Mgr Encrypt Final Failed",	/*ERR_ENCRYPTMGR_FINAL*/
 "Encryption Mgr Init Failed",		/*ERR_ENCRYPTMGR_INIT*/
 "Encryption Mgr Encrypt Update Failed",	/*ERR_ENCRYPTMGR_UPDATE*/
 "Encode Integer Failed",		/*ERR_ENCODE_INT*/
-"Encode Octet String Failed",		/*ERR_ENCODE_OCTET 125*/
+"Encode Octet String Failed",		/*ERR_ENCODE_OCTET*/
 "Encode Private Key Failed",		/*ERR_ENCODE_PRIVKEY*/
 "Encode Sequence Failed",		/*ERR_ENCODE_SEQ*/
 "Generic Secret Wrap Get Data Failed",	/*ERR_GENERIC_WRAP_GETDATA*/
 "Hash Computation Failed",		/*ERR_HASH_COMPUTATION*/
-"Derive Key Failed",			/*ERR_KEY_DERIVE 130*/
+"Derive Key Failed",			/*ERR_KEY_DERIVE*/
 "Unwrap Key Failed",			/*ERR_KEY_UNWRAP*/
 "Wrap Key Failed",			/*ERR_KEY_WRAP*/
 "Key Generation failed",		/*ERR_KEYGEN*/
 "Key Mgr Get Priv Key Type Failed",	/*ERR_KEYMGR_GETPRIVKEY*/
-"Load Master Key Failed",		/*ERR_MASTER_KEY_LOAD 135*/
+"Load Master Key Failed",		/*ERR_MASTER_KEY_LOAD*/
 "Save Master Key Failed",		/*ERR_MASTER_KEY_SAVE*/
 "Mutex Lock Failed",			/*ERR_MUTEX_LOCK*/
 "Mutex Unlock Failed",			/*ERR_MUTEX_UNLOCK*/
 "Object Copy Failed",			/*ERR_OBJ_COPY*/
-"Object Create Failed",		 	/*ERR_OBJ_CREATE 140*/
+"Object Create Failed",		 	/*ERR_OBJ_CREATE*/
 "Flatten Object Failed",		/*ERR_OBJ_FLATTEN*/
 "Object Get Attribute Values Failed",	/*ERR_OBJ_GETATTR_VALUES*/
 "Restore Object Failed",		/*ERR_OBJ_RESTORE*/
 "Object Restore Data Failed",		/*ERR_OBJ_RESTORE_DATA*/
-"Object Set Attribute Values Failed",	/*ERR_OBJ_SETATTR_VALUES 145*/
+"Object Set Attribute Values Failed",	/*ERR_OBJ_SETATTR_VALUES*/
 "Object Mgr Create Skeleton failed",	/*ERR_OBJMGR_CREATE_SKEL*/
 "Object Mgr Create Final failed",	/*ERR_OBJMGR_CREATE_FINAL*/
 "Object Mgr Destroy Failed",		/*ERR_OBJMGR_DESTROY*/
 "Object Manager Find Init Failed",	/*ERR_OBJMGR_FIND_INIT*/
-"Object Manager Find in Map Failed",	/*ERR_OBJMGR_FIND_MAP 150*/
+"Object Manager Find in Map Failed",	/*ERR_OBJMGR_FIND_MAP*/
 "Object Mgr Get Size Failed",		/*ERR_OBJMGR_GETSIZE*/
 "Object Mgr Add to Map Failed",		/*ERR_OBJMGR_MAP_ADD*/
 "Object Mgr Search for Object Failed",	/*ERR_OBJMGR_SEARCH*/
 "Process Lock Failed",			/*ERR_PROCESS_LOCK*/
-"Random Number Generate Failed",	/*ERR_RNG 155*/
+"Random Number Generate Failed",	/*ERR_RNG*/
 "RSA Decrypt Failed",			/*ERR_RSA_DECRYPT*/
 "Token Specific RSA Decrypt Failed",	/*ERR_RSA_DECRYPT_TOK_SPEC*/
 "RSA Encrypt Failed",			/*ERR_RSA_ENCRYPT*/
 "Token Specific RSA Encrypt Failed",	/*ERR_RSA_ENCRYPT_TOK_SPEC*/
-"RSA Format Block Failed",		/*ERR_RSA_FORM_BLOCK 160*/
+"RSA Format Block Failed",		/*ERR_RSA_FORM_BLOCK*/
 "RSA Sign Failed",			/*ERR_RSA_SIGN*/
 "Token Specific RSA Sign Failed",	/*ERR_RSA_SIGN_TOK_SPEC*/
 "RSA Verify Failed",			/*ERR_RSA_VERIFY*/
 "RSA Wrap Get Data Failed",		/*ERR_RSA_WRAP_GETDATA*/
-"Close all Sessions Failed",		/*ERR_SESSION_CLOSEALL 165*/
+"Close all Sessions Failed",		/*ERR_SESSION_CLOSEALL*/
 "Session Mgr Get Op State Failed",	/*ERR_SESSMGR_GETOPT_STATE*/
 "Session Mgr Login Failed",		/*ERR_SESSMGR_LOGIN*/
 "Session Mgr Logout Failed",		/*ERR_SESSMGR_LOGOUT*/
 "Session Mgr New Failed",		/*ERR_SESSMGR_NEW*/
-"Cannot Attach to Shared Memory",	/*ERR_SHM 170*/
+"Cannot Attach to Shared Memory",	/*ERR_SHM*/
 "Sign Failed",				/*ERR_SIGN*/
 "Sign Final Failed",			/*ERR_SIGN_FINAL*/
 "Sign Init Failed",			/*ERR_SIGN_INIT*/
 "Sign Recover Failed",			/*ERR_SIGN_RECOVER*/
-"Sign Update Failed",			/*ERR_SIGN_UPDATE 175*/
+"Sign Update Failed",			/*ERR_SIGN_UPDATE*/
 "SSL SHA Failed",			/*ERR_SSL_SHA*/
 "SSL3 Process MAC Keys Failed",		/*ERR_SSL3_MAC_KEYS*/
 "SSL3 MD5 Failed",			/*ERR_SSL3_MD5*/
 "SSL3 Process Write Keys Failed",	/*ERR_SSL3_WRITE_KEYS*/
-"Copy Template Failed",			/*ERR_TEMPLATE_COPY 180*/
+"Copy Template Failed",			/*ERR_TEMPLATE_COPY*/
 "Merge Template Failed",		/*ERR_TEMPLATE_MERGE*/
 "Unflatten Template Failed",		/*ERR_TEMPLATE_UNFLATTEN*/
 "Token Already Initialized",		/*ERR_TOKEN_ALREADY_INIT*/
 "Token Specific Init Failed",		/*ERR_TOKEN_INIT*/
-"Failed to Load Token Data",		/*ERR_TOKEN_LOAD_DATA 185*/
+"Failed to Load Token Data",		/*ERR_TOKEN_LOAD_DATA*/
 "Restore Private Token Failed",		/*ERR_TOKEN_RESTORE_PRIV*/
 "Save Token Failed",			/*ERR_TOKEN_SAVE*/
 "Verify Failed",			/*ERR_VERIFY*/
 "Verify Init Failed",			/*ERR_VERIFY_INIT*/
-"Verify Final Failed",			/*ERR_VERIFY_FINAL 190*/
+"Verify Final Failed",			/*ERR_VERIFY_FINAL*/
 "Verify Recover Failed",		/*ERR_VERIFY_RECOVER*/
 "Verify Update Failed",			/*ERR_VERIFY_UPDATE*/
 };
