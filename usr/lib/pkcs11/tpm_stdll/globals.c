@@ -246,18 +246,6 @@ MECH_LIST_ELEMENT mech_list[] = {
 				    CKF_WRAP         | CKF_UNWRAP  |
 				    CKF_SIGN         | CKF_VERIFY  |
 				    CKF_SIGN_RECOVER | CKF_VERIFY_RECOVER} },
-  { CKM_RSA_PKCS_OAEP,             {512, 2048, CKF_HW           |
-				    CKF_ENCRYPT      | CKF_DECRYPT |
-				    CKF_WRAP         | CKF_UNWRAP  |
-				    CKF_SIGN         | CKF_VERIFY  |
-				    CKF_SIGN_RECOVER | CKF_VERIFY_RECOVER} },
-#if !(NOX509)
-  { CKM_RSA_X_509,                 {512, 2048, CKF_HW           |
-				    CKF_ENCRYPT      | CKF_DECRYPT |
-				    CKF_WRAP         | CKF_UNWRAP  |
-				    CKF_SIGN         | CKF_VERIFY  |
-				    CKF_SIGN_RECOVER | CKF_VERIFY_RECOVER} },
-#endif
   { CKM_MD5_RSA_PKCS,              {512, 2048, CKF_HW      |
 				    CKF_SIGN    | CKF_VERIFY} },
   { CKM_SHA1_RSA_PKCS,             {512, 2048, CKF_HW      |
