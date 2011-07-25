@@ -5241,36 +5241,28 @@ aes_unwrap( TEMPLATE *tmpl,
    CK_BBOOL	   found        = FALSE;
 
    
-   /* pkcs#11v2.20: CKA_VALUE_LEN must not be specified when an AES key object
-    * is unwwrapped with C_UnwrapKey. We make an exception when X.509 is 
-    * the wrapping key since we need to extract key from padding.
+   /* accept CKA_VALUE_LEN. pkcs11v2.20 doesn't want this attribute when 
+    * unwrapping an AES key, but we need it because some mechanisms may
+    * have added padding and AES keys come in several sizes.
     */
    found = template_attribute_find( tmpl, CKA_VALUE_LEN, &val_len_attr );
-   if (found) {
-      if (fromend == TRUE) {
-      	   key_size = *(CK_ULONG *)val_len_attr->pValue;
-      	   ptr = data + data_len - key_size;
-      } else {
-           OCK_LOG_ERR(ERR_TEMPLATE_INCONSISTENT)
-           return CKR_TEMPLATE_INCONSISTENT;
-      }
-   } 
-   else {
-      if (fromend == TRUE) {
-         OCK_LOG_ERR(ERR_TEMPLATE_INCOMPLETE)
-         return CKR_TEMPLATE_INCOMPLETE;
-      } else
-         key_size = data_len;
-         ptr = data;
-  }
+   if (found) 
+      key_size = *(CK_ULONG *)val_len_attr->pValue;
+   else 
+      key_size = data_len;
       
-   /* check validity of data_len */
+   /* key_size should be one of AES's possible sizes */
    if (key_size != AES_KEY_SIZE_128 &&
        key_size != AES_KEY_SIZE_192 &&
        key_size != AES_KEY_SIZE_256) {
          OCK_LOG_ERR(ERR_WRAPPED_KEY_LEN_RANGE);
          return CKR_WRAPPED_KEY_LEN_RANGE;
    }
+
+   if (fromend == TRUE)
+      ptr = data + data_len - key_size;
+   else
+      ptr = data;
 
    value_attr = (CK_ATTRIBUTE *)malloc( sizeof(CK_ATTRIBUTE) + key_size );
 

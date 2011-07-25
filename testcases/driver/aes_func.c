@@ -914,6 +914,12 @@ CK_RV do_WrapUnwrapAES(struct generated_test_suite_info *tsuite)
 
 		/** set key_size **/
 		key_size = key_lens[i];
+	
+		/** clear buffers **/
+		memset(original, 0, sizeof(original));
+		memset(crypt, 0, sizeof(crypt));
+		memset(decrypt, 0, sizeof(decrypt));
+		memset(wrapped_data, 0, sizeof(wrapped_data));
 
 		/** generate crypto key **/
 		rc = generate_AESKey(session, key_lens[i], &mechkey, &h_key);
@@ -1025,21 +1031,21 @@ CK_RV do_WrapUnwrapAES(struct generated_test_suite_info *tsuite)
 				"%u passed.", tsuite->name,
 				(unsigned int)key_lens[i]);
 		}
-	}
-	/** clean up **/
-	rc = funcs->C_DestroyObject(session, h_key);
-	if (rc != CKR_OK) {
-		testcase_error("C_DestroyObject rc=%s.", p11_get_ckr(rc));
-	}
+		/** clean up **/
+		rc = funcs->C_DestroyObject(session, h_key);
+		if (rc != CKR_OK) {
+			testcase_error("C_DestroyObject rc=%s.", p11_get_ckr(rc));
+		}
 
-	rc = funcs->C_DestroyObject(session, w_key);
-	if (rc != CKR_OK) {
-		testcase_error("C_DestroyObject rc=%s.", p11_get_ckr(rc));
-	}
-
-	rc = funcs->C_DestroyObject(session, uw_key);
-	if (rc != CKR_OK) {
-		testcase_error("C_DestroyObject rc=%s.", p11_get_ckr(rc));
+		rc = funcs->C_DestroyObject(session, w_key);
+		if (rc != CKR_OK) {
+			testcase_error("C_DestroyObject rc=%s.", p11_get_ckr(rc));
+		}
+	
+		rc = funcs->C_DestroyObject(session, uw_key);
+		if (rc != CKR_OK) {
+			testcase_error("C_DestroyObject rc=%s.", p11_get_ckr(rc));
+		}
 	}
 	goto testcase_cleanup;
 error:
@@ -1322,12 +1328,6 @@ testcase_cleanup:
 CK_RV aes_funcs() {
 	int i, generate_key;
 	CK_RV rv;
-	CK_BBOOL no_init, no_stop;
-
-
-	SLOT_ID = 0;
-	no_init = FALSE;
-	no_stop = TRUE;
 
 	generate_key = get_key_type(); // true if mech requires secure key
 				       // generate keys and skip published tests
