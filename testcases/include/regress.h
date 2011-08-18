@@ -173,12 +173,16 @@ int get_user_pin(CK_BYTE_PTR);
         } while (0)
 
 #define testcase_notice(_fmt, ...)                                      \
-        printf("* TESTCASE %s NOTICE " _fmt "\n",                       \
-                __func__, ## __VA_ARGS__)
+	do {								\
+		printf("* TESTCASE %s NOTICE " _fmt "\n",               \
+			__func__, ## __VA_ARGS__);			\
+	} while (0)
 
 #define testcase_notice_f(_func, _fmt, ...)                             \
-        printf("* TESTCASE %s NOTICE " _fmt "\n",                       \
-                _func, ## __VA_ARGS__)
+	do {								\
+		printf("* TESTCASE %s NOTICE " _fmt "\n",               \
+			__func, ## __VA_ARGS__);			\
+	} while (0)
 
 #define testcase_fail(_fmt, ...)                                        \
         do {                                                            \
@@ -213,8 +217,10 @@ int get_user_pin(CK_BYTE_PTR);
 	} while (0)
 
 #define testcase_print_result()						\
-	printf("Total=%lu, Ran=%lu, Passed=%lu, Failed=%lu, Skipped=%lu, Errors=%lu\n", \
-			(t_ran + t_skipped), t_ran, t_passed, t_failed, t_skipped, t_errors);
+	do {								\
+		printf("Total=%lu, Ran=%lu, Passed=%lu, Failed=%lu, Skipped=%lu, Errors=%lu\n", \
+			(t_ran + t_skipped), t_ran, t_passed, t_failed, t_skipped, t_errors);	\
+	} while (0)
 
 #define testcase_rw_session()                                           \
         do {                                                            \
@@ -267,8 +273,8 @@ int get_user_pin(CK_BYTE_PTR);
         do {                                                            \
                 if (get_user_pin(user_pin)) {                           \
                         testcase_error("get_user_pin() failed");        \
-                        rc = -1;                                        \
-                        goto testcase_cleanup;                          \
+                        testcase_closeall_session();			\
+			exit(-1);		                        \
                 }                                                       \
                 user_pin_len = (CK_ULONG) strlen( (char *) user_pin);   \
                 rc = funcs->C_Login(session, CKU_USER,                  \
@@ -281,13 +287,14 @@ int get_user_pin(CK_BYTE_PTR);
         } while (0)
 
 #define testcase_user_logout()                                          \
-        rc = funcs->C_Logout(session);                                  \
-        if (rc != CKR_OK) {                                             \
-                testcase_error("C_Logout() rc = %s",                    \
-                                p11_get_ckr(rc));                       \
-                goto testcase_cleanup;                                  \
-        }                                                               \
-                                                                        \
+	do {								\
+		rc = funcs->C_Logout(session);				\
+		if (rc != CKR_OK) {                                     \
+			testcase_error("C_Logout() rc = %s",            \
+					p11_get_ckr(rc));               \
+			goto testcase_cleanup;                          \
+		}                                                       \
+	} while (0)
 
 
 #define testcase_so_login()                                             \
