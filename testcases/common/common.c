@@ -55,6 +55,47 @@ int mech_supported(CK_SLOT_ID slot_id, CK_ULONG mechanism) {
         return (rc == CKR_OK);
 }
 
+/** Returns true if and only if slot supports
+    key wrapping with specified mechanism **/
+int wrap_supported(CK_SLOT_ID slot_id,
+                CK_MECHANISM mech)
+{
+        CK_MECHANISM_INFO mech_info;
+        CK_RV rc;
+        // get mech info
+        rc = funcs->C_GetMechanismInfo(slot_id,
+                                mech.mechanism,
+                                &mech_info);
+        if (rc != CKR_OK) {
+                testcase_error("C_GetMechanismInfo(), rc=%s.",
+                        p11_get_ckr(rc));
+                return -1;
+        }
+        rc = mech_info.flags & CKF_WRAP;
+        return rc;
+}
+
+/** Returns true if and only if slot supports
+    key unwrapping with specified mechanism **/
+int unwrap_supported(CK_SLOT_ID slot_id,
+                CK_MECHANISM mech)
+{
+        CK_MECHANISM_INFO mech_info;
+        CK_RV rc;
+        // get mech info
+        rc = funcs->C_GetMechanismInfo(slot_id,
+                                mech.mechanism,
+                                &mech_info);
+        if (rc != CKR_OK) {
+                testcase_error("C_GetMechanismInfo(), rc=%s.",
+                        p11_get_ckr(rc));
+                return -1;
+        }
+        rc = mech_info.flags & CKF_UNWRAP;
+        return rc;
+}
+
+/** Create an AES key handle with given value **/
 int create_AESKey(CK_SESSION_HANDLE session,
                 char key[],
                 unsigned char key_len,
@@ -78,6 +119,7 @@ int create_AESKey(CK_SESSION_HANDLE session,
         return rc;
 }
 
+/** Generate an AES key handle **/
 int generate_AESKey(CK_SESSION_HANDLE session,
                 CK_ULONG key_len,
                 CK_MECHANISM *mechkey,
@@ -94,6 +136,7 @@ int generate_AESKey(CK_SESSION_HANDLE session,
         return rc;
 }
 
+/** Create a DES key handle with given value **/
 int create_DESKey(CK_SESSION_HANDLE session,
                 char key[],
                 unsigned char klen,
@@ -124,6 +167,7 @@ int create_DESKey(CK_SESSION_HANDLE session,
         return rc;
 }
 
+/** Create DES3 key handle with given value **/
 int create_DES3Key(CK_SESSION_HANDLE session,
                 char key[],
                 unsigned char klen,
@@ -153,6 +197,7 @@ int create_DES3Key(CK_SESSION_HANDLE session,
         return rc;
 }
 
+/** Create Generic Secret key handle with given value **/
 int create_GenericSecretKey(CK_SESSION_HANDLE session,
                         CK_BYTE key[],
                         CK_ULONG key_len,
@@ -176,6 +221,203 @@ int create_GenericSecretKey(CK_SESSION_HANDLE session,
         }
         return rc;
 }
+
+/** Create an RSA private key using ctr
+    (chinese remainder theorem) values **/
+CK_RV create_RSAPrivateKey(CK_SESSION_HANDLE session,
+                        CK_BYTE modulus[],
+                        CK_BYTE publicExponent[],
+                        CK_BYTE privateExponent[],
+                        CK_BYTE prime1[],
+                        CK_BYTE prime2[],
+                        CK_BYTE exponent1[],
+                        CK_BYTE exponent2[],
+                        CK_BYTE coefficient[],
+                        CK_ULONG modulus_len,
+                        CK_ULONG publicExponent_len,
+                        CK_ULONG privateExponent_len,
+                        CK_ULONG prime1_len,
+                        CK_ULONG prime2_len,
+                        CK_ULONG exponent1_len,
+                        CK_ULONG exponent2_len,
+                        CK_ULONG coefficient_len,
+                        CK_OBJECT_HANDLE *priv_key)
+{
+
+        CK_OBJECT_CLASS class = CKO_PRIVATE_KEY;
+        CK_KEY_TYPE keyType = CKK_RSA;
+        CK_UTF8CHAR label[] = "An RSA private key object";
+        CK_BYTE subject[] = {};
+        CK_BYTE id[] = {123};
+        CK_RV rc;
+
+        CK_BBOOL true = TRUE;
+        CK_ATTRIBUTE template[] = {
+                {CKA_CLASS, &class, sizeof(class)},
+                {CKA_KEY_TYPE, &keyType, sizeof(keyType)},
+                {CKA_TOKEN, &true, sizeof(true)},
+                {CKA_LABEL, label, sizeof(label)-1},
+                {CKA_SUBJECT, subject, sizeof(subject)},
+                {CKA_ID, id, sizeof(id)},
+                {CKA_SENSITIVE, &true, sizeof(true)},
+                {CKA_DECRYPT, &true, sizeof(true)},
+                {CKA_SIGN, &true, sizeof(true)},
+                {CKA_MODULUS, modulus, modulus_len},
+                {CKA_PUBLIC_EXPONENT, publicExponent, publicExponent_len},
+                {CKA_PRIVATE_EXPONENT, privateExponent, privateExponent_len},
+                {CKA_PRIME_1, prime1, prime1_len},
+                {CKA_PRIME_2, prime2, prime2_len},
+                {CKA_EXPONENT_1, exponent1, exponent1_len},
+                {CKA_EXPONENT_2, exponent2, exponent2_len},
+                {CKA_COEFFICIENT, coefficient, coefficient_len}
+        };
+
+        // create key
+        rc = funcs->C_CreateObject(session, template, 17, priv_key);
+        if (rc != CKR_OK) {
+                testcase_error("C_CreateObject rc=%s", p11_get_ckr(rc));
+        }
+        return rc;
+}
+
+/** Create an RSA public key **/
+CK_RV create_RSAPublicKey(CK_SESSION_HANDLE session,
+                        CK_BYTE modulus[],
+                        CK_BYTE publicExponent[],
+                        CK_ULONG modulus_len,
+                        CK_ULONG publicExponent_len,
+                        CK_OBJECT_HANDLE *publ_key)
+{
+
+        CK_RV           rc;
+        CK_OBJECT_CLASS class = CKO_PUBLIC_KEY;
+        CK_KEY_TYPE     keyType = CKK_RSA;
+        CK_UTF8CHAR     label[] = "An RSA public key object";
+        CK_BBOOL        true = TRUE;
+        CK_ATTRIBUTE    template[] = {
+                {CKA_CLASS, &class, sizeof(class)},
+                {CKA_KEY_TYPE, &keyType, sizeof(keyType)},
+                {CKA_TOKEN, &true, sizeof(true)},
+                {CKA_LABEL, label, sizeof(label)-1},
+                {CKA_WRAP, &true, sizeof(true)},
+                {CKA_ENCRYPT, &true, sizeof(true)},
+                {CKA_MODULUS, modulus, modulus_len},
+                {CKA_PUBLIC_EXPONENT, publicExponent, publicExponent_len}
+        };
+
+        // create key
+        rc = funcs->C_CreateObject(session, template, 8, publ_key);
+        if (rc != CKR_OK) {
+                testcase_error("C_CreateObject rc=%s", p11_get_ckr(rc));
+        }
+        return rc;
+}
+
+/** Generate an RSA (PKCS) key pair **/
+CK_RV generate_RSA_PKCS_KeyPair(CK_SESSION_HANDLE session,
+                CK_ULONG modulusBits,
+                CK_BYTE publicExponent[],
+                CK_ULONG publicExponent_len,
+                CK_OBJECT_HANDLE *publ_key,
+                CK_OBJECT_HANDLE *priv_key)
+{
+        CK_RV           rc;
+        CK_MECHANISM    mech = {CKM_RSA_PKCS_KEY_PAIR_GEN, NULL, 0};
+        CK_BYTE         subject[] = {};
+        CK_BYTE         id[] = {123};
+        CK_BBOOL        true = TRUE;
+        CK_ATTRIBUTE    publicKeyTemplate[] = {
+                {CKA_ENCRYPT, &true, sizeof(true)},
+                {CKA_VERIFY, &true, sizeof(true)},
+                {CKA_WRAP, &true, sizeof(true)},
+                {CKA_MODULUS_BITS, &modulusBits, sizeof(modulusBits)},
+                {CKA_PUBLIC_EXPONENT, publicExponent, publicExponent_len}
+        };
+        CK_ATTRIBUTE    privateKeyTemplate[] = {
+                {CKA_TOKEN, &true, sizeof(true)},
+                {CKA_PRIVATE, &true, sizeof(true)},
+                {CKA_SUBJECT, subject, sizeof(subject)},
+                {CKA_ID, id, sizeof(id)},
+                {CKA_SENSITIVE, &true, sizeof(true)},
+                {CKA_DECRYPT, &true, sizeof(true)},
+                {CKA_SIGN, &true, sizeof(true)},
+                {CKA_UNWRAP, &true, sizeof(true)},
+        };
+
+        // generate keys
+        rc = funcs->C_GenerateKeyPair(session,
+                        &mech,
+                        publicKeyTemplate,
+                        5,
+                        privateKeyTemplate,
+                        8,
+                        publ_key,
+                        priv_key);
+        return rc;
+        // no error checking due to
+        // ICA Token + public exponent values + CKR_TEMPLATE_INCONSISTENT
+        // work around
+        // see rsa_func.c
+}
+
+/* Generate a secret key */
+CK_RV generate_SecretKey(CK_SESSION_HANDLE session,
+                        CK_ULONG keylen,
+                        CK_MECHANISM *mech,
+                        CK_OBJECT_HANDLE *secret_key)
+{
+        CK_RV           rc;
+        CK_OBJECT_CLASS class = CKO_SECRET_KEY;
+        CK_ATTRIBUTE    secret_tmpl[] = {
+                                {CKA_CLASS, &class, sizeof(class)},
+                                {CKA_VALUE_LEN, &keylen, sizeof(keylen)}
+                        };
+        rc = funcs->C_GenerateKey(session, mech, secret_tmpl, 2, secret_key);
+        if (rc != CKR_OK) {
+                testcase_fail("C_GenerateKey, rc=%s", p11_get_ckr(rc));
+        }
+        return rc;
+}
+
+/** Returns true if pubexp is valid for CCA Tokens **/
+int is_valid_cca_pubexp(CK_BYTE pubexp[], CK_ULONG pubexp_len)
+{
+        CK_BYTE exp3[] = {0x03}; // 3
+        CK_BYTE exp65537[] = {0x01,0x00,0x01}; // 65537
+
+        return (pubexp_len == 1 && (! memcmp(pubexp, exp3, 1) ))
+                || (pubexp_len == 3 && (! memcmp(pubexp, exp65537, 3) ));
+}
+
+/** Returns true if slot_id is an ICA Token **/
+int is_ica_token(CK_SLOT_ID slot_id)
+{
+        CK_RV           rc;
+        CK_TOKEN_INFO   tokinfo;
+
+        rc = funcs->C_GetTokenInfo(slot_id, &tokinfo);
+        if (rc != CKR_OK) {
+                return -1;
+        }
+
+        return strstr((const char *)tokinfo.model, "ICA") != NULL;
+
+}
+
+/** Returns true if slot_id is a CCA Token **/
+int is_cca_token(CK_SLOT_ID slot_id)
+{
+        CK_RV           rc;
+        CK_TOKEN_INFO   tokinfo;
+
+        rc = funcs->C_GetTokenInfo(slot_id, &tokinfo);
+        if (rc != CKR_OK) {
+                return -1;
+        }
+
+        return strstr((const char *)tokinfo.model, "CCA") != NULL;
+}
+
 
 int get_so_pin(CK_BYTE *dest)
 {
