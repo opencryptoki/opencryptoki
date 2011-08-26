@@ -1,7 +1,10 @@
-// File: rsa_func.c
-//
-
-#include <windows.h>
+/*
+ * openCryptoki testcase for RSA
+ *
+ * August 18, 2011
+ *
+ * Fionnuala Gunter <fin@linux.vnet.ibm.com>
+ */
 
 #include <stdio.h>
 #include <stdlib.h>
@@ -9,2850 +12,1268 @@
 #include <memory.h>
 
 #include "pkcs11types.h"
+#include "common.c"
 #include "regress.h"
 
+#include "rsa.h"
+
+/**
+ * Note: do_EncryptDecryptRSA fails if we don't manually
+ * remove padding from decrypted values. This might be a bug.
+ **/
 
 
-//
-// This function should test:
-//  * RSA Key Generation, CKM_RSA_PKCS_KEY_PAIR_GEN
-//  * RSA Encryption, mechanism chosen by the caller
-//  * RSA Decryption, mechanism chosen by the caller
-//
-// Key generation parameters:
-//  * @mechtype is the encryption/decryption mechanism to use
-//  * @publ_exp is a byte array with the public exponent
-//  * @publ_explen is the length for the @publ_exp byte array
-//  * @mod_bits is the lengt for the modulus in bits
-//
-// Data encryption parameters:
-//  * @inputlen is the length for the data to be encrypted/decrypted
-//  * @inplace true means we use the same buffer for both input and output in
-//             the encrypt/decrypt ops
-CK_RV do_GenerateEncryptDecryptRSA(
-                CK_MECHANISM_TYPE   mechtype,
-                CK_ULONG            mod_bits,
-                CK_ULONG            publ_explen,
-                CK_BYTE_PTR         publ_exp,
-                CK_ULONG            inputlen,
-                CK_BBOOL            inplace)
+/* This function should test:
+ * RSA Key Generation, CKM_RSA_PKCS_KEY_PAIR_GEN
+ * RSA Encryption, mechanism chosen by caller
+ * RSA Decryption, mechanism chosen by caller
+ *
+ * 1. Generate RSA Key Pair
+ * 2. Generate plaintext
+ * 3. Encrypt plaintext
+ * 4. Decrypt encrypted data
+ * 5. Compare plaintext with decrypted data
+ *
+ */
+CK_RV do_EncryptDecryptRSA(struct GENERATED_TEST_SUITE_INFO *tsuite)
 {
-        CK_SESSION_HANDLE   session;
-        CK_FLAGS            flags;
-        CK_BYTE             user_pin[PKCS11_MAX_PIN_LEN];
-        CK_ULONG            user_pin_len;
-        CK_MECHANISM        mech1, mech2;
-        CK_MECHANISM_INFO   mech_info;
-        CK_BBOOL            testcase_skip = FALSE;
-        CK_RV               retval, rc = CKR_OK;
+	int 			i, j;
+	CK_BYTE			original[BIG_REQUEST];
+	CK_ULONG		original_len;
+	CK_BYTE			crypt[BIG_REQUEST];
+	CK_ULONG		crypt_len;
+	CK_BYTE			decrypt[BIG_REQUEST];
+	CK_ULONG		decrypt_len;
+	CK_MECHANISM		mech;
+	CK_OBJECT_HANDLE	publ_key, priv_key;
+	CK_SLOT_ID		slot_id = SLOT_ID;
+	CK_SESSION_HANDLE	session;
+	CK_FLAGS		flags;
+	CK_BYTE			user_pin[PKCS11_MAX_PIN_LEN];
+	CK_ULONG		user_pin_len;
+	CK_RV			rc, loc_rc;
 
-        //
-        CK_OBJECT_HANDLE        publ_key, priv_key;
-        CK_ATTRIBUTE            pub_tmpl[] = {
-                                  {CKA_MODULUS_BITS,    &mod_bits, sizeof(mod_bits) },
-                                  {CKA_PUBLIC_EXPONENT, publ_exp,  publ_explen     }
-                                };
-        CK_BYTE_PTR             cleartxt = NULL,
-                                ciphertxt = NULL;
-        CK_ULONG                encryptlen,
-                                decryptlen;
-        char                    *s;
-        CK_ULONG                i;
+	char 			*s;
 
-        if ( p11_ahex_dump(&s, publ_exp, publ_explen) == NULL) {
-                testcase_error("p11_ahex_dump() failed");
-                rc = -1;
+	// begin testsuite
+	testsuite_begin("%s Encrypt Decrypt.", tsuite->name);
+	testcase_rw_session();
+	testcase_user_login();
+
+	// skip tests if the slot doesn't support this mechanism
+        if (! mech_supported(slot_id, tsuite->mech.mechanism)) {
+                testsuite_skip(tsuite->tvcount,
+                        "Slot %u doesn't support %u",
+                        (unsigned int) slot_id,
+                        (unsigned int) tsuite->mech.mechanism );
                 goto testcase_cleanup;
         }
 
-        testcase_begin("Starting with mechtype='%s', publ_exp='%s', mod_bits='%lu', inputlen='%lu', inplace='%u'",
-                        p11_get_ckm(mechtype), s, mod_bits, inputlen, (unsigned int) inplace);
-        free(s);
+	// iterate over test vectors
+	for (i = 0; i < tsuite->tvcount; i++) {
 
-        testcase_rw_session();
-        testcase_user_login();
-
-        mech1.mechanism      = CKM_RSA_PKCS_KEY_PAIR_GEN;
-        mech1.ulParameterLen = 0;
-        mech1.pParameter     = NULL;
-
-        /* query the slot, check if this mech, length is supported */
-        rc = funcs->C_GetMechanismInfo(SLOT_ID, mech1.mechanism, &mech_info);
-        if (rc != CKR_OK) {
-                if (rc == CKR_MECHANISM_INVALID) {
-                        /* no support for PKCS RSA key gen? skip */
-                        testcase_skip("Slot %u doesn't support CKM_RSA_PKCS_KEY_PAIR_GEN",
-                                        (unsigned int) SLOT_ID);
-                        goto testcase_cleanup;
-                }
-                else {
-                        testcase_error("C_GetMechanismInfo() rc = %s", p11_get_ckr(rc));
-                        goto testcase_cleanup;
-                }
-        }
-        else {
-                if ( (mod_bits < mech_info.ulMinKeySize) ||
-                     (mod_bits > mech_info.ulMaxKeySize) ) {
-                        testcase_skip("Requested bit length outside advertised range (%lu, %lu)",
-                                        mech_info.ulMinKeySize, mech_info.ulMaxKeySize);
-                        goto testcase_cleanup;
-                }
-        }
-
-        mech2.mechanism = mechtype;
-        mech2.ulParameterLen = 0;
-        mech2.pParameter = NULL;
-
-        rc = funcs->C_GetMechanismInfo(SLOT_ID, mech2.mechanism, &mech_info);
-        if (rc != CKR_OK) {
-                if (rc == CKR_MECHANISM_INVALID) {
-                        /* no support for specified mech? skip */
-                        testcase_skip("Slot %u doesn't support %s",
-                                        (unsigned int) SLOT_ID, p11_get_ckm(mechtype));
-                        goto testcase_cleanup;
-                }
-                else {
-                        testcase_error("C_GetMechanismInfo() rc = %s", p11_get_ckr(rc));
-                        goto testcase_cleanup;
-                }
-        }
-        else {
-                if ( (mod_bits < mech_info.ulMinKeySize) ||
-                     (mod_bits > mech_info.ulMaxKeySize) ) {
-                        testcase_skip("Requested key bit length outside of %s range (%lu, %lu)",
-                                        p11_get_ckm(mechtype), mech_info.ulMinKeySize,
-                                        mech_info.ulMaxKeySize);
-                        goto testcase_cleanup;
-                }
-                if ( !(mech_info.flags & CKF_ENCRYPT) ) {
-                        testcase_skip("Token does not support CKF_ENCRYPT in the %s mechanism",
-                                        p11_get_ckm(mechtype));
-                        goto testcase_cleanup;
-                }
-                if ( !(mech_info.flags & CKF_DECRYPT) ) {
-                        testcase_skip("Token does not support CKF_DECRYPT in %s mechanism",
-                                        p11_get_ckm(mechtype));
-                        goto testcase_cleanup;
-                }
-        }
-
-
-        rc = funcs->C_GenerateKeyPair(session, &mech1,
-                        pub_tmpl, 2, NULL, 0,
-                        &publ_key, &priv_key );
-
-        if (rc != CKR_OK) {
-                if (rc == CKR_TEMPLATE_INCONSISTENT) {
-                        testcase_skip("Token can't generate key with provided template (this is usually ok for non-standard public exponents)");
-                        goto testcase_cleanup;
-                }
-                else {
-                        testcase_fail("C_GenerateKeyPair() rc = %s",
-                                        p11_get_ckr(rc));
-                        goto testcase_cleanup;
-                }
-        }
-
-        /* TODO: Check flags for generated key pair     */
-
-
-        cleartxt = calloc(sizeof(CK_BYTE), inputlen);
-        if (cleartxt == NULL) {
-                testcase_fail("Can't allocate memory for %lu bytes",
-                                sizeof(CK_BYTE) * inputlen);
-                rc = -1;
-                goto testcase_cleanup;
-        }
-
-        for (i = 0; i < inputlen; i++) {
-                cleartxt[i] = (i + 1)  % 255;
-        }
-
-        rc = funcs->C_EncryptInit(session, &mech2, publ_key);
-
-        if (rc != CKR_OK) {
-                testcase_fail("C_EncryptInit() rc = %s",
-                                p11_get_ckr(rc));
-                goto testcase_cleanup;
-        }
-
-        /* excercise the "length only" semantics */
-        rc = funcs->C_Encrypt(session, cleartxt, inputlen,
-                        NULL, &encryptlen);
-        if (rc != CKR_OK) {
-                testcase_fail("C_Encrypt() rc = %s",
-                                p11_get_ckr(rc));
-                goto testcase_cleanup;
-        }
-
-        /* We're doing  RSA Encrypt... Output len *has* to be at least  *
-         * the RSA key modulus, so do the math ourselves and check if   *
-         * the size being returned is really sufficient                 */
-        if ( encryptlen < ( (mod_bits + 7) / 8) ) {
-                testcase_fail("C_Encrypt() (length only mode) returned output buffer too small (got %lu, expected >= %lu)",
-                                encryptlen, (mod_bits + 7) / 8);
-                rc = -1;
-                goto testcase_cleanup;
-        }
-
-        /* allocate buf if we're not doing inplace crypt/decrypt */
-        if (!inplace) {
-                ciphertxt = calloc(sizeof(CK_BYTE), encryptlen);
-                if (ciphertxt == NULL) {
-                        testcase_fail("Can't allocate memory for %lu bytes",
-                                        sizeof(CK_BYTE) * encryptlen);
-                        rc = -1;
-                        goto testcase_cleanup;
-                }
-        }
-        else if (encryptlen > inputlen) {
-                /* must extend storage for inplace encrypt */
-                cleartxt = realloc(cleartxt, encryptlen * sizeof (CK_BYTE));
-                if (cleartxt == NULL) {
-                        testcase_fail("Can't re-allocate memory for %lu bytes",
-                                        sizeof(CK_BYTE) * encryptlen);
-                        rc = -1;
-                        goto testcase_cleanup;
-                }
-        }
-
-        rc = funcs->C_Encrypt(session, cleartxt, inputlen,
-                        inplace ? cleartxt : ciphertxt,
-                        &encryptlen);
-        if (rc != CKR_OK) {
-                testcase_fail("C_Encrypt() rc = %s",
-                                p11_get_ckr(rc));
-                goto testcase_cleanup;
-        }
-
-        /* repeat the length test, now with tight boundaries */
-        if ( encryptlen != ( (mod_bits + 7) / 8) ) {
-                testcase_fail("C_Encrypt() returned output buffer too small (got %lu, expected %lu)",
-                                encryptlen, (mod_bits + 7) / 8);
-                if ( p11_ahex_dump(&s, inplace ? cleartxt : ciphertxt, encryptlen) != NULL) {
-                        testcase_notice("full dump for encrypted value:\n%s", s);
-                        free(s);
-                }
-                rc = -1;
-                goto testcase_cleanup;
-        }
-
-        rc = funcs->C_DecryptInit(session, &mech2, priv_key);
-        if (rc != CKR_OK) {
-                testcase_fail("C_DecryptInit() rc = %s",
-                                p11_get_ckr(rc));
-                goto testcase_cleanup;
-        }
-
-        /* exercise the "length only" semantics for decrypt */
-        rc = funcs->C_Decrypt(session,
-                        inplace? cleartxt : ciphertxt,
-                        encryptlen,
-                        NULL, &decryptlen);
-        if (rc != CKR_OK) {
-                testcase_fail("C_Decrypt() rc = %s",
-                                p11_get_ckr(rc));
-                goto testcase_cleanup;
-        }
-
-        /* check the predicted decrypt length */
-        if (decryptlen < inputlen) {
-                testcase_fail("C_Decrypt() (length only mode) returned output buffer too small (got %lu, expected >= %lu)",
-                                decryptlen, inputlen);
-                rc = -1;
-                goto testcase_cleanup;
-        }
-
-        /* need to make sure we have sufficient storage for decrypt */
-        cleartxt = realloc(cleartxt, decryptlen * sizeof(CK_BYTE));
-        if (cleartxt == NULL) {
-                testcase_fail("Can't re-allocate memory for %lu bytes",
-                                sizeof(CK_BYTE) * decryptlen);
-                rc = -1;
-                goto testcase_cleanup;
-        }
-
-
-        rc = funcs->C_Decrypt(session,
-                        inplace ? cleartxt : ciphertxt,
-                        encryptlen,
-                        cleartxt, &decryptlen);
-        if (rc != CKR_OK) {
-                testcase_fail("C_Decrypt() rc = %s",
-                                p11_get_ckr(rc));
-                goto testcase_cleanup;
-        }
-
-        /* for CKM_RSA_X_509, we must take the padding out by ourselves         *
-         * use inputlen for that                                                */
-        if (mechtype == CKM_RSA_X_509) {
-                /* quick sanity check */
-                if (inputlen > decryptlen) {
-                        testcase_fail("C_Decrypt() returned invalid output buffer len (got %lu, expected >= %lu",
-                                        decryptlen, inputlen);
-                        if ( p11_ahex_dump(&s, cleartxt, decryptlen) != NULL) {
-                                testcase_notice("full dump for decrypted value:\n%s", s);
-                                free(s);
-                        }
+		// get public exponent from test vector
+                if ( p11_ahex_dump(&s, tsuite->tv[i].publ_exp,
+                                tsuite->tv[i].publ_exp_len) == NULL) {
+                        testcase_error("p11_ahex_dump() failed");
                         rc = -1;
                         goto testcase_cleanup;
                 }
 
-                memmove(cleartxt, cleartxt + decryptlen - inputlen, inputlen);
-
-                /* now adjust decryptlen for later comparisson */
-                decryptlen = inputlen;
-        }
-        else {
-                /* check out buffer length again, tight boundaries */
-                if (decryptlen != inputlen) {
-                        testcase_fail("C_Decrypt() returned output buffer too small (got %lu, expected %lu)",
-                                        decryptlen, inputlen);
-                        if ( p11_ahex_dump(&s, cleartxt, decryptlen) != NULL) {
-                                testcase_notice("full dump for decrypted value:\n%s", s);
-                                free(s);
-                        }
-                        rc = -1;
-                        goto testcase_cleanup;
-                }
-        }
-
-        /* Now check byte-by-byte */
-        for (i = 0; i < decryptlen; i++) {
-                if (cleartxt[i] != (i + 1) % 255) {
-                        testcase_fail("C_Decrypt() decryption error at byte '%lu'", i);
-                        if ( p11_ahex_dump(&s, cleartxt, decryptlen) != NULL) {
-                                testcase_notice("full dump for decrypted value:\n%s", s);
-                                free(s);
-                        }
-                        rc = -1;
-                        goto testcase_cleanup;
-                }
-        }
-
-
-
-testcase_cleanup:
-        if ( rc == CKR_OK && !testcase_skip) {
-                testcase_pass("Looks okay...");
-        }
-
-        retval = rc;
-
-        testcase_close_session();
-
-        if (cleartxt) free (cleartxt);
-        if (ciphertxt) free (ciphertxt);
-
-        return retval | rc;
-}
-
-//
-// This function should test:
-//  * RSA Key Generation, using CKM_RSA_PKCS_KEY_PAIR_GEN
-//  * RSA Sign (optionally with Recover), mechanism chosen by the caller
-//  * RSA Verify (optionally with Recover), mechanism chosen by the caller
-//
-// Key generation parameters:
-//  * @mechtype is the sign/verify (recover) mechanism to use
-//  * @publ_exp is a byte array with the public exponent
-//  * @publ_explen is the length for the @publ_exp byte array
-//  * @mod_bits is the lengt for the modulus in bits
-//
-// Data encryption parameters:
-//  * @inputlen is the length for the data to be signed and verified
-//  * @recover true means we will test the "Recover" version for
-//    signing and verifying
-CK_RV do_GenerateSignVerifyRSA(
-                CK_MECHANISM_TYPE   mechtype,
-                CK_ULONG            mod_bits,
-                CK_ULONG            publ_explen,
-                CK_BYTE_PTR         publ_exp,
-                CK_ULONG            inputlen,
-                CK_BBOOL            recover)
-{
-        CK_SESSION_HANDLE   session;
-        CK_FLAGS            flags;
-        CK_BYTE             user_pin[PKCS11_MAX_PIN_LEN];
-        CK_ULONG            user_pin_len;
-        CK_MECHANISM        mech1, mech2;
-        CK_MECHANISM_INFO   mech_info;
-        CK_BBOOL            testcase_skip = FALSE;
-        CK_RV               retval, rc = CKR_OK;
-
-
-        //
-        CK_OBJECT_HANDLE        publ_key, priv_key;
-        CK_ATTRIBUTE            pub_tmpl[] = {
-                                  {CKA_MODULUS_BITS,    &mod_bits, sizeof(mod_bits) },
-                                  {CKA_PUBLIC_EXPONENT, publ_exp,  publ_explen     }
-                                };
-        CK_BYTE_PTR             indata = NULL,
-                                recoverdata = NULL,
-                                signature = NULL;
-        CK_ULONG                recoverdatalen,
-                                signaturelen;
-        char                    *s;
-        CK_ULONG                i;
-
-        if ( p11_ahex_dump(&s, publ_exp, publ_explen) == NULL) {
-                testcase_error("p11_ahex_dump() failed");
-                rc = -1;
-                goto testcase_cleanup;
-        }
-
-        testcase_begin("Starting with mechtype='%s', publ_exp='%s', mod_bits='%lu', inputlen='%lu', recover='%u'",
-                        p11_get_ckm(mechtype), s, mod_bits, inputlen, (unsigned int) recover);
-        free(s);
-
-        testcase_rw_session();
-        testcase_user_login();
-
-        mech1.mechanism      = CKM_RSA_PKCS_KEY_PAIR_GEN;
-        mech1.ulParameterLen = 0;
-        mech1.pParameter     = NULL;
-
-        /* query the slot, check if this mech, length is supported */
-        rc = funcs->C_GetMechanismInfo(SLOT_ID, mech1.mechanism, &mech_info);
-        if (rc != CKR_OK) {
-                if (rc == CKR_MECHANISM_INVALID) {
-                        /* no support for PKCS RSA key gen? skip */
-                        testcase_skip("Slot %u doesn't support CKM_RSA_PKCS_KEY_PAIR_GEN",
-                                        (unsigned int) SLOT_ID);
-                        goto testcase_cleanup;
-                }
-                else {
-                        testcase_error("C_GetMechanismInfo() rc = %s", p11_get_ckr(rc));
-                        goto testcase_cleanup;
-                }
-        }
-        else {
-                if ( (mod_bits < mech_info.ulMinKeySize) ||
-                     (mod_bits > mech_info.ulMaxKeySize) ) {
-                        testcase_skip("Requested bit length outside advertised range (%lu, %lu)",
-                                        mech_info.ulMinKeySize, mech_info.ulMaxKeySize);
-                        goto testcase_cleanup;
-                }
-        }
-
-        mech2.mechanism = mechtype;
-        mech2.ulParameterLen = 0;
-        mech2.pParameter = NULL;
-
-        rc = funcs->C_GetMechanismInfo(SLOT_ID, mech2.mechanism, &mech_info);
-        if (rc != CKR_OK) {
-                if (rc == CKR_MECHANISM_INVALID) {
-                        /* no support for specified mech? skip */
-                        testcase_skip("Slot %u doesn't support %s",
-                                        (unsigned int) SLOT_ID, p11_get_ckm(mechtype));
-                        goto testcase_cleanup;
-                }
-                else {
-                        testcase_error("C_GetMechanismInfo() rc = %s", p11_get_ckr(rc));
-                        goto testcase_cleanup;
-                }
-        }
-        else {
-                if ( (mod_bits < mech_info.ulMinKeySize) ||
-                     (mod_bits > mech_info.ulMaxKeySize) ) {
-                        testcase_skip("Requested key bit length outside of %s range (%lu, %lu)",
-                                        p11_get_ckm(mechtype), mech_info.ulMinKeySize,
-                                        mech_info.ulMaxKeySize);
-                        goto testcase_cleanup;
-                }
-                if ( !(mech_info.flags & (recover ? CKF_SIGN_RECOVER : CKF_SIGN)) ) {
-                        if (recover)
-                                testcase_skip("Token does not support CKF_SIGN_RECOVER in the %s mechanism",
-                                                p11_get_ckm(mechtype));
-                        else
-                                testcase_skip("Token does not support CKF_SIGN in the %s mechanism",
-                                                p11_get_ckm(mechtype));
-                        goto testcase_cleanup;
-                }
-                if ( !(mech_info.flags & (recover ? CKF_VERIFY_RECOVER : CKF_VERIFY)) ) {
-                        if (recover)
-                                testcase_skip("Token does not support CKF_VERIFY_RECOVER in the %s mechanism",
-                                                p11_get_ckm(mechtype));
-                        else
-                                testcase_skip("Token does not support CKF_VERIFY in the %s mechanism",
-                                                p11_get_ckm(mechtype));
-                        goto testcase_cleanup;
-                }
-
-        }
-
-
-        rc = funcs->C_GenerateKeyPair(session, &mech1,
-                        pub_tmpl, 2, NULL, 0,
-                        &publ_key, &priv_key );
-
-        if (rc != CKR_OK) {
-                if (rc == CKR_TEMPLATE_INCONSISTENT) {
-                        testcase_skip("Token can't generate key with provided template (this is usually ok for non-standard public exponents)");
-                        goto testcase_cleanup;
-                }
-                else {
-                        testcase_fail("C_GenerateKeyPair() rc = %s",
-                                        p11_get_ckr(rc));
-                        goto testcase_cleanup;
-                }
-        }
-
-        /* TODO: Check flags for generated key pair     */
-
-
-        indata = calloc(sizeof(CK_BYTE), inputlen);
-        if (indata == NULL) {
-                testcase_fail("Can't allocate memory for %lu bytes",
-                                sizeof(CK_BYTE) * inputlen);
-                rc = -1;
-                goto testcase_cleanup;
-        }
-
-        for (i = 0; i < inputlen; i++) {
-                indata[i] = (i + 1)  % 255;
-        }
-
-        if (!recover) {
-                rc = funcs->C_SignInit(session, &mech2, priv_key);
-                if (rc != CKR_OK) {
-                        testcase_fail("C_SignInit() rc = %s",
-                                        p11_get_ckr(rc));
-                        goto testcase_cleanup;
-                }
-        }
-        else {
-                rc = funcs->C_SignRecoverInit(session, &mech2, priv_key);
-                if (rc != CKR_OK) {
-                        testcase_fail("C_SignRecoverInit() rc = %s",
-                                        p11_get_ckr(rc));
-                        goto testcase_cleanup;
-                }
-        }
-
-        /* excercise the "length only" semantics */
-        if (!recover) {
-                rc = funcs->C_Sign(session, indata, inputlen,
-                                NULL, &signaturelen);
-                if (rc != CKR_OK) {
-                        testcase_fail("C_Sign() rc = %s",
-                                        p11_get_ckr(rc));
-                        goto testcase_cleanup;
-                }
-        }
-        else {
-                rc = funcs->C_SignRecover(session, indata, inputlen,
-                                NULL, &signaturelen);
-                if (rc != CKR_OK) {
-                        testcase_fail("C_SignRecover() rc = %s",
-                                        p11_get_ckr(rc));
-                        goto testcase_cleanup;
-                }
-        }
-
-
-        /* We're doing RSA Sign... Output len *has* to be at least      *
-         * the RSA key modulus, so do the math ourselves and check if   *
-         * the size being returned is really sufficient                 */
-        if ( signaturelen < ( (mod_bits + 7) / 8) ) {
-                if (!recover) {
-                        testcase_fail("C_Sign() (length only mode) returned output buffer too small (got %lu, expected >= %lu)",
-                                        signaturelen, (mod_bits + 7) / 8);
-                }
-                else {
-                        testcase_fail("C_SignRecover() (length only mode) returned output buffer too small (got %lu, expected >= %lu)",
-                                        signaturelen, (mod_bits + 7) / 8);
-                }
-                rc = -1;
-                goto testcase_cleanup;
-        }
-
-        signature = calloc(sizeof(CK_BYTE), signaturelen);
-        if (signature == NULL) {
-                testcase_fail("Can't allocate memory for %lu bytes",
-                                sizeof(CK_BYTE) * signaturelen);
-                rc = -1;
-                goto testcase_cleanup;
-        }
-
-        if (!recover) {
-                rc = funcs->C_Sign(session, indata, inputlen,
-                                signature, &signaturelen);
-                if (rc != CKR_OK) {
-                        testcase_fail("C_Sign() rc = %s",
-                                        p11_get_ckr(rc));
-                        goto testcase_cleanup;
-                }
-        }
-        else {
-                rc = funcs->C_SignRecover(session, indata, inputlen,
-                                signature, &signaturelen);
-                if (rc != CKR_OK) {
-                        testcase_fail("C_SignRecover() rc = %s",
-                                        p11_get_ckr(rc));
-                        goto testcase_cleanup;
-                }
-        }
-
-        /* repeat the length test, now with tight boundaries */
-        if ( signaturelen != ( (mod_bits + 7) / 8) ) {
-                if (!recover) {
-                        testcase_fail("C_Sign() returned output buffer too small (got %lu, expected %lu)",
-                                        signaturelen, (mod_bits + 7) / 8);
-                }
-                else {
-                        testcase_fail("C_SignRecover() returned output buffer too small (got %lu, expected %lu)",
-                                        signaturelen, (mod_bits + 7) / 8);
-                }
-                if ( p11_ahex_dump(&s, signature, signaturelen) != NULL) {
-                        testcase_notice("full dump for signature value:\n%s", s);
-                        free(s);
-                }
-                rc = -1;
-                goto testcase_cleanup;
-        }
-
-        if (!recover) {
-                rc = funcs->C_VerifyInit(session, &mech2, publ_key);
-                if (rc != CKR_OK) {
-                        testcase_fail("C_VerifyInit() rc = %s",
-                                        p11_get_ckr(rc));
-                        goto testcase_cleanup;
-                }
-        }
-        else {
-                rc = funcs->C_VerifyRecoverInit(session, &mech2, publ_key);
-                if (rc != CKR_OK) {
-                        testcase_fail("C_VerifyRecoverInit() rc = %s",
-                                        p11_get_ckr(rc));
-                        goto testcase_cleanup;
-                }
-        }
-
-        if (!recover) {
-                rc = funcs->C_Verify(session,
-                                indata, inputlen,
-                                signature, signaturelen);
-                if (rc != CKR_OK) {
-                        testcase_fail("C_Verify() rc = %s",
-                                        p11_get_ckr(rc));
-                        goto testcase_cleanup;
-                }
-
-                /*  TODO: Maybe test invalid signature scenario? */
-        }
-        else {
-                /* exercise the "length only" semantics for recover */
-                rc = funcs->C_VerifyRecover(session,
-                                signature, signaturelen,
-                                NULL, &recoverdatalen);
-                if (rc != CKR_OK) {
-                        testcase_fail("C_VerifyRecover() rc = %s",
-                                        p11_get_ckr(rc));
-                        goto testcase_cleanup;
-                }
-
-
-                /* check the predicted recovered data length */
-                if (recoverdatalen < inputlen) {
-                        testcase_fail("C_VerifyRecover() (length only mode) returned output buffer too small (got %lu, expected >= %lu)",
-                                recoverdatalen, inputlen);
-                        rc = -1;
-                        goto testcase_cleanup;
-                }
-
-                recoverdata = calloc(sizeof(CK_BYTE), recoverdatalen);
-                if (recoverdata == NULL) {
-                        testcase_fail("Can't allocate memory for %lu bytes",
-                                        sizeof(CK_BYTE) * recoverdatalen);
-                        rc = -1;
-                        goto testcase_cleanup;
-                }
-
-
-                rc = funcs->C_VerifyRecover(session,
-                                signature, signaturelen,
-                                recoverdata, &recoverdatalen);
-                if (rc != CKR_OK) {
-                        testcase_fail("C_VerifyRecover() rc = %s",
-                                        p11_get_ckr(rc));
-                        goto testcase_cleanup;
-                }
-                /* for CKM_RSA_X_509, we must take the padding out by ourselves         *
-                 * use inputlen for that                                                */
-                if (mechtype == CKM_RSA_X_509) {
-                        /* quick sanity check */
-                        if (inputlen > recoverdatalen) {
-                                testcase_fail("C_VerifyRecover() returned invalid output buffer len (got %lu, expected >= %lu",
-                                                recoverdatalen, inputlen);
-                                if ( p11_ahex_dump(&s, recoverdata, recoverdatalen) != NULL) {
-                                        testcase_notice("full dump for recovered signature value:\n%s", s);
-                                        free(s);
-                                }
-                                rc = -1;
-                                goto testcase_cleanup;
-                        }
-                        memmove(recoverdata, recoverdata + recoverdatalen - inputlen, inputlen);
-                        /* now adjust decryptlen for later comparisson */
-                        recoverdatalen = inputlen;
-                }
-                else {
-                        /* check out buffer length again, tight boundaries */
-                        if (recoverdatalen != inputlen) {
-                                testcase_fail("C_VerifyRecover() returned output buffer too small (got %lu, expected %lu)",
-                                                recoverdatalen, inputlen);
-                                if ( p11_ahex_dump(&s, recoverdata, recoverdatalen) != NULL) {
-                                        testcase_notice("full dump for recovered signature value:\n%s", s);
-                                        free(s);
-                                }
-                                rc = -1;
-                                goto testcase_cleanup;
-                        }
-                }
-
-                /* Now check byte-by-byte */
-                for (i = 0; i < recoverdatalen; i++) {
-                        if (recoverdata[i] != (i + 1) % 255) {
-                                testcase_fail("C_VerifyRecover() signature data recovery error at byte '%lu'", i);
-                                if ( p11_ahex_dump(&s, recoverdata, recoverdatalen) != NULL) {
-                                        testcase_notice("full dump for recovered signature value:\n%s", s);
-                                        free(s);
-                                }
-                                rc = -1;
-                                goto testcase_cleanup;
-                        }
-                }
-        }
-
-
-
-testcase_cleanup:
-        if ( rc == CKR_OK && !testcase_skip) {
-                testcase_pass("Looks okay...");
-        }
-
-        retval = rc;
-
-        testcase_close_session();
-
-        if (indata) free (indata);
-        if (signature) free (signature);
-        if (recoverdata) free (recoverdata);
-
-        return retval | rc;
-}
-
-//
-// Allocates memory on *dst and prints members
-// of zero-terminated CK_ULONG array
-// *dst must be freed by the caller
-char *
-my_ulong_dump(char **dst, CK_ULONG_PTR ptr, CK_ULONG size)
-{
-    unsigned long i, len;
-
-    if (dst == NULL) {
-        return NULL;
-    }
-
-    *dst = NULL;
-
-    for (i = 0, len = 0; i < size; i++) {
-        if ( (*dst = realloc(*dst, len + 25)) != NULL) {
-            if (size == 1) {
-                    sprintf(*dst + len, "[%lu]", ptr[i]);
-            } else if (i == 0) {
-                    sprintf(*dst + len, "[%lu, ", ptr[i]);
-            } else if (i == (size - 1)) {
-                    sprintf(*dst + len, "%lu]", ptr[i]);
-            } else {
-                    sprintf(*dst + len, "%lu, ", ptr[i]);
-            }
-            len = strlen(*dst);
-        }
-        else {
-            break;
-        }
-    }
-
-    return *dst;
-}
-
-
-//
-// This function should test:
-//  * RSA Key Generation, using CKM_RSA_PKCS_KEY_PAIR_GEN
-//  * RSA Multipart Sign with mechanism chosen by the caller
-//  * RSA Multipart Verify with mechanism chosen by the caller
-//
-// Key generation parameters:
-//  * @mechtype is the multipart sign/verify mechanism to use
-//  * @publ_exp is a byte array with the public exponent
-//  * @publ_explen is the length for the @publ_exp byte array
-//  * @mod_bits is the lengt for the modulus in bits
-//
-// Signing parameters:
-//  * @partsnum brings the number of parts for the @partslensa array
-//  * @partslens is CK_ULONG array with the sizes for the input
-//               parts, e.g., { 10, 20, 30, 40 }
-CK_RV do_GenerateMultipartSignVerifyRSA(
-                CK_MECHANISM_TYPE   mechtype,
-                CK_ULONG            mod_bits,
-                CK_ULONG            publ_explen,
-                CK_BYTE_PTR         publ_exp,
-                CK_ULONG            partsnum,
-                CK_ULONG_PTR        partslens)
-{
-        CK_SESSION_HANDLE   session;
-        CK_FLAGS            flags;
-        CK_BYTE             user_pin[PKCS11_MAX_PIN_LEN];
-        CK_ULONG            user_pin_len;
-        CK_MECHANISM        mech1, mech2;
-        CK_MECHANISM_INFO   mech_info;
-        CK_BBOOL            testcase_skip = FALSE;
-        CK_RV               retval, rc = CKR_OK;
-
-
-        //
-        CK_OBJECT_HANDLE        publ_key, priv_key;
-        CK_ATTRIBUTE            pub_tmpl[] = {
-                                  {CKA_MODULUS_BITS,    &mod_bits, sizeof(mod_bits) },
-                                  {CKA_PUBLIC_EXPONENT, publ_exp,  publ_explen     }
-                                };
-        CK_BYTE_PTR             indata = NULL,
-                                signature = NULL;
-        CK_ULONG                inputlen,
-                                parts,
-                                signaturelen;
-        char                    *s, *r;
-        CK_ULONG                i;
-
-        if ( p11_ahex_dump(&s, publ_exp, publ_explen) == NULL) {
-                testcase_error("p11_ahex_dump() failed");
-                rc = -1;
-                goto testcase_cleanup;
-        }
-
-        if ( my_ulong_dump(&r, partslens, partsnum) == NULL) {
-                testcase_error("my_ulong_dump() failed");
-                rc = -1;
-                goto testcase_cleanup;
-        }
-
-        testcase_begin("Starting with mechtype='%s', publ_exp='%s', mod_bits='%lu', partslens='%s'",
-                        p11_get_ckm(mechtype), s, mod_bits, r);
-        free(s);
-        free(r);
-
-
-        testcase_rw_session();
-        testcase_user_login();
-
-        mech1.mechanism      = CKM_RSA_PKCS_KEY_PAIR_GEN;
-        mech1.ulParameterLen = 0;
-        mech1.pParameter     = NULL;
-
-        /* query the slot, check if this mech, length is supported */
-        rc = funcs->C_GetMechanismInfo(SLOT_ID, mech1.mechanism, &mech_info);
-        if (rc != CKR_OK) {
-                if (rc == CKR_MECHANISM_INVALID) {
-                        /* no support for PKCS RSA key gen? skip */
-                        testcase_skip("Slot %u doesn't support CKM_RSA_PKCS_KEY_PAIR_GEN",
-                                        (unsigned int) SLOT_ID);
-                        goto testcase_cleanup;
-                }
-                else {
-                        testcase_error("C_GetMechanismInfo() rc = %s", p11_get_ckr(rc));
-                        goto testcase_cleanup;
-                }
-        }
-        else {
-                if ( (mod_bits < mech_info.ulMinKeySize) ||
-                     (mod_bits > mech_info.ulMaxKeySize) ) {
-                        testcase_skip("Requested bit length outside advertised range (%lu, %lu)",
-                                        mech_info.ulMinKeySize, mech_info.ulMaxKeySize);
-                        goto testcase_cleanup;
-                }
-        }
-
-        mech2.mechanism = mechtype;
-        mech2.ulParameterLen = 0;
-        mech2.pParameter = NULL;
-
-        rc = funcs->C_GetMechanismInfo(SLOT_ID, mech2.mechanism, &mech_info);
-        if (rc != CKR_OK) {
-                if (rc == CKR_MECHANISM_INVALID) {
-                        /* no support for specified mech? skip */
-                        testcase_skip("Slot %u doesn't support %s",
-                                        (unsigned int) SLOT_ID, p11_get_ckm(mechtype));
-                        goto testcase_cleanup;
-                }
-                else {
-                        testcase_error("C_GetMechanismInfo() rc = %s", p11_get_ckr(rc));
-                        goto testcase_cleanup;
-                }
-        }
-        else {
-                if ( (mod_bits < mech_info.ulMinKeySize) ||
-                     (mod_bits > mech_info.ulMaxKeySize) ) {
-                        testcase_skip("Requested key bit length outside of %s range (%lu, %lu)",
-                                        p11_get_ckm(mechtype), mech_info.ulMinKeySize,
-                                        mech_info.ulMaxKeySize);
-                        goto testcase_cleanup;
-                }
-                if ( !(mech_info.flags & CKF_SIGN) ) {
-                        testcase_skip("Token does not support CKF_SIGN in the %s mechanism",
-                                        p11_get_ckm(mechtype));
-                        goto testcase_cleanup;
-                }
-                if ( !(mech_info.flags & CKF_VERIFY) ) {
-                        testcase_skip("Token does not support CKF_VERIFY in the %s mechanism",
-                                        p11_get_ckm(mechtype));
-                        goto testcase_cleanup;
-                }
-
-        }
-
-        rc = funcs->C_GenerateKeyPair(session, &mech1,
-                        pub_tmpl, 2, NULL, 0,
-                        &publ_key, &priv_key );
-
-        if (rc != CKR_OK) {
-                if (rc == CKR_TEMPLATE_INCONSISTENT) {
-                        testcase_skip("Token can't generate key with provided template "
-                                        "(this is usually ok for non-standard public exponents)");
-                        goto testcase_cleanup;
-                }
-                else {
-                        testcase_fail("C_GenerateKeyPair() rc = %s",
-                                        p11_get_ckr(rc));
-                        goto testcase_cleanup;
-                }
-        }
-
-        /* TODO: Check flags for generated key pair     */
-
-        rc = funcs->C_SignInit(session, &mech2, priv_key);
-        if (rc != CKR_OK) {
-                testcase_fail("C_SignInit() rc = %s",
-                                p11_get_ckr(rc));
-                goto testcase_cleanup;
-        }
-
-        for (parts = 0, inputlen = 0;
-                        parts < partsnum;
-                        parts++) {
-                if (partslens[parts] > 0) {
-                        indata = realloc(indata, partslens[parts]);
-                }
-                if (indata == NULL) {
-                        testcase_fail("Can't re-allocate indata buffer to %lu bytes length",
-                                        partslens[parts]);
-                        rc = -1;
-                        goto testcase_cleanup;
-                }
-
-                for (i = 0; i <  partslens[parts]; i++) {
-                        indata[i] = (inputlen + i + 1) % 255;
-                }
-
-                rc = funcs->C_SignUpdate(session, indata, i);
-                if (rc != CKR_OK) {
-                        testcase_fail("C_SignUpdate() rc = %s",
-                                        p11_get_ckr(rc));
-                        goto testcase_cleanup;
-                }
-        }
-
-        /* Finalize the multi-part sign.. check required signaturelen first */
-        rc = funcs->C_SignFinal(session, NULL, &signaturelen);
-        if (rc != CKR_OK) {
-                testcase_fail("C_SignFinal() rc = %s",
-                                p11_get_ckr(rc));
-                goto testcase_cleanup;
-        }
-
-        signature = calloc(sizeof(CK_BYTE), signaturelen);
-        if (signature == NULL) {
-                testcase_fail("Can't allocate memory for %lu bytes",
-                                sizeof(CK_BYTE) * signaturelen);
-                rc = -1;
-                goto testcase_cleanup;
-        }
-
-        rc = funcs->C_SignFinal(session, signature, &signaturelen);
-        if (rc != CKR_OK) {
-                testcase_fail("C_SignFinal() rc = %s",
-                                p11_get_ckr(rc));
-                goto testcase_cleanup;
-        }
-
-        /* Now verify the signature */
-
-        rc = funcs->C_VerifyInit(session, &mech2, publ_key);
-        if (rc != CKR_OK) {
-                testcase_fail("C_VerifyInit() rc = %s",
-                                p11_get_ckr(rc));
-                goto testcase_cleanup;
-        }
-
-        for (parts = 0, inputlen = 0;
-                        parts < partsnum;
-                        parts++) {
-                if (partslens[parts] > 0) {
-                        indata = realloc(indata, partslens[parts]);
-                }
-                if (indata == NULL) {
-                        testcase_fail("Can't re-allocate indata buffer to %lu bytes length",
-                                        partslens[parts]);
-                        rc = -1;
-                        goto testcase_cleanup;
-                }
-
-                for (i = 0; i <  partslens[parts]; i++) {
-                        indata[i] = (inputlen + i + 1) % 255;
-                }
-
-                rc = funcs->C_VerifyUpdate(session, indata, i);
-                if (rc != CKR_OK) {
-                        testcase_fail("C_VerifyUpdate() rc = %s",
-                                        p11_get_ckr(rc));
-                        goto testcase_cleanup;
-                }
-        }
-
-        /* Finally, verify the signature */
-
-        rc = funcs->C_VerifyFinal(session, signature, signaturelen);
-        if (rc != CKR_OK) {
-                testcase_fail("C_VerifyFinal() rc = %s",
-                                p11_get_ckr(rc));
-                goto testcase_cleanup;
-        }
-
-        /*  TODO: Maybe test invalid signature scenario? */
-
-testcase_cleanup:
-        if ( rc == CKR_OK && !testcase_skip) {
-                testcase_pass("Looks okay...");
-        }
-
-        retval = rc;
-
-        testcase_close_session();
-
-        if (indata) free (indata);
-        if (signature) free (signature);
-
-        return retval | rc;
-}
-
-
-//
-// This function should test:
-//  * RSA Key Generation, using CKM_RSA_PKCS_KEY_PAIR_GEN
-//  * RSA Public-Key Wrap
-//  * RSA Private-Key Unwap
-//
-// RSA Key generation parameters:
-//  * @mechtype is the wrap/unwrap mechanism to use
-//  * @publ_exp is a byte array with the public exponent
-//  * @publ_explen is the length for the @publ_exp byte array
-//  * @mod_bits is the lengt for the modulus in bits
-//
-// Secret key generation and wrapping parameters:
-//  * @keylen is the secret key length to generate
-//  * @keytype is the mechanism type used to generate a secret key
-CK_RV do_GenerateWrapUnwrapRSA(
-                CK_MECHANISM_TYPE   mechtype,
-                CK_ULONG            mod_bits,
-                CK_ULONG            publ_explen,
-                CK_BYTE_PTR         publ_exp,
-                CK_ULONG            keylen,
-                CK_MECHANISM_TYPE   keytype)
-{
-        CK_SESSION_HANDLE   session;
-        CK_FLAGS            flags;
-        CK_BYTE             user_pin[PKCS11_MAX_PIN_LEN];
-        CK_ULONG            user_pin_len;
-        CK_MECHANISM        mech1, mech2, mech3;
-        CK_MECHANISM_INFO   mech_info;
-        CK_BBOOL            testcase_skip = FALSE;
-        CK_RV               retval, rc = CKR_OK;
-
-
-        //
-        CK_OBJECT_HANDLE        publ_key, priv_key, secret_key, unwrapped_key;
-        CK_ATTRIBUTE            pub_tmpl[] = {
-                                  {CKA_MODULUS_BITS,    &mod_bits, sizeof(mod_bits) },
-                                  {CKA_PUBLIC_EXPONENT, publ_exp,  publ_explen     }
-                                };
-        CK_ATTRIBUTE            secret_tmpl[] = {
-                                  {CKA_VALUE_LEN, &keylen, sizeof(keylen) }
-                                };
-        CK_ATTRIBUTE            unwrap_tmpl[] = {
-                                  {CKA_CLASS,     NULL, 0},
-                                  {CKA_KEY_TYPE,  NULL, 0},
-                                  {CKA_VALUE_LEN, NULL, 0}
-                                };
-        CK_ATTRIBUTE            secret_value[] = {
-                                  {CKA_VALUE, NULL, 0}
-                                };
-        CK_ULONG                s_valuelen = 0;
-        CK_ATTRIBUTE            secret_value_len[] = {
-                                  {CKA_VALUE_LEN,
-                                   &s_valuelen,
-                                   sizeof(s_valuelen)}
-                                };
-        CK_ATTRIBUTE            unwrapped_value[] = {
-                                  {CKA_VALUE, NULL, 0}
-                                };
-        CK_ULONG                u_valuelen = 0;
-        CK_ATTRIBUTE            unwrapped_value_len[] = {
-                                  {CKA_VALUE_LEN,
-                                   &u_valuelen,
-                                   sizeof(u_valuelen)}
-                                };
-        CK_BYTE_PTR             wrapped_key = NULL;
-        CK_ULONG                wrapped_keylen;
-        char                    *s;
-        CK_ULONG                i;
-
-        if ( p11_ahex_dump(&s, publ_exp, publ_explen) == NULL) {
-                testcase_error("p11_ahex_dump() failed");
-                rc = -1;
-                goto testcase_cleanup;
-        }
-
-        testcase_begin("Starting with mechtype='%s', publ_exp='%s', mod_bits='%lu', keylen='%lu', keytype='%s'",
-                        p11_get_ckm(mechtype), s, mod_bits, keylen, p11_get_ckm(keytype));
-        free(s);
-
-        testcase_rw_session();
-        testcase_user_login();
-
-        mech1.mechanism      = CKM_RSA_PKCS_KEY_PAIR_GEN;
-        mech1.ulParameterLen = 0;
-        mech1.pParameter     = NULL;
-
-        /* query the slot, check if this mech, length is supported */
-        rc = funcs->C_GetMechanismInfo(SLOT_ID, mech1.mechanism, &mech_info);
-        if (rc != CKR_OK) {
-                if (rc == CKR_MECHANISM_INVALID) {
-                        /* no support for PKCS RSA key gen? skip */
-                        testcase_skip("Slot %u doesn't support CKM_RSA_PKCS_KEY_PAIR_GEN",
-                                        (unsigned int) SLOT_ID);
-                        goto testcase_cleanup;
-                }
-                else {
-                        testcase_error("C_GetMechanismInfo() rc = %s", p11_get_ckr(rc));
-                        goto testcase_cleanup;
-                }
-        }
-        else {
-                if ( (mod_bits < mech_info.ulMinKeySize) ||
-                     (mod_bits > mech_info.ulMaxKeySize) ) {
-                        testcase_skip("Requested bit length outside advertised range (%lu, %lu)",
-                                        mech_info.ulMinKeySize, mech_info.ulMaxKeySize);
-                        goto testcase_cleanup;
-                }
-        }
-
-        mech2.mechanism = keytype;
-        mech2.ulParameterLen = 0;
-        mech2.pParameter = NULL;
-
-        /* query the slot, check if this mech, length is supported */
-        rc = funcs->C_GetMechanismInfo(SLOT_ID, mech2.mechanism, &mech_info);
-        if (rc != CKR_OK) {
-                if (rc == CKR_MECHANISM_INVALID) {
-                        /* We don't support generating this type of secret key - skip */
-                        testcase_skip("Slot %u doesn't support %s",
-                                        (unsigned int) SLOT_ID, p11_get_ckm(keytype));
-                        goto testcase_cleanup;
-                }
-                else {
-                        testcase_error("C_GetMechanismInfo() rc = %s", p11_get_ckr(rc));
-                        goto testcase_cleanup;
-                }
-        }
-        else {
-                /* Check valid lengths for secret key generation */
-                if ( (keylen < mech_info.ulMinKeySize) ||
-                     (keylen > mech_info.ulMaxKeySize) ) {
-                        testcase_skip("Requested secret key length outside of %s range (%lu, %lu)",
-                                        p11_get_ckm(keytype), mech_info.ulMinKeySize,
-                                        mech_info.ulMaxKeySize);
-                        goto testcase_cleanup;
-                }
-        }
-
-        mech3.mechanism = mechtype;
-        mech3.ulParameterLen = 0;
-        mech3.pParameter = NULL;
-
-        rc = funcs->C_GetMechanismInfo(SLOT_ID, mech3.mechanism, &mech_info);
-        if (rc != CKR_OK) {
-                if (rc == CKR_MECHANISM_INVALID) {
-                        /* no support for specified mech? skip */
-                        testcase_skip("Slot %u doesn't support %s",
-                                        (unsigned int) SLOT_ID, p11_get_ckm(mechtype));
-                        goto testcase_cleanup;
-                }
-                else {
-                        testcase_error("C_GetMechanismInfo() rc = %s", p11_get_ckr(rc));
-                        goto testcase_cleanup;
-                }
-        }
-        else {
-                if ( !(mech_info.flags & CKF_WRAP) ) {
-                        testcase_skip("Token does not support CKF_WRAP in the %s mechanism",
-                                        p11_get_ckm(mechtype));
-                        goto testcase_cleanup;
-                }
-                if ( !(mech_info.flags & CKF_UNWRAP) ) {
-                        testcase_skip("Token does not support CKF_UNWRAP in the %s mechanism",
-                                        p11_get_ckm(mechtype));
-                        goto testcase_cleanup;
-                }
-
-        }
-
-
-        rc = funcs->C_GenerateKeyPair(session, &mech1,
-                        pub_tmpl, 2, NULL, 0,
-                        &publ_key, &priv_key );
-
-        if (rc != CKR_OK) {
-                if (rc == CKR_TEMPLATE_INCONSISTENT) {
-                        testcase_skip("Token can't generate key with provided template (this is usually ok for non-standard public exponents)");
-                        goto testcase_cleanup;
-                }
-                else {
-                        testcase_fail("C_GenerateKeyPair() rc = %s",
-                                        p11_get_ckr(rc));
-                        goto testcase_cleanup;
-                }
-        }
-
-        /* TODO: Check flags for generated key pair     */
-
-        /* Now generate the secret key */
-        rc = funcs->C_GenerateKey(session, &mech2,
-                        secret_tmpl, 1, &secret_key);
-
-        if (rc != CKR_OK) {
-                testcase_fail("C_GenerateKeyPair() rc = %s",
-                                p11_get_ckr(rc));
-                goto testcase_cleanup;
-        }
-
-        /* Now extract the CKA_CLASS and CKA_KEY_TYPE from generated key        *
-         * We will use this for unwrapping                                      *
-         * Take sizes first                                                     */
-        rc = funcs->C_GetAttributeValue(session, secret_key, unwrap_tmpl, 2);
-        if (rc != CKR_OK) {
-                testcase_fail("C_GetAttributeValue() rc = %s",
-                                p11_get_ckr(rc));
-                goto testcase_cleanup;
-        }
-
-        unwrap_tmpl[0].pValue = calloc(sizeof(CK_BYTE), unwrap_tmpl[0].ulValueLen);
-        unwrap_tmpl[1].pValue = calloc(sizeof(CK_BYTE), unwrap_tmpl[1].ulValueLen);
-
-        if ( (unwrap_tmpl[0].pValue == NULL) || (unwrap_tmpl[1].pValue == NULL) ) {
-                testcase_fail("Error allocating %lu bytes for unwrap template attributes",
-                                unwrap_tmpl[0].ulValueLen + unwrap_tmpl[1].ulValueLen);
-                rc = -1;
-                goto testcase_cleanup;
-        }
-
-        /* Get the actual values */
-        rc = funcs->C_GetAttributeValue(session, secret_key, unwrap_tmpl, 2);
-        if (rc != CKR_OK) {
-                testcase_fail("C_GetAttributeValue() rc = %s",
-                                p11_get_ckr(rc));
-                goto testcase_cleanup;
-        }
-
-        /* Finally, let's wrap some secret keys */
-
-        /* excercise the "length only" semantics */
-        rc = funcs->C_WrapKey(session, &mech3, publ_key, secret_key,
-                        NULL, &wrapped_keylen);
-        if (rc != CKR_OK) {
-                /* TODO: Check for CKR_WRAPPING_KEY_TYPE_INCONSISTENT ? */
-                testcase_fail("C_WrapKey() rc = %s",
-                                p11_get_ckr(rc));
-                goto testcase_cleanup;
-        }
-
-        wrapped_key = calloc(sizeof(CK_BYTE), wrapped_keylen);
-        if (wrapped_key == NULL) {
-                testcase_fail("Can't allocate memory for %lu bytes",
-                                sizeof(CK_BYTE) * wrapped_keylen);
-                rc = -1;
-                goto testcase_cleanup;
-        }
-
-        /* Wrap it */
-        rc = funcs->C_WrapKey(session, &mech3, publ_key, secret_key,
-                        wrapped_key, &wrapped_keylen);
-        if (rc != CKR_OK) {
-                testcase_fail("C_WrapKey() rc = %s",
-                                p11_get_ckr(rc));
-                goto testcase_cleanup;
-        }
-
-        /* now recover it */
-
-        /* x.509 + variable key length specific case:
-         * x.509 can't handle lengths right, so according to page 242 from
-         * the PKCS#11 spec (v2.11), "If the resulting plaintext is to be
-         * used to produce an unwrapped key, then however many bytes are
-         * specified in the template for the length of the key are taken
-         * from the end of this sequence of bytes."
-         */
-        if ((mechtype == CKM_RSA_X_509) && (keytype == CKM_AES_KEY_GEN)) {
-                unwrap_tmpl[2].type = CKA_VALUE_LEN;
-                unwrap_tmpl[2].ulValueLen = sizeof(keylen);
-                unwrap_tmpl[2].pValue = &keylen;
-
-                rc = funcs->C_UnwrapKey(session, &mech3, priv_key, wrapped_key,
-                                wrapped_keylen, unwrap_tmpl, 3, &unwrapped_key);
-        }
-        else {
-
-                rc = funcs->C_UnwrapKey(session, &mech3, priv_key, wrapped_key,
-                                wrapped_keylen, unwrap_tmpl, 2, &unwrapped_key);
-        }
-
-        if (rc != CKR_OK) {
-                testcase_fail("C_UnwrapKey() rc = %s",
-                                p11_get_ckr(rc));
-                goto testcase_cleanup;
-        }
-
-        /* Get CKA_VALUE_LEN (if applicable) from both keys,    *
-         * compare                                              */
-	if (keytype == CKM_AES_KEY_GEN) {
-
-		rc = funcs->C_GetAttributeValue(session, secret_key,
-						secret_value_len, 1);
-		if (rc != CKR_OK) {
-			testcase_fail("C_GetAttributeValue() rc = %s",
-				       p11_get_ckr(rc));
-			goto testcase_cleanup;
+		// begin testcase
+		testcase_begin("%s Encrypt and Decrypt with test vector %d."
+			"\npubl_exp='%s', modbits=%ld, publ_exp_len=%ld, "
+			"inputlen=%ld.", tsuite->name, i, s,
+			tsuite->tv[i].modbits,
+			tsuite->tv[i].publ_exp_len,
+			tsuite->tv[i].inputlen);
+
+		rc = CKR_OK; // set rc
+
+		// cca special cases:
+		// cca token can only use the following public exponents
+		// 0x03 or 0x010001 (65537)
+		// so skip test if invalid public exponent is used
+		if (is_cca_token(slot_id)) {
+			if (! is_valid_cca_pubexp(tsuite->tv[i].publ_exp,
+				tsuite->tv[i].publ_exp_len) ) {
+				testcase_skip("CCA Token cannot "
+					"be used with publ_exp.='%s'",s);
+				continue;
+			}
 		}
 
-		rc = funcs->C_GetAttributeValue(session, unwrapped_key,
-						unwrapped_value_len, 1);
+		free(s);
+
+		// clear buffers
+                memset(original, 0, BIG_REQUEST);
+                memset(crypt, 0, BIG_REQUEST);
+                memset(decrypt, 0, BIG_REQUEST);
+
+                // get test vector parameters
+                original_len = tsuite->tv[i].inputlen;
+
+		// generate key pair
+		rc = generate_RSA_PKCS_KeyPair(session,
+					tsuite->tv[i].modbits,
+					tsuite->tv[i].publ_exp,
+					tsuite->tv[i].publ_exp_len,
+					&publ_key,
+					&priv_key);
+
 		if (rc != CKR_OK) {
-			testcase_fail("C_GetAttributeValue() rc = %s",
-				       p11_get_ckr(rc));
-			goto testcase_cleanup;
+			testcase_error("generate_RSA_PKCS_KeyPair(), "
+				       "rc=%s", p11_get_ckr(rc));
+                        goto error;
 		}
 
-		if (*((CK_ULONG_PTR) secret_value_len[0].pValue) !=
-		    *((CK_ULONG_PTR) unwrapped_value_len[0].pValue)) {
-			testcase_fail("CKA_VALUE_LEN value differs (original %lu, unwrapped %lu)", *((CK_ULONG_PTR) secret_value_len[0].pValue), *((CK_ULONG_PTR) unwrapped_value_len[0].pValue));
+		// generate plaintext
+		for (j = 0; j < original_len; j++) {
+			original[j] = (j + 1) % 255;
+		}
+
+		// set cipher buffer length
+		crypt_len = BIG_REQUEST;
+		decrypt_len = BIG_REQUEST;
+
+		// get mech
+		mech = tsuite->mech;
+
+		// initialize (public key) encryption
+		rc = funcs->C_EncryptInit(session, &mech, publ_key);
+		if (rc != CKR_OK) {
+			testcase_error("C_EncryptInit, rc=%s", p11_get_ckr(rc));
+		}
+
+		// do (public key) encryption
+		rc = funcs->C_Encrypt(session,
+				original,
+				original_len,
+				crypt,
+				&crypt_len);
+		if (rc != CKR_OK) {
+			testcase_error("C_Encrypt, rc=%s", p11_get_ckr(rc));
+			goto error;
+		}
+
+		// initialize (private key) decryption
+		rc = funcs->C_DecryptInit(session, &mech, priv_key);
+		if (rc != CKR_OK) {
+			testcase_error("C_DecryptInit, rc=%s", p11_get_ckr(rc));
+			goto error;
+		}
+
+		// do (private key) decryption
+		rc = funcs->C_Decrypt(session,
+				crypt,
+				crypt_len,
+				decrypt,
+				&decrypt_len);
+		if (rc != CKR_OK) {
+			testcase_error("C_Decrypt, rc=%s", p11_get_ckr(rc));
+			goto error;
+		}
+
+		// FIXME: there shouldn't be any padding here
+		// remove padding if mech is CKM_RSA_X_509
+		if (mech.mechanism == CKM_RSA_X_509) {
+			memmove(decrypt,
+				decrypt + decrypt_len - original_len,
+				original_len);
+			decrypt_len = original_len;
+		}
+
+		// check results
+		testcase_new_assertion();
+
+		if (decrypt_len != original_len) {
+			testcase_fail("decrypted length does not match"
+				"original data length.\n expected length = %ld,"
+				"but found length=%ld.\n",
+				original_len, decrypt_len);
+		}
+
+		else if (memcmp(decrypt, original, original_len)) {
+			testcase_fail("decrypted data does not match "
+				"original data.");
+		}
+
+		else {
+			testcase_pass("C_Encrypt and C_Decrypt.");
+		}
+
+		// clean up
+		rc = funcs->C_DestroyObject(session, publ_key);
+		if (rc != CKR_OK) {
+			testcase_error("C_DestroyObject(), rc=%s.",
+				p11_get_ckr(rc));
+			goto error;
+		}
+
+		rc = funcs->C_DestroyObject(session, priv_key);
+		if (rc != CKR_OK) {
+			testcase_error("C_DestroyObject(), rc=%s.",
+				p11_get_ckr(rc));
+			goto error;
+		}
+
+	}
+	goto testcase_cleanup;
+error:
+	loc_rc = funcs->C_DestroyObject(session, publ_key);
+	if (loc_rc != CKR_OK) {
+		testcase_error("C_DestroyObject(), rc=%s.",
+			p11_get_ckr(loc_rc));
+	}
+
+	loc_rc = funcs->C_DestroyObject(session, priv_key);
+	if (loc_rc != CKR_OK) {
+		testcase_error("C_DestroyObject(), rc=%s.",
+			p11_get_ckr(loc_rc));
+	}
+
+testcase_cleanup:
+	testcase_user_logout();
+	loc_rc = funcs->C_CloseAllSessions(slot_id);
+	if (loc_rc != CKR_OK) {
+		testcase_error("C_CloseAllSessions, rc=%s",
+			p11_get_ckr(loc_rc));
+	}
+	return rc;
+
+}
+
+/* This function should test:
+ * RSA Key Generation, usign CKM_RSA_PKCS_KEY_PAIR_GEN
+ * RSA Sign, mechanism chosen by caller
+ * RSA Verify, mechanism chosen by caller
+ *
+ * 1. Generate RSA Key Pair
+ * 2. Generate message
+ * 3. Sign message
+ * 4. Verify signature
+ *
+ */
+CK_RV do_SignVerifyRSA(struct GENERATED_TEST_SUITE_INFO *tsuite)
+{
+	int 			i; // test vector index
+	int			j; // message byte index
+	CK_BYTE			message[MAX_MESSAGE_SIZE];
+	CK_ULONG		message_len;
+	CK_BYTE			signature[MAX_SIGNATURE_SIZE];
+	CK_ULONG		signature_len;
+
+	CK_MECHANISM		mech;
+	CK_OBJECT_HANDLE	publ_key, priv_key;
+
+	CK_SLOT_ID		slot_id = SLOT_ID;
+	CK_SESSION_HANDLE	session;
+	CK_FLAGS		flags;
+	CK_BYTE			user_pin[PKCS11_MAX_PIN_LEN];
+	CK_ULONG		user_pin_len;
+	CK_RV			rc, loc_rc;
+
+	char 			*s;
+
+	// begin testsuite
+	testsuite_begin("%s Sign Verify.", tsuite->name);
+	testcase_rw_session();
+	testcase_user_login();
+
+	// skip tests if the slot doesn't support this mechanism
+	if (! mech_supported(slot_id, tsuite->mech.mechanism)){
+		testsuite_skip(tsuite->tvcount,
+			"Slot %u doesn't support %u",
+			(unsigned int) slot_id,
+                        (unsigned int) tsuite->mech.mechanism );
+                goto testcase_cleanup;
+	}
+
+
+	// iterate over test vectors
+	for (i = 0; i < tsuite->tvcount; i++){
+
+                // get public exponent from test vector
+                if ( p11_ahex_dump(&s, tsuite->tv[i].publ_exp,
+                                tsuite->tv[i].publ_exp_len) == NULL) {
+                        testcase_error("p11_ahex_dump() failed");
+                        rc = -1;
+                        goto testcase_cleanup;
+                }
+
+                // begin test
+                testcase_begin("%s Sign and Verify with test vector %d, "
+                        "\npubl_exp='%s', mod_bits='%lu', keylen='%lu'.",
+			tsuite->name, i, s,
+                        tsuite->tv[i].modbits,
+                        tsuite->tv[i].keylen);
+
+		if (is_cca_token(slot_id)) {
+                        if (! is_valid_cca_pubexp(tsuite->tv[i].publ_exp,
+                                tsuite->tv[i].publ_exp_len) ) {
+                                testcase_skip("CCA Token cannot "
+                                        "be used with publ_exp='%s'.",s);
+                                continue;
+                        }
+                }
+
+
+                // free memory
+                free(s);
+
+		rc = CKR_OK; // set rc
+
+		// clear buffers
+                memset(message, 0, MAX_MESSAGE_SIZE);
+                memset(signature, 0, MAX_SIGNATURE_SIZE);
+
+		// get test vector parameters
+		message_len = tsuite->tv[i].inputlen;
+
+		// generate key pair
+                rc = generate_RSA_PKCS_KeyPair(session,
+                                        tsuite->tv[i].modbits,
+                                        tsuite->tv[i].publ_exp,
+                                        tsuite->tv[i].publ_exp_len,
+                                        &publ_key,
+                                        &priv_key);
+                if (rc != CKR_OK) {
+                        testcase_error("generate_RSA_PKCS_KeyPair(), "
+					"rc=%s", p11_get_ckr(rc));
+                        goto error;
+                }
+
+		// generate message
+		for (j = 0; j < message_len; j++) {
+			message[j] = (j + 1) % 255;
+		}
+
+		// get  mech
+		mech = tsuite->mech;
+
+		// initialize Sign (length only)
+		rc = funcs->C_SignInit(session,
+				&mech,
+				priv_key);
+		if (rc != CKR_OK){
+			testcase_error("C_SignInit(), rc=%s", p11_get_ckr(rc));
+			goto error;
+		}
+
+		// set buffer size
+		signature_len = MAX_SIGNATURE_SIZE;
+
+		// do Sign
+		rc = funcs->C_Sign(session,
+				message,
+				message_len,
+				signature,
+				&signature_len);
+		if (rc != CKR_OK) {
+			testcase_error("C_Sign(), rc=%s signature len=%ld",
+				p11_get_ckr(rc), signature_len);
+			goto error;
+		}
+
+
+		// initialize Verify
+		rc = funcs->C_VerifyInit(session,
+				&mech,
+				publ_key);
+		if (rc != CKR_OK) {
+			testcase_error("C_VerifyInit(), rc=%s",
+				p11_get_ckr(rc));
+		}
+
+		// do Verify
+		rc = funcs->C_Verify(session,
+				message,
+				message_len,
+				signature,
+				signature_len);
+
+		// check results
+		testcase_new_assertion();
+		if (rc == CKR_OK) {
+			testcase_pass("C_Verify.");
+		}
+		else {
+			testcase_fail("C_Verify(), rc=%s", p11_get_ckr(rc));
+		}
+
+		// clean up
+		rc = funcs->C_DestroyObject(session, publ_key);
+		if (rc != CKR_OK) {
+			testcase_error("C_DestroyObject(), rc=%s.",
+				p11_get_ckr(rc));
+		}
+
+		rc = funcs->C_DestroyObject(session, priv_key);
+		if (rc != CKR_OK) {
+			testcase_error("C_DestroyObject(), rc=%s.",
+				p11_get_ckr(rc));
+		}
+        }
+	goto testcase_cleanup;
+error:
+	loc_rc = funcs->C_DestroyObject(session, publ_key);
+	if (loc_rc != CKR_OK) {
+		testcase_error("C_DestroyObject, rc=%s.", p11_get_ckr(loc_rc));
+	}
+	loc_rc = funcs->C_DestroyObject(session, priv_key);
+	if (loc_rc != CKR_OK) {
+		testcase_error("C_DestroyObject, rc=%s.", p11_get_ckr(loc_rc));
+	}
+
+testcase_cleanup:
+	testcase_user_logout();
+	rc = funcs->C_CloseAllSessions(slot_id);
+	if (rc != CKR_OK) {
+		testcase_error("C_CloesAllSessions, rc=%s", p11_get_ckr(rc));
+	}
+	return rc;
+}
+
+
+/* This function should test:
+ * RSA Key Generation, using CKM_PKCS_KEY_PAIR_GEN
+ * RSA Public-Key Wrap
+ * RSA Private-Key Unwrap
+ *
+ */
+CK_RV do_WrapUnwrapRSA(struct GENERATED_TEST_SUITE_INFO *tsuite)
+{
+	int			i;
+	CK_OBJECT_HANDLE        publ_key, priv_key, secret_key, unwrapped_key;
+	CK_BYTE_PTR		wrapped_key;
+	CK_ULONG		wrapped_keylen, unwrapped_keylen;
+	CK_MECHANISM		wrap_mech, keygen_mech;
+
+	char 			*s;
+
+	CK_SESSION_HANDLE	session;
+	CK_FLAGS		flags;
+	CK_SLOT_ID		slot_id = SLOT_ID;
+	CK_BYTE			user_pin[PKCS11_MAX_PIN_LEN];
+	CK_ULONG		user_pin_len;
+	CK_RV			rc, loc_rc;
+
+
+	// begin test suite
+	testsuite_begin("%s Wrap Unwrap.", tsuite->name);
+	testcase_rw_session();
+	testcase_user_login();
+
+	// skip all tests if the slot doesn't support this mechanism
+        if (! mech_supported(slot_id, tsuite->mech.mechanism)){
+                testsuite_skip(tsuite->tvcount,
+                           "Slot %u doesn't support %u",
+                           (unsigned int) slot_id,
+                           (unsigned int) tsuite->mech.mechanism );
+                goto testcase_cleanup;
+        }
+
+	// skip all tests if the slot doesn't support wrapping
+	else if (! wrap_supported(slot_id, tsuite->mech)) {
+		testsuite_skip(tsuite->tvcount,
+			"Slot %u doesn't support key wrapping",
+			(unsigned int) slot_id);
+		goto testcase_cleanup;
+
+	}
+
+	// skip all tests if the slot doesn't support unwrapping
+	else if (! unwrap_supported(slot_id, tsuite->mech)) {
+		testsuite_skip(tsuite->tvcount,
+			"Slot %u doesn't support key unwrapping",
+			(unsigned int) slot_id);
+		goto testcase_cleanup;
+	}
+
+	for (i = 0; i < tsuite->tvcount; i++) {
+
+		// wrap templates & unwrap templates
+		CK_ATTRIBUTE		secret_value[] = {
+						{CKA_VALUE, NULL, 0}
+					};
+		CK_ATTRIBUTE		unwrapped_value[] = {
+						{CKA_VALUE, NULL, 0}
+					};
+		CK_ULONG		s_valuelen = 0;
+		CK_ATTRIBUTE		secret_value_len[] = {
+						{CKA_VALUE_LEN,
+						&s_valuelen,
+						sizeof(s_valuelen)}
+					};
+		CK_ULONG		u_valuelen = 0;
+		CK_ATTRIBUTE		unwrapped_value_len[] = {
+						{CKA_VALUE_LEN,
+						&u_valuelen,
+						sizeof(u_valuelen)}
+					};
+		CK_ATTRIBUTE            unwrap_tmpl[] = {
+						{CKA_CLASS, NULL, 0},
+						{CKA_KEY_TYPE, NULL, 0},
+						{CKA_VALUE_LEN, NULL, 0}
+					};
+		CK_ULONG                unwrap_tmpl_len;
+
+		// get public exponent from test vector
+		if ( p11_ahex_dump(&s, tsuite->tv[i].publ_exp,
+				tsuite->tv[i].publ_exp_len) == NULL) {
+				testcase_error("p11_ahex_dump() failed");
 			rc = -1;
 			goto testcase_cleanup;
 		}
-        }
 
-        /* Now need to get CKA_VALUE from both original and     *
-         * unwrapped keys, and compare byte-by-byte             */
+		// begin test
+		testcase_begin("%s Wrap Unwrap with test vector %d, "
+			"\npubl_exp='%s', mod_bits='%lu', keylen='%lu', "
+			"keytype='%s'", tsuite->name, i, s,
+			tsuite->tv[i].modbits,
+			tsuite->tv[i].keylen,
+			p11_get_ckm(tsuite->tv[i].keytype.mechanism));
 
-        /* Get sizes for both the original and unwrapped key's CKA_VALUES */
-        rc = funcs->C_GetAttributeValue(session, secret_key, secret_value, 1);
-        if (rc != CKR_OK) {
-                testcase_fail("C_GetAttributeValue() rc = %s",
-                                p11_get_ckr(rc));
-                goto testcase_cleanup;
-        }
+		// free memory
+		free(s);
 
-        rc = funcs->C_GetAttributeValue(session, unwrapped_key, unwrapped_value, 1);
-        if (rc != CKR_OK) {
-                testcase_fail("C_GetAttributeValue() rc = %s",
-                                p11_get_ckr(rc));
-                goto testcase_cleanup;
-        }
+		// get key gen mechanism
+		keygen_mech = tsuite->tv[i].keytype;
 
-        /* We're not checking if ulValueLen is the same for both original and   *
-         * unwrapped keys simply because then "can" be different (that's why    *
-         * we have CKA_VALUE_LEN)                                               */
+		// get wrapping mechanism
+		wrap_mech = tsuite->mech;
 
-        /* now do some allocation */
-        secret_value[0].pValue = calloc(sizeof(CK_BYTE), secret_value[0].ulValueLen);
-        if (secret_value[0].pValue == NULL) {
-                testcase_fail("Error allocating %lu bytes for Secret Key Value",
-                                secret_value[0].ulValueLen);
-                goto testcase_cleanup;
-        }
+		// skip this test if the slot doesn't support this
+		// keygen mechanism
+		if (! mech_supported(slot_id,
+			keygen_mech.mechanism)) {
+			testcase_skip();
+			continue;
+		}
 
-        unwrapped_value[0].pValue = calloc(sizeof(CK_BYTE), unwrapped_value[0].ulValueLen);
-        if (unwrapped_value[0].pValue == NULL) {
-                testcase_fail("Error allocating %lu bytes for Unwrapped Key Value",
-                                unwrapped_value[0].ulValueLen);
-                goto testcase_cleanup;
-        }
+		// initialize buffer lengths
+		wrapped_keylen = PKCS11_MAX_PIN_LEN;
 
-        /* Get the values */
-        rc = funcs->C_GetAttributeValue(session, secret_key, secret_value, 1);
-        if (rc != CKR_OK) {
-                testcase_fail("C_GetAttributeValue() rc = %s",
-                                p11_get_ckr(rc));
-                goto testcase_cleanup;
-        }
-
-        rc = funcs->C_GetAttributeValue(session, unwrapped_key, unwrapped_value, 1);
-        if (rc != CKR_OK) {
-                testcase_fail("C_GetAttributeValue() rc = %s",
-                                p11_get_ckr(rc));
-                goto testcase_cleanup;
-        }
-
-        /* compare. For Keys with variable size, CKA_VALUE_LEN should be the    *
-         * same as the original key's ulValueLen                                */
-        for (i = 0; i < secret_value[0].ulValueLen; i++) {
-                if ( ((CK_BYTE_PTR) secret_value[0].pValue)[i] != ((CK_BYTE_PTR) unwrapped_value[0].pValue)[i]) {
-                        testcase_fail("Unwrapped key differs in byte %lu", i);
-                        p11_ahex_dump(&s, unwrapped_value[0].pValue,
-                                        unwrapped_value[0].ulValueLen);
-                        if (s != NULL) {
-                                testcase_notice("Full hex dump for unwrapped key value:\n%s", s);
-                                free(s);
-                        }
-                        rc = -1;
+		// generate RSA key pair
+		rc = generate_RSA_PKCS_KeyPair(session,
+				tsuite->tv[i].modbits,
+				tsuite->tv[i].publ_exp,
+				tsuite->tv[i].publ_exp_len,
+				&publ_key,
+				&priv_key);
+		if (rc != CKR_OK) {
+                        testcase_error("C_GenerateKeyPair() rc = %s",
+					p11_get_ckr(rc));
                         goto testcase_cleanup;
+		}
+
+		// generate secret key
+		rc = generate_SecretKey(session,
+				tsuite->tv[i].keylen,
+				&keygen_mech,
+				&secret_key);
+		if (rc != CKR_OK) {
+			testcase_error("generate_SecretKey(), rc=%s",
+				p11_get_ckr(rc));
+			goto error;
+		}
+
+		// extract CKA_CLASS and CKA_KEY_TYPE from generated key
+		// we will use this for unwrapping
+
+		// extract sizes first
+		rc = funcs->C_GetAttributeValue(session,
+						secret_key,
+						unwrap_tmpl,
+						2);
+		if (rc != CKR_OK) {
+			testcase_error("C_GetAttributeValue(), rc=%s",
+					p11_get_ckr(rc));
+			goto error;
+		}
+
+		// allocate memory for extraction
+		unwrap_tmpl[0].pValue = calloc(sizeof(CK_BYTE),
+						unwrap_tmpl[0].ulValueLen);
+		unwrap_tmpl[1].pValue = calloc(sizeof(CK_BYTE),
+						unwrap_tmpl[1].ulValueLen);
+
+		if ( (unwrap_tmpl[0].pValue == NULL) ||
+			(unwrap_tmpl[1].pValue == NULL) ) {
+			testcase_error("Error allocating %lu bytes"
+				"for unwrap template attributes",
+				unwrap_tmpl[0].ulValueLen +
+				unwrap_tmpl[1].ulValueLen);
+			rc = -1;
+			goto error;
+		}
+
+		// now extract values
+		rc = funcs->C_GetAttributeValue(session,
+						secret_key,
+						unwrap_tmpl,
+						2);
+		if (rc != CKR_OK) {
+			testcase_error("C_GetAttributeValue(), rc=%s",
+					p11_get_ckr(rc));
+			goto error;
+		}
+
+		// wrap key (length only)
+		rc = funcs->C_WrapKey(session,
+				&wrap_mech,
+				publ_key,
+				secret_key,
+				NULL,
+				&wrapped_keylen);
+		if (rc != CKR_OK) {
+			testcase_error("C_WrapKey(), rc=%s.",
+				p11_get_ckr(rc));
+			goto error;
+		}
+
+		// allocate memory for wrapped_key
+		wrapped_key = calloc(sizeof(CK_BYTE), wrapped_keylen);
+		if (wrapped_key == NULL) {
+			testcase_error("Can't allocate memory "
+				"for %lu bytes.",
+				sizeof(CK_BYTE) * wrapped_keylen);
+			rc = -1;
+			goto error;
+		}
+
+		// wrap key
+		rc = funcs->C_WrapKey(session,
+				&wrap_mech,
+				publ_key,
+				secret_key,
+				wrapped_key,
+				&wrapped_keylen);
+		if (rc != CKR_OK) {
+			testcase_error("C_WrapKey, rc=%s", p11_get_ckr(rc));
+			goto error;
+		}
+
+		unwrapped_keylen = tsuite->tv[i].keylen;
+
+		// variable key length specific case:
+		// According to PKCS#11 v2.2 section 12.1.12
+		// CKM_RSA_X_509 does not wrap the key type, key length,
+		// or any other information about the key; the application
+		// must convey these separately, and supply them when
+		// unwrapping the key.
+		if (keygen_mech.mechanism == CKM_AES_KEY_GEN) {
+			unwrapped_keylen = tsuite->tv[i].keylen;
+			unwrap_tmpl[2].type = CKA_VALUE_LEN;
+			unwrap_tmpl[2].ulValueLen = sizeof(unwrapped_keylen);
+			unwrap_tmpl[2].pValue = &unwrapped_keylen;
+			unwrap_tmpl_len = 3;
+		}
+		else {
+			unwrap_tmpl_len = 2;
+		}
+
+		// unwrap key
+		rc = funcs->C_UnwrapKey(session,
+				&wrap_mech,
+				priv_key,
+				wrapped_key,
+				wrapped_keylen,
+				unwrap_tmpl,
+				unwrap_tmpl_len,
+				&unwrapped_key);
+		if (rc != CKR_OK) {
+			testcase_error("C_UnwrapKey, rc=%s",
+				p11_get_ckr(rc));
+			goto error;
+		}
+
+		testcase_new_assertion();
+
+		// get secret CKA_VALUE_LEN (if applicable)
+		// then compare to expected value
+		if (keygen_mech.mechanism == CKM_GENERIC_SECRET_KEY_GEN
+			|| keygen_mech.mechanism == CKM_RC4_KEY_GEN
+			|| keygen_mech.mechanism == CKM_RC5_KEY_GEN
+			|| keygen_mech.mechanism == CKM_AES_KEY_GEN) {
+
+			rc = funcs->C_GetAttributeValue(session,
+						secret_key,
+						secret_value_len,
+						1);
+
+			if (rc != CKR_OK) {
+				testcase_error("C_GetAttributeValue(), rc=%s",
+					p11_get_ckr(rc));
+				goto error;
+			}
+
+			rc = funcs->C_GetAttributeValue(session,
+						unwrapped_key,
+						unwrapped_value_len,
+						1);
+
+			if (rc != CKR_OK) {
+				testcase_error("C_GetAttributeValue(), rc=%s",
+					p11_get_ckr(rc));
+				goto error;
+			}
+
+			// check results
+
+			if ( * ((CK_ULONG_PTR) secret_value_len[0].pValue) !=
+			     * ((CK_ULONG_PTR) unwrapped_value_len[0].pValue)) {
+
+				testcase_fail("CKA_VALUE_LEN value differs "
+					"(original %lu, unwrapped %lu)",
+					*((CK_ULONG_PTR) secret_value_len),
+					*((CK_ULONG_PTR) unwrapped_value_len));
+				goto error;
+			}
+		}
+
+		// get size of secret key's CKA_VALUE
+		rc = funcs->C_GetAttributeValue(session, secret_key,
+					secret_value, 1);
+		if (rc != CKR_OK) {
+			testcase_error("C_GetAttributeValue(), rc=%s.",
+				p11_get_ckr(rc));
+			goto error;
+		}
+
+		// get size of unwrapped key's CKA_VALUE
+		rc = funcs->C_GetAttributeValue(session, unwrapped_key,
+					unwrapped_value, 1);
+		if (rc != CKR_OK) {
+			testcase_error("C_GetAttributeValue(), rc=%s.",
+				p11_get_ckr(rc));
+			goto error;
+		}
+
+		// allocate memory for extraction
+                secret_value[0].pValue = calloc(sizeof(CK_BYTE),
+                                                secret_value[0].ulValueLen);
+                if (secret_value[0].pValue == NULL) {
+                        testcase_error("Error allocating %lu bytes "
+                                        "for Secret Key Value.",
+                                        secret_value[0].ulValueLen);
+                        goto error;
+                }
+
+                unwrapped_value[0].pValue = calloc(sizeof(CK_BYTE),
+                                                unwrapped_value[0].ulValueLen);
+                if (unwrapped_value[0].pValue == NULL) {
+                        testcase_error("Error allocating %lu bytes "
+                                        "for Unwrapped Key Value.",
+                                        unwrapped_value[0].ulValueLen);
+                        goto error;
+                }
+
+		// get secret CKA_VALUE
+		rc = funcs->C_GetAttributeValue(session,
+					secret_key,
+					secret_value,
+					1);
+		if (rc != CKR_OK) {
+			testcase_error("C_GetAttributeValue(), rc=%s.",
+				p11_get_ckr(rc));
+			goto error;
+		}
+
+		// get unwrapped CKA_VALUE
+		rc = funcs->C_GetAttributeValue(session,
+					unwrapped_key,
+					unwrapped_value,
+					1);
+		if (rc != CKR_OK) {
+			testcase_error("C_GetAttributeValue(), rc=%s.",
+				p11_get_ckr(rc));
+			goto error;
+		}
+
+		// compare secret and unwrapped CKA_VALUE
+		if (memcmp(secret_value[0].pValue,
+				unwrapped_value[0].pValue,
+				secret_value[0].ulValueLen)) {
+
+			testcase_fail("Unwrapped key differs in CKA_VALUE.");
+		}
+
+		else {
+			testcase_pass("C_Wrap and C_Unwrap.");
+		}
+
+		// free memory
+		if (unwrap_tmpl[0].pValue) {
+			free(unwrap_tmpl[0].pValue);
+		}
+		if (unwrap_tmpl[1].pValue) {
+			free(unwrap_tmpl[1].pValue);
+		}
+		if (secret_value[0].pValue) {
+			free(secret_value[0].pValue);
+		}
+		if (unwrapped_value[0].pValue) {
+			free(unwrapped_value[0].pValue);
+		}
+		if (wrapped_key) {
+			free(wrapped_key);
+		}
+
+		// clean up
+		rc = funcs->C_DestroyObject(session, secret_key);
+		if (rc != CKR_OK) {
+			testcase_error("C_DestroyObject(), rc=%s.",
+					p11_get_ckr(rc));
+			goto testcase_cleanup;
+		}
+
+		rc = funcs->C_DestroyObject(session, publ_key);
+		if (rc != CKR_OK) {
+			testcase_error("C_DestroyObject(), rc=%s.",
+					p11_get_ckr(rc));
+			goto testcase_cleanup;
+		}
+
+		rc = funcs->C_DestroyObject(session, priv_key);
+		if (rc != CKR_OK) {
+			testcase_error("C_DestroyObject(), rc=%s.",
+					p11_get_ckr(rc));
+			goto testcase_cleanup;
+		}
+	}
+	goto testcase_cleanup;
+
+error:
+	loc_rc = funcs->C_DestroyObject(session, secret_key);
+	if (loc_rc != CKR_OK) {
+		testcase_error("C_DestroyObject(), rc=%s.",
+				p11_get_ckr(loc_rc));
+	}
+
+	loc_rc = funcs->C_DestroyObject(session, publ_key);
+	if (loc_rc != CKR_OK) {
+		testcase_error("C_DestroyObject(), rc=%s.",
+				p11_get_ckr(loc_rc));
+	}
+
+	loc_rc = funcs->C_DestroyObject(session, priv_key);
+	if (loc_rc != CKR_OK) {
+		testcase_error("C_DestroyObject(), rc=%s.",
+				p11_get_ckr(loc_rc));
+	}
+
+testcase_cleanup:
+	testcase_user_logout();
+	loc_rc = funcs->C_CloseAllSessions(slot_id);
+	if (loc_rc != CKR_OK) {
+		testcase_error("C_CloseAllSessions(), rc=%s.",
+			p11_get_ckr(rc));
+	}
+	return rc;
+}
+
+
+/* This function should test:
+ * C_Sign, mechanism chosen by caller
+ *
+ * 1. Get message from test vector
+ * 2. Get expected signature from test vector
+ * 3. Sign message
+ * 4. Compare expected signature with actual signature
+ *
+ */
+CK_RV do_SignRSA(struct PUBLISHED_TEST_SUITE_INFO *tsuite)
+{
+	int 			i;
+	CK_BYTE			message[MAX_MESSAGE_SIZE];
+	CK_BYTE			actual[MAX_SIGNATURE_SIZE];
+	CK_BYTE			expected[MAX_SIGNATURE_SIZE];
+	CK_ULONG		message_len, actual_len, expected_len;
+
+	CK_MECHANISM		mech;
+	CK_OBJECT_HANDLE	priv_key;
+
+	CK_SLOT_ID		slot_id = SLOT_ID;
+	CK_SESSION_HANDLE	session;
+	CK_FLAGS		flags;
+	CK_BYTE			user_pin[PKCS11_MAX_PIN_LEN];
+	CK_ULONG		user_pin_len;
+	CK_RV			rc, loc_rc;
+
+	// begin testsuite
+	testsuite_begin("%s Sign. ", tsuite->name);
+	testcase_rw_session();
+	testcase_user_login();
+
+	// skip tests if the slot doesn't support this mechanism **/
+        if (! mech_supported(slot_id, tsuite->mech.mechanism)){
+                testsuite_skip(tsuite->tvcount,
+                           "Slot %u doesn't support %u",
+                           (unsigned int) slot_id,
+                           (unsigned int) tsuite->mech.mechanism );
+                goto testcase_cleanup;
+        }
+
+	// iterate over test vectors
+	for (i = 0; i < tsuite->tvcount; i++){
+		testcase_begin("%s Sign with test vector %d.",
+				tsuite->name, i);
+
+		rc = CKR_OK; // set return value
+
+		// special case for ica
+		// prime1, prime2, exp1, exp2, coef
+		// must be size mod_len/2 or smaller
+		// skip test if prime1, or prime2, or exp1,
+		// or exp2 or coef are too long
+		if (is_ica_token(slot_id)) {
+			// check sizes
+			if ((tsuite->tv[i].prime1_len >
+				(tsuite->tv[i].mod_len/2)) ||
+				(tsuite->tv[i].prime2_len >
+				(tsuite->tv[i].mod_len/2)) ||
+				(tsuite->tv[i].exp1_len >
+				(tsuite->tv[i].mod_len/2)) ||
+				(tsuite->tv[i].exp2_len >
+				(tsuite->tv[i].mod_len/2)) ||
+				(tsuite->tv[i].coef_len >
+				(tsuite->tv[i].mod_len/2))) {
+				testcase_skip("ICA Token cannot be used with "
+					"this test vector.");
+				continue;
+			}
+
+		}
+
+		// clear buffers
+		memset(message, 0, MAX_MESSAGE_SIZE);
+		memset(actual, 0, MAX_SIGNATURE_SIZE);
+		memset(expected, 0, MAX_SIGNATURE_SIZE);
+
+		actual_len = MAX_SIGNATURE_SIZE; // set buffer size
+
+		// get message
+		message_len = tsuite->tv[i].msg_len;
+		memcpy(message, tsuite->tv[i].msg, message_len);
+
+		// get (expected) signature
+		expected_len = tsuite->tv[i].sig_len;
+		memcpy(expected, tsuite->tv[i].sig, expected_len);
+
+		// create (private) key handle
+		rc = create_RSAPrivateKey(session,
+                                        tsuite->tv[i].mod,
+                                        tsuite->tv[i].pub_exp,
+                                        tsuite->tv[i].priv_exp,
+                                        tsuite->tv[i].prime1,
+                                        tsuite->tv[i].prime2,
+                                        tsuite->tv[i].exp1,
+                                        tsuite->tv[i].exp2,
+                                        tsuite->tv[i].coef,
+					tsuite->tv[i].mod_len,
+					tsuite->tv[i].pubexp_len,
+					tsuite->tv[i].privexp_len,
+					tsuite->tv[i].prime1_len,
+					tsuite->tv[i].prime2_len,
+					tsuite->tv[i].exp1_len,
+					tsuite->tv[i].exp2_len,
+					tsuite->tv[i].coef_len,
+                                        &priv_key);
+                if (rc != CKR_OK) {
+                        testcase_error("create_RSAPrivateKey(), rc=%s",
+                                p11_get_ckr(rc));
+                        goto error;
+                }
+
+		// set mechanism
+		mech = tsuite->mech;
+
+		// initialize signing
+		rc = funcs->C_SignInit(session, &mech, priv_key);
+		if (rc != CKR_OK) {
+			testcase_error("C_SignInit(), rc=%s.", p11_get_ckr(rc));
+			goto error;
+		}
+
+		// do signing
+		rc = funcs->C_Sign(session,
+				message,
+				message_len,
+				actual,
+				&actual_len);
+
+		if (rc != CKR_OK) {
+			testcase_error("C_Sign(), rc=%s.", p11_get_ckr(rc));
+			goto error;
+		}
+
+		// check results
+		testcase_new_assertion();
+
+		if (actual_len != expected_len) {
+			testcase_fail("%s Sign with test vector %d failed. "
+				"Expected len=%ld, found len=%ld.",
+				tsuite->name, i, expected_len, actual_len);
+		}
+
+		else if (memcmp(actual, expected, expected_len)) {
+			testcase_fail("%s Sign with test vector %d failed. "
+				"Signature data does not match test vector "
+				"signature.", tsuite->name, i);
+
+		}
+
+		else {
+			testcase_pass("C_Sign.");
+		}
+
+		// clean up
+		rc = funcs->C_DestroyObject(session, priv_key);
+		if (rc != CKR_OK) {
+			testcase_error("C_DestroyObject(), rc=%s.",
+				p11_get_ckr(rc));
+			goto testcase_cleanup;
+		}
+	}
+	goto testcase_cleanup;
+error:
+	loc_rc = funcs->C_DestroyObject(session, priv_key);
+	if (loc_rc != CKR_OK) {
+		testcase_error("C_DestroyObject, rc=%s.", p11_get_ckr(loc_rc));
+	}
+testcase_cleanup:
+	testcase_user_logout();
+	loc_rc = funcs->C_CloseAllSessions(slot_id);
+	if (loc_rc != CKR_OK) {
+		testcase_error("C_CloseAllSessions, rc=%s.", p11_get_ckr(rc));
+	}
+	return rc;
+}
+
+/* This function should test:
+ * C_Verify, mechanism chosen by caller
+ *
+ * 1. Get message from test vector
+ * 2. Get signature from test vector
+ * 3. Verify signature
+ *
+ */
+CK_RV do_VerifyRSA(struct PUBLISHED_TEST_SUITE_INFO *tsuite)
+{
+	int			i;
+	CK_BYTE			actual[MAX_SIGNATURE_SIZE];
+	CK_ULONG		actual_len;
+	CK_BYTE			message[MAX_MESSAGE_SIZE];
+	CK_ULONG		message_len;
+	CK_BYTE			signature[MAX_SIGNATURE_SIZE];
+	CK_ULONG		signature_len;
+
+	CK_MECHANISM		mech;
+	CK_OBJECT_HANDLE	publ_key;
+
+	CK_SLOT_ID		slot_id = SLOT_ID;
+	CK_SESSION_HANDLE	session;
+	CK_FLAGS		flags;
+	CK_BYTE			user_pin[PKCS11_MAX_PIN_LEN];
+	CK_ULONG		user_pin_len;
+	CK_RV			rc, loc_rc;
+
+	// begin testsuite
+	testsuite_begin("%s Verify.", tsuite->name);
+	testcase_rw_session();
+	testcase_user_login();
+
+	// skip tests if the slot doesn't support this mechanism
+        if (! mech_supported(slot_id, tsuite->mech.mechanism)){
+                testsuite_skip(tsuite->tvcount,
+                           "Slot %u doesn't support %u",
+                           (unsigned int) slot_id,
+                           (unsigned int) tsuite->mech.mechanism );
+                goto testcase_cleanup;
+        }
+
+	// iterate over test vectors
+	for (i = 0; i < tsuite->tvcount; i++){
+
+		testcase_begin("%s Verify with test vector %d.",
+				tsuite->name, i);
+
+		rc = CKR_OK; // set return value
+
+		// clear buffers
+		memset(message, 0, MAX_MESSAGE_SIZE);
+		memset(signature, 0, MAX_SIGNATURE_SIZE);
+		memset(actual, 0, MAX_SIGNATURE_SIZE);
+
+		actual_len = MAX_SIGNATURE_SIZE; //set actual
+
+		// get message
+		message_len = tsuite->tv[i].msg_len;
+		memcpy(message, tsuite->tv[i].msg, message_len);
+
+		// get signature
+		signature_len = tsuite->tv[i].sig_len;
+		memcpy(signature, tsuite->tv[i].sig, signature_len);
+
+		// create (public) key handle
+		rc = create_RSAPublicKey(session,
+				tsuite->tv[i].mod,
+				tsuite->tv[i].pub_exp,
+				tsuite->tv[i].mod_len,
+				tsuite->tv[i].pubexp_len,
+				&publ_key);
+
+		if (rc != CKR_OK) {
+			testcase_error("create_RSAPublicKey(), rc=%s",
+				p11_get_ckr(rc));
+			goto error;
+		}
+
+		// set mechanism
+		mech = tsuite->mech;
+
+		// initialize verify
+		rc = funcs->C_VerifyInit(session, &mech, publ_key);
+		if (rc != CKR_OK) {
+			testcase_error("C_VerifyInit(), rc=%s",
+				p11_get_ckr(rc));
+			goto error;
+		}
+
+		// do verify
+		rc = funcs->C_Verify(session,
+			message,
+			message_len,
+			signature,
+			signature_len);
+
+		// check result
+		testcase_new_assertion();
+
+		if (rc == CKR_OK){
+			testcase_pass("C_Verify.");
+		}
+
+		else {
+			testcase_fail("%s Sign Verify with test vector %d "
+				"failed.", tsuite->name, i);
+		}
+
+		// clean up
+		rc = funcs->C_DestroyObject(session, publ_key);
+		if (rc != CKR_OK) {
+			testcase_error("C_DestroyObject(), rc=%s.",
+				p11_get_ckr(rc));
+			goto testcase_cleanup;
+		}
+
+	}
+	goto testcase_cleanup;
+error:
+	loc_rc = funcs->C_DestroyObject(session, publ_key);
+	if (loc_rc != CKR_OK) {
+		testcase_error("C_DestroyObject(), rc=%s.",
+			p11_get_ckr(loc_rc));
+	}
+
+testcase_cleanup:
+        testcase_user_logout();
+        rc = funcs->C_CloseAllSessions(slot_id);
+        if (rc != CKR_OK) {
+                testcase_error("C_CloseAllSessions rc=%s", p11_get_ckr(rc));
+        }
+        return rc;
+}
+
+CK_RV rsa_funcs()
+{
+	int 	i, generate_key;
+	CK_RV	rv = CKR_OK;
+
+	generate_key = get_key_type();  // true if slot requires generated
+					// (secure) keys
+
+	if (generate_key == -1){
+		testcase_error("Could not get token info.");
+		return -1;
+	}
+
+	// published (known answer) tests
+	for (i = 0; i < NUM_OF_PUBLISHED_TESTSUITES; i++) {
+		if (!generate_key) {
+			rv = do_SignRSA(&published_test_suites[i]);
+			if (rv != CKR_OK && (!no_stop))
+				break;
+
+			rv = do_VerifyRSA(&published_test_suites[i]);
+			if (rv != CKR_OK && (!no_stop))
+				break;
+		}
+	}
+
+	// generated sign verify tests
+	for (i = 0; i < NUM_OF_GENERATED_SIGVER_TESTSUITES; i++) {
+		rv = do_SignVerifyRSA(&generated_sigver_test_suites[i]);
+		if (rv != CKR_OK && (!no_stop))
+			break;
+	}
+
+	// generated crypto tests
+	for (i = 0; i < NUM_OF_GENERATED_CRYPTO_TESTSUITES; i++) {
+		rv = do_EncryptDecryptRSA(&generated_crypto_test_suites[i]);
+		if (rv != CKR_OK && (!no_stop))
+			break;
+	}
+
+	// generated keywrap tests
+	for ( i = 0; i < NUM_OF_GENERATED_KEYWRAP_TESTSUITES; i++) {
+		rv = do_WrapUnwrapRSA(&generated_keywrap_test_suites[i]);
+		if (rv != CKR_OK && (!no_stop))
+			break;
+	}
+
+	return rv;
+}
+
+int main  (int argc, char **argv){
+        int rc;
+        CK_C_INITIALIZE_ARGS cinit_args;
+        CK_RV rv;
+
+        rc = do_ParseArgs(argc, argv);
+        if(rc != 1){
+                return rc;
+        }
+
+        printf("Using slot #%lu...\n\n", SLOT_ID);
+        printf("With option: no_stop: %d\n", no_stop);
+
+        rc = do_GetFunctionList();
+        if(! rc) {
+                PRINT_ERR("ERROR do_GetFunctionList() Failed, rx = 0x%0x\n", rc);
+                return rc;
+        }
+
+        memset( &cinit_args, 0x0, sizeof(cinit_args) );
+        cinit_args.flags = CKF_OS_LOCKING_OK;
+
+        funcs->C_Initialize( &cinit_args );
+        {
+                CK_SESSION_HANDLE hsess = 0;
+                rc = funcs->C_GetFunctionStatus(hsess);
+                if (rc != CKR_FUNCTION_NOT_PARALLEL){
+                    return rc;
+                }
+
+                rc = funcs->C_CancelFunction(hsess);
+                if (rc != CKR_FUNCTION_NOT_PARALLEL){
+                    return rc;
                 }
         }
 
-
-
-testcase_cleanup:
-        if ( rc == CKR_OK && !testcase_skip) {
-                testcase_pass("Looks okay...");
-        }
-
-        retval = rc;
-
-        testcase_close_session();
-
-        if (unwrap_tmpl[0].pValue) free (unwrap_tmpl[0].pValue);
-        if (unwrap_tmpl[1].pValue) free (unwrap_tmpl[1].pValue);
-        if (wrapped_key) free (wrapped_key);
-        if (secret_value[0].pValue) free (secret_value[0].pValue);
-        if (unwrapped_value[0].pValue) free (unwrapped_value[0].pValue);
-
-        return retval | rc;
-}
-
-CK_RV run_GenerateEncryptDecryptRSAPKCS()
-{
-        int     i;
-        CK_RV   rv = 0;
-
-        struct  _inputparam {
-                CK_MECHANISM_TYPE mechtype;
-                CK_ULONG          mod_bits;
-                CK_ULONG          publ_exp_len;
-                CK_BYTE           publ_exp[4]; /* up to 4 bytes for publ_exp */
-                CK_ULONG          inputlen;
-                CK_BBOOL          inplace;
-        } inputdata[] = {
-        /* PKCS#11 defines "Big number" as "a string of CK_BYTEs        *
-         * representing an unsigned integer of arbitrary size,          *
-         * most-significant byte first (e.g., the integer 32768 is      *
-         * represented as the 2-byte string 0x80 0x00)".                *
-         *                                                              *
-         * This means that publ_exp must be in BIG ENDIAN byte-order    */
-
-        // mod bits = 512. Input up to 53 bytes
-                // publ exp = 3
-                { CKM_RSA_PKCS, 512 , 1, { 0x03, 0x00, 0x00, 0x00 }, 1   , FALSE },
-                { CKM_RSA_PKCS, 512 , 1, { 0x03, 0x00, 0x00, 0x00 }, 1   , TRUE  },
-                { CKM_RSA_PKCS, 512 , 1, { 0x03, 0x00, 0x00, 0x00 }, 53  , FALSE },
-                { CKM_RSA_PKCS, 512 , 1, { 0x03, 0x00, 0x00, 0x00 }, 53  , TRUE  },
-                // publ exp = 17 (big endian format)
-                { CKM_RSA_PKCS, 512 , 2, { 0x00, 0x11, 0x00, 0x00 }, 1   , FALSE },
-                { CKM_RSA_PKCS, 512 , 2, { 0x00, 0x11, 0x00, 0x00 }, 1   , TRUE  },
-                { CKM_RSA_PKCS, 512 , 2, { 0x00, 0x11, 0x00, 0x00 }, 53  , FALSE },
-                { CKM_RSA_PKCS, 512 , 2, { 0x00, 0x11, 0x00, 0x00 }, 53  , TRUE  },
-                // publ exp = 65537
-                { CKM_RSA_PKCS, 512 , 3, { 0x01, 0x00, 0x01, 0x00 }, 1   , FALSE },
-                { CKM_RSA_PKCS, 512 , 3, { 0x01, 0x00, 0x01, 0x00 }, 1   , TRUE  },
-                { CKM_RSA_PKCS, 512 , 3, { 0x01, 0x00, 0x01, 0x00 }, 53  , FALSE },
-                { CKM_RSA_PKCS, 512 , 3, { 0x01, 0x00, 0x01, 0x00 }, 53  , TRUE  },
-        // mod bits = 768. Input up to 85 bytes
-                // publ exp = 3
-                { CKM_RSA_PKCS, 768 , 1, { 0x03, 0x00, 0x00, 0x00 }, 1   , FALSE },
-                { CKM_RSA_PKCS, 768 , 1, { 0x03, 0x00, 0x00, 0x00 }, 1   , TRUE  },
-                { CKM_RSA_PKCS, 768 , 1, { 0x03, 0x00, 0x00, 0x00 }, 85  , FALSE },
-                { CKM_RSA_PKCS, 768 , 1, { 0x03, 0x00, 0x00, 0x00 }, 85  , TRUE  },
-                // publ exp = 17 (big endian format)
-                { CKM_RSA_PKCS, 768 , 2, { 0x00, 0x11, 0x00, 0x00 }, 1   , FALSE },
-                { CKM_RSA_PKCS, 768 , 2, { 0x00, 0x11, 0x00, 0x00 }, 1   , TRUE  },
-                { CKM_RSA_PKCS, 768 , 2, { 0x00, 0x11, 0x00, 0x00 }, 85  , FALSE },
-                { CKM_RSA_PKCS, 768 , 2, { 0x00, 0x11, 0x00, 0x00 }, 85  , TRUE  },
-                // publ exp = 65537
-                { CKM_RSA_PKCS, 768 , 3, { 0x01, 0x00, 0x01, 0x00 }, 1   , FALSE },
-                { CKM_RSA_PKCS, 768 , 3, { 0x01, 0x00, 0x01, 0x00 }, 1   , TRUE  },
-                { CKM_RSA_PKCS, 768 , 3, { 0x01, 0x00, 0x01, 0x00 }, 85  , FALSE },
-                { CKM_RSA_PKCS, 768 , 3, { 0x01, 0x00, 0x01, 0x00 }, 85  , TRUE  },
-        // mod bits = 1024. Input up to 117 bytes
-                // publ exp = 3
-                { CKM_RSA_PKCS, 1024, 1, { 0x03, 0x00, 0x00, 0x00 }, 1   , FALSE },
-                { CKM_RSA_PKCS, 1024, 1, { 0x03, 0x00, 0x00, 0x00 }, 1   , TRUE  },
-                { CKM_RSA_PKCS, 1024, 1, { 0x03, 0x00, 0x00, 0x00 }, 117 , FALSE },
-                { CKM_RSA_PKCS, 1024, 1, { 0x03, 0x00, 0x00, 0x00 }, 117 , TRUE  },
-                // publ exp = 17 (big endian format)
-                { CKM_RSA_PKCS, 1024, 2, { 0x00, 0x11, 0x00, 0x00 }, 1   , FALSE },
-                { CKM_RSA_PKCS, 1024, 2, { 0x00, 0x11, 0x00, 0x00 }, 1   , TRUE  },
-                { CKM_RSA_PKCS, 1024, 2, { 0x00, 0x11, 0x00, 0x00 }, 117 , FALSE },
-                { CKM_RSA_PKCS, 1024, 2, { 0x00, 0x11, 0x00, 0x00 }, 117 , TRUE  },
-                // publ exp = 65537
-                { CKM_RSA_PKCS, 1024, 3, { 0x01, 0x00, 0x01, 0x00 }, 1   , FALSE },
-                { CKM_RSA_PKCS, 1024, 3, { 0x01, 0x00, 0x01, 0x00 }, 1   , TRUE  },
-                { CKM_RSA_PKCS, 1024, 3, { 0x01, 0x00, 0x01, 0x00 }, 117 , FALSE },
-                { CKM_RSA_PKCS, 1024, 3, { 0x01, 0x00, 0x01, 0x00 }, 117 , TRUE  },
-        // mod bits = 2048. Input up to 245 bytes
-                // publ exp = 3
-                { CKM_RSA_PKCS, 2048, 1, { 0x03, 0x00, 0x00, 0x00 }, 1   , FALSE },
-                { CKM_RSA_PKCS, 2048, 1, { 0x03, 0x00, 0x00, 0x00 }, 1   , TRUE  },
-                { CKM_RSA_PKCS, 2048, 1, { 0x03, 0x00, 0x00, 0x00 }, 245 , FALSE },
-                { CKM_RSA_PKCS, 2048, 1, { 0x03, 0x00, 0x00, 0x00 }, 245 , TRUE  },
-                // publ exp = 17 (big endian format)
-                { CKM_RSA_PKCS, 2048, 2, { 0x00, 0x11, 0x00, 0x00 }, 1   , FALSE },
-                { CKM_RSA_PKCS, 2048, 2, { 0x00, 0x11, 0x00, 0x00 }, 1   , TRUE  },
-                { CKM_RSA_PKCS, 2048, 2, { 0x00, 0x11, 0x00, 0x00 }, 245 , FALSE },
-                { CKM_RSA_PKCS, 2048, 2, { 0x00, 0x11, 0x00, 0x00 }, 245 , TRUE  },
-                // publ exp = 65537
-                { CKM_RSA_PKCS, 2048, 3, { 0x01, 0x00, 0x01, 0x00 }, 1   , FALSE },
-                { CKM_RSA_PKCS, 2048, 3, { 0x01, 0x00, 0x01, 0x00 }, 1   , TRUE  },
-                { CKM_RSA_PKCS, 2048, 3, { 0x01, 0x00, 0x01, 0x00 }, 245 , FALSE },
-                { CKM_RSA_PKCS, 2048, 3, { 0x01, 0x00, 0x01, 0x00 }, 245 , TRUE  },
-        // mod bits = 4096. Input up to 501 bytes
-                // publ exp = 3
-                { CKM_RSA_PKCS, 4096, 1, { 0x03, 0x00, 0x00, 0x00 }, 1   , FALSE },
-                { CKM_RSA_PKCS, 4096, 1, { 0x03, 0x00, 0x00, 0x00 }, 1   , TRUE  },
-                { CKM_RSA_PKCS, 4096, 1, { 0x03, 0x00, 0x00, 0x00 }, 501 , FALSE },
-                { CKM_RSA_PKCS, 4096, 1, { 0x03, 0x00, 0x00, 0x00 }, 501 , TRUE  },
-                // publ exp = 17 (big endian format)
-                { CKM_RSA_PKCS, 4096, 2, { 0x00, 0x11, 0x00, 0x00 }, 1   , FALSE },
-                { CKM_RSA_PKCS, 4096, 2, { 0x00, 0x11, 0x00, 0x00 }, 1   , TRUE  },
-                { CKM_RSA_PKCS, 4096, 2, { 0x00, 0x11, 0x00, 0x00 }, 501 , FALSE },
-                { CKM_RSA_PKCS, 4096, 2, { 0x00, 0x11, 0x00, 0x00 }, 501 , TRUE  },
-                // publ exp = 65537
-                { CKM_RSA_PKCS, 4096, 3, { 0x01, 0x00, 0x01, 0x00 }, 1   , FALSE },
-                { CKM_RSA_PKCS, 4096, 3, { 0x01, 0x00, 0x01, 0x00 }, 1   , TRUE  },
-                { CKM_RSA_PKCS, 4096, 3, { 0x01, 0x00, 0x01, 0x00 }, 501 , FALSE },
-                { CKM_RSA_PKCS, 4096, 3, { 0x01, 0x00, 0x01, 0x00 }, 501 , TRUE  },
-        };
-
-
-
-        for (i = 0;
-                i < (sizeof(inputdata) / sizeof(struct _inputparam));
-                i++) {
-                rv |= do_GenerateEncryptDecryptRSA(
-                                inputdata[i].mechtype,
-                                inputdata[i].mod_bits,
-                                inputdata[i].publ_exp_len,
-                                inputdata[i].publ_exp,
-                                inputdata[i].inputlen,
-                                inputdata[i].inplace
-                                );
-        }
-
-        return rv;
-}
-
-CK_RV run_GenerateSignVerifyRSAPKCS()
-{
-        int     i;
-        CK_RV   rv = 0;
-
-        struct  _inputparam {
-                CK_MECHANISM_TYPE mechtype;
-                CK_ULONG          mod_bits;
-                CK_ULONG          publ_exp_len;
-                CK_BYTE           publ_exp[4]; /* up to 4 bytes for publ_exp */
-                CK_ULONG          inputlen;
-                CK_BBOOL          recover;
-        } inputdata[] = {
-        /* PKCS#11 defines "Big number" as "a string of CK_BYTEs        *
-         * representing an unsigned integer of arbitrary size,          *
-         * most-significant byte first (e.g., the integer 32768 is      *
-         * represented as the 2-byte string 0x80 0x00)".                *
-         *                                                              *
-         * This means that publ_exp must be in BIG ENDIAN byte-order    */
-
-        // mod bits = 512. Input up to 53 bytes
-                // publ exp = 3
-                { CKM_RSA_PKCS, 512 , 1, { 0x03, 0x00, 0x00, 0x00 }, 1   , FALSE },
-                { CKM_RSA_PKCS, 512 , 1, { 0x03, 0x00, 0x00, 0x00 }, 1   , TRUE  },
-                { CKM_RSA_PKCS, 512 , 1, { 0x03, 0x00, 0x00, 0x00 }, 53  , FALSE },
-                { CKM_RSA_PKCS, 512 , 1, { 0x03, 0x00, 0x00, 0x00 }, 53  , TRUE  },
-                // publ exp = 17 (big endian format)
-                { CKM_RSA_PKCS, 512 , 2, { 0x00, 0x11, 0x00, 0x00 }, 1   , FALSE },
-                { CKM_RSA_PKCS, 512 , 2, { 0x00, 0x11, 0x00, 0x00 }, 1   , TRUE  },
-                { CKM_RSA_PKCS, 512 , 2, { 0x00, 0x11, 0x00, 0x00 }, 53  , FALSE },
-                { CKM_RSA_PKCS, 512 , 2, { 0x00, 0x11, 0x00, 0x00 }, 53  , TRUE  },
-                // publ exp = 65537
-                { CKM_RSA_PKCS, 512 , 3, { 0x01, 0x00, 0x01, 0x00 }, 1   , FALSE },
-                { CKM_RSA_PKCS, 512 , 3, { 0x01, 0x00, 0x01, 0x00 }, 1   , TRUE  },
-                { CKM_RSA_PKCS, 512 , 3, { 0x01, 0x00, 0x01, 0x00 }, 53  , FALSE },
-                { CKM_RSA_PKCS, 512 , 3, { 0x01, 0x00, 0x01, 0x00 }, 53  , TRUE  },
-        // mod bits = 768. Input up to 85 bytes
-                // publ exp = 3
-                { CKM_RSA_PKCS, 768 , 1, { 0x03, 0x00, 0x00, 0x00 }, 1   , FALSE },
-                { CKM_RSA_PKCS, 768 , 1, { 0x03, 0x00, 0x00, 0x00 }, 1   , TRUE  },
-                { CKM_RSA_PKCS, 768 , 1, { 0x03, 0x00, 0x00, 0x00 }, 85  , FALSE },
-                { CKM_RSA_PKCS, 768 , 1, { 0x03, 0x00, 0x00, 0x00 }, 85  , TRUE  },
-                // publ exp = 17 (big endian format)
-                { CKM_RSA_PKCS, 768 , 2, { 0x00, 0x11, 0x00, 0x00 }, 1   , FALSE },
-                { CKM_RSA_PKCS, 768 , 2, { 0x00, 0x11, 0x00, 0x00 }, 1   , TRUE  },
-                { CKM_RSA_PKCS, 768 , 2, { 0x00, 0x11, 0x00, 0x00 }, 85  , FALSE },
-                { CKM_RSA_PKCS, 768 , 2, { 0x00, 0x11, 0x00, 0x00 }, 85  , TRUE  },
-                // publ exp = 65537
-                { CKM_RSA_PKCS, 768 , 3, { 0x01, 0x00, 0x01, 0x00 }, 1   , FALSE },
-                { CKM_RSA_PKCS, 768 , 3, { 0x01, 0x00, 0x01, 0x00 }, 1   , TRUE  },
-                { CKM_RSA_PKCS, 768 , 3, { 0x01, 0x00, 0x01, 0x00 }, 85  , FALSE },
-                { CKM_RSA_PKCS, 768 , 3, { 0x01, 0x00, 0x01, 0x00 }, 85  , TRUE  },
-        // mod bits = 1024. Input up to 117 bytes
-                // publ exp = 3
-                { CKM_RSA_PKCS, 1024, 1, { 0x03, 0x00, 0x00, 0x00 }, 1   , FALSE },
-                { CKM_RSA_PKCS, 1024, 1, { 0x03, 0x00, 0x00, 0x00 }, 1   , TRUE  },
-                { CKM_RSA_PKCS, 1024, 1, { 0x03, 0x00, 0x00, 0x00 }, 117 , FALSE },
-                { CKM_RSA_PKCS, 1024, 1, { 0x03, 0x00, 0x00, 0x00 }, 117 , TRUE  },
-                // publ exp = 17 (big endian format)
-                { CKM_RSA_PKCS, 1024, 2, { 0x00, 0x11, 0x00, 0x00 }, 1   , FALSE },
-                { CKM_RSA_PKCS, 1024, 2, { 0x00, 0x11, 0x00, 0x00 }, 1   , TRUE  },
-                { CKM_RSA_PKCS, 1024, 2, { 0x00, 0x11, 0x00, 0x00 }, 117 , FALSE },
-                { CKM_RSA_PKCS, 1024, 2, { 0x00, 0x11, 0x00, 0x00 }, 117 , TRUE  },
-                // publ exp = 65537
-                { CKM_RSA_PKCS, 1024, 3, { 0x01, 0x00, 0x01, 0x00 }, 1   , FALSE },
-                { CKM_RSA_PKCS, 1024, 3, { 0x01, 0x00, 0x01, 0x00 }, 1   , TRUE  },
-                { CKM_RSA_PKCS, 1024, 3, { 0x01, 0x00, 0x01, 0x00 }, 117 , FALSE },
-                { CKM_RSA_PKCS, 1024, 3, { 0x01, 0x00, 0x01, 0x00 }, 117 , TRUE  },
-        // mod bits = 2048. Input up to 245 bytes
-                // publ exp = 3
-                { CKM_RSA_PKCS, 2048, 1, { 0x03, 0x00, 0x00, 0x00 }, 1   , FALSE },
-                { CKM_RSA_PKCS, 2048, 1, { 0x03, 0x00, 0x00, 0x00 }, 1   , TRUE  },
-                { CKM_RSA_PKCS, 2048, 1, { 0x03, 0x00, 0x00, 0x00 }, 245 , FALSE },
-                { CKM_RSA_PKCS, 2048, 1, { 0x03, 0x00, 0x00, 0x00 }, 245 , TRUE  },
-                // publ exp = 17 (big endian format)
-                { CKM_RSA_PKCS, 2048, 2, { 0x00, 0x11, 0x00, 0x00 }, 1   , FALSE },
-                { CKM_RSA_PKCS, 2048, 2, { 0x00, 0x11, 0x00, 0x00 }, 1   , TRUE  },
-                { CKM_RSA_PKCS, 2048, 2, { 0x00, 0x11, 0x00, 0x00 }, 245 , FALSE },
-                { CKM_RSA_PKCS, 2048, 2, { 0x00, 0x11, 0x00, 0x00 }, 245 , TRUE  },
-                // publ exp = 65537
-                { CKM_RSA_PKCS, 2048, 3, { 0x01, 0x00, 0x01, 0x00 }, 1   , FALSE },
-                { CKM_RSA_PKCS, 2048, 3, { 0x01, 0x00, 0x01, 0x00 }, 1   , TRUE  },
-                { CKM_RSA_PKCS, 2048, 3, { 0x01, 0x00, 0x01, 0x00 }, 245 , FALSE },
-                { CKM_RSA_PKCS, 2048, 3, { 0x01, 0x00, 0x01, 0x00 }, 245 , TRUE  },
-        // mod bits = 4096. Input up to 501 bytes
-                // publ exp = 3
-                { CKM_RSA_PKCS, 4096, 1, { 0x03, 0x00, 0x00, 0x00 }, 1   , FALSE },
-                { CKM_RSA_PKCS, 4096, 1, { 0x03, 0x00, 0x00, 0x00 }, 1   , TRUE  },
-                { CKM_RSA_PKCS, 4096, 1, { 0x03, 0x00, 0x00, 0x00 }, 501 , FALSE },
-                { CKM_RSA_PKCS, 4096, 1, { 0x03, 0x00, 0x00, 0x00 }, 501 , TRUE  },
-                // publ exp = 17 (big endian format)
-                { CKM_RSA_PKCS, 4096, 2, { 0x00, 0x11, 0x00, 0x00 }, 1   , FALSE },
-                { CKM_RSA_PKCS, 4096, 2, { 0x00, 0x11, 0x00, 0x00 }, 1   , TRUE  },
-                { CKM_RSA_PKCS, 4096, 2, { 0x00, 0x11, 0x00, 0x00 }, 501 , FALSE },
-                { CKM_RSA_PKCS, 4096, 2, { 0x00, 0x11, 0x00, 0x00 }, 501 , TRUE  },
-                // publ exp = 65537
-                { CKM_RSA_PKCS, 4096, 3, { 0x01, 0x00, 0x01, 0x00 }, 1   , FALSE },
-                { CKM_RSA_PKCS, 4096, 3, { 0x01, 0x00, 0x01, 0x00 }, 1   , TRUE  },
-                { CKM_RSA_PKCS, 4096, 3, { 0x01, 0x00, 0x01, 0x00 }, 501 , FALSE },
-                { CKM_RSA_PKCS, 4096, 3, { 0x01, 0x00, 0x01, 0x00 }, 501 , TRUE  },
-        };
-
-
-
-        for (i = 0;
-                i < (sizeof(inputdata) / sizeof(struct _inputparam));
-                i++) {
-                rv |= do_GenerateSignVerifyRSA(
-                                inputdata[i].mechtype,
-                                inputdata[i].mod_bits,
-                                inputdata[i].publ_exp_len,
-                                inputdata[i].publ_exp,
-                                inputdata[i].inputlen,
-                                inputdata[i].recover
-                                );
-        }
-
-        return rv;
-}
-
-CK_RV run_GenerateEncryptDecryptRSAX509()
-{
-        int     i;
-        CK_RV   rv = 0;
-
-        struct  _inputparam {
-                CK_MECHANISM_TYPE mechtype;
-                CK_ULONG          mod_bits;
-                CK_ULONG          publ_exp_len;
-                CK_BYTE           publ_exp[4]; /* up to 4 bytes for publ_exp */
-                CK_ULONG          inputlen;
-                CK_BBOOL          inplace;
-        } inputdata[] = {
-        /* PKCS#11 defines "Big number" as "a string of CK_BYTEs        *
-         * representing an unsigned integer of arbitrary size,          *
-         * most-significant byte first (e.g., the integer 32768 is      *
-         * represented as the 2-byte string 0x80 0x00)".                *
-         *                                                              *
-         * This means that publ_exp must be in BIG ENDIAN byte-order    */
-
-        // mod bits = 512. Input up to 64 bytes
-                // publ exp = 3
-                { CKM_RSA_X_509, 512 , 1, { 0x03, 0x00, 0x00, 0x00 }, 1   , FALSE },
-                { CKM_RSA_X_509, 512 , 1, { 0x03, 0x00, 0x00, 0x00 }, 1   , TRUE  },
-                { CKM_RSA_X_509, 512 , 1, { 0x03, 0x00, 0x00, 0x00 }, 64  , FALSE },
-                { CKM_RSA_X_509, 512 , 1, { 0x03, 0x00, 0x00, 0x00 }, 64  , TRUE  },
-                // publ exp = 17 (big endian format)
-                { CKM_RSA_X_509, 512 , 2, { 0x00, 0x11, 0x00, 0x00 }, 1   , FALSE },
-                { CKM_RSA_X_509, 512 , 2, { 0x00, 0x11, 0x00, 0x00 }, 1   , TRUE  },
-                { CKM_RSA_X_509, 512 , 2, { 0x00, 0x11, 0x00, 0x00 }, 64  , FALSE },
-                { CKM_RSA_X_509, 512 , 2, { 0x00, 0x11, 0x00, 0x00 }, 64  , TRUE  },
-                // publ exp = 65537
-                { CKM_RSA_X_509, 512 , 3, { 0x01, 0x00, 0x01, 0x00 }, 1   , FALSE },
-                { CKM_RSA_X_509, 512 , 3, { 0x01, 0x00, 0x01, 0x00 }, 1   , TRUE  },
-                { CKM_RSA_X_509, 512 , 3, { 0x01, 0x00, 0x01, 0x00 }, 64  , FALSE },
-                { CKM_RSA_X_509, 512 , 3, { 0x01, 0x00, 0x01, 0x00 }, 64  , TRUE  },
-        // mod bits = 768. Input up to 96 bytes
-                // publ exp = 3
-                { CKM_RSA_X_509, 768 , 1, { 0x03, 0x00, 0x00, 0x00 }, 1   , FALSE },
-                { CKM_RSA_X_509, 768 , 1, { 0x03, 0x00, 0x00, 0x00 }, 1   , TRUE  },
-                { CKM_RSA_X_509, 768 , 1, { 0x03, 0x00, 0x00, 0x00 }, 96  , FALSE },
-                { CKM_RSA_X_509, 768 , 1, { 0x03, 0x00, 0x00, 0x00 }, 96  , TRUE  },
-                // publ exp = 17 (big endian format)
-                { CKM_RSA_X_509, 768 , 2, { 0x00, 0x11, 0x00, 0x00 }, 1   , FALSE },
-                { CKM_RSA_X_509, 768 , 2, { 0x00, 0x11, 0x00, 0x00 }, 1   , TRUE  },
-                { CKM_RSA_X_509, 768 , 2, { 0x00, 0x11, 0x00, 0x00 }, 96  , FALSE },
-                { CKM_RSA_X_509, 768 , 2, { 0x00, 0x11, 0x00, 0x00 }, 96  , TRUE  },
-                // publ exp = 65537
-                { CKM_RSA_X_509, 768 , 3, { 0x01, 0x00, 0x01, 0x00 }, 1   , FALSE },
-                { CKM_RSA_X_509, 768 , 3, { 0x01, 0x00, 0x01, 0x00 }, 1   , TRUE  },
-                { CKM_RSA_X_509, 768 , 3, { 0x01, 0x00, 0x01, 0x00 }, 96  , FALSE },
-                { CKM_RSA_X_509, 768 , 3, { 0x01, 0x00, 0x01, 0x00 }, 96  , TRUE  },
-        // mod bits = 1024. Input up to 128 bytes
-                // publ exp = 3
-                { CKM_RSA_X_509, 1024, 1, { 0x03, 0x00, 0x00, 0x00 }, 1   , FALSE },
-                { CKM_RSA_X_509, 1024, 1, { 0x03, 0x00, 0x00, 0x00 }, 1   , TRUE  },
-                { CKM_RSA_X_509, 1024, 1, { 0x03, 0x00, 0x00, 0x00 }, 128 , FALSE },
-                { CKM_RSA_X_509, 1024, 1, { 0x03, 0x00, 0x00, 0x00 }, 128 , TRUE  },
-               // publ exp = 17 (big endian format)
-                { CKM_RSA_X_509, 1024, 2, { 0x00, 0x11, 0x00, 0x00 }, 1   , FALSE },
-                { CKM_RSA_X_509, 1024, 2, { 0x00, 0x11, 0x00, 0x00 }, 1   , TRUE  },
-                { CKM_RSA_X_509, 1024, 2, { 0x00, 0x11, 0x00, 0x00 }, 128 , FALSE },
-                { CKM_RSA_X_509, 1024, 2, { 0x00, 0x11, 0x00, 0x00 }, 128 , TRUE  },
-                // publ exp = 65537
-                { CKM_RSA_X_509, 1024, 3, { 0x01, 0x00, 0x01, 0x00 }, 1   , FALSE },
-                { CKM_RSA_X_509, 1024, 3, { 0x01, 0x00, 0x01, 0x00 }, 1   , TRUE  },
-                { CKM_RSA_X_509, 1024, 3, { 0x01, 0x00, 0x01, 0x00 }, 128 , FALSE },
-                { CKM_RSA_X_509, 1024, 3, { 0x01, 0x00, 0x01, 0x00 }, 128 , TRUE  },
-        // mod bits = 2048. Input up to 256 bytes
-                // publ exp = 3
-                { CKM_RSA_X_509, 2048, 1, { 0x03, 0x00, 0x00, 0x00 }, 1   , FALSE },
-                { CKM_RSA_X_509, 2048, 1, { 0x03, 0x00, 0x00, 0x00 }, 1   , TRUE  },
-                { CKM_RSA_X_509, 2048, 1, { 0x03, 0x00, 0x00, 0x00 }, 256 , FALSE },
-                { CKM_RSA_X_509, 2048, 1, { 0x03, 0x00, 0x00, 0x00 }, 256 , TRUE  },
-                // publ exp = 17 (big endian format)
-                { CKM_RSA_X_509, 2048, 2, { 0x00, 0x11, 0x00, 0x00 }, 1   , FALSE },
-                { CKM_RSA_X_509, 2048, 2, { 0x00, 0x11, 0x00, 0x00 }, 1   , TRUE  },
-                { CKM_RSA_X_509, 2048, 2, { 0x00, 0x11, 0x00, 0x00 }, 256 , FALSE },
-                { CKM_RSA_X_509, 2048, 2, { 0x00, 0x11, 0x00, 0x00 }, 256 , TRUE  },
-                // publ exp = 65537
-                { CKM_RSA_X_509, 2048, 3, { 0x01, 0x00, 0x01, 0x00 }, 1   , FALSE },
-                { CKM_RSA_X_509, 2048, 3, { 0x01, 0x00, 0x01, 0x00 }, 1   , TRUE  },
-                { CKM_RSA_X_509, 2048, 3, { 0x01, 0x00, 0x01, 0x00 }, 256 , FALSE },
-                { CKM_RSA_X_509, 2048, 3, { 0x01, 0x00, 0x01, 0x00 }, 256 , TRUE  },
-        // mod bits = 4096. Input up to 512 bytes
-                // publ exp = 3
-                { CKM_RSA_X_509, 4096, 1, { 0x03, 0x00, 0x00, 0x00 }, 1   , FALSE },
-                { CKM_RSA_X_509, 4096, 1, { 0x03, 0x00, 0x00, 0x00 }, 1   , TRUE  },
-                { CKM_RSA_X_509, 4096, 1, { 0x03, 0x00, 0x00, 0x00 }, 512 , FALSE },
-                { CKM_RSA_X_509, 4096, 1, { 0x03, 0x00, 0x00, 0x00 }, 512 , TRUE  },
-                // publ exp = 17 (big endian format)
-                { CKM_RSA_X_509, 4096, 2, { 0x00, 0x11, 0x00, 0x00 }, 1   , FALSE },
-                { CKM_RSA_X_509, 4096, 2, { 0x00, 0x11, 0x00, 0x00 }, 1   , TRUE  },
-                { CKM_RSA_X_509, 4096, 2, { 0x00, 0x11, 0x00, 0x00 }, 512 , FALSE },
-                { CKM_RSA_X_509, 4096, 2, { 0x00, 0x11, 0x00, 0x00 }, 512 , TRUE  },
-                // publ exp = 65537
-                { CKM_RSA_X_509, 4096, 3, { 0x01, 0x00, 0x01, 0x00 }, 1   , FALSE },
-                { CKM_RSA_X_509, 4096, 3, { 0x01, 0x00, 0x01, 0x00 }, 1   , TRUE  },
-                { CKM_RSA_X_509, 4096, 3, { 0x01, 0x00, 0x01, 0x00 }, 512 , FALSE },
-                { CKM_RSA_X_509, 4096, 3, { 0x01, 0x00, 0x01, 0x00 }, 512 , TRUE  },
-        };
-
-
-
-        for (i = 0;
-                i < (sizeof(inputdata) / sizeof(struct _inputparam));
-                i++) {
-                rv |= do_GenerateEncryptDecryptRSA(
-                                inputdata[i].mechtype,
-                                inputdata[i].mod_bits,
-                                inputdata[i].publ_exp_len,
-                                inputdata[i].publ_exp,
-                                inputdata[i].inputlen,
-                                inputdata[i].inplace
-                                );
-        }
-
-        return rv;
-}
-
-CK_RV run_GenerateSignVerifyRSAX509()
-{
-        int     i;
-        CK_RV   rv = 0;
-
-        struct  _inputparam {
-                CK_MECHANISM_TYPE mechtype;
-                CK_ULONG          mod_bits;
-                CK_ULONG          publ_exp_len;
-                CK_BYTE           publ_exp[4]; /* up to 4 bytes for publ_exp */
-                CK_ULONG          inputlen;
-                CK_BBOOL          recover;
-        } inputdata[] = {
-        /* PKCS#11 defines "Big number" as "a string of CK_BYTEs        *
-         * representing an unsigned integer of arbitrary size,          *
-         * most-significant byte first (e.g., the integer 32768 is      *
-         * represented as the 2-byte string 0x80 0x00)".                *
-         *                                                              *
-         * This means that publ_exp must be in BIG ENDIAN byte-order    */
-
-        // mod bits = 512. Input up to 64 bytes
-                // publ exp = 3
-                { CKM_RSA_X_509, 512 , 1, { 0x03, 0x00, 0x00, 0x00 }, 1   , FALSE },
-                { CKM_RSA_X_509, 512 , 1, { 0x03, 0x00, 0x00, 0x00 }, 1   , TRUE  },
-                { CKM_RSA_X_509, 512 , 1, { 0x03, 0x00, 0x00, 0x00 }, 64  , FALSE },
-                { CKM_RSA_X_509, 512 , 1, { 0x03, 0x00, 0x00, 0x00 }, 64  , TRUE  },
-                // publ exp = 17 (big endian format)
-                { CKM_RSA_X_509, 512 , 2, { 0x00, 0x11, 0x00, 0x00 }, 1   , FALSE },
-                { CKM_RSA_X_509, 512 , 2, { 0x00, 0x11, 0x00, 0x00 }, 1   , TRUE  },
-                { CKM_RSA_X_509, 512 , 2, { 0x00, 0x11, 0x00, 0x00 }, 64  , FALSE },
-                { CKM_RSA_X_509, 512 , 2, { 0x00, 0x11, 0x00, 0x00 }, 64  , TRUE  },
-                // publ exp = 65537
-                { CKM_RSA_X_509, 512 , 3, { 0x01, 0x00, 0x01, 0x00 }, 1   , FALSE },
-                { CKM_RSA_X_509, 512 , 3, { 0x01, 0x00, 0x01, 0x00 }, 1   , TRUE  },
-                { CKM_RSA_X_509, 512 , 3, { 0x01, 0x00, 0x01, 0x00 }, 64  , FALSE },
-                { CKM_RSA_X_509, 512 , 3, { 0x01, 0x00, 0x01, 0x00 }, 64  , TRUE  },
-                // publ exp = large (4-bytes) even number
-                { CKM_RSA_X_509, 512 , 4, { 0xFF, 0xFF, 0xFF, 0x11 }, 1   , FALSE },
-                { CKM_RSA_X_509, 512 , 4, { 0xFF, 0xFF, 0xFF, 0x11 }, 1   , TRUE  },
-                { CKM_RSA_X_509, 512 , 4, { 0xFF, 0xFF, 0xFF, 0x11 }, 64  , FALSE },
-                { CKM_RSA_X_509, 512 , 4, { 0xFF, 0xFF, 0xFF, 0x11 }, 64  , TRUE  },
-        // mod bits = 768. Input up to 96 bytes
-                // publ exp = 3
-                { CKM_RSA_X_509, 768 , 1, { 0x03, 0x00, 0x00, 0x00 }, 1   , FALSE },
-                { CKM_RSA_X_509, 768 , 1, { 0x03, 0x00, 0x00, 0x00 }, 1   , TRUE  },
-                { CKM_RSA_X_509, 768 , 1, { 0x03, 0x00, 0x00, 0x00 }, 96  , FALSE },
-                { CKM_RSA_X_509, 768 , 1, { 0x03, 0x00, 0x00, 0x00 }, 96  , TRUE  },
-                // publ exp = 17 (big endian format)
-                { CKM_RSA_X_509, 768 , 2, { 0x00, 0x11, 0x00, 0x00 }, 1   , FALSE },
-                { CKM_RSA_X_509, 768 , 2, { 0x00, 0x11, 0x00, 0x00 }, 1   , TRUE  },
-                { CKM_RSA_X_509, 768 , 2, { 0x00, 0x11, 0x00, 0x00 }, 96  , FALSE },
-                { CKM_RSA_X_509, 768 , 2, { 0x00, 0x11, 0x00, 0x00 }, 96  , TRUE  },
-                // publ exp = 65537
-                { CKM_RSA_X_509, 768 , 3, { 0x01, 0x00, 0x01, 0x00 }, 1   , FALSE },
-                { CKM_RSA_X_509, 768 , 3, { 0x01, 0x00, 0x01, 0x00 }, 1   , TRUE  },
-                { CKM_RSA_X_509, 768 , 3, { 0x01, 0x00, 0x01, 0x00 }, 96  , FALSE },
-                { CKM_RSA_X_509, 768 , 3, { 0x01, 0x00, 0x01, 0x00 }, 96  , TRUE  },
-                // publ exp = large (4-bytes) even number
-                { CKM_RSA_X_509, 768 , 4, { 0xFF, 0xFF, 0xFF, 0x11 }, 1   , FALSE },
-                { CKM_RSA_X_509, 768 , 4, { 0xFF, 0xFF, 0xFF, 0x11 }, 1   , TRUE  },
-                { CKM_RSA_X_509, 768 , 4, { 0xFF, 0xFF, 0xFF, 0x11 }, 96  , FALSE },
-                { CKM_RSA_X_509, 768 , 4, { 0xFF, 0xFF, 0xFF, 0x11 }, 96  , TRUE  },
-        // mod bits = 1024. Input up to 128 bytes
-                // publ exp = 3
-                { CKM_RSA_X_509, 1024, 1, { 0x03, 0x00, 0x00, 0x00 }, 1   , FALSE },
-                { CKM_RSA_X_509, 1024, 1, { 0x03, 0x00, 0x00, 0x00 }, 1   , TRUE  },
-                { CKM_RSA_X_509, 1024, 1, { 0x03, 0x00, 0x00, 0x00 }, 128 , FALSE },
-                { CKM_RSA_X_509, 1024, 1, { 0x03, 0x00, 0x00, 0x00 }, 128 , TRUE  },
-                // publ exp = 17 (big endian format)
-                { CKM_RSA_X_509, 1024, 2, { 0x00, 0x11, 0x00, 0x00 }, 1   , FALSE },
-                { CKM_RSA_X_509, 1024, 2, { 0x00, 0x11, 0x00, 0x00 }, 1   , TRUE  },
-                { CKM_RSA_X_509, 1024, 2, { 0x00, 0x11, 0x00, 0x00 }, 128 , FALSE },
-                { CKM_RSA_X_509, 1024, 2, { 0x00, 0x11, 0x00, 0x00 }, 128 , TRUE  },
-                // publ exp = 65537
-                { CKM_RSA_X_509, 1024, 3, { 0x01, 0x00, 0x01, 0x00 }, 1   , FALSE },
-                { CKM_RSA_X_509, 1024, 3, { 0x01, 0x00, 0x01, 0x00 }, 1   , TRUE  },
-                { CKM_RSA_X_509, 1024, 3, { 0x01, 0x00, 0x01, 0x00 }, 128 , FALSE },
-                { CKM_RSA_X_509, 1024, 3, { 0x01, 0x00, 0x01, 0x00 }, 128 , TRUE  },
-                // publ exp = large (4-bytes) even number
-                { CKM_RSA_X_509, 1024, 4, { 0xFF, 0xFF, 0xFF, 0x11 }, 1   , FALSE },
-                { CKM_RSA_X_509, 1024, 4, { 0xFF, 0xFF, 0xFF, 0x11 }, 1   , TRUE  },
-                { CKM_RSA_X_509, 1024, 4, { 0xFF, 0xFF, 0xFF, 0x11 }, 128 , FALSE },
-                { CKM_RSA_X_509, 1024, 4, { 0xFF, 0xFF, 0xFF, 0x11 }, 128 , TRUE  },
-        // mod bits = 2048. Input up to 256 bytes
-                // publ exp = 3
-                { CKM_RSA_X_509, 2048, 1, { 0x03, 0x00, 0x00, 0x00 }, 1   , FALSE },
-                { CKM_RSA_X_509, 2048, 1, { 0x03, 0x00, 0x00, 0x00 }, 1   , TRUE  },
-                { CKM_RSA_X_509, 2048, 1, { 0x03, 0x00, 0x00, 0x00 }, 256 , FALSE },
-                { CKM_RSA_X_509, 2048, 1, { 0x03, 0x00, 0x00, 0x00 }, 256 , TRUE  },
-                // publ exp = 17 (big endian format)
-                { CKM_RSA_X_509, 2048, 2, { 0x00, 0x11, 0x00, 0x00 }, 1   , FALSE },
-                { CKM_RSA_X_509, 2048, 2, { 0x00, 0x11, 0x00, 0x00 }, 1   , TRUE  },
-                { CKM_RSA_X_509, 2048, 2, { 0x00, 0x11, 0x00, 0x00 }, 256 , FALSE },
-                { CKM_RSA_X_509, 2048, 2, { 0x00, 0x11, 0x00, 0x00 }, 256 , TRUE  },
-                // publ exp = 65537
-                { CKM_RSA_X_509, 2048, 3, { 0x01, 0x00, 0x01, 0x00 }, 1   , FALSE },
-                { CKM_RSA_X_509, 2048, 3, { 0x01, 0x00, 0x01, 0x00 }, 1   , TRUE  },
-                { CKM_RSA_X_509, 2048, 3, { 0x01, 0x00, 0x01, 0x00 }, 256 , FALSE },
-                { CKM_RSA_X_509, 2048, 3, { 0x01, 0x00, 0x01, 0x00 }, 256 , TRUE  },
-                // publ exp = large (4-bytes) even number
-                { CKM_RSA_X_509, 2048, 4, { 0xFF, 0xFF, 0xFF, 0x11 }, 1   , FALSE },
-                { CKM_RSA_X_509, 2048, 4, { 0xFF, 0xFF, 0xFF, 0x11 }, 1   , TRUE  },
-                { CKM_RSA_X_509, 2048, 4, { 0xFF, 0xFF, 0xFF, 0x11 }, 256 , FALSE },
-                { CKM_RSA_X_509, 2048, 4, { 0xFF, 0xFF, 0xFF, 0x11 }, 256 , TRUE  },
-        // mod bits = 4096. Input up to 512 bytes
-                // publ exp = 3
-                { CKM_RSA_X_509, 4096, 1, { 0x03, 0x00, 0x00, 0x00 }, 1   , FALSE },
-                { CKM_RSA_X_509, 4096, 1, { 0x03, 0x00, 0x00, 0x00 }, 1   , TRUE  },
-                { CKM_RSA_X_509, 4096, 1, { 0x03, 0x00, 0x00, 0x00 }, 512 , FALSE },
-                { CKM_RSA_X_509, 4096, 1, { 0x03, 0x00, 0x00, 0x00 }, 512 , TRUE  },
-                // publ exp = 17 (big endian format)
-                { CKM_RSA_X_509, 4096, 2, { 0x00, 0x11, 0x00, 0x00 }, 1   , FALSE },
-                { CKM_RSA_X_509, 4096, 2, { 0x00, 0x11, 0x00, 0x00 }, 1   , TRUE  },
-                { CKM_RSA_X_509, 4096, 2, { 0x00, 0x11, 0x00, 0x00 }, 512 , FALSE },
-                { CKM_RSA_X_509, 4096, 2, { 0x00, 0x11, 0x00, 0x00 }, 512 , TRUE  },
-                // publ exp = 65537
-                { CKM_RSA_X_509, 4096, 3, { 0x01, 0x00, 0x01, 0x00 }, 1   , FALSE },
-                { CKM_RSA_X_509, 4096, 3, { 0x01, 0x00, 0x01, 0x00 }, 1   , TRUE  },
-                { CKM_RSA_X_509, 4096, 3, { 0x01, 0x00, 0x01, 0x00 }, 512 , FALSE },
-                { CKM_RSA_X_509, 4096, 3, { 0x01, 0x00, 0x01, 0x00 }, 512 , TRUE  },
-                // publ exp = large (4-bytes) even number
-                { CKM_RSA_X_509, 4096, 4, { 0xFF, 0xFF, 0xFF, 0x11 }, 1   , FALSE },
-                { CKM_RSA_X_509, 4096, 4, { 0xFF, 0xFF, 0xFF, 0x11 }, 1   , TRUE  },
-                { CKM_RSA_X_509, 4096, 4, { 0xFF, 0xFF, 0xFF, 0x11 }, 512 , FALSE },
-                { CKM_RSA_X_509, 4096, 4, { 0xFF, 0xFF, 0xFF, 0x11 }, 512 , TRUE  }
-        };
-
-
-
-        for (i = 0;
-                i < (sizeof(inputdata) / sizeof(struct _inputparam));
-                i++) {
-                rv |= do_GenerateSignVerifyRSA(
-                                inputdata[i].mechtype,
-                                inputdata[i].mod_bits,
-                                inputdata[i].publ_exp_len,
-                                inputdata[i].publ_exp,
-                                inputdata[i].inputlen,
-                                inputdata[i].recover
-                                );
-        }
-
-        return rv;
-}
-
-// Combinations for Single-Part CKM_MD2_RSA_PKCS Sign/Verify,
-// which can take input of any size
-CK_RV run_GenerateSignVerifyRSAMD2()
-{
-        int     i;
-        CK_RV   rv = 0;
-
-        struct  _inputparam {
-                CK_MECHANISM_TYPE mechtype;
-                CK_ULONG          mod_bits;
-                CK_ULONG          publ_exp_len;
-                CK_BYTE           publ_exp[4]; /* up to 4 bytes for publ_exp */
-                CK_ULONG          inputlen;
-                CK_BBOOL          recover;
-        } inputdata[] = {
-        /* PKCS#11 defines "Big number" as "a string of CK_BYTEs        *
-         * representing an unsigned integer of arbitrary size,          *
-         * most-significant byte first (e.g., the integer 32768 is      *
-         * represented as the 2-byte string 0x80 0x00)".                *
-         *                                                              *
-         * This means that publ_exp must be in BIG ENDIAN byte-order    */
-
-        // mod bits = 512.
-                // publ exp = 3
-                { CKM_MD2_RSA_PKCS, 512 , 1, { 0x03, 0x00, 0x00, 0x00 }, 1   , FALSE },
-                { CKM_MD2_RSA_PKCS, 512 , 1, { 0x03, 0x00, 0x00, 0x00 }, 1000  , FALSE },
-                // publ exp = 17 (big endian format)
-                { CKM_MD2_RSA_PKCS, 512 , 2, { 0x00, 0x11, 0x00, 0x00 }, 1   , FALSE },
-                { CKM_MD2_RSA_PKCS, 512 , 2, { 0x00, 0x11, 0x00, 0x00 }, 1000  , FALSE },
-                // publ exp = 6510007
-                { CKM_MD2_RSA_PKCS, 512 , 3, { 0x01, 0x00, 0x01, 0x00 }, 1   , FALSE },
-                { CKM_MD2_RSA_PKCS, 512 , 3, { 0x01, 0x00, 0x01, 0x00 }, 1000  , FALSE },
-        // mod bits = 768
-                // publ exp = 3
-                { CKM_MD2_RSA_PKCS, 768 , 1, { 0x03, 0x00, 0x00, 0x00 }, 1   , FALSE },
-                { CKM_MD2_RSA_PKCS, 768 , 1, { 0x03, 0x00, 0x00, 0x00 }, 1000  , FALSE },
-                // publ exp = 17 (big endian format)
-                { CKM_MD2_RSA_PKCS, 768 , 2, { 0x00, 0x11, 0x00, 0x00 }, 1   , FALSE },
-                { CKM_MD2_RSA_PKCS, 768 , 2, { 0x00, 0x11, 0x00, 0x00 }, 1000  , FALSE },
-                // publ exp = 65537
-                { CKM_MD2_RSA_PKCS, 768 , 3, { 0x01, 0x00, 0x01, 0x00 }, 1   , FALSE },
-                { CKM_MD2_RSA_PKCS, 768 , 3, { 0x01, 0x00, 0x01, 0x00 }, 1000  , FALSE },
-        // mod bits = 1024
-                // publ exp = 3
-                { CKM_MD2_RSA_PKCS, 1024, 1, { 0x03, 0x00, 0x00, 0x00 }, 1   , FALSE },
-                { CKM_MD2_RSA_PKCS, 1024, 1, { 0x03, 0x00, 0x00, 0x00 }, 1000 , FALSE },
-                // publ exp = 17 (big endian format)
-                { CKM_MD2_RSA_PKCS, 1024, 2, { 0x00, 0x11, 0x00, 0x00 }, 1   , FALSE },
-                { CKM_MD2_RSA_PKCS, 1024, 2, { 0x00, 0x11, 0x00, 0x00 }, 1000 , FALSE },
-                // publ exp = 65537
-                { CKM_MD2_RSA_PKCS, 1024, 3, { 0x01, 0x00, 0x01, 0x00 }, 1   , FALSE },
-                { CKM_MD2_RSA_PKCS, 1024, 3, { 0x01, 0x00, 0x01, 0x00 }, 1000 , FALSE },
-        // mod bits = 2048
-                // publ exp = 3
-                { CKM_MD2_RSA_PKCS, 2048, 1, { 0x03, 0x00, 0x00, 0x00 }, 1   , FALSE },
-                { CKM_MD2_RSA_PKCS, 2048, 1, { 0x03, 0x00, 0x00, 0x00 }, 1000 , FALSE },
-                // publ exp = 17 (big endian format)
-                { CKM_MD2_RSA_PKCS, 2048, 2, { 0x00, 0x11, 0x00, 0x00 }, 1   , FALSE },
-                { CKM_MD2_RSA_PKCS, 2048, 2, { 0x00, 0x11, 0x00, 0x00 }, 1000 , FALSE },
-                // publ exp = 65537
-                { CKM_MD2_RSA_PKCS, 2048, 3, { 0x01, 0x00, 0x01, 0x00 }, 1   , FALSE },
-                { CKM_MD2_RSA_PKCS, 2048, 3, { 0x01, 0x00, 0x01, 0x00 }, 1000 , FALSE },
-        // mod bits = 4096
-                // publ exp = 3
-                { CKM_MD2_RSA_PKCS, 4096, 1, { 0x03, 0x00, 0x00, 0x00 }, 1   , FALSE },
-                { CKM_MD2_RSA_PKCS, 4096, 1, { 0x03, 0x00, 0x00, 0x00 }, 1000 , FALSE },
-                // publ exp = 17 (big endian format)
-                { CKM_MD2_RSA_PKCS, 4096, 2, { 0x00, 0x11, 0x00, 0x00 }, 1   , FALSE },
-                { CKM_MD2_RSA_PKCS, 4096, 2, { 0x00, 0x11, 0x00, 0x00 }, 1000 , FALSE },
-                // publ exp = 65537
-                { CKM_MD2_RSA_PKCS, 4096, 3, { 0x01, 0x00, 0x01, 0x00 }, 1   , FALSE },
-                { CKM_MD2_RSA_PKCS, 4096, 3, { 0x01, 0x00, 0x01, 0x00 }, 1000 , FALSE },
-        };
-
-
-
-        for (i = 0;
-                i < (sizeof(inputdata) / sizeof(struct _inputparam));
-                i++) {
-                rv |= do_GenerateSignVerifyRSA(
-                                inputdata[i].mechtype,
-                                inputdata[i].mod_bits,
-                                inputdata[i].publ_exp_len,
-                                inputdata[i].publ_exp,
-                                inputdata[i].inputlen,
-                                inputdata[i].recover
-                                );
-        }
-
-        return rv;
-}
-
-// Combinations for Single-Part CKM_MD5_RSA_PKCS Sign/Verify,
-// which can take input of any size
-CK_RV run_GenerateSignVerifyRSAMD5()
-{
-        int     i;
-        CK_RV   rv = 0;
-
-        struct  _inputparam {
-                CK_MECHANISM_TYPE mechtype;
-                CK_ULONG          mod_bits;
-                CK_ULONG          publ_exp_len;
-                CK_BYTE           publ_exp[4]; /* up to 4 bytes for publ_exp */
-                CK_ULONG          inputlen;
-                CK_BBOOL          recover;
-        } inputdata[] = {
-        /* PKCS#11 defines "Big number" as "a string of CK_BYTEs        *
-         * representing an unsigned integer of arbitrary size,          *
-         * most-significant byte first (e.g., the integer 32768 is      *
-         * represented as the 2-byte string 0x80 0x00)".                *
-         *                                                              *
-         * This means that publ_exp must be in BIG ENDIAN byte-order    */
-
-        // mod bits = 512.
-                // publ exp = 3
-                { CKM_MD5_RSA_PKCS, 512 , 1, { 0x03, 0x00, 0x00, 0x00 }, 1   , FALSE },
-                { CKM_MD5_RSA_PKCS, 512 , 1, { 0x03, 0x00, 0x00, 0x00 }, 1000  , FALSE },
-                // publ exp = 17 (big endian format)
-                { CKM_MD5_RSA_PKCS, 512 , 2, { 0x00, 0x11, 0x00, 0x00 }, 1   , FALSE },
-                { CKM_MD5_RSA_PKCS, 512 , 2, { 0x00, 0x11, 0x00, 0x00 }, 1000  , FALSE },
-                // publ exp = 6510007
-                { CKM_MD5_RSA_PKCS, 512 , 3, { 0x01, 0x00, 0x01, 0x00 }, 1   , FALSE },
-                { CKM_MD5_RSA_PKCS, 512 , 3, { 0x01, 0x00, 0x01, 0x00 }, 1000  , FALSE },
-        // mod bits = 768
-                // publ exp = 3
-                { CKM_MD5_RSA_PKCS, 768 , 1, { 0x03, 0x00, 0x00, 0x00 }, 1   , FALSE },
-                { CKM_MD5_RSA_PKCS, 768 , 1, { 0x03, 0x00, 0x00, 0x00 }, 1000  , FALSE },
-                // publ exp = 17 (big endian format)
-                { CKM_MD5_RSA_PKCS, 768 , 2, { 0x00, 0x11, 0x00, 0x00 }, 1   , FALSE },
-                { CKM_MD5_RSA_PKCS, 768 , 2, { 0x00, 0x11, 0x00, 0x00 }, 1000  , FALSE },
-                // publ exp = 65537
-                { CKM_MD5_RSA_PKCS, 768 , 3, { 0x01, 0x00, 0x01, 0x00 }, 1   , FALSE },
-                { CKM_MD5_RSA_PKCS, 768 , 3, { 0x01, 0x00, 0x01, 0x00 }, 1000  , FALSE },
-        // mod bits = 1024
-                // publ exp = 3
-                { CKM_MD5_RSA_PKCS, 1024, 1, { 0x03, 0x00, 0x00, 0x00 }, 1   , FALSE },
-                { CKM_MD5_RSA_PKCS, 1024, 1, { 0x03, 0x00, 0x00, 0x00 }, 1000 , FALSE },
-                // publ exp = 17 (big endian format)
-                { CKM_MD5_RSA_PKCS, 1024, 2, { 0x00, 0x11, 0x00, 0x00 }, 1   , FALSE },
-                { CKM_MD5_RSA_PKCS, 1024, 2, { 0x00, 0x11, 0x00, 0x00 }, 1000 , FALSE },
-                // publ exp = 65537
-                { CKM_MD5_RSA_PKCS, 1024, 3, { 0x01, 0x00, 0x01, 0x00 }, 1   , FALSE },
-                { CKM_MD5_RSA_PKCS, 1024, 3, { 0x01, 0x00, 0x01, 0x00 }, 1000 , FALSE },
-        // mod bits = 2048
-                // publ exp = 3
-                { CKM_MD5_RSA_PKCS, 2048, 1, { 0x03, 0x00, 0x00, 0x00 }, 1   , FALSE },
-                { CKM_MD5_RSA_PKCS, 2048, 1, { 0x03, 0x00, 0x00, 0x00 }, 1000 , FALSE },
-                // publ exp = 17 (big endian format)
-                { CKM_MD5_RSA_PKCS, 2048, 2, { 0x00, 0x11, 0x00, 0x00 }, 1   , FALSE },
-                { CKM_MD5_RSA_PKCS, 2048, 2, { 0x00, 0x11, 0x00, 0x00 }, 1000 , FALSE },
-                // publ exp = 65537
-                { CKM_MD5_RSA_PKCS, 2048, 3, { 0x01, 0x00, 0x01, 0x00 }, 1   , FALSE },
-                { CKM_MD5_RSA_PKCS, 2048, 3, { 0x01, 0x00, 0x01, 0x00 }, 1000 , FALSE },
-        // mod bits = 4096
-                // publ exp = 3
-                { CKM_MD5_RSA_PKCS, 4096, 1, { 0x03, 0x00, 0x00, 0x00 }, 1   , FALSE },
-                { CKM_MD5_RSA_PKCS, 4096, 1, { 0x03, 0x00, 0x00, 0x00 }, 1000 , FALSE },
-                // publ exp = 17 (big endian format)
-                { CKM_MD5_RSA_PKCS, 4096, 2, { 0x00, 0x11, 0x00, 0x00 }, 1   , FALSE },
-                { CKM_MD5_RSA_PKCS, 4096, 2, { 0x00, 0x11, 0x00, 0x00 }, 1000 , FALSE },
-                // publ exp = 65537
-                { CKM_MD5_RSA_PKCS, 4096, 3, { 0x01, 0x00, 0x01, 0x00 }, 1   , FALSE },
-                { CKM_MD5_RSA_PKCS, 4096, 3, { 0x01, 0x00, 0x01, 0x00 }, 1000 , FALSE },
-        };
-
-
-
-        for (i = 0;
-                i < (sizeof(inputdata) / sizeof(struct _inputparam));
-                i++) {
-                rv |= do_GenerateSignVerifyRSA(
-                                inputdata[i].mechtype,
-                                inputdata[i].mod_bits,
-                                inputdata[i].publ_exp_len,
-                                inputdata[i].publ_exp,
-                                inputdata[i].inputlen,
-                                inputdata[i].recover
-                                );
-        }
-
-        return rv;
-}
-
-// Combinations for Single-Part CKM_SHA1_RSA_PKCS Sign/Verify,
-// which can take input of any size
-CK_RV run_GenerateSignVerifyRSASHA1()
-{
-        int     i;
-        CK_RV   rv = 0;
-
-        struct  _inputparam {
-                CK_MECHANISM_TYPE mechtype;
-                CK_ULONG          mod_bits;
-                CK_ULONG          publ_exp_len;
-                CK_BYTE           publ_exp[4]; /* up to 4 bytes for publ_exp */
-                CK_ULONG          inputlen;
-                CK_BBOOL          recover;
-        } inputdata[] = {
-        /* PKCS#11 defines "Big number" as "a string of CK_BYTEs        *
-         * representing an unsigned integer of arbitrary size,          *
-         * most-significant byte first (e.g., the integer 32768 is      *
-         * represented as the 2-byte string 0x80 0x00)".                *
-         *                                                              *
-         * This means that publ_exp must be in BIG ENDIAN byte-order    */
-
-        // mod bits = 512.
-                // publ exp = 3
-                { CKM_SHA1_RSA_PKCS, 512 , 1, { 0x03, 0x00, 0x00, 0x00 }, 1   , FALSE },
-                { CKM_SHA1_RSA_PKCS, 512 , 1, { 0x03, 0x00, 0x00, 0x00 }, 1000  , FALSE },
-                // publ exp = 17 (big endian format)
-                { CKM_SHA1_RSA_PKCS, 512 , 2, { 0x00, 0x11, 0x00, 0x00 }, 1   , FALSE },
-                { CKM_SHA1_RSA_PKCS, 512 , 2, { 0x00, 0x11, 0x00, 0x00 }, 1000  , FALSE },
-                // publ exp = 6510007
-                { CKM_SHA1_RSA_PKCS, 512 , 3, { 0x01, 0x00, 0x01, 0x00 }, 1   , FALSE },
-                { CKM_SHA1_RSA_PKCS, 512 , 3, { 0x01, 0x00, 0x01, 0x00 }, 1000  , FALSE },
-        // mod bits = 768
-                // publ exp = 3
-                { CKM_SHA1_RSA_PKCS, 768 , 1, { 0x03, 0x00, 0x00, 0x00 }, 1   , FALSE },
-                { CKM_SHA1_RSA_PKCS, 768 , 1, { 0x03, 0x00, 0x00, 0x00 }, 1000  , FALSE },
-                // publ exp = 17 (big endian format)
-                { CKM_SHA1_RSA_PKCS, 768 , 2, { 0x00, 0x11, 0x00, 0x00 }, 1   , FALSE },
-                { CKM_SHA1_RSA_PKCS, 768 , 2, { 0x00, 0x11, 0x00, 0x00 }, 1000  , FALSE },
-                // publ exp = 65537
-                { CKM_SHA1_RSA_PKCS, 768 , 3, { 0x01, 0x00, 0x01, 0x00 }, 1   , FALSE },
-                { CKM_SHA1_RSA_PKCS, 768 , 3, { 0x01, 0x00, 0x01, 0x00 }, 1000  , FALSE },
-        // mod bits = 1024
-                // publ exp = 3
-                { CKM_SHA1_RSA_PKCS, 1024, 1, { 0x03, 0x00, 0x00, 0x00 }, 1   , FALSE },
-                { CKM_SHA1_RSA_PKCS, 1024, 1, { 0x03, 0x00, 0x00, 0x00 }, 1000 , FALSE },
-                // publ exp = 17 (big endian format)
-                { CKM_SHA1_RSA_PKCS, 1024, 2, { 0x00, 0x11, 0x00, 0x00 }, 1   , FALSE },
-                { CKM_SHA1_RSA_PKCS, 1024, 2, { 0x00, 0x11, 0x00, 0x00 }, 1000 , FALSE },
-                // publ exp = 65537
-                { CKM_SHA1_RSA_PKCS, 1024, 3, { 0x01, 0x00, 0x01, 0x00 }, 1   , FALSE },
-                { CKM_SHA1_RSA_PKCS, 1024, 3, { 0x01, 0x00, 0x01, 0x00 }, 1000 , FALSE },
-        // mod bits = 2048
-                // publ exp = 3
-                { CKM_SHA1_RSA_PKCS, 2048, 1, { 0x03, 0x00, 0x00, 0x00 }, 1   , FALSE },
-                { CKM_SHA1_RSA_PKCS, 2048, 1, { 0x03, 0x00, 0x00, 0x00 }, 1000 , FALSE },
-                // publ exp = 17 (big endian format)
-                { CKM_SHA1_RSA_PKCS, 2048, 2, { 0x00, 0x11, 0x00, 0x00 }, 1   , FALSE },
-                { CKM_SHA1_RSA_PKCS, 2048, 2, { 0x00, 0x11, 0x00, 0x00 }, 1000 , FALSE },
-                // publ exp = 65537
-                { CKM_SHA1_RSA_PKCS, 2048, 3, { 0x01, 0x00, 0x01, 0x00 }, 1   , FALSE },
-                { CKM_SHA1_RSA_PKCS, 2048, 3, { 0x01, 0x00, 0x01, 0x00 }, 1000 , FALSE },
-        // mod bits = 4096
-                // publ exp = 3
-                { CKM_SHA1_RSA_PKCS, 4096, 1, { 0x03, 0x00, 0x00, 0x00 }, 1   , FALSE },
-                { CKM_SHA1_RSA_PKCS, 4096, 1, { 0x03, 0x00, 0x00, 0x00 }, 1000 , FALSE },
-                // publ exp = 17 (big endian format)
-                { CKM_SHA1_RSA_PKCS, 4096, 2, { 0x00, 0x11, 0x00, 0x00 }, 1   , FALSE },
-                { CKM_SHA1_RSA_PKCS, 4096, 2, { 0x00, 0x11, 0x00, 0x00 }, 1000 , FALSE },
-                // publ exp = 65537
-                { CKM_SHA1_RSA_PKCS, 4096, 3, { 0x01, 0x00, 0x01, 0x00 }, 1   , FALSE },
-                { CKM_SHA1_RSA_PKCS, 4096, 3, { 0x01, 0x00, 0x01, 0x00 }, 1000 , FALSE },
-        };
-
-
-
-        for (i = 0;
-                i < (sizeof(inputdata) / sizeof(struct _inputparam));
-                i++) {
-                rv |= do_GenerateSignVerifyRSA(
-                                inputdata[i].mechtype,
-                                inputdata[i].mod_bits,
-                                inputdata[i].publ_exp_len,
-                                inputdata[i].publ_exp,
-                                inputdata[i].inputlen,
-                                inputdata[i].recover
-                                );
-        }
-
-        return rv;
-}
-
-
-CK_RV run_GenerateMultipartSignVerifyRSAMD2()
-{
-        int     i;
-        CK_RV   rv = 0;
-
-        struct  _inputparam {
-                CK_MECHANISM_TYPE mechtype;
-                CK_ULONG          mod_bits;
-                CK_ULONG          publ_exp_len;
-                CK_BYTE           publ_exp[4]; /* up to 4 bytes for publ_exp */
-                CK_ULONG          partsnum;
-                CK_ULONG          partslens[4]; /* up to 4 parts */
-        } inputdata[] = {
-        /* PKCS#11 defines "Big number" as "a string of CK_BYTEs        *
-         * representing an unsigned integer of arbitrary size,          *
-         * most-significant byte first (e.g., the integer 32768 is      *
-         * represented as the 2-byte string 0x80 0x00)".                *
-         *                                                              *
-         * This means that publ_exp must be in BIG ENDIAN byte-order    */
-
-        // mod bits = 512. Input up to 64 bytes
-                // publ exp = 3
-                { CKM_MD2_RSA_PKCS, 512 , 1, { 0x03, 0x00, 0x00, 0x00 }, 1   , {50} },
-                { CKM_MD2_RSA_PKCS, 512 , 1, { 0x03, 0x00, 0x00, 0x00 }, 3   , {10, 0, 10}  },
-                // publ exp = 17 (big endian format)
-                { CKM_MD2_RSA_PKCS, 512 , 2, { 0x00, 0x11, 0x00, 0x00 }, 1   , {50} },
-                { CKM_MD2_RSA_PKCS, 512 , 2, { 0x00, 0x11, 0x00, 0x00 }, 3   , {10, 0, 10}  },
-                // publ exp = 65537
-                { CKM_MD2_RSA_PKCS, 512 , 3, { 0x01, 0x00, 0x01, 0x00 }, 1   , {50} },
-                { CKM_MD2_RSA_PKCS, 512 , 3, { 0x01, 0x00, 0x01, 0x00 }, 1   , {10, 0, 10}  },
-        // mod bits = 768. Input up to 64 bytes
-                // publ exp = 3
-                { CKM_MD2_RSA_PKCS, 768 , 1, { 0x03, 0x00, 0x00, 0x00 }, 1   , {50} },
-                { CKM_MD2_RSA_PKCS, 768 , 1, { 0x03, 0x00, 0x00, 0x00 }, 3   , {10, 0, 10}  },
-                // publ exp = 17 (big endian format)
-                { CKM_MD2_RSA_PKCS, 768 , 2, { 0x00, 0x11, 0x00, 0x00 }, 1   , {50} },
-                { CKM_MD2_RSA_PKCS, 768 , 2, { 0x00, 0x11, 0x00, 0x00 }, 3   , {10, 0, 10}  },
-                // publ exp = 65537
-                { CKM_MD2_RSA_PKCS, 768 , 3, { 0x01, 0x00, 0x01, 0x00 }, 1   , {50} },
-                { CKM_MD2_RSA_PKCS, 768 , 3, { 0x01, 0x00, 0x01, 0x00 }, 1   , {10, 0, 10}  },
-        // mod bits = 768. Input up to 64 bytes
-                // publ exp = 3
-                { CKM_MD2_RSA_PKCS, 768 , 1, { 0x03, 0x00, 0x00, 0x00 }, 1   , {50} },
-                { CKM_MD2_RSA_PKCS, 768 , 1, { 0x03, 0x00, 0x00, 0x00 }, 3   , {10, 0, 10}  },
-                // publ exp = 17 (big endian format)
-                { CKM_MD2_RSA_PKCS, 768 , 2, { 0x00, 0x11, 0x00, 0x00 }, 1   , {50} },
-                { CKM_MD2_RSA_PKCS, 768 , 2, { 0x00, 0x11, 0x00, 0x00 }, 3   , {10, 0, 10}  },
-                // publ exp = 65537
-                { CKM_MD2_RSA_PKCS, 768 , 3, { 0x01, 0x00, 0x01, 0x00 }, 1   , {50} },
-                { CKM_MD2_RSA_PKCS, 768 , 3, { 0x01, 0x00, 0x01, 0x00 }, 1   , {10, 0, 10}  },
-        // mod bits = 1024. Input up to 64 bytes
-                // publ exp = 3
-                { CKM_MD2_RSA_PKCS, 1024, 1, { 0x03, 0x00, 0x00, 0x00 }, 1   , {50} },
-                { CKM_MD2_RSA_PKCS, 1024, 1, { 0x03, 0x00, 0x00, 0x00 }, 3   , {10, 0, 10}  },
-                // publ exp = 17 (big endian format)
-                { CKM_MD2_RSA_PKCS, 1024, 2, { 0x00, 0x11, 0x00, 0x00 }, 1   , {50} },
-                { CKM_MD2_RSA_PKCS, 1024, 2, { 0x00, 0x11, 0x00, 0x00 }, 3   , {10, 0, 10}  },
-                // publ exp = 65537
-                { CKM_MD2_RSA_PKCS, 1024, 3, { 0x01, 0x00, 0x01, 0x00 }, 1   , {50} },
-                { CKM_MD2_RSA_PKCS, 1024, 3, { 0x01, 0x00, 0x01, 0x00 }, 1   , {10, 0, 10}  },
-        // mod bits = 2048. Input up to 64 bytes
-                // publ exp = 3
-                { CKM_MD2_RSA_PKCS, 2048, 1, { 0x03, 0x00, 0x00, 0x00 }, 1   , {50} },
-                { CKM_MD2_RSA_PKCS, 2048, 1, { 0x03, 0x00, 0x00, 0x00 }, 3   , {10, 0, 10}  },
-                // publ exp = 17 (big endian format)
-                { CKM_MD2_RSA_PKCS, 2048, 2, { 0x00, 0x11, 0x00, 0x00 }, 1   , {50} },
-                { CKM_MD2_RSA_PKCS, 2048, 2, { 0x00, 0x11, 0x00, 0x00 }, 3   , {10, 0, 10}  },
-                // publ exp = 65537
-                { CKM_MD2_RSA_PKCS, 2048, 3, { 0x01, 0x00, 0x01, 0x00 }, 1   , {50} },
-                { CKM_MD2_RSA_PKCS, 2048, 3, { 0x01, 0x00, 0x01, 0x00 }, 1   , {10, 0, 10}  },
-        // mod bits = 4096. Input up to 64 bytes
-                // publ exp = 3
-                { CKM_MD2_RSA_PKCS, 4096, 1, { 0x03, 0x00, 0x00, 0x00 }, 1   , {50} },
-                { CKM_MD2_RSA_PKCS, 4096, 1, { 0x03, 0x00, 0x00, 0x00 }, 3   , {10, 0, 10}  },
-                // publ exp = 17 (big endian format)
-                { CKM_MD2_RSA_PKCS, 4096, 2, { 0x00, 0x11, 0x00, 0x00 }, 1   , {50} },
-                { CKM_MD2_RSA_PKCS, 4096, 2, { 0x00, 0x11, 0x00, 0x00 }, 3   , {10, 0, 10}  },
-                // publ exp = 65537
-                { CKM_MD2_RSA_PKCS, 4096, 3, { 0x01, 0x00, 0x01, 0x00 }, 1   , {50} },
-                { CKM_MD2_RSA_PKCS, 4096, 3, { 0x01, 0x00, 0x01, 0x00 }, 1   , {10, 0, 10}  },
-        };
-
-
-
-        for (i = 0;
-                i < (sizeof(inputdata) / sizeof(struct _inputparam));
-                i++) {
-                rv |= do_GenerateMultipartSignVerifyRSA(
-                                inputdata[i].mechtype,
-                                inputdata[i].mod_bits,
-                                inputdata[i].publ_exp_len,
-                                inputdata[i].publ_exp,
-                                inputdata[i].partsnum,
-                                inputdata[i].partslens
-                                );
-        }
-
-        return rv;
-}
-
-CK_RV run_GenerateMultipartSignVerifyRSAMD5()
-{
-        int     i;
-        CK_RV   rv = 0;
-
-        struct  _inputparam {
-                CK_MECHANISM_TYPE mechtype;
-                CK_ULONG          mod_bits;
-                CK_ULONG          publ_exp_len;
-                CK_BYTE           publ_exp[4]; /* up to 4 bytes for publ_exp */
-                CK_ULONG          partsnum;
-                CK_ULONG          partslens[4]; /* up to 4 parts */
-        } inputdata[] = {
-        /* PKCS#11 defines "Big number" as "a string of CK_BYTEs        *
-         * representing an unsigned integer of arbitrary size,          *
-         * most-significant byte first (e.g., the integer 32768 is      *
-         * represented as the 2-byte string 0x80 0x00)".                *
-         *                                                              *
-         * This means that publ_exp must be in BIG ENDIAN byte-order    */
-
-        // mod bits = 512. Input up to 64 bytes
-                // publ exp = 3
-                { CKM_MD5_RSA_PKCS, 512 , 1, { 0x03, 0x00, 0x00, 0x00 }, 1   , {50} },
-                { CKM_MD5_RSA_PKCS, 512 , 1, { 0x03, 0x00, 0x00, 0x00 }, 3   , {10, 0, 10}  },
-                // publ exp = 17 (big endian format)
-                { CKM_MD5_RSA_PKCS, 512 , 2, { 0x00, 0x11, 0x00, 0x00 }, 1   , {50} },
-                { CKM_MD5_RSA_PKCS, 512 , 2, { 0x00, 0x11, 0x00, 0x00 }, 3   , {10, 0, 10}  },
-                // publ exp = 65537
-                { CKM_MD5_RSA_PKCS, 512 , 3, { 0x01, 0x00, 0x01, 0x00 }, 1   , {50} },
-                { CKM_MD5_RSA_PKCS, 512 , 3, { 0x01, 0x00, 0x01, 0x00 }, 1   , {10, 0, 10}  },
-        // mod bits = 768. Input up to 64 bytes
-                // publ exp = 3
-                { CKM_MD5_RSA_PKCS, 768 , 1, { 0x03, 0x00, 0x00, 0x00 }, 1   , {50} },
-                { CKM_MD5_RSA_PKCS, 768 , 1, { 0x03, 0x00, 0x00, 0x00 }, 3   , {10, 0, 10}  },
-                // publ exp = 17 (big endian format)
-                { CKM_MD5_RSA_PKCS, 768 , 2, { 0x00, 0x11, 0x00, 0x00 }, 1   , {50} },
-                { CKM_MD5_RSA_PKCS, 768 , 2, { 0x00, 0x11, 0x00, 0x00 }, 3   , {10, 0, 10}  },
-                // publ exp = 65537
-                { CKM_MD5_RSA_PKCS, 768 , 3, { 0x01, 0x00, 0x01, 0x00 }, 1   , {50} },
-                { CKM_MD5_RSA_PKCS, 768 , 3, { 0x01, 0x00, 0x01, 0x00 }, 1   , {10, 0, 10}  },
-        // mod bits = 768. Input up to 64 bytes
-                // publ exp = 3
-                { CKM_MD5_RSA_PKCS, 768 , 1, { 0x03, 0x00, 0x00, 0x00 }, 1   , {50} },
-                { CKM_MD5_RSA_PKCS, 768 , 1, { 0x03, 0x00, 0x00, 0x00 }, 3   , {10, 0, 10}  },
-                // publ exp = 17 (big endian format)
-                { CKM_MD5_RSA_PKCS, 768 , 2, { 0x00, 0x11, 0x00, 0x00 }, 1   , {50} },
-                { CKM_MD5_RSA_PKCS, 768 , 2, { 0x00, 0x11, 0x00, 0x00 }, 3   , {10, 0, 10}  },
-                // publ exp = 65537
-                { CKM_MD5_RSA_PKCS, 768 , 3, { 0x01, 0x00, 0x01, 0x00 }, 1   , {50} },
-                { CKM_MD5_RSA_PKCS, 768 , 3, { 0x01, 0x00, 0x01, 0x00 }, 1   , {10, 0, 10}  },
-        // mod bits = 1024. Input up to 64 bytes
-                // publ exp = 3
-                { CKM_MD5_RSA_PKCS, 1024, 1, { 0x03, 0x00, 0x00, 0x00 }, 1   , {50} },
-                { CKM_MD5_RSA_PKCS, 1024, 1, { 0x03, 0x00, 0x00, 0x00 }, 3   , {10, 0, 10}  },
-                // publ exp = 17 (big endian format)
-                { CKM_MD5_RSA_PKCS, 1024, 2, { 0x00, 0x11, 0x00, 0x00 }, 1   , {50} },
-                { CKM_MD5_RSA_PKCS, 1024, 2, { 0x00, 0x11, 0x00, 0x00 }, 3   , {10, 0, 10}  },
-                // publ exp = 65537
-                { CKM_MD5_RSA_PKCS, 1024, 3, { 0x01, 0x00, 0x01, 0x00 }, 1   , {50} },
-                { CKM_MD5_RSA_PKCS, 1024, 3, { 0x01, 0x00, 0x01, 0x00 }, 1   , {10, 0, 10}  },
-        // mod bits = 2048. Input up to 64 bytes
-                // publ exp = 3
-                { CKM_MD5_RSA_PKCS, 2048, 1, { 0x03, 0x00, 0x00, 0x00 }, 1   , {50} },
-                { CKM_MD5_RSA_PKCS, 2048, 1, { 0x03, 0x00, 0x00, 0x00 }, 3   , {10, 0, 10}  },
-                // publ exp = 17 (big endian format)
-                { CKM_MD5_RSA_PKCS, 2048, 2, { 0x00, 0x11, 0x00, 0x00 }, 1   , {50} },
-                { CKM_MD5_RSA_PKCS, 2048, 2, { 0x00, 0x11, 0x00, 0x00 }, 3   , {10, 0, 10}  },
-                // publ exp = 65537
-                { CKM_MD5_RSA_PKCS, 2048, 3, { 0x01, 0x00, 0x01, 0x00 }, 1   , {50} },
-                { CKM_MD5_RSA_PKCS, 2048, 3, { 0x01, 0x00, 0x01, 0x00 }, 1   , {10, 0, 10}  },
-        // mod bits = 4096. Input up to 64 bytes
-                // publ exp = 3
-                { CKM_MD5_RSA_PKCS, 4096, 1, { 0x03, 0x00, 0x00, 0x00 }, 1   , {50} },
-                { CKM_MD5_RSA_PKCS, 4096, 1, { 0x03, 0x00, 0x00, 0x00 }, 3   , {10, 0, 10}  },
-                // publ exp = 17 (big endian format)
-                { CKM_MD5_RSA_PKCS, 4096, 2, { 0x00, 0x11, 0x00, 0x00 }, 1   , {50} },
-                { CKM_MD5_RSA_PKCS, 4096, 2, { 0x00, 0x11, 0x00, 0x00 }, 3   , {10, 0, 10}  },
-                // publ exp = 65537
-                { CKM_MD5_RSA_PKCS, 4096, 3, { 0x01, 0x00, 0x01, 0x00 }, 1   , {50} },
-                { CKM_MD5_RSA_PKCS, 4096, 3, { 0x01, 0x00, 0x01, 0x00 }, 1   , {10, 0, 10}  },
-        };
-
-
-
-        for (i = 0;
-                i < (sizeof(inputdata) / sizeof(struct _inputparam));
-                i++) {
-                rv |= do_GenerateMultipartSignVerifyRSA(
-                                inputdata[i].mechtype,
-                                inputdata[i].mod_bits,
-                                inputdata[i].publ_exp_len,
-                                inputdata[i].publ_exp,
-                                inputdata[i].partsnum,
-                                inputdata[i].partslens
-                                );
-        }
-
-        return rv;
-}
-
-
-CK_RV run_GenerateMultipartSignVerifyRSASHA1()
-{
-        int     i;
-        CK_RV   rv = 0;
-
-        struct  _inputparam {
-                CK_MECHANISM_TYPE mechtype;
-                CK_ULONG          mod_bits;
-                CK_ULONG          publ_exp_len;
-                CK_BYTE           publ_exp[4]; /* up to 4 bytes for publ_exp */
-                CK_ULONG          partsnum;
-                CK_ULONG          partslens[4]; /* up to 4 parts */
-        } inputdata[] = {
-        /* PKCS#11 defines "Big number" as "a string of CK_BYTEs        *
-         * representing an unsigned integer of arbitrary size,          *
-         * most-significant byte first (e.g., the integer 32768 is      *
-         * represented as the 2-byte string 0x80 0x00)".                *
-         *                                                              *
-         * This means that publ_exp must be in BIG ENDIAN byte-order    */
-
-        // mod bits = 512. Input up to 64 bytes
-                // publ exp = 3
-                { CKM_SHA1_RSA_PKCS, 512 , 1, { 0x03, 0x00, 0x00, 0x00 }, 1   , {50} },
-                { CKM_SHA1_RSA_PKCS, 512 , 1, { 0x03, 0x00, 0x00, 0x00 }, 3   , {10, 0, 10}  },
-                // publ exp = 17 (big endian format)
-                { CKM_SHA1_RSA_PKCS, 512 , 2, { 0x00, 0x11, 0x00, 0x00 }, 1   , {50} },
-                { CKM_SHA1_RSA_PKCS, 512 , 2, { 0x00, 0x11, 0x00, 0x00 }, 3   , {10, 0, 10}  },
-                // publ exp = 65537
-                { CKM_SHA1_RSA_PKCS, 512 , 3, { 0x01, 0x00, 0x01, 0x00 }, 1   , {50} },
-                { CKM_SHA1_RSA_PKCS, 512 , 3, { 0x01, 0x00, 0x01, 0x00 }, 1   , {10, 0, 10}  },
-        // mod bits = 768. Input up to 64 bytes
-                // publ exp = 3
-                { CKM_SHA1_RSA_PKCS, 768 , 1, { 0x03, 0x00, 0x00, 0x00 }, 1   , {50} },
-                { CKM_SHA1_RSA_PKCS, 768 , 1, { 0x03, 0x00, 0x00, 0x00 }, 3   , {10, 0, 10}  },
-                // publ exp = 17 (big endian format)
-                { CKM_SHA1_RSA_PKCS, 768 , 2, { 0x00, 0x11, 0x00, 0x00 }, 1   , {50} },
-                { CKM_SHA1_RSA_PKCS, 768 , 2, { 0x00, 0x11, 0x00, 0x00 }, 3   , {10, 0, 10}  },
-                // publ exp = 65537
-                { CKM_SHA1_RSA_PKCS, 768 , 3, { 0x01, 0x00, 0x01, 0x00 }, 1   , {50} },
-                { CKM_SHA1_RSA_PKCS, 768 , 3, { 0x01, 0x00, 0x01, 0x00 }, 1   , {10, 0, 10}  },
-        // mod bits = 768. Input up to 64 bytes
-                // publ exp = 3
-                { CKM_SHA1_RSA_PKCS, 768 , 1, { 0x03, 0x00, 0x00, 0x00 }, 1   , {50} },
-                { CKM_SHA1_RSA_PKCS, 768 , 1, { 0x03, 0x00, 0x00, 0x00 }, 3   , {10, 0, 10}  },
-                // publ exp = 17 (big endian format)
-                { CKM_SHA1_RSA_PKCS, 768 , 2, { 0x00, 0x11, 0x00, 0x00 }, 1   , {50} },
-                { CKM_SHA1_RSA_PKCS, 768 , 2, { 0x00, 0x11, 0x00, 0x00 }, 3   , {10, 0, 10}  },
-                // publ exp = 65537
-                { CKM_SHA1_RSA_PKCS, 768 , 3, { 0x01, 0x00, 0x01, 0x00 }, 1   , {50} },
-                { CKM_SHA1_RSA_PKCS, 768 , 3, { 0x01, 0x00, 0x01, 0x00 }, 1   , {10, 0, 10}  },
-        // mod bits = 1024. Input up to 64 bytes
-                // publ exp = 3
-                { CKM_SHA1_RSA_PKCS, 1024, 1, { 0x03, 0x00, 0x00, 0x00 }, 1   , {50} },
-                { CKM_SHA1_RSA_PKCS, 1024, 1, { 0x03, 0x00, 0x00, 0x00 }, 3   , {10, 0, 10}  },
-                // publ exp = 17 (big endian format)
-                { CKM_SHA1_RSA_PKCS, 1024, 2, { 0x00, 0x11, 0x00, 0x00 }, 1   , {50} },
-                { CKM_SHA1_RSA_PKCS, 1024, 2, { 0x00, 0x11, 0x00, 0x00 }, 3   , {10, 0, 10}  },
-                // publ exp = 65537
-                { CKM_SHA1_RSA_PKCS, 1024, 3, { 0x01, 0x00, 0x01, 0x00 }, 1   , {50} },
-                { CKM_SHA1_RSA_PKCS, 1024, 3, { 0x01, 0x00, 0x01, 0x00 }, 1   , {10, 0, 10}  },
-        // mod bits = 2048. Input up to 64 bytes
-                // publ exp = 3
-                { CKM_SHA1_RSA_PKCS, 2048, 1, { 0x03, 0x00, 0x00, 0x00 }, 1   , {50} },
-                { CKM_SHA1_RSA_PKCS, 2048, 1, { 0x03, 0x00, 0x00, 0x00 }, 3   , {10, 0, 10}  },
-                // publ exp = 17 (big endian format)
-                { CKM_SHA1_RSA_PKCS, 2048, 2, { 0x00, 0x11, 0x00, 0x00 }, 1   , {50} },
-                { CKM_SHA1_RSA_PKCS, 2048, 2, { 0x00, 0x11, 0x00, 0x00 }, 3   , {10, 0, 10}  },
-                // publ exp = 65537
-                { CKM_SHA1_RSA_PKCS, 2048, 3, { 0x01, 0x00, 0x01, 0x00 }, 1   , {50} },
-                { CKM_SHA1_RSA_PKCS, 2048, 3, { 0x01, 0x00, 0x01, 0x00 }, 1   , {10, 0, 10}  },
-        // mod bits = 4096. Input up to 64 bytes
-                // publ exp = 3
-                { CKM_SHA1_RSA_PKCS, 4096, 1, { 0x03, 0x00, 0x00, 0x00 }, 1   , {50} },
-                { CKM_SHA1_RSA_PKCS, 4096, 1, { 0x03, 0x00, 0x00, 0x00 }, 3   , {10, 0, 10}  },
-                // publ exp = 17 (big endian format)
-                { CKM_SHA1_RSA_PKCS, 4096, 2, { 0x00, 0x11, 0x00, 0x00 }, 1   , {50} },
-                { CKM_SHA1_RSA_PKCS, 4096, 2, { 0x00, 0x11, 0x00, 0x00 }, 3   , {10, 0, 10}  },
-                // publ exp = 65537
-                { CKM_SHA1_RSA_PKCS, 4096, 3, { 0x01, 0x00, 0x01, 0x00 }, 1   , {50} },
-                { CKM_SHA1_RSA_PKCS, 4096, 3, { 0x01, 0x00, 0x01, 0x00 }, 1   , {10, 0, 10}  },
-        };
-
-
-
-        for (i = 0;
-                i < (sizeof(inputdata) / sizeof(struct _inputparam));
-                i++) {
-                rv |= do_GenerateMultipartSignVerifyRSA(
-                                inputdata[i].mechtype,
-                                inputdata[i].mod_bits,
-                                inputdata[i].publ_exp_len,
-                                inputdata[i].publ_exp,
-                                inputdata[i].partsnum,
-                                inputdata[i].partslens
-                                );
-        }
-
-        return rv;
-}
-
-
-
-CK_RV run_GenerateWrapUnwrapRSAPKCS()
-{
-        int     i;
-        CK_RV   rv = 0;
-
-        struct  _inputparam {
-                CK_MECHANISM_TYPE mechtype;
-                CK_ULONG          mod_bits;
-                CK_ULONG          publ_exp_len;
-                CK_BYTE           publ_exp[4]; /* up to 4 bytes for publ_exp */
-                CK_ULONG          keylen;
-                CK_MECHANISM_TYPE keytype;
-        } inputdata[] = {
-        /* PKCS#11 defines "Big number" as "a string of CK_BYTEs        *
-         * representing an unsigned integer of arbitrary size,          *
-         * most-significant byte first (e.g., the integer 32768 is      *
-         * represented as the 2-byte string 0x80 0x00)".                *
-         *                                                              *
-         * This means that publ_exp must be in BIG ENDIAN byte-order    */
-
-        // mod bits = 512. Secret keys up to 64 bytes
-                // publ exp = 3
-                { CKM_RSA_PKCS, 512 , 1, { 0x03, 0x00, 0x00, 0x00 }, 8   , CKM_CDMF_KEY_GEN            },
-                { CKM_RSA_PKCS, 512 , 1, { 0x03, 0x00, 0x00, 0x00 }, 8   , CKM_DES_KEY_GEN             },
-                { CKM_RSA_PKCS, 512 , 1, { 0x03, 0x00, 0x00, 0x00 }, 24  , CKM_DES3_KEY_GEN            },
-                { CKM_RSA_PKCS, 512 , 1, { 0x03, 0x00, 0x00, 0x00 }, 16  , CKM_AES_KEY_GEN             },
-                { CKM_RSA_PKCS, 512 , 1, { 0x03, 0x00, 0x00, 0x00 }, 32  , CKM_AES_KEY_GEN             },
-                // publ exp = 17 (big endian format)
-                { CKM_RSA_PKCS, 512 , 2, { 0x00, 0x11, 0x00, 0x00 }, 8   , CKM_CDMF_KEY_GEN            },
-                { CKM_RSA_PKCS, 512 , 2, { 0x00, 0x11, 0x00, 0x00 }, 8   , CKM_DES_KEY_GEN             },
-                { CKM_RSA_PKCS, 512 , 2, { 0x00, 0x11, 0x00, 0x00 }, 24  , CKM_DES3_KEY_GEN            },
-                { CKM_RSA_PKCS, 512 , 2, { 0x00, 0x11, 0x00, 0x00 }, 16  , CKM_AES_KEY_GEN             },
-                { CKM_RSA_PKCS, 512 , 2, { 0x00, 0x11, 0x00, 0x00 }, 32  , CKM_AES_KEY_GEN             },
-                // publ exp = 65537
-                { CKM_RSA_PKCS, 512 , 3, { 0x01, 0x00, 0x01, 0x00 }, 8   , CKM_CDMF_KEY_GEN            },
-                { CKM_RSA_PKCS, 512 , 3, { 0x01, 0x00, 0x01, 0x00 }, 8   , CKM_DES_KEY_GEN             },
-                { CKM_RSA_PKCS, 512 , 3, { 0x01, 0x00, 0x01, 0x00 }, 24  , CKM_DES3_KEY_GEN            },
-                { CKM_RSA_PKCS, 512 , 3, { 0x01, 0x00, 0x01, 0x00 }, 16  , CKM_AES_KEY_GEN             },
-                { CKM_RSA_PKCS, 512 , 3, { 0x01, 0x00, 0x01, 0x00 }, 32  , CKM_AES_KEY_GEN             },
-        // mod bits = 768. Secret keys up to 96 bytes
-                // publ exp = 3
-                { CKM_RSA_PKCS, 768 , 1, { 0x03, 0x00, 0x00, 0x00 }, 8   , CKM_CDMF_KEY_GEN            },
-                { CKM_RSA_PKCS, 768 , 1, { 0x03, 0x00, 0x00, 0x00 }, 8   , CKM_DES_KEY_GEN             },
-                { CKM_RSA_PKCS, 768 , 1, { 0x03, 0x00, 0x00, 0x00 }, 24  , CKM_DES3_KEY_GEN            },
-                { CKM_RSA_PKCS, 768 , 1, { 0x03, 0x00, 0x00, 0x00 }, 16  , CKM_AES_KEY_GEN             },
-                { CKM_RSA_PKCS, 768 , 1, { 0x03, 0x00, 0x00, 0x00 }, 32  , CKM_AES_KEY_GEN             },
-                // publ exp = 17 (big endian format)
-                { CKM_RSA_PKCS, 768 , 2, { 0x00, 0x11, 0x00, 0x00 }, 8   , CKM_CDMF_KEY_GEN            },
-                { CKM_RSA_PKCS, 768 , 2, { 0x00, 0x11, 0x00, 0x00 }, 8   , CKM_DES_KEY_GEN             },
-                { CKM_RSA_PKCS, 768 , 2, { 0x00, 0x11, 0x00, 0x00 }, 24  , CKM_DES3_KEY_GEN            },
-                { CKM_RSA_PKCS, 768 , 2, { 0x00, 0x11, 0x00, 0x00 }, 16  , CKM_AES_KEY_GEN             },
-                { CKM_RSA_PKCS, 768 , 2, { 0x00, 0x11, 0x00, 0x00 }, 32  , CKM_AES_KEY_GEN             },
-                // publ exp = 65537
-                { CKM_RSA_PKCS, 768 , 3, { 0x01, 0x00, 0x01, 0x00 }, 8   , CKM_CDMF_KEY_GEN            },
-                { CKM_RSA_PKCS, 768 , 3, { 0x01, 0x00, 0x01, 0x00 }, 8   , CKM_DES_KEY_GEN             },
-                { CKM_RSA_PKCS, 768 , 3, { 0x01, 0x00, 0x01, 0x00 }, 24  , CKM_DES3_KEY_GEN            },
-                { CKM_RSA_PKCS, 768 , 3, { 0x01, 0x00, 0x01, 0x00 }, 16  , CKM_AES_KEY_GEN             },
-                { CKM_RSA_PKCS, 768 , 3, { 0x01, 0x00, 0x01, 0x00 }, 32  , CKM_AES_KEY_GEN             },
-        // mod bits = 1024. Secret keys up to 128 bytes
-                // publ exp = 3
-                { CKM_RSA_PKCS, 1024, 1, { 0x03, 0x00, 0x00, 0x00 }, 8   , CKM_CDMF_KEY_GEN            },
-                { CKM_RSA_PKCS, 1024, 1, { 0x03, 0x00, 0x00, 0x00 }, 8   , CKM_DES_KEY_GEN             },
-                { CKM_RSA_PKCS, 1024, 1, { 0x03, 0x00, 0x00, 0x00 }, 24  , CKM_DES3_KEY_GEN            },
-                { CKM_RSA_PKCS, 1024, 1, { 0x03, 0x00, 0x00, 0x00 }, 16  , CKM_AES_KEY_GEN             },
-                { CKM_RSA_PKCS, 1024, 1, { 0x03, 0x00, 0x00, 0x00 }, 32  , CKM_AES_KEY_GEN             },
-                // publ exp = 17 (big endian format)
-                { CKM_RSA_PKCS, 1024, 2, { 0x00, 0x11, 0x00, 0x00 }, 8   , CKM_CDMF_KEY_GEN            },
-                { CKM_RSA_PKCS, 1024, 2, { 0x00, 0x11, 0x00, 0x00 }, 8   , CKM_DES_KEY_GEN             },
-                { CKM_RSA_PKCS, 1024, 2, { 0x00, 0x11, 0x00, 0x00 }, 24  , CKM_DES3_KEY_GEN            },
-                { CKM_RSA_PKCS, 1024, 2, { 0x00, 0x11, 0x00, 0x00 }, 16  , CKM_AES_KEY_GEN             },
-                { CKM_RSA_PKCS, 1024, 2, { 0x00, 0x11, 0x00, 0x00 }, 32  , CKM_AES_KEY_GEN             },
-                // publ exp = 65537
-                { CKM_RSA_PKCS, 1024, 3, { 0x01, 0x00, 0x01, 0x00 }, 8   , CKM_CDMF_KEY_GEN            },
-                { CKM_RSA_PKCS, 1024, 3, { 0x01, 0x00, 0x01, 0x00 }, 8   , CKM_DES_KEY_GEN             },
-                { CKM_RSA_PKCS, 1024, 3, { 0x01, 0x00, 0x01, 0x00 }, 24  , CKM_DES3_KEY_GEN            },
-                { CKM_RSA_PKCS, 1024, 3, { 0x01, 0x00, 0x01, 0x00 }, 16  , CKM_AES_KEY_GEN             },
-                { CKM_RSA_PKCS, 1024, 3, { 0x01, 0x00, 0x01, 0x00 }, 32  , CKM_AES_KEY_GEN             },
-        // mod bits = 2048. Secret keys up to 256 bytes
-                // publ exp = 3
-                { CKM_RSA_PKCS, 2048, 1, { 0x03, 0x00, 0x00, 0x00 }, 8   , CKM_CDMF_KEY_GEN            },
-                { CKM_RSA_PKCS, 2048, 1, { 0x03, 0x00, 0x00, 0x00 }, 8   , CKM_DES_KEY_GEN             },
-                { CKM_RSA_PKCS, 2048, 1, { 0x03, 0x00, 0x00, 0x00 }, 24  , CKM_DES3_KEY_GEN            },
-                { CKM_RSA_PKCS, 2048, 1, { 0x03, 0x00, 0x00, 0x00 }, 16  , CKM_AES_KEY_GEN             },
-                { CKM_RSA_PKCS, 2048, 1, { 0x03, 0x00, 0x00, 0x00 }, 32  , CKM_AES_KEY_GEN             },
-                // publ exp = 17 (big endian format)
-                { CKM_RSA_PKCS, 2048, 2, { 0x00, 0x11, 0x00, 0x00 }, 8   , CKM_CDMF_KEY_GEN            },
-                { CKM_RSA_PKCS, 2048, 2, { 0x00, 0x11, 0x00, 0x00 }, 8   , CKM_DES_KEY_GEN             },
-                { CKM_RSA_PKCS, 2048, 2, { 0x00, 0x11, 0x00, 0x00 }, 24  , CKM_DES3_KEY_GEN            },
-                { CKM_RSA_PKCS, 2048, 2, { 0x00, 0x11, 0x00, 0x00 }, 16  , CKM_AES_KEY_GEN             },
-                { CKM_RSA_PKCS, 2048, 2, { 0x00, 0x11, 0x00, 0x00 }, 32  , CKM_AES_KEY_GEN             },
-                // publ exp = 65537
-                { CKM_RSA_PKCS, 2048, 3, { 0x01, 0x00, 0x01, 0x00 }, 8   , CKM_CDMF_KEY_GEN            },
-                { CKM_RSA_PKCS, 2048, 3, { 0x01, 0x00, 0x01, 0x00 }, 8   , CKM_DES_KEY_GEN             },
-                { CKM_RSA_PKCS, 2048, 3, { 0x01, 0x00, 0x01, 0x00 }, 24  , CKM_DES3_KEY_GEN            },
-                { CKM_RSA_PKCS, 2048, 3, { 0x01, 0x00, 0x01, 0x00 }, 16  , CKM_AES_KEY_GEN             },
-                { CKM_RSA_PKCS, 2048, 3, { 0x01, 0x00, 0x01, 0x00 }, 32  , CKM_AES_KEY_GEN             },
-        // mod bits = 4096. Secret keys up to 512 bytes
-                // publ exp = 3
-                { CKM_RSA_PKCS, 4096, 1, { 0x03, 0x00, 0x00, 0x00 }, 8   , CKM_CDMF_KEY_GEN            },
-                { CKM_RSA_PKCS, 4096, 1, { 0x03, 0x00, 0x00, 0x00 }, 8   , CKM_DES_KEY_GEN             },
-                { CKM_RSA_PKCS, 4096, 1, { 0x03, 0x00, 0x00, 0x00 }, 24  , CKM_DES3_KEY_GEN            },
-                { CKM_RSA_PKCS, 4096, 1, { 0x03, 0x00, 0x00, 0x00 }, 16  , CKM_AES_KEY_GEN             },
-                { CKM_RSA_PKCS, 4096, 1, { 0x03, 0x00, 0x00, 0x00 }, 32  , CKM_AES_KEY_GEN             },
-                // publ exp = 17 (big endian format)
-                { CKM_RSA_PKCS, 4096, 2, { 0x00, 0x11, 0x00, 0x00 }, 8   , CKM_CDMF_KEY_GEN            },
-                { CKM_RSA_PKCS, 4096, 2, { 0x00, 0x11, 0x00, 0x00 }, 8   , CKM_DES_KEY_GEN             },
-                { CKM_RSA_PKCS, 4096, 2, { 0x00, 0x11, 0x00, 0x00 }, 24  , CKM_DES3_KEY_GEN            },
-                { CKM_RSA_PKCS, 4096, 2, { 0x00, 0x11, 0x00, 0x00 }, 16  , CKM_AES_KEY_GEN             },
-                { CKM_RSA_PKCS, 4096, 2, { 0x00, 0x11, 0x00, 0x00 }, 32  , CKM_AES_KEY_GEN             },
-                // publ exp = 65537
-                { CKM_RSA_PKCS, 4096, 3, { 0x01, 0x00, 0x01, 0x00 }, 8   , CKM_CDMF_KEY_GEN            },
-                { CKM_RSA_PKCS, 4096, 3, { 0x01, 0x00, 0x01, 0x00 }, 8   , CKM_DES_KEY_GEN             },
-                { CKM_RSA_PKCS, 4096, 3, { 0x01, 0x00, 0x01, 0x00 }, 24  , CKM_DES3_KEY_GEN            },
-                { CKM_RSA_PKCS, 4096, 3, { 0x01, 0x00, 0x01, 0x00 }, 16  , CKM_AES_KEY_GEN             },
-                { CKM_RSA_PKCS, 4096, 3, { 0x01, 0x00, 0x01, 0x00 }, 32  , CKM_AES_KEY_GEN             },
-        };
-
-        for (i = 0;
-                i < (sizeof(inputdata) / sizeof(struct _inputparam));
-                i++) {
-                rv |= do_GenerateWrapUnwrapRSA(
-                                inputdata[i].mechtype,
-                                inputdata[i].mod_bits,
-                                inputdata[i].publ_exp_len,
-                                inputdata[i].publ_exp,
-                                inputdata[i].keylen,
-                                inputdata[i].keytype
-                                );
-        }
-
-        return rv;
-}
-
-
-CK_RV run_GenerateWrapUnwrapRSAX509()
-{
-        int     i;
-        CK_RV   rv = 0;
-
-        struct  _inputparam {
-                CK_MECHANISM_TYPE mechtype;
-                CK_ULONG          mod_bits;
-                CK_ULONG          publ_exp_len;
-                CK_BYTE           publ_exp[4]; /* up to 4 bytes for publ_exp */
-                CK_ULONG          keylen;
-                CK_MECHANISM_TYPE keytype;
-        } inputdata[] = {
-        /* PKCS#11 defines "Big number" as "a string of CK_BYTEs        *
-         * representing an unsigned integer of arbitrary size,          *
-         * most-significant byte first (e.g., the integer 32768 is      *
-         * represented as the 2-byte string 0x80 0x00)".                *
-         *                                                              *
-         * This means that publ_exp must be in BIG ENDIAN byte-order    */
-
-        // mod bits = 512. Secret keys up to 64 bytes
-                // publ exp = 3
-                { CKM_RSA_X_509, 512 , 1, { 0x03, 0x00, 0x00, 0x00 }, 8   , CKM_CDMF_KEY_GEN            },
-                { CKM_RSA_X_509, 512 , 1, { 0x03, 0x00, 0x00, 0x00 }, 8   , CKM_DES_KEY_GEN             },
-                { CKM_RSA_X_509, 512 , 1, { 0x03, 0x00, 0x00, 0x00 }, 24  , CKM_DES3_KEY_GEN            },
-                { CKM_RSA_X_509, 512 , 1, { 0x03, 0x00, 0x00, 0x00 }, 16  , CKM_AES_KEY_GEN             },
-                { CKM_RSA_X_509, 512 , 1, { 0x03, 0x00, 0x00, 0x00 }, 32  , CKM_AES_KEY_GEN             },
-                // publ exp = 17 (big endian format)
-                { CKM_RSA_X_509, 512 , 2, { 0x00, 0x11, 0x00, 0x00 }, 8   , CKM_CDMF_KEY_GEN            },
-                { CKM_RSA_X_509, 512 , 2, { 0x00, 0x11, 0x00, 0x00 }, 8   , CKM_DES_KEY_GEN             },
-                { CKM_RSA_X_509, 512 , 2, { 0x00, 0x11, 0x00, 0x00 }, 24  , CKM_DES3_KEY_GEN            },
-                { CKM_RSA_X_509, 512 , 2, { 0x00, 0x11, 0x00, 0x00 }, 16  , CKM_AES_KEY_GEN             },
-                { CKM_RSA_X_509, 512 , 2, { 0x00, 0x11, 0x00, 0x00 }, 32  , CKM_AES_KEY_GEN             },
-                // publ exp = 65537
-                { CKM_RSA_X_509, 512 , 3, { 0x01, 0x00, 0x01, 0x00 }, 8   , CKM_CDMF_KEY_GEN            },
-                { CKM_RSA_X_509, 512 , 3, { 0x01, 0x00, 0x01, 0x00 }, 8   , CKM_DES_KEY_GEN             },
-                { CKM_RSA_X_509, 512 , 3, { 0x01, 0x00, 0x01, 0x00 }, 24  , CKM_DES3_KEY_GEN            },
-                { CKM_RSA_X_509, 512 , 3, { 0x01, 0x00, 0x01, 0x00 }, 16  , CKM_AES_KEY_GEN             },
-                { CKM_RSA_X_509, 512 , 3, { 0x01, 0x00, 0x01, 0x00 }, 32  , CKM_AES_KEY_GEN             },
-        // mod bits = 768. Secret keys up to 96 bytes
-                // publ exp = 3
-                { CKM_RSA_X_509, 768 , 1, { 0x03, 0x00, 0x00, 0x00 }, 8   , CKM_CDMF_KEY_GEN            },
-                { CKM_RSA_X_509, 768 , 1, { 0x03, 0x00, 0x00, 0x00 }, 8   , CKM_DES_KEY_GEN             },
-                { CKM_RSA_X_509, 768 , 1, { 0x03, 0x00, 0x00, 0x00 }, 24  , CKM_DES3_KEY_GEN            },
-                { CKM_RSA_X_509, 768 , 1, { 0x03, 0x00, 0x00, 0x00 }, 16  , CKM_AES_KEY_GEN             },
-                { CKM_RSA_X_509, 768 , 1, { 0x03, 0x00, 0x00, 0x00 }, 32  , CKM_AES_KEY_GEN             },
-                // publ exp = 17 (big endian format)
-                { CKM_RSA_X_509, 768 , 2, { 0x00, 0x11, 0x00, 0x00 }, 8   , CKM_CDMF_KEY_GEN            },
-                { CKM_RSA_X_509, 768 , 2, { 0x00, 0x11, 0x00, 0x00 }, 8   , CKM_DES_KEY_GEN             },
-                { CKM_RSA_X_509, 768 , 2, { 0x00, 0x11, 0x00, 0x00 }, 24  , CKM_DES3_KEY_GEN            },
-                { CKM_RSA_X_509, 768 , 2, { 0x00, 0x11, 0x00, 0x00 }, 16  , CKM_AES_KEY_GEN             },
-                { CKM_RSA_X_509, 768 , 2, { 0x00, 0x11, 0x00, 0x00 }, 32  , CKM_AES_KEY_GEN             },
-                // publ exp = 65537
-                { CKM_RSA_X_509, 768 , 3, { 0x01, 0x00, 0x01, 0x00 }, 8   , CKM_CDMF_KEY_GEN            },
-                { CKM_RSA_X_509, 768 , 3, { 0x01, 0x00, 0x01, 0x00 }, 8   , CKM_DES_KEY_GEN             },
-                { CKM_RSA_X_509, 768 , 3, { 0x01, 0x00, 0x01, 0x00 }, 24  , CKM_DES3_KEY_GEN            },
-                { CKM_RSA_X_509, 768 , 3, { 0x01, 0x00, 0x01, 0x00 }, 16  , CKM_AES_KEY_GEN             },
-                { CKM_RSA_X_509, 768 , 3, { 0x01, 0x00, 0x01, 0x00 }, 32  , CKM_AES_KEY_GEN             },
-        // mod bits = 1024. Secret keys up to 128 bytes
-                // publ exp = 3
-                { CKM_RSA_X_509, 1024, 1, { 0x03, 0x00, 0x00, 0x00 }, 8   , CKM_CDMF_KEY_GEN            },
-                { CKM_RSA_X_509, 1024, 1, { 0x03, 0x00, 0x00, 0x00 }, 8   , CKM_DES_KEY_GEN             },
-                { CKM_RSA_X_509, 1024, 1, { 0x03, 0x00, 0x00, 0x00 }, 24  , CKM_DES3_KEY_GEN            },
-                { CKM_RSA_X_509, 1024, 1, { 0x03, 0x00, 0x00, 0x00 }, 16  , CKM_AES_KEY_GEN             },
-                { CKM_RSA_X_509, 1024, 1, { 0x03, 0x00, 0x00, 0x00 }, 32  , CKM_AES_KEY_GEN             },
-                // publ exp = 17 (big endian format)
-                { CKM_RSA_X_509, 1024, 2, { 0x00, 0x11, 0x00, 0x00 }, 8   , CKM_CDMF_KEY_GEN            },
-                { CKM_RSA_X_509, 1024, 2, { 0x00, 0x11, 0x00, 0x00 }, 8   , CKM_DES_KEY_GEN             },
-                { CKM_RSA_X_509, 1024, 2, { 0x00, 0x11, 0x00, 0x00 }, 24  , CKM_DES3_KEY_GEN            },
-                { CKM_RSA_X_509, 1024, 2, { 0x00, 0x11, 0x00, 0x00 }, 16  , CKM_AES_KEY_GEN             },
-                { CKM_RSA_X_509, 1024, 2, { 0x00, 0x11, 0x00, 0x00 }, 32  , CKM_AES_KEY_GEN             },
-                // publ exp = 65537
-                { CKM_RSA_X_509, 1024, 3, { 0x01, 0x00, 0x01, 0x00 }, 8   , CKM_CDMF_KEY_GEN            },
-                { CKM_RSA_X_509, 1024, 3, { 0x01, 0x00, 0x01, 0x00 }, 8   , CKM_DES_KEY_GEN             },
-                { CKM_RSA_X_509, 1024, 3, { 0x01, 0x00, 0x01, 0x00 }, 24  , CKM_DES3_KEY_GEN            },
-                { CKM_RSA_X_509, 1024, 3, { 0x01, 0x00, 0x01, 0x00 }, 16  , CKM_AES_KEY_GEN             },
-                { CKM_RSA_X_509, 1024, 3, { 0x01, 0x00, 0x01, 0x00 }, 32  , CKM_AES_KEY_GEN             },
-        // mod bits = 2048. Secret keys up to 256 bytes
-                // publ exp = 3
-                { CKM_RSA_X_509, 2048, 1, { 0x03, 0x00, 0x00, 0x00 }, 8   , CKM_CDMF_KEY_GEN            },
-                { CKM_RSA_X_509, 2048, 1, { 0x03, 0x00, 0x00, 0x00 }, 8   , CKM_DES_KEY_GEN             },
-                { CKM_RSA_X_509, 2048, 1, { 0x03, 0x00, 0x00, 0x00 }, 24  , CKM_DES3_KEY_GEN            },
-                { CKM_RSA_X_509, 2048, 1, { 0x03, 0x00, 0x00, 0x00 }, 16  , CKM_AES_KEY_GEN             },
-                { CKM_RSA_X_509, 2048, 1, { 0x03, 0x00, 0x00, 0x00 }, 32  , CKM_AES_KEY_GEN             },
-                // publ exp = 17 (big endian format)
-                { CKM_RSA_X_509, 2048, 2, { 0x00, 0x11, 0x00, 0x00 }, 8   , CKM_CDMF_KEY_GEN            },
-                { CKM_RSA_X_509, 2048, 2, { 0x00, 0x11, 0x00, 0x00 }, 8   , CKM_DES_KEY_GEN             },
-                { CKM_RSA_X_509, 2048, 2, { 0x00, 0x11, 0x00, 0x00 }, 24  , CKM_DES3_KEY_GEN            },
-                { CKM_RSA_X_509, 2048, 2, { 0x00, 0x11, 0x00, 0x00 }, 16  , CKM_AES_KEY_GEN             },
-                { CKM_RSA_X_509, 2048, 2, { 0x00, 0x11, 0x00, 0x00 }, 32  , CKM_AES_KEY_GEN             },
-                // publ exp = 65537
-                { CKM_RSA_X_509, 2048, 3, { 0x01, 0x00, 0x01, 0x00 }, 8   , CKM_CDMF_KEY_GEN            },
-                { CKM_RSA_X_509, 2048, 3, { 0x01, 0x00, 0x01, 0x00 }, 8   , CKM_DES_KEY_GEN             },
-                { CKM_RSA_X_509, 2048, 3, { 0x01, 0x00, 0x01, 0x00 }, 24  , CKM_DES3_KEY_GEN            },
-                { CKM_RSA_X_509, 2048, 3, { 0x01, 0x00, 0x01, 0x00 }, 16  , CKM_AES_KEY_GEN             },
-                { CKM_RSA_X_509, 2048, 3, { 0x01, 0x00, 0x01, 0x00 }, 32  , CKM_AES_KEY_GEN             },
-        // mod bits = 4096. Secret keys up to 512 bytes
-                // publ exp = 3
-                { CKM_RSA_X_509, 4096, 1, { 0x03, 0x00, 0x00, 0x00 }, 8   , CKM_CDMF_KEY_GEN            },
-                { CKM_RSA_X_509, 4096, 1, { 0x03, 0x00, 0x00, 0x00 }, 8   , CKM_DES_KEY_GEN             },
-                { CKM_RSA_X_509, 4096, 1, { 0x03, 0x00, 0x00, 0x00 }, 24  , CKM_DES3_KEY_GEN            },
-                { CKM_RSA_X_509, 4096, 1, { 0x03, 0x00, 0x00, 0x00 }, 16  , CKM_AES_KEY_GEN             },
-                { CKM_RSA_X_509, 4096, 1, { 0x03, 0x00, 0x00, 0x00 }, 32  , CKM_AES_KEY_GEN             },
-                // publ exp = 17 (big endian format)
-                { CKM_RSA_X_509, 4096, 2, { 0x00, 0x11, 0x00, 0x00 }, 8   , CKM_CDMF_KEY_GEN            },
-                { CKM_RSA_X_509, 4096, 2, { 0x00, 0x11, 0x00, 0x00 }, 8   , CKM_DES_KEY_GEN             },
-                { CKM_RSA_X_509, 4096, 2, { 0x00, 0x11, 0x00, 0x00 }, 24  , CKM_DES3_KEY_GEN            },
-                { CKM_RSA_X_509, 4096, 2, { 0x00, 0x11, 0x00, 0x00 }, 16  , CKM_AES_KEY_GEN             },
-                { CKM_RSA_X_509, 4096, 2, { 0x00, 0x11, 0x00, 0x00 }, 32  , CKM_AES_KEY_GEN             },
-                // publ exp = 65537
-                { CKM_RSA_X_509, 4096, 3, { 0x01, 0x00, 0x01, 0x00 }, 8   , CKM_CDMF_KEY_GEN            },
-                { CKM_RSA_X_509, 4096, 3, { 0x01, 0x00, 0x01, 0x00 }, 8   , CKM_DES_KEY_GEN             },
-                { CKM_RSA_X_509, 4096, 3, { 0x01, 0x00, 0x01, 0x00 }, 24  , CKM_DES3_KEY_GEN            },
-                { CKM_RSA_X_509, 4096, 3, { 0x01, 0x00, 0x01, 0x00 }, 16  , CKM_AES_KEY_GEN             },
-                { CKM_RSA_X_509, 4096, 3, { 0x01, 0x00, 0x01, 0x00 }, 32  , CKM_AES_KEY_GEN             },
-        };
-
-        for (i = 0;
-                i < (sizeof(inputdata) / sizeof(struct _inputparam));
-                i++) {
-                rv |= do_GenerateWrapUnwrapRSA(
-                                inputdata[i].mechtype,
-                                inputdata[i].mod_bits,
-                                inputdata[i].publ_exp_len,
-                                inputdata[i].publ_exp,
-                                inputdata[i].keylen,
-                                inputdata[i].keytype
-                                );
-        }
-
-        return rv;
-}
-
-int main(int argc, char **argv)
-{
-	CK_C_INITIALIZE_ARGS cinit_args;
-	int rc;
-	CK_RV rv = 0;
-
-	rc = do_ParseArgs(argc, argv);
-	if ( rc != 1)
-		return rc;
-
-	printf("Using slot #%lu...\n\n", SLOT_ID );
-	printf("With option: no_init: %d\n", no_init);
-
-	rc = do_GetFunctionList();
-	if (!rc) {
-		PRINT_ERR("ERROR do_GetFunctionList() Failed , rc = 0x%0x\n", rc);
-		return rc;
-	}
-
-	memset( &cinit_args, 0x0, sizeof(cinit_args) );
-	cinit_args.flags = CKF_OS_LOCKING_OK;
-
-	// SAB Add calls to ALL functions before the C_Initialize gets hit
-
-	funcs->C_Initialize( &cinit_args );
-
-	{
-		CK_SESSION_HANDLE  hsess = 0;
-
-		rc = funcs->C_GetFunctionStatus(hsess);
-		if (rc  != CKR_FUNCTION_NOT_PARALLEL)
-			return rc;
-
-		rc = funcs->C_CancelFunction(hsess);
-		if (rc  != CKR_FUNCTION_NOT_PARALLEL)
-			return rc;
-
-	}
-
-        rv = run_GenerateEncryptDecryptRSAPKCS();
-        rv |= run_GenerateSignVerifyRSAPKCS();
-        rv |= run_GenerateEncryptDecryptRSAX509();
-        rv |= run_GenerateSignVerifyRSAX509();
-        rv |= run_GenerateWrapUnwrapRSAPKCS();
-        rv |= run_GenerateWrapUnwrapRSAX509();
-        rv |= run_GenerateSignVerifyRSAMD2();
-        rv |= run_GenerateSignVerifyRSAMD5();
-        rv |= run_GenerateSignVerifyRSASHA1();
-        rv |= run_GenerateMultipartSignVerifyRSAMD2();
-        rv |= run_GenerateMultipartSignVerifyRSAMD5();
-        rv |= run_GenerateMultipartSignVerifyRSASHA1();
-
-	/* make sure we return non-zero if rv is non-zero */
-	return ((rv==0) || (rv % 256) ? rv : -1);
+	testcase_setup(0);
+	rv = rsa_funcs();
+	testcase_print_result();
+	return rv;
 }
