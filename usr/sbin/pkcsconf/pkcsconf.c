@@ -374,8 +374,8 @@ main(int argc, char *argv[]){
             }
             else {
                 flags |= CFG_SLOT;
-                slot = (CK_CHAR_PTR) malloc(strlen(optarg));
-                memcpy(slot, optarg, strlen(optarg));
+                slot = (CK_CHAR_PTR) malloc(strlen(optarg)+1);
+                memcpy(slot, optarg, strlen(optarg)+1);
             }
             break;
          case 'S':  /* the SO pin */
@@ -386,8 +386,8 @@ main(int argc, char *argv[]){
             }
             else {
                 flags |= CFG_SO_PIN;
-                sopin = (CK_CHAR_PTR) malloc(strlen(optarg));
-                memcpy(sopin, optarg, strlen(optarg));
+                sopin = (CK_CHAR_PTR) malloc(strlen(optarg)+1);
+                memcpy(sopin, optarg, strlen(optarg)+1);
             }
             break;
          case 'U':  /* the user pin */
@@ -398,8 +398,8 @@ main(int argc, char *argv[]){
             }
             else {
                 flags |= CFG_USER_PIN;
-                pin = (CK_CHAR_PTR) malloc(strlen(optarg));
-                memcpy(pin, optarg, strlen(optarg));
+                pin = (CK_CHAR_PTR) malloc(strlen(optarg)+1);
+                memcpy(pin, optarg, strlen(optarg)+1);
             }
             break;
          case 'n':  /* the new pin */
@@ -410,8 +410,8 @@ main(int argc, char *argv[]){
             }
             else {
                 flags |= CFG_NEW_PIN;
-                newpin = (CK_CHAR_PTR) malloc(strlen(optarg));
-                memcpy(newpin, optarg, strlen(optarg));
+                newpin = (CK_CHAR_PTR) malloc(strlen(optarg)+1);
+                memcpy(newpin, optarg, strlen(optarg)+1);
             }
             break;
          case 'i':  /* display PKCS11 info */
