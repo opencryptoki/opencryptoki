@@ -18,10 +18,11 @@ ipcrm command, such as:
 
 \fIipcrm -M 0x6202AB38\fP
 
-In order to prevent a denial of service against the daemon, the
-shared memory segment is created with group ownership by the
-"pkcs11" group. Any application that requires access to a pkcs11
-token must be run by a user who's a member of the "pkcs11" group.
+The daemon creates the shared memory segment with group ownership by the
+\fIpkcs11\fP group. All non-root users that should be able to use
+openCryptoki need to be members of the group. Only trusted users should be
+assigned to the group, see the "SECURITY NOTE" in the \fBopencryptoki\fP(7)
+manual page for details.
 
 .SH "SEE ALSO"
 .PD 0

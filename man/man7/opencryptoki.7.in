@@ -18,6 +18,14 @@ likely that pkcs11_startup is run automatically by an init script.
 Use the \fIpkcsconf\fP utility to further configure openCryptoki once the
 daemon is running.
 
+.SH "SECURITY NOTE"
+All non-root users that require access to PKCS#11 tokens using openCryptoki
+must be assigned to the \fIpkcs11\fP group to be able to communicate with
+the \fIpkcsslotd\fP daemon. Only fully trusted users should be granted
+membership in the group. Group members can block other openCryptoki users
+from accessing PKCS#11 tokens, and execute arbitrary code with the
+privileges of other openCryptoki users.
+
 .SH "SEE ALSO"
 .PD 0
 .TP
