@@ -384,19 +384,13 @@ st_Initialized()
 	return TRUE;
 }
 
-#ifdef SPINXPL
 extern int spinxplfd;
-extern int spin_created;
-#endif
 
 void
 Fork_Initializer(void)
 {
 
-#ifdef SPINXPL
 	spinxplfd = -1;
-	spin_created = 0;
-#endif
 
 	// Force logout.  This cleans out the private session and list
 	// and cleans out the private object map
@@ -711,7 +705,7 @@ CK_RV SC_Finalize( CK_SLOT_ID sid )
 	object_mgr_purge_token_objects();
 	detach_shm();
 	// close spin lock file
-	if (spin_created)
+	if (spinxplfd != -1)
 	  close(spinxplfd);
 	if ( token_specific.t_final != NULL) {
 		token_specific.t_final();

@@ -537,7 +537,6 @@ int  XProcLock(void);
 int  XProcUnLock(void);
 
 int  CreateXProcLock(void);
-int  DestroyXProcLock(void);
 
 
 #endif /* _SLOTMGR_H */

@@ -406,12 +406,6 @@ void slotdGenericSignalHandler( int Signal ) {
 
     LogLog ( "TestSig got %s (%d; %#x)", SignalConst(Signal), Signal, Signal);
 
-    #if TEST_MUTEXES
-      /* Release the global shared memory mutex */
-      pthread_mutex_unlock(&(shmp->slt_mutex));
-      LogLog("TestSig unlocked the mutex");
-    #endif /* TEST_MUTEXES */
-
     #if TEST_COND_VARS
 
       LogLog("Locking the CV Mutex");

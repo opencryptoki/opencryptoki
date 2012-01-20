@@ -82,7 +82,7 @@ load_token_data()
       /* Better error checking added */
       if (errno == ENOENT) {
          /* init_token_data may call save_token_data, which graps the 
-          * xproclock, so we must release it around this call */
+          * lock, so we must release it around this call */
          XProcUnLock();
          init_token_data();
          rc = XProcLock();

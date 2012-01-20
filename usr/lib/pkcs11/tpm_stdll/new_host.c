@@ -131,7 +131,6 @@ st_Initialized()
 
 
 extern int spinxplfd;
-extern int spin_created;
 
 // ----------- SAB XXX XXX
 //
@@ -141,7 +140,6 @@ Fork_Initializer(void)
   //    initialized == FALSE; // Get the initialization to be not true
 
 	spinxplfd = -1;
-	spin_created = 0;
 
 
           // Force logout.  This cleans out the private session and list
@@ -500,7 +498,7 @@ CK_RV SC_Finalize( CK_SLOT_ID sid )
 
    detach_shm();
    // close spin lock file
-   if (spin_created)
+   if (spinxplfd != -1)
      close(spinxplfd);
    if ( token_specific.t_final != NULL) {
       token_specific.t_final();

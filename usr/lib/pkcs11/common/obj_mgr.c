@@ -1163,8 +1163,10 @@ delete_token_obj_cb(void *node, unsigned long map_handle, void *p3)
 
 		delete_token_object(o);
 
-		/* Use the same calling convention as the old code, if XProcLock fails, don't
-		 * delete from shm and don't free the object in its other btree */
+		/* Use the same calling convention as the old code, if
+		 * XProcLock fails, don't delete from shm and don't free
+		 * the object in its other btree
+		 */
 		if (XProcLock()) {
 			OCK_LOG_ERR(ERR_PROCESS_LOCK);
 			goto done;
@@ -1217,7 +1219,10 @@ object_mgr_destroy_token_objects( void )
       OCK_LOG_ERR(ERR_PROCESS_LOCK);
 done:
    if (locked1 == TRUE) MY_UnlockMutex( &obj_list_mutex );
-   if (locked2 == TRUE) XProcUnLock();
+/*   if (locked2 == TRUE) XProcUnLock(); */
+   if (locked2 == TRUE) {
+	XProcUnLock();
+   }
 
    return rc;
 }
@@ -1329,7 +1334,10 @@ object_mgr_find_in_map1( CK_OBJECT_HANDLE    handle,
 // SAB XXX Fix me.. need to make it more efficient than just looking for the object to be changed
 // set a global flag that contains the ref count to all objects.. if the shm ref count changes, then we update the object
 // if not
+
+   XProcLock();
    object_mgr_check_shm( obj );
+   XProcUnLock();
 
    *ptr = obj;
 done:
@@ -1401,7 +1409,10 @@ object_mgr_find_in_map2( OBJECT           * obj,
    }
 
    *handle = fa.map_handle;
+
+   XProcLock();
    object_mgr_check_shm( obj );
+   XProcUnLock();
 
    return CKR_OK;
 }
@@ -1517,7 +1528,9 @@ object_mgr_find_init( SESSION      * sess,
 
 //  --- need to grab the object lock here 
    MY_LockMutex(&obj_list_mutex);
+   XProcLock();
    object_mgr_update_from_shm();
+   XProcUnLock();
 
    fa.hw_feature = FALSE;
    fa.hidden_object = FALSE;

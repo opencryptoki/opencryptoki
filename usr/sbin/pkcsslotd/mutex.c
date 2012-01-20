@@ -303,14 +303,8 @@ int
 CreateXProcLock(void)
 {
   
-   xplfd = open (XPL_FILE,O_CREAT|O_RDWR,S_IRWXU|S_IRWXG|S_IRWXO);
+   xplfd = open (OCK_API_LOCK_FILE,O_CREAT|O_RDWR,S_IRUSR|S_IWUSR|S_IRGRP|S_IWGRP);
    return TRUE;
-}
-
-int
-DestroyXProcLock(void)
-{
-return TRUE;
 }
 
 int
@@ -326,6 +320,7 @@ XProcUnLock(void)
    flock(xplfd,LOCK_UN);
    return TRUE;
 }
+
 /*********************************************************************************
  *
  * InitializeMutexes -
@@ -467,8 +462,6 @@ int DestroyMutexes ( void ) {
 
 
   XProcUnLock();
-  DestroyXProcLock();
-
 
   return TRUE;
 

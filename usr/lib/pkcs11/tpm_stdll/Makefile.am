@@ -6,7 +6,7 @@ AUTOMAKE_OPTIONS = gnu
 
 #VPATH = ../common
 
-# TODO: -DLINUX and -DSPINXPL should be controlled via configure.in
+# TODO: -DLINUX should be controlled via configure.in
 
 # Not all versions of automake observe libname_CFLAGS
 opencryptoki_stdll_libpkcs11_tpm_la_CFLAGS = -DLINUX -DNOCDMF		\

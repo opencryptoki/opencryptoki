@@ -335,22 +335,18 @@ extern  API_Proc_Struct_t  *Anchor;
 #include <stdarg.h>
 
 
-void
-set_perm(int file)
-{
-
-   // Set absolute permissions or rw-rw-r--
-   fchmod(file,S_IRUSR|S_IWUSR|S_IRGRP|S_IWGRP|S_IROTH|S_IWOTH);
-
-}
-
 int
 XProcLock(void)
 {
    if (xplfd == -1 ) {
-        xplfd = open(XPL_FILE,O_CREAT|O_RDWR,S_IRWXU|S_IRWXG|S_IRWXO);
+        xplfd = open(OCK_API_LOCK_FILE,O_CREAT|O_RDWR,S_IRUSR|S_IWUSR|S_IRGRP|S_IWGRP);
+	if (xplfd == -1)
+	    OCK_LOG_DEBUG("Failed to open lock file,%s: %s\n",
+                          OCK_API_LOCK_FILE, strerror(errno));
    }
-   flock(xplfd,LOCK_EX);
+   if (xplfd != -1)
+	flock(xplfd,LOCK_EX);
+
    return CKR_OK;
 }
 
@@ -609,19 +605,6 @@ sessions_exist(slotID)
 
    return TRUE;
 }
-
-void
-unlock_shm()
-{
-   XProcUnLock();
-}
-
-void
-lock_shm()
-{
-   XProcLock();
-}
-
 
 // Terminates all sessions associated with a given process
 // this cleans up any lingering sessions with the process

@@ -45,6 +45,8 @@ testcases/login/init_pin
 testcases/login/init_tok
 testcases/login/login
 testcases/login/set_pin
+testcases/misc_tests/obj_mgmt_tests
+testcases/misc_tests/obj_mgmt_lock_tests
 testcases/mkobj/mkobj
 testcases/oc-digest/oc-digest
 testcases/ock_tests.sh

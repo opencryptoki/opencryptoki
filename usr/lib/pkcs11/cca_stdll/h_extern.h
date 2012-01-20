@@ -2173,4 +2173,5 @@ void dump_shm(const char *);
 CK_RV sw_des3_cbc(CK_BYTE *, CK_ULONG, CK_BYTE *, CK_ULONG *,
 		  CK_BYTE  *, CK_BYTE *, CK_BYTE);
 
+#define OCK_STDLL_LOCK_FILE	"/var/lock/LCK..opencryptoki_stdll"
 #endif

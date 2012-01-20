@@ -4,7 +4,7 @@ opencryptoki_stdll_libpkcs11_sw_la_LDFLAGS = -shared -Wl,-Bsymbolic	\
 					     -lc -lpthread -lcrypto
 
 # Not all versions of automake observe libname_CFLAGS
-opencryptoki_stdll_libpkcs11_sw_la_CFLAGS = -DSPINXPL -DDEV -D_THREAD_SAFE  \
+opencryptoki_stdll_libpkcs11_sw_la_CFLAGS = -DDEV -D_THREAD_SAFE            \
 					    -DSHALLOW=0 -DSWTOK=1 -DLITE=0  \
 					    -DNOCDMF -DNOMD2 -DNODSA -DNORIPE	    \
 					    -fPIC		    \

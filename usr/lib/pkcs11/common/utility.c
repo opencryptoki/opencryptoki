@@ -310,9 +310,7 @@
 #include "tok_spec_struct.h"
 #include "pkcs32.h"
 
-#if (SPINXPL)
 #include <sys/file.h>
-#endif
 
 
 
@@ -595,62 +593,31 @@ _UnlockMutex( MUTEX *mutex )
 
 
 int spinxplfd=-1;
-int spin_created=0;
-
-extern void set_perm(int);
-
-CK_RV
-CreateXProcLock(void)
-{
-
-    // open the file that we will do the locking on...
-  spinxplfd = open("/tmp/.pkcs11spinloc",O_CREAT|O_APPEND|O_RDWR,
-        S_IRWXU|S_IRWXG|S_IRWXO);
-   if (spinxplfd) {
-	   	
-	set_perm(spinxplfd);
-	fchmod(spinxplfd,S_IRUSR|S_IWUSR|S_IRGRP|S_IWGRP|S_IROTH | S_IWOTH);
-	spin_created=1;
-   } else {
-	   perror("XPROC CREATE file :");
-   }
-    return CKR_OK;
-}
-
-CK_RV
-DestroyXProcLock(void)
-{
-	return CKR_OK;
-}
 
 CK_RV
 XProcLock(void)
 {
-	if (!spin_created) {
-	  spinxplfd = open("/tmp/.pkcs11spinloc",O_CREAT|O_APPEND|O_RDWR,
-		S_IRWXU|S_IRWXG|S_IRWXO);
-	  fchmod(spinxplfd,S_IRUSR|S_IWUSR|S_IRGRP|S_IWGRP|S_IROTH | S_IWOTH);
-	  spin_created=1;
-	}
-	if (spinxplfd){
-		flock(spinxplfd,LOCK_EX);
-	}
-	return CKR_OK;
+   if (spinxplfd == -1) {
+       spinxplfd = open(OCK_STDLL_LOCK_FILE, O_CREAT|O_RDWR,
+                        S_IRUSR|S_IWUSR|S_IRGRP|S_IWGRP|S_IROTH);
+      if (spinxplfd == -1)
+          OCK_LOG_DEBUG("Failed to open lock file,%s: %s\n",
+                        OCK_STDLL_LOCK_FILE, strerror(errno));
+   }
+
+   if (spinxplfd != -1)
+       flock(spinxplfd,LOCK_EX);
+
+   return CKR_OK;
 }
 
 CK_RV
 XProcUnLock(void)
 {
-	if (!spin_created) {
-	  spinxplfd = open("/tmp/.pkcs11spinloc",O_CREAT|O_APPEND|O_RDWR,
-		S_IRWXU|S_IRWXG|S_IRWXO);
-	  fchmod(spinxplfd,S_IRUSR|S_IWUSR|S_IRGRP|S_IWGRP|S_IROTH | S_IWOTH);
-	  spin_created=1;
-	}
-	if (spinxplfd) {
-		flock(spinxplfd,LOCK_UN);
-	}
-	return CKR_OK;
+   if (spinxplfd != -1)
+        flock(spinxplfd,LOCK_UN);
+
+   return CKR_OK;
 }
 
 
@@ -1022,7 +989,6 @@ attach_shm()
       return CKR_FUNCTION_FAILED;
    }
    if (created == TRUE) {
-      CreateXProcLock();
       XProcLock();
       global_shm->num_publ_tok_obj = 0;
       global_shm->num_priv_tok_obj = 0;

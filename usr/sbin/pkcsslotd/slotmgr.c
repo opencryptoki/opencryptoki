@@ -525,13 +525,6 @@ printf("Start garbage \n");
 #endif
 
 
-
-   #if TEST_MUTEXES
-     /* Get the global shared memory mutex */
-     LogLog ("Grabbing the shared memory mutex");
-     pthread_mutex_lock(&(shmp->slt_mutex));
-   #endif /* TEST_MUTEXES */
-
    #if TEST_COND_VARS
 
      DumpSharedMemory();

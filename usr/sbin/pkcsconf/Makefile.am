@@ -3,10 +3,10 @@ sbin_PROGRAMS=pkcsconf
 pkcsconf_LDFLAGS = -lpthread -ldl
 
 # Not all versions of automake observe sbinname_CFLAGS
-pkcsconf_CFLAGS = -DSPINXPL -D_THREAD_SAFE -DDEBUG -DDEV -DAPI
+pkcsconf_CFLAGS = -D_THREAD_SAFE -DDEBUG -DDEV -DAPI
 
 # Not all versions of automake observe sbinname_CFLAGS
-AM_CFLAGS = -DSPINXPL -D_THREAD_SAFE -DDEBUG -DDEV -DAPI
+AM_CFLAGS = -D_THREAD_SAFE -DDEBUG -DDEV -DAPI
 
 pkcsconf_SOURCES = ../../lib/pkcs11/common/p11util.c pkcsconf.c
 

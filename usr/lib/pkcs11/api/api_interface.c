@@ -4694,7 +4694,7 @@ C_WaitForSlotEvent ( CK_FLAGS       flags,
    //  REally should be the procp->proc_mutex
    // but this is such an infrequent thing that we will simply get
    // the global shared memory lock
-   lock_shm();
+   XProcLock();
    if ( procp->slotmap) {
       // find the first bit set
       // This will have to change if more than 32 slots ever get supported
@@ -4705,11 +4705,11 @@ C_WaitForSlotEvent ( CK_FLAGS       flags,
          }
       }
       *pSlot = i;  // set the flag
-      unlock_shm();
+      XProcUnLock();
       return CKR_OK;
    } else {
       if ( flags & CKF_DONT_BLOCK ) {
-         unlock_shm();
+         XProcUnLock();
          return CKR_NO_EVENT;
       } else {
          // WE need to 
@@ -4724,13 +4724,13 @@ C_WaitForSlotEvent ( CK_FLAGS       flags,
          // We will choose to fail the call.
          if (procp->blocking) {
             OCK_LOG_DEBUG("WaitForSlot event called by process twice.\n");
-            unlock_shm();  // Unlock aftersetting
+            XProcUnLock();  // Unlock aftersetting
             OCK_LOG_ERR(ERR_FUNCTION_FAILED);
             return CKR_FUNCTION_FAILED;
          }
          procp->error = 0;
          procp->blocking = 0x01;
-         unlock_shm();  // Unlock aftersetting
+         XProcUnLock();  // Unlock aftersetting
 
          // NOTE:  We need to have an asynchronous mechanism for
          // the slot manager to wake up anyone blocking on this.
@@ -4740,10 +4740,10 @@ C_WaitForSlotEvent ( CK_FLAGS       flags,
          while (!procp->slotmap  && !procp->error){
             sleep(1);  // Note This is really bad form.  But what the heck
          }
-         lock_shm();
+         XProcLock();
          procp->blocking = 0;
          if ( procp->error ) {
-            unlock_shm();
+            XProcUnLock();
             OCK_LOG_ERR(ERR_GENERAL_ERROR);
             return CKR_GENERAL_ERROR; // We bailed on this because we were terminating
             // General error should cause the calling thread to not try anything
@@ -4756,7 +4756,7 @@ C_WaitForSlotEvent ( CK_FLAGS       flags,
                }
             }
             *pSlot = i;  // set the flag
-            unlock_shm();
+            XProcUnLock();
             return CKR_OK;
          }
       }

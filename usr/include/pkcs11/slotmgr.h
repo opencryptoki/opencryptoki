@@ -312,15 +312,8 @@
 #ifndef _SLOTMGR_H
 #define _SLOTMGR_H
 
-
-
-#ifdef DEV
-    #define TOK_PATH  SBIN_PATH "/pkcsslotd"
-#else
-    #define TOK_PATH  SBIN_PATH "/pkcsslotd"
-#endif /* DEV */
-
-#define  XPL_FILE  "/tmp/.pkapi_xpk"
+#define TOK_PATH  SBIN_PATH "/pkcsslotd"
+#define  OCK_API_LOCK_FILE  "/var/lock/LCK..opencryptoki"
 
 #define PID_FILE_PATH "/var/run/pkcsslotd.pid"
 
@@ -427,17 +420,6 @@ typedef struct CK_SLOT_INFO_64 {
 
 
 typedef struct Slot_Mgr_Proc_t_64 {
-#if SYSVSEM
-      int                slt_mutex;
-#elif PTHREADXPL
-     pthread_mutex_t       slt_mutex;
-#elif POSIXSEM
-#error "Need to implement this"
-#elif NOXPROCLOCK
-     int       slt_mutex; // unused.
-#elif SPINXPL
-     unsigned int   slt_mutex;
-#endif
   // pthread_cond_t   proc_slot_cond;   
 
    CK_BOOL    inuse;  // flag indicating if the entry is in use
@@ -483,26 +465,6 @@ typedef struct{
 
 typedef struct {
    
-  /*************************************************************
-   *    Mutexes for access and control of the structures.
-   *    When a process wants to register with the slot mgr
-   *    it will have to get the mutex on the shared memory region
-   *    and then finds an empty slot in the process table to use.
-   *    This simplifies the management capabilities.   
-   *************************************************************/
-#if SYSVSEM
-      int                slt_mutex;
-#elif PTHREADXPL
-     pthread_mutex_t       slt_mutex;
-#elif POSIXSEM
-#error "Need to implement this"
-#elif NOXPROCLOCK
-     int       slt_mutex; // unused.
-#elif SPINXPL
-     unsigned int   slt_mutex;
-#endif
-
-   
   /* Information that the API calls will use. */
   uint8                 num_slots;
   CK_INFO_64            ck_info;
@@ -516,26 +478,6 @@ typedef struct {
 
 typedef struct {
    
-  /*************************************************************
-   *    Mutexes for access and control of the structures.
-   *    When a process wants to register with the slot mgr
-   *    it will have to get the mutex on the shared memory region
-   *    and then finds an empty slot in the process table to use.
-   *    This simplifies the management capabilities.   
-   *************************************************************/
-
-#if SYSVSEM
-   int                slt_mutex;
-#elif PTHREADXPL
-  pthread_mutex_t       slt_mutex;
-#elif POSIXSEM
-#error "Need to implement this"
-#elif NOXPROCLOCK
-  int       slt_mutex; // unused.
-#elif SPINXPL
-  unsigned int   slt_mutex;
-#endif
- 
   /* Information that the API calls will use. */
   uint8                 num_slots;
   CK_INFO               ck_info;

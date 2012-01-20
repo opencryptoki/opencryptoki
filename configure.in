@@ -668,6 +668,7 @@ AC_CONFIG_FILES([Makefile usr/Makefile \
 	  testcases/tok_obj/Makefile \
 	  testcases/v2.11/Makefile \
 	  testcases/login/Makefile \
+	  testcases/misc_tests/Makefile \
 	  man/Makefile \
 	  man/man1/Makefile \
 	  man/man1/pkcsconf.1 \

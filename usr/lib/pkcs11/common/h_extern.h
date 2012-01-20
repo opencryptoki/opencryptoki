@@ -2475,5 +2475,6 @@ void dump_shm(const char *);
 #define CKA_HIDDEN              CKA_VENDOR_DEFINED + 0x01000000
 
 
+#define OCK_STDLL_LOCK_FILE	"/var/lock/LCK..opencryptoki_stdll"
 
 #endif
