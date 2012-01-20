@@ -1002,6 +1002,11 @@ struct GENERATED_TEST_SUITE_INFO generated_sigver_test_suites[] = {
 		.tv = rsa_generated_tv,
 		.mech = {CKM_SHA1_RSA_PKCS, 0, 0},
 	}, {
+		.name = "RSA SHA256 PKCS",
+		.tvcount = 30,
+		.tv = rsa_generated_tv,
+		.mech = {CKM_SHA256_RSA_PKCS, 0, 0},
+	}, {
 		.name = "RSA MD2 PKCS",
 		.tvcount = 30,
 		.tv = rsa_generated_tv,

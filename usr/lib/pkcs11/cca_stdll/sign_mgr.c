@@ -181,6 +181,7 @@ sign_mgr_init( SESSION                * sess,
 #endif
       case CKM_MD5_RSA_PKCS:
       case CKM_SHA1_RSA_PKCS:
+      case CKM_SHA256_RSA_PKCS:
          {
             if (mech->ulParameterLen != 0){
                OCK_LOG_ERR(ERR_MECHANISM_PARAM_INVALID);
@@ -510,6 +511,7 @@ sign_mgr_sign( SESSION              * sess,
 #endif
       case CKM_MD5_RSA_PKCS:
       case CKM_SHA1_RSA_PKCS:
+      case CKM_SHA256_RSA_PKCS:
          return rsa_hash_pkcs_sign( sess,     length_only, ctx,
                                     in_data,  in_data_len,
                                     out_data, out_data_len );
@@ -601,6 +603,7 @@ sign_mgr_sign_update( SESSION             * sess,
 #endif
       case CKM_MD5_RSA_PKCS:
       case CKM_SHA1_RSA_PKCS:
+      case CKM_SHA256_RSA_PKCS:
          return rsa_hash_pkcs_sign_update( sess, ctx, in_data, in_data_len );
 
       case CKM_SSL3_MD5_MAC:
@@ -646,6 +649,7 @@ sign_mgr_sign_final( SESSION             * sess,
 #endif
       case CKM_MD5_RSA_PKCS:
       case CKM_SHA1_RSA_PKCS:
+      case CKM_SHA256_RSA_PKCS:
          return rsa_hash_pkcs_sign_final( sess, length_only, ctx, signature, sig_len );
 
       case CKM_SSL3_MD5_MAC:

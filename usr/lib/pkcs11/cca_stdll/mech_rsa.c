@@ -318,7 +318,8 @@ rsa_hash_pkcs_sign( SESSION              * sess,
 
    CK_ULONG             buf1[16];  // 64 bytes is more than enough
 
-   CK_BYTE              hash[SHA1_HASH_SIZE];  // big enough for SHA1, MD5 or MD2
+   CK_BYTE              hash[SHA256_HASH_SIZE];  // must be large enough for the largest hash
+						 // the CCA token supports
    DIGEST_CONTEXT       digest_ctx;
    SIGN_VERIFY_CONTEXT  sign_ctx;
    CK_MECHANISM         digest_mech;
@@ -343,6 +344,11 @@ rsa_hash_pkcs_sign( SESSION              * sess,
       digest_mech.mechanism      = CKM_MD5;
       oid = ber_AlgMd5;
       oid_len = ber_AlgMd5Len;
+   }
+   else if (ctx->mech.mechanism == CKM_SHA256_RSA_PKCS) {
+      digest_mech.mechanism      = CKM_SHA256;
+      oid = ber_AlgSha256;
+      oid_len = ber_AlgSha256Len;
    }
    else {
       digest_mech.mechanism      = CKM_SHA_1;
@@ -428,6 +434,8 @@ rsa_hash_pkcs_sign_update( SESSION              * sess,
          digest_mech.mechanism = CKM_MD2;
       else if (ctx->mech.mechanism == CKM_MD5_RSA_PKCS)
          digest_mech.mechanism = CKM_MD5;
+      else if (ctx->mech.mechanism == CKM_SHA256_RSA_PKCS)
+         digest_mech.mechanism = CKM_SHA256;
       else
          digest_mech.mechanism = CKM_SHA_1;
 
@@ -467,7 +475,7 @@ rsa_hash_pkcs_verify( SESSION              * sess,
    CK_BYTE            * tmp       = NULL;
 
    CK_ULONG             buf1[16];  // 64 bytes is more than enough
-   CK_BYTE              hash[SHA1_HASH_SIZE];
+   CK_BYTE              hash[SHA256_HASH_SIZE];
    DIGEST_CONTEXT       digest_ctx;
    SIGN_VERIFY_CONTEXT  verify_ctx;
    CK_MECHANISM         digest_mech;
@@ -491,6 +499,11 @@ rsa_hash_pkcs_verify( SESSION              * sess,
       digest_mech.mechanism      = CKM_MD5;
       oid = ber_AlgMd5;
       oid_len = ber_AlgMd5Len;
+   }
+   else if (ctx->mech.mechanism == CKM_SHA256_RSA_PKCS) {
+      digest_mech.mechanism      = CKM_SHA256;
+      oid = ber_AlgSha256;
+      oid_len = ber_AlgSha256Len;
    }
    else {
       digest_mech.mechanism      = CKM_SHA_1;
@@ -575,6 +588,8 @@ rsa_hash_pkcs_verify_update( SESSION              * sess,
          digest_mech.mechanism = CKM_MD2;
       else if (ctx->mech.mechanism == CKM_MD5_RSA_PKCS)
          digest_mech.mechanism = CKM_MD5;
+      else if (ctx->mech.mechanism == CKM_SHA256_RSA_PKCS)
+         digest_mech.mechanism = CKM_SHA256;
       else
          digest_mech.mechanism = CKM_SHA_1;
 
@@ -614,7 +629,7 @@ rsa_hash_pkcs_sign_final( SESSION              * sess,
 
    CK_ULONG              buf1[16];  // 64 bytes is more than enough
 
-   CK_BYTE               hash[SHA1_HASH_SIZE];
+   CK_BYTE               hash[SHA256_HASH_SIZE];
    RSA_DIGEST_CONTEXT  * context = NULL;
    CK_ULONG              ber_data_len, hash_len, octet_str_len, oid_len;
    CK_MECHANISM          sign_mech;
@@ -633,6 +648,10 @@ rsa_hash_pkcs_sign_final( SESSION              * sess,
    else if (ctx->mech.mechanism == CKM_MD5_RSA_PKCS) {
       oid = ber_AlgMd5;
       oid_len = ber_AlgMd5Len;
+   }
+   else if (ctx->mech.mechanism == CKM_SHA256_RSA_PKCS) {
+      oid = ber_AlgSha256;
+      oid_len = ber_AlgSha256Len;
    }
    else {
       oid = ber_AlgSha1;
@@ -709,7 +728,7 @@ rsa_hash_pkcs_verify_final( SESSION              * sess,
    CK_BYTE            * tmp       = NULL;
 
    CK_ULONG             buf1[16];   // 64 bytes is more than enough
-   CK_BYTE               hash[SHA1_HASH_SIZE];
+   CK_BYTE               hash[SHA256_HASH_SIZE];
    RSA_DIGEST_CONTEXT  * context = NULL;
    CK_ULONG              ber_data_len, hash_len, octet_str_len, oid_len;
    CK_MECHANISM          verify_mech;
@@ -727,6 +746,10 @@ rsa_hash_pkcs_verify_final( SESSION              * sess,
    else if (ctx->mech.mechanism == CKM_MD5_RSA_PKCS) {
       oid = ber_AlgMd5;
       oid_len = ber_AlgMd5Len;
+   }
+   else if (ctx->mech.mechanism == CKM_SHA256_RSA_PKCS) {
+      oid = ber_AlgSha256;
+      oid_len = ber_AlgSha256Len;
    }
    else {
       oid = ber_AlgSha1;
