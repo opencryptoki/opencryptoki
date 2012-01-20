@@ -411,7 +411,7 @@ object_mgr_add( SESSION          * sess,
       // we'll be modifying nv_token_data so we should protect this part with
       // the 'pkcs_mutex'
       //
-      rc = XProcLock( xproclock );
+      rc = XProcLock();
       if (rc != CKR_OK){
          OCK_LOG_ERR(ERR_PROCESS_LOCK); 
          goto done;
@@ -424,7 +424,7 @@ object_mgr_add( SESSION          * sess,
             if (global_shm->num_priv_tok_obj >= MAX_TOK_OBJS) {
                rc = CKR_HOST_MEMORY;
                OCK_LOG_ERR(ERR_HOST_MEMORY); 
-               XProcUnLock(xproclock);
+               XProcUnLock();
                goto done;
             }
          }
@@ -432,7 +432,7 @@ object_mgr_add( SESSION          * sess,
             if (global_shm->num_publ_tok_obj >= MAX_TOK_OBJS) {
                rc = CKR_HOST_MEMORY;
                OCK_LOG_ERR(ERR_HOST_MEMORY); 
-               XProcUnLock(xproclock);
+               XProcUnLock();
                goto done;
             }
          }
@@ -445,7 +445,7 @@ object_mgr_add( SESSION          * sess,
          rc = compute_next_token_obj_name( current, next );
          if (rc != CKR_OK) {
                  // TODO: handle error, check if rc is a valid per spec
-                XProcUnLock(xproclock);
+                XProcUnLock();
                  goto done;
          }
          memcpy( &nv_token_data->next_token_object_name, next, 8 );
@@ -453,7 +453,7 @@ object_mgr_add( SESSION          * sess,
          rc = save_token_object( o );
          if (rc != CKR_OK) {
                  // TODO: handle error, check if rc is a valid per spec
-                XProcUnLock(xproclock);
+                XProcUnLock();
                 goto done;
          }
 
@@ -461,14 +461,14 @@ object_mgr_add( SESSION          * sess,
          //
          object_mgr_add_to_shm( o );
 
-         XProcUnLock( xproclock );
+         XProcUnLock();
 
          // save_token_data has to lock the mutex itself because it's used elsewhere
          //
          rc = save_token_data();
          if (rc != CKR_OK) {
                  // TODO: handle error, check if rc is a valid per spec
-                XProcUnLock(xproclock);
+                XProcUnLock();
                 goto done;
          }
 
@@ -512,14 +512,14 @@ object_mgr_add( SESSION          * sess,
 	    bt_node_free(&publ_token_obj_btree, obj_handle, NULL);
          }
 
-         rc = XProcLock( xproclock );
+         rc = XProcLock();
          if (rc != CKR_OK){
             OCK_LOG_ERR(ERR_PROCESS_LOCK); 
             goto done;
          }
          object_mgr_del_from_shm( o );
 
-         XProcUnLock( xproclock );
+         XProcUnLock();
       }
    }
 
@@ -717,7 +717,7 @@ object_mgr_copy( SESSION          * sess,
       // we'll be modifying nv_token_data so we should protect this part
       // with 'pkcs_mutex'
       //
-      rc = XProcLock( xproclock );
+      rc = XProcLock();
       if (rc != CKR_OK){
          OCK_LOG_ERR(ERR_PROCESS_LOCK); 
          goto done;
@@ -728,7 +728,7 @@ object_mgr_copy( SESSION          * sess,
          //
          if (priv_obj) {
             if (global_shm->num_priv_tok_obj >= MAX_TOK_OBJS) {
-               XProcUnLock(xproclock);
+               XProcUnLock();
                OCK_LOG_ERR(ERR_HOST_MEMORY); 
                rc = CKR_HOST_MEMORY;
                goto done;
@@ -736,7 +736,7 @@ object_mgr_copy( SESSION          * sess,
          }
          else {
             if (global_shm->num_publ_tok_obj >= MAX_TOK_OBJS) {
-               XProcUnLock(xproclock);
+               XProcUnLock();
                OCK_LOG_ERR(ERR_HOST_MEMORY); 
                rc = CKR_HOST_MEMORY;
                goto done;
@@ -756,7 +756,7 @@ object_mgr_copy( SESSION          * sess,
          //
          object_mgr_add_to_shm( new_obj );
 
-         XProcUnLock( xproclock );
+         XProcUnLock();
 
          save_token_data();
       }
@@ -805,14 +805,14 @@ object_mgr_copy( SESSION          * sess,
 	    bt_node_free(&publ_token_obj_btree, obj_handle, NULL);
          }
 
-         rc = XProcLock( xproclock );
+         rc = XProcLock();
          if (rc != CKR_OK){
             OCK_LOG_ERR(ERR_PROCESS_LOCK); 
             goto done;
          }
          object_mgr_del_from_shm( new_obj );
 
-         XProcUnLock( xproclock );
+         XProcUnLock();
       }
    }
 
@@ -953,7 +953,7 @@ object_mgr_create_final( SESSION           * sess,
       // we'll be modifying nv_token_data so we should protect this part
       // with 'pkcs_mutex'
       //
-      rc = XProcLock( xproclock );
+      rc = XProcLock();
       if (rc != CKR_OK){
          OCK_LOG_ERR(ERR_PROCESS_LOCK); 
          goto done;
@@ -964,7 +964,7 @@ object_mgr_create_final( SESSION           * sess,
          //
          if (priv_obj) {
             if (global_shm->num_priv_tok_obj >= MAX_TOK_OBJS) {
-               XProcUnLock(xproclock);
+               XProcUnLock();
                OCK_LOG_ERR(ERR_HOST_MEMORY); 
                rc = CKR_HOST_MEMORY;
                goto done;
@@ -972,7 +972,7 @@ object_mgr_create_final( SESSION           * sess,
          }
          else {
             if (global_shm->num_publ_tok_obj >= MAX_TOK_OBJS) {
-               XProcUnLock(xproclock);
+               XProcUnLock();
                OCK_LOG_ERR(ERR_HOST_MEMORY); 
                rc = CKR_HOST_MEMORY;
                goto done;
@@ -992,7 +992,7 @@ object_mgr_create_final( SESSION           * sess,
          //
          object_mgr_add_to_shm( obj );
 
-         XProcUnLock( xproclock );
+         XProcUnLock();
 
          save_token_data();
       }
@@ -1040,14 +1040,14 @@ object_mgr_create_final( SESSION           * sess,
 	    bt_node_free(&publ_token_obj_btree, obj_handle, NULL);
          }
 
-         rc = XProcLock( xproclock );
+         rc = XProcLock();
          if (rc != CKR_OK){
             OCK_LOG_ERR(ERR_PROCESS_LOCK); 
             goto done;
          }
          object_mgr_del_from_shm( obj );
 
-         XProcUnLock( xproclock );
+         XProcUnLock();
       }
    }
 
@@ -1084,7 +1084,7 @@ destroy_object_cb(void *node)
 
 		/* Use the same calling convention as the old code, if XProcLock fails, don't
 		 * delete from shm and don't free the object in its other btree */
-		if (XProcLock(xproclock)) {
+		if (XProcLock()) {
 			OCK_LOG_ERR(ERR_PROCESS_LOCK);
 			goto done;
 		}
@@ -1092,7 +1092,7 @@ destroy_object_cb(void *node)
 		object_mgr_del_from_shm(o);
 		DUMP_SHM("after");
 
-		XProcUnLock( xproclock );
+		XProcUnLock();
 
 		if (map->is_private)
 			bt_node_free(&priv_token_obj_btree, map->obj_handle, object_free);
@@ -1165,14 +1165,14 @@ delete_token_obj_cb(void *node, unsigned long map_handle, void *p3)
 
 		/* Use the same calling convention as the old code, if XProcLock fails, don't
 		 * delete from shm and don't free the object in its other btree */
-		if (XProcLock(xproclock)) {
+		if (XProcLock()) {
 			OCK_LOG_ERR(ERR_PROCESS_LOCK);
 			goto done;
 		}
 
 		object_mgr_del_from_shm(o);
 
-		XProcUnLock( xproclock );
+		XProcUnLock();
 
 		if (map->is_private)
 			bt_node_free(&priv_token_obj_btree, map->obj_handle, object_free);
@@ -1203,7 +1203,7 @@ object_mgr_destroy_token_objects( void )
 
    // now we want to purge the token object list in shared memory
    //
-   rc = XProcLock( xproclock );
+   rc = XProcLock();
    if (rc == CKR_OK) {
       locked2 = TRUE;
 
@@ -1217,7 +1217,7 @@ object_mgr_destroy_token_objects( void )
       OCK_LOG_ERR(ERR_PROCESS_LOCK);
 done:
    if (locked1 == TRUE) MY_UnlockMutex( &obj_list_mutex );
-   if (locked2 == TRUE) XProcUnLock( xproclock );
+   if (locked2 == TRUE) XProcUnLock();
 
    return rc;
 }
@@ -1847,7 +1847,7 @@ object_mgr_restore_obj_withSize( CK_BYTE *data, OBJECT *oldObj, int data_size )
 	    }
 	 }
 
-         XProcLock( xproclock );
+         XProcLock();
            
          if (priv) {
             if (global_shm->priv_loaded == FALSE){
@@ -1869,7 +1869,7 @@ object_mgr_restore_obj_withSize( CK_BYTE *data, OBJECT *oldObj, int data_size )
             }
          }
 
-         XProcUnLock( xproclock );
+         XProcUnLock();
       } else {
          OCK_LOG_ERR(ERR_OBJ_RESTORE_DATA); 
       }
@@ -1981,7 +1981,7 @@ object_mgr_set_attribute_values( SESSION           * sess,
 
       save_token_object( obj );
 
-      rc = XProcLock( xproclock );
+      rc = XProcLock();
       if (rc != CKR_OK){
          OCK_LOG_ERR(ERR_PROCESS_LOCK); 
          return rc;
@@ -1993,7 +1993,7 @@ object_mgr_set_attribute_values( SESSION           * sess,
 
          if (rc != CKR_OK) {
             OCK_LOG_ERR(ERR_OBJMGR_SEARCH); 
-            XProcUnLock(xproclock);
+            XProcUnLock();
             return rc;
          }
 
@@ -2005,7 +2005,7 @@ object_mgr_set_attribute_values( SESSION           * sess,
                                              obj, &index );
          if (rc != CKR_OK) {
             OCK_LOG_ERR(ERR_OBJMGR_SEARCH); 
-            XProcUnLock(xproclock);
+            XProcUnLock();
             return rc;
          }
 
@@ -2015,7 +2015,7 @@ object_mgr_set_attribute_values( SESSION           * sess,
       entry->count_lo = obj->count_lo;
       entry->count_hi = obj->count_hi;
 
-      XProcUnLock( xproclock );
+      XProcUnLock();
    }
 
    return rc;

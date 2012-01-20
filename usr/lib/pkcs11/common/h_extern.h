@@ -328,12 +328,6 @@ extern MECH_LIST_ELEMENT  mech_list[];
 extern CK_ULONG           mech_list_len;
 
 extern pthread_mutex_t  native_mutex;
-#if SYSVSEM
-extern int xprocsemid;
-#endif
-
-
-extern  void *xproclock;
 
 extern MUTEX    pkcs_mutex, obj_list_mutex, sess_list_mutex, login_mutex;
 

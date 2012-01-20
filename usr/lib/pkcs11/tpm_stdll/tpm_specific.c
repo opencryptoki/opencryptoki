@@ -1595,9 +1595,9 @@ token_specific_login(CK_USER_TYPE userType, CK_CHAR_PTR pPin, CK_ULONG ulPinLen)
 
 		rc = load_private_token_objects();
 
-		XProcLock( xproclock );
+		XProcLock();
 		global_shm->priv_loaded = TRUE;
-		XProcUnLock( xproclock );
+		XProcUnLock();
 	} else {
 		/* SO path --
 		 */

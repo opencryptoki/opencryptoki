@@ -9,7 +9,7 @@ opencryptoki_libopencryptoki_la_LDFLAGS = -shared -Wl,-Bsymbolic -lc -ldl \
 					  $(SO_CURRENT):$(SO_REVISION):$(SO_AGE)
 
 # Not all versions of automake observe libname_CFLAGS
-opencryptoki_libopencryptoki_la_CFLAGS = -DSPINXPL -DAPI -DDEV -D_THREAD_SAFE \
+opencryptoki_libopencryptoki_la_CFLAGS = -DAPI -DDEV -D_THREAD_SAFE 		\
 					 -fPIC -I../. -I../../../include/pkcs11 \
 					 -I ../common -DSTDLL_NAME=\"api\"
 

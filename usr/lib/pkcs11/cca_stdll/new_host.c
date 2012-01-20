@@ -103,19 +103,15 @@ st_Initialized()
 	return TRUE;
 }
 
-#ifdef SPINXPL
 extern int spinxplfd;
 extern int spin_created;
-#endif
 
 void
 Fork_Initializer(void)
 {
 
-#ifdef SPINXPL
 	spinxplfd = -1;
 	spin_created = 0;
-#endif
 
 	// Force logout.  This cleans out the private session and list
 	// and cleans out the private object map
@@ -347,10 +343,6 @@ ST_Initialize(void **FunctionList,
 	// Handle global initialization issues first if we have not
 	// been initialized.
 	if (st_Initialized() == FALSE){
-#if SYSVSEM
-		xproclock = (void *)&xprocsemid;
-		CreateXProcLock(xproclock);
-#endif
 		if ( (rc = attach_shm()) != CKR_OK) {
 			OCK_LOG_ERR(ERR_SHM);
 			goto done;
@@ -379,13 +371,15 @@ ST_Initialize(void **FunctionList,
 		goto done;
 	}
 
-	/* no need to return error here, that would only prevent the stdll from loading. We load
-	 * the token objects that we can and syslog the rest */
+	/* no need to return error here, that would only prevent the stdll
+	 * from loading. We load the token objects that we can and syslog
+	 * the rest
+	 */
 	load_public_token_objects();
 
-	XProcLock( xproclock );
+	XProcLock();
 	global_shm->publ_loaded = TRUE;
-	XProcUnLock( xproclock );
+	XProcUnLock();
 
 	init_slotInfo();
 
@@ -817,7 +811,7 @@ CK_RV SC_InitPIN( ST_SESSION_HANDLE  *sSession,
 		OCK_LOG_ERR(ERR_HASH_COMPUTATION); 	
 		goto done;
 	}
-	rc = XProcLock( xproclock );
+	rc = XProcLock();
 	if (rc != CKR_OK){
 		OCK_LOG_ERR(ERR_PROCESS_LOCK);
 		goto done;
@@ -826,7 +820,7 @@ CK_RV SC_InitPIN( ST_SESSION_HANDLE  *sSession,
 	nv_token_data->token_info.flags |= CKF_USER_PIN_INITIALIZED;
 	nv_token_data->token_info.flags &= ~(CKF_USER_PIN_TO_BE_CHANGED);
 	nv_token_data->token_info.flags &= ~(CKF_USER_PIN_LOCKED);
-	XProcUnLock(xproclock);
+	XProcUnLock();
 	memcpy( user_pin_md5, hash_md5, MD5_HASH_SIZE  );
 	rc = save_token_data();
 	if (rc != CKR_OK){
@@ -912,7 +906,7 @@ CK_RV SC_SetPIN( ST_SESSION_HANDLE  *sSession,
 			rc = CKR_PIN_INVALID;
 			goto done;
 		}
-		rc = XProcLock( xproclock );
+		rc = XProcLock();
 		if (rc != CKR_OK){
 			OCK_LOG_ERR(ERR_PROCESS_LOCK);
 			goto done;
@@ -922,7 +916,7 @@ CK_RV SC_SetPIN( ST_SESSION_HANDLE  *sSession,
 		memcpy(user_pin_md5, hash_md5, MD5_HASH_SIZE);
 		nv_token_data->token_info.flags &=
 			~(CKF_USER_PIN_TO_BE_CHANGED);
-		XProcUnLock( xproclock );
+		XProcUnLock();
 		rc = save_token_data();
 		if (rc != CKR_OK){
 			OCK_LOG_ERR(ERR_TOKEN_SAVE);
@@ -951,7 +945,7 @@ CK_RV SC_SetPIN( ST_SESSION_HANDLE  *sSession,
 			rc = CKR_PIN_INVALID;
 			goto done;
 		}
-		rc = XProcLock( xproclock );
+		rc = XProcLock();
 		if (rc != CKR_OK){
 			OCK_LOG_ERR(ERR_PROCESS_LOCK);
 			goto done;
@@ -959,7 +953,7 @@ CK_RV SC_SetPIN( ST_SESSION_HANDLE  *sSession,
 		memcpy(nv_token_data->so_pin_sha, new_hash_sha, SHA1_HASH_SIZE);
 		memcpy( so_pin_md5, hash_md5, MD5_HASH_SIZE );
 		nv_token_data->token_info.flags &= ~(CKF_SO_PIN_TO_BE_CHANGED);
-		XProcUnLock( xproclock );
+		XProcUnLock();
 		rc = save_token_data();
 		if (rc != CKR_OK){
 			OCK_LOG_ERR(ERR_TOKEN_SAVE);
@@ -1317,13 +1311,15 @@ CK_RV SC_Login( ST_SESSION_HANDLE   *sSession,
 			OCK_LOG_ERR(ERR_MASTER_KEY_LOAD);
 			goto done;
 		}
-		/* no need to return error here, that would only prevent the stdll from loading. We
-		 * load the token objects that we can and syslog the rest */
+		/* no need to return error here, that would only prevent the
+		 * stdll from loading. We load the token objects that we can
+		 * and syslog the rest
+		 */
 		load_private_token_objects();
 
-		XProcLock( xproclock );
+		XProcLock();
 		global_shm->priv_loaded = TRUE;
-		XProcUnLock( xproclock );
+		XProcUnLock();
 
 	}
 	else {

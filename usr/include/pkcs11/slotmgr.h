@@ -320,10 +320,7 @@
     #define TOK_PATH  SBIN_PATH "/pkcsslotd"
 #endif /* DEV */
 
-#if (SPINXPL)
 #define  XPL_FILE  "/tmp/.pkapi_xpk"
-#endif
-
 
 #define PID_FILE_PATH "/var/run/pkcsslotd.pid"
 

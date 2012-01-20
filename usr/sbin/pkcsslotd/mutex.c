@@ -293,182 +293,38 @@
 
 #include "pkcsslotd.h"
 
-
-#if SYSVSEM
-#error "Caveat Emptor... this does not work"
-#include <sys/ipc.h>
-#include <sys/sem.h>
-int   Shm_Sem=-1; // system 5 shared memory semaphore...
-pthread_mutex_t  semmtx = PTHREAD_MUTEX_INITIALIZER;  // local mutex for semaphore functions...
-static struct sembuf xlock_lock[2]={
-            0,0,0,
-                     0,1,SEM_UNDO
-};
-
-static struct sembuf xlock_unlock[1] = {
-            0,-1,(IPC_NOWAIT | SEM_UNDO)
-};
-
-#endif
-
-#if SPINXPL
 #include <sys/types.h>
 #include <sys/stat.h>
 #include <fcntl.h>
 #include <sys/file.h>
 static int xplfd=-1;
-#endif
 
 int
-CreateXProcLock(void *xpl)
+CreateXProcLock(void)
 {
-#if (PTHREADXPL)
-   int err;
-   pthread_mutex_t  *pmtx = (pthread_mutex_t *)xpl;
-  /* Initialize the attributes object */
-  if ( (err = pthread_mutexattr_init(&mtxattr)) != 0 ) { 
-    DbgLog(DL0,"InitializeMutexes: pthread_mutexattr_init() failed - returned %#x\n", err);
-    return FALSE;
-  }
-
-  /* Set the attribute variable so that mutexes created with it can be shared across processes */
-  if ( (err = pthread_mutexattr_setpshared( &mtxattr, PTHREAD_PROCESS_SHARED )) != 0 ) {
-    DbgLog(DL0,"InitializeMutexes: pthread_mutexattr_setpshared() failed - returned %#x\n", err);
-    return FALSE;
-  }
-
-  /* Initialize the global shared memory mutex */
-  if ( (err = pthread_mutex_init(pmtx,&mtxattr)) != 0 ) {
-    DbgLog(DL0,"InitializeMutexes: pthread_mutex_init() failed.  returned %#x\n", err);
-    return FALSE;
-  }
-
-#elif (POSIXSEM)
-#error "this won't work since these are really the AIX calls.."
-
-#elif (SPINXPL)
   
- xplfd = open (XPL_FILE,O_CREAT|O_RDWR,S_IRWXU|S_IRWXG|S_IRWXO);
-
-#elif (SYSVSEM)
-#error "Caveat Emptor... this does not work"
-
-//#error  "Define XPL fcns for SYSTEM V Semaphores"
-  key_t  tok;
-
-  //  This really needs some work... since we need to differentiate between
-  //  the various Xprocess locks which may exist... However at this time
-  //  we know there is only one so we will just instantiate it as a global...
-  //  The other calls will ingnore thei9r parameters for  SysV sems
-
-   tok = ftok(TOK_PATH ,'b');
-DbgLog(DL0,"creating semaphore %x \n",tok);
-   pthread_mutex_lock (&semmtx);
-   if ( (Shm_Sem = semget(tok,1,IPC_CREAT | 0666)) < 0 ) {
-
-      DbgLog(DL0,"creating semaphore check for existing \n");
-      if (errno == EEXIST) {
-         if ((Shm_Sem = semget(tok,0,0)) < 0) {
-            DbgLog(DL0,"Failed to get semaphore for Xprocess locking \n ");
-            pthread_mutex_unlock (&semmtx);
-            return FALSE;
-         }
-      } else {
-         DbgLog(DL0,"Failed to get semaphore for Xprocess locking error not eexist \n ");
-         pthread_mutex_unlock(&semmtx);
-         return FALSE;
-      }
-   }
-   pthread_mutex_unlock(&semmtx);
-   DbgLog(DL0,"Semid = %d \n",Shm_Sem);
+   xplfd = open (XPL_FILE,O_CREAT|O_RDWR,S_IRWXU|S_IRWXG|S_IRWXO);
    return TRUE;
-   
-#elif NOXPROCLOCK
-return TRUE;
-#else
-#error  "Define XPL fcns"
-#endif
-
-  return TRUE;
 }
 
 int
-DestroyXProcLock(void *xpl)
+DestroyXProcLock(void)
 {
-#if (PTHREADXPL)
-  /* Destroy the global shared memory mutex */
-  pthread_mutex_destroy((xpl));
-
-  /* Destroy the attribute object used to create all the mutexes */
-  pthread_mutexattr_destroy( &mtxattr );
-  return TRUE;
-#elif (POSIXSEM)
-#error "this won't work since these are really the AIX calls.."
-#elif SYSVSEM
-#error "Caveat Emptor... this does not work"
-
-//error  "Define XPL fcns" 
-   pthread_mutex_lock(&semmtx);
-   semctl(Shm_Sem,1,IPC_RMID,0);
-   pthread_mutex_unlock(&semmtx);
-   return TRUE;
-#elif NOXPROCLOCK
 return TRUE;
-#elif SPINXPL
-return TRUE;
-#else
-#error  "Define XPL fcns"
-#endif
 }
 
 int
-XProcLock(void *xpl)
+XProcLock(void)
 {
-#if (PTHREADXPL)
-  return pthread_mutex_lock((xpl));
-#elif (POSIXSEM)
-#error "this won't work since these are really the AIX calls.."
-#elif SYSVSEM
-#error "Caveat Emptor... this does not work"
-
-//#error  "Define XPL fcns"
-   pthread_mutex_lock(&semmtx);
-   semop(Shm_Sem,&xlock_lock[0],2);
-   pthread_mutex_unlock(&semmtx);
-   return TRUE;
-#elif NOXPROCLOCK
-return TRUE;
-#elif SPINXPL 
    flock(xplfd,LOCK_EX);
    return TRUE;
-#else
-#error  "Define XPL fcns"
-#endif
 }
 
 int
-XProcUnLock(void *xpl)
+XProcUnLock(void)
 {
-#if (PTHREADXPL)
-  return pthread_mutex_unlock((xpl));
-#elif (POSIXSEM)
-#error "this won't work since these are really the AIX calls.."
-#elif SYSVSEM
-#error "Caveat Emptor... this does not work"
-
-//#error  "Define XPL fcns"
-   pthread_mutex_lock(&semmtx);
-   semop(Shm_Sem,&xlock_unlock[0],1);
-   pthread_mutex_unlock(&semmtx);
-   return TRUE;
-#elif NOXPROCLOCK
-return TRUE;
-#elif SPINXPL
    flock(xplfd,LOCK_UN);
    return TRUE;
-#else
-#error  "Define XPL fcns"
-#endif
 }
 /*********************************************************************************
  *
@@ -483,34 +339,10 @@ int InitializeMutexes ( void ) {
 
   int err;
 
-#if 1
-  if ( (err = CreateXProcLock(&(shmp->slt_mutex))) != TRUE){
+  if ((err = CreateXProcLock()) != TRUE){
     DbgLog(DL0,"InitializeMutexes: CreateXProcLock() failed - returned %#x\n", err);
     return FALSE;
   }
-#else
-#if  !defined(PKCS64)
-
-  /* Initialize the attributes object */
-  if ( (err = pthread_mutexattr_init(&mtxattr)) != 0 ) { 
-    DbgLog(DL0,"InitializeMutexes: pthread_mutexattr_init() failed - returned %#x\n", err);
-    return FALSE;
-  }
-
-  /* Set the attribute variable so that mutexes created with it can be shared across processes */
-  if ( (err = pthread_mutexattr_setpshared( &mtxattr, PTHREAD_PROCESS_SHARED )) != 0 ) {
-    DbgLog(DL0,"InitializeMutexes: pthread_mutexattr_setpshared() failed - returned %#x\n", err);
-    return FALSE;
-  }
-
-  /* Initialize the global shared memory mutex */
-  if ( (err = pthread_mutex_init(&(shmp->slt_mutex),&mtxattr)) != 0 ) {
-    DbgLog(DL0,"InitializeMutexes: pthread_mutex_init() failed.  returned %#x\n", err);
-    return FALSE;
-  }
-
-#endif
-#endif
    
 
   #if TEST_COND_VARS
@@ -594,15 +426,7 @@ int InitializeMutexes ( void ) {
 int DestroyMutexes ( void ) {
 
   /* Get the global shared memory mutex */
-#if 1
-  XProcLock(&(shmp->slt_mutex));
-#else
-#ifdef PKCS64
-  msem_lock(&(shmp->slt_mutex), 0 );
-#else
-  pthread_mutex_lock(&(shmp->slt_mutex));
-#endif
-#endif
+  XProcLock();
 
 
   #if TEST_COND_VARS
@@ -642,27 +466,8 @@ int DestroyMutexes ( void ) {
   /* (we have to release it before we destroy it, otherwise the behavior's undefined) */
 
 
-#if 1
-  XProcUnLock(&(shmp->slt_mutex));
-  DestroyXProcLock(&(shmp->slt_mutex));
-#else
-#ifdef PKCS64
-  msem_unlock(&(shmp->slt_mutex),0);
-
-  /* Destroy the global shared memory mutex */
-  msem_remove(&(shmp->slt_mutex));
-
-#else
-  pthread_mutex_unlock(&(shmp->slt_mutex));
-
-  /* Destroy the global shared memory mutex */
-  pthread_mutex_destroy(&(shmp->slt_mutex));
-
-  /* Destroy the attribute object used to create all the mutexes */
-  pthread_mutexattr_destroy( &mtxattr );
-
-#endif
-#endif
+  XProcUnLock();
+  DestroyXProcLock();
 
 
   return TRUE;

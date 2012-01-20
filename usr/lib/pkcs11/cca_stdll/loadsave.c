@@ -71,7 +71,7 @@ load_token_data()
 
    sprintf((char *)fname,"%s/%s",(char *)pk_dir, PK_LITE_NV);
 
-   rc = XProcLock( xproclock );
+   rc = XProcLock();
    if (rc != CKR_OK){
       OCK_LOG_ERR(ERR_PROCESS_LOCK);
       goto out_nolock;
@@ -83,9 +83,9 @@ load_token_data()
       if (errno == ENOENT) {
          /* init_token_data may call save_token_data, which graps the 
           * xproclock, so we must release it around this call */
-         XProcUnLock( xproclock );
+         XProcUnLock();
          init_token_data();
-         rc = XProcLock( xproclock );
+         rc = XProcLock();
          if (rc != CKR_OK){
             OCK_LOG_ERR(ERR_PROCESS_LOCK);
             goto out_nolock;
@@ -121,7 +121,7 @@ load_token_data()
    rc = CKR_OK;
 
 out_unlock:
-   XProcUnLock( xproclock );
+   XProcUnLock();
 
 out_nolock:
    return rc;
@@ -141,7 +141,7 @@ save_token_data()
 
    sprintf((char *)fname,"%s/%s",pk_dir, PK_LITE_NV);
 
-   rc = XProcLock( xproclock );
+   rc = XProcLock();
    if (rc != CKR_OK){
       OCK_LOG_ERR(ERR_PROCESS_LOCK);
       goto out_nolock;
@@ -166,7 +166,7 @@ save_token_data()
    rc = CKR_OK;
 
 done:
-   XProcUnLock( xproclock );
+   XProcUnLock();
 
 out_nolock:
    return rc;

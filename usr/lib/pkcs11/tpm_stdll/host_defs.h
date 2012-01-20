@@ -6,7 +6,6 @@
 #ifndef _HOST_DEFS_H
 #define _HOST_DEFS_H
 
-#include <semaphore.h>
 #include <pthread.h>
 #include <endian.h>
 
@@ -219,14 +218,6 @@ typedef struct _MD5_CONTEXT {
 // linux
 typedef pthread_mutex_t MUTEX;
 
-// This is actualy wrong... XPROC will be with spinlocks
-#if (SPINXPL)
-#define XPROCLOCK   unsigned int
-#else
-#define XPROCLOCK    MUTEX
-#endif
-
-
 typedef struct _TEMPLATE
 {
    DL_NODE  *attribute_list;
@@ -343,11 +334,6 @@ typedef struct _TOK_OBJ_ENTRY
 
 typedef struct _LW_SHM_TYPE
 {
-   XPROCLOCK      mutex;
-#if SYSVSEM
-   key_t	semtok;
-#endif
-
    TOKEN_DATA     nv_token_data;
    CK_ULONG_32       num_priv_tok_obj;
    CK_ULONG_32       num_publ_tok_obj;
@@ -362,10 +348,5 @@ typedef struct _LW_SHM_TYPE
 #define  MY_DestroyMutex(x)    _DestroyMutex((MUTEX *)(x))
 #define  MY_LockMutex(x)       _LockMutex((MUTEX *)(x))
 #define  MY_UnlockMutex(x)     _UnlockMutex((MUTEX *)(x))
-
-#define  MY_CreateMsem(x)     CreateXProcLock((void *)(x))
-#define  MY_DestroyMsem(x)    DestroyXProcLock((void *)(x))
-#define  MY_LockMsem(x)       XProcLock((void *)(x))
-#define  MY_UnlockMsem(x)     XProcUnLock((void *)(x))
 
 #endif

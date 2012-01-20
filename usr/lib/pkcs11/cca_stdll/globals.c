@@ -41,12 +41,6 @@ CK_BBOOL        initialized = FALSE;
 pthread_mutex_t native_mutex ;
 MUTEX pkcs_mutex, obj_list_mutex, sess_list_mutex, login_mutex;
 
-#if SYSVSEM
-int   xprocsemid = -1;
-#endif
-
-void *xproclock;
-
 struct btree sess_btree = { NULL, NULL, 0UL, 0UL };
 struct btree sess_obj_btree = { NULL, NULL, 0UL, 0UL };
 struct btree publ_token_obj_btree = { NULL, NULL, 0UL, 0UL };

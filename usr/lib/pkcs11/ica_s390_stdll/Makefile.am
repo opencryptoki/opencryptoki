@@ -5,7 +5,7 @@ $(ICA_LIB_DIRS) -nostartfiles -shared -Wl,-Bsymbolic -Wl,-soname,$@	\
 -Wl,-Bsymbolic -lc -lpthread -lica -ldl -lcrypto
 
 # Not all versions of automake observe libname_CFLAGS
-opencryptoki_stdll_libpkcs11_ica_la_CFLAGS = -DSPINXPL -DDEV		\
+opencryptoki_stdll_libpkcs11_ica_la_CFLAGS = -DDEV			\
 -D_THREAD_SAFE -fPIC -DSHALLOW=0 -DSWTOK=0 -DLITE=1 -DNODH 		\
 -DNOCDMF -DNOMD2 -DNODSA -DSTDLL_NAME=\"icatok\"
 

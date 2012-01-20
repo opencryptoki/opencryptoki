@@ -550,24 +550,11 @@ BOOL CheckForGarbage ( Slot_Mgr_Shr_t *MemPtr ) {
 
   /* Grab the global Shared mem mutex since we might modify global_session_count */
 
-#if 1
-    Err = XProcLock(&(MemPtr->slt_mutex));
+    Err = XProcLock();
   if ( Err != TRUE ) {
     DbgLog (DL0, "Garbage collection: Locking attempt for global shmem mutex returned %s", SysConst(Err) );
     return FALSE;
   }
-#else
-#ifdef PKCS64
-  Err = msem_lock(&(MemPtr->slt_mutex),0);
-#else
-  Err = pthread_mutex_lock ( &(MemPtr->slt_mutex) );
-#endif
-
-  if ( Err != 0 ) {
-    DbgLog (DL0, "Garbage collection: Locking attempt for global shmem mutex returned %s", SysConst(Err) );
-    return FALSE;
-  }
-#endif
 
   #ifdef DEV
   DbgLog ( DL5, "Garbage collection: Got global shared memory lock");
@@ -690,16 +677,7 @@ BOOL CheckForGarbage ( Slot_Mgr_Shr_t *MemPtr ) {
     
   } /* end for ProcIndex */
   
-#if 1
-  XProcUnLock(&(MemPtr->slt_mutex));
-#else
-#ifdef PKCS64
-  msem_unlock(&(MemPtr->slt_mutex),0);
-#else
-  pthread_mutex_unlock ( &(MemPtr->slt_mutex) );
-#endif
-#endif
-
+  XProcUnLock();
   DbgLog ( DL5, "Garbage collection: Released global shared memory lock");
 
   return TRUE;
