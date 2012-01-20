@@ -862,7 +862,7 @@ typedef CK_ULONG          CK_MECHANISM_TYPE;
 #define CKM_X9_42_DH_HYBRID_DERIVE     0x00000032
 #define CKM_X9_42_MQV_DERIVE           0x00000033
 
-#define CKM_SHA256_RSA_PKCS            0x00000043
+#define CKM_SHA256_RSA_PKCS            0x00000040
 
 #define CKM_RC2_KEY_GEN                0x00000100
 #define CKM_RC2_ECB                    0x00000101
