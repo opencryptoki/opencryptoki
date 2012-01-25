@@ -7,7 +7,6 @@
 
 #include "pkcs11types.h"
 #include "regress.h"
-#include "md5.h"
 #include "digest.h"
 #include "common.c"
 

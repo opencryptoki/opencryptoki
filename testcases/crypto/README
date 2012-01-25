@@ -1,0 +1,33 @@
+aes_tests
+	Tests aes cbc/ecb/ctr modes using published test vectors and
+	generated test data.
+
+des_tests
+	Tests des ecb/cbc modes using published test vectors and generated
+	test data.
+
+des3_tests
+	Tests des3 ecb/cbc modes using published test vectors and generated
+	test data. 
+	Tests des3 cbc mode with padding only using generated test data.
+
+dh_tests
+	TODO - To be tested.
+
+digest_tests
+	Tests message digest, multipart message digest, and signature 
+	verification using published test vectors for:
+	SHA1, SHA256, SHA384, SHA512, MD2, MD5, RIPEMD-160, RIPEMD-128
+	HMAC SHA1, HMAC SHA256, HMAC SHA512, HMAC MD5
+
+dsa_tests
+	TODO - To be tested.
+
+ec_tests
+	Tests regular curves.
+
+rsa_tests
+	Tests RSA using published test vectors and generated test data. 
+
+ssl3_tests
+	TODO - to be tested.

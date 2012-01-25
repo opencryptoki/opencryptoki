@@ -298,7 +298,7 @@ done:
 
 int clean_up(void)
 {
-	int rc;
+	CK_RV rc;
 	
         if( (rc = funcs->C_Finalize(NULL)) != CKR_OK)
 		show_error("C_Finalize", rc);

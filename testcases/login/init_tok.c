@@ -11,8 +11,8 @@
 
 #include "pkcs11types.h"
 
-#include "common.h"
 #include "regress.h"
+#include "common.c"
 
 CK_FUNCTION_LIST  *funcs;
 int  do_GetInfo(void);
@@ -95,7 +95,7 @@ main( int argc, char **argv )
 
 	rc = do_GetFunctionList();
 	if ((rc != TRUE) || (funcs == NULL)) {
-		PRINTERR("do_GetFunctionList failed.");
+		printf("do_GetFunctionList failed.\n");
 		return rc;
 	}
 

@@ -12,64 +12,29 @@ include/regress.h.
 For correct testcase execution, the token should be initialized before and
 after running the testcases.
 
-driver
+crypto
 ------
-The driver programs tests all openCryptoki that do not involve token
-manipulation.  This includes, but is not limited to, tests such as RSA key
-generation, CBC and ECB encryption and decryption, and MD5 digests.  
+This directory contains testcases to test various crypto algorithms.
 
-init_tok
---------
-This program initializes a token with a name of "L13", and sets the user pin to
-"12345678".
-
-mkobj
+login
 -----
-This program creates a certificate object of class CKO_CERTIFICATE and type
-CKC_X_509.  It is created as a public object.
+This directory contains testcases to test login functionality in pkcs11
+and opencryptoki.
 
-rsa_keygen
+pkcs11
+------
+This directory contains tests that tests various api/functionality in 
+pkcs11 specification.
+
+misc_tests
 ----------
-This test program generates an RSA Keypair.
+This directory contains tests to test various functionality and operations
+in opencryptoki.
 
-rsa_test
---------
-There are 3 test programs in this sub-directory.  The first is rsa_test.  This
-program encrypts random data using a known RSA key.  The key information is
-hardcoded in rsa_test.c.  The second programs, rsa_test_genkey, encrypts
-random data using a generated RSA key.  This test key generation as well as
-encryption.  The third program, rsa_thread_test, tests the ability of
-openCryptoki to handle multithreaded application.  It sets up a given number of
-threads (default is 3), with each performing an RSA encryption operation.
-
-speed
------
-The speed program is a performance oriented test program.  It times certain
-operations over multiple runs, and gives min, max, and average times for these
-operations.  Performace tests are run for: 2048 bit RSA keygen, 10½4 bit RSA
-keygen, 1024 bit RSA signature generate, 1024 bit RSA signature verify, triple
-DES encrypt/decrypt on a 10K message, and SHA1 on a 10K message.
-
-test_crypto
+ock_test.sh
 -----------
-
-This program tests DES and triple DES encryption and decryption using both ECB
-and CBC modes.  It also tests RSA encryption and decryption using generate
-keys.
-
-threadmkobj
------------
-This program is similar to mkobj, except that it spawns multiple (default 5)
-threads to create objects.
-
-tok_obj
--------
-This program is used to test object creation and modification.  The token does
-not need to be intitialized to use this application.  When run, a user is
-presented with a menu.  From there, the user must initialize the token and set
-the user PIN if this has not been done previously.  The menu choice for setting
-the user PIN sets it to "12345678".
-
+This driver runs the various testcases on various tokens.
+TODO: Needs to be modified and tested for new testcase structure.
 
 For help, send mail to the openCryptoki mailing list at
 opencryptoki-users@lists.sourceforge.net

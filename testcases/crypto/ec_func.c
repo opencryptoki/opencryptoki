@@ -149,7 +149,6 @@ run_GenerateSignVerifyECC(CK_SESSION_HANDLE session, CK_MECHANISM_TYPE mechType,
 	CK_MECHANISM		mech2;
 	CK_BYTE_PTR		data = NULL, signature = NULL;
 	CK_ULONG		i, signaturelen;
-	CK_BBOOL		testcase_skip = FALSE;
 	CK_MECHANISM_INFO	mech_info;
 	CK_RV rc;
 
@@ -263,7 +262,6 @@ run_GenerateECCKeyPairSignVerify()
 	CK_ULONG		user_pin_len, i, j;
 	CK_FLAGS		flags;
 	CK_MECHANISM_INFO	mech_info;
-	CK_BBOOL		testcase_skip = FALSE;
 	CK_RV rc;
 
 	testcase_begin("Starting ECC generate key pair.");

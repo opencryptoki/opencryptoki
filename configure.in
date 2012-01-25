@@ -656,17 +656,8 @@ AC_CONFIG_FILES([Makefile usr/Makefile \
           misc/Makefile \
 	  testcases/Makefile \
 	  testcases/common/Makefile \
-	  testcases/driver/Makefile \
-	  testcases/init_tok/Makefile \
-	  testcases/mkobj/Makefile \
-	  testcases/oc-digest/Makefile \
-	  testcases/rsa_keygen/Makefile \
-	  testcases/rsa_test/Makefile \
-	  testcases/speed/Makefile \
-	  testcases/test_crypto/Makefile \
-	  testcases/threadmkobj/Makefile \
-	  testcases/tok_obj/Makefile \
-	  testcases/v2.11/Makefile \
+	  testcases/crypto/Makefile \
+	  testcases/pkcs11/Makefile \
 	  testcases/login/Makefile \
 	  testcases/misc_tests/Makefile \
 	  man/Makefile \

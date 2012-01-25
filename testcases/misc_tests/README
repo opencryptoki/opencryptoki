@@ -1,61 +1,80 @@
 Miscellaneous tests
 
-Object Management testing
-
 obj_mgmt_tests
-obj_mgmt.c - This testsuite performs various object management tasks.
-The do_CreateTokenObjects() and do_HWFeatureSearch() functions
-create token objects and by default or skipped.
-To include these two functions, use the "-noskip" option when issuing the tests.
+	This testsuite performs various object management tasks.
 
------------------------------------------------------------------------------
-Spinlock testing
+	The do_CreateTokenObjects() and do_HWFeatureSearch() functions
+	create token objects and by default or skipped.
+	To include these two functions, use the "-noskip" option when issuing
+	the tests.
 
-Quick Start Info:
-
-Execute testcase by, 
-	spinlock_tests.sh -p <num> -l <num> -s <slotid>
-	p: the amount of child processes to create
-	l: the number of times each child process executes obj_mgmt_lock_tests
-	s: the slot to test
-
-For example, 
-	spinlock_tests.sh -p 15 -l 5 -s 1
-
-
-Additional Info:
-
-obj_mgmt_lock_tests
 spinlock_tests.sh
-spinlock_child.sh
-These test two spinlocks:
-	- /var/lock/LCK..opencryptoki which is used when accessing shared
-	  memory for pkcsslotd and pkcs#11 api calls.
-	- /var/lock/LOCK..opencryptoki_stdll which is used when accessing
-	  global shared memory in the STDLLs.
+	Tests the two spinlocks: /var/lock/LCK..opencryptoki which is used 
+	when accessing shared memory for pkcsslotd and pkcs#11 api calls.
+	And /var/lock/LOCK..opencryptoki_stdll which is used when accessing
+	global shared memory in the STDLLs.
 
-The file, spinlock_tests.sh is a bash script that creates a
-number of child processes. Each child process runs spinlock_child.sh script.
+	The file, spinlock_tests.sh is a bash script that creates a
+	number of child processes. Each child process runs spinlock_child.sh 
+	script.
 
-Usage: spinlock_tests.sh -p <num> -l <count> -s <slotid>
-	p: the amount of child processes to create
-	l: the number of times each child process executes obj_mgmt_lock_tests
-	s: the slot to test
+	Quick Start Info:
 
-The file, spinlock_child.sh is a bash script that executes
-obj_mgmt_lock_tests a number of times. It, along with any arguments is called
-from spinlock_tests.sh script. However, it can also be run independently.
+	Execute testcase by, 
+		spinlock_tests.sh -p <num> -l <num> -s <slotid>
+		p: the amount of child processes to create
+		l: the number of times each child process executes 
+		   obj_mgmt_lock_tests
+		s: the slot to test
 
-Usage: spinlock_child.sh -l <count> -s <slotid>
-	l: the number of times each child process executes obj_mgmt_lock_tests
-	s: the slot to test
+	For example, 
+		spinlock_tests.sh -p 15 -l 5 -s 1
 
-So each child process created in spinlock_tests.sh will run
-obj_mgmt_lock_tests a number of times to test the spinlocks.
+	Additional Info:
 
-obj_mgmt_lock_tests was derived from obj_mgmt.c.
-It contains several api calls that will want to acquire the various
-spinlocks.
+	obj_mgmt_lock_tests
+	spinlock_child.sh
 
-Usage: obj_mgmt_lock_tests -slot <slotid>
+	The file, spinlock_tests.sh is a bash script that creates a
+	number of child processes. Each child process runs spinlock_child.sh 
+	script.
 
+	The file, spinlock_child.sh is a bash script that executes
+	obj_mgmt_lock_tests a number of times.
+
+	obj_mgmt_lock_tests was derived from obj_mgmt.c.
+	It contains several api calls that will want to acquire the various
+	spinlocks.
+
+	Usage: spinlock_child.sh -l <count> -s <slotid>
+        l: the number of times each child process executes obj_mgmt_lock_tests
+        s: the slot to test
+
+	Usage: obj_mgmt_lock_tests -slot <slotid>
+
+threadmkobj
+	TODO: To be tested.
+
+speed	
+	TODO: To be tested.
+	The speed program is a performance oriented test program. It times
+	certain operations over multiple runs, and gives min, max, and average
+	times for these operations. Performace tests are run for: 2048 bit
+	RSA keygen, 10½4 bit RSA keygen, 1024 bit RSA signature generate,
+	1024 bit RSA signature verify, triple DES encrypt/decrypt on a
+	10K message, and SHA1 on a 10K message.
+
+tok_obj
+	TODO: To be tested.
+	This program is used to test object creation and modification.
+	The token does not need to be intitialized to use this application.
+	When run, a user is presented with a menu. From there, the user
+	must initialize the token and set the user PIN if this has not been
+	done previously. The menu choice for setting the user PIN sets it
+	to "12345678".
+
+tok_des
+	TODO: To be tested.
+
+tok_rsa
+	TODO: To be tested.

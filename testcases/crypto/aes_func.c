@@ -1327,7 +1327,7 @@ testcase_cleanup:
 
 CK_RV aes_funcs() {
 	int i, generate_key;
-	CK_RV rv;
+	CK_RV rv  = CKR_OK;
 
 	generate_key = get_key_type(); // true if mech requires secure key
 				       // generate keys and skip published tests

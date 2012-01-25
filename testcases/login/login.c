@@ -9,8 +9,7 @@
 
 #include "pkcs11types.h"
 #include "regress.h"
-
-#include "common.h"
+#include "common.c"
 
 CK_FUNCTION_LIST  *funcs;
 int do_GetFunctionList(void);
@@ -63,7 +62,8 @@ main( int argc, char **argv )
 {
 	CK_C_INITIALIZE_ARGS	cinit_args;
 	CK_USER_TYPE		userType = CKU_USER;
-	int			rc, i;
+	CK_RV			rc = 0;
+	int			i;
 	char			*pass = NULL;
 	int			slot_id = 0;
 
@@ -84,12 +84,12 @@ main( int argc, char **argv )
 				pass = "87654321";
 		} else {
 			printf("usage:  %s [-slot <num>] [-h] [-pass passwd] [-user|-so]\n\n", argv[0] );
-			printf("By default, Slot %d is used, as user\n\n", SLOT_ID_DEFAULT);
+			printf("By default, Slot #%lu is used, as user\n\n", SLOT_ID);
 			return -1;
 		}
 	}
 
-	if (slot_id != SLOT_ID_DEFAULT)
+	if (slot_id != SLOT_ID)
 		printf("Using user specified slot %d.\n", slot_id);
 
 	rc = do_GetFunctionList();

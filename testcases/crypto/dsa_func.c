@@ -1,8 +1,3 @@
-// File: dsa_func.c
-//
-
-#include <windows.h>
-
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -10,6 +5,7 @@
 
 #include "pkcs11types.h"
 #include "regress.h"
+#include "common.c"
 
 // these values are required when generating a PKCS DSA value.  they were
 // obtained by generating a DSA key pair on the 4758 with the default (random)
@@ -254,7 +250,15 @@ session_close:
 CK_RV dsa_functions()
 {
 	SYSTEMTIME t1, t2;
-	CK_RV rc;
+	CK_RV rc = CKR_OK;
+	CK_SLOT_ID slot_id;
+
+        /** skip tests if the slot doesn't support this mechanism **/
+	slot_id = SLOT_ID;
+        if (!(mech_supported(slot_id, CKM_DSA))) {
+		printf("Slot %u doesn't support DSA\n", (unsigned int) slot_id);
+		return rc;
+        }
 
 	GetSystemTime(&t1);
 	rc = do_GenerateDSAKeyPair();
