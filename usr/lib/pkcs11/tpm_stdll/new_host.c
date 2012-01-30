@@ -1145,7 +1145,6 @@ CK_RV SC_OpenSession( CK_SLOT_ID             sid,
                      CK_FLAGS               flags,
                      CK_SESSION_HANDLE_PTR  phSession )
 {
-   SESSION              * sess;
    CK_BBOOL               locked = FALSE;
    CK_RV                  rc = CKR_OK;
    SLT_CHECK
@@ -1212,7 +1211,7 @@ done:
    
    OCK_LOG_DEBUG("C_OpenSession:  rc = 0x%08x\n", rc);
    if (rc == CKR_OK)
-	OCK_LOG_DEBUG("sess = %d\n", (sess == NULL)?-1:(CK_LONG)sess->handle);
+	OCK_LOG_DEBUG("session = %d\n", (phSession == NULL)?-1:*phSession);
 
    UNLOCKIT;
    return rc;
