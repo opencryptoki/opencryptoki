@@ -466,7 +466,7 @@ load_public_token_objects( void )
          }
 
          read_size = fread( buf, 1, size, fp2 );
-	 if (read_size < size) {
+	 if (read_size != size) {
 	    OCK_SYSLOG(LOG_ERR, "Cannot read in token object %s (ignoring it)", fname);
             fclose(fp2);
 	    free(buf);
@@ -1045,6 +1045,7 @@ reload_token_object( OBJECT *obj )
    CK_ULONG_32   size;
    CK_ULONG   size_64;
    CK_RV      rc;
+   size_t     read_size;
 
 
    memset( (char *)fname, 0x0, sizeof(fname) );
@@ -1074,7 +1075,12 @@ reload_token_object( OBJECT *obj )
       goto done;
    }
 
-   fread( buf, size, 1, fp );
+   read_size = fread( buf, 1, size, fp );
+   if (read_size != size) {
+      OCK_SYSLOG(LOG_ERR, "Token object %s appears corrupted (ignoring it)", fname);
+      rc = CKR_FUNCTION_FAILED;
+      goto done;
+   }
 
    size_64 = size;
 
