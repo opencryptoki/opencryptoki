@@ -53,6 +53,17 @@
 
 extern TSS_HCONTEXT tspContext;
 
+static struct {
+        TSS_FLAG mode;
+        const char *str;
+} tss_modes[] = {
+	{TSS_SECRET_MODE_NONE, "TSS_SECRET_MODE_NONE"},
+	{TSS_SECRET_MODE_SHA1, "TSS_SECRET_MODE_SHA1"},
+	{TSS_SECRET_MODE_PLAIN,"TSS_SECRET_MODE_PLAIN"},
+	{TSS_SECRET_MODE_POPUP, "TSS_SECRET_MODE_POPUP"},
+	{TSS_SECRET_MODE_CALLBACK, "TSS_SECRET_MODE_CALLBACK"},
+};
+
 UINT32
 util_get_keysize_flag(CK_ULONG size)
 {
@@ -224,3 +235,115 @@ util_set_public_modulus(TSS_HKEY hKey, unsigned long size_n, unsigned char *n)
 	return TSS_SUCCESS;
 }
 
+TSS_FLAG
+get_srk_mode(void)
+{
+	char *mode = NULL;
+	int i;
+	int num_modes = sizeof(tss_modes)/sizeof(tss_modes[0]);
+	
+	mode = getenv("OCK_SRK_MODE");
+	if (mode == NULL)
+		return 0;
+
+	/* parse */
+	for (i = 0; i < num_modes; i++) {
+		if (strncmp(mode, tss_modes[i].str, strlen(mode)) == 0)
+			return tss_modes[i].mode;
+	}
+
+	OCK_LOG_DEBUG("Unknown TSS mode set in OCK_SRK_MODE, %s.\n", mode);
+	return -1;
+} 
+	
+int
+get_srk_info(struct srk_info *srk)
+{
+	char *passwd_ptr = NULL;
+	char *secret = NULL;
+	int i;
+
+	srk->mode = get_srk_mode();
+	if (srk->mode == -1)
+		return -1;
+
+	srk->secret = NULL;
+	passwd_ptr = getenv("OCK_SRK_SECRET");
+
+	/* If nothing is set, then use original opencryptoki default of
+	 *  secret is NULL and TSS_SECRET_MODE_PLAIN. 
+	 */
+	if (passwd_ptr == NULL) {
+		srk->len = 0;
+		if (srk->mode == 0) {
+			srk->mode = TSS_SECRET_MODE_PLAIN;
+			return 0;
+		}
+	} else
+		srk->len = strlen(passwd_ptr);	
+
+	/* A mode required at this point...  */
+	if (srk->mode == 0) {
+		OCK_LOG_DEBUG("SRK policy's secret mode is not set.\n");
+		return -1;
+	}
+
+	 /*  
+	  * getenv() returns a ptr to the actual string in our env,
+	  * so be sure to make a copy to avoid problems.
+	  */
+	
+	if (srk->len != 0) {
+		if ((secret = (char *)malloc(srk->len)) == NULL) {
+			OCK_LOG_DEBUG("malloc of %d bytes failed.\n", srk->len);
+			return -1;
+		}
+		memcpy(secret, passwd_ptr, srk->len);
+		srk->secret = secret;
+	}
+
+	/* Secrets that are a hash, need to be converted from a
+	 *  hex string to an array of bytes.
+	 */
+	if (srk->mode == TSS_SECRET_MODE_SHA1) {
+
+		char *secret_h;
+		int h_len = TPM_SHA1_160_HASH_LEN;
+		
+		if ((secret_h = (char *)malloc(h_len)) == NULL) {
+			OCK_LOG_DEBUG("malloc of %d bytes failed.\n", h_len);
+			goto error;
+		}
+
+		/* reuse passwd ptr since we dont need it anymore. */
+		passwd_ptr = secret;
+
+		/* Assume hash is read in as string of hexidecimal digits.
+		 * 2 hex digits are required to represent a byte.
+		 * thus we need 2 * TPM_SHA1_160_HASH_LEN to 
+		 * represent the hash.
+		 */
+		if (srk->len != (h_len * 2)) {
+			OCK_LOG_DEBUG("Hashed secret is %d bytes, expected %d.\n",
+				      srk->len, h_len*2);
+			goto error;
+		}
+
+		/* convert hexadecimal string into a byte array... */
+		for (i = 0; i < h_len; i++) {
+			sscanf(passwd_ptr, "%2hhx", &secret_h[i]);
+			passwd_ptr += 2;
+		}
+
+		srk->len = h_len;
+		srk->secret = secret_h;
+		free(secret);
+	} 
+		
+	return	0;
+
+error:
+	if (secret) 
+		free(secret);
+	return -1;
+}

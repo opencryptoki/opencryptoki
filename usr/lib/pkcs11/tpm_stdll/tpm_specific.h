@@ -90,4 +90,13 @@ CK_ULONG util_check_public_exponent(TEMPLATE *);
 
 #define MK_SIZE (AES_KEY_SIZE_256)
 
+struct srk_info
+{
+	char *secret;
+	int mode;
+	int len;
+};
+
+int get_srk_info(struct srk_info *srk);
+
 #endif
