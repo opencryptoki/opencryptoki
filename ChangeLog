@@ -1,3 +1,22 @@
+* opencryptoki-2.4.1 (February 21, 2012)
+- SHA256 support added for CCA token
+- Several crypto algorithm testcases refactored to include published
+  test vectors. 
+- Testcase directory restructured for future improvements.
+- Allow tpm stdll to get SRK passwd and mode from new env variables.
+- Renamed spinlocks for shared memory to /var/lock dir and did 
+  some cleanup of unused locking schemes.
+- Various bugfixes and cleanup.
+
+* opencryptoki-2.4 
+- Support for Elliptic Curve Support in CCA token.
+- Support for AES CTR in ICA token.
+- Session handling refactored from using a reference to memory to
+  using a handle that references a binray tree node.
+- Cleanup logging. Debug messages now go to a file referenced in 
+  OPENCRYPTOKI_DEBUG_FILE env variable.
+- Various bugfixes and cleanup.
+
 * opencryptoki-2.3.3 (Jan 13 2011)
 - Moderate fixes and clean-ups to key unwrapping mechanisms
 - several pkcsconf fixes, some minor changes

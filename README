@@ -1,22 +1,19 @@
 opencryptoki README
-Package version 2.2.4
-Authors:
- Mike Halcrow <mhalcrow@us.ibm.com>
- Kent Yoder <yoder1@us.ibm.com>
- Daniel H Jones <danjones@us.ibm.com>
+Package version 2.4.1
 
 OVERVIEW
 
-openCryptoki version 2.2 implements the PKCS#11 specification version
-2.11. This package includes several cryptographic tokens, including
-the IBM ICA token (requires libICA, which supports zSeries CPACF and
-LeedsLite hardware) and an OpenSSL-based software token.
+openCryptoki version 2.4.1 implements the PKCS#11 specification version 2.11.
+This package includes several cryptographic tokens; CCA, ICA, TPM and SWToken.
 
+REQUIREMENTS:
 
-REQUIREMENTS
-
- - SW token: OpenSSL version 0.9.7 or higher
- - ICA token: libICA version 1.3.6 or higher
+ - IBM ICA	requires libica library version 2.0 or higher for accessing
+		ICA hardware crypto on IBM zSeries.
+ - IBM CCA	requires IBM XCrypto CEX3C card and the
+		CEX3C host libraries and tools version 4.1.
+ - TPM 		requires a TPM, TPM tools, and TCG software stack.
+ - SWToken 	The software token uses OpenSSL version 0.9.7 or higher.
 
 
 BUILD PROCESS
