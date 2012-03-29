@@ -130,7 +130,6 @@ st_Initialized()
 }
 
 
-extern int spinxplfd;
 
 // ----------- SAB XXX XXX
 //
@@ -139,8 +138,9 @@ Fork_Initializer(void)
 {
   //    initialized == FALSE; // Get the initialization to be not true
 
-	spinxplfd = -1;
 
+	  // Initialize spinlock.
+      XProcLock_Init();
 
           // Force logout.  This cleans out the private session and list
           // and cleans out the private object map
@@ -404,6 +404,11 @@ CK_RV ST_Initialize( void **FunctionList,
 	MY_CreateMutex( &sess_list_mutex );
 	MY_CreateMutex( &login_mutex     );
 
+	if (CreateXProcLock() != CKR_OK) {
+		OCK_LOG_ERR(ERR_PROCESS_LOCK);
+		goto done;
+	}
+
 	init_data_store((char *)PK_DIR);
 
 
@@ -498,8 +503,7 @@ CK_RV SC_Finalize( CK_SLOT_ID sid )
 
    detach_shm();
    // close spin lock file
-   if (spinxplfd != -1)
-     close(spinxplfd);
+   CloseXProcLock();
    if ( token_specific.t_final != NULL) {
       token_specific.t_final();
    }

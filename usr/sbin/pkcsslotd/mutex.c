@@ -297,28 +297,77 @@
 #include <sys/stat.h>
 #include <fcntl.h>
 #include <sys/file.h>
+#include <grp.h>
+
 static int xplfd=-1;
 
 int
 CreateXProcLock(void)
 {
-  
-   xplfd = open (OCK_API_LOCK_FILE,O_CREAT|O_RDWR,S_IRUSR|S_IWUSR|S_IRGRP|S_IWGRP);
-   return TRUE;
+	struct group *grp;
+	mode_t mode = (S_IRUSR|S_IRGRP);
+	struct stat statbuf;
+
+	if (xplfd == -1) {
+		if (stat(OCK_API_LOCK_FILE, &statbuf) == 0)
+			xplfd = open(OCK_API_LOCK_FILE, O_RDONLY, mode);
+		else {
+			xplfd = open(OCK_API_LOCK_FILE, O_CREAT|O_RDONLY, mode);
+
+			if (xplfd != -1) {
+				if (fchmod(xplfd, mode) == -1) {
+					DbgLog(DL0,"%s:fchmod(%s):%s\n",
+					       __FUNCTION__, OCK_API_LOCK_FILE,
+					       strerror(errno));
+					goto error;
+				}
+
+				grp = getgrnam("pkcs11");
+				if (grp != NULL) {
+					if (fchown(xplfd,-1,grp->gr_gid) == -1) {
+						DbgLog(DL0,"%s:fchown(%s):%s\n",
+						       __FUNCTION__,
+						       OCK_API_LOCK_FILE,
+						       strerror(errno));
+						goto error;
+					}
+				} else {
+					DbgLog(DL0,"%s:getgrnam():%s\n",
+					       __FUNCTION__, strerror(errno));
+					goto error;
+				}
+			}
+		}
+		if (xplfd == -1) {
+			DbgLog(DL0,"open(%s): %s\n", OCK_API_LOCK_FILE,
+			       strerror(errno));
+			return FALSE;
+		}
+	}
+	return TRUE;
+
+error:
+	if (xplfd != -1)
+		close(xplfd);
+	return FALSE;
 }
 
 int
 XProcLock(void)
 {
-   flock(xplfd,LOCK_EX);
-   return TRUE;
+	if (xplfd != -1)
+		flock(xplfd, LOCK_EX);
+
+	return TRUE;
 }
 
 int
 XProcUnLock(void)
 {
-   flock(xplfd,LOCK_UN);
-   return TRUE;
+	if (xplfd != -1)
+		flock(xplfd, LOCK_UN);
+
+	return TRUE;
 }
 
 /*********************************************************************************

@@ -2474,7 +2474,4 @@ void dump_shm(const char *);
  * Used for objects internal to a token for management of that token */
 #define CKA_HIDDEN              CKA_VENDOR_DEFINED + 0x01000000
 
-
-#define OCK_STDLL_LOCK_FILE	"/var/lock/LCK..opencryptoki_stdll"
-
 #endif

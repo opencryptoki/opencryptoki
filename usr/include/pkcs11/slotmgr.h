@@ -313,7 +313,7 @@
 #define _SLOTMGR_H
 
 #define TOK_PATH  SBIN_PATH "/pkcsslotd"
-#define  OCK_API_LOCK_FILE  "/var/lock/LCK..opencryptoki"
+#define OCK_API_LOCK_FILE LOCKDIR_PATH "/LCK..APIlock"
 
 #define PID_FILE_PATH "/var/run/pkcsslotd.pid"
 

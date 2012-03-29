@@ -34,6 +34,7 @@
 #include <sys/ipc.h>
 #include <errno.h>
 #include <pwd.h>
+#include <grp.h>
 
 
 #include "pkcs11/pkcs11types.h"
@@ -45,6 +46,7 @@
 #include "pkcs32.h"
 
 #include <sys/file.h>
+#include <syslog.h>
 
 
 
@@ -329,35 +331,107 @@ _UnlockMutex( MUTEX *mutex )
 
 }
 
-int spinxplfd=-1;
+static int spinxplfd=-1;
+
+CK_RV
+CreateXProcLock(void)
+{
+	CK_BYTE lockfile[PATH_MAX];
+	struct passwd *pw = NULL;
+	struct stat statbuf;
+	mode_t mode = (S_IRUSR|S_IWUSR|S_IXUSR);
+
+	/* see if it exists */
+	if (spinxplfd == -1) {
+
+		/* get userid */
+		if ((pw = getpwuid(getuid())) == NULL) {
+			OCK_SYSLOG(LOG_ERR, "getpwuid(): %s\n",strerror(errno));
+			return CKR_FUNCTION_FAILED;
+		}
+
+		/* create user-specific directory */
+		sprintf(lockfile, "%s/%s/%s",
+			LOCKDIR_PATH, SUB_DIR, pw->pw_name);
+		/* see if it exists, otherwise mkdir will fail */
+		if (stat(lockfile, &statbuf) < 0) {
+			if (mkdir(lockfile, mode) == -1) {
+				OCK_SYSLOG(LOG_ERR, "mkdir(%s): %s\n",
+					   lockfile, strerror(errno));
+				return CKR_FUNCTION_FAILED;
+			}
+
+			/* ensure correct perms on user dir */
+			if (chmod(lockfile, mode) == -1) {
+				OCK_SYSLOG(LOG_ERR, "chmod(%s): %s\n",
+					   lockfile, strerror(errno));
+				return CKR_FUNCTION_FAILED;
+			}
+		}
+
+		/* create user lock file */
+		memset(lockfile, 0, PATH_MAX);
+		sprintf(lockfile, "%s/%s/%s/LCK..%s",
+			LOCKDIR_PATH, SUB_DIR, pw->pw_name, SUB_DIR);
+
+		spinxplfd = open(lockfile, O_CREAT|O_RDWR, mode);
+
+		if (spinxplfd == -1) {
+			OCK_SYSLOG(LOG_ERR, "open(%s): %s\n",
+				   lockfile, strerror(errno));
+			return CKR_FUNCTION_FAILED;
+		} else {
+			/* umask may prevent correct mode, so set it. */
+			if (fchmod(spinxplfd, mode) == -1) {
+				OCK_SYSLOG(LOG_ERR, "fchmod(%s): %s\n",
+					   lockfile, strerror(errno));
+				goto err;
+			}
+		}
+	}
+
+	return CKR_OK;
+
+err:
+	if (spinxplfd != -1)
+		close(spinxplfd);
+	return CKR_FUNCTION_FAILED;
+}
+
+void
+CloseXProcLock(void)
+{
+	if (spinxplfd != -1)
+		close(spinxplfd);
+}
 
 CK_RV
 XProcLock(void)
 {
-   /* see if it exists */
-   if (spinxplfd == -1) {
-       spinxplfd = open(OCK_STDLL_LOCK_FILE, O_CREAT|O_RDWR,
-                       S_IRUSR|S_IWUSR|S_IRGRP|S_IWGRP|S_IROTH);
-      if (spinxplfd == -1)
-         OCK_LOG_DEBUG("Failed to open lock file,%s: %s\n",
-                        OCK_STDLL_LOCK_FILE, strerror(errno));
-   }
+	if (spinxplfd != -1)
+		flock(spinxplfd, LOCK_EX);
+	else
+		OCK_LOG_DEBUG("No file descriptor to lock with.\n");
 
-   if (spinxplfd != -1)
-      flock(spinxplfd,LOCK_EX);
-
-   return CKR_OK;
+	return CKR_OK;
 }
 
 CK_RV
 XProcUnLock(void)
 {
-   if (spinxplfd != -1)
-      flock(spinxplfd,LOCK_UN);
+	if (spinxplfd != -1)
+		flock(spinxplfd, LOCK_UN);
+	else
+		OCK_LOG_DEBUG("No file descriptor to unlock with.\n");
 
-   return CKR_OK;
+	return CKR_OK;
 }
 
+void
+XProcLock_Init(void)
+{
+	spinxplfd = -1;
+}
 
 //
 //

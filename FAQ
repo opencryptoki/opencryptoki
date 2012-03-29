@@ -40,7 +40,7 @@
  4. Q. How can I get the complete debug logs from openCryptoki?
 
     A. In the opencryptoki version 2.4 release, if opencryptoki has
-       been compiled with debugging enabled (configure --enable-debugging),
+       been compiled with debugging enabled (configure --enable-debug),
        then debug messages are logged to the file specified with
        OPENCRYPTOKI_DEBUG_FILE environment variable. If this environment
        variable is not set, then  opencryptoki debug messages are not logged.

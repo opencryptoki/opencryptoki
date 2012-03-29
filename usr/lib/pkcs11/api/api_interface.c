@@ -3145,6 +3145,14 @@ C_Initialize ( CK_VOID_PTR pVoid )
          ;
       }
 
+      // Create the shared memory lock.
+      if (CreateXProcLock() != CKR_OK) {
+	 free((void *)Anchor);
+	 Anchor = NULL;
+	 OCK_LOG_ERR(ERR_PROCESS_LOCK);
+	 return CKR_FUNCTION_FAILED;
+      }
+
       //Zero out API_Proc_Struct
       //Map Shared Memory Region
       //if ( Shared Memory Mapped not Successful )

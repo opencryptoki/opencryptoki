@@ -109,6 +109,10 @@ enum {
 #define SHA384_HASH_SIZE	48
 #define SHA512_HASH_SIZE	64
 
+#ifndef PATH_MAX
+#define PATH_MAX 4096
+#endif
+
 typedef struct _sha1_ctx {
    unsigned char hash[SHA1_HASH_SIZE+1];
    unsigned int hash_len, tail_len;
