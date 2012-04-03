@@ -1,6 +1,6 @@
 .TH PKCSCONF 1 "May 2007" "@PACKAGE_VERSION@" "openCryptoki"
 .SH NAME
-pkcsconf
+pkcsconf \- configuration utility for the pkcsslotd daemon
 
 .SH SYNOPSIS
 \fBpkcsconf\fP

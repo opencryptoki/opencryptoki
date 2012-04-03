@@ -1,6 +1,6 @@
 .TH PKCS11_STARTUP 1 "May 2007" "@PACKAGE_VERSION@" "openCryptoki"
 .SH NAME
-pkcs11_startup
+pkcs11_startup \- extract tokens from shared object libraries
 
 .SH DESCRIPTION
 Script that detects available tokens from installed shared object
