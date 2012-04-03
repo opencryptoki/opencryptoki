@@ -1,0 +1,22 @@
+.TH PKCS_SLOT 1 "February 2010"  "@PACKAGE_VERSION@" "openCryptoki"
+.SH NAME
+pkcs_slot \- configuration program for opencryptoki
+.SH SYNOPSIS
+.B pkcs_slot
+\fIdevicenumber depth\fR
+.SH DESCRIPTION
+
+This utility is used internal by pkcs11_startup.
+It writes the configuration file to disk as pk_config_data.
+
+.SH "SEE ALSO"
+.PD 0
+.TP
+\fBpkcs11_startup\fP(1),
+.TP
+\fBopencryptoki\fP(7),
+.TP
+\fBpkcsslotd\fP(8),
+.TP
+\fBpk_config_data\fP(5).
+.PD
