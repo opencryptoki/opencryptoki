@@ -18,7 +18,6 @@
 #define PK_DIR      PK_LITE_DIR
 #define SUB_DIR     token_specific.token_subdir
 
-
 #define DBGTAG  token_specific.token_debug_tag
 
 #endif

@@ -36,6 +36,11 @@ AC_PATH_PROG([CHGRP], [chgrp], [/bin/chgrp])
 AC_PROG_SED
 AC_PROG_MKDIR_P
 
+dnl Define custom variables
+
+lockdir=$localstatedir/lock/opencryptoki
+AC_SUBST(lockdir)
+
 dnl ---
 dnl --- Check all --enable/--disable-features
 dnl ---
@@ -621,10 +626,9 @@ else
 fi
 AM_CONDITIONAL([ENABLE_PKCSCCA_MIGRATE], [test "x$enable_pkcscca_migrate" = "xyes"])
 
-
 CFLAGS="$CFLAGS -DPKCS64 -D_XOPEN_SOURCE=500"
 
-CFLAGS+=' -DCONFIG_PATH=\"$(localstatedir)/lib/opencryptoki\" -DSBIN_PATH=\"$(sbindir)\" -DLIB_PATH=\"$(libdir)\"'
+CFLAGS+=' -DCONFIG_PATH=\"$(localstatedir)/lib/opencryptoki\" -DSBIN_PATH=\"$(sbindir)\" -DLIB_PATH=\"$(libdir)\" -DLOCKDIR_PATH=\"$(lockdir)\"'
 
 # At this point, CFLAGS is set to something sensible
 AC_PROG_CC

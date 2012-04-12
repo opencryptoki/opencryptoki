@@ -306,36 +306,43 @@ SOFT_DIR="@localstatedir@/lib/opencryptoki/swtok"
 SOFT_DLL="@libdir@/opencryptoki/stdll/libpkcs11_sw.so"
 SOFT_DLL_FN="libpkcs11_sw.so"
 SOFT_INIT="ST_Initialize"
+SOFT_LOCK="@lockdir@/swtok"
 
 ICA_DIR="@localstatedir@/lib/opencryptoki/lite"
 ICA_DLL="@libdir@/opencryptoki/stdll/libpkcs11_ica.so"
 ICA_DLL_FN="libpkcs11_ica.so"
 ICA_INIT="ST_Initialize"
+ICA_LOCK="@lockdir@/lite"
 
 BCOM_DIR="@localstatedir@/lib/opencryptoki/bcom"
 BCOM_DLL="@libdir@/opencryptoki/stdll/PKCS11_BC.so"
 BCOM_DLL_FN="PKCS11_BC.so"
 BCOM_INIT="ST_Initialize"
+BCOM_LOCK="@lockdir@/bcom"
 
 AEP_DIR="@localstatedir@/lib/opencryptoki/aep"
 AEP_DLL="@libdir@/opencryptoki/stdll/PKCS11_AEP.so"
 AEP_DLL_FN="PKCS11_AEP.so"
 AEP_INIT="ST_Initialize"
+AEP_LOCK="@lockdir@/aep"
 
 CR_DIR="@localstatedir@/lib/opencryptoki/cr"
 CR_DLL="@libdir@/opencryptoki/stdll/PKCS11_CR.so"
 CR_DLL_FN="PKCS11_CR.so"
 CR_INIT="ST_Initialize"
+CR_LOCK="@lockdir@/cr"
 
 TPM_DIR="@localstatedir@/lib/opencryptoki/tpm"
 TPM_DLL="@libdir@/opencryptoki/stdll/libpkcs11_tpm.so"
 TPM_DLL_FN="libpkcs11_tpm.so"
 TPM_INIT="ST_Initialize"
+TPM_LOCK="@lockdir@/tpm"
 
 CCA_DIR="@localstatedir@/lib/opencryptoki/ccatok"
 CCA_DLL="@libdir@/opencryptoki/stdll/libpkcs11_cca.so"
 CCA_DLL_FN="libpkcs11_cca.so"
 CCA_INIT="ST_Initialize"
+CCA_LOCK="@lockdir@/ccatok"
 
 SYSTEM=`uname -s`
 MANUFACTURER=`uname -rs`
@@ -364,6 +371,13 @@ if [ ! -d @localstatedir@/lib/opencryptoki ]
 then
 	@MKDIR_P@ @localstatedir@/lib/opencryptoki
         @CHGRP@ pkcs11 @localstatedir@/lib/opencryptoki
+fi
+
+if [ ! -d @lockdir@ ]
+then
+	@MKDIR_P@ @lockdir@
+	@CHGRP@ pkcs11 @lockdir@
+	@CHMOD@ 0770 @lockdir@
 fi
 
 function create_token_dirs
@@ -403,10 +417,38 @@ function create_token_dirs
 	fi
 }
 
+
+function create_lock_dir
+{
+	# $1 = the directory to create
+	if test ! -d ${1}; then
+		mkdir ${1}
+		if test $? -ne 0; then
+			echo "Creation of token's lock directory ${1}failed." 1>&2
+			echo "You will need to create ${1} manually." 1>&2
+		fi
+	fi
+
+	# Set group pkcs11 on the lock directory
+	@CHGRP@ pkcs11 ${1}
+	if test $? -ne 0; then
+		echo "Setting group pkcs11 on ${1} failed. You need to" 1>&2
+		echo "do this manually, or this token may not function properly." 1>&2
+	fi
+
+	# Set permissions
+	@CHMOD@ 0770 ${1}
+	if test $? -ne 0; then
+		echo "Setting chmod 0770 on ${1} failed. You need to" 1>&2
+		echo "do this manually, or this token may not function properly." 1>&2
+	fi
+}
+
 # If the depth is "soft" then we are configuring the soft token....
 if [ $DEPTH = "soft" ]
 then
     create_token_dirs ${SOFT_DIR}
+    create_lock_dir ${SOFT_LOCK}
     SYS_SLOT="Soft"
 fi
 
@@ -431,12 +473,14 @@ then
 	    echo "Setting chmod 0770 on ${1} failed. You need to" 1>&2
 	    echo "do this manually, or this token may not function properly." 1>&2
     fi
+    create_lock_dir ${TPM_LOCK}
     SYS_SLOT="TPM"
 fi
 
 if [ $DEPTH = "cca" ]
 then
     create_token_dirs ${CCA_DIR}
+    create_lock_dir ${CCA_LOCK}
     SYS_SLOT="CCA"
 fi
 
@@ -448,24 +492,28 @@ fi
 if [ $DEPTH = "ica" ]
 then
     create_token_dirs ${ICA_DIR}
+    create_lock_dir ${ICA_LOCK}
     SYS_SLOT="ICA"
 fi
 
 if [ $DEPTH = "bcom" ]
 then
     create_token_dirs ${BCOM_DIR}
+    create_lock_dir ${BCOM_LOCK}
     SYS_SLOT="BCOM"
 fi
 
 if [ $DEPTH = "aep" ]
 then
     create_token_dirs ${AEP_DIR}
+    create_lock_dir ${AEP_LOCK}
     SYS_SLOT="AEP"
 fi
 
 if [ $DEPTH = "cr" ]
 then
     create_token_dirs ${CR_DIR}
+    create_lock_dir ${CR_LOCK}
     SYS_SLOT="CRNT"
 fi
 

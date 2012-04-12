@@ -318,8 +318,9 @@ void API_UnRegister();
 int DL_Load_and_Init(API_Slot_t *,CK_SLOT_ID);
 
 
-int XProcLock(void);
-int XProcUnLock(void);
+CK_RV CreateXProcLock(void);
+CK_RV XProcLock(void);
+CK_RV XProcUnLock(void);
 
 void _init(void);
 void get_sess_count(CK_SLOT_ID, CK_ULONG *);

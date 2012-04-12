@@ -319,7 +319,7 @@
 #include "tok_spec_struct.h"
 #include "pkcs32.h"
 
-#include "../api/apiproto.h"
+/* #include "../api/apiproto.h" */
 
 void
 set_perm(int file)

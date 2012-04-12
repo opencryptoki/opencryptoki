@@ -2059,5 +2059,4 @@ void dump_shm(const char *);
  * leaf key or the private leaf key */
 #define CKA_ENC_AUTHDATA	CKA_VENDOR_DEFINED + 0x01000001
 
-#define OCK_STDLL_LOCK_FILE	"/var/lock/LCK..opencryptoki_stdll"
 #endif

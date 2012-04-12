@@ -103,13 +103,12 @@ st_Initialized()
 	return TRUE;
 }
 
-extern int spinxplfd;
-
 void
 Fork_Initializer(void)
 {
 
-	spinxplfd = -1;
+	// Initialize spinlock.
+	XProcLock_Init();
 
 	// Force logout.  This cleans out the private session and list
 	// and cleans out the private object map
@@ -335,6 +334,12 @@ ST_Initialize(void **FunctionList,
 	MY_CreateMutex( &sess_list_mutex );
 	MY_CreateMutex( &login_mutex     );
 
+	/* Create lockfile */
+	if (CreateXProcLock() != CKR_OK) {
+		OCK_LOG_ERR(ERR_PROCESS_LOCK);
+		goto done;
+	}
+
 	init_data_store((char *)PK_DIR);
 
 
@@ -423,8 +428,7 @@ CK_RV SC_Finalize( CK_SLOT_ID sid )
 	object_mgr_purge_token_objects();
 	detach_shm();
 	// close spin lock file
-	if (spinxplfd != -1)
-	  close(spinxplfd);
+	CloseXProcLock();
 	if ( token_specific.t_final != NULL) {
 		token_specific.t_final();
 	}

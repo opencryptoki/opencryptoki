@@ -323,6 +323,7 @@
 #include <sys/stat.h>
 #include <fcntl.h>
 #include <sys/file.h>
+
 static int xplfd=-1;
 
 #include <libgen.h>
@@ -335,26 +336,49 @@ extern  API_Proc_Struct_t  *Anchor;
 #include <stdarg.h>
 
 
-int
-XProcLock(void)
+CK_RV
+CreateXProcLock(void)
 {
-   if (xplfd == -1 ) {
-        xplfd = open(OCK_API_LOCK_FILE,O_CREAT|O_RDWR,S_IRUSR|S_IWUSR|S_IRGRP|S_IWGRP);
-	if (xplfd == -1)
-	    OCK_LOG_DEBUG("Failed to open lock file,%s: %s\n",
-                          OCK_API_LOCK_FILE, strerror(errno));
-   }
-   if (xplfd != -1)
-	flock(xplfd,LOCK_EX);
+	struct stat statbuf;
 
-   return CKR_OK;
+	if (xplfd == -1 ) {
+
+		/* The slot mgr daemon should have already created lock,
+		 * so just open it so we can get a lock...
+		 */
+		if (stat(OCK_API_LOCK_FILE, &statbuf) == 0)
+			xplfd = open(OCK_API_LOCK_FILE, O_RDONLY);
+
+		if (xplfd == -1) {
+			OCK_SYSLOG(LOG_ERR, "Could not open %s\n",
+				   OCK_API_LOCK_FILE);
+			return CKR_FUNCTION_FAILED;
+		}
+	}
+
+	return CKR_OK;
 }
 
-int 
+CK_RV
+XProcLock(void)
+{
+	if (xplfd != -1)
+		flock(xplfd, LOCK_EX);
+	else 
+		OCK_LOG_DEBUG("No file descriptor to lock with.\n");
+
+	return CKR_OK;
+}
+
+CK_RV
 XProcUnLock(void)
 {
-   flock(xplfd,LOCK_UN);
-   return CKR_OK;
+	if (xplfd != -1)
+		flock(xplfd,LOCK_UN);
+	else
+		OCK_LOG_DEBUG("No file descriptor to unlock with.\n");
+
+	return CKR_OK;
 }
 
 unsigned long
