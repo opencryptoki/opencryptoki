@@ -180,6 +180,12 @@ AC_ARG_WITH([xcryptolinz],
 	[],
 	[with_xcryptolinz=check])
 
+dnl --- systemd system unit files location
+AC_ARG_WITH([systemd],
+	AS_HELP_STRING([--with-systemd@<:@=DIR@:>@],[systemd system unit files location]),
+	[],
+	[with_systemd=no])
+
 dnl ---
 dnl ---
 dnl --- Now that we have all the options, let's check for a valid build
@@ -500,6 +506,25 @@ AM_CONDITIONAL([ENABLE_DAEMON], [test "x$enable_daemon" = "xyes"])
 dnl --- enable_library
 AM_CONDITIONAL([ENABLE_LIBRARY], [test "x$enable_library" = "xyes"])
 
+dnl --- enable systemd and set unit dir
+if test "x$with_systemd" != "xno"; then
+	if test "x$with_systemd" != "xyes" -a "x$with_systemd" != "xcheck"; then
+		unitdir=$with_systemd
+		enable_systemd=yes
+	else
+		if test "x$with_systemd" = "xyes"; then
+			unitdir=${ac_default_prefix}/lib/systemd/system
+			enable_systemd=yes
+		else
+			enable_systemd=no
+		fi
+	fi
+else
+	enable_systemd=no
+fi
+AM_CONDITIONAL([ENABLE_SYSTEMD], [test "x$enable_systemd" = "xyes"])
+AC_SUBST(unitdir)
+
 dnl --- enable_icatok
 if test "x$enable_icatok" = "xyes"; then
 	if test "x$with_libica" != "xyes"; then
@@ -682,6 +707,7 @@ echo "	Debug build:		$enable_debug"
 echo "	Testcases:		$enable_testcases"
 echo "	Daemon build:		$enable_daemon"
 echo "	Library build:		$enable_library"
+echo "	Systemd service:	$enable_systemd"
 echo
 echo "Enabled token types:"
 echo "	ICA token:		$enable_icatok"
@@ -696,6 +722,6 @@ echo
 echo "Token-specific features:"
 echo "	pkcsccamigrate build:	$enable_pkcscca_migrate"
 echo
-echo "CLFAGS=$CFLAGS"
+echo "CFLAGS=$CFLAGS"
 echo
 

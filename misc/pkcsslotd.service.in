@@ -1,0 +1,12 @@
+[Unit]
+Description=Daemon which manages cryptographic hardware tokens for the openCryptoki package
+After=syslog.target
+
+[Service]
+Type=forking
+PIDFile=/var/run/pkcsslotd.pid
+ExecStartPre=@sbindir@/pkcs11_startup
+ExecStart=@sbindir@/pkcsslotd
+
+[Install]
+WantedBy=multi-user.target

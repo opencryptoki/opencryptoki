@@ -23,6 +23,7 @@ man/man5/pk_config_data.5
 man/man7/opencryptoki.7
 man/man8/pkcsslotd.8
 misc/pkcsslotd
+misc/pkcsslotd.service
 missing
 testcases/common/libcommon.la
 testcases/crypto/aes_tests
