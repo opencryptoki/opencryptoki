@@ -4,9 +4,13 @@
   test vectors. 
 - Testcase directory restructured for future improvements.
 - Allow tpm stdll to get SRK passwd and mode from new env variables.
+  See [1] for info on how to use this feature and please report any bugs.
 - Renamed spinlocks for shared memory to /var/lock dir and did 
   some cleanup of unused locking schemes.
 - Various bugfixes and cleanup.
+
+[1] http://opencryptoki.git.sourceforge.net/git/gitweb.cgi?p=opencryptoki/opencryptoki;a=blob;f=doc/README.tpm_stdll;h=dda0d2263cfbb3df8c65ebc64b8006e3242f6321;hb=HEAD#l58
+
 
 * opencryptoki-2.4 
 - Support for Elliptic Curve Support in CCA token.
