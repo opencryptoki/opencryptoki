@@ -1,3 +1,7 @@
+* opencryptoki-2.4.2 (April 27, 2012)
+- Re-factored spinlocks, such that each token has its own spinlock
+  in its own directory relative to /var/locks/opencryptoki.
+
 * opencryptoki-2.4.1 (February 21, 2012)
 - SHA256 support added for CCA token
 - Several crypto algorithm testcases refactored to include published
