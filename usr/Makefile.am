@@ -5,6 +5,6 @@ endif
 SUBDIRS = lib $(DAEMONDIRS)
 
 install-data-hook:
-	$(MKDIR_P) $(lockdir)
-	$(CHGRP) pkcs11 $(lockdir)
-	$(CHMOD) 0770 $(lockdir)
+	$(MKDIR_P) $(DESTDIR)$(lockdir)
+	$(CHGRP) pkcs11 $(DESTDIR)$(lockdir)
+	$(CHMOD) 0770 $(DESTDIR)$(lockdir)
