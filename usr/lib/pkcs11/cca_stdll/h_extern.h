@@ -1642,10 +1642,6 @@ CK_RV    object_mgr_get_attribute_values( SESSION           * sess,
 CK_RV    object_mgr_get_object_size( CK_OBJECT_HANDLE   handle,
                                      CK_ULONG         * size );
 
-CK_BBOOL object_mgr_invalidate_handle1( CK_OBJECT_HANDLE handle );
-
-CK_BBOOL object_mgr_invalidate_handle2( OBJECT *obj );
-
 CK_BBOOL object_mgr_purge_session_objects( SESSION       * sess,
                                            SESS_OBJ_TYPE   type );
 
