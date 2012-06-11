@@ -844,7 +844,7 @@ key_mgr_unwrap_key( SESSION           * sess,
          //
          break;
      default:
-	OCK_LOG_ERROR(ERR_MECHANISM_INVALID);
+	OCK_LOG_ERR(ERR_MECHANISM_INVALID);
 	return CKR_MECHANISM_INVALID;
    }
 
