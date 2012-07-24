@@ -1912,7 +1912,7 @@ ckm_rsa_encrypt( CK_BYTE   * in_data,
       return CKR_FUNCTION_FAILED;
    }
    
-   rc = token_specific.t_rsa_encrypt(in_data,in_data_len,out_data,key_obj);
+   rc = token_specific.t_rsa_encrypt(in_data,in_data_len,out_data,NULL,key_obj);
    if (rc != CKR_OK)
       OCK_LOG_ERR(ERR_RSA_ENCRYPT_TOK_SPEC);
 
@@ -1948,7 +1948,7 @@ ckm_rsa_decrypt( CK_BYTE   * in_data,
       OCK_LOG_ERR(ERR_FUNCTION_FAILED);
       return CKR_FUNCTION_FAILED;
    }
-   rc = token_specific.t_rsa_decrypt(in_data,in_data_len,out_data,key_obj);
+   rc = token_specific.t_rsa_decrypt(in_data,in_data_len,out_data,NULL,key_obj);
    if (rc != CKR_OK)
       OCK_LOG_ERR(ERR_RSA_DECRYPT_TOK_SPEC);
 

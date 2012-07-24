@@ -412,7 +412,7 @@ void adjust_des_key_parity_bits(CK_BYTE *des_key, CK_ULONG key_size, CK_BBOOL pa
 
 
 CK_RV
-token_specific_des_key_gen(CK_BYTE  *des_key,CK_ULONG len)
+token_specific_des_key_gen(CK_BYTE  *des_key,CK_ULONG len, CK_ULONG key_size)
 {
       
    // Nothing different to do for DES or TDES here as this is just
@@ -2037,6 +2037,7 @@ CK_RV
 token_specific_rsa_encrypt( CK_BYTE   * in_data,
                  CK_ULONG    in_data_len,
                  CK_BYTE   * out_data,
+                 CK_ULONG  * out_data_len,
                  OBJECT    * key_obj )
 {
    CK_ATTRIBUTE      * modulus = NULL;
@@ -2093,6 +2094,7 @@ CK_RV
 token_specific_rsa_decrypt( CK_BYTE   * in_data,
                  CK_ULONG    in_data_len,
                  CK_BYTE   * out_data,
+                 CK_ULONG  * out_data_len,
                  OBJECT    * key_obj )
 {
    CK_ATTRIBUTE      * modulus  = NULL;

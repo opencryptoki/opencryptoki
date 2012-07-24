@@ -332,12 +332,16 @@
 token_spec_t token_specific  = {
      SW_CONFIG_PATH,
      "swtok",
-     "SW_STDLL_Debug",
      &token_specific_init,
      &tok_slot2local,
      &token_rng,
      &token_specific_session,
      &token_specific_final,
+     NULL,
+     NULL,
+     NULL,
+     NULL,
+     NULL,
      &token_specific_des_key_gen,
      &token_specific_des_ecb,
      &token_specific_des_cbc,
@@ -349,6 +353,9 @@ token_spec_t token_specific  = {
      &token_specific_rsa_decrypt,
      &token_specific_rsa_encrypt,
      &token_specific_rsa_generate_keypair,
+     NULL,
+     NULL,
+     NULL,
 /* Begin code contributed by Corrent corp. */
      // DH
      &token_specific_dh_pkcs_derive,

@@ -318,7 +318,7 @@ CK_RV token_specific_init(char *,CK_SLOT_ID );
 CK_RV  token_specific_session(CK_SLOT_ID);
 CK_RV token_specific_final(void);
 
-CK_RV token_specific_des_key_gen(CK_BYTE  *,CK_ULONG) ;
+CK_RV token_specific_des_key_gen(CK_BYTE  *,CK_ULONG, CK_ULONG) ;
 
 CK_RV token_specific_des_ecb(CK_BYTE *,
                   CK_ULONG ,
@@ -354,12 +354,14 @@ CK_RV
 token_specific_rsa_decrypt( CK_BYTE   * ,
                   CK_ULONG    ,
                   CK_BYTE   *,
+                  CK_ULONG  *,
                   OBJECT    *);
 
 CK_RV
 token_specific_rsa_encrypt( CK_BYTE   * ,
                    CK_ULONG    ,
                    CK_BYTE   * ,
+                   CK_ULONG  *,
                    OBJECT    * );
 
 CK_RV

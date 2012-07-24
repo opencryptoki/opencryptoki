@@ -1785,7 +1785,7 @@ ckm_des3_key_gen( TEMPLATE *tmpl )
    CK_BYTE            des_key[3 * DES_KEY_SIZE];
    CK_ULONG           rc;
 
-   rc = token_specific.t_des_key_gen(des_key, sizeof(des_key));
+   rc = token_specific.t_des_key_gen(des_key, sizeof(des_key), 0);
    if (rc != CKR_OK)
       return rc;
 

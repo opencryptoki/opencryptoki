@@ -310,12 +310,16 @@
 token_spec_t token_specific  = {
      LITE_CONFIG_PATH,
      "lite",
-     "ICA_STDLL_Debug",
      &token_specific_init,
      &tok_slot2local,
      &token_rng,
      &token_specific_session,
      &token_specific_final,
+     NULL,
+     NULL,
+     NULL,
+     NULL,
+     NULL,
      &token_specific_des_key_gen,
      &token_specific_des_ecb,
      &token_specific_des_cbc,
@@ -327,11 +331,18 @@ token_spec_t token_specific  = {
      &token_specific_rsa_decrypt,
      &token_specific_rsa_encrypt,
      &token_specific_rsa_generate_keypair,
+     // Elliptic Curve
+     NULL,
+     NULL,
+     NULL,
 #ifndef NODH
      // DH
      &token_specific_dh_pkcs_derive,
      &token_specific_dh_pkcs_key_pair_gen,
-#endif
+#else
+    NULL,
+    NULL,
+#endif 
      // SHA
      &token_specific_sha_init,
      &token_specific_sha_update,
@@ -346,13 +357,11 @@ token_spec_t token_specific  = {
      &token_specific_sha5_init,
      &token_specific_sha5_update,
      &token_specific_sha5_final,
-#ifndef NOAES
      // AES
      &token_specific_aes_key_gen,
      &token_specific_aes_ecb,
      &token_specific_aes_cbc,
      &token_specific_aes_ctr,
-#endif
      &token_specific_get_mechanism_list,
      &token_specific_get_mechanism_info
 };
