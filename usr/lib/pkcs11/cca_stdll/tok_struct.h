@@ -27,12 +27,16 @@
 token_spec_t token_specific  = {
      CCA_CONFIG_PATH,
      "ccatok",
-     "CCA_STDLL_Debug",
      &token_specific_init,
      &tok_slot2local,
      &token_rng,
      &token_specific_session,
      &token_specific_final,
+     NULL,
+     NULL,
+     NULL,
+     NULL,
+     NULL,
      &token_specific_des_key_gen,
      &token_specific_des_ecb,
      &token_specific_des_cbc,
@@ -44,9 +48,9 @@ token_spec_t token_specific  = {
      &token_specific_rsa_encrypt,
      &token_specific_rsa_sign,
      &token_specific_rsa_verify,
+     &token_specific_rsa_generate_keypair,
      &token_specific_ec_sign,
      &token_specific_ec_verify,
-     &token_specific_rsa_generate_keypair,
      &token_specific_ec_generate_keypair,
 #ifndef NODH
 /* Begin code contributed by Corrent corp. */
@@ -54,6 +58,9 @@ token_spec_t token_specific  = {
      &token_specific_dh_pkcs_derive,
      &token_specific_dh_pkcs_key_pair_gen,
 /* End code contributed by Corrent corp. */
+#else
+    NULL,
+    NULL,
 #endif
      // SHA-1
      NULL,
@@ -63,12 +70,25 @@ token_spec_t token_specific  = {
      token_specific_sha2_init,
      token_specific_sha2_update,
      token_specific_sha2_final,
+    // SHA-384
+    NULL,
+    NULL,
+    NULL,
+    // SHA-512
+    NULL,
+    NULL,
+    NULL,
 #ifndef NOAES
      // AES
      &token_specific_aes_key_gen,
      &token_specific_aes_ecb,
      &token_specific_aes_cbc,
+#else
+     NULL,
+     NULL,
+     NULL,
 #endif
+     NULL,
      &token_specific_get_mechanism_list,
      &token_specific_get_mechanism_info,
      &token_specific_object_add

@@ -354,6 +354,8 @@ struct token_specific_struct{
 			      CK_ULONG *,
                               OBJECT *);
 
+   CK_RV (*t_rsa_sign)(CK_BYTE *, CK_ULONG, CK_BYTE *, CK_ULONG *, OBJECT *);
+   CK_RV (*t_rsa_verify)(CK_BYTE *, CK_ULONG, CK_BYTE *, CK_ULONG, OBJECT *);
    CK_RV (*t_rsa_generate_keypair)(TEMPLATE *, TEMPLATE *);
 
    CK_RV (*t_ec_sign)(CK_BYTE *, CK_ULONG, CK_BYTE *, CK_ULONG *, OBJECT *);
@@ -451,6 +453,7 @@ struct token_specific_struct{
 				      CK_ULONG_PTR);
    CK_RV (*t_get_mechanism_info)(CK_MECHANISM_TYPE,
 				      CK_MECHANISM_INFO_PTR);
+   CK_RV (*t_object_add)(OBJECT *);
 
 };
 

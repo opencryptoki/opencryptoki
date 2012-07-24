@@ -51,7 +51,7 @@ opencryptoki_stdll_libpkcs11_cca_la_SOURCES = asn1.c			\
 					      ../common/p11util.c	\
 					      cca_specific.c
 
-noinst_HEADERS = h_extern.h tok_spec_struct.h defs.h csulincl.h		\
+noinst_HEADERS = h_extern.h defs.h csulincl.h		\
 		 host_defs.h cca_stdll.h tok_specific.h
 
 install-data-hook:

@@ -367,6 +367,15 @@ token_specific_rsa_encrypt( CK_BYTE   * ,
 CK_RV
 token_specific_rsa_generate_keypair( TEMPLATE  * ,
                             TEMPLATE  * );
+
+CK_RV
+token_specific_rsa_sign(CK_BYTE *, CK_ULONG, CK_BYTE *, CK_ULONG *,
+                                OBJECT *);
+
+CK_RV
+token_specific_rsa_verify(CK_BYTE *, CK_ULONG, CK_BYTE *, CK_ULONG,
+                                OBJECT *);
+
 /* Begin code contributed by Corrent corp. */
 #ifndef NODH
 CK_RV
@@ -509,5 +518,7 @@ CK_RV
 token_specific_get_mechanism_info(CK_MECHANISM_TYPE type,
                                   CK_MECHANISM_INFO_PTR pInfo);
 
-#endif
+CK_RV
+token_specific_object_add(OBJECT *);
 
+#endif

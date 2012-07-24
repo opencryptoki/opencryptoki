@@ -330,6 +330,8 @@ token_spec_t token_specific  = {
 
      &token_specific_rsa_decrypt,
      &token_specific_rsa_encrypt,
+     NULL,
+     NULL,
      &token_specific_rsa_generate_keypair,
      // Elliptic Curve
      NULL,
@@ -363,7 +365,8 @@ token_spec_t token_specific  = {
      &token_specific_aes_cbc,
      &token_specific_aes_ctr,
      &token_specific_get_mechanism_list,
-     &token_specific_get_mechanism_info
+     &token_specific_get_mechanism_info,
+     NULL
 };
 
 #endif

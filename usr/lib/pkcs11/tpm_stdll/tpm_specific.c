@@ -2012,7 +2012,7 @@ token_specific_final()
 }
 
 CK_RV
-token_specific_des_key_gen(CK_BYTE *des_key, CK_ULONG len)
+token_specific_des_key_gen(CK_BYTE *des_key, CK_ULONG len, CK_ULONG key_size)
 {
 	// Nothing different to do for DES or TDES here as this is just
 	// random data...  Validation handles the rest

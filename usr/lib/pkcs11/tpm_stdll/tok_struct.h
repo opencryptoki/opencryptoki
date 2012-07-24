@@ -34,12 +34,16 @@
 struct token_specific_struct token_specific = {
      TPM_CONFIG_PATH,
      "tpm",
-     "TPM_STDLL_Debug",
      &token_specific_init,
      &tok_slot2local,
      &token_rng,
      &token_specific_session,
      &token_specific_final,
+     &token_specific_verify_so_pin,
+     &token_specific_login,
+     &token_specific_logout,
+     &token_specific_init_pin,
+     &token_specific_set_pin,
      &token_specific_des_key_gen,
      &token_specific_des_ecb,
      &token_specific_des_cbc,
@@ -50,20 +54,37 @@ struct token_specific_struct token_specific = {
      &token_specific_rsa_sign,
      &token_specific_rsa_verify,
      &token_specific_rsa_generate_keypair,
+     NULL,
+     NULL,
+     NULL,
 #ifndef NODH
      &token_specific_dh_pkcs_derive,
      &token_specific_dh_pkcs_key_pair_gen,
+#else
+     NULL,
+     NULL,
 #endif
      // SHA-1 - use the internal implementation
+     NULL,
+     NULL,
+     NULL,
+     // SHA-256
+     NULL,
+     NULL,
+     NULL,
+     // SHA-384
+     NULL,
+     NULL,
+     NULL,
+     // SHA-512
      NULL,
      NULL,
      NULL,
      &token_specific_aes_key_gen,
      &token_specific_aes_ecb,
      &token_specific_aes_cbc,
-     &token_specific_login,
-     &token_specific_logout,
-     &token_specific_init_pin,
-     &token_specific_set_pin,
-     &token_specific_verify_so_pin
+     NULL,
+     NULL,
+     NULL,
+     NULL
 };

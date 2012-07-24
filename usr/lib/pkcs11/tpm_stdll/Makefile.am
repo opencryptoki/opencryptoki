@@ -52,7 +52,7 @@ opencryptoki_stdll_libpkcs11_tpm_la_SOURCES = ../common/asn1.c           \
                                               tpm_specific.c             \
                                               tpm_openssl.c tpm_util.c
 
-noinst_HEADERS = h_extern.h tok_spec_struct.h defs.h	\
+noinst_HEADERS = h_extern.h defs.h	\
 		 host_defs.h tpm_specific.h tok_specific.h
 
 install-data-hook:

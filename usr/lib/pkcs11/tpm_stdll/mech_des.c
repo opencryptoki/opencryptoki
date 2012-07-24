@@ -1304,7 +1304,7 @@ ckm_des_key_gen( TEMPLATE *tmpl )
    // The size is passed in to allow the same token specific code to
    // do both DES and TDES
    do {
-      rc = token_specific.t_des_key_gen(des_key,DES_KEY_SIZE);
+      rc = token_specific.t_des_key_gen(des_key,DES_KEY_SIZE,0);
    } while (des_check_weak_key(des_key) != FALSE  && rc != CKR_OK);
    if (rc != CKR_OK)
       goto done;
