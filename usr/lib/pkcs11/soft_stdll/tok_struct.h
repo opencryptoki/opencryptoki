@@ -337,27 +337,28 @@ token_spec_t token_specific  = {
      &token_rng,
      &token_specific_session,
      &token_specific_final,
-     NULL,
-     NULL,
-     NULL,
-     NULL,
-     NULL,
+     NULL,		// verify_so_pin
+     NULL,		// login
+     NULL,		// logout
+     NULL,		// init_pin
+     NULL,		// set_pin
+     // DES
      &token_specific_des_key_gen,
      &token_specific_des_ecb,
      &token_specific_des_cbc,
-
+     // Triple DES
      &token_specific_tdes_ecb,
      &token_specific_tdes_cbc,
-
-
+     // RSA
      &token_specific_rsa_decrypt,
      &token_specific_rsa_encrypt,
-     NULL,
-     NULL,
+     NULL,		// rsa_sign
+     NULL,		// rsa_verify
      &token_specific_rsa_generate_keypair,
-     NULL,
-     NULL,
-     NULL,
+     // Elliptic Curve
+     NULL,		// ec_sign
+     NULL,		// ec_verify
+     NULL,		// ec_generate_keypair
 /* Begin code contributed by Corrent corp. */
      // DH
      &token_specific_dh_pkcs_derive,
@@ -368,22 +369,22 @@ token_spec_t token_specific  = {
      NULL, // specific SHA-1 is new. As a TODO, the soft SHA-1 routines
      NULL, // should probably move to functions plugged in here.
      /* SHA-256 */
-     NULL,
-     NULL,
-     NULL,
+     NULL,		// sha2_init	
+     NULL,		// sha2_update
+     NULL,		// sha2_final
      /* SHA-384 */
-     NULL,
-     NULL,
-     NULL,
+     NULL,		// sha3_init
+     NULL,		// sha3_update
+     NULL,		// sha3_final
      /* SHA-512 */
-     NULL,
-     NULL,
-     NULL,
+     NULL,		// sha5_init
+     NULL,		// sha5_update
+     NULL,		// sha5_final
      // AES
      &token_specific_aes_key_gen,
      &token_specific_aes_ecb,
      &token_specific_aes_cbc,
-     NULL,
+     NULL,		// aes_ctr
      &token_specific_get_mechanism_list,
      &token_specific_get_mechanism_info,
      NULL

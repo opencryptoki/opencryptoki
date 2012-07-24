@@ -315,28 +315,28 @@ token_spec_t token_specific  = {
      &token_rng,
      &token_specific_session,
      &token_specific_final,
-     NULL,
-     NULL,
-     NULL,
-     NULL,
-     NULL,
+     NULL,		// verify_so_pin
+     NULL,		// login
+     NULL,		// logout
+     NULL,		// init_pin
+     NULL,		// set_pin
+     // DES
      &token_specific_des_key_gen,
      &token_specific_des_ecb,
      &token_specific_des_cbc,
-
+     // Triple DES
      &token_specific_tdes_ecb,
      &token_specific_tdes_cbc,
-
-
+     // RSA
      &token_specific_rsa_decrypt,
      &token_specific_rsa_encrypt,
-     NULL,
-     NULL,
+     NULL,		// rsa_sign
+     NULL,		// rsa_verify
      &token_specific_rsa_generate_keypair,
      // Elliptic Curve
-     NULL,
-     NULL,
-     NULL,
+     NULL,		// ec_sign
+     NULL,		// ec_verify
+     NULL,		// ec_generate_keypaiir
 #ifndef NODH
      // DH
      &token_specific_dh_pkcs_derive,
@@ -353,9 +353,11 @@ token_spec_t token_specific  = {
      &token_specific_sha2_init,
      &token_specific_sha2_update,
      &token_specific_sha2_final,
+     // SHA-384
      &token_specific_sha3_init,
      &token_specific_sha3_update,
      &token_specific_sha3_final,
+     // SHA-512
      &token_specific_sha5_init,
      &token_specific_sha5_update,
      &token_specific_sha5_final,

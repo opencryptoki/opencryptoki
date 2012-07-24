@@ -44,19 +44,23 @@ struct token_specific_struct token_specific = {
      &token_specific_logout,
      &token_specific_init_pin,
      &token_specific_set_pin,
+     // DES
      &token_specific_des_key_gen,
      &token_specific_des_ecb,
      &token_specific_des_cbc,
+     // Triple DES
      &token_specific_tdes_ecb,
      &token_specific_tdes_cbc,
+     // RSA
      &token_specific_rsa_decrypt,
      &token_specific_rsa_encrypt,
      &token_specific_rsa_sign,
      &token_specific_rsa_verify,
      &token_specific_rsa_generate_keypair,
-     NULL,
-     NULL,
-     NULL,
+     // Elliptic Curve
+     NULL,		// ec_sign
+     NULL,		// ec_verify
+     NULL,		// ec_generate_keypair
 #ifndef NODH
      &token_specific_dh_pkcs_derive,
      &token_specific_dh_pkcs_key_pair_gen,
@@ -65,21 +69,22 @@ struct token_specific_struct token_specific = {
      NULL,
 #endif
      // SHA-1 - use the internal implementation
-     NULL,
-     NULL,
-     NULL,
+     NULL,		// sha_init
+     NULL,		// sha_update
+     NULL,		// sha_final
      // SHA-256
-     NULL,
-     NULL,
-     NULL,
+     NULL,		// sha2_init
+     NULL,		// sha2_update
+     NULL,		// sha2_final
      // SHA-384
-     NULL,
-     NULL,
-     NULL,
+     NULL,		// sha3_init
+     NULL,		// sha3_update
+     NULL,		// sha3_final
      // SHA-512
-     NULL,
-     NULL,
-     NULL,
+     NULL,		// sha5_init
+     NULL,		// sha5_update
+     NULL,		// sha5_final
+     // AES
      &token_specific_aes_key_gen,
      &token_specific_aes_ecb,
      &token_specific_aes_cbc,
