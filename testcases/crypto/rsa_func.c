@@ -103,6 +103,18 @@ CK_RV do_EncryptDecryptRSA(struct GENERATED_TEST_SUITE_INFO *tsuite)
 			}
 		}
 
+		// tpm special cases:
+		// tpm token can only use public exponent 0x010001 (65537)
+		// so skip test if invalid public exponent is used
+		if (is_tpm_token(slot_id)) {
+			if ((! is_valid_tpm_pubexp(tsuite->tv[i].publ_exp,
+				tsuite->tv[i].publ_exp_len) ) || (! is_valid_tpm_modbits(tsuite->tv[i].modbits))) {
+				testcase_skip("TPM Token cannot "
+					"be used with publ_exp.='%s'",s);
+				continue;
+			}
+		}
+
 		free(s);
 
 		// clear buffers
@@ -310,8 +322,17 @@ CK_RV do_SignVerifyRSA(struct GENERATED_TEST_SUITE_INFO *tsuite)
 
 		if (is_cca_token(slot_id)) {
                         if (! is_valid_cca_pubexp(tsuite->tv[i].publ_exp,
-                                tsuite->tv[i].publ_exp_len) ) {
+                                tsuite->tv[i].publ_exp_len)) {
                                 testcase_skip("CCA Token cannot "
+                                        "be used with publ_exp='%s'.",s);
+                                continue;
+                        }
+                }
+
+		if (is_tpm_token(slot_id)) {
+                        if ((! is_valid_tpm_pubexp(tsuite->tv[i].publ_exp,
+                                tsuite->tv[i].publ_exp_len)) || (!is_valid_tpm_modbits(tsuite->tv[i].modbits))) {
+                                testcase_skip("TPM Token cannot "
                                         "be used with publ_exp='%s'.",s);
                                 continue;
                         }

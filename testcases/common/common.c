@@ -418,6 +418,39 @@ int is_cca_token(CK_SLOT_ID slot_id)
         return strstr((const char *)tokinfo.model, "CCA") != NULL;
 }
 
+/** Returns true if slot_id is a TPM Token **/
+int is_tpm_token(CK_SLOT_ID slot_id)
+{
+        CK_RV           rc;
+        CK_TOKEN_INFO   tokinfo;
+
+        rc = funcs->C_GetTokenInfo(slot_id, &tokinfo);
+        if (rc != CKR_OK) {
+                return -1;
+        }
+
+        return strstr((const char *)tokinfo.model, "TPM") != NULL;
+}
+
+/** Returns true if pubexp is valid for CCA Tokens **/
+int is_valid_tpm_pubexp(CK_BYTE pubexp[], CK_ULONG pubexp_len)
+{
+        CK_BYTE exp65537[] = {0x01,0x00,0x01}; // 65537
+
+        return (pubexp_len == 3 && (! memcmp(pubexp, exp65537, 3) ));
+}
+
+int is_valid_tpm_modbits(CK_ULONG modbits)
+{
+	switch(modbits) {
+	case 512:
+	case 1024:
+	case 2048:
+		return 1;
+	default:
+		return 0;
+	}
+}
 
 int get_so_pin(CK_BYTE *dest)
 {
