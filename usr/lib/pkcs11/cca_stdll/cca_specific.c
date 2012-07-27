@@ -1753,6 +1753,7 @@ token_specific_sha2_update(DIGEST_CONTEXT *c, CK_BYTE *in_data, CK_ULONG in_data
 	if (!c->multi) {
 		memcpy(rule_array, "SHA-256 ONLY    ", CCA_KEYWORD_SIZE * 2);
 		DBG("part only op");
+		cca_ctx->part = CCA_HASH_PART_ONLY;
 		goto hash;
 	}
 
@@ -1832,6 +1833,9 @@ token_specific_sha2_final(DIGEST_CONTEXT *c, CK_BYTE *out_data, CK_ULONG *out_da
                DBG("CSNBOWH (SHA256 HASH) out buf too small: %lu", *out_data_len);
                return CKR_BUFFER_TOO_SMALL;
        }
+
+       if (cca_ctx->part == CCA_HASH_PART_ONLY)
+               goto final;
 
        if (cca_ctx->part == CCA_HASH_PART_FIRST) {
                memcpy(rule_array, "SHA-256 ONLY    ", CCA_KEYWORD_SIZE * 2);
