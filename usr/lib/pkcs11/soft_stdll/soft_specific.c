@@ -1526,9 +1526,15 @@ token_specific_rsa_x509_verify_recover(CK_BYTE *signature, CK_ULONG sig_len,
 
 
 CK_RV
-token_specific_aes_key_gen( CK_BYTE *key, CK_ULONG len )
+token_specific_aes_key_gen( CK_BYTE **key, CK_ULONG *len )
 {
-	return rng_generate(key, len);
+	if ((*key = (CK_BYTE *)malloc(*len)) == NULL) {
+		OCK_LOG_ERR(ERR_HOST_MEMORY);
+		return CKR_HOST_MEMORY;
+	} else
+		memset(*key, 0, *len);
+
+	return rng_generate(*key, *len);
 }
 
 CK_RV

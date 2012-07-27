@@ -435,8 +435,8 @@ struct token_specific_struct{
 			 CK_ULONG *);
    // Token Specific AES functions
    CK_RV (*t_aes_key_gen)(
-			CK_BYTE *,
-			CK_ULONG);
+			CK_BYTE **,
+			CK_ULONG *);
    
    CK_RV (*t_aes_ecb)(
 		   	CK_BYTE *,

@@ -318,8 +318,7 @@ aes_ecb_encrypt( SESSION           *sess,
 {
    OBJECT       *key       = NULL;
    CK_ATTRIBUTE *attr      = NULL;
-   CK_BYTE       key_value[AES_KEY_SIZE_256];
-   CK_KEY_TYPE   keytype;
+   CK_BYTE       key_value[MAX_AES_KEY_SIZE];
    CK_RV         rc;
 
 
@@ -336,12 +335,6 @@ aes_ecb_encrypt( SESSION           *sess,
       OCK_LOG_ERR(ERR_OBJMGR_FIND_MAP);
       return rc;
    }
-   rc = template_attribute_find( key->template, CKA_KEY_TYPE, &attr );
-   if (rc == FALSE){
-      OCK_LOG_ERR(ERR_FUNCTION_FAILED);
-      return CKR_FUNCTION_FAILED;
-   }
-   keytype = *(CK_KEY_TYPE *)attr->pValue;
 
    rc = template_attribute_find( key->template, CKA_VALUE, &attr );
    if (rc == FALSE){
@@ -351,6 +344,7 @@ aes_ecb_encrypt( SESSION           *sess,
   
    // We have to use ulValueLen here, since with AES we don't
    // know how large the key is. 
+   memset(key_value, 0, sizeof(key_value));
    memcpy( key_value, attr->pValue, attr->ulValueLen );
 
    if (length_only == TRUE) {
@@ -383,8 +377,7 @@ aes_ecb_decrypt( SESSION           *sess,
 {
    OBJECT       *key       = NULL;
    CK_ATTRIBUTE *attr      = NULL;
-   CK_BYTE       key_value[AES_KEY_SIZE_256];
-   CK_KEY_TYPE   keytype;
+   CK_BYTE       key_value[MAX_AES_KEY_SIZE];
    CK_RV         rc;
 
 
@@ -404,12 +397,6 @@ aes_ecb_decrypt( SESSION           *sess,
       OCK_LOG_ERR(ERR_OBJMGR_FIND_MAP);
       return rc; 
    }
-   rc = template_attribute_find( key->template, CKA_KEY_TYPE, &attr );
-   if (rc == FALSE){
-      OCK_LOG_ERR(ERR_FUNCTION_FAILED);
-      return CKR_FUNCTION_FAILED;
-   }
-   keytype = *(CK_KEY_TYPE *)attr->pValue;
 
    rc = template_attribute_find( key->template, CKA_VALUE, &attr );
    if (rc == FALSE){
@@ -417,6 +404,7 @@ aes_ecb_decrypt( SESSION           *sess,
       return CKR_FUNCTION_FAILED;
    }
    
+   memset(key_value, 0, sizeof(key_value));
    memcpy( key_value, attr->pValue, attr->ulValueLen );
 
    if (length_only == TRUE) {
@@ -449,8 +437,7 @@ aes_cbc_encrypt( SESSION           *sess,
 {
    OBJECT       *key       = NULL;
    CK_ATTRIBUTE *attr      = NULL;
-   CK_BYTE       key_value[AES_KEY_SIZE_256];
-   CK_KEY_TYPE   keytype;
+   CK_BYTE       key_value[MAX_AES_KEY_SIZE];
    CK_RV         rc;
 
    if (!sess || !ctx || !out_data_len){
@@ -470,12 +457,6 @@ aes_cbc_encrypt( SESSION           *sess,
       OCK_LOG_ERR(ERR_OBJMGR_FIND_MAP);
       return rc;
    }
-   rc = template_attribute_find( key->template, CKA_KEY_TYPE, &attr );
-   if (rc == FALSE){
-      OCK_LOG_ERR(ERR_FUNCTION_FAILED);
-      return CKR_FUNCTION_FAILED;
-   }
-   keytype = *(CK_KEY_TYPE *)attr->pValue;
 
    rc = template_attribute_find( key->template, CKA_VALUE, &attr );
    if (rc == FALSE){
@@ -483,6 +464,7 @@ aes_cbc_encrypt( SESSION           *sess,
       return CKR_FUNCTION_FAILED;
    }
    
+   memset(key_value, 0, sizeof(key_value));
    memcpy( key_value, attr->pValue, attr->ulValueLen );
 
    if (length_only == TRUE) {
@@ -515,8 +497,7 @@ aes_cbc_decrypt( SESSION            *sess,
 {
    OBJECT       *key       = NULL;
    CK_ATTRIBUTE *attr      = NULL;
-   CK_BYTE       key_value[AES_KEY_SIZE_256];
-   CK_KEY_TYPE   keytype;
+   CK_BYTE       key_value[MAX_AES_KEY_SIZE];
    CK_RV         rc;
 
 
@@ -536,12 +517,6 @@ aes_cbc_decrypt( SESSION            *sess,
       OCK_LOG_ERR(ERR_OBJMGR_FIND_MAP);
       return rc;
    }
-   rc = template_attribute_find( key->template, CKA_KEY_TYPE, &attr );
-   if (rc == FALSE){
-      OCK_LOG_ERR(ERR_FUNCTION_FAILED);
-      return CKR_FUNCTION_FAILED;
-   }
-   keytype = *(CK_KEY_TYPE *)attr->pValue;
 
    rc = template_attribute_find( key->template, CKA_VALUE, &attr );
    if (rc == FALSE){
@@ -549,6 +524,7 @@ aes_cbc_decrypt( SESSION            *sess,
       return CKR_FUNCTION_FAILED;
    }
    
+   memset(key_value, 0, sizeof(key_value));
    memcpy( key_value, attr->pValue, attr->ulValueLen );
 
    if (length_only == TRUE) {
@@ -583,8 +559,7 @@ aes_cbc_pad_encrypt( SESSION           *sess,
    OBJECT       *key       = NULL;
    CK_ATTRIBUTE *attr      = NULL;
    CK_BYTE      *clear     = NULL;
-   CK_BYTE       key_value[AES_KEY_SIZE_256];
-   CK_KEY_TYPE   keytype;
+   CK_BYTE       key_value[MAX_AES_KEY_SIZE];
    CK_ULONG      padded_len;
    CK_RV         rc;
 
@@ -600,12 +575,6 @@ aes_cbc_pad_encrypt( SESSION           *sess,
       OCK_LOG_ERR(ERR_OBJMGR_FIND_MAP);
       return rc;
    }
-   rc = template_attribute_find( key->template, CKA_KEY_TYPE, &attr );
-   if (rc == FALSE){
-      OCK_LOG_ERR(ERR_FUNCTION_FAILED);
-      return CKR_FUNCTION_FAILED;
-   }
-   keytype = *(CK_KEY_TYPE *)attr->pValue;
 
    rc = template_attribute_find( key->template, CKA_VALUE, &attr  );
    if (rc == FALSE){
@@ -613,6 +582,7 @@ aes_cbc_pad_encrypt( SESSION           *sess,
       return CKR_FUNCTION_FAILED;
    }
    
+   memset(key_value, 0, sizeof(key_value));
    memcpy( key_value, attr->pValue, attr->ulValueLen );
 
 
@@ -670,8 +640,7 @@ aes_cbc_pad_decrypt( SESSION            *sess,
    OBJECT       *key       = NULL;
    CK_ATTRIBUTE *attr      = NULL;
    CK_BYTE      *clear     = NULL;
-   CK_BYTE       key_value[AES_KEY_SIZE_256];
-   CK_KEY_TYPE   keytype;
+   CK_BYTE       key_value[MAX_AES_KEY_SIZE];
    CK_ULONG      padded_len;
    CK_RV         rc;
 
@@ -689,12 +658,6 @@ aes_cbc_pad_decrypt( SESSION            *sess,
       OCK_LOG_ERR(ERR_OBJMGR_FIND_MAP);
       return rc;
    }
-   rc = template_attribute_find( key->template, CKA_KEY_TYPE, &attr );
-   if (rc == FALSE){
-      OCK_LOG_ERR(ERR_FUNCTION_FAILED);
-      return CKR_FUNCTION_FAILED;
-   }
-   keytype = *(CK_KEY_TYPE *)attr->pValue;
 
    rc = template_attribute_find( key->template, CKA_VALUE, &attr );
    if (rc == FALSE){
@@ -702,6 +665,7 @@ aes_cbc_pad_decrypt( SESSION            *sess,
       return CKR_FUNCTION_FAILED;
    }
    
+   memset(key_value, 0, sizeof(key_value));
    memcpy( key_value, attr->pValue, attr->ulValueLen );
 
    // we're decrypting so even with CBC-PAD, we should have an integral
@@ -754,8 +718,7 @@ aes_ctr_encrypt( SESSION           *sess,
 {
    OBJECT *key = NULL;
    CK_ATTRIBUTE *attr = NULL;
-   CK_BYTE key_value[AES_KEY_SIZE_256];
-   CK_KEY_TYPE keytype;
+   CK_BYTE key_value[MAX_AES_KEY_SIZE];
    CK_RV rc;
    CK_AES_CTR_PARAMS *aesctr = NULL;
 
@@ -772,18 +735,13 @@ aes_ctr_encrypt( SESSION           *sess,
       OCK_LOG_ERR(ERR_OBJMGR_FIND_MAP);
       return rc;
    }
-   rc = template_attribute_find( key->template, CKA_KEY_TYPE, &attr );
-   if (rc == FALSE){
-      OCK_LOG_ERR(ERR_FUNCTION_FAILED);
-      return CKR_FUNCTION_FAILED;
-   }
-   keytype = *(CK_KEY_TYPE *)attr->pValue;
 
    rc = template_attribute_find( key->template, CKA_VALUE, &attr );
    if (rc == FALSE){
       OCK_LOG_ERR(ERR_FUNCTION_FAILED);
       return CKR_FUNCTION_FAILED;
    }
+   memset(key_value, 0, sizeof(key_value));
    memcpy( key_value, attr->pValue, attr->ulValueLen );
 
    if (length_only == TRUE) {
@@ -817,8 +775,7 @@ aes_ctr_decrypt( SESSION           *sess,
 {
    OBJECT *key = NULL;
    CK_ATTRIBUTE *attr = NULL;
-   CK_BYTE key_value[AES_KEY_SIZE_256];
-   CK_KEY_TYPE keytype;
+   CK_BYTE key_value[MAX_AES_KEY_SIZE];
    CK_RV rc;
    CK_AES_CTR_PARAMS *aesctr = NULL;
 
@@ -835,18 +792,13 @@ aes_ctr_decrypt( SESSION           *sess,
       OCK_LOG_ERR(ERR_OBJMGR_FIND_MAP);
       return rc;
    }
-   rc = template_attribute_find( key->template, CKA_KEY_TYPE, &attr );
-   if (rc == FALSE){
-      OCK_LOG_ERR(ERR_FUNCTION_FAILED);
-      return CKR_FUNCTION_FAILED;
-   }
-   keytype = *(CK_KEY_TYPE *)attr->pValue;
 
    rc = template_attribute_find( key->template, CKA_VALUE, &attr );
    if (rc == FALSE){
       OCK_LOG_ERR(ERR_FUNCTION_FAILED);
       return CKR_FUNCTION_FAILED;
    }
+   memset(key_value, 0, sizeof(key_value));
    memcpy( key_value, attr->pValue, attr->ulValueLen );
 
    if (length_only == TRUE) {
@@ -882,8 +834,7 @@ aes_ecb_encrypt_update( SESSION           *sess,
    CK_ATTRIBUTE * attr      = NULL;
    OBJECT       * key       = NULL;
    CK_BYTE      * clear     = NULL;
-   CK_BYTE        key_value[AES_KEY_SIZE_256];
-   CK_KEY_TYPE    keytype;
+   CK_BYTE        key_value[MAX_AES_KEY_SIZE];
    CK_ULONG       total, remain, out_len;
    CK_RV          rc;
 
@@ -919,12 +870,6 @@ aes_ecb_encrypt_update( SESSION           *sess,
          OCK_LOG_ERR(ERR_OBJMGR_FIND_MAP);
          return rc;
       }
-      rc = template_attribute_find( key->template, CKA_KEY_TYPE, &attr );
-      if (rc == FALSE){
-         OCK_LOG_ERR(ERR_FUNCTION_FAILED);
-         return CKR_FUNCTION_FAILED;
-      }
-      keytype = *(CK_KEY_TYPE *)attr->pValue;
 
       rc = template_attribute_find( key->template, CKA_VALUE, &attr );
       if (rc == FALSE){
@@ -932,6 +877,7 @@ aes_ecb_encrypt_update( SESSION           *sess,
          return CKR_FUNCTION_FAILED;
       }
 
+      memset(key_value, 0, sizeof(key_value));
       memcpy( key_value, attr->pValue, attr->ulValueLen );
 
       clear = (CK_BYTE *)malloc( out_len );
@@ -982,8 +928,7 @@ aes_ecb_decrypt_update( SESSION           *sess,
    CK_ATTRIBUTE * attr      = NULL;
    OBJECT       * key       = NULL;
    CK_BYTE      * cipher    = NULL;
-   CK_BYTE        key_value[AES_KEY_SIZE_256];
-   CK_KEY_TYPE    keytype;
+   CK_BYTE        key_value[MAX_AES_KEY_SIZE];
    CK_ULONG       total, remain, out_len;
    CK_RV          rc;
 
@@ -1020,12 +965,6 @@ aes_ecb_decrypt_update( SESSION           *sess,
          OCK_LOG_ERR(ERR_OBJMGR_FIND_MAP);
          return rc;
       }
-      rc = template_attribute_find( key->template, CKA_KEY_TYPE, &attr );
-      if (rc == FALSE){
-         OCK_LOG_ERR(ERR_FUNCTION_FAILED);
-         return CKR_FUNCTION_FAILED;
-      }
-      keytype = *(CK_KEY_TYPE *)attr->pValue;
 
       rc = template_attribute_find( key->template, CKA_VALUE, &attr );
       if (rc == FALSE){
@@ -1033,6 +972,7 @@ aes_ecb_decrypt_update( SESSION           *sess,
          return CKR_FUNCTION_FAILED;
       }
       
+      memset(key_value, 0, sizeof(key_value));
       memcpy( key_value, attr->pValue, attr->ulValueLen );
 
       cipher = (CK_BYTE *)malloc( out_len );
@@ -1083,8 +1023,7 @@ aes_cbc_encrypt_update( SESSION           *sess,
    CK_ATTRIBUTE * attr      =  NULL;
    OBJECT       * key       = NULL;
    CK_BYTE      * clear     = NULL;
-   CK_BYTE        key_value[AES_KEY_SIZE_256];
-   CK_KEY_TYPE    keytype;
+   CK_BYTE        key_value[MAX_AES_KEY_SIZE];
    CK_ULONG       total, remain, out_len;
    CK_RV          rc;
 
@@ -1122,12 +1061,6 @@ aes_cbc_encrypt_update( SESSION           *sess,
          OCK_LOG_ERR(ERR_OBJMGR_FIND_MAP);
          return rc;
       }
-      rc = template_attribute_find( key->template, CKA_KEY_TYPE, &attr );
-      if (rc == FALSE){
-         OCK_LOG_ERR(ERR_FUNCTION_FAILED);
-         return CKR_FUNCTION_FAILED;
-      }
-      keytype = *(CK_KEY_TYPE *)attr->pValue;
 
       rc = template_attribute_find( key->template, CKA_VALUE, &attr );
       if (rc == FALSE){
@@ -1135,6 +1068,7 @@ aes_cbc_encrypt_update( SESSION           *sess,
          return CKR_FUNCTION_FAILED;
       }
       
+      memset(key_value, 0, sizeof(key_value));
       memcpy( key_value, attr->pValue, attr->ulValueLen );
 
       // these buffers need to be longword aligned
@@ -1195,8 +1129,7 @@ aes_cbc_decrypt_update( SESSION           *sess,
    CK_ATTRIBUTE * attr      = NULL;
    OBJECT       * key       = NULL;
    CK_BYTE      * cipher    = NULL;
-   CK_BYTE        key_value[AES_KEY_SIZE_256];
-   CK_KEY_TYPE    keytype;
+   CK_BYTE        key_value[MAX_AES_KEY_SIZE];
    CK_ULONG       total, remain, out_len;
    CK_RV          rc;
 
@@ -1234,12 +1167,6 @@ aes_cbc_decrypt_update( SESSION           *sess,
          OCK_LOG_ERR(ERR_OBJMGR_FIND_MAP);
          return rc;
       }
-      rc = template_attribute_find( key->template, CKA_KEY_TYPE, &attr );
-      if (rc == FALSE){
-         OCK_LOG_ERR(ERR_FUNCTION_FAILED);
-         return CKR_FUNCTION_FAILED;
-      }
-      keytype = *(CK_KEY_TYPE *)attr->pValue;
 
       rc = template_attribute_find( key->template, CKA_VALUE, &attr );
       if (rc == FALSE){
@@ -1247,6 +1174,7 @@ aes_cbc_decrypt_update( SESSION           *sess,
          return CKR_FUNCTION_FAILED;
       }
       
+      memset(key_value, 0, sizeof(key_value));
       memcpy( key_value, attr->pValue, attr->ulValueLen );
 
       // these buffers need to be longword aligned
@@ -1308,8 +1236,7 @@ aes_cbc_pad_encrypt_update( SESSION           *sess,
    CK_ATTRIBUTE * attr      = NULL;
    OBJECT       * key       = NULL;
    CK_BYTE      * clear     = NULL;
-   CK_BYTE        key_value[AES_KEY_SIZE_256];
-   CK_KEY_TYPE    keytype;
+   CK_BYTE        key_value[MAX_AES_KEY_SIZE];
    CK_ULONG       total, remain, out_len;
    CK_RV          rc;
 
@@ -1356,12 +1283,6 @@ aes_cbc_pad_encrypt_update( SESSION           *sess,
          OCK_LOG_ERR(ERR_OBJMGR_FIND_MAP);
          return rc;
       }
-      rc = template_attribute_find( key->template, CKA_KEY_TYPE, &attr );
-      if (rc == FALSE){
-         OCK_LOG_ERR(ERR_FUNCTION_FAILED);
-         return CKR_FUNCTION_FAILED;
-      }
-      keytype = *(CK_KEY_TYPE *)attr->pValue;
 
       rc = template_attribute_find( key->template, CKA_VALUE, &attr );
       if (rc == FALSE){
@@ -1369,6 +1290,7 @@ aes_cbc_pad_encrypt_update( SESSION           *sess,
          return CKR_FUNCTION_FAILED;
       }
       
+      memset(key_value, 0, sizeof(key_value));
       memcpy( key_value, attr->pValue, attr->ulValueLen );
 
       // these buffers need to be longword aligned
@@ -1424,8 +1346,7 @@ aes_cbc_pad_decrypt_update( SESSION           *sess,
    CK_ATTRIBUTE * attr      = NULL;
    OBJECT       * key       = NULL;
    CK_BYTE      * cipher    = NULL;
-   CK_BYTE        key_value[AES_KEY_SIZE_256];
-   CK_KEY_TYPE    keytype;
+   CK_BYTE        key_value[MAX_AES_KEY_SIZE];
    CK_ULONG       total, remain, out_len;
    CK_RV          rc;
 
@@ -1474,12 +1395,6 @@ aes_cbc_pad_decrypt_update( SESSION           *sess,
          OCK_LOG_ERR(ERR_OBJMGR_FIND_MAP);
          return rc;
       }
-      rc = template_attribute_find( key->template, CKA_KEY_TYPE, &attr );
-      if (rc == FALSE){
-         OCK_LOG_ERR(ERR_FUNCTION_FAILED);
-         return CKR_FUNCTION_FAILED;
-      }
-      keytype = *(CK_KEY_TYPE *)attr->pValue;
 
       rc = template_attribute_find( key->template, CKA_VALUE, &attr );
       if (rc == FALSE){
@@ -1487,6 +1402,7 @@ aes_cbc_pad_decrypt_update( SESSION           *sess,
          return CKR_FUNCTION_FAILED;
       }
       
+      memset(key_value, 0, sizeof(key_value));
       memcpy( key_value, attr->pValue, attr->ulValueLen );
 
       // these buffers need to be longword aligned
@@ -1540,8 +1456,7 @@ aes_ctr_encrypt_update( SESSION                *sess,
    CK_ATTRIBUTE * attr      = NULL;
    OBJECT       * key       = NULL;
    CK_BYTE      * clear     = NULL;
-   CK_BYTE        key_value[AES_KEY_SIZE_256];
-   CK_KEY_TYPE    keytype;
+   CK_BYTE        key_value[MAX_AES_KEY_SIZE];
    CK_ULONG       total, remain, out_len;
    CK_RV          rc;
    CK_AES_CTR_PARAMS *aesctr = NULL;
@@ -1574,12 +1489,6 @@ aes_ctr_encrypt_update( SESSION                *sess,
        OCK_LOG_ERR(ERR_OBJMGR_FIND_MAP);
 	return rc;
      }
-     rc = template_attribute_find( key->template, CKA_KEY_TYPE, &attr);
-     if ( rc == FALSE){
-	OCK_LOG_ERR(ERR_FUNCTION_FAILED);
-	return CKR_FUNCTION_FAILED;
-     }
-     keytype = *(CK_KEY_TYPE*)attr->pValue;
      rc = template_attribute_find( key->template, CKA_VALUE, &attr);
      if( rc == FALSE){
        OCK_LOG_ERR(ERR_FUNCTION_FAILED);
@@ -1630,8 +1539,7 @@ aes_ctr_decrypt_update( SESSION                 *sess,
    CK_ATTRIBUTE * attr      = NULL;
    OBJECT       * key       = NULL;
    CK_BYTE      * clear     = NULL;
-   CK_BYTE        key_value[AES_KEY_SIZE_256];
-   CK_KEY_TYPE    keytype;
+   CK_BYTE        key_value[MAX_AES_KEY_SIZE];
    CK_ULONG       total, remain, out_len;
    CK_RV          rc;
    CK_AES_CTR_PARAMS *aesctr = NULL;
@@ -1662,17 +1570,12 @@ aes_ctr_decrypt_update( SESSION                 *sess,
        OCK_LOG_ERR(ERR_OBJMGR_FIND_MAP);
        return rc;
      }
-     rc = template_attribute_find( key->template, CKA_KEY_TYPE, &attr);
-     if ( rc == FALSE){
-	OCK_LOG_ERR(ERR_FUNCTION_FAILED);
-	return CKR_FUNCTION_FAILED;
-     }
-     keytype = *(CK_KEY_TYPE*)attr->pValue;
      rc = template_attribute_find( key->template, CKA_VALUE, &attr);
      if( rc == FALSE){
        OCK_LOG_ERR(ERR_FUNCTION_FAILED);
        return CKR_FUNCTION_FAILED;
      }
+     memset(key_value, 0, sizeof(key_value));
      memcpy ( key_value, attr->pValue, attr->ulValueLen);
      //these buffers need to be longword aligned
      clear = (CK_BYTE*) malloc (out_len);
@@ -1853,8 +1756,7 @@ aes_cbc_pad_encrypt_final( SESSION           *sess,
    OBJECT         *key       = NULL;
    CK_ATTRIBUTE   *attr      = NULL;
    CK_BYTE         clear[2*AES_BLOCK_SIZE];
-   CK_BYTE         key_value[AES_KEY_SIZE_256];
-   CK_KEY_TYPE     keytype;
+   CK_BYTE         key_value[MAX_AES_KEY_SIZE];
    CK_ULONG        out_len;
    CK_RV           rc;
 
@@ -1869,12 +1771,6 @@ aes_cbc_pad_encrypt_final( SESSION           *sess,
       OCK_LOG_ERR(ERR_OBJMGR_FIND_MAP);
       return rc;
    }
-   rc = template_attribute_find( key->template, CKA_KEY_TYPE, &attr );
-   if (rc == FALSE){
-      OCK_LOG_ERR(ERR_FUNCTION_FAILED);
-      return CKR_FUNCTION_FAILED;
-   }
-   keytype = *(CK_KEY_TYPE *)attr->pValue;
 
    rc = template_attribute_find( key->template, CKA_VALUE, &attr );
    if (rc == FALSE){
@@ -1882,6 +1778,7 @@ aes_cbc_pad_encrypt_final( SESSION           *sess,
       return CKR_FUNCTION_FAILED;
    }
    
+   memset(key_value, 0, sizeof(key_value));
    memcpy( key_value, attr->pValue, attr->ulValueLen );
 
    context = (AES_CONTEXT *)ctx->context;
@@ -1933,8 +1830,7 @@ aes_cbc_pad_decrypt_final( SESSION           *sess,
    OBJECT         *key       = NULL;
    CK_ATTRIBUTE   *attr      = NULL;
    CK_BYTE         clear[AES_BLOCK_SIZE];
-   CK_BYTE         key_value[AES_KEY_SIZE_256];
-   CK_KEY_TYPE     keytype;
+   CK_BYTE         key_value[MAX_AES_KEY_SIZE];
    CK_ULONG        out_len;
    CK_RV           rc;
 
@@ -1947,12 +1843,6 @@ aes_cbc_pad_decrypt_final( SESSION           *sess,
       OCK_LOG_ERR(ERR_OBJMGR_FIND_MAP);
       return rc;
    }
-   rc = template_attribute_find( key->template, CKA_KEY_TYPE, &attr );
-   if (rc == FALSE){
-      OCK_LOG_ERR(ERR_FUNCTION_FAILED);
-      return CKR_FUNCTION_FAILED;
-   }
-   keytype = *(CK_KEY_TYPE *)attr->pValue;
 
    rc = template_attribute_find( key->template, CKA_VALUE, &attr );
    if (rc == FALSE){
@@ -2117,15 +2007,18 @@ ckm_aes_key_gen( TEMPLATE *tmpl )
 	   return CKR_ATTRIBUTE_VALUE_INVALID;
    }
    
-   if ((aes_key = (CK_BYTE *)malloc(key_size)) == NULL) {
-      OCK_LOG_ERR(ERR_HOST_MEMORY);
-      return CKR_HOST_MEMORY;
+   if (token_specific.t_aes_key_gen == NULL) {
+      OCK_LOG_ERR(ERR_MECHANISM_INVALID);
+      return CKR_MECHANISM_INVALID;
    }
+
+   rc = token_specific.t_aes_key_gen(&aes_key, &key_size);
    
-   rc = token_specific.t_aes_key_gen(aes_key, key_size);
-   
-   if (rc != CKR_OK)
+   if (rc != CKR_OK) {
+      if (aes_key != NULL)
+	 free(aes_key);
       return rc;
+   }
 
    value_attr    = (CK_ATTRIBUTE *)malloc(sizeof(CK_ATTRIBUTE) + key_size );
    key_type_attr = (CK_ATTRIBUTE *)malloc(sizeof(CK_ATTRIBUTE) + sizeof(CK_KEY_TYPE) );
@@ -2194,6 +2087,11 @@ ckm_aes_ecb_encrypt( CK_BYTE     * in_data,
       return CKR_FUNCTION_FAILED;
    }
 
+   if (token_specific.t_aes_ecb == NULL) {
+      OCK_LOG_ERR(ERR_MECHANISM_INVALID);
+      return CKR_MECHANISM_INVALID;
+   }
+
    rc = token_specific.t_aes_ecb(in_data,in_data_len,
 				 out_data,out_data_len,
 				 key_value,key_len,1);
@@ -2226,6 +2124,11 @@ ckm_aes_ecb_decrypt( CK_BYTE     * in_data,
       return CKR_FUNCTION_FAILED;
    }
    
+   if (token_specific.t_aes_ecb == NULL) {
+      OCK_LOG_ERR(ERR_MECHANISM_INVALID);
+      return CKR_MECHANISM_INVALID;
+   }
+
    rc = token_specific.t_aes_ecb(in_data,in_data_len,
 		      		 out_data,out_data_len,
 				 key_value,key_len,0);
@@ -2255,16 +2158,16 @@ ckm_aes_cbc_encrypt( CK_BYTE     * in_data,
       return CKR_FUNCTION_FAILED;
    }
    if (*out_data_len < in_data_len){
-#if 0
-      OCK_LOG_ERR(ERR_FUNCTION_FAILED);
-      return CKR_FUNCTION_FAILED;
-#else
       *out_data_len = in_data_len;
       OCK_LOG_ERR(ERR_BUFFER_TOO_SMALL);
       return CKR_BUFFER_TOO_SMALL;
-#endif
    }
    
+   if (token_specific.t_aes_cbc == NULL) {
+      OCK_LOG_ERR(ERR_MECHANISM_INVALID);
+      return CKR_MECHANISM_INVALID;
+   }
+
    rc = token_specific.t_aes_cbc(in_data, in_data_len,
 		      		 out_data,out_data_len,
 			       	 key_value,key_len,
@@ -2298,6 +2201,11 @@ ckm_aes_cbc_decrypt( CK_BYTE     * in_data,
       return CKR_FUNCTION_FAILED;
    }
    
+   if (token_specific.t_aes_cbc == NULL) {
+      OCK_LOG_ERR(ERR_MECHANISM_INVALID);
+      return CKR_MECHANISM_INVALID;
+   }
+
    rc = token_specific.t_aes_cbc(in_data, in_data_len,
 		      		 out_data, out_data_len,
 			       	 key_value,key_len,
@@ -2325,14 +2233,9 @@ ckm_aes_ctr_encrypt( CK_BYTE    *in_data,
       return CKR_FUNCTION_FAILED;
    }
    if (*out_data_len < in_data_len){
-      #if 0
-        OCK_LOG_ERR(ERR_FUNCTION_FAILED);
-        return CKR_FUNCTION_FAILED;
-      #else
       *out_data_len = in_data_len;
       OCK_LOG_ERR(ERR_BUFFER_TOO_SMALL);
       return CKR_BUFFER_TOO_SMALL;
-      #endif
    }
    if (counter_width % 8 != 0){
       OCK_LOG_ERR(ERR_MECHANISM_PARAM_INVALID);
@@ -2370,14 +2273,9 @@ ckm_aes_ctr_decrypt( CK_BYTE       *in_data,
       return CKR_FUNCTION_FAILED;
    }
    if (*out_data_len < in_data_len){
-      #if 0
-        OCK_LOG_ERR(ERR_FUNCTION_FAILED);
-        return CKR_FUNCTION_FAILED;
-      #else
       *out_data_len = in_data_len;
       OCK_LOG_ERR(ERR_BUFFER_TOO_SMALL);
       return CKR_BUFFER_TOO_SMALL;
-      #endif
    }
    if (counter_width % 8 != 0){
       OCK_LOG_ERR(ERR_MECHANISM_PARAM_INVALID);

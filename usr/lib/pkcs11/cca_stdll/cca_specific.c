@@ -920,7 +920,7 @@ token_specific_rsa_verify(CK_BYTE  * in_data,
 
 #ifndef NOAES
 CK_RV
-token_specific_aes_key_gen(CK_BYTE *aes_key, CK_ULONG key_size)
+token_specific_aes_key_gen(CK_BYTE **aes_key, CK_ULONG *key_size)
 {
 	long return_code, reason_code;
 	unsigned char key_length[CCA_KEYWORD_SIZE];
@@ -934,11 +934,19 @@ token_specific_aes_key_gen(CK_BYTE *aes_key, CK_ULONG key_size)
 	unsigned char reserved_1[4] = { 0, };
 	unsigned char point_to_array_of_zeros = 0;
 	unsigned char mkvp[16] = { 0, };
+	CK_RV	      rc;
 	
+	if ((*aes_key = (CK_BYTE *)malloc(CCA_KEY_ID_SIZE)) == NULL) {
+		OCK_LOG_ERR(ERR_HOST_MEMORY);
+		return CKR_HOST_MEMORY;
+	} 
+
+	memset(*aes_key, 0, CCA_KEY_ID_SIZE);
+
 	memcpy(rule_array, "INTERNALAES     NO-KEY  ", (size_t) (CCA_KEYWORD_SIZE*3));
 	memcpy(key_type, "DATA    ", (size_t)CCA_KEYWORD_SIZE);
 	
-	switch (key_size) {
+	switch (*key_size) {
 		case 16:
 			memcpy(rule_array + 3*CCA_KEYWORD_SIZE, "KEYLN16 ", CCA_KEYWORD_SIZE);
 			break;
@@ -949,7 +957,7 @@ token_specific_aes_key_gen(CK_BYTE *aes_key, CK_ULONG key_size)
 			memcpy(rule_array + 3*CCA_KEYWORD_SIZE, "KEYLN32 ", (size_t)CCA_KEYWORD_SIZE);
 			break;
 		default:
-			DBG("Invalid key length: %lu", key_size);
+			DBG("Invalid key length: %lu", *key_size);
 			return CKR_KEY_SIZE_RANGE;
 	}
 #ifdef DEBUG
@@ -988,9 +996,12 @@ token_specific_aes_key_gen(CK_BYTE *aes_key, CK_ULONG key_size)
 	}
 	memcpy(key_form, "OP      ", (size_t)CCA_KEYWORD_SIZE);
 	memcpy(key_type, "AESTOKEN", (size_t) CCA_KEYWORD_SIZE);
-	memcpy(aes_key, key_token, (size_t)CCA_KEY_ID_SIZE);
+	memcpy(*aes_key, key_token, (size_t)CCA_KEY_ID_SIZE);
 
-	return cca_key_gen(CCA_AES_KEY, aes_key, key_form, key_type, key_size);
+	rc = cca_key_gen(CCA_AES_KEY, *aes_key, key_form, key_type, *key_size);
+	if (rc == CKR_OK)
+		*key_size = CCA_KEY_ID_SIZE;
+	return rc;	
 }
 
 CK_RV

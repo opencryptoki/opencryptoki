@@ -27,7 +27,7 @@ opencryptoki_stdll_libpkcs11_cca_la_SOURCES = asn1.c			\
 					      sign_mgr.c		\
 					      ../common/cert.c		\
 					      ../common/dp_obj.c	\
-					      mech_aes.c		\
+					      ../common/mech_aes.c	\
 					      ../common/mech_rsa.c	\
 					      mech_ec.c			\
 					      obj_mgr.c			\

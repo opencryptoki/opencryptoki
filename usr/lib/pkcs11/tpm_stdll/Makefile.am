@@ -30,7 +30,7 @@ opencryptoki_stdll_libpkcs11_tpm_la_SOURCES = ../common/asn1.c           \
                                               new_host.c sign_mgr.c      \
                                               ../common/cert.c           \
                                               ../common/dp_obj.c         \
-                                              mech_aes.c       \
+                                              ../common/mech_aes.c       \
                                               ../common/$(MECH_DSA)      \
                                               ../common/mech_rsa.c       \
                                               ../common/obj_mgr.c        \

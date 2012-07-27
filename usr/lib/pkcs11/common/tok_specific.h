@@ -522,8 +522,8 @@ token_specific_sha5_final(       DIGEST_CONTEXT  *,
 
 #ifndef NOAES
 CK_RV
-token_specific_aes_key_gen( CK_BYTE *,
-                            CK_ULONG );
+token_specific_aes_key_gen( CK_BYTE **,
+                            CK_ULONG * );
 
 CK_RV
 token_specific_aes_ecb( CK_BYTE  *,
