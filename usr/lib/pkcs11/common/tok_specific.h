@@ -312,7 +312,7 @@
 #ifndef _TOK_SPECIFIC
 #define _TOK_SPECIFIC
 
-CK_RV token_rng(CK_BYTE *,  CK_ULONG);
+CK_RV token_specific_rng(CK_BYTE *,  CK_ULONG);
 int tok_slot2local(CK_SLOT_ID);
 CK_RV token_specific_init(char *,CK_SLOT_ID );
 CK_RV  token_specific_session(CK_SLOT_ID);

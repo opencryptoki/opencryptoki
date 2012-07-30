@@ -333,7 +333,7 @@ unsigned int  rnginitialized=0;
 
 
 CK_RV
-token_rng(CK_BYTE *output, CK_ULONG bytes)
+token_specific_rng(CK_BYTE *output, CK_ULONG bytes)
 {
    unsigned int  rc;
 

@@ -67,7 +67,7 @@ openssl_gen_key()
 	int rc, counter = 0;
 	char buf[32];
 
-	token_rng((CK_BYTE *)buf, 32);
+	token_specific_rng((CK_BYTE *)buf, 32);
 	RAND_seed(buf, 32);
 
 regen_rsa_key:

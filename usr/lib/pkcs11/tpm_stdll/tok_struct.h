@@ -36,7 +36,7 @@ struct token_specific_struct token_specific = {
      "tpm",
      &token_specific_init,
      &tok_slot2local,
-     &token_rng,
+     &token_specific_rng,
      &token_specific_session,
      &token_specific_final,
      &token_specific_verify_so_pin,

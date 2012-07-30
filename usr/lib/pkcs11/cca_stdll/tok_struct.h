@@ -29,7 +29,7 @@ token_spec_t token_specific  = {
      "ccatok",
      &token_specific_init,
      &tok_slot2local,
-     &token_rng,
+     &token_specific_rng,
      &token_specific_session,
      &token_specific_final,
      NULL,		// verify_so_pin

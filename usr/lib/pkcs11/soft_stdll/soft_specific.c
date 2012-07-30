@@ -346,21 +346,8 @@ token_specific_session(CK_SLOT_ID  slotid)
 }
 
 CK_RV
-token_rng(CK_BYTE *output, CK_ULONG bytes)
+token_specific_rng(CK_BYTE *output, CK_ULONG bytes)
 {
-#if 0
-	int bytes2 = 384;
-	char state[bytes2];
-	pthread_mutex_lock(&rngmtx);
-
-	if (!rnginitialized) {
-		RAND_seed(&state, bytes2);
-		rnginitialized=1;
-	}
-
-	RAND_pseudo_bytes(output, bytes);
-	pthread_mutex_unlock(&rngmtx);
-#else
      int  ranfd;
      int  rlen;
      unsigned  int totallen=0;
@@ -377,8 +364,6 @@ token_rng(CK_BYTE *output, CK_ULONG bytes)
      } else {
 	return CKR_FUNCTION_FAILED;
      }
-
-#endif
 }
 
 // convert pkcs slot number to local representation

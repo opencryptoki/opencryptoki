@@ -105,7 +105,7 @@ token_specific_session(CK_SLOT_ID  slotid)
 }
 
 CK_RV
-token_rng(CK_BYTE *output, CK_ULONG bytes)
+token_specific_rng(CK_BYTE *output, CK_ULONG bytes)
 {
 	long return_code, reason_code;
 	unsigned char form[CCA_KEYWORD_SIZE], random_number[CCA_RNG_SIZE];

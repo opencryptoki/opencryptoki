@@ -114,7 +114,7 @@ token_specific_session(CK_SLOT_ID  slotid)
 }
 
 CK_RV
-token_rng(CK_BYTE *output, CK_ULONG bytes)
+token_specific_rng(CK_BYTE *output, CK_ULONG bytes)
 {
         TSS_RESULT rc;
         TSS_HTPM hTPM;
@@ -1459,7 +1459,7 @@ load_masterkey_private()
 		OCK_LOG_DEBUG("Private master key doesn't exist, creating it...\n");
 
 		/* create the private master key, then save */
-		if ((rc = token_rng(master_key_private, MK_SIZE))) {
+		if ((rc = token_specific_rng(master_key_private, MK_SIZE))) {
 			OCK_LOG_DEBUG("token_rng failed. rc=0x%lx\n", rc);
 			return rc;
 		}
@@ -2429,7 +2429,7 @@ token_specific_rsa_generate_keypair( TEMPLATE  * publ_tmpl,
 		initFlags |= TSS_KEY_TYPE_LEGACY | TSS_KEY_AUTHORIZATION | TSS_KEY_MIGRATABLE;
 
 		/* get a random SHA1 hash for the auth data */
-		if ((rc = token_rng(authHash, SHA1_HASH_SIZE))) {
+		if ((rc = token_specific_rng(authHash, SHA1_HASH_SIZE))) {
 			OCK_LOG_DEBUG("token_rng failed. rc=%lx\n", rc);
 			return CKR_FUNCTION_FAILED;
 		}
@@ -2441,7 +2441,7 @@ token_specific_rsa_generate_keypair( TEMPLATE  * publ_tmpl,
 		initFlags |= TSS_KEY_TYPE_LEGACY | TSS_KEY_AUTHORIZATION | TSS_KEY_MIGRATABLE;
 
 		/* get a random SHA1 hash for the auth data */
-		if ((rc = token_rng(authHash, SHA1_HASH_SIZE))) {
+		if ((rc = token_specific_rng(authHash, SHA1_HASH_SIZE))) {
 			OCK_LOG_DEBUG("token_rng failed. rc=0x%lx\n", rc);
 			return CKR_FUNCTION_FAILED;
 		}
@@ -2840,7 +2840,7 @@ token_specific_aes_key_gen(CK_BYTE **key, CK_ULONG *len)
 	} else
 		memset(*key, 0, *len);
 
-	return token_rng(*key, *len);
+	return token_specific_rng(*key, *len);
 }
 
 CK_RV
