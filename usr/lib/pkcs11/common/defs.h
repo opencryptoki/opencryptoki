@@ -385,6 +385,7 @@ enum {
 #define AES_INIT_VECTOR_SIZE	AES_BLOCK_SIZE
 #define AES_COUNTER_SIZE        16
 
+#define MAX_DES_KEY_SIZE	64	/* encompasses CCA key size */
 #define DES_KEY_SIZE    8
 #define DES_BLOCK_SIZE  8
 

@@ -269,19 +269,40 @@ CK_RV cca_key_gen(enum cca_key_type type, CK_BYTE *key, unsigned char *key_form,
 }
 
 CK_RV
-token_specific_des_key_gen(CK_BYTE *des_key, CK_ULONG len, CK_ULONG key_size)
+token_specific_des_key_gen(CK_BYTE *des_key, CK_ULONG len, TEMPLATE *tmpl)
 {
 	long return_code, reason_code;
 	unsigned char key_form[CCA_KEYWORD_SIZE], key_length[CCA_KEYWORD_SIZE];
 	unsigned char key_type_1[CCA_KEYWORD_SIZE];
+	CK_ATTRIBUTE    *opaque_attr = NULL;
+	CK_BYTE         dkey[CCA_KEY_ID_SIZE];
+	CK_ULONG        rc;
+
 
 	DBG("Enter CCA DES keygen");
 
 	memcpy(key_form, "OP      ", (size_t)CCA_KEYWORD_SIZE);
 	memcpy(key_type_1, "DATA    ", (size_t)CCA_KEYWORD_SIZE);
 
-	return cca_key_gen(CCA_DES_KEY, des_key, key_form, key_type_1, key_size);
+	rc =  cca_key_gen(CCA_DES_KEY, dkey, key_form, key_type_1, len);
+	if (rc == CKR_OK) {
+		opaque_attr = (CK_ATTRIBUTE *)malloc(sizeof(CK_ATTRIBUTE) + CCA_KEY_ID_SIZE );
+		if (!opaque_attr) {
+			OCK_LOG_ERR(ERR_FUNCTION_FAILED);
+			return CKR_FUNCTION_FAILED;
+		}
+
+		opaque_attr->type = CKA_IBM_OPAQUE;
+		opaque_attr->ulValueLen = CCA_KEY_ID_SIZE;
+		opaque_attr->pValue = (CK_BYTE *)opaque_attr + sizeof(CK_ATTRIBUTE);
+		memcpy(opaque_attr->pValue, dkey, CCA_KEY_ID_SIZE);
+		template_update_attribute(tmpl, opaque_attr);
+	} else
+		OCK_LOG_ERR(ERR_FUNCTION_FAILED);
+
+	return rc;
 }
+
 
 CK_RV
 token_specific_des_ecb(CK_BYTE  *in_data,

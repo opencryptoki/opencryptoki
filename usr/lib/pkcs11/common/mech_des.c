@@ -336,10 +336,13 @@ pk_des_ecb_encrypt( SESSION           *sess,
       OCK_LOG_ERR(ERR_OBJMGR_FIND_MAP);
       return rc;
    }
-   rc = template_attribute_find( key->template, CKA_VALUE, &attr );
-   if (rc == FALSE){
-      OCK_LOG_ERR(ERR_FUNCTION_FAILED);
-      return CKR_FUNCTION_FAILED;
+   rc = template_attribute_find(key->template, CKA_IBM_OPAQUE, &attr);
+   if (rc == FALSE) {
+       rc = template_attribute_find( key->template, CKA_VALUE, &attr );
+       if (rc == FALSE){
+          OCK_LOG_ERR(ERR_FUNCTION_FAILED);
+          return CKR_FUNCTION_FAILED;
+       }
    }
    if (length_only == TRUE) {
       *out_data_len = in_data_len;
@@ -390,10 +393,13 @@ des_ecb_decrypt( SESSION           *sess,
       OCK_LOG_ERR(ERR_OBJMGR_FIND_MAP);
       return rc;
    }
-   rc = template_attribute_find( key->template, CKA_VALUE, &attr );
-   if (rc == FALSE){
-      OCK_LOG_ERR(ERR_FUNCTION_FAILED);
-      return CKR_FUNCTION_FAILED;
+   rc = template_attribute_find(key->template, CKA_IBM_OPAQUE, &attr);
+   if (rc == FALSE) {
+       rc = template_attribute_find( key->template, CKA_VALUE, &attr );
+       if (rc == FALSE){
+          OCK_LOG_ERR(ERR_FUNCTION_FAILED);
+          return CKR_FUNCTION_FAILED;
+       }
    }
    if (length_only == TRUE) {
       *out_data_len = in_data_len;
@@ -442,10 +448,13 @@ pk_des_cbc_encrypt( SESSION           *sess,
       OCK_LOG_ERR(ERR_OBJMGR_FIND_MAP);
       return rc;
    }
-   rc = template_attribute_find( key->template, CKA_VALUE, &attr );
-   if (rc == FALSE){
-      OCK_LOG_ERR(ERR_FUNCTION_FAILED);
-      return CKR_FUNCTION_FAILED;
+   rc = template_attribute_find(key->template, CKA_IBM_OPAQUE, &attr);
+   if (rc == FALSE) {
+       rc = template_attribute_find( key->template, CKA_VALUE, &attr );
+       if (rc == FALSE){
+          OCK_LOG_ERR(ERR_FUNCTION_FAILED);
+          return CKR_FUNCTION_FAILED;
+       }
    }
    if (length_only == TRUE) {
       *out_data_len = in_data_len;
@@ -497,10 +506,13 @@ des_cbc_decrypt( SESSION            *sess,
       OCK_LOG_ERR(ERR_OBJMGR_FIND_MAP);
       return rc;
    }
-   rc = template_attribute_find( key->template, CKA_VALUE, &attr );
-   if (rc == FALSE){
-      OCK_LOG_ERR(ERR_FUNCTION_FAILED);
-      return CKR_FUNCTION_FAILED;
+   rc = template_attribute_find(key->template, CKA_IBM_OPAQUE, &attr);
+   if (rc == FALSE) {
+       rc = template_attribute_find( key->template, CKA_VALUE, &attr );
+       if (rc == FALSE){
+          OCK_LOG_ERR(ERR_FUNCTION_FAILED);
+          return CKR_FUNCTION_FAILED;
+       }
    }
    if (length_only == TRUE) {
       *out_data_len = in_data_len;
@@ -549,10 +561,13 @@ des_cbc_pad_encrypt( SESSION           *sess,
       OCK_LOG_ERR(ERR_OBJMGR_FIND_MAP);
       return rc;
    }
-   rc = template_attribute_find( key->template, CKA_VALUE, &attr  );
-   if (rc == FALSE){
-      OCK_LOG_ERR(ERR_FUNCTION_FAILED);
-      return CKR_FUNCTION_FAILED;
+   rc = template_attribute_find(key->template, CKA_IBM_OPAQUE, &attr);
+   if (rc == FALSE) {
+       rc = template_attribute_find( key->template, CKA_VALUE, &attr );
+       if (rc == FALSE){
+          OCK_LOG_ERR(ERR_FUNCTION_FAILED);
+          return CKR_FUNCTION_FAILED;
+       }
    }
    // compute the output length, accounting for padding
    //
@@ -623,10 +638,13 @@ des_cbc_pad_decrypt( SESSION            *sess,
       OCK_LOG_ERR(ERR_OBJMGR_FIND_MAP);
       return rc;
    }
-   rc = template_attribute_find( key->template, CKA_VALUE, &attr );
-   if (rc == FALSE){
-      OCK_LOG_ERR(ERR_FUNCTION_FAILED);
-      return CKR_FUNCTION_FAILED;
+   rc = template_attribute_find(key->template, CKA_IBM_OPAQUE, &attr);
+   if (rc == FALSE) {
+       rc = template_attribute_find( key->template, CKA_VALUE, &attr );
+       if (rc == FALSE){
+          OCK_LOG_ERR(ERR_FUNCTION_FAILED);
+          return CKR_FUNCTION_FAILED;
+       }
    }
    // we're decrypting so even with CBC-PAD, we should have an integral
    // number of block to decrypt
@@ -717,11 +735,15 @@ des_ecb_encrypt_update( SESSION            *sess,
          OCK_LOG_ERR(ERR_OBJMGR_FIND_MAP);
          return rc;
       }
-      rc = template_attribute_find( key->template, CKA_VALUE, &attr );
-      if (rc == FALSE){
-         OCK_LOG_ERR(ERR_FUNCTION_FAILED);
-         return CKR_FUNCTION_FAILED;
+      rc = template_attribute_find(key->template, CKA_IBM_OPAQUE, &attr);
+      if (rc == FALSE) {
+         rc = template_attribute_find( key->template, CKA_VALUE, &attr );
+         if (rc == FALSE){
+            OCK_LOG_ERR(ERR_FUNCTION_FAILED);
+            return CKR_FUNCTION_FAILED;
+         }
       }
+
       clear  = (CK_BYTE *)malloc( out_len );
       if (!clear){
          OCK_LOG_ERR(ERR_HOST_MEMORY);
@@ -806,11 +828,14 @@ des_ecb_decrypt_update( SESSION           *sess,
          OCK_LOG_ERR(ERR_OBJMGR_FIND_MAP);
          return rc;
       }
-      rc = template_attribute_find( key->template, CKA_VALUE, &attr );
-      if (rc == FALSE){
-         OCK_LOG_ERR(ERR_FUNCTION_FAILED);
-         return CKR_FUNCTION_FAILED;
-      }
+      rc = template_attribute_find(key->template, CKA_IBM_OPAQUE, &attr);
+      if (rc == FALSE) {
+         rc = template_attribute_find( key->template, CKA_VALUE, &attr );
+         if (rc == FALSE){
+            OCK_LOG_ERR(ERR_FUNCTION_FAILED);
+            return CKR_FUNCTION_FAILED;
+         }
+      } 
 
       cipher = (CK_BYTE *)malloc( out_len );
       if (!cipher){
@@ -896,11 +921,14 @@ des_cbc_encrypt_update( SESSION           *sess,
          OCK_LOG_ERR(ERR_OBJMGR_FIND_MAP);
          return rc;
       }
-      rc = template_attribute_find( key->template, CKA_VALUE, &attr );
-      if (rc == FALSE){
-         OCK_LOG_ERR(ERR_FUNCTION_FAILED);
-         return CKR_FUNCTION_FAILED;
-      }
+      rc = template_attribute_find(key->template, CKA_IBM_OPAQUE, &attr);
+      if (rc == FALSE) {
+         rc = template_attribute_find( key->template, CKA_VALUE, &attr );
+         if (rc == FALSE){
+            OCK_LOG_ERR(ERR_FUNCTION_FAILED);
+            return CKR_FUNCTION_FAILED;
+         }
+      } 
 
       // these buffers need to be longword aligned
       //
@@ -995,11 +1023,14 @@ des_cbc_decrypt_update( SESSION           *sess,
          OCK_LOG_ERR(ERR_OBJMGR_FIND_MAP);
          return rc;
       }
-      rc = template_attribute_find( key->template, CKA_VALUE, &attr );
-      if (rc == FALSE){
-         OCK_LOG_ERR(ERR_FUNCTION_FAILED);
-         return CKR_FUNCTION_FAILED;
-      }
+      rc = template_attribute_find(key->template, CKA_IBM_OPAQUE, &attr);
+      if (rc == FALSE) {
+         rc = template_attribute_find( key->template, CKA_VALUE, &attr );
+         if (rc == FALSE){
+            OCK_LOG_ERR(ERR_FUNCTION_FAILED);
+            return CKR_FUNCTION_FAILED;
+         }
+      } 
 
       // these buffers need to be longword aligned
       //
@@ -1105,11 +1136,14 @@ des_cbc_pad_encrypt_update( SESSION           *sess,
          OCK_LOG_ERR(ERR_OBJMGR_FIND_MAP);
          return rc;
       }
-      rc = template_attribute_find( key->template, CKA_VALUE, &attr );
-      if (rc == FALSE){
-         OCK_LOG_ERR(ERR_FUNCTION_FAILED);
-         return CKR_FUNCTION_FAILED;
-      }
+      rc = template_attribute_find(key->template, CKA_IBM_OPAQUE, &attr);
+      if (rc == FALSE) {
+         rc = template_attribute_find( key->template, CKA_VALUE, &attr );
+         if (rc == FALSE){
+            OCK_LOG_ERR(ERR_FUNCTION_FAILED);
+            return CKR_FUNCTION_FAILED;
+         }
+      } 
 
       // these buffers need to be longword aligned
       //
@@ -1214,11 +1248,14 @@ des_cbc_pad_decrypt_update( SESSION           *sess,
          OCK_LOG_ERR(ERR_OBJMGR_FIND_MAP);
          return rc;
       }
-      rc = template_attribute_find( key->template, CKA_VALUE, &attr );
-      if (rc == FALSE){
-         OCK_LOG_ERR(ERR_FUNCTION_FAILED);
-         return CKR_FUNCTION_FAILED;
-      }
+      rc = template_attribute_find(key->template, CKA_IBM_OPAQUE, &attr);
+      if (rc == FALSE) {
+         rc = template_attribute_find( key->template, CKA_VALUE, &attr );
+         if (rc == FALSE){
+            OCK_LOG_ERR(ERR_FUNCTION_FAILED);
+            return CKR_FUNCTION_FAILED;
+         }
+      } 
 
       // these buffers need to be longword aligned
       //
@@ -1425,11 +1462,14 @@ des_cbc_pad_encrypt_final( SESSION           *sess,
       OCK_LOG_ERR(ERR_OBJMGR_FIND_MAP);
       return rc;
    }
-   rc = template_attribute_find( key->template, CKA_VALUE, &attr );
-   if (rc == FALSE){
-      OCK_LOG_ERR(ERR_FUNCTION_FAILED);
-      return CKR_FUNCTION_FAILED;
-   }
+   rc = template_attribute_find(key->template, CKA_IBM_OPAQUE, &attr);
+   if (rc == FALSE) {
+      rc = template_attribute_find( key->template, CKA_VALUE, &attr );
+      if (rc == FALSE){
+         OCK_LOG_ERR(ERR_FUNCTION_FAILED);
+         return CKR_FUNCTION_FAILED;
+      }
+   } 
    context = (DES_CONTEXT *)ctx->context;
 
    // there will never be more than one block in the context buffer
@@ -1491,11 +1531,14 @@ des_cbc_pad_decrypt_final( SESSION           *sess,
       OCK_LOG_ERR(ERR_OBJMGR_FIND_MAP);
       return rc;
    }
-   rc = template_attribute_find( key->template, CKA_VALUE, &attr );
-   if (rc == FALSE){
-      OCK_LOG_ERR(ERR_FUNCTION_FAILED);
-      return CKR_FUNCTION_FAILED;
-   }
+   rc = template_attribute_find(key->template, CKA_IBM_OPAQUE, &attr);
+   if (rc == FALSE) {
+      rc = template_attribute_find( key->template, CKA_VALUE, &attr );
+      if (rc == FALSE){
+         OCK_LOG_ERR(ERR_FUNCTION_FAILED);
+         return CKR_FUNCTION_FAILED;
+      }
+   } 
    context = (DES_CONTEXT *)ctx->context;
 
    // there had better be a full block in the context buffer
@@ -1554,17 +1597,18 @@ ckm_des_key_gen( TEMPLATE *tmpl )
    CK_ATTRIBUTE     * local_attr    = NULL;
    CK_BYTE            des_key[DES_KEY_SIZE];
    CK_ULONG           rc;
-   // Checking for a weak key is redundant in that the token
-   // specific keygen may already do this
-   // If the key generated is NOT a clear key, then this 
-   // needs to be re-worked.
-   // probably by deciding if the key is being created as a private or
-   // public token object.  Only token objects are encrypted
-   // The size is passed in to allow the same token specific code to
-   // do both DES and TDES
-   do {
-      rc = token_specific.t_des_key_gen(des_key,DES_KEY_SIZE,0);
-   } while (des_check_weak_key(des_key) != FALSE  && rc != CKR_OK);
+
+   if (token_specific.t_des_key_gen == NULL) {
+      OCK_LOG_ERR(ERR_MECHANISM_INVALID);
+      return CKR_MECHANISM_INVALID;
+   }
+   // 1. If the key generated is NOT a clear key, then the token
+   // is responsible for updating the key template with the 
+   // token specific info and des_key is an empty dummy key.
+   // 2. Also, token specific code is assumed to check for weak keys.
+   //
+   memset(des_key, 0, DES_KEY_SIZE);
+   rc = token_specific.t_des_key_gen(des_key,DES_KEY_SIZE,tmpl);
    if (rc != CKR_OK)
       return rc;
 
@@ -1705,6 +1749,11 @@ ckm_des_ecb_encrypt( CK_BYTE   * in_data,
       OCK_LOG_ERR(ERR_FUNCTION_FAILED);
       return CKR_FUNCTION_FAILED;
    }
+
+   if (token_specific.t_des_ecb == NULL) {
+      OCK_LOG_ERR(ERR_MECHANISM_INVALID);
+      return CKR_MECHANISM_INVALID;
+   }
    rc = token_specific.t_des_ecb(in_data,in_data_len,out_data,out_data_len,key_value,1);//  token specifics return CKR_ errors ... 
 
    if (rc != CKR_OK)
@@ -1735,6 +1784,10 @@ ckm_des_ecb_decrypt( CK_BYTE   * in_data,
       return CKR_FUNCTION_FAILED;
    }
 
+   if (token_specific.t_des_ecb == NULL) {
+      OCK_LOG_ERR(ERR_MECHANISM_INVALID);
+      return CKR_MECHANISM_INVALID;
+   }
    rc = token_specific.t_des_ecb(in_data,in_data_len,out_data,
          out_data_len,key_value,0);  // last parm is the encrypt flag
    if (rc != CKR_OK)
@@ -1761,14 +1814,14 @@ ckm_des_cbc_encrypt( CK_BYTE   * in_data,
       return CKR_FUNCTION_FAILED;
    }
    if (*out_data_len < in_data_len){
-#if 0
-      OCK_LOG_ERR(ERR_FUNCTION_FAILED);
-      return CKR_FUNCTION_FAILED;
-#else
       *out_data_len = in_data_len;
       OCK_LOG_ERR(ERR_BUFFER_TOO_SMALL);
       return CKR_BUFFER_TOO_SMALL;
-#endif
+   }
+
+   if (token_specific.t_des_cbc == NULL) {
+      OCK_LOG_ERR(ERR_MECHANISM_INVALID);
+      return CKR_MECHANISM_INVALID;
    }
    rc = token_specific.t_des_cbc(in_data,in_data_len,out_data,
          out_data_len,key_value,init_v,1);  // last parm is the encrypt flag
@@ -1801,6 +1854,10 @@ ckm_des_cbc_decrypt( CK_BYTE   * in_data,
       return CKR_FUNCTION_FAILED;
    }
 
+   if (token_specific.t_des_cbc == NULL) {
+      OCK_LOG_ERR(ERR_MECHANISM_INVALID);
+      return CKR_MECHANISM_INVALID;
+   }
    rc = token_specific.t_des_cbc(in_data,in_data_len,out_data,
          out_data_len,key_value,init_v,0);  // last parm is the encrypt flag
 

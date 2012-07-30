@@ -412,13 +412,21 @@ void adjust_des_key_parity_bits(CK_BYTE *des_key, CK_ULONG key_size, CK_BBOOL pa
 
 
 CK_RV
-token_specific_des_key_gen(CK_BYTE  *des_key,CK_ULONG len, CK_ULONG key_size)
+token_specific_des_key_gen(CK_BYTE  *des_key,CK_ULONG len, TEMPLATE *tmpl)
 {
       
    // Nothing different to do for DES or TDES here as this is just
    // random data...  Validation handles the rest
-        rng_generate(des_key,len);
-        adjust_des_key_parity_bits(des_key, len, ODD_PARITY);
+   // Only check for weak keys when DES.
+        if (len == (3 * DES_KEY_SIZE)) {
+                rng_generate(des_key,len);
+        	adjust_des_key_parity_bits(des_key, len, ODD_PARITY);
+	} else {
+                do {
+                        rng_generate(des_key, len);
+        		adjust_des_key_parity_bits(des_key, len, ODD_PARITY);
+                } while (des_check_weak_key(des_key) == TRUE);
+        }
 
         
    // we really need to validate the key for parity etc...

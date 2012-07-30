@@ -325,7 +325,7 @@ struct token_specific_struct{
    CK_RV  (*t_init_pin)(CK_CHAR_PTR, CK_ULONG);
    CK_RV  (*t_set_pin)(SESSION *, CK_CHAR_PTR, CK_ULONG, CK_CHAR_PTR, CK_ULONG);
 
-   CK_RV  (*t_des_key_gen)(CK_BYTE *,CK_ULONG, CK_ULONG);
+   CK_RV  (*t_des_key_gen)(CK_BYTE *,CK_ULONG, TEMPLATE *);
    CK_RV  (*t_des_ecb)( 
                          CK_BYTE *, CK_ULONG,
                          CK_BYTE *, CK_ULONG *, CK_BYTE *, CK_BYTE);
