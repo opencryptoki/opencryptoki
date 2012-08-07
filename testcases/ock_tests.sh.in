@@ -49,15 +49,15 @@ TOKTYPE=""
 #
 # This is the list of the tests we'll be running once everything is initialized
 #
-# The order of these tests matters. v2.11/login leaves the token with its USER
+# The order of these tests matters. login/login leaves the token with its USER
 # PIN locked, leaving the token unusable until someone manually deletes
 # $OCKDIR/$TOKEN/*. Manually deleting this dir is pre-req for starting the
 # automated tests anyway, so this is OK.
 #
-# v2.11/login MUST come last if it appears in this list
+# login/login MUST come last if it appears in this list
 #
-OCK_TESTS="oc-digest/digest_tests.sh driver/*tests"
-OCK_BENCHS="driver/*bench"
+OCK_TESTS="crypto/*tests"
+OCK_BENCHS="pkcs11/*bench"
 
 usage()
 {
