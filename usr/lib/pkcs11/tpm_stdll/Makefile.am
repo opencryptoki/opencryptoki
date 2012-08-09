@@ -41,7 +41,8 @@ opencryptoki_stdll_libpkcs11_tpm_la_SOURCES = ../common/asn1.c           \
                                               ../common/mech_md2.c       \
                                               ../common/mech_sha.c       \
                                               ../common/object.c         \
-                                              decr_mgr.c globals.c       \
+                                              ../common/decr_mgr.c       \
+											  globals.c       \
                                               loadsave.c utility.c       \
                                               ../common/mech_des.c       \
                                               ../common/mech_des3.c      \
