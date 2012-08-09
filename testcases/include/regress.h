@@ -289,7 +289,8 @@ int get_user_pin(CK_BYTE_PTR);
 		if (rc != CKR_OK) {                                     \
 			testcase_error("C_Logout() rc = %s",            \
 					p11_get_ckr(rc));               \
-			goto testcase_cleanup;                          \
+			if (rc != CKR_USER_NOT_LOGGED_IN)               \
+				goto testcase_cleanup;                  \
 		}                                                       \
 	} while (0)
 
