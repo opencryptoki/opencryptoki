@@ -21,7 +21,7 @@ opencryptoki_stdll_libpkcs11_tpm_la_LDFLAGS = -shared -Wl,-Bsymbolic	\
 
 opencryptoki_stdll_libpkcs11_tpm_la_SOURCES = ../common/asn1.c		\
 					      ../common/btree.c		\
-					      dig_mgr.c			\
+					      ../common/dig_mgr.c       \
 					      ../common/hwf_obj.c	\
 					      ../common/log.c		\
 					      ../common/key.c		\
