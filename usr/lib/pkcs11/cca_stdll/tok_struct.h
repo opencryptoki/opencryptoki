@@ -49,6 +49,12 @@ token_spec_t token_specific  = {
      &token_specific_rsa_encrypt,
      &token_specific_rsa_sign,
      &token_specific_rsa_verify,
+     NULL,
+     NULL,
+     NULL,
+     NULL,
+     NULL,
+     NULL,
      &token_specific_rsa_generate_keypair,
      // Elliptic Curve
      &token_specific_ec_sign,

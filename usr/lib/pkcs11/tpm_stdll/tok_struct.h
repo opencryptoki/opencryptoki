@@ -56,6 +56,12 @@ struct token_specific_struct token_specific = {
      &token_specific_rsa_encrypt,
      &token_specific_rsa_sign,
      &token_specific_rsa_verify,
+     &token_specific_rsa_verify_recover,
+     NULL,
+     NULL,
+     NULL,
+     NULL,
+     NULL,
      &token_specific_rsa_generate_keypair,
      // Elliptic Curve
      NULL,		// ec_sign

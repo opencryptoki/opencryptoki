@@ -35,6 +35,7 @@
 #include "h_extern.h"
 
 #include "csulincl.h"
+#include "ec_defs.h"
 
 CK_CHAR manuf[] = "IBM Corp.";
 CK_CHAR model[] = "IBM CCA Token";

@@ -28,7 +28,7 @@ opencryptoki_stdll_libpkcs11_cca_la_SOURCES = asn1.c			\
 					      ../common/cert.c		\
 					      ../common/dp_obj.c	\
 					      mech_aes.c		\
-					      mech_rsa.c		\
+					      ../common/mech_rsa.c	\
 					      mech_ec.c			\
 					      obj_mgr.c			\
 					      ../common/template.c	\
@@ -52,7 +52,7 @@ opencryptoki_stdll_libpkcs11_cca_la_SOURCES = asn1.c			\
 					      cca_specific.c
 
 noinst_HEADERS = h_extern.h defs.h csulincl.h		\
-		 host_defs.h cca_stdll.h tok_specific.h
+		 host_defs.h cca_stdll.h
 
 install-data-hook:
 	cd $(DESTDIR)/$(libdir)/opencryptoki/stdll && \

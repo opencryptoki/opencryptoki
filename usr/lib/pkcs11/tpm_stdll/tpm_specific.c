@@ -2809,6 +2809,22 @@ token_specific_rsa_encrypt( CK_BYTE   * in_data,
 }
 
 CK_RV
+token_specific_rsa_verify_recover(CK_BYTE *signature, CK_ULONG sig_len,
+				CK_BYTE *out_data, CK_ULONG *out_data_len,
+				OBJECT *key_obj)
+{
+	CK_RV   rc;
+
+	rc = token_specific_rsa_encrypt(signature, sig_len, out_data,
+					out_data_len, key_obj);
+
+	if (rc != CKR_OK)
+		OCK_LOG_ERR(ERR_FUNCTION_FAILED);
+
+	return rc;
+}
+
+CK_RV
 token_specific_aes_key_gen(CK_BYTE *key, CK_ULONG len)
 {
 	return token_rng(key, len);

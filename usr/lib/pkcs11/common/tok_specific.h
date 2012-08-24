@@ -317,6 +317,11 @@ int tok_slot2local(CK_SLOT_ID);
 CK_RV token_specific_init(char *,CK_SLOT_ID );
 CK_RV  token_specific_session(CK_SLOT_ID);
 CK_RV token_specific_final(void);
+CK_RV token_specific_verify_so_pin(CK_CHAR_PTR, CK_ULONG);
+CK_RV token_specific_login(CK_USER_TYPE, CK_CHAR_PTR, CK_ULONG);
+CK_RV token_specific_logout();
+CK_RV token_specific_init_pin(CK_CHAR_PTR, CK_ULONG);
+CK_RV token_specific_set_pin(SESSION *, CK_CHAR_PTR, CK_ULONG, CK_CHAR_PTR, CK_ULONG);
 
 CK_RV token_specific_des_key_gen(CK_BYTE  *,CK_ULONG, CK_ULONG) ;
 
@@ -375,6 +380,47 @@ token_specific_rsa_sign(CK_BYTE *, CK_ULONG, CK_BYTE *, CK_ULONG *,
 CK_RV
 token_specific_rsa_verify(CK_BYTE *, CK_ULONG, CK_BYTE *, CK_ULONG,
                                 OBJECT *);
+
+CK_RV
+token_specific_rsa_verify_recover(CK_BYTE *, CK_ULONG, CK_BYTE *,
+                                CK_ULONG *, OBJECT *);
+
+CK_RV
+token_specific_rsa_x509_encrypt(CK_BYTE *, CK_ULONG, CK_BYTE *,
+                                CK_ULONG *, OBJECT *);
+
+CK_RV
+token_specific_rsa_x509_decrypt(CK_BYTE *, CK_ULONG, CK_BYTE *,
+                                CK_ULONG *, OBJECT *);
+
+CK_RV
+token_specific_rsa_x509_sign(CK_BYTE *, CK_ULONG, CK_BYTE *,
+			     CK_ULONG *, OBJECT *);
+
+CK_RV
+token_specific_rsa_x509_verify(CK_BYTE *, CK_ULONG, CK_BYTE *,
+				CK_ULONG, OBJECT *);
+
+CK_RV
+token_specific_rsa_x509_verify_recover(CK_BYTE *, CK_ULONG, CK_BYTE *,
+					CK_ULONG *, OBJECT *);
+
+CK_RV
+token_specific_ec_sign(CK_BYTE   * ,
+                  CK_ULONG    ,
+                  CK_BYTE   * ,
+                  CK_ULONG  * ,
+                  OBJECT    * );
+
+CK_RV
+token_specific_ec_verify(CK_BYTE   * ,
+                  CK_ULONG    ,
+                  CK_BYTE   * ,
+                  CK_ULONG    ,
+                  OBJECT    * );
+
+CK_RV
+token_specific_ec_generate_keypair( TEMPLATE  * , TEMPLATE  * );
 
 /* Begin code contributed by Corrent corp. */
 #ifndef NODH

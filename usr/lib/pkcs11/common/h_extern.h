@@ -1028,15 +1028,28 @@ CK_RV  ckm_rsa_key_pair_gen( TEMPLATE *publ_tmpl, TEMPLATE *priv_tmpl );
 CK_RV  ckm_rsa_encrypt( CK_BYTE  * in_data,
                         CK_ULONG   in_data_len,
                         CK_BYTE  * out_data,
+			CK_ULONG * out_data_len,
                         OBJECT   * key_obj );
 
 CK_RV  ckm_rsa_decrypt( CK_BYTE  * in_data,
                         CK_ULONG   in_data_len,
                         CK_BYTE  * out_data,
+                        CK_ULONG * out_data_len,
                         OBJECT   * key_obj );
 
 CK_RV  ckm_rsa_compute_priv_exp( TEMPLATE *tmpl );
 
+CK_RV  ckm_rsa_sign( CK_BYTE  * in_data,
+                     CK_ULONG   in_data_len,
+                     CK_BYTE  * out_data,
+                     CK_ULONG * out_data_len,
+                     OBJECT   * key_obj );
+
+CK_RV  ckm_rsa_verify( CK_BYTE  * in_data,
+                       CK_ULONG   in_data_len,
+                       CK_BYTE  * out_data,
+                       CK_ULONG   out_data_len,
+                       OBJECT   * key_obj );
 
 #ifndef NODSA
 // DSA routines

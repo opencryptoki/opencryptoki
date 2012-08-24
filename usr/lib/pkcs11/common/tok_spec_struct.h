@@ -356,6 +356,25 @@ struct token_specific_struct{
 
    CK_RV (*t_rsa_sign)(CK_BYTE *, CK_ULONG, CK_BYTE *, CK_ULONG *, OBJECT *);
    CK_RV (*t_rsa_verify)(CK_BYTE *, CK_ULONG, CK_BYTE *, CK_ULONG, OBJECT *);
+
+   CK_RV (*t_rsa_verify_recover)(CK_BYTE *, CK_ULONG, CK_BYTE *,
+				 CK_ULONG *, OBJECT *);
+
+   CK_RV (*t_rsa_x509_decrypt)(CK_BYTE *, CK_ULONG, CK_BYTE *,
+			       CK_ULONG *, OBJECT *);
+
+   CK_RV (*t_rsa_x509_encrypt)(CK_BYTE *, CK_ULONG, CK_BYTE *,
+                               CK_ULONG *, OBJECT *);
+
+   CK_RV (*t_rsa_x509_sign)(CK_BYTE *, CK_ULONG, CK_BYTE *,
+			    CK_ULONG *, OBJECT *);
+
+   CK_RV (*t_rsa_x509_verify)(CK_BYTE *, CK_ULONG, CK_BYTE *,
+			      CK_ULONG, OBJECT *);
+
+   CK_RV (*t_rsa_x509_verify_recover)(CK_BYTE *, CK_ULONG, CK_BYTE *,
+                                      CK_ULONG *, OBJECT *);
+
    CK_RV (*t_rsa_generate_keypair)(TEMPLATE *, TEMPLATE *);
 
    CK_RV (*t_ec_sign)(CK_BYTE *, CK_ULONG, CK_BYTE *, CK_ULONG *, OBJECT *);

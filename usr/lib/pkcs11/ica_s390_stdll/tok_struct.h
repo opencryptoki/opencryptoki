@@ -330,8 +330,14 @@ token_spec_t token_specific  = {
      // RSA
      &token_specific_rsa_decrypt,
      &token_specific_rsa_encrypt,
-     NULL,		// rsa_sign
-     NULL,		// rsa_verify
+     &token_specific_rsa_sign,
+     &token_specific_rsa_verify,
+     &token_specific_rsa_verify_recover,
+     &token_specific_rsa_x509_decrypt,
+     &token_specific_rsa_x509_encrypt,
+     &token_specific_rsa_x509_sign,
+     &token_specific_rsa_x509_verify,
+     &token_specific_rsa_x509_verify_recover,
      &token_specific_rsa_generate_keypair,
      // Elliptic Curve
      NULL,		// ec_sign

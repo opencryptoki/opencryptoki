@@ -2034,10 +2034,9 @@ token_specific_rsa_generate_keypair( TEMPLATE  * publ_tmpl,
 //
 //
 CK_RV
-token_specific_rsa_encrypt( CK_BYTE   * in_data,
+os_specific_rsa_encrypt( CK_BYTE   * in_data,
                  CK_ULONG    in_data_len,
                  CK_BYTE   * out_data,
-                 CK_ULONG  * out_data_len,
                  OBJECT    * key_obj )
 {
    CK_ATTRIBUTE      * modulus = NULL;
@@ -2087,14 +2086,12 @@ done:
    return rc;
 }
 
-
 //
 //
 CK_RV
-token_specific_rsa_decrypt( CK_BYTE   * in_data,
+os_specific_rsa_decrypt( CK_BYTE   * in_data,
                  CK_ULONG    in_data_len,
                  CK_BYTE   * out_data,
-                 CK_ULONG  * out_data_len,
                  OBJECT    * key_obj )
 {
    CK_ATTRIBUTE      * modulus  = NULL;
@@ -2213,6 +2210,365 @@ modexpo_cleanup:
 
 done:
    return rc;
+}
+
+
+CK_RV
+token_specific_rsa_encrypt(CK_BYTE *in_data, CK_ULONG in_data_len,
+			CK_BYTE *out_data, CK_ULONG *out_data_len,
+			OBJECT *key_obj)
+{
+	CK_RV		rc;
+	CK_BYTE		clear[MAX_RSA_KEYLEN], cipher[MAX_RSA_KEYLEN];
+	CK_ULONG	modulus_bytes;
+	CK_BBOOL	flag;
+	CK_ATTRIBUTE	*attr = NULL;
+
+	flag = template_attribute_find(key_obj->template, CKA_MODULUS, &attr);
+	if (flag == FALSE) {
+		OCK_LOG_ERR(ERR_FUNCTION_FAILED);
+		return CKR_FUNCTION_FAILED;
+	} else
+		modulus_bytes = attr->ulValueLen;
+
+	/* format the data */
+	rc = rsa_format_block(in_data, in_data_len, clear, modulus_bytes, PKCS_BT_2);
+	if (rc != CKR_OK) {
+		OCK_LOG_ERR(ERR_RSA_FORM_BLOCK);
+		return rc;
+	}
+
+	rc = os_specific_rsa_encrypt(clear, modulus_bytes, cipher, key_obj);
+	if (rc == CKR_OK) {
+		memcpy(out_data, cipher, modulus_bytes);
+		*out_data_len = modulus_bytes;
+	} else
+		OCK_LOG_ERR(ERR_FUNCTION_FAILED);
+
+	return rc;
+}
+
+
+CK_RV
+token_specific_rsa_decrypt(CK_BYTE *in_data, CK_ULONG in_data_len,
+			CK_BYTE *out_data, CK_ULONG *out_data_len,
+			OBJECT *key_obj)
+{
+	CK_BYTE		out[MAX_RSA_KEYLEN];
+	CK_RV		rc;
+
+	rc = os_specific_rsa_decrypt(in_data, in_data_len, out, key_obj);
+
+	if (rc != CKR_OK) {
+		OCK_LOG_ERR(ERR_FUNCTION_FAILED);
+		return rc;
+	}
+
+	rc = rsa_parse_block(out,in_data_len,out_data,out_data_len,PKCS_BT_2);
+	if (rc != CKR_OK) {
+		OCK_LOG_ERR(ERR_FUNCTION_FAILED);
+		return rc;
+	}
+
+	/*
+	 * For PKCS #1 v1.5 padding, out_data_len must be less
+	 * than in_data_len (which is modulus_bytes) - 11.
+	 */
+	if (*out_data_len > (in_data_len - 11)) {
+		OCK_LOG_ERR(ERR_ENCRYPTED_DATA_LEN_RANGE);
+		rc = CKR_ENCRYPTED_DATA_LEN_RANGE;
+	}
+
+	return rc;
+}
+
+CK_RV
+token_specific_rsa_sign(CK_BYTE *in_data, CK_ULONG in_data_len,
+			CK_BYTE *out_data, CK_ULONG *out_data_len,
+			OBJECT *key_obj)
+{
+	CK_ATTRIBUTE	*attr = NULL;
+	CK_BBOOL	flag;
+	CK_RV		rc;
+	CK_BYTE		data[MAX_RSA_KEYLEN], sig[MAX_RSA_KEYLEN];
+	CK_ULONG	modulus_bytes;
+
+	flag = template_attribute_find(key_obj->template, CKA_MODULUS, &attr);
+	if (flag == FALSE) {
+		OCK_LOG_ERR(ERR_FUNCTION_FAILED);
+		return CKR_FUNCTION_FAILED;
+	} else
+		modulus_bytes = attr->ulValueLen;
+
+	rc = rsa_format_block(in_data, in_data_len, data, modulus_bytes, PKCS_BT_1);
+	if (rc != CKR_OK) {
+		OCK_LOG_ERR(ERR_RSA_FORM_BLOCK);
+		return rc;
+	}
+
+	/* signing is a private key operation --> decrypt  */
+	rc = os_specific_rsa_decrypt(data, modulus_bytes, sig, key_obj);
+	if (rc == CKR_OK) {
+		memcpy( out_data, sig, modulus_bytes );
+		*out_data_len = modulus_bytes;
+	} else
+		OCK_LOG_ERR(ERR_FUNCTION_FAILED);
+	return rc;
+}
+
+CK_RV
+token_specific_rsa_verify (CK_BYTE *in_data, CK_ULONG in_data_len,
+			CK_BYTE *signature, CK_ULONG sig_len, OBJECT *key_obj)
+{
+	CK_RV		rc;
+        CK_BYTE		out[MAX_RSA_KEYLEN], out_data[MAX_RSA_KEYLEN];
+	CK_BBOOL	flag;
+	CK_ATTRIBUTE	*attr = NULL;
+	CK_ULONG	modulus_bytes, out_data_len;
+
+	out_data_len = MAX_RSA_KEYLEN;
+	flag = template_attribute_find(key_obj->template, CKA_MODULUS, &attr);
+	if (flag == FALSE) {
+		OCK_LOG_ERR(ERR_FUNCTION_FAILED);
+		return CKR_FUNCTION_FAILED;
+	} else
+		modulus_bytes = attr->ulValueLen;
+
+	rc = os_specific_rsa_encrypt(signature, modulus_bytes, out, key_obj);
+	if (rc == CKR_OK) {
+		rc = rsa_parse_block(out, modulus_bytes, out_data, &out_data_len, PKCS_BT_1);
+		if (rc == CKR_OK) {
+			if (in_data_len != out_data_len) {
+				OCK_LOG_ERR(ERR_SIGNATURE_INVALID);
+				return CKR_SIGNATURE_INVALID;
+			}
+
+			if (memcmp(in_data, out_data, out_data_len) != 0) {
+				OCK_LOG_ERR(ERR_SIGNATURE_INVALID);
+				return CKR_SIGNATURE_INVALID;
+			}
+		} else if (rc == CKR_ENCRYPTED_DATA_INVALID ) {
+                        OCK_LOG_ERR(ERR_SIGNATURE_INVALID);
+                        return CKR_SIGNATURE_INVALID;
+		} else {
+			OCK_LOG_ERR(ERR_FUNCTION_FAILED);
+			return CKR_FUNCTION_FAILED;
+		}
+	} else
+		OCK_LOG_ERR(ERR_FUNCTION_FAILED);
+
+	return rc;
+}
+
+CK_RV
+token_specific_rsa_verify_recover(CK_BYTE *signature, CK_ULONG sig_len,
+			CK_BYTE *out_data, CK_ULONG *out_data_len,
+			OBJECT *key_obj)
+{
+	CK_RV		rc;
+	CK_BYTE		out[MAX_RSA_KEYLEN];
+	CK_BBOOL	flag;
+	CK_ATTRIBUTE	*attr = NULL;
+	CK_ULONG	modulus_bytes;
+
+	flag = template_attribute_find(key_obj->template, CKA_MODULUS, &attr);
+	if (flag == FALSE) {
+		OCK_LOG_ERR(ERR_FUNCTION_FAILED);
+		return CKR_FUNCTION_FAILED;
+	} else
+		modulus_bytes = attr->ulValueLen;
+
+	rc = os_specific_rsa_encrypt(signature, modulus_bytes, out, key_obj);
+	if (rc != CKR_OK) {
+		OCK_LOG_ERR(ERR_FUNCTION_FAILED);
+		return rc;
+	}
+
+	rc = rsa_parse_block(out, modulus_bytes, out_data, out_data_len, PKCS_BT_1);
+	if (rc == CKR_ENCRYPTED_DATA_INVALID ) {
+		OCK_LOG_ERR(ERR_SIGNATURE_INVALID);
+		return CKR_SIGNATURE_INVALID;
+	} else if (rc != CKR_OK)
+		OCK_LOG_ERR(ERR_FUNCTION_FAILED);
+
+	return rc;
+}
+
+CK_RV
+token_specific_rsa_x509_encrypt(CK_BYTE *in_data, CK_ULONG in_data_len,
+				CK_BYTE *out_data, CK_ULONG *out_data_len,
+				OBJECT *key_obj)
+{
+	CK_RV		rc;
+	CK_BYTE		clear[MAX_RSA_KEYLEN], cipher[MAX_RSA_KEYLEN];
+	CK_BBOOL	flag;
+	CK_ATTRIBUTE	*attr = NULL;
+	CK_ULONG	modulus_bytes;
+
+	flag = template_attribute_find(key_obj->template, CKA_MODULUS, &attr);
+	if (flag == FALSE) {
+		OCK_LOG_ERR(ERR_FUNCTION_FAILED);
+		return CKR_FUNCTION_FAILED;
+	} else
+		modulus_bytes = attr->ulValueLen;
+
+	// prepad with zeros
+	//
+	memset(clear, 0x0, modulus_bytes - in_data_len);
+	memcpy(&clear[modulus_bytes - in_data_len], in_data, in_data_len);
+
+	rc = os_specific_rsa_encrypt(clear, modulus_bytes, cipher, key_obj);
+	if (rc == CKR_OK) {
+		memcpy(out_data, cipher, modulus_bytes);
+		*out_data_len = modulus_bytes;
+	} else
+		OCK_LOG_ERR(ERR_FUNCTION_FAILED);
+
+	return rc;
+}
+
+CK_RV
+token_specific_rsa_x509_decrypt(CK_BYTE *in_data, CK_ULONG in_data_len,
+				CK_BYTE *out_data, CK_ULONG *out_data_len,
+				OBJECT *key_obj)
+{
+	CK_RV		rc;
+	CK_BYTE		out[MAX_RSA_KEYLEN];
+	CK_BBOOL	flag;
+	CK_ATTRIBUTE	*attr = NULL;
+	CK_ULONG	modulus_bytes;
+
+	flag = template_attribute_find(key_obj->template, CKA_MODULUS, &attr);
+	if (flag == FALSE) {
+		OCK_LOG_ERR(ERR_FUNCTION_FAILED);
+		return CKR_FUNCTION_FAILED;
+	} else
+		modulus_bytes = attr->ulValueLen;
+
+	rc = os_specific_rsa_decrypt(in_data, modulus_bytes, out, key_obj);
+	if (rc == CKR_OK) {
+		memcpy(out_data, out, modulus_bytes);
+		*out_data_len = modulus_bytes;
+	} else
+		OCK_LOG_ERR(ERR_FUNCTION_FAILED);
+
+	return rc;
+}
+
+CK_RV
+token_specific_rsa_x509_sign(CK_BYTE *in_data, CK_ULONG in_data_len,
+			CK_BYTE *out_data, CK_ULONG *out_data_len,
+			OBJECT *key_obj)
+{
+	CK_RV		rc;
+	CK_BYTE		data[MAX_RSA_KEYLEN], sig[MAX_RSA_KEYLEN];
+	CK_BBOOL	flag;
+	CK_ATTRIBUTE	*attr = NULL;
+	CK_ULONG	modulus_bytes;
+
+	flag = template_attribute_find(key_obj->template, CKA_MODULUS, &attr);
+	if (flag == FALSE) {
+		OCK_LOG_ERR(ERR_FUNCTION_FAILED);
+		return CKR_FUNCTION_FAILED;
+	} else
+		modulus_bytes = attr->ulValueLen;
+
+	// prepad with zeros
+	//
+	memset(data, 0x0, modulus_bytes - in_data_len);
+	memcpy(&data[modulus_bytes - in_data_len], in_data, in_data_len);
+
+	rc = os_specific_rsa_decrypt(data, modulus_bytes, sig ,key_obj);
+	if (rc == CKR_OK) {
+		memcpy(out_data, sig, modulus_bytes);
+		*out_data_len = modulus_bytes;
+	} else
+		OCK_LOG_ERR(ERR_FUNCTION_FAILED);
+	return rc;
+}
+
+
+CK_RV
+token_specific_rsa_x509_verify(CK_BYTE *in_data, CK_ULONG in_data_len,
+				CK_BYTE *signature, CK_ULONG sig_len,
+				OBJECT *key_obj)
+{
+	CK_RV		rc;
+	CK_BYTE		out[MAX_RSA_KEYLEN];
+	CK_BBOOL	flag;
+	CK_ATTRIBUTE	*attr = NULL;
+	CK_ULONG	modulus_bytes;
+
+	flag = template_attribute_find(key_obj->template, CKA_MODULUS, &attr);
+	if (flag == FALSE) {
+		OCK_LOG_ERR(ERR_FUNCTION_FAILED);
+		return CKR_FUNCTION_FAILED;
+	} else
+		modulus_bytes = attr->ulValueLen;
+
+	rc = os_specific_rsa_encrypt(signature, modulus_bytes, out ,key_obj);
+	if (rc == CKR_OK) {
+		CK_ULONG pos1, pos2, len;
+
+		// it should be noted that in_data_len is not necessarily
+		// the same as the modulus length
+		//
+		for (pos1=0; pos1 < in_data_len; pos1++)
+			if (in_data[pos1] != 0)
+				break;
+
+		for (pos2=0; pos2 < modulus_bytes; pos2++)
+			if (out[pos2] != 0)
+
+		// at this point, pos1 and pos2 point to the first non-zero
+		// bytes in the input data and the decrypted signature
+		// (the recovered data), respectively.
+		//
+
+		if ((in_data_len - pos1) != (modulus_bytes - pos2)) {
+			OCK_LOG_ERR(ERR_SIGNATURE_INVALID);
+			return CKR_SIGNATURE_INVALID;
+		}
+		len = in_data_len - pos1;
+
+		if (memcmp(&in_data[pos1], &out[pos2], len) != 0) {
+			OCK_LOG_ERR(ERR_SIGNATURE_INVALID);
+			return CKR_SIGNATURE_INVALID;
+		}
+		return CKR_OK;
+	} else
+		OCK_LOG_ERR(ERR_FUNCTION_FAILED);
+
+	return rc;
+}
+
+
+CK_RV
+token_specific_rsa_x509_verify_recover(CK_BYTE *signature, CK_ULONG sig_len,
+			CK_BYTE *out_data, CK_ULONG *out_data_len,
+			OBJECT *key_obj)
+{
+	CK_RV		rc;
+	CK_BYTE		out[MAX_RSA_KEYLEN];
+	CK_BBOOL	flag;
+	CK_ATTRIBUTE	*attr = NULL;
+	CK_ULONG	modulus_bytes;
+
+	flag = template_attribute_find(key_obj->template, CKA_MODULUS, &attr);
+	if (flag == FALSE) {
+		OCK_LOG_ERR(ERR_FUNCTION_FAILED);
+		return CKR_FUNCTION_FAILED;
+	} else
+		modulus_bytes = attr->ulValueLen;
+
+	rc = os_specific_rsa_encrypt(signature, modulus_bytes, out, key_obj);
+	if (rc == CKR_OK) {
+		memcpy(out_data, out, modulus_bytes);
+		*out_data_len = modulus_bytes;
+	} else
+		OCK_LOG_ERR(ERR_FUNCTION_FAILED);
+
+	return rc;
 }
 
 

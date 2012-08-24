@@ -32,7 +32,7 @@ opencryptoki_stdll_libpkcs11_tpm_la_SOURCES = ../common/asn1.c           \
                                               ../common/dp_obj.c         \
                                               mech_aes.c       \
                                               ../common/$(MECH_DSA)      \
-                                              mech_rsa.c                 \
+                                              ../common/mech_rsa.c       \
                                               ../common/obj_mgr.c        \
                                               ../common/template.c       \
 					      ../common/p11util.c        \
@@ -53,7 +53,7 @@ opencryptoki_stdll_libpkcs11_tpm_la_SOURCES = ../common/asn1.c           \
                                               tpm_openssl.c tpm_util.c
 
 noinst_HEADERS = h_extern.h defs.h	\
-		 host_defs.h tpm_specific.h tok_specific.h
+		 host_defs.h tpm_specific.h
 
 install-data-hook:
 	$(MKDIR_P) $(DESTDIR)$(localstatedir)/lib/opencryptoki/tpm

@@ -607,7 +607,6 @@ rsa_pkcs_encrypt( SESSION           *sess,
 {
    OBJECT          *key_obj  = NULL;
    CK_ATTRIBUTE    *attr     = NULL;
-   CK_BYTE          clear[512], cipher[512];  // 4096 bits
    CK_ULONG         modulus_bytes;
    CK_BBOOL         flag;
    CK_RV            rc;
@@ -644,18 +643,10 @@ rsa_pkcs_encrypt( SESSION           *sess,
       return CKR_BUFFER_TOO_SMALL;
    }
 
-   rc = rsa_format_block( in_data, in_data_len, clear, modulus_bytes, PKCS_BT_2 );
-   if (rc != CKR_OK){
-      OCK_LOG_ERR(ERR_RSA_FORM_BLOCK);
-      return rc;
-   }
-   rc = ckm_rsa_encrypt( clear, modulus_bytes, cipher, key_obj );
-   if (rc == CKR_OK) {
-      memcpy( out_data, cipher, modulus_bytes );
-      *out_data_len = modulus_bytes;
-   }
-   else
+   rc = ckm_rsa_encrypt(in_data, in_data_len, out_data, out_data_len, key_obj);
+   if (rc == CKR_OK)
       OCK_LOG_ERR(ERR_RSA_ENCRYPT);
+
    return rc;
 }
 
@@ -672,8 +663,7 @@ rsa_pkcs_decrypt( SESSION           *sess,
                   CK_ULONG          *out_data_len )
 {
    OBJECT          *key_obj  = NULL;
-   CK_BYTE          out[512];  // 4096 bits
-   CK_ULONG         i, modulus_bytes;
+   CK_ULONG         modulus_bytes;
    CK_RV            rc;
 
 
@@ -704,31 +694,9 @@ rsa_pkcs_decrypt( SESSION           *sess,
       return CKR_BUFFER_TOO_SMALL;
    }
 
-   rc = ckm_rsa_decrypt( in_data, modulus_bytes, out, key_obj );
-   if (rc != CKR_OK) {
-      if (rc == CKR_DATA_LEN_RANGE) {
-         OCK_LOG_ERR(ERR_ENCRYPTED_DATA_LEN_RANGE);
-         return CKR_ENCRYPTED_DATA_LEN_RANGE;
-      }
-
+   rc = ckm_rsa_decrypt(in_data, in_data_len, out_data, out_data_len, key_obj);
+   if (rc != CKR_OK)
       OCK_LOG_ERR(ERR_RSA_DECRYPT);
-      return rc;
-   }
-
-   rc = rsa_parse_block(out, modulus_bytes, out_data, out_data_len, PKCS_BT_2);
-   if (rc != CKR_OK) {
-      OCK_LOG_ERR(ERR_RSA_DECRYPT);
-      return rc;
-   }
-
-   /*
-    * For PKCS #1 v1.5 padding, out_data_len must be less than
-    * modulus_bytes - 11.
-    */
-   if (*out_data_len > (modulus_bytes - 11)) {
-      OCK_LOG_ERR(ERR_ENCRYPTED_DATA_LEN_RANGE);
-      return CKR_ENCRYPTED_DATA_LEN_RANGE;
-   }
 
    return rc;
 }
@@ -746,7 +714,6 @@ rsa_pkcs_sign( SESSION             *sess,
                CK_ULONG            *out_data_len )
 {
    OBJECT          *key_obj   = NULL;
-   CK_BYTE          data[512], sig[512];  // max size: 512 bytes == 4096 bits
    CK_ULONG         modulus_bytes;
    CK_RV            rc;
 
@@ -779,20 +746,9 @@ rsa_pkcs_sign( SESSION             *sess,
       return CKR_BUFFER_TOO_SMALL;
    }
 
-   rc = rsa_format_block( in_data, in_data_len, data, modulus_bytes, PKCS_BT_1 );
-   if (rc != CKR_OK){
-      OCK_LOG_ERR(ERR_RSA_FORM_BLOCK);
-      return rc;
-   }
-   // signing is a private key operation --> decrypt
-   //
-   rc = ckm_rsa_decrypt( data, modulus_bytes, sig, key_obj );
-   if (rc == CKR_OK) {
-      memcpy( out_data, sig, modulus_bytes );
-      *out_data_len = modulus_bytes;
-   }
-   else
-      OCK_LOG_ERR(ERR_RSA_DECRYPT);
+   rc = ckm_rsa_sign( in_data, in_data_len, out_data, out_data_len, key_obj );
+   if (rc != CKR_OK)
+      OCK_LOG_ERR(ERR_RSA_SIGN);
    return rc;
 }
 
@@ -809,8 +765,7 @@ rsa_pkcs_verify( SESSION             * sess,
 {
    OBJECT          *key_obj  = NULL;
    CK_ATTRIBUTE    *attr     = NULL;
-   CK_BYTE          out[512], out_data[512];  // 4096 bits
-   CK_ULONG         i, modulus_bytes, out_data_len=512;
+   CK_ULONG         modulus_bytes;
    CK_BBOOL         flag;
    CK_RV            rc;
 
@@ -836,32 +791,9 @@ rsa_pkcs_verify( SESSION             * sess,
    }
    // verifying is a public key operation --> encrypt
    //
-   rc = ckm_rsa_encrypt( signature, modulus_bytes, out, key_obj );
-   if (rc == CKR_OK) {
-      CK_ULONG len;
-
-      rc = rsa_parse_block( out, modulus_bytes, out_data, &out_data_len, PKCS_BT_1);
-      if (rc == CKR_OK) {
-         if (in_data_len != out_data_len){
-            OCK_LOG_ERR(ERR_SIGNATURE_INVALID);
-            return CKR_SIGNATURE_INVALID;
-         }
-
-         if (memcmp(in_data, out_data, out_data_len) != 0){
-            OCK_LOG_ERR(ERR_SIGNATURE_INVALID);
-            return CKR_SIGNATURE_INVALID;
-         }
-      }
-      else if (rc == CKR_ENCRYPTED_DATA_INVALID ) {
-         OCK_LOG_ERR(ERR_SIGNATURE_INVALID);
-         return CKR_SIGNATURE_INVALID;
-      } else {
-         OCK_LOG_ERR(ERR_FUNCTION_FAILED);
-         return CKR_FUNCTION_FAILED;
-      }
-   }
-   else
-      OCK_LOG_ERR(ERR_RSA_ENCRYPT);
+   rc = ckm_rsa_verify(in_data, in_data_len, signature, sig_len, key_obj );
+   if (rc != CKR_OK)
+      OCK_LOG_ERR(ERR_RSA_VERIFY);
 
    return rc;
 }
@@ -880,8 +812,8 @@ rsa_pkcs_verify_recover( SESSION             * sess,
 {
    OBJECT          *key_obj  = NULL;
    CK_ATTRIBUTE    *attr     = NULL;
-   CK_BYTE          out[512];  // 4096 bits
-   CK_ULONG         i, modulus_bytes;
+   CK_OBJECT_CLASS  keyclass;
+   CK_ULONG         modulus_bytes;
    CK_BBOOL         flag;
    CK_RV            rc;
 
@@ -903,6 +835,13 @@ rsa_pkcs_verify_recover( SESSION             * sess,
    else
       modulus_bytes = attr->ulValueLen;
 
+   rc = template_attribute_find(key_obj->template, CKA_CLASS, &attr);
+   if (rc == FALSE) {
+      OCK_LOG_ERR(ERR_FUNCTION_FAILED);
+      return CKR_FUNCTION_FAILED;
+   } else
+      keyclass = *(CK_OBJECT_CLASS *)attr->pValue;
+
    // check input data length restrictions
    //
    if (sig_len != modulus_bytes){
@@ -914,21 +853,21 @@ rsa_pkcs_verify_recover( SESSION             * sess,
       return CKR_OK;
    }
 
-   // verify is a public key operation --> encrypt
-   //
-   rc = ckm_rsa_encrypt( signature, modulus_bytes, out, key_obj );
-   if (rc == CKR_OK) {
-      rc = rsa_parse_block(out, modulus_bytes, out_data, out_data_len, PKCS_BT_1);
-      if (rc == CKR_ENCRYPTED_DATA_INVALID ) {
-         OCK_LOG_ERR(ERR_SIGNATURE_INVALID);
-         return CKR_SIGNATURE_INVALID;
-      } else if (rc != CKR_OK) {
-         OCK_LOG_ERR(ERR_FUNCTION_FAILED);
-         return rc;
-      }
+    /* this had better be a public key */
+   if (keyclass != CKO_PUBLIC_KEY) {
+      OCK_LOG_ERR(ERR_FUNCTION_FAILED);
+      return CKR_FUNCTION_FAILED;
    }
-   else
-      OCK_LOG_ERR(ERR_RSA_ENCRYPT);
+
+     /* check for token specific call first */
+   if (token_specific.t_rsa_verify_recover == NULL) {
+      OCK_LOG_ERR(ERR_MECHANISM_INVALID);
+      return CKR_MECHANISM_INVALID;
+   }
+
+   rc = token_specific.t_rsa_verify_recover(signature, sig_len, out_data, out_data_len, key_obj);
+   if (rc != CKR_OK)
+      OCK_LOG_ERR(ERR_RSA_VERIFY_RECOVER);
 
    return rc;
 }
@@ -947,7 +886,7 @@ rsa_x509_encrypt( SESSION           *sess,
 {
    OBJECT          *key_obj  = NULL;
    CK_ATTRIBUTE    *attr     = NULL;
-   CK_BYTE          clear[512], cipher[512];  // max size: 512 bytes == 4096 bits
+   CK_OBJECT_CLASS  keyclass;
    CK_ULONG         modulus_bytes;
    CK_BBOOL         flag;
    CK_RV            rc;
@@ -966,6 +905,13 @@ rsa_x509_encrypt( SESSION           *sess,
    else
       modulus_bytes = attr->ulValueLen;
 
+   rc = template_attribute_find(key_obj->template, CKA_CLASS, &attr);
+   if (rc == FALSE) {
+      OCK_LOG_ERR(ERR_FUNCTION_FAILED);
+      return CKR_FUNCTION_FAILED;
+   } else
+      keyclass = *(CK_OBJECT_CLASS *)attr->pValue;
+
    // CKM_RSA_X_509 requires input data length to be no bigger than the modulus
    //
    if (in_data_len > modulus_bytes){
@@ -983,18 +929,21 @@ rsa_x509_encrypt( SESSION           *sess,
       return CKR_BUFFER_TOO_SMALL;
    }
 
-   // prepad with zeros
-   //
-   memset( clear, 0x0, modulus_bytes - in_data_len);
-   memcpy( &clear[modulus_bytes - in_data_len], in_data, in_data_len );
-
-   rc = ckm_rsa_encrypt( clear, modulus_bytes, cipher, key_obj );
-   if (rc == CKR_OK) {
-      memcpy( out_data, cipher, modulus_bytes );
-      *out_data_len = modulus_bytes;
+    /* this had better be a public key */
+   if (keyclass != CKO_PUBLIC_KEY) {
+      OCK_LOG_ERR(ERR_FUNCTION_FAILED);
+      return CKR_FUNCTION_FAILED;
    }
-   else
-      OCK_LOG_ERR(ERR_RSA_ENCRYPT);
+
+     /* check for token specific call first */
+   if (token_specific.t_rsa_x509_encrypt == NULL) {
+      OCK_LOG_ERR(ERR_MECHANISM_INVALID);
+      return CKR_MECHANISM_INVALID;
+   }
+
+   rc = token_specific.t_rsa_x509_encrypt(in_data, in_data_len, out_data, out_data_len, key_obj);
+   if (rc != CKR_OK)
+      OCK_LOG_ERR(ERR_RSA_X509_ENCRYPT);
 
    return rc;
 }
@@ -1012,8 +961,9 @@ rsa_x509_decrypt( SESSION           *sess,
                   CK_ULONG          *out_data_len )
 {
    OBJECT          *key_obj  = NULL;
-   CK_BYTE          out[512];  // 4096 bits
    CK_ULONG         modulus_bytes;
+   CK_ATTRIBUTE    *attr     = NULL;
+   CK_OBJECT_CLASS  keyclass;
    CK_RV            rc;
 
 
@@ -1022,15 +972,14 @@ rsa_x509_decrypt( SESSION           *sess,
       OCK_LOG_ERR(ERR_OBJMGR_FIND_MAP);
       return rc;
    }
-#if 0
-   flag = template_attribute_find( key_obj->template, CKA_MODULUS, &attr );
-   if (flag == FALSE)
-      return CKR_FUNCTION_FAILED;
-   else
-      modulus_bytes = attr->ulValueLen;
-#else
    modulus_bytes = rsa_get_key_len(key_obj);
-#endif
+
+   rc = template_attribute_find(key_obj->template, CKA_CLASS, &attr);
+   if (rc == FALSE) {
+      OCK_LOG_ERR(ERR_FUNCTION_FAILED);
+      return CKR_FUNCTION_FAILED;
+   } else
+      keyclass = *(CK_OBJECT_CLASS *)attr->pValue;
 
    // check input data length restrictions
    //
@@ -1053,13 +1002,21 @@ rsa_x509_decrypt( SESSION           *sess,
       return CKR_BUFFER_TOO_SMALL;
    }
 
-   rc = ckm_rsa_decrypt( in_data, modulus_bytes, out, key_obj );
-   if (rc == CKR_OK) {
-      memcpy( out_data, out, modulus_bytes );
-      *out_data_len = modulus_bytes;
+    /* this had better be a private key */
+   if (keyclass != CKO_PRIVATE_KEY) {
+      OCK_LOG_ERR(ERR_FUNCTION_FAILED);
+      return CKR_FUNCTION_FAILED;
    }
-   else
-      OCK_LOG_ERR(ERR_RSA_DECRYPT);
+
+    /* check for token specific call first */
+   if (token_specific.t_rsa_x509_encrypt == NULL) {
+      OCK_LOG_ERR(ERR_MECHANISM_INVALID);
+      return CKR_MECHANISM_INVALID;
+   }
+
+   rc = token_specific.t_rsa_x509_decrypt(in_data, in_data_len, out_data, out_data_len, key_obj);
+   if (rc != CKR_OK)
+      OCK_LOG_ERR(ERR_RSA_X509_DECRYPT);
    // ckm_rsa_operation is used for all RSA operations so we need to adjust
    // the return code accordingly
    //
@@ -1083,8 +1040,9 @@ rsa_x509_sign( SESSION             *sess,
                CK_ULONG            *out_data_len )
 {
    OBJECT          *key_obj   = NULL;
-   CK_BYTE          data[512], sig[512];  // max size: 512 bytes == 4096 bits
+   CK_ATTRIBUTE    *attr      = NULL;
    CK_ULONG         modulus_bytes;
+   CK_OBJECT_CLASS keyclass;
    CK_RV            rc;
 
 
@@ -1097,15 +1055,14 @@ rsa_x509_sign( SESSION             *sess,
       OCK_LOG_ERR(ERR_OBJMGR_FIND_MAP);
       return rc;
    }
-#if 0
-   flag = template_attribute_find( key_obj->template, CKA_MODULUS, &attr );
-   if (flag == FALSE)
-      return CKR_FUNCTION_FAILED;
-   else
-      modulus_bytes = attr->ulValueLen;
-#else
    modulus_bytes = rsa_get_key_len(key_obj);
-#endif
+
+   rc = template_attribute_find(key_obj->template, CKA_CLASS, &attr);
+   if (rc == FALSE) {
+      OCK_LOG_ERR(ERR_FUNCTION_FAILED);
+      return CKR_FUNCTION_FAILED;
+   } else
+      keyclass = *(CK_OBJECT_CLASS *)attr->pValue;
 
    // check input data length restrictions
    //
@@ -1124,18 +1081,21 @@ rsa_x509_sign( SESSION             *sess,
       return CKR_BUFFER_TOO_SMALL;
    }
 
-   memset( data, 0x0, modulus_bytes - in_data_len );
-   memcpy( &data[modulus_bytes - in_data_len], in_data, in_data_len );
-
-   // signing is a private key operation --> decrypt
-   //
-   rc = ckm_rsa_decrypt( data, modulus_bytes, sig, key_obj );
-   if (rc == CKR_OK) {
-      memcpy( out_data, sig, modulus_bytes );
-      *out_data_len = modulus_bytes;
+    /* this had better be a private key */
+   if (keyclass != CKO_PRIVATE_KEY) {
+      OCK_LOG_ERR(ERR_FUNCTION_FAILED);
+      return CKR_FUNCTION_FAILED;
    }
-   else
-      OCK_LOG_ERR(ERR_RSA_DECRYPT);
+
+    /* check for token specific call first */
+   if (token_specific.t_rsa_x509_sign == NULL) {
+      OCK_LOG_ERR(ERR_MECHANISM_INVALID);
+      return CKR_MECHANISM_INVALID;
+   }
+   rc = token_specific.t_rsa_x509_sign(in_data, in_data_len, out_data, out_data_len, key_obj);
+   if (rc != CKR_OK)
+      OCK_LOG_ERR(ERR_RSA_X509_SIGN);
+
    return rc;
 }
 
@@ -1152,7 +1112,7 @@ rsa_x509_verify( SESSION             * sess,
 {
    OBJECT          *key_obj  = NULL;
    CK_ATTRIBUTE    *attr     = NULL;
-   CK_BYTE          out[512];  // 4096 bits
+   CK_OBJECT_CLASS  keyclass;
    CK_ULONG         modulus_bytes;
    CK_BBOOL         flag;
    CK_RV            rc;
@@ -1171,48 +1131,36 @@ rsa_x509_verify( SESSION             * sess,
    else
       modulus_bytes = attr->ulValueLen;
 
+   rc = template_attribute_find(key_obj->template, CKA_CLASS, &attr);
+   if (rc == FALSE) {
+      OCK_LOG_ERR(ERR_FUNCTION_FAILED);
+      return CKR_FUNCTION_FAILED;
+   } else
+      keyclass = *(CK_OBJECT_CLASS *)attr->pValue;
+
    // check input data length restrictions
    //
    if (sig_len != modulus_bytes){
       OCK_LOG_ERR(ERR_SIGNATURE_LEN_RANGE);
       return CKR_SIGNATURE_LEN_RANGE;
    }
+
+    /* this had better be a public key */
+   if (keyclass != CKO_PUBLIC_KEY) {
+      OCK_LOG_ERR(ERR_FUNCTION_FAILED);
+      return CKR_FUNCTION_FAILED;
+   }
+
+    /* check for token specific call first */
+   if (token_specific.t_rsa_x509_verify == NULL) {
+      OCK_LOG_ERR(ERR_MECHANISM_INVALID);
+      return CKR_MECHANISM_INVALID;
+   }
    // verify is a public key operation --> encrypt
    //
-   rc = ckm_rsa_encrypt( signature, modulus_bytes, out, key_obj );
-   if (rc == CKR_OK) {
-      CK_ULONG pos1, pos2, len;
-
-      // it should be noted that in_data_len is not necessarily
-      // the same as the modulus length
-      //
-      for (pos1=0; pos1 < in_data_len; pos1++)
-         if (in_data[pos1] != 0)
-            break;
-
-      for (pos2=0; pos2 < modulus_bytes; pos2++)
-         if (out[pos2] != 0)
-            break;
-
-      // at this point, pos1 and pos2 point to the first non-zero bytes
-      // in the input data and the decrypted signature (the recovered data),
-      // respectively.
-      //
-
-      if ((in_data_len - pos1) != (modulus_bytes - pos2)){
-         OCK_LOG_ERR(ERR_SIGNATURE_INVALID);
-         return CKR_SIGNATURE_INVALID;
-      }
-      len = in_data_len - pos1;
-
-      if (memcmp(&in_data[pos1], &out[pos2], len) != 0){
-         OCK_LOG_ERR(ERR_SIGNATURE_INVALID);
-         return CKR_SIGNATURE_INVALID;
-      }
-      return CKR_OK;
-   }
-   else
-      OCK_LOG_ERR(ERR_RSA_ENCRYPT);
+   rc = token_specific.t_rsa_x509_verify(in_data, in_data_len, signature, sig_len, key_obj);
+   if (rc != CKR_OK)
+      OCK_LOG_ERR(ERR_RSA_X509_VERIFY);
 
    return rc;
 }
@@ -1231,8 +1179,8 @@ rsa_x509_verify_recover( SESSION             * sess,
 {
    OBJECT          *key_obj  = NULL;
    CK_ATTRIBUTE    *attr     = NULL;
-   CK_BYTE          out[512];  // 4096 bits
    CK_ULONG         modulus_bytes;
+   CK_OBJECT_CLASS  keyclass;
    CK_BBOOL         flag;
    CK_RV            rc;
 
@@ -1253,6 +1201,13 @@ rsa_x509_verify_recover( SESSION             * sess,
    }
    else
       modulus_bytes = attr->ulValueLen;
+
+   rc = template_attribute_find(key_obj->template, CKA_CLASS, &attr);
+   if (rc == FALSE) {
+      OCK_LOG_ERR(ERR_FUNCTION_FAILED);
+      return CKR_FUNCTION_FAILED;
+   } else
+      keyclass = *(CK_OBJECT_CLASS *)attr->pValue;
 
    // check input data length restrictions
    //
@@ -1273,17 +1228,23 @@ rsa_x509_verify_recover( SESSION             * sess,
       return CKR_BUFFER_TOO_SMALL;
    }
 
+    /* this had better be a public key */
+   if (keyclass != CKO_PUBLIC_KEY) {
+      OCK_LOG_ERR(ERR_FUNCTION_FAILED);
+      return CKR_FUNCTION_FAILED;
+   }
+
+    /* check for token specific call first */
+   if (token_specific.t_rsa_x509_verify_recover == NULL) {
+      OCK_LOG_ERR(ERR_MECHANISM_INVALID);
+      return CKR_MECHANISM_INVALID;
+   }
+
    // verify is a public key operation --> encrypt
    //
-   rc = ckm_rsa_encrypt( signature, modulus_bytes, out, key_obj );
-   if (rc == CKR_OK) {
-      memcpy( out_data, out, modulus_bytes );
-      *out_data_len = modulus_bytes;
-
-      return CKR_OK;
-   }
-   else
-      OCK_LOG_ERR(ERR_RSA_ENCRYPT);
+   rc = token_specific.t_rsa_x509_verify_recover(signature, sig_len, out_data, out_data_len, key_obj);
+   if (rc != CKR_OK)
+      OCK_LOG_ERR(ERR_RSA_X509_VERIFY_RECOVER);
 
    return rc;
 }
@@ -1396,7 +1357,6 @@ rsa_hash_pkcs_sign( SESSION              * sess,
       OCK_LOG_ERR(ERR_SIGN_INIT);
       goto error;
    }
-   //rc = sign_mgr_sign( sess, length_only, &sign_ctx, hash, hash_len, signature, sig_len );
    rc = sign_mgr_sign( sess, length_only, &sign_ctx, ber_data, ber_data_len, signature, sig_len );
    if (rc != CKR_OK)
       OCK_LOG_ERR(ERR_SIGN);
@@ -1566,7 +1526,6 @@ rsa_hash_pkcs_verify( SESSION              * sess,
       OCK_LOG_ERR(ERR_VERIFY_INIT);
       goto done;
    }
-   //rc = verify_mgr_verify( sess, &verify_ctx, hash, hash_len, signature, sig_len );
    rc = verify_mgr_verify( sess, &verify_ctx, ber_data, ber_data_len, signature, sig_len );
    if (rc != CKR_OK)
       OCK_LOG_ERR(ERR_VERIFY);
@@ -1826,7 +1785,6 @@ rsa_hash_pkcs_verify_final( SESSION              * sess,
       OCK_LOG_ERR(ERR_VERIFY_INIT);
       goto done;
    }
-   //rc = verify_mgr_verify( sess, &verify_ctx, hash, hash_len, signature, sig_len );
    rc = verify_mgr_verify( sess, &verify_ctx, ber_data, ber_data_len, signature, sig_len );
    if (rc != CKR_OK)
       OCK_LOG_ERR(ERR_VERIFY);
@@ -1850,31 +1808,14 @@ CK_RV
 ckm_rsa_key_pair_gen( TEMPLATE  * publ_tmpl,
                       TEMPLATE  * priv_tmpl )
 {
-   CK_ATTRIBUTE       * publ_exp = NULL;
-   CK_ATTRIBUTE       * attr     = NULL;
-
-   CK_ULONG             mod_bits;
-   CK_BBOOL             flag;
    CK_RV                rc;
 
-   flag = template_attribute_find( publ_tmpl, CKA_MODULUS_BITS, &attr );
-   if (!flag){
-      OCK_LOG_ERR(ERR_TEMPLATE_INCOMPLETE);
-      return CKR_TEMPLATE_INCOMPLETE;  // should never happen
-   }
-   mod_bits = *(CK_ULONG *)attr->pValue;
-
-   flag = template_attribute_find( publ_tmpl, CKA_PUBLIC_EXPONENT, &publ_exp );
-   if (!flag){
-      OCK_LOG_ERR(ERR_TEMPLATE_INCOMPLETE);
-      return CKR_TEMPLATE_INCOMPLETE;
+   /* check for token specific call first */
+   if (token_specific.t_rsa_generate_keypair == NULL) {
+      OCK_LOG_ERR(ERR_MECHANISM_INVALID);
+      return CKR_MECHANISM_INVALID;
    }
 
-
-
-   // Really want to FIXME to not instantiate the attributes in  each token
-   // specific routine.  Should return the pieces and instantiate the attributes
-   // once.... SAB..
    rc = token_specific.t_rsa_generate_keypair(publ_tmpl, priv_tmpl);
    if (rc != CKR_OK)
       OCK_LOG_ERR(ERR_KEYGEN);
@@ -1889,6 +1830,7 @@ CK_RV
 ckm_rsa_encrypt( CK_BYTE   * in_data,
                  CK_ULONG    in_data_len,
                  CK_BYTE   * out_data,
+		 CK_ULONG  * out_data_len,
                  OBJECT    * key_obj )
 {
    CK_ATTRIBUTE      * attr    = NULL;
@@ -1912,7 +1854,7 @@ ckm_rsa_encrypt( CK_BYTE   * in_data,
       return CKR_FUNCTION_FAILED;
    }
    
-   rc = token_specific.t_rsa_encrypt(in_data,in_data_len,out_data,NULL,key_obj);
+   rc = token_specific.t_rsa_encrypt(in_data,in_data_len,out_data,out_data_len,key_obj);
    if (rc != CKR_OK)
       OCK_LOG_ERR(ERR_RSA_ENCRYPT_TOK_SPEC);
 
@@ -1926,6 +1868,7 @@ CK_RV
 ckm_rsa_decrypt( CK_BYTE   * in_data,
                  CK_ULONG    in_data_len,
                  CK_BYTE   * out_data,
+		 CK_ULONG   * out_data_len,
                  OBJECT    * key_obj )
 {
    CK_ATTRIBUTE      * attr     = NULL;
@@ -1948,9 +1891,76 @@ ckm_rsa_decrypt( CK_BYTE   * in_data,
       OCK_LOG_ERR(ERR_FUNCTION_FAILED);
       return CKR_FUNCTION_FAILED;
    }
-   rc = token_specific.t_rsa_decrypt(in_data,in_data_len,out_data,NULL,key_obj);
+   rc = token_specific.t_rsa_decrypt(in_data,in_data_len,out_data,out_data_len,key_obj);
    if (rc != CKR_OK)
       OCK_LOG_ERR(ERR_RSA_DECRYPT_TOK_SPEC);
+
+   return rc;
+}
+
+//
+//
+CK_RV
+ckm_rsa_sign( CK_BYTE   * in_data,
+              CK_ULONG    in_data_len,
+              CK_BYTE   * out_data,
+              CK_ULONG  * out_data_len,
+              OBJECT    * key_obj )
+{
+   CK_ATTRIBUTE      * attr     = NULL;
+   CK_OBJECT_CLASS     keyclass;
+   CK_RV               rc;
+
+   rc = template_attribute_find( key_obj->template, CKA_CLASS, &attr );
+   if (rc == FALSE){
+      OCK_LOG_ERR(ERR_FUNCTION_FAILED);
+      return CKR_FUNCTION_FAILED;
+   }
+   else
+      keyclass = *(CK_OBJECT_CLASS *)attr->pValue;
+
+   // this had better be a private key
+   //
+   if (keyclass != CKO_PRIVATE_KEY){
+      OCK_LOG_ERR(ERR_FUNCTION_FAILED);
+      return CKR_FUNCTION_FAILED;
+   }
+   rc = token_specific.t_rsa_sign(in_data, in_data_len, out_data, out_data_len, key_obj);
+   if (rc != CKR_OK)
+      OCK_LOG_ERR(ERR_RSA_SIGN_TOK_SPEC);
+
+   return rc;
+}
+
+//
+CK_RV
+ckm_rsa_verify( CK_BYTE   * in_data,
+                CK_ULONG    in_data_len,
+                CK_BYTE   * out_data,
+                CK_ULONG    out_data_len,
+                OBJECT    * key_obj )
+{
+   CK_ATTRIBUTE      * attr     = NULL;
+   CK_OBJECT_CLASS     keyclass;
+   CK_RV               rc;
+
+   rc = template_attribute_find( key_obj->template, CKA_CLASS, &attr );
+   if (rc == FALSE){
+      OCK_LOG_ERR(ERR_FUNCTION_FAILED);
+      return CKR_FUNCTION_FAILED;
+   }
+   else
+      keyclass = *(CK_OBJECT_CLASS *)attr->pValue;
+
+   // this had better be a private key
+   //
+   if (keyclass != CKO_PUBLIC_KEY){
+      OCK_LOG_ERR(ERR_FUNCTION_FAILED);
+      return CKR_FUNCTION_FAILED;
+   }
+   rc = token_specific.t_rsa_verify(in_data, in_data_len, out_data, out_data_len, key_obj);
+   if (rc != CKR_OK)
+      OCK_LOG_ERR(ERR_RSA_VERIFY);
 
    return rc;
 }
