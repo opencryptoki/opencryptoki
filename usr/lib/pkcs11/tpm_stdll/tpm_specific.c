@@ -3194,3 +3194,24 @@ token_specific_dh_pkcs_key_pair_gen( TEMPLATE  * publ_tmpl,
 }
 
 #endif
+
+CK_RV
+token_specific_get_mechanism_list(CK_MECHANISM_TYPE_PTR pMechanismList,
+                                  CK_ULONG_PTR pulCount)
+{
+	int rc;
+	/* common/mech_list.c */
+	rc = ock_generic_get_mechanism_list(pMechanismList, pulCount);
+	return rc;
+}
+
+CK_RV
+token_specific_get_mechanism_info(CK_MECHANISM_TYPE type,
+                                  CK_MECHANISM_INFO_PTR pInfo)
+{
+	int rc;
+	/* common/mech_list.c */
+	rc = ock_generic_get_mechanism_info(type, pInfo);
+	return rc;
+}
+
