@@ -190,25 +190,17 @@ inline CK_ULONG long_reverse(CK_ULONG x)
 
 // verify that the mech specified is in the
 // mech list for this token... Common code requires this 
-// to be added
-CK_RV 
-validate_mechanism(CK_MECHANISM_PTR  pMechanism)
-{
-	CK_ULONG i;   
-	for (i=0; i< mech_list_len;i++){
-		if (pMechanism->mechanism == mech_list[i].mech_type) {
-			return CKR_OK;
-		}
+#define VALID_MECH(m, f)							\
+	if (m && token_specific.t_get_mechanism_info) {				\
+		int _rc;							\
+		CK_MECHANISM_INFO info;						\
+		memset(&info, 0, sizeof(info));					\
+		_rc = token_specific.t_get_mechanism_info(m->mechanism, &info);	\
+		if (_rc != CKR_OK || !(info.flags & (f))) {			\
+			rc = CKR_MECHANISM_INVALID;				\
+			goto done;						\
+		}								\
 	}
-	OCK_LOG_ERR(ERR_MECHANISM_INVALID);
-	return CKR_MECHANISM_INVALID;
-}
-
-#define VALID_MECH(p) \
-   if ( validate_mechanism(p) != CKR_OK){ \
-      rc = CKR_MECHANISM_INVALID; \
-      goto done; \
-   } \
 
 // Defines to allow NT code to work correctly
 #define WaitForSingleObject(x,y)  pthread_mutex_lock(&(x))
@@ -1900,7 +1892,7 @@ CK_RV SC_EncryptInit( ST_SESSION_HANDLE  *sSession,
 		goto done;
 	}
 
-	VALID_MECH(pMechanism);
+	VALID_MECH(pMechanism, CKF_ENCRYPT);
 
 	sess = SESSION_MGR_FIND( hSession );
 	if (!sess) {
@@ -2157,7 +2149,7 @@ CK_RV SC_DecryptInit( ST_SESSION_HANDLE  *sSession,
 		rc = CKR_ARGUMENTS_BAD;
 		goto done;
 	}
-	VALID_MECH(pMechanism);
+	VALID_MECH(pMechanism, CKF_DECRYPT);
 
 	sess = SESSION_MGR_FIND( hSession );
 	if (!sess) {
@@ -2395,7 +2387,7 @@ CK_RV SC_DigestInit( ST_SESSION_HANDLE  *sSession,
 		goto done;
 	}
 
-	VALID_MECH(pMechanism);
+	VALID_MECH(pMechanism, CKF_DIGEST);
 
 
 	sess = SESSION_MGR_FIND( hSession );
@@ -2673,7 +2665,7 @@ CK_RV SC_SignInit( ST_SESSION_HANDLE  *sSession,
 		rc = CKR_SESSION_HANDLE_INVALID;
 		goto done;
 	}
-	VALID_MECH(pMechanism);
+	VALID_MECH(pMechanism, CKF_SIGN);
 
 	if (pin_expired(&sess->session_info, nv_token_data->token_info.flags) == TRUE) {
 		OCK_LOG_ERR(ERR_PIN_EXPIRED);
@@ -2896,7 +2888,7 @@ CK_RV SC_SignRecoverInit( ST_SESSION_HANDLE  *sSession,
 		rc = CKR_ARGUMENTS_BAD;
 		goto done;
 	}
-	VALID_MECH(pMechanism);
+	VALID_MECH(pMechanism, CKF_SIGN_RECOVER);
 
 	sess = SESSION_MGR_FIND( hSession );
 	if (!sess) {
@@ -3014,7 +3006,7 @@ CK_RV SC_VerifyInit( ST_SESSION_HANDLE  *sSession,
 		rc = CKR_ARGUMENTS_BAD;
 		goto done;
 	}
-	VALID_MECH(pMechanism);
+	VALID_MECH(pMechanism, CKF_VERIFY);
 
 	sess = SESSION_MGR_FIND( hSession );
 	if (!sess) {
@@ -3232,7 +3224,7 @@ CK_RV SC_VerifyRecoverInit( ST_SESSION_HANDLE  *sSession,
 		rc = CKR_ARGUMENTS_BAD;
 		goto done;
 	}
-	VALID_MECH(pMechanism);
+	VALID_MECH(pMechanism, CKF_VERIFY_RECOVER);
 
 	sess = SESSION_MGR_FIND( hSession );
 	if (!sess) {
@@ -3429,7 +3421,7 @@ CK_RV SC_GenerateKey( ST_SESSION_HANDLE     *sSession,
 		rc = CKR_ARGUMENTS_BAD;
 		goto done;
 	}
-	VALID_MECH(pMechanism);
+	VALID_MECH(pMechanism, CKF_GENERATE);
 
 	sess = SESSION_MGR_FIND( hSession );
 	if (!sess) {
@@ -3504,7 +3496,7 @@ CK_RV SC_GenerateKeyPair( ST_SESSION_HANDLE     *sSession,
 		rc = CKR_ARGUMENTS_BAD;
 		goto done;
 	}
-	VALID_MECH(pMechanism);
+	VALID_MECH(pMechanism, CKF_GENERATE_KEY_PAIR);
 
 	sess = SESSION_MGR_FIND( hSession );
 	if (!sess) {
@@ -3594,7 +3586,7 @@ CK_RV SC_WrapKey( ST_SESSION_HANDLE  *sSession,
 		rc = CKR_ARGUMENTS_BAD;
 		goto done;
 	}
-	VALID_MECH(pMechanism);
+	VALID_MECH(pMechanism, CKF_WRAP);
 
 	if (!pWrappedKey)
 		length_only = TRUE;
@@ -3661,7 +3653,7 @@ CK_RV SC_UnwrapKey( ST_SESSION_HANDLE     *sSession,
 		rc = CKR_ARGUMENTS_BAD;
 		goto done;
 	}
-	VALID_MECH(pMechanism);
+	VALID_MECH(pMechanism, CKF_UNWRAP);
 
 	sess = SESSION_MGR_FIND( hSession );
 	if (!sess) {
@@ -3734,7 +3726,7 @@ CK_RV SC_DeriveKey( ST_SESSION_HANDLE     *sSession,
 		rc = CKR_ARGUMENTS_BAD;
 		goto done;
 	}
-	VALID_MECH(pMechanism);
+	VALID_MECH(pMechanism, CKF_DERIVE);
 
 	sess = SESSION_MGR_FIND( hSession );
 	if (!sess) {
