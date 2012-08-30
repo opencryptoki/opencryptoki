@@ -3039,7 +3039,7 @@ MECH_LIST_ELEMENT mech_list[] = {
    { CKM_SSL3_SHA1_MAC,             384,  384, CKF_HW | CKF_SIGN | CKF_VERIFY },
 
 #if !(NOAES)
-   { CKM_AES_KEY_GEN,                16,   32, CKF_HW },
+   { CKM_AES_KEY_GEN,                16,   32, CKF_HW | CKF_GENERATE },
    { CKM_AES_ECB,                    16,   32, CKF_HW      |
    					       CKF_ENCRYPT | CKF_DECRYPT |
    					       CKF_WRAP    | CKF_UNWRAP },
