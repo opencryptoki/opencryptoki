@@ -336,10 +336,13 @@ aes_ecb_encrypt( SESSION           *sess,
       return rc;
    }
 
-   rc = template_attribute_find( key->template, CKA_VALUE, &attr );
-   if (rc == FALSE){
-      OCK_LOG_ERR(ERR_FUNCTION_FAILED);
-      return CKR_FUNCTION_FAILED;
+   rc = template_attribute_find(key->template, CKA_IBM_OPAQUE, &attr);
+   if (rc == FALSE) {
+      rc = template_attribute_find( key->template, CKA_VALUE, &attr );
+      if (rc == FALSE){
+         OCK_LOG_ERR(ERR_FUNCTION_FAILED);
+         return CKR_FUNCTION_FAILED;
+      }
    }
   
    // We have to use ulValueLen here, since with AES we don't
@@ -398,10 +401,13 @@ aes_ecb_decrypt( SESSION           *sess,
       return rc; 
    }
 
-   rc = template_attribute_find( key->template, CKA_VALUE, &attr );
-   if (rc == FALSE){
-      OCK_LOG_ERR(ERR_FUNCTION_FAILED);
-      return CKR_FUNCTION_FAILED;
+   rc = template_attribute_find(key->template, CKA_IBM_OPAQUE, &attr);
+   if (rc == FALSE) {
+      rc = template_attribute_find( key->template, CKA_VALUE, &attr );
+      if (rc == FALSE){
+         OCK_LOG_ERR(ERR_FUNCTION_FAILED);
+         return CKR_FUNCTION_FAILED;
+      }
    }
    
    memset(key_value, 0, sizeof(key_value));
@@ -458,10 +464,13 @@ aes_cbc_encrypt( SESSION           *sess,
       return rc;
    }
 
-   rc = template_attribute_find( key->template, CKA_VALUE, &attr );
-   if (rc == FALSE){
-      OCK_LOG_ERR(ERR_FUNCTION_FAILED);
-      return CKR_FUNCTION_FAILED;
+   rc = template_attribute_find(key->template, CKA_IBM_OPAQUE, &attr);
+   if (rc == FALSE) {
+      rc = template_attribute_find( key->template, CKA_VALUE, &attr );
+      if (rc == FALSE){
+         OCK_LOG_ERR(ERR_FUNCTION_FAILED);
+         return CKR_FUNCTION_FAILED;
+      }
    }
    
    memset(key_value, 0, sizeof(key_value));
@@ -518,10 +527,13 @@ aes_cbc_decrypt( SESSION            *sess,
       return rc;
    }
 
-   rc = template_attribute_find( key->template, CKA_VALUE, &attr );
-   if (rc == FALSE){
-      OCK_LOG_ERR(ERR_FUNCTION_FAILED);
-      return CKR_FUNCTION_FAILED;
+   rc = template_attribute_find(key->template, CKA_IBM_OPAQUE, &attr);
+   if (rc == FALSE) {
+      rc = template_attribute_find( key->template, CKA_VALUE, &attr );
+      if (rc == FALSE){
+         OCK_LOG_ERR(ERR_FUNCTION_FAILED);
+         return CKR_FUNCTION_FAILED;
+      }
    }
    
    memset(key_value, 0, sizeof(key_value));
@@ -576,10 +588,13 @@ aes_cbc_pad_encrypt( SESSION           *sess,
       return rc;
    }
 
-   rc = template_attribute_find( key->template, CKA_VALUE, &attr  );
-   if (rc == FALSE){
-      OCK_LOG_ERR(ERR_FUNCTION_FAILED);
-      return CKR_FUNCTION_FAILED;
+   rc = template_attribute_find(key->template, CKA_IBM_OPAQUE, &attr);
+   if (rc == FALSE) {
+      rc = template_attribute_find( key->template, CKA_VALUE, &attr );
+      if (rc == FALSE){
+         OCK_LOG_ERR(ERR_FUNCTION_FAILED);
+         return CKR_FUNCTION_FAILED;
+      }
    }
    
    memset(key_value, 0, sizeof(key_value));
@@ -659,10 +674,13 @@ aes_cbc_pad_decrypt( SESSION            *sess,
       return rc;
    }
 
-   rc = template_attribute_find( key->template, CKA_VALUE, &attr );
-   if (rc == FALSE){
-      OCK_LOG_ERR(ERR_FUNCTION_FAILED);
-      return CKR_FUNCTION_FAILED;
+   rc = template_attribute_find(key->template, CKA_IBM_OPAQUE, &attr);
+   if (rc == FALSE) {
+      rc = template_attribute_find( key->template, CKA_VALUE, &attr );
+      if (rc == FALSE){
+         OCK_LOG_ERR(ERR_FUNCTION_FAILED);
+         return CKR_FUNCTION_FAILED;
+      }
    }
    
    memset(key_value, 0, sizeof(key_value));
@@ -736,10 +754,13 @@ aes_ctr_encrypt( SESSION           *sess,
       return rc;
    }
 
-   rc = template_attribute_find( key->template, CKA_VALUE, &attr );
-   if (rc == FALSE){
-      OCK_LOG_ERR(ERR_FUNCTION_FAILED);
-      return CKR_FUNCTION_FAILED;
+   rc = template_attribute_find(key->template, CKA_IBM_OPAQUE, &attr);
+   if (rc == FALSE) {
+      rc = template_attribute_find( key->template, CKA_VALUE, &attr );
+      if (rc == FALSE){
+         OCK_LOG_ERR(ERR_FUNCTION_FAILED);
+         return CKR_FUNCTION_FAILED;
+      }
    }
    memset(key_value, 0, sizeof(key_value));
    memcpy( key_value, attr->pValue, attr->ulValueLen );
@@ -793,10 +814,13 @@ aes_ctr_decrypt( SESSION           *sess,
       return rc;
    }
 
-   rc = template_attribute_find( key->template, CKA_VALUE, &attr );
-   if (rc == FALSE){
-      OCK_LOG_ERR(ERR_FUNCTION_FAILED);
-      return CKR_FUNCTION_FAILED;
+   rc = template_attribute_find(key->template, CKA_IBM_OPAQUE, &attr);
+   if (rc == FALSE) {
+      rc = template_attribute_find( key->template, CKA_VALUE, &attr );
+      if (rc == FALSE){
+         OCK_LOG_ERR(ERR_FUNCTION_FAILED);
+         return CKR_FUNCTION_FAILED;
+      }
    }
    memset(key_value, 0, sizeof(key_value));
    memcpy( key_value, attr->pValue, attr->ulValueLen );
@@ -871,12 +895,14 @@ aes_ecb_encrypt_update( SESSION           *sess,
          return rc;
       }
 
-      rc = template_attribute_find( key->template, CKA_VALUE, &attr );
-      if (rc == FALSE){
-         OCK_LOG_ERR(ERR_FUNCTION_FAILED);
-         return CKR_FUNCTION_FAILED;
+      rc = template_attribute_find(key->template, CKA_IBM_OPAQUE, &attr);
+      if (rc == FALSE) {
+         rc = template_attribute_find( key->template, CKA_VALUE, &attr );
+         if (rc == FALSE){
+            OCK_LOG_ERR(ERR_FUNCTION_FAILED);
+            return CKR_FUNCTION_FAILED;
+         }
       }
-
       memset(key_value, 0, sizeof(key_value));
       memcpy( key_value, attr->pValue, attr->ulValueLen );
 
@@ -966,12 +992,14 @@ aes_ecb_decrypt_update( SESSION           *sess,
          return rc;
       }
 
-      rc = template_attribute_find( key->template, CKA_VALUE, &attr );
-      if (rc == FALSE){
-         OCK_LOG_ERR(ERR_FUNCTION_FAILED);
-         return CKR_FUNCTION_FAILED;
+      rc = template_attribute_find(key->template, CKA_IBM_OPAQUE, &attr);
+      if (rc == FALSE) {
+         rc = template_attribute_find( key->template, CKA_VALUE, &attr );
+         if (rc == FALSE){
+            OCK_LOG_ERR(ERR_FUNCTION_FAILED);
+            return CKR_FUNCTION_FAILED;
+         }
       }
-      
       memset(key_value, 0, sizeof(key_value));
       memcpy( key_value, attr->pValue, attr->ulValueLen );
 
@@ -1062,12 +1090,14 @@ aes_cbc_encrypt_update( SESSION           *sess,
          return rc;
       }
 
-      rc = template_attribute_find( key->template, CKA_VALUE, &attr );
-      if (rc == FALSE){
-         OCK_LOG_ERR(ERR_FUNCTION_FAILED);
-         return CKR_FUNCTION_FAILED;
+      rc = template_attribute_find(key->template, CKA_IBM_OPAQUE, &attr);
+      if (rc == FALSE) {
+         rc = template_attribute_find( key->template, CKA_VALUE, &attr );
+         if (rc == FALSE){
+            OCK_LOG_ERR(ERR_FUNCTION_FAILED);
+            return CKR_FUNCTION_FAILED;
+         }
       }
-      
       memset(key_value, 0, sizeof(key_value));
       memcpy( key_value, attr->pValue, attr->ulValueLen );
 
@@ -1168,12 +1198,14 @@ aes_cbc_decrypt_update( SESSION           *sess,
          return rc;
       }
 
-      rc = template_attribute_find( key->template, CKA_VALUE, &attr );
-      if (rc == FALSE){
-         OCK_LOG_ERR(ERR_FUNCTION_FAILED);
-         return CKR_FUNCTION_FAILED;
+      rc = template_attribute_find(key->template, CKA_IBM_OPAQUE, &attr);
+      if (rc == FALSE) {
+         rc = template_attribute_find( key->template, CKA_VALUE, &attr );
+         if (rc == FALSE){
+            OCK_LOG_ERR(ERR_FUNCTION_FAILED);
+            return CKR_FUNCTION_FAILED;
+         }
       }
-      
       memset(key_value, 0, sizeof(key_value));
       memcpy( key_value, attr->pValue, attr->ulValueLen );
 
@@ -1284,12 +1316,14 @@ aes_cbc_pad_encrypt_update( SESSION           *sess,
          return rc;
       }
 
-      rc = template_attribute_find( key->template, CKA_VALUE, &attr );
-      if (rc == FALSE){
-         OCK_LOG_ERR(ERR_FUNCTION_FAILED);
-         return CKR_FUNCTION_FAILED;
+      rc = template_attribute_find(key->template, CKA_IBM_OPAQUE, &attr);
+      if (rc == FALSE) {
+         rc = template_attribute_find( key->template, CKA_VALUE, &attr );
+         if (rc == FALSE){
+            OCK_LOG_ERR(ERR_FUNCTION_FAILED);
+            return CKR_FUNCTION_FAILED;
+         }
       }
-      
       memset(key_value, 0, sizeof(key_value));
       memcpy( key_value, attr->pValue, attr->ulValueLen );
 
@@ -1396,12 +1430,14 @@ aes_cbc_pad_decrypt_update( SESSION           *sess,
          return rc;
       }
 
-      rc = template_attribute_find( key->template, CKA_VALUE, &attr );
-      if (rc == FALSE){
-         OCK_LOG_ERR(ERR_FUNCTION_FAILED);
-         return CKR_FUNCTION_FAILED;
+      rc = template_attribute_find(key->template, CKA_IBM_OPAQUE, &attr);
+      if (rc == FALSE) {
+         rc = template_attribute_find( key->template, CKA_VALUE, &attr );
+         if (rc == FALSE){
+            OCK_LOG_ERR(ERR_FUNCTION_FAILED);
+            return CKR_FUNCTION_FAILED;
+         }
       }
-      
       memset(key_value, 0, sizeof(key_value));
       memcpy( key_value, attr->pValue, attr->ulValueLen );
 
@@ -1489,10 +1525,14 @@ aes_ctr_encrypt_update( SESSION                *sess,
        OCK_LOG_ERR(ERR_OBJMGR_FIND_MAP);
 	return rc;
      }
-     rc = template_attribute_find( key->template, CKA_VALUE, &attr);
-     if( rc == FALSE){
-       OCK_LOG_ERR(ERR_FUNCTION_FAILED);
-       return CKR_FUNCTION_FAILED;
+
+     rc = template_attribute_find(key->template, CKA_IBM_OPAQUE, &attr);
+     if (rc == FALSE) {
+        rc = template_attribute_find( key->template, CKA_VALUE, &attr );
+        if (rc == FALSE){
+           OCK_LOG_ERR(ERR_FUNCTION_FAILED);
+           return CKR_FUNCTION_FAILED;
+        }
      }
      memcpy ( key_value, attr->pValue, attr->ulValueLen);
      //these buffers need to be longword aligned
@@ -1570,10 +1610,13 @@ aes_ctr_decrypt_update( SESSION                 *sess,
        OCK_LOG_ERR(ERR_OBJMGR_FIND_MAP);
        return rc;
      }
-     rc = template_attribute_find( key->template, CKA_VALUE, &attr);
-     if( rc == FALSE){
-       OCK_LOG_ERR(ERR_FUNCTION_FAILED);
-       return CKR_FUNCTION_FAILED;
+     rc = template_attribute_find(key->template, CKA_IBM_OPAQUE, &attr);
+     if (rc == FALSE) {
+        rc = template_attribute_find( key->template, CKA_VALUE, &attr );
+        if (rc == FALSE){
+           OCK_LOG_ERR(ERR_FUNCTION_FAILED);
+           return CKR_FUNCTION_FAILED;
+        }
      }
      memset(key_value, 0, sizeof(key_value));
      memcpy ( key_value, attr->pValue, attr->ulValueLen);
@@ -1772,12 +1815,14 @@ aes_cbc_pad_encrypt_final( SESSION           *sess,
       return rc;
    }
 
-   rc = template_attribute_find( key->template, CKA_VALUE, &attr );
-   if (rc == FALSE){
-      OCK_LOG_ERR(ERR_FUNCTION_FAILED);
-      return CKR_FUNCTION_FAILED;
+   rc = template_attribute_find(key->template, CKA_IBM_OPAQUE, &attr);
+   if (rc == FALSE) {
+      rc = template_attribute_find( key->template, CKA_VALUE, &attr );
+      if (rc == FALSE){
+         OCK_LOG_ERR(ERR_FUNCTION_FAILED);
+         return CKR_FUNCTION_FAILED;
+      }
    }
-   
    memset(key_value, 0, sizeof(key_value));
    memcpy( key_value, attr->pValue, attr->ulValueLen );
 
@@ -1844,12 +1889,14 @@ aes_cbc_pad_decrypt_final( SESSION           *sess,
       return rc;
    }
 
-   rc = template_attribute_find( key->template, CKA_VALUE, &attr );
-   if (rc == FALSE){
-      OCK_LOG_ERR(ERR_FUNCTION_FAILED);
-      return CKR_FUNCTION_FAILED;
+   rc = template_attribute_find(key->template, CKA_IBM_OPAQUE, &attr);
+   if (rc == FALSE) {
+      rc = template_attribute_find( key->template, CKA_VALUE, &attr );
+      if (rc == FALSE){
+         OCK_LOG_ERR(ERR_FUNCTION_FAILED);
+         return CKR_FUNCTION_FAILED;
+      }
    }
-   
    memcpy( key_value, attr->pValue, attr->ulValueLen );
 
    context = (AES_CONTEXT *)ctx->context;
@@ -2012,7 +2059,12 @@ ckm_aes_key_gen( TEMPLATE *tmpl )
       return CKR_MECHANISM_INVALID;
    }
 
-   rc = token_specific.t_aes_key_gen(&aes_key, &key_size);
+   if ((aes_key = (CK_BYTE *)malloc(key_size)) == NULL) {
+      OCK_LOG_ERR(ERR_HOST_MEMORY);
+      return CKR_HOST_MEMORY;
+   }
+
+   rc = token_specific.t_aes_key_gen(aes_key, key_size, tmpl);
    
    if (rc != CKR_OK) {
       if (aes_key != NULL)

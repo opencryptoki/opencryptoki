@@ -2196,13 +2196,13 @@ CK_RV     publ_key_validate_attribute       ( TEMPLATE *tmpl, CK_ATTRIBUTE *attr
 
 CK_RV     priv_key_check_required_attributes( TEMPLATE *tmpl, CK_ULONG mode );
 CK_RV     priv_key_set_default_attributes   ( TEMPLATE *tmpl, CK_ULONG mode );
-CK_RV     priv_key_unwrap( TEMPLATE *tmpl, CK_ULONG keytype, CK_BYTE *data, CK_ULONG data_len );
+CK_RV     priv_key_unwrap( TEMPLATE *tmpl, CK_ULONG keytype, CK_BYTE *data, CK_ULONG data_len, CK_BBOOL isopaque );
 CK_RV     priv_key_validate_attribute       ( TEMPLATE *tmpl, CK_ATTRIBUTE *attr, CK_ULONG mode );
 
 CK_BBOOL  secret_key_check_exportability( CK_ATTRIBUTE_TYPE type );
 CK_RV     secret_key_check_required_attributes( TEMPLATE *tmpl, CK_ULONG mode );
 CK_RV     secret_key_set_default_attributes   ( TEMPLATE *tmpl, CK_ULONG mode );
-CK_RV     secret_key_unwrap( TEMPLATE *tmpl, CK_ULONG keytype, CK_BYTE *data, CK_ULONG data_len, CK_BBOOL fromend );
+CK_RV     secret_key_unwrap( TEMPLATE *tmpl, CK_ULONG keytype, CK_BYTE *data, CK_ULONG data_len, CK_BBOOL fromend, CK_BBOOL isopaque );
 CK_RV     secret_key_validate_attribute       ( TEMPLATE *tmpl, CK_ATTRIBUTE *attr, CK_ULONG mode );
 
 // rsa routines
@@ -2215,7 +2215,7 @@ CK_RV     rsa_priv_check_required_attributes( TEMPLATE *tmpl, CK_ULONG mode );
 CK_RV     rsa_priv_set_default_attributes( TEMPLATE *tmpl, CK_ULONG mode );
 CK_RV     rsa_priv_validate_attribute( TEMPLATE *tmpl, CK_ATTRIBUTE *attr, CK_ULONG mode );
 CK_RV     rsa_priv_wrap_get_data( TEMPLATE *tmpl, CK_BBOOL length_only, CK_BYTE **data, CK_ULONG *data_len );
-CK_RV     rsa_priv_unwrap( TEMPLATE *tmpl, CK_BYTE *data, CK_ULONG data_len );
+CK_RV     rsa_priv_unwrap( TEMPLATE *tmpl, CK_BYTE *data, CK_ULONG data_len, CK_BBOOL isopaque );
 
 // dsa routines
 //
@@ -2265,7 +2265,7 @@ CK_RV     generic_secret_check_required_attributes( TEMPLATE *tmpl, CK_ULONG mod
 CK_RV     generic_secret_set_default_attributes( TEMPLATE *tmpl, CK_ULONG mode );
 CK_RV     generic_secret_validate_attribute( TEMPLATE *tmpl, CK_ATTRIBUTE *attr, CK_ULONG mode );
 CK_RV     generic_secret_wrap_get_data( TEMPLATE *tmpl, CK_BBOOL length_only, CK_BYTE **data, CK_ULONG *data_len );
-CK_RV     generic_secret_unwrap( TEMPLATE *tmpl, CK_BYTE *data, CK_ULONG data_len, CK_BBOOL fromend );
+CK_RV     generic_secret_unwrap( TEMPLATE *tmpl, CK_BYTE *data, CK_ULONG data_len, CK_BBOOL fromend, CK_BBOOL isopaque );
 
 // RC2 routines
 CK_RV     rc2_check_required_attributes( TEMPLATE *tmpl, CK_ULONG mode );
@@ -2286,7 +2286,7 @@ CK_RV     rc5_validate_attribute( TEMPLATE *tmpl, CK_ATTRIBUTE *attr, CK_ULONG m
 CK_RV     des_check_required_attributes( TEMPLATE *tmpl, CK_ULONG mode );
 CK_BBOOL  des_check_weak_key( CK_BYTE *key );
 CK_RV     des_set_default_attributes( TEMPLATE *tmpl, CK_ULONG mode );
-CK_RV     des_unwrap( TEMPLATE *tmpl, CK_BYTE *data, CK_ULONG data_len, CK_BBOOL fromend );
+CK_RV     des_unwrap( TEMPLATE *tmpl, CK_BYTE *data, CK_ULONG data_len, CK_BBOOL fromend, CK_BBOOL isopaque );
 CK_RV     des_validate_attribute( TEMPLATE *tmpl, CK_ATTRIBUTE *attr, CK_ULONG mode );
 CK_RV     des_wrap_get_data( TEMPLATE *tmpl, CK_BBOOL length_only, CK_BYTE **data, CK_ULONG *data_len );
 
@@ -2298,14 +2298,14 @@ CK_RV     des2_validate_attribute( TEMPLATE *tmpl, CK_ATTRIBUTE *attr, CK_ULONG 
 // DES3 routines
 CK_RV     des3_check_required_attributes( TEMPLATE *tmpl, CK_ULONG mode );
 CK_RV     des3_set_default_attributes( TEMPLATE *tmpl, CK_ULONG mode );
-CK_RV     des3_unwrap( TEMPLATE *tmpl, CK_BYTE *data, CK_ULONG data_len, CK_BBOOL fromend );
+CK_RV     des3_unwrap( TEMPLATE *tmpl, CK_BYTE *data, CK_ULONG data_len, CK_BBOOL fromend, CK_BBOOL isopaque );
 CK_RV     des3_validate_attribute( TEMPLATE *tmpl, CK_ATTRIBUTE *attr, CK_ULONG mode );
 CK_RV     des3_wrap_get_data( TEMPLATE *tmpl, CK_BBOOL length_only, CK_BYTE **data, CK_ULONG *data_len );
 
 // AES routines
 CK_RV     aes_check_required_attributes( TEMPLATE *tmpl, CK_ULONG mode );
 CK_RV     aes_set_default_attributes( TEMPLATE *tmpl, CK_ULONG mode );
-CK_RV     aes_unwrap( TEMPLATE *tmpl, CK_BYTE *data, CK_ULONG data_len, CK_BBOOL fromend );
+CK_RV     aes_unwrap( TEMPLATE *tmpl, CK_BYTE *data, CK_ULONG data_len, CK_BBOOL fromend, CK_BBOOL isopaque );
 CK_RV     aes_validate_attribute( TEMPLATE *tmpl, CK_ATTRIBUTE *attr, CK_ULONG mode );
 CK_RV     aes_wrap_get_data( TEMPLATE *tmpl, CK_BBOOL length_only, CK_BYTE **data, CK_ULONG *data_len );
 
@@ -2423,7 +2423,8 @@ CK_RV    ber_encode_RSAPrivateKey( CK_BBOOL     length_only,
                                    CK_ATTRIBUTE * prime2,
                                    CK_ATTRIBUTE * exponent1,
                                    CK_ATTRIBUTE * exponent2,
-                                   CK_ATTRIBUTE * coeff );
+                                   CK_ATTRIBUTE * coeff,
+                                   CK_ATTRIBUTE * opaque );
 
 CK_RV    ber_decode_RSAPrivateKey( CK_BYTE     * data,
                                    CK_ULONG      data_len,
@@ -2434,7 +2435,9 @@ CK_RV    ber_decode_RSAPrivateKey( CK_BYTE     * data,
                                    CK_ATTRIBUTE ** prime2,
                                    CK_ATTRIBUTE ** exponent1,
                                    CK_ATTRIBUTE ** exponent2,
-                                   CK_ATTRIBUTE ** coeff );
+                                   CK_ATTRIBUTE ** coeff,
+                                   CK_ATTRIBUTE ** opaque,
+				   CK_BBOOL	   isopaque );
 
 
 CK_RV    ber_encode_DSAPrivateKey( CK_BBOOL      length_only,

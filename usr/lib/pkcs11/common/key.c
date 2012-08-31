@@ -804,7 +804,8 @@ CK_RV
 priv_key_unwrap( TEMPLATE *tmpl,
                  CK_ULONG  keytype,
                  CK_BYTE  *data,
-                 CK_ULONG  data_len )
+                 CK_ULONG  data_len,
+		 CK_BBOOL  isopaque )
 {
    CK_ATTRIBUTE *extractable   = NULL;
    CK_ATTRIBUTE *always_sens   = NULL;
@@ -817,7 +818,7 @@ priv_key_unwrap( TEMPLATE *tmpl,
 
    switch (keytype) {
       case CKK_RSA:
-         rc = rsa_priv_unwrap( tmpl, data, data_len );
+         rc = rsa_priv_unwrap( tmpl, data, data_len, isopaque );
          break;
 
       case CKK_DSA:
@@ -1120,7 +1121,8 @@ secret_key_unwrap( TEMPLATE *tmpl,
                    CK_ULONG  keytype,
                    CK_BYTE  *data,
                    CK_ULONG  data_len,
-                   CK_BBOOL  fromend )
+                   CK_BBOOL  fromend,
+		   CK_BBOOL  isopaque )
 {
    CK_ATTRIBUTE *local         = NULL;
    CK_ATTRIBUTE *always_sens   = NULL;
@@ -1134,15 +1136,15 @@ secret_key_unwrap( TEMPLATE *tmpl,
    switch (keytype) {
       case CKK_CDMF:
       case CKK_DES:
-         rc = des_unwrap( tmpl, data, data_len, fromend );
+         rc = des_unwrap( tmpl, data, data_len, fromend, isopaque );
          break;
 
       case CKK_DES3:
-         rc = des3_unwrap( tmpl, data, data_len, fromend );
+         rc = des3_unwrap( tmpl, data, data_len, fromend, isopaque );
          break;
 
       case CKK_AES:
-	 rc = aes_unwrap( tmpl, data, data_len, fromend );
+	 rc = aes_unwrap( tmpl, data, data_len, fromend, isopaque );
 	 break;
 
       case CKK_GENERIC_SECRET:
@@ -1152,7 +1154,7 @@ secret_key_unwrap( TEMPLATE *tmpl,
       case CKK_CAST:
       case CKK_CAST3:
       case CKK_CAST5:
-         rc = generic_secret_unwrap( tmpl, data, data_len, fromend );
+         rc = generic_secret_unwrap( tmpl, data, data_len, fromend, isopaque );
          break;
 
       default:
@@ -1716,6 +1718,7 @@ rsa_priv_wrap_get_data( TEMPLATE  *tmpl,
    CK_ATTRIBUTE *prime1    = NULL, *prime2    = NULL;
    CK_ATTRIBUTE *exponent1 = NULL, *exponent2 = NULL;
    CK_ATTRIBUTE *coeff     = NULL;
+   CK_ATTRIBUTE *opaque    = NULL;
    CK_RV      rc;
 
 
@@ -1729,37 +1732,41 @@ rsa_priv_wrap_get_data( TEMPLATE  *tmpl,
       OCK_LOG_ERR(ERR_FUNCTION_FAILED);
       return CKR_FUNCTION_FAILED;
    }
-   if (template_attribute_find(tmpl, CKA_PRIVATE_EXPONENT, &priv_exp) ==
+
+   // CKA_IBM_OPAQUE is used for secure key, if it is not available, then
+   // assume using clear key and get rest of attributes required for clear key.
+
+   if (template_attribute_find(tmpl, CKA_IBM_OPAQUE, &opaque) == FALSE){
+      if (template_attribute_find(tmpl, CKA_PRIVATE_EXPONENT, &priv_exp) ==
 FALSE){
-      OCK_LOG_ERR(ERR_FUNCTION_FAILED);
-      return CKR_FUNCTION_FAILED;
+         OCK_LOG_ERR(ERR_FUNCTION_FAILED);
+         return CKR_FUNCTION_FAILED;
+      }
+      if (template_attribute_find(tmpl, CKA_PRIME_1, &prime1) == FALSE){
+         OCK_LOG_ERR(ERR_FUNCTION_FAILED);
+         return CKR_FUNCTION_FAILED;
+      }
+      if (template_attribute_find(tmpl, CKA_PRIME_2, &prime2) == FALSE){
+         OCK_LOG_ERR(ERR_FUNCTION_FAILED);
+         return CKR_FUNCTION_FAILED;
+      }
+      if (template_attribute_find(tmpl, CKA_EXPONENT_1, &exponent1) == FALSE){
+         OCK_LOG_ERR(ERR_FUNCTION_FAILED);
+         return CKR_FUNCTION_FAILED;
+      }
+      if (template_attribute_find(tmpl, CKA_EXPONENT_2, &exponent2) == FALSE){
+         OCK_LOG_ERR(ERR_FUNCTION_FAILED);
+         return CKR_FUNCTION_FAILED;
+      }
+      if (template_attribute_find(tmpl, CKA_COEFFICIENT, &coeff) == FALSE){
+         OCK_LOG_ERR(ERR_FUNCTION_FAILED);
+         return CKR_FUNCTION_FAILED;
+      }
    }
-   if (template_attribute_find(tmpl, CKA_PRIME_1, &prime1) == FALSE){
-      OCK_LOG_ERR(ERR_FUNCTION_FAILED);
-      return CKR_FUNCTION_FAILED;
-   }
-   if (template_attribute_find(tmpl, CKA_PRIME_2, &prime2) == FALSE){
-      OCK_LOG_ERR(ERR_FUNCTION_FAILED);
-      return CKR_FUNCTION_FAILED;
-   }
-   if (template_attribute_find(tmpl, CKA_EXPONENT_1, &exponent1) == FALSE){
-      OCK_LOG_ERR(ERR_FUNCTION_FAILED);
-      return CKR_FUNCTION_FAILED;
-   }
-   if (template_attribute_find(tmpl, CKA_EXPONENT_2, &exponent2) == FALSE){
-      OCK_LOG_ERR(ERR_FUNCTION_FAILED);
-      return CKR_FUNCTION_FAILED;
-   }
-   if (template_attribute_find(tmpl, CKA_COEFFICIENT, &coeff) == FALSE){
-      OCK_LOG_ERR(ERR_FUNCTION_FAILED);
-      return CKR_FUNCTION_FAILED;
-   }
-   rc = ber_encode_RSAPrivateKey( length_only, data, data_len,
-                                  modulus,
-                                  publ_exp,  priv_exp,
-                                  prime1,    prime2,
-                                  exponent1, exponent2,
-                                  coeff );
+
+   rc = ber_encode_RSAPrivateKey(length_only, data, data_len, modulus,
+				 publ_exp, priv_exp, prime1, prime2,
+				 exponent1, exponent2, coeff, opaque);
    if (rc != CKR_OK){
       OCK_LOG_ERR(ERR_ENCODE_PRIVKEY);
    }
@@ -1772,7 +1779,8 @@ FALSE){
 CK_RV
 rsa_priv_unwrap( TEMPLATE *tmpl,
                  CK_BYTE  *data,
-                 CK_ULONG  total_length )
+                 CK_ULONG  total_length,
+		 CK_BBOOL  isopaque )
 {
    CK_ATTRIBUTE *modulus   = NULL;
    CK_ATTRIBUTE *publ_exp  = NULL;
@@ -1782,6 +1790,7 @@ rsa_priv_unwrap( TEMPLATE *tmpl,
    CK_ATTRIBUTE *exponent1 = NULL;
    CK_ATTRIBUTE *exponent2 = NULL;
    CK_ATTRIBUTE *coeff     = NULL;
+   CK_ATTRIBUTE *opaque     = NULL;
    CK_RV      rc;
 
    rc = ber_decode_RSAPrivateKey( data,
@@ -1793,7 +1802,9 @@ rsa_priv_unwrap( TEMPLATE *tmpl,
                                   &prime2,
                                   &exponent1,
                                   &exponent2,
-                                  &coeff );
+                                  &coeff,
+				  &opaque,
+				  isopaque );
 
    if (rc != CKR_OK){
       OCK_LOG_ERR(ERR_DECODE_PRIVKEY);
@@ -1801,22 +1812,29 @@ rsa_priv_unwrap( TEMPLATE *tmpl,
    }
    p11_attribute_trim( modulus );
    p11_attribute_trim( publ_exp );
-   p11_attribute_trim( priv_exp );
-   p11_attribute_trim( prime1 );
-   p11_attribute_trim( prime2 );
-   p11_attribute_trim( exponent1 );
-   p11_attribute_trim( exponent2 );
-   p11_attribute_trim( coeff );
+   if (isopaque)
+      p11_attribute_trim( opaque );
+   else {
+      p11_attribute_trim( priv_exp );
+      p11_attribute_trim( prime1 );
+      p11_attribute_trim( prime2 );
+      p11_attribute_trim( exponent1 );
+      p11_attribute_trim( exponent2 );
+      p11_attribute_trim( coeff );
+   }
 
    template_update_attribute( tmpl, modulus );
    template_update_attribute( tmpl, publ_exp );
-   template_update_attribute( tmpl, priv_exp );
-   template_update_attribute( tmpl, prime1 );
-   template_update_attribute( tmpl, prime2 );
-   template_update_attribute( tmpl, exponent1 );
-   template_update_attribute( tmpl, exponent2 );
-   template_update_attribute( tmpl, coeff );
-
+   if (isopaque )
+      template_update_attribute( tmpl, opaque );
+   else {
+      template_update_attribute( tmpl, priv_exp );
+      template_update_attribute( tmpl, prime1 );
+      template_update_attribute( tmpl, prime2 );
+      template_update_attribute( tmpl, exponent1 );
+      template_update_attribute( tmpl, exponent2 );
+      template_update_attribute( tmpl, coeff );
+   }
    return CKR_OK;
 }
 
@@ -3233,10 +3251,13 @@ generic_secret_wrap_get_data( TEMPLATE   * tmpl,
       return CKR_FUNCTION_FAILED;
    }
 
-   rc = template_attribute_find( tmpl, CKA_VALUE, &attr );
-   if (rc == FALSE){
-      OCK_LOG_ERR(ERR_KEY_NOT_WRAPPABLE);
-      return CKR_KEY_NOT_WRAPPABLE;
+   rc = template_attribute_find( tmpl, CKA_IBM_OPAQUE, &attr );
+   if (rc == FALSE) {
+      rc = template_attribute_find( tmpl, CKA_VALUE, &attr );
+      if (rc == FALSE){
+         OCK_LOG_ERR(ERR_KEY_NOT_WRAPPABLE);
+         return CKR_KEY_NOT_WRAPPABLE;
+      }
    }
    *data_len = attr->ulValueLen;
 
@@ -3261,7 +3282,8 @@ CK_RV
 generic_secret_unwrap( TEMPLATE *tmpl,
                        CK_BYTE  *data,
                        CK_ULONG  data_len,
-                       CK_BBOOL  fromend )
+                       CK_BBOOL  fromend,
+		       CK_BBOOL  isopaque )
 {
    CK_ATTRIBUTE  * attr           = NULL;
    CK_ATTRIBUTE  * value_attr     = NULL;
@@ -3294,7 +3316,11 @@ generic_secret_unwrap( TEMPLATE *tmpl,
    if (fromend == TRUE)
       ptr -= data_len;
 
-   rc = build_attribute( CKA_VALUE, ptr, data_len, &value_attr );
+   if (isopaque)
+      rc = build_attribute( CKA_IBM_OPAQUE, ptr, data_len, &value_attr );
+   else
+      rc = build_attribute( CKA_VALUE, ptr, data_len, &value_attr );
+
    if (rc != CKR_OK){
       OCK_LOG_ERR(ERR_BLD_ATTR);
       goto error;
@@ -3771,7 +3797,8 @@ CK_RV
 des_unwrap( TEMPLATE *tmpl,
             CK_BYTE  *data,
             CK_ULONG  data_len,
-            CK_BBOOL  fromend )
+            CK_BBOOL  fromend,
+	    CK_BBOOL  isopaque )
 {
    CK_ATTRIBUTE  * value_attr = NULL;
    CK_BYTE    * ptr        = NULL;
@@ -3782,34 +3809,44 @@ des_unwrap( TEMPLATE *tmpl,
       OCK_LOG_ERR(ERR_WRAPPED_KEY_INVALID);
       return CKR_WRAPPED_KEY_INVALID;
    }
-   if (fromend == TRUE)
-      ptr = data + data_len - DES_BLOCK_SIZE;
-   else
+   if (fromend == TRUE) {
+      if (isopaque)
+         ptr = data + data_len;
+      else
+         ptr = data + data_len - DES_BLOCK_SIZE;
+   } else
       ptr = data;
 
-   if (nv_token_data->tweak_vector.check_des_parity == TRUE) {
-      for (i=0; i < DES_KEY_SIZE; i++) {
-         if (parity_is_odd(ptr[i]) == FALSE){
+   if (isopaque)
+      value_attr = (CK_ATTRIBUTE *)malloc( sizeof(CK_ATTRIBUTE) + data_len );
+   else {
+      if (nv_token_data->tweak_vector.check_des_parity == TRUE) {
+         for (i=0; i < DES_KEY_SIZE; i++) {
+            if (parity_is_odd(ptr[i]) == FALSE){
                OCK_LOG_ERR(ERR_ATTRIBUTE_VALUE_INVALID);
-            return CKR_ATTRIBUTE_VALUE_INVALID;
+               return CKR_ATTRIBUTE_VALUE_INVALID;
+            }
          }
       }
+      value_attr = (CK_ATTRIBUTE *)malloc( sizeof(CK_ATTRIBUTE) + DES_BLOCK_SIZE );
    }
 
-   value_attr = (CK_ATTRIBUTE *)malloc( sizeof(CK_ATTRIBUTE) + DES_BLOCK_SIZE );
-
    if (!value_attr) {
-      if (value_attr)
-         free( value_attr );
       OCK_LOG_ERR(ERR_HOST_MEMORY);
-
       return CKR_HOST_MEMORY;
    }
 
-   value_attr->type       = CKA_VALUE;
-   value_attr->ulValueLen = DES_BLOCK_SIZE;
-   value_attr->pValue     = (CK_BYTE *)value_attr + sizeof(CK_ATTRIBUTE);
-   memcpy( value_attr->pValue, ptr, DES_BLOCK_SIZE );
+   if (isopaque) {
+      value_attr->type       = CKA_IBM_OPAQUE;
+      value_attr->ulValueLen = data_len;
+      value_attr->pValue     = (CK_BYTE *)value_attr + sizeof(CK_ATTRIBUTE);
+      memcpy( value_attr->pValue, ptr, data_len );
+   } else {
+      value_attr->type       = CKA_VALUE;
+      value_attr->ulValueLen = DES_BLOCK_SIZE;
+      value_attr->pValue     = (CK_BYTE *)value_attr + sizeof(CK_ATTRIBUTE);
+      memcpy( value_attr->pValue, ptr, DES_BLOCK_SIZE );
+   }
 
    template_update_attribute( tmpl, value_attr );
    return CKR_OK;
@@ -3897,10 +3934,13 @@ des_wrap_get_data( TEMPLATE   * tmpl,
       return CKR_FUNCTION_FAILED;
    }
 
-   rc = template_attribute_find( tmpl, CKA_VALUE, &attr );
-   if (rc == FALSE){
-      OCK_LOG_ERR(ERR_KEY_NOT_WRAPPABLE);
-      return CKR_KEY_NOT_WRAPPABLE;
+   rc = template_attribute_find( tmpl, CKA_IBM_OPAQUE, &attr );
+   if (rc == FALSE) {
+      rc = template_attribute_find( tmpl, CKA_VALUE, &attr );
+      if (rc == FALSE){
+         OCK_LOG_ERR(ERR_KEY_NOT_WRAPPABLE);
+         return CKR_KEY_NOT_WRAPPABLE;
+      }
    }
    *data_len = attr->ulValueLen;
 
@@ -4107,7 +4147,8 @@ CK_RV
 des3_unwrap( TEMPLATE *tmpl,
              CK_BYTE  *data,
              CK_ULONG  data_len,
-             CK_BBOOL  fromend )
+             CK_BBOOL  fromend,
+	     CK_BBOOL  isopaque )
 {
    CK_ATTRIBUTE  * value_attr = NULL;
    CK_BYTE    * ptr        = NULL;
@@ -4118,34 +4159,44 @@ des3_unwrap( TEMPLATE *tmpl,
       OCK_LOG_ERR(ERR_WRAPPED_KEY_INVALID);
       return CKR_WRAPPED_KEY_INVALID;
    }
-   if (fromend == TRUE)
-      ptr = data + data_len - (3*DES_BLOCK_SIZE);
-   else
+   if (fromend == TRUE) {
+      if (isopaque)
+         ptr = data + data_len;
+      else
+         ptr = data + data_len - (3*DES_BLOCK_SIZE);
+   } else
       ptr = data;
 
-   if (nv_token_data->tweak_vector.check_des_parity == TRUE) {
-      for (i=0; i < 3*DES_KEY_SIZE; i++) {
-         if (parity_is_odd(ptr[i]) == FALSE){
-            OCK_LOG_ERR(ERR_ATTRIBUTE_VALUE_INVALID);
-            return CKR_ATTRIBUTE_VALUE_INVALID;
+   if (isopaque)
+      value_attr = (CK_ATTRIBUTE *)malloc( sizeof(CK_ATTRIBUTE) + data_len );
+   else {
+      if (nv_token_data->tweak_vector.check_des_parity == TRUE) {
+         for (i=0; i < 3*DES_KEY_SIZE; i++) {
+            if (parity_is_odd(ptr[i]) == FALSE){
+               OCK_LOG_ERR(ERR_ATTRIBUTE_VALUE_INVALID);
+               return CKR_ATTRIBUTE_VALUE_INVALID;
+            }
          }
       }
+      value_attr = (CK_ATTRIBUTE *)malloc( sizeof(CK_ATTRIBUTE) + (3 * DES_BLOCK_SIZE) );
    }
 
-   value_attr = (CK_ATTRIBUTE *)malloc( sizeof(CK_ATTRIBUTE) + (3 * DES_BLOCK_SIZE) );
-
    if (!value_attr) {
-      if (value_attr)
-         free( value_attr );
       OCK_LOG_ERR(ERR_HOST_MEMORY);
-
       return CKR_HOST_MEMORY;
    }
 
-   value_attr->type       = CKA_VALUE;
-   value_attr->ulValueLen = 3 * DES_BLOCK_SIZE;
-   value_attr->pValue     = (CK_BYTE *)value_attr + sizeof(CK_ATTRIBUTE);
-   memcpy( value_attr->pValue, ptr, 3 * DES_BLOCK_SIZE );
+   if (isopaque) {
+      value_attr->type       = CKA_IBM_OPAQUE;
+      value_attr->ulValueLen = data_len;
+      value_attr->pValue     = (CK_BYTE *)value_attr + sizeof(CK_ATTRIBUTE);
+      memcpy( value_attr->pValue, ptr, data_len );
+   } else {
+      value_attr->type       = CKA_VALUE;
+      value_attr->ulValueLen = 3 * DES_BLOCK_SIZE;
+      value_attr->pValue     = (CK_BYTE *)value_attr + sizeof(CK_ATTRIBUTE);
+      memcpy( value_attr->pValue, ptr, 3 * DES_BLOCK_SIZE );
+   }
 
    template_update_attribute( tmpl, value_attr );
 
@@ -4227,11 +4278,15 @@ des3_wrap_get_data( TEMPLATE   * tmpl,
       return CKR_FUNCTION_FAILED;
    }
 
-   rc = template_attribute_find( tmpl, CKA_VALUE, &attr );
-   if (rc == FALSE){
-      OCK_LOG_ERR(ERR_KEY_NOT_WRAPPABLE);
-      return CKR_KEY_NOT_WRAPPABLE;
-   }
+   // try secure key first, if not found then try clear key...
+   rc = template_attribute_find( tmpl, CKA_IBM_OPAQUE, &attr );
+   if (rc == FALSE) {
+      rc = template_attribute_find( tmpl, CKA_VALUE, &attr );
+      if (rc == FALSE){
+           OCK_LOG_ERR(ERR_KEY_NOT_WRAPPABLE);
+           return CKR_KEY_NOT_WRAPPABLE;
+        }
+    }
    *data_len = attr->ulValueLen;
 
    if (length_only == FALSE) {
@@ -5205,10 +5260,13 @@ aes_wrap_get_data( TEMPLATE   * tmpl,
       return CKR_FUNCTION_FAILED;
    }
 
-   rc = template_attribute_find( tmpl, CKA_VALUE, &attr );
-   if (rc == FALSE){
-      OCK_LOG_ERR(ERR_KEY_NOT_WRAPPABLE);
-      return CKR_KEY_NOT_WRAPPABLE;
+   rc = template_attribute_find( tmpl, CKA_IBM_OPAQUE, &attr );
+   if (rc == FALSE) {
+      rc = template_attribute_find( tmpl, CKA_VALUE, &attr );
+      if (rc == FALSE){
+         OCK_LOG_ERR(ERR_KEY_NOT_WRAPPABLE);
+         return CKR_KEY_NOT_WRAPPABLE;
+      }
    }
    *data_len = attr->ulValueLen;
 
@@ -5232,7 +5290,8 @@ CK_RV
 aes_unwrap( TEMPLATE *tmpl,
             CK_BYTE  *data,
             CK_ULONG  data_len,
-            CK_BBOOL  fromend )
+            CK_BBOOL  fromend,
+	    CK_BBOOL  isopaque )
 {
    CK_ATTRIBUTE  * value_attr   = NULL;
    CK_ATTRIBUTE  * val_len_attr = NULL;
@@ -5242,14 +5301,29 @@ aes_unwrap( TEMPLATE *tmpl,
 
    
    /* accept CKA_VALUE_LEN. pkcs11v2.20 doesn't want this attribute when 
-    * unwrapping an AES key, but we need it because some mechanisms may
-    * have added padding and AES keys come in several sizes.
+    * unwrapping an AES key, but we need it for several reasons:
+    *   - because some mechanisms may have added padding
+    *   - AES keys come in several sizes
+    *   - secure key size depends on token specifics
+    * If not a secure key, try datalen and see if matches an aes key size.
+    * Otherwise, fail because we need to return CKA_VALUE_LEN and we cannot
+    * unless user tells us what it is for secure key.
+    *
+    * Note: since cca token has secure key size of 64, which is a multiple of
+    * aes blocksize, can assume datalen will always be 64.
+    * However, a better solution is to create a token specific wrap and
+    * unwrap and do this kind of stuff in the token.
     */
    found = template_attribute_find( tmpl, CKA_VALUE_LEN, &val_len_attr );
    if (found) 
       key_size = *(CK_ULONG *)val_len_attr->pValue;
-   else 
-      key_size = data_len;
+   else {
+      if (isopaque) {
+         OCK_LOG_ERR(ERR_TEMPLATE_INCOMPLETE);
+         return CKR_TEMPLATE_INCOMPLETE;
+      } else
+	key_size = data_len;
+   }
       
    /* key_size should be one of AES's possible sizes */
    if (key_size != AES_KEY_SIZE_128 &&
@@ -5259,10 +5333,17 @@ aes_unwrap( TEMPLATE *tmpl,
          return CKR_WRAPPED_KEY_LEN_RANGE;
    }
 
-   if (fromend == TRUE)
-      ptr = data + data_len - key_size;
-   else
+   if (fromend == TRUE) {
+      if (isopaque)
+         ptr = data + data_len;
+      else
+         ptr = data + data_len - key_size;
+   } else
       ptr = data;
+
+   /* reset key_size for secure key, assuming datalen is the token's secure key size */
+   if (isopaque)
+	key_size = data_len;
 
    value_attr = (CK_ATTRIBUTE *)malloc( sizeof(CK_ATTRIBUTE) + key_size );
 
@@ -5271,7 +5352,10 @@ aes_unwrap( TEMPLATE *tmpl,
       return CKR_HOST_MEMORY;
    }
 
-   value_attr->type = CKA_VALUE;
+   if (isopaque)
+      value_attr->type = CKA_IBM_OPAQUE;
+   else
+      value_attr->type = CKA_VALUE;
    value_attr->ulValueLen = key_size;
    value_attr->pValue = (CK_BYTE *)value_attr + sizeof(CK_ATTRIBUTE);
    memcpy( value_attr->pValue, ptr, key_size );
@@ -5297,5 +5381,3 @@ aes_unwrap( TEMPLATE *tmpl,
 		
    return CKR_OK;
 }
-
-

@@ -15,12 +15,12 @@ opencryptoki_stdll_libpkcs11_cca_la_CFLAGS = -DLINUX -DNOCDMF		\
 opencryptoki_stdll_libpkcs11_cca_la_LDFLAGS = -shared -Wl,-Bsymbolic	\
 	-lcrypto -lpthread -nostartfiles -Wl,-soname,$@
 
-opencryptoki_stdll_libpkcs11_cca_la_SOURCES = asn1.c			\
+opencryptoki_stdll_libpkcs11_cca_la_SOURCES = ../common/asn1.c		\
 					      ../common/btree.c		\
 					      ../common/dig_mgr.c	\
 					      ../common/hwf_obj.c	\
 					      ../common/log.c		\
-					      key.c			\
+					      ../common/key.c		\
 					      ../common/mech_dh.c	\
 					      ../common/mech_rng.c	\
 					      new_host.c		\
@@ -34,7 +34,7 @@ opencryptoki_stdll_libpkcs11_cca_la_SOURCES = asn1.c			\
 					      ../common/template.c	\
 					      ../common/data_obj.c	\
 					      ../common/encr_mgr.c	\
-					      key_mgr.c			\
+					      ../common/key_mgr.c	\
 					      ../common/mech_md2.c	\
 					      ../common/mech_sha.c	\
 					      ../common/object.c	\

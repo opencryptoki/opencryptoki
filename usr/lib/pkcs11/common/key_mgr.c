@@ -613,6 +613,15 @@ key_mgr_generate_key_pair( SESSION           * sess,
          subclass = CKK_RSA;
          break;
 
+      case CKM_EC_KEY_PAIR_GEN:
+         if (subclass != 0 && subclass != CKK_EC){
+            OCK_LOG_ERR(ERR_TEMPLATE_INCONSISTENT);
+            return CKR_TEMPLATE_INCONSISTENT;
+          }
+
+         subclass = CKK_EC;
+         break;
+
 #if !(NODSA)
       case CKM_DSA_KEY_PAIR_GEN:
          if (subclass != 0 && subclass != CKK_DSA){
@@ -669,6 +678,11 @@ key_mgr_generate_key_pair( SESSION           * sess,
       case CKM_RSA_PKCS_KEY_PAIR_GEN:
          rc = ckm_rsa_key_pair_gen( publ_key_obj->template,
                                     priv_key_obj->template );
+         break;
+
+      case CKM_EC_KEY_PAIR_GEN:
+         rc = ckm_ec_key_pair_gen( publ_key_obj->template,
+                                   priv_key_obj->template );
          break;
 
 #if !(NODSA)
@@ -1052,8 +1066,9 @@ key_mgr_unwrap_key( SESSION           * sess,
    CK_ULONG            data_len;
    CK_ULONG            keyclass, keytype;
    CK_ULONG            i;
-   CK_BBOOL            found_class, found_type, fromend;
+   CK_BBOOL            found_class, found_type, fromend, isopaque = FALSE;
    CK_RV               rc;
+   CK_ATTRIBUTE	     * attr = NULL;
 
 
    if (!sess || !wrapped_key || !h_unwrapped_key){
@@ -1066,6 +1081,9 @@ key_mgr_unwrap_key( SESSION           * sess,
       OCK_LOG_ERR(ERR_WRAPPING_KEY_HANDLE_INVALID);
       return CKR_WRAPPING_KEY_HANDLE_INVALID;
    }
+
+   if (template_attribute_find(tmp_obj->template, CKA_IBM_OPAQUE, &attr) == TRUE)
+	isopaque = TRUE;
 
    found_class = FALSE;
    found_type = FALSE;
@@ -1116,7 +1134,7 @@ key_mgr_unwrap_key( SESSION           * sess,
 
    // extract key type and key class from the template if they exist.  we
    // have to scan the entire template in case the CKA_CLASS or CKA_KEY_TYPE
-   // attributes are duplicated
+   // attributes are duplicated.
 
    for (i=0; i < attrib_count; i++) {
       switch (attributes[i].type) {
@@ -1236,11 +1254,11 @@ key_mgr_unwrap_key( SESSION           * sess,
    //
    switch (keyclass) {
       case CKO_SECRET_KEY:
-         rc = secret_key_unwrap( key_obj->template, keytype, data, data_len, fromend );
+         rc = secret_key_unwrap(key_obj->template, keytype, data, data_len, fromend,isopaque);
          break;
 
       case CKO_PRIVATE_KEY:
-         rc = priv_key_unwrap( key_obj->template, keytype, data, data_len );
+         rc = priv_key_unwrap( key_obj->template, keytype, data, data_len, isopaque );
          break;
 
       default:
