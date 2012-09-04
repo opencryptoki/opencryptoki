@@ -316,7 +316,7 @@ rng_generate( CK_BYTE *output, CK_ULONG bytes )
 {
    CK_RV     rc;
 
-   rc = token_specific_rng(output, bytes);
+   rc = token_specific.t_rng(output, bytes);
    if (rc != CKR_OK)
       OCK_LOG_ERR(ERR_RNG);
    return rc;
