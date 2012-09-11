@@ -26,77 +26,77 @@
 #ifndef CONFIG_PATH
 #warning CONFIG_PATH not set, using default (/usr/local/var/lib/opencryptoki)
 #define CONFIG_PATH "/usr/local/var/lib/opencryptoki"
-#endif	// #ifndef CONFIG_PATH
+#endif // #ifndef CONFIG_PATH
 
 #define TPM_CONFIG_PATH CONFIG_PATH "/tpm"
-#endif	// #ifndef TPM_CONFIG_PATH
+#endif // #ifndef TPM_CONFIG_PATH
 
 struct token_specific_struct token_specific = {
-     TPM_CONFIG_PATH,
-     "tpm",
-     0,
-     &token_specific_init,
-     &tok_slot2local,
-     &token_specific_rng,
-     &token_specific_session,
-     &token_specific_final,
-     &token_specific_verify_so_pin,
-     &token_specific_login,
-     &token_specific_logout,
-     &token_specific_init_pin,
-     &token_specific_set_pin,
-     // DES
-     &token_specific_des_key_gen,
-     &token_specific_des_ecb,
-     &token_specific_des_cbc,
-     // Triple DES
-     &token_specific_tdes_ecb,
-     &token_specific_tdes_cbc,
-     // RSA
-     &token_specific_rsa_decrypt,
-     &token_specific_rsa_encrypt,
-     &token_specific_rsa_sign,
-     &token_specific_rsa_verify,
-     &token_specific_rsa_verify_recover,
-     NULL,
-     NULL,
-     NULL,
-     NULL,
-     NULL,
-     &token_specific_rsa_generate_keypair,
-     // Elliptic Curve
-     NULL,		// ec_sign
-     NULL,		// ec_verify
-     NULL,		// ec_generate_keypair
+	TPM_CONFIG_PATH,
+	"tpm",
+	0,
+	&token_specific_init,
+	&tok_slot2local,
+	&token_specific_rng,
+	&token_specific_session,
+	&token_specific_final,
+	&token_specific_verify_so_pin,
+	&token_specific_login,
+	&token_specific_logout,
+	&token_specific_init_pin,
+	&token_specific_set_pin,
+	// DES
+	&token_specific_des_key_gen,
+	&token_specific_des_ecb,
+	&token_specific_des_cbc,
+	// Triple DES
+	&token_specific_tdes_ecb,
+	&token_specific_tdes_cbc,
+	// RSA
+	&token_specific_rsa_decrypt,
+	&token_specific_rsa_encrypt,
+	&token_specific_rsa_sign,
+	&token_specific_rsa_verify,
+	&token_specific_rsa_verify_recover,
+	NULL,
+	NULL,
+	NULL,
+	NULL,
+	NULL,
+	&token_specific_rsa_generate_keypair,
+	// Elliptic Curve
+	NULL,			// ec_sign
+	NULL,			// ec_verify
+	NULL,			// ec_generate_keypair
 #ifndef NODH
-     &token_specific_dh_pkcs_derive,
-     &token_specific_dh_pkcs_key_pair_gen,
+	&token_specific_dh_pkcs_derive,
+	&token_specific_dh_pkcs_key_pair_gen,
 #else
-     NULL,
-     NULL,
+	NULL,
+	NULL,
 #endif
-     // SHA-1 - use the internal implementation
-     NULL,		// sha_init
-     NULL,		// sha_update
-     NULL,		// sha_final
-     // SHA-256
-     NULL,		// sha2_init
-     NULL,		// sha2_update
-     NULL,		// sha2_final
-     // SHA-384
-     NULL,		// sha3_init
-     NULL,		// sha3_update
-     NULL,		// sha3_final
-     // SHA-512
-     NULL,		// sha5_init
-     NULL,		// sha5_update
-     NULL,		// sha5_final
-     // AES
-     &token_specific_aes_key_gen,
-     &token_specific_aes_ecb,
-     &token_specific_aes_cbc,
-     NULL,		// aes_ctr
-     &token_specific_get_mechanism_list,
-     &token_specific_get_mechanism_info,
-     NULL
+	// SHA-1 - use the internal implementation
+	NULL,			// sha_init
+	NULL,			// sha_update
+	NULL,			// sha_final
+	// SHA-256
+	NULL,			// sha2_init
+	NULL,			// sha2_update
+	NULL,			// sha2_final
+	// SHA-384
+	NULL,			// sha3_init
+	NULL,			// sha3_update
+	NULL,			// sha3_final
+	// SHA-512
+	NULL,			// sha5_init
+	NULL,			// sha5_update
+	NULL,			// sha5_final
+	// AES
+	&token_specific_aes_key_gen,
+	&token_specific_aes_ecb,
+	&token_specific_aes_cbc,
+	NULL,			// aes_ctr
+	&token_specific_get_mechanism_list,
+	&token_specific_get_mechanism_info,
+	NULL			// object_add
 };
