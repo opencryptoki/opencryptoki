@@ -28,7 +28,6 @@
                    the Program under their own license agreement, and
                    (ii) are not derivative works of the Program.
 
-
              "Contributor" means any person or entity that distributes
              the Program.
 
@@ -140,7 +139,6 @@
              allows subsequent Recipients to identify the originator of
              the Contribution. 
 
-
              4. COMMERCIAL DISTRIBUTION
 
              Commercial distributors of software may accept certain
@@ -170,7 +168,6 @@
              settlement negotiations. The Indemnified Contributor may
              participate in any such claim at its own expense.
 
-
              For example, a Contributor might include the Program in a
              commercial product offering, Product X. That Contributor
              is then a Commercial Contributor. If that Commercial
@@ -183,7 +180,6 @@
              warranties, and if a court requires any other Contributor
              to pay any damages as a result, the Commercial Contributor
              must pay those damages.
-
 
              5. NO WARRANTY
 
@@ -222,7 +218,6 @@
              parties hereto, such provision shall be reformed to the
              minimum extent necessary to make such provision valid and
              enforceable.
-
 
              If Recipient institutes patent litigation against a
              Contributor with respect to a patent applicable to
@@ -274,14 +269,12 @@
              estoppel or otherwise. All rights in the Program not
              expressly granted under this Agreement are reserved.
 
-
              This Agreement is governed by the laws of the State of New
              York and the intellectual property laws of the United
              States of America. No party to this Agreement will bring a
              legal action under this Agreement more than one year after
              the cause of action arose. Each party waives its rights to
              a jury trial in any resulting litigation. 
-
 
 
 */
@@ -298,7 +291,6 @@
  
  
 ****************************************************************************/
-
 
 // SAB FIXME  need to figure out a better way...
 // // to get the variant dependency out
@@ -324,77 +316,77 @@
 #ifndef CONFIG_PATH
 #warning CONFIG_PATH not set, using default (/usr/local/var/lib/opencryptoki)
 #define CONFIG_PATH "/usr/local/var/lib/opencryptoki"
-#endif  // #ifndef CONFIG_PATH
+#endif // #ifndef CONFIG_PATH
 
 #define SW_CONFIG_PATH CONFIG_PATH "/swtok"
-#endif  // #ifndef SW_CONFIG_PATH
+#endif // #ifndef SW_CONFIG_PATH
 
-token_spec_t token_specific  = {
-     SW_CONFIG_PATH,
-     "swtok",
-     0,
-     &token_specific_init,
-     &tok_slot2local,
-     &token_specific_rng,
-     &token_specific_session,
-     &token_specific_final,
-     NULL,		// verify_so_pin
-     NULL,		// login
-     NULL,		// logout
-     NULL,		// init_pin
-     NULL,		// set_pin
-     // DES
-     &token_specific_des_key_gen,
-     &token_specific_des_ecb,
-     &token_specific_des_cbc,
-     // Triple DES
-     &token_specific_tdes_ecb,
-     &token_specific_tdes_cbc,
-     // RSA
-     &token_specific_rsa_decrypt,
-     &token_specific_rsa_encrypt,
-     &token_specific_rsa_sign,
-     &token_specific_rsa_verify,
-     &token_specific_rsa_verify_recover,
-     &token_specific_rsa_x509_decrypt,
-     &token_specific_rsa_x509_encrypt,
-     &token_specific_rsa_x509_sign,
-     &token_specific_rsa_x509_verify,
-     &token_specific_rsa_x509_verify_recover,
-     &token_specific_rsa_generate_keypair,
-     // Elliptic Curve
-     NULL,		// ec_sign
-     NULL,		// ec_verify
-     NULL,		// ec_generate_keypair
+token_spec_t token_specific = {
+	SW_CONFIG_PATH,
+	"swtok",
+	0,
+	&token_specific_init,
+	&tok_slot2local,
+	&token_specific_rng,
+	&token_specific_session,
+	&token_specific_final,
+	NULL,			// verify_so_pin
+	NULL,			// login
+	NULL,			// logout
+	NULL,			// init_pin
+	NULL,			// set_pin
+	// DES
+	&token_specific_des_key_gen,
+	&token_specific_des_ecb,
+	&token_specific_des_cbc,
+	// Triple DES
+	&token_specific_tdes_ecb,
+	&token_specific_tdes_cbc,
+	// RSA
+	&token_specific_rsa_decrypt,
+	&token_specific_rsa_encrypt,
+	&token_specific_rsa_sign,
+	&token_specific_rsa_verify,
+	&token_specific_rsa_verify_recover,
+	&token_specific_rsa_x509_decrypt,
+	&token_specific_rsa_x509_encrypt,
+	&token_specific_rsa_x509_sign,
+	&token_specific_rsa_x509_verify,
+	&token_specific_rsa_x509_verify_recover,
+	&token_specific_rsa_generate_keypair,
+	// Elliptic Curve
+	NULL,			// ec_sign
+	NULL,			// ec_verify
+	NULL,			// ec_generate_keypair
 /* Begin code contributed by Corrent corp. */
-     // DH
-     &token_specific_dh_pkcs_derive,
-     &token_specific_dh_pkcs_key_pair_gen,
+	// DH
+	&token_specific_dh_pkcs_derive,
+	&token_specific_dh_pkcs_key_pair_gen,
 /* End code contributed by Corrent corp. */
-     // SHA-1
-     NULL, // SHA-1 in the soft token is integrated already, as token
-     NULL, // specific SHA-1 is new. As a TODO, the soft SHA-1 routines
-     NULL, // should probably move to functions plugged in here.
-     /* SHA-256 */
-     NULL,		// sha2_init	
-     NULL,		// sha2_update
-     NULL,		// sha2_final
-     /* SHA-384 */
-     NULL,		// sha3_init
-     NULL,		// sha3_update
-     NULL,		// sha3_final
-     /* SHA-512 */
-     NULL,		// sha5_init
-     NULL,		// sha5_update
-     NULL,		// sha5_final
-     // AES
-     &token_specific_aes_key_gen,
-     &token_specific_aes_ecb,
-     &token_specific_aes_cbc,
-     NULL,		// aes_ctr
-     &token_specific_get_mechanism_list,
-     &token_specific_get_mechanism_info,
-     NULL
+	// SHA-1
+	NULL,			// SHA-1 in the soft token is integrated already, as token
+	NULL,			// specific SHA-1 is new. As a TODO, the soft SHA-1 routines
+	NULL,			// should probably move to functions plugged in here.
+	/* SHA-256 */
+	NULL,			// sha2_init    
+	NULL,			// sha2_update
+	NULL,			// sha2_final
+	/* SHA-384 */
+	NULL,			// sha3_init
+	NULL,			// sha3_update
+	NULL,			// sha3_final
+	/* SHA-512 */
+	NULL,			// sha5_init
+	NULL,			// sha5_update
+	NULL,			// sha5_final
+	// AES
+	&token_specific_aes_key_gen,
+	&token_specific_aes_ecb,
+	&token_specific_aes_cbc,
+	NULL,			// aes_ctr
+	&token_specific_get_mechanism_list,
+	&token_specific_get_mechanism_info,
+	NULL			// object_add
 };
 
 #endif
