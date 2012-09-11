@@ -33,7 +33,6 @@
                    the Program under their own license agreement, and
                    (ii) are not derivative works of the Program.
 
-
              "Contributor" means any person or entity that distributes
              the Program.
 
@@ -145,7 +144,6 @@
              allows subsequent Recipients to identify the originator of
              the Contribution. 
 
-
              4. COMMERCIAL DISTRIBUTION
 
              Commercial distributors of software may accept certain
@@ -175,7 +173,6 @@
              settlement negotiations. The Indemnified Contributor may
              participate in any such claim at its own expense.
 
-
              For example, a Contributor might include the Program in a
              commercial product offering, Product X. That Contributor
              is then a Commercial Contributor. If that Commercial
@@ -188,7 +185,6 @@
              warranties, and if a court requires any other Contributor
              to pay any damages as a result, the Commercial Contributor
              must pay those damages.
-
 
              5. NO WARRANTY
 
@@ -227,7 +223,6 @@
              parties hereto, such provision shall be reformed to the
              minimum extent necessary to make such provision valid and
              enforceable.
-
 
              If Recipient institutes patent litigation against a
              Contributor with respect to a patent applicable to
@@ -279,14 +274,12 @@
              estoppel or otherwise. All rights in the Program not
              expressly granted under this Agreement are reserved.
 
-
              This Agreement is governed by the laws of the State of New
              York and the intellectual property laws of the United
              States of America. No party to this Agreement will bring a
              legal action under this Agreement more than one year after
              the cause of action arose. Each party waives its rights to
              a jury trial in any resulting litigation. 
-
 
 
 */
@@ -307,178 +300,151 @@
 #ifndef _TOK_SPECIFIC_STRUCT
 #define _TOK_SPECIFIC_STRUCT
 
-struct token_specific_struct{
-   CK_BYTE  token_directory[PATH_MAX];  // Used to be in the token_local.h as a #def
-   CK_BYTE  token_subdir[PATH_MAX];     // subdirectory
-   int token_keysize;		// set to keysize for secure key tokens
 
-   CK_RV  (*t_init)(char *,CK_SLOT_ID);             // Initialization function
-   int  (*t_slot2local)(CK_SLOT_ID); // convert PKCS#11 slot to a local index 
-                                   // generaly not used but if a STDLL actualy 
-                                   // managed multiple devices, this would conv
-                                   
-   CK_RV  (*t_rng)(CK_BYTE *,CK_ULONG);          // Random Number Gen
-   CK_RV  (*t_session)(CK_SLOT_ID);   //perform anything specific needed by the token takes a slot id
-   CK_RV  (*t_final)();     // any specific final code
-   CK_RV  (*t_verify_so_pin)(CK_CHAR_PTR, CK_ULONG);
-   CK_RV  (*t_login)(CK_USER_TYPE, CK_CHAR_PTR, CK_ULONG);
-   CK_RV  (*t_logout)();
-   CK_RV  (*t_init_pin)(CK_CHAR_PTR, CK_ULONG);
-   CK_RV  (*t_set_pin)(SESSION *, CK_CHAR_PTR, CK_ULONG, CK_CHAR_PTR, CK_ULONG);
+struct token_specific_struct {
+	// Used to be in the token_local.h as a #def
+	CK_BYTE token_directory[PATH_MAX];
 
-   CK_RV  (*t_des_key_gen)(CK_BYTE *,CK_ULONG, CK_ULONG);
-   CK_RV  (*t_des_ecb)( 
-                         CK_BYTE *, CK_ULONG,
-                         CK_BYTE *, CK_ULONG *, CK_BYTE *, CK_BYTE);
-   CK_RV  (*t_des_cbc)(
-                         CK_BYTE *, CK_ULONG,
-                         CK_BYTE *, CK_ULONG *, CK_BYTE *,CK_BYTE *, CK_BYTE);
+	// Subdirectory
+	CK_BYTE token_subdir[PATH_MAX];
 
-   CK_RV  (*t_tdes_ecb)(
-                         CK_BYTE *, CK_ULONG,
-                         CK_BYTE *, CK_ULONG *, CK_BYTE *, CK_BYTE);
-   CK_RV  (*t_tdes_cbc)(
-                         CK_BYTE *, CK_ULONG,
-                         CK_BYTE *, CK_ULONG *, CK_BYTE *,CK_BYTE *, CK_BYTE);
+	// Set to keysize for secure key tokens
+	int token_keysize;		
 
-   
-   CK_RV (*t_rsa_decrypt)(    CK_BYTE *,
-                              CK_ULONG,
-                              CK_BYTE *,
-			      CK_ULONG *,
-                              OBJECT *);
-             
-   CK_RV (*t_rsa_encrypt)(
-                              CK_BYTE *,
-                              CK_ULONG, 
-                              CK_BYTE *,
-			      CK_ULONG *,
-                              OBJECT *);
+	// Initialization function
+	CK_RV(*t_init) (char *, CK_SLOT_ID);
 
-   CK_RV (*t_rsa_sign)(CK_BYTE *, CK_ULONG, CK_BYTE *, CK_ULONG *, OBJECT *);
-   CK_RV (*t_rsa_verify)(CK_BYTE *, CK_ULONG, CK_BYTE *, CK_ULONG, OBJECT *);
+	// convert PKCS#11 slot to a local index 
+	// generaly not used but if a STDLL actualy 
+	// managed multiple devices, this would conv
+	int (*t_slot2local) (CK_SLOT_ID);
 
-   CK_RV (*t_rsa_verify_recover)(CK_BYTE *, CK_ULONG, CK_BYTE *,
+	// Random Number Gen
+	CK_RV(*t_rng) (CK_BYTE *, CK_ULONG);
+
+	//perform anything specific needed by the token takes a slot id
+	CK_RV(*t_session) (CK_SLOT_ID);
+
+	// any specific final code
+	CK_RV(*t_final) ();
+
+	CK_RV(*t_verify_so_pin) (CK_CHAR_PTR, CK_ULONG);
+	CK_RV(*t_login) (CK_USER_TYPE, CK_CHAR_PTR, CK_ULONG);
+	CK_RV(*t_logout) ();
+	CK_RV(*t_init_pin) (CK_CHAR_PTR, CK_ULONG);
+	CK_RV(*t_set_pin) (SESSION *, CK_CHAR_PTR, CK_ULONG, CK_CHAR_PTR,
+			   CK_ULONG);
+
+	CK_RV(*t_des_key_gen) (CK_BYTE *, CK_ULONG, CK_ULONG);
+	CK_RV(*t_des_ecb) (CK_BYTE *, CK_ULONG,
+			   CK_BYTE *, CK_ULONG *, CK_BYTE *, CK_BYTE);
+	CK_RV(*t_des_cbc) (CK_BYTE *, CK_ULONG,
+			   CK_BYTE *, CK_ULONG *, CK_BYTE *, CK_BYTE *,
+			   CK_BYTE);
+
+	CK_RV(*t_tdes_ecb) (CK_BYTE *, CK_ULONG,
+			    CK_BYTE *, CK_ULONG *, CK_BYTE *, CK_BYTE);
+	CK_RV(*t_tdes_cbc) (CK_BYTE *, CK_ULONG,
+			    CK_BYTE *, CK_ULONG *, CK_BYTE *, CK_BYTE *,
+			    CK_BYTE);
+
+	CK_RV(*t_rsa_decrypt) (CK_BYTE *,
+				CK_ULONG, CK_BYTE *, CK_ULONG *, OBJECT *);
+
+	CK_RV(*t_rsa_encrypt) (CK_BYTE *,
+				CK_ULONG, CK_BYTE *, CK_ULONG *, OBJECT *);
+
+	CK_RV(*t_rsa_sign) (CK_BYTE *, CK_ULONG, CK_BYTE *, CK_ULONG *,
+			    OBJECT *);
+	CK_RV(*t_rsa_verify) (CK_BYTE *, CK_ULONG, CK_BYTE *, CK_ULONG,
+			      OBJECT *);
+
+	CK_RV(*t_rsa_verify_recover) (CK_BYTE *, CK_ULONG, CK_BYTE *,
+				      CK_ULONG *, OBJECT *);
+
+	CK_RV(*t_rsa_x509_decrypt) (CK_BYTE *, CK_ULONG, CK_BYTE *,
+				    CK_ULONG *, OBJECT *);
+
+	CK_RV(*t_rsa_x509_encrypt) (CK_BYTE *, CK_ULONG, CK_BYTE *,
+				    CK_ULONG *, OBJECT *);
+
+	CK_RV(*t_rsa_x509_sign) (CK_BYTE *, CK_ULONG, CK_BYTE *,
 				 CK_ULONG *, OBJECT *);
 
-   CK_RV (*t_rsa_x509_decrypt)(CK_BYTE *, CK_ULONG, CK_BYTE *,
-			       CK_ULONG *, OBJECT *);
+	CK_RV(*t_rsa_x509_verify) (CK_BYTE *, CK_ULONG, CK_BYTE *,
+				   CK_ULONG, OBJECT *);
 
-   CK_RV (*t_rsa_x509_encrypt)(CK_BYTE *, CK_ULONG, CK_BYTE *,
-                               CK_ULONG *, OBJECT *);
+	CK_RV(*t_rsa_x509_verify_recover) (CK_BYTE *, CK_ULONG, CK_BYTE *,
+					   CK_ULONG *, OBJECT *);
 
-   CK_RV (*t_rsa_x509_sign)(CK_BYTE *, CK_ULONG, CK_BYTE *,
-			    CK_ULONG *, OBJECT *);
+	CK_RV(*t_rsa_generate_keypair) (TEMPLATE *, TEMPLATE *);
 
-   CK_RV (*t_rsa_x509_verify)(CK_BYTE *, CK_ULONG, CK_BYTE *,
-			      CK_ULONG, OBJECT *);
+	CK_RV(*t_ec_sign) (CK_BYTE *, CK_ULONG, CK_BYTE *, CK_ULONG *,
+			   OBJECT *);
+	CK_RV(*t_ec_verify) (CK_BYTE *, CK_ULONG, CK_BYTE *, CK_ULONG,
+			     OBJECT *);
+	CK_RV(*t_ec_generate_keypair) (TEMPLATE *, TEMPLATE *);
 
-   CK_RV (*t_rsa_x509_verify_recover)(CK_BYTE *, CK_ULONG, CK_BYTE *,
-                                      CK_ULONG *, OBJECT *);
+	/* Begin code contributed by Corrent corp. */
 
-   CK_RV (*t_rsa_generate_keypair)(TEMPLATE *, TEMPLATE *);
+	// Token Specific DH functions
+	CK_RV(*t_dh_pkcs_derive) (CK_BYTE *,
+				  CK_ULONG *,
+				  CK_BYTE *,
+				  CK_ULONG,
+				  CK_BYTE *, CK_ULONG, CK_BYTE *, CK_ULONG);
 
-   CK_RV (*t_ec_sign)(CK_BYTE *, CK_ULONG, CK_BYTE *, CK_ULONG *, OBJECT *);
-   CK_RV (*t_ec_verify)(CK_BYTE *, CK_ULONG, CK_BYTE *, CK_ULONG, OBJECT *);
-   CK_RV (*t_ec_generate_keypair)(TEMPLATE *, TEMPLATE *);
+	CK_RV(*t_dh_pkcs_key_pair_gen) (TEMPLATE *, TEMPLATE *);
 
-/* Begin code contributed by Corrent corp. */
-   // Token Specific DH functions
- 
-   CK_RV (*t_dh_pkcs_derive) ( CK_BYTE *,
-                               CK_ULONG *,
-                               CK_BYTE *,
-                               CK_ULONG,
-                               CK_BYTE *,
-                               CK_ULONG,
-                               CK_BYTE *,
-                               CK_ULONG ) ;
- 
-   CK_RV (*t_dh_pkcs_key_pair_gen)(TEMPLATE *, TEMPLATE *);
-/* End code contributed by Corrent corp. */
-   // Token Specific SHA1 functions 
-   CK_RV (*t_sha_init)(DIGEST_CONTEXT *);
-   
-   CK_RV (*t_sha_update)(
-		   	DIGEST_CONTEXT *,
-			CK_BYTE	*,
-			CK_ULONG);
-   
-   CK_RV (*t_sha_final)(
-		   	DIGEST_CONTEXT *,
-			CK_BYTE *,
-			CK_ULONG *);
-   // Token Specific SHA256 functions 
-   CK_RV (*t_sha2_init)(DIGEST_CONTEXT *);
-   
-   CK_RV (*t_sha2_update)(
-		   	DIGEST_CONTEXT *,
-			CK_BYTE	*,
-			CK_ULONG);
-   
-   CK_RV (*t_sha2_final)(
-		   	DIGEST_CONTEXT *,
-			CK_BYTE *,
-			CK_ULONG *);
-   CK_RV (*t_sha3_init)(DIGEST_CONTEXT *);
-   CK_RV (*t_sha3_update)(DIGEST_CONTEXT *,
-			  CK_BYTE	*,
-			  CK_ULONG);
-   CK_RV (*t_sha3_final)(DIGEST_CONTEXT *,
-			 CK_BYTE *,
-			 CK_ULONG *);
-   CK_RV (*t_sha5_init)(DIGEST_CONTEXT *);
-   CK_RV (*t_sha5_update)(DIGEST_CONTEXT *,
-			  CK_BYTE	*,
-			  CK_ULONG);
-   CK_RV (*t_sha5_final)(DIGEST_CONTEXT *,
-			 CK_BYTE *,
-			 CK_ULONG *);
-   // Token Specific AES functions
-   CK_RV (*t_aes_key_gen)(
-			CK_BYTE *,
-			CK_ULONG,
-			CK_ULONG );
-   
-   CK_RV (*t_aes_ecb)(
-		   	CK_BYTE *,
-			CK_ULONG,
-			CK_BYTE *,
-			CK_ULONG *,
-			CK_BYTE *,
-			CK_ULONG,
-			CK_BYTE);
-   
-   CK_RV (*t_aes_cbc)(
-		   	CK_BYTE *,
-			CK_ULONG,
-			CK_BYTE *,
-			CK_ULONG *,
-			CK_BYTE *,
-			CK_ULONG,
-			CK_BYTE *,
-			CK_BYTE);
+	/* End code contributed by Corrent corp. */
 
-   CK_RV (*t_aes_ctr)(
-			CK_BYTE *,
-			CK_ULONG,
-			CK_BYTE *,
-			CK_ULONG *,
-			CK_BYTE *,
-			CK_ULONG ,
-			CK_BYTE *,
-			CK_ULONG ,
-			CK_BYTE);
+	// Token Specific SHA1 functions 
+	CK_RV(*t_sha_init) (DIGEST_CONTEXT *);
 
-   CK_RV (*t_get_mechanism_list)(CK_MECHANISM_TYPE_PTR,
-				      CK_ULONG_PTR);
-   CK_RV (*t_get_mechanism_info)(CK_MECHANISM_TYPE,
+	CK_RV(*t_sha_update) (DIGEST_CONTEXT *, CK_BYTE *, CK_ULONG);
+
+	CK_RV(*t_sha_final) (DIGEST_CONTEXT *, CK_BYTE *, CK_ULONG *);
+
+	// Token Specific SHA256 functions 
+	CK_RV(*t_sha2_init) (DIGEST_CONTEXT *);
+
+	CK_RV(*t_sha2_update) (DIGEST_CONTEXT *, CK_BYTE *, CK_ULONG);
+
+	CK_RV(*t_sha2_final) (DIGEST_CONTEXT *, CK_BYTE *, CK_ULONG *);
+	CK_RV(*t_sha3_init) (DIGEST_CONTEXT *);
+	CK_RV(*t_sha3_update) (DIGEST_CONTEXT *, CK_BYTE *, CK_ULONG);
+	CK_RV(*t_sha3_final) (DIGEST_CONTEXT *, CK_BYTE *, CK_ULONG *);
+	CK_RV(*t_sha5_init) (DIGEST_CONTEXT *);
+	CK_RV(*t_sha5_update) (DIGEST_CONTEXT *, CK_BYTE *, CK_ULONG);
+	CK_RV(*t_sha5_final) (DIGEST_CONTEXT *, CK_BYTE *, CK_ULONG *);
+
+	// Token Specific AES functions
+	CK_RV(*t_aes_key_gen) (CK_BYTE *, CK_ULONG, CK_ULONG);
+
+	CK_RV(*t_aes_ecb) (CK_BYTE *,
+			   CK_ULONG,
+			   CK_BYTE *,
+			   CK_ULONG *, CK_BYTE *, CK_ULONG, CK_BYTE);
+
+	CK_RV(*t_aes_cbc) (CK_BYTE *,
+			   CK_ULONG,
+			   CK_BYTE *,
+			   CK_ULONG *,
+			   CK_BYTE *, CK_ULONG, CK_BYTE *, CK_BYTE);
+
+	CK_RV(*t_aes_ctr) (CK_BYTE *,
+			   CK_ULONG,
+			   CK_BYTE *,
+			   CK_ULONG *,
+			   CK_BYTE *, CK_ULONG, CK_BYTE *, CK_ULONG, CK_BYTE);
+
+	CK_RV(*t_get_mechanism_list) (CK_MECHANISM_TYPE_PTR, CK_ULONG_PTR);
+	CK_RV(*t_get_mechanism_info) (CK_MECHANISM_TYPE,
 				      CK_MECHANISM_INFO_PTR);
-   CK_RV (*t_object_add)(OBJECT *);
 
+	CK_RV (*t_object_add)(OBJECT *);
 };
 
 typedef struct token_specific_struct token_spec_t;
 
 #endif
-
