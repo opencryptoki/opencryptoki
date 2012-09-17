@@ -325,6 +325,13 @@ token_spec_t token_specific = {
 	SW_CONFIG_PATH,
 	"swtok",
 	0,
+	// Token data info:
+	{
+		FALSE,			// Don't use per guest data store
+		CKM_DES3_CBC,		// Data store encryption
+		"12345678",		// Default initialization vector for pins
+		"10293847",		// Default initialization vector for objects
+	},
 	&token_specific_init,
 	&tok_slot2local,
 	&token_specific_rng,

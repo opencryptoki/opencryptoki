@@ -28,7 +28,6 @@
                    the Program under their own license agreement, and
                    (ii) are not derivative works of the Program.
 
-
              "Contributor" means any person or entity that distributes
              the Program.
 
@@ -140,7 +139,6 @@
              allows subsequent Recipients to identify the originator of
              the Contribution. 
 
-
              4. COMMERCIAL DISTRIBUTION
 
              Commercial distributors of software may accept certain
@@ -170,7 +168,6 @@
              settlement negotiations. The Indemnified Contributor may
              participate in any such claim at its own expense.
 
-
              For example, a Contributor might include the Program in a
              commercial product offering, Product X. That Contributor
              is then a Commercial Contributor. If that Commercial
@@ -183,7 +180,6 @@
              warranties, and if a court requires any other Contributor
              to pay any damages as a result, the Commercial Contributor
              must pay those damages.
-
 
              5. NO WARRANTY
 
@@ -222,7 +218,6 @@
              parties hereto, such provision shall be reformed to the
              minimum extent necessary to make such provision valid and
              enforceable.
-
 
              If Recipient institutes patent litigation against a
              Contributor with respect to a patent applicable to
@@ -274,7 +269,6 @@
              estoppel or otherwise. All rights in the Program not
              expressly granted under this Agreement are reserved.
 
-
              This Agreement is governed by the laws of the State of New
              York and the intellectual property laws of the United
              States of America. No party to this Agreement will bring a
@@ -283,11 +277,9 @@
              a jury trial in any resulting litigation. 
 
 
-
 */
 
 /* (C) COPYRIGHT International Business Machines Corp. 2002          */
-
 
 // SAB FIXME  need to figure out a better way...
 // // to get the variant dependency out
@@ -302,80 +294,87 @@
 #ifndef CONFIG_PATH
 #warning CONFIG_PATH not set, using default (/usr/local/var/lib/opencryptoki)
 #define CONFIG_PATH "/usr/local/var/lib/opencryptoki"
-#endif  // #ifndef CONFIG_PATH
+#endif // #ifndef CONFIG_PATH
 
 #define LITE_CONFIG_PATH CONFIG_PATH "/lite"
-#endif  // #ifndef LITE_CONFIG_PATH
+#endif // #ifndef LITE_CONFIG_PATH
 
-token_spec_t token_specific  = {
-     LITE_CONFIG_PATH,
-     "lite",
-     0,
-     &token_specific_init,
-     &tok_slot2local,
-     &token_specific_rng,
-     &token_specific_session,
-     &token_specific_final,
-     NULL,		// verify_so_pin
-     NULL,		// login
-     NULL,		// logout
-     NULL,		// init_pin
-     NULL,		// set_pin
-     // DES
-     &token_specific_des_key_gen,
-     &token_specific_des_ecb,
-     &token_specific_des_cbc,
-     // Triple DES
-     &token_specific_tdes_ecb,
-     &token_specific_tdes_cbc,
-     // RSA
-     &token_specific_rsa_decrypt,
-     &token_specific_rsa_encrypt,
-     &token_specific_rsa_sign,
-     &token_specific_rsa_verify,
-     &token_specific_rsa_verify_recover,
-     &token_specific_rsa_x509_decrypt,
-     &token_specific_rsa_x509_encrypt,
-     &token_specific_rsa_x509_sign,
-     &token_specific_rsa_x509_verify,
-     &token_specific_rsa_x509_verify_recover,
-     &token_specific_rsa_generate_keypair,
-     // Elliptic Curve
-     NULL,		// ec_sign
-     NULL,		// ec_verify
-     NULL,		// ec_generate_keypaiir
+token_spec_t token_specific = {
+	LITE_CONFIG_PATH,
+	"lite",
+	0,
+	// Token data info:
+	{
+		FALSE,			// Don't use per guest data store
+		CKM_DES3_CBC,		// Data store encryption
+		"12345678",		// Default initialization vector for pins
+		"10293847",		// Default initialization vector for objects
+	},
+	&token_specific_init,
+	&tok_slot2local,
+	&token_specific_rng,
+	&token_specific_session,
+	&token_specific_final,
+	NULL,			// verify_so_pin
+	NULL,			// login
+	NULL,			// logout
+	NULL,			// init_pin
+	NULL,			// set_pin
+	// DES
+	&token_specific_des_key_gen,
+	&token_specific_des_ecb,
+	&token_specific_des_cbc,
+	// Triple DES
+	&token_specific_tdes_ecb,
+	&token_specific_tdes_cbc,
+	// RSA
+	&token_specific_rsa_decrypt,
+	&token_specific_rsa_encrypt,
+	&token_specific_rsa_sign,
+	&token_specific_rsa_verify,
+	&token_specific_rsa_verify_recover,
+	&token_specific_rsa_x509_decrypt,
+	&token_specific_rsa_x509_encrypt,
+	&token_specific_rsa_x509_sign,
+	&token_specific_rsa_x509_verify,
+	&token_specific_rsa_x509_verify_recover,
+	&token_specific_rsa_generate_keypair,
+	// Elliptic Curve
+	NULL,			// ec_sign
+	NULL,			// ec_verify
+	NULL,			// ec_generate_keypaiir
 #ifndef NODH
-     // DH
-     &token_specific_dh_pkcs_derive,
-     &token_specific_dh_pkcs_key_pair_gen,
+	// DH
+	&token_specific_dh_pkcs_derive,
+	&token_specific_dh_pkcs_key_pair_gen,
 #else
-    NULL,
-    NULL,
-#endif 
-     // SHA
-     &token_specific_sha_init,
-     &token_specific_sha_update,
-     &token_specific_sha_final,
-     /* SHA-256 */
-     &token_specific_sha2_init,
-     &token_specific_sha2_update,
-     &token_specific_sha2_final,
-     // SHA-384
-     &token_specific_sha3_init,
-     &token_specific_sha3_update,
-     &token_specific_sha3_final,
-     // SHA-512
-     &token_specific_sha5_init,
-     &token_specific_sha5_update,
-     &token_specific_sha5_final,
-     // AES
-     &token_specific_aes_key_gen,
-     &token_specific_aes_ecb,
-     &token_specific_aes_cbc,
-     &token_specific_aes_ctr,
-     &token_specific_get_mechanism_list,
-     &token_specific_get_mechanism_info,
-     NULL
+	NULL,
+	NULL,
+#endif
+	// SHA
+	&token_specific_sha_init,
+	&token_specific_sha_update,
+	&token_specific_sha_final,
+	/* SHA-256 */
+	&token_specific_sha2_init,
+	&token_specific_sha2_update,
+	&token_specific_sha2_final,
+	// SHA-384
+	&token_specific_sha3_init,
+	&token_specific_sha3_update,
+	&token_specific_sha3_final,
+	// SHA-512
+	&token_specific_sha5_init,
+	&token_specific_sha5_update,
+	&token_specific_sha5_final,
+	// AES
+	&token_specific_aes_key_gen,
+	&token_specific_aes_ecb,
+	&token_specific_aes_cbc,
+	&token_specific_aes_ctr,
+	&token_specific_get_mechanism_list,
+	&token_specific_get_mechanism_info,
+	NULL			// object_add
 };
 
 #endif

@@ -311,6 +311,21 @@ struct token_specific_struct {
 	// Set to keysize for secure key tokens
 	int token_keysize;		
 
+	// Information about how token's data should be stored.
+	struct {
+		// Use a separate directory for each user
+		CK_BBOOL per_user;
+
+		// Algorithm used to store private data (should be one of the
+		// CKM_* macros).
+		CK_MECHANISM_TYPE encryption_algorithm;
+
+		// Default Initialization vectors used for each token. Its size
+		// depends on the used algorithm.
+		CK_BYTE *pin_initial_vector;
+		CK_BYTE *obj_initial_vector;
+	} data_store;
+
 	// Initialization function
 	CK_RV(*t_init) (char *, CK_SLOT_ID);
 

@@ -35,6 +35,13 @@ struct token_specific_struct token_specific = {
 	TPM_CONFIG_PATH,
 	"tpm",
 	0,
+	// Token data info:
+	{
+		TRUE,			// Use per guest data store
+		CKM_AES_CBC,		// Data store encryption
+		NULL,			// Default initialization vector for pins
+		")#%&!*)^!()$&!&N",	// Default initialization vector for objects
+	},
 	&token_specific_init,
 	&tok_slot2local,
 	&token_specific_rng,
