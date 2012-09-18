@@ -27,6 +27,7 @@
 token_spec_t token_specific  = {
      CCA_CONFIG_PATH,
      "ccatok",
+     64,
      &token_specific_init,
      &tok_slot2local,
      &token_specific_rng,

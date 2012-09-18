@@ -1592,25 +1592,50 @@ ckm_des_key_gen( TEMPLATE *tmpl )
 {
 
    CK_ATTRIBUTE     * value_attr    = NULL;
+   CK_ATTRIBUTE     * opaque_attr   = NULL;
    CK_ATTRIBUTE     * key_type_attr = NULL;
    CK_ATTRIBUTE     * class_attr    = NULL;
    CK_ATTRIBUTE     * local_attr    = NULL;
-   CK_BYTE            des_key[DES_KEY_SIZE];
+   CK_BYTE          * des_key       = NULL;
+   CK_BYTE            dummy_key[DES_KEY_SIZE] = { 0, };
    CK_ULONG           rc;
+   CK_ULONG           keysize;
 
    if (token_specific.t_des_key_gen == NULL) {
       OCK_LOG_ERR(ERR_MECHANISM_INVALID);
       return CKR_MECHANISM_INVALID;
    }
-   // 1. If the key generated is NOT a clear key, then the token
-   // is responsible for updating the key template with the 
-   // token specific info and des_key is an empty dummy key.
-   // 2. Also, token specific code is assumed to check for weak keys.
-   //
-   memset(des_key, 0, DES_KEY_SIZE);
-   rc = token_specific.t_des_key_gen(des_key,DES_KEY_SIZE,tmpl);
+
+   if (token_specific.token_keysize)
+      keysize = token_specific.token_keysize;
+   else
+      keysize = DES_KEY_SIZE;
+
+   if ((des_key = (CK_BYTE *)malloc(keysize)) == NULL) {
+      OCK_LOG_ERR(ERR_HOST_MEMORY);
+      return CKR_HOST_MEMORY;
+   }
+
+   rc = token_specific.t_des_key_gen(des_key, keysize, DES_KEY_SIZE);
    if (rc != CKR_OK)
-      return rc;
+      goto err;
+
+   /* For secure-key keys put in CKA_IBM_OPAQUE 
+    * and put dummy_key in CKA_VALUE.
+    */
+   if (token_specific.token_keysize) {
+        opaque_attr = (CK_ATTRIBUTE *)malloc(sizeof(CK_ATTRIBUTE) + keysize);
+        if (!opaque_attr) {
+           OCK_LOG_ERR(ERR_FUNCTION_FAILED);
+           rc = CKR_FUNCTION_FAILED;
+	   goto err;
+        }
+        opaque_attr->type = CKA_IBM_OPAQUE;
+        opaque_attr->ulValueLen = keysize;
+        opaque_attr->pValue = (CK_BYTE *)opaque_attr + sizeof(CK_ATTRIBUTE);
+        memcpy(opaque_attr->pValue, des_key, keysize);
+        template_update_attribute(tmpl, opaque_attr);
+   }
 
    value_attr    = (CK_ATTRIBUTE *)malloc(sizeof(CK_ATTRIBUTE) + DES_KEY_SIZE );
    key_type_attr = (CK_ATTRIBUTE *)malloc(sizeof(CK_ATTRIBUTE) + sizeof(CK_KEY_TYPE) );
@@ -1624,14 +1649,19 @@ ckm_des_key_gen( TEMPLATE *tmpl )
       if (local_attr)    free( local_attr );
 
       OCK_LOG_ERR(ERR_FUNCTION_FAILED);
-      return CKR_FUNCTION_FAILED;
+      rc = CKR_FUNCTION_FAILED;
+      goto err;
    }
 
    value_attr->type         = CKA_VALUE;
    value_attr->ulValueLen   = DES_KEY_SIZE;
    value_attr->pValue       = (CK_BYTE *)value_attr + sizeof(CK_ATTRIBUTE);
-   memcpy( value_attr->pValue, des_key, DES_KEY_SIZE );
-
+   if (token_specific.token_keysize)
+      memcpy( value_attr->pValue, dummy_key, DES_KEY_SIZE );
+   else
+      memcpy( value_attr->pValue, des_key, DES_KEY_SIZE );
+   free(des_key);
+   
    key_type_attr->type         = CKA_KEY_TYPE;
    key_type_attr->ulValueLen   = sizeof(CK_KEY_TYPE);
    key_type_attr->pValue       = (CK_BYTE *)key_type_attr + sizeof(CK_ATTRIBUTE);
@@ -1653,6 +1683,11 @@ ckm_des_key_gen( TEMPLATE *tmpl )
    template_update_attribute( tmpl, local_attr );
 
    return CKR_OK;
+
+err:
+   if (des_key)
+	free(des_key);
+   return rc;
 }
 
 #if !(NOCDMF)

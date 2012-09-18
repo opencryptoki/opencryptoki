@@ -323,7 +323,7 @@ CK_RV token_specific_logout();
 CK_RV token_specific_init_pin(CK_CHAR_PTR, CK_ULONG);
 CK_RV token_specific_set_pin(SESSION *, CK_CHAR_PTR, CK_ULONG, CK_CHAR_PTR, CK_ULONG);
 
-CK_RV token_specific_des_key_gen(CK_BYTE  *,CK_ULONG, TEMPLATE *) ;
+CK_RV token_specific_des_key_gen(CK_BYTE  *,CK_ULONG, CK_ULONG) ;
 
 CK_RV token_specific_des_ecb(CK_BYTE *,
                   CK_ULONG ,
@@ -524,7 +524,7 @@ token_specific_sha5_final(       DIGEST_CONTEXT  *,
 CK_RV
 token_specific_aes_key_gen( CK_BYTE *,
                             CK_ULONG,
-			    TEMPLATE * );
+			    CK_ULONG );
 
 CK_RV
 token_specific_aes_ecb( CK_BYTE  *,

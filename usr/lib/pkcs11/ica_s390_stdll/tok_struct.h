@@ -310,6 +310,7 @@
 token_spec_t token_specific  = {
      LITE_CONFIG_PATH,
      "lite",
+     0,
      &token_specific_init,
      &tok_slot2local,
      &token_specific_rng,

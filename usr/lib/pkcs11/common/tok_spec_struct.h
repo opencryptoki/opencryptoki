@@ -310,6 +310,7 @@
 struct token_specific_struct{
    CK_BYTE  token_directory[PATH_MAX];  // Used to be in the token_local.h as a #def
    CK_BYTE  token_subdir[PATH_MAX];     // subdirectory
+   int token_keysize;		// set to keysize for secure key tokens
 
    CK_RV  (*t_init)(char *,CK_SLOT_ID);             // Initialization function
    int  (*t_slot2local)(CK_SLOT_ID); // convert PKCS#11 slot to a local index 
@@ -325,7 +326,7 @@ struct token_specific_struct{
    CK_RV  (*t_init_pin)(CK_CHAR_PTR, CK_ULONG);
    CK_RV  (*t_set_pin)(SESSION *, CK_CHAR_PTR, CK_ULONG, CK_CHAR_PTR, CK_ULONG);
 
-   CK_RV  (*t_des_key_gen)(CK_BYTE *,CK_ULONG, TEMPLATE *);
+   CK_RV  (*t_des_key_gen)(CK_BYTE *,CK_ULONG, CK_ULONG);
    CK_RV  (*t_des_ecb)( 
                          CK_BYTE *, CK_ULONG,
                          CK_BYTE *, CK_ULONG *, CK_BYTE *, CK_BYTE);
@@ -437,7 +438,7 @@ struct token_specific_struct{
    CK_RV (*t_aes_key_gen)(
 			CK_BYTE *,
 			CK_ULONG,
-			TEMPLATE * );
+			CK_ULONG );
    
    CK_RV (*t_aes_ecb)(
 		   	CK_BYTE *,

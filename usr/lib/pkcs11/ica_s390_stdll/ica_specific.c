@@ -412,7 +412,7 @@ void adjust_des_key_parity_bits(CK_BYTE *des_key, CK_ULONG key_size, CK_BBOOL pa
 
 
 CK_RV
-token_specific_des_key_gen(CK_BYTE  *des_key,CK_ULONG len, TEMPLATE *tmpl)
+token_specific_des_key_gen(CK_BYTE  *des_key, CK_ULONG len, CK_ULONG keysize)
 {
       
    // Nothing different to do for DES or TDES here as this is just
@@ -2590,7 +2590,7 @@ token_specific_session(CK_SLOT_ID  slotid)
 #ifndef NOAES
 
 CK_RV
-token_specific_aes_key_gen(CK_BYTE *key, CK_ULONG len, TEMPLATE *tmpl)
+token_specific_aes_key_gen(CK_BYTE *key, CK_ULONG len, CK_ULONG keysize)
 {
         return rng_generate(key, len);
 }

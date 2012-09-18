@@ -34,6 +34,7 @@
 struct token_specific_struct token_specific = {
      TPM_CONFIG_PATH,
      "tpm",
+     0,
      &token_specific_init,
      &tok_slot2local,
      &token_specific_rng,
