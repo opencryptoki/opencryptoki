@@ -35,6 +35,8 @@ AC_PATH_PROG([CHMOD], [chmod], [/bin/chmod])
 AC_PATH_PROG([CHGRP], [chgrp], [/bin/chgrp])
 AC_PROG_SED
 AC_PROG_MKDIR_P
+AM_PROG_LEX
+AC_PROG_YACC
 
 dnl Define custom variables
 

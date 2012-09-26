@@ -610,6 +610,7 @@ int InitSharedMemory ( Slot_Mgr_Shr_t *sp ) {
    char *tok_str;
    CK_BYTE lib_major;
    CK_BYTE lib_minor;
+   int processed = 0;
 
    ckinf = &(sp->ck_info);
    ckver = &(ckinf->cryptokiVersion);
@@ -655,65 +656,60 @@ int InitSharedMemory ( Slot_Mgr_Shr_t *sp ) {
 
    sp->num_slots = NumberSlotsInDB;
 
-   /* FIXME: Change NUMBER_SLOTS_MANAGED in loop condition to NumberSlotsInDB? */
-   for ( id=0; ( (id < NUMBER_SLOTS_MANAGED) && (sinfo[id].present == TRUE ) ) ; id++ ) {
-     /* Was sinfo[id].pk_slot.slotDescription[0] != '0' - assume typo 9/1 SCM */
+   for (id = 0; id < NUMBER_SLOTS_MANAGED; id++) {
 
+        if (sinfo[id].present == FALSE)
+	   /* skip empty slots and just note the slot number */
+           sp->slot_info[id].slot_number = id;
+        else {
+           sp->slot_info[id].slot_number    = sinfo[id].slot_number;
+           sp->slot_info[id].present        = sinfo[id].present;
+           sp->slot_info[id].pk_slot.flags  = sinfo[id].pk_slot.flags;
 
-#ifdef PKCS64
-      CK_SLOT_INFO_64    *dest = &(sp->slot_info[id].pk_slot);
-      CK_SLOT_INFO_64    *src  = &(sinfo[id].pk_slot); 
-#else
-      CK_SLOT_INFO    *dest = &(sp->slot_info[id].pk_slot);
-      CK_SLOT_INFO    *src  = &(sinfo[id].pk_slot);
-#endif
+           memcpy(sp->slot_info[id].dll_location, sinfo[id].dll_location, strlen(sinfo[id].dll_location));
 
-      sp->slot_info[id].slot_number    = sinfo[id].slot_number;
-      sp->slot_info[id].present        = sinfo[id].present;
+	   /* pkcs#11v2.20 says these should be padded with
+	    * spaces and NOT null terminated.
+	    */
+           memset(sp->slot_info[id].pk_slot.slotDescription, ' ',
+                  sizeof(sp->slot_info[id].pk_slot.slotDescription));
 
-      memset ( &(dest->slotDescription[0]), ' ', sizeof(dest->slotDescription) );
-      memset ( &(dest->manufacturerID[0]),  ' ', sizeof(dest->manufacturerID) );
+           memset(sp->slot_info[id].pk_slot.manufacturerID, ' ',
+                  sizeof(sp->slot_info[id].pk_slot.manufacturerID));
 
-      memcpy ( &(dest->slotDescription[0]), &(src->slotDescription[0]), sizeof( src->slotDescription ) );
-      memcpy ( &(dest->manufacturerID[0]),  &(src->manufacturerID[0]),  sizeof( src->manufacturerID )  );
+           memcpy(sp->slot_info[id].pk_slot.slotDescription,
+                  sinfo[id].pk_slot.slotDescription,
+                 sizeof(sinfo[id].pk_slot.slotDescription));
 
-      dest->flags = src->flags;
+           memcpy(sp->slot_info[id].pk_slot.manufacturerID,
+                  sinfo[id].pk_slot.manufacturerID,
+                  sizeof(sinfo[id].pk_slot.manufacturerID));
 
-      memcpy ( &(dest->hardwareVersion), &(src->hardwareVersion), sizeof(src->hardwareVersion) );
-      memcpy ( &(dest->firmwareVersion), &(src->firmwareVersion), sizeof(src->firmwareVersion) );
+           memcpy(&sp->slot_info[id].pk_slot.hardwareVersion,
+                  &sinfo[id].pk_slot.hardwareVersion,
+                  sizeof(sinfo[id].pk_slot.hardwareVersion));
 
-      /* FIXME: We really should check the length of the strings before copying it */
-      strcpy( sp->slot_info[id].dll_location,    sinfo[id].dll_location  );
-      strcpy( sp->slot_info[id].slot_init_fcn,   sinfo[id].slot_init_fcn );
-      strcpy( sp->slot_info[id].correlator,      sinfo[id].correlator    );
+           memcpy(&sp->slot_info[id].pk_slot.firmwareVersion,
+                  &sinfo[id].pk_slot.firmwareVersion,
+                  sizeof(sinfo[id].pk_slot.firmwareVersion));
 
-   } /* end for id */
-
-   for( ; id < NUMBER_SLOTS_MANAGED; id++ ) {
-      sp->slot_info[id].slot_number = id;
+           processed++;
+        }
    }
 
+   /* check that we read in correct amount of slots */
+   if (processed != NumberSlotsInDB) {
+      ErrLog("Failed to populate shared memory with slot entries.\n");
+      return FALSE;
+   }
 
    /* Initialize the process side of things. */
    /* for now don't worry about the condition variables */
    for ( procindex=0; procindex < NUMBER_PROCESSES_ALLOWED; procindex++ ) {
      /* Initialize the mutex variables. */
-
-#if FIXME
-#error "No usage of the per process mutexes..."
-#ifdef PKCS64
-      msem_init( &(sp->proc_table[procindex].proc_mutex), 1 );
-#else     
-      pthread_mutex_init( &(sp->proc_table[procindex].proc_mutex), &mtxattr );
-#endif
-#endif
-
       sp->proc_table[procindex].inuse = FALSE;
    }
       
    return TRUE;
-
-
-
 }
 

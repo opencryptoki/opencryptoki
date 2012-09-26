@@ -25,6 +25,7 @@ man/man8/pkcsslotd.8
 misc/pkcsslotd
 misc/pkcsslotd.service
 missing
+ylwrap
 testcases/common/libcommon.la
 testcases/crypto/aes_tests
 testcases/crypto/des3_tests
@@ -63,3 +64,7 @@ usr/sbin/pkcs11_startup/pkcs11_startup
 usr/sbin/pkcs_slot/pkcs_slot
 usr/sbin/pkcsconf/pkcsconf
 usr/sbin/pkcsslotd/pkcsslotd
+usr/sbin/pkcsslotd/parser.output
+usr/sbin/pkcsslotd/parser.c
+usr/sbin/pkcsslotd/parser.h
+usr/sbin/pkcsslotd/lexer.c

@@ -976,12 +976,7 @@ DL_Load_and_Init(sltp,slotID )
       return FALSE;
    }
 
-   if (strlen(sinfp->slot_init_fcn)){
-      pSTinit = (int (*)())dlsym( sltp->dlop_p, sinfp->slot_init_fcn);
-   } else {
-      DL_Unload(sltp);
-      return FALSE;
-   }
+   pSTinit = (int (*)())dlsym( sltp->dlop_p, "ST_Initialize");
    if (!pSTinit ){
       // Unload the DLL
       DL_Unload(sltp);

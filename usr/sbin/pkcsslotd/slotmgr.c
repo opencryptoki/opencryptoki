@@ -305,6 +305,8 @@ key_t		tok;
 Slot_Info_t_64  sinfo[NUMBER_SLOTS_MANAGED];
 unsigned char NumberSlotsInDB = 0;
 
+#define OCK_CONFIG OCK_CONFDIR "/opencryptoki.conf"
+
 /* 
    We make main() able to modify Daemon so that we can 
    daemonize or not based on a command-line argument
@@ -343,6 +345,7 @@ DumpSharedMemory(void)
 int main ( int argc, char *argv[], char *envp[]) {
    setlocale(LC_ALL, "");
    catd = catopen(MF_SLOTD,0);
+   int ret;
 
    /**********************************/
    /* Read in command-line arguments */
@@ -365,21 +368,12 @@ int main ( int argc, char *argv[], char *envp[]) {
    /* Save our startup directory */
    SaveStartupDirectory( argv[0]  );
 
-
-   /* Would help to do this before initializing the rest of the data structures */
-   //  SAB XXX this needs to be modified to eliminate the need
-   //  for ODM...   Currently for ODM based systems this is in odm.c
-   //  and the coresponding odm.h.....  
-   //  for Non-ODM system create a no_odm.h and no_odm.c that
-   //  contains this function and does the proper work.
-   if ( ! ReadSlotInfoDB() ) {
-     ErrLog(SLOTD_MSG(SLOTFAIL, "Failed to read slot database.\n"));
-     return 1;
-   } else {
-     DbgLog (DL0, "ReadSlotInfoDB succeeded.\n");
-   }
-
-
+   ret = load_and_parse(OCK_CONFIG);
+   if (ret != 0) {
+      ErrLog(SLOTD_MSG(SLOTFAIL, "Failed to read config file.\n"));
+      return 1;
+   } else
+      DbgLog (DL0, "Parse config file succeeded.\n");
 
    /* Allocate and Attach the shared memory region */
    if ( ! CreateSharedMemory() ) {
