@@ -487,54 +487,6 @@
 
   static int SignalInfoSize = (sizeof(SignalInfo) / sizeof(SignalInfo[0]));
 
-#ifndef NOODM
-
-  static ConstInfo ODMError[] = {
-        CONSTINFO(ODMI_OPEN_ERR), 
-        CONSTINFO(ODMI_MALLOC_ERR), 
-        CONSTINFO(ODMI_MAGICNO_ERR), 
-        CONSTINFO(ODMI_NO_OBJECT), 
-        CONSTINFO(ODMI_BAD_CRIT), 
-        CONSTINFO(ODMI_INTERNAL_ERR), 
-        CONSTINFO(ODMI_TOOMANYCLASSES), 
-        CONSTINFO(ODMI_LINK_NOT_FOUND), 
-        CONSTINFO(ODMI_INVALID_CLASS), 
-        CONSTINFO(ODMI_CLASS_EXISTS), 
-        CONSTINFO(ODMI_CLASS_DNE), 
-        CONSTINFO(ODMI_BAD_CLASSNAME), 
-        CONSTINFO(ODMI_UNLINKCLASS_ERR), 
-        CONSTINFO(ODMI_UNLINKCLXN_ERR), 
-        CONSTINFO(ODMI_INVALID_CLXN), 
-        CONSTINFO(ODMI_CLXNMAGICNO_ERR), 
-        CONSTINFO(ODMI_BAD_CLXNNAME), 
-        CONSTINFO(ODMI_CLASS_PERMS), 
-        CONSTINFO(ODMI_BAD_TIMEOUT), 
-        CONSTINFO(ODMI_BAD_TOKEN), 
-        CONSTINFO(ODMI_LOCK_BLOCKED), 
-        CONSTINFO(ODMI_LOCK_ENV), 
-        CONSTINFO(ODMI_UNLOCK), 
-        CONSTINFO(ODMI_BAD_LOCK), 
-        CONSTINFO(ODMI_LOCK_ID), 
-        CONSTINFO(ODMI_PARAMS), 
-        CONSTINFO(ODMI_OPEN_PIPE), 
-        CONSTINFO(ODMI_READ_PIPE), 
-        CONSTINFO(ODMI_FORK), 
-        CONSTINFO(ODMI_INVALID_PATH), 
-        CONSTINFO(ODMI_READ_ONLY), 
-        CONSTINFO(ODMI_NO_SPACE), 
-        CONSTINFO(VCHAR_OPEN_ERR), 
-        CONSTINFO(VCHAR_MAGICNO_ERR), 
-        CONSTINFO(VCHAR_CLASS_DNE), 
-        CONSTINFO(VCHAR_BADSTRINGADDR), 
-        CONSTINFO(VCHAR_CLASS_PERMS)
-  };
-
-  static int ODMErrorSize = (sizeof(ODMError) / sizeof(ODMError[0]));
-#endif
-
-
-
-
   static ConstInfo PkcsReturnInfo[] = {
 
 	CONSTINFO(CKR_OK), 
@@ -982,12 +934,6 @@ const unsigned char *ConstName( pConstInfo pInfoArray, unsigned int InfoArraySiz
   const unsigned char *SignalConst ( unsigned int Val ) {
     return ConstName ( SignalInfo, SignalInfoSize, Val );
   }
-
-#ifndef NOODM
-  const unsigned char *ODMConst( unsigned int Val ) {
-    return ConstName( ODMError, ODMErrorSize, Val);
-  }
-#endif
 
   const unsigned char *SysConst ( unsigned int Val ) {
     return ConstName ( SysErrorInfo, SysErrorSize, Val );

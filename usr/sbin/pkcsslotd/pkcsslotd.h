@@ -331,9 +331,6 @@
 #include <libgen.h>
 #include <local_types.h>
 #include <memory.h>
-#ifndef NOODM  // SAB XXX removed ODM dependency
-#include <odmi.h>
-#endif
 #include <pkcs11types.h> 
 #include <signal.h>
 #include <stdarg.h>
