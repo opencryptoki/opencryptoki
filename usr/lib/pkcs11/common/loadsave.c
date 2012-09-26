@@ -300,16 +300,15 @@
 #include <sys/file.h>
 #include <errno.h>
 #include <syslog.h>
-
 #include <pwd.h>
 #include <grp.h>
-
 #include "pkcs11types.h"
 #include "defs.h"
 #include "host_defs.h"
 #include "h_extern.h"
 #include "tok_spec_struct.h"
 #include "pkcs32.h"
+#include "sw_crypt.h"
 
 /* #include "../api/apiproto.h" */
 
@@ -327,8 +326,8 @@ static CK_BYTE *get_pk_dir()
 	return fname;
 }
 
-static CK_RV get_encryption_info(CK_ULONG *p_key_len,
-				 CK_ULONG *p_block_size)
+static CK_RV get_encryption_info_for_clear_key(CK_ULONG *p_key_len,
+					       CK_ULONG *p_block_size)
 {
 	CK_ULONG key_len = 0L;
 	CK_ULONG block_size = 0L;
@@ -354,6 +353,26 @@ static CK_RV get_encryption_info(CK_ULONG *p_key_len,
 	return CKR_OK;
 }
 
+static CK_RV get_encryption_info(CK_ULONG *p_key_len,
+				 CK_ULONG *p_block_size)
+{
+	CK_RV rc;
+
+	rc = get_encryption_info_for_clear_key(p_key_len, p_block_size);
+	if (rc != CKR_OK)
+		return rc;
+
+	/* Tokens that use a secure key have a different size for key because it's
+	 * just an indentifier not a real key. token_keysize > 0 indicates that a 
+	 * token uses a specific key format.
+	 */
+	if (token_specific.token_keysize) {
+		if (p_key_len)
+			*p_key_len = token_specific.token_keysize;
+	}
+	return CKR_OK;
+}
+
 static CK_BYTE *duplicate_initial_vector(const CK_BYTE *iv)
 {
 	CK_ULONG block_size = 0L;
@@ -376,8 +395,8 @@ done:
 }
 
 static CK_RV encrypt_data(CK_BYTE *key, const CK_BYTE *iv,
-			CK_BYTE *clear, CK_ULONG clear_len,
-			CK_BYTE *cipher, CK_ULONG *p_cipher_len)
+			  CK_BYTE *clear, CK_ULONG clear_len,
+			  CK_BYTE *cipher, CK_ULONG *p_cipher_len)
 {
 #ifndef  CLEARTEXT
 	CK_RV rc = CKR_OK;
@@ -385,8 +404,8 @@ static CK_RV encrypt_data(CK_BYTE *key, const CK_BYTE *iv,
 
 	initial_vector = duplicate_initial_vector(iv);
 	if (initial_vector == NULL) {
-		rc = ERR_HOST_MEMORY;
-		goto done;
+		OCK_LOG_ERR(ERR_HOST_MEMORY);
+		return ERR_HOST_MEMORY;
 	}
 
 	switch (token_specific.data_store.encryption_algorithm) {
@@ -404,14 +423,58 @@ static CK_RV encrypt_data(CK_BYTE *key, const CK_BYTE *iv,
 	default:
 		OCK_LOG_ERR(ERR_MECHANISM_INVALID);
 		rc = ERR_MECHANISM_INVALID;
-		goto done;
 	}
 
-done:
 	if (initial_vector)
 		free(initial_vector);
+
 	return rc;
 	
+#else
+	memcpy(cipher, clear, clear_len);
+	return CKR_OK;
+#endif
+}
+
+static CK_RV encrypt_data_with_clear_key(CK_BYTE *key, const CK_BYTE *iv,
+					 CK_BYTE *clear, CK_ULONG clear_len,
+					 CK_BYTE *cipher, CK_ULONG *p_cipher_len)
+{
+#ifndef CLEARTEXT
+	CK_RV rc = CKR_OK;
+	CK_BYTE *initial_vector = NULL;
+
+	/* If token doesn't have a specific key size that means that it uses a
+	 * clear key.
+	 */
+	if (token_specific.token_keysize == 0) {
+		return encrypt_data(key, iv, clear, clear_len,
+				    cipher, p_cipher_len);
+	}
+
+	/* Fall back to a software alternative if key is secure. */
+	initial_vector = duplicate_initial_vector(iv);
+	if (initial_vector == NULL) {
+		OCK_LOG_ERR(ERR_HOST_MEMORY);
+		return ERR_HOST_MEMORY;
+	}
+
+	switch (token_specific.data_store.encryption_algorithm) {
+	case CKM_DES3_CBC:
+		rc = sw_des3_cbc_encrypt(clear, clear_len,
+					 cipher, p_cipher_len,
+					 initial_vector, key);
+		break;
+	default:
+		OCK_LOG_ERR(ERR_MECHANISM_INVALID);
+		rc = ERR_MECHANISM_INVALID;
+	}
+
+	if (initial_vector)
+		free(initial_vector);
+
+	return rc;
+
 #else
 	memcpy(cipher, clear, clear_len);
 	return CKR_OK;
@@ -428,8 +491,8 @@ static CK_RV decrypt_data(CK_BYTE *key, const CK_BYTE *iv,
 
 	initial_vector = duplicate_initial_vector(iv);
 	if (initial_vector == NULL) {
-		rc = ERR_HOST_MEMORY;
-		goto done;
+		OCK_LOG_ERR(ERR_HOST_MEMORY);
+		return ERR_HOST_MEMORY;
 	}
 
 	switch (token_specific.data_store.encryption_algorithm) {
@@ -447,20 +510,62 @@ static CK_RV decrypt_data(CK_BYTE *key, const CK_BYTE *iv,
 	default:
 		OCK_LOG_ERR(ERR_MECHANISM_INVALID);
 		rc = ERR_MECHANISM_INVALID;
-		goto done;
 	}
 
-done:
 	if (initial_vector)
 		free(initial_vector);
+
 	return rc;
 	
 #else
-	memcpy(cipher, clear, clear_len);
+	memcpy(clear, cipher, cipher_len);
 	return CKR_OK;
 #endif
 }
 
+static CK_RV decrypt_data_with_clear_key(CK_BYTE *key, const CK_BYTE *iv,
+					 CK_BYTE *cipher, CK_ULONG cipher_len,
+					 CK_BYTE *clear, CK_ULONG *p_clear_len)
+{
+#ifndef CLEARTEXT
+	CK_RV rc = CKR_OK;
+	CK_BYTE *initial_vector = NULL;
+
+	/* If token doesn't have a specific key size that means that it uses a
+	 * clear key.
+	 */
+	if (token_specific.token_keysize == 0) {
+		return decrypt_data(key, iv, cipher, cipher_len,
+				    clear, p_clear_len);
+	}
+
+	/* Fall back to a software alternative if key is secure. */
+	initial_vector = duplicate_initial_vector(iv);
+	if (initial_vector == NULL) {
+		OCK_LOG_ERR(ERR_HOST_MEMORY);
+		return ERR_HOST_MEMORY;
+	}
+
+	switch (token_specific.data_store.encryption_algorithm) {
+	case CKM_DES3_CBC:
+		rc = sw_des3_cbc_decrypt(cipher, cipher_len, clear, p_clear_len,
+					 initial_vector, key);
+		break;
+	default:
+		OCK_LOG_ERR(ERR_MECHANISM_INVALID);
+		rc = ERR_MECHANISM_INVALID;
+	}
+
+	if (initial_vector)
+		free(initial_vector);
+
+	return rc;
+
+#else
+	memcpy(clear, cipher, cipher_len);
+	return CKR_OK;
+#endif
+}
 
 void set_perm(int file)
 {
@@ -1115,12 +1220,16 @@ CK_RV load_masterkey_so(void)
 	CK_RV rc;
 	CK_BYTE fname[PATH_MAX];
 	CK_ULONG key_len = 0L;
+	CK_ULONG master_key_len = 0L;
 	CK_ULONG block_size = 0L;
 
-	if ((rc = get_encryption_info(&key_len, &block_size)) != CKR_OK)
+	if ((rc = get_encryption_info_for_clear_key(&key_len, &block_size)) != CKR_OK)
 		goto done;
 
-	memset(master_key, 0x0, key_len);
+	if ((rc = get_encryption_info(&master_key_len, NULL)) != CKR_OK)
+		goto done;
+
+	memset(master_key, 0x0, master_key_len);
 
 	// this file gets created on C_InitToken so we can assume that it always exists
 	//
@@ -1133,7 +1242,7 @@ CK_RV load_masterkey_so(void)
 	}
 	set_perm(fileno(fp));
 
-	data_len = key_len + SHA1_HASH_SIZE;
+	data_len = master_key_len + SHA1_HASH_SIZE;
 	clear_len = cipher_len = (data_len + block_size - 1)
 		& ~(block_size - 1);
 	
@@ -1169,8 +1278,10 @@ CK_RV load_masterkey_so(void)
 	memcpy(key, so_pin_md5, MD5_HASH_SIZE);
 	memcpy(key + MD5_HASH_SIZE, so_pin_md5, key_len - MD5_HASH_SIZE);
 
-	rc = decrypt_data(key, token_specific.data_store.pin_initial_vector,
-			  cipher, cipher_len, clear, &clear_len);
+	rc = decrypt_data_with_clear_key(key,
+					 token_specific.data_store.pin_initial_vector,
+					 cipher, cipher_len,
+					 clear, &clear_len);
 	if (rc != CKR_OK) {
 		OCK_LOG_ERR(rc);
 		goto done;
@@ -1183,18 +1294,18 @@ CK_RV load_masterkey_so(void)
 
 	// compare the hashes
 	//
-	rc = compute_sha(clear, key_len, hash_sha);
+	rc = compute_sha(clear, master_key_len, hash_sha);
 	if (rc != CKR_OK) {
 		goto done;
 	}
 
-	if (memcmp(hash_sha, clear + key_len, SHA1_HASH_SIZE) != 0) {
+	if (memcmp(hash_sha, clear + master_key_len, SHA1_HASH_SIZE) != 0) {
 		OCK_LOG_ERR(ERR_FUNCTION_FAILED);
 		rc = CKR_FUNCTION_FAILED;
 		goto done;
 	}
 
-	memcpy(master_key, clear, key_len);
+	memcpy(master_key, clear, master_key_len);
 	rc = CKR_OK;
 
 done:
@@ -1221,16 +1332,20 @@ CK_RV load_masterkey_user(void)
 	CK_RV rc;
 	CK_BYTE fname[PATH_MAX];
 	CK_ULONG key_len = 0L;
+	CK_ULONG master_key_len = 0L;
 	CK_ULONG block_size = 0L;
 	struct passwd *pw = NULL;
 
-	if ((rc = get_encryption_info(&key_len, &block_size)) != CKR_OK)
+	if ((rc = get_encryption_info_for_clear_key(&key_len, &block_size)) != CKR_OK)
 		goto done;
 
-	memset(master_key, 0x0, key_len);
+	if ((rc = get_encryption_info(&master_key_len, NULL)) != CKR_OK)
+		goto done;
 
-	data_len = key_len + SHA1_HASH_SIZE;
-	clear_len = cipher_len = (key_len + block_size - 1)
+	memset(master_key, 0x0, master_key_len);
+
+	data_len = master_key_len + SHA1_HASH_SIZE;
+	clear_len = cipher_len = (data_len + block_size - 1)
 				 & ~(block_size - 1);
 	
 	key = malloc(key_len);
@@ -1264,8 +1379,10 @@ CK_RV load_masterkey_user(void)
 	memcpy(key, user_pin_md5, MD5_HASH_SIZE);
 	memcpy(key + MD5_HASH_SIZE, user_pin_md5, key_len - MD5_HASH_SIZE);
 
-	rc = decrypt_data(key, token_specific.data_store.pin_initial_vector,
-			  cipher, cipher_len, clear, &clear_len);
+	rc = decrypt_data_with_clear_key(key,
+					 token_specific.data_store.pin_initial_vector,
+					 cipher, cipher_len,
+					 clear, &clear_len);
 	if (rc != CKR_OK) {
 		OCK_LOG_ERR(ERR_DES3_CBC_DECRYPT);
 		goto done;
@@ -1278,18 +1395,18 @@ CK_RV load_masterkey_user(void)
 
 	// compare the hashes
 	//
-	rc = compute_sha(clear, key_len, hash_sha);
+	rc = compute_sha(clear, master_key_len, hash_sha);
 	if (rc != CKR_OK) {
 		goto done;
 	}
 
-	if (memcmp(hash_sha, clear + key_len, SHA1_HASH_SIZE) != 0) {
+	if (memcmp(hash_sha, clear + master_key_len, SHA1_HASH_SIZE) != 0) {
 		OCK_LOG_ERR(ERR_FUNCTION_FAILED);
 		rc = CKR_FUNCTION_FAILED;
 		goto done;
 	}
 
-	memcpy(master_key, clear, key_len);
+	memcpy(master_key, clear, master_key_len);
 	rc = CKR_OK;
 
 done:
@@ -1315,16 +1432,20 @@ CK_RV save_masterkey_so(void)
 	CK_ULONG cipher_len = 0L;
 	CK_BYTE *key = NULL;
 	CK_ULONG key_len = 0L;
+	CK_ULONG master_key_len = 0L;
 	CK_ULONG block_size = 0L;
 	CK_ULONG data_len = 0L;
 	CK_BYTE fname[PATH_MAX];
 	CK_RV rc;
 
-	if ((rc = get_encryption_info(&key_len, &block_size)) != CKR_OK)
+	if ((rc = get_encryption_info_for_clear_key(&key_len, &block_size)) != CKR_OK)
 		goto done;
 
-	data_len = key_len + SHA1_HASH_SIZE;
-	cipher_len = clear_len = block_size * (clear_len / block_size + 1);
+	if ((rc = get_encryption_info(&master_key_len, NULL)) != CKR_OK)
+		goto done;
+
+	data_len = master_key_len + SHA1_HASH_SIZE;
+	cipher_len = clear_len = block_size * (data_len / block_size + 1);
 
 	key = malloc(key_len);
 	clear = malloc(clear_len);
@@ -1336,8 +1457,8 @@ CK_RV save_masterkey_so(void)
 	}
 
 	// Copy data to buffer (key+hash)
-	memcpy(clear, master_key, key_len);
-	if ((rc = compute_sha(master_key, key_len, clear + key_len)) != CKR_OK)
+	memcpy(clear, master_key, master_key_len);
+	if ((rc = compute_sha(master_key, master_key_len, clear + master_key_len)) != CKR_OK)
 		goto done;
 	add_pkcs_padding(clear + data_len, block_size, data_len,
 			 clear_len);
@@ -1346,8 +1467,10 @@ CK_RV save_masterkey_so(void)
 	memcpy(key, so_pin_md5, MD5_HASH_SIZE);
 	memcpy(key + MD5_HASH_SIZE, so_pin_md5, key_len - MD5_HASH_SIZE);
 
-	rc = encrypt_data(key, token_specific.data_store.pin_initial_vector,
-			  clear, data_len, cipher, &cipher_len);
+	rc = encrypt_data_with_clear_key(key,
+					 token_specific.data_store.pin_initial_vector,
+					 clear, clear_len,
+					 cipher, &cipher_len);
 	if (rc != CKR_OK) {
 		goto done;
 	}
@@ -1397,15 +1520,19 @@ CK_RV save_masterkey_user(void)
 	CK_ULONG cipher_len = 0L;
 	CK_BYTE *key = NULL;
 	CK_ULONG key_len = 0L;
+	CK_ULONG master_key_len = 0L;
 	CK_ULONG block_size;
 	CK_ULONG data_len;
 	CK_BYTE fname[PATH_MAX];
 	CK_RV rc;
 
-	if ((rc = get_encryption_info(&key_len, &block_size)) != CKR_OK)
+	if ((rc = get_encryption_info_for_clear_key(&key_len, &block_size)) != CKR_OK)
 		goto done;
 
-	data_len = key_len + SHA1_HASH_SIZE;
+	if ((rc = get_encryption_info(&master_key_len, NULL)) != CKR_OK)
+		goto done;
+
+	data_len = master_key_len + SHA1_HASH_SIZE;
 	cipher_len = clear_len = block_size * (data_len/block_size + 1);
 
 	key = malloc(key_len);
@@ -1418,8 +1545,8 @@ CK_RV save_masterkey_user(void)
 	}
 
 	// Copy data to buffer (key+hash)
-	memcpy(clear, master_key, key_len);
-	if ((rc = compute_sha(master_key, key_len, clear + key_len)) != CKR_OK)
+	memcpy(clear, master_key, master_key_len);
+	if ((rc = compute_sha(master_key, master_key_len, clear + master_key_len)) != CKR_OK)
 		goto done;
 	add_pkcs_padding(clear + data_len, block_size , data_len,
 			 clear_len);
@@ -1428,8 +1555,10 @@ CK_RV save_masterkey_user(void)
 	memcpy(key, user_pin_md5, MD5_HASH_SIZE);
 	memcpy(key + MD5_HASH_SIZE, user_pin_md5, key_len - MD5_HASH_SIZE);
 
-	rc = encrypt_data(key, token_specific.data_store.pin_initial_vector,
-			  clear, data_len, cipher, &cipher_len);
+	rc = encrypt_data_with_clear_key(key,
+					 token_specific.data_store.pin_initial_vector,
+					 clear, clear_len,
+					 cipher, &cipher_len);
 	if (rc != CKR_OK) {
 		goto done;
 	}

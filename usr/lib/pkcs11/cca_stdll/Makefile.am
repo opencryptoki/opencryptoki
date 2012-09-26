@@ -40,7 +40,7 @@ opencryptoki_stdll_libpkcs11_cca_la_SOURCES = ../common/asn1.c		\
 					      ../common/object.c	\
 					      ../common/decr_mgr.c      \
 					      ../common/globals.c	\
-					      loadsave.c		\
+					      ../common/loadsave.c	\
 					      utility.c			\
 					      ../common/mech_des.c	\
 					      ../common/mech_des3.c	\
@@ -49,6 +49,7 @@ opencryptoki_stdll_libpkcs11_cca_la_SOURCES = ../common/asn1.c		\
 					      ../common/sess_mgr.c	\
 					      ../common/verify_mgr.c	\
 					      ../common/p11util.c	\
+					      ../common/sw_crypt.c	\
 					      cca_specific.c
 
 noinst_HEADERS = h_extern.h defs.h csulincl.h		\

@@ -84,12 +84,6 @@ enum cca_key_type
 	CCA_DES_KEY
 };
 
-#define sw_des3_cbc_encrypt(clear, len, cipher, len2, iv, key) \
-	sw_des3_cbc(clear, len, cipher, len2, iv, key, 1)
-
-#define sw_des3_cbc_decrypt(clear, len, cipher, len2, iv, key) \
-	sw_des3_cbc(clear, len, cipher, len2, iv, key, 0)
-
 /* CCA STDLL debug logging definitions */
 
 #ifdef DEBUG

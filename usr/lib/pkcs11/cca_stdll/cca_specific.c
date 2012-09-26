@@ -21,11 +21,7 @@
 #include <limits.h>
 #include <syslog.h>
 #include <dlfcn.h>
-
-#include <openssl/des.h>
-
 #include "cca_stdll.h"
-
 #include "pkcs11types.h"
 #include "p11util.h"
 #include "defs.h"
@@ -33,7 +29,6 @@
 #include "tok_specific.h"
 #include "tok_struct.h"
 #include "h_extern.h"
-
 #include "csulincl.h"
 #include "ec_defs.h"
 
@@ -1284,71 +1279,6 @@ token_specific_get_mechanism_info(CK_MECHANISM_TYPE type, CK_MECHANISM_INFO *pIn
 
         OCK_LOG_ERR(ERR_MECHANISM_INVALID);
         return CKR_MECHANISM_INVALID;
-}
-
-
-CK_RV
-sw_des3_cbc(CK_BYTE * in_data,
-	    CK_ULONG in_data_len,
-	    CK_BYTE *out_data,
-	    CK_ULONG *out_data_len,
-	    CK_BYTE *init_v,
-	    CK_BYTE  *key_value,
-	    CK_BYTE  encrypt)
-{
-	des_key_schedule des_key1;
-	des_key_schedule des_key2;
-	des_key_schedule des_key3;
-
-	const_des_cblock key_SSL1, key_SSL2, key_SSL3;
-	des_cblock ivec;
-
-	DBG("Enter");
-
-	// the des decrypt will only fail if the data length is not evenly divisible
-	// by 8
-	if (in_data_len % 8) {
-		OCK_LOG_ERR(ERR_DATA_LEN_RANGE);
-		DBG("CKR_DATA_LEN_RANGE");
-		return CKR_DATA_LEN_RANGE;
-	}
-
-	// The key as passed in is a 24 byte string containing 3 keys
-	// pick it apart and create the key schedules
-	memcpy(&key_SSL1, key_value, (size_t)8);
-	memcpy(&key_SSL2, key_value+8, (size_t)8);
-	memcpy(&key_SSL3, key_value+16, (size_t)8);
-	des_set_key_unchecked(&key_SSL1, des_key1);
-	des_set_key_unchecked(&key_SSL2, des_key2);
-	des_set_key_unchecked(&key_SSL3, des_key3);
-
-	memcpy(ivec, init_v, sizeof(ivec));
-
-	// Encrypt or decrypt the data
-	if (encrypt) {
-		des_ede3_cbc_encrypt(in_data,
-				out_data,
-				in_data_len,
-				des_key1,
-				des_key2,
-				des_key3,
-				&ivec,
-				DES_ENCRYPT);
-		*out_data_len = in_data_len;
-	} else {
-		des_ede3_cbc_encrypt(in_data,
-				out_data,
-				in_data_len,
-				des_key1,
-				des_key2,
-				des_key3,
-				&ivec,
-				DES_DECRYPT);
-
-		*out_data_len = in_data_len;
-	}
-
-	return CKR_OK;
 }
 
 CK_RV
