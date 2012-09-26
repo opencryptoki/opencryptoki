@@ -487,38 +487,6 @@
 
   static int SignalInfoSize = (sizeof(SignalInfo) / sizeof(SignalInfo[0]));
 
-
-
-
-#ifndef NODAE
-  static ConstInfo DAEError[] = {
-
-	CONSTINFO(DAE_E_OK), 
-	CONSTINFO(DAE_E_NOTAGAIN), 
-	CONSTINFO(DAE_E_PINVALID), 
-	CONSTINFO(DAE_E_PWRONG), 
-	CONSTINFO(DAE_E_PERROR), 
-	CONSTINFO(DAE_E_CHILD), 
-	CONSTINFO(DAE_E_SESSION), 
-	CONSTINFO(DAE_E_SIGNAL), 
-	CONSTINFO(DAE_E_CLOSE), 
-	CONSTINFO(DAE_E_DEVNULL), 
-	CONSTINFO(DAE_E_CHDIR), 
-	CONSTINFO(DAE_E_SRCPREP), 
-	CONSTINFO(DAE_E_NOPSALLOC), 
-	CONSTINFO(DAE_E_AINVALID), 
-	CONSTINFO(DAE_E_SETPSALLOC), 
-	CONSTINFO(DAE_E_EXCLINVALID), 
-	CONSTINFO(DAE_E_EXCLERROR), 
-	CONSTINFO(DAE_E_EXCLBUSY), 
-
-  };
-
-  static int DAEErrorSize = (sizeof(DAEError) / sizeof(DAEError[0]));
-#endif
-
-
-
 #ifndef NOODM
 
   static ConstInfo ODMError[] = {
@@ -1010,13 +978,6 @@ const unsigned char *ConstName( pConstInfo pInfoArray, unsigned int InfoArraySiz
   return retval;
 
 }
-
-
-#ifndef NODAE
-  const unsigned char *DAEConst( unsigned int Val ) {
-    return ConstName( DAEError, DAEErrorSize, Val);
-  }
-#endif
 
   const unsigned char *SignalConst ( unsigned int Val ) {
     return ConstName ( SignalInfo, SignalInfoSize, Val );

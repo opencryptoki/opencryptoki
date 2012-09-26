@@ -326,9 +326,6 @@
 
 
 #include <ctype.h>
-#ifndef NODAE
-#include <dae.h> // SAB XXX remove dependency on libdae
-#endif
 #include <dlfcn.h>
 #include <errno.h>
 #include <libgen.h>

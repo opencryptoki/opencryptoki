@@ -412,11 +412,6 @@ int main ( int argc, char *argv[], char *envp[]) {
     *  Become a Daemon, if called for
     */
    if ( Daemon ) {
-     // SAB XXX  Here we need to remove the dependency on libdae
-     // since we don't want to port that over to Linux...
-     //
-#ifdef NODAE
-     {
         pid_t  pid;
         if ( (pid = fork()) < 0 ){
           DestroyMutexes();
@@ -438,35 +433,6 @@ int main ( int argc, char *argv[], char *envp[]) {
            }
         }
 
-     }
-#else
-     dae_parent_t          parent     = DAE_P_OTHER;  /* Something other than SRC or inetd */
-     dae_error_detail_t	   err_detail;
-     int                   dae_error  = DAE_E_OK;
-     pid_t                 OldPid = getpid();
-
-
-     dae_init_prevent_zombies( parent, RESTART_SYS_CALLS );
-
-     if ( (dae_error = dae_init( &parent, &err_detail )) != DAE_E_OK ) { 
-#ifdef DEV
-        // Only log this information in development builds
-       fprintf(stderr, "Failed to daemonize!  dae_init returned %s (%d)\n", DAEConst(dae_error), dae_error);
-       fprintf(stderr, "the routine \"%s\" returned the following information:\n", err_detail.dae_routine);
-       fprintf(stderr, "\"%s\"\n", err_detail.dae_error_string);
-#endif
-       DestroyMutexes();
-       DetachFromSharedMemory();
-       DestroySharedMemory();
-       return 5;
-     }
-
-     IveDaemonized = TRUE;
-#ifdef DEV
-     // Log only on development builds
-     LogLog("DAEMON: Process %d spawned daemon process %d", OldPid, getpid());
-#endif
-#endif
 
    } else {
 
