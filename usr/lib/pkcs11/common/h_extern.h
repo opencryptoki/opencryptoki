@@ -337,7 +337,7 @@ extern struct btree priv_token_obj_btree;
 extern struct btree publ_token_obj_btree;
 extern struct btree object_map_btree;
 
-extern CK_BYTE master_key[3*DES_KEY_SIZE];
+extern CK_BYTE master_key[MAX_KEY_SIZE];
 
 extern CK_BYTE so_pin_md5[MD5_HASH_SIZE];
 extern CK_BYTE user_pin_md5[MD5_HASH_SIZE];

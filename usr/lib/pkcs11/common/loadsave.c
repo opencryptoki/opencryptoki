@@ -1110,7 +1110,7 @@ CK_RV load_masterkey_so(void)
 	CK_BYTE *cipher = NULL;
 	CK_BYTE *clear = NULL;
 	CK_BYTE *key = NULL;
-	MASTER_KEY_FILE_T mk;
+	CK_ULONG data_len;
 	CK_ULONG cipher_len, clear_len;
 	CK_RV rc;
 	CK_BYTE fname[PATH_MAX];
@@ -1131,18 +1131,30 @@ CK_RV load_masterkey_so(void)
 		rc = CKR_FUNCTION_FAILED;
 		goto done;
 	}
-
 	set_perm(fileno(fp));
-	clear_len = cipher_len =
-	    (sizeof(MASTER_KEY_FILE_T) + block_size - 1) &
-	    ~(block_size - 1);
+
+	data_len = key_len + SHA1_HASH_SIZE;
+	clear_len = cipher_len = (data_len + block_size - 1)
+		& ~(block_size - 1);
 	
+	key = malloc(key_len);
 	cipher = malloc(cipher_len);
 	clear = malloc(clear_len);
-	if (cipher == NULL || clear == NULL) {
+	if (key == NULL || cipher == NULL || clear == NULL) {
 		rc = ERR_HOST_MEMORY;
 		goto done;
 	}
+
+	// this file gets created on C_InitToken so we can assume that it always exists
+	//
+	sprintf(fname, "%s/MK_SO", get_pk_dir());
+	fp = fopen((char *)fname, "r");
+	if (!fp) {
+		OCK_LOG_ERR(ERR_FUNCTION_FAILED);
+		rc = CKR_FUNCTION_FAILED;
+		goto done;
+	}
+	set_perm(fileno(fp));
 
 	rc = fread(cipher, cipher_len, 1, fp);
 	if (rc != 1) {
@@ -1150,13 +1162,10 @@ CK_RV load_masterkey_so(void)
 		rc = CKR_FUNCTION_FAILED;
 		goto done;
 	}
+
 	// decrypt the master key data using the MD5 of the SO key
 	// (we can't use the SHA of the SO key since the SHA of the key is stored
 	// in the token data file).
-	if ((key = malloc(key_len)) == NULL) {
-		rc = ERR_HOST_MEMORY;
-		goto done;
-	}
 	memcpy(key, so_pin_md5, MD5_HASH_SIZE);
 	memcpy(key + MD5_HASH_SIZE, so_pin_md5, key_len - MD5_HASH_SIZE);
 
@@ -1166,7 +1175,6 @@ CK_RV load_masterkey_so(void)
 		OCK_LOG_ERR(rc);
 		goto done;
 	}
-	memcpy((CK_BYTE *) & mk, clear, sizeof(mk));
 
 	//
 	// technically should strip PKCS padding here but since I already know what
@@ -1175,18 +1183,18 @@ CK_RV load_masterkey_so(void)
 
 	// compare the hashes
 	//
-	rc = compute_sha(mk.key, key_len, hash_sha);
+	rc = compute_sha(clear, key_len, hash_sha);
 	if (rc != CKR_OK) {
 		goto done;
 	}
 
-	if (memcmp(hash_sha, mk.sha_hash, SHA1_HASH_SIZE) != 0) {
+	if (memcmp(hash_sha, clear + key_len, SHA1_HASH_SIZE) != 0) {
 		OCK_LOG_ERR(ERR_FUNCTION_FAILED);
 		rc = CKR_FUNCTION_FAILED;
 		goto done;
 	}
 
-	memcpy(master_key, mk.key, key_len);
+	memcpy(master_key, clear, key_len);
 	rc = CKR_OK;
 
 done:
@@ -1208,7 +1216,7 @@ CK_RV load_masterkey_user(void)
 	CK_BYTE *cipher = NULL;
 	CK_BYTE *clear = NULL;
 	CK_BYTE *key = NULL;
-	MASTER_KEY_FILE_T mk;
+	CK_ULONG data_len;
 	CK_ULONG cipher_len, clear_len;
 	CK_RV rc;
 	CK_BYTE fname[PATH_MAX];
@@ -1221,6 +1229,18 @@ CK_RV load_masterkey_user(void)
 
 	memset(master_key, 0x0, key_len);
 
+	data_len = key_len + SHA1_HASH_SIZE;
+	clear_len = cipher_len = (key_len + block_size - 1)
+				 & ~(block_size - 1);
+	
+	key = malloc(key_len);
+	cipher = malloc(cipher_len);
+	clear = malloc(clear_len);
+	if (key == NULL || cipher == NULL || clear == NULL) {
+		rc = ERR_HOST_MEMORY;
+		goto done;
+	}
+
 	// this file gets created on C_InitToken so we can assume that it always exists
 	//
 	sprintf(fname, "%s/MK_USER", get_pk_dir());
@@ -1230,17 +1250,7 @@ CK_RV load_masterkey_user(void)
 		rc = CKR_FUNCTION_FAILED;
 		goto done;
 	}
-
 	set_perm(fileno(fp));
-	clear_len = cipher_len = (sizeof(MASTER_KEY_FILE_T) + block_size - 1)
-				 & ~(block_size - 1);
-	
-	cipher = malloc(cipher_len);
-	clear = malloc(clear_len);
-	if (cipher == NULL || clear == NULL) {
-		rc = ERR_HOST_MEMORY;
-		goto done;
-	}
 
 	rc = fread(cipher, cipher_len, 1, fp);
 	if (rc != 1) {
@@ -1251,10 +1261,6 @@ CK_RV load_masterkey_user(void)
 	// decrypt the master key data using the MD5 of the SO key
 	// (we can't use the SHA of the SO key since the SHA of the key is stored
 	// in the token data file).
-	if ((key = malloc(key_len)) == NULL) {
-		rc = ERR_HOST_MEMORY;
-		goto done;
-	}
 	memcpy(key, user_pin_md5, MD5_HASH_SIZE);
 	memcpy(key + MD5_HASH_SIZE, user_pin_md5, key_len - MD5_HASH_SIZE);
 
@@ -1264,7 +1270,6 @@ CK_RV load_masterkey_user(void)
 		OCK_LOG_ERR(ERR_DES3_CBC_DECRYPT);
 		goto done;
 	}
-	memcpy((CK_BYTE *) & mk, clear, sizeof(mk));
 
 	//
 	// technically should strip PKCS padding here but since I already know what
@@ -1273,18 +1278,18 @@ CK_RV load_masterkey_user(void)
 
 	// compare the hashes
 	//
-	rc = compute_sha(mk.key, key_len, hash_sha);
+	rc = compute_sha(clear, key_len, hash_sha);
 	if (rc != CKR_OK) {
 		goto done;
 	}
 
-	if (memcmp(hash_sha, mk.sha_hash, SHA1_HASH_SIZE) != 0) {
+	if (memcmp(hash_sha, clear + key_len, SHA1_HASH_SIZE) != 0) {
 		OCK_LOG_ERR(ERR_FUNCTION_FAILED);
 		rc = CKR_FUNCTION_FAILED;
 		goto done;
 	}
 
-	memcpy(master_key, mk.key, key_len);
+	memcpy(master_key, clear, key_len);
 	rc = CKR_OK;
 
 done:
@@ -1311,34 +1316,38 @@ CK_RV save_masterkey_so(void)
 	CK_BYTE *key = NULL;
 	CK_ULONG key_len = 0L;
 	CK_ULONG block_size = 0L;
-	CK_ULONG padded_len = 0L;
-	MASTER_KEY_FILE_T mk;
+	CK_ULONG data_len = 0L;
 	CK_BYTE fname[PATH_MAX];
 	CK_RV rc;
 
 	if ((rc = get_encryption_info(&key_len, &block_size)) != CKR_OK)
 		goto done;
 
-	memcpy(mk.key, master_key, key_len);
+	data_len = key_len + SHA1_HASH_SIZE;
+	cipher_len = clear_len = block_size * (clear_len / block_size + 1);
 
-	rc = compute_sha(master_key, key_len, mk.sha_hash);
-	if (rc != CKR_OK) {
+	key = malloc(key_len);
+	clear = malloc(clear_len);
+	cipher = malloc(cipher_len);
+	if (key == NULL || clear == NULL || cipher == NULL) {
+		OCK_LOG_ERR(ERR_HOST_MEMORY);
+		rc = ERR_HOST_MEMORY;
 		goto done;
 	}
 
+	// Copy data to buffer (key+hash)
+	memcpy(clear, master_key, key_len);
+	if ((rc = compute_sha(master_key, key_len, clear + key_len)) != CKR_OK)
+		goto done;
+	add_pkcs_padding(clear + data_len, block_size, data_len,
+			 clear_len);
+
 	// encrypt the key data
 	memcpy(key, so_pin_md5, MD5_HASH_SIZE);
-	memcpy(key + MD5_HASH_SIZE, so_pin_md5, key_len = MD5_HASH_SIZE);
-
-	clear_len = sizeof(mk);
-	memcpy(clear, &mk, clear_len);
-
-	cipher_len = padded_len = block_size * (clear_len / block_size + 1);
-	add_pkcs_padding(clear + clear_len, block_size, clear_len,
-			 padded_len);
+	memcpy(key + MD5_HASH_SIZE, so_pin_md5, key_len - MD5_HASH_SIZE);
 
 	rc = encrypt_data(key, token_specific.data_store.pin_initial_vector,
-			  clear, padded_len, cipher, &cipher_len);
+			  clear, data_len, cipher, &cipher_len);
 	if (rc != CKR_OK) {
 		goto done;
 	}
@@ -1388,35 +1397,39 @@ CK_RV save_masterkey_user(void)
 	CK_ULONG cipher_len = 0L;
 	CK_BYTE *key = NULL;
 	CK_ULONG key_len = 0L;
-	MASTER_KEY_FILE_T mk;
 	CK_ULONG block_size;
-	CK_ULONG padded_len;
+	CK_ULONG data_len;
 	CK_BYTE fname[PATH_MAX];
 	CK_RV rc;
 
 	if ((rc = get_encryption_info(&key_len, &block_size)) != CKR_OK)
 		goto done;
 
-	memcpy(mk.key, master_key, key_len);
+	data_len = key_len + SHA1_HASH_SIZE;
+	cipher_len = clear_len = block_size * (data_len/block_size + 1);
 
-	rc = compute_sha(master_key, key_len, mk.sha_hash);
-	if (rc != CKR_OK) {
+	key = malloc(key_len);
+	clear = malloc(clear_len);
+	cipher = malloc(cipher_len);
+	if (key == NULL || clear == NULL || cipher == NULL) {
+		OCK_LOG_ERR(ERR_HOST_MEMORY);
+		rc = ERR_HOST_MEMORY;
 		goto done;
 	}
+
+	// Copy data to buffer (key+hash)
+	memcpy(clear, master_key, key_len);
+	if ((rc = compute_sha(master_key, key_len, clear + key_len)) != CKR_OK)
+		goto done;
+	add_pkcs_padding(clear + data_len, block_size , data_len,
+			 clear_len);
 
 	// encrypt the key data
 	memcpy(key, user_pin_md5, MD5_HASH_SIZE);
 	memcpy(key + MD5_HASH_SIZE, user_pin_md5, key_len - MD5_HASH_SIZE);
 
-	clear_len = sizeof(mk);
-	memcpy(clear, &mk, clear_len);
-
-	cipher_len = padded_len = block_size * (clear_len / block_size + 1);
-	add_pkcs_padding(clear + clear_len, block_size , clear_len,
-			 padded_len);
-
 	rc = encrypt_data(key, token_specific.data_store.pin_initial_vector,
-			  clear, clear_len, cipher, &cipher_len);
+			  clear, data_len, cipher, &cipher_len);
 	if (rc != CKR_OK) {
 		goto done;
 	}
