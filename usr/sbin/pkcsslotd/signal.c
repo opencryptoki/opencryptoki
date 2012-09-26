@@ -294,11 +294,7 @@
 #include "err.h"
 
 
-#ifdef PKCS64
 extern BOOL        IsValidProcessEntry  ( pid_t_64 pid, time_t_64 RegTime );
-#else
-extern BOOL                IsValidProcessEntry     ( pid_t pid,   time_t RegTime );
-#endif
 
 static int SigsToIntercept[] = {   
   SIGHUP,      SIGINT,       SIGQUIT,    SIGPIPE,      SIGALRM,      
@@ -351,11 +347,7 @@ void slotdGenericSignalHandler( int Signal ) {
 
    for ( procindex = 0; (procindex < NUMBER_PROCESSES_ALLOWED); procindex++ ) {
 
-#ifdef PKCS64
      Slot_Mgr_Proc_t_64 *pProc = &(shmp->proc_table[procindex]);
-#else
-     Slot_Mgr_Proc_t    *pProc = &(shmp->proc_table[procindex]);
-#endif
 
      if ( shmp == NULL ) {
        break;

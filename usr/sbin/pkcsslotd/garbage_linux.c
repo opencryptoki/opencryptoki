@@ -304,11 +304,7 @@ extern BOOL GCBlockSignals (void);
 
 #include "garbage_linux.h"
 
-#ifdef PKCS64
 BOOL                IsValidProcessEntry     ( pid_t_64 pid, time_t_64 RegTime );
-#else
-BOOL                IsValidProcessEntry     ( pid_t pid,   time_t RegTime );
-#endif
 
 int                 Stat2Proc               ( int pid, proc_t *p );
 
@@ -563,11 +559,7 @@ BOOL CheckForGarbage ( Slot_Mgr_Shr_t *MemPtr ) {
 
   for ( ProcIndex = 0; ProcIndex < NUMBER_PROCESSES_ALLOWED; ProcIndex++ ) {
 
-#ifdef PKCS64
     Slot_Mgr_Proc_t_64 *pProc = &(MemPtr->proc_table[ProcIndex]);
-#else
-    Slot_Mgr_Proc_t   *pProc = &(MemPtr->proc_table[ProcIndex]);
-#endif
 
     ASSERT(pProc != NULL_PTR);
 
@@ -590,14 +582,8 @@ BOOL CheckForGarbage ( Slot_Mgr_Shr_t *MemPtr ) {
       for ( SlotIndex = 0; SlotIndex < NUMBER_SLOTS_MANAGED; SlotIndex++ ) {
 
 
-#ifdef PKCS64
 	unsigned int *pGlobalSessions    = &(MemPtr->slot_info[SlotIndex].global_sessions);
 	unsigned int *pProcSessions      = &(pProc->slot_session_count[SlotIndex]);
-#else
-	int *pGlobalSessions    = &(MemPtr->slot_info[SlotIndex].global_sessions);
-	int *pProcSessions      = &(pProc->slot_session_count[SlotIndex]);
-#endif
-
 
 	if ( *pProcSessions > 0 ) {
 
@@ -745,14 +731,9 @@ int Stat2Proc (int pid, proc_t *p) {
  * 
  *********************************************************************************/
 
-#ifdef PKCS64
 BOOL IsValidProcessEntry ( pid_t_64 pid, time_t_64 RegTime ) {
-#else
-BOOL IsValidProcessEntry ( pid_t pid, time_t RegTime ) {
-#endif
 
   int                    Err;
-
   int valid;
   proc_t *p;
   proc_t procstore;

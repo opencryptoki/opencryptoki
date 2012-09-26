@@ -597,12 +597,7 @@ void DestroySharedMemory ( void ) {
 
 int InitSharedMemory ( Slot_Mgr_Shr_t *sp ) {
 
-#ifdef PKCS64
    CK_INFO_PTR_64      ckinf = NULL;
-#else
-   CK_INFO_PTR         ckinf = NULL;
-#endif
-
    CK_VERSION_PTR      ckver;
    CK_SLOT_ID          id;
    uint16              procindex;

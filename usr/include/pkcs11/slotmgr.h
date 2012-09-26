@@ -305,9 +305,7 @@
 #include <local_types.h>
 #include <pthread.h>
 
-#ifdef PKCS64
 #include <sys/mman.h>
-#endif
 
 #ifndef _SLOTMGR_H
 #define _SLOTMGR_H
@@ -375,10 +373,6 @@ typedef struct{
                                    // sessions
 }Slot_Info_t;
 
-
-
-
-#ifdef PKCS64
 
 /*
  * Constant size types and structures to allow 32-bit daemon to work with 
@@ -473,24 +467,6 @@ typedef struct {
 
 
 } Slot_Mgr_Shr_t;
-
-#else
-
-typedef struct {
-   
-  /* Information that the API calls will use. */
-  uint8                 num_slots;
-  CK_INFO               ck_info;
-  Slot_Info_t           slot_info[NUMBER_SLOTS_MANAGED];
-  Slot_Mgr_Proc_t       proc_table[NUMBER_PROCESSES_ALLOWED];
-
-
-} Slot_Mgr_Shr_t;
-
-
-#endif
-
-
 
 
 // Loging type constants

@@ -404,35 +404,7 @@ int DestroyMutexes ( void ) {
   /* Get the global shared memory mutex */
   XProcLock();
 
-#ifdef FIXME
-    //  SAB  FIXME... This is really useless as we don't use the 
-    //  per process mutexes on the shared memory... thank goodness, since
-    //  this would have complicated the linux port as it does not support
-    //  Process  shared mutexes
-    //  of course when we want to use these mutexes we need to figure out
-    //  how to handle it in linux... 
-  /* Destroy the per-process mutexes */
-  for ( i = 0; i < NUMBER_PROCESSES_ALLOWED; i++ ) {
-    /* Should I get and release the per-process mutexes here? */
-
-    /* 
-       No.  The only way this'll get called is if no processes are currently attached to the slotmgr
-       So, in theory, noone should be holding a mutex - if they are, it's in error
-     */
-    /* FIXME: Should make sure that they were successfully created before destroying them */
-
-#ifdef PKCS64
-    msem_remove(&(shmp->proc_table[i].proc_mutex));
-#else
-    pthread_mutex_destroy( &(shmp->proc_table[i].proc_mutex) );
-#endif
-
-  }
-#endif
-
   /* Give up the global shared memory mutex */
-  /* (we have to release it before we destroy it, otherwise the behavior's undefined) */
-
 
   XProcUnLock();
 

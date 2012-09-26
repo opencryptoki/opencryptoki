@@ -398,11 +398,7 @@ nl_catd catd;
     extern int                    shmid;
     extern key_t                  tok;
 
-#ifdef PKCS64
     extern Slot_Info_t_64            sinfo[NUMBER_SLOTS_MANAGED];
-#else
-    extern Slot_Info_t            sinfo[NUMBER_SLOTS_MANAGED];
-#endif
 
     extern unsigned char          NumberSlotsInDB;
 
