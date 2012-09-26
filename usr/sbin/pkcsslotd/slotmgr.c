@@ -294,12 +294,16 @@
  *****************************************/
 
 #include "pthread.h"
-#define SLOTD_DECLARE_VARS 1
 
 #include "pkcsslotd.h"
 
 #include <semaphore.h>
 
+Slot_Mgr_Shr_t	*shmp;     // pointer to the shared memory region.
+int		shmid;
+key_t		tok;
+Slot_Info_t_64  sinfo[NUMBER_SLOTS_MANAGED];
+unsigned char NumberSlotsInDB = 0;
 
 /* 
    We make main() able to modify Daemon so that we can 

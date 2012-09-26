@@ -307,6 +307,8 @@
 #define MODE (S_IRUSR|S_IWUSR|S_IRGRP|S_IWGRP)
 #define MAPFILENAME CONFIG_PATH "/.apimap"
 
+pthread_mutexattr_t mtxattr;	// Mutex attribute for the shared memory Mutex
+
 /***********************************************************************
  *  CreateSharedMemory - 
  *  

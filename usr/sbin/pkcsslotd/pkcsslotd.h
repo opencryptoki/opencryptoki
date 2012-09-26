@@ -401,62 +401,9 @@ nl_catd catd;
  * Global Variables *
  ********************/
 
-#ifdef SLOTD_DECLARE_VARS
-
-    FILE                         *logfile;  // global variable for the logger
-    Slot_Mgr_Shr_t               *shmp;     // pointer to the shared memory region.
-    int                          shmid;
-    key_t                        tok;
-    pthread_mutexattr_t          mtxattr;   // Mutex attribute for the shared memory Mutex
-
-#if 1
-#ifdef PKCS64
-    Slot_Info_t_64               sinfo[NUMBER_SLOTS_MANAGED];
-#else
-    Slot_Info_t                  sinfo[NUMBER_SLOTS_MANAGED];
-#endif
-
-
-#else
-    // Temporarily hardcode the entries into the sinfo table
-#ifdef PKCS64
-    Slot_Info_t_64    sinfo[NUMBER_SLOTS_MANAGED] = {
-#else
-    Slot_Info_t    sinfo[NUMBER_SLOTS_MANAGED] = {
-#endif
-      {0,TRUE,
-       {"IBM AIX Proto Slot 0",
-        "DEEP",
-        CKF_TOKEN_PRESENT, {0,0},{1,1} },
-        "/usr/lib/pkcs11/stdll/PKCS11_4758.so","SC_Initialize","0",0},
-      {1,TRUE,
-       {"IBM AIX Proto Slot 0",
-        "DEEP",
-        CKF_TOKEN_PRESENT, {0,0},{1,1} },
-        "/usr/lib/pkcs11/stdll/PKCS11_4758.so","SC_Initialize","1",0},
-      //{1,TRUE,
-      // {"IBM AIX Proto Slot 1",
-      //  "SHALLOW",
-      //  CKF_TOKEN_PRESENT, {0,0},{1,1} },
-      //  "/usr/lib/pkcs11/stdll/PKCS11_LW.so","LW_Initialize","0",0},
-       
-      // Last entry....
-      {0,FALSE,
-         {"0", "0", 0, {0,0},{0,0} }, NULL,NULL,NULL,0 }
-    }; 
-
-#endif
-
-    unsigned char                NumberSlotsInDB = 0;
-
-
-#else
-
-    extern FILE                  *logfile;  // global variable for the logger
     extern Slot_Mgr_Shr_t        *shmp;     // pointer to the shared memory region.
     extern int                    shmid;
     extern key_t                  tok;
-    extern pthread_mutexattr_t    mtxattr;  // Mutex attribute for the shared memory Mutex
 
 #ifdef PKCS64
     extern Slot_Info_t_64            sinfo[NUMBER_SLOTS_MANAGED];
@@ -465,11 +412,6 @@ nl_catd catd;
 #endif
 
     extern unsigned char          NumberSlotsInDB;
-
-#endif /* SLOTD_DECLARE_VARS */
-
-
-
 
 
 /***********************
