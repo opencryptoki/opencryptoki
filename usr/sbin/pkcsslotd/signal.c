@@ -289,7 +289,12 @@
 /* (C) COPYRIGHT International Business Machines Corp. 2001          */
 
 
-#include "pthread.h"
+#include <stdio.h>
+#include <stdlib.h>
+#include <signal.h>
+
+#include "log.h"
+#include "slotmgr.h"
 #include "pkcsslotd.h"
 #include "err.h"
 

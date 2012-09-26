@@ -289,20 +289,16 @@
 /* (C) COPYRIGHT International Business Machines Corp. 2001          */
 
 
-#include "pthread.h"
-#include "pkcsslotd.h"
-
-#include <string.h>
-#include <stdlib.h>
-#include <fcntl.h>
-#include <sys/stat.h>
-#include <sys/mman.h>
-
-#include <sys/ipc.h>
-#include <sys/shm.h>
-
+#include <stdio.h>
+#include <errno.h>
 #include <grp.h>
+#include <string.h>
+#include <sys/shm.h>
+#include <sys/stat.h>
 
+#include "slotmgr.h"
+#include "log.h"
+#include "pkcsslotd.h"
 
 #define MODE (S_IRUSR|S_IWUSR|S_IRGRP|S_IWGRP)
 #define MAPFILENAME CONFIG_PATH "/.apimap"

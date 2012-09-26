@@ -305,52 +305,6 @@
 #ifndef _PKCSSLOTMGR_H
 #define _PKCSSLOTMGR_H 1
 
-/*****************
- * Include Files *
- *****************/
-
-/**********************************************************************************************************
- * According to: http://www.rs6000.ibm.com/doc_link/en_US/a_doc_lib/aixprggd/genprogc/multi-thread_prg.htm
- * 
- * The pthread.h header file must be the first included file of each source file using the threads library,
- * because it defines some important macros that affect other header files. Having the pthread.h header
- * file as the first included file ensures the usage of thread-safe subroutines. 
- **********************************************************************************************************/
-
-#include <pthread.h>
-
-
-#include <ctype.h>
-#include <dlfcn.h>
-#include <errno.h>
-#include <libgen.h>
-#include <local_types.h>
-#include <memory.h>
-#include <pkcs11types.h> 
-#include <signal.h>
-#include <stdarg.h>
-#include <stdio.h>
-#include <stdlib.h>
-#include <string.h>
-#include <syslog.h>
-#include <time.h>
-#include <unistd.h>
-
-
-#include <sys/ipc.h>
-#include <limits.h>
-#include <sys/shm.h>
-#include <sys/stat.h>
-#include <sys/types.h>
-#include "log.h"
-
-#include <slotmgr.h>
-
-
-/* include err.h last because it needs to see variables defined in order for it to work properly */
-#include "err.h"
-
-
 /***********
  * Defines *
  ***********/
@@ -400,45 +354,41 @@
 
 
 /* daemon.c */
-BOOL                   IsDaemon ( void );
-BOOL                   GetStartDirectory ( char *Buffer, u_int32 BufSize );
-BOOL                   SaveStartupDirectory ( char *Arg0 );
+extern BOOL	IsDaemon ( void );
+extern BOOL	GetStartDirectory ( char *Buffer, u_int32 BufSize );
+extern BOOL	SaveStartupDirectory ( char *Arg0 );
 
 
 /* garbage.c */
-BOOL                   StopGCThread    ( void *Ptr );
-BOOL                   StartGCThread   ( Slot_Mgr_Shr_t *MemPtr );
-BOOL                   CheckForGarbage ( Slot_Mgr_Shr_t *MemPtr );
+extern BOOL	StopGCThread    ( void *Ptr );
+extern BOOL	StartGCThread   ( Slot_Mgr_Shr_t *MemPtr );
+extern BOOL	CheckForGarbage ( Slot_Mgr_Shr_t *MemPtr );
 
 
 
 /* mutex.c */
-int                    InitializeMutexes ( void );
-int                    DestroyMutexes ( void );
+extern int	InitializeMutexes ( void );
+extern int	DestroyMutexes ( void );
 
 
 
 /* shmem.c */
-int                    CreateSharedMemory ( void );
-int                    AttachToSharedMemeory ( void );
-int                    InitSharedMemory ( Slot_Mgr_Shr_t *sp );
-void                   DetachFromSharedMemory ( void );
-void                   DestroySharedMemory ( void );
+extern int	CreateSharedMemory ( void );
+extern int	AttachToSharedMemeory ( void );
+extern int	InitSharedMemory ( Slot_Mgr_Shr_t *sp );
+extern void	DetachFromSharedMemory ( void );
+extern void	DestroySharedMemory ( void );
 
 /* signal.c */
-int                    SetupSignalHandlers ( void );
-void                   slotdGenericSignalHandler( int Signal );
-
-/* odm.c */
-BOOL                   ReadSlotInfoDB ( void );
-
+extern int	SetupSignalHandlers ( void );
+extern void	slotdGenericSignalHandler( int Signal );
 
 
 /* Cross Process locking */
-int  XProcLock(void);
-int  XProcUnLock(void);
+extern int	XProcLock(void);
+extern int	XProcUnLock(void);
 
-int  CreateXProcLock(void);
+extern int	CreateXProcLock(void);
 
 
 #endif /* _SLOTMGR_H */

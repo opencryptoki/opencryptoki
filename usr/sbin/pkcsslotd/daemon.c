@@ -289,9 +289,17 @@
 /* (C) COPYRIGHT International Business Machines Corp. 2001          */
 
 
-#include "pthread.h"
+#include <errno.h>
+#include <libgen.h>
+#include <stdio.h>
+#include <stdlib.h>
+#include <string.h>
+#include <unistd.h>
 
+#include "log.h"
+#include "slotmgr.h"
 #include "pkcsslotd.h"
+#include "err.h"
 
 /* 
    We export Daemon so that we can daemonize or

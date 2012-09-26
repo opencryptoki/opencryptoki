@@ -288,13 +288,17 @@
 
 /* (C) COPYRIGHT International Business Machines Corp. 2001          */
 
-
-#include "pthread.h"
-#include "pkcsslotd.h"
-#include <strings.h>
-#include <sys/stat.h>
+#include <errno.h>
+#include <signal.h>
+#include <stdio.h>
+#include <string.h>
 #include <sys/types.h>
 #include <fcntl.h>
+
+#include "log.h"
+#include "slotmgr.h"
+#include "pkcsslotd.h"
+#include "err.h"
 
 #define PROC_BASE "/proc"
 
@@ -669,7 +673,7 @@ int Stat2Proc (int pid, proc_t *p) {
   // buf[num] = '\0';
   
   tmp = strrchr(buf, ')');                      // split into "PID (cmd" and "<rest>"
-  *tmp = (char)NULL;                            // replacing trailing ')' with NULL
+  *tmp = '\0';                            // replacing trailing ')' with NULL
   // Tmp now points to the rest of the buffer.
   // buff points to the command...
   

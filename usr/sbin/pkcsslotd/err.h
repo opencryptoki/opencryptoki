@@ -367,11 +367,11 @@ const unsigned char *ConstName         ( pConstInfo pInfoArray, unsigned int Inf
 #endif
 
 #ifdef _H_ERRNO
-  const unsigned char *SysConst        ( unsigned int Val );
+  extern const unsigned char *SysConst        ( unsigned int Val );
   #define SysError( _x ) SysConst((_x))
 #endif /* _H_ERRNO */
 
-  const unsigned char *SignalConst     ( unsigned int Val );
+  extern const unsigned char *SignalConst     ( unsigned int Val );
 
 #ifdef _H_ODMI
   const unsigned char *ODMConst        ( unsigned int Val );

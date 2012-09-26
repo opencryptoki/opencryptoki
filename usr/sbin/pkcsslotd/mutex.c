@@ -288,16 +288,14 @@
 
 /* (C) COPYRIGHT International Business Machines Corp. 2001          */
 
-
-#include "pthread.h"
-
-#include "pkcsslotd.h"
-
+#include <errno.h>
+#include <stdarg.h>
 #include <sys/types.h>
-#include <sys/stat.h>
-#include <fcntl.h>
 #include <sys/file.h>
 #include <grp.h>
+
+#include "log.h"
+#include "slotmgr.h"
 
 static int xplfd=-1;
 

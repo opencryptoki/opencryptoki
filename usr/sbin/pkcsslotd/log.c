@@ -289,9 +289,15 @@
 /* (C) COPYRIGHT International Business Machines Corp. 2001          */
 
 
-#include "pthread.h"
+#include <stdio.h>
+#include <string.h>
+#include <syslog.h>
+#include <stdarg.h>
+#include <sys/types.h>
 
-#include "pkcsslotd.h"
+#include "log.h"
+#include "err.h"
+#include "slotmgr.h"
 
 
 #define DEFAULT_PROGRAM_NAME "Program"

@@ -289,15 +289,12 @@
 /* (C) COPYRIGHT International Business Machines Corp. 2001          */
 
 
-/*****************************************
- * AIX PKCS11 Slot manager Daemon
- *****************************************/
+#include <stdio.h>
+#include <stdlib.h>
+#include <errno.h>
 
-#include "pthread.h"
-
-#include "pkcsslotd.h"
-
-#include <semaphore.h>
+#include "log.h"
+#include "slotmgr.h"
 
 Slot_Mgr_Shr_t	*shmp;     // pointer to the shared memory region.
 int		shmid;

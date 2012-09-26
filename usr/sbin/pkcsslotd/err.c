@@ -288,11 +288,15 @@
 
 /* (C) COPYRIGHT International Business Machines Corp. 2001          */
 
+#include <errno.h>
 #include <signal.h>
+#include <stdarg.h>
+#include <sys/types.h>
 
-#include "pthread.h"
+#include "log.h"
+#include "slotmgr.h"
+#include "err.h"
 
-#include "pkcsslotd.h"
 
   static ConstInfo SysErrorInfo[] = {
 
