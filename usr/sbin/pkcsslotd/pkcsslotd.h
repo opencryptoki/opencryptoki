@@ -390,13 +390,6 @@ nl_catd catd;
 
 #endif /* DEV */
 
-#ifndef PER_PROCESS_MUTEXES
-  #define PER_PROCESS_MUTEXES 0
-#endif
-
-
-
-
 /********************
  * Global Variables *
  ********************/

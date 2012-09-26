@@ -627,31 +627,6 @@ BOOL CheckForGarbage ( Slot_Mgr_Shr_t *MemPtr ) {
       /* NULL out everything except the mutex */
       /*                                      */
 
-#if PER_PROCESS_MUTEXES
-        /* Grab the mutex for this proc's shared memory data structure */
-
-#ifdef PKCS64
-        Err = msem_lock(&(pProc->proc_mutex),MSEM_IF_NOWAIT);
-#else 
-        Err = pthread_mutex_trylock( &(pProc->proc_mutex) );
-#endif
-
-	if ( ( Err != 0 ) ) {
-	  /* We didn't get the lock! */
-	  /* Attempting to destroy a locked mutex results in undefined behavior */
-	  /* http://techlib.austin.ibm.com/techlib/manuals/adoclib/libs/basetrf1/pthreads.htm */
-	  DbgLog (DL0,"Unable to get per-process mutex for pid %d (%s) - skipping", pProc->proc_id, SysConst( Err ) );
-
-	  /* 
-	     The exit routine will figure out that this is an invalid process entry
-	     (by calling IsValidProcessEntry()), and won't prevent the slotd from exiting
-	     because of this entry.
-	     */
-
-	  continue;
-	}
-#endif /* PER_PROCESS_MUTEXES */
-
       memset( &(pProc->inuse),              '\0', sizeof(pProc->inuse) );
       memset( &(pProc->proc_id),            '\0', sizeof(pProc->proc_id) );
       memset( &(pProc->slotmap),            '\0', sizeof(pProc->slotmap) );
@@ -661,19 +636,6 @@ BOOL CheckForGarbage ( Slot_Mgr_Shr_t *MemPtr ) {
       memset( &(pProc->reg_time),           '\0', sizeof(pProc->reg_time) );
 
     } /* end if inuse && ValidPid */
-    
-
-    #if PER_PROCESS_MUTEXES
-
-#ifdef PKCS64 
-      msem_unlock(&(pProc->proc_mutex),0)
-    
-#else
-      pthread_mutex_unlock( &(pProc->proc_mutex));
-#endif
-
-    #endif /* PER_PROCESS_MUTEXES  */
-   
     
   } /* end for ProcIndex */
   
