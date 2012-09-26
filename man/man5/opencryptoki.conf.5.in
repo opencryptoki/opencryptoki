@@ -1,0 +1,61 @@
+.TH OPENCRYPTOKI.CONF 5 "September 2012" "@PACKAGE_VERSION@" "openCryptoki"
+.SH NAME
+opencryptoki.conf \- Configuration file for pkcsslotd.
+
+.SH DESCRIPTION
+pkcsslotd uses a configuration fle at /etc/opencryptoki.conf
+
+This is a text file that contains information used to configure
+pkcs#11 slots. At startup, the pkcsslotd daemon parses this file to
+determine which slots will be made available.
+
+.SH SYNTAX
+This file is made up of slot descriptions. Each slot description
+is composed of a slot number, brackets and key-value pairs.
+
+ slot number
+ {
+     key = value
+     ...
+ }
+
+More than one key-value pair may be used within a slot description.
+
+A key-value pair is composed of,
+.B keyword = value.
+
+The following keywords are valid:
+
+.TP
+.BR description
+A Description of the slot. PKCS#11v2.20 defined this as a 64-byte max
+character-string.
+.TP
+.BR stdll
+This keyword is used to define the name of the stdll or token library that
+will be used for this slot. The stdll is an available token library in
+opencryptoki.
+.TP
+.BR manufacturer
+This keyword is used to name the ID of the slot manufacturer. PKCS#11v2.20
+defines this as a 32 byte long string.
+.TP
+.BR hwversion
+Version number of the slot's hardware, if any. The version number is composed
+of a major version number (the integer portion of the version) and a
+minor version number (the hundredths portion of the version).
+For example, version 1.2, major = 1, minor = 2
+.TP
+.BR firmwareversion
+Version number of the slot's firmware, if any. The version number is composed
+of a major version number (the integer portion of the version) and a
+minor version number (the hundredths portion of the version).
+.TP
+
+.SH "SEE ALSO"
+.PD 0
+.TP
+\fBopencryptoki\fP(7),
+.TP
+\fBpkcsslotd\fP(8),
+.PD

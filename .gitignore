@@ -16,10 +16,8 @@ depcomp
 install-sh
 libtool
 ltmain.sh
-man/man1/pkcs11_startup.1
 man/man1/pkcsconf.1
-man/man1/pkcs_slot.1
-man/man5/pk_config_data.5
+man/man5/opencryptoki.conf.5
 man/man7/opencryptoki.7
 man/man8/pkcsslotd.8
 misc/pkcsslotd
