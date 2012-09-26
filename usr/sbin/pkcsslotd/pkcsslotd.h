@@ -337,10 +337,6 @@
 #include <unistd.h>
 
 
-
-#include <locale.h>
-#include <nl_types.h>
-
 #include <sys/ipc.h>
 #include <limits.h>
 #include <sys/shm.h>
@@ -353,16 +349,6 @@
 
 /* include err.h last because it needs to see variables defined in order for it to work properly */
 #include "err.h"
-
- /*******
-  * NLS *
-  *******/
-#include "slotd_msg.h"
-
-
-#define MSG_SET MS_SLOTD
-nl_catd catd;
-#define SLOTD_MSG(n,s) catgets(catd,MSG_SET,n,s)
 
 
 /***********

@@ -334,8 +334,7 @@ int CreateSharedMemory ( void ) {
    // need to get the same token
 
    if ( stat(Path, &statbuf) < 0 ) {
-      ErrLog(SLOTD_MSG(SHMEMKEY,
-               "Shared Memory Key Token creation file does not exist"));
+      ErrLog("Shared Memory Key Token creation file does not exist");
       return FALSE;
    }
    // SAB  Get the group information for the PKCS#11 group... fail if
@@ -376,18 +375,16 @@ int CreateSharedMemory ( void ) {
 
 
    if ( shmid < 0 ) {
-      ErrLog(SLOTD_MSG(SHMEMCR,
-                       "Shared memory creation failed (0x%X)\n"), errno);
-      ErrLog(SLOTD_MSG(SHMEMCR, "Reclaiming 0x%X\n"), tok);
+      ErrLog("Shared memory creation failed (0x%X)\n", errno);
+      ErrLog("Reclaiming 0x%X\n", tok);
       shmid = shmget( tok, sizeof( Slot_Mgr_Shr_t ), 0 );
       DestroySharedMemory();
       shmid = shmget( tok, sizeof( Slot_Mgr_Shr_t ),
                       IPC_CREAT | IPC_EXCL |  S_IRUSR |
 	              S_IRGRP  | S_IWUSR | S_IWGRP   );
       if ( shmid < 0 ) {
-          ErrLog(SLOTD_MSG(SHMEMCR,
-                           "Shared memory reclamation failed (0x%X)\n"), errno);
-          ErrLog(SLOTD_MSG(IPCRM, "perform ipcrm -M 0x%X\n"), tok);
+          ErrLog("Shared memory reclamation failed (0x%X)\n", errno);
+          ErrLog("perform ipcrm -M 0x%X\n", tok);
           return FALSE;
       }
    }
@@ -489,8 +486,7 @@ int AttachToSharedMemeory ( void ) {
    shmp = (Slot_Mgr_Shr_t *) shmat( shmid, NULL, 0 );
 
    if ( !shmp ) {
-      ErrLog(SLOTD_MSG(SHMEMAT, 
-               "Shared memory attach failed (0x%X)\n"), errno);
+      ErrLog("Shared memory attach failed (0x%X)\n", errno);
       return FALSE;
    }
 
@@ -540,8 +536,7 @@ void DetachFromSharedMemory ( void ) {
   if ( shmp == NULL ) return;
 
   if ( shmdt(shmp) != 0 ) {
-    ErrLog(SLOTD_MSG(SHMEMDE, 
-             "Attempted to detach from an invalid shared memory pointer"));
+    ErrLog("Attempted to detach from an invalid shared memory pointer");
   }
 
   shmp = NULL;

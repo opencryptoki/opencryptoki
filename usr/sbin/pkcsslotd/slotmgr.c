@@ -343,8 +343,6 @@ DumpSharedMemory(void)
  *****************************************/
 
 int main ( int argc, char *argv[], char *envp[]) {
-   setlocale(LC_ALL, "");
-   catd = catopen(MF_SLOTD,0);
    int ret;
 
    /**********************************/
@@ -370,7 +368,7 @@ int main ( int argc, char *argv[], char *envp[]) {
 
    ret = load_and_parse(OCK_CONFIG);
    if (ret != 0) {
-      ErrLog(SLOTD_MSG(SLOTFAIL, "Failed to read config file.\n"));
+      ErrLog("Failed to read config file.\n");
       return 1;
    } else
       DbgLog (DL0, "Parse config file succeeded.\n");
