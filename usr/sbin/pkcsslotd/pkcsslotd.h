@@ -305,11 +305,6 @@
 #ifndef _PKCSSLOTMGR_H
 #define _PKCSSLOTMGR_H 1
 
-#ifndef TEST_MUTEXES
-  #define TEST_MUTEXES 0
-#endif /* TEST_MUTEXES */
-
-
 /*****************
  * Include Files *
  *****************/
@@ -503,10 +498,6 @@ BOOL                   CheckForGarbage ( Slot_Mgr_Shr_t *MemPtr );
 /* mutex.c */
 int                    InitializeMutexes ( void );
 int                    DestroyMutexes ( void );
-#if TEST_COND_VARS
-  BOOL                 DestroyConditionVariables ( void );
-  BOOL                 InitializeConditionVariables ( void );
-#endif /* TEST_COND_VARS */
 
 
 

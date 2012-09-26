@@ -388,77 +388,9 @@ int InitializeMutexes ( void ) {
     return FALSE;
   }
    
-
-  #if TEST_COND_VARS
-    if ( ! InitializeConditionVariables() ) {
-      return FALSE;
-    }
-  #endif /* TEST_COND_VARS */
-
   return TRUE;
 
 }
-
-
-
-#if TEST_COND_VARS
-
-  BOOL InitializeConditionVariables ( void ) {
-  
-    int err;
-
-    if ( (err = pthread_condattr_init( &(shmp->shmem_cv_attr) ) ) != 0 ) {
-      DbgLog(DL0,"InitializeConditionVariables: pthread_condattr_init returned %s (%d; %#x)\n", SysConst(err), err, err);
-      return FALSE;
-    }
-
-
-    if ( (err = pthread_cond_init( &(shmp->shmem_cv), &(shmp->shmem_cv_attr) ) ) != 0 ) {
-      DbgLog(DL0,"InitializeConditionVariables: pthread_cond_init returned %s (%d; %#x)\n", SysConst(err), err, err);
-      return FALSE;
-    }
-
-    if ( (err = pthread_mutex_init( &(shmp->shmem_cv_mutex), &mtxattr ) ) != 0 ) {
-      DbgLog(DL0,"InitializeConditionVariables: pthread_mutex_init returned %s (%d; %#x)\n", SysConst(err), err, err);
-      return FALSE;
-    }
-
-    return TRUE;
-
-  }
-
-
-
-
-  BOOL DestroyConditionVariables ( void ) {
-
-    int err;
-
-    if ( (err = pthread_mutex_destroy ( &(shmp->shmem_cv_mutex) ) ) != 0 ) {
-      DbgLog(DL0,"DestroyConditionVariables: pthread_mutex_destroy returned %s (%d; %#x)\n", SysConst(err), err, err);
-      return FALSE;
-    }
-
-    if ( (err = pthread_cond_destroy( &(shmp->shmem_cv) ) ) != 0 ) {
-      DbgLog(DL0,"DestroyConditionVariables: pthread_cond_destroy returned %s (%d; %#x)\n", SysConst(err), err, err);
-      return FALSE;
-    }
-
-    if ( (err = pthread_condattr_destroy( &(shmp->shmem_cv_attr) ) ) != 0 ) {
-      DbgLog(DL0,"DestroyConditionVariables: pthread_condattr_destroy returned %s (%d; %#x)\n", SysConst(err), err, err);
-      return FALSE;
-    }
-
-    return TRUE;
-
-  }
-
-
-#endif /* TEST_COND_VARS */
-
-
-
-
 
 /***********************************************************************
  *   DestroyMutexes -
@@ -471,14 +403,6 @@ int DestroyMutexes ( void ) {
 
   /* Get the global shared memory mutex */
   XProcLock();
-
-
-  #if TEST_COND_VARS
-    if ( ! DestroyConditionVariables() ) {
-      return FALSE;
-    }
-  #endif /* TEST_COND_VARS */
-
 
 #ifdef FIXME
     //  SAB  FIXME... This is really useless as we don't use the 

@@ -312,8 +312,21 @@ extern BOOL               IveDaemonized;
 extern void *GCMain ( void *Ptr);
 #endif
 
-void DumpSharedMemory ( void );
-
+void
+DumpSharedMemory(void)
+{
+	u_int32 *p;
+	char Buf[PATH_MAX];
+	u_int32 i;
+    
+	p = (u_int32 *) shmp;
+    
+	for ( i = 0; i < 15; i++ ) {
+		sprintf(Buf, "%08X %08X %08X %08X", p[0+(i*4)], p[1+(i*4)], p[2+(i*4)], p[3+(i*4)]);
+		LogLog(Buf);
+	}
+	return;
+}
 
 /*****************************************
  *  main() -
@@ -404,10 +417,6 @@ int main ( int argc, char *argv[], char *envp[]) {
 
       XProcUnLock();
 
-   #if TEST_MUTEXES
-   DumpSharedMemory();
-   #endif /* TEST_MUTEXES */
-
    /*
     *  Become a Daemon, if called for
     */
@@ -490,15 +499,6 @@ printf("Start garbage \n");
    }
 #endif
 
-
-   #if TEST_COND_VARS
-
-     DumpSharedMemory();
-     LogLog("Send this process a SIGUSR1 to get it to signal on the condition variable");
-
-   #endif /* TEST_COND_VARS */
-
-
      // We've fully become a daemon.  Now create the PID file
      {
         FILE *pidfile;
@@ -531,28 +531,3 @@ printf("Start garbage \n");
     *************************************************************/
 
 } /* end main */
-
-
-
-
-
-#if TEST_MUTEXES || TEST_COND_VARS
-
-  void DumpSharedMemory ( void ) {
-
-    u_int32 *p;
-    char Buf[PATH_MAX];
-    u_int32 i;
-    
-    p = (u_int32 *) shmp;
-    
-    for ( i = 0; i < 15; i++ ) {
-      sprintf(Buf, "%08X %08X %08X %08X", p[0+(i*4)], p[1+(i*4)], p[2+(i*4)], p[3+(i*4)]);
-      LogLog(Buf);
-    }
-    
-    return;
-    
-  }
-
-#endif /* TEST_MUTEXES || TEST_COND_VARS */

@@ -391,63 +391,6 @@ void slotdGenericSignalHandler( int Signal ) {
 }
 
 
-
-
-
-
-
-
-
-#if TEST_MUTEXES || TEST_COND_VARS
-
-  void TestSig ( int Signal ) {
-
-    int err;
-
-    LogLog ( "TestSig got %s (%d; %#x)", SignalConst(Signal), Signal, Signal);
-
-    #if TEST_COND_VARS
-
-      LogLog("Locking the CV Mutex");
-      if ( (err = pthread_mutex_lock( &(shmp->shmem_cv_mutex) )) != 0 ) {
-	DbgLog(DL0,"TestSig: pthread_mutex_lock returned %s (%d; %#x)\n", SysConst(err), err, err );
-	return;
-      }
-
-      /* Manipulate the variable */
-
-      LogLog("Locked the CV Mutex");
-
-      /* Signal one app/thread */
-      if ( (err = pthread_cond_signal( &(shmp->shmem_cv) ) ) != 0 ) {
-	DbgLog(DL0,"TestSig: pthread_cond_signal returned %s (%d; %#x)\n", SysConst(err), err, err );
-	return; 
-      }
-
-      LogLog("Releasing the CV Mutex");
-
-      if ( (err = pthread_mutex_unlock ( &(shmp->shmem_cv_mutex) ) ) != 0 ) {
-	DbgLog(DL0,"TestSig: pthread_mutex_unlock returned %s (%d; %#x)\n", SysConst(err), err, err );
-	return;
-      }
-      LogLog("CV Mutex released");
-
-
-    #endif /* TEST_COND_VARS */
-
-    return;
-
-}
-
-#endif /* TEST_MUTEXES || TEST_COND_VARS*/
-
-
-
-
-
-
-
-
 /***************************************************
  *  SetupSignalHandlers -
  *  
@@ -486,18 +429,6 @@ int SetupSignalHandlers ( void ) {
       return FALSE;
     }
   }
-
-  #if TEST_MUTEXES || TEST_COND_VARS
-
-    new_action.sa_handler = TestSig;
-    if ( sigaction ( SIGUSR1, &new_action, NULL ) != 0 ) {
-      DbgLog(DL0,"Failed to set TestSig for SIGUSR1");
-      return FALSE;
-    }
-
-  #endif /* TEST_MUTEXES || TEST_COND_VARS */
-
-
 
   return TRUE;
 
