@@ -57,7 +57,14 @@ noinst_HEADERS = h_extern.h defs.h csulincl.h		\
 install-data-hook:
 	cd $(DESTDIR)/$(libdir)/opencryptoki/stdll && \
 		ln -sf libpkcs11_cca.so PKCS11_CCA.so
-	$(MKDIR_P) $(DESTDIR)$(localstatedir)/lib/opencryptoki/ccatok
+	$(MKDIR_P) $(DESTDIR)$(localstatedir)/lib/opencryptoki/ccatok/TOK_OBJ
+	$(CHGRP) pkcs11 $(DESTDIR)$(localstatedir)/lib/opencryptoki/ccatok/TOK_OBJ
+	$(CHGRP) pkcs11 $(DESTDIR)$(localstatedir)/lib/opencryptoki/ccatok
+	$(CHMOD) 0770 $(DESTDIR)$(localstatedir)/lib/opencryptoki/ccatok/TOK_OBJ
+	$(CHMOD) 0770 $(DESTDIR)$(localstatedir)/lib/opencryptoki/ccatok
+	$(MKDIR_P) $(DESTDIR)$(lockdir)/ccatok
+	$(CHGRP) pkcs11 $(DESTDIR)$(lockdir)/ccatok
+	$(CHMOD) 0770 $(DESTDIR)$(lockdir)/ccatok
 
 uninstall-hook:
 	if test -d $(DESTDIR)/$(libdir)/opencryptoki/stdll; then \

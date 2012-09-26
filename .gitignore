@@ -60,8 +60,6 @@ usr/lib/pkcs11/api/shrd_mem.c
 usr/lib/pkcs11/cca_stdll/opencryptoki
 usr/lib/pkcs11/soft_stdll/opencryptoki
 usr/lib/pkcs11/tpm_stdll/opencryptoki
-usr/sbin/pkcs11_startup/pkcs11_startup
-usr/sbin/pkcs_slot/pkcs_slot
 usr/sbin/pkcsconf/pkcsconf
 usr/sbin/pkcsslotd/pkcsslotd
 usr/sbin/pkcsslotd/parser.output

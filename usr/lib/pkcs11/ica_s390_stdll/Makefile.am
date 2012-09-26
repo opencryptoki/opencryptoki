@@ -29,7 +29,14 @@ INCLUDES = $(ICA_INC_DIRS) -I. -I../../../include/pkcs11/stdll	\
 install-data-hook:
 	cd $(DESTDIR)$(libdir)/opencryptoki/stdll && \
 		ln -sf libpkcs11_ica.so PKCS11_ICA.so
-	$(MKDIR_P) $(DESTDIR)$(localstatedir)/lib/opencryptoki/lite
+	$(MKDIR_P) $(DESTDIR)$(localstatedir)/lib/opencryptoki/lite/TOK_OBJ
+	$(CHGRP) pkcs11 $(DESTDIR)$(localstatedir)/lib/opencryptoki/lite/TOK_OBJ
+	$(CHGRP) pkcs11 $(DESTDIR)$(localstatedir)/lib/opencryptoki/lite
+	$(CHMOD) 0770 $(DESTDIR)$(localstatedir)/lib/opencryptoki/lite/TOK_OBJ
+	$(CHMOD) 0770 $(DESTDIR)$(localstatedir)/lib/opencryptoki/lite
+	$(MKDIR_P) $(DESTDIR)$(lockdir)/lite
+	$(CHGRP) pkcs11 $(DESTDIR)$(lockdir)/lite
+	$(CHMOD) 0770 $(DESTDIR)$(lockdir)/lite
 
 uninstall-hook:
 	if test -d $(DESTDIR)$(libdir)/opencryptoki/stdll; then \
