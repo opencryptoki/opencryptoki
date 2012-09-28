@@ -930,11 +930,6 @@ CK_RV SC_GetMechanismInfo(CK_SLOT_ID sid,
 	return rc;
 }
 
-int delete_all_files_in_dir(char *full_dir_path)
-{
-	return 0;
-}
-
 /* This routine should only be called if no other processes are
  * attached to the token.  we need to somehow check that this is the
  * only process Meta API should prevent this since it knows session
@@ -944,15 +939,15 @@ CK_RV SC_InitToken( CK_SLOT_ID   sid,
                     CK_ULONG     ulPinLen,
                     CK_CHAR_PTR  pLabel )
 {
-	CK_RV      rc = CKR_OK;
-	int local_rc = 0;
-	CK_BYTE    hash_sha[SHA1_HASH_SIZE];
+	CK_RV rc = CKR_OK;
+	CK_BYTE hash_sha[SHA1_HASH_SIZE];
 	CK_SLOT_ID slotID;
-	char *s = NULL;
 	char *pk_full_path = NULL;
+
 	SLT_CHECK;
 	slotID = slot_id;
 	LOCKIT;
+
 	if (st_Initialized() == FALSE) {
 		OCK_LOG_ERR(ERR_CRYPTOKI_NOT_INITIALIZED);
 		rc = CKR_CRYPTOKI_NOT_INITIALIZED;
@@ -968,6 +963,19 @@ CK_RV SC_InitToken( CK_SLOT_ID   sid,
 		rc = CKR_PIN_LOCKED;
 		goto done;
 	}
+
+	/* Check if token has a specific handler for this, otherwise fall back
+	 * to default behaviour.
+	 */
+	if (token_specific.t_init_token) {
+		rc = token_specific.t_init_token(pPin, ulPinLen, pLabel);
+		if (rc != CKR_OK) {
+			OCK_LOG_ERR(ERR_PIN_INCORRECT);
+			rc = CKR_PIN_INCORRECT;
+		}
+		goto done;
+	}
+
 	rc = compute_sha( pPin, ulPinLen, hash_sha );
 	if (memcmp(nv_token_data->so_pin_sha, hash_sha, SHA1_HASH_SIZE) != 0) {
 		OCK_LOG_ERR(ERR_PIN_INCORRECT);
@@ -980,40 +988,18 @@ CK_RV SC_InitToken( CK_SLOT_ID   sid,
 		rc = CKR_FUNCTION_FAILED;
 		goto done;
 	}
+
 	// Before we reconstruct all the data, we should delete the
 	// token objects from the filesystem.
-	//
-	// Construct a string to delete the token objects.
-	//
 	object_mgr_destroy_token_objects();
-#if 0 /* TODO: Implement delete_all_files_in_dir() */
-	local_rc = asprintf(&pk_full_path, "%s/%s", pk_dir, PK_LITE_OBJ_DIR);
-	if (local_rc == -1) {
-		rc = CKR_HOST_MEMORY;
-		goto out;
-	}
-	local_rc = delete_all_files_in_dir(pk_full_path);
-	if (local_rc == -1) {
-		rc = CKR_FUNCTION_FAILED;
-		goto out;
-	}
-#endif
-	local_rc = asprintf(&s, "%s %s/%s/* > /dev/null 2>&1", DEL_CMD, pk_dir,
-			    PK_LITE_OBJ_DIR);
-	if (local_rc == -1) {
-		rc = CKR_HOST_MEMORY;
-		goto out;
-	}
-	system(s);
-	free(s);
-	s = NULL;
-	// META This should be fine since the open session checking
-	// should occur at the API not the STDLL
+	delete_token_data();
+
 	init_token_data();
 	init_slotInfo();
-	memcpy( nv_token_data->token_info.label, pLabel, 32 );
-	memcpy( nv_token_data->so_pin_sha, hash_sha, SHA1_HASH_SIZE);
+	memcpy(nv_token_data->so_pin_sha, hash_sha, SHA1_HASH_SIZE);
 	nv_token_data->token_info.flags |= CKF_TOKEN_INITIALIZED;
+	memcpy(nv_token_data->token_info.label, pLabel, 32);
+
 	rc = save_token_data();
 	if (rc != CKR_OK){
 		OCK_LOG_ERR(ERR_TOKEN_SAVE);
@@ -1024,14 +1010,11 @@ CK_RV SC_InitToken( CK_SLOT_ID   sid,
 		OCK_LOG_ERR(ERR_MASTER_KEY_SAVE);
 		goto done;
 	}
+
  done:
- out:
 	LLOCK;
 	OCK_LOG_DEBUG("%s:  rc = 0x%08x\n", "C_InitToken", rc);
 	UNLOCKIT;
-	if (pk_full_path) {
-		free(pk_full_path);
-	}
 	return rc;
 }
 
@@ -1047,6 +1030,8 @@ CK_RV SC_InitPIN( ST_SESSION_HANDLE  *sSession,
 	CK_BYTE           hash_md5[MD5_HASH_SIZE];
 	CK_RV             rc = CKR_OK;
 	CK_SESSION_HANDLE hSession = SESS_HANDLE(sSession);
+	CK_FLAGS_32     * flags = NULL;
+
 	LOCKIT;
 	if (st_Initialized() == FALSE) {
 		OCK_LOG_ERR(ERR_CRYPTOKI_NOT_INITIALIZED);
@@ -1064,8 +1049,7 @@ CK_RV SC_InitPIN( ST_SESSION_HANDLE  *sSession,
 		rc = CKR_SESSION_HANDLE_INVALID;
 		goto done;
 	}
-	if (pin_locked(&sess->session_info, nv_token_data->token_info.flags)
-	    == TRUE) {
+	if (pin_locked(&sess->session_info, nv_token_data->token_info.flags) == TRUE) {
 		OCK_LOG_ERR(ERR_PIN_LOCKED);
 		rc = CKR_PIN_LOCKED;
 		goto done;
@@ -1075,6 +1059,26 @@ CK_RV SC_InitPIN( ST_SESSION_HANDLE  *sSession,
 		rc = CKR_USER_NOT_LOGGED_IN;
 		goto done;
 	}
+
+	/* Check if token has a specific handler for this, otherwise fall back
+	 * to default behaviour.
+	 */
+	if (token_specific.t_init_pin) {
+		rc = token_specific.t_init_pin(pPin, ulPinLen);
+		if (rc == CKR_OK){
+			flags = &nv_token_data->token_info.flags;
+			*flags &= ~(CKF_USER_PIN_LOCKED |
+				  CKF_USER_PIN_FINAL_TRY |
+			          CKF_USER_PIN_COUNT_LOW);
+
+			rc = save_token_data();
+			if (rc != CKR_OK){
+				OCK_LOG_ERR(ERR_TOKEN_SAVE);
+			}
+		}
+		goto done;
+	}
+
 	if ((ulPinLen < MIN_PIN_LEN) || (ulPinLen > MAX_PIN_LEN)) {
 		OCK_LOG_ERR(ERR_PIN_LEN_RANGE); 
 		rc = CKR_PIN_LEN_RANGE;
@@ -1107,6 +1111,7 @@ CK_RV SC_InitPIN( ST_SESSION_HANDLE  *sSession,
 	if (rc != CKR_OK){
 		OCK_LOG_ERR(ERR_MASTER_KEY_SAVE);
 	}
+
  done:
 	LLOCK;
 	OCK_LOG_DEBUG("%s:  rc = 0x%08x, session = %d\n", "C_InitPin", rc, hSession);
@@ -1144,6 +1149,15 @@ CK_RV SC_SetPIN( ST_SESSION_HANDLE  *sSession,
 		rc = CKR_PIN_LOCKED;
 		goto done;
 	}
+
+	/* Check if token has a specific handler for this, otherwise fall back
+	 * to default behaviour.
+	 */
+	if (token_specific.t_set_pin) {
+		rc = token_specific.t_set_pin(sess, pOldPin, ulOldLen, pNewPin, ulNewLen);
+		goto done;
+	}
+
 	if ((ulNewLen < MIN_PIN_LEN) || (ulNewLen > MAX_PIN_LEN)) {
 		OCK_LOG_ERR(ERR_PIN_LEN_RANGE); 
 		rc = CKR_PIN_LEN_RANGE;
@@ -1488,7 +1502,8 @@ CK_RV SC_Login( ST_SESSION_HANDLE  *sSession,
 	CK_RV            rc = CKR_OK;
 
 	CK_SESSION_HANDLE hSession = SESS_HANDLE(sSession);
-		LOCKIT;
+	LOCKIT;
+
 	// In v2.11, logins should be exclusive, since token
 	// specific flags may need to be set for a bad login. - KEY
 	rc = MY_LockMutex( &login_mutex );
@@ -1552,6 +1567,7 @@ CK_RV SC_Login( ST_SESSION_HANDLE  *sSession,
 	if (rc != CKR_OK)
 		goto done;
 
+
 	if (userType == CKU_USER) {
 		if (*flags & CKF_USER_PIN_LOCKED) {
 			OCK_LOG_ERR(ERR_PIN_LOCKED);
@@ -1559,6 +1575,22 @@ CK_RV SC_Login( ST_SESSION_HANDLE  *sSession,
 			goto done;
 		}
 
+		/* Check if token has a specific handler for this, otherwise 
+		 * fall back to default behaviour.
+		 */
+		if (token_specific.t_login) {
+			// call the pluggable login function here - KEY
+			rc = token_specific.t_login(userType, pPin, ulPinLen);
+			if (rc == CKR_OK) {
+				*flags &= ~(CKF_USER_PIN_LOCKED |
+				          CKF_USER_PIN_FINAL_TRY |
+					  CKF_USER_PIN_COUNT_LOW);
+			} else if (rc == CKR_PIN_INCORRECT) {
+				set_login_flags(userType, flags);
+			}
+			goto done;
+		}
+		
 		if (memcmp(nv_token_data->user_pin_sha,
 			   "00000000000000000000", SHA1_HASH_SIZE) == 0) {
 			OCK_LOG_ERR(ERR_USER_PIN_NOT_INITIALIZED);
@@ -1603,6 +1635,23 @@ CK_RV SC_Login( ST_SESSION_HANDLE  *sSession,
 			rc = CKR_PIN_LOCKED;
 			goto done;
 		}
+
+		/* Check if token has a specific handler for this, otherwise 
+		 * fall back to default behaviour.
+		 */
+		if (token_specific.t_login) {
+			// call the pluggable login function here - KEY
+			rc = token_specific.t_login(userType, pPin, ulPinLen);
+			if (rc == CKR_OK) {
+				*flags &= ~(CKF_SO_PIN_LOCKED |
+					  CKF_SO_PIN_FINAL_TRY |
+					  CKF_SO_PIN_COUNT_LOW);
+			} else if (rc == CKR_PIN_INCORRECT) {
+				set_login_flags(userType, flags);
+			}
+			goto done;
+		}
+
 		rc = compute_sha( pPin, ulPinLen, hash_sha );
 		if (memcmp(nv_token_data->so_pin_sha, hash_sha, SHA1_HASH_SIZE) != 0) {
 			set_login_flags(userType, flags);
@@ -1624,12 +1673,14 @@ CK_RV SC_Login( ST_SESSION_HANDLE  *sSession,
 		}
 	}
 
-	rc = session_mgr_login_all( userType );
-	if (rc != CKR_OK) {
-		OCK_LOG_ERR(ERR_SESSMGR_LOGIN);
+ done:
+ 	if (rc == CKR_OK) {
+		rc = session_mgr_login_all( userType );
+		if (rc != CKR_OK) {
+			OCK_LOG_ERR(ERR_SESSMGR_LOGIN);
+		}
 	}
 
- done:
 	LLOCK;
 	OCK_LOG_DEBUG("%s:  rc = 0x%08x\n", "C_Login", rc);
 
@@ -1675,6 +1726,15 @@ CK_RV SC_Logout( ST_SESSION_HANDLE  *sSession )
 	if (rc != CKR_OK){
 		OCK_LOG_ERR(ERR_USER_NOT_LOGGED_IN);
 	}
+
+	/* Check if token has a specific handler for this, otherwise fall back
+	 * to default behaviour.
+	 */
+	if (token_specific.t_logout) {
+		rc = token_specific.t_logout();
+		goto done;
+	}
+
 	memset( user_pin_md5, 0x0, MD5_HASH_SIZE );
 	memset( so_pin_md5,   0x0, MD5_HASH_SIZE );
 	

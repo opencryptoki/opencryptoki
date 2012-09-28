@@ -47,7 +47,7 @@ struct token_specific_struct token_specific = {
 	&token_specific_rng,
 	&token_specific_session,
 	&token_specific_final,
-	&token_specific_verify_so_pin,
+	&token_specific_init_token,
 	&token_specific_login,
 	&token_specific_logout,
 	&token_specific_init_pin,

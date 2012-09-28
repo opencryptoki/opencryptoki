@@ -315,7 +315,7 @@ token_spec_t token_specific = {
 	&token_specific_rng,
 	&token_specific_session,
 	&token_specific_final,
-	NULL,			// verify_so_pin
+	NULL,			// init_token
 	NULL,			// login
 	NULL,			// logout
 	NULL,			// init_pin

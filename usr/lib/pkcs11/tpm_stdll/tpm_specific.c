@@ -2000,9 +2000,58 @@ token_specific_set_pin(SESSION *sess,
 	return rc;
 }
 
+static CK_RV delete_tpm_data()
+{
+	int ret = 0;
+	char *cmd = NULL;
+	struct passwd *pw = NULL;
+
+	if ((pw = getpwuid(getuid())) == NULL) {
+		OCK_LOG_DEBUG("getpwuid failed: %s\n", strerror(errno));
+		return CKR_FUNCTION_FAILED;
+	}
+
+	// delete the TOK_OBJ data files
+	if (asprintf(&cmd, "%s %s/%s/%s/* > /dev/null 2>&1", DEL_CMD,
+			   pk_dir, pw->pw_name,
+			   PK_LITE_OBJ_DIR) < 0) {
+		return CKR_HOST_MEMORY;
+	}
+	system(cmd);
+	free(cmd);
+
+	// delete the OpenSSL backup keys
+	if (asprintf(&cmd, "%s %s/%s/%s > /dev/null 2>&1", DEL_CMD,
+			   pk_dir, pw->pw_name,
+			   TPMTOK_PUB_ROOT_KEY_FILE) < 0) {
+		return CKR_HOST_MEMORY;
+	}
+	system(cmd);
+	free(cmd);
+
+	if (asprintf(&cmd, "%s %s/%s/%s > /dev/null 2>&1", DEL_CMD,
+			    pk_dir, pw->pw_name,
+			    TPMTOK_PRIV_ROOT_KEY_FILE) < 0) {
+		return CKR_HOST_MEMORY;
+	}
+	system(cmd);
+	free(cmd);
+
+	// delete the masterkey
+	if (asprintf(&cmd, "%s %s/%s/%s > /dev/null 2>&1", DEL_CMD,
+			   pk_dir, pw->pw_name,
+			   TPMTOK_MASTERKEY_PRIVATE) < 0) {
+		return CKR_HOST_MEMORY;
+	}
+	system(cmd);
+	free(cmd);
+
+	return CKR_OK;
+}
+
 /* only called at token init time */
 CK_RV
-token_specific_verify_so_pin(CK_CHAR_PTR pPin, CK_ULONG ulPinLen)
+token_specific_init_token(CK_CHAR_PTR pPin, CK_ULONG ulPinLen, CK_CHAR_PTR pLabel)
 {
 	CK_BYTE hash_sha[SHA1_HASH_SIZE];
 	CK_RV rc;
@@ -2020,8 +2069,7 @@ token_specific_verify_so_pin(CK_CHAR_PTR pPin, CK_ULONG ulPinLen)
 			OCK_LOG_DEBUG("token_find_key failed and PIN != default\n");
 			return CKR_PIN_INCORRECT;
 		}
-
-		return CKR_OK;
+		goto done;
 	}
 
 	if ((rc = token_load_srk())) {
@@ -2048,6 +2096,31 @@ token_specific_verify_so_pin(CK_CHAR_PTR pPin, CK_ULONG ulPinLen)
 
 	if ((rc = token_verify_pin(hPublicLeafKey))) {
 		OCK_LOG_DEBUG("token_verify_pin failed. rc=0x%lx\n", rc);
+		return rc;
+	}
+
+done:
+	// Before we reconstruct all the data, we should delete the
+	// token objects from the filesystem.
+	object_mgr_destroy_token_objects();
+	rc = delete_tpm_data();
+	if (rc != CKR_OK)
+		return rc;
+
+	// META This should be fine since the open session checking should occur at
+	// the API not the STDLL
+	init_token_data();
+	init_slotInfo();
+	memcpy(nv_token_data->so_pin_sha, hash_sha, SHA1_HASH_SIZE);
+	nv_token_data->token_info.flags |= CKF_TOKEN_INITIALIZED;
+	memcpy(nv_token_data->token_info.label, pLabel, 32);
+
+	// New for v2.11 - KEY
+	nv_token_data->token_info.flags |= CKF_TOKEN_INITIALIZED;
+
+	rc = save_token_data();
+	if (rc != CKR_OK) {
+		OCK_LOG_ERR(ERR_TOKEN_SAVE);
 		return rc;
 	}
 

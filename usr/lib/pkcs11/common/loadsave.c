@@ -1747,3 +1747,26 @@ CK_RV delete_token_object(OBJECT * obj)
 	return CKR_OK;
 
 }
+
+CK_RV delete_token_data()
+{
+	CK_RV rc = CKR_OK;
+	char *cmd = NULL;
+
+	// Construct a string to delete the token objects.
+	//
+	// META This should be fine since the open session checking
+	// should occur at the API not the STDLL
+	//
+	// TODO: Implement delete_all_files_in_dir() */
+	if (asprintf(&cmd, "%s %s/%s/* > /dev/null 2>&1", DEL_CMD,
+			    get_pk_dir(), PK_LITE_OBJ_DIR) < 0) {
+		rc = CKR_HOST_MEMORY;
+		goto done;
+	}
+
+	system(cmd);
+done:
+	free(cmd);
+	return rc;
+}
