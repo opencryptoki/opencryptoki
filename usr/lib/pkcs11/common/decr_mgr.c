@@ -751,7 +751,7 @@ decr_mgr_init( SESSION           *sess,
    }
 
    if ((mech->mechanism == CKM_AES_CTR) || (mech->ulParameterLen > 0)){
-	ptr = (CK_AES_CTR_PARAMS *) malloc(mech->ulParameterLen);
+	ptr = (CK_BYTE *) malloc(mech->ulParameterLen);
 	if (!ptr){
 	   OCK_LOG_ERR(ERR_HOST_MEMORY);
 	   return CKR_HOST_MEMORY;

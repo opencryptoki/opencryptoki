@@ -27,6 +27,8 @@
 #define GetSystemTime(x) ftime((x))
 
 #include <sys/time.h>
+
+#pragma GCC system_header
 static struct timeval timev1;
 static struct timeval timev2;
 static struct timeval timevr;
