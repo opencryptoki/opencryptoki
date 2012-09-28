@@ -982,7 +982,8 @@ CK_RV SC_InitToken( CK_SLOT_ID   sid,
 		rc = CKR_PIN_INCORRECT;
 		goto done;
 	}
-	rc  = rng_generate( master_key, 3 * DES_KEY_SIZE );
+
+	rc = generate_master_key(master_key);
 	if (rc != CKR_OK) {
 		OCK_LOG_ERR(ERR_FUNCTION_FAILED);
 		rc = CKR_FUNCTION_FAILED;

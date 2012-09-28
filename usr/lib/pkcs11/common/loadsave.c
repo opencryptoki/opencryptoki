@@ -1770,3 +1770,23 @@ done:
 	free(cmd);
 	return rc;
 }
+
+CK_RV generate_master_key(CK_BYTE *key)
+{
+	CK_RV rc = CKR_OK;
+	CK_ULONG key_len = 0L;
+	CK_ULONG master_key_len = 0L;
+
+	if ((rc = get_encryption_info_for_clear_key(&key_len, NULL)) != CKR_OK ||
+	    (rc = get_encryption_info(&master_key_len, NULL)) != CKR_OK)
+		return ERR_FUNCTION_FAILED;
+	
+	switch (token_specific.data_store.encryption_algorithm) {
+	case CKM_DES3_CBC:
+		return token_specific.t_des_key_gen(key, master_key_len, key_len);
+	case CKM_AES_CBC:
+		return token_specific.t_aes_key_gen(key, master_key_len, key_len);
+	}
+
+	return ERR_MECHANISM_INVALID;
+}

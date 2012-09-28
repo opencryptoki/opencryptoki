@@ -809,7 +809,7 @@ init_token_data( void )
    // FIXME: erase the token object index file (and all token objects)
    //
 
-   rc  = rng_generate( master_key, 3 * DES_KEY_SIZE );
+   rc = generate_master_key(master_key);
    if (rc != CKR_OK)
       return CKR_FUNCTION_FAILED;
 
