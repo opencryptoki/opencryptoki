@@ -52,6 +52,8 @@ static const struct ock_key ock_keywords[] = {
         {"confname",		KW_CONFNAME}
 };
 
+void set_init(void);
+void set_defaults(void);
 %}
 
 %union {
