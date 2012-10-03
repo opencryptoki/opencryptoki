@@ -29,27 +29,27 @@ extern void yyerror(const char *s);
 extern int line_num;
 
 typedef enum {
-        KW_STDLL,
+	KW_STDLL,
 	KW_SLOTDESC,
 	KW_MANUFID,
 	KW_HWVERSION,
 	KW_FWVERSION,
-        KW_CONFNAME,
-        KW_MAX
+	KW_CONFNAME,
+	KW_MAX
 } keyword_token;
 
 struct ock_key {
-        char *name;
-        keyword_token token;
+	char *name;
+	keyword_token token;
 };
 
 static const struct ock_key ock_keywords[] = {
-        {"stdll",       	KW_STDLL},
+	{"stdll",       	KW_STDLL},
 	{"description", 	KW_SLOTDESC},
 	{"manufacturer",	KW_MANUFID},
 	{"hwversion",		KW_HWVERSION},
 	{"firmwareversion",	KW_FWVERSION},
-        {"confname",		KW_CONFNAME}
+	{"confname",		KW_CONFNAME}
 };
 
 void set_init(void);
@@ -195,13 +195,13 @@ do_vers(CK_VERSION *slotinfo, char *kw, char *val)
 			if (++ap >= &argp[2])
 				break;
 
-        slotinfo->major = (char) atoi(argp[0]);
-        if(!argp[1])
-                slotinfo->minor = 0;
-        else
-                slotinfo->minor = (char) atoi(argp[1]);
+	slotinfo->major = (char) atoi(argp[0]);
+	if(!argp[1])
+		slotinfo->minor = 0;
+	else
+		slotinfo->minor = (char) atoi(argp[1]);
 
-        return 0;
+	return 0;
 }
 
 int
