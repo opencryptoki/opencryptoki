@@ -52,8 +52,7 @@ opencryptoki_stdll_libpkcs11_cca_la_SOURCES = ../common/asn1.c		\
 					      ../common/sw_crypt.c	\
 					      cca_specific.c
 
-noinst_HEADERS = h_extern.h	\
-		 defs.h		\
+noinst_HEADERS = defs.h		\
 		 csulincl.h	\
 		 host_defs.h	\
 		 cca_stdll.h
