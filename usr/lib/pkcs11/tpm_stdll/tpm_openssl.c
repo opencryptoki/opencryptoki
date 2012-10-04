@@ -43,7 +43,6 @@
 #include "pkcs11/stdll.h"
 #include "defs.h"
 #include "host_defs.h"
-#include "../common/args.h"
 #include "h_extern.h"
 #include "tok_specific.h"
 #include "tok_spec_struct.h"
