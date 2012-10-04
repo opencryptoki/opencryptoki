@@ -59,8 +59,10 @@ opencryptoki_stdll_libpkcs11_tpm_la_SOURCES = ../common/asn1.c		\
 					      tpm_util.c
 
 
-noinst_HEADERS = h_extern.h defs.h	\
-		 host_defs.h tpm_specific.h
+noinst_HEADERS = h_extern.h	\
+		 defs.h		\
+		 host_defs.h	\
+		 tpm_specific.h
 
 install-data-hook:
 	$(MKDIR_P) $(DESTDIR)$(localstatedir)/lib/opencryptoki/tpm
