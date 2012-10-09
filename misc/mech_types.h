@@ -591,7 +591,7 @@ typedef CK_MECHANISM_INFO CK_PTR CK_MECHANISM_INFO_PTR;
 #define CKR_MECHANISM_PARAM_INVALID           0x00000071
 
 
-/* From common/c_defs.h in openCryptoki */
+/* From common/host_defs.h in openCryptoki */
 typedef struct _MECH_LIST_ELEMENT
 {
    CK_MECHANISM_TYPE    mech_type;
