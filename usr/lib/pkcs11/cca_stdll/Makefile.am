@@ -54,7 +54,6 @@ opencryptoki_stdll_libpkcs11_cca_la_SOURCES = ../common/asn1.c		\
 
 noinst_HEADERS = defs.h		\
 		 csulincl.h	\
-		 host_defs.h	\
 		 cca_stdll.h
 
 install-data-hook:
