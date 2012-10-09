@@ -60,7 +60,6 @@ opencryptoki_stdll_libpkcs11_tpm_la_SOURCES = ../common/asn1.c		\
 
 
 noinst_HEADERS = defs.h		\
-		 host_defs.h	\
 		 tpm_specific.h
 
 install-data-hook:
