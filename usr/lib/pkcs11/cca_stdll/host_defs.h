@@ -351,7 +351,7 @@ ock_generic_get_mechanism_info(CK_MECHANISM_TYPE type,
 
 typedef struct _MASTER_KEY_FILE_T
 {
-   CK_BYTE     key[MASTER_KEY_SIZE];
+   CK_BYTE     key[CCA_KEY_ID_SIZE];
    CK_BYTE     sha_hash[SHA1_HASH_SIZE];
 } MASTER_KEY_FILE_T;
 

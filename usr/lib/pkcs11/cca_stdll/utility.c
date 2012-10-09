@@ -530,7 +530,7 @@ init_token_data( void )
    // FIXME: erase the token object index file (and all token objects)
    //
 
-   rc  = token_specific.t_des_key_gen(master_key, MASTER_KEY_SIZE, 3 * DES_KEY_SIZE);
+   rc  = token_specific.t_des_key_gen(master_key, CCA_KEY_ID_SIZE, 3 * DES_KEY_SIZE);
    if (rc != CKR_OK){
       OCK_LOG_ERR(ERR_FUNCTION_FAILED); 
       return CKR_FUNCTION_FAILED;
