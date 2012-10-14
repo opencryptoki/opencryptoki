@@ -326,6 +326,12 @@ struct token_specific_struct {
 		CK_BYTE *obj_initial_vector;
 	} data_store;
 
+	// Create lockfile if different from standard way.
+	int (*t_creatlock) (void);
+
+	// Create or attach to token's shared memory
+	CK_RV (*t_attach_shm) (LW_SHM_TYPE **shmem);
+
 	// Initialization function
 	CK_RV(*t_init) (char *, CK_SLOT_ID);
 

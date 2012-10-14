@@ -606,6 +606,14 @@ CreateXProcLock(void)
 
 	if (spinxplfd == -1) {
 
+		if (token_specific.t_creatlock != NULL) {
+			spinxplfd = token_specific.t_creatlock();
+			if (spinxplfd != -1)
+				return CKR_OK;
+			else
+				return CKR_FUNCTION_FAILED;
+		}
+
 		/* create user lock file */
 		sprintf(lockfile, "%s/%s/LCK..%s",
 			LOCKDIR_PATH, SUB_DIR, SUB_DIR);
@@ -810,12 +818,16 @@ init_token_data( void )
    //
 
    rc = generate_master_key(master_key);
-   if (rc != CKR_OK)
+   if (rc != CKR_OK) {
+      OCK_LOG_ERR(ERR_FUNCTION_FAILED);
       return CKR_FUNCTION_FAILED;
+   }
 
    rc = save_masterkey_so();
-   if (rc != CKR_OK)
+   if (rc != CKR_OK) {
+      OCK_LOG_ERR(ERR_FUNCTION_FAILED);
       return CKR_FUNCTION_FAILED;
+   }
 
    rc = save_token_data();
 
@@ -992,7 +1004,7 @@ parity_is_odd( CK_BYTE b )
 
 
 CK_RV
-attach_shm()
+attach_shm(LW_SHM_TYPE **global_shm)
 {
    key_t    key;
    int      shm_id;
@@ -1048,17 +1060,17 @@ attach_shm()
    } else
       created = TRUE;
 
-   global_shm = (void *)shmat( shm_id, NULL, 0 );
-   if (!global_shm){
+   *global_shm = (void *)shmat( shm_id, NULL, 0 );
+   if (!*global_shm){
       OCK_LOG_ERR(ERR_FUNCTION_FAILED); 
       return CKR_FUNCTION_FAILED;
    }
    if (created == TRUE) {
       XProcLock();
-      global_shm->num_publ_tok_obj = 0;
-      global_shm->num_priv_tok_obj = 0;
-      memset( &global_shm->publ_tok_objs, 0x0, 2048 * sizeof(TOK_OBJ_ENTRY) );
-      memset( &global_shm->priv_tok_objs, 0x0, 2048 * sizeof(TOK_OBJ_ENTRY) );
+      (*global_shm)->num_publ_tok_obj = 0;
+      (*global_shm)->num_priv_tok_obj = 0;
+      memset(&(*global_shm)->publ_tok_objs, 0x0, 2048 * sizeof(TOK_OBJ_ENTRY));
+      memset(&(*global_shm)->priv_tok_objs, 0x0, 2048 * sizeof(TOK_OBJ_ENTRY));
       XProcUnLock();
    }
 #elif MMAP
@@ -1106,13 +1118,13 @@ attach_shm()
 			}
 		}
 
-		global_shm = (LW_SHM_TYPE *)mmap(NULL,sizeof(LW_SHM_TYPE),PROT_READ|PROT_WRITE,MAP_SHARED,fd,0);
+		*global_shm = (LW_SHM_TYPE *)mmap(NULL,sizeof(LW_SHM_TYPE),PROT_READ|PROT_WRITE,MAP_SHARED,fd,0);
 		if (created == TRUE) {
 			XProcLock();
-			global_shm->num_publ_tok_obj = 0;
-			global_shm->num_priv_tok_obj = 0;
-			memset( &global_shm->publ_tok_objs, 0x0, 2048 * sizeof(TOK_OBJ_ENTRY) );
-			memset( &global_shm->priv_tok_objs, 0x0, 2048 * sizeof(TOK_OBJ_ENTRY) );
+			(*global_shm)->num_publ_tok_obj = 0;
+			(*global_shm)->num_priv_tok_obj = 0;
+			memset(&(*global_shm)->publ_tok_objs, 0x0, 2048 * sizeof(TOK_OBJ_ENTRY));
+			memset(&(*global_shm)->priv_tok_objs, 0x0, 2048 * sizeof(TOK_OBJ_ENTRY));
 			XProcUnLock();
 		}
 
@@ -1124,7 +1136,7 @@ attach_shm()
 
 	}
 #else
-      global_shm = (void *)malloc(sizeof(LW_SHM_TYPE));
+      *global_shm = (void *)malloc(sizeof(LW_SHM_TYPE));
 
 #endif
 

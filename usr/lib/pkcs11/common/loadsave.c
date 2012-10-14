@@ -342,6 +342,7 @@ static CK_RV get_encryption_info_for_clear_key(CK_ULONG *p_key_len,
 		block_size = AES_BLOCK_SIZE;
 		break;
 	default:
+		OCK_LOG_ERR(ERR_MECHANISM_INVALID);
 		return ERR_MECHANISM_INVALID;
 	}
 

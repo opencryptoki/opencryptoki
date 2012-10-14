@@ -332,6 +332,8 @@ token_spec_t token_specific = {
 		"12345678",		// Default initialization vector for pins
 		"10293847",		// Default initialization vector for objects
 	},
+	NULL,
+	NULL,
 	&token_specific_init,
 	&tok_slot2local,
 	&token_specific_rng,

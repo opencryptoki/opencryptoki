@@ -312,6 +312,8 @@
 #ifndef _TOK_SPECIFIC
 #define _TOK_SPECIFIC
 
+int token_specific_creatlock(void);
+CK_RV token_specific_attach_shm(LW_SHM_TYPE **shmem);
 CK_RV token_specific_rng(CK_BYTE *,  CK_ULONG);
 int tok_slot2local(CK_SLOT_ID);
 CK_RV token_specific_init(char *,CK_SLOT_ID );

@@ -41,7 +41,7 @@ opencryptoki_stdll_libpkcs11_cca_la_SOURCES = ../common/asn1.c		\
 					      ../common/decr_mgr.c	\
 					      ../common/globals.c	\
 					      ../common/loadsave.c	\
-					      utility.c			\
+					      ../common/utility.c	\
 					      ../common/mech_des.c	\
 					      ../common/mech_des3.c	\
 					      ../common/mech_md5.c	\
