@@ -453,6 +453,17 @@ struct token_specific_struct {
 			   CK_ULONG *,
 			   CK_BYTE *, CK_ULONG, CK_BYTE *, CK_ULONG, CK_BYTE);
 
+	// Token Specific DSA functions
+	CK_RV(*t_dsa_generate_keypair) (TEMPLATE *, TEMPLATE *);
+
+	CK_RV(*t_dsa_sign) (CK_BYTE *,
+			   CK_BYTE *,
+			   OBJECT *);
+
+	CK_RV(*t_dsa_verify) (CK_BYTE *,
+			   CK_BYTE *,
+			   OBJECT *);
+
 	CK_RV(*t_get_mechanism_list) (CK_MECHANISM_TYPE_PTR, CK_ULONG_PTR);
 	CK_RV(*t_get_mechanism_info) (CK_MECHANISM_TYPE,
 				      CK_MECHANISM_INFO_PTR);

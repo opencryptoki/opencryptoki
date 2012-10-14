@@ -103,6 +103,10 @@ struct token_specific_struct token_specific = {
 	&token_specific_aes_ecb,
 	&token_specific_aes_cbc,
 	NULL,			// aes_ctr
+	// DSA
+	NULL,			// dsa_generate_keypair
+	NULL,			// dsa_sign
+	NULL,			// dsa_verify
 	&token_specific_get_mechanism_list,
 	&token_specific_get_mechanism_info,
 	NULL			// object_add

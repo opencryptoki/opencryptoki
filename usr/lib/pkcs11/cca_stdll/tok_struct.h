@@ -105,6 +105,10 @@ token_spec_t token_specific = {
 	NULL,
 #endif
 	NULL,			// aes_ctr
+	// DSA
+	NULL,			// dsa_generate_keypair
+	NULL,			// dsa_sign
+	NULL,			// dsa_verify
 	&token_specific_get_mechanism_list,
 	&token_specific_get_mechanism_info,
 	&token_specific_object_add

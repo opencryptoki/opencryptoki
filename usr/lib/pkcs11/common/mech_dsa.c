@@ -303,7 +303,7 @@
 #include "defs.h"
 #include "host_defs.h"
 #include "h_extern.h"
-//#include "tok_spec_struct.h"
+#include "tok_spec_struct.h"
 
 
 
@@ -448,7 +448,12 @@ ckm_dsa_key_pair_gen( TEMPLATE  * publ_tmpl,
    CK_RV                rc;
 
 
-   rc = token_specific_dsa_generate_keypair(publ_tmpl,priv_tmpl);
+   if (token_specific.t_dsa_generate_keypair == NULL) {
+      OCK_LOG_ERR(ERR_MECHANISM_INVALID);
+      return CKR_MECHANISM_INVALID;
+   }
+
+   rc = token_specific.t_dsa_generate_keypair(publ_tmpl,priv_tmpl);
    if (rc != CKR_OK)
       OCK_LOG_ERR(ERR_KEYGEN);
    return rc;
@@ -486,7 +491,12 @@ ckm_dsa_sign( CK_BYTE   * in_data,
       return CKR_FUNCTION_FAILED;
    }
 
-   rc = tok_dsa_sign(in_data, signature, priv_key);
+   if (token_specific.t_dsa_sign == NULL) {
+      OCK_LOG_ERR(ERR_MECHANISM_INVALID);
+      return CKR_MECHANISM_INVALID;
+   }
+
+   rc = token_specific.t_dsa_sign(in_data, signature, priv_key);
    if (rc != CKR_OK)
       OCK_LOG_ERR(ERR_DSA_SIGN);
    return rc;
@@ -523,7 +533,12 @@ ckm_dsa_verify( CK_BYTE   * signature,
       OCK_LOG_ERR(ERR_FUNCTION_FAILED);
       return CKR_FUNCTION_FAILED;
    }
-   rc = tok_dsa_verify( signature, data, publ_key);
+
+   if (token_specific.t_dsa_verify == NULL) {
+      OCK_LOG_ERR(ERR_MECHANISM_INVALID);
+      return CKR_MECHANISM_INVALID;
+   }
+   rc = token_specific.t_dsa_verify(signature, data, publ_key);
    if (rc != CKR_OK)
       OCK_LOG_ERR(ERR_DSA_VERIFY);
    return rc;

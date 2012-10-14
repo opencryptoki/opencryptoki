@@ -442,19 +442,6 @@ token_specific_dh_pkcs_key_pair_gen( TEMPLATE  * publ_tmpl,
 CK_RV
 tok_cdmv_transform(CK_VOID_PTR, CK_ULONG);
 
-CK_RV
-ckm_dsa_sign( CK_BYTE   * ,
-              CK_BYTE   * ,
-              OBJECT    * );
-
-CK_RV
-ckm_dsa_key_pair_gen( TEMPLATE  * publ_tmpl,
-                      TEMPLATE  * priv_tmpl );
-
-CK_RV
-ckm_dsa_verify( CK_BYTE   *,
-                CK_BYTE   *,
-                OBJECT    * );
 
 CK_RV
 token_specific_sha_generic_init(DIGEST_CONTEXT *ctx,
@@ -556,6 +543,19 @@ token_specific_aes_ctr( CK_BYTE  *,
 			CK_ULONG  ,
                         CK_BYTE     );
 #endif
+
+CK_RV
+token_specific_dsa_generate_keypair( TEMPLATE *,
+                            TEMPLATE *);
+CK_RV
+token_specific_dsa_sign( CK_BYTE *,
+                         CK_ULONG,
+                         CK_ULONG );
+
+CK_RV
+token_specific_dsa_verify( CK_BYTE *,
+                           CK_BYTE *,
+                           OBJECT * );
 
 CK_RV
 token_specific_get_mechanism_list(CK_MECHANISM_TYPE_PTR pMechanismList,
