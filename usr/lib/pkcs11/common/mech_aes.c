@@ -317,8 +317,6 @@ aes_ecb_encrypt( SESSION           *sess,
                  CK_ULONG          *out_data_len )
 {
    OBJECT       *key       = NULL;
-   CK_ATTRIBUTE *attr      = NULL;
-   CK_BYTE       key_value[MAX_AES_KEY_SIZE];
    CK_RV         rc;
 
 
@@ -336,20 +334,6 @@ aes_ecb_encrypt( SESSION           *sess,
       return rc;
    }
 
-   rc = template_attribute_find(key->template, CKA_IBM_OPAQUE, &attr);
-   if (rc == FALSE) {
-      rc = template_attribute_find( key->template, CKA_VALUE, &attr );
-      if (rc == FALSE){
-         OCK_LOG_ERR(ERR_FUNCTION_FAILED);
-         return CKR_FUNCTION_FAILED;
-      }
-   }
-  
-   // We have to use ulValueLen here, since with AES we don't
-   // know how large the key is. 
-   memset(key_value, 0, sizeof(key_value));
-   memcpy( key_value, attr->pValue, attr->ulValueLen );
-
    if (length_only == TRUE) {
       *out_data_len = in_data_len;
       return CKR_OK;
@@ -361,9 +345,8 @@ aes_ecb_encrypt( SESSION           *sess,
       return CKR_BUFFER_TOO_SMALL;
    }
 
-   return ckm_aes_ecb_encrypt( in_data,   in_data_len,
-                               out_data,  out_data_len,
-                               key_value, attr->ulValueLen );
+   return ckm_aes_ecb_encrypt(in_data, in_data_len,
+			      out_data, out_data_len, key);
 }
 
 
@@ -379,8 +362,6 @@ aes_ecb_decrypt( SESSION           *sess,
                  CK_ULONG          *out_data_len)
 {
    OBJECT       *key       = NULL;
-   CK_ATTRIBUTE *attr      = NULL;
-   CK_BYTE       key_value[MAX_AES_KEY_SIZE];
    CK_RV         rc;
 
 
@@ -401,18 +382,6 @@ aes_ecb_decrypt( SESSION           *sess,
       return rc; 
    }
 
-   rc = template_attribute_find(key->template, CKA_IBM_OPAQUE, &attr);
-   if (rc == FALSE) {
-      rc = template_attribute_find( key->template, CKA_VALUE, &attr );
-      if (rc == FALSE){
-         OCK_LOG_ERR(ERR_FUNCTION_FAILED);
-         return CKR_FUNCTION_FAILED;
-      }
-   }
-   
-   memset(key_value, 0, sizeof(key_value));
-   memcpy( key_value, attr->pValue, attr->ulValueLen );
-
    if (length_only == TRUE) {
       *out_data_len = in_data_len;
       return CKR_OK;
@@ -424,9 +393,8 @@ aes_ecb_decrypt( SESSION           *sess,
       return CKR_BUFFER_TOO_SMALL;
    }
 
-   return ckm_aes_ecb_decrypt( in_data,  in_data_len,
-                               out_data, out_data_len,
-                               key_value, attr->ulValueLen );
+   return ckm_aes_ecb_decrypt(in_data, in_data_len,
+                               out_data, out_data_len, key);
 }
 
 
@@ -442,8 +410,6 @@ aes_cbc_encrypt( SESSION           *sess,
                  CK_ULONG          *out_data_len)
 {
    OBJECT       *key       = NULL;
-   CK_ATTRIBUTE *attr      = NULL;
-   CK_BYTE       key_value[MAX_AES_KEY_SIZE];
    CK_RV         rc;
 
    if (!sess || !ctx || !out_data_len){
@@ -464,18 +430,6 @@ aes_cbc_encrypt( SESSION           *sess,
       return rc;
    }
 
-   rc = template_attribute_find(key->template, CKA_IBM_OPAQUE, &attr);
-   if (rc == FALSE) {
-      rc = template_attribute_find( key->template, CKA_VALUE, &attr );
-      if (rc == FALSE){
-         OCK_LOG_ERR(ERR_FUNCTION_FAILED);
-         return CKR_FUNCTION_FAILED;
-      }
-   }
-   
-   memset(key_value, 0, sizeof(key_value));
-   memcpy( key_value, attr->pValue, attr->ulValueLen );
-
    if (length_only == TRUE) {
       *out_data_len = in_data_len;
       return CKR_OK;
@@ -487,10 +441,8 @@ aes_cbc_encrypt( SESSION           *sess,
       return CKR_BUFFER_TOO_SMALL;
    }
 
-   return ckm_aes_cbc_encrypt( in_data,  in_data_len,
-                               out_data, out_data_len,
-                               ctx->mech.pParameter,
-                               key_value, attr->ulValueLen );
+   return ckm_aes_cbc_encrypt(in_data, in_data_len, out_data, out_data_len,
+				ctx->mech.pParameter, key);
 }
 
 //
@@ -505,8 +457,6 @@ aes_cbc_decrypt( SESSION            *sess,
                  CK_ULONG           *out_data_len)
 {
    OBJECT       *key       = NULL;
-   CK_ATTRIBUTE *attr      = NULL;
-   CK_BYTE       key_value[MAX_AES_KEY_SIZE];
    CK_RV         rc;
 
 
@@ -527,18 +477,6 @@ aes_cbc_decrypt( SESSION            *sess,
       return rc;
    }
 
-   rc = template_attribute_find(key->template, CKA_IBM_OPAQUE, &attr);
-   if (rc == FALSE) {
-      rc = template_attribute_find( key->template, CKA_VALUE, &attr );
-      if (rc == FALSE){
-         OCK_LOG_ERR(ERR_FUNCTION_FAILED);
-         return CKR_FUNCTION_FAILED;
-      }
-   }
-   
-   memset(key_value, 0, sizeof(key_value));
-   memcpy( key_value, attr->pValue, attr->ulValueLen );
-
    if (length_only == TRUE) {
       *out_data_len = in_data_len;
       return CKR_OK;
@@ -550,10 +488,8 @@ aes_cbc_decrypt( SESSION            *sess,
       return CKR_BUFFER_TOO_SMALL;
    }
 
-   return ckm_aes_cbc_decrypt( in_data,  in_data_len,
-                                out_data, out_data_len,
-                                ctx->mech.pParameter,
-                                key_value, attr->ulValueLen );
+   return ckm_aes_cbc_decrypt(in_data, in_data_len, out_data, out_data_len,
+                                ctx->mech.pParameter, key);
 }
 
 
@@ -569,9 +505,7 @@ aes_cbc_pad_encrypt( SESSION           *sess,
                      CK_ULONG          *out_data_len)
 {
    OBJECT       *key       = NULL;
-   CK_ATTRIBUTE *attr      = NULL;
    CK_BYTE      *clear     = NULL;
-   CK_BYTE       key_value[MAX_AES_KEY_SIZE];
    CK_ULONG      padded_len;
    CK_RV         rc;
 
@@ -587,19 +521,6 @@ aes_cbc_pad_encrypt( SESSION           *sess,
       OCK_LOG_ERR(ERR_OBJMGR_FIND_MAP);
       return rc;
    }
-
-   rc = template_attribute_find(key->template, CKA_IBM_OPAQUE, &attr);
-   if (rc == FALSE) {
-      rc = template_attribute_find( key->template, CKA_VALUE, &attr );
-      if (rc == FALSE){
-         OCK_LOG_ERR(ERR_FUNCTION_FAILED);
-         return CKR_FUNCTION_FAILED;
-      }
-   }
-   
-   memset(key_value, 0, sizeof(key_value));
-   memcpy( key_value, attr->pValue, attr->ulValueLen );
-
 
    // compute the output length, accounting for padding
    //
@@ -628,10 +549,8 @@ aes_cbc_pad_encrypt( SESSION           *sess,
                      in_data_len,
                      padded_len );
 
-   rc = ckm_aes_cbc_encrypt( clear,    padded_len,
-                             out_data, out_data_len,
-                             ctx->mech.pParameter,
-                             key_value, attr->ulValueLen );
+   rc = ckm_aes_cbc_encrypt(clear, padded_len, out_data, out_data_len,
+                             ctx->mech.pParameter, key);
 
    if (rc != CKR_OK)
       OCK_LOG_ERR(ERR_AES_CBC_ENCRYPT);
@@ -653,9 +572,7 @@ aes_cbc_pad_decrypt( SESSION            *sess,
                      CK_ULONG           *out_data_len)
 {
    OBJECT       *key       = NULL;
-   CK_ATTRIBUTE *attr      = NULL;
    CK_BYTE      *clear     = NULL;
-   CK_BYTE       key_value[MAX_AES_KEY_SIZE];
    CK_ULONG      padded_len;
    CK_RV         rc;
 
@@ -673,18 +590,6 @@ aes_cbc_pad_decrypt( SESSION            *sess,
       OCK_LOG_ERR(ERR_OBJMGR_FIND_MAP);
       return rc;
    }
-
-   rc = template_attribute_find(key->template, CKA_IBM_OPAQUE, &attr);
-   if (rc == FALSE) {
-      rc = template_attribute_find( key->template, CKA_VALUE, &attr );
-      if (rc == FALSE){
-         OCK_LOG_ERR(ERR_FUNCTION_FAILED);
-         return CKR_FUNCTION_FAILED;
-      }
-   }
-   
-   memset(key_value, 0, sizeof(key_value));
-   memcpy( key_value, attr->pValue, attr->ulValueLen );
 
    // we're decrypting so even with CBC-PAD, we should have an integral
    // number of block to decrypt
@@ -708,10 +613,8 @@ aes_cbc_pad_decrypt( SESSION            *sess,
       OCK_LOG_ERR(ERR_HOST_MEMORY);
       return CKR_HOST_MEMORY;
    }
-   rc = ckm_aes_cbc_decrypt( in_data, in_data_len,
-                             clear,   &padded_len,
-                             ctx->mech.pParameter,
-                             key_value, attr->ulValueLen );
+   rc = ckm_aes_cbc_decrypt(in_data, in_data_len, clear, &padded_len,
+                             ctx->mech.pParameter, key);
 
    if (rc == CKR_OK) {
       strip_pkcs_padding( clear, padded_len, out_data_len );
@@ -735,8 +638,6 @@ aes_ctr_encrypt( SESSION           *sess,
                  CK_ULONG 	   *out_data_len )
 {
    OBJECT *key = NULL;
-   CK_ATTRIBUTE *attr = NULL;
-   CK_BYTE key_value[MAX_AES_KEY_SIZE];
    CK_RV rc;
    CK_AES_CTR_PARAMS *aesctr = NULL;
 
@@ -753,17 +654,6 @@ aes_ctr_encrypt( SESSION           *sess,
       OCK_LOG_ERR(ERR_OBJMGR_FIND_MAP);
       return rc;
    }
-
-   rc = template_attribute_find(key->template, CKA_IBM_OPAQUE, &attr);
-   if (rc == FALSE) {
-      rc = template_attribute_find( key->template, CKA_VALUE, &attr );
-      if (rc == FALSE){
-         OCK_LOG_ERR(ERR_FUNCTION_FAILED);
-         return CKR_FUNCTION_FAILED;
-      }
-   }
-   memset(key_value, 0, sizeof(key_value));
-   memcpy( key_value, attr->pValue, attr->ulValueLen );
 
    if (length_only == TRUE) {
       *out_data_len = in_data_len;
@@ -778,11 +668,11 @@ aes_ctr_encrypt( SESSION           *sess,
 
    aesctr = (CK_AES_CTR_PARAMS *)ctx->mech.pParameter;
 
-   return ckm_aes_ctr_encrypt( in_data,   in_data_len,
-                               out_data,  out_data_len,
-                               (CK_BYTE *)aesctr->cb, (CK_ULONG)aesctr->ulCounterBits,
-                               key_value, attr->ulValueLen );
+   return ckm_aes_ctr_encrypt(in_data, in_data_len, out_data, out_data_len,
+                              (CK_BYTE *)aesctr->cb,
+			      (CK_ULONG)aesctr->ulCounterBits, key);
 }
+
 //
 //
 CK_RV
@@ -795,8 +685,6 @@ aes_ctr_decrypt( SESSION           *sess,
                  CK_ULONG 	   *out_data_len )
 {
    OBJECT *key = NULL;
-   CK_ATTRIBUTE *attr = NULL;
-   CK_BYTE key_value[MAX_AES_KEY_SIZE];
    CK_RV rc;
    CK_AES_CTR_PARAMS *aesctr = NULL;
 
@@ -814,17 +702,6 @@ aes_ctr_decrypt( SESSION           *sess,
       return rc;
    }
 
-   rc = template_attribute_find(key->template, CKA_IBM_OPAQUE, &attr);
-   if (rc == FALSE) {
-      rc = template_attribute_find( key->template, CKA_VALUE, &attr );
-      if (rc == FALSE){
-         OCK_LOG_ERR(ERR_FUNCTION_FAILED);
-         return CKR_FUNCTION_FAILED;
-      }
-   }
-   memset(key_value, 0, sizeof(key_value));
-   memcpy( key_value, attr->pValue, attr->ulValueLen );
-
    if (length_only == TRUE) {
       *out_data_len = in_data_len;
        return CKR_OK;
@@ -838,11 +715,11 @@ aes_ctr_decrypt( SESSION           *sess,
 
    aesctr = (CK_AES_CTR_PARAMS *)ctx->mech.pParameter;
 
-   return ckm_aes_ctr_decrypt( in_data,   in_data_len,
-                               out_data,  out_data_len,
-                               (CK_BYTE *)aesctr->cb, (CK_ULONG)aesctr->ulCounterBits,
-                               key_value, attr->ulValueLen );
+   return ckm_aes_ctr_decrypt(in_data, in_data_len, out_data, out_data_len,
+                              (CK_BYTE *)aesctr->cb,
+			      (CK_ULONG)aesctr->ulCounterBits, key);
 }
+
 //
 //
 CK_RV
@@ -855,10 +732,8 @@ aes_ecb_encrypt_update( SESSION           *sess,
                         CK_ULONG          *out_data_len )
 {
    AES_CONTEXT  * context   = NULL;
-   CK_ATTRIBUTE * attr      = NULL;
    OBJECT       * key       = NULL;
    CK_BYTE      * clear     = NULL;
-   CK_BYTE        key_value[MAX_AES_KEY_SIZE];
    CK_ULONG       total, remain, out_len;
    CK_RV          rc;
 
@@ -895,17 +770,6 @@ aes_ecb_encrypt_update( SESSION           *sess,
          return rc;
       }
 
-      rc = template_attribute_find(key->template, CKA_IBM_OPAQUE, &attr);
-      if (rc == FALSE) {
-         rc = template_attribute_find( key->template, CKA_VALUE, &attr );
-         if (rc == FALSE){
-            OCK_LOG_ERR(ERR_FUNCTION_FAILED);
-            return CKR_FUNCTION_FAILED;
-         }
-      }
-      memset(key_value, 0, sizeof(key_value));
-      memcpy( key_value, attr->pValue, attr->ulValueLen );
-
       clear = (CK_BYTE *)malloc( out_len );
       if (!clear){
          OCK_LOG_ERR(ERR_HOST_MEMORY);
@@ -916,8 +780,7 @@ aes_ecb_encrypt_update( SESSION           *sess,
       memcpy( clear,                context->data, context->len );
       memcpy( clear + context->len, in_data,       out_len - context->len );
 
-      rc = ckm_aes_ecb_encrypt( clear, out_len, out_data, 
-				out_data_len, key_value, attr->ulValueLen );
+      rc = ckm_aes_ecb_encrypt(clear, out_len, out_data, out_data_len, key);
       if (rc == CKR_OK) {
          *out_data_len = out_len;
 
@@ -951,10 +814,8 @@ aes_ecb_decrypt_update( SESSION           *sess,
                         CK_ULONG          *out_data_len )
 {
    AES_CONTEXT  * context   = NULL;
-   CK_ATTRIBUTE * attr      = NULL;
    OBJECT       * key       = NULL;
    CK_BYTE      * cipher    = NULL;
-   CK_BYTE        key_value[MAX_AES_KEY_SIZE];
    CK_ULONG       total, remain, out_len;
    CK_RV          rc;
 
@@ -992,17 +853,6 @@ aes_ecb_decrypt_update( SESSION           *sess,
          return rc;
       }
 
-      rc = template_attribute_find(key->template, CKA_IBM_OPAQUE, &attr);
-      if (rc == FALSE) {
-         rc = template_attribute_find( key->template, CKA_VALUE, &attr );
-         if (rc == FALSE){
-            OCK_LOG_ERR(ERR_FUNCTION_FAILED);
-            return CKR_FUNCTION_FAILED;
-         }
-      }
-      memset(key_value, 0, sizeof(key_value));
-      memcpy( key_value, attr->pValue, attr->ulValueLen );
-
       cipher = (CK_BYTE *)malloc( out_len );
       if (!cipher){
          OCK_LOG_ERR(ERR_HOST_MEMORY);
@@ -1013,8 +863,7 @@ aes_ecb_decrypt_update( SESSION           *sess,
       memcpy( cipher,                context->data, context->len );
       memcpy( cipher + context->len, in_data,       out_len - context->len );
 
-      rc = ckm_aes_ecb_decrypt( cipher, out_len, out_data, out_data_len,
-				key_value, attr->ulValueLen );
+      rc = ckm_aes_ecb_decrypt(cipher, out_len, out_data, out_data_len, key);
       if (rc == CKR_OK) {
          *out_data_len = out_len;
 
@@ -1048,10 +897,8 @@ aes_cbc_encrypt_update( SESSION           *sess,
                         CK_ULONG          *out_data_len )
 {
    AES_CONTEXT  * context   = NULL;
-   CK_ATTRIBUTE * attr      =  NULL;
    OBJECT       * key       = NULL;
    CK_BYTE      * clear     = NULL;
-   CK_BYTE        key_value[MAX_AES_KEY_SIZE];
    CK_ULONG       total, remain, out_len;
    CK_RV          rc;
 
@@ -1090,17 +937,6 @@ aes_cbc_encrypt_update( SESSION           *sess,
          return rc;
       }
 
-      rc = template_attribute_find(key->template, CKA_IBM_OPAQUE, &attr);
-      if (rc == FALSE) {
-         rc = template_attribute_find( key->template, CKA_VALUE, &attr );
-         if (rc == FALSE){
-            OCK_LOG_ERR(ERR_FUNCTION_FAILED);
-            return CKR_FUNCTION_FAILED;
-         }
-      }
-      memset(key_value, 0, sizeof(key_value));
-      memcpy( key_value, attr->pValue, attr->ulValueLen );
-
       // these buffers need to be longword aligned
       //
       clear  = (CK_BYTE *)malloc( out_len );
@@ -1113,10 +949,8 @@ aes_cbc_encrypt_update( SESSION           *sess,
       memcpy( clear,                context->data, context->len );
       memcpy( clear + context->len, in_data,       out_len - context->len );
 
-      rc = ckm_aes_cbc_encrypt( clear,    out_len,
-                                out_data, out_data_len,
-                                ctx->mech.pParameter,
-                                key_value, attr->ulValueLen );
+      rc = ckm_aes_cbc_encrypt(clear, out_len, out_data, out_data_len,
+                                ctx->mech.pParameter, key);
 
       if (rc == CKR_OK) {
          *out_data_len = out_len;
@@ -1156,10 +990,8 @@ aes_cbc_decrypt_update( SESSION           *sess,
                         CK_ULONG          *out_data_len )
 {
    AES_CONTEXT  * context   = NULL;
-   CK_ATTRIBUTE * attr      = NULL;
    OBJECT       * key       = NULL;
    CK_BYTE      * cipher    = NULL;
-   CK_BYTE        key_value[MAX_AES_KEY_SIZE];
    CK_ULONG       total, remain, out_len;
    CK_RV          rc;
 
@@ -1198,17 +1030,6 @@ aes_cbc_decrypt_update( SESSION           *sess,
          return rc;
       }
 
-      rc = template_attribute_find(key->template, CKA_IBM_OPAQUE, &attr);
-      if (rc == FALSE) {
-         rc = template_attribute_find( key->template, CKA_VALUE, &attr );
-         if (rc == FALSE){
-            OCK_LOG_ERR(ERR_FUNCTION_FAILED);
-            return CKR_FUNCTION_FAILED;
-         }
-      }
-      memset(key_value, 0, sizeof(key_value));
-      memcpy( key_value, attr->pValue, attr->ulValueLen );
-
       // these buffers need to be longword aligned
       //
       cipher = (CK_BYTE *)malloc( out_len );
@@ -1221,10 +1042,8 @@ aes_cbc_decrypt_update( SESSION           *sess,
       memcpy( cipher,                context->data, context->len );
       memcpy( cipher + context->len, in_data,       out_len - context->len );
 
-      rc = ckm_aes_cbc_decrypt( cipher,    out_len,
-                                out_data,  out_data_len,
-                                ctx->mech.pParameter,
-                                key_value, attr->ulValueLen );
+      rc = ckm_aes_cbc_decrypt(cipher, out_len, out_data, out_data_len,
+                                ctx->mech.pParameter, key);
 
       if (rc == CKR_OK) {
          *out_data_len = out_len;
@@ -1265,10 +1084,8 @@ aes_cbc_pad_encrypt_update( SESSION           *sess,
                             CK_ULONG          *out_data_len )
 {
    AES_CONTEXT  * context   = NULL;
-   CK_ATTRIBUTE * attr      = NULL;
    OBJECT       * key       = NULL;
    CK_BYTE      * clear     = NULL;
-   CK_BYTE        key_value[MAX_AES_KEY_SIZE];
    CK_ULONG       total, remain, out_len;
    CK_RV          rc;
 
@@ -1316,17 +1133,6 @@ aes_cbc_pad_encrypt_update( SESSION           *sess,
          return rc;
       }
 
-      rc = template_attribute_find(key->template, CKA_IBM_OPAQUE, &attr);
-      if (rc == FALSE) {
-         rc = template_attribute_find( key->template, CKA_VALUE, &attr );
-         if (rc == FALSE){
-            OCK_LOG_ERR(ERR_FUNCTION_FAILED);
-            return CKR_FUNCTION_FAILED;
-         }
-      }
-      memset(key_value, 0, sizeof(key_value));
-      memcpy( key_value, attr->pValue, attr->ulValueLen );
-
       // these buffers need to be longword aligned
       //
       clear = (CK_BYTE *)malloc( out_len );
@@ -1342,10 +1148,8 @@ aes_cbc_pad_encrypt_update( SESSION           *sess,
       //
       // we don't do padding during the update
       //
-      rc = ckm_aes_cbc_encrypt( clear,    out_len,
-                                out_data, out_data_len,
-                                ctx->mech.pParameter,
-                                key_value, attr->ulValueLen );
+      rc = ckm_aes_cbc_encrypt(clear, out_len, out_data, out_data_len,
+                                ctx->mech.pParameter, key);
 
       if (rc == CKR_OK) {
          // the new init_v is the last encrypted data block
@@ -1377,10 +1181,8 @@ aes_cbc_pad_decrypt_update( SESSION           *sess,
                             CK_ULONG          *out_data_len )
 {
    AES_CONTEXT  * context   = NULL;
-   CK_ATTRIBUTE * attr      = NULL;
    OBJECT       * key       = NULL;
    CK_BYTE      * cipher    = NULL;
-   CK_BYTE        key_value[MAX_AES_KEY_SIZE];
    CK_ULONG       total, remain, out_len;
    CK_RV          rc;
 
@@ -1430,17 +1232,6 @@ aes_cbc_pad_decrypt_update( SESSION           *sess,
          return rc;
       }
 
-      rc = template_attribute_find(key->template, CKA_IBM_OPAQUE, &attr);
-      if (rc == FALSE) {
-         rc = template_attribute_find( key->template, CKA_VALUE, &attr );
-         if (rc == FALSE){
-            OCK_LOG_ERR(ERR_FUNCTION_FAILED);
-            return CKR_FUNCTION_FAILED;
-         }
-      }
-      memset(key_value, 0, sizeof(key_value));
-      memcpy( key_value, attr->pValue, attr->ulValueLen );
-
       // these buffers need to be longword aligned
       //
       cipher = (CK_BYTE *)malloc( out_len );
@@ -1453,10 +1244,8 @@ aes_cbc_pad_decrypt_update( SESSION           *sess,
       memcpy( cipher,                context->data, context->len );
       memcpy( cipher + context->len, in_data,       out_len - context->len );
 
-      rc = ckm_aes_cbc_decrypt( cipher,   out_len,
-                                out_data, out_data_len,
-                                ctx->mech.pParameter,
-                                key_value, attr->ulValueLen );
+      rc = ckm_aes_cbc_decrypt(cipher, out_len, out_data, out_data_len,
+                                ctx->mech.pParameter, key);
 
       if (rc == CKR_OK) {
          // the new init_v is the last input data block
@@ -1489,10 +1278,8 @@ aes_ctr_encrypt_update( SESSION                *sess,
 			CK_ULONG 		*out_data_len )
 {
    AES_CONTEXT  * context   = NULL;
-   CK_ATTRIBUTE * attr      = NULL;
    OBJECT       * key       = NULL;
    CK_BYTE      * clear     = NULL;
-   CK_BYTE        key_value[MAX_AES_KEY_SIZE];
    CK_ULONG       total, remain, out_len;
    CK_RV          rc;
    CK_AES_CTR_PARAMS *aesctr = NULL;
@@ -1526,15 +1313,6 @@ aes_ctr_encrypt_update( SESSION                *sess,
 	return rc;
      }
 
-     rc = template_attribute_find(key->template, CKA_IBM_OPAQUE, &attr);
-     if (rc == FALSE) {
-        rc = template_attribute_find( key->template, CKA_VALUE, &attr );
-        if (rc == FALSE){
-           OCK_LOG_ERR(ERR_FUNCTION_FAILED);
-           return CKR_FUNCTION_FAILED;
-        }
-     }
-     memcpy ( key_value, attr->pValue, attr->ulValueLen);
      //these buffers need to be longword aligned
      clear = (CK_BYTE*) malloc (out_len);
      if (!clear){
@@ -1545,10 +1323,9 @@ aes_ctr_encrypt_update( SESSION                *sess,
      memcpy ( clear,		     context->data, context->len);
      memcpy ( clear+context->len, in_data, out_len - context->len);
      aesctr = (CK_AES_CTR_PARAMS *)ctx->mech.pParameter;
-     rc = ckm_aes_ctr_encrypt( clear,    out_len,
-                               out_data, out_data_len,
-                               (CK_BYTE *)aesctr->cb,(CK_ULONG)aesctr->ulCounterBits,
-                               key_value, attr->ulValueLen );
+     rc = ckm_aes_ctr_encrypt(clear, out_len, out_data, out_data_len,
+                               (CK_BYTE *)aesctr->cb,
+			       (CK_ULONG)aesctr->ulCounterBits, key);
      if (rc == CKR_OK){
 	*out_data_len = out_len;
 	// copy the remaining 'new' input data to the context buffer
@@ -1576,10 +1353,8 @@ aes_ctr_decrypt_update( SESSION                 *sess,
                         CK_ULONG 		*out_data_len )
 {
    AES_CONTEXT  * context   = NULL;
-   CK_ATTRIBUTE * attr      = NULL;
    OBJECT       * key       = NULL;
    CK_BYTE      * clear     = NULL;
-   CK_BYTE        key_value[MAX_AES_KEY_SIZE];
    CK_ULONG       total, remain, out_len;
    CK_RV          rc;
    CK_AES_CTR_PARAMS *aesctr = NULL;
@@ -1610,16 +1385,7 @@ aes_ctr_decrypt_update( SESSION                 *sess,
        OCK_LOG_ERR(ERR_OBJMGR_FIND_MAP);
        return rc;
      }
-     rc = template_attribute_find(key->template, CKA_IBM_OPAQUE, &attr);
-     if (rc == FALSE) {
-        rc = template_attribute_find( key->template, CKA_VALUE, &attr );
-        if (rc == FALSE){
-           OCK_LOG_ERR(ERR_FUNCTION_FAILED);
-           return CKR_FUNCTION_FAILED;
-        }
-     }
-     memset(key_value, 0, sizeof(key_value));
-     memcpy ( key_value, attr->pValue, attr->ulValueLen);
+
      //these buffers need to be longword aligned
      clear = (CK_BYTE*) malloc (out_len);
      if (!clear){
@@ -1630,10 +1396,9 @@ aes_ctr_decrypt_update( SESSION                 *sess,
      memcpy ( clear,		     context->data, context->len);
      memcpy ( clear+context->len, in_data, out_len - context->len);
      aesctr = (CK_AES_CTR_PARAMS *)ctx->mech.pParameter;
-     rc = ckm_aes_ctr_decrypt( clear,    out_len,
-                               out_data, out_data_len,
-                               (CK_BYTE *)aesctr->cb, (CK_ULONG)aesctr->ulCounterBits,
-                               key_value, attr->ulValueLen );
+     rc = ckm_aes_ctr_decrypt(clear, out_len, out_data, out_data_len,
+                              (CK_BYTE *)aesctr->cb,
+			      (CK_ULONG)aesctr->ulCounterBits, key);
      if (rc == CKR_OK){
 	*out_data_len = out_len;
 	// copy the remaining 'new' input data to the context buffer
@@ -1797,9 +1562,7 @@ aes_cbc_pad_encrypt_final( SESSION           *sess,
 {
    AES_CONTEXT    *context   = NULL;
    OBJECT         *key       = NULL;
-   CK_ATTRIBUTE   *attr      = NULL;
    CK_BYTE         clear[2*AES_BLOCK_SIZE];
-   CK_BYTE         key_value[MAX_AES_KEY_SIZE];
    CK_ULONG        out_len;
    CK_RV           rc;
 
@@ -1814,17 +1577,6 @@ aes_cbc_pad_encrypt_final( SESSION           *sess,
       OCK_LOG_ERR(ERR_OBJMGR_FIND_MAP);
       return rc;
    }
-
-   rc = template_attribute_find(key->template, CKA_IBM_OPAQUE, &attr);
-   if (rc == FALSE) {
-      rc = template_attribute_find( key->template, CKA_VALUE, &attr );
-      if (rc == FALSE){
-         OCK_LOG_ERR(ERR_FUNCTION_FAILED);
-         return CKR_FUNCTION_FAILED;
-      }
-   }
-   memset(key_value, 0, sizeof(key_value));
-   memcpy( key_value, attr->pValue, attr->ulValueLen );
 
    context = (AES_CONTEXT *)ctx->context;
 
@@ -1850,10 +1602,8 @@ aes_cbc_pad_encrypt_final( SESSION           *sess,
                         context->len,
                         out_len );
 
-      rc = ckm_aes_cbc_encrypt( clear,     out_len,
-                                out_data,  out_data_len,
-                                ctx->mech.pParameter,
-                                key_value, attr->ulValueLen );
+      rc = ckm_aes_cbc_encrypt(clear, out_len, out_data, out_data_len,
+                                ctx->mech.pParameter, key);
       if (rc != CKR_OK) 
          OCK_LOG_ERR(ERR_AES_CBC_ENCRYPT);
       
@@ -1873,9 +1623,7 @@ aes_cbc_pad_decrypt_final( SESSION           *sess,
 {
    AES_CONTEXT    *context   = NULL;
    OBJECT         *key       = NULL;
-   CK_ATTRIBUTE   *attr      = NULL;
    CK_BYTE         clear[AES_BLOCK_SIZE];
-   CK_BYTE         key_value[MAX_AES_KEY_SIZE];
    CK_ULONG        out_len;
    CK_RV           rc;
 
@@ -1888,16 +1636,6 @@ aes_cbc_pad_decrypt_final( SESSION           *sess,
       OCK_LOG_ERR(ERR_OBJMGR_FIND_MAP);
       return rc;
    }
-
-   rc = template_attribute_find(key->template, CKA_IBM_OPAQUE, &attr);
-   if (rc == FALSE) {
-      rc = template_attribute_find( key->template, CKA_VALUE, &attr );
-      if (rc == FALSE){
-         OCK_LOG_ERR(ERR_FUNCTION_FAILED);
-         return CKR_FUNCTION_FAILED;
-      }
-   }
-   memcpy( key_value, attr->pValue, attr->ulValueLen );
 
    context = (AES_CONTEXT *)ctx->context;
 
@@ -1918,10 +1656,8 @@ aes_cbc_pad_decrypt_final( SESSION           *sess,
       return CKR_OK;
    }
    else {
-      rc = ckm_aes_cbc_decrypt( context->data, AES_BLOCK_SIZE,
-                                 clear,        &out_len,
-                                 ctx->mech.pParameter,
-                                 key_value, attr->ulValueLen );
+      rc = ckm_aes_cbc_decrypt(context->data, AES_BLOCK_SIZE, clear, &out_len,
+                                 ctx->mech.pParameter, key);
 
       if (rc == CKR_OK) {
          strip_pkcs_padding( clear, out_len, &out_len );
@@ -1979,6 +1715,7 @@ aes_ctr_encrypt_final( SESSION           *sess,
    *out_data_len = 0;
    return CKR_OK;
 }
+
 //
 //
 CK_RV
@@ -2155,12 +1892,11 @@ ckm_aes_ecb_encrypt( CK_BYTE     * in_data,
                      CK_ULONG      in_data_len,
                      CK_BYTE     * out_data,
                      CK_ULONG    * out_data_len,
-                     CK_BYTE     * key_value,
-		     CK_ULONG      key_len )
+		     OBJECT	 * key )
 {
    CK_ULONG         rc;
 
-   if (!in_data || !out_data || !key_value){
+   if (!in_data || !out_data || !key){
       OCK_LOG_ERR(ERR_FUNCTION_FAILED);
       return CKR_FUNCTION_FAILED;
    }
@@ -2175,14 +1911,12 @@ ckm_aes_ecb_encrypt( CK_BYTE     * in_data,
    }
 
    rc = token_specific.t_aes_ecb(in_data,in_data_len,
-				 out_data,out_data_len,
-				 key_value,key_len,1);
+				 out_data,out_data_len, key, 1);
    
    if (rc != CKR_OK)
       OCK_LOG_ERR(ERR_AES_ECB_TOK_SPEC);
    return rc;
 }
-
 
 //
 //
@@ -2191,13 +1925,12 @@ ckm_aes_ecb_decrypt( CK_BYTE     * in_data,
                      CK_ULONG      in_data_len,
                      CK_BYTE     * out_data,
                      CK_ULONG    * out_data_len,
-                     CK_BYTE     * key_value,
-	             CK_ULONG      key_len )
+                     OBJECT      * key )
 {
    CK_ULONG         rc;
 
 
-   if (!in_data || !out_data || !key_value){
+   if (!in_data || !out_data || !key){
       OCK_LOG_ERR(ERR_FUNCTION_FAILED);
       return CKR_FUNCTION_FAILED;
    }
@@ -2212,8 +1945,7 @@ ckm_aes_ecb_decrypt( CK_BYTE     * in_data,
    }
 
    rc = token_specific.t_aes_ecb(in_data,in_data_len,
-		      		 out_data,out_data_len,
-				 key_value,key_len,0);
+		      		 out_data,out_data_len, key, 0);
    
    if (rc != CKR_OK)
       OCK_LOG_ERR(ERR_AES_ECB_TOK_SPEC);
@@ -2230,12 +1962,11 @@ ckm_aes_cbc_encrypt( CK_BYTE     * in_data,
                      CK_BYTE     * out_data,
                      CK_ULONG    * out_data_len,
                      CK_BYTE     * init_v,
-                     CK_BYTE     * key_value,
-	             CK_ULONG      key_len )
+                     OBJECT      * key )
 {
    CK_ULONG         rc;
 
-   if (!in_data || !out_data || !init_v || !key_value){
+   if (!in_data || !out_data || !init_v || !key){
       OCK_LOG_ERR(ERR_FUNCTION_FAILED);
       return CKR_FUNCTION_FAILED;
    }
@@ -2251,9 +1982,7 @@ ckm_aes_cbc_encrypt( CK_BYTE     * in_data,
    }
 
    rc = token_specific.t_aes_cbc(in_data, in_data_len,
-		      		 out_data,out_data_len,
-			       	 key_value,key_len,
-				 init_v,1);
+		      		 out_data,out_data_len, key, init_v, 1);
 
    if (rc != CKR_OK)
       OCK_LOG_ERR(ERR_AES_CBC_TOK_SPEC);
@@ -2269,12 +1998,11 @@ ckm_aes_cbc_decrypt( CK_BYTE     * in_data,
                      CK_BYTE     * out_data,
                      CK_ULONG    * out_data_len,
                      CK_BYTE     * init_v,
-                     CK_BYTE     * key_value,
-	             CK_ULONG      key_len )
+                     OBJECT      * key )
 {
    CK_ULONG         rc;
 
-   if (!in_data || !out_data || !init_v || !key_value){
+   if (!in_data || !out_data || !init_v || !key ){
       OCK_LOG_ERR(ERR_FUNCTION_FAILED);
       return CKR_FUNCTION_FAILED;
    }
@@ -2289,9 +2017,7 @@ ckm_aes_cbc_decrypt( CK_BYTE     * in_data,
    }
 
    rc = token_specific.t_aes_cbc(in_data, in_data_len,
-		      		 out_data, out_data_len,
-			       	 key_value,key_len,
-				 init_v,0);
+		      		 out_data, out_data_len, key, init_v,0);
    
    if (rc != CKR_OK)
       OCK_LOG_ERR(ERR_AES_CBC_TOK_SPEC);
@@ -2306,11 +2032,10 @@ ckm_aes_ctr_encrypt( CK_BYTE    *in_data,
                      CK_ULONG 	*out_data_len,
                      CK_BYTE    *counterblock,
                      CK_ULONG    counter_width,
-                     CK_BYTE  	*key_value,
-	             CK_ULONG 	 key_len)
+                     OBJECT  	*key )
 {
    CK_ULONG         rc;
-   if (!in_data || !out_data || !counterblock || !key_value){
+   if (!in_data || !out_data || !counterblock || !key){
       OCK_LOG_ERR(ERR_FUNCTION_FAILED);
       return CKR_FUNCTION_FAILED;
    }
@@ -2330,9 +2055,8 @@ ckm_aes_ctr_encrypt( CK_BYTE    *in_data,
    }
 
    rc = token_specific.t_aes_ctr(in_data, in_data_len,
-                                 out_data, out_data_len,
-                                 key_value, key_len,
-				 counterblock,counter_width,1);
+                                 out_data, out_data_len, key,
+				 counterblock, counter_width, 1);
    if (rc != CKR_OK)
       OCK_LOG_ERR(ERR_AES_CTR_TOK_SPEC);
    return rc;
@@ -2346,11 +2070,10 @@ ckm_aes_ctr_decrypt( CK_BYTE       *in_data,
                      CK_ULONG      *out_data_len,
                      CK_BYTE       *counterblock,
                      CK_ULONG       counter_width,
-		     CK_BYTE       *key_value,
-		     CK_ULONG       key_len)
+		     OBJECT        *key )
 {
    CK_ULONG         rc;
-   if (!in_data || !out_data || !counterblock || !key_value){
+   if (!in_data || !out_data || !counterblock || !key){
       OCK_LOG_ERR(ERR_FUNCTION_FAILED);
       return CKR_FUNCTION_FAILED;
    }
@@ -2370,9 +2093,8 @@ ckm_aes_ctr_decrypt( CK_BYTE       *in_data,
    }
 
    rc = token_specific.t_aes_ctr(in_data, in_data_len,
-                                 out_data,out_data_len,
-                                 key_value,key_len,
-				 counterblock,counter_width,0);
+                                 out_data,out_data_len, key, 
+				 counterblock, counter_width, 0);
    if (rc != CKR_OK)
       OCK_LOG_ERR(ERR_AES_CTR_TOK_SPEC);
    return rc;
@@ -2412,5 +2134,3 @@ ckm_aes_wrap_format( CK_BBOOL    length_only,
 
    return CKR_OK;
 }
-
-

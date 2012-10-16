@@ -414,7 +414,7 @@ token_specific_des_ecb(CK_BYTE * in_data,
                        CK_ULONG in_data_len,
                        CK_BYTE *out_data,
                        CK_ULONG *out_data_len,
-                       CK_BYTE  *key_value,
+                       OBJECT  *key,
                        CK_BYTE  encrypt)
 {
 	CK_ULONG       rc;
@@ -423,9 +423,16 @@ token_specific_des_ecb(CK_BYTE * in_data,
    	const_des_cblock key_val_SSL, in_key_data;
 	des_cblock out_key_data;
 	unsigned int i,j;
+	CK_ATTRIBUTE *attr = NULL;
+
+	// get the key value
+	if (template_attribute_find(key->template, CKA_VALUE, &attr) == FALSE) {
+		OCK_LOG_ERR(ERR_FUNCTION_FAILED);
+		return CKR_FUNCTION_FAILED;
+	}
 
   	// Create the key schedule
-	memcpy(&key_val_SSL, key_value, 8);
+	memcpy(&key_val_SSL, attr->pValue, 8);
 	des_set_key_unchecked(&key_val_SSL, des_key2);
 
 	// the des decrypt will only fail if the data length is not evenly divisible
@@ -465,19 +472,25 @@ token_specific_des_cbc(CK_BYTE * in_data,
                        CK_ULONG in_data_len,
                        CK_BYTE *out_data,
                        CK_ULONG *out_data_len,
-                       CK_BYTE  *key_value, 
+                       OBJECT   *key, 
                        CK_BYTE *init_v,
                        CK_BYTE  encrypt)
 {
 	CK_ULONG         rc;
+	CK_ATTRIBUTE *attr = NULL;
 	
 	des_cblock ivec;
 
 	des_key_schedule des_key2;
    	const_des_cblock key_val_SSL;
 
+	// get the key value
+	if (template_attribute_find(key->template, CKA_VALUE, &attr) == FALSE) {
+		OCK_LOG_ERR(ERR_FUNCTION_FAILED);
+		return CKR_FUNCTION_FAILED;
+	}
 	// Create the key schedule
-	memcpy(&key_val_SSL, key_value, 8);
+	memcpy(&key_val_SSL, attr->pValue, 8);
    	des_set_key_unchecked(&key_val_SSL, des_key2);
    
 	memcpy(&ivec, init_v, 8);
@@ -506,10 +519,13 @@ token_specific_tdes_ecb(CK_BYTE * in_data,
                        CK_ULONG in_data_len,
                        CK_BYTE *out_data,
                        CK_ULONG *out_data_len,
-                       CK_BYTE  *key_value,
+                       OBJECT   *key,
                        CK_BYTE  encrypt)
 {
 	CK_RV  rc;
+	CK_ATTRIBUTE *attr = NULL;
+	CK_BYTE key_value[3*DES_KEY_SIZE];
+	CK_KEY_TYPE keytype;
 
 	unsigned int k,j;
 	des_key_schedule des_key1;
@@ -519,6 +535,25 @@ token_specific_tdes_ecb(CK_BYTE * in_data,
    	const_des_cblock key_SSL1, key_SSL2, key_SSL3, in_key_data;
 	des_cblock out_key_data;
 
+	// get the key type
+	rc = template_attribute_find(key->template, CKA_KEY_TYPE, &attr);
+	if (rc == FALSE) {
+		OCK_LOG_ERR(ERR_FUNCTION_FAILED);
+		return CKR_FUNCTION_FAILED;
+	}
+	keytype = *(CK_KEY_TYPE *)attr->pValue;
+
+	// get the key value
+	if (template_attribute_find(key->template, CKA_VALUE, &attr) == FALSE) {
+		OCK_LOG_ERR(ERR_FUNCTION_FAILED);
+		return CKR_FUNCTION_FAILED;
+	}
+	if (keytype == CKK_DES2) {
+		memcpy(key_value, attr->pValue, 2*DES_KEY_SIZE);
+		memcpy(key_value + (2*DES_KEY_SIZE), attr->pValue, DES_KEY_SIZE);
+	} else
+		memcpy(key_value, attr->pValue, 3*DES_KEY_SIZE);
+	
 	// The key as passed is a 24 byte long string containing three des keys
 	// pick them apart and create the 3 corresponding key schedules
 	memcpy(&key_SSL1, key_value, 8);
@@ -571,18 +606,41 @@ token_specific_tdes_cbc(CK_BYTE * in_data,
                        CK_ULONG in_data_len,
                        CK_BYTE *out_data,
                        CK_ULONG *out_data_len,
-                       CK_BYTE  *key_value, 
+                       OBJECT   *key, 
                        CK_BYTE *init_v,
                        CK_BYTE  encrypt)
 {
 
+	CK_ATTRIBUTE *attr = NULL;
 	CK_RV rc = CKR_OK;
+	CK_BYTE key_value[3*DES_KEY_SIZE];
+	CK_KEY_TYPE keytype;
+
 	des_key_schedule des_key1;
 	des_key_schedule des_key2;
 	des_key_schedule des_key3;
 
    	const_des_cblock key_SSL1, key_SSL2, key_SSL3;
 	des_cblock ivec;
+
+	// get the key type
+	rc = template_attribute_find(key->template, CKA_KEY_TYPE, &attr);
+	if (rc == FALSE) {
+		OCK_LOG_ERR(ERR_FUNCTION_FAILED);
+		return CKR_FUNCTION_FAILED;
+	}
+	keytype = *(CK_KEY_TYPE *)attr->pValue;
+
+	// get the key value
+	if (template_attribute_find(key->template, CKA_VALUE, &attr) == FALSE) {
+		OCK_LOG_ERR(ERR_FUNCTION_FAILED);
+		return CKR_FUNCTION_FAILED;
+	}
+	if (keytype == CKK_DES2) {
+		memcpy(key_value, attr->pValue, 2*DES_KEY_SIZE);
+		memcpy(key_value + (2*DES_KEY_SIZE), attr->pValue, DES_KEY_SIZE);
+	} else
+		memcpy(key_value, attr->pValue, 3*DES_KEY_SIZE);
 
 	// The key as passed in is a 24 byte string containing 3 keys
 	// pick it apart and create the key schedules
@@ -1527,22 +1585,28 @@ token_specific_aes_ecb(	CK_BYTE 	*in_data,
 			CK_ULONG 	in_data_len,
 			CK_BYTE 	*out_data,
 			CK_ULONG	*out_data_len,
-			CK_BYTE		*key_value,
-			CK_ULONG	key_len,
+			OBJECT		*key,
 			CK_BYTE		encrypt)
 {
 	AES_KEY		ssl_aes_key;
 	unsigned int	i;
+	CK_ATTRIBUTE *attr = NULL;
 	/* There's a previous check that in_data_len % AES_BLOCK_SIZE == 0, 
 	 * so this is fine */
        	CK_ULONG	loops = (CK_ULONG)(in_data_len/AES_BLOCK_SIZE);
 
 	memset( &ssl_aes_key, 0, sizeof(AES_KEY));
 	
+	// get key value
+	if (template_attribute_find(key->template, CKA_VALUE, &attr) == FALSE) {
+		OCK_LOG_ERR(ERR_FUNCTION_FAILED);
+		return CKR_FUNCTION_FAILED;
+	}
+
 	// AES_ecb_encrypt encrypts only a single block, so we have to break up the
 	// input data here
         if (encrypt) {
-		AES_set_encrypt_key((unsigned char *)key_value, (key_len*8), &ssl_aes_key);
+		AES_set_encrypt_key((unsigned char *)attr->pValue, (attr->ulValueLen*8), &ssl_aes_key);
 		for( i=0; i<loops; i++ ) {
 			AES_ecb_encrypt((unsigned char *)in_data + (i*AES_BLOCK_SIZE),
 					(unsigned char *)out_data + (i*AES_BLOCK_SIZE),
@@ -1550,7 +1614,7 @@ token_specific_aes_ecb(	CK_BYTE 	*in_data,
 					AES_ENCRYPT);
 		}
         } else {
-		AES_set_decrypt_key((unsigned char *)key_value, (key_len*8), &ssl_aes_key);
+		AES_set_decrypt_key((unsigned char *)attr->pValue, (attr->ulValueLen*8), &ssl_aes_key);
 		for( i=0; i<loops; i++ ) {
 			AES_ecb_encrypt((unsigned char *)in_data + (i*AES_BLOCK_SIZE),
 					(unsigned char *)out_data + (i*AES_BLOCK_SIZE),
@@ -1567,24 +1631,31 @@ token_specific_aes_cbc(	CK_BYTE		*in_data,
 			CK_ULONG 	in_data_len,
 			CK_BYTE 	*out_data,
 			CK_ULONG	*out_data_len,
-			CK_BYTE		*key_value,
-			CK_ULONG	key_len,
+			OBJECT		*key,
 			CK_BYTE		*init_v,
 			CK_BYTE		encrypt)
 {
 	AES_KEY		ssl_aes_key;
+	CK_ATTRIBUTE *attr = NULL;
+
 
 	memset( &ssl_aes_key, 0, sizeof(AES_KEY));
+
+	// get key value
+	if (template_attribute_find(key->template, CKA_VALUE, &attr) == FALSE) {
+		OCK_LOG_ERR(ERR_FUNCTION_FAILED);
+		return CKR_FUNCTION_FAILED;
+	}
 
 	// AES_cbc_encrypt chunks the data into AES_BLOCK_SIZE blocks, unlike
 	// AES_ecb_encrypt, so no looping required.
 	if (encrypt) {
-		AES_set_encrypt_key((unsigned char *)key_value, (key_len*8), &ssl_aes_key);
+		AES_set_encrypt_key((unsigned char *)attr->pValue, (attr->ulValueLen*8), &ssl_aes_key);
 		AES_cbc_encrypt((unsigned char *)in_data, (unsigned char *)out_data,
 				in_data_len, 		  &ssl_aes_key,
 				init_v,			  AES_ENCRYPT);
 	} else {
-		AES_set_decrypt_key((unsigned char *)key_value, (key_len*8), &ssl_aes_key);
+		AES_set_decrypt_key((unsigned char *)attr->pValue, (attr->ulValueLen*8), &ssl_aes_key);
 		AES_cbc_encrypt((unsigned char *)in_data, (unsigned char *)out_data,
 				in_data_len,		  &ssl_aes_key,
 				init_v,			  AES_DECRYPT);

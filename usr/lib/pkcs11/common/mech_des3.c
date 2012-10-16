@@ -306,40 +306,6 @@
 
 //
 //
-
-CK_RV
-get_key_value(OBJECT *key, CK_BYTE *key_value)
-{
-   CK_ATTRIBUTE    *attr = NULL;
-   CK_RV           rc;
-
-   rc = template_attribute_find(key->template, CKA_IBM_OPAQUE, &attr);
-   if (rc != FALSE)
-      memcpy(key_value, attr->pValue, attr->ulValueLen);
-   else {
-      CK_KEY_TYPE     keytype;
-
-      rc = template_attribute_find(key->template, CKA_KEY_TYPE, &attr);
-      if (rc == FALSE) {
-         OCK_LOG_ERR(ERR_FUNCTION_FAILED);
-         return CKR_FUNCTION_FAILED;
-      }
-         keytype = *(CK_KEY_TYPE *)attr->pValue;
-
-      rc = template_attribute_find(key->template, CKA_VALUE, &attr);
-      if (rc == FALSE) {
-         OCK_LOG_ERR(ERR_FUNCTION_FAILED);
-         return CKR_FUNCTION_FAILED;
-      }
-      if (keytype == CKK_DES2) {
-         memcpy(key_value, attr->pValue, 2*DES_KEY_SIZE);
-         memcpy(key_value + (2*DES_KEY_SIZE), attr->pValue, DES_KEY_SIZE);
-      } else
-         memcpy(key_value, attr->pValue, 3*DES_KEY_SIZE);
-   }
-   return CKR_OK;
-}
-
 CK_RV
 des3_ecb_encrypt( SESSION           *sess,
                   CK_BBOOL           length_only,
@@ -350,7 +316,6 @@ des3_ecb_encrypt( SESSION           *sess,
                   CK_ULONG          *out_data_len )
 {
    OBJECT       *key       = NULL;
-   CK_BYTE       key_value[3*DES_KEY_SIZE];
    CK_RV         rc;
 
 
@@ -370,11 +335,6 @@ des3_ecb_encrypt( SESSION           *sess,
       OCK_LOG_ERR(ERR_OBJMGR_FIND_MAP);
       return rc;
    }
-   rc = get_key_value(key, key_value);
-   if (rc != CKR_OK) {
-      OCK_LOG_ERR(ERR_FUNCTION_FAILED);
-      return rc;
-   }
 
    if (length_only == TRUE) {
       *out_data_len = in_data_len;
@@ -387,9 +347,8 @@ des3_ecb_encrypt( SESSION           *sess,
       return CKR_BUFFER_TOO_SMALL;
    }
 
-   return ckm_des3_ecb_encrypt( in_data,   in_data_len,
-                                out_data,  out_data_len,
-                                key_value );
+   return ckm_des3_ecb_encrypt(in_data, in_data_len,
+			       out_data, out_data_len, key);
 }
 
 
@@ -405,7 +364,6 @@ des3_ecb_decrypt( SESSION           *sess,
                   CK_ULONG          *out_data_len)
 {
    OBJECT       *key       = NULL;
-   CK_BYTE       key_value[3*DES_KEY_SIZE];
    CK_RV         rc;
 
 
@@ -425,11 +383,6 @@ des3_ecb_decrypt( SESSION           *sess,
       OCK_LOG_ERR(ERR_OBJMGR_FIND_MAP);
       return rc; 
    }
-   rc = get_key_value(key, key_value);
-   if (rc != CKR_OK) {
-      OCK_LOG_ERR(ERR_FUNCTION_FAILED);
-      return rc;
-   }
 
    if (length_only == TRUE) {
       *out_data_len = in_data_len;
@@ -442,9 +395,8 @@ des3_ecb_decrypt( SESSION           *sess,
       return CKR_BUFFER_TOO_SMALL;
    }
 
-   return ckm_des3_ecb_decrypt( in_data,  in_data_len,
-                                out_data, out_data_len,
-                                key_value );
+   return ckm_des3_ecb_decrypt(in_data, in_data_len,
+                               out_data, out_data_len, key);
 }
 
 
@@ -460,7 +412,6 @@ des3_cbc_encrypt( SESSION           *sess,
                   CK_ULONG          *out_data_len)
 {
    OBJECT       *key       = NULL;
-   CK_BYTE       key_value[MAX_DES_KEY_SIZE];
    CK_RV         rc;
 
    if (!sess || !ctx || !out_data_len){
@@ -480,11 +431,6 @@ des3_cbc_encrypt( SESSION           *sess,
       OCK_LOG_ERR(ERR_OBJMGR_FIND_MAP);
       return rc;
    }
-   rc = get_key_value(key, key_value);
-   if (rc != CKR_OK) {
-      OCK_LOG_ERR(ERR_FUNCTION_FAILED);
-      return rc;
-   }
 
    if (length_only == TRUE) {
       *out_data_len = in_data_len;
@@ -497,10 +443,8 @@ des3_cbc_encrypt( SESSION           *sess,
       return CKR_BUFFER_TOO_SMALL;
    }
 
-   return ckm_des3_cbc_encrypt( in_data,  in_data_len,
-                                out_data, out_data_len,
-                                ctx->mech.pParameter,
-                                key_value );
+   return ckm_des3_cbc_encrypt(in_data, in_data_len, out_data, out_data_len,
+                                ctx->mech.pParameter, key);
 }
 
 //
@@ -515,7 +459,6 @@ des3_cbc_decrypt( SESSION            *sess,
                   CK_ULONG           *out_data_len)
 {
    OBJECT       *key       = NULL;
-   CK_BYTE       key_value[MAX_DES_KEY_SIZE];
    CK_RV         rc;
 
 
@@ -535,11 +478,6 @@ des3_cbc_decrypt( SESSION            *sess,
       OCK_LOG_ERR(ERR_OBJMGR_FIND_MAP);
       return rc;
    }
-   rc = get_key_value(key, key_value);
-   if (rc != CKR_OK) {
-      OCK_LOG_ERR(ERR_FUNCTION_FAILED);
-      return rc;
-   }
 
    if (length_only == TRUE) {
       *out_data_len = in_data_len;
@@ -552,10 +490,8 @@ des3_cbc_decrypt( SESSION            *sess,
       return CKR_BUFFER_TOO_SMALL;
    }
 
-   return ckm_des3_cbc_decrypt( in_data,  in_data_len,
-                                out_data, out_data_len,
-                                ctx->mech.pParameter,
-                                key_value );
+   return ckm_des3_cbc_decrypt(in_data, in_data_len, out_data, out_data_len,
+                                ctx->mech.pParameter, key);
 }
 
 
@@ -572,7 +508,6 @@ des3_cbc_pad_encrypt( SESSION           *sess,
 {
    OBJECT       *key       = NULL;
    CK_BYTE      *clear     = NULL;
-   CK_BYTE       key_value[MAX_DES_KEY_SIZE];
    CK_ULONG      padded_len;
    CK_RV         rc;
 
@@ -586,11 +521,6 @@ des3_cbc_pad_encrypt( SESSION           *sess,
    rc = object_mgr_find_in_map1( ctx->key, &key );
    if (rc != CKR_OK){
       OCK_LOG_ERR(ERR_OBJMGR_FIND_MAP);
-      return rc;
-   }
-   rc = get_key_value(key, key_value);
-   if (rc != CKR_OK) {
-      OCK_LOG_ERR(ERR_FUNCTION_FAILED);
       return rc;
    }
 
@@ -621,10 +551,8 @@ des3_cbc_pad_encrypt( SESSION           *sess,
                      in_data_len,
                      padded_len );
 
-   rc = ckm_des3_cbc_encrypt( clear,    padded_len,
-                              out_data, out_data_len,
-                              ctx->mech.pParameter,
-                              key_value );
+   rc = ckm_des3_cbc_encrypt(clear, padded_len, out_data, out_data_len,
+                              ctx->mech.pParameter, key);
 
    if (rc != CKR_OK)
       OCK_LOG_ERR(ERR_DES3_CBC_ENCRYPT);
@@ -647,7 +575,6 @@ des3_cbc_pad_decrypt( SESSION            *sess,
 {
    OBJECT       *key       = NULL;
    CK_BYTE      *clear     = NULL;
-   CK_BYTE       key_value[MAX_DES_KEY_SIZE];
    CK_ULONG      padded_len;
    CK_RV         rc;
 
@@ -663,11 +590,6 @@ des3_cbc_pad_decrypt( SESSION            *sess,
    rc = object_mgr_find_in_map1( ctx->key, &key );
    if (rc != CKR_OK){
       OCK_LOG_ERR(ERR_OBJMGR_FIND_MAP);
-      return rc;
-   }
-   rc = get_key_value(key, key_value);
-   if (rc != CKR_OK) {
-      OCK_LOG_ERR(ERR_FUNCTION_FAILED);
       return rc;
    }
 
@@ -693,10 +615,8 @@ des3_cbc_pad_decrypt( SESSION            *sess,
       OCK_LOG_ERR(ERR_HOST_MEMORY);
       return CKR_HOST_MEMORY;
    }
-   rc = ckm_des3_cbc_decrypt( in_data, in_data_len,
-                              clear,   &padded_len,
-                              ctx->mech.pParameter,
-                              key_value );
+   rc = ckm_des3_cbc_decrypt(in_data, in_data_len, clear, &padded_len,
+                              ctx->mech.pParameter, key);
 
    if (rc == CKR_OK) {
       strip_pkcs_padding( clear, padded_len, out_data_len );
@@ -724,7 +644,6 @@ des3_ecb_encrypt_update( SESSION           *sess,
    DES_CONTEXT  * context   = NULL;
    OBJECT       * key       = NULL;
    CK_BYTE      * clear     = NULL;
-   CK_BYTE        key_value[MAX_DES_KEY_SIZE];
    CK_ULONG       total, remain, out_len;
    CK_RV          rc;
 
@@ -760,11 +679,6 @@ des3_ecb_encrypt_update( SESSION           *sess,
          OCK_LOG_ERR(ERR_OBJMGR_FIND_MAP);
          return rc;
       }
-      rc = get_key_value(key, key_value);
-      if (rc != CKR_OK) {
-         OCK_LOG_ERR(ERR_FUNCTION_FAILED);
-         return rc;
-      }
 
       clear = (CK_BYTE *)malloc( out_len );
       if (!clear){
@@ -776,8 +690,8 @@ des3_ecb_encrypt_update( SESSION           *sess,
       memcpy( clear,                context->data, context->len );
       memcpy( clear + context->len, in_data,       out_len - context->len );
 
-      rc = ckm_des3_ecb_encrypt( clear,    out_len,
-                                 out_data, out_data_len, key_value );
+      rc = ckm_des3_ecb_encrypt(clear, out_len,
+				out_data, out_data_len, key );
       if (rc == CKR_OK) {
          *out_data_len = out_len;
 
@@ -813,7 +727,6 @@ des3_ecb_decrypt_update( SESSION           *sess,
    DES_CONTEXT  * context   = NULL;
    OBJECT       * key       = NULL;
    CK_BYTE      * cipher    = NULL;
-   CK_BYTE        key_value[MAX_DES_KEY_SIZE];
    CK_ULONG       total, remain, out_len;
    CK_RV          rc;
 
@@ -850,11 +763,6 @@ des3_ecb_decrypt_update( SESSION           *sess,
          OCK_LOG_ERR(ERR_OBJMGR_FIND_MAP);
          return rc;
       }
-      rc = get_key_value(key, key_value);
-      if (rc != CKR_OK) {
-         OCK_LOG_ERR(ERR_FUNCTION_FAILED);
-         return rc;
-      }
 
       cipher = (CK_BYTE *)malloc( out_len );
       if (!cipher){
@@ -866,8 +774,7 @@ des3_ecb_decrypt_update( SESSION           *sess,
       memcpy( cipher,                context->data, context->len );
       memcpy( cipher + context->len, in_data,       out_len - context->len );
 
-      rc = ckm_des3_ecb_decrypt( cipher,    out_len,
-                                 out_data,  out_data_len, key_value );
+      rc = ckm_des3_ecb_decrypt(cipher, out_len, out_data, out_data_len, key);
       if (rc == CKR_OK) {
          *out_data_len = out_len;
 
@@ -903,7 +810,6 @@ des3_cbc_encrypt_update( SESSION           *sess,
    DES_CONTEXT  * context   = NULL;
    OBJECT       * key       = NULL;
    CK_BYTE      * clear     = NULL;
-   CK_BYTE        key_value[MAX_DES_KEY_SIZE];
    CK_ULONG       total, remain, out_len;
    CK_RV          rc;
 
@@ -941,11 +847,6 @@ des3_cbc_encrypt_update( SESSION           *sess,
          OCK_LOG_ERR(ERR_OBJMGR_FIND_MAP);
          return rc;
       }
-      rc = get_key_value(key, key_value);
-      if (rc != CKR_OK) {
-         OCK_LOG_ERR(ERR_FUNCTION_FAILED);
-         return rc;
-      }
 
       // these buffers need to be longword aligned
       //
@@ -959,10 +860,8 @@ des3_cbc_encrypt_update( SESSION           *sess,
       memcpy( clear,                context->data, context->len );
       memcpy( clear + context->len, in_data,       out_len - context->len );
 
-      rc = ckm_des3_cbc_encrypt( clear,    out_len,
-                                 out_data, out_data_len,
-                                 ctx->mech.pParameter,
-                                 key_value );
+      rc = ckm_des3_cbc_encrypt(clear, out_len, out_data, out_data_len,
+                                 ctx->mech.pParameter, key);
 
       if (rc == CKR_OK) {
          *out_data_len = out_len;
@@ -1004,7 +903,6 @@ des3_cbc_decrypt_update( SESSION           *sess,
    DES_CONTEXT  * context   = NULL;
    OBJECT       * key       = NULL;
    CK_BYTE      * cipher    = NULL;
-   CK_BYTE        key_value[MAX_DES_KEY_SIZE];
    CK_ULONG       total, remain, out_len;
    CK_RV          rc;
 
@@ -1042,11 +940,6 @@ des3_cbc_decrypt_update( SESSION           *sess,
          OCK_LOG_ERR(ERR_OBJMGR_FIND_MAP);
          return rc;
       }
-      rc = get_key_value(key, key_value);
-      if (rc != CKR_OK) {
-         OCK_LOG_ERR(ERR_FUNCTION_FAILED);
-         return rc;
-      }
 
       // these buffers need to be longword aligned
       //
@@ -1060,10 +953,8 @@ des3_cbc_decrypt_update( SESSION           *sess,
       memcpy( cipher,                context->data, context->len );
       memcpy( cipher + context->len, in_data,       out_len - context->len );
 
-      rc = ckm_des3_cbc_decrypt( cipher,    out_len,
-                                 out_data,  out_data_len,
-                                 ctx->mech.pParameter,
-                                 key_value );
+      rc = ckm_des3_cbc_decrypt(cipher, out_len, out_data, out_data_len,
+                                 ctx->mech.pParameter, key);
 
       if (rc == CKR_OK) {
          *out_data_len = out_len;
@@ -1106,7 +997,6 @@ des3_cbc_pad_encrypt_update( SESSION           *sess,
    DES_CONTEXT  * context   = NULL;
    OBJECT       * key       = NULL;
    CK_BYTE      * clear     = NULL;
-   CK_BYTE        key_value[MAX_DES_KEY_SIZE];
    CK_ULONG       total, remain, out_len;
    CK_RV          rc;
 
@@ -1153,11 +1043,6 @@ des3_cbc_pad_encrypt_update( SESSION           *sess,
          OCK_LOG_ERR(ERR_OBJMGR_FIND_MAP);
          return rc;
       }
-      rc = get_key_value(key, key_value);
-      if (rc != CKR_OK) {
-         OCK_LOG_ERR(ERR_FUNCTION_FAILED);
-         return rc;
-      }
 
       // these buffers need to be longword aligned
       //
@@ -1174,10 +1059,8 @@ des3_cbc_pad_encrypt_update( SESSION           *sess,
       //
       // we don't do padding during the update
       //
-      rc = ckm_des3_cbc_encrypt( clear,    out_len,
-                                 out_data, out_data_len,
-                                 ctx->mech.pParameter,
-                                 key_value );
+      rc = ckm_des3_cbc_encrypt(clear, out_len, out_data, out_data_len,
+                                 ctx->mech.pParameter, key);
 
       if (rc == CKR_OK) {
          // the new init_v is the last encrypted data block
@@ -1211,7 +1094,6 @@ des3_cbc_pad_decrypt_update( SESSION           *sess,
    DES_CONTEXT  * context   = NULL;
    OBJECT       * key       = NULL;
    CK_BYTE      * cipher    = NULL;
-   CK_BYTE        key_value[MAX_DES_KEY_SIZE];
    CK_ULONG       total, remain, out_len;
    CK_RV          rc;
 
@@ -1260,11 +1142,6 @@ des3_cbc_pad_decrypt_update( SESSION           *sess,
          OCK_LOG_ERR(ERR_OBJMGR_FIND_MAP);
          return rc;
       }
-      rc = get_key_value(key, key_value);
-      if (rc != CKR_OK) {
-         OCK_LOG_ERR(ERR_FUNCTION_FAILED);
-         return rc;
-      }
 
       // these buffers need to be longword aligned
       //
@@ -1278,10 +1155,8 @@ des3_cbc_pad_decrypt_update( SESSION           *sess,
       memcpy( cipher,                context->data, context->len );
       memcpy( cipher + context->len, in_data,       out_len - context->len );
 
-      rc = ckm_des3_cbc_decrypt( cipher,   out_len,
-                                 out_data, out_data_len,
-                                 ctx->mech.pParameter,
-                                 key_value );
+      rc = ckm_des3_cbc_decrypt(cipher, out_len, out_data, out_data_len,
+                                 ctx->mech.pParameter, key);
 
       if (rc == CKR_OK) {
          // the new init_v is the last input data block
@@ -1456,7 +1331,6 @@ des3_cbc_pad_encrypt_final( SESSION           *sess,
    DES_CONTEXT    *context   = NULL;
    OBJECT         *key       = NULL;
    CK_BYTE         clear[2*DES_BLOCK_SIZE];
-   CK_BYTE         key_value[MAX_DES_KEY_SIZE];
    CK_ULONG        out_len;
    CK_RV           rc;
 
@@ -1469,11 +1343,6 @@ des3_cbc_pad_encrypt_final( SESSION           *sess,
    rc = object_mgr_find_in_map1( ctx->key, &key );
    if (rc != CKR_OK){
       OCK_LOG_ERR(ERR_OBJMGR_FIND_MAP);
-      return rc;
-   }
-   rc = get_key_value(key, key_value);
-   if (rc != CKR_OK) {
-      OCK_LOG_ERR(ERR_FUNCTION_FAILED);
       return rc;
    }
 
@@ -1501,10 +1370,8 @@ des3_cbc_pad_encrypt_final( SESSION           *sess,
                         context->len,
                         out_len );
 
-      rc = ckm_des3_cbc_encrypt( clear,     out_len,
-                                 out_data,  out_data_len,
-                                 ctx->mech.pParameter,
-                                 key_value );
+      rc = ckm_des3_cbc_encrypt(clear, out_len, out_data, out_data_len,
+                                 ctx->mech.pParameter, key);
       if (rc != CKR_OK) 
          OCK_LOG_ERR(ERR_DES3_CBC_ENCRYPT);
       
@@ -1525,7 +1392,6 @@ des3_cbc_pad_decrypt_final( SESSION           *sess,
    DES_CONTEXT    *context   = NULL;
    OBJECT         *key       = NULL;
    CK_BYTE         clear[DES_BLOCK_SIZE];
-   CK_BYTE         key_value[MAX_DES_KEY_SIZE];
    CK_ULONG        out_len;
    CK_RV           rc;
 
@@ -1536,11 +1402,6 @@ des3_cbc_pad_decrypt_final( SESSION           *sess,
    rc = object_mgr_find_in_map1( ctx->key, &key );
    if (rc != CKR_OK){
       OCK_LOG_ERR(ERR_OBJMGR_FIND_MAP);
-      return rc;
-   }
-   rc = get_key_value(key, key_value);
-   if (rc != CKR_OK) {
-      OCK_LOG_ERR(ERR_FUNCTION_FAILED);
       return rc;
    }
 
@@ -1563,10 +1424,8 @@ des3_cbc_pad_decrypt_final( SESSION           *sess,
       return CKR_OK;
    }
    else {
-      rc = ckm_des3_cbc_decrypt( context->data, DES_BLOCK_SIZE,
-                                 clear,        &out_len,
-                                 ctx->mech.pParameter,
-                                 key_value );
+      rc = ckm_des3_cbc_decrypt(context->data, DES_BLOCK_SIZE, clear, &out_len,
+                                 ctx->mech.pParameter, key);
 
       if (rc == CKR_OK) {
          strip_pkcs_padding( clear, out_len, &out_len );
@@ -1701,12 +1560,12 @@ ckm_des3_ecb_encrypt( CK_BYTE     * in_data,
                       CK_ULONG      in_data_len,
                       CK_BYTE     * out_data,
                       CK_ULONG    * out_data_len,
-                      CK_BYTE     * key_value )
+                      OBJECT      * key )
 {
    CK_ULONG         rc;
 
 
-   if (!in_data || !out_data || !key_value){
+   if (!in_data || !out_data || !key){
       OCK_LOG_ERR(ERR_FUNCTION_FAILED);
       return CKR_FUNCTION_FAILED;
    }
@@ -1718,8 +1577,8 @@ ckm_des3_ecb_encrypt( CK_BYTE     * in_data,
       OCK_LOG_ERR(ERR_MECHANISM_INVALID);
       return CKR_MECHANISM_INVALID;
    }
-   rc = token_specific.t_tdes_ecb(in_data,in_data_len,out_data, out_data_len,
-         key_value, 1);
+   rc = token_specific.t_tdes_ecb(in_data, in_data_len,
+				  out_data, out_data_len, key, 1);
 
    
    if (rc != CKR_OK)
@@ -1735,12 +1594,12 @@ ckm_des3_ecb_decrypt( CK_BYTE     * in_data,
                       CK_ULONG      in_data_len,
                       CK_BYTE     * out_data,
                       CK_ULONG    * out_data_len,
-                      CK_BYTE     * key_value )
+                      OBJECT      * key )
 {
    CK_ULONG         rc;
 
 
-   if (!in_data || !out_data || !key_value){
+   if (!in_data || !out_data || !key){
       OCK_LOG_ERR(ERR_FUNCTION_FAILED);
       return CKR_FUNCTION_FAILED;
    }
@@ -1753,8 +1612,8 @@ ckm_des3_ecb_decrypt( CK_BYTE     * in_data,
       OCK_LOG_ERR(ERR_MECHANISM_INVALID);
       return CKR_MECHANISM_INVALID;
    }
-   rc = token_specific.t_tdes_ecb(in_data,in_data_len,out_data, out_data_len,
-         key_value, 0);
+   rc = token_specific.t_tdes_ecb(in_data, in_data_len,
+				  out_data, out_data_len, key, 0);
    
    if (rc != CKR_OK)
       OCK_LOG_ERR(ERR_DES3_ECB_TOK_SPEC);
@@ -1771,12 +1630,12 @@ ckm_des3_cbc_encrypt( CK_BYTE     * in_data,
                       CK_BYTE     * out_data,
                       CK_ULONG    * out_data_len,
                       CK_BYTE     * init_v,
-                      CK_BYTE     * key_value )
+                      OBJECT      * key )
 {
    CK_ULONG         rc;
 
 
-   if (!in_data || !out_data || !init_v || !key_value){
+   if (!in_data || !out_data || !init_v || !key){
       OCK_LOG_ERR(ERR_FUNCTION_FAILED);
       return CKR_FUNCTION_FAILED;
    }
@@ -1789,8 +1648,8 @@ ckm_des3_cbc_encrypt( CK_BYTE     * in_data,
       OCK_LOG_ERR(ERR_MECHANISM_INVALID);
       return CKR_MECHANISM_INVALID;
    }
-   rc = token_specific.t_tdes_cbc(in_data,in_data_len,out_data,out_data_len,
-         key_value,init_v,1);
+   rc = token_specific.t_tdes_cbc(in_data, in_data_len,
+				  out_data, out_data_len, key, init_v, 1);
 
    if (rc != CKR_OK)
       OCK_LOG_ERR(ERR_DES3_CBC_TOK_SPEC);
@@ -1806,12 +1665,12 @@ ckm_des3_cbc_decrypt( CK_BYTE     * in_data,
                       CK_BYTE     * out_data,
                       CK_ULONG    * out_data_len,
                       CK_BYTE     * init_v,
-                      CK_BYTE     * key_value )
+                      OBJECT      * key )
 {
    CK_ULONG         rc;
 
 
-   if (!in_data || !out_data || !init_v || !key_value){
+   if (!in_data || !out_data || !init_v || !key){
       OCK_LOG_ERR(ERR_FUNCTION_FAILED);
       return CKR_FUNCTION_FAILED;
    }
@@ -1823,8 +1682,8 @@ ckm_des3_cbc_decrypt( CK_BYTE     * in_data,
       OCK_LOG_ERR(ERR_MECHANISM_INVALID);
       return CKR_MECHANISM_INVALID;
    }
-   rc = token_specific.t_tdes_cbc(in_data,in_data_len,out_data,out_data_len,
-         key_value,init_v,0);
+   rc = token_specific.t_tdes_cbc(in_data, in_data_len,
+				  out_data, out_data_len, key, init_v, 0);
 
    if (rc != CKR_OK)
       OCK_LOG_ERR(ERR_DES3_CBC_TOK_SPEC);

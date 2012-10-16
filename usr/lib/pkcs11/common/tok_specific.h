@@ -331,14 +331,14 @@ CK_RV token_specific_des_ecb(CK_BYTE *,
                   CK_ULONG ,
                   CK_BYTE *,
                   CK_ULONG *,
-                  CK_BYTE  *,
+                  OBJECT  *,
                   CK_BYTE );
 
 CK_RV token_specific_des_cbc(CK_BYTE *,
                   CK_ULONG ,
                   CK_BYTE *,
                   CK_ULONG *,
-                  CK_BYTE  *,
+                  OBJECT  *,
                   CK_BYTE  *,
                   CK_BYTE );
 
@@ -346,14 +346,14 @@ CK_RV token_specific_tdes_ecb(CK_BYTE *,
                   CK_ULONG ,
                   CK_BYTE *,
                   CK_ULONG *,
-                  CK_BYTE  *,
+                  OBJECT  *,
                   CK_BYTE );
 
 CK_RV token_specific_tdes_cbc(CK_BYTE *,
                   CK_ULONG ,
                   CK_BYTE *,
                   CK_ULONG *,
-                  CK_BYTE  *,
+                  OBJECT  *,
                   CK_BYTE  *,
                   CK_BYTE );
 
@@ -520,8 +520,7 @@ token_specific_aes_ecb( CK_BYTE  *,
                         CK_ULONG  ,
                         CK_BYTE  *,
                         CK_ULONG *,
-                        CK_BYTE  *,
-                        CK_ULONG  ,
+                        OBJECT  *,
                         CK_BYTE     );
 
 CK_RV
@@ -529,8 +528,7 @@ token_specific_aes_cbc( CK_BYTE  *,
                         CK_ULONG  ,
                         CK_BYTE  *,
                         CK_ULONG *,
-                        CK_BYTE  *,
-                        CK_ULONG  ,
+                        OBJECT  *,
                         CK_BYTE  *,
                         CK_BYTE     );
 
@@ -539,8 +537,7 @@ token_specific_aes_ctr( CK_BYTE  *,
                         CK_ULONG  ,
                         CK_BYTE  *,
                         CK_ULONG *,
-                        CK_BYTE *,
-                        CK_ULONG ,
+                        OBJECT *,
                         CK_BYTE  *,
 			CK_ULONG  ,
                         CK_BYTE     );

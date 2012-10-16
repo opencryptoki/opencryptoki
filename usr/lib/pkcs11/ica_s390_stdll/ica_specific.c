@@ -441,10 +441,11 @@ token_specific_des_ecb(CK_BYTE * in_data,
                        CK_ULONG in_data_len,
                        CK_BYTE *out_data,
                        CK_ULONG *out_data_len,
-                       CK_BYTE  *key_value,
+                       OBJECT   *key,
                        CK_BYTE  encrypt)
 {
    CK_RV rc;
+   CK_ATTRIBUTE *attr = NULL;
 
    /*
     * checks for input and output data length and block sizes
@@ -452,12 +453,17 @@ token_specific_des_ecb(CK_BYTE * in_data,
     * so we skip those
     */
 
+   if (template_attribute_find(key->template, CKA_VALUE, &attr) == FALSE) {
+      OCK_LOG_ERR(ERR_FUNCTION_FAILED);
+      return CKR_FUNCTION_FAILED;
+   }
+
    if ( encrypt) {
       rc = ica_des_encrypt(MODE_DES_ECB, (unsigned int) in_data_len, in_data,
-                           NULL, (ica_des_key_single_t *) key_value, out_data);
+                           NULL, (ica_des_key_single_t *)attr->pValue, out_data);
    } else {
       rc = ica_des_decrypt(MODE_DES_ECB, (unsigned int) in_data_len, in_data,
-                           NULL, (ica_des_key_single_t *) key_value, out_data);
+                           NULL, (ica_des_key_single_t *)attr->pValue, out_data);
    }
 
    if (rc != 0) {
@@ -478,12 +484,13 @@ token_specific_des_cbc(CK_BYTE * in_data,
                        CK_ULONG in_data_len,
                        CK_BYTE *out_data,
                        CK_ULONG *out_data_len,
-                       CK_BYTE  *key_value, 
+                       OBJECT   *key, 
                        CK_BYTE *init_v,
                        CK_BYTE  encrypt)
 {
 
    CK_RV rc;
+   CK_ATTRIBUTE *attr = NULL;
 
    /*
     * checks for input and output data length and block sizes
@@ -491,14 +498,20 @@ token_specific_des_cbc(CK_BYTE * in_data,
     * so we skip those
     */
 
+  // get the key value
+  if (template_attribute_find(key->template, CKA_VALUE, &attr) == FALSE) {
+      OCK_LOG_ERR(ERR_FUNCTION_FAILED);
+      return CKR_FUNCTION_FAILED;
+   }
+
    if ( encrypt ){
       rc = ica_des_encrypt(MODE_DES_CBC, (unsigned int) in_data_len, in_data,
-                           (ica_des_vector_t *) init_v, (ica_des_key_single_t *) key_value,
-                           out_data);
+                           (ica_des_vector_t *) init_v,
+			   (ica_des_key_single_t *) attr->pValue, out_data);
    } else {
       rc = ica_des_decrypt(MODE_DES_CBC, (unsigned int) in_data_len, in_data,
-                           (ica_des_vector_t *) init_v, (ica_des_key_single_t *) key_value,
-                           out_data);
+                           (ica_des_vector_t *) init_v,
+			   (ica_des_key_single_t *) attr->pValue, out_data);
    }
    if (rc != 0) {
          OCK_LOG_ERR(ERR_FUNCTION_FAILED);
@@ -516,10 +529,13 @@ token_specific_tdes_ecb(CK_BYTE * in_data,
                        CK_ULONG in_data_len,
                        CK_BYTE *out_data,
                        CK_ULONG *out_data_len,
-                       CK_BYTE  *key_value,
+                       OBJECT  *key,
                        CK_BYTE  encrypt)
 {
    CK_RV rc;
+   CK_ATTRIBUTE *attr = NULL;
+   CK_KEY_TYPE	keytype;
+   CK_BYTE key_value[3*DES_KEY_SIZE];
 
    /*
     * checks for input and output data length and block sizes
@@ -527,12 +543,33 @@ token_specific_tdes_ecb(CK_BYTE * in_data,
     * so we skip those
     */
 
+   // get the key type
+   rc = template_attribute_find(key->template, CKA_KEY_TYPE, &attr);
+   if (rc == FALSE) {
+      OCK_LOG_ERR(ERR_FUNCTION_FAILED);
+      return CKR_FUNCTION_FAILED;
+   }
+      keytype = *(CK_KEY_TYPE *)attr->pValue;
+
+   // get the key value
+   if (template_attribute_find(key->template, CKA_VALUE, &attr) == FALSE) {
+      OCK_LOG_ERR(ERR_FUNCTION_FAILED);
+      return CKR_FUNCTION_FAILED;
+   }
+   if (keytype == CKK_DES2) {
+      memcpy(key_value, attr->pValue, 2*DES_KEY_SIZE);
+      memcpy(key_value + (2*DES_KEY_SIZE), attr->pValue, DES_KEY_SIZE);
+   } else
+      memcpy(key_value, attr->pValue, 3*DES_KEY_SIZE);
+
    if ( encrypt) {
       rc = ica_3des_encrypt(MODE_DES_ECB, (unsigned int) in_data_len, in_data,
-                            NULL, (ica_des_key_triple_t *) key_value, out_data);
+                            NULL, (ica_des_key_triple_t *) key_value,
+			    out_data);
    } else {
       rc = ica_3des_decrypt(MODE_DES_ECB, (unsigned int) in_data_len, in_data,
-                            NULL, (ica_des_key_triple_t *) key_value, out_data);
+                            NULL, (ica_des_key_triple_t *) key_value,
+			    out_data);
    }
 
    if (rc != 0) {
@@ -553,12 +590,15 @@ token_specific_tdes_cbc(CK_BYTE * in_data,
                        CK_ULONG in_data_len,
                        CK_BYTE *out_data,
                        CK_ULONG *out_data_len,
-                       CK_BYTE  *key_value, 
+                       OBJECT  *key, 
                        CK_BYTE *init_v,
                        CK_BYTE  encrypt)
 {
 
    CK_RV rc;
+   CK_ATTRIBUTE *attr = NULL;
+   CK_KEY_TYPE	keytype;
+   CK_BYTE key_value[3*DES_KEY_SIZE];
 
    /*
     * checks for input and output data length and block sizes
@@ -566,14 +606,32 @@ token_specific_tdes_cbc(CK_BYTE * in_data,
     * so we skip those
     */
 
+   // get the key type
+   rc = template_attribute_find(key->template, CKA_KEY_TYPE, &attr);
+   if (rc == FALSE) {
+      OCK_LOG_ERR(ERR_FUNCTION_FAILED);
+      return CKR_FUNCTION_FAILED;
+   }
+      keytype = *(CK_KEY_TYPE *)attr->pValue;
+   // get the key value
+   if (template_attribute_find(key->template, CKA_VALUE, &attr) == FALSE) {
+       OCK_LOG_ERR(ERR_FUNCTION_FAILED);
+       return CKR_FUNCTION_FAILED;
+   }
+   if (keytype == CKK_DES2) {
+      memcpy(key_value, attr->pValue, 2*DES_KEY_SIZE);
+      memcpy(key_value + (2*DES_KEY_SIZE), attr->pValue, DES_KEY_SIZE);
+   } else
+      memcpy(key_value, attr->pValue, 3*DES_KEY_SIZE);
+
    if ( encrypt ){
    rc = ica_3des_encrypt(MODE_DES_CBC, (unsigned int) in_data_len, in_data,
-                         (ica_des_vector_t  *) init_v, (ica_des_key_triple_t *) key_value,
-                         out_data);
+                         (ica_des_vector_t  *) init_v, 
+			 (ica_des_key_triple_t *) key_value, out_data);
    } else {
    rc = ica_3des_decrypt(MODE_DES_CBC, (unsigned int) in_data_len, in_data,
-                         (ica_des_vector_t *) init_v, (ica_des_key_triple_t *) key_value,
-                         out_data);
+                         (ica_des_vector_t *) init_v,
+			 (ica_des_key_triple_t *) key_value, out_data);
    }
    if (rc != 0) {
          OCK_LOG_ERR(ERR_FUNCTION_FAILED);
@@ -2598,24 +2656,31 @@ token_specific_aes_key_gen(CK_BYTE *key, CK_ULONG len, CK_ULONG keysize)
 CK_RV
 token_specific_aes_ecb(CK_BYTE *in_data, CK_ULONG in_data_len,
 		       CK_BYTE *out_data, CK_ULONG *out_data_len,
-		       CK_BYTE *key_value, CK_ULONG key_len, CK_BYTE encrypt)
+		       OBJECT *key, CK_BYTE encrypt)
 {
 	int rc = CKR_OK;
+	CK_ATTRIBUTE *attr = NULL;
 
    /* 
     * checks for input and output data length and block sizes
     * are already being carried out in mech_aes.c
     * so we skip those
     */
+	// get the key value
+	rc = template_attribute_find(key->template, CKA_VALUE, &attr);
+	if (rc == FALSE) {
+		OCK_LOG_ERR(ERR_FUNCTION_FAILED);
+		return CKR_FUNCTION_FAILED;
+	}
 
         if (encrypt) {
         rc = ica_aes_encrypt(MODE_AES_ECB, (unsigned int) in_data_len,
-                             in_data, NULL, (unsigned  int) key_len,
-                             key_value, out_data);
+                             in_data, NULL, (unsigned  int) attr->ulValueLen,
+                             attr->pValue, out_data);
         } else {
         rc = ica_aes_decrypt(MODE_AES_ECB, (unsigned int) in_data_len,
-                             in_data, NULL, (unsigned int) key_len,
-                             key_value, out_data);
+                             in_data, NULL, (unsigned int) attr->ulValueLen,
+                             attr->pValue, out_data);
         }
 	if (rc != 0) {
         (*out_data_len) = 0;
@@ -2632,12 +2697,12 @@ token_specific_aes_cbc(CK_BYTE         *in_data,
 		       CK_ULONG        in_data_len,
 		       CK_BYTE         *out_data,
 		       CK_ULONG        *out_data_len,
-		       CK_BYTE         *key_value,
-		       CK_ULONG        key_len,
+		       OBJECT          *key,
 		       CK_BYTE         *init_v,
 		       CK_BYTE         encrypt)
 {
 	CK_RV rc;
+	CK_ATTRIBUTE *attr = NULL;
 
    /* 
     * checks for input and output data length and block sizes
@@ -2645,15 +2710,21 @@ token_specific_aes_cbc(CK_BYTE         *in_data,
     * so we skip those
     */
 
+	// get the key value
+	if (template_attribute_find(key->template, CKA_VALUE, &attr) == FALSE) {
+		OCK_LOG_ERR(ERR_FUNCTION_FAILED);
+		return CKR_FUNCTION_FAILED;
+	}
+
 	if (encrypt) {
         rc = ica_aes_encrypt(MODE_AES_CBC, (unsigned int) in_data_len,
                              in_data, (ica_aes_vector_t *) init_v,
-                             (unsigned int) key_len, key_value,
+                             (unsigned int) attr->ulValueLen, attr->pValue,
                              out_data);
 	} else {
         rc = ica_aes_decrypt(MODE_AES_CBC, (unsigned int) in_data_len,
                              in_data, (ica_aes_vector_t *) init_v,
-                             (unsigned int) key_len, key_value,
+                             (unsigned int) attr->ulValueLen, attr->pValue,
                              out_data);
 	}
 	if (rc != 0) {
@@ -2670,13 +2741,14 @@ token_specific_aes_ctr(CK_BYTE          *in_data,
 		       CK_ULONG		 in_data_len,
 		       CK_BYTE 		*out_data,
 		       CK_ULONG		*out_data_len,
-		       CK_BYTE		*key_value,
-		       CK_ULONG		 key_len,
+		       OBJECT		*key,
 		       CK_BYTE          *counterblock,
 		       CK_ULONG          counter_width,
 		       CK_BYTE 		 encrypt)
 {
    CK_RV rc;
+   CK_ATTRIBUTE *attr = NULL;
+
    /*
     * checks for input and output data length and block sizes
     * are already being carried out in mech_aes.c
@@ -2687,15 +2759,22 @@ token_specific_aes_ctr(CK_BYTE          *in_data,
    * 0 -- Decrypt
    * 1 -- Encrypt
    */
+
+   // get the key value
+   if (template_attribute_find(key->template, CKA_VALUE, &attr) == FALSE) {
+      OCK_LOG_ERR(ERR_FUNCTION_FAILED);
+      return CKR_FUNCTION_FAILED;
+   }
+
    if (encrypt){
       rc = ica_aes_ctr( in_data, out_data, (unsigned int) in_data_len,
-                        key_value, (unsigned int) key_len,
+                        attr->pValue, (unsigned int) attr->ulValueLen,
                         counterblock, (unsigned int ) counter_width,
 		        1);
    }
    else{
       rc = ica_aes_ctr( in_data, out_data, (unsigned int) in_data_len,
-                        key_value, (unsigned int) key_len,
+                        attr->pValue, (unsigned int) attr->ulValueLen,
                         counterblock, (unsigned int ) counter_width,
                         0);
    }

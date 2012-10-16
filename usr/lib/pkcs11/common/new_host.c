@@ -988,13 +988,6 @@ CK_RV SC_InitToken( CK_SLOT_ID   sid,
 		goto done;
 	}
 
-	rc = generate_master_key(master_key);
-	if (rc != CKR_OK) {
-		OCK_LOG_ERR(ERR_FUNCTION_FAILED);
-		rc = CKR_FUNCTION_FAILED;
-		goto done;
-	}
-
 	// Before we reconstruct all the data, we should delete the
 	// token objects from the filesystem.
 	object_mgr_destroy_token_objects();
@@ -1009,11 +1002,6 @@ CK_RV SC_InitToken( CK_SLOT_ID   sid,
 	rc = save_token_data();
 	if (rc != CKR_OK){
 		OCK_LOG_ERR(ERR_TOKEN_SAVE);
-		goto done;
-	}
-	rc = save_masterkey_so();
-	if (rc != CKR_OK){
-		OCK_LOG_ERR(ERR_MASTER_KEY_SAVE);
 		goto done;
 	}
 

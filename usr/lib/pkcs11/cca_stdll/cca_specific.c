@@ -288,7 +288,7 @@ token_specific_des_ecb(CK_BYTE  *in_data,
 		       CK_ULONG  in_data_len,
 		       CK_BYTE  *out_data,
 		       CK_ULONG *out_data_len,
-		       CK_BYTE  *key_value,
+		       OBJECT   *key,
 		       CK_BYTE   encrypt)
 {
 	DBG("Unsupported function reached.");
@@ -300,7 +300,7 @@ token_specific_des_cbc(CK_BYTE  *in_data,
 		       CK_ULONG  in_data_len,
 		       CK_BYTE  *out_data,
 		       CK_ULONG *out_data_len,
-		       CK_BYTE  *key_value,
+		       OBJECT   *key,
 		       CK_BYTE  *init_v,
 		       CK_BYTE   encrypt)
 {
@@ -310,8 +310,14 @@ token_specific_des_cbc(CK_BYTE  *in_data,
 	unsigned char chaining_vector[CCA_OCV_SIZE];
 	unsigned char rule_array[CCA_RULE_ARRAY_SIZE];
 	CK_BYTE *local_out = out_data;
+	CK_ATTRIBUTE *attr = NULL;
 
 	DBG("Enter");
+
+	if (template_attribute_find(key->template, CKA_IBM_OPAQUE, &attr) == FALSE) {
+		OCK_LOG_ERR(ERR_FUNCTION_FAILED);
+		return CKR_FUNCTION_FAILED;
+	}
 
 	/* We need to have 8 bytes more than the in data length in case CCA
 	 * adds some padding, although this extra 8 bytes may not be needed.
@@ -339,7 +345,7 @@ token_specific_des_cbc(CK_BYTE  *in_data,
 			&reason_code,
 			NULL,
 			NULL,
-			key_value, //id,
+			attr->pValue, //id,
 			&length,
 			in_data, //in,
 			init_v, //iv,
@@ -353,7 +359,7 @@ token_specific_des_cbc(CK_BYTE  *in_data,
 			&reason_code,
 			NULL,
 			NULL,
-			key_value, //id,
+			attr->pValue, //id,
 			&length,
 			in_data, //in,
 			init_v, //iv,
@@ -404,7 +410,7 @@ token_specific_tdes_ecb(CK_BYTE  *in_data,
 			CK_ULONG  in_data_len,
 			CK_BYTE  *out_data,
 			CK_ULONG *out_data_len,
-			CK_BYTE  *key_value,
+			OBJECT   *key,
 			CK_BYTE   encrypt)
 {
 	DBG("Unsupported function reached.");
@@ -416,7 +422,7 @@ token_specific_tdes_cbc(CK_BYTE  *in_data,
 			CK_ULONG  in_data_len,
 			CK_BYTE  *out_data,
 			CK_ULONG *out_data_len,
-			CK_BYTE  *key_value,
+			OBJECT  *key,
 			CK_BYTE  *init_v,
 			CK_BYTE   encrypt)
 {
@@ -424,8 +430,7 @@ token_specific_tdes_cbc(CK_BYTE  *in_data,
 	/* Since keys are opaque objects in this token and there's only
 	 * one encipher command to CCA, we can just pass through */
 	return token_specific_des_cbc(in_data, in_data_len, out_data,
-				      out_data_len, key_value, init_v,
-				      encrypt);
+				      out_data_len, key, init_v, encrypt);
 }
 
 uint16_t
@@ -1004,8 +1009,7 @@ token_specific_aes_ecb(CK_BYTE  *in_data,
 		       CK_ULONG  in_data_len,
 		       CK_BYTE	*out_data,
 		       CK_ULONG	*out_data_len,
-		       CK_BYTE	*key_value,
-		       CK_ULONG	 key_len,
+		       OBJECT	*key,
 		       CK_BYTE	 encrypt)
 {
 	
@@ -1016,6 +1020,13 @@ token_specific_aes_ecb(CK_BYTE  *in_data,
 	long opt_data_len = 0, key_params_len =0, exit_data_len = 0, IV_len = 0, chain_vector_len = 0;
 	char exit_data[0];
 	CK_BYTE *local_out = out_data;
+	CK_ATTRIBUTE *attr = NULL;
+	CK_ULONG key_len;
+
+	if (template_attribute_find(key->template, CKA_IBM_OPAQUE, &attr) == FALSE) {
+		OCK_LOG_ERR(ERR_FUNCTION_FAILED);
+		return CKR_FUNCTION_FAILED;
+	}
 
 	key_len = 64;	
 	rule_array_count = 4;
@@ -1030,7 +1041,7 @@ token_specific_aes_ecb(CK_BYTE  *in_data,
 			&rule_array_count,
 			rule_array,
 			&key_len,
-			key_value,
+			attr->pValue,
 			&key_params_len,
 			NULL,
 			&block_size,
@@ -1052,7 +1063,7 @@ token_specific_aes_ecb(CK_BYTE  *in_data,
 			&rule_array_count,
 			rule_array,
 			&key_len,
-			key_value,
+			attr->pValue,
 			&key_params_len,
 			NULL,
 			&block_size,
@@ -1075,7 +1086,7 @@ token_specific_aes_ecb(CK_BYTE  *in_data,
 			CCADBG("CSNBSAD (AES DECRYPT)", return_code, reason_code);
 #ifdef DEBUG
 		{
-			uint32_t *i = (uint32_t *) key_value, j;
+			uint32_t *i = (uint32_t *) attr->pValue, j;
 			DBG("Bad key:");
 		//	for ( j = 0; j < 16; j++)
 		//		DBG("%.8x ", *i++);
@@ -1093,8 +1104,7 @@ token_specific_aes_cbc(CK_BYTE  *in_data,
 		       CK_ULONG	 in_data_len,
 		       CK_BYTE	*out_data,
 		       CK_ULONG	*out_data_len,
-		       CK_BYTE	*key_value,
-		       CK_ULONG	 key_len,
+		       OBJECT	*key,
 		       CK_BYTE	*init_v,
 		       CK_BYTE	 encrypt)
 {
@@ -1106,6 +1116,14 @@ token_specific_aes_cbc(CK_BYTE  *in_data,
 	long opt_data_len = 0, key_params_len =0, exit_data_len = 0, IV_len = 16, chain_vector_len = 32;
 	CK_BYTE *local_out = out_data;
 	char exit_data[0];
+	CK_ATTRIBUTE *attr = NULL;
+	CK_ULONG key_len;
+
+	// get the key value
+	if (template_attribute_find(key->template, CKA_IBM_OPAQUE, &attr) == FALSE) {
+		OCK_LOG_ERR(ERR_FUNCTION_FAILED);
+		return CKR_FUNCTION_FAILED;
+	}
 
 	if (in_data_len%16 == 0) {
 		rule_array_count = 3;
@@ -1135,7 +1153,7 @@ token_specific_aes_cbc(CK_BYTE  *in_data,
 			&rule_array_count,
 			rule_array,
 			&key_len,
-			key_value,
+			attr->pValue,
 			&key_params_len,
 			exit_data,
 			&block_size,
@@ -1157,7 +1175,7 @@ token_specific_aes_cbc(CK_BYTE  *in_data,
 			&rule_array_count,
 			rule_array,
 			&key_len,
-			key_value,
+			attr->pValue,
 			&key_params_len,
 			NULL,
 			&block_size,
@@ -1177,7 +1195,7 @@ token_specific_aes_cbc(CK_BYTE  *in_data,
 		CCADBG("CSNBENC (AES ENCRYPT)", return_code, reason_code);
 #ifdef DEBUG
 		{
-			uint32_t *i = (uint32_t *) key_value, j;
+			uint32_t *i = (uint32_t *) attr->pValue, j;
 			DBG("Bad key:");
 			//for ( j = 0; j < 16; j++)
 			//	DBG("%.8x ", *i++);

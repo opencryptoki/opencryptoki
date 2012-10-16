@@ -1213,19 +1213,19 @@ CK_RV  ckm_cdmf_key_gen( TEMPLATE *tmpl );
 
 CK_RV  ckm_des_ecb_encrypt( CK_BYTE *in_data,   CK_ULONG in_data_len,
                             CK_BYTE *out_data,  CK_ULONG *out_data_len,
-                            CK_BYTE *key_value );
+                            OBJECT  *key );
 CK_RV  ckm_des_ecb_decrypt( CK_BYTE *in_data,  CK_ULONG in_data_len,
                             CK_BYTE *out_data,  CK_ULONG *out_data_len,
-                            CK_BYTE *key_value );
+                            OBJECT  *key );
 
 CK_RV  ckm_des_cbc_encrypt( CK_BYTE *in_data,   CK_ULONG in_data_len,
                             CK_BYTE *out_data,  CK_ULONG *out_data_len,
                             CK_BYTE *init_v,
-                            CK_BYTE *key_value );
+                            OBJECT  *key );
 CK_RV  ckm_des_cbc_decrypt( CK_BYTE *in_data,   CK_ULONG in_data_len,
                             CK_BYTE *out_data,  CK_ULONG *out_data_len,
                             CK_BYTE *init_v,
-                            CK_BYTE *key_value );
+                            OBJECT  *key );
 
 CK_RV  ckm_des_wrap_format( CK_BBOOL length_only,
                             CK_BYTE  **data, CK_ULONG *data_len );
@@ -1314,17 +1314,17 @@ CK_RV  ckm_des3_key_gen( TEMPLATE *tmpl );
 
 CK_RV  ckm_des3_ecb_encrypt( CK_BYTE *in_data,   CK_ULONG    in_data_len,
                              CK_BYTE *out_data,  CK_ULONG   *out_data_len,
-                             CK_BYTE *key_value );
+                             OBJECT *key );
 CK_RV  ckm_des3_ecb_decrypt( CK_BYTE *in_data,   CK_ULONG    in_data_len,
                              CK_BYTE *out_data,  CK_ULONG   *out_data_len,
-                             CK_BYTE *key_value );
+                             OBJECT *key );
 
 CK_RV  ckm_des3_cbc_encrypt( CK_BYTE *in_data,   CK_ULONG    in_data_len,
                              CK_BYTE *out_data,  CK_ULONG   *out_data_len,
-                             CK_BYTE *init_v,    CK_BYTE    *key_value );
+                             CK_BYTE *init_v,    OBJECT     *key );
 CK_RV  ckm_des3_cbc_decrypt( CK_BYTE *in_data,   CK_ULONG    in_data_len,
                              CK_BYTE *out_data,  CK_ULONG   *out_data_len,
-                             CK_BYTE *init_v,    CK_BYTE    *key_value );
+                             CK_BYTE *init_v,    OBJECT     *key );
 
 
 // AES routines
@@ -1440,29 +1440,27 @@ CK_RV  ckm_aes_key_gen( TEMPLATE *tmpl );
 
 CK_RV  ckm_aes_ecb_encrypt( CK_BYTE *in_data,   CK_ULONG    in_data_len,
                             CK_BYTE *out_data,  CK_ULONG   *out_data_len,
-                            CK_BYTE *key_value, CK_ULONG    key_len );
+                            OBJECT  *key );
 CK_RV  ckm_aes_ecb_decrypt( CK_BYTE *in_data,   CK_ULONG    in_data_len,
                             CK_BYTE *out_data,  CK_ULONG   *out_data_len,
-                            CK_BYTE *key_value, CK_ULONG    key_len );
+                            OBJECT  *key );
 
 CK_RV  ckm_aes_cbc_encrypt( CK_BYTE  *in_data,   CK_ULONG    in_data_len,
                             CK_BYTE  *out_data,  CK_ULONG   *out_data_len,
-                            CK_BYTE  *init_v,    CK_BYTE    *key_value, 
-			    CK_ULONG  key_len );
+                            CK_BYTE  *init_v,    OBJECT     *key );
 CK_RV  ckm_aes_cbc_decrypt( CK_BYTE  *in_data,   CK_ULONG    in_data_len,
                             CK_BYTE  *out_data,  CK_ULONG   *out_data_len,
-                            CK_BYTE  *init_v,    CK_BYTE    *key_value,
-			    CK_ULONG  key_len );
+                            CK_BYTE  *init_v,    OBJECT     *key );
 
 CK_RV ckm_aes_ctr_encrypt( CK_BYTE *in_data,  CK_ULONG in_data_len,
 			   CK_BYTE *out_data, CK_ULONG *out_data_len,
                            CK_BYTE *counterblock,CK_ULONG counter_width,
-                           CK_BYTE *key_value, CK_ULONG key_len);
+                           OBJECT  *key );
 
 CK_RV ckm_aes_ctr_decrypt( CK_BYTE *in_data,  CK_ULONG in_data_len,
 			   CK_BYTE *out_data, CK_ULONG *out_data_len,
                            CK_BYTE *counterblock,CK_ULONG counter_width,
-                           CK_BYTE *key_value, CK_ULONG key_len);
+                           OBJECT  *key );
 
 
 CK_RV ckm_aes_wrap_format( CK_BBOOL    length_only,

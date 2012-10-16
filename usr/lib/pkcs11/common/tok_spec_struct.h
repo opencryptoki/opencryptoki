@@ -358,15 +358,15 @@ struct token_specific_struct {
 
 	CK_RV(*t_des_key_gen) (CK_BYTE *, CK_ULONG, CK_ULONG);
 	CK_RV(*t_des_ecb) (CK_BYTE *, CK_ULONG,
-			   CK_BYTE *, CK_ULONG *, CK_BYTE *, CK_BYTE);
+			   CK_BYTE *, CK_ULONG *, OBJECT *, CK_BYTE);
 	CK_RV(*t_des_cbc) (CK_BYTE *, CK_ULONG,
-			   CK_BYTE *, CK_ULONG *, CK_BYTE *, CK_BYTE *,
+			   CK_BYTE *, CK_ULONG *, OBJECT *, CK_BYTE *,
 			   CK_BYTE);
 
 	CK_RV(*t_tdes_ecb) (CK_BYTE *, CK_ULONG,
-			    CK_BYTE *, CK_ULONG *, CK_BYTE *, CK_BYTE);
+			    CK_BYTE *, CK_ULONG *, OBJECT *, CK_BYTE);
 	CK_RV(*t_tdes_cbc) (CK_BYTE *, CK_ULONG,
-			    CK_BYTE *, CK_ULONG *, CK_BYTE *, CK_BYTE *,
+			    CK_BYTE *, CK_ULONG *, OBJECT *, CK_BYTE *,
 			    CK_BYTE);
 
 	CK_RV(*t_rsa_decrypt) (CK_BYTE *,
@@ -445,19 +445,19 @@ struct token_specific_struct {
 	CK_RV(*t_aes_ecb) (CK_BYTE *,
 			   CK_ULONG,
 			   CK_BYTE *,
-			   CK_ULONG *, CK_BYTE *, CK_ULONG, CK_BYTE);
+			   CK_ULONG *, OBJECT *, CK_BYTE);
 
 	CK_RV(*t_aes_cbc) (CK_BYTE *,
 			   CK_ULONG,
 			   CK_BYTE *,
 			   CK_ULONG *,
-			   CK_BYTE *, CK_ULONG, CK_BYTE *, CK_BYTE);
+			   OBJECT *, CK_BYTE *, CK_BYTE);
 
 	CK_RV(*t_aes_ctr) (CK_BYTE *,
 			   CK_ULONG,
 			   CK_BYTE *,
 			   CK_ULONG *,
-			   CK_BYTE *, CK_ULONG, CK_BYTE *, CK_ULONG, CK_BYTE);
+			   OBJECT *, CK_BYTE *, CK_ULONG, CK_BYTE);
 
 	// Token Specific DSA functions
 	CK_RV(*t_dsa_generate_keypair) (TEMPLATE *, TEMPLATE *);

@@ -395,13 +395,40 @@ done:
 	return initial_vector;
 }
 
-static CK_RV encrypt_data(CK_BYTE *key, const CK_BYTE *iv,
+static CK_RV encrypt_data(CK_BYTE *key, CK_ULONG keylen, const CK_BYTE *iv,
 			  CK_BYTE *clear, CK_ULONG clear_len,
 			  CK_BYTE *cipher, CK_ULONG *p_cipher_len)
 {
 #ifndef  CLEARTEXT
 	CK_RV rc = CKR_OK;
 	CK_BYTE *initial_vector = NULL;
+	OBJECT *keyobj = NULL;
+	CK_KEY_TYPE     keyType;
+	CK_OBJECT_CLASS keyClass = CKO_SECRET_KEY;
+	CK_ATTRIBUTE key_tmpl[] =
+	{
+		{CKA_CLASS, &keyClass, sizeof(keyClass)},
+		{CKA_KEY_TYPE, &keyType, sizeof(keyType)},
+		{CKA_VALUE, key, keylen}
+	};
+
+	switch (token_specific.data_store.encryption_algorithm) {
+	case CKM_DES3_CBC:
+		keyType = CKK_DES3;
+		break;
+	case CKM_AES_CBC:
+		keyType = CKK_AES;
+		break;
+	default:
+		OCK_LOG_ERR(ERR_MECHANISM_INVALID);
+		return ERR_MECHANISM_INVALID;
+	}
+	rc = object_create_skel(key_tmpl, 3, MODE_CREATE, CKO_SECRET_KEY,
+				keyType, &keyobj);
+	if (rc != CKR_OK) {
+		OCK_LOG_ERR(ERR_OBJMGR_CREATE_SKEL);
+		return rc;
+	}
 
 	initial_vector = duplicate_initial_vector(iv);
 	if (initial_vector == NULL) {
@@ -413,13 +440,12 @@ static CK_RV encrypt_data(CK_BYTE *key, const CK_BYTE *iv,
 	case CKM_DES3_CBC:
 		rc = ckm_des3_cbc_encrypt(clear, clear_len,
 					  cipher, p_cipher_len,
-					  initial_vector, key);
+					  initial_vector, keyobj);
 		break;
 	case CKM_AES_CBC:
 		rc = ckm_aes_cbc_encrypt(clear, clear_len,
 		                         cipher, p_cipher_len,
-					 initial_vector, key,
-					 AES_KEY_SIZE_256);
+					 initial_vector, keyobj);
 		break;
 	default:
 		OCK_LOG_ERR(ERR_MECHANISM_INVALID);
@@ -437,7 +463,8 @@ static CK_RV encrypt_data(CK_BYTE *key, const CK_BYTE *iv,
 #endif
 }
 
-static CK_RV encrypt_data_with_clear_key(CK_BYTE *key, const CK_BYTE *iv,
+static CK_RV encrypt_data_with_clear_key(CK_BYTE *key, CK_ULONG keylen,
+					 const CK_BYTE *iv,
 					 CK_BYTE *clear, CK_ULONG clear_len,
 					 CK_BYTE *cipher, CK_ULONG *p_cipher_len)
 {
@@ -449,7 +476,7 @@ static CK_RV encrypt_data_with_clear_key(CK_BYTE *key, const CK_BYTE *iv,
 	 * clear key.
 	 */
 	if (token_specific.token_keysize == 0) {
-		return encrypt_data(key, iv, clear, clear_len,
+		return encrypt_data(key, keylen, iv, clear, clear_len,
 				    cipher, p_cipher_len);
 	}
 
@@ -482,13 +509,40 @@ static CK_RV encrypt_data_with_clear_key(CK_BYTE *key, const CK_BYTE *iv,
 #endif
 }
 
-static CK_RV decrypt_data(CK_BYTE *key, const CK_BYTE *iv,
+static CK_RV decrypt_data(CK_BYTE *key, CK_ULONG keylen, const CK_BYTE *iv,
 			  CK_BYTE *cipher, CK_ULONG cipher_len,
 			  CK_BYTE *clear, CK_ULONG *p_clear_len)
 {
 #ifndef  CLEARTEXT
 	CK_RV rc = CKR_OK;
 	CK_BYTE *initial_vector = NULL;
+	OBJECT *keyobj = NULL;
+	CK_KEY_TYPE     keyType;
+	CK_OBJECT_CLASS keyClass = CKO_SECRET_KEY;
+	CK_ATTRIBUTE key_tmpl[] =
+	{
+		{CKA_CLASS, &keyClass, sizeof(keyClass)},
+		{CKA_KEY_TYPE, &keyType, sizeof(keyType)},
+		{CKA_VALUE, key, keylen}
+	};
+
+	switch (token_specific.data_store.encryption_algorithm) {
+	case CKM_DES3_CBC:
+		keyType = CKK_DES3;
+		break;
+	case CKM_AES_CBC:
+		keyType = CKK_AES;
+		break;
+	default:
+		OCK_LOG_ERR(ERR_MECHANISM_INVALID);
+		return ERR_MECHANISM_INVALID;
+	}
+	rc = object_create_skel(key_tmpl, 3, MODE_CREATE, CKO_SECRET_KEY,
+				keyType, &keyobj);
+	if (rc != CKR_OK) {
+		OCK_LOG_ERR(ERR_OBJMGR_CREATE_SKEL);
+		return rc;
+	}
 
 	initial_vector = duplicate_initial_vector(iv);
 	if (initial_vector == NULL) {
@@ -500,13 +554,12 @@ static CK_RV decrypt_data(CK_BYTE *key, const CK_BYTE *iv,
 	case CKM_DES3_CBC:
 		rc = ckm_des3_cbc_decrypt(cipher, cipher_len,
 					  clear, p_clear_len,
-					  initial_vector, key);
+					  initial_vector, keyobj);
 		break;
 	case CKM_AES_CBC:
 		rc = ckm_aes_cbc_decrypt(cipher, cipher_len,
 					 clear, p_clear_len,
-					 initial_vector, key,
-					 AES_KEY_SIZE_256);
+					 initial_vector, keyobj);
 		break;
 	default:
 		OCK_LOG_ERR(ERR_MECHANISM_INVALID);
@@ -524,7 +577,8 @@ static CK_RV decrypt_data(CK_BYTE *key, const CK_BYTE *iv,
 #endif
 }
 
-static CK_RV decrypt_data_with_clear_key(CK_BYTE *key, const CK_BYTE *iv,
+static CK_RV decrypt_data_with_clear_key(CK_BYTE *key, CK_ULONG keylen, 
+					 const CK_BYTE *iv,
 					 CK_BYTE *cipher, CK_ULONG cipher_len,
 					 CK_BYTE *clear, CK_ULONG *p_clear_len)
 {
@@ -536,7 +590,7 @@ static CK_RV decrypt_data_with_clear_key(CK_BYTE *key, const CK_BYTE *iv,
 	 * clear key.
 	 */
 	if (token_specific.token_keysize == 0) {
-		return decrypt_data(key, iv, cipher, cipher_len,
+		return decrypt_data(key, keylen, iv, cipher, cipher_len,
 				    clear, p_clear_len);
 	}
 
@@ -887,7 +941,8 @@ CK_RV save_private_token_object(OBJECT * obj)
 	add_pkcs_padding(clear + clear_len, block_size, clear_len,
 			 padded_len);
 
-	rc = encrypt_data(key, token_specific.data_store.obj_initial_vector,
+	rc = encrypt_data(key, key_len,
+			  token_specific.data_store.obj_initial_vector,
 			  clear, padded_len, cipher, &cipher_len);
 	if (rc != CKR_OK) {
 		goto error;
@@ -1144,7 +1199,8 @@ CK_RV restore_private_token_object(CK_BYTE * data, CK_ULONG len, OBJECT * pObj)
 	}
 	memcpy(key, master_key, key_len);
 
-	rc = decrypt_data(key, token_specific.data_store.obj_initial_vector,
+	rc = decrypt_data(key, key_len,
+			  token_specific.data_store.obj_initial_vector,
 			  data, len, clear, &clear_len);
 	if (rc != CKR_OK) {
 		goto done;
@@ -1232,17 +1288,6 @@ CK_RV load_masterkey_so(void)
 
 	memset(master_key, 0x0, master_key_len);
 
-	// this file gets created on C_InitToken so we can assume that it always exists
-	//
-	sprintf(fname, "%s/MK_SO", get_pk_dir());
-	fp = fopen((char *)fname, "r");
-	if (!fp) {
-		OCK_LOG_ERR(ERR_FUNCTION_FAILED);
-		rc = CKR_FUNCTION_FAILED;
-		goto done;
-	}
-	set_perm(fileno(fp));
-
 	data_len = master_key_len + SHA1_HASH_SIZE;
 	clear_len = cipher_len = (data_len + block_size - 1)
 		& ~(block_size - 1);
@@ -1279,7 +1324,7 @@ CK_RV load_masterkey_so(void)
 	memcpy(key, so_pin_md5, MD5_HASH_SIZE);
 	memcpy(key + MD5_HASH_SIZE, so_pin_md5, key_len - MD5_HASH_SIZE);
 
-	rc = decrypt_data_with_clear_key(key,
+	rc = decrypt_data_with_clear_key(key, key_len,
 					 token_specific.data_store.pin_initial_vector,
 					 cipher, cipher_len,
 					 clear, &clear_len);
@@ -1380,7 +1425,7 @@ CK_RV load_masterkey_user(void)
 	memcpy(key, user_pin_md5, MD5_HASH_SIZE);
 	memcpy(key + MD5_HASH_SIZE, user_pin_md5, key_len - MD5_HASH_SIZE);
 
-	rc = decrypt_data_with_clear_key(key,
+	rc = decrypt_data_with_clear_key(key, key_len,
 					 token_specific.data_store.pin_initial_vector,
 					 cipher, cipher_len,
 					 clear, &clear_len);
@@ -1468,7 +1513,7 @@ CK_RV save_masterkey_so(void)
 	memcpy(key, so_pin_md5, MD5_HASH_SIZE);
 	memcpy(key + MD5_HASH_SIZE, so_pin_md5, key_len - MD5_HASH_SIZE);
 
-	rc = encrypt_data_with_clear_key(key,
+	rc = encrypt_data_with_clear_key(key, key_len,
 					 token_specific.data_store.pin_initial_vector,
 					 clear, clear_len,
 					 cipher, &cipher_len);
@@ -1556,7 +1601,7 @@ CK_RV save_masterkey_user(void)
 	memcpy(key, user_pin_md5, MD5_HASH_SIZE);
 	memcpy(key + MD5_HASH_SIZE, user_pin_md5, key_len - MD5_HASH_SIZE);
 
-	rc = encrypt_data_with_clear_key(key,
+	rc = encrypt_data_with_clear_key(key, key_len,
 					 token_specific.data_store.pin_initial_vector,
 					 clear, clear_len,
 					 cipher, &cipher_len);
