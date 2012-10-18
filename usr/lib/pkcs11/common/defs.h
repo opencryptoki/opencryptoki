@@ -362,7 +362,6 @@
 #define OP_SIGN_INIT    5
 #define OP_VERIFY_INIT  6
 
-
 // saved-state identifiers
 //
 enum {
@@ -562,8 +561,12 @@ typedef struct _DL_NODE
 
 
 
-// Abstract this out and include a token specific headerfile
-#include <tokenlocal.h>
+// Token local
+//
+#define PK_LITE_DIR token_specific.token_directory
+#define PK_DIR PK_LITE_DIR
+#define SUB_DIR token_specific.token_subdir
+#define DBGTAG token_specific.token_debug_tag
 
 #define PK_LITE_NV   "NVTOK.DAT"
 #define PK_LITE_OBJ_DIR "TOK_OBJ"
