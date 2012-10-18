@@ -1895,6 +1895,10 @@ CK_RV    session_mgr_get_op_state( SESSION *sess, CK_BBOOL  length_only,
 CK_RV    session_mgr_set_op_state( SESSION          *sess,
                                    CK_OBJECT_HANDLE  encr_key, CK_OBJECT_HANDLE  auth_key,
                                    CK_BYTE          *data,     CK_ULONG          data_len );
+CK_BBOOL pin_expired(CK_SESSION_INFO *, CK_FLAGS);
+CK_BBOOL pin_locked(CK_SESSION_INFO *, CK_FLAGS);
+void set_login_flags(CK_USER_TYPE, CK_FLAGS_32 *);
+
 
 // object manager routines
 //
