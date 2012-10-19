@@ -123,6 +123,12 @@ AC_ARG_ENABLE([crtok],
 	[],
 	[enable_crtok=check])
 
+dnl -- icsf token (Integrated Cryptographic Service Facility remote token)
+AC_ARG_ENABLE([icsftok],
+	AS_HELP_STRING([--enable-iscftok],[build icsf token (Integrated Cryptographic Service Facility) @<:@default=enabled if OpenLDAP library is present@:>@]),
+	[],
+	[enable_icsftok=check])
+
 dnl --- token-specific stuff
 dnl --- pkcscca_migrate
 AC_ARG_ENABLE([pkcscca_migrate],
@@ -139,6 +145,12 @@ AC_ARG_WITH([openssl],
 	AS_HELP_STRING([--with-openssl@<:@=DIR@:>@],[OpenSSL development files location]),
 	[],
 	[with_openssl=check])
+
+dnl --- Openldap development files
+AC_ARG_WITH([openldap],
+	AS_HELP_STRING([--with-openldap@<:@=DIR@:>@],[OpenLDAP development files location]),
+	[],
+	[with_openldap=check])
 
 dnl --- Libica development files
 AC_ARG_WITH([libica],
@@ -251,6 +263,42 @@ fi
 AC_SUBST([OPENSSL_CFLAGS])
 AC_SUBST([OPENSSL_LIBS])
 
+dnl --- with_openldap
+OPENLDAP_CFLAGS=
+OPENLDAP_LIBS=
+if test "x$with_openldap" != "xno"; then
+	if test "x$with_openldap" != "xyes" -a "x$with_openldap" != "xcheck"; then
+		OPENLDAP_CFLAGS="-I$with_openldap"
+		OPENLDAP_LIBS="-L$with_openldap"
+	fi
+	old_cflags="$CFLAGS"
+	old_libs="$LIBS"
+	CFLAGS="$CFLAGS $OPENLDAP_CFLAGS"
+	LIBS="$LIBS $OPENLDAP_LIBS"
+	AC_CHECK_HEADER([ldap.h], [], [
+		if test "x$with_openldap" != "xcheck"; then
+			AC_MSG_ERROR([Build with OpenLDAP requested but OpenLDAP headers couldn't be found])
+		fi
+		with_openldap=no
+	])
+	if test "x$with_openldap" != "xno"; then
+		AC_CHECK_LIB([ldap], [ldap_extended_operation_s], [
+			OPENLDAP_LIBS="$OPENLDAP_LIBS -lldap"
+			with_openldap=yes
+			], [
+				if test "x$with_openldap" != "xcheck"; then
+					AC_MSG_ERROR([Build with OpenLDAP requested but OpenLDAP libraries couldn't be found])
+				fi
+				with_openldap=no
+		])
+	fi
+	if test "x$with_openldap" = "xno"; then
+		CFLAGS="$old_cflags"
+		LIBS="$old_libs"
+	fi
+fi
+AC_SUBST([OPENLDAP_CFLAGS])
+AC_SUBST([OPENLDAP_LIBS])
 
 dnl --- with_libica
 LIBICA_CFLAGS=
@@ -569,6 +617,24 @@ else
 fi
 AM_CONDITIONAL([ENABLE_SWTOK], [test "x$enable_swtok" = "xyes"])
 
+dnl --- enable_icsftok
+if test "x$enable_icsftok" = "xyes"; then
+	if test "x$with_openldap" != "xyes"; then
+		AC_MSG_ERROR([ICSF token build requested but OpenLDAP development files not found])
+		enable_icsftok=no
+	fi
+	if test "x$with_openssl" != "xyes"; then
+		AC_MSG_ERROR([ICSF token build requested but OpenSSL development files not found])
+		enable_icsftok=no
+	fi
+fi
+if test "x$enable_icsftok" != "xno" -a "x$with_openldap" != "xno" -a "x$with_openssl" != "xno"; then
+	enable_icsftok=yes
+else
+	enable_icsftok=no
+fi
+AM_CONDITIONAL([ENABLE_ICSFTOK], [test "x$enable_icsftok" = "xyes"])
+
 dnl --- enable_tpmtok
 if test "x$enable_tpmtok" = "xyes"; then
 	if test "x$with_tss" != "xyes"; then
@@ -681,6 +747,7 @@ AC_CONFIG_FILES([Makefile usr/Makefile \
           usr/lib/pkcs11/aep_stdll/Makefile \
           usr/lib/pkcs11/tpm_stdll/Makefile \
           usr/lib/pkcs11/cca_stdll/Makefile \
+          usr/lib/pkcs11/icsf_stdll/Makefile \
           usr/lib/pkcs11/methods/4758_status/Makefile \
           misc/Makefile \
 	  testcases/Makefile \
@@ -716,6 +783,7 @@ echo "	ICC token:		$enable_icctok"
 echo "	AEP token:		$enable_aeptok"
 echo "	Broadcom token:		$enable_bcomtok"
 echo "	Corrent token:		$enable_crtok"
+echo "	ICSF token:		$enable_icsftok"
 echo
 echo "Token-specific features:"
 echo "	pkcsccamigrate build:	$enable_pkcscca_migrate"
