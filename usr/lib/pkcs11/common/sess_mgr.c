@@ -632,7 +632,10 @@ session_mgr_close_session( CK_SESSION_HANDLE handle )
    //
    if (bt_is_empty(&sess_btree)) {
       // SAB  XXX  if all sessions are closed.  Is this effectivly logging out
-      object_mgr_purge_private_token_objects();
+        if (token_specific.t_logout) {
+            rc = token_specific.t_logout();
+        }
+        object_mgr_purge_private_token_objects();
 
       global_login_state = CKS_RO_PUBLIC_SESSION;
       // The objects really need to be purged .. but this impacts the

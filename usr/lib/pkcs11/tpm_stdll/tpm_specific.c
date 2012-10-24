@@ -1738,9 +1738,6 @@ token_specific_logout()
 	memset(current_so_pin_sha, 0, SHA1_HASH_SIZE);
 	memset(current_user_pin_sha, 0, SHA1_HASH_SIZE);
 
-	/* pulled from new_host.c */
-	object_mgr_purge_private_token_objects();
-
 	return CKR_OK;
 }
 
