@@ -125,10 +125,8 @@ keyword_defs:
 			do_vers(&sinfo_struct.pk_slot.firmwareVersion, $1, $3);
 			break;
 		case KW_CONFNAME:
-			/* comment out for now since need to add
-			 * confname to Slot_Info_t_64.
-			do_str(sinfo_struct.confname, sizeof(sinfo_struct.confname), $1, $3);
-*/
+			memset(sinfo_struct.confname, 0, sizeof(sinfo_struct.confname));
+			memcpy(sinfo_struct.confname, $3, strlen($3));
 			break;
 		default:
 			yyerror("unknown config keyword");

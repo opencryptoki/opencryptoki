@@ -441,19 +441,17 @@ typedef struct Slot_Mgr_Proc_t_64 {
 
 // Slot info structure which contains the PKCS11 CK_SLOT_INFO
 // as well as the local information
-typedef struct{
-   CK_SLOT_ID_64    slot_number;
-   CK_BOOL          present;
-   char          pad1[7];          // pad for dword alignment
-   CK_SLOT_INFO_64  pk_slot;
-   char          dll_location[PATH_MAX+1];   // location of slot management  DLL
-   char          slot_init_fcn[PATH_MAX+1];  // function to call to initialize the token in the slot
-   char          correlator[PATH_MAX+1];     // Slot DLL Slotindex to dev correlation string
-   char           pad2[5];         // pad for dword alignment
-   uint32         global_sessions; // counter of the total sessions on a token in
-   char           pad3[4];         // pad for dword alignment
-                                   // a slot.  Used for quick check of no
-                                   // sessions
+typedef struct {
+	CK_SLOT_ID_64	slot_number;
+	CK_BOOL		present;
+	char		pad1[7];		// pad for dword alignment
+	CK_SLOT_INFO_64 pk_slot;
+	char		dll_location[PATH_MAX+1];   // location of slot's  DLL
+	char		confname[PATH_MAX+1];	// token specific config file 
+	char		correlator[PATH_MAX+1];	// Slot DLL Slotindex to dev correlation string
+	char		pad2[5];		// pad for dword alignment
+	uint32		global_sessions;	// token's total sessions
+	char		pad3[4];		// pad for dword alignment
 }Slot_Info_t_64;
 
 

@@ -655,6 +655,8 @@ int InitSharedMemory ( Slot_Mgr_Shr_t *sp ) {
 
            memcpy(sp->slot_info[id].dll_location, sinfo[id].dll_location, strlen(sinfo[id].dll_location));
 
+           memcpy(sp->slot_info[id].confname, sinfo[id].confname, strlen(sinfo[id].confname));
+
 	   /* pkcs#11v2.20 says these should be padded with
 	    * spaces and NOT null terminated.
 	    */
