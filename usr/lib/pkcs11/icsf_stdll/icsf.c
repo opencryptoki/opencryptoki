@@ -51,3 +51,20 @@ icsf_login(LDAP **ld, const char *uri, const char *dn, const char *password)
 
 	return 0;
 }
+
+/*
+ * Disconnect from the server.
+ */
+int icsf_logout(LDAP *ld)
+{
+	int rc;
+
+	rc = ldap_unbind_ext_s(ld, NULL, NULL);
+	if (rc != LDAP_SUCCESS) {
+		OCK_LOG_DEBUG("Failed to unbind: %s (%d)\n",
+			      ldap_err2string(rc), rc);
+		return -1;
+	}
+
+	return 0;
+}

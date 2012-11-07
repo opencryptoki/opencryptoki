@@ -19,4 +19,7 @@ int
 icsf_login(LDAP **ld, const char *uri, const char *dn,
 	   const char *password);
 
+int
+icsf_logout(LDAP *ld);
+
 #endif
