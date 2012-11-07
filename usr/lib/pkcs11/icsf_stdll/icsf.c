@@ -778,3 +778,278 @@ cleanup:
 	return rc;
 
 }
+
+/*
+ * Parse a sequence of bytes `data` returned by a CSFPTRL call containing the
+ * attributes of a token and store the parsed value in the structure `record`.
+ *
+ * The data is formated as the following:
+ *   - 32 bytes for token name;
+ *   - 32 bytes for manufacturer name;
+ *   - 16 bytes for model identification;
+ *   - 16 bytes for serial number;
+ *   - 8 bytes for date in UTC of the last change encoded as a string in the
+ *     format "yyyymmdd".
+ *   - 8 bytes for time in UTC of the last change encoded as a string in the
+ *     format "hhmmssth".
+ *   - 4 bytes of flags (the first bit of the first byte indicate that the
+ *     token is write protected).
+ */
+static void
+parse_token_record(struct icsf_token_record *record, const char *data)
+{
+	size_t offset = 0;
+
+	strunpad(record->name, data + offset, ICSF_TOKEN_NAME_LEN + 1, ' ');
+	offset += ICSF_TOKEN_NAME_LEN;
+
+	strunpad(record->manufacturer, data + offset, ICSF_MANUFACTURER_LEN + 1,
+		 ' ');
+	offset += ICSF_MANUFACTURER_LEN;
+
+	strunpad(record->model, data + offset, ICSF_MODEL_LEN + 1, ' ');
+	offset += ICSF_MODEL_LEN;
+
+	strunpad(record->serial, data + offset, ICSF_SERIAL_LEN + 1, ' ');
+	offset += ICSF_SERIAL_LEN;
+
+	strunpad(record->date, data + offset, ICSF_DATE_LEN + 1, ' ');
+	offset += ICSF_DATE_LEN;
+
+	strunpad(record->time, data + offset, ICSF_TIME_LEN + 1, ' ');
+	offset += ICSF_TIME_LEN;
+
+	/* Flags are not a string, just a bunch of flags. So it doesn't need
+	 * to be null terminated.
+	 */
+	memcpy(record->flags, data + offset, ICSF_FLAGS_LEN);
+}
+
+/*
+ *
+ * `icsf_list` is a helper function for CSFPTRL service, which is used for token
+ * and object listing.
+ *
+ * `handle` identifies the last token or object returned by a previous call of
+ * `icsf_list`. It should be always 44 bytes long and be in the following
+ * format:
+ *
+ *    - For tokens:
+ *      * 32 bytes containing the token name padded with blanks;
+ *      * remaining bytes filled with blanks.
+ *
+ *    - For objects:
+ *      * 32 bytes containing the token name padded with blanks;
+ *      * 8 bytes containing the object's sequence number encoded int
+ *        hexadecimal.
+ *      * 1 byte with the character 'T' for token objects or 'S' for session
+ *        objects.
+ *      * remaining bytes filled with blanks.
+ *
+ * `rule_array` should be a sequence of 8 bytes strings padded with blanks.
+ * It indicates if a list of tokens or a objects will be returned (please refer
+ * to `icsf_create_token` and `icsf_create_object` for details).
+ *
+ * `bv_list` is an output buffer for the raw data and should be freed by the
+ * caller.
+ *
+ * `list_len` is used as input to indicate the number of bytes of the buffer to
+ * be returned, and it's updated with the number of bytes returned.
+ *
+ * `list_count` indicates how many items should be returned.
+ */
+static int
+icsf_list(LDAP * ld, char *handle, size_t handle_len,
+	  const char *rule_array, size_t rule_array_len,
+	  struct berval **bv_list, size_t *list_len, size_t list_count)
+{
+	int rc = -1;
+	BerElement *ber_req = NULL;
+	BerElement *ber_res = NULL;
+	struct berval *raw_req = NULL;
+	struct berval *raw_res = NULL;
+	char *response_oid = NULL;
+
+	/* Variables used as input */
+	int version = 1;
+	char *exit_data = "";	/* Ignored */
+	int rule_array_count;
+
+	/* Variables used as output */
+	int return_code = 0;
+	int reason_code = 0;
+	ber_tag_t tag = 0;
+	int out_list_len = 0;
+
+	/* Check sizes */
+	if (handle_len != ICSF_HANDLE_LEN) {
+		if (handle_len) {
+			OCK_LOG_DEBUG("Invalid handle length: %lu\n",
+				      handle_len);
+		} else {
+			OCK_LOG_DEBUG("Invalid handle length: (null)\n");
+		}
+		OCK_LOG_ERR(ERR_ARGUMENTS_BAD);
+		return -1;
+	}
+
+	if ((rule_array_len % ICSF_RULE_ITEM_LEN)) {
+		OCK_LOG_DEBUG("Invalid rule array length: %lu\n",
+			      rule_array_len);
+		OCK_LOG_ERR(ERR_ARGUMENTS_BAD);
+		return -1;
+	}
+	rule_array_count = rule_array_len / ICSF_RULE_ITEM_LEN;
+
+	/* Allocate ber_req to encode message. */
+	ber_req = ber_alloc_t(LBER_USE_DER);
+	if (ber_req == NULL) {
+		OCK_LOG_ERR(ERR_HOST_MEMORY);
+		goto cleanup;
+	}
+
+	/* Encode message:
+	 *
+	 * TRLInput ::= SEQUENCE {
+	 * 	inListLen		INTEGER (0 .. MaxCSFPInteger),
+	 * 	maxHandleCount		INTEGER (0 .. MaxCSFPInteger),
+	 * 	searchTemplate	[0]	Attributes OPTIONAL
+	 * }
+	 *
+	 */
+	rc = ber_printf(ber_req, "{iso{io}t{ii}}", version, exit_data,
+			handle, handle_len,
+			rule_array_count, rule_array, rule_array_len,
+			ICSF_TAG_CSFPTRL | LBER_CONSTRUCTED |
+			LBER_CLASS_CONTEXT, *list_len, list_count);
+	if (rc < 0) {
+		OCK_LOG_DEBUG("Failed to encode message.\n");
+		goto cleanup;
+	}
+
+	rc = ber_flatten(ber_req, &raw_req);
+	if (rc) {
+		OCK_LOG_DEBUG("Failed to flat BER data.\n");
+		goto cleanup;
+	}
+
+	/* Call ICSF service */
+	rc = ldap_extended_operation_s(ld, ICSF_REQ_OID, raw_req, NULL, NULL,
+				       &response_oid, &raw_res);
+	if (rc != LDAP_SUCCESS) {
+		OCK_LOG_DEBUG("ICSF call failed: %s (%d)\n",
+			      ldap_err2string(rc), rc);
+		goto cleanup;
+	}
+
+	/* Decode result */
+	ber_res = ber_init(raw_res);
+	if (ber_res == NULL) {
+		OCK_LOG_DEBUG("Failed to create a response buffer\n");
+		goto cleanup;
+	}
+
+	/*
+	 * TRLOutput ::= SEQUENCE {
+	 * 	outList		CHOICE {
+	 * 		tokenList	[0] OCTET STRING,
+	 * 		handleList	[1] OCTET STRING
+	 * 	},
+	 * 	outListLen	INTEGER (0 .. MaxCSFPInteger)
+	 * }
+	 */
+	rc = ber_scanf(ber_res, "{iiixxt{Oi}}", &version, &return_code,
+		       &reason_code, &tag, bv_list, &out_list_len);
+	if (rc < 0) {
+		OCK_LOG_DEBUG("Failed to decode message.\n");
+		goto cleanup;
+	}
+
+	OCK_LOG_DEBUG("ICSF call result: %d (%d)\n", return_code, reason_code);
+
+	if (ICSF_RC_IS_ERROR(return_code))
+		goto cleanup;
+
+	rc = 0;
+	*list_len = out_list_len;
+
+cleanup:
+	if (ber_req)
+		ber_free(ber_req, 1);
+	if (ber_res)
+		ber_free(ber_res, 1);
+	if (raw_req)
+		ber_bvfree(raw_req);
+	if (raw_res)
+		ber_bvfree(raw_res);
+	if (response_oid)
+		ldap_memfree(response_oid);
+
+	return rc;
+}
+
+/*
+ * List tokens on the server.
+ *
+ * `previous` must point to the last token returned by a previous call of
+ * `icsf_list_tokens` or should be NULL for the first call.
+ *
+ * `records` must point to a buffer of token records with `records_len`
+ * elements. `records_len` is updated with the number of tokens returned
+ * and it's zero when there's no more records left.
+ */
+int
+icsf_list_tokens(LDAP *ld, struct icsf_token_record *previous,
+		 struct icsf_token_record *records, size_t *records_len)
+{
+	int rc = -1;
+	char handle[44];
+	char rule_array[ICSF_RULE_ITEM_LEN];
+	struct berval *bv_list = NULL;
+	size_t list_len;
+	size_t i;
+
+	CHECK_ARG_NON_NULL(ld);
+	CHECK_ARG_NON_NULL(records);
+	CHECK_ARG_NON_NULL(records_len);
+
+	/* The first record that must be returned in `records` is the next one
+	 * after `previous`, and for that the `previous` handle must be
+	 * provided. When `previous` is null a blank handle should be used
+	 * instead.
+	 */
+	if (previous) {
+		/* The first 32 bytes of `handle` contains the token's name,
+		 * the remaining bytes should be blank.
+		 */
+		strpad(handle, previous->name, ICSF_TOKEN_NAME_LEN, ' ');
+		memset(handle + ICSF_TOKEN_NAME_LEN, ' ',
+		       sizeof(handle) - ICSF_TOKEN_NAME_LEN);
+	} else {
+		memset(handle, ' ', sizeof(handle));
+	}
+
+	/* Should be 8 bytes padded. */
+	strpad(rule_array, "TOKEN", ICSF_RULE_ITEM_LEN, ' ');
+
+	list_len = ICSF_TOKEN_RECORD_LEN * *records_len;
+	rc = icsf_list(ld, handle, sizeof(handle), rule_array,
+		       sizeof(rule_array), &bv_list, &list_len, *records_len);
+	if (rc)
+		goto cleanup;
+
+	/* Parse result */
+	*records_len = list_len / ICSF_TOKEN_RECORD_LEN;
+	for (i = 0; i < *records_len; i++) {
+		size_t offset = i * ICSF_TOKEN_RECORD_LEN;
+		parse_token_record(&records[i], bv_list->bv_val + offset);
+	}
+
+	rc = 0;
+
+cleanup:
+	if (bv_list)
+		ber_bvfree(bv_list);
+
+	return rc;
+}

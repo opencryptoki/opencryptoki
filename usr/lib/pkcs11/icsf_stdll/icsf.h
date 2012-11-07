@@ -22,6 +22,7 @@
 /* Tag numbers for each ICSF call */
 #define ICSF_TAG_CSFPTRC 14
 #define ICSF_TAG_CSFPTRD 15
+#define ICSF_TAG_CSFPTRL 16
 
 /* Return codes */
 #define ICSF_RC_SUCCESS 0
@@ -31,11 +32,29 @@
 
 /* Default lengths */
 #define ICSF_HANDLE_LEN 44
+#define ICSF_TOKEN_RECORD_LEN 116
 #define ICSF_TOKEN_NAME_LEN 32
 #define ICSF_MANUFACTURER_LEN 32
 #define ICSF_MODEL_LEN 16
 #define ICSF_SERIAL_LEN 16
+#define ICSF_DATE_LEN 8
+#define ICSF_TIME_LEN 8
+#define ICSF_FLAGS_LEN 4
 #define ICSF_RULE_ITEM_LEN 8
+
+/* Macros for testing flags. */
+#define ICSF_IS_TOKEN_READ_ONLY(_flags) \
+	(_flags[0] & (1 << 7))
+
+struct icsf_token_record {
+	char name[ICSF_TOKEN_NAME_LEN + 1];
+	char manufacturer[ICSF_MANUFACTURER_LEN + 1];
+	char model[ICSF_MODEL_LEN + 1];
+	char serial[ICSF_SERIAL_LEN + 1];
+	char date[ICSF_DATE_LEN + 1];
+	char time[ICSF_TIME_LEN + 1];
+	char flags[ICSF_FLAGS_LEN];
+};
 
 int
 icsf_login(LDAP **ld, const char *uri, const char *dn,
@@ -58,5 +77,9 @@ icsf_create_token(LDAP *ld, const char *token_name,
 
 int
 icsf_destroy_token(LDAP *ld, char *token_name);
+
+int
+icsf_list_tokens(LDAP *ld, struct icsf_token_record *first,
+	         struct icsf_token_record *records, size_t *records_len);
 
 #endif
