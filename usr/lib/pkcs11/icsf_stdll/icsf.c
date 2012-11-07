@@ -19,6 +19,92 @@
 #include "host_defs.h"
 #include "h_extern.h"
 
+/*
+ * Note about ICSF callable services:
+ *
+ * Any ICSF service uses a base data structure containing some common fields.
+ * This base structure is described by the following ASN.1 definition:
+ *
+ * requestValue ::= SEQUENCE {
+ * 	version		INTEGER,
+ * 	exitData	OCTET STRING,
+ * 	handle		OCTET STRING,
+ * 	ruleArraySeq	RuleArraySeq,
+ * 	requestData	CSFPInput
+ * }
+ *
+ * RuleArraySeq ::= SEQUENCE {
+ * 	ruleArrayCount	INTEGER,
+ * 	ruleArray	OCTET STRING
+ * }
+ *
+ * CSFPInput ::= CHOICE {
+ * 	IQF	[CSFIQF]	IQFInput,
+ * 	DMK	[CSFPDMK]	DMKInput,
+ * 	DVK	[CSFPDVK]	DVKInput,
+ * 	GAV	[CSFPGAV]	GAVInput,
+ * 	GKP	[CSFPGKP]	GKPInput,
+ * 	GSK	[CSFPGSK]	GSKInput,
+ * 	HMG	[CSFPHMG]	HMGInput,
+ * 	HMV	[CSFPHMV]	HMVInput,
+ * 	OWH	[CSFPOWH]	OWHInput,
+ * 	PKS	[CSFPPKS]	PKSInput,
+ * 	PKV	[CSFPPKV]	PKVInput,
+ * 	SAV	[CSFPSAV]	SAVInput,
+ * 	SKD	[CSFPSKD]	SKDInput,
+ * 	SKE	[CSFPSKE]	SKEInput,
+ * 	TRC	[CSFPTRC]	TRCInput,
+ * 	TRD	[CSFPTRD]	TRDInput,
+ * 	TRL	[CSFPTRL]	TRLInput,
+ * 	UWK	[CSFPUWK]	UWKInput,
+ * 	WPK	[CSFPWPK]	WPKInput,
+ * 	GLDTRD	[GLDTRD]	GLDTRDInput,
+ * 	IQA	[CSFIQA]	IQAInput
+ * }
+ *
+ * CSFPInput defines which service is being called. A different tag number
+ * and data structure is defined for each service.
+ *
+ * In the same way, the output is also based on a common data structure.
+ *
+ * responseValue ::= SEQUENCE {
+ * 	version		INTEGER,
+ * 	ICSFRc		INTEGER (0 .. MaxCSFPInteger),
+ * 	ICSFRsnCode	INTEGER (0 .. MaxCSFPInteger),
+ * 	exitData	OCTET STRING,
+ * 	handle		OCTET STRING,
+ * 	responseData	CSFPOutput
+ * }
+ *
+ * CSFPOutput ::= CHOICE {
+ * 	IQF	[CSFIQF]	IQFOutput,
+ * 	DMK	[CSFPDMK]	DMKOutput,
+ * 	DVK	[CSFPDVK]	DVKOutput,
+ * 	GAV	[CSFPGAV]	GAVOutput,
+ * 	GKP	[CSFPGKP]	GKPOutput,
+ * 	GSK	[CSFPGSK]	GSKOutput,
+ * 	HMG	[CSFPHMG]	HMGOutput,
+ * 	HMV	[CSFPHMV]	HMVOutput,
+ * 	OWH	[CSFPOWH]	OWHOutput,
+ * 	PKS	[CSFPPKS]	PKSOutput,
+ * 	PKV	[CSFPPKV]	PKVOutput,
+ * 	SAV	[CSFPSAV]	SAVOutput,
+ * 	SKD	[CSFPSKD]	SKDOutput,
+ * 	SKE	[CSFPSKE]	SKEOutput,
+ * 	TRC	[CSFPTRC]	TRCOutput,
+ * 	TRD	[CSFPTRD]	TRDOutput,
+ * 	TRL	[CSFPTRL]	TRLOutput,
+ * 	UWK	[CSFPUWK]	UWKOutput,
+ * 	WPK	[CSFPWPK]	WPKOutput,
+ * 	GLDTRD	[GLDTRD]	GLDTRDOutput,
+ * 	IQA	[CSFIQA]	IQAOutput
+ * }
+ *
+ * ICSFRc is the return code: 0 indicates success, 4 partial success and
+ * values greater than 4 indicates an error. ICSFRsnCode is the reason code
+ * that provides further details about an error.
+ */
+
 /* Macros for argument checking */
 #define CHECK_ARG_NON_NULL(_arg) 					\
 	if (_arg == NULL) { 						\
@@ -36,6 +122,40 @@
 #define CHECK_ARG_NON_NULL_AND_MAX_LEN(_arg, _length) 			\
 	CHECK_ARG_NON_NULL(_arg);					\
 	CHECK_ARG_MAX_LEN(_arg, _length);
+
+/*
+ * Copy a null terminated string from `orig` to the buffer `dest` of length
+ * `len` and fill the remaining bytes with `padding_char`. The result string is
+ * not null terminated.
+ */
+static void
+strpad(char *dest, const char *orig, size_t len, int padding_char)
+{
+	size_t str_len = strlen(orig);
+
+	if (str_len > len)
+		str_len = len;
+
+	memcpy(dest, orig, str_len);
+	if ((len - str_len) > 0)
+		memset(dest + str_len, ' ', len - str_len);
+}
+
+/* Copy a string `orig` of length `len` and padded with `padding_char` to a null
+ * terminated string `dest`. `dest` should be at least `len` + 1 bytes long.
+ */
+static void
+strunpad(char *dest, const char *orig, size_t len, int padding_char)
+{
+	size_t i;
+
+	for (i = len - 1; i; i--)
+		if (orig[i - 1] != padding_char)
+			break;
+
+	strncpy(dest, orig, i);
+	dest[i] = '\0';
+}
 
 /*
  * Ensure that LDAPv3 is used. V3 is needed for extended operations.
@@ -310,6 +430,241 @@ cleanup:
 		ber_free(ber, 0);
 	if (res)
 		ldap_msgfree(res);
+
+	return rc;
+}
+
+/*
+ * `icsf_create` is a helper function for CSFPTRC service, which is used for
+ * token and object creation.
+ *
+ * `handle` identifies the token that will be created or the token in which a
+ * object will be created. It should be always 44 bytes long, and its 32 first
+ * bytes should the token name padded with blanks.
+ *
+ * `rule_array` should be a sequence of 8 bytes strings padded with blanks.
+ * It indicates if a token or a object will be created, it can also change the
+ * behaviour of the call (please refer to `icsf_create_token` and
+ * `icsf_create_object` for details).
+ *
+ * `attribute_list_tag` identifies the format of the given attribute list. It
+ * must be a context specific tag with tag number zero for tokens and tag
+ * number 1 for objects.
+ *
+ * `attribute_list` is a sequence of bytes and its format differs for tokens and
+ * objects (please refer to `icsf_create_token` and  `icsf_create_object` for
+ * details).
+ */
+static int
+icsf_create(LDAP *ld, char *handle, size_t *handle_len,
+	    const char *rule_array, size_t rule_array_len,
+	    ber_tag_t attribute_list_tag, const char *attribute_list,
+	    size_t attribute_list_len)
+{
+	int rc = -1;
+	BerElement *ber_req = NULL;
+	BerElement *ber_res = NULL;
+	struct berval *raw_req = NULL;
+	struct berval *raw_res = NULL;
+	char *response_oid = NULL;
+
+	/* Variables used as input */
+	int version = 1;
+	char *exit_data = "";	/* Ignored */
+	int rule_array_count;
+
+	/* Variables used as output */
+	int return_code = 0;
+	int reason_code = 0;
+	ber_tag_t tag = 0;
+	struct berval *out_handle = NULL;
+
+	/* Check sizes */
+	if (handle_len == NULL || *handle_len != ICSF_HANDLE_LEN) {
+		if (handle_len)
+			OCK_LOG_DEBUG("Invalid handle length: %lu\n",
+				      *handle_len);
+		else
+			OCK_LOG_DEBUG("Invalid handle length: (null)\n");
+		OCK_LOG_ERR(ERR_ARGUMENTS_BAD);
+		return -1;
+	}
+
+	if ((rule_array_len % ICSF_RULE_ITEM_LEN)) {
+		OCK_LOG_DEBUG("Invalid rule array length: %lu\n",
+			      rule_array_len);
+		OCK_LOG_ERR(ERR_ARGUMENTS_BAD);
+		return -1;
+	}
+	rule_array_count = rule_array_len / ICSF_RULE_ITEM_LEN;
+
+	/* Allocate ber_req to encode message. */
+	ber_req = ber_alloc_t(LBER_USE_DER);
+	if (ber_req == NULL) {
+		OCK_LOG_ERR(ERR_HOST_MEMORY);
+		goto cleanup;
+	}
+
+	/* Encode message:
+	 *
+	 * TRCInput ::= SEQUENCE {
+	 *     trcAttrs ::= CHOICE {
+	 *         tokenAttrString   [0] OCTET STRING,
+	 *         objectAttrList    [1] Attributes
+	 *     }
+	 * }
+	 *
+	 * Attributes ::= SEQUENCE OF SEQUENCE {
+	 *    attrName          INTEGER,
+	 *    attrValue         AttributeValue
+	 * }
+	 *
+	 * AttributeValue ::= CHOICE {
+	 *    charValue         [0] OCTET STRING,
+	 *    intValue          [1] INTEGER
+	 * }
+	 *
+	 */
+	rc = ber_printf(ber_req, "{iso{io}t{to}}", version, exit_data,
+			handle, *handle_len,
+			rule_array_count, rule_array, rule_array_len,
+			ICSF_TAG_CSFPTRC | LBER_CONSTRUCTED |
+			LBER_CLASS_CONTEXT, attribute_list_tag, attribute_list,
+			attribute_list_len);
+	if (rc < 0) {
+		OCK_LOG_DEBUG("Failed to encode message.\n");
+		OCK_LOG_ERR(ERR_FUNCTION_FAILED);
+		goto cleanup;
+	}
+
+	rc = ber_flatten(ber_req, &raw_req);
+	if (rc) {
+		OCK_LOG_DEBUG("Failed to flat BER data.\n");
+		OCK_LOG_ERR(ERR_FUNCTION_FAILED);
+		goto cleanup;
+	}
+
+	/* Call ICSF service */
+	rc = ldap_extended_operation_s(ld, ICSF_REQ_OID, raw_req, NULL, NULL,
+				       &response_oid, &raw_res);
+	if (rc != LDAP_SUCCESS) {
+		char *ext_msg = NULL;
+		ldap_get_option(ld, LDAP_OPT_DIAGNOSTIC_MESSAGE, &ext_msg);
+		OCK_LOG_DEBUG("ICSF call failed: %s (%d)%s%s\n",
+			      ldap_err2string(rc), rc,
+			      ext_msg ? "\nDetailed message: " : "",
+			      ext_msg ? ext_msg : "");
+		if (ext_msg)
+			ldap_memfree(ext_msg);
+		OCK_LOG_ERR(ERR_FUNCTION_FAILED);
+		goto cleanup;
+	}
+
+	/* Decode result */
+	ber_res = ber_init(raw_res);
+	if (ber_res == NULL) {
+		OCK_LOG_DEBUG("Failed to create a response buffer\n");
+		OCK_LOG_ERR(ERR_FUNCTION_FAILED);
+		goto cleanup;
+	}
+
+	/*
+	 * TRCOutput ::= NULL
+	 */
+	rc = ber_scanf(ber_res, "{iiixOtn}", &version, &return_code,
+		       &reason_code, &out_handle, &tag);
+	if (rc < 0) {
+		OCK_LOG_DEBUG("Failed to decode message.\n");
+		OCK_LOG_ERR(ERR_FUNCTION_FAILED);
+		goto cleanup;
+	}
+
+	/* Copy handle */
+	if (out_handle == NULL) {
+		*handle_len = 0;
+	} else {
+		size_t len = (*handle_len < out_handle->bv_len) ? *handle_len
+		    : out_handle->bv_len;
+		memcpy(handle, out_handle->bv_val, len);
+		*handle_len = len;
+	}
+
+	OCK_LOG_DEBUG("ICSF call result: %d (%d)\n", return_code, reason_code);
+
+	if (ICSF_RC_IS_ERROR(return_code)) {
+		OCK_LOG_DEBUG("ICSF call failed: %d (%d)\n", return_code,
+			      reason_code);
+		OCK_LOG_ERR(ERR_FUNCTION_FAILED);
+		goto cleanup;
+	}
+
+	rc = 0;
+
+cleanup:
+	if (ber_req)
+		ber_free(ber_req, 1);
+	if (ber_res)
+		ber_free(ber_res, 1);
+	if (raw_req)
+		ber_bvfree(raw_req);
+	if (raw_res)
+		ber_bvfree(raw_res);
+	if (response_oid)
+		ldap_memfree(response_oid);
+	if (out_handle)
+		ber_bvfree(out_handle);
+
+	return rc;
+}
+
+/*
+ * Create a new token. All parameters must be null terminated strings.
+ */
+int
+icsf_create_token(LDAP *ld, const char *token_name,
+		  const char *manufacturer, const char *model,
+		  const char *serial)
+{
+	int rc = -1;
+	char handle[ICSF_HANDLE_LEN];
+	size_t handle_len = sizeof(handle);
+	char rule_array[2 * ICSF_RULE_ITEM_LEN];
+	char attribute_list[68] = { 0, };
+
+	CHECK_ARG_NON_NULL(ld);
+	CHECK_ARG_NON_NULL_AND_MAX_LEN(token_name, ICSF_TOKEN_NAME_LEN);
+	CHECK_ARG_NON_NULL_AND_MAX_LEN(manufacturer, ICSF_MANUFACTURER_LEN);
+	CHECK_ARG_NON_NULL_AND_MAX_LEN(model, ICSF_MODEL_LEN);
+	CHECK_ARG_NON_NULL_AND_MAX_LEN(serial, ICSF_SERIAL_LEN);
+
+	/* The first 32 bytes of `handle` contains the token's name, The
+	 * remaining bytes should be blank.
+	 */
+	strpad(handle, token_name, ICSF_TOKEN_NAME_LEN, ' ');
+	memset(handle + ICSF_TOKEN_NAME_LEN, ' ',
+	       sizeof(handle) - ICSF_TOKEN_NAME_LEN);
+
+	/* Should be 8 bytes padded. It's a token creation and if the token
+	 * already exists it is recreated.
+	 */
+	strpad(rule_array, "TOKEN", ICSF_RULE_ITEM_LEN, ' ');
+	strpad(rule_array + ICSF_RULE_ITEM_LEN, "RECREATE", ICSF_RULE_ITEM_LEN,
+	       ' ');
+
+	/* For token creation, handle is composed by 32 bytes for manufacturer
+	 * id, 16 bytes for model, 16 bytes for serial number, and 4 trailing
+	 * bytes with zeros.
+	 */
+	strpad(attribute_list, manufacturer, ICSF_MANUFACTURER_LEN, ' ');
+	strpad(attribute_list + ICSF_MANUFACTURER_LEN, model, ICSF_MODEL_LEN,
+	       ' ');
+	strpad(attribute_list + ICSF_MANUFACTURER_LEN + ICSF_MODEL_LEN, serial,
+	       ICSF_SERIAL_LEN, ' ');
+
+	rc = icsf_create(ld, handle, &handle_len,
+			 rule_array, sizeof(rule_array),
+			 0 | LBER_CLASS_CONTEXT,
+			 attribute_list, sizeof(attribute_list));
 
 	return rc;
 }
