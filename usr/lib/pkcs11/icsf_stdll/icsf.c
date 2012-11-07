@@ -21,6 +21,36 @@
 
 
 /*
+ * Ensure that LDAPv3 is used. V3 is needed for extended operations.
+ */
+static int
+icsf_force_ldap_v3(LDAP *ld)
+{
+	int rc;
+	int version = 0;
+
+	rc = ldap_get_option(ld, LDAP_OPT_PROTOCOL_VERSION, &version);
+	if (rc != LDAP_OPT_SUCCESS) {
+		OCK_LOG_DEBUG("Failed to get LDAP version: %s (%d)\n",
+			      ldap_err2string(rc), rc);
+		return -1;
+	}
+	if (version < LDAP_VERSION3) {
+		OCK_LOG_DEBUG("Changing version from %d to %d.\n",
+			      version, LDAP_VERSION3);
+		version = LDAP_VERSION3;
+		rc = ldap_set_option(ld, LDAP_OPT_PROTOCOL_VERSION, &version);
+		if (rc != LDAP_OPT_SUCCESS) {
+			OCK_LOG_DEBUG("Failed to set LDAP version: %s (%d)\n",
+				      ldap_err2string(rc), rc);
+			return -1;
+		}
+	}
+
+	return 0;
+}
+
+/*
  * Perform a simple bind to `uri` using `dn` and `password` as credentials.
  */
 int
@@ -37,6 +67,9 @@ icsf_login(LDAP **ld, const char *uri, const char *dn, const char *password)
 			      ldap_err2string(rc), rc);
 		return -1;
 	}
+
+	if (icsf_force_ldap_v3(*ld))
+		return -1;
 
 	OCK_LOG_DEBUG("Binding with DN: %s\n", dn);
 	cred.bv_len = strlen(password);
