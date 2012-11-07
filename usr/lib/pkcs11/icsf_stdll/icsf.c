@@ -101,3 +101,81 @@ int icsf_logout(LDAP *ld)
 
 	return 0;
 }
+
+/*
+ * Check if the ICSF LDAP extension is supported by the server.
+ */
+int icsf_check_pkcs_extension(LDAP *ld)
+{
+	int rc = -1;
+	int ret;
+	LDAPMessage *res = NULL;
+	LDAPMessage *entry = NULL;
+	BerElement *ber = NULL;
+	char *attr = NULL;
+	char expected_attr[] = "supportedextension";
+	char *attr_list[] = { expected_attr, NULL };
+	const char *expected_oid = ICSF_REQ_OID;
+
+	/* Search root DSE. */
+	ret = ldap_search_ext_s(ld, "",			/* Base DN */
+				LDAP_SCOPE_BASE,	/* Scope */
+				"(objectclass=*)",	/* Filter */
+				attr_list,		/* Attribute list */
+				0,			/* Attributes only */
+				NULL,			/* Server controls */
+				NULL,			/* Client controls */
+				NULL,			/* Timeout */
+				0,			/* Size limit */
+				&res);
+	if (ret)
+		goto cleanup;
+
+	/* It should contain just one entry */
+	entry = ldap_first_entry(ld, res);
+	if (entry == NULL)
+		goto cleanup;
+
+	/* Loop through attributes */
+	attr = ldap_first_attribute(ld, entry, &ber);
+	while (attr) {
+		if (!strcmp(expected_attr, attr)) {
+			/* Get the value for each attribute */
+			struct berval **it;
+			struct berval **values =
+			    ldap_get_values_len(ld, entry, attr);
+			if (values == NULL)
+				goto cleanup;
+
+			/* Print each value */
+			for (it = values; *it; it++)
+				if (!strncmp(expected_oid, (*it)->bv_val,
+					     sizeof(expected_oid))) {
+					/* It's supported */
+					rc = 0;
+				}
+
+			ldap_value_free_len(values);
+
+			if (rc == 0)
+				goto cleanup;
+		}
+
+		/* Get next attribute */
+		ldap_memfree(attr);
+		attr = ldap_next_attribute(ld, entry, ber);
+	}
+
+	/* Not supported. */
+	rc = 1;
+
+cleanup:
+	if (attr)
+		ldap_memfree(attr);
+	if (ber)
+		ber_free(ber, 0);
+	if (res)
+		ldap_msgfree(res);
+
+	return rc;
+}
