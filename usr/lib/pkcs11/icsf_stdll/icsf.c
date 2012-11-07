@@ -1222,3 +1222,113 @@ icsf_create_object(LDAP *ld, const char *token_name, char type,
 
 	return rc;
 }
+
+/*
+ * Parse a raw object handle into token name, sequence and object type.
+ */
+void parse_object_record(struct icsf_object_record *record, const char *data)
+{
+	size_t offset = 0;
+	char hex_seq[ICSF_SEQUENCE_LEN + 1];
+
+	strunpad(record->token_name, data + offset, ICSF_TOKEN_NAME_LEN + 1,
+		 ' ');
+	offset += ICSF_TOKEN_NAME_LEN;
+
+	memcpy(hex_seq, data + offset, ICSF_SEQUENCE_LEN);
+	hex_seq[ICSF_SEQUENCE_LEN] = '\0';
+	sscanf(hex_seq, "%lx", &record->sequence);
+	offset += ICSF_SEQUENCE_LEN;
+
+	record->id = data[offset];
+}
+
+/*
+ * List objects for a token indicated by `token_name`.
+ *
+ * `previous` must point to the last object returned by a previous call of
+ * `icsf_list_objects` or should be NULL for the first call.
+ *
+ * `records` must point to a buffer of object records with `records_len`
+ * elements. `records_len` is updated with the number of objects returned
+ * and it's zero when there's no more records left.
+ */
+int
+icsf_list_objects(LDAP *ld, const char *token_name,
+		  struct icsf_object_record *previous,
+		  struct icsf_object_record *records, size_t *records_len,
+		  int all)
+{
+	int rc = -1;
+	char handle[ICSF_HANDLE_LEN];
+	char rule_array[2 * ICSF_RULE_ITEM_LEN];
+	size_t rule_array_count = 1;
+	struct berval *bv_list = NULL;
+	size_t list_len;
+	size_t offset = 0;
+	size_t i;
+
+	CHECK_ARG_NON_NULL(ld);
+	CHECK_ARG_NON_NULL_AND_MAX_LEN(token_name, ICSF_TOKEN_NAME_LEN);
+	CHECK_ARG_NON_NULL(records);
+	CHECK_ARG_NON_NULL(records_len);
+
+	/* The first record that must be returned in `records` is the next one
+	 * after `previous`, and for that the `previous` handle must be
+	 * provided. When `previous` is null a blank handle should be used
+	 * instead.
+	 */
+	if (previous) {
+		/*
+		 * Object handle is composed by token name, sequence number
+		 * converted to hexadecimal and ID padded with blanks.
+		 */
+		char hex_seq[ICSF_SEQUENCE_LEN + 1];
+
+		strpad(handle, previous->token_name, ICSF_TOKEN_NAME_LEN, ' ');
+		offset += ICSF_TOKEN_NAME_LEN;
+
+		snprintf(hex_seq, sizeof(hex_seq), "%0*lX", ICSF_SEQUENCE_LEN,
+			 previous->sequence);
+		memcpy(handle + offset, hex_seq, ICSF_SEQUENCE_LEN);
+		offset += ICSF_SEQUENCE_LEN;
+
+		memset(handle + offset, ' ', sizeof(handle) - offset);
+		handle[offset] = previous->id;
+
+	} else {
+		strpad(handle, token_name, ICSF_TOKEN_NAME_LEN, ' ');
+		memset(handle + ICSF_TOKEN_NAME_LEN, ' ',
+		       sizeof(handle) - ICSF_TOKEN_NAME_LEN);
+	}
+
+	/* Should be 8 bytes padded. */
+	strpad(rule_array, "OBJECT", ICSF_RULE_ITEM_LEN, ' ');
+	if (all) {
+		strpad(rule_array + ICSF_RULE_ITEM_LEN, "ALL",
+		       ICSF_RULE_ITEM_LEN, ' ');
+		rule_array_count += 1;
+	}
+
+	list_len = ICSF_HANDLE_LEN * *records_len;
+	rc = icsf_list(ld, handle, sizeof(handle), rule_array,
+		       rule_array_count * ICSF_RULE_ITEM_LEN,
+		       &bv_list, &list_len, *records_len);
+	if (rc)
+		goto cleanup;
+
+	/* Parse result */
+	*records_len = list_len / ICSF_HANDLE_LEN;
+	for (i = 0; i < *records_len; i++) {
+		size_t offset = i * ICSF_HANDLE_LEN;
+		parse_object_record(&records[i], bv_list->bv_val + offset);
+	}
+
+	rc = 0;
+
+cleanup:
+	if (bv_list)
+		ber_bvfree(bv_list);
+
+	return rc;
+}

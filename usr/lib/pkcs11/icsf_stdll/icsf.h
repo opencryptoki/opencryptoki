@@ -34,6 +34,7 @@
 #define ICSF_HANDLE_LEN 44
 #define ICSF_TOKEN_RECORD_LEN 116
 #define ICSF_TOKEN_NAME_LEN 32
+#define ICSF_SEQUENCE_LEN 8
 #define ICSF_MANUFACTURER_LEN 32
 #define ICSF_MODEL_LEN 16
 #define ICSF_SERIAL_LEN 16
@@ -41,6 +42,7 @@
 #define ICSF_TIME_LEN 8
 #define ICSF_FLAGS_LEN 4
 #define ICSF_RULE_ITEM_LEN 8
+
 /* Object types */
 #define ICSF_SESSION_OBJECT 'S'
 #define ICSF_TOKEN_OBJECT 'T'
@@ -60,6 +62,12 @@ struct icsf_token_record {
 	char date[ICSF_DATE_LEN + 1];
 	char time[ICSF_TIME_LEN + 1];
 	char flags[ICSF_FLAGS_LEN];
+};
+
+struct icsf_object_record {
+	char token_name[ICSF_TOKEN_NAME_LEN + 1];
+	unsigned long sequence;
+	char id;
 };
 
 int
@@ -93,4 +101,9 @@ icsf_create_object(LDAP *ld, const char *token_name, char type,
 	           CK_ATTRIBUTE *attrs, CK_ULONG attrs_len,
 	           char *obj_handle, size_t obj_handle_len);
 
+int
+icsf_list_objects(LDAP *ld, const char *token_name,
+	          struct icsf_object_record *previous,
+	          struct icsf_object_record *records, size_t *records_len,
+	          int all);
 #endif
