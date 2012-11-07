@@ -19,6 +19,23 @@
 #include "host_defs.h"
 #include "h_extern.h"
 
+/* Macros for argument checking */
+#define CHECK_ARG_NON_NULL(_arg) 					\
+	if (_arg == NULL) { 						\
+		OCK_LOG_DEBUG("Null argument \"%s\".\n", #_arg); 	\
+		return -1; 						\
+	}
+
+#define CHECK_ARG_MAX_LEN(_arg, _length) 				\
+	if (_arg && (strlen(_arg) > _length)) {				\
+		OCK_LOG_DEBUG("String too long %s=\"%s\": %s:%d\n",	\
+			      #_arg, _arg);				\
+		return -1;						\
+	}
+
+#define CHECK_ARG_NON_NULL_AND_MAX_LEN(_arg, _length) 			\
+	CHECK_ARG_NON_NULL(_arg);					\
+	CHECK_ARG_MAX_LEN(_arg, _length);
 
 /*
  * Ensure that LDAPv3 is used. V3 is needed for extended operations.
@@ -28,6 +45,8 @@ icsf_force_ldap_v3(LDAP *ld)
 {
 	int rc;
 	int version = 0;
+
+	CHECK_ARG_NON_NULL(ld);
 
 	rc = ldap_get_option(ld, LDAP_OPT_PROTOCOL_VERSION, &version);
 	if (rc != LDAP_OPT_SUCCESS) {
@@ -58,6 +77,11 @@ icsf_login(LDAP **ld, const char *uri, const char *dn, const char *password)
 {
 	int rc;
 	struct berval cred;
+
+	CHECK_ARG_NON_NULL(ld);
+	CHECK_ARG_NON_NULL(uri);
+	CHECK_ARG_NON_NULL(dn);
+	CHECK_ARG_NON_NULL(password);
 
 	/* Connect to LDAP server */
 	OCK_LOG_DEBUG("Connecting to: %s\n", uri);
@@ -96,6 +120,8 @@ icsf_set_sasl_params(LDAP *ld, const char *cert, const char *key,
 		     const char *ca, const char *ca_dir)
 {
 	int rc;
+
+	CHECK_ARG_NON_NULL(ld);
 
 	OCK_LOG_DEBUG("Preparing environment for TLS\n");
 	if (cert) {
@@ -153,6 +179,9 @@ icsf_sasl_login(LDAP **ld, const char *uri, const char *cert,
 {
 	int rc;
 
+	CHECK_ARG_NON_NULL(ld);
+	CHECK_ARG_NON_NULL(uri);
+
 	/* Connect to LDAP server */
 	OCK_LOG_DEBUG("Connecting to: %s\n", uri);
 	rc = ldap_initialize(ld, uri);
@@ -193,6 +222,8 @@ int icsf_logout(LDAP *ld)
 {
 	int rc;
 
+	CHECK_ARG_NON_NULL(ld);
+
 	rc = ldap_unbind_ext_s(ld, NULL, NULL);
 	if (rc != LDAP_SUCCESS) {
 		OCK_LOG_DEBUG("Failed to unbind: %s (%d)\n",
@@ -217,6 +248,8 @@ int icsf_check_pkcs_extension(LDAP *ld)
 	char expected_attr[] = "supportedextension";
 	char *attr_list[] = { expected_attr, NULL };
 	const char *expected_oid = ICSF_REQ_OID;
+
+	CHECK_ARG_NON_NULL(ld);
 
 	/* Search root DSE. */
 	ret = ldap_search_ext_s(ld, "",			/* Base DN */
