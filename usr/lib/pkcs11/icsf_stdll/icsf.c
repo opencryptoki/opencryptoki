@@ -86,6 +86,107 @@ icsf_login(LDAP **ld, const char *uri, const char *dn, const char *password)
 }
 
 /*
+ * Set the paths for private key, certificate and CA, which are used for
+ * SASL authentication using external certificate.
+ *
+ * TODO: check why these options just work as globals (ld == NULL)
+ */
+static int
+icsf_set_sasl_params(LDAP *ld, const char *cert, const char *key,
+		     const char *ca, const char *ca_dir)
+{
+	int rc;
+
+	OCK_LOG_DEBUG("Preparing environment for TLS\n");
+	if (cert) {
+		OCK_LOG_DEBUG("Using certificate: %s\n", cert);
+		rc = ldap_set_option(NULL, LDAP_OPT_X_TLS_CERTFILE, cert);
+		if (rc != LDAP_SUCCESS) {
+			OCK_LOG_DEBUG("Failed to set certificate file for TLS: "
+				      "%s (%d)\n", ldap_err2string(rc), rc);
+			return -1;
+		}
+	}
+
+	if (key) {
+		OCK_LOG_DEBUG("Using private key: %s\n", key);
+		rc = ldap_set_option(NULL, LDAP_OPT_X_TLS_KEYFILE, key);
+		if (rc != LDAP_SUCCESS) {
+			OCK_LOG_DEBUG("Failed to set key file for TLS: "
+				      "%s (%d)\n", ldap_err2string(rc), rc);
+			return -1;
+		}
+	}
+
+	if (ca) {
+		OCK_LOG_DEBUG("Using CA certificate file: %s\n", ca);
+		rc = ldap_set_option(NULL, LDAP_OPT_X_TLS_CACERTFILE, ca);
+		if (rc != LDAP_SUCCESS) {
+			OCK_LOG_DEBUG
+			    ("Failed to set CA certificate file for TLS: "
+			     "%s (%d)\n", ldap_err2string(rc), rc);
+			return -1;
+		}
+	}
+
+	if (ca_dir) {
+		OCK_LOG_DEBUG("Using CA certificate dir: %s\n", ca_dir);
+		rc = ldap_set_option(NULL, LDAP_OPT_X_TLS_CACERTDIR, ca_dir);
+		if (rc != LDAP_SUCCESS) {
+			OCK_LOG_DEBUG
+			    ("Failed to set CA certificate dir for TLS: "
+			     "%s (%d)\n", ldap_err2string(rc), rc);
+			return -1;
+		}
+	}
+
+	return 0;
+}
+
+/*
+ * Perform a SASL bind to `uri` using the given certificate, private key
+ * and CA paths.
+ */
+int
+icsf_sasl_login(LDAP **ld, const char *uri, const char *cert,
+		const char *key, const char *ca, const char *ca_dir)
+{
+	int rc;
+
+	/* Connect to LDAP server */
+	OCK_LOG_DEBUG("Connecting to: %s\n", uri);
+	rc = ldap_initialize(ld, uri);
+	if (rc != LDAP_SUCCESS) {
+		OCK_LOG_DEBUG("Failed to connect to \"%s\": %s (%d)\n", uri,
+			      ldap_err2string(rc), rc);
+		return -1;
+	}
+
+	if (icsf_force_ldap_v3(*ld))
+		return -1;
+
+	/* Initialize TLS */
+	if (icsf_set_sasl_params(*ld, cert, key, ca, ca_dir))
+		return -1;
+
+	OCK_LOG_DEBUG("Binding\n");
+	rc = ldap_sasl_bind_s(*ld, NULL, "EXTERNAL", NULL, NULL, NULL, NULL);
+	if (rc != LDAP_SUCCESS) {
+		char *ext_msg = NULL;
+		ldap_get_option(*ld, LDAP_OPT_DIAGNOSTIC_MESSAGE, &ext_msg);
+		OCK_LOG_DEBUG("LDAP bind failed: %s (%d)%s%s\n",
+			      ldap_err2string(rc), rc,
+			      ext_msg ? "\nDetailed message: " : "",
+			      ext_msg ? ext_msg : "");
+		if (ext_msg)
+			ldap_memfree(ext_msg);
+		return -1;
+	}
+
+	return 0;
+}
+
+/*
  * Disconnect from the server.
  */
 int icsf_logout(LDAP *ld)

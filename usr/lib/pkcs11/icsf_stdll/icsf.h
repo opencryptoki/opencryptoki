@@ -24,6 +24,10 @@ icsf_login(LDAP **ld, const char *uri, const char *dn,
 	   const char *password);
 
 int
+icsf_sasl_login(LDAP **ld, const char *uri, const char *cert,
+	        const char *key, const char *ca, const char *ca_dir);
+
+int
 icsf_logout(LDAP *ld);
 
 int
