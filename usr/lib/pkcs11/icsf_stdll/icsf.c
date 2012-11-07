@@ -1053,3 +1053,172 @@ cleanup:
 
 	return rc;
 }
+
+/*
+ * This function indicates if an attribute should be BER encoded as a number or
+ * not, based on its type.
+ */
+static int is_numeric_attr(CK_ULONG type)
+{
+	switch (type) {
+	case CKA_KEY_TYPE:
+	case CKA_CERTIFICATE_TYPE:
+	case CKA_CLASS:
+		return 1;
+	}
+	return 0;
+}
+
+/*
+ * This helper functions receives a list of attributes containing type, length
+ * and value and encode it in BER encoding. Numeric and non numeric attributes
+ * are encoded using different rules. `bv_attrs` is returned with the BER
+ * encoded data and should be freed by caller.
+ *
+ * The attributes are encoded following rules (as described for CSFPTRC in
+ * `icsf_create` function):
+ *
+ * Attributes ::= SEQUENCE OF SEQUENCE {
+ *    attrName          INTEGER,
+ *    attrValue         AttributeValue
+ * }
+ *
+ * AttributeValue ::= CHOICE {
+ *    charValue         [0] OCTET STRING,
+ *    intValue          [1] INTEGER
+ * }
+ *
+ */
+static int
+icsf_attribute_list_flatten(CK_ATTRIBUTE * attrs, CK_ULONG attrs_len,
+			    struct berval **bv_attrs)
+{
+	size_t i;
+	BerElement *ber;
+
+	ber = ber_alloc_t(LBER_USE_DER);
+	if (ber == NULL) {
+		OCK_LOG_ERR(ERR_HOST_MEMORY);
+		goto error;
+	}
+
+	for (i = 0; i < attrs_len; i++) {
+		if (!is_numeric_attr(attrs[i].type)) {
+			/* Non numeric attributes are encode as octet strings */
+			if (ber_printf(ber, "{ito}", attrs[i].type,
+				       0 | LBER_CLASS_CONTEXT, attrs[i].pValue,
+				       attrs[i].ulValueLen) < 0) {
+				goto encode_error;
+			}
+		} else {
+			long value;
+			unsigned long mask;
+
+			/* `long` is used here to support any size of integer,
+			 * however if the value is shorter than a `long` then
+			 * just the significant bits should be used.
+			 */
+			if (attrs[i].ulValueLen > sizeof(long)) {
+				OCK_LOG_DEBUG
+				    ("Integer value too long for attribute\n");
+				goto encode_error;
+			}
+
+			/* Calculate a mask to get just the bits in the range of
+			 * the given length.
+			 */
+			mask = (1UL << (8 * attrs[i].ulValueLen)) - 1;
+			if (mask == 0)
+				mask = (unsigned long) -1;
+
+			value = *((unsigned long *) attrs[i].pValue) & mask;
+
+			/* Encode integer attribute. */
+			if (ber_printf(ber, "{iti}", attrs[i].type,
+				       1 | LBER_CLASS_CONTEXT, value) < 0) {
+				goto encode_error;
+			}
+		}
+	}
+
+	if (ber_flatten(ber, bv_attrs)) {
+		OCK_LOG_DEBUG("Failed to flat BER data.\n");
+		goto error;
+	}
+
+	ber_free(ber, 1);
+
+	return 0;
+
+encode_error:
+	OCK_LOG_DEBUG("Failed to encode message.\n");
+
+error:
+	if (ber)
+		ber_free(ber, 1);
+	return -1;
+}
+
+/*
+ * Create an object in the token defined by the given `token_name`.
+ *
+ * `type` indicates if it will be a token object or a session object. Its value
+ * can be ICSF_SESSION_OBJECT (which is defined as the character 'S') or
+ * ICSF_TOKEN_OBJECT (defined as 'T').
+ *
+ * `attrs` is a list of attributes each one consisting in a type, a length and a
+ * value (a sequence of bytes). `attrs_len` indicates how many attributes the
+ * input list has.
+ *
+ * `obj_handle` is the buffer that will receive the handler for the new object.
+ * And it should be at least 44 bytes long (indicated by `obj_handle_len`).
+ */
+int
+icsf_create_object(LDAP *ld, const char *token_name, char type,
+		   CK_ATTRIBUTE *attrs, CK_ULONG attrs_len,
+		   char *obj_handle, size_t obj_handle_len)
+{
+	int rc = -1;
+	char handle[ICSF_HANDLE_LEN];
+	size_t handle_len = sizeof(handle);
+	char rule_array[ICSF_RULE_ITEM_LEN];
+	struct berval *bv_attrs = NULL;
+
+	CHECK_ARG_NON_NULL(ld);
+	CHECK_ARG_NON_NULL_AND_MAX_LEN(token_name, ICSF_TOKEN_NAME_LEN);
+	CHECK_ARG_NON_NULL(attrs);
+	CHECK_ARG_NON_NULL(obj_handle);
+
+	/* Check type */
+	if (!ICSF_IS_VALID_OBJECT_TYPE(type)) {
+		OCK_LOG_DEBUG("Invalid object type: %c\n", type);
+		OCK_LOG_ERR(ERR_FUNCTION_FAILED);
+		return -1;
+	}
+
+	/* The first 32 bytes of `handle` specifies the token's name, the
+	 * remaining bytes should be blank.
+	 */
+	strpad(handle, token_name, ICSF_TOKEN_NAME_LEN, ' ');
+	memset(handle + ICSF_TOKEN_NAME_LEN, ' ',
+	       sizeof(handle) - ICSF_TOKEN_NAME_LEN);
+
+	/* Should be 8 bytes padded. */
+	strpad(rule_array, "OBJECT", sizeof(rule_array), ' ');
+
+	if (icsf_attribute_list_flatten(attrs, attrs_len, &bv_attrs)) {
+		OCK_LOG_DEBUG("Failed to flat attribute list\n");
+		OCK_LOG_ERR(ERR_FUNCTION_FAILED);
+		return -1;
+	}
+
+	rc = icsf_create(ld, handle, &handle_len,
+			 rule_array, sizeof(rule_array),
+			 1 | LBER_CLASS_CONTEXT | LBER_CONSTRUCTED,
+			 bv_attrs->bv_val, bv_attrs->bv_len);
+
+	if (bv_attrs)
+		ber_bvfree(bv_attrs);
+
+	return rc;
+}

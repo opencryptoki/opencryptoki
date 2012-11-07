@@ -41,6 +41,12 @@
 #define ICSF_TIME_LEN 8
 #define ICSF_FLAGS_LEN 4
 #define ICSF_RULE_ITEM_LEN 8
+/* Object types */
+#define ICSF_SESSION_OBJECT 'S'
+#define ICSF_TOKEN_OBJECT 'T'
+#define ICSF_IS_VALID_OBJECT_TYPE(_type) \
+	(_type == ICSF_SESSION_OBJECT || \
+	 _type == ICSF_TOKEN_OBJECT)
 
 /* Macros for testing flags. */
 #define ICSF_IS_TOKEN_READ_ONLY(_flags) \
@@ -81,5 +87,10 @@ icsf_destroy_token(LDAP *ld, char *token_name);
 int
 icsf_list_tokens(LDAP *ld, struct icsf_token_record *first,
 	         struct icsf_token_record *records, size_t *records_len);
+
+int
+icsf_create_object(LDAP *ld, const char *token_name, char type,
+	           CK_ATTRIBUTE *attrs, CK_ULONG attrs_len,
+	           char *obj_handle, size_t obj_handle_len);
 
 #endif
