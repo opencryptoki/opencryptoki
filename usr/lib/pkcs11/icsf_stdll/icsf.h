@@ -21,6 +21,7 @@
 
 /* Tag numbers for each ICSF call */
 #define ICSF_TAG_CSFPTRC 14
+#define ICSF_TAG_CSFPTRD 15
 
 /* Return codes */
 #define ICSF_RC_SUCCESS 0
@@ -54,5 +55,8 @@ int
 icsf_create_token(LDAP *ld, const char *token_name,
 	          const char *manufacturer_id, const char *model,
 	          const char *serial_number);
+
+int
+icsf_destroy_token(LDAP *ld, char *token_name);
 
 #endif

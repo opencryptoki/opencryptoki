@@ -668,3 +668,113 @@ icsf_create_token(LDAP *ld, const char *token_name,
 
 	return rc;
 }
+
+/*
+ * Destroy a token.
+ */
+int icsf_destroy_token(LDAP *ld, char *token_name)
+{
+	int rc = -1;
+	BerElement *ber_req = NULL;
+	BerElement *ber_res = NULL;
+	struct berval *raw_req = NULL;
+	struct berval *raw_res = NULL;
+	char *response_oid = NULL;
+
+	/* Variables used as input */
+	int version = 1;
+	char *exit_data = "";	/* Ignored */
+	char handle[ICSF_HANDLE_LEN];
+	int rule_array_count = 1;
+	char rule_array[ICSF_RULE_ITEM_LEN];
+
+	/* Variables used as output */
+	int return_code = 0;
+	int reason_code = 0;
+	ber_tag_t tag = 0;
+
+	CHECK_ARG_NON_NULL(ld);
+	CHECK_ARG_NON_NULL_AND_MAX_LEN(token_name, ICSF_TOKEN_NAME_LEN);
+
+	/* The first 32 bytes of `handle` contains the token's name, The
+	 * remaining bytes should be blank.
+	 */
+	strpad(handle, token_name, ICSF_TOKEN_NAME_LEN, ' ');
+	memset(handle + ICSF_TOKEN_NAME_LEN, ' ',
+	       sizeof(handle) - ICSF_TOKEN_NAME_LEN);
+
+	/* Should be 8 bytes padded. */
+	strpad(rule_array, "TOKEN", ICSF_RULE_ITEM_LEN, ' ');
+
+	/* Allocate ber_req to encode message. */
+	ber_req = ber_alloc_t(LBER_USE_DER);
+	if (ber_req == NULL) {
+		OCK_LOG_ERR(ERR_HOST_MEMORY);
+		goto cleanup;
+	}
+
+	/* Encode message:
+	 *
+	 * TRDInput ::= NULL
+	 */
+	rc = ber_printf(ber_req, "{iso{is}tn}", version, exit_data,
+			handle, sizeof(handle), rule_array_count, rule_array,
+			ICSF_TAG_CSFPTRD | LBER_PRIMITIVE | LBER_CLASS_CONTEXT);
+	if (rc < 0) {
+		OCK_LOG_DEBUG("Failed to encode message.\n");
+		goto cleanup;
+	}
+
+	/* Get raw bytes */
+	rc = ber_flatten(ber_req, &raw_req);
+	if (rc) {
+		OCK_LOG_DEBUG("Failed to flat BER data.\n");
+		goto cleanup;
+	}
+
+	/* Call ICSF service */
+	rc = ldap_extended_operation_s(ld, ICSF_REQ_OID, raw_req, NULL, NULL,
+				       &response_oid, &raw_res);
+	if (rc != LDAP_SUCCESS) {
+		OCK_LOG_DEBUG("ICSF call failed: %s (%d)\n",
+			      ldap_err2string(rc), rc);
+		goto cleanup;
+	}
+
+	/* Decode result */
+	ber_res = ber_init(raw_res);
+	if (ber_res == NULL) {
+		OCK_LOG_DEBUG("Failed to create a response buffer\n");
+		goto cleanup;
+	}
+
+	/*
+	 * TRDOutput ::= NULL
+	 */
+	rc = ber_scanf(ber_res, "{iiixxtn}", &version, &return_code,
+		       &reason_code, &tag);
+	if (rc < 0) {
+		OCK_LOG_DEBUG("Failed to decode message.\n");
+		goto cleanup;
+	}
+
+	OCK_LOG_DEBUG("ICSF call result: %d (%d)\n", return_code, reason_code);
+
+	if (!ICSF_RC_IS_ERROR(return_code))
+		rc = 0;
+
+cleanup:
+	if (ber_req)
+		ber_free(ber_req, 1);
+	if (ber_res)
+		ber_free(ber_res, 1);
+	if (raw_req)
+		ber_bvfree(raw_req);
+	if (raw_res)
+		ber_bvfree(raw_res);
+	if (response_oid)
+		ldap_memfree(response_oid);
+
+	return rc;
+
+}
