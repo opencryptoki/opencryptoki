@@ -20,12 +20,12 @@
 #define CONFIG_PATH "/usr/local/var/lib/opencryptoki"
 #endif // #ifndef CONFIG_PATH
 
-#define ICSF_CONFIG_PATH CONFIG_PATH "/icsftok"
+#define ICSF_CONFIG_PATH CONFIG_PATH "/icsf"
 #endif // #ifndef ICSF_CONFIG_PATH
 
 token_spec_t token_specific = {
 	ICSF_CONFIG_PATH,
-	"icsftok",
+	"icsf",
 	// Key token size (0 is default)
 	0,
 	// Token data info:
