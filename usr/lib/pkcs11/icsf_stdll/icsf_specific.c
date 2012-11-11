@@ -11,3 +11,16 @@
  *
  */
 
+#include <stdio.h>
+#include <string.h>
+#include <stdlib.h>
+#include <sys/types.h>
+#include <sys/stat.h>
+#include <fcntl.h>
+#include <pthread.h>
+#include "pkcs11types.h"
+#include "defs.h"
+#include "host_defs.h"
+#include "tok_specific.h"
+#include "tok_struct.h"
+
