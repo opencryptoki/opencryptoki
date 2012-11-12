@@ -973,7 +973,7 @@ CK_RV SC_InitToken( CK_SLOT_ID   sid,
 	 * to default behaviour.
 	 */
 	if (token_specific.t_init_token) {
-		rc = token_specific.t_init_token(pPin, ulPinLen, pLabel);
+		rc = token_specific.t_init_token(sid, pPin, ulPinLen, pLabel);
 		if (rc != CKR_OK) {
 			OCK_LOG_ERR(ERR_PIN_INCORRECT);
 			rc = CKR_PIN_INCORRECT;

@@ -352,7 +352,7 @@ struct token_specific_struct {
 	// any specific final code
 	CK_RV(*t_final) ();
 
-	CK_RV(*t_init_token) (CK_CHAR_PTR, CK_ULONG, CK_CHAR_PTR);
+	CK_RV(*t_init_token) (CK_SLOT_ID, CK_CHAR_PTR, CK_ULONG, CK_CHAR_PTR);
 	CK_RV(*t_login) (CK_USER_TYPE, CK_CHAR_PTR, CK_ULONG);
 	CK_RV(*t_logout) ();
 	CK_RV(*t_init_pin) (CK_CHAR_PTR, CK_ULONG);

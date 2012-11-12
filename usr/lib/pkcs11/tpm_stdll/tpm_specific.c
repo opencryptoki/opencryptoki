@@ -2047,7 +2047,8 @@ static CK_RV delete_tpm_data()
 
 /* only called at token init time */
 CK_RV
-token_specific_init_token(CK_CHAR_PTR pPin, CK_ULONG ulPinLen, CK_CHAR_PTR pLabel)
+token_specific_init_token(CK_SLOT_ID sid, CK_CHAR_PTR pPin, CK_ULONG ulPinLen,
+			  CK_CHAR_PTR pLabel)
 {
 	CK_BYTE hash_sha[SHA1_HASH_SIZE];
 	CK_RV rc;
