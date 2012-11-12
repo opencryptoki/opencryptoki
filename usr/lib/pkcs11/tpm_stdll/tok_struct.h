@@ -38,6 +38,7 @@ struct token_specific_struct token_specific = {
 	// Token data info:
 	{
 		TRUE,			// Use per guest data store
+		TRUE,			// Use master key
 		CKM_AES_CBC,		// Data store encryption
 		NULL,			// Default initialization vector for pins
 		")#%&!*)^!()$&!&N",	// Default initialization vector for objects

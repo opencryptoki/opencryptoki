@@ -31,6 +31,7 @@ token_spec_t token_specific = {
 	// Token data info:
 	{
 		FALSE,			// Don't use per guest data store
+		TRUE,			// Use master key
 		CKM_DES3_CBC,		// Data store encryption
 		"12345678",		// Default initialization vector for pins
 		"10293847",		// Default initialization vector for objects

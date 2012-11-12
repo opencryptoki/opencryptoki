@@ -1484,6 +1484,10 @@ CK_RV save_masterkey_so(void)
 	CK_BYTE fname[PATH_MAX];
 	CK_RV rc;
 
+	/* Skip it if master key is not needed. */
+   	if (!token_specific.data_store.use_master_key)
+		return CKR_OK;
+
 	if ((rc = get_encryption_info_for_clear_key(&key_len, &block_size)) != CKR_OK)
 		goto done;
 
@@ -1822,6 +1826,10 @@ CK_RV generate_master_key(CK_BYTE *key)
 	CK_RV rc = CKR_OK;
 	CK_ULONG key_len = 0L;
 	CK_ULONG master_key_len = 0L;
+
+	/* Skip it if master key is not needed. */
+   	if (!token_specific.data_store.use_master_key)
+		return CKR_OK;
 
 	if ((rc = get_encryption_info_for_clear_key(&key_len, NULL)) != CKR_OK ||
 	    (rc = get_encryption_info(&master_key_len, NULL)) != CKR_OK)

@@ -31,9 +31,10 @@ token_spec_t token_specific = {
 	// Token data info:
 	{
 		FALSE,			// Don't use per guest data store
-		CKM_DES3_CBC,		// Data store encryption
-		"12345678",		// Default initialization vector for pins
-		"10293847",		// Default initialization vector for objects
+		FALSE,			// Don't use master key. Remaining fields are ignored
+		NULL,			// Data store encryption
+		NULL,			// Default initialization vector for pins
+		NULL,			// Default initialization vector for objects
 	},
 	NULL,			// specific_init
 	NULL,			// slot2local

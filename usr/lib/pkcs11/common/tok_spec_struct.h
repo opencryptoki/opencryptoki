@@ -316,6 +316,9 @@ struct token_specific_struct {
 		// Use a separate directory for each user
 		CK_BBOOL per_user;
 
+		// Use data store?
+		CK_BBOOL use_master_key;
+
 		// Algorithm used to store private data (should be one of the
 		// CKM_* macros).
 		CK_MECHANISM_TYPE encryption_algorithm;
