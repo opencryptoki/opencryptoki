@@ -36,12 +36,14 @@ token_spec_t token_specific = {
 		NULL,			// Default initialization vector for pins
 		NULL,			// Default initialization vector for objects
 	},
-	NULL,			// specific_init
-	NULL,			// slot2local
+	NULL,			// creatlock
+	NULL,			// attach_shm
+	&token_specific_init,
+	&tok_slot2local,
 	NULL,			// rng
 	NULL,			// session
-	NULL,			// final
-	NULL,			// init_token
+	&token_specific_final,
+	&token_specific_init_token,
 	NULL,			// login
 	NULL,			// logout
 	NULL,			// init_pin

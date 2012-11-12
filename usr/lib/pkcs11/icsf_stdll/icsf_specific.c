@@ -21,8 +21,15 @@
 #include "pkcs11types.h"
 #include "defs.h"
 #include "host_defs.h"
+#include "h_extern.h"
 #include "tok_specific.h"
 #include "tok_struct.h"
+
+/* Default token attributes */
+CK_CHAR manuf[] = "IBM Corp.";
+CK_CHAR model[] = "IBM ICSFTok ";
+CK_CHAR descr[] = "IBM PKCS#11 ICSF token";
+CK_CHAR label[] = "IBM OS PKCS#11   ";
 
 /* mechanisms provided by this token */
 MECH_LIST_ELEMENT mech_list[] = {
@@ -109,3 +116,43 @@ token_specific_get_mechanism_info(CK_MECHANISM_TYPE type,
 	return rc;
 }
 
+/*
+ * Convert pkcs slot number to local representation
+ */
+int
+tok_slot2local(CK_SLOT_ID snum)
+{
+	return 1;
+}
+
+/*
+ * Called during C_Initialize.
+ */
+CK_RV
+token_specific_init(char *Correlator, CK_SLOT_ID SlotNumber)
+{
+	return CKR_OK;
+}
+
+/*
+ * Called during C_Finalize.
+ */
+CK_RV
+token_specific_final()
+{
+	return CKR_OK;
+}
+
+/*
+ * Initialize token.
+ */
+CK_RV
+token_specific_init_token(CK_SLOT_ID sid, CK_CHAR_PTR pPin, CK_ULONG ulPinLen,
+			  CK_CHAR_PTR pLabel)
+{
+	CK_RV rc = CKR_OK;
+
+	OCK_LOG_DEBUG("dir %s\n", pk_dir);
+
+	return CKR_OK;
+}
