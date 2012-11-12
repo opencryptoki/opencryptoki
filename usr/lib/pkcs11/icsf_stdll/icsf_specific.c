@@ -99,3 +99,13 @@ token_specific_get_mechanism_list(CK_MECHANISM_TYPE_PTR pMechanismList,
 	return rc;
 }
 
+CK_RV
+token_specific_get_mechanism_info(CK_MECHANISM_TYPE type,
+				  CK_MECHANISM_INFO_PTR pInfo)
+{
+	int rc;
+	/* common/mech_list.c */
+	rc = ock_generate_get_mechanism_info(type, pInfo);
+	return rc;
+}
+
