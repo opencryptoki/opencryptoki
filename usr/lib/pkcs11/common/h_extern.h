@@ -803,6 +803,8 @@ CK_RV restore_private_token_object( CK_BYTE  * data,
 CK_RV delete_token_object( OBJECT *ptr );
 CK_RV delete_token_data();
 
+CK_BYTE *get_pk_dir(char *);
+
 CK_RV init_token_data( void );
 CK_RV load_token_data( void );
 CK_RV save_token_data( void );

@@ -312,7 +312,7 @@
 
 /* #include "../api/apiproto.h" */
 
-static CK_BYTE *get_pk_dir(char *fname)
+CK_BYTE *get_pk_dir(char *fname)
 {
 	struct passwd *pw = NULL;
 
