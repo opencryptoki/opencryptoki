@@ -312,9 +312,8 @@
 
 /* #include "../api/apiproto.h" */
 
-static CK_BYTE *get_pk_dir()
+static CK_BYTE *get_pk_dir(char *fname)
 {
-	static CK_BYTE fname[PATH_MAX];
 	struct passwd *pw = NULL;
 
 	if (token_specific.data_store.per_user &&
@@ -660,6 +659,7 @@ CK_RV load_token_data()
 	CK_BYTE fname[PATH_MAX];
 	TOKEN_DATA td;
 	CK_RV rc;
+	char pk_dir_buf[PATH_MAX];
 
 	rc = XProcLock();
 	if (rc != CKR_OK) {
@@ -667,7 +667,7 @@ CK_RV load_token_data()
 		goto out_nolock;
 	}
 
-	sprintf(fname, "%s/%s", get_pk_dir(), PK_LITE_NV);
+	sprintf(fname, "%s/%s", get_pk_dir(pk_dir_buf), PK_LITE_NV);
 	fp = fopen((char *)fname, "r");
 	if (!fp) {
 		/* Better error checking added */
@@ -728,6 +728,7 @@ CK_RV save_token_data()
 	CK_RV rc;
 	CK_BYTE fname[PATH_MAX];
 	fpos_t fpos;
+	char pk_dir_buf[PATH_MAX];
 
 	rc = XProcLock();
 	if (rc != CKR_OK) {
@@ -735,7 +736,7 @@ CK_RV save_token_data()
 		goto out_nolock;
 	}
 
-	sprintf(fname, "%s/%s", get_pk_dir(), PK_LITE_NV);
+	sprintf(fname, "%s/%s", get_pk_dir(pk_dir_buf), PK_LITE_NV);
 	fp = fopen((char *)fname, "r+");
 	if (!fp) {
 		fp = fopen((char *)fname, "w");
@@ -769,6 +770,7 @@ CK_RV save_token_object(OBJECT * obj)
 	CK_BYTE line[100];
 	CK_RV rc;
 	CK_BYTE fname[PATH_MAX];
+	char pk_dir_buf[PATH_MAX];
 
 	if (object_is_private(obj) == TRUE)
 		rc = save_private_token_object(obj);
@@ -781,7 +783,7 @@ CK_RV save_token_object(OBJECT * obj)
 	}
 
 	// update the index file if it exists
-	sprintf(fname, "%s/%s/%s", get_pk_dir(), PK_LITE_OBJ_DIR,
+	sprintf(fname, "%s/%s/%s", get_pk_dir(pk_dir_buf), PK_LITE_OBJ_DIR,
 		PK_LITE_OBJ_IDX);
 	fp = fopen((char *)fname, "r");
 	if (fp) {
@@ -827,6 +829,7 @@ CK_RV save_public_token_object(OBJECT * obj)
 	CK_BBOOL flag = FALSE;
 	CK_RV rc;
 	CK_ULONG_32 total_len;
+	char pk_dir_buf[PATH_MAX];
 
 	rc = object_flatten(obj, &clear, &clear_len);
 	if (rc != CKR_OK) {
@@ -834,7 +837,7 @@ CK_RV save_public_token_object(OBJECT * obj)
 		goto error;
 	}
 
-	sprintf(fname, "%s/%s/", get_pk_dir(), PK_LITE_OBJ_DIR);
+	sprintf(fname, "%s/%s/", get_pk_dir(pk_dir_buf), PK_LITE_OBJ_DIR);
 	strncat((char *)fname, (char *)obj->name, 8);
 	fp = fopen((char *)fname, "w");
 	if (!fp) {
@@ -884,6 +887,7 @@ CK_RV save_private_token_object(OBJECT * obj)
 	CK_RV rc;
 	CK_ULONG_32 obj_data_len_32;
 	CK_ULONG_32 total_len;
+	char pk_dir_buf[PATH_MAX];
 
 	rc = object_flatten(obj, &obj_data, &obj_data_len);
 	obj_data_len_32 = obj_data_len;
@@ -948,7 +952,7 @@ CK_RV save_private_token_object(OBJECT * obj)
 		goto error;
 	}
 
-	sprintf(fname, "%s/%s/", get_pk_dir(), PK_LITE_OBJ_DIR);
+	sprintf(fname, "%s/%s/", get_pk_dir(pk_dir_buf), PK_LITE_OBJ_DIR);
 	strncat((char *)fname, (char *)obj->name, 8);
 	fp = fopen((char *)fname, "w");
 	if (!fp) {
@@ -1003,9 +1007,9 @@ CK_RV load_public_token_objects(void)
 	CK_ULONG_32 size;
 	size_t read_size;
 	struct passwd *pw = NULL;
+	char pk_dir_buf[PATH_MAX];
 
-
-	sprintf(iname, "%s/%s/%s", get_pk_dir(), PK_LITE_OBJ_DIR,
+	sprintf(iname, "%s/%s/%s", get_pk_dir(pk_dir_buf), PK_LITE_OBJ_DIR,
 		PK_LITE_OBJ_IDX);
 
 	fp1 = fopen((char *)iname, "r");
@@ -1017,7 +1021,7 @@ CK_RV load_public_token_objects(void)
 		if (!feof(fp1)) {
 			tmp[strlen((char *)tmp) - 1] = 0;
 
-			sprintf((char *)fname, "%s/%s/", get_pk_dir(),
+			sprintf((char *)fname, "%s/%s/", get_pk_dir(pk_dir_buf),
 				PK_LITE_OBJ_DIR);
 			strcat((char *)fname, (char *)tmp);
 
@@ -1079,8 +1083,9 @@ CK_RV load_private_token_objects(void)
 	CK_ULONG_32 size;
 	CK_RV rc;
 	size_t read_size;
+	char pk_dir_buf[PATH_MAX];
 
-	sprintf(iname, "%s/%s/%s", get_pk_dir(), PK_LITE_OBJ_DIR,
+	sprintf(iname, "%s/%s/%s", get_pk_dir(pk_dir_buf), PK_LITE_OBJ_DIR,
 		PK_LITE_OBJ_IDX);
 
 	fp1 = fopen((char *)iname, "r");
@@ -1092,7 +1097,7 @@ CK_RV load_private_token_objects(void)
 		if (!feof(fp1)) {
 			tmp[strlen((char *)tmp) - 1] = 0;
 
-			sprintf((char *)fname, "%s/%s/", get_pk_dir(),
+			sprintf((char *)fname, "%s/%s/", get_pk_dir(pk_dir_buf),
 				PK_LITE_OBJ_DIR);
 			strcat((char *)fname, (char *)tmp);
 
@@ -1279,6 +1284,7 @@ CK_RV load_masterkey_so(void)
 	CK_ULONG key_len = 0L;
 	CK_ULONG master_key_len = 0L;
 	CK_ULONG block_size = 0L;
+	char pk_dir_buf[PATH_MAX];
 
 	if ((rc = get_encryption_info_for_clear_key(&key_len, &block_size)) != CKR_OK)
 		goto done;
@@ -1302,7 +1308,7 @@ CK_RV load_masterkey_so(void)
 
 	// this file gets created on C_InitToken so we can assume that it always exists
 	//
-	sprintf(fname, "%s/MK_SO", get_pk_dir());
+	sprintf(fname, "%s/MK_SO", get_pk_dir(pk_dir_buf));
 	fp = fopen((char *)fname, "r");
 	if (!fp) {
 		OCK_LOG_ERR(ERR_FUNCTION_FAILED);
@@ -1381,6 +1387,7 @@ CK_RV load_masterkey_user(void)
 	CK_ULONG master_key_len = 0L;
 	CK_ULONG block_size = 0L;
 	struct passwd *pw = NULL;
+	char pk_dir_buf[PATH_MAX];
 
 	if ((rc = get_encryption_info_for_clear_key(&key_len, &block_size)) != CKR_OK)
 		goto done;
@@ -1404,7 +1411,7 @@ CK_RV load_masterkey_user(void)
 
 	// this file gets created on C_InitToken so we can assume that it always exists
 	//
-	sprintf(fname, "%s/MK_USER", get_pk_dir());
+	sprintf(fname, "%s/MK_USER", get_pk_dir(pk_dir_buf));
 	fp = fopen((char *)fname, "r");
 	if (!fp) {
 		OCK_LOG_DEBUG("fopen(%s): %s\n", fname, strerror(errno));
@@ -1483,6 +1490,7 @@ CK_RV save_masterkey_so(void)
 	CK_ULONG data_len = 0L;
 	CK_BYTE fname[PATH_MAX];
 	CK_RV rc;
+	char pk_dir_buf[PATH_MAX];
 
 	/* Skip it if master key is not needed. */
    	if (!token_specific.data_store.use_master_key)
@@ -1529,7 +1537,7 @@ CK_RV save_masterkey_so(void)
 	//
 	// probably ought to ensure the permissions are correct
 	//
-	sprintf(fname, "%s/MK_SO", get_pk_dir());
+	sprintf(fname, "%s/MK_SO", get_pk_dir(pk_dir_buf));
 	fp = fopen((char *)fname, "w");
 	if (!fp) {
 		OCK_LOG_ERR(ERR_FUNCTION_FAILED);
@@ -1575,6 +1583,7 @@ CK_RV save_masterkey_user(void)
 	CK_ULONG data_len;
 	CK_BYTE fname[PATH_MAX];
 	CK_RV rc;
+	char pk_dir_buf[PATH_MAX];
 
 	if ((rc = get_encryption_info_for_clear_key(&key_len, &block_size)) != CKR_OK)
 		goto done;
@@ -1617,7 +1626,7 @@ CK_RV save_masterkey_user(void)
 	//
 	// probably ought to ensure the permissions are correct
 	//
-	sprintf(fname, "%s/MK_USER", get_pk_dir());
+	sprintf(fname, "%s/MK_USER", get_pk_dir(pk_dir_buf));
 	fp = fopen((char *)fname, "w");
 	if (!fp) {
 		OCK_LOG_ERR(ERR_FUNCTION_FAILED);
@@ -1659,10 +1668,11 @@ CK_RV reload_token_object(OBJECT * obj)
 	CK_ULONG size_64;
 	CK_RV rc;
 	size_t read_size;
+	char pk_dir_buf[PATH_MAX];
 
 	memset((char *)fname, 0x0, sizeof(fname));
 
-	sprintf((char *)fname, "%s/%s/", get_pk_dir(), PK_LITE_OBJ_DIR);
+	sprintf((char *)fname, "%s/%s/", get_pk_dir(pk_dir_buf), PK_LITE_OBJ_DIR);
 
 	strncat((char *)fname, (char *)obj->name, 8);
 
@@ -1731,10 +1741,11 @@ CK_RV delete_token_object(OBJECT * obj)
 	FILE *fp1, *fp2;
 	CK_BYTE line[100];
 	CK_BYTE objidx[PATH_MAX], idxtmp[PATH_MAX], fname[PATH_MAX];
+	char pk_dir_buf[PATH_MAX];
 
-	sprintf((char *)objidx, "%s/%s/%s", get_pk_dir(), PK_LITE_OBJ_DIR,
+	sprintf((char *)objidx, "%s/%s/%s", get_pk_dir(pk_dir_buf), PK_LITE_OBJ_DIR,
 		PK_LITE_OBJ_IDX);
-	sprintf((char *)idxtmp, "%s/%s/%s", get_pk_dir(), PK_LITE_OBJ_DIR, "IDX.TMP");
+	sprintf((char *)idxtmp, "%s/%s/%s", get_pk_dir(pk_dir_buf), PK_LITE_OBJ_DIR, "IDX.TMP");
 
 	// FIXME:  on UNIX, we need to make sure these guys aren't symlinks
 	//         before we blindly write to these files...
@@ -1791,8 +1802,8 @@ CK_RV delete_token_object(OBJECT * obj)
 	fclose(fp1);
 	fclose(fp2);
 
-	sprintf((char *)fname, "%s/%s/%s", get_pk_dir(), PK_LITE_OBJ_DIR,
-		(char *)obj->name);
+	sprintf((char *)fname, "%s/%s/%s", get_pk_dir(pk_dir_buf),
+		PK_LITE_OBJ_DIR, (char *)obj->name);
 	unlink((char *)fname);
 	return CKR_OK;
 
@@ -1802,6 +1813,7 @@ CK_RV delete_token_data()
 {
 	CK_RV rc = CKR_OK;
 	char *cmd = NULL;
+	char pk_dir_buf[PATH_MAX];
 
 	// Construct a string to delete the token objects.
 	//
@@ -1810,7 +1822,7 @@ CK_RV delete_token_data()
 	//
 	// TODO: Implement delete_all_files_in_dir() */
 	if (asprintf(&cmd, "%s %s/%s/* > /dev/null 2>&1", DEL_CMD,
-			    get_pk_dir(), PK_LITE_OBJ_DIR) < 0) {
+			    get_pk_dir(pk_dir_buf), PK_LITE_OBJ_DIR) < 0) {
 		rc = CKR_HOST_MEMORY;
 		goto done;
 	}
