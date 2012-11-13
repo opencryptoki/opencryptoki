@@ -321,7 +321,7 @@ static CK_BYTE *get_pk_dir(char *fname)
 		sprintf(fname,"%s/%s", pk_dir, pw->pw_name);
 	else
 		sprintf(fname, "%s", pk_dir);
-	
+
 	return fname;
 }
 
@@ -362,9 +362,9 @@ static CK_RV get_encryption_info(CK_ULONG *p_key_len,
 	if (rc != CKR_OK)
 		return rc;
 
-	/* Tokens that use a secure key have a different size for key because it's
-	 * just an indentifier not a real key. token_keysize > 0 indicates that a 
-	 * token uses a specific key format.
+	/* Tokens that use a secure key have a different size for key because
+	 * it's just an indentifier not a real key. token_keysize > 0 indicates
+	 * that a token uses a specific key format.
 	 */
 	if (token_specific.token_keysize) {
 		if (p_key_len)
@@ -455,7 +455,7 @@ static CK_RV encrypt_data(CK_BYTE *key, CK_ULONG keylen, const CK_BYTE *iv,
 		free(initial_vector);
 
 	return rc;
-	
+
 #else
 	memcpy(cipher, clear, clear_len);
 	return CKR_OK;
@@ -569,7 +569,7 @@ static CK_RV decrypt_data(CK_BYTE *key, CK_ULONG keylen, const CK_BYTE *iv,
 		free(initial_vector);
 
 	return rc;
-	
+
 #else
 	memcpy(clear, cipher, cipher_len);
 	return CKR_OK;
@@ -626,9 +626,9 @@ void set_perm(int file)
 	struct group *grp;
 
 	if (token_specific.data_store.per_user) {
-		/* In the TPM token, with per user data stores, we don't share the token
-		 * object amongst a group. In fact, we want to restrict access to a single
-		 * user */
+		/* In the TPM token, with per user data stores, we don't share
+		 * the token object amongst a group. In fact, we want to
+		 * restrict access to a single user */
 		fchmod(file,S_IRUSR|S_IWUSR);
 	} else {
 		// Set absolute permissions or rw-rw-r--
@@ -636,7 +636,8 @@ void set_perm(int file)
 
 		grp = getgrnam("pkcs11");	// Obtain the group id
 		if (grp) {
-			if (fchown(file, getuid(), grp->gr_gid) != 0) {	// set ownership to root, and pkcs11 group
+			// set ownership to root, and pkcs11 group
+			if (fchown(file, getuid(), grp->gr_gid) != 0) {
 				goto error;
 			}
 		} else {
@@ -647,7 +648,8 @@ void set_perm(int file)
 	return;
 
 error:
-	//TODO: More detailed error for this scenario. Possibly propagate error better
+	//TODO: More detailed error for this scenario. Possibly propagate
+	//      error better
 	OCK_LOG_ERR(ERR_FUNCTION_FAILED);
 }
 
@@ -672,8 +674,9 @@ CK_RV load_token_data()
 	if (!fp) {
 		/* Better error checking added */
 		if (errno == ENOENT) {
-			/* init_token_data may call save_token_data, which graps the 
-			 * lock, so we must release it around this call */
+			/* init_token_data may call save_token_data, which
+			 * grabs the lock, so we must release it around this
+			 * call */
 			XProcUnLock();
 			init_token_data();
 			rc = XProcLock();
@@ -687,7 +690,6 @@ CK_RV load_token_data()
 				// were really hosed here since the created
 				// did not occur
 				OCK_LOG_ERR(ERR_FUNCTION_FAILED);
-				// OCK_LOG_DEBUG("failed opening %s for read: %s\n", fname, strerror(errno));
 				rc = CKR_FUNCTION_FAILED;
 				goto out_unlock;
 			}
@@ -794,7 +796,8 @@ CK_RV save_token_object(OBJECT * obj)
 				line[strlen(line) - 1] = 0;
 				if (strcmp(line, obj->name) == 0) {
 					fclose(fp);
-					return CKR_OK;	// object is already in the list
+					// object is already in the list
+					return CKR_OK;
 				}
 			}
 		}
@@ -833,7 +836,6 @@ CK_RV save_public_token_object(OBJECT * obj)
 
 	rc = object_flatten(obj, &clear, &clear_len);
 	if (rc != CKR_OK) {
-		// OCK_LOG_ERR(ERR_OBJ_FLATTEN);
 		goto error;
 	}
 
@@ -910,12 +912,12 @@ CK_RV save_private_token_object(OBJECT * obj)
 	// create a tepmorary key object containing the master key, perform the
 	// encryption, then destroy the key object.  There is a race condition
 	// here if the application is multithreaded (if a thread-switch occurs,
-	// the other application thread could do a FindObject and be able to access
-	// the master key object.
+	// the other application thread could do a FindObject and be able to
+	// access the master key object.
 	//
 	// So I have to use the low-level encryption routines.
 	//
-	
+
 	if ((rc = get_encryption_info(&key_len, &block_size)) != CKR_OK)
 		goto error;
 
@@ -1041,7 +1043,8 @@ CK_RV load_public_token_objects(void)
 			if (!buf) {
 				fclose(fp2);
 				OCK_SYSLOG(LOG_ERR,
-					   "Cannot malloc %u bytes to read in token object %s (ignoring it)",
+					   "Cannot malloc %u bytes to read in "
+					   "token object %s (ignoring it)",
 					   size, fname);
 				continue;
 			}
@@ -1051,16 +1054,17 @@ CK_RV load_public_token_objects(void)
 				fclose(fp2);
 				free(buf);
 				OCK_SYSLOG(LOG_ERR,
-					   "Cannot read token object %s (ignoring it)",
-					   fname);
+					   "Cannot read token object %s "
+					   "(ignoring it)", fname);
 				continue;
 			}
 			// ... grab object mutex here.
 			MY_LockMutex(&obj_list_mutex);
-			if (object_mgr_restore_obj_withSize(buf, NULL, size) != CKR_OK) {
+			if (object_mgr_restore_obj_withSize(buf, NULL, size) !=
+							    CKR_OK) {
 				OCK_SYSLOG(LOG_ERR,
-					   "Cannot restore token object %s (ignoring it)",
-					   fname);
+					   "Cannot restore token object %s "
+					   "(ignoring it)", fname);
 			}
 			MY_UnlockMutex(&obj_list_mutex);
 			free(buf);
@@ -1117,7 +1121,8 @@ CK_RV load_private_token_objects(void)
 			if (!buf) {
 				fclose(fp2);
 				OCK_SYSLOG(LOG_ERR,
-					   "Cannot malloc %u bytes to read in token object %s (ignoring it)",
+					   "Cannot malloc %u bytes to read in "
+					   "token object %s (ignoring it)",
 					   size, fname);
 				continue;
 			}
@@ -1127,11 +1132,11 @@ CK_RV load_private_token_objects(void)
 				free(buf);
 				fclose(fp2);
 				OCK_SYSLOG(LOG_ERR,
-					   "Cannot read token object %s (ignoring it)",
-					   fname);
+					   "Cannot read token object %s "
+					   "(ignoring it)", fname);
 				continue;
 			}
-// Grab object list  mutex
+			// Grab object list  mutex
 			MY_LockMutex(&obj_list_mutex);
 			rc = restore_private_token_object(buf, size, NULL);
 			MY_UnlockMutex(&obj_list_mutex);
@@ -1213,8 +1218,8 @@ CK_RV restore_private_token_object(CK_BYTE * data, CK_ULONG len, OBJECT * pObj)
 
 	rc = strip_pkcs_padding(clear, len, &clear_len);
 
-	// if the padding extraction didn't work it means the object was tampered with or
-	// the key was incorrect
+	// if the padding extraction didn't work it means the object was
+	// tampered with or the key was incorrect
 	//
 	if (rc != CKR_OK || (clear_len > len)) {
 		OCK_LOG_ERR(ERR_FUNCTION_FAILED);
@@ -1249,8 +1254,8 @@ CK_RV restore_private_token_object(CK_BYTE * data, CK_ULONG len, OBJECT * pObj)
 		rc = CKR_FUNCTION_FAILED;
 		goto done;
 	}
-	// okay.  at this point, we're satisfied that nobody has tampered with the
-	// token object...
+	// okay.  at this point, we're satisfied that nobody has tampered with
+	// the token object...
 	//
 
 	rc = object_mgr_restore_obj(obj_data, pObj);
@@ -1286,7 +1291,8 @@ CK_RV load_masterkey_so(void)
 	CK_ULONG block_size = 0L;
 	char pk_dir_buf[PATH_MAX];
 
-	if ((rc = get_encryption_info_for_clear_key(&key_len, &block_size)) != CKR_OK)
+	if ((rc = get_encryption_info_for_clear_key(&key_len,
+						    &block_size)) != CKR_OK)
 		goto done;
 
 	if ((rc = get_encryption_info(&master_key_len, NULL)) != CKR_OK)
@@ -1297,7 +1303,7 @@ CK_RV load_masterkey_so(void)
 	data_len = master_key_len + SHA1_HASH_SIZE;
 	clear_len = cipher_len = (data_len + block_size - 1)
 		& ~(block_size - 1);
-	
+
 	key = malloc(key_len);
 	cipher = malloc(cipher_len);
 	clear = malloc(clear_len);
@@ -1306,7 +1312,8 @@ CK_RV load_masterkey_so(void)
 		goto done;
 	}
 
-	// this file gets created on C_InitToken so we can assume that it always exists
+	// this file gets created on C_InitToken so we can assume that it always
+	// exists
 	//
 	sprintf(fname, "%s/MK_SO", get_pk_dir(pk_dir_buf));
 	fp = fopen((char *)fname, "r");
@@ -1325,8 +1332,8 @@ CK_RV load_masterkey_so(void)
 	}
 
 	// decrypt the master key data using the MD5 of the SO key
-	// (we can't use the SHA of the SO key since the SHA of the key is stored
-	// in the token data file).
+	// (we can't use the SHA of the SO key since the SHA of the key is
+	// stored in the token data file).
 	memcpy(key, so_pin_md5, MD5_HASH_SIZE);
 	memcpy(key + MD5_HASH_SIZE, so_pin_md5, key_len - MD5_HASH_SIZE);
 
@@ -1340,8 +1347,8 @@ CK_RV load_masterkey_so(void)
 	}
 
 	//
-	// technically should strip PKCS padding here but since I already know what
-	// the length should be, I don't bother.
+	// technically should strip PKCS padding here but since I already know
+	// what the length should be, I don't bother.
 	//
 
 	// compare the hashes
@@ -1389,7 +1396,8 @@ CK_RV load_masterkey_user(void)
 	struct passwd *pw = NULL;
 	char pk_dir_buf[PATH_MAX];
 
-	if ((rc = get_encryption_info_for_clear_key(&key_len, &block_size)) != CKR_OK)
+	if ((rc = get_encryption_info_for_clear_key(&key_len,
+						    &block_size)) != CKR_OK)
 		goto done;
 
 	if ((rc = get_encryption_info(&master_key_len, NULL)) != CKR_OK)
@@ -1400,7 +1408,7 @@ CK_RV load_masterkey_user(void)
 	data_len = master_key_len + SHA1_HASH_SIZE;
 	clear_len = cipher_len = (data_len + block_size - 1)
 				 & ~(block_size - 1);
-	
+
 	key = malloc(key_len);
 	cipher = malloc(cipher_len);
 	clear = malloc(clear_len);
@@ -1409,7 +1417,8 @@ CK_RV load_masterkey_user(void)
 		goto done;
 	}
 
-	// this file gets created on C_InitToken so we can assume that it always exists
+	// this file gets created on C_InitToken so we can assume that it always
+	// exists
 	//
 	sprintf(fname, "%s/MK_USER", get_pk_dir(pk_dir_buf));
 	fp = fopen((char *)fname, "r");
@@ -1427,8 +1436,8 @@ CK_RV load_masterkey_user(void)
 		goto done;
 	}
 	// decrypt the master key data using the MD5 of the SO key
-	// (we can't use the SHA of the SO key since the SHA of the key is stored
-	// in the token data file).
+	// (we can't use the SHA of the SO key since the SHA of the key is
+	// stored in the token data file).
 	memcpy(key, user_pin_md5, MD5_HASH_SIZE);
 	memcpy(key + MD5_HASH_SIZE, user_pin_md5, key_len - MD5_HASH_SIZE);
 
@@ -1442,8 +1451,8 @@ CK_RV load_masterkey_user(void)
 	}
 
 	//
-	// technically should strip PKCS padding here but since I already know what
-	// the length should be, I don't bother.
+	// technically should strip PKCS padding here but since I already know
+	// what the length should be, I don't bother.
 	//
 
 	// compare the hashes
@@ -1496,7 +1505,8 @@ CK_RV save_masterkey_so(void)
    	if (!token_specific.data_store.use_master_key)
 		return CKR_OK;
 
-	if ((rc = get_encryption_info_for_clear_key(&key_len, &block_size)) != CKR_OK)
+	if ((rc = get_encryption_info_for_clear_key(&key_len,
+						    &block_size)) != CKR_OK)
 		goto done;
 
 	if ((rc = get_encryption_info(&master_key_len, NULL)) != CKR_OK)
@@ -1516,7 +1526,8 @@ CK_RV save_masterkey_so(void)
 
 	// Copy data to buffer (key+hash)
 	memcpy(clear, master_key, master_key_len);
-	if ((rc = compute_sha(master_key, master_key_len, clear + master_key_len)) != CKR_OK)
+	if ((rc = compute_sha(master_key, master_key_len,
+			      clear + master_key_len)) != CKR_OK)
 		goto done;
 	add_pkcs_padding(clear + data_len, block_size, data_len,
 			 clear_len);
@@ -1585,7 +1596,8 @@ CK_RV save_masterkey_user(void)
 	CK_RV rc;
 	char pk_dir_buf[PATH_MAX];
 
-	if ((rc = get_encryption_info_for_clear_key(&key_len, &block_size)) != CKR_OK)
+	if ((rc = get_encryption_info_for_clear_key(&key_len,
+						    &block_size)) != CKR_OK)
 		goto done;
 
 	if ((rc = get_encryption_info(&master_key_len, NULL)) != CKR_OK)
@@ -1605,7 +1617,8 @@ CK_RV save_masterkey_user(void)
 
 	// Copy data to buffer (key+hash)
 	memcpy(clear, master_key, master_key_len);
-	if ((rc = compute_sha(master_key, master_key_len, clear + master_key_len)) != CKR_OK)
+	if ((rc = compute_sha(master_key, master_key_len,
+			      clear + master_key_len)) != CKR_OK)
 		goto done;
 	add_pkcs_padding(clear + data_len, block_size , data_len,
 			 clear_len);
@@ -1672,7 +1685,8 @@ CK_RV reload_token_object(OBJECT * obj)
 
 	memset((char *)fname, 0x0, sizeof(fname));
 
-	sprintf((char *)fname, "%s/%s/", get_pk_dir(pk_dir_buf), PK_LITE_OBJ_DIR);
+	sprintf((char *)fname, "%s/%s/", get_pk_dir(pk_dir_buf),
+		PK_LITE_OBJ_DIR);
 
 	strncat((char *)fname, (char *)obj->name, 8);
 
@@ -1694,8 +1708,8 @@ CK_RV reload_token_object(OBJECT * obj)
 	if (!buf) {
 		rc = CKR_HOST_MEMORY;
 		OCK_SYSLOG(LOG_ERR,
-			   "Cannot malloc %u bytes to read in token object %s (ignoring it)",
-			   size, fname);
+			   "Cannot malloc %u bytes to read in token object %s "
+			   "(ignoring it)", size, fname);
 		goto done;
 	}
 
@@ -1743,9 +1757,10 @@ CK_RV delete_token_object(OBJECT * obj)
 	CK_BYTE objidx[PATH_MAX], idxtmp[PATH_MAX], fname[PATH_MAX];
 	char pk_dir_buf[PATH_MAX];
 
-	sprintf((char *)objidx, "%s/%s/%s", get_pk_dir(pk_dir_buf), PK_LITE_OBJ_DIR,
-		PK_LITE_OBJ_IDX);
-	sprintf((char *)idxtmp, "%s/%s/%s", get_pk_dir(pk_dir_buf), PK_LITE_OBJ_DIR, "IDX.TMP");
+	sprintf((char *)objidx, "%s/%s/%s", get_pk_dir(pk_dir_buf),
+		PK_LITE_OBJ_DIR, PK_LITE_OBJ_IDX);
+	sprintf((char *)idxtmp, "%s/%s/%s", get_pk_dir(pk_dir_buf),
+		PK_LITE_OBJ_DIR, "IDX.TMP");
 
 	// FIXME:  on UNIX, we need to make sure these guys aren't symlinks
 	//         before we blindly write to these files...
@@ -1846,12 +1861,14 @@ CK_RV generate_master_key(CK_BYTE *key)
 	if ((rc = get_encryption_info_for_clear_key(&key_len, NULL)) != CKR_OK ||
 	    (rc = get_encryption_info(&master_key_len, NULL)) != CKR_OK)
 		return ERR_FUNCTION_FAILED;
-	
+
 	switch (token_specific.data_store.encryption_algorithm) {
 	case CKM_DES3_CBC:
-		return token_specific.t_des_key_gen(key, master_key_len, key_len);
+		return token_specific.t_des_key_gen(key, master_key_len,
+						    key_len);
 	case CKM_AES_CBC:
-		return token_specific.t_aes_key_gen(key, master_key_len, key_len);
+		return token_specific.t_aes_key_gen(key, master_key_len,
+						    key_len);
 	}
 
 	return ERR_MECHANISM_INVALID;
