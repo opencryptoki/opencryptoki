@@ -314,6 +314,7 @@
 #define OCK_API_LOCK_FILE LOCKDIR_PATH "/LCK..APIlock"
 
 #define PID_FILE_PATH "/var/run/pkcsslotd.pid"
+#define OCK_CONFIG OCK_CONFDIR "/opencryptoki.conf"
 
 #ifndef CK_BOOL
     #define CK_BOOL  CK_BBOOL
