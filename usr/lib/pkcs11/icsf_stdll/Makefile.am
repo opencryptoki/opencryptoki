@@ -23,42 +23,42 @@ opencryptoki_stdll_libpkcs11_icsf_la_LDFLAGS = -shared			\
 					       -lpthread
 
 opencryptoki_stdll_libpkcs11_icsf_la_SOURCES = ../common/asn1.c		\
-					      ../common/btree.c		\
-					      ../common/dig_mgr.c	\
-					      ../common/hwf_obj.c	\
-					      ../common/log.c		\
-					      ../common/key.c		\
-					      ../common/mech_dh.c	\
-					      ../common/mech_rng.c	\
-					      ../common/new_host.c	\
-					      ../common/sign_mgr.c	\
-					      ../common/cert.c		\
-					      ../common/dp_obj.c	\
-					      ../common/mech_aes.c	\
-					      ../common/mech_rsa.c	\
-					      ../common/obj_mgr.c	\
-					      ../common/template.c	\
-					      ../common/p11util.c	\
-					      ../common/data_obj.c	\
-					      ../common/encr_mgr.c	\
-					      ../common/key_mgr.c	\
-					      ../common/mech_md2.c	\
-					      ../common/mech_sha.c	\
-					      ../common/object.c	\
-					      ../common/decr_mgr.c	\
-					      ../common/globals.c	\
-					      ../common/loadsave.c	\
-					      ../common/utility.c	\
-					      ../common/mech_des.c	\
-					      ../common/mech_des3.c	\
-					      ../common/mech_md5.c	\
-					      ../common/mech_ssl3.c	\
-					      ../common/sess_mgr.c	\
-					      ../common/verify_mgr.c	\
-					      ../common/mech_list.c	\
-					      pbkdf.c			\
-					      icsf_specific.c		\
-					      icsf.c
+					       ../common/btree.c	\
+					       ../common/dig_mgr.c	\
+					       ../common/hwf_obj.c	\
+					       ../common/log.c		\
+					       ../common/key.c		\
+					       ../common/mech_dh.c	\
+					       ../common/mech_rng.c	\
+					       ../common/new_host.c	\
+					       ../common/sign_mgr.c	\
+					       ../common/cert.c		\
+					       ../common/dp_obj.c	\
+					       ../common/mech_aes.c	\
+					       ../common/mech_rsa.c	\
+					       ../common/obj_mgr.c	\
+					       ../common/template.c	\
+					       ../common/p11util.c	\
+					       ../common/data_obj.c	\
+					       ../common/encr_mgr.c	\
+					       ../common/key_mgr.c	\
+					       ../common/mech_md2.c	\
+					       ../common/mech_sha.c	\
+					       ../common/object.c	\
+					       ../common/decr_mgr.c	\
+					       ../common/globals.c	\
+					       ../common/loadsave.c	\
+					       ../common/utility.c	\
+					       ../common/mech_des.c	\
+					       ../common/mech_des3.c	\
+					       ../common/mech_md5.c	\
+					       ../common/mech_ssl3.c	\
+					       ../common/sess_mgr.c	\
+					       ../common/verify_mgr.c	\
+					       ../common/mech_list.c	\
+					       pbkdf.c			\
+					       icsf_specific.c		\
+					       icsf.c
 
 
 noinst_HEADERS = icsf.h pbkdf.h
