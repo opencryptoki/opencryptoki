@@ -505,6 +505,52 @@ init_data_store(char *directory)
 	}
 }
 
+CK_RV
+check_user_and_group()
+{
+	int i;
+	uid_t uid, euid;
+	struct passwd *pw, *epw;
+	struct group *grp;
+
+	/*
+	 * Check for root user or Group PKCS#11 Membershp.
+	 * Only these are allowed.
+	 */
+	uid = getuid();
+	euid = geteuid();
+
+	/* Root or effective Root is ok */
+	if (uid != 0 && euid != 0)
+		return CKR_OK;
+
+	/*
+	 * Check for member of group. SAB get login seems to not work with some
+	 * instances of application invocations (particularly when forked).
+	 * So we need to get the group information.  Really need to take the uid
+	 * and map it to a name.
+	 */
+	grp = getgrnam("pkcs11");
+	if (grp == NULL)
+		goto error;
+
+	if (getgid() == grp->gr_gid || getegid() == grp->gr_gid)
+		return CKR_OK;
+
+	/* Check if user or effective user is member of pkcs11 group */
+	pw = getpwuid(uid);
+	epw = getpwuid(euid);
+	for (i = 0; grp->gr_mem[i]; i++) {
+		if ((pw && strcmp(pw->pw_name, grp->gr_mem[i]) == 0) ||
+		    (epw && strcmp(epw->pw_name, grp->gr_mem[i]) == 0))
+			return CKR_OK;
+	}
+
+error:
+	OCK_LOG_ERR(ERR_FUNCTION_FAILED);
+	return CKR_FUNCTION_FAILED;
+}
+
 /* In an STDLL this is called once for each card in the system
  * therefore the initialized only flags certain one time things
  * However in the case of a lightened accelerator, the cards are all
@@ -518,67 +564,9 @@ ST_Initialize(void **FunctionList,
 {
 	int    i;
 	CK_RV  rc = CKR_OK;
-	struct passwd  *pw,*epw; // SAB XXX XXX
-	uid_t    userid,euserid;
 
-	// Check for root user or Group PKCS#11 Membershp
-	// Only these are allowed.
-	userid = getuid();
-	euserid = geteuid();
-
-	if (userid != 0 && euserid != 0) { // Root or effective Root
-					   // is ok
-		struct group *grp;
-		int   rc = 0;
-		gid_t  gid,egid;
-		grp = getgrnam("pkcs11");
-		if (grp) {
-			// Check for member of group..
-			// SAB get login seems to not work with some
-			// instances of application invocations
-			// (particularly when forked).  So we need to
-			// get the group informatiion.  Really need to
-			// take the uid and map it to a name.
-			pw = getpwuid(userid);
-			epw = getpwuid(euserid);
-			gid = getgid();
-			egid = getegid();
-         
-			if ( gid == grp->gr_gid || egid == grp->gr_gid){
-				rc = 1;
-			} else {
-				i = 0;
-				while (grp->gr_mem[i]) {
-					if (pw) {
-						if (strncmp(pw->pw_name, 
-							    grp->gr_mem[i],
-							    strlen(pw->pw_name))
-						    == 0 ) {
-							rc = 1;
-							break;
-						}
-					}
-					if (epw) {
-						if (strncmp(epw->pw_name,
-							    grp->gr_mem[i],
-							    strlen(epw->pw_name))
-						    == 0 ){
-							rc = 1;
-							break;
-						}
-					}
-					i++;
-				}
-			}
-			if (rc == 0 ){
-				OCK_LOG_ERR(ERR_FUNCTION_FAILED);
-				return CKR_FUNCTION_FAILED;
-			}
-		} else {
-			OCK_LOG_ERR(ERR_FUNCTION_FAILED);
-			return CKR_FUNCTION_FAILED;
-		}
-	}
+	if ((rc = check_user_and_group()) != CKR_OK)
+		return rc;
 
 	// assume that the upper API prevents multiple calls of initialize
 	// since that only happens on C_Initialize and that is the
