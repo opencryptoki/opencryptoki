@@ -8,12 +8,16 @@ nobase_lib_LTLIBRARIES=opencryptoki/stdll/libpkcs11_cca.la
 
 # Not all versions of automake observe libname_CFLAGS
 opencryptoki_stdll_libpkcs11_cca_la_CFLAGS = -DLINUX -DNOCDMF		\
-	-DNODSA -DNODH -DNOECB						\
-	-I. -I../../../include	-I../../../include/pkcs11 -I../common	\
-	-DSTDLL_NAME=\"ccatok\"
+					     -DNODSA -DNODH -DNOECB	\
+					     -I. -I../../../include	\
+					     -I../../../include/pkcs11	\
+					     -I../common		\
+					     -DSTDLL_NAME=\"ccatok\"
 
 opencryptoki_stdll_libpkcs11_cca_la_LDFLAGS = -shared -Wl,-Bsymbolic	\
-	-lcrypto -lpthread -nostartfiles -Wl,-soname,$@
+					      -lcrypto -lpthread	\
+					      -nostartfiles		\
+					      -Wl,-soname,$@
 
 opencryptoki_stdll_libpkcs11_cca_la_SOURCES = ../common/asn1.c		\
 					      ../common/btree.c		\
