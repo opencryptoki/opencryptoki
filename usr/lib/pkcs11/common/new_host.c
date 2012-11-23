@@ -610,7 +610,7 @@ ST_Initialize(void **FunctionList,
 	// been initialized.
 	if (st_Initialized() == FALSE){
 		if (token_specific.t_attach_shm != NULL)
-			rc = token_specific.t_attach_shm(&global_shm);
+			rc = token_specific.t_attach_shm(SlotNumber, &global_shm);
 		else
 			rc = attach_shm(&global_shm);
 		

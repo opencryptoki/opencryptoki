@@ -3407,7 +3407,7 @@ err:
 
 
 CK_RV
-token_specific_attach_shm(LW_SHM_TYPE **global_shm)
+token_specific_attach_shm(CK_SLOT_ID slot_id, LW_SHM_TYPE **global_shm)
 {
 	key_t    key;
 	int      shm_id;
