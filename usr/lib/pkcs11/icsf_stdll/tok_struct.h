@@ -37,7 +37,7 @@ token_spec_t token_specific = {
 		NULL,			// Default initialization vector for objects
 	},
 	NULL,			// creatlock
-	NULL,			// attach_shm
+	&token_specific_attach_shm,
 	&token_specific_init,
 	&tok_slot2local,
 	NULL,			// rng

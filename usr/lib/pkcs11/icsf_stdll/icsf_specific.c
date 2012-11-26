@@ -129,7 +129,7 @@ tok_slot2local(CK_SLOT_ID snum)
  * Called during C_Initialize.
  */
 CK_RV
-token_specific_init(char *Correlator, CK_SLOT_ID SlotNumber)
+token_specific_init(char *correlator, CK_SLOT_ID slot_id)
 {
 	return CKR_OK;
 }
@@ -141,6 +141,35 @@ CK_RV
 token_specific_final()
 {
 	return CKR_OK;
+}
+
+/*
+ * Initialize the shared memory region. ICSF has to use a custom method for
+ * this because it uses additional data in the shared memory and in the future
+ * multiple slots should be supported for ICSF.
+ */
+CK_RV
+token_specific_attach_shm(CK_SLOT_ID slot_id, LW_SHM_TYPE **shm)
+{
+	CK_RV rc = CKR_OK;
+	int ret;
+
+	XProcLock();
+
+	/*
+	 * Attach to an existing shared memory region or create it if it doesn't
+	 * exists. When the it's created (ret=0) the region is initialized with
+	 * zeroes.
+	 */
+	ret = sm_open(pk_dir, 0666, (void**) shm, sizeof(**shm), 0);
+	if (ret < 0) {
+		OCK_LOG_ERR((rc = CKR_FUNCTION_FAILED));
+		goto done;
+	}
+
+done:
+	XProcUnLock();
+	return rc;
 }
 
 /*
