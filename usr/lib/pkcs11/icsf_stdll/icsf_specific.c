@@ -129,7 +129,7 @@ tok_slot2local(CK_SLOT_ID snum)
  * Called during C_Initialize.
  */
 CK_RV
-token_specific_init(char *correlator, CK_SLOT_ID slot_id)
+token_specific_init(char *correlator, CK_SLOT_ID slot_id, char *conf_name)
 {
 	return CKR_OK;
 }

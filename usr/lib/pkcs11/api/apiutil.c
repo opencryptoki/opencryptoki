@@ -950,7 +950,7 @@ int DL_Load_and_Init(API_Slot_t *sltp, CK_SLOT_ID slotID, const char *conf_name)
 		return FALSE;
 	}
 	// Returns true or false
-	rv = pSTinit(&(sltp->FcnList), slotID, sinfp->correlator);
+	rv = pSTinit(&(sltp->FcnList), slotID, sinfp->correlator, conf_name);
 	OCK_LOG_DEBUG("return from STDDLL Init = %x\n", rv);
 
 	if (rv != CKR_OK) {

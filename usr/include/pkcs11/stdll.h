@@ -327,7 +327,8 @@ typedef ST_SESSION_T ST_SESSION_HANDLE;
 
 
 typedef CK_RV (CK_PTR ST_C_Initialize)
-   (void **ppFunctionList,CK_SLOT_ID slotID,CK_CHAR_PTR pCorrelator);
+   (void **ppFunctionList,CK_SLOT_ID slotID,CK_CHAR_PTR pCorrelator,
+    CK_CHAR_PTR pConfName);
 
 typedef CK_RV	(CK_PTR  ST_C_Finalize)
 						(CK_VOID_PTR pReserved);

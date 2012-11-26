@@ -560,7 +560,8 @@ error:
 CK_RV
 ST_Initialize(void **FunctionList,
 	      CK_SLOT_ID SlotNumber,
-	      char *Correlator)
+	      char *Correlator,
+	      char *conf_name)
 {
 	int    i;
 	CK_RV  rc = CKR_OK;
@@ -627,7 +628,7 @@ ST_Initialize(void **FunctionList,
 		SC_SetFunctionList();
 
 		// Always call the token_specific_init function....
-		rc =  token_specific.t_init(Correlator,SlotNumber);
+		rc =  token_specific.t_init(Correlator, SlotNumber, conf_name);
 		if (rc != 0) {   // Zero means success, right?!?
 			*FunctionList = NULL;
 			OCK_LOG_ERR(ERR_TOKEN_INIT);

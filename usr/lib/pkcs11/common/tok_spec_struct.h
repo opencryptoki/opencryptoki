@@ -336,7 +336,7 @@ struct token_specific_struct {
 	CK_RV (*t_attach_shm) (CK_SLOT_ID slot_id, LW_SHM_TYPE **shmem);
 
 	// Initialization function
-	CK_RV(*t_init) (char *, CK_SLOT_ID);
+	CK_RV(*t_init) (char *, CK_SLOT_ID, char *);
 
 	// convert PKCS#11 slot to a local index 
 	// generaly not used but if a STDLL actualy 
