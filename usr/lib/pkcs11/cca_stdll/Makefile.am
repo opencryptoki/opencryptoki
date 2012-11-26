@@ -17,7 +17,8 @@ opencryptoki_stdll_libpkcs11_cca_la_CFLAGS = -DLINUX -DNOCDMF		\
 opencryptoki_stdll_libpkcs11_cca_la_LDFLAGS = -shared -Wl,-Bsymbolic	\
 					      -lcrypto -lpthread	\
 					      -nostartfiles		\
-					      -Wl,-soname,$@
+					      -Wl,-soname,$@		\
+					      -lrt
 
 opencryptoki_stdll_libpkcs11_cca_la_SOURCES = ../common/asn1.c		\
 					      ../common/btree.c		\
@@ -54,6 +55,7 @@ opencryptoki_stdll_libpkcs11_cca_la_SOURCES = ../common/asn1.c		\
 					      ../common/verify_mgr.c	\
 					      ../common/p11util.c	\
 					      ../common/sw_crypt.c	\
+					      ../common/shared_memory.c	\
 					      cca_specific.c
 
 noinst_HEADERS = defs.h		\

@@ -17,7 +17,8 @@ opencryptoki_stdll_libpkcs11_tpm_la_CFLAGS = -DLINUX -DNOCDMF		\
 					     -DSTDLL_NAME=\"tpmtok\"
 
 opencryptoki_stdll_libpkcs11_tpm_la_LDFLAGS = -shared -Wl,-Bsymbolic	\
-					      -lcrypto -ltspi -lpthread
+					      -lcrypto -ltspi -lpthread	\
+					      -lrt
 
 opencryptoki_stdll_libpkcs11_tpm_la_SOURCES = ../common/asn1.c		\
 					      ../common/btree.c		\
@@ -54,6 +55,7 @@ opencryptoki_stdll_libpkcs11_tpm_la_SOURCES = ../common/asn1.c		\
 					      ../common/sess_mgr.c	\
 					      ../common/verify_mgr.c	\
 					      ../common/mech_list.c	\
+					      ../common/shared_memory.c	\
 					      tpm_specific.c		\
 					      tpm_openssl.c		\
 					      tpm_util.c

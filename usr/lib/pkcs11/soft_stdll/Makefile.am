@@ -1,7 +1,7 @@
 nobase_lib_LTLIBRARIES = opencryptoki/stdll/libpkcs11_sw.la
 
 opencryptoki_stdll_libpkcs11_sw_la_LDFLAGS = -shared -Wl,-Bsymbolic	\
-					     -lc -lpthread -lcrypto
+					     -lc -lpthread -lcrypto -lrt
 
 # Not all versions of automake observe libname_CFLAGS
 opencryptoki_stdll_libpkcs11_sw_la_CFLAGS = -DDEV -D_THREAD_SAFE            \
@@ -47,6 +47,7 @@ opencryptoki_stdll_libpkcs11_sw_la_SOURCES = ../common/asn1.c		\
 					     ../common/verify_mgr.c	\
 					     ../common/log.c		\
 					     ../common/mech_list.c      \
+					     ../common/shared_memory.c	\
 					     soft_specific.c
 
 install-data-hook:

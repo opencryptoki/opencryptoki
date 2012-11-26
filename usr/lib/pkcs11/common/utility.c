@@ -310,6 +310,7 @@
 #include "h_extern.h"
 #include "tok_spec_struct.h"
 #include "pkcs32.h"
+#include "shared_memory.h"
 
 #include <sys/file.h>
 #include <syslog.h>
@@ -1002,164 +1003,45 @@ parity_is_odd( CK_BYTE b )
       return FALSE;
 }
 
-
 CK_RV
-attach_shm(LW_SHM_TYPE **global_shm)
+attach_shm(LW_SHM_TYPE **shm)
 {
-   key_t    key;
-   int      shm_id;
-   struct stat statbuf;
-   CK_BBOOL created = FALSE;
+	CK_RV rc = CKR_OK;
+	int ret;
+	char buf[PATH_MAX];
 
-#if !(NOSHM) && !(MMAP)
-   // Change TOK_PATH2 to be the directory 
-   // of the data store specified.  This way we
-   // have a unique key shared memory for each 
-   // token object database
-   if (stat(pk_dir, &statbuf) < 0) {
-      OCK_LOG_ERR(ERR_FUNCTION_FAILED); 
-      return CKR_FUNCTION_FAILED;
-   }
+	XProcLock();
 
-   key = ftok( pk_dir, 'c' );
-
-   shm_id = shmget( key, sizeof(LW_SHM_TYPE),
-                    S_IRUSR | S_IWUSR |
-                    S_IRGRP | S_IWGRP |
-                    S_IROTH | S_IWOTH |
-                    IPC_CREAT | IPC_EXCL);
-
-   if (shm_id < 0) {
-
-#if 0
-      if ((errno != EACCES) && (errno != EEXIST)) {
-         fflush(stdout); fflush(stderr);
-         OCK_LOG_ERR(ERR_FUNCTION_FAILED); 
-         return CKR_FUNCTION_FAILED;
-      }
-#endif
-// SAB XXX  it appears that in some cases linux does not set
-// the errno properly on a shmget failure... so if the create
-// failed we'll just try and attach....  If the basic attach
-// fails, then we can error out...
-
-      // SHM segment already exists...
-      //
-      shm_id = shmget( key, sizeof(LW_SHM_TYPE),
-                       S_IRUSR | S_IWUSR |
-                       S_IRGRP | S_IWGRP |
-                       S_IROTH | S_IWOTH  );
-
-      //if ((errno != EACCES) && (errno != EEXIST)) {
-      if (shm_id < 0) {
-         fflush(stdout); fflush(stderr);
-         OCK_LOG_ERR(ERR_FUNCTION_FAILED); 
-         return CKR_FUNCTION_FAILED;
-      }
-
-   } else
-      created = TRUE;
-
-   *global_shm = (void *)shmat( shm_id, NULL, 0 );
-   if (!*global_shm){
-      OCK_LOG_ERR(ERR_FUNCTION_FAILED); 
-      return CKR_FUNCTION_FAILED;
-   }
-   if (created == TRUE) {
-      XProcLock();
-      (*global_shm)->num_publ_tok_obj = 0;
-      (*global_shm)->num_priv_tok_obj = 0;
-      memset(&(*global_shm)->publ_tok_objs, 0x0, 2048 * sizeof(TOK_OBJ_ENTRY));
-      memset(&(*global_shm)->priv_tok_objs, 0x0, 2048 * sizeof(TOK_OBJ_ENTRY));
-      XProcUnLock();
-   }
-#elif MMAP
-	{
-#define FILENAME   ".stmapfile"
-
-#warning "EXPERIMENTAL"
-		char		*fname = NULL;
-		char		*b2 = NULL;
-		int		fd = -1;
-		mode_t		mode;
-		CK_RV		rc;
-
-
-		mode = (S_IRUSR | S_IWUSR | S_IRGRP | S_IWGRP );
-
-		// STAT the file to see if it exists... If not, then create it
-		fname = malloc(strlen(pk_dir)+strlen(FILENAME)+100);
-		if (fname ) {
-			sprintf(fname, "%s/%s", pk_dir, FILENAME);
-		} else {
-			OCK_LOG_ERR(ERR_HOST_MEMORY);
-			return CKR_HOST_MEMORY;
-		}
-
-		if (stat(fname, &statbuf) < 0) {
-			// File does not exist Create it
-			fd = open(fname,O_RDWR|O_CREAT,mode);
-			if (fd < 0 ){
-				OCK_SYSLOG(LOG_ERR, "open of %s failed: %s", fname, strerror(errno));
-				free(fname);
-				return CKR_FUNCTION_FAILED;  //Failed
-			}
-			b2 = malloc(sizeof(LW_SHM_TYPE));
-			memset(b2,'\0',sizeof(LW_SHM_TYPE));
-			write(fd,b2,sizeof(LW_SHM_TYPE));
-			free(b2);
-			created=TRUE;
-		} else {
-			fd = open(fname,O_RDWR,mode);
-			if (fd < 0 ){
-				OCK_SYSLOG(LOG_ERR, "open of %s failed: %s", fname, strerror(errno));
-				free(fname);
-				return CKR_FUNCTION_FAILED;  //Failed
-			}
-		}
-
-		*global_shm = (LW_SHM_TYPE *)mmap(NULL,sizeof(LW_SHM_TYPE),PROT_READ|PROT_WRITE,MAP_SHARED,fd,0);
-		if (created == TRUE) {
-			XProcLock();
-			(*global_shm)->num_publ_tok_obj = 0;
-			(*global_shm)->num_priv_tok_obj = 0;
-			memset(&(*global_shm)->publ_tok_objs, 0x0, 2048 * sizeof(TOK_OBJ_ENTRY));
-			memset(&(*global_shm)->priv_tok_objs, 0x0, 2048 * sizeof(TOK_OBJ_ENTRY));
-			XProcUnLock();
-		}
-
-		rc = CKR_OK;
-
-		free(fname);
-		close(fd);
-		return rc;
-
+	/*
+	 * Attach to an existing shared memory region or create it if it doesn't
+	 * exists. When it's created (ret=0) the region is initialized with
+	 * zeros.
+	 */
+	ret = sm_open(get_pk_dir(buf), 0666, (void**) shm, sizeof(**shm), 0);
+	if (ret < 0) {
+		OCK_LOG_ERR((rc = CKR_FUNCTION_FAILED));
+		goto done;
 	}
-#else
-      *global_shm = (void *)malloc(sizeof(LW_SHM_TYPE));
 
-#endif
-
-   return CKR_OK;
+done:
+	XProcUnLock();
+	return rc;
 }
-
 
 CK_RV
 detach_shm()
 {
-#if !(NOSHM) && !(MMAP)
-   shmdt( global_shm );
-#elif MMAP
-   // Detach from memory mapped file
-   munmap((void *)global_shm,sizeof(LW_SHM_TYPE));
-#else
-   free(global_shm);
-#endif
-   return CKR_OK;
+	CK_RV rc = CKR_OK;
+
+	XProcLock();
+
+	if (sm_close((void *) global_shm, 0))
+		OCK_LOG_ERR((rc = CKR_FUNCTION_FAILED));
+
+	XProcUnLock();
+
+	return rc;
 }
-
-//#endif
-
 
 CK_RV
 compute_sha( CK_BYTE  * data,

@@ -15,7 +15,8 @@ opencryptoki_stdll_libpkcs11_ica_la_CFLAGS = -DDEV			\
 					     -DSHALLOW=0 -DSWTOK=0	\
 					     -DLITE=1 -DNODH		\
 					     -DNOCDMF -DNOMD2 -DNODSA	\
-					     -DSTDLL_NAME=\"icatok\"
+					     -DSTDLL_NAME=\"icatok\"	\
+					     -lrt
 
 opencryptoki_stdll_libpkcs11_ica_la_SOURCES = ../common/asn1.c		\
 					      ../common/btree.c		\
@@ -50,6 +51,7 @@ opencryptoki_stdll_libpkcs11_ica_la_SOURCES = ../common/asn1.c		\
 					      ../common/verify_mgr.c	\
 					      ../common/log.c		\
 					      ../common/mech_list.c	\
+					      ../common/shared_memory.c	\
 					      ica_specific.c
 
 INCLUDES = $(ICA_INC_DIRS) -I. -I../../../include/pkcs11/stdll		\

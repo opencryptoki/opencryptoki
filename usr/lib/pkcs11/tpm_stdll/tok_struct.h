@@ -44,7 +44,7 @@ struct token_specific_struct token_specific = {
 		")#%&!*)^!()$&!&N",	// Default initialization vector for objects
 	},
 	token_specific_creatlock,
-	token_specific_attach_shm,
+	NULL,			// attach_shm
 	&token_specific_init,
 	&tok_slot2local,
 	&token_specific_rng,
