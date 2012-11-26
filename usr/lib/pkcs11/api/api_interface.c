@@ -3037,13 +3037,14 @@ CK_RV C_Initialize(CK_VOID_PTR pVoid)
 	//
 	// load al the slot DLL's here
 	{
-		API_Slot_t *sltp;
 		CK_SLOT_ID slotID;
+		Slot_Mgr_Shr_t *shm = Anchor->SharedMemP;
 
 		for (slotID = 0; slotID < NUMBER_SLOTS_MANAGED; slotID++) {
-			sltp = &(Anchor->SltList[slotID]);
-			// OCK_LOG_DEBUG("Init SLTP = %x ID %d\n",sltp,slotID);
-			slot_loaded[slotID] = DL_Load_and_Init(sltp, slotID);
+			API_Slot_t *sltp = &(Anchor->SltList[slotID]);
+			const char *confname = shm->slot_info[slotID].confname;
+			slot_loaded[slotID] = DL_Load_and_Init(sltp, slotID,
+							       confname);
 		}
 
 	}

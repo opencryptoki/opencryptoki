@@ -892,9 +892,7 @@ API_Slot_t *sltp;
 
 }
 
-int DL_Load_and_Init(sltp, slotID)
-API_Slot_t *sltp;
-CK_SLOT_ID slotID;
+int DL_Load_and_Init(API_Slot_t *sltp, CK_SLOT_ID slotID, const char *conf_name)
 {
 
 	Slot_Mgr_Shr_t *shm;
