@@ -937,11 +937,14 @@ CK_RV parity_is_odd(CK_BYTE b)
 		return FALSE;
 }
 
-CK_RV attach_shm(LW_SHM_TYPE ** shm)
+CK_RV attach_shm(CK_SLOT_ID slot_id, LW_SHM_TYPE **shm)
 {
 	CK_RV rc = CKR_OK;
 	int ret;
 	char buf[PATH_MAX];
+
+	if (token_specific.t_attach_shm != NULL)
+		return token_specific.t_attach_shm(slot_id, shm);
 
 	XProcLock();
 

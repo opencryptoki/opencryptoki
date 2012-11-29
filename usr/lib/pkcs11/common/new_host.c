@@ -610,16 +610,11 @@ ST_Initialize(void **FunctionList,
 	// Handle global initialization issues first if we have not
 	// been initialized.
 	if (st_Initialized() == FALSE){
-		if (token_specific.t_attach_shm != NULL)
-			rc = token_specific.t_attach_shm(SlotNumber, &global_shm);
-		else
-			rc = attach_shm(&global_shm);
-		
+		rc = attach_shm(SlotNumber, &global_shm);
 		if (rc != CKR_OK) {
 			OCK_LOG_ERR(ERR_SHM);
 			goto done;
 		}
-      
 
 		nv_token_data = &global_shm->nv_token_data;
 

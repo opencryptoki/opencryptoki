@@ -1652,7 +1652,7 @@ CK_RV _DestroyMutex( MUTEX *mutex );
 CK_RV _LockMutex( MUTEX *mutex );
 CK_RV _UnlockMutex( MUTEX *mutex );
 
-CK_RV attach_shm(LW_SHM_TYPE **shmem);
+CK_RV attach_shm(CK_SLOT_ID slot_id, LW_SHM_TYPE **shmem);
 CK_RV detach_shm(void);
 
 // encryption manager routines
