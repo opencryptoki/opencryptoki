@@ -373,14 +373,6 @@ token_specific_des_cbc(CK_BYTE  *in_data,
 		CCADBG("CSNBENC (DES ENCRYPT)", return_code, reason_code);
 		if (out_data != local_out)
 			free(local_out);
-#ifdef DEBUG
-		{
-			uint32_t *i = (uint32_t *) key_value, j;
-			DBG("Bad key:");
-			for ( j = 0; j < 16; j++)
-				DBG("%.8x ", *i++);
-		}
-#endif
 		return CKR_FUNCTION_FAILED;
 	}
 
