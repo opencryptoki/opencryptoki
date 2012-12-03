@@ -32,7 +32,7 @@ token_spec_t token_specific = {
 	{
 		FALSE,			// Don't use per guest data store
 		FALSE,			// Don't use master key. Remaining fields are ignored
-		NULL,			// Data store encryption
+		0,			// Data store encryption
 		NULL,			// Default initialization vector for pins
 		NULL,			// Default initialization vector for objects
 	},
