@@ -655,7 +655,8 @@ error:
 
 //
 //
-CK_RV load_token_data()
+CK_RV 
+load_token_data(CK_SLOT_ID slot_id)
 {
 	FILE *fp;
 	CK_BYTE fname[PATH_MAX];
@@ -678,7 +679,7 @@ CK_RV load_token_data()
 			 * grabs the lock, so we must release it around this
 			 * call */
 			XProcUnLock();
-			init_token_data();
+			init_token_data(slot_id);
 			rc = XProcLock();
 			if (rc != CKR_OK) {
 				OCK_LOG_ERR(ERR_PROCESS_LOCK);
@@ -723,7 +724,7 @@ out_nolock:
 
 //
 //
-CK_RV save_token_data()
+CK_RV save_token_data(CK_SLOT_ID slot_id)
 {
 	FILE *fp;
 	TOKEN_DATA td;

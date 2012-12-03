@@ -465,7 +465,7 @@ object_mgr_add( SESSION          * sess,
 
          // save_token_data has to lock the mutex itself because it's used elsewhere
          //
-         rc = save_token_data();
+         rc = save_token_data(sess->session_info.slotID);
          if (rc != CKR_OK) {
                  // TODO: handle error, check if rc is a valid per spec
                 XProcUnLock();
@@ -758,7 +758,7 @@ object_mgr_copy( SESSION          * sess,
 
          XProcUnLock();
 
-         save_token_data();
+         save_token_data(sess->session_info.slotID);
       }
 
       // now, store the object in the token object btree
@@ -994,7 +994,7 @@ object_mgr_create_final( SESSION           * sess,
 
          XProcUnLock();
 
-         save_token_data();
+         save_token_data(sess->session_info.slotID);
       }
 
       // now, store the object in the token object btree

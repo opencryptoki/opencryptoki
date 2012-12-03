@@ -632,7 +632,7 @@ ST_Initialize(void **FunctionList,
 		}
 
 		if (created) {
-			rc = load_token_data();
+			rc = load_token_data(SlotNumber);
 			if (rc != CKR_OK) {
 				*FunctionList = NULL;
 				OCK_LOG_ERR(ERR_TOKEN_LOAD_DATA);
@@ -980,13 +980,13 @@ CK_RV SC_InitToken( CK_SLOT_ID   sid,
 	object_mgr_destroy_token_objects();
 	delete_token_data();
 
-	init_token_data();
+	init_token_data(sid);
 	init_slotInfo();
 	memcpy(nv_token_data->so_pin_sha, hash_sha, SHA1_HASH_SIZE);
 	nv_token_data->token_info.flags |= CKF_TOKEN_INITIALIZED;
 	memcpy(nv_token_data->token_info.label, pLabel, 32);
 
-	rc = save_token_data();
+	rc = save_token_data(sid);
 	if (rc != CKR_OK){
 		OCK_LOG_ERR(ERR_TOKEN_SAVE);
 		goto done;
@@ -1052,7 +1052,7 @@ CK_RV SC_InitPIN( ST_SESSION_HANDLE  *sSession,
 				  CKF_USER_PIN_FINAL_TRY |
 			          CKF_USER_PIN_COUNT_LOW);
 
-			rc = save_token_data();
+			rc = save_token_data(sess->session_info.slotID);
 			if (rc != CKR_OK){
 				OCK_LOG_ERR(ERR_TOKEN_SAVE);
 			}
@@ -1083,7 +1083,7 @@ CK_RV SC_InitPIN( ST_SESSION_HANDLE  *sSession,
 	nv_token_data->token_info.flags &= ~(CKF_USER_PIN_LOCKED);
 	XProcUnLock();
 	memcpy( user_pin_md5, hash_md5, MD5_HASH_SIZE  );
-	rc = save_token_data();
+	rc = save_token_data(sess->session_info.slotID);
 	if (rc != CKR_OK){
 		OCK_LOG_ERR(ERR_TOKEN_SAVE);
 		goto done;
@@ -1188,7 +1188,7 @@ CK_RV SC_SetPIN( ST_SESSION_HANDLE  *sSession,
 		nv_token_data->token_info.flags &=
 			~(CKF_USER_PIN_TO_BE_CHANGED);
 		XProcUnLock();
-		rc = save_token_data();
+		rc = save_token_data(sess->session_info.slotID);
 		if (rc != CKR_OK){
 			OCK_LOG_ERR(ERR_TOKEN_SAVE);
 			goto done;
@@ -1225,7 +1225,7 @@ CK_RV SC_SetPIN( ST_SESSION_HANDLE  *sSession,
 		memcpy( so_pin_md5, hash_md5, MD5_HASH_SIZE );
 		nv_token_data->token_info.flags &= ~(CKF_SO_PIN_TO_BE_CHANGED);
 		XProcUnLock();
-		rc = save_token_data();
+		rc = save_token_data(sess->session_info.slotID);
 		if (rc != CKR_OK){
 			OCK_LOG_ERR(ERR_TOKEN_SAVE);
 			goto done;
@@ -1666,7 +1666,7 @@ CK_RV SC_Login( ST_SESSION_HANDLE  *sSession,
 	OCK_LOG_DEBUG("%s:  rc = 0x%08x\n", "C_Login", rc);
 
 	UNLOCKIT;
-	save_token_data();
+	save_token_data(sess->session_info.slotID);
 	MY_UnlockMutex( &login_mutex );
 	return rc;
 }

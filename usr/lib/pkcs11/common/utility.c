@@ -741,7 +741,7 @@ void init_tokenInfo(void)
 
 //
 //
-CK_RV init_token_data(void)
+CK_RV init_token_data(CK_SLOT_ID slot_id)
 {
 	CK_RV rc;
 
@@ -787,7 +787,7 @@ CK_RV init_token_data(void)
 		return CKR_FUNCTION_FAILED;
 	}
 
-	rc = save_token_data();
+	rc = save_token_data(slot_id);
 
 	return rc;
 }

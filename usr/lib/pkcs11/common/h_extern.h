@@ -805,9 +805,9 @@ CK_RV delete_token_data();
 
 CK_BYTE *get_pk_dir(char *);
 
-CK_RV init_token_data( void );
-CK_RV load_token_data( void );
-CK_RV save_token_data( void );
+CK_RV init_token_data(CK_SLOT_ID);
+CK_RV load_token_data(CK_SLOT_ID);
+CK_RV save_token_data(CK_SLOT_ID);
 
 CK_RV load_masterkey_so  ( void );
 CK_RV load_masterkey_user( void );
