@@ -149,7 +149,8 @@ token_specific_final()
  * multiple slots should be supported for ICSF.
  */
 CK_RV
-token_specific_attach_shm(CK_SLOT_ID slot_id, LW_SHM_TYPE **shm)
+token_specific_attach_shm(CK_SLOT_ID slot_id, LW_SHM_TYPE **shm,
+			  CK_BBOOL *created)
 {
 	CK_RV rc = CKR_OK;
 	int ret;
@@ -166,6 +167,9 @@ token_specific_attach_shm(CK_SLOT_ID slot_id, LW_SHM_TYPE **shm)
 		OCK_LOG_ERR((rc = CKR_FUNCTION_FAILED));
 		goto done;
 	}
+
+	if (created)
+		*created = (ret == 0);
 
 done:
 	XProcUnLock();

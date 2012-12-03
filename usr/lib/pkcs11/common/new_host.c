@@ -610,14 +610,15 @@ ST_Initialize(void **FunctionList,
 	// Handle global initialization issues first if we have not
 	// been initialized.
 	if (st_Initialized() == FALSE){
-		rc = attach_shm(SlotNumber, &global_shm);
+		CK_BBOOL created = FALSE;
+
+		rc = attach_shm(SlotNumber, &global_shm, &created);
 		if (rc != CKR_OK) {
 			OCK_LOG_ERR(ERR_SHM);
 			goto done;
 		}
 
 		nv_token_data = &global_shm->nv_token_data;
-
 		initialized = TRUE;
 		initedpid = getpid();
 		SC_SetFunctionList();
@@ -629,14 +630,16 @@ ST_Initialize(void **FunctionList,
 			OCK_LOG_ERR(ERR_TOKEN_INIT);
 			goto done;
 		}
-	}
 
-	// SAB XXX FIXME FIXME  check return code... for all these...
-	rc = load_token_data();
-	if (rc != CKR_OK) {
-		*FunctionList = NULL;
-		OCK_LOG_ERR(ERR_TOKEN_LOAD_DATA);
-		goto done;
+		if (created) {
+			rc = load_token_data();
+			if (rc != CKR_OK) {
+				*FunctionList = NULL;
+				OCK_LOG_ERR(ERR_TOKEN_LOAD_DATA);
+				goto done;
+			}
+		}
+
 	}
 
 	/* no need to return error here, we load the token data we can and syslog the rest */
