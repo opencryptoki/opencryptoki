@@ -238,6 +238,68 @@ done:
 	return rc;
 }
 
+CK_RV
+token_specific_load_token_data(CK_SLOT_ID slot_id, FILE *fh)
+{
+	CK_RV rc = CKR_OK;
+	struct slot_data data;
+
+	/* Check Slot ID */
+	if (slot_id < 0 || slot_id > MAX_SLOT_ID) {
+		OCK_LOG_DEBUG("Invalid slot ID: %d\n", slot_id);
+		return CKR_FUNCTION_FAILED;
+	}
+
+	if (!fread(&data, sizeof(data), 1, fh)) {
+		OCK_LOG_DEBUG("Failed to read ICSF slot data.\n");
+		return CKR_FUNCTION_FAILED;
+	}
+
+	XProcLock();
+
+	if (slot_data[slot_id] == NULL) {
+		OCK_LOG_DEBUG("ICSF slot data not initialized.\n");
+		rc = CKR_FUNCTION_FAILED;
+		goto done;
+	}
+
+	memcpy(slot_data[slot_id], &data, sizeof(data));
+
+done:
+	XProcUnLock();
+	return rc;
+}
+
+CK_RV
+token_specific_save_token_data(CK_SLOT_ID slot_id, FILE *fh)
+{
+	CK_RV rc = CKR_OK;
+
+	/* Check Slot ID */
+	if (slot_id < 0 || slot_id > MAX_SLOT_ID) {
+		OCK_LOG_DEBUG("Invalid slot ID: %d\n", slot_id);
+		return CKR_FUNCTION_FAILED;
+	}
+
+	XProcLock();
+
+	if (slot_data[slot_id] == NULL) {
+		OCK_LOG_DEBUG("ICSF slot data not initialized.\n");
+		rc = CKR_FUNCTION_FAILED;
+		goto done;
+	}
+
+	if (!fwrite(slot_data[slot_id], sizeof(**slot_data), 1, fh)) {
+		OCK_LOG_DEBUG("Failed to write ICSF slot data.\n");
+		rc = CKR_FUNCTION_FAILED;
+		goto done;
+	}
+
+done:
+	XProcUnLock();
+	return rc;
+}
+
 /*
  * Called during C_Finalize.
  */

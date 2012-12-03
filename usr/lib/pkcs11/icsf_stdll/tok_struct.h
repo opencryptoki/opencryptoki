@@ -40,8 +40,8 @@ token_spec_t token_specific = {
 	&token_specific_attach_shm,
 	&token_specific_init,
 	&token_specific_init_token_data,
-	NULL,			// load_token_data,
-	NULL,			// save_token_data,
+	&token_specific_load_token_data,
+	&token_specific_save_token_data,
 	&tok_slot2local,
 	NULL,			// rng
 	NULL,			// session
