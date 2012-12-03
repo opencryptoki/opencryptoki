@@ -4,6 +4,9 @@ nobase_lib_LTLIBRARIES=opencryptoki/stdll/libpkcs11_icsf.la
 
 AUTOMAKE_OPTIONS = gnu
 
+BUILT_SOURCES = icsf_config_parse.h
+AM_YFLAGS = -d -v
+
 # TODO: check which defines are really needed here
 # Not all versions of automake observe libname_CFLAGS
 opencryptoki_stdll_libpkcs11_icsf_la_CFLAGS = -DNOCDMF			\
@@ -60,6 +63,8 @@ opencryptoki_stdll_libpkcs11_icsf_la_SOURCES = ../common/asn1.c		\
 					       ../common/shared_memory.c\
 					       pbkdf.c			\
 					       icsf_specific.c		\
+					       icsf_config_parse.y	\
+					       icsf_config_lexer.l	\
 					       icsf.c
 
 

@@ -11,9 +11,11 @@
  *
  */
 
+#define _GNU_SOURCE
+#include <stdlib.h>
 #include <stdio.h>
 #include <string.h>
-#include <stdlib.h>
+#include <limits.h>
 #include <sys/types.h>
 #include <sys/stat.h>
 #include <fcntl.h>
@@ -24,6 +26,7 @@
 #include "h_extern.h"
 #include "tok_specific.h"
 #include "tok_struct.h"
+#include "icsf_config.h"
 
 /* Default token attributes */
 CK_CHAR manuf[] = "IBM Corp.";
@@ -116,6 +119,18 @@ token_specific_get_mechanism_info(CK_MECHANISM_TYPE type,
 	return rc;
 }
 
+/* Store ICSF specific data for each slot*/
+struct slot_data {
+	int initialized;
+	char conf_name[PATH_MAX + 1];
+	char uri[PATH_MAX + 1];
+	char dn[NAME_MAX + 1];
+	char ca_file[PATH_MAX + 1];
+	char cert_file[PATH_MAX + 1];
+	char key_file[PATH_MAX + 1];
+};
+struct slot_data *slot_data[MAX_SLOT_ID + 1];
+
 /*
  * Convert pkcs slot number to local representation
  */
@@ -131,7 +146,96 @@ tok_slot2local(CK_SLOT_ID snum)
 CK_RV
 token_specific_init(char *correlator, CK_SLOT_ID slot_id, char *conf_name)
 {
-	return CKR_OK;
+	CK_RV rc = CKR_OK;
+	struct slot_data *data;
+
+	/* Check Slot ID */
+	if (slot_id < 0 || slot_id > MAX_SLOT_ID) {
+		OCK_LOG_DEBUG("Invalid slot ID: %d\n", slot_id);
+		return CKR_FUNCTION_FAILED;
+	}
+
+	XProcLock();
+
+	if (slot_data[slot_id] == NULL) {
+		OCK_LOG_DEBUG("ICSF slot data not initialized.\n");
+		rc = CKR_FUNCTION_FAILED;
+		goto done;
+	}
+
+	data = slot_data[slot_id];
+
+	strncpy(data->conf_name, conf_name, sizeof(data->conf_name) - 1);
+	data->conf_name[sizeof(data->conf_name) - 1] = '\0';
+
+done:
+	XProcUnLock();
+	return rc;
+}
+
+CK_RV
+token_specific_init_token_data(CK_SLOT_ID slot_id)
+{
+	CK_RV rc = CKR_OK;
+	const char *conf_name = NULL;
+	struct icsf_config config;
+
+	/* Check Slot ID */
+	if (slot_id < 0 || slot_id > MAX_SLOT_ID) {
+		OCK_LOG_DEBUG("Invalid slot ID: %d\n", slot_id);
+		return CKR_FUNCTION_FAILED;
+	}
+
+	XProcLock();
+
+	if (slot_data[slot_id] == NULL) {
+		OCK_LOG_DEBUG("ICSF slot data not initialized.\n");
+		rc = CKR_FUNCTION_FAILED;
+		goto done;
+	}
+
+	/* Check if data needs to be retrieved for this slot */
+	if (slot_data[slot_id]->initialized) {
+		OCK_LOG_DEBUG("Slot data already initialized for slot %d. "
+			      "Skipping it\n", slot_id);
+		goto done;
+	}
+
+	/* Check config file */
+	conf_name = slot_data[slot_id]->conf_name;
+	if (!conf_name || !conf_name[0]) {
+		OCK_LOG_DEBUG("Missing config for slot %d.\n", slot_id);
+		return CKR_FUNCTION_FAILED;
+	}
+
+	OCK_LOG_DEBUG("DEBUG: conf_name=\"%s\".\n", conf_name);
+	if (parse_config_file(conf_name, slot_id, &config)) {
+		OCK_LOG_DEBUG("Failed to parse file \"%s\" for slot %d.\n",
+			      conf_name, slot_id);
+		rc = CKR_FUNCTION_FAILED;
+		goto done;
+	}
+
+	/* Copy general info */
+	strcpy(nv_token_data->token_info.label, config.name);
+	strcpy(nv_token_data->token_info.manufacturerID, config.manuf);
+	strcpy(nv_token_data->token_info.model, config.model);
+	strcpy(nv_token_data->token_info.serialNumber, config.serial);
+
+	/* Copy ICSF specific info */
+	strcpy(slot_data[slot_id]->uri, config.uri);
+	strcpy(slot_data[slot_id]->dn, config.dn);
+	strcpy(slot_data[slot_id]->ca_file, config.ca_file);
+	strcpy(slot_data[slot_id]->cert_file, config.cert_file);
+	strcpy(slot_data[slot_id]->key_file, config.key_file);
+	slot_data[slot_id]->initialized = 1;
+
+	/* ICSF token are always initialized by an external tool */
+	nv_token_data->token_info.flags |= CKF_TOKEN_INITIALIZED;
+
+done:
+	XProcUnLock();
+	return rc;
 }
 
 /*
@@ -154,6 +258,21 @@ token_specific_attach_shm(CK_SLOT_ID slot_id, LW_SHM_TYPE **shm,
 {
 	CK_RV rc = CKR_OK;
 	int ret;
+	void *ptr;
+	size_t len = sizeof(**shm) + sizeof(**slot_data);
+	char *shm_id = NULL;
+
+	if (slot_id < 0 || slot_id > MAX_SLOT_ID) {
+		OCK_LOG_DEBUG("Invalid slot ID: %d\n", slot_id);
+		return CKR_FUNCTION_FAILED;
+	}
+
+	if (asprintf(&shm_id, "/icsf-%d", slot_id) < 0) {
+		OKC_LOG_DEBUG("Failed to allocate shared memory id "
+			      "for slot %d.\n", slot_id);
+		return CKR_HOST_MEMORY;
+	}
+	OCK_LOG_DEBUG("Attaching to shared memory \"%s\".\n", shm_id);
 
 	XProcLock();
 
@@ -162,17 +281,23 @@ token_specific_attach_shm(CK_SLOT_ID slot_id, LW_SHM_TYPE **shm,
 	 * exists. When the it's created (ret=0) the region is initialized with
 	 * zeroes.
 	 */
-	ret = sm_open(pk_dir, 0666, (void**) shm, sizeof(**shm), 0);
+	ret = sm_open(shm_id, 0666, (void**) &ptr, len, 1);
 	if (ret < 0) {
-		OCK_LOG_ERR((rc = CKR_FUNCTION_FAILED));
+		OCK_LOG_DEBUG("Failed to open shared memory \"%s\".\n", shm_id);
+		rc = CKR_FUNCTION_FAILED;
 		goto done;
 	}
 
 	if (created)
 		*created = (ret == 0);
 
+	*shm = ptr;
+	slot_data[slot_id] = ptr + sizeof(**shm);
+
 done:
 	XProcUnLock();
+	if (shm_id)
+		free(shm_id);
 	return rc;
 }
 
