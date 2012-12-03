@@ -658,7 +658,7 @@ error:
 CK_RV 
 load_token_data(CK_SLOT_ID slot_id)
 {
-	FILE *fp;
+	FILE *fp = NULL;
 	CK_BYTE fname[PATH_MAX];
 	TOKEN_DATA td;
 	CK_RV rc;
@@ -703,15 +703,19 @@ load_token_data(CK_SLOT_ID slot_id)
 	}
 	set_perm(fileno(fp));
 
-	rc = fread(&td, sizeof(TOKEN_DATA), 1, fp);
-	fclose(fp);
-
-	if (rc == 0) {
+	/* Load generic token data */
+	if (!fread(&td, sizeof(TOKEN_DATA), 1, fp)) {
 		rc = CKR_FUNCTION_FAILED;
 		goto out_unlock;
 	}
-
 	memcpy(nv_token_data, &td, sizeof(TOKEN_DATA));
+
+	/* Load token-specific data */
+	if (token_specific.t_load_token_data) {
+		rc = token_specific.t_load_token_data(slot_id, fp);
+		if (rc)
+			goto out_unlock;
+	}
 
 	rc = CKR_OK;
 
@@ -719,6 +723,8 @@ out_unlock:
 	XProcUnLock();
 
 out_nolock:
+	if (fp)
+		fclose(fp);
 	return rc;
 }
 
@@ -726,7 +732,7 @@ out_nolock:
 //
 CK_RV save_token_data(CK_SLOT_ID slot_id)
 {
-	FILE *fp;
+	FILE *fp = NULL;
 	TOKEN_DATA td;
 	CK_RV rc;
 	CK_BYTE fname[PATH_MAX];
@@ -751,10 +757,19 @@ CK_RV save_token_data(CK_SLOT_ID slot_id)
 	}
 	set_perm(fileno(fp));
 
+	/* Write generic token data */
 	memcpy(&td, nv_token_data, sizeof(TOKEN_DATA));
+	if (!fwrite(&td, sizeof(TOKEN_DATA), 1, fp)) {
+		rc = CKR_FUNCTION_FAILED;
+		goto done;
+	}
 
-	(void)fwrite(&td, sizeof(TOKEN_DATA), 1, fp);
-	fclose(fp);
+	/* Write token-specific data */
+	if (token_specific.t_save_token_data) {
+		rc = token_specific.t_save_token_data(slot_id, fp);
+		if (rc)
+			goto done;
+	}
 
 	rc = CKR_OK;
 
@@ -762,6 +777,8 @@ done:
 	XProcUnLock();
 
 out_nolock:
+	if (fp)
+		fclose(fp);
 	return rc;
 }
 

@@ -339,6 +339,11 @@ struct token_specific_struct {
 	// Initialization function
 	CK_RV(*t_init) (char *, CK_SLOT_ID, char *);
 
+	// Token data functions
+	CK_RV (*t_init_token_data) (CK_SLOT_ID slot_id);
+	CK_RV (*t_load_token_data) (CK_SLOT_ID slot_id, FILE *fh);
+	CK_RV (*t_save_token_data) (CK_SLOT_ID slot_id, FILE *fh);
+
 	// convert PKCS#11 slot to a local index 
 	// generaly not used but if a STDLL actualy 
 	// managed multiple devices, this would conv

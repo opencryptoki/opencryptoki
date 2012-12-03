@@ -314,6 +314,9 @@ token_spec_t token_specific = {
 	NULL,
 	NULL,
 	&token_specific_init,
+	NULL,			// init_token_data
+	NULL,			// load_token_data
+	NULL,			// save_token_data
 	&tok_slot2local,
 	&token_specific_rng,
 	&token_specific_session,

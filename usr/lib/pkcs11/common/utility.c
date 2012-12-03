@@ -771,6 +771,9 @@ CK_RV init_token_data(CK_SLOT_ID slot_id)
 
 	init_tokenInfo();
 
+	if (token_specific.t_init_token_data)
+		token_specific.t_init_token_data(slot_id);
+
 	//
 	// FIXME: erase the token object index file (and all token objects)
 	//

@@ -46,6 +46,9 @@ struct token_specific_struct token_specific = {
 	token_specific_creatlock,
 	NULL,			// attach_shm
 	&token_specific_init,
+	NULL,			// init_token_data
+	NULL,			// load_token_data
+	NULL,			// save_token_data
 	&tok_slot2local,
 	&token_specific_rng,
 	&token_specific_session,
