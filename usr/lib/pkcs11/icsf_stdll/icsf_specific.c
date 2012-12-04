@@ -27,6 +27,7 @@
 #include "tok_specific.h"
 #include "tok_struct.h"
 #include "icsf_config.h"
+#include "pbkdf.h"
 
 /* Default token attributes */
 CK_CHAR manuf[] = "IBM Corp.";
@@ -360,6 +361,100 @@ done:
 	XProcUnLock();
 	if (shm_id)
 		free(shm_id);
+	return rc;
+}
+
+CK_RV
+login(LDAP **ld, CK_SLOT_ID slot_id, CK_BYTE *pin, CK_ULONG pin_len,
+      const char *pass_file_type)
+{
+	CK_RV rc = CKR_OK;
+	struct slot_data *data;
+	LDAP *ldapd = NULL;
+	char *fname = NULL;
+	int ret;
+
+	/* Check Slot ID */
+	if (slot_id < 0 || slot_id > MAX_SLOT_ID) {
+		OCK_LOG_DEBUG("Invalid slot ID: %d\n", slot_id);
+		return CKR_FUNCTION_FAILED;
+	}
+
+	XProcLock();
+
+	/* Check slot data */
+	if (slot_data[slot_id] == NULL || !slot_data[slot_id]->initialized) {
+		OCK_LOG_DEBUG("ICSF slot data not initialized.\n");
+		rc = CKR_FUNCTION_FAILED;
+		goto done;
+	}
+	data = slot_data[slot_id];
+
+	if (*data->dn) {
+		CK_BYTE pass[PIN_SIZE + 1];
+		CK_BYTE pin_buffer[PIN_SIZE + 1];
+		CK_BYTE hash_sha[SHA1_HASH_SIZE];
+		int pass_len = sizeof(pass) - 1;
+
+		/* Build password file path */
+		ret = asprintf(&fname, "%s/%s", ICSF_CONFIG_PATH,
+			       pass_file_type);
+		if (ret < 0) {
+			OCK_LOG_DEBUG("Failed to allocate memory for password "
+				      "file path for slot %d.\n", slot_id);
+			rc = CKR_HOST_MEMORY;
+			fname = NULL;
+			goto done;
+		}
+
+		/* Check pin len */
+		if (pin_len > sizeof(pin_buffer)) {
+			OCK_LOG_DEBUG("Pin too long (%lu).\n", pin_len);
+			rc = CKR_FUNCTION_FAILED;
+			goto done;
+		}
+
+		/* Get RACF password */
+		memcpy(pin_buffer, pin, pin_len);
+		compute_sha(pin_buffer, pin_len, hash_sha);
+		rc = get_racfpwd(fname, hash_sha, SHA1_HASH_SIZE,
+				 pass, &pass_len);
+		if (rc) {
+			OCK_LOG_DEBUG("Failed to get the RACF password in "
+				      "\"%s\".\n", fname);
+			goto done;
+		}
+		pass[pass_len] = '\0';
+
+		/* Simple bind */
+		ret  = icsf_login(&ldapd, data->uri, data->dn, pass);
+	} else {
+		/* SASL bind */
+		ret = icsf_sasl_login(&ldapd, data->uri, data->cert_file,
+				      data->key_file, data->ca_file, NULL);
+	}
+
+	if (ret) {
+		OCK_LOG_DEBUG("Failed to bind to %s\n", data->uri);
+		rc = CKR_FUNCTION_FAILED;
+		goto done;
+	}
+
+	if (icsf_check_pkcs_extension(ldapd)) {
+		OCK_LOG_DEBUG("ICSF LDAP externsion not supported.\n");
+		rc = CKR_FUNCTION_FAILED;
+		goto done;
+	}
+
+done:
+	XProcUnLock();
+
+	if (rc == CKR_OK && ld)
+		*ld = ldapd;
+
+	if (fname)
+		free(fname);
+
 	return rc;
 }
 
