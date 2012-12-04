@@ -669,10 +669,9 @@ icsf_create_token(LDAP *ld, const char *token_name,
 	return rc;
 }
 
-/*
- * Destroy a token.
- */
-int icsf_destroy_token(LDAP *ld, char *token_name)
+int
+icsf_destroy(LDAP *ld, char *handle, size_t handle_len,
+	     const char *rule_array, size_t rule_array_len)
 {
 	int rc = -1;
 	BerElement *ber_req = NULL;
@@ -684,27 +683,31 @@ int icsf_destroy_token(LDAP *ld, char *token_name)
 	/* Variables used as input */
 	int version = 1;
 	char *exit_data = "";	/* Ignored */
-	char handle[ICSF_HANDLE_LEN];
 	int rule_array_count = 1;
-	char rule_array[ICSF_RULE_ITEM_LEN];
 
 	/* Variables used as output */
 	int return_code = 0;
 	int reason_code = 0;
 	ber_tag_t tag = 0;
 
-	CHECK_ARG_NON_NULL(ld);
-	CHECK_ARG_NON_NULL_AND_MAX_LEN(token_name, ICSF_TOKEN_NAME_LEN);
+	/* Check sizes */
+	if (handle_len != ICSF_HANDLE_LEN) {
+		if (handle_len)
+			OCK_LOG_DEBUG("Invalid handle length: %lu\n",
+				      handle_len);
+		else
+			OCK_LOG_DEBUG("Invalid handle length: (null)\n");
+		OCK_LOG_ERR(ERR_ARGUMENTS_BAD);
+		return -1;
+	}
 
-	/* The first 32 bytes of `handle` contains the token's name, The
-	 * remaining bytes should be blank.
-	 */
-	strpad(handle, token_name, ICSF_TOKEN_NAME_LEN, ' ');
-	memset(handle + ICSF_TOKEN_NAME_LEN, ' ',
-	       sizeof(handle) - ICSF_TOKEN_NAME_LEN);
-
-	/* Should be 8 bytes padded. */
-	strpad(rule_array, "TOKEN", ICSF_RULE_ITEM_LEN, ' ');
+	if ((rule_array_len % ICSF_RULE_ITEM_LEN)) {
+		OCK_LOG_DEBUG("Invalid rule array length: %lu\n",
+			      rule_array_len);
+		OCK_LOG_ERR(ERR_ARGUMENTS_BAD);
+		return -1;
+	}
+	rule_array_count = rule_array_len / ICSF_RULE_ITEM_LEN;
 
 	/* Allocate ber_req to encode message. */
 	ber_req = ber_alloc_t(LBER_USE_DER);
@@ -717,8 +720,8 @@ int icsf_destroy_token(LDAP *ld, char *token_name)
 	 *
 	 * TRDInput ::= NULL
 	 */
-	rc = ber_printf(ber_req, "{iso{is}tn}", version, exit_data,
-			handle, sizeof(handle), rule_array_count, rule_array,
+	rc = ber_printf(ber_req, "{iso{io}tn}", version, exit_data, handle,
+			handle_len, rule_array_count, rule_array, rule_array_len,
 			ICSF_TAG_CSFPTRD | LBER_PRIMITIVE | LBER_CLASS_CONTEXT);
 	if (rc < 0) {
 		OCK_LOG_DEBUG("Failed to encode message.\n");
@@ -777,6 +780,32 @@ cleanup:
 
 	return rc;
 
+}
+
+/*
+ * Destroy a token.
+ */
+int icsf_destroy_token(LDAP *ld, char *token_name)
+{
+	/* Variables used as input */
+	char handle[ICSF_HANDLE_LEN];
+	char rule_array[1 * ICSF_RULE_ITEM_LEN];
+
+	CHECK_ARG_NON_NULL(ld);
+	CHECK_ARG_NON_NULL_AND_MAX_LEN(token_name, ICSF_TOKEN_NAME_LEN);
+
+	/* The first 32 bytes of `handle` contains the token's name, The
+	 * remaining bytes should be blank.
+	 */
+	strpad(handle, token_name, ICSF_TOKEN_NAME_LEN, ' ');
+	memset(handle + ICSF_TOKEN_NAME_LEN, ' ',
+	       sizeof(handle) - ICSF_TOKEN_NAME_LEN);
+
+	/* Should be 8 bytes padded. */
+	strpad(rule_array, "TOKEN", ICSF_RULE_ITEM_LEN, ' ');
+
+	return icsf_destroy(ld, handle, sizeof(handle), rule_array,
+			    sizeof(rule_array));
 }
 
 /*
