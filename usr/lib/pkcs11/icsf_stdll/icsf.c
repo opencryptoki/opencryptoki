@@ -1189,6 +1189,27 @@ error:
 }
 
 /*
+ * Parse a raw object handle into token name, sequence and object type.
+ */
+void
+handle_to_object_record(struct icsf_object_record *record, const char *data)
+{
+	size_t offset = 0;
+	char hex_seq[ICSF_SEQUENCE_LEN + 1];
+
+	strunpad(record->token_name, data + offset, ICSF_TOKEN_NAME_LEN + 1,
+		 ' ');
+	offset += ICSF_TOKEN_NAME_LEN;
+
+	memcpy(hex_seq, data + offset, ICSF_SEQUENCE_LEN);
+	hex_seq[ICSF_SEQUENCE_LEN] = '\0';
+	sscanf(hex_seq, "%lx", &record->sequence);
+	offset += ICSF_SEQUENCE_LEN;
+
+	record->id = data[offset];
+}
+
+/*
  * Create an object in the token defined by the given `token_name`.
  *
  * `type` indicates if it will be a token object or a session object. Its value
@@ -1205,7 +1226,7 @@ error:
 int
 icsf_create_object(LDAP *ld, const char *token_name, char type,
 		   CK_ATTRIBUTE *attrs, CK_ULONG attrs_len,
-		   char *obj_handle, size_t obj_handle_len)
+		   struct icsf_object_record *object)
 {
 	int rc = -1;
 	char handle[ICSF_HANDLE_LEN];
@@ -1216,7 +1237,6 @@ icsf_create_object(LDAP *ld, const char *token_name, char type,
 	CHECK_ARG_NON_NULL(ld);
 	CHECK_ARG_NON_NULL_AND_MAX_LEN(token_name, ICSF_TOKEN_NAME_LEN);
 	CHECK_ARG_NON_NULL(attrs);
-	CHECK_ARG_NON_NULL(obj_handle);
 
 	/* Check type */
 	if (!ICSF_IS_VALID_OBJECT_TYPE(type)) {
@@ -1246,30 +1266,13 @@ icsf_create_object(LDAP *ld, const char *token_name, char type,
 			 1 | LBER_CLASS_CONTEXT | LBER_CONSTRUCTED,
 			 bv_attrs->bv_val, bv_attrs->bv_len);
 
+	if (!rc && object)
+		handle_to_object_record(object, handle);
+
 	if (bv_attrs)
 		ber_bvfree(bv_attrs);
 
 	return rc;
-}
-
-/*
- * Parse a raw object handle into token name, sequence and object type.
- */
-void parse_object_record(struct icsf_object_record *record, const char *data)
-{
-	size_t offset = 0;
-	char hex_seq[ICSF_SEQUENCE_LEN + 1];
-
-	strunpad(record->token_name, data + offset, ICSF_TOKEN_NAME_LEN + 1,
-		 ' ');
-	offset += ICSF_TOKEN_NAME_LEN;
-
-	memcpy(hex_seq, data + offset, ICSF_SEQUENCE_LEN);
-	hex_seq[ICSF_SEQUENCE_LEN] = '\0';
-	sscanf(hex_seq, "%lx", &record->sequence);
-	offset += ICSF_SEQUENCE_LEN;
-
-	record->id = data[offset];
 }
 
 /*
@@ -1350,7 +1353,7 @@ icsf_list_objects(LDAP *ld, const char *token_name,
 	*records_len = list_len / ICSF_HANDLE_LEN;
 	for (i = 0; i < *records_len; i++) {
 		size_t offset = i * ICSF_HANDLE_LEN;
-		parse_object_record(&records[i], bv_list->bv_val + offset);
+		handle_to_object_record(&records[i], bv_list->bv_val + offset);
 	}
 
 	rc = 0;

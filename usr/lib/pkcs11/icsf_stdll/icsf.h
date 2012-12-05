@@ -99,7 +99,7 @@ icsf_list_tokens(LDAP *ld, struct icsf_token_record *first,
 int
 icsf_create_object(LDAP *ld, const char *token_name, char type,
 	           CK_ATTRIBUTE *attrs, CK_ULONG attrs_len,
-	           char *obj_handle, size_t obj_handle_len);
+		   struct icsf_object_record *object);
 
 int
 icsf_list_objects(LDAP *ld, const char *token_name,
