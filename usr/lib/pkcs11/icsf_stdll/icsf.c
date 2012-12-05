@@ -1210,6 +1210,29 @@ handle_to_object_record(struct icsf_object_record *record, const char *data)
 }
 
 /*
+ * Parse a structure object record to a handle.
+ *
+ * `data` must be at least ICSF_HANDLE_LEN long.
+ */
+void
+object_record_to_handle(char *data, const struct icsf_object_record *record)
+{
+	size_t offset = 0;
+	char hex_seq[ICSF_SEQUENCE_LEN + 1];
+
+	strpad(data + offset, record->token_name, ICSF_TOKEN_NAME_LEN, ' ');
+	offset += ICSF_TOKEN_NAME_LEN;
+
+	snprintf(hex_seq, sizeof(hex_seq), "%0*lX", ICSF_SEQUENCE_LEN,
+		 record->sequence);
+	memcpy(data + offset, hex_seq, ICSF_SEQUENCE_LEN);
+	offset += ICSF_SEQUENCE_LEN;
+
+	memset(data + offset, ' ', ICSF_HANDLE_LEN - offset);
+	data[offset] = record->id;
+}
+
+/*
  * Create an object in the token defined by the given `token_name`.
  *
  * `type` indicates if it will be a token object or a session object. Its value
@@ -1364,3 +1387,26 @@ cleanup:
 
 	return rc;
 }
+
+/*
+ * Destroy an object.
+ */
+int
+icsf_destroy_object(LDAP *ld, struct icsf_object_record *obj)
+{
+	/* Variables used as input */
+	char handle[ICSF_HANDLE_LEN];
+	char rule_array[1 * ICSF_RULE_ITEM_LEN];
+
+	CHECK_ARG_NON_NULL(ld);
+	CHECK_ARG_NON_NULL(obj);
+
+	object_record_to_handle(handle, obj);
+
+	/* Should be 8 bytes padded. */
+	strpad(rule_array, "OBJECT", ICSF_RULE_ITEM_LEN, ' ');
+
+	return icsf_destroy(ld, handle, sizeof(handle), rule_array,
+			    sizeof(rule_array));
+}
+

@@ -106,4 +106,8 @@ icsf_list_objects(LDAP *ld, const char *token_name,
 	          struct icsf_object_record *previous,
 	          struct icsf_object_record *records, size_t *records_len,
 	          int all);
+
+int
+icsf_destroy_object(LDAP *ld, struct icsf_object_record *obj);
+
 #endif
