@@ -771,23 +771,25 @@ CK_RV init_token_data(CK_SLOT_ID slot_id)
 
 	init_tokenInfo();
 
-	if (token_specific.t_init_token_data)
-		token_specific.t_init_token_data(slot_id);
+	if (token_specific.t_init_token_data) {
+		rc = token_specific.t_init_token_data(slot_id);
+		if (rc != CKR_OK)
+			return rc;
+	} else {
+		//
+		// FIXME: erase the token object index file (and all token objects)
+		//
+		rc = generate_master_key(master_key);
+		if (rc != CKR_OK) {
+			OCK_LOG_ERR(ERR_FUNCTION_FAILED);
+			return CKR_FUNCTION_FAILED;
+		}
 
-	//
-	// FIXME: erase the token object index file (and all token objects)
-	//
-
-	rc = generate_master_key(master_key);
-	if (rc != CKR_OK) {
-		OCK_LOG_ERR(ERR_FUNCTION_FAILED);
-		return CKR_FUNCTION_FAILED;
-	}
-
-	rc = save_masterkey_so();
-	if (rc != CKR_OK) {
-		OCK_LOG_ERR(ERR_FUNCTION_FAILED);
-		return CKR_FUNCTION_FAILED;
+		rc = save_masterkey_so();
+		if (rc != CKR_OK) {
+			OCK_LOG_ERR(ERR_FUNCTION_FAILED);
+			return CKR_FUNCTION_FAILED;
+		}
 	}
 
 	rc = save_token_data(slot_id);

@@ -20,6 +20,7 @@
 #include <sys/stat.h>
 #include <fcntl.h>
 #include <pthread.h>
+#include <errno.h>
 #include "pkcs11types.h"
 #include "defs.h"
 #include "host_defs.h"
@@ -231,9 +232,6 @@ token_specific_init_token_data(CK_SLOT_ID slot_id)
 	strcpy(slot_data[slot_id]->key_file, config.key_file);
 	slot_data[slot_id]->initialized = 1;
 
-	/* ICSF token are always initialized by an external tool */
-	nv_token_data->token_info.flags |= CKF_TOKEN_INITIALIZED;
-
 done:
 	XProcUnLock();
 	return rc;
@@ -369,7 +367,7 @@ login(LDAP **ld, CK_SLOT_ID slot_id, CK_BYTE *pin, CK_ULONG pin_len,
       const char *pass_file_type)
 {
 	CK_RV rc = CKR_OK;
-	struct slot_data *data;
+	struct slot_data data;
 	LDAP *ldapd = NULL;
 	char *fname = NULL;
 	int ret;
@@ -388,54 +386,40 @@ login(LDAP **ld, CK_SLOT_ID slot_id, CK_BYTE *pin, CK_ULONG pin_len,
 		rc = CKR_FUNCTION_FAILED;
 		goto done;
 	}
-	data = slot_data[slot_id];
+	memcpy(&data, slot_data[slot_id], sizeof(data));
 
-	if (*data->dn) {
-		CK_BYTE pass[PIN_SIZE + 1];
-		CK_BYTE pin_buffer[PIN_SIZE + 1];
-		CK_BYTE hash_sha[SHA1_HASH_SIZE];
-		int pass_len = sizeof(pass) - 1;
+	XProcUnLock();
 
-		/* Build password file path */
-		ret = asprintf(&fname, "%s/%s", ICSF_CONFIG_PATH,
-			       pass_file_type);
-		if (ret < 0) {
-			OCK_LOG_DEBUG("Failed to allocate memory for password "
-				      "file path for slot %d.\n", slot_id);
-			rc = CKR_HOST_MEMORY;
-			fname = NULL;
-			goto done;
+	if (*data.dn) {
+		CK_BYTE mk[MAX_KEY_SIZE];
+		CK_BYTE racf_pass[PIN_SIZE];
+		int mk_len = sizeof(mk);
+		int racf_pass_len = sizeof(racf_pass);
+		CK_BYTE pk_dir_buf[PATH_MAX], fname[PATH_MAX];
+
+		/* Load master key */
+		sprintf(fname, "%s/MK_SO", get_pk_dir(pk_dir_buf));
+		if (get_masterkey(pin, pin_len, fname, mk, &mk_len)) {
+			OKC_LOG_DEBUG("Failed to load masterkey \"%s\".\n", fname);
+			return CKR_FUNCTION_FAILED;
 		}
 
-		/* Check pin len */
-		if (pin_len > sizeof(pin_buffer)) {
-			OCK_LOG_DEBUG("Pin too long (%lu).\n", pin_len);
-			rc = CKR_FUNCTION_FAILED;
-			goto done;
+		/* Load RACF password */
+		if (get_racf(mk, mk_len, racf_pass, &racf_pass_len)) {
+			OCK_LOG_DEBUG("Failed to get RACF password.\n");
+			return CKR_FUNCTION_FAILED;
 		}
-
-		/* Get RACF password */
-		memcpy(pin_buffer, pin, pin_len);
-		compute_sha(pin_buffer, pin_len, hash_sha);
-		rc = get_racfpwd(fname, hash_sha, SHA1_HASH_SIZE,
-				 pass, &pass_len);
-		if (rc) {
-			OCK_LOG_DEBUG("Failed to get the RACF password in "
-				      "\"%s\".\n", fname);
-			goto done;
-		}
-		pass[pass_len] = '\0';
 
 		/* Simple bind */
-		ret  = icsf_login(&ldapd, data->uri, data->dn, pass);
+		ret  = icsf_login(&ldapd, data.uri, data.dn, racf_pass);
 	} else {
 		/* SASL bind */
-		ret = icsf_sasl_login(&ldapd, data->uri, data->cert_file,
-				      data->key_file, data->ca_file, NULL);
+		ret = icsf_sasl_login(&ldapd, data.uri, data.cert_file,
+				      data.key_file, data.ca_file, NULL);
 	}
 
 	if (ret) {
-		OCK_LOG_DEBUG("Failed to bind to %s\n", data->uri);
+		OCK_LOG_DEBUG("Failed to bind to %s\n", data.uri);
 		rc = CKR_FUNCTION_FAILED;
 		goto done;
 	}
@@ -447,8 +431,6 @@ login(LDAP **ld, CK_SLOT_ID slot_id, CK_BYTE *pin, CK_ULONG pin_len,
 	}
 
 done:
-	XProcUnLock();
-
 	if (rc == CKR_OK && ld)
 		*ld = ldapd;
 
@@ -458,16 +440,149 @@ done:
 	return rc;
 }
 
+CK_RV
+reset_token_data(CK_SLOT_ID slot_id, CK_CHAR_PTR pin, CK_ULONG pin_len)
+{
+	CK_BYTE mk[MAX_KEY_SIZE];
+	CK_BYTE racf_pass[PIN_SIZE];
+	int mk_len = sizeof(mk);
+	int racf_pass_len = sizeof(racf_pass);
+	char token_name[sizeof(nv_token_data->token_info.label)];
+	CK_BYTE pk_dir_buf[PATH_MAX], fname[PATH_MAX];
+
+	/* Remove user's masterkey */
+	sprintf(fname, "%s/MK_USER", get_pk_dir(pk_dir_buf));
+	if (unlink(fname) && errno == ENOENT)
+		OCK_LOG_DEBUG("Failed to remove \"%s\".\n", fname);
+
+	/* Load master key */
+	sprintf(fname, "%s/MK_SO", get_pk_dir(pk_dir_buf));
+	if (get_masterkey(pin, pin_len, fname, mk, &mk_len)) {
+		OKC_LOG_DEBUG("Failed to load masterkey \"%s\".\n", fname);
+		return CKR_FUNCTION_FAILED;
+	}
+
+	/* Load RACF password */
+	if (get_racf(mk, mk_len, racf_pass, &racf_pass_len)) {
+		OCK_LOG_DEBUG("Failed to get RACF password.\n");
+		return CKR_FUNCTION_FAILED;
+	}
+
+	/* Generate new key */
+	if (get_randombytes(mk, mk_len)) {
+		OCK_LOG_DEBUG("Failed to generate the new master key.\n");
+		return CKR_FUNCTION_FAILED;
+	}
+
+	/* Save racf password using the new master key */
+	if (secure_racf(racf_pass, racf_pass_len, mk, mk_len)) {
+		OCK_LOG_DEBUG("Failed to save racf password.\n");
+		return CKR_FUNCTION_FAILED;
+	}
+
+	/* Reset token data and keep token name */
+	slot_data[slot_id]->initialized = 0;
+	init_token_data(slot_id);
+	init_slotInfo();
+	nv_token_data->token_info.flags |= CKF_TOKEN_INITIALIZED;
+
+	/* Reset SO pin to default and user pin to invalid */
+	pin_len = strlen((pin = "87654321"));
+	if (compute_sha(pin, pin_len, nv_token_data->so_pin_sha)) {
+		OCK_LOG_DEBUG("Failed to reset so pin.\n");
+		return CKR_FUNCTION_FAILED;
+	}
+	memset(nv_token_data->user_pin_sha, '0',
+	       sizeof(nv_token_data->user_pin_sha));
+
+	/* Save master key */
+	if (secure_masterkey(mk, mk_len, pin, pin_len, fname)) {
+		OCK_LOG_DEBUG("Failed to save the new master key.\n");
+		return CKR_FUNCTION_FAILED;
+	}
+
+	if (save_token_data(slot_id)) {
+		OCK_LOG_DEBUG("Failed to save token data.\n");
+		return CKR_FUNCTION_FAILED;
+	}
+
+	return CKR_OK;
+}
+
+CK_RV
+destroy_objects(CK_SLOT_ID slot_id, CK_CHAR_PTR token_name, CK_CHAR_PTR pin,
+		CK_ULONG pin_len)
+{
+	CK_RV rc = CKR_OK;
+	LDAP *ld = NULL;
+	size_t object_num = 0;
+	struct icsf_object_record records[16];
+	struct icsf_object_record *previous = NULL;
+	size_t i, records_len;
+
+	if (login(&ld, slot_id, pin, pin_len, RACFFILE))
+		return CKR_FUNCTION_FAILED;
+
+	OCK_LOG_DEBUG("Destroying objects in slot %lu.\n", sid);
+	do {
+		records_len = sizeof(records)/sizeof(records[0]);
+
+		if (icsf_list_objects(ld, token_name, previous, records,
+				      &records_len, 0)) {
+			OCK_LOG_DEBUG("Failed to list objects for slot %lu.\n",
+				      sid);
+			rc = CKR_FUNCTION_FAILED;
+			goto done;
+		}
+
+		for (i = 0; i < records_len; i++) {
+			if (icsf_destroy_object(ld, &records[i])) {
+				OCK_LOG_DEBUG("Failed to destroy object "
+					      "%s/%lu/%c in slot %lu.\n",
+					      records[i].token_name,
+					      records[i].sequence,
+					      records[i].id, sid);
+				rc = CKR_FUNCTION_FAILED;
+				goto done;
+			}
+		}
+
+		if (records_len)
+			previous = &records[records_len - 1];
+	} while (records_len);
+
+done:
+	if (icsf_logout(ld) && rc == CKR_OK)
+		rc = CKR_FUNCTION_FAILED;
+
+	return rc;
+}
+
 /*
  * Initialize token.
  */
 CK_RV
-token_specific_init_token(CK_SLOT_ID sid, CK_CHAR_PTR pPin, CK_ULONG ulPinLen,
-			  CK_CHAR_PTR pLabel)
+token_specific_init_token(CK_SLOT_ID slot_id, CK_CHAR_PTR pin, CK_ULONG pin_len,
+			  CK_CHAR_PTR label)
 {
 	CK_RV rc = CKR_OK;
+	CK_BYTE hash_sha[SHA1_HASH_SIZE];
 
-	OCK_LOG_DEBUG("dir %s\n", pk_dir);
+	/* Check pin */
+	rc = compute_sha(pin, pin_len, hash_sha);
+	if (memcmp(nv_token_data->so_pin_sha, hash_sha, SHA1_HASH_SIZE) != 0) {
+		OCK_LOG_ERR(ERR_PIN_INCORRECT);
+		rc = CKR_PIN_INCORRECT;
+		goto done;
+	}
 
-	return CKR_OK;
+	if ((rc = reset_token_data(slot_id, pin, pin_len)))
+		goto done;
+
+	if ((rc = destroy_objects(slot_id, nv_token_data->token_info.label,
+				  pin, pin_len)))
+		goto done;
+
+done:
+	return rc;
 }
