@@ -56,11 +56,12 @@ opencryptoki_stdll_libpkcs11_icsf_la_SOURCES = ../common/asn1.c		\
 					      ../common/sess_mgr.c	\
 					      ../common/verify_mgr.c	\
 					      ../common/mech_list.c	\
+					      pbkdf.c			\
 					      icsf_specific.c		\
 					      icsf.c
 
 
-noinst_HEADERS = icsf.h
+noinst_HEADERS = icsf.h pbkdf.h
 
 install-data-hook:
 	$(MKDIR_P) $(DESTDIR)$(localstatedir)/lib/opencryptoki/icsf
