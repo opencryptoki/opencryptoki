@@ -738,6 +738,7 @@ AC_CONFIG_FILES([Makefile usr/Makefile \
           usr/sbin/Makefile \
           usr/sbin/pkcsslotd/Makefile \
           usr/sbin/pkcsconf/Makefile \
+          usr/sbin/pkcsicsf/Makefile \
           usr/sbin/pkcscca_migrate/Makefile \
           usr/lib/pkcs11/methods/Makefile \
           usr/lib/pkcs11/leeds_stdll/Makefile \
