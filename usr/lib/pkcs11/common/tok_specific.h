@@ -328,7 +328,7 @@ CK_RV token_specific_final(void);
 CK_RV token_specific_init_token(CK_SLOT_ID, CK_CHAR_PTR, CK_ULONG, CK_CHAR_PTR);
 CK_RV token_specific_login(CK_USER_TYPE, CK_CHAR_PTR, CK_ULONG);
 CK_RV token_specific_logout();
-CK_RV token_specific_init_pin(CK_CHAR_PTR, CK_ULONG);
+CK_RV token_specific_init_pin(SESSION *, CK_CHAR_PTR, CK_ULONG);
 CK_RV token_specific_set_pin(SESSION *, CK_CHAR_PTR, CK_ULONG, CK_CHAR_PTR, CK_ULONG);
 
 CK_RV token_specific_des_key_gen(CK_BYTE  *,CK_ULONG, CK_ULONG) ;

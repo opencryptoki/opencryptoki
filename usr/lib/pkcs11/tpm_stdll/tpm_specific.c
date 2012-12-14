@@ -1742,7 +1742,7 @@ token_specific_logout()
 }
 
 CK_RV
-token_specific_init_pin(CK_CHAR_PTR pPin, CK_ULONG ulPinLen)
+token_specific_init_pin(SESSION *sess, CK_CHAR_PTR pPin, CK_ULONG ulPinLen)
 {
 	/* Since the SO must log in before calling C_InitPIN, we will
 	 * be able to return CKR_OK automatically here.

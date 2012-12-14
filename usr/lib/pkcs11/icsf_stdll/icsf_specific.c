@@ -586,3 +586,51 @@ token_specific_init_token(CK_SLOT_ID slot_id, CK_CHAR_PTR pin, CK_ULONG pin_len,
 done:
 	return rc;
 }
+
+CK_RV
+token_specific_init_pin(SESSION *sess, CK_CHAR_PTR pPin, CK_ULONG ulPinLen)
+{
+	CK_RV rc = CKR_OK;
+	CK_BYTE hash_sha[SHA1_HASH_SIZE];
+	CK_SLOT_ID sid;
+	CK_BYTE fname[PATH_MAX];
+	char pk_dir_buf[PATH_MAX];
+
+	/* get slot id */
+	sid = sess->session_info.slotID;
+
+	/* compute the SHA of the user pin */
+	rc = compute_sha(pPin, ulPinLen, hash_sha);
+	if (rc != CKR_OK) {
+		OCK_LOG_ERR(ERR_HASH_COMPUTATION);
+		return rc;
+	}
+
+	/* encrypt the masterkey and store in MK_USER if using SIMPLE AUTH
+	 * to authenticate to ldao server. The masterkey protects the
+	 * racf passwd.
+	 */
+	if (slot_data[sid]->dn[0]) { 
+		sprintf(fname, "%s/MK_USER", get_pk_dir(pk_dir_buf));
+
+		rc = secure_masterkey(master_key, AES_KEY_SIZE_256, pPin,
+					ulPinLen, fname);
+		if (rc != CKR_OK) {
+			OCK_LOG_DEBUG("Could not create MK_USER.\n");
+			return rc;
+		}
+	}
+
+	rc = XProcLock();
+	if (rc != CKR_OK) {
+		OCK_LOG_ERR(ERR_PROCESS_LOCK);
+		return rc;
+	}
+	memcpy(nv_token_data->user_pin_sha, hash_sha, SHA1_HASH_SIZE);
+	nv_token_data->token_info.flags |= CKF_USER_PIN_INITIALIZED;
+	nv_token_data->token_info.flags &= ~(CKF_USER_PIN_TO_BE_CHANGED);
+	nv_token_data->token_info.flags &= ~(CKF_USER_PIN_LOCKED);
+	XProcUnLock();
+
+	return rc;
+}

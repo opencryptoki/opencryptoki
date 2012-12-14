@@ -1045,7 +1045,7 @@ CK_RV SC_InitPIN( ST_SESSION_HANDLE  *sSession,
 	 * to default behaviour.
 	 */
 	if (token_specific.t_init_pin) {
-		rc = token_specific.t_init_pin(pPin, ulPinLen);
+		rc = token_specific.t_init_pin(sess, pPin, ulPinLen);
 		if (rc == CKR_OK){
 			flags = &nv_token_data->token_info.flags;
 			*flags &= ~(CKF_USER_PIN_LOCKED |

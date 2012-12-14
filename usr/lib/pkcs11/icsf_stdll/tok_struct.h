@@ -49,7 +49,7 @@ token_spec_t token_specific = {
 	&token_specific_init_token,
 	NULL,			// login
 	NULL,			// logout
-	NULL,			// init_pin
+	&token_specific_init_pin,
 	NULL,			// set_pin
 	// DES
 	NULL, 			// des_key_gen
