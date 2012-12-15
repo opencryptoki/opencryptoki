@@ -634,3 +634,110 @@ token_specific_init_pin(SESSION *sess, CK_CHAR_PTR pPin, CK_ULONG ulPinLen)
 
 	return rc;
 }
+
+CK_RV
+token_specific_set_pin(SESSION *sess, CK_CHAR_PTR pOldPin, CK_ULONG ulOldLen,
+		       CK_CHAR_PTR pNewPin, CK_ULONG ulNewLen)
+{
+	CK_RV rc = CKR_OK;
+	CK_BYTE new_hash_sha[SHA1_HASH_SIZE];
+	CK_BYTE old_hash_sha[SHA1_HASH_SIZE];
+	CK_BYTE fname[PATH_MAX];
+	CK_SLOT_ID sid;
+	char pk_dir_buf[PATH_MAX];
+
+	/* get slot id */
+	sid = sess->session_info.slotID;
+
+	rc = compute_sha(pNewPin, ulNewLen, new_hash_sha );
+	rc |= compute_sha( pOldPin, ulOldLen, old_hash_sha );
+	if (rc != CKR_OK) {
+		OCK_LOG_ERR(ERR_HASH_COMPUTATION);
+		return rc;
+	}
+
+	/* check that the old pin  and new pin are not the same. */
+	if (memcmp(old_hash_sha, new_hash_sha, SHA1_HASH_SIZE) == 0) {
+		OCK_LOG_ERR(ERR_PIN_INVALID);
+		return CKR_PIN_INVALID;
+	}
+
+	/* check the length requirements */
+	if ((ulNewLen < MIN_PIN_LEN) || (ulNewLen > MAX_PIN_LEN)) {
+		OCK_LOG_ERR(ERR_PIN_LEN_RANGE);
+		return CKR_PIN_LEN_RANGE;
+	}
+
+	if ((sess->session_info.state == CKS_RW_USER_FUNCTIONS) ||
+	    (sess->session_info.state == CKS_RW_PUBLIC_SESSION)) {
+		/* check that old pin matches what is in NVTOK.DAT */
+		if (memcmp(nv_token_data->user_pin_sha, old_hash_sha, SHA1_HASH_SIZE) != 0) {
+			OCK_LOG_ERR(ERR_PIN_INCORRECT);
+			return CKR_PIN_INCORRECT;
+		}
+		/* if using simple auth, encrypt masterkey with new pin */
+		if (slot_data[sid]->dn[0]) {
+			sprintf (fname, "%s/MK_USER", get_pk_dir(pk_dir_buf));
+			rc = secure_masterkey(master_key, AES_KEY_SIZE_256,
+						pNewPin, ulNewLen, fname);
+			if (rc != CKR_OK) {
+				OCK_LOG_ERR(ERR_MASTER_KEY_SAVE);
+				return rc;
+			}
+		}
+
+		/* grab lock and change shared memory */
+		rc = XProcLock();
+		if (rc != CKR_OK) {
+			OCK_LOG_ERR(ERR_PROCESS_LOCK);
+			return rc;
+		}
+		memcpy(nv_token_data->user_pin_sha, new_hash_sha, SHA1_HASH_SIZE);
+		nv_token_data->token_info.flags &= ~(CKF_USER_PIN_TO_BE_CHANGED);
+		XProcUnLock();
+
+	} else if (sess->session_info.state == CKS_RW_SO_FUNCTIONS) {
+
+		/* check that old pin matches what is in NVTOK.DAT */
+		if (memcmp(nv_token_data->so_pin_sha, old_hash_sha, SHA1_HASH_SIZE) != 0) {
+			OCK_LOG_ERR(ERR_PIN_INCORRECT);
+			return CKR_PIN_INCORRECT;
+		}
+
+		/* check that new pin is not the default */
+		if (memcmp(new_hash_sha, default_so_pin_sha, SHA1_HASH_SIZE) == 0) {
+			OCK_LOG_ERR(ERR_PIN_INVALID);
+			return CKR_PIN_INVALID;
+		}
+
+		/* if using simle auth, encrypt masterkey with new pin */
+		sprintf (fname, "%s/MK_SO", get_pk_dir(pk_dir_buf));
+		rc = secure_masterkey(master_key, AES_KEY_SIZE_256, pNewPin,
+					ulNewLen, fname);
+		if (rc != CKR_OK) {
+			OCK_LOG_ERR(ERR_MASTER_KEY_SAVE);
+			return rc;
+		}
+
+		/* grab lock and change shared memory */
+		rc = XProcLock();
+		if (rc != CKR_OK) {
+			OCK_LOG_ERR(ERR_PROCESS_LOCK);
+			return rc;
+		}
+		memcpy(nv_token_data->so_pin_sha, new_hash_sha, SHA1_HASH_SIZE);
+		nv_token_data->token_info.flags &= ~(CKF_SO_PIN_TO_BE_CHANGED);
+		XProcUnLock();
+	} else {
+		OCK_LOG_ERR(ERR_SESSION_READ_ONLY);
+		return CKR_SESSION_READ_ONLY;
+	}
+
+	rc = save_token_data(sid);
+	if (rc != CKR_OK) {
+		OCK_LOG_ERR(ERR_TOKEN_SAVE);
+		return rc;
+	}
+
+	return rc;
+}
