@@ -741,3 +741,9 @@ token_specific_set_pin(SESSION *sess, CK_CHAR_PTR pOldPin, CK_ULONG ulOldLen,
 
 	return rc;
 }
+
+CK_RV
+token_specific_session(CK_SLOT_ID  slotid)
+{
+       return CKR_OK;
+}
