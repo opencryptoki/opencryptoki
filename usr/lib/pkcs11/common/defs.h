@@ -387,7 +387,12 @@ enum {
 #define MAX_DES_KEY_SIZE	64	/* encompasses CCA key size */
 #define DES_KEY_SIZE    8
 #define DES_BLOCK_SIZE  8
-#define MAX_KEY_SIZE	MAX_DES_KEY_SIZE
+
+/*
+ * It should be able to keep any kind of key (AES, 3DES, etc) and also
+ * a PBKDF key
+ */
+#define MAX_KEY_SIZE 96
 
 #define SHA1_HASH_SIZE  20
 #define SHA1_BLOCK_SIZE 64

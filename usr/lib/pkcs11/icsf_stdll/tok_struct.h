@@ -47,7 +47,7 @@ token_spec_t token_specific = {
 	&token_specific_session,
 	&token_specific_final,
 	&token_specific_init_token,
-	NULL,			// login
+	&token_specific_login,
 	NULL,			// logout
 	&token_specific_init_pin,
 	&token_specific_set_pin,

@@ -1573,7 +1573,7 @@ load_masterkey_private()
 
 
 CK_RV
-token_specific_login(CK_USER_TYPE userType, CK_CHAR_PTR pPin, CK_ULONG ulPinLen)
+token_specific_login(CK_SLOT_ID slot_id, CK_USER_TYPE userType, CK_CHAR_PTR pPin, CK_ULONG ulPinLen)
 {
 	CK_RV rc;
 	CK_BYTE hash_sha[SHA1_HASH_SIZE];

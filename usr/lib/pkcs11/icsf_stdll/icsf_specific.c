@@ -12,6 +12,7 @@
  */
 
 #define _GNU_SOURCE
+#include <unistd.h>
 #include <stdlib.h>
 #include <stdio.h>
 #include <string.h>
@@ -24,11 +25,14 @@
 #include "pkcs11types.h"
 #include "defs.h"
 #include "host_defs.h"
+#include "pbkdf.h"
 #include "h_extern.h"
 #include "tok_specific.h"
 #include "tok_struct.h"
 #include "icsf_config.h"
 #include "pbkdf.h"
+
+#define ICSF_DIR "/usr/local/var/lib/opencryptoki/icsf"
 
 /* Default token attributes */
 CK_CHAR manuf[] = "IBM Corp.";
@@ -746,4 +750,118 @@ CK_RV
 token_specific_session(CK_SLOT_ID  slotid)
 {
        return CKR_OK;
+}
+
+
+CK_RV
+token_specific_login(CK_SLOT_ID slot_id, CK_USER_TYPE userType, CK_CHAR_PTR pPin, CK_ULONG ulPinLen)
+{
+	CK_RV rc;
+	char fname[PATH_MAX];
+	CK_BYTE racfpwd[PIN_SIZE];
+	CK_BYTE hash_sha[SHA1_HASH_SIZE];
+	int racflen;
+	int mklen;
+	char pk_dir_buf[PATH_MAX];
+	char *ca_dir = NULL;
+	LDAP *ld;
+
+	/* Check Slot ID */
+	if (slot_id < 0 || slot_id > MAX_SLOT_ID) {
+		OCK_LOG_DEBUG("Invalid slot ID: %d\n", slot_id);
+		return CKR_FUNCTION_FAILED;
+	}
+
+	/* compute the sha of the pin. */
+	rc = compute_sha(pPin, ulPinLen, hash_sha);
+        if (rc != CKR_OK) {
+                OCK_LOG_ERR(ERR_HASH_COMPUTATION);
+                return rc;
+        }
+
+	if (userType == CKU_USER) {
+		/* check if pin initialized */
+		if (memcmp(nv_token_data->user_pin_sha, "00000000000000000000", SHA1_HASH_SIZE) == 0) {
+			OCK_LOG_ERR(ERR_USER_PIN_NOT_INITIALIZED);
+			return CKR_USER_PIN_NOT_INITIALIZED;
+		}
+
+		/* check that pin is the same as the one in NVTOK.DAT */
+		if (memcmp(nv_token_data->user_pin_sha, hash_sha, SHA1_HASH_SIZE) != 0) {
+                        OCK_LOG_ERR(ERR_PIN_INCORRECT);
+                        return CKR_PIN_INCORRECT;
+                }
+
+		/* now load the master key */
+		sprintf(fname, "%s/MK_USER", get_pk_dir(pk_dir_buf));
+	        rc = get_masterkey(pPin, ulPinLen, fname, master_key, &mklen);
+		if (rc != CKR_OK) {
+			 OCK_LOG_DEBUG("Failed to load master key.\n");
+			return rc;
+		}
+
+	} else {
+		/* if SO ... */
+
+		/* check that pin is the same as the one in NVTOK.DAT */
+                if (memcmp(nv_token_data->so_pin_sha, hash_sha, SHA1_HASH_SIZE) != 0) {
+                        OCK_LOG_ERR(ERR_PIN_INCORRECT);
+                        return  CKR_PIN_INCORRECT;
+                }
+
+		/* now load the master key */
+		sprintf(fname, "%s/MK_SO", get_pk_dir(pk_dir_buf));
+	        rc = get_masterkey(pPin, ulPinLen, fname, master_key, &mklen);
+		if (rc != CKR_OK) {
+			OCK_LOG_DEBUG("Failed to load master key.\n");
+			return rc;
+		}
+	}
+
+	/* The pPin looks good, so now lets authenticate to ldap server */
+	XProcLock();
+
+	if (slot_data[slot_id] == NULL) {
+		OCK_LOG_DEBUG("ICSF slot data not initialized.\n");
+		rc = CKR_FUNCTION_FAILED;
+		goto done;
+	}
+
+	/* Check if using sasl or simple auth */
+	if (slot_data[slot_id]->dn[0]) {
+		OCK_LOG_DEBUG("Using SIMPLE auth with slot ID: %d\n", slot_id);
+
+		/* get racf passwd */
+		rc = get_racf(master_key, AES_KEY_SIZE_256, racfpwd, &racflen);
+		if (rc != CKR_OK) {
+			OCK_LOG_DEBUG("Failed to get racf passwd.\n");
+			goto done;
+		}
+
+		/* ok got the passwd, perform simple ldap bind call */
+		rc = icsf_login(&ld, slot_data[slot_id]->uri,
+				slot_data[slot_id]->dn, racfpwd);
+		if (rc != CKR_OK) {
+			OCK_LOG_DEBUG("Failed to bind to ldap server.\n");
+			goto done;
+		}
+
+	}
+	else {
+		OCK_LOG_DEBUG("Using SASL auth with slot ID: %d\n", slot_id);
+
+		rc = icsf_sasl_login(&ld, slot_data[slot_id]->uri,
+				     slot_data[slot_id]->cert_file,
+				     slot_data[slot_id]->key_file,
+				     slot_data[slot_id]->ca_file, ca_dir);
+		if (rc != CKR_OK) {
+			OCK_LOG_DEBUG("Failed to bind to ldap server.\n");
+			goto done;
+		}
+	}
+
+
+done:
+	XProcUnLock();
+	return rc;
 }
