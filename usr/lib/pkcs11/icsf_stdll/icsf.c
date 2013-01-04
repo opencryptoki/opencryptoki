@@ -114,7 +114,7 @@
 
 #define CHECK_ARG_MAX_LEN(_arg, _length) 				\
 	if (_arg && (strlen(_arg) > _length)) {				\
-		OCK_LOG_DEBUG("String too long %s=\"%s\": %s:%d\n",	\
+		OCK_LOG_DEBUG("String too long %s=\"%s\"\n",		\
 			      #_arg, _arg);				\
 		return -1;						\
 	}
