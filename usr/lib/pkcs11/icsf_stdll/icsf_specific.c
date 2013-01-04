@@ -333,7 +333,7 @@ token_specific_attach_shm(CK_SLOT_ID slot_id, LW_SHM_TYPE **shm,
 	}
 
 	if (asprintf(&shm_id, "/icsf-%d", slot_id) < 0) {
-		OKC_LOG_DEBUG("Failed to allocate shared memory id "
+		OCK_LOG_DEBUG("Failed to allocate shared memory id "
 			      "for slot %d.\n", slot_id);
 		return CKR_HOST_MEMORY;
 	}
@@ -404,7 +404,7 @@ login(LDAP **ld, CK_SLOT_ID slot_id, CK_BYTE *pin, CK_ULONG pin_len,
 		/* Load master key */
 		sprintf(fname, "%s/MK_SO", get_pk_dir(pk_dir_buf));
 		if (get_masterkey(pin, pin_len, fname, mk, &mk_len)) {
-			OKC_LOG_DEBUG("Failed to load masterkey \"%s\".\n", fname);
+			OCK_LOG_DEBUG("Failed to load masterkey \"%s\".\n", fname);
 			return CKR_FUNCTION_FAILED;
 		}
 
@@ -462,7 +462,7 @@ reset_token_data(CK_SLOT_ID slot_id, CK_CHAR_PTR pin, CK_ULONG pin_len)
 	/* Load master key */
 	sprintf(fname, "%s/MK_SO", get_pk_dir(pk_dir_buf));
 	if (get_masterkey(pin, pin_len, fname, mk, &mk_len)) {
-		OKC_LOG_DEBUG("Failed to load masterkey \"%s\".\n", fname);
+		OCK_LOG_DEBUG("Failed to load masterkey \"%s\".\n", fname);
 		return CKR_FUNCTION_FAILED;
 	}
 
