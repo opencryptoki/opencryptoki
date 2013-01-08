@@ -1235,10 +1235,6 @@ object_record_to_handle(char *data, const struct icsf_object_record *record)
 /*
  * Create an object in the token defined by the given `token_name`.
  *
- * `type` indicates if it will be a token object or a session object. Its value
- * can be ICSF_SESSION_OBJECT (which is defined as the character 'S') or
- * ICSF_TOKEN_OBJECT (defined as 'T').
- *
  * `attrs` is a list of attributes each one consisting in a type, a length and a
  * value (a sequence of bytes). `attrs_len` indicates how many attributes the
  * input list has.
@@ -1247,7 +1243,7 @@ object_record_to_handle(char *data, const struct icsf_object_record *record)
  * And it should be at least 44 bytes long (indicated by `obj_handle_len`).
  */
 int
-icsf_create_object(LDAP *ld, const char *token_name, char type,
+icsf_create_object(LDAP *ld, const char *token_name,
 		   CK_ATTRIBUTE *attrs, CK_ULONG attrs_len,
 		   struct icsf_object_record *object)
 {
@@ -1260,13 +1256,6 @@ icsf_create_object(LDAP *ld, const char *token_name, char type,
 	CHECK_ARG_NON_NULL(ld);
 	CHECK_ARG_NON_NULL_AND_MAX_LEN(token_name, ICSF_TOKEN_NAME_LEN);
 	CHECK_ARG_NON_NULL(attrs);
-
-	/* Check type */
-	if (!ICSF_IS_VALID_OBJECT_TYPE(type)) {
-		OCK_LOG_DEBUG("Invalid object type: %c\n", type);
-		OCK_LOG_ERR(ERR_FUNCTION_FAILED);
-		return -1;
-	}
 
 	/* The first 32 bytes of `handle` specifies the token's name, the
 	 * remaining bytes should be blank.
