@@ -158,6 +158,70 @@ strunpad(char *dest, const char *orig, size_t len, int padding_char)
 }
 
 /*
+ * Build a token handle based on token name.
+ *
+ * `handle` must be at least ICSF_HANDLE_LEN long.
+ */
+static void
+token_name_to_handle(char *handle, const char *token_name)
+{
+	/* The first 32 bytes of `handle` specifies the token's name, the
+	 * remaining bytes should be blank.
+	 */
+	strpad(handle, token_name, ICSF_TOKEN_NAME_LEN, ' ');
+	memset(handle + ICSF_TOKEN_NAME_LEN, ' ',
+	       ICSF_HANDLE_LEN - ICSF_TOKEN_NAME_LEN);
+}
+
+/*
+ * Parse a structure object record to a handle.
+ *
+ * `data` must be at least ICSF_HANDLE_LEN long.
+ */
+void
+object_record_to_handle(char *data, const struct icsf_object_record *record)
+{
+	/*
+	 * Object handle is composed by token name, sequence number
+	 * converted to hexadecimal and ID padded with blanks.
+	 */
+	size_t offset = 0;
+	char hex_seq[ICSF_SEQUENCE_LEN + 1];
+
+	strpad(data + offset, record->token_name, ICSF_TOKEN_NAME_LEN, ' ');
+	offset += ICSF_TOKEN_NAME_LEN;
+
+	snprintf(hex_seq, sizeof(hex_seq), "%0*lX", ICSF_SEQUENCE_LEN,
+		 record->sequence);
+	memcpy(data + offset, hex_seq, ICSF_SEQUENCE_LEN);
+	offset += ICSF_SEQUENCE_LEN;
+
+	memset(data + offset, ' ', ICSF_HANDLE_LEN - offset);
+	data[offset] = record->id;
+}
+
+/*
+ * Parse a raw object handle into token name, sequence and object type.
+ */
+void
+handle_to_object_record(struct icsf_object_record *record, const char *data)
+{
+	size_t offset = 0;
+	char hex_seq[ICSF_SEQUENCE_LEN + 1];
+
+	strunpad(record->token_name, data + offset, ICSF_TOKEN_NAME_LEN + 1,
+		 ' ');
+	offset += ICSF_TOKEN_NAME_LEN;
+
+	memcpy(hex_seq, data + offset, ICSF_SEQUENCE_LEN);
+	hex_seq[ICSF_SEQUENCE_LEN] = '\0';
+	sscanf(hex_seq, "%lx", &record->sequence);
+	offset += ICSF_SEQUENCE_LEN;
+
+	record->id = data[offset];
+}
+
+/*
  * Ensure that LDAPv3 is used. V3 is needed for extended operations.
  */
 static int
@@ -637,12 +701,7 @@ icsf_create_token(LDAP *ld, const char *token_name,
 	CHECK_ARG_NON_NULL_AND_MAX_LEN(model, ICSF_MODEL_LEN);
 	CHECK_ARG_NON_NULL_AND_MAX_LEN(serial, ICSF_SERIAL_LEN);
 
-	/* The first 32 bytes of `handle` contains the token's name, The
-	 * remaining bytes should be blank.
-	 */
-	strpad(handle, token_name, ICSF_TOKEN_NAME_LEN, ' ');
-	memset(handle + ICSF_TOKEN_NAME_LEN, ' ',
-	       sizeof(handle) - ICSF_TOKEN_NAME_LEN);
+	token_name_to_handle(handle, token_name);
 
 	/* Should be 8 bytes padded. It's a token creation and if the token
 	 * already exists it is recreated.
@@ -794,12 +853,7 @@ int icsf_destroy_token(LDAP *ld, char *token_name)
 	CHECK_ARG_NON_NULL(ld);
 	CHECK_ARG_NON_NULL_AND_MAX_LEN(token_name, ICSF_TOKEN_NAME_LEN);
 
-	/* The first 32 bytes of `handle` contains the token's name, The
-	 * remaining bytes should be blank.
-	 */
-	strpad(handle, token_name, ICSF_TOKEN_NAME_LEN, ' ');
-	memset(handle + ICSF_TOKEN_NAME_LEN, ' ',
-	       sizeof(handle) - ICSF_TOKEN_NAME_LEN);
+	token_name_to_handle(handle, token_name);
 
 	/* Should be 8 bytes padded. */
 	strpad(rule_array, "TOKEN", ICSF_RULE_ITEM_LEN, ' ');
@@ -1047,16 +1101,10 @@ icsf_list_tokens(LDAP *ld, struct icsf_token_record *previous,
 	 * provided. When `previous` is null a blank handle should be used
 	 * instead.
 	 */
-	if (previous) {
-		/* The first 32 bytes of `handle` contains the token's name,
-		 * the remaining bytes should be blank.
-		 */
-		strpad(handle, previous->name, ICSF_TOKEN_NAME_LEN, ' ');
-		memset(handle + ICSF_TOKEN_NAME_LEN, ' ',
-		       sizeof(handle) - ICSF_TOKEN_NAME_LEN);
-	} else {
+	if (previous)
+		token_name_to_handle(handle, previous->name);
+	else
 		memset(handle, ' ', sizeof(handle));
-	}
 
 	/* Should be 8 bytes padded. */
 	strpad(rule_array, "TOKEN", ICSF_RULE_ITEM_LEN, ' ');
@@ -1192,50 +1240,6 @@ error:
 }
 
 /*
- * Parse a raw object handle into token name, sequence and object type.
- */
-void
-handle_to_object_record(struct icsf_object_record *record, const char *data)
-{
-	size_t offset = 0;
-	char hex_seq[ICSF_SEQUENCE_LEN + 1];
-
-	strunpad(record->token_name, data + offset, ICSF_TOKEN_NAME_LEN + 1,
-		 ' ');
-	offset += ICSF_TOKEN_NAME_LEN;
-
-	memcpy(hex_seq, data + offset, ICSF_SEQUENCE_LEN);
-	hex_seq[ICSF_SEQUENCE_LEN] = '\0';
-	sscanf(hex_seq, "%lx", &record->sequence);
-	offset += ICSF_SEQUENCE_LEN;
-
-	record->id = data[offset];
-}
-
-/*
- * Parse a structure object record to a handle.
- *
- * `data` must be at least ICSF_HANDLE_LEN long.
- */
-void
-object_record_to_handle(char *data, const struct icsf_object_record *record)
-{
-	size_t offset = 0;
-	char hex_seq[ICSF_SEQUENCE_LEN + 1];
-
-	strpad(data + offset, record->token_name, ICSF_TOKEN_NAME_LEN, ' ');
-	offset += ICSF_TOKEN_NAME_LEN;
-
-	snprintf(hex_seq, sizeof(hex_seq), "%0*lX", ICSF_SEQUENCE_LEN,
-		 record->sequence);
-	memcpy(data + offset, hex_seq, ICSF_SEQUENCE_LEN);
-	offset += ICSF_SEQUENCE_LEN;
-
-	memset(data + offset, ' ', ICSF_HANDLE_LEN - offset);
-	data[offset] = record->id;
-}
-
-/*
  * Create an object in the token defined by the given `token_name`.
  *
  * `attrs` is a list of attributes each one consisting in a type, a length and a
@@ -1260,12 +1264,7 @@ icsf_create_object(LDAP *ld, const char *token_name,
 	CHECK_ARG_NON_NULL_AND_MAX_LEN(token_name, ICSF_TOKEN_NAME_LEN);
 	CHECK_ARG_NON_NULL(attrs);
 
-	/* The first 32 bytes of `handle` specifies the token's name, the
-	 * remaining bytes should be blank.
-	 */
-	strpad(handle, token_name, ICSF_TOKEN_NAME_LEN, ' ');
-	memset(handle + ICSF_TOKEN_NAME_LEN, ' ',
-	       sizeof(handle) - ICSF_TOKEN_NAME_LEN);
+	token_name_to_handle(handle, token_name);
 
 	/* Should be 8 bytes padded. */
 	strpad(rule_array, "OBJECT", sizeof(rule_array), ' ');
@@ -1312,7 +1311,6 @@ icsf_list_objects(LDAP *ld, const char *token_name,
 	size_t rule_array_count = 1;
 	struct berval *bv_list = NULL;
 	size_t list_len;
-	size_t offset = 0;
 	size_t i;
 
 	CHECK_ARG_NON_NULL(ld);
@@ -1322,32 +1320,13 @@ icsf_list_objects(LDAP *ld, const char *token_name,
 
 	/* The first record that must be returned in `records` is the next one
 	 * after `previous`, and for that the `previous` handle must be
-	 * provided. When `previous` is null a blank handle should be used
+	 * provided. When `previous` is null, the token handle should be used
 	 * instead.
 	 */
-	if (previous) {
-		/*
-		 * Object handle is composed by token name, sequence number
-		 * converted to hexadecimal and ID padded with blanks.
-		 */
-		char hex_seq[ICSF_SEQUENCE_LEN + 1];
-
-		strpad(handle, previous->token_name, ICSF_TOKEN_NAME_LEN, ' ');
-		offset += ICSF_TOKEN_NAME_LEN;
-
-		snprintf(hex_seq, sizeof(hex_seq), "%0*lX", ICSF_SEQUENCE_LEN,
-			 previous->sequence);
-		memcpy(handle + offset, hex_seq, ICSF_SEQUENCE_LEN);
-		offset += ICSF_SEQUENCE_LEN;
-
-		memset(handle + offset, ' ', sizeof(handle) - offset);
-		handle[offset] = previous->id;
-
-	} else {
-		strpad(handle, token_name, ICSF_TOKEN_NAME_LEN, ' ');
-		memset(handle + ICSF_TOKEN_NAME_LEN, ' ',
-		       sizeof(handle) - ICSF_TOKEN_NAME_LEN);
-	}
+	if (previous)
+		object_record_to_handle(handle, previous);
+	else
+		token_name_to_handle(handle, token_name);
 
 	/* Should be 8 bytes padded. */
 	strpad(rule_array, "OBJECT", ICSF_RULE_ITEM_LEN, ' ');
