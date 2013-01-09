@@ -499,37 +499,37 @@ cleanup:
 }
 
 /*
- * `icsf_create` is a helper function for CSFPTRC service, which is used for
- * token and object creation.
+ * `icsf_call` is a generic helper function for ICSF services.
  *
- * `handle` identifies the token that will be created or the token in which a
- * object will be created. It should be always 44 bytes long, and its 32 first
- * bytes should the token name padded with blanks.
+ * Every request message to an ICSF service has some common fields and a
+ * specific field that depends on the service that is called. The structure of
+ * this field differs for each service and it's also marked with a specific tag
+ * that identifies the service.
  *
- * `rule_array` should be a sequence of 8 bytes strings padded with blanks.
- * It indicates if a token or a object will be created, it can also change the
- * behaviour of the call (please refer to `icsf_create_token` and
- * `icsf_create_object` for details).
+ * `handle` identifies a token or object. It should be always 44 bytes long.
  *
- * `attribute_list_tag` identifies the format of the given attribute list. It
- * must be a context specific tag with tag number zero for tokens and tag
- * number 1 for objects.
+ * `rule_array` should be a sequence of 8 bytes strings padded with blanks. Each
+ * 8 bytes is an item and can change the behaviour of a call.
  *
- * `attribute_list` is a sequence of bytes and its format differs for tokens and
- * objects (please refer to `icsf_create_token` and  `icsf_create_object` for
- * details).
+ * `tag` identifies the ICSF service.
+ *
+ * `specific` is the service-specific field of the request message. A NULL value
+ * indicates an empty field.
+ *
+ * `result` points to the service-specific part of the response message. If a
+ * non-NULL value is given, the caller must free it.
  */
 static int
-icsf_create(LDAP *ld, char *handle, size_t *handle_len,
-	    const char *rule_array, size_t rule_array_len,
-	    ber_tag_t attribute_list_tag, const char *attribute_list,
-	    size_t attribute_list_len)
+icsf_call(LDAP *ld, char *handle, size_t handle_len,
+	  const char *rule_array, size_t rule_array_len,
+	  ber_tag_t tag, BerElement *specific, BerElement **result)
 {
 	int rc = -1;
 	BerElement *ber_req = NULL;
 	BerElement *ber_res = NULL;
 	struct berval *raw_req = NULL;
 	struct berval *raw_res = NULL;
+	struct berval *raw_specific = NULL;
 	char *response_oid = NULL;
 
 	/* Variables used as input */
@@ -540,24 +540,17 @@ icsf_create(LDAP *ld, char *handle, size_t *handle_len,
 	/* Variables used as output */
 	int return_code = 0;
 	int reason_code = 0;
-	ber_tag_t tag = 0;
 	struct berval *out_handle = NULL;
 
 	/* Check sizes */
-	if (handle_len == NULL || *handle_len != ICSF_HANDLE_LEN) {
-		if (handle_len)
-			OCK_LOG_DEBUG("Invalid handle length: %lu\n",
-				      *handle_len);
-		else
-			OCK_LOG_DEBUG("Invalid handle length: (null)\n");
-		OCK_LOG_ERR(ERR_ARGUMENTS_BAD);
+	if (handle_len != ICSF_HANDLE_LEN) {
+		OCK_LOG_DEBUG("Invalid handle length: %lu\n", handle_len);
 		return -1;
 	}
 
 	if ((rule_array_len % ICSF_RULE_ITEM_LEN)) {
 		OCK_LOG_DEBUG("Invalid rule array length: %lu\n",
 			      rule_array_len);
-		OCK_LOG_ERR(ERR_ARGUMENTS_BAD);
 		return -1;
 	}
 	rule_array_count = rule_array_len / ICSF_RULE_ITEM_LEN;
@@ -569,32 +562,60 @@ icsf_create(LDAP *ld, char *handle, size_t *handle_len,
 		goto cleanup;
 	}
 
+	if (specific) {
+		rc = ber_flatten(specific, &raw_specific);
+		if (rc) {
+			OCK_LOG_DEBUG("Failed to flat specific data.\n");
+			OCK_LOG_ERR(ERR_FUNCTION_FAILED);
+			goto cleanup;
+		}
+	}
+
 	/* Encode message:
 	 *
-	 * TRCInput ::= SEQUENCE {
-	 *     trcAttrs ::= CHOICE {
-	 *         tokenAttrString   [0] OCTET STRING,
-	 *         objectAttrList    [1] Attributes
-	 *     }
+	 * requestValue ::= SEQUENCE {
+	 * 	version		INTEGER,
+	 * 	exitData	OCTET STRING,
+	 * 	handle_len	OCTET STRING,
+	 * 	ruleArraySeq	RuleArraySeq,
+	 * 	requestData	CSFPInput
 	 * }
 	 *
-	 * Attributes ::= SEQUENCE OF SEQUENCE {
-	 *    attrName          INTEGER,
-	 *    attrValue         AttributeValue
+	 * RuleArraySeq ::= SEQUENCE {
+	 * 	ruleArrayCount	INTEGER,
+	 * 	ruleArray	OCTET STRING
 	 * }
 	 *
-	 * AttributeValue ::= CHOICE {
-	 *    charValue         [0] OCTET STRING,
-	 *    intValue          [1] INTEGER
+	 * CSFPInput ::= CHOICE {
+	 * 	IQF	[CSFIQF]	IQFInput,
+	 * 	DMK	[CSFPDMK]	DMKInput,
+	 * 	DVK	[CSFPDVK]	DVKInput,
+	 * 	GAV	[CSFPGAV]	GAVInput,
+	 * 	GKP	[CSFPGKP]	GKPInput,
+	 * 	GSK	[CSFPGSK]	GSKInput,
+	 * 	HMG	[CSFPHMG]	HMGInput,
+	 * 	HMV	[CSFPHMV]	HMVInput,
+	 * 	OWH	[CSFPOWH]	OWHInput,
+	 * 	PKS	[CSFPPKS]	PKSInput,
+	 * 	PKV	[CSFPPKV]	PKVInput,
+	 * 	SAV	[CSFPSAV]	SAVInput,
+	 * 	SKD	[CSFPSKD]	SKDInput,
+	 * 	SKE	[CSFPSKE]	SKEInput,
+	 * 	TRC	[CSFPTRC]	TRCInput,
+	 * 	TRD	[CSFPTRD]	TRDInput,
+	 * 	TRL	[CSFPTRL]	TRLInput,
+	 * 	UWK	[CSFPUWK]	UWKInput,
+	 * 	WPK	[CSFPWPK]	WPKInput,
+	 * 	GLDTRD	[GLDTRD]	GLDTRDInput,
+	 * 	IQA	[CSFIQA]	IQAInput
 	 * }
-	 *
 	 */
-	rc = ber_printf(ber_req, "{iso{io}t{to}}", version, exit_data,
-			handle, *handle_len,
-			rule_array_count, rule_array, rule_array_len,
-			ICSF_TAG_CSFPTRC | LBER_CONSTRUCTED |
-			LBER_CLASS_CONTEXT, attribute_list_tag, attribute_list,
-			attribute_list_len);
+	tag |= LBER_CLASS_CONTEXT | LBER_CONSTRUCTED;
+	rc = ber_printf(ber_req, "{iso{io}to}", version, exit_data, handle,
+			handle_len, rule_array_count, rule_array,
+			rule_array_len,tag,
+			(raw_specific) ? raw_specific->bv_val : "",
+			(raw_specific) ? raw_specific->bv_len : 0);
 	if (rc < 0) {
 		OCK_LOG_DEBUG("Failed to encode message.\n");
 		OCK_LOG_ERR(ERR_FUNCTION_FAILED);
@@ -632,11 +653,9 @@ icsf_create(LDAP *ld, char *handle, size_t *handle_len,
 		goto cleanup;
 	}
 
-	/*
-	 * TRCOutput ::= NULL
-	 */
-	rc = ber_scanf(ber_res, "{iiixOtn}", &version, &return_code,
-		       &reason_code, &out_handle, &tag);
+	/* Decode common response fields: */
+	rc = ber_scanf(ber_res, "{iiixO", &version, &return_code,
+		       &reason_code, &out_handle);
 	if (rc < 0) {
 		OCK_LOG_DEBUG("Failed to decode message.\n");
 		OCK_LOG_ERR(ERR_FUNCTION_FAILED);
@@ -645,12 +664,12 @@ icsf_create(LDAP *ld, char *handle, size_t *handle_len,
 
 	/* Copy handle */
 	if (out_handle == NULL) {
-		*handle_len = 0;
+		memset(handle, 0, handle_len);
 	} else {
-		size_t len = (*handle_len < out_handle->bv_len) ? *handle_len
-		    : out_handle->bv_len;
+		size_t len = (handle_len < out_handle->bv_len)
+			? handle_len : out_handle->bv_len;
 		memcpy(handle, out_handle->bv_val, len);
-		*handle_len = len;
+		memset(handle + len, 0, handle_len - len);
 	}
 
 	OCK_LOG_DEBUG("ICSF call result: %d (%d)\n", return_code, reason_code);
@@ -665,10 +684,12 @@ icsf_create(LDAP *ld, char *handle, size_t *handle_len,
 	rc = 0;
 
 cleanup:
+	if (result)
+		*result = ber_res;
+	else if (ber_res)
+		ber_free(ber_res, 1);
 	if (ber_req)
 		ber_free(ber_req, 1);
-	if (ber_res)
-		ber_free(ber_res, 1);
 	if (raw_req)
 		ber_bvfree(raw_req);
 	if (raw_res)
@@ -677,6 +698,8 @@ cleanup:
 		ldap_memfree(response_oid);
 	if (out_handle)
 		ber_bvfree(out_handle);
+	if (raw_specific)
+		ber_bvfree(raw_specific);
 
 	return rc;
 }
@@ -691,9 +714,9 @@ icsf_create_token(LDAP *ld, const char *token_name,
 {
 	int rc = -1;
 	char handle[ICSF_HANDLE_LEN];
-	size_t handle_len = sizeof(handle);
 	char rule_array[2 * ICSF_RULE_ITEM_LEN];
 	char attribute_list[68] = { 0, };
+	BerElement *msg= NULL;
 
 	CHECK_ARG_NON_NULL(ld);
 	CHECK_ARG_NON_NULL_AND_MAX_LEN(token_name, ICSF_TOKEN_NAME_LEN);
@@ -720,10 +743,36 @@ icsf_create_token(LDAP *ld, const char *token_name,
 	strpad(attribute_list + ICSF_MANUFACTURER_LEN + ICSF_MODEL_LEN, serial,
 	       ICSF_SERIAL_LEN, ' ');
 
-	rc = icsf_create(ld, handle, &handle_len,
-			 rule_array, sizeof(rule_array),
-			 0 | LBER_CLASS_CONTEXT,
-			 attribute_list, sizeof(attribute_list));
+	/* Allocate ber_req to encode message. */
+	msg = ber_alloc_t(LBER_USE_DER);
+	if (msg == NULL) {
+		OCK_LOG_ERR(ERR_HOST_MEMORY);
+		goto cleanup;
+	}
+
+	/* Encode message:
+	 *
+	 * TRCInput ::= SEQUENCE {
+	 *     trcAttrs ::= CHOICE {
+	 *         tokenAttrString   [0] OCTET STRING,
+	 *     }
+	 * }
+	 */
+	rc = ber_printf(msg, "to", 0 | LBER_CLASS_CONTEXT, attribute_list,
+			sizeof(attribute_list));
+	if (rc < 0) {
+		OCK_LOG_DEBUG("Failed to encode message.\n");
+		OCK_LOG_ERR(ERR_FUNCTION_FAILED);
+		goto cleanup;
+	}
+
+	rc = icsf_call(ld, handle, sizeof(handle),
+			rule_array, sizeof(rule_array),
+			ICSF_TAG_CSFPTRC, msg, NULL);
+
+cleanup:
+	if (msg)
+		ber_free(msg, 1);
 
 	return rc;
 }
@@ -1152,11 +1201,9 @@ static int is_numeric_attr(CK_ULONG type)
 /*
  * This helper functions receives a list of attributes containing type, length
  * and value and encode it in BER encoding. Numeric and non numeric attributes
- * are encoded using different rules. `bv_attrs` is returned with the BER
- * encoded data and should be freed by caller.
+ * are encoded using different rules.
  *
- * The attributes are encoded following rules (as described for CSFPTRC in
- * `icsf_create` function):
+ * The attributes are encoded following rules:
  *
  * Attributes ::= SEQUENCE OF SEQUENCE {
  *    attrName          INTEGER,
@@ -1170,17 +1217,13 @@ static int is_numeric_attr(CK_ULONG type)
  *
  */
 static int
-icsf_attribute_list_flatten(CK_ATTRIBUTE * attrs, CK_ULONG attrs_len,
-			    struct berval **bv_attrs)
+icsf_ber_put_attribute_list(BerElement *ber, CK_ATTRIBUTE * attrs,
+			    CK_ULONG attrs_len)
 {
 	size_t i;
-	BerElement *ber;
 
-	ber = ber_alloc_t(LBER_USE_DER);
-	if (ber == NULL) {
-		OCK_LOG_ERR(ERR_HOST_MEMORY);
-		goto error;
-	}
+	if (ber_printf(ber, "{") < 0)
+		goto encode_error;
 
 	for (i = 0; i < attrs_len; i++) {
 		if (!is_numeric_attr(attrs[i].type)) {
@@ -1221,21 +1264,14 @@ icsf_attribute_list_flatten(CK_ATTRIBUTE * attrs, CK_ULONG attrs_len,
 		}
 	}
 
-	if (ber_flatten(ber, bv_attrs)) {
-		OCK_LOG_DEBUG("Failed to flat BER data.\n");
-		goto error;
-	}
-
-	ber_free(ber, 1);
+	if (ber_printf(ber, "}") < 0)
+		goto encode_error;
 
 	return 0;
 
 encode_error:
 	OCK_LOG_DEBUG("Failed to encode message.\n");
 
-error:
-	if (ber)
-		ber_free(ber, 1);
 	return -1;
 }
 
@@ -1256,9 +1292,8 @@ icsf_create_object(LDAP *ld, const char *token_name,
 {
 	int rc = -1;
 	char handle[ICSF_HANDLE_LEN];
-	size_t handle_len = sizeof(handle);
 	char rule_array[ICSF_RULE_ITEM_LEN];
-	struct berval *bv_attrs = NULL;
+	BerElement *msg = NULL;
 
 	CHECK_ARG_NON_NULL(ld);
 	CHECK_ARG_NON_NULL_AND_MAX_LEN(token_name, ICSF_TOKEN_NAME_LEN);
@@ -1269,22 +1304,55 @@ icsf_create_object(LDAP *ld, const char *token_name,
 	/* Should be 8 bytes padded. */
 	strpad(rule_array, "OBJECT", sizeof(rule_array), ' ');
 
-	if (icsf_attribute_list_flatten(attrs, attrs_len, &bv_attrs)) {
+	/* Allocate ber_req to encode message. */
+	msg = ber_alloc_t(LBER_USE_DER);
+	if (msg == NULL) {
+		OCK_LOG_ERR(ERR_HOST_MEMORY);
+		goto cleanup;
+	}
+
+	/* Encode message:
+	 *
+	 * TRCInput ::= SEQUENCE {
+	 *     trcAttrs ::= CHOICE {
+	 *         objectAttrList    [1] Attributes
+	 *     }
+	 * }
+	 *
+	 * Attributes ::= SEQUENCE OF SEQUENCE {
+	 *    attrName          INTEGER,
+	 *    attrValue         AttributeValue
+	 * }
+	 *
+	 * AttributeValue ::= CHOICE {
+	 *    charValue         [0] OCTET STRING,
+	 *    intValue          [1] INTEGER
+	 * }
+	 *
+	 */
+	rc = ber_printf(msg, "t", 1 | LBER_CLASS_CONTEXT | LBER_CONSTRUCTED);
+	if (rc < 0) {
+		OCK_LOG_DEBUG("Failed to encode message.\n");
+		OCK_LOG_ERR(ERR_FUNCTION_FAILED);
+		goto cleanup;
+	}
+
+	if (icsf_ber_put_attribute_list(msg, attrs, attrs_len)) {
 		OCK_LOG_DEBUG("Failed to flat attribute list\n");
 		OCK_LOG_ERR(ERR_FUNCTION_FAILED);
 		return -1;
 	}
 
-	rc = icsf_create(ld, handle, &handle_len,
-			 rule_array, sizeof(rule_array),
-			 1 | LBER_CLASS_CONTEXT | LBER_CONSTRUCTED,
-			 bv_attrs->bv_val, bv_attrs->bv_len);
+	rc = icsf_call(ld, handle, sizeof(handle),
+			rule_array, sizeof(rule_array),
+			ICSF_TAG_CSFPTRC, msg, NULL);
+
+cleanup:
+	if (msg)
+		ber_free(msg, 1);
 
 	if (!rc && object)
 		handle_to_object_record(object, handle);
-
-	if (bv_attrs)
-		ber_bvfree(bv_attrs);
 
 	return rc;
 }
