@@ -883,46 +883,13 @@ icsf_list(LDAP * ld, char *handle, size_t handle_len,
 	  struct berval **bv_list, size_t *list_len, size_t list_count)
 {
 	int rc = -1;
-	BerElement *ber_req = NULL;
-	BerElement *ber_res = NULL;
-	struct berval *raw_req = NULL;
-	struct berval *raw_res = NULL;
-	char *response_oid = NULL;
-
-	/* Variables used as input */
-	int version = 1;
-	char *exit_data = "";	/* Ignored */
-	int rule_array_count;
-
-	/* Variables used as output */
-	int return_code = 0;
-	int reason_code = 0;
-	ber_tag_t tag = 0;
+	BerElement *msg = NULL;
+	BerElement *result = NULL;
 	int out_list_len = 0;
 
-	/* Check sizes */
-	if (handle_len != ICSF_HANDLE_LEN) {
-		if (handle_len) {
-			OCK_LOG_DEBUG("Invalid handle length: %lu\n",
-				      handle_len);
-		} else {
-			OCK_LOG_DEBUG("Invalid handle length: (null)\n");
-		}
-		OCK_LOG_ERR(ERR_ARGUMENTS_BAD);
-		return -1;
-	}
-
-	if ((rule_array_len % ICSF_RULE_ITEM_LEN)) {
-		OCK_LOG_DEBUG("Invalid rule array length: %lu\n",
-			      rule_array_len);
-		OCK_LOG_ERR(ERR_ARGUMENTS_BAD);
-		return -1;
-	}
-	rule_array_count = rule_array_len / ICSF_RULE_ITEM_LEN;
-
-	/* Allocate ber_req to encode message. */
-	ber_req = ber_alloc_t(LBER_USE_DER);
-	if (ber_req == NULL) {
+	/* Allocate request message. */
+	msg = ber_alloc_t(LBER_USE_DER);
+	if (msg == NULL) {
 		OCK_LOG_ERR(ERR_HOST_MEMORY);
 		goto cleanup;
 	}
@@ -936,39 +903,17 @@ icsf_list(LDAP * ld, char *handle, size_t handle_len,
 	 * }
 	 *
 	 */
-	rc = ber_printf(ber_req, "{iso{io}t{ii}}", version, exit_data,
-			handle, handle_len,
-			rule_array_count, rule_array, rule_array_len,
-			ICSF_TAG_CSFPTRL | LBER_CONSTRUCTED |
-			LBER_CLASS_CONTEXT, *list_len, list_count);
+	rc = ber_printf(msg, "ii", *list_len, list_count);
 	if (rc < 0) {
 		OCK_LOG_DEBUG("Failed to encode message.\n");
 		goto cleanup;
 	}
 
-	rc = ber_flatten(ber_req, &raw_req);
-	if (rc) {
-		OCK_LOG_DEBUG("Failed to flat BER data.\n");
-		goto cleanup;
-	}
+	rc = icsf_call(ld, handle, handle_len, rule_array, rule_array_len,
+			ICSF_TAG_CSFPTRL, msg, &result);
 
-	/* Call ICSF service */
-	rc = ldap_extended_operation_s(ld, ICSF_REQ_OID, raw_req, NULL, NULL,
-				       &response_oid, &raw_res);
-	if (rc != LDAP_SUCCESS) {
-		OCK_LOG_DEBUG("ICSF call failed: %s (%d)\n",
-			      ldap_err2string(rc), rc);
-		goto cleanup;
-	}
-
-	/* Decode result */
-	ber_res = ber_init(raw_res);
-	if (ber_res == NULL) {
-		OCK_LOG_DEBUG("Failed to create a response buffer\n");
-		goto cleanup;
-	}
-
-	/*
+	/* Decode result:
+	 *
 	 * TRLOutput ::= SEQUENCE {
 	 * 	outList		CHOICE {
 	 * 		tokenList	[0] OCTET STRING,
@@ -977,32 +922,20 @@ icsf_list(LDAP * ld, char *handle, size_t handle_len,
 	 * 	outListLen	INTEGER (0 .. MaxCSFPInteger)
 	 * }
 	 */
-	rc = ber_scanf(ber_res, "{iiixxt{Oi}}", &version, &return_code,
-		       &reason_code, &tag, bv_list, &out_list_len);
+	rc = ber_scanf(result, "{Oi}", bv_list, &out_list_len);
 	if (rc < 0) {
 		OCK_LOG_DEBUG("Failed to decode message.\n");
 		goto cleanup;
 	}
 
-	OCK_LOG_DEBUG("ICSF call result: %d (%d)\n", return_code, reason_code);
-
-	if (ICSF_RC_IS_ERROR(return_code))
-		goto cleanup;
-
 	rc = 0;
 	*list_len = out_list_len;
 
 cleanup:
-	if (ber_req)
-		ber_free(ber_req, 1);
-	if (ber_res)
-		ber_free(ber_res, 1);
-	if (raw_req)
-		ber_bvfree(raw_req);
-	if (raw_res)
-		ber_bvfree(raw_res);
-	if (response_oid)
-		ldap_memfree(response_oid);
+	if (msg)
+		ber_free(msg, 1);
+	if (result)
+		ber_free(result, 1);
 
 	return rc;
 }
