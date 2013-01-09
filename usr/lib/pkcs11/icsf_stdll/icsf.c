@@ -1090,9 +1090,12 @@ cleanup:
 static int is_numeric_attr(CK_ULONG type)
 {
 	switch (type) {
+	case CKA_CLASS:
 	case CKA_KEY_TYPE:
 	case CKA_CERTIFICATE_TYPE:
-	case CKA_CLASS:
+	case CKA_KEY_GEN_MECHANISM:
+	case CKA_VALUE_LEN:
+	case CKA_MODULUS_BITS:
 		return 1;
 	}
 	return 0;
