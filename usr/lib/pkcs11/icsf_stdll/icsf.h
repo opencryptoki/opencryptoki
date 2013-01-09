@@ -20,6 +20,7 @@
 #define ICSF_RES_OID "1.3.18.0.2.12.84"
 
 /* Tag numbers for each ICSF call */
+#define ICSF_TAG_CSFPGSK 5
 #define ICSF_TAG_CSFPTRC 14
 #define ICSF_TAG_CSFPTRD 15
 #define ICSF_TAG_CSFPTRL 16
@@ -110,4 +111,8 @@ icsf_list_objects(LDAP *ld, const char *token_name,
 int
 icsf_destroy_object(LDAP *ld, struct icsf_object_record *obj);
 
+int
+icsf_generate_secret_key(LDAP *ld, const char *token_name,
+			CK_ATTRIBUTE *attrs, CK_ULONG attrs_len,
+			struct icsf_object_record *object);
 #endif

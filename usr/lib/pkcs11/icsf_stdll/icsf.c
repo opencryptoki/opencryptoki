@@ -1268,3 +1268,47 @@ icsf_destroy_object(LDAP *ld, struct icsf_object_record *obj)
 	return icsf_call(ld, handle, sizeof(handle), rule_array,
 			    sizeof(rule_array), ICSF_TAG_CSFPTRD, NULL, NULL);
 }
+
+/*
+ * Generate a symmetric key.
+ */
+int
+icsf_generate_secret_key(LDAP *ld, const char *token_name,
+			CK_ATTRIBUTE *attrs, CK_ULONG attrs_len,
+			struct icsf_object_record *object)
+{
+	int rc = -1;
+	char handle[ICSF_HANDLE_LEN];
+	char rule_array[1 * ICSF_RULE_ITEM_LEN];
+	BerElement *msg = NULL;
+
+	CHECK_ARG_NON_NULL(ld);
+	CHECK_ARG_NON_NULL_AND_MAX_LEN(token_name, ICSF_TOKEN_NAME_LEN);
+	CHECK_ARG_NON_NULL(attrs);
+
+	token_name_to_handle(handle, token_name);
+
+	strpad(rule_array, "KEY", sizeof(rule_array), ' ');
+
+	if (!(msg = ber_alloc_t(LBER_USE_DER))) {
+		OCK_LOG_ERR(ERR_HOST_MEMORY);
+		return rc;
+	}
+
+	if (icsf_ber_put_attribute_list(msg, attrs, attrs_len) < 0 ||
+	    ber_printf(msg, "s", "") < 0) {
+		OCK_LOG_DEBUG("Failed to encode message.\n");
+		goto cleanup;
+	}
+
+	rc = icsf_call(ld, handle, sizeof(handle), rule_array,
+			sizeof(rule_array), ICSF_TAG_CSFPGSK, msg, NULL);
+	if (!rc)
+		handle_to_object_record(object, handle);
+
+cleanup:
+	if (msg)
+		ber_free(msg, 1);
+
+	return rc;
+}
