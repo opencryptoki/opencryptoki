@@ -1295,6 +1295,15 @@ icsf_generate_secret_key(LDAP *ld, const char *token_name,
 		return rc;
 	}
 
+	/* Encode message:
+	 *
+	 * GSKInput ::= SEQUENCE {
+	 *     attrList         Attributes,
+	 *     parmsList        OCTET STRING
+	 * }
+	 *
+	 * attrList is built by icsf_ber_put_attribute_list()
+	 */
 	if (icsf_ber_put_attribute_list(msg, attrs, attrs_len) < 0 ||
 	    ber_printf(msg, "s", "") < 0) {
 		OCK_LOG_DEBUG("Failed to encode message.\n");
