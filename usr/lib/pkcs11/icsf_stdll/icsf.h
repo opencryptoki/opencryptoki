@@ -113,6 +113,7 @@ icsf_destroy_object(LDAP *ld, struct icsf_object_record *obj);
 
 int
 icsf_generate_secret_key(LDAP *ld, const char *token_name,
+			CK_MECHANISM_PTR mech,
 			CK_ATTRIBUTE *attrs, CK_ULONG attrs_len,
 			struct icsf_object_record *object);
 #endif

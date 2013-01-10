@@ -1274,21 +1274,63 @@ icsf_destroy_object(LDAP *ld, struct icsf_object_record *obj)
  */
 int
 icsf_generate_secret_key(LDAP *ld, const char *token_name,
+			CK_MECHANISM_PTR mech,
 			CK_ATTRIBUTE *attrs, CK_ULONG attrs_len,
 			struct icsf_object_record *object)
 {
 	int rc = -1;
 	char handle[ICSF_HANDLE_LEN];
 	char rule_array[1 * ICSF_RULE_ITEM_LEN];
+	char param[2];
+	int param_len;
+	CK_VERSION_PTR version;
 	BerElement *msg = NULL;
 
 	CHECK_ARG_NON_NULL(ld);
 	CHECK_ARG_NON_NULL_AND_MAX_LEN(token_name, ICSF_TOKEN_NAME_LEN);
+	CHECK_ARG_NON_NULL(mech);
 	CHECK_ARG_NON_NULL(attrs);
 
 	token_name_to_handle(handle, token_name);
 
-	strpad(rule_array, "KEY", sizeof(rule_array), ' ');
+	/* Map mechanism into the rule array */
+	switch (mech->mechanism) {
+	case CKM_TLS_PRE_MASTER_KEY_GEN:
+		strpad(rule_array, "TLS", sizeof(rule_array), ' ');
+		break;
+	case CKM_SSL3_PRE_MASTER_KEY_GEN:
+		strpad(rule_array, "SSL", sizeof(rule_array), ' ');
+		break;
+	case CKM_DSA_PARAMETER_GEN:
+	case CKM_DH_PKCS_PARAMETER_GEN:
+		strpad(rule_array, "PARMS", sizeof(rule_array), ' ');
+		break;
+	default:
+		strpad(rule_array, "KEY", sizeof(rule_array), ' ');
+	}
+
+	/* Fill parameters if necessary */
+	switch (mech->mechanism) {
+	case CKM_TLS_PRE_MASTER_KEY_GEN:
+	case CKM_SSL3_PRE_MASTER_KEY_GEN:
+		/* Check expected length */
+		if (mech->ulParameterLen != sizeof(*version)) {
+			OCK_LOG_DEBUG("Invalid mechanism parameter length: "
+				"%lu\n", (unsigned long) mech->ulParameterLen);
+			return -1;
+		}
+
+		/* Fill parameter with version numbers */
+		version = (CK_VERSION_PTR) mech->pParameter;
+		param[0] = version->major;
+		param[1] = version->minor;
+		param_len = 2;
+
+		break;
+	default:
+		/* Parameter should be empty */
+		param_len = 0;
+	}
 
 	if (!(msg = ber_alloc_t(LBER_USE_DER))) {
 		OCK_LOG_ERR(ERR_HOST_MEMORY);
@@ -1305,7 +1347,7 @@ icsf_generate_secret_key(LDAP *ld, const char *token_name,
 	 * attrList is built by icsf_ber_put_attribute_list()
 	 */
 	if (icsf_ber_put_attribute_list(msg, attrs, attrs_len) < 0 ||
-	    ber_printf(msg, "s", "") < 0) {
+	    ber_printf(msg, "o", param, param_len) < 0) {
 		OCK_LOG_DEBUG("Failed to encode message.\n");
 		goto cleanup;
 	}
