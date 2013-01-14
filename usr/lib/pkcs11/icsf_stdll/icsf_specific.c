@@ -31,6 +31,7 @@
 #include "tok_struct.h"
 #include "icsf_config.h"
 #include "pbkdf.h"
+#include "list.h"
 
 #define ICSF_DIR "/usr/local/var/lib/opencryptoki/icsf"
 
@@ -105,6 +106,30 @@ MECH_LIST_ELEMENT mech_list[] = {
 };
 
 CK_ULONG mech_list_len = (sizeof(mech_list) / sizeof(MECH_LIST_ELEMENT));
+
+/* Session state */
+list_t sessions = LIST_INIT();
+
+struct session_state {
+	CK_SESSION_HANDLE session_id;
+	LDAP *ld;
+
+	/* List element */
+	list_entry_t sessions;
+};
+
+static struct session_state *
+get_session_state(CK_SESSION_HANDLE session_id)
+{
+	struct session_state *s;
+
+	for_each_list_entry(&sessions, struct session_state, s, sessions) {
+		if (s->session_id == session_id)
+			return s;
+	}
+
+	return NULL;
+}
 
 CK_RV
 token_specific_get_mechanism_list(CK_MECHANISM_TYPE_PTR pMechanismList,
@@ -749,7 +774,19 @@ token_specific_set_pin(SESSION *sess, CK_CHAR_PTR pOldPin, CK_ULONG ulOldLen,
 CK_RV
 token_specific_session(SESSION *sess)
 {
-       return CKR_OK;
+	struct session_state *session_state;
+
+	/* Add session to list */
+	session_state = malloc(sizeof(struct session_state));
+	if (!session_state) {
+		OCK_LOG_ERR(ERR_HOST_MEMORY);
+		return CKR_FUNCTION_FAILED;
+	}
+	session_state->session_id = sess->handle;
+	session_state->ld = NULL;
+	list_insert_head(&sessions, &session_state->sessions);
+
+	return CKR_OK;
 }
 
 
@@ -766,6 +803,7 @@ token_specific_login(SESSION *sess, CK_USER_TYPE userType, CK_CHAR_PTR pPin,
 	char pk_dir_buf[PATH_MAX];
 	char *ca_dir = NULL;
 	CK_SLOT_ID slot_id = sess->session_info.slotID;
+	struct session_state *session_state;
 	LDAP *ld;
 
 	/* Check Slot ID */
@@ -862,6 +900,14 @@ token_specific_login(SESSION *sess, CK_USER_TYPE userType, CK_CHAR_PTR pPin,
 		}
 	}
 
+	/* Save LDAP handle */
+	if (!(session_state = get_session_state(sess->handle))) {
+		OCK_LOG_DEBUG("Session not found for session id %lu.\n",
+				(unsigned long) sess->handle);
+		rc = CKR_SESSION_HANDLE_INVALID;
+		goto done;
+	}
+	session_state->ld = ld;
 
 done:
 	XProcUnLock();
