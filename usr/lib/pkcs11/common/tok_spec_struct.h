@@ -353,7 +353,7 @@ struct token_specific_struct {
 	CK_RV(*t_rng) (CK_BYTE *, CK_ULONG);
 
 	//perform anything specific needed by the token takes a slot id
-	CK_RV(*t_session) (SESSION *);
+	CK_RV(*t_open_session) (SESSION *);
 
 	// any specific final code
 	CK_RV(*t_final) ();

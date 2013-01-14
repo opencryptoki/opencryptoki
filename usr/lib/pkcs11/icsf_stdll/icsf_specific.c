@@ -772,7 +772,7 @@ token_specific_set_pin(SESSION *sess, CK_CHAR_PTR pOldPin, CK_ULONG ulOldLen,
 }
 
 CK_RV
-token_specific_session(SESSION *sess)
+token_specific_open_session(SESSION *sess)
 {
 	struct session_state *session_state;
 

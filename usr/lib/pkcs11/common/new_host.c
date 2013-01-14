@@ -1289,8 +1289,11 @@ CK_RV SC_OpenSession(CK_SLOT_ID             sid,
 		OCK_LOG_ERR(ERR_SESSMGR_NEW);
 		goto done;
 	}
-	if (token_specific.t_session)
-		rc = token_specific.t_session(SESSION_MGR_FIND(*phSession));
+
+	if (token_specific.t_open_session) {
+		SESSION *sess = SESSION_MGR_FIND(*phSession);
+		rc = token_specific.t_open_session(sess);
+	}
  done:
 	if (locked)
 		MY_UnlockMutex( &pkcs_mutex );
