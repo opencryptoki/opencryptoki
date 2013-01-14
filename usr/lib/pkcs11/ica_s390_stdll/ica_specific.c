@@ -2637,14 +2637,6 @@ token_specific_rsa_x509_verify_recover(CK_BYTE *signature, CK_ULONG sig_len,
 	return rc;
 }
 
-
-CK_RV
-token_specific_session(CK_SLOT_ID  slotid)
-{
-       return CKR_OK;
-
-}
-
 #ifndef NOAES
 
 CK_RV

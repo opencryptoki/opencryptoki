@@ -1282,14 +1282,15 @@ CK_RV SC_OpenSession(CK_SLOT_ID             sid,
 		goto done;
 	}
 	locked = TRUE;
-	token_specific.t_session(slot_id);
 	MY_UnlockMutex( &pkcs_mutex );
 	locked = FALSE;
 	rc = session_mgr_new( flags, sid, phSession );
 	if (rc != CKR_OK){
-		OCK_LOG_ERR(ERR_SESSMGR_NEW); 
+		OCK_LOG_ERR(ERR_SESSMGR_NEW);
 		goto done;
 	}
+	if (token_specific.t_session)
+		rc = token_specific.t_session(SESSION_MGR_FIND(*phSession));
  done:
 	if (locked)
 		MY_UnlockMutex( &pkcs_mutex );

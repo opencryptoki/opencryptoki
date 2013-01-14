@@ -92,13 +92,6 @@ MECH_LIST_ELEMENT mech_list[] = {
 
 CK_ULONG mech_list_len = (sizeof(mech_list) / sizeof(MECH_LIST_ELEMENT));
 
-
-CK_RV
-token_specific_session(CK_SLOT_ID  slotid)
-{
-       return CKR_OK;
-}
-
 CK_RV
 token_specific_rng(CK_BYTE *output, CK_ULONG bytes)
 {

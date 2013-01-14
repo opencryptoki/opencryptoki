@@ -161,13 +161,6 @@ int not_initialized = 0;
 CK_BYTE current_user_pin_sha[SHA1_HASH_SIZE];
 CK_BYTE current_so_pin_sha[SHA1_HASH_SIZE];
 
-
-CK_RV
-token_specific_session(CK_SLOT_ID  slotid)
-{
-	return CKR_OK;
-}
-
 CK_RV
 token_specific_rng(CK_BYTE *output, CK_ULONG bytes)
 {

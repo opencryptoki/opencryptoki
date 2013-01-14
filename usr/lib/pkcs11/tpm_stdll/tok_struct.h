@@ -51,7 +51,7 @@ struct token_specific_struct token_specific = {
 	NULL,			// save_token_data
 	&tok_slot2local,
 	&token_specific_rng,
-	&token_specific_session,
+	NULL,			// session
 	&token_specific_final,
 	&token_specific_init_token,
 	&token_specific_login,
