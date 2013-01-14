@@ -1562,8 +1562,8 @@ CK_RV SC_Login( ST_SESSION_HANDLE  *sSession,
 		 */
 		if (token_specific.t_login) {
 			// call the pluggable login function here - KEY
-			rc = token_specific.t_login(sSession->slotID, userType,
-						    pPin, ulPinLen);
+			rc = token_specific.t_login(sess, userType, pPin,
+						    ulPinLen);
 			if (rc == CKR_OK) {
 				*flags &= ~(CKF_USER_PIN_LOCKED |
 				          CKF_USER_PIN_FINAL_TRY |
@@ -1624,7 +1624,7 @@ CK_RV SC_Login( ST_SESSION_HANDLE  *sSession,
 		 */
 		if (token_specific.t_login) {
 			// call the pluggable login function here - KEY
-			rc = token_specific.t_login(sSession->slotID, userType,
+			rc = token_specific.t_login(sess, userType,
 						    pPin, ulPinLen);
 			if (rc == CKR_OK) {
 				*flags &= ~(CKF_SO_PIN_LOCKED |

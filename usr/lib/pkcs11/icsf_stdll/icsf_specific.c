@@ -754,7 +754,8 @@ token_specific_session(SESSION *sess)
 
 
 CK_RV
-token_specific_login(CK_SLOT_ID slot_id, CK_USER_TYPE userType, CK_CHAR_PTR pPin, CK_ULONG ulPinLen)
+token_specific_login(SESSION *sess, CK_USER_TYPE userType, CK_CHAR_PTR pPin,
+		     CK_ULONG ulPinLen)
 {
 	CK_RV rc;
 	char fname[PATH_MAX];
@@ -764,6 +765,7 @@ token_specific_login(CK_SLOT_ID slot_id, CK_USER_TYPE userType, CK_CHAR_PTR pPin
 	int mklen;
 	char pk_dir_buf[PATH_MAX];
 	char *ca_dir = NULL;
+	CK_SLOT_ID slot_id = sess->session_info.slotID;
 	LDAP *ld;
 
 	/* Check Slot ID */
