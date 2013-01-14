@@ -841,6 +841,9 @@ CK_RV build_attribute( CK_ATTRIBUTE_TYPE  type,
                        CK_ULONG           data_len,
                        CK_ATTRIBUTE       **attr );
 
+CK_RV
+find_bbool_attribute(CK_ATTRIBUTE *attrs, CK_ULONG attrs_len,
+		     CK_ATTRIBUTE_TYPE type, CK_BBOOL *value);
 
 CK_RV    add_pkcs_padding( CK_BYTE   * ptr,       // where to start appending
                            CK_ULONG    block_size,

@@ -878,6 +878,33 @@ build_attribute(CK_ATTRIBUTE_TYPE type,
 	return CKR_OK;
 }
 
+/*
+ * Find an attribute in an attribute array.
+ *
+ * Returns CKR_FUNCTION_FAILED when attribute is not found,
+ * CKR_ATTRIBUTE_TYPE_INVALID when length doesn't match the expected and
+ * CKR_OK when values is returned in the `value` argument.
+ */
+CK_RV
+find_bbool_attribute(CK_ATTRIBUTE *attrs, CK_ULONG attrs_len,
+		     CK_ATTRIBUTE_TYPE type, CK_BBOOL *value)
+{
+	CK_ULONG i;
+
+	for (i = 0; i < attrs_len; i++) {
+		if (attrs[i].type == type) {
+			/* Check size */
+			if (attrs[i].ulValueLen != sizeof(*value))
+				return CKR_ATTRIBUTE_TYPE_INVALID;
+
+			/* Get value */
+			*value = *((CK_BBOOL *) attrs[i].pValue);
+		}
+	}
+
+	return CKR_FUNCTION_FAILED;
+}
+
 //
 //
 CK_RV

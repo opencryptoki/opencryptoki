@@ -32,6 +32,7 @@
 #include "icsf_config.h"
 #include "pbkdf.h"
 #include "list.h"
+#include "../api/apiproto.h"
 
 #define ICSF_DIR "/usr/local/var/lib/opencryptoki/icsf"
 
@@ -113,6 +114,7 @@ list_t sessions = LIST_INIT();
 struct session_state {
 	CK_SESSION_HANDLE session_id;
 	LDAP *ld;
+	struct btree objects;
 
 	/* List element */
 	list_entry_t sessions;
@@ -784,6 +786,7 @@ token_specific_session(SESSION *sess)
 	}
 	session_state->session_id = sess->handle;
 	session_state->ld = NULL;
+	memset(&session_state->objects, 0, sizeof(session_state->objects));
 	list_insert_head(&sessions, &session_state->sessions);
 
 	return CKR_OK;
@@ -911,5 +914,139 @@ token_specific_login(SESSION *sess, CK_USER_TYPE userType, CK_CHAR_PTR pPin,
 
 done:
 	XProcUnLock();
+	return rc;
+}
+
+static CK_RV
+check_session_permissions(SESSION *sess, CK_ATTRIBUTE *attrs,
+			  CK_ULONG attrs_len)
+{
+	CK_RV rc = CKR_OK;
+	CK_ULONG i;
+
+	/* PKCS#11 default value for CKA_TOKEN is FALSE */
+	CK_BBOOL is_token_obj = FALSE;
+
+	/* ICSF default value for CKA_PRIVATE is TRUE */
+	CK_BBOOL is_priv_obj = TRUE;
+
+	/* Get attributes values */
+	find_bbool_attribute(attrs, attrs_len, CKA_TOKEN, &is_token_obj);
+	find_bbool_attribute(attrs, attrs_len, CKA_PRIVATE, &is_priv_obj);
+
+	/*
+	 * Check whether session has permissions to create the object, etc
+	 *
+	 * Object                  R/O      R/W      R/O     R/W    R/W
+	 * Type                   Public   Public    User    User   SO
+	 * -------------------------------------------------------------
+	 * Public session          R/W      R/W      R/W     R/W    R/W
+	 * Private session                           R/W     R/W
+	 * Public token            R/O      R/W      R/O     R/W    R/W
+	 * Private token                             R/O     R/W
+	 */
+
+	if (sess->session_info.state == CKS_RO_PUBLIC_SESSION) {
+		if (is_priv_obj) {
+			OCK_LOG_ERR(ERR_USER_NOT_LOGGED_IN);
+			rc = CKR_USER_NOT_LOGGED_IN;
+			goto done;
+		}
+		if (is_token_obj) {
+			OCK_LOG_ERR(ERR_SESSION_READ_ONLY);
+			rc = CKR_SESSION_READ_ONLY;
+			goto done;
+		}
+	}
+
+	if (sess->session_info.state == CKS_RO_USER_FUNCTIONS) {
+		if (is_token_obj) {
+			OCK_LOG_ERR(ERR_SESSION_READ_ONLY);
+			rc = CKR_SESSION_READ_ONLY;
+			goto done;
+		}
+	}
+
+	if (sess->session_info.state == CKS_RW_PUBLIC_SESSION) {
+		if (is_priv_obj) {
+			OCK_LOG_ERR(ERR_USER_NOT_LOGGED_IN);
+			rc = CKR_USER_NOT_LOGGED_IN;
+			goto done;
+		}
+	}
+
+	if (sess->session_info.state == CKS_RW_SO_FUNCTIONS) {
+		if (is_priv_obj) {
+			OCK_LOG_ERR(ERR_USER_NOT_LOGGED_IN);
+			rc = CKR_USER_NOT_LOGGED_IN;
+			goto done;
+		}
+	}
+
+done:
+	return rc;
+}
+
+/*
+ * Generate a symmetric key.
+ */
+CK_RV
+token_specific_generate_key(SESSION *sess, CK_MECHANISM_PTR mech,
+			    CK_ATTRIBUTE_PTR attrs, CK_ULONG attrs_len,
+			    CK_OBJECT_HANDLE_PTR handle)
+{
+	CK_RV rc = CKR_OK;
+	struct session_state *session_state;
+	struct session_object *session_object;
+	struct icsf_object_record *object;
+	CK_ULONG node_number;
+
+	/* Check permissions based on attributes and session */
+	rc = check_session_permissions(sess, attrs, attrs_len);
+	if (rc != CKR_OK)
+		return rc;
+
+	/* Allocate structure to keep ICSF object information */
+	if (!(object = malloc(sizeof(*object)))) {
+		OCK_LOG_ERR(ERR_HOST_MEMORY);
+		return CKR_HOST_MEMORY;
+	}
+
+	XProcLock();
+
+	/* Get session state */
+	if (!(session_state = get_session_state(sess->handle))) {
+		OCK_LOG_DEBUG("Session not found for session id %lu.\n",
+				(unsigned long) sess->handle);
+		rc = CKR_FUNCTION_FAILED;
+		goto done;
+	}
+
+	/* Call ICSF service */
+	if (icsf_generate_secret_key(session_state->ld,
+				     nv_token_data->token_info.label,
+				     mech, attrs, attrs_len, object)) {
+		OCK_LOG_DEBUG("Failed to call ICSF.\n");
+		rc = CKR_FUNCTION_FAILED;
+		goto done;
+	}
+
+	/* Add info about object into session */
+	if(!(node_number = bt_node_add(&session_state->objects, object))) {
+		OCK_LOG_DEBUG("Failed to add object to binary tree.\n");
+		rc = CKR_FUNCTION_FAILED;
+		goto done;
+	}
+
+	/* Use node number as handle */
+	*handle = node_number;
+
+done:
+	XProcUnLock();
+
+	/* If allocated, object must be freed in case of failure */
+	if (rc && !object)
+		free(object);
+
 	return rc;
 }
