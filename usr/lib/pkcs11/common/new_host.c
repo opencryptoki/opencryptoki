@@ -3760,7 +3760,13 @@ CK_RV SC_GenerateKey( ST_SESSION_HANDLE    *sSession,
 		goto done;
 	}
 
-	rc = key_mgr_generate_key(sess, pMechanism, pTemplate, ulCount, phKey);
+	if (token_specific.t_generate_key) {
+		rc = token_specific.t_generate_key(sess, pMechanism, pTemplate,
+				ulCount, phKey);
+	} else {
+		rc = key_mgr_generate_key(sess, pMechanism, pTemplate,
+				ulCount, phKey);
+	}
 	if (rc != CKR_OK){
 		OCK_LOG_ERR(ERR_KEYGEN);
 	}

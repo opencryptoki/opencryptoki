@@ -430,6 +430,10 @@ token_specific_ec_verify(CK_BYTE   * ,
 CK_RV
 token_specific_ec_generate_keypair( TEMPLATE  * , TEMPLATE  * );
 
+CK_RV
+token_specific_generate_key(SESSION *, CK_MECHANISM_PTR, CK_ATTRIBUTE_PTR,
+			    CK_ULONG, CK_OBJECT_HANDLE_PTR);
+
 /* Begin code contributed by Corrent corp. */
 #ifndef NODH
 CK_RV
