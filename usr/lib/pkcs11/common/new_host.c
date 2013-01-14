@@ -3726,14 +3726,13 @@ CK_RV SC_GenerateKey( ST_SESSION_HANDLE    *sSession,
 		      CK_ULONG              ulCount,
 		      CK_OBJECT_HANDLE_PTR  phKey )
 {
-	SESSION       * sess = NULL;
-	CK_RV           rc = CKR_OK;
+	SESSION * sess = NULL;
+	CK_RV rc = CKR_OK;
 	CK_SESSION_HANDLE hSession = SESS_HANDLE(sSession);
-	CK_ATTRIBUTE  * attr = NULL;
-	CK_ULONG	i;
+	CK_ATTRIBUTE * attr = NULL;
+	CK_ULONG i;
 
-
-		LOCKIT;
+	LOCKIT;
 	if (st_Initialized() == FALSE) {
 		OCK_LOG_ERR(ERR_CRYPTOKI_NOT_INITIALIZED);
 		rc = CKR_CRYPTOKI_NOT_INITIALIZED;
@@ -3747,42 +3746,48 @@ CK_RV SC_GenerateKey( ST_SESSION_HANDLE    *sSession,
 	}
 	VALID_MECH(pMechanism, CKF_GENERATE);
 
-	sess = SESSION_MGR_FIND( hSession );
+	sess = SESSION_MGR_FIND(hSession);
 	if (!sess) {
 		OCK_LOG_ERR(ERR_SESSION_HANDLE_INVALID);
 		rc = CKR_SESSION_HANDLE_INVALID;
 		goto done;
 	}
 
-	if (pin_expired(&sess->session_info, nv_token_data->token_info.flags) == TRUE) {
+	if (pin_expired(&sess->session_info,
+				nv_token_data->token_info.flags) == TRUE) {
 		OCK_LOG_ERR(ERR_PIN_EXPIRED);
 		rc = CKR_PIN_EXPIRED;
 		goto done;
 	}
-   
-	rc = key_mgr_generate_key( sess, pMechanism, pTemplate, ulCount, phKey );
-	if (rc != CKR_OK){ 
+
+	rc = key_mgr_generate_key(sess, pMechanism, pTemplate, ulCount, phKey);
+	if (rc != CKR_OK){
 		OCK_LOG_ERR(ERR_KEYGEN);
 	}
 
  done:
 	LLOCK;
-	OCK_LOG_DEBUG("C_GenerateKey:  rc = %08x, sess = %d, handle = %d, mech = %x\n", rc, (sess == NULL)?-1:(CK_LONG)sess->handle, *phKey, pMechanism->mechanism);
+	OCK_LOG_DEBUG("C_GenerateKey:  rc = %08x, sess = %d, "
+			"handle = %d, mech = %x\n", rc,
+			(sess == NULL) ? -1 : (CK_LONG) sess->handle, *phKey,
+			pMechanism->mechanism);
 
 #ifdef DEBUG
 	attr = pTemplate;
 	for (i = 0; i < ulCount; i++, attr++) {
-		CK_BYTE *ptr = (CK_BYTE *)attr->pValue;
-
-		OCK_LOG_DEBUG("%d:  Attribute type:  0x%08x, Value Length: %d\n", i, attr->type, attr->ulValueLen);
-
-		if (attr->ulValueLen != (CK_ULONG)(-1) && (ptr != NULL))
-			OCK_LOG_DEBUG("First 4 bytes:  %02x %02x %02x %02x\n", ptr[0], ptr[1], ptr[2], ptr[3]);
-
+		CK_BYTE *ptr = (CK_BYTE *) attr->pValue;
+		OCK_LOG_DEBUG("%d:  Attribute type:  0x%08x, "
+				"Value Length: %d\n", i, attr->type,
+				attr->ulValueLen);
+		if (attr->ulValueLen != ((CK_ULONG) -1) && (ptr != NULL)) {
+			OCK_LOG_DEBUG("First 4 bytes:  %02x %02x %02x %02x\n",
+					ptr[0], ptr[1], ptr[2], ptr[3]);
+		}
 	}
 #endif
 
-	UNLOCKIT; return rc;
+	UNLOCKIT;
+	return rc;
 }
 
 
