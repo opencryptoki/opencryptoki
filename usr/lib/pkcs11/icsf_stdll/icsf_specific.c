@@ -34,8 +34,6 @@
 #include "list.h"
 #include "../api/apiproto.h"
 
-#define ICSF_DIR "/usr/local/var/lib/opencryptoki/icsf"
-
 /* Default token attributes */
 CK_CHAR manuf[] = "IBM Corp.";
 CK_CHAR model[] = "IBM ICSFTok ";
