@@ -794,6 +794,11 @@ int icsf_destroy_token(LDAP *ld, char *token_name)
 	/* Should be 8 bytes padded. */
 	strpad(rule_array, "TOKEN", ICSF_RULE_ITEM_LEN, ' ');
 
+	/*
+	 * CSFPTRD service is used to destroy a token or an object. Handle
+	 * indicates the token or object that must be destroyed and no
+	 * additional data is needed.
+	 */
 	return icsf_call(ld, handle, sizeof(handle), rule_array,
 			    sizeof(rule_array), ICSF_TAG_CSFPTRD, NULL, NULL);
 }
@@ -1265,6 +1270,11 @@ icsf_destroy_object(LDAP *ld, struct icsf_object_record *obj)
 	/* Should be 8 bytes padded. */
 	strpad(rule_array, "OBJECT", ICSF_RULE_ITEM_LEN, ' ');
 
+	/*
+	 * CSFPTRD service is used to destroy a token or an object. Handle
+	 * indicates the token or object that must be destroyed and no
+	 * additional data is needed.
+	 */
 	return icsf_call(ld, handle, sizeof(handle), rule_array,
 			    sizeof(rule_array), ICSF_TAG_CSFPTRD, NULL, NULL);
 }

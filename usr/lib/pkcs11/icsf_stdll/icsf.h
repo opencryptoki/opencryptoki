@@ -19,7 +19,13 @@
 #define ICSF_REQ_OID "1.3.18.0.2.12.83"
 #define ICSF_RES_OID "1.3.18.0.2.12.84"
 
-/* Tag numbers for each ICSF call */
+/*
+ * Tag numbers for each ICSF call.
+ *
+ * ICSF message is composed by some fields that are common to all services and
+ * a service-specific field. The tag number of this field identifies the
+ * service that is called.
+ */
 #define ICSF_TAG_CSFPGSK 5
 #define ICSF_TAG_CSFPTRC 14
 #define ICSF_TAG_CSFPTRD 15
