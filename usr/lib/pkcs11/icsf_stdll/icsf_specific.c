@@ -815,10 +815,10 @@ token_specific_login(SESSION *sess, CK_USER_TYPE userType, CK_CHAR_PTR pPin,
 
 	/* compute the sha of the pin. */
 	rc = compute_sha(pPin, ulPinLen, hash_sha);
-        if (rc != CKR_OK) {
-                OCK_LOG_ERR(ERR_HASH_COMPUTATION);
-                return rc;
-        }
+	if (rc != CKR_OK) {
+		OCK_LOG_ERR(ERR_HASH_COMPUTATION);
+		return rc;
+	}
 
 	if (userType == CKU_USER) {
 		/* check if pin initialized */
@@ -829,13 +829,13 @@ token_specific_login(SESSION *sess, CK_USER_TYPE userType, CK_CHAR_PTR pPin,
 
 		/* check that pin is the same as the one in NVTOK.DAT */
 		if (memcmp(nv_token_data->user_pin_sha, hash_sha, SHA1_HASH_SIZE) != 0) {
-                        OCK_LOG_ERR(ERR_PIN_INCORRECT);
-                        return CKR_PIN_INCORRECT;
-                }
+			OCK_LOG_ERR(ERR_PIN_INCORRECT);
+			return CKR_PIN_INCORRECT;
+		}
 
 		/* now load the master key */
 		sprintf(fname, "%s/MK_USER", get_pk_dir(pk_dir_buf));
-	        rc = get_masterkey(pPin, ulPinLen, fname, master_key, &mklen);
+		rc = get_masterkey(pPin, ulPinLen, fname, master_key, &mklen);
 		if (rc != CKR_OK) {
 			 OCK_LOG_DEBUG("Failed to load master key.\n");
 			return rc;
@@ -845,14 +845,14 @@ token_specific_login(SESSION *sess, CK_USER_TYPE userType, CK_CHAR_PTR pPin,
 		/* if SO ... */
 
 		/* check that pin is the same as the one in NVTOK.DAT */
-                if (memcmp(nv_token_data->so_pin_sha, hash_sha, SHA1_HASH_SIZE) != 0) {
-                        OCK_LOG_ERR(ERR_PIN_INCORRECT);
-                        return  CKR_PIN_INCORRECT;
-                }
+		if (memcmp(nv_token_data->so_pin_sha, hash_sha, SHA1_HASH_SIZE) != 0) {
+			OCK_LOG_ERR(ERR_PIN_INCORRECT);
+			return  CKR_PIN_INCORRECT;
+		}
 
 		/* now load the master key */
 		sprintf(fname, "%s/MK_SO", get_pk_dir(pk_dir_buf));
-	        rc = get_masterkey(pPin, ulPinLen, fname, master_key, &mklen);
+		rc = get_masterkey(pPin, ulPinLen, fname, master_key, &mklen);
 		if (rc != CKR_OK) {
 			OCK_LOG_DEBUG("Failed to load master key.\n");
 			return rc;
