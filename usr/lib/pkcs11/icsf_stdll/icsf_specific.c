@@ -820,25 +820,29 @@ token_specific_login(SESSION *sess, CK_USER_TYPE userType, CK_CHAR_PTR pPin,
 		return rc;
 	}
 
+	XProcLock();
+
 	if (userType == CKU_USER) {
 		/* check if pin initialized */
 		if (memcmp(nv_token_data->user_pin_sha, "00000000000000000000", SHA1_HASH_SIZE) == 0) {
 			OCK_LOG_ERR(ERR_USER_PIN_NOT_INITIALIZED);
-			return CKR_USER_PIN_NOT_INITIALIZED;
+			rc = CKR_USER_PIN_NOT_INITIALIZED;
+			goto done;
 		}
 
 		/* check that pin is the same as the one in NVTOK.DAT */
 		if (memcmp(nv_token_data->user_pin_sha, hash_sha, SHA1_HASH_SIZE) != 0) {
 			OCK_LOG_ERR(ERR_PIN_INCORRECT);
-			return CKR_PIN_INCORRECT;
+			rc = CKR_PIN_INCORRECT;
+			goto done;
 		}
 
 		/* now load the master key */
 		sprintf(fname, "%s/MK_USER", get_pk_dir(pk_dir_buf));
 		rc = get_masterkey(pPin, ulPinLen, fname, master_key, &mklen);
 		if (rc != CKR_OK) {
-			 OCK_LOG_DEBUG("Failed to load master key.\n");
-			return rc;
+			OCK_LOG_DEBUG("Failed to load master key.\n");
+			goto done;
 		}
 
 	} else {
@@ -847,7 +851,8 @@ token_specific_login(SESSION *sess, CK_USER_TYPE userType, CK_CHAR_PTR pPin,
 		/* check that pin is the same as the one in NVTOK.DAT */
 		if (memcmp(nv_token_data->so_pin_sha, hash_sha, SHA1_HASH_SIZE) != 0) {
 			OCK_LOG_ERR(ERR_PIN_INCORRECT);
-			return  CKR_PIN_INCORRECT;
+			rc = CKR_PIN_INCORRECT;
+			goto done;
 		}
 
 		/* now load the master key */
@@ -855,13 +860,11 @@ token_specific_login(SESSION *sess, CK_USER_TYPE userType, CK_CHAR_PTR pPin,
 		rc = get_masterkey(pPin, ulPinLen, fname, master_key, &mklen);
 		if (rc != CKR_OK) {
 			OCK_LOG_DEBUG("Failed to load master key.\n");
-			return rc;
+			goto done;
 		}
 	}
 
 	/* The pPin looks good, so now lets authenticate to ldap server */
-	XProcLock();
-
 	if (slot_data[slot_id] == NULL) {
 		OCK_LOG_DEBUG("ICSF slot data not initialized.\n");
 		rc = CKR_FUNCTION_FAILED;
