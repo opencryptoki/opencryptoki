@@ -1305,7 +1305,6 @@ CK_RV SC_OpenSession(CK_SLOT_ID             sid,
 
 CK_RV SC_CloseSession( ST_SESSION_HANDLE  *sSession )
 {
-	SESSION  * sess = NULL;
 	CK_RV      rc = CKR_OK;
 	CK_SESSION_HANDLE hSession = SESS_HANDLE(sSession);
 	LOCKIT;
@@ -1314,6 +1313,17 @@ CK_RV SC_CloseSession( ST_SESSION_HANDLE  *sSession )
 		rc = CKR_CRYPTOKI_NOT_INITIALIZED;
 		goto done;
 	}
+
+	if (token_specific.t_close_session) {
+		SESSION *sess = SESSION_MGR_FIND(hSession);
+		rc = token_specific.t_close_session(sess);
+		if (rc) {
+			OCK_LOG_DEBUG("Failed to close session: %lu\n",
+					(unsigned long) hSession);
+			goto done;
+		}
+	}
+
 	rc = session_mgr_close_session(hSession);
  done:
 	LLOCK;

@@ -354,6 +354,7 @@ struct token_specific_struct {
 
 	//perform anything specific needed by the token takes a slot id
 	CK_RV(*t_open_session) (SESSION *);
+	CK_RV(*t_close_session) (SESSION *);
 
 	// any specific final code
 	CK_RV(*t_final) ();
