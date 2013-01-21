@@ -337,15 +337,6 @@ done:
 }
 
 /*
- * Called during C_Finalize.
- */
-CK_RV
-token_specific_final()
-{
-	return CKR_OK;
-}
-
-/*
  * Initialize the shared memory region. ICSF has to use a custom method for
  * this because it uses additional data in the shared memory and in the future
  * multiple slots should be supported for ICSF.
@@ -812,6 +803,106 @@ token_specific_open_session(SESSION *sess)
 	return CKR_OK;
 }
 
+static CK_RV
+close_session(CK_SESSION_HANDLE session)
+{
+	struct session_state *session_state;
+	unsigned long i;
+
+	/* Get the related session_state */
+	if (!(session_state = get_session_state(session))) {
+		OCK_LOG_DEBUG("Session not found for session id %lu.\n",
+				(unsigned long) session);
+		return CKR_SESSION_HANDLE_INVALID;
+	}
+
+	/* Remove each session object */
+	for (i = 1; i <= session_state->objects.size; i++) {
+		struct icsf_object_record *obj;
+
+		/* Skip missing ids */
+		if(!(obj = bt_get_node_value(&session_state->objects, i)))
+			continue;
+
+		if (obj->id == ICSF_SESSION_OBJECT) {
+			if (icsf_destroy_object(session_state->ld, NULL, obj))
+				return CKR_FUNCTION_FAILED;
+		}
+	}
+
+	/* Log off from LDAP server */
+	if (icsf_logout(session_state->ld)) {
+		OCK_LOG_DEBUG("Failed to disconnect from LDAP server.\n");
+		return CKR_FUNCTION_FAILED;
+	}
+	session_state->ld = NULL;
+
+	/* Free internal structures */
+	bt_destroy(&session_state->objects, free);
+
+	/* Remove session_state from the list and free it */
+	list_remove(&session_state->sessions);
+	free(session_state);
+
+	return CKR_OK;
+}
+
+/*
+ * Called during C_CloseSession.
+ */
+CK_RV
+token_specific_close_session(SESSION *sess)
+{
+	CK_RV rc;
+
+	/* Lock to add a new session in the list */
+	if (pthread_rwlock_wrlock(&sessions_rwlock)) {
+		OCK_LOG_ERR(ERR_MUTEX_LOCK);
+		return CKR_FUNCTION_FAILED;
+	}
+
+	rc = close_session(sess->handle);
+
+	/* Unlock */
+	if (pthread_rwlock_unlock(&sessions_rwlock)) {
+		OCK_LOG_ERR(ERR_MUTEX_UNLOCK);
+		return CKR_FUNCTION_FAILED;
+	}
+
+	return rc;
+}
+
+/*
+ * Called during C_Finalize.
+ */
+CK_RV
+token_specific_final(void)
+{
+	CK_RV rc;
+	struct session_state *session;
+	list_entry_t *e;
+
+	/* Lock to add a new session in the list */
+	if (pthread_rwlock_wrlock(&sessions_rwlock)) {
+		OCK_LOG_ERR(ERR_MUTEX_LOCK);
+		return CKR_FUNCTION_FAILED;
+	}
+
+	for_each_list_entry_safe(&sessions, struct session_state, session,
+				 sessions, e) {
+		if ((rc = close_session(session->session_id)))
+			break;
+		list_remove(&session->sessions);
+	}
+
+	/* Unlock */
+	if (pthread_rwlock_unlock(&sessions_rwlock)) {
+		OCK_LOG_ERR(ERR_MUTEX_UNLOCK);
+		return CKR_FUNCTION_FAILED;
+	}
+
+	return rc;
+}
 
 CK_RV
 token_specific_login(SESSION *sess, CK_USER_TYPE userType, CK_CHAR_PTR pPin,
