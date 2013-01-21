@@ -1022,6 +1022,82 @@ done:
 }
 
 /*
+ * Create a new object.
+ */
+CK_RV
+token_specific_create_object(SESSION *sess, CK_ATTRIBUTE_PTR attrs,
+			     CK_ULONG attrs_len, CK_OBJECT_HANDLE_PTR handle)
+{
+	CK_RV rc = CKR_OK;
+	struct session_state *session_state;
+	struct session_object *session_object;
+	struct icsf_object_record *object;
+	CK_ULONG node_number;
+	char token_name[sizeof(nv_token_data->token_info.label)];
+
+	/* Check permissions based on attributes and session */
+	rc = check_session_permissions(sess, attrs, attrs_len);
+	if (rc != CKR_OK)
+		return rc;
+
+	/* Allocate structure to keep ICSF object information */
+	if (!(object = malloc(sizeof(*object)))) {
+		OCK_LOG_ERR(ERR_HOST_MEMORY);
+		return CKR_HOST_MEMORY;
+	}
+
+	/* Copy token name from shared memory */
+	XProcLock();
+	memcpy(token_name, nv_token_data->token_info.label, sizeof(token_name));
+	XProcUnLock();
+
+	/* Lock sessions list */
+	if (pthread_rwlock_rdlock(&sessions_rwlock)) {
+		OCK_LOG_ERR(ERR_MUTEX_LOCK);
+		return CKR_FUNCTION_FAILED;
+	}
+
+	/* Get session state */
+	if (!(session_state = get_session_state(sess->handle))) {
+		OCK_LOG_DEBUG("Session not found for session id %lu.\n",
+				(unsigned long) sess->handle);
+		rc = CKR_FUNCTION_FAILED;
+		goto done;
+	}
+
+	/* Call ICSF service */
+	if (icsf_create_object(session_state->ld, NULL, token_name, attrs,
+			       attrs_len, object)) {
+		OCK_LOG_DEBUG("Failed to call ICSF.\n");
+		rc = CKR_FUNCTION_FAILED;
+		goto done;
+	}
+
+	/* Add info about object into session */
+	if(!(node_number = bt_node_add(&session_state->objects, object))) {
+		OCK_LOG_DEBUG("Failed to add object to binary tree.\n");
+		rc = CKR_FUNCTION_FAILED;
+		goto done;
+	}
+
+	/* Use node number as handle */
+	*handle = node_number;
+
+done:
+	/* Unlock */
+	if (pthread_rwlock_unlock(&sessions_rwlock)) {
+		OCK_LOG_ERR(ERR_MUTEX_UNLOCK);
+		rc = CKR_FUNCTION_FAILED;
+	}
+
+	/* If allocated, object must be freed in case of failure */
+	if (rc && !object)
+		free(object);
+
+	return rc;
+}
+
+/*
  * Generate a symmetric key.
  */
 CK_RV
