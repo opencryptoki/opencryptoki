@@ -51,6 +51,7 @@ token_spec_t token_specific = {
 	NULL,			// logout
 	&token_specific_init_pin,
 	&token_specific_set_pin,
+	NULL,			// create_object
 	&token_specific_generate_key,
 	// DES
 	NULL, 			// des_key_gen

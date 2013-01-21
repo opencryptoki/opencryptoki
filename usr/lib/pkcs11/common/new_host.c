@@ -1767,7 +1767,12 @@ CK_RV SC_CreateObject(ST_SESSION_HANDLE *sSession,
 		goto done;
 	}
 
-	rc = object_mgr_add(sess, pTemplate, ulCount, phObject);
+	if (token_specific.t_create_object) {
+		rc = token_specific.t_create_object(sess, pTemplate, ulCount,
+						    phObject);
+	} else {
+		rc = object_mgr_add(sess, pTemplate, ulCount, phObject);
+	}
 	if (rc != CKR_OK) {
 		OCK_LOG_ERR(ERR_OBJMGR_MAP_ADD);
 	}

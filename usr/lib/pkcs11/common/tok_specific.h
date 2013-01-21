@@ -431,6 +431,10 @@ CK_RV
 token_specific_ec_generate_keypair( TEMPLATE  * , TEMPLATE  * );
 
 CK_RV
+token_specific_create_object(SESSION *, CK_ATTRIBUTE_PTR, CK_ULONG,
+			     CK_OBJECT_HANDLE_PTR);
+
+CK_RV
 token_specific_generate_key(SESSION *, CK_MECHANISM_PTR, CK_ATTRIBUTE_PTR,
 			    CK_ULONG, CK_OBJECT_HANDLE_PTR);
 

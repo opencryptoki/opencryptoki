@@ -58,6 +58,7 @@ struct token_specific_struct token_specific = {
 	&token_specific_logout,
 	&token_specific_init_pin,
 	&token_specific_set_pin,
+	NULL,			// create_object
 	NULL,			// generate_key
 	// DES
 	&token_specific_des_key_gen,

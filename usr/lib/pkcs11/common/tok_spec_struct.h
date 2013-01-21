@@ -365,6 +365,9 @@ struct token_specific_struct {
 	CK_RV(*t_set_pin) (SESSION *, CK_CHAR_PTR, CK_ULONG, CK_CHAR_PTR,
 			   CK_ULONG);
 
+	CK_RV(*t_create_object) (SESSION *, CK_ATTRIBUTE_PTR, CK_ULONG,
+				 CK_OBJECT_HANDLE_PTR);
+
 	CK_RV(*t_generate_key) (SESSION *, CK_MECHANISM_PTR, CK_ATTRIBUTE_PTR,
 				CK_ULONG, CK_OBJECT_HANDLE_PTR);
 
