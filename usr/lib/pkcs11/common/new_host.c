@@ -1737,37 +1737,37 @@ CK_RV SC_Logout( ST_SESSION_HANDLE  *sSession )
 
 // This is a Leeds-Lite solution so we have to store objects on the host.
 //
-CK_RV SC_CreateObject( ST_SESSION_HANDLE    *sSession,
-		       CK_ATTRIBUTE_PTR     pTemplate,
-		       CK_ULONG             ulCount,
-		       CK_OBJECT_HANDLE_PTR phObject )
+CK_RV SC_CreateObject(ST_SESSION_HANDLE *sSession,
+		      CK_ATTRIBUTE_PTR pTemplate,
+		      CK_ULONG ulCount,
+		      CK_OBJECT_HANDLE_PTR phObject)
 {
-	SESSION               * sess = NULL;
-	CK_ULONG                i;
-	CK_RV                   rc = CKR_OK;
+	SESSION * sess = NULL;
+	CK_ULONG i;
+	CK_RV rc = CKR_OK;
 	CK_SESSION_HANDLE hSession = SESS_HANDLE(sSession);
 
-		LOCKIT;
+	LOCKIT;
 	if (st_Initialized() == FALSE) {
 		OCK_LOG_ERR(ERR_CRYPTOKI_NOT_INITIALIZED);
 		rc = CKR_CRYPTOKI_NOT_INITIALIZED;
 		goto done;
 	}
 
-	sess = SESSION_MGR_FIND( hSession );
+	sess = SESSION_MGR_FIND(hSession);
 	if (!sess) {
 		OCK_LOG_ERR(ERR_SESSION_HANDLE_INVALID);
 		rc = CKR_SESSION_HANDLE_INVALID;
 		goto done;
 	}
 
-	if (pin_expired(&sess->session_info, nv_token_data->token_info.flags) == TRUE) {
+	if (pin_expired(&sess->session_info, nv_token_data->token_info.flags)) {
 		OCK_LOG_ERR(ERR_PIN_EXPIRED);
 		rc = CKR_PIN_EXPIRED;
 		goto done;
 	}
-   
-	rc = object_mgr_add( sess, pTemplate, ulCount, phObject );
+
+	rc = object_mgr_add(sess, pTemplate, ulCount, phObject);
 	if (rc != CKR_OK) {
 		OCK_LOG_ERR(ERR_OBJMGR_MAP_ADD);
 	}
@@ -1775,16 +1775,20 @@ CK_RV SC_CreateObject( ST_SESSION_HANDLE    *sSession,
  done:
 	LLOCK;
 	OCK_LOG_DEBUG("C_CreateObject:  rc = 0x%08x\n", rc);
+
 #ifdef DEBUG
 	for (i = 0; i < ulCount; i++) {
-		if (pTemplate[i].type == CKA_CLASS)
-			OCK_LOG_DEBUG("Object Type:  0x%02x\n", *(CK_ULONG *)pTemplate[i].pValue );
+		if (pTemplate[i].type == CKA_CLASS) {
+			OCK_LOG_DEBUG("Object Type:  0x%02x\n",
+				      *((CK_ULONG *) pTemplate[i].pValue));
+		}
 	}
 	if (rc == CKR_OK)
 		OCK_LOG_DEBUG("Handle:  %d\n", *phObject);
 #endif
 
-	UNLOCKIT; return rc;
+	UNLOCKIT;
+	return rc;
 }
 
 
