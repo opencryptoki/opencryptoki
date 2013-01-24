@@ -1299,7 +1299,7 @@ icsf_generate_secret_key(LDAP *ld, int *reason, const char *token_name,
 	char handle[ICSF_HANDLE_LEN];
 	char rule_array[1 * ICSF_RULE_ITEM_LEN];
 	char param[2];
-	int param_len;
+	size_t param_len;
 	CK_VERSION_PTR version;
 	BerElement *msg = NULL;
 
