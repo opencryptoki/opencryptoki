@@ -564,8 +564,9 @@ destroy_objects(CK_SLOT_ID slot_id, CK_CHAR_PTR token_name, CK_CHAR_PTR pin,
 	do {
 		records_len = sizeof(records)/sizeof(records[0]);
 
-		if (icsf_list_objects(ld, token_name, previous, records,
-				      &records_len, 0)) {
+		rc = icsf_list_objects(ld, NULL, token_name, previous, records,
+				       &records_len, 0);
+		if (ICSF_RC_IS_ERROR(rc)) {
 			OCK_LOG_DEBUG("Failed to list objects for slot %lu.\n",
 				      slot_id);
 			rc = CKR_FUNCTION_FAILED;
@@ -573,7 +574,7 @@ destroy_objects(CK_SLOT_ID slot_id, CK_CHAR_PTR token_name, CK_CHAR_PTR pin,
 		}
 
 		for (i = 0; i < records_len; i++) {
-			if (icsf_destroy_object(ld, &records[i])) {
+			if (icsf_destroy_object(ld, NULL, &records[i])) {
 				OCK_LOG_DEBUG("Failed to destroy object "
 					      "%s/%lu/%c in slot %lu.\n",
 					      records[i].token_name,
@@ -1066,7 +1067,7 @@ token_specific_generate_key(SESSION *sess, CK_MECHANISM_PTR mech,
 	}
 
 	/* Call ICSF service */
-	if (icsf_generate_secret_key(session_state->ld, token_name,
+	if (icsf_generate_secret_key(session_state->ld, NULL, token_name,
 				     mech, attrs, attrs_len, object)) {
 		OCK_LOG_DEBUG("Failed to call ICSF.\n");
 		rc = CKR_FUNCTION_FAILED;

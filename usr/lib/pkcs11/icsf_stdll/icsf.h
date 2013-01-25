@@ -92,33 +92,33 @@ int
 icsf_check_pkcs_extension(LDAP *ld);
 
 int
-icsf_create_token(LDAP *ld, const char *token_name,
+icsf_create_token(LDAP *ld, int *reason, const char *token_name,
 	          const char *manufacturer_id, const char *model,
 	          const char *serial_number);
 
 int
-icsf_destroy_token(LDAP *ld, char *token_name);
+icsf_destroy_token(LDAP *ld, int *reason, char *token_name);
 
 int
-icsf_list_tokens(LDAP *ld, struct icsf_token_record *first,
+icsf_list_tokens(LDAP *ld, int *reason, struct icsf_token_record *first,
 	         struct icsf_token_record *records, size_t *records_len);
 
 int
-icsf_create_object(LDAP *ld, const char *token_name,
+icsf_create_object(LDAP *ld, int *reason, const char *token_name,
 	           CK_ATTRIBUTE *attrs, CK_ULONG attrs_len,
 		   struct icsf_object_record *object);
 
 int
-icsf_list_objects(LDAP *ld, const char *token_name,
+icsf_list_objects(LDAP *ld, int *reason, const char *token_name,
 	          struct icsf_object_record *previous,
 	          struct icsf_object_record *records, size_t *records_len,
 	          int all);
 
 int
-icsf_destroy_object(LDAP *ld, struct icsf_object_record *obj);
+icsf_destroy_object(LDAP *ld, int *reason, struct icsf_object_record *obj);
 
 int
-icsf_generate_secret_key(LDAP *ld, const char *token_name,
+icsf_generate_secret_key(LDAP *ld, int *reason, const char *token_name,
 			CK_MECHANISM_PTR mech,
 			CK_ATTRIBUTE *attrs, CK_ULONG attrs_len,
 			struct icsf_object_record *object);

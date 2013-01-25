@@ -508,6 +508,8 @@ cleanup:
  *
  * `handle` identifies a token or object. It should be always 44 bytes long.
  *
+ * `reason` returns the ICSF reason code. It's ignored when NULL.
+ *
  * `rule_array` should be a sequence of 8 bytes strings padded with blanks. Each
  * 8 bytes is an item and can change the behaviour of a call.
  *
@@ -520,11 +522,11 @@ cleanup:
  * non-NULL value is given, the caller must free it.
  */
 static int
-icsf_call(LDAP *ld, char *handle, size_t handle_len,
+icsf_call(LDAP *ld, int *reason, char *handle, size_t handle_len,
 	  const char *rule_array, size_t rule_array_len,
 	  ber_tag_t tag, BerElement *specific, BerElement **result)
 {
-	int rc = -1;
+	int rc;
 	BerElement *ber_req = NULL;
 	BerElement *ber_res = NULL;
 	struct berval *raw_req = NULL;
@@ -559,6 +561,7 @@ icsf_call(LDAP *ld, char *handle, size_t handle_len,
 	ber_req = ber_alloc_t(LBER_USE_DER);
 	if (ber_req == NULL) {
 		OCK_LOG_ERR(ERR_HOST_MEMORY);
+		rc = -1;
 		goto cleanup;
 	}
 
@@ -567,6 +570,7 @@ icsf_call(LDAP *ld, char *handle, size_t handle_len,
 		if (rc) {
 			OCK_LOG_DEBUG("Failed to flat specific data.\n");
 			OCK_LOG_ERR(ERR_FUNCTION_FAILED);
+			rc = -1;
 			goto cleanup;
 		}
 	}
@@ -619,6 +623,7 @@ icsf_call(LDAP *ld, char *handle, size_t handle_len,
 	if (rc < 0) {
 		OCK_LOG_DEBUG("Failed to encode message.\n");
 		OCK_LOG_ERR(ERR_FUNCTION_FAILED);
+		rc = -1;
 		goto cleanup;
 	}
 
@@ -626,6 +631,7 @@ icsf_call(LDAP *ld, char *handle, size_t handle_len,
 	if (rc) {
 		OCK_LOG_DEBUG("Failed to flat BER data.\n");
 		OCK_LOG_ERR(ERR_FUNCTION_FAILED);
+		rc = -1;
 		goto cleanup;
 	}
 
@@ -642,6 +648,7 @@ icsf_call(LDAP *ld, char *handle, size_t handle_len,
 		if (ext_msg)
 			ldap_memfree(ext_msg);
 		OCK_LOG_ERR(ERR_FUNCTION_FAILED);
+		rc = -1;
 		goto cleanup;
 	}
 
@@ -650,6 +657,7 @@ icsf_call(LDAP *ld, char *handle, size_t handle_len,
 	if (ber_res == NULL) {
 		OCK_LOG_DEBUG("Failed to create a response buffer\n");
 		OCK_LOG_ERR(ERR_FUNCTION_FAILED);
+		rc = -1;
 		goto cleanup;
 	}
 
@@ -659,6 +667,7 @@ icsf_call(LDAP *ld, char *handle, size_t handle_len,
 	if (rc < 0) {
 		OCK_LOG_DEBUG("Failed to decode message.\n");
 		OCK_LOG_ERR(ERR_FUNCTION_FAILED);
+		rc = -1;
 		goto cleanup;
 	}
 
@@ -678,12 +687,13 @@ icsf_call(LDAP *ld, char *handle, size_t handle_len,
 		OCK_LOG_DEBUG("ICSF call failed: %d (%d)\n", return_code,
 			      reason_code);
 		OCK_LOG_ERR(ERR_FUNCTION_FAILED);
-		goto cleanup;
 	}
 
-	rc = 0;
+	rc = return_code;
 
 cleanup:
+	if (reason)
+		*reason = reason_code;
 	if (result)
 		*result = ber_res;
 	else if (ber_res)
@@ -708,7 +718,7 @@ cleanup:
  * Create a new token. All parameters must be null terminated strings.
  */
 int
-icsf_create_token(LDAP *ld, const char *token_name,
+icsf_create_token(LDAP *ld, int *reason, const char *token_name,
 		  const char *manufacturer, const char *model,
 		  const char *serial)
 {
@@ -766,7 +776,7 @@ icsf_create_token(LDAP *ld, const char *token_name,
 		goto cleanup;
 	}
 
-	rc = icsf_call(ld, handle, sizeof(handle),
+	rc = icsf_call(ld, reason, handle, sizeof(handle),
 			rule_array, sizeof(rule_array),
 			ICSF_TAG_CSFPTRC, msg, NULL);
 
@@ -780,7 +790,7 @@ cleanup:
 /*
  * Destroy a token.
  */
-int icsf_destroy_token(LDAP *ld, char *token_name)
+int icsf_destroy_token(LDAP *ld, int *reason, char *token_name)
 {
 	/* Variables used as input */
 	char handle[ICSF_HANDLE_LEN];
@@ -799,7 +809,7 @@ int icsf_destroy_token(LDAP *ld, char *token_name)
 	 * indicates the token or object that must be destroyed and no
 	 * additional data is needed.
 	 */
-	return icsf_call(ld, handle, sizeof(handle), rule_array,
+	return icsf_call(ld, reason, handle, sizeof(handle), rule_array,
 			    sizeof(rule_array), ICSF_TAG_CSFPTRD, NULL, NULL);
 }
 
@@ -883,7 +893,7 @@ parse_token_record(struct icsf_token_record *record, const char *data)
  * `list_count` indicates how many items should be returned.
  */
 static int
-icsf_list(LDAP * ld, char *handle, size_t handle_len,
+icsf_list(LDAP *ld, int *reason, char *handle, size_t handle_len,
 	  const char *rule_array, size_t rule_array_len,
 	  struct berval **bv_list, size_t *list_len, size_t list_count)
 {
@@ -914,8 +924,10 @@ icsf_list(LDAP * ld, char *handle, size_t handle_len,
 		goto cleanup;
 	}
 
-	rc = icsf_call(ld, handle, handle_len, rule_array, rule_array_len,
-			ICSF_TAG_CSFPTRL, msg, &result);
+	rc = icsf_call(ld, reason, handle, handle_len, rule_array,
+		       rule_array_len, ICSF_TAG_CSFPTRL, msg, &result);
+	if (ICSF_RC_IS_ERROR(rc))
+		goto cleanup;
 
 	/* Decode result:
 	 *
@@ -927,13 +939,12 @@ icsf_list(LDAP * ld, char *handle, size_t handle_len,
 	 * 	outListLen	INTEGER (0 .. MaxCSFPInteger)
 	 * }
 	 */
-	rc = ber_scanf(result, "{Oi}", bv_list, &out_list_len);
-	if (rc < 0) {
+	if (ber_scanf(result, "{Oi}", bv_list, &out_list_len) < 0) {
 		OCK_LOG_DEBUG("Failed to decode message.\n");
+		rc = -1;
 		goto cleanup;
 	}
 
-	rc = 0;
 	*list_len = out_list_len;
 
 cleanup:
@@ -956,7 +967,7 @@ cleanup:
  * and it's zero when there's no more records left.
  */
 int
-icsf_list_tokens(LDAP *ld, struct icsf_token_record *previous,
+icsf_list_tokens(LDAP *ld, int *reason, struct icsf_token_record *previous,
 		 struct icsf_token_record *records, size_t *records_len)
 {
 	int rc = -1;
@@ -984,9 +995,9 @@ icsf_list_tokens(LDAP *ld, struct icsf_token_record *previous,
 	strpad(rule_array, "TOKEN", ICSF_RULE_ITEM_LEN, ' ');
 
 	list_len = ICSF_TOKEN_RECORD_LEN * *records_len;
-	rc = icsf_list(ld, handle, sizeof(handle), rule_array,
+	rc = icsf_list(ld, reason, handle, sizeof(handle), rule_array,
 		       sizeof(rule_array), &bv_list, &list_len, *records_len);
-	if (rc)
+	if (ICSF_RC_IS_ERROR(rc))
 		goto cleanup;
 
 	/* Parse result */
@@ -995,8 +1006,6 @@ icsf_list_tokens(LDAP *ld, struct icsf_token_record *previous,
 		size_t offset = i * ICSF_TOKEN_RECORD_LEN;
 		parse_token_record(&records[i], bv_list->bv_val + offset);
 	}
-
-	rc = 0;
 
 cleanup:
 	if (bv_list)
@@ -1111,7 +1120,7 @@ encode_error:
  * And it should be at least 44 bytes long (indicated by `obj_handle_len`).
  */
 int
-icsf_create_object(LDAP *ld, const char *token_name,
+icsf_create_object(LDAP *ld, int *reason, const char *token_name,
 		   CK_ATTRIBUTE *attrs, CK_ULONG attrs_len,
 		   struct icsf_object_record *object)
 {
@@ -1168,7 +1177,7 @@ icsf_create_object(LDAP *ld, const char *token_name,
 		return -1;
 	}
 
-	rc = icsf_call(ld, handle, sizeof(handle),
+	rc = icsf_call(ld, reason, handle, sizeof(handle),
 			rule_array, sizeof(rule_array),
 			ICSF_TAG_CSFPTRC, msg, NULL);
 
@@ -1193,7 +1202,7 @@ cleanup:
  * and it's zero when there's no more records left.
  */
 int
-icsf_list_objects(LDAP *ld, const char *token_name,
+icsf_list_objects(LDAP *ld, int *reason, const char *token_name,
 		  struct icsf_object_record *previous,
 		  struct icsf_object_record *records, size_t *records_len,
 		  int all)
@@ -1230,10 +1239,10 @@ icsf_list_objects(LDAP *ld, const char *token_name,
 	}
 
 	list_len = ICSF_HANDLE_LEN * *records_len;
-	rc = icsf_list(ld, handle, sizeof(handle), rule_array,
+	rc = icsf_list(ld, reason, handle, sizeof(handle), rule_array,
 		       rule_array_count * ICSF_RULE_ITEM_LEN,
 		       &bv_list, &list_len, *records_len);
-	if (rc)
+	if (ICSF_RC_IS_ERROR(rc))
 		goto cleanup;
 
 	/* Parse result */
@@ -1242,8 +1251,6 @@ icsf_list_objects(LDAP *ld, const char *token_name,
 		size_t offset = i * ICSF_HANDLE_LEN;
 		handle_to_object_record(&records[i], bv_list->bv_val + offset);
 	}
-
-	rc = 0;
 
 cleanup:
 	if (bv_list)
@@ -1256,7 +1263,7 @@ cleanup:
  * Destroy an object.
  */
 int
-icsf_destroy_object(LDAP *ld, struct icsf_object_record *obj)
+icsf_destroy_object(LDAP *ld, int *reason, struct icsf_object_record *obj)
 {
 	/* Variables used as input */
 	char handle[ICSF_HANDLE_LEN];
@@ -1275,7 +1282,7 @@ icsf_destroy_object(LDAP *ld, struct icsf_object_record *obj)
 	 * indicates the token or object that must be destroyed and no
 	 * additional data is needed.
 	 */
-	return icsf_call(ld, handle, sizeof(handle), rule_array,
+	return icsf_call(ld, reason, handle, sizeof(handle), rule_array,
 			    sizeof(rule_array), ICSF_TAG_CSFPTRD, NULL, NULL);
 }
 
@@ -1283,7 +1290,7 @@ icsf_destroy_object(LDAP *ld, struct icsf_object_record *obj)
  * Generate a symmetric key.
  */
 int
-icsf_generate_secret_key(LDAP *ld, const char *token_name,
+icsf_generate_secret_key(LDAP *ld, int *reason, const char *token_name,
 			CK_MECHANISM_PTR mech,
 			CK_ATTRIBUTE *attrs, CK_ULONG attrs_len,
 			struct icsf_object_record *object)
@@ -1362,7 +1369,7 @@ icsf_generate_secret_key(LDAP *ld, const char *token_name,
 		goto cleanup;
 	}
 
-	rc = icsf_call(ld, handle, sizeof(handle), rule_array,
+	rc = icsf_call(ld, reason, handle, sizeof(handle), rule_array,
 			sizeof(rule_array), ICSF_TAG_CSFPGSK, msg, NULL);
 	if (!rc)
 		handle_to_object_record(object, handle);

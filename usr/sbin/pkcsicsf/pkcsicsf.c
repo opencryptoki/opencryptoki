@@ -287,8 +287,8 @@ list_tokens(void)
 
 	do {
 		/* get the token list from remote z/OS host */
-		rc = icsf_list_tokens(ld, previous, tokens, &tokenCount);
-		if (rc)
+		rc = icsf_list_tokens(ld, NULL, previous, tokens, &tokenCount);
+		if (ICSF_RC_IS_ERROR(rc))
 			return -1;
 
 		for (i = 0; i < tokenCount; i++) {
@@ -324,8 +324,8 @@ lookup_name(char *name, struct icsf_token_record *found)
 
 	do {
 		/* get the token list from remote z/OS host */
-		rc = icsf_list_tokens(ld, previous, tokens, &tokenCount);
-		if (rc) {
+		rc = icsf_list_tokens(ld, NULL, previous, tokens, &tokenCount);
+		if (ICSF_RC_IS_ERROR(rc)) {
 			fprintf(stderr, "Could not get list of tokens.\n");
 			found = NULL;
 			return -1;
@@ -371,8 +371,8 @@ retrieve_all(void)
 	 * the maxiumum amount of tokens to retrieve...
 	 */
 	tokenCount = NUMBER_SLOTS_MANAGED;
-	rc = icsf_list_tokens(ld, previous, tokens, &tokenCount);
-	if (rc) {
+	rc = icsf_list_tokens(ld, NULL, previous, tokens, &tokenCount);
+	if (ICSF_RC_IS_ERROR(rc)) {
 		fprintf(stderr, "Could not get list of tokens.\n");
 		return -1;
 	}
