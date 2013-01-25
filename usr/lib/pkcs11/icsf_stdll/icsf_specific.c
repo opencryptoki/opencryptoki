@@ -560,14 +560,14 @@ destroy_objects(CK_SLOT_ID slot_id, CK_CHAR_PTR token_name, CK_CHAR_PTR pin,
 	if (login(&ld, slot_id, pin, pin_len, RACFFILE))
 		return CKR_FUNCTION_FAILED;
 
-	OCK_LOG_DEBUG("Destroying objects in slot %lu.\n", sid);
+	OCK_LOG_DEBUG("Destroying objects in slot %lu.\n", slot_id);
 	do {
 		records_len = sizeof(records)/sizeof(records[0]);
 
 		if (icsf_list_objects(ld, token_name, previous, records,
 				      &records_len, 0)) {
 			OCK_LOG_DEBUG("Failed to list objects for slot %lu.\n",
-				      sid);
+				      slot_id);
 			rc = CKR_FUNCTION_FAILED;
 			goto done;
 		}
@@ -578,7 +578,7 @@ destroy_objects(CK_SLOT_ID slot_id, CK_CHAR_PTR token_name, CK_CHAR_PTR pin,
 					      "%s/%lu/%c in slot %lu.\n",
 					      records[i].token_name,
 					      records[i].sequence,
-					      records[i].id, sid);
+					      records[i].id, slot_id);
 				rc = CKR_FUNCTION_FAILED;
 				goto done;
 			}
