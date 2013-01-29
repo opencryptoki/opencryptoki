@@ -1421,6 +1421,379 @@ cleanup:
 	return rc;
 }
 
+/*
+ * Return the rule array element for the encryption/decryption algorithm based
+ * on the given mechanism.
+ */
+static const char *
+get_algorithm_rule(CK_MECHANISM_PTR mech)
+{
+	switch (mech->mechanism) {
+	case CKM_DES_ECB:
+	case CKM_DES_CBC:
+	case CKM_DES_CBC_PAD:
+		return "DES";
+	case CKM_DES3_ECB:
+	case CKM_DES3_CBC:
+	case CKM_DES3_CBC_PAD:
+		return "DES3";
+	case CKM_AES_ECB:
+	case CKM_AES_CBC:
+	case CKM_AES_CBC_PAD:
+	case CKM_AES_CTR:
+		return "AES";
+	}
+	return NULL;
+}
+
+/*
+ * Return the rule array element for the cipher mode based on the given
+ * mechanism.
+ */
+static const char *
+get_cipher_mode(CK_MECHANISM_PTR mech)
+{
+	switch (mech->mechanism) {
+	case CKM_DES_ECB:
+	case CKM_DES3_ECB:
+	case CKM_AES_ECB:
+		return "ECB";
+	case CKM_DES_CBC:
+	case CKM_DES3_CBC:
+	case CKM_AES_CBC:
+		return "CBC";
+	case CKM_DES_CBC_PAD:
+	case CKM_DES3_CBC_PAD:
+	case CKM_AES_CBC_PAD:
+		return "CBC-PAD";
+	}
+	return NULL;
+}
+
+/*
+ * Extract and check the initialization vector contained in the given mechanism.
+ */
+static int
+set_initial_vector(CK_MECHANISM_PTR mech, char *iv, size_t *iv_len)
+{
+	int use_iv = 0;
+	size_t expected_iv_len = 0;
+
+	switch (mech->mechanism) {
+	case CKM_DES_CBC:
+	case CKM_DES_CBC_PAD:
+	case CKM_DES3_CBC:
+	case CKM_DES3_CBC_PAD:
+		use_iv = 1;
+	case CKM_DES_ECB:
+	case CKM_DES3_ECB:
+		expected_iv_len = DES_BLOCK_SIZE;
+		break;
+
+	case CKM_AES_CBC:
+	case CKM_AES_CBC_PAD:
+		use_iv = 1;
+	case CKM_AES_ECB:
+		expected_iv_len = AES_BLOCK_SIZE;
+		break;
+
+	default:
+		OCK_LOG_DEBUG();
+		return CKR_MECHANISM_INVALID;
+	}
+
+	if (*iv_len < expected_iv_len) {
+		OCK_LOG_DEBUG("IV too small.\n");
+		return CKR_FUNCTION_FAILED;
+	}
+
+	/* Set the Initialization vector */
+	if (iv)
+		memset(iv, 0, expected_iv_len);
+	if (use_iv) {
+		/*
+		 * Otherwise use the mechanism parameter as the IV.
+		 */
+		if (mech->ulParameterLen != expected_iv_len) {
+			OCK_LOG_DEBUG("Invalid mechanism parameter length: %lu "
+					"(expected %lu)\n",
+					(unsigned long) mech->ulParameterLen,
+					(unsigned long) expected_iv_len);
+			return CKR_MECHANISM_PARAM_INVALID;
+		}
+		memcpy(iv, mech->pParameter, expected_iv_len);
+	}
+	*iv_len = expected_iv_len;
+
+	return 0;
+}
+
+/*
+ * Symmetric key encrypt.
+ */
+int
+icsf_secret_key_encrypt(LDAP *ld, int *reason, struct icsf_object_record *key,
+			CK_MECHANISM_PTR mech, int chaining,
+			const char *clear_text, size_t clear_text_len,
+			char *cipher_text, size_t *p_cipher_text_len,
+			char *chaining_data, size_t *p_chaining_data_len)
+{
+	int rc = -1;
+	char handle[ICSF_HANDLE_LEN];
+	char rule_array[3 * ICSF_RULE_ITEM_LEN];
+	BerElement *msg = NULL;
+	BerElement *result = NULL;
+	char init_vector[32];
+	size_t init_vector_len = sizeof(init_vector);
+	struct berval bv_cipher_data = { 0UL, NULL };
+	struct berval bv_chaining_data = { 0UL, NULL };
+	const char *rule_alg, *rule_cipher;
+
+	CHECK_ARG_NON_NULL(ld);
+	CHECK_ARG_NON_NULL(key);
+	CHECK_ARG_NON_NULL(mech);
+	CHECK_ARG_NON_NULL(clear_text);
+	CHECK_ARG_NON_NULL(cipher_text);
+	CHECK_ARG_NON_NULL(p_cipher_text_len);
+
+	if (!ICSF_CHAINING_IS_VALID(chaining)) {
+		OCK_LOG_DEBUG("Invalid value for chaining: %d\n", chaining);
+		return -1;
+	}
+
+	object_record_to_handle(handle, key);
+
+	/*
+	 * Add to rule array the algorithm, the cipher mode and the
+	 * chaining mode.
+	 */
+	if (!(rule_alg = get_algorithm_rule(mech))) {
+		OCK_LOG_DEBUG("Invalid algorithm: %lu\n",
+				(unsigned long) mech->mechanism);
+		return CKR_MECHANISM_INVALID;
+	}
+
+	if (!(rule_cipher = get_cipher_mode(mech))) {
+		OCK_LOG_DEBUG("Invalid cipher mode: %lu\n",
+				(unsigned long) mech->mechanism);
+		return CKR_MECHANISM_INVALID;
+	}
+
+	strpad(rule_array + 0 * ICSF_RULE_ITEM_LEN, rule_alg,
+	       ICSF_RULE_ITEM_LEN, ' ');
+	strpad(rule_array + 1 * ICSF_RULE_ITEM_LEN, rule_cipher,
+	       ICSF_RULE_ITEM_LEN, ' ');
+	strpad(rule_array + 2 * ICSF_RULE_ITEM_LEN, ICSF_CHAINING(chaining),
+	       ICSF_RULE_ITEM_LEN, ' ');
+
+	/* Set the IV based on the given mechanism */
+	if ((rc = set_initial_vector(mech, init_vector, &init_vector_len)))
+		return rc;
+
+	/* Build request */
+	if (!(msg = ber_alloc_t(LBER_USE_DER))) {
+		OCK_LOG_ERR(ERR_HOST_MEMORY);
+		return -1;
+	}
+
+	rc = ber_printf(msg, "toooi",
+			0 | LBER_CLASS_CONTEXT, init_vector, init_vector_len,
+			(chaining_data) ? chaining_data : "",
+			(p_chaining_data_len) ? *p_chaining_data_len : 0UL,
+			clear_text, clear_text_len, *p_cipher_text_len);
+	if (rc < 0) {
+		OCK_LOG_DEBUG("Failed to encode message: %d.\n", rc);
+		goto done;
+	}
+
+	/* Call service */
+	rc = icsf_call(ld, reason, handle, sizeof(handle),
+			rule_array, sizeof(rule_array),
+			ICSF_TAG_CSFPSKE, msg, &result);
+	if (ICSF_RC_IS_ERROR(rc))
+		goto done;
+
+	/* Parse response */
+	rc = ber_scanf(result, "{mm", &bv_chaining_data, &bv_cipher_data);
+	if (rc < 0) {
+		OCK_LOG_DEBUG("Failed to decode the response.\n");
+		goto done;
+	}
+
+	/* Copy encrypted data */
+	if (bv_cipher_data.bv_len > *p_cipher_text_len) {
+		OCK_LOG_DEBUG("Cipher data longer than expected: %lu "
+				"(expected %lu)\n",
+				(unsigned long) bv_cipher_data.bv_len,
+				(unsigned long) *p_cipher_text_len);
+		rc = -1;
+		goto done;
+	}
+	*p_cipher_text_len = bv_cipher_data.bv_len;
+	memcpy(cipher_text, bv_cipher_data.bv_val, *p_cipher_text_len);
+
+	/* Copy chaining data */
+	if (p_chaining_data_len) {
+		if (bv_chaining_data.bv_len > *p_chaining_data_len) {
+			OCK_LOG_DEBUG("Chaining data longer than expected: %lu "
+					"(expected %lu)\n",
+					(unsigned long) bv_chaining_data.bv_len,
+					(unsigned long) *p_chaining_data_len);
+			rc = -1;
+			goto done;
+		}
+		*p_chaining_data_len = bv_chaining_data.bv_len;
+		if (chaining_data) {
+			memcpy(chaining_data, bv_chaining_data.bv_val,
+					*p_chaining_data_len);
+		}
+	}
+
+	rc = 0;
+done:
+	if (result)
+		ber_free(result, 1);
+	if (msg)
+		ber_free(msg, 1);
+	return rc;
+}
+
+/*
+ * Symmetric key decrypt.
+ */
+int
+icsf_secret_key_decrypt(LDAP *ld, int *reason, struct icsf_object_record *key,
+			CK_MECHANISM_PTR mech, int chaining,
+			const char *cipher_text, size_t cipher_text_len,
+			char *clear_text, size_t *p_clear_text_len,
+			char *chaining_data, size_t *p_chaining_data_len)
+{
+	int rc = -1;
+	char handle[ICSF_HANDLE_LEN];
+	char rule_array[3 * ICSF_RULE_ITEM_LEN];
+	BerElement *msg = NULL;
+	BerElement *result = NULL;
+	char init_vector[32];
+	size_t init_vector_len = sizeof(init_vector);
+	struct berval bv_clear_data = { 0UL, NULL };
+	struct berval bv_chaining_data = { 0UL, NULL };
+	const char *rule_alg, *rule_cipher;
+
+	CHECK_ARG_NON_NULL(ld);
+	CHECK_ARG_NON_NULL(key);
+	CHECK_ARG_NON_NULL(mech);
+	CHECK_ARG_NON_NULL(cipher_text);
+	CHECK_ARG_NON_NULL(clear_text);
+	CHECK_ARG_NON_NULL(p_clear_text_len);
+
+	if (!ICSF_CHAINING_IS_VALID(chaining)) {
+		OCK_LOG_DEBUG("Invalid value for chaining: %d\n", chaining);
+		return -1;
+	}
+
+	object_record_to_handle(handle, key);
+
+	/*
+	 * Add to rule array the algorithm, the cipher mode and the
+	 * chaining mode.
+	 */
+	if (!(rule_alg = get_algorithm_rule(mech))) {
+		OCK_LOG_DEBUG("Invalid algorithm: %lu\n",
+				(unsigned long) mech->mechanism);
+		return CKR_MECHANISM_INVALID;
+	}
+
+	if (!(rule_cipher = get_cipher_mode(mech))) {
+		OCK_LOG_DEBUG("Invalid cipher mode: %lu\n",
+				(unsigned long) mech->mechanism);
+		return CKR_MECHANISM_INVALID;
+	}
+
+	strpad(rule_array + 0 * ICSF_RULE_ITEM_LEN, rule_alg,
+	       ICSF_RULE_ITEM_LEN, ' ');
+	strpad(rule_array + 1 * ICSF_RULE_ITEM_LEN, rule_cipher,
+	       ICSF_RULE_ITEM_LEN, ' ');
+	strpad(rule_array + 2 * ICSF_RULE_ITEM_LEN, ICSF_CHAINING(chaining),
+	       ICSF_RULE_ITEM_LEN, ' ');
+
+	/* Set the IV based on the given mechanism */
+	if ((rc = set_initial_vector(mech, init_vector, &init_vector_len)))
+		return rc;
+
+	/* Build request */
+	if (!(msg = ber_alloc_t(LBER_USE_DER))) {
+		OCK_LOG_ERR(ERR_HOST_MEMORY);
+		return -1;
+	}
+
+	rc = ber_printf(msg, "totototi",
+			0 | LBER_CLASS_CONTEXT | LBER_PRIMITIVE,
+			init_vector, init_vector_len,
+			2 | LBER_CLASS_CONTEXT | LBER_PRIMITIVE,
+			(chaining_data) ? chaining_data : "",
+			(p_chaining_data_len) ? *p_chaining_data_len : 0UL,
+			3 | LBER_CLASS_CONTEXT | LBER_PRIMITIVE,
+			cipher_text, cipher_text_len,
+			4 | LBER_CLASS_CONTEXT | LBER_PRIMITIVE,
+			*p_clear_text_len);
+	if (rc < 0) {
+		OCK_LOG_DEBUG("Failed to encode message: %d.\n", rc);
+		goto done;
+	}
+
+	/* Call service */
+	rc = icsf_call(ld, reason, handle, sizeof(handle),
+			rule_array, sizeof(rule_array),
+			ICSF_TAG_CSFPSKD, msg, &result);
+	if (ICSF_RC_IS_ERROR(rc))
+		goto done;
+
+	/* Parse response */
+	rc = ber_scanf(result, "{mm", &bv_chaining_data, &bv_clear_data);
+	if (rc < 0) {
+		OCK_LOG_DEBUG("Failed to decode the response.\n");
+		goto done;
+	}
+
+	/* Copy encrypted data */
+	if (bv_clear_data.bv_len > *p_clear_text_len) {
+		OCK_LOG_DEBUG("Clear data longer than expected: %lu "
+				"(expected %lu)\n",
+				(unsigned long) bv_clear_data.bv_len,
+				(unsigned long) *p_clear_text_len);
+		rc = -1;
+		goto done;
+	}
+	*p_clear_text_len = bv_clear_data.bv_len;
+	memcpy(clear_text, bv_clear_data.bv_val, *p_clear_text_len);
+
+	/* Copy chaining data */
+	if (p_chaining_data_len) {
+		if (bv_chaining_data.bv_len > *p_chaining_data_len) {
+			OCK_LOG_DEBUG("Chaining data longer than expected: %lu "
+					"(expected %lu)\n",
+					(unsigned long) bv_chaining_data.bv_len,
+					(unsigned long) *p_chaining_data_len);
+			rc = -1;
+			goto done;
+		}
+		*p_chaining_data_len = bv_chaining_data.bv_len;
+		if (chaining_data) {
+			memcpy(chaining_data, bv_chaining_data.bv_val,
+					*p_chaining_data_len);
+		}
+	}
+
+	rc = 0;
+done:
+	if (result)
+		ber_free(result, 1);
+	if (msg)
+		ber_free(msg, 1);
+
+	return rc;
+}
+
 static int
 icsf_ber_decode_get_attribute_list(BerElement *berbuf, CK_ATTRIBUTE *attrs,
 				   CK_ULONG attrs_len)
@@ -1633,6 +2006,7 @@ icsf_set_attribute(LDAP *ld, int *reason, struct icsf_object_record *object,
 cleanup:
 	if (msg)
 		ber_free(msg, 1);
+
 
 	return rc;
 }

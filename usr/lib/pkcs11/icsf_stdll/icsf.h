@@ -13,6 +13,7 @@
 #define ICSF_H
 
 #include <ldap.h>
+#include <lber.h>
 #include "pkcs11types.h"
 
 /* OIDs used for PKCS extension */
@@ -29,6 +30,8 @@
 #define ICSF_TAG_CSFPGAV 3
 #define ICSF_TAG_CSFPGSK 5
 #define ICSF_TAG_CSFPSAV 11
+#define ICSF_TAG_CSFPSKD 12
+#define ICSF_TAG_CSFPSKE 13
 #define ICSF_TAG_CSFPTRC 14
 #define ICSF_TAG_CSFPTRD 15
 #define ICSF_TAG_CSFPTRL 16
@@ -60,6 +63,27 @@
 #define ICSF_IS_VALID_OBJECT_TYPE(_type) \
 	(_type == ICSF_SESSION_OBJECT || \
 	 _type == ICSF_TOKEN_OBJECT)
+
+/* Chaining types */
+#define ICSF_CHAINING_INITIAL 1
+#define ICSF_CHAINING_CONTINUE 2
+#define ICSF_CHAINING_FINAL 3
+#define ICSF_CHAINING_ONLY 4
+
+#define ICSF_CHAINING_IS_VALID(_type) \
+	(((_type) == ICSF_CHAINING_INITIAL) || \
+	 ((_type) == ICSF_CHAINING_CONTINUE) || \
+	 ((_type) == ICSF_CHAINING_FINAL) || \
+	 ((_type) == ICSF_CHAINING_ONLY))
+
+#define ICSF_CHAINING(_type) \
+	(((_type) == ICSF_CHAINING_INITIAL) ? "INITIAL" : \
+	 ((_type) == ICSF_CHAINING_CONTINUE) ? "CONTINUE" : \
+	 ((_type) == ICSF_CHAINING_FINAL) ? "FINAL" : \
+	 ((_type) == ICSF_CHAINING_ONLY) ? "ONLY" : \
+	 NULL)
+
+#define ICSF_CHAINING_DATA_LEN (128)
 
 /* Macros for testing flags. */
 #define ICSF_IS_TOKEN_READ_ONLY(_flags) \
@@ -136,4 +160,17 @@ int
 icsf_set_attribute(LDAP *ld, int *reason, struct icsf_object_record *object,
                    CK_ATTRIBUTE *attrs, CK_ULONG attrs_len);
 
+int
+icsf_secret_key_encrypt(LDAP *ld, int *reason, struct icsf_object_record *key,
+			CK_MECHANISM_PTR mech, int chaining,
+			const char *clear_text, size_t clear_text_len,
+			char *cipher_text, size_t *p_cipher_text_len,
+			char *chaining_data, size_t *p_chaining_data_len);
+
+int
+icsf_secret_key_decrypt(LDAP *ld, int *reason, struct icsf_object_record *key,
+			CK_MECHANISM_PTR mech, int chaining,
+			const char *cipher_text, size_t cipher_text_len,
+			char *clear_text, size_t *p_clear_text_len,
+			char *chaining_data, size_t *p_chaining_data_len);
 #endif
