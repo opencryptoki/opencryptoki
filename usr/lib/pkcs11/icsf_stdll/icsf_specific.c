@@ -106,37 +106,74 @@ MECH_LIST_ELEMENT mech_list[] = {
 
 CK_ULONG mech_list_len = (sizeof(mech_list) / sizeof(MECH_LIST_ELEMENT));
 
-/* Session state */
+/*
+ * This list contains one element to each session and it's used to keep
+ * session specific data. Any insertion or deletion in this list should
+ * be protected by sess_list_mutex.
+ *
+ * This lock is intended to protect the linked list, not the content of each
+ * element. Since PKCS#11 applications should not use the same session for
+ * different threads, the only concurrency that we have to deal is when adding
+ * or removing a session to or from the list.
+ */
 list_t sessions = LIST_INIT();
+extern pthread_mutex_t sess_list_mutex;
 
+/* Each element of the list sessions should have this type: */
 struct session_state {
 	CK_SESSION_HANDLE session_id;
 	LDAP *ld;
-	struct btree objects;
 
 	/* List element */
 	list_entry_t sessions;
 };
 
 /*
- * This lock is intended to protect the linked list, not the content of each
- * element. Since a PKCS#11 applications should not use the same session for
- * different threads, the only concurrency that we have to deal is when adding
- * or removing a session to or from the list.
+ * This binary tree keeps the mapping between ICSF object handles and PKCS#11
+ * object handles. The tree index is used as the PKCS#11 handle.
+ *
+ * Any insertion or deletion in this tree should be protected by
+ * obj_list_rw_mutex.
  */
-pthread_rwlock_t sessions_rwlock = PTHREAD_RWLOCK_INITIALIZER;
+struct btree objects;
+extern pthread_rwlock_t obj_list_rw_mutex;
 
+/* Each element of the btree objects should have this type: */
+struct icsf_object_mapping {
+	CK_SESSION_HANDLE session_id;
+	struct icsf_object_record icsf_object;
+};
+
+/*
+ * Get the session specific structure.
+ */
 static struct session_state *
 get_session_state(CK_SESSION_HANDLE session_id)
 {
+	struct session_state *found = NULL;
 	struct session_state *s;
 
-	for_each_list_entry(&sessions, struct session_state, s, sessions) {
-		if (s->session_id == session_id)
-			return s;
+	/* Lock sessions list */
+	if (pthread_mutex_lock(&sess_list_mutex)) {
+		OCK_LOG_ERR(ERR_MUTEX_LOCK);
+		return NULL;
 	}
 
-	return NULL;
+	for_each_list_entry(&sessions, struct session_state, s, sessions) {
+		if (s->session_id == session_id) {
+			found = s;
+			goto done;
+		}
+	}
+
+done:
+	/* Unlock */
+	if (pthread_mutex_unlock(&sess_list_mutex)) {
+		OCK_LOG_ERR(ERR_MUTEX_UNLOCK);
+		return NULL;
+	}
+
+	return found;
 }
 
 CK_RV
@@ -784,10 +821,9 @@ token_specific_open_session(SESSION *sess)
 	}
 	session_state->session_id = sess->handle;
 	session_state->ld = NULL;
-	memset(&session_state->objects, 0, sizeof(session_state->objects));
 
 	/* Lock to add a new session in the list */
-	if (pthread_rwlock_wrlock(&sessions_rwlock)) {
+	if (pthread_mutex_lock(&sess_list_mutex)) {
 		OCK_LOG_ERR(ERR_MUTEX_LOCK);
 		return CKR_FUNCTION_FAILED;
 	}
@@ -795,7 +831,7 @@ token_specific_open_session(SESSION *sess)
 	list_insert_head(&sessions, &session_state->sessions);
 
 	/* Unlock */
-	if (pthread_rwlock_unlock(&sessions_rwlock)) {
+	if (pthread_mutex_unlock(&sess_list_mutex)) {
 		OCK_LOG_ERR(ERR_MUTEX_UNLOCK);
 		return CKR_FUNCTION_FAILED;
 	}
@@ -803,32 +839,80 @@ token_specific_open_session(SESSION *sess)
 	return CKR_OK;
 }
 
+/*
+ * Remove all mapped objects.
+ */
 static CK_RV
-close_session(CK_SESSION_HANDLE session)
+purge_object_mapping()
 {
-	struct session_state *session_state;
+	if (pthread_rwlock_wrlock(&obj_list_rw_mutex)) {
+		OCK_LOG_ERR(ERR_MUTEX_LOCK);
+		return CKR_FUNCTION_FAILED;
+	}
+
+	bt_destroy(&objects, free);
+
+	if (pthread_rwlock_unlock(&obj_list_rw_mutex)) {
+		OCK_LOG_ERR(ERR_MUTEX_UNLOCK);
+		return CKR_FUNCTION_FAILED;
+	}
+
+	return CKR_OK;
+}
+
+/*
+ * Close a session.
+ *
+ * Must be called with sess_list_mutex locked.
+ */
+static CK_RV
+close_session(struct session_state *session_state)
+{
+	CK_RV rc = CKR_OK;
 	unsigned long i;
 
-	/* Get the related session_state */
-	if (!(session_state = get_session_state(session))) {
-		OCK_LOG_DEBUG("Session not found for session id %lu.\n",
-				(unsigned long) session);
-		return CKR_SESSION_HANDLE_INVALID;
+	if (pthread_rwlock_wrlock(&obj_list_rw_mutex)) {
+		OCK_LOG_ERR(ERR_MUTEX_LOCK);
+		return CKR_FUNCTION_FAILED;
 	}
 
 	/* Remove each session object */
-	for (i = 1; i <= session_state->objects.size; i++) {
-		struct icsf_object_record *obj;
+	for (i = 1; i <= objects.size; i++) {
+		struct icsf_object_mapping *mapping;
 
 		/* Skip missing ids */
-		if(!(obj = bt_get_node_value(&session_state->objects, i)))
+		if(!(mapping = bt_get_node_value(&objects, i)))
 			continue;
 
-		if (obj->id == ICSF_SESSION_OBJECT) {
-			if (icsf_destroy_object(session_state->ld, NULL, obj))
-				return CKR_FUNCTION_FAILED;
+		/* Skip object from other sessions */
+		if (mapping->session_id != session_state->session_id)
+			continue;
+
+		/* Skip token objects */
+		if (mapping->icsf_object.id != ICSF_SESSION_OBJECT)
+			continue;
+
+		if (icsf_destroy_object(session_state->ld, NULL,
+					&mapping->icsf_object)) {
+			/* Log error */
+			OCK_LOG_DEBUG("Failed to remove icsf object: %s/%lu/%c",
+				      mapping->icsf_object.token_name,
+				      mapping->icsf_object.sequence,
+				      mapping->icsf_object.id);
+			rc = CKR_FUNCTION_FAILED;
+			break;
 		}
+
+		/* Remove object from object list */
+		bt_node_free(&objects, i, &free);
 	}
+
+	if (pthread_rwlock_unlock(&obj_list_rw_mutex)) {
+		OCK_LOG_ERR(ERR_MUTEX_UNLOCK);
+		return CKR_FUNCTION_FAILED;
+	}
+	if (rc)
+		return rc;
 
 	/* Log off from LDAP server */
 	if (icsf_logout(session_state->ld)) {
@@ -837,34 +921,45 @@ close_session(CK_SESSION_HANDLE session)
 	}
 	session_state->ld = NULL;
 
-	/* Free internal structures */
-	bt_destroy(&session_state->objects, free);
-
-	/* Remove session_state from the list and free it */
+	/* Remove session */
 	list_remove(&session_state->sessions);
+	if (list_is_empty(&sessions)) {
+		if (purge_object_mapping()) {
+			OCK_LOG_DEBUG("Failed to purge objects.\n");
+			rc = CKR_FUNCTION_FAILED;
+		}
+	}
 	free(session_state);
 
-	return CKR_OK;
+	return rc;
 }
 
 /*
  * Called during C_CloseSession.
  */
 CK_RV
-token_specific_close_session(SESSION *sess)
+token_specific_close_session(SESSION *session)
 {
 	CK_RV rc;
+	struct session_state *session_state;
 
-	/* Lock to add a new session in the list */
-	if (pthread_rwlock_wrlock(&sessions_rwlock)) {
+	/* Get the related session_state */
+	if (!(session_state = get_session_state(session->handle))) {
+		OCK_LOG_DEBUG("Session not found for session id %lu.\n",
+				(unsigned long) session);
+		return CKR_SESSION_HANDLE_INVALID;
+	}
+
+	/* Remove session_state from the list and free it */
+	if (pthread_mutex_lock(&sess_list_mutex)) {
 		OCK_LOG_ERR(ERR_MUTEX_LOCK);
 		return CKR_FUNCTION_FAILED;
 	}
 
-	rc = close_session(sess->handle);
+	if ((rc = close_session(session_state)))
+		return rc;
 
-	/* Unlock */
-	if (pthread_rwlock_unlock(&sessions_rwlock)) {
+	if (pthread_mutex_unlock(&sess_list_mutex)) {
 		OCK_LOG_ERR(ERR_MUTEX_UNLOCK);
 		return CKR_FUNCTION_FAILED;
 	}
@@ -879,24 +974,23 @@ CK_RV
 token_specific_final(void)
 {
 	CK_RV rc;
-	struct session_state *session;
+	struct session_state *session_state;
 	list_entry_t *e;
 
 	/* Lock to add a new session in the list */
-	if (pthread_rwlock_wrlock(&sessions_rwlock)) {
+	if (pthread_mutex_lock(&sess_list_mutex)) {
 		OCK_LOG_ERR(ERR_MUTEX_LOCK);
 		return CKR_FUNCTION_FAILED;
 	}
 
-	for_each_list_entry_safe(&sessions, struct session_state, session,
+	for_each_list_entry_safe(&sessions, struct session_state, session_state,
 				 sessions, e) {
-		if ((rc = close_session(session->session_id)))
+		if ((rc = close_session(session_state)))
 			break;
-		list_remove(&session->sessions);
 	}
 
 	/* Unlock */
-	if (pthread_rwlock_unlock(&sessions_rwlock)) {
+	if (pthread_mutex_unlock(&sess_list_mutex)) {
 		OCK_LOG_ERR(ERR_MUTEX_UNLOCK);
 		return CKR_FUNCTION_FAILED;
 	}
@@ -1018,14 +1112,6 @@ token_specific_login(SESSION *sess, CK_USER_TYPE userType, CK_CHAR_PTR pPin,
 		}
 	}
 
-	/* Lock sessions list */
-	if (pthread_rwlock_rdlock(&sessions_rwlock)) {
-		OCK_LOG_ERR(ERR_MUTEX_LOCK);
-		rc = CKR_FUNCTION_FAILED;
-		goto done;
-	}
-	sessions_locked = 1;
-
 	/* Save LDAP handle */
 	if (!(session_state = get_session_state(sess->handle))) {
 		OCK_LOG_DEBUG("Session not found for session id %lu.\n",
@@ -1036,8 +1122,6 @@ token_specific_login(SESSION *sess, CK_USER_TYPE userType, CK_CHAR_PTR pPin,
 	session_state->ld = ld;
 
 done:
-	if (sessions_locked && (rc = pthread_rwlock_unlock(&sessions_rwlock)))
-		OCK_LOG_ERR(ERR_MUTEX_UNLOCK);
 	XProcUnLock();
 	return rc;
 }
@@ -1116,56 +1200,60 @@ done:
  * Create a new object.
  */
 CK_RV
-token_specific_create_object(SESSION *sess, CK_ATTRIBUTE_PTR attrs,
+token_specific_create_object(SESSION *session, CK_ATTRIBUTE_PTR attrs,
 			     CK_ULONG attrs_len, CK_OBJECT_HANDLE_PTR handle)
 {
 	CK_RV rc = CKR_OK;
 	struct session_state *session_state;
 	struct session_object *session_object;
-	struct icsf_object_record *object;
+	struct icsf_object_mapping *mapping;
 	CK_ULONG node_number;
 	char token_name[sizeof(nv_token_data->token_info.label)];
+	int is_obj_locked = 0;
 
 	/* Check permissions based on attributes and session */
-	rc = check_session_permissions(sess, attrs, attrs_len);
+	rc = check_session_permissions(session, attrs, attrs_len);
 	if (rc != CKR_OK)
 		return rc;
-
-	/* Allocate structure to keep ICSF object information */
-	if (!(object = malloc(sizeof(*object)))) {
-		OCK_LOG_ERR(ERR_HOST_MEMORY);
-		return CKR_HOST_MEMORY;
-	}
 
 	/* Copy token name from shared memory */
 	XProcLock();
 	memcpy(token_name, nv_token_data->token_info.label, sizeof(token_name));
 	XProcUnLock();
 
-	/* Lock sessions list */
-	if (pthread_rwlock_rdlock(&sessions_rwlock)) {
-		OCK_LOG_ERR(ERR_MUTEX_LOCK);
-		return CKR_FUNCTION_FAILED;
+	/* Allocate structure to keep ICSF object information */
+	if (!(mapping = malloc(sizeof(*mapping)))) {
+		OCK_LOG_ERR(ERR_HOST_MEMORY);
+		return CKR_HOST_MEMORY;
 	}
+	mapping->session_id = session->handle;
 
 	/* Get session state */
-	if (!(session_state = get_session_state(sess->handle))) {
+	if (!(session_state = get_session_state(session->handle))) {
 		OCK_LOG_DEBUG("Session not found for session id %lu.\n",
-				(unsigned long) sess->handle);
+				(unsigned long) session->handle);
 		rc = CKR_FUNCTION_FAILED;
 		goto done;
 	}
 
 	/* Call ICSF service */
 	if (icsf_create_object(session_state->ld, NULL, token_name, attrs,
-			       attrs_len, object)) {
+			       attrs_len, &mapping->icsf_object)) {
 		OCK_LOG_DEBUG("Failed to call ICSF.\n");
 		rc = CKR_FUNCTION_FAILED;
 		goto done;
 	}
 
+	/* Lock the object list */
+	if (pthread_rwlock_wrlock(&obj_list_rw_mutex)) {
+		OCK_LOG_ERR(ERR_MUTEX_UNLOCK);
+		rc = CKR_FUNCTION_FAILED;
+		goto done;
+	}
+	is_obj_locked = 1;
+
 	/* Add info about object into session */
-	if(!(node_number = bt_node_add(&session_state->objects, object))) {
+	if(!(node_number = bt_node_add(&objects, mapping))) {
 		OCK_LOG_DEBUG("Failed to add object to binary tree.\n");
 		rc = CKR_FUNCTION_FAILED;
 		goto done;
@@ -1175,15 +1263,14 @@ token_specific_create_object(SESSION *sess, CK_ATTRIBUTE_PTR attrs,
 	*handle = node_number;
 
 done:
-	/* Unlock */
-	if (pthread_rwlock_unlock(&sessions_rwlock)) {
+	if (is_obj_locked && pthread_rwlock_unlock(&obj_list_rw_mutex)) {
 		OCK_LOG_ERR(ERR_MUTEX_UNLOCK);
 		rc = CKR_FUNCTION_FAILED;
 	}
 
 	/* If allocated, object must be freed in case of failure */
-	if (rc && !object)
-		free(object);
+	if (rc && !mapping)
+		free(mapping);
 
 	return rc;
 }
@@ -1192,57 +1279,62 @@ done:
  * Generate a symmetric key.
  */
 CK_RV
-token_specific_generate_key(SESSION *sess, CK_MECHANISM_PTR mech,
+token_specific_generate_key(SESSION *session, CK_MECHANISM_PTR mech,
 			    CK_ATTRIBUTE_PTR attrs, CK_ULONG attrs_len,
 			    CK_OBJECT_HANDLE_PTR handle)
 {
 	CK_RV rc = CKR_OK;
 	struct session_state *session_state;
 	struct session_object *session_object;
-	struct icsf_object_record *object;
+	struct icsf_object_mapping *mapping;
 	CK_ULONG node_number;
 	char token_name[sizeof(nv_token_data->token_info.label)];
+	int is_obj_locked = 0;
 
 	/* Check permissions based on attributes and session */
-	rc = check_session_permissions(sess, attrs, attrs_len);
+	rc = check_session_permissions(session, attrs, attrs_len);
 	if (rc != CKR_OK)
 		return rc;
-
-	/* Allocate structure to keep ICSF object information */
-	if (!(object = malloc(sizeof(*object)))) {
-		OCK_LOG_ERR(ERR_HOST_MEMORY);
-		return CKR_HOST_MEMORY;
-	}
 
 	/* Copy token name from shared memory */
 	XProcLock();
 	memcpy(token_name, nv_token_data->token_info.label, sizeof(token_name));
 	XProcUnLock();
 
-	/* Lock sessions list */
-	if (pthread_rwlock_rdlock(&sessions_rwlock)) {
-		OCK_LOG_ERR(ERR_MUTEX_LOCK);
-		return CKR_FUNCTION_FAILED;
+	/* Allocate structure to keep ICSF object information */
+	if (!(mapping = malloc(sizeof(*mapping)))) {
+		OCK_LOG_ERR(ERR_HOST_MEMORY);
+		return CKR_HOST_MEMORY;
 	}
+	mapping->session_id = session->handle;
 
 	/* Get session state */
-	if (!(session_state = get_session_state(sess->handle))) {
+	if (!(session_state = get_session_state(session->handle))) {
 		OCK_LOG_DEBUG("Session not found for session id %lu.\n",
-				(unsigned long) sess->handle);
+				(unsigned long) session->handle);
 		rc = CKR_FUNCTION_FAILED;
 		goto done;
 	}
 
 	/* Call ICSF service */
 	if (icsf_generate_secret_key(session_state->ld, NULL, token_name,
-				     mech, attrs, attrs_len, object)) {
+				     mech, attrs, attrs_len,
+				     &mapping->icsf_object)) {
 		OCK_LOG_DEBUG("Failed to call ICSF.\n");
 		rc = CKR_FUNCTION_FAILED;
 		goto done;
 	}
 
+	/* Lock the object list */
+	if (pthread_rwlock_wrlock(&obj_list_rw_mutex)) {
+		OCK_LOG_ERR(ERR_MUTEX_UNLOCK);
+		rc = CKR_FUNCTION_FAILED;
+		goto done;
+	}
+	is_obj_locked = 1;
+
 	/* Add info about object into session */
-	if(!(node_number = bt_node_add(&session_state->objects, object))) {
+	if(!(node_number = bt_node_add(&objects, mapping))) {
 		OCK_LOG_DEBUG("Failed to add object to binary tree.\n");
 		rc = CKR_FUNCTION_FAILED;
 		goto done;
@@ -1252,15 +1344,14 @@ token_specific_generate_key(SESSION *sess, CK_MECHANISM_PTR mech,
 	*handle = node_number;
 
 done:
-	/* Unlock */
-	if (pthread_rwlock_unlock(&sessions_rwlock)) {
+	if (is_obj_locked && pthread_rwlock_unlock(&obj_list_rw_mutex)) {
 		OCK_LOG_ERR(ERR_MUTEX_UNLOCK);
 		rc = CKR_FUNCTION_FAILED;
 	}
 
 	/* If allocated, object must be freed in case of failure */
-	if (rc && !object)
-		free(object);
+	if (rc && !mapping)
+		free(mapping);
 
 	return rc;
 }
