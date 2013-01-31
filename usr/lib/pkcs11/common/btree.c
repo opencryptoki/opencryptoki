@@ -306,7 +306,13 @@ bt_destroy(struct btree *t, void (*func)(void *))
 			i >>= 1;
 		}
 
-		if (func)
+		/*
+		 * The value pointed by value in a node marked as freed points
+		 * to the next node element in free_list and it shouldn't be
+		 * freed here because the loop will iterate through each node,
+		 * freed or not.
+		 */
+		if (func && !(temp->flags & BT_FLAG_FREE))
 			(*func)(temp->value);
 
 		free(temp);
