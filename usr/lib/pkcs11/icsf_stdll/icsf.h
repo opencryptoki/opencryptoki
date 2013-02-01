@@ -28,6 +28,7 @@
  */
 #define ICSF_TAG_CSFPGAV 3
 #define ICSF_TAG_CSFPGSK 5
+#define ICSF_TAG_CSFPSAV 11
 #define ICSF_TAG_CSFPTRC 14
 #define ICSF_TAG_CSFPTRD 15
 #define ICSF_TAG_CSFPTRL 16
@@ -126,6 +127,10 @@ icsf_generate_secret_key(LDAP *ld, int *reason, const char *token_name,
 
 int
 icsf_get_attribute(LDAP *ld, int *reason, struct icsf_object_record *object,
+                   CK_ATTRIBUTE *attrs, CK_ULONG attrs_len);
+
+int
+icsf_set_attribute(LDAP *ld, int *reason, struct icsf_object_record *object,
                    CK_ATTRIBUTE *attrs, CK_ULONG attrs_len);
 
 #endif

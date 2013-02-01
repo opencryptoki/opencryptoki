@@ -1555,3 +1555,51 @@ cleanup:
 
 	return rc;
 }
+
+int
+icsf_set_attribute(LDAP *ld, int *reason, struct icsf_object_record *object,
+		   CK_ATTRIBUTE *attrs, CK_ULONG attrs_len)
+{
+	int rc = -1;
+	char handle[ICSF_HANDLE_LEN];
+	BerElement *msg = NULL;
+
+	CHECK_ARG_NON_NULL(ld);
+	CHECK_ARG_NON_NULL(attrs);
+
+	object_record_to_handle(handle, object);
+
+	if (!(msg = ber_alloc_t(LBER_USE_DER))) {
+		return rc;
+	}
+
+	/* Encode message:
+	 *
+	 * SAVInput ::=  Attributes
+	 *
+	 * attrList is built by icsf_ber_put_attribute_list()
+	 */
+	if (icsf_ber_put_attribute_list(msg, attrs, attrs_len) < 0) {
+		OCK_LOG_DEBUG("Failed to encode message.\n");
+		goto cleanup;
+	}
+
+	rc = icsf_call(ld, reason, handle, sizeof(handle), "", 0,
+			ICSF_TAG_CSFPSAV, msg, NULL);
+	if (rc < 0) {
+		OCK_LOG_DEBUG("icsf_call failed.\n");
+		goto cleanup;
+	}
+
+	/* Decode message:
+	 *
+	 * SAVOutput ::=  NULL
+	 *
+	 */
+
+cleanup:
+	if (msg)
+		ber_free(msg, 1);
+
+	return rc;
+}
