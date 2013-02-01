@@ -2021,9 +2021,17 @@ CK_RV  SC_SetAttributeValue( ST_SESSION_HANDLE   *sSession,
 		goto done;
 	}
 
-	rc = object_mgr_set_attribute_values( sess, hObject, pTemplate, ulCount);
-	if (rc != CKR_OK)
-		OCK_LOG_ERR(ERR_OBJ_RESTORE_DATA);
+	if (token_specific.t_set_attribute_value) {
+		rc = token_specific.t_set_attribute_value(sess, hObject,
+							  pTemplate, ulCount);
+		if (rc != CKR_OK)
+			OCK_LOG_ERR(ERR_OBJ_SETATTR_VALUES);
+        } else {
+		rc = object_mgr_set_attribute_values(sess, hObject,
+						     pTemplate, ulCount);
+		if (rc != CKR_OK)
+			OCK_LOG_ERR(ERR_OBJ_RESTORE_DATA);
+	}
 
  done:
 	LLOCK;

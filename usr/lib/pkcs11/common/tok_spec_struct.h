@@ -375,6 +375,9 @@ struct token_specific_struct {
 	CK_RV(*t_get_attribute_value) (SESSION *, CK_OBJECT_HANDLE,
 					CK_ATTRIBUTE_PTR, CK_ULONG);
 
+	CK_RV(*t_set_attribute_value) (SESSION *, CK_OBJECT_HANDLE,
+					CK_ATTRIBUTE_PTR, CK_ULONG);
+
 	CK_RV(*t_des_key_gen) (CK_BYTE *, CK_ULONG, CK_ULONG);
 	CK_RV(*t_des_ecb) (CK_BYTE *, CK_ULONG,
 			   CK_BYTE *, CK_ULONG *, OBJECT *, CK_BYTE);

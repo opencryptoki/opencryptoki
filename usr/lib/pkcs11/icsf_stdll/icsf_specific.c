@@ -1365,7 +1365,6 @@ token_specific_get_attribute_value(SESSION *sess, CK_OBJECT_HANDLE handle,
 	CK_BBOOL priv_obj;
 	struct session_state *session_state;
 	struct icsf_object_mapping *mapping = NULL;
-	int is_obj_locked = 0;
 	int reason;
 
 	CK_ATTRIBUTE priv_attr[] = {
@@ -1377,19 +1376,16 @@ token_specific_get_attribute_value(SESSION *sess, CK_OBJECT_HANDLE handle,
 	if (!(session_state = get_session_state(sess->handle))) {
 		OCK_LOG_DEBUG("Session not found for session id %lu.\n",
 				(unsigned long) handle);
-		rc = CKR_FUNCTION_FAILED;
-		goto done;
+		return CKR_FUNCTION_FAILED;
 	}
 
 	/* get the object handle */
 	/* get a read lock */
 	if (pthread_rwlock_rdlock(&obj_list_rw_mutex)) {
 		OCK_LOG_ERR(ERR_MUTEX_UNLOCK);
-		rc = CKR_FUNCTION_FAILED;
-		goto done;
+		return CKR_FUNCTION_FAILED;
 	}
 
-	is_obj_locked = 1;
 	mapping = bt_get_node_value(&objects, handle);
 
 	if (!mapping) {
@@ -1422,7 +1418,83 @@ token_specific_get_attribute_value(SESSION *sess, CK_OBJECT_HANDLE handle,
 		OCK_LOG_ERR(ERR_OBJ_GETATTR_VALUES);
 
 done:
-	if (is_obj_locked && pthread_rwlock_unlock(&obj_list_rw_mutex)) {
+	if (pthread_rwlock_unlock(&obj_list_rw_mutex)) {
+		OCK_LOG_ERR(ERR_MUTEX_UNLOCK);
+		rc = CKR_FUNCTION_FAILED;
+	}
+
+	return rc;
+}
+
+/*
+ * Set attribute values for a list of attributes.
+ */
+CK_RV
+token_specific_set_attribute_value(SESSION *sess, CK_OBJECT_HANDLE handle,
+				   CK_ATTRIBUTE *pTemplate, CK_ULONG ulCount)
+{
+
+	struct session_state *session_state;
+	struct icsf_object_mapping *mapping = NULL;
+	CK_BBOOL is_priv;
+	CK_BBOOL is_token;
+	CK_RV rc = CKR_OK;
+	int reason;
+
+	CK_ATTRIBUTE priv_attrs[] = {
+		{CKA_PRIVATE,   &is_priv,  sizeof(is_priv)},
+		{CKA_TOKEN,	&is_token,  sizeof(is_token)},
+	};
+
+        /* Get session state */
+        if (!(session_state = get_session_state(sess->handle))) {
+                OCK_LOG_DEBUG("Session not found for session id %lu.\n",
+                                (unsigned long) handle);
+                return CKR_FUNCTION_FAILED;
+        }
+
+	/* get the object handle */
+	/* get a read lock */
+	if (pthread_rwlock_rdlock(&obj_list_rw_mutex)) {
+		OCK_LOG_ERR(ERR_MUTEX_UNLOCK);
+		return CKR_FUNCTION_FAILED;
+	}
+	mapping = bt_get_node_value(&objects, handle);
+
+	if (!mapping) {
+		OCK_LOG_ERR(ERR_OBJECT_HANDLE_INVALID);
+		rc = CKR_OBJECT_HANDLE_INVALID;
+		goto done;
+	}
+
+	/* check permissions :
+	 * first get CKA_PRIVATE since we need to check againse session
+	 * icsf will check if the attributes are modifiable
+	 */
+	rc = icsf_get_attribute(session_state->ld, &reason,
+				&mapping->icsf_object, priv_attrs, 2);
+	if (rc != CKR_OK) {
+		OCK_LOG_ERR(ERR_FUNCTION_FAILED);
+		goto done;
+	}
+
+	/* Check permissions based on attributes and session */
+	rc = check_session_permissions(sess, priv_attrs, 2);
+	if (rc != CKR_OK) {
+		OCK_LOG_ERR(ERR_FUNCTION_FAILED);
+		goto done;
+	}
+
+	/* Now call into icsf to set the attribute values */
+	if (icsf_set_attribute(session_state->ld, &reason,
+				&mapping->icsf_object, pTemplate, ulCount)) {
+		OCK_LOG_ERR(ERR_OBJ_SETATTR_VALUES);
+		rc = CKR_FUNCTION_FAILED;
+	}
+
+done:
+	/* Unlock */
+	if (pthread_rwlock_unlock(&obj_list_rw_mutex)) {
 		OCK_LOG_ERR(ERR_MUTEX_UNLOCK);
 		rc = CKR_FUNCTION_FAILED;
 	}
