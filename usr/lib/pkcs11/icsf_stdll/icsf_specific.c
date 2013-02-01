@@ -1205,7 +1205,6 @@ token_specific_create_object(SESSION *session, CK_ATTRIBUTE_PTR attrs,
 {
 	CK_RV rc = CKR_OK;
 	struct session_state *session_state;
-	struct session_object *session_object;
 	struct icsf_object_mapping *mapping;
 	CK_ULONG node_number;
 	char token_name[sizeof(nv_token_data->token_info.label)];
@@ -1285,7 +1284,6 @@ token_specific_generate_key(SESSION *session, CK_MECHANISM_PTR mech,
 {
 	CK_RV rc = CKR_OK;
 	struct session_state *session_state;
-	struct session_object *session_object;
 	struct icsf_object_mapping *mapping;
 	CK_ULONG node_number;
 	char token_name[sizeof(nv_token_data->token_info.label)];
