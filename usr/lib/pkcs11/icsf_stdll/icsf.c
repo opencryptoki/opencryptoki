@@ -1489,7 +1489,6 @@ icsf_get_attribute(LDAP *ld, int *reason, struct icsf_object_record *object,
 	BerElement *msg = NULL;
 	BerElement *result = NULL;
 	int rc = 0;
-	char rule_array[1 * ICSF_RULE_ITEM_LEN];
 	int i;
 
 	CHECK_ARG_NON_NULL(ld);
@@ -1515,9 +1514,7 @@ icsf_get_attribute(LDAP *ld, int *reason, struct icsf_object_record *object,
 	if (rc < 0)
 		goto cleanup;
 
-	strpad(rule_array, "", ICSF_RULE_ITEM_LEN, ' ');
-
-	rc = icsf_call(ld, reason, handle, sizeof(handle), rule_array, 0,
+	rc = icsf_call(ld, reason, handle, sizeof(handle), "", 0,
 			ICSF_TAG_CSFPGAV, msg, &result);
 	if (rc != 0) {
 		OCK_LOG_DEBUG("icsf_call failed.\n");
