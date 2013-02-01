@@ -75,12 +75,12 @@ encrypt_aes(CK_BYTE *inbuf, int inbuflen, CK_BYTE *dkey,
 
 	EVP_CIPHER_CTX_init(&ctx);
 
-	EVP_EncryptInit(&ctx, cipher, dkey, iv);
+	EVP_EncryptInit_ex(&ctx, cipher, NULL, dkey, iv);
 	if (!EVP_EncryptUpdate(&ctx, outbuf, outbuflen, inbuf, inbuflen)) {
 		OCK_LOG_DEBUG("EVP_EncryptUpdate failed.\n");
 		return CKR_FUNCTION_FAILED;
 	}
-	if (!EVP_EncryptFinal(&ctx, outbuf+(*outbuflen), &tmplen)) {
+	if (!EVP_EncryptFinal_ex(&ctx, outbuf+(*outbuflen), &tmplen)) {
 		OCK_LOG_DEBUG("EVP_EncryptFinal failed.\n");
 		return CKR_FUNCTION_FAILED;
 	}
@@ -101,12 +101,12 @@ decrypt_aes(CK_BYTE *inbuf, int inbuflen, CK_BYTE *dkey,
 
         EVP_CIPHER_CTX_init(&ctx);
 
-        EVP_DecryptInit(&ctx, cipher, dkey, iv);
+        EVP_DecryptInit_ex(&ctx, cipher, NULL, dkey, iv);
         if (!EVP_DecryptUpdate(&ctx, outbuf, outbuflen, inbuf, inbuflen)) {
                 OCK_LOG_DEBUG("EVP_DecryptUpdate failed.\n");
                 return CKR_FUNCTION_FAILED;
         }
-        if (!EVP_DecryptFinal(&ctx, outbuf+(*outbuflen), &size)) {
+        if (!EVP_DecryptFinal_ex(&ctx, outbuf+(*outbuflen), &size)) {
                 OCK_LOG_DEBUG("EVP_DecryptFinal failed.\n");
                 return CKR_FUNCTION_FAILED;
         }
@@ -117,6 +117,8 @@ decrypt_aes(CK_BYTE *inbuf, int inbuflen, CK_BYTE *dkey,
 	/* EVP_DecryptFinal removes any padding. The final length 
 	 * is the length of the decrypted data without padding.
 	 */     
+
+	EVP_CIPHER_CTX_cleanup(&ctx);
 
 	return CKR_OK;
 }
