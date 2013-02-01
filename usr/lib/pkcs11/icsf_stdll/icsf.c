@@ -1056,9 +1056,6 @@ icsf_ber_put_attribute_list(BerElement *ber, CK_ATTRIBUTE * attrs,
 {
 	size_t i;
 
-	if (ber_printf(ber, "{") < 0)
-		goto encode_error;
-
 	for (i = 0; i < attrs_len; i++) {
 		if (!is_numeric_attr(attrs[i].type)) {
 			/* Non numeric attributes are encode as octet strings */
@@ -1097,9 +1094,6 @@ icsf_ber_put_attribute_list(BerElement *ber, CK_ATTRIBUTE * attrs,
 			}
 		}
 	}
-
-	if (ber_printf(ber, "}") < 0)
-		goto encode_error;
 
 	return 0;
 
@@ -1164,17 +1158,22 @@ icsf_create_object(LDAP *ld, int *reason, const char *token_name,
 	 * }
 	 *
 	 */
-	rc = ber_printf(msg, "t", 1 | LBER_CLASS_CONTEXT | LBER_CONSTRUCTED);
-	if (rc < 0) {
+	if (ber_printf(msg, "t{", 1 | LBER_CLASS_CONTEXT | LBER_CONSTRUCTED) < 0) {
 		OCK_LOG_DEBUG("Failed to encode message.\n");
 		OCK_LOG_ERR(ERR_FUNCTION_FAILED);
 		goto cleanup;
 	}
 
-	if (icsf_ber_put_attribute_list(msg, attrs, attrs_len)) {
+	if (icsf_ber_put_attribute_list(msg, attrs, attrs_len) < 0) {
 		OCK_LOG_DEBUG("Failed to flat attribute list\n");
 		OCK_LOG_ERR(ERR_FUNCTION_FAILED);
-		return -1;
+		goto cleanup;
+	}
+
+	if (ber_printf(msg, "}") < 0) {
+		OCK_LOG_DEBUG("Failed to encode message.\n");
+		OCK_LOG_ERR(ERR_FUNCTION_FAILED);
+		goto cleanup;
 	}
 
 	rc = icsf_call(ld, reason, handle, sizeof(handle),
@@ -1363,8 +1362,13 @@ icsf_generate_secret_key(LDAP *ld, int *reason, const char *token_name,
 	 *
 	 * attrList is built by icsf_ber_put_attribute_list()
 	 */
+	if (ber_printf(msg, "{") < 0) {
+		OCK_LOG_DEBUG("Failed to encode message.\n");
+		goto cleanup;
+	}
+
 	if (icsf_ber_put_attribute_list(msg, attrs, attrs_len) < 0 ||
-	    ber_printf(msg, "o", param, param_len) < 0) {
+	    ber_printf(msg, "}o", param, param_len) < 0) {
 		OCK_LOG_DEBUG("Failed to encode message.\n");
 		goto cleanup;
 	}
