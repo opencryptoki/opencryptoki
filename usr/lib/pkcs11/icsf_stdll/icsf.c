@@ -1380,3 +1380,174 @@ cleanup:
 
 	return rc;
 }
+
+static int
+icsf_ber_decode_get_attribute_list(BerElement *berbuf, CK_ATTRIBUTE *attrs,
+				   CK_ULONG attrs_len)
+{
+	int attrtype;
+	struct berval attrbval = {0, NULL};
+	int intval;
+	int i, found = 0;
+	ber_tag_t tag;
+	CK_RV rc = CKR_OK;
+
+	if (ber_scanf(berbuf, "{{") == LBER_ERROR)
+		goto decode_error;
+
+	while (1) {
+
+		/* get tag preceding sequence */
+		if (ber_scanf(berbuf, "t", &tag) == LBER_ERROR)
+			goto decode_error;
+
+		/* is it a sequence (thus attribute) */
+		if (tag != (LBER_CLASS_UNIVERSAL | LBER_CONSTRUCTED
+			    | LBER_SEQUENCE))
+			break;
+
+		/* sequence, so get attribute info */
+		if (ber_scanf(berbuf, "{it", &attrtype, &tag) == LBER_ERROR)
+			goto decode_error;
+		if ((tag & LBER_BIG_TAG_MASK) == 0) {
+			if (ber_scanf(berbuf, "o}", &attrbval) == LBER_ERROR)
+				goto decode_error;
+		} else {
+			if (ber_scanf(berbuf, "i}", &intval) == LBER_ERROR)
+				goto decode_error;
+			attrbval.bv_len = sizeof(intval);
+		}
+
+		/* see if this type matches any that we need to
+		 * get value for. if so, then get the value, otherwise
+		 * continue until we have found all of them or there
+		 * are no  more attributes to search
+		 */
+		for (i = 0; i < attrs_len; i++) {
+			if (attrs[i].type != attrtype)
+				continue;
+
+			/* we have decoded attribute, now add the values */
+			if (attrs[i].pValue == NULL) {
+				attrs[i].ulValueLen = attrbval.bv_len;
+			} else if (attrs[i].ulValueLen >= attrbval.bv_len) {
+				if ((tag & LBER_BIG_TAG_MASK) == 0)
+					memcpy(attrs[i].pValue, attrbval.bv_val,
+						attrbval.bv_len);
+				else
+					memcpy(attrs[i].pValue, &intval,
+						attrbval.bv_len);
+				attrs[i].ulValueLen = attrbval.bv_len;
+			} else {
+				/* OCK_LOG_ERR(ERR_BUFFER_TOO_SMALL); */
+				rc = CKR_BUFFER_TOO_SMALL;
+				attrs[i].ulValueLen = -1;
+				goto decode_error;
+			}
+
+			/* keep count of how many are found. */
+			found++;
+		}
+
+		/* if we have found all the values for our list, then
+		 * we are done.
+		 */
+		if (found == attrs_len)
+			break;
+	}
+
+	/* if we have gone through the entire loop and could not find
+	 * all of the attributes in our list, mark this as an error.
+	 */
+	if (found < attrs_len) {
+		OCK_LOG_ERR(ERR_ATTRIBUTE_TYPE_INVALID);
+		rc = CKR_ATTRIBUTE_TYPE_INVALID;
+		goto decode_error;
+	}
+
+	return rc;
+
+decode_error:
+	OCK_LOG_DEBUG("Failed to decode message.\n");
+
+	if (!rc)
+		rc = CKR_FUNCTION_FAILED;
+
+	return rc;
+}
+
+int
+icsf_get_attribute(LDAP *ld, int *reason, struct icsf_object_record *object,
+		   CK_ATTRIBUTE *attrs, CK_ULONG attrs_len)
+{
+
+	char handle[ICSF_HANDLE_LEN];
+	BerElement *msg = NULL;
+	BerElement *result = NULL;
+	int rc = 0;
+	char rule_array[1 * ICSF_RULE_ITEM_LEN];
+	int i;
+
+	CHECK_ARG_NON_NULL(ld);
+	CHECK_ARG_NON_NULL(attrs);
+	CHECK_ARG_NON_NULL(object);
+
+	object_record_to_handle(handle, object);
+
+	if (!(msg = ber_alloc_t(LBER_USE_DER))) {
+		OCK_LOG_ERR(ERR_HOST_MEMORY);
+		return CKR_HOST_MEMORY;
+	}
+
+	/* Encode message:
+	 *
+	 * GAVInput ::= attrListLen
+	 *
+	 * attrListLen ::= INTEGER (0 .. MaxCSFPInteger)
+	 *
+	 */
+
+	rc = ber_printf(msg, "i", attrs_len);
+	if (rc < 0)
+		goto cleanup;
+
+	strpad(rule_array, "", ICSF_RULE_ITEM_LEN, ' ');
+
+	rc = icsf_call(ld, reason, handle, sizeof(handle), rule_array, 0,
+			ICSF_TAG_CSFPGAV, msg, &result);
+	if (rc != 0) {
+		OCK_LOG_DEBUG("icsf_call failed.\n");
+		goto cleanup;
+	}
+
+	/* Before decoding the result, initialize the attribute values length.
+	 * This will help to indicate which attributes were not found
+	 * or not enough storage was allocated for the value.
+	 */
+	for (i = 0; i < attrs_len; i++)
+		attrs[i].ulValueLen = (CK_ULONG)-1;
+
+	/* Decode the result:
+	 *
+	 * GAVOutput ::= SEQUENCE {
+	 *    attrList		Attributes,
+	 *    attrListLen	INTEGER (0 .. MaxCSFPInteger)
+	 * }
+	 *
+	 * asn.1 {{{ito|i} {ito|i} ...}i}
+	 */
+	rc = icsf_ber_decode_get_attribute_list(result, attrs, attrs_len);
+	if (rc < 0) {
+		OCK_LOG_DEBUG("Failed to decode message.\n");
+		goto cleanup;
+	}
+
+cleanup:
+	if (msg)
+		ber_free(msg, 1);
+
+	if (result)
+		ber_free(result, 1);
+
+	return rc;
+}

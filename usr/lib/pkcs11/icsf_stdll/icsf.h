@@ -26,6 +26,7 @@
  * a service-specific field. The tag number of this field identifies the
  * service that is called.
  */
+#define ICSF_TAG_CSFPGAV 3
 #define ICSF_TAG_CSFPGSK 5
 #define ICSF_TAG_CSFPTRC 14
 #define ICSF_TAG_CSFPTRD 15
@@ -122,4 +123,9 @@ icsf_generate_secret_key(LDAP *ld, int *reason, const char *token_name,
 			CK_MECHANISM_PTR mech,
 			CK_ATTRIBUTE *attrs, CK_ULONG attrs_len,
 			struct icsf_object_record *object);
+
+int
+icsf_get_attribute(LDAP *ld, int *reason, struct icsf_object_record *object,
+                   CK_ATTRIBUTE *attrs, CK_ULONG attrs_len);
+
 #endif
