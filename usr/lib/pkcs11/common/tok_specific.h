@@ -332,6 +332,9 @@ CK_RV token_specific_logout();
 CK_RV token_specific_init_pin(SESSION *, CK_CHAR_PTR, CK_ULONG);
 CK_RV token_specific_set_pin(SESSION *, CK_CHAR_PTR, CK_ULONG, CK_CHAR_PTR, CK_ULONG);
 
+CK_RV token_specific_get_attribute_value(SESSION *, CK_OBJECT_HANDLE,
+                                         CK_ATTRIBUTE_PTR, CK_ULONG);
+
 CK_RV token_specific_des_key_gen(CK_BYTE  *,CK_ULONG, CK_ULONG) ;
 
 CK_RV token_specific_des_ecb(CK_BYTE *,

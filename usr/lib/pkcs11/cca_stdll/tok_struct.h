@@ -54,6 +54,7 @@ token_spec_t token_specific = {
 	NULL,			// set_pin
 	NULL,			// create_object
 	NULL,			// generate_key
+	NULL,			// get_attribute_value
 	// DES
 	&token_specific_des_key_gen,
 	&token_specific_des_ecb,

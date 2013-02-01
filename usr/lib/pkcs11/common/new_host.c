@@ -1962,7 +1962,12 @@ CK_RV SC_GetAttributeValue( ST_SESSION_HANDLE  *sSession,
 		goto done;
 	}
 
-	rc = object_mgr_get_attribute_values( sess, hObject, pTemplate, ulCount );
+	if (token_specific.t_get_attribute_value) {
+		rc = token_specific.t_get_attribute_value(sess, hObject, pTemplate, ulCount);
+	} else {
+		rc = object_mgr_get_attribute_values( sess, hObject, pTemplate, ulCount );
+	}
+
 	if (rc != CKR_OK){
 		OCK_LOG_ERR(ERR_OBJ_GETATTR_VALUES);
 	}
