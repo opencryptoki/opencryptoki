@@ -389,6 +389,33 @@ token_specific_rsa_encrypt( CK_BYTE   * ,
 CK_RV
 token_specific_rsa_generate_keypair( TEMPLATE  * ,
                             TEMPLATE  * );
+CK_RV
+token_specific_encrypt_init(SESSION *, CK_MECHANISM_PTR, CK_OBJECT_HANDLE);
+
+CK_RV
+token_specific_encrypt(SESSION *, CK_BYTE_PTR, CK_ULONG,
+		      CK_BYTE_PTR, CK_ULONG_PTR);
+
+CK_RV
+token_specific_encrypt_update(SESSION *, CK_BYTE_PTR, CK_ULONG,
+			     CK_BYTE_PTR, CK_ULONG_PTR);
+
+CK_RV
+token_specific_encrypt_final(SESSION *, CK_BYTE_PTR, CK_ULONG_PTR);
+
+CK_RV
+token_specific_decrypt_init(SESSION *, CK_MECHANISM_PTR, CK_OBJECT_HANDLE);
+
+CK_RV
+token_specific_decrypt(SESSION *, CK_BYTE_PTR, CK_ULONG,
+		      CK_BYTE_PTR, CK_ULONG_PTR);
+
+CK_RV
+token_specific_decrypt_update(SESSION *, CK_BYTE_PTR, CK_ULONG,
+			     CK_BYTE_PTR, CK_ULONG_PTR);
+
+CK_RV
+token_specific_decrypt_final(SESSION *, CK_BYTE_PTR, CK_ULONG_PTR);
 
 CK_RV
 token_specific_rsa_sign(CK_BYTE *, CK_ULONG, CK_BYTE *, CK_ULONG *,

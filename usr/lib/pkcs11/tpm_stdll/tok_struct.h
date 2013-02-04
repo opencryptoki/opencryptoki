@@ -60,10 +60,18 @@ struct token_specific_struct token_specific = {
 	&token_specific_init_pin,
 	&token_specific_set_pin,
 	NULL,			// create_object
-	NULL,			// generate_key
 	NULL,			// get_attribute_value
 	NULL,			// set_attribute_value
 	NULL,			// find_objects_init 
+	NULL,			// generate_key
+	NULL,			// encrypt_init
+	NULL,			// encrypt
+	NULL,			// encrypt_update
+	NULL,			// encrypt_final
+	NULL,			// decrypt_init
+	NULL,			// decrypt
+	NULL,			// decrypt_update
+	NULL,			// decrypt_final
 	// DES
 	&token_specific_des_key_gen,
 	&token_specific_des_ecb,

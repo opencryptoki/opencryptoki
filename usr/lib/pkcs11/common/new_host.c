@@ -2274,7 +2274,12 @@ CK_RV SC_EncryptInit( ST_SESSION_HANDLE  *sSession,
 		goto done;
 	}
 
-	rc = encr_mgr_init( sess, &sess->encr_ctx, OP_ENCRYPT_INIT, pMechanism, hKey );
+	if (token_specific.t_encrypt_init) {
+		rc = token_specific.t_encrypt_init(sess, pMechanism, hKey);
+	} else {
+		rc = encr_mgr_init(sess, &sess->encr_ctx, OP_ENCRYPT_INIT,
+				   pMechanism, hKey);
+	}
 	if (rc != CKR_OK) {
 		OCK_LOG_ERR(ERR_ENCRYPTMGR_INIT);
 	}
@@ -2329,10 +2334,15 @@ CK_RV SC_Encrypt( ST_SESSION_HANDLE  *sSession,
 	if (!pEncryptedData)
 		length_only = TRUE;
 
-	rc = encr_mgr_encrypt( sess,           length_only,
-			       &sess->encr_ctx,
-			       pData,          ulDataLen,
-			       pEncryptedData, pulEncryptedDataLen );
+	if (token_specific.t_encrypt) {
+		rc = token_specific.t_encrypt(sess, pData, ulDataLen,
+					      pEncryptedData,
+					      pulEncryptedDataLen);
+	} else {
+		rc = encr_mgr_encrypt(sess, length_only, &sess->encr_ctx, pData,
+				      ulDataLen, pEncryptedData,
+				      pulEncryptedDataLen);
+	}
 	if (rc != CKR_OK) {
 		OCK_LOG_ERR(ERR_ENCRYPTMGR_ENCRYPT);
 	}
@@ -2391,10 +2401,15 @@ CK_RV SC_EncryptUpdate( ST_SESSION_HANDLE  *sSession,
 	if (!pEncryptedPart)
 		length_only = TRUE;
 
-	rc = encr_mgr_encrypt_update( sess,           length_only,
-				      &sess->encr_ctx,
-				      pPart,          ulPartLen,
-				      pEncryptedPart, pulEncryptedPartLen );
+	if (token_specific.t_encrypt_update) {
+		rc = token_specific.t_encrypt_update(sess, pPart, ulPartLen,
+						     pEncryptedPart,
+						     pulEncryptedPartLen);
+	} else {
+		rc = encr_mgr_encrypt_update(sess, length_only, &sess->encr_ctx,
+					     pPart, ulPartLen, pEncryptedPart,
+					     pulEncryptedPartLen);
+	}
 	if (rc != CKR_OK) {
 		OCK_LOG_ERR(ERR_ENCRYPTMGR_UPDATE);
 	}
@@ -2470,8 +2485,14 @@ CK_RV SC_EncryptFinal( ST_SESSION_HANDLE  *sSession,
 	if (!pLastEncryptedPart)
 		length_only = TRUE;
 
-	rc = encr_mgr_encrypt_final( sess,  length_only, &sess->encr_ctx,
-				     pLastEncryptedPart, pulLastEncryptedPartLen );
+	if (token_specific.t_encrypt_final) {
+		rc = token_specific.t_encrypt_final(sess, pLastEncryptedPart,
+						    pulLastEncryptedPartLen);
+	} else {
+		rc = encr_mgr_encrypt_final(sess,length_only, &sess->encr_ctx,
+					    pLastEncryptedPart,
+					    pulLastEncryptedPartLen);
+	}
 	if (rc != CKR_OK) {
 		OCK_LOG_ERR(ERR_ENCRYPTMGR_FINAL);
 	}
@@ -2531,7 +2552,12 @@ CK_RV SC_DecryptInit( ST_SESSION_HANDLE  *sSession,
 		goto done;
 	}
 
-	rc = decr_mgr_init( sess, &sess->decr_ctx, OP_DECRYPT_INIT, pMechanism, hKey );
+	if (token_specific.t_decrypt_init) {
+		token_specific.t_decrypt_init(sess, pMechanism, hKey);
+	} else {
+		rc = decr_mgr_init(sess, &sess->decr_ctx, OP_DECRYPT_INIT,
+				   pMechanism, hKey );
+	}
 	if (rc != CKR_OK) {
 		OCK_LOG_ERR(ERR_DECRYPTMGR_INIT);
 	}
@@ -2587,10 +2613,15 @@ CK_RV SC_Decrypt( ST_SESSION_HANDLE  *sSession,
 	if (!pData)
 		length_only = TRUE;
 
-	rc = decr_mgr_decrypt( sess,           length_only,
-			       &sess->decr_ctx,
-			       pEncryptedData, ulEncryptedDataLen,
-			       pData,          pulDataLen );
+	if (token_specific.t_decrypt) {
+		rc = token_specific.t_decrypt(sess, pEncryptedData,
+					      ulEncryptedDataLen, pData,
+					      pulDataLen);
+	} else {
+		rc = decr_mgr_decrypt(sess, length_only, &sess->decr_ctx,
+				      pEncryptedData, ulEncryptedDataLen, pData,
+				      pulDataLen);
+	}
 	if (rc != CKR_OK) {
 		OCK_LOG_ERR(ERR_DECRYPTMGR_DECRYPT);
 	}
@@ -2649,10 +2680,15 @@ CK_RV SC_DecryptUpdate( ST_SESSION_HANDLE  *sSession,
 	if (!pPart)
 		length_only = TRUE;
 
-	rc = decr_mgr_decrypt_update( sess,           length_only,
-				      &sess->decr_ctx,
-				      pEncryptedPart, ulEncryptedPartLen,
-				      pPart,          pulPartLen );
+	if (token_specific.t_decrypt_update) {
+		rc = token_specific.t_decrypt_update(sess, pEncryptedPart,
+						     ulEncryptedPartLen, pPart,
+						     pulPartLen);
+	} else {
+		rc = decr_mgr_decrypt_update(sess, length_only, &sess->decr_ctx,
+					     pEncryptedPart,ulEncryptedPartLen,
+					     pPart, pulPartLen);
+	}
 	if (rc != CKR_OK) {
 		OCK_LOG_ERR(ERR_DECRYPTMGR_UPDATE);	
 	}
@@ -2709,10 +2745,12 @@ CK_RV SC_DecryptFinal( ST_SESSION_HANDLE  *sSession,
 	if (!pLastPart)
 		length_only = TRUE;
 
-	rc = decr_mgr_decrypt_final( sess,      length_only,
-				     &sess->decr_ctx,
-				     pLastPart, pulLastPartLen );
-
+	if (token_specific.t_decrypt_final) {
+		token_specific.t_decrypt_final(sess, pLastPart, pulLastPartLen);
+	} else {
+		rc = decr_mgr_decrypt_final(sess, length_only, &sess->decr_ctx,
+					    pLastPart, pulLastPartLen);
+	}
 	if (rc != CKR_OK) {
 		OCK_LOG_ERR(ERR_DECRYPTMGR_FINAL);
 	}

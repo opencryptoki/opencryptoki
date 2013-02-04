@@ -328,10 +328,18 @@ token_spec_t token_specific = {
 	NULL,			// init_pin
 	NULL,			// set_pin
 	NULL,			// create_object
-	NULL,			// generate_key
 	NULL,			// get_attribute_value
 	NULL,			// set_attribute_value
 	NULL,			// find_objects_init
+	NULL,			// generate_key
+	NULL,			// encrypt_init
+	NULL,			// encrypt
+	NULL,			// encrypt_update
+	NULL,			// encrypt_final
+	NULL,			// decrypt_init
+	NULL,			// decrypt
+	NULL,			// decrypt_update
+	NULL,			// decrypt_final
 	// DES
 	&token_specific_des_key_gen,
 	&token_specific_des_ecb,

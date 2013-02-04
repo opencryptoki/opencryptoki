@@ -369,9 +369,6 @@ struct token_specific_struct {
 	CK_RV(*t_create_object) (SESSION *, CK_ATTRIBUTE_PTR, CK_ULONG,
 				 CK_OBJECT_HANDLE_PTR);
 
-	CK_RV(*t_generate_key) (SESSION *, CK_MECHANISM_PTR, CK_ATTRIBUTE_PTR,
-				CK_ULONG, CK_OBJECT_HANDLE_PTR);
-
 	CK_RV(*t_get_attribute_value) (SESSION *, CK_OBJECT_HANDLE,
 					CK_ATTRIBUTE_PTR, CK_ULONG);
 
@@ -379,6 +376,23 @@ struct token_specific_struct {
 					CK_ATTRIBUTE_PTR, CK_ULONG);
 
 	CK_RV(*t_find_objects_init) (SESSION *, CK_ATTRIBUTE_PTR, CK_ULONG);
+
+	CK_RV(*t_generate_key) (SESSION *, CK_MECHANISM_PTR, CK_ATTRIBUTE_PTR,
+				CK_ULONG, CK_OBJECT_HANDLE_PTR);
+
+	CK_RV (*t_encrypt_init) (SESSION *, CK_MECHANISM_PTR, CK_OBJECT_HANDLE);
+	CK_RV (*t_encrypt) (SESSION *, CK_BYTE_PTR, CK_ULONG,
+			    CK_BYTE_PTR, CK_ULONG_PTR);
+	CK_RV (*t_encrypt_update) (SESSION *, CK_BYTE_PTR, CK_ULONG,
+				   CK_BYTE_PTR, CK_ULONG_PTR);
+	CK_RV (*t_encrypt_final) (SESSION *, CK_BYTE_PTR, CK_ULONG_PTR);
+
+	CK_RV (*t_decrypt_init) (SESSION *, CK_MECHANISM_PTR, CK_OBJECT_HANDLE);
+	CK_RV (*t_decrypt) (SESSION *, CK_BYTE_PTR, CK_ULONG,
+			   CK_BYTE_PTR, CK_ULONG_PTR);
+	CK_RV (*t_decrypt_update) (SESSION *, CK_BYTE_PTR, CK_ULONG,
+				  CK_BYTE_PTR, CK_ULONG_PTR);
+	CK_RV (*t_decrypt_final) (SESSION *, CK_BYTE_PTR, CK_ULONG_PTR);
 
 	CK_RV(*t_des_key_gen) (CK_BYTE *, CK_ULONG, CK_ULONG);
 	CK_RV(*t_des_ecb) (CK_BYTE *, CK_ULONG,
