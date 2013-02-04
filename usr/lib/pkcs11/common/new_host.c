@@ -2231,16 +2231,15 @@ CK_RV SC_FindObjectsFinal( ST_SESSION_HANDLE *sSession )
 
 //
 //
-CK_RV SC_EncryptInit( ST_SESSION_HANDLE  *sSession,
-		      CK_MECHANISM_PTR   pMechanism,
-		      CK_OBJECT_HANDLE   hKey )
+CK_RV SC_EncryptInit(ST_SESSION_HANDLE *sSession,
+		     CK_MECHANISM_PTR pMechanism,
+		     CK_OBJECT_HANDLE hKey )
 {
-	SESSION               * sess = NULL;
-	CK_RV                   rc = CKR_OK;
+	SESSION *sess = NULL;
+	CK_RV rc = CKR_OK;
 	CK_SESSION_HANDLE hSession = SESS_HANDLE(sSession);
 
-
-		LOCKIT;
+	LOCKIT;
 	if (st_Initialized() == FALSE) {
 		OCK_LOG_ERR(ERR_CRYPTOKI_NOT_INITIALIZED);
 		rc = CKR_CRYPTOKI_NOT_INITIALIZED;
@@ -2267,7 +2266,7 @@ CK_RV SC_EncryptInit( ST_SESSION_HANDLE  *sSession,
 		rc = CKR_PIN_EXPIRED;
 		goto done;
 	}
-   
+
 	if (sess->encr_ctx.active == TRUE) {
 		OCK_LOG_ERR(ERR_OPERATION_ACTIVE);
 		rc = CKR_OPERATION_ACTIVE;
@@ -2283,29 +2282,31 @@ CK_RV SC_EncryptInit( ST_SESSION_HANDLE  *sSession,
 	if (rc != CKR_OK) {
 		OCK_LOG_ERR(ERR_ENCRYPTMGR_INIT);
 	}
- done:
+done:
 	LLOCK;
-	OCK_LOG_DEBUG("%s:  rc = 0x%08x, sess = %d, key = %d, mech = 0x%x\n", "C_EncryptInit", rc,(sess == NULL)?-1:(CK_LONG)sess->handle, hKey, pMechanism->mechanism );
+	OCK_LOG_DEBUG("%s:  rc = 0x%08x, sess = %d, key = %d, mech = 0x%x\n",
+			"C_EncryptInit", rc, (sess == NULL) ? -1 :
+			(CK_LONG)sess->handle, hKey, pMechanism->mechanism);
 
-	UNLOCKIT; return rc;
+	UNLOCKIT;
+	return rc;
 }
 
 
 //
 //
-CK_RV SC_Encrypt( ST_SESSION_HANDLE  *sSession,
-		  CK_BYTE_PTR        pData,
-		  CK_ULONG           ulDataLen,
-		  CK_BYTE_PTR        pEncryptedData,
-		  CK_ULONG_PTR       pulEncryptedDataLen )
+CK_RV SC_Encrypt(ST_SESSION_HANDLE *sSession,
+		 CK_BYTE_PTR pData,
+		 CK_ULONG ulDataLen,
+		 CK_BYTE_PTR pEncryptedData,
+		 CK_ULONG_PTR pulEncryptedDataLen)
 {
-	SESSION        * sess = NULL;
-	CK_BBOOL         length_only = FALSE;
-	CK_RV            rc = CKR_OK;
+	SESSION *sess = NULL;
+	CK_BBOOL length_only = FALSE;
+	CK_RV rc = CKR_OK;
 	CK_SESSION_HANDLE hSession = SESS_HANDLE(sSession);
 
-
-		LOCKIT;
+	LOCKIT;
 	if (st_Initialized() == FALSE) {
 		OCK_LOG_ERR(ERR_CRYPTOKI_NOT_INITIALIZED);
 		rc = CKR_CRYPTOKI_NOT_INITIALIZED;
@@ -2347,32 +2348,34 @@ CK_RV SC_Encrypt( ST_SESSION_HANDLE  *sSession,
 		OCK_LOG_ERR(ERR_ENCRYPTMGR_ENCRYPT);
 	}
 
- done:
+done:
 	LLOCK;
 	if (rc != CKR_BUFFER_TOO_SMALL && (rc != CKR_OK || length_only != TRUE))
 		encr_mgr_cleanup( &sess->encr_ctx );
 
-	OCK_LOG_DEBUG("%s:  rc = 0x%08x, sess = %d, amount = %d\n", "C_Encrypt", rc, (sess == NULL)?-1:(CK_LONG)sess->handle, ulDataLen);
+	OCK_LOG_DEBUG("%s:  rc = 0x%08x, sess = %d, amount = %d\n", "C_Encrypt",
+			rc, (sess == NULL) ? -1 : (CK_LONG)sess->handle,
+			ulDataLen);
 
-	UNLOCKIT; return rc;
+	UNLOCKIT;
+	return rc;
 }
 
 
 //
 //
-CK_RV SC_EncryptUpdate( ST_SESSION_HANDLE  *sSession,
-			CK_BYTE_PTR        pPart,
-			CK_ULONG           ulPartLen,
-			CK_BYTE_PTR        pEncryptedPart,
-			CK_ULONG_PTR       pulEncryptedPartLen )
+CK_RV SC_EncryptUpdate(ST_SESSION_HANDLE *sSession,
+		       CK_BYTE_PTR pPart,
+		       CK_ULONG ulPartLen,
+		       CK_BYTE_PTR pEncryptedPart,
+		       CK_ULONG_PTR pulEncryptedPartLen)
 {
-	SESSION        * sess = NULL;
-	CK_BBOOL         length_only = FALSE;
-	CK_RV            rc = CKR_OK;
+	SESSION * sess = NULL;
+	CK_BBOOL length_only = FALSE;
+	CK_RV rc = CKR_OK;
 	CK_SESSION_HANDLE hSession = SESS_HANDLE(sSession);
 
-
-		LOCKIT;
+	LOCKIT;
 	if (st_Initialized() == FALSE) {
 		OCK_LOG_ERR(ERR_CRYPTOKI_NOT_INITIALIZED);
 		rc = CKR_CRYPTOKI_NOT_INITIALIZED;
@@ -2414,14 +2417,17 @@ CK_RV SC_EncryptUpdate( ST_SESSION_HANDLE  *sSession,
 		OCK_LOG_ERR(ERR_ENCRYPTMGR_UPDATE);
 	}
 
- done:
+done:
 	LLOCK;
 	if (rc != CKR_OK && rc != CKR_BUFFER_TOO_SMALL)
 		encr_mgr_cleanup( &sess->encr_ctx );
 
-	OCK_LOG_DEBUG("%s:  rc = 0x%08x, sess = %d, amount = %d\n", "C_EncryptUpdate", rc, (sess == NULL)?-1:(CK_LONG)sess->handle, ulPartLen);
+	OCK_LOG_DEBUG("%s:  rc = 0x%08x, sess = %d, amount = %d\n",
+			"C_EncryptUpdate", rc, (sess == NULL) ? -1 :
+			(CK_LONG) sess->handle, ulPartLen);
 
-	UNLOCKIT; return rc;
+	UNLOCKIT;
+	return rc;
 }
 
 
@@ -2446,17 +2452,16 @@ CK_RV SC_EncryptUpdate( ST_SESSION_HANDLE  *sSession,
 // have simply included a "give-me-the-length-only flag" as an argument.
 //
 //
-CK_RV SC_EncryptFinal( ST_SESSION_HANDLE  *sSession,
-		       CK_BYTE_PTR        pLastEncryptedPart,
-		       CK_ULONG_PTR       pulLastEncryptedPartLen )
+CK_RV SC_EncryptFinal(ST_SESSION_HANDLE *sSession,
+		      CK_BYTE_PTR pLastEncryptedPart,
+		      CK_ULONG_PTR pulLastEncryptedPartLen)
 {
-	SESSION     * sess = NULL;
-	CK_BBOOL      length_only = FALSE;
-	CK_RV         rc = CKR_OK;
+	SESSION *sess = NULL;
+	CK_BBOOL length_only = FALSE;
+	CK_RV rc = CKR_OK;
 	CK_SESSION_HANDLE hSession = SESS_HANDLE(sSession);
 
-
-		LOCKIT;
+	LOCKIT;
 	if (st_Initialized() == FALSE) {
 		OCK_LOG_ERR(ERR_CRYPTOKI_NOT_INITIALIZED);
 		rc = CKR_CRYPTOKI_NOT_INITIALIZED;
@@ -2497,29 +2502,30 @@ CK_RV SC_EncryptFinal( ST_SESSION_HANDLE  *sSession,
 		OCK_LOG_ERR(ERR_ENCRYPTMGR_FINAL);
 	}
 
- done:
+done:
 	LLOCK;
 	if (rc != CKR_BUFFER_TOO_SMALL && (rc != CKR_OK || length_only != TRUE))
 		encr_mgr_cleanup( &sess->encr_ctx );
 
-	OCK_LOG_DEBUG("%s:  rc = 0x%08x, sess = %d\n", "C_EncryptFinal", rc, (sess == NULL)?-1:(CK_LONG)sess->handle);
+	OCK_LOG_DEBUG("%s:  rc = 0x%08x, sess = %d\n", "C_EncryptFinal",
+			rc, (sess == NULL) ? -1 : (CK_LONG) sess->handle);
 
-	UNLOCKIT; return rc;
+	UNLOCKIT;
+	return rc;
 }
 
 
 //
 //
-CK_RV SC_DecryptInit( ST_SESSION_HANDLE  *sSession,
-		      CK_MECHANISM_PTR   pMechanism,
-		      CK_OBJECT_HANDLE   hKey )
+CK_RV SC_DecryptInit(ST_SESSION_HANDLE *sSession,
+		     CK_MECHANISM_PTR pMechanism,
+		     CK_OBJECT_HANDLE hKey)
 {
-	SESSION   * sess = NULL;
-	CK_RV       rc = CKR_OK;
+	SESSION *sess = NULL;
+	CK_RV rc = CKR_OK;
 	CK_SESSION_HANDLE hSession = SESS_HANDLE(sSession);
 
-
-		LOCKIT;
+	LOCKIT;
 	if (st_Initialized() == FALSE) {
 		OCK_LOG_ERR(ERR_CRYPTOKI_NOT_INITIALIZED);
 		rc = CKR_CRYPTOKI_NOT_INITIALIZED;
@@ -2545,7 +2551,7 @@ CK_RV SC_DecryptInit( ST_SESSION_HANDLE  *sSession,
 		rc = CKR_PIN_EXPIRED;
 		goto done;
 	}
-   
+
 	if (sess->decr_ctx.active == TRUE) {
 		OCK_LOG_ERR(ERR_OPERATION_ACTIVE);
 		rc = CKR_OPERATION_ACTIVE;
@@ -2562,29 +2568,31 @@ CK_RV SC_DecryptInit( ST_SESSION_HANDLE  *sSession,
 		OCK_LOG_ERR(ERR_DECRYPTMGR_INIT);
 	}
 
- done:
+done:
 	LLOCK;
-	OCK_LOG_DEBUG("%s:  rc = 0x%08x, sess = %d, key = %d, mech = 0x%x\n", "C_DecryptInit", rc, (sess == NULL)?-1:(CK_LONG)sess->handle, hKey, pMechanism->mechanism);
+	OCK_LOG_DEBUG("%s:  rc = 0x%08x, sess = %d, key = %d, mech = 0x%x\n",
+			"C_DecryptInit", rc, (sess == NULL) ? -1 :
+			(CK_LONG)sess->handle, hKey, pMechanism->mechanism);
 
-	UNLOCKIT; return rc;
+	UNLOCKIT;
+	return rc;
 }
 
 
 //
 //
-CK_RV SC_Decrypt( ST_SESSION_HANDLE  *sSession,
-		  CK_BYTE_PTR        pEncryptedData,
-		  CK_ULONG           ulEncryptedDataLen,
-		  CK_BYTE_PTR        pData,
-		  CK_ULONG_PTR       pulDataLen )
+CK_RV SC_Decrypt(ST_SESSION_HANDLE *sSession,
+		 CK_BYTE_PTR pEncryptedData,
+		 CK_ULONG ulEncryptedDataLen,
+		 CK_BYTE_PTR pData,
+		 CK_ULONG_PTR pulDataLen)
 {
-	SESSION  * sess = NULL;
-	CK_BBOOL   length_only = FALSE;
-	CK_RV      rc = CKR_OK;
+	SESSION *sess = NULL;
+	CK_BBOOL length_only = FALSE;
+	CK_RV rc = CKR_OK;
 	CK_SESSION_HANDLE hSession = SESS_HANDLE(sSession);
 
-
-		LOCKIT;
+	LOCKIT;
 	if (st_Initialized() == FALSE) {
 		OCK_LOG_ERR(ERR_CRYPTOKI_NOT_INITIALIZED);
 		rc = CKR_CRYPTOKI_NOT_INITIALIZED;
@@ -2626,32 +2634,34 @@ CK_RV SC_Decrypt( ST_SESSION_HANDLE  *sSession,
 		OCK_LOG_ERR(ERR_DECRYPTMGR_DECRYPT);
 	}
 
- done:
+done:
 	LLOCK;
 	if (rc != CKR_BUFFER_TOO_SMALL && (rc != CKR_OK || length_only != TRUE))
 		decr_mgr_cleanup( &sess->decr_ctx );
 
-	OCK_LOG_DEBUG("%s:  rc = 0x%08x, sess = %d, amount = %d\n", "C_Decrypt", rc, (sess == NULL)?-1:(CK_LONG)sess->handle, ulEncryptedDataLen);
+	OCK_LOG_DEBUG("%s:  rc = 0x%08x, sess = %d, amount = %d\n", "C_Decrypt",
+			rc, (sess == NULL) ? -1 :
+			(CK_LONG)sess->handle, ulEncryptedDataLen);
 
-	UNLOCKIT; return rc;
+	UNLOCKIT;
+	return rc;
 }
 
 
 //
 //
-CK_RV SC_DecryptUpdate( ST_SESSION_HANDLE  *sSession,
-			CK_BYTE_PTR        pEncryptedPart,
-			CK_ULONG           ulEncryptedPartLen,
-			CK_BYTE_PTR        pPart,
-			CK_ULONG_PTR       pulPartLen )
+CK_RV SC_DecryptUpdate(ST_SESSION_HANDLE *sSession,
+		       CK_BYTE_PTR pEncryptedPart,
+		       CK_ULONG ulEncryptedPartLen,
+		       CK_BYTE_PTR pPart,
+		       CK_ULONG_PTR pulPartLen)
 {
-	SESSION   * sess = NULL;
-	CK_BBOOL    length_only = FALSE;
-	CK_RV       rc = CKR_OK;
+	SESSION *sess = NULL;
+	CK_BBOOL length_only = FALSE;
+	CK_RV rc = CKR_OK;
 	CK_SESSION_HANDLE hSession = SESS_HANDLE(sSession);
 
-
-		LOCKIT;
+	LOCKIT;
 	if (st_Initialized() == FALSE) {
 		OCK_LOG_ERR(ERR_CRYPTOKI_NOT_INITIALIZED);
 		rc = CKR_CRYPTOKI_NOT_INITIALIZED;
@@ -2693,30 +2703,32 @@ CK_RV SC_DecryptUpdate( ST_SESSION_HANDLE  *sSession,
 		OCK_LOG_ERR(ERR_DECRYPTMGR_UPDATE);	
 	}
 
- done:
+done:
 	LLOCK;
 	if (rc != CKR_OK && rc != CKR_BUFFER_TOO_SMALL)
 		decr_mgr_cleanup( &sess->decr_ctx );
 
-	OCK_LOG_DEBUG("%s:  rc = 0x%08x, sess = %d, amount = %d\n", "C_DecryptUpdate", rc, (sess == NULL)?-1:(CK_LONG)sess->handle, ulEncryptedPartLen);
+	OCK_LOG_DEBUG("%s:  rc = 0x%08x, sess = %d, amount = %d\n",
+			"C_DecryptUpdate", rc, (sess == NULL) ? -1 :
+			(CK_LONG)sess->handle, ulEncryptedPartLen);
 
-	UNLOCKIT; return rc;
+	UNLOCKIT;
+	return rc;
 }
 
 
 //
 //
-CK_RV SC_DecryptFinal( ST_SESSION_HANDLE  *sSession,
-		       CK_BYTE_PTR        pLastPart,
-		       CK_ULONG_PTR       pulLastPartLen )
+CK_RV SC_DecryptFinal(ST_SESSION_HANDLE *sSession,
+		      CK_BYTE_PTR pLastPart,
+		      CK_ULONG_PTR pulLastPartLen)
 {
-	SESSION   * sess = NULL;
-	CK_BBOOL    length_only = FALSE;
-	CK_RV       rc = CKR_OK;
+	SESSION *sess = NULL;
+	CK_BBOOL length_only = FALSE;
+	CK_RV rc = CKR_OK;
 	CK_SESSION_HANDLE hSession = SESS_HANDLE(sSession);
 
-
-		LOCKIT;
+	LOCKIT;
 	if (st_Initialized() == FALSE) {
 		OCK_LOG_ERR(ERR_CRYPTOKI_NOT_INITIALIZED);
 		rc = CKR_CRYPTOKI_NOT_INITIALIZED;
@@ -2754,14 +2766,17 @@ CK_RV SC_DecryptFinal( ST_SESSION_HANDLE  *sSession,
 	if (rc != CKR_OK) {
 		OCK_LOG_ERR(ERR_DECRYPTMGR_FINAL);
 	}
- done:
+done:
 	LLOCK;
 	if (rc != CKR_BUFFER_TOO_SMALL && (rc != CKR_OK || length_only != TRUE))
 		decr_mgr_cleanup( &sess->decr_ctx );
 
-	OCK_LOG_DEBUG("%s:  rc = 0x%08x, sess = %d, amount = %d\n", "C_DecryptFinal", rc, (sess == NULL)?-1:(CK_LONG)sess->handle, *pulLastPartLen);
+	OCK_LOG_DEBUG("%s:  rc = 0x%08x, sess = %d, amount = %d\n",
+			"C_DecryptFinal", rc, (sess == NULL) ? -1 :
+			(CK_LONG)sess->handle, *pulLastPartLen);
 
-	UNLOCKIT; return rc;
+	UNLOCKIT;
+	return rc;
 }
 
 
