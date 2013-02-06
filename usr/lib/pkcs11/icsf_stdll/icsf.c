@@ -1473,8 +1473,8 @@ get_cipher_mode(CK_MECHANISM_PTR mech)
 /*
  * Extract and check the initialization vector contained in the given mechanism.
  */
-static int
-set_initial_vector(CK_MECHANISM_PTR mech, char *iv, size_t *iv_len)
+CK_RV
+icsf_encrypt_initial_vector(CK_MECHANISM_PTR mech, char *iv, size_t *iv_len)
 {
 	int use_iv = 0;
 	size_t expected_iv_len = 0;
@@ -1502,7 +1502,7 @@ set_initial_vector(CK_MECHANISM_PTR mech, char *iv, size_t *iv_len)
 		return CKR_MECHANISM_INVALID;
 	}
 
-	if (*iv_len < expected_iv_len) {
+	if (iv_len && *iv_len < expected_iv_len) {
 		OCK_LOG_DEBUG("IV too small.\n");
 		return CKR_FUNCTION_FAILED;
 	}
@@ -1521,9 +1521,11 @@ set_initial_vector(CK_MECHANISM_PTR mech, char *iv, size_t *iv_len)
 					(unsigned long) expected_iv_len);
 			return CKR_MECHANISM_PARAM_INVALID;
 		}
-		memcpy(iv, mech->pParameter, expected_iv_len);
+		if (iv)
+			memcpy(iv, mech->pParameter, expected_iv_len);
 	}
-	*iv_len = expected_iv_len;
+	if (iv_len)
+		*iv_len = expected_iv_len;
 
 	return 0;
 }
@@ -1532,13 +1534,13 @@ set_initial_vector(CK_MECHANISM_PTR mech, char *iv, size_t *iv_len)
  * Symmetric key encrypt.
  */
 int
-icsf_secret_key_encrypt(LDAP *ld, int *reason, struct icsf_object_record *key,
+icsf_secret_key_encrypt(LDAP *ld, int *p_reason, struct icsf_object_record *key,
 			CK_MECHANISM_PTR mech, int chaining,
 			const char *clear_text, size_t clear_text_len,
 			char *cipher_text, size_t *p_cipher_text_len,
 			char *chaining_data, size_t *p_chaining_data_len)
 {
-	int rc = -1;
+	int rc = 0;
 	char handle[ICSF_HANDLE_LEN];
 	char rule_array[3 * ICSF_RULE_ITEM_LEN];
 	BerElement *msg = NULL;
@@ -1548,12 +1550,12 @@ icsf_secret_key_encrypt(LDAP *ld, int *reason, struct icsf_object_record *key,
 	struct berval bv_cipher_data = { 0UL, NULL };
 	struct berval bv_chaining_data = { 0UL, NULL };
 	const char *rule_alg, *rule_cipher;
+	int reason = 0;
 
 	CHECK_ARG_NON_NULL(ld);
 	CHECK_ARG_NON_NULL(key);
 	CHECK_ARG_NON_NULL(mech);
 	CHECK_ARG_NON_NULL(clear_text);
-	CHECK_ARG_NON_NULL(cipher_text);
 	CHECK_ARG_NON_NULL(p_cipher_text_len);
 
 	if (!ICSF_CHAINING_IS_VALID(chaining)) {
@@ -1570,13 +1572,13 @@ icsf_secret_key_encrypt(LDAP *ld, int *reason, struct icsf_object_record *key,
 	if (!(rule_alg = get_algorithm_rule(mech))) {
 		OCK_LOG_DEBUG("Invalid algorithm: %lu\n",
 				(unsigned long) mech->mechanism);
-		return CKR_MECHANISM_INVALID;
+		return -1;
 	}
 
 	if (!(rule_cipher = get_cipher_mode(mech))) {
 		OCK_LOG_DEBUG("Invalid cipher mode: %lu\n",
 				(unsigned long) mech->mechanism);
-		return CKR_MECHANISM_INVALID;
+		return -1;
 	}
 
 	strpad(rule_array + 0 * ICSF_RULE_ITEM_LEN, rule_alg,
@@ -1587,8 +1589,16 @@ icsf_secret_key_encrypt(LDAP *ld, int *reason, struct icsf_object_record *key,
 	       ICSF_RULE_ITEM_LEN, ' ');
 
 	/* Set the IV based on the given mechanism */
-	if ((rc = set_initial_vector(mech, init_vector, &init_vector_len)))
-		return rc;
+	if (chaining != ICSF_CHAINING_INITIAL &&
+	    chaining != ICSF_CHAINING_ONLY) {
+		rc = icsf_encrypt_initial_vector(mech, NULL, NULL);
+		memset(init_vector, 0, init_vector_len);
+	} else {
+		rc = icsf_encrypt_initial_vector(mech, init_vector,
+						 &init_vector_len);
+	}
+	if (rc)
+		return -1;
 
 	/* Build request */
 	if (!(msg = ber_alloc_t(LBER_USE_DER))) {
@@ -1596,26 +1606,31 @@ icsf_secret_key_encrypt(LDAP *ld, int *reason, struct icsf_object_record *key,
 		return -1;
 	}
 
-	rc = ber_printf(msg, "toooi",
-			0 | LBER_CLASS_CONTEXT, init_vector, init_vector_len,
-			(chaining_data) ? chaining_data : "",
-			(p_chaining_data_len) ? *p_chaining_data_len : 0UL,
-			clear_text, clear_text_len, *p_cipher_text_len);
-	if (rc < 0) {
+	if (ber_printf(msg, "toooi",
+		       0 | LBER_CLASS_CONTEXT, init_vector, init_vector_len,
+		       (chaining_data) ? chaining_data : "",
+		       (p_chaining_data_len) ? *p_chaining_data_len : 0UL,
+		       clear_text, clear_text_len,
+		       (cipher_text) ? *p_cipher_text_len : 0UL) < 0) {
+		rc = -1;
 		OCK_LOG_DEBUG("Failed to encode message: %d.\n", rc);
 		goto done;
 	}
 
 	/* Call service */
-	rc = icsf_call(ld, reason, handle, sizeof(handle),
+	rc = icsf_call(ld, &reason, handle, sizeof(handle),
 			rule_array, sizeof(rule_array),
 			ICSF_TAG_CSFPSKE, msg, &result);
-	if (ICSF_RC_IS_ERROR(rc))
+	if (p_reason)
+		*p_reason = reason;
+	if (ICSF_RC_IS_ERROR(rc)
+			&& reason != ICSF_REASON_OUTPUT_PARAMETER_TOO_SHORT)
 		goto done;
 
 	/* Parse response */
-	rc = ber_scanf(result, "{mm", &bv_chaining_data, &bv_cipher_data);
-	if (rc < 0) {
+	if (ber_scanf(result, "{mmi", &bv_chaining_data, &bv_cipher_data,
+		       p_cipher_text_len) < 0) {
+		rc = -1;
 		OCK_LOG_DEBUG("Failed to decode the response.\n");
 		goto done;
 	}
@@ -1629,8 +1644,8 @@ icsf_secret_key_encrypt(LDAP *ld, int *reason, struct icsf_object_record *key,
 		rc = -1;
 		goto done;
 	}
-	*p_cipher_text_len = bv_cipher_data.bv_len;
-	memcpy(cipher_text, bv_cipher_data.bv_val, *p_cipher_text_len);
+	if (cipher_text)
+		memcpy(cipher_text, bv_cipher_data.bv_val, *p_cipher_text_len);
 
 	/* Copy chaining data */
 	if (p_chaining_data_len) {
@@ -1649,7 +1664,6 @@ icsf_secret_key_encrypt(LDAP *ld, int *reason, struct icsf_object_record *key,
 		}
 	}
 
-	rc = 0;
 done:
 	if (result)
 		ber_free(result, 1);
@@ -1662,13 +1676,13 @@ done:
  * Symmetric key decrypt.
  */
 int
-icsf_secret_key_decrypt(LDAP *ld, int *reason, struct icsf_object_record *key,
+icsf_secret_key_decrypt(LDAP *ld, int *p_reason, struct icsf_object_record *key,
 			CK_MECHANISM_PTR mech, int chaining,
 			const char *cipher_text, size_t cipher_text_len,
 			char *clear_text, size_t *p_clear_text_len,
 			char *chaining_data, size_t *p_chaining_data_len)
 {
-	int rc = -1;
+	int rc = 0;
 	char handle[ICSF_HANDLE_LEN];
 	char rule_array[3 * ICSF_RULE_ITEM_LEN];
 	BerElement *msg = NULL;
@@ -1678,12 +1692,12 @@ icsf_secret_key_decrypt(LDAP *ld, int *reason, struct icsf_object_record *key,
 	struct berval bv_clear_data = { 0UL, NULL };
 	struct berval bv_chaining_data = { 0UL, NULL };
 	const char *rule_alg, *rule_cipher;
+	int reason = 0;
 
 	CHECK_ARG_NON_NULL(ld);
 	CHECK_ARG_NON_NULL(key);
 	CHECK_ARG_NON_NULL(mech);
 	CHECK_ARG_NON_NULL(cipher_text);
-	CHECK_ARG_NON_NULL(clear_text);
 	CHECK_ARG_NON_NULL(p_clear_text_len);
 
 	if (!ICSF_CHAINING_IS_VALID(chaining)) {
@@ -1700,13 +1714,13 @@ icsf_secret_key_decrypt(LDAP *ld, int *reason, struct icsf_object_record *key,
 	if (!(rule_alg = get_algorithm_rule(mech))) {
 		OCK_LOG_DEBUG("Invalid algorithm: %lu\n",
 				(unsigned long) mech->mechanism);
-		return CKR_MECHANISM_INVALID;
+		return -1;
 	}
 
 	if (!(rule_cipher = get_cipher_mode(mech))) {
 		OCK_LOG_DEBUG("Invalid cipher mode: %lu\n",
 				(unsigned long) mech->mechanism);
-		return CKR_MECHANISM_INVALID;
+		return -1;
 	}
 
 	strpad(rule_array + 0 * ICSF_RULE_ITEM_LEN, rule_alg,
@@ -1717,8 +1731,16 @@ icsf_secret_key_decrypt(LDAP *ld, int *reason, struct icsf_object_record *key,
 	       ICSF_RULE_ITEM_LEN, ' ');
 
 	/* Set the IV based on the given mechanism */
-	if ((rc = set_initial_vector(mech, init_vector, &init_vector_len)))
-		return rc;
+	if (chaining != ICSF_CHAINING_INITIAL &&
+	    chaining != ICSF_CHAINING_ONLY) {
+		rc = icsf_encrypt_initial_vector(mech, NULL, NULL);
+		memset(init_vector, 0, init_vector_len);
+	} else {
+		rc = icsf_encrypt_initial_vector(mech, init_vector,
+						 &init_vector_len);
+	}
+	if (rc)
+		return -1;
 
 	/* Build request */
 	if (!(msg = ber_alloc_t(LBER_USE_DER))) {
@@ -1726,31 +1748,35 @@ icsf_secret_key_decrypt(LDAP *ld, int *reason, struct icsf_object_record *key,
 		return -1;
 	}
 
-	rc = ber_printf(msg, "totototi",
-			0 | LBER_CLASS_CONTEXT | LBER_PRIMITIVE,
-			init_vector, init_vector_len,
-			2 | LBER_CLASS_CONTEXT | LBER_PRIMITIVE,
-			(chaining_data) ? chaining_data : "",
-			(p_chaining_data_len) ? *p_chaining_data_len : 0UL,
-			3 | LBER_CLASS_CONTEXT | LBER_PRIMITIVE,
-			cipher_text, cipher_text_len,
-			4 | LBER_CLASS_CONTEXT | LBER_PRIMITIVE,
-			*p_clear_text_len);
-	if (rc < 0) {
+	if (ber_printf(msg, "totototi",
+		       0 | LBER_CLASS_CONTEXT | LBER_PRIMITIVE,
+		       init_vector, init_vector_len,
+		       2 | LBER_CLASS_CONTEXT | LBER_PRIMITIVE,
+		       (chaining_data) ? chaining_data : "",
+		       (p_chaining_data_len) ? *p_chaining_data_len : 0UL,
+		       3 | LBER_CLASS_CONTEXT | LBER_PRIMITIVE,
+		       cipher_text, cipher_text_len,
+		       4 | LBER_CLASS_CONTEXT | LBER_PRIMITIVE,
+		       (clear_text) ? *p_clear_text_len : 0UL) < 0) {
+		rc = -1;
 		OCK_LOG_DEBUG("Failed to encode message: %d.\n", rc);
 		goto done;
 	}
 
 	/* Call service */
-	rc = icsf_call(ld, reason, handle, sizeof(handle),
-			rule_array, sizeof(rule_array),
-			ICSF_TAG_CSFPSKD, msg, &result);
-	if (ICSF_RC_IS_ERROR(rc))
+	rc = icsf_call(ld, &reason, handle, sizeof(handle),
+		       rule_array, sizeof(rule_array),
+		       ICSF_TAG_CSFPSKD, msg, &result);
+	if (p_reason)
+		*p_reason = reason;
+	if (ICSF_RC_IS_ERROR(rc) &&
+			reason != ICSF_REASON_OUTPUT_PARAMETER_TOO_SHORT)
 		goto done;
 
 	/* Parse response */
-	rc = ber_scanf(result, "{mm", &bv_chaining_data, &bv_clear_data);
-	if (rc < 0) {
+	if (ber_scanf(result, "{mmi", &bv_chaining_data, &bv_clear_data,
+		      p_clear_text_len) < 0) {
+		rc = -1;
 		OCK_LOG_DEBUG("Failed to decode the response.\n");
 		goto done;
 	}
@@ -1764,8 +1790,8 @@ icsf_secret_key_decrypt(LDAP *ld, int *reason, struct icsf_object_record *key,
 		rc = -1;
 		goto done;
 	}
-	*p_clear_text_len = bv_clear_data.bv_len;
-	memcpy(clear_text, bv_clear_data.bv_val, *p_clear_text_len);
+	if (clear_text)
+		memcpy(clear_text, bv_clear_data.bv_val, *p_clear_text_len);
 
 	/* Copy chaining data */
 	if (p_chaining_data_len) {

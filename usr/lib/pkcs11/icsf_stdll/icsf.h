@@ -39,8 +39,13 @@
 /* Return codes */
 #define ICSF_RC_SUCCESS 0
 #define ICSF_RC_PARTIAL_SUCCESS 4
+#define ICSF_RC_ERROR 8
+#define ICSF_RC_FATAL 12
 #define ICSF_RC_IS_ERROR(rc) \
-	(rc > ICSF_RC_PARTIAL_SUCCESS)
+	((rc) > ICSF_RC_PARTIAL_SUCCESS || (rc) < 0)
+
+/* Reason codes */
+#define ICSF_REASON_OUTPUT_PARAMETER_TOO_SHORT 3003
 
 /* Default lengths */
 #define ICSF_HANDLE_LEN 44
@@ -151,6 +156,9 @@ icsf_generate_secret_key(LDAP *ld, int *reason, const char *token_name,
 			CK_MECHANISM_PTR mech,
 			CK_ATTRIBUTE *attrs, CK_ULONG attrs_len,
 			struct icsf_object_record *object);
+
+CK_RV
+icsf_encrypt_initial_vector(CK_MECHANISM_PTR mech, char *iv, size_t *iv_len);
 
 int
 icsf_get_attribute(LDAP *ld, int *reason, struct icsf_object_record *object,
