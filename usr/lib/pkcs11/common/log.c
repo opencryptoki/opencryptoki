@@ -413,7 +413,7 @@ static const char *ock_err_msg[] = {
 "Decryption Mgr Decrypt Failed",	/*ERR_DECRYPTMGR_DECRYPT*/
 "Decryption Mgr Final Failed",		/*ERR_DECRYPTMGR_FINAL*/
 "Decryption Mgr Init Failed",		/*ERR_DECRYPTMGR_INIT*/
-"Decryption Mgr Update Failed"		/*ERR_DECRYPTMGR_UPDATE*/
+"Decryption Mgr Update Failed",		/*ERR_DECRYPTMGR_UPDATE*/
 "DES CBC Decrypt Failed",		/*ERR_DES_CBC_DECRYPT*/
 "DES CBC Encrypt Failed",		/*ERR_DES_CBC_ENCRYPT*/
 "Token Specific DES CBC Failed",	/*ERR_DES_CBC_TOK_SPEC*/
