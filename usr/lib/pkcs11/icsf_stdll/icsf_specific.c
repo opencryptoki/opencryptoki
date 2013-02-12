@@ -1225,6 +1225,7 @@ token_specific_create_object(SESSION *session, CK_ATTRIBUTE_PTR attrs,
 		OCK_LOG_ERR(ERR_HOST_MEMORY);
 		return CKR_HOST_MEMORY;
 	}
+	memset(mapping, 0, sizeof(struct icsf_object_mapping));
 	mapping->session_id = session->handle;
 
 	/* Get session state */
@@ -1304,6 +1305,7 @@ token_specific_generate_key(SESSION *session, CK_MECHANISM_PTR mech,
 		OCK_LOG_ERR(ERR_HOST_MEMORY);
 		return CKR_HOST_MEMORY;
 	}
+	memset(mapping, 0, sizeof(struct icsf_object_mapping));
 	mapping->session_id = session->handle;
 
 	/* Get session state */
