@@ -1501,3 +1501,161 @@ done:
 
 	return rc;
 }
+
+/*
+ * Initialize a search for token and session objects that match a template.
+ */
+CK_RV
+token_specific_find_objects_init(SESSION *sess, CK_ATTRIBUTE *pTemplate,
+				CK_ULONG ulCount)
+{
+	char token_name[sizeof(nv_token_data->token_info.label)];
+	struct session_state *session_state;
+	struct icsf_object_record records[MAX_RECORDS];
+	struct icsf_object_record *previous = NULL;
+	size_t records_len;
+	int i, j, node_number, reason;
+	CK_RV rc = CKR_OK;
+
+	/* Whether we retrieve public or private objects is determined by 
+	 * the caller's SAF authority on the token, something ock doesn't
+	 * control.
+	 * Since an app MUST have authenticated to ICSF token to use it, 
+	 * we can always assume it is an authenticated session and anything else
+	 * is an error.
+	 */
+	if (sess->session_info.state == CKS_RO_PUBLIC_SESSION || 
+	    sess->session_info.state == CKS_RW_PUBLIC_SESSION ||
+	    sess->session_info.state == CKS_RW_SO_FUNCTIONS) {
+		OCK_LOG_DEBUG("You must authenticate to access ICSF token.\n");
+		return CKR_FUNCTION_FAILED;
+	}
+
+	/* Initialize the found object list. In keeping with other tokens,
+	 * if the list does not exist, allocate list big enough for MAX_RECORD
+	 * handles. reallocate later if more needed.
+	 */
+	if (sess->find_list == NULL) {
+		sess->find_list = (CK_OBJECT_HANDLE *)malloc(10 * sizeof(CK_OBJECT_HANDLE));
+		if (!sess->find_list) {
+			OCK_LOG_ERR(ERR_HOST_MEMORY);
+			return CKR_HOST_MEMORY;
+		}
+		sess->find_len = 10;
+	}
+	memset(sess->find_list, 0x0, sess->find_len*sizeof(CK_OBJECT_HANDLE));
+	sess->find_count = 0;
+	sess->find_idx   = 0;
+
+	/* Prepare to query ICSF for list objects 
+	 * Copy token name from shared memory
+	 */
+	XProcLock();
+	memcpy(token_name, nv_token_data->token_info.label, sizeof(token_name));
+	XProcUnLock();
+
+	/* Get session state */
+	if (!(session_state = get_session_state(sess->handle))) {
+		OCK_LOG_DEBUG("Session not found for session id %lu.\n",
+				(unsigned long) sess->handle);
+		return CKR_FUNCTION_FAILED;
+	}
+
+	/* clear out records */
+	memset(records, 0, MAX_RECORDS*(sizeof(struct icsf_object_record)));
+
+	if (pthread_rwlock_wrlock(&obj_list_rw_mutex)) {
+		OCK_LOG_ERR(ERR_MUTEX_LOCK);
+		return CKR_FUNCTION_FAILED;
+	}
+
+	do {
+		records_len = sizeof(records)/sizeof(struct icsf_object_record);
+		rc = icsf_list_objects(session_state->ld, &reason, token_name,
+				       ulCount, pTemplate, previous, records,
+				       &records_len, 0);
+		if (rc != CKR_OK) {
+			OCK_LOG_DEBUG("Failed to list objects.\n");
+			rc = CKR_FUNCTION_FAILED;
+			goto done;
+		}
+
+		/* Now step thru the object btree so we can find the node
+		 * value for any matching objects we retrieved from ICSF.
+		 * If we cannot find a matching object in the btree,
+		 * then add it so we can get a node value.
+		 * And also because ICSF object database is authoritative.
+		 */
+
+		for (i = 0; i < records_len; i++) {
+
+			/* mark not found */
+			node_number = 0;
+
+			for (j=1; j <= objects.size; j++) {
+				struct icsf_object_mapping *mapping = NULL;
+
+				/* skip missing ids */
+				mapping = bt_get_node_value(&objects, j);
+				if (mapping) {
+					if (memcmp(&records[i],
+					    &mapping->icsf_object,
+					    sizeof(struct icsf_object_record)) == 0) {
+						node_number = j;
+						break;
+					}
+				} else
+					continue;
+			}
+			/* if could not find in our object tree, then add it
+			 * since ICSF object database is authoritative.
+			 */
+			if (!node_number) {
+				struct icsf_object_mapping *new_mapping;
+
+				if (!(new_mapping = malloc(sizeof(*new_mapping)))) {
+					OCK_LOG_ERR(ERR_HOST_MEMORY);
+					rc = CKR_HOST_MEMORY;
+					goto done;
+				}
+				new_mapping->session_id = sess->handle;
+				new_mapping->icsf_object = records[i];
+
+				if(!(node_number = bt_node_add(&objects, new_mapping))) {
+					OCK_LOG_DEBUG("Failed to add object to binary tree.\n");
+					rc = CKR_FUNCTION_FAILED;
+					goto done;
+				}
+			}	
+				
+			/* Add to our findobject list */
+			if (node_number) {
+				sess->find_list[sess->find_count] = node_number;
+				sess->find_count++;
+
+				if (sess->find_count >= sess->find_len) {
+					sess->find_len += MAX_RECORDS;
+					sess->find_list = (CK_OBJECT_HANDLE *)realloc(sess->find_list, sess->find_len * sizeof(CK_OBJECT_HANDLE));
+					if (sess->find_list) {
+						OCK_LOG_ERR(ERR_HOST_MEMORY);
+						rc = CKR_HOST_MEMORY;
+						goto done;
+					}
+				}
+			}
+		}
+
+		if (records_len)
+			previous = &records[records_len - 1];
+	} while (records_len);
+	
+	sess->find_active = TRUE;
+
+done:
+	if (pthread_rwlock_unlock(&obj_list_rw_mutex)) {
+		OCK_LOG_ERR(ERR_MUTEX_LOCK);
+		return CKR_FUNCTION_FAILED;
+	}
+
+	return rc;
+}

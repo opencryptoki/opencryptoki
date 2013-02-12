@@ -63,6 +63,7 @@ struct token_specific_struct token_specific = {
 	NULL,			// generate_key
 	NULL,			// get_attribute_value
 	NULL,			// set_attribute_value
+	NULL,			// find_objects_init 
 	// DES
 	&token_specific_des_key_gen,
 	&token_specific_des_ecb,

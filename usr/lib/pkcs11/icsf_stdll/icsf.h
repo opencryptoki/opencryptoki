@@ -52,6 +52,8 @@
 #define ICSF_FLAGS_LEN 4
 #define ICSF_RULE_ITEM_LEN 8
 
+#define MAX_RECORDS 10
+
 /* Object types */
 #define ICSF_SESSION_OBJECT 'S'
 #define ICSF_TOKEN_OBJECT 'T'

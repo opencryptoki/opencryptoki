@@ -2091,10 +2091,13 @@ CK_RV SC_FindObjectsInit( ST_SESSION_HANDLE  *sSession,
 		goto done;
 	}
 
-	rc = object_mgr_find_init( sess, pTemplate, ulCount );
-	if (rc != CKR_OK){
+	if (token_specific.t_find_objects_init)
+		rc = token_specific.t_find_objects_init(sess, pTemplate, ulCount);
+	else	
+		rc = object_mgr_find_init( sess, pTemplate, ulCount );
+
+	if (rc != CKR_OK)
 		OCK_LOG_ERR(ERR_OBJMGR_FIND_INIT);
-	}
 
  done:
 	LLOCK;
