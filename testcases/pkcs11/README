@@ -11,3 +11,11 @@ sess_mgmt_tests
 
 sess_bench
 	TODO - Needs to be tested.
+
+attributes
+        Tested.
+        TODO - add more attribute testcases.
+
+findobjects
+	Tested.
+	TODO - add more testcases.
