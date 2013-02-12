@@ -859,6 +859,21 @@ parse_token_record(struct icsf_token_record *record, const char *data)
 	memcpy(record->flags, data + offset, ICSF_FLAGS_LEN);
 }
 
+/* helper function to determine if a specific keyword is in the rule array */
+int
+in_rulearray(const char *keyword, const char *rulearray, int count)
+{
+	int i = 0;
+
+	while(count) {
+		if (memcmp(keyword, rulearray + i, 8) == 0)
+			return 1;
+		i += 8;
+		count--;
+	}
+	return 0;
+}
+
 /*
  * This function indicates if an attribute should be BER encoded as a number or
  * not, based on its type.
@@ -950,8 +965,8 @@ encode_error:
 
 /*
  *
- * `icsf_list` is a helper function for CSFPTRL service, which is used for token
- * and object listing.
+ * `icsf_list` is a helper function for CSFPTRL service,
+ *  which is used for token and object listing.
  *
  * `handle` identifies the last token or object returned by a previous call of
  * `icsf_list`. It should be always 44 bytes long and be in the following
@@ -983,6 +998,7 @@ encode_error:
  */
 static int
 icsf_list(LDAP *ld, int *reason, char *handle, size_t handle_len,
+	  CK_ULONG attrs_len, CK_ATTRIBUTE *attrs,
 	  const char *rule_array, size_t rule_array_len,
 	  struct berval **bv_list, size_t *list_len, size_t list_count)
 {
@@ -990,6 +1006,7 @@ icsf_list(LDAP *ld, int *reason, char *handle, size_t handle_len,
 	BerElement *msg = NULL;
 	BerElement *result = NULL;
 	int out_list_len = 0;
+	int objectInRuleArray = 0;
 
 	/* Allocate request message. */
 	msg = ber_alloc_t(LBER_USE_DER);
@@ -1007,10 +1024,29 @@ icsf_list(LDAP *ld, int *reason, char *handle, size_t handle_len,
 	 * }
 	 *
 	 */
-	rc = ber_printf(msg, "ii", *list_len, list_count);
-	if (rc < 0) {
+	if (ber_printf(msg, "ii", *list_len, list_count) < 0) {
 		OCK_LOG_DEBUG("Failed to encode message.\n");
 		goto cleanup;
+	}
+
+	objectInRuleArray = in_rulearray("OBJECT  ", rule_array,
+					 rule_array_len / ICSF_RULE_ITEM_LEN);
+
+	if ((objectInRuleArray) && (attrs != NULL)) {
+		if (ber_printf(msg, "t{", 0|LBER_CLASS_CONTEXT|LBER_CONSTRUCTED) < 0) {
+			OCK_LOG_DEBUG("Failed to flat attribute list\n");
+			goto cleanup;
+		}
+
+		if (icsf_ber_put_attribute_list(msg, attrs, attrs_len) < 0) {
+			OCK_LOG_DEBUG("Failed to flat attribute list\n");
+			goto cleanup;
+		}
+
+		if (ber_printf(msg, "}") < 0) {
+			OCK_LOG_DEBUG("Failed to encode message.\n");
+			goto cleanup;
+		}
 	}
 
 	rc = icsf_call(ld, reason, handle, handle_len, rule_array,
@@ -1084,7 +1120,7 @@ icsf_list_tokens(LDAP *ld, int *reason, struct icsf_token_record *previous,
 	strpad(rule_array, "TOKEN", ICSF_RULE_ITEM_LEN, ' ');
 
 	list_len = ICSF_TOKEN_RECORD_LEN * *records_len;
-	rc = icsf_list(ld, reason, handle, sizeof(handle), rule_array,
+	rc = icsf_list(ld, reason, handle, sizeof(handle), 0, NULL, rule_array,
 		       sizeof(rule_array), &bv_list, &list_len, *records_len);
 	if (ICSF_RC_IS_ERROR(rc))
 		goto cleanup;
@@ -1202,6 +1238,7 @@ cleanup:
  */
 int
 icsf_list_objects(LDAP *ld, int *reason, const char *token_name,
+		  CK_ULONG attrs_len, CK_ATTRIBUTE *attrs,
 		  struct icsf_object_record *previous,
 		  struct icsf_object_record *records, size_t *records_len,
 		  int all)
@@ -1238,8 +1275,7 @@ icsf_list_objects(LDAP *ld, int *reason, const char *token_name,
 	}
 
 	list_len = ICSF_HANDLE_LEN * *records_len;
-	rc = icsf_list(ld, reason, handle, sizeof(handle), rule_array,
-		       rule_array_count * ICSF_RULE_ITEM_LEN,
+	rc = icsf_list(ld, reason, handle, sizeof(handle), attrs_len, attrs,			      rule_array, rule_array_count * ICSF_RULE_ITEM_LEN,
 		       &bv_list, &list_len, *records_len);
 	if (ICSF_RC_IS_ERROR(rc))
 		goto cleanup;

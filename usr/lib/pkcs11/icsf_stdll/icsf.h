@@ -112,6 +112,7 @@ icsf_create_object(LDAP *ld, int *reason, const char *token_name,
 
 int
 icsf_list_objects(LDAP *ld, int *reason, const char *token_name,
+		  CK_ULONG attrs_len, CK_ATTRIBUTE *attrs,
 	          struct icsf_object_record *previous,
 	          struct icsf_object_record *records, size_t *records_len,
 	          int all);

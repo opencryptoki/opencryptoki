@@ -592,8 +592,8 @@ destroy_objects(CK_SLOT_ID slot_id, CK_CHAR_PTR token_name, CK_CHAR_PTR pin,
 	do {
 		records_len = sizeof(records)/sizeof(records[0]);
 
-		rc = icsf_list_objects(ld, NULL, token_name, previous, records,
-				       &records_len, 0);
+		rc = icsf_list_objects(ld, NULL, token_name, 0, NULL,
+					previous, records, &records_len, 0);
 		if (ICSF_RC_IS_ERROR(rc)) {
 			OCK_LOG_DEBUG("Failed to list objects for slot %lu.\n",
 				      slot_id);
