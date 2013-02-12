@@ -860,6 +860,95 @@ parse_token_record(struct icsf_token_record *record, const char *data)
 }
 
 /*
+ * This function indicates if an attribute should be BER encoded as a number or
+ * not, based on its type.
+ */
+static int is_numeric_attr(CK_ULONG type)
+{
+	switch (type) {
+	case CKA_CLASS:
+	case CKA_KEY_TYPE:
+	case CKA_CERTIFICATE_TYPE:
+	case CKA_KEY_GEN_MECHANISM:
+	case CKA_VALUE_LEN:
+	case CKA_MODULUS_BITS:
+		return 1;
+	}
+	return 0;
+}
+
+/*
+ * This helper functions receives a list of attributes containing type, length
+ * and value and encode it in BER encoding. Numeric and non numeric attributes
+ * are encoded using different rules.
+ *
+ * The attributes are encoded following rules:
+ *
+ * Attributes ::= SEQUENCE OF SEQUENCE {
+ *    attrName          INTEGER,
+ *    attrValue         AttributeValue
+ * }
+ *
+ * AttributeValue ::= CHOICE {
+ *    charValue         [0] OCTET STRING,
+ *    intValue          [1] INTEGER
+ * }
+ *
+ */
+static int
+icsf_ber_put_attribute_list(BerElement *ber, CK_ATTRIBUTE * attrs,
+			    CK_ULONG attrs_len)
+{
+	size_t i;
+
+	for (i = 0; i < attrs_len; i++) {
+		if (!is_numeric_attr(attrs[i].type)) {
+			/* Non numeric attributes are encode as octet strings */
+			if (ber_printf(ber, "{ito}", attrs[i].type,
+				       0 | LBER_CLASS_CONTEXT, attrs[i].pValue,
+				       attrs[i].ulValueLen) < 0) {
+				goto encode_error;
+			}
+		} else {
+			long value;
+			unsigned long mask;
+
+			/* `long` is used here to support any size of integer,
+			 * however if the value is shorter than a `long` then
+			 * just the significant bits should be used.
+			 */
+			if (attrs[i].ulValueLen > sizeof(long)) {
+				OCK_LOG_DEBUG
+				    ("Integer value too long for attribute\n");
+				goto encode_error;
+			}
+
+			/* Calculate a mask to get just the bits in the range of
+			 * the given length.
+			 */
+			mask = (1UL << (8 * attrs[i].ulValueLen)) - 1;
+			if (mask == 0)
+				mask = (unsigned long) -1;
+
+			value = *((unsigned long *) attrs[i].pValue) & mask;
+
+			/* Encode integer attribute. */
+			if (ber_printf(ber, "{iti}", attrs[i].type,
+				       1 | LBER_CLASS_CONTEXT, value) < 0) {
+				goto encode_error;
+			}
+		}
+	}
+
+	return 0;
+
+encode_error:
+	OCK_LOG_DEBUG("Failed to encode message.\n");
+
+	return -1;
+}
+
+/*
  *
  * `icsf_list` is a helper function for CSFPTRL service, which is used for token
  * and object listing.
@@ -1012,95 +1101,6 @@ cleanup:
 		ber_bvfree(bv_list);
 
 	return rc;
-}
-
-/*
- * This function indicates if an attribute should be BER encoded as a number or
- * not, based on its type.
- */
-static int is_numeric_attr(CK_ULONG type)
-{
-	switch (type) {
-	case CKA_CLASS:
-	case CKA_KEY_TYPE:
-	case CKA_CERTIFICATE_TYPE:
-	case CKA_KEY_GEN_MECHANISM:
-	case CKA_VALUE_LEN:
-	case CKA_MODULUS_BITS:
-		return 1;
-	}
-	return 0;
-}
-
-/*
- * This helper functions receives a list of attributes containing type, length
- * and value and encode it in BER encoding. Numeric and non numeric attributes
- * are encoded using different rules.
- *
- * The attributes are encoded following rules:
- *
- * Attributes ::= SEQUENCE OF SEQUENCE {
- *    attrName          INTEGER,
- *    attrValue         AttributeValue
- * }
- *
- * AttributeValue ::= CHOICE {
- *    charValue         [0] OCTET STRING,
- *    intValue          [1] INTEGER
- * }
- *
- */
-static int
-icsf_ber_put_attribute_list(BerElement *ber, CK_ATTRIBUTE * attrs,
-			    CK_ULONG attrs_len)
-{
-	size_t i;
-
-	for (i = 0; i < attrs_len; i++) {
-		if (!is_numeric_attr(attrs[i].type)) {
-			/* Non numeric attributes are encode as octet strings */
-			if (ber_printf(ber, "{ito}", attrs[i].type,
-				       0 | LBER_CLASS_CONTEXT, attrs[i].pValue,
-				       attrs[i].ulValueLen) < 0) {
-				goto encode_error;
-			}
-		} else {
-			long value;
-			unsigned long mask;
-
-			/* `long` is used here to support any size of integer,
-			 * however if the value is shorter than a `long` then
-			 * just the significant bits should be used.
-			 */
-			if (attrs[i].ulValueLen > sizeof(long)) {
-				OCK_LOG_DEBUG
-				    ("Integer value too long for attribute\n");
-				goto encode_error;
-			}
-
-			/* Calculate a mask to get just the bits in the range of
-			 * the given length.
-			 */
-			mask = (1UL << (8 * attrs[i].ulValueLen)) - 1;
-			if (mask == 0)
-				mask = (unsigned long) -1;
-
-			value = *((unsigned long *) attrs[i].pValue) & mask;
-
-			/* Encode integer attribute. */
-			if (ber_printf(ber, "{iti}", attrs[i].type,
-				       1 | LBER_CLASS_CONTEXT, value) < 0) {
-				goto encode_error;
-			}
-		}
-	}
-
-	return 0;
-
-encode_error:
-	OCK_LOG_DEBUG("Failed to encode message.\n");
-
-	return -1;
 }
 
 /*
