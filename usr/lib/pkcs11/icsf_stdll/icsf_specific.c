@@ -176,6 +176,27 @@ done:
 	return found;
 }
 
+/*
+ * Remove all mapped objects.
+ */
+static CK_RV
+purge_object_mapping()
+{
+	if (pthread_rwlock_wrlock(&obj_list_rw_mutex)) {
+		OCK_LOG_ERR(ERR_MUTEX_LOCK);
+		return CKR_FUNCTION_FAILED;
+	}
+
+	bt_destroy(&objects, free);
+
+	if (pthread_rwlock_unlock(&obj_list_rw_mutex)) {
+		OCK_LOG_ERR(ERR_MUTEX_UNLOCK);
+		return CKR_FUNCTION_FAILED;
+	}
+
+	return CKR_OK;
+}
+
 CK_RV
 token_specific_get_mechanism_list(CK_MECHANISM_TYPE_PTR pMechanismList,
 					CK_ULONG_PTR pulCount)
@@ -649,6 +670,12 @@ token_specific_init_token(CK_SLOT_ID slot_id, CK_CHAR_PTR pin, CK_ULONG pin_len,
 				  pin, pin_len)))
 		goto done;
 
+	/* purge the object btree */
+	if (purge_object_mapping()) {
+		OCK_LOG_DEBUG("Failed to purge objects.\n");
+		rc = CKR_FUNCTION_FAILED;
+	}
+
 done:
 	return rc;
 }
@@ -832,27 +859,6 @@ token_specific_open_session(SESSION *sess)
 
 	/* Unlock */
 	if (pthread_mutex_unlock(&sess_list_mutex)) {
-		OCK_LOG_ERR(ERR_MUTEX_UNLOCK);
-		return CKR_FUNCTION_FAILED;
-	}
-
-	return CKR_OK;
-}
-
-/*
- * Remove all mapped objects.
- */
-static CK_RV
-purge_object_mapping()
-{
-	if (pthread_rwlock_wrlock(&obj_list_rw_mutex)) {
-		OCK_LOG_ERR(ERR_MUTEX_LOCK);
-		return CKR_FUNCTION_FAILED;
-	}
-
-	bt_destroy(&objects, free);
-
-	if (pthread_rwlock_unlock(&obj_list_rw_mutex)) {
 		OCK_LOG_ERR(ERR_MUTEX_UNLOCK);
 		return CKR_FUNCTION_FAILED;
 	}
