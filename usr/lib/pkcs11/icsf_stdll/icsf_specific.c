@@ -145,6 +145,18 @@ struct icsf_object_mapping {
 };
 
 /*
+ * Structure used to keep track of data used in multi-part operations.
+ */
+struct icsf_multi_part_context {
+	int initiated;
+	char *chain_data;
+	size_t chain_data_len;
+	char *data;
+	size_t data_len;
+	size_t used_data_len;
+};
+
+/*
  * Get the session specific structure.
  */
 static struct session_state *
@@ -1358,6 +1370,873 @@ done:
 	/* If allocated, object must be freed in case of failure */
 	if (rc && !mapping)
 		free(mapping);
+
+	return rc;
+}
+
+/*
+ * Free all data pointed by an encryption context and set everything to zero.
+ */
+static void
+free_encr_ctx(ENCR_DECR_CONTEXT *encr_ctx)
+{
+	struct icsf_multi_part_context *multi_part_ctx;
+
+	if (!encr_ctx)
+		return;
+
+	/* Initialize encryption context */
+	multi_part_ctx = (struct icsf_multi_part_context *) encr_ctx->context;
+	if (multi_part_ctx) {
+		if (multi_part_ctx->chain_data)
+			free(multi_part_ctx->chain_data);
+		if (multi_part_ctx->data)
+			free(multi_part_ctx->data);
+		free(multi_part_ctx);
+	}
+	if (encr_ctx->mech.pParameter)
+		free(encr_ctx->mech.pParameter);
+	memset(encr_ctx, 0, sizeof(*encr_ctx));
+}
+
+/*
+ * Initialize an encryption operation.
+ */
+CK_RV
+token_specific_encrypt_init(SESSION *session, CK_MECHANISM_PTR mech,
+			   CK_OBJECT_HANDLE key)
+{
+	CK_RV rc = CKR_OK;
+	ENCR_DECR_CONTEXT *encr_ctx = &session->encr_ctx;
+	struct icsf_multi_part_context *multi_part_ctx = NULL;
+	size_t block_size = 0;
+
+	/* Check session */
+	if (!get_session_state(session->handle)) {
+		rc = CKR_SESSION_HANDLE_INVALID;
+		OCK_LOG_ERR(ERR_SESSION_HANDLE_INVALID);
+		goto done;
+	}
+
+	/* Check mechanism and get block size */
+	rc = icsf_block_size(mech->mechanism, &block_size);
+	if (rc != CKR_OK)
+		goto done;
+
+	/* Check if key exists */
+	pthread_rwlock_rdlock(&obj_list_rw_mutex);
+	if(!bt_get_node_value(&objects, key)) {
+		rc = CKR_KEY_HANDLE_INVALID;
+		OCK_LOG_ERR(ERR_KEY_HANDLE_INVALID);
+	}
+	pthread_rwlock_unlock(&obj_list_rw_mutex);
+	if (rc != CKR_OK)
+		goto done;
+
+	/* Initialize encryption context */
+	free_encr_ctx(encr_ctx);
+	encr_ctx->key = key;
+	encr_ctx->active = TRUE;
+
+	/* Copy mechanism */
+	if (mech->pParameter == NULL || mech->ulParameterLen == 0) {
+		encr_ctx->mech.ulParameterLen = 0;
+		encr_ctx->mech.pParameter = NULL;
+	} else {
+		encr_ctx->mech.pParameter = malloc(mech->ulParameterLen);
+		if (!encr_ctx->mech.pParameter) {
+			OCK_LOG_ERR(ERR_HOST_MEMORY);
+			rc = CKR_HOST_MEMORY;
+			goto done;
+		}
+		encr_ctx->mech.ulParameterLen = mech->ulParameterLen;
+		memcpy(encr_ctx->mech.pParameter, mech->pParameter,
+				mech->ulParameterLen);
+	}
+	encr_ctx->mech.mechanism = mech->mechanism;
+
+	/* Allocate context for multi-part operations */
+	if (!(multi_part_ctx = malloc(sizeof(*multi_part_ctx)))) {
+		OCK_LOG_ERR(ERR_HOST_MEMORY);
+		rc = CKR_HOST_MEMORY;
+		goto done;
+	}
+	encr_ctx->context = (void *) multi_part_ctx;
+
+	/* Chained data has always a fixed length */
+	memset(multi_part_ctx, 0, sizeof(*multi_part_ctx));
+	multi_part_ctx->chain_data_len = ICSF_CHAINING_DATA_LEN;
+	multi_part_ctx->chain_data = malloc(multi_part_ctx->chain_data_len);
+	if (!multi_part_ctx->chain_data) {
+		OCK_LOG_ERR(ERR_HOST_MEMORY);
+		rc = CKR_HOST_MEMORY;
+		goto done;
+	}
+	memset(multi_part_ctx->chain_data, 0, ICSF_CHAINING_DATA_LEN);
+
+	/*
+	 * data is used to retain data until at least the block size is reached.
+	 */
+	multi_part_ctx->data_len = block_size;
+	multi_part_ctx->data = malloc(multi_part_ctx->data_len);
+	if (!multi_part_ctx->data) {
+		OCK_LOG_ERR(ERR_HOST_MEMORY);
+		rc = CKR_HOST_MEMORY;
+		goto done;
+	}
+
+done:
+	if (rc != CKR_OK)
+		free_encr_ctx(encr_ctx);
+
+	return rc;
+}
+
+/*
+ * Encrypt data and finalize an encryption operation.
+ */
+CK_RV
+token_specific_encrypt(SESSION *session, CK_BYTE_PTR input_data,
+		       CK_ULONG input_data_len, CK_BYTE_PTR output_data,
+		       CK_ULONG_PTR p_output_data_len)
+{
+	CK_RV rc = CKR_OK;
+	CK_BBOOL is_length_only = (output_data == NULL);
+	ENCR_DECR_CONTEXT *encr_ctx = &session->encr_ctx;
+	struct session_state *session_state;
+	struct icsf_object_mapping *mapping;
+	char chain_data[ICSF_CHAINING_DATA_LEN] = { 0, };
+	size_t chain_data_len = sizeof(chain_data);
+	int reason = 0;
+
+	/* Check if there's a multi-part encryption in progress */
+	if (encr_ctx->multi) {
+		OCK_LOG_ERR(ERR_FUNCTION_FAILED);
+		rc = CKR_FUNCTION_FAILED;
+		goto done;
+	}
+
+	/* Check session */
+	if (!(session_state = get_session_state(session->handle))) {
+		OCK_LOG_ERR(ERR_SESSION_HANDLE_INVALID);
+		rc = CKR_SESSION_HANDLE_INVALID;
+		goto done;
+	}
+
+	/* Check if key exists */
+	pthread_rwlock_rdlock(&obj_list_rw_mutex);
+	if(!(mapping = bt_get_node_value(&objects, encr_ctx->key))) {
+		OCK_LOG_ERR(ERR_KEY_HANDLE_INVALID);
+		rc = CKR_KEY_HANDLE_INVALID;
+	}
+	pthread_rwlock_unlock(&obj_list_rw_mutex);
+	if (rc != CKR_OK)
+		goto done;
+
+	/* Encrypt data using remote token. */
+	if (icsf_secret_key_encrypt(session_state->ld, &reason,
+				    &mapping->icsf_object, &encr_ctx->mech,
+				    ICSF_CHAINING_ONLY, input_data,
+				    input_data_len, output_data,
+				    p_output_data_len, chain_data,
+				    &chain_data_len)) {
+		if (reason == ICSF_REASON_OUTPUT_PARAMETER_TOO_SHORT) {
+			if (is_length_only) {
+				/*
+				 * Parameter too short is not a problem when
+				 * querying the expect output size.
+				 */
+				rc = CKR_OK;
+			} else {
+				OCK_LOG_DEBUG(ERR_BUFFER_TOO_SMALL);
+				rc = CKR_BUFFER_TOO_SMALL;
+			}
+		} else {
+			OCK_LOG_DEBUG("Failed to encrypt data. reason = %d\n",
+					reason);
+			rc = CKR_FUNCTION_FAILED;
+		}
+		goto done;
+	}
+
+done:
+	if (rc != CKR_BUFFER_TOO_SMALL && !(rc == CKR_OK && is_length_only))
+		free_encr_ctx(encr_ctx);
+
+	return rc;
+}
+
+/*
+ * Multi-part encryption.
+ */
+CK_RV
+token_specific_encrypt_update(SESSION *session, CK_BYTE_PTR input_part,
+			      CK_ULONG input_part_len, CK_BYTE_PTR output_part,
+			      CK_ULONG_PTR p_output_part_len)
+{
+	CK_RV rc = CKR_OK;
+	CK_BBOOL is_length_only = (output_part == NULL);
+	ENCR_DECR_CONTEXT *encr_ctx = &session->encr_ctx;
+	struct icsf_multi_part_context *multi_part_ctx;
+	struct session_state *session_state;
+	struct icsf_object_mapping *mapping;
+	char chain_data[ICSF_CHAINING_DATA_LEN] = { 0, };
+	size_t chain_data_len = sizeof(chain_data);
+	CK_ULONG total, remaining;
+	char *buffer = NULL;
+	int chaining;
+	int reason = 0;
+
+	/* Check session */
+	if (!(session_state = get_session_state(session->handle))) {
+		OCK_LOG_ERR(ERR_SESSION_HANDLE_INVALID);
+		rc = CKR_SESSION_HANDLE_INVALID;
+		goto done;
+	}
+
+	/* Check if key exists */
+	pthread_rwlock_rdlock(&obj_list_rw_mutex);
+	if(!(mapping = bt_get_node_value(&objects, encr_ctx->key))) {
+		OCK_LOG_ERR(ERR_KEY_HANDLE_INVALID);
+		rc = CKR_KEY_HANDLE_INVALID;
+	}
+	pthread_rwlock_unlock(&obj_list_rw_mutex);
+	if (rc != CKR_OK)
+		goto done;
+
+	/*
+	 * Data needs to be sent to ICSF in chucks with size that is multiple of
+	 * block size. Any remaining data is kept in the multi-part context and
+	 * can be sent in a further call of the update function or when the
+	 * finalize function is called.
+	 *
+	 * With specific algorithms, ICSF can return an error if no data is sent
+	 * in the final call. So a block is kept in multi-part context when the
+	 * data available is exactly multiple of the block size.
+	 */
+	multi_part_ctx = (struct icsf_multi_part_context *) encr_ctx->context;
+	total = multi_part_ctx->used_data_len + input_part_len;
+	remaining = MIN(total, ((total - 1) % multi_part_ctx->data_len) + 1);
+
+	/*
+	 * ICSF should be call with at least one block. So skip the ICSF call
+	 * and keep the remaining data.
+	 */
+	if (total <= multi_part_ctx->data_len) {
+		*p_output_part_len = 0;
+		goto keep_remaining_data;
+	}
+
+	/* Define the type of the call */
+	switch (encr_ctx->mech.mechanism) {
+	case CKM_DES_ECB:
+	case CKM_DES3_ECB:
+	case CKM_AES_ECB:
+		/* ICSF just support the chaining mode ONLY for ECB. */
+		chaining = ICSF_CHAINING_ONLY;
+		break;
+	default:
+		if (multi_part_ctx->initiated) {
+			chaining = ICSF_CHAINING_CONTINUE;
+			memcpy(chain_data, multi_part_ctx->chain_data,
+					chain_data_len);
+		} else {
+			chaining = ICSF_CHAINING_INITIAL;
+		}
+	}
+
+	/*
+	 * The data to be encrypted should have length that is multiple of the
+	 * block size. It is composed by data kept in the multi-part context
+	 * concatenated with part of the data given.
+	 */
+	if (!(buffer = malloc(total - remaining))) {
+		OCK_LOG_ERR(ERR_HOST_MEMORY);
+		rc = CKR_HOST_MEMORY;
+		goto done;
+	}
+	memcpy(buffer, multi_part_ctx->data, multi_part_ctx->used_data_len);
+	memcpy(buffer + multi_part_ctx->used_data_len, input_part,
+			input_part_len - remaining);
+
+	/* Encrypt data using remote token. */
+	if (icsf_secret_key_encrypt(session_state->ld, &reason,
+				    &mapping->icsf_object,
+				    &encr_ctx->mech, chaining,
+				    buffer, total - remaining,
+				    output_part, p_output_part_len,
+				    chain_data, &chain_data_len)) {
+		if (reason == ICSF_REASON_OUTPUT_PARAMETER_TOO_SHORT) {
+			if (is_length_only) {
+				/*
+				 * Parameter too short is not a problem when
+				 * querying the expect output size.
+				 */
+				rc = CKR_OK;
+			} else {
+				OCK_LOG_DEBUG(ERR_BUFFER_TOO_SMALL);
+				rc = CKR_BUFFER_TOO_SMALL;
+			}
+		} else {
+			rc = CKR_FUNCTION_FAILED;
+			OCK_LOG_DEBUG("Failed to encrypt data."
+					"reason = %d\n", reason);
+		}
+		goto done;
+	}
+
+	/*
+	 * When blocks are sent it's necessary to keep the chain data returned
+	 * to be used in a subsequent call.
+	 */
+	if (!is_length_only) {
+		/* Copy chain data into context */
+		memcpy(multi_part_ctx->chain_data, chain_data, chain_data_len);
+
+		/* Mark multi-part operation as initiated */
+		multi_part_ctx->initiated = TRUE;
+
+		/* Data stored in cache was used */
+		multi_part_ctx->used_data_len = 0;
+	}
+
+keep_remaining_data:
+	/* Keep the remaining data to a next call */
+	if (!is_length_only) {
+		/* Copy remaining part of input_part into context */
+		if (total <= multi_part_ctx->data_len) {
+			memcpy(multi_part_ctx->data +
+				multi_part_ctx->used_data_len,
+				input_part, input_part_len);
+		} else {
+			memcpy(multi_part_ctx->data,
+				input_part + input_part_len - remaining,
+				remaining);
+		}
+		multi_part_ctx->used_data_len = remaining;
+	}
+
+done:
+	/* Free resources */
+	if (buffer)
+		free(buffer);
+
+	if (rc != CKR_OK && rc != CKR_BUFFER_TOO_SMALL)
+		free_encr_ctx(encr_ctx);
+
+	return rc;
+}
+
+/*
+ * Finalize a multi-part encryption.
+ */
+CK_RV
+token_specific_encrypt_final(SESSION *session, CK_BYTE_PTR output_part,
+			     CK_ULONG_PTR p_output_part_len)
+{
+	CK_RV rc = CKR_OK;
+	CK_BBOOL is_length_only = (output_part == NULL);
+	ENCR_DECR_CONTEXT *encr_ctx = &session->encr_ctx;
+	struct icsf_multi_part_context *multi_part_ctx;
+	struct session_state *session_state;
+	struct icsf_object_mapping *mapping;
+	char chain_data[ICSF_CHAINING_DATA_LEN] = { 0, };
+	size_t chain_data_len = sizeof(chain_data);
+	int chaining;
+	int reason = 0;
+
+	/* Check session */
+	if (!(session_state = get_session_state(session->handle))) {
+		OCK_LOG_ERR(ERR_SESSION_HANDLE_INVALID);
+		rc = CKR_SESSION_HANDLE_INVALID;
+		goto done;
+	}
+
+	/* Check if key exists */
+	pthread_rwlock_rdlock(&obj_list_rw_mutex);
+	if(!(mapping = bt_get_node_value(&objects, encr_ctx->key))) {
+		OCK_LOG_ERR(ERR_KEY_HANDLE_INVALID);
+		rc = CKR_KEY_HANDLE_INVALID;
+	}
+	pthread_rwlock_unlock(&obj_list_rw_mutex);
+	if (rc != CKR_OK)
+		goto done;
+
+	/* Define the type of the call */
+	multi_part_ctx = (struct icsf_multi_part_context *) encr_ctx->context;
+	switch (encr_ctx->mech.mechanism) {
+	case CKM_DES_ECB:
+	case CKM_DES3_ECB:
+	case CKM_AES_ECB:
+		/* ICSF just support the chaining mode ONLY for ECB. */
+		chaining = ICSF_CHAINING_ONLY;
+		break;
+	default:
+		if (multi_part_ctx->initiated) {
+			chaining = ICSF_CHAINING_FINAL;
+			memcpy(chain_data, multi_part_ctx->chain_data,
+					chain_data_len);
+		} else {
+			chaining = ICSF_CHAINING_ONLY;
+		}
+	}
+
+	/*
+	 * Encrypt data using remote token.
+	 *
+	 * All the data in multi-part context should be sent.
+	 */
+	if (icsf_secret_key_encrypt(session_state->ld, &reason,
+				    &mapping->icsf_object,
+				    &encr_ctx->mech, chaining,
+				    multi_part_ctx->data,
+				    multi_part_ctx->used_data_len,
+				    output_part, p_output_part_len,
+				    chain_data, &chain_data_len)) {
+		if (reason == ICSF_REASON_OUTPUT_PARAMETER_TOO_SHORT) {
+			if (is_length_only) {
+				/*
+				 * Parameter too short is not a problem when
+				 * querying the expect output size.
+				 */
+				rc = CKR_OK;
+			} else {
+				OCK_LOG_DEBUG(ERR_BUFFER_TOO_SMALL);
+				rc = CKR_BUFFER_TOO_SMALL;
+			}
+		} else {
+			rc = CKR_FUNCTION_FAILED;
+			OCK_LOG_DEBUG("Failed to encrypt data."
+					"reason = %d\n", reason);
+		}
+		goto done;
+	}
+
+done:
+	if ((is_length_only && rc != CKR_OK) ||
+	   (!is_length_only && rc != CKR_BUFFER_TOO_SMALL))
+		free_encr_ctx(encr_ctx);
+
+	return rc;
+}
+
+/*
+ * Initialize a decryption operation.
+ */
+CK_RV
+token_specific_decrypt_init(SESSION *session, CK_MECHANISM_PTR mech,
+			    CK_OBJECT_HANDLE key)
+{
+	CK_RV rc = CKR_OK;
+	ENCR_DECR_CONTEXT *decr_ctx = &session->decr_ctx;
+	struct icsf_multi_part_context *multi_part_ctx = NULL;
+	size_t block_size = 0;
+
+	/* Check session */
+	if (!get_session_state(session->handle)) {
+		rc = CKR_SESSION_HANDLE_INVALID;
+		OCK_LOG_ERR(ERR_SESSION_HANDLE_INVALID);
+		goto done;
+	}
+
+	/* Check mechanism and get block size */
+	rc = icsf_block_size(mech->mechanism, &block_size);
+	if (rc != CKR_OK)
+		goto done;
+
+	/* Check if key exists */
+	pthread_rwlock_rdlock(&obj_list_rw_mutex);
+	if(!bt_get_node_value(&objects, key)) {
+		rc = CKR_KEY_HANDLE_INVALID;
+		OCK_LOG_ERR(ERR_KEY_HANDLE_INVALID);
+	}
+	pthread_rwlock_unlock(&obj_list_rw_mutex);
+	if (rc != CKR_OK)
+		goto done;
+
+	/* Initialize decryption context */
+	free_encr_ctx(decr_ctx);
+	decr_ctx->key = key;
+	decr_ctx->active = TRUE;
+
+	/* Copy mechanism */
+	if (mech->pParameter == NULL || mech->ulParameterLen == 0) {
+		decr_ctx->mech.ulParameterLen = 0;
+		decr_ctx->mech.pParameter = NULL;
+	} else {
+		decr_ctx->mech.pParameter = malloc(mech->ulParameterLen);
+		if (!decr_ctx->mech.pParameter) {
+			OCK_LOG_ERR(ERR_HOST_MEMORY);
+			rc = CKR_HOST_MEMORY;
+			goto done;
+		}
+		decr_ctx->mech.ulParameterLen = mech->ulParameterLen;
+		memcpy(decr_ctx->mech.pParameter, mech->pParameter,
+				mech->ulParameterLen);
+	}
+	decr_ctx->mech.mechanism = mech->mechanism;
+
+	/* Allocate context for multi-part operations */
+	if (!(multi_part_ctx = malloc(sizeof(*multi_part_ctx)))) {
+		OCK_LOG_ERR(ERR_HOST_MEMORY);
+		rc = CKR_HOST_MEMORY;
+		goto done;
+	}
+	decr_ctx->context = (void *) multi_part_ctx;
+
+	/* Chained data has always a fixed length */
+	memset(multi_part_ctx, 0, sizeof(*multi_part_ctx));
+	multi_part_ctx->chain_data_len = ICSF_CHAINING_DATA_LEN;
+	multi_part_ctx->chain_data = malloc(multi_part_ctx->chain_data_len);
+	if (!multi_part_ctx->chain_data) {
+		OCK_LOG_ERR(ERR_HOST_MEMORY);
+		rc = CKR_HOST_MEMORY;
+		goto done;
+	}
+	memset(multi_part_ctx->chain_data, 0, ICSF_CHAINING_DATA_LEN);
+
+	/*
+	 * data is used to retain data until at least the block size is reached.
+	 */
+	multi_part_ctx->data_len = block_size;
+	multi_part_ctx->data = malloc(multi_part_ctx->data_len);
+	if (!multi_part_ctx->data) {
+		OCK_LOG_ERR(ERR_HOST_MEMORY);
+		rc = CKR_HOST_MEMORY;
+		goto done;
+	}
+
+done:
+	if (rc != CKR_OK)
+		free_encr_ctx(decr_ctx);
+
+	return rc;
+}
+
+/*
+ * Decrypt data and finalize a decryption operation.
+ */
+CK_RV
+token_specific_decrypt(SESSION *session, CK_BYTE_PTR input_data,
+		       CK_ULONG input_data_len, CK_BYTE_PTR output_data,
+		       CK_ULONG_PTR p_output_data_len)
+{
+	CK_RV rc = CKR_OK;
+	CK_BBOOL is_length_only = (output_data == NULL);
+	ENCR_DECR_CONTEXT *decr_ctx = &session->decr_ctx;
+	struct session_state *session_state;
+	struct icsf_object_mapping *mapping;
+	char chain_data[ICSF_CHAINING_DATA_LEN] = { 0, };
+	size_t chain_data_len = sizeof(chain_data);
+	int reason = 0;
+
+	/* Check if there's a multi-part decryption in progress */
+	if (decr_ctx->multi) {
+		OCK_LOG_ERR(ERR_FUNCTION_FAILED);
+		rc = CKR_FUNCTION_FAILED;
+		goto done;
+	}
+
+	/* Check session */
+	if (!(session_state = get_session_state(session->handle))) {
+		OCK_LOG_ERR(ERR_SESSION_HANDLE_INVALID);
+		rc = CKR_SESSION_HANDLE_INVALID;
+		goto done;
+	}
+
+	/* Check if key exists */
+	pthread_rwlock_rdlock(&obj_list_rw_mutex);
+	if(!(mapping = bt_get_node_value(&objects, decr_ctx->key))) {
+		OCK_LOG_ERR(ERR_KEY_HANDLE_INVALID);
+		rc = CKR_KEY_HANDLE_INVALID;
+	}
+	pthread_rwlock_unlock(&obj_list_rw_mutex);
+	if (rc != CKR_OK)
+		goto done;
+
+	/* Decrypt data using remote token. */
+	if (icsf_secret_key_decrypt(session_state->ld, &reason,
+				    &mapping->icsf_object, &decr_ctx->mech,
+				    ICSF_CHAINING_ONLY, input_data,
+				    input_data_len, output_data,
+				    p_output_data_len, chain_data,
+				    &chain_data_len)) {
+		if (reason == ICSF_REASON_OUTPUT_PARAMETER_TOO_SHORT) {
+			if (is_length_only) {
+				/*
+				 * Parameter too short is not a problem when
+				 * querying the expect output size.
+				 */
+				rc = CKR_OK;
+			} else {
+				OCK_LOG_DEBUG(ERR_BUFFER_TOO_SMALL);
+				rc = CKR_BUFFER_TOO_SMALL;
+			}
+		} else {
+			OCK_LOG_DEBUG("Failed to decrypt data. reason = %d\n",
+					reason);
+			rc = CKR_FUNCTION_FAILED;
+		}
+		goto done;
+	}
+
+done:
+	if (rc != CKR_BUFFER_TOO_SMALL && !(rc == CKR_OK && is_length_only))
+		free_encr_ctx(decr_ctx);
+
+	return rc;
+}
+
+/*
+ * Multi-part decryption.
+ */
+CK_RV
+token_specific_decrypt_update(SESSION *session, CK_BYTE_PTR input_part,
+			      CK_ULONG input_part_len, CK_BYTE_PTR output_part,
+			      CK_ULONG_PTR p_output_part_len)
+{
+	CK_RV rc = CKR_OK;
+	CK_BBOOL is_length_only = (output_part == NULL);
+	ENCR_DECR_CONTEXT *decr_ctx = &session->decr_ctx;
+	struct icsf_multi_part_context *multi_part_ctx;
+	struct session_state *session_state;
+	struct icsf_object_mapping *mapping;
+	char chain_data[ICSF_CHAINING_DATA_LEN] = { 0, };
+	size_t chain_data_len = sizeof(chain_data);
+	CK_ULONG total, remaining;
+	char *buffer = NULL;
+	int chaining;
+	int reason = 0;
+
+	/* Check session */
+	if (!(session_state = get_session_state(session->handle))) {
+		OCK_LOG_ERR(ERR_SESSION_HANDLE_INVALID);
+		rc = CKR_SESSION_HANDLE_INVALID;
+		goto done;
+	}
+
+	/* Check if key exists */
+	pthread_rwlock_rdlock(&obj_list_rw_mutex);
+	if(!(mapping = bt_get_node_value(&objects, decr_ctx->key))) {
+		OCK_LOG_ERR(ERR_KEY_HANDLE_INVALID);
+		rc = CKR_KEY_HANDLE_INVALID;
+	}
+	pthread_rwlock_unlock(&obj_list_rw_mutex);
+	if (rc != CKR_OK)
+		goto done;
+
+	/*
+	 * Data needs to be sent to ICSF in chucks with size that is multiple of
+	 * block size. Any remaining data is kept in the multi-part context and
+	 * can be sent in a further call of the update function or when the
+	 * finalize function is called.
+	 *
+	 * With specific algorithms, ICSF can return an error if no data is sent
+	 * in the final call. So a block is kept in multi-part context when the
+	 * data available is exactly multiple of the block size.
+	 */
+	multi_part_ctx = (struct icsf_multi_part_context *) decr_ctx->context;
+	total = multi_part_ctx->used_data_len + input_part_len;
+	remaining = MIN(total, ((total - 1) % multi_part_ctx->data_len) + 1);
+
+	/*
+	 * ICSF should be call with at least one block. So skip the ICSF call
+	 * and keep the remaining data.
+	 */
+	if (total <= multi_part_ctx->data_len) {
+		*p_output_part_len = 0;
+		goto keep_remaining_data;
+	}
+
+	/* Define the type of the call */
+	switch (decr_ctx->mech.mechanism) {
+	case CKM_DES_ECB:
+	case CKM_DES3_ECB:
+	case CKM_AES_ECB:
+		/* ICSF just support the chaining mode ONLY for ECB. */
+		chaining = ICSF_CHAINING_ONLY;
+		break;
+	default:
+		if (multi_part_ctx->initiated) {
+			chaining = ICSF_CHAINING_CONTINUE;
+			memcpy(chain_data, multi_part_ctx->chain_data,
+					chain_data_len);
+		} else {
+			chaining = ICSF_CHAINING_INITIAL;
+		}
+	}
+
+	/*
+	 * The data to be decrypted should have length that is multiple of the
+	 * block size. It is composed by data kept in the multi-part context
+	 * concatenated with part of the data given.
+	 */
+	if (!(buffer = malloc(total - remaining))) {
+		OCK_LOG_ERR(ERR_HOST_MEMORY);
+		rc = CKR_HOST_MEMORY;
+		goto done;
+	}
+	memcpy(buffer, multi_part_ctx->data, multi_part_ctx->used_data_len);
+	memcpy(buffer + multi_part_ctx->used_data_len, input_part,
+			input_part_len - remaining);
+
+	/* Decrypt data using remote token. */
+	if (icsf_secret_key_decrypt(session_state->ld, &reason,
+				    &mapping->icsf_object,
+				    &decr_ctx->mech, chaining,
+				    buffer, total - remaining,
+				    output_part, p_output_part_len,
+				    chain_data, &chain_data_len)) {
+		if (reason == ICSF_REASON_OUTPUT_PARAMETER_TOO_SHORT) {
+			if (is_length_only) {
+				/*
+				 * Parameter too short is not a problem when
+				 * querying the expect output size.
+				 */
+				rc = CKR_OK;
+			} else {
+				OCK_LOG_DEBUG(ERR_BUFFER_TOO_SMALL);
+				rc = CKR_BUFFER_TOO_SMALL;
+			}
+		} else {
+			rc = CKR_FUNCTION_FAILED;
+			OCK_LOG_DEBUG("Failed to decrypt data."
+					"reason = %d\n", reason);
+		}
+		goto done;
+	}
+
+	/*
+	 * When blocks are sent it's necessary to keep the chain data returned
+	 * to be used in a subsequent call.
+	 */
+	if (!is_length_only) {
+		/* Copy chain data into context */
+		memcpy(multi_part_ctx->chain_data, chain_data, chain_data_len);
+
+		/* Mark multi-part operation as initiated */
+		multi_part_ctx->initiated = TRUE;
+
+		/* Data stored in cache was used */
+		multi_part_ctx->used_data_len = 0;
+	}
+
+keep_remaining_data:
+	/* Keep the remaining data to a next call */
+	if (!is_length_only) {
+		/* Copy remaining part of input_part into context */
+		if (total <= multi_part_ctx->data_len) {
+			memcpy(multi_part_ctx->data +
+				multi_part_ctx->used_data_len,
+				input_part, input_part_len);
+		} else {
+			memcpy(multi_part_ctx->data,
+				input_part + input_part_len - remaining,
+				remaining);
+		}
+		multi_part_ctx->used_data_len = remaining;
+	}
+
+done:
+	/* Free resources */
+	if (buffer)
+		free(buffer);
+
+	if (rc != CKR_OK && rc != CKR_BUFFER_TOO_SMALL)
+		free_encr_ctx(decr_ctx);
+
+	return rc;
+}
+
+/*
+ * Finalize a multi-part decryption.
+ */
+CK_RV
+token_specific_decrypt_final(SESSION *session, CK_BYTE_PTR output_part,
+			     CK_ULONG_PTR p_output_part_len)
+{
+	CK_RV rc = CKR_OK;
+	CK_BBOOL is_length_only = (output_part == NULL);
+	ENCR_DECR_CONTEXT *decr_ctx = &session->decr_ctx;
+	struct icsf_multi_part_context *multi_part_ctx;
+	struct session_state *session_state;
+	struct icsf_object_mapping *mapping;
+	char chain_data[ICSF_CHAINING_DATA_LEN] = { 0, };
+	size_t chain_data_len = sizeof(chain_data);
+	int chaining;
+	int reason = 0;
+
+	/* Check session */
+	if (!(session_state = get_session_state(session->handle))) {
+		OCK_LOG_ERR(ERR_SESSION_HANDLE_INVALID);
+		rc = CKR_SESSION_HANDLE_INVALID;
+		goto done;
+	}
+
+	/* Check if key exists */
+	pthread_rwlock_rdlock(&obj_list_rw_mutex);
+	if(!(mapping = bt_get_node_value(&objects, decr_ctx->key))) {
+		OCK_LOG_ERR(ERR_KEY_HANDLE_INVALID);
+		rc = CKR_KEY_HANDLE_INVALID;
+	}
+	pthread_rwlock_unlock(&obj_list_rw_mutex);
+	if (rc != CKR_OK)
+		goto done;
+
+	/* Define the type of the call */
+	multi_part_ctx = (struct icsf_multi_part_context *) decr_ctx->context;
+	switch (decr_ctx->mech.mechanism) {
+	case CKM_DES_ECB:
+	case CKM_DES3_ECB:
+	case CKM_AES_ECB:
+		/* ICSF just support the chaining mode ONLY for ECB. */
+		chaining = ICSF_CHAINING_ONLY;
+		break;
+	default:
+		if (multi_part_ctx->initiated) {
+			chaining = ICSF_CHAINING_FINAL;
+			memcpy(chain_data, multi_part_ctx->chain_data,
+					chain_data_len);
+		} else {
+			chaining = ICSF_CHAINING_ONLY;
+		}
+	}
+
+	/*
+	 * Decrypt data using remote token.
+	 *
+	 * All the data in multi-part context should be sent.
+	 */
+	if (icsf_secret_key_decrypt(session_state->ld, &reason,
+				    &mapping->icsf_object,
+				    &decr_ctx->mech, chaining,
+				    multi_part_ctx->data,
+				    multi_part_ctx->used_data_len,
+				    output_part, p_output_part_len,
+				    chain_data, &chain_data_len)) {
+		if (reason == ICSF_REASON_OUTPUT_PARAMETER_TOO_SHORT) {
+			if (is_length_only) {
+				/*
+				 * Parameter too short is not a problem when
+				 * querying the expect output size.
+				 */
+				rc = CKR_OK;
+			} else {
+				OCK_LOG_DEBUG(ERR_BUFFER_TOO_SMALL);
+				rc = CKR_BUFFER_TOO_SMALL;
+			}
+		} else {
+			rc = CKR_FUNCTION_FAILED;
+			OCK_LOG_DEBUG("Failed to decrypt data."
+					"reason = %d\n", reason);
+		}
+		goto done;
+	}
+
+done:
+	if ((is_length_only && rc != CKR_OK) ||
+	   (!is_length_only && rc != CKR_BUFFER_TOO_SMALL))
+		free_encr_ctx(decr_ctx);
 
 	return rc;
 }

@@ -57,14 +57,14 @@ token_spec_t token_specific = {
 	&token_specific_set_attribute_value,
 	&token_specific_find_objects_init,
 	&token_specific_generate_key,
-	NULL,			// encrypt_init
-	NULL,			// encrypt
-	NULL,			// encrypt_update
-	NULL,			// encrypt_final
-	NULL,			// decrypt_init
-	NULL,			// decrypt
-	NULL,			// decrypt_update
-	NULL,			// decrypt_final
+	&token_specific_encrypt_init,
+	&token_specific_encrypt,
+	&token_specific_encrypt_update,
+	&token_specific_encrypt_final,
+	&token_specific_decrypt_init,
+	&token_specific_decrypt,
+	&token_specific_decrypt_update,
+	&token_specific_decrypt_final,
 	// DES
 	NULL, 			// des_key_gen
 	NULL, 			// des_ecb
