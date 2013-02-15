@@ -158,7 +158,7 @@ icsf_generate_secret_key(LDAP *ld, int *reason, const char *token_name,
 			struct icsf_object_record *object);
 
 CK_RV
-icsf_encrypt_initial_vector(CK_MECHANISM_PTR mech, char *iv, size_t *iv_len);
+icsf_block_size(CK_MECHANISM_TYPE mech_type, CK_ULONG_PTR p_block_size);
 
 int
 icsf_get_attribute(LDAP *ld, int *reason, struct icsf_object_record *object,

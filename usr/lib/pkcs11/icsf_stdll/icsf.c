@@ -1471,35 +1471,61 @@ get_cipher_mode(CK_MECHANISM_PTR mech)
 }
 
 /*
- * Extract and check the initialization vector contained in the given mechanism.
+ * Get the block size of supported algorithms/mechanism.
  */
 CK_RV
+icsf_block_size(CK_MECHANISM_TYPE mech_type, CK_ULONG_PTR p_block_size)
+{
+	CK_ULONG block_size;
+
+	switch (mech_type) {
+	case CKM_DES_CBC:
+	case CKM_DES_CBC_PAD:
+	case CKM_DES3_CBC:
+	case CKM_DES3_CBC_PAD:
+	case CKM_DES_ECB:
+	case CKM_DES3_ECB:
+		block_size = DES_BLOCK_SIZE;
+		break;
+
+	case CKM_AES_CBC:
+	case CKM_AES_CBC_PAD:
+	case CKM_AES_ECB:
+		block_size = AES_BLOCK_SIZE;
+		break;
+
+	default:
+		OCK_LOG_DEBUG();
+		return CKR_MECHANISM_INVALID;
+	}
+
+	if (p_block_size)
+		*p_block_size = block_size;
+
+	return CKR_OK;
+}
+
+/*
+ * Extract and check the initialization vector contained in the given mechanism.
+ */
+static CK_RV
 icsf_encrypt_initial_vector(CK_MECHANISM_PTR mech, char *iv, size_t *iv_len)
 {
+	CK_RV rc;
 	int use_iv = 0;
 	size_t expected_iv_len = 0;
+
+	if ((rc = icsf_block_size(mech->mechanism, &expected_iv_len)))
+		return rc;
 
 	switch (mech->mechanism) {
 	case CKM_DES_CBC:
 	case CKM_DES_CBC_PAD:
 	case CKM_DES3_CBC:
 	case CKM_DES3_CBC_PAD:
-		use_iv = 1;
-	case CKM_DES_ECB:
-	case CKM_DES3_ECB:
-		expected_iv_len = DES_BLOCK_SIZE;
-		break;
-
 	case CKM_AES_CBC:
 	case CKM_AES_CBC_PAD:
 		use_iv = 1;
-	case CKM_AES_ECB:
-		expected_iv_len = AES_BLOCK_SIZE;
-		break;
-
-	default:
-		OCK_LOG_DEBUG();
-		return CKR_MECHANISM_INVALID;
 	}
 
 	if (iv_len && *iv_len < expected_iv_len) {
