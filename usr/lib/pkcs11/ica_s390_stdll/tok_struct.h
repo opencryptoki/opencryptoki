@@ -327,6 +327,7 @@ token_spec_t token_specific = {
 	NULL,			// logout
 	NULL,			// init_pin
 	NULL,			// set_pin
+	NULL,			// copy object
 	NULL,			// create_object
 	NULL,			// get_attribute_value
 	NULL,			// set_attribute_value

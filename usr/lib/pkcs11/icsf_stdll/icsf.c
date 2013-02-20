@@ -6,6 +6,7 @@
  * (C) COPYRIGHT International Business Machines Corp. 2012
  *
  * Author: Marcelo Cerri (mhcerri@br.ibm.com)
+ *         Eduardo Otubo (eotubo@br.ibm.com)
  *
  */
 #include <stdlib.h>
@@ -1135,6 +1136,72 @@ icsf_list_tokens(LDAP *ld, int *reason, struct icsf_token_record *previous,
 cleanup:
 	if (bv_list)
 		ber_bvfree(bv_list);
+
+	return rc;
+}
+
+int
+icsf_copy_object(LDAP * ld, int *reason,
+		 CK_ATTRIBUTE * attrs, CK_ULONG attrs_len,
+		 struct icsf_object_record *src, struct icsf_object_record *dst)
+{
+	int rc = -1;
+	char handle[ICSF_HANDLE_LEN];
+	char rule_array[2 * ICSF_RULE_ITEM_LEN];
+	BerElement *msg = NULL;
+
+	CHECK_ARG_NON_NULL(ld);
+	CHECK_ARG_NON_NULL(src);
+	CHECK_ARG_NON_NULL(attrs);
+
+	object_record_to_handle(handle, src);
+
+	/* Allocate ber_req to encode message. */
+	msg = ber_alloc_t(LBER_USE_DER);
+	if (msg == NULL) {
+		OCK_LOG_ERR(ERR_HOST_MEMORY);
+		goto cleanup;
+	}
+
+	if (attrs_len != 0) {
+		rc = ber_printf(msg, "t{", 1 | LBER_CLASS_CONTEXT | LBER_CONSTRUCTED);
+		if (rc < 0) {
+			OCK_LOG_ERR(ERR_FUNCTION_FAILED);
+			goto cleanup;
+		}
+
+		if (icsf_ber_put_attribute_list(msg, attrs, attrs_len) < 0) {
+			OCK_LOG_ERR(ERR_FUNCTION_FAILED);
+			goto cleanup;
+		}
+
+		if (ber_printf(msg, "}") < 0) {
+			OCK_LOG_ERR(ERR_FUNCTION_FAILED);
+			goto cleanup;
+		}
+	} else {
+		rc = ber_printf(msg, "tn", 1 | LBER_CLASS_CONTEXT | LBER_CONSTRUCTED);
+		if (rc < 0) {
+			OCK_LOG_ERR(ERR_FUNCTION_FAILED);
+			goto cleanup;
+		}
+	}
+
+	/* Should be 8 bytes padded. */
+	strpad(rule_array, "OBJECT", ICSF_RULE_ITEM_LEN, ' ');
+	strpad(rule_array + ICSF_RULE_ITEM_LEN, "COPY", ICSF_RULE_ITEM_LEN,
+			' ');
+
+	rc = icsf_call(ld, reason, handle, sizeof(handle),
+		       rule_array, sizeof(rule_array),
+		       ICSF_TAG_CSFPTRC, msg, NULL);
+
+	if (!rc && dst)
+		handle_to_object_record(dst, handle);
+
+cleanup:
+	if (msg)
+		ber_free(msg, 1);
 
 	return rc;
 }

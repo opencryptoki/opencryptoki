@@ -52,6 +52,7 @@ token_spec_t token_specific = {
 	NULL,			// logout
 	&token_specific_init_pin,
 	&token_specific_set_pin,
+	&token_specific_copy_object,
 	&token_specific_create_object,
 	&token_specific_get_attribute_value,
 	&token_specific_set_attribute_value,

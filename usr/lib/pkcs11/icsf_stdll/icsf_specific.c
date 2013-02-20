@@ -1274,6 +1274,129 @@ done:
 }
 
 /*
+ * Copy an existing object.
+ */
+CK_RV
+token_specific_copy_object(SESSION * session, CK_ATTRIBUTE_PTR attrs,
+			   CK_ULONG attrs_len, CK_OBJECT_HANDLE src,
+			   CK_OBJECT_HANDLE_PTR dst)
+{
+	CK_RV rc = CKR_OK;
+	struct session_state *session_state;
+	struct session_object *session_object;
+	struct icsf_object_mapping *mapping_dst = NULL;
+	struct icsf_object_mapping *mapping_src = NULL;
+	CK_ULONG node_number;
+	int is_obj_locked = 0;
+	int reason = 0;
+
+	CK_BBOOL is_priv;
+	CK_BBOOL is_token;
+	CK_RV rc_permission = CKR_OK;
+
+	CK_ATTRIBUTE priv_attrs[] = {
+		{CKA_PRIVATE, &is_priv, sizeof(is_priv)},
+		{CKA_TOKEN, &is_token, sizeof(is_token)},
+	};
+
+	CK_ATTRIBUTE_PTR temp_attrs;
+
+	/* Get session state */
+	if (!(session_state = get_session_state(session->handle))) {
+		OCK_LOG_DEBUG("Session not found for session id %lu.\n",
+				(unsigned long)session->handle);
+		rc = CKR_SESSION_HANDLE_INVALID;
+		goto done;
+	}
+
+	/* Allocate structure for new object */
+	if (!(mapping_dst = malloc(sizeof(*mapping_dst)))) {
+		OCK_LOG_ERR(ERR_HOST_MEMORY);
+		rc = CKR_HOST_MEMORY;
+		goto done;
+	}
+
+	pthread_rwlock_rdlock(&obj_list_rw_mutex);
+	mapping_src = bt_get_node_value(&objects, src);
+	pthread_rwlock_unlock(&obj_list_rw_mutex);
+	if (!mapping_src) {
+		OCK_LOG_ERR(ERR_HOST_MEMORY);
+		rc = CKR_OBJECT_HANDLE_INVALID;
+		goto done;
+	}
+
+	rc = icsf_get_attribute(session_state->ld, &reason, &mapping_src->icsf_object, priv_attrs, 2);
+	if (rc != CKR_OK) {
+		OCK_LOG_ERR(ERR_FUNCTION_FAILED);
+		goto done;
+	}
+
+	if (attrs_len != 0) {
+		/* looking for CKA_PRIVATE */
+		temp_attrs = get_attribute_by_type(attrs, attrs_len, CKA_PRIVATE);
+		if (temp_attrs != NULL) {
+			priv_attrs[0].pValue = temp_attrs->pValue;
+			priv_attrs[0].ulValueLen = temp_attrs->ulValueLen;
+		}
+
+		/* looking for CKA_TOKEN */
+		temp_attrs = get_attribute_by_type(attrs, attrs_len, CKA_TOKEN);
+		if (temp_attrs != NULL) {
+			priv_attrs[1].pValue = temp_attrs->pValue;
+			priv_attrs[1].ulValueLen = attrs->ulValueLen;
+		}
+	}
+
+	/* Check permissions based on attributes and session */
+	rc = check_session_permissions(session, priv_attrs, 2);
+	if (rc_permission != CKR_OK) {
+		OCK_LOG_ERR(ERR_FUNCTION_FAILED);
+		goto done;
+	}
+
+	/* Call ICSF service */
+	rc = icsf_copy_object
+		(session_state->ld, &reason, attrs, attrs_len, &mapping_src->icsf_object,
+		 &mapping_dst->icsf_object);
+
+	if (rc != 0) {
+		OCK_LOG_DEBUG("Failed to call ICSF.\n");
+		rc = CKR_FUNCTION_FAILED;
+		goto done;
+	}
+
+	/* Lock the object list */
+	if (pthread_rwlock_wrlock(&obj_list_rw_mutex)) {
+		OCK_LOG_ERR(ERR_MUTEX_UNLOCK);
+		rc = CKR_FUNCTION_FAILED;
+		goto done;
+	}
+	is_obj_locked = 1;
+
+	/* Add info about object into session */
+	if (!(node_number = bt_node_add(&objects, mapping_dst))) {
+		OCK_LOG_DEBUG("Failed to add object to binary tree.\n");
+		rc = CKR_FUNCTION_FAILED;
+		goto done;
+	}
+
+	/* Use node number as handle */
+	*dst = node_number;
+
+done:
+	if (is_obj_locked && pthread_rwlock_unlock(&obj_list_rw_mutex)) {
+		OCK_LOG_ERR(ERR_MUTEX_UNLOCK);
+		rc = CKR_FUNCTION_FAILED;
+	}
+
+	/* If allocated, object must be freed in case of failure */
+	if (rc && mapping_dst)
+		free(mapping_dst);
+
+	return rc;
+}
+
+/*
  * Create a new object.
  */
 CK_RV

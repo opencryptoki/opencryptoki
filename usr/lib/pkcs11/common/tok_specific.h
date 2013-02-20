@@ -466,6 +466,10 @@ token_specific_ec_verify(CK_BYTE   * ,
                   OBJECT    * );
 
 CK_RV
+token_specific_copy_object(SESSION *, CK_ATTRIBUTE_PTR, CK_ULONG,
+			   CK_OBJECT_HANDLE, CK_OBJECT_HANDLE_PTR);
+
+CK_RV
 token_specific_ec_generate_keypair( TEMPLATE  * , TEMPLATE  * );
 
 CK_RV

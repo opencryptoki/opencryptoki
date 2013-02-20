@@ -1840,7 +1840,13 @@ CK_RV  SC_CopyObject( ST_SESSION_HANDLE   *sSession,
 		goto done;
 	}
    
-	rc = object_mgr_copy( sess, pTemplate, ulCount, hObject, phNewObject );
+	if (token_specific.t_copy_object) {
+		rc = token_specific.t_copy_object(sess, pTemplate, ulCount, hObject,
+							phNewObject);
+	} else {
+		rc = object_mgr_copy(sess, pTemplate, ulCount, hObject, phNewObject);
+	}
+
 	if (rc != CKR_OK) {
 		OCK_LOG_ERR(ERR_OBJ_COPY);
 	}

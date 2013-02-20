@@ -59,6 +59,7 @@ struct token_specific_struct token_specific = {
 	&token_specific_logout,
 	&token_specific_init_pin,
 	&token_specific_set_pin,
+	NULL,			// copy object
 	NULL,			// create_object
 	NULL,			// get_attribute_value
 	NULL,			// set_attribute_value

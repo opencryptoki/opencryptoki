@@ -140,6 +140,12 @@ icsf_list_tokens(LDAP *ld, int *reason, struct icsf_token_record *first,
 	         struct icsf_token_record *records, size_t *records_len);
 
 int
+icsf_copy_object(LDAP * ld, int *reason,
+		 CK_ATTRIBUTE * attrs, CK_ULONG attrs_len,
+		 struct icsf_object_record *src,
+		 struct icsf_object_record *dst);
+
+int
 icsf_create_object(LDAP *ld, int *reason, const char *token_name,
 	           CK_ATTRIBUTE *attrs, CK_ULONG attrs_len,
 		   struct icsf_object_record *object);
