@@ -476,6 +476,12 @@ CK_RV
 token_specific_generate_key(SESSION *, CK_MECHANISM_PTR, CK_ATTRIBUTE_PTR,
 			    CK_ULONG, CK_OBJECT_HANDLE_PTR);
 
+CK_RV
+token_specific_generate_key_pair(SESSION *, CK_MECHANISM_PTR,
+				 CK_ATTRIBUTE_PTR, CK_ULONG,
+				 CK_ATTRIBUTE_PTR, CK_ULONG,
+				 CK_OBJECT_HANDLE_PTR, CK_OBJECT_HANDLE_PTR);
+
 /* Begin code contributed by Corrent corp. */
 #ifndef NODH
 CK_RV

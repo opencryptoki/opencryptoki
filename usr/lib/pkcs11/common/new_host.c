@@ -3938,11 +3938,21 @@ CK_RV SC_GenerateKeyPair(ST_SESSION_HANDLE *sSession,
 		goto done;
 	}
 
-	rc = key_mgr_generate_key_pair(sess, pMechanism, pPublicKeyTemplate,
-				       ulPublicKeyAttributeCount,
-				       pPrivateKeyTemplate,
-				       ulPrivateKeyAttributeCount, phPublicKey,
-				       phPrivateKey);
+	if (token_specific.t_generate_key_pair) {
+		rc = token_specific.t_generate_key_pair(sess, pMechanism,
+						pPublicKeyTemplate,
+						ulPublicKeyAttributeCount,
+						pPrivateKeyTemplate,
+						ulPrivateKeyAttributeCount,
+						phPublicKey, phPrivateKey);
+	} else {
+		rc = key_mgr_generate_key_pair(sess, pMechanism,
+					       pPublicKeyTemplate,
+					       ulPublicKeyAttributeCount,
+					       pPrivateKeyTemplate,
+					       ulPrivateKeyAttributeCount,
+					       phPublicKey, phPrivateKey);
+	}
 	if (rc != CKR_OK)
 		OCK_LOG_ERR(ERR_KEYGEN);
 

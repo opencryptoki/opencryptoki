@@ -65,6 +65,7 @@ struct token_specific_struct token_specific = {
 	NULL,			// find_objects_init 
 	NULL,			// destroy_object
 	NULL,			// generate_key
+	NULL,			// generate_key_pair
 	NULL,			// encrypt_init
 	NULL,			// encrypt
 	NULL,			// encrypt_update
