@@ -3893,23 +3893,22 @@ CK_RV SC_GenerateKey( ST_SESSION_HANDLE    *sSession,
 
 //
 //
-CK_RV SC_GenerateKeyPair( ST_SESSION_HANDLE    *sSession,
-			  CK_MECHANISM_PTR      pMechanism,
-			  CK_ATTRIBUTE_PTR      pPublicKeyTemplate,
-			  CK_ULONG              ulPublicKeyAttributeCount,
-			  CK_ATTRIBUTE_PTR      pPrivateKeyTemplate,
-			  CK_ULONG              ulPrivateKeyAttributeCount,
-			  CK_OBJECT_HANDLE_PTR  phPublicKey,
-			  CK_OBJECT_HANDLE_PTR  phPrivateKey )
+CK_RV SC_GenerateKeyPair(ST_SESSION_HANDLE *sSession,
+			 CK_MECHANISM_PTR pMechanism,
+			 CK_ATTRIBUTE_PTR pPublicKeyTemplate,
+			 CK_ULONG ulPublicKeyAttributeCount,
+			 CK_ATTRIBUTE_PTR pPrivateKeyTemplate,
+			 CK_ULONG ulPrivateKeyAttributeCount,
+			 CK_OBJECT_HANDLE_PTR phPublicKey,
+			 CK_OBJECT_HANDLE_PTR phPrivateKey)
 {
-	SESSION       * sess = NULL;
-	CK_RV           rc = CKR_OK;
+	SESSION *sess = NULL;
+	CK_RV rc = CKR_OK;
 	CK_SESSION_HANDLE hSession = SESS_HANDLE(sSession);
-	CK_ATTRIBUTE  * attr = NULL;
-	CK_ULONG	i;
+	CK_ATTRIBUTE *attr = NULL;
+	CK_ULONG i;
 
-
-		LOCKIT;
+	LOCKIT;
 	if (st_Initialized() == FALSE) {
 		OCK_LOG_ERR(ERR_CRYPTOKI_NOT_INITIALIZED);
 		rc = CKR_CRYPTOKI_NOT_INITIALIZED;
@@ -3917,75 +3916,73 @@ CK_RV SC_GenerateKeyPair( ST_SESSION_HANDLE    *sSession,
 	}
 
 	if (!pMechanism || !phPublicKey || !phPrivateKey ||
-	    (!pPublicKeyTemplate && (ulPublicKeyAttributeCount != 0)) ||
-	    (!pPrivateKeyTemplate && (ulPrivateKeyAttributeCount != 0)))
-	{
+	   (!pPublicKeyTemplate && (ulPublicKeyAttributeCount != 0)) ||
+	   (!pPrivateKeyTemplate && (ulPrivateKeyAttributeCount != 0))) {
 		OCK_LOG_ERR(ERR_ARGUMENTS_BAD);
 		rc = CKR_ARGUMENTS_BAD;
 		goto done;
 	}
 	VALID_MECH(pMechanism, CKF_GENERATE_KEY_PAIR);
 
-	sess = SESSION_MGR_FIND( hSession );
+	sess = SESSION_MGR_FIND(hSession);
 	if (!sess) {
 		OCK_LOG_ERR(ERR_SESSION_HANDLE_INVALID);
 		rc = CKR_SESSION_HANDLE_INVALID;
 		goto done;
 	}
 
-	if (pin_expired(&sess->session_info, nv_token_data->token_info.flags) == TRUE) {
+	if (pin_expired(&sess->session_info,
+			nv_token_data->token_info.flags) == TRUE) {
 		OCK_LOG_ERR(ERR_PIN_EXPIRED);
 		rc = CKR_PIN_EXPIRED;
 		goto done;
 	}
-   
-	rc = key_mgr_generate_key_pair( sess,                pMechanism,
-					pPublicKeyTemplate,  ulPublicKeyAttributeCount,
-					pPrivateKeyTemplate, ulPrivateKeyAttributeCount,
-					phPublicKey,         phPrivateKey );
-	if (rc != CKR_OK){ 
-		OCK_LOG_ERR(ERR_KEYGEN);
-	}
 
- done:
+	rc = key_mgr_generate_key_pair(sess, pMechanism, pPublicKeyTemplate,
+				       ulPublicKeyAttributeCount,
+				       pPrivateKeyTemplate,
+				       ulPrivateKeyAttributeCount, phPublicKey,
+				       phPrivateKey);
+	if (rc != CKR_OK)
+		OCK_LOG_ERR(ERR_KEYGEN);
+
+done:
 	LLOCK;
-	OCK_LOG_DEBUG("C_GenerateKeyPair:  rc = %08x, sess = %d, mech = %x\n", rc, (sess == NULL)?-1:(CK_LONG)sess->handle, pMechanism->mechanism);
+	OCK_LOG_DEBUG("C_GenerateKeyPair: rc = %08x, sess = %d, mech = %x\n",
+			rc, (sess == NULL) ? -1 : ((CK_LONG) sess->handle),
+			pMechanism->mechanism);
 
 #ifdef DEBUG
-	if (rc == CKR_OK) 
-		OCK_LOG_DEBUG("Public  handle:  %d, Private handle:  %d\n", *phPublicKey, *phPrivateKey);
-	
-	OCK_LOG_DEBUG("Public Template:\n");
+	if (rc == CKR_OK) {
+		OCK_LOG_DEBUG("Public handle: %d, Private handle: %d\n",
+				*phPublicKey, *phPrivateKey);
+	}
 
+	OCK_LOG_DEBUG("Public Template:\n");
 	attr = pPublicKeyTemplate;
 	for (i = 0; i < ulPublicKeyAttributeCount; i++, attr++) {
-		CK_BYTE *ptr = (CK_BYTE *)attr->pValue;
-
-		OCK_LOG_DEBUG("%d:  Attribute type:  0x%08x, Value Length: %d\n", i, attr->type, attr->ulValueLen);
-
-		if (attr->ulValueLen != (CK_ULONG)(-1) && (ptr != NULL))
-			OCK_LOG_DEBUG("First 4 bytes:  %02x %02x %02x %02x\n", ptr[0], ptr[1], ptr[2], ptr[3]);
-
+		CK_BYTE *ptr = (CK_BYTE *) attr->pValue;
+		OCK_LOG_DEBUG("%d: Attribute type: 0x%08x, Value Length: %d\n",
+				i, attr->type, attr->ulValueLen);
+		if (attr->ulValueLen != ((CK_ULONG) -1) && (ptr != NULL))
+			OCK_LOG_DEBUG("First 4 bytes: %02x %02x %02x %02x\n",
+					ptr[0], ptr[1], ptr[2], ptr[3]);
 	}
 
 	OCK_LOG_DEBUG("Private Template:\n");
-
 	attr = pPublicKeyTemplate;
 	for (i = 0; i < ulPublicKeyAttributeCount; i++, attr++) {
-		CK_BYTE *ptr = (CK_BYTE *)attr->pValue;
-
-		OCK_LOG_DEBUG("%d:  Attribute type:  0x%08x, Value Length: %d\n", i, attr->type, attr->ulValueLen);
-
+		CK_BYTE *ptr = (CK_BYTE *) attr->pValue;
+		OCK_LOG_DEBUG("%d: Attribute type: 0x%08x, Value Length: %d\n",
+				i, attr->type, attr->ulValueLen);
 		if (attr->ulValueLen != (CK_ULONG)(-1) && (ptr != NULL))
-			OCK_LOG_DEBUG("First 4 bytes:  %02x %02x %02x %02x\n", ptr[0], ptr[1], ptr[2], ptr[3]);
-
+			OCK_LOG_DEBUG("First 4 bytes: %02x %02x %02x %02x\n",
+					ptr[0], ptr[1], ptr[2], ptr[3]);
 	}
-
 #endif
-
-	UNLOCKIT; return rc;
+	UNLOCKIT;
+	return rc;
 }
-
 
 //
 //
