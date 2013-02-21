@@ -1322,6 +1322,85 @@ icsf_destroy_object(LDAP *ld, int *reason, struct icsf_object_record *obj)
 }
 
 /*
+ * Generate an asymmetric key pair.
+ */
+int
+icsf_generate_key_pair(LDAP *ld, int *reason, const char *token_name,
+		       CK_ATTRIBUTE *pub_attrs, CK_ULONG pub_attrs_len,
+		       CK_ATTRIBUTE *priv_attrs, CK_ULONG priv_attrs_len,
+		       struct icsf_object_record *pub_key_object,
+		       struct icsf_object_record *priv_key_object)
+{
+	int rc = -1;
+	char handle[ICSF_HANDLE_LEN];
+	BerElement *msg = NULL;
+	BerElement *result = NULL;
+	struct berval bv_priv_handle = { 0, NULL };
+
+	CHECK_ARG_NON_NULL(ld);
+	CHECK_ARG_NON_NULL_AND_MAX_LEN(token_name, ICSF_TOKEN_NAME_LEN);
+	CHECK_ARG_NON_NULL(pub_attrs);
+	CHECK_ARG_NON_NULL(priv_attrs);
+	CHECK_ARG_NON_NULL(pub_key_object);
+	CHECK_ARG_NON_NULL(priv_key_object);
+
+	token_name_to_handle(handle, token_name);
+
+	if (!(msg = ber_alloc_t(LBER_USE_DER))) {
+		OCK_LOG_ERR(ERR_HOST_MEMORY);
+		return rc;
+	}
+
+	/* Encode message:
+	 *
+	 * GKPInput ::= SEQUENCE {
+	 *     publicKeyAttrList Attributes,
+	 *     privateKeyAttrList Attributes
+	 * }
+	 *
+	 * Attribute lists are built by icsf_ber_put_attribute_list()
+	 */
+	if (ber_printf(msg, "{") < 0 ||
+	    icsf_ber_put_attribute_list(msg, pub_attrs, pub_attrs_len) < 0 ||
+	    ber_printf(msg, "}{") < 0 ||
+	    icsf_ber_put_attribute_list(msg, priv_attrs, priv_attrs_len) < 0 ||
+	    ber_printf(msg, "}") < 0) {
+		OCK_LOG_DEBUG("Failed to encode message.\n");
+		goto cleanup;
+	}
+
+	rc = icsf_call(ld, reason, handle, sizeof(handle), "", 0,
+			ICSF_TAG_CSFPGKP, msg, &result);
+	if (rc)
+		goto cleanup;
+
+	/* Get private key handle from GKP response */
+	if (ber_scanf(result, "m", &bv_priv_handle) < 0) {
+		OCK_LOG_DEBUG("Failed to decode the response.\n");
+		rc = -1;
+		goto cleanup;
+	}
+	if (bv_priv_handle.bv_len != ICSF_HANDLE_LEN) {
+		OCK_LOG_DEBUG("Invalid length for handle: %lu\n",
+				(unsigned long) bv_priv_handle.bv_len);
+		rc = -1;
+		goto cleanup;
+	}
+	handle_to_object_record(priv_key_object, bv_priv_handle.bv_val);
+
+	/* Get public key handle from common ICSF header */
+	handle_to_object_record(pub_key_object, handle);
+
+cleanup:
+	if (result)
+		ber_free(result, 1);
+	if (msg)
+		ber_free(msg, 1);
+
+	return rc;
+}
+
+/*
  * Generate a symmetric key.
  */
 int

@@ -28,6 +28,7 @@
  * service that is called.
  */
 #define ICSF_TAG_CSFPGAV 3
+#define ICSF_TAG_CSFPGKP 4
 #define ICSF_TAG_CSFPGSK 5
 #define ICSF_TAG_CSFPSAV 11
 #define ICSF_TAG_CSFPSKD 12
@@ -156,6 +157,13 @@ icsf_generate_secret_key(LDAP *ld, int *reason, const char *token_name,
 			CK_MECHANISM_PTR mech,
 			CK_ATTRIBUTE *attrs, CK_ULONG attrs_len,
 			struct icsf_object_record *object);
+
+int
+icsf_generate_key_pair(LDAP *ld, int *reason, const char *token_name,
+		       CK_ATTRIBUTE *pub_attrs, CK_ULONG pub_attrs_len,
+		       CK_ATTRIBUTE *priv_attrs, CK_ULONG priv_attrs_len,
+		       struct icsf_object_record *pub_key_object,
+		       struct icsf_object_record *priv_key_object);
 
 CK_RV
 icsf_block_size(CK_MECHANISM_TYPE mech_type, CK_ULONG_PTR p_block_size);
