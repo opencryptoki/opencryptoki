@@ -34,6 +34,7 @@
 #include "list.h"
 #include "attributes.h"
 #include "../api/apiproto.h"
+#include "attributes.h"
 
 /* Default token attributes */
 CK_CHAR manuf[] = "IBM Corp.";
@@ -1298,27 +1299,6 @@ done:
 }
 
 /*
- * Get the related key type for a given mechanism.
- */
-static CK_ULONG
-get_generate_key_type(CK_MECHANISM_PTR mech)
-{
-	switch (mech->mechanism) {
-	case CKM_AES_KEY_GEN:
-		return CKK_AES;
-	case CKM_DES_KEY_GEN:
-		return CKK_DES;
-	case CKM_DES2_KEY_GEN:
-		return CKK_DES2;
-	case CKM_DES3_KEY_GEN:
-		return CKK_DES3;
-	case CKM_SSL3_PRE_MASTER_KEY_GEN:
-		return CKK_GENERIC_SECRET;
-	}
-	return -1;
-}
-
-/*
  * Check if attribute values are valid and add default values for missing ones.
  *
  * It returns a new allocated array that must be freed with
@@ -1368,6 +1348,163 @@ cleanup:
 		*p_attrs = NULL;
 		*p_attrs_len = 0;
 	}
+
+	return rc;
+}
+
+/*
+ * Get the type of the key that must be generated based on given mechanism.
+ *
+ * This functions is used by both symmetric and asymmetric key generation
+ * functions.
+ */
+static CK_ULONG
+get_generate_key_type(CK_MECHANISM_PTR mech)
+{
+	switch (mech->mechanism) {
+	/* Symmetric keys */
+	case CKM_AES_KEY_GEN:
+		return CKK_AES;
+	case CKM_DES_KEY_GEN:
+		return CKK_DES;
+	case CKM_DES2_KEY_GEN:
+		return CKK_DES2;
+	case CKM_DES3_KEY_GEN:
+		return CKK_DES3;
+	case CKM_SSL3_PRE_MASTER_KEY_GEN:
+		return CKK_GENERIC_SECRET;
+	/* Asymmetric keys */
+	case CKM_RSA_PKCS_KEY_PAIR_GEN:
+		return CKK_RSA;
+	case CKM_DSA_KEY_PAIR_GEN:
+		return CKK_DSA;
+	case CKM_DH_PKCS_KEY_PAIR_GEN:
+		return CKK_DH;
+	case CKM_EC_KEY_PAIR_GEN:
+		return CKK_EC;
+	}
+	return -1;
+}
+
+/*
+ * Generate a key pair.
+ */
+CK_RV
+token_specific_generate_key_pair(SESSION *session,
+				 CK_MECHANISM_PTR mech,
+				 CK_ATTRIBUTE_PTR pub_attrs,
+				 CK_ULONG pub_attrs_len,
+				 CK_ATTRIBUTE_PTR priv_attrs,
+				 CK_ULONG priv_attrs_len,
+				 CK_OBJECT_HANDLE_PTR p_pub_key,
+				 CK_OBJECT_HANDLE_PTR p_priv_key)
+{
+	CK_RV rc;
+	char token_name[sizeof(nv_token_data->token_info.label)];
+	struct session_state *session_state;
+	struct icsf_object_mapping *pub_key_mapping = NULL;
+	struct icsf_object_mapping *priv_key_mapping = NULL;
+	int reason = 0;
+	int is_obj_locked = 0;
+	int pub_node_number, priv_node_number;
+	CK_ATTRIBUTE_PTR new_pub_attrs = NULL;
+	CK_ULONG new_pub_attrs_len = 0;
+	CK_ATTRIBUTE_PTR new_priv_attrs = NULL;
+	CK_ULONG new_priv_attrs_len = 0;
+	CK_ULONG key_type;
+
+	/* Check and set default attributes based on mech */
+	if ((key_type = get_generate_key_type(mech)) == -1) {
+		OCK_LOG_ERR(ERR_MECHANISM_INVALID);
+		rc = CKR_MECHANISM_INVALID;
+		goto done;
+	}
+	rc = check_key_attributes(CKO_PUBLIC_KEY, key_type, pub_attrs,
+			pub_attrs_len, &new_pub_attrs, &new_pub_attrs_len);
+	if (rc != CKR_OK)
+		goto done;
+
+	rc = check_key_attributes(CKO_PRIVATE_KEY, key_type, priv_attrs,
+			priv_attrs_len, &new_priv_attrs, &new_priv_attrs_len);
+	if (rc != CKR_OK)
+		goto done;
+
+	/* Check permissions based on attributes and session */
+	rc = check_session_permissions(session, new_pub_attrs,
+			new_pub_attrs_len);
+	if (rc != CKR_OK)
+		goto done;
+	rc = check_session_permissions(session, new_priv_attrs,
+			new_priv_attrs_len);
+	if (rc != CKR_OK)
+		goto done;
+
+	/* Get session state */
+	if (!(session_state = get_session_state(session->handle))) {
+		OCK_LOG_DEBUG("Session not found for session id %lu.\n",
+				(unsigned long) session->handle);
+		rc = CKR_FUNCTION_FAILED;
+		goto done;
+	}
+
+	/* Copy token name from shared memory */
+	XProcLock();
+	memcpy(token_name, nv_token_data->token_info.label, sizeof(token_name));
+	XProcUnLock();
+
+	/* Allocate structure to keep ICSF objects information */
+	if (!(pub_key_mapping = malloc(sizeof(*pub_key_mapping))) ||
+	    !(priv_key_mapping = malloc(sizeof(*priv_key_mapping)))) {
+		OCK_LOG_ERR(ERR_HOST_MEMORY);
+		rc = CKR_HOST_MEMORY;
+		goto done;
+	}
+
+	/* Call ICSF service */
+	if (icsf_generate_key_pair(session_state->ld, &reason, token_name,
+				   new_pub_attrs, new_pub_attrs_len,
+				   new_priv_attrs, new_priv_attrs_len,
+				   &pub_key_mapping->icsf_object,
+				   &priv_key_mapping->icsf_object)) {
+		OCK_LOG_DEBUG("Failed to call ICSF.\n");
+		rc = icsf_to_ock_err(reason);
+		goto done;
+	}
+
+	/* Lock the object list */
+	if (pthread_rwlock_wrlock(&obj_list_rw_mutex)) {
+		OCK_LOG_ERR(ERR_MUTEX_UNLOCK);
+		rc = CKR_FUNCTION_FAILED;
+		goto done;
+	}
+	is_obj_locked = 1;
+
+	/* Add info about objects into session */
+	if(!(pub_node_number = bt_node_add(&objects, pub_key_mapping)) ||
+	   !(priv_node_number = bt_node_add(&objects, priv_key_mapping))) {
+		OCK_LOG_DEBUG("Failed to add object to binary tree.\n");
+		rc = CKR_FUNCTION_FAILED;
+		goto done;
+	}
+
+	/* Use node numbers as handles */
+	*p_pub_key = pub_node_number;
+	*p_priv_key = priv_node_number;
+
+done:
+	if (is_obj_locked && pthread_rwlock_unlock(&obj_list_rw_mutex)) {
+		OCK_LOG_ERR(ERR_MUTEX_UNLOCK);
+		rc = CKR_FUNCTION_FAILED;
+	}
+
+	free_attribute_array(new_pub_attrs, new_pub_attrs_len);
+	free_attribute_array(new_priv_attrs, new_priv_attrs_len);
+
+	/* Object mappings must be freed in case of failure */
+	if (rc && pub_key_mapping)
+		free(pub_key_mapping);
+	if (rc && priv_key_mapping)
+		free(priv_key_mapping);
 
 	return rc;
 }

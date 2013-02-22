@@ -58,7 +58,7 @@ token_spec_t token_specific = {
 	&token_specific_find_objects_init,
 	&token_specific_destroy_object,
 	&token_specific_generate_key,
-	NULL,			// generate_key_pair
+	&token_specific_generate_key_pair,
 	&token_specific_encrypt_init,
 	&token_specific_encrypt,
 	&token_specific_encrypt_update,
