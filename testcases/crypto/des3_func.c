@@ -1037,12 +1037,8 @@ CK_RV des3_funcs() {
 	int i, generate_key;
 	CK_RV rv;
 
-	generate_key = get_key_type();  // true if slot requires generated
+	generate_key = securekey;  // true if slot requires generated
 					// (secure) keys
-	if (generate_key == -1) {
-		testcase_error("Could not get token info.");
-		return -1;
-	}
 
 	/** published (known answer) tests **/
 	for (i = 0; i < NUM_OF_PUBLISHED_TESTSUITES; i++) {

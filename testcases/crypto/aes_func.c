@@ -1329,11 +1329,8 @@ CK_RV aes_funcs() {
 	int i, generate_key;
 	CK_RV rv  = CKR_OK;
 
-	generate_key = get_key_type(); // true if mech requires secure key
-				       // generate keys and skip published tests
-	if (generate_key == -1) {
-		return -1;
-	}
+	generate_key = securekey; // true if mech requires secure key
+				  // generate keys and skip published tests
 
 	for (i = 0; i < NUM_OF_PUBLISHED_TESTSUITES; i++) {
 		if (!generate_key) {
@@ -1389,6 +1386,7 @@ int main  (int argc, char **argv) {
 
 	printf("Using slot #%lu...\n\n", SLOT_ID );
 	printf("With option: nostop: %d\n", no_stop);
+	printf("With option: securekey: %d\n", securekey);
 
 	rc = do_GetFunctionList();
 	if (!rc) {

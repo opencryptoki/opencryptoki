@@ -18,35 +18,6 @@ CK_ULONG t_errors = 0;		// number of errors
 #define DES_KEY_SIZE 8
 #define DES3_KEY_SIZE 24
 
-struct	modelinfo {
-	const char *name;
-	int seckey;
-};
-
-struct modelinfo modellist[] = {
-	{ .name="TPM", .seckey = 1, },
-	{ .name="CCA", .seckey = 1, },
-	{ .name="ICA", .seckey = 0, },
-	{ .name="SoftTok", .seckey = 0, }
-};
-
-int get_key_type(void)
-{
-	int 		i;
-	CK_RV		rc;
-	CK_TOKEN_INFO	tokinfo;
-
-	rc = funcs->C_GetTokenInfo(SLOT_ID, &tokinfo);
-	if (rc != CKR_OK)
-		return -1;
-
-	for (i=0; i < MAX_MODEL; i++) {
-		if (strstr((const char *)tokinfo.model, modellist[i].name))
-			return(modellist[i].seckey);
-	}
-
-	return -1;
-}
 
 int mech_supported(CK_SLOT_ID slot_id, CK_ULONG mechanism) {
         CK_MECHANISM_INFO mech_info;
@@ -535,7 +506,7 @@ void print_hex( CK_BYTE *buf, CK_ULONG len )
 
 void usage (char *fct)
 {
-	printf("usage:  %s [-noskip] [-noinit] [-slot <num>] [-h]\n\n", fct );
+	printf("usage:  %s [-securekey] [-noskip] [-noinit] [-slot <num>] [-h]\n\n", fct );
 	printf("By default, Slot #1 (ie: Slot_Id 0) is used\n\n");
 	printf("By default we skip anything that creates or modifies\n");
 	printf("token objects to preserve flash lifetime.\n");
@@ -551,6 +522,7 @@ int do_ParseArgs(int argc, char **argv)
 	skip_token_obj = TRUE;
 	no_stop = FALSE;
 	no_init = FALSE;
+	securekey = FALSE;
 	SLOT_ID = 0;
 
 
@@ -566,6 +538,9 @@ int do_ParseArgs(int argc, char **argv)
 			SLOT_ID = atoi (argv[i+1]);
 			i++;
 		}
+		else if (strcmp (argv[i], "-securekey") == 0)
+			securekey = TRUE;
+
 		else if (strcmp (argv[i], "-noinit") == 0)
 			no_init = TRUE;
 

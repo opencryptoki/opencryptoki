@@ -86,6 +86,7 @@ extern CK_BYTE DSA_PUBL_BASE[128];
 CK_BBOOL skip_token_obj;
 CK_BBOOL no_stop;
 CK_BBOOL no_init;
+CK_BBOOL securekey;
 
 int get_so_pin(CK_BYTE_PTR);
 int get_user_pin(CK_BYTE_PTR);
