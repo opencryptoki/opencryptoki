@@ -39,6 +39,7 @@ testcases/pkcs11/sess_mgmt_tests
 testcases/pkcs11/hw_fn
 testcases/pkcs11/attribute
 testcases/pkcs11/findobjects
+testcases/pkcs11/destroyobjects
 testcases/pkcs11/misc_tests
 testcases/login/digest_init
 testcases/login/init_pin
