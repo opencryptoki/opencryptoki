@@ -214,7 +214,7 @@ token_specific_get_mechanism_list(CK_MECHANISM_TYPE_PTR pMechanismList,
 					CK_ULONG_PTR pulCount)
 {
 	int rc;
-	rc = ock_generate_get_mechanism_list(pMechanismList, pulCount);
+	rc = ock_generic_get_mechanism_list(pMechanismList, pulCount);
 	return rc;
 }
 
@@ -224,7 +224,7 @@ token_specific_get_mechanism_info(CK_MECHANISM_TYPE type,
 {
 	int rc;
 	/* common/mech_list.c */
-	rc = ock_generate_get_mechanism_info(type, pInfo);
+	rc = ock_generic_get_mechanism_info(type, pInfo);
 	return rc;
 }
 

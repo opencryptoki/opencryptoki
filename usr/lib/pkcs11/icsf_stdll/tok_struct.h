@@ -117,14 +117,18 @@ token_spec_t token_specific = {
 	NULL,			// aes_key_gen
 	NULL,			// aes_ecb
 	NULL,			// aes_cbc
+	NULL,			// aes_ctr
 #else
 	NULL,
 	NULL,
 	NULL,
+	NULL,
 #endif
-	NULL,			// aes_ctr
-	NULL,			// get_mechanism_list
-	NULL,			// get_mechanism_info
+	NULL,			// dsa_generate_keypair
+	NULL,			// dsa_sign
+	NULL,			// dsa_verify
+	&token_specific_get_mechanism_list,	// get_mechanism_list
+	&token_specific_get_mechanism_info,	// get_mechanism_info
 };
 
 #endif
