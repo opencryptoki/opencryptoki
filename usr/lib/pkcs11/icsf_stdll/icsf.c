@@ -1576,7 +1576,7 @@ icsf_secret_key_encrypt(LDAP *ld, int *p_reason, struct icsf_object_record *key,
 	struct berval bv_cipher_data = { 0UL, NULL };
 	struct berval bv_chaining_data = { 0UL, NULL };
 	const char *rule_alg, *rule_cipher;
-	int reason = 0;
+	int reason = 0, length = 0;
 
 	CHECK_ARG_NON_NULL(ld);
 	CHECK_ARG_NON_NULL(key);
@@ -1655,12 +1655,13 @@ icsf_secret_key_encrypt(LDAP *ld, int *p_reason, struct icsf_object_record *key,
 
 	/* Parse response */
 	if (ber_scanf(result, "{mmi", &bv_chaining_data, &bv_cipher_data,
-		       p_cipher_text_len) < 0) {
+		       &length) < 0) {
 		rc = -1;
 		OCK_LOG_DEBUG("Failed to decode the response.\n");
 		goto done;
 	}
 
+	*p_cipher_text_len = length;
 	/* Copy encrypted data */
 	if (bv_cipher_data.bv_len > *p_cipher_text_len) {
 		OCK_LOG_DEBUG("Cipher data longer than expected: %lu "
@@ -1671,7 +1672,7 @@ icsf_secret_key_encrypt(LDAP *ld, int *p_reason, struct icsf_object_record *key,
 		goto done;
 	}
 	if (cipher_text)
-		memcpy(cipher_text, bv_cipher_data.bv_val, *p_cipher_text_len);
+		memcpy(cipher_text, bv_cipher_data.bv_val, bv_cipher_data.bv_len);
 
 	/* Copy chaining data */
 	if (p_chaining_data_len) {
@@ -1718,7 +1719,7 @@ icsf_secret_key_decrypt(LDAP *ld, int *p_reason, struct icsf_object_record *key,
 	struct berval bv_clear_data = { 0UL, NULL };
 	struct berval bv_chaining_data = { 0UL, NULL };
 	const char *rule_alg, *rule_cipher;
-	int reason = 0;
+	int reason = 0, length = 0;
 
 	CHECK_ARG_NON_NULL(ld);
 	CHECK_ARG_NON_NULL(key);
@@ -1801,12 +1802,13 @@ icsf_secret_key_decrypt(LDAP *ld, int *p_reason, struct icsf_object_record *key,
 
 	/* Parse response */
 	if (ber_scanf(result, "{mmi", &bv_chaining_data, &bv_clear_data,
-		      p_clear_text_len) < 0) {
+		      &length) < 0) {
 		rc = -1;
 		OCK_LOG_DEBUG("Failed to decode the response.\n");
 		goto done;
 	}
 
+	*p_clear_text_len = length;
 	/* Copy encrypted data */
 	if (bv_clear_data.bv_len > *p_clear_text_len) {
 		OCK_LOG_DEBUG("Clear data longer than expected: %lu "
@@ -1817,7 +1819,7 @@ icsf_secret_key_decrypt(LDAP *ld, int *p_reason, struct icsf_object_record *key,
 		goto done;
 	}
 	if (clear_text)
-		memcpy(clear_text, bv_clear_data.bv_val, *p_clear_text_len);
+		memcpy(clear_text, bv_clear_data.bv_val, bv_clear_data.bv_len);
 
 	/* Copy chaining data */
 	if (p_chaining_data_len) {
