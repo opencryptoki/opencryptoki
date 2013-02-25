@@ -1501,8 +1501,7 @@ cleanup:
 }
 
 /*
- * Return the rule array element for the encryption/decryption algorithm based
- * on the given mechanism.
+ * Return the rule array element for the given mechanism.
  */
 static const char *
 get_algorithm_rule(CK_MECHANISM_PTR mech)
@@ -1521,6 +1520,23 @@ get_algorithm_rule(CK_MECHANISM_PTR mech)
 	case CKM_AES_CBC_PAD:
 	case CKM_AES_CTR:
 		return "AES";
+	case CKM_MD2_RSA_PKCS:
+	case CKM_MD5_RSA_PKCS:
+	case CKM_SHA1_RSA_PKCS:
+	case CKM_SHA256_RSA_PKCS:
+	case CKM_SHA384_RSA_PKCS:
+	case CKM_SHA512_RSA_PKCS:
+		return "RSA_PKCS";
+	case CKM_DSA_SHA1:
+	case CKM_DSA:
+		return "DSA";
+	case CKM_ECDSA_SHA1:
+	case CKM_ECDSA:
+		return "ECDSA";
+	case CKM_RSA_X_509:
+		return "RSA-ZERO";
+	case CKM_RSA_PKCS:
+		return "RSA-PKCS";
 	}
 	return NULL;
 }
@@ -2141,5 +2157,190 @@ cleanup:
 		ber_free(msg, 1);
 
 
+	return rc;
+}
+
+/*
+ * Sign or decrypt data using a private key.
+ */
+int
+icsf_private_key_sign(LDAP *ld, int *p_reason, int decrypt,
+		      struct icsf_object_record *key, CK_MECHANISM_PTR mech,
+		      const char *cipher_text, size_t cipher_text_len,
+		      char *clear_text, size_t *p_clear_text_len)
+{
+	int rc;
+	int reason = 0;
+	char handle[ICSF_HANDLE_LEN];
+	char rule_array[2 * ICSF_RULE_ITEM_LEN];
+	size_t rule_array_count = 0;
+	const char *rule_alg;
+	int support_decrypt;
+	BerElement *msg = NULL;
+	BerElement *result = NULL;
+	struct berval bv_clear_text = { 0, NULL };
+
+	object_record_to_handle(handle, key);
+
+	/* Build rule array based on mechanism */
+	if (!(rule_alg = get_algorithm_rule(mech))) {
+		OCK_LOG_DEBUG("Invalid algorithm: %lu\n",
+			(unsigned long) mech->mechanism);
+		return -1;
+	}
+
+	strpad(rule_array, rule_alg, ICSF_RULE_ITEM_LEN, ' ');
+	rule_array_count += 1;
+	if (decrypt) {
+		strpad(rule_array + (rule_array_count * ICSF_RULE_ITEM_LEN),
+			"DECRYPT", ICSF_RULE_ITEM_LEN, ' ');
+		rule_array_count += 1;
+	}
+
+	/* Build request */
+	if (!(msg = ber_alloc_t(LBER_USE_DER)))
+	{
+		OCK_LOG_ERR(ERR_HOST_MEMORY);
+		return -1;
+	}
+
+	if (ber_printf(msg, "oi", cipher_text, cipher_text_len,
+			*p_clear_text_len) < 0) {
+		rc = -1;
+		OCK_LOG_DEBUG("Failed to encode message: %d.\n", rc);
+		goto done;
+	}
+
+	/* Call service */
+	rc = icsf_call(ld, &reason, handle, sizeof(handle), rule_array,
+			rule_array_count * ICSF_RULE_ITEM_LEN, ICSF_TAG_CSFPPKS,
+			msg, &result);
+	if (p_reason)
+		*p_reason = reason;
+	if (ICSF_RC_IS_ERROR(rc)
+			&& reason != ICSF_REASON_OUTPUT_PARAMETER_TOO_SHORT)
+		goto done;
+
+	if (ber_scanf(result, "{mi}", &bv_clear_text, p_clear_text_len) < 0) {
+		rc = -1;
+		OCK_LOG_DEBUG("Failed to decode the response.\n");
+		goto done;
+	}
+
+	/* Copy clear data */
+	if (bv_clear_text.bv_len > *p_clear_text_len) {
+		OCK_LOG_DEBUG("Clear data longer than expected: %lu "
+				"(expected %lu)\n",
+				(unsigned long) bv_clear_text.bv_len,
+				(unsigned long) *p_clear_text_len);
+		rc = -1;
+		goto done;
+	}
+	if (clear_text)
+		memcpy(clear_text, bv_clear_text.bv_val, *p_clear_text_len);
+
+done:
+	if (result)
+		ber_free(result, 1);
+	if (msg)
+		ber_free(msg, 1);
+	return rc;
+}
+
+/*
+ * Verify or encrypt using a public. key.
+ */
+int
+icsf_public_key_verify(LDAP *ld, int *p_reason, int encrypt,
+		       struct icsf_object_record *key, CK_MECHANISM_PTR mech,
+		       const char *clear_text, size_t clear_text_len,
+		       char *cipher_text, size_t *p_cipher_text_len)
+{
+	int rc;
+	int reason = 0;
+	char handle[ICSF_HANDLE_LEN];
+	char rule_array[2 * ICSF_RULE_ITEM_LEN];
+	size_t rule_array_count = 0;
+	const char *rule_alg;
+	int support_encrypt;
+	BerElement *msg = NULL;
+	BerElement *result = NULL;
+	struct berval bv_cipher_text = { 0, NULL };
+
+	object_record_to_handle(handle, key);
+
+	/* Build rule array based on mechanism */
+	if (!(rule_alg = get_algorithm_rule(mech))) {
+		OCK_LOG_DEBUG("Invalid algorithm: %lu\n",
+			(unsigned long) mech->mechanism);
+		return -1;
+	}
+
+	strpad(rule_array, rule_alg, ICSF_RULE_ITEM_LEN, ' ');
+	rule_array_count += 1;
+	if (encrypt) {
+		strpad(rule_array + (rule_array_count * ICSF_RULE_ITEM_LEN),
+			"ENCRYPT", ICSF_RULE_ITEM_LEN, ' ');
+		rule_array_count += 1;
+	}
+
+	/* Build request */
+	if (!(msg = ber_alloc_t(LBER_USE_DER)))
+	{
+		OCK_LOG_ERR(ERR_HOST_MEMORY);
+		return -1;
+	}
+
+	if (encrypt) {
+		rc = ber_printf(msg, "oti", clear_text, clear_text_len,
+				0 | LBER_CLASS_CONTEXT, *p_cipher_text_len);
+	} else {
+		rc = ber_printf(msg, "oto", cipher_text, *p_cipher_text_len,
+				1 | LBER_CLASS_CONTEXT, clear_text,
+				clear_text_len);
+	}
+	if (rc < 0) {
+		rc = -1;
+		OCK_LOG_DEBUG("Failed to encode message: %d.\n", rc);
+		goto done;
+	}
+
+	/* Call request */
+	rc = icsf_call(ld, &reason, handle, sizeof(handle), rule_array,
+			rule_array_count * ICSF_RULE_ITEM_LEN, ICSF_TAG_CSFPPKV,
+			msg, &result);
+	if (p_reason)
+		*p_reason = reason;
+	if (ICSF_RC_IS_ERROR(rc)
+			&& reason != ICSF_REASON_OUTPUT_PARAMETER_TOO_SHORT)
+		goto done;
+
+	/* There's no output data when verifying */
+	if (!encrypt)
+		goto done;
+
+	if (ber_scanf(result, "{mi}", &bv_cipher_text, p_cipher_text_len) < 0) {
+		rc = -1;
+		OCK_LOG_DEBUG("Failed to decode the response.\n");
+		goto done;
+	}
+
+	/* Copy clear data */
+	if (bv_cipher_text.bv_len != *p_cipher_text_len) {
+		OCK_LOG_DEBUG("Cipher data length different that expected: %lu "
+				"(expected %lu)\n",
+				(unsigned long) bv_cipher_text.bv_len,
+				(unsigned long) *p_cipher_text_len);
+		rc = -1;
+		goto done;
+	}
+	if (cipher_text)
+		memcpy(cipher_text, bv_cipher_text.bv_val, *p_cipher_text_len);
+
+done:
+	if (result)
+		ber_free(result, 1);
+	if (msg)
+		ber_free(msg, 1);
 	return rc;
 }
