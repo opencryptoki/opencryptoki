@@ -2563,6 +2563,60 @@ done:
 }
 
 /*
+ * Destroy an object.
+ */
+CK_RV
+token_specific_destroy_object(SESSION *sess, CK_OBJECT_HANDLE handle)
+{
+
+	struct session_state *session_state;
+	struct icsf_object_mapping *mapping = NULL;
+	int reason;
+	CK_RV rc = CKR_OK;
+
+        /* Get session state */
+        if (!(session_state = get_session_state(sess->handle))) {
+                OCK_LOG_DEBUG("Session not found for session id %lu.\n",
+                                (unsigned long) handle);
+                return CKR_FUNCTION_FAILED;
+        }
+
+	/* Lock the object list */
+	if (pthread_rwlock_wrlock(&obj_list_rw_mutex)) {
+		OCK_LOG_ERR(ERR_MUTEX_UNLOCK);
+		return CKR_FUNCTION_FAILED;
+	}
+
+	/* get the object handle */
+	mapping = bt_get_node_value(&objects, handle);
+
+	if (!mapping) {
+		OCK_LOG_ERR(ERR_OBJECT_HANDLE_INVALID);
+		rc = CKR_OBJECT_HANDLE_INVALID;
+		goto done;
+	}
+
+	/* Now remove the object from ICSF */
+	rc = icsf_destroy_object(session_state->ld, &reason, &mapping->icsf_object);
+	if (rc != 0) {
+		OCK_LOG_ERR(ERR_FUNCTION_FAILED);
+		rc = CKR_FUNCTION_FAILED;
+		goto done;
+	}
+
+	/* Now remove the object from the object btree */
+	bt_node_free(&objects, handle, free);
+
+done:
+        if (pthread_rwlock_unlock(&obj_list_rw_mutex)) {
+                OCK_LOG_ERR(ERR_MUTEX_LOCK);
+                return CKR_FUNCTION_FAILED;
+        }
+
+	return rc;
+}
+
+/*
  * Converts an ICSF reason code to an ock error code
  */
 int
@@ -2604,4 +2658,5 @@ icsf_to_ock_err(int icsf_reason_code)
 	default:
 		return CKR_FUNCTION_FAILED;
 	}
+
 }

@@ -377,6 +377,8 @@ struct token_specific_struct {
 
 	CK_RV(*t_find_objects_init) (SESSION *, CK_ATTRIBUTE_PTR, CK_ULONG);
 
+	CK_RV(*t_destroy_object) (SESSION *, CK_OBJECT_HANDLE);
+
 	CK_RV(*t_generate_key) (SESSION *, CK_MECHANISM_PTR, CK_ATTRIBUTE_PTR,
 				CK_ULONG, CK_OBJECT_HANDLE_PTR);
 

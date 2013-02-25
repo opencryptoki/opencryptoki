@@ -1883,10 +1883,13 @@ CK_RV SC_DestroyObject( ST_SESSION_HANDLE  *sSession,
 		goto done;
 	}
    
-	rc = object_mgr_destroy_object( sess, hObject );
-	if (rc != CKR_OK){
+	if (token_specific.t_destroy_object)
+		rc = token_specific.t_destroy_object(sess, hObject);
+	else
+		rc = object_mgr_destroy_object(sess, hObject);
+
+	if (rc != CKR_OK)
 		OCK_LOG_ERR(ERR_OBJMGR_DESTROY);
-	}
  done:
 	LLOCK;
 	OCK_LOG_DEBUG("%s:  rc = 0x%08x, handle = %d\n", "C_DestroyObject", rc, hObject);
