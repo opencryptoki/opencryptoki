@@ -61,6 +61,7 @@ opencryptoki_stdll_libpkcs11_icsf_la_SOURCES = ../common/asn1.c		\
 					       ../common/verify_mgr.c	\
 					       ../common/mech_list.c	\
 					       ../common/shared_memory.c\
+					       ../common/attributes.c	\
 					       pbkdf.c			\
 					       icsf_specific.c		\
 					       icsf_config_parse.y	\

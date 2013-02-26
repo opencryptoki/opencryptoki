@@ -32,6 +32,7 @@
 #include "icsf_config.h"
 #include "pbkdf.h"
 #include "list.h"
+#include "attributes.h"
 #include "../api/apiproto.h"
 
 /* Default token attributes */
@@ -1297,6 +1298,81 @@ done:
 }
 
 /*
+ * Get the related key type for a given mechanism.
+ */
+static CK_ULONG
+get_generate_key_type(CK_MECHANISM_PTR mech)
+{
+	switch (mech->mechanism) {
+	case CKM_AES_KEY_GEN:
+		return CKK_AES;
+	case CKM_DES_KEY_GEN:
+		return CKK_DES;
+	case CKM_DES2_KEY_GEN:
+		return CKK_DES2;
+	case CKM_DES3_KEY_GEN:
+		return CKK_DES3;
+	case CKM_SSL3_PRE_MASTER_KEY_GEN:
+		return CKK_GENERIC_SECRET;
+	}
+	return -1;
+}
+
+/*
+ * Check if attribute values are valid and add default values for missing ones.
+ *
+ * It returns a new allocated array that must be freed with
+ * free_attribute_array().
+ */
+static CK_RV
+check_key_attributes(CK_ULONG class, CK_ULONG key_type,
+		     CK_ATTRIBUTE_PTR attrs, CK_ULONG attrs_len,
+		     CK_ATTRIBUTE_PTR *p_attrs, CK_ULONG *p_attrs_len)
+{
+
+	CK_RV rc;
+	CK_ULONG i;
+	CK_ULONG check_types[] = { CKA_CLASS, CKA_KEY_TYPE };
+	CK_ULONG *check_values[] = { &class, &key_type };
+
+	if ((rc = dup_attribute_array(attrs, attrs_len, p_attrs, p_attrs_len)))
+		return rc;
+
+	for (i = 0; i < sizeof(check_types)/sizeof(*check_types); i++) {
+		/* Search for the attribute */
+		CK_ATTRIBUTE_PTR attr = get_attribute_by_type(*p_attrs,
+				*p_attrs_len, check_types[i]);
+		if (attr) {
+			/* Check the expected value */
+			if (*((CK_ULONG *) attr->pValue) != *check_values[i]) {
+				OCK_LOG_ERR(ERR_ATTRIBUTE_VALUE_INVALID);
+				rc = CKR_ATTRIBUTE_VALUE_INVALID;
+				goto cleanup;
+			}
+		} else {
+			/* Add default value */
+			rc = add_to_attribute_array(p_attrs, p_attrs_len,
+					check_types[i],
+					(CK_BYTE *) check_values[i],
+					sizeof(*check_values[i]));
+			if (rc)
+				goto cleanup;
+		}
+	}
+
+	rc = CKR_OK;
+
+cleanup:
+	if (rc) {
+		free_attribute_array(*p_attrs, *p_attrs_len);
+		*p_attrs = NULL;
+		*p_attrs_len = 0;
+	}
+
+	return rc;
+}
+
+/*
  * Generate a symmetric key.
  */
 CK_RV
@@ -1306,16 +1382,32 @@ token_specific_generate_key(SESSION *session, CK_MECHANISM_PTR mech,
 {
 	CK_RV rc = CKR_OK;
 	struct session_state *session_state;
-	struct icsf_object_mapping *mapping;
+	struct icsf_object_mapping *mapping = NULL;
 	CK_ULONG node_number;
 	char token_name[sizeof(nv_token_data->token_info.label)];
 	int is_obj_locked = 0;
+	CK_ATTRIBUTE_PTR new_attrs = NULL;
+	CK_ULONG new_attrs_len = 0;
+	CK_ULONG class = CKO_SECRET_KEY;
+	CK_ULONG key_type = 0;
 	int reason = 0;
 
-	/* Check permissions based on attributes and session */
-	rc = check_session_permissions(session, attrs, attrs_len);
+	/* Check attributes */
+	if ((key_type = get_generate_key_type(mech)) == -1) {
+		OCK_LOG_ERR(ERR_MECHANISM_INVALID);
+		rc = CKR_MECHANISM_INVALID;
+		goto done;
+	}
+
+	rc = check_key_attributes(class, key_type, attrs, attrs_len, &new_attrs,
+				  &new_attrs_len);
 	if (rc != CKR_OK)
-		return rc;
+		goto done;
+
+	/* Check permissions based on attributes and session */
+	rc = check_session_permissions(session, new_attrs, new_attrs_len);
+	if (rc != CKR_OK)
+		goto done;
 
 	/* Copy token name from shared memory */
 	XProcLock();
@@ -1325,7 +1417,7 @@ token_specific_generate_key(SESSION *session, CK_MECHANISM_PTR mech,
 	/* Allocate structure to keep ICSF object information */
 	if (!(mapping = malloc(sizeof(*mapping)))) {
 		OCK_LOG_ERR(ERR_HOST_MEMORY);
-		return CKR_HOST_MEMORY;
+		goto done;
 	}
 	memset(mapping, 0, sizeof(struct icsf_object_mapping));
 	mapping->session_id = session->handle;
@@ -1340,7 +1432,7 @@ token_specific_generate_key(SESSION *session, CK_MECHANISM_PTR mech,
 
 	/* Call ICSF service */
 	if (icsf_generate_secret_key(session_state->ld, &reason, token_name,
-				     mech, attrs, attrs_len,
+				     mech, new_attrs, new_attrs_len,
 				     &mapping->icsf_object)) {
 		OCK_LOG_DEBUG("Failed to call ICSF.\n");
 		rc = icsf_to_ock_err(reason);
@@ -1370,6 +1462,9 @@ done:
 		OCK_LOG_ERR(ERR_MUTEX_UNLOCK);
 		rc = CKR_FUNCTION_FAILED;
 	}
+
+	if (new_attrs)
+		free_attribute_array(new_attrs, new_attrs_len);
 
 	/* If allocated, object must be freed in case of failure */
 	if (rc && !mapping)
@@ -1608,28 +1703,7 @@ token_specific_encrypt_update(SESSION *session, CK_BYTE_PTR input_part,
 	if (rc != CKR_OK)
 		goto done;
 
-	/*
-	 * Data needs to be sent to ICSF in chucks with size that is multiple of
-	 * block size. Any remaining data is kept in the multi-part context and
-	 * can be sent in a further call of the update function or when the
-	 * finalize function is called.
-	 *
-	 * With specific algorithms, ICSF can return an error if no data is sent
-	 * in the final call. So a block is kept in multi-part context when the
-	 * data available is exactly multiple of the block size.
-	 */
 	multi_part_ctx = (struct icsf_multi_part_context *) encr_ctx->context;
-	total = multi_part_ctx->used_data_len + input_part_len;
-	remaining = MIN(total, ((total - 1) % multi_part_ctx->data_len) + 1);
-
-	/*
-	 * ICSF should be call with at least one block. So skip the ICSF call
-	 * and keep the remaining data.
-	 */
-	if (total <= multi_part_ctx->data_len) {
-		*p_output_part_len = 0;
-		goto keep_remaining_data;
-	}
 
 	/* Define the type of the call */
 	switch (encr_ctx->mech.mechanism) {
@@ -1647,6 +1721,23 @@ token_specific_encrypt_update(SESSION *session, CK_BYTE_PTR input_part,
 		} else {
 			chaining = ICSF_CHAINING_INITIAL;
 		}
+	}
+
+	/*
+	 * Data needs to be sent to ICSF in chucks with size that is multiple of
+	 * block size. Any remaining data is kept in the multi-part context and
+	 * can be sent in a further call of the update function or when the
+	 * finalize function is called.
+	 */
+	total = multi_part_ctx->used_data_len + input_part_len;
+	remaining = total % multi_part_ctx->data_len;
+
+	/*
+	 * If there's no enough data to make a call, skip it.
+	 */
+	if (total < multi_part_ctx->data_len) {
+		*p_output_part_len = 0;
+		goto keep_remaining_data;
 	}
 
 	/*
@@ -1708,7 +1799,7 @@ keep_remaining_data:
 	/* Keep the remaining data to a next call */
 	if (!is_length_only) {
 		/* Copy remaining part of input_part into context */
-		if (total <= multi_part_ctx->data_len) {
+		if (total < multi_part_ctx->data_len) {
 			memcpy(multi_part_ctx->data +
 				multi_part_ctx->used_data_len,
 				input_part, input_part_len);
@@ -1772,6 +1863,14 @@ token_specific_encrypt_final(SESSION *session, CK_BYTE_PTR output_part,
 	case CKM_DES_ECB:
 	case CKM_DES3_ECB:
 	case CKM_AES_ECB:
+		/*
+		 * When not using a chained algorithm and there's no remaining
+		 * data, don't call ICSF.
+		 */
+		*p_output_part_len = 0;
+		if (!multi_part_ctx->used_data_len)
+			goto done;
+
 		/* ICSF just support the chaining mode ONLY for ECB. */
 		chaining = ICSF_CHAINING_ONLY;
 		break;
@@ -2011,6 +2110,7 @@ token_specific_decrypt_update(SESSION *session, CK_BYTE_PTR input_part,
 	char *buffer = NULL;
 	int chaining;
 	int reason = 0;
+	int padding = 0;
 
 	/* Check session */
 	if (!(session_state = get_session_state(session->handle))) {
@@ -2029,37 +2129,20 @@ token_specific_decrypt_update(SESSION *session, CK_BYTE_PTR input_part,
 	if (rc != CKR_OK)
 		goto done;
 
-	/*
-	 * Data needs to be sent to ICSF in chucks with size that is multiple of
-	 * block size. Any remaining data is kept in the multi-part context and
-	 * can be sent in a further call of the update function or when the
-	 * finalize function is called.
-	 *
-	 * With specific algorithms, ICSF can return an error if no data is sent
-	 * in the final call. So a block is kept in multi-part context when the
-	 * data available is exactly multiple of the block size.
-	 */
 	multi_part_ctx = (struct icsf_multi_part_context *) decr_ctx->context;
-	total = multi_part_ctx->used_data_len + input_part_len;
-	remaining = MIN(total, ((total - 1) % multi_part_ctx->data_len) + 1);
-
-	/*
-	 * ICSF should be call with at least one block. So skip the ICSF call
-	 * and keep the remaining data.
-	 */
-	if (total <= multi_part_ctx->data_len) {
-		*p_output_part_len = 0;
-		goto keep_remaining_data;
-	}
 
 	/* Define the type of the call */
 	switch (decr_ctx->mech.mechanism) {
+	case CKM_AES_ECB:
 	case CKM_DES_ECB:
 	case CKM_DES3_ECB:
-	case CKM_AES_ECB:
 		/* ICSF just support the chaining mode ONLY for ECB. */
 		chaining = ICSF_CHAINING_ONLY;
 		break;
+	case CKM_AES_CBC_PAD:
+	case CKM_DES_CBC_PAD:
+	case CKM_DES3_CBC_PAD:
+		padding = 1;
 	default:
 		if (multi_part_ctx->initiated) {
 			chaining = ICSF_CHAINING_CONTINUE;
@@ -2069,6 +2152,35 @@ token_specific_decrypt_update(SESSION *session, CK_BYTE_PTR input_part,
 			chaining = ICSF_CHAINING_INITIAL;
 		}
 	}
+
+	/*
+	 * Data needs to be sent to ICSF in chucks with size that is multiple of
+	 * block size. Any remaining data is kept in the multi-part context and
+	 * can be sent in a further call of the update function or when the
+	 * finalize function is called.
+	 *
+	 * When padding is used, there's no way to know if the current block of
+	 * data is the one that contains the padding, So a block is kept in
+	 * multi-part context when the data available is exactly multiple of the
+	 * block size.
+	 */
+	total = multi_part_ctx->used_data_len + input_part_len;
+	if (!padding) {
+		remaining = total % multi_part_ctx->data_len;
+	} else {
+		remaining = MIN(((total - 1) % multi_part_ctx->data_len) + 1,
+				total);
+	}
+
+	/*
+	 * If there's no enough data to make a call, skip it.
+	 */
+	if (total < multi_part_ctx->data_len ||
+	    (padding && total == multi_part_ctx->data_len)) {
+		*p_output_part_len = 0;
+		goto keep_remaining_data;
+	}
+
 
 	/*
 	 * The data to be decrypted should have length that is multiple of the
@@ -2129,7 +2241,8 @@ keep_remaining_data:
 	/* Keep the remaining data to a next call */
 	if (!is_length_only) {
 		/* Copy remaining part of input_part into context */
-		if (total <= multi_part_ctx->data_len) {
+		if (total < multi_part_ctx->data_len ||
+		    (padding && total == multi_part_ctx->data_len)) {
 			memcpy(multi_part_ctx->data +
 				multi_part_ctx->used_data_len,
 				input_part, input_part_len);
@@ -2190,9 +2303,17 @@ token_specific_decrypt_final(SESSION *session, CK_BYTE_PTR output_part,
 	/* Define the type of the call */
 	multi_part_ctx = (struct icsf_multi_part_context *) decr_ctx->context;
 	switch (decr_ctx->mech.mechanism) {
+	case CKM_AES_ECB:
 	case CKM_DES_ECB:
 	case CKM_DES3_ECB:
-	case CKM_AES_ECB:
+		/*
+		 * When not using a chained algorithm and there's no remaining
+		 * data, don't call ICSF.
+		 */
+		*p_output_part_len = 0;
+		if (!multi_part_ctx->used_data_len)
+			goto done;
+
 		/* ICSF just support the chaining mode ONLY for ECB. */
 		chaining = ICSF_CHAINING_ONLY;
 		break;
