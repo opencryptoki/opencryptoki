@@ -617,6 +617,7 @@ destroy_objects(CK_SLOT_ID slot_id, CK_CHAR_PTR token_name, CK_CHAR_PTR pin,
 	struct icsf_object_record records[16];
 	struct icsf_object_record *previous = NULL;
 	size_t i, records_len;
+	int reason = 0;
 
 	if (login(&ld, slot_id, pin, pin_len, RACFFILE))
 		return CKR_FUNCTION_FAILED;
@@ -635,13 +636,13 @@ destroy_objects(CK_SLOT_ID slot_id, CK_CHAR_PTR token_name, CK_CHAR_PTR pin,
 		}
 
 		for (i = 0; i < records_len; i++) {
-			if (icsf_destroy_object(ld, NULL, &records[i])) {
+			if (icsf_destroy_object(ld, &reason, &records[i])) {
 				OCK_LOG_DEBUG("Failed to destroy object "
 					      "%s/%lu/%c in slot %lu.\n",
 					      records[i].token_name,
 					      records[i].sequence,
 					      records[i].id, slot_id);
-				rc = CKR_FUNCTION_FAILED;
+				rc = icsf_to_ock_err(reason);
 				goto done;
 			}
 		}
@@ -888,6 +889,7 @@ close_session(struct session_state *session_state)
 {
 	CK_RV rc = CKR_OK;
 	unsigned long i;
+	int reason = 0;
 
 	if (pthread_rwlock_wrlock(&obj_list_rw_mutex)) {
 		OCK_LOG_ERR(ERR_MUTEX_LOCK);
@@ -910,14 +912,14 @@ close_session(struct session_state *session_state)
 		if (mapping->icsf_object.id != ICSF_SESSION_OBJECT)
 			continue;
 
-		if (icsf_destroy_object(session_state->ld, NULL,
+		if (icsf_destroy_object(session_state->ld, &reason,
 					&mapping->icsf_object)) {
 			/* Log error */
 			OCK_LOG_DEBUG("Failed to remove icsf object: %s/%lu/%c",
 				      mapping->icsf_object.token_name,
 				      mapping->icsf_object.sequence,
 				      mapping->icsf_object.id);
-			rc = CKR_FUNCTION_FAILED;
+			rc = icsf_to_ock_err(reason);
 			break;
 		}
 
@@ -1227,6 +1229,7 @@ token_specific_create_object(SESSION *session, CK_ATTRIBUTE_PTR attrs,
 	CK_ULONG node_number;
 	char token_name[sizeof(nv_token_data->token_info.label)];
 	int is_obj_locked = 0;
+	int reason = 0;
 
 	/* Check permissions based on attributes and session */
 	rc = check_session_permissions(session, attrs, attrs_len);
@@ -1255,10 +1258,10 @@ token_specific_create_object(SESSION *session, CK_ATTRIBUTE_PTR attrs,
 	}
 
 	/* Call ICSF service */
-	if (icsf_create_object(session_state->ld, NULL, token_name, attrs,
+	if (icsf_create_object(session_state->ld, &reason, token_name, attrs,
 			       attrs_len, &mapping->icsf_object)) {
 		OCK_LOG_DEBUG("Failed to call ICSF.\n");
-		rc = CKR_FUNCTION_FAILED;
+		rc = icsf_to_ock_err(reason);
 		goto done;
 	}
 
@@ -1307,6 +1310,7 @@ token_specific_generate_key(SESSION *session, CK_MECHANISM_PTR mech,
 	CK_ULONG node_number;
 	char token_name[sizeof(nv_token_data->token_info.label)];
 	int is_obj_locked = 0;
+	int reason = 0;
 
 	/* Check permissions based on attributes and session */
 	rc = check_session_permissions(session, attrs, attrs_len);
@@ -1335,11 +1339,11 @@ token_specific_generate_key(SESSION *session, CK_MECHANISM_PTR mech,
 	}
 
 	/* Call ICSF service */
-	if (icsf_generate_secret_key(session_state->ld, NULL, token_name,
+	if (icsf_generate_secret_key(session_state->ld, &reason, token_name,
 				     mech, attrs, attrs_len,
 				     &mapping->icsf_object)) {
 		OCK_LOG_DEBUG("Failed to call ICSF.\n");
-		rc = CKR_FUNCTION_FAILED;
+		rc = icsf_to_ock_err(reason);
 		goto done;
 	}
 
@@ -1548,13 +1552,13 @@ token_specific_encrypt(SESSION *session, CK_BYTE_PTR input_data,
 				 */
 				rc = CKR_OK;
 			} else {
-				OCK_LOG_DEBUG(ERR_BUFFER_TOO_SMALL);
+				OCK_LOG_ERR(ERR_BUFFER_TOO_SMALL);
 				rc = CKR_BUFFER_TOO_SMALL;
 			}
 		} else {
 			OCK_LOG_DEBUG("Failed to encrypt data. reason = %d\n",
 					reason);
-			rc = CKR_FUNCTION_FAILED;
+			rc = icsf_to_ock_err(reason);
 		}
 		goto done;
 	}
@@ -1674,7 +1678,7 @@ token_specific_encrypt_update(SESSION *session, CK_BYTE_PTR input_part,
 				 */
 				rc = CKR_OK;
 			} else {
-				OCK_LOG_DEBUG(ERR_BUFFER_TOO_SMALL);
+				OCK_LOG_ERR(ERR_BUFFER_TOO_SMALL);
 				rc = CKR_BUFFER_TOO_SMALL;
 			}
 		} else {
@@ -1801,7 +1805,7 @@ token_specific_encrypt_final(SESSION *session, CK_BYTE_PTR output_part,
 				 */
 				rc = CKR_OK;
 			} else {
-				OCK_LOG_DEBUG(ERR_BUFFER_TOO_SMALL);
+				OCK_LOG_ERR(ERR_BUFFER_TOO_SMALL);
 				rc = CKR_BUFFER_TOO_SMALL;
 			}
 		} else {
@@ -1969,13 +1973,13 @@ token_specific_decrypt(SESSION *session, CK_BYTE_PTR input_data,
 				 */
 				rc = CKR_OK;
 			} else {
-				OCK_LOG_DEBUG(ERR_BUFFER_TOO_SMALL);
+				OCK_LOG_ERR(ERR_BUFFER_TOO_SMALL);
 				rc = CKR_BUFFER_TOO_SMALL;
 			}
 		} else {
 			OCK_LOG_DEBUG("Failed to decrypt data. reason = %d\n",
 					reason);
-			rc = CKR_FUNCTION_FAILED;
+			rc = icsf_to_ock_err(reason);
 		}
 		goto done;
 	}
@@ -2095,7 +2099,7 @@ token_specific_decrypt_update(SESSION *session, CK_BYTE_PTR input_part,
 				 */
 				rc = CKR_OK;
 			} else {
-				OCK_LOG_DEBUG(ERR_BUFFER_TOO_SMALL);
+				OCK_LOG_ERR(ERR_BUFFER_TOO_SMALL);
 				rc = CKR_BUFFER_TOO_SMALL;
 			}
 		} else {
@@ -2222,7 +2226,7 @@ token_specific_decrypt_final(SESSION *session, CK_BYTE_PTR output_part,
 				 */
 				rc = CKR_OK;
 			} else {
-				OCK_LOG_DEBUG(ERR_BUFFER_TOO_SMALL);
+				OCK_LOG_ERR(ERR_BUFFER_TOO_SMALL);
 				rc = CKR_BUFFER_TOO_SMALL;
 			}
 		} else {
@@ -2252,7 +2256,7 @@ token_specific_get_attribute_value(SESSION *sess, CK_OBJECT_HANDLE handle,
 	CK_BBOOL priv_obj;
 	struct session_state *session_state;
 	struct icsf_object_mapping *mapping = NULL;
-	int reason;
+	int reason = 0;
 
 	CK_ATTRIBUTE priv_attr[] = {
 		{CKA_PRIVATE, &priv_obj, sizeof(priv_obj)},
@@ -2286,6 +2290,7 @@ token_specific_get_attribute_value(SESSION *sess, CK_OBJECT_HANDLE handle,
 				&mapping->icsf_object, priv_attr, 1);
 	if (rc != CKR_OK) {
 		OCK_LOG_ERR(ERR_FUNCTION_FAILED);
+		rc = icsf_to_ock_err(reason);
 		goto done;
 	}
 
@@ -2301,8 +2306,10 @@ token_specific_get_attribute_value(SESSION *sess, CK_OBJECT_HANDLE handle,
 	/* Now call icsf to get the attribute values */
 	rc = icsf_get_attribute(session_state->ld, &reason,
 				&mapping->icsf_object, pTemplate, ulCount);
-	if (rc != CKR_OK)
+	if (rc != CKR_OK) {
 		OCK_LOG_ERR(ERR_OBJ_GETATTR_VALUES);
+		rc = icsf_to_ock_err(reason);
+	}
 
 done:
 	if (pthread_rwlock_unlock(&obj_list_rw_mutex)) {
@@ -2326,7 +2333,7 @@ token_specific_set_attribute_value(SESSION *sess, CK_OBJECT_HANDLE handle,
 	CK_BBOOL is_priv;
 	CK_BBOOL is_token;
 	CK_RV rc = CKR_OK;
-	int reason;
+	int reason = 0;
 
 	CK_ATTRIBUTE priv_attrs[] = {
 		{CKA_PRIVATE,   &is_priv,  sizeof(is_priv)},
@@ -2362,6 +2369,7 @@ token_specific_set_attribute_value(SESSION *sess, CK_OBJECT_HANDLE handle,
 				&mapping->icsf_object, priv_attrs, 2);
 	if (rc != CKR_OK) {
 		OCK_LOG_ERR(ERR_FUNCTION_FAILED);
+		rc = icsf_to_ock_err(reason);
 		goto done;
 	}
 
@@ -2376,7 +2384,7 @@ token_specific_set_attribute_value(SESSION *sess, CK_OBJECT_HANDLE handle,
 	if (icsf_set_attribute(session_state->ld, &reason,
 				&mapping->icsf_object, pTemplate, ulCount)) {
 		OCK_LOG_ERR(ERR_OBJ_SETATTR_VALUES);
-		rc = CKR_FUNCTION_FAILED;
+		rc = icsf_to_ock_err(reason);
 	}
 
 done:
@@ -2401,7 +2409,8 @@ token_specific_find_objects_init(SESSION *sess, CK_ATTRIBUTE *pTemplate,
 	struct icsf_object_record records[MAX_RECORDS];
 	struct icsf_object_record *previous = NULL;
 	size_t records_len;
-	int i, j, node_number, reason;
+	int i, j, node_number;
+	int reason = 0;
 	CK_RV rc = CKR_OK;
 
 	/* Whether we retrieve public or private objects is determined by 
@@ -2545,4 +2554,47 @@ done:
 	}
 
 	return rc;
+}
+/*
+ * Converts an ICSF reason code to an ock error code
+ */
+int
+icsf_to_ock_err(int icsf_reason_code)
+{
+	switch(icsf_reason_code) {
+	case 2154:
+		return CKR_KEY_TYPE_INCONSISTENT;
+	case 3003:
+		return CKR_BUFFER_TOO_SMALL;
+	case 3019:
+		return CKR_SESSION_HANDLE_INVALID;
+	case 3027:
+		return CKR_SESSION_HANDLE_INVALID;
+	case 3029:
+		return CKR_ATTRIBUTE_TYPE_INVALID;
+	case 3030:
+		return CKR_ATTRIBUTE_VALUE_INVALID;
+	case 3033:
+		return CKR_TEMPLATE_INCOMPLETE;
+	case 3034:
+		return CKR_ARGUMENTS_BAD;
+	case 3035:
+		return CKR_ATTRIBUTE_READ_ONLY;
+	case 3038:
+		return CKR_KEY_FUNCTION_NOT_PERMITTED;
+	case 3039:
+		return CKR_KEY_TYPE_INCONSISTENT;
+	case 3041:
+		return CKR_KEY_NOT_WRAPPABLE;
+	case 3043:
+		return CKR_BUFFER_TOO_SMALL;
+	case 3045:
+		return CKR_KEY_UNEXTRACTABLE;
+	case 3046:
+		return CKR_BUFFER_TOO_SMALL;
+	case 11000:
+		return CKR_DATA_LEN_RANGE;
+	default:
+		return CKR_FUNCTION_FAILED;
+	}
 }
