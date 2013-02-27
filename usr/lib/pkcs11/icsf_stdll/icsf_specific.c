@@ -63,7 +63,7 @@ MECH_LIST_ELEMENT mech_list[] = {
   { CKM_DES_CBC,	{0,	0,	CKF_HW | CKF_ENCRYPT | CKF_DECRYPT} },
   { CKM_DES_CBC_PAD,	{0,	0,	CKF_HW | CKF_ENCRYPT	| CKF_DECRYPT |
 				 	CKF_WRAP | CKF_UNWRAP} },
-  { CKM_DES3_ECB,	{0,	0,	CKF_HW | CKF_ENCRYPT | CKF_DECRYPT} }, 
+  { CKM_DES3_ECB,	{0,	0,	CKF_HW | CKF_ENCRYPT | CKF_DECRYPT} },
   { CKM_DES3_CBC,	{0,	0,	CKF_HW | CKF_ENCRYPT | CKF_DECRYPT} },
   { CKM_DES3_CBC_PAD,	{0,	0,	CKF_HW | CKF_ENCRYPT | CKF_DECRYPT |
 				 	CKF_WRAP | CKF_UNWRAP} },
@@ -716,7 +716,7 @@ token_specific_init_pin(SESSION *sess, CK_CHAR_PTR pPin, CK_ULONG ulPinLen)
 	 * to authenticate to ldao server. The masterkey protects the
 	 * racf passwd.
 	 */
-	if (slot_data[sid]->dn[0]) { 
+	if (slot_data[sid]->dn[0]) {
 		sprintf(fname, "%s/MK_USER", get_pk_dir(pk_dir_buf));
 
 		rc = secure_masterkey(master_key, AES_KEY_SIZE_256, pPin,
@@ -2340,12 +2340,12 @@ token_specific_set_attribute_value(SESSION *sess, CK_OBJECT_HANDLE handle,
 		{CKA_TOKEN,	&is_token,  sizeof(is_token)},
 	};
 
-        /* Get session state */
-        if (!(session_state = get_session_state(sess->handle))) {
-                OCK_LOG_DEBUG("Session not found for session id %lu.\n",
-                                (unsigned long) handle);
-                return CKR_FUNCTION_FAILED;
-        }
+	/* Get session state */
+	if (!(session_state = get_session_state(sess->handle))) {
+		OCK_LOG_DEBUG("Session not found for session id %lu.\n",
+				(unsigned long) handle);
+		return CKR_FUNCTION_FAILED;
+	}
 
 	/* get the object handle */
 	/* get a read lock */
@@ -2413,14 +2413,14 @@ token_specific_find_objects_init(SESSION *sess, CK_ATTRIBUTE *pTemplate,
 	int reason = 0;
 	CK_RV rc = CKR_OK;
 
-	/* Whether we retrieve public or private objects is determined by 
+	/* Whether we retrieve public or private objects is determined by
 	 * the caller's SAF authority on the token, something ock doesn't
 	 * control.
-	 * Since an app MUST have authenticated to ICSF token to use it, 
+	 * Since an app MUST have authenticated to ICSF token to use it,
 	 * we can always assume it is an authenticated session and anything else
 	 * is an error.
 	 */
-	if (sess->session_info.state == CKS_RO_PUBLIC_SESSION || 
+	if (sess->session_info.state == CKS_RO_PUBLIC_SESSION ||
 	    sess->session_info.state == CKS_RW_PUBLIC_SESSION ||
 	    sess->session_info.state == CKS_RW_SO_FUNCTIONS) {
 		OCK_LOG_DEBUG("You must authenticate to access ICSF token.\n");
@@ -2432,7 +2432,8 @@ token_specific_find_objects_init(SESSION *sess, CK_ATTRIBUTE *pTemplate,
 	 * handles. reallocate later if more needed.
 	 */
 	if (sess->find_list == NULL) {
-		sess->find_list = (CK_OBJECT_HANDLE *)malloc(10 * sizeof(CK_OBJECT_HANDLE));
+		sess->find_list = (CK_OBJECT_HANDLE *) malloc(
+					10 * sizeof(CK_OBJECT_HANDLE));
 		if (!sess->find_list) {
 			OCK_LOG_ERR(ERR_HOST_MEMORY);
 			return CKR_HOST_MEMORY;
@@ -2443,7 +2444,7 @@ token_specific_find_objects_init(SESSION *sess, CK_ATTRIBUTE *pTemplate,
 	sess->find_count = 0;
 	sess->find_idx   = 0;
 
-	/* Prepare to query ICSF for list objects 
+	/* Prepare to query ICSF for list objects
 	 * Copy token name from shared memory
 	 */
 	XProcLock();
@@ -2517,13 +2518,15 @@ token_specific_find_objects_init(SESSION *sess, CK_ATTRIBUTE *pTemplate,
 				new_mapping->session_id = sess->handle;
 				new_mapping->icsf_object = records[i];
 
-				if(!(node_number = bt_node_add(&objects, new_mapping))) {
-					OCK_LOG_DEBUG("Failed to add object to binary tree.\n");
+				if(!(node_number = bt_node_add(&objects,
+								new_mapping))) {
+					OCK_LOG_DEBUG("Failed to add object to "
+							"binary tree.\n");
 					rc = CKR_FUNCTION_FAILED;
 					goto done;
 				}
-			}	
-				
+			}
+
 			/* Add to our findobject list */
 			if (node_number) {
 				sess->find_list[sess->find_count] = node_number;
@@ -2531,7 +2534,10 @@ token_specific_find_objects_init(SESSION *sess, CK_ATTRIBUTE *pTemplate,
 
 				if (sess->find_count >= sess->find_len) {
 					sess->find_len += MAX_RECORDS;
-					sess->find_list = (CK_OBJECT_HANDLE *)realloc(sess->find_list, sess->find_len * sizeof(CK_OBJECT_HANDLE));
+					sess->find_list = (CK_OBJECT_HANDLE *)
+						realloc(sess->find_list,
+							sess->find_len *
+							sizeof(CK_OBJECT_HANDLE));
 					if (sess->find_list) {
 						OCK_LOG_ERR(ERR_HOST_MEMORY);
 						rc = CKR_HOST_MEMORY;
@@ -2544,7 +2550,7 @@ token_specific_find_objects_init(SESSION *sess, CK_ATTRIBUTE *pTemplate,
 		if (records_len)
 			previous = &records[records_len - 1];
 	} while (records_len);
-	
+
 	sess->find_active = TRUE;
 
 done:
