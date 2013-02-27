@@ -1682,9 +1682,9 @@ token_specific_encrypt_update(SESSION *session, CK_BYTE_PTR input_part,
 				rc = CKR_BUFFER_TOO_SMALL;
 			}
 		} else {
-			rc = CKR_FUNCTION_FAILED;
 			OCK_LOG_DEBUG("Failed to encrypt data."
 					"reason = %d\n", reason);
+			rc = icsf_to_ock_err(reason);
 		}
 		goto done;
 	}
@@ -1809,9 +1809,9 @@ token_specific_encrypt_final(SESSION *session, CK_BYTE_PTR output_part,
 				rc = CKR_BUFFER_TOO_SMALL;
 			}
 		} else {
-			rc = CKR_FUNCTION_FAILED;
 			OCK_LOG_DEBUG("Failed to encrypt data."
 					"reason = %d\n", reason);
+			rc = icsf_to_ock_err(reason);
 		}
 		goto done;
 	}
@@ -2103,9 +2103,9 @@ token_specific_decrypt_update(SESSION *session, CK_BYTE_PTR input_part,
 				rc = CKR_BUFFER_TOO_SMALL;
 			}
 		} else {
-			rc = CKR_FUNCTION_FAILED;
 			OCK_LOG_DEBUG("Failed to decrypt data."
 					"reason = %d\n", reason);
+			rc = icsf_to_ock_err(reason);
 		}
 		goto done;
 	}
@@ -2230,9 +2230,9 @@ token_specific_decrypt_final(SESSION *session, CK_BYTE_PTR output_part,
 				rc = CKR_BUFFER_TOO_SMALL;
 			}
 		} else {
-			rc = CKR_FUNCTION_FAILED;
 			OCK_LOG_DEBUG("Failed to decrypt data."
 					"reason = %d\n", reason);
+			rc = icsf_to_ock_err(reason);
 		}
 		goto done;
 	}
@@ -2472,7 +2472,7 @@ token_specific_find_objects_init(SESSION *sess, CK_ATTRIBUTE *pTemplate,
 				       &records_len, 0);
 		if (rc != CKR_OK) {
 			OCK_LOG_DEBUG("Failed to list objects.\n");
-			rc = CKR_FUNCTION_FAILED;
+			rc = icsf_to_ock_err(reason);
 			goto done;
 		}
 
@@ -2555,6 +2555,7 @@ done:
 
 	return rc;
 }
+
 /*
  * Converts an ICSF reason code to an ock error code
  */
