@@ -1,4 +1,4 @@
-noinst_PROGRAMS=hw_fn misc_tests sess_mgmt_tests sess_bench attribute findobjects destroyobjects
+noinst_PROGRAMS=hw_fn misc_tests sess_mgmt_tests sess_bench attribute findobjects destroyobjects copyobjects
 
 AM_CFLAGS=-I. -I../../usr/include/pkcs11 -I../include -I../common -I../../usr/lib/pkcs11/common -Wall
 
@@ -11,3 +11,4 @@ sess_bench_SOURCES = sess_perf.c
 attribute_SOURCES = attribute.c
 findobjects_SOURCES = findobjects.c
 destroyobjects_SOURCES = destroyobjects.c
+copyobjects_SOURCES = copyobjects.c
