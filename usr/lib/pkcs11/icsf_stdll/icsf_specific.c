@@ -1636,6 +1636,34 @@ free_encr_ctx(ENCR_DECR_CONTEXT *encr_ctx)
 }
 
 /*
+ * Return if the algorithm used by a mechanism is asymmetric or symmetric.
+ */
+static CK_RV
+get_crypt_type(CK_MECHANISM_PTR mech, int *p_symmetric)
+{
+	switch (mech->mechanism) {
+	case CKM_AES_ECB:
+	case CKM_AES_CBC:
+	case CKM_AES_CBC_PAD:
+	case CKM_DES_ECB:
+	case CKM_DES_CBC:
+	case CKM_DES_CBC_PAD:
+	case CKM_DES3_ECB:
+	case CKM_DES3_CBC:
+	case CKM_DES3_CBC_PAD:
+		*p_symmetric = 1;
+		break;
+	case CKM_RSA_PKCS:
+	case CKM_RSA_X_509:
+		*p_symmetric = 0;
+		break;
+	default:
+		return CKR_MECHANISM_INVALID;
+	}
+	return CKR_OK;
+}
+
+/*
  * Initialize an encryption operation.
  */
 CK_RV
@@ -1646,6 +1674,7 @@ token_specific_encrypt_init(SESSION *session, CK_MECHANISM_PTR mech,
 	ENCR_DECR_CONTEXT *encr_ctx = &session->encr_ctx;
 	struct icsf_multi_part_context *multi_part_ctx = NULL;
 	size_t block_size = 0;
+	int symmetric = 0;
 
 	/* Check session */
 	if (!get_session_state(session->handle)) {
@@ -1654,9 +1683,8 @@ token_specific_encrypt_init(SESSION *session, CK_MECHANISM_PTR mech,
 		goto done;
 	}
 
-	/* Check mechanism and get block size */
-	rc = icsf_block_size(mech->mechanism, &block_size);
-	if (rc != CKR_OK)
+	/* Get algorithm type */
+	if ((rc = get_crypt_type(mech, &symmetric)))
 		goto done;
 
 	/* Check if key exists */
@@ -1691,6 +1719,13 @@ token_specific_encrypt_init(SESSION *session, CK_MECHANISM_PTR mech,
 	}
 	encr_ctx->mech.mechanism = mech->mechanism;
 
+	/*
+	 * Asymmetric algorithms don't support multi-part and then there's no
+	 * need to allocate context.
+	 */
+	if (!symmetric)
+		goto done;
+
 	/* Allocate context for multi-part operations */
 	if (!(multi_part_ctx = malloc(sizeof(*multi_part_ctx)))) {
 		OCK_LOG_ERR(ERR_HOST_MEMORY);
@@ -1709,6 +1744,11 @@ token_specific_encrypt_init(SESSION *session, CK_MECHANISM_PTR mech,
 		goto done;
 	}
 	memset(multi_part_ctx->chain_data, 0, ICSF_CHAINING_DATA_LEN);
+
+	/* Check mechanism and get block size */
+	rc = icsf_block_size(mech->mechanism, &block_size);
+	if (rc != CKR_OK)
+		goto done;
 
 	/*
 	 * data is used to retain data until at least the block size is reached.
@@ -1744,6 +1784,11 @@ token_specific_encrypt(SESSION *session, CK_BYTE_PTR input_data,
 	char chain_data[ICSF_CHAINING_DATA_LEN] = { 0, };
 	size_t chain_data_len = sizeof(chain_data);
 	int reason = 0;
+	int symmetric = 0;
+
+	/* Get algorithm type */
+	if ((rc = get_crypt_type(&encr_ctx->mech, &symmetric)))
+		goto done;
 
 	/* Check if there's a multi-part encryption in progress */
 	if (encr_ctx->multi) {
@@ -1770,12 +1815,22 @@ token_specific_encrypt(SESSION *session, CK_BYTE_PTR input_data,
 		goto done;
 
 	/* Encrypt data using remote token. */
-	if (icsf_secret_key_encrypt(session_state->ld, &reason,
-				    &mapping->icsf_object, &encr_ctx->mech,
-				    ICSF_CHAINING_ONLY, input_data,
-				    input_data_len, output_data,
-				    p_output_data_len, chain_data,
-				    &chain_data_len)) {
+	if (symmetric) {
+		rc = icsf_secret_key_encrypt(session_state->ld, &reason,
+					     &mapping->icsf_object,
+					     &encr_ctx->mech,
+					     ICSF_CHAINING_ONLY, input_data,
+					     input_data_len, output_data,
+					     p_output_data_len, chain_data,
+					     &chain_data_len);
+	} else {
+		rc = icsf_public_key_verify(session_state->ld, &reason, TRUE,
+					    &mapping->icsf_object,
+					    &encr_ctx->mech, input_data,
+					    input_data_len, output_data,
+					    p_output_data_len);
+	}
+	if (rc) {
 		if (reason == ICSF_REASON_OUTPUT_PARAMETER_TOO_SHORT) {
 			if (is_length_only) {
 				/*
@@ -1822,6 +1877,16 @@ token_specific_encrypt_update(SESSION *session, CK_BYTE_PTR input_part,
 	char *buffer = NULL;
 	int chaining;
 	int reason = 0;
+	int symmetric = 0;
+
+	/* Multi-part is not supported for asymmetric algorithms. */
+	if ((rc = get_crypt_type(&encr_ctx->mech, &symmetric)))
+		goto done;
+	if (!symmetric) {
+		OCK_LOG_ERR(ERR_MECHANISM_INVALID);
+		rc = CKR_MECHANISM_INVALID;
+		goto done;
+	}
 
 	/* Check session */
 	if (!(session_state = get_session_state(session->handle))) {
@@ -1976,6 +2041,16 @@ token_specific_encrypt_final(SESSION *session, CK_BYTE_PTR output_part,
 	size_t chain_data_len = sizeof(chain_data);
 	int chaining;
 	int reason = 0;
+	int symmetric = 0;
+
+	/* Multi-part is not supported for asymmetric algorithms. */
+	if ((rc = get_crypt_type(&encr_ctx->mech, &symmetric)))
+		goto done;
+	if (!symmetric) {
+		OCK_LOG_ERR(ERR_MECHANISM_INVALID);
+		rc = CKR_MECHANISM_INVALID;
+		goto done;
+	}
 
 	/* Check session */
 	if (!(session_state = get_session_state(session->handle))) {
@@ -2071,6 +2146,7 @@ token_specific_decrypt_init(SESSION *session, CK_MECHANISM_PTR mech,
 	ENCR_DECR_CONTEXT *decr_ctx = &session->decr_ctx;
 	struct icsf_multi_part_context *multi_part_ctx = NULL;
 	size_t block_size = 0;
+	int symmetric = 0;
 
 	/* Check session */
 	if (!get_session_state(session->handle)) {
@@ -2079,9 +2155,8 @@ token_specific_decrypt_init(SESSION *session, CK_MECHANISM_PTR mech,
 		goto done;
 	}
 
-	/* Check mechanism and get block size */
-	rc = icsf_block_size(mech->mechanism, &block_size);
-	if (rc != CKR_OK)
+	/* Get algorithm type */
+	if ((rc = get_crypt_type(mech, &symmetric)))
 		goto done;
 
 	/* Check if key exists */
@@ -2116,6 +2191,13 @@ token_specific_decrypt_init(SESSION *session, CK_MECHANISM_PTR mech,
 	}
 	decr_ctx->mech.mechanism = mech->mechanism;
 
+	/*
+	 * Asymmetric algorithms don't support multi-part and then there's no
+	 * need to allocate context.
+	 */
+	if (!symmetric)
+		goto done;
+
 	/* Allocate context for multi-part operations */
 	if (!(multi_part_ctx = malloc(sizeof(*multi_part_ctx)))) {
 		OCK_LOG_ERR(ERR_HOST_MEMORY);
@@ -2134,6 +2216,11 @@ token_specific_decrypt_init(SESSION *session, CK_MECHANISM_PTR mech,
 		goto done;
 	}
 	memset(multi_part_ctx->chain_data, 0, ICSF_CHAINING_DATA_LEN);
+
+	/* Check mechanism and get block size */
+	rc = icsf_block_size(mech->mechanism, &block_size);
+	if (rc != CKR_OK)
+		goto done;
 
 	/*
 	 * data is used to retain data until at least the block size is reached.
@@ -2169,6 +2256,11 @@ token_specific_decrypt(SESSION *session, CK_BYTE_PTR input_data,
 	char chain_data[ICSF_CHAINING_DATA_LEN] = { 0, };
 	size_t chain_data_len = sizeof(chain_data);
 	int reason = 0;
+	int symmetric = 0;
+
+	/* Get algorithm type */
+	if ((rc = get_crypt_type(&decr_ctx->mech, &symmetric)))
+		goto done;
 
 	/* Check if there's a multi-part decryption in progress */
 	if (decr_ctx->multi) {
@@ -2195,12 +2287,22 @@ token_specific_decrypt(SESSION *session, CK_BYTE_PTR input_data,
 		goto done;
 
 	/* Decrypt data using remote token. */
-	if (icsf_secret_key_decrypt(session_state->ld, &reason,
-				    &mapping->icsf_object, &decr_ctx->mech,
-				    ICSF_CHAINING_ONLY, input_data,
-				    input_data_len, output_data,
-				    p_output_data_len, chain_data,
-				    &chain_data_len)) {
+	if (symmetric) {
+		rc = icsf_secret_key_decrypt(session_state->ld, &reason,
+					    &mapping->icsf_object,
+					    &decr_ctx->mech,
+					    ICSF_CHAINING_ONLY, input_data,
+					    input_data_len, output_data,
+					    p_output_data_len, chain_data,
+					    &chain_data_len);
+	} else {
+		rc = icsf_private_key_sign(session_state->ld, &reason, TRUE,
+					   &mapping->icsf_object,
+					   &decr_ctx->mech, input_data,
+					   input_data_len, output_data,
+					   p_output_data_len);
+	}
+	if (rc) {
 		if (reason == ICSF_REASON_OUTPUT_PARAMETER_TOO_SHORT) {
 			if (is_length_only) {
 				/*
@@ -2248,6 +2350,16 @@ token_specific_decrypt_update(SESSION *session, CK_BYTE_PTR input_part,
 	int chaining;
 	int reason = 0;
 	int padding = 0;
+	int symmetric = 0;
+
+	/* Multi-part is not supported for asymmetric algorithms. */
+	if ((rc = get_crypt_type(&decr_ctx->mech, &symmetric)))
+		goto done;
+	if (!symmetric) {
+		OCK_LOG_ERR(ERR_MECHANISM_INVALID);
+		rc = CKR_MECHANISM_INVALID;
+		goto done;
+	}
 
 	/* Check session */
 	if (!(session_state = get_session_state(session->handle))) {
@@ -2419,6 +2531,16 @@ token_specific_decrypt_final(SESSION *session, CK_BYTE_PTR output_part,
 	size_t chain_data_len = sizeof(chain_data);
 	int chaining;
 	int reason = 0;
+	int symmetric = 0;
+
+	/* Multi-part is not supported for asymmetric algorithms. */
+	if ((rc = get_crypt_type(&decr_ctx->mech, &symmetric)))
+		goto done;
+	if (!symmetric) {
+		OCK_LOG_ERR(ERR_MECHANISM_INVALID);
+		rc = CKR_MECHANISM_INVALID;
+		goto done;
+	}
 
 	/* Check session */
 	if (!(session_state = get_session_state(session->handle))) {
