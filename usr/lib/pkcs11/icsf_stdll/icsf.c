@@ -2016,7 +2016,7 @@ icsf_ber_decode_get_attribute_list(BerElement *berbuf, CK_ATTRIBUTE *attrs,
 {
 	int attrtype;
 	struct berval attrbval = {0, NULL};
-	int intval;
+	ber_int_t intval;
 	int i, found = 0;
 	ber_tag_t tag;
 	CK_RV rc = CKR_OK;
@@ -2044,7 +2044,7 @@ icsf_ber_decode_get_attribute_list(BerElement *berbuf, CK_ATTRIBUTE *attrs,
 		} else {
 			if (ber_scanf(berbuf, "i}", &intval) == LBER_ERROR)
 				goto decode_error;
-			attrbval.bv_len = sizeof(intval);
+			attrbval.bv_len = sizeof(CK_ULONG);
 		}
 
 		/* see if this type matches any that we need to
@@ -2060,12 +2060,12 @@ icsf_ber_decode_get_attribute_list(BerElement *berbuf, CK_ATTRIBUTE *attrs,
 			if (attrs[i].pValue == NULL) {
 				attrs[i].ulValueLen = attrbval.bv_len;
 			} else if (attrs[i].ulValueLen >= attrbval.bv_len) {
-				if ((tag & LBER_BIG_TAG_MASK) == 0)
+				if ((tag & LBER_BIG_TAG_MASK) == 0) {
 					memcpy(attrs[i].pValue, attrbval.bv_val,
 						attrbval.bv_len);
-				else
-					memcpy(attrs[i].pValue, &intval,
-						attrbval.bv_len);
+				} else {
+					*((CK_ULONG *) attrs[i].pValue) = intval;
+				}
 				attrs[i].ulValueLen = attrbval.bv_len;
 			} else {
 				/* OCK_LOG_ERR(ERR_BUFFER_TOO_SMALL); */
