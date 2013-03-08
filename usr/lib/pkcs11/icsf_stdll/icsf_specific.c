@@ -252,6 +252,61 @@ tok_slot2local(CK_SLOT_ID snum)
 }
 
 /*
+ * Converts an ICSF reason code to an ock error code
+ */
+int
+icsf_to_ock_err(int icsf_return_code, int icsf_reason_code)
+{
+	switch(icsf_return_code) {
+	case 0:
+		return CKR_OK;
+	case 4:
+		switch(icsf_reason_code) {
+		case 11000:
+			return CKR_SIGNATURE_INVALID;
+		}
+		break;
+	case 8:
+		switch(icsf_reason_code) {
+		case 2154:
+			return CKR_KEY_TYPE_INCONSISTENT;
+		case 3003:
+			return CKR_BUFFER_TOO_SMALL;
+		case 3019:
+			return CKR_SESSION_HANDLE_INVALID;
+		case 3027:
+			return CKR_SESSION_HANDLE_INVALID;
+		case 3029:
+			return CKR_ATTRIBUTE_TYPE_INVALID;
+		case 3030:
+			return CKR_ATTRIBUTE_VALUE_INVALID;
+		case 3033:
+			return CKR_TEMPLATE_INCOMPLETE;
+		case 3034:
+			return CKR_ARGUMENTS_BAD;
+		case 3035:
+			return CKR_ATTRIBUTE_READ_ONLY;
+		case 3038:
+			return CKR_KEY_FUNCTION_NOT_PERMITTED;
+		case 3039:
+			return CKR_KEY_TYPE_INCONSISTENT;
+		case 3041:
+			return CKR_KEY_NOT_WRAPPABLE;
+		case 3043:
+			return CKR_BUFFER_TOO_SMALL;
+		case 3045:
+			return CKR_KEY_UNEXTRACTABLE;
+		case 3046:
+			return CKR_BUFFER_TOO_SMALL;
+		case 11000:
+			return CKR_DATA_LEN_RANGE;
+		}
+		break;
+	}
+	return CKR_FUNCTION_FAILED;
+}
+
+/*
  * Called during C_Initialize.
  */
 CK_RV
@@ -638,13 +693,13 @@ destroy_objects(CK_SLOT_ID slot_id, CK_CHAR_PTR token_name, CK_CHAR_PTR pin,
 		}
 
 		for (i = 0; i < records_len; i++) {
-			if (icsf_destroy_object(ld, &reason, &records[i])) {
+			if ((rc = icsf_destroy_object(ld, &reason, &records[i]))) {
 				OCK_LOG_DEBUG("Failed to destroy object "
 					      "%s/%lu/%c in slot %lu.\n",
 					      records[i].token_name,
 					      records[i].sequence,
 					      records[i].id, slot_id);
-				rc = icsf_to_ock_err(reason);
+				rc = icsf_to_ock_err(rc, reason);
 				goto done;
 			}
 		}
@@ -914,14 +969,14 @@ close_session(struct session_state *session_state)
 		if (mapping->icsf_object.id != ICSF_SESSION_OBJECT)
 			continue;
 
-		if (icsf_destroy_object(session_state->ld, &reason,
-					&mapping->icsf_object)) {
+		if ((rc = icsf_destroy_object(session_state->ld, &reason,
+					      &mapping->icsf_object))) {
 			/* Log error */
 			OCK_LOG_DEBUG("Failed to remove icsf object: %s/%lu/%c",
 				      mapping->icsf_object.token_name,
 				      mapping->icsf_object.sequence,
 				      mapping->icsf_object.id);
-			rc = icsf_to_ock_err(reason);
+			rc = icsf_to_ock_err(rc, reason);
 			break;
 		}
 
@@ -1260,10 +1315,11 @@ token_specific_create_object(SESSION *session, CK_ATTRIBUTE_PTR attrs,
 	}
 
 	/* Call ICSF service */
-	if (icsf_create_object(session_state->ld, &reason, token_name, attrs,
-			       attrs_len, &mapping->icsf_object)) {
+	if ((rc = icsf_create_object(session_state->ld, &reason, token_name,
+				     attrs, attrs_len,
+				     &mapping->icsf_object))) {
 		OCK_LOG_DEBUG("Failed to call ICSF.\n");
-		rc = icsf_to_ock_err(reason);
+		rc = icsf_to_ock_err(rc, reason);
 		goto done;
 	}
 
@@ -1461,13 +1517,13 @@ token_specific_generate_key_pair(SESSION *session,
 	}
 
 	/* Call ICSF service */
-	if (icsf_generate_key_pair(session_state->ld, &reason, token_name,
-				   new_pub_attrs, new_pub_attrs_len,
-				   new_priv_attrs, new_priv_attrs_len,
-				   &pub_key_mapping->icsf_object,
-				   &priv_key_mapping->icsf_object)) {
+	if ((rc = icsf_generate_key_pair(session_state->ld, &reason, token_name,
+					 new_pub_attrs, new_pub_attrs_len,
+					 new_priv_attrs, new_priv_attrs_len,
+					 &pub_key_mapping->icsf_object,
+					 &priv_key_mapping->icsf_object))) {
 		OCK_LOG_DEBUG("Failed to call ICSF.\n");
-		rc = icsf_to_ock_err(reason);
+		rc = icsf_to_ock_err(rc, reason);
 		goto done;
 	}
 
@@ -1568,11 +1624,11 @@ token_specific_generate_key(SESSION *session, CK_MECHANISM_PTR mech,
 	}
 
 	/* Call ICSF service */
-	if (icsf_generate_secret_key(session_state->ld, &reason, token_name,
-				     mech, new_attrs, new_attrs_len,
-				     &mapping->icsf_object)) {
+	if ((rc = icsf_generate_secret_key(session_state->ld, &reason, token_name,
+					   mech, new_attrs, new_attrs_len,
+					   &mapping->icsf_object))) {
 		OCK_LOG_DEBUG("Failed to call ICSF.\n");
-		rc = icsf_to_ock_err(reason);
+		rc = icsf_to_ock_err(rc, reason);
 		goto done;
 	}
 
@@ -1845,7 +1901,7 @@ token_specific_encrypt(SESSION *session, CK_BYTE_PTR input_data,
 		} else {
 			OCK_LOG_DEBUG("Failed to encrypt data. reason = %d\n",
 					reason);
-			rc = icsf_to_ock_err(reason);
+			rc = icsf_to_ock_err(rc, reason);
 		}
 		goto done;
 	}
@@ -1957,12 +2013,13 @@ token_specific_encrypt_update(SESSION *session, CK_BYTE_PTR input_part,
 			input_part_len - remaining);
 
 	/* Encrypt data using remote token. */
-	if (icsf_secret_key_encrypt(session_state->ld, &reason,
-				    &mapping->icsf_object,
-				    &encr_ctx->mech, chaining,
-				    buffer, total - remaining,
-				    output_part, p_output_part_len,
-				    chain_data, &chain_data_len)) {
+	rc = icsf_secret_key_encrypt(session_state->ld, &reason,
+				     &mapping->icsf_object,
+				     &encr_ctx->mech, chaining,
+				     buffer, total - remaining,
+				     output_part, p_output_part_len,
+				     chain_data, &chain_data_len);
+	if (rc) {
 		if (reason == ICSF_REASON_OUTPUT_PARAMETER_TOO_SHORT) {
 			if (is_length_only) {
 				/*
@@ -1977,7 +2034,7 @@ token_specific_encrypt_update(SESSION *session, CK_BYTE_PTR input_part,
 		} else {
 			OCK_LOG_DEBUG("Failed to encrypt data."
 					"reason = %d\n", reason);
-			rc = icsf_to_ock_err(reason);
+			rc = icsf_to_ock_err(rc, reason);
 		}
 		goto done;
 	}
@@ -2101,13 +2158,14 @@ token_specific_encrypt_final(SESSION *session, CK_BYTE_PTR output_part,
 	 *
 	 * All the data in multi-part context should be sent.
 	 */
-	if (icsf_secret_key_encrypt(session_state->ld, &reason,
-				    &mapping->icsf_object,
-				    &encr_ctx->mech, chaining,
-				    multi_part_ctx->data,
-				    multi_part_ctx->used_data_len,
-				    output_part, p_output_part_len,
-				    chain_data, &chain_data_len)) {
+	rc = icsf_secret_key_encrypt(session_state->ld, &reason,
+				     &mapping->icsf_object,
+				     &encr_ctx->mech, chaining,
+				     multi_part_ctx->data,
+				     multi_part_ctx->used_data_len,
+				     output_part, p_output_part_len,
+				     chain_data, &chain_data_len);
+	if (rc) {
 		if (reason == ICSF_REASON_OUTPUT_PARAMETER_TOO_SHORT) {
 			if (is_length_only) {
 				/*
@@ -2122,7 +2180,7 @@ token_specific_encrypt_final(SESSION *session, CK_BYTE_PTR output_part,
 		} else {
 			OCK_LOG_DEBUG("Failed to encrypt data."
 					"reason = %d\n", reason);
-			rc = icsf_to_ock_err(reason);
+			rc = icsf_to_ock_err(rc, reason);
 		}
 		goto done;
 	}
@@ -2317,7 +2375,7 @@ token_specific_decrypt(SESSION *session, CK_BYTE_PTR input_data,
 		} else {
 			OCK_LOG_DEBUG("Failed to decrypt data. reason = %d\n",
 					reason);
-			rc = icsf_to_ock_err(reason);
+			rc = icsf_to_ock_err(rc, reason);
 		}
 		goto done;
 	}
@@ -2446,12 +2504,13 @@ token_specific_decrypt_update(SESSION *session, CK_BYTE_PTR input_part,
 			input_part_len - remaining);
 
 	/* Decrypt data using remote token. */
-	if (icsf_secret_key_decrypt(session_state->ld, &reason,
-				    &mapping->icsf_object,
-				    &decr_ctx->mech, chaining,
-				    buffer, total - remaining,
-				    output_part, p_output_part_len,
-				    chain_data, &chain_data_len)) {
+	rc = icsf_secret_key_decrypt(session_state->ld, &reason,
+				     &mapping->icsf_object,
+				     &decr_ctx->mech, chaining,
+				     buffer, total - remaining,
+				     output_part, p_output_part_len,
+				     chain_data, &chain_data_len);
+	if (rc) {
 		if (reason == ICSF_REASON_OUTPUT_PARAMETER_TOO_SHORT) {
 			if (is_length_only) {
 				/*
@@ -2466,7 +2525,7 @@ token_specific_decrypt_update(SESSION *session, CK_BYTE_PTR input_part,
 		} else {
 			OCK_LOG_DEBUG("Failed to decrypt data."
 					"reason = %d\n", reason);
-			rc = icsf_to_ock_err(reason);
+			rc = icsf_to_ock_err(rc, reason);
 		}
 		goto done;
 	}
@@ -2591,13 +2650,14 @@ token_specific_decrypt_final(SESSION *session, CK_BYTE_PTR output_part,
 	 *
 	 * All the data in multi-part context should be sent.
 	 */
-	if (icsf_secret_key_decrypt(session_state->ld, &reason,
-				    &mapping->icsf_object,
-				    &decr_ctx->mech, chaining,
-				    multi_part_ctx->data,
-				    multi_part_ctx->used_data_len,
-				    output_part, p_output_part_len,
-				    chain_data, &chain_data_len)) {
+	rc = icsf_secret_key_decrypt(session_state->ld, &reason,
+				     &mapping->icsf_object,
+				     &decr_ctx->mech, chaining,
+				     multi_part_ctx->data,
+				     multi_part_ctx->used_data_len,
+				     output_part, p_output_part_len,
+				     chain_data, &chain_data_len);
+	if (rc) {
 		if (reason == ICSF_REASON_OUTPUT_PARAMETER_TOO_SHORT) {
 			if (is_length_only) {
 				/*
@@ -2612,7 +2672,7 @@ token_specific_decrypt_final(SESSION *session, CK_BYTE_PTR output_part,
 		} else {
 			OCK_LOG_DEBUG("Failed to decrypt data."
 					"reason = %d\n", reason);
-			rc = icsf_to_ock_err(reason);
+			rc = icsf_to_ock_err(rc, reason);
 		}
 		goto done;
 	}
@@ -2670,7 +2730,7 @@ token_specific_get_attribute_value(SESSION *sess, CK_OBJECT_HANDLE handle,
 				&mapping->icsf_object, priv_attr, 1);
 	if (rc != CKR_OK) {
 		OCK_LOG_ERR(ERR_FUNCTION_FAILED);
-		rc = icsf_to_ock_err(reason);
+		rc = icsf_to_ock_err(rc, reason);
 		goto done;
 	}
 
@@ -2688,7 +2748,7 @@ token_specific_get_attribute_value(SESSION *sess, CK_OBJECT_HANDLE handle,
 				&mapping->icsf_object, pTemplate, ulCount);
 	if (rc != CKR_OK) {
 		OCK_LOG_ERR(ERR_OBJ_GETATTR_VALUES);
-		rc = icsf_to_ock_err(reason);
+		rc = icsf_to_ock_err(rc, reason);
 	}
 
 done:
@@ -2749,7 +2809,7 @@ token_specific_set_attribute_value(SESSION *sess, CK_OBJECT_HANDLE handle,
 				&mapping->icsf_object, priv_attrs, 2);
 	if (rc != CKR_OK) {
 		OCK_LOG_ERR(ERR_FUNCTION_FAILED);
-		rc = icsf_to_ock_err(reason);
+		rc = icsf_to_ock_err(rc, reason);
 		goto done;
 	}
 
@@ -2761,10 +2821,12 @@ token_specific_set_attribute_value(SESSION *sess, CK_OBJECT_HANDLE handle,
 	}
 
 	/* Now call into icsf to set the attribute values */
-	if (icsf_set_attribute(session_state->ld, &reason,
-				&mapping->icsf_object, pTemplate, ulCount)) {
+	rc = icsf_set_attribute(session_state->ld, &reason,
+				&mapping->icsf_object, pTemplate, ulCount);
+	if (rc != CKR_OK) {
 		OCK_LOG_ERR(ERR_OBJ_SETATTR_VALUES);
-		rc = icsf_to_ock_err(reason);
+		rc = icsf_to_ock_err(rc, reason);
+		goto done;
 	}
 
 done:
@@ -2853,7 +2915,7 @@ token_specific_find_objects_init(SESSION *sess, CK_ATTRIBUTE *pTemplate,
 				       &records_len, 0);
 		if (rc != CKR_OK) {
 			OCK_LOG_DEBUG("Failed to list objects.\n");
-			rc = icsf_to_ock_err(reason);
+			rc = icsf_to_ock_err(rc, reason);
 			goto done;
 		}
 
@@ -2994,49 +3056,4 @@ done:
         }
 
 	return rc;
-}
-
-/*
- * Converts an ICSF reason code to an ock error code
- */
-int
-icsf_to_ock_err(int icsf_reason_code)
-{
-	switch(icsf_reason_code) {
-	case 2154:
-		return CKR_KEY_TYPE_INCONSISTENT;
-	case 3003:
-		return CKR_BUFFER_TOO_SMALL;
-	case 3019:
-		return CKR_SESSION_HANDLE_INVALID;
-	case 3027:
-		return CKR_SESSION_HANDLE_INVALID;
-	case 3029:
-		return CKR_ATTRIBUTE_TYPE_INVALID;
-	case 3030:
-		return CKR_ATTRIBUTE_VALUE_INVALID;
-	case 3033:
-		return CKR_TEMPLATE_INCOMPLETE;
-	case 3034:
-		return CKR_ARGUMENTS_BAD;
-	case 3035:
-		return CKR_ATTRIBUTE_READ_ONLY;
-	case 3038:
-		return CKR_KEY_FUNCTION_NOT_PERMITTED;
-	case 3039:
-		return CKR_KEY_TYPE_INCONSISTENT;
-	case 3041:
-		return CKR_KEY_NOT_WRAPPABLE;
-	case 3043:
-		return CKR_BUFFER_TOO_SMALL;
-	case 3045:
-		return CKR_KEY_UNEXTRACTABLE;
-	case 3046:
-		return CKR_BUFFER_TOO_SMALL;
-	case 11000:
-		return CKR_DATA_LEN_RANGE;
-	default:
-		return CKR_FUNCTION_FAILED;
-	}
-
 }
