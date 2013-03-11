@@ -3345,21 +3345,28 @@ token_specific_sign(SESSION *session, CK_BBOOL length_only, CK_BYTE *in_data,
 		return rc;
 
 	switch (ctx->mech.mechanism) {
-
 	case CKM_MD5_HMAC:
 	case CKM_SHA_1_HMAC:
 	case CKM_SHA256_HMAC:
 	case CKM_SHA384_HMAC:
 	case CKM_SHA512_HMAC:
-
 		rc = icsf_hmac_sign(session_state->ld, &reason,
 				&mapping->icsf_object, &ctx->mech, "ONLY",
 				in_data, in_data_len, signature, sig_len,
 				chain_data, &chain_data_len);
 		if (rc != 0)
-			rc = CKR_FUNCTION_FAILED;
+			rc = icsf_to_ock_err(rc, reason);
 		break;
-
+	case CKM_RSA_X_509:
+	case CKM_RSA_PKCS:
+	case CKM_DSA:
+	case CKM_ECDSA:
+		rc = icsf_private_key_sign(session_state->ld, &reason, FALSE,
+				&mapping->icsf_object, &ctx->mech, in_data,
+				in_data_len, signature, sig_len);
+		if (rc != 0)
+			rc = icsf_to_ock_err(rc, reason);
+		break;
 	default:
 		OCK_LOG_ERR(ERR_MECHANISM_INVALID);
 		rc = CKR_MECHANISM_INVALID;
@@ -3670,13 +3677,11 @@ token_specific_verify(SESSION *session, CK_BYTE *in_data, CK_ULONG in_data_len,
 		return rc;
 
 	switch (ctx->mech.mechanism) {
-
 	case CKM_MD5_HMAC:
 	case CKM_SHA_1_HMAC:
 	case CKM_SHA256_HMAC:
 	case CKM_SHA384_HMAC:
 	case CKM_SHA512_HMAC:
-
 		rc = icsf_hmac_verify(session_state->ld, &reason,
 				&mapping->icsf_object, &ctx->mech, "ONLY",
 				in_data, in_data_len, signature, sig_len,
@@ -3685,11 +3690,21 @@ token_specific_verify(SESSION *session, CK_BYTE *in_data, CK_ULONG in_data_len,
 			if ((rc == 4) && (reason == 8000)) {
 				rc = CKR_SIGNATURE_INVALID;
 				OCK_LOG_ERR(ERR_SIGNATURE_INVALID);
-			} else
-				rc = CKR_FUNCTION_FAILED;
+			} else {
+				rc = icsf_to_ock_err(rc, reason);
+			}
 		}
 		break;
-
+	case CKM_RSA_X_509:
+	case CKM_RSA_PKCS:
+	case CKM_DSA:
+	case CKM_ECDSA:
+		rc = icsf_public_key_verify(session_state->ld, &reason, FALSE,
+				&mapping->icsf_object, &ctx->mech, in_data,
+				in_data_len, signature, &sig_len);
+		if (rc != 0)
+			rc = icsf_to_ock_err(rc, reason);
+		break;
 	default:
 		OCK_LOG_ERR(ERR_MECHANISM_INVALID);
 		rc = CKR_MECHANISM_INVALID;
