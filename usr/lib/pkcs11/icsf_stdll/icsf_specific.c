@@ -3159,3 +3159,669 @@ done:
 
 	return rc;
 }
+
+int
+get_signverify_len(CK_MECHANISM mech)
+{
+	switch(mech.mechanism) {
+	case CKM_MD5_HMAC:
+		return MD5_HASH_SIZE;
+	case CKM_SHA_1_HMAC:
+		return SHA1_HASH_SIZE;
+	case CKM_SHA256_HMAC:
+		return SHA2_HASH_SIZE;
+	case CKM_SHA384_HMAC:
+		return SHA3_HASH_SIZE;
+	case CKM_SHA512_HMAC:
+		return SHA5_HASH_SIZE;
+	}
+	return -1;
+}
+
+CK_RV
+token_specific_sign_init(SESSION *session, CK_MECHANISM *mech,
+			CK_BBOOL recover_mode, CK_OBJECT_HANDLE key)
+{
+	struct session_state *session_state;
+	SIGN_VERIFY_CONTEXT *ctx = &session->sign_ctx;
+	struct icsf_multi_part_context *multi_part_ctx = NULL;
+	struct icsf_object_mapping *mapping = NULL;
+	CK_RV rc = CKR_OK;
+	CK_BBOOL multi = FALSE;
+
+	/* Check session */
+	if (!(session_state = get_session_state(session->handle))) {
+		OCK_LOG_ERR(ERR_SESSION_HANDLE_INVALID);
+		rc = CKR_SESSION_HANDLE_INVALID;
+		goto done;
+	}
+
+	/* Check if key exists */
+	pthread_rwlock_rdlock(&obj_list_rw_mutex);
+	if(!(mapping = bt_get_node_value(&objects, key))) {
+		OCK_LOG_ERR(ERR_KEY_HANDLE_INVALID);
+		rc = CKR_KEY_HANDLE_INVALID;
+	}
+	pthread_rwlock_unlock(&obj_list_rw_mutex);
+	if (rc != CKR_OK)
+		goto done;
+
+	/* Check the mechanism info */
+	switch (mech->mechanism) {
+	case CKM_RSA_X_509:
+	case CKM_RSA_PKCS:
+	case CKM_DSA:
+	case CKM_ECDSA:
+		/* these do not require a parameter */
+		if (mech->ulParameterLen != 0) {
+			OCK_LOG_ERR(ERR_MECHANISM_PARAM_INVALID);
+			return CKR_MECHANISM_PARAM_INVALID;
+		}
+		/* these do not use multipart */
+		multi = FALSE;
+		break;
+	case CKM_MD5_HMAC:
+	case CKM_SHA_1_HMAC:
+	case CKM_SHA256_HMAC:
+	case CKM_SHA384_HMAC:
+	case CKM_SHA512_HMAC:
+		/* these do not require a parameter */
+		if (mech->ulParameterLen != 0) {
+			OCK_LOG_ERR(ERR_MECHANISM_PARAM_INVALID);
+			return CKR_MECHANISM_PARAM_INVALID;
+		}
+		/* hmacs can do mulitpart */
+		multi = TRUE;
+		break;
+	default:
+		OCK_LOG_ERR(ERR_MECHANISM_INVALID);
+		return CKR_MECHANISM_INVALID;
+	}
+
+        /* Copy mechanism */
+	/* Note: Anticipating that other mechs might have a parameter.
+         * otherwise, if we find they don't can remove the else part below.
+	 */
+	if (mech->pParameter == NULL || mech->ulParameterLen == 0) {
+		ctx->mech.ulParameterLen = 0;
+		ctx->mech.pParameter = NULL;
+	} else {
+		ctx->mech.pParameter = malloc(mech->ulParameterLen);
+		if (!ctx->mech.pParameter) {
+			OCK_LOG_ERR(ERR_HOST_MEMORY);
+			rc = CKR_HOST_MEMORY;
+			goto done;
+		}
+		ctx->mech.ulParameterLen = mech->ulParameterLen;
+		memcpy(ctx->mech.pParameter, mech->pParameter,
+			mech->ulParameterLen);
+	}
+	ctx->mech.mechanism = mech->mechanism;
+
+	/* If the mechanism supports multipart, prepare ctx */
+	if (multi) {
+		/* Allocate context for multi-part operations */
+		if (!(multi_part_ctx = malloc(sizeof(*multi_part_ctx)))) {
+			OCK_LOG_ERR(ERR_HOST_MEMORY);
+			rc = CKR_HOST_MEMORY;
+			goto done;
+		}
+		ctx->context_len = sizeof(*multi_part_ctx);
+		ctx->context = (void *) multi_part_ctx;
+		memset(multi_part_ctx, 0, sizeof(*multi_part_ctx));
+
+		/* don't think we need data part of multi_part_ctx
+		 * If this changes for other sign mechanisms, then allocate.
+		 */
+	} else {
+		ctx->context_len = 0;
+		ctx->context = NULL;
+	}
+
+	ctx->key = key;
+	ctx->multi = FALSE;
+	ctx->active = TRUE;
+
+done:
+	return rc;
+}
+
+CK_RV
+token_specific_sign(SESSION *session, CK_BBOOL length_only, CK_BYTE *in_data,
+		CK_ULONG in_data_len, CK_BYTE *signature, CK_ULONG *sig_len)
+{
+	struct session_state *session_state;
+	SIGN_VERIFY_CONTEXT *ctx = &session->sign_ctx;
+	struct icsf_object_mapping *mapping = NULL;
+	CK_BYTE chain_data[ICSF_CHAINING_DATA_LEN] = { 0, };
+	size_t chain_data_len = sizeof(chain_data);
+	CK_RV rc = CKR_OK;
+	int hlen, reason;
+
+	if (!ctx || !sig_len) {
+		OCK_LOG_ERR(ERR_FUNCTION_FAILED);
+		return CKR_FUNCTION_FAILED;
+	}
+
+	if ((length_only == FALSE) && (!in_data || !signature)) {
+		OCK_LOG_ERR(ERR_FUNCTION_FAILED);
+		return CKR_FUNCTION_FAILED;
+	}
+
+	if (ctx->multi == TRUE) {
+		OCK_LOG_ERR(ERR_OPERATION_ACTIVE);
+		return CKR_OPERATION_ACTIVE;
+	}
+
+	if (length_only) {
+		hlen = get_signverify_len(ctx->mech);
+		if (hlen < 0) {
+			OCK_LOG_ERR(ERR_MECHANISM_INVALID);
+			return CKR_MECHANISM_INVALID;
+		}
+		*sig_len = hlen;
+		return CKR_OK;
+	}
+
+	/* Check session */
+	if (!(session_state = get_session_state(session->handle))) {
+		OCK_LOG_ERR(ERR_SESSION_HANDLE_INVALID);
+		return CKR_SESSION_HANDLE_INVALID;
+	}
+
+	/* Check if key exists */
+	pthread_rwlock_rdlock(&obj_list_rw_mutex);
+	if(!(mapping = bt_get_node_value(&objects, ctx->key))) {
+		OCK_LOG_ERR(ERR_KEY_HANDLE_INVALID);
+		rc = CKR_KEY_HANDLE_INVALID;
+	}
+	pthread_rwlock_unlock(&obj_list_rw_mutex);
+	if (rc != CKR_OK)
+		return rc;
+
+	switch (ctx->mech.mechanism) {
+
+	case CKM_MD5_HMAC:
+	case CKM_SHA_1_HMAC:
+	case CKM_SHA256_HMAC:
+	case CKM_SHA384_HMAC:
+	case CKM_SHA512_HMAC:
+
+		rc = icsf_hmac_sign(session_state->ld, &reason,
+				&mapping->icsf_object, &ctx->mech, "ONLY",
+				in_data, in_data_len, signature, sig_len,
+				chain_data, &chain_data_len);
+		if (rc != 0)
+			rc = CKR_FUNCTION_FAILED;
+		break;
+
+	default:
+		OCK_LOG_ERR(ERR_MECHANISM_INVALID);
+		rc = CKR_MECHANISM_INVALID;
+	}
+
+	return rc;
+}
+
+CK_RV
+token_specific_sign_update(SESSION *session, CK_BYTE *in_data,
+			   CK_ULONG in_data_len)
+{
+	struct session_state *session_state;
+	SIGN_VERIFY_CONTEXT *ctx = &session->sign_ctx;
+	struct icsf_object_mapping *mapping = NULL;
+	struct icsf_multi_part_context *multi_part_ctx = NULL;
+	CK_BYTE chain_data[ICSF_CHAINING_DATA_LEN] = { 0, };
+	size_t chain_data_len = sizeof(chain_data);
+	CK_RV rc = CKR_OK;
+	int reason;
+	size_t siglen = 0;
+
+	/* Check session */
+	if (!(session_state = get_session_state(session->handle))) {
+		OCK_LOG_ERR(ERR_SESSION_HANDLE_INVALID);
+		return CKR_SESSION_HANDLE_INVALID;
+	}
+
+	/* Check if key exists */
+	pthread_rwlock_rdlock(&obj_list_rw_mutex);
+	if(!(mapping = bt_get_node_value(&objects, ctx->key))) {
+		OCK_LOG_ERR(ERR_KEY_HANDLE_INVALID);
+		rc = CKR_KEY_HANDLE_INVALID;
+	}
+	pthread_rwlock_unlock(&obj_list_rw_mutex);
+	if (rc != CKR_OK)
+		return rc;
+
+	/* indicate this is multipart operation and get chain info from ctx.
+	 * if any mechanisms that cannot do multipart sign come here, they
+	 * will not have had ctx->context allocated and will
+	 * get an error in switch below.
+	 */
+	ctx->multi = TRUE;
+	if (ctx->context) {
+		multi_part_ctx = (struct icsf_multi_part_context *)ctx->context;
+		if (multi_part_ctx->initiated)
+			memcpy(chain_data, multi_part_ctx->chain_data,
+				chain_data_len);
+	}
+
+	switch (ctx->mech.mechanism) {
+	case CKM_MD5_HMAC:
+	case CKM_SHA_1_HMAC:
+	case CKM_SHA256_HMAC:
+	case CKM_SHA384_HMAC:
+	case CKM_SHA512_HMAC:
+		rc = icsf_hmac_sign(session_state->ld, &reason,
+				&mapping->icsf_object, &ctx->mech,
+				(multi_part_ctx->initiated) ? "MIDDLE":"FIRST",
+				in_data, in_data_len, NULL, &siglen,
+				chain_data, &chain_data_len);
+
+		if (rc != 0)
+			rc = CKR_FUNCTION_FAILED;
+		else {
+			if (multi_part_ctx->initiated == FALSE)
+				multi_part_ctx->initiated = TRUE;
+
+			/* copy chaining data into ctx */
+			memcpy(multi_part_ctx->chain_data, chain_data,
+				chain_data_len);
+		}
+		break;
+	default:
+		OCK_LOG_ERR(ERR_MECHANISM_INVALID);
+		rc = CKR_MECHANISM_INVALID;
+	}
+
+	return rc;
+}
+
+CK_RV
+token_specific_sign_final(SESSION *session, CK_BBOOL length_only,
+			  CK_BYTE *signature, CK_ULONG *sig_len)
+{
+	struct session_state *session_state;
+	SIGN_VERIFY_CONTEXT *ctx = &session->sign_ctx;
+	struct icsf_object_mapping *mapping = NULL;
+	struct icsf_multi_part_context *multi_part_ctx = NULL;
+	CK_BYTE chain_data[ICSF_CHAINING_DATA_LEN] = { 0, };
+	size_t chain_data_len = sizeof(chain_data);
+	CK_RV rc = CKR_OK;
+	int hlen, reason;
+
+	if (!sig_len) {
+		OCK_LOG_ERR(ERR_FUNCTION_FAILED);
+		return CKR_FUNCTION_FAILED;
+	}
+	if (length_only) {
+		hlen = get_signverify_len(ctx->mech);
+		if (hlen < 0) {
+			OCK_LOG_ERR(ERR_MECHANISM_INVALID);
+			return CKR_MECHANISM_INVALID;
+		}
+
+		*sig_len = hlen;
+		return CKR_OK;
+	}
+
+	/* Check session */
+	if (!(session_state = get_session_state(session->handle))) {
+		OCK_LOG_ERR(ERR_SESSION_HANDLE_INVALID);
+		return CKR_SESSION_HANDLE_INVALID;
+	}
+
+	/* Check if key exists */
+	pthread_rwlock_rdlock(&obj_list_rw_mutex);
+	if(!(mapping = bt_get_node_value(&objects, ctx->key))) {
+		OCK_LOG_ERR(ERR_KEY_HANDLE_INVALID);
+		rc = CKR_KEY_HANDLE_INVALID;
+	}
+	pthread_rwlock_unlock(&obj_list_rw_mutex);
+	if (rc != CKR_OK)
+		return rc;
+
+	/* get the chain data from ctx */
+	if (ctx->context) {
+		multi_part_ctx = (struct icsf_multi_part_context *)ctx->context;
+		memcpy(chain_data, multi_part_ctx->chain_data, chain_data_len);
+	}
+
+	switch (ctx->mech.mechanism) {
+
+	case CKM_MD5_HMAC:
+	case CKM_SHA_1_HMAC:
+	case CKM_SHA256_HMAC:
+	case CKM_SHA384_HMAC:
+	case CKM_SHA512_HMAC:
+
+		/* get the chain data */
+		rc = icsf_hmac_sign(session_state->ld, &reason,
+				&mapping->icsf_object, &ctx->mech, "LAST", "",
+				0, signature, sig_len, chain_data,
+				&chain_data_len);
+		if (rc != 0)
+			rc = CKR_FUNCTION_FAILED;
+		break;
+	default:
+		OCK_LOG_ERR(ERR_MECHANISM_INVALID);
+		rc = CKR_MECHANISM_INVALID;
+	}
+
+	return rc;
+}
+
+CK_RV
+token_specific_verify_init(SESSION *session, CK_MECHANISM *mech,
+			CK_BBOOL recover_mode, CK_OBJECT_HANDLE key)
+{
+	struct session_state *session_state;
+	SIGN_VERIFY_CONTEXT *ctx = &session->verify_ctx;
+	struct icsf_multi_part_context *multi_part_ctx = NULL;
+	struct icsf_object_mapping *mapping = NULL;
+	CK_RV rc = CKR_OK;
+	CK_BBOOL multi = FALSE;
+
+	/* Check session */
+	if (!(session_state = get_session_state(session->handle))) {
+		OCK_LOG_ERR(ERR_SESSION_HANDLE_INVALID);
+		rc = CKR_SESSION_HANDLE_INVALID;
+		goto done;
+	}
+
+	/* Check if key exists */
+	pthread_rwlock_rdlock(&obj_list_rw_mutex);
+	if(!(mapping = bt_get_node_value(&objects, key))) {
+		OCK_LOG_ERR(ERR_KEY_HANDLE_INVALID);
+		rc = CKR_KEY_HANDLE_INVALID;
+	}
+	pthread_rwlock_unlock(&obj_list_rw_mutex);
+	if (rc != CKR_OK)
+		return rc;
+
+	/* Check the mechanism info */
+	switch (mech->mechanism) {
+	case CKM_RSA_X_509:
+	case CKM_RSA_PKCS:
+	case CKM_DSA:
+	case CKM_ECDSA:
+		/* these do not require a parameter */
+		if (mech->ulParameterLen != 0) {
+			OCK_LOG_ERR(ERR_MECHANISM_PARAM_INVALID);
+			return CKR_MECHANISM_PARAM_INVALID;
+		}
+		/* these do not use multipart */
+		multi = FALSE;
+		break;
+	case CKM_MD5_HMAC:
+	case CKM_SHA_1_HMAC:
+	case CKM_SHA256_HMAC:
+	case CKM_SHA384_HMAC:
+	case CKM_SHA512_HMAC:
+		/* these do not require a parameter */
+		if (mech->ulParameterLen != 0) {
+			OCK_LOG_ERR(ERR_MECHANISM_PARAM_INVALID);
+			return CKR_MECHANISM_PARAM_INVALID;
+		}
+		/* these can do multipart */
+		multi = TRUE;
+		break;
+	default:
+		OCK_LOG_ERR(ERR_MECHANISM_INVALID);
+		return CKR_MECHANISM_INVALID;
+	}
+
+        /* Copy mechanism */
+	/* Note: Anticipating that other mechs might have a parameter.
+         * otherwise, if we find they don't can remove the else part below.
+	 */
+        if (mech->pParameter == NULL || mech->ulParameterLen == 0) {
+                ctx->mech.ulParameterLen = 0;
+                ctx->mech.pParameter = NULL;
+        } else {
+                ctx->mech.pParameter = malloc(mech->ulParameterLen);
+                if (!ctx->mech.pParameter) {
+                        OCK_LOG_ERR(ERR_HOST_MEMORY);
+                        rc = CKR_HOST_MEMORY;
+                        goto done;
+                }
+                ctx->mech.ulParameterLen = mech->ulParameterLen;
+                memcpy(ctx->mech.pParameter, mech->pParameter,
+                                mech->ulParameterLen);
+        }
+        ctx->mech.mechanism = mech->mechanism;
+
+	/* If the mechanism supports multipart, prepare ctx */
+	if (multi) {
+		/* Allocate context for multi-part operations */
+		if (!(multi_part_ctx = malloc(sizeof(*multi_part_ctx)))) {
+			OCK_LOG_ERR(ERR_HOST_MEMORY);
+			rc = CKR_HOST_MEMORY;
+			goto done;
+		}
+		ctx->context_len = sizeof(*multi_part_ctx);
+		ctx->context = (void *) multi_part_ctx;
+                memset(multi_part_ctx, 0, sizeof(*multi_part_ctx));
+
+		/* don't think we need data part of multi_part_ctx
+		 * If this changes for other sign mechanisms, then allocate.
+		 */
+	} else {
+		ctx->context_len = 0;
+		ctx->context = NULL;
+	}
+
+	ctx->key = key;
+	ctx->multi = FALSE;
+	ctx->active = TRUE;
+
+done:
+	return rc;
+}
+
+CK_RV
+token_specific_verify(SESSION *session, CK_BYTE *in_data, CK_ULONG in_data_len,
+		      CK_BYTE *signature, CK_ULONG sig_len)
+{
+	struct session_state *session_state;
+	SIGN_VERIFY_CONTEXT *ctx = &session->verify_ctx;
+	struct icsf_object_mapping *mapping = NULL;
+	CK_BYTE chain_data[ICSF_CHAINING_DATA_LEN] = { 0, };
+	size_t chain_data_len = sizeof(chain_data);
+	CK_RV rc = CKR_OK;
+	int hlen, reason;
+
+	if (!session || !ctx || !in_data || !signature) {
+		OCK_LOG_ERR(ERR_FUNCTION_FAILED);
+		return CKR_FUNCTION_FAILED;
+	}
+
+	if (ctx->multi == TRUE) {
+		OCK_LOG_ERR(ERR_OPERATION_ACTIVE);
+		return CKR_OPERATION_ACTIVE;
+	}
+
+	/* Check session */
+	if (!(session_state = get_session_state(session->handle))) {
+		OCK_LOG_ERR(ERR_SESSION_HANDLE_INVALID);
+		return CKR_SESSION_HANDLE_INVALID;
+	}
+
+	/* Check if key exists */
+	pthread_rwlock_rdlock(&obj_list_rw_mutex);
+	if(!(mapping = bt_get_node_value(&objects, ctx->key))) {
+		OCK_LOG_ERR(ERR_KEY_HANDLE_INVALID);
+		rc = CKR_KEY_HANDLE_INVALID;
+	}
+	pthread_rwlock_unlock(&obj_list_rw_mutex);
+	if (rc != CKR_OK)
+		return rc;
+
+	switch (ctx->mech.mechanism) {
+
+	case CKM_MD5_HMAC:
+	case CKM_SHA_1_HMAC:
+	case CKM_SHA256_HMAC:
+	case CKM_SHA384_HMAC:
+	case CKM_SHA512_HMAC:
+
+		rc = icsf_hmac_verify(session_state->ld, &reason,
+				&mapping->icsf_object, &ctx->mech, "ONLY",
+				in_data, in_data_len, signature, sig_len,
+				chain_data, &chain_data_len);
+		if (rc != 0) {
+			if ((rc == 4) && (reason == 8000)) {
+				rc = CKR_SIGNATURE_INVALID;
+				OCK_LOG_ERR(ERR_SIGNATURE_INVALID);
+			} else
+				rc = CKR_FUNCTION_FAILED;
+		}
+		break;
+
+	default:
+		OCK_LOG_ERR(ERR_MECHANISM_INVALID);
+		rc = CKR_MECHANISM_INVALID;
+	}
+
+	return rc;
+}
+
+CK_RV
+token_specific_verify_update(SESSION *session, CK_BYTE *in_data,
+			     CK_ULONG in_data_len)
+{
+	struct session_state *session_state;
+	SIGN_VERIFY_CONTEXT *ctx = &session->verify_ctx;
+	struct icsf_object_mapping *mapping = NULL;
+	struct icsf_multi_part_context *multi_part_ctx = NULL;
+	CK_BYTE chain_data[ICSF_CHAINING_DATA_LEN] = { 0, };
+	size_t chain_data_len = sizeof(chain_data);
+	CK_RV rc = CKR_OK;
+	int reason;
+
+	/* Check session */
+	if (!(session_state = get_session_state(session->handle))) {
+		OCK_LOG_ERR(ERR_SESSION_HANDLE_INVALID);
+		return CKR_SESSION_HANDLE_INVALID;
+	}
+
+	/* Check if key exists */
+	pthread_rwlock_rdlock(&obj_list_rw_mutex);
+	if(!(mapping = bt_get_node_value(&objects, ctx->key))) {
+		OCK_LOG_ERR(ERR_KEY_HANDLE_INVALID);
+		rc = CKR_KEY_HANDLE_INVALID;
+	}
+	pthread_rwlock_unlock(&obj_list_rw_mutex);
+	if (rc != CKR_OK)
+		return rc;
+
+	/* indicate this is multipart operation and get chain info from ctx.
+	 * if any mechanisms that cannot do multipart verify come here, they
+	 * will get an error in switch below.
+	 */
+	ctx->multi = TRUE;
+	if (ctx->context) {
+		multi_part_ctx = (struct icsf_multi_part_context *)ctx->context;
+		if (multi_part_ctx->initiated)
+			memcpy(chain_data, multi_part_ctx->chain_data,
+				chain_data_len);
+	}
+
+	switch (ctx->mech.mechanism) {
+	case CKM_MD5_HMAC:
+	case CKM_SHA_1_HMAC:
+	case CKM_SHA256_HMAC:
+	case CKM_SHA384_HMAC:
+	case CKM_SHA512_HMAC:
+		rc = icsf_hmac_verify(session_state->ld, &reason,
+				&mapping->icsf_object, &ctx->mech,
+				(multi_part_ctx->initiated) ? "MIDDLE":"FIRST",
+				in_data, in_data_len, "",  0,
+				chain_data, &chain_data_len);
+		if (rc != 0)
+			rc = CKR_FUNCTION_FAILED;
+		else {
+			if (multi_part_ctx->initiated == FALSE)
+				multi_part_ctx->initiated = TRUE;
+
+			/* copy chaining data into ctx */
+			memcpy(multi_part_ctx->chain_data, chain_data,
+				chain_data_len);
+		}
+		break;
+	default:
+		OCK_LOG_ERR(ERR_MECHANISM_INVALID);
+		rc = CKR_MECHANISM_INVALID;
+	}
+
+	return rc;
+}
+
+CK_RV
+token_specific_verify_final(SESSION *session, CK_BYTE *signature,
+			    CK_ULONG sig_len)
+{
+	struct session_state *session_state;
+	SIGN_VERIFY_CONTEXT *ctx = &session->verify_ctx;
+	struct icsf_object_mapping *mapping = NULL;
+	struct icsf_multi_part_context *multi_part_ctx = NULL;
+	CK_BYTE chain_data[ICSF_CHAINING_DATA_LEN] = { 0, };
+	size_t chain_data_len = sizeof(chain_data);
+	CK_RV rc = CKR_OK;
+	int reason;
+
+	if (!sig_len) {
+		OCK_LOG_ERR(ERR_FUNCTION_FAILED);
+		return CKR_FUNCTION_FAILED;
+	}
+
+	/* Check session */
+	if (!(session_state = get_session_state(session->handle))) {
+		OCK_LOG_ERR(ERR_SESSION_HANDLE_INVALID);
+		return CKR_SESSION_HANDLE_INVALID;
+	}
+
+	/* Check if key exists */
+	pthread_rwlock_rdlock(&obj_list_rw_mutex);
+	if(!(mapping = bt_get_node_value(&objects, ctx->key))) {
+		OCK_LOG_ERR(ERR_KEY_HANDLE_INVALID);
+		rc = CKR_KEY_HANDLE_INVALID;
+	}
+	pthread_rwlock_unlock(&obj_list_rw_mutex);
+	if (rc != CKR_OK)
+		return rc;
+
+	/* get the chain data from ctx */
+	if (ctx->context) {
+		multi_part_ctx = (struct icsf_multi_part_context *)ctx->context;
+		memcpy(chain_data, multi_part_ctx->chain_data, chain_data_len);
+	}
+
+	switch (ctx->mech.mechanism) {
+
+	case CKM_MD5_HMAC:
+	case CKM_SHA_1_HMAC:
+	case CKM_SHA256_HMAC:
+	case CKM_SHA384_HMAC:
+	case CKM_SHA512_HMAC:
+
+		/* get the chain data */
+		rc = icsf_hmac_verify(session_state->ld, &reason,
+				&mapping->icsf_object, &ctx->mech, "LAST", "",
+				0, signature, sig_len, chain_data,
+				&chain_data_len);
+		if (rc != 0) {
+			if ((rc == 4) && (reason == 8000)) {
+				OCK_LOG_ERR(ERR_SIGNATURE_INVALID);
+				rc = CKR_SIGNATURE_INVALID;
+			} else
+				rc = CKR_FUNCTION_FAILED;
+		}
+		break;
+	default:
+		OCK_LOG_ERR(ERR_MECHANISM_INVALID);
+		rc = CKR_MECHANISM_INVALID;
+	}
+
+	return rc;
+}

@@ -68,14 +68,14 @@ token_spec_t token_specific = {
 	&token_specific_decrypt,
 	&token_specific_decrypt_update,
 	&token_specific_decrypt_final,
-	NULL,			// sign_init
-	NULL,			// sign
-	NULL,			// sign_update
-	NULL,			// sign_final
-	NULL,			// verify_init
-	NULL,			// verify
-	NULL,			// verify_update
-	NULL,			// verify_final
+	token_specific_sign_init,
+	token_specific_sign,
+	token_specific_sign_update,
+	token_specific_sign_final,
+	token_specific_verify_init,
+	token_specific_verify,
+	token_specific_verify_update,
+	token_specific_verify_final,
 	// DES
 	NULL, 			// des_key_gen
 	NULL, 			// des_ecb
