@@ -147,8 +147,7 @@ struct icsf_object_mapping {
  */
 struct icsf_multi_part_context {
 	int initiated;
-	char *chain_data;
-	size_t chain_data_len;
+	char chain_data[ICSF_CHAINING_DATA_LEN];
 	char *data;
 	size_t data_len;
 	size_t used_data_len;
@@ -1801,8 +1800,6 @@ free_encr_ctx(ENCR_DECR_CONTEXT *encr_ctx)
 	/* Initialize encryption context */
 	multi_part_ctx = (struct icsf_multi_part_context *) encr_ctx->context;
 	if (multi_part_ctx) {
-		if (multi_part_ctx->chain_data)
-			free(multi_part_ctx->chain_data);
 		if (multi_part_ctx->data)
 			free(multi_part_ctx->data);
 		free(multi_part_ctx);
@@ -1913,14 +1910,6 @@ token_specific_encrypt_init(SESSION *session, CK_MECHANISM_PTR mech,
 
 	/* Chained data has always a fixed length */
 	memset(multi_part_ctx, 0, sizeof(*multi_part_ctx));
-	multi_part_ctx->chain_data_len = ICSF_CHAINING_DATA_LEN;
-	multi_part_ctx->chain_data = malloc(multi_part_ctx->chain_data_len);
-	if (!multi_part_ctx->chain_data) {
-		OCK_LOG_ERR(ERR_HOST_MEMORY);
-		rc = CKR_HOST_MEMORY;
-		goto done;
-	}
-	memset(multi_part_ctx->chain_data, 0, ICSF_CHAINING_DATA_LEN);
 
 	/* Check mechanism and get block size */
 	rc = icsf_block_size(mech->mechanism, &block_size);
@@ -2387,14 +2376,6 @@ token_specific_decrypt_init(SESSION *session, CK_MECHANISM_PTR mech,
 
 	/* Chained data has always a fixed length */
 	memset(multi_part_ctx, 0, sizeof(*multi_part_ctx));
-	multi_part_ctx->chain_data_len = ICSF_CHAINING_DATA_LEN;
-	multi_part_ctx->chain_data = malloc(multi_part_ctx->chain_data_len);
-	if (!multi_part_ctx->chain_data) {
-		OCK_LOG_ERR(ERR_HOST_MEMORY);
-		rc = CKR_HOST_MEMORY;
-		goto done;
-	}
-	memset(multi_part_ctx->chain_data, 0, ICSF_CHAINING_DATA_LEN);
 
 	/* Check mechanism and get block size */
 	rc = icsf_block_size(mech->mechanism, &block_size);
