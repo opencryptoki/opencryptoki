@@ -1604,6 +1604,16 @@ get_algorithm_rule(CK_MECHANISM_PTR mech)
 		return "RSA-ZERO";
 	case CKM_RSA_PKCS:
 		return "RSA-PKCS";
+	case CKM_SHA_1_HMAC:
+		return "SHA-1";
+	case CKM_SHA256_HMAC:
+		return "SHA-256";
+	case CKM_SHA384_HMAC:
+		return "SHA-384";
+	case CKM_SHA512_HMAC:
+		return "SHA-512";
+	case CKM_MD5_HMAC:
+		return "MD5";
 	}
 	return NULL;
 }
@@ -2409,5 +2419,244 @@ done:
 		ber_free(result, 1);
 	if (msg)
 		ber_free(msg, 1);
+	return rc;
+}
+
+int icsf_hmac_sign(LDAP *ld, int *reason, struct icsf_object_record *key,
+		   CK_MECHANISM_PTR mech, const char *chain_rule,
+		   const char *clear_text, size_t clear_text_len, char *hmac,
+		   size_t *hmac_len, char *chain_data, size_t *chain_data_len)
+{
+	int rc = 0;
+	char handle[ICSF_HANDLE_LEN];
+	char rule_array[2 * ICSF_RULE_ITEM_LEN];
+	BerElement *msg = NULL;
+	BerElement *result = NULL;
+	struct berval bvHmac = { 0, NULL };
+	struct berval bvChain = { 0, NULL };
+	int hmac_length;
+	const char *rule_alg;
+
+	CHECK_ARG_NON_NULL(ld);
+	CHECK_ARG_NON_NULL(key);
+	CHECK_ARG_NON_NULL(mech);
+
+	object_record_to_handle(handle, key);
+
+	/* Add to rule array, the algorithm and chaining mode */
+
+	if (!(rule_alg = get_algorithm_rule(mech))) {
+		OCK_LOG_DEBUG("Invalid algorithm: %lu\n", (unsigned long) mech->mechanism);
+		return -1;
+	}
+
+	strpad(rule_array + 0 * ICSF_RULE_ITEM_LEN, rule_alg,
+		ICSF_RULE_ITEM_LEN, ' ');
+	strpad(rule_array + 1 * ICSF_RULE_ITEM_LEN, chain_rule,
+		ICSF_RULE_ITEM_LEN, ' ');
+
+	/* Build the request */
+	if (!(msg = ber_alloc_t(LBER_USE_DER))) {
+		OCK_LOG_ERR(ERR_HOST_MEMORY);
+		return -1;
+	}
+
+	/* Input ASN.1 for CSFPHMG.
+	 * HMGInput ::= SEQUENCE {
+	 *	text		OCTET STRING,
+	 *	chainData	OCTET STRING,
+	 *	hmacLength	INTEGER (0 .. MaxCSFPInteger)
+	 * }
+	 */
+
+	if (ber_printf(msg, "ooi", clear_text, clear_text_len, chain_data,
+			*chain_data_len, *hmac_len) < 0) {
+		rc = -1;
+		OCK_LOG_DEBUG("Failed to encode message: %d.\n", rc);
+		goto done;
+	}
+
+	/* Call service */
+	rc = icsf_call(ld, reason, handle, sizeof(handle), rule_array,
+			sizeof(rule_array), ICSF_TAG_CSFPHMG, msg, &result);
+
+	if (ICSF_RC_IS_ERROR(rc)) {
+		OCK_LOG_ERR(CKR_FUNCTION_FAILED);
+		goto done;
+	}
+
+	/* Parse the response.
+	 * HMGOutput ::= SEQUENCE {
+	 *	chainData	OCTET STRING,
+	 *      hmac		OCTET STRING,
+	 *	hmacLength	INTEGER (0 .. MaxCSFPInteger)
+	 * }
+	 *
+	 * Where,
+	 * chainData - A string that specifies the chaining data returned
+	 * during multi-part HMAC hashing in the CSFPHMG callable service.
+	 * This chainData must be specified on subsequent calls to
+	 * the CSFPHMG callable service.
+	 * hmac	      - A string containing the HMAC value
+	 * hmacLength - ignored by ICSF
+	 *
+	 * NOTE:
+	 * - chainData is always blindly returned, whether it is pertinent
+	 *   or not.
+	 * - For a FIRST or MIDDLE request, hmac is returned as a zero length
+	 *   string.
+	 * - For a LAST or ONLY request, hmac is returned as a string of
+	 *   appropriate length based on the mechanism. The validity of the hmac
+	 *   contents are subject to ICSF behavior, based on the ICSF return
+	 *   code and ICSF reason code.
+	 * - The hmacLength is ignored by ICSF and has no affect on how we
+	 *   encode the returned hmac. The hmacLength is passed along through
+	 *   the BER encoded messages and in and out of the ICSF call in case
+	 *   this changes in the future.
+	 */
+
+	if (ber_scanf(result, "{ooi}", &bvChain, &bvHmac, &hmac_length) < 0) {
+		rc = -1;
+		OCK_LOG_DEBUG("Failed to decode the response.\n");
+		goto done;
+	}
+
+	/* copy the chained data even if not using it*/
+	*chain_data_len = bvChain.bv_len;
+	memcpy(chain_data, bvChain.bv_val, bvChain.bv_len);
+
+	/* copy the hmac when needed */
+	if (*hmac_len) {
+		if (*hmac_len >= bvHmac.bv_len) {
+			memcpy(hmac, bvHmac.bv_val, bvHmac.bv_len);
+			*hmac_len = bvHmac.bv_len;
+		} else
+			/* supplied buffer is too small */
+			*reason = 3003;
+	}
+done:
+	if (result)
+		ber_free(result, 1);
+
+	if (msg)
+		ber_free(msg, 1);
+	if (bvHmac.bv_val)
+		ber_memfree(bvHmac.bv_val);
+	if (bvChain.bv_val)
+		ber_memfree(bvChain.bv_val);
+
+	return rc;
+}
+
+int icsf_hmac_verify(LDAP *ld, int *reason, struct icsf_object_record *key,
+		   CK_MECHANISM_PTR mech, const char *chain_rule,
+		   const char *clear_text, size_t clear_text_len,
+		   char *hmac, size_t hmac_len, char *chain_data,
+		   size_t *chain_data_len)
+{
+	int rc = 0;
+	char handle[ICSF_HANDLE_LEN];
+	char rule_array[2 * ICSF_RULE_ITEM_LEN];
+	BerElement *msg = NULL;
+	BerElement *result = NULL;
+	struct berval bvHmac = { 0UL, NULL };
+	struct berval bvChain = { 0UL, NULL };
+	const char *rule_alg;
+
+	CHECK_ARG_NON_NULL(ld);
+	CHECK_ARG_NON_NULL(key);
+	CHECK_ARG_NON_NULL(mech);
+
+	object_record_to_handle(handle, key);
+
+	/* Add to rule array, the algorithm and chaining mode */
+
+	if (!(rule_alg = get_algorithm_rule(mech))) {
+		OCK_LOG_DEBUG("Invalid algorithm: %lu\n", (unsigned long) mech->mechanism);
+		return -1;
+	}
+
+	strpad(rule_array + 0 * ICSF_RULE_ITEM_LEN, rule_alg,
+		ICSF_RULE_ITEM_LEN, ' ');
+        strpad(rule_array + 1 * ICSF_RULE_ITEM_LEN, chain_rule,
+		ICSF_RULE_ITEM_LEN, ' ');
+
+	/* Build the request */
+	if (!(msg = ber_alloc_t(LBER_USE_DER))) {
+		OCK_LOG_ERR(ERR_HOST_MEMORY);
+		return -1;
+	}
+
+	/*
+	 * Input ASN.1 for CSFPHMV.
+	 * HMVInput ::= SEQUENCE {
+	 *	text		OCTET STRING,
+	 *	chainData	OCTET STRING,
+	 *	hmac		OCTET STRING
+	 * }
+	 *
+	 * Where,
+	 * text	     - A string that identifies the text to test an HMAC hash
+	 *             in the CSFPHMV callable service.
+	 * chainData - A string that specifies the chaining data maintained
+	 *             during multi-part HMAC hashing in the CSFPHMV callable
+	 *             service.
+	 * hmac      - A string that identifies the HMAC hash to verify
+	 *             against the text in the CSFPHMV callable service.
+	 * NOTE:
+	 * - chainData is always required, even on a FIRST call (where it is
+	 *   not really an input) and even on an ONLY call (where there is no
+	 *   chaining).  An HMV ONLY call fails with reason_code=11000 when
+	 *   chain_data_length is 0.
+	 * - For an ONLY call or LAST call, hmac MUST be at least as
+	 *   many bytes in length as required based on the mechanism.
+	 * - For a FIRST or MIDDLE call, hmac is ignored.
+	 */
+	if (ber_printf(msg, "ooo", clear_text, clear_text_len, chain_data,
+			*chain_data_len, hmac, hmac_len) < 0) {
+		rc = -1;
+		OCK_LOG_DEBUG("Failed to encode message: %d.\n", rc);
+		goto done;
+	}
+
+	/* Call service */
+	rc = icsf_call(ld, reason, handle, sizeof(handle), rule_array,
+			sizeof(rule_array), ICSF_TAG_CSFPHMV, msg, &result);
+
+	if (ICSF_RC_IS_ERROR(rc)) {
+		OCK_LOG_ERR(CKR_FUNCTION_FAILED);
+		goto done;
+	}
+
+	/* Parse the response.
+	 * HMVOutput ::= chainData	OCTET STRING
+	 *
+	 * Where,
+	 * chainData - A string that specifies the chaining data returned
+	 * during multi-part HMAC hashing in the CSFPHMV callable service.
+	 * This chainData must be specified on subsequent calls to
+	 * the CSFPHMV callable service.
+	 *
+	 * NOTE:
+	 * - chainData is always blindly returned, whether it is pertinent
+	 *   or not.
+	 */
+	if (ber_scanf(result, "m", &bvChain) < 0) {
+		rc = -1;
+		OCK_LOG_DEBUG("Failed to decode the response.\n");
+		goto done;
+	}
+
+	/* if chaining, copy the chained data */
+	*chain_data_len = bvChain.bv_len;
+	memcpy(chain_data, bvChain.bv_val, bvChain.bv_len);
+
+done:
+	if (result)
+		ber_free(result, 1);
+
+	if (msg)
+		ber_free(msg, 1);
+
 	return rc;
 }

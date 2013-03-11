@@ -30,6 +30,8 @@
 #define ICSF_TAG_CSFPGAV 3
 #define ICSF_TAG_CSFPGKP 4
 #define ICSF_TAG_CSFPGSK 5
+#define ICSF_TAG_CSFPHMG 6
+#define ICSF_TAG_CSFPHMV 7
 #define ICSF_TAG_CSFPPKS 9
 #define ICSF_TAG_CSFPPKV 10
 #define ICSF_TAG_CSFPSAV 11
@@ -209,4 +211,15 @@ icsf_public_key_verify(LDAP *ld, int *p_reason, int encrypt,
 		       struct icsf_object_record *key, CK_MECHANISM_PTR mech,
 		       const char *clear_text, size_t clear_text_len,
 		       char *cipher_text, size_t *p_cipher_text_len);
+
+int icsf_hmac_sign(LDAP *ld, int *reason, struct icsf_object_record *key,
+		   CK_MECHANISM_PTR mech, const char *chain_rule,
+		   const char *clear_text, size_t clear_text_len, char *hmac,
+		   size_t *hmac_len, char *chain_data, size_t *chain_data_len);
+
+int icsf_hmac_verify(LDAP *ld, int *reason, struct icsf_object_record *key,
+		     CK_MECHANISM_PTR mech, const char *chain_rule,
+		     const char *clear_text, size_t clear_text_len,
+		     char *hmac, size_t hmac_len, char *chain_data,
+		     size_t *chain_data_len);
 #endif
