@@ -3283,6 +3283,13 @@ token_specific_sign_init(SESSION *session, CK_MECHANISM *mech,
 	ctx->active = TRUE;
 
 done:
+	if (rc != CKR_OK) {
+		if (ctx->context)
+			free(ctx->context);
+		if (ctx->mech.pParameter)
+			free(ctx->mech.pParameter);
+	}
+
 	return rc;
 }
 
@@ -3616,6 +3623,13 @@ token_specific_verify_init(SESSION *session, CK_MECHANISM *mech,
 	ctx->active = TRUE;
 
 done:
+	if (rc != CKR_OK) {
+		if (ctx->context)
+			free(ctx->context);
+		if (ctx->mech.pParameter)
+			free(ctx->mech.pParameter);
+	}
+
 	return rc;
 }
 
