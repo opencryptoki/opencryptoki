@@ -365,6 +365,197 @@ testcase_cleanup:
 	return rc;
 }
 
+/** Tests signature verification with published test vectors. **/
+CK_RV do_SignVerify_HMAC_Update(struct HMAC_TEST_SUITE_INFO *tsuite)
+{
+
+	int		len1, len2, i;
+	CK_MECHANISM    mech;
+	CK_BYTE	 	key[MAX_KEY_SIZE];
+	CK_ULONG	key_len;
+	CK_BYTE	 	data[MAX_DATA_SIZE];
+	CK_ULONG	data_len;
+	CK_BYTE	 	actual[MAX_HASH_SIZE];
+	CK_ULONG	actual_len;
+	CK_BYTE	 	expected[MAX_HASH_SIZE];
+	CK_ULONG	expected_len;
+
+	CK_SESSION_HANDLE 	session;
+	CK_SLOT_ID		slot_id = SLOT_ID;
+	CK_ULONG	  	flags;
+	CK_RV	     		rc;
+	CK_OBJECT_HANDLE  	h_key;
+
+	CK_BYTE			user_pin[PKCS11_MAX_PIN_LEN];
+	CK_ULONG		user_pin_len;
+
+	/** begin testsuite **/
+	testsuite_begin("%s Sign Verify.", tsuite->name);
+	testcase_rw_session();
+	testcase_user_login();
+
+	rc = CKR_OK;    // set rc
+
+	/** skip test if mech is not supported with this slot **/
+	if (! mech_supported(SLOT_ID, tsuite->mech.mechanism)){
+		testsuite_skip(tsuite->tvcount,
+			"mechanism %s is not supported with slot %ld",
+			tsuite->name, slot_id);
+		goto testcase_cleanup;
+	}
+
+	/** iterate over test vectors **/
+	for(i = 0; i < tsuite->tvcount; i++){
+
+		/** begin test **/
+		testcase_begin("Multipart Sign Verify %s with test vector %d.",
+			tsuite->name, i);
+
+		/** clear buffers **/
+		memset(key, 0, sizeof(key));
+		memset(data, 0, sizeof(data));
+		memset(actual, 0, sizeof(actual));
+		memset(expected, 0, sizeof(expected));
+
+		/** get test vector info **/
+		key_len = tsuite->tv[i].key_len;
+		data_len = tsuite->tv[i].data_len;
+		actual_len = sizeof(actual);
+		expected_len = tsuite->tv[i].hash_len;
+		memcpy(key, tsuite->tv[i].key, key_len);
+		memcpy(data, tsuite->tv[i].data, data_len);
+		memcpy(expected, tsuite->tv[i].result, expected_len);
+
+		/** get mechanism **/
+		mech = tsuite->mech;
+
+		/** create key object **/
+		rc = create_GenericSecretKey(session, key, key_len, &h_key);
+		if(rc != CKR_OK){
+			testcase_error("create_GenericSecretKey rc=%s",
+				p11_get_ckr(rc));
+			goto error;
+		}
+
+		/** initialize signing **/
+		rc = funcs->C_SignInit(session, &mech, h_key);
+		if (rc != CKR_OK) {
+			testcase_error("C_SignInit rc=%s", p11_get_ckr(rc));
+			goto error;
+		}
+
+		/** do multipart signing  **/
+		if (data_len > 0) {
+			len1 = 0;
+			len2 = 0;
+			/* do in 2 parts */
+			if (data_len < 20) 
+				len1 = data_len;
+			else {
+				len1 = data_len - 20;
+				len2 = 20;
+			}
+	
+			rc = funcs->C_SignUpdate(session, data, len1);
+			if (rc != CKR_OK) {
+				testcase_error("C_SignUpdate rc=%s",
+						p11_get_ckr(rc));
+				goto error;
+			}
+			
+			if (len2) {
+				rc = funcs->C_SignUpdate(session, data + len1,
+							 len2);
+				if (rc != CKR_OK) {
+					testcase_error("C_SignUpdate rc=%s",
+							p11_get_ckr(rc));
+					goto error;
+				}
+			}
+		}
+		rc = funcs->C_SignFinal(session, actual, &actual_len);
+		if (rc != CKR_OK) {
+			testcase_error("C_SignFinal rc=%s", p11_get_ckr(rc));
+			goto error;
+		}
+
+		/** initilaize verification **/
+		rc = funcs->C_VerifyInit(session, &mech, h_key);
+		if (rc != CKR_OK) {
+			testcase_error("C_VerifyInit rc=%s", p11_get_ckr(rc));
+			goto error;
+		}
+
+		/** do verification **/
+		if (data_len > 0) {
+			rc = funcs->C_VerifyUpdate(session, data, len1);
+			if (rc != CKR_OK) {
+				testcase_error("C_VerifyUpdate rc=%s",
+						p11_get_ckr(rc));
+				goto error;
+			}
+
+			if (len2) {
+				rc = funcs->C_VerifyUpdate(session, data+len1,
+							   len2);
+				if (rc != CKR_OK) {
+					testcase_error("C_VerifyUpdate rc=%s",
+							 p11_get_ckr(rc));
+					goto error;
+				}
+			}
+		}	
+		rc = funcs->C_VerifyFinal(session, actual, actual_len);
+		if (rc != CKR_OK) {
+			testcase_error("C_VerifyFinal rc=%s", p11_get_ckr(rc));
+			goto error;
+		}
+
+		/** compare sign/verify results with expected results **/
+		testcase_new_assertion();
+
+		if(actual_len != expected_len){
+			testcase_fail("hashed data length does not match test "
+				"vector's hashed data length\nexpected length="
+				"%ld, found length=%ld",
+				expected_len, actual_len);
+		}
+
+		else if(memcmp(actual, expected, expected_len)){
+			testcase_fail("hashed data does not match test "
+				"vector's hashed data");
+		}
+
+		else {
+			testcase_pass("%s Sign Verify Multipart with test vector %d "
+				"passed.", tsuite->name, i);
+		}
+
+		/** clean up **/
+		rc = funcs->C_DestroyObject(session, h_key);
+		if (rc != CKR_OK) {
+			testcase_error("C_DestroyObject rc=%s.",
+				p11_get_ckr(rc));
+			goto testcase_cleanup;
+		}
+	}
+	goto testcase_cleanup;
+
+error:
+	rc = funcs->C_DestroyObject(session, h_key);
+	if (rc != CKR_OK) {
+		testcase_error("C_DestroyObject rc=%s", p11_get_ckr(rc));
+	}
+
+testcase_cleanup:
+	testcase_user_logout();
+	rc = funcs->C_CloseAllSessions(slot_id);
+	if (rc != CKR_OK) {
+		testcase_error("C_CloseAllSessions rc=%s", p11_get_ckr(rc));
+	}
+	return rc;
+}
+
 CK_RV digest_funcs() {
 	CK_RV rc;
 	int i;
@@ -387,6 +578,14 @@ CK_RV digest_funcs() {
 	/** HMAC tests **/
 	for(i = 0; i < NUM_OF_HMAC_TEST_SUITES; i++){
 		rc = do_SignVerify_HMAC(&hmac_test_suites[i]);
+		if (rc && !no_stop) {
+			return rc;
+		}
+	}
+
+	/** HMAC Multipart tests **/
+	for(i = 0; i < NUM_OF_HMAC_TEST_SUITES; i++){
+		rc = do_SignVerify_HMAC_Update(&hmac_test_suites[i]);
 		if (rc && !no_stop) {
 			return rc;
 		}
