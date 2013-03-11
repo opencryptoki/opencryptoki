@@ -3103,7 +3103,12 @@ CK_RV SC_SignInit( ST_SESSION_HANDLE  *sSession,
 		goto done;
 	}
 
-	rc = sign_mgr_init( sess, &sess->sign_ctx, pMechanism, FALSE, hKey );
+	if (token_specific.t_sign_init)
+		rc = token_specific.t_sign_init(sess, pMechanism, FALSE, hKey);
+	else
+		rc = sign_mgr_init(sess, &sess->sign_ctx, pMechanism,
+				   FALSE, hKey);
+
 	if (rc != CKR_OK){ 
 		OCK_LOG_ERR(ERR_SIGN_INIT);
 	}
@@ -3159,10 +3164,13 @@ CK_RV SC_Sign( ST_SESSION_HANDLE  *sSession,
 	if (!pSignature)
 		length_only = TRUE;
 
-	rc = sign_mgr_sign( sess,       length_only,
-			    &sess->sign_ctx,
-			    pData,      ulDataLen,
-			    pSignature, pulSignatureLen );
+	if (token_specific.t_sign)
+		rc = token_specific.t_sign(sess, length_only, pData, ulDataLen,
+					   pSignature, pulSignatureLen);
+	else
+		rc = sign_mgr_sign(sess, length_only, &sess->sign_ctx, pData,
+				   ulDataLen, pSignature, pulSignatureLen);
+
 	if (rc != CKR_OK){ 
 		OCK_LOG_ERR(ERR_SIGN);
 	}
@@ -3215,7 +3223,12 @@ CK_RV SC_SignUpdate( ST_SESSION_HANDLE  *sSession,
 		goto done;
 	}
 
-	rc = sign_mgr_sign_update( sess, &sess->sign_ctx, pPart, ulPartLen );
+	if (token_specific.t_sign_update)
+		rc = token_specific.t_sign_update(sess, pPart, ulPartLen);
+	else
+		rc = sign_mgr_sign_update(sess, &sess->sign_ctx, pPart,
+					  ulPartLen);
+
 	if (rc != CKR_OK){ 
 		OCK_LOG_ERR(ERR_SIGN_UPDATE);
 	}
@@ -3272,9 +3285,13 @@ CK_RV SC_SignFinal( ST_SESSION_HANDLE  *sSession,
 	if (!pSignature)
 		length_only = TRUE;
 
-	rc = sign_mgr_sign_final( sess,       length_only,
-				  &sess->sign_ctx,
-				  pSignature, pulSignatureLen );
+	if (token_specific.t_sign_final)
+		rc = token_specific.t_sign_final(sess, length_only, pSignature,
+						 pulSignatureLen);
+	else
+		rc = sign_mgr_sign_final(sess, length_only, &sess->sign_ctx,
+					 pSignature, pulSignatureLen);
+
 	if (rc != CKR_OK){ 
 		OCK_LOG_ERR(ERR_SIGN_FINAL);
 	}
@@ -3451,7 +3468,12 @@ CK_RV SC_VerifyInit( ST_SESSION_HANDLE  *sSession,
 		goto done;
 	}
 
-	rc = verify_mgr_init( sess, &sess->verify_ctx, pMechanism, FALSE, hKey );
+	if (token_specific.t_verify_init)
+		rc = token_specific.t_verify_init(sess, pMechanism, FALSE, hKey);
+	else
+		rc = verify_mgr_init(sess, &sess->verify_ctx, pMechanism,
+				     FALSE, hKey);
+
 	if (rc != CKR_OK){ 
 		OCK_LOG_ERR(ERR_VERIFY_INIT);
 	}
@@ -3503,10 +3525,13 @@ CK_RV SC_Verify( ST_SESSION_HANDLE  *sSession,
 		goto done;
 	}
 
-	rc = verify_mgr_verify( sess,
-				&sess->verify_ctx,
-				pData,      ulDataLen,
-				pSignature, ulSignatureLen );
+	if (token_specific.t_verify)
+		rc = token_specific.t_verify(sess, pData, ulDataLen,
+					     pSignature, ulSignatureLen);
+	else
+		rc = verify_mgr_verify(sess, &sess->verify_ctx, pData,
+				       ulDataLen, pSignature, ulSignatureLen);
+
 	if (rc != CKR_OK){ 
 		OCK_LOG_ERR(ERR_VERIFY);
 	}
@@ -3558,7 +3583,12 @@ CK_RV SC_VerifyUpdate( ST_SESSION_HANDLE  *sSession,
 		goto done;
 	}
 
-	rc = verify_mgr_verify_update( sess, &sess->verify_ctx, pPart, ulPartLen );
+	if (token_specific.t_verify_update)
+		rc = token_specific.t_verify_update(sess, pPart, ulPartLen);
+	else
+		rc = verify_mgr_verify_update(sess, &sess->verify_ctx, pPart,
+						ulPartLen);
+
 	if (rc != CKR_OK){ 
 		OCK_LOG_ERR(ERR_VERIFY_UPDATE);
 	}
@@ -3611,7 +3641,13 @@ CK_RV SC_VerifyFinal( ST_SESSION_HANDLE  *sSession,
 		goto done;
 	}
 
-	rc = verify_mgr_verify_final( sess, &sess->verify_ctx, pSignature, ulSignatureLen );
+	if (token_specific.t_verify_final)
+		rc = token_specific.t_verify_final(sess, pSignature,
+						   ulSignatureLen);
+	else
+		rc = verify_mgr_verify_final(sess, &sess->verify_ctx,
+					     pSignature, ulSignatureLen);
+
 	if (rc != CKR_OK){ 
 		OCK_LOG_ERR(ERR_VERIFY_FINAL);
 	}

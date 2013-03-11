@@ -420,6 +420,33 @@ CK_RV
 token_specific_decrypt_final(SESSION *, CK_BYTE_PTR, CK_ULONG_PTR);
 
 CK_RV
+token_specific_sign_init(SESSION *, CK_MECHANISM_PTR, CK_BBOOL,
+			 CK_OBJECT_HANDLE);
+
+CK_RV
+token_specific_sign(SESSION *, CK_BBOOL, CK_BYTE_PTR, CK_ULONG, CK_BYTE_PTR,
+		    CK_ULONG_PTR);
+
+CK_RV
+token_specific_sign_update(SESSION *, CK_BYTE_PTR, CK_ULONG);
+
+CK_RV
+token_specific_sign_final(SESSION *, CK_BBOOL, CK_BYTE_PTR, CK_ULONG_PTR);
+
+CK_RV
+token_specific_verify_init(SESSION *, CK_MECHANISM_PTR, CK_BBOOL,
+			   CK_OBJECT_HANDLE);
+
+CK_RV
+token_specific_verify(SESSION *, CK_BYTE_PTR, CK_ULONG, CK_BYTE_PTR, CK_ULONG);
+
+CK_RV
+token_specific_verify_update(SESSION *, CK_BYTE_PTR, CK_ULONG);
+
+CK_RV
+token_specific_verify_final(SESSION *, CK_BYTE_PTR, CK_ULONG);
+
+CK_RV
 token_specific_rsa_sign(CK_BYTE *, CK_ULONG, CK_BYTE *, CK_ULONG *,
                                 OBJECT *);
 

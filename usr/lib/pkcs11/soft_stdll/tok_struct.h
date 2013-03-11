@@ -365,6 +365,14 @@ token_spec_t token_specific = {
 	NULL,			// decrypt
 	NULL,			// decrypt_update
 	NULL,			// decrypt_final
+	NULL,			// sign_init
+	NULL,			// sign
+	NULL,			// sign_update
+	NULL,			// sign_final
+	NULL,			// verify_init
+	NULL,			// verify
+	NULL,			// verify_update
+	NULL,			// verify_final
 	// DES
 	&token_specific_des_key_gen,
 	&token_specific_des_ecb,
