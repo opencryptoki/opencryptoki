@@ -992,11 +992,13 @@ close_session(struct session_state *session_state)
 		return rc;
 
 	/* Log off from LDAP server */
-	if (icsf_logout(session_state->ld)) {
-		OCK_LOG_DEBUG("Failed to disconnect from LDAP server.\n");
-		return CKR_FUNCTION_FAILED;
+	if (session_state->ld) {
+		if (icsf_logout(session_state->ld)) {
+			OCK_LOG_DEBUG("Failed to disconnect from LDAP server.\n");
+			return CKR_FUNCTION_FAILED;
+		}
+		session_state->ld = NULL;
 	}
-	session_state->ld = NULL;
 
 	/* Remove session */
 	list_remove(&session_state->sessions);
@@ -1034,11 +1036,11 @@ token_specific_close_session(SESSION *session)
 	}
 
 	if ((rc = close_session(session_state)))
-		return rc;
+		OCK_LOG_ERR(ERR_FUNCTION_FAILED);
 
 	if (pthread_mutex_unlock(&sess_list_mutex)) {
 		OCK_LOG_ERR(ERR_MUTEX_UNLOCK);
-		return CKR_FUNCTION_FAILED;
+		rc = CKR_FUNCTION_FAILED;
 	}
 
 	return rc;
