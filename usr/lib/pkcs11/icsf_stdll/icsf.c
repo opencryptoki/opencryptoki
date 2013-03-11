@@ -1587,13 +1587,6 @@ get_algorithm_rule(CK_MECHANISM_PTR mech)
 	case CKM_AES_CBC_PAD:
 	case CKM_AES_CTR:
 		return "AES";
-	case CKM_MD2_RSA_PKCS:
-	case CKM_MD5_RSA_PKCS:
-	case CKM_SHA1_RSA_PKCS:
-	case CKM_SHA256_RSA_PKCS:
-	case CKM_SHA384_RSA_PKCS:
-	case CKM_SHA512_RSA_PKCS:
-		return "RSA_PKCS";
 	case CKM_DSA_SHA1:
 	case CKM_DSA:
 		return "DSA";
