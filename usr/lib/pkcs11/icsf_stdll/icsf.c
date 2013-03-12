@@ -2249,6 +2249,12 @@ icsf_private_key_sign(LDAP *ld, int *p_reason, int decrypt,
 	BerElement *result = NULL;
 	struct berval bv_clear_text = { 0, NULL };
 
+	CHECK_ARG_NON_NULL(ld);
+	CHECK_ARG_NON_NULL(key);
+	CHECK_ARG_NON_NULL(mech);
+	CHECK_ARG_NON_NULL(cipher_text);
+	CHECK_ARG_NON_NULL(p_clear_text_len);
+
 	object_record_to_handle(handle, key);
 
 	/* Build rule array based on mechanism */
@@ -2334,6 +2340,12 @@ icsf_public_key_verify(LDAP *ld, int *p_reason, int encrypt,
 	BerElement *msg = NULL;
 	BerElement *result = NULL;
 	struct berval bv_cipher_text = { 0, NULL };
+
+	CHECK_ARG_NON_NULL(ld);
+	CHECK_ARG_NON_NULL(key);
+	CHECK_ARG_NON_NULL(mech);
+	CHECK_ARG_NON_NULL(clear_text);
+	CHECK_ARG_NON_NULL(p_cipher_text_len);
 
 	object_record_to_handle(handle, key);
 
