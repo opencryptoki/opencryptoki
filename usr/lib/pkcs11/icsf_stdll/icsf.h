@@ -40,6 +40,8 @@
 #define ICSF_TAG_CSFPTRC 14
 #define ICSF_TAG_CSFPTRD 15
 #define ICSF_TAG_CSFPTRL 16
+#define ICSF_TAG_CSFPUWK 17
+#define ICSF_TAG_CSFPWPK 18
 
 /* Return codes */
 #define ICSF_RC_SUCCESS 0
@@ -222,4 +224,17 @@ int icsf_hmac_verify(LDAP *ld, int *reason, struct icsf_object_record *key,
 		     const char *clear_text, size_t clear_text_len,
 		     char *hmac, size_t hmac_len, char *chain_data,
 		     size_t *chain_data_len);
+
+int
+icsf_wrap_key(LDAP *ld, int *p_reason, CK_MECHANISM_PTR mech,
+	      struct icsf_object_record *wrapping_key,
+	      struct icsf_object_record *key, CK_BYTE_PTR wrapped_key,
+	      CK_ULONG_PTR p_wrapped_key_len);
+
+int
+icsf_unwrap_key(LDAP *ld, int *p_reason, CK_MECHANISM_PTR mech,
+		struct icsf_object_record *unwrapping_key,
+		CK_BYTE_PTR wrapped_key, CK_ULONG wrapped_key_len,
+		CK_ATTRIBUTE_PTR attrs, CK_ULONG attrs_len,
+		struct icsf_object_record *key);
 #endif

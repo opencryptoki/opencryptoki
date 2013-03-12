@@ -2663,3 +2663,223 @@ done:
 
 	return rc;
 }
+
+/*
+ * Wrap a key.
+ */
+int
+icsf_wrap_key(LDAP *ld, int *p_reason, CK_MECHANISM_PTR mech,
+	      struct icsf_object_record *wrapping_key,
+	      struct icsf_object_record *key, CK_BYTE_PTR wrapped_key,
+	      CK_ULONG_PTR p_wrapped_key_len)
+{
+	int rc = 0;
+	int reason = 0;
+	char handle[ICSF_HANDLE_LEN];
+	char wrapping_handle[ICSF_HANDLE_LEN];
+	char rule_array[2 * ICSF_RULE_ITEM_LEN];
+	size_t rule_array_count = 0;
+	const char *rule_fmt = NULL;
+	const char *rule_alg = NULL;
+	BerElement *msg = NULL;
+	BerElement *result = NULL;
+	struct berval bv_wrapped_key = { 0, NULL };
+	ber_int_t wrapped_key_len = 0;
+
+	CHECK_ARG_NON_NULL(ld);
+	CHECK_ARG_NON_NULL(mech);
+	CHECK_ARG_NON_NULL(wrapping_key);
+	CHECK_ARG_NON_NULL(key);
+	CHECK_ARG_NON_NULL(p_wrapped_key_len);
+
+	object_record_to_handle(handle, key);
+	object_record_to_handle(wrapping_handle, wrapping_key);
+
+	/* Build rule array based on mechanism */
+	switch (mech->mechanism) {
+	case CKM_RSA_PKCS:
+		rule_fmt= "PKCS-1.2";
+		break;
+	case CKM_DES_CBC_PAD:
+	case CKM_DES3_CBC_PAD:
+	case CKM_AES_CBC_PAD:
+		rule_fmt = "PKCS-8";
+		if (!(rule_alg = get_algorithm_rule(mech))) {
+			OCK_LOG_DEBUG("Invalid algorithm: %lu\n",
+				(unsigned long) mech->mechanism);
+			return -1;
+		}
+		break;
+	default:
+		OCK_LOG_ERR(ERR_MECHANISM_INVALID);
+		return -1;
+	}
+
+	strpad(rule_array, rule_fmt, ICSF_RULE_ITEM_LEN, ' ');
+	rule_array_count += 1;
+	if (rule_alg) {
+		strpad(rule_array + (rule_array_count * ICSF_RULE_ITEM_LEN),
+			rule_alg, ICSF_RULE_ITEM_LEN, ' ');
+		rule_array_count += 1;
+	}
+
+	/* Build request */
+	if (!(msg = ber_alloc_t(LBER_USE_DER))) {
+		OCK_LOG_ERR(ERR_HOST_MEMORY);
+		return -1;
+	}
+
+	/* Encode message:
+	 *
+	 * WPKInput ::= SEQUENCE {
+	 *  	wrappingHandle		OCTET STRING,
+	 * 	wrappedKeyMaxLen	INTEGER (0 .. MaxCSFPInteger),
+	 * 	initialValue		OCTET STRING
+	 * }
+	 */
+	rc = ber_printf(msg, "ois", wrapping_handle, sizeof(wrapping_handle),
+			(ber_int_t) *p_wrapped_key_len, "");
+	if (rc < 0) {
+		rc = -1;
+		OCK_LOG_DEBUG("Failed to encode message: %d.\n", rc);
+		goto done;
+	}
+
+	/* Call request */
+	rc = icsf_call(ld, &reason, handle, sizeof(handle), rule_array,
+			rule_array_count * ICSF_RULE_ITEM_LEN, ICSF_TAG_CSFPWPK,
+			msg, &result);
+	if (p_reason)
+		*p_reason = reason;
+	if (ICSF_RC_IS_ERROR(rc)
+			&& reason != ICSF_REASON_OUTPUT_PARAMETER_TOO_SHORT)
+		goto done;
+
+	/* Decode message:
+	 *
+	 * WPKOutput ::= SEQUENCE {
+	 * 	wrappedKey	OCTET STRING,
+	 * 	wrappedKeyLen	INTEGER
+	 * }
+	 */
+	if (ber_scanf(result, "{mi}", &bv_wrapped_key, &wrapped_key_len) < 0) {
+		rc = -1;
+		OCK_LOG_DEBUG("Failed to decode the response.\n");
+		goto done;
+	}
+	*p_wrapped_key_len = wrapped_key_len;
+
+	/* Copy wrapped key*/
+	if (bv_wrapped_key.bv_len > *p_wrapped_key_len) {
+		OCK_LOG_DEBUG("Wrapped key length different that expected: %lu "
+				"(expected %lu)\n",
+				(unsigned long) bv_wrapped_key.bv_len,
+				(unsigned long) *p_wrapped_key_len);
+		rc = -1;
+		goto done;
+	}
+	if (wrapped_key)
+		memcpy(wrapped_key, bv_wrapped_key.bv_val, *p_wrapped_key_len);
+
+done:
+	if (result)
+		ber_free(result, 1);
+	if (msg)
+		ber_free(msg, 1);
+	return rc;
+}
+
+/*
+ * Unwrap a key.
+ */
+int
+icsf_unwrap_key(LDAP *ld, int *p_reason, CK_MECHANISM_PTR mech,
+		struct icsf_object_record *unwrapping_key,
+		CK_BYTE_PTR wrapped_key, CK_ULONG wrapped_key_len,
+		CK_ATTRIBUTE_PTR attrs, CK_ULONG attrs_len,
+		struct icsf_object_record *key)
+{
+	int rc = 0;
+	int reason = 0;
+	char handle[ICSF_HANDLE_LEN];
+	char rule_array[2 * ICSF_RULE_ITEM_LEN];
+	size_t rule_array_count = 0;
+	const char *rule_fmt = NULL;
+	const char *rule_alg = NULL;
+	BerElement *msg = NULL;
+
+	CHECK_ARG_NON_NULL(ld);
+	CHECK_ARG_NON_NULL(mech);
+	CHECK_ARG_NON_NULL(unwrapping_key);
+	CHECK_ARG_NON_NULL(wrapped_key);
+	CHECK_ARG_NON_NULL(key);
+
+	object_record_to_handle(handle, unwrapping_key);
+
+	/* Build rule array based on mechanism */
+	switch (mech->mechanism) {
+	case CKM_RSA_PKCS:
+		rule_fmt= "PKCS-1.2";
+		break;
+	case CKM_DES_CBC_PAD:
+	case CKM_DES3_CBC_PAD:
+	case CKM_AES_CBC_PAD:
+		rule_fmt = "PKCS-8";
+		if (!(rule_alg = get_algorithm_rule(mech))) {
+			OCK_LOG_DEBUG("Invalid algorithm: %lu\n",
+				(unsigned long) mech->mechanism);
+			return -1;
+		}
+		break;
+	default:
+		OCK_LOG_ERR(ERR_MECHANISM_INVALID);
+		return -1;
+	}
+
+	strpad(rule_array, rule_fmt, ICSF_RULE_ITEM_LEN, ' ');
+	rule_array_count += 1;
+	if (rule_alg) {
+		strpad(rule_array + (rule_array_count * ICSF_RULE_ITEM_LEN),
+			rule_alg, ICSF_RULE_ITEM_LEN, ' ');
+		rule_array_count += 1;
+	}
+
+	/* Build request */
+	if (!(msg = ber_alloc_t(LBER_USE_DER))) {
+		OCK_LOG_ERR(ERR_HOST_MEMORY);
+		return -1;
+	}
+
+	/* Encode message:
+	 *
+	 * UWKInput ::= SEQUENCE {
+	 * 	wrappedKey	OCTET STRING,
+	 * 	initialValue	OCTET STRING,
+	 * 	attrList	Attributes
+	 * }
+	 */
+	if (ber_printf(msg, "os", wrapped_key, wrapped_key_len, "") < 0 ||
+			ber_printf(msg, "{") < 0 ||
+			icsf_ber_put_attribute_list(msg, attrs, attrs_len) ||
+			ber_printf(msg, "}") < 0) {
+		rc = -1;
+		OCK_LOG_DEBUG("Failed to encode message: %d.\n", rc);
+		goto done;
+	}
+
+	/* Call request */
+	rc = icsf_call(ld, &reason, handle, sizeof(handle), rule_array,
+			rule_array_count * ICSF_RULE_ITEM_LEN, ICSF_TAG_CSFPUWK,
+			msg, NULL);
+	if (p_reason)
+		*p_reason = reason;
+	if (ICSF_RC_IS_ERROR(rc))
+		goto done;
+
+	handle_to_object_record(key, handle);
+
+done:
+	if (msg)
+		ber_free(msg, 1);
+	return rc;
+}
