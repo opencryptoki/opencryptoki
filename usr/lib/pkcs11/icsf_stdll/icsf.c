@@ -2245,7 +2245,6 @@ icsf_private_key_sign(LDAP *ld, int *p_reason, int decrypt,
 	char rule_array[2 * ICSF_RULE_ITEM_LEN];
 	size_t rule_array_count = 0;
 	const char *rule_alg;
-	int support_decrypt;
 	BerElement *msg = NULL;
 	BerElement *result = NULL;
 	struct berval bv_clear_text = { 0, NULL };
@@ -2332,7 +2331,6 @@ icsf_public_key_verify(LDAP *ld, int *p_reason, int encrypt,
 	char rule_array[2 * ICSF_RULE_ITEM_LEN];
 	size_t rule_array_count = 0;
 	const char *rule_alg;
-	int support_encrypt;
 	BerElement *msg = NULL;
 	BerElement *result = NULL;
 	struct berval bv_cipher_text = { 0, NULL };
