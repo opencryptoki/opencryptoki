@@ -405,6 +405,13 @@ struct token_specific_struct {
 				  CK_BYTE_PTR, CK_ULONG_PTR);
 	CK_RV (*t_decrypt_final) (SESSION *, CK_BYTE_PTR, CK_ULONG_PTR);
 
+	CK_RV (*t_wrap_key) (SESSION *, CK_MECHANISM_PTR, CK_OBJECT_HANDLE,
+			     CK_OBJECT_HANDLE, CK_BYTE_PTR, CK_ULONG_PTR);
+
+	CK_RV (*t_unwrap_key) (SESSION *, CK_MECHANISM_PTR, CK_ATTRIBUTE_PTR,
+			       CK_ULONG, CK_BYTE_PTR, CK_ULONG,
+			       CK_OBJECT_HANDLE, CK_OBJECT_HANDLE_PTR);
+
 	CK_RV (*t_sign_init) (SESSION *, CK_MECHANISM_PTR, CK_BBOOL,
 				CK_OBJECT_HANDLE);
 

@@ -75,6 +75,8 @@ struct token_specific_struct token_specific = {
 	NULL,			// decrypt
 	NULL,			// decrypt_update
 	NULL,			// decrypt_final
+	NULL,			// wrap_key
+	NULL,			// unwrap_key
 	NULL,			// sign_init
 	NULL,			// sign
 	NULL,			// sign_update

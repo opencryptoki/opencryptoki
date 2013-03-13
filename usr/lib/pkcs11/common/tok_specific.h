@@ -419,6 +419,13 @@ token_specific_decrypt_update(SESSION *, CK_BYTE_PTR, CK_ULONG,
 CK_RV
 token_specific_decrypt_final(SESSION *, CK_BYTE_PTR, CK_ULONG_PTR);
 
+CK_RV token_specific_wrap_key(SESSION *, CK_MECHANISM_PTR, CK_OBJECT_HANDLE,
+			      CK_OBJECT_HANDLE, CK_BYTE_PTR, CK_ULONG_PTR);
+
+CK_RV token_specific_unwrap_key(SESSION *, CK_MECHANISM_PTR, CK_ATTRIBUTE_PTR,
+				CK_ULONG, CK_BYTE_PTR, CK_ULONG,
+				CK_OBJECT_HANDLE, CK_OBJECT_HANDLE_PTR);
+
 CK_RV
 token_specific_sign_init(SESSION *, CK_MECHANISM_PTR, CK_BBOOL,
 			 CK_OBJECT_HANDLE);

@@ -4078,8 +4078,14 @@ CK_RV SC_WrapKey(ST_SESSION_HANDLE *sSession, CK_MECHANISM_PTR pMechanism,
 		goto done;
 	}
 
-	rc = key_mgr_wrap_key(sess, length_only, pMechanism, hWrappingKey, hKey,
-			      pWrappedKey,  pulWrappedKeyLen);
+	if (token_specific.t_wrap_key) {
+		token_specific.t_wrap_key(sess, pMechanism, hWrappingKey, hKey,
+					  pWrappedKey, pulWrappedKeyLen);
+	} else {
+		rc = key_mgr_wrap_key(sess, length_only, pMechanism,
+				      hWrappingKey, hKey, pWrappedKey,
+				      pulWrappedKeyLen);
+	}
 	if (rc != CKR_OK)
 		OCK_LOG_ERR(ERR_KEY_WRAP);
 
@@ -4138,9 +4144,16 @@ CK_RV SC_UnwrapKey(ST_SESSION_HANDLE *sSession, CK_MECHANISM_PTR pMechanism,
 		goto done;
 	}
 
-	rc = key_mgr_unwrap_key(sess, pMechanism, pTemplate, ulCount,
-				pWrappedKey, ulWrappedKeyLen, hUnwrappingKey,
-				phKey);
+	if (token_specific.t_unwrap_key) {
+		rc = token_specific.t_unwrap_key(sess, pMechanism, pTemplate,
+						 ulCount, pWrappedKey,
+						 ulWrappedKeyLen,
+						 hUnwrappingKey, phKey);
+	} else {
+		rc = key_mgr_unwrap_key(sess, pMechanism, pTemplate, ulCount,
+					pWrappedKey, ulWrappedKeyLen,
+					hUnwrappingKey, phKey);
+	}
 	if (rc != CKR_OK)
 		OCK_LOG_ERR(ERR_KEY_UNWRAP);
 
