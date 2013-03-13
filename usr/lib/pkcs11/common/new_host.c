@@ -4038,20 +4038,16 @@ done:
 
 //
 //
-CK_RV SC_WrapKey( ST_SESSION_HANDLE  *sSession,
-		  CK_MECHANISM_PTR   pMechanism,
-		  CK_OBJECT_HANDLE   hWrappingKey,
-		  CK_OBJECT_HANDLE   hKey,
-		  CK_BYTE_PTR        pWrappedKey,
-		  CK_ULONG_PTR       pulWrappedKeyLen )
+CK_RV SC_WrapKey(ST_SESSION_HANDLE *sSession, CK_MECHANISM_PTR pMechanism,
+		 CK_OBJECT_HANDLE hWrappingKey, CK_OBJECT_HANDLE hKey,
+		 CK_BYTE_PTR pWrappedKey, CK_ULONG_PTR pulWrappedKeyLen)
 {
-	SESSION  * sess = NULL;
-	CK_BBOOL   length_only = FALSE;
-	CK_RV      rc = CKR_OK;
+	SESSION *sess = NULL;
+	CK_BBOOL length_only = FALSE;
+	CK_RV rc = CKR_OK;
 	CK_SESSION_HANDLE hSession = SESS_HANDLE(sSession);
 
-
-		LOCKIT;
+	LOCKIT;
 	if (st_Initialized() == FALSE) {
 		OCK_LOG_ERR(ERR_CRYPTOKI_NOT_INITIALIZED);
 		rc = CKR_CRYPTOKI_NOT_INITIALIZED;
@@ -4075,48 +4071,44 @@ CK_RV SC_WrapKey( ST_SESSION_HANDLE  *sSession,
 		goto done;
 	}
 
-	if (pin_expired(&sess->session_info, nv_token_data->token_info.flags) == TRUE) {
+	if (pin_expired(&sess->session_info,
+			nv_token_data->token_info.flags) == TRUE) {
 		OCK_LOG_ERR(ERR_PIN_EXPIRED);
 		rc = CKR_PIN_EXPIRED;
 		goto done;
 	}
-   
-	rc = key_mgr_wrap_key( sess,         length_only,
-			       pMechanism,
-			       hWrappingKey, hKey,
-			       pWrappedKey,  pulWrappedKeyLen );
-	if (rc != CKR_OK){ 
+
+	rc = key_mgr_wrap_key(sess, length_only, pMechanism, hWrappingKey, hKey,
+			      pWrappedKey,  pulWrappedKeyLen);
+	if (rc != CKR_OK)
 		OCK_LOG_ERR(ERR_KEY_WRAP);
-	}
 
  done:
 	LLOCK;
-	OCK_LOG_DEBUG("%s:  rc = %08x, sess = %d, encrypting key = %d, wrapped key = %d\n", "C_WrapKey", rc, (sess == NULL)?-1:(CK_LONG)sess->handle, hWrappingKey, hKey);
+	OCK_LOG_DEBUG("%s:  rc = %08x, sess = %d, encrypting key = %d, "
+		      "wrapped key = %d\n", "C_WrapKey", rc,
+		      (sess == NULL) ? -1 : (CK_LONG) sess->handle,
+		      hWrappingKey, hKey);
 
-	UNLOCKIT; return rc;
+	UNLOCKIT;
+	return rc;
 }
 
-
 //
 //
-CK_RV SC_UnwrapKey( ST_SESSION_HANDLE    *sSession,
-		    CK_MECHANISM_PTR      pMechanism,
-		    CK_OBJECT_HANDLE      hUnwrappingKey,
-		    CK_BYTE_PTR           pWrappedKey,
-		    CK_ULONG              ulWrappedKeyLen,
-		    CK_ATTRIBUTE_PTR      pTemplate,
-		    CK_ULONG              ulCount,
-		    CK_OBJECT_HANDLE_PTR  phKey )
+CK_RV SC_UnwrapKey(ST_SESSION_HANDLE *sSession, CK_MECHANISM_PTR pMechanism,
+		   CK_OBJECT_HANDLE hUnwrappingKey, CK_BYTE_PTR pWrappedKey,
+		   CK_ULONG ulWrappedKeyLen, CK_ATTRIBUTE_PTR pTemplate,
+		   CK_ULONG ulCount, CK_OBJECT_HANDLE_PTR phKey)
 {
-	SESSION        * sess = NULL;
-	CK_ATTRIBUTE   * attr = NULL;
-	CK_BYTE        * ptr  = NULL;
-	CK_ULONG         i;
-	CK_RV            rc = CKR_OK;
+	SESSION *sess = NULL;
+	CK_ATTRIBUTE *attr = NULL;
+	CK_BYTE *ptr  = NULL;
+	CK_ULONG i;
+	CK_RV rc = CKR_OK;
 	CK_SESSION_HANDLE hSession = SESS_HANDLE(sSession);
 
-
-		LOCKIT;
+	LOCKIT;
 	if (st_Initialized() == FALSE) {
 		OCK_LOG_ERR(ERR_CRYPTOKI_NOT_INITIALIZED);
 		rc = CKR_CRYPTOKI_NOT_INITIALIZED;
@@ -4139,38 +4131,40 @@ CK_RV SC_UnwrapKey( ST_SESSION_HANDLE    *sSession,
 		goto done;
 	}
 
-	if (pin_expired(&sess->session_info, nv_token_data->token_info.flags) == TRUE) {
+	if (pin_expired(&sess->session_info,
+			nv_token_data->token_info.flags) == TRUE) {
 		OCK_LOG_ERR(ERR_PIN_EXPIRED);
 		rc = CKR_PIN_EXPIRED;
 		goto done;
 	}
-   
-	rc = key_mgr_unwrap_key( sess,           pMechanism,
-				 pTemplate,      ulCount,
-				 pWrappedKey,    ulWrappedKeyLen,
-				 hUnwrappingKey, phKey );
-	if (rc != CKR_OK){ 
+
+	rc = key_mgr_unwrap_key(sess, pMechanism, pTemplate, ulCount,
+				pWrappedKey, ulWrappedKeyLen, hUnwrappingKey,
+				phKey);
+	if (rc != CKR_OK)
 		OCK_LOG_ERR(ERR_KEY_UNWRAP);
-	}
 
  done:
-//   if (rc == CKR_OBJECT_HANDLE_INVALID)  brkpt();
 	LLOCK;
-	OCK_LOG_DEBUG("C_UnwrapKey:  rc = %08x, sess = %d, decrypting key = %d, unwrapped key = %d\n", rc, (sess == NULL)?-1:(CK_LONG)sess->handle, hUnwrappingKey, *phKey);
+	OCK_LOG_DEBUG("C_UnwrapKey:  rc = %08x, sess = %d, decrypting key = %d,"
+		      "unwrapped key = %d\n", rc,
+		      (sess == NULL) ? -1 : (CK_LONG) sess->handle,
+		      hUnwrappingKey, *phKey);
 
 #ifdef DEBUG
 	attr = pTemplate;
 	for (i = 0; i < ulCount; i++, attr++) {
 		ptr = (CK_BYTE *)attr->pValue;
-
-		OCK_LOG_DEBUG("%d:  Attribute type:  0x%08x, Value Length: %d\n", i, attr->type, attr->ulValueLen);
-
-		if (attr->ulValueLen != (CK_ULONG)(-1) && (ptr != NULL))
-			OCK_LOG_DEBUG("First 4 bytes:  %02x %02x %02x %02x\n", ptr[0], ptr[1], ptr[2], ptr[3]);
+		OCK_LOG_DEBUG("%d: Attribute type:  0x%08x, Value Length: %d\n",
+			      i, attr->type, attr->ulValueLen);
+		if (attr->ulValueLen != ((CK_ULONG) -1) && (ptr != NULL))
+			OCK_LOG_DEBUG("First 4 bytes:  %02x %02x %02x %02x\n",
+					ptr[0], ptr[1], ptr[2], ptr[3]);
 
 	}
 #endif
-	UNLOCKIT; return rc;
+	UNLOCKIT;
+	return rc;
 }
 
 
