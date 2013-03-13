@@ -3852,3 +3852,129 @@ token_specific_verify_final(SESSION *session, CK_BYTE *signature,
 
 	return rc;
 }
+
+/*
+ * Wrap a key and return it as binary data.
+ */
+CK_RV
+token_specific_wrap_key(SESSION *session, CK_MECHANISM_PTR mech,
+		        CK_OBJECT_HANDLE wrapping_key, CK_OBJECT_HANDLE key,
+		        CK_BYTE_PTR wrapped_key, CK_ULONG_PTR p_wrapped_key_len)
+{
+	int rc;
+	int reason = 0;
+	struct session_state *session_state;
+	struct icsf_object_mapping *wrapping_key_mapping = NULL;
+	struct icsf_object_mapping *key_mapping = NULL;
+
+	/* Check session */
+	if (!(session_state = get_session_state(session->handle))) {
+		OCK_LOG_ERR(ERR_SESSION_HANDLE_INVALID);
+		return  CKR_SESSION_HANDLE_INVALID;
+	}
+
+	/* Check if keys exist */
+	pthread_rwlock_rdlock(&obj_list_rw_mutex);
+	wrapping_key_mapping = bt_get_node_value(&objects, wrapping_key);
+	key_mapping = bt_get_node_value(&objects, key);
+	pthread_rwlock_unlock(&obj_list_rw_mutex);
+	if (!wrapping_key_mapping || !key_mapping) {
+		OCK_LOG_ERR(ERR_KEY_HANDLE_INVALID);
+		return CKR_KEY_HANDLE_INVALID;
+	}
+
+	/* Call ICSF service */
+	rc = icsf_wrap_key(session_state->ld, &reason, mech,
+			  &wrapping_key_mapping->icsf_object,
+			  &key_mapping->icsf_object, wrapped_key,
+			  p_wrapped_key_len);
+	if (rc) {
+		OCK_LOG_DEBUG("Failed to call ICSF.\n");
+		return icsf_to_ock_err(rc, reason);
+	}
+
+	return CKR_OK;
+}
+
+/*
+ * Unwrap a key from binary data and create a new key object.
+ */
+CK_RV
+token_specific_unwrap_key(SESSION *session, CK_MECHANISM_PTR mech,
+			  CK_ATTRIBUTE_PTR attrs, CK_ULONG attrs_len,
+			  CK_BYTE_PTR wrapped_key, CK_ULONG wrapped_key_len,
+			  CK_OBJECT_HANDLE wrapping_key,
+			  CK_OBJECT_HANDLE_PTR p_key)
+{
+	int rc;
+	int reason = 0;
+	struct session_state *session_state;
+	struct icsf_object_mapping *wrapping_key_mapping = NULL;
+	struct icsf_object_mapping *key_mapping = NULL;
+	int is_obj_locked = 0;
+	CK_ULONG node_number;
+
+	/* Check session */
+	if (!(session_state = get_session_state(session->handle))) {
+		OCK_LOG_ERR(ERR_SESSION_HANDLE_INVALID);
+		return  CKR_SESSION_HANDLE_INVALID;
+	}
+
+	/* Check if key exists */
+	pthread_rwlock_rdlock(&obj_list_rw_mutex);
+	wrapping_key_mapping = bt_get_node_value(&objects, wrapping_key);
+	pthread_rwlock_unlock(&obj_list_rw_mutex);
+	if (!wrapping_key_mapping) {
+		OCK_LOG_ERR(ERR_KEY_HANDLE_INVALID);
+		return CKR_KEY_HANDLE_INVALID;
+	}
+
+	/* Allocate structure to keep ICSF object information */
+	if (!(key_mapping = malloc(sizeof(*key_mapping)))) {
+		OCK_LOG_ERR(ERR_HOST_MEMORY);
+		return CKR_HOST_MEMORY;
+	}
+	memset(key_mapping, 0, sizeof(*key_mapping));
+	key_mapping->session_id = session->handle;
+
+	/* Call ICSF service */
+	rc = icsf_unwrap_key(session_state->ld, &reason, mech,
+			     &wrapping_key_mapping->icsf_object,
+			     wrapped_key, wrapped_key_len,
+			     attrs, attrs_len, &key_mapping->icsf_object);
+	if (rc) {
+		OCK_LOG_DEBUG("Failed to call ICSF.\n");
+		rc = icsf_to_ock_err(rc, reason);
+		goto done;
+	}
+
+	/* Lock the object list */
+	if (pthread_rwlock_wrlock(&obj_list_rw_mutex)) {
+		OCK_LOG_ERR(ERR_MUTEX_UNLOCK);
+		rc = CKR_FUNCTION_FAILED;
+		goto done;
+	}
+	is_obj_locked = 1;
+
+	/* Add info about object into session */
+	if(!(node_number = bt_node_add(&objects, key_mapping))) {
+		OCK_LOG_DEBUG("Failed to add object to binary tree.\n");
+		rc = CKR_FUNCTION_FAILED;
+		goto done;
+	}
+
+	/* Use node number as handle */
+	*p_key = node_number;
+
+done:
+	if (is_obj_locked && pthread_rwlock_unlock(&obj_list_rw_mutex)) {
+		OCK_LOG_ERR(ERR_MUTEX_UNLOCK);
+		rc = CKR_FUNCTION_FAILED;
+	}
+
+	/* If allocated, object must be freed in case of failure */
+	if (rc && key_mapping)
+		free(key_mapping);
+
+	return rc;
+}
