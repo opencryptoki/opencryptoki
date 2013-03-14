@@ -683,7 +683,8 @@ CK_RV do_WrapUnwrapRSA(struct GENERATED_TEST_SUITE_INFO *tsuite)
 		// or any other information about the key; the application
 		// must convey these separately, and supply them when
 		// unwrapping the key.
-		if (keygen_mech.mechanism == CKM_AES_KEY_GEN) {
+		if (keygen_mech.mechanism == CKM_AES_KEY_GEN &&
+		    wrap_mech.mechanism == CKM_RSA_X_509) {
 			unwrapped_keylen = tsuite->tv[i].keylen;
 			unwrap_tmpl[2].type = CKA_VALUE_LEN;
 			unwrap_tmpl[2].ulValueLen = sizeof(unwrapped_keylen);
@@ -747,8 +748,8 @@ CK_RV do_WrapUnwrapRSA(struct GENERATED_TEST_SUITE_INFO *tsuite)
 
 				testcase_fail("CKA_VALUE_LEN value differs "
 					"(original %lu, unwrapped %lu)",
-					*((CK_ULONG_PTR) secret_value_len),
-					*((CK_ULONG_PTR) unwrapped_value_len));
+					*((CK_ULONG_PTR) secret_value_len[0].pValue),
+					*((CK_ULONG_PTR) unwrapped_value_len[0].pValue));
 				goto error;
 			}
 		}
