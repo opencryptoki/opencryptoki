@@ -163,6 +163,11 @@ remove_file(char *filename)
 	return 0;
 }
 
+static inline const char *
+str(const char *s) {
+	return s ? s : "";
+}
+
 int
 add_token_config(const char *configname, struct icsf_token_record token, int slot)
 {
@@ -180,19 +185,20 @@ add_token_config(const char *configname, struct icsf_token_record token, int slo
 
 	/* add the info */
 	fprintf(tfp, "slot %d {\n", slot);
-	fprintf(tfp, "TOKEN_NAME = \"%s\"\n", token.name);
-	fprintf(tfp, "TOKEN_MANUFACTURE = \"%s\"\n", token.manufacturer);
-	fprintf(tfp, "TOKEN_MODEL = \"%s\"\n", token.model);
-	fprintf(tfp, "TOKEN_SERIAL = \"%s\"\n", token.serial);
+	fprintf(tfp, "TOKEN_NAME = \"%s\"\n", str(token.name));
+	fprintf(tfp, "TOKEN_MANUFACTURE = \"%s\"\n", str(token.manufacturer));
+	fprintf(tfp, "TOKEN_MODEL = \"%s\"\n", str(token.model));
+	fprintf(tfp, "TOKEN_SERIAL = \"%s\"\n", str(token.serial));
 
 	/* add BIND info */
 	if (memcmp(mech, "simple", strlen("simple")) == 0) {
-		fprintf(tfp, "BINDDN = \"%s\"\n",  binddn);
-		fprintf(tfp, "URI = \"%s\"\n", uri);
+		fprintf(tfp, "BINDDN = \"%s\"\n",  str(binddn));
+		fprintf(tfp, "URI = \"%s\"\n", str(uri));
 	} else {
-		fprintf(tfp, "CERT = \"%s\"\n", cert);
-		fprintf(tfp, "CACERT = \"%s\"\n", cacert);
-		fprintf(tfp, "KEY = \"%s\"\n", privkey);
+		fprintf(tfp, "URI = \"%s\"\n", str(uri));
+		fprintf(tfp, "CERT = \"%s\"\n", str(cert));
+		fprintf(tfp, "CACERT = \"%s\"\n", str(cacert));
+		fprintf(tfp, "KEY = \"%s\"\n", str(privkey));
 	}
 
 	fprintf(tfp, "}\n");
@@ -332,8 +338,10 @@ lookup_name(char *name, struct icsf_token_record *found)
 		}
 
 		for (i = 0; i < tokenCount; i++) {
-			if (memcmp(name, tokens[i].name, strlen(tokens[i].name)) == 0) {
-				memcpy(found, &tokens[i], sizeof(struct icsf_token_record));
+			if (strncasecmp(name, tokens[i].name,
+					sizeof(tokens[i].name)) == 0) {
+				memcpy(found, &tokens[i],
+					sizeof(struct icsf_token_record));
 				return 0;
 			}
 		}
@@ -555,10 +563,12 @@ main(int argc, char **argv)
 				fprintf(stderr, "Could not get RACF passwd.\n");
 				return (-1);
 			}
-		}
 
-		/* bind to ldap server */
-		rc = icsf_login(&ld, uri, binddn, racfpwd);
+			/* bind to ldap server */
+			rc = icsf_login(&ld, uri, binddn, racfpwd);
+		} else {
+			rc = icsf_sasl_login(&ld, uri, NULL, NULL, NULL, NULL);
+		}
 		if (rc) {
 			fprintf(stderr, "Failed to bind to the ldap server.\n");
 			goto cleanup;
@@ -592,11 +602,12 @@ main(int argc, char **argv)
 			if (rc != 0)
 				goto cleanup;
 		}
-
-		/* when using simple auth, secure racf passwd. */
-		rc = secure_racf_passwd(racfpwd, strlen(racfpwd));
-		if (rc != 0)
-			goto cleanup;
+		if (flags & CFG_MECH_SIMPLE) {
+			/* when using simple auth, secure racf passwd. */
+			rc = secure_racf_passwd(racfpwd, strlen(racfpwd));
+			if (rc != 0)
+				goto cleanup;
+		}
 	}
 
 	if (flags & CFG_LIST) {

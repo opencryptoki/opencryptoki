@@ -309,7 +309,7 @@ icsf_set_sasl_params(LDAP *ld, const char *cert, const char *key,
 	CHECK_ARG_NON_NULL(ld);
 
 	OCK_LOG_DEBUG("Preparing environment for TLS\n");
-	if (cert) {
+	if (cert && *cert) {
 		OCK_LOG_DEBUG("Using certificate: %s\n", cert);
 		rc = ldap_set_option(NULL, LDAP_OPT_X_TLS_CERTFILE, cert);
 		if (rc != LDAP_SUCCESS) {
@@ -319,7 +319,7 @@ icsf_set_sasl_params(LDAP *ld, const char *cert, const char *key,
 		}
 	}
 
-	if (key) {
+	if (key && *key) {
 		OCK_LOG_DEBUG("Using private key: %s\n", key);
 		rc = ldap_set_option(NULL, LDAP_OPT_X_TLS_KEYFILE, key);
 		if (rc != LDAP_SUCCESS) {
@@ -329,7 +329,7 @@ icsf_set_sasl_params(LDAP *ld, const char *cert, const char *key,
 		}
 	}
 
-	if (ca) {
+	if (ca && *ca) {
 		OCK_LOG_DEBUG("Using CA certificate file: %s\n", ca);
 		rc = ldap_set_option(NULL, LDAP_OPT_X_TLS_CACERTFILE, ca);
 		if (rc != LDAP_SUCCESS) {
@@ -340,7 +340,7 @@ icsf_set_sasl_params(LDAP *ld, const char *cert, const char *key,
 		}
 	}
 
-	if (ca_dir) {
+	if (ca_dir && *ca_dir) {
 		OCK_LOG_DEBUG("Using CA certificate dir: %s\n", ca_dir);
 		rc = ldap_set_option(NULL, LDAP_OPT_X_TLS_CACERTDIR, ca_dir);
 		if (rc != LDAP_SUCCESS) {

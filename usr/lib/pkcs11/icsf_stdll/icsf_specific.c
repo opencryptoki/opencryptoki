@@ -597,35 +597,40 @@ reset_token_data(CK_SLOT_ID slot_id, CK_CHAR_PTR pin, CK_ULONG pin_len)
 	int racf_pass_len = sizeof(racf_pass);
 	char token_name[sizeof(nv_token_data->token_info.label)];
 	CK_BYTE pk_dir_buf[PATH_MAX], fname[PATH_MAX];
+	CK_BBOOL simple = slot_data[slot_id]->dn[0];
 
 	/* Remove user's masterkey */
-	sprintf(fname, "%s/MK_USER", get_pk_dir(pk_dir_buf));
-	if (unlink(fname) && errno == ENOENT)
-		OCK_LOG_DEBUG("Failed to remove \"%s\".\n", fname);
+	if (simple) {
+		sprintf(fname, "%s/MK_USER", get_pk_dir(pk_dir_buf));
+		if (unlink(fname) && errno == ENOENT)
+			OCK_LOG_DEBUG("Failed to remove \"%s\".\n", fname);
 
-	/* Load master key */
-	sprintf(fname, "%s/MK_SO", get_pk_dir(pk_dir_buf));
-	if (get_masterkey(pin, pin_len, fname, mk, &mk_len)) {
-		OCK_LOG_DEBUG("Failed to load masterkey \"%s\".\n", fname);
-		return CKR_FUNCTION_FAILED;
-	}
+		/* Load master key */
+		sprintf(fname, "%s/MK_SO", get_pk_dir(pk_dir_buf));
+		if (get_masterkey(pin, pin_len, fname, mk, &mk_len)) {
+			OCK_LOG_DEBUG("Failed to load masterkey \"%s\".\n",
+				      fname);
+			return CKR_FUNCTION_FAILED;
+		}
 
-	/* Load RACF password */
-	if (get_racf(mk, mk_len, racf_pass, &racf_pass_len)) {
-		OCK_LOG_DEBUG("Failed to get RACF password.\n");
-		return CKR_FUNCTION_FAILED;
-	}
+		/* Load RACF password */
+		if (get_racf(mk, mk_len, racf_pass, &racf_pass_len)) {
+			OCK_LOG_DEBUG("Failed to get RACF password.\n");
+			return CKR_FUNCTION_FAILED;
+		}
 
-	/* Generate new key */
-	if (get_randombytes(mk, mk_len)) {
-		OCK_LOG_DEBUG("Failed to generate the new master key.\n");
-		return CKR_FUNCTION_FAILED;
-	}
+		/* Generate new key */
+		if (get_randombytes(mk, mk_len)) {
+			OCK_LOG_DEBUG("Failed to generate the "
+				      "new master key.\n");
+			return CKR_FUNCTION_FAILED;
+		}
 
-	/* Save racf password using the new master key */
-	if (secure_racf(racf_pass, racf_pass_len, mk, mk_len)) {
-		OCK_LOG_DEBUG("Failed to save racf password.\n");
-		return CKR_FUNCTION_FAILED;
+		/* Save racf password using the new master key */
+		if (secure_racf(racf_pass, racf_pass_len, mk, mk_len)) {
+			OCK_LOG_DEBUG("Failed to save racf password.\n");
+			return CKR_FUNCTION_FAILED;
+		}
 	}
 
 	/* Reset token data and keep token name */
@@ -643,10 +648,12 @@ reset_token_data(CK_SLOT_ID slot_id, CK_CHAR_PTR pin, CK_ULONG pin_len)
 	memset(nv_token_data->user_pin_sha, '0',
 	       sizeof(nv_token_data->user_pin_sha));
 
-	/* Save master key */
-	if (secure_masterkey(mk, mk_len, pin, pin_len, fname)) {
-		OCK_LOG_DEBUG("Failed to save the new master key.\n");
-		return CKR_FUNCTION_FAILED;
+	if (simple) {
+		/* Save master key */
+		if (secure_masterkey(mk, mk_len, pin, pin_len, fname)) {
+			OCK_LOG_DEBUG("Failed to save the new master key.\n");
+			return CKR_FUNCTION_FAILED;
+		}
 	}
 
 	if (save_token_data(slot_id)) {
@@ -866,13 +873,17 @@ token_specific_set_pin(SESSION *sess, CK_CHAR_PTR pOldPin, CK_ULONG ulOldLen,
 			return CKR_PIN_INVALID;
 		}
 
-		/* if using simle auth, encrypt masterkey with new pin */
-		sprintf (fname, "%s/MK_SO", get_pk_dir(pk_dir_buf));
-		rc = secure_masterkey(master_key, AES_KEY_SIZE_256, pNewPin,
-					ulNewLen, fname);
-		if (rc != CKR_OK) {
-			OCK_LOG_ERR(ERR_MASTER_KEY_SAVE);
-			return rc;
+		if (slot_data[sid]->dn[0]) {
+			/*
+			 * if using simle auth, encrypt masterkey with new pin
+			 */
+			sprintf (fname, "%s/MK_SO", get_pk_dir(pk_dir_buf));
+			rc = secure_masterkey(master_key, AES_KEY_SIZE_256,
+					      pNewPin, ulNewLen, fname);
+			if (rc != CKR_OK) {
+				OCK_LOG_ERR(ERR_MASTER_KEY_SAVE);
+				return rc;
+			}
 		}
 
 		/* grab lock and change shared memory */
@@ -1086,6 +1097,7 @@ token_specific_login(SESSION *sess, CK_USER_TYPE userType, CK_CHAR_PTR pPin,
 	struct session_state *session_state;
 	int sessions_locked = 0;
 	LDAP *ld;
+	CK_BBOOL simple;
 
 	/* Check Slot ID */
 	if (slot_id < 0 || slot_id > MAX_SLOT_ID) {
@@ -1101,6 +1113,9 @@ token_specific_login(SESSION *sess, CK_USER_TYPE userType, CK_CHAR_PTR pPin,
 	}
 
 	XProcLock();
+
+	/* if dn is NULL, SASL should be used. */
+	simple = slot_data[slot_id]->dn[0];
 
 	if (userType == CKU_USER) {
 		/* check if pin initialized */
@@ -1118,13 +1133,15 @@ token_specific_login(SESSION *sess, CK_USER_TYPE userType, CK_CHAR_PTR pPin,
 		}
 
 		/* now load the master key */
-		sprintf(fname, "%s/MK_USER", get_pk_dir(pk_dir_buf));
-		rc = get_masterkey(pPin, ulPinLen, fname, master_key, &mklen);
-		if (rc != CKR_OK) {
-			OCK_LOG_DEBUG("Failed to load master key.\n");
-			goto done;
+		if (simple) {
+			sprintf(fname, "%s/MK_USER", get_pk_dir(pk_dir_buf));
+			rc = get_masterkey(pPin, ulPinLen, fname, master_key,
+					   &mklen);
+			if (rc != CKR_OK) {
+				OCK_LOG_DEBUG("Failed to load master key.\n");
+				goto done;
+			}
 		}
-
 	} else {
 		/* if SO ... */
 
@@ -1135,12 +1152,15 @@ token_specific_login(SESSION *sess, CK_USER_TYPE userType, CK_CHAR_PTR pPin,
 			goto done;
 		}
 
-		/* now load the master key */
-		sprintf(fname, "%s/MK_SO", get_pk_dir(pk_dir_buf));
-		rc = get_masterkey(pPin, ulPinLen, fname, master_key, &mklen);
-		if (rc != CKR_OK) {
-			OCK_LOG_DEBUG("Failed to load master key.\n");
-			goto done;
+		if (simple) {
+			/* now load the master key */
+			sprintf(fname, "%s/MK_SO", get_pk_dir(pk_dir_buf));
+			rc = get_masterkey(pPin, ulPinLen, fname, master_key,
+					   &mklen);
+			if (rc != CKR_OK) {
+				OCK_LOG_DEBUG("Failed to load master key.\n");
+				goto done;
+			}
 		}
 	}
 
@@ -1152,7 +1172,7 @@ token_specific_login(SESSION *sess, CK_USER_TYPE userType, CK_CHAR_PTR pPin,
 	}
 
 	/* Check if using sasl or simple auth */
-	if (slot_data[slot_id]->dn[0]) {
+	if (simple) {
 		OCK_LOG_DEBUG("Using SIMPLE auth with slot ID: %d\n", slot_id);
 
 		/* get racf passwd */

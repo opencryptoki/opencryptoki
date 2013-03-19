@@ -37,7 +37,7 @@ struct ref refs[] = {
 	{ "token_serial",	out_config.serial,	sizeof(out_config.serial),	1 },
 	{ "uri",		out_config.uri,		sizeof(out_config.uri),		1 },
 	{ "binddn",		out_config.dn,		sizeof(out_config.dn),		0 },
-	{ "ca_cert",		out_config.ca_file,	sizeof(out_config.ca_file),	0 },
+	{ "cacert",		out_config.ca_file,	sizeof(out_config.ca_file),	0 },
 	{ "cert",		out_config.cert_file,	sizeof(out_config.cert_file),	0 },
 	{ "key",		out_config.key_file,	sizeof(out_config.key_file),	0 },
 };
