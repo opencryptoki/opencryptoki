@@ -3210,8 +3210,10 @@ get_signverify_len(CK_MECHANISM mech)
 {
 	switch(mech.mechanism) {
 	case CKM_MD5_HMAC:
+	case CKM_SSL3_MD5_MAC:
 		return MD5_HASH_SIZE;
 	case CKM_SHA_1_HMAC:
+	case CKM_SSL3_SHA1_MAC:
 		return SHA1_HASH_SIZE;
 	case CKM_SHA256_HMAC:
 		return SHA2_HASH_SIZE;
@@ -3268,6 +3270,8 @@ token_specific_sign_init(SESSION *session, CK_MECHANISM *mech,
 	case CKM_SHA256_HMAC:
 	case CKM_SHA384_HMAC:
 	case CKM_SHA512_HMAC:
+	case CKM_SSL3_MD5_MAC:
+	case CKM_SSL3_SHA1_MAC:
 
 		/* hmacs can do mulitpart */
 		multi = TRUE;
@@ -3398,6 +3402,8 @@ token_specific_sign(SESSION *session, CK_BBOOL length_only, CK_BYTE *in_data,
 	case CKM_SHA256_HMAC:
 	case CKM_SHA384_HMAC:
 	case CKM_SHA512_HMAC:
+	case CKM_SSL3_MD5_MAC:
+	case CKM_SSL3_SHA1_MAC:
 
 		if (length_only) {
 			hlen = get_signverify_len(ctx->mech);
@@ -3514,6 +3520,8 @@ token_specific_sign_update(SESSION *session, CK_BYTE *in_data,
 	case CKM_SHA256_HMAC:
 	case CKM_SHA384_HMAC:
 	case CKM_SHA512_HMAC:
+	case CKM_SSL3_MD5_MAC:
+	case CKM_SSL3_SHA1_MAC:
 
 		rc = icsf_hmac_sign(session_state->ld, &reason,
 				&mapping->icsf_object, &ctx->mech,
@@ -3668,6 +3676,8 @@ token_specific_sign_final(SESSION *session, CK_BBOOL length_only,
 	case CKM_SHA256_HMAC:
 	case CKM_SHA384_HMAC:
 	case CKM_SHA512_HMAC:
+	case CKM_SSL3_MD5_MAC:
+	case CKM_SSL3_SHA1_MAC:
 
 		if (length_only) {
 			hlen = get_signverify_len(ctx->mech);
@@ -3782,6 +3792,8 @@ token_specific_verify_init(SESSION *session, CK_MECHANISM *mech,
 	case CKM_SHA256_HMAC:
 	case CKM_SHA384_HMAC:
 	case CKM_SHA512_HMAC:
+	case CKM_SSL3_MD5_MAC:
+	case CKM_SSL3_SHA1_MAC:
 
 		/* these can do multipart */
 		multi = TRUE;
@@ -3908,6 +3920,8 @@ token_specific_verify(SESSION *session, CK_BYTE *in_data, CK_ULONG in_data_len,
 	case CKM_SHA256_HMAC:
 	case CKM_SHA384_HMAC:
 	case CKM_SHA512_HMAC:
+	case CKM_SSL3_MD5_MAC:
+	case CKM_SSL3_SHA1_MAC:
 		rc = icsf_hmac_verify(session_state->ld, &reason,
 				&mapping->icsf_object, &ctx->mech, "ONLY",
 				in_data, in_data_len, signature, sig_len,
@@ -4003,6 +4017,8 @@ token_specific_verify_update(SESSION *session, CK_BYTE *in_data,
 	case CKM_SHA256_HMAC:
 	case CKM_SHA384_HMAC:
 	case CKM_SHA512_HMAC:
+	case CKM_SSL3_MD5_MAC:
+	case CKM_SSL3_SHA1_MAC:
 		rc = icsf_hmac_verify(session_state->ld, &reason,
 				&mapping->icsf_object, &ctx->mech,
 				(multi_part_ctx->initiated) ? "MIDDLE":"FIRST",
@@ -4145,6 +4161,8 @@ token_specific_verify_final(SESSION *session, CK_BYTE *signature,
 	case CKM_SHA256_HMAC:
 	case CKM_SHA384_HMAC:
 	case CKM_SHA512_HMAC:
+	case CKM_SSL3_MD5_MAC:
+	case CKM_SSL3_SHA1_MAC:
 
 		/* get the chain data */
 		rc = icsf_hmac_verify(session_state->ld, &reason,

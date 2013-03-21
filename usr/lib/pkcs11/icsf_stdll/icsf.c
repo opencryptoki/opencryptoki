@@ -1605,6 +1605,10 @@ get_algorithm_rule(CK_MECHANISM_PTR mech, int arg)
 		return "SHA-512";
 	case CKM_MD5_HMAC:
 		return "MD5";
+	case CKM_SSL3_MD5_MAC:
+		return "SSL3-MD5";
+	case CKM_SSL3_SHA1_MAC:
+		return "SSL3-SHA";
 	case CKM_SHA1_RSA_PKCS:
 		if (arg)
 			return "SHA-1   VER-RSA";
