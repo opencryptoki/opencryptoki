@@ -255,6 +255,7 @@ icsf_to_ock_err(int icsf_return_code, int icsf_reason_code)
 		return CKR_OK;
 	case 4:
 		switch(icsf_reason_code) {
+		case 8000:
 		case 11000:
 			return CKR_SIGNATURE_INVALID;
 		}
@@ -3178,6 +3179,32 @@ done:
 	return rc;
 }
 
+/*
+ * Free all data pointed by SIGN_VERIFY_CONTEXT and set everything to zero.
+ */
+static void
+free_sv_ctx(SIGN_VERIFY_CONTEXT *ctx)
+{
+	struct icsf_multi_part_context *multi_part_ctx;
+
+	if (!ctx)
+		return;
+
+	/* Initialize encryption context */
+	multi_part_ctx = (struct icsf_multi_part_context *) ctx->context;
+	if (multi_part_ctx) {
+		if (multi_part_ctx->data)
+			free(multi_part_ctx->data);
+		free(multi_part_ctx);
+	}
+	if (ctx->mech.pParameter)
+		free(ctx->mech.pParameter);
+	memset(ctx, 0, sizeof(*ctx));
+}
+
+/*
+ * get the hash size for hmacs.
+ */
 int
 get_signverify_len(CK_MECHANISM mech)
 {
@@ -3206,6 +3233,7 @@ token_specific_sign_init(SESSION *session, CK_MECHANISM *mech,
 	struct icsf_object_mapping *mapping = NULL;
 	CK_RV rc = CKR_OK;
 	CK_BBOOL multi = FALSE;
+	CK_BBOOL datacaching = FALSE;
 
 	/* Check session */
 	if (!(session_state = get_session_state(session->handle))) {
@@ -3231,7 +3259,7 @@ token_specific_sign_init(SESSION *session, CK_MECHANISM *mech,
 	case CKM_DSA:
 	case CKM_ECDSA:
 
-		/* these do not do multipart */
+		/* these do not do multipart nor require data caching */
 		multi = FALSE;
 		break;
 
@@ -3244,11 +3272,26 @@ token_specific_sign_init(SESSION *session, CK_MECHANISM *mech,
 		/* hmacs can do mulitpart */
 		multi = TRUE;
 		break;
+	case CKM_MD5_RSA_PKCS:
+	case CKM_SHA1_RSA_PKCS:
+	case CKM_SHA256_RSA_PKCS:
+	case CKM_SHA384_RSA_PKCS:
+	case CKM_SHA512_RSA_PKCS:
+	case CKM_DSA_SHA1:
+	case CKM_ECDSA_SHA1:
+
+		/* these can do mulitpart and require data caching */
+		multi = TRUE;
+		datacaching = TRUE;
+		break;
 
 	default:
 		OCK_LOG_ERR(ERR_MECHANISM_INVALID);
 		return CKR_MECHANISM_INVALID;
 	}
+
+	/* Initialize sign context */
+	free_sv_ctx(ctx);
 
 	/* Note: The listed sign mechanisms do not have parameters. */
 	if (mech->ulParameterLen != 0) {
@@ -3271,9 +3314,25 @@ token_specific_sign_init(SESSION *session, CK_MECHANISM *mech,
 		ctx->context = (void *) multi_part_ctx;
 		memset(multi_part_ctx, 0, sizeof(*multi_part_ctx));
 
-		/* don't think we need data part of multi_part_ctx
-		 * If this changes for other sign mechanisms, then allocate.
+		/* keep a cache to ensure multiple of blocksize
+		 * is sent to ICSF.
 		 */
+
+		if (datacaching) {
+			size_t blocksize;
+
+			rc = icsf_block_size(mech->mechanism, &blocksize);
+			if (rc != CKR_OK)
+				goto done;
+			multi_part_ctx->data_len = blocksize;
+			multi_part_ctx->data = malloc(multi_part_ctx->data_len);
+			if (!multi_part_ctx->data) {
+				OCK_LOG_ERR(ERR_HOST_MEMORY);
+				rc = CKR_HOST_MEMORY;
+				goto done;
+			}
+			memset(multi_part_ctx->data, 0, blocksize);
+		}
 	} else {
 		ctx->context_len = 0;
 		ctx->context = NULL;
@@ -3284,12 +3343,8 @@ token_specific_sign_init(SESSION *session, CK_MECHANISM *mech,
 	ctx->active = TRUE;
 
 done:
-	if (rc != CKR_OK) {
-		if (ctx->context)
-			free(ctx->context);
-		if (ctx->mech.pParameter)
-			free(ctx->mech.pParameter);
-	}
+	if (rc != CKR_OK)
+		free_sv_ctx(ctx);
 
 	return rc;
 }
@@ -3321,16 +3376,6 @@ token_specific_sign(SESSION *session, CK_BBOOL length_only, CK_BYTE *in_data,
 		return CKR_OPERATION_ACTIVE;
 	}
 
-	if (length_only) {
-		hlen = get_signverify_len(ctx->mech);
-		if (hlen < 0) {
-			OCK_LOG_ERR(ERR_MECHANISM_INVALID);
-			return CKR_MECHANISM_INVALID;
-		}
-		*sig_len = hlen;
-		return CKR_OK;
-	}
-
 	/* Check session */
 	if (!(session_state = get_session_state(session->handle))) {
 		OCK_LOG_ERR(ERR_SESSION_HANDLE_INVALID);
@@ -3353,6 +3398,17 @@ token_specific_sign(SESSION *session, CK_BBOOL length_only, CK_BYTE *in_data,
 	case CKM_SHA256_HMAC:
 	case CKM_SHA384_HMAC:
 	case CKM_SHA512_HMAC:
+
+		if (length_only) {
+			hlen = get_signverify_len(ctx->mech);
+			if (hlen < 0) {
+				OCK_LOG_ERR(ERR_MECHANISM_INVALID);
+				return CKR_MECHANISM_INVALID;
+			}
+			*sig_len = hlen;
+			return CKR_OK;
+		}
+
 		rc = icsf_hmac_sign(session_state->ld, &reason,
 				&mapping->icsf_object, &ctx->mech, "ONLY",
 				in_data, in_data_len, signature, sig_len,
@@ -3360,6 +3416,7 @@ token_specific_sign(SESSION *session, CK_BBOOL length_only, CK_BYTE *in_data,
 		if (rc != 0)
 			rc = icsf_to_ock_err(rc, reason);
 		break;
+
 	case CKM_RSA_X_509:
 	case CKM_RSA_PKCS:
 	case CKM_DSA:
@@ -3370,10 +3427,38 @@ token_specific_sign(SESSION *session, CK_BBOOL length_only, CK_BYTE *in_data,
 		if (rc != 0)
 			rc = icsf_to_ock_err(rc, reason);
 		break;
+
+	case CKM_MD5_RSA_PKCS:
+	case CKM_SHA1_RSA_PKCS:
+	case CKM_SHA256_RSA_PKCS:
+	case CKM_SHA384_RSA_PKCS:
+	case CKM_SHA512_RSA_PKCS:
+	case CKM_DSA_SHA1:
+	case CKM_ECDSA_SHA1:
+
+		rc = icsf_hash_signverify(session_state->ld, &reason,
+				&mapping->icsf_object, &ctx->mech,
+				"ONLY", in_data, in_data_len, signature,
+				sig_len, chain_data, &chain_data_len, 0);
+
+		if (rc != 0) {
+			if (length_only && reason == 3003)
+					rc = CKR_OK;
+			else {
+				OCK_LOG_ERR(CKR_FUNCTION_FAILED);
+				rc = icsf_to_ock_err(rc, reason);
+			}
+		}
+
+		break;
+
 	default:
 		OCK_LOG_ERR(ERR_MECHANISM_INVALID);
 		rc = CKR_MECHANISM_INVALID;
 	}
+
+	if (rc != CKR_OK)
+		free_sv_ctx(ctx);
 
 	return rc;
 }
@@ -3391,6 +3476,8 @@ token_specific_sign_update(SESSION *session, CK_BYTE *in_data,
 	CK_RV rc = CKR_OK;
 	int reason;
 	size_t siglen = 0;
+	CK_ULONG total, remain, out_len;
+	char *buffer = NULL;
 
 	/* Check session */
 	if (!(session_state = get_session_state(session->handle))) {
@@ -3427,26 +3514,97 @@ token_specific_sign_update(SESSION *session, CK_BYTE *in_data,
 	case CKM_SHA256_HMAC:
 	case CKM_SHA384_HMAC:
 	case CKM_SHA512_HMAC:
+
 		rc = icsf_hmac_sign(session_state->ld, &reason,
 				&mapping->icsf_object, &ctx->mech,
 				(multi_part_ctx->initiated) ? "MIDDLE":"FIRST",
 				in_data, in_data_len, NULL, &siglen,
 				chain_data, &chain_data_len);
 
-		if (rc != 0)
-			rc = CKR_FUNCTION_FAILED;
-		else {
-			if (multi_part_ctx->initiated == FALSE)
-				multi_part_ctx->initiated = TRUE;
-
-			/* copy chaining data into ctx */
-			memcpy(multi_part_ctx->chain_data, chain_data,
-				chain_data_len);
+		if (rc != 0) {
+			OCK_LOG_ERR(CKR_FUNCTION_FAILED);
+			rc = icsf_to_ock_err(rc, reason);
 		}
 		break;
+
+	case CKM_MD5_RSA_PKCS:
+	case CKM_SHA1_RSA_PKCS:
+	case CKM_SHA256_RSA_PKCS:
+	case CKM_SHA384_RSA_PKCS:
+	case CKM_SHA512_RSA_PKCS:
+	case CKM_DSA_SHA1:
+	case CKM_ECDSA_SHA1:
+
+		/* caching data since ICSF wants in multiple of blocksize */
+		if (multi_part_ctx && multi_part_ctx->data) {
+
+			total = multi_part_ctx->used_data_len + in_data_len;
+			remain  = total % multi_part_ctx->data_len;;
+
+			/* if not enough to meet blocksize, cache and exit. */
+			if (total < multi_part_ctx->data_len) {
+				memcpy(multi_part_ctx->data + multi_part_ctx->used_data_len,
+					in_data, in_data_len );
+				multi_part_ctx->used_data_len += in_data_len;
+
+				rc = CKR_OK;
+				goto done;
+			} else {
+				/* there is at least 1 block */
+
+				out_len = total - remain;
+
+				/* prepare a buffer to send data in */
+				if (!(buffer = malloc(out_len))) {
+					OCK_LOG_ERR(ERR_HOST_MEMORY);
+					rc = CKR_HOST_MEMORY;
+					goto done;
+				}
+				memcpy(buffer, multi_part_ctx->data,
+				       multi_part_ctx->used_data_len);
+				memcpy(buffer + multi_part_ctx->used_data_len,
+				       in_data,
+				       out_len - multi_part_ctx->used_data_len);
+
+				/* copy remainder of data to ctx
+				 * for next time. caching.
+				 */
+				if (remain != 0)
+					memcpy(multi_part_ctx->data,
+					       in_data + (in_data_len - remain),
+					       remain);
+
+				multi_part_ctx->used_data_len = remain;
+			}
+		}
+
+		rc = icsf_hash_signverify(session_state->ld, &reason,
+				&mapping->icsf_object, &ctx->mech,
+				(multi_part_ctx->initiated) ? "MIDDLE":"FIRST",
+				buffer, out_len, NULL, NULL,
+				chain_data, &chain_data_len, 0);
+
+		if (rc != 0) {
+			OCK_LOG_ERR(CKR_FUNCTION_FAILED);
+			rc = icsf_to_ock_err(rc, reason);
+		}
+		if (buffer)
+			free(buffer);
+
+		break;
+
 	default:
 		OCK_LOG_ERR(ERR_MECHANISM_INVALID);
 		rc = CKR_MECHANISM_INVALID;
+	}
+
+done:
+	if (rc != 0)
+		free_sv_ctx(ctx);
+	else {
+		if (multi_part_ctx->initiated == FALSE)
+			multi_part_ctx->initiated = TRUE;
+		memcpy(multi_part_ctx->chain_data, chain_data, chain_data_len);
 	}
 
 	return rc;
@@ -3462,6 +3620,7 @@ token_specific_sign_final(SESSION *session, CK_BBOOL length_only,
 	struct icsf_multi_part_context *multi_part_ctx = NULL;
 	CK_BYTE chain_data[ICSF_CHAINING_DATA_LEN] = { 0, };
 	size_t chain_data_len = sizeof(chain_data);
+	char *buffer = NULL;
 	CK_RV rc = CKR_OK;
 	int hlen, reason;
 
@@ -3510,19 +3669,71 @@ token_specific_sign_final(SESSION *session, CK_BBOOL length_only,
 	case CKM_SHA384_HMAC:
 	case CKM_SHA512_HMAC:
 
-		/* get the chain data */
+		if (length_only) {
+			hlen = get_signverify_len(ctx->mech);
+			if (hlen < 0) {
+				OCK_LOG_ERR(ERR_MECHANISM_INVALID);
+				return CKR_MECHANISM_INVALID;
+			}
+
+			*sig_len = hlen;
+			return CKR_OK;
+		}
+
 		rc = icsf_hmac_sign(session_state->ld, &reason,
 				&mapping->icsf_object, &ctx->mech, "LAST", "",
 				0, signature, sig_len, chain_data,
 				&chain_data_len);
 		if (rc != 0)
-			rc = CKR_FUNCTION_FAILED;
+			rc = icsf_to_ock_err(rc, reason);
 		break;
+
+	case CKM_MD5_RSA_PKCS:
+	case CKM_SHA1_RSA_PKCS:
+	case CKM_SHA256_RSA_PKCS:
+	case CKM_SHA384_RSA_PKCS:
+	case CKM_SHA512_RSA_PKCS:
+	case CKM_DSA_SHA1:
+	case CKM_ECDSA_SHA1:
+
+		/* see if any data left in the cache */
+		if (multi_part_ctx && multi_part_ctx->used_data_len) {
+			if (!(buffer = malloc(multi_part_ctx->used_data_len))) {
+				OCK_LOG_ERR(ERR_HOST_MEMORY);
+				rc = CKR_HOST_MEMORY;
+				goto done;
+			}
+			memcpy(buffer, multi_part_ctx->data,
+			multi_part_ctx->used_data_len);
+		}
+
+		rc = icsf_hash_signverify(session_state->ld, &reason,
+				&mapping->icsf_object, &ctx->mech, "LAST",
+				(buffer) ? buffer : NULL,
+				multi_part_ctx->used_data_len, signature,
+				sig_len, chain_data, &chain_data_len, 0);
+
+		if (rc != 0) {
+			if (length_only && reason == 3003)
+					rc = CKR_OK;
+			else {
+				OCK_LOG_ERR(CKR_FUNCTION_FAILED);
+				rc = icsf_to_ock_err(rc, reason);
+			}
+		}
+
+		if (buffer)
+			free(buffer);
+		break;
+
 	default:
 		OCK_LOG_ERR(ERR_MECHANISM_INVALID);
 		rc = CKR_MECHANISM_INVALID;
 	}
 
+done:
+	if (rc != CKR_OK)
+		free_sv_ctx(ctx);
 	return rc;
 }
 
@@ -3536,6 +3747,7 @@ token_specific_verify_init(SESSION *session, CK_MECHANISM *mech,
 	struct icsf_object_mapping *mapping = NULL;
 	CK_RV rc = CKR_OK;
 	CK_BBOOL multi = FALSE;
+	CK_BBOOL datacaching = FALSE;
 
 	/* Check session */
 	if (!(session_state = get_session_state(session->handle))) {
@@ -3575,10 +3787,26 @@ token_specific_verify_init(SESSION *session, CK_MECHANISM *mech,
 		multi = TRUE;
 		break;
 
+	case CKM_MD5_RSA_PKCS:
+	case CKM_SHA1_RSA_PKCS:
+	case CKM_SHA256_RSA_PKCS:
+	case CKM_SHA384_RSA_PKCS:
+	case CKM_SHA512_RSA_PKCS:
+	case CKM_DSA_SHA1:
+	case CKM_ECDSA_SHA1:
+
+		/* these can do mulitpart and require data caching */
+		multi = TRUE;
+		datacaching = TRUE;
+		break;
+
 	default:
 		OCK_LOG_ERR(ERR_MECHANISM_INVALID);
 		return CKR_MECHANISM_INVALID;
 	}
+
+	/* Initialize ctx */
+	free_sv_ctx(ctx);
 
 	/* Note: The listed sign mechanisms do not have parameters. */
 	if (mech->ulParameterLen != 0) {
@@ -3601,9 +3829,25 @@ token_specific_verify_init(SESSION *session, CK_MECHANISM *mech,
 		ctx->context = (void *) multi_part_ctx;
                 memset(multi_part_ctx, 0, sizeof(*multi_part_ctx));
 
-		/* don't think we need data part of multi_part_ctx
-		 * If this changes for other sign mechanisms, then allocate.
+		/* keep a cache to ensure multiple of blocksize
+		 * is sent to ICSF.
 		 */
+
+		if (datacaching) {
+			size_t blocksize;
+
+			rc = icsf_block_size(mech->mechanism, &blocksize);
+			if (rc != CKR_OK)
+				goto done;
+			multi_part_ctx->data_len = blocksize;
+			multi_part_ctx->data = malloc(multi_part_ctx->data_len);
+			if (!multi_part_ctx->data) {
+				OCK_LOG_ERR(ERR_HOST_MEMORY);
+				rc = CKR_HOST_MEMORY;
+				goto done;
+			}
+			memset(multi_part_ctx->data, 0, blocksize);
+		}
 	} else {
 		ctx->context_len = 0;
 		ctx->context = NULL;
@@ -3614,12 +3858,8 @@ token_specific_verify_init(SESSION *session, CK_MECHANISM *mech,
 	ctx->active = TRUE;
 
 done:
-	if (rc != CKR_OK) {
-		if (ctx->context)
-			free(ctx->context);
-		if (ctx->mech.pParameter)
-			free(ctx->mech.pParameter);
-	}
+	if (rc != CKR_OK)
+		free_sv_ctx(ctx);
 
 	return rc;
 }
@@ -3672,15 +3912,11 @@ token_specific_verify(SESSION *session, CK_BYTE *in_data, CK_ULONG in_data_len,
 				&mapping->icsf_object, &ctx->mech, "ONLY",
 				in_data, in_data_len, signature, sig_len,
 				chain_data, &chain_data_len);
-		if (rc != 0) {
-			if ((rc == 4) && (reason == 8000)) {
-				rc = CKR_SIGNATURE_INVALID;
-				OCK_LOG_ERR(ERR_SIGNATURE_INVALID);
-			} else {
-				rc = icsf_to_ock_err(rc, reason);
-			}
-		}
+		if (rc != 0)
+			rc = icsf_to_ock_err(rc, reason);
+
 		break;
+
 	case CKM_RSA_X_509:
 	case CKM_RSA_PKCS:
 	case CKM_DSA:
@@ -3691,11 +3927,30 @@ token_specific_verify(SESSION *session, CK_BYTE *in_data, CK_ULONG in_data_len,
 		if (rc != 0)
 			rc = icsf_to_ock_err(rc, reason);
 		break;
+
+	case CKM_MD5_RSA_PKCS:
+	case CKM_SHA1_RSA_PKCS:
+	case CKM_SHA256_RSA_PKCS:
+	case CKM_SHA384_RSA_PKCS:
+	case CKM_SHA512_RSA_PKCS:
+	case CKM_DSA_SHA1:
+	case CKM_ECDSA_SHA1:
+		rc = icsf_hash_signverify(session_state->ld, &reason,
+				&mapping->icsf_object, &ctx->mech,
+				"ONLY", in_data, in_data_len, signature,
+				&sig_len, chain_data, &chain_data_len, 1);
+		if (rc != 0)
+			rc = icsf_to_ock_err(rc, reason);
+
+		break;
+
 	default:
 		OCK_LOG_ERR(ERR_MECHANISM_INVALID);
 		rc = CKR_MECHANISM_INVALID;
 	}
 
+	if (rc != CKR_OK)
+		free_sv_ctx(ctx);
 	return rc;
 }
 
@@ -3711,6 +3966,8 @@ token_specific_verify_update(SESSION *session, CK_BYTE *in_data,
 	size_t chain_data_len = sizeof(chain_data);
 	CK_RV rc = CKR_OK;
 	int reason;
+	CK_ULONG total, remain, out_len;
+	char *buffer = NULL;
 
 	/* Check session */
 	if (!(session_state = get_session_state(session->handle))) {
@@ -3751,20 +4008,90 @@ token_specific_verify_update(SESSION *session, CK_BYTE *in_data,
 				(multi_part_ctx->initiated) ? "MIDDLE":"FIRST",
 				in_data, in_data_len, "",  0,
 				chain_data, &chain_data_len);
-		if (rc != 0)
-			rc = CKR_FUNCTION_FAILED;
-		else {
-			if (multi_part_ctx->initiated == FALSE)
-				multi_part_ctx->initiated = TRUE;
 
-			/* copy chaining data into ctx */
-			memcpy(multi_part_ctx->chain_data, chain_data,
-				chain_data_len);
+		if (rc != 0) {
+			OCK_LOG_ERR(CKR_FUNCTION_FAILED);
+			rc = icsf_to_ock_err(rc, reason);
 		}
 		break;
+
+	case CKM_MD5_RSA_PKCS:
+	case CKM_SHA1_RSA_PKCS:
+	case CKM_SHA256_RSA_PKCS:
+	case CKM_SHA384_RSA_PKCS:
+	case CKM_SHA512_RSA_PKCS:
+	case CKM_DSA_SHA1:
+	case CKM_ECDSA_SHA1:
+		/* caching data since ICSF wants in multiple of blocksize */
+		if (multi_part_ctx && multi_part_ctx->data) {
+
+			total = multi_part_ctx->used_data_len + in_data_len;
+			remain  = total % multi_part_ctx->data_len;;
+
+			/* if not enough to meet blocksize, cache and exit. */
+			if (total < multi_part_ctx->data_len) {
+				memcpy(multi_part_ctx->data + multi_part_ctx->used_data_len,
+					in_data, in_data_len );
+				multi_part_ctx->used_data_len += in_data_len;
+
+				rc = CKR_OK;
+				goto done;
+			} else {
+				/* there is at least 1 block */
+
+				out_len = total - remain;
+
+				/* prepare a buffer to send data in */
+				if (!(buffer = malloc(out_len))) {
+					OCK_LOG_ERR(ERR_HOST_MEMORY);
+					rc = CKR_HOST_MEMORY;
+					goto done;
+				}
+				memcpy(buffer, multi_part_ctx->data,
+				       multi_part_ctx->used_data_len);
+				memcpy(buffer + multi_part_ctx->used_data_len,
+				       in_data,
+				       out_len - multi_part_ctx->used_data_len);
+
+				/* copy remainder of data to ctx
+				 * for next time. caching.
+				 */
+				if (remain != 0)
+					memcpy(multi_part_ctx->data,
+					       in_data + (in_data_len - remain),
+					       remain);
+
+				multi_part_ctx->used_data_len = remain;
+			}
+		}
+
+		rc = icsf_hash_signverify(session_state->ld, &reason,
+				&mapping->icsf_object, &ctx->mech,
+				(multi_part_ctx->initiated) ? "MIDDLE":"FIRST",
+				buffer, out_len, NULL, NULL,
+				chain_data, &chain_data_len, 0);
+
+		if (rc != 0) {
+			OCK_LOG_ERR(CKR_FUNCTION_FAILED);
+			rc = icsf_to_ock_err(rc, reason);
+		}
+		if (buffer)
+			free(buffer);
+
+		break;
+
 	default:
 		OCK_LOG_ERR(ERR_MECHANISM_INVALID);
 		rc = CKR_MECHANISM_INVALID;
+	}
+
+done:
+	if (rc != 0)
+		free_sv_ctx(ctx);
+	else {
+		if (multi_part_ctx->initiated == FALSE)
+			multi_part_ctx->initiated = TRUE;
+		memcpy(multi_part_ctx->chain_data, chain_data, chain_data_len);
 	}
 
 	return rc;
@@ -3782,6 +4109,7 @@ token_specific_verify_final(SESSION *session, CK_BYTE *signature,
 	size_t chain_data_len = sizeof(chain_data);
 	CK_RV rc = CKR_OK;
 	int reason;
+	char *buffer = NULL;
 
 	if (!sig_len) {
 		OCK_LOG_ERR(ERR_FUNCTION_FAILED);
@@ -3823,19 +4151,51 @@ token_specific_verify_final(SESSION *session, CK_BYTE *signature,
 				&mapping->icsf_object, &ctx->mech, "LAST", "",
 				0, signature, sig_len, chain_data,
 				&chain_data_len);
-		if (rc != 0) {
-			if ((rc == 4) && (reason == 8000)) {
-				OCK_LOG_ERR(ERR_SIGNATURE_INVALID);
-				rc = CKR_SIGNATURE_INVALID;
-			} else
-				rc = CKR_FUNCTION_FAILED;
-		}
+		if (rc != 0)
+			rc = icsf_to_ock_err(rc, reason);
+
 		break;
+
+	case CKM_MD5_RSA_PKCS:
+	case CKM_SHA1_RSA_PKCS:
+	case CKM_SHA256_RSA_PKCS:
+	case CKM_SHA384_RSA_PKCS:
+	case CKM_SHA512_RSA_PKCS:
+	case CKM_DSA_SHA1:
+	case CKM_ECDSA_SHA1:
+
+		/* see if any data left in the cache */
+		if (multi_part_ctx && multi_part_ctx->used_data_len) {
+			if (!(buffer = malloc(multi_part_ctx->used_data_len))) {
+				OCK_LOG_ERR(ERR_HOST_MEMORY);
+				rc = CKR_HOST_MEMORY;
+				goto done;
+			}
+			memcpy(buffer, multi_part_ctx->data,
+			multi_part_ctx->used_data_len);
+		}
+
+		rc = icsf_hash_signverify(session_state->ld, &reason,
+				&mapping->icsf_object, &ctx->mech, "LAST",
+				(buffer) ? buffer : NULL,
+				multi_part_ctx->used_data_len, signature,
+				&sig_len, chain_data, &chain_data_len, 0);
+
+		if (rc != 0)
+			rc = icsf_to_ock_err(rc, reason);
+
+		if (buffer)
+			free(buffer);
+		break;
+
 	default:
 		OCK_LOG_ERR(ERR_MECHANISM_INVALID);
 		rc = CKR_MECHANISM_INVALID;
 	}
 
+done:
+	if (rc != CKR_OK)
+		free_sv_ctx(ctx);
 	return rc;
 }
 

@@ -1692,6 +1692,20 @@ icsf_block_size(CK_MECHANISM_TYPE mech_type, CK_ULONG_PTR p_block_size)
 		block_size = AES_BLOCK_SIZE;
 		break;
 
+	case CKM_MD5_RSA_PKCS:
+		block_size = MD5_BLOCK_SIZE;
+		break;
+
+	case CKM_SHA1_RSA_PKCS:
+	case CKM_SHA256_RSA_PKCS:
+		block_size = SHA1_BLOCK_SIZE;
+		break;
+
+	case CKM_SHA384_RSA_PKCS:
+	case CKM_SHA512_RSA_PKCS:
+		block_size = SHA3_BLOCK_SIZE;
+		break;
+
 	default:
 		OCK_LOG_DEBUG();
 		return CKR_MECHANISM_INVALID;
