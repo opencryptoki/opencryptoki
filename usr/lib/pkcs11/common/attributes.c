@@ -8,6 +8,8 @@
  * Author: Marcelo Cerri (mhcerri@br.ibm.com)
  *
  */
+#include <stdlib.h>
+#include <string.h>
 #include "attributes.h"
 #include "defs.h"
 #include "host_defs.h"
