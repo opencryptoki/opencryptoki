@@ -32,6 +32,7 @@
 #define ICSF_TAG_CSFPGSK 5
 #define ICSF_TAG_CSFPHMG 6
 #define ICSF_TAG_CSFPHMV 7
+#define ICSF_TAG_CSFPOWH 8
 #define ICSF_TAG_CSFPPKS 9
 #define ICSF_TAG_CSFPPKV 10
 #define ICSF_TAG_CSFPSAV 11
@@ -237,4 +238,10 @@ icsf_unwrap_key(LDAP *ld, int *p_reason, CK_MECHANISM_PTR mech,
 		CK_BYTE_PTR wrapped_key, CK_ULONG wrapped_key_len,
 		CK_ATTRIBUTE_PTR attrs, CK_ULONG attrs_len,
 		struct icsf_object_record *key);
+
+int icsf_hash_signverify(LDAP *ld, int *reason, struct icsf_object_record *key,
+			 CK_MECHANISM_PTR mech, const char *chain_rule,
+			 const char *clear_text, unsigned long clear_text_len,
+			 char *sig, unsigned long *sig_len, char *chain_data,
+			 size_t *chain_data_len, int verify);
 #endif

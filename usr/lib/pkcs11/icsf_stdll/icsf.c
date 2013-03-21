@@ -1571,7 +1571,7 @@ cleanup:
  * Return the rule array element for the given mechanism.
  */
 static const char *
-get_algorithm_rule(CK_MECHANISM_PTR mech)
+get_algorithm_rule(CK_MECHANISM_PTR mech, int arg)
 {
 	switch (mech->mechanism) {
 	case CKM_DES_ECB:
@@ -1587,10 +1587,8 @@ get_algorithm_rule(CK_MECHANISM_PTR mech)
 	case CKM_AES_CBC_PAD:
 	case CKM_AES_CTR:
 		return "AES";
-	case CKM_DSA_SHA1:
 	case CKM_DSA:
 		return "DSA";
-	case CKM_ECDSA_SHA1:
 	case CKM_ECDSA:
 		return "ECDSA";
 	case CKM_RSA_X_509:
@@ -1607,6 +1605,41 @@ get_algorithm_rule(CK_MECHANISM_PTR mech)
 		return "SHA-512";
 	case CKM_MD5_HMAC:
 		return "MD5";
+	case CKM_SHA1_RSA_PKCS:
+		if (arg)
+			return "SHA-1   VER-RSA";
+		else
+			return "SHA-1   SIGN-RSA";
+	case CKM_SHA256_RSA_PKCS:
+		if (arg)
+			return "SHA-256 VER-RSA";
+		else
+			return "SHA-256 SIGN-RSA";
+	case CKM_SHA384_RSA_PKCS:
+		if (arg)
+			return "SHA-384 VER-RSA";
+		else
+			return "SHA-384 SIGN-RSA";
+	case CKM_SHA512_RSA_PKCS:
+		if (arg)
+			return "SHA-512 VER-RSA";
+		else
+			return "SHA-512 SIGN-RSA";
+	case CKM_MD5_RSA_PKCS:
+		if (arg)
+			return "MD5     VER-RSA";
+		else
+			return "MD5     SIGN-RSA";
+	case CKM_DSA_SHA1:
+		if (arg)
+			return "SHA-1   VER-DSA";
+		else
+			return "SHA-1   SIGN-DSA";
+	case CKM_ECDSA_SHA1:
+		if (arg)
+			return "SHA-1   VER-EC";
+		else
+			return "SHA-1   SIGN-EC";
 	}
 	return NULL;
 }
@@ -1760,7 +1793,7 @@ icsf_secret_key_encrypt(LDAP *ld, int *p_reason, struct icsf_object_record *key,
 	 * Add to rule array the algorithm, the cipher mode and the
 	 * chaining mode.
 	 */
-	if (!(rule_alg = get_algorithm_rule(mech))) {
+	if (!(rule_alg = get_algorithm_rule(mech, 0))) {
 		OCK_LOG_DEBUG("Invalid algorithm: %lu\n",
 				(unsigned long) mech->mechanism);
 		return -1;
@@ -1903,7 +1936,7 @@ icsf_secret_key_decrypt(LDAP *ld, int *p_reason, struct icsf_object_record *key,
 	 * Add to rule array the algorithm, the cipher mode and the
 	 * chaining mode.
 	 */
-	if (!(rule_alg = get_algorithm_rule(mech))) {
+	if (!(rule_alg = get_algorithm_rule(mech, 0))) {
 		OCK_LOG_DEBUG("Invalid algorithm: %lu\n",
 				(unsigned long) mech->mechanism);
 		return -1;
@@ -2258,7 +2291,7 @@ icsf_private_key_sign(LDAP *ld, int *p_reason, int decrypt,
 	object_record_to_handle(handle, key);
 
 	/* Build rule array based on mechanism */
-	if (!(rule_alg = get_algorithm_rule(mech))) {
+	if (!(rule_alg = get_algorithm_rule(mech, 0))) {
 		OCK_LOG_DEBUG("Invalid algorithm: %lu\n",
 			(unsigned long) mech->mechanism);
 		return -1;
@@ -2350,7 +2383,7 @@ icsf_public_key_verify(LDAP *ld, int *p_reason, int encrypt,
 	object_record_to_handle(handle, key);
 
 	/* Build rule array based on mechanism */
-	if (!(rule_alg = get_algorithm_rule(mech))) {
+	if (!(rule_alg = get_algorithm_rule(mech, 0))) {
 		OCK_LOG_DEBUG("Invalid algorithm: %lu\n",
 			(unsigned long) mech->mechanism);
 		return -1;
@@ -2448,7 +2481,7 @@ int icsf_hmac_sign(LDAP *ld, int *reason, struct icsf_object_record *key,
 
 	/* Add to rule array, the algorithm and chaining mode */
 
-	if (!(rule_alg = get_algorithm_rule(mech))) {
+	if (!(rule_alg = get_algorithm_rule(mech, 0))) {
 		OCK_LOG_DEBUG("Invalid algorithm: %lu\n", (unsigned long) mech->mechanism);
 		return -1;
 	}
@@ -2574,7 +2607,7 @@ int icsf_hmac_verify(LDAP *ld, int *reason, struct icsf_object_record *key,
 
 	/* Add to rule array, the algorithm and chaining mode */
 
-	if (!(rule_alg = get_algorithm_rule(mech))) {
+	if (!(rule_alg = get_algorithm_rule(mech, 0))) {
 		OCK_LOG_DEBUG("Invalid algorithm: %lu\n", (unsigned long) mech->mechanism);
 		return -1;
 	}
@@ -2704,7 +2737,7 @@ icsf_wrap_key(LDAP *ld, int *p_reason, CK_MECHANISM_PTR mech,
 	case CKM_DES3_CBC_PAD:
 	case CKM_AES_CBC_PAD:
 		rule_fmt = "PKCS-8";
-		if (!(rule_alg = get_algorithm_rule(mech))) {
+		if (!(rule_alg = get_algorithm_rule(mech, 0))) {
 			OCK_LOG_DEBUG("Invalid algorithm: %lu\n",
 				(unsigned long) mech->mechanism);
 			return -1;
@@ -2825,7 +2858,7 @@ icsf_unwrap_key(LDAP *ld, int *p_reason, CK_MECHANISM_PTR mech,
 	case CKM_DES3_CBC_PAD:
 	case CKM_AES_CBC_PAD:
 		rule_fmt = "PKCS-8";
-		if (!(rule_alg = get_algorithm_rule(mech))) {
+		if (!(rule_alg = get_algorithm_rule(mech, 0))) {
 			OCK_LOG_DEBUG("Invalid algorithm: %lu\n",
 				(unsigned long) mech->mechanism);
 			return -1;
@@ -2881,5 +2914,103 @@ icsf_unwrap_key(LDAP *ld, int *p_reason, CK_MECHANISM_PTR mech,
 done:
 	if (msg)
 		ber_free(msg, 1);
+	return rc;
+}
+
+int icsf_hash_signverify(LDAP *ld, int *reason, struct icsf_object_record *key,
+			 CK_MECHANISM_PTR mech, const char *chain_rule,
+			 const char *clear_text, unsigned long clear_text_len,
+			 char *sig, unsigned long *sig_len, char *chain_data,
+			 size_t *chain_data_len, int verify)
+{
+	int rc = 0;
+	char handle[ICSF_HANDLE_LEN];
+	char rule_array[3 * ICSF_RULE_ITEM_LEN];
+	BerElement *msg = NULL;
+	BerElement *result = NULL;
+	struct berval bvSig = { 0, NULL };
+	struct berval bvChain = { 0, NULL };
+	int length, reason_code;
+	const char *rule_alg;
+
+	CHECK_ARG_NON_NULL(ld);
+	CHECK_ARG_NON_NULL(key);
+	CHECK_ARG_NON_NULL(mech);
+
+	object_record_to_handle(handle, key);
+
+	/* Add to rule array, the algorithm and chaining mode */
+	if (!(rule_alg = get_algorithm_rule(mech, verify))) {
+		OCK_LOG_DEBUG("Invalid algorithm: %lu\n",
+				(unsigned long) mech->mechanism);
+		return -1;
+	}
+
+	strpad(rule_array + 0 * ICSF_RULE_ITEM_LEN, rule_alg,
+	       2 * ICSF_RULE_ITEM_LEN, ' ');
+	strpad(rule_array + 2 * ICSF_RULE_ITEM_LEN, chain_rule,
+	       ICSF_RULE_ITEM_LEN, ' ');
+
+	/* Build the request */
+	if (!(msg = ber_alloc_t(LBER_USE_DER))) {
+		OCK_LOG_ERR(ERR_HOST_MEMORY);
+		return -1;
+	}
+
+	if (ber_printf(msg, "ooo", clear_text, clear_text_len,
+		      (chain_data) ? chain_data : "",
+		      (chain_data_len) ? *chain_data_len : 0UL,
+		      (sig) ? sig : "", (sig_len) ? *sig_len : 0) < 0) {
+		rc = -1;
+		OCK_LOG_DEBUG("Failed to encode message: %d.\n", rc);
+		goto done;
+	}
+
+	/* Call service */
+	rc = icsf_call(ld, &reason_code, handle, sizeof(handle), rule_array,
+			sizeof(rule_array), ICSF_TAG_CSFPOWH, msg, &result);
+
+	if (reason)
+		*reason = reason_code;
+
+	/* If there was an error related to buffer being too small,
+	 * don't exit until you get the max required length from response.
+	 */
+	if (ICSF_RC_IS_ERROR(rc) && (reason_code != 3003))
+		goto done;
+
+	/* Parse the response. */
+	if (ber_scanf(result, "{ooi}", &bvChain, &bvSig, &length) < 0) {
+		rc = -1;
+		OCK_LOG_DEBUG("Failed to decode the response.\n");
+		goto done;
+	}
+
+	/* Only need to return the length for signing */
+	if (!verify)
+		*sig_len = length;
+
+	/* leave if just returning the length. */
+	if (!verify && *reason == 3003)
+		goto done;
+
+	/* copy the chained data when required */
+	if (chain_data)
+		memcpy(chain_data, bvChain.bv_val, bvChain.bv_len);
+
+	/* copy signature when signing */
+	if (!verify)
+		memcpy(sig, bvSig.bv_val, bvSig.bv_len);
+
+done:
+	if (result)
+		ber_free(result, 1);
+	if (msg)
+		ber_free(msg, 1);
+	if (bvSig.bv_val)
+		ber_memfree(bvSig.bv_val);
+	if (bvChain.bv_val)
+		ber_memfree(bvChain.bv_val);
+
 	return rc;
 }
