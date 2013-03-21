@@ -3230,50 +3230,33 @@ token_specific_sign_init(SESSION *session, CK_MECHANISM *mech,
 	case CKM_RSA_PKCS:
 	case CKM_DSA:
 	case CKM_ECDSA:
-		/* these do not require a parameter */
-		if (mech->ulParameterLen != 0) {
-			OCK_LOG_ERR(ERR_MECHANISM_PARAM_INVALID);
-			return CKR_MECHANISM_PARAM_INVALID;
-		}
-		/* these do not use multipart */
+
+		/* these do not do multipart */
 		multi = FALSE;
 		break;
+
 	case CKM_MD5_HMAC:
 	case CKM_SHA_1_HMAC:
 	case CKM_SHA256_HMAC:
 	case CKM_SHA384_HMAC:
 	case CKM_SHA512_HMAC:
-		/* these do not require a parameter */
-		if (mech->ulParameterLen != 0) {
-			OCK_LOG_ERR(ERR_MECHANISM_PARAM_INVALID);
-			return CKR_MECHANISM_PARAM_INVALID;
-		}
+
 		/* hmacs can do mulitpart */
 		multi = TRUE;
 		break;
+
 	default:
 		OCK_LOG_ERR(ERR_MECHANISM_INVALID);
 		return CKR_MECHANISM_INVALID;
 	}
 
-        /* Copy mechanism */
-	/* Note: Anticipating that other mechs might have a parameter.
-         * otherwise, if we find they don't can remove the else part below.
-	 */
-	if (mech->pParameter == NULL || mech->ulParameterLen == 0) {
-		ctx->mech.ulParameterLen = 0;
-		ctx->mech.pParameter = NULL;
-	} else {
-		ctx->mech.pParameter = malloc(mech->ulParameterLen);
-		if (!ctx->mech.pParameter) {
-			OCK_LOG_ERR(ERR_HOST_MEMORY);
-			rc = CKR_HOST_MEMORY;
-			goto done;
-		}
-		ctx->mech.ulParameterLen = mech->ulParameterLen;
-		memcpy(ctx->mech.pParameter, mech->pParameter,
-			mech->ulParameterLen);
+	/* Note: The listed sign mechanisms do not have parameters. */
+	if (mech->ulParameterLen != 0) {
+		OCK_LOG_ERR(ERR_MECHANISM_PARAM_INVALID);
+		return CKR_MECHANISM_PARAM_INVALID;
 	}
+	ctx->mech.ulParameterLen = 0;
+	ctx->mech.pParameter = NULL;
 	ctx->mech.mechanism = mech->mechanism;
 
 	/* If the mechanism supports multipart, prepare ctx */
@@ -3577,50 +3560,33 @@ token_specific_verify_init(SESSION *session, CK_MECHANISM *mech,
 	case CKM_RSA_PKCS:
 	case CKM_DSA:
 	case CKM_ECDSA:
-		/* these do not require a parameter */
-		if (mech->ulParameterLen != 0) {
-			OCK_LOG_ERR(ERR_MECHANISM_PARAM_INVALID);
-			return CKR_MECHANISM_PARAM_INVALID;
-		}
-		/* these do not use multipart */
+
+		/* these do not do multipart */
 		multi = FALSE;
 		break;
+
 	case CKM_MD5_HMAC:
 	case CKM_SHA_1_HMAC:
 	case CKM_SHA256_HMAC:
 	case CKM_SHA384_HMAC:
 	case CKM_SHA512_HMAC:
-		/* these do not require a parameter */
-		if (mech->ulParameterLen != 0) {
-			OCK_LOG_ERR(ERR_MECHANISM_PARAM_INVALID);
-			return CKR_MECHANISM_PARAM_INVALID;
-		}
+
 		/* these can do multipart */
 		multi = TRUE;
 		break;
+
 	default:
 		OCK_LOG_ERR(ERR_MECHANISM_INVALID);
 		return CKR_MECHANISM_INVALID;
 	}
 
-        /* Copy mechanism */
-	/* Note: Anticipating that other mechs might have a parameter.
-         * otherwise, if we find they don't can remove the else part below.
-	 */
-        if (mech->pParameter == NULL || mech->ulParameterLen == 0) {
-                ctx->mech.ulParameterLen = 0;
-                ctx->mech.pParameter = NULL;
-        } else {
-                ctx->mech.pParameter = malloc(mech->ulParameterLen);
-                if (!ctx->mech.pParameter) {
-                        OCK_LOG_ERR(ERR_HOST_MEMORY);
-                        rc = CKR_HOST_MEMORY;
-                        goto done;
-                }
-                ctx->mech.ulParameterLen = mech->ulParameterLen;
-                memcpy(ctx->mech.pParameter, mech->pParameter,
-                                mech->ulParameterLen);
-        }
+	/* Note: The listed sign mechanisms do not have parameters. */
+	if (mech->ulParameterLen != 0) {
+		OCK_LOG_ERR(ERR_MECHANISM_PARAM_INVALID);
+		return CKR_MECHANISM_PARAM_INVALID;
+	}
+	ctx->mech.ulParameterLen = 0;
+	ctx->mech.pParameter = NULL;
         ctx->mech.mechanism = mech->mechanism;
 
 	/* If the mechanism supports multipart, prepare ctx */
