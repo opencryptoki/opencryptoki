@@ -2295,6 +2295,7 @@ icsf_private_key_sign(LDAP *ld, int *p_reason, int decrypt,
 	BerElement *msg = NULL;
 	BerElement *result = NULL;
 	struct berval bv_clear_text = { 0, NULL };
+	int length = 0;
 
 	CHECK_ARG_NON_NULL(ld);
 	CHECK_ARG_NON_NULL(key);
@@ -2343,13 +2344,14 @@ icsf_private_key_sign(LDAP *ld, int *p_reason, int decrypt,
 			&& reason != ICSF_REASON_OUTPUT_PARAMETER_TOO_SHORT)
 		goto done;
 
-	if (ber_scanf(result, "{mi}", &bv_clear_text, p_clear_text_len) < 0) {
+	if (ber_scanf(result, "{mi}", &bv_clear_text, &length) < 0) {
 		rc = -1;
 		OCK_LOG_DEBUG("Failed to decode the response.\n");
 		goto done;
 	}
 
 	/* Copy clear data */
+	*p_clear_text_len = length;
 	if (bv_clear_text.bv_len > *p_clear_text_len) {
 		OCK_LOG_DEBUG("Clear data longer than expected: %lu "
 				"(expected %lu)\n",
@@ -2387,6 +2389,7 @@ icsf_public_key_verify(LDAP *ld, int *p_reason, int encrypt,
 	BerElement *msg = NULL;
 	BerElement *result = NULL;
 	struct berval bv_cipher_text = { 0, NULL };
+	int length = 0;
 
 	CHECK_ARG_NON_NULL(ld);
 	CHECK_ARG_NON_NULL(key);
@@ -2446,13 +2449,14 @@ icsf_public_key_verify(LDAP *ld, int *p_reason, int encrypt,
 	if (!encrypt)
 		goto done;
 
-	if (ber_scanf(result, "{mi}", &bv_cipher_text, p_cipher_text_len) < 0) {
+	if (ber_scanf(result, "{mi}", &bv_cipher_text, &length) < 0) {
 		rc = -1;
 		OCK_LOG_DEBUG("Failed to decode the response.\n");
 		goto done;
 	}
 
 	/* Copy clear data */
+	*p_cipher_text_len = length;
 	if (bv_cipher_text.bv_len != *p_cipher_text_len) {
 		OCK_LOG_DEBUG("Cipher data length different that expected: %lu "
 				"(expected %lu)\n",
