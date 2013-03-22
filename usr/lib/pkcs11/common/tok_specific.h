@@ -419,6 +419,10 @@ token_specific_decrypt_update(SESSION *, CK_BYTE_PTR, CK_ULONG,
 CK_RV
 token_specific_decrypt_final(SESSION *, CK_BYTE_PTR, CK_ULONG_PTR);
 
+CK_RV
+token_specific_derive_key(SESSION *, CK_MECHANISM_PTR, CK_OBJECT_HANDLE,
+			  CK_OBJECT_HANDLE_PTR, CK_ATTRIBUTE_PTR, CK_ULONG);
+
 CK_RV token_specific_wrap_key(SESSION *, CK_MECHANISM_PTR, CK_OBJECT_HANDLE,
 			      CK_OBJECT_HANDLE, CK_BYTE_PTR, CK_ULONG_PTR);
 

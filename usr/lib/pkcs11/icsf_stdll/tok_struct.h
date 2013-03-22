@@ -68,6 +68,7 @@ token_spec_t token_specific = {
 	&token_specific_decrypt,
 	&token_specific_decrypt_update,
 	&token_specific_decrypt_final,
+	&token_specific_derive_key,
 	&token_specific_wrap_key,
 	&token_specific_unwrap_key,
 	token_specific_sign_init,

@@ -4224,8 +4224,13 @@ CK_RV SC_DeriveKey( ST_SESSION_HANDLE    *sSession,
 		rc = CKR_PIN_EXPIRED;
 		goto done;
 	}
-   
-	rc = key_mgr_derive_key( sess,      pMechanism,
+
+	if (token_specific.t_derive_key)
+		rc = token_specific.t_derive_key(sess, pMechanism,
+						hBaseKey, phKey,
+						pTemplate, ulCount);
+	else
+		rc = key_mgr_derive_key( sess,      pMechanism,
 				 hBaseKey,  phKey,
 				 pTemplate, ulCount );
 	if (rc != CKR_OK){ 

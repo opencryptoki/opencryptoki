@@ -3036,3 +3036,163 @@ done:
 
 	return rc;
 }
+
+/*
+ * Derive a symmetric key.
+ */
+int
+icsf_derive_key(LDAP *ld, int *reason, CK_MECHANISM_PTR mech,
+		struct icsf_object_record *baseKey,
+		struct icsf_object_record *object,
+		CK_ATTRIBUTE *attrs, CK_ULONG attrs_len)
+{
+	int rc = -1;
+	char handle[ICSF_HANDLE_LEN];
+	char rule_array[1 * ICSF_RULE_ITEM_LEN];
+	BerElement *msg = NULL;
+	BerElement *result = NULL;
+	CK_VERSION_PTR version = NULL;
+	CK_SSL3_MASTER_KEY_DERIVE_PARAMS * params = NULL;
+	CK_SSL3_RANDOM_DATA * random_data = NULL;
+	struct berval clientData = {0, NULL}, serverData = {0, NULL};
+	struct berval publicValue = {0, NULL}, bvParam = {0, NULL};
+
+	CHECK_ARG_NON_NULL(ld);
+	CHECK_ARG_NON_NULL(mech);
+	CHECK_ARG_NON_NULL(attrs);
+
+	object_record_to_handle(handle, baseKey);
+
+	/* Map mechanism into the rule array */
+	switch (mech->mechanism) {
+	case CKM_SSL3_MASTER_KEY_DERIVE:
+		strpad(rule_array, "SSL-MS", ICSF_RULE_ITEM_LEN, ' ');
+		break;
+	case CKM_DH_PKCS_DERIVE:
+		strpad(rule_array, "PKCS-DH", ICSF_RULE_ITEM_LEN, ' ');
+		break;
+	default:
+		OCK_LOG_ERR(ERR_MECHANISM_INVALID);
+		return -1;
+	}
+
+	if (!(msg = ber_alloc_t(LBER_USE_DER))) {
+		OCK_LOG_ERR(ERR_HOST_MEMORY);
+		return rc;
+	}
+
+	/* Encode message:
+	 *
+	 * DVKInput ::= SEQUENCE {
+	 * 	attrList	Attributes,
+	 * 	parmsListChoice	DVKInputParmsList
+	 * }
+	 *
+	 * DVKInputParmsList ::= CHOICE {
+	 *    PKCS-DH_publicValue  [0] OCTET STRING,
+	 *    SSL-TLS              [1] SSL-TLS_DVKInputParmsList,
+	 *    EC-DH                [2] EC-DH_DVKInputParmsList
+	 * }
+	 *
+	 * SSL-TLS_DVKInputParmsList ::= SEQUENCE {
+	 *    clientRandomData    OCTET STRING,
+	 *    serverRandomData    OCTET STRING
+	 * }
+	 *
+	 * EC-DH is not supported
+	 *
+	 * attrList is built by icsf_ber_put_attribute_list()
+	 */
+	if (ber_printf(msg, "{") < 0) {
+		OCK_LOG_DEBUG("Failed to encode message.\n");
+		goto cleanup;
+	}
+
+	if (icsf_ber_put_attribute_list(msg, attrs, attrs_len) < 0 ) {
+		OCK_LOG_DEBUG("Failed to encode message.\n");
+		goto cleanup;
+	}
+
+	if (ber_printf(msg, "}") < 0) {
+		OCK_LOG_DEBUG("Failed to encode message.\n");
+		goto cleanup;
+	}
+
+	/* Attribute list depends on type of mechanism */
+	switch (mech->mechanism) {
+	case CKM_DH_PKCS_DERIVE:
+		if ((!mech->pParameter) ||
+			((mech->ulParameterLen < 64) ||
+			(mech->ulParameterLen > 256)))
+		{
+			OCK_LOG_ERR(ERR_FUNCTION_FAILED);
+				return CKR_FUNCTION_FAILED;
+		}
+		publicValue.bv_val = mech->pParameter;
+		publicValue.bv_len = mech->ulParameterLen;
+		if (ber_printf(msg, "tO", 0|LBER_PRIMITIVE|LBER_CLASS_CONTEXT, &publicValue) < 0) {
+			OCK_LOG_DEBUG("Failed to encode message.\n");
+			goto cleanup;
+		}
+		break;
+	case CKM_SSL3_MASTER_KEY_DERIVE:
+		params = (CK_SSL3_MASTER_KEY_DERIVE_PARAMS *)mech->pParameter;
+		random_data = (CK_SSL3_RANDOM_DATA *) (&params->RandomInfo);
+
+		clientData.bv_len = random_data->ulClientRandomLen;
+		clientData.bv_val = random_data->pClientRandom;
+		serverData.bv_len = random_data->ulServerRandomLen;
+		serverData.bv_val = random_data->pServerRandom;
+
+		if (ber_printf(msg, "t{OO}", 1|LBER_CLASS_CONTEXT|LBER_CONSTRUCTED,
+		    &clientData, &serverData) < 0) {
+			OCK_LOG_DEBUG("Failed to encode message.\n");
+			goto cleanup;
+		}
+		break;
+	default:
+		OCK_LOG_DEBUG("Mechanism not supported.\n");
+		OCK_LOG_ERR(ERR_FUNCTION_FAILED);
+		return -1;
+	}
+
+	rc = icsf_call(ld, reason, handle, sizeof(handle), rule_array,
+			sizeof(rule_array), ICSF_TAG_CSFPDVK, msg, &result);
+	if (!rc) {
+		handle_to_object_record(object, handle);
+
+		/* Decode the result:
+		*
+		* DVKOutput ::= SEQUENCE {
+		*    parmsListChoice      DVKOutputParmsList
+		* }
+		*
+		* DVKOutputParmsList ::= CHOICE {
+		*    PKCS-DH_Output       [0] NULL,
+		*    SSL-TLS_Output       [1] OCTET STRING,
+		*    EC-DH_Output         [2] NULL (not supported)
+		* }
+		*/
+		if (mech->mechanism == CKM_SSL3_MASTER_KEY_DERIVE){
+			if (ber_scanf(result, "o", &bvParam) < 0 ){
+				OCK_LOG_DEBUG("Failed to Derive Key\n");
+				OCK_LOG_ERR(ERR_FUNCTION_FAILED);
+				rc = -1;
+				goto cleanup;
+			}
+
+			params = (CK_SSL3_MASTER_KEY_DERIVE_PARAMS *)mech->pParameter;
+			version = (CK_VERSION_PTR) (&params->pVersion);
+			version->major = bvParam.bv_val[0];
+			version->minor = bvParam.bv_val[1];
+		}
+	}
+
+cleanup:
+	if (msg)
+		ber_free(msg, 1);
+	if (result)
+		ber_free(result, 1);
+
+	return rc;
+}
