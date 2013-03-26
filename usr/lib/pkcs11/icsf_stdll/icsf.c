@@ -3059,7 +3059,6 @@ icsf_derive_key(LDAP *ld, int *reason, CK_MECHANISM_PTR mech,
 
 	CHECK_ARG_NON_NULL(ld);
 	CHECK_ARG_NON_NULL(mech);
-	CHECK_ARG_NON_NULL(attrs);
 
 	object_record_to_handle(handle, baseKey);
 
