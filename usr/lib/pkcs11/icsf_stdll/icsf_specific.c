@@ -3236,6 +3236,7 @@ token_specific_sign_init(SESSION *session, CK_MECHANISM *mech,
 	CK_RV rc = CKR_OK;
 	CK_BBOOL multi = FALSE;
 	CK_BBOOL datacaching = FALSE;
+	CK_MAC_GENERAL_PARAMS *param;
 
 	/* Check session */
 	if (!(session_state = get_session_state(session->handle))) {
@@ -3261,7 +3262,13 @@ token_specific_sign_init(SESSION *session, CK_MECHANISM *mech,
 	case CKM_DSA:
 	case CKM_ECDSA:
 
-		/* these do not do multipart nor require data caching */
+		/* these do not do multipart and do not require
+		 * a mechanism parameter.
+		 */
+		if (mech->ulParameterLen != 0) {
+			OCK_LOG_ERR(ERR_MECHANISM_PARAM_INVALID);
+			return CKR_MECHANISM_PARAM_INVALID;
+		}
 		multi = FALSE;
 		break;
 
@@ -3270,12 +3277,37 @@ token_specific_sign_init(SESSION *session, CK_MECHANISM *mech,
 	case CKM_SHA256_HMAC:
 	case CKM_SHA384_HMAC:
 	case CKM_SHA512_HMAC:
+
+		/* hmacs can do mulitpart and do not require a
+		 *  mechanism parameter.
+		 */
+		if (mech->ulParameterLen != 0) {
+			OCK_LOG_ERR(ERR_MECHANISM_PARAM_INVALID);
+			return CKR_MECHANISM_PARAM_INVALID;
+		}
+		multi = TRUE;
+		break;
+
 	case CKM_SSL3_MD5_MAC:
 	case CKM_SSL3_SHA1_MAC:
 
-		/* hmacs can do mulitpart */
+		/* can do mulitpart and take a mech parameter */
+
+		param = (CK_MAC_GENERAL_PARAMS *)mech->pParameter;
+
+		if (mech->ulParameterLen != sizeof(CK_MAC_GENERAL_PARAMS)) {
+			OCK_LOG_ERR(ERR_MECHANISM_PARAM_INVALID);
+			return CKR_MECHANISM_PARAM_INVALID;
+		}
+		if (((mech->mechanism == CKM_SSL3_MD5_MAC) && (*param != 16)) ||
+		    ((mech->mechanism == CKM_SSL3_SHA1_MAC) && (*param != 20))){
+			OCK_LOG_ERR(ERR_MECHANISM_PARAM_INVALID);
+			return CKR_MECHANISM_PARAM_INVALID;
+		}
+
 		multi = TRUE;
 		break;
+
 	case CKM_MD5_RSA_PKCS:
 	case CKM_SHA1_RSA_PKCS:
 	case CKM_SHA256_RSA_PKCS:
@@ -3284,7 +3316,13 @@ token_specific_sign_init(SESSION *session, CK_MECHANISM *mech,
 	case CKM_DSA_SHA1:
 	case CKM_ECDSA_SHA1:
 
-		/* these can do mulitpart and require data caching */
+		/* these can do mulitpart and require data caching
+		 * and do not require a mechanism parameter.
+		 */
+		if (mech->ulParameterLen != 0) {
+			OCK_LOG_ERR(ERR_MECHANISM_PARAM_INVALID);
+			return CKR_MECHANISM_PARAM_INVALID;
+		}
 		multi = TRUE;
 		datacaching = TRUE;
 		break;
@@ -3297,13 +3335,21 @@ token_specific_sign_init(SESSION *session, CK_MECHANISM *mech,
 	/* Initialize sign context */
 	free_sv_ctx(ctx);
 
-	/* Note: The listed sign mechanisms do not have parameters. */
-	if (mech->ulParameterLen != 0) {
-		OCK_LOG_ERR(ERR_MECHANISM_PARAM_INVALID);
-		return CKR_MECHANISM_PARAM_INVALID;
+        /* Copy mechanism */
+	if (mech->pParameter == NULL || mech->ulParameterLen == 0) {
+		ctx->mech.ulParameterLen = 0;
+		ctx->mech.pParameter = NULL;
+	} else {
+		ctx->mech.pParameter = malloc(mech->ulParameterLen);
+		if (!ctx->mech.pParameter) {
+			OCK_LOG_ERR(ERR_HOST_MEMORY);
+			rc = CKR_HOST_MEMORY;
+			goto done;
+		}
+		ctx->mech.ulParameterLen = mech->ulParameterLen;
+		memcpy(ctx->mech.pParameter, mech->pParameter,
+			mech->ulParameterLen);
 	}
-	ctx->mech.ulParameterLen = 0;
-	ctx->mech.pParameter = NULL;
 	ctx->mech.mechanism = mech->mechanism;
 
 	/* If the mechanism supports multipart, prepare ctx */
@@ -3636,16 +3682,6 @@ token_specific_sign_final(SESSION *session, CK_BBOOL length_only,
 		OCK_LOG_ERR(ERR_FUNCTION_FAILED);
 		return CKR_FUNCTION_FAILED;
 	}
-	if (length_only) {
-		hlen = get_signverify_len(ctx->mech);
-		if (hlen < 0) {
-			OCK_LOG_ERR(ERR_MECHANISM_INVALID);
-			return CKR_MECHANISM_INVALID;
-		}
-
-		*sig_len = hlen;
-		return CKR_OK;
-	}
 
 	/* Check session */
 	if (!(session_state = get_session_state(session->handle))) {
@@ -3758,6 +3794,7 @@ token_specific_verify_init(SESSION *session, CK_MECHANISM *mech,
 	CK_RV rc = CKR_OK;
 	CK_BBOOL multi = FALSE;
 	CK_BBOOL datacaching = FALSE;
+	CK_MAC_GENERAL_PARAMS *param;
 
 	/* Check session */
 	if (!(session_state = get_session_state(session->handle))) {
@@ -3783,7 +3820,13 @@ token_specific_verify_init(SESSION *session, CK_MECHANISM *mech,
 	case CKM_DSA:
 	case CKM_ECDSA:
 
-		/* these do not do multipart */
+		/* these do not do multipart and do not require
+		 * a mechanism parameter.
+		 */
+		if (mech->ulParameterLen != 0) {
+			OCK_LOG_ERR(ERR_MECHANISM_PARAM_INVALID);
+			return CKR_MECHANISM_PARAM_INVALID;
+		}
 		multi = FALSE;
 		break;
 
@@ -3792,10 +3835,34 @@ token_specific_verify_init(SESSION *session, CK_MECHANISM *mech,
 	case CKM_SHA256_HMAC:
 	case CKM_SHA384_HMAC:
 	case CKM_SHA512_HMAC:
+
+		/* hmacs can do mulitpart and do not require a
+		 *  mechanism parameter.
+		 */
+		if (mech->ulParameterLen != 0) {
+			OCK_LOG_ERR(ERR_MECHANISM_PARAM_INVALID);
+			return CKR_MECHANISM_PARAM_INVALID;
+		}
+		multi = TRUE;
+		break;
+
 	case CKM_SSL3_MD5_MAC:
 	case CKM_SSL3_SHA1_MAC:
 
-		/* these can do multipart */
+		/* can do mulitpart and take a mech parameter */
+
+		param = (CK_MAC_GENERAL_PARAMS *)mech->pParameter;
+
+		if (mech->ulParameterLen != sizeof(CK_MAC_GENERAL_PARAMS)) {
+			OCK_LOG_ERR(ERR_MECHANISM_PARAM_INVALID);
+			return CKR_MECHANISM_PARAM_INVALID;
+		}
+		if (((mech->mechanism == CKM_SSL3_MD5_MAC) && (*param != 16)) ||
+		    ((mech->mechanism == CKM_SSL3_SHA1_MAC) && (*param != 20))){
+			OCK_LOG_ERR(ERR_MECHANISM_PARAM_INVALID);
+			return CKR_MECHANISM_PARAM_INVALID;
+		}
+
 		multi = TRUE;
 		break;
 
@@ -3807,7 +3874,13 @@ token_specific_verify_init(SESSION *session, CK_MECHANISM *mech,
 	case CKM_DSA_SHA1:
 	case CKM_ECDSA_SHA1:
 
-		/* these can do mulitpart and require data caching */
+		/* these can do mulitpart and require data caching
+		 * but do not require a mechanism parameter
+		 */
+		if (mech->ulParameterLen != 0) {
+			OCK_LOG_ERR(ERR_MECHANISM_PARAM_INVALID);
+			return CKR_MECHANISM_PARAM_INVALID;
+		}
 		multi = TRUE;
 		datacaching = TRUE;
 		break;
@@ -3820,14 +3893,22 @@ token_specific_verify_init(SESSION *session, CK_MECHANISM *mech,
 	/* Initialize ctx */
 	free_sv_ctx(ctx);
 
-	/* Note: The listed sign mechanisms do not have parameters. */
-	if (mech->ulParameterLen != 0) {
-		OCK_LOG_ERR(ERR_MECHANISM_PARAM_INVALID);
-		return CKR_MECHANISM_PARAM_INVALID;
+        /* Copy mechanism */
+	if (mech->pParameter == NULL || mech->ulParameterLen == 0) {
+		ctx->mech.ulParameterLen = 0;
+		ctx->mech.pParameter = NULL;
+	} else {
+		ctx->mech.pParameter = malloc(mech->ulParameterLen);
+		if (!ctx->mech.pParameter) {
+			OCK_LOG_ERR(ERR_HOST_MEMORY);
+			rc = CKR_HOST_MEMORY;
+			goto done;
+		}
+		ctx->mech.ulParameterLen = mech->ulParameterLen;
+		memcpy(ctx->mech.pParameter, mech->pParameter,
+			mech->ulParameterLen);
 	}
-	ctx->mech.ulParameterLen = 0;
-	ctx->mech.pParameter = NULL;
-        ctx->mech.mechanism = mech->mechanism;
+	ctx->mech.mechanism = mech->mechanism;
 
 	/* If the mechanism supports multipart, prepare ctx */
 	if (multi) {
