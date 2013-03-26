@@ -16,207 +16,156 @@ static CK_BBOOL  false = FALSE;
 
 //
 //
-CK_RV do_SignVerify_SSL3_MD5_MAC( void )
+CK_RV do_SignVerify_SSL3_MD5_MAC(CK_SESSION_HANDLE session)
 {
-	CK_SESSION_HANDLE session;
-	CK_SLOT_ID        slot_id;
 	CK_MECHANISM      mech;
-	CK_ULONG          flags;
 	CK_ULONG          mac_size;
 	CK_ULONG          i;
 	CK_RV             rc;
 
+	CK_OBJECT_HANDLE  h_key;
+	CK_OBJECT_CLASS   key_class  = CKO_SECRET_KEY;
+	CK_KEY_TYPE       key_type   = CKK_GENERIC_SECRET;
+	CK_BBOOL          false      = FALSE;
+	CK_BYTE           hash[MD5_HASH_LEN];
+	CK_BYTE           data[50];
+	CK_BYTE           data2[500];
+	CK_BYTE           key_data[48];
+	CK_ULONG          hash_len;
+	CK_ULONG          data_len;
+	CK_ATTRIBUTE      key_attribs[] = {
+		{CKA_CLASS, &key_class, sizeof(key_class)},
+		{CKA_KEY_TYPE, &key_type, sizeof(key_type)},
+		{CKA_TOKEN, &false, sizeof(false)},
+		{CKA_VALUE, &key_data, sizeof(key_data)}
+	};
 
+	testcase_begin("starting do_SignVerify_SSL3_MD5_MAC...\n");
 
-	printf("do_SignVerify_SSL3_MD5_MAC...\n");
-
-	slot_id = SLOT_ID;
-	flags = CKF_SERIAL_SESSION | CKF_RW_SESSION;
-	rc = funcs->C_OpenSession( slot_id, flags, NULL, NULL, &session );
-	if (rc != CKR_OK) {
-		show_error("   C_OpenSession #1", rc );
-		return rc;
-	}
-
-	mac_size = 8;
+	mac_size = 16;
 
 	mech.mechanism      = CKM_SSL3_MD5_MAC;
 	mech.ulParameterLen = sizeof(CK_ULONG);
 	mech.pParameter     = &mac_size;
 
-	{
-		CK_OBJECT_HANDLE  h_key;
-		CK_OBJECT_CLASS   key_class  = CKO_SECRET_KEY;
-		CK_KEY_TYPE       key_type   = CKK_GENERIC_SECRET;
-		CK_BBOOL          false      = FALSE;
-		CK_BYTE           hash[SHA1_HASH_LEN];
-		CK_BYTE           data[50];
-		CK_BYTE           key_data[48];
-		CK_ULONG          hash_len;
-		CK_ULONG          data_len;
-		CK_ATTRIBUTE      key_attribs[] =
-		{
-			{CKA_CLASS,       &key_class,        sizeof(key_class)    },
-			{CKA_KEY_TYPE,    &key_type,         sizeof(key_type)     },
-			{CKA_TOKEN,       &false,            sizeof(false)        },
-			{CKA_VALUE,       &key_data,         sizeof(key_data)     }
-		};
+	for (i=0; i < 48; i++)
+		key_data[i] = i;
 
-		for (i=0; i < 48; i++)
-			key_data[i] = i;
+	memset(data, 0xb, 50);
+	data_len = 50;
 
-		memset( data, 0xb, 50 );
-		data_len = 50;
-
-		rc = funcs->C_CreateObject( session, key_attribs, 4, &h_key );
-		if (rc != CKR_OK) {
-			show_error("   C_CreateObject #1", rc );
-			return rc;
-		}
-
-		rc = funcs->C_SignInit( session, &mech, h_key );
-		if (rc != CKR_OK) {
-			show_error("   C_SignInit #1", rc );
-			return rc;
-		}
-
-		hash_len = sizeof(hash);
-		rc = funcs->C_Sign( session, data, data_len, hash, &hash_len );
-		if (rc != CKR_OK) {
-			show_error("   C_Sign #1", rc );
-			return rc;
-		}
-
-		if (hash_len != mac_size) {
-			PRINT_ERR("   Error:  C_Sign #1 generated bad MAC length\n");
-			return -1;
-		}
-
-		rc = funcs->C_VerifyInit( session, &mech, h_key );
-		if (rc != CKR_OK) {
-			show_error("   C_VerifyInit #1", rc );
-			return rc;
-		}
-
-		rc = funcs->C_Verify( session, data, data_len, hash, hash_len );
-		if (rc != CKR_OK) {
-			show_error("   C_Verify #1", rc );
-			return rc;
-		}
-
-		rc = funcs->C_DestroyObject( session, h_key );
-		if (rc != CKR_OK) {
-			show_error("   C_DestroyObject #1", rc );
-			return rc;
-		}
-	}
-
-	{
-		CK_OBJECT_HANDLE  h_key;
-		CK_OBJECT_CLASS   key_class  = CKO_SECRET_KEY;
-		CK_KEY_TYPE       key_type   = CKK_GENERIC_SECRET;
-		CK_BBOOL          false      = FALSE;
-		CK_BYTE           hash[20];
-		CK_BYTE           data[500];
-		CK_BYTE           key_data[48];
-		CK_ULONG          hash_len;
-		CK_ULONG          data_len;
-		CK_ATTRIBUTE      key_attribs[] =
-		{
-			{CKA_CLASS,       &key_class,        sizeof(key_class)    },
-			{CKA_KEY_TYPE,    &key_type,         sizeof(key_type)     },
-			{CKA_TOKEN,       &false,            sizeof(false)        },
-			{CKA_VALUE,       &key_data,         sizeof(key_data)     }
-		};
-
-		for (i=0; i < 48; i++)
-			key_data[i] = i;
-
-		memset( data, 0xb, 500 );
-		data_len = 500;
-
-		rc = funcs->C_CreateObject( session, key_attribs, 4, &h_key );
-		if (rc != CKR_OK) {
-			show_error("   C_CreateObject #2", rc );
-			return rc;
-		}
-
-		rc = funcs->C_SignInit( session, &mech, h_key );
-		if (rc != CKR_OK) {
-			show_error("   C_SignInit #2", rc );
-			return rc;
-		}
-
-		for (i=0; i < 500; i+=100) {
-			rc = funcs->C_SignUpdate( session, &data[i], 100 );
-			if (rc != CKR_OK) {
-				show_error("   C_SignUpdate #1", rc );
-				PRINT_ERR("   Iteration #%ld\n", i / 100 );
-				return rc;
-			}
-		}
-
-		hash_len = sizeof(hash);
-		rc = funcs->C_SignFinal( session, hash, &hash_len );
-		if (rc != CKR_OK) {
-			show_error("   C_SignFinal #1", rc );
-			return rc;
-		}
-
-		if (hash_len != mac_size) {
-			PRINT_ERR("   Error:  C_SignUpdate/Final #1 generated bad MAC length\n");
-			return -1;
-		}
-
-		rc = funcs->C_VerifyInit( session, &mech, h_key );
-		if (rc != CKR_OK) {
-			show_error("   C_VerifyInit #2", rc );
-			return rc;
-		}
-
-		rc = funcs->C_Verify( session, data, data_len, hash, hash_len );
-		if (rc != CKR_OK) {
-			show_error("   C_Verify #2", rc );
-			return rc;
-		}
-
-
-		rc = funcs->C_VerifyInit( session, &mech, h_key );
-		if (rc != CKR_OK) {
-			show_error("   C_VerifyInit #3", rc );
-			return rc;
-		}
-
-		for (i=0; i < 500; i+=100) {
-			rc = funcs->C_VerifyUpdate( session, &data[i], 100 );
-			if (rc != CKR_OK) {
-				show_error("   C_VerifyUpdate #1", rc );
-				PRINT_ERR("   Iteration #%ld\n", i / 100 );
-				return rc;
-			}
-		}
-
-		rc = funcs->C_VerifyFinal( session, hash, hash_len );
-		if (rc != CKR_OK) {
-			show_error("   C_VerifyFinal #1", rc );
-			return rc;
-		}
-
-
-		rc = funcs->C_DestroyObject( session, h_key );
-		if (rc != CKR_OK) {
-			show_error("   C_DestroyObject #1", rc );
-			return rc;
-		}
-	}
-
-	rc = funcs->C_CloseAllSessions( slot_id );
+	rc = funcs->C_CreateObject(session, key_attribs, 4, &h_key);
 	if (rc != CKR_OK) {
-		show_error("   C_CloseAllSessions #1", rc );
+		testcase_error("C_CreateObject() rc = %s", p11_get_ckr(rc));
 		return rc;
 	}
 
-	printf("Looks okay...\n");
+	testcase_new_assertion();
+	rc = funcs->C_SignInit( session, &mech, h_key );
+	if (rc != CKR_OK) {
+		testcase_error("C_SignInit() rc = %s", p11_get_ckr(rc));
+		goto done;
+	}
+
+	hash_len = sizeof(hash);
+	rc = funcs->C_Sign(session, data, data_len, hash, &hash_len);
+	if (rc != CKR_OK) {
+		testcase_fail("C_Sign() rc = %s", p11_get_ckr(rc));
+		goto done;
+	}
+
+	if (hash_len != mac_size) {
+		testcase_fail("Error: C_Sign generated bad MAC length\n");
+		goto done;
+	} else
+		testcase_pass("Successfully signed.");
+
+	testcase_new_assertion();
+	rc = funcs->C_VerifyInit(session, &mech, h_key);
+	if (rc != CKR_OK) {
+		testcase_error("C_VerifyInit() rc = %s", p11_get_ckr(rc));
+		goto done;
+	}
+
+	rc = funcs->C_Verify(session, data, data_len, hash, hash_len);
+	if (rc != CKR_OK)
+		testcase_fail("C_Verify() rc = %s", p11_get_ckr(rc));
+	else
+		testcase_pass("Successfully verified.");
+
+	rc = funcs->C_DestroyObject(session, h_key);
+	if (rc != CKR_OK) {
+		testcase_error("C_DestroyObject() rc = %s", p11_get_ckr(rc));
+		goto done;
+	}
+
+	// TESTCASE #2
+
+	for (i=0; i < 48; i++)
+		key_data[i] = i;
+
+	memset(data2, 0xb, 500);
+	data_len = 500;
+
+	rc = funcs->C_CreateObject(session, key_attribs, 4, &h_key);
+	if (rc != CKR_OK) {
+		testcase_error("C_CreateObject() rc = %s", p11_get_ckr(rc));
+		goto done;
+	}
+
+	testcase_new_assertion();
+	rc = funcs->C_SignInit( session, &mech, h_key );
+	if (rc != CKR_OK) {
+		testcase_error("C_SignInit() rc = %s", p11_get_ckr(rc));
+		goto done;
+	}
+
+	for (i=0; i < 500; i+=100) {
+		rc = funcs->C_SignUpdate(session, &data2[i], 100);
+		if (rc != CKR_OK) {
+			testcase_error("Iteration #%ld, C_SignUpdate() rc = %s", i / 100, p11_get_ckr(rc));
+			goto done;
+		}
+	}
+
+	hash_len = sizeof(hash);
+	rc = funcs->C_SignFinal(session, hash, &hash_len);
+	if (rc != CKR_OK) {
+		testcase_error("C_SignFinal() rc = %s", p11_get_ckr(rc));
+		goto done;
+	}
+
+	if (hash_len != mac_size) {
+		testcase_fail("Error: C_SignUpdate/Final generated bad MAC length\n");
+		goto done;
+	} else
+		testcase_pass("Sucessfully signed in multipart.");
+
+	testcase_new_assertion();
+	rc = funcs->C_VerifyInit(session, &mech, h_key);
+	if (rc != CKR_OK) {
+		testcase_error("C_VerifyInit() rc = %s", p11_get_ckr(rc));
+		goto done;
+	}
+
+	for (i=0; i < 500; i+=100) {
+		rc = funcs->C_VerifyUpdate(session, &data2[i], 100);
+		if (rc != CKR_OK) {
+			testcase_error("Iteration #%ld, C_VerifyUpdate() rc = %s", i/100, p11_get_ckr(rc));
+			goto done;
+		}
+	}
+
+	rc = funcs->C_VerifyFinal( session, hash, hash_len );
+	if (rc != CKR_OK)
+		testcase_fail("C_VerifyFinal rc = %s", p11_get_ckr(rc));
+	else
+		testcase_pass("Successfully verified signature in multipart.");
+
+done:
+	if (funcs->C_DestroyObject(session, h_key) != CKR_OK)
+		testcase_error("C_DestroyObject failed.");
+
 	return rc;
 }
 
@@ -249,7 +198,7 @@ CK_RV do_SignVerify_SSL3_SHA1_MAC(CK_SESSION_HANDLE session)
 
 	testcase_begin("starting do_SignVerify_SSL3_SHA1_MAC...\n");
 
-	mac_size = 8;
+	mac_size = 20;
 
 	mech.mechanism = CKM_SSL3_SHA1_MAC;
 	mech.ulParameterLen = sizeof(CK_ULONG);
@@ -302,7 +251,7 @@ CK_RV do_SignVerify_SSL3_SHA1_MAC(CK_SESSION_HANDLE session)
 
 done:
 	if (funcs->C_DestroyObject(session, h_key) != CKR_OK)
-		testcase_error("C_DestroyObject() rc = %s", p11_get_ckr(rc));
+		testcase_error("C_DestroyObject() failed.");
 
 	return rc;
 }
@@ -336,7 +285,7 @@ CK_RV do_SSL3_PreMasterKeyGen(CK_SESSION_HANDLE session)
 		testcase_pass("Successfully generated a generic secret key.");
 
 	if (funcs->C_DestroyObject(session, h_key) != CKR_OK)
-		testcase_error("C_DestroyObject rc=%s", p11_get_ckr(rc));
+		testcase_error("C_DestroyObject() failed");
 
 	return rc;
 }
@@ -417,7 +366,7 @@ CK_RV do_SSL3_MasterKeyDerive(CK_SESSION_HANDLE session)
 
 done:
 	if (funcs->C_DestroyObject(session, h_pm_secret) != CKR_OK)
-		testcase_error("C_DestroyObject rc=%s", p11_get_ckr(rc));
+		testcase_error("C_DestroyObject() failed");
 
 	return rc;
 }
@@ -456,22 +405,12 @@ CK_RV ssl3_functions()
 	GetSystemTime(&t2);
 	process_time( t1, t2 );
 
-/*
 	GetSystemTime(&t1);
-	rc = do_SignVerify_SSL3_MD5_MAC();
+	rc = do_SignVerify_SSL3_MD5_MAC(session);
 	if (rc && !no_stop)
 		return rc;
 	GetSystemTime(&t2);
 	process_time( t1, t2 );
-
-	GetSystemTime(&t1);
-	rc = do_SignVerify_SSL3_SHA1_MAC();
-	if (rc && !no_stop)
-		return rc;
-	GetSystemTime(&t2);
-	process_time( t1, t2 );
-
-*/
 
 testcase_cleanup:
 	testcase_user_logout();
