@@ -98,6 +98,8 @@ MECH_LIST_ELEMENT mech_list[] = {
   { CKM_SSL3_SHA1_MAC,	{384,	384,	CKF_SIGN | CKF_VERIFY} },
   { CKM_DH_PKCS_DERIVE,	{512,	2048,	CKF_DERIVE} },
   { CKM_SSL3_MASTER_KEY_DERIVE, {48,	48,	CKF_DERIVE} },
+  { CKM_SSL3_KEY_AND_MAC_DERIVE, {48,	48,	CKF_DERIVE} },
+  { CKM_TLS_KEY_AND_MAC_DERIVE, {48,	48,	CKF_DERIVE} },
 };
 
 CK_ULONG mech_list_len = (sizeof(mech_list) / sizeof(MECH_LIST_ELEMENT));
@@ -1574,9 +1576,14 @@ get_generate_key_type(CK_MECHANISM_PTR mech)
 	case CKM_DSA_KEY_PAIR_GEN:
 		return CKK_DSA;
 	case CKM_DH_PKCS_KEY_PAIR_GEN:
+	case CKM_DH_PKCS_DERIVE:
 		return CKK_DH;
 	case CKM_EC_KEY_PAIR_GEN:
 		return CKK_EC;
+	case CKM_SSL3_MASTER_KEY_DERIVE:
+	case CKM_SSL3_KEY_AND_MAC_DERIVE:
+	case CKM_TLS_KEY_AND_MAC_DERIVE:
+		return CKK_GENERIC_SECRET;
 	}
 	return -1;
 }
@@ -4435,11 +4442,31 @@ token_specific_derive_key(SESSION *session, CK_MECHANISM_PTR mech,
 {
 	CK_RV rc = CKR_OK;
 	struct session_state *session_state;
-	struct icsf_object_mapping *mapping, *base_key_mapping;
+	struct icsf_object_mapping *base_key_mapping;
 	CK_ULONG node_number;
 	char token_name[sizeof(nv_token_data->token_info.label)];
+	CK_SSL3_KEY_MAT_PARAMS *params;
 	int is_obj_locked = 0;
 	int reason = 0;
+	int i;
+
+	/* Variable for multiple keys derivation */
+	int multiple = 0;
+	struct icsf_object_mapping *mappings[4] = { NULL, };
+	CK_OBJECT_HANDLE *keys[4] = { NULL, };
+
+	/* Check type of derivation */
+	if (mech->mechanism == CKM_SSL3_KEY_AND_MAC_DERIVE ||
+			mech->mechanism == CKM_TLS_KEY_AND_MAC_DERIVE) {
+		multiple = 1;
+		params = (CK_SSL3_KEY_MAT_PARAMS *) mech->pParameter;
+  		keys[0] = &params->pReturnedKeyMaterial->hClientMacSecret;
+		keys[1] = &params->pReturnedKeyMaterial->hServerMacSecret;
+		keys[2] = &params->pReturnedKeyMaterial->hClientKey;
+		keys[3] = &params->pReturnedKeyMaterial->hServerKey;
+	} else {
+		keys[0] = handle;
+	}
 
 	/* Check permissions based on attributes and session */
 	rc = check_session_permissions(session, attrs, attrs_len);
@@ -4452,12 +4479,19 @@ token_specific_derive_key(SESSION *session, CK_MECHANISM_PTR mech,
 	XProcUnLock();
 
 	/* Allocate structure to keep ICSF object information */
-	if (!(mapping = malloc(sizeof(*mapping)))) {
-		OCK_LOG_ERR(ERR_HOST_MEMORY);
-		return CKR_HOST_MEMORY;
+	for (i = 0; i < sizeof(mappings)/sizeof(*mappings); i++) {
+		if (!(mappings[i] = malloc(sizeof(*mappings[i])))) {
+			OCK_LOG_ERR(ERR_HOST_MEMORY);
+			rc = CKR_HOST_MEMORY;
+			goto done;
+		}
+		memset(mappings[i], 0, sizeof(*mappings[i]));
+		mappings[i]->session_id = session->handle;
+
+		/* If not deriving multiple keys, just one key is needed */
+		if (!multiple)
+			break;
 	}
-	memset(mapping, 0, sizeof(struct icsf_object_mapping));
-	mapping->session_id = session->handle;
 
 	/* Get session state */
 	if (!(session_state = get_session_state(session->handle))) {
@@ -4470,20 +4504,31 @@ token_specific_derive_key(SESSION *session, CK_MECHANISM_PTR mech,
 	/* Convert the OCK_CK_OBJECT_HANDLE_PTR to ICSF */
 	pthread_rwlock_rdlock(&obj_list_rw_mutex);
 	base_key_mapping = bt_get_node_value(&objects, hBaseKey);
-	if(!base_key_mapping) {
-		rc = CKR_KEY_HANDLE_INVALID;
-		OCK_LOG_ERR(ERR_KEY_HANDLE_INVALID);
-	}
 	pthread_rwlock_unlock(&obj_list_rw_mutex);
-	if (rc != CKR_OK)
+	if(!base_key_mapping) {
+		OCK_LOG_ERR(ERR_KEY_HANDLE_INVALID);
+		rc = CKR_KEY_HANDLE_INVALID;
 		goto done;
+	}
 
 	/* Call ICSF service */
-	if (icsf_derive_key(session_state->ld, &reason, mech,
-				&base_key_mapping->icsf_object,
-				&mapping->icsf_object, attrs, attrs_len)) {
-		OCK_LOG_ERR(ERR_FUNCTION_FAILED);
-		rc = CKR_FUNCTION_FAILED;
+	if (!multiple)
+		rc = icsf_derive_key(session_state->ld, &reason, mech,
+					&base_key_mapping->icsf_object,
+					&mappings[0]->icsf_object, attrs,
+					attrs_len);
+	else
+		rc = icsf_derive_multple_keys(session_state->ld, &reason,
+					mech, &base_key_mapping->icsf_object,
+			 		attrs, attrs_len,
+					&mappings[0]->icsf_object,
+					&mappings[1]->icsf_object,
+					&mappings[2]->icsf_object,
+					&mappings[3]->icsf_object,
+					params->pReturnedKeyMaterial->pIVClient,
+					params->pReturnedKeyMaterial->pIVServer);
+	if (rc) {
+		rc = icsf_to_ock_err(rc, reason);
 		goto done;
 	}
 
@@ -4495,15 +4540,21 @@ token_specific_derive_key(SESSION *session, CK_MECHANISM_PTR mech,
 	}
 	is_obj_locked = 1;
 
-	/* Add info about object into session */
-	if(!(node_number = bt_node_add(&objects, mapping))) {
-		OCK_LOG_DEBUG("Failed to add object to binary tree.\n");
-		rc = CKR_FUNCTION_FAILED;
-		goto done;
-	}
+	for (i = 0; i < sizeof(mappings)/sizeof(*mappings); i++) {
+		/* Add info about object into session */
+		if(!(node_number = bt_node_add(&objects, mappings[i]))) {
+			OCK_LOG_DEBUG("Failed to add object to binary tree.\n");
+			rc = CKR_FUNCTION_FAILED;
+			goto done;
+		}
 
-	/* Use node number as handle */
-	*handle = node_number;
+		/* Use node number as handle */
+		*keys[i] = node_number;
+
+		/* If not deriving multiple keys, just one key is returned */
+		if (!multiple)
+			break;
+	}
 
 done:
 	if (is_obj_locked && pthread_rwlock_unlock(&obj_list_rw_mutex)) {
@@ -4512,8 +4563,11 @@ done:
 	}
 
 	/* If allocated, object must be freed in case of failure */
-	if (rc && mapping)
-		free(mapping);
+	if (rc) {
+		for (i = 0; i < sizeof(mappings)/sizeof(*mappings); i++)
+			if (mappings[i])
+				free(mappings[i]);
+	}
 
 	return rc;
 }

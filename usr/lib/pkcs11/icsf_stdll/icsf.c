@@ -1644,7 +1644,12 @@ get_algorithm_rule(CK_MECHANISM_PTR mech, int arg)
 			return "SHA-1   VER-EC";
 		else
 			return "SHA-1   SIGN-EC";
+	case CKM_SSL3_KEY_AND_MAC_DERIVE:
+		return "SSL-KM";
+	case CKM_TLS_KEY_AND_MAC_DERIVE:
+		return "TLS-KM";
 	}
+
 	return NULL;
 }
 
@@ -3187,11 +3192,213 @@ icsf_derive_key(LDAP *ld, int *reason, CK_MECHANISM_PTR mech,
 		}
 	}
 
+	rc = 0;
+
 cleanup:
 	if (msg)
 		ber_free(msg, 1);
 	if (result)
 		ber_free(result, 1);
 
+	return rc;
+}
+
+/*
+ * Devive multiple keys at once.
+ */
+int
+icsf_derive_multple_keys(LDAP *ld, int *p_reason, CK_MECHANISM_PTR mech,
+			 struct icsf_object_record *key,
+			 CK_ATTRIBUTE_PTR attrs, CK_ULONG attrs_len,
+			 struct icsf_object_record *client_mac_handle,
+			 struct icsf_object_record *server_mac_handle,
+			 struct icsf_object_record *client_key_handle,
+			 struct icsf_object_record *server_key_handle,
+			 struct icsf_object_record *client_iv,
+			 struct icsf_object_record *server_iv)
+{
+	int rc = 0;
+	int reason = 0;
+	const char *rule_alg;
+	char handle[ICSF_HANDLE_LEN];
+	char rule_array[ICSF_RULE_ITEM_LEN];
+	BerElement *msg = NULL;
+	BerElement *result = NULL;
+	ber_tag_t tag;
+	CK_SSL3_KEY_MAT_PARAMS *params;
+	struct berval bv_client_random_data;
+	struct berval bv_server_random_data;
+	struct berval bv_client_mac_handle = { 0, NULL };
+	struct berval bv_server_mac_handle = { 0, NULL };
+	struct berval bv_client_key_handle = { 0, NULL };
+	struct berval bv_server_key_handle = { 0, NULL };
+	struct berval bv_client_iv = { 0, NULL };
+	struct berval bv_server_iv = { 0, NULL };
+
+	CHECK_ARG_NON_NULL(ld);
+	CHECK_ARG_NON_NULL(mech);
+	CHECK_ARG_NON_NULL(key);
+
+	object_record_to_handle(handle, key);
+
+	/* Build rule array based on mechanism */
+	if (!(rule_alg = get_algorithm_rule(mech, 0))) {
+		OCK_LOG_DEBUG("Invalid algorithm: %lu\n",
+			(unsigned long) mech->mechanism);
+		return -1;
+	}
+
+	strpad(rule_array, rule_alg, ICSF_RULE_ITEM_LEN, ' ');
+
+	/* Build request */
+	if (!(msg = ber_alloc_t(LBER_USE_DER)))
+	{
+		OCK_LOG_ERR(ERR_HOST_MEMORY);
+		return -1;
+	}
+
+	/**
+	 *  DMKInput sequence.
+	 *
+	 *  DMKInput ::= SEQUENCE {
+	 *     attrList             Attributes,
+	 *     parmsListChoice      DMKInputParmsList
+	 *  }
+	 *
+	 *  DMKInputParmsList ::= CHOICE {
+	 *     SSL-KM_TLS-KM [0]    SSL_TLS_DMKInputParmsList
+	 *  }
+	 *
+	 *  SSL_TLS_DMKInputParmsList ::= SEQUENCE {
+	 *     export               BOOLEAN,
+	 *     macSize              INTEGER,
+	 *     keySize              INTEGER,
+	 *     ivSize               INTEGER,
+	 *     clientRandomData     OCTET STRING,
+	 *     serverRandomData     OCTET STRING
+	 *  }
+	 */
+	params = (CK_SSL3_KEY_MAT_PARAMS *) mech->pParameter;
+	if (!params) {
+		OCK_LOG_ERR(ERR_MECHANISM_PARAM_INVALID);
+		rc = CKR_MECHANISM_PARAM_INVALID;
+		goto done;
+	}
+
+	rc = ber_printf(msg, "{");
+	if (rc < 0) {
+		OCK_LOG_ERR(ERR_FUNCTION_FAILED);
+		goto done;
+	}
+
+	if (icsf_ber_put_attribute_list(msg, attrs, attrs_len) < 0) {
+		OCK_LOG_ERR(ERR_FUNCTION_FAILED);
+		goto done;
+	}
+
+	if (ber_printf(msg, "}") < 0) {
+		OCK_LOG_ERR(ERR_FUNCTION_FAILED);
+		goto done;
+	}
+
+	tag = 0 | LBER_CLASS_CONTEXT | LBER_CONSTRUCTED;
+	bv_client_random_data.bv_len = params->RandomInfo.ulClientRandomLen;
+	bv_client_random_data.bv_val = params->RandomInfo.pClientRandom;
+	bv_server_random_data.bv_len = params->RandomInfo.ulServerRandomLen;
+	bv_server_random_data.bv_val = params->RandomInfo.pServerRandom;
+
+	rc = ber_printf(msg, "t{biiiOO}", tag,
+			(ber_int_t) params->bIsExport,
+			(ber_int_t) params->ulMacSizeInBits,
+			(ber_int_t) params->ulKeySizeInBits,
+			(ber_int_t) params->ulIVSizeInBits,
+			&bv_client_random_data, &bv_server_random_data);
+	if (rc < 0) {
+		OCK_LOG_ERR(ERR_FUNCTION_FAILED);
+		goto done;
+	}
+
+	/* Call request */
+	rc = icsf_call(ld, p_reason, handle, sizeof(handle), rule_array,
+			sizeof(rule_array), ICSF_TAG_CSFPDMK, msg, &result);
+	if (ICSF_RC_IS_ERROR(rc))
+		goto done;
+
+	/*
+	 *  DMKOutput ::= SEQUENCE {
+	 *     parmsListChoice     DMKOutputParmsList
+	 *  }
+	 *
+	 *  DMKOutputParmsList ::= CHOICE {
+	 *     SSL-KM_TLS-KM   [0] SSL_TLS_DMKOutputParmsList
+	 *  }
+	 *
+	 *  SSL_TLS_DMKOutputParmsList ::= SEQUENCE {
+	 *     clientMACHandle     OCTET STRING,
+	 *     clientMACHandle     OCTET STRING,
+	 *     clientKeyHandle     OCTET STRING,
+	 *     serverKeyHandle     OCTET STRING,
+	 *     clientIV            OCTET STRING,
+	 *     serverIV            OCTET STRING
+	 *  }
+	 */
+
+	/*
+	 * Since we are copying the values after all, "m" has the advantage of
+	 * not needing to free the returned values...
+	 */
+	if (ber_scanf(result, "{t{mmmmmm}}", &tag, &bv_client_mac_handle,
+			&bv_server_mac_handle, &bv_client_key_handle,
+			&bv_server_key_handle, &bv_client_iv,
+			&bv_server_iv) < 0) {
+		rc = -1;
+		OCK_LOG_DEBUG("Failed to decode the response.\n");
+		goto done;
+	}
+
+	/* Copy key handles */
+	if (bv_client_mac_handle.bv_len != ICSF_HANDLE_LEN ||
+			bv_server_mac_handle.bv_len != ICSF_HANDLE_LEN ||
+			bv_client_key_handle.bv_len != ICSF_HANDLE_LEN ||
+			bv_server_key_handle.bv_len != ICSF_HANDLE_LEN) {
+		OCK_LOG_DEBUG("Invalid key handle size: %lu/%lu/%lu/%lu\n",
+				(unsigned long) bv_client_mac_handle.bv_len,
+				(unsigned long) bv_server_mac_handle.bv_len,
+				(unsigned long) bv_client_key_handle.bv_len,
+				(unsigned long) bv_server_key_handle.bv_len);
+		rc = CKR_FUNCTION_FAILED;
+		goto done;
+	}
+	handle_to_object_record(client_mac_handle, bv_client_mac_handle.bv_val);
+	handle_to_object_record(server_mac_handle, bv_server_mac_handle.bv_val);
+	handle_to_object_record(client_key_handle, bv_client_key_handle.bv_val);
+	handle_to_object_record(server_key_handle, bv_server_key_handle.bv_val);
+
+	/* Copy IVs */
+	if (params->ulIVSizeInBits) {
+		if (8 * bv_client_iv.bv_len != params->ulIVSizeInBits) {
+			OCK_LOG_DEBUG("Invalid client IV size: %lu\n",
+					(unsigned long) bv_client_iv.bv_len);
+			rc = CKR_FUNCTION_FAILED;
+			goto done;
+		}
+		memcpy(params->pReturnedKeyMaterial->pIVClient,
+			bv_client_iv.bv_val, bv_client_iv.bv_len);
+
+		if (8 * bv_server_iv.bv_len != params->ulIVSizeInBits) {
+			OCK_LOG_DEBUG("Invalid server IV size: %lu\n",
+					(unsigned long) bv_server_iv.bv_len);
+			rc = CKR_FUNCTION_FAILED;
+			goto done;
+		}
+		memcpy(params->pReturnedKeyMaterial->pIVServer,
+			bv_server_iv.bv_val, bv_server_iv.bv_len);
+	}
+
+done:
+	if (result)
+		ber_free(result, 1);
+	if (msg)
+		ber_free(msg, 1);
 	return rc;
 }
