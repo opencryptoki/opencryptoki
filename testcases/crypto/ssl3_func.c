@@ -371,6 +371,107 @@ done:
 	return rc;
 }
 
+CK_RV do_SSL3_MultipleKeysDerive(CK_SESSION_HANDLE session)
+{
+	CK_MECHANISM mech;
+	CK_OBJECT_HANDLE h_pm_secret;
+	CK_RV rc;
+	CK_ULONG i;
+
+	CK_VERSION version = { 3, 0 };
+	CK_BBOOL true_value = TRUE;
+	CK_BBOOL false_value = FALSE;
+	CK_ATTRIBUTE pm_tmpl[] =
+	{
+		{CKA_TOKEN, &true_value, sizeof(true_value)},
+	};
+
+	CK_BYTE client_random_data[32];
+	CK_BYTE server_random_data[32];
+	CK_ATTRIBUTE  m_tmpl[] =
+	{
+		{CKA_TOKEN, &false_value, sizeof(false_value)},
+		{CKA_SENSITIVE, &false_value, sizeof(false_value)},
+		{CKA_EXTRACTABLE, &true_value, sizeof(true_value)}
+	};
+
+	CK_BYTE iv_client[128/8] = { 0, };
+	CK_BYTE iv_server[128/8] = { 0, };
+
+	CK_SSL3_KEY_MAT_OUT param_out = {
+		.hClientMacSecret = 0,
+		.hServerMacSecret = 0,
+		.hClientKey = 0,
+		.hServerKey = 0,
+		.pIVClient = iv_client,
+		.pIVServer = iv_server,
+	};
+
+	CK_SSL3_KEY_MAT_PARAMS params = {
+		.ulMacSizeInBits = 128,
+		.ulKeySizeInBits = 128,
+		.ulIVSizeInBits = 128,
+		.bIsExport = TRUE,
+		.RandomInfo = {
+			.pClientRandom = client_random_data,
+			.ulClientRandomLen = sizeof(client_random_data),
+			.pServerRandom = server_random_data,
+			.ulServerRandomLen = sizeof(server_random_data),
+		},
+		.pReturnedKeyMaterial = &param_out,
+	};
+
+	testcase_begin("starting do_SSL3_MultipleKeysDerive...\n");
+
+	// generate the pre-master secret key
+	//
+	mech.mechanism      = CKM_SSL3_PRE_MASTER_KEY_GEN;
+	mech.pParameter     = &version;
+	mech.ulParameterLen = sizeof(CK_VERSION);
+
+	testcase_new_assertion();
+	rc = funcs->C_GenerateKey(session, &mech, pm_tmpl,
+			sizeof(pm_tmpl)/sizeof(*pm_tmpl), &h_pm_secret);
+	if (rc != CKR_OK) {
+		testcase_fail("C_GenerateKey() rc= %s", p11_get_ckr(rc));
+		goto done;
+	} else
+		testcase_pass("Successfully generated a generic secret key.");
+
+	for (i = 0; i < sizeof(client_random_data); i++) {
+		client_random_data[i] = i;
+		server_random_data[i] = sizeof(client_random_data) - i;
+	}
+
+	mech.mechanism = CKM_SSL3_KEY_AND_MAC_DERIVE;
+	mech.pParameter = &params;
+	mech.ulParameterLen = sizeof(params);
+
+	testcase_new_assertion();
+	rc = funcs->C_DeriveKey(session, &mech, h_pm_secret, m_tmpl,
+			sizeof(m_tmpl)/sizeof(*m_tmpl), NULL);
+	if (rc != CKR_OK) {
+		testcase_fail("C_DeriveKey() rc= %s", p11_get_ckr(rc));
+		goto done;
+	} else
+		testcase_pass("Successfully derived a keys from pre-master.");
+
+	if (funcs->C_DestroyObject(session, param_out.hClientMacSecret))
+		testcase_error("C_DestroyObject rc=%s", p11_get_ckr(rc));
+	if (funcs->C_DestroyObject(session, param_out.hServerMacSecret))
+		testcase_error("C_DestroyObject rc=%s", p11_get_ckr(rc));
+	if (funcs->C_DestroyObject(session, param_out.hClientKey))
+		testcase_error("C_DestroyObject rc=%s", p11_get_ckr(rc));
+	if (funcs->C_DestroyObject(session, param_out.hServerKey))
+		testcase_error("C_DestroyObject rc=%s", p11_get_ckr(rc));
+
+done:
+	if (funcs->C_DestroyObject(session, h_pm_secret) != CKR_OK)
+		testcase_error("C_DestroyObject() failed");
+
+	return rc;
+}
+
 CK_RV ssl3_functions()
 {
 	CK_RV rc;
@@ -393,6 +494,13 @@ CK_RV ssl3_functions()
 
 	GetSystemTime(&t1);
 	rc = do_SSL3_MasterKeyDerive(session);
+	if (rc && !no_stop)
+		goto testcase_cleanup;
+	GetSystemTime(&t2);
+	process_time( t1, t2 );
+
+	GetSystemTime(&t1);
+	rc = do_SSL3_MultipleKeysDerive(session);
 	if (rc && !no_stop)
 		goto testcase_cleanup;
 	GetSystemTime(&t2);
