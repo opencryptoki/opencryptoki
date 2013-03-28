@@ -318,6 +318,14 @@ CK_RV do_SSL3_MasterKeyDerive(CK_SESSION_HANDLE session)
 	CK_SSL3_MASTER_KEY_DERIVE_PARAMS  mk_params;
 	CK_ULONG i;
 
+	CK_OBJECT_CLASS class;
+	CK_KEY_TYPE keyType;
+	CK_ATTRIBUTE  test_tmpl[] =
+	{
+		{CKA_CLASS, &class, sizeof(class)},
+		{CKA_KEY_TYPE, &keyType, sizeof(keyType)}
+	};
+	
 	testcase_begin("starting do_SSL3_MasterKeyDerive...\n");
 
 	// generate the pre-master secret key
@@ -361,10 +369,34 @@ CK_RV do_SSL3_MasterKeyDerive(CK_SESSION_HANDLE session)
 	} else
 		testcase_pass("Successfully derived a key from pre-master.");
 
+	/*	
+	 * This mechanism provides the following attributes:
+	 * CKA_CLASS = CKO_SECRET_KEY
+	 * CKA_KEY_TYPE = CKK_GENERIC_SECRET
+	 * CKA_VALUE_LEN = 48
+	 * Check that the newly derived key has these.
+	 */
+	testcase_new_assertion();
+	rc = funcs->C_GetAttributeValue(session, h_pm_secret, test_tmpl, 2);
+	if (rc != CKR_OK) {
+		testcase_error("C_GetAttributeValue() rc= %s", p11_get_ckr(rc));
+		goto done;
+	}
+	if (*(CK_OBJECT_CLASS *)test_tmpl[0].pValue != CKO_SECRET_KEY) {
+		testcase_fail("Derived key has incorrect class.");	
+		goto done;
+	}
+	
+	if (*(CK_KEY_TYPE *)test_tmpl[1].pValue != CKK_GENERIC_SECRET) {
+		testcase_fail("Derived key has incorrect key type.");
+		goto done;
+	} else 
+		testcase_pass("Derived key has correct attributes.");
+
+done:
 	if (funcs->C_DestroyObject(session, h_mk) != CKR_OK)
 		testcase_error("C_DestroyObject rc=%s", p11_get_ckr(rc));
 
-done:
 	if (funcs->C_DestroyObject(session, h_pm_secret) != CKR_OK)
 		testcase_error("C_DestroyObject() failed");
 
@@ -388,8 +420,19 @@ CK_RV do_SSL3_MultipleKeysDerive(CK_SESSION_HANDLE session)
 
 	CK_BYTE client_random_data[32];
 	CK_BYTE server_random_data[32];
-	CK_ATTRIBUTE  m_tmpl[] =
+	CK_ATTRIBUTE  incomplete_tmpl[] =
 	{
+		{CKA_TOKEN, &false_value, sizeof(false_value)},
+		{CKA_SENSITIVE, &false_value, sizeof(false_value)},
+		{CKA_EXTRACTABLE, &true_value, sizeof(true_value)}
+	};
+
+	CK_OBJECT_CLASS class = CKO_SECRET_KEY;
+	CK_KEY_TYPE key_type = CKK_GENERIC_SECRET;
+	CK_ATTRIBUTE  complete_tmpl[] =
+	{
+		{CKA_CLASS, &class, sizeof(class)},
+		{CKA_KEY_TYPE, &key_type, sizeof(key_type)},
 		{CKA_TOKEN, &false_value, sizeof(false_value)},
 		{CKA_SENSITIVE, &false_value, sizeof(false_value)},
 		{CKA_EXTRACTABLE, &true_value, sizeof(true_value)}
@@ -447,14 +490,31 @@ CK_RV do_SSL3_MultipleKeysDerive(CK_SESSION_HANDLE session)
 	mech.pParameter = &params;
 	mech.ulParameterLen = sizeof(params);
 
+	/* 
+	 * Try deriving the key without required attributes...
+	 */
 	testcase_new_assertion();
-	rc = funcs->C_DeriveKey(session, &mech, h_pm_secret, m_tmpl,
-			sizeof(m_tmpl)/sizeof(*m_tmpl), NULL);
+	rc = funcs->C_DeriveKey(session, &mech, h_pm_secret, incomplete_tmpl,
+			sizeof(incomplete_tmpl)/sizeof(*incomplete_tmpl), NULL);
+	if (rc != CKR_TEMPLATE_INCOMPLETE) {
+		testcase_fail("C_DeriveKey did not recognize missing attributes.");
+		goto done;
+	} else
+		testcase_pass("Success, could not derive key without required attributes.");
+
+	/*
+	 * Now derive key with required attributes...
+	 */
+	
+	testcase_new_assertion();
+	rc = funcs->C_DeriveKey(session, &mech, h_pm_secret, complete_tmpl,
+			sizeof(complete_tmpl)/sizeof(*complete_tmpl), NULL);
 	if (rc != CKR_OK) {
 		testcase_fail("C_DeriveKey() rc= %s", p11_get_ckr(rc));
 		goto done;
 	} else
 		testcase_pass("Successfully derived a keys from pre-master.");
+
 
 	if (funcs->C_DestroyObject(session, param_out.hClientMacSecret))
 		testcase_error("C_DestroyObject rc=%s", p11_get_ckr(rc));
