@@ -610,9 +610,8 @@ ST_Initialize(void **FunctionList,
 	// Handle global initialization issues first if we have not
 	// been initialized.
 	if (st_Initialized() == FALSE){
-		CK_BBOOL created = FALSE;
 
-		rc = attach_shm(SlotNumber, &global_shm, &created);
+		rc = attach_shm(SlotNumber, &global_shm);
 		if (rc != CKR_OK) {
 			OCK_LOG_ERR(ERR_SHM);
 			goto done;
@@ -630,16 +629,13 @@ ST_Initialize(void **FunctionList,
 			OCK_LOG_ERR(ERR_TOKEN_INIT);
 			goto done;
 		}
+	}
 
-		if (created) {
-			rc = load_token_data(SlotNumber);
-			if (rc != CKR_OK) {
-				*FunctionList = NULL;
-				OCK_LOG_ERR(ERR_TOKEN_LOAD_DATA);
-				goto done;
-			}
-		}
-
+	rc = load_token_data(SlotNumber);
+	if (rc != CKR_OK) {
+		*FunctionList = NULL;
+		OCK_LOG_ERR(ERR_TOKEN_LOAD_DATA);
+		goto done;
 	}
 
 	/* no need to return error here, we load the token data we can and syslog the rest */
