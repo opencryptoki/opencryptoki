@@ -3479,8 +3479,15 @@ token_specific_sign(SESSION *session, CK_BBOOL length_only, CK_BYTE *in_data,
 		rc = icsf_private_key_sign(session_state->ld, &reason, FALSE,
 				&mapping->icsf_object, &ctx->mech, in_data,
 				in_data_len, signature, sig_len);
-		if (rc != 0)
-			rc = icsf_to_ock_err(rc, reason);
+		if (rc != 0) {
+			if (reason == ICSF_REASON_OUTPUT_PARAMETER_TOO_SHORT
+					&& length_only) {
+				rc = CKR_OK;
+			} else {
+				OCK_LOG_ERR(CKR_FUNCTION_FAILED);
+				rc = icsf_to_ock_err(rc, reason);
+			}
+		}
 		break;
 
 	case CKM_MD5_RSA_PKCS:
@@ -3490,21 +3497,19 @@ token_specific_sign(SESSION *session, CK_BBOOL length_only, CK_BYTE *in_data,
 	case CKM_SHA512_RSA_PKCS:
 	case CKM_DSA_SHA1:
 	case CKM_ECDSA_SHA1:
-
 		rc = icsf_hash_signverify(session_state->ld, &reason,
 				&mapping->icsf_object, &ctx->mech,
 				"ONLY", in_data, in_data_len, signature,
 				sig_len, chain_data, &chain_data_len, 0);
-
 		if (rc != 0) {
-			if (length_only && reason == 3003)
-					rc = CKR_OK;
-			else {
+			if (reason == ICSF_REASON_OUTPUT_PARAMETER_TOO_SHORT
+					&& length_only) {
+				rc = CKR_OK;
+			} else {
 				OCK_LOG_ERR(CKR_FUNCTION_FAILED);
 				rc = icsf_to_ock_err(rc, reason);
 			}
 		}
-
 		break;
 
 	default:

@@ -2336,8 +2336,8 @@ icsf_private_key_sign(LDAP *ld, int *p_reason, int decrypt,
 		return -1;
 	}
 
-	if (ber_printf(msg, "oi", cipher_text, cipher_text_len,
-			*p_clear_text_len) < 0) {
+	if (ber_printf(msg, "oi", cipher_text, (ber_int_t) cipher_text_len,
+		       (!clear_text) ? 0 : ((ber_int_t) *p_clear_text_len)) < 0) {
 		rc = -1;
 		OCK_LOG_DEBUG("Failed to encode message: %d.\n", rc);
 		goto done;
