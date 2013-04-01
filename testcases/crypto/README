@@ -1,6 +1,9 @@
 aes_tests
 	Tests aes cbc/ecb/ctr modes using published test vectors and
 	generated test data.
+	
+	NOTE: For ICSF token, secret keys cannot wrap secret keys. 
+	These testcase will fail in ICSF token. 
 
 des_tests
 	Tests des ecb/cbc modes using published test vectors and generated

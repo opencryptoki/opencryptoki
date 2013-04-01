@@ -903,6 +903,13 @@ CK_RV do_WrapUnwrapAES(struct generated_test_suite_info *tsuite)
 		goto testcase_cleanup;
 	}
 
+	if (!wrap_supported(slot_id, tsuite->mech)) {
+		testsuite_skip(3, "Slot %u doesn't support %u",
+			(unsigned int) slot_id,
+			(unsigned int)tsuite->mech.mechanism);
+		goto testcase_cleanup;
+	}
+
 	for (i = 0; i < 3; i++) {
 
 		testcase_begin("%s Wrap/Unwrap key test with keylength=%ld.",
@@ -1306,8 +1313,8 @@ CK_RV do_WrapUnwrapRSA(struct generated_test_suite_info *tsuite)
 					wrapped_data,
 					&wrapped_data_len);
 
-			if (rc != CKR_KEY_NOT_WRAPPABLE){
-				testcase_fail("Expected CKR_KEY_NOT_WRAPPABLE");
+			if (rc != CKR_MECHANISM_INVALID) {
+				testcase_fail("Expected CKR_MECHANISM_INVALID");
 			}
 
 			else{
