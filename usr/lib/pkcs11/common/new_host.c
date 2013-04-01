@@ -696,7 +696,7 @@ CK_RV SC_Finalize( CK_SLOT_ID sid )
 	if (token_specific.t_final != NULL) {
 		rc = token_specific.t_final();
 		if (rc != CKR_OK) {
-			OCK_LOG_ERR("Token specific final call failed.\n");
+			OCK_LOG_DEBUG("Token specific final call failed.\n");
 			goto done;
 		}
 	}
