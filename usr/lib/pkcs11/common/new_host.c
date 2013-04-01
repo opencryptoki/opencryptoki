@@ -662,24 +662,27 @@ ST_Initialize(void **FunctionList,
 // stuff
 CK_RV SC_Finalize( CK_SLOT_ID sid )
 {
-	CK_RV          rc;
+	CK_RV rc, rc_mutex;
 	SLT_CHECK;
-	if (st_Initialized() == FALSE) {	
+	if (st_Initialized() == FALSE) {
 		OCK_LOG_ERR(ERR_CRYPTOKI_NOT_INITIALIZED);
 		return CKR_CRYPTOKI_NOT_INITIALIZED;
 	}
+
 	rc = MY_LockMutex( &pkcs_mutex );
 	if (rc != CKR_OK){
 		OCK_LOG_ERR(ERR_MUTEX_LOCK);
 		return rc;
-	} 
+	}
+
 	// If somebody else has taken care of things, leave...
 	if (st_Initialized() == FALSE) {
 		MY_UnlockMutex( &pkcs_mutex ); // ? Somebody else has
 					       // also destroyed the
 					       // mutex...
 		OCK_LOG_ERR(ERR_CRYPTOKI_NOT_INITIALIZED);
-		return CKR_CRYPTOKI_NOT_INITIALIZED;
+		rc = CKR_CRYPTOKI_NOT_INITIALIZED;
+		goto done;
 	}
 	usage_count--;
 	if (usage_count == 0){
@@ -690,15 +693,21 @@ CK_RV SC_Finalize( CK_SLOT_ID sid )
 	detach_shm();
 	// close spin lock file
 	CloseXProcLock();
-	if ( token_specific.t_final != NULL) {
-		token_specific.t_final();
+	if (token_specific.t_final != NULL) {
+		rc = token_specific.t_final();
+		if (rc != CKR_OK) {
+			OCK_LOG_ERR("Token specific final call failed.\n");
+			goto done;
+		}
 	}
-	rc = MY_UnlockMutex( &pkcs_mutex );
-	if (rc != CKR_OK){
+
+done:
+	rc_mutex = MY_UnlockMutex( &pkcs_mutex );
+	if (rc_mutex != CKR_OK){
 		OCK_LOG_ERR(ERR_MUTEX_UNLOCK);
-		return rc;
+		return rc_mutex;
 	}
-	return CKR_OK;
+	return rc;
 }
 
 void
@@ -2564,7 +2573,7 @@ CK_RV SC_DecryptInit(ST_SESSION_HANDLE *sSession,
 	}
 
 	if (token_specific.t_decrypt_init) {
-		token_specific.t_decrypt_init(sess, pMechanism, hKey);
+		rc = token_specific.t_decrypt_init(sess, pMechanism, hKey);
 	} else {
 		rc = decr_mgr_init(sess, &sess->decr_ctx, OP_DECRYPT_INIT,
 				   pMechanism, hKey );
@@ -2763,7 +2772,8 @@ CK_RV SC_DecryptFinal(ST_SESSION_HANDLE *sSession,
 		length_only = TRUE;
 
 	if (token_specific.t_decrypt_final) {
-		token_specific.t_decrypt_final(sess, pLastPart, pulLastPartLen);
+		rc = token_specific.t_decrypt_final(sess, pLastPart,
+						    pulLastPartLen);
 	} else {
 		rc = decr_mgr_decrypt_final(sess, length_only, &sess->decr_ctx,
 					    pLastPart, pulLastPartLen);
@@ -4075,8 +4085,9 @@ CK_RV SC_WrapKey(ST_SESSION_HANDLE *sSession, CK_MECHANISM_PTR pMechanism,
 	}
 
 	if (token_specific.t_wrap_key) {
-		token_specific.t_wrap_key(sess, pMechanism, hWrappingKey, hKey,
-					  pWrappedKey, pulWrappedKeyLen);
+		rc = token_specific.t_wrap_key(sess, pMechanism, hWrappingKey,
+					       hKey, pWrappedKey,
+					       pulWrappedKeyLen);
 	} else {
 		rc = key_mgr_wrap_key(sess, length_only, pMechanism,
 				      hWrappingKey, hKey, pWrappedKey,
