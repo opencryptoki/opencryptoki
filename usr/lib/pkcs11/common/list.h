@@ -34,7 +34,7 @@ struct _list_entry {
 /* A helper macro */
 #ifndef container_of
 #define container_of(_pt, _type, _field) \
-	((_type *) (((char *) (_pt)) - offsetof(_type, _field)))
+	((_type *) (!(_pt)) ? NULL : (((char *) (_pt)) - offsetof(_type, _field)))
 #endif
 
 /*
@@ -45,7 +45,7 @@ struct _list_entry {
  */
 #define for_each_list_entry(_head, _type, _var, _field) \
 	for (_var = container_of((_head)->head, _type, _field); \
-			&((_var)->_field); \
+			(_var) && &((_var)->_field); \
 			_var = container_of((_var)->_field.next, _type, _field))
 
 /*
@@ -56,7 +56,7 @@ struct _list_entry {
  */
 #define for_each_list_entry_safe(_head, _type, _var, _field, _next) \
 	for (_var = container_of((_head)->head, _type, _field); \
-			&((_var)->_field) && \
+			(_var) && &((_var)->_field) && \
 			((_next = (_var)->_field.next) || 1); \
 			_var = container_of(_next, _type, _field))
 
