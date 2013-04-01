@@ -483,11 +483,11 @@ static const char *ock_err_msg[] = {
 "RSA Verify Failed",			/*ERR_RSA_VERIFY*/
 "RSA Wrap Get Data Failed",		/*ERR_RSA_WRAP_GETDATA*/
 "RSA Verify recover",			/*ERR_RSA_VERIFY_RECOVER*/
-"RSA X509 Encrypt Failed"		/*ERR_RSA_X509_ENCRYPT*/
-"RSA X509 Decrypt Failed"		/*ERR_RSA_X509_DECRYPT*/
-"RSA X509 Sign Failed"			/*ERR_RSA_X509_SIGN*/
-"RSA X509 Verify Failed"		/*ERR_RSA_X509_VERIFY*/
-"RSA X509 Verify recover Failed"	/*ERR_RSA_X509_VERIFY_RECOVER*/
+"RSA X509 Encrypt Failed",		/*ERR_RSA_X509_ENCRYPT*/
+"RSA X509 Decrypt Failed",		/*ERR_RSA_X509_DECRYPT*/
+"RSA X509 Sign Failed",			/*ERR_RSA_X509_SIGN*/
+"RSA X509 Verify Failed",		/*ERR_RSA_X509_VERIFY*/
+"RSA X509 Verify recover Failed",	/*ERR_RSA_X509_VERIFY_RECOVER*/
 "Close all Sessions Failed",		/*ERR_SESSION_CLOSEALL*/
 "Session Mgr Get Op State Failed",	/*ERR_SESSMGR_GETOPT_STATE*/
 "Session Mgr Login Failed",		/*ERR_SESSMGR_LOGIN*/
