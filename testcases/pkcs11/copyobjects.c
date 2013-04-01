@@ -28,7 +28,7 @@ CK_RV do_CopyObjects(void)
 	CK_BYTE user_pin[PKCS11_MAX_PIN_LEN];
 	CK_ULONG user_pin_len;
 
-	CK_OBJECT_HANDLE keyobj, firstnewobj, secondnewobj, thirdnewobj;
+	CK_OBJECT_HANDLE keyobj, firstobj, secondobj, thirdobj, fourthobj;
 
 	CK_BBOOL true = TRUE;
 	CK_BBOOL false = FALSE;
@@ -39,25 +39,34 @@ CK_RV do_CopyObjects(void)
 		{CKA_CLASS, &key_class, sizeof(key_class)},
 		{CKA_KEY_TYPE, &aes_type, sizeof(aes_type)},
 		{CKA_VALUE, &aes_value, sizeof(aes_value)},
-		{CKA_SENSITIVE, &true, sizeof(true)}
+		{CKA_SENSITIVE, &false, sizeof(false)}
 	};
 
 	CK_KEY_TYPE new_aes_type;
 	CK_OBJECT_CLASS new_key_class;
 	CK_CHAR new_aes_value[50];
+	CK_BBOOL sensitive;
 	CK_ATTRIBUTE test_tmpl[] = {
 		{CKA_CLASS, &new_key_class, sizeof(new_key_class)},
 		{CKA_KEY_TYPE, &new_aes_type, sizeof(new_aes_type)},
 		{CKA_VALUE, &new_aes_value, sizeof(new_aes_value)},
-		{CKA_SENSITIVE, &true, sizeof(true)}
+		{CKA_SENSITIVE, &sensitive, sizeof(sensitive)}
 	};
 
 	CK_ATTRIBUTE copy_tmpl[] = {
 		{CKA_TOKEN, &true, sizeof(true)}
 	};
 
+	CK_ATTRIBUTE true_sensitive_tmpl[] = {
+		{CKA_SENSITIVE, &true, sizeof(true)}
+	};
+
 	CK_ATTRIBUTE false_sensitive_tmpl[] = {
 		{CKA_SENSITIVE, &false, sizeof(false)}
+	};
+
+	CK_ATTRIBUTE test_sensitive_tmpl[] = {
+		{CKA_SENSITIVE, &sensitive, sizeof(sensitive)}
 	};
 
 	CK_ATTRIBUTE empty_tmpl[] = { };
@@ -68,25 +77,30 @@ CK_RV do_CopyObjects(void)
 	testcase_user_login();
 
 	// Create an AES Key Object.
-	rc = funcs->C_CreateObject(session, aes_tmpl, 3, &keyobj);
+	rc = funcs->C_CreateObject(session, aes_tmpl, 4, &keyobj);
 	if (rc != CKR_OK) {
 		testcase_error("C_CreateObject() rc = %s", p11_get_ckr(rc));
 		goto testcase_cleanup;
 	}
-	// Testcase #1 - Copy object exactly with no additional attributes.
 
-	// Now copy the object, without any attributes.
-	rc = funcs->C_CopyObject(session, keyobj, empty_tmpl, 0, &firstnewobj);
+
+	// Testcase #1 - Copy object exactly with no additional attributes.
+	testcase_new_assertion()
+
+	rc = funcs->C_CopyObject(session, keyobj, empty_tmpl, 0, &firstobj);
 	if (rc != CKR_OK) {
 		testcase_fail("C_CopyObject() rc = %s", p11_get_ckr(rc));
 		goto testcase_cleanup;
 	}
-	// Verify that new object has same attribute values as original.
-	rc = funcs->C_GetAttributeValue(session, firstnewobj, test_tmpl, 3);
+
+	// Pull up some attributes and verify that new object has
+	// same attribute values as original.
+	rc = funcs->C_GetAttributeValue(session, firstobj, test_tmpl, 4);
 	if (rc != CKR_OK) {
-		testcase_fail("C_GetAttributeValue() rc = %s", p11_get_ckr(rc));
+		testcase_error("C_GetAttributeValue() rc = %s", p11_get_ckr(rc));
 		goto testcase_cleanup;
 	}
+
 	// Step thru template to see if new object matches original...
 	if ((memcmp
 	     (test_tmpl[0].pValue, aes_tmpl[0].pValue,
@@ -107,17 +121,20 @@ CK_RV do_CopyObjects(void)
 	else
 		testcase_fail("Copied object's attributes are different.");
 
-	// Testcase #2 - Copy an object and include one additional attribute.
 
-	rc = funcs->C_CopyObject(session, keyobj, copy_tmpl, 1, &secondnewobj);
+	// Testcase #2 - Copy an object and include one additional attribute.
+	testcase_new_assertion();
+
+	rc = funcs->C_CopyObject(session, keyobj, copy_tmpl, 1, &secondobj);
 	if (rc != CKR_OK) {
 		testcase_fail("C_CopyObject() rc = %s", p11_get_ckr(rc));
 		goto testcase_cleanup;
 	}
+
 	// Verify that new object has the new attribute and value (CKA_TOKEN).
 	// NOTE: Since passing in same template, original value will be
 	//       over-written.
-	rc = funcs->C_GetAttributeValue(session, secondnewobj, copy_tmpl, 1);
+	rc = funcs->C_GetAttributeValue(session, secondobj, copy_tmpl, 1);
 	if (rc != CKR_OK) {
 		testcase_fail("C_GetAttributeValue() rc = %s", p11_get_ckr(rc));
 		goto testcase_cleanup;
@@ -128,48 +145,50 @@ CK_RV do_CopyObjects(void)
 	else
 		testcase_fail("Copied object's attributes are different.");
 
-	// Testcase #3 - Copy object changing the value of CKA_SENSITIVE to FALSE
-	
-	CK_ATTRIBUTE tmp2_tmpl[] = {
-		{CKA_SENSITIVE, &true, sizeof(true)}
-	};
 
-	rc = funcs->C_CopyObject(session, keyobj, false_sensitive_tmpl, 1, &thirdnewobj);
+
+	// Testcase #3 - Copy object changing the value of CKA_SENSITIVE
+	// 		 from true to false. This should be allowed on copy.
+	testcase_new_assertion();
+	
+	rc = funcs->C_CopyObject(session, keyobj, true_sensitive_tmpl, 1, &thirdobj);
 	if (rc != CKR_OK) {
 		testcase_fail("C_CopyObject() rc = %s", p11_get_ckr(rc));
 		goto testcase_cleanup;
 	}
-	// Verify that new object has the new attribute and value (CKA_SENSITIVE).
-	// NOTE: Since passing in same template, original value will be
-	//       over-written.
-	rc = funcs->C_GetAttributeValue(session, thirdnewobj, tmp2_tmpl, 1);
+
+	// Verify that new object has CKA_SENSITIVE == true;
+	rc = funcs->C_GetAttributeValue(session, thirdobj,
+					test_sensitive_tmpl, 1);
 	if (rc != CKR_OK) {
 		testcase_fail("C_GetAttributeValue() rc = %s", p11_get_ckr(rc));
 		goto testcase_cleanup;
 	}
 
-	if (*(CK_BBOOL *) tmp2_tmpl[0].pValue == TRUE){
-		testcase_pass("Copied object's attributes are different.");
-	} else if (*(CK_BBOOL *) tmp2_tmpl[0].pValue == FALSE) {
-		testcase_fail("Copied object's attributes are the same.");
-	}
+	if (*(CK_BBOOL *) test_sensitive_tmpl[0].pValue == TRUE)
+		testcase_pass("Copied object's CKA_SENSITIVE == TRUE.");
+	else 
+		testcase_fail("Copied object's CKA_SENSITIVE != TRUE.");
+
+
+	// Testcase #4 - Now try changing CKA_SENSITIVE from TRUE to False.
+	// This should not be allowed.
+	testcase_new_assertion();
+	
+	rc = funcs->C_CopyObject(session, thirdobj, false_sensitive_tmpl, 1, &fourthobj);
+	if (rc != CKR_OK) 
+		testcase_pass("C_CopyObject) did not copy the object. rc = %s",
+				p11_get_ckr(rc));
+	else
+		testcase_fail("C_CopyObject() should have failed.");
+	
 
 testcase_cleanup:
-	rc = funcs->C_DestroyObject(session, keyobj);
-	if (rc != CKR_OK)
-		testcase_error("C_DestroyObject rc=%s", p11_get_ckr(rc));
-
-	rc = funcs->C_DestroyObject(session, firstnewobj);
-	if (rc != CKR_OK)
-		testcase_error("C_DestroyObject rc=%s", p11_get_ckr(rc));
-
-	rc = funcs->C_DestroyObject(session, secondnewobj);
-	if (rc != CKR_OK)
-		testcase_error("C_DestroyObject rc=%s", p11_get_ckr(rc));
-
-	rc = funcs->C_DestroyObject(session, thirdnewobj);
-	if (rc != CKR_OK)
-		testcase_error("C_DestroyObject rc=%s", p11_get_ckr(rc));
+	funcs->C_DestroyObject(session, keyobj);
+	funcs->C_DestroyObject(session, firstobj);
+	funcs->C_DestroyObject(session, secondobj);
+	funcs->C_DestroyObject(session, thirdobj);
+	funcs->C_DestroyObject(session, fourthobj);
 
 	testcase_user_logout();
 	rc = funcs->C_CloseSession(session);
