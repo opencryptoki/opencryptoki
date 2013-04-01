@@ -279,7 +279,6 @@ icsf_to_ock_err(int icsf_return_code, int icsf_reason_code)
 		case 3033:
 			return CKR_TEMPLATE_INCOMPLETE;
 		case 3034:
-			return CKR_ARGUMENTS_BAD;
 		case 3035:
 			return CKR_ATTRIBUTE_READ_ONLY;
 		case 3038:
@@ -1374,8 +1373,8 @@ token_specific_copy_object(SESSION * session, CK_ATTRIBUTE_PTR attrs,
 		 &mapping_dst->icsf_object);
 
 	if (rc != 0) {
-		OCK_LOG_DEBUG("Failed to call ICSF.\n");
-		rc = CKR_FUNCTION_FAILED;
+		OCK_LOG_DEBUG("Failed to Copy object.\n");
+		rc = icsf_to_ock_err(rc, reason);
 		goto done;
 	}
 
