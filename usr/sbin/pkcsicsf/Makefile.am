@@ -1,6 +1,6 @@
 sbin_PROGRAMS=pkcsicsf
 
-pkcsicsf_LDFLAGS = -lldap -lssl
+pkcsicsf_LDFLAGS = -lldap -lssl -llber -lcrypto
 
 # Not all versions of automake observe sbinname_CFLAGS
 pkcsicsf_CFLAGS = -D_THREAD_SAFE -DDEV -DAPI -DSTDLL_NAME=\"icsf\"
