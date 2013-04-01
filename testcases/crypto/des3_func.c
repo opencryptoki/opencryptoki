@@ -907,6 +907,12 @@ CK_RV do_WrapUnwrapDES3(struct generated_test_suite_info *tsuite) {
 			(unsigned int) tsuite->mech.mechanism);
 		goto testcase_cleanup;
 	}
+	if (! wrap_supported(SLOT_ID, tsuite->mech)){
+		testcase_skip("Slot %u doesn't support %u",
+			(unsigned int) SLOT_ID,
+			(unsigned int) tsuite->mech.mechanism);
+		goto testcase_cleanup;
+	}
 
 	/** clear buffers **/
 	memset(actual, 0, sizeof(actual));

@@ -9,13 +9,19 @@ des_tests
 	Tests des ecb/cbc modes using published test vectors and generated
 	test data.
 
+	NOTE: For ICSF token, secret keys cannot wrap secret keys. 
+	These testcase will fail in ICSF token. 
+
 des3_tests
 	Tests des3 ecb/cbc modes using published test vectors and generated
 	test data. 
 	Tests des3 cbc mode with padding only using generated test data.
 
+	NOTE: For ICSF token, secret keys cannot wrap secret keys. 
+	These testcase will fail in ICSF token. 
+
 dh_tests
-	TODO - To be tested.
+	Tests key generation and key derivation.
 
 digest_tests
 	Tests message digest, multipart message digest, and signature 
@@ -32,5 +38,8 @@ ec_tests
 rsa_tests
 	Tests RSA using published test vectors and generated test data. 
 
+	NOTE: The ICSF token only supports public exponents 0x03 and 0x010001.
+	Testcases with other exponents will fail.
+
 ssl3_tests
-	TODO - to be tested.
+	Tests key generation and key derivation.
