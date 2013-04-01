@@ -100,12 +100,6 @@ CK_RV do_GenerateDSAKeyPair( void )
 		goto session_close;
 	}
 
-	rc = funcs->C_CloseSession( session );
-	if (rc != CKR_OK) {
-		show_error("   C_CloseSession #3", rc );
-		goto session_close;
-	}
-
 	printf("Looks okay...\n");
 
 session_close:
@@ -230,13 +224,10 @@ CK_RV do_SignDSA( void )
 		show_error("   C_Verify #2", rc );
 		PRINT_ERR("   Expected CKR_SIGNATURE_INVALID\n");
 		goto session_close;
-	}
+	} else
+		rc = CKR_OK;
 
-	rc = funcs->C_CloseAllSessions( slot_id );
-	if (rc != CKR_OK) {
-		show_error("   C_CloseAllSessions #1", rc );
-		goto session_close;
-	}
+	printf("Looks okay...\n");
 
 session_close:
 
