@@ -3397,3 +3397,10 @@ err:
 		close(lockfd);
 	return -1;
 }
+
+CK_RV
+token_specific_init_token_data(CK_SLOT_ID slot_id)
+{
+        /* do nothing. */
+        return CKR_OK;
+}
