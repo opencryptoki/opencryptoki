@@ -34,7 +34,7 @@ struct _list_entry {
 /* A helper macro */
 #ifndef container_of
 #define container_of(_pt, _type, _field) \
-	((_type *) (!(_pt)) ? NULL : (((char *) (_pt)) - offsetof(_type, _field)))
+	((_type *) (!(_pt) ? NULL : (((char *) (_pt)) - offsetof(_type, _field))))
 #endif
 
 /*
