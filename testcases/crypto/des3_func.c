@@ -7,6 +7,7 @@
 #include "regress.h"
 #include "des3.h"
 #include "common.c"
+#include "mech_to_str.h"
 
 /** Tests triple DES encryption with published test vectors. **/
 CK_RV do_EncryptDES3( struct published_test_suite_info *tsuite)
@@ -34,8 +35,9 @@ CK_RV do_EncryptDES3( struct published_test_suite_info *tsuite)
 	/** skip testsuite if the slot does not support this mechanism **/
 	if (! mech_supported(slot_id, tsuite->mechanism)){
 		testsuite_skip( tsuite->tvcount,
-			   "Slot %u doesn't support %u",
+			   "Slot %u doesn't support %s (%u)",
 			   (unsigned int) slot_id,
+			   mech_to_str(tsuite->mechanism),
 			   (unsigned int)tsuite->mechanism );
 		goto testcase_cleanup;
 	}
@@ -166,8 +168,9 @@ CK_RV do_EncryptUpdateDES3(struct published_test_suite_info *tsuite)
 	/** skip testuite if the slot does not support this mechanism **/
 	if (! mech_supported(slot_id, tsuite->mechanism)){
 		testsuite_skip( tsuite->tvcount,
-				"Slot %u doesn't support %u",
+				"Slot %u doesn't support %s (%u)",
 				(unsigned int) slot_id,
+				mech_to_str(tsuite->mechanism),
 				(unsigned int) tsuite->mechanism );
 		goto testcase_cleanup;
 	}
@@ -313,8 +316,9 @@ CK_RV do_DecryptDES3(struct published_test_suite_info *tsuite)
 	/** skip test if the slot does not support this mechanism **/
 	if (! mech_supported(slot_id, tsuite->mechanism)){
 		testsuite_skip( tsuite->tvcount,
-				"Slot %u doesn't support %u",
+				"Slot %u doesn't support %s (%u)",
 				(unsigned int) slot_id,
+				mech_to_str(tsuite->mechanism),
 				(unsigned int)tsuite->mechanism );
 		goto testcase_cleanup;
 	}
@@ -443,9 +447,10 @@ CK_RV do_DecryptUpdateDES3(struct published_test_suite_info *tsuite) {
 	/** skip test if the slot does not support this mechanism **/
 	if (! mech_supported(slot_id, tsuite->mechanism)){
 		testsuite_skip(tsuite->tvcount,
-			"Slot %u doesn't support %u",
-			(unsigned int) slot_id, (
-			unsigned int) tsuite->mechanism);
+			"Slot %u doesn't support %s (%u)",
+			(unsigned int) slot_id,
+			mech_to_str(tsuite->mechanism),
+			(unsigned int) tsuite->mechanism);
 		goto testcase_cleanup;
 	}
 
@@ -585,8 +590,9 @@ CK_RV do_EncryptDecryptDES3(struct generated_test_suite_info *tsuite) {
 
 	/** skip test if the slot does not support this mechanism **/
 	if (! mech_supported(slot_id, tsuite->mech.mechanism)){
-		testcase_skip("Slot %u doesn't support %u",
+		testcase_skip("Slot %u doesn't support %s (%u)",
 			(unsigned int) slot_id,
+			mech_to_str(tsuite->mech.mechanism),
 			(unsigned int)tsuite->mech.mechanism);
 		goto testcase_cleanup;
 	}
@@ -708,8 +714,9 @@ CK_RV do_EncryptDecryptUpdateDES3(struct generated_test_suite_info *tsuite) {
 
 	/** skip test if the slot does not support this mechanism **/
 	if (! mech_supported(slot_id, tsuite->mech.mechanism)){
-		testcase_skip("Slot %u doesn't support %u",
+		testcase_skip("Slot %u doesn't support %s (%u)",
 			(unsigned int) slot_id,
+			mech_to_str(tsuite->mech.mechanism),
 			(unsigned int) tsuite->mech.mechanism);
 		goto testcase_cleanup;
 	}
@@ -902,14 +909,16 @@ CK_RV do_WrapUnwrapDES3(struct generated_test_suite_info *tsuite) {
 
 	/** skip test if the slot does not support this mechanism **/
 	if (! mech_supported(SLOT_ID, tsuite->mech.mechanism)){
-		testcase_skip("Slot %u doesn't support %u",
+		testcase_skip("Slot %u doesn't support %s (%u)",
 			(unsigned int) SLOT_ID,
+			mech_to_str(tsuite->mech.mechanism),
 			(unsigned int) tsuite->mech.mechanism);
 		goto testcase_cleanup;
 	}
 	if (! wrap_supported(SLOT_ID, tsuite->mech)){
-		testcase_skip("Slot %u doesn't support %u",
+		testcase_skip("Slot %u doesn't support %s (%u)",
 			(unsigned int) SLOT_ID,
+			mech_to_str(tsuite->mech.mechanism),
 			(unsigned int) tsuite->mech.mechanism);
 		goto testcase_cleanup;
 	}

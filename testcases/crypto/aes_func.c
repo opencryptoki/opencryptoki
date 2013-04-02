@@ -7,6 +7,7 @@
 #include "regress.h"
 #include "aes.h"
 #include "common.c"
+#include "mech_to_str.h"
 
 CK_ULONG key_lens[] = {16, 24, 32};
 
@@ -43,8 +44,9 @@ CK_RV do_EncryptDecryptAES(struct generated_test_suite_info *tsuite)
 	/** skip tests if the slot doesn't support this mechanism **/
 	if (! mech_supported(slot_id, tsuite->mech.mechanism)){
 		testsuite_skip(3,
-			"Slot %u doesn't support %u",
+			"Slot %u doesn't support %s (%u)",
 			(unsigned int) slot_id,
+			mech_to_str(tsuite->mech.mechanism),
 			(unsigned int) tsuite->mech.mechanism);
 		goto testcase_cleanup;
 	}
@@ -190,8 +192,9 @@ CK_RV do_EncryptDecryptUpdateAES(struct generated_test_suite_info *tsuite)
 
 	/** skip test if the slot doesn't support this mechanism **/
 	if (! mech_supported(slot_id, tsuite->mech.mechanism)){
-		testcase_skip("Slot %u doesn't support %u",
+		testcase_skip("Slot %u doesn't support %s (%u)",
 			(unsigned int) slot_id,
+			mech_to_str(tsuite->mech.mechanism),
 			(unsigned int)tsuite->mech.mechanism);
 		goto testcase_cleanup;
 	}
@@ -364,8 +367,9 @@ CK_RV do_EncryptAES(struct published_test_suite_info *tsuite)
 	/** skip test if the slot doesn't support this mechanism **/
 	if (! mech_supported(slot_id, tsuite->mech.mechanism)){
 		testsuite_skip(tsuite->tvcount,
-			"Slot %u doesn't support %u",
+			"Slot %u doesn't support %s (%u)",
 			(unsigned int) slot_id,
+			mech_to_str(tsuite->mech.mechanism),
 			(unsigned int)tsuite->mech.mechanism);
 		goto testcase_cleanup;
 	}
@@ -487,8 +491,10 @@ CK_RV do_EncryptUpdateAES(struct published_test_suite_info *tsuite)
 
 	/** skip test if the slot doesn't support this mechanism **/
 	if (! mech_supported(slot_id, tsuite->mech.mechanism)){
-		testsuite_skip(tsuite->tvcount, "Slot %u doesn't support %u",
+		testsuite_skip(tsuite->tvcount,
+			"Slot %u doesn't support %s (%u)",
 			(unsigned int) slot_id,
+			mech_to_str(tsuite->mech.mechanism),
 			(unsigned int)tsuite->mech.mechanism);
 		goto testcase_cleanup;
 	}
@@ -627,8 +633,9 @@ CK_RV do_DecryptAES(struct published_test_suite_info *tsuite)
 	/** skip test if the slot doesn't support this mechanism **/
 	if (! mech_supported(slot_id, tsuite->mech.mechanism)){
 		testsuite_skip(tsuite->tvcount,
-			"Slot %u doesn't support %u",
+			"Slot %u doesn't support %s (%u)",
 			(unsigned int) slot_id,
+			mech_to_str(tsuite->mech.mechanism),
 			(unsigned int)tsuite->mech.mechanism);
 		goto testcase_cleanup;
 	}
@@ -748,8 +755,9 @@ CK_RV do_DecryptUpdateAES(struct published_test_suite_info *tsuite)
 	/** skip tests if the slot doesn't support this mechanism **/
 	if (! mech_supported(slot_id, tsuite->mech.mechanism)){
 		testsuite_skip(tsuite->tvcount,
-			"Slot %u doesn't support %u",
+			"Slot %u doesn't support %s (%u)",
 			(unsigned int) slot_id,
+			mech_to_str(tsuite->mech.mechanism),
 			(unsigned int)tsuite->mech.mechanism);
 		goto testcase_cleanup;
 	}
@@ -897,15 +905,17 @@ CK_RV do_WrapUnwrapAES(struct generated_test_suite_info *tsuite)
 	/** skip test if the slot doesn't support this mechanism **/
 	if (! mech_supported(slot_id, tsuite->mech.mechanism)){
 		testsuite_skip(3,
-			"Slot %u doesn't support %u",
+			"Slot %u doesn't support %s (%u)",
 			(unsigned int) slot_id,
+			mech_to_str(tsuite->mech.mechanism),
 			(unsigned int)tsuite->mech.mechanism);
 		goto testcase_cleanup;
 	}
 
 	if (!wrap_supported(slot_id, tsuite->mech)) {
-		testsuite_skip(3, "Slot %u doesn't support %u",
+		testsuite_skip(3, "Slot %u doesn't support %s (%u)",
 			(unsigned int) slot_id,
+			mech_to_str(tsuite->mech.mechanism),
 			(unsigned int)tsuite->mech.mechanism);
 		goto testcase_cleanup;
 	}
@@ -1121,8 +1131,9 @@ CK_RV do_WrapUnwrapRSA(struct generated_test_suite_info *tsuite)
 	/** skip test if the slot doesn't support this mechanism **/
 	if (! mech_supported(slot_id, tsuite->mech.mechanism)){
 		testsuite_skip(3,
-			"Slot %u doesn't support %u",
+			"Slot %u doesn't support %s (%u)",
 			(unsigned int) slot_id,
+			mech_to_str(tsuite->mech.mechanism),
 			(unsigned int)tsuite->mech.mechanism);
 		goto testcase_cleanup;
 	}
