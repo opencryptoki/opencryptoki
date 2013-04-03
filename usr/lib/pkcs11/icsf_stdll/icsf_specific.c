@@ -3036,7 +3036,7 @@ token_specific_find_objects_init(SESSION *sess, CK_ATTRIBUTE *pTemplate,
 		rc = icsf_list_objects(session_state->ld, &reason, token_name,
 				       ulCount, pTemplate, previous, records,
 				       &records_len, 0);
-		if (rc != CKR_OK) {
+		if (ICSF_RC_IS_ERROR(rc)) {
 			OCK_LOG_DEBUG("Failed to list objects.\n");
 			rc = icsf_to_ock_err(rc, reason);
 			goto done;
@@ -3098,16 +3098,18 @@ token_specific_find_objects_init(SESSION *sess, CK_ATTRIBUTE *pTemplate,
 				sess->find_count++;
 
 				if (sess->find_count >= sess->find_len) {
-					sess->find_len += MAX_RECORDS;
-					sess->find_list = (CK_OBJECT_HANDLE *)
-						realloc(sess->find_list,
-							sess->find_len *
+					void *find_list;
+					size_t find_len = sess->find_len + MAX_RECORDS;
+					find_list = realloc(sess->find_list,
+							find_len *
 							sizeof(CK_OBJECT_HANDLE));
-					if (sess->find_list) {
+					if (!find_list) {
 						OCK_LOG_ERR(ERR_HOST_MEMORY);
 						rc = CKR_HOST_MEMORY;
 						goto done;
 					}
+					sess->find_list = find_list;
+					sess->find_len = find_len;
 				}
 			}
 		}
