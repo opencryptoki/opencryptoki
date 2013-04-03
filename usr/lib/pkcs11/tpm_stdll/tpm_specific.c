@@ -194,6 +194,27 @@ CK_RV
 token_specific_init(char *Correlator, CK_SLOT_ID SlotNumber, char *conf_name)
 {
 	TSS_RESULT result;
+	char path_buf[PATH_MAX], fname[PATH_MAX];
+	struct stat statbuf;
+
+	// if the user specific directory doesn't exist, create it
+	sprintf(path_buf, "%s", get_pk_dir(fname));
+	if (stat(path_buf, &statbuf) < 0) {
+		if (mkdir(path_buf, S_IRUSR|S_IWUSR|S_IXUSR) == -1) {
+			OCK_LOG_DEBUG("mkdir(%s): %s\n", path_buf, strerror(errno));
+			return CKR_FUNCTION_FAILED;
+		}
+	}
+
+	// now create userdir/TOK_OBJ if it doesn't exist
+	strncat(path_buf, "/", 1);
+	strncat(path_buf, PK_LITE_OBJ_DIR, strlen(PK_LITE_OBJ_DIR));
+	if (stat(path_buf, &statbuf) < 0) {
+		if (mkdir(path_buf, S_IRUSR|S_IWUSR|S_IXUSR) == -1) {
+			OCK_LOG_DEBUG("mkdir(%s): %s\n", path_buf, strerror(errno));
+			return CKR_FUNCTION_FAILED;
+		}
+	}
 
 	if ((result = Tspi_Context_Create(&tspContext))) {
                 OCK_LOG_DEBUG("Tspi_Context_Create failed. rc=0x%x\n", result);
