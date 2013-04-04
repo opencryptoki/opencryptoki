@@ -6,6 +6,9 @@
 #include "pkcs11types.h"
 #include "icsf.h"
 
+#define ICSF_CFG_MECH_SIMPLE 0
+#define ICSF_CFG_MECH_SASL   1
+
 /* ICSF specific slot data */
 struct icsf_config {
 	char name[ICSF_TOKEN_NAME_LEN + 1];
@@ -17,6 +20,7 @@ struct icsf_config {
 	char ca_file[PATH_MAX + 1];
 	char cert_file[PATH_MAX + 1];
 	char key_file[PATH_MAX + 1];
+	int mech;
 };
 
 CK_RV

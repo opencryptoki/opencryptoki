@@ -17,10 +17,13 @@
 #define CFG_ADD		0x0001
 #define CFG_LIST	0x0002
 #define CFG_BINDDN	0x0004
-#define CFG_URI		0x0008
-#define CFG_MECH	0x0010
-#define CFG_MECH_SASL	0x0020
-#define CFG_MECH_SIMPLE	0x0040
+#define CFG_CERT        0x0008
+#define CFG_PRIVKEY     0x0010
+#define CFG_CACERT      0x0020
+#define CFG_URI		0x0040
+#define CFG_MECH	0x0080
+#define CFG_MECH_SASL	0x0100
+#define CFG_MECH_SIMPLE	0x0200
 
 #define MAX_RECORDS	10
 #define SALT_SIZE	16
@@ -39,13 +42,24 @@ char *mech = NULL;
 char *cert = NULL;
 char *cacert = NULL;
 char *privkey = NULL;
+unsigned long flags = 0;
 
 void
 usage(char *progname)
 {
-	printf("usage:\t%s [-hl | -a token-name] [-b BINDDN -u URI -m mechanism]\n", progname);
+	printf("usage:\t%s [-h] [-l] [-a token-name] [-b BINDDN] [-u URI]"
+		" [-m MECHANISM]\n", progname);
 	printf("\t-l list available tokens\n");
 	printf("\t-a add specified token\n");
+	printf("\t-b the distinguish name to bind for simple mode\n");
+	printf("\t-C the CA certificate file for SASL mode\n");
+	printf("\t-c the client certificate file for SASL mode\n");
+	printf("\t-k the client private key file for SASL mode\n");
+	printf("\t-u the URI to connect to\n");
+	printf("\t-m the authentication mechanism, "
+	       "it can be 'simple' or 'sasl'\n"
+	       "\t   To use SASL, OpenLDAP configuration must point to the key "
+	       "and certificate files needed.\n");
 	printf("\t-h show this help\n");
 
 	exit(-1);
@@ -163,9 +177,12 @@ remove_file(char *filename)
 	return 0;
 }
 
-static inline const char *
-str(const char *s) {
-	return s ? s : "";
+static void
+add_token_config_entry(FILE *fp, const char *key, const char *value)
+{
+	if (!key || !value)
+		return;
+	fprintf(fp, "%s = \"%s\"\n", key, value);
 }
 
 int
@@ -185,20 +202,22 @@ add_token_config(const char *configname, struct icsf_token_record token, int slo
 
 	/* add the info */
 	fprintf(tfp, "slot %d {\n", slot);
-	fprintf(tfp, "TOKEN_NAME = \"%s\"\n", str(token.name));
-	fprintf(tfp, "TOKEN_MANUFACTURE = \"%s\"\n", str(token.manufacturer));
-	fprintf(tfp, "TOKEN_MODEL = \"%s\"\n", str(token.model));
-	fprintf(tfp, "TOKEN_SERIAL = \"%s\"\n", str(token.serial));
+	add_token_config_entry(tfp, "TOKEN_NAME", token.name);
+	add_token_config_entry(tfp, "TOKEN_MANUFACTURE", token.manufacturer);
+	add_token_config_entry(tfp, "TOKEN_MODEL", token.model);
+	add_token_config_entry(tfp, "TOKEN_SERIAL", token.serial);
+	add_token_config_entry(tfp, "MECH", (flags & CFG_MECH_SIMPLE)
+			? "SIMPLE" : "SASL" );
 
 	/* add BIND info */
 	if (memcmp(mech, "simple", strlen("simple")) == 0) {
-		fprintf(tfp, "BINDDN = \"%s\"\n",  str(binddn));
-		fprintf(tfp, "URI = \"%s\"\n", str(uri));
+		add_token_config_entry(tfp, "BINDDN", binddn);
+		add_token_config_entry(tfp, "URI", uri);
 	} else {
-		fprintf(tfp, "URI = \"%s\"\n", str(uri));
-		fprintf(tfp, "CERT = \"%s\"\n", str(cert));
-		fprintf(tfp, "CACERT = \"%s\"\n", str(cacert));
-		fprintf(tfp, "KEY = \"%s\"\n", str(privkey));
+		add_token_config_entry(tfp, "URI", uri);
+		add_token_config_entry(tfp, "CERT", cert);
+		add_token_config_entry(tfp, "CACERT", cacert);
+		add_token_config_entry(tfp, "KEY", privkey);
 	}
 
 	fprintf(tfp, "}\n");
@@ -258,7 +277,8 @@ config_add_slotinfo(int num_of_slots, struct icsf_token_record *tokens)
 		/* write the token info to the token's config file */
 		rc = add_token_config(configname, tokens[i], start_slot);
 		if (rc == -1) {
-			fprintf(stderr, "failed to add %s token.\n", tokens[i].name);
+			fprintf(stderr, "failed to add %s token.\n",
+				tokens[i].name);
 			/* skip adding this entry */
 			continue;
 		}
@@ -270,7 +290,8 @@ config_add_slotinfo(int num_of_slots, struct icsf_token_record *tokens)
 		fprintf(fp, "}\n");
 		fflush(fp);
 		if (ferror(fp) != 0) {
-			fprintf(stderr, "Failed to add an entry for %s token:%s\n", tokens[i].name, strerror(errno));
+			fprintf(stderr, "Failed to add an entry for %s token: "
+				"%s\n", tokens[i].name, strerror(errno));
 			remove_file(configname);
 			continue;
 		}
@@ -308,7 +329,6 @@ list_tokens(void)
 				tokens[i].manufacturer,
 				tokens[i].model, tokens[i].serial,
 				tokens[i].flags ? "yes" : "no");
-			
 			num_seen++;
 		}
 
@@ -458,54 +478,76 @@ main(int argc, char **argv)
 	unsigned char *ret;
 	char *tokenname = NULL;
 	int c;
-	unsigned long flags = 0;
 	int rc = 0;
 	struct icsf_token_record found_token;
 
-	while ((c = getopt(argc, argv, "hla:b:u:m:")) != (-1)) {
+	while ((c = getopt(argc, argv, "hla:b:u:m:k:c:C:")) != (-1)) {
 		switch (c) {
 		case 'a':
 			flags |= CFG_ADD;
-			if ((tokenname = malloc(strlen(optarg)+1)) == NULL) {
+			if ((tokenname = strdup(optarg)) == NULL) {
 				rc = -1;
-				fprintf(stderr, "malloc failed: line %s\n",
+				fprintf(stderr, "strdup failed: line %s\n",
 					__LINE__);
 				goto cleanup;
 			}
-			memcpy(tokenname, optarg, strlen(optarg)+1);
 			break;
 		case 'l':
 			flags |= CFG_LIST;
 			break;
 		case 'b':
 			flags |= CFG_BINDDN;
-			if ((binddn = malloc(strlen(optarg)+1)) == NULL) {
+			if ((binddn = strdup(optarg)) == NULL) {
 				rc = -1;
-				fprintf(stderr, "malloc failed: line %s\n",
+				fprintf(stderr, "strdup failed: line %s\n",
 					__LINE__);
 				goto cleanup;
 			}
-			memcpy(binddn, optarg, strlen(optarg)+1);
+			break;
+		case 'c':
+			flags != CFG_CERT;
+			if ((cert = strdup(optarg)) == NULL) {
+				rc = -1;
+				fprintf(stderr, "strdup failed: line %s\n",
+					__LINE__);
+				goto cleanup;
+			}
+			break;
+		case 'k':
+			flags != CFG_PRIVKEY;
+			if ((privkey = strdup(optarg)) == NULL) {
+				rc = -1;
+				fprintf(stderr, "strdup failed: line %s\n",
+					__LINE__);
+				goto cleanup;
+			}
+			break;
+		case 'C':
+			flags != CFG_CACERT;
+			if ((cacert = strdup(optarg)) == NULL) {
+				rc = -1;
+				fprintf(stderr, "strdup failed: line %s\n",
+					__LINE__);
+				goto cleanup;
+			}
 			break;
 		case 'u':
 			flags |= CFG_URI;
-			if ((uri = malloc(strlen(optarg)+1)) == NULL) {
+			if ((uri = strdup(optarg)) == NULL) {
 				rc = -1;
-				fprintf(stderr, "malloc failed: line %s\n",
+				fprintf(stderr, "strdup failed: line %s\n",
 					__LINE__);
 				goto cleanup;
 			}
-			memcpy(uri, optarg, strlen(optarg)+1);
 			break;
 		case 'm':
 			flags |= CFG_MECH;
-			if ((mech = malloc(strlen(optarg)+1)) == NULL) {
+			if ((mech = strdup(optarg)) == NULL) {
 				rc = -1;
-				fprintf(stderr, "malloc failed: line %s\n",
+				fprintf(stderr, "strdup failed: line %s\n",
 					__LINE__);
 				goto cleanup;
 			}
-			memcpy(mech, optarg, strlen(optarg)+1);
 			if (memcmp(mech, SASL, sizeof(SASL)) == 0)
 				flags |= CFG_MECH_SASL;
 			else
@@ -553,6 +595,15 @@ main(int argc, char **argv)
 	if ((flags & CFG_MECH_SASL) && (flags & CFG_MECH_SIMPLE))
 		usage(argv[0]);
 
+	/* Cannot specify bind DN with SASL */
+	if ((flags & CFG_MECH_SASL) && (flags & CFG_BINDDN))
+		usage(argv[0]);
+
+	/* Cannot specify certs or key with SIMPLE */
+	if ((flags & CFG_MECH_SIMPLE)
+			&& (flags & (CFG_CERT | CFG_PRIVKEY | CFG_CACERT)))
+		usage(argv[0]);
+
 	/* get racf password if needed */
 	if ((flags & CFG_ADD) || (flags & CFG_LIST)) {
 		if (flags & CFG_MECH_SIMPLE) {
@@ -581,7 +632,8 @@ main(int argc, char **argv)
 		if (memcmp(tokenname, "all", strlen(tokenname)) == 0) {
 			rc = retrieve_all();
 			if (rc) {
-				fprintf(stderr, "Could not add the list of tokens.\n");
+				fprintf(stderr, "Could not add the list of "
+						"tokens.\n");
 				goto cleanup;
 			}
 		} else {
@@ -624,6 +676,12 @@ cleanup:
 		free(tokenname);
 	if (binddn)
 		free(binddn);
+	if (cert)
+		free(cert);
+	if (privkey)
+		free(privkey);
+	if (cacert)
+		free(cacert);
 	if (uri)
 		free(uri);
 	if (mech)

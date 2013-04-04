@@ -234,6 +234,7 @@ struct slot_data {
 	char ca_file[PATH_MAX + 1];
 	char cert_file[PATH_MAX + 1];
 	char key_file[PATH_MAX + 1];
+	int mech;
 };
 struct slot_data *slot_data[MAX_SLOT_ID + 1];
 
@@ -390,6 +391,7 @@ token_specific_init_token_data(CK_SLOT_ID slot_id)
 	strcpy(slot_data[slot_id]->cert_file, config.cert_file);
 	strcpy(slot_data[slot_id]->key_file, config.key_file);
 	slot_data[slot_id]->initialized = 1;
+	slot_data[slot_id]->mech = config.mech;
 
 done:
 	XProcUnLock();
@@ -536,7 +538,7 @@ login(LDAP **ld, CK_SLOT_ID slot_id, CK_BYTE *pin, CK_ULONG pin_len,
 
 	XProcUnLock();
 
-	if (*data.dn) {
+	if (data.mech == ICSF_CFG_MECH_SIMPLE) {
 		CK_BYTE mk[MAX_KEY_SIZE];
 		CK_BYTE racf_pass[PIN_SIZE];
 		int mk_len = sizeof(mk);
@@ -595,10 +597,9 @@ reset_token_data(CK_SLOT_ID slot_id, CK_CHAR_PTR pin, CK_ULONG pin_len)
 	int racf_pass_len = sizeof(racf_pass);
 	char token_name[sizeof(nv_token_data->token_info.label)];
 	CK_BYTE pk_dir_buf[PATH_MAX], fname[PATH_MAX];
-	CK_BBOOL simple = slot_data[slot_id]->dn[0];
 
 	/* Remove user's masterkey */
-	if (simple) {
+	if (slot_data[slot_id]->mech == ICSF_CFG_MECH_SIMPLE) {
 		sprintf(fname, "%s/MK_USER", get_pk_dir(pk_dir_buf));
 		if (unlink(fname) && errno == ENOENT)
 			OCK_LOG_DEBUG("Failed to remove \"%s\".\n", fname);
@@ -646,7 +647,7 @@ reset_token_data(CK_SLOT_ID slot_id, CK_CHAR_PTR pin, CK_ULONG pin_len)
 	memset(nv_token_data->user_pin_sha, '0',
 	       sizeof(nv_token_data->user_pin_sha));
 
-	if (simple) {
+	if (slot_data[slot_id]->mech == ICSF_CFG_MECH_SIMPLE) {
 		/* Save master key */
 		if (secure_masterkey(mk, mk_len, pin, pin_len, fname)) {
 			OCK_LOG_DEBUG("Failed to save the new master key.\n");
@@ -771,7 +772,7 @@ token_specific_init_pin(SESSION *sess, CK_CHAR_PTR pPin, CK_ULONG ulPinLen)
 	 * to authenticate to ldao server. The masterkey protects the
 	 * racf passwd.
 	 */
-	if (slot_data[sid]->dn[0]) {
+	if (slot_data[sid]->mech == ICSF_CFG_MECH_SIMPLE) {
 		sprintf(fname, "%s/MK_USER", get_pk_dir(pk_dir_buf));
 
 		rc = secure_masterkey(master_key, AES_KEY_SIZE_256, pPin,
@@ -837,7 +838,7 @@ token_specific_set_pin(SESSION *sess, CK_CHAR_PTR pOldPin, CK_ULONG ulOldLen,
 			return CKR_PIN_INCORRECT;
 		}
 		/* if using simple auth, encrypt masterkey with new pin */
-		if (slot_data[sid]->dn[0]) {
+		if (slot_data[sid]->mech == ICSF_CFG_MECH_SIMPLE) {
 			sprintf (fname, "%s/MK_USER", get_pk_dir(pk_dir_buf));
 			rc = secure_masterkey(master_key, AES_KEY_SIZE_256,
 						pNewPin, ulNewLen, fname);
@@ -871,7 +872,7 @@ token_specific_set_pin(SESSION *sess, CK_CHAR_PTR pOldPin, CK_ULONG ulOldLen,
 			return CKR_PIN_INVALID;
 		}
 
-		if (slot_data[sid]->dn[0]) {
+		if (slot_data[sid]->mech == ICSF_CFG_MECH_SIMPLE) {
 			/*
 			 * if using simle auth, encrypt masterkey with new pin
 			 */
@@ -1095,7 +1096,6 @@ token_specific_login(SESSION *sess, CK_USER_TYPE userType, CK_CHAR_PTR pPin,
 	struct session_state *session_state;
 	int sessions_locked = 0;
 	LDAP *ld;
-	CK_BBOOL simple;
 
 	/* Check Slot ID */
 	if (slot_id < 0 || slot_id > MAX_SLOT_ID) {
@@ -1111,9 +1111,6 @@ token_specific_login(SESSION *sess, CK_USER_TYPE userType, CK_CHAR_PTR pPin,
 	}
 
 	XProcLock();
-
-	/* if dn is NULL, SASL should be used. */
-	simple = slot_data[slot_id]->dn[0];
 
 	if (userType == CKU_USER) {
 		/* check if pin initialized */
@@ -1131,7 +1128,7 @@ token_specific_login(SESSION *sess, CK_USER_TYPE userType, CK_CHAR_PTR pPin,
 		}
 
 		/* now load the master key */
-		if (simple) {
+		if (slot_data[slot_id]->mech == ICSF_CFG_MECH_SIMPLE) {
 			sprintf(fname, "%s/MK_USER", get_pk_dir(pk_dir_buf));
 			rc = get_masterkey(pPin, ulPinLen, fname, master_key,
 					   &mklen);
@@ -1150,7 +1147,7 @@ token_specific_login(SESSION *sess, CK_USER_TYPE userType, CK_CHAR_PTR pPin,
 			goto done;
 		}
 
-		if (simple) {
+		if (slot_data[slot_id]->mech == ICSF_CFG_MECH_SIMPLE) {
 			/* now load the master key */
 			sprintf(fname, "%s/MK_SO", get_pk_dir(pk_dir_buf));
 			rc = get_masterkey(pPin, ulPinLen, fname, master_key,
@@ -1170,7 +1167,7 @@ token_specific_login(SESSION *sess, CK_USER_TYPE userType, CK_CHAR_PTR pPin,
 	}
 
 	/* Check if using sasl or simple auth */
-	if (simple) {
+	if (slot_data[slot_id]->mech == ICSF_CFG_MECH_SIMPLE) {
 		OCK_LOG_DEBUG("Using SIMPLE auth with slot ID: %d\n", slot_id);
 
 		/* get racf passwd */

@@ -18,6 +18,7 @@ extern FILE *yyin;
 CK_SLOT_ID in_slot_id;
 int expected_slot;
 struct icsf_config out_config;
+char out_str_mech[64] = "";
 int out_rc;
 
 /* Function used to report error. */
@@ -35,7 +36,8 @@ struct ref refs[] = {
 	{ "token_manufacture",	out_config.manuf,	sizeof(out_config.manuf),	1 },
 	{ "token_model",	out_config.model,	sizeof(out_config.model),	1 },
 	{ "token_serial",	out_config.serial,	sizeof(out_config.serial),	1 },
-	{ "uri",		out_config.uri,		sizeof(out_config.uri),		1 },
+	{ "mech",		out_str_mech,		sizeof(out_str_mech),		1 },
+	{ "uri",		out_config.uri,		sizeof(out_config.uri),		0 },
 	{ "binddn",		out_config.dn,		sizeof(out_config.dn),		0 },
 	{ "cacert",		out_config.ca_file,	sizeof(out_config.ca_file),	0 },
 	{ "cert",		out_config.cert_file,	sizeof(out_config.cert_file),	0 },
@@ -185,6 +187,16 @@ parse_config_file(const char *conf_name, CK_SLOT_ID slot_id,
 	/* Check required keys*/
 	if (check_keys(conf_name))
 		return CKR_FUNCTION_FAILED;
+
+	/* Parse mechanism type */
+	if (!strcmp(out_str_mech, "SIMPLE")) {
+		out_config.mech = ICSF_CFG_MECH_SIMPLE;
+	} else if (!strcmp(out_str_mech, "SASL")) {
+		out_config.mech = ICSF_CFG_MECH_SASL;
+	} else {
+		OCK_LOG_DEBUG("Unknown mechanism type found: %s\n", out_str_mech);
+		return CKR_FUNCTION_FAILED;
+	}
 
 	/* Copy output data. */
 	memcpy(data, &out_config, sizeof(*data));

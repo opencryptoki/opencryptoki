@@ -264,23 +264,25 @@ icsf_login(LDAP **ld, const char *uri, const char *dn, const char *password)
 	struct berval cred;
 
 	CHECK_ARG_NON_NULL(ld);
-	CHECK_ARG_NON_NULL(uri);
-	CHECK_ARG_NON_NULL(dn);
 	CHECK_ARG_NON_NULL(password);
 
+	/* Handle empty and null string in the same way */
+	uri = (uri && uri[0]) ? uri : NULL;
+	dn = (dn && dn[0]) ? dn : NULL;
+
 	/* Connect to LDAP server */
-	OCK_LOG_DEBUG("Connecting to: %s\n", uri);
+	OCK_LOG_DEBUG("Connecting to: %s\n", uri ? uri : "(null)");
 	rc = ldap_initialize(ld, uri);
 	if (rc != LDAP_SUCCESS) {
-		OCK_LOG_DEBUG("Failed to connect to \"%s\": %s (%d)\n", uri,
-			      ldap_err2string(rc), rc);
+		OCK_LOG_DEBUG("Failed to connect to \"%s\": %s (%d)\n",
+			      uri ? uri : "(null)", ldap_err2string(rc), rc);
 		return -1;
 	}
 
 	if (icsf_force_ldap_v3(*ld))
 		return -1;
 
-	OCK_LOG_DEBUG("Binding with DN: %s\n", dn);
+	OCK_LOG_DEBUG("Binding with DN: %s\n", dn ? dn : "(null)");
 	cred.bv_len = strlen(password);
 	cred.bv_val = (char *) password;
 	rc = ldap_sasl_bind_s(*ld, dn, LDAP_SASL_SIMPLE, &cred, NULL, NULL,
@@ -365,14 +367,16 @@ icsf_sasl_login(LDAP **ld, const char *uri, const char *cert,
 	int rc;
 
 	CHECK_ARG_NON_NULL(ld);
-	CHECK_ARG_NON_NULL(uri);
+
+	/* Handle empty and null string in the same way */
+	uri = (uri && uri[0]) ? uri : NULL;
 
 	/* Connect to LDAP server */
-	OCK_LOG_DEBUG("Connecting to: %s\n", uri);
+	OCK_LOG_DEBUG("Connecting to: %s\n", uri ? uri : "(null)");
 	rc = ldap_initialize(ld, uri);
 	if (rc != LDAP_SUCCESS) {
-		OCK_LOG_DEBUG("Failed to connect to \"%s\": %s (%d)\n", uri,
-			      ldap_err2string(rc), rc);
+		OCK_LOG_DEBUG("Failed to connect to \"%s\": %s (%d)\n",
+			      uri ? uri : "(null)", ldap_err2string(rc), rc);
 		return -1;
 	}
 
