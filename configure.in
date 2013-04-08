@@ -760,6 +760,7 @@ AC_CONFIG_FILES([Makefile usr/Makefile \
 	  man/Makefile \
 	  man/man1/Makefile \
 	  man/man1/pkcsconf.1 \
+	  man/man1/pkcsicsf.1 \
 	  man/man5/Makefile \
 	  man/man5/opencryptoki.conf.5 \
 	  man/man7/Makefile \

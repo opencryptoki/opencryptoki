@@ -1,0 +1,76 @@
+.TH PKCSICSF 1 "April 2013" "@PACKAGE_VERSION@" "openCryptoki"
+.SH NAME
+pkcsicsf \- configuration utility for the ICSF token
+
+.SH SYNOPSIS
+\fBpkcsicsf\fP
+[\fB-h\fP]
+[\fB-l|-a\fP \fItoken name\fP]
+[\fB-b\fP \fIBINDDN\fP]
+[\fB-c\fP \fIclient-cert-file\fP]
+[\fB-C\fP \fICA-cert-file\fP]
+[\fB-k\fP \fIprivatekey\fP]
+[\fB-m\fP \fImechanism\fP]
+[\fB-u\fP \fIURI\fP]
+
+.SH DESCRIPTION
+The \fBpkcsicsf\fP utility lists available ICSF tokens and allows user
+to add one specific ICSF token to opencryptoki.
+
+The ICSF token must be added first to opencryptoki. This creates an
+entry in the opencryptoki.conf file for the ICSF token. It also creates
+ a \fItoken_name.conf\fP configuration file in the same directory as
+the opencryptoki.conf file, containing ICSF specific information.
+This information is read by the ICSF token.
+
+The ICSF token must bind and authenticate to an LDAP server.
+The supported authentication mechanisms are simple and sasl.
+One of these mechanisms must be entered when listing the available
+ICSF tokens or when adding an ICSF token. Opencryptoki currently
+supports adding only one ICSF token.
+
+The system admin can either allow the ldap calls to utilize exisiting
+ldap configs, such as ldap.conf or .ldaprc for bind and
+authentication information or set the bind and authentication
+information within opencryptoki by using this utility and its options.
+The information will then be placed in the \fItoken_name.conf\fP file
+to be used in the ldap calls. When using simple authentication,
+the user will be prompted for the racf password when listing
+or adding a token.
+
+.SH "OPTIONS"
+.IP "\fB-a\fP \fItoken name\fp" 10
+add the specified ICSF token to opencryptoki.
+.IP "\fB-b\fP \fIBINDND\fp" 10
+the distinguish name to bind when using simple authentication
+.IP "\fB-c\fP \fIclient-cert-file" 10
+the client certificate file when using SASL authentication
+.IP "\fB-C\fP \fICA-cert-file\fp" 10
+the CA certificate file when using SASL authentication
+.IP "\fB-h\fP" 10
+show usage information
+.IP "\fB-k\fP \fIprivatekey\fP" 10
+the client private key file when using SASL authentication
+.IP "\fB-m\fP \fImechanism\fp" 10
+the authentication mechanism to use when binding to the LDAP server
+(this should be either \fBsimple\fP or \fBsasl\fP)
+.IP "\fB-l\fP" 10
+list available ICSF tokens
+.IP "\fB-h\fP" 10
+show usage information
+
+.SH "FILES"
+.IP "/etc/opencryptoki/opencryptoki.conf"
+the opencryptoki config file containing token configuration information
+.IP "/etc/opencryptoki/\fItoken_name.conf\fP"
+contains ICSF configuration information for the ICSF token
+
+.SH SEE ALSO
+.PD 0
+.TP
+\fBopencryptoki\fP(7),
+.TP
+\fBpkcsslotd\fP(8).
+.TP
+\fBpkcsconf\fP(8).
+.PD
