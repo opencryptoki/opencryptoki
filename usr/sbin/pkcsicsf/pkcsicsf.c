@@ -47,20 +47,19 @@ unsigned long flags = 0;
 void
 usage(char *progname)
 {
-	printf("usage:\t%s [-h] [-l] [-a token-name] [-b BINDDN] [-u URI]"
+	printf("usage:\t%s [-h] [ -l | -a token-name] [-b BINDDN]"
+		" [-c client-cert-file] [-C CA-cert-file] [-k key] [-u URI]"
 		" [-m MECHANISM]\n", progname);
-	printf("\t-l list available tokens\n");
 	printf("\t-a add specified token\n");
 	printf("\t-b the distinguish name to bind for simple mode\n");
 	printf("\t-C the CA certificate file for SASL mode\n");
 	printf("\t-c the client certificate file for SASL mode\n");
-	printf("\t-k the client private key file for SASL mode\n");
-	printf("\t-u the URI to connect to\n");
-	printf("\t-m the authentication mechanism, "
-	       "it can be 'simple' or 'sasl'\n"
-	       "\t   To use SASL, OpenLDAP configuration must point to the key "
-	       "and certificate files needed.\n");
 	printf("\t-h show this help\n");
+	printf("\t-k the client private key file for SASL mode\n");
+	printf("\t-l list available tokens\n");
+	printf("\t-m the authentication mechanism, "
+	       "it can be 'simple' or 'sasl'\n");
+	printf("\t-u the URI to connect to\n");
 
 	exit(-1);
 }
