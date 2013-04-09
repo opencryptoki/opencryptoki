@@ -382,7 +382,10 @@ extern CK_BYTE   ber_AlgSha1[];
 extern CK_ULONG  ber_AlgSha1Len;
 extern CK_BYTE   ber_AlgSha256[];
 extern CK_ULONG  ber_AlgSha256Len;
-
+extern CK_BYTE   ber_AlgSha384[];
+extern CK_ULONG  ber_AlgSha384Len;
+extern CK_BYTE   ber_AlgSha512[];
+extern CK_ULONG  ber_AlgSha512Len;
 
 extern CK_ULONG           des_weak_count;
 extern CK_ULONG           des_semi_weak_count;

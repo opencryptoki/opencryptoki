@@ -405,6 +405,9 @@ verify_mgr_init( SESSION             * sess,
       case CKM_MD2_RSA_PKCS:
       case CKM_MD5_RSA_PKCS:
       case CKM_SHA1_RSA_PKCS:
+      case CKM_SHA256_RSA_PKCS:
+      case CKM_SHA384_RSA_PKCS:
+      case CKM_SHA512_RSA_PKCS:
          {
             if (mech->ulParameterLen != 0){
                OCK_LOG_ERR(ERR_MECHANISM_PARAM_INVALID);
@@ -720,6 +723,9 @@ verify_mgr_verify( SESSION             * sess,
       case CKM_MD2_RSA_PKCS:
       case CKM_MD5_RSA_PKCS:
       case CKM_SHA1_RSA_PKCS:
+      case CKM_SHA256_RSA_PKCS:
+      case CKM_SHA384_RSA_PKCS:
+      case CKM_SHA512_RSA_PKCS:
          return rsa_hash_pkcs_verify( sess,      ctx,
                                       in_data,   in_data_len,
                                       signature, sig_len );
@@ -800,6 +806,9 @@ verify_mgr_verify_update( SESSION             * sess,
       case CKM_MD2_RSA_PKCS:
       case CKM_MD5_RSA_PKCS:
       case CKM_SHA1_RSA_PKCS:
+      case CKM_SHA256_RSA_PKCS:
+      case CKM_SHA384_RSA_PKCS:
+      case CKM_SHA512_RSA_PKCS:
          return rsa_hash_pkcs_verify_update( sess, ctx, in_data, in_data_len );
 
       case CKM_SSL3_MD5_MAC:
@@ -839,6 +848,9 @@ verify_mgr_verify_final( SESSION             * sess,
       case CKM_MD2_RSA_PKCS:
       case CKM_MD5_RSA_PKCS:
       case CKM_SHA1_RSA_PKCS:
+      case CKM_SHA256_RSA_PKCS:
+      case CKM_SHA384_RSA_PKCS:
+      case CKM_SHA512_RSA_PKCS:
          return rsa_hash_pkcs_verify_final( sess, ctx, signature, sig_len );
 
       case CKM_SSL3_MD5_MAC:
