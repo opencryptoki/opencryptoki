@@ -2599,6 +2599,12 @@ MECH_LIST_ELEMENT mech_list[] = {
 #if !(NOSHA1)
    { CKM_SHA1_RSA_PKCS,             512, 4096, CKF_HW      |
                                                CKF_SIGN    | CKF_VERIFY },
+   { CKM_SHA256_RSA_PKCS,           512, 4096, CKF_HW      |
+                                               CKF_SIGN    | CKF_VERIFY },
+   { CKM_SHA384_RSA_PKCS,           512, 4096, CKF_HW      |
+                                               CKF_SIGN    | CKF_VERIFY },
+   { CKM_SHA512_RSA_PKCS,           512, 4096, CKF_HW      |
+                                               CKF_SIGN    | CKF_VERIFY },
 #endif
 
 
