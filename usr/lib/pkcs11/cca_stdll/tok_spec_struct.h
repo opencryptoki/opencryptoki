@@ -169,6 +169,7 @@ struct token_specific_struct{
 				      CK_ULONG_PTR);
 	CK_RV (*t_get_mechanism_info)(CK_MECHANISM_TYPE,
 				      CK_MECHANISM_INFO_PTR);
+	CK_RV (*t_object_add)(OBJECT *);
 };
 
 typedef struct token_specific_struct token_spec_t;
