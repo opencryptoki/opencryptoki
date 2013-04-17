@@ -153,6 +153,7 @@ sha2_hash( SESSION         *sess,
            CK_ULONG        *out_data_len )
 {
    CK_RV rv;
+   struct cca_sha256_ctx *cca_ctx;
 
    if (!sess || !ctx || !out_data_len){
       OCK_LOG_ERR(ERR_FUNCTION_FAILED);
@@ -169,7 +170,23 @@ sha2_hash( SESSION         *sess,
    if ((rv = ckm_sha2_update(ctx, in_data, in_data_len)))
       return rv;
 
-   return ckm_sha2_final(  ctx, out_data, out_data_len );
+    /* Note: for a single part hash on cca token, CSNBOWH gives us
+     * the hash and there is no need to call final.
+     * Calling final will result in CSNBOWH being called again.
+     * So just copy hash into output buffer here.
+     */
+
+    cca_ctx = (struct cca_sha256_ctx *)ctx->context;
+    if (*out_data_len < cca_ctx->scratch_len) {
+       OCK_LOG_ERR(ERR_BUFFER_TOO_SMALL);
+       return CKR_BUFFER_TOO_SMALL;
+    }
+
+    memcpy(out_data, cca_ctx->scratch, cca_ctx->scratch_len);
+    *out_data_len = cca_ctx->scratch_len;
+
+    return CKR_OK;
+
 }
 
 CK_RV
