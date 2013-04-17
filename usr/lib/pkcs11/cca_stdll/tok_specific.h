@@ -219,6 +219,9 @@ CK_RV
 token_specific_get_mechanism_info(CK_MECHANISM_TYPE type,
                                   CK_MECHANISM_INFO_PTR pInfo);
 
+CK_RV
+token_specific_object_add(OBJECT *);
+
 // Elliptic Curve type
 //
 #define PRIME_CURVE		0x00

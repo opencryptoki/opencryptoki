@@ -1188,28 +1188,18 @@ testcase_cleanup:
 
 CK_RV rsa_funcs()
 {
-	int 	i, generate_key;
+	int 	i;
 	CK_RV	rv = CKR_OK;
-
-	generate_key = get_key_type();  // true if slot requires generated
-					// (secure) keys
-
-	if (generate_key == -1){
-		testcase_error("Could not get token info.");
-		return -1;
-	}
 
 	// published (known answer) tests
 	for (i = 0; i < NUM_OF_PUBLISHED_TESTSUITES; i++) {
-		if (!generate_key) {
-			rv = do_SignRSA(&published_test_suites[i]);
-			if (rv != CKR_OK && (!no_stop))
-				break;
+		rv = do_SignRSA(&published_test_suites[i]);
+		if (rv != CKR_OK && (!no_stop))
+			break;
 
-			rv = do_VerifyRSA(&published_test_suites[i]);
-			if (rv != CKR_OK && (!no_stop))
-				break;
-		}
+		rv = do_VerifyRSA(&published_test_suites[i]);
+		if (rv != CKR_OK && (!no_stop))
+			break;
 	}
 
 	// generated sign verify tests

@@ -70,7 +70,8 @@ token_spec_t token_specific  = {
      &token_specific_aes_cbc,
 #endif
      &token_specific_get_mechanism_list,
-     &token_specific_get_mechanism_info
+     &token_specific_get_mechanism_info,
+     &token_specific_object_add
 };
 
 #endif

@@ -1576,7 +1576,7 @@ CK_RV    object_mgr_add_to_map( SESSION          * sess,
 				unsigned long      obj_handle,
                                 CK_OBJECT_HANDLE * handle );
 
-CK_RV    object_mgr_add_to_shm  ( OBJECT *obj );
+void     object_mgr_add_to_shm  ( OBJECT *obj );
 CK_RV    object_mgr_del_from_shm( OBJECT *obj );
 CK_RV    object_mgr_check_shm   ( OBJECT *obj );
 CK_RV    object_mgr_search_shm_for_obj( TOK_OBJ_ENTRY  * list,
