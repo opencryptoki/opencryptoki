@@ -21,7 +21,6 @@
  *
  * 1) create a data object
  * 2) create a certificate
- * 3) create a key object
  */
 CK_RV do_CreateSessionObject(void)
 {
@@ -32,7 +31,6 @@ CK_RV do_CreateSessionObject(void)
 	CK_BYTE           user_pin[PKCS11_MAX_PIN_LEN];
 	CK_ULONG          user_pin_len;
 
-	CK_BYTE           true  = TRUE;
 	CK_BYTE           false = FALSE;
 
 	CK_OBJECT_HANDLE  h_data;
@@ -61,20 +59,6 @@ CK_RV do_CreateSessionObject(void)
 		{CKA_SUBJECT,          &cert_subject,     sizeof(cert_subject) },
 		{CKA_ID,               &cert_id,          sizeof(cert_id)      },
 		{CKA_VALUE,            &cert_value,       sizeof(cert_value)   }
-	};
-
-	CK_OBJECT_HANDLE  h_key;
-	CK_OBJECT_CLASS   key_class          = CKO_PUBLIC_KEY;
-	CK_KEY_TYPE       key_type           = CKK_RSA;
-	CK_BYTE           key_modulus[]      = "1234567890987654321";
-	CK_BYTE           key_exponent[]     = "123";
-	CK_ATTRIBUTE      key_attribs[] =
-	{
-		{CKA_CLASS,           &key_class,    sizeof(key_class)    },
-		{CKA_KEY_TYPE,        &key_type,     sizeof(key_type)     },
-		{CKA_WRAP,            &true,         sizeof(true)         },
-		{CKA_MODULUS,         &key_modulus,  sizeof(key_modulus)  },
-		{CKA_PUBLIC_EXPONENT, &key_exponent, sizeof(key_exponent) }
 	};
 
 	testcase_begin("starting...");
@@ -112,12 +96,6 @@ CK_RV do_CreateSessionObject(void)
 	}
 
 	rc = funcs->C_CreateObject(h_session, cert_attribs, 6, &h_cert);
-	if (rc != CKR_OK) {
-		testcase_fail("C_CreateObject() rc = %s", p11_get_ckr(rc));
-		return rc;
-	}
-
-	rc = funcs->C_CreateObject(h_session, key_attribs, 5, &h_key);
 	if (rc != CKR_OK) {
 		testcase_fail("C_CreateObject() rc = %s", p11_get_ckr(rc));
 		return rc;
