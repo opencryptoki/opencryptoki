@@ -1,9 +1,9 @@
 opencryptoki README
-Package version 2.4.1
+Package version 2.4.3
 
 OVERVIEW
 
-openCryptoki version 2.4.1 implements the PKCS#11 specification version 2.11.
+openCryptoki version 2.4.3 implements the PKCS#11 specification version 2.11.
 This package includes several cryptographic tokens; CCA, ICA, TPM and SWToken.
 
 REQUIREMENTS:
