@@ -2014,8 +2014,8 @@ rsa_import_privkey_crt(TEMPLATE *priv_tmpl)
 
 	/* Now build a key token with the imported public key */
 
-	rule_array_count = 1;
-	memcpy(rule_array, "RSA-CRT ", (size_t)(CCA_KEYWORD_SIZE * 1));
+	rule_array_count = 2;
+	memcpy(rule_array, "RSA-CRT KEY-MGMT", (size_t)(CCA_KEYWORD_SIZE * 2));
 
 	private_key_name_length = 0;
 
