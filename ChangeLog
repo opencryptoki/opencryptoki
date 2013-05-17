@@ -1,3 +1,6 @@
+* opencryptoki-2.4.3.1 (May 17, 2013)
+- Allow imported rsa private keys in cca to also decrypt.
+
 * opencryptoki-2.4.3 (April 29, 2013)
 - CKM_SHA256_RSA_PKCS,CKM_SHA384_RSA_PKCS,CKM_SHA512_RSA_PKCS support
   for ICA token.
