@@ -589,102 +589,18 @@ void DestroySharedMemory ( void ) {
 
 int InitSharedMemory ( Slot_Mgr_Shr_t *sp ) {
 
-   CK_INFO_PTR_64      ckinf = NULL;
-   CK_VERSION_PTR      ckver;
-   CK_SLOT_ID          id;
-   uint16              procindex;
-   char *package_version_tmp;
-   char *tok_str;
-   CK_BYTE lib_major;
-   CK_BYTE lib_minor;
+   uint16 procindex;
    int processed = 0;
 
-   ckinf = &(sp->ck_info);
-   ckver = &(ckinf->cryptokiVersion);
-   
 
-   ckver->major = CRYPTOKI_API_MAJOR_V;
-   ckver->minor = CRYPTOKI_API_MINOR_V;
-
-   sp->ck_info.cryptokiVersion.major = CRYPTOKI_API_MAJOR_V;
-
-   memset ( ckinf->manufacturerID,      ' ', sizeof(ckinf->manufacturerID)     );
-   memset ( ckinf->libraryDescription,  ' ', sizeof(ckinf->libraryDescription) );
-
-   memcpy ( ckinf->manufacturerID,     MFG, strlen(MFG) );
-   memcpy ( ckinf->libraryDescription, LIB, strlen(LIB) );
-
-   ckver = &(ckinf->libraryVersion);
-
-   ckver->major = LIB_MAJOR_V;
-   ckver->minor = LIB_MINOR_V;
-
-#ifdef PACKAGE_VERSION
-   package_version_tmp = malloc(strlen(PACKAGE_VERSION)+1);
-   if (package_version_tmp) {
-	   strcpy(package_version_tmp, PACKAGE_VERSION);
-	   tok_str = strtok(package_version_tmp, ".");
-	   if (tok_str) {
-		   lib_major = (CK_BYTE)atoi(tok_str);
-		   tok_str = strtok(NULL, ".");
-		   if (tok_str) {
-			   lib_minor = (CK_BYTE)atoi(tok_str);
-			   ckver->major = lib_major;
-			   ckver->minor = lib_minor;
-		   } 
-	   }
-	   free(package_version_tmp);
-   }
-#endif
+   PopulateCKInfo(&(sp->ck_info));
 
    /*  
     *  populate the Slot entries...
     */
-
    sp->num_slots = NumberSlotsInDB;
 
-   for (id = 0; id < NUMBER_SLOTS_MANAGED; id++) {
-
-        if (sinfo[id].present == FALSE)
-	   /* skip empty slots and just note the slot number */
-           sp->slot_info[id].slot_number = id;
-        else {
-           sp->slot_info[id].slot_number    = sinfo[id].slot_number;
-           sp->slot_info[id].present        = sinfo[id].present;
-           sp->slot_info[id].pk_slot.flags  = sinfo[id].pk_slot.flags;
-
-           memcpy(sp->slot_info[id].dll_location, sinfo[id].dll_location, strlen(sinfo[id].dll_location));
-
-           memcpy(sp->slot_info[id].confname, sinfo[id].confname, strlen(sinfo[id].confname));
-
-	   /* pkcs#11v2.20 says these should be padded with
-	    * spaces and NOT null terminated.
-	    */
-           memset(sp->slot_info[id].pk_slot.slotDescription, ' ',
-                  sizeof(sp->slot_info[id].pk_slot.slotDescription));
-
-           memset(sp->slot_info[id].pk_slot.manufacturerID, ' ',
-                  sizeof(sp->slot_info[id].pk_slot.manufacturerID));
-
-           memcpy(sp->slot_info[id].pk_slot.slotDescription,
-                  sinfo[id].pk_slot.slotDescription,
-                 sizeof(sinfo[id].pk_slot.slotDescription));
-
-           memcpy(sp->slot_info[id].pk_slot.manufacturerID,
-                  sinfo[id].pk_slot.manufacturerID,
-                  sizeof(sinfo[id].pk_slot.manufacturerID));
-
-           memcpy(&sp->slot_info[id].pk_slot.hardwareVersion,
-                  &sinfo[id].pk_slot.hardwareVersion,
-                  sizeof(sinfo[id].pk_slot.hardwareVersion));
-
-           memcpy(&sp->slot_info[id].pk_slot.firmwareVersion,
-                  &sinfo[id].pk_slot.firmwareVersion,
-                  sizeof(sinfo[id].pk_slot.firmwareVersion));
-
-           processed++;
-        }
-   }
+   PopulateSlotInfo(sp->slot_info, processed);
 
    /* check that we read in correct amount of slots */
    if (processed != NumberSlotsInDB) {
@@ -701,4 +617,3 @@ int InitSharedMemory ( Slot_Mgr_Shr_t *sp ) {
       
    return TRUE;
 }
-

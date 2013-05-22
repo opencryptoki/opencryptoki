@@ -1,9 +1,4 @@
 /*
- * $Header: /cvsroot/opencryptoki/opencryptoki/usr/sbin/pkcsslotd/pkcsslotd.h,v 1.3 2006/04/05 20:07:48 kyoder Exp $
- */
-
-
-/*
              Common Public License Version 0.5
 
              THE ACCOMPANYING PROGRAM IS PROVIDED UNDER THE TERMS OF
@@ -291,108 +286,117 @@
 
 */
 
-/* (C) COPYRIGHT International Business Machines Corp. 2001          */
+/* (C) COPYRIGHT Google Inc. 2013 */
 
+#include <stdlib.h>
+#include <string.h>
+#include <stdio.h>
 
-/***********************************************************************
- * 
- *  Slot Manager Daemon header file
- * 
- ***********************************************************************/
+#include "slotmgr.h"
+#include "log.h"
+#include "pkcsslotd.h"
 
+void
+PopulateCKInfo(CK_INFO_PTR_64 ckinf)
+{
 
+	CK_VERSION_PTR ckver;
+	char *package_version_tmp;
+	char *tok_str;
+	CK_BYTE lib_major;
+	CK_BYTE lib_minor;
 
-#ifndef _PKCSSLOTMGR_H
-#define _PKCSSLOTMGR_H 1
+	ckver = &(ckinf->cryptokiVersion);
 
-/***********
- * Defines *
- ***********/
+	ckver->major = CRYPTOKI_API_MAJOR_V;
+	ckver->minor = CRYPTOKI_API_MINOR_V;
 
-#ifdef DEV
-    #ifndef BECOME_DAEMON
-        #define BECOME_DAEMON          FALSE
-    #endif /* BECOME_DAEMON */
+	memset(ckinf->manufacturerID, ' ', sizeof(ckinf->manufacturerID));
+	memset(ckinf->libraryDescription, ' ',
+	       sizeof(ckinf->libraryDescription));
 
-    #ifndef DEFAULT_LOG_FILE
-        #define DEFAULT_LOG_FILE   (TOK_PATH ".log")
-    #endif /* DEFAULT_LOG_FILE */
+	memcpy(ckinf->manufacturerID, MFG, strlen(MFG));
+	memcpy(ckinf->libraryDescription, LIB, strlen(LIB));
 
-    #ifndef DEFAULT_DEBUG_LEVEL
-      #define DEFAULT_DEBUG_LEVEL DEBUG_LEVEL0
-    #endif /* DEFAULT_DEBUG_LEVEL */
+	ckver = &(ckinf->libraryVersion);
 
+	ckver->major = LIB_MAJOR_V;
+	ckver->minor = LIB_MINOR_V;
 
+#ifdef PACKAGE_VERSION
+	package_version_tmp = malloc(strlen(PACKAGE_VERSION)+1);
+	if (package_version_tmp) {
+		strcpy(package_version_tmp, PACKAGE_VERSION);
+		tok_str = strtok(package_version_tmp, ".");
+		if (tok_str) {
+			lib_major = (CK_BYTE)atoi(tok_str);
+			tok_str = strtok(NULL, ".");
+			if (tok_str) {
+				lib_minor = (CK_BYTE)atoi(tok_str);
+				ckver->major = lib_major;
+				ckver->minor = lib_minor;
+			}
+		}
+		free(package_version_tmp);
+	}
+#endif
 
-#else /* DEV not defined */
-    #define BECOME_DAEMON          TRUE
-    #define DEFAULT_DEBUG_LEVEL    DEBUG_NONE
+}
 
-#endif /* DEV */
+void
+PopulateSlotInfo(Slot_Info_t_64 *slot_info, int *processed)
+{
+	CK_SLOT_ID id;
+	int slot_count = 0;
 
-/********************
- * Global Variables *
- ********************/
+	/*
+	 *  populate the Slot entries...
+	 */
 
-    extern Slot_Mgr_Shr_t        *shmp;     // pointer to the shared memory region.
-    extern int                    shmid;
-    extern key_t                  tok;
+	for (id=0; id < NUMBER_SLOTS_MANAGED; id++) {
 
-    extern Slot_Info_t_64            sinfo[NUMBER_SLOTS_MANAGED];
+		if (sinfo[id].present == FALSE)
+			/* skip empty slots and just note the slot number */
+			slot_info[id].slot_number = id;
+		else {
+			slot_info[id].slot_number = sinfo[id].slot_number;
+			slot_info[id].present = sinfo[id].present;
+			slot_info[id].pk_slot.flags = sinfo[id].pk_slot.flags;
 
-    extern unsigned char          NumberSlotsInDB;
+			memcpy(slot_info[id].dll_location,
+			       sinfo[id].dll_location,
+			       strlen(sinfo[id].dll_location));
 
+			memcpy(slot_info[id].confname, sinfo[id].confname,
+			       strlen(sinfo[id].confname));
 
-/***********************
- * Function Prototypes *
- ***********************/
+			/* pkcs#11v2.20 says these should be padded with
+			 * spaces and NOT null terminated.
+			 */
+			memset(slot_info[id].pk_slot.slotDescription, ' ',
+			       sizeof(slot_info[id].pk_slot.slotDescription));
 
+			memset(slot_info[id].pk_slot.manufacturerID, ' ',
+			       sizeof(slot_info[id].pk_slot.manufacturerID));
 
-/* System non-prototyped functions causing warnings */
-/* Still throws a warning; sigh - SCM */
-/* int             *_Errno();*/   /* pointer to function which returns int */
+			memcpy(slot_info[id].pk_slot.slotDescription,
+			       sinfo[id].pk_slot.slotDescription,
+			       sizeof(sinfo[id].pk_slot.slotDescription));
 
+			memcpy(slot_info[id].pk_slot.manufacturerID,
+				sinfo[id].pk_slot.manufacturerID,
+				sizeof(sinfo[id].pk_slot.manufacturerID));
 
-/* daemon.c */
-extern BOOL	IsDaemon ( void );
-extern BOOL	GetStartDirectory ( char *Buffer, u_int32 BufSize );
-extern BOOL	SaveStartupDirectory ( char *Arg0 );
+			memcpy(&slot_info[id].pk_slot.hardwareVersion,
+			       &sinfo[id].pk_slot.hardwareVersion,
+			       sizeof(sinfo[id].pk_slot.hardwareVersion));
 
+			memcpy(&slot_info[id].pk_slot.firmwareVersion,
+			       &sinfo[id].pk_slot.firmwareVersion,
+			       sizeof(sinfo[id].pk_slot.firmwareVersion));
 
-/* garbage.c */
-extern BOOL	StopGCThread    ( void *Ptr );
-extern BOOL	StartGCThread   ( Slot_Mgr_Shr_t *MemPtr );
-extern BOOL	CheckForGarbage ( Slot_Mgr_Shr_t *MemPtr );
-
-
-
-/* mutex.c */
-extern int	InitializeMutexes ( void );
-extern int	DestroyMutexes ( void );
-
-
-
-/* shmem.c */
-extern int	CreateSharedMemory ( void );
-extern int	AttachToSharedMemeory ( void );
-extern int	InitSharedMemory ( Slot_Mgr_Shr_t *sp );
-extern void	DetachFromSharedMemory ( void );
-extern void	DestroySharedMemory ( void );
-
-/* signal.c */
-extern int	SetupSignalHandlers ( void );
-extern void	slotdGenericSignalHandler( int Signal );
-
-
-/* pkcsslotd_util.c */
-void PopulateCKInfo( CK_INFO_PTR_64 ckinf );
-
-/* Cross Process locking */
-extern int	XProcLock(void);
-extern int	XProcUnLock(void);
-extern int	CreateXProcLock(void);
-
-
-#endif /* _SLOTMGR_H */
-
-
+			slot_count++;
+		}
+	}	
+	*processed = slot_count;
+}
