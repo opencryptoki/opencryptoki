@@ -2166,8 +2166,6 @@ CK_RV C_GetFunctionStatus(CK_SESSION_HANDLE hSession)
 //
 //------------------------------------------------------------------------
 
-#ifdef PKCS64
-
 CK_RV C_GetInfo(CK_INFO_PTR pInfo)
 {
 	Slot_Mgr_Shr_t *shm;
@@ -2184,44 +2182,11 @@ CK_RV C_GetInfo(CK_INFO_PTR pInfo)
 	}
 
 	shm = Anchor->SharedMemP;
-
-	memset(pInfo, 0, sizeof(*pInfo));
-
-	pInfo->cryptokiVersion = shm->ck_info.cryptokiVersion;
-	memset(pInfo->manufacturerID, '\0', 32);
-	memcpy(pInfo->manufacturerID, &(shm->ck_info.manufacturerID), 32);
-	pInfo->flags = shm->ck_info.flags;
-	memcpy(pInfo->libraryDescription, &(shm->ck_info.libraryDescription),
-	       32);
-	pInfo->libraryVersion = shm->ck_info.libraryVersion;
+	CK_Info_From_Internal(pInfo, &(shm->ck_info));
 
 	return CKR_OK;
 }				// end of C_GetInfo
 
-#else
-
-CK_RV C_GetInfo(CK_INFO_PTR pInfo)
-{
-	Slot_Mgr_Shr_t *shm;
-
-	OCK_LOG_DEBUG("C_GetInfo\n");
-	if (!API_Initialized()) {
-		OCK_LOG_ERR(ERR_CRYPTOKI_NOT_INITIALIZED);
-		return CKR_CRYPTOKI_NOT_INITIALIZED;
-	}
-
-	if (!pInfo) {
-		OCK_LOG_ERR(ERR_FUNCTION_FAILED);
-		return CKR_FUNCTION_FAILED;
-	}
-
-	shm = Anchor->SharedMemP;
-	memcpy(pInfo, &(shm->ck_info), sizeof(CK_INFO));
-
-	return CKR_OK;
-}				// end of C_GetInfo
-
-#endif
 
 //------------------------------------------------------------------------
 // API function C_GetMechanismInfo

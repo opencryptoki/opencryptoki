@@ -332,6 +332,8 @@ int Valid_Session(CK_SESSION_HANDLE, ST_SESSION_T *);
 void DL_UnLoad( API_Slot_t  *, CK_SLOT_ID);
 void DL_Unload(API_Slot_t  *);
 
+void CK_Info_From_Internal (CK_INFO_PTR dest, CK_INFO_PTR_64 src);
+
 int sessions_exist(CK_SLOT_ID);
 
 #ifdef DEBUG
