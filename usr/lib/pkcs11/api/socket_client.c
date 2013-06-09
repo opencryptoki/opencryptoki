@@ -356,7 +356,7 @@ init_socket_data() {
 
 	close(socketfd);
 
-	memcpy(&(Anchor->SocketDataP.ck_info), &daemon_socket_data,
+	memcpy(&(Anchor->SocketDataP), &daemon_socket_data,
 		sizeof(Slot_Mgr_Socket_t));
 
 	return TRUE;

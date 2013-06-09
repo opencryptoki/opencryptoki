@@ -301,9 +301,10 @@ int		shmid;
 key_t		tok;
 Slot_Info_t_64  sinfo[NUMBER_SLOTS_MANAGED];
 unsigned char NumberSlotsInDB = 0;
-
+#ifdef SLOT_INFO_BY_SOCKET
 int socketfd;
 Slot_Mgr_Socket_t      socketData;
+#endif
 
 /* 
    We make main() able to modify Daemon so that we can 

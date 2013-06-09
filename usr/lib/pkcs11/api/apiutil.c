@@ -461,10 +461,14 @@ int API_Initialized()
 	return TRUE;
 }
 
-int slot_present(id)
-CK_SLOT_ID id;
+int slot_present(CK_SLOT_ID id)
 {
 	Slot_Mgr_Shr_t *shm;
+#ifdef SLOT_INFO_BY_SOCKET
+	Slot_Mgr_Socket_t *shData = &(Anchor->SocketDataP);
+#else
+	Slot_Mgr_Shr_t *shData = Anchor->SharedMemP;
+#endif
 
 #ifdef PKCS64
 	Slot_Info_t_64 *sinfp;
@@ -472,12 +476,7 @@ CK_SLOT_ID id;
 	Slot_Info_t *sinfp;
 #endif
 
-	// Get pointer to shared memory from the anchor block
-	//
-
-	shm = Anchor->SharedMemP;
-	sinfp = &(shm->slot_info[id]);
-
+	sinfp = &(shData->slot_info[id]);
 	if (sinfp->present == FALSE) {
 		return FALSE;
 	}
@@ -496,14 +495,17 @@ void get_sess_count(CK_SLOT_ID slotID, CK_ULONG * ret)
 
 	XProcLock();
 
+#ifdef SLOT_INFO_BY_SOCKET
+	*ret = shm->slot_global_sessions[slotID];
+#else
 	sinfp = &(shm->slot_info[slotID]);
 	*ret = sinfp->global_sessions;
+#endif
 
 	XProcUnLock();
 }
 
-void incr_sess_counts(slotID)
-CK_SLOT_ID slotID;
+void incr_sess_counts(CK_SLOT_ID slotID)
 {
 	Slot_Mgr_Shr_t *shm;
 
@@ -520,8 +522,12 @@ CK_SLOT_ID slotID;
 
 	XProcLock();
 
+#ifdef SLOT_INFO_BY_SOCKET
+	shm->slot_global_sessions[slotID]++;
+#else
 	sinfp = &(shm->slot_info[slotID]);
 	sinfp->global_sessions++;
+#endif
 
 	procp = &shm->proc_table[Anchor->MgrProcIndex];
 	procp->slot_session_count[slotID]++;
@@ -530,8 +536,7 @@ CK_SLOT_ID slotID;
 
 }
 
-void decr_sess_counts(slotID)
-CK_SLOT_ID slotID;
+void decr_sess_counts(CK_SLOT_ID slotID)
 {
 	Slot_Mgr_Shr_t *shm;
 
@@ -548,10 +553,16 @@ CK_SLOT_ID slotID;
 
 	XProcLock();
 
+#ifdef SLOT_INFO_BY_SOCKET
+	if (shm->slot_global_sessions[slotID] > 0) {
+		shm->slot_global_sessions[slotID]--;
+	}
+#else
 	sinfp = &(shm->slot_info[slotID]);
 	if (sinfp->global_sessions > 0) {
 		sinfp->global_sessions--;
 	}
+#endif
 
 	procp = &shm->proc_table[Anchor->MgrProcIndex];
 	if (procp->slot_session_count[slotID] > 0) {
@@ -569,10 +580,10 @@ CK_SLOT_ID slotID;
 // the token.  The API may need to lock the shared memory prior to creating
 // the session and then unlock when the stdll has completed its work.
 // Closing sessions should probably behave the same way.
-int sessions_exist(slotID)
-CK_SLOT_ID slotID;
+int sessions_exist(CK_SLOT_ID slotID)
 {
 	Slot_Mgr_Shr_t *shm;
+	uint32 numSessions;
 
 #ifdef PKCS64
 	Slot_Info_t_64 *sinfp;
@@ -583,26 +594,18 @@ CK_SLOT_ID slotID;
 	// Get the slot mutex
 	shm = Anchor->SharedMemP;
 
-#ifdef PKCS64
 	XProcLock();
-	sinfp = &(shm->slot_info[slotID]);
-	if (sinfp->global_sessions == 0) {
-		XProcUnLock();
-		return FALSE;
-	}
-	XProcUnLock();
 
+#ifdef SLOT_INFO_BY_SOCKET
+        numSessions = shm->slot_global_sessions[slotID];
 #else
-	XProcLock();
-	sinfp = &(shm->slot_info[slotID]);
-	if (sinfp->global_sessions == 0) {
-		XProcUnLock();
-		return FALSE;
-	}
-	XProcUnLock();
+        sinfp = &(shm->slot_info[slotID]);
+        numSessions = sinfp->global_sessions;
 #endif
 
-	return TRUE;
+	XProcUnLock();
+
+	return numSessions != 0;
 }
 
 // Terminates all sessions associated with a given process
@@ -775,11 +778,13 @@ void API_UnRegister()
 
 }
 
-void DL_UnLoad(sltp, slotID)
-API_Slot_t *sltp;
-CK_SLOT_ID slotID;
+void DL_UnLoad(API_Slot_t *sltp, CK_SLOT_ID slotID)
 {
-	Slot_Mgr_Shr_t *shm;
+#ifdef SLOT_INFO_BY_SOCKET
+	Slot_Mgr_Socket_t *shData =   &(Anchor->SocketDataP);
+#else
+	Slot_Mgr_Shr_t *shData = Anchor->SharedMemP;
+#endif
 
 #ifdef PKCS64
 	Slot_Info_t_64 *sinfp;
@@ -787,8 +792,7 @@ CK_SLOT_ID slotID;
 	Slot_Info_t *sinfp;
 #endif
 
-	shm = Anchor->SharedMemP;
-	sinfp = &(shm->slot_info[slotID]);
+	sinfp = &(shData->slot_info[slotID]);
 
 	if (sinfp->present == FALSE) {
 		return;
@@ -894,8 +898,11 @@ API_Slot_t *sltp;
 
 int DL_Load_and_Init(API_Slot_t *sltp, CK_SLOT_ID slotID, const char *conf_name)
 {
-
-	Slot_Mgr_Shr_t *shm;
+#ifdef SLOT_INFO_BY_SOCKET
+	Slot_Mgr_Socket_t *shData = &(Anchor->SocketDataP);
+#else
+	Slot_Mgr_Shr_t *shData = Anchor->SharedMemP;
+#endif
 
 #ifdef PKCS64
 	Slot_Info_t_64 *sinfp;
@@ -912,8 +919,7 @@ int DL_Load_and_Init(API_Slot_t *sltp, CK_SLOT_ID slotID, const char *conf_name)
 	// Get pointer to shared memory from the anchor block
 	//
 
-	shm = Anchor->SharedMemP;
-	sinfp = &(shm->slot_info[slotID]);
+	sinfp = &(shData->slot_info[slotID]);
 	dllload = Anchor->DLLs;	// list of dll's in the system
 
 	if (sinfp->present == FALSE) {

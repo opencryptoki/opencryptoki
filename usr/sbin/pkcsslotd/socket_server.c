@@ -365,8 +365,18 @@ int CreateListenerSocket (void) {
 
 int InitSocketData (Slot_Mgr_Socket_t *socketData)
 {
+	int processed = 0;
+
 	PopulateCKInfo(&(socketData->ck_info));
-	return TRUE;
+	socketData->num_slots = NumberSlotsInDB;
+	PopulateSlotInfo(socketData->slot_info, &processed);
+
+	/* check that we read in correct amount of slots */
+	if (processed != NumberSlotsInDB) {
+		ErrLog("Failed to populate slot info.\n");
+		return FALSE;
+	} else
+		return TRUE;
 }
 
 int SocketConnectionHandler (int socketfd, int timeout_secs)
@@ -390,7 +400,7 @@ int SocketConnectionHandler (int socketfd, int timeout_secs)
 		return FALSE;
 	} else {
 		struct sockaddr_un address;
-		socklen_t address_length;
+		socklen_t address_length = sizeof(address);
 
 		int connectionfd = accept(socketfd,
 				         (struct sockaddr *) &address,

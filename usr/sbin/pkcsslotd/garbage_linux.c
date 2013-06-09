@@ -585,9 +585,14 @@ BOOL CheckForGarbage ( Slot_Mgr_Shr_t *MemPtr ) {
       /*                         */
       for ( SlotIndex = 0; SlotIndex < NUMBER_SLOTS_MANAGED; SlotIndex++ ) {
 
-
-	unsigned int *pGlobalSessions    = &(MemPtr->slot_info[SlotIndex].global_sessions);
-	unsigned int *pProcSessions      = &(pProc->slot_session_count[SlotIndex]);
+#ifdef SLOT_INFO_BY_SOCKET
+	unsigned int *pGlobalSessions =
+		      &(MemPtr->slot_global_sessions[SlotIndex]);
+#else
+	unsigned int *pGlobalSessions =
+		     &(MemPtr->slot_info[SlotIndex].global_sessions);
+#endif
+	unsigned int *pProcSessions = &(pProc->slot_session_count[SlotIndex]);
 
 	if ( *pProcSessions > 0 ) {
 

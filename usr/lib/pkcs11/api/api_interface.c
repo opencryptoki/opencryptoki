@@ -2493,8 +2493,12 @@ CK_RV C_GetSessionInfo(CK_SESSION_HANDLE hSession, CK_SESSION_INFO_PTR pInfo)
 CK_RV C_GetSlotInfo(CK_SLOT_ID slotID, CK_SLOT_INFO_PTR pInfo)
 {
 	uint16 count;
-	Slot_Mgr_Shr_t *shm;
 	Slot_Info_t_64 *sinfp;
+#ifdef SLOT_INFO_BY_SOCKET
+	Slot_Mgr_Socket_t *shData = &(Anchor->SocketDataP);
+#else
+	Slot_Mgr_Shr_t *shData = Anchor->SharedMemP;
+#endif
 
 	OCK_LOG_DEBUG("C_GetSlotInfo Slot=%d  ptr=%x\n", slotID, pInfo);
 	//OCK_LOG_DEBUG("  Slot %d \n",slotID);
@@ -2509,8 +2513,7 @@ CK_RV C_GetSlotInfo(CK_SLOT_ID slotID, CK_SLOT_INFO_PTR pInfo)
 		return CKR_FUNCTION_FAILED;
 	}
 
-	shm = Anchor->SharedMemP;
-	sinfp = shm->slot_info;
+	sinfp = shData->slot_info;
 	sinfp += slotID;
 	count = 0;
 
@@ -2557,8 +2560,12 @@ CK_RV C_GetSlotInfo(CK_SLOT_ID slotID, CK_SLOT_INFO_PTR pInfo)
 	uint16 count;
 	uint16 index;
 	uint16 sindx;
-	Slot_Mgr_Shr_t *shm;
 	Slot_Info_t *sinfp;
+#ifdef SLOT_INFO_BY_SOCKET
+	Slot_Mgr_Socket_t *shData = &(Anchor->SocketDataP);
+#else
+	Slot_Mgr_Shr_t *shData = Anchor->SharedMemP;
+#endif
 
 	OCK_LOG_DEBUG("C_GetSlotInfo Slot=%d  ptr=%x\n", slotID, pInfo);
 	//OCK_LOG_DEBUG("  Slot %d \n",slotID);
@@ -2573,8 +2580,7 @@ CK_RV C_GetSlotInfo(CK_SLOT_ID slotID, CK_SLOT_INFO_PTR pInfo)
 		return CKR_FUNCTION_FAILED;
 	}
 
-	shm = Anchor->SharedMemP;
-	sinfp = shm->slot_info;
+	sinfp = shData->slot_info;
 	sinfp += slotID;
 	count = 0;
 
@@ -2613,11 +2619,14 @@ CK_RV
 C_GetSlotList(CK_BBOOL tokenPresent,
 	      CK_SLOT_ID_PTR pSlotList, CK_ULONG_PTR pulCount)
 {
-	//uint16         count;
 	CK_ULONG count;
 	uint16 index;
 	uint16 sindx;
-	Slot_Mgr_Shr_t *shm;
+#ifdef SLOT_INFO_BY_SOCKET
+	Slot_Mgr_Socket_t *shData = &(Anchor->SocketDataP);
+#else
+	Slot_Mgr_Shr_t *shData = Anchor->SharedMemP;
+#endif
 
 #ifdef PKCS64
 	Slot_Info_t_64 *sinfp;
@@ -2638,8 +2647,7 @@ C_GetSlotList(CK_BBOOL tokenPresent,
 		return CKR_FUNCTION_FAILED;
 	}
 
-	shm = Anchor->SharedMemP;
-	sinfp = shm->slot_info;
+	sinfp = shData->slot_info;
 	count = 0;
 	// Count the slots based off the present flag
 	// Go through all the slots and count them up
@@ -2756,7 +2764,11 @@ CK_RV C_GetTokenInfo(CK_SLOT_ID slotID, CK_TOKEN_INFO_PTR pInfo)
 	CK_RV rv;
 	API_Slot_t *sltp;
 	STDLL_FcnList_t *fcn;
-	Slot_Mgr_Shr_t *shm;
+#ifdef SLOT_INFO_BY_SOCKET
+	Slot_Mgr_Socket_t *shData = &(Anchor->SocketDataP);
+#else
+	Slot_Mgr_Shr_t *shData = Anchor->SharedMemP;
+#endif
 
 #ifdef PKCS64
 	Slot_Info_t_64 *sinfp;
@@ -2789,8 +2801,7 @@ CK_RV C_GetTokenInfo(CK_SLOT_ID slotID, CK_TOKEN_INFO_PTR pInfo)
 	// Need to check if the slot is not populated 
 	// then we can return the proper return code for a
 	// slot that has no content.
-	shm = Anchor->SharedMemP;
-	sinfp = shm->slot_info;
+	sinfp = shData->slot_info;
 	if (sinfp[slotID].present == FALSE) {
 		OCK_LOG_ERR(ERR_TOKEN_NOT_PRESENT);
 		return CKR_TOKEN_NOT_PRESENT;
@@ -3015,14 +3026,20 @@ CK_RV C_Initialize(CK_VOID_PTR pVoid)
 		return CKR_FUNCTION_FAILED;
 	}
 	//
-	// load al the slot DLL's here
+	// load all the slot DLL's here
 	{
 		CK_SLOT_ID slotID;
-		Slot_Mgr_Shr_t *shm = Anchor->SharedMemP;
+		API_Slot_t *sltp;
+		const char *confname;
+#ifdef SLOT_INFO_BY_SOCKET
+		Slot_Mgr_Socket_t *shData = &(Anchor->SocketDataP);
+#else
+		Slot_Mgr_Shr_t *shData = Anchor->SharedMemP;
+#endif
 
 		for (slotID = 0; slotID < NUMBER_SLOTS_MANAGED; slotID++) {
-			API_Slot_t *sltp = &(Anchor->SltList[slotID]);
-			const char *confname = shm->slot_info[slotID].confname;
+			sltp = &(Anchor->SltList[slotID]);
+			confname = shData->slot_info[slotID].confname;
 			slot_loaded[slotID] = DL_Load_and_Init(sltp, slotID,
 							       confname);
 		}
