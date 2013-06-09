@@ -342,10 +342,8 @@
 
     extern unsigned char          NumberSlotsInDB;
 
-#ifdef SLOT_INFO_BY_SOCKET
     extern int			  socketfd;
     extern Slot_Mgr_Socket_t	  socketData;
-#endif
 
 
 /***********************
@@ -397,14 +395,10 @@ extern int	XProcLock(void);
 extern int	XProcUnLock(void);
 extern int	CreateXProcLock(void);
 
-#ifdef SLOT_INFO_BY_SOCKET
 /* socket_server.c */
 int		CreateSocketListener(void);
 int		InitSocketData(Slot_Mgr_Socket_t *sp);
 int		SocketConnectionHandler(int socketfd, int timeout_secs);
 void		DetachSocketListener(int socketfd);
-#endif
 
 #endif /* _SLOTMGR_H */
-
-

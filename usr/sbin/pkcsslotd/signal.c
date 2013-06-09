@@ -380,9 +380,7 @@ void slotdGenericSignalHandler( int Signal ) {
 
    InfoLog("Exiting on %s (%d; %#x)", SignalConst(Signal), Signal, Signal); 
 
-#ifdef SLOT_INFO_BY_SOCKET
    DetachSocketListener(socketfd);
-#endif
    DestroyMutexes();
    DetachFromSharedMemory();
    DestroySharedMemory();

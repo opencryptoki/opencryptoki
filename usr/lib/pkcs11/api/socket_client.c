@@ -285,8 +285,6 @@
 // Pkcs11 Api Socket client routines
 //
 
-#ifdef SLOT_INFO_BY_SOCKET
-
 #include <stdio.h>
 #include <sys/un.h>
 #include <sys/socket.h>
@@ -361,5 +359,3 @@ init_socket_data() {
 
 	return TRUE;
 }
-
-#endif

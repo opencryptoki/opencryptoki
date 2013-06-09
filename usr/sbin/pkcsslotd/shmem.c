@@ -590,27 +590,8 @@ void DestroySharedMemory ( void ) {
 int InitSharedMemory ( Slot_Mgr_Shr_t *sp ) {
 
    uint16 procindex;
-#ifndef SLOT_INFO_BY_SOCKET
-   int processed = 0;
 
-   PopulateCKInfo(&(sp->ck_info));
-
-   /*  
-    *  populate the Slot entries...
-    */
-   sp->num_slots = NumberSlotsInDB;
-
-   PopulateSlotInfo(sp->slot_info, processed);
-
-   /* check that we read in correct amount of slots */
-   if (processed != NumberSlotsInDB) {
-      ErrLog("Failed to populate shared memory with slot entries.\n");
-      return FALSE;
-   }
-
-#else
    memset(sp->slot_global_sessions, 0, NUMBER_SLOTS_MANAGED * sizeof(uint32));
-#endif
 
    /* Initialize the process side of things. */
    /* for now don't worry about the condition variables */

@@ -463,13 +463,7 @@ int API_Initialized()
 
 int slot_present(CK_SLOT_ID id)
 {
-	Slot_Mgr_Shr_t *shm;
-#ifdef SLOT_INFO_BY_SOCKET
 	Slot_Mgr_Socket_t *shData = &(Anchor->SocketDataP);
-#else
-	Slot_Mgr_Shr_t *shData = Anchor->SharedMemP;
-#endif
-
 #ifdef PKCS64
 	Slot_Info_t_64 *sinfp;
 #else
@@ -488,32 +482,19 @@ int slot_present(CK_SLOT_ID id)
 void get_sess_count(CK_SLOT_ID slotID, CK_ULONG * ret)
 {
 	Slot_Mgr_Shr_t *shm;
-	Slot_Info_t_64 *sinfp;
-	Slot_Mgr_Proc_t_64 *procp;
 
 	shm = Anchor->SharedMemP;
-
 	XProcLock();
-
-#ifdef SLOT_INFO_BY_SOCKET
 	*ret = shm->slot_global_sessions[slotID];
-#else
-	sinfp = &(shm->slot_info[slotID]);
-	*ret = sinfp->global_sessions;
-#endif
-
 	XProcUnLock();
 }
 
 void incr_sess_counts(CK_SLOT_ID slotID)
 {
 	Slot_Mgr_Shr_t *shm;
-
 #ifdef PKCS64
-	Slot_Info_t_64 *sinfp;
 	Slot_Mgr_Proc_t_64 *procp;
 #else
-	Slot_Info_t *sinfp;
 	Slot_Mgr_Proc_t *procp;
 #endif
 
@@ -522,12 +503,7 @@ void incr_sess_counts(CK_SLOT_ID slotID)
 
 	XProcLock();
 
-#ifdef SLOT_INFO_BY_SOCKET
 	shm->slot_global_sessions[slotID]++;
-#else
-	sinfp = &(shm->slot_info[slotID]);
-	sinfp->global_sessions++;
-#endif
 
 	procp = &shm->proc_table[Anchor->MgrProcIndex];
 	procp->slot_session_count[slotID]++;
@@ -539,12 +515,9 @@ void incr_sess_counts(CK_SLOT_ID slotID)
 void decr_sess_counts(CK_SLOT_ID slotID)
 {
 	Slot_Mgr_Shr_t *shm;
-
 #ifdef PKCS64
-	Slot_Info_t_64 *sinfp;
 	Slot_Mgr_Proc_t_64 *procp;
 #else
-	Slot_Info_t *sinfp;
 	Slot_Mgr_Proc_t *procp;
 #endif
 
@@ -553,16 +526,9 @@ void decr_sess_counts(CK_SLOT_ID slotID)
 
 	XProcLock();
 
-#ifdef SLOT_INFO_BY_SOCKET
 	if (shm->slot_global_sessions[slotID] > 0) {
 		shm->slot_global_sessions[slotID]--;
 	}
-#else
-	sinfp = &(shm->slot_info[slotID]);
-	if (sinfp->global_sessions > 0) {
-		sinfp->global_sessions--;
-	}
-#endif
 
 	procp = &shm->proc_table[Anchor->MgrProcIndex];
 	if (procp->slot_session_count[slotID] > 0) {
@@ -585,24 +551,11 @@ int sessions_exist(CK_SLOT_ID slotID)
 	Slot_Mgr_Shr_t *shm;
 	uint32 numSessions;
 
-#ifdef PKCS64
-	Slot_Info_t_64 *sinfp;
-#else
-	Slot_Info_t *sinfp;
-#endif
-
 	// Get the slot mutex
 	shm = Anchor->SharedMemP;
 
 	XProcLock();
-
-#ifdef SLOT_INFO_BY_SOCKET
         numSessions = shm->slot_global_sessions[slotID];
-#else
-        sinfp = &(shm->slot_info[slotID]);
-        numSessions = sinfp->global_sessions;
-#endif
-
 	XProcUnLock();
 
 	return numSessions != 0;
@@ -780,12 +733,7 @@ void API_UnRegister()
 
 void DL_UnLoad(API_Slot_t *sltp, CK_SLOT_ID slotID)
 {
-#ifdef SLOT_INFO_BY_SOCKET
-	Slot_Mgr_Socket_t *shData =   &(Anchor->SocketDataP);
-#else
-	Slot_Mgr_Shr_t *shData = Anchor->SharedMemP;
-#endif
-
+	Slot_Mgr_Socket_t *shData = &(Anchor->SocketDataP);
 #ifdef PKCS64
 	Slot_Info_t_64 *sinfp;
 #else
@@ -898,12 +846,7 @@ API_Slot_t *sltp;
 
 int DL_Load_and_Init(API_Slot_t *sltp, CK_SLOT_ID slotID, const char *conf_name)
 {
-#ifdef SLOT_INFO_BY_SOCKET
 	Slot_Mgr_Socket_t *shData = &(Anchor->SocketDataP);
-#else
-	Slot_Mgr_Shr_t *shData = Anchor->SharedMemP;
-#endif
-
 #ifdef PKCS64
 	Slot_Info_t_64 *sinfp;
 #else

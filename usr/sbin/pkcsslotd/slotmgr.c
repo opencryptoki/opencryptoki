@@ -301,10 +301,9 @@ int		shmid;
 key_t		tok;
 Slot_Info_t_64  sinfo[NUMBER_SLOTS_MANAGED];
 unsigned char NumberSlotsInDB = 0;
-#ifdef SLOT_INFO_BY_SOCKET
+
 int socketfd;
 Slot_Mgr_Socket_t      socketData;
-#endif
 
 /* 
    We make main() able to modify Daemon so that we can 
@@ -407,7 +406,6 @@ int main ( int argc, char *argv[], char *envp[]) {
    /* Release the global shared memory mutex */
    XProcUnLock();
 
-#ifdef SLOT_INFO_BY_SOCKET
    if ((socketfd = CreateListenerSocket()) < 0) {
       DestroyMutexes();
       DetachFromSharedMemory();
@@ -422,7 +420,6 @@ int main ( int argc, char *argv[], char *envp[]) {
       DestroySharedMemory();
       return 6;
    }
-#endif
 
    /*
     *  Become a Daemon, if called for
@@ -430,9 +427,7 @@ int main ( int argc, char *argv[], char *envp[]) {
    if ( Daemon ) {
         pid_t  pid;
         if ( (pid = fork()) < 0 ){
-#ifdef SLOT_INFO_BY_SOCKET
           DetachSocketListener(socketfd);
-#endif
           DestroyMutexes();
           DetachFromSharedMemory();
           DestroySharedMemory();
@@ -479,9 +474,7 @@ int main ( int argc, char *argv[], char *envp[]) {
     */
 
    if ( ! SetupSignalHandlers() ) {
-#ifdef SLOT_INFO_BY_SOCKET
      DetachSocketListener(socketfd);
-#endif
      DestroyMutexes();
      DetachFromSharedMemory();
      DestroySharedMemory();
@@ -505,9 +498,7 @@ int main ( int argc, char *argv[], char *envp[]) {
 printf("Start garbage \n");
    /* start garbage collection thread */
    if ( ! StartGCThread(shmp) ) {
-#ifdef SLOT_INFO_BY_SOCKET
      DetachSocketListener(socketfd);
-#endif
      DestroyMutexes();
      DetachFromSharedMemory();
      DestroySharedMemory();
@@ -531,11 +522,7 @@ printf("Start garbage \n");
      CheckForGarbage(shmp);
 #endif
 
-#ifdef SLOT_INFO_BY_SOCKET
      SocketConnectionHandler(socketfd, 10);
-#else
-     sleep(10);	// nothing to do
-#endif
 
    }
 

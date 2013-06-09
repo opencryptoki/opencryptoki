@@ -2169,11 +2169,7 @@ CK_RV C_GetFunctionStatus(CK_SESSION_HANDLE hSession)
 CK_RV C_GetInfo(CK_INFO_PTR pInfo)
 {
 	Slot_Mgr_Shr_t *shm;
-#ifdef SLOT_INFO_BY_SOCKET
 	Slot_Mgr_Socket_t *shData = &(Anchor->SocketDataP);
-#else
-	Slot_Mgr_Shr_t *shData = Anchor->SharedMemP;
-#endif
 
 	OCK_LOG_DEBUG("C_GetInfo\n");
 	if (!API_Initialized()) {
@@ -2494,11 +2490,7 @@ CK_RV C_GetSlotInfo(CK_SLOT_ID slotID, CK_SLOT_INFO_PTR pInfo)
 {
 	uint16 count;
 	Slot_Info_t_64 *sinfp;
-#ifdef SLOT_INFO_BY_SOCKET
 	Slot_Mgr_Socket_t *shData = &(Anchor->SocketDataP);
-#else
-	Slot_Mgr_Shr_t *shData = Anchor->SharedMemP;
-#endif
 
 	OCK_LOG_DEBUG("C_GetSlotInfo Slot=%d  ptr=%x\n", slotID, pInfo);
 	//OCK_LOG_DEBUG("  Slot %d \n",slotID);
@@ -2561,11 +2553,7 @@ CK_RV C_GetSlotInfo(CK_SLOT_ID slotID, CK_SLOT_INFO_PTR pInfo)
 	uint16 index;
 	uint16 sindx;
 	Slot_Info_t *sinfp;
-#ifdef SLOT_INFO_BY_SOCKET
 	Slot_Mgr_Socket_t *shData = &(Anchor->SocketDataP);
-#else
-	Slot_Mgr_Shr_t *shData = Anchor->SharedMemP;
-#endif
 
 	OCK_LOG_DEBUG("C_GetSlotInfo Slot=%d  ptr=%x\n", slotID, pInfo);
 	//OCK_LOG_DEBUG("  Slot %d \n",slotID);
@@ -2622,11 +2610,7 @@ C_GetSlotList(CK_BBOOL tokenPresent,
 	CK_ULONG count;
 	uint16 index;
 	uint16 sindx;
-#ifdef SLOT_INFO_BY_SOCKET
 	Slot_Mgr_Socket_t *shData = &(Anchor->SocketDataP);
-#else
-	Slot_Mgr_Shr_t *shData = Anchor->SharedMemP;
-#endif
 
 #ifdef PKCS64
 	Slot_Info_t_64 *sinfp;
@@ -2764,11 +2748,7 @@ CK_RV C_GetTokenInfo(CK_SLOT_ID slotID, CK_TOKEN_INFO_PTR pInfo)
 	CK_RV rv;
 	API_Slot_t *sltp;
 	STDLL_FcnList_t *fcn;
-#ifdef SLOT_INFO_BY_SOCKET
 	Slot_Mgr_Socket_t *shData = &(Anchor->SocketDataP);
-#else
-	Slot_Mgr_Shr_t *shData = Anchor->SharedMemP;
-#endif
 
 #ifdef PKCS64
 	Slot_Info_t_64 *sinfp;
@@ -3000,7 +2980,6 @@ CK_RV C_Initialize(CK_VOID_PTR pVoid)
 	}
 	OCK_LOG_DEBUG("Shared memory %x \n", Anchor->SharedMemP);
 
-#ifdef SLOT_INFO_BY_SOCKET
 	if (!init_socket_data()) {
 		OCK_SYSLOG(LOG_ERR, "C_Initialize: Module failed to create a socket. Verify that the slot management daemon is running.");
 		OCK_LOG_ERR(ERR_SOCKET);
@@ -3009,7 +2988,6 @@ CK_RV C_Initialize(CK_VOID_PTR pVoid)
 		pthread_mutex_unlock(&GlobMutex);
 		return CKR_FUNCTION_FAILED;
 	}
-#endif
 
 	// Initialize structure values
 
@@ -3031,11 +3009,7 @@ CK_RV C_Initialize(CK_VOID_PTR pVoid)
 		CK_SLOT_ID slotID;
 		API_Slot_t *sltp;
 		const char *confname;
-#ifdef SLOT_INFO_BY_SOCKET
 		Slot_Mgr_Socket_t *shData = &(Anchor->SocketDataP);
-#else
-		Slot_Mgr_Shr_t *shData = Anchor->SharedMemP;
-#endif
 
 		for (slotID = 0; slotID < NUMBER_SLOTS_MANAGED; slotID++) {
 			sltp = &(Anchor->SltList[slotID]);

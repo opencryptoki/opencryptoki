@@ -288,7 +288,6 @@
 
 /* (C) COPYRIGHT Google Inc. 2013 */
 
-#ifdef SLOT_INFO_BY_SOCKET
 
 #include <errno.h>
 #include <stdio.h>
@@ -426,5 +425,3 @@ void DetachSocketListener(int socketfd) {
 	close(socketfd);
 	unlink(SOCKET_FILE_PATH);
 }
-
-#endif

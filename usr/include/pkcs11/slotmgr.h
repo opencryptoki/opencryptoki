@@ -313,9 +313,7 @@
 #define TOK_PATH  SBIN_PATH "/pkcsslotd"
 #define OCK_API_LOCK_FILE LOCKDIR_PATH "/LCK..APIlock"
 
-#ifdef SLOT_INFO_BY_SOCKET
 #define SOCKET_FILE_PATH "/var/run/pkcsslotd.socket"
-#endif
 
 #define PID_FILE_PATH "/var/run/pkcsslotd.pid"
 #define OCK_CONFIG OCK_CONFDIR "/opencryptoki.conf"
@@ -373,11 +371,6 @@ typedef struct{
    char          dll_location[PATH_MAX+1];   // location of slot management  DLL
    char          slot_init_fcn[PATH_MAX+1];  // function to call to initialize the token in the slot
    char          correlator[PATH_MAX+1];     // Slot DLL Slotindex to dev correlation string
-#ifndef SLOT_INFO_BY_SOCKET
-   uint32         global_sessions; // counter of the total sessions on a token in
-                                   // a slot.  Used for quick check of no
-                                   // sessions
-#endif
 }Slot_Info_t;
 
 
@@ -459,56 +452,35 @@ typedef struct {
 	char		confname[PATH_MAX+1];	// token specific config file 
 	char		correlator[PATH_MAX+1];	// Slot DLL Slotindex to dev correlation string
 	char		pad2[5];		// pad for dword alignment
-#ifndef SLOT_INFO_BY_SOCKET
-	uint32		global_sessions;	// token's total sessions
-	char		pad3[4];		// pad for dword alignment
-#endif
 }Slot_Info_t_64;
 
 
 typedef struct {
    
   /* Information that the API calls will use. */
-#ifndef SLOT_INFO_BY_SOCKET
-  uint8                 num_slots;
-  CK_INFO_64            ck_info;
-  Slot_Info_t_64        slot_info[NUMBER_SLOTS_MANAGED];
-#else
   uint32                slot_global_sessions[NUMBER_SLOTS_MANAGED];
-#endif
   Slot_Mgr_Proc_t_64    proc_table[NUMBER_PROCESSES_ALLOWED];
 } Slot_Mgr_Shr_t;
 
-#ifdef SLOT_INFO_BY_SOCKET
 typedef struct {
    uint8                 num_slots;
    CK_INFO_64            ck_info;
    Slot_Info_t_64        slot_info[NUMBER_SLOTS_MANAGED];
 } Slot_Mgr_Socket_t;
-#endif
 
 #else	// PKCS64
 
 typedef struct {
-
   /* Information that the API calls will use. */
-#ifndef SLOT_INFO_BY_SOCKET
-  uint8                 num_slots;
-  CK_INFO               ck_info;
-  Slot_Info_t           slot_info[NUMBER_SLOTS_MANAGED];
-#else
   uint32                slot_global_sessions[NUMBER_SLOTS_MANAGED];
-#endif
   Slot_Mgr_Proc_t       proc_table[NUMBER_PROCESSES_ALLOWED];
 } Slot_Mgr_Shr_t;
 
-#ifdef SLOT_INFO_BY_SOCKET
 typedef struct {
   uint8                 num_slots;
   CK_INFO               ck_info;
   Slot_Info_t           slot_info[NUMBER_SLOTS_MANAGED];
 } Slot_Mgr_Socket_t;
-#endif
 
 #endif	// PKCS64
 

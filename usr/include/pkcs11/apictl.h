@@ -337,9 +337,7 @@ typedef struct {
    struct btree     sess_btree;
    pthread_mutex_t  SessListMutex; /*used to lock around btree accesses */
    void              *SharedMemP;
-#ifdef SLOT_INFO_BY_SOCKET
    Slot_Mgr_Socket_t SocketDataP;
-#endif
    uint16            MgrProcIndex; // Index into shared memory for This process ctl block
    API_Slot_t        SltList[NUMBER_SLOTS_MANAGED];
    DLL_Load_t        DLLs[NUMBER_SLOTS_MANAGED]; // worst case we have a separate DLL per slot
