@@ -499,6 +499,7 @@ static const char *ock_err_msg[] = {
 "Sign Init Failed",			/*ERR_SIGN_INIT*/
 "Sign Recover Failed",			/*ERR_SIGN_RECOVER*/
 "Sign Update Failed",			/*ERR_SIGN_UPDATE*/
+"Cannot Attach to Socket",		/*ERR_SOCKET*/
 "SSL SHA Failed",			/*ERR_SSL_SHA*/
 "SSL3 Process MAC Keys Failed",		/*ERR_SSL3_MAC_KEYS*/
 "SSL3 MD5 Failed",			/*ERR_SSL3_MD5*/

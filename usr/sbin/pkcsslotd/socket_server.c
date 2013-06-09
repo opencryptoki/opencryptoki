@@ -1,9 +1,4 @@
 /*
- * $Header: /cvsroot/opencryptoki/opencryptoki/usr/include/pkcs11/apictl.h,v 1.2 2005/02/22 20:47:32 mhalcrow Exp $
- */
-
-
-/*
              Common Public License Version 0.5
 
              THE ACCOMPANYING PROGRAM IS PROVIDED UNDER THE TERMS OF
@@ -13,10 +8,10 @@
 
              1. DEFINITIONS
 
-             "Contribution" means: 
+             "Contribution" means:
                    a) in the case of the initial Contributor, the
                    initial code and documentation distributed under
-                   this Agreement, and 
+                   this Agreement, and
 
                    b) in the case of each subsequent Contributor:
                    i) changes to the Program, and
@@ -40,7 +35,7 @@
              "Licensed Patents " mean patent claims licensable by a
              Contributor which are necessarily infringed by the use or
              sale of its Contribution alone or when combined with the
-             Program. 
+             Program.
 
              "Program" means the Contributions distributed in
              accordance with this Agreement.
@@ -135,7 +130,7 @@
                    a) it must be made available under this Agreement;
                    and
                    b) a copy of this Agreement must be included with
-                   each copy of the Program. 
+                   each copy of the Program.
 
              Contributors may not remove or alter any copyright notices
              contained within the Program.
@@ -143,7 +138,7 @@
              Each Contributor must identify itself as the originator of
              its Contribution, if any, in a manner that reasonably
              allows subsequent Recipients to identify the originator of
-             the Contribution. 
+             the Contribution.
 
 
              4. COMMERCIAL DISTRIBUTION
@@ -204,7 +199,7 @@
              Agreement, including but not limited to the risks and
              costs of program errors, compliance with applicable laws,
              damage to or loss of data, programs or equipment, and
-             unavailability or interruption of operations. 
+             unavailability or interruption of operations.
 
              6. DISCLAIMER OF LIABILITY
              EXCEPT AS EXPRESSLY SET FORTH IN THIS AGREEMENT, NEITHER
@@ -253,7 +248,7 @@
              use and distribution of the Program as soon as reasonably
              practicable. However, Recipient's obligations under this
              Agreement and any licenses granted by Recipient relating
-             to the Program shall continue and survive. 
+             to the Program shall continue and survive.
 
              Everyone is permitted to copy and distribute copies of
              this Agreement, but in order to avoid inconsistency the
@@ -285,64 +280,141 @@
              States of America. No party to this Agreement will bring a
              legal action under this Agreement more than one year after
              the cause of action arose. Each party waives its rights to
-             a jury trial in any resulting litigation. 
+             a jury trial in any resulting litigation.
 
 
 
 */
 
-/* (C) COPYRIGHT International Business Machines Corp. 2001          */
+/* (C) COPYRIGHT Google Inc. 2013 */
 
-
-
-#include <pkcs11types.h>
-#include <limits.h>
-#include <local_types.h>
-#include <stdll.h>
-#include <slotmgr.h>
-
-#ifndef _APILOCAL_H
-#define _APILOCAL_H
-
-// SAB Add a linked list of STDLL's loaded to
-// only load and get list once, but let multiple slots us it.
-
-typedef struct{
-   CK_BOOL     DLLoaded;    // Flag to indicate if the STDDL has been loaded
-   char *dll_name;  // Malloced space to copy the name.
-   void *dlop_p;
-   int  dll_load_count;
-//   STDLL_FcnList_t   *FcnList;  // Function list pointer for the STDLL
-} DLL_Load_t;
-
-typedef struct {
-   CK_BOOL     DLLoaded;    // Flag to indicate if the STDDL has been loaded
-   void        *dlop_p;     // Pointer to the value returned from the DL open
-   STDLL_FcnList_t   *FcnList;  // Function list pointer for the STDLL
-   DLL_Load_t  *dll_information;  
-   void            (*pSTfini)();  // Addition of Final function.
-   CK_RV           (*pSTcloseall)();  // Addition of close all for leeds code
-} API_Slot_t;
-
-
-// Per process API structure.
-// Allocate one per process on the C_Initialize.  This will be
-// a global type for the API and will be used through out.
-//
-typedef struct {
-   pid_t    Pid;
-   pthread_mutex_t  ProcMutex;      // Mutex for the process level should this be necessary
-   key_t             shm_tok;
-
-   struct btree     sess_btree;
-   pthread_mutex_t  SessListMutex; /*used to lock around btree accesses */
-   void              *SharedMemP;
 #ifdef SLOT_INFO_BY_SOCKET
-   Slot_Mgr_Socket_t SocketDataP;
-#endif
-   uint16            MgrProcIndex; // Index into shared memory for This process ctl block
-   API_Slot_t        SltList[NUMBER_SLOTS_MANAGED];
-   DLL_Load_t        DLLs[NUMBER_SLOTS_MANAGED]; // worst case we have a separate DLL per slot
-} API_Proc_Struct_t;
+
+#include <errno.h>
+#include <stdio.h>
+#include <unistd.h>
+#include <string.h>
+
+#include <sys/time.h>
+#include <sys/socket.h>
+#include <sys/un.h>
+#include <sys/select.h>
+#include <sys/stat.h>
+#include <grp.h>
+
+#include "log.h"
+#include "slotmgr.h"
+#include "pkcsslotd.h"
+#include "apictl.h"
+
+// Creates the daemon's listener socket, to which clients will connect and
+// retrieve slot information through.  Returns the file descriptor of the
+// created socket.
+int CreateListenerSocket (void) {
+	struct sockaddr_un address;
+	struct group *grp;
+	int socketfd;
+	socklen_t address_length;
+
+	socketfd = socket(PF_UNIX, SOCK_STREAM | SOCK_NONBLOCK, 0);
+	if (socketfd < 0) {
+		ErrLog("Failed to create listener socket, errno 0x%X.", errno);
+		return -1;
+	}
+	if (unlink(SOCKET_FILE_PATH) && errno != ENOENT) {
+		ErrLog("Failed to unlink socket file, errno 0x%X.", errno);
+		return -1;
+	}
+
+	memset(&address, 0, sizeof(struct sockaddr_un));
+	address.sun_family = AF_UNIX;
+	strcpy(address.sun_path, SOCKET_FILE_PATH);
+
+	if (bind(socketfd, (struct sockaddr *) &address, sizeof(struct sockaddr_un)) != 0) {
+		ErrLog("Failed to bind to socket, errno 0x%X.", errno);
+		return -1;
+	}
+
+	// make socket file part of the pkcs11 group, and write accessable
+	// for that group
+	grp = getgrnam("pkcs11");
+	if (!grp) {
+		ErrLog("Group PKCS#11 does not exist");
+		DetachSocketListener(socketfd);
+		return -1;
+	}
+	if (chown(SOCKET_FILE_PATH, 0, grp->gr_gid)) {
+		ErrLog("Could not change file group on socket, errno 0x%X.", errno);
+		DetachSocketListener(socketfd);
+		return -1;
+	}
+	if (chmod(SOCKET_FILE_PATH, S_IRUSR|S_IRGRP|S_IWUSR|S_IWGRP|S_IXUSR|S_IXGRP)) {
+		ErrLog("Could not change file permissions on socket, errno 0x%X.", errno);
+		DetachSocketListener(socketfd);
+		return -1;
+	}
+
+	if(listen(socketfd, 20) != 0) {
+		ErrLog("Failed to listen to socket, errno 0x%X.", errno);
+		DetachSocketListener(socketfd);
+		return -1;
+	}
+
+	return socketfd;
+}
+
+int InitSocketData (Slot_Mgr_Socket_t *socketData)
+{
+	PopulateCKInfo(&(socketData->ck_info));
+	return TRUE;
+}
+
+int SocketConnectionHandler (int socketfd, int timeout_secs)
+{
+	int returnVal;
+	fd_set set;
+	struct timeval timeout;
+
+	FD_ZERO(&set);
+	FD_SET(socketfd, &set);
+
+	timeout.tv_sec = timeout_secs;
+	timeout.tv_usec = 0;
+
+	returnVal = select(socketfd + 1, &set, NULL, NULL, &timeout);
+	if (returnVal == -1) {
+		ErrLog("select failed on socket connection, errno 0x%X.", errno);
+		return FALSE;
+	} else if (returnVal == 0) {
+		// select call timed out, return
+		return FALSE;
+	} else {
+		struct sockaddr_un address;
+		socklen_t address_length;
+
+		int connectionfd = accept(socketfd,
+				         (struct sockaddr *) &address,
+					 &address_length);
+		if (connectionfd < 0) {
+			if (errno != EAGAIN && errno != EWOULDBLOCK) {
+				/* These errors are allowed since
+				 * socket is non-blocking
+				 */
+				ErrLog("Failed to accept socket connection, errno 0x%X.", errno);
+			}
+			return FALSE;
+		}
+		if (write(connectionfd, &socketData, sizeof(socketData)) != sizeof(socketData)) {
+			ErrLog("Failed to write socket data, errno 0x%X.", errno);
+			return FALSE;
+		}
+		return TRUE;
+	}
+}
+
+void DetachSocketListener(int socketfd) {
+	close(socketfd);
+	unlink(SOCKET_FILE_PATH);
+}
 
 #endif

@@ -1,9 +1,4 @@
 /*
- * $Header: /cvsroot/opencryptoki/opencryptoki/usr/include/pkcs11/apictl.h,v 1.2 2005/02/22 20:47:32 mhalcrow Exp $
- */
-
-
-/*
              Common Public License Version 0.5
 
              THE ACCOMPANYING PROGRAM IS PROVIDED UNDER THE TERMS OF
@@ -13,10 +8,10 @@
 
              1. DEFINITIONS
 
-             "Contribution" means: 
+             "Contribution" means:
                    a) in the case of the initial Contributor, the
                    initial code and documentation distributed under
-                   this Agreement, and 
+                   this Agreement, and
 
                    b) in the case of each subsequent Contributor:
                    i) changes to the Program, and
@@ -33,14 +28,13 @@
                    the Program under their own license agreement, and
                    (ii) are not derivative works of the Program.
 
-
              "Contributor" means any person or entity that distributes
              the Program.
 
              "Licensed Patents " mean patent claims licensable by a
              Contributor which are necessarily infringed by the use or
              sale of its Contribution alone or when combined with the
-             Program. 
+             Program.
 
              "Program" means the Contributions distributed in
              accordance with this Agreement.
@@ -135,7 +129,7 @@
                    a) it must be made available under this Agreement;
                    and
                    b) a copy of this Agreement must be included with
-                   each copy of the Program. 
+                   each copy of the Program.
 
              Contributors may not remove or alter any copyright notices
              contained within the Program.
@@ -143,8 +137,7 @@
              Each Contributor must identify itself as the originator of
              its Contribution, if any, in a manner that reasonably
              allows subsequent Recipients to identify the originator of
-             the Contribution. 
-
+             the Contribution.
 
              4. COMMERCIAL DISTRIBUTION
 
@@ -175,7 +168,6 @@
              settlement negotiations. The Indemnified Contributor may
              participate in any such claim at its own expense.
 
-
              For example, a Contributor might include the Program in a
              commercial product offering, Product X. That Contributor
              is then a Commercial Contributor. If that Commercial
@@ -188,7 +180,6 @@
              warranties, and if a court requires any other Contributor
              to pay any damages as a result, the Commercial Contributor
              must pay those damages.
-
 
              5. NO WARRANTY
 
@@ -204,7 +195,7 @@
              Agreement, including but not limited to the risks and
              costs of program errors, compliance with applicable laws,
              damage to or loss of data, programs or equipment, and
-             unavailability or interruption of operations. 
+             unavailability or interruption of operations.
 
              6. DISCLAIMER OF LIABILITY
              EXCEPT AS EXPRESSLY SET FORTH IN THIS AGREEMENT, NEITHER
@@ -227,7 +218,6 @@
              parties hereto, such provision shall be reformed to the
              minimum extent necessary to make such provision valid and
              enforceable.
-
 
              If Recipient institutes patent litigation against a
              Contributor with respect to a patent applicable to
@@ -253,7 +243,7 @@
              use and distribution of the Program as soon as reasonably
              practicable. However, Recipient's obligations under this
              Agreement and any licenses granted by Recipient relating
-             to the Program shall continue and survive. 
+             to the Program shall continue and survive.
 
              Everyone is permitted to copy and distribute copies of
              this Agreement, but in order to avoid inconsistency the
@@ -279,70 +269,97 @@
              estoppel or otherwise. All rights in the Program not
              expressly granted under this Agreement are reserved.
 
-
              This Agreement is governed by the laws of the State of New
              York and the intellectual property laws of the United
              States of America. No party to this Agreement will bring a
              legal action under this Agreement more than one year after
              the cause of action arose. Each party waives its rights to
-             a jury trial in any resulting litigation. 
-
+             a jury trial in any resulting litigation.
 
 
 */
 
-/* (C) COPYRIGHT International Business Machines Corp. 2001          */
+/* (C) COPYRIGHT Google Inc. 2013 */
 
-
-
-#include <pkcs11types.h>
-#include <limits.h>
-#include <local_types.h>
-#include <stdll.h>
-#include <slotmgr.h>
-
-#ifndef _APILOCAL_H
-#define _APILOCAL_H
-
-// SAB Add a linked list of STDLL's loaded to
-// only load and get list once, but let multiple slots us it.
-
-typedef struct{
-   CK_BOOL     DLLoaded;    // Flag to indicate if the STDDL has been loaded
-   char *dll_name;  // Malloced space to copy the name.
-   void *dlop_p;
-   int  dll_load_count;
-//   STDLL_FcnList_t   *FcnList;  // Function list pointer for the STDLL
-} DLL_Load_t;
-
-typedef struct {
-   CK_BOOL     DLLoaded;    // Flag to indicate if the STDDL has been loaded
-   void        *dlop_p;     // Pointer to the value returned from the DL open
-   STDLL_FcnList_t   *FcnList;  // Function list pointer for the STDLL
-   DLL_Load_t  *dll_information;  
-   void            (*pSTfini)();  // Addition of Final function.
-   CK_RV           (*pSTcloseall)();  // Addition of close all for leeds code
-} API_Slot_t;
-
-
-// Per process API structure.
-// Allocate one per process on the C_Initialize.  This will be
-// a global type for the API and will be used through out.
 //
-typedef struct {
-   pid_t    Pid;
-   pthread_mutex_t  ProcMutex;      // Mutex for the process level should this be necessary
-   key_t             shm_tok;
+// Pkcs11 Api Socket client routines
+//
 
-   struct btree     sess_btree;
-   pthread_mutex_t  SessListMutex; /*used to lock around btree accesses */
-   void              *SharedMemP;
 #ifdef SLOT_INFO_BY_SOCKET
-   Slot_Mgr_Socket_t SocketDataP;
-#endif
-   uint16            MgrProcIndex; // Index into shared memory for This process ctl block
-   API_Slot_t        SltList[NUMBER_SLOTS_MANAGED];
-   DLL_Load_t        DLLs[NUMBER_SLOTS_MANAGED]; // worst case we have a separate DLL per slot
-} API_Proc_Struct_t;
+
+#include <stdio.h>
+#include <sys/un.h>
+#include <sys/socket.h>
+#include <sys/stat.h>
+#include <syslog.h>
+#include <stdio.h>
+#include <string.h>
+#include <unistd.h>
+#include <grp.h>
+#include <errno.h>
+
+#include "apiproto.h"
+#include "slotmgr.h"
+#include "apictl.h"
+
+extern  API_Proc_Struct_t  *Anchor;
+//
+// Will fill out the Slot_Mgr_Socket_t structure in the Anchor global data
+// structure with the values passed by the pkcsslotd via a socket RPC.
+int
+init_socket_data() {
+	int socketfd;
+	struct sockaddr_un daemon_address;
+	struct stat file_info;
+	struct group *grp;
+	int bytes_received;
+	socklen_t address_length;
+	Slot_Mgr_Socket_t daemon_socket_data;
+
+	if (stat(SOCKET_FILE_PATH, &file_info)) {
+		OCK_SYSLOG(LOG_ERR, "init_socket_data: failed to find socket file, errno=%d", errno);
+		return FALSE;
+	}
+
+	grp = getgrnam("pkcs11");
+	if ( !grp ) {
+		OCK_SYSLOG(LOG_ERR, "init_socket_data: pkcs11 group does not exist, errno=%d", errno);
+		return FALSE;
+	}
+
+	if (file_info.st_uid != 0 || file_info.st_gid != grp->gr_gid) {
+		OCK_SYSLOG(LOG_ERR, "init_socket_data: incorrect permissions on socket file");
+		return FALSE;
+	}
+
+	if ((socketfd = socket(AF_UNIX, SOCK_STREAM, 0)) < 0) {
+		OCK_SYSLOG(LOG_ERR, "init_socket_data: failed to create socket, errno=%d", errno);
+		return FALSE;
+	}
+
+	memset(&daemon_address, 0, sizeof(struct sockaddr_un));
+	daemon_address.sun_family = AF_UNIX;
+	strcpy(daemon_address.sun_path, SOCKET_FILE_PATH);
+
+	if (connect(socketfd, (struct sockaddr *) &daemon_address,
+	    sizeof(struct sockaddr_un)) != 0) {
+		OCK_SYSLOG(LOG_ERR, "init_socket_data: failed to connect to slot manager daemon, errno=%d", errno);
+		return FALSE;
+	}
+
+	bytes_received = read(socketfd, &daemon_socket_data,
+			      sizeof(daemon_socket_data));
+	if (bytes_received != sizeof(daemon_socket_data)) {
+		OCK_SYSLOG(LOG_ERR, "init_socket_data: did not recieve expected number of bytes from slot manager daemon. Expected %d bytes, got %d bytes.",
+			   sizeof(daemon_socket_data), bytes_received);
+	}
+
+	close(socketfd);
+
+	memcpy(&(Anchor->SocketDataP.ck_info), &daemon_socket_data,
+		sizeof(Slot_Mgr_Socket_t));
+
+	return TRUE;
+}
 
 #endif

@@ -71,6 +71,12 @@ AC_ARG_ENABLE([library],
 	[],
 	[enable_library=yes])
 
+dnl --- slot info through socket
+AC_ARG_ENABLE([socket-slots],
+	AS_HELP_STRING([--enable-socket-slots],[enable slot info access through socket build @<:@default=no@:>@]),
+	[],
+	[enable_socket_slots=no])
+
 dnl --- Enable/disable tokens
 dnl --- those have an additional 'check' state, which essentially means
 dnl --- that it will enable it by default it dependencies are met
@@ -221,6 +227,11 @@ esac
 dnl --- enable_debug
 if test "x$enable_debug" = "xyes"; then
 	CFLAGS="$CFLAGS -gdwarf-2 -g3 -O0 -DDEBUG"
+fi
+
+dnl --- slot information passed by sockets
+if test "x$enable_socket_slots" = "xyes"; then
+	CFLAGS="$CFLAGS -DSLOT_INFO_BY_SOCKET"
 fi
 
 dnl --- first, check what external software is present or specified
@@ -775,6 +786,7 @@ echo "	Testcases:		$enable_testcases"
 echo "	Daemon build:		$enable_daemon"
 echo "	Library build:		$enable_library"
 echo "	Systemd service:	$enable_systemd"
+echo "	Socket Slot Info:	$enable_socket_slots"
 echo
 echo "Enabled token types:"
 echo "	ICA token:		$enable_icatok"
@@ -792,4 +804,3 @@ echo "	pkcsccamigrate build:	$enable_pkcscca_migrate"
 echo
 echo "CFLAGS=$CFLAGS"
 echo
-

@@ -592,8 +592,9 @@ int InitSharedMemory ( Slot_Mgr_Shr_t *sp ) {
    uint16 procindex;
    int processed = 0;
 
-
+#ifndef SLOT_INFO_BY_SOCKET
    PopulateCKInfo(&(sp->ck_info));
+#endif
 
    /*  
     *  populate the Slot entries...

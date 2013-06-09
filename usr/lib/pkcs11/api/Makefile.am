@@ -13,7 +13,8 @@ opencryptoki_libopencryptoki_la_CFLAGS = -DAPI -DDEV -D_THREAD_SAFE 		\
 					 -fPIC -I../. -I../../../include/pkcs11 \
 					 -I ../common -DSTDLL_NAME=\"api\"
 
-opencryptoki_libopencryptoki_la_SOURCES = api_interface.c shrd_mem.c apiutil.c \
+opencryptoki_libopencryptoki_la_SOURCES = api_interface.c shrd_mem.c \
+					  socket_client.c apiutil.c \
 					  ../common/btree.c ../common/log.c
 
 install-data-hook:

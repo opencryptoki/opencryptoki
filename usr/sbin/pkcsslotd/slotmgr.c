@@ -302,16 +302,15 @@ key_t		tok;
 Slot_Info_t_64  sinfo[NUMBER_SLOTS_MANAGED];
 unsigned char NumberSlotsInDB = 0;
 
+int socketfd;
+Slot_Mgr_Socket_t      socketData;
+
 /* 
    We make main() able to modify Daemon so that we can 
    daemonize or not based on a command-line argument
  */
 extern BOOL               Daemon;
 extern BOOL               IveDaemonized;
-
-#if !(THREADED)
-extern void *GCMain ( void *Ptr);
-#endif
 
 void
 DumpSharedMemory(void)
@@ -405,8 +404,24 @@ int main ( int argc, char *argv[], char *envp[]) {
    }
    
    /* Release the global shared memory mutex */
+   XProcUnLock();
 
-      XProcUnLock();
+#ifdef SLOT_INFO_BY_SOCKET
+   if ((socketfd = CreateListenerSocket()) < 0) {
+      DestroyMutexes();
+      DetachFromSharedMemory();
+      DestroySharedMemory();
+      return 5;
+   }
+
+   if (!InitSocketData(&socketData)) {
+      DetachSocketListener(socketfd);
+      DestroyMutexes();
+      DetachFromSharedMemory();
+      DestroySharedMemory();
+      return 6;
+   }
+#endif
 
    /*
     *  Become a Daemon, if called for
@@ -414,10 +429,13 @@ int main ( int argc, char *argv[], char *envp[]) {
    if ( Daemon ) {
         pid_t  pid;
         if ( (pid = fork()) < 0 ){
+#ifdef SLOT_INFO_BY_SOCKET
+          DetachSocketListener(socketfd);
+#endif
           DestroyMutexes();
           DetachFromSharedMemory();
           DestroySharedMemory();
-          return 5;
+          return 7;
         } else {
            if ( pid != 0) {
               exit(0); // Terminate the parent
@@ -460,10 +478,13 @@ int main ( int argc, char *argv[], char *envp[]) {
     */
 
    if ( ! SetupSignalHandlers() ) {
+#ifdef SLOT_INFO_BY_SOCKET
+     DetachSocketListener(socketfd);
+#endif
      DestroyMutexes();
      DetachFromSharedMemory();
      DestroySharedMemory();
-     return 6;
+     return 8;
    }
 
 
@@ -483,10 +504,13 @@ int main ( int argc, char *argv[], char *envp[]) {
 printf("Start garbage \n");
    /* start garbage collection thread */
    if ( ! StartGCThread(shmp) ) {
+#ifdef SLOT_INFO_BY_SOCKET
+     DetachSocketListener(socketfd);
+#endif
      DestroyMutexes();
      DetachFromSharedMemory();
      DestroySharedMemory();
-     return 7;
+     return 9;
    }
 #endif
 
@@ -503,10 +527,15 @@ printf("Start garbage \n");
 
    while (1) {
 #if !(THREADED) && !(NOGARBAGE)
-     GCMain(shmp);
-#else
-     sleep(10);
+     CheckForGarbage(shmp);
 #endif
+
+#ifdef SLOT_INFO_BY_SOCKET
+     SocketConnectionHandler(socketfd, 10);
+#else
+     sleep(10);	// nothing to do
+#endif
+
    }
 
 

@@ -313,6 +313,10 @@
 #define TOK_PATH  SBIN_PATH "/pkcsslotd"
 #define OCK_API_LOCK_FILE LOCKDIR_PATH "/LCK..APIlock"
 
+#ifdef SLOT_INFO_BY_SOCKET
+#define SOCKET_FILE_PATH "/var/run/pkcsslotd.socket"
+#endif
+
 #define PID_FILE_PATH "/var/run/pkcsslotd.pid"
 #define OCK_CONFIG OCK_CONFDIR "/opencryptoki.conf"
 
@@ -460,13 +464,21 @@ typedef struct {
    
   /* Information that the API calls will use. */
   uint8                 num_slots;
+#ifndef SLOT_INFO_BY_SOCKET
   CK_INFO_64            ck_info;
+#endif
   Slot_Info_t_64        slot_info[NUMBER_SLOTS_MANAGED];
   Slot_Mgr_Proc_t_64    proc_table[NUMBER_PROCESSES_ALLOWED];
 
 
 } Slot_Mgr_Shr_t;
 
+
+#ifdef SLOT_INFO_BY_SOCKET
+typedef struct {
+   CK_INFO_64            ck_info;
+} Slot_Mgr_Socket_t;
+#endif
 
 // Loging type constants
 //

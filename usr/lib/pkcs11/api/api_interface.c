@@ -2169,6 +2169,11 @@ CK_RV C_GetFunctionStatus(CK_SESSION_HANDLE hSession)
 CK_RV C_GetInfo(CK_INFO_PTR pInfo)
 {
 	Slot_Mgr_Shr_t *shm;
+#ifdef SLOT_INFO_BY_SOCKET
+	Slot_Mgr_Socket_t *shData = &(Anchor->SocketDataP);
+#else
+	Slot_Mgr_Shr_t *shData = Anchor->SharedMemP;
+#endif
 
 	OCK_LOG_DEBUG("C_GetInfo\n");
 	if (!API_Initialized()) {
@@ -2181,8 +2186,7 @@ CK_RV C_GetInfo(CK_INFO_PTR pInfo)
 		return CKR_FUNCTION_FAILED;
 	}
 
-	shm = Anchor->SharedMemP;
-	CK_Info_From_Internal(pInfo, &(shm->ck_info));
+	CK_Info_From_Internal(pInfo, &(shData->ck_info));
 
 	return CKR_OK;
 }				// end of C_GetInfo
@@ -2984,6 +2988,17 @@ CK_RV C_Initialize(CK_VOID_PTR pVoid)
 		return CKR_HOST_MEMORY;
 	}
 	OCK_LOG_DEBUG("Shared memory %x \n", Anchor->SharedMemP);
+
+#ifdef SLOT_INFO_BY_SOCKET
+	if (!init_socket_data()) {
+		OCK_SYSLOG(LOG_ERR, "C_Initialize: Module failed to create a socket. Verify that the slot management daemon is running.");
+		OCK_LOG_ERR(ERR_SOCKET);
+		detach_shared_memory(Anchor->SharedMemP);
+		free((void *)Anchor); Anchor=NULL;
+		pthread_mutex_unlock(&GlobMutex);
+		return CKR_FUNCTION_FAILED;
+	}
+#endif
 
 	// Initialize structure values
 
