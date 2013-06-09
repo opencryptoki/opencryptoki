@@ -364,12 +364,26 @@ typedef struct _DES_CONTEXT
    CK_BBOOL cbc_pad;    // is this a CKM_DES_CBC_PAD operation?
 } DES_CONTEXT;
 
+typedef struct _DES_DATA_CONTEXT
+{
+   CK_BYTE  data[ DES_BLOCK_SIZE ];
+   CK_ULONG len;
+   CK_BYTE  iv[ DES_BLOCK_SIZE ];
+} DES_DATA_CONTEXT;
+
 typedef struct _AES_CONTEXT
 {
    CK_BYTE  data[ AES_BLOCK_SIZE ];
    CK_ULONG len;
    CK_BBOOL cbc_pad;
 } AES_CONTEXT;
+
+typedef struct _AES_DATA_CONTEXT
+{
+   CK_BYTE  data[ AES_BLOCK_SIZE ];
+   CK_ULONG len;
+   CK_BYTE  iv[ AES_BLOCK_SIZE ];
+} AES_DATA_CONTEXT;
 
 typedef struct _SHA1_CONTEXT
 {

@@ -1041,3 +1041,24 @@ CK_RV compute_md5(CK_BYTE * data, CK_ULONG len, CK_BYTE * hash)
 
 	return CKR_OK;
 }
+
+CK_RV get_keytype(CK_OBJECT_HANDLE hkey, CK_KEY_TYPE *keytype)
+{
+	CK_RV rc;
+	OBJECT *key_obj = NULL;
+	CK_ATTRIBUTE *attr = NULL;
+
+	rc = object_mgr_find_in_map1(hkey, &key_obj);
+	if (rc != CKR_OK) {
+		OCK_LOG_ERR(ERR_OBJMGR_FIND_MAP);
+		return rc;
+	}
+	rc = template_attribute_find(key_obj->template, CKA_KEY_TYPE, &attr);
+	if (rc == FALSE) {
+		OCK_LOG_ERR(ERR_KEY_TYPE_INCONSISTENT);
+		return CKR_KEY_TYPE_INCONSISTENT;
+	} else {
+		*keytype = *(CK_KEY_TYPE *)attr->pValue;
+		return CKR_OK;
+	}
+}

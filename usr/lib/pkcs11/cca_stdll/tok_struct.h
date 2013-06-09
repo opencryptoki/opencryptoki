@@ -86,6 +86,9 @@ token_spec_t token_specific = {
 	// Triple DES
 	&token_specific_tdes_ecb,
 	&token_specific_tdes_cbc,
+	NULL,			// tdes_ofb
+	NULL,			// tdes_cfb
+	NULL,			// tdes_mac
 	// RSA
 	&token_specific_rsa_decrypt,
 	&token_specific_rsa_encrypt,
@@ -139,6 +142,9 @@ token_spec_t token_specific = {
 	NULL,
 #endif
 	NULL,			// aes_ctr
+	NULL,			// aes_ofb
+	NULL,			// aes_cfb
+	NULL,			// aes_mac
 	// DSA
 	NULL,			// dsa_generate_keypair
 	NULL,			// dsa_sign

@@ -904,6 +904,10 @@ typedef CK_ULONG          CK_MECHANISM_TYPE;
 #define CKM_CDMF_MAC_GENERAL           0x00000144
 #define CKM_CDMF_CBC_PAD               0x00000145
 
+#define CKM_DES_OFB64                  0x00000150
+#define CKM_DES_CFB64                  0x00000152
+#define CKM_DES_CFB8                   0x00000153
+
 #define CKM_MD2                        0x00000200
 
 /* CKM_MD2_HMAC and CKM_MD2_HMAC_GENERAL are new for v2.0 */
@@ -1072,6 +1076,11 @@ typedef CK_ULONG          CK_MECHANISM_TYPE;
 #define CKM_DSA_PARAMETER_GEN          0x00002000
 #define CKM_DH_PKCS_PARAMETER_GEN      0x00002001
 #define CKM_X9_42_DH_PARAMETER_GEN     0x00002002
+
+#define CKM_AES_OFB                    0x00002104
+#define CKM_AES_CFB64                  0x00002105
+#define CKM_AES_CFB8                   0x00002106
+#define CKM_AES_CFB128                 0x00002107
 
 #define CKM_VENDOR_DEFINED             0x80000000
 

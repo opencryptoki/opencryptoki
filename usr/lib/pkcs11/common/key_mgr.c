@@ -879,6 +879,10 @@ key_mgr_wrap_key( SESSION           * sess,
       case CKM_DES_CBC_PAD:
       case CKM_DES3_CBC_PAD:
       case CKM_AES_CBC_PAD:
+      case CKM_AES_OFB:
+      case CKM_AES_CFB8:
+      case CKM_AES_CFB64:
+      case CKM_AES_CFB128:
          if ((class != CKO_SECRET_KEY) && (class != CKO_PRIVATE_KEY)) {
             OCK_LOG_ERR(ERR_KEY_NOT_WRAPPABLE);
             return CKR_KEY_NOT_WRAPPABLE;
@@ -990,6 +994,10 @@ key_mgr_wrap_key( SESSION           * sess,
       case CKM_AES_ECB:
       case CKM_AES_CBC:
       case CKM_AES_CTR:
+      case CKM_AES_OFB:
+      case CKM_AES_CFB8:
+      case CKM_AES_CFB64:
+      case CKM_AES_CFB128:
 	 rc = ckm_aes_wrap_format( length_only, &data, &data_len );
 	 if (rc != CKR_OK) {
 	    OCK_LOG_ERR(ERR_AES_WRAP_FORMAT);
@@ -1120,6 +1128,10 @@ key_mgr_unwrap_key( SESSION           * sess,
       case CKM_AES_ECB:
       case CKM_AES_CBC:
       case CKM_AES_CTR:
+      case CKM_AES_OFB:
+      case CKM_AES_CFB8:
+      case CKM_AES_CFB64:
+      case CKM_AES_CFB128:
       case CKM_DES_CBC_PAD:
       case CKM_DES3_CBC_PAD:
       case CKM_AES_CBC_PAD:

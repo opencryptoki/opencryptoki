@@ -1758,6 +1758,1077 @@ aes_ctr_decrypt_final( SESSION           *sess,
    return CKR_OK;
 }
 
+CK_RV
+aes_ofb_encrypt( SESSION           * sess,
+                 CK_BBOOL            length_only,
+                 ENCR_DECR_CONTEXT * ctx,
+                 CK_BYTE           * in_data,
+                 CK_ULONG            in_data_len,
+                 CK_BYTE           * out_data,
+                 CK_ULONG          * out_data_len)
+{
+   CK_ULONG           rc;
+   OBJECT           * key_obj  = NULL;
+
+   if (!sess || !ctx || !in_data || !out_data_len) {
+      OCK_LOG_ERR(ERR_ARGUMENTS_BAD);
+      return CKR_ARGUMENTS_BAD;
+   }
+
+   if (length_only == TRUE) {
+      *out_data_len = in_data_len;
+      return CKR_OK;
+   }
+
+   if (*out_data_len < in_data_len){
+      OCK_LOG_ERR(ERR_BUFFER_TOO_SMALL);
+      return CKR_BUFFER_TOO_SMALL;
+   }
+
+   rc = object_mgr_find_in_map1( ctx->key, &key_obj );
+   if (rc != CKR_OK){
+      OCK_LOG_ERR(ERR_OBJMGR_FIND_MAP);
+      return rc;
+   }
+
+   rc = token_specific.t_aes_ofb(in_data, in_data_len, out_data,
+                              key_obj, ctx->mech.pParameter, 1);
+
+   if (rc != CKR_OK)
+      OCK_LOG_ERR(ERR_AES_OFB_TOK_SPEC);
+   return rc;
+}
+
+CK_RV
+aes_ofb_encrypt_update( SESSION              * sess,
+                        CK_BBOOL               length_only,
+                        ENCR_DECR_CONTEXT    * ctx,
+                        CK_BYTE              * in_data,
+                        CK_ULONG               in_data_len,
+                        CK_BYTE              * out_data,
+                        CK_ULONG             * out_data_len)
+{
+   AES_CONTEXT  * context   = NULL;
+   CK_BYTE      * cipher    = NULL;
+   CK_ULONG       total, remain, out_len;
+   CK_RV          rc;
+   OBJECT       * key_obj  = NULL;
+
+   if (!sess || !ctx || !in_data || !out_data_len) {
+      OCK_LOG_ERR(ERR_ARGUMENTS_BAD);
+      return CKR_ARGUMENTS_BAD;
+   }
+   context = (AES_CONTEXT *)ctx->context;
+
+   total = (context->len + in_data_len);
+
+   if (total < AES_BLOCK_SIZE) {
+      if (length_only == FALSE) {
+         memcpy( context->data + context->len, in_data, in_data_len );
+         context->len += in_data_len;
+      }
+
+      *out_data_len = 0;
+      return CKR_OK;
+   }
+   else {
+      // we have at least 1 block
+      remain  = (total % AES_BLOCK_SIZE);
+      out_len = total - remain;
+
+      if (length_only == TRUE) {
+         *out_data_len = out_len;
+         return CKR_OK;
+      }
+
+      if (*out_data_len < out_len){
+         OCK_LOG_ERR(ERR_BUFFER_TOO_SMALL);
+         return CKR_BUFFER_TOO_SMALL;
+      }
+
+      rc = object_mgr_find_in_map1( ctx->key, &key_obj );
+      if (rc != CKR_OK){
+         OCK_LOG_ERR(ERR_OBJMGR_FIND_MAP);
+         return rc;
+      }
+
+      cipher = (CK_BYTE *)malloc( out_len );
+      if (!cipher){
+         OCK_LOG_ERR(ERR_HOST_MEMORY);
+         return CKR_HOST_MEMORY;
+      }
+      // copy any data left over from the previous encryption operation first
+      memcpy( cipher,                    context->data, context->len );
+      memcpy( cipher + context->len, in_data, out_len - context->len );
+
+      rc = token_specific.t_aes_ofb(cipher, out_len, out_data,
+                              key_obj, ctx->mech.pParameter, 1);
+
+      if (rc == CKR_OK) {
+         *out_data_len = out_len;
+
+         // copy the remaining 'new' input data to the context buffer
+         if (remain != 0)
+            memcpy( context->data, in_data + (in_data_len - remain), remain );
+         context->len = remain;
+      }
+      else
+         OCK_LOG_ERR(ERR_AES_OFB_TOK_SPEC);
+      free( cipher );
+      return rc;
+   }
+}
+
+CK_RV
+aes_ofb_encrypt_final( SESSION           *sess,
+                       CK_BBOOL           length_only,
+                       ENCR_DECR_CONTEXT *ctx,
+                       CK_BYTE           *out_data,
+                       CK_ULONG          *out_data_len )
+{
+   OBJECT      *key_obj  = NULL;
+   AES_CONTEXT *context  = NULL;
+   CK_RV        rc;
+
+   if (!sess || !ctx || !out_data_len){
+      OCK_LOG_ERR(ERR_FUNCTION_FAILED);
+      return CKR_FUNCTION_FAILED;
+   }
+
+   context = (AES_CONTEXT *)ctx->context;
+
+   // there will never be more than one block in the context buffer
+   // so the amount of output is as follows:
+   //    if less than 1 block stored, we generate same length of output data
+   //    if no data stored, no data can be returned (length zero)
+
+   if (length_only == TRUE) {
+      *out_data_len = context->len;
+      return CKR_OK;
+   }
+   else {
+      if (context->len == 0) {
+         *out_data_len = 0;
+         return CKR_OK;
+      }
+
+      rc = object_mgr_find_in_map1( ctx->key, &key_obj );
+      if (rc != CKR_OK){
+         OCK_LOG_ERR(ERR_OBJMGR_FIND_MAP);
+         return rc;
+      }
+
+      rc = token_specific.t_aes_ofb(context->data, context->len, out_data,
+                              key_obj, ctx->mech.pParameter, 1);
+
+      if (rc != CKR_OK)
+         OCK_LOG_ERR(ERR_AES_OFB_TOK_SPEC);
+
+      *out_data_len = context->len;
+      return rc;
+   }
+}
+
+CK_RV
+aes_ofb_decrypt( SESSION           * sess,
+                 CK_BBOOL            length_only,
+                 ENCR_DECR_CONTEXT * ctx,
+                 CK_BYTE           * in_data,
+                 CK_ULONG            in_data_len,
+                 CK_BYTE           * out_data,
+                 CK_ULONG          * out_data_len )
+{
+   CK_ULONG          rc;
+   OBJECT           *key_obj  = NULL;
+
+   if (!sess || !ctx || !in_data || !out_data_len) {
+      OCK_LOG_ERR(ERR_ARGUMENTS_BAD);
+      return CKR_ARGUMENTS_BAD;
+   }
+
+   if (length_only == TRUE) {
+       *out_data_len = in_data_len;
+       return CKR_OK;
+   }
+
+   if (*out_data_len < in_data_len){
+      OCK_LOG_ERR(ERR_BUFFER_TOO_SMALL);
+      return CKR_BUFFER_TOO_SMALL;
+   }
+
+   rc = object_mgr_find_in_map1( ctx->key, &key_obj );
+   if (rc != CKR_OK){
+      OCK_LOG_ERR(ERR_OBJMGR_FIND_MAP);
+      return rc;
+   }
+
+   rc = token_specific.t_aes_ofb(in_data, in_data_len, out_data,
+                              key_obj, ctx->mech.pParameter, 0);
+
+   if (rc != CKR_OK)
+      OCK_LOG_ERR(ERR_AES_OFB_TOK_SPEC);
+   return rc;
+}
+
+CK_RV
+aes_ofb_decrypt_update( SESSION              * sess,
+                        CK_BBOOL               length_only,
+                        ENCR_DECR_CONTEXT    * ctx,
+                        CK_BYTE              * in_data,
+                        CK_ULONG               in_data_len,
+                        CK_BYTE              * out_data,
+                        CK_ULONG             * out_data_len)
+{
+   AES_CONTEXT  * context  = NULL;
+   CK_BYTE      * cipher   = NULL;
+   CK_ULONG       total, remain, out_len;
+   CK_RV          rc;
+   OBJECT       * key_obj  = NULL;
+
+   if (!sess || !ctx || !in_data || !out_data_len) {
+      OCK_LOG_ERR(ERR_ARGUMENTS_BAD);
+      return CKR_ARGUMENTS_BAD;
+   }
+
+   context = (AES_CONTEXT *)ctx->context;
+
+   total = (context->len + in_data_len);
+
+   if (total < AES_BLOCK_SIZE) {
+      if (length_only == FALSE) {
+         memcpy( context->data + context->len, in_data, in_data_len );
+         context->len += in_data_len;
+      }
+
+      *out_data_len = 0;
+      return CKR_OK;
+   }
+   else {
+      // we have at least 1 block
+      remain  = (total % AES_BLOCK_SIZE);
+      out_len = total - remain;
+
+      if (length_only == TRUE) {
+         *out_data_len = out_len;
+         return CKR_OK;
+      }
+
+      if (*out_data_len < out_len){
+         OCK_LOG_ERR(ERR_BUFFER_TOO_SMALL);
+         return CKR_BUFFER_TOO_SMALL;
+      }
+
+      rc = object_mgr_find_in_map1( ctx->key, &key_obj );
+      if (rc != CKR_OK){
+         OCK_LOG_ERR(ERR_OBJMGR_FIND_MAP);
+         return rc;
+      }
+
+      cipher = (CK_BYTE *)malloc( out_len );
+      if (!cipher){
+         OCK_LOG_ERR(ERR_HOST_MEMORY);
+         return CKR_HOST_MEMORY;
+      }
+      // copy any data left over from the previous decryption operation first
+      memcpy( cipher,                    context->data, context->len );
+      memcpy( cipher + context->len, in_data, out_len - context->len );
+
+      rc = token_specific.t_aes_ofb(cipher, out_len, out_data,
+                              key_obj, ctx->mech.pParameter, 0);
+
+      if (rc == CKR_OK) {
+         *out_data_len = out_len;
+
+         // copy the remaining 'new' input data to the context buffer
+         if (remain != 0)
+            memcpy( context->data, in_data + (in_data_len - remain), remain );
+         context->len = remain;
+      }
+      else
+         OCK_LOG_ERR(ERR_AES_OFB_TOK_SPEC);
+      free( cipher );
+      return rc;
+   }
+}
+
+CK_RV
+aes_ofb_decrypt_final( SESSION           *sess,
+                       CK_BBOOL           length_only,
+                       ENCR_DECR_CONTEXT *ctx,
+                       CK_BYTE           *out_data,
+                       CK_ULONG          *out_data_len )
+{
+   OBJECT      * key_obj = NULL;
+   AES_CONTEXT * context = NULL;
+   CK_RV         rc;
+
+   if (!sess || !ctx || !out_data_len){
+      OCK_LOG_ERR(ERR_FUNCTION_FAILED);
+      return CKR_FUNCTION_FAILED;
+   }
+   // satisfy the compiler
+   //if (length_only)
+   //   context = NULL;
+
+   context = (AES_CONTEXT *)ctx->context;
+
+   // there will never be more than one block in the context buffer
+   // so the amount of output is as follows:
+   //    if less than 1 block stored, we generate same length of output data
+   //    if no data stored, no data can be returned (length zero)
+
+   if (length_only == TRUE) {
+      *out_data_len = context->len;
+      return CKR_OK;
+   }
+   else {
+      if (context->len == 0) {
+         *out_data_len = 0;
+         return CKR_OK;
+      }
+
+      rc = object_mgr_find_in_map1( ctx->key, &key_obj );
+      if (rc != CKR_OK){
+         OCK_LOG_ERR(ERR_OBJMGR_FIND_MAP);
+         return rc;
+      }
+
+      rc = token_specific.t_aes_ofb(context->data, context->len, out_data,
+                                           key_obj, ctx->mech.pParameter, 0);
+
+      if (rc != CKR_OK)
+         OCK_LOG_ERR(ERR_AES_OFB_TOK_SPEC);
+
+      *out_data_len = context->len;
+      return rc;
+   }
+}
+
+CK_RV
+aes_cfb_encrypt( SESSION           * sess,
+                 CK_BBOOL            length_only,
+                 ENCR_DECR_CONTEXT * ctx,
+                 CK_BYTE           * in_data,
+                 CK_ULONG            in_data_len,
+                 CK_BYTE           * out_data,
+                 CK_ULONG          * out_data_len,
+                 CK_ULONG            cfb_len )
+{
+   CK_ULONG          rc;
+   OBJECT           *key_obj = NULL;
+
+   if (!sess || !ctx || !in_data || !out_data_len) {
+      OCK_LOG_ERR(ERR_ARGUMENTS_BAD);
+      return CKR_ARGUMENTS_BAD;
+   }
+
+   if (length_only == TRUE) {
+      *out_data_len = in_data_len;
+      return CKR_OK;
+   }
+
+   if (*out_data_len < in_data_len){
+      OCK_LOG_ERR(ERR_BUFFER_TOO_SMALL);
+      return CKR_BUFFER_TOO_SMALL;
+   }
+
+   rc = object_mgr_find_in_map1( ctx->key, &key_obj );
+   if (rc != CKR_OK){
+      OCK_LOG_ERR(ERR_OBJMGR_FIND_MAP);
+      return rc;
+   }
+
+   rc = token_specific.t_aes_cfb(in_data, in_data_len, out_data,
+                     key_obj, ctx->mech.pParameter, cfb_len, 1);
+
+   if (rc != CKR_OK)
+      OCK_LOG_ERR(ERR_AES_CFB_TOK_SPEC);
+   return rc;
+}
+
+CK_RV
+aes_cfb_encrypt_update( SESSION              * sess,
+                        CK_BBOOL               length_only,
+                        ENCR_DECR_CONTEXT    * ctx,
+                        CK_BYTE              * in_data,
+                        CK_ULONG               in_data_len,
+                        CK_BYTE              * out_data,
+                        CK_ULONG             * out_data_len,
+                        CK_ULONG               cfb_len)
+{
+   AES_CONTEXT  * context  = NULL;
+   CK_BYTE      * cipher   = NULL;
+   CK_ULONG       total, remain, out_len;
+   CK_RV          rc;
+   OBJECT       * key_obj  = NULL;
+
+   if (!sess || !ctx || !in_data || !out_data_len) {
+      OCK_LOG_ERR(ERR_ARGUMENTS_BAD);
+      return CKR_ARGUMENTS_BAD;
+   }
+   context = (AES_CONTEXT *)ctx->context;
+
+   total = (context->len + in_data_len);
+
+   if (total < AES_BLOCK_SIZE) {
+      if (length_only == FALSE) {
+         memcpy( context->data + context->len, in_data, in_data_len );
+         context->len += in_data_len;
+      }
+
+      *out_data_len = 0;
+      return CKR_OK;
+   }
+   else {
+      // we have at least 1 block
+      remain  = (total % AES_BLOCK_SIZE);
+      out_len = total - remain;
+
+      if (length_only == TRUE) {
+         *out_data_len = out_len;
+         return CKR_OK;
+      }
+
+      if (*out_data_len < out_len){
+         OCK_LOG_ERR(ERR_BUFFER_TOO_SMALL);
+         return CKR_BUFFER_TOO_SMALL;
+      }
+
+      rc = object_mgr_find_in_map1( ctx->key, &key_obj );
+      if (rc != CKR_OK){
+         OCK_LOG_ERR(ERR_OBJMGR_FIND_MAP);
+         return rc;
+      }
+
+      cipher = (CK_BYTE *)malloc( out_len );
+      if (!cipher){
+         OCK_LOG_ERR(ERR_HOST_MEMORY);
+         return CKR_HOST_MEMORY;
+      }
+      // copy any data left over from the previous encryption operation first
+      memcpy( cipher,                    context->data, context->len );
+      memcpy( cipher + context->len, in_data, out_len - context->len );
+
+      rc = token_specific.t_aes_cfb(cipher, out_len, out_data,
+                              key_obj, ctx->mech.pParameter, cfb_len, 1);
+
+      if (rc == CKR_OK) {
+         *out_data_len = out_len;
+
+         // copy the remaining 'new' input data to the context buffer
+         if (remain != 0)
+            memcpy( context->data, in_data + (in_data_len - remain), remain );
+         context->len = remain;
+      }
+      else
+         OCK_LOG_ERR(ERR_AES_OFB_TOK_SPEC);
+      free( cipher );
+      return rc;
+   }
+}
+
+CK_RV
+aes_cfb_encrypt_final( SESSION           *sess,
+                       CK_BBOOL           length_only,
+                       ENCR_DECR_CONTEXT *ctx,
+                       CK_BYTE           *out_data,
+                       CK_ULONG          *out_data_len,
+                       CK_ULONG           cfb_len)
+{
+   OBJECT      *key_obj  = NULL;
+   AES_CONTEXT *context  = NULL;
+   CK_RV        rc;
+
+   if (!sess || !ctx || !out_data_len){
+      OCK_LOG_ERR(ERR_FUNCTION_FAILED);
+      return CKR_FUNCTION_FAILED;
+   }
+
+   context = (AES_CONTEXT *)ctx->context;
+
+   // there will never be more than one block in the context buffer
+   // so the amount of output is as follows:
+   //    if less than 1 block stored, we generate same length of output data
+   //    if no data stored, no data can be returned (length zero)
+
+   if (context->len == 0) {
+      *out_data_len = 0;
+      return CKR_OK;
+   }
+
+   if (length_only == TRUE) {
+      *out_data_len = context->len;
+      return CKR_OK;
+   }
+   else {
+      rc = object_mgr_find_in_map1( ctx->key, &key_obj );
+      if (rc != CKR_OK){
+         OCK_LOG_ERR(ERR_OBJMGR_FIND_MAP);
+         return rc;
+      }
+
+      rc = token_specific.t_aes_cfb(context->data, context->len, out_data,
+                              key_obj, ctx->mech.pParameter, cfb_len, 1);
+
+      if (rc != CKR_OK)
+         OCK_LOG_ERR(ERR_AES_CFB_TOK_SPEC);
+
+      *out_data_len = context->len;
+      return rc;
+   }
+}
+
+CK_RV
+aes_cfb_decrypt( SESSION           * sess,
+                 CK_BBOOL            length_only,
+                 ENCR_DECR_CONTEXT * ctx,
+                 CK_BYTE           * in_data,
+                 CK_ULONG            in_data_len,
+                 CK_BYTE           * out_data,
+                 CK_ULONG          * out_data_len,
+                 CK_ULONG            cfb_len )
+{
+   CK_ULONG          rc;
+   OBJECT           *key_obj = NULL;
+
+   if (!sess || !ctx || !in_data || !out_data_len) {
+      OCK_LOG_ERR(ERR_ARGUMENTS_BAD);
+      return CKR_ARGUMENTS_BAD;
+   }
+
+   if (length_only == TRUE) {
+      *out_data_len = in_data_len;
+      return CKR_OK;
+   }
+
+   if (*out_data_len < in_data_len){
+      OCK_LOG_ERR(ERR_BUFFER_TOO_SMALL);
+      return CKR_BUFFER_TOO_SMALL;
+   }
+
+   rc = object_mgr_find_in_map1( ctx->key, &key_obj );
+   if (rc != CKR_OK){
+      OCK_LOG_ERR(ERR_OBJMGR_FIND_MAP);
+      return rc;
+   }
+
+   rc = token_specific.t_aes_cfb(in_data, in_data_len, out_data,
+                     key_obj, ctx->mech.pParameter, cfb_len, 0);
+
+   if (rc != CKR_OK)
+      OCK_LOG_ERR(ERR_AES_CFB_TOK_SPEC);
+   return rc;
+}
+
+CK_RV
+aes_cfb_decrypt_update( SESSION              * sess,
+                        CK_BBOOL               length_only,
+                        ENCR_DECR_CONTEXT    * ctx,
+                        CK_BYTE              * in_data,
+                        CK_ULONG               in_data_len,
+                        CK_BYTE              * out_data,
+                        CK_ULONG             * out_data_len,
+                        CK_ULONG               cfb_len)
+{
+   AES_CONTEXT  * context  = NULL;
+   CK_BYTE      * cipher   = NULL;
+   CK_ULONG       total, remain, out_len;
+   CK_RV          rc;
+   OBJECT       * key_obj  = NULL;
+
+   if (!sess || !ctx || !in_data || !out_data_len) {
+      OCK_LOG_ERR(ERR_ARGUMENTS_BAD);
+      return CKR_ARGUMENTS_BAD;
+   }
+   context = (AES_CONTEXT *)ctx->context;
+
+   total = (context->len + in_data_len);
+
+   if (total < AES_BLOCK_SIZE) {
+      if (length_only == FALSE) {
+         memcpy( context->data + context->len, in_data, in_data_len );
+         context->len += in_data_len;
+      }
+
+      *out_data_len = 0;
+      return CKR_OK;
+   }
+   else {
+      // we have at least 1 block
+      remain  = (total % AES_BLOCK_SIZE);
+      out_len = total - remain;
+
+      if (length_only == TRUE) {
+         *out_data_len = out_len;
+         return CKR_OK;
+      }
+
+      if (*out_data_len < out_len){
+         OCK_LOG_ERR(ERR_BUFFER_TOO_SMALL);
+         return CKR_BUFFER_TOO_SMALL;
+      }
+
+      rc = object_mgr_find_in_map1( ctx->key, &key_obj );
+      if (rc != CKR_OK){
+         OCK_LOG_ERR(ERR_OBJMGR_FIND_MAP);
+         return rc;
+      }
+
+      cipher = (CK_BYTE *)malloc( out_len );
+      if (!cipher){
+         OCK_LOG_ERR(ERR_HOST_MEMORY);
+         return CKR_HOST_MEMORY;
+      }
+      // copy any data left over from the previous decryption operation first
+      memcpy( cipher,                    context->data, context->len );
+      memcpy( cipher + context->len, in_data, out_len - context->len );
+
+      rc = token_specific.t_aes_cfb(cipher, out_len, out_data,
+                              key_obj, ctx->mech.pParameter, cfb_len, 0);
+
+      if (rc == CKR_OK) {
+         *out_data_len = out_len;
+
+         // copy the remaining 'new' input data to the context buffer
+         if (remain != 0)
+            memcpy( context->data, in_data + (in_data_len - remain), remain );
+         context->len = remain;
+      }
+      else
+         OCK_LOG_ERR(ERR_AES_OFB_TOK_SPEC);
+      free( cipher );
+      return rc;
+   }
+}
+
+CK_RV
+aes_cfb_decrypt_final( SESSION           *sess,
+                       CK_BBOOL           length_only,
+                       ENCR_DECR_CONTEXT *ctx,
+                       CK_BYTE           *out_data,
+                       CK_ULONG          *out_data_len,
+                       CK_ULONG           cfb_len)
+{
+   OBJECT      *key_obj  = NULL;
+   AES_CONTEXT *context  = NULL;
+   CK_RV        rc;
+
+   if (!sess || !ctx || !out_data_len){
+      OCK_LOG_ERR(ERR_FUNCTION_FAILED);
+      return CKR_FUNCTION_FAILED;
+   }
+
+   context = (AES_CONTEXT *)ctx->context;
+
+   // there will never be more than one block in the context buffer
+   // so the amount of output is as follows:
+   //    if less than 1 block stored, we generate same length of output data
+   //    if no data stored, no data can be returned (length zero)
+
+   if (context->len == 0) {
+      *out_data_len = 0;
+      return CKR_OK;
+   }
+
+   if (length_only == TRUE) {
+      *out_data_len = context->len;
+      return CKR_OK;
+   }
+   else {
+      rc = object_mgr_find_in_map1( ctx->key, &key_obj );
+      if (rc != CKR_OK){
+         OCK_LOG_ERR(ERR_OBJMGR_FIND_MAP);
+         return rc;
+      }
+
+      rc = token_specific.t_aes_cfb(context->data, context->len, out_data,
+                              key_obj, ctx->mech.pParameter, cfb_len, 0);
+
+      if (rc != CKR_OK)
+         OCK_LOG_ERR(ERR_AES_CFB_TOK_SPEC);
+
+      *out_data_len = context->len;
+      return rc;
+   }
+}
+
+
+CK_RV
+aes_mac_sign( SESSION              * sess,
+              CK_BBOOL               length_only,
+              SIGN_VERIFY_CONTEXT  * ctx,
+              CK_BYTE              * in_data,
+              CK_ULONG               in_data_len,
+              CK_BYTE              * out_data,
+              CK_ULONG             * out_data_len)
+{
+ CK_ULONG         rc;
+ OBJECT           * key_obj  = NULL;
+ CK_ULONG         mac_len;
+
+   if (!sess || !ctx || !out_data_len){
+      OCK_LOG_ERR(ERR_ARGUMENTS_BAD);
+      return CKR_ARGUMENTS_BAD;
+   }
+
+   if (ctx->mech.pParameter)
+      mac_len = *(CK_MAC_GENERAL_PARAMS *)ctx->mech.pParameter;
+   else
+      mac_len = AES_BLOCK_SIZE / 2;
+
+   if (length_only == TRUE) {
+      *out_data_len = mac_len;
+      return CKR_OK;
+   }
+
+ if ( (in_data_len % AES_BLOCK_SIZE) != 0) {
+    rc = aes_mac_sign_update(sess, ctx, in_data, in_data_len);
+    if (rc != CKR_OK) {
+       OCK_LOG_ERR(ERR_FUNCTION_FAILED);
+       return CKR_FUNCTION_FAILED;
+    }
+
+    rc = aes_mac_sign_final(sess, length_only, ctx, out_data, out_data_len);
+    if (rc != CKR_OK) {
+       OCK_LOG_ERR(ERR_FUNCTION_FAILED);
+       return CKR_FUNCTION_FAILED;
+    }
+    return rc;
+ }
+ else {
+
+   if (*out_data_len < mac_len) {
+      *out_data_len = mac_len;
+      OCK_LOG_ERR(ERR_BUFFER_TOO_SMALL);
+      return CKR_BUFFER_TOO_SMALL;
+   }
+
+   rc = object_mgr_find_in_map1( ctx->key, &key_obj );
+   if (rc != CKR_OK){
+      OCK_LOG_ERR(ERR_OBJMGR_FIND_MAP);
+      return rc;
+   }
+
+   rc = token_specific.t_aes_mac(in_data, in_data_len,
+        key_obj, ((AES_DATA_CONTEXT *)ctx->context)->iv);
+   if (rc != CKR_OK)
+      OCK_LOG_ERR(ERR_AES_MAC_TOK_SPEC);
+
+   memcpy(out_data, ((AES_DATA_CONTEXT *)ctx->context)->iv, mac_len);
+   *out_data_len = mac_len;
+
+   return rc;
+ }
+}
+
+CK_RV
+aes_mac_sign_update ( SESSION              * sess,
+                      SIGN_VERIFY_CONTEXT  * ctx,
+                      CK_BYTE              * in_data,
+                      CK_ULONG               in_data_len )
+{
+ CK_ULONG         rc;
+ OBJECT           * key_obj  = NULL;
+ AES_DATA_CONTEXT * context  = NULL;
+ CK_BYTE          * cipher   = NULL;
+ CK_ULONG         total, remain, out_len;
+
+  if (!sess || !ctx){
+      OCK_LOG_ERR(ERR_ARGUMENTS_BAD);
+      return CKR_ARGUMENTS_BAD;
+  }
+
+   context = (AES_DATA_CONTEXT *)ctx->context;
+
+   total = (context->len + in_data_len);
+
+   if (total < AES_BLOCK_SIZE) {
+      memcpy( context->data + context->len, in_data, in_data_len );
+      context->len += in_data_len;
+      return CKR_OK;
+   }
+   else {
+      // we have at least 1 block
+      remain  = (total % AES_BLOCK_SIZE);
+      out_len = total - remain;
+
+      rc = object_mgr_find_in_map1( ctx->key, &key_obj );
+      if (rc != CKR_OK){
+         OCK_LOG_ERR(ERR_OBJMGR_FIND_MAP);
+         return rc;
+      }
+
+      cipher = (CK_BYTE *)malloc( out_len );
+      if (!cipher){
+         OCK_LOG_ERR(ERR_HOST_MEMORY);
+         return CKR_HOST_MEMORY;
+      }
+      // copy any data left over from the previous signUpdate operation first
+      memcpy( cipher,                context->data, context->len );
+      memcpy( cipher + context->len, in_data,       out_len - context->len );
+
+      rc = token_specific.t_aes_mac(cipher, out_len, key_obj, context->iv);
+
+      if (rc == CKR_OK) {
+         // copy the remaining 'new' input data to the context buffer
+         if (remain != 0)
+            memcpy( context->data, in_data + (in_data_len - remain), remain );
+         context->len = remain;
+      }
+      else
+         OCK_LOG_ERR(ERR_AES_MAC_TOK_SPEC);
+
+      free( cipher );
+      return rc;
+   }
+}
+
+CK_RV
+aes_mac_sign_final( SESSION              * sess,
+                    CK_BBOOL               length_only,
+                    SIGN_VERIFY_CONTEXT  * ctx,
+                    CK_BYTE              * out_data,
+                    CK_ULONG             * out_data_len)
+{
+  CK_ULONG           rc;
+  CK_ULONG           mac_len;
+  AES_DATA_CONTEXT * context  = NULL;
+  OBJECT           * key_obj  = NULL;
+
+   if (!sess || !ctx || !out_data_len){
+      OCK_LOG_ERR(ERR_ARGUMENTS_BAD);
+      return CKR_ARGUMENTS_BAD;
+   }
+
+   context = (AES_DATA_CONTEXT *)ctx->context;
+
+   if (ctx->mech.pParameter)
+      mac_len = *(CK_MAC_GENERAL_PARAMS *)ctx->mech.pParameter;
+   else
+      mac_len = AES_BLOCK_SIZE / 2;
+
+   // there will never be more than one block in the context buffer
+   // so the amount of output is as follows:
+   //    if less than 1 block stored, we generate one block of output (with padding)
+   //    if no data stored, we are done (take the cipher from previous round)
+
+   if (length_only == TRUE) {
+      *out_data_len = mac_len;
+      return CKR_OK;
+   }
+
+   if (context->len > 0) {
+
+      if (*out_data_len < mac_len) {
+         *out_data_len = mac_len;
+         OCK_LOG_ERR(ERR_BUFFER_TOO_SMALL);
+         return CKR_BUFFER_TOO_SMALL;
+      }
+
+      /* padding with '00' in case case we didn't reach block size */
+      memset(context->data + context->len, 0x0, AES_BLOCK_SIZE - context->len);
+
+      rc = object_mgr_find_in_map1( ctx->key, &key_obj );
+      if (rc != CKR_OK){
+         OCK_LOG_ERR(ERR_OBJMGR_FIND_MAP);
+         return rc;
+      }
+
+      rc = token_specific.t_aes_mac(context->data, AES_BLOCK_SIZE, key_obj, context->iv);
+      if (rc != CKR_OK) {
+         OCK_LOG_ERR(ERR_AES_MAC_TOK_SPEC);
+         return rc;
+      }
+   }
+   memcpy(out_data, context->iv, mac_len);
+   *out_data_len = mac_len;
+
+   return rc;
+}
+
+CK_RV
+aes_mac_verify( SESSION              * sess,
+                SIGN_VERIFY_CONTEXT  * ctx,
+                CK_BYTE              * in_data,
+                CK_ULONG               in_data_len,
+                CK_BYTE              * out_data,
+                CK_ULONG               out_data_len)
+{
+ CK_ULONG         rc;
+ OBJECT           * key_obj  = NULL;
+ CK_ULONG         mac_len;
+
+   if (!sess || !ctx || !in_data || !out_data){
+      OCK_LOG_ERR(ERR_ARGUMENTS_BAD);
+      return CKR_ARGUMENTS_BAD;
+   }
+
+ if ( (in_data_len % AES_BLOCK_SIZE) != 0) {
+    rc = aes_mac_verify_update(sess, ctx, in_data, in_data_len);
+    if (rc != CKR_OK) {
+       OCK_LOG_ERR(ERR_FUNCTION_FAILED);
+       return CKR_FUNCTION_FAILED;
+    }
+
+    rc = aes_mac_verify_final(sess, ctx, out_data, out_data_len);
+    if (rc != CKR_OK) {
+       OCK_LOG_ERR(ERR_FUNCTION_FAILED);
+       return CKR_FUNCTION_FAILED;
+    }
+    return rc;
+ }
+ else {
+
+   if (ctx->mech.pParameter)
+      mac_len = *(CK_MAC_GENERAL_PARAMS *)ctx->mech.pParameter;
+   else
+      mac_len = AES_BLOCK_SIZE / 2;
+
+   if (out_data_len != mac_len) {
+           OCK_LOG_ERR(ERR_SIGNATURE_LEN_RANGE);
+           return CKR_SIGNATURE_LEN_RANGE;
+   }
+
+   rc = object_mgr_find_in_map1( ctx->key, &key_obj );
+   if (rc != CKR_OK){
+      OCK_LOG_ERR(ERR_OBJMGR_FIND_MAP);
+      return rc;
+   }
+
+   rc = token_specific.t_aes_mac(in_data, in_data_len,
+        key_obj, ((AES_DATA_CONTEXT *)ctx->context)->iv);
+
+   if (rc != CKR_OK)
+      OCK_LOG_ERR(ERR_AES_MAC_TOK_SPEC);
+   if (memcmp(
+       out_data, ((AES_DATA_CONTEXT *)ctx->context)->iv, out_data_len) == 0) {
+       return CKR_OK;
+   }
+   else
+       return CKR_SIGNATURE_INVALID;
+ }
+}
+
+
+CK_RV
+aes_mac_verify_update( SESSION              * sess,
+                       SIGN_VERIFY_CONTEXT  * ctx,
+                       CK_BYTE              * in_data,
+                       CK_ULONG               in_data_len)
+{
+ CK_ULONG         rc;
+ OBJECT           * key_obj  = NULL;
+ CK_ULONG         mac_len;
+ AES_DATA_CONTEXT * context  = NULL;
+ CK_BYTE          * cipher   = NULL;
+ CK_ULONG         total, remain, out_len;
+
+   if (!sess || !ctx || !in_data){
+      OCK_LOG_ERR(ERR_ARGUMENTS_BAD);
+      return CKR_ARGUMENTS_BAD;
+   }
+
+   context = (AES_DATA_CONTEXT *)ctx->context;
+
+   total = (context->len + in_data_len);
+
+   if (total < AES_BLOCK_SIZE) {
+      memcpy( context->data + context->len, in_data, in_data_len );
+      context->len += in_data_len;
+      return CKR_OK;
+   }
+   else {
+      // we have at least 1 block
+      remain  = (total % AES_BLOCK_SIZE);
+      out_len = total - remain;
+
+      rc = object_mgr_find_in_map1( ctx->key, &key_obj );
+      if (rc != CKR_OK){
+         OCK_LOG_ERR(ERR_OBJMGR_FIND_MAP);
+         return rc;
+      }
+
+      cipher = (CK_BYTE *)malloc( out_len );
+      if (!cipher){
+         OCK_LOG_ERR(ERR_HOST_MEMORY);
+         return CKR_HOST_MEMORY;
+      }
+      // copy any data left over from the previous signUpdate operation first
+      memcpy( cipher,                context->data, context->len );
+      memcpy( cipher + context->len, in_data,       out_len - context->len );
+
+      rc = token_specific.t_aes_mac(cipher, out_len, key_obj, context->iv);
+      if (rc == CKR_OK) {
+         // copy the remaining 'new' input data to the context buffer
+         if (remain != 0)
+            memcpy( context->data, in_data + (in_data_len - remain), remain );
+         context->len = remain;
+      }
+      else
+         OCK_LOG_ERR(ERR_AES_MAC_TOK_SPEC);
+
+      free( cipher );
+      return rc;
+   }
+}
+
+CK_RV
+aes_mac_verify_final( SESSION              * sess,
+                      SIGN_VERIFY_CONTEXT  * ctx,
+                      CK_BYTE              * signature,
+                      CK_ULONG               signature_len)
+{
+ CK_ULONG           rc;
+ OBJECT           * key_obj  = NULL;
+ CK_ULONG           mac_len;
+ AES_DATA_CONTEXT * context  = NULL;
+
+   if (!sess || !ctx || !signature){
+      OCK_LOG_ERR(ERR_ARGUMENTS_BAD);
+      return CKR_ARGUMENTS_BAD;
+   }
+
+   context = (AES_DATA_CONTEXT *)ctx->context;
+
+   if (ctx->mech.pParameter)
+      mac_len = *(CK_MAC_GENERAL_PARAMS *)ctx->mech.pParameter;
+   else
+      mac_len = AES_BLOCK_SIZE / 2;
+
+   // there will never be more than one block in the context buffer
+   // so the amount of output is as follows:
+   //    if less than 1 block stored, we generate one block of output (with padding)
+   //    if no data stored, we are done (take the cipher from previous round)
+
+   if (context->len > 0) {
+
+      if (signature_len != mac_len) {
+           OCK_LOG_ERR(ERR_SIGNATURE_LEN_RANGE);
+           return CKR_SIGNATURE_LEN_RANGE;
+      }
+
+      /* padding with '00' in case case we didn't reach block size */
+      memset(context->data + context->len, 0x0, AES_BLOCK_SIZE - context->len);
+
+      rc = object_mgr_find_in_map1( ctx->key, &key_obj );
+      if (rc != CKR_OK){
+         OCK_LOG_ERR(ERR_OBJMGR_FIND_MAP);
+         return rc;
+      }
+      rc = token_specific.t_aes_mac(context->data, AES_BLOCK_SIZE, key_obj, context->iv);
+      if (rc != CKR_OK) {
+         OCK_LOG_ERR(ERR_AES_MAC_TOK_SPEC);
+         return rc;
+      }
+   }
+
+   if (memcmp(signature, context->iv, signature_len) == 0) {
+      return CKR_OK;
+   }
+   else
+      return CKR_SIGNATURE_INVALID;
+}
+
 //
 // mechanisms
 //

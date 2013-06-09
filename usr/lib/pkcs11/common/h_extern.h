@@ -1313,6 +1313,28 @@ CK_RV  des3_cbc_pad_decrypt_final( SESSION *sess,  CK_BBOOL length_only,
                                    ENCR_DECR_CONTEXT *context,
                                    CK_BYTE  *out_data, CK_ULONG *out_data_len );
 
+CK_RV des3_mac_sign( SESSION * sess, CK_BBOOL length_only,
+                     SIGN_VERIFY_CONTEXT  * ctx,
+                     CK_BYTE * in_data, CK_ULONG    in_data_len,
+                     CK_BYTE * out_data, CK_ULONG * out_data_len);
+
+CK_RV des3_mac_sign_update ( SESSION * sess,  SIGN_VERIFY_CONTEXT  * ctx,
+                             CK_BYTE * in_data, CK_ULONG in_data_len );
+
+CK_RV des3_mac_sign_final( SESSION * sess, CK_BBOOL length_only,
+                           SIGN_VERIFY_CONTEXT  * ctx,
+                           CK_BYTE * out_data, CK_ULONG * out_data_len);
+
+CK_RV des3_mac_verify( SESSION * sess, SIGN_VERIFY_CONTEXT  * ctx,
+                       CK_BYTE * in_data, CK_ULONG in_data_len,
+                       CK_BYTE * out_data, CK_ULONG out_data_len);
+
+CK_RV des3_mac_verify_update( SESSION * sess, SIGN_VERIFY_CONTEXT * ctx,
+                              CK_BYTE * in_data, CK_ULONG in_data_len);
+
+CK_RV des3_mac_verify_final( SESSION  * sess, SIGN_VERIFY_CONTEXT  * ctx,
+                             CK_BYTE  * signature, CK_ULONG signature_len);
+
 // DES3 mechanisms
 //
 CK_RV  ckm_des3_key_gen( TEMPLATE *tmpl );
@@ -1436,7 +1458,27 @@ CK_RV  aes_ctr_decrypt_final( SESSION *sess,     CK_BBOOL length_only,
 			      ENCR_DECR_CONTEXT  *context,
 			      CK_BYTE *out_data, CK_ULONG *out_data_len );
 
+CK_RV aes_mac_sign( SESSION * sess, CK_BBOOL length_only,
+                    SIGN_VERIFY_CONTEXT  * ctx,
+                    CK_BYTE * in_data, CK_ULONG    in_data_len,
+                    CK_BYTE * out_data, CK_ULONG * out_data_len);
 
+CK_RV aes_mac_sign_update ( SESSION * sess,  SIGN_VERIFY_CONTEXT  * ctx,
+                            CK_BYTE * in_data, CK_ULONG in_data_len );
+
+CK_RV aes_mac_sign_final( SESSION * sess, CK_BBOOL length_only,
+                          SIGN_VERIFY_CONTEXT  * ctx,
+                          CK_BYTE * out_data, CK_ULONG * out_data_len);
+
+CK_RV aes_mac_verify( SESSION * sess, SIGN_VERIFY_CONTEXT  * ctx,
+                      CK_BYTE * in_data, CK_ULONG in_data_len,
+                      CK_BYTE * out_data, CK_ULONG out_data_len);
+
+CK_RV aes_mac_verify_update( SESSION * sess, SIGN_VERIFY_CONTEXT * ctx,
+                             CK_BYTE * in_data, CK_ULONG in_data_len);
+
+CK_RV aes_mac_verify_final( SESSION  * sess, SIGN_VERIFY_CONTEXT  * ctx,
+                            CK_BYTE  * signature, CK_ULONG signature_len);
 
 
 // AES mechanisms

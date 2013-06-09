@@ -556,6 +556,8 @@ sign_mgr_init( SESSION                * sess,
       case CKM_MD5_HMAC:
       case CKM_SHA_1_HMAC:
       case CKM_SHA256_HMAC:
+      case CKM_SHA384_HMAC_GENERAL:
+      case CKM_SHA512_HMAC_GENERAL:
          {
             if (mech->ulParameterLen != 0){
                OCK_LOG_ERR(ERR_MECHANISM_PARAM_INVALID); 
@@ -612,6 +614,14 @@ sign_mgr_init( SESSION                * sess,
             }
             if ((mech->mechanism == CKM_SHA256_HMAC_GENERAL) && (*param > 32)){
                OCK_LOG_ERR(ERR_MECHANISM_PARAM_INVALID); 
+               return CKR_MECHANISM_PARAM_INVALID;
+            }
+            if ((mech->mechanism == CKM_SHA384_HMAC_GENERAL) && (*param > 48)){
+               OCK_LOG_ERR(ERR_MECHANISM_PARAM_INVALID);
+               return CKR_MECHANISM_PARAM_INVALID;
+            }
+            if ((mech->mechanism == CKM_SHA512_HMAC_GENERAL) && (*param > 64)){
+               OCK_LOG_ERR(ERR_MECHANISM_PARAM_INVALID);
                return CKR_MECHANISM_PARAM_INVALID;
             }
             rc = template_attribute_find( key_obj->template, CKA_KEY_TYPE, &attr );
@@ -679,6 +689,74 @@ sign_mgr_init( SESSION                * sess,
                return CKR_HOST_MEMORY;
             }
             memset( ctx->context, 0x0, sizeof(SSL3_MAC_CONTEXT));
+         }
+         break;
+
+      case CKM_DES3_MAC:
+      case CKM_DES3_MAC_GENERAL:
+         {
+         if (mech->pParameter) {
+
+            if (mech->ulParameterLen != sizeof(CK_MAC_GENERAL_PARAMS)){
+               OCK_LOG_ERR(ERR_MECHANISM_PARAM_INVALID);
+               return CKR_MECHANISM_PARAM_INVALID;
+            }
+
+            CK_MAC_GENERAL_PARAMS *param = (CK_MAC_GENERAL_PARAMS *)mech->pParameter;
+
+            if (mech->mechanism == CKM_DES3_MAC_GENERAL) {
+               if (*param < 1 || *param > DES_BLOCK_SIZE){
+                  OCK_LOG_ERR(ERR_MECHANISM_PARAM_INVALID);
+                  return CKR_MECHANISM_PARAM_INVALID;
+               }
+            }
+            /* CKM_DES3_MAC should not have params */
+            else {
+               return CKR_MECHANISM_PARAM_INVALID;
+            }
+          }
+
+          ctx->context     = (CK_BYTE *)malloc(sizeof(DES_DATA_CONTEXT));
+          ctx->context_len = sizeof(DES_DATA_CONTEXT);
+
+          if (!ctx->context){
+               OCK_LOG_ERR(ERR_HOST_MEMORY);
+               return CKR_HOST_MEMORY;
+          }
+          memset( ctx->context, 0x0, sizeof(DES_DATA_CONTEXT));
+         }
+         break;
+
+      case CKM_AES_MAC:
+      case CKM_AES_MAC_GENERAL:
+         {
+          if (mech->pParameter) {
+
+              if (mech->ulParameterLen != sizeof(CK_MAC_GENERAL_PARAMS)){
+                 OCK_LOG_ERR(ERR_MECHANISM_PARAM_INVALID);
+                 return CKR_MECHANISM_PARAM_INVALID;
+              }
+
+              CK_MAC_GENERAL_PARAMS *param = (CK_MAC_GENERAL_PARAMS *)mech->pParameter;
+
+              if (mech->mechanism == CKM_AES_MAC_GENERAL) {
+                 if (*param < 1 || *param > AES_BLOCK_SIZE){
+                    OCK_LOG_ERR(ERR_MECHANISM_PARAM_INVALID);
+                    return CKR_MECHANISM_PARAM_INVALID;
+                 }
+              }
+              /* CKM_AES_MAC should not have params */
+              else return CKR_MECHANISM_PARAM_INVALID;
+          }
+
+          ctx->context     = (CK_BYTE *)malloc(sizeof(AES_DATA_CONTEXT));
+          ctx->context_len = sizeof(AES_DATA_CONTEXT);
+
+          if (!ctx->context){
+               OCK_LOG_ERR(ERR_HOST_MEMORY);
+               return CKR_HOST_MEMORY;
+          }
+          memset( ctx->context, 0x0, sizeof(AES_DATA_CONTEXT));
          }
          break;
 
@@ -831,6 +909,18 @@ sign_mgr_sign( SESSION              * sess,
                                in_data,  in_data_len,
                                out_data, out_data_len );
 
+      case CKM_SHA384_HMAC:
+      case CKM_SHA384_HMAC_GENERAL:
+         return sha3_hmac_sign( sess,     length_only, ctx,
+                               in_data,  in_data_len,
+                               out_data, out_data_len );
+
+      case CKM_SHA512_HMAC:
+      case CKM_SHA512_HMAC_GENERAL:
+         return sha5_hmac_sign( sess,     length_only, ctx,
+                               in_data,  in_data_len,
+                               out_data, out_data_len );
+
       case CKM_SSL3_MD5_MAC:
       case CKM_SSL3_SHA1_MAC:
          return ssl3_mac_sign( sess,     length_only, ctx,
@@ -845,6 +935,14 @@ sign_mgr_sign( SESSION              * sess,
          return ec_sign( sess, length_only, ctx,
                                in_data,  in_data_len,
                                out_data, out_data_len );
+
+      case CKM_DES3_MAC:
+      case CKM_DES3_MAC_GENERAL:
+         return des3_mac_sign( sess, length_only, ctx, in_data, in_data_len, out_data, out_data_len );
+
+      case CKM_AES_MAC:
+      case CKM_AES_MAC_GENERAL:
+         return aes_mac_sign( sess, length_only, ctx, in_data, in_data_len, out_data, out_data_len );
 
       default:
          OCK_LOG_ERR(ERR_MECHANISM_INVALID); 
@@ -894,6 +992,14 @@ sign_mgr_sign_update( SESSION             * sess,
       case CKM_SSL3_SHA1_MAC:
          return ssl3_mac_sign_update( sess, ctx, in_data, in_data_len );
 
+      case CKM_DES3_MAC:
+      case CKM_DES3_MAC_GENERAL:
+          return des3_mac_sign_update( sess, ctx, in_data, in_data_len );
+
+      case CKM_AES_MAC:
+      case CKM_AES_MAC_GENERAL:
+          return aes_mac_sign_update( sess, ctx, in_data, in_data_len );
+
       case CKM_ECDSA_SHA1:
       	 return ec_hash_sign_update( sess, ctx, in_data, in_data_len );
 
@@ -941,6 +1047,14 @@ sign_mgr_sign_final( SESSION             * sess,
       case CKM_SSL3_MD5_MAC:
       case CKM_SSL3_SHA1_MAC:
          return ssl3_mac_sign_final( sess, length_only, ctx, signature, sig_len );
+      case CKM_DES3_MAC:
+      case CKM_DES3_MAC_GENERAL:
+         return des3_mac_sign_final( sess, length_only, ctx, signature, sig_len );
+
+      case CKM_AES_MAC:
+      case CKM_AES_MAC_GENERAL:
+         return aes_mac_sign_final( sess, length_only, ctx, signature, sig_len );
+
       case CKM_ECDSA_SHA1:
 	 return ec_hash_sign_final (sess, length_only, ctx, signature, sig_len );
 

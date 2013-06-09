@@ -310,7 +310,7 @@
 
 #include "tok_specific.h"
 #include "tok_struct.h"
-
+#include "ica_specific.h"
 #include "ica_api.h"
 // declare the adapter open handle localy
 ICA_ADAPTER_HANDLE adapter_handle;
@@ -641,6 +641,100 @@ token_specific_tdes_cbc(CK_BYTE * in_data,
          rc = CKR_OK;
    }
 
+   return rc;
+}
+
+/*
+ *
+ * 0 Use the decrypt function.
+ * 1 Use the encrypt function.
+ */
+CK_RV
+token_specific_tdes_ofb(CK_BYTE *in_data, CK_BYTE *out_data, CK_ULONG data_len,
+                        OBJECT *key, CK_BYTE *iv, uint_32 direction)
+{
+   CK_RV rc;
+   CK_ATTRIBUTE *attr = NULL;
+
+   if (template_attribute_find(key->template, CKA_VALUE, &attr) == FALSE) {
+       OCK_LOG_ERR(ERR_FUNCTION_FAILED);
+       return CKR_FUNCTION_FAILED;
+    }
+
+   rc = ica_3des_ofb(in_data, out_data, (unsigned int) data_len,
+                   (const unsigned char *) attr->pValue, (unsigned char *) iv,
+                   direction);
+
+   if (rc != 0) {
+         OCK_LOG_ERR(ERR_FUNCTION_FAILED);
+         rc = CKR_FUNCTION_FAILED;
+   }
+   return rc;
+}
+
+/*
+ * 0 Use the decrypt function.
+ * 1 Use the encrypt function.
+ */
+CK_RV
+token_specific_tdes_cfb(CK_BYTE *in_data, CK_BYTE *out_data, CK_ULONG data_len,
+                        OBJECT *key, CK_BYTE *iv, uint_32 cfb_len,
+                        uint_32 direction)
+{
+   CK_RV rc;
+   CK_ATTRIBUTE *attr = NULL;
+
+   if (template_attribute_find(key->template, CKA_VALUE, &attr) == FALSE) {
+       OCK_LOG_ERR(ERR_FUNCTION_FAILED);
+       return CKR_FUNCTION_FAILED;
+    }
+
+   rc = ica_3des_cfb(in_data, out_data, (unsigned int) data_len,
+                   (const unsigned char *) attr->pValue, (unsigned char *) iv,
+                    cfb_len, direction);
+
+   if (rc != 0) {
+         OCK_LOG_ERR(ERR_FUNCTION_FAILED);
+         rc = CKR_FUNCTION_FAILED;
+   }
+   return rc;
+}
+
+CK_RV
+token_specific_tdes_mac(CK_BYTE *message, CK_ULONG message_len, OBJECT *key,
+                        CK_BYTE *mac)
+{
+   CK_RV rc;
+   CK_ATTRIBUTE *attr = NULL;
+   CK_KEY_TYPE  keytype;
+   CK_BYTE key_value[3*DES_KEY_SIZE];
+
+   // get the key type
+   rc = template_attribute_find(key->template, CKA_KEY_TYPE, &attr);
+   if (rc == FALSE) {
+      OCK_LOG_ERR(ERR_FUNCTION_FAILED);
+      return CKR_FUNCTION_FAILED;
+   }
+      keytype = *(CK_KEY_TYPE *)attr->pValue;
+
+   // get the key value
+   if (template_attribute_find(key->template, CKA_VALUE, &attr) == FALSE) {
+       OCK_LOG_ERR(ERR_FUNCTION_FAILED);
+       return CKR_FUNCTION_FAILED;
+   }
+   if (keytype == CKK_DES2) {
+      memcpy(key_value, attr->pValue, 2*DES_KEY_SIZE);
+      memcpy(key_value + (2*DES_KEY_SIZE), attr->pValue, DES_KEY_SIZE);
+   } else
+      memcpy(key_value, attr->pValue, 3*DES_KEY_SIZE);
+
+   rc = ica_3des_cmac_intermediate(message, (unsigned long) message_len,
+                                          (const unsigned char *) key_value, mac);
+
+   if (rc != 0) {
+         OCK_LOG_ERR(ERR_FUNCTION_FAILED);
+         rc = CKR_FUNCTION_FAILED;
+   }
    return rc;
 }
 
@@ -2781,6 +2875,89 @@ token_specific_aes_ctr(CK_BYTE          *in_data,
    }
    return rc;
 }
+
+/**
+ * In libica for AES-OFB Mode it uses one function for both encrypt and decrypt
+ * The variable direction is used as an indicator either for encrypt or decrypt
+ * 0 -- Decrypt
+ * 1 -- Encrypt
+ */
+CK_RV
+token_specific_aes_ofb(CK_BYTE *in_data, CK_ULONG in_data_len,
+		       CK_BYTE *out_data, OBJECT *key, CK_BYTE *init_v,
+                       uint_32 direction)
+{
+   CK_RV rc;
+   CK_ATTRIBUTE *attr = NULL;
+
+   if (template_attribute_find(key->template, CKA_VALUE, &attr) == FALSE) {
+      OCK_LOG_ERR(ERR_FUNCTION_FAILED);
+      return CKR_FUNCTION_FAILED;
+   }
+
+   rc = ica_aes_ofb(in_data, out_data, (unsigned long) in_data_len,
+                    attr->pValue, (unsigned int) attr->ulValueLen,
+		    init_v, direction);
+
+   if (rc != 0) {
+         OCK_LOG_ERR(ERR_FUNCTION_FAILED);
+         rc = CKR_FUNCTION_FAILED;
+   }
+   return rc;
+}
+
+/**
+ * In libica for AES-CFB Mode it uses one function for both encrypt and decrypt
+ * The variable direction is used as an indicator either for encrypt or decrypt
+ *  0 -- Decrypt
+ *  1 -- Encrypt
+ */
+CK_RV
+token_specific_aes_cfb(CK_BYTE *in_data, CK_ULONG in_data_len,
+		       CK_BYTE *out_data, OBJECT *key, CK_BYTE *init_v,
+                       uint_32 lcfb, uint_32 direction)
+{
+   CK_RV rc;
+   CK_ATTRIBUTE *attr = NULL;
+
+   if (template_attribute_find(key->template, CKA_VALUE, &attr) == FALSE) {
+      OCK_LOG_ERR(ERR_FUNCTION_FAILED);
+      return CKR_FUNCTION_FAILED;
+   }
+
+   rc = ica_aes_cfb(in_data, out_data, (unsigned long) in_data_len,
+                    attr->pValue, (unsigned int) attr->ulValueLen, init_v,
+                    lcfb, direction);
+
+   if (rc != 0) {
+         OCK_LOG_ERR(ERR_FUNCTION_FAILED);
+         rc = CKR_FUNCTION_FAILED;
+   }
+   return rc;
+}
+
+CK_RV
+token_specific_aes_mac(CK_BYTE *message, CK_ULONG message_len, OBJECT *key,
+                       CK_BYTE *mac)
+{
+   CK_RV rc;
+   CK_ATTRIBUTE *attr = NULL;
+
+   if (template_attribute_find(key->template, CKA_VALUE, &attr) == FALSE) {
+      OCK_LOG_ERR(ERR_FUNCTION_FAILED);
+      return CKR_FUNCTION_FAILED;
+   }
+
+   rc = ica_aes_cmac_intermediate(message, (unsigned long) message_len,
+                   attr->pValue, (unsigned int) attr->ulValueLen, mac);
+
+   if (rc != 0) {
+         OCK_LOG_ERR(ERR_FUNCTION_FAILED);
+         rc = CKR_FUNCTION_FAILED;
+   }
+   return rc;
+}
+
 #endif
 
 #ifndef NODH 
@@ -3006,229 +3183,443 @@ token_specific_dh_pkcs_key_pair_gen( TEMPLATE  * publ_tmpl,
 
 #endif /* #ifndef NODH */
 
-MECH_LIST_ELEMENT mech_list[] = {
-   { CKM_RSA_PKCS_KEY_PAIR_GEN,     512, 4096, CKF_HW | CKF_GENERATE_KEY_PAIR },
+REF_MECH_LIST_ELEMENT ref_mech_list[] = {
+
+	{92, CKM_RSA_PKCS_KEY_PAIR_GEN, 512, 4096, CKF_HW|
+						   CKF_GENERATE_KEY_PAIR },
 #if !(NODSA)
-   { CKM_DSA_KEY_PAIR_GEN,          512, 1024, CKF_HW | CKF_GENERATE_KEY_PAIR },
+//	{1, CKM_DSA_KEY_PAIR_GEN, 512, 1024, CKF_HW|CKF_GENERATE_KEY_PAIR},
 #endif
-   { CKM_DES_KEY_GEN,                 8,    8, CKF_HW | CKF_GENERATE },
-   { CKM_DES3_KEY_GEN,                24,    24, CKF_HW | CKF_GENERATE },
 #if !(NOCDMF)
-   { CKM_CDMF_KEY_GEN,                0,    0, CKF_HW | CKF_GENERATE },
+//	{4, CKM_CDMF_KEY_GEN, 0, 0, CKF_HW|CKF_GENERATE},
 #endif
+	{80, CKM_DES_KEY_GEN, 8, 8, CKF_HW|CKF_GENERATE},
 
-   { CKM_RSA_PKCS,                  512, 4096, CKF_HW           |
-                                               CKF_ENCRYPT      | CKF_DECRYPT |
-                                               CKF_WRAP         | CKF_UNWRAP  |
-                                               CKF_SIGN         | CKF_VERIFY  |
-                                               CKF_SIGN_RECOVER | CKF_VERIFY_RECOVER },
+	{80, CKM_DES3_KEY_GEN, 24, 24, CKF_HW|CKF_GENERATE},
+
+	{90, CKM_RSA_PKCS, 512, 4096, CKF_HW|CKF_ENCRYPT|CKF_DECRYPT|
+                                      CKF_WRAP|CKF_UNWRAP|CKF_SIGN|CKF_VERIFY|
+                                      CKF_SIGN_RECOVER|CKF_VERIFY_RECOVER},
+
 #if !(NOX509)
-   { CKM_RSA_X_509,                 512, 4096, CKF_HW           |
-                                               CKF_ENCRYPT      | CKF_DECRYPT |
-                                               CKF_WRAP         | CKF_UNWRAP  |
-                                               CKF_SIGN         | CKF_VERIFY  |
-                                               CKF_SIGN_RECOVER | CKF_VERIFY_RECOVER },
+	{90, CKM_RSA_X_509, 512, 4096, CKF_HW|CKF_ENCRYPT|CKF_DECRYPT|
+                                       CKF_WRAP|CKF_UNWRAP|CKF_SIGN|CKF_VERIFY|
+                                       CKF_SIGN_RECOVER|CKF_VERIFY_RECOVER},
 #endif
-#if !(NOMD5)
-   { CKM_MD5_RSA_PKCS,              512, 4096, CKF_HW      |
-                                               CKF_SIGN    | CKF_VERIFY },
-#endif
-#if !(NOSHA1)
-   { CKM_SHA1_RSA_PKCS,             512, 4096, CKF_HW      |
-                                               CKF_SIGN    | CKF_VERIFY },
-   { CKM_SHA256_RSA_PKCS,           512, 4096, CKF_HW      |
-                                               CKF_SIGN    | CKF_VERIFY },
-   { CKM_SHA384_RSA_PKCS,           512, 4096, CKF_HW      |
-                                               CKF_SIGN    | CKF_VERIFY },
-   { CKM_SHA512_RSA_PKCS,           512, 4096, CKF_HW      |
-                                               CKF_SIGN    | CKF_VERIFY },
-#endif
+	{107, CKM_MD2_RSA_PKCS, 512, 4096, CKF_HW|CKF_SIGN|CKF_VERIFY},
 
+	{108, CKM_MD5_RSA_PKCS, 512, 4096, CKF_HW|CKF_SIGN|CKF_VERIFY},
 
-/* Begin code contributed by Corrent corp. */
+	{190, CKM_SHA1_RSA_PKCS, 512, 4096, CKF_HW|CKF_SIGN|CKF_VERIFY},
+
+	{190, CKM_SHA256_RSA_PKCS, 512, 4096, CKF_HW|CKF_SIGN|CKF_VERIFY},
+
+	{190, CKM_SHA384_RSA_PKCS, 512, 4096, CKF_HW|CKF_SIGN|CKF_VERIFY},
+
+	{190, CKM_SHA512_RSA_PKCS, 512, 4096, CKF_HW|CKF_SIGN|CKF_VERIFY},
+
 #if !(NODH)
-   { CKM_DH_PKCS_DERIVE,            512, 2048, CKF_HW | CKF_DERIVE },
-   { CKM_DH_PKCS_KEY_PAIR_GEN,      512, 2048, CKF_HW | CKF_GENERATE_KEY_PAIR },
+//	{9, CKM_DH_PKCS_DERIVE, 512, 2048, CKF_HW|CKF_DERIVE},
+
+//	{10, CKM_DH_PKCS_KEY_PAIR_GEN, 512, 2048, CKF_HW|CKF_GENERATE_KEY_PAIR},
 #endif
-/* End code contributed by Corrent corp. */
 
-   { CKM_DES_ECB,                     8,    8, CKF_HW      |
-                                               CKF_ENCRYPT | CKF_DECRYPT |
-                                               CKF_WRAP    | CKF_UNWRAP },
+	{20, CKM_DES_ECB, 8, 8, CKF_HW|CKF_ENCRYPT|CKF_DECRYPT|
+				CKF_WRAP|CKF_UNWRAP},
 
-   { CKM_DES_CBC,                     8,    8, CKF_HW      |
-                                               CKF_ENCRYPT | CKF_DECRYPT |
-                                               CKF_WRAP    | CKF_UNWRAP },
+	{21, CKM_DES_CBC, 8, 8, CKF_HW|CKF_ENCRYPT|CKF_DECRYPT|
+				CKF_WRAP|CKF_UNWRAP},
 
-   { CKM_DES_CBC_PAD,                 8,    8, CKF_HW      |
-                                               CKF_ENCRYPT | CKF_DECRYPT |
-                                               CKF_WRAP    | CKF_UNWRAP },
+	{21, CKM_DES_CBC_PAD, 8, 8, CKF_HW|CKF_ENCRYPT|CKF_DECRYPT|
+				    CKF_WRAP|CKF_UNWRAP},
 
-   { CKM_DES3_ECB,                    24,    24, CKF_HW      |
-                                               CKF_ENCRYPT | CKF_DECRYPT |
-                                               CKF_WRAP    | CKF_UNWRAP },
+//	{28, CKM_DES_MAC, 8, 8, CKF_HW|CKF_SIGN|CKF_VERIFY},
 
-   { CKM_DES3_CBC,                    24,    24, CKF_HW      |
-                                               CKF_ENCRYPT | CKF_DECRYPT |
-                                               CKF_WRAP    | CKF_UNWRAP },
+//	{28, CKM_DES_MAC_GENERAL, 8, 8, CKF_HW|CKF_SIGN|CKF_VERIFY},
 
-   { CKM_DES3_CBC_PAD,                24,    24, CKF_HW      |
-                                               CKF_ENCRYPT | CKF_DECRYPT |
-                                               CKF_WRAP    | CKF_UNWRAP },
+	{41, CKM_DES3_ECB, 24, 24, CKF_HW|CKF_ENCRYPT|CKF_DECRYPT|
+				   CKF_WRAP|CKF_UNWRAP},
 
-#if !(NOSHA1)
-   { CKM_SHA_1,                       0,    0, CKF_HW | CKF_DIGEST },
-   { CKM_SHA_1_HMAC,                  0,    0, CKF_HW | CKF_SIGN | CKF_VERIFY },
-   { CKM_SHA_1_HMAC_GENERAL,          0,    0, CKF_HW | CKF_SIGN | CKF_VERIFY },
-   { CKM_SHA256,                       0,    0, CKF_HW | CKF_DIGEST },
-   { CKM_SHA256_HMAC,                  0,    0, CKF_HW | CKF_SIGN | CKF_VERIFY },
-   { CKM_SHA256_HMAC_GENERAL,          0,    0, CKF_HW | CKF_SIGN | CKF_VERIFY },
-   { CKM_SHA384,                       0,    0, CKF_HW | CKF_DIGEST },
-   { CKM_SHA384_HMAC,                  0,    0, CKF_HW | CKF_SIGN | CKF_VERIFY },
-   { CKM_SHA384_HMAC_GENERAL,          0,    0, CKF_HW | CKF_SIGN | CKF_VERIFY },
-   { CKM_SHA512,                       0,    0, CKF_HW | CKF_DIGEST },
-   { CKM_SHA512_HMAC,                  0,    0, CKF_HW | CKF_SIGN | CKF_VERIFY },
-   { CKM_SHA512_HMAC_GENERAL,          0,    0, CKF_HW | CKF_SIGN | CKF_VERIFY },
-#endif
+	{42, CKM_DES3_CBC, 24, 24, CKF_HW|CKF_ENCRYPT|CKF_DECRYPT|
+				   CKF_WRAP|CKF_UNWRAP},
+
+	{42, CKM_DES3_CBC_PAD, 24, 24, CKF_HW|CKF_ENCRYPT|CKF_DECRYPT|
+				       CKF_WRAP|CKF_UNWRAP},
+
+	{49, CKM_DES3_MAC, 24, 24, CKF_HW|CKF_SIGN|CKF_VERIFY},
+
+	{49, CKM_DES3_MAC_GENERAL, 24, 24, CKF_HW|CKF_SIGN|CKF_VERIFY},
+
+//	{23, CKM_DES_OFB8, 8, 8, CKF_HW|CKF_ENCRYPT|CKF_DECRYPT},
+
+	{24, CKM_DES_CFB8, 8, 8, CKF_HW|CKF_ENCRYPT|CKF_DECRYPT},
+
+	{44, CKM_DES_OFB64, 8, 8, CKF_HW|CKF_ENCRYPT|CKF_DECRYPT},
+
+	{45, CKM_DES_CFB64, 8, 8, CKF_HW|CKF_ENCRYPT|CKF_DECRYPT},
+
+	{01, CKM_SHA_1, 0, 0, CKF_HW|CKF_DIGEST},
+
+	{01, CKM_SHA_1_HMAC, 0, 0, CKF_HW|CKF_SIGN|CKF_VERIFY},
+
+	{01, CKM_SHA_1_HMAC_GENERAL, 0, 0, CKF_HW|CKF_SIGN|CKF_VERIFY},
+
+	{03, CKM_SHA256, 0, 0, CKF_HW|CKF_DIGEST},
+
+	{03, CKM_SHA256_HMAC, 0, 0, CKF_HW|CKF_SIGN|CKF_VERIFY},
+
+	{03, CKM_SHA256_HMAC_GENERAL, 0, 0, CKF_HW|CKF_SIGN|CKF_VERIFY},
+
+	{04, CKM_SHA384, 0, 0, CKF_HW|CKF_DIGEST},
+
+	{04, CKM_SHA384_HMAC, 0, 0, CKF_HW|CKF_SIGN|CKF_VERIFY},
+
+	{04, CKM_SHA384_HMAC_GENERAL, 0, 0, CKF_HW|CKF_SIGN|CKF_VERIFY},
+
+	{05, CKM_SHA512, 0, 0, CKF_HW|CKF_DIGEST},
+
+
+	{05, CKM_SHA512_HMAC, 0, 0, CKF_HW|CKF_SIGN|CKF_VERIFY},
+
+	{05, CKM_SHA512_HMAC_GENERAL, 0, 0, CKF_HW|CKF_SIGN|CKF_VERIFY},
 
 #if !(NOMD5)
-   { CKM_MD5,                         0,    0, CKF_HW | CKF_DIGEST },
-   { CKM_MD5_HMAC,                    0,    0, CKF_HW | CKF_SIGN | CKF_VERIFY },
-   { CKM_MD5_HMAC_GENERAL,            0,    0, CKF_HW | CKF_SIGN | CKF_VERIFY },
+	{53, CKM_MD5, 0, 0, CKF_HW|CKF_DIGEST},
+
+	{54, CKM_MD5_HMAC, 0, 0, CKF_HW|CKF_SIGN|CKF_VERIFY},
+
+	{55, CKM_MD5_HMAC_GENERAL, 0, 0, CKF_HW|CKF_SIGN|CKF_VERIFY},
 #endif
-
-   { CKM_SSL3_PRE_MASTER_KEY_GEN,    48,   48, CKF_HW | CKF_GENERATE },
-   { CKM_SSL3_MASTER_KEY_DERIVE,     48,   48, CKF_HW | CKF_DERIVE },
-   { CKM_SSL3_KEY_AND_MAC_DERIVE,    48,   48, CKF_HW | CKF_DERIVE },
-   { CKM_SSL3_MD5_MAC,              384,  384, CKF_HW | CKF_SIGN | CKF_VERIFY },
-   { CKM_SSL3_SHA1_MAC,             384,  384, CKF_HW | CKF_SIGN | CKF_VERIFY },
-
 #if !(NOAES)
-   { CKM_AES_KEY_GEN,                16,   32, CKF_HW | CKF_GENERATE },
-   { CKM_AES_ECB,                    16,   32, CKF_HW      |
-   					       CKF_ENCRYPT | CKF_DECRYPT |
-   					       CKF_WRAP    | CKF_UNWRAP },
-   { CKM_AES_CBC,                    16,   32, CKF_HW      |
-   					       CKF_ENCRYPT | CKF_DECRYPT |
-   					       CKF_WRAP    | CKF_UNWRAP },
-   { CKM_AES_CTR,                    16,   32, CKF_HW      |
-					       CKF_ENCRYPT | CKF_DECRYPT |
-					       CKF_WRAP    | CKF_UNWRAP },
-   { CKM_AES_CBC_PAD,                16,   32, CKF_HW      |
-   					       CKF_ENCRYPT | CKF_DECRYPT |
-   					       CKF_WRAP    | CKF_UNWRAP },
+	{80, CKM_AES_KEY_GEN, 16, 32, CKF_HW|CKF_GENERATE},
+
+	{60, CKM_AES_ECB, 16, 32, CKF_HW|CKF_ENCRYPT|CKF_DECRYPT|
+				  CKF_WRAP|CKF_UNWRAP},
+
+	{61, CKM_AES_CBC, 16, 32, CKF_HW|CKF_ENCRYPT|CKF_DECRYPT|
+				  CKF_WRAP|CKF_UNWRAP},
+
+	{61, CKM_AES_CBC_PAD, 16, 32, CKF_HW|CKF_ENCRYPT|CKF_DECRYPT|
+				      CKF_WRAP|CKF_UNWRAP},
+
+	{63, CKM_AES_OFB, 16, 32, CKF_HW|CKF_ENCRYPT|CKF_DECRYPT|
+				  CKF_WRAP|CKF_UNWRAP},
+
+	{64, CKM_AES_CFB8, 16, 32, CKF_HW|CKF_ENCRYPT|CKF_DECRYPT|
+				   CKF_WRAP|CKF_UNWRAP},
+
+	{64, CKM_AES_CFB64, 16, 32, CKF_HW|CKF_ENCRYPT|CKF_DECRYPT|
+				    CKF_WRAP|CKF_UNWRAP},
+
+	{64, CKM_AES_CFB128, 16, 32, CKF_HW|CKF_ENCRYPT|CKF_DECRYPT|
+				     CKF_WRAP|CKF_UNWRAP},
+
+	{65, CKM_AES_CTR, 16, 32, CKF_HW|CKF_ENCRYPT|CKF_DECRYPT|
+				  CKF_WRAP|CKF_UNWRAP},
+
+	{68, CKM_AES_MAC, 16, 32, CKF_HW|CKF_SIGN|CKF_VERIFY},
+
+	{68, CKM_AES_MAC_GENERAL, 16, 32, CKF_HW|CKF_SIGN|CKF_VERIFY},
 #endif
 };
 
-CK_ULONG mech_list_len = (sizeof(mech_list) / sizeof(MECH_LIST_ELEMENT));
+CK_ULONG ref_mech_list_len = (sizeof(ref_mech_list) / sizeof(MECH_LIST_ELEMENT));
 
 /**
- * Remove/alter mechanisms for whatever reason.
+ * new ica-token mechanism table
+ * this list will be initialized the first time
+ * when ica_get_functionlist (from libica) is called.
+ * (preinitialized with software only supported mechanisms)
  */
-static void scrub_list(struct mech_list_item *head)
-{
-	struct mech_list_item *walker;
-	walker = head;
-	while (walker->next) {
-		struct mech_list_item *current;
-		current = walker->next;
-		if (/* remove condition */0) {
-			walker->next = current->next;
-			free(current);
-		} else if (/* alter condition */0) {
-			/* current->element.mech_info.flags = ...; */
-		}
-		walker = walker->next;
-	}
-}
+MECH_LIST_ELEMENT mech_list[] = {
+	{CKM_MD5, 0, 0, CKF_DIGEST},
+	{CKM_MD5_HMAC, 0, 0, CKF_SIGN | CKF_VERIFY},
+	{CKM_MD5_HMAC_GENERAL, 0, 0, CKF_SIGN | CKF_VERIFY},
+	{0,0,0,0}, {0,0,0,0}, {0,0,0,0}, {0,0,0,0}, {0,0,0,0},
+	{0,0,0,0}, {0,0,0,0}, {0,0,0,0}, {0,0,0,0}, {0,0,0,0},
+	{0,0,0,0}, {0,0,0,0}, {0,0,0,0}, {0,0,0,0}, {0,0,0,0},
+	{0,0,0,0}, {0,0,0,0}, {0,0,0,0}, {0,0,0,0}, {0,0,0,0},
+	{0,0,0,0}, {0,0,0,0}, {0,0,0,0}, {0,0,0,0}, {0,0,0,0},
+	{0,0,0,0}, {0,0,0,0}, {0,0,0,0}, {0,0,0,0}, {0,0,0,0},
+	{0,0,0,0}, {0,0,0,0}, {0,0,0,0}, {0,0,0,0}, {0,0,0,0},
+	{0,0,0,0}, {0,0,0,0}, {0,0,0,0}, {0,0,0,0}, {0,0,0,0},
+	{0,0,0,0}, {0,0,0,0}, {0,0,0,0}, {0,0,0,0}, {0,0,0,0},
+	{0,0,0,0}, {0,0,0,0}, {0,0,0,0}, {0,0,0,0}, {0,0,0,0},
+	{0,0,0,0}, {0,0,0,0}, {0,0,0,0}, {0,0,0,0}, {0,0,0,0},
+	{0,0,0,0}, {0,0,0,0}, {0,0,0,0}, {0,0,0,0}, {0,0,0,0} };
+
+CK_ULONG mech_list_len = 3;
 
 CK_RV
 token_specific_get_mechanism_list(CK_MECHANISM_TYPE_PTR pMechanismList,
 				  CK_ULONG_PTR pulCount)
 {
-	int rc = CKR_OK;
-	struct mech_list_item head;
-	struct mech_list_item *walker;
-	head.next = NULL;
-#if 1
-	rc = ock_generic_get_mechanism_list(pMechanismList, pulCount);	
+	CK_ULONG rc = CKR_OK;
+
+	rc = ica_specific_get_mechanism_list(pMechanismList, pulCount);
 	if (rc != CKR_OK) {
-		goto out;
+		return CKR_FUNCTION_FAILED;
 	}
-#endif
-	/* TODO: Cache this data */
-	generate_pkcs11_mech_list(&head);
-	scrub_list(&head);
-#if 1
-	walker = find_mech_list_item_for_type(CKM_SHA256, &head);
-	if (walker) {
-		if (NULL != pMechanismList) {
-			pMechanismList[(*pulCount)] = CKM_SHA256;
-		}
-		(*pulCount)++;
-	}
-	goto out;
-#else
-	(*pulCount) = 0;
-	walker = head.next;
-	if (NULL == pMechanismList) {
-		while (walker) {
-			struct mech_list_item *next;
-			next = walker->next;
-			(*pulCount)++;
-			free(walker);
-			walker = next;
-		}
-		goto out;
-	}
-	while (walker) {
-		struct mech_list_item *next;
-		next = walker->next;
-		pMechanismList[(*pulCount)] = walker->element.mech_type;
-		(*pulCount)++;
-		free(walker);
-		walker = next;
-	}
-#endif
-out:
-	free_mech_list(&head);
+
 	return rc;
 }
 
-/* TODO: Remove once proper behavior is determined for duplicate
- * mechanisms. */
-#ifndef OCK_FAIL_ON_DUPLICATE_MECH
-#define OCK_FAIL_ON_DUPLICATE_MECH 0
-#endif
+CK_RV
+ica_specific_get_mechanism_list(CK_MECHANISM_TYPE_PTR pMechanismList,
+				CK_ULONG_PTR pulCount)
+{
+	unsigned int i;
+	CK_ULONG rc = CKR_OK;
+
+	if (pulCount == NULL) {
+		return CKR_ARGUMENTS_BAD;
+	}
+
+	if (!mech_list_ica_init) {
+		rc = mech_list_ica_initialize();
+		if (rc != CKR_OK) {
+			OCK_LOG_ERR(ERR_MECHANISM_INVALID);
+			return CKR_MECHANISM_INVALID;
+		}
+	}
+
+	if (pMechanismList == NULL) {
+		*pulCount = mech_list_len;
+		return CKR_OK;
+	}
+
+	if ((*pulCount) < mech_list_len) {
+		(*pulCount) = mech_list_len;
+		OCK_LOG_ERR(ERR_BUFFER_TOO_SMALL);
+		return CKR_BUFFER_TOO_SMALL;
+	}
+
+	/* copy mechanisms from the internal mech_ica_list */
+	for (i=0; i < mech_list_len; i++) {
+		pMechanismList[i] = mech_list[i].mech_type;
+	}
+	(*pulCount) = mech_list_len;
+
+	return CKR_OK;
+}
 
 CK_RV
-token_specific_get_mechanism_info(CK_MECHANISM_TYPE type, 
+token_specific_get_mechanism_info(CK_MECHANISM_TYPE type,
 				  CK_MECHANISM_INFO_PTR pInfo)
 {
-	int rc = CKR_MECHANISM_INVALID;
-	struct mech_list_item head;
-	struct mech_list_item *walker;
-	head.next = NULL;
-#if 1
-	rc = ock_generic_get_mechanism_info(type, pInfo);
-	if (rc == CKR_OK) {
-		/* Match made; info copiedl. We're done. */
-		goto out;
+	CK_ULONG rc = CKR_OK;
+
+	rc = ica_specific_get_mechanism_info(type, pInfo);
+	if (rc != CKR_OK) {
+		return CKR_FUNCTION_FAILED;
 	}
-	/* TODO: Remove this hack when the time is right. */
-	if (type != CKM_SHA256) {
-		goto out;
+	return rc;
+}
+
+CK_RV ica_specific_get_mechanism_info (CK_MECHANISM_TYPE type,
+				       CK_MECHANISM_INFO_PTR pInfo)
+{
+	int rc = CKR_OK;
+	unsigned int i;
+	CK_MECHANISM_TYPE_PTR pMechanismList = NULL;
+	CK_ULONG_PTR pulCount;
+
+	if (!mech_list_ica_init) {
+		rc = mech_list_ica_initialize();
+		if (rc != CKR_OK) {
+			OCK_LOG_ERR(ERR_MECHANISM_INVALID);
+			return CKR_MECHANISM_INVALID;
+		}
 	}
-#endif
-	generate_pkcs11_mech_list(&head);
-	scrub_list(&head);
-	walker = find_mech_list_item_for_type(type, &head);
-	if (walker) {
-		memcpy(pInfo, &walker->element.mech_info, 
-		       sizeof(CK_MECHANISM_INFO));
-		rc = CKR_OK;
+
+	/*
+	 * find the requested mechanism and grab additional
+	 * mechanism specific information (mech_info) from mech_list_ica
+	 */
+	for (i=0; i < mech_list_len; i++) {
+		if (mech_list[i].mech_type == type) {
+			pInfo->flags = mech_list[i].mech_info.flags;
+			pInfo->ulMinKeySize = mech_list[i].mech_info.ulMinKeySize;
+			pInfo->ulMaxKeySize = mech_list[i].mech_info.ulMaxKeySize;
+		}
 	}
- out:
-	free_mech_list(&head);
+
+	return CKR_OK;
+}
+
+CK_RV
+getRefListIdxfromId(CK_ULONG ica_idx, CK_ULONG_PTR pRefIdx)
+{
+	unsigned int n;
+
+	for (n=*pRefIdx; n < ref_mech_list_len; n++) {
+		if (ica_idx == ref_mech_list[n].lica_idx) {
+			*pRefIdx =  n;
+			return CKR_OK;
+		}
+	}
+	return CKR_MECHANISM_INVALID;
+}
+
+CK_RV
+getRefListIdxfromMech(CK_ULONG mech, CK_ULONG_PTR pRefIdx)
+{
+	unsigned int n;
+
+	for (n=*pRefIdx; n < ref_mech_list_len; n++) {
+		if (mech == ref_mech_list[n].mech_type) {
+			*pRefIdx =  n;
+			return CKR_OK;
+		}
+	}
+	return CKR_MECHANISM_INVALID;
+}
+
+CK_BBOOL
+isMechanismAvailable(CK_ULONG mechanism)
+{
+	unsigned int i;
+
+	for (i = 0; i < mech_list_len; i++) {
+		if (mech_list[i].mech_type == mechanism)
+			return TRUE;
+	}
+	return FALSE;
+}
+
+CK_RV
+addMechanismToList(CK_ULONG mechanism)
+{
+	CK_ULONG ret;
+	CK_ULONG refIdx = 0;
+
+	ret = getRefListIdxfromMech(mechanism, &refIdx);
+	if (ret != CKR_OK) {
+		return CKR_FUNCTION_FAILED;
+	}
+	mech_list[mech_list_len].mech_type  = ref_mech_list[refIdx].mech_type;
+	mech_list[mech_list_len].mech_info.flags = (ref_mech_list[refIdx].mech_info.flags & 0xfffffffe);
+	mech_list[mech_list_len].mech_info.ulMinKeySize = ref_mech_list[refIdx].mech_info.ulMinKeySize;
+	mech_list[mech_list_len].mech_info.ulMaxKeySize = ref_mech_list[refIdx].mech_info.ulMaxKeySize;
+	mech_list_len++;
+
+	return CKR_OK;
+}
+
+/*
+ * call libica to receive list of supported mechanisms
+ * This method is called once per opencryptoki instance (application context)
+ */
+CK_RV
+mech_list_ica_initialize(void)
+{
+	CK_ULONG ret, rc = CKR_OK;
+	unsigned int i, n;
+	unsigned int ica_specific_mech_list_len;
+	CK_ULONG tmp, ulActMechCtr, ulPreDefMechCtr, refIdx;
+
+	rc = ica_get_functionlist(NULL, &ica_specific_mech_list_len);
+	if (rc != CKR_OK) {
+		OCK_LOG_ERR(ERR_FUNCTION_FAILED);
+		return CKR_FUNCTION_FAILED;
+	}
+	libica_func_list_element libica_func_list[ica_specific_mech_list_len];
+	rc = ica_get_functionlist(&libica_func_list, &ica_specific_mech_list_len);
+	if (rc != CKR_OK) {
+		OCK_LOG_ERR(ERR_FUNCTION_FAILED);
+		return CKR_FUNCTION_FAILED;
+	}
+
+	/*
+	 * grab the mechanism of the corresponding ID returned by libICA
+	 * from the internel reference list put the mechanism ID and the
+	 * HW support indication into an internel ica_mech_list and get
+	 * additional flag information from the reference list
+	 */
+	ulPreDefMechCtr = mech_list_len;
+	for (i=0; i < ica_specific_mech_list_len; i++) {
+		// loop over libica supported list
+		ulActMechCtr = -1;
+
+		/* --- walk through the whole reflist and fetch all
+		 * matching mechanism's (if present) ---
+		 */
+		refIdx = 0;
+		while (refIdx >= 0) {
+			ret = getRefListIdxfromId(libica_func_list[i].mech_mode_id, &refIdx);
+			if (ret != CKR_OK) {
+				// continue with the next libica mechanism
+				break;
+			}
+
+			/* Loop over the predefined mechanism list and check
+			 * if we have to overrule a software implemented
+			 * mechanism from token by libica HW supported
+			 * mechanism.
+			 */
+			for (n=0; n < ulPreDefMechCtr; n++) {
+				if (mech_list[n].mech_type == ref_mech_list[refIdx].mech_type){
+					ulActMechCtr = n;
+					break;
+				}
+			}
+			if (ulActMechCtr == -1) {
+				/* add a new entry */
+				mech_list[mech_list_len].mech_type  = ref_mech_list[refIdx].mech_type;
+				mech_list[mech_list_len].mech_info.flags = (libica_func_list[i].flags & 0x01) | (ref_mech_list[refIdx].mech_info.flags & 0xfffffffe);
+				mech_list[mech_list_len].mech_info.ulMinKeySize = ref_mech_list[refIdx].mech_info.ulMinKeySize;
+				mech_list[mech_list_len].mech_info.ulMaxKeySize = ref_mech_list[refIdx].mech_info.ulMaxKeySize;
+				mech_list_len++;
+			} else {
+				/* replace existing entry */
+				mech_list[ulActMechCtr].mech_info.flags = (libica_func_list[i].flags & 0x01) | mech_list[ulActMechCtr].mech_info.flags ;
+			}
+			refIdx++;
+		}
+	}
+
+	/*
+	 * check if special combined mechanisms are supported
+	 * if SHA1 and RSA is available   -> insert CKM_SHA1_RSA_PKCS
+	 * if SHA256 and RSA is available -> insert CKM_SHA256_RSA_PKCS
+	 * if MD2 and RSA is available    -> insert CKM_MD2_RSA_PKCS
+	 * if MD5 and RSA is available    -> insert CKM_MD5_RSA_PKCS
+	 */
+	if (isMechanismAvailable(CKM_SHA_1) && isMechanismAvailable(CKM_RSA_PKCS))
+		addMechanismToList(CKM_SHA1_RSA_PKCS);
+	if (isMechanismAvailable(CKM_SHA256) && isMechanismAvailable(CKM_RSA_PKCS))
+		addMechanismToList(CKM_SHA256_RSA_PKCS);
+	if (isMechanismAvailable(CKM_SHA384) && isMechanismAvailable(CKM_RSA_PKCS))
+		addMechanismToList(CKM_SHA384_RSA_PKCS);
+	if (isMechanismAvailable(CKM_SHA512) && isMechanismAvailable(CKM_RSA_PKCS))
+		addMechanismToList(CKM_SHA512_RSA_PKCS);
+	if (isMechanismAvailable(CKM_MD2) && isMechanismAvailable(CKM_RSA_PKCS))
+		addMechanismToList(CKM_MD2_RSA_PKCS);
+	if (isMechanismAvailable(CKM_MD5) && isMechanismAvailable(CKM_RSA_PKCS))
+		addMechanismToList(CKM_MD5_RSA_PKCS);
+
+	/* sort the mech_list_ica by mechanism ID's (bubble sort)  */
+	for(i=0;i < mech_list_len ; i++) {
+		for (n=i; n < mech_list_len; n++) {
+			if (mech_list[i].mech_type > mech_list[n].mech_type) {
+				tmp = mech_list[i].mech_type;
+				mech_list[i].mech_type = mech_list[n].mech_type;
+				mech_list[n].mech_type = tmp;
+
+				tmp = mech_list[i].mech_info.ulMinKeySize;
+				mech_list[i].mech_info.ulMinKeySize = mech_list[n].mech_info.ulMinKeySize;
+				mech_list[n].mech_info.ulMinKeySize = tmp;
+
+				tmp = mech_list[i].mech_info.ulMaxKeySize;
+				mech_list[i].mech_info.ulMaxKeySize = mech_list[n].mech_info.ulMaxKeySize;
+				mech_list[n].mech_info.ulMaxKeySize = tmp;
+
+				tmp = mech_list[i].mech_info.flags;
+				mech_list[i].mech_info.flags = mech_list[n].mech_info.flags;
+				mech_list[n].mech_info.flags = tmp;
+			}
+		}
+	}
+	mech_list_ica_init = TRUE;
 	return rc;
 }

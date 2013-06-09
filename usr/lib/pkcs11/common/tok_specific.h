@@ -373,6 +373,26 @@ CK_RV token_specific_tdes_cbc(CK_BYTE *,
                   CK_BYTE  *,
                   CK_BYTE );
 
+CK_RV token_specific_tdes_mac(CK_BYTE *,
+                       CK_ULONG ,
+                       OBJECT  *,
+                       CK_BYTE *);
+
+CK_RV token_specific_tdes_ofb(CK_BYTE *,
+                       CK_BYTE  *,
+                       CK_ULONG  ,
+                       OBJECT   *,
+                       CK_BYTE  *,
+                       uint_32 );
+
+CK_RV token_specific_tdes_cfb(CK_BYTE *,
+                       CK_BYTE *,
+                       CK_ULONG ,
+                       OBJECT  *,
+                       CK_BYTE *,
+                       uint_32,
+                       uint_32 );
+
 CK_RV
 token_specific_rsa_decrypt( CK_BYTE   * ,
                   CK_ULONG    ,
@@ -640,6 +660,29 @@ token_specific_aes_ctr( CK_BYTE  *,
                         CK_BYTE  *,
 			CK_ULONG  ,
                         CK_BYTE     );
+
+CK_RV
+token_specific_aes_ofb( CK_BYTE *,
+                        CK_ULONG,
+                        CK_BYTE *,
+                        OBJECT *,
+                        CK_BYTE *,
+                        uint_32 );
+
+CK_RV
+token_specific_aes_cfb( CK_BYTE *,
+                        CK_ULONG,
+                        CK_BYTE *,
+                        OBJECT *,
+                        CK_BYTE *,
+                        uint_32,
+                        uint_32 );
+
+CK_RV token_specific_aes_mac(CK_BYTE *,
+                             CK_ULONG ,
+                             OBJECT *,
+                             CK_BYTE *);
+
 #endif
 
 CK_RV

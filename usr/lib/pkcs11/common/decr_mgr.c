@@ -539,6 +539,39 @@ decr_mgr_init( SESSION           *sess,
          }
          break;
 
+      case CKM_DES_CFB8:
+      case CKM_DES_CFB64:
+      case CKM_DES_OFB64:
+               {
+                  if (mech->ulParameterLen != DES_BLOCK_SIZE){
+                     OCK_LOG_ERR(ERR_MECHANISM_PARAM_INVALID);
+                     return CKR_MECHANISM_PARAM_INVALID;
+                  }
+
+                  rc = template_attribute_find( key_obj->template, CKA_KEY_TYPE, &attr );
+                  if (rc == FALSE){
+                     OCK_LOG_ERR(ERR_KEY_TYPE_INCONSISTENT);
+                     return CKR_KEY_TYPE_INCONSISTENT;
+                  }
+                  else
+                  {
+                     keytype = *(CK_KEY_TYPE *)attr->pValue;
+                     if ((keytype != CKK_DES3)) {
+                        OCK_LOG_ERR(ERR_KEY_TYPE_INCONSISTENT);
+                        return CKR_KEY_TYPE_INCONSISTENT;
+                     }
+                  }
+
+                  ctx->context_len = sizeof(DES_CONTEXT);
+                  ctx->context     = (CK_BYTE *)malloc(sizeof(DES_CONTEXT));
+                  if (!ctx->context){
+                     OCK_LOG_ERR(ERR_HOST_MEMORY);
+                     return CKR_HOST_MEMORY;
+                  }
+                  memset( ctx->context, 0x0, sizeof(DES_CONTEXT) );
+               }
+               break;
+
       case CKM_DES3_ECB:
          {
             if (mech->ulParameterLen != 0)
@@ -745,6 +778,40 @@ decr_mgr_init( SESSION           *sess,
             memset( ctx->context, 0x0, sizeof(AES_CONTEXT) );
         }
         break;
+
+      case CKM_AES_OFB:
+      case CKM_AES_CFB8:
+      case CKM_AES_CFB64:
+      case CKM_AES_CFB128:
+         {
+           if (mech->ulParameterLen != AES_INIT_VECTOR_SIZE){
+               OCK_LOG_ERR(ERR_MECHANISM_PARAM_INVALID);
+               return CKR_MECHANISM_PARAM_INVALID;
+           }
+
+           rc = template_attribute_find( key_obj->template, CKA_KEY_TYPE, &attr );
+           if (rc == FALSE){
+              OCK_LOG_ERR(ERR_KEY_TYPE_INCONSISTENT);
+              return CKR_KEY_TYPE_INCONSISTENT;
+            }
+            else {
+              keytype = *(CK_KEY_TYPE *)attr->pValue;
+              if ( keytype != CKK_AES ){
+                 OCK_LOG_ERR(ERR_KEY_TYPE_INCONSISTENT);
+                 return CKR_KEY_TYPE_INCONSISTENT;
+              }
+            }
+
+            ctx->context_len = sizeof(AES_CONTEXT);
+            ctx->context     = (CK_BYTE *)malloc(sizeof(AES_CONTEXT));
+            if (!ctx->context){
+               OCK_LOG_ERR(ERR_HOST_MEMORY);
+               return CKR_HOST_MEMORY;
+            }
+            memset( ctx->context, 0x0, sizeof(AES_CONTEXT) );
+         }
+         break;
+
       default:
          OCK_LOG_ERR(ERR_MECHANISM_INVALID);
          return CKR_MECHANISM_INVALID;
@@ -814,6 +881,8 @@ decr_mgr_decrypt( SESSION           *sess,
                   CK_BYTE           *out_data,
                   CK_ULONG          *out_data_len )
 {
+   CK_KEY_TYPE   keytype;
+
    if (!sess || !ctx){
       OCK_LOG_ERR(ERR_FUNCTION_FAILED);
       return CKR_FUNCTION_FAILED;
@@ -854,6 +923,42 @@ decr_mgr_decrypt( SESSION           *sess,
                                      ctx,
                                      in_data,  in_data_len,
                                      out_data, out_data_len );
+
+      case CKM_DES_OFB64:
+         get_keytype(ctx->key, &keytype);
+         if (keytype == CKK_DES3) {
+            return des3_ofb_decrypt( sess,     length_only,
+                                     ctx,
+                                     in_data,  in_data_len,
+                                     out_data, out_data_len );
+         } else {
+            OCK_LOG_ERR(ERR_KEY_TYPE_INCONSISTENT);
+            return CKR_KEY_TYPE_INCONSISTENT;
+         }
+
+      case CKM_DES_CFB8:
+         get_keytype(ctx->key, &keytype);
+         if (keytype == CKK_DES3) {
+            return des3_cfb_decrypt( sess,     length_only,
+                                     ctx,
+                                     in_data,  in_data_len,
+                                     out_data, out_data_len, 0x01);
+         } else {
+            OCK_LOG_ERR(ERR_KEY_TYPE_INCONSISTENT);
+            return CKR_KEY_TYPE_INCONSISTENT;
+         }
+
+      case CKM_DES_CFB64:
+         get_keytype(ctx->key, &keytype);
+         if (keytype == CKK_DES3) {
+            return des3_cfb_decrypt( sess,     length_only,
+                                     ctx,
+                                     in_data,  in_data_len,
+                                     out_data, out_data_len, 0x08);
+         } else {
+            OCK_LOG_ERR(ERR_KEY_TYPE_INCONSISTENT);
+            return CKR_KEY_TYPE_INCONSISTENT;
+         }
 
       case CKM_DES3_ECB:
          return des3_ecb_decrypt( sess,     length_only,
@@ -907,6 +1012,28 @@ decr_mgr_decrypt( SESSION           *sess,
 				 ctx,
 				 in_data,  in_data_len,
 				 out_data, out_data_len );
+
+      case CKM_AES_OFB:
+         return aes_ofb_decrypt( sess,     length_only,
+                                 ctx,
+                                 in_data,  in_data_len,
+                                 out_data, out_data_len);
+
+      case CKM_AES_CFB8:
+          return aes_cfb_decrypt( sess,     length_only,
+                                  ctx,
+                                  in_data,  in_data_len,
+                                  out_data, out_data_len, 0x01);
+      case CKM_AES_CFB64:
+          return aes_cfb_decrypt( sess,     length_only,
+                                  ctx,
+                                  in_data,  in_data_len,
+                                  out_data, out_data_len, 0x08);
+      case CKM_AES_CFB128:
+          return aes_cfb_decrypt( sess,     length_only,
+                                  ctx,
+                                  in_data,  in_data_len,
+                                  out_data, out_data_len, 0x10);
 #endif
       default:
          return CKR_MECHANISM_INVALID;
@@ -926,6 +1053,8 @@ decr_mgr_decrypt_update( SESSION            *sess,
                          CK_BYTE            *out_data,
                          CK_ULONG           *out_data_len )
 {
+   CK_KEY_TYPE   keytype;
+
    if (!sess || !in_data || !ctx){
       OCK_LOG_ERR(ERR_FUNCTION_FAILED);
       return CKR_FUNCTION_FAILED;
@@ -963,6 +1092,43 @@ decr_mgr_decrypt_update( SESSION            *sess,
                                             ctx,
                                             in_data,  in_data_len,
                                             out_data, out_data_len );
+
+      case CKM_DES_OFB64:
+         get_keytype(ctx->key, &keytype);
+         if (keytype == CKK_DES3) {
+            return des3_ofb_decrypt_update( sess,     length_only,
+                                            ctx,
+                                            in_data,  in_data_len,
+                                            out_data, out_data_len );
+         } else {
+            OCK_LOG_ERR(ERR_KEY_TYPE_INCONSISTENT);
+            return CKR_KEY_TYPE_INCONSISTENT;
+         }
+
+      case CKM_DES_CFB8:
+         get_keytype(ctx->key, &keytype);
+         if (keytype == CKK_DES3) {
+            return des3_cfb_decrypt_update( sess,     length_only,
+                                            ctx,
+                                            in_data,  in_data_len,
+                                            out_data, out_data_len, 0x01);
+         } else {
+            OCK_LOG_ERR(ERR_KEY_TYPE_INCONSISTENT);
+            return CKR_KEY_TYPE_INCONSISTENT;
+         }
+
+      case CKM_DES_CFB64:
+         get_keytype(ctx->key, &keytype);
+         if (keytype == CKK_DES3) {
+            return des3_cfb_decrypt_update( sess,     length_only,
+                                            ctx,
+                                            in_data,  in_data_len,
+                                            out_data, out_data_len, 0x08);
+         }
+         else {
+            OCK_LOG_ERR(ERR_KEY_TYPE_INCONSISTENT);
+            return CKR_KEY_TYPE_INCONSISTENT;
+         }
 
       case CKM_DES3_ECB:
          return des3_ecb_decrypt_update( sess,     length_only,
@@ -1005,6 +1171,29 @@ decr_mgr_decrypt_update( SESSION            *sess,
                                         ctx,
 					in_data,  in_data_len,
 					out_data, out_data_len);
+
+     case CKM_AES_OFB:
+        return aes_ofb_decrypt_update( sess,     length_only,
+                                       ctx,
+                                       in_data,  in_data_len,
+                                       out_data, out_data_len );
+
+     case CKM_AES_CFB8:
+        return aes_cfb_decrypt_update( sess,     length_only,
+                                       ctx,
+                                       in_data,  in_data_len,
+                                       out_data, out_data_len, 0x01);
+     case CKM_AES_CFB64:
+        return aes_cfb_decrypt_update( sess,     length_only,
+                                       ctx,
+                                       in_data,  in_data_len,
+                                       out_data, out_data_len, 0x08);
+     case CKM_AES_CFB128:
+        return aes_cfb_decrypt_update( sess,     length_only,
+                                       ctx,
+                                       in_data,  in_data_len,
+                                       out_data, out_data_len, 0x10);
+
 #endif
       default:
          OCK_LOG_ERR(ERR_MECHANISM_INVALID);
@@ -1022,6 +1211,8 @@ decr_mgr_decrypt_final( SESSION            *sess,
                         CK_BYTE            *out_data,
                         CK_ULONG           *out_data_len )
 {
+   CK_KEY_TYPE   keytype;
+
    if (!sess || !ctx){
       OCK_LOG_ERR(ERR_FUNCTION_FAILED);
       return CKR_FUNCTION_FAILED;
@@ -1049,6 +1240,39 @@ decr_mgr_decrypt_final( SESSION            *sess,
          return des_cbc_pad_decrypt_final( sess,     length_only,
                                            ctx,
                                            out_data, out_data_len );
+
+      case CKM_DES_OFB64:
+         get_keytype(ctx->key, &keytype);
+         if (keytype == CKK_DES3) {
+            return des3_ofb_decrypt_final( sess,     length_only,
+                                           ctx,
+                                           out_data, out_data_len );
+         } else {
+            OCK_LOG_ERR(ERR_KEY_TYPE_INCONSISTENT);
+            return CKR_KEY_TYPE_INCONSISTENT;
+         }
+
+      case CKM_DES_CFB8:
+         get_keytype(ctx->key, &keytype);
+         if (keytype == CKK_DES3) {
+            return des3_cfb_decrypt_final( sess,     length_only,
+                                           ctx,
+                                           out_data, out_data_len, 0x01);
+         } else {
+            OCK_LOG_ERR(ERR_KEY_TYPE_INCONSISTENT);
+            return CKR_KEY_TYPE_INCONSISTENT;
+         }
+
+      case CKM_DES_CFB64:
+         get_keytype(ctx->key, &keytype);
+         if (keytype == CKK_DES3) {
+            return des3_cfb_decrypt_final( sess,     length_only,
+                                           ctx,
+                                           out_data, out_data_len, 0x08);
+         } else {
+            OCK_LOG_ERR(ERR_KEY_TYPE_INCONSISTENT);
+            return CKR_KEY_TYPE_INCONSISTENT;
+         }
 
       case CKM_DES3_ECB:
          return des3_ecb_decrypt_final( sess,     length_only,
@@ -1079,6 +1303,24 @@ decr_mgr_decrypt_final( SESSION            *sess,
          return aes_cbc_pad_decrypt_final( sess,     length_only,
                                            ctx,
                                            out_data, out_data_len );
+
+      case CKM_AES_OFB:
+         return aes_ofb_decrypt_final( sess,     length_only,
+                                       ctx,
+                                       out_data, out_data_len );
+
+      case CKM_AES_CFB8:
+          return aes_cfb_decrypt_final( sess,     length_only,
+                                        ctx,
+                                        out_data, out_data_len, 0x01);
+      case CKM_AES_CFB64:
+          return aes_cfb_decrypt_final( sess,     length_only,
+                                        ctx,
+                                        out_data, out_data_len, 0x08);
+      case CKM_AES_CFB128:
+          return aes_cfb_decrypt_final( sess,     length_only,
+                                        ctx,
+                                        out_data, out_data_len, 0x10);
 
       case CKM_AES_CTR:
 	 return aes_ctr_decrypt_final( sess,    length_only,

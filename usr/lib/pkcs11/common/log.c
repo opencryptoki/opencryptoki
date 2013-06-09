@@ -397,6 +397,13 @@ static const char *ock_err_msg[] = {
 "Token Specific AES CTR Failed", 	/*ERR_AES_CTR_TOK_SPEC*/
 "AES ECB Decrypt Failed",		/*ERR_AES_ECB_DECRYPT*/
 "Token Specific AES ECB Failed",	/*ERR_AES_ECB_TOK_SPEC*/
+"Token Specific AES MAC Failed",	/*ERR_AES_MAC_TOK_SPEC*/
+"AES OFB Decrypt Failed",		/*ERR_AES_OFB_DECRYPT*/
+"AES OFB Encrypt Failed",		/*ERR_AES_OFB_ENCRYPT*/
+"Token Specific AES OFB Failed",	/*ERR_AES_OFB_TOK_SPEC*/
+"AES CFB Decrypt Failed",		/*ERR_AES_CFB_DECRYPT*/
+"AES CFB Encrypt Failed",		/*ERR_AES_CFB_ENCRYPT*/
+"Token Specific AES CFB Failed",	/*ERR_AES_CFB_TOK_SPEC*/
 "AES Wrap Format Failed",		/*ERR_AES_WRAP_FORMAT*/
 "AES Wrap Get Data Failed",		/*ERR_AES_WRAP_GETDATA*/
 "Add Attribute Failed",			/*ERR_ATTR_ADD*/
@@ -427,6 +434,15 @@ static const char *ock_err_msg[] = {
 "Token Specific 3DES CBC Failed",	/*ERR_DES3_CBC_TOK_SPEC*/
 "Triple DES ECB Decrypt Failed",	/*ERR_DES3_ECB_DECRYPT */
 "Token Specific 3DES ECB Failed",	/*ERR_DES3_ECB_TOK_SPEC*/
+"DES3 OFB Decrypt Failed",		/*ERR_DES3_OFB_DECRYPT*/
+"DES3 OFB Encrypt Failed",		/*ERR_DES3_OFB_ENCRYPT*/
+"Token Specific DES3 OFB Failed",	/*ERR_DES3_OFB_TOK_SPEC*/
+"DES3 CFB Decrypt Failed",		/*ERR_DES3_CFB_DECRYPT*/
+"DES3 CFB Encrypt Failed",		/*ERR_DES3_CFB_ENCRYPT*/
+"Token Specific DES3 CFB Failed",	/*ERR_DES3_CFB_TOK_SPEC*/
+"Triple DES MAC Sign Failed",		/*ERR_DES3_MAC_SIGN*/
+"Triple DES MAC Verify Failed",		/*ERR_DES3_MAC_VERIFY*/
+"Token Specific 3DES MAC Failed",	/*ERR_DES3_MAC_TOK_SPEC*/
 "DES3 Wrap Get Data Failed",		/*ERR_DES3_WRAP_GETDATA*/
 "Digest Failed",			/*ERR_DIGEST*/
 "Digest Final Failed",			/*ERR_DIGEST_FINAL*/
@@ -517,6 +533,7 @@ static const char *ock_err_msg[] = {
 "Verify Final Failed",			/*ERR_VERIFY_FINAL*/
 "Verify Recover Failed",		/*ERR_VERIFY_RECOVER*/
 "Verify Update Failed",			/*ERR_VERIFY_UPDATE*/
+"Index out of Range",			/*ERR_INDEX_RANGE*/
 };
 
 

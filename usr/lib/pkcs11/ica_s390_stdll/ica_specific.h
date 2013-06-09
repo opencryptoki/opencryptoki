@@ -8,10 +8,10 @@
 
              1. DEFINITIONS
 
-             "Contribution" means: 
+             "Contribution" means:
                    a) in the case of the initial Contributor, the
                    initial code and documentation distributed under
-                   this Agreement, and 
+                   this Agreement, and
 
                    b) in the case of each subsequent Contributor:
                    i) changes to the Program, and
@@ -34,7 +34,7 @@
              "Licensed Patents " mean patent claims licensable by a
              Contributor which are necessarily infringed by the use or
              sale of its Contribution alone or when combined with the
-             Program. 
+             Program.
 
              "Program" means the Contributions distributed in
              accordance with this Agreement.
@@ -129,7 +129,7 @@
                    a) it must be made available under this Agreement;
                    and
                    b) a copy of this Agreement must be included with
-                   each copy of the Program. 
+                   each copy of the Program.
 
              Contributors may not remove or alter any copyright notices
              contained within the Program.
@@ -137,7 +137,7 @@
              Each Contributor must identify itself as the originator of
              its Contribution, if any, in a manner that reasonably
              allows subsequent Recipients to identify the originator of
-             the Contribution. 
+             the Contribution.
 
              4. COMMERCIAL DISTRIBUTION
 
@@ -195,7 +195,7 @@
              Agreement, including but not limited to the risks and
              costs of program errors, compliance with applicable laws,
              damage to or loss of data, programs or equipment, and
-             unavailability or interruption of operations. 
+             unavailability or interruption of operations.
 
              6. DISCLAIMER OF LIABILITY
              EXCEPT AS EXPRESSLY SET FORTH IN THIS AGREEMENT, NEITHER
@@ -243,7 +243,7 @@
              use and distribution of the Program as soon as reasonably
              practicable. However, Recipient's obligations under this
              Agreement and any licenses granted by Recipient relating
-             to the Program shall continue and survive. 
+             to the Program shall continue and survive.
 
              Everyone is permitted to copy and distribute copies of
              this Agreement, but in order to avoid inconsistency the
@@ -274,170 +274,37 @@
              States of America. No party to this Agreement will bring a
              legal action under this Agreement more than one year after
              the cause of action arose. Each party waives its rights to
-             a jury trial in any resulting litigation. 
+             a jury trial in any resulting litigation.
 
 
 */
 
-/* (C) COPYRIGHT International Business Machines Corp. 2002          */
+/* (C) COPYRIGHT International Business Machines Corp. 2013          */
 
-/***************************************************************************
-                          Change Log
-                          ==========
-       4/25/03    Kapil Sood (kapil@corrent.com)
-                  Added DH key pair generation and DH shared key derivation
-                  functions.
- 
- 
- 
-****************************************************************************/
+#ifndef __ICA_SPECIFIC_H
+#define __ICA_SPECIFIC_H
 
-// SAB FIXME  need to figure out a better way...
-// // to get the variant dependency out
-#ifndef __TOK_STRUCT_H
-#define __TOK_STRUCT_H
-#include <pkcs11types.h>
+CK_BBOOL	mech_list_ica_init = FALSE;
 
-#include "tok_spec_struct.h"
+typedef struct _REF_MECH_LIST_ELEMENT
+{
+	CK_ULONG             lica_idx;
+	CK_MECHANISM_TYPE    mech_type;
+	CK_MECHANISM_INFO    mech_info;
+} REF_MECH_LIST_ELEMENT;
 
-// #define PK_LITE_DIR  "/etc/pkcs11/lite"
-//
-// #define PK_DIR      PK_LITE_DIR
-// #define SUB_DIR     "lite"
-//
-//
-// #define DBGTAG  "ICA_STDLL_Debug"
-//
-//
-//
+extern REF_MECH_LIST_ELEMENT	ref_mech_list[];
+extern CK_ULONG		ref_mech_list_len;
 
-#ifndef SW_CONFIG_PATH
+CK_RV
+ica_specific_get_mechanism_list(CK_MECHANISM_TYPE_PTR pMechanismList,
+				CK_ULONG_PTR pulCount);
 
-#ifndef CONFIG_PATH
-#warning CONFIG_PATH not set, using default (/usr/local/var/lib/opencryptoki)
-#define CONFIG_PATH "/usr/local/var/lib/opencryptoki"
-#endif // #ifndef CONFIG_PATH
+CK_RV
+ica_specific_get_mechanism_info(CK_MECHANISM_TYPE type,
+				CK_MECHANISM_INFO_PTR pInfo);
 
-#define SW_CONFIG_PATH CONFIG_PATH "/swtok"
-#endif // #ifndef SW_CONFIG_PATH
-
-token_spec_t token_specific = {
-	SW_CONFIG_PATH,
-	"swtok",
-	0,				// keysize
-	// Token data info:
-	{
-		FALSE,			// Don't use per guest data store
-		TRUE,			// Use master key
-		CKM_DES3_CBC,		// Data store encryption
-		"12345678",		// Default initialization vector for pins
-		"10293847",		// Default initialization vector for objects
-	},
-	NULL,			// t_creatlock
-	NULL,			// t_attach_shm
-	&token_specific_init,
-	NULL,			// init_token_data
-	NULL,			// load_token_data
-	NULL,			// save_token_data
-	&tok_slot2local,
-	&token_specific_rng,
-	NULL,			// open_session
-	NULL,			// close_session
-	&token_specific_final,
-	NULL,			// init_token
-	NULL,			// login
-	NULL,			// logout
-	NULL,			// init_pin
-	NULL,			// set_pin
-	NULL,			// copy object
-	NULL,			// create_object
-	NULL,			// get_attribute_value
-	NULL,			// set_attribute_value
-	NULL,			// find_objects_init
-	NULL,			// destroy_object
-	NULL,			// generate_key
-	NULL,			// generate_key_pair
-	NULL,			// encrypt_init
-	NULL,			// encrypt
-	NULL,			// encrypt_update
-	NULL,			// encrypt_final
-	NULL,			// decrypt_init
-	NULL,			// decrypt
-	NULL,			// decrypt_update
-	NULL,			// decrypt_final
-	NULL,			// derive_key
-	NULL,			// wrap_key
-	NULL,			// unwrap_key
-	NULL,			// sign_init
-	NULL,			// sign
-	NULL,			// sign_update
-	NULL,			// sign_final
-	NULL,			// verify_init
-	NULL,			// verify
-	NULL,			// verify_update
-	NULL,			// verify_final
-	// DES
-	&token_specific_des_key_gen,
-	&token_specific_des_ecb,
-	&token_specific_des_cbc,
-	// Triple DES
-	&token_specific_tdes_ecb,
-	&token_specific_tdes_cbc,
-	NULL,			// des3_ofb
-	NULL,			// des3_cfb
-	NULL,			// des3_mac
-	// RSA
-	&token_specific_rsa_decrypt,
-	&token_specific_rsa_encrypt,
-	&token_specific_rsa_sign,
-	&token_specific_rsa_verify,
-	&token_specific_rsa_verify_recover,
-	&token_specific_rsa_x509_decrypt,
-	&token_specific_rsa_x509_encrypt,
-	&token_specific_rsa_x509_sign,
-	&token_specific_rsa_x509_verify,
-	&token_specific_rsa_x509_verify_recover,
-	&token_specific_rsa_generate_keypair,
-	// Elliptic Curve
-	NULL,			// ec_sign
-	NULL,			// ec_verify
-	NULL,			// ec_generate_keypair
-/* Begin code contributed by Corrent corp. */
-	// DH
-	&token_specific_dh_pkcs_derive,
-	&token_specific_dh_pkcs_key_pair_gen,
-/* End code contributed by Corrent corp. */
-	// SHA-1
-	NULL,			// SHA-1 in the soft token is integrated already, as token
-	NULL,			// specific SHA-1 is new. As a TODO, the soft SHA-1 routines
-	NULL,			// should probably move to functions plugged in here.
-	/* SHA-256 */
-	NULL,			// sha2_init    
-	NULL,			// sha2_update
-	NULL,			// sha2_final
-	/* SHA-384 */
-	NULL,			// sha3_init
-	NULL,			// sha3_update
-	NULL,			// sha3_final
-	/* SHA-512 */
-	NULL,			// sha5_init
-	NULL,			// sha5_update
-	NULL,			// sha5_final
-	// AES
-	&token_specific_aes_key_gen,
-	&token_specific_aes_ecb,
-	&token_specific_aes_cbc,
-	NULL,			// aes_ctr
-	NULL,			// aes_ofb
-	NULL,			// aes_cfb
-	NULL,			// aes_mac
-	// DSA
-	NULL,			// dsa_generate_keypair
-	NULL,			// dsa_sign
-	NULL,			// dsa_verify
-	&token_specific_get_mechanism_list,
-	&token_specific_get_mechanism_info,
-	NULL			// object_add
-};
+CK_RV
+mech_list_ica_initialize(void);
 
 #endif
