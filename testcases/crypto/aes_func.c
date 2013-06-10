@@ -474,6 +474,7 @@ CK_RV do_EncryptUpdateAES(struct published_test_suite_info *tsuite)
 	CK_BYTE			actual[BIG_REQUEST];    // encryption buffer
 	CK_BYTE			expected[BIG_REQUEST];  // encrypted data
 	CK_ULONG		actual_len, expected_len, original_len, k;
+	CK_ULONG		psize;
 	CK_ULONG		user_pin_len;
 	CK_BYTE			user_pin[PKCS11_MAX_PIN_LEN];
 	CK_SESSION_HANDLE	session;
@@ -533,6 +534,13 @@ CK_RV do_EncryptUpdateAES(struct published_test_suite_info *tsuite)
 		actual_len = original_len;
 		memcpy(actual, tsuite->tv[i].plaintext, actual_len);
 
+		/** ecb, cbc, cfb, ctr, ofb modes all have restrictions
+		 ** on total length of the plaintext. It is either the 
+		 ** multiple of the blocksize, s-bit-size, or none.
+		 ** Get this info to use in beloe loop.
+		 **/
+		psize = tsuite->size;
+
 		/** multipart (in-place) encryption **/
 		rc = funcs->C_EncryptInit(session, &mech, h_key);
 		if (rc != CKR_OK) {
@@ -545,7 +553,7 @@ CK_RV do_EncryptUpdateAES(struct published_test_suite_info *tsuite)
 		while (actual_len < original_len) {
 			rc = funcs->C_EncryptUpdate(session,
 					&actual[actual_len],
-					AES_BLOCK_SIZE,
+					psize,
 					&actual[actual_len],
 					&k);
 
@@ -739,6 +747,7 @@ CK_RV do_DecryptUpdateAES(struct published_test_suite_info *tsuite)
 	CK_BYTE			actual[BIG_REQUEST];    // decryption buffer
 	CK_BYTE			expected[BIG_REQUEST];  // decrypted data
 	CK_ULONG		actual_len, expected_len, original_len, k;
+	CK_ULONG		psize;
 	CK_ULONG		user_pin_len;
 	CK_BYTE			user_pin[PKCS11_MAX_PIN_LEN];
 	CK_SESSION_HANDLE	session;
@@ -794,6 +803,13 @@ CK_RV do_DecryptUpdateAES(struct published_test_suite_info *tsuite)
 		actual_len = original_len;
 		memcpy(actual, tsuite->tv[i].ciphertext, actual_len);
 
+		/** ecb, cbc, cfb, ctr, ofb modes all have restrictions
+		 ** on total length of the plaintext. It is either the 
+		 ** multiple of the blocksize, s-bit-size, or none.
+		 ** Get this info to use in beloe loop.
+		 **/
+		psize = tsuite->size;
+
 		/** multipart (in-place) decryption **/
 		rc = funcs->C_DecryptInit(session, &mech, h_key);
 		if (rc != CKR_OK) {
@@ -806,7 +822,7 @@ CK_RV do_DecryptUpdateAES(struct published_test_suite_info *tsuite)
 		while (actual_len < original_len) {
 			rc = funcs->C_DecryptUpdate(session,
 						&actual[actual_len],
-						AES_BLOCK_SIZE,
+						psize,
 						&actual[actual_len],
 						&k);
 
@@ -1333,8 +1349,6 @@ CK_RV do_WrapUnwrapRSA(struct generated_test_suite_info *tsuite)
 					"test.", tsuite->name);
 			}
 		}
-
-
 	}
 	goto testcase_cleanup;
 
