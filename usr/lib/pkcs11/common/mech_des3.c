@@ -1849,7 +1849,7 @@ des3_cfb_encrypt_update( SESSION              * sess,
 
    total = (context->len + in_data_len);
 
-   if (total < DES_BLOCK_SIZE) {
+   if (total < cfb_len) {
       if (length_only == FALSE) {
          memcpy( context->data + context->len, in_data, in_data_len );
          context->len += in_data_len;
@@ -1860,7 +1860,7 @@ des3_cfb_encrypt_update( SESSION              * sess,
    }
    else {
       // we have at least 1 block
-      remain  = (total % DES_BLOCK_SIZE);
+      remain  = (total % cfb_len);
       out_len = total - remain;
 
       if (length_only == TRUE) {
@@ -2023,7 +2023,7 @@ des3_cfb_decrypt_update( SESSION              * sess,
 
    total = (context->len + in_data_len);
 
-   if (total < DES_BLOCK_SIZE) {
+   if (total < cfb_len) {
       if (length_only == FALSE) {
          memcpy( context->data + context->len, in_data, in_data_len );
          context->len += in_data_len;
@@ -2034,7 +2034,7 @@ des3_cfb_decrypt_update( SESSION              * sess,
    }
    else {
       // we have at least 1 block
-      remain  = (total % DES_BLOCK_SIZE);
+      remain  = (total % cfb_len);
       out_len = total - remain;
 
       if (length_only == TRUE) {
