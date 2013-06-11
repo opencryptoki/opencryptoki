@@ -150,6 +150,7 @@ CK_RV do_EncryptUpdateDES3(struct published_test_suite_info *tsuite)
 	CK_BYTE			expected[BIG_REQUEST];  // encrypted data
 	CK_BYTE			actual[BIG_REQUEST];    // encryption buffer
 	CK_ULONG		expected_len, actual_len, original_len, k;
+	CK_ULONG		psize;
 
 	CK_SLOT_ID		slot_id = SLOT_ID;
 	CK_BYTE			user_pin[PKCS11_MAX_PIN_LEN];
@@ -220,13 +221,20 @@ CK_RV do_EncryptUpdateDES3(struct published_test_suite_info *tsuite)
 			goto error;
 		}
 
+                /** ecb, cbc, cfb, ofb modes all have restrictions
+                 ** on total length of the plaintext. It is either the
+                 ** multiple of the blocksize, s-bit-size, or none.
+                 ** Get this info to use in beloe loop.
+                 **/
+                psize = tsuite->size;
+
 		/** do multipart (in-place) encryption **/
 		k = original_len;
 		actual_len = 0;
 		while (actual_len < original_len) {
 			rc = funcs->C_EncryptUpdate( session,
 						     &actual[actual_len],
-						     DES3_BLOCK_SIZE,
+						     psize,
 						     &actual[actual_len],
 						     &k );
 			if (rc != CKR_OK) {
@@ -424,12 +432,12 @@ testcase_cleanup:
 
 /** Tests triple DES multipart decryption with  published test vectors **/
 CK_RV do_DecryptUpdateDES3(struct published_test_suite_info *tsuite) {
-	int			i;		      // test vector index
-	CK_BYTE		 expected[BIG_REQUEST];  // decrypted data
-	CK_BYTE		 actual[BIG_REQUEST];    // decryption buffer
-	CK_ULONG		expected_len, actual_len, original_len, k;
+	int		i;			// test vector index
+	CK_BYTE		expected[BIG_REQUEST];  // decrypted data
+	CK_BYTE		actual[BIG_REQUEST];    // decryption buffer
+	CK_ULONG	expected_len, actual_len, original_len, k, psize;
 
-	CK_SLOT_ID	      slot_id = SLOT_ID;
+	CK_SLOT_ID     		slot_id = SLOT_ID;
 	CK_BYTE			user_pin[PKCS11_MAX_PIN_LEN];
 	CK_ULONG		user_pin_len;
 	CK_SESSION_HANDLE	session;
@@ -479,6 +487,13 @@ CK_RV do_DecryptUpdateDES3(struct published_test_suite_info *tsuite) {
 		mech.ulParameterLen = tsuite->tv[i].ivlen;
 		mech.pParameter = tsuite->tv[i].iv;
 
+                /** ecb, cbc, cfb, ctr, ofb modes all have restrictions
+                 ** on total length of the plaintext. It is either the
+                 ** multiple of the blocksize, s-bit-size, or none.
+                 ** Get this info to use in beloe loop.
+                 **/
+                psize = tsuite->size;
+
 		/** create key handle. **/
 		rc = create_DES3Key(session,
 				tsuite->tv[i].key,
@@ -503,7 +518,7 @@ CK_RV do_DecryptUpdateDES3(struct published_test_suite_info *tsuite) {
 		while (actual_len < original_len) {
 			rc = funcs->C_DecryptUpdate(session,
 				&actual[actual_len],
-				DES3_BLOCK_SIZE,
+				psize,
 				&actual[actual_len],
 				&k);
 			if (rc != CKR_OK) {
