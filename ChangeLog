@@ -1,3 +1,23 @@
+* opencryptoki-3.0
+- Aggregated source files in common, tpm, and cca directories.
+- Re-factored shared memory functions in the stdlls.
+- New opencryptoki.conf file to replace pk_config_data and pkcs11_starup.
+  The opencryptoki.conf contains slot entry information for tokens.
+- New manpage for opencryptoki.conf
+- Removed pkcs_slot and pkcs11_startup shell scripts.
+- New ICSF token to do remote crypto.
+- New pkcsicsf utility to setup the ICSF token.
+- New manpage for pkcsicsf utility.
+- ICA token supports CKM_DES_OFB64, CKM_DES_CFB8, CKM_DES_CFB6 mechanisms
+  using 3DES keys.
+- ICA token supports CKM_DES3_MAC and CKM_DES3_MAC_GENERAL mechanisms.
+- ICA token supports CKM_AES_OFB, CKM_AES_CFB8, CKM_AES_CFB64, CKM_AES_CFB128,
+  CKM_AES_MAC, and CKM_AES_MAC_GENERAL mechanisms.
+- Some code cleanup in pkcsslotd.
+- pkcsslotd daemon uses a socket rather than shared memory to pass
+  slot information to the opencryptoki library.
+- New testcases added for various crypto algorithms and pkcs#11 api calls.
+
 * opencryptoki-2.4.3.1 (May 17, 2013)
 - Allow imported rsa private keys in cca to also decrypt.
 

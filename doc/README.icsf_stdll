@@ -1,0 +1,305 @@
+THE ICSF TOKEN
+
+OverView
+--------
+
+The ICSF token is a clear-key, remote crypto token.
+The actual crypto operations are performed remotely on a 390x server
+and all the pkcs#11 key objects are stored remotely on the server.
+
+Opencryptoki's ICSF token sends ICSF service calls to the remote server
+via LDAP. Extensions to LDAP and the addition of a remote crypto plugin
+allow the remote LDAP server to receive the request and interface with
+ICSF to service the request. ICSF interfaces with the crypto hardware and
+the z/OS keystore to service the request. Upon completion, the result is
+passed back through the same channels.
+
+The PKCS#11 key objects are created or generated remotely.
+The remote z/OS keystore stores all the created or generated key objects,
+allowing for centralized storage and key management.
+
+The remote server's configuration is outside the scope of this README.
+Please see XXXXX for more information on the z/OS LDAP server requirements
+and remote crypto configuration.
+For more information on ICSF PKCS#11, see "Writing PKCS #11 Applications"
+manual at http://www-01.ibm.com/support/docview.wss?uid=isg24664157d6cdc890485257a7c0054dc3d&aid=1.
+
+Pre-requisites:
+1. ICSF token communicates to the remote via LDAP.
+   On Linux install openldap, openldap-clients, and openldap-devel.
+
+2. You will also need lex and yacc packages installed.
+
+-----------------------------------------------------------------------
+
+CONFIGURING THE ICSF TOKEN
+
+Some setup of the ICSF token must be done for opencryptoki
+before initializing it with the pkcsconf utility.
+
+You will need,
+	- LDAP bind information
+	- The name of an ICSF token created on the remote server.
+
+
+LDAP Bind Information
+---------------------
+Opencryptoki must bind and authenticate to the remote LDAP server.
+Opencryptoki supports the Simple and SASL authentication methods when
+authenticating with the remote LDAP server to send an ICSF service request.
+
+You have the option of using,
+        1. exisiting LDAP config files for the information required
+        to bind and authenitcate to the LDAP server.
+
+        OR
+
+        2. you can give the information to opencryptoki to store and use
+           when binding and authenticating to LDAP server. This is done
+	   through the pkcsiscf utility.
+
+The first option involves using an exisiting LDAP config file to bind and
+authenticate to the remote server.
+
+When opencryptoki calls the openldap function to bind and authenticate,
+the openldap function call will look for the ldaprc config file to
+acquire the information it needs to bind and authenticate to the server.
+
+When using this option,
+	- with Simple authentcation, you need to specify the authentication
+	  mechanism as simple when adding the ICSF token into opencryptoki
+	  with the pkcsicsf utility. You will also be prompted for the
+	  RACF password, which will be securely stored on disk by
+	  opencryptoki for subsequent use.
+
+	- with SASL authentication, you need to specify the authentication
+	  mechanism as sasl when adding the ICSF token into opecryptoki
+	  with the pkcsicsf utility. SASL does not require an RACF password,
+	  so you will not be prompted for this information.
+
+**Note, when using the first option, users should have the same information
+in their .ldaprc files.
+
+The second option, chooses to give opencryptoki the necessary
+ldap credentials to store in an opencryptoki config file for subsequent use.
+With this option the credentials are stored in one place for all
+who access opencryptoki's ICSF token.
+
+When opencryptoki calls the openldap function to bind and authenticate,
+it will pass along the information stored in the ICFS config file to the
+function call. For example, when simple authentication, it will pass
+the BINDDN and URI found in this config file to the function.
+
+When using this option,
+	- with Simple authentication, you need to specify the authentication
+	  mechanism as simple, along with the BINDDN, and the URI when adding
+	  the ICSF token into opencryptoki with the pkcsicsf utility.
+	  You will also be prompted for the RACF password, which will
+	  be securely stored on disk for subsequent use by opencryptoki.
+
+	- with SASL authentication, you need to specify the authentication
+	  mechanism as sasl, along with the CERT, CACERT, and KEY when
+	  adding the ICSF token into opencryptoki with the pkcsiscf utility.
+	  SASL does not require an RACF password, so you will not be prompted
+	  for it.
+
+When required, the RACF password is stored securely on disk for subsequent
+use in /prefix/var/lib/opencryptoki/icsf/RACF.
+
+**Note: Setup of LDAP and SASL are outside the scope of this README.
+
+
+Opencryptoki's ICSF token setup
+-------------------------------
+The installed opencryptoki.conf does not contain an entry for the
+ICSF token. An entry is created upon setting up the ICSF token with the
+pkcsicsf utility.
+
+Opencryptoki's ICSF token must first be set up with the pkcsiscf utility
+before the token can be initialized with the pkcsconf utility.
+
+Setup
+-----
+ICSF token(s) originate on the remote server. It is likely that they are
+created and destroyed by the remote's system administrator.
+Opencryptoki queries the remote server for a list of the available ICSF
+tokens via the pkcsicsf utility. The list returned may contain more
+than one remote token. Note, which token(s) returned depend on the caller's
+SAF authority on the remote server.
+
+Opencryptoki can only handle one remote ICSF token.
+If a list of tokens are returned from the query, a single token must be chosen
+and installed into opencryptoki with the pkcsicsf utility.
+
+Upon adding the token into opencryptoki with the pkcsicsf utility,
+an icsf token entry will be created in the opencryptoki.conf file.
+
+For example,
+slot 4 {
+stdll = libpkcs11_icsf.so
+confname = /usr/local/etc/opencryptoki/JML.conf
+}
+
+Also, a separate ICSF token config file will be created,
+/prefix/etc/opencryptoki/<tokenname>.conf, containing information
+required to bind to the LDAP server if any was specified. It will
+also contain information from the remote server about the particular
+ICSF token that was added.
+
+In this example, /usr/local/etc/opencryptoki/JML.conf was created.
+And since I am using .ldaprc file, it only specifies the authentication method.
+slot 4 {
+TOKEN_NAME = "JML"
+TOKEN_MANUFACTURE = "IBM"
+TOKEN_MODEL = "ICSFModel"
+TOKEN_SERIAL = "012345"
+MECH = "SIMPLE"
+}
+
+And lastly, when using simple authentication, a secured RACF password
+file will have been created.
+
+
+EXAMPLE OF HOW TO CONFIGURE THE ICSF TOKEN
+------------------------------------------
+First, get a list of the available tokens from the remote server.
+From the list choose one token and add it into opencryptoki.
+After successfully adding the ICSF token and any related information
+into opencryptoki, initialize the ICSF token.
+
+Examples to  get a list of available tokens
+-------------------------------------------
+1. Using simple authentication and .ldaprc which has BINDDN and URI set
+in it, get a list of the available tokens from the remote.
+
+        pkcsicsf -l -m simple
+
+        you will be prompted for the racf passwd and the SO PIN.
+
+        you should get a list of the available tokens from the remote
+
+2. Using simple authentication and giving opencryptoki the credentials
+to use to get a list of available tokens from the remote.
+
+        pkcsicsf -l -b <binddn> -u <uri> -m simple
+
+        you will be prompted for the racf passwd and the SO PIN.
+
+        you should get a list of the available tokens from the remote
+
+3. Using sasl authentication and ldap configuration files, get list of
+available tokens from the remote.
+
+        pkcsicsf -l -m sasl
+
+4. Using sasl authentication and giving opencryptoki the credentials to
+use to get a list of availabale tokens from the remote.
+        (TO DO)
+
+
+Examples to add a token into opencryptoki
+-----------------------------------------
+1. Using simple authentication and .ldaprc which has BINDDN and URI set
+in it, Add the token named, Foo.
+
+        pkcsicsf -a Foo -m simple
+
+        you will be prompted for the racf passwd and the SO PIN.
+
+        an entry for the token should have been added in the
+        /usr/local/etc/opencryptoki/opencryptoki.conf file AND
+        /usr/local/etc/opencryptoki/Foo.conf should have been created.
+
+        The racf passwd should have been secured in
+        /usr/local/var/lib/opencryptoki/icsf/RACF.
+
+2. Using simple authentication and giving opencryptoki the credentials
+   to use, add the ICSF token named, Foo. In this case, the credentials (the
+   BINDDN and URI) will be stored in the Foo.conf file that will be created.
+   Opencryptoki will pass thes
+
+        pkcsicsf -a Foo -b <binddn> -u <uri> -m simple
+
+        pkcsicsf -l -b <binddn> -u <uri> -m simple
+
+        you will be prompted for the racf passwd and the SO PIN.
+
+        an entry for the token should have been added in the
+        /usr/local/etc/opencryptoki/opencryptoki.conf file AND
+        /usr/local/etc/opencryptoki/Foo.conf should have been created.
+
+        The racf passwd should have been secured in
+        /usr/local/var/lib/opencryptoki/icsf/RACF.
+
+3. Using sasl authentication and ldap configuration files to authenticate,
+add an ICSF token named, Foo into opencryptoki.
+
+        pkcsicsf -a Foo -m sasl
+
+4. Using sasl authentication and giving opencryptoki the credentials to
+use to get a list of availabale tokens from the remote.
+        (TO DO)
+
+
+Configure Opencryptoki
+----------------------
+
+Now initialize the ICSF token and set the USER and SO PINs
+using the pkcsconf utility.
+
+1. Start the pkcsslotd daemon
+        pkcsslotd
+
+2. List the available tokens in opencryptoki
+        pkcsconf -t
+
+3. Initialize the ICSF token.
+   NOTE: For this example, my icsf token is listed in slot 4.
+        pkcsconf -I -c 4
+
+        You will be prompted for the SO PIN.
+        The default SO PIN is 87654321
+
+        You will also be prompted to enter a unique token label.
+        You can press enter since this will be ignored. The
+	label or name has already been created on the remote server.
+
+4. Set the user pin
+        pkcsconf -u -c 4
+
+        you will be prompted to enter the SO PIN. Enter the default
+        SO PIN, 87654321
+        you will be prompted twice to enter the new user PIN. Enter
+        8 digits for the new user pin. Remember it so you can use it later.
+
+6. Set a new SO PIN
+        pkcsconf -P -c 4
+
+        you will be prompted to enter the SO PIN. Enter the default SO PIN,
+        87654321.
+        you will then be prompted to enter the new SO PIN. Enter 8
+        digits for the new SO PIN.  Remember it for later use.
+
+7. List the token and ensure it is ready.
+        pkcsconf -t -c 4
+
+Sample output:
+pkcsconf -t -c4
+Token #4 Info:
+        Label: JML
+        Manufacturer: IBM
+        Model: ICSFModel
+        Serial Number: 012345
+        Flags: 0x44D (RNG|LOGIN_REQUIRED|USER_PIN_INITIALIZED|CLOCK_ON_TOKEN|TOKEN_INITIALIZED)
+        Sessions: 0/-2
+        R/W Sessions: -1/-2
+        PIN Length: 4-8
+        Public Memory: 0xFFFFFFFF/0xFFFFFFFF
+        Private Memory: 0xFFFFFFFF/0xFFFFFFFF
+        Hardware Version: 1.0
+        Firmware Version: 1.0
+        Time: 22:09:20
+
+
+You are now done configuring the ICSF token into opencryptoki and its
+ready to be used.
