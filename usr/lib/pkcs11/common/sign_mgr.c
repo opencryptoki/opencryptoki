@@ -556,8 +556,8 @@ sign_mgr_init( SESSION                * sess,
       case CKM_MD5_HMAC:
       case CKM_SHA_1_HMAC:
       case CKM_SHA256_HMAC:
-      case CKM_SHA384_HMAC_GENERAL:
-      case CKM_SHA512_HMAC_GENERAL:
+      case CKM_SHA384_HMAC:
+      case CKM_SHA512_HMAC:
          {
             if (mech->ulParameterLen != 0){
                OCK_LOG_ERR(ERR_MECHANISM_PARAM_INVALID); 
@@ -589,6 +589,8 @@ sign_mgr_init( SESSION                * sess,
       case CKM_MD5_HMAC_GENERAL:
       case CKM_SHA_1_HMAC_GENERAL:
       case CKM_SHA256_HMAC_GENERAL:
+      case CKM_SHA384_HMAC_GENERAL:
+      case CKM_SHA512_HMAC_GENERAL:
          {
             CK_MAC_GENERAL_PARAMS *param = (CK_MAC_GENERAL_PARAMS *)mech->pParameter;
 
