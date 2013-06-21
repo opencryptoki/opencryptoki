@@ -3378,8 +3378,8 @@ ica_specific_get_mechanism_list(CK_MECHANISM_TYPE_PTR pMechanismList,
 	if (!mech_list_ica_init) {
 		rc = mech_list_ica_initialize();
 		if (rc != CKR_OK) {
-			OCK_LOG_ERR(ERR_MECHANISM_INVALID);
-			return CKR_MECHANISM_INVALID;
+			OCK_LOG_ERR(ERR_FUNCTION_FAILED);
+			return CKR_FUNCTION_FAILED;
 		}
 	}
 
@@ -3410,9 +3410,6 @@ token_specific_get_mechanism_info(CK_MECHANISM_TYPE type,
 	CK_ULONG rc = CKR_OK;
 
 	rc = ica_specific_get_mechanism_info(type, pInfo);
-	if (rc != CKR_OK) {
-		return CKR_FUNCTION_FAILED;
-	}
 	return rc;
 }
 
@@ -3427,8 +3424,8 @@ CK_RV ica_specific_get_mechanism_info (CK_MECHANISM_TYPE type,
 	if (!mech_list_ica_init) {
 		rc = mech_list_ica_initialize();
 		if (rc != CKR_OK) {
-			OCK_LOG_ERR(ERR_MECHANISM_INVALID);
-			return CKR_MECHANISM_INVALID;
+			OCK_LOG_ERR(ERR_FUNCTION_FAILED);
+			return CKR_FUNCTION_FAILED;
 		}
 	}
 
@@ -3441,10 +3438,12 @@ CK_RV ica_specific_get_mechanism_info (CK_MECHANISM_TYPE type,
 			pInfo->flags = mech_list[i].mech_info.flags;
 			pInfo->ulMinKeySize = mech_list[i].mech_info.ulMinKeySize;
 			pInfo->ulMaxKeySize = mech_list[i].mech_info.ulMaxKeySize;
+			return CKR_OK;
 		}
 	}
 
-	return CKR_OK;
+	OCK_LOG_ERR(ERR_MECHANISM_INVALID);
+	return CKR_MECHANISM_INVALID;
 }
 
 CK_RV
