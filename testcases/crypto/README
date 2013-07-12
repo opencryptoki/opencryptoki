@@ -1,24 +1,35 @@
+Notes:
+
 aes_tests
 	Tests aes cbc/ecb/ctr modes using published test vectors and
 	generated test data.
 	
-	NOTE: For ICSF token, secret keys cannot wrap secret keys. 
+	ICSF token - secret keys cannot wrap secret keys. 
 	These testcase will fail in ICSF token. 
+
+	CCA token -  uses secure key, the "-securekey" flag should be 
+	used to ensure appropriate testcases are run.
 
 des_tests
 	Tests des ecb/cbc modes using published test vectors and generated
 	test data.
 
-	NOTE: For ICSF token, secret keys cannot wrap secret keys. 
+	ICSF token - secret keys cannot wrap secret keys. 
 	These testcase will fail in ICSF token. 
+
+	CCA token -  uses secure key, the "-securekey" flag should be 
+	used to ensure appropriate testcases are run.
 
 des3_tests
 	Tests des3 ecb/cbc modes using published test vectors and generated
 	test data. 
 	Tests des3 cbc mode with padding only using generated test data.
 
-	NOTE: For ICSF token, secret keys cannot wrap secret keys. 
+	ICSF token - secret keys cannot wrap secret keys. 
 	These testcase will fail in ICSF token. 
+
+	CCA token -  uses secure key, the "-securekey" flag should be 
+	used to ensure appropriate testcases are run.
 
 dh_tests
 	Tests key generation and key derivation.
@@ -38,7 +49,7 @@ ec_tests
 rsa_tests
 	Tests RSA using published test vectors and generated test data. 
 
-	NOTE: The ICSF token only supports public exponents 0x03 and 0x010001.
+        ICSF token -  only supports public exponents 0x03 and 0x010001.
 	Testcases with other exponents will fail.
 
 ssl3_tests

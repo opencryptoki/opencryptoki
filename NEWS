@@ -1,0 +1,49 @@
+VERSION 3 CHANGES:
+ - New ICSF token. Please see doc/README.icsf_stdll for additional
+information and how to set up the ICSF token.
+
+ - New pkcsicsf utility that is used to set up the ICSF token.
+   See its man page and doc/README.icsf_stdll for additional info.
+
+ - No longer required to run pkcs11_startup.
+
+   pkcs11_startup and pkcs_slotd were shell scripts that created the
+   config file, pk_config_data, which was read by pkcsslotd to get
+   available slot information.
+
+   The pk_config_data configuration file has been replaced with
+   /etc/opencryptoki/opencryptoki.conf.
+
+   In version 3, the pkcsslotd daemon reads opencryptoki.conf to get slot
+   information. The opencryptoki.conf by default contains slot information
+   for each token currently supported by opencryptoki with the exception of
+   the ICSF token, which requires some initial setup.
+   Please see man page for opencryptoki.conf for further information.
+
+   Since pk_config_data is no longer required, pkcs11_startup and
+   pkcs_slotd have been removed.
+
+ - The pkcsslotd daemon uses a socket rather than shared memory to
+   transfer slot information to the opencryptoki library.
+
+   Some shared memory usage still exists in pkcsslotd.
+   Perhaps in time, the remaining need for shared memory in
+   pkcsslotd can also be removed.
+
+ - Ensure that the pkcs11 group has been created and that root
+   has been added to the group. The pkcs11_startup script used to 
+   check and do this, but is now obsolete. 
+
+
+NOTICEABLE CHANGES MADE PRIOR to VERSION 3:
+
+ - Opencryptoki creates several new directories and lock files in
+   /var/lock/opencryptoki directory. Each token creates and uses a 
+   lockfile to protect data in shared memory.
+
+ - RSA keys may be imported into the CCA token.
+
+ - Opencryptoki contains systemd support. 
+   Note: Ensure the opencryptoki lockfiles have been entered into tmpfiles.d
+         to keep them persistant across reboots.
+

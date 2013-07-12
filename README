@@ -1,6 +1,8 @@
 opencryptoki README
 Package version 3.0
 
+Please see NEWS for additional version 3 information. 
+
 OVERVIEW
 
 openCryptoki version 3.0 implements the PKCS#11 specification version 2.11.
