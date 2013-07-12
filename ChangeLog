@@ -17,6 +17,7 @@
 - pkcsslotd daemon uses a socket rather than shared memory to pass
   slot information to the opencryptoki library.
 - New testcases added for various crypto algorithms and pkcs#11 api calls.
+- Add README to docs directory for how to setup ICSF token.
 
 * opencryptoki-2.4.3.1 (May 17, 2013)
 - Allow imported rsa private keys in cca to also decrypt.
