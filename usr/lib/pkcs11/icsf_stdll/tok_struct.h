@@ -3,7 +3,7 @@
  *
  * openCryptoki ICSF token
  *
- * (C) COPYRIGHT International Business Machines Corp. 2001, 2002, 2006
+ * (C) COPYRIGHT International Business Machines Corp. 2013
  *
  */
 

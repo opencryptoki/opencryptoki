@@ -5,7 +5,7 @@
  *
  * (C) COPYRIGHT International Business Machines Corp. 2012
  *
- * Author: Joy Latten (latten@us.ibm.com)
+ * Author: Joy Latten (jmlatten@linux.vnet.ibm.com)
  *
  */
 
