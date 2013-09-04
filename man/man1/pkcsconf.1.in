@@ -4,7 +4,7 @@ pkcsconf \- configuration utility for the pkcsslotd daemon
 
 .SH SYNOPSIS
 \fBpkcsconf\fP
-[\fB-itsmMIupPh\fP]
+[\fB-itsmlIupPh\fP]
 [\fB-c\fP \fIslotnumber\fP \fB-U\fP \fIuserPIN\fP
 \fB-S\fP \fISOPin\fP \fB-n\fP \fInewpin\fP]
 
@@ -21,6 +21,8 @@ display token info
 display slot info
 .IP "\fB-m\fP" 10
 display mechanism list
+.IP "\fB-l\fP" 10
+display slot description
 .IP "\fB-I\fP" 10
 initialize token 
 .IP "\fB-u\fP" 10
