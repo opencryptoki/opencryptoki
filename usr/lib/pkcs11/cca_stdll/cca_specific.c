@@ -1675,9 +1675,7 @@ token_specific_sha2_update(DIGEST_CONTEXT *c, CK_BYTE *in_data, CK_ULONG in_data
 
 	DBG("update %lu", in_data_len);
 
-	if (in_data_len > CCA_MAX_SHA256_DATA_LEN)
-		return CKR_DATA_LEN_RANGE;
-	else if (!in_data)
+	if (!in_data)
 		goto done;
 
 	cca_ctx = (struct cca_sha256_ctx *)c->context;
