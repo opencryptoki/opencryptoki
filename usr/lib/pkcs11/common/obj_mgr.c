@@ -339,6 +339,15 @@ object_mgr_add( SESSION          * sess,
       OCK_LOG_ERR(ERR_OBJ_CREATE); 
       goto done;
    }
+
+   if (token_specific.t_object_add != NULL) {
+      rc = token_specific.t_object_add(o);
+      if (rc != CKR_OK) {
+	 OCK_LOG_ERR(ERR_OBJ_CREATE);
+	 goto done;
+      }
+   }
+
    // check whether session has permissions to create the object, etc
    //
    // Object                  R/O      R/W      R/O     R/W    R/W
