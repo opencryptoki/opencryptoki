@@ -1395,6 +1395,7 @@ token_create_ec_keypair(TEMPLATE *publ_tmpl,
 	CK_BYTE q[CCATOK_EC_MAX_Q_LEN];
 	CK_BBOOL found = FALSE;
 	CK_RV rv;
+	CK_ATTRIBUTE *attr = NULL;
 
 	/*
 	 * The token includes the header section first,
@@ -1402,8 +1403,14 @@ token_create_ec_keypair(TEMPLATE *publ_tmpl,
 	 * and the public key section last.
 	 */
 
+	/* The pkcs#11v2.20:
+	 * CKA_ECDSA_PARAMS must be in public key's template when
+	 * generating key pair and added to private key template.
+	 * CKA_EC_POINT added to public key when key is generated.
+	 */
+
 	/*
-	 * Get Q data for public and private key.
+	 * Get Q data for public key.
 	 */
 	pubkey_offset = cca_ec_publkey_offset(tok);
 
@@ -1425,41 +1432,14 @@ token_create_ec_keypair(TEMPLATE *publ_tmpl,
 		return rv;
 	}
 
-	if ((rv = build_update_attribute(priv_tmpl, CKA_EC_POINT, q, q_len)))
-	{
-		DBG("Build and update attribute for q failed rv=0x%lx\n", rv);
-		return rv;
-	}
-
-	/*
-	 * Get ECDSA PAMRAMS for both keys.
-	 */
-	p_len_offset = pubkey_offset + CCA_PUBL_P_LEN_OFFSET;
-	p_len = *(uint16_t *)&tok[p_len_offset];
-	p_len = ntohs(p_len);
-
-	for (i = 0; i < NUMEC; i++) {
-		if (p_len == der_ec_supported[i].len_bits) {
-			found = TRUE;
-			break;
-		}
-	}
-
-	if(found == FALSE) {
-		DBG("The p len %lx is not valid.\n", p_len);
-		return CKR_FUNCTION_FAILED;
-	}
-
-	if ((rv = build_update_attribute(publ_tmpl, CKA_ECDSA_PARAMS,
-					der_ec_supported[i].data,
-					der_ec_supported[i].data_size))) {
-		DBG("Build and update attribute for der data failed rv=0x%lx\n", rv);
-		return rv;
+	/* Add ec params to private key */
+	if (!template_attribute_find(publ_tmpl, CKA_ECDSA_PARAMS, &attr)) {
+		OCK_LOG_ERR(ERR_TEMPLATE_INCOMPLETE);
+		return CKR_TEMPLATE_INCOMPLETE;
 	}
 
 	if ((rv = build_update_attribute(priv_tmpl, CKA_ECDSA_PARAMS,
-					der_ec_supported[i].data,
-					der_ec_supported[i].data_size))) {
+					attr->pValue, attr->ulValueLen))) {
 		DBG("Build and update attribute for der data failed rv=0x%lx\n", rv);
 		return rv;
 	}
@@ -2232,4 +2212,40 @@ token_specific_object_add(OBJECT *object)
 	}
 
 	return CKR_OK;
+}
+
+CK_RV
+get_ecsiglen(OBJECT *key_obj, CK_ULONG *size)
+{
+        CK_BBOOL flag;
+        CK_ATTRIBUTE *attr = NULL;
+        int i;
+
+        flag = template_attribute_find( key_obj->template,
+                        CKA_ECDSA_PARAMS, &attr );
+        if (flag == FALSE) {
+                OCK_LOG_ERR(ERR_FUNCTION_FAILED);
+                return CKR_FUNCTION_FAILED;
+        }
+
+        /* loop thru supported curves to find the size.
+         * both pkcs#11v2.20 and CCA expect the signature length to be
+         * twice the length of p.
+         * (See EC Signatures in pkcs#11v2.20 and docs for CSNDDSG.)
+         */
+        for (i = 0; i < NUMEC; i++) {
+                if ((memcmp(attr->pValue, der_ec_supported[i].data,
+                                attr->ulValueLen) == 0)) {
+			*size = der_ec_supported[i].len_bits;
+			/* round up if necessary */
+			if ((*size % 8) == 0)
+				*size = (*size / 8) * 2;
+			else
+				*size = ((*size / 8) + 1) * 2;
+                        return CKR_OK;
+                }
+        }
+
+        OCK_LOG_ERR(ERR_MECHANISM_PARAM_INVALID);
+        return CKR_MECHANISM_PARAM_INVALID;
 }
