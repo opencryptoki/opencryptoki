@@ -75,8 +75,7 @@ ec_sign( SESSION			*sess,
                CK_ULONG			*out_data_len )
 {
 	OBJECT          *key_obj   = NULL;
-	CK_ATTRIBUTE    *attr      = NULL;
-	CK_ULONG         public_key_len;
+	CK_ULONG         plen;
 	CK_BBOOL         flag;
 	CK_RV            rc;
 
@@ -91,23 +90,21 @@ ec_sign( SESSION			*sess,
 		return rc;
 	}
 
-	flag = template_attribute_find( key_obj->template,
-			CKA_EC_POINT, &attr );
-	if (flag == FALSE)
-		return CKR_FUNCTION_FAILED;
-	else
-		public_key_len = attr->ulValueLen;
+	rc = get_ecsiglen(key_obj, &plen);
+	if (rc != CKR_OK) {
+		OCK_LOG_ERR(ERR_FUNCTION_FAILED);
+		return rc;
+	}
 
 	if (length_only == TRUE) {
-		*out_data_len = public_key_len;
+		*out_data_len = plen;
 		return CKR_OK;
 	}
 
-	if (*out_data_len < public_key_len) {
+	if (*out_data_len < plen) {
 		OCK_LOG_ERR(ERR_BUFFER_TOO_SMALL);
 		return CKR_BUFFER_TOO_SMALL;
 	}
-	*out_data_len = public_key_len;
 
 	rc = ckm_ec_sign( in_data, in_data_len, out_data,
 			out_data_len, key_obj );
@@ -160,8 +157,7 @@ ec_verify(SESSION		*sess,
 	CK_ULONG		sig_len )
 {
 	OBJECT          *key_obj  = NULL;
-	CK_ATTRIBUTE    *attr     = NULL;
-	CK_ULONG         public_key_len;
+	CK_ULONG         plen;
 	CK_BBOOL         flag;
 	CK_RV            rc;
 
@@ -171,16 +167,16 @@ ec_verify(SESSION		*sess,
 		OCK_LOG_ERR(ERR_OBJMGR_FIND_MAP);
 		return rc;
 	}
-	flag = template_attribute_find( key_obj->template,
-			CKA_EC_POINT, &attr );
-	if (flag == FALSE)
-		return CKR_FUNCTION_FAILED;
-	else
-		public_key_len = attr->ulValueLen;
+
+	rc = get_ecsiglen(key_obj, &plen);
+	if (rc != CKR_OK) {
+		OCK_LOG_ERR(ERR_FUNCTION_FAILED);
+		return rc;
+	}
 
 	// check input data length restrictions
 	//
-	if (sig_len > public_key_len){
+	if (sig_len > plen){
 		OCK_LOG_ERR(ERR_SIGNATURE_LEN_RANGE);
 		return CKR_SIGNATURE_LEN_RANGE;
 	}
