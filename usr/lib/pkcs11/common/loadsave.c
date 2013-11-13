@@ -965,7 +965,7 @@ CK_RV save_private_token_object(OBJECT * obj)
 	add_pkcs_padding(clear + clear_len, block_size, clear_len,
 			 padded_len);
 
-	rc = encrypt_data(key, key_len,
+	rc = encrypt_data_with_clear_key(key, key_len,
 			  token_specific.data_store.obj_initial_vector,
 			  clear, padded_len, cipher, &cipher_len);
 	if (rc != CKR_OK) {
@@ -1227,7 +1227,7 @@ CK_RV restore_private_token_object(CK_BYTE * data, CK_ULONG len, OBJECT * pObj)
 	}
 	memcpy(key, master_key, key_len);
 
-	rc = decrypt_data(key, key_len,
+	rc = decrypt_data_with_clear_key(key, key_len,
 			  token_specific.data_store.obj_initial_vector,
 			  data, len, clear, &clear_len);
 	if (rc != CKR_OK) {
