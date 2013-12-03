@@ -823,7 +823,7 @@ BOOL PKCS_Log ( pLogHandle phLog, char *Format, va_list ap ) {
 
   /* Always log to syslog, if we're using it */
   if ( pInfo->UseSyslog ) {
-    syslog(pInfo->LogLevel,  Buffer);
+    syslog(pInfo->LogLevel, "%s", Buffer);
   }
 
   return TRUE;
