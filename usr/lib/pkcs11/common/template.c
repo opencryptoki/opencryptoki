@@ -1695,6 +1695,14 @@ template_validate_base_attribute( TEMPLATE      * tmpl,
       case CKA_LABEL:
          return CKR_OK;
 
+	/* Allow this attribute to be modified in order to support
+	 * migratable keys on secure key tokens.
+	 */
+      case CKA_IBM_OPAQUE:
+	 if ((mode & (MODE_COPY|MODE_MODIFY)) != 0)
+            return CKR_OK;
+	 break;
+
       case CKA_MODIFIABLE:
          if ((mode & (MODE_CREATE|MODE_COPY|MODE_DERIVE|MODE_KEYGEN|MODE_UNWRAP)) != 0)
             return CKR_OK;

@@ -14,7 +14,6 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
-#include "cca_stdll.h"
 #include "pkcs11types.h"
 #include "defs.h"
 #include "host_defs.h"

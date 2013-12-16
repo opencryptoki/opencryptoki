@@ -2,6 +2,10 @@ if ENABLE_ICATOK
 ICA_DLL = ica_s390_stdll
 endif
 
+if ENABLE_EP11TOK
+EP11_DLL = ep11_stdll
+endif
+
 if ENABLE_SWTOK
 SW_DLL = soft_stdll
 endif
@@ -38,5 +42,5 @@ if ENABLE_LIBRARY
 API = api
 endif 
 
-SUBDIRS = $(API) $(SW_DLL) $(ICA_DLL) $(TPM_DLL) $(LEEDS_DLL) $(AEP_DLL) $(BCOM_DLL) $(CR_DLL) $(CCA_DLL) $(ICSF_DLL)
+SUBDIRS = $(API) $(SW_DLL) $(ICA_DLL) $(TPM_DLL) $(LEEDS_DLL) $(AEP_DLL) $(BCOM_DLL) $(CR_DLL) $(CCA_DLL) $(ICSF_DLL) $(EP11_DLL)
 
