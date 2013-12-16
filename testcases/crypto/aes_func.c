@@ -1115,7 +1115,7 @@ CK_RV do_WrapUnwrapRSA(struct generated_test_suite_info *tsuite)
 	CK_BYTE			cipher[BIG_REQUEST + AES_BLOCK_SIZE];
 	CK_BYTE			wrapped_data[BIG_REQUEST + AES_BLOCK_SIZE];
 	CK_BYTE			user_pin[PKCS11_MAX_PIN_LEN];
-	CK_BYTE			pub_exp[] = { 0x3 };
+	CK_BYTE			pub_exp[] = { 0x01, 0x00, 0x01 };
 	CK_MECHANISM		mech, mech2;
 	CK_MECHANISM_INFO	mech_info;
 	CK_OBJECT_HANDLE	publ_key, priv_key, w_key, uw_key;

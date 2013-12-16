@@ -90,6 +90,23 @@ CK_RV do_EncryptDecryptRSA(struct GENERATED_TEST_SUITE_INFO *tsuite)
 
 		rc = CKR_OK; // set rc
 
+		if (!keysize_supported(slot_id, tsuite->mech.mechanism,
+					tsuite->tv[i].modbits)) {
+			testcase_skip("Token in slot %ld cannot be used with "
+					"modbits.='%ld'",
+					SLOT_ID,tsuite->tv[i].modbits);
+			continue;
+		}
+
+		if (is_ep11_token(slot_id)) {
+			if (! is_valid_ep11_pubexp(tsuite->tv[i].publ_exp,
+						  tsuite->tv[i].publ_exp_len)) {
+				testcase_skip("EP11 Token cannot "
+					       "be used with publ_exp.='%s'",s);
+				continue;
+			}
+		}
+
 		// cca special cases:
 		// cca token can only use the following public exponents
 		// 0x03 or 0x010001 (65537)
@@ -320,6 +337,23 @@ CK_RV do_SignVerifyRSA(struct GENERATED_TEST_SUITE_INFO *tsuite)
                         tsuite->tv[i].modbits,
                         tsuite->tv[i].keylen);
 
+		if (!keysize_supported(slot_id, tsuite->mech.mechanism,
+					tsuite->tv[i].modbits)) {
+			testcase_skip("Token in slot %ld cannot be used with "
+					"modbits.='%ld'",
+					SLOT_ID,tsuite->tv[i].modbits);
+			continue;
+		}
+
+		if (is_ep11_token(slot_id)) {
+			if (! is_valid_ep11_pubexp(tsuite->tv[i].publ_exp,
+						  tsuite->tv[i].publ_exp_len)) {
+				testcase_skip("EP11 Token cannot "
+					       "be used with publ_exp.='%s'",s);
+				continue;
+			}
+		}
+
 		if (is_cca_token(slot_id)) {
                         if (! is_valid_cca_pubexp(tsuite->tv[i].publ_exp,
                                 tsuite->tv[i].publ_exp_len)) {
@@ -464,11 +498,16 @@ testcase_cleanup:
  */
 CK_RV do_WrapUnwrapRSA(struct GENERATED_TEST_SUITE_INFO *tsuite)
 {
-	int			i;
+	int			i = 0;
 	CK_OBJECT_HANDLE        publ_key, priv_key, secret_key, unwrapped_key;
-	CK_BYTE_PTR		wrapped_key;
+	CK_BYTE_PTR		wrapped_key = NULL;
 	CK_ULONG		wrapped_keylen, unwrapped_keylen;
-	CK_MECHANISM		wrap_mech, keygen_mech;
+	CK_MECHANISM		wrap_mech, keygen_mech, mech;
+	CK_BYTE			clear[32];
+	CK_BYTE			cipher[32];
+	CK_BYTE			re_cipher[32];
+	CK_ULONG		cipher_len = 32;
+	CK_ULONG		re_cipher_len = 32;
 
 	char 			*s;
 
@@ -514,24 +553,6 @@ CK_RV do_WrapUnwrapRSA(struct GENERATED_TEST_SUITE_INFO *tsuite)
 	for (i = 0; i < tsuite->tvcount; i++) {
 
 		// wrap templates & unwrap templates
-		CK_ATTRIBUTE		secret_value[] = {
-						{CKA_VALUE, NULL, 0}
-					};
-		CK_ATTRIBUTE		unwrapped_value[] = {
-						{CKA_VALUE, NULL, 0}
-					};
-		CK_ULONG		s_valuelen = 0;
-		CK_ATTRIBUTE		secret_value_len[] = {
-						{CKA_VALUE_LEN,
-						&s_valuelen,
-						sizeof(s_valuelen)}
-					};
-		CK_ULONG		u_valuelen = 0;
-		CK_ATTRIBUTE		unwrapped_value_len[] = {
-						{CKA_VALUE_LEN,
-						&u_valuelen,
-						sizeof(u_valuelen)}
-					};
 		CK_ATTRIBUTE            unwrap_tmpl[] = {
 						{CKA_CLASS, NULL, 0},
 						{CKA_KEY_TYPE, NULL, 0},
@@ -570,6 +591,23 @@ CK_RV do_WrapUnwrapRSA(struct GENERATED_TEST_SUITE_INFO *tsuite)
 			keygen_mech.mechanism)) {
 			testcase_skip();
 			continue;
+		}
+
+		if (!keysize_supported(slot_id, tsuite->mech.mechanism,
+					tsuite->tv[i].modbits)) {
+			testcase_skip("Token in slot %ld cannot be used with "
+					"modbits.='%ld'",
+					SLOT_ID,tsuite->tv[i].modbits);
+			continue;
+		}
+
+		if (is_ep11_token(slot_id)) {
+			if (! is_valid_ep11_pubexp(tsuite->tv[i].publ_exp,
+						  tsuite->tv[i].publ_exp_len)) {
+				testcase_skip("EP11 Token cannot "
+					       "be used with publ_exp.='%s'",s);
+				continue;
+			}
 		}
 
 		// initialize buffer lengths
@@ -712,137 +750,58 @@ CK_RV do_WrapUnwrapRSA(struct GENERATED_TEST_SUITE_INFO *tsuite)
 
 		testcase_new_assertion();
 
-		// get secret CKA_VALUE_LEN (if applicable)
-		// then compare to expected value
-		if (keygen_mech.mechanism == CKM_GENERIC_SECRET_KEY_GEN
-			|| keygen_mech.mechanism == CKM_RC4_KEY_GEN
-			|| keygen_mech.mechanism == CKM_RC5_KEY_GEN
-			|| keygen_mech.mechanism == CKM_AES_KEY_GEN) {
+		// encode/decode with secrect key and peer secret key
+		for (i = 0; i < 32; i++)
+			clear[i] = i;
 
-			rc = funcs->C_GetAttributeValue(session,
-						secret_key,
-						secret_value_len,
-						1);
+		if (keygen_mech.mechanism == CKM_AES_KEY_GEN)
+			mech.mechanism = CKM_AES_ECB;
+		else
+			mech.mechanism = CKM_DES3_ECB;
 
-			if (rc != CKR_OK) {
-				testcase_error("C_GetAttributeValue(), rc=%s",
+		mech.ulParameterLen = 0;
+		mech.pParameter = NULL;
+
+		rc = funcs->C_EncryptInit(session, &mech, secret_key);
+		if (rc != CKR_OK) {
+			testcase_error("C_EncryptInit secret_key: rc = %s",
 					p11_get_ckr(rc));
-				goto error;
-			}
+			goto error;
+		}
 
-			rc = funcs->C_GetAttributeValue(session,
-						unwrapped_key,
-						unwrapped_value_len,
-						1);
-
-			if (rc != CKR_OK) {
-				testcase_error("C_GetAttributeValue(), rc=%s",
+		rc = funcs->C_Encrypt(session, clear, 32, cipher, &cipher_len);
+		if (rc != CKR_OK) {
+			testcase_error("C_Encrypt secret_key: rc = %s",
 					p11_get_ckr(rc));
-				goto error;
-			}
-
-			// check results
-
-			if ( * ((CK_ULONG_PTR) secret_value_len[0].pValue) !=
-			     * ((CK_ULONG_PTR) unwrapped_value_len[0].pValue)) {
-
-				testcase_fail("CKA_VALUE_LEN value differs "
-					"(original %lu, unwrapped %lu)",
-					*((CK_ULONG_PTR) secret_value_len[0].pValue),
-					*((CK_ULONG_PTR) unwrapped_value_len[0].pValue));
-				goto error;
-			}
-		}
-
-		// get size of secret key's CKA_VALUE
-		rc = funcs->C_GetAttributeValue(session, secret_key,
-					secret_value, 1);
-		if (rc != CKR_OK) {
-			testcase_error("C_GetAttributeValue(), rc=%s.",
-				p11_get_ckr(rc));
 			goto error;
 		}
 
-		// get size of unwrapped key's CKA_VALUE
-		rc = funcs->C_GetAttributeValue(session, unwrapped_key,
-					unwrapped_value, 1);
+		rc = funcs->C_DecryptInit(session,&mech,unwrapped_key);
 		if (rc != CKR_OK) {
-			testcase_error("C_GetAttributeValue(), rc=%s.",
-				p11_get_ckr(rc));
+			testcase_error("C_DecryptInit unwrapped_key: rc = %s",
+					p11_get_ckr(rc));
 			goto error;
 		}
 
-		// allocate memory for extraction
-                secret_value[0].pValue = calloc(sizeof(CK_BYTE),
-                                                secret_value[0].ulValueLen);
-                if (secret_value[0].pValue == NULL) {
-                        testcase_error("Error allocating %lu bytes "
-                                        "for Secret Key Value.",
-                                        secret_value[0].ulValueLen);
-                        goto error;
-                }
-
-                unwrapped_value[0].pValue = calloc(sizeof(CK_BYTE),
-                                                unwrapped_value[0].ulValueLen);
-                if (unwrapped_value[0].pValue == NULL) {
-                        testcase_error("Error allocating %lu bytes "
-                                        "for Unwrapped Key Value.",
-                                        unwrapped_value[0].ulValueLen);
-                        goto error;
-                }
-
-		// get secret CKA_VALUE
-		rc = funcs->C_GetAttributeValue(session,
-					secret_key,
-					secret_value,
-					1);
+		rc = funcs->C_Decrypt(session, cipher, cipher_len, re_cipher,
+					&re_cipher_len);
 		if (rc != CKR_OK) {
-			testcase_error("C_GetAttributeValue(), rc=%s.",
+		testcase_error("C_Decrypt unwrapped_key: rc = %s",
 				p11_get_ckr(rc));
-			goto error;
-		}
-
-		// get unwrapped CKA_VALUE
-		rc = funcs->C_GetAttributeValue(session,
-					unwrapped_key,
-					unwrapped_value,
-					1);
-		if (rc != CKR_OK) {
-			testcase_error("C_GetAttributeValue(), rc=%s.",
-				p11_get_ckr(rc));
-			goto error;
-		}
-
-		// compare secret and unwrapped CKA_VALUE
-		if (memcmp(secret_value[0].pValue,
-				unwrapped_value[0].pValue,
-				secret_value[0].ulValueLen)) {
-
 			testcase_fail("Unwrapped key differs in CKA_VALUE.");
+			goto error;
 		}
 
-		else {
+		if (memcmp(clear, re_cipher, 32) != 0) {
+			testcase_fail("ERROR:data mismatch\n");
+			goto error;
+		} else
 			testcase_pass("C_Wrap and C_Unwrap.");
-		}
-
-		// free memory
-		if (unwrap_tmpl[0].pValue) {
-			free(unwrap_tmpl[0].pValue);
-		}
-		if (unwrap_tmpl[1].pValue) {
-			free(unwrap_tmpl[1].pValue);
-		}
-		if (secret_value[0].pValue) {
-			free(secret_value[0].pValue);
-		}
-		if (unwrapped_value[0].pValue) {
-			free(unwrapped_value[0].pValue);
-		}
-		if (wrapped_key) {
-			free(wrapped_key);
-		}
 
 		// clean up
+		if (wrapped_key)
+			free(wrapped_key);
+
 		rc = funcs->C_DestroyObject(session, secret_key);
 		if (rc != CKR_OK) {
 			testcase_error("C_DestroyObject(), rc=%s.",
@@ -867,23 +826,12 @@ CK_RV do_WrapUnwrapRSA(struct GENERATED_TEST_SUITE_INFO *tsuite)
 	goto testcase_cleanup;
 
 error:
-	loc_rc = funcs->C_DestroyObject(session, secret_key);
-	if (loc_rc != CKR_OK) {
-		testcase_error("C_DestroyObject(), rc=%s.",
-				p11_get_ckr(loc_rc));
-	}
+	if (wrapped_key)
+		free(wrapped_key);
 
-	loc_rc = funcs->C_DestroyObject(session, publ_key);
-	if (loc_rc != CKR_OK) {
-		testcase_error("C_DestroyObject(), rc=%s.",
-				p11_get_ckr(loc_rc));
-	}
-
-	loc_rc = funcs->C_DestroyObject(session, priv_key);
-	if (loc_rc != CKR_OK) {
-		testcase_error("C_DestroyObject(), rc=%s.",
-				p11_get_ckr(loc_rc));
-	}
+	funcs->C_DestroyObject(session, secret_key);
+	funcs->C_DestroyObject(session, publ_key);
+	funcs->C_DestroyObject(session, priv_key);
 
 testcase_cleanup:
 	testcase_user_logout();
@@ -1085,7 +1033,6 @@ CK_RV do_VerifyRSA(struct PUBLISHED_TEST_SUITE_INFO *tsuite)
 {
 	int			i;
 	CK_BYTE			actual[MAX_SIGNATURE_SIZE];
-	CK_ULONG		actual_len;
 	CK_BYTE			message[MAX_MESSAGE_SIZE];
 	CK_ULONG		message_len;
 	CK_BYTE			signature[MAX_SIGNATURE_SIZE];
@@ -1127,8 +1074,6 @@ CK_RV do_VerifyRSA(struct PUBLISHED_TEST_SUITE_INFO *tsuite)
 		memset(message, 0, MAX_MESSAGE_SIZE);
 		memset(signature, 0, MAX_SIGNATURE_SIZE);
 		memset(actual, 0, MAX_SIGNATURE_SIZE);
-
-		actual_len = MAX_SIGNATURE_SIZE; //set actual
 
 		// get message
 		message_len = tsuite->tv[i].msg_len;

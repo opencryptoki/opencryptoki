@@ -350,6 +350,47 @@ CK_RV generate_SecretKey(CK_SESSION_HANDLE session,
         return rc;
 }
 
+int keysize_supported(CK_SLOT_ID slot_id, CK_ULONG mechanism, CK_ULONG size)
+{
+	CK_MECHANISM_INFO mech_info;
+	CK_RV rc;
+
+	rc = funcs->C_GetMechanismInfo(slot_id, mechanism, &mech_info);
+	if (size < mech_info.ulMinKeySize || size > mech_info.ulMaxKeySize)
+		return 0;
+
+	return (rc == CKR_OK);
+}
+
+/** Returns true if pubexp is valid for EP11 Tokens **/
+int is_valid_ep11_pubexp(CK_BYTE pubexp[], CK_ULONG pubexp_len)
+{
+	/* everything > 0x10 valid */
+	int i;
+	if (pubexp[0] > 0x10)
+		return 1;
+	else {
+		for (i = 1; i < pubexp_len + 1; i++) {
+			if (pubexp[i] != 0)
+				return 1;
+		}
+	}
+	return 0;
+}
+
+/** Returns true if slot_id is an ICA Token **/
+int is_ep11_token(CK_SLOT_ID slot_id)
+{
+	CK_RV	rc;
+	CK_TOKEN_INFO   tokinfo;
+
+	rc = funcs->C_GetTokenInfo(slot_id, &tokinfo);
+	if (rc != CKR_OK)
+		return -1;
+
+	return strstr((const char *)tokinfo.model, "EP11") != NULL;
+}
+
 /** Returns true if pubexp is valid for CCA Tokens **/
 int is_valid_cca_pubexp(CK_BYTE pubexp[], CK_ULONG pubexp_len)
 {

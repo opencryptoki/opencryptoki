@@ -362,6 +362,14 @@ CK_RV do_DeriveDHKey(void)
 	CK_ULONG            user_pin_len;
 	CK_RV               rc = CKR_OK, loc_rc = CKR_OK;
 
+	int i = 0;
+	CK_BYTE clear    [32];
+	CK_BYTE cipher   [32];
+	CK_BYTE re_cipher[32];
+	CK_ULONG cipher_len = 32;
+	CK_ULONG re_cipher_len = 32;
+	CK_BBOOL ltrue = 1;
+
 	CK_OBJECT_CLASS     pub_key_class  = CKO_PUBLIC_KEY ;
 	CK_KEY_TYPE         key_type   = CKK_DH ;
 	CK_UTF8CHAR	    publ_label[] = "A DH public key object";
@@ -389,7 +397,8 @@ CK_RV do_DeriveDHKey(void)
 	{
 		{CKA_CLASS, &priv_key_class, sizeof(priv_key_class)},
 		{CKA_KEY_TYPE, &key_type, sizeof(key_type)},
-		{CKA_LABEL, priv_label, sizeof(priv_label)-1}
+		{CKA_LABEL, priv_label, sizeof(priv_label)-1},
+		{CKA_DERIVE, &ltrue, sizeof(ltrue) }
 	};
 
 	CK_ATTRIBUTE  secret_tmpl[] =
@@ -415,6 +424,7 @@ CK_RV do_DeriveDHKey(void)
 	testcase_user_login();
 
 	// Testcase #1 - Generate 2 DH key pairs.
+	testcase_new_assertion();
 
 	// First, generate the DH key Pair for Party A
 	mech.mechanism = CKM_DH_PKCS_KEY_PAIR_GEN;
@@ -422,7 +432,7 @@ CK_RV do_DeriveDHKey(void)
 	mech.pParameter = NULL;
 
 	rc = funcs->C_GenerateKeyPair(session, &mech, publ_tmpl, 5,
-					priv_tmpl, 3, &publ_key, &priv_key);
+					priv_tmpl, 4, &publ_key, &priv_key);
 	if (rc != CKR_OK) {
 		testcase_fail("C_GenerateKeyPair #1: rc = %s", p11_get_ckr(rc));
 		goto testcase_cleanup;
@@ -434,7 +444,7 @@ CK_RV do_DeriveDHKey(void)
 	mech.pParameter = NULL;
 
 	rc = funcs->C_GenerateKeyPair(session, &mech, publ_tmpl, 5,
-				priv_tmpl, 3, &peer_publ_key, &peer_priv_key);
+				priv_tmpl, 4, &peer_publ_key, &peer_priv_key);
 	if (rc != CKR_OK) {
 		testcase_fail("C_GenerateKeyPair #2: rc = %s", p11_get_ckr(rc));
 		goto testcase_cleanup;
@@ -452,19 +462,125 @@ CK_RV do_DeriveDHKey(void)
 	    (extr1_tmpl[0].ulValueLen != sizeof(DH_PUBL_PRIME)-1)) {
 		testcase_fail("ERROR:size error peer's key %ld\n",extr1_tmpl[0].ulValueLen );
 		goto testcase_cleanup;
-	}
+	} else
+		testcase_pass("Successfully derived key.\n");
 
 	// Testcase #2 - Now derive the secrets...
+	// Note: this is a clear key token testcase since comparing
+	//       key values.
+	if (!securekey) {
+		testcase_new_assertion();
 
-	/* Now, derive a generic secret key using party A's private key
-	 * and peer's public key
+		/* Now, derive a generic secret key using party A's
+		 * private key and peer's public key
+		 */
+		mech.mechanism  = CKM_DH_PKCS_DERIVE;
+		mech.ulParameterLen = extr1_tmpl[0].ulValueLen ;
+		mech.pParameter = key1_value;
+
+		rc = funcs->C_DeriveKey(session, &mech, priv_key, secret_tmpl,
+					4, &secret_key) ;
+		if (rc != CKR_OK) {
+			testcase_fail("C_DeriveKey #1: rc = %s", p11_get_ckr(rc));
+			goto testcase_cleanup;
+		}
+
+		// Do the same for the peer
+
+		// Extract party A's public key
+		rc = funcs->C_GetAttributeValue(session, publ_key,
+						 extr2_tmpl, 1);
+		if (rc != CKR_OK) {
+			testcase_error("C_GetAttributeValue #2: rc = %s",
+					p11_get_ckr(rc));
+			goto testcase_cleanup;
+		}
+
+		// Make sure party A's key is the right size
+		if ((extr2_tmpl[0].ulValueLen != sizeof(DH_PUBL_PRIME)) &&
+			(extr2_tmpl[0].ulValueLen != sizeof(DH_PUBL_PRIME)-1)) {
+			testcase_fail("ERROR:size error party A's key %ld\n",extr2_tmpl[0].ulValueLen);
+			goto testcase_cleanup;
+		}
+
+		// Now, derive a generic secret key using peer's private key
+		// and A's public key
+		mech.mechanism = CKM_DH_PKCS_DERIVE;
+		mech.ulParameterLen = extr2_tmpl[0].ulValueLen;
+		mech.pParameter = key2_value;
+
+		rc = funcs->C_DeriveKey(session, &mech, peer_priv_key,
+					secret_tmpl, 4, &peer_secret_key);
+		if (rc != CKR_OK) {
+			testcase_fail("C_DeriveKey #2: rc = %s",
+					p11_get_ckr(rc));
+			goto testcase_cleanup;
+		}
+
+		// Extract the derived keys and compare them
+
+		memset(key1_value,0,sizeof(key1_value));
+		extr1_tmpl[0].ulValueLen= sizeof(key1_value);
+
+		rc = funcs->C_GetAttributeValue(session, secret_key,
+						extr1_tmpl, 1);
+		if (rc != CKR_OK) {
+			testcase_error("C_GetAttributeValue #3:rc = %s",
+					p11_get_ckr(rc));
+			goto testcase_cleanup;
+		}
+
+		if (extr1_tmpl[0].ulValueLen != sizeof(DH_PUBL_PRIME) ||
+			*((int*)extr1_tmpl[0].pValue) == 0) {
+			testcase_fail("ERROR:derived key #1 length or value %ld\n", extr1_tmpl[0].ulValueLen );
+			goto testcase_cleanup;
+		}
+
+		memset(key2_value,0,sizeof(key2_value));
+		extr2_tmpl[0].ulValueLen= sizeof(key2_value);
+
+		rc = funcs->C_GetAttributeValue(session, peer_secret_key,
+						extr2_tmpl, 1);
+		if (rc != CKR_OK) {
+			testcase_error("C_GetAttributeValue #4:rc = %s",
+					p11_get_ckr(rc));
+			goto testcase_cleanup;
+		}
+
+		if (extr2_tmpl[0].ulValueLen != sizeof(DH_PUBL_PRIME) ||
+			*((int*)extr2_tmpl[0].pValue) == 0) {
+			testcase_fail("ERROR:derived key #2 length or value %ld\n", extr2_tmpl[0].ulValueLen );
+			goto testcase_cleanup;
+		}
+
+		if (memcmp(key1_value, key2_value, sizeof(DH_PUBL_PRIME)) != 0){
+			testcase_fail("ERROR:derived key mismatch\n");
+			goto testcase_cleanup;
+		}
+
+		testcase_pass("Generating DH key pairs and deriving secrets");
+
+		funcs->C_DestroyObject(session, secret_key);
+		funcs->C_DestroyObject(session, peer_secret_key);
+	}
+
+	// Testcase #3 - encode/decode with secrect key and peer secret key
+        testcase_new_assertion();
+
+        secret_key_size = 32;
+	secret_key_type = CKK_AES;
+	for (i = 0; i < 32; i++)
+		clear[i] = i;
+
+	/* Now, derive a generic secret key using party A's
+	 * private key and peer's public key
 	 */
 	mech.mechanism  = CKM_DH_PKCS_DERIVE;
 	mech.ulParameterLen = extr1_tmpl[0].ulValueLen ;
 	mech.pParameter = key1_value;
 
 	rc = funcs->C_DeriveKey(session, &mech, priv_key, secret_tmpl,
-			4, &secret_key) ;
+				4, &secret_key) ;
 	if (rc != CKR_OK) {
 		testcase_fail("C_DeriveKey #1: rc = %s", p11_get_ckr(rc));
 		goto testcase_cleanup;
@@ -475,14 +591,15 @@ CK_RV do_DeriveDHKey(void)
 	// Extract party A's public key
 	rc = funcs->C_GetAttributeValue(session, publ_key, extr2_tmpl, 1);
 	if (rc != CKR_OK) {
-		testcase_error("C_GetAttributeValue #2: rc = %s", p11_get_ckr(rc));
+		testcase_error("C_GetAttributeValue #2: rc = %s",
+				p11_get_ckr(rc));
 		goto testcase_cleanup;
 	}
 
 	// Make sure party A's key is the right size
 	if ((extr2_tmpl[0].ulValueLen != sizeof(DH_PUBL_PRIME)) &&
-	    (extr2_tmpl[0].ulValueLen != sizeof(DH_PUBL_PRIME)-1)) {
-		testcase_fail("ERROR:size error party A's key %ld\n",extr2_tmpl[0].ulValueLen );
+		(extr2_tmpl[0].ulValueLen != sizeof(DH_PUBL_PRIME)-1)) {
+		testcase_fail("ERROR:size error party A's key %ld\n",extr2_tmpl[0].ulValueLen);
 		goto testcase_cleanup;
 	}
 
@@ -493,7 +610,7 @@ CK_RV do_DeriveDHKey(void)
 	mech.pParameter = key2_value;
 
 	rc = funcs->C_DeriveKey(session, &mech, peer_priv_key,
-                            secret_tmpl, 4, &peer_secret_key);
+				secret_tmpl, 4, &peer_secret_key);
 	if (rc != CKR_OK) {
 		testcase_fail("C_DeriveKey #2: rc = %s", p11_get_ckr(rc));
 		goto testcase_cleanup;
@@ -501,36 +618,41 @@ CK_RV do_DeriveDHKey(void)
 
 	// Extract the derived keys and compare them
 
-	memset(key1_value,0,sizeof(key1_value));
-	extr1_tmpl[0].ulValueLen= sizeof(key1_value);
+	mech.mechanism = CKM_AES_ECB;
+	mech.ulParameterLen = 0;
+	mech.pParameter = NULL;
 
-	rc = funcs->C_GetAttributeValue(session, secret_key, extr1_tmpl, 1);
+	rc = funcs->C_EncryptInit(session,&mech,secret_key);
 	if (rc != CKR_OK) {
-		testcase_error("C_GetAttributeValue #3: rc = %s", p11_get_ckr(rc));
+		testcase_error("C_EncryptInit secret_key: rc = %s",
+				p11_get_ckr(rc));
 		goto testcase_cleanup;
 	}
 
-	if (extr1_tmpl[0].ulValueLen != sizeof(DH_PUBL_PRIME) || *((int*)extr1_tmpl[0].pValue) == 0) {
-		testcase_fail("ERROR:derived key #1 length or value %ld\n", extr1_tmpl[0].ulValueLen );
-		goto testcase_cleanup;
-	}
-
-	memset(key2_value,0,sizeof(key2_value));
-	extr2_tmpl[0].ulValueLen= sizeof(key2_value);
-
-	rc = funcs->C_GetAttributeValue(session, peer_secret_key, extr2_tmpl,1);
+	rc = funcs->C_Encrypt(session, clear, 32, cipher, &cipher_len);
 	if (rc != CKR_OK) {
-		testcase_error("C_GetAttributeValue #4: rc = %s", p11_get_ckr(rc));
+		testcase_error("C_Encrypt secret_key: rc = %s",
+				p11_get_ckr(rc));
 		goto testcase_cleanup;
 	}
 
-	if (extr2_tmpl[0].ulValueLen != sizeof(DH_PUBL_PRIME) || *((int*)extr2_tmpl[0].pValue) == 0) {
-		testcase_fail("ERROR:derived key #2 length or value %ld\n", extr2_tmpl[0].ulValueLen );
+	rc = funcs->C_DecryptInit(session, &mech, peer_secret_key);
+	if (rc != CKR_OK) {
+		testcase_error("C_DecryptInit peer_secret_key: rc = %s",
+				p11_get_ckr(rc));
 		goto testcase_cleanup;
 	}
 
-	if (memcmp(key1_value, key2_value, sizeof(DH_PUBL_PRIME)) != 0) {
-		testcase_fail("ERROR:derived key mismatch\n");
+	rc = funcs->C_Decrypt(session, cipher, cipher_len, re_cipher,
+				&re_cipher_len);
+	if (rc != CKR_OK) {
+		testcase_error("C_Decrypt peer secret_key: rc = %s",
+				p11_get_ckr(rc));
+		goto testcase_cleanup;
+	}
+
+	if (memcmp(clear, re_cipher, 32) != 0) {
+		testcase_fail("ERROR:data mismatch\n");
 		goto testcase_cleanup;
 	}
 
