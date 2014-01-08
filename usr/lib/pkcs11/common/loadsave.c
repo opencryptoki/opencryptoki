@@ -1880,6 +1880,15 @@ CK_RV generate_master_key(CK_BYTE *key)
 	    (rc = get_encryption_info(&master_key_len, NULL)) != CKR_OK)
 		return ERR_FUNCTION_FAILED;
 
+	/* For secure key tokens, object encrypt/decrypt uses
+	 * software(openssl), not token. So generate masterkey via RNG.
+	 */
+	if (token_specific.token_keysize)
+		return rng_generate(key, key_len);
+
+	/* For clear key tokens, let token generate masterkey
+	 * since token will also encrypt/decrypt the objects.
+	 */
 	switch (token_specific.data_store.encryption_algorithm) {
 	case CKM_DES3_CBC:
 		return token_specific.t_des_key_gen(key, master_key_len,

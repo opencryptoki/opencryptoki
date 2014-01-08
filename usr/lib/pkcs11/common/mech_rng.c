@@ -296,10 +296,12 @@
 // PKCS #11 doesn't consider random number generator to be a "mechanism"
 //
 
-#include <pthread.h>
-
 #include <string.h>            // for memcmp() et al
 #include <stdlib.h>
+#include <sys/types.h>
+#include <sys/stat.h>
+#include <fcntl.h>
+
 
 #include "pkcs11types.h"
 #include "defs.h"
@@ -312,12 +314,41 @@
 //
 //
 CK_RV
+local_rng(CK_BYTE *output, CK_ULONG bytes)
+{
+	int ranfd;
+	int rlen;
+	unsigned int totallen=0;
+
+	ranfd = open("/dev/urandom",O_RDONLY);
+	if (ranfd >= 0 ) {
+		do {
+			rlen = read(ranfd, output+totallen,
+				    bytes-totallen);
+			totallen += rlen;
+		} while( totallen < bytes);
+		close(ranfd);
+		return CKR_OK;
+	} else {
+		return CKR_FUNCTION_FAILED;
+	}
+
+}
+
+//
+//
+CK_RV
 rng_generate( CK_BYTE *output, CK_ULONG bytes )
 {
-   CK_RV     rc;
+	CK_RV rc;
 
-   rc = token_specific.t_rng(output, bytes);
-   if (rc != CKR_OK)
-      OCK_LOG_ERR(ERR_RNG);
-   return rc;
+	/* Do token specific rng if it exists. */
+	if (token_specific.t_rng != NULL)
+		rc = token_specific.t_rng(output, bytes);
+	else
+		rc = local_rng(output, bytes);
+
+	if (rc != CKR_OK)
+		OCK_LOG_ERR(ERR_RNG);
+	return rc;
 }

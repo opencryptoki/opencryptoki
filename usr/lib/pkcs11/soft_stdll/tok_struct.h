@@ -340,7 +340,7 @@ token_spec_t token_specific = {
 	NULL,			// load_token_data
 	NULL,			// save_token_data
 	&tok_slot2local,
-	&token_specific_rng,
+	NULL,			// random number generator
 	NULL,			// open_session
 	NULL,			// close_session
 	&token_specific_final,

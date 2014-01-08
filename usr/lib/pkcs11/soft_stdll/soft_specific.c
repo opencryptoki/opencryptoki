@@ -335,27 +335,6 @@ CK_CHAR model[] = "IBM SoftTok ";
 CK_CHAR descr[] = "IBM PKCS#11 Soft token";
 CK_CHAR label[] = "IBM OS PKCS#11   ";
 
-CK_RV
-token_specific_rng(CK_BYTE *output, CK_ULONG bytes)
-{
-     int  ranfd;
-     int  rlen;
-     unsigned  int totallen=0;
-
-     ranfd = open("/dev/urandom",O_RDONLY);
-     if (ranfd >= 0 ){
-       
- 	do {
-		rlen = read(ranfd,output+totallen,bytes-totallen);
-		totallen += rlen; 
-        } while( totallen < bytes);
-        close(ranfd);
-	return CKR_OK;
-     } else {
-	return CKR_FUNCTION_FAILED;
-     }
-}
-
 // convert pkcs slot number to local representation
 int
 tok_slot2local(CK_SLOT_ID snum)
