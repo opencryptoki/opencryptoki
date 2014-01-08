@@ -169,6 +169,12 @@ AC_ARG_WITH([libica],
 	[],
 	[with_libica=check])
 
+dnl --- zcrypt development files
+AC_ARG_WITH([zcrypt],
+        AS_HELP_STRING([--with-zcrypt@<:@=DIR@:>@],[zcrypt development files location]),
+        [],
+        [with_zcrypt=check])
+
 dnl --- TSS (TrouSerS) development files
 AC_ARG_WITH([tss],
 	AS_HELP_STRING([--with-tss@<:@=DIR@:>@],[TrouSerS development files location]),
@@ -628,6 +634,26 @@ else
 fi
 AM_CONDITIONAL([ENABLE_SWTOK], [test "x$enable_swtok" = "xyes"])
 
+dnl --- enable_ep11tok
+if test "x$enable_ep11tok" = "xyes"; then
+
+AC_CHECK_HEADER([asm/zcrypt.h], [], [
+                if test "x$with_zcrypt" != "xcheck"; then
+                   with_zcrypt=yes
+                fi
+                with_zcrypt=no
+        ])
+
+#        if test "x$with_zcrypt" != "xyes"; then
+#                AC_MSG_ERROR([ica token build requested but libica development files not found])
+#                enable_icatok=no
+#        fi
+fi
+if test "x$enable_ep11tok" != "xno" -a "x$with_zcrypt" != "xno"; then
+        enable_ep11tok=yes
+else
+        enable_ep11tok=no
+fi
 AM_CONDITIONAL([ENABLE_EP11TOK], [test "x$enable_ep11tok" = "xyes"])
 
 dnl --- enable_icsftok
