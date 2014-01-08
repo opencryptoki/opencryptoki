@@ -62,3 +62,7 @@ uninstall-hook:
 	if test -d $(DESTDIR)$(libdir)/opencryptoki/stdll; then \
 		cd $(DESTDIR)$(libdir)/opencryptoki/stdll && \
 		rm -f PKCS11_EP11.so; fi
+
+install-data-local :
+	test -f $(DESTDIR)$(sysconfdir)/opencryptoki || $(MKDIR_P) $(DESTDIR)$(sysconfdir)/opencryptoki || true
+	test -f $(DESTDIR)$(sysconfdir)/opencryptoki/ep11tok.conf || $(INSTALL) -m 644 $(srcdir)/ep11tok.conf $(DESTDIR)$(sysconfdir)/opencryptoki/ep11tok.conf || true
