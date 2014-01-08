@@ -2478,435 +2478,405 @@ error:
 }
 
 
-/* Returns a blob for a key (handle or key obj). The blob is created if none was build yet. */
+/* Returns a blob for a key (handle or key obj).
+ * The blob is created if none was build yet.
+ */
 static CK_RV h_opaque_2_blob(CK_OBJECT_HANDLE handle,
                              CK_BYTE **blob, size_t *blob_len)
 {
-    OBJECT *key_obj;
-    CK_ATTRIBUTE *attr = NULL;
-    ep11_opaque *op;
+	OBJECT *key_obj;
+	CK_ATTRIBUTE *attr = NULL;
+	ep11_opaque *op;
 
-    /* find the key obj by the key handle */
-    if (object_mgr_find_in_map1(handle,&key_obj) != CKR_OK)
-      {
-        EP11TOK_ELOG(1,"key 0x%lx not mapped", handle);
-        return CKR_FUNCTION_FAILED;
-      }
+	/* find the key obj by the key handle */
+	if (object_mgr_find_in_map1(handle,&key_obj) != CKR_OK) {
+		EP11TOK_ELOG(1,"key 0x%lx not mapped", handle);
+		return CKR_FUNCTION_FAILED;
+	}
     
-    /* blob already exists */
-    if (template_attribute_find( key_obj->template, CKA_IBM_OPAQUE, &attr ) &&
-        (attr->ulValueLen > 0))
-    {
-      op = attr->pValue;
-      *blob     = op->blob;
-      *blob_len = op->blob_size;
-      EP11TOK_LOG(2,"blob found blob_len=0x%x valuelen=0x%lx blob_id=0x%x",
-                  *blob_len, attr->ulValueLen, op->blob_id);
+	/* blob already exists */
+	if (template_attribute_find(key_obj->template, CKA_IBM_OPAQUE, &attr) &&
+				    (attr->ulValueLen > 0)) {
+		op = attr->pValue;
+		*blob = op->blob;
+		*blob_len = op->blob_size;
+		EP11TOK_LOG(2,"blob found blob_len=0x%x valuelen=0x%lx blob_id=0x%x", *blob_len, attr->ulValueLen, op->blob_id);
       
-      return CKR_OK;
-    }
+		return CKR_OK;
+	} else {
     
-    /* should not happen, imported key types not supported should cause 
-       a failing token_specific_object_add */
-    else
-    {
-      EP11TOK_ELOG(1,"no blob");
-      return CKR_FUNCTION_FAILED;
-    }
+		/* should not happen, imported key types not supported
+		 * should cause a failing token_specific_object_add
+		 */
+		EP11TOK_ELOG(1,"no blob");
+		return CKR_FUNCTION_FAILED;
+	}
 }
 
 CK_RV token_specific_sign_init(SESSION *session, CK_MECHANISM *mech,
-                               CK_BBOOL recover_mode, CK_OBJECT_HANDLE key)
+			       CK_BBOOL recover_mode, CK_OBJECT_HANDLE key)
 {
-    CK_BYTE         *privkey_blob;
-    size_t          blob_len = 0;
-    CK_RV           rc;
-    SIGN_VERIFY_CONTEXT *ctx = &session->sign_ctx;
-    CK_BYTE *ep11_sign_state;
-    size_t   ep11_sign_state_l;
+	CK_BYTE *privkey_blob;
+	size_t blob_len = 0;
+	CK_RV rc;
+	SIGN_VERIFY_CONTEXT *ctx = &session->sign_ctx;
+	CK_BYTE *ep11_sign_state;
+	size_t ep11_sign_state_l;
  
-    ep11_sign_state_l = blobsize;
-    ep11_sign_state = malloc(blobsize);
+	ep11_sign_state_l = blobsize;
+	ep11_sign_state = malloc(blobsize);
 
-    if (h_opaque_2_blob(key,&privkey_blob,&blob_len) == CKR_OK)
-    {
-      rc = m_SignInit (ep11_sign_state, &ep11_sign_state_l,
-                       mech,
-                       privkey_blob, blob_len,
-                         ep11tok_target) ;
-      /* SIGN_VERIFY_CONTEX holds all needed for continuing, also by another adapter
-         (stateless requests) */
-      ctx->key     = key;
-      ctx->multi   = FALSE;
-      ctx->active  = TRUE;
-      ctx->context = ep11_sign_state;
-      ctx->context_len = ep11_sign_state_l;
+	if (h_opaque_2_blob(key,&privkey_blob,&blob_len) == CKR_OK) {
+		rc = m_SignInit(ep11_sign_state, &ep11_sign_state_l,
+				mech, privkey_blob, blob_len, ep11tok_target) ;
 
-      if (rc != CKR_OK) {
-        EP11TOK_ELOG(1,"rc=0x%lx blob_len=0x%x key=0x%lx mech=0x%lx", rc, blob_len, key, mech->mechanism);
-      } else {
-        EP11TOK_LOG(2,"rc=0x%lx blob_len=0x%x key=0x%lx mech=0x%lx", rc, blob_len, key, mech->mechanism);
-      }
-      return rc;
-    }
-    else
-      {
-        EP11TOK_ELOG(1,"no blob rc=0x%lx",rc);
-        return CKR_FUNCTION_FAILED;
-    }
+		/* SIGN_VERIFY_CONTEX holds all needed for continuing,
+		 * also by another adapter (stateless requests)
+		 */
+		ctx->key = key;
+		ctx->multi = FALSE;
+		ctx->active = TRUE;
+		ctx->context = ep11_sign_state;
+		ctx->context_len = ep11_sign_state_l;
+
+		if (rc != CKR_OK) {
+			EP11TOK_ELOG(1,"rc=0x%lx blob_len=0x%x key=0x%lx mech=0x%lx", rc, blob_len, key, mech->mechanism);
+		} else {
+			EP11TOK_LOG(2,"rc=0x%lx blob_len=0x%x key=0x%lx mech=0x%lx", rc, blob_len, key, mech->mechanism);
+		}
+
+		return rc;
+	} else {
+		EP11TOK_ELOG(1,"no blob rc=0x%lx",rc);
+		return CKR_FUNCTION_FAILED;
+	}
 }
 
 
-CK_RV token_specific_sign(SESSION *session, CK_BBOOL length_only, CK_BYTE *in_data,
-                          CK_ULONG in_data_len, CK_BYTE *signature, CK_ULONG *sig_len)
+CK_RV token_specific_sign(SESSION *session, CK_BBOOL length_only,
+			  CK_BYTE *in_data, CK_ULONG in_data_len,
+			  CK_BYTE *signature, CK_ULONG *sig_len)
 {
-    CK_RV rc;
-    SIGN_VERIFY_CONTEXT *ctx = &session->sign_ctx;
+	CK_RV rc;
+	SIGN_VERIFY_CONTEXT *ctx = &session->sign_ctx;
 
-    rc = m_Sign (ctx->context,ctx->context_len,
-                 in_data, in_data_len,
-                 signature, sig_len,
-                 ep11tok_target);
+	rc = m_Sign(ctx->context, ctx->context_len, in_data, in_data_len,
+		    signature, sig_len, ep11tok_target);
 
-    if (rc != CKR_OK) {
-        EP11TOK_ELOG(1,"rc=0x%lx",rc);
-    } else {
-        EP11TOK_LOG(2,"rc=0x%lx",rc);
-    }
+	if (rc != CKR_OK) {
+		EP11TOK_ELOG(1,"rc=0x%lx",rc);
+	} else {
+		EP11TOK_LOG(2,"rc=0x%lx",rc);
+	}
 
-    return rc;
+	return rc;
 }
 
 
 CK_RV token_specific_sign_update(SESSION *session, CK_BYTE *in_data,
-                                 CK_ULONG in_data_len)
+				 CK_ULONG in_data_len)
 {
-    CK_RV rc;
-    SIGN_VERIFY_CONTEXT *ctx = &session->sign_ctx;
+	CK_RV rc;
+	SIGN_VERIFY_CONTEXT *ctx = &session->sign_ctx;
 
-    rc = m_SignUpdate (ctx->context, ctx->context_len,
-                       in_data, in_data_len,
-                       ep11tok_target);
+	rc = m_SignUpdate(ctx->context, ctx->context_len, in_data,
+			  in_data_len, ep11tok_target);
 
-    if (rc != CKR_OK) {
-        EP11TOK_ELOG(1,"rc=0x%lx",rc);
-    } else {
-        EP11TOK_LOG(2,"rc=0x%lx",rc);
-    }
+	if (rc != CKR_OK) {
+		EP11TOK_ELOG(1,"rc=0x%lx",rc);
+	} else {
+		EP11TOK_LOG(2,"rc=0x%lx",rc);
+	}
 
-    return rc;
+	return rc;
 }
 
 
 CK_RV token_specific_sign_final(SESSION *session, CK_BBOOL length_only,
-                                CK_BYTE *signature, CK_ULONG *sig_len)
+				CK_BYTE *signature, CK_ULONG *sig_len)
 {
-    CK_RV rc;
-    SIGN_VERIFY_CONTEXT *ctx = &session->sign_ctx;
+	CK_RV rc;
+	SIGN_VERIFY_CONTEXT *ctx = &session->sign_ctx;
 
-    rc = m_SignFinal (ctx->context, ctx->context_len,
-                      signature, sig_len,
-                      ep11tok_target);
+	rc = m_SignFinal(ctx->context, ctx->context_len, signature, sig_len,
+			ep11tok_target);
 
-    if (rc != CKR_OK) {
-        EP11TOK_ELOG(1,"rc=0x%lx",rc);
-    } else {
-        EP11TOK_LOG(2,"rc=0x%lx",rc);
-    }
+	if (rc != CKR_OK) {
+		EP11TOK_ELOG(1,"rc=0x%lx",rc);
+	} else {
+		EP11TOK_LOG(2,"rc=0x%lx",rc);
+	}
 
-    return rc;
+	return rc;
 }
 
 
 CK_RV token_specific_verify_init(SESSION *session, CK_MECHANISM *mech,
-                                 CK_BBOOL recover_mode, CK_OBJECT_HANDLE key)
+				 CK_BBOOL recover_mode, CK_OBJECT_HANDLE key)
 {
-    CK_BYTE         *spki;
-    size_t          spki_len = 0;
-    CK_RV           rc;
-    SIGN_VERIFY_CONTEXT *ctx = &session->verify_ctx;
-    CK_BYTE *ep11_sign_state;
-    size_t   ep11_sign_state_l;
+	CK_BYTE *spki;
+	size_t spki_len = 0;
+	CK_RV rc;
+	SIGN_VERIFY_CONTEXT *ctx = &session->verify_ctx;
+	CK_BYTE *ep11_sign_state;
+	size_t ep11_sign_state_l;
 
-    ep11_sign_state_l = blobsize;
-    ep11_sign_state = malloc(blobsize);
+	ep11_sign_state_l = blobsize;
+	ep11_sign_state = malloc(blobsize);
 
-    if (h_opaque_2_blob(key,&spki,&spki_len) == CKR_OK)
-      {
+	if (h_opaque_2_blob(key,&spki,&spki_len) == CKR_OK) {
+		rc = m_VerifyInit(ep11_sign_state, &ep11_sign_state_l, mech,
+				  spki, spki_len, ep11tok_target);
         
-        rc = m_VerifyInit (ep11_sign_state, &ep11_sign_state_l,
-                           mech,
-                           spki, spki_len,
-                           ep11tok_target) ;
-        
-        ctx->key     = key;
-        ctx->multi   = FALSE;
-        ctx->active  = TRUE;
-        ctx->context = ep11_sign_state;
-        ctx->context_len = ep11_sign_state_l;
+		ctx->key = key;
+		ctx->multi = FALSE;
+		ctx->active = TRUE;
+		ctx->context = ep11_sign_state;
+		ctx->context_len = ep11_sign_state_l;
 
-        if (rc != CKR_OK) {
-            EP11TOK_ELOG(1,"rc=0x%lx spki_len=0x%x key=0x%lx ep11_sing_state_l=0x%x mech=0x%lx",
-                         rc, spki_len, key, ep11_sign_state_l, mech->mechanism);
-        } else {
-            EP11TOK_LOG(2,"rc=0x%lx spki_len=0x%x key=0x%lx ep11_sing_state_l=0x%x mech=0x%lx",
-                        rc, spki_len, key, ep11_sign_state_l, mech->mechanism);
-        }
+		if (rc != CKR_OK) {
+			EP11TOK_ELOG(1,"rc=0x%lx spki_len=0x%x key=0x%lx ep11_sing_state_l=0x%x mech=0x%lx", rc, spki_len, key, ep11_sign_state_l, mech->mechanism);
+		} else {
+			EP11TOK_LOG(2,"rc=0x%lx spki_len=0x%x key=0x%lx ep11_sing_state_l=0x%x mech=0x%lx", rc, spki_len, key, ep11_sign_state_l, mech->mechanism);
+		}
 
-        return rc;
-    }
-    else
-    {
-        EP11TOK_ELOG(1,"no blob rc=0x%lx",rc);
-        return CKR_FUNCTION_FAILED;
-    }
+		return rc;
+	} else {
+		EP11TOK_ELOG(1,"no blob rc=0x%lx",rc);
+		return CKR_FUNCTION_FAILED;
+	}
 }
 
 
-CK_RV token_specific_verify(SESSION *session, CK_BYTE *in_data, CK_ULONG in_data_len,
-                            CK_BYTE *signature, CK_ULONG sig_len)
+CK_RV token_specific_verify(SESSION *session, CK_BYTE *in_data,
+			    CK_ULONG in_data_len, CK_BYTE *signature,
+			    CK_ULONG sig_len)
 {
-    CK_RV rc;
-    SIGN_VERIFY_CONTEXT *ctx = &session->verify_ctx;
+	CK_RV rc;
+	SIGN_VERIFY_CONTEXT *ctx = &session->verify_ctx;
 
-    rc =  m_Verify (ctx->context, ctx->context_len,
-                    in_data, in_data_len,
-                    signature, sig_len,
-                    ep11tok_target);
+	rc = m_Verify(ctx->context, ctx->context_len, in_data, in_data_len,
+			signature, sig_len, ep11tok_target);
 
-    if (rc != CKR_OK) {
-        EP11TOK_ELOG(1,"rc=0x%lx",rc);
-    } else {
-        EP11TOK_LOG(2,"rc=0x%lx",rc);
-    }
+	if (rc != CKR_OK) {
+		EP11TOK_ELOG(1,"rc=0x%lx",rc);
+	} else {
+		EP11TOK_LOG(2,"rc=0x%lx",rc);
+	}
 
-    return rc;
+	return rc;
 }
 
 
 CK_RV token_specific_verify_update(SESSION *session, CK_BYTE *in_data,
-                                   CK_ULONG in_data_len)
+				   CK_ULONG in_data_len)
 {
-    CK_RV rc;
-    SIGN_VERIFY_CONTEXT *ctx = &session->verify_ctx;
+	CK_RV rc;
+	SIGN_VERIFY_CONTEXT *ctx = &session->verify_ctx;
 
-    rc =  m_VerifyUpdate (ctx->context, ctx->context_len,
-                          in_data, in_data_len,
-                          ep11tok_target);
+	rc = m_VerifyUpdate(ctx->context, ctx->context_len, in_data,
+				in_data_len, ep11tok_target);
 
-    if (rc != CKR_OK) {
-        EP11TOK_ELOG(1,"rc=0x%lx",rc);
-    } else {
-        EP11TOK_LOG(2,"rc=0x%lx",rc);
-    }
+	if (rc != CKR_OK) {
+		EP11TOK_ELOG(1,"rc=0x%lx",rc);
+	} else {
+		EP11TOK_LOG(2,"rc=0x%lx",rc);
+	}
 
-    return rc;
+	return rc;
 }
 
 
 CK_RV token_specific_verify_final(SESSION *session, CK_BYTE *signature,
-                                  CK_ULONG sig_len)
+				  CK_ULONG sig_len)
 {
-    CK_RV rc;
-    SIGN_VERIFY_CONTEXT *ctx = &session->verify_ctx;
+	CK_RV rc;
+	SIGN_VERIFY_CONTEXT *ctx = &session->verify_ctx;
 
-    rc =  m_VerifyFinal (ctx->context, ctx->context_len,
-                         signature, sig_len,
-                         ep11tok_target) ;
+	rc = m_VerifyFinal(ctx->context, ctx->context_len, signature,
+			    sig_len, ep11tok_target);
+	if (rc != CKR_OK) {
+		EP11TOK_ELOG(1,"rc=0x%lx",rc);
+	} else {
+		EP11TOK_LOG(2,"rc=0x%lx",rc);
+	}
 
-    if (rc != CKR_OK) {
-        EP11TOK_ELOG(1,"rc=0x%lx",rc);
-    } else {
-        EP11TOK_LOG(2,"rc=0x%lx",rc);
-    }
-
-    return rc;
+	return rc;
 }
 
 
 CK_RV token_specific_decrypt_final(SESSION *session, CK_BYTE_PTR output_part,
-                                   CK_ULONG_PTR p_output_part_len)
+				   CK_ULONG_PTR p_output_part_len)
 {
-    CK_RV rc = CKR_OK;
-    ENCR_DECR_CONTEXT *decr_ctx = &session->decr_ctx;
+	CK_RV rc = CKR_OK;
+	ENCR_DECR_CONTEXT *decr_ctx = &session->decr_ctx;
 
-    rc = m_DecryptFinal (decr_ctx->context,decr_ctx->context_len,
-                         output_part, p_output_part_len,
-                         ep11tok_target) ;
+	rc = m_DecryptFinal(decr_ctx->context,decr_ctx->context_len,
+			    output_part, p_output_part_len, ep11tok_target);
 
-    if (rc != CKR_OK) {
-        EP11TOK_ELOG(1,"rc=0x%lx",rc);
-    } else {
-        EP11TOK_LOG(2,"rc=0x%lx",rc);
-    }
+	if (rc != CKR_OK) {
+		EP11TOK_ELOG(1,"rc=0x%lx",rc);
+	} else {
+		EP11TOK_LOG(2,"rc=0x%lx",rc);
+	}
 
-    return rc;
+	return rc;
 }
 
 
 CK_RV token_specific_decrypt(SESSION *session, CK_BYTE_PTR input_data,
-                             CK_ULONG input_data_len, CK_BYTE_PTR output_data,
-                             CK_ULONG_PTR p_output_data_len)
+			     CK_ULONG input_data_len, CK_BYTE_PTR output_data,
+			     CK_ULONG_PTR p_output_data_len)
 {
-    CK_RV rc = CKR_OK;
-    ENCR_DECR_CONTEXT *decr_ctx = &session->decr_ctx;
+	CK_RV rc = CKR_OK;
+	ENCR_DECR_CONTEXT *decr_ctx = &session->decr_ctx;
 
-    rc =  m_Decrypt (decr_ctx->context,decr_ctx->context_len,
-                     input_data, input_data_len,
-                     output_data, p_output_data_len,
-                     ep11tok_target);
+	rc = m_Decrypt(decr_ctx->context,decr_ctx->context_len, input_data,
+			input_data_len, output_data, p_output_data_len,
+			ep11tok_target);
 
-    if (rc != CKR_OK) {
-        EP11TOK_ELOG(1,"rc=0x%lx",rc);
-    } else {
-        EP11TOK_LOG(2,"rc=0x%lx",rc);
-    }
+	if (rc != CKR_OK) {
+		EP11TOK_ELOG(1,"rc=0x%lx",rc);
+	} else {
+		EP11TOK_LOG(2,"rc=0x%lx",rc);
+	}
 
-    return rc;
+	return rc;
 }
 
 
 CK_RV token_specific_decrypt_update(SESSION *session, CK_BYTE_PTR input_part,
-                                    CK_ULONG input_part_len, CK_BYTE_PTR output_part,
-                                    CK_ULONG_PTR p_output_part_len)
+				    CK_ULONG input_part_len,
+				    CK_BYTE_PTR output_part,
+				    CK_ULONG_PTR p_output_part_len)
 {
-    CK_RV rc = CKR_OK;
-    ENCR_DECR_CONTEXT *decr_ctx = &session->decr_ctx;
+	CK_RV rc = CKR_OK;
+	ENCR_DECR_CONTEXT *decr_ctx = &session->decr_ctx;
 
-    rc = m_DecryptUpdate (decr_ctx->context,decr_ctx->context_len,
-                          input_part, input_part_len,
-                          output_part, p_output_part_len,
-                          ep11tok_target) ;
+	rc = m_DecryptUpdate(decr_ctx->context,decr_ctx->context_len,
+			     input_part, input_part_len, output_part,
+			     p_output_part_len, ep11tok_target) ;
 
-    if (rc != CKR_OK) {
-        EP11TOK_ELOG(1,"rc=0x%lx",rc);
-    } else {
-        EP11TOK_LOG(2,"rc=0x%lx",rc);
-    }
+	if (rc != CKR_OK) {
+		EP11TOK_ELOG(1,"rc=0x%lx",rc);
+	} else {
+		EP11TOK_LOG(2,"rc=0x%lx",rc);
+	}
 
-    return rc;
+	return rc;
 }
 
 
 CK_RV token_specific_encrypt_final(SESSION *session, CK_BYTE_PTR output_part,
-                                   CK_ULONG_PTR p_output_part_len)
+				   CK_ULONG_PTR p_output_part_len)
 {
-    CK_RV rc = CKR_OK;
-    ENCR_DECR_CONTEXT *encr_ctx = &session->encr_ctx;
+	CK_RV rc = CKR_OK;
+	ENCR_DECR_CONTEXT *encr_ctx = &session->encr_ctx;
 
-    rc = m_EncryptFinal (encr_ctx->context, encr_ctx->context_len,
-                         output_part, p_output_part_len,
-                         ep11tok_target) ;
+	rc = m_EncryptFinal(encr_ctx->context, encr_ctx->context_len,
+			    output_part, p_output_part_len, ep11tok_target);
 
-    if (rc != CKR_OK) {
-        EP11TOK_ELOG(1,"rc=0x%lx",rc);
-    } else {
-        EP11TOK_LOG(2,"rc=0x%lx",rc);
-    }
+	if (rc != CKR_OK) {
+		EP11TOK_ELOG(1,"rc=0x%lx",rc);
+	} else {
+		EP11TOK_LOG(2,"rc=0x%lx",rc);
+	}
 
-    return rc;
+	return rc;
 }
 
 
 CK_RV token_specific_encrypt(SESSION *session, CK_BYTE_PTR input_data,
-                             CK_ULONG input_data_len, CK_BYTE_PTR output_data,
-                             CK_ULONG_PTR p_output_data_len)
+			     CK_ULONG input_data_len, CK_BYTE_PTR output_data,
+			     CK_ULONG_PTR p_output_data_len)
 {
-    CK_RV rc = CKR_OK;
-    ENCR_DECR_CONTEXT *encr_ctx = &session->encr_ctx;
+	CK_RV rc = CKR_OK;
+	ENCR_DECR_CONTEXT *encr_ctx = &session->encr_ctx;
 
-    rc = m_Encrypt (encr_ctx->context, encr_ctx->context_len,
-                    input_data, input_data_len,
-                    output_data, p_output_data_len,
-                    ep11tok_target);
+	rc = m_Encrypt(encr_ctx->context, encr_ctx->context_len, input_data,
+		       input_data_len, output_data, p_output_data_len,
+		       ep11tok_target);
 
-    if (rc != CKR_OK) {
-        EP11TOK_ELOG(1,"rc=0x%lx",rc);
-    } else {
-        EP11TOK_LOG(2,"rc=0x%lx",rc);
-    }
+	if (rc != CKR_OK) {
+		EP11TOK_ELOG(1,"rc=0x%lx",rc);
+	} else {
+		EP11TOK_LOG(2,"rc=0x%lx",rc);
+	}
 
-    return rc;
+	return rc;
 }
 
 
 CK_RV token_specific_encrypt_update(SESSION *session, CK_BYTE_PTR input_part,
-                                    CK_ULONG input_part_len, CK_BYTE_PTR output_part,
-                                    CK_ULONG_PTR p_output_part_len)
+				    CK_ULONG input_part_len,
+				    CK_BYTE_PTR output_part,
+				    CK_ULONG_PTR p_output_part_len)
 {
-    CK_RV rc = CKR_OK;
-    ENCR_DECR_CONTEXT *encr_ctx = &session->encr_ctx;
+	CK_RV rc = CKR_OK;
+	ENCR_DECR_CONTEXT *encr_ctx = &session->encr_ctx;
 
-    rc = m_EncryptUpdate (encr_ctx->context, encr_ctx->context_len,
-                          input_part, input_part_len,
-                          output_part, p_output_part_len,
-                          ep11tok_target) ;
+	rc = m_EncryptUpdate(encr_ctx->context, encr_ctx->context_len,
+			     input_part, input_part_len, output_part,
+			     p_output_part_len, ep11tok_target);
 
-    if (rc != CKR_OK) {
-        EP11TOK_ELOG(1,"rc=0x%lx",rc);
-    } else {
-        EP11TOK_LOG(2,"rc=0x%lx",rc);
-    }
+	if (rc != CKR_OK) {
+		EP11TOK_ELOG(1,"rc=0x%lx",rc);
+	} else {
+		EP11TOK_LOG(2,"rc=0x%lx",rc);
+	}
 
-    return rc;
+	return rc;
 }
 
 
 static CK_RV ep11_ende_crypt_init(SESSION *session, CK_MECHANISM_PTR mech,
                                   CK_OBJECT_HANDLE key, int op)
 {
-    CK_RV rc = CKR_OK;
-    ENCR_DECR_CONTEXT *decr_ctx = &session->decr_ctx;
-    ENCR_DECR_CONTEXT *encr_ctx = &session->encr_ctx;
-    CK_BYTE *ep11_state;
-    size_t   ep11_state_l;
-    CK_BYTE *blob;
-    size_t   blob_len = 0;
+	CK_RV rc = CKR_OK;
+	ENCR_DECR_CONTEXT *decr_ctx = &session->decr_ctx;
+	ENCR_DECR_CONTEXT *encr_ctx = &session->encr_ctx;
+	CK_BYTE *ep11_state;
+	size_t ep11_state_l;
+	CK_BYTE *blob;
+	size_t blob_len = 0;
 
-    ep11_state_l = blobsize;
-    ep11_state   = malloc(blobsize); /* freed by encr/decr_mgr.c */
+	ep11_state_l = blobsize;
+	ep11_state = malloc(blobsize); /* freed by encr/decr_mgr.c */
 
-    if (h_opaque_2_blob(key,&blob,&blob_len) != CKR_OK)
-      {
-        EP11TOK_ELOG(1,"no blob rc=0x%lx",rc);
-        return CKR_FUNCTION_FAILED;
-      }
+	if (h_opaque_2_blob(key, &blob, &blob_len) != CKR_OK) {
+		EP11TOK_ELOG(1,"no blob rc=0x%lx",rc);
+		return CKR_FUNCTION_FAILED;
+	}
     
-    if (op == DECRYPT)
-      {
-        rc = m_DecryptInit (ep11_state, &ep11_state_l,
-                            mech,
-                            blob, blob_len,
-                            ep11tok_target) ;
-        decr_ctx->key = key;
-        decr_ctx->active = TRUE;
-        decr_ctx->context     = ep11_state;
-        decr_ctx->context_len = ep11_state_l;
-        if (rc != CKR_OK) {
-          EP11TOK_ELOG(1,"m_DecryptInit rc=0x%lx blob_len=0x%x mech=0x%lx",rc,blob_len,mech->mechanism);
-        } else {
-          EP11TOK_LOG(2,"m_DecryptInit rc=0x%lx blob_len=0x%x mech=0x%lx",rc,blob_len,mech->mechanism);
-        }
-        return rc;
-      }
-    else
-      {
-        rc = m_EncryptInit (ep11_state, &ep11_state_l,
-                            mech,
-                            blob, blob_len,
-                            ep11tok_target) ;
-        
-        encr_ctx->key = key;
-        encr_ctx->active = TRUE;
-        encr_ctx->context     = ep11_state;
-        encr_ctx->context_len = ep11_state_l;
-        if (rc != CKR_OK) {
-          EP11TOK_ELOG(1,"m_EncryptInit rc=0x%lx blob_len=0x%x mech=0x%lx",rc,blob_len,mech->mechanism);
-        } else {
-          EP11TOK_LOG(2,"m_EncryptInit rc=0x%lx blob_len=0x%x mech=0x%lx",rc,blob_len,mech->mechanism);
-        }
-        return rc;
-      }
+	if (op == DECRYPT) {
+		rc = m_DecryptInit(ep11_state, &ep11_state_l, mech, blob,
+				   blob_len, ep11tok_target);
+		decr_ctx->key = key;
+		decr_ctx->active = TRUE;
+		decr_ctx->context = ep11_state;
+		decr_ctx->context_len = ep11_state_l;
+		if (rc != CKR_OK) {
+			EP11TOK_ELOG(1,"m_DecryptInit rc=0x%lx blob_len=0x%x mech=0x%lx",rc,blob_len,mech->mechanism);
+		} else {
+			EP11TOK_LOG(2,"m_DecryptInit rc=0x%lx blob_len=0x%x mech=0x%lx",rc,blob_len,mech->mechanism);
+		}
+
+		return rc;
+	} else {
+		rc = m_EncryptInit (ep11_state, &ep11_state_l, mech, blob,
+				    blob_len, ep11tok_target);
+		encr_ctx->key = key;
+		encr_ctx->active = TRUE;
+		encr_ctx->context = ep11_state;
+		encr_ctx->context_len = ep11_state_l;
+		if (rc != CKR_OK) {
+			EP11TOK_ELOG(1,"m_EncryptInit rc=0x%lx blob_len=0x%x mech=0x%lx",rc,blob_len,mech->mechanism);
+		} else {
+			EP11TOK_LOG(2,"m_EncryptInit rc=0x%lx blob_len=0x%x mech=0x%lx",rc,blob_len,mech->mechanism);
+		}
+
+		return rc;
+	}
 }
 
 
@@ -2930,200 +2900,196 @@ CK_RV token_specific_encrypt_init(SESSION *session, CK_MECHANISM_PTR mech,
 
 
 CK_RV token_specific_decrypt_init(SESSION *session, CK_MECHANISM_PTR mech,
-                                  CK_OBJECT_HANDLE key)
+				  CK_OBJECT_HANDLE key)
 {
-    CK_RV rc;
+	CK_RV rc;
 
-    EP11TOK_LOG(2,"key=0x%lx mech=0x%lx",key,mech->mechanism); 
+	EP11TOK_LOG(2,"key=0x%lx mech=0x%lx", key, mech->mechanism);
 
-    rc = ep11_ende_crypt_init(session,mech,key,DECRYPT);
+	rc = ep11_ende_crypt_init(session, mech, key, DECRYPT);
 
-    if (rc != CKR_OK) {
-      EP11TOK_ELOG(1,"rc=0x%lx",rc);
-    } else {
-      EP11TOK_LOG(2,"rc=0x%lx",rc);
-    }
+	if (rc != CKR_OK) {
+		EP11TOK_ELOG(1,"rc=0x%lx",rc);
+	} else {
+		EP11TOK_LOG(2,"rc=0x%lx",rc);
+	}
 
-    return rc;
+	return rc;
 }
 
 
 CK_RV token_specific_wrap_key(SESSION *session, CK_MECHANISM_PTR mech,
-                              CK_OBJECT_HANDLE wrapping_key, CK_OBJECT_HANDLE key,
-                              CK_BYTE_PTR wrapped_key, CK_ULONG_PTR p_wrapped_key_len)
+			      CK_OBJECT_HANDLE wrapping_key,
+			      CK_OBJECT_HANDLE key, CK_BYTE_PTR wrapped_key,
+			      CK_ULONG_PTR p_wrapped_key_len)
 {
-  CK_RV rc;
-  CK_BYTE *wrapping_blob;
-  size_t   wrapping_blob_len;
+	CK_RV rc;
+	CK_BYTE *wrapping_blob;
+	size_t wrapping_blob_len;
   
-  CK_BYTE *wrap_target_blob;
-  size_t   wrap_target_blob_len;
-  int size_querry = 0;
+	CK_BYTE *wrap_target_blob;
+	size_t wrap_target_blob_len;
+	int size_querry = 0;
   
-  /* ep11 weakness, it does not set *p_wrapped_key_len if wrapped_key == NULL (that is with a size query) */
-  if (wrapped_key == NULL)
-    {
-      size_querry = 1;
-      *p_wrapped_key_len = blobsize;
-      wrapped_key = malloc(blobsize);
-    }
+	/* ep11 weakness:
+	 * it does not set *p_wrapped_key_len if wrapped_key == NULL
+	 * (that is with a size query)
+	 */
+	if (wrapped_key == NULL) {
+		size_querry = 1;
+		*p_wrapped_key_len = blobsize;
+		wrapped_key = malloc(blobsize);
+	}
   
-  /* the key that encrypts */
-  rc = h_opaque_2_blob(wrapping_key,
-                       &wrapping_blob, &wrapping_blob_len);
-  if (rc != CKR_OK) {
-    EP11TOK_ELOG(1,"h_opaque_2_blob(wrapping_key) failed with rc=0x%lx", rc);
-    if (size_querry) free(wrapped_key);
-    return rc;
-  }
+	/* the key that encrypts */
+	rc = h_opaque_2_blob(wrapping_key, &wrapping_blob, &wrapping_blob_len);
+	if (rc != CKR_OK) {
+		EP11TOK_ELOG(1,"h_opaque_2_blob(wrapping_key) failed with rc=0x%lx", rc);
+		if (size_querry) free(wrapped_key);
+		return rc;
+	}
 
-  /* the key to be wrapped */
-  rc = h_opaque_2_blob(key,
-                       &wrap_target_blob, &wrap_target_blob_len); 
-  if (rc != CKR_OK) {
-    EP11TOK_ELOG(1,"h_opaque_2_blob(key) failed with rc=0x%lx", rc);
-    if (size_querry) free(wrapped_key);
-    return rc;
-  }
+	/* the key to be wrapped */
+	rc = h_opaque_2_blob(key, &wrap_target_blob, &wrap_target_blob_len);
+	if (rc != CKR_OK) {
+		EP11TOK_ELOG(1,"h_opaque_2_blob(key) failed with rc=0x%lx", rc);
+		if (size_querry) free(wrapped_key);
+		return rc;
+	}
   
-  /* the key to be wrapped is extracted from its blob by the card and a standard BER encoding
-     is build which is encryted by the wrapping key (wrapping_blob). The wrapped key can be processed
-     by any PKCS11 implementation. */
-  rc = m_WrapKey (wrap_target_blob,wrap_target_blob_len,
-                  wrapping_blob, wrapping_blob_len,
-                  NULL, ~0,
-                  mech,
-                  wrapped_key, p_wrapped_key_len,
-                  ep11tok_target);
+	/* the key to be wrapped is extracted from its blob by the card
+	 * and a standard BER encoding is build which is encryted by
+	 * the wrapping key (wrapping_blob).
+	 * The wrapped key can be processed by any PKCS11 implementation.
+	 */
+	rc = m_WrapKey(wrap_target_blob,wrap_target_blob_len, wrapping_blob,
+		       wrapping_blob_len, NULL, ~0, mech, wrapped_key,
+		       p_wrapped_key_len, ep11tok_target);
   
-  if (rc != CKR_OK) {
-      EP11TOK_ELOG(1,"m_WrapKey failed with rc=0x%lx", rc);
-  } else {
-    EP11TOK_LOG(2,"rc=0x%lx wr_key=%p wr_key_len=0x%lx", rc, wrapped_key, *p_wrapped_key_len);
-  }
-  
-  if (size_querry) free(wrapped_key);
-  return rc;
+	if (rc != CKR_OK) {
+		EP11TOK_ELOG(1,"m_WrapKey failed with rc=0x%lx", rc);
+	} else {
+		EP11TOK_LOG(2,"rc=0x%lx wr_key=%p wr_key_len=0x%lx",
+			    rc, wrapped_key, *p_wrapped_key_len);
+	}
+
+	if (size_querry) free(wrapped_key);
+	return rc;
 }
 
 
 CK_RV token_specific_unwrap_key(SESSION *session, CK_MECHANISM_PTR mech,
-                                CK_ATTRIBUTE_PTR attrs, CK_ULONG attrs_len,
-                                CK_BYTE_PTR wrapped_key, CK_ULONG wrapped_key_len,
+				CK_ATTRIBUTE_PTR attrs, CK_ULONG attrs_len,
+				CK_BYTE_PTR wrapped_key,
+				CK_ULONG wrapped_key_len,
                                 CK_OBJECT_HANDLE wrapping_key,
                                 CK_OBJECT_HANDLE_PTR p_key)
 {
-  CK_RV rc;
-  CK_BYTE *wrapping_blob;
-  size_t   wrapping_blob_len;
-  char csum[blobsize];
-  CK_ULONG cslen = blobsize;
-  OBJECT   *key_obj = NULL;
-  ep11_opaque op;
-  CK_ATTRIBUTE *attr = NULL;
-  int i = 0;
-  DL_NODE  *node = NULL;
-  CK_ULONG ktype;
-  CK_ULONG class;
-  CK_ULONG len;
+	CK_RV rc;
+	CK_BYTE *wrapping_blob;
+	size_t wrapping_blob_len;
+	char csum[blobsize];
+	CK_ULONG cslen = blobsize;
+	OBJECT *key_obj = NULL;
+	ep11_opaque op;
+	CK_ATTRIBUTE *attr = NULL;
+	int i = 0;
+	DL_NODE  *node = NULL;
+	CK_ULONG ktype;
+	CK_ULONG class;
+	CK_ULONG len;
 
-  /* get wrapping key blob */
-  rc = h_opaque_2_blob(wrapping_key,
-                       &wrapping_blob, &wrapping_blob_len);
-  if (rc != CKR_OK) {
-    EP11TOK_ELOG(1,"h_opaque_2_blob(wrapping_key) failed with rc=0x%lx", rc);
-    return rc;
-  }
+	/* get wrapping key blob */
+	rc = h_opaque_2_blob(wrapping_key, &wrapping_blob, &wrapping_blob_len);
+	if (rc != CKR_OK) {
+		EP11TOK_ELOG(1,"h_opaque_2_blob(wrapping_key) failed with rc=0x%lx", rc);
+		return rc;
+	}
   
-  /* debug */
-  EP11TOK_LOG(2,"start mech=0x%lx attrs_len=0x%lx wr_key=0x%lx",
-              mech->mechanism, attrs_len, wrapping_key);
-  for (i = 0; i < attrs_len; i++)
-    EP11TOK_LOG(2,"attribute attrs.type=0x%lx", attrs[i].type);
+	/* debug */
+	EP11TOK_LOG(2,"start mech=0x%lx attrs_len=0x%lx wr_key=0x%lx",
+		    mech->mechanism, attrs_len, wrapping_key);
+	for (i = 0; i < attrs_len; i++)
+		EP11TOK_LOG(2,"attribute attrs.type=0x%lx", attrs[i].type);
   
-  op.blob_size = blobsize;
+	op.blob_size = blobsize;
   
-  /* we need a blob for the new key created by unwrapping, the wrapped key comes in BER */
-  rc = m_UnwrapKey (wrapped_key, wrapped_key_len,
-                    wrapping_blob, wrapping_blob_len,
-                    NULL, ~0,
-                    ep11_pin_blob,ep11_pin_blob_len,
-                    mech,
-                    attrs, attrs_len,
-                    op.blob, &(op.blob_size),
-                    csum, &cslen,
-                    ep11tok_target);
+	/* we need a blob for the new key created by unwrapping,
+	 * the wrapped key comes in BER
+	 */
+	rc = m_UnwrapKey(wrapped_key, wrapped_key_len, wrapping_blob,
+			 wrapping_blob_len, NULL, ~0, ep11_pin_blob,
+			 ep11_pin_blob_len, mech, attrs, attrs_len, op.blob,
+			 &(op.blob_size), csum, &cslen, ep11tok_target);
   
-  op.blob_id = ep11_blobs_inc();
+	op.blob_id = ep11_blobs_inc();
   
+	if (rc != CKR_OK) {
+		EP11TOK_ELOG(1,"m_UnwrapKey rc=0x%lx blob_size=0x%x mech=0x%lx ep11_blobs-1=%llx", rc, op.blob_size, mech->mechanism, ep11_blobs-1);
+		goto error;
+	}
+	EP11TOK_LOG(2,"m_UnwrapKey rc=0x%lx blob_size=0x%x mech=0x%lx ep11_blobs-1=%llx", rc, op.blob_size, mech->mechanism, ep11_blobs-1);
 
-  if (rc != CKR_OK) {
-    EP11TOK_ELOG(1,"m_UnwrapKey rc=0x%lx blob_size=0x%x mech=0x%lx ep11_blobs-1=%llx",
-                 rc, op.blob_size, mech->mechanism, ep11_blobs-1);
-    goto error;
-  }
-  EP11TOK_LOG(2,"m_UnwrapKey rc=0x%lx blob_size=0x%x mech=0x%lx ep11_blobs-1=%llx",
-              rc, op.blob_size, mech->mechanism, ep11_blobs-1);
+	/* card provides length in csum bytes 4 - 7, big endian */
+	len = csum[6] + 256*csum[5] + 256*256*csum[4] + 256*256*256*csum[3];
+	len = len/8;  /* comes in bits */
+	EP11TOK_LOG(2,"m_UnwrapKey length 0x%lx 0x%lx 0x%lx 0x%lx 0x%lx",
+		    csum[3],csum[4],csum[5],csum[6],len);
+  
+	/* Get the keytype to use when creating the key object */
+	rc = ep11_get_keytype(attrs, attrs_len, mech, &ktype, &class);
+	if (rc != CKR_OK) {
+		EP11TOK_ELOG(1,"get_subclass failed with rc=0x%lx",rc);
+		goto error;
+	}
 
-  /* card provides length in csum bytes 4 - 7, big endian */
-  len = csum[6] + 256*csum[5] + 256*256*csum[4] + 256*256*256*csum[3];
-  len = len/8;  /* comes in bits */
-  EP11TOK_LOG(2,"m_UnwrapKey length 0x%lx 0x%lx 0x%lx 0x%lx 0x%lx",
-              csum[3],csum[4],csum[5],csum[6],len);
+	/* Start creating the key object */
+	rc = object_mgr_create_skel(session, attrs, attrs_len, MODE_KEYGEN,
+				    class, ktype, &key_obj);
+	if (rc != CKR_OK) {
+		EP11TOK_ELOG(1,"object_mgr_create_skel failed with rc=0x%lx",rc);
+		goto error;
+	}
   
-  /* Get the keytype to use when creating the key object */
-  rc = ep11_get_keytype(attrs, attrs_len, mech, &ktype, &class);
-  if (rc != CKR_OK) {
-    EP11TOK_ELOG(1,"get_subclass failed with rc=0x%lx",rc);
-    goto error;
-  }
+	rc = build_attribute(CKA_IBM_OPAQUE, (CK_BYTE *) &op, sizeof(ep11_opaque), &attr);
+	if (rc != CKR_OK) {
+		EP11TOK_ELOG(1,"build_attribute failed with rc=0x%lx",rc);
+		goto error;
+	}
+  
+	rc = template_update_attribute(key_obj->template, attr);
+	if (rc != CKR_OK) {
+		EP11TOK_ELOG(1,"template_update_attribute failed with rc=0x%lx",rc);
+		goto error;
+	}
+  
+	rc = build_attribute(CKA_VALUE_LEN, (CK_BYTE *) &len, sizeof(CK_ULONG), &attr);
+	if (rc != CKR_OK) {
+		EP11TOK_ELOG(1,"build_attribute failed with rc=0x%lx",rc);
+		goto error;
+	}
 
-  
-  /* Start creating the key object */
-  rc = object_mgr_create_skel(session, attrs, attrs_len, MODE_KEYGEN,
-                              class, ktype, &key_obj);
-  if (rc != CKR_OK) {
-    EP11TOK_ELOG(1,"object_mgr_create_skel failed with rc=0x%lx",rc);
-    goto error;
-  }
-  
-  rc = build_attribute(CKA_IBM_OPAQUE, (CK_BYTE *) &op, sizeof(ep11_opaque), &attr);
-  if (rc != CKR_OK) {
-    EP11TOK_ELOG(1,"build_attribute failed with rc=0x%lx",rc);
-    goto error;
-  }
-  
-  rc = template_update_attribute(key_obj->template, attr );
-  if (rc != CKR_OK) {
-    EP11TOK_ELOG(1,"template_update_attribute failed with rc=0x%lx",rc);
-    goto error;
-  }
-  
-  rc = build_attribute(CKA_VALUE_LEN, (CK_BYTE *) &len, sizeof(CK_ULONG), &attr);
-  if (rc != CKR_OK) {
-    EP11TOK_ELOG(1,"build_attribute failed with rc=0x%lx",rc);
-    goto error;
-  }
+	rc = template_update_attribute(key_obj->template, attr);
+	if (rc != CKR_OK) {
+		EP11TOK_ELOG(1,"template_update_attribute failed with rc=0x%lx",rc);
+		goto error;
+	}
 
-  rc = template_update_attribute(key_obj->template, attr );
-  if (rc != CKR_OK) {
-    EP11TOK_ELOG(1,"template_update_attribute failed with rc=0x%lx",rc);
-    goto error;
-  }
+	/* key should be fully constructed.
+	 * Assign an object handle and store key.
+	 */
+	rc = object_mgr_create_final(session, key_obj, p_key);
+	if (rc != CKR_OK) {
+		EP11TOK_ELOG(1,"object_mgr_create_final with rc=0x%lx",rc);
+		goto error;
+	}
 
-  /* key should be fully constructed. Assign an object handle and store key */
-  rc = object_mgr_create_final(session, key_obj, p_key);
-  if (rc != CKR_OK){
-    EP11TOK_ELOG(1,"object_mgr_create_final with rc=0x%lx",rc);
-    goto error;
-  }
-
-  return rc; 
+	return rc;
   
- error:
-  if (key_obj) object_free(key_obj);
-    *p_key = 0;
-    return rc;
+error:
+	if (key_obj) object_free(key_obj);
+	*p_key = 0;
+	return rc;
 }
 
 
@@ -3137,11 +3103,11 @@ CK_ULONG mech_list_len = (sizeof(mech_list) / sizeof(MECH_LIST_ELEMENT));
 CK_MECHANISM_TYPE ep11_banned_mech_list[] =
 {
 #ifdef DEFENSIVE_MECHLIST
-    CKM_DES_KEY_GEN,
-    CKM_DES_ECB,
-    CKM_DES_CBC,
-    CKM_DES_CBC_PAD,
-    CKM_GENERIC_SECRET_KEY_GEN
+	CKM_DES_KEY_GEN,
+	CKM_DES_ECB,
+	CKM_DES_CBC,
+	CKM_DES_CBC_PAD,
+	CKM_GENERIC_SECRET_KEY_GEN
 #endif
 };
 CK_ULONG banned_mech_list_len = (sizeof(ep11_banned_mech_list) / sizeof(CK_MECHANISM_TYPE));
@@ -3149,504 +3115,473 @@ CK_ULONG banned_mech_list_len = (sizeof(ep11_banned_mech_list) / sizeof(CK_MECHA
 
 static const char* print_flags(CK_ULONG flags)
 {
-    switch(flags)
-    {
-    case CKF_ENCRYPT: return "ENCRYPT";
-    case CKF_DECRYPT: return "DECRYPT";
-    case CKF_DIGEST : return "DIGEST";
-    case CKF_SIGN   : return "SIGN";
-    case CKF_SIGN_RECOVER      : return "SIGN_RECOVER";
-    case CKF_VERIFY            : return "VERIFY";
-    case CKF_VERIFY_RECOVER    : return "VERIFY_RECOVER";
-    case CKF_GENERATE          : return "GENERATE";
-    case CKF_GENERATE_KEY_PAIR : return "GENERATE_KEY_PAIR";
-    case CKF_WRAP              : return "WRAP";
-    case CKF_UNWRAP            : return "UNWRAP";
-    case CKF_DERIVE            : return "DERIVE";
-        /* The following are new for v2.11 */
-    case CKF_EC_F_P            : return "CKF_EC_F_P";
-    case CKF_EC_F_2M           : return "CKF_EC_F_2M";
-    case CKF_EC_ECPARAMETERS   : return "EC_ECPARAMETERS";
-    case CKF_EC_NAMEDCURVE     : return "EC_NAMEDCURVE";
-    case CKF_EC_UNCOMPRESS     : return "EC_UNCOMPRESS";
-    case CKF_EC_COMPRESS       : return "EC_COMPRESS";
-    default                    : return "UNKNOWN";
-    }
+	switch(flags) {
+	case CKF_ENCRYPT: return "ENCRYPT";
+	case CKF_DECRYPT: return "DECRYPT";
+	case CKF_DIGEST : return "DIGEST";
+	case CKF_SIGN   : return "SIGN";
+	case CKF_SIGN_RECOVER      : return "SIGN_RECOVER";
+	case CKF_VERIFY            : return "VERIFY";
+	case CKF_VERIFY_RECOVER    : return "VERIFY_RECOVER";
+	case CKF_GENERATE          : return "GENERATE";
+	case CKF_GENERATE_KEY_PAIR : return "GENERATE_KEY_PAIR";
+	case CKF_WRAP              : return "WRAP";
+	case CKF_UNWRAP            : return "UNWRAP";
+	case CKF_DERIVE            : return "DERIVE";
+	/* The following are new for v2.11 */
+	case CKF_EC_F_P            : return "CKF_EC_F_P";
+	case CKF_EC_F_2M           : return "CKF_EC_F_2M";
+	case CKF_EC_ECPARAMETERS   : return "EC_ECPARAMETERS";
+	case CKF_EC_NAMEDCURVE     : return "EC_NAMEDCURVE";
+	case CKF_EC_UNCOMPRESS     : return "EC_UNCOMPRESS";
+	case CKF_EC_COMPRESS       : return "EC_COMPRESS";
+	default                    : return "UNKNOWN";
+	}
 }
 
-
-static void print_mechanism()
+static void print_mechanism(void)
 {
-    CK_MECHANISM_TYPE_PTR list = NULL;
-    CK_ULONG count = 0;
-    int i;
-    CK_MECHANISM_INFO m_info;
+	CK_MECHANISM_TYPE_PTR list = NULL;
+	CK_ULONG count = 0;
+	int i;
+	CK_MECHANISM_INFO m_info;
 
-    /* only informational */
-    (void) token_specific_get_mechanism_list(list,&count);
-    list = (CK_MECHANISM_TYPE_PTR) malloc (sizeof(CK_MECHANISM_TYPE) * count);
+	/* only informational */
+	(void) token_specific_get_mechanism_list(list, &count);
+	list = (CK_MECHANISM_TYPE_PTR)malloc(sizeof(CK_MECHANISM_TYPE) * count);
 
-    /* only informational */
-    (void) token_specific_get_mechanism_list(list,&count);
+	/* only informational */
+	(void) token_specific_get_mechanism_list(list, &count);
 
-    EP11TOK_LOG(2,"EP11 token mechanism list, %lu entries:", count);
-    for (i = 0; i < count; i++)
-    {
-        char strflags[1024];
-        strflags[0] = 0;
-        memset(&m_info,0,sizeof(m_info));
-        token_specific_get_mechanism_info(list[i],&m_info);
-        if (m_info.flags)
-        {
-            CK_ULONG flag;
-            for (flag = 1; flag < 0x80000000; flag = flag * 2)
-            {
-                if ((flag & m_info.flags) != 0)
-                {
-                    strcat(strflags, ",");
-                    strcat(strflags, print_flags(flag & m_info.flags));
-                }
-            }
-        }
-        EP11TOK_LOG(2," %s {%lu,%lu%s}",
-                    ep11_get_ckm(list[i]), m_info.ulMinKeySize, m_info.ulMaxKeySize, strflags);
-    }
-    free(list);
+	EP11TOK_LOG(2,"EP11 token mechanism list, %lu entries:", count);
+	for (i = 0; i < count; i++) {
+		char strflags[1024];
+		strflags[0] = 0;
+		memset(&m_info, 0, sizeof(m_info));
+		token_specific_get_mechanism_info(list[i], &m_info);
+		if (m_info.flags) {
+			CK_ULONG flag;
+			for (flag = 1; flag < 0x80000000; flag = flag * 2) {
+				if ((flag & m_info.flags) != 0) {
+					strcat(strflags, ",");
+					strcat(strflags, print_flags(flag & m_info.flags));
+				}
+			}
+		}
+		EP11TOK_LOG(2," %s {%lu,%lu%s}", ep11_get_ckm(list[i]),
+			    m_info.ulMinKeySize, m_info.ulMaxKeySize, strflags);
+	}
+	free(list);
 }
 
 
-/* filtering out some mechanisms we do not want to provide makes it complicated */
+/* filtering out some mechanisms we do not want to provide
+ * makes it complicated
+ */
 CK_RV token_specific_get_mechanism_list(CK_MECHANISM_TYPE_PTR pMechanismList,
                                         CK_ULONG_PTR pulCount)
 {
-    CK_RV rc=0;
-    CK_ULONG counter=0;
-    CK_MECHANISM_TYPE_PTR mlist=NULL;
-    int i,j,banned;
+	CK_RV rc = 0;
+	CK_ULONG counter = 0;
+	CK_MECHANISM_TYPE_PTR mlist = NULL;
+	int i, j, banned;
 
-    /* size querry */
-    if (pMechanismList == NULL)
-    {
-        rc = m_GetMechanismList(0,pMechanismList,pulCount,ep11tok_target);
-        if (rc != CKR_OK) {
-            EP11TOK_ELOG(1,"bad rc #1 rc=0x%lx", rc);
-            return rc;
-        }
+	/* size querry */
+	if (pMechanismList == NULL) {
+		rc = m_GetMechanismList(0, pMechanismList, pulCount,
+					ep11tok_target);
+		if (rc != CKR_OK) {
+			EP11TOK_ELOG(1,"bad rc #1 rc=0x%lx", rc);
+			return rc;
+		}
 
-        /* adjust the size according to the ban list,
-           for this we need to know what the card provides */
-        counter = *pulCount;
-        mlist = (CK_MECHANISM_TYPE *) malloc(sizeof(CK_MECHANISM_TYPE) * counter);
-        /* mlist != NULL means: get content */
-        rc = m_GetMechanismList(0,mlist,&counter,ep11tok_target);
-        if (rc != CKR_OK) {
-            EP11TOK_ELOG(1,"bad rc #2 rc=0x%lx", rc);
-            return rc;
-        }
+		/* adjust the size according to the ban list,
+		 * for this we need to know what the card provides
+		 */
+		counter = *pulCount;
+		mlist = (CK_MECHANISM_TYPE *)malloc(sizeof(CK_MECHANISM_TYPE) * counter);
+		rc = m_GetMechanismList(0, mlist, &counter, ep11tok_target);
+		if (rc != CKR_OK) {
+			EP11TOK_ELOG(1,"bad rc #2 rc=0x%lx", rc);
+			return rc;
+		}
 
-        for (i = 0; i < counter; i++)
-        {
-            banned = 0;
-            for (j = 0; j < banned_mech_list_len; j++)
-            {
-                if (mlist[i] == ep11_banned_mech_list[j])
-                {
-                    banned = 1;
-                    EP11TOK_LOG(2,"banned mech '%s'", ep11_get_ckm(ep11_banned_mech_list[j]));
+		for (i = 0; i < counter; i++) {
+			banned = 0;
+			for (j = 0; j < banned_mech_list_len; j++) {
+				if (mlist[i] == ep11_banned_mech_list[j]) {
+					banned = 1;
+					EP11TOK_LOG(2,"banned mech '%s'",
+					ep11_get_ckm(ep11_banned_mech_list[j]));
+				}
+			}
+			if (banned == 1) {
+				/* banned mech found,
+				 * decrement reported list size
+				 */
+				*pulCount = *pulCount - 1;
+			}
+		}
+	} else {
+		 /* 2. call, content request */
 
-                }
-            }
-            if (banned == 1)
-            {
-                *pulCount = *pulCount - 1; /* banned mech found, decrement reported list size */
-            }
-        }
-    }
-    /* 2. call, content request */
-    else
-    {
-        /* find out size ep11 will report, cannot use the size that comes as parameter, this
-           is a 'reduced size', ep11 would complain about insufficient list size */
-        rc = m_GetMechanismList(0,mlist,&counter,ep11tok_target);
-        if (rc != CKR_OK) {
-            EP11TOK_ELOG(1,"bad rc #3 rc=0x%lx", rc);
-            return rc;
-        }
+		/* find out size ep11 will report, cannot use the size
+		 * that comes as parameter, this is a 'reduced size',
+		 * ep11 would complain about insufficient list size
+		 */
+		rc = m_GetMechanismList(0,mlist,&counter,ep11tok_target);
+		if (rc != CKR_OK) {
+			EP11TOK_ELOG(1,"bad rc #3 rc=0x%lx", rc);
+			return rc;
+		}
 
-        mlist = (CK_MECHANISM_TYPE *) malloc(sizeof(CK_MECHANISM_TYPE) * counter);
-        /* all the card has */
-        rc = m_GetMechanismList(0,mlist,&counter,ep11tok_target);
-        if (rc != CKR_OK) {
-            EP11TOK_ELOG(1,"bad rc #4 rc=0x%lx", rc);
-            return rc;
-        }
+		mlist = (CK_MECHANISM_TYPE *)malloc(sizeof(CK_MECHANISM_TYPE) * counter);
+		/* all the card has */
+		rc = m_GetMechanismList(0, mlist, &counter, ep11tok_target);
+		if (rc != CKR_OK) {
+			EP11TOK_ELOG(1,"bad rc #4 rc=0x%lx", rc);
+			return rc;
+		}
 
-        for (i = 0; i < counter; i++)
-            EP11TOK_LOG(2,"raw mech list entry '%s'",ep11_get_ckm(mlist[i]));
+		for (i = 0; i < counter; i++)
+			EP11TOK_LOG(2,"raw mech list entry '%s'",ep11_get_ckm(mlist[i]));
 
-        /* copy only mechanisms not banned */
-        *pulCount = 0;
-        for (i = 0; i < counter; i++)
-        {
-            banned = 0;
-            for (j = 0; j < banned_mech_list_len; j++)
-            {
-                if (mlist[i] == ep11_banned_mech_list[j])
-                {
-                    banned = 1;
-                }
-            }
-            if (banned == 0)
-            {
-                pMechanismList[*pulCount] = mlist[i];
-                *pulCount = *pulCount + 1;
-            }
-            else
-            { ; }/* do not copy banned mech */
-        }
-    }
+			/* copy only mechanisms not banned */
+			*pulCount = 0;
+			for (i = 0; i < counter; i++) {
+				banned = 0;
+				for (j = 0; j < banned_mech_list_len; j++) {
+					if (mlist[i] == ep11_banned_mech_list[j]) {
+						banned = 1;
+					}
+				}
+				if (banned == 0) {
+					pMechanismList[*pulCount] = mlist[i];
+					*pulCount = *pulCount + 1;
+				} else {
+					;
+				} /* do not copy banned mech */
+			}
+	}
 
-    if (mlist) free(mlist);
-    return rc;
+	if (mlist) free(mlist);
+	return rc;
 }
 
 
 CK_RV token_specific_get_mechanism_info(CK_MECHANISM_TYPE type,
                                         CK_MECHANISM_INFO_PTR pInfo)
 {
-    CK_RV rc;
-    int i;
+	CK_RV rc;
+	int i;
 
-    rc = m_GetMechanismInfo(0,type,pInfo,ep11tok_target);
-    if (rc != CKR_OK) {
-        EP11TOK_ELOG(1,"m_GetMechanismInfo(0x%lx) failed with rc=0x%lx", type, rc);
-        return rc;
-    }
+	rc = m_GetMechanismInfo(0,type,pInfo,ep11tok_target);
+	if (rc != CKR_OK) {
+		EP11TOK_ELOG(1,"m_GetMechanismInfo(0x%lx) failed with rc=0x%lx", type, rc);
+		return rc;
+	}
 
-    /* the card operates always in a FISP mode that requires stronger key sizes,
-       but, in theory, can also operate with weaker key sizes. Customers are not interested
-       in theory but in what mechanism they can use (mechanisms that are not rejected by the card). */
-
-    for (i = 0; i < banned_mech_list_len; i++)
-    {
-        if (type == ep11_banned_mech_list[i])
-        {
-            return CKR_MECHANISM_INVALID;
-        }
-    }
+	/* The card operates always in a FISP mode that requires stronger
+	 * key sizes, but, in theory, can also operate with weaker key sizes.
+	 * Customers are not interested in theory but in what mechanism
+	 * they can use (mechanisms that are not rejected by the card).
+         */
+	for (i = 0; i < banned_mech_list_len; i++) {
+		if (type == ep11_banned_mech_list[i])
+			return CKR_MECHANISM_INVALID;
+	}
 #ifdef DEFENSIVE_MECHLIST
-    if (rc == CKR_OK)
-    {
-        switch (type)
-        {
-        case CKM_RSA_PKCS:
-        case CKM_RSA_PKCS_KEY_PAIR_GEN:
-        case CKM_RSA_X9_31_KEY_PAIR_GEN:
-        case CKM_RSA_PKCS_PSS:
-        case CKM_SHA1_RSA_X9_31:
-        case CKM_SHA1_RSA_PKCS:
-        case CKM_SHA1_RSA_PKCS_PSS:
-        case CKM_SHA256_RSA_PKCS:
-        case CKM_SHA256_RSA_PKCS_PSS:
-        case CKM_SHA224_RSA_PKCS:
-        case CKM_SHA224_RSA_PKCS_PSS:
-        case CKM_SHA384_RSA_PKCS:
-        case CKM_SHA384_RSA_PKCS_PSS:
-        case CKM_SHA512_RSA_PKCS:
-        case CKM_SHA512_RSA_PKCS_PSS:
-        case CKM_RSA_X_509:
-        case CKM_RSA_X9_31:
-            /* EP11 card always in a FIPS mode rejecting lower key sizes */
-            pInfo->ulMinKeySize = 1024;
-            break;
+	if (rc == CKR_OK) {
+		switch (type) {
+		case CKM_RSA_PKCS:
+		case CKM_RSA_PKCS_KEY_PAIR_GEN:
+		case CKM_RSA_X9_31_KEY_PAIR_GEN:
+		case CKM_RSA_PKCS_PSS:
+		case CKM_SHA1_RSA_X9_31:
+		case CKM_SHA1_RSA_PKCS:
+		case CKM_SHA1_RSA_PKCS_PSS:
+		case CKM_SHA256_RSA_PKCS:
+		case CKM_SHA256_RSA_PKCS_PSS:
+		case CKM_SHA224_RSA_PKCS:
+		case CKM_SHA224_RSA_PKCS_PSS:
+		case CKM_SHA384_RSA_PKCS:
+		case CKM_SHA384_RSA_PKCS_PSS:
+		case CKM_SHA512_RSA_PKCS:
+		case CKM_SHA512_RSA_PKCS_PSS:
+		case CKM_RSA_X_509:
+		case CKM_RSA_X9_31:
+			/* EP11 card always in a FIPS mode rejecting
+			 * lower key sizes
+			 */
+			pInfo->ulMinKeySize = 1024;
+			break;
 
-        case CKM_SHA256_HMAC:
-        case CKM_SHA224_HMAC:
-        case CKM_SHA384_HMAC:
-        case CKM_SHA512_HMAC:
-        case CKM_DES3_ECB:
-        case CKM_DES3_CBC:
-        case CKM_DES3_CBC_PAD:
-        case CKM_SHA_1_HMAC:
-            /* EP11 card always in a FIPS mode rejecting lower key sizes < 80 bits */
-            if (pInfo->ulMinKeySize == 8)
-                pInfo->ulMinKeySize = 16;
-            break;
-        default:
-            ; /* do not touch */
-        }
-    }
-#endif
+		case CKM_SHA256_HMAC:
+		case CKM_SHA224_HMAC:
+		case CKM_SHA384_HMAC:
+		case CKM_SHA512_HMAC:
+		case CKM_DES3_ECB:
+		case CKM_DES3_CBC:
+		case CKM_DES3_CBC_PAD:
+		case CKM_SHA_1_HMAC:
+			/* EP11 card always in a FIPS mode rejecting
+			 * lower key sizes < 80 bits.
+			 */
+			if (pInfo->ulMinKeySize == 8)
+		                pInfo->ulMinKeySize = 16;
+			break;
 
-    if (rc != CKR_OK)
-        EP11TOK_ELOG(1,"rc=0x%lx unsupported '%s'", rc, ep11_get_ckm(type));
+		default:
+			; /* do not touch */
+		}
+	}
+#endif /* DEFENSIVE_MECHLIST */
 
-    return rc;
+	if (rc != CKR_OK)
+		EP11TOK_ELOG(1,"rc=0x%lx unsupported '%s'", rc, ep11_get_ckm(type));
+	return rc;
 }
 
 
 /* used for reading in the adapter config file,
-   converts a 'token' to a number,
-   returns 0 with success */
+ * converts a 'token' to a number, returns 0 with success
+ */
 static inline short check_n(char *nptr, int j, int *apqn_i)
 {
-    char *endptr;
-    long int num = strtol(nptr, &endptr, 10);
+	char *endptr;
+	long int num = strtol(nptr, &endptr, 10);
 
-    if (*endptr != '\0')
-    {
-        EP11TOK_ELOG(1,"invalid number '%s' (%d)", nptr, j);
-        return -1;
-    }
+	if (*endptr != '\0') {
+		EP11TOK_ELOG(1,"invalid number '%s' (%d)", nptr, j);
+		return -1;
+	}
 
-    if (num < 0 || num > 255)
-    {
-        EP11TOK_ELOG(1,"invalid number '%s' %d (%d)", nptr, (int) num, j);
-        return -1;
-    }
-    else if (*apqn_i < 0 || *apqn_i >= MAX_APQN*2)
-    {
-        EP11TOK_ELOG(1,"invalid amount of numbers %d (%d)", (int) num, j);
-        return -1;
-    }
-    else
-    {
-        /* insert number into target variable */
-        ep11_targets.apqns[*apqn_i] = (short) num;
-        /* how many APQNs numbers so far */
-        *apqn_i = *apqn_i + 1;
-        return 0;
-    }
+	if (num < 0 || num > 255) {
+		EP11TOK_ELOG(1,"invalid number '%s' %d(%d)", nptr, (int)num, j);
+		return -1;
+	} else if (*apqn_i < 0 || *apqn_i >= MAX_APQN*2) {
+		EP11TOK_ELOG(1,"invalid amount of numbers %d(%d)", (int)num, j);
+		return -1;
+	} else {
+		/* insert number into target variable */
+		ep11_targets.apqns[*apqn_i] = (short)num;
+		/* how many APQNs numbers so far */
+		*apqn_i = *apqn_i + 1;
+		return 0;
+	}
 }
 
 
 static int read_adapter_config_file(const char* conf_name)
 {
-  FILE *ap_fp = NULL;       /* file pointer adapter config file */
-  int ap_file_size = 0;     /* size adapter config file */
-  char *token,*str;
-  char filebuf[EP11_CFG_FILE_SIZE];
-  char line[1024];
-  int i,j;
-  int blackmode = 0;
-  int whitemode = 0;
-  int anymode   = 0;
-  int apqn_i = 0;     /* how many APQN numbers */
-  char *conf_dir = getenv("OCK_EP11_TOKEN_DIR");
-  char fname[PATH_MAX];
-  char pk_dir_buf[PATH_MAX];
-  int rc = 0;
+	FILE *ap_fp = NULL;       /* file pointer adapter config file */
+	int ap_file_size = 0;     /* size adapter config file */
+	char *token,*str;
+	char filebuf[EP11_CFG_FILE_SIZE];
+	char line[1024];
+	int i,j;
+	int blackmode = 0;
+	int whitemode = 0;
+	int anymode   = 0;
+	int apqn_i = 0;     /* how many APQN numbers */
+	char *conf_dir = getenv("OCK_EP11_TOKEN_DIR");
+	char fname[PATH_MAX];
+	char pk_dir_buf[PATH_MAX];
+	int rc = 0;
 
-  if (ep11_initialized) {
-    return 0;
-  }
+	if (ep11_initialized) {
+		return 0;
+	}
   
-  memset(fname,0,PATH_MAX);
+	memset(fname,0,PATH_MAX);
   
-  /* via envrionment variable it is possible to overwrite the
-     config file given in the opencryptoki.conf. Then we use
-     $OCK_EP11_TOKEN_DIR/ock_ep11_token.conf */
-  if (conf_dir) {
-    strncpy(fname,conf_dir,PATH_MAX-1);
-    if ((strlen(fname) + strlen("/" OCK_EP11_TOKEN_CNF)) > PATH_MAX-1)
-      rc = APQN_FILE_INV_0;
-    else
-      {
-        strcpy(fname + strlen(fname),"/" OCK_EP11_TOKEN_CNF);
-        ap_fp = fopen(fname,"r");
-      }
-  }
-  
-  /* if there was no environment variable or fopen failed, use the
-     default given from opencryptoki.conf via conf_name argument */
-  if (!ap_fp) {
-    if (!conf_name) {
-      /* no conf_name was given, should not happen */
-      rc = APQN_FILE_INV_1;
-    } else {
-      strncpy(fname, conf_name, PATH_MAX-1);
+	/* via envrionment variable it is possible to overwrite the
+	 * config file given in the opencryptoki.conf. Then we use
+	 * $OCK_EP11_TOKEN_DIR/ock_ep11_token.conf.
+	 */
+	if (conf_dir) {
+		strncpy(fname,conf_dir,PATH_MAX-1);
+		if ((strlen(fname) + strlen("/" OCK_EP11_TOKEN_CNF)) > PATH_MAX-1)
+			rc = APQN_FILE_INV_0;
+		else {
+			strcpy(fname + strlen(fname),"/" OCK_EP11_TOKEN_CNF);
 			ap_fp = fopen(fname,"r");
-    }
-  }
+		}
+	}
   
-  /* last attempt: use get_pk_dir()/ock_ep11_token.conf */
-  if (!ap_fp) {
-    strncpy(fname, (const char*)get_pk_dir(pk_dir_buf), PATH_MAX-1);
-    if ((strlen(fname) + strlen("/" OCK_EP11_TOKEN_CNF)) > PATH_MAX-1)
-      rc = APQN_FILE_INV_2;
-    else
-      {
-        strcpy(fname + strlen(fname),"/" OCK_EP11_TOKEN_CNF);
-        ap_fp = fopen(fname,"r");
-      }
-  }
+	/* if there was no environment variable or fopen failed, use the
+	 * default given from opencryptoki.conf via conf_name argument.
+	 */
+	if (!ap_fp) {
+		if (!conf_name) {
+			/* no conf_name was given, should not happen */
+			rc = APQN_FILE_INV_1;
+		} else {
+			strncpy(fname, conf_name, PATH_MAX-1);
+			ap_fp = fopen(fname,"r");
+		}
+	}
   
-  /* now we should really have an open ep11 token config file */
-  if (!ap_fp) {
-    EP11TOK_ELOG(1,"no valid EP 11 config file found");
-    return APQN_FILE_INV_3;
-  }
+	/* last attempt: use get_pk_dir()/ock_ep11_token.conf */
+	if (!ap_fp) {
+		strncpy(fname, (const char*)get_pk_dir(pk_dir_buf), PATH_MAX-1);
+		if ((strlen(fname) + strlen("/" OCK_EP11_TOKEN_CNF)) > PATH_MAX-1)
+			rc = APQN_FILE_INV_2;
+		else {
+			strcpy(fname + strlen(fname),"/" OCK_EP11_TOKEN_CNF);
+			ap_fp = fopen(fname,"r");
+		}
+	}
   
-  EP11TOK_LOG(2,"EP 11 token config file is '%s'", fname);
+	/* now we should really have an open ep11 token config file */
+	if (!ap_fp) {
+		EP11TOK_ELOG(1,"no valid EP 11 config file found");
+		return APQN_FILE_INV_3;
+	}
   
-  /* read config file line by line, ignore empty and # and copy rest into file buf */
-  memset(filebuf,0,EP11_CFG_FILE_SIZE);
-  while (fgets(line, sizeof(line), ap_fp))
-    {
-      char *p;
-      int len;
-      /* skip over leading spaces */
-        for (p=line; *p == ' ' || *p == '\t'; p++) ;
-        /* if line is empty or starts with # skip line */
-        len = strlen(p);
-        if (*p != '#' && *p != '\n' && len > 0)
-          {
-            /* store line in buffer */
-            if (ap_file_size + len < EP11_CFG_FILE_SIZE)
-              {
-                memcpy(filebuf+ap_file_size, p, len);
-                ap_file_size += len;
-              } else {
-              EP11TOK_ELOG(1,"EP 11 config file filename too large");
-              return  APQN_FILE_INV_FILE_SIZE;
-            }
-          }
-    }
+	EP11TOK_LOG(2,"EP 11 token config file is '%s'", fname);
+  
+	/* read config file line by line,
+	 * ignore empty and # and copy rest into file buf
+	 */
+	memset(filebuf,0,EP11_CFG_FILE_SIZE);
+	while (fgets((char *)line, sizeof(line), ap_fp)) {
+		char *p;
+		int len;
+		/* skip over leading spaces */
+		for (p=line; *p == ' ' || *p == '\t'; p++) ;
+		/* if line is empty or starts with # skip line */
+		len = strlen(p);
+		if (*p != '#' && *p != '\n' && len > 0) {
+			/* store line in buffer */
+			if (ap_file_size + len < EP11_CFG_FILE_SIZE) {
+				memcpy(filebuf+ap_file_size, p, len);
+				ap_file_size += len;
+			} else {
+				EP11TOK_ELOG(1,"EP 11 config file filename too large");
+				return  APQN_FILE_INV_FILE_SIZE;
+			}
+		}
+	}
 
-  ep11_targets.length = 0;
+	ep11_targets.length = 0;
   
-  for (i=0,j=0,str=filebuf; rc == 0; str=NULL)
-    {
+	for (i=0,j=0,str=filebuf; rc == 0; str=NULL) {
+		/* strtok tokenizes the string,
+		 * delimiters are newline and whitespace.
+		 */
+		token = strtok(str, "\n\t ");
       
-      /* strtok tokenizes the string, delimiters are newline and whitespace */
-      token = strtok(str, "\n\t ");
-      
-      //if (token) printf("token='%s', i=%d\n", token, i);
-      
-      if (i == 0) /* expecting APQN_WHITELIST or APQN_BLACKLIST
-                       or APQN_ANY or LOGLEVEL or eof */
-        {
-            if (token == NULL)
-                break;
-            if (strncmp(token,"APQN_WHITELIST",14) == 0)
-            {
-                whitemode = 1;
-                i = 1;
-            }
-            else if (strncmp(token,"APQN_BLACKLIST",14) == 0)
-            {
-                blackmode = 1;
-                i = 1;
-            }
-            else if (strncmp(token,"APQN_ANY",8) == 0)
-            {
-                anymode = 1;
-                i = 0;
-            }
-            else if (strncmp(token,"LOGLEVEL",8) == 0)
-                i = 3;
-            else
-            {
-                /* syntax error */
-                EP11TOK_ELOG(1,"Expected APQN_WHITELIST or APQN_BLACKLIST or APQN_ANY"
-                             " or LOGLEVEL keyword, found '%s' in configfile", token);
-                rc = APQN_FILE_SYNTAX_ERROR_0;
-                break;
-            }
-        }
-        else if (i == 1) /* expecting END or first number of a number pair (number range 0...255) */
-        {
-            if (strncmp(token,"END",3) == 0)
-                i = 0;
-            else
-            {
-                if (check_n(token, j, &apqn_i) < 0)
-                {
-                    rc = APQN_FILE_SYNTAX_ERROR_1;
-                    break;
-                }
-                i = 2;
-            }
-        }
-        else if (i == 2) /* expecting second number of a number pair (number range 0...255) */
-        {
-            if (strncmp(token,"END",3) == 0)
-            {
-                EP11TOK_ELOG(1,"Expected 2nd number, found '%s' in configfile", token);
-                rc = APQN_FILE_SYNTAX_ERROR_2;
-                break;
-            }
-            if (check_n(token, j, &apqn_i) < 0)
-            {
-                rc = APQN_FILE_SYNTAX_ERROR_3;
-                break;
-            }
-            ep11_targets.length++;
-            if (ep11_targets.length > MAX_APQN)
-            {
-                EP11TOK_ELOG(1,"Too many APQNs in configfile (max %d)", (int) MAX_APQN);
-                rc = APQN_FILE_SYNTAX_ERROR_4;
-                break;
-            }
-            i = 1;
-            j++;
-        }
-        else if (i == 3) /* expecting log level value (a number in the range 0...9) */
-        {
-            char *endptr;
-            int loglevel  = strtol(token, &endptr, 10);
-            if (*endptr != '\0' || loglevel < 0 || loglevel > 9)
-            {
-                EP11TOK_ELOG(1,"Invalid loglevel value '%s' in configfile", token);
-                rc = APQN_FILE_SYNTAX_ERROR_5;
-                break;
-            }
-            if (loglevel > 0 && EP11Tok_loglevel == 0)
-            {
-                if (!EP11Tok_logfile)
-                {
-                    /* create the log file */
-                    char logfilename[PATH_MAX];
-                    sprintf(logfilename, EP11TOK_LOGFILEMASK, (unsigned) getpid());
-                    EP11Tok_logfile = fopen(logfilename, "w+");
-                }
-                EP11Tok_loglevel = loglevel;
-            }
-            i = 0;
-        }
-    }
+		if (i == 0) {
+			 /* expecting APQN_WHITELIST or APQN_BLACKLIST
+			  * or APQN_ANY or LOGLEVEL or eof.
+			  */
+			if (token == NULL)
+				break;
+			if (strncmp(token,"APQN_WHITELIST",14) == 0) {
+				whitemode = 1;
+				i = 1;
+			} else if (strncmp(token,"APQN_BLACKLIST",14) == 0) {
+				blackmode = 1;
+				i = 1;
+			} else if (strncmp(token,"APQN_ANY",8) == 0) {
+				anymode = 1;
+				i = 0;
+			} else if (strncmp(token,"LOGLEVEL",8) == 0)
+				i = 3;
+			else {
+				/* syntax error */
+				EP11TOK_ELOG(1,"Expected APQN_WHITELIST or"
+				" APQN_BLACKLIST or APQN_ANY or LOGLEVEL"
+				" keyword, found '%s' in configfile", token);
+				rc = APQN_FILE_SYNTAX_ERROR_0;
+				break;
+			}
+		} else if (i == 1) {
+			/* expecting END or first number of a number
+			 * pair (number range 0...255)
+			 */
+			if (strncmp(token,"END",3) == 0)
+				i = 0;
+			else {
+				if (check_n(token, j, &apqn_i) < 0) {
+					rc = APQN_FILE_SYNTAX_ERROR_1;
+					break;
+				}
+				i = 2;
+			}
+		} else if (i == 2) {
+			/* expecting second number of a number pair
+			 * (number range 0...255)
+			 */
+			if (strncmp(token,"END",3) == 0) {
+				EP11TOK_ELOG(1,"Expected 2nd number, found '%s' in configfile", token);
+				rc = APQN_FILE_SYNTAX_ERROR_2;
+				break;
+			}
+			if (check_n(token, j, &apqn_i) < 0) {
+				rc = APQN_FILE_SYNTAX_ERROR_3;
+				break;
+			}
+			ep11_targets.length++;
+			if (ep11_targets.length > MAX_APQN) {
+				EP11TOK_ELOG(1,"Too many APQNs in configfile (max %d)", (int) MAX_APQN);
+				rc = APQN_FILE_SYNTAX_ERROR_4;
+				break;
+			}
+			i = 1;
+			j++;
+		} else if (i == 3) {
+			 /* expecting log level value
+			  * (a number in the range 0...9)
+			  */
+			char *endptr;
+			int loglevel  = strtol(token, &endptr, 10);
+			if (*endptr != '\0' || loglevel < 0 || loglevel > 9) {
+				EP11TOK_ELOG(1,"Invalid loglevel value '%s' in configfile", token);
+				rc = APQN_FILE_SYNTAX_ERROR_5;
+				break;
+			}
+			if (loglevel > 0 && EP11Tok_loglevel == 0) {
+				if (!EP11Tok_logfile) {
+					/* create the log file */
+					char logfilename[PATH_MAX];
+					sprintf(logfilename,
+						EP11TOK_LOGFILEMASK,
+						(unsigned) getpid());
+					EP11Tok_logfile = fopen(logfilename, "w+");
+				}
+				EP11Tok_loglevel = loglevel;
+			}
+			i = 0;
+		}
+	}
 
-    /* do some checks: */
-    if (rc == 0)
-    {
-        if ( !(whitemode || blackmode || anymode))
-        {
-            EP11TOK_ELOG(1,"At least one APQN mode needs to be present in configfile: APQN_WHITEMODE or APQN_BLACKMODE or APQN_ANY");
-            rc = APQN_FILE_NO_APQN_MODE;
-        }
-        else if (whitemode || blackmode)
-        {
-            /* at least one APQN needs to be defined */
-            if (ep11_targets.length < 1)
-            {
-                EP11TOK_ELOG(1,"At least one APQN needs to be defined in the configfile");
-                rc = APQN_FILE_NO_APQN_GIVEN;
-            }
-        }
-    }
+	/* do some checks: */
+	if (rc == 0) {
+		if ( !(whitemode || blackmode || anymode)) {
+			EP11TOK_ELOG(1,"At least one APQN mode needs to be present in configfile: APQN_WHITEMODE or APQN_BLACKMODE or APQN_ANY");
+			rc = APQN_FILE_NO_APQN_MODE;
+		} else if (whitemode || blackmode) {
+			/* at least one APQN needs to be defined */
+			if (ep11_targets.length < 1) {
+				EP11TOK_ELOG(1,"At least one APQN needs to be defined in the configfile");
+				rc = APQN_FILE_NO_APQN_GIVEN;
+			}
+		}
+	}
 
-    /* log the white- or blacklist of APQNs */
-    if (rc == 0 && (whitemode || blackmode)) {
-        EP11TOK_LOG(2,"%s with %d APQNs defined:", blackmode ? "blacklist" : "whitelist", ep11_targets.length);
-        for (i=0; i < ep11_targets.length; i++)
-        {
-            EP11TOK_LOG(2,"APQN %d: %d %d", i, ep11_targets.apqns[2*i], ep11_targets.apqns[2*i+1]);
-        }
-    }
+	/* log the white- or blacklist of APQNs */
+	if (rc == 0 && (whitemode || blackmode)) {
+		EP11TOK_LOG(2,"%s with %d APQNs defined:", blackmode ? "blacklist" : "whitelist", ep11_targets.length);
+		for (i=0; i < ep11_targets.length; i++) {
+			EP11TOK_LOG(2,"APQN %d: %d %d", i, ep11_targets.apqns[2*i], ep11_targets.apqns[2*i+1]);
+		}
+	}
 
-    if (blackmode == 1)
-        ep11_targets.length *= -1;
+	if (blackmode == 1)
+		ep11_targets.length *= -1;
 
-    ep11_initialized = TRUE;
-    return rc;
+	ep11_initialized = TRUE;
+	return rc;
 }
