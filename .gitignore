@@ -41,6 +41,7 @@ testcases/pkcs11/hw_fn
 testcases/pkcs11/attribute
 testcases/pkcs11/findobjects
 testcases/pkcs11/destroyobjects
+testcases/pkcs11/copyobjects
 testcases/pkcs11/misc_tests
 testcases/login/digest_init
 testcases/login/init_pin
@@ -62,6 +63,8 @@ usr/lib/pkcs11/api/shrd_mem.c
 usr/lib/pkcs11/cca_stdll/opencryptoki
 usr/lib/pkcs11/soft_stdll/opencryptoki
 usr/lib/pkcs11/tpm_stdll/opencryptoki
+usr/lib/pkcs11/ica_s390_stdll/opencryptoki
+usr/lib/pkcs11/ep11_stdll/opencryptoki
 usr/lib/pkcs11/icsf_stdll/opencryptoki
 usr/lib/pkcs11/icsf_stdll/icsf_config_lexer.c
 usr/lib/pkcs11/icsf_stdll/icsf_config_parse.c
@@ -74,3 +77,4 @@ usr/sbin/pkcsslotd/parser.c
 usr/sbin/pkcsslotd/parser.h
 usr/sbin/pkcsslotd/lexer.c
 usr/sbin/pkcsicsf/pkcsicsf
+usr/sbin/pkcsep11_migrate/pkcsep11_migrate
