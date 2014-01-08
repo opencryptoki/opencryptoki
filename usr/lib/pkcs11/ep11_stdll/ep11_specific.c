@@ -318,7 +318,7 @@
 #include <lber.h>
 
 #include "ep11.h"
-#define EP11SHAREDLIB "libxcp.so"
+#define EP11SHAREDLIB "libep11.so"
 
 
 /* logging stuff */
@@ -909,7 +909,7 @@ static CK_RV h_opaque_2_blob(CK_OBJECT_HANDLE handle,
                              CK_BYTE **blob, size_t *blob_len);
 
 #define EP11_CFG_FILE_SIZE 4096
-#define OCK_EP11_TOKEN_CNF "ock_ep11_token.cnf"
+#define OCK_EP11_TOKEN_CNF "ock_ep11_token.conf"
 
 /* error rc for reading the adapter config file */
 static const int APQN_FILE_INV_0 = 1;
@@ -1069,7 +1069,7 @@ static CK_RV make_wrapblob(CK_ATTRIBUTE *tmpl_in, CK_ULONG tmpl_len)
 CK_RV token_specific_init(char *Correlator, CK_SLOT_ID SlotNumber, char *conf_name)
 {
 	CK_RV rc;
-	void *lib_xcp;
+	void *lib_ep11;
 	const char *env_loglevel = getenv("OCK_EP11_TOKEN_LOGLEVEL");
   
 	WRAP_TEMPLATE;
@@ -1104,8 +1104,8 @@ CK_RV token_specific_init(char *Correlator, CK_SLOT_ID SlotNumber, char *conf_na
 	memcpy(wrap_key_name, "EP11_wrapkey", sizeof("EP11_wrapkey"));
 
 	/* dynamically load in the ep11 shared library */
-	lib_xcp = dlopen(EP11SHAREDLIB, RTLD_GLOBAL | RTLD_NOW);
-	if (!lib_xcp) {
+	lib_ep11 = dlopen(EP11SHAREDLIB, RTLD_GLOBAL | RTLD_NOW);
+	if (!lib_ep11) {
 		EP11TOK_ELOG(1,"Error loading shared lib '%s' [%s]", EP11SHAREDLIB, dlerror());
 		return CKR_FUNCTION_FAILED;
 	}
@@ -3445,7 +3445,7 @@ static int read_adapter_config_file(const char* conf_name)
   
   /* via envrionment variable it is possible to overwrite the
      config file given in the opencryptoki.conf. Then we use
-     $OCK_EP11_TOKEN_DIR/ock_ep11_token.cnf */
+     $OCK_EP11_TOKEN_DIR/ock_ep11_token.conf */
   if (conf_dir) {
     strncpy(fname,conf_dir,PATH_MAX-1);
     if ((strlen(fname) + strlen("/" OCK_EP11_TOKEN_CNF)) > PATH_MAX-1)
@@ -3469,7 +3469,7 @@ static int read_adapter_config_file(const char* conf_name)
     }
   }
   
-  /* last attempt: use get_pk_dir()/ock_ep11_token.cnf */
+  /* last attempt: use get_pk_dir()/ock_ep11_token.conf */
   if (!ap_fp) {
     strncpy(fname, (const char*)get_pk_dir(pk_dir_buf), PATH_MAX-1);
     if ((strlen(fname) + strlen("/" OCK_EP11_TOKEN_CNF)) > PATH_MAX-1)
