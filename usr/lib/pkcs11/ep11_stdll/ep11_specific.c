@@ -1461,6 +1461,10 @@ CK_RV token_specific_sha_init(DIGEST_CONTEXT *c)
 {
 	CK_RV rc;
 	CK_BYTE *state   = malloc(blobsize); /* freed by dig_mgr.c */
+	if (!state) {
+		EP11TOK_ELOG(1,"Memory allocation failed.");
+		return CKR_HOST_MEMORY;
+	}
 	size_t state_len = blobsize;
 	CK_MECHANISM mechanism = { CKM_SHA_1, NULL_PTR, 0 };
 
@@ -1523,6 +1527,10 @@ CK_RV token_specific_sha2_init(DIGEST_CONTEXT *c)
 {
 	CK_RV rc;
 	CK_BYTE *state = malloc(blobsize);
+	if (!state) {
+		EP11TOK_ELOG(1,"Memory allocation failed.");
+		return CKR_HOST_MEMORY;
+	}
 	size_t state_len = blobsize;
 	CK_MECHANISM mechanism = { CKM_SHA256, NULL_PTR, 0 };
 
@@ -1545,6 +1553,10 @@ CK_RV token_specific_sha3_init(DIGEST_CONTEXT *c)
 {
 	CK_RV rc;
 	CK_BYTE *state = malloc(blobsize);
+	if (!state) {
+		EP11TOK_ELOG(1,"Memory allocation failed.");
+		return CKR_HOST_MEMORY;
+	}
 	size_t state_len = blobsize;
 	CK_MECHANISM mechanism = { CKM_SHA384, NULL_PTR, 0 };
 
@@ -1568,6 +1580,10 @@ CK_RV token_specific_sha5_init(DIGEST_CONTEXT *c)
 {
 	CK_RV rc;
 	CK_BYTE *state = malloc(blobsize);
+	if (!state) {
+		EP11TOK_ELOG(1,"Memory allocation failed.");
+		return CKR_HOST_MEMORY;
+	}
 	size_t state_len = blobsize;
 	CK_MECHANISM mechanism = { CKM_SHA512, NULL_PTR, 0 };
 
@@ -1708,6 +1724,10 @@ static CK_RV dh_generate_keypair(CK_MECHANISM_PTR pMechanism,
 
 	/* card does not want CKA_PRIME/CKA_BASE in template but in dh_pgs */
 	pPublicKeyTemplate_new = (CK_ATTRIBUTE *)malloc(sizeof(CK_ATTRIBUTE) * ulPublicKeyAttributeCount);
+	if (!pPublicKeyTemplate_new) {
+		EP11TOK_ELOG(1,"Memory allocation failed.");
+		return CKR_HOST_MEMORY;
+	}
 	memset(pPublicKeyTemplate_new, 0, sizeof(CK_ATTRIBUTE) * ulPublicKeyAttributeCount);
 
 	for (i = 0, new_public_attr = 0; i < ulPublicKeyAttributeCount; i++) {
@@ -1763,6 +1783,10 @@ static CK_RV dh_generate_keypair(CK_MECHANISM_PTR pMechanism,
 
 	/* copy CKA_PRIME/CKA_BASE values */
 	dh_pgs.pg = malloc(p_len*2);
+	if (!dh_pgs.pg) {
+		EP11TOK_ELOG(1,"Memory allocation failed.");
+		return CKR_HOST_MEMORY;
+	}
 	memset(dh_pgs.pg,0,p_len*2);
 	memcpy(dh_pgs.pg,prime_attr->pValue,p_len); /* copy CKA_PRIME value */
 	/* copy CKA_BASE value, it must have leading zeros
@@ -1917,6 +1941,10 @@ static CK_RV dsa_generate_keypair(CK_MECHANISM_PTR pMechanism,
 	 * in template but in dsa_pqgs
 	 */
 	pPublicKeyTemplate_new = (CK_ATTRIBUTE *)malloc(sizeof(CK_ATTRIBUTE) * ulPublicKeyAttributeCount);
+	if (!pPublicKeyTemplate_new) {
+		EP11TOK_ELOG(1,"Memory allocation failed.");
+		return CKR_HOST_MEMORY;
+	}
 	 memset(pPublicKeyTemplate_new, 0,
 		sizeof(CK_ATTRIBUTE) * ulPublicKeyAttributeCount);
 
@@ -1990,6 +2018,10 @@ static CK_RV dsa_generate_keypair(CK_MECHANISM_PTR pMechanism,
 	 * the size of CKA_PRIME
 	 */
 	dsa_pqgs.pqg = malloc(p_len*3);
+	if (!dsa_pqgs.pqg) {
+		EP11TOK_ELOG(1,"Memory allocation failed.");
+		return CKR_HOST_MEMORY;
+	}
 	memset(dsa_pqgs.pqg, 0, p_len*3);
 	memcpy(dsa_pqgs.pqg, prime_attr->pValue, p_len);
 	memcpy(dsa_pqgs.pqg + p_len + (p_len - q_len),
@@ -2525,6 +2557,10 @@ CK_RV token_specific_sign_init(SESSION *session, CK_MECHANISM *mech,
  
 	ep11_sign_state_l = blobsize;
 	ep11_sign_state = malloc(blobsize);
+	if (!ep11_sign_state) {
+		EP11TOK_ELOG(1,"Memory allocation failed.");
+		return CKR_HOST_MEMORY;
+	}
 
 	if (h_opaque_2_blob(key,&privkey_blob,&blob_len) == CKR_OK) {
 		rc = m_SignInit(ep11_sign_state, &ep11_sign_state_l,
@@ -2623,6 +2659,10 @@ CK_RV token_specific_verify_init(SESSION *session, CK_MECHANISM *mech,
 
 	ep11_sign_state_l = blobsize;
 	ep11_sign_state = malloc(blobsize);
+	if (!ep11_sign_state) {
+		EP11TOK_ELOG(1,"Memory allocation failed.");
+		return CKR_HOST_MEMORY;
+	}
 
 	if (h_opaque_2_blob(key,&spki,&spki_len) == CKR_OK) {
 		rc = m_VerifyInit(ep11_sign_state, &ep11_sign_state_l, mech,
@@ -2842,6 +2882,10 @@ static CK_RV ep11_ende_crypt_init(SESSION *session, CK_MECHANISM_PTR mech,
 
 	ep11_state_l = blobsize;
 	ep11_state = malloc(blobsize); /* freed by encr/decr_mgr.c */
+	if (!ep11_state) {
+		EP11TOK_ELOG(1,"Memory allocation failed.");
+		return CKR_HOST_MEMORY;
+	}
 
 	if (h_opaque_2_blob(key, &blob, &blob_len) != CKR_OK) {
 		EP11TOK_ELOG(1,"no blob rc=0x%lx",rc);
@@ -2939,6 +2983,10 @@ CK_RV token_specific_wrap_key(SESSION *session, CK_MECHANISM_PTR mech,
 		size_querry = 1;
 		*p_wrapped_key_len = blobsize;
 		wrapped_key = malloc(blobsize);
+		if (!wrapped_key) {
+			EP11TOK_ELOG(1,"Memory allocation failed.");
+			return CKR_HOST_MEMORY;
+		}
 	}
   
 	/* the key that encrypts */
@@ -3044,7 +3092,7 @@ CK_RV token_specific_unwrap_key(SESSION *session, CK_MECHANISM_PTR mech,
 	}
 
 	/* Start creating the key object */
-	rc = object_mgr_create_skel(session, attrs, attrs_len, MODE_KEYGEN,
+	rc = object_mgr_create_skel(session, attrs, attrs_len, MODE_UNWRAP,
 				    class, ktype, &key_obj);
 	if (rc != CKR_OK) {
 		EP11TOK_ELOG(1,"object_mgr_create_skel failed with rc=0x%lx",rc);
@@ -3149,6 +3197,10 @@ static void print_mechanism(void)
 	/* only informational */
 	(void) token_specific_get_mechanism_list(list, &count);
 	list = (CK_MECHANISM_TYPE_PTR)malloc(sizeof(CK_MECHANISM_TYPE) * count);
+	if (!list) {
+		EP11TOK_ELOG(1,"Memory allocation failed.");
+		return CKR_HOST_MEMORY;
+	}
 
 	/* only informational */
 	(void) token_specific_get_mechanism_list(list, &count);
@@ -3200,9 +3252,14 @@ CK_RV token_specific_get_mechanism_list(CK_MECHANISM_TYPE_PTR pMechanismList,
 		 */
 		counter = *pulCount;
 		mlist = (CK_MECHANISM_TYPE *)malloc(sizeof(CK_MECHANISM_TYPE) * counter);
+		if (!mlist) {
+			EP11TOK_ELOG(1,"Memory allocation failed.");
+			return CKR_HOST_MEMORY;
+		}
 		rc = m_GetMechanismList(0, mlist, &counter, ep11tok_target);
 		if (rc != CKR_OK) {
 			EP11TOK_ELOG(1,"bad rc #2 rc=0x%lx", rc);
+			free(mlist);
 			return rc;
 		}
 
@@ -3236,10 +3293,15 @@ CK_RV token_specific_get_mechanism_list(CK_MECHANISM_TYPE_PTR pMechanismList,
 		}
 
 		mlist = (CK_MECHANISM_TYPE *)malloc(sizeof(CK_MECHANISM_TYPE) * counter);
+		if (!mlist) {
+			EP11TOK_ELOG(1,"Memory allocation failed.");
+			return CKR_HOST_MEMORY;
+		}
 		/* all the card has */
 		rc = m_GetMechanismList(0, mlist, &counter, ep11tok_target);
 		if (rc != CKR_OK) {
 			EP11TOK_ELOG(1,"bad rc #4 rc=0x%lx", rc);
+			free(mlist);
 			return rc;
 		}
 
