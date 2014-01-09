@@ -1636,7 +1636,7 @@ CK_RV token_specific_sha3_init(DIGEST_CONTEXT *c)
 	if (rc != CKR_OK) {
 		EP11TOK_ELOG(1,"rc=0x%lx",rc);
 	} else {
-		P11TOK_LOG(2,"rc=0x%lx",rc);
+		EP11TOK_LOG(2,"rc=0x%lx",rc);
 	}
 
 	return rc;
@@ -1663,7 +1663,7 @@ CK_RV token_specific_sha5_init(DIGEST_CONTEXT *c)
 	if (rc != CKR_OK) {
 		EP11TOK_ELOG(1,"rc=0x%lx",rc);
 	} else {
-		P11TOK_LOG(2,"rc=0x%lx",rc);
+		EP11TOK_LOG(2,"rc=0x%lx",rc);
 	}
 
 	return rc;
@@ -2992,21 +2992,21 @@ static CK_RV ep11_ende_crypt_init(SESSION *session, CK_MECHANISM_PTR mech,
 
 
 CK_RV token_specific_encrypt_init(SESSION *session, CK_MECHANISM_PTR mech,
-                                  CK_OBJECT_HANDLE key)
+				  CK_OBJECT_HANDLE key)
 {
-    CK_RV rc;
+	CK_RV rc;
 
-    EP11TOK_LOG(2,"key=0x%lx",key);
+	EP11TOK_LOG(2,"key=0x%lx",key);
 
-    rc = ep11_ende_crypt_init(session,mech,key,ENCRYPT);
+	rc = ep11_ende_crypt_init(session, mech, key, ENCRYPT);
 
-    if (rc != CKR_OK) {
-      EP11TOK_ELOG(1,"rc=0x%lx",rc);
-    } else {
-      EP11TOK_LOG(2,"rc=0x%lx",rc);
-    }
+	if (rc != CKR_OK) {
+		EP11TOK_ELOG(1,"rc=0x%lx",rc);
+	} else {
+		EP11TOK_LOG(2,"rc=0x%lx",rc);
+	}
 
-    return rc;
+	return rc;
 }
 
 
