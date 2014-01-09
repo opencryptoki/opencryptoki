@@ -97,7 +97,7 @@ dnl --- EP11 token
 AC_ARG_ENABLE([ep11tok],
         AS_HELP_STRING([--enable-ep11tok],[build ep11 token @<:@default=enabled@:>@]),
         [],
-        [enable_ep11tok=yes])
+        [enable_ep11tok=check])
 
 dnl --- TPM token
 AC_ARG_ENABLE([tpmtok],
@@ -146,7 +146,7 @@ dnl --- pkcsep11_migrate
 AC_ARG_ENABLE([pkcsep11_migrate],
 	AS_HELP_STRING([--enable-pkcsep11_migrate],[build pkcsep11_migrate (EP11 token key migration tool) @<:@default=enabled if EP11 library is present@:>@]),
 	[],
-	[enable_pkcsep11_migrate=yes])
+	[enable_pkcsep11_migrate=check])
 dnl ---
 dnl --- Check for external software
 dnl --- Define what to check based on enabled features
@@ -351,6 +351,42 @@ if test "x$with_libica" != "xno"; then
 fi
 AC_SUBST([LIBICA_CFLAGS])
 AC_SUBST([LIBICA_LIBS])
+
+dnl --- with_zcrypt
+ZCRYPT_CFLAGS=
+ZCRYPT_LIBS=
+if test "x$with_zcrypt" != "xno"; then
+	if test "x$with_zcrypt" != "xyes" -a "x$with_zcrypt" != "xcheck"; then
+		ZCRYPT_CFLAGS="-I$with_zcrypt"
+		ZCRYPT_LIBS="-L$with_zcrypt"
+	fi
+	old_cflags="$CFLAGS"
+	old_libs="$LIBS"
+	CFLAGS="$CFLAGS $ZCRYPT_CFLAGS"
+	LIBS="$LIBS $ZCRYPT_LIBS"
+	AC_CHECK_HEADER([asm/zcrypt.h], [], [
+		if test "x$with_zcrypt" != "xcheck"; then
+			AC_MSG_ERROR([Build with zcrypt requested but zcrypt headers couldn't be found])
+		fi
+		with_zcrypt=no
+	])
+
+	if test "x$with_zcrypt" != "xno"; then
+		AC_CHECK_LIB([ep11], [m_init],
+			[with_zcrypt=yes], [
+				if test "x$with_zcrypt" != "xcheck"; then
+					AC_MSG_ERROR([Build with zcrypt requested but zcrypt libraries couldn't be found])
+				fi
+				with_zcrypt=no
+		])
+	fi
+	if test "x$with_zcrypt" = "xno"; then
+		CFLAGS="$old_cflags"
+		LIBS="$old_libs"
+	fi
+fi
+AC_SUBST([ZCRYPT_CFLAGS])
+AC_SUBST([ZCRYPT_LIBS])
 
 dnl --- with_tss
 TSS_CFLAGS=
@@ -637,17 +673,10 @@ AM_CONDITIONAL([ENABLE_SWTOK], [test "x$enable_swtok" = "xyes"])
 dnl --- enable_ep11tok
 if test "x$enable_ep11tok" = "xyes"; then
 
-AC_CHECK_HEADER([asm/zcrypt.h], [], [
-                if test "x$with_zcrypt" != "xcheck"; then
-                   with_zcrypt=yes
-                fi
-                with_zcrypt=no
-        ])
-
-#        if test "x$with_zcrypt" != "xyes"; then
-#                AC_MSG_ERROR([ica token build requested but libica development files not found])
-#                enable_icatok=no
-#        fi
+	if test "x$with_zcrypt" != "xyes"; then
+		AC_MSG_ERROR([ep11 token build requested but ep11 development files not found])
+		enable_ep11=no
+	fi
 fi
 if test "x$enable_ep11tok" != "xno" -a "x$with_zcrypt" != "xno"; then
         enable_ep11tok=yes
@@ -759,6 +788,13 @@ fi
 
 dnl --- enable_pkcsep11_migrate
 if test "x$enable_pkcsep11_migrate" = "xyes"; then
+	if test "x$with_zcrypt" != "xyes"; then
+		AC_MSG_ERROR([pkcsep11_migrate build requested but no ep11 libraries found])
+		enable_pkcsep11_migrate=no
+	fi
+fi
+
+if test "x$enable_pkcsep11_migrate" != "xno" -a "x$with_zcrypt" != "xno"; then
         enable_pkcsep11_migrate=yes
 else
         enable_pkcsep11_migrate=no
