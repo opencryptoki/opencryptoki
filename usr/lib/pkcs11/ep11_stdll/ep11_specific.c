@@ -904,12 +904,10 @@ static const char* ep11_get_ckm(CK_ULONG mechanism)
 	}
 }
 
-static void print_mechanism();
 static CK_RV h_opaque_2_blob(CK_OBJECT_HANDLE handle,
                              CK_BYTE **blob, size_t *blob_len);
 
 #define EP11_CFG_FILE_SIZE 4096
-#define OCK_EP11_TOKEN_CNF "ock_ep11_token.conf"
 
 /* error rc for reading the adapter config file */
 static const int APQN_FILE_INV_0 = 1;
@@ -1009,6 +1007,75 @@ static CK_RV rawkey_2_blob(unsigned char *key, CK_ULONG ksize, CK_KEY_TYPE ktype
 		free_attribute_array(p_attrs, attrs_len);
 	return rc;
 }
+
+
+static const char* print_flags(CK_ULONG flags)
+{
+	switch(flags) {
+	case CKF_ENCRYPT: return "ENCRYPT";
+	case CKF_DECRYPT: return "DECRYPT";
+	case CKF_DIGEST : return "DIGEST";
+	case CKF_SIGN   : return "SIGN";
+	case CKF_SIGN_RECOVER      : return "SIGN_RECOVER";
+	case CKF_VERIFY            : return "VERIFY";
+	case CKF_VERIFY_RECOVER    : return "VERIFY_RECOVER";
+	case CKF_GENERATE          : return "GENERATE";
+	case CKF_GENERATE_KEY_PAIR : return "GENERATE_KEY_PAIR";
+	case CKF_WRAP              : return "WRAP";
+	case CKF_UNWRAP            : return "UNWRAP";
+	case CKF_DERIVE            : return "DERIVE";
+	/* The following are new for v2.11 */
+	case CKF_EC_F_P            : return "CKF_EC_F_P";
+	case CKF_EC_F_2M           : return "CKF_EC_F_2M";
+	case CKF_EC_ECPARAMETERS   : return "EC_ECPARAMETERS";
+	case CKF_EC_NAMEDCURVE     : return "EC_NAMEDCURVE";
+	case CKF_EC_UNCOMPRESS     : return "EC_UNCOMPRESS";
+	case CKF_EC_COMPRESS       : return "EC_COMPRESS";
+	default                    : return "UNKNOWN";
+	}
+}
+
+
+static CK_RV print_mechanism(void)
+{
+	CK_MECHANISM_TYPE_PTR list = NULL;
+	CK_ULONG count = 0;
+	int i;
+	CK_MECHANISM_INFO m_info;
+
+	/* only informational */
+	(void) token_specific_get_mechanism_list(list, &count);
+	list = (CK_MECHANISM_TYPE_PTR)malloc(sizeof(CK_MECHANISM_TYPE) * count);
+	if (!list) {
+		EP11TOK_ELOG(1,"Memory allocation failed.");
+		return CKR_HOST_MEMORY;
+	}
+
+	/* only informational */
+	(void) token_specific_get_mechanism_list(list, &count);
+
+	EP11TOK_LOG(2,"EP11 token mechanism list, %lu entries:", count);
+	for (i = 0; i < count; i++) {
+		char strflags[1024];
+		strflags[0] = 0;
+		memset(&m_info, 0, sizeof(m_info));
+		token_specific_get_mechanism_info(list[i], &m_info);
+		if (m_info.flags) {
+			CK_ULONG flag;
+			for (flag = 1; flag < 0x80000000; flag = flag * 2) {
+				if ((flag & m_info.flags) != 0) {
+					strcat(strflags, ",");
+					strcat(strflags, print_flags(flag & m_info.flags));
+				}
+			}
+		}
+		EP11TOK_LOG(2," %s {%lu,%lu%s}", ep11_get_ckm(list[i]),
+			    m_info.ulMinKeySize, m_info.ulMaxKeySize, strflags);
+	}
+	free(list);
+	return CKR_OK;
+}
+
 
 /* random number generator */
 CK_RV token_specific_rng(CK_BYTE *output, CK_ULONG bytes)
@@ -1133,7 +1200,7 @@ CK_RV token_specific_init(char *Correlator, CK_SLOT_ID SlotNumber, char *conf_na
 	}
     
 	/* print mechanismlist to log file */
-	print_mechanism();
+	(void)print_mechanism();
     
 	/* create an AES key needed for importing keys
 	 * (encrypt by wrap_key and m_UnwrapKey by wrap key)
@@ -3161,72 +3228,6 @@ CK_MECHANISM_TYPE ep11_banned_mech_list[] =
 CK_ULONG banned_mech_list_len = (sizeof(ep11_banned_mech_list) / sizeof(CK_MECHANISM_TYPE));
 
 
-static const char* print_flags(CK_ULONG flags)
-{
-	switch(flags) {
-	case CKF_ENCRYPT: return "ENCRYPT";
-	case CKF_DECRYPT: return "DECRYPT";
-	case CKF_DIGEST : return "DIGEST";
-	case CKF_SIGN   : return "SIGN";
-	case CKF_SIGN_RECOVER      : return "SIGN_RECOVER";
-	case CKF_VERIFY            : return "VERIFY";
-	case CKF_VERIFY_RECOVER    : return "VERIFY_RECOVER";
-	case CKF_GENERATE          : return "GENERATE";
-	case CKF_GENERATE_KEY_PAIR : return "GENERATE_KEY_PAIR";
-	case CKF_WRAP              : return "WRAP";
-	case CKF_UNWRAP            : return "UNWRAP";
-	case CKF_DERIVE            : return "DERIVE";
-	/* The following are new for v2.11 */
-	case CKF_EC_F_P            : return "CKF_EC_F_P";
-	case CKF_EC_F_2M           : return "CKF_EC_F_2M";
-	case CKF_EC_ECPARAMETERS   : return "EC_ECPARAMETERS";
-	case CKF_EC_NAMEDCURVE     : return "EC_NAMEDCURVE";
-	case CKF_EC_UNCOMPRESS     : return "EC_UNCOMPRESS";
-	case CKF_EC_COMPRESS       : return "EC_COMPRESS";
-	default                    : return "UNKNOWN";
-	}
-}
-
-static void print_mechanism(void)
-{
-	CK_MECHANISM_TYPE_PTR list = NULL;
-	CK_ULONG count = 0;
-	int i;
-	CK_MECHANISM_INFO m_info;
-
-	/* only informational */
-	(void) token_specific_get_mechanism_list(list, &count);
-	list = (CK_MECHANISM_TYPE_PTR)malloc(sizeof(CK_MECHANISM_TYPE) * count);
-	if (!list) {
-		EP11TOK_ELOG(1,"Memory allocation failed.");
-		return CKR_HOST_MEMORY;
-	}
-
-	/* only informational */
-	(void) token_specific_get_mechanism_list(list, &count);
-
-	EP11TOK_LOG(2,"EP11 token mechanism list, %lu entries:", count);
-	for (i = 0; i < count; i++) {
-		char strflags[1024];
-		strflags[0] = 0;
-		memset(&m_info, 0, sizeof(m_info));
-		token_specific_get_mechanism_info(list[i], &m_info);
-		if (m_info.flags) {
-			CK_ULONG flag;
-			for (flag = 1; flag < 0x80000000; flag = flag * 2) {
-				if ((flag & m_info.flags) != 0) {
-					strcat(strflags, ",");
-					strcat(strflags, print_flags(flag & m_info.flags));
-				}
-			}
-		}
-		EP11TOK_LOG(2," %s {%lu,%lu%s}", ep11_get_ckm(list[i]),
-			    m_info.ulMinKeySize, m_info.ulMaxKeySize, strflags);
-	}
-	free(list);
-}
-
-
 /* filtering out some mechanisms we do not want to provide
  * makes it complicated
  */
@@ -3448,7 +3449,6 @@ static int read_adapter_config_file(const char* conf_name)
 	int apqn_i = 0;     /* how many APQN numbers */
 	char *conf_dir = getenv("OCK_EP11_TOKEN_DIR");
 	char fname[PATH_MAX];
-	char pk_dir_buf[PATH_MAX];
 	int rc = 0;
 
 	if (ep11_initialized) {
@@ -3457,48 +3457,32 @@ static int read_adapter_config_file(const char* conf_name)
   
 	memset(fname,0,PATH_MAX);
   
+	if (!conf_name) {
+		/* no conf_name was given, should not happen */
+		return APQN_FILE_INV_1;
+	}
+
 	/* via envrionment variable it is possible to overwrite the
 	 * config file given in the opencryptoki.conf. Then we use
 	 * $OCK_EP11_TOKEN_DIR/ock_ep11_token.conf.
 	 */
 	if (conf_dir) {
-		strncpy(fname,conf_dir,PATH_MAX-1);
-		if ((strlen(fname) + strlen("/" OCK_EP11_TOKEN_CNF)) > PATH_MAX-1)
-			rc = APQN_FILE_INV_0;
-		else {
-			strcpy(fname + strlen(fname),"/" OCK_EP11_TOKEN_CNF);
-			ap_fp = fopen(fname,"r");
-		}
+		snprintf(fname, sizeof(fname), "%s/%s", conf_dir, conf_name);
+		ap_fp = fopen(fname,"r");
 	}
   
 	/* if there was no environment variable or fopen failed, use the
 	 * default given from opencryptoki.conf via conf_name argument.
 	 */
 	if (!ap_fp) {
-		if (!conf_name) {
-			/* no conf_name was given, should not happen */
-			rc = APQN_FILE_INV_1;
-		} else {
-			strncpy(fname, conf_name, PATH_MAX-1);
-			ap_fp = fopen(fname,"r");
-		}
-	}
-  
-	/* last attempt: use get_pk_dir()/ock_ep11_token.conf */
-	if (!ap_fp) {
-		strncpy(fname, (const char*)get_pk_dir(pk_dir_buf), PATH_MAX-1);
-		if ((strlen(fname) + strlen("/" OCK_EP11_TOKEN_CNF)) > PATH_MAX-1)
-			rc = APQN_FILE_INV_2;
-		else {
-			strcpy(fname + strlen(fname),"/" OCK_EP11_TOKEN_CNF);
-			ap_fp = fopen(fname,"r");
-		}
+		snprintf(fname, sizeof(fname), "%s/%s", OCK_CONFDIR, conf_name);
+		ap_fp = fopen(fname,"r");
 	}
   
 	/* now we should really have an open ep11 token config file */
 	if (!ap_fp) {
 		EP11TOK_ELOG(1,"no valid EP 11 config file found");
-		return APQN_FILE_INV_3;
+		return APQN_FILE_INV_2;
 	}
   
 	EP11TOK_LOG(2,"EP 11 token config file is '%s'", fname);
