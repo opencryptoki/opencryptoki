@@ -829,7 +829,6 @@ ber_encode_PrivateKeyInfo( CK_BBOOL    length_only,
    CK_BYTE  * buf = NULL;
    CK_BYTE  * tmp = NULL;
    CK_BYTE    version[] = { 0 };
-   CK_BYTE    attrib[]  = {0x05, 0x00};
    CK_ULONG   len, total;
    CK_RV      rc;
 
@@ -853,9 +852,8 @@ ber_encode_PrivateKeyInfo( CK_BBOOL    length_only,
    else
       len += total;
 
-   // for this stuff, attributes are always NULL == 05 00
+   // for this stuff, attributes can be suppressed.
    //
-   len += sizeof(attrib);
 
    if (length_only == TRUE) {
       rc = ber_encode_SEQUENCE( TRUE, NULL, &total, NULL, len );
@@ -893,9 +891,6 @@ ber_encode_PrivateKeyInfo( CK_BBOOL    length_only,
    memcpy( buf+len, tmp, total );
    len += total;
    free( tmp );
-
-   memcpy( buf+len, attrib, sizeof(attrib));
-   len += sizeof(attrib);
 
    rc = ber_encode_SEQUENCE( FALSE, data, data_len, buf, len );
    if (rc != CKR_OK)
