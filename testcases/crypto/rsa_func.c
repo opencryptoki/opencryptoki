@@ -498,7 +498,7 @@ testcase_cleanup:
  */
 CK_RV do_WrapUnwrapRSA(struct GENERATED_TEST_SUITE_INFO *tsuite)
 {
-	int			i = 0;
+	int			i = 0, j = 0;
 	CK_OBJECT_HANDLE        publ_key, priv_key, secret_key, unwrapped_key;
 	CK_BYTE_PTR		wrapped_key = NULL;
 	CK_ULONG		wrapped_keylen, unwrapped_keylen;
@@ -721,8 +721,9 @@ CK_RV do_WrapUnwrapRSA(struct GENERATED_TEST_SUITE_INFO *tsuite)
 		// or any other information about the key; the application
 		// must convey these separately, and supply them when
 		// unwrapping the key.
-		if (keygen_mech.mechanism == CKM_AES_KEY_GEN &&
-		    wrap_mech.mechanism == CKM_RSA_X_509) {
+		if (((keygen_mech.mechanism == CKM_AES_KEY_GEN) ||
+		    (keygen_mech.mechanism == CKM_GENERIC_SECRET_KEY_GEN)) && 
+		    (wrap_mech.mechanism == CKM_RSA_X_509)) {
 			unwrapped_keylen = tsuite->tv[i].keylen;
 			unwrap_tmpl[2].type = CKA_VALUE_LEN;
 			unwrap_tmpl[2].ulValueLen = sizeof(unwrapped_keylen);
@@ -751,14 +752,28 @@ CK_RV do_WrapUnwrapRSA(struct GENERATED_TEST_SUITE_INFO *tsuite)
 		testcase_new_assertion();
 
 		// encode/decode with secrect key and peer secret key
-		for (i = 0; i < 32; i++)
-			clear[i] = i;
+		for (j = 0; j < 32; j++)
+			clear[j] = j;
 
-		if (keygen_mech.mechanism == CKM_AES_KEY_GEN)
+		switch (keygen_mech.mechanism) {
+		case CKM_AES_KEY_GEN:
 			mech.mechanism = CKM_AES_ECB;
-		else
+			break;
+		case CKM_GENERIC_SECRET_KEY_GEN:
+		case CKM_DES3_KEY_GEN:
 			mech.mechanism = CKM_DES3_ECB;
-
+			break;
+		case CKM_DES_KEY_GEN:
+			mech.mechanism = CKM_DES_ECB;
+			break;
+		case CKM_CDMF_KEY_GEN:
+			mech.mechanism = CKM_CDMF_ECB;
+			break;
+		default:
+			testcase_error("unknowm mech");
+			goto error;
+		}
+		
 		mech.ulParameterLen = 0;
 		mech.pParameter = NULL;
 
