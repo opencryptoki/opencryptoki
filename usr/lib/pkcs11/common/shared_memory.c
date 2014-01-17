@@ -161,12 +161,29 @@ sm_open(const char *sm_name, int mode, void **p_addr, size_t len, int force)
 		goto done;
 	}
 
-	fd = shm_open(name, O_RDWR | O_CREAT, mode);
+	/* try and open first... */
+	fd = shm_open(name, O_RDWR, mode);
 	if (fd < 0) {
-		rc = -errno;
-		SYS_ERROR(errno, "Failed to open shared memory \"%s\".\n",
-				name);
-		goto done;
+		/* maybe it needs to be created ... */
+		fd = shm_open(name, O_RDWR | O_CREAT, mode);
+		if (fd < 0) {
+			rc = -errno;
+			SYS_ERROR(errno,
+				  "Failed to open shared memory \"%s\".\n",
+				  name);
+			goto done;
+		} else {
+			/* umask may have altered permissions if we created
+			 * the shared memory in above call, so set proper
+			 * permissions just in case.
+			 */
+			if (fchmod(fd, mode) == -1) {
+				rc = -errno;
+				SYS_ERROR(errno, "fchmod(%s): %s\n",
+						name, strerror(errno));
+				goto done;
+			}
+		}
 	}
 
 	/*
