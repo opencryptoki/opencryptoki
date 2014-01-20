@@ -429,7 +429,6 @@ static CK_ULONG ep11_pin_blob_len = 0;
 #define CKM_SHA512_KEY_DERIVATION 0x00000395
 
 static pthread_mutex_t ep11blob_lock = PTHREAD_MUTEX_INITIALIZER;
-static pthread_mutex_t wrapblob_lock = PTHREAD_MUTEX_INITIALIZER;
 
 static CK_BBOOL ep11_initialized = FALSE;
 
@@ -1166,12 +1165,10 @@ static CK_RV make_wrapblob(CK_ATTRIBUTE *tmpl_in, CK_ULONG tmpl_len)
 	size_t csum_l = 64;
 	CK_RV rc;
 
-	pthread_mutex_lock(&wrapblob_lock);
 
 	if (raw2key_wrap_blob_l != 0) {
 		EP11TOK_LOG(2,"blob already exists raw2key_wrap_blob_l=0x%x",
 			    raw2key_wrap_blob_l);
-		pthread_mutex_unlock(&wrapblob_lock);
 		return CKR_OK;
 	}
 
@@ -1179,7 +1176,6 @@ static CK_RV make_wrapblob(CK_ATTRIBUTE *tmpl_in, CK_ULONG tmpl_len)
 	rc = m_GenerateKey(&mech, tmpl_in, tmpl_len, NULL,0, raw2key_wrap_blob,
 			   &raw2key_wrap_blob_l, csum, &csum_l, ep11tok_target);
 
-	pthread_mutex_unlock(&wrapblob_lock);
 
 	if (rc != CKR_OK) {
 		EP11TOK_ELOG(1, "end raw2key_wrap_blob_l=0x%x rc=0x%lx",
