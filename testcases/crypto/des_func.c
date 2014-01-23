@@ -172,6 +172,7 @@ CK_RV do_EncryptUpdateDES(struct published_test_suite_info *tsuite)
 				(unsigned int) slot_id,
 				mech_to_str(tsuite->mechanism),
 				(unsigned int) tsuite->mechanism );
+		goto testcase_cleanup;
 	}
 
 	/** iterate over test vectors **/
@@ -456,6 +457,7 @@ CK_RV do_DecryptUpdateDES(struct published_test_suite_info *tsuite)
 					(unsigned int) slot_id,
 					mech_to_str(tsuite->mechanism),
 					(unsigned int) tsuite->mechanism );
+		goto testcase_cleanup;
 	}
 
 	/** iterate over test vectors **/

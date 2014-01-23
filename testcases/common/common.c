@@ -26,6 +26,15 @@ int mech_supported(CK_SLOT_ID slot_id, CK_ULONG mechanism) {
         return (rc == CKR_OK);
 }
 
+int check_supp_keysize(CK_SLOT_ID slot_id, CK_ULONG mechanism, CK_ULONG keylen) {
+        CK_MECHANISM_INFO mech_info;
+        int rc;
+        rc = funcs->C_GetMechanismInfo(slot_id, mechanism, &mech_info);
+	if (rc != CKR_OK)
+		return FALSE;
+	else return ( (mech_info.ulMinKeySize <= keylen) && (keylen <= mech_info.ulMaxKeySize));
+}
+
 /** Returns true if and only if slot supports
     key wrapping with specified mechanism **/
 int wrap_supported(CK_SLOT_ID slot_id,

@@ -274,6 +274,14 @@ CK_RV do_SignVerify_HMAC(struct HMAC_TEST_SUITE_INFO *tsuite){
 		/** get mechanism **/
 		mech = tsuite->mech;
 
+		/*check if key len is supported*/
+		if (! check_supp_keysize(SLOT_ID, mech.mechanism, key_len)){
+			testsuite_skip(tsuite->tvcount,
+				"mechanism %s is not supported with slot %ld",
+				tsuite->name, slot_id);
+			goto testcase_cleanup;
+		}
+
 		/** create key object **/
 		rc = create_GenericSecretKey(session, key, key_len, &h_key);
 		if(rc != CKR_OK){
@@ -428,6 +436,14 @@ CK_RV do_SignVerify_HMAC_Update(struct HMAC_TEST_SUITE_INFO *tsuite)
 
 		/** get mechanism **/
 		mech = tsuite->mech;
+
+		/*check if key len is supported*/
+		if (! check_supp_keysize(SLOT_ID, mech.mechanism, key_len)){
+			testsuite_skip(tsuite->tvcount,
+				"mechanism %s is not supported with slot %ld",
+				tsuite->name, slot_id);
+			goto testcase_cleanup;
+		}
 
 		/** create key object **/
 		rc = create_GenericSecretKey(session, key, key_len, &h_key);

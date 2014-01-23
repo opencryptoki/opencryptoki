@@ -10,6 +10,8 @@
 
 #include "pkcs11types.h"
 #include "regress.h"
+#include "common.c"
+#include "mech_to_str.h"
 
 static CK_BBOOL  true  = TRUE;
 static CK_BBOOL  false = FALSE;
@@ -21,7 +23,7 @@ CK_RV do_SignVerify_SSL3_MD5_MAC(CK_SESSION_HANDLE session)
 	CK_MECHANISM      mech;
 	CK_ULONG          mac_size;
 	CK_ULONG          i;
-	CK_RV             rc;
+	CK_RV             rc = CKR_OK;
 
 	CK_OBJECT_HANDLE  h_key;
 	CK_OBJECT_CLASS   key_class  = CKO_SECRET_KEY;
@@ -39,6 +41,7 @@ CK_RV do_SignVerify_SSL3_MD5_MAC(CK_SESSION_HANDLE session)
 		{CKA_TOKEN, &false, sizeof(false)},
 		{CKA_VALUE, &key_data, sizeof(key_data)}
 	};
+	CK_SLOT_ID        slot_id = SLOT_ID;
 
 	testcase_begin("starting do_SignVerify_SSL3_MD5_MAC...\n");
 
@@ -47,6 +50,16 @@ CK_RV do_SignVerify_SSL3_MD5_MAC(CK_SESSION_HANDLE session)
 	mech.mechanism      = CKM_SSL3_MD5_MAC;
 	mech.ulParameterLen = sizeof(CK_ULONG);
 	mech.pParameter     = &mac_size;
+
+
+	/** skip test if the slot doesn't support this mechanism **/
+	if (! mech_supported(slot_id, mech.mechanism)){
+		testsuite_skip(48, "Slot %u doesn't support %s (%u)",
+			(unsigned int) slot_id,
+			mech_to_str(mech.mechanism),
+			(unsigned int)mech.mechanism);
+		goto skipped;
+	}
 
 	for (i=0; i < 48; i++)
 		key_data[i] = i;
@@ -166,6 +179,7 @@ done:
 	if (funcs->C_DestroyObject(session, h_key) != CKR_OK)
 		testcase_error("C_DestroyObject failed.");
 
+skipped:
 	return rc;
 }
 
@@ -177,7 +191,7 @@ CK_RV do_SignVerify_SSL3_SHA1_MAC(CK_SESSION_HANDLE session)
 	CK_MECHANISM      mech;
 	CK_ULONG          mac_size;
 	CK_ULONG          i;
-	CK_RV             rc;
+	CK_RV             rc = CKR_OK;
 
 	CK_OBJECT_HANDLE  h_key;
 	CK_OBJECT_CLASS   key_class = CKO_SECRET_KEY;
@@ -195,6 +209,7 @@ CK_RV do_SignVerify_SSL3_SHA1_MAC(CK_SESSION_HANDLE session)
 		{CKA_TOKEN, &false, sizeof(false)},
 		{CKA_VALUE, &key_data, sizeof(key_data)}
 	};
+	CK_SLOT_ID        slot_id = SLOT_ID;
 
 	testcase_begin("starting do_SignVerify_SSL3_SHA1_MAC...\n");
 
@@ -203,6 +218,15 @@ CK_RV do_SignVerify_SSL3_SHA1_MAC(CK_SESSION_HANDLE session)
 	mech.mechanism = CKM_SSL3_SHA1_MAC;
 	mech.ulParameterLen = sizeof(CK_ULONG);
 	mech.pParameter = &mac_size;
+
+	/** skip test if the slot doesn't support this mechanism **/
+	if (! mech_supported(slot_id, mech.mechanism)){
+		testsuite_skip(48, "Slot %u doesn't support %s (%u)",
+			(unsigned int) slot_id,
+			mech_to_str(mech.mechanism),
+			(unsigned int)mech.mechanism);
+		goto skipped;
+	}
 
 	for (i=0; i < 48; i++)
 		key_data[i] = i;
@@ -253,6 +277,7 @@ done:
 	if (funcs->C_DestroyObject(session, h_key) != CKR_OK)
 		testcase_error("C_DestroyObject() failed.");
 
+skipped:
 	return rc;
 }
 
@@ -264,8 +289,8 @@ CK_RV do_SSL3_PreMasterKeyGen(CK_SESSION_HANDLE session)
 	CK_MECHANISM      mech;
 	CK_VERSION        version;
 	CK_OBJECT_HANDLE  h_key;
-	CK_RV             rc;
-
+	CK_RV             rc = CKR_OK;
+	CK_SLOT_ID        slot_id = SLOT_ID;
 
 	testcase_begin("starting do_SSL3_PreMasterKeyGen...\n");
 
@@ -276,6 +301,14 @@ CK_RV do_SSL3_PreMasterKeyGen(CK_SESSION_HANDLE session)
 	mech.pParameter     = &version;
 	mech.ulParameterLen = sizeof(CK_VERSION);
 
+	/** skip test if the slot doesn't support this mechanism **/
+	if (! mech_supported(slot_id, mech.mechanism)){
+		testsuite_skip(1, "Slot %u doesn't support %s (%u)",
+			(unsigned int) slot_id,
+			mech_to_str(mech.mechanism),
+			(unsigned int)mech.mechanism);
+		goto done;
+	}
 
 	testcase_new_assertion();
 	rc = funcs->C_GenerateKey(session, &mech, NULL, 0, &h_key);
@@ -287,6 +320,7 @@ CK_RV do_SSL3_PreMasterKeyGen(CK_SESSION_HANDLE session)
 	if (funcs->C_DestroyObject(session, h_key) != CKR_OK)
 		testcase_error("C_DestroyObject() failed");
 
+done:
 	return rc;
 }
 
@@ -298,7 +332,7 @@ CK_RV do_SSL3_MasterKeyDerive(CK_SESSION_HANDLE session)
 	CK_MECHANISM mech;
 	CK_OBJECT_HANDLE h_pm_secret;
 	CK_OBJECT_HANDLE h_mk;
-	CK_RV rc;
+	CK_RV rc = CKR_OK;
 
 	CK_VERSION version = { 3, 0 };
 	CK_ATTRIBUTE pm_tmpl[] =
@@ -325,6 +359,7 @@ CK_RV do_SSL3_MasterKeyDerive(CK_SESSION_HANDLE session)
 		{CKA_CLASS, &class, sizeof(class)},
 		{CKA_KEY_TYPE, &keyType, sizeof(keyType)}
 	};
+	CK_SLOT_ID        slot_id = SLOT_ID;
 	
 	testcase_begin("starting do_SSL3_MasterKeyDerive...\n");
 
@@ -333,6 +368,15 @@ CK_RV do_SSL3_MasterKeyDerive(CK_SESSION_HANDLE session)
 	mech.mechanism      = CKM_SSL3_PRE_MASTER_KEY_GEN;
 	mech.pParameter     = &version;
 	mech.ulParameterLen = sizeof(CK_VERSION);
+
+	/** skip test if the slot doesn't support this mechanism **/
+	if (! mech_supported(slot_id, mech.mechanism)){
+		testsuite_skip(32, "Slot %u doesn't support %s (%u)",
+			(unsigned int) slot_id,
+			mech_to_str(mech.mechanism),
+			(unsigned int)mech.mechanism);
+		goto skipped;
+	}
 
 	testcase_new_assertion();
 	rc = funcs->C_GenerateKey(session, &mech, pm_tmpl, 2, &h_pm_secret);
@@ -400,6 +444,7 @@ done:
 	if (funcs->C_DestroyObject(session, h_pm_secret) != CKR_OK)
 		testcase_error("C_DestroyObject() failed");
 
+skipped:
 	return rc;
 }
 
@@ -407,7 +452,7 @@ CK_RV do_SSL3_MultipleKeysDerive(CK_SESSION_HANDLE session)
 {
 	CK_MECHANISM mech;
 	CK_OBJECT_HANDLE h_pm_secret;
-	CK_RV rc;
+	CK_RV rc = CKR_OK;
 	CK_ULONG i;
 
 	CK_VERSION version = { 3, 0 };
@@ -463,6 +508,7 @@ CK_RV do_SSL3_MultipleKeysDerive(CK_SESSION_HANDLE session)
 		},
 		.pReturnedKeyMaterial = &param_out,
 	};
+	CK_SLOT_ID        slot_id = SLOT_ID;
 
 	testcase_begin("starting do_SSL3_MultipleKeysDerive...\n");
 
@@ -471,6 +517,15 @@ CK_RV do_SSL3_MultipleKeysDerive(CK_SESSION_HANDLE session)
 	mech.mechanism      = CKM_SSL3_PRE_MASTER_KEY_GEN;
 	mech.pParameter     = &version;
 	mech.ulParameterLen = sizeof(CK_VERSION);
+
+	/** skip test if the slot doesn't support this mechanism **/
+	if (! mech_supported(slot_id, mech.mechanism)){
+		testsuite_skip(3, "Slot %u doesn't support %s (%u)",
+			(unsigned int) slot_id,
+			mech_to_str(mech.mechanism),
+			(unsigned int)mech.mechanism);
+		goto skipped;
+	}
 
 	testcase_new_assertion();
 	rc = funcs->C_GenerateKey(session, &mech, pm_tmpl,
@@ -529,6 +584,7 @@ done:
 	if (funcs->C_DestroyObject(session, h_pm_secret) != CKR_OK)
 		testcase_error("C_DestroyObject() failed");
 
+skipped:
 	return rc;
 }
 
