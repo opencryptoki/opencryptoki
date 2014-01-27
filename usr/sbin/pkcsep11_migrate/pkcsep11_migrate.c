@@ -29,6 +29,17 @@ CK_LONG adapter = -1;
 CK_LONG domain  = -1; 
 CK_OBJECT_HANDLE key_store[4096];
 
+int (*_m_get_ep11_info)(CK_VOID_PTR pinfo, CK_ULONG_PTR, unsigned int, 
+			unsigned int, uint64_t);
+long (*_ep11a_cmdblock)(unsigned char *, size_t , unsigned int ,  
+			const struct ep11_admresp *, const unsigned char *,
+			const unsigned char *, size_t );
+unsigned long int (*_m_admin) (unsigned char *, size_t *, unsigned char *, 
+			       size_t *, const unsigned char *, size_t , 
+			       const unsigned char *, size_t, uint64_t) ;
+long (*_ep11a_internal_rv)(const unsigned char *, size_t ,
+			   struct ep11_admresp *, CK_RV *);
+
 typedef struct  
 {
   short format; 
@@ -96,7 +107,7 @@ reencrypt(CK_SESSION_HANDLE session, CK_ULONG obj, CK_BYTE *old)
   fprintf(stderr,"going to reencrpyt key %lx with blob len %lx %s\n",obj,op_old->blob_size,name); 
   resp_len = blobsize; 
 
-  req_len  = ep11a_cmdblock(req, blobsize, EP11_ADM_REENCRYPT, &rb,
+  req_len  = _ep11a_cmdblock(req, blobsize, EP11_ADM_REENCRYPT, &rb,
                             NULL, op_old->blob, op_old->blob_size);
   
   if (req_len < 0)
@@ -105,7 +116,7 @@ reencrypt(CK_SESSION_HANDLE session, CK_ULONG obj, CK_BYTE *old)
       return -2; 
     }
 
-  rc = m_admin(resp, &resp_len, NULL, 0, req, req_len, NULL, 0, (unsigned long long) &target);
+  rc = _m_admin(resp, &resp_len, NULL, 0, req, req_len, NULL, 0, (unsigned long long) &target);
 
   if(rc != CKR_OK || resp_len == 0 || resp == NULL)
     {
@@ -113,7 +124,7 @@ reencrypt(CK_SESSION_HANDLE session, CK_ULONG obj, CK_BYTE *old)
       return -3; 
     }
   
-  if (ep11a_internal_rv(resp, resp_len, &lrb, &rc) < 0) 
+  if (_ep11a_internal_rv(resp, resp_len, &lrb, &rc) < 0) 
     {
       fprintf(stderr, "reencryption response malformed %lx\n",rc);  
       return -4; 
@@ -162,7 +173,7 @@ check_card_status()
   target.apqns[0] = adapter; 
   target.apqns[1] = domain; 
 
-  rc = m_get_ep11_info ((CK_VOID_PTR) &dinf, &dinf_len,
+  rc = _m_get_ep11_info ((CK_VOID_PTR) &dinf, &dinf_len,
                         CK_IBM_EP11Q_DOMAIN,
                         0,
                         (unsigned long long) &target);
@@ -323,6 +334,16 @@ int main  (int argc, char **argv){
   	return CKR_FUNCTION_FAILED;
   }
 
+  _m_get_ep11_info = dlsym(lib_ep11, "m_get_ep11_info");
+  _ep11a_cmdblock = dlsym(lib_ep11, "ep11a_cmdblock");
+  _m_admin = dlsym(lib_ep11, "m_admin");
+  _ep11a_internal_rv = dlsym(lib_ep11, "ep11a_internal_rv");
+
+  if (!_m_get_ep11_info || !_ep11a_cmdblock || 
+	!_m_admin || !_ep11a_internal_rv) {
+	fprintf(stderr,"ERROR getting function pointer from shared lib '%s'", EP11SHAREDLIB);
+	return CKR_FUNCTION_FAILED;
+  }
  
   printf("Using slot #%lu...\n\n", SLOT_ID);
   
