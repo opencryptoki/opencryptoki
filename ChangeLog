@@ -1,3 +1,11 @@
+* opencryptoki-3.1
+- New ep11 token to support IBM Crypto Express adpaters (starting with 
+  Crypto Express 4S adapters) configured with Enterprise PKCS#11(EP11)
+  firmware.
+- New pkcsep11_migrate utility (and manpage) to migrate token objects
+  when card's masterkey changes.
+- Various bugfixes.
+
 * opencryptoki-3.0
 - Aggregated source files in common, tpm, and cca directories.
 - Re-factored shared memory functions in the stdlls.

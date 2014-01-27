@@ -1,6 +1,13 @@
+VERSION 3.1 ADDITIONS:
+ - New ep11 token. Please see doc/README.ep11_stdll for additional
+   information about the ep11 token.
+
+ - New pkcsep11_migrate utility to assist in migrating token objects
+   stored on disk, when the hardware's masterkey changes.
+
 VERSION 3 CHANGES:
  - New ICSF token. Please see doc/README.icsf_stdll for additional
-information and how to set up the ICSF token.
+   information and how to set up the ICSF token.
 
  - New pkcsicsf utility that is used to set up the ICSF token.
    See its man page and doc/README.icsf_stdll for additional info.

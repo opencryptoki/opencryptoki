@@ -1,5 +1,5 @@
 opencryptoki README
-Package version 3.0
+Package version 3.1
 
 Please see NEWS for additional version 3 information. 
 
@@ -21,6 +21,9 @@ REQUIREMENTS:
 		requires openldap and opeldap client software
 		version 2.4.23 or higher. Lex and Yacc are also required
 		to build this token.
+ - EP11		The EP11 token is a token that uses the IBM Crypto Express
+		adapters (starting with Crypto Express 4S adapters) configured
+		with Enterprise PKCS#11 (EP11) firmware.
 
 
 BUILD PROCESS
