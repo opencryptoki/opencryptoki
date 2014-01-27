@@ -1495,6 +1495,8 @@ token_specific_object_add(OBJECT *obj)
 	}
 
 	keytype = *(CK_KEY_TYPE *)attr->pValue;
+
+	memset(&new_op, 0, sizeof(new_op));
 	new_op.blob_size = blobsize;
 
 	/* only these keys can be imported */
@@ -1564,7 +1566,7 @@ CK_RV token_specific_generate_key(SESSION *session, CK_MECHANISM_PTR mech,
 {
 	ep11_opaque new_op;
 	CK_BYTE csum[64];
-	size_t csum_len;
+	size_t csum_len = 64;
 	CK_ATTRIBUTE *attr = NULL;
 	OBJECT *key_obj = NULL;
 	CK_ULONG ktype;
@@ -1573,6 +1575,8 @@ CK_RV token_specific_generate_key(SESSION *session, CK_MECHANISM_PTR mech,
 	CK_ULONG new_attrs_len = 0;
 	CK_RV rc;
 
+	memset(&new_op, 0, sizeof(new_op));
+	memset(csum, 0, sizeof(csum));
 	new_op.blob_size = blobsize;
 
 	/* Get the keytype to use when creating the key object */
@@ -1807,6 +1811,7 @@ CK_RV token_specific_derive_key(SESSION *session, CK_MECHANISM_PTR mech,
 	CK_ATTRIBUTE_PTR new_attrs = NULL;
 	CK_ULONG new_attrs_len = 0;
 
+	memset(&secret_op, 0, sizeof(secret_op));
 	secret_op.blob_size = blobsize;
 
 	if (h_opaque_2_blob(hBaseKey, &blob, &blob_len) != CKR_OK) {
@@ -1918,6 +1923,8 @@ static CK_RV dh_generate_keypair(CK_MECHANISM_PTR pMechanism,
 		unsigned char *pg;
 	} dh_pgs;
 
+	memset(&publ_op, 0, sizeof(publ_op));
+	memset(&priv_op, 0, sizeof(priv_op));
 	publ_op.blob_size = blobsize;
 	priv_op.blob_size = blobsize;
 
@@ -2137,6 +2144,8 @@ static CK_RV dsa_generate_keypair(CK_MECHANISM_PTR pMechanism,
 		unsigned char *pqg;
 	} dsa_pqgs;
 
+	memset(&publ_op, 0, sizeof(publ_op));
+	memset(&priv_op, 0, sizeof(priv_op));
 	publ_op.blob_size = blobsize;
 	priv_op.blob_size = blobsize;
 
@@ -2435,6 +2444,9 @@ static CK_RV rsa_ec_generate_keypair(CK_MECHANISM_PTR pMechanism,
 		rc = CKR_KEY_INDIGESTIBLE;
 		goto error;
 	}
+
+	memset(&publ_op, 0, sizeof(publ_op));
+	memset(&priv_op, 0, sizeof(priv_op));
 
 	memcpy(publ_op.blob,spki,spki_len);
 	publ_op.blob_size = spki_len;
@@ -3337,6 +3349,7 @@ CK_RV token_specific_unwrap_key(SESSION *session, CK_MECHANISM_PTR mech,
 	for (i = 0; i < attrs_len; i++)
 		EP11TOK_LOG(2,"attribute attrs.type=0x%lx", attrs[i].type);
   
+	memset(&op, 0, sizeof(op));
 	op.blob_size = blobsize;
 
 	/*get key type of unwrapped key*/
