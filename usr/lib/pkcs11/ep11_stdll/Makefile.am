@@ -1,3 +1,5 @@
+# Makefile.am for EP11 token for openCryptoki
+#
 nobase_lib_LTLIBRARIES = opencryptoki/stdll/libpkcs11_ep11.la
 
 opencryptoki_stdll_libpkcs11_ep11_la_LDFLAGS = -shared -Wl,-Bsymbolic	\
@@ -45,6 +47,8 @@ opencryptoki_stdll_libpkcs11_ep11_la_SOURCES = ../common/asn1.c		\
                                              ../common/attributes.c     \
                                              ../common/sw_crypt.c       \
 					     ep11_specific.c
+
+noinst_HEADERS = ep11.h
 
 install-data-hook:
 	cd $(DESTDIR)$(libdir)/opencryptoki/stdll && \
