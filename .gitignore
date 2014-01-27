@@ -18,6 +18,7 @@ libtool
 ltmain.sh
 man/man1/pkcsconf.1
 man/man1/pkcsicsf.1
+man/man1/pkcsep11_migrate.1
 man/man5/opencryptoki.conf.5
 man/man7/opencryptoki.7
 man/man8/pkcsslotd.8

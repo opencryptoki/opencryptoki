@@ -1,0 +1,51 @@
+.TH PKCSEP11_MIGRATE 1 "Jan 2014" "@PACKAGE_VERSION@" "openCryptoki"
+.SH NAME
+pkcsep11_migrate \- utility to re-encrypt EP11 token keys to prepare a
+change of master keys in the EP11 adapter
+
+.SH SYNOPSIS
+\fBpkcep11_migrate\fP
+[\fB-h\fP]
+[\fB-slot\fP \fIslot-number\fP \fB-adapter\fP \fIadapter-ID\fP
+\fB-domain\fP \fIdomain-ID\fP ]
+
+.SH DESCRIPTION
+In case of a Master key change within an EP11 adapter all key objects that are
+wrapped with this master key must be re-wrapped or re-encrypted.
+The \fBpkcsep11_migrate\fP utility takes all EP11 token related key objects
+that are wrapped with the EP11 adapter master key, decrypts each key object
+with the current master key and encrypt it with the new master key.
+
+Notes:
+.br
+1. The new master key must be set and committed on the EP11 adapter via
+Trusted Key Entry console (TKE) before using this utility.
+.br
+2. While using this tool no process using the EP11 token should be running.
+.br
+3. Before using this tool make a back-up of the token objects in ep11tok/TOK_OBJ/.
+.br
+4. After successfully appling the utility and before (re)starting programs
+using the EP11 token the new master key must be activated using the TKE.
+
+.SH "COMMAND SUMMARY"
+.IP "\fB-slot\fP \fIslot-number\fP" 10
+specifies the token slot of the EP11 token
+.IP "\fB-adapter\fP \fIadapter-ID\fP" 10
+specifies an EP11 adapter ID.
+(Refer to lszcrypt to get a list of installed crypto adapters.
+The adapter ID will be the number xx  in 'card\fBxx\fP' from the output.)
+.IP "\fB-domain\fP \fIdomain-ID\fP" 10
+specifies the usage domain for the EP11 adapter. (see /sys/bus/ap/ap_domain.)
+.IP "\fB-h\fP" 10
+show usage information
+
+.SH SEE ALSO
+.PD 0
+.TP
+\fBpkcsconf\fP(1),
+.TP
+\fBopencryptoki\fP(7),
+.TP
+\fBpkcsslotd\fP(8).
+.PD
