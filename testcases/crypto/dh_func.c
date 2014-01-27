@@ -466,9 +466,9 @@ CK_RV do_DeriveDHKey(void)
 		testcase_pass("Successfully derived key.\n");
 
 	// Testcase #2 - Now derive the secrets...
-	// Note: this is a clear key token testcase since comparing
-	//       key values.
 	if (!securekey) {
+		// Note: this is a clear key token testcase since comparing
+		//       key values.
 		testcase_new_assertion();
 
 		/* Now, derive a generic secret key using party A's
@@ -560,103 +560,104 @@ CK_RV do_DeriveDHKey(void)
 
 		testcase_pass("Generating DH key pairs and deriving secrets");
 
-		funcs->C_DestroyObject(session, secret_key);
-		funcs->C_DestroyObject(session, peer_secret_key);
-	}
-
-	// Testcase #3 - encode/decode with secrect key and peer secret key
-        testcase_new_assertion();
-
-        secret_key_size = 32;
-	secret_key_type = CKK_AES;
-	for (i = 0; i < 32; i++)
-		clear[i] = i;
-
-	/* Now, derive a generic secret key using party A's
-	 * private key and peer's public key
-	 */
-	mech.mechanism  = CKM_DH_PKCS_DERIVE;
-	mech.ulParameterLen = extr1_tmpl[0].ulValueLen ;
-	mech.pParameter = key1_value;
-
-	rc = funcs->C_DeriveKey(session, &mech, priv_key, secret_tmpl,
-				4, &secret_key) ;
-	if (rc != CKR_OK) {
-		testcase_fail("C_DeriveKey #1: rc = %s", p11_get_ckr(rc));
 		goto testcase_cleanup;
+
+	} else {
+
+		// Testcase for secure key token - encode/decode with secrect key and peer secret key
+		testcase_new_assertion();
+
+		secret_key_size = 32;
+		secret_key_type = CKK_AES;
+		for (i = 0; i < 32; i++)
+			clear[i] = i;
+
+		/* Now, derive a generic secret key using party A's
+		 * private key and peer's public key
+		 */
+		mech.mechanism  = CKM_DH_PKCS_DERIVE;
+		mech.ulParameterLen = extr1_tmpl[0].ulValueLen ;
+		mech.pParameter = key1_value;
+
+		rc = funcs->C_DeriveKey(session, &mech, priv_key, secret_tmpl,
+					4, &secret_key) ;
+		if (rc != CKR_OK) {
+			testcase_fail("C_DeriveKey #1: rc = %s", p11_get_ckr(rc));
+			goto testcase_cleanup;
+		}
+
+		// Do the same for the peer
+
+		// Extract party A's public key
+		rc = funcs->C_GetAttributeValue(session, publ_key, extr2_tmpl, 1);
+		if (rc != CKR_OK) {
+			testcase_error("C_GetAttributeValue #2: rc = %s",
+					p11_get_ckr(rc));
+			goto testcase_cleanup;
+		}
+
+		// Make sure party A's key is the right size
+		if ((extr2_tmpl[0].ulValueLen != sizeof(DH_PUBL_PRIME)) &&
+			(extr2_tmpl[0].ulValueLen != sizeof(DH_PUBL_PRIME)-1)) {
+			testcase_fail("ERROR:size error party A's key %ld\n",extr2_tmpl[0].ulValueLen);
+			goto testcase_cleanup;
+		}
+
+		// Now, derive a generic secret key using peer's private key
+		// and A's public key
+		mech.mechanism = CKM_DH_PKCS_DERIVE;
+		mech.ulParameterLen = extr2_tmpl[0].ulValueLen;
+		mech.pParameter = key2_value;
+
+		rc = funcs->C_DeriveKey(session, &mech, peer_priv_key,
+					secret_tmpl, 4, &peer_secret_key);
+		if (rc != CKR_OK) {
+			testcase_fail("C_DeriveKey #2: rc = %s", p11_get_ckr(rc));
+			goto testcase_cleanup;
+		}
+
+		// Extract the derived keys and compare them
+
+		mech.mechanism = CKM_AES_ECB;
+		mech.ulParameterLen = 0;
+		mech.pParameter = NULL;
+
+		rc = funcs->C_EncryptInit(session,&mech,secret_key);
+		if (rc != CKR_OK) {
+			testcase_error("C_EncryptInit secret_key: rc = %s",
+					p11_get_ckr(rc));
+			goto testcase_cleanup;
+		}
+
+		rc = funcs->C_Encrypt(session, clear, 32, cipher, &cipher_len);
+		if (rc != CKR_OK) {
+			testcase_error("C_Encrypt secret_key: rc = %s",
+					p11_get_ckr(rc));
+			goto testcase_cleanup;
+		}
+
+		rc = funcs->C_DecryptInit(session, &mech, peer_secret_key);
+		if (rc != CKR_OK) {
+			testcase_error("C_DecryptInit peer_secret_key: rc = %s",
+					p11_get_ckr(rc));
+			goto testcase_cleanup;
+		}
+
+		rc = funcs->C_Decrypt(session, cipher, cipher_len, re_cipher,
+					&re_cipher_len);
+		if (rc != CKR_OK) {
+			testcase_error("C_Decrypt peer secret_key: rc = %s",
+					p11_get_ckr(rc));
+			goto testcase_cleanup;
+		}
+
+		if (memcmp(clear, re_cipher, 32) != 0) {
+			testcase_fail("ERROR:data mismatch\n");
+			goto testcase_cleanup;
+		}
+
+		testcase_pass("Generating DH key pairs and deriving secrets");
 	}
-
-	// Do the same for the peer
-
-	// Extract party A's public key
-	rc = funcs->C_GetAttributeValue(session, publ_key, extr2_tmpl, 1);
-	if (rc != CKR_OK) {
-		testcase_error("C_GetAttributeValue #2: rc = %s",
-				p11_get_ckr(rc));
-		goto testcase_cleanup;
-	}
-
-	// Make sure party A's key is the right size
-	if ((extr2_tmpl[0].ulValueLen != sizeof(DH_PUBL_PRIME)) &&
-		(extr2_tmpl[0].ulValueLen != sizeof(DH_PUBL_PRIME)-1)) {
-		testcase_fail("ERROR:size error party A's key %ld\n",extr2_tmpl[0].ulValueLen);
-		goto testcase_cleanup;
-	}
-
-	// Now, derive a generic secret key using peer's private key
-	// and A's public key
-	mech.mechanism = CKM_DH_PKCS_DERIVE;
-	mech.ulParameterLen = extr2_tmpl[0].ulValueLen;
-	mech.pParameter = key2_value;
-
-	rc = funcs->C_DeriveKey(session, &mech, peer_priv_key,
-				secret_tmpl, 4, &peer_secret_key);
-	if (rc != CKR_OK) {
-		testcase_fail("C_DeriveKey #2: rc = %s", p11_get_ckr(rc));
-		goto testcase_cleanup;
-	}
-
-	// Extract the derived keys and compare them
-
-	mech.mechanism = CKM_AES_ECB;
-	mech.ulParameterLen = 0;
-	mech.pParameter = NULL;
-
-	rc = funcs->C_EncryptInit(session,&mech,secret_key);
-	if (rc != CKR_OK) {
-		testcase_error("C_EncryptInit secret_key: rc = %s",
-				p11_get_ckr(rc));
-		goto testcase_cleanup;
-	}
-
-	rc = funcs->C_Encrypt(session, clear, 32, cipher, &cipher_len);
-	if (rc != CKR_OK) {
-		testcase_error("C_Encrypt secret_key: rc = %s",
-				p11_get_ckr(rc));
-		goto testcase_cleanup;
-	}
-
-	rc = funcs->C_DecryptInit(session, &mech, peer_secret_key);
-	if (rc != CKR_OK) {
-		testcase_error("C_DecryptInit peer_secret_key: rc = %s",
-				p11_get_ckr(rc));
-		goto testcase_cleanup;
-	}
-
-	rc = funcs->C_Decrypt(session, cipher, cipher_len, re_cipher,
-				&re_cipher_len);
-	if (rc != CKR_OK) {
-		testcase_error("C_Decrypt peer secret_key: rc = %s",
-				p11_get_ckr(rc));
-		goto testcase_cleanup;
-	}
-
-	if (memcmp(clear, re_cipher, 32) != 0) {
-		testcase_fail("ERROR:data mismatch\n");
-		goto testcase_cleanup;
-	}
-
-	testcase_pass("Generating DH key pairs and deriving secrets");
 
 testcase_cleanup:
 	funcs->C_DestroyObject(session, publ_key);
