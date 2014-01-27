@@ -10,6 +10,7 @@
 
 #include "pkcs11types.h"
 #include "regress.h"
+#include "common.c"
 
 
 /*
@@ -289,6 +290,15 @@ run_GenerateECCKeyPairSignVerify()
 	}
 
 	for (i = 0; i < NUMEC; i++) {
+
+		if (!(is_ep11_token(SLOT_ID))) {
+			if (!memcmp(der_ec_supported[i].curve, brainpoolP512t1,
+			    sizeof(brainpoolP512t1))) {
+				testcase_skip("Slot %u doesn't support this curve", (unsigned int)SLOT_ID);
+				continue;
+			}
+		}
+
 		CK_ATTRIBUTE ec_attr[] =
 		{
 			{CKA_ECDSA_PARAMS, der_ec_supported[i].curve, der_ec_supported[i].size}
