@@ -28,10 +28,15 @@ opencryptoki_stdll_libpkcs11_ep11_la_SOURCES = ../common/asn1.c		\
 					     ../common/loadsave.c	\
 					     ../common/key.c		\
 					     ../common/key_mgr.c	\
-                                             ../common/mech_md5.c	\
+					     ../common/mech_des.c	\
+					     ../common/mech_des3.c	\
+					     ../common/mech_aes.c	\
+					     ../common/mech_md5.c	\
 					     ../common/mech_md2.c	\
 					     ../common/mech_rng.c	\
+					     ../common/mech_rsa.c	\
 					     ../common/mech_sha.c	\
+					     ../common/mech_ssl3.c	\
 					     ../common/new_host.c	\
 					     ../common/obj_mgr.c	\
 					     ../common/object.c		\
@@ -44,8 +49,8 @@ opencryptoki_stdll_libpkcs11_ep11_la_SOURCES = ../common/asn1.c		\
 					     ../common/log.c		\
 					     ../common/mech_list.c      \
 					     ../common/shared_memory.c	\
-                                             ../common/attributes.c     \
-                                             ../common/sw_crypt.c       \
+					     ../common/attributes.c     \
+					     ../common/sw_crypt.c       \
 					     ep11_specific.c
 
 noinst_HEADERS = ep11.h
