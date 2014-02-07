@@ -1281,7 +1281,7 @@ CK_RV token_specific_init(char *Correlator, CK_SLOT_ID SlotNumber, char *conf_na
 	/* for real HW on Z-series, this would open the
 	 * device driver file /dev/zcrypt.
 	 */
-	if (m_add_backend(NULL,0) < 0) {
+	if (m_init() < 0) {
 		EP11TOK_ELOG(1,"open of the zcrypt device driver failed");
 		return CKR_DEVICE_ERROR;
 	}
