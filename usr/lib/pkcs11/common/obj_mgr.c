@@ -1340,13 +1340,28 @@ object_mgr_find_in_map1( CK_OBJECT_HANDLE    handle,
       goto done;
    }
 
-// SAB XXX Fix me.. need to make it more efficient than just looking for the object to be changed
-// set a global flag that contains the ref count to all objects.. if the shm ref count changes, then we update the object
-// if not
+   /* SAB XXX Fix me.. need to make it more efficient than just looking
+    * for the object to be changed. set a global flag that contains the
+    * ref count to all objects.. if the shm ref count changes, then we 
+    * update the object. if not
+    */
 
-   XProcLock();
-   object_mgr_check_shm( obj );
-   XProcUnLock();
+   /* Note: Each C_Initialize call loads up the public token objects
+    * and build corresponding tree(s). The same for private token  objects
+    * upon successful C_Login. Since token objects can be shared, it is
+    * possible another process or session has deleted a token object.
+    * Accounting is done in shm, so check shm to see if object still exists.
+    */
+   if (!object_is_session_object(obj)) {
+   	XProcLock();
+   	rc = object_mgr_check_shm( obj );
+   	XProcUnLock();
+
+        if (rc != CKR_OK) {
+		OCK_LOG_ERR(ERR_FUNCTION_FAILED);
+		goto done;
+	}
+   }
 
    *ptr = obj;
 done:
@@ -2101,8 +2116,8 @@ object_mgr_del_from_shm( OBJECT *obj )
                                           0, global_shm->num_priv_tok_obj-1,
                                           obj, &index );
       if (rc != CKR_OK){
-         OCK_LOG_ERR(ERR_FUNCTION_FAILED); 
-         return CKR_FUNCTION_FAILED;
+         OCK_LOG_ERR(ERR_OBJMGR_SEARCH); 
+         return rc;
       }
       // Since the number of objects starts at 1 and index starts at zero, we
       // decrement before we get count.  This eliminates the need to perform
@@ -2139,8 +2154,8 @@ object_mgr_del_from_shm( OBJECT *obj )
                                           0, global_shm->num_publ_tok_obj-1,
                                           obj, &index );
       if (rc != CKR_OK){
-         OCK_LOG_ERR(ERR_FUNCTION_FAILED); 
-         return CKR_FUNCTION_FAILED;
+         OCK_LOG_ERR(ERR_OBJMGR_SEARCH); 
+         return rc;
       }
       global_shm->num_publ_tok_obj--;
 
@@ -2189,25 +2204,36 @@ object_mgr_check_shm( OBJECT *obj )
    // the calling routine is responsible for locking the global_shm mutex
    //
 
+   /* first check the object count. If it is 0, then just return. */
    priv = object_is_private( obj );
 
    if (priv) {
+
+      if (global_shm->num_priv_tok_obj == 0) {
+	  OCK_LOG_ERR(ERR_OBJECT_HANDLE_INVALID);
+	  return CKR_OBJECT_HANDLE_INVALID;
+      }
       rc = object_mgr_search_shm_for_obj( global_shm->priv_tok_objs,
                                           0, global_shm->num_priv_tok_obj-1,
                                           obj, &index );
       if (rc != CKR_OK){
-         OCK_LOG_ERR(ERR_FUNCTION_FAILED); 
-         return CKR_FUNCTION_FAILED;
+         OCK_LOG_ERR(ERR_OBJMGR_SEARCH); 
+         return rc;
       }
       entry = &global_shm->priv_tok_objs[index];
    }
    else {
+
+      if (global_shm->num_publ_tok_obj == 0) {
+	  OCK_LOG_ERR(ERR_OBJECT_HANDLE_INVALID);
+	  return CKR_OBJECT_HANDLE_INVALID;
+      }
       rc = object_mgr_search_shm_for_obj( global_shm->publ_tok_objs,
                                           0, global_shm->num_publ_tok_obj-1,
                                           obj, &index );
       if (rc != CKR_OK){
-         OCK_LOG_ERR(ERR_FUNCTION_FAILED); 
-         return CKR_FUNCTION_FAILED;
+         OCK_LOG_ERR(ERR_OBJMGR_SEARCH); 
+         return rc;
       }
       entry = &global_shm->publ_tok_objs[index];
    }
@@ -2256,8 +2282,8 @@ object_mgr_search_shm_for_obj( TOK_OBJ_ENTRY  * obj_list,
 	   }
         }
    }
-   OCK_LOG_ERR(ERR_FUNCTION_FAILED); 
-   return CKR_FUNCTION_FAILED;
+   OCK_LOG_ERR(ERR_OBJECT_HANDLE_INVALID); 
+   return CKR_OBJECT_HANDLE_INVALID;
 }
 
 
