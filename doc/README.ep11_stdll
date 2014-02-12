@@ -3,8 +3,8 @@ EP11 Token
 
 The EP11 token is a token that uses the IBM Crypto Express adapters
 (starting with Crypto Express 4S adapters) configured with Enterprise
-PKCS#11 (EP11) firmware. By convention, Crypto Express n adapters with
-that firmware load are also called CEXnP adapters for n >= 4.
+PKCS#11 (EP11) firmware. By convention, Crypto Express n adapters with that
+firmware load are also called CEXnP adapters for n >= 4.
 
 The EP11 token is only supported on the System z architecture and requires a
 Crypto Express adapter with EP11 firmware load, a zcrypt/ap device driver
@@ -17,14 +17,13 @@ Configuration
 -------------
 
 To use the EP11 token a slot entry must be defined in the general opencryptoki
-configuration file that sets the stdll attribute to libpkcs11_epp.so.
+configuration file that sets the stdll attribute to libpkcs11_ep11.so.
 
 A EP11 token specific configuration file must be set up to define the target
-adapters and target adapter domains. The name of the configuration file must
-be defined in the global openCryptoki configuration opencryptoki.conf file
-as part of the token specification using the confname attribute.
-
-E.g. the entry,
+adapters and target adapter domains. The name of the configuration file must be
+defined in the global openCryptoki configuration opencryptoki.conf file as part
+of the token specification using the confname attribute.
+E.g. the entry
 
 slot 4
 {
@@ -35,39 +34,39 @@ confname = ep11tok.conf
 defines the name of the configuration file of the EP11 token to be
 ep11tok.conf. Per default this file is searched in the directory where
 openCryptoki searches its global configuration file. This default path can
-be overwritten using the OCK_EP11_TOKEN_DIR environment variable.
+be overriden using the OCK_EP11_TOKEN_DIR environment variable.
 
-EP11 token configuration files defines a list of adapter/domain pairs to
-which the EP11 token sends its cryptographic requests. This list can be
-specified as a white list starting with a line containing the key word
-APQN_WHITELIST followed by one or more lines containing each 2 white space
-separted positive integers followed by a line with the key word END.
-In each of these lines the first integer denotes the adapter number
-and the second integer denotes the domain id. Alternatively the keyword
-APQN_ANY can be used to define that all adapter/domain pairs with EP11
-firmware load that are available to the system shall be used as target
-adapters. An adapter number corresponds to the numerical part xx of an
-adapter id of the form cardxx as displayed by the lszcrypt tool or in
-the sys file system (e.g. in /sys/bus/ap/devices).
-Currently Linux on z only supports a single domain. That domain number
-can be displayed with lszcrypt -b (see the value of ap_domain) or
-alternatively as contents of /sys/bus/ap/ap_domain.
+EP11 token configuration files defines a list of adapter/domain pairs to which
+the EP11 token sends its cryptographic requests. This list can be specified as
+a white list starting with a line containing the key word APQN_WHITELIST
+followed by one or more lines containing each two integers (in the range
+of 0 - 255) separated by a white space. The white list is ended with a line
+containing the key word END. In each of lines of the white list the first
+integer denotes the adapter number and the second integer denotes the domain
+id. Alternatively the keyword APQN_ANY can be used to define that all
+adapter/domain pairs with EP11 firmware load that are available to the system
+shall be used as target adapters. An adapter number corresponds to the
+numerical part xx of an adapter id of the form cardxx as displayed by the
+lszcrypt tool or in the sys file system (e.g. in /sys/bus/ap/devices).
+Currently Linux on z only supports a single domain. That domain number can be
+displayed with lszcrypt -b (see the value of ap_domain) or alternatively as
+contents of /sys/bus/ap/ap_domain.
 
 In addition to the target adapter a log level can be defined in the EP11
-configuration file using a line consisting of the key word LOGLEVEL
-followed by an integer between 0 and 9.
+configuration file using a line consisting of the key word LOGLEVEL followed
+by an integer between 0 and 9.
 
 Logging
 -------
 
 If a log level greater than 0 is defined in the environment variable
-OCK_EP11_TOKEN_LOGLEVEL or using the LOGLEVEL entry in the EP11
-configuration file then log entries are written to a log file
-/var/log/ock_ep11_token.<pid>.log where <pid> is the process id of the
-process using the EP11 token.
+OCK_EP11_TOKEN_LOGLEVEL or using the LOGLEVEL entry in the EP11 configuration
+file then log entries are written to a log file
+/var/log/ock_ep11_token.<pid>.log where <pid> is the process id of the process
+using the EP11 token.
 
-Note, that the handling of EP11 logs is subject to change in future
-releases of opencryptoki.
+Note, that the handling of EP11 logs is subject to change in future releases
+of opencryptoki.
 
 Crypto Express Adapter EP11 Master Key Management
 -------------------------------------------------
@@ -77,28 +76,27 @@ object repository (in the TOK_OBJ directory within the EP11 token directory)
 become invalid.
 
 The key migration tool pkcsep11_migrate can be used to perform the migration
-of the current EP11 master keys to new master keys. Therefore the
-following steps must be performed:
-
-1) on the Trusted Key Entry console (TKE): submit and commit
-new master keys on the EP11 adapter(s)
-2) on Linux: stop all processes using openCryptoki with the EP11 token
-3) on Linux: back up the token object repository of the EP11 token
-4) on Linux: migrate keys of object repository of EP11 token with
-migration tool. If a failure occurs restore the backed up token 
-repository and retry step 4
-5) on the TKE: activate new master keys on the EP11 adapter(s)
-6) on Linux: restart applications using openCryptoki with the EP11 token
+of the current EP11 master keys to new master keys. Therefore the following
+steps must be performed:
+1) On the Trusted Key Entry console (TKE): Submit and commit new master
+keys on the EP11 adapter(s).
+2) On Linux: Stop all processes using openCryptoki with the EP11 token.
+3) On Linux: Back up the token object repository of the EP11 token.
+4) On Linux: Migrate keys of object repository of EP11 token with
+migration tool. If a failure occurs restore the backed up token repository
+and retry step 4.
+5) On the TKE: Activate new master keys on the EP11 adapter(s).
+6) On Linux: Restart applications using openCryptoki with the EP11 token.
 
 Token specifics
 ---------------
 
-The EP11 token only supports secure keys (i.e. key wrapped by a master key
-of the Crypto Express adapter). Therefore all keys must have the attribute
-CKA_SENISTIVE set to CK_TRUE. Since the PKCS#11 standard does not define
-a (token specific) default for secure keys the attribute must be explicitly
-provided whenever a secret key is generated, unwrapped or created with
-C_CreateObject. In addition all keys used with the EP11 token are extractable
+The EP11 token only supports secure keys (i.e. key wrapped by a master key of
+the Crypto Express adapter). Therefore all keys must have the attribute
+CKA_SENISTIVE set to CK_TRUE. Since the PKCS#11 standard does not define a
+(token specific) default for secure keys the attribute must be explicitly
+provided whenever a secret key is generated, unwrapped or build with
+C_CreateObject. In addition all keys used with the EP11 token are extractable.
 i.e. they must have the attribute CKA_EXTRACTABLE set to CK_TRUE.
 
 When creating keys the default values of the attributes CKA_ENCRYPT,
@@ -108,18 +106,21 @@ Note, no EP11 mechanism supports the Sign/Recover or Verify/Recover functions.
 All RSA key must have a public exponent (CKA_PUBLIC_EXPONENT) greater than
 or equal to 17.
 
+The CryptoExpress EP11 coprocessor restricts RSA keys (primes and moduli)
+according to ANSI X9.31. Therefore in the EP11 token the lengths of the
+RSA primes (p or q) must be a multiple of 128 bits and the length of the
+modulus (CKA_MODULUS_BITS) must be a multiple of 256.
+
+The mechanisms CKM_DES3_CBC and CKM_AES_CBC can only wrap keys which have
+a length that is a multiple of the block size of DES3 or AES respectively.
+
 See the mechanism list and mechanism info (pkcsconf -m) for supported
-mechanisms together with supported functions and key sizes.
-Note the supported mechanism list is currently fixed and matches the
-most stringent setting of the Crypto Express adapter.
+mechanisms together with supported functions and key sizes. Note the
+supported mechanism list is currently fix and matches the most stringent
+setting of the Crypto Express adapter.
 
-Temporary Restrictions & Circumventions
----------------------------------------
+Note, the EP11 coprocessor adapter can be configured to restrict the
+cryptographic capababilities in order for the adapter to comply with specific
+security requirements and regulations. Such restrictions on the adapter impact
+the capabilitiy of the EP11 token.
 
-Wrapping 192 bit AES keys with the mechanism CKM_AES_CBC is not supported, use
-CKM_AES_CBC_PAD instead.
-
-Importing RAS private keys with C_Unwrap is not supported for key sizes that
-are not a multiple of AES blocksize. No circumvention possible.
-
-CKM_SHA512_HMAC is not supported. No circumvention possible.
