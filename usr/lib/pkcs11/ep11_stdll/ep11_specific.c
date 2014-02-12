@@ -1814,11 +1814,11 @@ CK_RV token_specific_derive_key(SESSION *session, CK_MECHANISM_PTR mech,
 	memset(&secret_op, 0, sizeof(secret_op));
 	secret_op.blob_size = blobsize;
 
-	if (h_opaque_2_blob(hBaseKey, &blob, &blob_len) != CKR_OK) {
+	rc = h_opaque_2_blob(hBaseKey, &blob, &blob_len);
+	if (rc != CKR_OK) {
 		EP11TOK_ELOG(1,"FAIL hBaseKey=0x%lx",hBaseKey);
-		return CKR_CANCEL;
+		return rc;
 	}
-
 
 	/* Get the keytype to use when creating the key object */
 	rc = ep11_get_keytype(attrs, attrs_len, mech, &ktype, &class);
@@ -2732,6 +2732,37 @@ CK_RV token_specific_generate_key_pair(SESSION * sess,
 			private_key_obj->name, public_key_obj, private_key_obj);
 	}
 
+	/* copy CKA_CLASS, CKA_KEY_TYPE to private template */
+	if (template_attribute_find(public_key_obj->template, CKA_CLASS, &attr)) {
+		rc = build_attribute(attr->type, attr->pValue,
+					attr->ulValueLen, &n_attr);
+		if (rc != CKR_OK) {
+			EP11TOK_ELOG(1,"build_attribute failed with rc=0x%lx",rc);
+			goto error;
+		}
+
+		rc = template_update_attribute(private_key_obj->template, n_attr);
+		if (rc != CKR_OK) {
+			EP11TOK_ELOG(1,"template_update_attribute failed with rc=0x%lx",rc);
+			goto error;
+		}
+	}
+
+	if (template_attribute_find(public_key_obj->template, CKA_KEY_TYPE, &attr)) {
+		rc = build_attribute(attr->type, attr->pValue,
+					attr->ulValueLen, &n_attr);
+		if (rc != CKR_OK) {
+			EP11TOK_ELOG(1,"build_attribute failed with rc=0x%lx",rc);
+			goto error;
+		}
+
+		rc = template_update_attribute(private_key_obj->template, n_attr);
+		if (rc != CKR_OK) {
+			EP11TOK_ELOG(1,"template_update_attribute failed with rc=0x%lx",rc);
+			goto error;
+		}
+	}
+
 	/* Keys should be fully constructed,
 	 * assign object handles and store keys.
 	 */
@@ -2748,39 +2779,8 @@ CK_RV token_specific_generate_key_pair(SESSION * sess,
 		public_key_obj = NULL;
 		goto error;
 	}
-
-	/* copy CKA_CLASS, CKA_KEY_TYPE to private template */
-	if (template_attribute_find(public_key_obj->template, CKA_CLASS, &attr)) {
-		rc = build_attribute(attr->type, attr->pValue,
-					attr->ulValueLen, &n_attr);
-		if (rc != CKR_OK) {
-			EP11TOK_ELOG(1,"build_attribute failed with rc=0x%lx",rc);
-			return rc;
-		}
-
-		rc = template_update_attribute(private_key_obj->template, n_attr);
-		if (rc != CKR_OK) {
-			EP11TOK_ELOG(1,"template_update_attribute failed with rc=0x%lx",rc);
-			return rc;
-		}
-	}
-
-	if (template_attribute_find(public_key_obj->template, CKA_KEY_TYPE, &attr)) {
-		rc = build_attribute(attr->type, attr->pValue,
-					attr->ulValueLen, &n_attr);
-		if (rc != CKR_OK) {
-			EP11TOK_ELOG(1,"build_attribute failed with rc=0x%lx",rc);
-			return rc;
-		}
-
-		rc = template_update_attribute(private_key_obj->template, n_attr);
-		if (rc != CKR_OK) {
-			EP11TOK_ELOG(1,"template_update_attribute failed with rc=0x%lx",rc);
-			return rc;
-		}
-	}
-
 	return rc;
+
 error:
 	if (public_key_obj) object_free(public_key_obj);
 	if (private_key_obj) object_free(private_key_obj);
@@ -2801,11 +2801,13 @@ static CK_RV h_opaque_2_blob(CK_OBJECT_HANDLE handle,
 	OBJECT *key_obj;
 	CK_ATTRIBUTE *attr = NULL;
 	ep11_opaque *op;
+	CK_RV rc;
 
 	/* find the key obj by the key handle */
-	if (object_mgr_find_in_map1(handle,&key_obj) != CKR_OK) {
+	rc = object_mgr_find_in_map1(handle,&key_obj);
+	if (rc != CKR_OK) {
 		EP11TOK_ELOG(1,"key 0x%lx not mapped", handle);
-		return CKR_FUNCTION_FAILED;
+		return rc;
 	}
     
 	/* blob already exists */
@@ -2844,30 +2846,31 @@ CK_RV token_specific_sign_init(SESSION *session, CK_MECHANISM *mech,
 		return CKR_HOST_MEMORY;
 	}
 
-	if (h_opaque_2_blob(key,&privkey_blob,&blob_len) == CKR_OK) {
-		rc = m_SignInit(ep11_sign_state, &ep11_sign_state_l,
-				mech, privkey_blob, blob_len, ep11tok_target) ;
-
-		/* SIGN_VERIFY_CONTEX holds all needed for continuing,
-		 * also by another adapter (stateless requests)
-		 */
-		ctx->key = key;
-		ctx->multi = FALSE;
-		ctx->active = TRUE;
-		ctx->context = ep11_sign_state;
-		ctx->context_len = ep11_sign_state_l;
-
-		if (rc != CKR_OK) {
-			EP11TOK_ELOG(1,"rc=0x%lx blob_len=0x%x key=0x%lx mech=0x%lx", rc, blob_len, key, mech->mechanism);
-		} else {
-			EP11TOK_LOG(2,"rc=0x%lx blob_len=0x%x key=0x%lx mech=0x%lx", rc, blob_len, key, mech->mechanism);
-		}
-
-		return rc;
-	} else {
+	rc = h_opaque_2_blob(key, &privkey_blob, &blob_len);
+	if (rc != CKR_OK) {
 		EP11TOK_ELOG(1,"no blob rc=0x%lx",rc);
-		return CKR_FUNCTION_FAILED;
+		return rc;
 	}
+
+	rc = m_SignInit(ep11_sign_state, &ep11_sign_state_l,
+			mech, privkey_blob, blob_len, ep11tok_target) ;
+
+	/* SIGN_VERIFY_CONTEX holds all needed for continuing,
+	 * also by another adapter (stateless requests)
+	 */
+	ctx->key = key;
+	ctx->multi = FALSE;
+	ctx->active = TRUE;
+	ctx->context = ep11_sign_state;
+	ctx->context_len = ep11_sign_state_l;
+
+	if (rc != CKR_OK) {
+		EP11TOK_ELOG(1,"rc=0x%lx blob_len=0x%x key=0x%lx mech=0x%lx", rc, blob_len, key, mech->mechanism);
+	} else {
+		EP11TOK_LOG(2,"rc=0x%lx blob_len=0x%x key=0x%lx mech=0x%lx", rc, blob_len, key, mech->mechanism);
+	}
+
+	return rc;
 }
 
 
@@ -2946,27 +2949,26 @@ CK_RV token_specific_verify_init(SESSION *session, CK_MECHANISM *mech,
 		return CKR_HOST_MEMORY;
 	}
 
-	if (h_opaque_2_blob(key,&spki,&spki_len) == CKR_OK) {
-		rc = m_VerifyInit(ep11_sign_state, &ep11_sign_state_l, mech,
-				  spki, spki_len, ep11tok_target);
-        
-		ctx->key = key;
-		ctx->multi = FALSE;
-		ctx->active = TRUE;
-		ctx->context = ep11_sign_state;
-		ctx->context_len = ep11_sign_state_l;
-
-		if (rc != CKR_OK) {
-			EP11TOK_ELOG(1,"rc=0x%lx spki_len=0x%x key=0x%lx ep11_sing_state_l=0x%x mech=0x%lx", rc, spki_len, key, ep11_sign_state_l, mech->mechanism);
-		} else {
-			EP11TOK_LOG(2,"rc=0x%lx spki_len=0x%x key=0x%lx ep11_sing_state_l=0x%x mech=0x%lx", rc, spki_len, key, ep11_sign_state_l, mech->mechanism);
-		}
-
-		return rc;
-	} else {
+	rc = h_opaque_2_blob(key, &spki, &spki_len);
+	if (rc != CKR_OK) {
 		EP11TOK_ELOG(1,"no blob rc=0x%lx",rc);
-		return CKR_FUNCTION_FAILED;
+		return rc;
 	}
+
+	rc = m_VerifyInit(ep11_sign_state, &ep11_sign_state_l, mech,
+			  spki, spki_len, ep11tok_target);
+	ctx->key = key;
+	ctx->multi = FALSE;
+	ctx->active = TRUE;
+	ctx->context = ep11_sign_state;
+	ctx->context_len = ep11_sign_state_l;
+	if (rc != CKR_OK) {
+		EP11TOK_ELOG(1,"rc=0x%lx spki_len=0x%x key=0x%lx ep11_sing_state_l=0x%x mech=0x%lx", rc, spki_len, key, ep11_sign_state_l, mech->mechanism);
+	} else {
+		EP11TOK_LOG(2,"rc=0x%lx spki_len=0x%x key=0x%lx ep11_sing_state_l=0x%x mech=0x%lx", rc, spki_len, key, ep11_sign_state_l, mech->mechanism);
+	}
+
+	return rc;
 }
 
 
@@ -3169,11 +3171,12 @@ static CK_RV ep11_ende_crypt_init(SESSION *session, CK_MECHANISM_PTR mech,
 		return CKR_HOST_MEMORY;
 	}
 
-	if (h_opaque_2_blob(key, &blob, &blob_len) != CKR_OK) {
+	rc = h_opaque_2_blob(key, &blob, &blob_len);
+	if (rc != CKR_OK) {
 		EP11TOK_ELOG(1,"no blob rc=0x%lx",rc);
-		return CKR_FUNCTION_FAILED;
+		return rc;
 	}
-    
+
 	if (op == DECRYPT) {
 		rc = m_DecryptInit(ep11_state, &ep11_state_l, mech, blob,
 				   blob_len, ep11tok_target);
