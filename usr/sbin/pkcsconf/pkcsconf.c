@@ -364,7 +364,7 @@ main(int argc, char *argv[]){
        errflag = 0;            // Error Flag
 
    /* Parse the command line parameters */
-   while ((c = getopt (argc, argv, "itsmMIc:S:U:upPn:lh")) != (-1)){
+   while ((c = getopt (argc, argv, "itsmIc:S:U:upPn:lh")) != (-1)){
       switch (c){
          case 'c':  /* a specific card (slot) is specified */
             if (flags & CFG_SLOT) {
@@ -1345,7 +1345,7 @@ void
 usage(char *progname){
 
    /* If we get here the user needs help, so give it to them */
-   printf("usage:\t%s [-itsmMIupPh] [-c slotnumber -U userPIN -S SOPin -n newpin]\n", progname);
+   printf("usage:\t%s [-itsmIupPh] [-c slotnumber -U userPIN -S SOPin -n newpin]\n", progname);
    printf("\t-i display PKCS11 info\n");
    printf("\t-t display token info\n");
    printf("\t-s display slot info\n");
