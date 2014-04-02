@@ -1140,17 +1140,27 @@ static CK_RV print_mechanism(void)
 	CK_ULONG count = 0;
 	int i;
 	CK_MECHANISM_INFO m_info;
+	CK_RV rc;
 
-	/* only informational */
-	(void) token_specific_get_mechanism_list(list, &count);
+	/* first call is just to fetch the count value */
+	rc = token_specific_get_mechanism_list(list, &count);
+	if (rc != CKR_OK) {
+		EP11TOK_ELOG(1,"can't fetch mechanism list.");
+		return rc;		
+	}
 	list = (CK_MECHANISM_TYPE_PTR)malloc(sizeof(CK_MECHANISM_TYPE) * count);
 	if (!list) {
 		EP11TOK_ELOG(1,"Memory allocation failed.");
 		return CKR_HOST_MEMORY;
 	}
 
-	/* only informational */
-	(void) token_specific_get_mechanism_list(list, &count);
+	/* now really fill the list */
+	rc = token_specific_get_mechanism_list(list, &count);
+	if (rc != CKR_OK) {
+		EP11TOK_ELOG(1,"can't fetch mechanism list!");
+		free(list);
+		return rc;		
+	}
 
 	EP11TOK_LOG(2,"EP11 token mechanism list, %lu entries:", count);
 	for (i = 0; i < count; i++) {
@@ -1170,6 +1180,7 @@ static CK_RV print_mechanism(void)
 		EP11TOK_LOG(2," %s {%lu,%lu%s}", ep11_get_ckm(list[i]),
 			    m_info.ulMinKeySize, m_info.ulMaxKeySize, strflags);
 	}
+
 	free(list);
 	return CKR_OK;
 }
@@ -1295,7 +1306,11 @@ CK_RV token_specific_init(char *Correlator, CK_SLOT_ID SlotNumber, char *conf_na
 	}
     
 	/* print mechanismlist to log file */
-	(void)print_mechanism();
+	rc = print_mechanism();
+	if (rc != CKR_OK) {
+		EP11TOK_ELOG(1,"failure on fetching mechanism list rc=0x%lx, maybe wrong config ?", rc);
+		return CKR_GENERAL_ERROR;
+	}
     
 	/* create an AES key needed for importing keys
 	 * (encrypt by wrap_key and m_UnwrapKey by wrap key)
@@ -3528,7 +3543,7 @@ CK_RV token_specific_get_mechanism_list(CK_MECHANISM_TYPE_PTR pMechanismList,
 		rc = m_GetMechanismList(0, pMechanismList, pulCount,
 					ep11tok_target);
 		if (rc != CKR_OK) {
-			EP11TOK_ELOG(1,"bad rc #1 rc=0x%lx", rc);
+			EP11TOK_ELOG(1,"bad rc=0x%lx from m_GetMechanismList()", rc);
 			return rc;
 		}
 
@@ -3543,7 +3558,7 @@ CK_RV token_specific_get_mechanism_list(CK_MECHANISM_TYPE_PTR pMechanismList,
 		}
 		rc = m_GetMechanismList(0, mlist, &counter, ep11tok_target);
 		if (rc != CKR_OK) {
-			EP11TOK_ELOG(1,"bad rc #2 rc=0x%lx", rc);
+			EP11TOK_ELOG(1,"bad rc=0x%lx from m_GetMechanismList()", rc);
 			free(mlist);
 			return rc;
 		}
@@ -3573,7 +3588,7 @@ CK_RV token_specific_get_mechanism_list(CK_MECHANISM_TYPE_PTR pMechanismList,
 		 */
 		rc = m_GetMechanismList(0,mlist,&counter,ep11tok_target);
 		if (rc != CKR_OK) {
-			EP11TOK_ELOG(1,"bad rc #3 rc=0x%lx", rc);
+			EP11TOK_ELOG(1,"bad rc=0x%lx from m_GetMechanismList()", rc);
 			return rc;
 		}
 
@@ -3743,6 +3758,7 @@ static int read_adapter_config_file(const char* conf_name)
   
 	if (!conf_name) {
 		/* no conf_name was given, should not happen */
+		EP11TOK_ELOG(1,"no conf_name argument found");
 		return APQN_FILE_INV_1;
 	}
 
