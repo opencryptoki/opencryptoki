@@ -993,6 +993,7 @@ static const char* ep11_get_ckm(CK_ULONG mechanism)
 static CK_RV h_opaque_2_blob(CK_OBJECT_HANDLE handle,
                              CK_BYTE **blob, size_t *blob_len);
 
+#define EP11_DEFAULT_CFG_FILE "ep11tok.conf"
 #define EP11_CFG_FILE_SIZE 4096
 
 /* error rc for reading the adapter config file */
@@ -1271,6 +1272,13 @@ CK_RV token_specific_init(char *Correlator, CK_SLOT_ID SlotNumber, char *conf_na
 		}
 	}
 	EP11TOK_LOG(1,"init running");
+
+	/* read ep11 specific config file with user specified adapter/domain pairs, loglevel, ... */
+	rc = read_adapter_config_file(conf_name);
+	if (rc != CKR_OK) {
+		EP11TOK_ELOG(1,"ep11 config file error rc=0x%lx", rc);
+		return CKR_GENERAL_ERROR;
+	}
   
 	/* wrap key name */
 	memset(wrap_key_name, 0, sizeof(wrap_key_name));
@@ -1297,14 +1305,7 @@ CK_RV token_specific_init(char *Correlator, CK_SLOT_ID SlotNumber, char *conf_na
 		return CKR_DEVICE_ERROR;
 	}
 #endif
-    
-	/* user specified adapter/domain pairs the token is supposed to use */
-	rc = read_adapter_config_file(conf_name);
-	if (rc != CKR_OK) {
-		EP11TOK_ELOG(1,"adapter config file error rc=0x%lx", rc);
-		return CKR_GENERAL_ERROR;
-	}
-    
+        
 	/* print mechanismlist to log file */
 	rc = print_mechanism();
 	if (rc != CKR_OK) {
@@ -3753,40 +3754,57 @@ static int read_adapter_config_file(const char* conf_name)
 	if (ep11_initialized) {
 		return 0;
 	}
-  
+
 	memset(fname,0,PATH_MAX);
-  
-	if (!conf_name) {
-		/* no conf_name was given, should not happen */
-		EP11TOK_ELOG(1,"no conf_name argument found");
-		return APQN_FILE_INV_1;
-	}
 
 	/* via envrionment variable it is possible to overwrite the
-	 * config file given in the opencryptoki.conf. Then we use
-	 * $OCK_EP11_TOKEN_DIR/ock_ep11_token.conf.
+	 * directory where the ep11 token config file is searched.
 	 */
 	if (conf_dir) {
-		snprintf(fname, sizeof(fname), "%s/%s", conf_dir, conf_name);
-		ap_fp = fopen(fname,"r");
+		if (conf_name && strlen(conf_name) > 0) {
+			/* extract filename part from conf_name */
+			for (i=strlen(conf_name)-1; i >= 0 && conf_name[i] != '/'; i--);
+			if (i < strlen(conf_name)-1) {
+				snprintf(fname, sizeof(fname), "%s/%s", conf_dir, conf_name+i+1);
+				fname[sizeof(fname)-1] = '\0';
+				ap_fp = fopen(fname,"r");
+				EP11TOK_LOG(2,"fopen('%s') failed with errno %d", fname, errno);
+			}
+		}
+		if (!ap_fp) {
+			snprintf(fname, sizeof(fname), "%s/%s", conf_dir, EP11_DEFAULT_CFG_FILE);
+			fname[sizeof(fname)-1] = '\0';
+			ap_fp = fopen(fname,"r");
+			EP11TOK_LOG(2,"fopen('%s') failed with errno %d", fname, errno);
+		}
+	} else {
+		if (conf_name && strlen(conf_name) > 0) {
+			strncpy(fname, conf_name, sizeof(fname));
+			fname[sizeof(fname)-1] = '\0';
+			ap_fp = fopen(fname,"r");
+			if (!ap_fp) {
+				EP11TOK_LOG(2,"fopen('%s') failed with errno %d", fname, errno);
+				snprintf(fname, sizeof(fname), "%s/%s", OCK_CONFDIR, conf_name);
+				fname[sizeof(fname)-1] = '\0';
+				ap_fp = fopen(fname,"r");
+				if (!ap_fp) EP11TOK_LOG(2,"fopen('%s') failed with errno %d", fname, errno);
+			}
+		} else {
+			snprintf(fname, sizeof(fname), "%s/%s", OCK_CONFDIR, EP11_DEFAULT_CFG_FILE);
+			fname[sizeof(fname)-1] = '\0';
+			ap_fp = fopen(fname,"r");
+			if (!ap_fp) EP11TOK_LOG(2,"fopen('%s') failed with errno %d", fname, errno);
+		}
 	}
-  
-	/* if there was no environment variable or fopen failed, use the
-	 * default given from opencryptoki.conf via conf_name argument.
-	 */
-	if (!ap_fp) {
-		snprintf(fname, sizeof(fname), "%s/%s", OCK_CONFDIR, conf_name);
-		ap_fp = fopen(fname,"r");
-	}
-  
+
 	/* now we should really have an open ep11 token config file */
 	if (!ap_fp) {
 		EP11TOK_ELOG(1,"no valid EP 11 config file found");
 		return APQN_FILE_INV_2;
 	}
-  
+
 	EP11TOK_LOG(2,"EP 11 token config file is '%s'", fname);
-  
+
 	/* read config file line by line,
 	 * ignore empty and # and copy rest into file buf
 	 */
@@ -3811,13 +3829,13 @@ static int read_adapter_config_file(const char* conf_name)
 	}
 
 	ep11_targets.length = 0;
-  
+
 	for (i=0,j=0,str=filebuf; rc == 0; str=NULL) {
 		/* strtok tokenizes the string,
 		 * delimiters are newline and whitespace.
 		 */
 		token = strtok(str, "\n\t ");
-      
+
 		if (i == 0) {
 			 /* expecting APQN_WHITELIST or APQN_BLACKLIST
 			  * or APQN_ANY or LOGLEVEL or eof.
@@ -3906,7 +3924,8 @@ static int read_adapter_config_file(const char* conf_name)
 	/* do some checks: */
 	if (rc == 0) {
 		if ( !(whitemode || blackmode || anymode)) {
-			EP11TOK_ELOG(1,"At least one APQN mode needs to be present in configfile: APQN_WHITEMODE or APQN_BLACKMODE or APQN_ANY");
+			EP11TOK_ELOG(1,"At least one APQN mode needs to be present in configfile:"
+				     " APQN_WHITEMODE or APQN_BLACKMODE or APQN_ANY");
 			rc = APQN_FILE_NO_APQN_MODE;
 		} else if (whitemode || blackmode) {
 			/* at least one APQN needs to be defined */
