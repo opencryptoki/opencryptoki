@@ -296,6 +296,7 @@
 #include <string.h>
 #include <stdlib.h>
 #include <unistd.h>
+#include <stdint.h>
 
 #include "pkcs11types.h"
 #include "defs.h"
@@ -314,7 +315,6 @@
 #include <lber.h>
 #include <asm/zcrypt.h>
 #include <syslog.h>
-#include <stdint.h>
 #include <dlfcn.h>
 #include <lber.h>
 
