@@ -60,6 +60,7 @@ long speed_process_time(SYSTEMTIME t1, SYSTEMTIME t2)
 int do_RSA_PKCS_EncryptDecrypt( void )
 {
    CK_BYTE             data1[100];
+   CK_BYTE             data2[200];
    CK_BYTE             signature[256];
    CK_SLOT_ID          slot_id;
    CK_SESSION_HANDLE   session;
@@ -69,14 +70,14 @@ int do_RSA_PKCS_EncryptDecrypt( void )
    CK_BYTE             user_pin[PKCS11_MAX_PIN_LEN];
    CK_ULONG            user_pin_len;
    CK_ULONG            i;
-   CK_ULONG            len1, sig_len;
+   CK_ULONG            len1, len2, sig_len;
    CK_RV               rc;
 
    SYSTEMTIME          t1, t2;
    CK_ULONG            diff, min_time, max_time, avg_time;
 
    CK_ULONG  bits = 1024;
-   CK_BYTE   pub_exp[] = { 0x3 };
+   CK_BYTE   pub_exp[] = { 0x01, 0x00, 0x01 };
 
    CK_ATTRIBUTE pub_tmpl[] =
    {
@@ -190,7 +191,8 @@ int do_RSA_PKCS_EncryptDecrypt( void )
          return FALSE;
       }
 
-      rc = funcs->C_Decrypt( session, signature,sig_len,data1, &len1 );
+      len2 = sizeof(data2);
+      rc = funcs->C_Decrypt( session, signature, sig_len, data2, &len2 );
       if (rc != CKR_OK) {
          show_error("   C_Decrypt #1", rc );
          return FALSE;
@@ -259,7 +261,7 @@ int do_RSA_KeyGen_2048( void )
    {
       SYSTEMTIME  t1, t2;
       CK_ULONG  bits = 2048;
-      CK_BYTE   pub_exp[] = { 0x3 };
+      CK_BYTE   pub_exp[] = { 0x01, 0x00, 0x01 };
 
       CK_ATTRIBUTE pub_tmpl[] =
       {
@@ -368,7 +370,7 @@ int do_RSA_KeyGen_1024( void )
    {
       SYSTEMTIME  t1, t2;
       CK_ULONG  bits = 1024;
-      CK_BYTE   pub_exp[] = { 0x3 };
+      CK_BYTE   pub_exp[] = { 0x01, 0x00, 0x01 };
 
       CK_ATTRIBUTE pub_tmpl[] =
       {
@@ -468,7 +470,7 @@ int do_RSA_PKCS_SignVerify_1024( void )
    CK_ULONG            diff, min_time, max_time, avg_time;
 
    CK_ULONG  bits = 1024;
-   CK_BYTE   pub_exp[] = { 0x3 };
+   CK_BYTE   pub_exp[] = { 0x01, 0x00, 0x01 };
 
    CK_ATTRIBUTE pub_tmpl[] =
    {

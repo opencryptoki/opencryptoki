@@ -602,7 +602,8 @@ CK_RV do_GetMechanismInfo( void )
 			return rc;
 		}
 
-		printf("   Mechanism #%ld\n",  mech_list[i] );
+		printf("   Mechanism #%ld %s\n", mech_list[i],
+		       p11_get_ckm(mech_list[i]) );
 		printf("      ulMinKeySize:  %ld\n",  info.ulMinKeySize );
 		printf("      ulMaxKeySize:  %ld\n",  info.ulMaxKeySize );
 		printf("      flags:         %p\n",   (void *)info.flags );
