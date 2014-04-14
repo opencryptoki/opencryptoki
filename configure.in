@@ -372,14 +372,9 @@ if test "x$with_zcrypt" != "xno"; then
 	])
 
 	if test "x$with_zcrypt" != "xno"; then
-		AC_CHECK_LIB([ep11], [m_init],
-			[with_zcrypt=yes], [
-				if test "x$with_zcrypt" != "xcheck"; then
-					AC_MSG_ERROR([Build with zcrypt requested but zcrypt libraries couldn't be found])
-				fi
-				with_zcrypt=no
-		])
+		with_zcrypt=no
 	fi
+
 	if test "x$with_zcrypt" = "xno"; then
 		CFLAGS="$old_cflags"
 		LIBS="$old_libs"
