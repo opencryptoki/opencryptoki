@@ -407,9 +407,9 @@ static ep11_target_t ep11_targets;
 /* defined in the makefile, ep11 library can run standalone (without HW card),
    crypto algorithms are implemented in software then (no secure key) */
 #ifdef EP11_STANDALONE
-unsigned long long ep11tok_target = 0x0000000100000008ull;
+static unsigned long long ep11tok_target = 0x0000000100000008ull;
 #else
-unsigned long long ep11tok_target = (unsigned long long) &ep11_targets;
+static void* ep11tok_target = (void*) &ep11_targets;
 #endif
 
 /* */
