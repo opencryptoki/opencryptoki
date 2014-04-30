@@ -19,7 +19,6 @@
 #define MIN_PIN_LEN   4
 
 #define CCA_CHAIN_VECTOR_LEN     128
-#define CCA_MAX_TAIL_LEN          64
 #define CCA_HASH_PART_FIRST        0
 #define CCA_HASH_PART_MIDDLE       1
 #define CCA_HASH_PART_LAST         2

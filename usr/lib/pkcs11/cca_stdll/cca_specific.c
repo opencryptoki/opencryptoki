@@ -72,6 +72,12 @@ MECH_LIST_ELEMENT mech_list[] = {
    { CKM_AES_CBC_PAD,                { 16,   32, CKF_HW      |
 						CKF_ENCRYPT | CKF_DECRYPT |
 						CKF_WRAP    | CKF_UNWRAP } },
+   { CKM_SHA512,                     { 0,    0, CKF_HW | CKF_DIGEST } },
+   { CKM_SHA512_HMAC,                { 0,    0, CKF_SIGN | CKF_VERIFY } },
+   { CKM_SHA512_HMAC_GENERAL,        { 0,    0, CKF_SIGN | CKF_VERIFY } },
+   { CKM_SHA384,                     { 0,    0, CKF_HW | CKF_DIGEST } },
+   { CKM_SHA384_HMAC,                { 0,    0, CKF_SIGN | CKF_VERIFY } },
+   { CKM_SHA384_HMAC_GENERAL,        { 0,    0, CKF_SIGN | CKF_VERIFY } },
    { CKM_SHA256,                     { 0,    0, CKF_HW | CKF_DIGEST } },
    { CKM_SHA256_HMAC,                { 0,    0, CKF_SIGN | CKF_VERIFY } },
    { CKM_SHA256_HMAC_GENERAL,        { 0,    0, CKF_SIGN | CKF_VERIFY } },
@@ -1623,7 +1629,7 @@ token_specific_ec_verify(CK_BYTE  * in_data,
 	return CKR_OK;
 }
 
-CK_RV token_specific_sha2_init(DIGEST_CONTEXT *ctx)
+CK_RV cca_sha_init(DIGEST_CONTEXT *ctx, CK_ULONG hash_size)
 {
 	struct cca_sha_ctx *cca_ctx;
 
@@ -1638,15 +1644,29 @@ CK_RV token_specific_sha2_init(DIGEST_CONTEXT *ctx)
 
 	cca_ctx = (struct cca_sha_ctx *)ctx->context;
 	cca_ctx->chain_vector_len = CCA_CHAIN_VECTOR_LEN;
-	cca_ctx->hash_len = SHA2_HASH_SIZE;
+	cca_ctx->hash_len = hash_size;
 	/* tail_len is already 0 */
 
 	return CKR_OK;
 }
 
-CK_RV token_specific_sha2(DIGEST_CONTEXT *ctx, CK_BYTE *in_data,
-			  CK_ULONG in_data_len, CK_BYTE *out_data,
-			  CK_ULONG *out_data_len)
+CK_RV token_specific_sha2_init(DIGEST_CONTEXT *ctx)
+{
+	return cca_sha_init(ctx, SHA2_HASH_SIZE);
+}
+
+CK_RV token_specific_sha3_init(DIGEST_CONTEXT *ctx)
+{
+	return cca_sha_init(ctx, SHA3_HASH_SIZE);
+}
+
+CK_RV token_specific_sha5_init(DIGEST_CONTEXT *ctx)
+{
+	return cca_sha_init(ctx, SHA5_HASH_SIZE);
+}
+
+CK_RV cca_sha(DIGEST_CONTEXT *ctx, CK_BYTE *in_data, CK_ULONG in_data_len,
+	     CK_BYTE *out_data, CK_ULONG *out_data_len)
 {
 	struct cca_sha_ctx *cca_ctx;
 	long return_code, reason_code, rule_array_count = 2;
@@ -1663,8 +1683,23 @@ CK_RV token_specific_sha2(DIGEST_CONTEXT *ctx, CK_BYTE *in_data,
 	if (*out_data_len < cca_ctx->hash_len)
 		return CKR_BUFFER_TOO_SMALL;
 
-	memcpy(rule_array, "SHA-256 ONLY    ", CCA_KEYWORD_SIZE * 2);
-	cca_ctx->part = CCA_HASH_PART_ONLY;
+	switch (ctx->mech.mechanism) {
+	case CKM_SHA256:
+		memcpy(rule_array, "SHA-256 ONLY    ", CCA_KEYWORD_SIZE * 2);
+		cca_ctx->part = CCA_HASH_PART_ONLY;
+		break;
+	case CKM_SHA384:
+		memcpy(rule_array, "SHA-384 ONLY    ", CCA_KEYWORD_SIZE * 2);
+		cca_ctx->part = CCA_HASH_PART_ONLY;
+                break;
+	case CKM_SHA512:
+		memcpy(rule_array, "SHA-512 ONLY    ", CCA_KEYWORD_SIZE * 2);
+		cca_ctx->part = CCA_HASH_PART_ONLY;
+		break;
+	default:
+		return CKR_MECHANISM_INVALID;
+	}
+
 
 	CSNBOWH(&return_code, &reason_code, NULL, NULL, &rule_array_count,
 		rule_array, &in_data_len, in_data, &cca_ctx->chain_vector_len,
@@ -1684,26 +1719,63 @@ CK_RV token_specific_sha2(DIGEST_CONTEXT *ctx, CK_BYTE *in_data,
 	return CKR_OK;
 }
 
-CK_RV
-token_specific_sha2_update(DIGEST_CONTEXT *ctx, CK_BYTE *in_data,
-			   CK_ULONG in_data_len)
+CK_RV token_specific_sha2(DIGEST_CONTEXT *ctx, CK_BYTE *in_data,
+                          CK_ULONG in_data_len, CK_BYTE *out_data,
+                          CK_ULONG *out_data_len)
+{
+        return cca_sha(ctx, in_data, in_data_len, out_data, out_data_len);
+}
+
+CK_RV token_specific_sha3(DIGEST_CONTEXT *ctx, CK_BYTE *in_data,
+                          CK_ULONG in_data_len, CK_BYTE *out_data,
+                          CK_ULONG *out_data_len)
+{
+        return cca_sha(ctx, in_data, in_data_len, out_data, out_data_len);
+}
+
+CK_RV token_specific_sha5(DIGEST_CONTEXT *ctx, CK_BYTE *in_data,
+                          CK_ULONG in_data_len, CK_BYTE *out_data,
+                          CK_ULONG *out_data_len)
+{
+        return cca_sha(ctx, in_data, in_data_len, out_data, out_data_len);
+}
+
+CK_RV cca_sha_update(DIGEST_CONTEXT *ctx, CK_BYTE *in_data,
+		     CK_ULONG in_data_len)
 {
 	struct cca_sha_ctx *cca_ctx;
 	long return_code, reason_code, total, buffer_len, rule_array_count = 2;
 	unsigned char rule_array[CCA_RULE_ARRAY_SIZE] = { 0, };
 	CK_RV rc = CKR_OK;
 	unsigned char *buffer = NULL;	
-	int use_buffer = 0;
+	int blocksz, blocksz_mask, use_buffer = 0;
 	
 	if (!in_data)
 		return CKR_ARGUMENTS_BAD;
+
+	switch(ctx->mech.mechanism) {
+	case CKM_SHA256:
+		blocksz = SHA2_BLOCK_SIZE;
+		blocksz_mask = SHA2_BLOCK_SIZE_MASK;
+		break;
+	case CKM_SHA384:
+		blocksz = SHA3_BLOCK_SIZE;
+		blocksz_mask = SHA3_BLOCK_SIZE_MASK;
+		break;
+	case CKM_SHA512:
+		blocksz = SHA5_BLOCK_SIZE;
+		blocksz_mask = SHA5_BLOCK_SIZE_MASK;
+		break;
+	default:
+		return CKR_MECHANISM_INVALID;
+	}
 
 	cca_ctx = (struct cca_sha_ctx *)ctx->context;
 
 	/* just send if input a multiple of block size and
  	 * cca_ctx-> tail is empty.
  	 */
-	if ((cca_ctx->tail_len == 0) && ((in_data_len & 0x3F) == 0))
+	if ((cca_ctx->tail_len == 0) && ((in_data_len & blocksz_mask) == 0))
 		goto send;
 
 	/* at this point, in_data is not multiple of blocksize
@@ -1713,12 +1785,12 @@ token_specific_sha2_update(DIGEST_CONTEXT *ctx, CK_BYTE *in_data,
 
 	/* get totals */
 	total = cca_ctx->tail_len + in_data_len;
-	
+
 	/* see if we have enough to fill a block */
-	if (total >= SHA2_BLOCK_SIZE) {
+	if (total >= blocksz) {
 		int remainder;
 
-		remainder = total & 0x3F;
+		remainder = total & blocksz_mask;
 		buffer_len = total - remainder;
 		
 		/* allocate a buffer for sending... */
@@ -1747,15 +1819,43 @@ token_specific_sha2_update(DIGEST_CONTEXT *ctx, CK_BYTE *in_data,
 	}
 
 send:
-	if (cca_ctx->part == CCA_HASH_PART_FIRST) {
-		memcpy(rule_array, "SHA-256 FIRST   ",
-			CCA_KEYWORD_SIZE * 2);
-		cca_ctx->part = CCA_HASH_PART_MIDDLE;
-		DBG("part first op");
-	} else {
-		memcpy(rule_array, "SHA-256 MIDDLE  ",
-			CCA_KEYWORD_SIZE * 2);
-		DBG("part middle op");
+	switch(ctx->mech.mechanism) {
+	case CKM_SHA256:
+		if (cca_ctx->part == CCA_HASH_PART_FIRST) {
+			memcpy(rule_array, "SHA-256 FIRST   ",
+				CCA_KEYWORD_SIZE * 2);
+			cca_ctx->part = CCA_HASH_PART_MIDDLE;
+			DBG("part first op");
+		} else {
+			memcpy(rule_array, "SHA-256 MIDDLE  ",
+				CCA_KEYWORD_SIZE * 2);
+			DBG("part middle op");
+		}
+		break;
+	case CKM_SHA384:
+		if (cca_ctx->part == CCA_HASH_PART_FIRST) {
+			memcpy(rule_array, "SHA-384 FIRST   ",
+				CCA_KEYWORD_SIZE * 2);
+			cca_ctx->part = CCA_HASH_PART_MIDDLE;
+			DBG("part first op");
+		} else {
+			memcpy(rule_array, "SHA-384 MIDDLE  ",
+				CCA_KEYWORD_SIZE * 2);
+			DBG("part middle op");
+		}
+		break;
+	case CKM_SHA512:
+		if (cca_ctx->part == CCA_HASH_PART_FIRST) {
+			memcpy(rule_array, "SHA-512 FIRST   ",
+				CCA_KEYWORD_SIZE * 2);
+			cca_ctx->part = CCA_HASH_PART_MIDDLE;
+			DBG("part first op");
+		} else {
+			memcpy(rule_array, "SHA-512 MIDDLE  ",
+				CCA_KEYWORD_SIZE * 2);
+			DBG("part middle op");
+		}
+		break;
 	}
 		
 	CSNBOWH(&return_code, &reason_code, NULL, NULL, &rule_array_count,
@@ -1764,7 +1864,7 @@ send:
 		cca_ctx->chain_vector, &cca_ctx->hash_len, cca_ctx->hash);
 
 	if (return_code != CCA_SUCCESS) {
-		CCADBG("CSNBOWH (SHA256 HASH)", return_code,
+		CCADBG("CSNBOWH (SHA UPDATE)", return_code,
 			reason_code);
 		DBG("CSNBOWH failed");
 		rc = CKR_FUNCTION_FAILED;
@@ -1775,9 +1875,28 @@ done:
 		free(buffer);
 	return rc;
 }
-		
-CK_RV token_specific_sha2_final(DIGEST_CONTEXT *ctx, CK_BYTE *out_data,
-				CK_ULONG *out_data_len)
+
+
+CK_RV token_specific_sha2_update(DIGEST_CONTEXT *ctx, CK_BYTE *in_data,
+				 CK_ULONG in_data_len)
+{
+	return cca_sha_update(ctx, in_data, in_data_len);
+}
+
+CK_RV token_specific_sha3_update(DIGEST_CONTEXT *ctx, CK_BYTE *in_data,
+				 CK_ULONG in_data_len)
+{
+	return cca_sha_update(ctx, in_data, in_data_len);
+}
+
+CK_RV token_specific_sha5_update(DIGEST_CONTEXT *ctx, CK_BYTE *in_data,
+				 CK_ULONG in_data_len)
+{
+	return cca_sha_update(ctx, in_data, in_data_len);
+}
+
+CK_RV cca_sha_final(DIGEST_CONTEXT *ctx, CK_BYTE *out_data,
+		    CK_ULONG *out_data_len)
 {
 	struct cca_sha_ctx *cca_ctx;
 	long return_code, reason_code, rule_array_count = 2;
@@ -1786,18 +1905,50 @@ CK_RV token_specific_sha2_final(DIGEST_CONTEXT *ctx, CK_BYTE *out_data,
 
 	cca_ctx = (struct cca_sha_ctx *)ctx->context;
 	if (*out_data_len < cca_ctx->hash_len) {
-		DBG("CSNBOWH (SHA256 HASH) out buf too small: %lu",
+		DBG("CSNBOWH (SHA FINAL) out buf too small: %lu",
 		    *out_data_len);
 		return CKR_BUFFER_TOO_SMALL;
 	}
 
-	if (cca_ctx->part == CCA_HASH_PART_FIRST) {
-		memcpy(rule_array, "SHA-256 ONLY    ", CCA_KEYWORD_SIZE * 2);
-	} else {
-		/* there's some extra data we need to hash to
-		 * complete the operation
-		 */
-		memcpy(rule_array, "SHA-256 LAST    ", CCA_KEYWORD_SIZE * 2);
+	switch(ctx->mech.mechanism) {
+	case CKM_SHA256:
+		if (cca_ctx->part == CCA_HASH_PART_FIRST) {
+			memcpy(rule_array, "SHA-256 ONLY    ",
+				CCA_KEYWORD_SIZE * 2);
+		} else {
+			/* there's some extra data we need to hash to
+			 * complete the operation
+			 */
+			memcpy(rule_array, "SHA-256 LAST    ",
+				CCA_KEYWORD_SIZE * 2);
+		}
+		break;
+	case CKM_SHA384:
+		if (cca_ctx->part == CCA_HASH_PART_FIRST) {
+			memcpy(rule_array, "SHA-384 ONLY    ",
+				CCA_KEYWORD_SIZE * 2);
+		} else {
+			/* there's some extra data we need to hash to
+			 * complete the operation
+			 */
+			memcpy(rule_array, "SHA-384 LAST    ",
+				CCA_KEYWORD_SIZE * 2);
+		}
+		break;
+	case CKM_SHA512:
+		if (cca_ctx->part == CCA_HASH_PART_FIRST) {
+			memcpy(rule_array, "SHA-512 ONLY    ",
+				CCA_KEYWORD_SIZE * 2);
+		} else {
+			/* there's some extra data we need to hash to
+			 * complete the operation
+			 */
+			memcpy(rule_array, "SHA-512 LAST    ",
+				CCA_KEYWORD_SIZE * 2);
+		}
+		break;
+	default:
+		return CKR_MECHANISM_INVALID;
 	}
 
 	DBG("tail_len: %lu, tail: %p, cvl: %lu, sl: %lu", cca_ctx->tail_len,
@@ -1811,7 +1962,7 @@ CK_RV token_specific_sha2_final(DIGEST_CONTEXT *ctx, CK_BYTE *out_data,
 		&cca_ctx->hash_len, cca_ctx->hash);
 
 	if (return_code != CCA_SUCCESS) {
-		CCADBG("CSNBOWH (SHA256 HASH)", return_code, reason_code);
+		CCADBG("CSNBOWH (SHA FINAL)", return_code, reason_code);
 		free(cca_ctx->tail);
 		return CKR_FUNCTION_FAILED;
 	}
@@ -1823,8 +1974,25 @@ CK_RV token_specific_sha2_final(DIGEST_CONTEXT *ctx, CK_BYTE *out_data,
 	return CKR_OK;
 }
 
-CK_RV
-rsa_import_privkey_crt(TEMPLATE *priv_tmpl)
+CK_RV token_specific_sha2_final(DIGEST_CONTEXT *ctx, CK_BYTE *out_data,
+				CK_ULONG *out_data_len)
+{
+	return cca_sha_final(ctx, out_data, out_data_len);
+}
+
+CK_RV token_specific_sha3_final(DIGEST_CONTEXT *ctx, CK_BYTE *out_data,
+				CK_ULONG *out_data_len)
+{
+	return cca_sha_final(ctx, out_data, out_data_len);
+}
+
+CK_RV token_specific_sha5_final(DIGEST_CONTEXT *ctx, CK_BYTE *out_data,
+				CK_ULONG *out_data_len)
+{
+	return cca_sha_final(ctx, out_data, out_data_len);
+}
+
+CK_RV rsa_import_privkey_crt(TEMPLATE *priv_tmpl)
 {
 	long return_code, reason_code, rule_array_count, total = 0;
 	unsigned char rule_array[CCA_RULE_ARRAY_SIZE] = { 0, };
