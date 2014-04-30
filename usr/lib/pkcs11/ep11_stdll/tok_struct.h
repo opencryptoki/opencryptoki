@@ -398,18 +398,22 @@ token_spec_t token_specific = {
 /*  */
 	// SHA-1
 	&token_specific_sha_init,
+	NULL,				// sha1
 	&token_specific_sha_update,
 	&token_specific_sha_final,
 	/* SHA-256 */
 	&token_specific_sha2_init,
+	NULL,				// sha2
 	&token_specific_sha_update,
         &token_specific_sha_final,
 	/* SHA-384 */
 	&token_specific_sha3_init,
+	NULL,				// sha3
 	&token_specific_sha_update,
 	&token_specific_sha_final,
 	/* SHA-512 */
 	&token_specific_sha5_init,
+	NULL,				// sha5
 	&token_specific_sha_update,
 	&token_specific_sha_final,
 	// AES

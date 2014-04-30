@@ -117,18 +117,22 @@ token_spec_t token_specific = {
 #endif
 	// SHA-1
 	NULL,			// sha_init
+	NULL,			// sha
 	NULL,			// sha_update
 	NULL,			// sha_final
 	// SHA-256
 	token_specific_sha2_init,
+	NULL,			// sha2
 	token_specific_sha2_update,
 	token_specific_sha2_final,
 	// SHA-384
 	NULL,			// sha3_init
+	NULL,			// sha3
 	NULL,			// sha3_update
 	NULL,			// sha3_final
 	// SHA-512
 	NULL,			// sha5_init
+	NULL,			// sha5
 	NULL,			// sha5_update
 	NULL,			// sha5_final
 #ifndef NOAES

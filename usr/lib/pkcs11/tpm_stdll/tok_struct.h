@@ -121,18 +121,22 @@ struct token_specific_struct token_specific = {
 #endif
 	// SHA-1 - use the internal implementation
 	NULL,			// sha_init
+	NULL,			// sha
 	NULL,			// sha_update
 	NULL,			// sha_final
 	// SHA-256
 	NULL,			// sha2_init
+	NULL,			// sha2
 	NULL,			// sha2_update
 	NULL,			// sha2_final
 	// SHA-384
 	NULL,			// sha3_init
+	NULL,			// sha3
 	NULL,			// sha3_update
 	NULL,			// sha3_final
 	// SHA-512
 	NULL,			// sha5_init
+	NULL,			// sha5
 	NULL,			// sha5_update
 	NULL,			// sha5_final
 	// AES
