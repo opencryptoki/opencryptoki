@@ -1015,18 +1015,15 @@ CK_RV compute_sha(CK_BYTE * data, CK_ULONG len, CK_BYTE * hash)
 	// XXX KEY
 	DIGEST_CONTEXT ctx;
 	CK_ULONG hash_len = SHA1_HASH_SIZE;
-	CK_RV rv;
 
 	memset(&ctx, 0x0, sizeof(ctx));
 
-	ckm_sha1_init(&ctx);
+	sha1_init(&ctx);
 	if (ctx.context == NULL)
 		return CKR_HOST_MEMORY;
 
-	if ((rv = ckm_sha1_update(&ctx, data, len)) != CKR_OK)
-		return rv;
-
-	return ckm_sha1_final(&ctx, hash, &hash_len);
+	ctx.mech.mechanism = CKM_SHA_1;
+	return sha1_hash(NULL, FALSE, &ctx, data, len, hash, &hash_len);
 }
 
 CK_RV compute_md5(CK_BYTE * data, CK_ULONG len, CK_BYTE * hash)

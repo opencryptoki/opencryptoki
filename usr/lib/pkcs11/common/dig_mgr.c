@@ -333,7 +333,7 @@ digest_mgr_init( SESSION           *sess,
             }
 
             ctx->context = NULL;
-            ckm_sha1_init( ctx );
+            sha1_init( ctx );
 
             if (!ctx->context) {
                digest_mgr_cleanup(ctx);  // to de-initialize context above
@@ -351,7 +351,7 @@ digest_mgr_init( SESSION           *sess,
             }
 
             ctx->context = NULL;
-            ckm_sha2_init( ctx );
+            sha2_init( ctx );
 
             if (!ctx->context) {
                digest_mgr_cleanup(ctx);  // to de-initialize context above
@@ -369,7 +369,7 @@ digest_mgr_init( SESSION           *sess,
             }
 
             ctx->context = NULL;
-            ckm_sha3_init( ctx );
+            sha3_init( ctx );
 
             if (!ctx->context) {
                digest_mgr_cleanup(ctx);  // to de-initialize context above
@@ -387,7 +387,7 @@ digest_mgr_init( SESSION           *sess,
             }
 
             ctx->context = NULL;
-            ckm_sha5_init( ctx );
+            sha5_init( ctx );
 
             if (!ctx->context) {
                digest_mgr_cleanup(ctx);  // to de-initialize context above

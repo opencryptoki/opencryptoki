@@ -397,7 +397,7 @@ CK_RV sha1_hash(SESSION *sess, CK_BBOOL length_only, DIGEST_CONTEXT *ctx,
 {
 	CK_RV rv;
    
-	if (!sess || !ctx || !out_data_len) {
+	if (!ctx || !out_data_len) {
 		OCK_LOG_ERR(ERR_FUNCTION_FAILED);
 		return CKR_FUNCTION_FAILED;
 	}
@@ -431,7 +431,7 @@ CK_RV sha2_hash(SESSION *sess, CK_BBOOL length_only, DIGEST_CONTEXT *ctx,
 {
 	CK_RV rv;
 
-	if (!sess || !ctx || !out_data_len) {
+	if (!ctx || !out_data_len) {
 		OCK_LOG_ERR(ERR_FUNCTION_FAILED);
 		return CKR_FUNCTION_FAILED;
 	}
@@ -458,7 +458,7 @@ sha3_hash(SESSION *sess, CK_BBOOL length_only, DIGEST_CONTEXT *ctx,
 {
 	CK_RV rv;
 
-	if (!sess || !ctx || !out_data_len) {
+	if (!ctx || !out_data_len) {
 		OCK_LOG_ERR(ERR_FUNCTION_FAILED);
 		return CKR_FUNCTION_FAILED;
 	}
@@ -485,7 +485,7 @@ CK_RV sha5_hash(SESSION *sess, CK_BBOOL length_only, DIGEST_CONTEXT *ctx,
 {
 	CK_RV rv;
 
-	if (!sess || !ctx || !out_data_len) {
+	if (!ctx || !out_data_len) {
 		OCK_LOG_ERR(ERR_FUNCTION_FAILED);
 		return CKR_FUNCTION_FAILED;
 	}
@@ -510,7 +510,7 @@ CK_RV sha5_hash(SESSION *sess, CK_BBOOL length_only, DIGEST_CONTEXT *ctx,
 CK_RV sha1_hash_update(SESSION *sess, DIGEST_CONTEXT *ctx, CK_BYTE *in_data,
 		       CK_ULONG in_data_len)
 {
-	if (!sess || !in_data) {
+	if (!in_data) {
 		OCK_LOG_ERR(ERR_FUNCTION_FAILED);
 		return CKR_FUNCTION_FAILED;
 	}
@@ -525,7 +525,7 @@ CK_RV sha1_hash_update(SESSION *sess, DIGEST_CONTEXT *ctx, CK_BYTE *in_data,
 CK_RV sha2_hash_update(SESSION *sess, DIGEST_CONTEXT *ctx, CK_BYTE *in_data,
 		       CK_ULONG in_data_len)
 {
-	if (!sess || !in_data) {
+	if (!in_data) {
 		OCK_LOG_ERR(ERR_FUNCTION_FAILED);
 		return CKR_FUNCTION_FAILED;
 	}
@@ -539,7 +539,7 @@ CK_RV sha2_hash_update(SESSION *sess, DIGEST_CONTEXT *ctx, CK_BYTE *in_data,
 CK_RV sha3_hash_update(SESSION *sess, DIGEST_CONTEXT *ctx, CK_BYTE *in_data,
 		       CK_ULONG in_data_len)
 {
-	if (!sess || !in_data) {
+	if (!in_data) {
 		OCK_LOG_ERR(ERR_FUNCTION_FAILED);
 		return CKR_FUNCTION_FAILED;
 	}
@@ -553,7 +553,7 @@ CK_RV sha3_hash_update(SESSION *sess, DIGEST_CONTEXT *ctx, CK_BYTE *in_data,
 CK_RV sha5_hash_update(SESSION *sess, DIGEST_CONTEXT *ctx, CK_BYTE *in_data,
 		       CK_ULONG in_data_len)
 {
-	if (!sess || !in_data) {
+	if (!in_data) {
 		OCK_LOG_ERR(ERR_FUNCTION_FAILED);
 		return CKR_FUNCTION_FAILED;
 	}
@@ -567,7 +567,7 @@ CK_RV sha5_hash_update(SESSION *sess, DIGEST_CONTEXT *ctx, CK_BYTE *in_data,
 CK_RV sha1_hash_final(SESSION *sess, CK_BYTE length_only, DIGEST_CONTEXT *ctx,
 		      CK_BYTE *out_data, CK_ULONG *out_data_len)
 {
-	if (!sess || !ctx || !out_data_len) {
+	if (!ctx || !out_data_len) {
 		OCK_LOG_ERR(ERR_FUNCTION_FAILED);
 		return CKR_FUNCTION_FAILED;
 	}
@@ -593,7 +593,7 @@ CK_RV sha1_hash_final(SESSION *sess, CK_BYTE length_only, DIGEST_CONTEXT *ctx,
 CK_RV sha2_hash_final(SESSION *sess, CK_BYTE length_only, DIGEST_CONTEXT *ctx,
 		      CK_BYTE *out_data, CK_ULONG *out_data_len)
 {
-	if (!sess || !ctx || !out_data_len) {
+	if (!ctx || !out_data_len) {
 		OCK_LOG_ERR(ERR_FUNCTION_FAILED);
 		return CKR_FUNCTION_FAILED;
 	}
@@ -611,7 +611,7 @@ CK_RV sha2_hash_final(SESSION *sess, CK_BYTE length_only, DIGEST_CONTEXT *ctx,
 CK_RV sha3_hash_final(SESSION *sess, CK_BYTE length_only, DIGEST_CONTEXT *ctx,
 		      CK_BYTE *out_data, CK_ULONG *out_data_len)
 {
-	if (!sess || !ctx || !out_data_len) {
+	if (!ctx || !out_data_len) {
 		OCK_LOG_ERR(ERR_FUNCTION_FAILED);
 		return CKR_FUNCTION_FAILED;
 	}
@@ -630,7 +630,7 @@ CK_RV sha3_hash_final(SESSION *sess, CK_BYTE length_only, DIGEST_CONTEXT *ctx,
 CK_RV sha5_hash_final(SESSION *sess, CK_BYTE length_only, DIGEST_CONTEXT *ctx,
 		      CK_BYTE *out_data, CK_ULONG *out_data_len)
 {
-	if (!sess || !ctx || !out_data_len) {
+	if (!ctx || !out_data_len) {
 		OCK_LOG_ERR(ERR_FUNCTION_FAILED);
 		return CKR_FUNCTION_FAILED;
 	}
