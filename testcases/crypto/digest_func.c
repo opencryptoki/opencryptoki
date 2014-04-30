@@ -600,13 +600,18 @@ CK_RV digest_funcs() {
 	}
 
 	/** HMAC Multipart tests **/
-	for(i = 0; i < NUM_OF_HMAC_TEST_SUITES; i++){
-		rc = do_SignVerify_HMAC_Update(&hmac_test_suites[i]);
-		if (rc && !no_stop) {
-			return rc;
+	/* Only icsf token supports multipart hmac right now. */
+	if (!(is_ep11_token(SLOT_ID)) && !(is_ica_token(SLOT_ID)) &&
+	    !(is_cca_token(SLOT_ID)) && !(is_soft_token(SLOT_ID)) &&
+	    !(is_tpm_token(SLOT_ID))) {
+		for(i = 0; i < NUM_OF_HMAC_TEST_SUITES; i++){
+			rc = do_SignVerify_HMAC_Update(&hmac_test_suites[i]);
+			if (rc && !no_stop) {
+				return rc;
+			}
 		}
 	}
-
+	
 	return rc;
 }
 

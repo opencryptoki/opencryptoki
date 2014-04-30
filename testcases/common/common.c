@@ -439,6 +439,20 @@ int is_cca_token(CK_SLOT_ID slot_id)
         return strstr((const char *)tokinfo.model, "CCA") != NULL;
 }
 
+/** Returns true if slot_id is a SoftTok Token **/
+int is_soft_token(CK_SLOT_ID slot_id)
+{
+        CK_RV           rc;
+        CK_TOKEN_INFO   tokinfo;
+
+        rc = funcs->C_GetTokenInfo(slot_id, &tokinfo);
+        if (rc != CKR_OK) {
+                return -1;
+        }
+
+        return strstr((const char *)tokinfo.model, "SoftTok") != NULL;
+}
+
 /** Returns true if slot_id is a TPM Token **/
 int is_tpm_token(CK_SLOT_ID slot_id)
 {
