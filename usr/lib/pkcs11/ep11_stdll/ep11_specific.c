@@ -1677,23 +1677,42 @@ CK_RV token_specific_sha_init(DIGEST_CONTEXT *c)
 
 	rc = m_DigestInit (state, &state_len, &mechanism, ep11tok_target) ;
 
-	/* DIGEST_CONTEXT will show up with following requests (sha_update),
-	 * 'state' is build by the card and holds all to continue,
-	 * even by another adapter
-	 */
-	c->mech = mechanism;
-	c->context = state;
-	c->context_len = state_len;
-
 	if (rc != CKR_OK) {
+		free(state);
 		EP11TOK_ELOG(1,"rc=0x%lx",rc);
 	} else {
+		/* DIGEST_CONTEXT will show up with following 
+		 *  requests (sha_update), 'state' is build by the card
+		 * and holds all to continue, even by another adapter
+		 */
+		c->mech = mechanism;
+		c->context = state;
+		c->context_len = state_len;
+		
 		EP11TOK_LOG(2,"rc=0x%lx",rc);
 	}
 
 	return rc;
 }
 
+
+CK_RV token_specific_sha(DIGEST_CONTEXT *c, CK_BYTE *in_data,
+			 CK_ULONG in_data_len, CK_BYTE *out_data,
+			 CK_ULONG *out_data_len)
+{
+        CK_RV rc;
+	
+	rc = m_Digest(c->context, c->context_len, in_data, in_data_len,
+		      out_data, out_data_len, ep11tok_target);
+	
+	if (rc != CKR_OK) {
+		EP11TOK_ELOG(1,"rc=0x%lx",rc);
+	} else {
+		EP11TOK_LOG(2,"rc=0x%lx",rc);
+	}
+	return rc;
+}
+	
 
 CK_RV token_specific_sha_update(DIGEST_CONTEXT *c, CK_BYTE *in_data,
 				CK_ULONG in_data_len)
@@ -1743,13 +1762,13 @@ CK_RV token_specific_sha2_init(DIGEST_CONTEXT *c)
 
 	rc = m_DigestInit (state, &state_len, &mechanism, ep11tok_target);
 
-	c->mech = mechanism;
-	c->context = state;
-	c->context_len = state_len;
-
 	if (rc != CKR_OK) {
+		free(state);
 		EP11TOK_ELOG(1,"rc=0x%lx",rc);
 	} else {
+		c->mech = mechanism;
+		c->context = state;
+		c->context_len = state_len;
 		EP11TOK_LOG(2,"rc=0x%lx",rc);
 	}
 
@@ -1769,13 +1788,13 @@ CK_RV token_specific_sha3_init(DIGEST_CONTEXT *c)
 
 	rc = m_DigestInit (state, &state_len, &mechanism, ep11tok_target) ;
 
-	c->mech = mechanism;
-	c->context = state;
-	c->context_len = state_len;
-
 	if (rc != CKR_OK) {
+		free(state);
 		EP11TOK_ELOG(1,"rc=0x%lx",rc);
 	} else {
+		c->mech = mechanism;
+		c->context = state;
+		c->context_len = state_len;
 		EP11TOK_LOG(2,"rc=0x%lx",rc);
 	}
 
@@ -1796,13 +1815,13 @@ CK_RV token_specific_sha5_init(DIGEST_CONTEXT *c)
 
 	rc = m_DigestInit (state, &state_len, &mechanism, ep11tok_target) ;
 
-	c->mech = mechanism;
-	c->context = state;
-	c->context_len = state_len;
-
 	if (rc != CKR_OK) {
+		free(state);
 		EP11TOK_ELOG(1,"rc=0x%lx",rc);
 	} else {
+		c->mech = mechanism;
+		c->context = state;
+		c->context_len = state_len;
 		EP11TOK_LOG(2,"rc=0x%lx",rc);
 	}
 
@@ -2871,19 +2890,21 @@ CK_RV token_specific_sign_init(SESSION *session, CK_MECHANISM *mech,
 	rc = m_SignInit(ep11_sign_state, &ep11_sign_state_l,
 			mech, privkey_blob, blob_len, ep11tok_target) ;
 
-	/* SIGN_VERIFY_CONTEX holds all needed for continuing,
-	 * also by another adapter (stateless requests)
-	 */
-	ctx->key = key;
-	ctx->multi = FALSE;
-	ctx->active = TRUE;
-	ctx->context = ep11_sign_state;
-	ctx->context_len = ep11_sign_state_l;
-
 	if (rc != CKR_OK) {
 		EP11TOK_ELOG(1,"rc=0x%lx blob_len=0x%x key=0x%lx mech=0x%lx", rc, blob_len, key, mech->mechanism);
+		free(ep11_sign_state);
 	} else {
-		EP11TOK_LOG(2,"rc=0x%lx blob_len=0x%x key=0x%lx mech=0x%lx", rc, blob_len, key, mech->mechanism);
+		/* SIGN_VERIFY_CONTEX holds all needed for continuing,
+		 * also by another adapter (stateless requests)
+		 */
+		ctx->key = key;
+		ctx->multi = FALSE;
+		ctx->active = TRUE;
+		ctx->context = ep11_sign_state;
+		ctx->context_len = ep11_sign_state_l;
+		
+		EP11TOK_LOG(2,"rc=0x%lx blob_len=0x%x key=0x%lx mech=0x%lx",
+			    rc, blob_len, key, mech->mechanism);
 	}
 
 	return rc;
