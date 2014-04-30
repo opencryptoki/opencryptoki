@@ -2994,14 +2994,16 @@ CK_RV token_specific_verify_init(SESSION *session, CK_MECHANISM *mech,
 
 	rc = m_VerifyInit(ep11_sign_state, &ep11_sign_state_l, mech,
 			  spki, spki_len, ep11tok_target);
-	ctx->key = key;
-	ctx->multi = FALSE;
-	ctx->active = TRUE;
-	ctx->context = ep11_sign_state;
-	ctx->context_len = ep11_sign_state_l;
+
 	if (rc != CKR_OK) {
 		EP11TOK_ELOG(1,"rc=0x%lx spki_len=0x%x key=0x%lx ep11_sing_state_l=0x%x mech=0x%lx", rc, spki_len, key, ep11_sign_state_l, mech->mechanism);
 	} else {
+		ctx->key = key;
+		ctx->multi = FALSE;
+		ctx->active = TRUE;
+		ctx->context = ep11_sign_state;
+		ctx->context_len = ep11_sign_state_l;
+
 		EP11TOK_LOG(2,"rc=0x%lx spki_len=0x%x key=0x%lx ep11_sing_state_l=0x%x mech=0x%lx", rc, spki_len, key, ep11_sign_state_l, mech->mechanism);
 	}
 
