@@ -256,6 +256,19 @@ CK_RV do_SignVerify_HMAC(struct HMAC_TEST_SUITE_INFO *tsuite){
 		testcase_begin("Sign Verify %s with test vector %d.",
 			tsuite->name, i);
 
+		/** get mechanism **/
+		mech = tsuite->mech;
+		
+		/* for ep11, check if key len is supported */
+		key_len = tsuite->tv[i].key_len;
+
+		if ((is_ep11_token(SLOT_ID)) &&
+		    (! check_supp_keysize(SLOT_ID, mech.mechanism, key_len))){
+			testcase_skip("keysize %d is not supported in slot %ld",
+					(unsigned int)key_len, slot_id);
+			continue;
+		}
+
 		/** clear buffers **/
 		memset(key, 0, sizeof(key));
 		memset(data, 0, sizeof(data));
@@ -263,24 +276,12 @@ CK_RV do_SignVerify_HMAC(struct HMAC_TEST_SUITE_INFO *tsuite){
 		memset(expected, 0, sizeof(expected));
 
 		/** get test vector info **/
-		key_len = tsuite->tv[i].key_len;
 		data_len = tsuite->tv[i].data_len;
 		actual_len = sizeof(actual);
 		expected_len = tsuite->tv[i].hash_len;
 		memcpy(key, tsuite->tv[i].key, key_len);
 		memcpy(data, tsuite->tv[i].data, data_len);
 		memcpy(expected, tsuite->tv[i].result, expected_len);
-
-		/** get mechanism **/
-		mech = tsuite->mech;
-
-		/*check if key len is supported*/
-		if (! check_supp_keysize(SLOT_ID, mech.mechanism, key_len)){
-			testsuite_skip(tsuite->tvcount,
-				"mechanism %s is not supported with slot %ld",
-				tsuite->name, slot_id);
-			goto testcase_cleanup;
-		}
 
 		/** create key object **/
 		rc = create_GenericSecretKey(session, key, key_len, &h_key);
@@ -348,6 +349,7 @@ CK_RV do_SignVerify_HMAC(struct HMAC_TEST_SUITE_INFO *tsuite){
 				"passed.", tsuite->name, i);
 		}
 
+error:
 		/** clean up **/
 		rc = funcs->C_DestroyObject(session, h_key);
 		if (rc != CKR_OK) {
@@ -355,13 +357,6 @@ CK_RV do_SignVerify_HMAC(struct HMAC_TEST_SUITE_INFO *tsuite){
 				p11_get_ckr(rc));
 			goto testcase_cleanup;
 		}
-	}
-	goto testcase_cleanup;
-
-error:
-	rc = funcs->C_DestroyObject(session, h_key);
-	if (rc != CKR_OK) {
-		testcase_error("C_DestroyObject rc=%s", p11_get_ckr(rc));
 	}
 
 testcase_cleanup:
@@ -419,6 +414,19 @@ CK_RV do_SignVerify_HMAC_Update(struct HMAC_TEST_SUITE_INFO *tsuite)
 		testcase_begin("Multipart Sign Verify %s with test vector %d.",
 			tsuite->name, i);
 
+		/** get mechanism **/
+		mech = tsuite->mech;
+		
+		/* for ep11, check if key len is supported */
+		key_len = tsuite->tv[i].key_len;
+
+		if ((is_ep11_token(SLOT_ID)) &&
+		    (! check_supp_keysize(SLOT_ID, mech.mechanism, key_len))){
+			testcase_skip("keysize %d is not supported in slot %ld",
+					(unsigned int)key_len, slot_id);
+			continue;
+		}
+
 		/** clear buffers **/
 		memset(key, 0, sizeof(key));
 		memset(data, 0, sizeof(data));
@@ -426,24 +434,12 @@ CK_RV do_SignVerify_HMAC_Update(struct HMAC_TEST_SUITE_INFO *tsuite)
 		memset(expected, 0, sizeof(expected));
 
 		/** get test vector info **/
-		key_len = tsuite->tv[i].key_len;
 		data_len = tsuite->tv[i].data_len;
 		actual_len = sizeof(actual);
 		expected_len = tsuite->tv[i].hash_len;
 		memcpy(key, tsuite->tv[i].key, key_len);
 		memcpy(data, tsuite->tv[i].data, data_len);
 		memcpy(expected, tsuite->tv[i].result, expected_len);
-
-		/** get mechanism **/
-		mech = tsuite->mech;
-
-		/*check if key len is supported*/
-		if (! check_supp_keysize(SLOT_ID, mech.mechanism, key_len)){
-			testsuite_skip(tsuite->tvcount,
-				"mechanism %s is not supported with slot %ld",
-				tsuite->name, slot_id);
-			goto testcase_cleanup;
-		}
 
 		/** create key object **/
 		rc = create_GenericSecretKey(session, key, key_len, &h_key);
@@ -547,6 +543,7 @@ CK_RV do_SignVerify_HMAC_Update(struct HMAC_TEST_SUITE_INFO *tsuite)
 				"passed.", tsuite->name, i);
 		}
 
+error:
 		/** clean up **/
 		rc = funcs->C_DestroyObject(session, h_key);
 		if (rc != CKR_OK) {
@@ -554,13 +551,6 @@ CK_RV do_SignVerify_HMAC_Update(struct HMAC_TEST_SUITE_INFO *tsuite)
 				p11_get_ckr(rc));
 			goto testcase_cleanup;
 		}
-	}
-	goto testcase_cleanup;
-
-error:
-	rc = funcs->C_DestroyObject(session, h_key);
-	if (rc != CKR_OK) {
-		testcase_error("C_DestroyObject rc=%s", p11_get_ckr(rc));
 	}
 
 testcase_cleanup:
