@@ -726,11 +726,6 @@ digest_mgr_digest_final( SESSION         *sess,
       return CKR_OPERATION_NOT_INITIALIZED;
    }
 
-   /* XXX KEY - Turn off the multi flag to tell the next layer that this
-    * is the final part of a multi part operation.
-    */
-   ctx->multi = FALSE;
-
    switch (ctx->mech.mechanism) {
       case CKM_SHA_1:
          rc = sha1_hash_final( sess, length_only,
