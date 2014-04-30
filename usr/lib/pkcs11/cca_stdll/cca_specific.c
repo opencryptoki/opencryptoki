@@ -1,4 +1,3 @@
-
 /*
  * Licensed materials, Property of IBM Corp.
  *
@@ -1624,167 +1623,204 @@ token_specific_ec_verify(CK_BYTE  * in_data,
 	return CKR_OK;
 }
 
-CK_RV
-token_specific_sha2_init(DIGEST_CONTEXT *c)
+CK_RV token_specific_sha2_init(DIGEST_CONTEXT *ctx)
 {
-	struct cca_sha256_ctx *cca_ctx;
+	struct cca_sha_ctx *cca_ctx;
 
 	DBG("init");
 
-	c->context = calloc(1, sizeof(struct cca_sha256_ctx));
-	if (c->context == NULL) {
-		DBG("malloc failed in sha256 digest init");
+	ctx->context = calloc(1, sizeof(struct cca_sha_ctx));
+	if (ctx->context == NULL) {
+		DBG("malloc failed in sha digest init");
 		return CKR_HOST_MEMORY;
 	}
-	c->context_len = sizeof(struct cca_sha256_ctx);
+	ctx->context_len = sizeof(struct cca_sha_ctx);
 
-	cca_ctx = (struct cca_sha256_ctx *)c->context;
+	cca_ctx = (struct cca_sha_ctx *)ctx->context;
 	cca_ctx->chain_vector_len = CCA_CHAIN_VECTOR_LEN;
-	cca_ctx->scratch_len = SHA2_HASH_SIZE;
+	cca_ctx->hash_len = SHA2_HASH_SIZE;
 	/* tail_len is already 0 */
 
 	return CKR_OK;
 }
 
-CK_RV
-token_specific_sha2_update(DIGEST_CONTEXT *c, CK_BYTE *in_data, CK_ULONG in_data_len)
+CK_RV token_specific_sha2(DIGEST_CONTEXT *ctx, CK_BYTE *in_data,
+			  CK_ULONG in_data_len, CK_BYTE *out_data,
+			  CK_ULONG *out_data_len)
 {
-	struct cca_sha256_ctx *cca_ctx;
+	struct cca_sha_ctx *cca_ctx;
 	long return_code, reason_code, rule_array_count = 2;
 	unsigned char rule_array[CCA_RULE_ARRAY_SIZE] = { 0, };
 
-	DBG("update %lu", in_data_len);
+	if (!ctx)
+		return CKR_OPERATION_NOT_INITIALIZED;
 
-	if (!in_data)
-		goto done;
+	if (!in_data || *out_data)
+		return CKR_ARGUMENTS_BAD;
 
-	cca_ctx = (struct cca_sha256_ctx *)c->context;
+	cca_ctx = (struct cca_sha_ctx *)ctx->context;
 
-	/* if c->multi is false, this is a C_Digest single part call */
-	if (!c->multi) {
-		memcpy(rule_array, "SHA-256 ONLY    ", CCA_KEYWORD_SIZE * 2);
-		DBG("part only op");
-		cca_ctx->part = CCA_HASH_PART_ONLY;
-		goto hash;
-	}
+	if (*out_data_len < cca_ctx->hash_len)
+		return CKR_BUFFER_TOO_SMALL;
 
-	/* if we're given a chunk that's no a multiple of 64, save it off and hash later when
-	 * we can complete the operation */
-	if (cca_ctx->tail_len || in_data_len & 0x3F) {
-		if (cca_ctx->tail) {
-			cca_ctx->tail = realloc(cca_ctx->tail, cca_ctx->tail_len + in_data_len);
-			if (cca_ctx->tail) {
-				memcpy(&cca_ctx->tail[cca_ctx->tail_len], in_data, in_data_len);
-			} else {
-				LOG(LOG_ERR,
-				    "realloc %lu bytes failed", in_data_len + cca_ctx->tail_len);
-				return CKR_HOST_MEMORY;
-			}
+	memcpy(rule_array, "SHA-256 ONLY    ", CCA_KEYWORD_SIZE * 2);
+	cca_ctx->part = CCA_HASH_PART_ONLY;
 
-			cca_ctx->tail_len += in_data_len;
-		} else {
-			cca_ctx->tail = malloc(in_data_len);
-			if (cca_ctx->tail) {
-				memcpy(cca_ctx->tail, in_data, in_data_len);
-			} else {
-				DBG("malloc %lu bytes failed", in_data_len);
-				return CKR_HOST_MEMORY;
-			}
-
-			cca_ctx->tail_len = in_data_len;
-		}
-
-		DBG("grew tail to %lu bytes", cca_ctx->tail_len);
-		goto done;
-	}
-
-	if (cca_ctx->part == CCA_HASH_PART_FIRST) {
-		memcpy(rule_array, "SHA-256 FIRST   ", CCA_KEYWORD_SIZE * 2);
-		cca_ctx->part = CCA_HASH_PART_MIDDLE;
-		DBG("part first op");
-	} else {
-		memcpy(rule_array, "SHA-256 MIDDLE  ", CCA_KEYWORD_SIZE * 2);
-		DBG("part middle op");
-	}
-hash:
-	CSNBOWH(&return_code,
-			&reason_code,
-			NULL,
-			NULL,
-			&rule_array_count,
-			rule_array,
-			&in_data_len,
-			in_data,
-			&cca_ctx->chain_vector_len,
-			cca_ctx->chain_vector,
-			&cca_ctx->scratch_len,
-			cca_ctx->scratch);
+	CSNBOWH(&return_code, &reason_code, NULL, NULL, &rule_array_count,
+		rule_array, &in_data_len, in_data, &cca_ctx->chain_vector_len,
+		cca_ctx->chain_vector, &cca_ctx->hash_len, cca_ctx->hash);
 
 	if (return_code != CCA_SUCCESS) {
-		CCADBG("CSNBOWH (SHA256 HASH)", return_code, reason_code);
+		CCADBG("CSNBOWH ", return_code, reason_code);
 		DBG("CSNBOWH failed");
 		free(cca_ctx->tail);
 		return CKR_FUNCTION_FAILED;
 	}
-done:
+
+	memcpy(out_data, cca_ctx->hash, cca_ctx->hash_len);
+	*out_data_len = cca_ctx->hash_len;
+
+	/* ctx->context should get freed in digest_mgr_cleanup() */
 	return CKR_OK;
 }
 
 CK_RV
-token_specific_sha2_final(DIGEST_CONTEXT *c, CK_BYTE *out_data, CK_ULONG *out_data_len)
+token_specific_sha2_update(DIGEST_CONTEXT *ctx, CK_BYTE *in_data,
+			   CK_ULONG in_data_len)
 {
-       struct cca_sha256_ctx *cca_ctx;
-       long return_code, reason_code, rule_array_count = 2;
-       unsigned char rule_array[CCA_RULE_ARRAY_SIZE] = { 0, }, dummy_buf[1] = { 0 };
+	struct cca_sha_ctx *cca_ctx;
+	long return_code, reason_code, total, buffer_len, rule_array_count = 2;
+	unsigned char rule_array[CCA_RULE_ARRAY_SIZE] = { 0, };
+	CK_RV rc = CKR_OK;
+	unsigned char *buffer = NULL;	
+	int use_buffer = 0;
+	
+	if (!in_data)
+		return CKR_ARGUMENTS_BAD;
 
-       DBG("final %lu", *out_data_len);
+	cca_ctx = (struct cca_sha_ctx *)ctx->context;
 
-       cca_ctx = (struct cca_sha256_ctx *)c->context;
-       if (*out_data_len < cca_ctx->scratch_len) {
-               DBG("CSNBOWH (SHA256 HASH) out buf too small: %lu", *out_data_len);
-               return CKR_BUFFER_TOO_SMALL;
-       }
+	/* just send if input a multiple of block size and
+ 	 * cca_ctx-> tail is empty.
+ 	 */
+	if ((cca_ctx->tail_len == 0) && ((in_data_len & 0x3F) == 0))
+		goto send;
 
-       if (cca_ctx->part == CCA_HASH_PART_ONLY)
-               goto final;
+	/* at this point, in_data is not multiple of blocksize
+ 	 * and/or there is saved data from previous update still
+ 	 * needing to be processed
+	 */
 
-       if (cca_ctx->part == CCA_HASH_PART_FIRST) {
-               memcpy(rule_array, "SHA-256 ONLY    ", CCA_KEYWORD_SIZE * 2);
-       } else {
-               /* there's some extra data we need to hash to complete the operation */
-               memcpy(rule_array, "SHA-256 LAST    ", CCA_KEYWORD_SIZE * 2);
-       }
+	/* get totals */
+	total = cca_ctx->tail_len + in_data_len;
+	
+	/* see if we have enough to fill a block */
+	if (total >= SHA2_BLOCK_SIZE) {
+		int remainder;
 
-       DBG("tail_len: %lu, tail: %p, cvl: %lu, sl: %lu", cca_ctx->tail_len,
-		  cca_ctx->tail ? cca_ctx->tail : dummy_buf, cca_ctx->chain_vector_len,
-		  cca_ctx->scratch_len);
+		remainder = total & 0x3F;
+		buffer_len = total - remainder;
+		
+		/* allocate a buffer for sending... */
+		if (!(buffer = malloc(buffer_len))) {
+			OCK_LOG_ERR(ERR_HOST_MEMORY);
+			rc = CKR_HOST_MEMORY;
+			goto done;
+		}
 
-       CSNBOWH(&return_code,
-               &reason_code,
-               NULL,
-               NULL,
-               &rule_array_count,
-               rule_array,
-               &cca_ctx->tail_len,
-               cca_ctx->tail ? cca_ctx->tail : dummy_buf,
-               &cca_ctx->chain_vector_len,
-               cca_ctx->chain_vector,
-               &cca_ctx->scratch_len,
-               cca_ctx->scratch);
+		memcpy(buffer, cca_ctx->tail, cca_ctx->tail_len);
+		memcpy(buffer + cca_ctx->tail_len, in_data, 
+			in_data_len - remainder);
+		use_buffer = 1;			
 
-       if (return_code != CCA_SUCCESS) {
-               CCADBG("CSNBOWH (SHA256 HASH)", return_code, reason_code);
-	       free(cca_ctx->tail);
-               return CKR_FUNCTION_FAILED;
-       }
-final:
-       memcpy(out_data, cca_ctx->scratch, cca_ctx->scratch_len);
-       *out_data_len = cca_ctx->scratch_len;
+		/* save remainder data for next time */
+		if (remainder)
+			memcpy(cca_ctx->tail,
+				in_data + (in_data_len - remainder), remainder);
+		cca_ctx->tail_len = remainder;
+		
+	} else {
+		/* not enough to fill a block, save off data for next round */
+		memcpy(cca_ctx->tail + cca_ctx->tail_len, in_data, in_data_len);
+		cca_ctx->tail_len += in_data_len;
+		return CKR_OK;
+	}
 
-       free(cca_ctx->tail);
+send:
+	if (cca_ctx->part == CCA_HASH_PART_FIRST) {
+		memcpy(rule_array, "SHA-256 FIRST   ",
+			CCA_KEYWORD_SIZE * 2);
+		cca_ctx->part = CCA_HASH_PART_MIDDLE;
+		DBG("part first op");
+	} else {
+		memcpy(rule_array, "SHA-256 MIDDLE  ",
+			CCA_KEYWORD_SIZE * 2);
+		DBG("part middle op");
+	}
+		
+	CSNBOWH(&return_code, &reason_code, NULL, NULL, &rule_array_count,
+		rule_array, use_buffer ? &buffer_len : (long *)&in_data_len,
+		use_buffer ? buffer : in_data, &cca_ctx->chain_vector_len,
+		cca_ctx->chain_vector, &cca_ctx->hash_len, cca_ctx->hash);
 
-       /* c->context should get freed in digest_mgr.c::digest_mgr_cleanup() */
-       return CKR_OK;
+	if (return_code != CCA_SUCCESS) {
+		CCADBG("CSNBOWH (SHA256 HASH)", return_code,
+			reason_code);
+		DBG("CSNBOWH failed");
+		rc = CKR_FUNCTION_FAILED;
+	}
+
+done:
+	if (buffer)
+		free(buffer);
+	return rc;
+}
+		
+CK_RV token_specific_sha2_final(DIGEST_CONTEXT *ctx, CK_BYTE *out_data,
+				CK_ULONG *out_data_len)
+{
+	struct cca_sha_ctx *cca_ctx;
+	long return_code, reason_code, rule_array_count = 2;
+	unsigned char rule_array[CCA_RULE_ARRAY_SIZE] = { 0, };
+	unsigned char dummy_buf[1] = { 0 };
+
+	cca_ctx = (struct cca_sha_ctx *)ctx->context;
+	if (*out_data_len < cca_ctx->hash_len) {
+		DBG("CSNBOWH (SHA256 HASH) out buf too small: %lu",
+		    *out_data_len);
+		return CKR_BUFFER_TOO_SMALL;
+	}
+
+	if (cca_ctx->part == CCA_HASH_PART_FIRST) {
+		memcpy(rule_array, "SHA-256 ONLY    ", CCA_KEYWORD_SIZE * 2);
+	} else {
+		/* there's some extra data we need to hash to
+		 * complete the operation
+		 */
+		memcpy(rule_array, "SHA-256 LAST    ", CCA_KEYWORD_SIZE * 2);
+	}
+
+	DBG("tail_len: %lu, tail: %p, cvl: %lu, sl: %lu", cca_ctx->tail_len,
+	    cca_ctx->tail ? cca_ctx->tail : dummy_buf,
+	    cca_ctx->chain_vector_len, cca_ctx->hash_len);
+
+	CSNBOWH(&return_code, &reason_code, NULL, NULL, &rule_array_count,
+		rule_array, &cca_ctx->tail_len,
+		cca_ctx->tail ? cca_ctx->tail : dummy_buf,
+		&cca_ctx->chain_vector_len, cca_ctx->chain_vector,
+		&cca_ctx->hash_len, cca_ctx->hash);
+
+	if (return_code != CCA_SUCCESS) {
+		CCADBG("CSNBOWH (SHA256 HASH)", return_code, reason_code);
+		free(cca_ctx->tail);
+		return CKR_FUNCTION_FAILED;
+	}
+
+	memcpy(out_data, cca_ctx->hash, cca_ctx->hash_len);
+	*out_data_len = cca_ctx->hash_len;
+
+	/* ctx->context should get freed in digest_mgr_cleanup() */
+	return CKR_OK;
 }
 
 CK_RV

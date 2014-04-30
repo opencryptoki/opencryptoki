@@ -122,7 +122,7 @@ token_spec_t token_specific = {
 	NULL,			// sha_final
 	// SHA-256
 	token_specific_sha2_init,
-	NULL,			// sha2
+	token_specific_sha2,
 	token_specific_sha2_update,
 	token_specific_sha2_final,
 	// SHA-384
