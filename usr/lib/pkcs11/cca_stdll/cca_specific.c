@@ -1675,7 +1675,7 @@ CK_RV cca_sha(DIGEST_CONTEXT *ctx, CK_BYTE *in_data, CK_ULONG in_data_len,
 	if (!ctx)
 		return CKR_OPERATION_NOT_INITIALIZED;
 
-	if (!in_data || *out_data)
+	if (!in_data || !out_data)
 		return CKR_ARGUMENTS_BAD;
 
 	cca_ctx = (struct cca_sha_ctx *)ctx->context;
