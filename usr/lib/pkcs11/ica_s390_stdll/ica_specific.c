@@ -1041,12 +1041,12 @@ CK_RV token_specific_sha_update(DIGEST_CONTEXT *ctx, CK_BYTE *in_data,
 			/* Save the _last_ oc_sha_ctx->tail_len bytes
 			 * from in_data  Rajiv - 2009
 			 */
-			oc_sha_ctx->tail_len = in_data_len & SHA1_BLOCK_SIZE;
+			oc_sha_ctx->tail_len = in_data_len &
+					       SHA1_BLOCK_SIZE_MASK;
 			if (oc_sha_ctx->tail_len) {
+				memcpy(oc_sha_ctx->tail, in_data + fill_size, 
+				       oc_sha_ctx->tail_len);
 				in_data_len &= ~(SHA1_BLOCK_SIZE_MASK);	
-				memcpy(oc_sha_ctx->tail,
-				     in_data + in_data_len + fill_size, 
-				     oc_sha_ctx->tail_len);
 			}
 		} else {
 			/* This is the odd case, where we need to go
@@ -1212,7 +1212,8 @@ CK_RV token_specific_sha2_update(DIGEST_CONTEXT *ctx, CK_BYTE *in_data,
 			 * of save data, so adjust in_data_len
 			 */
 			in_data_len -= fill_size;
-			oc_sha_ctx->tail_len = in_data_len & SHA2_BLOCK_SIZE;
+			oc_sha_ctx->tail_len = in_data_len &
+					       SHA2_BLOCK_SIZE_MASK;
 			if (oc_sha_ctx->tail_len) {
 				memcpy(oc_sha_ctx->tail, (in_data + fill_size),
 				       oc_sha_ctx->tail_len);
