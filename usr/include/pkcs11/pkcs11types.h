@@ -1567,6 +1567,8 @@ typedef CK_ULONG CK_EXTRACT_PARAMS;
 
 typedef CK_EXTRACT_PARAMS CK_PTR CK_EXTRACT_PARAMS_PTR;
 
+/* RSA mechanism OAEP encoding */
+typedef CK_ULONG CK_RSA_PKCS_OAEP_SOURCE_TYPE;
 typedef CK_ULONG CK_RSA_PKCS_MGF_TYPE;
 typedef CK_RSA_PKCS_MGF_TYPE CK_PTR CK_RSA_PKCS_MGF_TYPE_PTR;
 /* PKCS#1 RSA OAEP Encoding Parameter Sources */
@@ -1578,6 +1580,15 @@ typedef CK_RSA_PKCS_MGF_TYPE CK_PTR CK_RSA_PKCS_MGF_TYPE_PTR;
 #define CKG_MGF1_SHA384 0x00000003
 #define CKG_MGF1_SHA512 0x00000004
 
+typedef struct CK_RSA_PKCS_OAEP_PARAMS {
+	CK_MECHANISM_TYPE hashAlg;
+	CK_RSA_PKCS_MGF_TYPE mgf;
+	CK_RSA_PKCS_OAEP_SOURCE_TYPE source;
+	CK_VOID_PTR pSourceData;
+	CK_ULONG ulSourceDataLen;
+} CK_RSA_PKCS_OAEP_PARAMS;
+
+typedef CK_RSA_PKCS_OAEP_PARAMS CK_PTR CK_RSA_PKCS_OAEP_PARAMS_PTR;
 
 /* CK_FUNCTION_LIST is a structure holding a Cryptoki spec
  * version and pointers of appropriate types to all the

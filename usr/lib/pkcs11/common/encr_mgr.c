@@ -640,6 +640,29 @@ encr_mgr_init( SESSION           * sess,
          }
          break;
 
+      case CKM_RSA_PKCS_OAEP:
+	    if (mech->ulParameterLen == 0) {
+		OCK_LOG_ERR(ERR_MECHANISM_PARAM_INVALID);
+		return CKR_MECHANISM_PARAM_INVALID;
+	    }
+	    rc = template_attribute_find(key_obj->template, CKA_KEY_TYPE,
+					  &attr);
+	    if (rc == FALSE) {
+		OCK_LOG_ERR(ERR_KEY_TYPE_INCONSISTENT);
+		return CKR_KEY_TYPE_INCONSISTENT;
+	    }
+            keytype = *(CK_KEY_TYPE *)attr->pValue;
+            if (keytype != CKK_RSA) {
+		OCK_LOG_ERR(ERR_KEY_TYPE_INCONSISTENT);
+		return CKR_KEY_TYPE_INCONSISTENT;
+	    }
+	    // RSA cannot be used for multi-part operations
+	    //
+	    ctx->context_len = 0;
+	    ctx->context = NULL;
+
+	    break;
+
       case CKM_RSA_X_509:
       case CKM_RSA_PKCS:
          {
@@ -660,12 +683,6 @@ encr_mgr_init( SESSION           * sess,
                   return CKR_KEY_TYPE_INCONSISTENT;
                }
             }
-
-            // Check FCV
-            //
-//            rc = template_attribute_find( key_obj->template, CKA_MODULUS, &attr );
-//            if (rc == FALSE || nv_FCV.SymmetricModLength/8 < attr->value_length)
-//               return (operation == OP_DECRYPT_INIT ? CKR_KEY_SIZE_RANGE : CKR_WRAPPING_KEY_SIZE_RANGE );
 
             // RSA cannot be used for multi-part operations
             //
@@ -981,6 +998,10 @@ encr_mgr_encrypt( SESSION           *sess,
                                   ctx,
                                   in_data,  in_data_len,
                                   out_data, out_data_len );
+
+      case CKM_RSA_PKCS_OAEP:
+         return rsa_oaep_crypt(sess, length_only, ctx, in_data, in_data_len,
+                                out_data, out_data_len, ENCRYPT);
 
       case CKM_RSA_X_509:
          return rsa_x509_encrypt( sess,     length_only,

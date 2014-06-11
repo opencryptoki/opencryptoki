@@ -958,6 +958,11 @@ CK_RV  rsa_pkcs_verify_recover ( SESSION             * sess,
                                  CK_BYTE             * out_data,
                                  CK_ULONG            * out_len );
 
+CK_RV rsa_oaep_crypt(SESSION *sess, CK_BBOOL length_only,
+		     ENCR_DECR_CONTEXT *ctx, CK_BYTE *in_data,
+		     CK_ULONG in_data_len, CK_BYTE *out_data,
+		     CK_ULONG *out_data_len, CK_BBOOL encrypt);
+
 CK_RV  rsa_x509_encrypt ( SESSION           * sess,
                           CK_BBOOL            length_only,
                           ENCR_DECR_CONTEXT * ctx,

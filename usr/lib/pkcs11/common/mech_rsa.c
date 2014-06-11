@@ -742,8 +742,115 @@ rsa_pkcs_decrypt( SESSION           *sess,
 }
 
 
-//
-//
+CK_RV rsa_oaep_crypt(SESSION *sess, CK_BBOOL length_only,
+		     ENCR_DECR_CONTEXT *ctx, CK_BYTE *in_data,
+		     CK_ULONG in_data_len, CK_BYTE *out_data,
+		     CK_ULONG *out_data_len, CK_BBOOL encrypt)
+{
+	OBJECT *key_obj = NULL;
+	CK_ULONG hlen, modulus_bytes;
+	CK_OBJECT_CLASS keyclass;
+	CK_BYTE hash[MAX_SHA_HASH_SIZE];
+	CK_RV rc;
+	CK_RSA_PKCS_OAEP_PARAMS_PTR oaepParms = NULL;
+
+	rc = object_mgr_find_in_map1(ctx->key, &key_obj);
+	if (rc != CKR_OK) {
+		OCK_LOG_ERR(ERR_OBJMGR_FIND_MAP);
+		return rc;
+	}
+
+	rc = rsa_get_key_info(key_obj, &modulus_bytes, &keyclass);
+	if (rc != CKR_OK) {
+		OCK_LOG_ERR(ERR_FUNCTION_FAILED);
+		return CKR_FUNCTION_FAILED;
+	}
+
+	if (length_only == TRUE) {
+		*out_data_len = modulus_bytes;
+		return CKR_OK;
+	}
+
+	if (*out_data_len < modulus_bytes) {
+		*out_data_len = modulus_bytes;
+		OCK_LOG_ERR(ERR_BUFFER_TOO_SMALL);
+		return CKR_BUFFER_TOO_SMALL;
+	}
+
+	/*
+	 * PKCS#11v2.20, section 12.1.7, Step a: if "source" is empty,
+	 * then pSourceData and ulSourceDatalen must be NULL, and zero
+	 * respectively.
+	 */
+	oaepParms = (CK_RSA_PKCS_OAEP_PARAMS_PTR)ctx->mech.pParameter;
+	if (!(oaepParms->source) && (oaepParms->pSourceData ||
+		oaepParms->ulSourceDataLen)) {
+		OCK_LOG_ERR(ERR_MECHANISM_PARAM_INVALID);
+		return CKR_MECHANISM_PARAM_INVALID;
+	}
+
+	/* verify hashAlg now as well as get hash size. */
+	hlen = 0;
+	rc = get_sha_size(oaepParms->hashAlg, &hlen);
+	if (rc != CKR_OK) {
+		OCK_LOG_ERR(ERR_MECHANISM_PARAM_INVALID);
+		return CKR_MECHANISM_PARAM_INVALID;
+	}
+
+	if (encrypt) {
+		if (in_data_len > (modulus_bytes - 2 * hlen - 2)) {
+			OCK_LOG_ERR(ERR_DATA_LEN_RANGE);
+			return CKR_DATA_LEN_RANGE;
+		}
+
+		// this had better be a public key
+		if (keyclass != CKO_PUBLIC_KEY) {
+			OCK_LOG_ERR(ERR_KEY_TYPE_INCONSISTENT);
+			return CKR_KEY_TYPE_INCONSISTENT;
+		}
+
+		if (token_specific.t_rsa_oaep_encrypt == NULL) {
+			OCK_LOG_ERR(ERR_MECHANISM_INVALID);
+			return CKR_MECHANISM_INVALID;
+		}
+
+		rc = token_specific.t_rsa_oaep_encrypt(ctx, in_data,
+						       in_data_len, out_data,
+						       out_data_len);
+	} else {
+		// decrypt
+		if (in_data_len != modulus_bytes) {
+			OCK_LOG_ERR(ERR_ENCRYPTED_DATA_LEN_RANGE);
+			return CKR_ENCRYPTED_DATA_LEN_RANGE;
+		}
+
+		if (modulus_bytes < (2 * hlen + 2)) {
+			OCK_LOG_ERR(ERR_KEY_SIZE_RANGE);
+			return CKR_KEY_SIZE_RANGE;
+		}
+
+		// this had better be a private key
+		if (keyclass != CKO_PRIVATE_KEY) {
+			OCK_LOG_ERR(ERR_KEY_TYPE_INCONSISTENT);
+			return CKR_KEY_TYPE_INCONSISTENT;
+		}
+
+		if (token_specific.t_rsa_oaep_decrypt == NULL) {
+			OCK_LOG_ERR(ERR_MECHANISM_INVALID);
+			return CKR_MECHANISM_INVALID;
+		}
+
+		 rc = token_specific.t_rsa_oaep_decrypt(ctx, in_data,
+							in_data_len, out_data,
+							out_data_len);
+	}
+
+	if (rc != CKR_OK)
+		OCK_LOG_ERR(ERR_FUNCTION_FAILED);
+
+	return rc;
+}
+
 CK_RV
 rsa_pkcs_sign( SESSION             *sess,
                CK_BBOOL             length_only,

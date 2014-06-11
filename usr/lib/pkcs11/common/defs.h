@@ -374,6 +374,9 @@ enum {
 };
 
 
+#define ENCRYPT	1
+#define DECRYPT 0
+
 #define MAX_RSA_KEYLEN		512
 
 #define MAX_AES_KEY_SIZE	64	/* encompasses CCA key size */
