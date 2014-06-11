@@ -411,26 +411,22 @@ token_spec_t token_specific = {
 	&token_specific_dh_pkcs_derive,
 	&token_specific_dh_pkcs_key_pair_gen,
 /* End code contributed by Corrent corp. */
-	// SHA-1
-	NULL,			// SHA-1 in the soft token is integrated
-	NULL,			// already, as token specific SHA-1 is new.
-	NULL,			// As a TODO, the soft SHA-1 routines should
-	NULL,			// probably move to functions plugged in here.
-	/* SHA-256 */
-	NULL,			// sha2_init    
-	NULL,			// sha2
-	NULL,			// sha2_update
-	NULL,			// sha2_final
-	/* SHA-384 */
-	NULL,			// sha3_init
-	NULL,			// sha3
-	NULL,			// sha3_update
-	NULL,			// sha3_final
-	/* SHA-512 */
-	NULL,			// sha5_init
-	NULL,			// sha5
-	NULL,			// sha5_update
-	NULL,			// sha5_final
+	&token_specific_sha_init,    
+	&token_specific_sha,
+	&token_specific_sha_update,
+	&token_specific_sha_final,
+	&token_specific_sha2_init,    
+	&token_specific_sha,
+	&token_specific_sha_update,
+	&token_specific_sha_final,
+	&token_specific_sha3_init,    
+	&token_specific_sha,
+	&token_specific_sha_update,
+	&token_specific_sha_final,
+	&token_specific_sha5_init,    
+	&token_specific_sha,
+	&token_specific_sha_update,
+	&token_specific_sha_final,
 	// AES
 	&token_specific_aes_key_gen,
 	&token_specific_aes_ecb,

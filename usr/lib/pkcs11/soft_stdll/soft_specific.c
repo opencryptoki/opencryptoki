@@ -323,6 +323,7 @@
 #include <openssl/rsa.h>
 #include <openssl/dh.h>
 #include <openssl/aes.h>
+#include <openssl/evp.h>
 
 typedef unsigned int uint32_t;
 
@@ -1926,12 +1927,15 @@ MECH_LIST_ELEMENT mech_list[] = {
   { CKM_SHA_1_HMAC,                  {0,    0, CKF_SIGN | CKF_VERIFY} },
   { CKM_SHA_1_HMAC_GENERAL,          {0,    0, CKF_SIGN | CKF_VERIFY} },
 #endif
-#if 0
   { CKM_SHA256,                      {0,    0, CKF_DIGEST} },
   { CKM_SHA256_HMAC,                 {0,    0, CKF_SIGN | CKF_VERIFY} },
   { CKM_SHA256_HMAC_GENERAL,         {0,    0, CKF_SIGN | CKF_VERIFY} },
-#endif
-
+  { CKM_SHA384,                      {0,    0, CKF_DIGEST} },
+  { CKM_SHA384_HMAC,                 {0,    0, CKF_SIGN | CKF_VERIFY} },
+  { CKM_SHA384_HMAC_GENERAL,         {0,    0, CKF_SIGN | CKF_VERIFY} },
+  { CKM_SHA512,                      {0,    0, CKF_DIGEST} },
+  { CKM_SHA512_HMAC,                 {0,    0, CKF_SIGN | CKF_VERIFY} },
+  { CKM_SHA512_HMAC_GENERAL,         {0,    0, CKF_SIGN | CKF_VERIFY} },
 #if !(NOMD2)
   { CKM_MD2,                         {0,    0, CKF_DIGEST} },
   { CKM_MD2_HMAC,                    {0,    0, CKF_SIGN | CKF_VERIFY} },
@@ -1982,4 +1986,196 @@ token_specific_get_mechanism_info(CK_MECHANISM_TYPE type,
 	/* common/mech_list.c */
 	rc = ock_generic_get_mechanism_info(type, pInfo);
 	return rc;
+}
+
+CK_RV soft_sha_generic_init(DIGEST_CONTEXT *ctx, CK_ULONG mech)
+{
+	int rc;
+	EVP_MD_CTX *mdctx;
+
+	mdctx = EVP_MD_CTX_create();
+
+	switch(mech) {
+	case CKM_SHA_1:
+		rc = EVP_DigestInit(mdctx, EVP_sha1());
+		break;
+	case CKM_SHA256:
+		rc = EVP_DigestInit(mdctx, EVP_sha256());
+		break;
+	case CKM_SHA384:
+		rc = EVP_DigestInit(mdctx, EVP_sha384());
+		break;
+	case CKM_SHA512:
+		rc = EVP_DigestInit(mdctx, EVP_sha512());
+		break;
+	default:
+		return CKR_MECHANISM_INVALID;
+	}
+
+	if (!rc) {
+		EVP_MD_CTX_destroy(mdctx);
+		ctx->context = NULL;
+		return CKR_FUNCTION_FAILED;
+	} else
+		ctx->context = (CK_BYTE *)mdctx;
+	
+	return CKR_OK;
+}
+
+CK_RV token_specific_sha_init(DIGEST_CONTEXT *ctx)
+{
+        return soft_sha_generic_init(ctx, CKM_SHA_1);
+}
+
+CK_RV token_specific_sha2_init(DIGEST_CONTEXT *ctx)
+{
+       return soft_sha_generic_init(ctx, CKM_SHA256);
+}
+
+CK_RV token_specific_sha3_init(DIGEST_CONTEXT *ctx)
+{
+       return soft_sha_generic_init(ctx, CKM_SHA384);
+}
+
+CK_RV token_specific_sha5_init(DIGEST_CONTEXT *ctx)
+{
+       return soft_sha_generic_init(ctx, CKM_SHA512);
+}
+
+CK_RV token_specific_sha(DIGEST_CONTEXT *ctx, CK_BYTE *in_data,
+			 CK_ULONG in_data_len, CK_BYTE *out_data,
+			 CK_ULONG *out_data_len)
+{
+	int rc;
+	CK_RV rv = CKR_OK;
+	EVP_MD_CTX *mdctx;
+	unsigned int hlen;
+	
+	mdctx = (EVP_MD_CTX *)ctx->context;
+
+	if (!ctx)
+		return CKR_OPERATION_NOT_INITIALIZED;
+	
+	switch(ctx->mech.mechanism) {
+	case CKM_SHA_1:
+		hlen = SHA1_HASH_SIZE;
+		break;
+	case CKM_SHA256:
+		hlen = SHA2_HASH_SIZE;
+		break;
+	case CKM_SHA384:
+		hlen = SHA3_HASH_SIZE;
+		break;
+	case CKM_SHA512:
+		hlen = SHA5_HASH_SIZE;
+		break;
+	default:
+		return CKR_MECHANISM_INVALID;
+	}
+
+	if (*out_data_len < hlen) 
+		return CKR_BUFFER_TOO_SMALL;
+
+	if (!in_data || !out_data) {
+		rv = CKR_ARGUMENTS_BAD;
+		goto done;
+	}
+	
+	rc =  EVP_DigestUpdate(mdctx, in_data, in_data_len);
+	if (!rc) {
+		rv = CKR_FUNCTION_FAILED;
+		goto done;
+	}
+
+	rc = EVP_DigestFinal(mdctx, out_data, &hlen);	
+	if (!rc) 
+		rv = CKR_FUNCTION_FAILED;
+	else
+		*out_data_len = hlen;
+		
+done:
+	EVP_MD_CTX_destroy(mdctx);
+	ctx->context = NULL;
+	return rv;
+}	
+
+CK_RV token_specific_sha_update(DIGEST_CONTEXT *ctx, CK_BYTE *in_data,
+				CK_ULONG in_data_len)
+{
+	int rc;
+	EVP_MD_CTX *mdctx;
+	CK_RV rv = CKR_OK;
+	
+	mdctx = (EVP_MD_CTX *)ctx->context;
+
+	if (!ctx)
+		return CKR_OPERATION_NOT_INITIALIZED;
+	
+	if (!in_data) {
+		rv = CKR_ARGUMENTS_BAD;
+		goto error;
+	}
+
+	rc = EVP_DigestUpdate(mdctx, in_data, in_data_len);
+	if (!rc)
+		rv = CKR_FUNCTION_FAILED;
+	else {
+		ctx->context = (CK_BYTE *)mdctx;
+		return CKR_OK;
+	}
+	
+error:
+	EVP_MD_CTX_destroy(mdctx);
+	ctx->context = NULL;
+	return rv;
+}
+
+CK_RV token_specific_sha_final(DIGEST_CONTEXT *ctx, CK_BYTE *out_data,
+			       CK_ULONG *out_data_len)
+{
+	int rc;
+	EVP_MD_CTX *mdctx;
+	CK_RV rv = CKR_OK;
+	unsigned int hlen;
+
+	mdctx = (EVP_MD_CTX *)ctx->context;
+
+	if (!ctx)
+		return CKR_OPERATION_NOT_INITIALIZED;
+		
+	if (!out_data) {
+		rv = CKR_ARGUMENTS_BAD;
+		goto done;		
+	}
+
+	switch(ctx->mech.mechanism) {
+	case CKM_SHA_1:
+		hlen = SHA1_HASH_SIZE;
+		break;
+	case CKM_SHA256:
+		hlen = SHA2_HASH_SIZE;
+		break;
+	case CKM_SHA384:
+		hlen = SHA3_HASH_SIZE;
+		break;
+	case CKM_SHA512:
+		hlen = SHA5_HASH_SIZE;
+		break;
+	default:
+		return CKR_MECHANISM_INVALID;
+	}
+
+	if (*out_data_len < hlen)
+		return CKR_BUFFER_TOO_SMALL;
+
+	rc = EVP_DigestFinal(mdctx, out_data, &hlen);	
+	if (!rc)
+		rv = CKR_FUNCTION_FAILED;
+	else
+		*out_data_len = hlen;
+	
+done:
+	EVP_MD_CTX_destroy(mdctx);
+	ctx->context = NULL;
+	return rv;
 }
