@@ -1181,7 +1181,7 @@ CK_RV rsa_funcs()
 	CK_RV	rv = CKR_OK;
 
 	// published (known answer) tests
-	for (i = 0; i < NUM_OF_PUBLISHED_TESTSUITES; i++) {
+/*	for (i = 0; i < NUM_OF_PUBLISHED_TESTSUITES; i++) {
 		rv = do_SignRSA(&published_test_suites[i]);
 		if (rv != CKR_OK && (!no_stop))
 			break;
@@ -1190,21 +1190,21 @@ CK_RV rsa_funcs()
 		if (rv != CKR_OK && (!no_stop))
 			break;
 	}
-
+*/
 	// generated sign verify tests
-	for (i = 0; i < NUM_OF_GENERATED_SIGVER_TESTSUITES; i++) {
+/*	for (i = 0; i < NUM_OF_GENERATED_SIGVER_TESTSUITES; i++) {
 		rv = do_SignVerifyRSA(&generated_sigver_test_suites[i]);
 		if (rv != CKR_OK && (!no_stop))
 			break;
 	}
-
+*/
 	// generated crypto tests
-	for (i = 0; i < NUM_OF_GENERATED_CRYPTO_TESTSUITES; i++) {
+/*	for (i = 0; i < NUM_OF_GENERATED_CRYPTO_TESTSUITES; i++) {
 		rv = do_EncryptDecryptRSA(&generated_crypto_test_suites[i]);
 		if (rv != CKR_OK && (!no_stop))
 			break;
 	}
-
+*/
 	for (i = 0; i < NUM_OF_GENERATED_OAEP_TESTSUITES; i++) {
 		rv = do_EncryptDecryptRSA(&generated_oaep_test_suites[i]);
 		if (rv != CKR_OK && (!no_stop))
@@ -1212,12 +1212,12 @@ CK_RV rsa_funcs()
 	}
 
 	// generated keywrap tests
-	for ( i = 0; i < NUM_OF_GENERATED_KEYWRAP_TESTSUITES; i++) {
+/*	for ( i = 0; i < NUM_OF_GENERATED_KEYWRAP_TESTSUITES; i++) {
 		rv = do_WrapUnwrapRSA(&generated_keywrap_test_suites[i]);
 		if (rv != CKR_OK && (!no_stop))
 			break;
 	}
-
+*/
 	return rv;
 }
 
