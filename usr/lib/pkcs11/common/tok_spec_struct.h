@@ -485,16 +485,16 @@ struct token_specific_struct {
 	CK_RV(*t_rsa_x509_verify_recover) (CK_BYTE *, CK_ULONG, CK_BYTE *,
 					   CK_ULONG *, OBJECT *);
 
-        CK_RV(*t_rsa_oaep_decrypt) (ENCR_DECR_CONTEXT *ctx, CK_BYTE *, CK_ULONG,
+        CK_RV(*t_rsa_oaep_decrypt) (ENCR_DECR_CONTEXT *, CK_BYTE *, CK_ULONG,
                                     CK_BYTE *, CK_ULONG *, CK_BYTE *, CK_ULONG);
 
-        CK_RV(*t_rsa_oaep_encrypt) (ENCR_DECR_CONTEXT *ctx, CK_BYTE *, CK_ULONG,
+        CK_RV(*t_rsa_oaep_encrypt) (ENCR_DECR_CONTEXT *, CK_BYTE *, CK_ULONG,
                                     CK_BYTE *, CK_ULONG *, CK_BYTE *, CK_ULONG);
 
-        CK_RV(*t_rsa_pss_sign) (ENCR_DECR_CONTEXT *ctx, CK_BYTE *, CK_ULONG,
+        CK_RV(*t_rsa_pss_sign) (SIGN_VERIFY_CONTEXT *, CK_BYTE *, CK_ULONG,
                                 CK_BYTE *, CK_ULONG *);
 
-        CK_RV(*t_rsa_pss_verify) (ENCR_DECR_CONTEXT *ctx, CK_BYTE *, CK_ULONG,
+        CK_RV(*t_rsa_pss_verify) (SIGN_VERIFY_CONTEXT *, CK_BYTE *, CK_ULONG,
                                   CK_BYTE *, CK_ULONG);
 
 	CK_RV(*t_rsa_generate_keypair) (TEMPLATE *, TEMPLATE *);
