@@ -35,6 +35,7 @@ testcases/crypto/digest_tests
 testcases/crypto/dsa_tests
 testcases/crypto/ec_tests
 testcases/crypto/rsa_tests
+testcases/crypto/rsaupdate_tests
 testcases/crypto/ssl3_tests
 testcases/pkcs11/sess_bench
 testcases/pkcs11/sess_mgmt_tests

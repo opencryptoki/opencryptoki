@@ -345,6 +345,33 @@ struct GENERATED_TEST_SUITE_INFO generated_pss_test_suites[] = {
 	}
 };
 
+
+#define NUM_OF_GENERATED_PSS_UPDATE_TESTSUITES 4
+struct GENERATED_TEST_SUITE_INFO generated_pss_update_test_suites[] = {
+	{
+		.name = "SHA1 RSA PKCS PSS",
+		.tvcount = 3,
+		.tv = sha1_rsa_pss_generated_tv,
+		.mech = {CKM_SHA1_RSA_PKCS_PSS, 0, 0},
+	}, {
+		.name = "SHA256 RSA PKCS PSS",
+		.tvcount = 3,
+		.tv = sha256_rsa_pss_generated_tv,
+		.mech = {CKM_SHA256_RSA_PKCS_PSS, 0, 0},
+	}, {
+		.name = "SHA384 RSA PKCS PSS",
+		.tvcount = 3,
+		.tv = sha384_rsa_pss_generated_tv,
+		.mech = {CKM_SHA384_RSA_PKCS_PSS, 0, 0},
+	}, {
+		.name = "SHA512 RSA PKCS PSS",
+		.tvcount = 3,
+		.tv = sha512_rsa_pss_generated_tv,
+		.mech = {CKM_SHA512_RSA_PKCS_PSS, 0, 0},
+	}
+};
+
+
 static struct RSA_GENERATED_TEST_VECTOR rsa_keywrap_generated_tv[] = {
 	{	// 0
 		.modbits = 512,
@@ -1338,6 +1365,32 @@ struct GENERATED_TEST_SUITE_INFO generated_sigver_test_suites[] = {
 		.tvcount = 30,
 		.tv = rsa_x509_generated_tv,
 		.mech = {CKM_RSA_X_509, 0 , 0},
+	}
+};
+
+
+#define NUM_OF_GENERATED_SIGVER_UPDATE_TESTSUITES 4
+struct GENERATED_TEST_SUITE_INFO generated_sigver_update_test_suites[] = {
+	{
+		.name = "RSA SHA1 PKCS",
+		.tvcount = 30,
+		.tv = rsa_generated_tv,
+		.mech = {CKM_SHA1_RSA_PKCS, 0, 0},
+	}, {
+		.name = "RSA SHA256 PKCS",
+		.tvcount = 30,
+		.tv = rsa_generated_tv,
+		.mech = {CKM_SHA256_RSA_PKCS, 0, 0},
+	}, {
+		.name = "RSA MD2 PKCS",
+		.tvcount = 30,
+		.tv = rsa_generated_tv,
+		.mech = {CKM_MD2_RSA_PKCS, 0, 0},
+	}, {
+		.name = "RSA MD5 PKCS",
+		.tvcount = 30,
+		.tv = rsa_generated_tv,
+		.mech = {CKM_MD5_RSA_PKCS, 0 , 0},
 	}
 };
 
