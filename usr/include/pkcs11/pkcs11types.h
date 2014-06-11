@@ -866,6 +866,10 @@ typedef CK_ULONG          CK_MECHANISM_TYPE;
 #define CKM_SHA384_RSA_PKCS            0x00000041
 #define CKM_SHA512_RSA_PKCS            0x00000042
 
+#define CKM_SHA256_RSA_PKCS_PSS	       0x00000043
+#define CKM_SHA384_RSA_PKCS_PSS	       0x00000044
+#define CKM_SHA512_RSA_PKCS_PSS	       0x00000045
+
 #define CKM_RC2_KEY_GEN                0x00000100
 #define CKM_RC2_ECB                    0x00000101
 #define CKM_RC2_CBC                    0x00000102

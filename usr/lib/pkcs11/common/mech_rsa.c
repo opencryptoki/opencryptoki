@@ -1454,7 +1454,6 @@ CK_RV rsa_pss_sign(SESSION *sess, CK_BBOOL length_only,
 
         /* verify hashAlg now as well as get hash size. */
 	pssParms = (CK_RSA_PKCS_PSS_PARAMS_PTR)ctx->mech.pParameter;
-	pssParms = (CK_RSA_PKCS_PSS_PARAMS_PTR)ctx->mech.pParameter;
         hlen = 0;
         rc = get_sha_size(pssParms->hashAlg, &hlen);
         if (rc != CKR_OK) {
@@ -1540,6 +1539,318 @@ CK_RV rsa_pss_verify(SESSION *sess, SIGN_VERIFY_CONTEXT *ctx, CK_BYTE *in_data,
 	if (rc != CKR_OK)
 		OCK_LOG_ERR(ERR_RSA_SIGN);
 
+	return rc;
+}
+
+CK_RV rsa_hash_pss_sign(SESSION *sess, CK_BBOOL length_only,
+			SIGN_VERIFY_CONTEXT *ctx, CK_BYTE *in_data,
+			CK_ULONG in_data_len, CK_BYTE *sig, CK_ULONG *sig_len)
+{
+	CK_ULONG hlen;
+	CK_BYTE hash[MAX_SHA_HASH_SIZE];
+	DIGEST_CONTEXT digest_ctx;
+	SIGN_VERIFY_CONTEXT sign_ctx;
+	CK_MECHANISM digest_mech, sign_mech;
+	CK_RV rc;
+
+	if (!sess || !ctx || !in_data) {
+		OCK_LOG_ERR(ERR_FUNCTION_FAILED);
+		return CKR_FUNCTION_FAILED;
+	}
+
+	memset(&digest_ctx, 0x0, sizeof(digest_ctx));
+	memset(&sign_ctx, 0x0, sizeof(sign_ctx));
+
+	switch (ctx->mech.mechanism) {
+	case CKM_SHA1_RSA_PKCS_PSS:
+		digest_mech.mechanism = CKM_SHA_1;
+		break;
+	case CKM_SHA256_RSA_PKCS_PSS:
+		digest_mech.mechanism = CKM_SHA256;
+		break;
+	case CKM_SHA384_RSA_PKCS_PSS:
+		digest_mech.mechanism = CKM_SHA384;
+		break;
+	case CKM_SHA512_RSA_PKCS_PSS:
+		digest_mech.mechanism = CKM_SHA512;
+		break;
+	default:
+		return CKR_MECHANISM_INVALID;
+	}
+
+	digest_mech.ulParameterLen = 0;
+	digest_mech.pParameter = NULL;
+
+        rc = get_sha_size(digest_mech.mechanism, &hlen);
+        if (rc != CKR_OK) {
+                OCK_LOG_ERR(ERR_MECHANISM_PARAM_INVALID);
+                return CKR_MECHANISM_PARAM_INVALID;
+        }
+
+	rc = digest_mgr_init(sess, &digest_ctx, &digest_mech);
+	if (rc != CKR_OK) {
+		OCK_LOG_ERR(ERR_DIGEST_INIT);
+		return rc;
+	}
+
+	rc = digest_mgr_digest(sess, length_only, &digest_ctx, in_data,
+			       in_data_len, hash, &hlen);
+	if (rc != CKR_OK) {
+		OCK_LOG_ERR(ERR_DIGEST);
+		return rc;
+	}
+
+	/* sign the hash */
+	sign_mech.mechanism = CKM_RSA_PKCS_PSS;
+	sign_mech.ulParameterLen = ctx->mech.ulParameterLen;
+	sign_mech.pParameter = ctx->mech.pParameter;
+
+	rc = sign_mgr_init(sess, &sign_ctx, &sign_mech, FALSE, ctx->key);
+	if (rc != CKR_OK) {
+		OCK_LOG_ERR(ERR_SIGN_INIT);
+		goto done;
+	}
+
+	rc = sign_mgr_sign(sess, length_only, &sign_ctx, hash, hlen,
+			   sig, sig_len);
+	if (rc != CKR_OK)
+		OCK_LOG_ERR(ERR_SIGN);
+
+done:
+	sign_mgr_cleanup(&sign_ctx);
+	return rc;
+}
+
+CK_RV rsa_hash_pss_update(SESSION *sess, SIGN_VERIFY_CONTEXT *ctx,
+			  CK_BYTE *in_data, CK_ULONG in_data_len)
+{
+	DIGEST_CONTEXT *digest_ctx = NULL;
+	CK_MECHANISM digest_mech;
+	CK_RV rc;
+
+	if (!sess || !ctx || !in_data) {
+		OCK_LOG_ERR(ERR_FUNCTION_FAILED);
+		return CKR_FUNCTION_FAILED;
+	}
+
+	/* see if digest has already been through init */
+	digest_ctx = (DIGEST_CONTEXT *)ctx->context;
+	if (digest_ctx->active == FALSE) {
+		switch (ctx->mech.mechanism) {
+		case CKM_SHA1_RSA_PKCS_PSS:
+			digest_mech.mechanism = CKM_SHA_1;
+			break;
+		case CKM_SHA256_RSA_PKCS_PSS:
+			digest_mech.mechanism = CKM_SHA256;
+			break;
+		case CKM_SHA384_RSA_PKCS_PSS:
+			digest_mech.mechanism = CKM_SHA384;
+			break;
+		case CKM_SHA512_RSA_PKCS_PSS:
+			digest_mech.mechanism = CKM_SHA512;
+			break;
+		default:
+			return CKR_MECHANISM_INVALID;
+		}
+
+		digest_mech.ulParameterLen = 0;
+		digest_mech.pParameter = NULL;
+
+		rc = digest_mgr_init(sess, digest_ctx, &digest_mech);
+		if (rc != CKR_OK) {
+			OCK_LOG_ERR(ERR_DIGEST_INIT);
+			return rc;
+		}
+	}
+
+	rc = digest_mgr_digest_update(sess, digest_ctx, in_data, in_data_len);
+	if (rc != CKR_OK)
+		OCK_LOG_ERR(ERR_DIGEST);
+
+	return rc;
+}
+
+CK_RV rsa_hash_pss_sign_final(SESSION *sess, CK_BBOOL length_only,
+			      SIGN_VERIFY_CONTEXT *ctx, CK_BYTE *signature,
+			      CK_ULONG *sig_len)
+{
+	CK_ULONG hlen;
+	CK_BYTE hash[MAX_SHA_HASH_SIZE];
+	DIGEST_CONTEXT *digest_ctx;
+	SIGN_VERIFY_CONTEXT sign_ctx;
+	CK_MECHANISM sign_mech;
+	CK_RV rc;
+
+	if (!sess || !ctx || !sig_len) {
+		OCK_LOG_ERR(ERR_FUNCTION_FAILED);
+		return CKR_FUNCTION_FAILED;
+	}
+
+	memset(&sign_ctx, 0x0, sizeof(sign_ctx));
+
+	digest_ctx = (DIGEST_CONTEXT *)ctx->context;
+
+        rc = get_sha_size(digest_ctx->mech.mechanism, &hlen);
+        if (rc != CKR_OK) {
+                OCK_LOG_ERR(ERR_MECHANISM_PARAM_INVALID);
+                return CKR_MECHANISM_PARAM_INVALID;
+        }
+
+	rc = digest_mgr_digest_final(sess, length_only, digest_ctx,
+				     hash, &hlen);
+	if (rc != CKR_OK) {
+		OCK_LOG_ERR(ERR_DIGEST_FINAL);
+		return rc;
+	}
+
+	/* sign the hash */
+	sign_mech.mechanism = CKM_RSA_PKCS_PSS;
+	sign_mech.ulParameterLen = ctx->mech.ulParameterLen;
+	sign_mech.pParameter = ctx->mech.pParameter;
+
+	rc = sign_mgr_init(sess, &sign_ctx, &sign_mech, FALSE, ctx->key);
+	if (rc != CKR_OK) {
+		OCK_LOG_ERR(ERR_SIGN_INIT);
+		goto done;
+	}
+
+	rc = sign_mgr_sign(sess, length_only, &sign_ctx, hash, hlen,
+			   signature, sig_len);
+	if (rc != CKR_OK)
+		OCK_LOG_ERR(ERR_SIGN);
+
+done:
+	sign_mgr_cleanup(&sign_ctx);
+	return rc;
+}
+
+CK_RV rsa_hash_pss_verify(SESSION *sess, SIGN_VERIFY_CONTEXT *ctx,
+			  CK_BYTE *in_data, CK_ULONG in_data_len,
+			  CK_BYTE *signature, CK_ULONG sig_len)
+{
+	CK_ULONG hlen;
+	CK_BYTE hash[MAX_SHA_HASH_SIZE];
+	DIGEST_CONTEXT digest_ctx;
+	SIGN_VERIFY_CONTEXT verify_ctx;
+	CK_MECHANISM digest_mech, verify_mech;
+	CK_RV rc;
+
+	if (!sess || !ctx || !in_data) {
+		OCK_LOG_ERR(ERR_FUNCTION_FAILED);
+		return CKR_FUNCTION_FAILED;
+	}
+	memset(&digest_ctx, 0x0, sizeof(digest_ctx));
+	memset(&verify_ctx, 0x0, sizeof(verify_ctx));
+
+	switch (ctx->mech.mechanism) {
+	case CKM_SHA1_RSA_PKCS_PSS:
+		digest_mech.mechanism = CKM_SHA_1;
+		break;
+	case CKM_SHA256_RSA_PKCS_PSS:
+		digest_mech.mechanism = CKM_SHA256;
+		break;
+	case CKM_SHA384_RSA_PKCS_PSS:
+		digest_mech.mechanism = CKM_SHA384;
+		break;
+	case CKM_SHA512_RSA_PKCS_PSS:
+		digest_mech.mechanism = CKM_SHA512;
+		break;
+	default:
+		return CKR_MECHANISM_INVALID;
+	}
+
+	digest_mech.ulParameterLen = 0;
+	digest_mech.pParameter = NULL;
+
+        rc = get_sha_size(digest_mech.mechanism, &hlen);
+        if (rc != CKR_OK) {
+                OCK_LOG_ERR(ERR_MECHANISM_PARAM_INVALID);
+                return CKR_MECHANISM_PARAM_INVALID;
+        }
+
+	rc = digest_mgr_init(sess, &digest_ctx, &digest_mech);
+	if (rc != CKR_OK) {
+		OCK_LOG_ERR(ERR_DIGEST_INIT);
+		return rc;
+	}
+
+	rc = digest_mgr_digest(sess, FALSE, &digest_ctx, in_data,
+			       in_data_len, hash, &hlen);
+	if (rc != CKR_OK) {
+		OCK_LOG_ERR(ERR_DIGEST);
+		return rc;
+	}
+
+	/* sign the hash */
+	verify_mech.mechanism = CKM_RSA_PKCS_PSS;
+	verify_mech.ulParameterLen = ctx->mech.ulParameterLen;
+	verify_mech.pParameter = ctx->mech.pParameter;
+
+	rc = verify_mgr_init(sess, &verify_ctx, &verify_mech, FALSE, ctx->key);
+	if (rc != CKR_OK) {
+		OCK_LOG_ERR(ERR_SIGN_INIT);
+		goto done;
+	}
+
+	rc = verify_mgr_verify(sess, &verify_ctx, hash, hlen, signature,
+			       sig_len);
+	if (rc != CKR_OK)
+		OCK_LOG_ERR(ERR_VERIFY);
+
+done:
+	verify_mgr_cleanup(&verify_ctx);
+	return rc;
+}
+
+CK_RV rsa_hash_pss_verify_final(SESSION *sess, SIGN_VERIFY_CONTEXT *ctx,
+				CK_BYTE *signature, CK_ULONG sig_len)
+{
+	CK_ULONG hlen;
+	CK_BYTE hash[MAX_SHA_HASH_SIZE];
+	DIGEST_CONTEXT *digest_ctx;
+	SIGN_VERIFY_CONTEXT verify_ctx;
+	CK_MECHANISM verify_mech;
+	CK_RV rc;
+
+	if (!sess || !ctx || !signature) {
+		OCK_LOG_ERR(ERR_FUNCTION_FAILED);
+		return CKR_FUNCTION_FAILED;
+	}
+
+	memset(&verify_ctx, 0x0, sizeof(verify_ctx));
+
+	digest_ctx = (DIGEST_CONTEXT *)ctx->context;
+
+        rc = get_sha_size(digest_ctx->mech.mechanism, &hlen);
+        if (rc != CKR_OK) {
+                OCK_LOG_ERR(ERR_MECHANISM_PARAM_INVALID);
+                return CKR_MECHANISM_PARAM_INVALID;
+        }
+
+	rc = digest_mgr_digest_final(sess, FALSE, digest_ctx, hash, &hlen);
+	if (rc != CKR_OK) {
+		OCK_LOG_ERR(ERR_DIGEST_FINAL);
+		return rc;
+	}
+
+	/* sign the hash */
+	verify_mech.mechanism = CKM_RSA_PKCS_PSS;
+	verify_mech.ulParameterLen = ctx->mech.ulParameterLen;
+	verify_mech.pParameter = ctx->mech.pParameter;
+
+	rc = verify_mgr_init(sess, &verify_ctx, &verify_mech, FALSE, ctx->key);
+	if (rc != CKR_OK) {
+		OCK_LOG_ERR(ERR_SIGN_INIT);
+		goto done;
+	}
+
+	rc = verify_mgr_verify(sess, &verify_ctx, hash, hlen, signature,
+			       sig_len);
+	if (rc != CKR_OK)
+		OCK_LOG_ERR(ERR_VERIFY);
+
+done:
+	verify_mgr_cleanup(&verify_ctx);
 	return rc;
 }
 
