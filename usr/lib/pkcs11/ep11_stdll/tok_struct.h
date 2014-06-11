@@ -366,9 +366,9 @@ token_spec_t token_specific = {
 	&token_specific_verify_update,
 	&token_specific_verify_final,
 	// DES
-	NULL,                                            //specific_des_key_gen,
-	NULL,                                            //token_specific_des_ecb,
-	NULL,                                            //token_specific_des_cbc,
+	NULL,			// des_key_gen,
+	NULL,			// des_ecb,
+	NULL,			// des_cbc,
 	// Triple DES
 	NULL,                   // tdes_ecb,
 	NULL,                   // tdes_cbc,
@@ -376,26 +376,28 @@ token_spec_t token_specific = {
 	NULL,			// des3_cfb
 	NULL,			// des3_mac
 	// RSA
-	NULL, // rsa_decrypt,
-	NULL, // rsa_encrypt
-	NULL, // rsa_sign,
-	NULL, // rsa_verify,
-	NULL, // rsa_verify_recover,
-	NULL, // rsa_x509_decrypt,
-	NULL, // rsa_x509_encrypt,
-	NULL, // rsa_x509_sign,
-	NULL, // rsa_x509_verify,
-	NULL, // rsa_x509_verify_recover,
-	NULL, // rsa_generate_keypair,
+	NULL,			// rsa_decrypt
+	NULL,			// rsa_encrypt
+	NULL,			// rsa_sign
+	NULL,			// rsa_verify
+	NULL,			// rsa_verify_recover
+	NULL,			// rsa_x509_decrypt
+	NULL,			// rsa_x509_encrypt
+	NULL,			// rsa_x509_sign
+	NULL,			// rsa_x509_verify
+	NULL, 			// rsa_x509_verify_recover
+        NULL,			// rsa_oaep_decrypt
+	NULL,			// rsa_oaep_encrypt
+        NULL,			// rsa_pss_sign
+        NULL,			// rsa_pss_verify
+	NULL,			// rsa_generate_keypair
 	// Elliptic Curve
 	NULL,                   // ec_sign,
 	NULL,			// ec_verify
-	NULL,                   // ec_generate_keypair,
+	NULL,                   // ec_generate_keypair
 	// DH
-/*  */
 	NULL,                   // dh_pkcs_derive,
-	NULL,                   // dh_pkcs_key_pair_gen,
-/*  */
+	NULL,                   // dh_pkcs_key_pair_gen
 	// SHA-1
 	&token_specific_sha_init,
 	&token_specific_sha,

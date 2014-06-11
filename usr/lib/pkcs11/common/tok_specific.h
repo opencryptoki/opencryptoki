@@ -508,6 +508,18 @@ CK_RV
 token_specific_rsa_x509_verify_recover(CK_BYTE *, CK_ULONG, CK_BYTE *,
 					CK_ULONG *, OBJECT *);
 
+CK_RV token_specific_rsa_oaep_encrypt(CK_BYTE *, CK_ULONG, CK_BYTE *,
+				      CK_ULONG *, OBJECT *);
+
+CK_RV token_specific_rsa_oaep_decrypt(CK_BYTE *, CK_ULONG, CK_BYTE *,
+				      CK_ULONG *, OBJECT *);
+
+CK_RV token_specific_rsa_pss_sign(CK_BYTE *, CK_ULONG, CK_BYTE *, CK_ULONG *,
+				  OBJECT *);
+
+CK_RV token_specific_rsa_pss_verify(CK_BYTE *, CK_ULONG, CK_BYTE *, CK_ULONG,
+				    OBJECT *);
+
 CK_RV
 token_specific_ec_sign(CK_BYTE   * ,
                   CK_ULONG    ,
@@ -542,6 +554,7 @@ token_specific_generate_key_pair(SESSION *, CK_MECHANISM_PTR,
 				 CK_ATTRIBUTE_PTR, CK_ULONG,
 				 CK_ATTRIBUTE_PTR, CK_ULONG,
 				 CK_OBJECT_HANDLE_PTR, CK_OBJECT_HANDLE_PTR);
+
 
 /* Begin code contributed by Corrent corp. */
 #ifndef NODH
