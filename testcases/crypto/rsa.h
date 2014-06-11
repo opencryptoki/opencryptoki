@@ -227,13 +227,121 @@ struct RSA_GENERATED_TEST_VECTOR rsa_pss_generated_tv[] = {
 	}
 };
 
-#define NUM_OF_GENERATED_PSS_TESTSUITES 1
+struct RSA_GENERATED_TEST_VECTOR sha1_rsa_pss_generated_tv[] = {
+	{	// #0
+		.modbits = 1024,
+		.publ_exp_len = 3,
+		.publ_exp = { 0x01, 0x00, 0x01 },
+		.inputlen = 13,
+		.pss_params = {CKM_SHA_1, CKG_MGF1_SHA1, 20}
+	}, {	// #1
+		.modbits = 2048,
+		.publ_exp_len = 3,
+		.publ_exp = { 0x01, 0x00, 0x01 },
+		.inputlen = 156,
+		.pss_params = {CKM_SHA_1, CKG_MGF1_SHA1, 0}
+	}, {	// #2
+		.modbits = 4096,
+		.publ_exp_len = 3,
+		.publ_exp = { 0x01, 0x00, 0x01 },
+		.inputlen = 65,
+		.pss_params = {CKM_SHA_1, CKG_MGF1_SHA1, 20 }
+	}
+};
+
+struct RSA_GENERATED_TEST_VECTOR sha256_rsa_pss_generated_tv[] = {
+	{	// #0
+		.modbits = 1024,
+		.publ_exp_len = 3,
+		.publ_exp = { 0x01, 0x00, 0x01 },
+		.inputlen = 28,
+		.pss_params = {CKM_SHA256, CKG_MGF1_SHA256, 32}
+	}, {	// #1
+		.modbits = 2048,
+		.publ_exp_len = 3,
+		.publ_exp = { 0x01, 0x00, 0x01 },
+		.inputlen = 70,
+		.pss_params = {CKM_SHA256, CKG_MGF1_SHA256, 0}
+	}, {	// #2
+		.modbits = 4096,
+		.publ_exp_len = 3,
+		.publ_exp = { 0x01, 0x00, 0x01 },
+		.inputlen = 128,
+		.pss_params = {CKM_SHA256, CKG_MGF1_SHA256, 32}
+	}
+};
+
+struct RSA_GENERATED_TEST_VECTOR sha384_rsa_pss_generated_tv[] = {
+	{	// #0
+		.modbits = 1024,
+		.publ_exp_len = 3,
+		.publ_exp = { 0x01, 0x00, 0x01 },
+		.inputlen = 12,
+		.pss_params = {CKM_SHA384, CKG_MGF1_SHA384, 48}
+	}, {	// #1
+		.modbits = 2048,
+		.publ_exp_len = 3,
+		.publ_exp = { 0x01, 0x00, 0x01 },
+		.inputlen = 200,
+		.pss_params = {CKM_SHA384, CKG_MGF1_SHA384, 0}
+	}, {	// #2
+		.modbits = 4096,
+		.publ_exp_len = 3,
+		.publ_exp = { 0x01, 0x00, 0x01 },
+		.inputlen = 65,
+		.pss_params = {CKM_SHA384, CKG_MGF1_SHA384, 48}
+	}
+};
+
+struct RSA_GENERATED_TEST_VECTOR sha512_rsa_pss_generated_tv[] = {
+	{	// #0
+		.modbits = 2048,
+		.publ_exp_len = 3,
+		.publ_exp = { 0x01, 0x00, 0x01 },
+		.inputlen = 28,
+		.pss_params = {CKM_SHA512, CKG_MGF1_SHA512, 64}
+	}, {	// #1
+		.modbits = 2048,
+		.publ_exp_len = 3,
+		.publ_exp = { 0x01, 0x00, 0x01 },
+		.inputlen = 90,
+		.pss_params = {CKM_SHA512, CKG_MGF1_SHA512, 0}
+	}, {	// #2
+		.modbits = 4096,
+		.publ_exp_len = 3,
+		.publ_exp = { 0x01, 0x00, 0x01 },
+		.inputlen = 185,
+		.pss_params = {CKM_SHA512, CKG_MGF1_SHA512, 64}
+	}
+};
+
+#define NUM_OF_GENERATED_PSS_TESTSUITES 5
 struct GENERATED_TEST_SUITE_INFO generated_pss_test_suites[] = {
 	{
 		.name = "RSA PKCS PSS",
 		.tvcount = 12,
 		.tv = rsa_pss_generated_tv,
 		.mech = {CKM_RSA_PKCS_PSS, 0, 0},
+	}, {
+		.name = "SHA1 RSA PKCS PSS",
+		.tvcount = 3,
+		.tv = sha1_rsa_pss_generated_tv,
+		.mech = {CKM_SHA1_RSA_PKCS_PSS, 0, 0},
+	}, {
+		.name = "SHA256 RSA PKCS PSS",
+		.tvcount = 3,
+		.tv = sha256_rsa_pss_generated_tv,
+		.mech = {CKM_SHA256_RSA_PKCS_PSS, 0, 0},
+	}, {
+		.name = "SHA384 RSA PKCS PSS",
+		.tvcount = 3,
+		.tv = sha384_rsa_pss_generated_tv,
+		.mech = {CKM_SHA384_RSA_PKCS_PSS, 0, 0},
+	}, {
+		.name = "SHA512 RSA PKCS PSS",
+		.tvcount = 3,
+		.tv = sha512_rsa_pss_generated_tv,
+		.mech = {CKM_SHA512_RSA_PKCS_PSS, 0, 0},
 	}
 };
 

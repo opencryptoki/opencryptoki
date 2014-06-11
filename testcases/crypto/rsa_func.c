@@ -504,8 +504,9 @@ testcase_cleanup:
  *
  * 1. Generate RSA Key Pair
  * 2. Generate message
- * 3. Sign message
- * 4. Verify signature
+ * 3. Generate hash for the message if required by mechanism.
+ * 4. Sign message
+ * 5. Verify signature
  *
  */
 #define MAX_HASH_SIZE 64
@@ -584,11 +585,9 @@ CK_RV do_SignVerify_RSAPSS(struct GENERATED_TEST_SUITE_INFO *tsuite)
 		message_len = tsuite->tv[i].inputlen;
 
 		// generate key pair
-                rc = generate_RSA_PKCS_KeyPair(session,
-                                        tsuite->tv[i].modbits,
+                rc = generate_RSA_PKCS_KeyPair(session, tsuite->tv[i].modbits,
                                         tsuite->tv[i].publ_exp,
-                                        tsuite->tv[i].publ_exp_len,
-                                        &publ_key,
+                                        tsuite->tv[i].publ_exp_len, &publ_key,
                                         &priv_key);
                 if (rc != CKR_OK) {
                         testcase_error("generate_RSA_PKCS_KeyPair(), "
@@ -600,36 +599,38 @@ CK_RV do_SignVerify_RSAPSS(struct GENERATED_TEST_SUITE_INFO *tsuite)
 		for (j = 0; j < message_len; j++) {
 			message[j] = (j + 1) % 255;
 		}
+		
+		if (tsuite->mech.mechanism == CKM_RSA_PKCS_PSS) {
+			// create digest of message to pass to C_Sign
+			mech.mechanism = tsuite->tv[i].pss_params.hashAlg;
+			mech.pParameter = 0;
+			mech.ulParameterLen = 0;
 
-		// create digest of message
-		mech.mechanism = tsuite->tv[i].pss_params.hashAlg;
-		mech.pParameter = 0;
-		mech.ulParameterLen = 0;
+			h_len = MAX_HASH_SIZE;
 
-		h_len = MAX_HASH_SIZE;
-
-		rc = funcs->C_DigestInit(session, &mech);
-		if (rc != CKR_OK) {
-			testcase_error("C_DigestInit rc=%s", p11_get_ckr(rc));
-			goto testcase_cleanup;
+			rc = funcs->C_DigestInit(session, &mech);
+			if (rc != CKR_OK) {
+				testcase_error("C_DigestInit rc=%s",
+						p11_get_ckr(rc));
+				goto testcase_cleanup;
+			}
+			rc = funcs->C_Digest(session, message, message_len,
+					     hash, &h_len);
+			if (rc != CKR_OK) {
+				testcase_error("C_Digest rc=%s", p11_get_ckr(rc));
+				goto testcase_cleanup;
+			}
 		}
-		rc = funcs->C_Digest(session,message,message_len,hash,&h_len);
-		if (rc != CKR_OK) {
-			testcase_error("C_Digest rc=%s", p11_get_ckr(rc));
-			goto testcase_cleanup;
-		}
 
-		// set mechanism for signing the digest
+		// set mechanism for signing
 		mech = tsuite->mech;
 		pss_params = tsuite->tv[i].pss_params;
 		mech.pParameter = &pss_params;
 		mech.ulParameterLen = sizeof(CK_RSA_PKCS_PSS_PARAMS);
 
-		// initialize Sign (length only)
-		rc = funcs->C_SignInit(session,
-				&mech,
-				priv_key);
-		if (rc != CKR_OK){
+		// initialize Sign 
+		rc = funcs->C_SignInit(session, &mech, priv_key);
+		if (rc != CKR_OK) {
 			testcase_error("C_SignInit(), rc=%s", p11_get_ckr(rc));
 			goto error;
 		}
@@ -638,8 +639,12 @@ CK_RV do_SignVerify_RSAPSS(struct GENERATED_TEST_SUITE_INFO *tsuite)
 		signature_len = MAX_SIGNATURE_SIZE;
 
 		// do Sign
-		rc = funcs->C_Sign(session, hash, h_len, signature,
-				   &signature_len);
+		if (mech.mechanism == CKM_RSA_PKCS_PSS)
+			rc = funcs->C_Sign(session, hash, h_len, signature,
+					   &signature_len);
+		else
+			rc = funcs->C_Sign(session, message, message_len,
+					   signature, &signature_len);
 		if (rc != CKR_OK) {
 			testcase_error("C_Sign(), rc=%s signature len=%ld",
 				p11_get_ckr(rc), signature_len);
@@ -648,26 +653,26 @@ CK_RV do_SignVerify_RSAPSS(struct GENERATED_TEST_SUITE_INFO *tsuite)
 
 
 		// initialize Verify
-		rc = funcs->C_VerifyInit(session,
-				&mech,
-				publ_key);
+		rc = funcs->C_VerifyInit(session, &mech, publ_key);
 		if (rc != CKR_OK) {
 			testcase_error("C_VerifyInit(), rc=%s",
 				p11_get_ckr(rc));
 		}
 
 		// do Verify
-		rc = funcs->C_Verify(session, hash, h_len, signature,
-				     signature_len);
+		if (mech.mechanism == CKM_RSA_PKCS_PSS)
+			rc = funcs->C_Verify(session, hash, h_len, signature,
+					     signature_len);
+		else
+			rc = funcs->C_Verify(session, message, message_len,
+					     signature, signature_len);
 
 		// check results
 		testcase_new_assertion();
-		if (rc == CKR_OK) {
+		if (rc == CKR_OK)
 			testcase_pass("C_Verify.");
-		}
-		else {
+		else 
 			testcase_fail("C_Verify(), rc=%s", p11_get_ckr(rc));
-		}
 
 		// clean up
 		rc = funcs->C_DestroyObject(session, publ_key);
