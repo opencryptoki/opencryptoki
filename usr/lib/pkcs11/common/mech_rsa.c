@@ -600,6 +600,29 @@ rsa_parse_block( CK_BYTE  * in_data,
     return rc;
 }
 
+/* helper function for rsa-oaep */
+CK_RV get_mgf_mech(CK_RSA_PKCS_MGF_TYPE mgf, CK_MECHANISM_TYPE *mech)
+{
+	switch(mgf) {
+	case CKG_MGF1_SHA1:
+		*mech = CKM_SHA_1;
+		break;
+	case CKG_MGF1_SHA256:
+		*mech = CKM_SHA256;
+		break;
+	case CKG_MGF1_SHA384:
+		*mech = CKM_SHA384;
+		break;
+	case CKG_MGF1_SHA512:
+		*mech = CKM_SHA512;
+		break;
+	default:
+		return CKR_MECHANISM_INVALID;
+	}
+
+	return CKR_OK;
+}
+
 //
 //
 CK_RV
@@ -748,7 +771,7 @@ CK_RV rsa_oaep_crypt(SESSION *sess, CK_BBOOL length_only,
 		     CK_ULONG *out_data_len, CK_BBOOL encrypt)
 {
 	OBJECT *key_obj = NULL;
-	CK_ULONG hlen, modulus_bytes;
+	CK_ULONG hlen, modulus_bytes, mgf_mech;
 	CK_OBJECT_CLASS keyclass;
 	CK_BYTE hash[MAX_SHA_HASH_SIZE];
 	CK_RV rc;
@@ -778,6 +801,10 @@ CK_RV rsa_oaep_crypt(SESSION *sess, CK_BBOOL length_only,
 	}
 
 	/*
+	 * To help mitigate timing and fault attacks when decrypting,
+	 * check oaep parameters that are passed in right now and compute
+	 * the hash of the Label.
+	 *
 	 * PKCS#11v2.20, section 12.1.7, Step a: if "source" is empty,
 	 * then pSourceData and ulSourceDatalen must be NULL, and zero
 	 * respectively.
@@ -797,6 +824,14 @@ CK_RV rsa_oaep_crypt(SESSION *sess, CK_BBOOL length_only,
 		return CKR_MECHANISM_PARAM_INVALID;
 	}
 
+	/* hash the label now */
+	if (!(oaepParms->pSourceData) || !(oaepParms->ulSourceDataLen))
+		rc = compute_sha("", 0, hash, oaepParms->hashAlg);
+	else
+		rc = compute_sha(oaepParms->pSourceData,
+				 oaepParms->ulSourceDataLen, hash,
+				 oaepParms->hashAlg);
+	
 	if (encrypt) {
 		if (in_data_len > (modulus_bytes - 2 * hlen - 2)) {
 			OCK_LOG_ERR(ERR_DATA_LEN_RANGE);
@@ -816,7 +851,8 @@ CK_RV rsa_oaep_crypt(SESSION *sess, CK_BBOOL length_only,
 
 		rc = token_specific.t_rsa_oaep_encrypt(ctx, in_data,
 						       in_data_len, out_data,
-						       out_data_len);
+						       out_data_len, hash,
+						       hlen);
 	} else {
 		// decrypt
 		if (in_data_len != modulus_bytes) {
@@ -842,7 +878,8 @@ CK_RV rsa_oaep_crypt(SESSION *sess, CK_BBOOL length_only,
 
 		 rc = token_specific.t_rsa_oaep_decrypt(ctx, in_data,
 							in_data_len, out_data,
-							out_data_len);
+							out_data_len, hash,
+							hlen);
 	}
 
 	if (rc != CKR_OK)
@@ -1969,26 +2006,13 @@ CK_RV mgf1(CK_BYTE *seed, CK_ULONG seedlen, CK_BYTE *mask, CK_ULONG maskLen,
 	if (!mask || !seed)
 		return CKR_FUNCTION_FAILED;
 
-	switch(mgf) {
-	case CKG_MGF1_SHA1:
-		hlen = SHA1_HASH_SIZE;
-		mech = CKM_SHA_1;
-		break;
-	case CKG_MGF1_SHA256:
-		hlen = SHA2_HASH_SIZE;
-		mech = CKM_SHA256;
-		break;
-	case CKG_MGF1_SHA384:
-		hlen = SHA3_HASH_SIZE;
-		mech = CKM_SHA384;
-		break;
-	case CKG_MGF1_SHA512:
-		hlen = SHA5_HASH_SIZE;
-		mech = CKM_SHA512;
-		break;
-	default:
-		return CKR_MECHANISM_PARAM_INVALID;
-	}
+	rc = get_mgf_mech(mgf, &mech);
+	if (rc != CKR_OK)
+		return CKR_FUNCTION_FAILED;
+
+	rc = get_sha_size(mech, &hlen);
+	if (rc != CKR_OK)
+		return CKR_FUNCTION_FAILED;
 
 	/* Step 1: see if mask too long */
 	if (maskLen > ((1 << 31) * hlen))
@@ -2021,7 +2045,7 @@ CK_RV mgf1(CK_BYTE *seed, CK_ULONG seedlen, CK_BYTE *mask, CK_ULONG maskLen,
 			memcpy(mask + (i * hlen), hash, hlen);
 		else
 			/* in the case masklen is not a multiple of the
-			 * of the hash length, ony copy over remainder
+			 * of the hash length, only copy over remainder
 			 */
 			mempy(mask + (i * hlen), hash, T_len);
 
@@ -2033,3 +2057,194 @@ done:
 		free(seed_buffer);
 	return rc;
 }
+
+// RSA mechanism - EME-OAEP encoding
+//
+CK_RV encode_eme_oaep(CK_BYTE *mData, CK_ULONG mLen, CK_BYTE *emData,
+                      CK_ULONG modLength, CK_RSA_PKCS_MGF_TYPE mgf,
+                      CK_BYTE *hash, CK_ULONG hlen)
+{
+        int i, ps_len, dbMask_len;
+        CK_BYTE *maskedSeed, *maskedDB, *dbMask;
+        CK_BYTE seed[MAX_SHA_HASH_SIZE];
+        CK_RV rc = CKR_OK;
+
+        if (!mData || !emData) {
+                OCK_LOG_ERR(ERR_FUNCTION_FAILED);
+                return CKR_FUNCTION_FAILED;
+        }
+
+	/* pkcs1v2.2 Step i:
+	 * The encoded messages is a concatenated single octet, 0x00 with
+	 * maskedSeed and maskedDB to create encoded message EM.
+	 * So lets mark of the places in our output buffer.
+	 */
+	memset(emData, 0, modLength);
+	maskedSeed = emData + 1;
+	maskedDB = emData + hlen + 1;
+
+	/* pkcs1v2.2, Step b:
+	 * Generate an octet string PS and concatenate to DB.
+	 */
+        ps_len = modLength - mLen - (2 * hlen) - 2;
+        memcpy(maskedDB, hash, hlen);
+        memset(maskedDB + hlen, 0, ps_len);
+
+	/* pkcs1v2.2, Step c:
+	 * We have already concatenated hash and PS to maskedDB.
+	 * Now just concatenate 0x01 and message.
+	 */
+	maskedDB[hlen + ps_len] = 0x01;
+	memcpy(maskedDB + (hlen + ps_len + 1), mData, mLen);
+
+	/* pkcs1v2.2, Step d:
+	 * Generate a random seed.
+	 */
+	rc = rng_generate(seed, hlen);
+	if (rc != CKR_OK)
+		return rc;
+	
+	/* pkcs1v2.2, Step e:
+	 * Compute dbmask using MGF1.
+	 */
+	dbMask_len = modLength - hlen - 1;
+	dbMask = malloc(sizeof(CK_BYTE) * dbMask_len);
+	if (dbMask == NULL) {
+		OCK_LOG_ERR(ERR_HOST_MEMORY);
+		return CKR_HOST_MEMORY;
+	}
+
+	rc = mgf1(seed, hlen, dbMask, dbMask_len, mgf);
+	if (rc != CKR_OK)
+		goto done;
+
+	/* pkcs1v2.2, Step f:
+	 * Compute maskedDB.
+	 */
+	for (i = 0; i < dbMask_len; i++)
+		maskedDB[i] ^= dbMask[i];
+
+	/* pkcs1v2.2, Step g:
+	 * Compute seedMask using MGF1.
+	 */
+	memset(maskedSeed, 0, hlen);
+	rc = mgf1(maskedDB, dbMask_len, maskedSeed, hlen, mgf);
+	if (rc != CKR_OK)
+		goto done;
+
+	/* pkcs1v2.2, Step h:
+	 * Compute maskedSeed.
+	 */
+	for (i = 0; i < hlen; i++)
+		maskedSeed[i] ^= seed[i];
+done:
+	if (dbMask)
+		free(dbMask);
+	return rc;
+}
+
+CK_RV decode_eme_oaep(CK_BYTE *emData, CK_ULONG emLen, CK_BYTE *out_data,
+		      CK_ULONG *out_data_len, CK_RSA_PKCS_MGF_TYPE mgf,
+		      CK_BYTE *hash, CK_ULONG hlen)
+{
+	int i, error = 0;;
+	CK_RV rc = CKR_OK;
+	CK_ULONG dbMask_len, ps_len, msg_len;
+	CK_BYTE *maskedSeed, *maskedDB, *dbMask, *seedMask, *msg;
+
+	if (!emData || !out_data) {
+		OCK_LOG_ERR(ERR_FUNCTION_FAILED);
+		return CKR_FUNCTION_FAILED;
+	}
+
+	/* allocate memory now for later use */
+	dbMask_len = *out_data_len - hlen - 1;
+	dbMask = malloc(sizeof(CK_BYTE) * dbMask_len);
+	seedMask = malloc(sizeof(CK_BYTE) * hlen);
+	if ((seedMask == NULL) || (dbMask == NULL)) {
+		OCK_LOG_ERR(ERR_HOST_MEMORY);
+		rc = CKR_HOST_MEMORY;
+		goto done;
+	}
+
+        /* pkcs1v2.2, section 7.1.2, Step 3b:
+	 * Separate the encoded message EM and process the decrypted message.
+	 *
+	 * To mitigate fault and timing attacks, just flag errors and
+	 * keep going.
+	 */
+	maskedSeed = emData + 1;
+	maskedDB = emData + hlen + 1;
+
+	/* pkcs1v2.2, section 7.1.2, Step 3c:
+	 * Compute seedMask using MGF1.
+	 */
+	if (mgf1(maskedDB, dbMask_len, seedMask, hlen, mgf))
+		error++;
+	
+	/* pkcs1v2.2, section 7.1.2, Step 3d:
+	 * Compute seed using MGF1.
+	 */
+	for (i = 0; i < hlen; i++)
+		seedMask[i] ^= maskedSeed[i];
+
+	/* pkcs1v2.2, section 7.1.2, Step 3e:
+	 * Compute dbMask using MGF1.
+	 */
+	if (mgf1(seedMask, hlen, dbMask, dbMask_len, mgf))
+		error++;
+
+	/* pkcs1v2.2, section 7.1.2, Step 3f:
+	 * Compute db using MGF1.
+	 */
+	for (i = 0; i < dbMask_len; i++)
+		dbMask[i] ^= maskedDB[i];
+	
+	/* pkcs1v2.2, section 7.1.2, Step 3g:
+	 * DB = lHash’ || PS || 0x01 || M .
+	 *
+	 * If there is no octet with hexadecimal value 0x01 to separate
+	 * PS from M, if lHash does not equal lHash’, output “decryption
+	 * error” and stop.
+	 */
+	if (memcmp(dbMask, hash, hlen))
+		error++;
+	
+	ps_len = hlen;
+	while ((dbMask[ps_len] == 0x00) && (ps_len < dbMask_len))
+		ps_len++;
+
+	if ((ps_len == dbMask_len) || (dbMask[ps_len] != 0x01) || emData[0])
+		error++;
+
+	if (error) {
+		rc = CKR_FUNCTION_FAILED;
+		goto done;
+	} else {
+		ps_len++;
+		*out_data_len = dbMask_len - ps_len;
+		memcpy(out_data, dbMask + ps_len, dbMask_len - ps_len);
+		rc = CKR_OK;
+	}
+
+done:
+	if (seedMask)
+		free(seedMask);
+	if (dbMask)
+		free(dbMask);
+	return rc;
+}
+	
+
+	
+
+
+
+
+
+
+
+
+	
+
+

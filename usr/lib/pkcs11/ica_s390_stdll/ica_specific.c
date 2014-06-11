@@ -2816,7 +2816,8 @@ token_specific_rsa_x509_verify_recover(CK_BYTE *signature, CK_ULONG sig_len,
 
 CK_RV token_specific_rsa_oaep_encrypt(ENCR_DECR_CONTEXT *ctx, CK_BYTE *in_data,
 				      CK_ULONG in_data_len, CK_BYTE *out_data,
-				      CK_ULONG *out_data_len)
+				      CK_ULONG *out_data_len, CK_BYTE *hash,
+				      CK_ULONG hlen)
 {
 	CK_RV rc;
 	CK_BYTE cipher[MAX_RSA_KEYLEN];
@@ -2857,7 +2858,7 @@ CK_RV token_specific_rsa_oaep_encrypt(ENCR_DECR_CONTEXT *ctx, CK_BYTE *in_data,
 	}
 
 	rc = encode_eme_oaep(in_data, in_data_len, em_data, modulus_bytes,
-			     oaepParms);
+			     oaepParms->mgf, hash, hlen);
         if (rc != CKR_OK)
 		goto done;
 

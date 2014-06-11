@@ -1069,6 +1069,16 @@ CK_RV  ckm_rsa_verify( CK_BYTE  * in_data,
                        CK_ULONG   out_data_len,
                        OBJECT   * key_obj );
 
+// RSA mechanism - EME-OAEP encoding
+//
+CK_RV encode_eme_oaep(CK_BYTE *mData, CK_ULONG mLen, CK_BYTE *emData,
+		      CK_ULONG modLength, CK_RSA_PKCS_MGF_TYPE mgf,
+		      CK_BYTE *hash, CK_ULONG hlen);
+
+CK_RV decode_eme_oaep(CK_BYTE *emData, CK_ULONG emLen, CK_BYTE *out_data,
+		      CK_ULONG *out_data_len, CK_RSA_PKCS_MGF_TYPE mgf,
+		      CK_BYTE *hash, CK_ULONG hlen);
+
 #ifndef NODSA
 // DSA routines
 //

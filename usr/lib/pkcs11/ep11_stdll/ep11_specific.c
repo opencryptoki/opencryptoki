@@ -373,8 +373,6 @@ CK_CHAR label[] = "IBM OS PKCS#11   ";
 /* largest blobsize ever seen is about 5k (for 4096 mod bits RSA keys) */
 #define blobsize   2048*4
 #define MAX_APQN 256
-#define ENCRYPT    4
-#define DECRYPT    5
 
 /* wrap_key is used for importing keys */
 char             wrap_key_name[16];
