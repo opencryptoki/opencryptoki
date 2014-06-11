@@ -1590,6 +1590,14 @@ typedef struct CK_RSA_PKCS_OAEP_PARAMS {
 
 typedef CK_RSA_PKCS_OAEP_PARAMS CK_PTR CK_RSA_PKCS_OAEP_PARAMS_PTR;
 
+typedef struct CK_RSA_PKCS_PSS_PARAMS {
+	CK_MECHANISM_TYPE hashAlg;
+	CK_RSA_PKCS_MGF_TYPE mgf;
+	CK_ULONG sLen;
+} CK_RSA_PKCS_PSS_PARAMS;
+
+typedef CK_RSA_PKCS_PSS_PARAMS CK_PTR CK_RSA_PKCS_PSS_PARAMS_PTR;
+
 /* CK_FUNCTION_LIST is a structure holding a Cryptoki spec
  * version and pointers of appropriate types to all the
  * Cryptoki functions */

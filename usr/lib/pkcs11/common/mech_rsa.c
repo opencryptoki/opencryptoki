@@ -2234,17 +2234,196 @@ done:
 		free(dbMask);
 	return rc;
 }
+
+CK_RV emsa_pss_encode(CK_RSA_PKCS_PSS_PARAMS *pssParms, CK_BYTE *in_data,
+		      CK_ULONG in_data_len, CK_BYTE *em, CK_ULONG *modbytes)
+{
+	CK_BYTE *salt, *DB, *H, *buf = NULL;
+	CK_ULONG emBits, emLen, buflen, hlen, PSlen;
+	CK_RV rc = CKR_OK;
+	int i;
+
+	/*
+	 * Note: pkcs#11v2.20, Section 12.1.10:
+	 * in_data is the hashed message, mHash.
+	 *
+	 * Note: em is provided by the caller. It should be big enough to
+	 * hold k bytes of data, where k is the length in octets of the
+	 * modulus n.
+	 */
+
+	/* pkcs1v2.2 8.1.1 describes emBits as length in bits of the
+	 * modulus - 1. It also says, the octet length of EM will be
+	 * one less than k if modBits - 1 is divisible by 8 and equal
+	 * to k otherwise. k is the length in octets of the modulus n.
+	 */
+	emBits = (*modbytes * 8) - 1;
+	if ((emBits % 8) == 0)
+		emLen = *modbytes - 1;
+	else
+		emLen = *modbytes;
 	
+	/* get hash size based on hashAlg */
+	if (get_sha_size(pssParms->hashAlg, &hlen))
+		return CKR_MECHANISM_INVALID;
 
+	/* allocate a helper buffer to be used for M' and dbmask */
+	buflen = emLen - hlen - 1;
+	if (buflen < (8 + hlen + pssParms->sLen))
+		buflen = 8 + hlen + pssParms->sLen;
+	buf = (CK_BYTE *)malloc(buflen);
+	if (buf == NULL)
+		return CKR_HOST_MEMORY;
+
+	memset(em, 0, emLen);
+	memset(buf, 0, buflen);
+
+	/* set some pointers for EM */
+	DB = em;
+	H = em + (emLen - hlen - 1);
+
+	/* pkcs1v2.2, Step 3: Check length */
+	if (emLen < hlen + pssParms->sLen + 2) {
+		rc = CKR_FUNCTION_FAILED;
+		goto done;
+	}
+
+	/* pkcs1v2.2, Step 4: Generate salt */
+	salt = buf + (8 + in_data_len);
+	rc = rng_generate(salt, pssParms->sLen);
+	if (rc != CKR_OK)
+		goto done;
+
+	/* pkcs1v2.2, Step 5: set M' */
+	memcpy(buf + 8, in_data, in_data_len);
+
+	/* pkcs1v2.2, Step 6: Compute Hash(M') */
+	rc = compute_sha(buf, 8 + hlen + pssParms->sLen, H, pssParms->hashAlg);
+	if (rc != CKR_OK)
+		goto done;
+
+	/* pkcs1v2.2, Step 7 & 8: Generate DB */
+	PSlen = emLen - pssParms->sLen - hlen - 2;
+	DB[PSlen] = 0x01;
+	memcpy(DB + (PSlen + 1), salt, pssParms->sLen);
+
+	/* pkcs1v2.2, Step 9: Generate dbMask
+	 * Note: reuse "buf" for dbMask.
+	 */
+	memset(buf, 0, buflen);
+	rc = mgf1(H, hlen, buf, emLen - hlen - 1, pssParms->mgf);
+	if (rc != CKR_OK)
+		goto done;
+
+	/* pkcs1v2.2, Step 10: Compute maskedDB */
+	for (i = 0; i < (emLen - hlen - 1); i++)
+		em[i] ^= buf[i];
+
+	/* pkcs1v2.2, Step 11: Set leftmost bits to zero. */
+	em[0] &= 0xFF >> (8 * emLen - emBits);
+
+	/* pkcs1v2.2, Step 12: EM = maskedDB || H || 0xbc */
+	em[emLen - 1] = 0xbc;
+	*modbytes = emLen;
+
+done:
+	if (buf)
+		free(buf);
+
+	return rc;
+}
+
+CK_RV emsa_pss_verify(CK_RSA_PKCS_PSS_PARAMS *pssParms, CK_BYTE *in_data,
+		      CK_ULONG in_data_len, CK_BYTE *sig, CK_ULONG modbytes)
+{
+	int i;
+	CK_ULONG buflen, hlen, emBits, emLen, plen;
+	CK_BYTE *salt, *H, *M, *buf = NULL;
+        CK_BYTE hash[MAX_SHA_HASH_SIZE];
+	CK_RV rc = CKR_OK;
+
+	/* pkcs1v2.2 8.1.1 describes emBits as length in bits of the
+	 * modulus - 1. It also says, the octet length of EM will be
+	 * one less than k if modBits - 1 is divisible by 8 and equal
+	 * to k otherwise. k is the length in octets of the modulus n.
+	 */
+	emBits = (modbytes * 8) - 1;
+	if ((emBits % 8) == 0)
+		emLen = modbytes - 1;
+	else
+		emLen = modbytes;
+
+	/* get hash size based on hashAlg */
+	if (get_sha_size(pssParms->hashAlg, &hlen))
+		return CKR_MECHANISM_INVALID;
+
+	/* set up a big enough helper buffer to be used for M' and DB. */
+	buflen = (emLen - hlen - 1) + (8 + hlen + pssParms->sLen);
+	buf = (CK_BYTE *)malloc(buflen);
+	if (buf == NULL)
+		return CKR_HOST_MEMORY;
+	memset(buf, 0, buflen);
+
+	/* pkcs1v2.2, Step 4: Check rightmost octet. */
+	if (sig[emLen - 1] != 0xbc) {
+		rc = CKR_SIGNATURE_INVALID;
+		goto done;
+	}
+
+	/* pkcs1v2.2, Step 5: Extract maskedDB and H */
+	H = sig + (emLen - hlen - 1);
 	
+	/* pkcs1v2.2, Step 6: Check leftmost bits */
+	if (sig[0] & ~(0xFF >> (8 * emLen - emBits))) {
+		rc = CKR_SIGNATURE_INVALID;
+		goto done;
+	}
 
+	/* pkcs1v2.2, Step 7: Compute mgf. */
+	rc = mgf1(H, hlen, buf, emLen - hlen - 1, pssParms->mgf);
+	if (rc != CKR_OK)
+		goto done;
 
+	/* pkcs1v2.2, Step 8: DB = maskedDB ^ dbMask. */
+	for (i = 0; i < emLen - hlen - 1; i++)
+		buf[i] ^= sig[i];
 
+	/* pkcs1v2.2, Step 9: Set leftmost bits in DB to zero. */
+	buf[0] &= 0xFF >> (8 * emLen - emBits);
 
+	/* pkcs1v2.2, Step 10: check DB. */
+	i = 0;
+	plen = emLen - hlen - pssParms->sLen - 2;
+	while ((buf[i] == 0) && ( i < plen))
+		i++;
 
+	if ((i != plen) || (buf[i] != 0x01)) {
+		rc = CKR_SIGNATURE_INVALID;
+		goto done;
+	}
 
+	/* pkcs1v2.2, Step 11: Get the salt from DB. */
+	salt = buf[++i];
 
+	/* pkcs1v2.2, Step 12: Set M'. Note: Use end of buf. */
+	M = buf + (i + pssParms->sLen);
+	memset(M, 0, 8);
+	memcpy(M + 8, in_data, in_data_len);	// in_data is mHash.
+	memcpy(M + (8 + in_data_len), salt, pssParms->sLen);
 
-	
+	/* pkcs1v2.2, Step 13: Compute Hash(M'). */
+	rc = compute_sha(M, 8 + hlen + pssParms->sLen, hash, pssParms->hashAlg);
+	if (rc != CKR_OK)
+		goto done;
 
+	/* pkcs1v2.2, Step 14: H == H'. */
+	if (memcmp(hash, H, hlen))
+		rc = CKR_SIGNATURE_INVALID;
+	else
+		rc = CKR_OK;
+done:
+	if (buf)
+		free(buf);
 
+	return rc;
+}

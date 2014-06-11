@@ -1079,6 +1079,13 @@ CK_RV decode_eme_oaep(CK_BYTE *emData, CK_ULONG emLen, CK_BYTE *out_data,
 		      CK_ULONG *out_data_len, CK_RSA_PKCS_MGF_TYPE mgf,
 		      CK_BYTE *hash, CK_ULONG hlen);
 
+CK_RV emsa_pss_encode(CK_RSA_PKCS_PSS_PARAMS_PTR pssParms, CK_BYTE *in_data,
+		      CK_ULONG in_data_len, CK_BYTE *emData,
+		      CK_ULONG *modbytes);
+
+CK_RV emsa_pss_verify(CK_RSA_PKCS_PSS_PARAMS_PTR pssParms, CK_BYTE *in_data,
+		      CK_ULONG in_data_len, CK_BYTE *sig, CK_ULONG modbytes);
+
 #ifndef NODSA
 // DSA routines
 //
