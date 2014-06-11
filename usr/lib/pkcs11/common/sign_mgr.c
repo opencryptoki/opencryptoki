@@ -363,11 +363,20 @@ sign_mgr_init( SESSION                * sess,
    switch (mech->mechanism) {
       case CKM_RSA_X_509:
       case CKM_RSA_PKCS:
+      case CKM_RSA_PKCS_PSS:
          {
-            if (mech->ulParameterLen != 0){
-               OCK_LOG_ERR(ERR_MECHANISM_PARAM_INVALID); 
-               return CKR_MECHANISM_PARAM_INVALID;
-            }
+	    if (mech->mechanism == CKM_RSA_PKCS_PSS) {
+		if (mech->ulParameterLen != sizeof(CK_RSA_PKCS_PSS_PARAMS)) {
+                    OCK_LOG_ERR(ERR_MECHANISM_PARAM_INVALID);
+                    return CKR_MECHANISM_PARAM_INVALID;
+		}
+	    } else {
+            	if (mech->ulParameterLen != 0) {
+               	    OCK_LOG_ERR(ERR_MECHANISM_PARAM_INVALID);
+                    return CKR_MECHANISM_PARAM_INVALID;
+		}
+	    }
+
             rc = template_attribute_find( key_obj->template, CKA_KEY_TYPE, &attr );
             if (rc == FALSE){
                OCK_LOG_ERR(ERR_KEY_TYPE_INCONSISTENT); 
@@ -865,6 +874,10 @@ sign_mgr_sign( SESSION              * sess,
          return rsa_x509_sign( sess,     length_only,  ctx,
                                in_data,  in_data_len,
                                out_data, out_data_len );
+
+      case CKM_RSA_PKCS_PSS:
+	 return rsa_pss_sign(sess, length_only, ctx, in_data, in_data_len,
+			      out_data, out_data_len);
 
 #if !(NOMD2)
       case CKM_MD2_RSA_PKCS:
