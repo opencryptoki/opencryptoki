@@ -1018,12 +1018,11 @@ CK_RV compute_sha1(CK_BYTE * data, CK_ULONG len, CK_BYTE * hash)
 
 	memset(&ctx, 0x0, sizeof(ctx));
 
-	sha1_init(&ctx);
+	sw_sha1_init(&ctx);
 	if (ctx.context == NULL)
 		return CKR_HOST_MEMORY;
 
-	ctx.mech.mechanism = CKM_SHA_1;
-	return sha1_hash(NULL, FALSE, &ctx, data, len, hash, &hash_len);
+	return sw_sha1_hash(&ctx, data, len, hash, &hash_len);
 }
 
 CK_RV compute_md5(CK_BYTE * data, CK_ULONG len, CK_BYTE * hash)
