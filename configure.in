@@ -585,7 +585,6 @@ AC_CONFIG_FILES([Makefile usr/Makefile \
           usr/lib/pkcs11/Makefile \
           usr/lib/pkcs11/api/Makefile \
           usr/lib/pkcs11/api/shrd_mem.c \
-          usr/lib/pkcs11/ica_stdll/Makefile \
           usr/lib/pkcs11/ica_s390_stdll/Makefile \
           usr/sbin/Makefile \
           usr/sbin/pkcsslotd/Makefile \
