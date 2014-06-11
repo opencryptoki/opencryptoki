@@ -105,30 +105,6 @@ AC_ARG_ENABLE([tpmtok],
 	[],
 	[enable_tpmtok=check])
 
-dnl --- icc token (IBM 4758 PCICC hardware)
-AC_ARG_ENABLE([icctok],
-	AS_HELP_STRING([--enable-icctok],[build icc token (IBM 4758 hardware) @<:@default=enabled if SCC library is present@:>@]),
-	[],
-	[enable_icctok=check])
-
-dnl --- aep token (AEP Crypto Accelerator hardware)
-AC_ARG_ENABLE([aeptok],
-	AS_HELP_STRING([--enable-aeptok],[build aep token (AEP Crypto Accelerator) @<:@default=enabled if AEP library is present@:>@]),
-	[],
-	[enable_aeptok=check])
-
-dnl --- bcom token (Broadcom Crypto Accelerator hardware)
-AC_ARG_ENABLE([bcomtok],
-	AS_HELP_STRING([--enable-bcomtok],[build bcom token (Broadcom Crypto Accelerator) @<:@default=enabled if uBSec library is present@:>@]),
-	[],
-	[enable_bcomtok=check])
-
-dnl -- cr token (Corrent Crypto Accelerator hardware)
-AC_ARG_ENABLE([crtok],
-	AS_HELP_STRING([--enable-crtok],[build cr token (Corrent Crypto Accelerator) @<:@default=enabled if SocketArmor library is present@:>@]),
-	[],
-	[enable_crtok=check])
-
 dnl -- icsf token (Integrated Cryptographic Service Facility remote token)
 AC_ARG_ENABLE([icsftok],
 	AS_HELP_STRING([--enable-iscftok],[build icsf token (Integrated Cryptographic Service Facility) @<:@default=enabled if OpenLDAP library is present@:>@]),
@@ -180,30 +156,6 @@ AC_ARG_WITH([tss],
 	AS_HELP_STRING([--with-tss@<:@=DIR@:>@],[TrouSerS development files location]),
 	[],
 	[with_tss=check])
-
-dnl --- SCC development files (IBM 4758 PCI Cryptographic Coprocessor)
-AC_ARG_WITH([scc],
-	AS_HELP_STRING([--with-scc@<:@=DIR@:>@],[SCC library location]),
-	[],
-	[with_scc=check])
-
-dnl --- AEP development files (AEP crypto hardware)
-AC_ARG_WITH([aep],
-	AS_HELP_STRING([--with-aep@<:@=DIR@:>@],[AEP development files location]),
-	[],
-	[with_aep=check])
-
-dnl --- uBSec development files (Broadcom crypto hardware)
-AC_ARG_WITH([ubsec],
-	AS_HELP_STRING([--with-ubsec@<:@=DIR@:>@],[uBSec library location]),
-	[],
-	[with_ubsec=check])
-
-dnl --- Socketarmor development files (Corrent crypto hardware)
-AC_ARG_WITH([socketarmor],
-	AS_HELP_STRING([--with-socketarmor@<:@=DIR@:>@],[Socketarmor library location]),
-	[],
-	[with_socketarmor=check])
 
 dnl --- xcryptolinz development files (IBM CCA development files)
 AC_ARG_WITH([xcryptolinz],
@@ -352,6 +304,7 @@ fi
 AC_SUBST([LIBICA_CFLAGS])
 AC_SUBST([LIBICA_LIBS])
 
+
 dnl --- with_zcrypt
 ZCRYPT_CFLAGS=
 ZCRYPT_LIBS=
@@ -379,9 +332,11 @@ if test "x$with_zcrypt" != "xno"; then
 		CFLAGS="$old_cflags"
 		LIBS="$old_libs"
 	fi
+
 fi
 AC_SUBST([ZCRYPT_CFLAGS])
 AC_SUBST([ZCRYPT_LIBS])
+
 
 dnl --- with_tss
 TSS_CFLAGS=
@@ -417,133 +372,6 @@ if test "x$with_tss" != "xno"; then
 fi
 AC_SUBST([TSS_CFLAGS])
 AC_SUBST([TSS_LIBS])
-
-dnl --- with_scc
-SCC_CFLAGS=
-SCC_LIBS=
-if test "x$with_scc" != "xno"; then
-	if test "x$with_scc" != "xyes" -a "x$with_scc" != "xcheck"; then
-		SCC_CFLAGS="-I$with_scc"
-		SCC_LIBS="-L$with_scc"
-	fi
-	old_cflags="$CFLAGS"
-	old_libs="$LIBS"
-	CFLAGS="$CFLAGS $SCC_CFLAGS"
-	LIBS="$LIBS $SCC_LIBS"
-	AC_CHECK_HEADER([scc_host.h], [], [
-		if test "x$with_scc" != "xcheck"; then
-			AC_MSG_ERROR([Build with SCC requested but SCC headers couldn't be found])
-		fi
-		with_scc=no
-	])
-	if test "x$with_scc" != "xno"; then
-		AC_CHECK_LIB([scc], [sccOpenAdapter],
-			[with_scc=yes], [
-				if test "x$with_scc" != "xcheck"; then
-					AC_MSG_ERROR([Build with SCC requested but SCC libraries couldn't be found])
-				fi
-				with_scc=no
-		])
-	fi
-	if test "x$with_scc" = "xno"; then
-		CFLAGS="$old_cflags"
-		LIBS="$old_libs"
-	fi
-fi
-AC_SUBST([SCC_CFLAGS])
-AC_SUBST([SCC_LIBS])
-
-dnl --- with_aep
-AEP_LIBS=
-if test "x$with_aep" != "xno"; then
-	if test "x$with_aep" != "xyes" -a "x$with_aep" != "xcheck"; then
-		AEP_LIBS="-L$with_aep"
-	fi
-	old_libs="$LIBS"
-	LIBS="$LIBS $AEP_LIBS"
-	AC_CHECK_LIB([aep], [AEP_Initialize],
-		[with_aep=yes], [
-			if test "x$with_aep" != "xcheck"; then
-				AC_MSG_ERROR([Build with AEP requested but AEP libraries couldn't be found])
-			fi
-			with_aep=no
-	])
-	if test "x$with_aep" = "xno"; then
-		CFLAGS="$old_cflags"
-		LIBS="$old_libs"
-	fi
-fi
-AC_SUBST([AEP_LIBS])
-
-dnl --- with_ubsec
-UBSEC_CFLAGS=
-UBSEC_LIBS=
-if test "x$with_ubsec" != "xno"; then
-	if test "x$with_ubsec" != "xyes" -a "x$with_ubsec" != "xcheck"; then
-		OPENSSL_CFLAGS="-I$with_ubsec"
-		OPENSSL_LIBS="-L$with_ubsec"
-	fi
-	old_cflags="$CFLAGS"
-	old_libs="$LIBS"
-	CFLAGS="$CFLAGS $UBSEC_CFLAGS"
-	LIBS="$LIBS $UBSEC_LIBS"
-	AC_CHECK_HEADER([ubsec.h], [], [
-		if test "x$with_ubsec" != "xcheck"; then
-			AC_MSG_ERROR([Build with uBSec requested but uBSec headers couldn't be found])
-		fi
-		with_ubsec=no
-	])
-	if test "x$with_ubsec" != "xno"; then
-		AC_CHECK_LIB([ubsec], [ubsec_open],
-			[with_ubsec=yes], [
-				if test "x$with_ubsec" != "xcheck"; then
-					AC_MSG_ERROR([Build with uBSec requested but uBSec libraries couldn't be found])
-				fi
-				with_ubsec=no
-		])
-	fi
-	if test "x$with_ubsec" = "xno"; then
-		CFLAGS="$old_cflags"
-		LIBS="$old_libs"
-	fi
-fi
-AC_SUBST([UBSEC_CFLAGS])
-AC_SUBST([UBSEC_LIBS])
-
-dnl --- with_socketarmor
-SOCKETARMOR_CFLAGS=
-SOCKETARMOR_LIBS=
-if test "x$with_socketarmor" != "xno"; then
-	if test "x$with_socketarmor" != "xyes" -a "x$with_socketarmor" != "xcheck"; then
-		SOCKETARMOR_CFLAGS="-I$with_socketarmor"
-		SOCKETARMOR_LIBS="-L$with_socketarmor"
-	fi
-	old_cflags="$CFLAGS"
-	old_libs="$LIBS"
-	CFLAGS="$CFLAGS $SOCKETARMOR_CFLAGS"
-	LIBS="$LIBS $SOCKETARMOR_LIBS"
-	AC_CHECK_HEADER([typhoon.h], [], [
-		if test "x$with_socketarmor" != "xcheck"; then
-			AC_MSG_ERROR([Build with Socketarmor requested but Socketarmor headers couldn't be found])
-		fi
-		with_socketarmor=no
-	])
-	if test "x$with_socketarmor" != "xno"; then
-		AC_CHECK_LIB([socketarmor], [CR_init_lib],
-			[with_socketarmor=yes], [
-				if test "x$with_socketarmor" != "xcheck"; then
-					AC_MSG_ERROR([Build with Socketarmor requested but Socketarmor libraries couldn't be found])
-				fi
-				with_socketarmor=no
-		])
-	fi
-	if test "x$with_socketarmor" = "xno"; then
-		CFLAGS="$old_cflags"
-		LIBS="$old_libs"
-	fi
-fi
-AC_SUBST([SOCKETARMOR_CFLAGS])
-AC_SUBST([SOCKETARMOR_LIBS])
 
 dnl --- with_xcryptolinz
 XCRYPTOLINZ_CFLAGS=
@@ -712,61 +540,6 @@ else
 fi
 AM_CONDITIONAL([ENABLE_TPMTOK], [test "x$enable_tpmtok" = "xyes"])
 
-dnl --- enable_icctok
-if test "x$enable_icctok" = "xyes"; then
-	if test "x$with_scc" != "xyes"; then
-		AC_MSG_ERROR([icc token build requested but no scc development files not found])
-		enable_icctok=no
-	fi
-fi
-if test "x$enable_icctok" != "xno" -a "x$with_scc" != "xno"; then
-	enable_icctok=yes
-else
-	enable_icctok=no
-fi
-AM_CONDITIONAL([ENABLE_ICCTOK], [test "x$enable_icctok" = "xyes"])
-
-dnl --- enable_aeptok
-if test "x$enable_aeptok" = "xyes"; then
-	if test "x$with_aep" != "xyes"; then
-		AC_MSG_ERROR([aep token build requested but no aep development files not found])
-		enable_aeptok=no
-	fi
-fi
-if test "x$enable_aeptok" != "xno" -a "x$with_aep" != "xno"; then
-	enable_aeptok=yes
-else
-	enable_aeptok=no
-fi
-AM_CONDITIONAL([ENABLE_AEPTOK], [test "x$enable_aeptok" = "xyes"])
-
-dnl --- enable_bcomtok
-if test "x$enable_bcomtok" = "xyes"; then
-	if test "x$with_ubsec" != "xyes"; then
-		AC_MSG_ERROR([bcom token build requested but no uBSec development files not found])
-		enable_bcomok=no
-	fi
-fi
-if test "x$enable_bcomtok" != "xno" -a "x$with_ubsec" != "xno"; then
-	enable_bcomtok=yes
-else
-	enable_bcomtok=no
-fi
-AM_CONDITIONAL([ENABLE_BCOMTOK], [test "x$enable_bcom" = "xyes"])
-
-dnl --- enable_crtok
-if test "x$enable_crtok" = "xyes"; then
-	if test "x$with_socketarmor" != "xyes"; then
-		AC_MSG_ERROR([cr token build requested but no Socketarmor development files not found])
-		enable_crtok=no
-	fi
-fi
-if test "x$enable_crtok" != "xno" -a "x$with_socketarmor" != "xno"; then
-	enable_crtok=yes
-else
-	enable_crtok=no
-fi
-AM_CONDITIONAL([ENABLE_CRTOK], [test "x$enable_crtok" = "xyes"])
 
 dnl --- enable_pkcscca_migrate
 if test "x$enable_pkcscca_migrate" = "xyes"; then
@@ -820,17 +593,11 @@ AC_CONFIG_FILES([Makefile usr/Makefile \
           usr/sbin/pkcsicsf/Makefile \
           usr/sbin/pkcscca_migrate/Makefile \
           usr/sbin/pkcsep11_migrate/Makefile \
-          usr/lib/pkcs11/methods/Makefile \
-          usr/lib/pkcs11/leeds_stdll/Makefile \
           usr/lib/pkcs11/soft_stdll/Makefile \
           usr/lib/pkcs11/ep11_stdll/Makefile \
-          usr/lib/pkcs11/bcom_stdll/Makefile \
-          usr/lib/pkcs11/cr_stdll/Makefile \
-          usr/lib/pkcs11/aep_stdll/Makefile \
           usr/lib/pkcs11/tpm_stdll/Makefile \
           usr/lib/pkcs11/cca_stdll/Makefile \
           usr/lib/pkcs11/icsf_stdll/Makefile \
-          usr/lib/pkcs11/methods/4758_status/Makefile \
           misc/Makefile \
 	  testcases/Makefile \
 	  testcases/common/Makefile \
@@ -864,10 +631,6 @@ echo "	CCA token:		$enable_ccatok"
 echo "	Software token:		$enable_swtok"
 echo "	EP11 token:		$enable_ep11tok"
 echo "	TPM token:		$enable_tpmtok"
-echo "	ICC token:		$enable_icctok"
-echo "	AEP token:		$enable_aeptok"
-echo "	Broadcom token:		$enable_bcomtok"
-echo "	Corrent token:		$enable_crtok"
 echo "	ICSF token:		$enable_icsftok"
 echo
 echo "Token-specific features:"

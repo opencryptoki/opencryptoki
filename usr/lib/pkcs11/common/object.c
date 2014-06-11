@@ -307,10 +307,6 @@
 #include <stdlib.h>
 #include <memory.h>
 #include <string.h>
-#ifdef LEEDS_BUILD
-#include <string.h>  // for memcmp() et al
-#endif
-
 
 #include "pkcs11types.h"
 #include "defs.h"
