@@ -498,6 +498,212 @@ testcase_cleanup:
 
 
 /* This function should test:
+ * RSA Key Generation, usign CKM_RSA_PKCS_KEY_PAIR_GEN
+ * RSA-PSS Sign, mechanism chosen by caller
+ * RSA-PSS Verify, mechanism chosen by caller
+ *
+ * 1. Generate RSA Key Pair
+ * 2. Generate message
+ * 3. Sign message
+ * 4. Verify signature
+ *
+ */
+#define MAX_HASH_SIZE 64
+CK_RV do_SignVerify_RSAPSS(struct GENERATED_TEST_SUITE_INFO *tsuite)
+{
+	int i; // test vector index
+	int j; // message byte index
+	CK_BYTE	message[MAX_MESSAGE_SIZE];
+	CK_BYTE	signature[MAX_SIGNATURE_SIZE];
+	CK_BYTE hash[MAX_HASH_SIZE];
+	CK_ULONG message_len, signature_len, h_len;
+
+	CK_MECHANISM mech;
+	CK_OBJECT_HANDLE publ_key, priv_key;
+
+	CK_SLOT_ID slot_id = SLOT_ID;
+	CK_SESSION_HANDLE session;
+	CK_FLAGS flags;
+	CK_BYTE	user_pin[PKCS11_MAX_PIN_LEN];
+	CK_ULONG user_pin_len;
+	CK_RV rc, loc_rc;
+	CK_RSA_PKCS_PSS_PARAMS pss_params;
+
+	char *s;
+
+	// begin testsuite
+	testsuite_begin("%s Sign Verify.", tsuite->name);
+	testcase_rw_session();
+	testcase_user_login();
+
+	// skip tests if the slot doesn't support this mechanism
+	if (! mech_supported(slot_id, tsuite->mech.mechanism)){
+		testsuite_skip(tsuite->tvcount,
+			"Slot %u doesn't support %u",
+			(unsigned int) slot_id,
+                        (unsigned int) tsuite->mech.mechanism );
+                goto testcase_cleanup;
+	}
+
+	// iterate over test vectors
+	for (i = 0; i < tsuite->tvcount; i++){
+
+                // get public exponent from test vector
+                if ( p11_ahex_dump(&s, tsuite->tv[i].publ_exp,
+                                tsuite->tv[i].publ_exp_len) == NULL) {
+                        testcase_error("p11_ahex_dump() failed");
+                        rc = -1;
+                        goto testcase_cleanup;
+                }
+
+                // begin test
+                testcase_begin("%s Sign and Verify with test vector %d, "
+                        "\npubl_exp='%s', mod_bits='%lu', keylen='%lu'.",
+			tsuite->name, i, s,
+                        tsuite->tv[i].modbits,
+                        tsuite->tv[i].keylen);
+
+		if (!keysize_supported(slot_id, tsuite->mech.mechanism,
+					tsuite->tv[i].modbits)) {
+			testcase_skip("Token in slot %ld cannot be used with "
+					"modbits.='%ld'",
+					SLOT_ID,tsuite->tv[i].modbits);
+			continue;
+		}
+
+                // free memory
+                free(s);
+
+		rc = CKR_OK; // set rc
+
+		// clear buffers
+                memset(message, 0, MAX_MESSAGE_SIZE);
+                memset(signature, 0, MAX_SIGNATURE_SIZE);
+
+		// get test vector parameters
+		message_len = tsuite->tv[i].inputlen;
+
+		// generate key pair
+                rc = generate_RSA_PKCS_KeyPair(session,
+                                        tsuite->tv[i].modbits,
+                                        tsuite->tv[i].publ_exp,
+                                        tsuite->tv[i].publ_exp_len,
+                                        &publ_key,
+                                        &priv_key);
+                if (rc != CKR_OK) {
+                        testcase_error("generate_RSA_PKCS_KeyPair(), "
+					"rc=%s", p11_get_ckr(rc));
+                        goto error;
+                }
+
+		// generate message
+		for (j = 0; j < message_len; j++) {
+			message[j] = (j + 1) % 255;
+		}
+
+		// create digest of message
+		mech.mechanism = tsuite->tv[i].pss_params.hashAlg;
+		mech.pParameter = 0;
+		mech.ulParameterLen = 0;
+
+		h_len = MAX_HASH_SIZE;
+
+		rc = funcs->C_DigestInit(session, &mech);
+		if (rc != CKR_OK) {
+			testcase_error("C_DigestInit rc=%s", p11_get_ckr(rc));
+			goto testcase_cleanup;
+		}
+		rc = funcs->C_Digest(session,message,message_len,hash,&h_len);
+		if (rc != CKR_OK) {
+			testcase_error("C_Digest rc=%s", p11_get_ckr(rc));
+			goto testcase_cleanup;
+		}
+
+		// set mechanism for signing the digest
+		mech = tsuite->mech;
+		pss_params = tsuite->tv[i].pss_params;
+		mech.pParameter = &pss_params;
+		mech.ulParameterLen = sizeof(CK_RSA_PKCS_PSS_PARAMS);
+
+		// initialize Sign (length only)
+		rc = funcs->C_SignInit(session,
+				&mech,
+				priv_key);
+		if (rc != CKR_OK){
+			testcase_error("C_SignInit(), rc=%s", p11_get_ckr(rc));
+			goto error;
+		}
+
+		// set buffer size
+		signature_len = MAX_SIGNATURE_SIZE;
+
+		// do Sign
+		rc = funcs->C_Sign(session, hash, h_len, signature,
+				   &signature_len);
+		if (rc != CKR_OK) {
+			testcase_error("C_Sign(), rc=%s signature len=%ld",
+				p11_get_ckr(rc), signature_len);
+			goto error;
+		}
+
+
+		// initialize Verify
+		rc = funcs->C_VerifyInit(session,
+				&mech,
+				publ_key);
+		if (rc != CKR_OK) {
+			testcase_error("C_VerifyInit(), rc=%s",
+				p11_get_ckr(rc));
+		}
+
+		// do Verify
+		rc = funcs->C_Verify(session, hash, h_len, signature,
+				     signature_len);
+
+		// check results
+		testcase_new_assertion();
+		if (rc == CKR_OK) {
+			testcase_pass("C_Verify.");
+		}
+		else {
+			testcase_fail("C_Verify(), rc=%s", p11_get_ckr(rc));
+		}
+
+		// clean up
+		rc = funcs->C_DestroyObject(session, publ_key);
+		if (rc != CKR_OK) {
+			testcase_error("C_DestroyObject(), rc=%s.",
+				p11_get_ckr(rc));
+		}
+
+		rc = funcs->C_DestroyObject(session, priv_key);
+		if (rc != CKR_OK) {
+			testcase_error("C_DestroyObject(), rc=%s.",
+				p11_get_ckr(rc));
+		}
+        }
+	goto testcase_cleanup;
+error:
+	loc_rc = funcs->C_DestroyObject(session, publ_key);
+	if (loc_rc != CKR_OK) {
+		testcase_error("C_DestroyObject, rc=%s.", p11_get_ckr(loc_rc));
+	}
+	loc_rc = funcs->C_DestroyObject(session, priv_key);
+	if (loc_rc != CKR_OK) {
+		testcase_error("C_DestroyObject, rc=%s.", p11_get_ckr(loc_rc));
+	}
+
+testcase_cleanup:
+	testcase_user_logout();
+	rc = funcs->C_CloseAllSessions(slot_id);
+	if (rc != CKR_OK) {
+		testcase_error("C_CloesAllSessions, rc=%s", p11_get_ckr(rc));
+	}
+	return rc;
+}
+
+
+/* This function should test:
  * RSA Key Generation, using CKM_PKCS_KEY_PAIR_GEN
  * RSA Public-Key Wrap
  * RSA Private-Key Unwrap
@@ -1188,7 +1394,7 @@ CK_RV rsa_funcs()
 	CK_RV	rv = CKR_OK;
 
 	// published (known answer) tests
-/*	for (i = 0; i < NUM_OF_PUBLISHED_TESTSUITES; i++) {
+	for (i = 0; i < NUM_OF_PUBLISHED_TESTSUITES; i++) {
 		rv = do_SignRSA(&published_test_suites[i]);
 		if (rv != CKR_OK && (!no_stop))
 			break;
@@ -1197,26 +1403,33 @@ CK_RV rsa_funcs()
 		if (rv != CKR_OK && (!no_stop))
 			break;
 	}
-*/
+
 	// generated sign verify tests
-/*	for (i = 0; i < NUM_OF_GENERATED_SIGVER_TESTSUITES; i++) {
+	for (i = 0; i < NUM_OF_GENERATED_SIGVER_TESTSUITES; i++) {
 		rv = do_SignVerifyRSA(&generated_sigver_test_suites[i]);
 		if (rv != CKR_OK && (!no_stop))
 			break;
 	}
-*/
+
+	for (i = 0; i < NUM_OF_GENERATED_PSS_TESTSUITES; i++) {
+		rv = do_SignVerify_RSAPSS(&generated_pss_test_suites[i]);
+		if (rv != CKR_OK && (!no_stop))
+			break;
+	}
+
 	// generated crypto tests
-/*	for (i = 0; i < NUM_OF_GENERATED_CRYPTO_TESTSUITES; i++) {
+	for (i = 0; i < NUM_OF_GENERATED_CRYPTO_TESTSUITES; i++) {
 		rv = do_EncryptDecryptRSA(&generated_crypto_test_suites[i]);
 		if (rv != CKR_OK && (!no_stop))
 			break;
 	}
-*/
+
 	for (i = 0; i < NUM_OF_GENERATED_OAEP_TESTSUITES; i++) {
 		rv = do_EncryptDecryptRSA(&generated_oaep_test_suites[i]);
 		if (rv != CKR_OK && (!no_stop))
 			break;
 	}
+
 	for ( i = 0; i < NUM_OF_GENERATED_OAEP_TESTSUITES; i++) {
 		rv = do_WrapUnwrapRSA(&generated_oaep_test_suites[i]);
 		if (rv != CKR_OK && (!no_stop))
@@ -1224,12 +1437,12 @@ CK_RV rsa_funcs()
 	}
 
 	// generated keywrap tests
-/*	for ( i = 0; i < NUM_OF_GENERATED_KEYWRAP_TESTSUITES; i++) {
+	for ( i = 0; i < NUM_OF_GENERATED_KEYWRAP_TESTSUITES; i++) {
 		rv = do_WrapUnwrapRSA(&generated_keywrap_test_suites[i]);
 		if (rv != CKR_OK && (!no_stop))
 			break;
 	}
-*/
+
 	return rv;
 }
 
