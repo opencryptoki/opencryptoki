@@ -818,6 +818,8 @@ CK_RV generate_master_key(CK_BYTE *key);
 
 CK_RV compute_md5( CK_BYTE *data, CK_ULONG len, CK_BYTE *hash );
 CK_RV compute_sha1(CK_BYTE *data, CK_ULONG len, CK_BYTE *hash);
+CK_RV compute_sha(CK_BYTE *data, CK_ULONG len, CK_BYTE *hash, CK_ULONG mech);
+CK_RV get_sha_size(CK_ULONG mech, CK_ULONG *hsize);
 
 CK_ULONG long_reverse( CK_ULONG x );
 

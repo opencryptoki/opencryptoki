@@ -1010,7 +1010,69 @@ CK_RV detach_shm()
 	return rc;
 }
 
-CK_RV compute_sha1(CK_BYTE * data, CK_ULONG len, CK_BYTE * hash)
+CK_RV get_sha_size(CK_ULONG mech, CK_ULONG *hsize)
+{
+	switch(mech) {
+	case CKM_SHA_1:
+		*hsize = SHA1_HASH_SIZE;
+		break;
+	case CKM_SHA256:
+		*hsize = SHA2_HASH_SIZE;
+		break;
+	case CKM_SHA384:
+		*hsize = SHA3_HASH_SIZE;
+		break;
+	case CKM_SHA512:
+		*hsize = SHA5_HASH_SIZE;
+		break;
+	default:
+		return CKR_MECHANISM_INVALID;
+	}
+	return CKR_OK;
+}
+
+/* Compute specified SHA using either software or token implementation */
+CK_RV compute_sha(CK_BYTE * data, CK_ULONG len, CK_BYTE *hash, CK_ULONG mech)
+{
+	DIGEST_CONTEXT ctx;
+	CK_ULONG hash_len;
+	CK_RV rv;
+
+	memset(&ctx, 0x0, sizeof(ctx));
+	ctx.mech.mechanism = mech;
+	
+	rv = get_sha_size(mech, &hash_len);
+	if (rv != CKR_OK)
+		return rv;
+
+	switch(mech) {
+	case CKM_SHA_1:
+		sha1_init(&ctx);
+		if (ctx.context == NULL)
+			return CKR_HOST_MEMORY;
+		return sha1_hash(NULL, FALSE, &ctx, data, len, hash, &hash_len);
+        case CKM_SHA256:
+		sha2_init(&ctx);
+		if (ctx.context == NULL)
+			return CKR_HOST_MEMORY;
+		return sha2_hash(NULL, FALSE, &ctx, data, len, hash, &hash_len);
+        case CKM_SHA384:
+		sha3_init(&ctx);
+		if (ctx.context == NULL)
+			return CKR_HOST_MEMORY;
+		return sha3_hash(NULL, FALSE, &ctx, data, len, hash, &hash_len);
+        case CKM_SHA512:
+		sha5_init(&ctx);
+		if (ctx.context == NULL)
+			return CKR_HOST_MEMORY;
+		return sha5_hash(NULL, FALSE, &ctx, data, len, hash, &hash_len);
+        default:
+                return CKR_MECHANISM_INVALID;
+        }
+}
+
+/* Compute SHA1 using software implementation */
+CK_RV compute_sha1(CK_BYTE * data, CK_ULONG len, CK_BYTE *hash)
 {
 	// XXX KEY
 	DIGEST_CONTEXT ctx;
