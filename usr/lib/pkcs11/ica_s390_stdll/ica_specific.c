@@ -2851,7 +2851,7 @@ CK_RV token_specific_rsa_oaep_encrypt(ENCR_DECR_CONTEXT *ctx, CK_BYTE *in_data,
 	/* pkcs1v2.2, section 7.1.1 Step 2:
 	 * EME-OAEP encoding.
 	 */
-	em_data = (CK_BYTE *)malloc(modulus_bytes*sizeof(CK_BYTE));
+	em_data = (CK_BYTE *)malloc(modulus_bytes);
 	if (em_data == NULL) {
 		OCK_LOG_ERR(ERR_HOST_MEMORY);
 		return CKR_HOST_MEMORY;
@@ -2925,6 +2925,120 @@ CK_RV token_specific_rsa_oaep_decrypt(ENCR_DECR_CONTEXT *ctx, CK_BYTE *in_data,
 
 	if (decr_data)
 		free(decr_data);
+	return rc;
+}
+
+CK_RV token_specific_rsa_pss_sign(SIGN_VERIFY_CONTEXT *ctx, CK_BYTE *in_data,
+				  CK_ULONG in_data_len, CK_BYTE *sig,
+				  CK_ULONG *sig_len)
+{
+	CK_RV rc;
+	CK_ULONG modbytes;
+	CK_BBOOL flag;
+	CK_ATTRIBUTE *attr = NULL;
+	OBJECT *key_obj = NULL;
+	CK_BYTE *emdata = NULL;
+	CK_RSA_PKCS_PSS_PARAMS *pssParms = NULL;
+
+	/* check the arguments */
+	if (!in_data || !sig) {
+		OCK_LOG_ERR(ERR_ARGUMENTS_BAD);
+		return CKR_ARGUMENTS_BAD;
+	}
+
+	if (!ctx) {
+		OCK_LOG_ERR(ERR_FUNCTION_FAILED);
+		return CKR_FUNCTION_FAILED;
+	}
+
+	pssParms = (CK_RSA_PKCS_PSS_PARAMS *)ctx->mech.pParameter;
+
+	/* get the key */
+	rc = object_mgr_find_in_map1(ctx->key, &key_obj);
+	if (rc != CKR_OK) {
+		OCK_LOG_ERR(ERR_OBJMGR_FIND_MAP);
+		return rc;
+	}
+
+        flag = template_attribute_find(key_obj->template, CKA_MODULUS, &attr);
+        if (flag == FALSE) {
+                OCK_LOG_ERR(ERR_FUNCTION_FAILED);
+                return CKR_FUNCTION_FAILED;
+        } else
+                modbytes = attr->ulValueLen;
+
+	emdata = (CK_BYTE *)malloc(modbytes);
+	if (emdata == NULL) {
+		OCK_LOG_ERR(ERR_HOST_MEMORY);
+		return CKR_HOST_MEMORY;
+	}
+
+	rc = emsa_pss_encode(pssParms, in_data, in_data_len, emdata, &modbytes);
+	if (rc != CKR_OK)
+		goto done;
+
+	/* signing is a private key operation --> decrypt  */
+	rc = os_specific_rsa_decrypt(emdata, modbytes, sig, key_obj);
+	if (rc == CKR_OK)
+		*sig_len = modbytes;
+	else
+		OCK_LOG_ERR(ERR_FUNCTION_FAILED);
+
+done:
+	if (emdata)
+		free(emdata);
+	return rc;
+}
+
+
+CK_RV token_specific_rsa_pss_verify(SIGN_VERIFY_CONTEXT *ctx, CK_BYTE *in_data,
+                                    CK_ULONG in_data_len, CK_BYTE *signature,
+				    CK_ULONG sig_len)
+{
+	CK_RV rc;
+	CK_ULONG modbytes;
+	OBJECT *key_obj = NULL;
+	CK_BBOOL flag;
+	CK_ATTRIBUTE *attr = NULL;
+	CK_BYTE out[MAX_RSA_KEYLEN];
+	CK_RSA_PKCS_PSS_PARAMS *pssParms = NULL;
+
+	/* check the arguments */
+	if (!in_data || !signature) {
+		OCK_LOG_ERR(ERR_ARGUMENTS_BAD);
+		return CKR_ARGUMENTS_BAD;
+	}
+
+	if (!ctx) {
+		OCK_LOG_ERR(ERR_FUNCTION_FAILED);
+		return CKR_FUNCTION_FAILED;
+	}
+
+	pssParms = (CK_RSA_PKCS_PSS_PARAMS *)ctx->mech.pParameter;
+
+	/* get the key */
+	rc = object_mgr_find_in_map1(ctx->key, &key_obj);
+	if (rc != CKR_OK) {
+		OCK_LOG_ERR(ERR_OBJMGR_FIND_MAP);
+		return rc;
+	}
+
+	/* verify is a public key operation ... encrypt */
+	rc = os_specific_rsa_encrypt(signature, sig_len, out, key_obj);
+	if (rc != CKR_OK) {
+		OCK_LOG_ERR(ERR_FUNCTION_FAILED);
+		return rc;
+	}
+
+	flag = template_attribute_find(key_obj->template, CKA_MODULUS, &attr);
+	if (flag == FALSE) {
+		OCK_LOG_ERR(ERR_FUNCTION_FAILED);
+		return CKR_FUNCTION_FAILED;
+	} else
+		modbytes = attr->ulValueLen;
+
+	/* call the pss verify scheme */
+	rc = emsa_pss_verify(pssParms, in_data, in_data_len, out, modbytes);
 	return rc;
 }
 
@@ -3405,6 +3519,8 @@ REF_MECH_LIST_ELEMENT ref_mech_list[] = {
 #endif
 	{90, CKM_RSA_PKCS_OAEP, 512, 4096, CKF_HW|CKF_ENCRYPT|CKF_DECRYPT|
 					   CKF_WRAP|CKF_UNWRAP},
+
+	{90, CKM_RSA_PKCS_PSS, 512, 4096, CKF_HW|CKF_SIGN|CKF_VERIFY},
 
 	{107, CKM_MD2_RSA_PKCS, 512, 4096, CKF_HW|CKF_SIGN|CKF_VERIFY},
 
