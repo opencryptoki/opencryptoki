@@ -1086,6 +1086,8 @@ CK_RV emsa_pss_encode(CK_RSA_PKCS_PSS_PARAMS_PTR pssParms, CK_BYTE *in_data,
 CK_RV emsa_pss_verify(CK_RSA_PKCS_PSS_PARAMS_PTR pssParms, CK_BYTE *in_data,
 		      CK_ULONG in_data_len, CK_BYTE *sig, CK_ULONG modbytes);
 
+CK_RV check_pss_params(CK_MECHANISM *mechanism, CK_ULONG);
+
 #ifndef NODSA
 // DSA routines
 //

@@ -2862,3 +2862,92 @@ done:
 
 	return rc;
 }
+
+CK_RV check_pss_params(CK_MECHANISM *mech, CK_ULONG modlen)
+{
+	CK_RSA_PKCS_PSS_PARAMS *pssParams;
+	CK_MECHANISM_TYPE mgf_mech;
+	CK_ULONG hlen;
+	CK_RV rc;
+
+	pssParams = (CK_RSA_PKCS_PSS_PARAMS *)mech->pParameter;
+
+	if (mech->ulParameterLen != sizeof(CK_RSA_PKCS_PSS_PARAMS)) {
+		OCK_LOG_ERR(ERR_MECHANISM_PARAM_INVALID);
+		return CKR_MECHANISM_PARAM_INVALID;
+	}
+
+	/*
+	 * If the signature mechanism includes hashing, make sure
+	 * pssParams->hashAlg matches.
+	 *
+	 * Note: pkcs#1v2.2, Section 8.1, It is recommended that the
+	 * hash algorithm used to hash the message be the same as the
+	 * one used in mgf.
+	 */
+	rc = get_mgf_mech(pssParams->mgf, &mgf_mech);
+	if (rc != CKR_OK) {
+		OCK_LOG_ERR(ERR_FUNCTION_FAILED);
+		return rc;
+	}
+
+	switch (mech->mechanism) {
+	case CKM_SHA1_RSA_PKCS_PSS:
+		if ((pssParams->hashAlg != CKM_SHA_1) &&
+		    (pssParams->hashAlg != mgf_mech)) {
+			OCK_LOG_ERR(ERR_MECHANISM_PARAM_INVALID);
+			return CKR_MECHANISM_PARAM_INVALID;
+		}
+		break;
+
+	case CKM_SHA256_RSA_PKCS_PSS:
+		if ((pssParams->hashAlg != CKM_SHA256) &&
+		    (pssParams->hashAlg != mgf_mech)) {
+			OCK_LOG_ERR(ERR_MECHANISM_PARAM_INVALID);
+			return CKR_MECHANISM_PARAM_INVALID;
+		}
+		break;
+
+	case CKM_SHA384_RSA_PKCS_PSS:
+		if ((pssParams->hashAlg != CKM_SHA384) &&
+		    (pssParams->hashAlg != mgf_mech)) {
+			OCK_LOG_ERR(ERR_MECHANISM_PARAM_INVALID);
+			return CKR_MECHANISM_PARAM_INVALID;
+		}
+		break;
+
+	case CKM_SHA512_RSA_PKCS_PSS:
+		if ((pssParams->hashAlg != CKM_SHA512) &&
+		    (pssParams->hashAlg != mgf_mech)) {
+			OCK_LOG_ERR(ERR_MECHANISM_PARAM_INVALID);
+			return CKR_MECHANISM_PARAM_INVALID;
+		}
+		break;
+
+	case CKM_RSA_PKCS_PSS:
+		if (pssParams->hashAlg != mgf_mech) {
+			OCK_LOG_ERR(ERR_MECHANISM_PARAM_INVALID);
+			return CKR_MECHANISM_PARAM_INVALID;
+		}
+		break;
+
+	default:
+		OCK_LOG_ERR(ERR_MECHANISM_INVALID);
+		return CKR_MECHANISM_INVALID;
+	}
+
+	/* check the salt length,  pkcs11v2.2 Section 12.1.14 */
+	rc = get_sha_size(pssParams->hashAlg, &hlen);
+	if (rc != CKR_OK) {
+		OCK_LOG_ERR(ERR_MECHANISM_PARAM_INVALID);
+		return CKR_MECHANISM_PARAM_INVALID;
+	}
+
+	if (!((pssParams->sLen >= 0) &&
+	      (pssParams->sLen <= modlen - 2 - hlen))) {
+		OCK_LOG_ERR(ERR_MECHANISM_PARAM_INVALID);
+		return CKR_MECHANISM_PARAM_INVALID;
+	}
+
+	return CKR_OK;
+}

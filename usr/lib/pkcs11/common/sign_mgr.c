@@ -366,9 +366,17 @@ sign_mgr_init( SESSION                * sess,
       case CKM_RSA_PKCS_PSS:
          {
 	    if (mech->mechanism == CKM_RSA_PKCS_PSS) {
-		if (mech->ulParameterLen != sizeof(CK_RSA_PKCS_PSS_PARAMS)) {
-                    OCK_LOG_ERR(ERR_MECHANISM_PARAM_INVALID);
-                    return CKR_MECHANISM_PARAM_INVALID;
+		rc = template_attribute_find(key_obj->template, CKA_MODULUS,
+					     &attr);
+		if (rc == FALSE) {
+		    OCK_LOG_ERR(ERR_TEMPLATE_INCOMPLETE);
+		    return CKR_TEMPLATE_INCOMPLETE;
+		}
+
+		rc = check_pss_params(mech, attr->ulValueLen);
+		if (rc != CKR_OK) {
+		    OCK_LOG_ERR(ERR_FUNCTION_FAILED);
+		    return rc;
 		}
 	    } else {
             	if (mech->ulParameterLen != 0) {
@@ -513,6 +521,58 @@ sign_mgr_init( SESSION                * sess,
          }
          break;
 
+      case CKM_SHA1_RSA_PKCS_PSS:
+      case CKM_SHA256_RSA_PKCS_PSS:
+      case CKM_SHA384_RSA_PKCS_PSS:
+      case CKM_SHA512_RSA_PKCS_PSS:
+	 {
+	    rc = template_attribute_find(key_obj->template, CKA_MODULUS, &attr);
+	    if (rc == FALSE) {
+		OCK_LOG_ERR(ERR_TEMPLATE_INCOMPLETE);
+		return CKR_TEMPLATE_INCOMPLETE;
+	    }
+
+	    rc = check_pss_params(mech, attr->ulValueLen);
+	    if (rc != CKR_OK) {
+		OCK_LOG_ERR(ERR_FUNCTION_FAILED);
+		return rc;
+	    }
+
+            rc = template_attribute_find(key_obj->template, CKA_KEY_TYPE,
+					 &attr);
+            if (rc == FALSE) {
+               OCK_LOG_ERR(ERR_KEY_TYPE_INCONSISTENT);
+               return CKR_KEY_TYPE_INCONSISTENT;
+            } else {
+               keytype = *(CK_KEY_TYPE *)attr->pValue;
+               if (keytype != CKK_RSA) {
+                  OCK_LOG_ERR(ERR_KEY_TYPE_INCONSISTENT);
+                  return CKR_KEY_TYPE_INCONSISTENT;
+               }
+            }
+
+            // must be a PRIVATE key operation
+            //
+            flag = template_attribute_find(key_obj->template, CKA_CLASS, &attr);
+            if (flag == FALSE) {
+               OCK_LOG_ERR(ERR_FUNCTION_FAILED);
+               return CKR_FUNCTION_FAILED;
+            } else
+               class = *(CK_OBJECT_CLASS *)attr->pValue;
+
+            if (class != CKO_PRIVATE_KEY) {
+               OCK_LOG_ERR(ERR_FUNCTION_FAILED);
+               return CKR_FUNCTION_FAILED;
+            }
+            ctx->context_len = sizeof(DIGEST_CONTEXT);
+            ctx->context = (CK_BYTE *)malloc(ctx->context_len);
+            if (!ctx->context) {
+               OCK_LOG_ERR(ERR_HOST_MEMORY);
+               return CKR_HOST_MEMORY;
+            }
+            memset(ctx->context, 0x0, ctx->context_len);
+         }
+         break;
 
 #if !(NODSA)
       case CKM_DSA:
@@ -891,6 +951,13 @@ sign_mgr_sign( SESSION              * sess,
                                     in_data,  in_data_len,
                                     out_data, out_data_len );
 
+      case CKM_SHA1_RSA_PKCS_PSS:
+      case CKM_SHA256_RSA_PKCS_PSS:
+      case CKM_SHA384_RSA_PKCS_PSS:
+      case CKM_SHA512_RSA_PKCS_PSS:
+	 return rsa_hash_pss_sign(sess, length_only, ctx, in_data, in_data_len,
+				  out_data, out_data_len);
+
 #if !(NODSA)
       case CKM_DSA:
          return dsa_sign( sess,     length_only,  ctx,
@@ -1003,6 +1070,12 @@ sign_mgr_sign_update( SESSION             * sess,
       case CKM_SHA512_RSA_PKCS:
          return rsa_hash_pkcs_sign_update( sess, ctx, in_data, in_data_len );
 
+      case CKM_SHA1_RSA_PKCS_PSS:
+      case CKM_SHA256_RSA_PKCS_PSS:
+      case CKM_SHA384_RSA_PKCS_PSS:
+      case CKM_SHA512_RSA_PKCS_PSS:
+	 return rsa_hash_pss_update(sess, ctx, in_data, in_data_len);
+
       case CKM_SSL3_MD5_MAC:
       case CKM_SSL3_SHA1_MAC:
          return ssl3_mac_sign_update( sess, ctx, in_data, in_data_len );
@@ -1058,6 +1131,13 @@ sign_mgr_sign_final( SESSION             * sess,
       case CKM_SHA384_RSA_PKCS:
       case CKM_SHA512_RSA_PKCS:
          return rsa_hash_pkcs_sign_final( sess, length_only, ctx, signature, sig_len );
+
+      case CKM_SHA1_RSA_PKCS_PSS:
+      case CKM_SHA256_RSA_PKCS_PSS:
+      case CKM_SHA384_RSA_PKCS_PSS:
+      case CKM_SHA512_RSA_PKCS_PSS:
+	 return rsa_hash_pss_sign_final(sess, length_only, ctx, signature,
+					sig_len);
 
       case CKM_SSL3_MD5_MAC:
       case CKM_SSL3_SHA1_MAC:
