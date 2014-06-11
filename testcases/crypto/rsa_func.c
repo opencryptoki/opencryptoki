@@ -591,6 +591,13 @@ CK_RV do_WrapUnwrapRSA(struct GENERATED_TEST_SUITE_INFO *tsuite)
 
 		// get wrapping mechanism
 		wrap_mech = tsuite->mech;
+		if (wrap_mech.mechanism == CKM_RSA_PKCS_OAEP) {
+			CK_RSA_PKCS_OAEP_PARAMS oaep_params;
+
+			oaep_params = tsuite->tv[i].oaep_params;
+			wrap_mech.pParameter = &oaep_params;
+			wrap_mech.ulParameterLen = sizeof(CK_RSA_PKCS_OAEP_PARAMS);
+		}
 
 		// skip this test if the slot doesn't support this
 		// keygen mechanism
@@ -1207,6 +1214,11 @@ CK_RV rsa_funcs()
 */
 	for (i = 0; i < NUM_OF_GENERATED_OAEP_TESTSUITES; i++) {
 		rv = do_EncryptDecryptRSA(&generated_oaep_test_suites[i]);
+		if (rv != CKR_OK && (!no_stop))
+			break;
+	}
+	for ( i = 0; i < NUM_OF_GENERATED_OAEP_TESTSUITES; i++) {
+		rv = do_WrapUnwrapRSA(&generated_oaep_test_suites[i]);
 		if (rv != CKR_OK && (!no_stop))
 			break;
 	}

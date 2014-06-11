@@ -889,6 +889,7 @@ key_mgr_wrap_key( SESSION           * sess,
          }
 	 break;
 
+      case CKM_RSA_PKCS_OAEP:
       case CKM_RSA_PKCS:
       case CKM_RSA_X_509:
          if (class != CKO_SECRET_KEY){
@@ -1016,6 +1017,7 @@ key_mgr_wrap_key( SESSION           * sess,
          //
          break;
 
+      case CKM_RSA_PKCS_OAEP:
       case CKM_RSA_PKCS:
       case CKM_RSA_X_509:
          break;
@@ -1110,6 +1112,7 @@ key_mgr_unwrap_key( SESSION           * sess,
    //  A secret key can be used to wrap a private key.
 
    switch (mech->mechanism) {
+      case CKM_RSA_PKCS_OAEP:
       case CKM_RSA_PKCS:
       case CKM_RSA_X_509:
          keyclass = CKO_SECRET_KEY;
