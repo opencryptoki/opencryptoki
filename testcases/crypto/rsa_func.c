@@ -167,6 +167,13 @@ CK_RV do_EncryptDecryptRSA(struct GENERATED_TEST_SUITE_INFO *tsuite)
 
 		// get mech
 		mech = tsuite->mech;
+		if (mech.mechanism == CKM_RSA_PKCS_OAEP) {
+			CK_RSA_PKCS_OAEP_PARAMS oaep_params;
+
+			oaep_params = tsuite->tv[i].oaep_params;
+			mech.pParameter = &oaep_params;
+			mech.ulParameterLen = sizeof(CK_RSA_PKCS_OAEP_PARAMS);
+		}
 
 		// initialize (public key) encryption
 		rc = funcs->C_EncryptInit(session, &mech, publ_key);
@@ -1194,6 +1201,12 @@ CK_RV rsa_funcs()
 	// generated crypto tests
 	for (i = 0; i < NUM_OF_GENERATED_CRYPTO_TESTSUITES; i++) {
 		rv = do_EncryptDecryptRSA(&generated_crypto_test_suites[i]);
+		if (rv != CKR_OK && (!no_stop))
+			break;
+	}
+
+	for (i = 0; i < NUM_OF_GENERATED_OAEP_TESTSUITES; i++) {
+		rv = do_EncryptDecryptRSA(&generated_oaep_test_suites[i]);
 		if (rv != CKR_OK && (!no_stop))
 			break;
 	}
