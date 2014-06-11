@@ -1846,3 +1846,83 @@ ckm_rsa_key_pair_gen( TEMPLATE  * publ_tmpl,
 
    return rc;
 }
+
+CK_RV mgf1(CK_BYTE *seed, CK_ULONG seedlen, CK_BYTE *mask, CK_ULONG maskLen,
+	   CK_RSA_PKCS_MGF_TYPE mgf)
+{
+
+	int i, T_len = 0;
+	char *seed_buffer;
+	unsigned char counter[4];
+	CK_BYTE hash[MAX_SHA_HASH_SIZE];
+	CK_RV rc = CKR_OK;
+	CK_MECHANISM_TYPE mech;
+	CK_ULONG hlen;
+
+	if (!mask || !seed)
+		return CKR_FUNCTION_FAILED;
+
+	switch(mgf) {
+	case CKG_MGF1_SHA1:
+		hlen = SHA1_HASH_SIZE;
+		mech = CKM_SHA_1;
+		break;
+	case CKG_MGF1_SHA256:
+		hlen = SHA2_HASH_SIZE;
+		mech = CKM_SHA256;
+		break;
+	case CKG_MGF1_SHA384:
+		hlen = SHA3_HASH_SIZE;
+		mech = CKM_SHA384;
+		break;
+	case CKG_MGF1_SHA512:
+		hlen = SHA5_HASH_SIZE;
+		mech = CKM_SHA512;
+		break;
+	default:
+		return CKR_MECHANISM_PARAM_INVALID;
+	}
+
+	/* Step 1: see if mask too long */
+	if (maskLen > ((1 << 31) * hlen))
+		return CKR_FUNCTION_FAILED;
+
+	/* do some preparations */
+	seed_buffer = malloc(seedlen + 4);
+	if (seed_buffer == NULL)
+		return CKR_HOST_MEMORY;
+
+	T_len = maskLen;
+	for (i = 0; T_len > 0; i++) {
+		/* convert i to an octet string of length 4 octets. */
+		counter[0] = (unsigned char)((i >> 24) & 0xff);
+		counter[1] = (unsigned char)((i >> 16) & 0xff);
+		counter[2] = (unsigned char)((i >> 8) & 0xff);
+		counter[3] = (unsigned char)(i & 0xff);
+
+		/* concatenate seed and octet string */
+		memset(seed_buffer, 0, seedlen + 4);
+		memcpy(seed_buffer, seed, seedlen);
+		memcpy(seed_buffer + seedlen, counter, 4);
+
+		/* compute hash of concatenated seed and octet string */
+		rc = compute_sha(seed_buffer, seedlen + 4, hash, mech);
+		if (rc != CKR_OK)
+			goto done;
+
+		if (T_len >= hlen)
+			memcpy(mask + (i * hlen), hash, hlen);
+		else
+			/* in the case masklen is not a multiple of the
+			 * of the hash length, ony copy over remainder
+			 */
+			mempy(mask + (i * hlen), hash, T_len);
+
+		T_len -= hlen;
+	}
+
+done:
+	if (seed_buffer)
+		free(seed_buffer);
+	return rc;
+}

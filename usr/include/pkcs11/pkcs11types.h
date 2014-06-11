@@ -1567,6 +1567,17 @@ typedef CK_ULONG CK_EXTRACT_PARAMS;
 
 typedef CK_EXTRACT_PARAMS CK_PTR CK_EXTRACT_PARAMS_PTR;
 
+typedef CK_ULONG CK_RSA_PKCS_MGF_TYPE;
+typedef CK_RSA_PKCS_MGF_TYPE CK_PTR CK_RSA_PKCS_MGF_TYPE_PTR;
+/* PKCS#1 RSA OAEP Encoding Parameter Sources */
+#define CKZ_DATA_SPECIFIED 0x00000001
+
+/* PKCS#1 Mask Generation Functions */
+#define CKG_MGF1_SHA1   0x00000001
+#define CKG_MGF1_SHA256 0x00000002
+#define CKG_MGF1_SHA384 0x00000003
+#define CKG_MGF1_SHA512 0x00000004
+
 
 /* CK_FUNCTION_LIST is a structure holding a Cryptoki spec
  * version and pointers of appropriate types to all the
@@ -1875,7 +1886,6 @@ struct CK_FUNCTION_LIST {
 	CK_C_CancelFunction C_CancelFunction;
 	CK_C_WaitForSlotEvent C_WaitForSlotEvent;
 };
-
 
 #ifdef __cplusplus
 }
