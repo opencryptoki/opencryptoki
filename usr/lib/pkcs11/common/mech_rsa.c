@@ -2047,7 +2047,7 @@ CK_RV mgf1(CK_BYTE *seed, CK_ULONG seedlen, CK_BYTE *mask, CK_ULONG maskLen,
 			/* in the case masklen is not a multiple of the
 			 * of the hash length, only copy over remainder
 			 */
-			mempy(mask + (i * hlen), hash, T_len);
+			memcpy(mask + (i * hlen), hash, T_len);
 
 		T_len -= hlen;
 	}
@@ -2149,8 +2149,8 @@ CK_RV decode_eme_oaep(CK_BYTE *emData, CK_ULONG emLen, CK_BYTE *out_data,
 {
 	int i, error = 0;;
 	CK_RV rc = CKR_OK;
-	CK_ULONG dbMask_len, ps_len, msg_len;
-	CK_BYTE *maskedSeed, *maskedDB, *dbMask, *seedMask, *msg;
+	CK_ULONG dbMask_len, ps_len;
+	CK_BYTE *maskedSeed, *maskedDB, *dbMask, *seedMask;
 
 	if (!emData || !out_data) {
 		OCK_LOG_ERR(ERR_FUNCTION_FAILED);
@@ -2224,7 +2224,6 @@ CK_RV decode_eme_oaep(CK_BYTE *emData, CK_ULONG emLen, CK_BYTE *out_data,
 		ps_len++;
 		*out_data_len = dbMask_len - ps_len;
 		memcpy(out_data, dbMask + ps_len, dbMask_len - ps_len);
-		rc = CKR_OK;
 	}
 
 done:
