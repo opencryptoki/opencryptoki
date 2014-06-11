@@ -640,7 +640,7 @@ reset_token_data(CK_SLOT_ID slot_id, CK_CHAR_PTR pin, CK_ULONG pin_len)
 
 	/* Reset SO pin to default and user pin to invalid */
 	pin_len = strlen((pin = "87654321"));
-	if (compute_sha(pin, pin_len, nv_token_data->so_pin_sha)) {
+	if (compute_sha1(pin, pin_len, nv_token_data->so_pin_sha)) {
 		OCK_LOG_DEBUG("Failed to reset so pin.\n");
 		return CKR_FUNCTION_FAILED;
 	}
@@ -725,7 +725,7 @@ token_specific_init_token(CK_SLOT_ID slot_id, CK_CHAR_PTR pin, CK_ULONG pin_len,
 	CK_BYTE hash_sha[SHA1_HASH_SIZE];
 
 	/* Check pin */
-	rc = compute_sha(pin, pin_len, hash_sha);
+	rc = compute_sha1(pin, pin_len, hash_sha);
 	if (memcmp(nv_token_data->so_pin_sha, hash_sha, SHA1_HASH_SIZE) != 0) {
 		OCK_LOG_ERR(ERR_PIN_INCORRECT);
 		rc = CKR_PIN_INCORRECT;
@@ -762,7 +762,7 @@ token_specific_init_pin(SESSION *sess, CK_CHAR_PTR pPin, CK_ULONG ulPinLen)
 	sid = sess->session_info.slotID;
 
 	/* compute the SHA of the user pin */
-	rc = compute_sha(pPin, ulPinLen, hash_sha);
+	rc = compute_sha1(pPin, ulPinLen, hash_sha);
 	if (rc != CKR_OK) {
 		OCK_LOG_ERR(ERR_HASH_COMPUTATION);
 		return rc;
@@ -811,8 +811,8 @@ token_specific_set_pin(SESSION *sess, CK_CHAR_PTR pOldPin, CK_ULONG ulOldLen,
 	/* get slot id */
 	sid = sess->session_info.slotID;
 
-	rc = compute_sha(pNewPin, ulNewLen, new_hash_sha );
-	rc |= compute_sha( pOldPin, ulOldLen, old_hash_sha );
+	rc = compute_sha1(pNewPin, ulNewLen, new_hash_sha );
+	rc |= compute_sha1( pOldPin, ulOldLen, old_hash_sha );
 	if (rc != CKR_OK) {
 		OCK_LOG_ERR(ERR_HASH_COMPUTATION);
 		return rc;
@@ -1104,7 +1104,7 @@ token_specific_login(SESSION *sess, CK_USER_TYPE userType, CK_CHAR_PTR pPin,
 	}
 
 	/* compute the sha of the pin. */
-	rc = compute_sha(pPin, ulPinLen, hash_sha);
+	rc = compute_sha1(pPin, ulPinLen, hash_sha);
 	if (rc != CKR_OK) {
 		OCK_LOG_ERR(ERR_HASH_COMPUTATION);
 		return rc;

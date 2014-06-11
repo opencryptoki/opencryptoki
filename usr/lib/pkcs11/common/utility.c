@@ -1010,7 +1010,7 @@ CK_RV detach_shm()
 	return rc;
 }
 
-CK_RV compute_sha(CK_BYTE * data, CK_ULONG len, CK_BYTE * hash)
+CK_RV compute_sha1(CK_BYTE * data, CK_ULONG len, CK_BYTE * hash)
 {
 	// XXX KEY
 	DIGEST_CONTEXT ctx;

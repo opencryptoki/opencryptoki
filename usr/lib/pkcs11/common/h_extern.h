@@ -817,7 +817,7 @@ CK_RV save_masterkey_user( void );
 CK_RV generate_master_key(CK_BYTE *key);
 
 CK_RV compute_md5( CK_BYTE *data, CK_ULONG len, CK_BYTE *hash );
-CK_RV compute_sha( CK_BYTE *data, CK_ULONG len, CK_BYTE *hash );
+CK_RV compute_sha1(CK_BYTE *data, CK_ULONG len, CK_BYTE *hash);
 
 CK_ULONG long_reverse( CK_ULONG x );
 

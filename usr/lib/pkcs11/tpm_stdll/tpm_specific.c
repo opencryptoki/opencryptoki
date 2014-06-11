@@ -1598,8 +1598,8 @@ token_specific_login(SESSION *sess, CK_USER_TYPE userType, CK_CHAR_PTR pPin, CK_
 		return CKR_FUNCTION_FAILED;
 	}
 
-	if ((rc = compute_sha(pPin, ulPinLen, hash_sha))) {
-		OCK_LOG_DEBUG("compute_sha failed. rc=0x%lx\n", rc);
+	if ((rc = compute_sha1(pPin, ulPinLen, hash_sha))) {
+		OCK_LOG_DEBUG("compute_sha1 failed. rc=0x%lx\n", rc);
 		return CKR_FUNCTION_FAILED;
 	}
 
@@ -1849,12 +1849,12 @@ token_specific_set_pin(SESSION *sess,
 		return CKR_SESSION_HANDLE_INVALID;
 	}
 
-	if ((rc = compute_sha(pOldPin, ulOldPinLen, oldpin_hash))) {
-		OCK_LOG_DEBUG("compute_sha failed. rc=0x%lx\n", rc);
+	if ((rc = compute_sha1(pOldPin, ulOldPinLen, oldpin_hash))) {
+		OCK_LOG_DEBUG("compute_sha1 failed. rc=0x%lx\n", rc);
 		return CKR_FUNCTION_FAILED;
 	}
-	if ((rc = compute_sha(pNewPin, ulNewPinLen, newpin_hash))) {
-		OCK_LOG_DEBUG("compute_sha failed. rc=0x%lx\n", rc);
+	if ((rc = compute_sha1(pNewPin, ulNewPinLen, newpin_hash))) {
+		OCK_LOG_DEBUG("compute_sha1 failed. rc=0x%lx\n", rc);
 		return CKR_FUNCTION_FAILED;
 	}
 
@@ -2067,8 +2067,8 @@ token_specific_init_token(CK_SLOT_ID sid, CK_CHAR_PTR pPin, CK_ULONG ulPinLen,
 	CK_BYTE hash_sha[SHA1_HASH_SIZE];
 	CK_RV rc;
 
-	if ((rc = compute_sha(pPin, ulPinLen, hash_sha))) {
-		OCK_LOG_DEBUG("compute_sha failed. rc=0x%lx\n", rc);
+	if ((rc = compute_sha1(pPin, ulPinLen, hash_sha))) {
+		OCK_LOG_DEBUG("compute_sha1 failed. rc=0x%lx\n", rc);
 		return CKR_FUNCTION_FAILED;
 	}
 

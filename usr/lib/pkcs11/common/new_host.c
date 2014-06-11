@@ -973,7 +973,7 @@ CK_RV SC_InitToken( CK_SLOT_ID   sid,
 		goto done;
 	}
 
-	rc = compute_sha( pPin, ulPinLen, hash_sha );
+	rc = compute_sha1(pPin, ulPinLen, hash_sha);
 	if (memcmp(nv_token_data->so_pin_sha, hash_sha, SHA1_HASH_SIZE) != 0) {
 		OCK_LOG_ERR(ERR_PIN_INCORRECT);
 		rc = CKR_PIN_INCORRECT;
@@ -1071,7 +1071,7 @@ CK_RV SC_InitPIN( ST_SESSION_HANDLE  *sSession,
 		goto done;
 	}
 	// compute the SHA and MD5 hashes of the user pin
-	rc  = compute_sha( pPin, ulPinLen, hash_sha );
+	rc  = compute_sha1(pPin, ulPinLen, hash_sha);
 	rc |= compute_md5( pPin, ulPinLen, hash_md5 );
 	if (rc != CKR_OK){
 		OCK_LOG_ERR(ERR_HASH_COMPUTATION); 	
@@ -1149,7 +1149,7 @@ CK_RV SC_SetPIN( ST_SESSION_HANDLE  *sSession,
 		rc = CKR_PIN_LEN_RANGE;
 		goto done;
 	}
-	rc = compute_sha( pOldPin, ulOldLen, old_hash_sha );
+	rc = compute_sha1(pOldPin, ulOldLen, old_hash_sha);
 	if (rc != CKR_OK){
 		OCK_LOG_ERR(ERR_HASH_COMPUTATION); 	
 		goto done;
@@ -1167,7 +1167,7 @@ CK_RV SC_SetPIN( ST_SESSION_HANDLE  *sSession,
 			rc = CKR_PIN_INCORRECT;
 			goto done;
 		}
-		rc  = compute_sha( pNewPin, ulNewLen, new_hash_sha );
+		rc  = compute_sha1(pNewPin, ulNewLen, new_hash_sha);
 		rc |= compute_md5( pNewPin, ulNewLen, hash_md5 );
 		if (rc != CKR_OK){
 			OCK_LOG_ERR(ERR_HASH_COMPUTATION); 	
@@ -1206,7 +1206,7 @@ CK_RV SC_SetPIN( ST_SESSION_HANDLE  *sSession,
 			OCK_LOG_ERR(ERR_PIN_INCORRECT);
 			goto done;
 		}
-		rc = compute_sha(pNewPin, ulNewLen, new_hash_sha);
+		rc = compute_sha1(pNewPin, ulNewLen, new_hash_sha);
 		rc |= compute_md5(pNewPin, ulNewLen, hash_md5);
 		if (rc != CKR_OK){
 			OCK_LOG_ERR(ERR_HASH_COMPUTATION);
@@ -1599,7 +1599,7 @@ CK_RV SC_Login( ST_SESSION_HANDLE  *sSession,
 			goto done;
 		}
 
-		rc = compute_sha( pPin, ulPinLen, hash_sha );
+		rc = compute_sha1(pPin, ulPinLen, hash_sha);
 		if (memcmp(nv_token_data->user_pin_sha, hash_sha, SHA1_HASH_SIZE) != 0) {
 			set_login_flags(userType, flags);
 			OCK_LOG_ERR(ERR_PIN_INCORRECT);
@@ -1654,7 +1654,7 @@ CK_RV SC_Login( ST_SESSION_HANDLE  *sSession,
 			goto done;
 		}
 
-		rc = compute_sha( pPin, ulPinLen, hash_sha );
+		rc = compute_sha1(pPin, ulPinLen, hash_sha);
 		if (memcmp(nv_token_data->so_pin_sha, hash_sha, SHA1_HASH_SIZE) != 0) {
 			set_login_flags(userType, flags);
 			OCK_LOG_ERR(ERR_PIN_INCORRECT);
