@@ -824,6 +824,12 @@ CK_RV rsa_oaep_crypt(SESSION *sess, CK_BBOOL length_only,
 		return CKR_MECHANISM_PARAM_INVALID;
 	}
 
+	/* modulus size should be >= 2*hashsize+2 */
+	if (modulus_bytes < (2 * hlen + 2)) {
+		OCK_LOG_ERR(ERR_KEY_SIZE_RANGE);
+		return CKR_KEY_SIZE_RANGE;
+	}
+
 	/* hash the label now */
 	if (!(oaepParms->pSourceData) || !(oaepParms->ulSourceDataLen))
 		rc = compute_sha("", 0, hash, oaepParms->hashAlg);
@@ -858,11 +864,6 @@ CK_RV rsa_oaep_crypt(SESSION *sess, CK_BBOOL length_only,
 		if (in_data_len != modulus_bytes) {
 			OCK_LOG_ERR(ERR_ENCRYPTED_DATA_LEN_RANGE);
 			return CKR_ENCRYPTED_DATA_LEN_RANGE;
-		}
-
-		if (modulus_bytes < (2 * hlen + 2)) {
-			OCK_LOG_ERR(ERR_KEY_SIZE_RANGE);
-			return CKR_KEY_SIZE_RANGE;
 		}
 
 		// this had better be a private key
