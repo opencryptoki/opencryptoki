@@ -93,8 +93,8 @@ Token specifics
 
 The EP11 token only supports secure keys (i.e. key wrapped by a master key of
 the Crypto Express adapter). Therefore all keys must have the attribute
-CKA_SENISTIVE set to CK_TRUE. Since the PKCS#11 standard does not define a
-(token specific) default for secure keys the attribute must be explicitly
+CKA_SENSITIVE set to CK_TRUE. Since the PKCS#11 standard does not define a
+(token specific) default for secret keys the attribute must be explicitly
 provided whenever a secret key is generated, unwrapped or build with
 C_CreateObject. In addition all keys used with the EP11 token are extractable.
 i.e. they must have the attribute CKA_EXTRACTABLE set to CK_TRUE.
