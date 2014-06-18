@@ -570,10 +570,7 @@ void print_hex( CK_BYTE *buf, CK_ULONG len )
 
 void usage (char *fct)
 {
-	printf("usage:  %s [-securekey] [-noskip] [-noinit] [-slot <num>] [-h]\n\n", fct );
-	printf("By default, Slot #1 (ie: Slot_Id 0) is used\n\n");
-	printf("By default we skip anything that creates or modifies\n");
-	printf("token objects to preserve flash lifetime.\n");
+	printf("usage:  %s [-securekey] [-noskip] [-noinit] [-h] -slot <num>\n\n", fct );
 
 	return;
 }
@@ -587,7 +584,7 @@ int do_ParseArgs(int argc, char **argv)
 	no_stop = FALSE;
 	no_init = FALSE;
 	securekey = FALSE;
-	SLOT_ID = 0;
+	SLOT_ID = 1000;
 
 
 	for (i = 1; i < argc; i++) {
@@ -616,6 +613,14 @@ int do_ParseArgs(int argc, char **argv)
 			return -1;
 		}
 	}
+
+	// error if slot has not been identified.
+	if (SLOT_ID == 1000) {
+		printf("Please specify the slot to be tested.\n");
+		usage (argv[0]);
+		return -1;
+	}
+
 	return 1;
 }
 
