@@ -938,6 +938,10 @@ CK_RV do_WrapUnwrapAES(struct generated_test_suite_info *tsuite)
 
 	for (i = 0; i < 3; i++) {
 
+		/** EP11 token doesn't support key sizes != AES block size **/
+		if ( (is_ep11_token(slot_id)) && (key_lens[i]%AES_BLOCK_SIZE != 0) )
+			continue;
+
 		testcase_begin("%s Wrap/Unwrap key test with keylength=%ld.",
 			tsuite->name, key_lens[i]);
 
@@ -1143,6 +1147,15 @@ CK_RV do_WrapUnwrapRSA(struct generated_test_suite_info *tsuite)
 	testsuite_begin("%s wrap/unwrap of RSA key.", tsuite->name);
 	testcase_rw_session();
 	testcase_user_login();
+
+	/** skip AES_EBC/AES_CBC (only supported for symmetric keys) **/
+	if ((tsuite->mech.mechanism == CKM_AES_ECB) ||
+	    (tsuite->mech.mechanism == CKM_AES_CBC)) {
+		testcase_skip("Mechanism %s (%u) not supported to wrap/unwrap asymmetric Keys",
+		mech_to_str(tsuite->mech.mechanism),
+		(unsigned int)tsuite->mech.mechanism);
+		goto testcase_cleanup;
+        }
 
 	/** skip test if the slot doesn't support this mechanism **/
 	if (! mech_supported(slot_id, tsuite->mech.mechanism)){
@@ -1357,6 +1370,266 @@ testcase_cleanup:
 	return rc;
 }
 
+CK_RV do_WrapRSA_Err(struct generated_test_suite_info *tsuite)
+{
+	int i;
+	CK_BYTE	wrapped_data[BIG_REQUEST + AES_BLOCK_SIZE];
+	CK_BYTE	user_pin[PKCS11_MAX_PIN_LEN];
+	CK_BYTE	pub_exp[] = { 0x01, 0x00, 0x01 };
+	CK_MECHANISM mech, mech2;
+	CK_MECHANISM_INFO mech_info;
+	CK_OBJECT_HANDLE publ_key, priv_key, w_key;
+	CK_ULONG bits = 1024;
+	CK_ULONG wrapped_data_len, user_pin_len, key_size;
+	CK_RV rc;
+	CK_FLAGS flags;
+	CK_SESSION_HANDLE session;
+	CK_SLOT_ID slot_id = SLOT_ID;
+
+	CK_ATTRIBUTE pub_tmpl[] = {
+				{CKA_MODULUS_BITS,  &bits, sizeof(bits)},
+				{CKA_PUBLIC_EXPONENT,&pub_exp,sizeof(pub_exp)}};
+	CK_ATTRIBUTE key_gen_tmpl[] = {
+				{CKA_VALUE_LEN, &key_size, sizeof(CK_ULONG)}};
+
+	testsuite_begin("%s wrap/unwrap of RSA key.", tsuite->name);
+	testcase_rw_session();
+	testcase_user_login();
+
+	/** skip test if the slot doesn't support this mechanism **/
+	if (! mech_supported(slot_id, tsuite->mech.mechanism)){
+		testsuite_skip(3, "Slot %u doesn't support %s (%u)",
+			       (unsigned int) slot_id,
+			       mech_to_str(tsuite->mech.mechanism),
+			       (unsigned int)tsuite->mech.mechanism);
+		goto testcase_cleanup;
+	}
+
+	for (i = 0; i < 3; i++) {
+
+		testcase_begin("%s wrap/unwrap of RSA key for key length=%ld.",
+			tsuite->name, key_lens[i]);
+
+		key_size = key_lens[i];
+
+		/** first mechanism generate AES wrapping key **/
+		mech.mechanism = CKM_AES_KEY_GEN;
+		mech.ulParameterLen = 0;
+		mech.pParameter = NULL;
+
+		/** mechanism to generate an RSA key pair to be wrapped **/
+		mech2.mechanism  = CKM_RSA_PKCS_KEY_PAIR_GEN;
+		mech2.ulParameterLen = 0;
+		mech2.pParameter = NULL;
+
+		/** generate an RSA key pair. **/
+		rc = funcs->C_GenerateKeyPair(session, &mech2, pub_tmpl, 2, NULL,
+					      0, &publ_key, &priv_key);
+		if (rc != CKR_OK) {
+			testcase_error("C_GenerateKeyPair rc=%s", p11_get_ckr(rc));
+			goto testcase_cleanup;
+		}
+
+		/** generate the wrapping key **/
+		rc = funcs->C_GenerateKey(session, &mech, key_gen_tmpl, 1, &w_key);
+		if (rc != CKR_OK) {
+			testcase_error("C_GenerateKey rc=%s", p11_get_ckr(rc));
+			goto testcase_cleanup;
+		}
+
+		/** set the mech for AES crypto **/
+		mech = tsuite->mech;
+
+		/** wrap the key **/
+		wrapped_data_len = sizeof(wrapped_data);
+
+		/** get mech info **/
+		rc = funcs->C_GetMechanismInfo(slot_id, mech.mechanism, &mech_info);
+
+		if (rc != CKR_OK){
+			testcase_error("C_GetMechanismInfo rc=%s", p11_get_ckr(rc));
+			goto testcase_cleanup;
+		}
+
+		/** key is wrappable **/
+		if (mech_info.flags & CKF_WRAP) {
+
+			testcase_new_assertion();
+
+			/** wrap key **/
+			rc = funcs->C_WrapKey(session, &mech, w_key, priv_key,
+					      wrapped_data, &wrapped_data_len);
+
+			/* Expect dedicated error code here, since it's not allowed
+			 * to unwrap non secret keys with AES_ECB/AES_CBC */
+			if (rc != CKR_KEY_NOT_WRAPPABLE) {
+				testcase_error("Expected C_WrapKey rc=%s, but returned rc=%s",
+						p11_get_ckr(CKR_KEY_NOT_WRAPPABLE),
+						p11_get_ckr(rc));
+				goto testcase_cleanup;
+			} else {
+				testcase_pass("%s passed wrap RSA key test.",
+					      tsuite->name);
+			}
+		} else {
+			/** key is not wrappable **/
+			testcase_new_assertion();
+
+			/** try to wrap key **/
+			rc = funcs->C_WrapKey(session, &mech, w_key, priv_key,
+					      wrapped_data, &wrapped_data_len);
+			if (rc != CKR_MECHANISM_INVALID)
+				testcase_fail("Expected CKR_MECHANISM_INVALID");
+			else
+				testcase_pass("%s passed wrap/unwrap RSA key test.",
+					      tsuite->name);
+		}
+	}
+
+testcase_cleanup:
+	testcase_close_session();
+	return rc;
+}
+
+
+
+CK_RV do_UnwrapRSA_Err(struct generated_test_suite_info *tsuite)
+{
+	int i;
+	CK_BYTE wrapped_data[BIG_REQUEST + AES_BLOCK_SIZE];
+	CK_BYTE	user_pin[PKCS11_MAX_PIN_LEN];
+	CK_BYTE	pub_exp[] = { 0x01, 0x00, 0x01 };
+	CK_MECHANISM mech, mech1, mech2;
+	CK_MECHANISM_INFO mech_info;
+	CK_OBJECT_HANDLE publ_key, priv_key, w_key, uw_key;
+	CK_ULONG bits = 1024;
+	CK_ULONG wrapped_data_len, user_pin_len, key_size;
+	CK_RV rc;
+	CK_FLAGS flags;
+	CK_SESSION_HANDLE session;
+	CK_OBJECT_CLASS	keyclass = CKO_PRIVATE_KEY;
+	CK_KEY_TYPE keytype  = CKK_RSA;
+	CK_SLOT_ID slot_id = SLOT_ID;
+
+	CK_ATTRIBUTE pub_tmpl[] = {
+				{CKA_MODULUS_BITS,  &bits, sizeof(bits)},
+				{CKA_PUBLIC_EXPONENT,&pub_exp,sizeof(pub_exp)}};
+	CK_ATTRIBUTE uw_tmpl[] = {
+				{CKA_CLASS,    &keyclass,  sizeof(keyclass)},
+				{CKA_KEY_TYPE, &keytype,   sizeof(keytype)}};
+	CK_ATTRIBUTE key_gen_tmpl[] = {
+				{CKA_VALUE_LEN, &key_size, sizeof(CK_ULONG)}};
+
+	testsuite_begin("%s wrap/unwrap of RSA key.", tsuite->name);
+	testcase_rw_session();
+	testcase_user_login();
+
+	/** skip test if the slot doesn't support this mechanism **/
+	if (! mech_supported(slot_id, tsuite->mech.mechanism)){
+		testsuite_skip(3,
+			"Slot %u doesn't support %s (%u)",
+			(unsigned int) slot_id,
+			mech_to_str(tsuite->mech.mechanism),
+			(unsigned int)tsuite->mech.mechanism);
+		goto testcase_cleanup;
+	}
+
+	for (i = 0; i < 3; i++) {
+
+		testcase_begin("%s wrap/unwrap of RSA key for key length=%ld.",
+			tsuite->name, key_lens[i]);
+
+		key_size = key_lens[i];
+
+		/** first mechanism generate AES wrapping key **/
+		mech.mechanism = CKM_AES_KEY_GEN;
+		mech.ulParameterLen = 0;
+		mech.pParameter = NULL;
+
+		/** mechanism to generate an RSA key pair to be wrapped **/
+		mech2.mechanism  = CKM_RSA_PKCS_KEY_PAIR_GEN;
+		mech2.ulParameterLen = 0;
+		mech2.pParameter = NULL;
+
+		/** generate an RSA key pair. **/
+		rc = funcs->C_GenerateKeyPair(session, &mech2, pub_tmpl, 2, NULL,
+					      0, &publ_key, &priv_key);
+		if (rc != CKR_OK) {
+			testcase_error("C_GenerateKeyPair rc=%s", p11_get_ckr(rc));
+			goto testcase_cleanup;
+		}
+
+		/** generate the wrapping key **/
+		rc = funcs->C_GenerateKey(session, &mech, key_gen_tmpl, 1, &w_key);
+		if (rc != CKR_OK) {
+			testcase_error("C_GenerateKey rc=%s", p11_get_ckr(rc));
+			goto testcase_cleanup;
+		}
+
+		/** set the mech for AES crypto **/
+		mech = tsuite->mech;
+
+		/** wrap the key **/
+		wrapped_data_len = sizeof(wrapped_data);
+
+		/** get mech info **/
+		rc = funcs->C_GetMechanismInfo(slot_id, mech.mechanism, &mech_info);
+		if (rc != CKR_OK){
+			testcase_error("C_GetMechanismInfo rc=%s", p11_get_ckr(rc));
+			goto testcase_cleanup;
+		}
+
+		/** key is wrappable **/
+		if (mech_info.flags & CKF_UNWRAP) {
+
+			/** mechanism for wrapping the key **/
+			mech1.mechanism = CKM_AES_CBC_PAD;
+			mech1.ulParameterLen = AES_IV_SIZE;
+			mech1.pParameter = &aes_iv;
+
+			/** wrap key **/
+			rc = funcs->C_WrapKey(session, &mech1, w_key, priv_key,
+					      wrapped_data, &wrapped_data_len);
+			if (rc != CKR_OK) {
+				testcase_error("C_WrapKey rc=%s", p11_get_ckr(rc));
+				goto testcase_cleanup;
+			}
+
+			testcase_new_assertion();
+
+			/** unwrap key **/
+			rc = funcs->C_UnwrapKey(session, &mech, w_key, wrapped_data,
+						wrapped_data_len, uw_tmpl, 2,
+						&uw_key);
+			/* Expect dedicated error code here, since it's not allowed
+			 * to unwrap non secret keys with AES_ECB/AES_CBC */
+			if (rc != CKR_ARGUMENTS_BAD) {
+				testcase_error("Expected C_UnWrapKey rc=%s, but returned rc=%s",
+				p11_get_ckr(CKR_ARGUMENTS_BAD), p11_get_ckr(rc));
+				goto testcase_cleanup;
+			}
+			testcase_pass("%s passed unwrap RSA key test.",tsuite->name);
+		} else {
+			/** key is not wrappable **/
+			testcase_new_assertion();
+
+			/** try to wrap key **/
+			rc = funcs->C_WrapKey(session, &mech, w_key, priv_key,
+					      wrapped_data, &wrapped_data_len);
+			if (rc != CKR_MECHANISM_INVALID)
+				testcase_fail("Expected CKR_MECHANISM_INVALID");
+			else {
+				testcase_pass("%s passed unwrap RSA key test.",
+					      tsuite->name);
+			}
+		}
+	}
+
+testcase_cleanup:
+	testcase_close_session();
+	return rc;
+}
+
 CK_RV aes_funcs() {
 	int i, generate_key;
 	CK_RV rv  = CKR_OK;
@@ -1402,6 +1675,18 @@ CK_RV aes_funcs() {
 		if (rv != CKR_OK && (!no_stop))
 			break;
 
+	}
+
+	/***** Error scenarios *****/
+
+	for (i = 0; i < NUM_OF_GENERATED_ERR_TESTSUITES; i++) {
+		do_WrapRSA_Err(&generated_err_test_suites[i]);
+		if (rv != CKR_OK && (!no_stop))
+			break;
+
+		do_UnwrapRSA_Err(&generated_err_test_suites[i]);
+		if (rv != CKR_OK && (!no_stop))
+			break;
 	}
 
 	return rv;

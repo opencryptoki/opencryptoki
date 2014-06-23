@@ -601,3 +601,15 @@ struct generated_test_suite_info generated_test_suites[] = {
                 .mech = {CKM_AES_CTR, &aesctr, sizeof(aesctr)},
         }
 };
+
+#define NUM_OF_GENERATED_ERR_TESTSUITES 2
+
+struct generated_test_suite_info generated_err_test_suites[] = {
+        {
+                .name = "AES_ECB",
+                .mech = {CKM_AES_ECB, 0, 0},
+        }, {
+                .name = "AES_CBC",
+                .mech = {CKM_AES_CBC, &aes_iv, AES_IV_SIZE},
+        }
+};
