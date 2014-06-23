@@ -989,7 +989,7 @@ static const char* ep11_get_ckm(CK_ULONG mechanism)
 }
 
 static CK_RV h_opaque_2_blob(CK_OBJECT_HANDLE handle,
-                             CK_BYTE **blob, size_t *blob_len);
+                             CK_BYTE **blob, size_t *blob_len, OBJECT **kobj);
 
 #define EP11_DEFAULT_CFG_FILE "ep11tok.conf"
 #define EP11_CFG_FILE_SIZE 4096
@@ -1847,7 +1847,7 @@ CK_RV token_specific_derive_key(SESSION *session, CK_MECHANISM_PTR mech,
 	memset(&secret_op, 0, sizeof(secret_op));
 	secret_op.blob_size = blobsize;
 
-	rc = h_opaque_2_blob(hBaseKey, &blob, &blob_len);
+	rc = h_opaque_2_blob(hBaseKey, &blob, &blob_len, &key_obj);
 	if (rc != CKR_OK) {
 		EP11TOK_ELOG(1,"FAIL hBaseKey=0x%lx",hBaseKey);
 		return rc;
@@ -2829,7 +2829,7 @@ error:
  * The blob is created if none was build yet.
  */
 static CK_RV h_opaque_2_blob(CK_OBJECT_HANDLE handle,
-                             CK_BYTE **blob, size_t *blob_len)
+                             CK_BYTE **blob, size_t *blob_len, OBJECT **kobj)
 {
 	OBJECT *key_obj;
 	CK_ATTRIBUTE *attr = NULL;
@@ -2849,6 +2849,7 @@ static CK_RV h_opaque_2_blob(CK_OBJECT_HANDLE handle,
 		op = attr->pValue;
 		*blob = op->blob;
 		*blob_len = op->blob_size;
+		*kobj = key_obj;
 		EP11TOK_LOG(2,"blob found blob_len=0x%x valuelen=0x%lx blob_id=0x%x", *blob_len, attr->ulValueLen, op->blob_id);
       
 		return CKR_OK;
@@ -2871,7 +2872,8 @@ CK_RV token_specific_sign_init(SESSION *session, CK_MECHANISM *mech,
 	SIGN_VERIFY_CONTEXT *ctx = &session->sign_ctx;
 	CK_BYTE *ep11_sign_state;
 	size_t ep11_sign_state_l;
- 
+ 	OBJECT *key_obj = NULL;
+
 	ep11_sign_state_l = blobsize;
 	ep11_sign_state = malloc(blobsize);
 	if (!ep11_sign_state) {
@@ -2879,7 +2881,7 @@ CK_RV token_specific_sign_init(SESSION *session, CK_MECHANISM *mech,
 		return CKR_HOST_MEMORY;
 	}
 
-	rc = h_opaque_2_blob(key, &privkey_blob, &blob_len);
+	rc = h_opaque_2_blob(key, &privkey_blob, &blob_len, &key_obj);
 	if (rc != CKR_OK) {
 		EP11TOK_ELOG(1,"no blob rc=0x%lx",rc);
 		return rc;
@@ -2976,6 +2978,7 @@ CK_RV token_specific_verify_init(SESSION *session, CK_MECHANISM *mech,
 	SIGN_VERIFY_CONTEXT *ctx = &session->verify_ctx;
 	CK_BYTE *ep11_sign_state;
 	size_t ep11_sign_state_l;
+	OBJECT *key_obj = NULL;
 
 	ep11_sign_state_l = blobsize;
 	ep11_sign_state = malloc(blobsize);
@@ -2984,7 +2987,7 @@ CK_RV token_specific_verify_init(SESSION *session, CK_MECHANISM *mech,
 		return CKR_HOST_MEMORY;
 	}
 
-	rc = h_opaque_2_blob(key, &spki, &spki_len);
+	rc = h_opaque_2_blob(key, &spki, &spki_len, &key_obj);
 	if (rc != CKR_OK) {
 		EP11TOK_ELOG(1,"no blob rc=0x%lx",rc);
 		return rc;
@@ -3200,6 +3203,7 @@ static CK_RV ep11_ende_crypt_init(SESSION *session, CK_MECHANISM_PTR mech,
 	size_t ep11_state_l;
 	CK_BYTE *blob;
 	size_t blob_len = 0;
+	OBJECT *key_obj = NULL;
 
 	ep11_state_l = blobsize;
 	ep11_state = malloc(blobsize); /* freed by encr/decr_mgr.c */
@@ -3208,7 +3212,7 @@ static CK_RV ep11_ende_crypt_init(SESSION *session, CK_MECHANISM_PTR mech,
 		return CKR_HOST_MEMORY;
 	}
 
-	rc = h_opaque_2_blob(key, &blob, &blob_len);
+	rc = h_opaque_2_blob(key, &blob, &blob_len, &key_obj);
 	if (rc != CKR_OK) {
 		EP11TOK_ELOG(1,"no blob rc=0x%lx",rc);
 		return rc;
@@ -3296,7 +3300,9 @@ CK_RV token_specific_wrap_key(SESSION *session, CK_MECHANISM_PTR mech,
 	CK_BYTE *wrap_target_blob;
 	size_t wrap_target_blob_len;
 	int size_querry = 0;
-  
+ 	OBJECT *key_obj = NULL;
+	CK_ATTRIBUTE *attr;
+ 
 	/* ep11 weakness:
 	 * it does not set *p_wrapped_key_len if wrapped_key == NULL
 	 * (that is with a size query)
@@ -3312,7 +3318,7 @@ CK_RV token_specific_wrap_key(SESSION *session, CK_MECHANISM_PTR mech,
 	}
   
 	/* the key that encrypts */
-	rc = h_opaque_2_blob(wrapping_key, &wrapping_blob, &wrapping_blob_len);
+	rc = h_opaque_2_blob(wrapping_key, &wrapping_blob, &wrapping_blob_len, &key_obj);
 	if (rc != CKR_OK) {
 		EP11TOK_ELOG(1,"h_opaque_2_blob(wrapping_key) failed with rc=0x%lx", rc);
 		if (size_querry) free(wrapped_key);
@@ -3320,11 +3326,26 @@ CK_RV token_specific_wrap_key(SESSION *session, CK_MECHANISM_PTR mech,
 	}
 
 	/* the key to be wrapped */
-	rc = h_opaque_2_blob(key, &wrap_target_blob, &wrap_target_blob_len);
+	rc = h_opaque_2_blob(key, &wrap_target_blob, &wrap_target_blob_len, &key_obj);
 	if (rc != CKR_OK) {
 		EP11TOK_ELOG(1,"h_opaque_2_blob(key) failed with rc=0x%lx", rc);
 		if (size_querry) free(wrapped_key);
 		return rc;
+	}
+
+	/* check if wrap mechanism is allowed for the key to be wrapped.
+	 * AES_ECB and AES_CBC is only allowed to wrap secret keys.
+	 */
+	if (!template_attribute_find(key_obj->template, CKA_CLASS, &attr)) {
+		EP11TOK_ELOG(1,"No CKA_CLASS attribute found in key template.");
+		return CKR_TEMPLATE_INCOMPLETE;
+	}
+
+	if ((*(CK_OBJECT_CLASS *)attr->pValue != CKO_SECRET_KEY) &&
+	    	((mech->mechanism == CKM_AES_ECB) ||
+		 (mech->mechanism == CKM_AES_CBC))) {
+		EP11TOK_ELOG(1,"Wrap mechanism does not match to target key type.");
+                return CKR_KEY_NOT_WRAPPABLE;
 	}
 
         /* debug */
@@ -3374,10 +3395,10 @@ CK_RV token_specific_unwrap_key(SESSION *session, CK_MECHANISM_PTR mech,
 	CK_ULONG len;
 	CK_ATTRIBUTE_PTR new_attrs = NULL;
 	CK_ULONG new_attrs_len = 0;
-
+	OBJECT *kobj = NULL;
 
 	/* get wrapping key blob */
-	rc = h_opaque_2_blob(wrapping_key, &wrapping_blob, &wrapping_blob_len);
+	rc = h_opaque_2_blob(wrapping_key, &wrapping_blob, &wrapping_blob_len, &kobj);
 	if (rc != CKR_OK) {
 		EP11TOK_ELOG(1,"h_opaque_2_blob(wrapping_key) failed with rc=0x%lx", rc);
 		return rc;
@@ -3424,6 +3445,14 @@ CK_RV token_specific_unwrap_key(SESSION *session, CK_MECHANISM_PTR mech,
 		EP11TOK_ELOG(1,"check key attributes failed: rc=0x%lx",	rc);
 		goto error;
 	}
+
+	/* check if unwrap mechanism is allowed for the key to be unwrapped.
+	 * AES_ECB and AES_CBC only allowed to unwrap secret keys.
+	 */
+	if ( (*(CK_OBJECT_CLASS *)cla_attr->pValue != CKO_SECRET_KEY) &&  
+		((mech->mechanism == CKM_AES_ECB) || 
+		 (mech->mechanism == CKM_AES_CBC)))
+		return CKR_ARGUMENTS_BAD;
 
 	/* we need a blob for the new key created by unwrapping,
 	 * the wrapped key comes in BER
