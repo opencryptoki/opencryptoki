@@ -828,14 +828,14 @@ key_mgr_wrap_key( SESSION           * sess,
    //
    rc = template_attribute_find( key2_obj->template, CKA_EXTRACTABLE, &attr );
    if (rc == FALSE){
-      OCK_LOG_ERR(ERR_KEY_NOT_WRAPPABLE);
+      OCK_LOG_DEBUG("CKA_EXTRACTABLE is missing for key to be wrapped.\n");
       return CKR_KEY_NOT_WRAPPABLE;  // could happen if user tries to wrap a public key
    }
    else {
       flag = *(CK_BBOOL *)attr->pValue;
       if (flag == FALSE){
-         OCK_LOG_ERR(ERR_KEY_NOT_WRAPPABLE);
-         return CKR_KEY_NOT_WRAPPABLE;
+         OCK_LOG_ERR(ERR_KEY_UNEXTRACTABLE);
+         return CKR_KEY_UNEXTRACTABLE;
       }
    }
 
@@ -844,7 +844,7 @@ key_mgr_wrap_key( SESSION           * sess,
    //
    rc = template_attribute_find( key2_obj->template, CKA_CLASS, &attr );
    if (rc == FALSE) {
-      OCK_LOG_ERR(ERR_KEY_NOT_WRAPPABLE);
+      OCK_LOG_DEBUG("CKA_CLASS is missing for key to be wrapped.\n");
       return CKR_KEY_NOT_WRAPPABLE;
    }
    else
@@ -865,16 +865,12 @@ key_mgr_wrap_key( SESSION           * sess,
 
    switch (mech->mechanism) {
 #if !(NOCDMF)
-      case CKM_CDMF_ECB:
       case CKM_CDMF_CBC:
       case CKM_CDMF_CBC_PAD:
 #endif
-      case CKM_DES_ECB:
       case CKM_DES_CBC:
       case CKM_DES3_ECB:
       case CKM_DES3_CBC:
-      case CKM_AES_ECB:
-      case CKM_AES_CBC:
       case CKM_AES_CTR:
       case CKM_DES_CBC_PAD:
       case CKM_DES3_CBC_PAD:
@@ -884,23 +880,27 @@ key_mgr_wrap_key( SESSION           * sess,
       case CKM_AES_CFB64:
       case CKM_AES_CFB128:
          if ((class != CKO_SECRET_KEY) && (class != CKO_PRIVATE_KEY)) {
-            OCK_LOG_ERR(ERR_KEY_NOT_WRAPPABLE);
+            OCK_LOG_DEBUG("Specified mechanism only wraps secret & private keys.\n");
             return CKR_KEY_NOT_WRAPPABLE;
          }
 	 break;
 
+      case CKM_CDMF_ECB:
+      case CKM_DES_ECB:
+      case CKM_AES_ECB:
+      case CKM_AES_CBC:
       case CKM_RSA_PKCS_OAEP:
       case CKM_RSA_PKCS:
       case CKM_RSA_X_509:
          if (class != CKO_SECRET_KEY){
-            OCK_LOG_ERR(ERR_KEY_NOT_WRAPPABLE);
+            OCK_LOG_DEBUG("Specified mechanism only wraps secret keys.\n");
             return CKR_KEY_NOT_WRAPPABLE;
          }
          break;
 
       default:
-         OCK_LOG_ERR(ERR_KEY_NOT_WRAPPABLE);
-         return CKR_KEY_NOT_WRAPPABLE;
+         OCK_LOG_DEBUG("The mechanism does not support wrapping keys.\n");
+         return CKR_MECHANISM_INVALID;
    }
 
 
@@ -1023,8 +1023,8 @@ key_mgr_wrap_key( SESSION           * sess,
          break;
 
       default:
-         OCK_LOG_ERR(ERR_KEY_NOT_WRAPPABLE);
-         return CKR_KEY_NOT_WRAPPABLE;
+         OCK_LOG_ERR(ERR_MECHANISM_INVALID);
+         return CKR_MECHANISM_INVALID;
    }
 
    ctx = (ENCR_DECR_CONTEXT *)malloc(sizeof(ENCR_DECR_CONTEXT));
@@ -1098,58 +1098,18 @@ key_mgr_unwrap_key( SESSION           * sess,
    found_class = FALSE;
    found_type = FALSE;
 
-   // pkcs11v2-20rc3, page 178
-   // C_WrapKey can be used in following situations:
-   // - To wrap any secret key with a public key that supports encryption
-   // and decryption.
-   // - To wrap any secret key with any other secret key. Consideration
-   // must be given to key size and mechanism strength or the token may
-   // not allow the operation.
-   // - To wrap a private key with any secret key.
-   //
-   //  These can be deduced to:
-   //  A public key or a secret key can be used to wrap a secret key.
-   //  A secret key can be used to wrap a private key.
-
-   switch (mech->mechanism) {
-      case CKM_RSA_PKCS_OAEP:
-      case CKM_RSA_PKCS:
-      case CKM_RSA_X_509:
-         keyclass = CKO_SECRET_KEY;
-         found_class = TRUE;
-         break;
-
-#if !(NOCMF)
-      case CKM_CDMF_ECB:
-      case CKM_CDMF_CBC:
-      case CKM_CDMF_CBC_PAD:
-#endif
-      case CKM_DES_ECB:
-      case CKM_DES_CBC:
-      case CKM_DES3_ECB:
-      case CKM_DES3_CBC:
-      case CKM_AES_ECB:
-      case CKM_AES_CBC:
-      case CKM_AES_CTR:
-      case CKM_AES_OFB:
-      case CKM_AES_CFB8:
-      case CKM_AES_CFB64:
-      case CKM_AES_CFB128:
-      case CKM_DES_CBC_PAD:
-      case CKM_DES3_CBC_PAD:
-      case CKM_AES_CBC_PAD:
-         // these mechanisms can wrap any type of key so nothing is implied
-         //
-         break;
-
-      default:
-         OCK_LOG_ERR(ERR_MECHANISM_INVALID);
-         return CKR_MECHANISM_INVALID;
-   }
-
-   // extract key type and key class from the template if they exist.  we
-   // have to scan the entire template in case the CKA_CLASS or CKA_KEY_TYPE
-   // attributes are duplicated.
+   /*
+    * pkcs11v2-20
+    * C_WrapKey can be used in following situations:
+    * - To wrap any secret key with a public key that supports encryption
+    *   and decryption.
+    * - To wrap any secret key with any other secret key. Consideration
+    *    must be given to key size and mechanism strength or the token may
+    *    not allow the operation.
+    * - To wrap a private key with any secret key.
+    *
+    * extract key type and key class from the passed in attributes 
+    */
 
    for (i=0; i < attrib_count; i++) {
       switch (attributes[i].type) {
@@ -1162,29 +1122,60 @@ key_mgr_unwrap_key( SESSION           * sess,
             keytype = *(CK_KEY_TYPE *)attributes[i].pValue;
             found_type = TRUE;
             break;
-      }
+	}
    }
-
-   // if we're unwrapping a private key, we can extract the key type from
-   // the BER-encoded information
+	
+   // we need both key class and key type in template. 
+   // we can be a bit lenient for private key since can extract key type
+   // from BER-encoded information.
 
    if (found_class == FALSE || 
-       (found_type == FALSE && keyclass != CKO_PRIVATE_KEY)) {
+      (found_type == FALSE && keyclass != CKO_PRIVATE_KEY)) {
       OCK_LOG_ERR(ERR_TEMPLATE_INCOMPLETE);
       return CKR_TEMPLATE_INCOMPLETE;
    }
+	
+   switch (mech->mechanism) {
+      case CKM_CDMF_ECB:
+      case CKM_DES_ECB:
+      case CKM_AES_ECB:
+      case CKM_AES_CBC:
+      case CKM_RSA_PKCS_OAEP:
+      case CKM_RSA_PKCS:
+      case CKM_RSA_X_509:
+         if (keyclass != CKO_SECRET_KEY){
+            OCK_LOG_DEBUG("The specified mechanism only unwraps secret keys.\n");
+            return CKR_ARGUMENTS_BAD;
+         }
+         break;
 
-   // Check again that a public key only wraps/unwraps a secret key.
+#if !(NOCMF)
+      case CKM_CDMF_CBC:
+      case CKM_CDMF_CBC_PAD:
+#endif
+      case CKM_DES_CBC:
+      case CKM_DES3_ECB:
+      case CKM_DES3_CBC:
+      case CKM_AES_CTR:
+      case CKM_AES_OFB:
+      case CKM_AES_CFB8:
+      case CKM_AES_CFB64:
+      case CKM_AES_CFB128:
+      case CKM_DES_CBC_PAD:
+      case CKM_DES3_CBC_PAD:
+      case CKM_AES_CBC_PAD:
+         if ((keyclass != CKO_SECRET_KEY) && (keyclass != CKO_PRIVATE_KEY)) {
+            OCK_LOG_DEBUG("Specified mech only unwraps secret & private keys.\n");
+            return CKR_ARGUMENTS_BAD;
+         }
+	 break;
 
-   if ((mech->mechanism == CKM_RSA_PKCS) || (mech->mechanism == CKM_RSA_X_509)){
-      if (keyclass != CKO_SECRET_KEY) {
-         OCK_LOG_ERR(ERR_TEMPLATE_INCONSISTENT);
-         return CKR_TEMPLATE_INCONSISTENT;
-      }
+      default:
+         OCK_LOG_DEBUG("The specified mechanism cannot unwrap keys.\n");
+         return CKR_MECHANISM_INVALID;
    }
 
    // looks okay... do the decryption
-   //
    ctx = (ENCR_DECR_CONTEXT *)malloc(sizeof(ENCR_DECR_CONTEXT));
    if (!ctx){
       OCK_LOG_ERR(ERR_HOST_MEMORY);
