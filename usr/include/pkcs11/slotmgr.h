@@ -326,7 +326,7 @@
     #define TEST_COND_VARS 0
 #endif /* TEST_COND_VARS */
 
-#define NUMBER_SLOTS_MANAGED  32
+#define NUMBER_SLOTS_MANAGED 6 
 #define NUMBER_PROCESSES_ALLOWED  1000
 
 //
@@ -368,9 +368,9 @@ typedef struct{
    CK_SLOT_ID          slot_number;
    CK_BOOL          present;
    CK_SLOT_INFO  pk_slot;
-   char          dll_location[PATH_MAX+1];   // location of slot management  DLL
-   char          slot_init_fcn[PATH_MAX+1];  // function to call to initialize the token in the slot
-   char          correlator[PATH_MAX+1];     // Slot DLL Slotindex to dev correlation string
+   char          dll_location[NAME_MAX+1];   // location of slot management  DLL
+   char          slot_init_fcn[NAME_MAX+1];  // function to call to initialize the token in the slot
+   char          correlator[NAME_MAX+1];     // Slot DLL Slotindex to dev correlation string
 }Slot_Info_t;
 
 
