@@ -1238,7 +1238,7 @@ static CK_RV make_wrapblob(CK_ATTRIBUTE *tmpl_in, CK_ULONG tmpl_len)
 	return rc;
 }
 
-CK_RV token_specific_init(char *Correlator, CK_SLOT_ID SlotNumber, char *conf_name)
+CK_RV token_specific_init(CK_SLOT_ID SlotNumber, char *conf_name)
 {
 	CK_RV rc;
 	void *lib_ep11;

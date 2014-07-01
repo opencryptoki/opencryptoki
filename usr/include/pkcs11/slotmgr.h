@@ -370,7 +370,6 @@ typedef struct{
    CK_SLOT_INFO  pk_slot;
    char          dll_location[NAME_MAX+1];   // location of slot management  DLL
    char          slot_init_fcn[NAME_MAX+1];  // function to call to initialize the token in the slot
-   char          correlator[NAME_MAX+1];     // Slot DLL Slotindex to dev correlation string
 }Slot_Info_t;
 
 
@@ -450,7 +449,6 @@ typedef struct {
 	CK_SLOT_INFO_64 pk_slot;
 	char		dll_location[NAME_MAX+1];   // location of slot's  DLL
 	char		confname[NAME_MAX+1];	// token specific config file 
-	char		correlator[NAME_MAX+1];	// Slot DLL Slotindex to dev correlation string
 }Slot_Info_t_64;
 
 

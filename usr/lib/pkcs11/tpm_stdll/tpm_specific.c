@@ -169,7 +169,7 @@ tok_slot2local(CK_SLOT_ID snum)
 }
 
 CK_RV
-token_specific_init(char *Correlator, CK_SLOT_ID SlotNumber, char *conf_name)
+token_specific_init(CK_SLOT_ID SlotNumber, char *conf_name)
 {
 	TSS_RESULT result;
 	char path_buf[PATH_MAX], fname[PATH_MAX];

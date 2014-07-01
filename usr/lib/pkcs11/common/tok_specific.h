@@ -316,7 +316,7 @@ int token_specific_creatlock(void);
 CK_RV token_specific_attach_shm(CK_SLOT_ID slot_id, LW_SHM_TYPE **shmem);
 CK_RV token_specific_rng(CK_BYTE *,  CK_ULONG);
 int tok_slot2local(CK_SLOT_ID);
-CK_RV token_specific_init(char *, CK_SLOT_ID, char *);
+CK_RV token_specific_init(CK_SLOT_ID, char *);
 
 CK_RV token_specific_init_token_data(CK_SLOT_ID slot_id);
 CK_RV token_specific_load_token_data(CK_SLOT_ID slot_id, FILE *fh);

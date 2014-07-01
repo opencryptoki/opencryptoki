@@ -359,7 +359,7 @@ tok_slot2local(CK_SLOT_ID snum)
 }
 
 CK_RV
-token_specific_init(char * Correlator,CK_SLOT_ID  SlotNumber, char *conf_name)
+token_specific_init(CK_SLOT_ID  SlotNumber, char *conf_name)
 {
 
    return ica_open_adapter(&adapter_handle);

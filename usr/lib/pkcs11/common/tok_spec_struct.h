@@ -336,7 +336,7 @@ struct token_specific_struct {
 	CK_RV (*t_attach_shm) (CK_SLOT_ID slot_id, LW_SHM_TYPE **shmem);
 
 	// Initialization function
-	CK_RV(*t_init) (char *, CK_SLOT_ID, char *);
+	CK_RV(*t_init) (CK_SLOT_ID, char *);
 
 	// Token data functions
 	CK_RV (*t_init_token_data) (CK_SLOT_ID slot_id);

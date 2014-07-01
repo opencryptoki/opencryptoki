@@ -303,7 +303,7 @@ icsf_to_ock_err(int icsf_return_code, int icsf_reason_code)
  * Called during C_Initialize.
  */
 CK_RV
-token_specific_init(char *correlator, CK_SLOT_ID slot_id, char *conf_name)
+token_specific_init(CK_SLOT_ID slot_id, char *conf_name)
 {
 	CK_RV rc = CKR_OK;
 	struct slot_data *data;
