@@ -448,10 +448,9 @@ typedef struct {
 	CK_BOOL		present;
 	char		pad1[7];		// pad for dword alignment
 	CK_SLOT_INFO_64 pk_slot;
-	char		dll_location[PATH_MAX+1];   // location of slot's  DLL
-	char		confname[PATH_MAX+1];	// token specific config file 
-	char		correlator[PATH_MAX+1];	// Slot DLL Slotindex to dev correlation string
-	char		pad2[5];		// pad for dword alignment
+	char		dll_location[NAME_MAX+1];   // location of slot's  DLL
+	char		confname[NAME_MAX+1];	// token specific config file 
+	char		correlator[NAME_MAX+1];	// Slot DLL Slotindex to dev correlation string
 }Slot_Info_t_64;
 
 
