@@ -437,7 +437,8 @@ secure_racf_passwd(char *racfpwd, unsigned int len)
 	/* generate a masterkey */
 	if ((get_randombytes(masterkey, AES_KEY_SIZE_256)) != CKR_OK) {
 		fprintf(stderr, "Could not generate masterkey.\n");
-		return -1;
+		rc = -1;
+		goto cleanup;
 	}
 
 	/* use the master key to secure the racf passwd */
@@ -644,7 +645,7 @@ main(int argc, char **argv)
 				fprintf(stderr,
 					"Could not find %s in token list.\n",
 					tokenname);
-				rc == -1;
+				rc = -1;
 				goto cleanup;
 			}
 

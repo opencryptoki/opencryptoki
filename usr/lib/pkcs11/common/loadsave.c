@@ -1392,6 +1392,8 @@ done:
 		free(clear);
 	if (cipher)
 		free(cipher);
+	if (key)
+		free(key);
 	return rc;
 }
 

@@ -673,6 +673,7 @@ secure_racf(CK_BYTE *racf, CK_ULONG racflen, CK_BYTE *key, CK_ULONG keylen)
 	rc = set_perms(fileno(fp));
 	if (rc != 0) {
 		OCK_LOG_DEBUG("Failed to set permissions on RACF file.\n");
+		fclose(fp);
 		return CKR_FUNCTION_FAILED;
 	}
 
@@ -743,6 +744,7 @@ secure_masterkey(CK_BYTE *masterkey, CK_ULONG len, CK_BYTE *pin,
 	rc = set_perms(fileno(fp));
 	if (rc != 0) {
 		OCK_LOG_DEBUG("Failed to set permissions on encrypted file.\n");
+		fclose(fp);
 		return CKR_FUNCTION_FAILED;
 	}
 

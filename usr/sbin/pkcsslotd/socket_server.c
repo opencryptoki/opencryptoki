@@ -322,6 +322,7 @@ int CreateListenerSocket (void) {
 	}
 	if (unlink(SOCKET_FILE_PATH) && errno != ENOENT) {
 		ErrLog("Failed to unlink socket file, errno 0x%X.", errno);
+		close(socketfd);
 		return -1;
 	}
 
@@ -331,6 +332,7 @@ int CreateListenerSocket (void) {
 
 	if (bind(socketfd, (struct sockaddr *) &address, sizeof(struct sockaddr_un)) != 0) {
 		ErrLog("Failed to bind to socket, errno 0x%X.", errno);
+		close(socketfd);
 		return -1;
 	}
 
@@ -415,8 +417,10 @@ int SocketConnectionHandler (int socketfd, int timeout_secs)
 		}
 		if (write(connectionfd, &socketData, sizeof(socketData)) != sizeof(socketData)) {
 			ErrLog("Failed to write socket data, errno 0x%X.", errno);
+			close(connectionfd);
 			return FALSE;
 		}
+		close(connectionfd);
 		return TRUE;
 	}
 }

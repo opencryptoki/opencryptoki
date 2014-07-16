@@ -342,6 +342,7 @@ init_socket_data() {
 	if (connect(socketfd, (struct sockaddr *) &daemon_address,
 	    sizeof(struct sockaddr_un)) != 0) {
 		OCK_SYSLOG(LOG_ERR, "init_socket_data: failed to connect to slot manager daemon, errno=%d", errno);
+		close(socketfd);
 		return FALSE;
 	}
 

@@ -2590,7 +2590,7 @@ aes_mac_sign_final( SESSION              * sess,
                     CK_BYTE              * out_data,
                     CK_ULONG             * out_data_len)
 {
-  CK_ULONG           rc;
+  CK_ULONG           rc = CKR_OK;
   CK_ULONG           mac_len;
   AES_DATA_CONTEXT * context  = NULL;
   OBJECT           * key_obj  = NULL;

@@ -491,7 +491,7 @@ lookup_keyword(const char *key)
 	int i;
 
 	for (i = 0; i < KW_MAX ; i++ ) {
-		if (strncmp(key, ock_keywords[i].name, sizeof(key)) == 0)
+		if (strncmp(key, ock_keywords[i].name, strlen(key)) == 0)
 			return ock_keywords[i].token;
 	}
 	/* if we get here that means did not find a match... */

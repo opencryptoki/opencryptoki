@@ -922,6 +922,7 @@ token_specific_open_session(SESSION *sess)
 	/* Lock to add a new session in the list */
 	if (pthread_mutex_lock(&sess_list_mutex)) {
 		OCK_LOG_ERR(ERR_MUTEX_LOCK);
+		free(session_state);
 		return CKR_FUNCTION_FAILED;
 	}
 
@@ -1478,7 +1479,7 @@ done:
 	}
 
 	/* If allocated, object must be freed in case of failure */
-	if (rc && !mapping)
+	if (rc && mapping)
 		free(mapping);
 
 	return rc;
@@ -1795,7 +1796,7 @@ done:
 		free_attribute_array(new_attrs, new_attrs_len);
 
 	/* If allocated, object must be freed in case of failure */
-	if (rc && !mapping)
+	if (rc && mapping)
 		free(mapping);
 
 	return rc;

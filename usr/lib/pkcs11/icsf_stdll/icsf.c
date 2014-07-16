@@ -473,7 +473,7 @@ int icsf_check_pkcs_extension(LDAP *ld)
 			/* Print each value */
 			for (it = values; *it; it++)
 				if (!strncmp(expected_oid, (*it)->bv_val,
-					     sizeof(expected_oid))) {
+					     strlen(expected_oid))) {
 					/* It's supported */
 					rc = 0;
 				}
