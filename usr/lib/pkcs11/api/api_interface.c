@@ -2893,8 +2893,7 @@ CK_RV C_Initialize(CK_VOID_PTR pVoid)
 		// Right now the library DOES NOT create threads and therefore this
 		// check is irrelavant.
 		if (pArg->flags & CKF_LIBRARY_CANT_CREATE_OS_THREADS) {
-			OCK_LOG_DEBUG
-			    ("Can't create OS threads.... This is OK\n");
+			OCK_LOG_DEBUG("Can't create OS threads...This is OK\n");
 		}
 		// Since this is an initialization path, we will be verbose in the
 		// code rather than efficient.

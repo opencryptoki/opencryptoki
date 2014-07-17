@@ -331,13 +331,13 @@ static FILE *EP11Tok_logfile = NULL;
 #define EP11TOK_LOG(_loglevel, _format, ...) {                                      \
         if (EP11Tok_loglevel >= _loglevel && EP11Tok_logfile) {                     \
             fprintf(EP11Tok_logfile, "%s " _format "\n", __func__, ## __VA_ARGS__); \
-	    ock_logit("EP11_TOK DEBUG %s " _format, __func__, ## __VA_ARGS__); }}
+	    ock_logit("EP11_TOK DEBUG %s " _format "\n", __func__, ## __VA_ARGS__); }}
 
 #define EP11TOK_ELOG(_loglevel, _format, ...) {                                            \
         if (EP11Tok_loglevel >= _loglevel && EP11Tok_logfile) {                            \
             fprintf(EP11Tok_logfile, "ERROR: %s " _format "\n", __func__, ## __VA_ARGS__); \
   	    OCK_SYSLOG(LOG_ERR, _format, ## __VA_ARGS__);		                   \
-	    ock_logit("EP11_TOK ERROR %s " _format, __func__, ## __VA_ARGS__); }}
+	    ock_logit("EP11_TOK ERROR %s " _format "\n", __func__, ## __VA_ARGS__); }}
 
 #define EP11TOK_DUMP(_loglevel, _text, _buf, _buflen) {                  \
         if (EP11Tok_loglevel >= _loglevel && EP11Tok_logfile) {          \
@@ -346,7 +346,7 @@ static FILE *EP11Tok_logfile = NULL;
                 sprintf(str+2*i, "%02hhx", ((unsigned char*)(_buf))[i]); \
                 *(str+2*i+2) = '\0'; }                                   \
             fprintf(EP11Tok_logfile, _text " %s\n", str);                \
-	    ock_logit("EP11_TOK DEBUG " _text " %s", str); }}
+	    ock_logit("EP11_TOK DEBUG " _text " %s\n", str); }}
 
 
 CK_CHAR manuf[] = "IBM Corp.";
