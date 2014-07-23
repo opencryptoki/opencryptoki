@@ -30,8 +30,4 @@ manual page for details.
 \fBopencryptoki\fP(7),
 .TP
 \fBpkcsconf\fP(1),
-.TP
-\fBpk_config_data\fP(5),
-.TP
-\fBpkcs11_startup\fP(1).
 .PD
