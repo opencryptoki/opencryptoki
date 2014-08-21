@@ -10,7 +10,7 @@
 #include "digest.h"
 #include "common.c"
 
-#define MAX_HASH_LEN	512
+#define DIGEST_UPDATE_SIZE 32
 
 /** Tests messge digest with published test vectors. **/
 CK_RV do_Digest(struct digest_test_suite_info *tsuite)
@@ -45,6 +45,10 @@ CK_RV do_Digest(struct digest_test_suite_info *tsuite)
 
 	/** iterate over test vectors **/
 	for(i = 0; i < tsuite->tvcount; i++){
+
+		/** begin test **/
+		testcase_begin("Starting %s Digest with test vector %d.",
+				tsuite->name, i);
 
 		rc = CKR_OK;    // set rc
 
@@ -82,13 +86,15 @@ CK_RV do_Digest(struct digest_test_suite_info *tsuite)
 		testcase_new_assertion();
 
 		if (actual_len != expected_len) {
-			testcase_fail("hashed data length does not match test vector's"					" hashed data length.\nexpected length=%ld, found "
-				 "length=%ld.", expected_len, actual_len);
+			testcase_fail("hashed data length does not match test "
+				      "vector's hashed data length.\n expected"
+				      " length=%ld, found length=%ld.",
+				      expected_len, actual_len);
 			}
 
 		else if (memcmp(actual, expected, expected_len)){
 			testcase_fail("hashed data does not match test vector's"
-				" hashed data.");
+				      " hashed data.");
 		}
 
 		else {
@@ -110,17 +116,17 @@ CK_RV do_DigestUpdate(struct digest_test_suite_info *tsuite)
 {
 	int		i;
 	CK_BYTE		data[MAX_DATA_SIZE];
-	CK_ULONG	data_len;
+	CK_ULONG	data_len, data_done;
 	CK_BYTE		actual[MAX_HASH_SIZE];
 	CK_ULONG	actual_len;
 	CK_BYTE		expected[MAX_HASH_SIZE];
-	CK_ULONG	expected_len;
+	CK_ULONG	len, expected_len;
 	CK_MECHANISM	mech;
 
 	CK_SESSION_HANDLE       session;
-	CK_SLOT_ID	      	slot_id = SLOT_ID;
+	CK_SLOT_ID		slot_id = SLOT_ID;
 	CK_ULONG		flags;
-	CK_RV		   	rc;
+	CK_RV			rc;
 
 	/** begin test **/
 	testsuite_begin("Starting %s Multipart Digest.", tsuite->name);
@@ -149,6 +155,7 @@ CK_RV do_DigestUpdate(struct digest_test_suite_info *tsuite)
 		memset(expected, 0, sizeof(expected));
 
 		/** get test vector info **/
+		data_done = 0;
 		data_len = tsuite->tv[i].data_len;
 		expected_len = tsuite->tv[i].hash_len;
 		memcpy(data, tsuite->tv[i].data, data_len);
@@ -167,13 +174,18 @@ CK_RV do_DigestUpdate(struct digest_test_suite_info *tsuite)
 		actual_len = sizeof(actual);
 
 		/** do multipart digest **/
-		if (data_len > 0) {
-			rc = funcs->C_DigestUpdate(session, &data[0], data_len);
+		while (data_done < data_len) {
+			len = data_len - data_done;
+			if (len >= DIGEST_UPDATE_SIZE)
+				len = DIGEST_UPDATE_SIZE;
+			rc = funcs->C_DigestUpdate(session, data + data_done,
+						   len);
 			if (rc != CKR_OK) {
 				testcase_error("C_DigestUpdate rc=%s",
-					p11_get_ckr(rc));
+						p11_get_ckr(rc));
 				goto testcase_cleanup;
 			}
+			data_done += len;
 		}
 
 		/** finalize multipart digest **/
@@ -258,7 +270,7 @@ CK_RV do_SignVerify_HMAC(struct HMAC_TEST_SUITE_INFO *tsuite){
 
 		/** get mechanism **/
 		mech = tsuite->mech;
-		
+
 		/* for ep11, check if key len is supported */
 		key_len = tsuite->tv[i].key_len;
 
@@ -416,7 +428,7 @@ CK_RV do_SignVerify_HMAC_Update(struct HMAC_TEST_SUITE_INFO *tsuite)
 
 		/** get mechanism **/
 		mech = tsuite->mech;
-		
+
 		/* for ep11, check if key len is supported */
 		key_len = tsuite->tv[i].key_len;
 
@@ -461,20 +473,20 @@ CK_RV do_SignVerify_HMAC_Update(struct HMAC_TEST_SUITE_INFO *tsuite)
 			len1 = 0;
 			len2 = 0;
 			/* do in 2 parts */
-			if (data_len < 20) 
+			if (data_len < 20)
 				len1 = data_len;
 			else {
 				len1 = data_len - 20;
 				len2 = 20;
 			}
-	
+
 			rc = funcs->C_SignUpdate(session, data, len1);
 			if (rc != CKR_OK) {
 				testcase_error("C_SignUpdate rc=%s",
 						p11_get_ckr(rc));
 				goto error;
 			}
-			
+
 			if (len2) {
 				rc = funcs->C_SignUpdate(session, data + len1,
 							 len2);
@@ -516,7 +528,7 @@ CK_RV do_SignVerify_HMAC_Update(struct HMAC_TEST_SUITE_INFO *tsuite)
 					goto error;
 				}
 			}
-		}	
+		}
 		rc = funcs->C_VerifyFinal(session, actual, actual_len);
 		if (rc != CKR_OK) {
 			testcase_error("C_VerifyFinal rc=%s", p11_get_ckr(rc));
@@ -601,7 +613,7 @@ CK_RV digest_funcs() {
 			}
 		}
 	}
-	
+
 	return rc;
 }
 

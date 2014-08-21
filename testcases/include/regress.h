@@ -121,12 +121,14 @@ int get_user_pin(CK_BYTE_PTR);
         do {                                                            \
                 printf("------\n* TESTCASE %s BEGIN " _fmt "\n",        \
                         __func__, ## __VA_ARGS__);                      \
+		gettimeofday(&timev1, NULL);				\
         } while (0)
 
 #define testcase_begin_f(_func, _fmt, ...)                              \
         do {                                                            \
                 printf("------\n* TESTCASE %s BEGIN " _fmt "\n",        \
                         _func, ## __VA_ARGS__);                         \
+		gettimeofday(&timev1, NULL);				\
         } while (0)
 
 #define testcase_new_assertion()					\
@@ -144,7 +146,8 @@ int get_user_pin(CK_BYTE_PTR);
 
 #define testcase_pass_f(_func, _fmt, ...)                               \
         do {                                                            \
-                gettimeofday(&timevr, NULL);                            \
+                gettimeofday(&timev2, NULL);                            \
+                timersub(&timev2, &timev1, &timevr);                    \
                 printf("* TESTCASE %s PASS (elapsed time %lds %ldus) " _fmt "\n\n",\
                        _func, timevr.tv_sec, timevr.tv_usec,            \
                         ## __VA_ARGS__);                                \
