@@ -34,7 +34,7 @@ CK_RV do_EncryptDecryptAES(struct generated_test_suite_info *tsuite)
 	CK_MECHANISM		mechkey, mech;
 	CK_OBJECT_HANDLE	h_key;
 	CK_FLAGS		flags;
-	CK_RV			rc = 0;
+	CK_RV			rc = CKR_OK;
 	CK_SLOT_ID	       slot_id = SLOT_ID;
 
 	testsuite_begin("%s Encryption/Decryption.",tsuite->name);
@@ -131,7 +131,8 @@ CK_RV do_EncryptDecryptAES(struct generated_test_suite_info *tsuite)
 
 		if (decrypt_len != orig_len) {
 		       testcase_fail("decrypted data length does not "
-				"match original data length.\nexpected "					"length=%ld, but found length=%ld\n",
+				"match original data length.\nexpected "
+				"length=%ld, but found length=%ld\n",
 				orig_len, decrypt_len);
 		}
 
@@ -142,7 +143,8 @@ CK_RV do_EncryptDecryptAES(struct generated_test_suite_info *tsuite)
 
 		else {
 			testcase_pass("%s Encryption/Decryption with "
-				"key length %ld passed.", tsuite->name, 					key_lens[i]);
+				      "key length %ld passed.", tsuite->name,
+				      key_lens[i]);
 		}
 
 	}
@@ -183,7 +185,7 @@ CK_RV do_EncryptDecryptUpdateAES(struct generated_test_suite_info *tsuite)
 	CK_MECHANISM		mechkey, mech;
 	CK_OBJECT_HANDLE	h_key;
 	CK_FLAGS		flags;
-	CK_RV			rc = 0;
+	CK_RV			rc = CKR_OK;
 
 	/** begin testsuite **/
 	testsuite_begin("%s Multipart Encryption/Decryption.", tsuite->name);
@@ -355,7 +357,7 @@ CK_RV do_EncryptAES(struct published_test_suite_info *tsuite)
 	CK_SESSION_HANDLE	session;
 	CK_MECHANISM		mech;
 	CK_OBJECT_HANDLE	h_key;
-	CK_RV			rc;
+	CK_RV			rc = CKR_OK;
 	CK_FLAGS		flags;
 	CK_SLOT_ID		slot_id = SLOT_ID;
 
@@ -480,15 +482,13 @@ CK_RV do_EncryptUpdateAES(struct published_test_suite_info *tsuite)
 	CK_SESSION_HANDLE	session;
 	CK_MECHANISM		mech;
 	CK_OBJECT_HANDLE	h_key;
-	CK_RV			rc;
+	CK_RV			rc = CKR_OK;
 	CK_FLAGS		flags;
 	CK_SLOT_ID	      slot_id = SLOT_ID;
 
 	testsuite_begin("%s Multipart Encryption.", tsuite->name);
 	testcase_rw_session();
 	testcase_user_login();
-
-	rc = CKR_OK;
 
 	/** skip test if the slot doesn't support this mechanism **/
 	if (! mech_supported(slot_id, tsuite->mech.mechanism)){
@@ -535,7 +535,7 @@ CK_RV do_EncryptUpdateAES(struct published_test_suite_info *tsuite)
 		memcpy(actual, tsuite->tv[i].plaintext, actual_len);
 
 		/** ecb, cbc, cfb, ctr, ofb modes all have restrictions
-		 ** on total length of the plaintext. It is either the 
+		 ** on total length of the plaintext. It is either the
 		 ** multiple of the blocksize, s-bit-size, or none.
 		 ** Get this info to use in beloe loop.
 		 **/
@@ -580,7 +580,8 @@ CK_RV do_EncryptUpdateAES(struct published_test_suite_info *tsuite)
 
 		if (actual_len != expected_len) {
 			testcase_fail("encrypted multipart data length does "
-				"not match test vector's encrypted data length."				"\n\nexpected length=%ld, but found length=%ld"
+				"not match test vector's encrypted data length."
+				"\n\nexpected length=%ld, but found length=%ld"
 				"\n", expected_len, actual_len);
 		}
 
@@ -628,15 +629,13 @@ CK_RV do_DecryptAES(struct published_test_suite_info *tsuite)
 	CK_SESSION_HANDLE	session;
 	CK_MECHANISM		mech;
 	CK_OBJECT_HANDLE	h_key;
-	CK_RV			rc;
+	CK_RV			rc = CKR_OK;
 	CK_FLAGS		flags;
 	CK_SLOT_ID	      	slot_id = SLOT_ID;
 
 	testsuite_begin("%s Decryption.", tsuite->name);
 	testcase_rw_session();
 	testcase_user_login();
-
-	rc = CKR_OK;
 
 	/** skip test if the slot doesn't support this mechanism **/
 	if (! mech_supported(slot_id, tsuite->mech.mechanism)){
@@ -735,10 +734,9 @@ error:
 testcase_cleanup:
 	testcase_user_logout();
 	rc = funcs->C_CloseAllSessions(slot_id);
-        if (rc != CKR_OK) {
-                testcase_error("C_CloseAllSessions rc=%s", p11_get_ckr(rc));
-        }
-        return rc;
+	if (rc != CKR_OK)
+		testcase_error("C_CloseAllSessions rc=%s", p11_get_ckr(rc));
+	return rc;
 }
 
 CK_RV do_DecryptUpdateAES(struct published_test_suite_info *tsuite)
@@ -753,7 +751,7 @@ CK_RV do_DecryptUpdateAES(struct published_test_suite_info *tsuite)
 	CK_SESSION_HANDLE	session;
 	CK_MECHANISM		mech;
 	CK_OBJECT_HANDLE	h_key;
-	CK_RV			rc;
+	CK_RV			rc = CKR_OK;
 	CK_FLAGS		flags;
 	CK_SLOT_ID	      slot_id = SLOT_ID;
 
@@ -804,7 +802,7 @@ CK_RV do_DecryptUpdateAES(struct published_test_suite_info *tsuite)
 		memcpy(actual, tsuite->tv[i].ciphertext, actual_len);
 
 		/** ecb, cbc, cfb, ctr, ofb modes all have restrictions
-		 ** on total length of the plaintext. It is either the 
+		 ** on total length of the plaintext. It is either the
 		 ** multiple of the blocksize, s-bit-size, or none.
 		 ** Get this info to use in beloe loop.
 		 **/
@@ -879,11 +877,10 @@ error:
 
 testcase_cleanup:
 	testcase_user_logout();
-        rc = funcs->C_CloseAllSessions(slot_id);
-        if (rc != CKR_OK) {
-                testcase_error("C_CloseAllSessions rc=%s", p11_get_ckr(rc));
-        }
-        return rc;
+	rc = funcs->C_CloseAllSessions(slot_id);
+	if (rc != CKR_OK)
+		testcase_error("C_CloseAllSessions rc=%s", p11_get_ckr(rc));
+	return rc;
 }
 
 CK_RV do_WrapUnwrapAES(struct generated_test_suite_info *tsuite)
@@ -905,7 +902,7 @@ CK_RV do_WrapUnwrapAES(struct generated_test_suite_info *tsuite)
 	CK_ULONG		tmpl_count = 3;
 	CK_ULONG		key_size;
 	CK_FLAGS		flags;
-	CK_RV			rc;
+	CK_RV			rc = CKR_OK;
 	CK_SLOT_ID	      	slot_id = SLOT_ID;
 	CK_OBJECT_CLASS		key_class = CKO_SECRET_KEY;
 	CK_KEY_TYPE		key_type  = CKK_AES;
@@ -951,7 +948,7 @@ CK_RV do_WrapUnwrapAES(struct generated_test_suite_info *tsuite)
 
 		/** set key_size **/
 		key_size = key_lens[i];
-	
+
 		/** clear buffers **/
 		memset(original, 0, sizeof(original));
 		memset(crypt, 0, sizeof(crypt));
@@ -1078,7 +1075,7 @@ CK_RV do_WrapUnwrapAES(struct generated_test_suite_info *tsuite)
 		if (rc != CKR_OK) {
 			testcase_error("C_DestroyObject rc=%s.", p11_get_ckr(rc));
 		}
-	
+
 		rc = funcs->C_DestroyObject(session, uw_key);
 		if (rc != CKR_OK) {
 			testcase_error("C_DestroyObject rc=%s.", p11_get_ckr(rc));
@@ -1128,7 +1125,7 @@ CK_RV do_WrapUnwrapRSA(struct generated_test_suite_info *tsuite)
 	CK_ULONG		wrapped_data_len;
 	CK_ULONG		user_pin_len;
 	CK_ULONG		key_size;
-	CK_RV			rc;
+	CK_RV			rc = CKR_OK;
 	CK_FLAGS		flags;
 	CK_SESSION_HANDLE	session;
 	CK_OBJECT_CLASS		keyclass = CKO_PRIVATE_KEY;
@@ -1155,7 +1152,7 @@ CK_RV do_WrapUnwrapRSA(struct generated_test_suite_info *tsuite)
 		mech_to_str(tsuite->mech.mechanism),
 		(unsigned int)tsuite->mech.mechanism);
 		goto testcase_cleanup;
-        }
+	}
 
 	/** skip test if the slot doesn't support this mechanism **/
 	if (! mech_supported(slot_id, tsuite->mech.mechanism)){
@@ -1381,7 +1378,7 @@ CK_RV do_WrapRSA_Err(struct generated_test_suite_info *tsuite)
 	CK_OBJECT_HANDLE publ_key, priv_key, w_key;
 	CK_ULONG bits = 1024;
 	CK_ULONG wrapped_data_len, user_pin_len, key_size;
-	CK_RV rc;
+	CK_RV rc = CKR_OK;
 	CK_FLAGS flags;
 	CK_SESSION_HANDLE session;
 	CK_SLOT_ID slot_id = SLOT_ID;
@@ -1504,7 +1501,7 @@ CK_RV do_UnwrapRSA_Err(struct generated_test_suite_info *tsuite)
 	CK_OBJECT_HANDLE publ_key, priv_key, w_key, uw_key;
 	CK_ULONG bits = 1024;
 	CK_ULONG wrapped_data_len, user_pin_len, key_size;
-	CK_RV rc;
+	CK_RV rc = CKR_OK;
 	CK_FLAGS flags;
 	CK_SESSION_HANDLE session;
 	CK_OBJECT_CLASS	keyclass = CKO_PRIVATE_KEY;
@@ -1632,7 +1629,7 @@ testcase_cleanup:
 
 CK_RV aes_funcs() {
 	int i, generate_key;
-	CK_RV rv  = CKR_OK;
+	CK_RV rv = CKR_OK;
 
 	generate_key = securekey; // true if mech requires secure key
 				  // generate keys and skip published tests
@@ -1659,19 +1656,19 @@ CK_RV aes_funcs() {
 	}
 
 	for (i = 0; i < NUM_OF_GENERATED_TESTSUITES; i++) {
-		do_EncryptDecryptAES(&generated_test_suites[i]);
+		rv = do_EncryptDecryptAES(&generated_test_suites[i]);
 		if (rv != CKR_OK && (!no_stop))
 			break;
 
-		do_EncryptDecryptUpdateAES(&generated_test_suites[i]);
+		rv = do_EncryptDecryptUpdateAES(&generated_test_suites[i]);
 		if (rv != CKR_OK && (!no_stop))
 			break;
 
-		do_WrapUnwrapAES(&generated_test_suites[i]);
+		rv = do_WrapUnwrapAES(&generated_test_suites[i]);
 		if (rv != CKR_OK && (!no_stop))
 			break;
 
-		do_WrapUnwrapRSA(&generated_test_suites[i]);
+		rv = do_WrapUnwrapRSA(&generated_test_suites[i]);
 		if (rv != CKR_OK && (!no_stop))
 			break;
 
@@ -1680,11 +1677,11 @@ CK_RV aes_funcs() {
 	/***** Error scenarios *****/
 
 	for (i = 0; i < NUM_OF_GENERATED_ERR_TESTSUITES; i++) {
-		do_WrapRSA_Err(&generated_err_test_suites[i]);
+		rv = do_WrapRSA_Err(&generated_err_test_suites[i]);
 		if (rv != CKR_OK && (!no_stop))
 			break;
 
-		do_UnwrapRSA_Err(&generated_err_test_suites[i]);
+		rv = do_UnwrapRSA_Err(&generated_err_test_suites[i]);
 		if (rv != CKR_OK && (!no_stop))
 			break;
 	}
@@ -1731,7 +1728,7 @@ int main  (int argc, char **argv) {
 	}
 
 	testcase_setup(0); //TODO
-	rc = aes_funcs();
+	rv = aes_funcs();
 	testcase_print_result();
 
 	/* make sure we return non-zero if rv is non-zero */
