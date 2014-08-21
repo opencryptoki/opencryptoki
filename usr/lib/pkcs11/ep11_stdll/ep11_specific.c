@@ -3814,18 +3814,22 @@ static int read_adapter_config_file(const char* conf_name)
 		if (conf_name && strlen(conf_name) > 0) {
 			/* extract filename part from conf_name */
 			for (i=strlen(conf_name)-1; i >= 0 && conf_name[i] != '/'; i--);
-			if (i < strlen(conf_name)-1) {
-				snprintf(fname, sizeof(fname), "%s/%s", conf_dir, conf_name+i+1);
-				fname[sizeof(fname)-1] = '\0';
-				ap_fp = fopen(fname,"r");
-				EP11TOK_LOG(2,"fopen('%s') failed with errno %d", fname, errno);
-			}
+
+			snprintf(fname, sizeof(fname), "%s/%s", conf_dir, conf_name+i+1);
+			fname[sizeof(fname)-1] = '\0';
+			ap_fp = fopen(fname,"r");
+
+			if (!ap_fp)
+				EP11TOK_LOG(2, "fopen('%s') failed with errno %d",
+					    fname, errno);
 		}
 		if (!ap_fp) {
 			snprintf(fname, sizeof(fname), "%s/%s", conf_dir, EP11_DEFAULT_CFG_FILE);
 			fname[sizeof(fname)-1] = '\0';
 			ap_fp = fopen(fname,"r");
-			EP11TOK_LOG(2,"fopen('%s') failed with errno %d", fname, errno);
+			if (!ap_fp)
+				EP11TOK_LOG(2, "fopen('%s') failed with errno %d",
+					    fname, errno);
 		}
 	} else {
 		if (conf_name && strlen(conf_name) > 0) {
