@@ -1156,6 +1156,17 @@ CK_RV do_SignRSA(struct PUBLISHED_TEST_SUITE_INFO *tsuite)
 
 		}
 
+		// special case for EP11
+		// modulus length must be multiple of 128 byte
+		// skip test if modulus length has unsuported size
+		if (is_ep11_token(slot_id)) {
+			if ((tsuite->tv[i].mod_len%128) != 0){
+				testcase_skip("EP11 Token cannot be used with "
+						"this test vector.");
+				continue;
+			}
+		}
+
 		// clear buffers
 		memset(message, 0, MAX_MESSAGE_SIZE);
 		memset(actual, 0, MAX_SIGNATURE_SIZE);
@@ -1309,6 +1320,17 @@ CK_RV do_VerifyRSA(struct PUBLISHED_TEST_SUITE_INFO *tsuite)
 				tsuite->name, i);
 
 		rc = CKR_OK; // set return value
+
+		// special case for EP11
+		// modulus length must be multiple of 128 byte
+		// skip test if modulus length has unsuported size
+		if (is_ep11_token(slot_id)) {
+			if ((tsuite->tv[i].mod_len%128) != 0){
+				testcase_skip("EP11 Token cannot be used with "
+						"this test vector.");
+				continue;
+			}
+		}
 
 		// clear buffers
 		memset(message, 0, MAX_MESSAGE_SIZE);
