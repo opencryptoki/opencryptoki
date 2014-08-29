@@ -29,5 +29,7 @@ manual page for details.
 .TP
 \fBopencryptoki\fP(7),
 .TP
+\fBopencryptoki.conf\fP(5),
+.TP
 \fBpkcsconf\fP(1),
 .PD

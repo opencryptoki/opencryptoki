@@ -3,7 +3,7 @@
 opencryptoki.conf \- Configuration file for pkcsslotd.
 
 .SH DESCRIPTION
-pkcsslotd uses a configuration file at "@sysconfdir@"/opencryptoki.conf
+pkcsslotd uses a configuration file at "@sysconfdir@"/opencryptoki/opencryptoki.conf
 
 This is a text file that contains information used to configure
 pkcs#11 slots. At startup, the pkcsslotd daemon parses this file to
@@ -51,6 +51,16 @@ Version number of the slot's firmware, if any. The version number is composed
 of a major version number (the integer portion of the version) and a
 minor version number (the hundredths portion of the version).
 .TP
+.BR confname
+If the slot is associated with a token that has its own configuration file,
+this option identifies the name of that configuration file.
+For example, confname=ep11tok.conf
+
+.SH Notes
+The pound sign ('#') is used to indicate a comment.
+Both the comment character and any text after it, up to the end of the line,
+are ignored. The comment character cannot be used inside the brackets of
+slot descriptions, as this will cause a syntax error.
 
 .SH "SEE ALSO"
 .PD 0
