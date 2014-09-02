@@ -1,0 +1,45 @@
+.TH PKCSCCA 1 "September 2014" "@PACKAGE_VERSION@" "openCryptoki"
+.SH NAME
+pkcscca \- configuration utility for the CCA token
+
+.SH SYNOPSIS
+\fBpkcscca\fP
+[\fB-h\fP]
+[\fB-m v2objectsv3\fP]
+[\fIOPTIONS\fP]
+
+.SH DESCRIPTION
+The \fBpkcscca\fP utility assists in administering the CCA token. Currently it
+migrates opencryptoki version 2 private token objects to the encryption
+method used in opencryptoki version 3.
+
+In verion 2 of opencryptoki, CCA private token objects were encrypted in CCA
+hardware. In version 3 these objects are encrypted in software. The
+\fBv2objectsv3\fP migration option migrates these version 2 objects by
+decrypting them in CCA hardware using a secure key and then re-encrypting
+them in software using a software key. Afterwards, v2 objects can be accessed
+in version 3.
+
+.SH "FLAGS"
+.IP "\fB-h\fP" 10
+show usage information
+.IP "\fB-m\fP" 10
+perform a migration. \fBv2objectsv3\fP is currently the only type of migration
+supported and must be specified along with this flag.
+
+.SH "MIGRATION OPTIONS"
+.IP "\fB-d|--datastore\fP \fIdirectory\fp" 10
+the directory where the CCA token information is kept. This directory will be
+used to locate the private token objects to be migrated. i.e. /var/lib/opencryptoki/ccatok
+.IP "\fB-v|--verbose\fP" 10
+provide detailed output during migration
+
+.SH "FILES"
+.IP "/var/lib/opencryptoki/ccatok/TOK_OBJ/OBJ.IDX"
+contains current list of public and private token objects for the CCA token.
+
+.SH SEE ALSO
+.PD 0
+.TP
+\fBREADME.cca_stdll\fP (in system's doc directory)
+.PD
