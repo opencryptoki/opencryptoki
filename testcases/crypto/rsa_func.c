@@ -52,6 +52,7 @@ CK_RV do_EncryptDecryptRSA(struct GENERATED_TEST_SUITE_INFO *tsuite)
 	CK_BYTE			user_pin[PKCS11_MAX_PIN_LEN];
 	CK_ULONG		user_pin_len;
 	CK_RV			rc, loc_rc;
+	CK_RSA_PKCS_OAEP_PARAMS oaep_params;
 
 	char 			*s;
 
@@ -168,8 +169,6 @@ CK_RV do_EncryptDecryptRSA(struct GENERATED_TEST_SUITE_INFO *tsuite)
 		// get mech
 		mech = tsuite->mech;
 		if (mech.mechanism == CKM_RSA_PKCS_OAEP) {
-			CK_RSA_PKCS_OAEP_PARAMS oaep_params;
-
 			oaep_params = tsuite->tv[i].oaep_params;
 			mech.pParameter = &oaep_params;
 			mech.ulParameterLen = sizeof(CK_RSA_PKCS_OAEP_PARAMS);
