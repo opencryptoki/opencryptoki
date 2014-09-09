@@ -80,4 +80,5 @@ usr/sbin/pkcsslotd/parser.c
 usr/sbin/pkcsslotd/parser.h
 usr/sbin/pkcsslotd/lexer.c
 usr/sbin/pkcsicsf/pkcsicsf
+usr/sbin/pkcscca/pkcscca
 usr/sbin/pkcsep11_migrate/pkcsep11_migrate

@@ -348,6 +348,15 @@ CK_RV do_SignVerifyUpdate_RSAPSS(struct GENERATED_TEST_SUITE_INFO *tsuite)
 			continue;
 		}
 
+		if (is_ep11_token(slot_id)) {
+			if (! is_valid_ep11_pubexp(tsuite->tv[i].publ_exp,
+						tsuite->tv[i].publ_exp_len)) {
+				testcase_skip("EP11 Token cannot "
+					      "be used with publ_exp.='%s'",s);
+				continue;
+			}
+		}
+
                 // free memory
                 free(s);
 
@@ -529,6 +538,8 @@ CK_RV do_VerifyUpdateRSA(struct PUBLISHED_TEST_SUITE_INFO *tsuite)
 	CK_ULONG		user_pin_len;
 	CK_RV			rc, loc_rc;
 
+	char *s;
+
 	// begin testsuite
 	testsuite_begin("%s Verify.", tsuite->name);
 	testcase_rw_session();
@@ -545,9 +556,38 @@ CK_RV do_VerifyUpdateRSA(struct PUBLISHED_TEST_SUITE_INFO *tsuite)
 
 	// iterate over test vectors
 	for (i = 0; i < tsuite->tvcount; i++){
+		
+		if (p11_ahex_dump(&s, tsuite->tv[i].pub_exp,
+				   tsuite->tv[i].pubexp_len) == NULL) {
+			testcase_error("p11_ahex_dump() failed");
+			rc = -1;
+			goto testcase_cleanup;
+		}
 
 		testcase_begin("%s Verify with test vector %d.",
 				tsuite->name, i);
+		
+		if (is_ep11_token(slot_id)) {
+			if (! is_valid_ep11_pubexp(tsuite->tv[i].pub_exp,
+			    tsuite->tv[i].pubexp_len)) {
+				testcase_skip("EP11 Token cannot "
+					      "be used with pub_exp.='%s'",s);
+				continue;
+			}
+		}
+
+		if (is_tpm_token(slot_id)) {
+			if ((! is_valid_tpm_pubexp(tsuite->tv[i].pub_exp,
+			    tsuite->tv[i].pubexp_len)) ||
+			    (!is_valid_tpm_modbits(tsuite->tv[i].mod_len))) {
+				testcase_skip("TPM Token cannot "
+					      "be used with pub_exp='%s'.",s);
+				continue;
+			}
+		}
+		
+		// free memory
+		free(s);
 
 		rc = CKR_OK; // set return value
 
@@ -670,7 +710,8 @@ CK_RV do_SignUpdateRSA(struct PUBLISHED_TEST_SUITE_INFO *tsuite)
 	CK_BYTE			user_pin[PKCS11_MAX_PIN_LEN];
 	CK_ULONG		user_pin_len;
 	CK_RV			rc, loc_rc;
-
+	char *s;
+	
 	// begin testsuite
 	testsuite_begin("%s Sign. ", tsuite->name);
 	testcase_rw_session();
@@ -687,10 +728,14 @@ CK_RV do_SignUpdateRSA(struct PUBLISHED_TEST_SUITE_INFO *tsuite)
 
 	// iterate over test vectors
 	for (i = 0; i < tsuite->tvcount; i++){
+		if (p11_ahex_dump(&s, tsuite->tv[i].pub_exp,
+				   tsuite->tv[i].pubexp_len) == NULL) {
+			testcase_error("p11_ahex_dump() failed");
+			rc = -1;
+			goto testcase_cleanup;
+		}
 		testcase_begin("%s Sign with test vector %d.",
 				tsuite->name, i);
-
-		rc = CKR_OK; // set return value
 
 		// special case for ica
 		// prime1, prime2, exp1, exp2, coef
@@ -715,6 +760,29 @@ CK_RV do_SignUpdateRSA(struct PUBLISHED_TEST_SUITE_INFO *tsuite)
 			}
 
 		}
+
+		if (is_ep11_token(slot_id)) {
+			if (! is_valid_ep11_pubexp(tsuite->tv[i].pub_exp,
+			    tsuite->tv[i].pubexp_len)) {
+				testcase_skip("EP11 Token cannot "
+					      "be used with publ_exp.='%s'",s);
+				continue;
+			}
+		}
+
+		if (is_tpm_token(slot_id)) {
+			if ((! is_valid_tpm_pubexp(tsuite->tv[i].pub_exp,
+			    tsuite->tv[i].pubexp_len)) ||
+			    (!is_valid_tpm_modbits(tsuite->tv[i].mod_len))) {
+				testcase_skip("TPM Token cannot "
+					      "be used with pub_exp='%s'.",s);
+				continue;
+			}
+		}
+
+		free(s);
+
+		rc = CKR_OK; // set return value
 
 		// clear buffers
 		memset(message, 0, MAX_MESSAGE_SIZE);

@@ -1166,6 +1166,15 @@ CK_RV do_SignRSA(struct PUBLISHED_TEST_SUITE_INFO *tsuite)
 			}
 		}
 
+		if (is_tpm_token(slot_id)) {
+                        if ((! is_valid_tpm_pubexp(tsuite->tv[i].pub_exp,
+                                tsuite->tv[i].pubexp_len)) || (!is_valid_tpm_modbits(tsuite->tv[i].mod_len))) {
+                                testcase_skip("TPM Token cannot "
+                                        "be used with this test vector.");
+                                continue;
+                        }
+                }
+
 		// clear buffers
 		memset(message, 0, MAX_MESSAGE_SIZE);
 		memset(actual, 0, MAX_SIGNATURE_SIZE);
@@ -1330,6 +1339,15 @@ CK_RV do_VerifyRSA(struct PUBLISHED_TEST_SUITE_INFO *tsuite)
 				continue;
 			}
 		}
+
+		if (is_tpm_token(slot_id)) {
+                        if ((! is_valid_tpm_pubexp(tsuite->tv[i].pub_exp,
+                                tsuite->tv[i].pubexp_len)) || (!is_valid_tpm_modbits(tsuite->tv[i].mod_len))) {
+                                testcase_skip("TPM Token cannot "
+                                        "be used with this test vector.");
+                                continue;
+                        }
+                }
 
 		// clear buffers
 		memset(message, 0, MAX_MESSAGE_SIZE);
