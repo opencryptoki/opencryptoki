@@ -1,3 +1,13 @@
+* opencryptoki 3.2
+- New pkcscca tool. Currently it assists in migrating cca private token
+  objects from opencryptoki version 2 to the clear key encryption method 
+  used in opencryptoki version 3. Includes a manpage for pkcscca tool.
+  Changes to README.cca_stdll to assist in using the CCA token and
+  migrating the private token objects.
+- Support for CKM_RSA_PKCS_OAEP and CKM_RSA_PKCS_PSS algorithms.
+- Various bugfixes.
+- New testcases for various crypto algorithms.
+
 * opencryptoki-3.1
 - New ep11 token to support IBM Crypto Express adpaters (starting with 
   Crypto Express 4S adapters) configured with Enterprise PKCS#11(EP11)

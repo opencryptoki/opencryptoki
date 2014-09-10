@@ -1,3 +1,13 @@
+VERSION 3.2 ADDITIONS:
+ - A new tool to assist in administering the CCA token in opencryptoki.
+   Currently it only assists in migrating CCA token's private token objects
+   from version 2  to version 3. 
+   Prior to opencryptoki version 3, the CCA token encrypted its private token
+   objects with a secure key in hardware. In version 3, it encrypts its
+   private token objects with a clear key in software. Version 2 private
+   token objects will require migration to version 3, if they wished to be
+   used in version 3.
+
 VERSION 3.1 ADDITIONS:
  - New ep11 token. Please see doc/README.ep11_stdll for additional
    information about the ep11 token.
