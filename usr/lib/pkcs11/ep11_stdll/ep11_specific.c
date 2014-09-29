@@ -312,11 +312,11 @@
 #include <sys/stat.h>
 #include <fcntl.h>
 #include <endian.h>
-#include <lber.h>
 #include <asm/zcrypt.h>
 #include <syslog.h>
 #include <dlfcn.h>
 #include <lber.h>
+#include <grp.h>
 
 #include "ep11.h"
 #define EP11SHAREDLIB "libep11.so"
@@ -1238,6 +1238,33 @@ static CK_RV make_wrapblob(CK_ATTRIBUTE *tmpl_in, CK_ULONG tmpl_len)
 	return rc;
 }
 
+static CK_RV open_logfile()
+{
+	char logfilename[PATH_MAX];
+	struct group *grp;
+	mode_t m;
+
+	/* create the log file */
+	sprintf(logfilename, EP11TOK_LOGFILEMASK, (unsigned) getpid());
+	EP11Tok_logfile = fopen(logfilename, "w+");
+	if (!EP11Tok_logfile) {
+		fprintf(stderr, "ERROR: ock_ep11_token: can't open log "
+			"file '%s' (errno=%d) !!!\n", logfilename, errno);
+		return CKR_FUNCTION_FAILED;
+	}
+
+	/* change group to pkcs11, ignore failure */
+	grp = getgrnam("pkcs11");
+	if (grp)
+		chown(logfilename, -1, grp->gr_gid);
+
+	/* change permissions to 640, ignore failure */
+	m = S_IRUSR | S_IWUSR | S_IRGRP;
+	chmod(logfilename, m);
+
+	return CKR_OK;
+}
+
 CK_RV token_specific_init(CK_SLOT_ID SlotNumber, char *conf_name)
 {
 	CK_RV rc;
@@ -1249,19 +1276,9 @@ CK_RV token_specific_init(CK_SLOT_ID SlotNumber, char *conf_name)
 	if (env_loglevel) {
 		int loglevel = atoi(env_loglevel);
 		if (loglevel > 0) {
-			/* create the log file */
-			char logfilename[PATH_MAX];
-			sprintf(logfilename, EP11TOK_LOGFILEMASK,
-				(unsigned) getpid());
-			EP11Tok_logfile = fopen(logfilename, "w+");
-			if (!EP11Tok_logfile) {
-				fprintf(stderr, "ERROR: ock_ep11_token: can't open log file '%s' (errno=%d) !!!\n", logfilename, errno);
-				/* however, continue here,
-			         * do not return CKR_DEVICE_ERROR;
-				 */
-			} else {
-				EP11Tok_loglevel = loglevel;
-			}
+			open_logfile();
+			/* continue even on failure opening the ep11 log file */
+			EP11Tok_loglevel = loglevel;
 		} else {
 			/* environment variable is present but value
 			 * is 0 or invalid
@@ -3960,15 +3977,9 @@ static int read_adapter_config_file(const char* conf_name)
 				rc = APQN_FILE_SYNTAX_ERROR_5;
 				break;
 			}
-			if (loglevel > 0 && EP11Tok_loglevel == 0) {
-				if (!EP11Tok_logfile) {
-					/* create the log file */
-					char logfilename[PATH_MAX];
-					sprintf(logfilename,
-						EP11TOK_LOGFILEMASK,
-						(unsigned) getpid());
-					EP11Tok_logfile = fopen(logfilename, "w+");
-				}
+			if (loglevel > 0 && EP11Tok_loglevel == 0 &&					    !EP11Tok_logfile) {
+				open_logfile();
+				/* continue even on failure */
 				EP11Tok_loglevel = loglevel;
 			}
 			i = 0;
