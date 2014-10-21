@@ -17,6 +17,7 @@
 #include <pkcs11types.h>
 #include <ep11.h>
 #include <ep11adm.h>
+#include <p11util.h>
 
 #define EP11SHAREDLIB "libep11.so"
 #define PKCS11_MAX_PIN_LEN	128
@@ -180,16 +181,16 @@ check_card_status()
 
   if (rc != CKR_OK)
     {
-      fprintf(stderr,"m_get_ep11_info rc %lx, valid apapter/domain %lx/%lx?.\n",
+      fprintf(stderr,"m_get_ep11_info rc 0x%lx, valid apapter/domain 0x%02lx/%ld?.\n",
               rc,adapter,domain);
       return -1; 
     }
 
   if (CK_IBM_DOM_COMMITTED_NWK & dinf.flags) {
-    fprintf(stderr,"Card ID %ld, domain ID %ld has committed pending(next) WK\n",
+    fprintf(stderr,"Card ID 0x%02lx, domain ID %ld has committed pending(next) WK\n",
             adapter, domain);
   } else {
-    fprintf(stderr,"Card ID %ld, domain ID %ld has no committed pending WK\n",
+    fprintf(stderr,"Card ID 0x%02lx, domain ID %ld has no committed pending WK\n",
             adapter, domain);
     return -1; 
    }
@@ -277,15 +278,27 @@ do_ParseArgs(int argc, char **argv)
       return 0;
     }
     else if (strcmp (argv[i], "-slot") == 0) {
-      SLOT_ID = atoi (argv[i+1]);
+      if (!isdigit(*argv[i+1])) {
+         printf("Slot parameter is not numeric!\n");
+         return -1;
+      }
+      SLOT_ID = (int)strtol(argv[i+1], NULL, 0);
       i++;
     }
     else if (strcmp (argv[i], "-adapter") == 0) {
-      adapter = atoi (argv[i+1]);
+      if (!isdigit(*argv[i+1])) {
+         printf("Adapter parameter is not numeric!\n");
+         return -1;
+      }
+      adapter = (int)strtol(argv[i+1], NULL, 0);
       i++; 
     }
     else if (strcmp (argv[i], "-domain") == 0) {
-      domain = atoi (argv[i+1]);
+      if (!isdigit(*argv[i+1])) {
+         printf("Domain parameter is not numeric!\n");
+         return -1;
+      }
+      domain = (int)strtol(argv[i+1], NULL, 0);
       i++; 
     }
     else {
@@ -374,7 +387,7 @@ int main  (int argc, char **argv){
   rc = funcs->C_OpenSession(SLOT_ID, flags,             
                             NULL, NULL, &session );     
   if (rc != CKR_OK) {
-    fprintf(stderr,"C_OpenSession() rc = %x\n",rc);                    
+    fprintf(stderr,"C_OpenSession() rc = 0x%02x [%s]\n",rc, p11_get_ckr(rc));
     session = CK_INVALID_HANDLE;    
     return rc; 
   }                                       
@@ -384,7 +397,7 @@ int main  (int argc, char **argv){
       fprintf(stderr,"get_user_pin() failed\n"); 
       rc = funcs->C_CloseAllSessions(SLOT_ID); 
       if (rc != CKR_OK) 
-        fprintf(stderr,"C_CloseAllSessions() rc = %x\n",rc); 
+        fprintf(stderr,"C_CloseAllSessions() rc = 0x%02x [%s]\n",rc, p11_get_ckr(rc)); 
       return rc; 
     }
   
@@ -392,7 +405,7 @@ int main  (int argc, char **argv){
   rc = funcs->C_Login(session, CKU_USER,                               
                       user_pin, user_pin_len);                         
   if (rc != CKR_OK) {                                                  
-    fprintf(stderr,"C_Login() rc = %x\n",rc);                                 
+    fprintf(stderr,"C_Login() rc = 0x%02x [%s]\n",rc, p11_get_ckr(rc));                                 
     return rc; 
   }                                                                    
   
@@ -410,7 +423,7 @@ int main  (int argc, char **argv){
         
     if (rc != CKR_OK)
       {
-        fprintf(stderr,"C_FindObjects() rc = %x\n",rc);                                 
+        fprintf(stderr,"C_FindObjects() rc = 0x%02x [%s]\n",rc, p11_get_ckr(rc));
         return rc; 
       }
     
@@ -443,7 +456,8 @@ int main  (int argc, char **argv){
             
             if (rc != CKR_OK)
               {
-                fprintf(stderr,"second C_GetAttributeValue failed %x\n",rc);
+                fprintf(stderr,"second C_GetAttributeValue failed rc = 0x%02x [%s]\n",
+			rc, p11_get_ckr(rc));
                 return rc; 
               }
             else

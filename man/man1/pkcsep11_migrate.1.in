@@ -25,8 +25,8 @@ Trusted Key Entry console (TKE) before using this utility.
 .br
 3. Before using this tool make a back-up of the token objects in ep11tok/TOK_OBJ/.
 .br
-4. After successfully appling the utility and before (re)starting programs
-using the EP11 token the new master key must be activated using the TKE.
+4. After successfully execution of the migrate utility and before (re)starting
+   programs using the EP11 token the new master key must be activated using the TKE.
 
 .SH "COMMAND SUMMARY"
 .IP "\fB-slot\fP \fIslot-number\fP" 10
@@ -35,8 +35,12 @@ specifies the token slot of the EP11 token
 specifies an EP11 adapter ID.
 (Refer to lszcrypt to get a list of installed crypto adapters.
 The adapter ID will be the number xx  in 'card\fBxx\fP' from the output.)
+This value can be provided either in hexadecimal (e.g. 0x0A) or decimal (10) 
+notation.
 .IP "\fB-domain\fP \fIdomain-ID\fP" 10
 specifies the usage domain for the EP11 adapter. (see /sys/bus/ap/ap_domain.)
+This value can be provided either in hexadecimal (e.g. 0x0B) or decimal (11)
+notation.
 .IP "\fB-h\fP" 10
 show usage information
 
