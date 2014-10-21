@@ -496,6 +496,8 @@ verify_mgr_init( SESSION             * sess,
       case CKM_MD5_HMAC:
       case CKM_SHA_1_HMAC:
       case CKM_SHA256_HMAC:
+      case CKM_SHA384_HMAC:
+      case CKM_SHA512_HMAC:
          {
             if (mech->ulParameterLen != 0){
                OCK_LOG_ERR(ERR_MECHANISM_PARAM_INVALID);
@@ -525,6 +527,8 @@ verify_mgr_init( SESSION             * sess,
       case CKM_MD5_HMAC_GENERAL:
       case CKM_SHA_1_HMAC_GENERAL:
       case CKM_SHA256_HMAC_GENERAL:
+      case CKM_SHA384_HMAC_GENERAL:
+      case CKM_SHA512_HMAC_GENERAL:
          {
             CK_MAC_GENERAL_PARAMS *param = (CK_MAC_GENERAL_PARAMS *)mech->pParameter;
 
@@ -545,6 +549,14 @@ verify_mgr_init( SESSION             * sess,
                return CKR_MECHANISM_PARAM_INVALID;
             }
             if ((mech->mechanism == CKM_SHA256_HMAC_GENERAL) && (*param > 32)){
+               OCK_LOG_ERR(ERR_MECHANISM_PARAM_INVALID);
+               return CKR_MECHANISM_PARAM_INVALID;
+            }
+            if ((mech->mechanism == CKM_SHA384_HMAC_GENERAL) && (*param > 48)){
+               OCK_LOG_ERR(ERR_MECHANISM_PARAM_INVALID);
+               return CKR_MECHANISM_PARAM_INVALID;
+            }
+            if ((mech->mechanism == CKM_SHA512_HMAC_GENERAL) && (*param > 64)){
                OCK_LOG_ERR(ERR_MECHANISM_PARAM_INVALID);
                return CKR_MECHANISM_PARAM_INVALID;
             }
@@ -760,6 +772,18 @@ verify_mgr_verify( SESSION             * sess,
       case CKM_SHA256_HMAC:
       case CKM_SHA256_HMAC_GENERAL:
          return sha2_hmac_verify( sess,      ctx,
+                                  in_data,   in_data_len,
+                                  signature, sig_len );
+
+      case CKM_SHA384_HMAC:
+      case CKM_SHA384_HMAC_GENERAL:
+         return sha3_hmac_verify( sess,      ctx,
+                                  in_data,   in_data_len,
+                                  signature, sig_len );
+
+      case CKM_SHA512_HMAC:
+      case CKM_SHA512_HMAC_GENERAL:
+         return sha5_hmac_verify( sess,      ctx,
                                   in_data,   in_data_len,
                                   signature, sig_len );
 
