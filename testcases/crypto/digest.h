@@ -1013,7 +1013,7 @@ struct HMAC_TEST_SUITE_INFO hmac_test_suites[] = {
         }, {
                 .name = "SHA-512 HMAC General",
                 .tvcount = 4,
-                .tv = sha512_hmac_test_vector,
+                .tv = sha512_hmac_general_test_vector,
                 .mech = { CKM_SHA512_HMAC_GENERAL, &four, sizeof(CK_ULONG) },
         }, {
                 .name = "MD5 HMAC General",
