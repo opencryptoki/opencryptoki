@@ -725,6 +725,7 @@ CK_RV do_WrapUnwrapRSA(struct GENERATED_TEST_SUITE_INFO *tsuite)
 	CK_BYTE			re_cipher[32];
 	CK_ULONG		cipher_len = 32;
 	CK_ULONG		re_cipher_len = 32;
+	CK_RSA_PKCS_OAEP_PARAMS oaep_params;
 
 	char 			*s;
 
@@ -802,8 +803,6 @@ CK_RV do_WrapUnwrapRSA(struct GENERATED_TEST_SUITE_INFO *tsuite)
 		// get wrapping mechanism
 		wrap_mech = tsuite->mech;
 		if (wrap_mech.mechanism == CKM_RSA_PKCS_OAEP) {
-			CK_RSA_PKCS_OAEP_PARAMS oaep_params;
-
 			oaep_params = tsuite->tv[i].oaep_params;
 			wrap_mech.pParameter = &oaep_params;
 			wrap_mech.ulParameterLen = sizeof(CK_RSA_PKCS_OAEP_PARAMS);
