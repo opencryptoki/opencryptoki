@@ -2533,7 +2533,7 @@ aes_mac_sign_update ( SESSION              * sess,
  CK_BYTE          * cipher   = NULL;
  CK_ULONG         total, remain, out_len;
 
-  if (!sess || !ctx){
+  if (!sess || !ctx) {
       OCK_LOG_ERR(ERR_ARGUMENTS_BAD);
       return CKR_ARGUMENTS_BAD;
   }
@@ -2723,7 +2723,7 @@ aes_mac_verify_update( SESSION              * sess,
  CK_BYTE          * cipher   = NULL;
  CK_ULONG         total, remain, out_len;
 
-   if (!sess || !ctx || !in_data){
+   if (!sess || !ctx) {
       OCK_LOG_ERR(ERR_ARGUMENTS_BAD);
       return CKR_ARGUMENTS_BAD;
    }

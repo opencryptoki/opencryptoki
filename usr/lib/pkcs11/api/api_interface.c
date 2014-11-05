@@ -3951,10 +3951,6 @@ C_SignUpdate(CK_SESSION_HANDLE hSession, CK_BYTE_PTR pPart, CK_ULONG ulPartLen)
 		return CKR_CRYPTOKI_NOT_INITIALIZED;
 	}
 
-	if (!pPart) {
-		OCK_LOG_ERR(ERR_ARGUMENTS_BAD);
-		return CKR_ARGUMENTS_BAD;
-	}
 	if (!Valid_Session(hSession, &rSession)) {
 		OCK_LOG_ERR(ERR_SESSION_HANDLE_INVALID);
 		return CKR_SESSION_HANDLE_INVALID;
@@ -4330,10 +4326,6 @@ C_VerifyUpdate(CK_SESSION_HANDLE hSession,
 		return CKR_CRYPTOKI_NOT_INITIALIZED;
 	}
 
-	if (!pPart) {
-		OCK_LOG_ERR(ERR_ARGUMENTS_BAD);
-		return CKR_ARGUMENTS_BAD;
-	}
 	if (!Valid_Session(hSession, &rSession)) {
 		OCK_LOG_ERR(ERR_SESSION_HANDLE_INVALID);
 		return CKR_SESSION_HANDLE_INVALID;

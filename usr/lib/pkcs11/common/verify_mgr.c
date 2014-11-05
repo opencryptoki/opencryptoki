@@ -1023,7 +1023,7 @@ verify_mgr_verify_update( SESSION             * sess,
                           CK_BYTE             * in_data,
                           CK_ULONG              in_data_len )
 {
-   if (!sess || !ctx || !in_data){
+   if (!sess || !ctx) {
       OCK_LOG_ERR(ERR_FUNCTION_FAILED);
       return CKR_FUNCTION_FAILED;
    }

@@ -3202,7 +3202,7 @@ CK_RV SC_SignUpdate( ST_SESSION_HANDLE  *sSession,
 		goto done;
 	}
 
-	if (!pPart) {
+	if (!pPart && ulPartLen != 0) {
 		OCK_LOG_ERR(ERR_ARGUMENTS_BAD);
 		rc = CKR_ARGUMENTS_BAD;
 		goto done;
@@ -3562,7 +3562,7 @@ CK_RV SC_VerifyUpdate( ST_SESSION_HANDLE  *sSession,
 		goto done;
 	}
 
-	if (!pPart) {
+	if (!pPart && ulPartLen != 0) {
 		OCK_LOG_ERR(ERR_ARGUMENTS_BAD);
 		rc = CKR_ARGUMENTS_BAD;
 		goto done;

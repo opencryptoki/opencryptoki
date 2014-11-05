@@ -256,7 +256,7 @@ ec_hash_sign_update( SESSION              * sess,
    CK_MECHANISM          digest_mech;
    CK_RV                 rc;
 
-   if (!sess || !ctx || !in_data){
+   if (!sess || !ctx) {
       OCK_LOG_ERR(ERR_FUNCTION_FAILED);
       return CKR_FUNCTION_FAILED;
    }
@@ -409,7 +409,7 @@ ec_hash_verify_update( SESSION              * sess,
    CK_MECHANISM          digest_mech;
    CK_RV                 rc;
 
-   if (!sess || !ctx || !in_data){
+   if (!sess || !ctx) {
       OCK_LOG_ERR(ERR_FUNCTION_FAILED);
       return CKR_FUNCTION_FAILED;
    }

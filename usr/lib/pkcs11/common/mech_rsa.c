@@ -1628,7 +1628,7 @@ CK_RV rsa_hash_pss_update(SESSION *sess, SIGN_VERIFY_CONTEXT *ctx,
 	CK_MECHANISM digest_mech;
 	CK_RV rc;
 
-	if (!sess || !ctx || !in_data) {
+	if (!sess || !ctx) {
 		OCK_LOG_ERR(ERR_FUNCTION_FAILED);
 		return CKR_FUNCTION_FAILED;
 	}
@@ -1985,7 +1985,7 @@ rsa_hash_pkcs_sign_update( SESSION              * sess,
    CK_MECHANISM          digest_mech;
    CK_RV                 rc;
 
-   if (!sess || !ctx || !in_data){
+   if (!sess || !ctx) {
       OCK_LOG_ERR(ERR_FUNCTION_FAILED);
       return CKR_FUNCTION_FAILED;
    }
@@ -2152,7 +2152,7 @@ rsa_hash_pkcs_verify_update( SESSION              * sess,
    CK_MECHANISM          digest_mech;
    CK_RV                 rc;
 
-   if (!sess || !ctx || !in_data){
+   if (!sess || !ctx) {
       OCK_LOG_ERR(ERR_FUNCTION_FAILED);
       return CKR_FUNCTION_FAILED;
    }
