@@ -2389,7 +2389,7 @@ CK_RV SC_EncryptUpdate(ST_SESSION_HANDLE *sSession,
 		goto done;
 	}
 
-	if (!pPart || !pulEncryptedPartLen) {
+	if ((!pPart && ulPartLen != 0) || !pulEncryptedPartLen) {
 		OCK_LOG_ERR(ERR_ARGUMENTS_BAD);
 		rc = CKR_ARGUMENTS_BAD;
 		goto done;
@@ -2675,7 +2675,7 @@ CK_RV SC_DecryptUpdate(ST_SESSION_HANDLE *sSession,
 		goto done;
 	}
 
-	if (!pEncryptedPart || !pulPartLen) {
+	if ((!pEncryptedPart && ulEncryptedPartLen != 0) || !pulPartLen) {
 		OCK_LOG_ERR(ERR_ARGUMENTS_BAD);
 		rc = CKR_ARGUMENTS_BAD;
 		goto done;

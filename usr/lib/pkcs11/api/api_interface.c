@@ -866,7 +866,7 @@ C_DecryptUpdate(CK_SESSION_HANDLE hSession,
 		return CKR_SESSION_HANDLE_INVALID;
 	}
 	// May have to let these go through and let the STDLL handle them
-	if (!pEncryptedPart || !pulPartLen) {
+	if (!pulPartLen) {
 		OCK_LOG_ERR(ERR_ARGUMENTS_BAD);
 		return CKR_ARGUMENTS_BAD;
 	}
@@ -1547,7 +1547,7 @@ C_EncryptUpdate(CK_SESSION_HANDLE hSession,
 		return CKR_CRYPTOKI_NOT_INITIALIZED;
 	}
 
-	if (!pPart || !pulEncryptedPartLen) {
+	if (!pulEncryptedPartLen) {
 		OCK_LOG_ERR(ERR_ARGUMENTS_BAD);
 		return CKR_ARGUMENTS_BAD;
 	}

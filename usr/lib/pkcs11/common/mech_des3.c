@@ -1497,7 +1497,7 @@ des3_ofb_encrypt_update( SESSION              * sess,
    CK_RV          rc;
    OBJECT       * key_obj  = NULL;
 
-   if (!sess || !ctx || !in_data || !out_data_len) {
+   if (!sess || !ctx || !out_data_len) {
       OCK_LOG_ERR(ERR_ARGUMENTS_BAD);
       return CKR_ARGUMENTS_BAD;
    }
@@ -1668,7 +1668,7 @@ des3_ofb_decrypt_update( SESSION              * sess,
    CK_RV               rc;
    OBJECT            * key_obj  = NULL;
 
-   if (!sess || !ctx || !in_data || !out_data_len) {
+   if (!sess || !ctx || !out_data_len) {
       OCK_LOG_ERR(ERR_ARGUMENTS_BAD);
       return CKR_ARGUMENTS_BAD;
    }
@@ -1841,7 +1841,7 @@ des3_cfb_encrypt_update( SESSION              * sess,
    CK_RV               rc;
    OBJECT            * key_obj  = NULL;
 
-   if (!sess || !ctx || !in_data || !out_data_len) {
+   if (!sess || !ctx || !out_data_len) {
       OCK_LOG_ERR(ERR_ARGUMENTS_BAD);
       return CKR_ARGUMENTS_BAD;
    }
@@ -2014,7 +2014,7 @@ des3_cfb_decrypt_update( SESSION              * sess,
    CK_RV               rc;
    OBJECT            * key_obj = NULL;
 
-   if (!sess || !ctx || !in_data || !out_data_len) {
+   if (!sess || !ctx || !out_data_len) {
       OCK_LOG_ERR(ERR_ARGUMENTS_BAD);
       return CKR_ARGUMENTS_BAD;
    }

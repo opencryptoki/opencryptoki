@@ -1076,7 +1076,7 @@ encr_mgr_encrypt_update( SESSION            *sess,
 {
    CK_KEY_TYPE   keytype;
 
-   if (!sess || !in_data || !ctx){
+   if (!sess || !ctx){
       OCK_LOG_ERR(ERR_FUNCTION_FAILED);
       return CKR_FUNCTION_FAILED;
    }
