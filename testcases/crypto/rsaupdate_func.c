@@ -290,10 +290,10 @@ CK_RV do_SignVerifyUpdate_RSAPSS(struct GENERATED_TEST_SUITE_INFO *tsuite)
 {
 	int i; // test vector index
 	int j; // message byte index
-	int len, count, inc;
+	int len;
 	CK_BYTE	message[MAX_MESSAGE_SIZE];
 	CK_BYTE	signature[MAX_SIGNATURE_SIZE];
-	CK_ULONG message_len, signature_len;
+	CK_ULONG message_len, signature_len, data_done;
 
 	CK_MECHANISM mech;
 	CK_OBJECT_HANDLE publ_key, priv_key;
@@ -404,22 +404,42 @@ CK_RV do_SignVerifyUpdate_RSAPSS(struct GENERATED_TEST_SUITE_INFO *tsuite)
 
 		// set buffer size
 		signature_len = 0;
+		data_done = 0;
 
 		// do SignUpdate
-		len = message_len;
-		for (count = 0; len > 0; count += inc) {
-			if (len < CHUNK)
-				inc = len;
-			else
-				inc = CHUNK;
-			
-			rc = funcs->C_SignUpdate(session, message+count, inc);
-			if (rc != CKR_OK) {
-				testcase_error("C_SignUpdate(), rc=%s.", p11_get_ckr(rc));
-				goto error;
+		if (tsuite->tv[i].num_chunks) {
+			CK_BYTE *data_chunk = NULL;
+
+			for (j=0; j<tsuite->tv[i].num_chunks; j++) {
+				if (tsuite->tv[i].chunks[j] == -1) {
+					len = 0;
+					data_chunk = NULL;
+				} else if (tsuite->tv[i].chunks[j] == 0) {
+					len = 0;
+					data_chunk = (CK_BYTE *)"";
+				} else {
+					len = tsuite->tv[i].chunks[j];
+					data_chunk = message + data_done;
+				}
+
+				rc = funcs->C_SignUpdate(session, data_chunk,
+							 len);
+				if (rc != CKR_OK) {
+					testcase_error("C_SignUpdate rc=%s",
+							p11_get_ckr(rc));
+					goto testcase_cleanup;
+				}
+				data_done += len;
 			}
-			len -= inc;
+		} else {
+			rc = funcs->C_SignUpdate(session, message, message_len);
+			if (rc != CKR_OK) {
+				testcase_error("C_SignUpdate rc=%s",
+						p11_get_ckr(rc));
+				goto testcase_cleanup;
+			}
 		}
+
 
 		/* get the required length */
 		testcase_new_assertion();
@@ -453,21 +473,41 @@ CK_RV do_SignVerifyUpdate_RSAPSS(struct GENERATED_TEST_SUITE_INFO *tsuite)
 		}
 
 		// do VerifyUpdate
-		len = message_len;
-		for (count = 0; len > 0; count += inc) {
-			if (len < CHUNK)
-				inc = len;
-			else
-				inc = CHUNK;
-			
-			rc = funcs->C_VerifyUpdate(session, message+count, inc);
-			if (rc != CKR_OK) {
-				testcase_error("C_VerifyUpdate(), rc=%s.", p11_get_ckr(rc));
-				goto error;
+		data_done = 0;
+		if (tsuite->tv[i].num_chunks) {
+			CK_BYTE *data_chunk = NULL;
+
+			for (j=0; j<tsuite->tv[i].num_chunks; j++) {
+				if (tsuite->tv[i].chunks[j] == -1) {
+					len = 0;
+					data_chunk = NULL;
+				} else if (tsuite->tv[i].chunks[j] == 0) {
+					len = 0;
+					data_chunk = (CK_BYTE *)"";
+				} else {
+					len = tsuite->tv[i].chunks[j];
+					data_chunk = message + data_done;
+				}
+
+				rc = funcs->C_VerifyUpdate(session, data_chunk,
+							   len);
+				if (rc != CKR_OK) {
+					testcase_error("C_VerifyUpdate rc=%s",
+							p11_get_ckr(rc));
+					goto testcase_cleanup;
+				}
+				data_done += len;
 			}
-			len -= inc;
+		} else {
+			rc = funcs->C_VerifyUpdate(session, message,
+						   message_len);
+			if (rc != CKR_OK) {
+				testcase_error("C_VerifyUpdate rc=%s",
+						p11_get_ckr(rc));
+				goto testcase_cleanup;
+			}
 		}
-		rc = funcs->C_VerifyFinal(session,signature, signature_len);
+		rc = funcs->C_VerifyFinal(session, signature, signature_len);
 
 		// check results
 		testcase_new_assertion();
@@ -695,11 +735,12 @@ testcase_cleanup:
  */
 CK_RV do_SignUpdateRSA(struct PUBLISHED_TEST_SUITE_INFO *tsuite)
 {
-	int 			i, inc, len, j;
+	int 			i, len, j;
 	CK_BYTE			message[MAX_MESSAGE_SIZE];
 	CK_BYTE			actual[MAX_SIGNATURE_SIZE];
 	CK_BYTE			expected[MAX_SIGNATURE_SIZE];
 	CK_ULONG		message_len, actual_len, expected_len;
+	CK_ULONG		data_done;
 
 	CK_MECHANISM		mech;
 	CK_OBJECT_HANDLE	priv_key;
@@ -791,6 +832,8 @@ CK_RV do_SignUpdateRSA(struct PUBLISHED_TEST_SUITE_INFO *tsuite)
 
 		actual_len = 0;	 // get this from opencryptoki
 
+		data_done = 0;
+
 		// get message
 		message_len = tsuite->tv[i].msg_len;
 		memcpy(message, tsuite->tv[i].msg, message_len);
@@ -835,20 +878,39 @@ CK_RV do_SignUpdateRSA(struct PUBLISHED_TEST_SUITE_INFO *tsuite)
 		}
 
 		// do signing
-		len = message_len;
-		for (j = 0; len > 0; j+=inc) {
-			if (len < CHUNK)
-				inc = len;
-                        else
-                                inc = CHUNK;
+		if (tsuite->tv[i].num_chunks) {
+			CK_BYTE *data_chunk = NULL;
 
-                        rc = funcs->C_SignUpdate(session, message + j, inc);
-                        if (rc != CKR_OK) {
-                                testcase_error("C_SignUpdate(), rc=%s.", p11_get_ckr(rc));
-                                goto error;
-                        }
-                        len -= inc;
-                }
+			for (j=0; j<tsuite->tv[i].num_chunks; j++) {
+				if (tsuite->tv[i].chunks[j] == -1) {
+					len = 0;
+					data_chunk = NULL;
+				} else if (tsuite->tv[i].chunks[j] == 0) {
+					len = 0;
+					data_chunk = (CK_BYTE *)"";
+				} else {
+					len = tsuite->tv[i].chunks[j];
+					data_chunk = message + data_done;
+				}
+
+				rc = funcs->C_SignUpdate(session, data_chunk,
+							   len );
+				if (rc != CKR_OK) {
+					testcase_error("C_SignUpdate rc=%s",
+							p11_get_ckr(rc));
+					goto testcase_cleanup;
+				}
+
+				data_done += len;
+			}
+		} else {
+			rc = funcs->C_SignUpdate(session, message, message_len);
+			if (rc != CKR_OK) {
+				testcase_error("C_SignUpdate rc=%s",
+						p11_get_ckr(rc));
+				goto testcase_cleanup;
+			}
+		}
 		
 		/* get the required length */
 		testcase_new_assertion();

@@ -10,6 +10,7 @@
 #define MAX_PRIME_SIZE  128
 #define MAX_COEFFICIENT_SIZE 128
 #define PKCS11_MAX_KEY_LEN 512
+#define MAX_CHUNKS 8
 
 
 struct RSA_GENERATED_TEST_VECTOR {
@@ -21,6 +22,8 @@ struct RSA_GENERATED_TEST_VECTOR {
 	CK_ULONG keylen;
 	CK_RSA_PKCS_OAEP_PARAMS oaep_params;
 	CK_RSA_PKCS_PSS_PARAMS pss_params;
+	int chunks[MAX_CHUNKS];
+	int num_chunks;
 };
 
 struct GENERATED_TEST_SUITE_INFO {
@@ -233,18 +236,24 @@ struct RSA_GENERATED_TEST_VECTOR sha1_rsa_pss_generated_tv[] = {
 		.publ_exp_len = 3,
 		.publ_exp = { 0x01, 0x00, 0x01 },
 		.inputlen = 13,
+		.chunks = { 13, 0 },
+		.num_chunks = 2,
 		.pss_params = {CKM_SHA_1, CKG_MGF1_SHA1, 20}
 	}, {	// #1
 		.modbits = 2048,
 		.publ_exp_len = 3,
 		.publ_exp = { 0x01, 0x00, 0x01 },
 		.inputlen = 156,
+		.chunks = { 25, 25, 75, -1, 26 },
+		.num_chunks = 5,
 		.pss_params = {CKM_SHA_1, CKG_MGF1_SHA1, 0}
 	}, {	// #2
 		.modbits = 4096,
 		.publ_exp_len = 3,
 		.publ_exp = { 0x01, 0x00, 0x01 },
 		.inputlen = 65,
+		.chunks = { 15, 30, 0, 20 },
+		.num_chunks = 4,
 		.pss_params = {CKM_SHA_1, CKG_MGF1_SHA1, 20 }
 	}
 };
@@ -255,18 +264,24 @@ struct RSA_GENERATED_TEST_VECTOR sha256_rsa_pss_generated_tv[] = {
 		.publ_exp_len = 3,
 		.publ_exp = { 0x01, 0x00, 0x01 },
 		.inputlen = 28,
+		.chunks = { 0, 28 },
+		.num_chunks = 2,
 		.pss_params = {CKM_SHA256, CKG_MGF1_SHA256, 32}
 	}, {	// #1
 		.modbits = 2048,
 		.publ_exp_len = 3,
 		.publ_exp = { 0x01, 0x00, 0x01 },
 		.inputlen = 70,
+		.chunks = { 20, 20 , -1, 10, 0 },
+		.num_chunks = 5,
 		.pss_params = {CKM_SHA256, CKG_MGF1_SHA256, 0}
 	}, {	// #2
 		.modbits = 4096,
 		.publ_exp_len = 3,
 		.publ_exp = { 0x01, 0x00, 0x01 },
 		.inputlen = 128,
+		.chunks = { 46, 61, 0, 21 },
+		.num_chunks = 4,
 		.pss_params = {CKM_SHA256, CKG_MGF1_SHA256, 32}
 	}
 };
@@ -277,18 +292,24 @@ struct RSA_GENERATED_TEST_VECTOR sha384_rsa_pss_generated_tv[] = {
 		.publ_exp_len = 3,
 		.publ_exp = { 0x01, 0x00, 0x01 },
 		.inputlen = 12,
+		.chunks = { 12, -1 },
+		.num_chunks = 2,
 		.pss_params = {CKM_SHA384, CKG_MGF1_SHA384, 48}
 	}, {	// #1
 		.modbits = 2048,
 		.publ_exp_len = 3,
 		.publ_exp = { 0x01, 0x00, 0x01 },
 		.inputlen = 200,
+		.chunks = { 10, 0, 190 },
+		.num_chunks = 3,
 		.pss_params = {CKM_SHA384, CKG_MGF1_SHA384, 0}
 	}, {	// #2
 		.modbits = 4096,
 		.publ_exp_len = 3,
 		.publ_exp = { 0x01, 0x00, 0x01 },
 		.inputlen = 65,
+		.chunks = { 20, 20, 25, 0 },
+		.num_chunks = 4,
 		.pss_params = {CKM_SHA384, CKG_MGF1_SHA384, 48}
 	}
 };
@@ -299,18 +320,24 @@ struct RSA_GENERATED_TEST_VECTOR sha512_rsa_pss_generated_tv[] = {
 		.publ_exp_len = 3,
 		.publ_exp = { 0x01, 0x00, 0x01 },
 		.inputlen = 28,
+		.chunks = { 28, -1 },
+		.num_chunks = 2,
 		.pss_params = {CKM_SHA512, CKG_MGF1_SHA512, 64}
 	}, {	// #1
 		.modbits = 2048,
 		.publ_exp_len = 3,
 		.publ_exp = { 0x01, 0x00, 0x01 },
 		.inputlen = 90,
+		.chunks = { 20, 20, 20, 20, 10 },
+		.num_chunks = 5,
 		.pss_params = {CKM_SHA512, CKG_MGF1_SHA512, 0}
 	}, {	// #2
 		.modbits = 4096,
 		.publ_exp_len = 3,
 		.publ_exp = { 0x01, 0x00, 0x01 },
 		.inputlen = 185,
+		.chunks = { 50, 0, 100, 35 },
+		.num_chunks = 4,
 		.pss_params = {CKM_SHA512, CKG_MGF1_SHA512, 64}
 	}
 };
@@ -1018,6 +1045,8 @@ static struct RSA_GENERATED_TEST_VECTOR rsa_generated_tv[] = {
 		.publ_exp_len = 1,
 		.publ_exp = { 0x03 },
 		.inputlen = 53,
+		.chunks = { 25, 25, 0, 3 },
+		.num_chunks = 4,
 	}, {	//tv[2]
 		.modbits = 512,
 		.publ_exp_len = 2,
@@ -1028,6 +1057,8 @@ static struct RSA_GENERATED_TEST_VECTOR rsa_generated_tv[] = {
 		.publ_exp_len = 2,
 		.publ_exp = { 0x00, 0x11 },
 		.inputlen = 53,
+		.chunks = { 25, 25, 0, 3 },
+		.num_chunks = 4,
 	}, {	//tv[4]
 		.modbits = 512,
 		.publ_exp_len = 3,
@@ -1038,6 +1069,8 @@ static struct RSA_GENERATED_TEST_VECTOR rsa_generated_tv[] = {
 		.publ_exp_len = 3,
 		.publ_exp = { 0x03, 0x00, 0x01 },
 		.inputlen = 53,
+		.chunks = { 25, 25, 0, 3 },
+		.num_chunks = 4,
 	}, {	//tv[6]
 		.modbits = 768,
 		.publ_exp_len = 1,
@@ -1048,6 +1081,8 @@ static struct RSA_GENERATED_TEST_VECTOR rsa_generated_tv[] = {
 		.publ_exp_len = 1,
 		.publ_exp = { 0x03 },
 		.inputlen = 85,
+		.chunks = { 0, 20, 20, 20, 20, 5, -1 },
+		.num_chunks = 7,
 	}, {	//tv[8]
 		.modbits = 768,
 		.publ_exp_len = 2,
@@ -1058,6 +1093,8 @@ static struct RSA_GENERATED_TEST_VECTOR rsa_generated_tv[] = {
 		.publ_exp_len = 2,
 		.publ_exp = { 0x00, 0x11 },
 		.inputlen = 85,
+		.chunks = { 0, 20, 20, 20, 20, 5, -1 },
+		.num_chunks = 7,
 	}, {	//tv[10]
 		.modbits = 768,
 		.publ_exp_len = 3,
@@ -1068,6 +1105,8 @@ static struct RSA_GENERATED_TEST_VECTOR rsa_generated_tv[] = {
 		.publ_exp_len = 3,
 		.publ_exp = { 0x01, 0x00, 0x01 },
 		.inputlen = 85,
+		.chunks = { 0, 20, 20, 20, 20, 5, -1 },
+		.num_chunks = 7,
 	}, {	//tv[12]
 		.modbits = 1024,
 		.publ_exp_len = 1,
@@ -1078,6 +1117,8 @@ static struct RSA_GENERATED_TEST_VECTOR rsa_generated_tv[] = {
 		.publ_exp_len = 1,
 		.publ_exp = { 0x03 },
 		.inputlen = 117,
+		.chunks = { 30, 17, 30, 0, 30, 10 },
+		.num_chunks = 6,
 	}, {	//tv[14]
 		.modbits = 1024,
 		.publ_exp_len = 2,
@@ -1088,6 +1129,8 @@ static struct RSA_GENERATED_TEST_VECTOR rsa_generated_tv[] = {
 		.publ_exp_len = 2,
 		.publ_exp = { 0x00, 0x11 },
 		.inputlen = 117,
+		.chunks = { 30, 17, 30, 0, 30, 10 },
+		.num_chunks = 6,
 	}, {	//tv[16]
 		.modbits = 1024,
 		.publ_exp_len = 3,
@@ -1098,6 +1141,8 @@ static struct RSA_GENERATED_TEST_VECTOR rsa_generated_tv[] = {
 		.publ_exp_len = 3,
 		.publ_exp = { 0x01, 0x00, 0x01 },
 		.inputlen = 117,
+		.chunks = { 30, 17, 30, 0, 30, 10 },
+		.num_chunks = 6,
 	}, {	//tv[18]
                 .modbits = 2048,
                 .publ_exp_len = 1,
@@ -1108,6 +1153,8 @@ static struct RSA_GENERATED_TEST_VECTOR rsa_generated_tv[] = {
                 .publ_exp_len = 1,
                 .publ_exp = { 0x03 },
                 .inputlen = 245,
+		.chunks = { 100, 145 },
+		.num_chunks = 2
         }, {	//tv[20]
                 .modbits = 2048,
                 .publ_exp_len = 2,
@@ -1118,6 +1165,8 @@ static struct RSA_GENERATED_TEST_VECTOR rsa_generated_tv[] = {
                 .publ_exp_len = 2,
                 .publ_exp = { 0x00, 0x11 },
                 .inputlen = 245,
+		.chunks = { 100, 145 },
+		.num_chunks = 2
         }, {	//tv[22]
                 .modbits = 2048,
                 .publ_exp_len = 3,
@@ -1128,6 +1177,8 @@ static struct RSA_GENERATED_TEST_VECTOR rsa_generated_tv[] = {
                 .publ_exp_len = 3,
                 .publ_exp = { 0x01, 0x00, 0x01 },
                 .inputlen = 245,
+		.chunks = { 100, 145 },
+		.num_chunks = 2
         }, {	//tv[24]
                 .modbits = 4096,
                 .publ_exp_len = 1,
@@ -1138,6 +1189,8 @@ static struct RSA_GENERATED_TEST_VECTOR rsa_generated_tv[] = {
                 .publ_exp_len = 1,
                 .publ_exp = { 0x03 },
                 .inputlen = 501,
+		.chunks = { 125, 125, 125, 125, 1 },
+		.num_chunks = 5,
         }, {	//tv[26]
                 .modbits = 4096,
                 .publ_exp_len = 2,
@@ -1148,6 +1201,8 @@ static struct RSA_GENERATED_TEST_VECTOR rsa_generated_tv[] = {
                 .publ_exp_len = 2,
                 .publ_exp = { 0x00, 0x11 },
                 .inputlen = 501,
+		.chunks = { 125, 125, 125, 125, 1 },
+		.num_chunks = 5,
         }, {	//tv[28]
                 .modbits = 4096,
                 .publ_exp_len = 3,
@@ -1158,6 +1213,8 @@ static struct RSA_GENERATED_TEST_VECTOR rsa_generated_tv[] = {
                 .publ_exp_len = 3,
                 .publ_exp = { 0x01, 0x00, 0x01 },
                 .inputlen = 501,
+		.chunks = { 125, 125, 125, 125, 1 },
+		.num_chunks = 5,
         },
 
 
@@ -1430,6 +1487,8 @@ struct RSA_PUBLISHED_TEST_VECTOR {
         CK_ULONG msg_len;
         CK_BYTE sig[MAX_SIGNATURE_SIZE];
         CK_ULONG sig_len;
+	int chunks[MAX_CHUNKS];
+	int num_chunks;
 };
 //ftp://ftp.rsa.com/pub/rsalabs/tmp/pkcs1v15sign-vectors.txt
 struct RSA_PUBLISHED_TEST_VECTOR rsa_sha1_pkcs_sigver_published_tv[] = {
@@ -1571,6 +1630,8 @@ struct RSA_PUBLISHED_TEST_VECTOR rsa_sha1_pkcs_sigver_published_tv[] = {
 				0x18,0xe9,0xa4,0x58,0xfc,0xb6,0x34,0xcd,
 				0xce,0x8e,0xe3,0x58,0x94,0xc4,0x84,0xd7 },
 		.sig_len = 128,
+		.chunks = 	{ 50, 50, 50, 50, 17 },
+		.num_chunks = 5,
 	},
 	{	// 1
 		.mod = 	      { 0xa5,0x6e,0x4a,0x0e,0x70,0x10,0x17,0x58,
@@ -1679,6 +1740,8 @@ struct RSA_PUBLISHED_TEST_VECTOR rsa_sha1_pkcs_sigver_published_tv[] = {
 				0x1a,0x12,0xde,0xf2,0x9f,0x06,0x88,0xa1,
 				0x92,0xae,0xbd,0x89,0xe0,0xf8,0x96,0xf8 },
 		.sig_len = 128,
+		.chunks =	{ 50, 1, 0 },
+		.num_chunks = 3,
 	},
 	{	// 2
 		.mod = 	      { 0xa5,0x6e,0x4a,0x0e,0x70,0x10,0x17,0x58,
@@ -1809,6 +1872,8 @@ struct RSA_PUBLISHED_TEST_VECTOR rsa_sha1_pkcs_sigver_published_tv[] = {
 				0xd7,0x63,0x36,0x0a,0xf4,0x6f,0xee,0xca,
 				0x5b,0x60,0xf8,0x82,0x82,0x9e,0xe7,0xb2 },
 		.sig_len = 128,
+		.chunks = 	{ 100, 75, -1, 53 },
+		.num_chunks = 4,
 	},
 
 
@@ -2064,6 +2129,8 @@ struct RSA_PUBLISHED_TEST_VECTOR rsa_sha1_pkcs_sigver_published_tv[] = {
 				0x5b,0xfc,0x16,0x30,0x47,0x9d,0xf3,0xbc,
 				0xbc,0x51,0x51,0x77,0xaf,0xe4,0x99,0x4a },
 		.sig_len = 128,
+		.chunks =	{ 25, 25, 50, 25, 25, 25, 0, 2 },
+		.num_chunks = 8,
 	},
 	{	// 5
 		.mod = 	      { 0xac,0x13,0xd9,0xfd,0xae,0x7b,0x73,0x35,
@@ -2296,6 +2363,8 @@ struct RSA_PUBLISHED_TEST_VECTOR rsa_sha1_pkcs_sigver_published_tv[] = {
 				0x2a,0xad,0xb7,0x27,0xfd,0x42,0xf0,0xac,
 				0xc8,0x24,0x62,0x38,0x1d,0x9f,0xa2,0xef },
 		.sig_len = 128,
+		.chunks =	{ 40, 42 },
+		.num_chunks = 2,
 	},
 	{	// 7
 		.mod = 	      { 0xb5,0xd7,0x07,0xb7,0x92,0xe0,0x56,0xf7,
@@ -2399,6 +2468,8 @@ struct RSA_PUBLISHED_TEST_VECTOR rsa_sha1_pkcs_sigver_published_tv[] = {
 				0x92,0x9d,0x49,0x04,0x74,0xca,0xf7,0x00,
 				0x5f,0x91,0x0d,0xac,0xde,0x21,0xb0,0x77 },
 		.sig_len = 128,
+		.chunks = 	{ 5, 3, 0, 3 },
+		.num_chunks = 4,
 	},
 	{	// 8
 		.mod = 	      { 0xb5,0xd7,0x07,0xb7,0x92,0xe0,0x56,0xf7,
@@ -2663,6 +2734,8 @@ struct RSA_PUBLISHED_TEST_VECTOR rsa_sha1_pkcs_sigver_published_tv[] = {
 				0x2e,0x94,0x2c,0xc6,0x47,0x8d,0x6c,0xc2,
 				0xfb,0x66,0x08,0x11,0x91,0x0c,0xcd,0x17 },
 		.sig_len = 128,
+		.chunks =	{ 25, 25, 25, 75, 23, 1, 0 },
+		.num_chunks = 7,
 	},
 	{	// 10
 		.mod = 	      { 0xd1,0x31,0xe0,0x92,0x43,0x37,0x0d,0xd2,
@@ -2784,6 +2857,8 @@ struct RSA_PUBLISHED_TEST_VECTOR rsa_sha1_pkcs_sigver_published_tv[] = {
 				0x7d,0x75,0xd8,0x35,0x40,0xdd,0x4b,0x35,
 				0x4d,0x13,0x1d,0x86,0xf0,0x77,0x07,0x17 },
 		.sig_len = 128,
+		.chunks =	{ 0, 54, -1, 100 },
+		.num_chunks = 4,
 	},
 	{	// 11
 		.mod = 	      { 0xd1,0x31,0xe0,0x92,0x43,0x37,0x0d,0xd2,
@@ -3040,6 +3115,8 @@ struct RSA_PUBLISHED_TEST_VECTOR rsa_sha1_pkcs_sigver_published_tv[] = {
 				0xb8,0x83,0xf0,0x38,0xf4,0x32,0x3d,0xfe,
 				0x5b,0xea,0xc4,0x68,0xde,0xea,0x99,0xc3 },
 		.sig_len = 128,
+		.chunks =	{ 7, 100, 80 },
+		.num_chunks = 3,
 	},
 	{	// 13
 		.mod = 	      { 0xc5,0x5f,0xfb,0xdd,0x6a,0x27,0x53,0xbc,
@@ -3153,6 +3230,8 @@ struct RSA_PUBLISHED_TEST_VECTOR rsa_sha1_pkcs_sigver_published_tv[] = {
 				0xf7,0xc2,0x57,0x54,0x03,0x77,0xae,0xa7,
 				0xb5,0x44,0x17,0xa6,0x09,0xc7,0x6f,0x4c },
 		.sig_len = 128,
+		.chunks =	{ 92, 0 },
+		.num_chunks = 2,
 	},
 	{	// 14
 		.mod = 	      { 0xc5,0x5f,0xfb,0xdd,0x6a,0x27,0x53,0xbc,
@@ -3283,6 +3362,8 @@ struct RSA_PUBLISHED_TEST_VECTOR rsa_sha1_pkcs_sigver_published_tv[] = {
 				0x6a,0x60,0x88,0xa7,0xfa,0xbf,0x4f,0xa1,
 				0x72,0x35,0x7f,0xb6,0xe3,0xf4,0x4a,0x94 },
 		.sig_len = 128,
+		.chunks =	{ 100, 32, 100 },
+		.num_chunks = 3,
 	},
 
 
@@ -3404,6 +3485,8 @@ struct RSA_PUBLISHED_TEST_VECTOR rsa_sha1_pkcs_sigver_published_tv[] = {
 				0xc5,0x80,0xa0,0x05,0x28,0xfc,0x65,0xe2,
 				0x04,0xd4,0x2a,0x2d,0x4e,0x29,0x13,0xc1 },
 		.sig_len = 128,
+		.chunks = 	{ 20, 20, 20, 14 },
+		.num_chunks = 4,
 	},
 	{	// 16
 		.mod = 	      { 0xd6,0x31,0x14,0x57,0xe1,0xca,0xf1,0x22,
@@ -3641,6 +3724,8 @@ struct RSA_PUBLISHED_TEST_VECTOR rsa_sha1_pkcs_sigver_published_tv[] = {
 				0x07,0x88,0x8b,0x8b,0xbe,0xfa,0x79,0x40,
 				0x03,0x23,0x13,0x3f,0x77,0x6a,0x32,0x13 },
 		.sig_len = 128,
+		.chunks =	{ 75, 100, -1, -1, 48 },
+		.num_chunks = 5,
 	},
 
 
@@ -3776,6 +3861,8 @@ struct RSA_PUBLISHED_TEST_VECTOR rsa_sha1_pkcs_sigver_published_tv[] = {
 				0xeb,0x8b,0x07,0xec,0x3a,0x02,0x7b,0x0f,
 				0x17 },
 		.sig_len = 129,
+		.chunks =	{ 28, -1, 65, 64 },
+		.num_chunks = 4
 	},
 	{	// 19
 		.mod = 	      { 0x01,0x69,0x34,0xcd,0xff,0x48,0x50,0xb6,
@@ -4153,6 +4240,8 @@ struct RSA_PUBLISHED_TEST_VECTOR rsa_sha1_pkcs_sigver_published_tv[] = {
 				0x4b,0xdd,0x3a,0x30,0xe0,0xfc,0xe1,0xac,
 				0x43 },
 		.sig_len = 129,
+		.chunks = 	{ 46, 23, 81, 31 },
+		.num_chunks = 4,
 	},
 	{	// 22
 		.mod = 	      { 0x03,0x33,0x12,0x64,0x88,0xf7,0xa2,0x91,
@@ -4274,6 +4363,8 @@ struct RSA_PUBLISHED_TEST_VECTOR rsa_sha1_pkcs_sigver_published_tv[] = {
 				0x92,0x49,0xf5,0x7e,0xb1,0x51,0xb7,0x1d,
 				0xc0 },
 		.sig_len = 129,
+		.chunks =	{ 20, 20, 20, 20, 20, 9, 9 },
+		.num_chunks = 7,
 	},
 	{	// 23
 		.mod = 	      { 0x03,0x33,0x12,0x64,0x88,0xf7,0xa2,0x91,
@@ -4383,6 +4474,8 @@ struct RSA_PUBLISHED_TEST_VECTOR rsa_sha1_pkcs_sigver_published_tv[] = {
 				0x2c,0xdf,0xfe,0x28,0xc8,0xaf,0x71,0x40,
 				0xf4 },
 		.sig_len = 129,
+		.chunks =	{ 23, 0 },
+		.num_chunks = 2,
 	},
 
 
@@ -4504,6 +4597,8 @@ struct RSA_PUBLISHED_TEST_VECTOR rsa_sha1_pkcs_sigver_published_tv[] = {
 				0x74,0x50,0x07,0x44,0xa5,0x33,0x75,0x00,
 				0x5e },
 		.sig_len = 129,
+		.chunks =	{ 13, -1 },
+		.num_chunks = 2,
 	},
 	{	// 25
 		.mod = 	      { 0x05,0xf3,0x74,0x34,0x88,0x26,0x1c,0x6f,
@@ -4626,6 +4721,8 @@ struct RSA_PUBLISHED_TEST_VECTOR rsa_sha1_pkcs_sigver_published_tv[] = {
 				0x81,0x0c,0xf1,0xdf,0x81,0x23,0xff,0x41,
 				0xc0 },
 		.sig_len = 129,
+		.chunks =	{ 10, 50, 40, 4 },
+		.num_chunks = 4,
 	},
 	{	// 26
 		.mod = 	      { 0x05,0xf3,0x74,0x34,0x88,0x26,0x1c,0x6f,
@@ -4888,6 +4985,8 @@ struct RSA_PUBLISHED_TEST_VECTOR rsa_sha1_pkcs_sigver_published_tv[] = {
 				0x65,0xc3,0x4e,0x3e,0xc1,0x4c,0xca,0x50,
 				0x40 },
 		.sig_len = 129,
+		.chunks =	{ 50, 50, 50, 7 },
+		.num_chunks = 4,
 	},
 	{	// 28
 		.mod = 	      { 0x0d,0x5f,0xb9,0x9f,0xde,0xdf,0x42,0x56,
@@ -5015,6 +5114,8 @@ struct RSA_PUBLISHED_TEST_VECTOR rsa_sha1_pkcs_sigver_published_tv[] = {
 				0x04,0x2d,0x8b,0x1e,0x46,0x2e,0x8c,0x4c,
 				0x33 },
 		.sig_len = 129,
+		.chunks = 	{ 100, 48 },
+		.num_chunks = 2,
 	},
 	{	// 29
 		.mod = 	      { 0x0d,0x5f,0xb9,0x9f,0xde,0xdf,0x42,0x56,
@@ -5140,6 +5241,8 @@ struct RSA_PUBLISHED_TEST_VECTOR rsa_sha1_pkcs_sigver_published_tv[] = {
 				0xb3,0x23,0x37,0x1a,0xd2,0xab,0x9f,0x1e,
 				0x4d },
 		.sig_len = 129,
+		.chunks = 	{ 45, 20, 33, 33 },
+		.num_chunks = 4,
 	},
 
 
@@ -5399,6 +5502,8 @@ struct RSA_PUBLISHED_TEST_VECTOR rsa_sha1_pkcs_sigver_published_tv[] = {
 				0x6b,0xd2,0x8a,0xa5,0x00,0x2c,0x3b,0x41,
 				0xba },
 		.sig_len = 129,
+		.chunks =	{ 20, -1, 20 },
+		.num_chunks = 3,
 	},
 	{	// 32
 		.mod = 	      { 0x1e,0xd7,0xee,0xa9,0x40,0x5f,0x50,0x7f,
@@ -5517,6 +5622,8 @@ struct RSA_PUBLISHED_TEST_VECTOR rsa_sha1_pkcs_sigver_published_tv[] = {
 				0xce,0xbb,0xac,0x9d,0xe5,0x41,0x09,0xdc,
 				0xf7 },
 		.sig_len = 129,
+		.chunks =	{ 78, 0 },
+		.num_chunks = 2,
 	},
 
 
@@ -5893,6 +6000,8 @@ struct RSA_PUBLISHED_TEST_VECTOR rsa_sha1_pkcs_sigver_published_tv[] = {
 				0xed,0x63,0xcd,0xde,0xad,0x87,0x6c,0x94,
 				0x07 },
 		.sig_len = 129,
+		.chunks =	{ 25, 25, 25, 25, 25, 1 },
+		.num_chunks = 6,
 	},
 
 
@@ -6154,6 +6263,8 @@ struct RSA_PUBLISHED_TEST_VECTOR rsa_sha1_pkcs_sigver_published_tv[] = {
 				0xcf,0x98,0x0e,0x3f,0x6d,0xe3,0x9d,0x73,
 				0x12 },
 		.sig_len = 129,
+		.chunks =	{ 90, -1, 75, 0, 0, 88 },
+		.num_chunks = 6,
 	},
 	{	// 38
 		.mod = 	      { 0x70,0xe9,0x23,0xa5,0xa0,0xcd,0x8e,0xcd,
@@ -6449,6 +6560,8 @@ struct RSA_PUBLISHED_TEST_VECTOR rsa_sha1_pkcs_sigver_published_tv[] = {
 				0xcd,0xc8,0x10,0x6b,0x12,0xb1,0xa5,0x58,
 				0x76,0x39,0x43,0x8a,0xf1,0xa6,0x8d,0x32 },
 		.sig_len = 192,
+		.chunks =	{ 25, 110 },
+		.num_chunks = 2,
 	},
 	{	// 40
 		.mod = 	      { 0xd8,0x70,0xa7,0x76,0xcd,0x13,0xed,0x44,
@@ -6611,6 +6724,8 @@ struct RSA_PUBLISHED_TEST_VECTOR rsa_sha1_pkcs_sigver_published_tv[] = {
 				0x44,0xb0,0x07,0xaa,0x24,0x1f,0x92,0xf8,
 				0x88,0x60,0x55,0xd9,0x8e,0x0e,0x07,0x04 },
 		.sig_len = 192,
+		.chunks =	{ 10, 100, 21 },
+		.num_chunks = 3,
 	},
 	{	// 41
 		.mod = 	      { 0xd8,0x70,0xa7,0x76,0xcd,0x13,0xed,0x44,
@@ -6990,6 +7105,8 @@ struct RSA_PUBLISHED_TEST_VECTOR rsa_sha1_pkcs_sigver_published_tv[] = {
 				0x5d,0xf3,0xee,0xd2,0x1e,0x77,0x92,0xd2,
 				0x49,0x48,0x04,0x87,0xf3,0x65,0x52,0x61 },
 		.sig_len = 256,
+		.chunks =	{ 50, 100, 0, 75, 4 },
+		.num_chunks = 5,
 	},
 	{	// 43
 		.mod = 	      { 0xdf,0x27,0x1f,0xd2,0x5f,0x86,0x44,0x49,
@@ -7199,6 +7316,8 @@ struct RSA_PUBLISHED_TEST_VECTOR rsa_sha1_pkcs_sigver_published_tv[] = {
 				0x95,0x00,0xc9,0x70,0x85,0x00,0xa5,0x97,
 				0x2b,0xd5,0x4f,0x72,0xcf,0x8d,0xb0,0xc8 },
 		.sig_len = 256,
+		.chunks =	{ 80, -1, 73 },
+		.num_chunks = 3,
 	},
 	{	// 44
 		.mod = 	      { 0xdf,0x27,0x1f,0xd2,0x5f,0x86,0x44,0x49,
@@ -7419,6 +7538,8 @@ struct RSA_PUBLISHED_TEST_VECTOR rsa_sha1_pkcs_sigver_published_tv[] = {
 				0xed,0x74,0xdc,0xbe,0xe8,0x11,0xdb,0xf6,
 				0x57,0x59,0x41,0xf0,0x8a,0x65,0x23,0xb8 },
 		.sig_len = 256,
+		.chunks =	{ 100, 100, 43 },
+		.num_chunks =	3,
 	},
 };
 
@@ -7541,6 +7662,8 @@ struct RSA_PUBLISHED_TEST_VECTOR rsa_sha256_pkcs_sigver_published_tv[] = {
                                 0x39,0xBF,0xCC,0xCF,0x70,0x1E,0x96,0x26,
                                 0x55,0x71,0x00,0x71,0xC7,0x13,0xC7,0xEF},
                 .sig_len = 128,
+		.chunks =	{ -1, 65, 63 },
+		.num_chunks = 3,
         },
         {       // #1 - 2048 bit key size
                 .mod =        { 0xdf,0x27,0x1f,0xd2,0x5f,0x86,0x44,0x49,
@@ -7760,6 +7883,8 @@ struct RSA_PUBLISHED_TEST_VECTOR rsa_sha256_pkcs_sigver_published_tv[] = {
                                 0xB4,0x1E,0x5B,0x06,0x78,0x3D,0x98,0x06,
                                 0xB9,0xA4,0xE0,0xC1,0x81,0xE9,0xA8,0x61},
                 .sig_len = 256,
+		.chunks = 	{ 50, 100, 0, 75, 4 },
+		.num_chunks = 5,
         }
 };
 
@@ -7882,6 +8007,8 @@ struct RSA_PUBLISHED_TEST_VECTOR rsa_sha384_pkcs_sigver_published_tv[] = {
                                 0x20,0x52,0x1A,0x7C,0xA1,0x6C,0x87,0x6A,
                                 0x3F,0x77,0x6B,0xFE,0xD2,0x03,0xF6,0xA2},
                 .sig_len = 128,
+		.chunks =	{ -1, 65, 63 },
+		.num_chunks = 3,
         },
         {       // #1 - 2048 bit key size
                 .mod =        { 0xdf,0x27,0x1f,0xd2,0x5f,0x86,0x44,0x49,
@@ -8101,6 +8228,8 @@ struct RSA_PUBLISHED_TEST_VECTOR rsa_sha384_pkcs_sigver_published_tv[] = {
                                 0xBA,0xB2,0x8F,0x2D,0xFB,0x57,0xC7,0x05,
                                 0x1E,0x72,0x1C,0x4C,0x71,0x2F,0xE3,0xDD},
                 .sig_len = 256,
+		.chunks = 	{ 50, 100, 0, 75, 4 },
+		.num_chunks = 5,
         }
 };
 
@@ -8223,6 +8352,8 @@ struct RSA_PUBLISHED_TEST_VECTOR rsa_sha512_pkcs_sigver_published_tv[] = {
                                 0x7D,0x17,0xBB,0x9F,0x75,0xED,0xA7,0xD0,
                                 0xFE,0xE4,0xDF,0xF7,0xDE,0x57,0x51,0x98},
                 .sig_len = 128,
+		.chunks = 	{ -1, 65, 63 },
+		.num_chunks = 3
         },
         {       // #1 - 2048 bit key size
                 .mod =        { 0xdf,0x27,0x1f,0xd2,0x5f,0x86,0x44,0x49,
@@ -8442,6 +8573,8 @@ struct RSA_PUBLISHED_TEST_VECTOR rsa_sha512_pkcs_sigver_published_tv[] = {
                                 0x43,0xF2,0x84,0x93,0x5E,0x8F,0x19,0x9D,
                                 0x6C,0x2E,0xA6,0x05,0x80,0x76,0x30,0xF6},
                 .sig_len = 256,
+		.chunks =	{ 50, 100, 0, 75, 4 },
+		.num_chunks = 5,
         }
 };
 
