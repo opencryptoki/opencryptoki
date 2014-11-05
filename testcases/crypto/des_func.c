@@ -148,8 +148,9 @@ CK_RV do_EncryptUpdateDES(struct published_test_suite_info *tsuite)
 {
 	int 			i;
 	CK_BYTE		 	expected[BIG_REQUEST];
-	CK_BYTE		 	actual[BIG_REQUEST];
-	CK_ULONG		expected_len, actual_len, original_len, k;
+	CK_BYTE		 	plaintext[BIG_REQUEST];
+	CK_BYTE		 	crypt[BIG_REQUEST];
+	CK_ULONG		expected_len, p_len, crypt_len = 0, k;
 
 	CK_BYTE			user_pin[PKCS11_MAX_PIN_LEN];
 	CK_ULONG		user_pin_len;
@@ -187,15 +188,16 @@ CK_RV do_EncryptUpdateDES(struct published_test_suite_info *tsuite)
 
 		/** clear buffers **/
 		memset(expected, 0, sizeof(expected));
-		memset(actual, 0, sizeof(actual));
+		memset(crypt, 0, sizeof(crypt));
+		memset(plaintext, 0, sizeof(plaintext));
 
 		/** get ciphertext (expected results) **/
 		expected_len = tsuite->tv[i].clen;
 		memcpy(expected, tsuite->tv[i].ciphertext, expected_len);
 
 		/** get plaintext **/
-		original_len = tsuite->tv[i].plen;
-		memcpy(actual, tsuite->tv[i].plaintext, original_len);
+		p_len = tsuite->tv[i].plen;
+		memcpy(plaintext, tsuite->tv[i].plaintext, p_len);
 
 		/** get mech **/
 		mech.mechanism = tsuite->mechanism;
@@ -222,45 +224,76 @@ CK_RV do_EncryptUpdateDES(struct published_test_suite_info *tsuite)
 			goto error;
 		}
 
-		/** do multipart (in-place) encryption **/
-		k = original_len;
-		actual_len = 0;
-		while (actual_len < original_len) {
-			rc = funcs->C_EncryptUpdate( session,
-						     &actual[actual_len],
-						     DES_BLOCK_SIZE,
-						     &actual[actual_len],
-						     &k );
+		/* do multipart encryption
+		 * for chunks, -1 is NULL, and 0 is empty string,
+		 * and a value > 0 is amount of data from test vector's
+		 * plaintext data. The is way we test input in various sizes.
+		 */
+		k = 0;
+		if (tsuite->tv[i].num_chunks) {
+			int j;
+			CK_ULONG outlen, len;
+			CK_BYTE *data_chunk = NULL;
+
+			crypt_len = 0;
+			outlen = sizeof(crypt);
+
+			for (j = 0; j < tsuite->tv[i].num_chunks; j++) {
+				if (tsuite->tv[i].chunks[j] == -1) {
+					len = 0;
+					data_chunk = NULL;
+				} else if (tsuite->tv[i].chunks[j] == 0) {
+					len = 0;
+					data_chunk = (CK_BYTE *)"";
+				} else {
+					len = tsuite->tv[i].chunks[j];
+					data_chunk = plaintext + k;
+				}
+
+				rc = funcs->C_EncryptUpdate(session, data_chunk,
+							    len,
+							    &crypt[crypt_len],
+							    &outlen);
+				if (rc != CKR_OK) {
+					testcase_error("C_EncryptUpdate rc=%s",
+							p11_get_ckr(rc));
+					goto error;
+				}
+				k += len;
+				crypt_len += outlen;
+				outlen = sizeof(crypt) - crypt_len;
+			}
+		} else {
+			crypt_len = sizeof(crypt);
+			rc = funcs->C_EncryptUpdate(session, plaintext, p_len,
+						    crypt, &crypt_len);
 			if (rc != CKR_OK) {
-				testcase_error( "C_EncryptUpdate rc=%s",
+				testcase_error("C_EncryptUpdate rc=%s",
 						p11_get_ckr(rc));
 				goto error;
 			}
-			actual_len += k;
-			k = original_len - k;
 		}
 
 		/** finalize multipart encryption **/
-		rc = funcs->C_EncryptFinal( session,
-					    &actual[actual_len],
-					    &k );
+		k = sizeof(crypt) - crypt_len;
+		rc = funcs->C_EncryptFinal(session, &crypt[p_len], &k);
 		if (rc != CKR_OK) {
-			testcase_error("C_EncryptFinal rc=%s",
-				p11_get_ckr(rc));
+			testcase_error("C_EncryptFinal rc=%s", p11_get_ckr(rc));
 			goto error;
 		}
 
 		/** compare encryption results with expected results. **/
 		testcase_new_assertion();
 
-		if (actual_len != expected_len) {
+		if (crypt_len != expected_len) {
 			testcase_fail("encrypted multipart data length "
 				"does not match test vector's encrypted "
 				"data length.\n\nexpected length=%ld, "
-				"but found length=%ld\n",			 			   expected_len, actual_len);
+				"but found length=%ld\n",
+				expected_len, crypt_len);
 		}
 
-		else if (memcmp(actual, expected, expected_len)) {
+		else if (memcmp(crypt, expected, expected_len)) {
 			testcase_fail("encrypted multipart data does not "
 				"match test vector's encrypted data.\n");
 		}
@@ -270,11 +303,11 @@ CK_RV do_EncryptUpdateDES(struct published_test_suite_info *tsuite)
 				"vector %d passed.", tsuite->name, i);
 		}
 
-	}
-	/** clean up **/
-	rc = funcs->C_DestroyObject(session, h_key);
-	if (rc != CKR_OK) {
-		testcase_error("C_DestroyObject rc=%s", p11_get_ckr(rc));
+		rc = funcs->C_DestroyObject(session, h_key);
+		if (rc != CKR_OK) {
+			testcase_error("C_DestroyObject rc=%s", p11_get_ckr(rc));
+			goto testcase_cleanup;
+		}
 	}
 	goto testcase_cleanup;
 
@@ -431,8 +464,9 @@ CK_RV do_DecryptUpdateDES(struct published_test_suite_info *tsuite)
 {
 	int 			i;
 	CK_BYTE			expected[BIG_REQUEST];
-	CK_BYTE		 	actual[BIG_REQUEST];
-	CK_ULONG		expected_len, actual_len, original_len, k;
+	CK_BYTE		 	cipher[BIG_REQUEST];
+	CK_BYTE		 	plaintext[BIG_REQUEST];
+	CK_ULONG		expected_len, p_len, cipher_len, k;
 
 	CK_BYTE			user_pin[PKCS11_MAX_PIN_LEN];
 	CK_ULONG		user_pin_len;
@@ -471,15 +505,16 @@ CK_RV do_DecryptUpdateDES(struct published_test_suite_info *tsuite)
 
 		/** clear buffers **/
 		memset(expected, 0, sizeof(expected));
-		memset(actual, 0, sizeof(actual));
+		memset(cipher, 0, sizeof(cipher));
+		memset(plaintext, 0, sizeof(plaintext));
 
 		/** get plaintext (expected results) **/
 		expected_len = tsuite->tv[i].plen;
 		memcpy(expected, tsuite->tv[i].plaintext, expected_len);
 
 		/** get ciphertext **/
-		original_len = tsuite->tv[i].clen;
-		memcpy(actual, tsuite->tv[i].ciphertext, original_len);
+		cipher_len = tsuite->tv[i].clen;
+		memcpy(cipher, tsuite->tv[i].ciphertext, cipher_len);
 
 		/** get mech **/
 		mech.mechanism = tsuite->mechanism;
@@ -505,44 +540,74 @@ CK_RV do_DecryptUpdateDES(struct published_test_suite_info *tsuite)
 				goto error;
 		}
 
-		/** do multipart (in-place) decryption **/
-		k = original_len;
-		actual_len = 0;
-		while (actual_len < original_len) {
-			rc = funcs->C_DecryptUpdate( session,
-						     &actual[actual_len],
-						     DES_BLOCK_SIZE,
-						     &actual[actual_len],
-						     &k );
+		/* do multipart encryption
+		 * for chunks, -1 is NULL, and 0 is empty string,
+		 * and a value > 0 is amount of data from test vector's
+		 * plaintext data. The is way we test input in various sizes.
+		 */
+		k = 0;
+		if (tsuite->tv[i].num_chunks) {
+			int j;
+			CK_ULONG outlen, len;
+			CK_BYTE *data_chunk = NULL;
+
+			p_len = 0;
+			outlen = sizeof(plaintext);
+			for (j = 0; j < tsuite->tv[i].num_chunks; j++) {
+				if (tsuite->tv[i].chunks[j] == -1) {
+					len = 0;
+					data_chunk = NULL;
+				} else if (tsuite->tv[i].chunks[j] == 0) {
+					len = 0;
+					data_chunk = (CK_BYTE *)"";
+				} else {
+					len = tsuite->tv[i].chunks[j];
+					data_chunk = cipher + k;
+				}
+
+				rc = funcs->C_DecryptUpdate(session, data_chunk,
+							    len,
+							    &plaintext[p_len],
+							    &outlen);
+				if (rc != CKR_OK) {
+					testcase_error("C_DecryptUpdate rc=%s",
+							p11_get_ckr(rc));
+					goto error;
+				}
+				k += len;
+				p_len += outlen;
+				outlen = sizeof(plaintext) - p_len;
+			}
+		} else {
+			p_len = sizeof(plaintext);
+			rc = funcs->C_DecryptUpdate(session, cipher, cipher_len,
+						    plaintext, &p_len);
 			if (rc != CKR_OK) {
 				testcase_error("C_DecryptUpdate rc=%s",
 						p11_get_ckr(rc));
 				goto error;
 			}
-			actual_len += k;
-			k = original_len - k;
 		}
 
 		/** finalize multipart decryption **/
-		rc = funcs->C_DecryptFinal( session, &actual[actual_len], &k );
+		k = sizeof(plaintext) - p_len;
+		rc = funcs->C_DecryptFinal(session, &plaintext[k], &k);
 		if (rc != CKR_OK) {
-			testcase_error("C_EncryptFinal rc=%s",
-				p11_get_ckr(rc));
+			testcase_error("C_DecryptFinal rc=%s", p11_get_ckr(rc));
 				goto error;
 		}
 
 		/** compare decryption results with expected results. **/
 		testcase_new_assertion();
 
-		if (actual_len != expected_len) {
+		if (p_len != expected_len) {
 			testcase_fail("decrypted multipart data length "
 				"does not  match test vector's decrypted "
 				"data length.\n\nexpected length=%ld, but "
-				"found length=%ld\n",
-				expected_len, actual_len);
+				"found length=%ld\n", expected_len, p_len);
 		}
 
-		else if (memcmp(actual, expected, expected_len)) {
+		else if (memcmp(plaintext, expected, expected_len)) {
 			testcase_fail("decrypted multipart data does not "
 				"match test vector's decrypted data.\n");
 		}
@@ -552,11 +617,14 @@ CK_RV do_DecryptUpdateDES(struct published_test_suite_info *tsuite)
 				"vector  %d passed.", tsuite->name, i);
 		}
 
-	}
-	/** clean up **/
-	rc = funcs->C_DestroyObject(session, h_key);
-	if (rc != CKR_OK) {
-		testcase_error("C_DestroyObject rc=%s", p11_get_ckr(rc));
+		/** clean up **/
+		rc = funcs->C_DestroyObject(session, h_key);
+		if (rc != CKR_OK) {
+			testcase_error("C_DestroyObject rc=%s",
+					p11_get_ckr(rc));
+			goto testcase_cleanup;
+		}
+
 	}
 	goto testcase_cleanup;
 
@@ -906,7 +974,6 @@ CK_RV do_WrapUnwrapDES(struct generated_test_suite_info *tsuite)
 	CK_OBJECT_HANDLE	uw_key;
 	CK_ULONG		wrapped_data_len;
 	CK_ULONG		user_pin_len;
-	CK_ULONG	    	key_size;
 	CK_ULONG		tmpl_count = 2;
 	CK_FLAGS		flags;
 	CK_RV			rc;
@@ -955,7 +1022,6 @@ CK_RV do_WrapUnwrapDES(struct generated_test_suite_info *tsuite)
 
 	/** set mechkey for key generation **/
 	mechkey = des_keygen;
-	key_size = 24;
 
 	/** generate a DES Key **/
 	rc = funcs->C_GenerateKey(session, &mechkey, NULL, 0, &h_key);

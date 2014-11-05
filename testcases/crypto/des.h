@@ -4,6 +4,7 @@
 #define DES_IV_SIZE 8
 #define MAX_TEXT_SIZE 8
 #define DES_BLOCK_SIZE 8
+#define MAX_CHUNKS 8
 
 char des_cbc_iv[] =  {0x12,0x34,0x56,0x78,0x90,0xab,0xcd,0xef};
 
@@ -22,6 +23,8 @@ struct des_test_vector {
 	unsigned char plen;
 	char ciphertext[MAX_TEXT_SIZE];
 	unsigned char clen;
+	int chunks[MAX_CHUNKS];
+	int num_chunks;
 };
 
 struct published_test_suite_info {
@@ -59,6 +62,8 @@ static struct des_test_vector des_ecb_tv[] = {
 		.plen = 8,
 		.ciphertext = 	{0x6a,0x27,0x17,0x87,0xab,0x88,0x83,0xf9},
 		.clen = 8,
+		.num_chunks = 3,
+		.chunks = 	{ 3, 0, 5 },
 	}, { // 3
 		.key = 		{0x01,0x23,0x45,0x67,0x89,0xab,0xcd,0xef},
 		.klen = 8,
@@ -68,6 +73,8 @@ static struct des_test_vector des_ecb_tv[] = {
 		.plen = 8,
 		.ciphertext = 	{0x89,0x3d,0x51,0xec,0x4b,0x56,0x3b,0x53},
 		.clen = 8,
+		.num_chunks = 3,
+		.chunks = 	{ 4, -1, 4 },
 	},
 };
 
@@ -94,6 +101,8 @@ static struct des_test_vector des_cbc_tv[] = {
 		.plen = 8,
 		.ciphertext =   {0x0E,0xEC,0x14,0x87,0xDD,0x8C,0x26,0xD5},
 		.clen = 8,
+		.num_chunks = 3,
+		.chunks = 	{ 3, 0, 5 },
 	}, {       // round 2
 		.key =	  	{0x20,0x01,0x01,0x01,0x01,0x01,0x01,0x01},
 		.klen = 8,
@@ -103,6 +112,8 @@ static struct des_test_vector des_cbc_tv[] = {
 		.plen = 8,
 		.ciphertext =   {0x7A,0xD1,0x6F,0xFB,0x79,0xC4,0x59,0x26},
 		.clen = 8,
+		.num_chunks = 3,
+		.chunks = 	{ 4, -1, 4 },
 	},
 };
 
