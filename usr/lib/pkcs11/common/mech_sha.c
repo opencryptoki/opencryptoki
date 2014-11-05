@@ -812,10 +812,9 @@ CK_RV sha5_hash(SESSION *sess, CK_BBOOL length_only, DIGEST_CONTEXT *ctx,
 CK_RV sha1_hash_update(SESSION *sess, DIGEST_CONTEXT *ctx, CK_BYTE *in_data,
 		       CK_ULONG in_data_len)
 {
-	if (!in_data) {
-		OCK_LOG_ERR(ERR_FUNCTION_FAILED);
-		return CKR_FUNCTION_FAILED;
-	}
+	/* if no data to hash, just return */
+	if (!in_data_len)
+		return CKR_OK;
 
 	if (token_specific.t_sha_update == NULL) {
         	shaUpdate((SHA1_CONTEXT *)ctx->context, in_data, in_data_len);
@@ -827,10 +826,9 @@ CK_RV sha1_hash_update(SESSION *sess, DIGEST_CONTEXT *ctx, CK_BYTE *in_data,
 CK_RV sha2_hash_update(SESSION *sess, DIGEST_CONTEXT *ctx, CK_BYTE *in_data,
 		       CK_ULONG in_data_len)
 {
-	if (!in_data) {
-		OCK_LOG_ERR(ERR_FUNCTION_FAILED);
-		return CKR_FUNCTION_FAILED;
-	}
+	/* if no data to hash, just return */
+	if (!in_data_len)
+		return CKR_OK;
 
 	if (token_specific.t_sha2_update == NULL)
 		return CKR_MECHANISM_INVALID;
@@ -841,10 +839,9 @@ CK_RV sha2_hash_update(SESSION *sess, DIGEST_CONTEXT *ctx, CK_BYTE *in_data,
 CK_RV sha3_hash_update(SESSION *sess, DIGEST_CONTEXT *ctx, CK_BYTE *in_data,
 		       CK_ULONG in_data_len)
 {
-	if (!in_data) {
-		OCK_LOG_ERR(ERR_FUNCTION_FAILED);
-		return CKR_FUNCTION_FAILED;
-	}
+	/* if no data to hash, just return */
+	if (!in_data_len)
+		return CKR_OK;
 
 	if (token_specific.t_sha3_update == NULL)
 		return CKR_MECHANISM_INVALID;
@@ -855,10 +852,9 @@ CK_RV sha3_hash_update(SESSION *sess, DIGEST_CONTEXT *ctx, CK_BYTE *in_data,
 CK_RV sha5_hash_update(SESSION *sess, DIGEST_CONTEXT *ctx, CK_BYTE *in_data,
 		       CK_ULONG in_data_len)
 {
-	if (!in_data) {
-		OCK_LOG_ERR(ERR_FUNCTION_FAILED);
-		return CKR_FUNCTION_FAILED;
-	}
+	/* if no data to hash, just return */
+	if (!in_data_len)
+		return CKR_OK;
 	
 	if(token_specific.t_sha5_update == NULL)
 		return CKR_MECHANISM_INVALID;

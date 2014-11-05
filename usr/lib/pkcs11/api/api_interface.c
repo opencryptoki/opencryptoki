@@ -1340,10 +1340,6 @@ C_DigestUpdate(CK_SESSION_HANDLE hSession,
 		return CKR_CRYPTOKI_NOT_INITIALIZED;
 	}
 
-	if (!ulPartLen) {
-		OCK_LOG_ERR(ERR_ARGUMENTS_BAD);
-		return CKR_ARGUMENTS_BAD;
-	}
 	if (!Valid_Session(hSession, &rSession)) {
 		OCK_LOG_ERR(ERR_SESSION_HANDLE_INVALID);
 		return CKR_SESSION_HANDLE_INVALID;

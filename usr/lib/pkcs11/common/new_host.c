@@ -2925,8 +2925,6 @@ CK_RV SC_DigestUpdate( ST_SESSION_HANDLE  *sSession,
 		goto done;
 	}
 
-	// Netscape has been known to pass a null pPart with ulPartLen == 0...
-	//
 	if (!pPart && ulPartLen != 0) {
 		OCK_LOG_ERR(ERR_ARGUMENTS_BAD);
 		rc = CKR_ARGUMENTS_BAD;
@@ -2946,7 +2944,8 @@ CK_RV SC_DigestUpdate( ST_SESSION_HANDLE  *sSession,
 		goto done;
 	}
 
-	if (pPart){
+	/* If there is data to hash, do so. */
+	if (ulPartLen) {
 		rc = digest_mgr_digest_update( sess, &sess->digest_ctx, pPart, ulPartLen );
 		if (rc != CKR_OK) {
 			OCK_LOG_ERR(ERR_DIGEST_UPDATE);
