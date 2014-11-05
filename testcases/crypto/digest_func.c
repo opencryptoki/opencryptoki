@@ -173,19 +173,48 @@ CK_RV do_DigestUpdate(struct digest_test_suite_info *tsuite)
 
 		actual_len = sizeof(actual);
 
-		/** do multipart digest **/
-		while (data_done < data_len) {
-			len = data_len - data_done;
-			if (len >= DIGEST_UPDATE_SIZE)
-				len = DIGEST_UPDATE_SIZE;
-			rc = funcs->C_DigestUpdate(session, data + data_done,
-						   len);
+		/* do multipart digest
+		 * if test vector contains chunks, use that.
+		 * Otherwise, just call update on entire data.
+		 *
+		 * Note: for chunks, -1 is NULL, and 0 is empty string,
+		 *       and a value > 0 is amount of data from test vector's
+		 *       plaintext data. This way we test chunks that
+		 *       are NULL or empty string when updating.
+		 */
+		if (tsuite->tv[i].num_chunks) {
+			int j;
+			CK_BYTE *data_chunk = NULL;
+
+			for (j = 0; j < tsuite->tv[i].num_chunks; j++) {
+				if (tsuite->tv[i].chunks[j] == -1) {
+					len = 0;
+					data_chunk = NULL;
+				} else if (tsuite->tv[i].chunks[j] == 0) {
+					len = 0;
+					data_chunk = (CK_BYTE *)"";
+				} else {
+					len = tsuite->tv[i].chunks[j];
+					data_chunk = data + data_done;
+				}
+
+				rc = funcs->C_DigestUpdate(session, data_chunk,
+							   len);
+				if (rc != CKR_OK) {
+					testcase_error("C_DigestUpdate rc=%s",
+							p11_get_ckr(rc));
+					goto testcase_cleanup;
+				}
+
+				data_done += len;
+			}
+		} else {
+			rc = funcs->C_DigestUpdate(session, data, data_len);
 			if (rc != CKR_OK) {
 				testcase_error("C_DigestUpdate rc=%s",
 						p11_get_ckr(rc));
 				goto testcase_cleanup;
 			}
-			data_done += len;
 		}
 
 		/** finalize multipart digest **/
@@ -384,7 +413,7 @@ testcase_cleanup:
 CK_RV do_SignVerify_HMAC_Update(struct HMAC_TEST_SUITE_INFO *tsuite)
 {
 
-	int		len1, len2, i;
+	int		len1 = 0, len2 = 0, i;
 	CK_MECHANISM    mech;
 	CK_BYTE	 	key[MAX_KEY_SIZE];
 	CK_ULONG	key_len;
@@ -470,8 +499,6 @@ CK_RV do_SignVerify_HMAC_Update(struct HMAC_TEST_SUITE_INFO *tsuite)
 
 		/** do multipart signing  **/
 		if (data_len > 0) {
-			len1 = 0;
-			len2 = 0;
 			/* do in 2 parts */
 			if (data_len < 20)
 				len1 = data_len;
@@ -621,12 +648,11 @@ int main(int argc, char **argv)
 {
 	CK_C_INITIALIZE_ARGS cinit_args;
 	int rc;
-	CK_BBOOL no_init, no_stop;
+	CK_BBOOL no_init;
 	CK_RV rv;
 
 	SLOT_ID = 0;
 	no_init = FALSE;
-	no_stop = FALSE;
 
 
 	rc = do_ParseArgs(argc, argv);
