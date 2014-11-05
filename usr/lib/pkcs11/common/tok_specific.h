@@ -579,17 +579,14 @@ CK_RV
 tok_cdmv_transform(CK_VOID_PTR, CK_ULONG);
 
 
-CK_RV
-token_specific_sha_generic_init(DIGEST_CONTEXT *ctx,
-				CK_MECHANISM_TYPE sha_type);
-CK_RV
-token_specific_sha_generic_update(DIGEST_CONTEXT *ctx, CK_BYTE *in_data,
-				  CK_ULONG in_data_len,
-				  CK_MECHANISM_TYPE sha_type);
-CK_RV
-token_specific_sha_generic_final(DIGEST_CONTEXT *ctx, CK_BYTE *out_data,
-				 CK_ULONG *out_data_len,
-				 CK_MECHANISM_TYPE sha_type);
+CK_RV token_specific_sha_generic_init(DIGEST_CONTEXT *ctx);
+CK_RV token_specific_sha_generic(DIGEST_CONTEXT *ctx, CK_BYTE *in_data,
+				 CK_ULONG in_data_len, CK_BYTE *out_data,
+				 CK_ULONG *out_data_len);
+CK_RV token_specific_sha_generic_update(DIGEST_CONTEXT *ctx, CK_BYTE *in_data,
+					CK_ULONG in_data_len);
+CK_RV token_specific_sha_generic_final(DIGEST_CONTEXT *ctx, CK_BYTE *out_data,
+				       CK_ULONG *out_data_len);
 
 CK_RV token_specific_sha_init( DIGEST_CONTEXT * );
 

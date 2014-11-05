@@ -417,12 +417,13 @@ enum {
 #endif
 
 struct oc_sha_ctx {
-   unsigned char hash[MAX_SHA_HASH_SIZE + 1];
-   unsigned int hash_len, tail_len;
-   int message_part; /* needs to be seen across calls to update and final */
-   unsigned char tail[MAX_SHA_BLOCK_SIZE]; /* save the last (up to) block-size
-				           * bytes which may need to be shaved */
-   void *dev_ctx;
+	unsigned char hash[MAX_SHA_HASH_SIZE + 1];
+	unsigned int hash_len;
+	unsigned int hash_blksize;
+	unsigned int tail_len;
+	int message_part;
+	unsigned char tail[MAX_SHA_BLOCK_SIZE];
+	void *dev_ctx;
 };
 
 #define MD2_HASH_SIZE   16
