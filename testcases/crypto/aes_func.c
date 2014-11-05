@@ -109,7 +109,7 @@ CK_RV do_EncryptDecryptAES(struct generated_test_suite_info *tsuite)
 		if (rc != CKR_OK) {
 			testcase_error("C_DecryptInit rc=%s",
 				p11_get_ckr(rc));
-			goto testcase_cleanup;
+			goto error;
 		}
 
 		decrypt_len = sizeof(decrypt);
@@ -123,7 +123,7 @@ CK_RV do_EncryptDecryptAES(struct generated_test_suite_info *tsuite)
 		if (rc != CKR_OK) {
 			testcase_error("C_Decrypt rc=%s",
 				p11_get_ckr(rc));
-			goto testcase_cleanup;
+			goto error;
 		}
 
 		/** compare actual results with expected results **/
@@ -147,11 +147,13 @@ CK_RV do_EncryptDecryptAES(struct generated_test_suite_info *tsuite)
 				      key_lens[i]);
 		}
 
-	}
-	/** clean up **/
-	rc = funcs->C_DestroyObject(session, h_key);
-	if (rc != CKR_OK) {
-		testcase_error("C_DestroyObject rc=%s", p11_get_ckr(rc));
+		/** clean up **/
+		rc = funcs->C_DestroyObject(session, h_key);
+		if (rc != CKR_OK) {
+			testcase_error("C_DestroyObject rc=%s",
+					p11_get_ckr(rc));
+			goto testcase_cleanup;
+		}
 	}
 	goto testcase_cleanup;
 
@@ -237,27 +239,56 @@ CK_RV do_EncryptDecryptUpdateAES(struct generated_test_suite_info *tsuite)
 			goto error;
 		}
 
-		j = k = 0;      // j indexes source buffer
-				// k indexes destination buffer
-		crypt_len = sizeof(crypt);
-		while (j < orig_len) {
-			tmp = crypt_len - k;  // room is left in mpcrypt
-			rc = funcs->C_EncryptUpdate(session,
-						&original[j],
-						AES_BLOCK_SIZE,
-						&crypt[k],
-						&tmp);
+		/* Encrypt in place except for CBC_PAD, since it
+		 * pads and pkcs padding can make it unclear about what is
+		 * output at what stage. (See pkcs11v2.20 Section 11.2)
+		 */
+		if (mech.mechanism != CKM_AES_CBC_PAD) {
 
-			if (rc != CKR_OK) {
-				testcase_error("C_EncryptUpdate rc=%s",
-						p11_get_ckr(rc));
-				goto error;
+			memcpy(crypt, original, orig_len);
+			crypt_len = orig_len;
+			k = 0;
+			while(k < orig_len) {
+				rc = funcs->C_EncryptUpdate(session,
+							    &crypt[k],
+							    AES_BLOCK_SIZE,
+							    &crypt[k],
+							    &crypt_len);
+				if (rc != CKR_OK) {
+					testcase_error("C_EncryptUpdate rc=%s",
+							p11_get_ckr(rc));
+					goto error;
+				}
+
+				k += crypt_len;		// encrypted amount
+				crypt_len = orig_len - k; // space in out buf
+
 			}
-			k += tmp;
-			j += AES_BLOCK_SIZE;
-		}
+		} else {
 
-		crypt_len = sizeof(crypt) - k;
+			j = k = 0;      // j indexes source buffer
+					// k indexes destination buffer
+			crypt_len = sizeof(crypt);
+
+			while (j < orig_len) {
+				tmp = crypt_len - k;  // room left
+				rc = funcs->C_EncryptUpdate(session,
+							&original[j],
+							AES_BLOCK_SIZE,
+							&crypt[k],
+							&tmp);
+				if (rc != CKR_OK) {
+					testcase_error("C_EncryptUpdate rc=%s",
+							p11_get_ckr(rc));
+					goto error;
+				}
+
+				k += tmp;
+				j += AES_BLOCK_SIZE;
+			}
+
+			crypt_len = sizeof(crypt) - k;
+		}
 
 		rc = funcs->C_EncryptFinal(session, &crypt[k], &crypt_len);
 		if (rc != CKR_OK) {
@@ -274,26 +305,53 @@ CK_RV do_EncryptDecryptUpdateAES(struct generated_test_suite_info *tsuite)
 			goto error;
 		}
 
-		j = k = 0;      // j indexes source buffer,
-				// k indexes destination buffer
-		decrypt_len = sizeof(decrypt);
-		while (j < crypt_len) {
-			tmp = decrypt_len - k;	// room left in mpdecrypt
-			rc = funcs->C_DecryptUpdate(session,
-						&crypt[j],
-						AES_BLOCK_SIZE,
-						&decrypt[k],
-						&tmp);
-			if (rc != CKR_OK) {
-				testcase_error("C_DecryptUpdate rc=%s",
-						p11_get_ckr(rc));
-				goto error;
-			}
-			k += tmp;
-			j += AES_BLOCK_SIZE;
-		}
+		/* decrypt in place.  skip for AES_CBC_PAD since it
+		 * pads and pkcs padding can make it unclear about what is
+		 * output at what stage. (See pkcs11v2.20 Section 11.2)
+		 */
+		if (mech.mechanism != CKM_AES_CBC_PAD) {
 
-		decrypt_len = sizeof(decrypt) - k;
+			memcpy (decrypt, crypt, crypt_len);
+			k = 0;
+			decrypt_len = crypt_len;
+			while(k < crypt_len) {
+				rc = funcs->C_DecryptUpdate(session,
+							    &decrypt[k],
+							    AES_BLOCK_SIZE,
+							    &decrypt[k],
+							    &decrypt_len);
+				if (rc != CKR_OK) {
+					testcase_error("C_DecryptUpdate rc=%s",
+							p11_get_ckr(rc));
+					goto error;
+				}
+
+				k += decrypt_len;	// decrypted amount
+				decrypt_len = crypt_len - k; // space in out buf
+			}
+		} else {
+
+			j = k = 0;      // j indexes source buffer,
+					// k indexes destination buffer
+			decrypt_len = sizeof(decrypt);
+			while (j < crypt_len) {
+				tmp = decrypt_len - k;	// room left in outbuf
+				rc = funcs->C_DecryptUpdate(session,
+							&crypt[j],
+							AES_BLOCK_SIZE,
+							&decrypt[k],
+							&tmp);
+				if (rc != CKR_OK) {
+					testcase_error("C_DecryptUpdate rc=%s",
+							p11_get_ckr(rc));
+					goto error;
+				}
+				k += tmp;
+				j += AES_BLOCK_SIZE;
+			}
+
+			decrypt_len = sizeof(decrypt) - k;
+		}
 
 		rc = funcs->C_DecryptFinal(session, &decrypt[k], &decrypt_len);
 		if (rc != CKR_OK) {
@@ -323,12 +381,13 @@ CK_RV do_EncryptDecryptUpdateAES(struct generated_test_suite_info *tsuite)
 				" key length %ld passed.",
 				tsuite->name, key_lens[i]);
 		}
-	}
 
-	/** clean up **/
-	rc = funcs->C_DestroyObject(session, h_key);
-	if (rc != CKR_OK) {
-		testcase_error("C_DestroyObject rc=%s", p11_get_ckr(rc));
+		rc = funcs->C_DestroyObject(session, h_key);
+		if (rc != CKR_OK) {
+			testcase_error("C_DestroyObject rc=%s",
+					p11_get_ckr(rc));
+			goto testcase_cleanup;
+		}
 	}
 	goto testcase_cleanup;
 
@@ -446,14 +505,14 @@ CK_RV do_EncryptAES(struct published_test_suite_info *tsuite)
 			testcase_pass("%s Encryption with test vector %d "
 				"passed.", tsuite->name, i);
 		}
-	}
-	/** clean up **/
-	rc = funcs->C_DestroyObject(session, h_key);
-	if (rc != CKR_OK) {
-		testcase_error("C_DestroyObject rc=%s", p11_get_ckr(rc));
-		goto testcase_cleanup;
-	}
 
+		rc = funcs->C_DestroyObject(session, h_key);
+		if (rc != CKR_OK) {
+			testcase_error("C_DestroyObject rc=%s",
+					p11_get_ckr(rc));
+			goto testcase_cleanup;
+		}
+	}
 	goto testcase_cleanup;
 
 error:
@@ -473,10 +532,10 @@ testcase_cleanup:
 CK_RV do_EncryptUpdateAES(struct published_test_suite_info *tsuite)
 {
 	int			i;
-	CK_BYTE			actual[BIG_REQUEST];    // encryption buffer
+	CK_BYTE			plaintext[BIG_REQUEST];
 	CK_BYTE			expected[BIG_REQUEST];  // encrypted data
-	CK_ULONG		actual_len, expected_len, original_len, k;
-	CK_ULONG		psize;
+	CK_BYTE			crypt[BIG_REQUEST];
+	CK_ULONG		expected_len, p_len, crypt_len, k;
 	CK_ULONG		user_pin_len;
 	CK_BYTE			user_pin[PKCS11_MAX_PIN_LEN];
 	CK_SESSION_HANDLE	session;
@@ -523,53 +582,75 @@ CK_RV do_EncryptUpdateAES(struct published_test_suite_info *tsuite)
 
 		/** clear buffers **/
 		memset(expected, 0, sizeof(expected));
-		memset(actual, 0, sizeof(actual));
+		memset(plaintext, 0, sizeof(plaintext));
+		memset(crypt, 0, sizeof(crypt));
 
 		/** get ciphertext (expected results) **/
 		expected_len = tsuite->tv[i].clen;
 		memcpy(expected, tsuite->tv[i].ciphertext, expected_len);
 
 		/** get plaintext **/
-		original_len = tsuite->tv[i].plen;
-		actual_len = original_len;
-		memcpy(actual, tsuite->tv[i].plaintext, actual_len);
+		p_len = tsuite->tv[i].plen;
+		memcpy(plaintext, tsuite->tv[i].plaintext, p_len);
 
-		/** ecb, cbc, cfb, ctr, ofb modes all have restrictions
-		 ** on total length of the plaintext. It is either the
-		 ** multiple of the blocksize, s-bit-size, or none.
-		 ** Get this info to use in beloe loop.
-		 **/
-		psize = tsuite->size;
-
-		/** multipart (in-place) encryption **/
+		/** multipart encryption **/
 		rc = funcs->C_EncryptInit(session, &mech, h_key);
 		if (rc != CKR_OK) {
 			testcase_error("C_EncryptInit rc=%s", p11_get_ckr(rc));
 			goto error;
 		}
 
-		k = original_len;
-		actual_len = 0;
-		while (actual_len < original_len) {
-			rc = funcs->C_EncryptUpdate(session,
-					&actual[actual_len],
-					psize,
-					&actual[actual_len],
-					&k);
+		/* for chunks, -1 is NULL, and 0 is empty string,
+		 * and a value > 0 is amount of data from test vector's
+		 * plaintext data. This way we test vary-sized chunks.
+		 */
+		if (tsuite->tv[i].num_chunks) {
+			int j;
+			CK_ULONG outlen, len;
+			CK_BYTE *data_chunk = NULL;
 
+			k = 0;
+			crypt_len = 0;
+			outlen = sizeof(crypt);
+
+			for (j = 0; j < tsuite->tv[i].num_chunks; j++) {
+				if (tsuite->tv[i].chunks[j] == -1) {
+					len = 0;
+					data_chunk = NULL;
+				} else if (tsuite->tv[i].chunks[j] == 0) {
+					len = 0;
+					data_chunk = (CK_BYTE *)"";
+				} else {
+					len = tsuite->tv[i].chunks[j];
+					data_chunk = plaintext + k;
+				}
+
+				rc = funcs->C_EncryptUpdate(session, data_chunk,
+							   len,
+							   &crypt[crypt_len],
+							   &outlen);
+				if (rc != CKR_OK) {
+					testcase_error("C_EncryptUpdate rc=%s",
+							p11_get_ckr(rc));
+					goto error;
+				}
+				k += len;
+				crypt_len += outlen;
+				outlen = sizeof(crypt) - crypt_len;
+			}
+		} else {
+			crypt_len = sizeof(crypt);
+			rc = funcs->C_EncryptUpdate(session, plaintext, p_len,
+						    crypt, &crypt_len);
 			if (rc != CKR_OK) {
 				testcase_error("C_EncryptUpdate rc=%s",
-					p11_get_ckr(rc));
+						p11_get_ckr(rc));
 				goto error;
 			}
-
-			actual_len += k;
-			k = original_len - k;
 		}
 
-		/** according to pkcs11 spec,
-			nothing should be returned in final. **/
-		rc = funcs->C_EncryptFinal(session, &actual[actual_len], &k);
+		k = sizeof(crypt) - crypt_len;
+		rc = funcs->C_EncryptFinal(session, &crypt[crypt_len], &k);
 		if (rc != CKR_OK) {
 			testcase_error("C_EncryptFinal rc=%s", p11_get_ckr(rc));
 			goto error;
@@ -578,14 +659,14 @@ CK_RV do_EncryptUpdateAES(struct published_test_suite_info *tsuite)
 		/** compare encryption results with expected results. **/
 		testcase_new_assertion();
 
-		if (actual_len != expected_len) {
+		if (crypt_len != expected_len) {
 			testcase_fail("encrypted multipart data length does "
 				"not match test vector's encrypted data length."
 				"\n\nexpected length=%ld, but found length=%ld"
-				"\n", expected_len, actual_len);
+				"\n", expected_len, crypt_len);
 		}
 
-		else if (memcmp(actual, expected, expected_len)) {
+		else if (memcmp(crypt, expected, expected_len)) {
 			testcase_fail("encrypted multipart data does not match"
 				" test vector's encrypted data.\n");
 		}
@@ -595,12 +676,12 @@ CK_RV do_EncryptUpdateAES(struct published_test_suite_info *tsuite)
 				"vector %d passed.", tsuite->name, i);
 		}
 
-	}
-	/** clean up **/
-	rc = funcs->C_DestroyObject(session, h_key);
-	if (rc != CKR_OK) {
-		testcase_error("C_DestroyObject rc=%s",	p11_get_ckr(rc));
-		goto testcase_cleanup;
+		rc = funcs->C_DestroyObject(session, h_key);
+		if (rc != CKR_OK) {
+			testcase_error("C_DestroyObject rc=%s",
+					p11_get_ckr(rc));
+			goto testcase_cleanup;
+		}
 	}
 	goto testcase_cleanup;
 
@@ -718,11 +799,13 @@ CK_RV do_DecryptAES(struct published_test_suite_info *tsuite)
 				"passed.", tsuite->name, i);
 		}
 
-	}
-	/** clean up **/
-	rc = funcs->C_DestroyObject(session, h_key);
-	if (rc != CKR_OK) {
-		testcase_error("C_DestroyObject rc=%s",	p11_get_ckr(rc));
+		/** clean up **/
+		rc = funcs->C_DestroyObject(session, h_key);
+		if (rc != CKR_OK) {
+			testcase_error("C_DestroyObject rc=%s",
+					p11_get_ckr(rc));
+			goto testcase_cleanup;
+		}
 	}
 	goto testcase_cleanup;
 
@@ -742,10 +825,10 @@ testcase_cleanup:
 CK_RV do_DecryptUpdateAES(struct published_test_suite_info *tsuite)
 {
 	int			i;
-	CK_BYTE			actual[BIG_REQUEST];    // decryption buffer
+	CK_BYTE			cipher[BIG_REQUEST];
 	CK_BYTE			expected[BIG_REQUEST];  // decrypted data
-	CK_ULONG		actual_len, expected_len, original_len, k;
-	CK_ULONG		psize;
+	CK_BYTE			plaintext[BIG_REQUEST];
+	CK_ULONG		cipher_len, expected_len, p_len, k;
 	CK_ULONG		user_pin_len;
 	CK_BYTE			user_pin[PKCS11_MAX_PIN_LEN];
 	CK_SESSION_HANDLE	session;
@@ -790,23 +873,16 @@ CK_RV do_DecryptUpdateAES(struct published_test_suite_info *tsuite)
 
 		/** clear buffers **/
 		memset(expected, 0, sizeof(expected));
-		memset(actual, 0, sizeof(actual));
+		memset(cipher, 0, sizeof(cipher));
+		memset(plaintext, 0, sizeof(plaintext));
 
 		/** get plaintext (expected results) **/
 		expected_len = tsuite->tv[i].plen;
 		memcpy(expected, tsuite->tv[i].plaintext, expected_len);
 
-		/** get plaintext **/
-		original_len = tsuite->tv[i].clen;
-		actual_len = original_len;
-		memcpy(actual, tsuite->tv[i].ciphertext, actual_len);
-
-		/** ecb, cbc, cfb, ctr, ofb modes all have restrictions
-		 ** on total length of the plaintext. It is either the
-		 ** multiple of the blocksize, s-bit-size, or none.
-		 ** Get this info to use in beloe loop.
-		 **/
-		psize = tsuite->size;
+		p_len = sizeof(plaintext);
+		cipher_len = tsuite->tv[i].clen;
+		memcpy(cipher, tsuite->tv[i].ciphertext, cipher_len);
 
 		/** multipart (in-place) decryption **/
 		rc = funcs->C_DecryptInit(session, &mech, h_key);
@@ -815,44 +891,72 @@ CK_RV do_DecryptUpdateAES(struct published_test_suite_info *tsuite)
 			goto error;
 		}
 
-		k = original_len;
-		actual_len = 0;
-		while (actual_len < original_len) {
-			rc = funcs->C_DecryptUpdate(session,
-						&actual[actual_len],
-						psize,
-						&actual[actual_len],
-						&k);
+		/* for chunks, -1 is NULL, and 0 is empty string,
+		 * and a value > 0 is amount of data from test vector's
+		 * plaintext data. This way we test vary-sized chunks.
+		 */
+		if (tsuite->tv[i].num_chunks) {
+			int j;
+			CK_ULONG outlen, len;
+			CK_BYTE *data_chunk = NULL;
 
+			k = 0;
+			p_len = 0;
+			outlen = sizeof(plaintext);
+			for (j = 0; j < tsuite->tv[i].num_chunks; j++) {
+				if (tsuite->tv[i].chunks[j] == -1) {
+					len = 0;
+					data_chunk = NULL;
+				} else if (tsuite->tv[i].chunks[j] == 0) {
+					len = 0;
+					data_chunk = (CK_BYTE *)"";
+				} else {
+					len = tsuite->tv[i].chunks[j];
+					data_chunk = cipher + k;
+				}
+
+				rc = funcs->C_DecryptUpdate(session, data_chunk,
+							    len,
+							    &plaintext[p_len],
+							    &outlen);
+				if (rc != CKR_OK) {
+					testcase_error("C_DecryptUpdate rc=%s",
+							p11_get_ckr(rc));
+					goto error;
+				}
+				k += len;
+				p_len += outlen;
+				outlen = sizeof(plaintext) - p_len;
+			}
+		} else {
+			p_len = sizeof(plaintext);
+			rc = funcs->C_DecryptUpdate(session, cipher, cipher_len,
+						    plaintext, &p_len);
 			if (rc != CKR_OK) {
 				testcase_error("C_DecryptUpdate rc=%s",
-					p11_get_ckr(rc));
+						p11_get_ckr(rc));
 				goto error;
 			}
-
-			actual_len += k;
-			k = original_len - k;
 		}
 
-		/** according to pkcs11 spec,
-			nothing should be returned in final. **/
-		rc = funcs->C_DecryptFinal(session, &actual[actual_len], &k);
+		k = sizeof(plaintext) - p_len;
+		rc = funcs->C_DecryptFinal(session, &plaintext[p_len], &k);
 		if (rc != CKR_OK) {
-			testcase_error("C_EncryptFinal rc=%s", p11_get_ckr(rc));
-				goto error;
+			testcase_error("C_DecryptFinal rc=%s", p11_get_ckr(rc));
+			goto error;
 		}
 
 		/** compare decryption results with expected results. **/
 		testcase_new_assertion();
 
-		if (actual_len != expected_len) {
+		if (p_len != expected_len) {
 			testcase_fail("decrypted multipart data length does "
 				"not match test vector's decrypted data "
 				"length.\n\nexpected length=%ld, but found "
-				"length=%ld\n", expected_len, actual_len);
+				"length=%ld\n", expected_len, p_len);
 		}
 
-		else if (memcmp(actual, expected, expected_len)) {
+		else if (memcmp(plaintext, expected, expected_len)) {
 			testcase_fail("decrypted multipart data does not match"
 				" test vector's decrypted data.\n");
 		}
@@ -861,15 +965,15 @@ CK_RV do_DecryptUpdateAES(struct published_test_suite_info *tsuite)
 			testcase_pass("%s Multipart Decryption with test "
 				"vector %d passed.", tsuite->name, i);
 		}
-	}
-	/** clean up **/
-	rc = funcs->C_DestroyObject(session, h_key);
-	if (rc != CKR_OK) {
-		testcase_error("C_DestroyObject rc=%s", p11_get_ckr(rc));
-		goto testcase_cleanup;
+
+		rc = funcs->C_DestroyObject(session, h_key);
+		if (rc != CKR_OK) {
+			testcase_error("C_DestroyObject rc=%s",
+					p11_get_ckr(rc));
+			goto testcase_cleanup;
+		}
 	}
 	goto testcase_cleanup;
-
 error:
 	rc = funcs->C_DestroyObject(session, h_key);
 	if (rc != CKR_OK)
@@ -1360,7 +1464,6 @@ CK_RV do_WrapUnwrapRSA(struct generated_test_suite_info *tsuite)
 			}
 		}
 	}
-	goto testcase_cleanup;
 
 testcase_cleanup:
 	testcase_close_session();
