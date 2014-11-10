@@ -2954,6 +2954,9 @@ CK_RV token_specific_sign_update(SESSION *session, CK_BYTE *in_data,
 	CK_RV rc;
 	SIGN_VERIFY_CONTEXT *ctx = &session->sign_ctx;
 
+	if (!in_data || !in_data_len)
+		return CKR_OK;
+
 	rc = m_SignUpdate(ctx->context, ctx->context_len, in_data,
 			  in_data_len, ep11tok_target);
 
@@ -3055,6 +3058,9 @@ CK_RV token_specific_verify_update(SESSION *session, CK_BYTE *in_data,
 	CK_RV rc;
 	SIGN_VERIFY_CONTEXT *ctx = &session->verify_ctx;
 
+	if (!in_data || !in_data_len)
+		return CKR_OK;
+
 	rc = m_VerifyUpdate(ctx->context, ctx->context_len, in_data,
 				in_data_len, ep11tok_target);
 
@@ -3134,6 +3140,11 @@ CK_RV token_specific_decrypt_update(SESSION *session, CK_BYTE_PTR input_part,
 	CK_RV rc = CKR_OK;
 	ENCR_DECR_CONTEXT *decr_ctx = &session->decr_ctx;
 
+	if (!input_part || !input_part_len) {
+		*p_output_part_len = 0;
+		return CKR_OK; /* nothing to update, keep context */
+	}
+
 	rc = m_DecryptUpdate(decr_ctx->context,decr_ctx->context_len,
 			     input_part, input_part_len, output_part,
 			     p_output_part_len, ep11tok_target) ;
@@ -3195,6 +3206,11 @@ CK_RV token_specific_encrypt_update(SESSION *session, CK_BYTE_PTR input_part,
 {
 	CK_RV rc = CKR_OK;
 	ENCR_DECR_CONTEXT *encr_ctx = &session->encr_ctx;
+
+	if (!input_part || !input_part_len) {
+		*p_output_part_len = 0;
+		return CKR_OK; /* nothing to update, keep context */
+	}
 
 	rc = m_EncryptUpdate(encr_ctx->context, encr_ctx->context_len,
 			     input_part, input_part_len, output_part,

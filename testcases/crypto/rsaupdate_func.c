@@ -607,6 +607,17 @@ CK_RV do_VerifyUpdateRSA(struct PUBLISHED_TEST_SUITE_INFO *tsuite)
 		testcase_begin("%s Verify with test vector %d.",
 				tsuite->name, i);
 		
+		// special case for EP11
+		// modulus length must be multiple of 128 byte
+		// skip test if modulus length has unsuported size
+		if (is_ep11_token(slot_id)) {
+			if ((tsuite->tv[i].mod_len%128) != 0){
+				testcase_skip("EP11 Token cannot be used with "
+					"this key size (no 128bit granularity).");
+				continue;
+			}
+		}
+
 		if (is_ep11_token(slot_id)) {
 			if (! is_valid_ep11_pubexp(tsuite->tv[i].pub_exp,
 			    tsuite->tv[i].pubexp_len)) {
@@ -800,6 +811,17 @@ CK_RV do_SignUpdateRSA(struct PUBLISHED_TEST_SUITE_INFO *tsuite)
 				continue;
 			}
 
+		}
+
+		// special case for EP11
+		// modulus length must be multiple of 128 byte
+		// skip test if modulus length has unsuported size
+		if (is_ep11_token(slot_id)) {
+			if ((tsuite->tv[i].mod_len%128) != 0){
+				testcase_skip("EP11 Token cannot be used with "
+					"this key size (no 128bit granularity).");
+				continue;
+			}
 		}
 
 		if (is_ep11_token(slot_id)) {
