@@ -2988,8 +2988,8 @@ int icsf_hash_signverify(LDAP *ld, int *reason, struct icsf_object_record *key,
 		return -1;
 	}
 
-	if (ber_printf(msg, "ooo", clear_text, clear_text_len,
-		      (chain_data) ? chain_data : "",
+	if (ber_printf(msg, "ooo", (clear_text) ? clear_text : "",
+		       clear_text_len, (chain_data) ? chain_data : "",
 		      (chain_data_len) ? *chain_data_len : 0UL,
 		      (sig) ? sig : "", (sig_len) ? *sig_len : 0) < 0) {
 		rc = -1;
@@ -3018,7 +3018,7 @@ int icsf_hash_signverify(LDAP *ld, int *reason, struct icsf_object_record *key,
 	}
 
 	/* Only need to return the length for signing */
-	if (!verify)
+	if (sig_len && !verify)
 		*sig_len = length;
 
 	/* leave if just returning the length. */

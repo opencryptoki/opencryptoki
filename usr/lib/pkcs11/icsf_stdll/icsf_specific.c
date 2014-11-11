@@ -3645,7 +3645,12 @@ token_specific_sign_update(SESSION *session, CK_BYTE *in_data,
 		if (rc != 0) {
 			OCK_LOG_ERR(CKR_FUNCTION_FAILED);
 			rc = icsf_to_ock_err(rc, reason);
+		} else {
+			multi_part_ctx->initiated = TRUE;
+			memcpy(multi_part_ctx->chain_data, chain_data,
+			       chain_data_len);
 		}
+
 		if (buffer)
 			free(buffer);
 
@@ -3659,11 +3664,6 @@ token_specific_sign_update(SESSION *session, CK_BYTE *in_data,
 done:
 	if (rc != 0)
 		free_sv_ctx(ctx);
-	else {
-		if (multi_part_ctx->initiated == FALSE)
-			multi_part_ctx->initiated = TRUE;
-		memcpy(multi_part_ctx->chain_data, chain_data, chain_data_len);
-	}
 
 	return rc;
 }
@@ -3758,7 +3758,8 @@ token_specific_sign_final(SESSION *session, CK_BBOOL length_only,
 		}
 
 		rc = icsf_hash_signverify(session_state->ld, &reason,
-				&mapping->icsf_object, &ctx->mech, "LAST",
+				&mapping->icsf_object, &ctx->mech,
+				multi_part_ctx->initiated ? "LAST":"ONLY",
 				(buffer) ? buffer : NULL,
 				multi_part_ctx->used_data_len, signature,
 				sig_len, chain_data, &chain_data_len, 0);
@@ -4170,11 +4171,15 @@ token_specific_verify_update(SESSION *session, CK_BYTE *in_data,
 				&mapping->icsf_object, &ctx->mech,
 				(multi_part_ctx->initiated) ? "MIDDLE":"FIRST",
 				buffer, out_len, NULL, NULL,
-				chain_data, &chain_data_len, 0);
+				chain_data, &chain_data_len, 1);
 
 		if (rc != 0) {
 			OCK_LOG_ERR(CKR_FUNCTION_FAILED);
 			rc = icsf_to_ock_err(rc, reason);
+		} else {
+			multi_part_ctx->initiated = TRUE;
+			memcpy(multi_part_ctx->chain_data, chain_data,
+			       chain_data_len);
 		}
 		if (buffer)
 			free(buffer);
@@ -4189,11 +4194,6 @@ token_specific_verify_update(SESSION *session, CK_BYTE *in_data,
 done:
 	if (rc != 0)
 		free_sv_ctx(ctx);
-	else {
-		if (multi_part_ctx->initiated == FALSE)
-			multi_part_ctx->initiated = TRUE;
-		memcpy(multi_part_ctx->chain_data, chain_data, chain_data_len);
-	}
 
 	return rc;
 }
@@ -4279,10 +4279,11 @@ token_specific_verify_final(SESSION *session, CK_BYTE *signature,
 		}
 
 		rc = icsf_hash_signverify(session_state->ld, &reason,
-				&mapping->icsf_object, &ctx->mech, "LAST",
+				&mapping->icsf_object, &ctx->mech,
+				multi_part_ctx->initiated ? "LAST":"ONLY",
 				(buffer) ? buffer : NULL,
 				multi_part_ctx->used_data_len, signature,
-				&sig_len, chain_data, &chain_data_len, 0);
+				&sig_len, chain_data, &chain_data_len, 1);
 
 		if (rc != 0)
 			rc = icsf_to_ock_err(rc, reason);
