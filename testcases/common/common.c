@@ -410,6 +410,38 @@ int is_valid_cca_pubexp(CK_BYTE pubexp[], CK_ULONG pubexp_len)
                 || (pubexp_len == 3 && (! memcmp(pubexp, exp65537, 3) ));
 }
 
+/** Returns true if slot_id is an ICSF token
+ ** ICSF token info is not necessarily hard-coded like the other tokens
+ ** so there is no single identifying attribute. So, instead just
+ ** use logical deduction....
+ **/
+int is_icsf_token(CK_SLOT_ID slot_id)
+{
+        CK_RV           rc;
+        CK_TOKEN_INFO   tokinfo;
+
+        rc = funcs->C_GetTokenInfo(slot_id, &tokinfo);
+        if (rc != CKR_OK) {
+                return -1;
+        }
+
+	if ((strstr((const char *)tokinfo.model, "ICA") == NULL) &&
+	    (strstr((const char *)tokinfo.model, "EP11") == NULL) &&
+	    (strstr((const char *)tokinfo.model, "CCA") == NULL) &&
+	    (strstr((const char *)tokinfo.model, "SoftTok") == NULL))
+		return TRUE;
+	else
+		return FALSE;
+}
+
+/** Returns true if pubexp is valid for ICSF token **/
+int is_valid_icsf_pubexp(CK_BYTE pubexp[], CK_ULONG pubexp_len)
+{
+        CK_BYTE exp65537[] = {0x01,0x00,0x01}; // 65537
+
+        return (pubexp_len == 3 && (! memcmp(pubexp, exp65537, 3) ));
+}
+
 /** Returns true if slot_id is an ICA Token **/
 int is_ica_token(CK_SLOT_ID slot_id)
 {

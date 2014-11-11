@@ -120,6 +120,15 @@ CK_RV do_SignVerifyUpdateRSA(struct GENERATED_TEST_SUITE_INFO *tsuite)
                         }
                 }
 
+		if (is_icsf_token(slot_id)) {
+                        if (!is_valid_icsf_pubexp(tsuite->tv[i].publ_exp,
+                            tsuite->tv[i].publ_exp_len) ||
+			    (tsuite->tv[i].modbits < 1024)) {
+                                testcase_skip("ICSF Token cannot "
+                                        "be used with publ_exp='%s'.",s);
+                                continue;
+                        }
+		}
 
                 // free memory
                 free(s);
@@ -143,7 +152,7 @@ CK_RV do_SignVerifyUpdateRSA(struct GENERATED_TEST_SUITE_INFO *tsuite)
                 if (rc != CKR_OK) {
                         testcase_error("generate_RSA_PKCS_KeyPair(), "
 					"rc=%s", p11_get_ckr(rc));
-                        goto error;
+                        goto testcase_cleanup;
                 }
 
 		// generate message
