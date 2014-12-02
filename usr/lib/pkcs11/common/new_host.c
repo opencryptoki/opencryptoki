@@ -521,7 +521,7 @@ check_user_and_group()
 	euid = geteuid();
 
 	/* Root or effective Root is ok */
-	if (uid != 0 && euid != 0)
+	if (uid == 0 || euid == 0)
 		return CKR_OK;
 
 	/*
@@ -541,8 +541,8 @@ check_user_and_group()
 	pw = getpwuid(uid);
 	epw = getpwuid(euid);
 	for (i = 0; grp->gr_mem[i]; i++) {
-		if ((pw && strcmp(pw->pw_name, grp->gr_mem[i]) == 0) ||
-		    (epw && strcmp(epw->pw_name, grp->gr_mem[i]) == 0))
+		if ((pw && (strncmp(pw->pw_name, grp->gr_mem[i], strlen(pw->pw_name)) == 0)) ||
+		    (epw && (strncmp(epw->pw_name, grp->gr_mem[i], strlen(epw->pw_name)) == 0)))
 			return CKR_OK;
 	}
 

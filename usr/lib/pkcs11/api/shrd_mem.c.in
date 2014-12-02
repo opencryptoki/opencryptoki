@@ -340,6 +340,7 @@ attach_shared_memory() {
    struct stat statbuf;
    struct group *grp;
    struct passwd *pw, *epw;
+   uid_t uid, euid;
 
 #if !(MMAP)
    // Really should fstat the tok_path, since it will be the actual
@@ -351,42 +352,36 @@ attach_shared_memory() {
       return NULL;
    }
 
-
-   // SAB check for the group id here and membership here as well
-   grp = getgrnam("pkcs11");
-   if ( grp ) {
-        int i=0;
-        char member=0;
-
-        pw = getpwuid(getuid());
-
-        epw = getpwuid(geteuid());
-
-        while( grp->gr_mem[i] ) {
-           if (pw) {
-             if ( strncmp(pw->pw_name, grp->gr_mem[i],strlen(pw->pw_name)) == 0 ){
-                member = 1;
-                break;
-             }
-           }
-           if (epw) {
-              if ( strncmp(epw->pw_name, grp->gr_mem[i],strlen(epw->pw_name)) == 0 ){
-                  member = 1;
-                  break; 
-              }
-           }
-           i++;
-        }
-        if ( ! member ) {
-             return NULL;  // SAB don't bother even attaching...
-        }
-
-
-   } else {
-        return NULL;
+   uid = getuid();
+   euid = geteuid();
+   // only check group membership if not root user
+   if (uid != 0 && euid != 0) {
+	   int i, member=0;
+	   grp = getgrnam("pkcs11");
+	   if (!grp) {
+		   // group pkcs11 not known to the system
+		   return NULL;
+	   }
+	   pw = getpwuid(uid);
+	   epw = getpwuid(euid);
+	   for (i=0; grp->gr_mem[i]; i++) {
+		   if (pw) {
+			   if (!strncmp(pw->pw_name, grp->gr_mem[i],strlen(pw->pw_name))) {
+				   member = 1;
+				   break;
+			   }
+		   }
+		   if (epw) {
+			   if (!strncmp(epw->pw_name, grp->gr_mem[i],strlen(epw->pw_name))) {
+				   member = 1;
+				   break; 
+			   }
+		   }
+	   }
+	   if (!member) {
+		   return NULL;
+	   }
    }
-
-
    
    Anchor->shm_tok = ftok(TOK_PATH,'b');
 
