@@ -46,7 +46,7 @@ opencryptoki_stdll_libpkcs11_ep11_la_SOURCES = ../common/asn1.c		\
 					     ../common/p11util.c	\
 					     ../common/utility.c	\
 					     ../common/verify_mgr.c	\
-					     ../common/log.c		\
+					     ../common/trace.c		\
 					     ../common/mech_list.c      \
 					     ../common/shared_memory.c	\
 					     ../common/attributes.c     \

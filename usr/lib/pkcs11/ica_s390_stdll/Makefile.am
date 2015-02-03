@@ -49,7 +49,7 @@ opencryptoki_stdll_libpkcs11_ica_la_SOURCES = ../common/asn1.c		\
 					      ../common/p11util.c	\
 					      ../common/utility.c	\
 					      ../common/verify_mgr.c	\
-					      ../common/log.c		\
+					      ../common/trace.c		\
 					      ../common/mech_list.c	\
 					      ../common/shared_memory.c	\
 					      ica_specific.c

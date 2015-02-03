@@ -24,7 +24,7 @@ opencryptoki_stdll_libpkcs11_tpm_la_SOURCES = ../common/asn1.c		\
 					      ../common/btree.c		\
 					      ../common/dig_mgr.c	\
 					      ../common/hwf_obj.c	\
-					      ../common/log.c		\
+					      ../common/trace.c		\
 					      ../common/key.c		\
 					      ../common/mech_dh.c	\
 					      ../common/mech_rng.c	\

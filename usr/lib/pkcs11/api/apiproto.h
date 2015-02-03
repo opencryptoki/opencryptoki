@@ -305,7 +305,6 @@
 #define _APIEXT_H
 
 #include "apictl.h"
-#include "msg.h"
 
 void *attach_shared_memory();
 void  detach_shared_memory(char *);

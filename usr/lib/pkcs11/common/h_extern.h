@@ -309,7 +309,6 @@
 #define _H_EXTERN_H
 
 #include <stdio.h>
-#include "msg.h"
 
 #if (LEEDS_BUILD)
 #pragma options align=packed

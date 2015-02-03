@@ -15,7 +15,7 @@ opencryptoki_libopencryptoki_la_CFLAGS = -DAPI -DDEV -D_THREAD_SAFE 		\
 
 opencryptoki_libopencryptoki_la_SOURCES = api_interface.c shrd_mem.c \
 					  socket_client.c apiutil.c \
-					  ../common/btree.c ../common/log.c
+					  ../common/btree.c ../common/trace.c
 
 install-data-hook:
 	$(MKDIR_P) $(DESTDIR)$(libdir)/opencryptoki/stdll

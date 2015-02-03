@@ -43,6 +43,9 @@ dnl Define custom variables
 lockdir=$localstatedir/lock/opencryptoki
 AC_SUBST(lockdir)
 
+logdir=$localstatedir/log/opencryptoki
+AC_SUBST(logdir)
+
 dnl ---
 dnl --- Check all --enable/--disable-features
 dnl ---
@@ -573,7 +576,7 @@ AM_CONDITIONAL([ENABLE_PKCSEP11_MIGRATE], [test "x$enable_pkcsep11_migrate" = "x
 
 CFLAGS="$CFLAGS -DPKCS64 -D_XOPEN_SOURCE=500"
 
-CFLAGS+=' -DCONFIG_PATH=\"$(localstatedir)/lib/opencryptoki\" -DSBIN_PATH=\"$(sbindir)\" -DLIB_PATH=\"$(libdir)\" -DLOCKDIR_PATH=\"$(lockdir)\" -DOCK_CONFDIR=\"$(sysconfdir)/opencryptoki\"' 
+CFLAGS+=' -DCONFIG_PATH=\"$(localstatedir)/lib/opencryptoki\" -DSBIN_PATH=\"$(sbindir)\" -DLIB_PATH=\"$(libdir)\" -DLOCKDIR_PATH=\"$(lockdir)\" -DOCK_CONFDIR=\"$(sysconfdir)/opencryptoki\" -DOCK_LOGDIR=\"$(logdir)\"'
 
 # At this point, CFLAGS is set to something sensible
 AC_PROG_CC

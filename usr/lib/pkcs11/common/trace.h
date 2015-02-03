@@ -8,10 +8,10 @@
 
              1. DEFINITIONS
 
-             "Contribution" means: 
+             "Contribution" means:
                    a) in the case of the initial Contributor, the
                    initial code and documentation distributed under
-                   this Agreement, and 
+                   this Agreement, and
 
                    b) in the case of each subsequent Contributor:
                    i) changes to the Program, and
@@ -35,7 +35,7 @@
              "Licensed Patents " mean patent claims licensable by a
              Contributor which are necessarily infringed by the use or
              sale of its Contribution alone or when combined with the
-             Program. 
+             Program.
 
              "Program" means the Contributions distributed in
              accordance with this Agreement.
@@ -130,7 +130,7 @@
                    a) it must be made available under this Agreement;
                    and
                    b) a copy of this Agreement must be included with
-                   each copy of the Program. 
+                   each copy of the Program.
 
              Contributors may not remove or alter any copyright notices
              contained within the Program.
@@ -138,7 +138,7 @@
              Each Contributor must identify itself as the originator of
              its Contribution, if any, in a manner that reasonably
              allows subsequent Recipients to identify the originator of
-             the Contribution. 
+             the Contribution.
 
 
              4. COMMERCIAL DISTRIBUTION
@@ -199,7 +199,7 @@
              Agreement, including but not limited to the risks and
              costs of program errors, compliance with applicable laws,
              damage to or loss of data, programs or equipment, and
-             unavailability or interruption of operations. 
+             unavailability or interruption of operations.
 
              6. DISCLAIMER OF LIABILITY
              EXCEPT AS EXPRESSLY SET FORTH IN THIS AGREEMENT, NEITHER
@@ -248,7 +248,7 @@
              use and distribution of the Program as soon as reasonably
              practicable. However, Recipient's obligations under this
              Agreement and any licenses granted by Recipient relating
-             to the Program shall continue and survive. 
+             to the Program shall continue and survive.
 
              Everyone is permitted to copy and distribute copies of
              this Agreement, but in order to avoid inconsistency the
@@ -280,85 +280,138 @@
              States of America. No party to this Agreement will bring a
              legal action under this Agreement more than one year after
              the cause of action arose. Each party waives its rights to
-             a jury trial in any resulting litigation. 
+             a jury trial in any resulting litigation.
+
+
 */
-/* (C) COPYRIGHT International Business Machines Corp. 2001,2002          */
 
-#include <stdio.h>
-#include <string.h>
-#include <stdlib.h>
-#include <stdint.h>
-#include <sys/types.h>
-#include <sys/stat.h>
-#include <openssl/des.h>
-#include <fcntl.h>
-#include "pkcs11types.h"
-#include "p11util.h"
-#include "defs.h"
-#include "host_defs.h"
-#include "h_extern.h"
-#include "sw_crypt.h"
+/* (C) COPYRIGHT International Business Machines Corp. 2015 */
 
-CK_RV
-sw_des3_cbc(CK_BYTE * in_data,
-	    CK_ULONG in_data_len,
-	    CK_BYTE *out_data,
-	    CK_ULONG *out_data_len,
-	    CK_BYTE *init_v,
-	    CK_BYTE  *key_value,
-	    CK_BYTE  encrypt)
-{
-	des_key_schedule des_key1;
-	des_key_schedule des_key2;
-	des_key_schedule des_key3;
+#ifndef _TRACE_H
+#define _TRACE_H
 
-	const_des_cblock key_SSL1, key_SSL2, key_SSL3;
-	des_cblock ivec;
+/* pkcs11 error messages */
 
-	OCK_LOG_DEBUG("Enter");
+enum errmsg {
+ERR_HOST_MEMORY = 0,
+ERR_SLOT_ID_INVALID,
+ERR_GENERAL_ERROR,
+ERR_FUNCTION_FAILED,
+ERR_ARGUMENTS_BAD,
+ERR_NO_EVENT,
+ERR_ATTRIBUTE_READ_ONLY,
+ERR_ATTRIBUTE_SENSITIVE,
+ERR_ATTRIBUTE_TYPE_INVALID,
+ERR_ATTRIBUTE_VALUE_INVALID,
+ERR_DATA_INVALID,
+ERR_DATA_LEN_RANGE,
+ERR_DEVICE_ERROR,
+ERR_DEVICE_MEMORY,
+ERR_DEVICE_REMOVED,
+ERR_ENCRYPTED_DATA_INVALID,
+ERR_ENCRYPTED_DATA_LEN_RANGE,
+ERR_FUNCTION_CANCELED,
+ERR_FUNCTION_NOT_PARALLEL,
+ERR_FUNCTION_NOT_SUPPORTED,
+ERR_KEY_CHANGED,
+ERR_KEY_FUNCTION_NOT_PERMITTED,
+ERR_KEY_HANDLE_INVALID,
+ERR_KEY_INDIGESTIBLE,
+ERR_KEY_NEEDED,
+ERR_KEY_NOT_NEEDED,
+ERR_KEY_NOT_WRAPPABLE,
+ERR_KEY_SIZE_RANGE,
+ERR_KEY_TYPE_INCONSISTENT,
+ERR_KEY_UNEXTRACTABLE,
+ERR_MECHANISM_INVALID,
+ERR_MECHANISM_PARAM_INVALID,
+ERR_OBJECT_HANDLE_INVALID,
+ERR_OPERATION_ACTIVE,
+ERR_OPERATION_NOT_INITIALIZED,
+ERR_PIN_INCORRECT,
+ERR_PIN_INVALID,
+ERR_PIN_LEN_RANGE,
+ERR_PIN_EXPIRED,
+ERR_PIN_LOCKED,
+ERR_SESSION_CLOSED,
+ERR_SESSION_COUNT,
+ERR_SESSION_HANDLE_INVALID,
+ERR_SESSION_PARALLEL_NOT_SUPPORTED,
+ERR_SESSION_READ_ONLY,
+ERR_SESSION_EXISTS,
+ERR_SESSION_READ_ONLY_EXISTS,
+ERR_SESSION_READ_WRITE_SO_EXISTS,
+ERR_SIGNATURE_INVALID,
+ERR_SIGNATURE_LEN_RANGE,
+ERR_TEMPLATE_INCOMPLETE,
+ERR_TEMPLATE_INCONSISTENT,
+ERR_TOKEN_NOT_PRESENT,
+ERR_TOKEN_NOT_RECOGNIZED,
+ERR_TOKEN_WRITE_PROTECTED,
+ERR_UNWRAPPING_KEY_HANDLE_INVALID,
+ERR_UNWRAPPING_KEY_SIZE_RANGE,
+ERR_UNWRAPPING_KEY_TYPE_INCONSISTENT,
+ERR_USER_ALREADY_LOGGED_IN,
+ERR_USER_NOT_LOGGED_IN,
+ERR_USER_PIN_NOT_INITIALIZED,
+ERR_USER_TYPE_INVALID,
+ERR_USER_ANOTHER_ALREADY_LOGGED_IN,
+ERR_USER_TOO_MANY_TYPES,
+ERR_WRAPPED_KEY_INVALID,
+ERR_WRAPPED_KEY_LEN_RANGE,
+ERR_WRAPPING_KEY_HANDLE_INVALID,
+ERR_WRAPPING_KEY_SIZE_RANGE,
+ERR_WRAPPING_KEY_TYPE_INCONSISTENT,
+ERR_RANDOM_SEED_NOT_SUPPORTED,
+ERR_DOMAIN_PARAMS_INVALID,
+ERR_BUFFER_TOO_SMALL,
+ERR_SAVED_STATE_INVALID,
+ERR_INFORMATION_SENSITIVE,
+ERR_STATE_UNSAVEABLE,
+ERR_CRYPTOKI_NOT_INITIALIZED,
+ERR_CRYPTOKI_ALREADY_INITIALIZED,
+ERR_MUTEX_BAD,
+ERR_MUTEX_NOT_LOCKED,
+ERR_MAX,
+};
 
-	// the des decrypt will only fail if the data length is not evenly divisible
-	// by 8
-	if (in_data_len % 8) {
-		OCK_LOG_ERR(ERR_DATA_LEN_RANGE);
-		OCK_LOG_DEBUG("CKR_DATA_LEN_RANGE");
-		return CKR_DATA_LEN_RANGE;
-	}
+/* Log levels */
+typedef enum {
+	TRACE_LEVEL_NONE = 0,
+	TRACE_LEVEL_ERROR,
+	TRACE_LEVEL_WARNING,
+	TRACE_LEVEL_INFO,
+	TRACE_LEVEL_DEBUG,
+	TRACE_LEVEL_DEVEL
+} trace_level_t;
 
-	// The key as passed in is a 24 byte string containing 3 keys
-	// pick it apart and create the key schedules
-	memcpy(&key_SSL1, key_value, (size_t)8);
-	memcpy(&key_SSL2, key_value+8, (size_t)8);
-	memcpy(&key_SSL3, key_value+16, (size_t)8);
-	des_set_key_unchecked(&key_SSL1, des_key1);
-	des_set_key_unchecked(&key_SSL2, des_key2);
-	des_set_key_unchecked(&key_SSL3, des_key3);
 
-	memcpy(ivec, init_v, sizeof(ivec));
+/* Encapsulate all trace variables */
+struct trace_handle_t {
+	int fd;				/* file descriptor for filename */
+	int level;			/* trace level */
+};
 
-	// Encrypt or decrypt the data
-	if (encrypt) {
-		des_ede3_cbc_encrypt(in_data,
-				out_data,
-				in_data_len,
-				des_key1,
-				des_key2,
-				des_key3,
-				&ivec,
-				DES_ENCRYPT);
-		*out_data_len = in_data_len;
-	} else {
-		des_ede3_cbc_encrypt(in_data,
-				out_data,
-				in_data_len,
-				des_key1,
-				des_key2,
-				des_key3,
-				&ivec,
-				DES_DECRYPT);
+extern struct trace_handle_t trace;
 
-		*out_data_len = in_data_len;
-	}
+void set_trace(struct trace_handle_t t);
+CK_RV trace_initialize();
+void trace_finalize();
+void ock_traceit(trace_level_t level, const char *fmt, ...);
+const char *ock_err(int num);
 
-	return CKR_OK;
-}
+#define TRACE_ERROR(fmt, ...)	ock_traceit(TRACE_LEVEL_ERROR, "[%s:%d %s] ERROR: " fmt, __FILE__, __LINE__, STDLL_NAME, ##__VA_ARGS__)
+#define TRACE_WARNING(fmt, ...)	ock_traceit(TRACE_LEVEL_WARNING, "[%s:%d %s] WARN: " fmt, __FILE__, __LINE__, STDLL_NAME, ##__VA_ARGS__)
+#define TRACE_INFO(fmt, ...)	ock_traceit(TRACE_LEVEL_INFO, "[%s:%d %s] INFO: " fmt, __FILE__, __LINE__, STDLL_NAME, ##__VA_ARGS__)
+#define TRACE_DEBUG(fmt, ...)	ock_traceit(TRACE_LEVEL_DEBUG, "[%s:%d %s] DEBUG: " fmt, __FILE__, __LINE__, STDLL_NAME, ##__VA_ARGS__)
+
+#ifdef DEBUG
+#define TRACE_DEVEL(fmt, ...)	ock_traceit(TRACE_LEVEL_DEVEL, "[%s:%d %s] DEVEL: " fmt, __FILE__, __LINE__, STDLL_NAME, ##__VA_ARGS__)
+void dump_shm(const char *);
+#define DUMP_SHM(x)	dump_shm(x)
+#else
+#define TRACE_DEVEL(fmt, ...)
+#define DUMP_SHM(x)
+#endif
+
+#endif

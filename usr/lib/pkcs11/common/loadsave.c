@@ -342,7 +342,7 @@ static CK_RV get_encryption_info_for_clear_key(CK_ULONG *p_key_len,
 		break;
 	default:
 		OCK_LOG_ERR(ERR_MECHANISM_INVALID);
-		return ERR_MECHANISM_INVALID;
+		return CKR_MECHANISM_INVALID;
 	}
 
 	if (p_key_len)
@@ -420,7 +420,7 @@ static CK_RV encrypt_data(CK_BYTE *key, CK_ULONG keylen, const CK_BYTE *iv,
 		break;
 	default:
 		OCK_LOG_ERR(ERR_MECHANISM_INVALID);
-		return ERR_MECHANISM_INVALID;
+		return CKR_MECHANISM_INVALID;
 	}
 	rc = object_create_skel(key_tmpl, 3, MODE_CREATE, CKO_SECRET_KEY,
 				keyType, &keyobj);
@@ -432,7 +432,7 @@ static CK_RV encrypt_data(CK_BYTE *key, CK_ULONG keylen, const CK_BYTE *iv,
 	initial_vector = duplicate_initial_vector(iv);
 	if (initial_vector == NULL) {
 		OCK_LOG_ERR(ERR_HOST_MEMORY);
-		return ERR_HOST_MEMORY;
+		return CKR_HOST_MEMORY;
 	}
 
 	switch (token_specific.data_store.encryption_algorithm) {
@@ -448,7 +448,7 @@ static CK_RV encrypt_data(CK_BYTE *key, CK_ULONG keylen, const CK_BYTE *iv,
 		break;
 	default:
 		OCK_LOG_ERR(ERR_MECHANISM_INVALID);
-		rc = ERR_MECHANISM_INVALID;
+		rc = CKR_MECHANISM_INVALID;
 	}
 
 	if (initial_vector)
@@ -483,7 +483,7 @@ static CK_RV encrypt_data_with_clear_key(CK_BYTE *key, CK_ULONG keylen,
 	initial_vector = duplicate_initial_vector(iv);
 	if (initial_vector == NULL) {
 		OCK_LOG_ERR(ERR_HOST_MEMORY);
-		return ERR_HOST_MEMORY;
+		return CKR_HOST_MEMORY;
 	}
 
 	switch (token_specific.data_store.encryption_algorithm) {
@@ -494,7 +494,7 @@ static CK_RV encrypt_data_with_clear_key(CK_BYTE *key, CK_ULONG keylen,
 		break;
 	default:
 		OCK_LOG_ERR(ERR_MECHANISM_INVALID);
-		rc = ERR_MECHANISM_INVALID;
+		rc = CKR_MECHANISM_INVALID;
 	}
 
 	if (initial_vector)
@@ -534,7 +534,7 @@ static CK_RV decrypt_data(CK_BYTE *key, CK_ULONG keylen, const CK_BYTE *iv,
 		break;
 	default:
 		OCK_LOG_ERR(ERR_MECHANISM_INVALID);
-		return ERR_MECHANISM_INVALID;
+		return CKR_MECHANISM_INVALID;
 	}
 	rc = object_create_skel(key_tmpl, 3, MODE_CREATE, CKO_SECRET_KEY,
 				keyType, &keyobj);
@@ -546,7 +546,7 @@ static CK_RV decrypt_data(CK_BYTE *key, CK_ULONG keylen, const CK_BYTE *iv,
 	initial_vector = duplicate_initial_vector(iv);
 	if (initial_vector == NULL) {
 		OCK_LOG_ERR(ERR_HOST_MEMORY);
-		return ERR_HOST_MEMORY;
+		return CKR_HOST_MEMORY;
 	}
 
 	switch (token_specific.data_store.encryption_algorithm) {
@@ -562,7 +562,7 @@ static CK_RV decrypt_data(CK_BYTE *key, CK_ULONG keylen, const CK_BYTE *iv,
 		break;
 	default:
 		OCK_LOG_ERR(ERR_MECHANISM_INVALID);
-		rc = ERR_MECHANISM_INVALID;
+		rc = CKR_MECHANISM_INVALID;
 	}
 
 	if (initial_vector)
@@ -597,7 +597,7 @@ static CK_RV decrypt_data_with_clear_key(CK_BYTE *key, CK_ULONG keylen,
 	initial_vector = duplicate_initial_vector(iv);
 	if (initial_vector == NULL) {
 		OCK_LOG_ERR(ERR_HOST_MEMORY);
-		return ERR_HOST_MEMORY;
+		return CKR_HOST_MEMORY;
 	}
 
 	switch (token_specific.data_store.encryption_algorithm) {
@@ -607,7 +607,7 @@ static CK_RV decrypt_data_with_clear_key(CK_BYTE *key, CK_ULONG keylen,
 		break;
 	default:
 		OCK_LOG_ERR(ERR_MECHANISM_INVALID);
-		rc = ERR_MECHANISM_INVALID;
+		rc = CKR_MECHANISM_INVALID;
 	}
 
 	if (initial_vector)
@@ -1222,7 +1222,7 @@ CK_RV restore_private_token_object(CK_BYTE * data, CK_ULONG len, OBJECT * pObj)
 	// decrypt the encrypted chunk
 	key = malloc(key_len);
 	if (!key) {
-		rc = ERR_HOST_MEMORY;
+		rc = CKR_HOST_MEMORY;
 		goto done;
 	}
 	memcpy(key, master_key, key_len);
@@ -1326,7 +1326,7 @@ CK_RV load_masterkey_so(void)
 	cipher = malloc(cipher_len);
 	clear = malloc(clear_len);
 	if (key == NULL || cipher == NULL || clear == NULL) {
-		rc = ERR_HOST_MEMORY;
+		rc = CKR_HOST_MEMORY;
 		goto done;
 	}
 
@@ -1433,7 +1433,7 @@ CK_RV load_masterkey_user(void)
 	cipher = malloc(cipher_len);
 	clear = malloc(clear_len);
 	if (key == NULL || cipher == NULL || clear == NULL) {
-		rc = ERR_HOST_MEMORY;
+		rc = CKR_HOST_MEMORY;
 		goto done;
 	}
 
@@ -1540,7 +1540,7 @@ CK_RV save_masterkey_so(void)
 	cipher = malloc(cipher_len);
 	if (key == NULL || clear == NULL || cipher == NULL) {
 		OCK_LOG_ERR(ERR_HOST_MEMORY);
-		rc = ERR_HOST_MEMORY;
+		rc = CKR_HOST_MEMORY;
 		goto done;
 	}
 
@@ -1631,7 +1631,7 @@ CK_RV save_masterkey_user(void)
 	cipher = malloc(cipher_len);
 	if (key == NULL || clear == NULL || cipher == NULL) {
 		OCK_LOG_ERR(ERR_HOST_MEMORY);
-		rc = ERR_HOST_MEMORY;
+		rc = CKR_HOST_MEMORY;
 		goto done;
 	}
 
@@ -1880,7 +1880,7 @@ CK_RV generate_master_key(CK_BYTE *key)
 
 	if ((rc = get_encryption_info_for_clear_key(&key_len, NULL)) != CKR_OK ||
 	    (rc = get_encryption_info(&master_key_len, NULL)) != CKR_OK)
-		return ERR_FUNCTION_FAILED;
+		return CKR_FUNCTION_FAILED;
 
 	/* For secure key tokens, object encrypt/decrypt uses
 	 * software(openssl), not token. So generate masterkey via RNG.
@@ -1900,5 +1900,5 @@ CK_RV generate_master_key(CK_BYTE *key)
 						    key_len);
 	}
 
-	return ERR_MECHANISM_INVALID;
+	return CKR_MECHANISM_INVALID;
 }
