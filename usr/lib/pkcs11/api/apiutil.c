@@ -354,7 +354,7 @@ CK_RV XProcLock(void)
 	if (xplfd != -1)
 		flock(xplfd, LOCK_EX);
 	else
-		OCK_LOG_DEBUG("No file descriptor to lock with.\n");
+		TRACE_DEBUG("No file descriptor to lock with.\n");
 
 	return CKR_OK;
 }
@@ -364,7 +364,7 @@ CK_RV XProcUnLock(void)
 	if (xplfd != -1)
 		flock(xplfd, LOCK_UN);
 	else
-		OCK_LOG_DEBUG("No file descriptor to unlock with.\n");
+		TRACE_DEBUG("No file descriptor to unlock with.\n");
 
 	return CKR_OK;
 }
@@ -572,7 +572,7 @@ void Terminate_All_Process_Sessions()
 	CK_SLOT_ID id;
 	CK_RV rv;
 
-	OCK_LOG_DEBUG("Terminate_All_Process_Sessions\n");
+	TRACE_DEVEL("Terminate_All_Process_Sessions\n");
 	for (id = 0; id < NUMBER_SLOTS_MANAGED; id++) {
 		// Check if the slot is present in the slot manager
 		// if not just skip it...
@@ -585,7 +585,7 @@ void Terminate_All_Process_Sessions()
 		// since we are terminating the session.  
 		// For now we will just log it
 		if (rv != CKR_OK) {
-			OCK_LOG_DEBUG("Terminate_All_Process_Sessions RV %x\n",
+			TRACE_DEVEL("Terminate_All_Process_Sessions RV %x\n",
 				      rv);
 		}
 	}
@@ -677,7 +677,7 @@ int API_Register()
 
 	Anchor->MgrProcIndex = indx;
 
-	OCK_LOG_DEBUG("API_Register MgrProcIndc %d  pid %d \n", procp->proc_id,
+	TRACE_DEBUG("API_Register MgrProcIndc %d  pid %d \n", procp->proc_id,
 		      Anchor->MgrProcIndex);
 
 	//??? What to do about the Mutex and cond variable
@@ -764,9 +764,8 @@ DLL_Load_t *dllload;
 
 	for (i = 0; i < NUMBER_SLOTS_MANAGED; i++) {
 		if (dllload[i].dll_name != NULL) {
-			OCK_LOG_DEBUG
-			    ("DL_LOADED Looking for index %d name %s\n", i,
-			     dllload[i].dll_name);
+			TRACE_DEVEL("DL_LOADED Looking for index %d name %s\n",
+				     i, dllload[i].dll_name);
 			if (strcmp(location, dllload[i].dll_name) == 0) {
 				return i;	// Return the index of the dll
 			}
@@ -787,16 +786,15 @@ DLL_Load_t *dllload;
 {
 	int i;
 
-	OCK_LOG_DEBUG("DL_LOAD\n");
-
+	TRACE_DEVEL("DL_LOAD\n");
 	for (i = 0; i < NUMBER_SLOTS_MANAGED; i++) {
 		if (dllload[i].dll_name == NULL) {
-			OCK_LOG_DEBUG("Empty slot at %d \n", i);
+			TRACE_DEVEL("Empty slot at %d \n", i);
 			break;
 		}
 	}
 	if (i == NUMBER_SLOTS_MANAGED) {
-		OCK_LOG_DEBUG("No empty slots.\n");
+		TRACE_DEVEL("No empty slots.\n");
 		return 0;	// Failed to find it..
 	}
 
@@ -815,7 +813,7 @@ DLL_Load_t *dllload;
 		OCK_SYSLOG(LOG_ERR,
 			   "%s: dlopen() failed for [%s]; dlerror = [%s]\n",
 			   __FUNCTION__, sinfp->dll_location, e);
-		OCK_LOG_DEBUG("DL_Load of %s failed, dlerror: %s\n",
+		TRACE_DEBUG("DL_Load of %s failed, dlerror: %s\n",
 			      sinfp->dll_location, e);
 		sltp->dlop_p = NULL;
 		return 0;
@@ -879,7 +877,7 @@ int DL_Load_and_Init(API_Slot_t *sltp, CK_SLOT_ID slotID)
 			sltp->dll_information = &dllload[dl_index];
 			sltp->dlop_p = dllload[dl_index].dlop_p;
 		} else {
-			OCK_LOG_DEBUG("DL_Load_and_Init dll_location %s\n",
+			TRACE_DEVEL("DL_Load_and_Init dll_location %s\n",
 				      sinfp->dll_location);
 			DL_Load(sinfp, sltp, dllload);
 		}
@@ -888,7 +886,7 @@ int DL_Load_and_Init(API_Slot_t *sltp, CK_SLOT_ID slotID)
 	}
 
 	if (!sltp->dlop_p) {
-		OCK_LOG_DEBUG("DL_Load_and_Init pointer %x\n", sltp->dlop_p);
+		TRACE_DEVEL("DL_Load_and_Init pointer %x\n", sltp->dlop_p);
 
 		return FALSE;
 	}
@@ -901,7 +899,7 @@ int DL_Load_and_Init(API_Slot_t *sltp, CK_SLOT_ID slotID)
 	}
 	// Returns true or false
 	rv = pSTinit(&(sltp->FcnList), slotID, sinfp->confname, trace);
-	OCK_LOG_DEBUG("return from STDDLL Init = %x\n", rv);
+	TRACE_DEVEL("return from STDDLL Init = %x\n", rv);
 
 	if (rv != CKR_OK) {
 		// clean up and unload
