@@ -335,13 +335,6 @@ void CK_Info_From_Internal (CK_INFO_PTR dest, CK_INFO_PTR_64 src);
 
 int sessions_exist(CK_SLOT_ID);
 
-#ifdef DEBUG
-#define OCK_LOG_ERR(errnum)  ock_err_log(errnum, STDLL_NAME, __FILE__, __LINE__)
-#define OCK_LOG_DEBUG(fmt, ...)           ock_logit("%s:%d " fmt, __FILE__, __LINE__, ##__VA_ARGS__)
-#else
-#define OCK_LOG_ERR(errnum)
-#define OCK_LOG_DEBUG(fmt, ...)
-#endif
 #define OCK_SYSLOG(priority, fmt, ...) \
         syslog(priority, "%s " fmt, __FILE__, ##__VA_ARGS__);
 
