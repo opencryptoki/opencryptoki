@@ -321,6 +321,7 @@
 #include "h_extern.h"
 #include "tok_spec_struct.h"
 #include "pkcs32.h"
+#include "trace.h"
 
 #include "../api/apiproto.h"
 
@@ -554,7 +555,8 @@ error:
 /* In an STDLL this is called once for each card in the system
  * therefore the initialized only flags certain one time things.
  */
-CK_RV ST_Initialize(void **FunctionList, CK_SLOT_ID SlotNumber, char *conf_name)
+CK_RV ST_Initialize(void **FunctionList, CK_SLOT_ID SlotNumber, char *conf_name,
+		    struct trace_handle_t t)
 {
 	int    i;
 	CK_RV  rc = CKR_OK;
@@ -582,6 +584,8 @@ CK_RV ST_Initialize(void **FunctionList, CK_SLOT_ID SlotNumber, char *conf_name)
 	// it may not matter...
 	Fork_Initializer();
 
+	/* set trace info */
+	set_trace(t);
 
 	MY_CreateMutex( &pkcs_mutex      );
 	MY_CreateMutex( &obj_list_mutex  );

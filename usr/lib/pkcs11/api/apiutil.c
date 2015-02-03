@@ -325,6 +325,7 @@ static int xplfd = -1;
 extern API_Proc_Struct_t *Anchor;
 
 #include <stdarg.h>
+#include "trace.h"
 
 CK_RV CreateXProcLock(void)
 {
@@ -899,7 +900,7 @@ int DL_Load_and_Init(API_Slot_t *sltp, CK_SLOT_ID slotID)
 		return FALSE;
 	}
 	// Returns true or false
-	rv = pSTinit(&(sltp->FcnList), slotID, sinfp->confname);
+	rv = pSTinit(&(sltp->FcnList), slotID, sinfp->confname, trace);
 	OCK_LOG_DEBUG("return from STDDLL Init = %x\n", rv);
 
 	if (rv != CKR_OK) {

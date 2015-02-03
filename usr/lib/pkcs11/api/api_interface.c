@@ -305,6 +305,7 @@
 #include <apictl.h>
 
 #include <apiproto.h>
+#include "trace.h"
 
 void api_init();
 
@@ -1643,6 +1644,8 @@ CK_RV C_Finalize(CK_VOID_PTR pReserved)
 	// Unlock 
 	pthread_mutex_unlock(&GlobMutex);
 
+	trace_finalize();
+
 	return CKR_OK;
 }				// end of C_Finalize
 
@@ -2820,6 +2823,8 @@ CK_RV C_Initialize(CK_VOID_PTR pVoid)
 {
 	CK_C_INITIALIZE_ARGS *pArg;
 	char fcnmap = 0;
+
+	trace_initialize();
 
 	OCK_LOG_DEBUG("C_Initialize\n");
 	//if ( API_Proc_Struct NOT allocated )
