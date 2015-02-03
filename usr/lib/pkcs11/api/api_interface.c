@@ -3008,9 +3008,7 @@ CK_RV C_Initialize(CK_VOID_PTR pVoid)
 
 		for (slotID = 0; slotID < NUMBER_SLOTS_MANAGED; slotID++) {
 			sltp = &(Anchor->SltList[slotID]);
-			confname = shData->slot_info[slotID].confname;
-			slot_loaded[slotID] = DL_Load_and_Init(sltp, slotID,
-							       confname);
+			slot_loaded[slotID] = DL_Load_and_Init(sltp, slotID);
 		}
 
 	}

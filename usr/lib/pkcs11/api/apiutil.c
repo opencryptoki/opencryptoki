@@ -844,7 +844,7 @@ API_Slot_t *sltp;
 
 }
 
-int DL_Load_and_Init(API_Slot_t *sltp, CK_SLOT_ID slotID, const char *conf_name)
+int DL_Load_and_Init(API_Slot_t *sltp, CK_SLOT_ID slotID)
 {
 	Slot_Mgr_Socket_t *shData = &(Anchor->SocketDataP);
 #ifdef PKCS64
@@ -899,7 +899,7 @@ int DL_Load_and_Init(API_Slot_t *sltp, CK_SLOT_ID slotID, const char *conf_name)
 		return FALSE;
 	}
 	// Returns true or false
-	rv = pSTinit(&(sltp->FcnList), slotID, conf_name);
+	rv = pSTinit(&(sltp->FcnList), slotID, sinfp->confname);
 	OCK_LOG_DEBUG("return from STDDLL Init = %x\n", rv);
 
 	if (rv != CKR_OK) {
