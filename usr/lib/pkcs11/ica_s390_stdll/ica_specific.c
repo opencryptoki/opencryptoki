@@ -307,6 +307,7 @@
 #include "defs.h"
 #include "host_defs.h"
 #include "h_extern.h"
+#include "trace.h"
 
 #include "tok_specific.h"
 #include "tok_struct.h"
@@ -454,7 +455,7 @@ token_specific_des_ecb(CK_BYTE * in_data,
     */
 
    if (template_attribute_find(key->template, CKA_VALUE, &attr) == FALSE) {
-      OCK_LOG_ERR(ERR_FUNCTION_FAILED);
+      TRACE_ERROR("Could not find CKA_VALUE for the key.\n");
       return CKR_FUNCTION_FAILED;
    }
 
@@ -468,7 +469,7 @@ token_specific_des_ecb(CK_BYTE * in_data,
 
    if (rc != 0) {
       rc = CKR_FUNCTION_FAILED;
-      OCK_LOG_ERR(ERR_FUNCTION_FAILED);
+      TRACE_ERROR("%s\n", ock_err(ERR_FUNCTION_FAILED));
    }else {
       *out_data_len = in_data_len;
       rc = CKR_OK;
@@ -500,7 +501,7 @@ token_specific_des_cbc(CK_BYTE * in_data,
 
   // get the key value
   if (template_attribute_find(key->template, CKA_VALUE, &attr) == FALSE) {
-      OCK_LOG_ERR(ERR_FUNCTION_FAILED);
+      TRACE_ERROR("Could not find CKA_VALUE for the key.\n");
       return CKR_FUNCTION_FAILED;
    }
 
@@ -514,7 +515,7 @@ token_specific_des_cbc(CK_BYTE * in_data,
 			   (ica_des_key_single_t *) attr->pValue, out_data);
    }
    if (rc != 0) {
-         OCK_LOG_ERR(ERR_FUNCTION_FAILED);
+         TRACE_ERROR("%s\n", ock_err(ERR_FUNCTION_FAILED));
          rc = CKR_FUNCTION_FAILED;
    }else {
          *out_data_len = in_data_len;
@@ -546,14 +547,14 @@ token_specific_tdes_ecb(CK_BYTE * in_data,
    // get the key type
    rc = template_attribute_find(key->template, CKA_KEY_TYPE, &attr);
    if (rc == FALSE) {
-      OCK_LOG_ERR(ERR_FUNCTION_FAILED);
+      TRACE_ERROR("Could not find CKA_KEY_TYPE for the key.\n");
       return CKR_FUNCTION_FAILED;
    }
       keytype = *(CK_KEY_TYPE *)attr->pValue;
 
    // get the key value
    if (template_attribute_find(key->template, CKA_VALUE, &attr) == FALSE) {
-      OCK_LOG_ERR(ERR_FUNCTION_FAILED);
+      TRACE_ERROR("Could not find CKA_VALUE for the key.\n");
       return CKR_FUNCTION_FAILED;
    }
    if (keytype == CKK_DES2) {
@@ -573,7 +574,7 @@ token_specific_tdes_ecb(CK_BYTE * in_data,
    }
 
    if (rc != 0) {
-      OCK_LOG_ERR(ERR_FUNCTION_FAILED);
+      TRACE_ERROR("%s\n", ock_err(ERR_FUNCTION_FAILED));
       rc = CKR_FUNCTION_FAILED;
    }else {
       *out_data_len = in_data_len;
@@ -609,13 +610,13 @@ token_specific_tdes_cbc(CK_BYTE * in_data,
    // get the key type
    rc = template_attribute_find(key->template, CKA_KEY_TYPE, &attr);
    if (rc == FALSE) {
-      OCK_LOG_ERR(ERR_FUNCTION_FAILED);
+      TRACE_ERROR("Could not find CKA_KEY_TYPE for the key.\n");
       return CKR_FUNCTION_FAILED;
    }
       keytype = *(CK_KEY_TYPE *)attr->pValue;
    // get the key value
    if (template_attribute_find(key->template, CKA_VALUE, &attr) == FALSE) {
-       OCK_LOG_ERR(ERR_FUNCTION_FAILED);
+       TRACE_ERROR("Could not find CKA_VALUE for the key.\n");
        return CKR_FUNCTION_FAILED;
    }
    if (keytype == CKK_DES2) {
@@ -634,7 +635,7 @@ token_specific_tdes_cbc(CK_BYTE * in_data,
 			 (ica_des_key_triple_t *) key_value, out_data);
    }
    if (rc != 0) {
-         OCK_LOG_ERR(ERR_FUNCTION_FAILED);
+         TRACE_ERROR("%s\n", ock_err(ERR_FUNCTION_FAILED));
          rc = CKR_FUNCTION_FAILED;
    }else {
          *out_data_len = in_data_len;
@@ -657,7 +658,7 @@ token_specific_tdes_ofb(CK_BYTE *in_data, CK_BYTE *out_data, CK_ULONG data_len,
    CK_ATTRIBUTE *attr = NULL;
 
    if (template_attribute_find(key->template, CKA_VALUE, &attr) == FALSE) {
-       OCK_LOG_ERR(ERR_FUNCTION_FAILED);
+       TRACE_ERROR("Could not find CKA_VALUE for the key.\n");
        return CKR_FUNCTION_FAILED;
     }
 
@@ -666,7 +667,7 @@ token_specific_tdes_ofb(CK_BYTE *in_data, CK_BYTE *out_data, CK_ULONG data_len,
                    direction);
 
    if (rc != 0) {
-         OCK_LOG_ERR(ERR_FUNCTION_FAILED);
+         TRACE_ERROR("%s\n", ock_err(ERR_FUNCTION_FAILED));
          rc = CKR_FUNCTION_FAILED;
    }
    return rc;
@@ -685,7 +686,7 @@ token_specific_tdes_cfb(CK_BYTE *in_data, CK_BYTE *out_data, CK_ULONG data_len,
    CK_ATTRIBUTE *attr = NULL;
 
    if (template_attribute_find(key->template, CKA_VALUE, &attr) == FALSE) {
-       OCK_LOG_ERR(ERR_FUNCTION_FAILED);
+       TRACE_ERROR("Could not find CKA_VALUE for the key.\n");
        return CKR_FUNCTION_FAILED;
     }
 
@@ -694,7 +695,7 @@ token_specific_tdes_cfb(CK_BYTE *in_data, CK_BYTE *out_data, CK_ULONG data_len,
                     cfb_len, direction);
 
    if (rc != 0) {
-         OCK_LOG_ERR(ERR_FUNCTION_FAILED);
+         TRACE_ERROR("%s\n", ock_err(ERR_FUNCTION_FAILED));
          rc = CKR_FUNCTION_FAILED;
    }
    return rc;
@@ -712,14 +713,14 @@ token_specific_tdes_mac(CK_BYTE *message, CK_ULONG message_len, OBJECT *key,
    // get the key type
    rc = template_attribute_find(key->template, CKA_KEY_TYPE, &attr);
    if (rc == FALSE) {
-      OCK_LOG_ERR(ERR_FUNCTION_FAILED);
+      TRACE_ERROR("Could not find CKA_KEY_TYPE for the key.\n");
       return CKR_FUNCTION_FAILED;
    }
       keytype = *(CK_KEY_TYPE *)attr->pValue;
 
    // get the key value
    if (template_attribute_find(key->template, CKA_VALUE, &attr) == FALSE) {
-       OCK_LOG_ERR(ERR_FUNCTION_FAILED);
+       TRACE_ERROR("Could not find CKA_VALUE for the key.\n");
        return CKR_FUNCTION_FAILED;
    }
    if (keytype == CKK_DES2) {
@@ -732,7 +733,7 @@ token_specific_tdes_mac(CK_BYTE *message, CK_ULONG message_len, OBJECT *key,
                                           (const unsigned char *) key_value, mac);
 
    if (rc != 0) {
-         OCK_LOG_ERR(ERR_FUNCTION_FAILED);
+         TRACE_ERROR("%s\n", ock_err(ERR_FUNCTION_FAILED));
          rc = CKR_FUNCTION_FAILED;
    }
    return rc;
@@ -759,7 +760,7 @@ static CK_RV ica_sha_generic_init(DIGEST_CONTEXT *ctx,
 	ctx->context_len = sizeof(struct oc_sha_ctx);
 	ctx->context = malloc(sizeof(struct oc_sha_ctx));
 	if(ctx->context == NULL) {
-                OCK_LOG_ERR(ERR_HOST_MEMORY);
+                TRACE_ERROR("%s\n", ock_err(ERR_HOST_MEMORY));
 		return CKR_HOST_MEMORY;
 	}
 	memset(ctx->context, 0, ctx->context_len);
@@ -793,7 +794,7 @@ static CK_RV ica_sha_generic_init(DIGEST_CONTEXT *ctx,
 	sc->dev_ctx = malloc(dev_ctx_size);
 	if(sc->dev_ctx == NULL){
 		free(ctx->context);
-                OCK_LOG_ERR(ERR_HOST_MEMORY);
+                TRACE_ERROR("%s\n", ock_err(ERR_HOST_MEMORY));
 		return CKR_HOST_MEMORY;
 	}
 	memset(sc->dev_ctx, 0, dev_ctx_size);
@@ -1157,13 +1158,13 @@ rsa_convert_mod_expo_key( CK_ATTRIBUTE * modulus,
 
    /* We need at least the modulus and a (public|private) exponent */
    if (!modulus || !exponent) {
-      OCK_LOG_ERR(ERR_FUNCTION_FAILED);
+      TRACE_ERROR("%s\n", ock_err(ERR_FUNCTION_FAILED));
       return NULL;
    }
 
    modexpokey = (ica_rsa_key_mod_expo_t *) calloc(1, sizeof(ica_rsa_key_mod_expo_t));
    if (modexpokey == NULL) {
-      OCK_LOG_ERR(ERR_HOST_MEMORY);
+      TRACE_ERROR("%s\n", ock_err(ERR_HOST_MEMORY));
       goto err;
    }
 
@@ -1181,14 +1182,14 @@ rsa_convert_mod_expo_key( CK_ATTRIBUTE * modulus,
    /* maybe I'm over-cautious here */
    if ( (modulus->ulValueLen > modexpokey->key_length) ||
         (exponent->ulValueLen > modexpokey->key_length)) {
-      OCK_LOG_ERR(ERR_FUNCTION_FAILED);
+      TRACE_ERROR("%s\n", ock_err(ERR_FUNCTION_FAILED));
       goto err;
    }
 
    modexpokey->modulus = (unsigned char *) calloc(1, modexpokey->key_length);
 
    if (modexpokey->modulus == NULL) {
-      OCK_LOG_ERR(ERR_HOST_MEMORY);
+      TRACE_ERROR("%s\n", ock_err(ERR_HOST_MEMORY));
       goto err;
    }
 
@@ -1198,7 +1199,7 @@ rsa_convert_mod_expo_key( CK_ATTRIBUTE * modulus,
 
    modexpokey->exponent = (unsigned char *) calloc(1, modexpokey->key_length);
    if (modexpokey->exponent == NULL) {
-      OCK_LOG_ERR(ERR_HOST_MEMORY);
+      TRACE_ERROR("%s\n", ock_err(ERR_HOST_MEMORY));
       goto err;
    }
 
@@ -1232,13 +1233,13 @@ rsa_convert_crt_key( CK_ATTRIBUTE * modulus,
     * that can be used by libICA. Private Keys with modulus
     * and private exponent should use rsa_convert_mod_expo_key() */
    if (!modulus || !prime1 || !prime2 || !exp1 || !exp2 || !coeff ) {
-      OCK_LOG_ERR(ERR_FUNCTION_FAILED);
+      TRACE_ERROR("%s\n", ock_err(ERR_FUNCTION_FAILED));
       return NULL;
    }
    else {
       crtkey = (ica_rsa_key_crt_t *) calloc(1, sizeof(ica_rsa_key_crt_t));
       if (crtkey == NULL) {
-         OCK_LOG_ERR(ERR_HOST_MEMORY);
+         TRACE_ERROR("%s\n", ock_err(ERR_HOST_MEMORY));
          return NULL;
       }
       /* use modulus length in bytes as key_length */
@@ -1259,12 +1260,12 @@ rsa_convert_crt_key( CK_ATTRIBUTE * modulus,
            (exp1->ulValueLen   > (crtkey->key_length/2)) ||
            (exp2->ulValueLen   > (crtkey->key_length/2)) ||
            (coeff->ulValueLen  > (crtkey->key_length/2)) ) {
-         OCK_LOG_ERR(ERR_FUNCTION_FAILED);
+         TRACE_ERROR("%s\n", ock_err(ERR_FUNCTION_FAILED));
          goto err_crtkey;
       }
       crtkey->p = (unsigned char *) calloc(1, (crtkey->key_length/2) + 8);
       if (crtkey->p == NULL) {
-         OCK_LOG_ERR(ERR_HOST_MEMORY);
+         TRACE_ERROR("%s\n", ock_err(ERR_HOST_MEMORY));
          goto err_crtkey;
       }
       ptr = crtkey->p + (crtkey->key_length/2) + 8 - prime1->ulValueLen;
@@ -1273,7 +1274,7 @@ rsa_convert_crt_key( CK_ATTRIBUTE * modulus,
       crtkey->q = (unsigned char *) calloc(1, crtkey->key_length/2);
 
       if (crtkey->q == NULL) {
-         OCK_LOG_ERR(ERR_HOST_MEMORY);
+         TRACE_ERROR("%s\n", ock_err(ERR_HOST_MEMORY));
          goto err_crtkey;
       }
       ptr = crtkey->q + (crtkey->key_length/2) - prime2->ulValueLen;
@@ -1281,7 +1282,7 @@ rsa_convert_crt_key( CK_ATTRIBUTE * modulus,
 
       crtkey->dp = (unsigned char *) calloc(1, (crtkey->key_length/2) + 8);
       if (crtkey->dp == NULL) {
-         OCK_LOG_ERR(ERR_HOST_MEMORY);
+         TRACE_ERROR("%s\n", ock_err(ERR_HOST_MEMORY));
          goto err_crtkey;
       }
       ptr = crtkey->dp + (crtkey->key_length/2) + 8 - exp1->ulValueLen;
@@ -1289,7 +1290,7 @@ rsa_convert_crt_key( CK_ATTRIBUTE * modulus,
 
       crtkey->dq = (unsigned char *) calloc(1, crtkey->key_length/2);
       if (crtkey->dq == NULL) {
-         OCK_LOG_ERR(ERR_HOST_MEMORY);
+         TRACE_ERROR("%s\n", ock_err(ERR_HOST_MEMORY));
          goto err_crtkey;
       }
       ptr = crtkey->dq + (crtkey->key_length/2) - exp2->ulValueLen;
@@ -1297,7 +1298,7 @@ rsa_convert_crt_key( CK_ATTRIBUTE * modulus,
 
       crtkey->qInverse = (unsigned char *) calloc(1, (crtkey->key_length/2) + 8);
       if (crtkey->qInverse == NULL) {
-         OCK_LOG_ERR(ERR_HOST_MEMORY);
+         TRACE_ERROR("%s\n", ock_err(ERR_HOST_MEMORY));
          goto err_crtkey;
       }
       ptr = crtkey->qInverse + (crtkey->key_length/2) + 8 - coeff->ulValueLen;
@@ -1334,21 +1335,21 @@ os_specific_rsa_keygen(TEMPLATE *publ_tmpl,  TEMPLATE *priv_tmpl)
 
    flag = template_attribute_find( publ_tmpl, CKA_MODULUS_BITS, &attr );
    if (!flag) {
-       OCK_LOG_ERR(ERR_TEMPLATE_INCOMPLETE);
+       TRACE_ERROR("%s\n", ock_err(ERR_TEMPLATE_INCOMPLETE));
        return CKR_TEMPLATE_INCOMPLETE;  // should never happen
    }
    mod_bits = *(CK_ULONG *)attr->pValue;
 
    flag = template_attribute_find( publ_tmpl, CKA_PUBLIC_EXPONENT, &publ_exp );
    if (!flag) {
-        OCK_LOG_ERR(ERR_TEMPLATE_INCOMPLETE);
+        TRACE_ERROR("%s\n", ock_err(ERR_TEMPLATE_INCOMPLETE));
 	return CKR_TEMPLATE_INCOMPLETE;
    }
 
 
    // FIXME: is this check really necessary?
    if (mod_bits < 512 || mod_bits > 4096) {
-      OCK_LOG_ERR(ERR_KEY_SIZE_RANGE);
+      TRACE_ERROR("%s\n", ock_err(ERR_KEY_SIZE_RANGE));
      return CKR_KEY_SIZE_RANGE;
    }
 
@@ -1356,7 +1357,7 @@ os_specific_rsa_keygen(TEMPLATE *publ_tmpl,  TEMPLATE *priv_tmpl)
     * can't be larger than the size of an unsigned long
     */
    if (publ_exp->ulValueLen > sizeof (unsigned long)) {
-      OCK_LOG_ERR(ERR_KEY_SIZE_RANGE);
+      TRACE_ERROR("%s\n", ock_err(ERR_KEY_SIZE_RANGE));
      return CKR_KEY_SIZE_RANGE;
    }
 
@@ -1366,7 +1367,7 @@ os_specific_rsa_keygen(TEMPLATE *publ_tmpl,  TEMPLATE *priv_tmpl)
     * use calloc() so that memory is zeroed (right alignment) */
    publKey = (ica_rsa_key_mod_expo_t *) calloc(1, sizeof(ica_rsa_key_mod_expo_t));
    if (publKey == NULL) {
-      OCK_LOG_ERR(ERR_HOST_MEMORY);
+      TRACE_ERROR("%s\n", ock_err(ERR_HOST_MEMORY));
       return CKR_HOST_MEMORY;
    }
 
@@ -1375,14 +1376,14 @@ os_specific_rsa_keygen(TEMPLATE *publ_tmpl,  TEMPLATE *priv_tmpl)
 
    publKey->modulus = (unsigned char *) calloc(1, publKey->key_length);
    if (publKey->modulus == NULL) {
-      OCK_LOG_ERR(ERR_HOST_MEMORY);
+      TRACE_ERROR("%s\n", ock_err(ERR_HOST_MEMORY));
       rc = CKR_HOST_MEMORY;
       goto pubkey_cleanup;
    }
 
    publKey->exponent = (unsigned char *) calloc(1, publKey->key_length);
    if (publKey->exponent == NULL) {
-      OCK_LOG_ERR(ERR_HOST_MEMORY);
+      TRACE_ERROR("%s\n", ock_err(ERR_HOST_MEMORY));
       rc = CKR_HOST_MEMORY;
       goto pubkey_cleanup;
    }
@@ -1403,7 +1404,7 @@ os_specific_rsa_keygen(TEMPLATE *publ_tmpl,  TEMPLATE *priv_tmpl)
    ptr = publKey->exponent + publKey->key_length - sizeof (unsigned long);
    if ( *( (unsigned long *)ptr) != 0 &&
         *( (unsigned long *)ptr) % 2 == 0 ) {
-     OCK_LOG_ERR(ERR_TEMPLATE_INCONSISTENT);
+     TRACE_ERROR("%s\n", ock_err(ERR_TEMPLATE_INCONSISTENT));
      return CKR_TEMPLATE_INCONSISTENT;
    }
 
@@ -1414,7 +1415,7 @@ os_specific_rsa_keygen(TEMPLATE *publ_tmpl,  TEMPLATE *priv_tmpl)
     * p, dp and qInverse have an additional 8-byte padding */
    privKey = (ica_rsa_key_crt_t *) calloc(1, sizeof(ica_rsa_key_crt_t));
    if (privKey == NULL) {
-     OCK_LOG_ERR(ERR_HOST_MEMORY);
+     TRACE_ERROR("%s\n", ock_err(ERR_HOST_MEMORY));
      rc = CKR_HOST_MEMORY;
      goto pubkey_cleanup;
    }
@@ -1424,35 +1425,35 @@ os_specific_rsa_keygen(TEMPLATE *publ_tmpl,  TEMPLATE *priv_tmpl)
 
    privKey->p = (unsigned char *) calloc(1, (privKey->key_length/2) + 8);
    if (privKey->p == NULL) {
-      OCK_LOG_ERR(ERR_HOST_MEMORY);
+      TRACE_ERROR("%s\n", ock_err(ERR_HOST_MEMORY));
       rc = CKR_HOST_MEMORY;
       goto privkey_cleanup;
    }
 
    privKey->q = (unsigned char *) calloc(1, privKey->key_length/2);
    if (privKey->q == NULL) {
-      OCK_LOG_ERR(ERR_HOST_MEMORY);
+      TRACE_ERROR("%s\n", ock_err(ERR_HOST_MEMORY));
       rc = CKR_HOST_MEMORY;
       goto privkey_cleanup;
    }
 
    privKey->dp = (unsigned char *) calloc(1, (privKey->key_length/2) + 8);
    if (privKey->dp == NULL) {
-      OCK_LOG_ERR(ERR_HOST_MEMORY);
+      TRACE_ERROR("%s\n", ock_err(ERR_HOST_MEMORY));
       rc = CKR_HOST_MEMORY;
       goto privkey_cleanup;
    }
 
    privKey->dq = (unsigned char *) calloc(1, privKey->key_length/2);
    if (privKey->dq == NULL) {
-      OCK_LOG_ERR(ERR_HOST_MEMORY);
+      TRACE_ERROR("%s\n", ock_err(ERR_HOST_MEMORY));
       rc = CKR_HOST_MEMORY;
       goto privkey_cleanup;
    }
 
    privKey->qInverse = (unsigned char *) calloc(1, (privKey->key_length/2) + 8);
    if (privKey->qInverse == NULL) {
-      OCK_LOG_ERR(ERR_HOST_MEMORY);
+      TRACE_ERROR("%s\n", ock_err(ERR_HOST_MEMORY));
       rc = CKR_HOST_MEMORY;
       goto privkey_cleanup;
    }
@@ -1464,7 +1465,7 @@ os_specific_rsa_keygen(TEMPLATE *publ_tmpl,  TEMPLATE *priv_tmpl)
 
    
    if(rc){
-     OCK_LOG_ERR(ERR_FUNCTION_FAILED);
+     TRACE_ERROR("%s\n", ock_err(ERR_FUNCTION_FAILED));
      rc = CKR_FUNCTION_FAILED;
      goto privkey_cleanup;
    }
@@ -1477,14 +1478,14 @@ os_specific_rsa_keygen(TEMPLATE *publ_tmpl,  TEMPLATE *priv_tmpl)
    ptr = p11_bigint_trim(publKey->modulus, &tmpsize);
    if (tmpsize != publKey->key_length) {
       /* This is bad */
-      OCK_LOG_ERR(ERR_FUNCTION_FAILED);
+      TRACE_ERROR("%s\n", ock_err(ERR_FUNCTION_FAILED));
       rc = CKR_FUNCTION_FAILED;
       goto privkey_cleanup;
    }
    rc = build_attribute( CKA_MODULUS, ptr,
                         tmpsize, &attr );
    if (rc != CKR_OK){
-      OCK_LOG_ERR(ERR_BLD_ATTR);
+      TRACE_DEBUG("build_attribute failed\n");
       goto privkey_cleanup;
    }
    template_update_attribute( publ_tmpl, attr );
@@ -1496,7 +1497,7 @@ os_specific_rsa_keygen(TEMPLATE *publ_tmpl,  TEMPLATE *priv_tmpl)
    rc = build_attribute( CKA_PUBLIC_EXPONENT, ptr,
                         tmpsize, &attr);
    if (rc != CKR_OK){
-      OCK_LOG_ERR(ERR_BLD_ATTR);
+      TRACE_DEBUG("build attribute failed\n");
       goto privkey_cleanup;
    }
    template_update_attribute( publ_tmpl, attr );
@@ -1507,7 +1508,7 @@ os_specific_rsa_keygen(TEMPLATE *publ_tmpl,  TEMPLATE *priv_tmpl)
    flag = TRUE;
    rc = build_attribute( CKA_LOCAL, &flag, sizeof(CK_BBOOL), &attr );
    if (rc != CKR_OK){
-      OCK_LOG_ERR(ERR_BLD_ATTR);
+      TRACE_DEBUG("build_attribute failed\n");
       goto privkey_cleanup;
    }
    template_update_attribute( publ_tmpl, attr );
@@ -1522,7 +1523,7 @@ os_specific_rsa_keygen(TEMPLATE *publ_tmpl,  TEMPLATE *priv_tmpl)
    ptr = p11_bigint_trim(publKey->exponent, &tmpsize);
    rc = build_attribute( CKA_PUBLIC_EXPONENT, ptr, tmpsize, &attr );
    if (rc != CKR_OK) {
-      OCK_LOG_ERR(ERR_BLD_ATTR);
+      TRACE_DEBUG("build_attribute failed\n");
       goto privkey_cleanup;
    }
    template_update_attribute( priv_tmpl, attr );
@@ -1533,14 +1534,14 @@ os_specific_rsa_keygen(TEMPLATE *publ_tmpl,  TEMPLATE *priv_tmpl)
    ptr = p11_bigint_trim(publKey->modulus, &tmpsize);
    if (tmpsize != publKey->key_length) {
       /* This is bad */
-      OCK_LOG_ERR(ERR_FUNCTION_FAILED);
+      TRACE_ERROR("%s\n", ock_err(ERR_FUNCTION_FAILED));
       rc = CKR_FUNCTION_FAILED;
       goto privkey_cleanup;
    }
    rc = build_attribute( CKA_MODULUS, ptr,
                         tmpsize, &attr );
    if (rc != CKR_OK){
-      OCK_LOG_ERR(ERR_BLD_ATTR);
+      TRACE_DEBUG("build_attribute failed\n");
       goto privkey_cleanup;
    }
    template_update_attribute( priv_tmpl, attr );
@@ -1552,7 +1553,7 @@ os_specific_rsa_keygen(TEMPLATE *publ_tmpl,  TEMPLATE *priv_tmpl)
    rc = build_attribute( CKA_EXPONENT_1, ptr,
                         tmpsize, &attr );
    if (rc != CKR_OK){
-      OCK_LOG_ERR(ERR_BLD_ATTR);
+      TRACE_DEBUG("build_attribute failed\n");
       goto privkey_cleanup;
    }
    template_update_attribute( priv_tmpl, attr );
@@ -1564,7 +1565,7 @@ os_specific_rsa_keygen(TEMPLATE *publ_tmpl,  TEMPLATE *priv_tmpl)
    rc = build_attribute( CKA_EXPONENT_2, ptr,
                         tmpsize, &attr );
    if (rc != CKR_OK){
-      OCK_LOG_ERR(ERR_BLD_ATTR);
+      TRACE_DEBUG("build_attribute failed\n");
       goto privkey_cleanup;
    }
    template_update_attribute( priv_tmpl, attr );
@@ -1576,7 +1577,7 @@ os_specific_rsa_keygen(TEMPLATE *publ_tmpl,  TEMPLATE *priv_tmpl)
    rc = build_attribute( CKA_PRIME_1, ptr,
                         tmpsize, &attr );
    if (rc != CKR_OK){
-      OCK_LOG_ERR(ERR_BLD_ATTR);
+      TRACE_DEBUG("build_attribute failed\n");
       goto privkey_cleanup;
    }
    template_update_attribute( priv_tmpl, attr );
@@ -1589,7 +1590,7 @@ os_specific_rsa_keygen(TEMPLATE *publ_tmpl,  TEMPLATE *priv_tmpl)
    rc = build_attribute( CKA_PRIME_2, privKey->q,
                         privKey->key_length/2, &attr );
    if (rc != CKR_OK){
-      OCK_LOG_ERR(ERR_BLD_ATTR);
+      TRACE_DEBUG("build_attribute failed\n");
       goto privkey_cleanup;
    }
    template_update_attribute( priv_tmpl, attr );
@@ -1602,7 +1603,7 @@ os_specific_rsa_keygen(TEMPLATE *publ_tmpl,  TEMPLATE *priv_tmpl)
    rc = build_attribute( CKA_COEFFICIENT, ptr,
                         tmpsize, &attr );
    if (rc != CKR_OK){
-      OCK_LOG_ERR(ERR_BLD_ATTR);
+      TRACE_DEBUG("build_attribute failed\n");
       goto privkey_cleanup;
    }
    template_update_attribute( priv_tmpl, attr );
@@ -1630,7 +1631,7 @@ token_specific_rsa_generate_keypair( TEMPLATE  * publ_tmpl,
 
    rc = os_specific_rsa_keygen(publ_tmpl,priv_tmpl);
    if (rc != CKR_OK)
-         OCK_LOG_ERR(ERR_KEYGEN);
+         TRACE_DEBUG("os_specific_rsa_keygen failed\n");
    return rc;
 }
 
@@ -1656,7 +1657,7 @@ os_specific_rsa_encrypt( CK_BYTE   * in_data,
 
    publKey = rsa_convert_mod_expo_key(modulus, mod_bits, pub_exp);
    if (publKey == NULL) {
-      OCK_LOG_ERR(ERR_FUNCTION_FAILED);
+      TRACE_ERROR("rsa_convert_mod_expo_key failed\n");
       rc = CKR_FUNCTION_FAILED;
       goto done;
    }
@@ -1666,7 +1667,7 @@ os_specific_rsa_encrypt( CK_BYTE   * in_data,
     * be of the same length of the key */
    // FIXME: we're not cheking the size in bits of in_data - but how could we?
    if (publKey->key_length != in_data_len) {
-      OCK_LOG_ERR(ERR_DATA_LEN_RANGE);
+      TRACE_ERROR("%s\n", ock_err(ERR_DATA_LEN_RANGE));
       rc = CKR_DATA_LEN_RANGE;
       goto cleanup_pubkey;
    }
@@ -1674,7 +1675,7 @@ os_specific_rsa_encrypt( CK_BYTE   * in_data,
                          publKey, out_data);
 
    if (rc != 0) {
-      OCK_LOG_ERR(ERR_FUNCTION_FAILED);
+      TRACE_ERROR("%s\n", ock_err(ERR_FUNCTION_FAILED));
       rc = CKR_FUNCTION_FAILED;
    } else {
       rc = CKR_OK;
@@ -1739,13 +1740,13 @@ os_specific_rsa_decrypt( CK_BYTE   * in_data,
       /* ica_rsa_key_crt_t representation */
       crtKey = rsa_convert_crt_key(modulus, prime1, prime2, exp1, exp2, coeff);
       if (crtKey == NULL) {
-         OCK_LOG_ERR(ERR_FUNCTION_FAILED);
+         TRACE_ERROR("rsa_convert_crt_key failed\n");
          rc = CKR_FUNCTION_FAILED;
          goto done;
       }
       /* same check as above */
       if (crtKey->key_length != in_data_len) {
-         OCK_LOG_ERR(ERR_DATA_LEN_RANGE);
+         TRACE_ERROR("%s\n", ock_err(ERR_DATA_LEN_RANGE));
          rc = CKR_ENCRYPTED_DATA_LEN_RANGE;
          goto crt_cleanup;
       }
@@ -1754,7 +1755,7 @@ os_specific_rsa_decrypt( CK_BYTE   * in_data,
                        crtKey, out_data);
 
       if (rc != 0) {
-         OCK_LOG_ERR(ERR_FUNCTION_FAILED);
+         TRACE_ERROR("%s\n", ock_err(ERR_FUNCTION_FAILED));
          rc = CKR_FUNCTION_FAILED;
       } else {
          rc = CKR_OK;
@@ -1766,7 +1767,7 @@ os_specific_rsa_decrypt( CK_BYTE   * in_data,
       /* ica_rsa_key_mod_expo_t representation */
       modexpoKey = rsa_convert_mod_expo_key(modulus, NULL, priv_exp);
       if (modexpoKey == NULL) {
-         OCK_LOG_ERR(ERR_FUNCTION_FAILED);
+         TRACE_ERROR("rsa_convert_mod_expo_key failed\n");
          rc = CKR_FUNCTION_FAILED;
          goto done;
       }
@@ -1775,7 +1776,7 @@ os_specific_rsa_decrypt( CK_BYTE   * in_data,
        * be the same */
       // FIXME: we're not cheking the size in bits of in_data - but how could we?
       if (modexpoKey->key_length != in_data_len) {
-         OCK_LOG_ERR(ERR_DATA_LEN_RANGE);
+         TRACE_ERROR("%s\n", ock_err(ERR_DATA_LEN_RANGE));
          rc = CKR_ENCRYPTED_DATA_LEN_RANGE;
          goto modexpo_cleanup;
       }
@@ -1784,7 +1785,7 @@ os_specific_rsa_decrypt( CK_BYTE   * in_data,
                             modexpoKey, out_data);
 
       if (rc != 0) {
-         OCK_LOG_ERR(ERR_FUNCTION_FAILED);
+         TRACE_ERROR("%s\n", ock_err(ERR_FUNCTION_FAILED));
          rc = CKR_FUNCTION_FAILED;
       } else {
          rc = CKR_OK;
@@ -1793,7 +1794,7 @@ os_specific_rsa_decrypt( CK_BYTE   * in_data,
    }
    else {
       /* should never happen */
-      OCK_LOG_ERR(ERR_MECHANISM_PARAM_INVALID);
+      TRACE_ERROR("%s\n", ock_err(ERR_MECHANISM_PARAM_INVALID));
       rc = CKR_MECHANISM_PARAM_INVALID;
       goto done;
    }
@@ -1830,7 +1831,7 @@ token_specific_rsa_encrypt(CK_BYTE *in_data, CK_ULONG in_data_len,
 
 	flag = template_attribute_find(key_obj->template, CKA_MODULUS, &attr);
 	if (flag == FALSE) {
-		OCK_LOG_ERR(ERR_FUNCTION_FAILED);
+		TRACE_ERROR("Could not find CKA_MODULUS for the key.\n");
 		return CKR_FUNCTION_FAILED;
 	} else
 		modulus_bytes = attr->ulValueLen;
@@ -1838,7 +1839,7 @@ token_specific_rsa_encrypt(CK_BYTE *in_data, CK_ULONG in_data_len,
 	/* format the data */
 	rc = rsa_format_block(in_data, in_data_len, clear, modulus_bytes, PKCS_BT_2);
 	if (rc != CKR_OK) {
-		OCK_LOG_ERR(ERR_RSA_FORM_BLOCK);
+		TRACE_DEBUG("rsa_format_block failed\n");
 		return rc;
 	}
 
@@ -1847,7 +1848,7 @@ token_specific_rsa_encrypt(CK_BYTE *in_data, CK_ULONG in_data_len,
 		memcpy(out_data, cipher, modulus_bytes);
 		*out_data_len = modulus_bytes;
 	} else
-		OCK_LOG_ERR(ERR_FUNCTION_FAILED);
+		TRACE_DEBUG("os_specific_rsa_encrypt failed\n");
 
 	return rc;
 }
@@ -1864,13 +1865,13 @@ token_specific_rsa_decrypt(CK_BYTE *in_data, CK_ULONG in_data_len,
 	rc = os_specific_rsa_decrypt(in_data, in_data_len, out, key_obj);
 
 	if (rc != CKR_OK) {
-		OCK_LOG_ERR(ERR_FUNCTION_FAILED);
+		TRACE_DEBUG("os_specific_rsa_decrypt failed\n");
 		return rc;
 	}
 
 	rc = rsa_parse_block(out,in_data_len,out_data,out_data_len,PKCS_BT_2);
 	if (rc != CKR_OK) {
-		OCK_LOG_ERR(ERR_FUNCTION_FAILED);
+		TRACE_DEBUG("rsa_parse_block failed\n");
 		return rc;
 	}
 
@@ -1879,7 +1880,7 @@ token_specific_rsa_decrypt(CK_BYTE *in_data, CK_ULONG in_data_len,
 	 * than in_data_len (which is modulus_bytes) - 11.
 	 */
 	if (*out_data_len > (in_data_len - 11)) {
-		OCK_LOG_ERR(ERR_ENCRYPTED_DATA_LEN_RANGE);
+		TRACE_ERROR("%s\n", ock_err(ERR_ENCRYPTED_DATA_LEN_RANGE));
 		rc = CKR_ENCRYPTED_DATA_LEN_RANGE;
 	}
 
@@ -1899,14 +1900,14 @@ token_specific_rsa_sign(CK_BYTE *in_data, CK_ULONG in_data_len,
 
 	flag = template_attribute_find(key_obj->template, CKA_MODULUS, &attr);
 	if (flag == FALSE) {
-		OCK_LOG_ERR(ERR_FUNCTION_FAILED);
+		TRACE_ERROR("Could not find CKA_MODULUS for the key.\n");
 		return CKR_FUNCTION_FAILED;
 	} else
 		modulus_bytes = attr->ulValueLen;
 
 	rc = rsa_format_block(in_data, in_data_len, data, modulus_bytes, PKCS_BT_1);
 	if (rc != CKR_OK) {
-		OCK_LOG_ERR(ERR_RSA_FORM_BLOCK);
+		TRACE_DEBUG("rsa_format_block failed\n");
 		return rc;
 	}
 
@@ -1916,7 +1917,7 @@ token_specific_rsa_sign(CK_BYTE *in_data, CK_ULONG in_data_len,
 		memcpy( out_data, sig, modulus_bytes );
 		*out_data_len = modulus_bytes;
 	} else
-		OCK_LOG_ERR(ERR_FUNCTION_FAILED);
+		TRACE_DEBUG("os_specific_rsa_decrypt failed\n");
 	return rc;
 }
 
@@ -1933,7 +1934,7 @@ token_specific_rsa_verify (CK_BYTE *in_data, CK_ULONG in_data_len,
 	out_data_len = MAX_RSA_KEYLEN;
 	flag = template_attribute_find(key_obj->template, CKA_MODULUS, &attr);
 	if (flag == FALSE) {
-		OCK_LOG_ERR(ERR_FUNCTION_FAILED);
+		TRACE_ERROR("Could not find CKA_MODULUS for the key.\n");
 		return CKR_FUNCTION_FAILED;
 	} else
 		modulus_bytes = attr->ulValueLen;
@@ -1943,23 +1944,23 @@ token_specific_rsa_verify (CK_BYTE *in_data, CK_ULONG in_data_len,
 		rc = rsa_parse_block(out, modulus_bytes, out_data, &out_data_len, PKCS_BT_1);
 		if (rc == CKR_OK) {
 			if (in_data_len != out_data_len) {
-				OCK_LOG_ERR(ERR_SIGNATURE_INVALID);
+				TRACE_ERROR("%s\n", ock_err(ERR_SIGNATURE_INVALID));
 				return CKR_SIGNATURE_INVALID;
 			}
 
 			if (memcmp(in_data, out_data, out_data_len) != 0) {
-				OCK_LOG_ERR(ERR_SIGNATURE_INVALID);
+				TRACE_ERROR("%s\n", ock_err(ERR_SIGNATURE_INVALID));
 				return CKR_SIGNATURE_INVALID;
 			}
 		} else if (rc == CKR_ENCRYPTED_DATA_INVALID ) {
-                        OCK_LOG_ERR(ERR_SIGNATURE_INVALID);
+                        TRACE_ERROR("%s\n", ock_err(ERR_SIGNATURE_INVALID));
                         return CKR_SIGNATURE_INVALID;
 		} else {
-			OCK_LOG_ERR(ERR_FUNCTION_FAILED);
+			TRACE_ERROR("%s\n", ock_err(ERR_FUNCTION_FAILED));
 			return CKR_FUNCTION_FAILED;
 		}
 	} else
-		OCK_LOG_ERR(ERR_FUNCTION_FAILED);
+		TRACE_DEBUG("rsa_parse_block failed\n");
 
 	return rc;
 }
@@ -1977,23 +1978,23 @@ token_specific_rsa_verify_recover(CK_BYTE *signature, CK_ULONG sig_len,
 
 	flag = template_attribute_find(key_obj->template, CKA_MODULUS, &attr);
 	if (flag == FALSE) {
-		OCK_LOG_ERR(ERR_FUNCTION_FAILED);
+		TRACE_ERROR("Could not find CKA_MODULUS for the key.\n");
 		return CKR_FUNCTION_FAILED;
 	} else
 		modulus_bytes = attr->ulValueLen;
 
 	rc = os_specific_rsa_encrypt(signature, modulus_bytes, out, key_obj);
 	if (rc != CKR_OK) {
-		OCK_LOG_ERR(ERR_FUNCTION_FAILED);
+		TRACE_DEBUG("os_specific_rsa_encrypt failed\n");
 		return rc;
 	}
 
 	rc = rsa_parse_block(out, modulus_bytes, out_data, out_data_len, PKCS_BT_1);
 	if (rc == CKR_ENCRYPTED_DATA_INVALID ) {
-		OCK_LOG_ERR(ERR_SIGNATURE_INVALID);
+		TRACE_ERROR("%s\n", ock_err(ERR_SIGNATURE_INVALID));
 		return CKR_SIGNATURE_INVALID;
 	} else if (rc != CKR_OK)
-		OCK_LOG_ERR(ERR_FUNCTION_FAILED);
+		TRACE_DEBUG("rsa_parse_block failed\n");
 
 	return rc;
 }
@@ -2011,7 +2012,7 @@ token_specific_rsa_x509_encrypt(CK_BYTE *in_data, CK_ULONG in_data_len,
 
 	flag = template_attribute_find(key_obj->template, CKA_MODULUS, &attr);
 	if (flag == FALSE) {
-		OCK_LOG_ERR(ERR_FUNCTION_FAILED);
+		TRACE_ERROR("Could not find CKA_MODULUS for the key.\n");
 		return CKR_FUNCTION_FAILED;
 	} else
 		modulus_bytes = attr->ulValueLen;
@@ -2026,7 +2027,7 @@ token_specific_rsa_x509_encrypt(CK_BYTE *in_data, CK_ULONG in_data_len,
 		memcpy(out_data, cipher, modulus_bytes);
 		*out_data_len = modulus_bytes;
 	} else
-		OCK_LOG_ERR(ERR_FUNCTION_FAILED);
+		TRACE_DEBUG("os_specific_rsa_encrypt failed\n");
 
 	return rc;
 }
@@ -2044,7 +2045,7 @@ token_specific_rsa_x509_decrypt(CK_BYTE *in_data, CK_ULONG in_data_len,
 
 	flag = template_attribute_find(key_obj->template, CKA_MODULUS, &attr);
 	if (flag == FALSE) {
-		OCK_LOG_ERR(ERR_FUNCTION_FAILED);
+		TRACE_ERROR("Could not find CKA_MODULUS for the key.\n");
 		return CKR_FUNCTION_FAILED;
 	} else
 		modulus_bytes = attr->ulValueLen;
@@ -2054,7 +2055,7 @@ token_specific_rsa_x509_decrypt(CK_BYTE *in_data, CK_ULONG in_data_len,
 		memcpy(out_data, out, modulus_bytes);
 		*out_data_len = modulus_bytes;
 	} else
-		OCK_LOG_ERR(ERR_FUNCTION_FAILED);
+		TRACE_DEBUG("os_specific_rsa_decrypt failed\n");
 
 	return rc;
 }
@@ -2072,7 +2073,7 @@ token_specific_rsa_x509_sign(CK_BYTE *in_data, CK_ULONG in_data_len,
 
 	flag = template_attribute_find(key_obj->template, CKA_MODULUS, &attr);
 	if (flag == FALSE) {
-		OCK_LOG_ERR(ERR_FUNCTION_FAILED);
+		TRACE_ERROR("Could not find CKA_MODULUS for the key.\n");
 		return CKR_FUNCTION_FAILED;
 	} else
 		modulus_bytes = attr->ulValueLen;
@@ -2087,7 +2088,7 @@ token_specific_rsa_x509_sign(CK_BYTE *in_data, CK_ULONG in_data_len,
 		memcpy(out_data, sig, modulus_bytes);
 		*out_data_len = modulus_bytes;
 	} else
-		OCK_LOG_ERR(ERR_FUNCTION_FAILED);
+		TRACE_DEBUG("os_specific_rsa_decrypt failed\n");
 	return rc;
 }
 
@@ -2105,7 +2106,7 @@ token_specific_rsa_x509_verify(CK_BYTE *in_data, CK_ULONG in_data_len,
 
 	flag = template_attribute_find(key_obj->template, CKA_MODULUS, &attr);
 	if (flag == FALSE) {
-		OCK_LOG_ERR(ERR_FUNCTION_FAILED);
+		TRACE_ERROR("Could not find CKA_MODULUS for the key.\n");
 		return CKR_FUNCTION_FAILED;
 	} else
 		modulus_bytes = attr->ulValueLen;
@@ -2130,18 +2131,18 @@ token_specific_rsa_x509_verify(CK_BYTE *in_data, CK_ULONG in_data_len,
 		//
 
 		if ((in_data_len - pos1) != (modulus_bytes - pos2)) {
-			OCK_LOG_ERR(ERR_SIGNATURE_INVALID);
+			TRACE_ERROR("%s\n", ock_err(ERR_SIGNATURE_INVALID));
 			return CKR_SIGNATURE_INVALID;
 		}
 		len = in_data_len - pos1;
 
 		if (memcmp(&in_data[pos1], &out[pos2], len) != 0) {
-			OCK_LOG_ERR(ERR_SIGNATURE_INVALID);
+			TRACE_ERROR("%s\n", ock_err(ERR_SIGNATURE_INVALID));
 			return CKR_SIGNATURE_INVALID;
 		}
 		return CKR_OK;
 	} else
-		OCK_LOG_ERR(ERR_FUNCTION_FAILED);
+		TRACE_DEBUG("os_specific_rsa_encrypt failed\n");
 
 	return rc;
 }
@@ -2160,7 +2161,7 @@ token_specific_rsa_x509_verify_recover(CK_BYTE *signature, CK_ULONG sig_len,
 
 	flag = template_attribute_find(key_obj->template, CKA_MODULUS, &attr);
 	if (flag == FALSE) {
-		OCK_LOG_ERR(ERR_FUNCTION_FAILED);
+		TRACE_ERROR("Could not find CKA_MODULUS for the key.\n");
 		return CKR_FUNCTION_FAILED;
 	} else
 		modulus_bytes = attr->ulValueLen;
@@ -2170,7 +2171,7 @@ token_specific_rsa_x509_verify_recover(CK_BYTE *signature, CK_ULONG sig_len,
 		memcpy(out_data, out, modulus_bytes);
 		*out_data_len = modulus_bytes;
 	} else
-		OCK_LOG_ERR(ERR_FUNCTION_FAILED);
+		TRACE_DEBUG("os_specific_rsa_encrypt failed\n");
 
 	return rc;
 }
@@ -2190,7 +2191,7 @@ CK_RV token_specific_rsa_oaep_encrypt(ENCR_DECR_CONTEXT *ctx, CK_BYTE *in_data,
 	CK_RSA_PKCS_OAEP_PARAMS_PTR oaepParms = NULL;
 
 	if (!in_data || !out_data || !hash) {
-		OCK_LOG_ERR(ERR_ARGUMENTS_BAD);
+		TRACE_ERROR("%s\n", ock_err(ERR_ARGUMENTS_BAD));
 		return CKR_ARGUMENTS_BAD;
 	}
 
@@ -2198,13 +2199,13 @@ CK_RV token_specific_rsa_oaep_encrypt(ENCR_DECR_CONTEXT *ctx, CK_BYTE *in_data,
 	
 	rc = object_mgr_find_in_map1(ctx->key, &key_obj);
 	if (rc != CKR_OK) {
-		OCK_LOG_ERR(ERR_OBJMGR_FIND_MAP);
+		TRACE_DEBUG("object_mgr_find_in_map1 failed\n");
 		return rc;
 	}
 
 	flag = template_attribute_find(key_obj->template, CKA_MODULUS, &attr);
 	if (flag == FALSE) {
-		OCK_LOG_ERR(ERR_FUNCTION_FAILED);
+		TRACE_ERROR("Could not find CKA_MODULUS for the key.\n");
 		return CKR_FUNCTION_FAILED;
 	} else
 		modulus_bytes = attr->ulValueLen;
@@ -2214,7 +2215,7 @@ CK_RV token_specific_rsa_oaep_encrypt(ENCR_DECR_CONTEXT *ctx, CK_BYTE *in_data,
 	 */
 	em_data = (CK_BYTE *)malloc(modulus_bytes);
 	if (em_data == NULL) {
-		OCK_LOG_ERR(ERR_HOST_MEMORY);
+		TRACE_ERROR("%s\n", ock_err(ERR_HOST_MEMORY));
 		return CKR_HOST_MEMORY;
 	}
 
@@ -2228,7 +2229,7 @@ CK_RV token_specific_rsa_oaep_encrypt(ENCR_DECR_CONTEXT *ctx, CK_BYTE *in_data,
                 memcpy(out_data, cipher, modulus_bytes);
                 *out_data_len = modulus_bytes;
         } else
-                OCK_LOG_ERR(ERR_FUNCTION_FAILED);
+                TRACE_DEBUG("os_specific_rsa_encrypt failed\n");
 
 done:
 	if (em_data)
@@ -2249,7 +2250,7 @@ CK_RV token_specific_rsa_oaep_decrypt(ENCR_DECR_CONTEXT *ctx, CK_BYTE *in_data,
 	CK_RSA_PKCS_OAEP_PARAMS_PTR oaepParms = NULL;
 
 	if (!in_data || !out_data || !hash) {
-		OCK_LOG_ERR(ERR_FUNCTION_FAILED);
+		TRACE_ERROR("Invalid function arguments.\n");
 		return CKR_FUNCTION_FAILED;
 	}
 
@@ -2257,20 +2258,20 @@ CK_RV token_specific_rsa_oaep_decrypt(ENCR_DECR_CONTEXT *ctx, CK_BYTE *in_data,
 
 	rc = object_mgr_find_in_map1(ctx->key, &key_obj);
 	if (rc != CKR_OK) {
-		OCK_LOG_ERR(ERR_OBJMGR_FIND_MAP);
+		TRACE_DEBUG("object_mgr_find_in_map1 failed\n");
 		return rc;
 	}
 
 	flag = template_attribute_find(key_obj->template, CKA_MODULUS, &attr);
 	if (flag == FALSE) {
-		OCK_LOG_ERR(ERR_FUNCTION_FAILED);
+		TRACE_ERROR("Could not find CKA_MODULUS for the key.\n");
 		return CKR_FUNCTION_FAILED;
 	} else
 		*out_data_len = attr->ulValueLen;
 
 	decr_data = (CK_BYTE *)malloc(in_data_len);
 	if (decr_data == NULL) {
-		OCK_LOG_ERR(ERR_HOST_MEMORY);
+		TRACE_ERROR("%s\n", ock_err(ERR_HOST_MEMORY));
 		return CKR_HOST_MEMORY;
 	}
 
@@ -2303,12 +2304,12 @@ CK_RV token_specific_rsa_pss_sign(SIGN_VERIFY_CONTEXT *ctx, CK_BYTE *in_data,
 
 	/* check the arguments */
 	if (!in_data || !sig) {
-		OCK_LOG_ERR(ERR_ARGUMENTS_BAD);
+		TRACE_ERROR("%s\n", ock_err(ERR_ARGUMENTS_BAD));
 		return CKR_ARGUMENTS_BAD;
 	}
 
 	if (!ctx) {
-		OCK_LOG_ERR(ERR_FUNCTION_FAILED);
+		TRACE_ERROR("%s\n", ock_err(ERR_FUNCTION_FAILED));
 		return CKR_FUNCTION_FAILED;
 	}
 
@@ -2317,20 +2318,20 @@ CK_RV token_specific_rsa_pss_sign(SIGN_VERIFY_CONTEXT *ctx, CK_BYTE *in_data,
 	/* get the key */
 	rc = object_mgr_find_in_map1(ctx->key, &key_obj);
 	if (rc != CKR_OK) {
-		OCK_LOG_ERR(ERR_OBJMGR_FIND_MAP);
+		TRACE_DEBUG("object_mgr_find_in_map1 failed\n");
 		return rc;
 	}
 
         flag = template_attribute_find(key_obj->template, CKA_MODULUS, &attr);
         if (flag == FALSE) {
-                OCK_LOG_ERR(ERR_FUNCTION_FAILED);
+		TRACE_ERROR("Could not find CKA_MODULUS for the key.\n");
                 return CKR_FUNCTION_FAILED;
         } else
                 modbytes = attr->ulValueLen;
 
 	emdata = (CK_BYTE *)malloc(modbytes);
 	if (emdata == NULL) {
-		OCK_LOG_ERR(ERR_HOST_MEMORY);
+		TRACE_ERROR("%s\n", ock_err(ERR_HOST_MEMORY));
 		return CKR_HOST_MEMORY;
 	}
 
@@ -2343,7 +2344,7 @@ CK_RV token_specific_rsa_pss_sign(SIGN_VERIFY_CONTEXT *ctx, CK_BYTE *in_data,
 	if (rc == CKR_OK)
 		*sig_len = modbytes;
 	else
-		OCK_LOG_ERR(ERR_FUNCTION_FAILED);
+		TRACE_DEBUG("os_specific_rsa_decrypt failed\n");
 
 done:
 	if (emdata)
@@ -2366,12 +2367,12 @@ CK_RV token_specific_rsa_pss_verify(SIGN_VERIFY_CONTEXT *ctx, CK_BYTE *in_data,
 
 	/* check the arguments */
 	if (!in_data || !signature) {
-		OCK_LOG_ERR(ERR_ARGUMENTS_BAD);
+		TRACE_ERROR("%s\n", ock_err(ERR_ARGUMENTS_BAD));
 		return CKR_ARGUMENTS_BAD;
 	}
 
 	if (!ctx) {
-		OCK_LOG_ERR(ERR_FUNCTION_FAILED);
+		TRACE_ERROR("%s\n", ock_err(ERR_FUNCTION_FAILED));
 		return CKR_FUNCTION_FAILED;
 	}
 
@@ -2380,20 +2381,20 @@ CK_RV token_specific_rsa_pss_verify(SIGN_VERIFY_CONTEXT *ctx, CK_BYTE *in_data,
 	/* get the key */
 	rc = object_mgr_find_in_map1(ctx->key, &key_obj);
 	if (rc != CKR_OK) {
-		OCK_LOG_ERR(ERR_OBJMGR_FIND_MAP);
+		TRACE_DEBUG("object_mgr_find_in_map1 failed\n");
 		return rc;
 	}
 
 	/* verify is a public key operation ... encrypt */
 	rc = os_specific_rsa_encrypt(signature, sig_len, out, key_obj);
 	if (rc != CKR_OK) {
-		OCK_LOG_ERR(ERR_FUNCTION_FAILED);
+		TRACE_DEBUG("os_specific_rsa_encrypt failed\n");
 		return rc;
 	}
 
 	flag = template_attribute_find(key_obj->template, CKA_MODULUS, &attr);
 	if (flag == FALSE) {
-		OCK_LOG_ERR(ERR_FUNCTION_FAILED);
+		TRACE_ERROR("Could not find CKA_MODULUS for the key.\n");
 		return CKR_FUNCTION_FAILED;
 	} else
 		modbytes = attr->ulValueLen;
@@ -2427,7 +2428,7 @@ token_specific_aes_ecb(CK_BYTE *in_data, CK_ULONG in_data_len,
 	// get the key value
 	rc = template_attribute_find(key->template, CKA_VALUE, &attr);
 	if (rc == FALSE) {
-		OCK_LOG_ERR(ERR_FUNCTION_FAILED);
+		TRACE_ERROR("Could not find CKA_VALUE for the key.\n");
 		return CKR_FUNCTION_FAILED;
 	}
 
@@ -2470,7 +2471,7 @@ token_specific_aes_cbc(CK_BYTE         *in_data,
 
 	// get the key value
 	if (template_attribute_find(key->template, CKA_VALUE, &attr) == FALSE) {
-		OCK_LOG_ERR(ERR_FUNCTION_FAILED);
+		TRACE_ERROR("Could not find CKA_VALUE for the key.\n");
 		return CKR_FUNCTION_FAILED;
 	}
 
@@ -2520,7 +2521,7 @@ token_specific_aes_ctr(CK_BYTE          *in_data,
 
    // get the key value
    if (template_attribute_find(key->template, CKA_VALUE, &attr) == FALSE) {
-      OCK_LOG_ERR(ERR_FUNCTION_FAILED);
+      TRACE_ERROR("Could not find CKA_VALUE for the key.\n");
       return CKR_FUNCTION_FAILED;
    }
 
@@ -2563,7 +2564,7 @@ token_specific_aes_ofb(CK_BYTE *in_data, CK_ULONG in_data_len,
    CK_ATTRIBUTE *attr = NULL;
 
    if (template_attribute_find(key->template, CKA_VALUE, &attr) == FALSE) {
-      OCK_LOG_ERR(ERR_FUNCTION_FAILED);
+      TRACE_ERROR("Could not find CKA_VALUE for the key.\n");
       return CKR_FUNCTION_FAILED;
    }
 
@@ -2572,7 +2573,7 @@ token_specific_aes_ofb(CK_BYTE *in_data, CK_ULONG in_data_len,
 		    init_v, direction);
 
    if (rc != 0) {
-         OCK_LOG_ERR(ERR_FUNCTION_FAILED);
+         TRACE_ERROR("%s\n", ock_err(ERR_FUNCTION_FAILED));
          rc = CKR_FUNCTION_FAILED;
    }
    return rc;
@@ -2593,7 +2594,7 @@ token_specific_aes_cfb(CK_BYTE *in_data, CK_ULONG in_data_len,
    CK_ATTRIBUTE *attr = NULL;
 
    if (template_attribute_find(key->template, CKA_VALUE, &attr) == FALSE) {
-      OCK_LOG_ERR(ERR_FUNCTION_FAILED);
+      TRACE_ERROR("Could not find CKA_VALUE for the key.\n");
       return CKR_FUNCTION_FAILED;
    }
 
@@ -2602,7 +2603,7 @@ token_specific_aes_cfb(CK_BYTE *in_data, CK_ULONG in_data_len,
                     lcfb, direction);
 
    if (rc != 0) {
-         OCK_LOG_ERR(ERR_FUNCTION_FAILED);
+         TRACE_ERROR("%s\n", ock_err(ERR_FUNCTION_FAILED));
          rc = CKR_FUNCTION_FAILED;
    }
    return rc;
@@ -2616,7 +2617,7 @@ token_specific_aes_mac(CK_BYTE *message, CK_ULONG message_len, OBJECT *key,
    CK_ATTRIBUTE *attr = NULL;
 
    if (template_attribute_find(key->template, CKA_VALUE, &attr) == FALSE) {
-      OCK_LOG_ERR(ERR_FUNCTION_FAILED);
+      TRACE_ERROR("Could not find CKA_VALUE for the key.\n");
       return CKR_FUNCTION_FAILED;
    }
 
@@ -2624,7 +2625,7 @@ token_specific_aes_mac(CK_BYTE *message, CK_ULONG message_len, OBJECT *key,
                    attr->pValue, (unsigned int) attr->ulValueLen, mac);
 
    if (rc != 0) {
-         OCK_LOG_ERR(ERR_FUNCTION_FAILED);
+         TRACE_ERROR("%s\n", ock_err(ERR_FUNCTION_FAILED));
          rc = CKR_FUNCTION_FAILED;
    }
    return rc;
@@ -2665,7 +2666,7 @@ token_specific_dh_pkcs_derive( CK_BYTE   *z,
 	     if (bn_x) BN_free(bn_x);
 	     if (bn_p) BN_free(bn_p);
 	     if (bn_z) BN_free(bn_z);
-	     OCK_LOG_ERR(ERR_HOST_MEMORY);
+	     TRACE_ERROR("%s\n", ock_err(ERR_HOST_MEMORY));
 	     return CKR_HOST_MEMORY;
      }
      
@@ -2677,7 +2678,7 @@ token_specific_dh_pkcs_derive( CK_BYTE   *z,
      ctx=BN_CTX_new();
      if (ctx == NULL)
      {
-        OCK_LOG_ERR(ERR_FUNCTION_FAILED);
+        TRACE_ERROR("%s\n", ock_err(ERR_FUNCTION_FAILED));
         return CKR_FUNCTION_FAILED;
      }
  
@@ -2696,7 +2697,7 @@ token_specific_dh_pkcs_derive( CK_BYTE   *z,
         BN_free(bn_p);
         BN_CTX_free(ctx);
  
-        OCK_LOG_ERR(ERR_FUNCTION_FAILED);
+        TRACE_ERROR("%s\n", ock_err(ERR_FUNCTION_FAILED));
         return CKR_FUNCTION_FAILED;
      }
  
@@ -2740,20 +2741,20 @@ token_specific_dh_pkcs_key_pair_gen( TEMPLATE  * publ_tmpl,
     rc &= template_attribute_find( publ_tmpl, CKA_BASE, &base_attr );
  
     if (rc == FALSE) {
-        OCK_LOG_ERR(ERR_FUNCTION_FAILED);
+	TRACE_ERROR("Could not find CKA_PRIME or CKA_BASE for the key.\n");
         return CKR_FUNCTION_FAILED;
     }
  
     if ((prime_attr->ulValueLen > 256) || (prime_attr->ulValueLen < 64))
     {
-        OCK_LOG_ERR(ERR_FUNCTION_FAILED);
-        return CKR_FUNCTION_FAILED;
+	TRACE_ERROR("CKA_PRIME attribute value is invalid.\n");
+	return CKR_ATTRIBUTE_VALUE_INVALID;
     }
  
     dh = DH_new() ;
     if (dh == NULL)
     {
-        OCK_LOG_ERR(ERR_FUNCTION_FAILED);
+        TRACE_ERROR("%s\n", ock_err(ERR_FUNCTION_FAILED));
         return CKR_FUNCTION_FAILED;
     }
 
@@ -2763,7 +2764,7 @@ token_specific_dh_pkcs_key_pair_gen( TEMPLATE  * publ_tmpl,
     if (bn_g == NULL || bn_p == NULL) {
 	if (bn_g) BN_free(bn_g);
 	if (bn_p) BN_free(bn_p);
-	OCK_LOG_ERR(ERR_HOST_MEMORY);
+	TRACE_ERROR("%s\n", ock_err(ERR_HOST_MEMORY));
 	return CKR_HOST_MEMORY;
     }
     BN_init(bn_p);
@@ -2778,7 +2779,7 @@ token_specific_dh_pkcs_key_pair_gen( TEMPLATE  * publ_tmpl,
     // Generate the DH Key
     if (!DH_generate_key(dh))
     {
-        OCK_LOG_ERR(ERR_FUNCTION_FAILED);
+        TRACE_ERROR("%s\n", ock_err(ERR_FUNCTION_FAILED));
         return CKR_FUNCTION_FAILED;
     }
  
@@ -2796,8 +2797,8 @@ token_specific_dh_pkcs_key_pair_gen( TEMPLATE  * publ_tmpl,
     rc = build_attribute( CKA_VALUE, temp_byte, temp_bn_len, &temp_attr ); // in bytes
     if (rc != CKR_OK)
     {
-        OCK_LOG_ERR(ERR_FUNCTION_FAILED);
-        return CKR_FUNCTION_FAILED;
+        TRACE_DEBUG("build_attribute failed\n");
+        return rc;
     }
     template_update_attribute( publ_tmpl, temp_attr );
     free(temp_byte);
@@ -2813,8 +2814,8 @@ token_specific_dh_pkcs_key_pair_gen( TEMPLATE  * publ_tmpl,
     rc = build_attribute( CKA_VALUE, temp_byte, temp_bn_len, &temp_attr ); // in bytes
     if (rc != CKR_OK)
     {
-        OCK_LOG_ERR(ERR_FUNCTION_FAILED);
-        return CKR_FUNCTION_FAILED;
+        TRACE_DEBUG("build_attribute failed\n");
+        return rc;
     }
     template_update_attribute( priv_tmpl, temp_attr );
     free(temp_byte);
@@ -2832,8 +2833,8 @@ token_specific_dh_pkcs_key_pair_gen( TEMPLATE  * publ_tmpl,
                           prime_attr->ulValueLen, &temp_attr ); // in bytes
     if (rc != CKR_OK)
     {
-        OCK_LOG_ERR(ERR_FUNCTION_FAILED);
-        return CKR_FUNCTION_FAILED;
+        TRACE_DEBUG("build_attribute failed\n");
+        return rc;
     }
     template_update_attribute( priv_tmpl, temp_attr );
  
@@ -2841,8 +2842,8 @@ token_specific_dh_pkcs_key_pair_gen( TEMPLATE  * publ_tmpl,
                           base_attr->ulValueLen, &temp_attr ); // in bytes
     if (rc != CKR_OK)
     {
-        OCK_LOG_ERR(ERR_FUNCTION_FAILED);
-        return CKR_FUNCTION_FAILED;
+        TRACE_DEBUG("build_attribute failed\n");
+        return rc;
     }
     template_update_attribute( priv_tmpl, temp_attr );
 
@@ -3055,8 +3056,8 @@ ica_specific_get_mechanism_list(CK_MECHANISM_TYPE_PTR pMechanismList,
 	if (!mech_list_ica_init) {
 		rc = mech_list_ica_initialize();
 		if (rc != CKR_OK) {
-			OCK_LOG_ERR(ERR_FUNCTION_FAILED);
-			return CKR_FUNCTION_FAILED;
+			TRACE_ERROR("mech_list_ica_initialize failed\n");
+			return rc;
 		}
 	}
 
@@ -3067,7 +3068,7 @@ ica_specific_get_mechanism_list(CK_MECHANISM_TYPE_PTR pMechanismList,
 
 	if ((*pulCount) < mech_list_len) {
 		(*pulCount) = mech_list_len;
-		OCK_LOG_ERR(ERR_BUFFER_TOO_SMALL);
+		TRACE_ERROR("%s\n", ock_err(ERR_BUFFER_TOO_SMALL));
 		return CKR_BUFFER_TOO_SMALL;
 	}
 
@@ -3101,8 +3102,8 @@ CK_RV ica_specific_get_mechanism_info (CK_MECHANISM_TYPE type,
 	if (!mech_list_ica_init) {
 		rc = mech_list_ica_initialize();
 		if (rc != CKR_OK) {
-			OCK_LOG_ERR(ERR_FUNCTION_FAILED);
-			return CKR_FUNCTION_FAILED;
+			TRACE_ERROR("mech_list_ica_initialize failed\n");
+			return rc;
 		}
 	}
 
@@ -3119,7 +3120,7 @@ CK_RV ica_specific_get_mechanism_info (CK_MECHANISM_TYPE type,
 		}
 	}
 
-	OCK_LOG_ERR(ERR_MECHANISM_INVALID);
+	TRACE_ERROR("%s\n", ock_err(ERR_MECHANISM_INVALID));
 	return CKR_MECHANISM_INVALID;
 }
 
@@ -3196,13 +3197,13 @@ mech_list_ica_initialize(void)
 
 	rc = ica_get_functionlist(NULL, &ica_specific_mech_list_len);
 	if (rc != CKR_OK) {
-		OCK_LOG_ERR(ERR_FUNCTION_FAILED);
+		TRACE_ERROR("ica_get_functionlist failed\n");
 		return CKR_FUNCTION_FAILED;
 	}
 	libica_func_list_element libica_func_list[ica_specific_mech_list_len];
 	rc = ica_get_functionlist(libica_func_list, &ica_specific_mech_list_len);
 	if (rc != CKR_OK) {
-		OCK_LOG_ERR(ERR_FUNCTION_FAILED);
+		TRACE_ERROR("ica_get_functionlist failed\n");
 		return CKR_FUNCTION_FAILED;
 	}
 
