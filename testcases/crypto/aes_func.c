@@ -993,14 +993,14 @@ CK_RV do_WrapUnwrapAES(struct generated_test_suite_info *tsuite)
 	CK_BYTE			original[BIG_REQUEST + AES_BLOCK_SIZE];
 	CK_BYTE			crypt[BIG_REQUEST + AES_BLOCK_SIZE];
 	CK_BYTE			decrypt[BIG_REQUEST + AES_BLOCK_SIZE];
-	CK_BYTE			wrapped_data[3 * AES_BLOCK_SIZE];
+	CK_BYTE_PTR		wrapped_data = NULL;
 	CK_BYTE			user_pin[PKCS11_MAX_PIN_LEN];
 	CK_SESSION_HANDLE	session;
 	CK_MECHANISM		mechkey, mech;
 	CK_OBJECT_HANDLE	h_key;
 	CK_OBJECT_HANDLE	w_key;
 	CK_OBJECT_HANDLE	uw_key;
-	CK_ULONG		wrapped_data_len;
+	CK_ULONG		wrapped_data_len = 0;
 	CK_ULONG		user_pin_len;
 	CK_ULONG		orig_len, crypt_len, decrypt_len;
 	CK_ULONG		tmpl_count = 3;
@@ -1037,10 +1037,12 @@ CK_RV do_WrapUnwrapAES(struct generated_test_suite_info *tsuite)
 		goto testcase_cleanup;
 	}
 
+	/* key sizes must be a multiple of AES block size in order to be passed
+	   in as data. Recall AES expects data in multiple of AES block size.
+         */
 	for (i = 0; i < 3; i++) {
 
-		/** EP11 token doesn't support key sizes != AES block size **/
-		if ( (is_ep11_token(slot_id)) && (key_lens[i]%AES_BLOCK_SIZE != 0) )
+		if (key_lens[i]%AES_BLOCK_SIZE != 0)
 			continue;
 
 		testcase_begin("%s Wrap/Unwrap key test with keylength=%ld.",
@@ -1057,7 +1059,6 @@ CK_RV do_WrapUnwrapAES(struct generated_test_suite_info *tsuite)
 		memset(original, 0, sizeof(original));
 		memset(crypt, 0, sizeof(crypt));
 		memset(decrypt, 0, sizeof(decrypt));
-		memset(wrapped_data, 0, sizeof(wrapped_data));
 
 		/** generate crypto key **/
 		rc = generate_AESKey(session, key_lens[i], &mechkey, &h_key);
@@ -1101,15 +1102,27 @@ CK_RV do_WrapUnwrapAES(struct generated_test_suite_info *tsuite)
 		}
 
 		/** wrap key **/
-		wrapped_data_len = 3 * AES_KEY_LEN;
 
 		rc = funcs->C_WrapKey(session,
 				&mech,
 				w_key,
 				h_key,
-				(CK_BYTE *) &wrapped_data,
+				NULL,
 				&wrapped_data_len);
 
+		if (rc != CKR_OK) {
+			testcase_error("C_WrapKey rc=%s", p11_get_ckr(rc));
+			goto error;
+		}
+
+		wrapped_data = malloc(wrapped_data_len);
+		if (wrapped_data == NULL) {
+			testcase_error("malloc failed");
+			goto error;
+		}
+		memset(wrapped_data, 0, wrapped_data_len);
+		rc = funcs->C_WrapKey(session, &mech, w_key, h_key, wrapped_data,
+					&wrapped_data_len);
 		if (rc != CKR_OK) {
 			testcase_error("C_WrapKey rc=%s", p11_get_ckr(rc));
 			goto error;
@@ -1129,6 +1142,9 @@ CK_RV do_WrapUnwrapAES(struct generated_test_suite_info *tsuite)
 			testcase_error("C_UnwrapKey rc=%s", p11_get_ckr(rc));
 			goto error;
 		}
+
+		if (wrapped_data)
+			free(wrapped_data);
 
 		/** initiate decryption (with unwrapped key) **/
 		rc = funcs->C_DecryptInit(session, &mech, uw_key);
@@ -1187,6 +1203,9 @@ CK_RV do_WrapUnwrapAES(struct generated_test_suite_info *tsuite)
 	}
 	goto testcase_cleanup;
 error:
+	if (wrapped_data)
+		free(wrapped_data);
+
 	rc = funcs->C_DestroyObject(session, h_key);
 	if (rc != CKR_OK) {
 		testcase_error("C_DestroyObject rc=%s.", p11_get_ckr(rc));
