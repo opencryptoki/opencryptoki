@@ -295,6 +295,7 @@
 #include "defs.h"
 #include "host_defs.h"
 #include "h_extern.h"
+#include "trace.h"
 
 /* Global vars used as parameter to bison/flex parser. */
 extern FILE *yyin;
@@ -375,7 +376,7 @@ key_value:
 		/* Check key and value */
 		if (!key || !value) {
 			out_rc = 1;
-			OCK_LOG_DEBUG("Null %s found.\n", (!key) ? "key" : "value");
+			TRACE_ERROR("Null %s found.\n", (!key) ? "key" : "value");
 			goto done;
 		}
 
@@ -392,7 +393,7 @@ key_value:
 		}
 
 		out_rc = 1;
-		OCK_LOG_DEBUG("Invalid keyword: %s\n", key);
+		TRACE_ERROR("Invalid keyword: %s\n", key);
 
 	done:
 		if (key)
@@ -409,7 +410,7 @@ yyerror(const char *str)
 {
 	out_rc = 1;
 	fprintf(stderr,"Error: %s\n", str);
-	OCK_LOG_DEBUG("Failed to parse config file. %s\n", str);
+	TRACE_DEBUG("Failed to parse config file. %s\n", str);
 }
 
 static int
@@ -419,7 +420,7 @@ check_keys(const char *conf_name)
 
 	for (i = 0; i < refs_len; i++) {
 		if (refs[i].required && *refs[i].addr == '\0') {
-			OCK_LOG_DEBUG("Missing required key \"%s\" in \"%s\".\n",
+			TRACE_ERROR("Missing required key \"%s\" in \"%s\".\n",
 				      refs[i].key, conf_name);
 			return -1;
 		}
@@ -440,7 +441,7 @@ parse_config_file(const char *conf_name, CK_SLOT_ID slot_id,
 
 	/* Check is file exists. */
 	if (stat(conf_name, &stat_info) || !S_ISREG(stat_info.st_mode)) {
-		OCK_LOG_DEBUG("File \"%s\" does not exist or is invalid.\n",
+		TRACE_ERROR("File \"%s\" does not exist or is invalid.\n",
 			      conf_name);
 		return CKR_FUNCTION_FAILED;
 	}
@@ -454,7 +455,7 @@ parse_config_file(const char *conf_name, CK_SLOT_ID slot_id,
 	/* Open config file */
 	yyin = fopen(conf_name, "r");
 	if (yyin == NULL) {
-		OCK_LOG_DEBUG("Failed to open \"%s\".\n", conf_name);
+		TRACE_ERROR("Failed to open \"%s\".\n", conf_name);
 		return CKR_FUNCTION_FAILED;
 	}
 
@@ -462,7 +463,7 @@ parse_config_file(const char *conf_name, CK_SLOT_ID slot_id,
 	rc = yyparse();
 	fclose(yyin);
 	if (rc || out_rc) {
-		OCK_LOG_DEBUG("Failed to parser file \"%s\" (%d:%d).\n", 
+		TRACE_ERROR("Failed to parser file \"%s\" (%d:%d).\n",
 			      conf_name, rc, out_rc);
 		return CKR_FUNCTION_FAILED;
 	}
@@ -477,7 +478,7 @@ parse_config_file(const char *conf_name, CK_SLOT_ID slot_id,
 	} else if (!strcmp(out_str_mech, "SASL")) {
 		out_config.mech = ICSF_CFG_MECH_SASL;
 	} else {
-		OCK_LOG_DEBUG("Unknown mechanism type found: %s\n", out_str_mech);
+		TRACE_ERROR("Unknown mechanism type found: %s\n", out_str_mech);
 		return CKR_FUNCTION_FAILED;
 	}
 
@@ -487,9 +488,9 @@ parse_config_file(const char *conf_name, CK_SLOT_ID slot_id,
 	#if DEBUG
 	{
 		size_t i;
-		OCK_LOG_DEBUG("ICSF configs for slot %d.\n", slot_id);
+		TRACE_DEVEL("ICSF configs for slot %d.\n", slot_id);
 		for (i = 0; i < refs_len; i++) {
-			OCK_LOG_DEBUG(" %s = \"%s\"\n", refs[i].key,
+			TRACE_DEVEL(" %s = \"%s\"\n", refs[i].key,
 				      refs[i].addr);
 		}
 	}

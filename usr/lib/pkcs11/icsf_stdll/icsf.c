@@ -9,6 +9,7 @@
  *         Eduardo Otubo (eotubo@br.ibm.com)
  *
  */
+#define _GNU_SOURCE
 #include <stdlib.h>
 #include <stdio.h>
 #include <string.h>
@@ -19,6 +20,7 @@
 #include "defs.h"
 #include "host_defs.h"
 #include "h_extern.h"
+#include "trace.h"
 
 /*
  * Note about ICSF callable services:
@@ -109,13 +111,13 @@
 /* Macros for argument checking */
 #define CHECK_ARG_NON_NULL(_arg) 					\
 	if (_arg == NULL) { 						\
-		OCK_LOG_DEBUG("Null argument \"%s\".\n", #_arg); 	\
+		TRACE_ERROR("Null argument \"%s\".\n", #_arg);		\
 		return -1; 						\
 	}
 
 #define CHECK_ARG_MAX_LEN(_arg, _length) 				\
 	if (_arg && (strlen(_arg) > _length)) {				\
-		OCK_LOG_DEBUG("String too long %s=\"%s\"\n",		\
+		TRACE_ERROR("String too long %s=\"%s\"\n",		\
 			      #_arg, _arg);				\
 		return -1;						\
 	}
@@ -235,18 +237,18 @@ icsf_force_ldap_v3(LDAP *ld)
 
 	rc = ldap_get_option(ld, LDAP_OPT_PROTOCOL_VERSION, &version);
 	if (rc != LDAP_OPT_SUCCESS) {
-		OCK_LOG_DEBUG("Failed to get LDAP version: %s (%d)\n",
-			      ldap_err2string(rc), rc);
+		TRACE_ERROR("Failed to get LDAP version: %s (%d)\n",
+			    ldap_err2string(rc), rc);
 		return -1;
 	}
 	if (version < LDAP_VERSION3) {
-		OCK_LOG_DEBUG("Changing version from %d to %d.\n",
-			      version, LDAP_VERSION3);
+		TRACE_INFO("Changing version from %d to %d.\n",
+			   version, LDAP_VERSION3);
 		version = LDAP_VERSION3;
 		rc = ldap_set_option(ld, LDAP_OPT_PROTOCOL_VERSION, &version);
 		if (rc != LDAP_OPT_SUCCESS) {
-			OCK_LOG_DEBUG("Failed to set LDAP version: %s (%d)\n",
-				      ldap_err2string(rc), rc);
+			TRACE_ERROR("Failed to set LDAP version: %s (%d)\n",
+				    ldap_err2string(rc), rc);
 			return -1;
 		}
 	}
@@ -271,10 +273,10 @@ icsf_login(LDAP **ld, const char *uri, const char *dn, const char *password)
 	dn = (dn && dn[0]) ? dn : NULL;
 
 	/* Connect to LDAP server */
-	OCK_LOG_DEBUG("Connecting to: %s\n", uri ? uri : "(null)");
+	TRACE_DEBUG("Connecting to: %s\n", uri ? uri : "(null)");
 	rc = ldap_initialize(ld, uri);
 	if (rc != LDAP_SUCCESS) {
-		OCK_LOG_DEBUG("Failed to connect to \"%s\": %s (%d)\n",
+		TRACE_ERROR("Failed to connect to \"%s\": %s (%d)\n",
 			      uri ? uri : "(null)", ldap_err2string(rc), rc);
 		return -1;
 	}
@@ -282,13 +284,13 @@ icsf_login(LDAP **ld, const char *uri, const char *dn, const char *password)
 	if (icsf_force_ldap_v3(*ld))
 		return -1;
 
-	OCK_LOG_DEBUG("Binding with DN: %s\n", dn ? dn : "(null)");
+	TRACE_DEBUG("Binding with DN: %s\n", dn ? dn : "(null)");
 	cred.bv_len = strlen(password);
 	cred.bv_val = (char *) password;
 	rc = ldap_sasl_bind_s(*ld, dn, LDAP_SASL_SIMPLE, &cred, NULL, NULL,
 			      NULL);
 	if (rc != LDAP_SUCCESS) {
-		OCK_LOG_DEBUG("LDAP bind failed: %s (%d)\n",
+		TRACE_ERROR("LDAP bind failed: %s (%d)\n",
 			      ldap_err2string(rc), rc);
 		return -1;
 	}
@@ -310,45 +312,43 @@ icsf_set_sasl_params(LDAP *ld, const char *cert, const char *key,
 
 	CHECK_ARG_NON_NULL(ld);
 
-	OCK_LOG_DEBUG("Preparing environment for TLS\n");
+	TRACE_DEBUG("Preparing environment for TLS\n");
 	if (cert && *cert) {
-		OCK_LOG_DEBUG("Using certificate: %s\n", cert);
+		TRACE_DEBUG("Using certificate: %s\n", cert);
 		rc = ldap_set_option(NULL, LDAP_OPT_X_TLS_CERTFILE, cert);
 		if (rc != LDAP_SUCCESS) {
-			OCK_LOG_DEBUG("Failed to set certificate file for TLS: "
+			TRACE_ERROR("Failed to set certificate file for TLS: "
 				      "%s (%d)\n", ldap_err2string(rc), rc);
 			return -1;
 		}
 	}
 
 	if (key && *key) {
-		OCK_LOG_DEBUG("Using private key: %s\n", key);
+		TRACE_DEVEL("Using private key: %s\n", key);
 		rc = ldap_set_option(NULL, LDAP_OPT_X_TLS_KEYFILE, key);
 		if (rc != LDAP_SUCCESS) {
-			OCK_LOG_DEBUG("Failed to set key file for TLS: "
-				      "%s (%d)\n", ldap_err2string(rc), rc);
+			TRACE_ERROR("Failed to set key file for TLS: "
+				    "%s (%d)\n", ldap_err2string(rc), rc);
 			return -1;
 		}
 	}
 
 	if (ca && *ca) {
-		OCK_LOG_DEBUG("Using CA certificate file: %s\n", ca);
+		TRACE_DEBUG("Using CA certificate file: %s\n", ca);
 		rc = ldap_set_option(NULL, LDAP_OPT_X_TLS_CACERTFILE, ca);
 		if (rc != LDAP_SUCCESS) {
-			OCK_LOG_DEBUG
-			    ("Failed to set CA certificate file for TLS: "
-			     "%s (%d)\n", ldap_err2string(rc), rc);
+			TRACE_ERROR("Failed to set CA certificate file for TLS:"
+				    " %s (%d)\n", ldap_err2string(rc), rc);
 			return -1;
 		}
 	}
 
 	if (ca_dir && *ca_dir) {
-		OCK_LOG_DEBUG("Using CA certificate dir: %s\n", ca_dir);
+		TRACE_DEBUG("Using CA certificate dir: %s\n", ca_dir);
 		rc = ldap_set_option(NULL, LDAP_OPT_X_TLS_CACERTDIR, ca_dir);
 		if (rc != LDAP_SUCCESS) {
-			OCK_LOG_DEBUG
-			    ("Failed to set CA certificate dir for TLS: "
-			     "%s (%d)\n", ldap_err2string(rc), rc);
+			TRACE_ERROR("Failed to set CA certificate dir for TLS: "
+				    "%s (%d)\n", ldap_err2string(rc), rc);
 			return -1;
 		}
 	}
@@ -372,10 +372,10 @@ icsf_sasl_login(LDAP **ld, const char *uri, const char *cert,
 	uri = (uri && uri[0]) ? uri : NULL;
 
 	/* Connect to LDAP server */
-	OCK_LOG_DEBUG("Connecting to: %s\n", uri ? uri : "(null)");
+	TRACE_DEBUG("Connecting to: %s\n", uri ? uri : "(null)");
 	rc = ldap_initialize(ld, uri);
 	if (rc != LDAP_SUCCESS) {
-		OCK_LOG_DEBUG("Failed to connect to \"%s\": %s (%d)\n",
+		TRACE_ERROR("Failed to connect to \"%s\": %s (%d)\n",
 			      uri ? uri : "(null)", ldap_err2string(rc), rc);
 		return -1;
 	}
@@ -387,12 +387,12 @@ icsf_sasl_login(LDAP **ld, const char *uri, const char *cert,
 	if (icsf_set_sasl_params(*ld, cert, key, ca, ca_dir))
 		return -1;
 
-	OCK_LOG_DEBUG("Binding\n");
+	TRACE_DEBUG("Binding\n");
 	rc = ldap_sasl_bind_s(*ld, NULL, "EXTERNAL", NULL, NULL, NULL, NULL);
 	if (rc != LDAP_SUCCESS) {
 		char *ext_msg = NULL;
 		ldap_get_option(*ld, LDAP_OPT_DIAGNOSTIC_MESSAGE, &ext_msg);
-		OCK_LOG_DEBUG("LDAP bind failed: %s (%d)%s%s\n",
+		TRACE_ERROR("LDAP bind failed: %s (%d)%s%s\n",
 			      ldap_err2string(rc), rc,
 			      ext_msg ? "\nDetailed message: " : "",
 			      ext_msg ? ext_msg : "");
@@ -415,7 +415,7 @@ int icsf_logout(LDAP *ld)
 
 	rc = ldap_unbind_ext_s(ld, NULL, NULL);
 	if (rc != LDAP_SUCCESS) {
-		OCK_LOG_DEBUG("Failed to unbind: %s (%d)\n",
+		TRACE_ERROR("Failed to unbind: %s (%d)\n",
 			      ldap_err2string(rc), rc);
 		return -1;
 	}
@@ -551,12 +551,12 @@ icsf_call(LDAP *ld, int *reason, char *handle, size_t handle_len,
 
 	/* Check sizes */
 	if (handle_len != ICSF_HANDLE_LEN) {
-		OCK_LOG_DEBUG("Invalid handle length: %lu\n", handle_len);
+		TRACE_ERROR("Invalid handle length: %lu\n", handle_len);
 		return -1;
 	}
 
 	if ((rule_array_len % ICSF_RULE_ITEM_LEN)) {
-		OCK_LOG_DEBUG("Invalid rule array length: %lu\n",
+		TRACE_ERROR("Invalid rule array length: %lu\n",
 			      rule_array_len);
 		return -1;
 	}
@@ -565,7 +565,7 @@ icsf_call(LDAP *ld, int *reason, char *handle, size_t handle_len,
 	/* Allocate ber_req to encode message. */
 	ber_req = ber_alloc_t(LBER_USE_DER);
 	if (ber_req == NULL) {
-		OCK_LOG_ERR(ERR_HOST_MEMORY);
+		TRACE_ERROR("%s\n", ock_err(ERR_HOST_MEMORY));
 		rc = -1;
 		goto cleanup;
 	}
@@ -573,8 +573,7 @@ icsf_call(LDAP *ld, int *reason, char *handle, size_t handle_len,
 	if (specific) {
 		rc = ber_flatten(specific, &raw_specific);
 		if (rc) {
-			OCK_LOG_DEBUG("Failed to flat specific data.\n");
-			OCK_LOG_ERR(ERR_FUNCTION_FAILED);
+			TRACE_ERROR("Failed to flatten specific data.\n");
 			rc = -1;
 			goto cleanup;
 		}
@@ -626,16 +625,14 @@ icsf_call(LDAP *ld, int *reason, char *handle, size_t handle_len,
 			(raw_specific) ? raw_specific->bv_val : "",
 			(raw_specific) ? raw_specific->bv_len : 0);
 	if (rc < 0) {
-		OCK_LOG_DEBUG("Failed to encode message.\n");
-		OCK_LOG_ERR(ERR_FUNCTION_FAILED);
+		TRACE_ERROR("Failed to encode message.\n");
 		rc = -1;
 		goto cleanup;
 	}
 
 	rc = ber_flatten(ber_req, &raw_req);
 	if (rc) {
-		OCK_LOG_DEBUG("Failed to flat BER data.\n");
-		OCK_LOG_ERR(ERR_FUNCTION_FAILED);
+		TRACE_ERROR("Failed to flatten BER data.\n");
 		rc = -1;
 		goto cleanup;
 	}
@@ -646,13 +643,12 @@ icsf_call(LDAP *ld, int *reason, char *handle, size_t handle_len,
 	if (rc != LDAP_SUCCESS) {
 		char *ext_msg = NULL;
 		ldap_get_option(ld, LDAP_OPT_DIAGNOSTIC_MESSAGE, &ext_msg);
-		OCK_LOG_DEBUG("ICSF call failed: %s (%d)%s%s\n",
+		TRACE_ERROR("ICSF call failed: %s (%d)%s%s\n",
 			      ldap_err2string(rc), rc,
 			      ext_msg ? "\nDetailed message: " : "",
 			      ext_msg ? ext_msg : "");
 		if (ext_msg)
 			ldap_memfree(ext_msg);
-		OCK_LOG_ERR(ERR_FUNCTION_FAILED);
 		rc = -1;
 		goto cleanup;
 	}
@@ -660,8 +656,7 @@ icsf_call(LDAP *ld, int *reason, char *handle, size_t handle_len,
 	/* Decode result */
 	ber_res = ber_init(raw_res);
 	if (ber_res == NULL) {
-		OCK_LOG_DEBUG("Failed to create a response buffer\n");
-		OCK_LOG_ERR(ERR_FUNCTION_FAILED);
+		TRACE_ERROR("Failed to create a response buffer\n");
 		rc = -1;
 		goto cleanup;
 	}
@@ -670,8 +665,7 @@ icsf_call(LDAP *ld, int *reason, char *handle, size_t handle_len,
 	rc = ber_scanf(ber_res, "{iiixO", &version, &return_code,
 		       &reason_code, &out_handle);
 	if (rc < 0) {
-		OCK_LOG_DEBUG("Failed to decode message.\n");
-		OCK_LOG_ERR(ERR_FUNCTION_FAILED);
+		TRACE_ERROR("Failed to decode message.\n");
 		rc = -1;
 		goto cleanup;
 	}
@@ -686,12 +680,11 @@ icsf_call(LDAP *ld, int *reason, char *handle, size_t handle_len,
 		memset(handle + len, 0, handle_len - len);
 	}
 
-	OCK_LOG_DEBUG("ICSF call result: %d (%d)\n", return_code, reason_code);
+	TRACE_DEBUG("ICSF call result: %d (%d)\n", return_code, reason_code);
 
 	if (ICSF_RC_IS_ERROR(return_code)) {
-		OCK_LOG_DEBUG("ICSF call failed: %d (%d)\n", return_code,
+		TRACE_ERROR("ICSF call failed: %d (%d)\n", return_code,
 			      reason_code);
-		OCK_LOG_ERR(ERR_FUNCTION_FAILED);
 	}
 
 	rc = return_code;
@@ -761,7 +754,7 @@ icsf_create_token(LDAP *ld, int *reason, const char *token_name,
 	/* Allocate ber_req to encode message. */
 	msg = ber_alloc_t(LBER_USE_DER);
 	if (msg == NULL) {
-		OCK_LOG_ERR(ERR_HOST_MEMORY);
+		TRACE_ERROR("%s\n", ock_err(ERR_HOST_MEMORY));
 		goto cleanup;
 	}
 
@@ -776,8 +769,7 @@ icsf_create_token(LDAP *ld, int *reason, const char *token_name,
 	rc = ber_printf(msg, "to", 0 | LBER_CLASS_CONTEXT, attribute_list,
 			sizeof(attribute_list));
 	if (rc < 0) {
-		OCK_LOG_DEBUG("Failed to encode message.\n");
-		OCK_LOG_ERR(ERR_FUNCTION_FAILED);
+		TRACE_ERROR("Failed to encode message.\n");
 		goto cleanup;
 	}
 
@@ -938,7 +930,7 @@ icsf_ber_put_attribute_list(BerElement *ber, CK_ATTRIBUTE * attrs,
 			 * just the significant bits should be used.
 			 */
 			if (attrs[i].ulValueLen > sizeof(long)) {
-				OCK_LOG_DEBUG
+				TRACE_ERROR
 				    ("Integer value too long for attribute\n");
 				goto encode_error;
 			}
@@ -963,7 +955,7 @@ icsf_ber_put_attribute_list(BerElement *ber, CK_ATTRIBUTE * attrs,
 	return 0;
 
 encode_error:
-	OCK_LOG_DEBUG("Failed to encode message.\n");
+	TRACE_ERROR("Failed to encode message.\n");
 
 	return -1;
 }
@@ -1016,7 +1008,7 @@ icsf_list(LDAP *ld, int *reason, char *handle, size_t handle_len,
 	/* Allocate request message. */
 	msg = ber_alloc_t(LBER_USE_DER);
 	if (msg == NULL) {
-		OCK_LOG_ERR(ERR_HOST_MEMORY);
+		TRACE_ERROR("%s\n", ock_err(ERR_HOST_MEMORY));
 		goto cleanup;
 	}
 
@@ -1030,7 +1022,7 @@ icsf_list(LDAP *ld, int *reason, char *handle, size_t handle_len,
 	 *
 	 */
 	if (ber_printf(msg, "ii", *list_len, list_count) < 0) {
-		OCK_LOG_DEBUG("Failed to encode message.\n");
+		TRACE_ERROR("Failed to encode message.\n");
 		goto cleanup;
 	}
 
@@ -1039,17 +1031,17 @@ icsf_list(LDAP *ld, int *reason, char *handle, size_t handle_len,
 
 	if ((objectInRuleArray) && (attrs != NULL)) {
 		if (ber_printf(msg, "t{", 0|LBER_CLASS_CONTEXT|LBER_CONSTRUCTED) < 0) {
-			OCK_LOG_DEBUG("Failed to flat attribute list\n");
+			TRACE_ERROR("Failed to flatten attribute list\n");
 			goto cleanup;
 		}
 
 		if (icsf_ber_put_attribute_list(msg, attrs, attrs_len) < 0) {
-			OCK_LOG_DEBUG("Failed to flat attribute list\n");
+			TRACE_ERROR("Failed to flatten attribute list\n");
 			goto cleanup;
 		}
 
 		if (ber_printf(msg, "}") < 0) {
-			OCK_LOG_DEBUG("Failed to encode message.\n");
+			TRACE_ERROR("Failed to encode message.\n");
 			goto cleanup;
 		}
 	}
@@ -1070,7 +1062,7 @@ icsf_list(LDAP *ld, int *reason, char *handle, size_t handle_len,
 	 * }
 	 */
 	if (ber_scanf(result, "{Oi}", bv_list, &out_list_len) < 0) {
-		OCK_LOG_DEBUG("Failed to decode message.\n");
+		TRACE_ERROR("Failed to decode message.\n");
 		rc = -1;
 		goto cleanup;
 	}
@@ -1163,30 +1155,30 @@ icsf_copy_object(LDAP * ld, int *reason,
 	/* Allocate ber_req to encode message. */
 	msg = ber_alloc_t(LBER_USE_DER);
 	if (msg == NULL) {
-		OCK_LOG_ERR(ERR_HOST_MEMORY);
+		TRACE_ERROR("%s\n", ock_err(ERR_HOST_MEMORY));
 		goto cleanup;
 	}
 
 	if (attrs_len != 0) {
 		rc = ber_printf(msg, "t{", 1 | LBER_CLASS_CONTEXT | LBER_CONSTRUCTED);
 		if (rc < 0) {
-			OCK_LOG_ERR(ERR_FUNCTION_FAILED);
+			TRACE_ERROR("%s\n", ock_err(ERR_FUNCTION_FAILED));
 			goto cleanup;
 		}
 
 		if (icsf_ber_put_attribute_list(msg, attrs, attrs_len) < 0) {
-			OCK_LOG_ERR(ERR_FUNCTION_FAILED);
+			TRACE_DEBUG("icsf_ber_put_attribute_list failed\n");
 			goto cleanup;
 		}
 
 		if (ber_printf(msg, "}") < 0) {
-			OCK_LOG_ERR(ERR_FUNCTION_FAILED);
+			TRACE_ERROR("%s\n", ock_err(ERR_FUNCTION_FAILED));
 			goto cleanup;
 		}
 	} else {
 		rc = ber_printf(msg, "tn", 1 | LBER_CLASS_CONTEXT | LBER_CONSTRUCTED);
 		if (rc < 0) {
-			OCK_LOG_ERR(ERR_FUNCTION_FAILED);
+			TRACE_ERROR("%s\n", ock_err(ERR_FUNCTION_FAILED));
 			goto cleanup;
 		}
 	}
@@ -1242,7 +1234,7 @@ icsf_create_object(LDAP *ld, int *reason, const char *token_name,
 	/* Allocate ber_req to encode message. */
 	msg = ber_alloc_t(LBER_USE_DER);
 	if (msg == NULL) {
-		OCK_LOG_ERR(ERR_HOST_MEMORY);
+		TRACE_ERROR("%s\n", ock_err(ERR_HOST_MEMORY));
 		goto cleanup;
 	}
 
@@ -1266,20 +1258,17 @@ icsf_create_object(LDAP *ld, int *reason, const char *token_name,
 	 *
 	 */
 	if (ber_printf(msg, "t{", 1 | LBER_CLASS_CONTEXT | LBER_CONSTRUCTED) < 0) {
-		OCK_LOG_DEBUG("Failed to encode message.\n");
-		OCK_LOG_ERR(ERR_FUNCTION_FAILED);
+		TRACE_ERROR("Failed to encode message.\n");
 		goto cleanup;
 	}
 
 	if (icsf_ber_put_attribute_list(msg, attrs, attrs_len) < 0) {
-		OCK_LOG_DEBUG("Failed to flat attribute list\n");
-		OCK_LOG_ERR(ERR_FUNCTION_FAILED);
+		TRACE_ERROR("Failed to flatten attribute list\n");
 		goto cleanup;
 	}
 
 	if (ber_printf(msg, "}") < 0) {
-		OCK_LOG_DEBUG("Failed to encode message.\n");
-		OCK_LOG_ERR(ERR_FUNCTION_FAILED);
+		TRACE_ERROR("Failed to encode message.\n");
 		goto cleanup;
 	}
 
@@ -1418,7 +1407,7 @@ icsf_generate_key_pair(LDAP *ld, int *reason, const char *token_name,
 	token_name_to_handle(handle, token_name);
 
 	if (!(msg = ber_alloc_t(LBER_USE_DER))) {
-		OCK_LOG_ERR(ERR_HOST_MEMORY);
+		TRACE_ERROR("%s\n", ock_err(ERR_HOST_MEMORY));
 		return rc;
 	}
 
@@ -1436,7 +1425,7 @@ icsf_generate_key_pair(LDAP *ld, int *reason, const char *token_name,
 	    ber_printf(msg, "}{") < 0 ||
 	    icsf_ber_put_attribute_list(msg, priv_attrs, priv_attrs_len) < 0 ||
 	    ber_printf(msg, "}") < 0) {
-		OCK_LOG_DEBUG("Failed to encode message.\n");
+		TRACE_ERROR("Failed to encode message.\n");
 		goto cleanup;
 	}
 
@@ -1447,13 +1436,13 @@ icsf_generate_key_pair(LDAP *ld, int *reason, const char *token_name,
 
 	/* Get private key handle from GKP response */
 	if (ber_scanf(result, "m", &bv_priv_handle) < 0) {
-		OCK_LOG_DEBUG("Failed to decode the response.\n");
+		TRACE_ERROR("Failed to decode the response.\n");
 		rc = -1;
 		goto cleanup;
 	}
 	if (bv_priv_handle.bv_len != ICSF_HANDLE_LEN) {
-		OCK_LOG_DEBUG("Invalid length for handle: %lu\n",
-				(unsigned long) bv_priv_handle.bv_len);
+		TRACE_ERROR("Invalid length for handle: %lu\n",
+			    (unsigned long) bv_priv_handle.bv_len);
 		rc = -1;
 		goto cleanup;
 	}
@@ -1517,7 +1506,7 @@ icsf_generate_secret_key(LDAP *ld, int *reason, const char *token_name,
 	case CKM_SSL3_PRE_MASTER_KEY_GEN:
 		/* Check expected length */
 		if (mech->ulParameterLen != sizeof(*version)) {
-			OCK_LOG_DEBUG("Invalid mechanism parameter length: "
+			TRACE_ERROR("Invalid mechanism parameter length: "
 				"%lu\n", (unsigned long) mech->ulParameterLen);
 			return -1;
 		}
@@ -1535,7 +1524,7 @@ icsf_generate_secret_key(LDAP *ld, int *reason, const char *token_name,
 	}
 
 	if (!(msg = ber_alloc_t(LBER_USE_DER))) {
-		OCK_LOG_ERR(ERR_HOST_MEMORY);
+		TRACE_ERROR("%s\n", ock_err(ERR_HOST_MEMORY));
 		return rc;
 	}
 
@@ -1549,13 +1538,13 @@ icsf_generate_secret_key(LDAP *ld, int *reason, const char *token_name,
 	 * attrList is built by icsf_ber_put_attribute_list()
 	 */
 	if (ber_printf(msg, "{") < 0) {
-		OCK_LOG_DEBUG("Failed to encode message.\n");
+		TRACE_ERROR("Failed to encode message.\n");
 		goto cleanup;
 	}
 
 	if (icsf_ber_put_attribute_list(msg, attrs, attrs_len) < 0 ||
 	    ber_printf(msg, "}o", param, param_len) < 0) {
-		OCK_LOG_DEBUG("Failed to encode message.\n");
+		TRACE_ERROR("Failed to encode message.\n");
 		goto cleanup;
 	}
 
@@ -1720,7 +1709,6 @@ icsf_block_size(CK_MECHANISM_TYPE mech_type, CK_ULONG_PTR p_block_size)
 		break;
 
 	default:
-		OCK_LOG_DEBUG();
 		return CKR_MECHANISM_INVALID;
 	}
 
@@ -1754,7 +1742,7 @@ icsf_encrypt_initial_vector(CK_MECHANISM_PTR mech, char *iv, size_t *iv_len)
 	}
 
 	if (iv_len && *iv_len < expected_iv_len) {
-		OCK_LOG_DEBUG("IV too small.\n");
+		TRACE_ERROR("IV too small.\n");
 		return CKR_FUNCTION_FAILED;
 	}
 
@@ -1766,7 +1754,7 @@ icsf_encrypt_initial_vector(CK_MECHANISM_PTR mech, char *iv, size_t *iv_len)
 		 * Otherwise use the mechanism parameter as the IV.
 		 */
 		if (mech->ulParameterLen != expected_iv_len) {
-			OCK_LOG_DEBUG("Invalid mechanism parameter length: %lu "
+			TRACE_ERROR("Invalid mechanism parameter length: %lu "
 					"(expected %lu)\n",
 					(unsigned long) mech->ulParameterLen,
 					(unsigned long) expected_iv_len);
@@ -1810,7 +1798,7 @@ icsf_secret_key_encrypt(LDAP *ld, int *p_reason, struct icsf_object_record *key,
 	CHECK_ARG_NON_NULL(p_cipher_text_len);
 
 	if (!ICSF_CHAINING_IS_VALID(chaining)) {
-		OCK_LOG_DEBUG("Invalid value for chaining: %d\n", chaining);
+		TRACE_ERROR("Invalid value for chaining: %d\n", chaining);
 		return -1;
 	}
 
@@ -1821,14 +1809,14 @@ icsf_secret_key_encrypt(LDAP *ld, int *p_reason, struct icsf_object_record *key,
 	 * chaining mode.
 	 */
 	if (!(rule_alg = get_algorithm_rule(mech, 0))) {
-		OCK_LOG_DEBUG("Invalid algorithm: %lu\n",
-				(unsigned long) mech->mechanism);
+		TRACE_ERROR("Invalid algorithm: %lu\n",
+			    (unsigned long) mech->mechanism);
 		return -1;
 	}
 
 	if (!(rule_cipher = get_cipher_mode(mech))) {
-		OCK_LOG_DEBUG("Invalid cipher mode: %lu\n",
-				(unsigned long) mech->mechanism);
+		TRACE_ERROR("Invalid cipher mode: %lu\n",
+			    (unsigned long) mech->mechanism);
 		return -1;
 	}
 
@@ -1853,7 +1841,7 @@ icsf_secret_key_encrypt(LDAP *ld, int *p_reason, struct icsf_object_record *key,
 
 	/* Build request */
 	if (!(msg = ber_alloc_t(LBER_USE_DER))) {
-		OCK_LOG_ERR(ERR_HOST_MEMORY);
+		TRACE_ERROR("%s\n", ock_err(ERR_HOST_MEMORY));
 		return -1;
 	}
 
@@ -1864,7 +1852,7 @@ icsf_secret_key_encrypt(LDAP *ld, int *p_reason, struct icsf_object_record *key,
 		       clear_text, clear_text_len,
 		       (cipher_text) ? *p_cipher_text_len : 0UL) < 0) {
 		rc = -1;
-		OCK_LOG_DEBUG("Failed to encode message: %d.\n", rc);
+		TRACE_ERROR("Failed to encode message: %d.\n", rc);
 		goto done;
 	}
 
@@ -1882,17 +1870,17 @@ icsf_secret_key_encrypt(LDAP *ld, int *p_reason, struct icsf_object_record *key,
 	if (ber_scanf(result, "{mmi", &bv_chaining_data, &bv_cipher_data,
 		       &length) < 0) {
 		rc = -1;
-		OCK_LOG_DEBUG("Failed to decode the response.\n");
+		TRACE_ERROR("Failed to decode the response.\n");
 		goto done;
 	}
 
 	*p_cipher_text_len = length;
 	/* Copy encrypted data */
 	if (bv_cipher_data.bv_len > *p_cipher_text_len) {
-		OCK_LOG_DEBUG("Cipher data longer than expected: %lu "
-				"(expected %lu)\n",
-				(unsigned long) bv_cipher_data.bv_len,
-				(unsigned long) *p_cipher_text_len);
+		TRACE_ERROR("Cipher data longer than expected: %lu "
+			    "(expected %lu)\n",
+			    (unsigned long) bv_cipher_data.bv_len,
+			    (unsigned long) *p_cipher_text_len);
 		rc = -1;
 		goto done;
 	}
@@ -1902,7 +1890,7 @@ icsf_secret_key_encrypt(LDAP *ld, int *p_reason, struct icsf_object_record *key,
 	/* Copy chaining data */
 	if (p_chaining_data_len) {
 		if (bv_chaining_data.bv_len > *p_chaining_data_len) {
-			OCK_LOG_DEBUG("Chaining data longer than expected: %lu "
+			TRACE_ERROR("Chaining data longer than expected: %lu "
 					"(expected %lu)\n",
 					(unsigned long) bv_chaining_data.bv_len,
 					(unsigned long) *p_chaining_data_len);
@@ -1953,7 +1941,7 @@ icsf_secret_key_decrypt(LDAP *ld, int *p_reason, struct icsf_object_record *key,
 	CHECK_ARG_NON_NULL(p_clear_text_len);
 
 	if (!ICSF_CHAINING_IS_VALID(chaining)) {
-		OCK_LOG_DEBUG("Invalid value for chaining: %d\n", chaining);
+		TRACE_ERROR("Invalid value for chaining: %d\n", chaining);
 		return -1;
 	}
 
@@ -1964,14 +1952,14 @@ icsf_secret_key_decrypt(LDAP *ld, int *p_reason, struct icsf_object_record *key,
 	 * chaining mode.
 	 */
 	if (!(rule_alg = get_algorithm_rule(mech, 0))) {
-		OCK_LOG_DEBUG("Invalid algorithm: %lu\n",
-				(unsigned long) mech->mechanism);
+		TRACE_ERROR("Invalid algorithm: %lu\n",
+			    (unsigned long) mech->mechanism);
 		return -1;
 	}
 
 	if (!(rule_cipher = get_cipher_mode(mech))) {
-		OCK_LOG_DEBUG("Invalid cipher mode: %lu\n",
-				(unsigned long) mech->mechanism);
+		TRACE_ERROR("Invalid cipher mode: %lu\n",
+			    (unsigned long) mech->mechanism);
 		return -1;
 	}
 
@@ -1996,7 +1984,7 @@ icsf_secret_key_decrypt(LDAP *ld, int *p_reason, struct icsf_object_record *key,
 
 	/* Build request */
 	if (!(msg = ber_alloc_t(LBER_USE_DER))) {
-		OCK_LOG_ERR(ERR_HOST_MEMORY);
+		TRACE_ERROR("%s\n", ock_err(ERR_HOST_MEMORY));
 		return -1;
 	}
 
@@ -2011,7 +1999,7 @@ icsf_secret_key_decrypt(LDAP *ld, int *p_reason, struct icsf_object_record *key,
 		       4 | LBER_CLASS_CONTEXT | LBER_PRIMITIVE,
 		       (clear_text) ? *p_clear_text_len : 0UL) < 0) {
 		rc = -1;
-		OCK_LOG_DEBUG("Failed to encode message: %d.\n", rc);
+		TRACE_ERROR("Failed to encode message: %d.\n", rc);
 		goto done;
 	}
 
@@ -2029,15 +2017,15 @@ icsf_secret_key_decrypt(LDAP *ld, int *p_reason, struct icsf_object_record *key,
 	if (ber_scanf(result, "{mmi", &bv_chaining_data, &bv_clear_data,
 		      &length) < 0) {
 		rc = -1;
-		OCK_LOG_DEBUG("Failed to decode the response.\n");
+		TRACE_ERROR("Failed to decode the response.\n");
 		goto done;
 	}
 
 	*p_clear_text_len = length;
 	/* Copy encrypted data */
 	if (bv_clear_data.bv_len > *p_clear_text_len) {
-		OCK_LOG_DEBUG("Clear data longer than expected: %lu "
-				"(expected %lu)\n",
+		TRACE_ERROR("Clear data longer than expected: %lu "
+			    "(expected %lu)\n",
 				(unsigned long) bv_clear_data.bv_len,
 				(unsigned long) *p_clear_text_len);
 		rc = -1;
@@ -2049,7 +2037,7 @@ icsf_secret_key_decrypt(LDAP *ld, int *p_reason, struct icsf_object_record *key,
 	/* Copy chaining data */
 	if (p_chaining_data_len) {
 		if (bv_chaining_data.bv_len > *p_chaining_data_len) {
-			OCK_LOG_DEBUG("Chaining data longer than expected: %lu "
+			TRACE_ERROR("Chaining data longer than expected: %lu "
 					"(expected %lu)\n",
 					(unsigned long) bv_chaining_data.bv_len,
 					(unsigned long) *p_chaining_data_len);
@@ -2131,7 +2119,6 @@ icsf_ber_decode_get_attribute_list(BerElement *berbuf, CK_ATTRIBUTE *attrs,
 				}
 				attrs[i].ulValueLen = attrbval.bv_len;
 			} else {
-				/* OCK_LOG_ERR(ERR_BUFFER_TOO_SMALL); */
 				rc = CKR_BUFFER_TOO_SMALL;
 				attrs[i].ulValueLen = -1;
 				goto decode_error;
@@ -2152,7 +2139,7 @@ icsf_ber_decode_get_attribute_list(BerElement *berbuf, CK_ATTRIBUTE *attrs,
 	 * all of the attributes in our list, mark this as an error.
 	 */
 	if (found < attrs_len) {
-		OCK_LOG_ERR(ERR_ATTRIBUTE_TYPE_INVALID);
+		TRACE_ERROR("%s\n", ock_err(ERR_ATTRIBUTE_TYPE_INVALID));
 		rc = CKR_ATTRIBUTE_TYPE_INVALID;
 		goto decode_error;
 	}
@@ -2160,7 +2147,7 @@ icsf_ber_decode_get_attribute_list(BerElement *berbuf, CK_ATTRIBUTE *attrs,
 	return rc;
 
 decode_error:
-	OCK_LOG_DEBUG("Failed to decode message.\n");
+	TRACE_ERROR("Failed to decode message.\n");
 
 	if (!rc)
 		rc = CKR_FUNCTION_FAILED;
@@ -2186,7 +2173,7 @@ icsf_get_attribute(LDAP *ld, int *reason, struct icsf_object_record *object,
 	object_record_to_handle(handle, object);
 
 	if (!(msg = ber_alloc_t(LBER_USE_DER))) {
-		OCK_LOG_ERR(ERR_HOST_MEMORY);
+		TRACE_ERROR("%s\n", ock_err(ERR_HOST_MEMORY));
 		return CKR_HOST_MEMORY;
 	}
 
@@ -2205,7 +2192,7 @@ icsf_get_attribute(LDAP *ld, int *reason, struct icsf_object_record *object,
 	rc = icsf_call(ld, reason, handle, sizeof(handle), "", 0,
 			ICSF_TAG_CSFPGAV, msg, &result);
 	if (rc != 0) {
-		OCK_LOG_DEBUG("icsf_call failed.\n");
+		TRACE_DEBUG("icsf_call failed.\n");
 		goto cleanup;
 	}
 
@@ -2227,7 +2214,7 @@ icsf_get_attribute(LDAP *ld, int *reason, struct icsf_object_record *object,
 	 */
 	rc = icsf_ber_decode_get_attribute_list(result, attrs, attrs_len);
 	if (rc < 0) {
-		OCK_LOG_DEBUG("Failed to decode message.\n");
+		TRACE_ERROR("Failed to decode message.\n");
 		goto cleanup;
 	}
 
@@ -2265,14 +2252,14 @@ icsf_set_attribute(LDAP *ld, int *reason, struct icsf_object_record *object,
 	 * attrList is built by icsf_ber_put_attribute_list()
 	 */
 	if (icsf_ber_put_attribute_list(msg, attrs, attrs_len) < 0) {
-		OCK_LOG_DEBUG("Failed to encode message.\n");
+		TRACE_ERROR("Failed to encode message.\n");
 		goto cleanup;
 	}
 
 	rc = icsf_call(ld, reason, handle, sizeof(handle), "", 0,
 			ICSF_TAG_CSFPSAV, msg, NULL);
 	if (rc < 0) {
-		OCK_LOG_DEBUG("icsf_call failed.\n");
+		TRACE_ERROR("icsf_call failed.\n");
 		goto cleanup;
 	}
 
@@ -2320,7 +2307,7 @@ icsf_private_key_sign(LDAP *ld, int *p_reason, int decrypt,
 
 	/* Build rule array based on mechanism */
 	if (!(rule_alg = get_algorithm_rule(mech, 0))) {
-		OCK_LOG_DEBUG("Invalid algorithm: %lu\n",
+		TRACE_ERROR("Invalid algorithm: %lu\n",
 			(unsigned long) mech->mechanism);
 		return -1;
 	}
@@ -2336,14 +2323,14 @@ icsf_private_key_sign(LDAP *ld, int *p_reason, int decrypt,
 	/* Build request */
 	if (!(msg = ber_alloc_t(LBER_USE_DER)))
 	{
-		OCK_LOG_ERR(ERR_HOST_MEMORY);
+		TRACE_ERROR("%s\n", ock_err(ERR_HOST_MEMORY));
 		return -1;
 	}
 
 	if (ber_printf(msg, "oi", cipher_text, (ber_int_t) cipher_text_len,
 		       (!clear_text) ? 0 : ((ber_int_t) *p_clear_text_len)) < 0) {
 		rc = -1;
-		OCK_LOG_DEBUG("Failed to encode message: %d.\n", rc);
+		TRACE_ERROR("Failed to encode message: %d.\n", rc);
 		goto done;
 	}
 
@@ -2359,14 +2346,14 @@ icsf_private_key_sign(LDAP *ld, int *p_reason, int decrypt,
 
 	if (ber_scanf(result, "{mi}", &bv_clear_text, &length) < 0) {
 		rc = -1;
-		OCK_LOG_DEBUG("Failed to decode the response.\n");
+		TRACE_ERROR("Failed to decode the response.\n");
 		goto done;
 	}
 
 	/* Copy clear data */
 	*p_clear_text_len = length;
 	if (bv_clear_text.bv_len > *p_clear_text_len) {
-		OCK_LOG_DEBUG("Clear data longer than expected: %lu "
+		TRACE_ERROR("Clear data longer than expected: %lu "
 				"(expected %lu)\n",
 				(unsigned long) bv_clear_text.bv_len,
 				(unsigned long) *p_clear_text_len);
@@ -2414,7 +2401,7 @@ icsf_public_key_verify(LDAP *ld, int *p_reason, int encrypt,
 
 	/* Build rule array based on mechanism */
 	if (!(rule_alg = get_algorithm_rule(mech, 0))) {
-		OCK_LOG_DEBUG("Invalid algorithm: %lu\n",
+		TRACE_ERROR("Invalid algorithm: %lu\n",
 			(unsigned long) mech->mechanism);
 		return -1;
 	}
@@ -2430,7 +2417,7 @@ icsf_public_key_verify(LDAP *ld, int *p_reason, int encrypt,
 	/* Build request */
 	if (!(msg = ber_alloc_t(LBER_USE_DER)))
 	{
-		OCK_LOG_ERR(ERR_HOST_MEMORY);
+		TRACE_ERROR("%s\n", ock_err(ERR_HOST_MEMORY));
 		return -1;
 	}
 
@@ -2444,7 +2431,7 @@ icsf_public_key_verify(LDAP *ld, int *p_reason, int encrypt,
 	}
 	if (rc < 0) {
 		rc = -1;
-		OCK_LOG_DEBUG("Failed to encode message: %d.\n", rc);
+		TRACE_ERROR("Failed to encode message: %d.\n", rc);
 		goto done;
 	}
 
@@ -2464,14 +2451,14 @@ icsf_public_key_verify(LDAP *ld, int *p_reason, int encrypt,
 
 	if (ber_scanf(result, "{mi}", &bv_cipher_text, &length) < 0) {
 		rc = -1;
-		OCK_LOG_DEBUG("Failed to decode the response.\n");
+		TRACE_ERROR("Failed to decode the response.\n");
 		goto done;
 	}
 
 	/* Copy clear data */
 	*p_cipher_text_len = length;
 	if (bv_cipher_text.bv_len != *p_cipher_text_len) {
-		OCK_LOG_DEBUG("Cipher data length different that expected: %lu "
+		TRACE_ERROR("Cipher data length different that expected: %lu "
 				"(expected %lu)\n",
 				(unsigned long) bv_cipher_text.bv_len,
 				(unsigned long) *p_cipher_text_len);
@@ -2513,7 +2500,8 @@ int icsf_hmac_sign(LDAP *ld, int *reason, struct icsf_object_record *key,
 	/* Add to rule array, the algorithm and chaining mode */
 
 	if (!(rule_alg = get_algorithm_rule(mech, 0))) {
-		OCK_LOG_DEBUG("Invalid algorithm: %lu\n", (unsigned long) mech->mechanism);
+		TRACE_ERROR("Invalid algorithm: %lu\n",
+			    (unsigned long) mech->mechanism);
 		return -1;
 	}
 
@@ -2524,7 +2512,7 @@ int icsf_hmac_sign(LDAP *ld, int *reason, struct icsf_object_record *key,
 
 	/* Build the request */
 	if (!(msg = ber_alloc_t(LBER_USE_DER))) {
-		OCK_LOG_ERR(ERR_HOST_MEMORY);
+		TRACE_ERROR("%s\n", ock_err(ERR_HOST_MEMORY));
 		return -1;
 	}
 
@@ -2539,7 +2527,7 @@ int icsf_hmac_sign(LDAP *ld, int *reason, struct icsf_object_record *key,
 	if (ber_printf(msg, "ooi", clear_text, clear_text_len, chain_data,
 			*chain_data_len, *hmac_len) < 0) {
 		rc = -1;
-		OCK_LOG_DEBUG("Failed to encode message: %d.\n", rc);
+		TRACE_ERROR("Failed to encode message: %d.\n", rc);
 		goto done;
 	}
 
@@ -2548,7 +2536,7 @@ int icsf_hmac_sign(LDAP *ld, int *reason, struct icsf_object_record *key,
 			sizeof(rule_array), ICSF_TAG_CSFPHMG, msg, &result);
 
 	if (ICSF_RC_IS_ERROR(rc)) {
-		OCK_LOG_ERR(CKR_FUNCTION_FAILED);
+		TRACE_DEBUG("icsf_call failed\n");
 		goto done;
 	}
 
@@ -2584,7 +2572,7 @@ int icsf_hmac_sign(LDAP *ld, int *reason, struct icsf_object_record *key,
 
 	if (ber_scanf(result, "{ooi}", &bvChain, &bvHmac, &hmac_length) < 0) {
 		rc = -1;
-		OCK_LOG_DEBUG("Failed to decode the response.\n");
+		TRACE_ERROR("Failed to decode the response.\n");
 		goto done;
 	}
 
@@ -2639,7 +2627,8 @@ int icsf_hmac_verify(LDAP *ld, int *reason, struct icsf_object_record *key,
 	/* Add to rule array, the algorithm and chaining mode */
 
 	if (!(rule_alg = get_algorithm_rule(mech, 0))) {
-		OCK_LOG_DEBUG("Invalid algorithm: %lu\n", (unsigned long) mech->mechanism);
+		TRACE_ERROR("Invalid algorithm: %lu\n",
+			    (unsigned long) mech->mechanism);
 		return -1;
 	}
 
@@ -2650,7 +2639,7 @@ int icsf_hmac_verify(LDAP *ld, int *reason, struct icsf_object_record *key,
 
 	/* Build the request */
 	if (!(msg = ber_alloc_t(LBER_USE_DER))) {
-		OCK_LOG_ERR(ERR_HOST_MEMORY);
+		TRACE_ERROR("%s\n", ock_err(ERR_HOST_MEMORY));
 		return -1;
 	}
 
@@ -2682,7 +2671,7 @@ int icsf_hmac_verify(LDAP *ld, int *reason, struct icsf_object_record *key,
 	if (ber_printf(msg, "ooo", clear_text, clear_text_len, chain_data,
 			*chain_data_len, hmac, hmac_len) < 0) {
 		rc = -1;
-		OCK_LOG_DEBUG("Failed to encode message: %d.\n", rc);
+		TRACE_ERROR("Failed to encode message: %d.\n", rc);
 		goto done;
 	}
 
@@ -2691,7 +2680,7 @@ int icsf_hmac_verify(LDAP *ld, int *reason, struct icsf_object_record *key,
 			sizeof(rule_array), ICSF_TAG_CSFPHMV, msg, &result);
 
 	if (ICSF_RC_IS_ERROR(rc)) {
-		OCK_LOG_ERR(CKR_FUNCTION_FAILED);
+		TRACE_DEBUG("icsf_call failed\n");
 		goto done;
 	}
 
@@ -2710,7 +2699,7 @@ int icsf_hmac_verify(LDAP *ld, int *reason, struct icsf_object_record *key,
 	 */
 	if (ber_scanf(result, "m", &bvChain) < 0) {
 		rc = -1;
-		OCK_LOG_DEBUG("Failed to decode the response.\n");
+		TRACE_ERROR("Failed to decode the response.\n");
 		goto done;
 	}
 
@@ -2769,13 +2758,13 @@ icsf_wrap_key(LDAP *ld, int *p_reason, CK_MECHANISM_PTR mech,
 	case CKM_AES_CBC_PAD:
 		rule_fmt = "PKCS-8";
 		if (!(rule_alg = get_algorithm_rule(mech, 0))) {
-			OCK_LOG_DEBUG("Invalid algorithm: %lu\n",
-				(unsigned long) mech->mechanism);
+			TRACE_ERROR("Invalid algorithm: %lu\n",
+				    (unsigned long) mech->mechanism);
 			return -1;
 		}
 		break;
 	default:
-		OCK_LOG_ERR(ERR_MECHANISM_INVALID);
+		TRACE_ERROR("%s\n", ock_err(ERR_MECHANISM_INVALID));
 		return -1;
 	}
 
@@ -2789,7 +2778,7 @@ icsf_wrap_key(LDAP *ld, int *p_reason, CK_MECHANISM_PTR mech,
 
 	/* Build request */
 	if (!(msg = ber_alloc_t(LBER_USE_DER))) {
-		OCK_LOG_ERR(ERR_HOST_MEMORY);
+		TRACE_ERROR("%s\n", ock_err(ERR_HOST_MEMORY));
 		return -1;
 	}
 
@@ -2805,7 +2794,7 @@ icsf_wrap_key(LDAP *ld, int *p_reason, CK_MECHANISM_PTR mech,
 			(ber_int_t) *p_wrapped_key_len, "");
 	if (rc < 0) {
 		rc = -1;
-		OCK_LOG_DEBUG("Failed to encode message: %d.\n", rc);
+		TRACE_ERROR("Failed to encode message: %d.\n", rc);
 		goto done;
 	}
 
@@ -2828,14 +2817,14 @@ icsf_wrap_key(LDAP *ld, int *p_reason, CK_MECHANISM_PTR mech,
 	 */
 	if (ber_scanf(result, "{mi}", &bv_wrapped_key, &wrapped_key_len) < 0) {
 		rc = -1;
-		OCK_LOG_DEBUG("Failed to decode the response.\n");
+		TRACE_ERROR("Failed to decode the response.\n");
 		goto done;
 	}
 	*p_wrapped_key_len = wrapped_key_len;
 
 	/* Copy wrapped key*/
 	if (bv_wrapped_key.bv_len > *p_wrapped_key_len) {
-		OCK_LOG_DEBUG("Wrapped key length different that expected: %lu "
+		TRACE_ERROR("Wrapped key length different that expected: %lu "
 				"(expected %lu)\n",
 				(unsigned long) bv_wrapped_key.bv_len,
 				(unsigned long) *p_wrapped_key_len);
@@ -2890,13 +2879,13 @@ icsf_unwrap_key(LDAP *ld, int *p_reason, CK_MECHANISM_PTR mech,
 	case CKM_AES_CBC_PAD:
 		rule_fmt = "PKCS-8";
 		if (!(rule_alg = get_algorithm_rule(mech, 0))) {
-			OCK_LOG_DEBUG("Invalid algorithm: %lu\n",
-				(unsigned long) mech->mechanism);
+			TRACE_ERROR("Invalid algorithm: %lu\n",
+				    (unsigned long) mech->mechanism);
 			return -1;
 		}
 		break;
 	default:
-		OCK_LOG_ERR(ERR_MECHANISM_INVALID);
+		TRACE_ERROR("%s\n", ock_err(ERR_MECHANISM_INVALID));
 		return -1;
 	}
 
@@ -2910,7 +2899,7 @@ icsf_unwrap_key(LDAP *ld, int *p_reason, CK_MECHANISM_PTR mech,
 
 	/* Build request */
 	if (!(msg = ber_alloc_t(LBER_USE_DER))) {
-		OCK_LOG_ERR(ERR_HOST_MEMORY);
+		TRACE_ERROR("%s\n", ock_err(ERR_HOST_MEMORY));
 		return -1;
 	}
 
@@ -2927,7 +2916,7 @@ icsf_unwrap_key(LDAP *ld, int *p_reason, CK_MECHANISM_PTR mech,
 			icsf_ber_put_attribute_list(msg, attrs, attrs_len) ||
 			ber_printf(msg, "}") < 0) {
 		rc = -1;
-		OCK_LOG_DEBUG("Failed to encode message: %d.\n", rc);
+		TRACE_ERROR("Failed to encode message: %d.\n", rc);
 		goto done;
 	}
 
@@ -2972,8 +2961,8 @@ int icsf_hash_signverify(LDAP *ld, int *reason, struct icsf_object_record *key,
 
 	/* Add to rule array, the algorithm and chaining mode */
 	if (!(rule_alg = get_algorithm_rule(mech, verify))) {
-		OCK_LOG_DEBUG("Invalid algorithm: %lu\n",
-				(unsigned long) mech->mechanism);
+		TRACE_ERROR("Invalid algorithm: %lu\n",
+			    (unsigned long) mech->mechanism);
 		return -1;
 	}
 
@@ -2984,7 +2973,7 @@ int icsf_hash_signverify(LDAP *ld, int *reason, struct icsf_object_record *key,
 
 	/* Build the request */
 	if (!(msg = ber_alloc_t(LBER_USE_DER))) {
-		OCK_LOG_ERR(ERR_HOST_MEMORY);
+		TRACE_ERROR("%s\n", ock_err(ERR_HOST_MEMORY));
 		return -1;
 	}
 
@@ -2993,7 +2982,7 @@ int icsf_hash_signverify(LDAP *ld, int *reason, struct icsf_object_record *key,
 		      (chain_data_len) ? *chain_data_len : 0UL,
 		      (sig) ? sig : "", (sig_len) ? *sig_len : 0) < 0) {
 		rc = -1;
-		OCK_LOG_DEBUG("Failed to encode message: %d.\n", rc);
+		TRACE_ERROR("Failed to encode message: %d.\n", rc);
 		goto done;
 	}
 
@@ -3013,7 +3002,7 @@ int icsf_hash_signverify(LDAP *ld, int *reason, struct icsf_object_record *key,
 	/* Parse the response. */
 	if (ber_scanf(result, "{ooi}", &bvChain, &bvSig, &length) < 0) {
 		rc = -1;
-		OCK_LOG_DEBUG("Failed to decode the response.\n");
+		TRACE_ERROR("Failed to decode the response.\n");
 		goto done;
 	}
 
@@ -3080,12 +3069,12 @@ icsf_derive_key(LDAP *ld, int *reason, CK_MECHANISM_PTR mech,
 		strpad(rule_array, "PKCS-DH", ICSF_RULE_ITEM_LEN, ' ');
 		break;
 	default:
-		OCK_LOG_ERR(ERR_MECHANISM_INVALID);
+		TRACE_ERROR("%s\n", ock_err(ERR_MECHANISM_INVALID));
 		return -1;
 	}
 
 	if (!(msg = ber_alloc_t(LBER_USE_DER))) {
-		OCK_LOG_ERR(ERR_HOST_MEMORY);
+		TRACE_ERROR("%s\n", ock_err(ERR_HOST_MEMORY));
 		return rc;
 	}
 
@@ -3112,34 +3101,33 @@ icsf_derive_key(LDAP *ld, int *reason, CK_MECHANISM_PTR mech,
 	 * attrList is built by icsf_ber_put_attribute_list()
 	 */
 	if (ber_printf(msg, "{") < 0) {
-		OCK_LOG_DEBUG("Failed to encode message.\n");
+		TRACE_ERROR("Failed to encode message.\n");
 		goto cleanup;
 	}
 
 	if (icsf_ber_put_attribute_list(msg, attrs, attrs_len) < 0 ) {
-		OCK_LOG_DEBUG("Failed to encode message.\n");
+		TRACE_DEBUG("Failed to encode message.\n");
 		goto cleanup;
 	}
 
 	if (ber_printf(msg, "}") < 0) {
-		OCK_LOG_DEBUG("Failed to encode message.\n");
+		TRACE_ERROR("Failed to encode message.\n");
 		goto cleanup;
 	}
 
 	/* Attribute list depends on type of mechanism */
 	switch (mech->mechanism) {
 	case CKM_DH_PKCS_DERIVE:
-		if ((!mech->pParameter) ||
-			((mech->ulParameterLen < 64) ||
-			(mech->ulParameterLen > 256)))
-		{
-			OCK_LOG_ERR(ERR_FUNCTION_FAILED);
-				return CKR_FUNCTION_FAILED;
+		if ((!mech->pParameter) || ((mech->ulParameterLen < 64) ||
+		    (mech->ulParameterLen > 256))) {
+			TRACE_ERROR("%s\n",
+				    ock_err(ERR_MECHANISM_PARAM_INVALID));
+			return CKR_MECHANISM_PARAM_INVALID;
 		}
 		publicValue.bv_val = mech->pParameter;
 		publicValue.bv_len = mech->ulParameterLen;
 		if (ber_printf(msg, "tO", 0|LBER_PRIMITIVE|LBER_CLASS_CONTEXT, &publicValue) < 0) {
-			OCK_LOG_DEBUG("Failed to encode message.\n");
+			TRACE_ERROR("Failed to encode message.\n");
 			goto cleanup;
 		}
 		break;
@@ -3154,13 +3142,12 @@ icsf_derive_key(LDAP *ld, int *reason, CK_MECHANISM_PTR mech,
 
 		if (ber_printf(msg, "t{OO}", 1|LBER_CLASS_CONTEXT|LBER_CONSTRUCTED,
 		    &clientData, &serverData) < 0) {
-			OCK_LOG_DEBUG("Failed to encode message.\n");
+			TRACE_ERROR("Failed to encode message.\n");
 			goto cleanup;
 		}
 		break;
 	default:
-		OCK_LOG_DEBUG("Mechanism not supported.\n");
-		OCK_LOG_ERR(ERR_FUNCTION_FAILED);
+		TRACE_ERROR("Mechanism not supported.\n");
 		return -1;
 	}
 
@@ -3183,8 +3170,7 @@ icsf_derive_key(LDAP *ld, int *reason, CK_MECHANISM_PTR mech,
 		*/
 		if (mech->mechanism == CKM_SSL3_MASTER_KEY_DERIVE){
 			if (ber_scanf(result, "o", &bvParam) < 0 ){
-				OCK_LOG_DEBUG("Failed to Derive Key\n");
-				OCK_LOG_ERR(ERR_FUNCTION_FAILED);
+				TRACE_ERROR("Failed to Derive Key\n");
 				rc = -1;
 				goto cleanup;
 			}
@@ -3247,8 +3233,8 @@ icsf_derive_multple_keys(LDAP *ld, int *p_reason, CK_MECHANISM_PTR mech,
 
 	/* Build rule array based on mechanism */
 	if (!(rule_alg = get_algorithm_rule(mech, 0))) {
-		OCK_LOG_DEBUG("Invalid algorithm: %lu\n",
-			(unsigned long) mech->mechanism);
+		TRACE_ERROR("Invalid algorithm: %lu\n",
+			    (unsigned long) mech->mechanism);
 		return -1;
 	}
 
@@ -3257,7 +3243,7 @@ icsf_derive_multple_keys(LDAP *ld, int *p_reason, CK_MECHANISM_PTR mech,
 	/* Build request */
 	if (!(msg = ber_alloc_t(LBER_USE_DER)))
 	{
-		OCK_LOG_ERR(ERR_HOST_MEMORY);
+		TRACE_ERROR("%s\n", ock_err(ERR_HOST_MEMORY));
 		return -1;
 	}
 
@@ -3284,24 +3270,24 @@ icsf_derive_multple_keys(LDAP *ld, int *p_reason, CK_MECHANISM_PTR mech,
 	 */
 	params = (CK_SSL3_KEY_MAT_PARAMS *) mech->pParameter;
 	if (!params) {
-		OCK_LOG_ERR(ERR_MECHANISM_PARAM_INVALID);
+		TRACE_ERROR("%s\n", ock_err(ERR_MECHANISM_PARAM_INVALID));
 		rc = CKR_MECHANISM_PARAM_INVALID;
 		goto done;
 	}
 
 	rc = ber_printf(msg, "{");
 	if (rc < 0) {
-		OCK_LOG_ERR(ERR_FUNCTION_FAILED);
+		TRACE_ERROR("%s\n", ock_err(ERR_FUNCTION_FAILED));
 		goto done;
 	}
 
 	if (icsf_ber_put_attribute_list(msg, attrs, attrs_len) < 0) {
-		OCK_LOG_ERR(ERR_FUNCTION_FAILED);
+		TRACE_ERROR("icsf_ber_put_attribute_list failed\n");
 		goto done;
 	}
 
 	if (ber_printf(msg, "}") < 0) {
-		OCK_LOG_ERR(ERR_FUNCTION_FAILED);
+		TRACE_ERROR("%s\n", ock_err(ERR_FUNCTION_FAILED));
 		goto done;
 	}
 
@@ -3318,7 +3304,7 @@ icsf_derive_multple_keys(LDAP *ld, int *p_reason, CK_MECHANISM_PTR mech,
 			(ber_int_t) params->ulIVSizeInBits,
 			&bv_client_random_data, &bv_server_random_data);
 	if (rc < 0) {
-		OCK_LOG_ERR(ERR_FUNCTION_FAILED);
+		TRACE_ERROR("%s\n", ock_err(ERR_FUNCTION_FAILED));
 		goto done;
 	}
 
@@ -3356,7 +3342,7 @@ icsf_derive_multple_keys(LDAP *ld, int *p_reason, CK_MECHANISM_PTR mech,
 			&bv_server_key_handle, &bv_client_iv,
 			&bv_server_iv) < 0) {
 		rc = -1;
-		OCK_LOG_DEBUG("Failed to decode the response.\n");
+		TRACE_ERROR("Failed to decode the response.\n");
 		goto done;
 	}
 
@@ -3365,11 +3351,11 @@ icsf_derive_multple_keys(LDAP *ld, int *p_reason, CK_MECHANISM_PTR mech,
 			bv_server_mac_handle.bv_len != ICSF_HANDLE_LEN ||
 			bv_client_key_handle.bv_len != ICSF_HANDLE_LEN ||
 			bv_server_key_handle.bv_len != ICSF_HANDLE_LEN) {
-		OCK_LOG_DEBUG("Invalid key handle size: %lu/%lu/%lu/%lu\n",
-				(unsigned long) bv_client_mac_handle.bv_len,
-				(unsigned long) bv_server_mac_handle.bv_len,
-				(unsigned long) bv_client_key_handle.bv_len,
-				(unsigned long) bv_server_key_handle.bv_len);
+		TRACE_ERROR("Invalid key handle size: %lu/%lu/%lu/%lu\n",
+			    (unsigned long) bv_client_mac_handle.bv_len,
+			    (unsigned long) bv_server_mac_handle.bv_len,
+			    (unsigned long) bv_client_key_handle.bv_len,
+			    (unsigned long) bv_server_key_handle.bv_len);
 		rc = CKR_FUNCTION_FAILED;
 		goto done;
 	}
@@ -3381,8 +3367,8 @@ icsf_derive_multple_keys(LDAP *ld, int *p_reason, CK_MECHANISM_PTR mech,
 	/* Copy IVs */
 	if (params->ulIVSizeInBits) {
 		if (8 * bv_client_iv.bv_len != params->ulIVSizeInBits) {
-			OCK_LOG_DEBUG("Invalid client IV size: %lu\n",
-					(unsigned long) bv_client_iv.bv_len);
+			TRACE_ERROR("Invalid client IV size: %lu\n",
+				    (unsigned long) bv_client_iv.bv_len);
 			rc = CKR_FUNCTION_FAILED;
 			goto done;
 		}
@@ -3390,8 +3376,8 @@ icsf_derive_multple_keys(LDAP *ld, int *p_reason, CK_MECHANISM_PTR mech,
 			bv_client_iv.bv_val, bv_client_iv.bv_len);
 
 		if (8 * bv_server_iv.bv_len != params->ulIVSizeInBits) {
-			OCK_LOG_DEBUG("Invalid server IV size: %lu\n",
-					(unsigned long) bv_server_iv.bv_len);
+			TRACE_ERROR("Invalid server IV size: %lu\n",
+				    (unsigned long) bv_server_iv.bv_len);
 			rc = CKR_FUNCTION_FAILED;
 			goto done;
 		}

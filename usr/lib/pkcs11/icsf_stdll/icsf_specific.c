@@ -34,7 +34,7 @@
 #include "list.h"
 #include "attributes.h"
 #include "../api/apiproto.h"
-#include "attributes.h"
+#include "trace.h"
 
 /* Default token attributes */
 CK_CHAR manuf[] = "IBM Corp.";
@@ -161,7 +161,7 @@ get_session_state(CK_SESSION_HANDLE session_id)
 
 	/* Lock sessions list */
 	if (pthread_mutex_lock(&sess_list_mutex)) {
-		OCK_LOG_ERR(ERR_MUTEX_LOCK);
+		TRACE_ERROR("Failed to lock mutex.\n");
 		return NULL;
 	}
 
@@ -175,7 +175,7 @@ get_session_state(CK_SESSION_HANDLE session_id)
 done:
 	/* Unlock */
 	if (pthread_mutex_unlock(&sess_list_mutex)) {
-		OCK_LOG_ERR(ERR_MUTEX_UNLOCK);
+		TRACE_ERROR("Mutex Unlock failed.\n");
 		return NULL;
 	}
 
@@ -189,14 +189,14 @@ static CK_RV
 purge_object_mapping()
 {
 	if (pthread_rwlock_wrlock(&obj_list_rw_mutex)) {
-		OCK_LOG_ERR(ERR_MUTEX_LOCK);
+		TRACE_ERROR("Failed to lock mutex.\n");
 		return CKR_FUNCTION_FAILED;
 	}
 
 	bt_destroy(&objects, free);
 
 	if (pthread_rwlock_unlock(&obj_list_rw_mutex)) {
-		OCK_LOG_ERR(ERR_MUTEX_UNLOCK);
+		TRACE_ERROR("Mutex Unlock failed.\n");
 		return CKR_FUNCTION_FAILED;
 	}
 
@@ -310,14 +310,14 @@ token_specific_init(CK_SLOT_ID slot_id, char *conf_name)
 
 	/* Check Slot ID */
 	if (slot_id < 0 || slot_id > MAX_SLOT_ID) {
-		OCK_LOG_DEBUG("Invalid slot ID: %d\n", slot_id);
+		TRACE_ERROR("Invalid slot ID: %d\n", slot_id);
 		return CKR_FUNCTION_FAILED;
 	}
 
 	XProcLock();
 
 	if (slot_data[slot_id] == NULL) {
-		OCK_LOG_DEBUG("ICSF slot data not initialized.\n");
+		TRACE_ERROR("ICSF slot data not initialized.\n");
 		rc = CKR_FUNCTION_FAILED;
 		goto done;
 	}
@@ -341,21 +341,21 @@ token_specific_init_token_data(CK_SLOT_ID slot_id)
 
 	/* Check Slot ID */
 	if (slot_id < 0 || slot_id > MAX_SLOT_ID) {
-		OCK_LOG_DEBUG("Invalid slot ID: %d\n", slot_id);
+		TRACE_ERROR("Invalid slot ID: %d\n", slot_id);
 		return CKR_FUNCTION_FAILED;
 	}
 
 	XProcLock();
 
 	if (slot_data[slot_id] == NULL) {
-		OCK_LOG_DEBUG("ICSF slot data not initialized.\n");
+		TRACE_ERROR("ICSF slot data not initialized.\n");
 		rc = CKR_FUNCTION_FAILED;
 		goto done;
 	}
 
 	/* Check if data needs to be retrieved for this slot */
 	if (slot_data[slot_id]->initialized) {
-		OCK_LOG_DEBUG("Slot data already initialized for slot %d. "
+		TRACE_DEBUG("Slot data already initialized for slot %d. "
 			      "Skipping it\n", slot_id);
 		goto done;
 	}
@@ -363,13 +363,13 @@ token_specific_init_token_data(CK_SLOT_ID slot_id)
 	/* Check config file */
 	conf_name = slot_data[slot_id]->conf_name;
 	if (!conf_name || !conf_name[0]) {
-		OCK_LOG_DEBUG("Missing config for slot %d.\n", slot_id);
+		TRACE_ERROR("Missing config for slot %d.\n", slot_id);
 		return CKR_FUNCTION_FAILED;
 	}
 
-	OCK_LOG_DEBUG("DEBUG: conf_name=\"%s\".\n", conf_name);
+	TRACE_DEBUG("DEBUG: conf_name=\"%s\".\n", conf_name);
 	if (parse_config_file(conf_name, slot_id, &config)) {
-		OCK_LOG_DEBUG("Failed to parse file \"%s\" for slot %d.\n",
+		TRACE_ERROR("Failed to parse file \"%s\" for slot %d.\n",
 			      conf_name, slot_id);
 		rc = CKR_FUNCTION_FAILED;
 		goto done;
@@ -403,19 +403,19 @@ token_specific_load_token_data(CK_SLOT_ID slot_id, FILE *fh)
 
 	/* Check Slot ID */
 	if (slot_id < 0 || slot_id > MAX_SLOT_ID) {
-		OCK_LOG_DEBUG("Invalid slot ID: %d\n", slot_id);
+		TRACE_ERROR("Invalid slot ID: %d\n", slot_id);
 		return CKR_FUNCTION_FAILED;
 	}
 
 	if (!fread(&data, sizeof(data), 1, fh)) {
-		OCK_LOG_DEBUG("Failed to read ICSF slot data.\n");
+		TRACE_ERROR("Failed to read ICSF slot data.\n");
 		return CKR_FUNCTION_FAILED;
 	}
 
 	XProcLock();
 
 	if (slot_data[slot_id] == NULL) {
-		OCK_LOG_DEBUG("ICSF slot data not initialized.\n");
+		TRACE_ERROR("ICSF slot data not initialized.\n");
 		rc = CKR_FUNCTION_FAILED;
 		goto done;
 	}
@@ -434,20 +434,20 @@ token_specific_save_token_data(CK_SLOT_ID slot_id, FILE *fh)
 
 	/* Check Slot ID */
 	if (slot_id < 0 || slot_id > MAX_SLOT_ID) {
-		OCK_LOG_DEBUG("Invalid slot ID: %d\n", slot_id);
+		TRACE_ERROR("Invalid slot ID: %d\n", slot_id);
 		return CKR_FUNCTION_FAILED;
 	}
 
 	XProcLock();
 
 	if (slot_data[slot_id] == NULL) {
-		OCK_LOG_DEBUG("ICSF slot data not initialized.\n");
+		TRACE_ERROR("ICSF slot data not initialized.\n");
 		rc = CKR_FUNCTION_FAILED;
 		goto done;
 	}
 
 	if (!fwrite(slot_data[slot_id], sizeof(**slot_data), 1, fh)) {
-		OCK_LOG_DEBUG("Failed to write ICSF slot data.\n");
+		TRACE_ERROR("Failed to write ICSF slot data.\n");
 		rc = CKR_FUNCTION_FAILED;
 		goto done;
 	}
@@ -472,16 +472,16 @@ token_specific_attach_shm(CK_SLOT_ID slot_id, LW_SHM_TYPE **shm)
 	char *shm_id = NULL;
 
 	if (slot_id < 0 || slot_id > MAX_SLOT_ID) {
-		OCK_LOG_DEBUG("Invalid slot ID: %d\n", slot_id);
+		TRACE_ERROR("Invalid slot ID: %d\n", slot_id);
 		return CKR_FUNCTION_FAILED;
 	}
 
 	if (asprintf(&shm_id, "/icsf-%d", slot_id) < 0) {
-		OCK_LOG_DEBUG("Failed to allocate shared memory id "
+		TRACE_ERROR("Failed to allocate shared memory id "
 			      "for slot %d.\n", slot_id);
 		return CKR_HOST_MEMORY;
 	}
-	OCK_LOG_DEBUG("Attaching to shared memory \"%s\".\n", shm_id);
+	TRACE_DEBUG("Attaching to shared memory \"%s\".\n", shm_id);
 
 	XProcLock();
 
@@ -492,7 +492,7 @@ token_specific_attach_shm(CK_SLOT_ID slot_id, LW_SHM_TYPE **shm)
 	 */
 	ret = sm_open(shm_id, 0666, (void**) &ptr, len, 1);
 	if (ret < 0) {
-		OCK_LOG_DEBUG("Failed to open shared memory \"%s\".\n", shm_id);
+		TRACE_ERROR("Failed to open shared memory \"%s\".\n", shm_id);
 		rc = CKR_FUNCTION_FAILED;
 		goto done;
 	}
@@ -519,7 +519,7 @@ login(LDAP **ld, CK_SLOT_ID slot_id, CK_BYTE *pin, CK_ULONG pin_len,
 
 	/* Check Slot ID */
 	if (slot_id < 0 || slot_id > MAX_SLOT_ID) {
-		OCK_LOG_DEBUG("Invalid slot ID: %d\n", slot_id);
+		TRACE_ERROR("Invalid slot ID: %d\n", slot_id);
 		return CKR_FUNCTION_FAILED;
 	}
 
@@ -527,7 +527,7 @@ login(LDAP **ld, CK_SLOT_ID slot_id, CK_BYTE *pin, CK_ULONG pin_len,
 
 	/* Check slot data */
 	if (slot_data[slot_id] == NULL || !slot_data[slot_id]->initialized) {
-		OCK_LOG_DEBUG("ICSF slot data not initialized.\n");
+		TRACE_ERROR("ICSF slot data not initialized.\n");
 		rc = CKR_FUNCTION_FAILED;
 		goto done;
 	}
@@ -545,13 +545,13 @@ login(LDAP **ld, CK_SLOT_ID slot_id, CK_BYTE *pin, CK_ULONG pin_len,
 		/* Load master key */
 		sprintf(fname, "%s/MK_SO", get_pk_dir(pk_dir_buf));
 		if (get_masterkey(pin, pin_len, fname, mk, &mk_len)) {
-			OCK_LOG_DEBUG("Failed to load masterkey \"%s\".\n", fname);
+			TRACE_DEBUG("Failed to get masterkey \"%s\".\n", fname);
 			return CKR_FUNCTION_FAILED;
 		}
 
 		/* Load RACF password */
 		if (get_racf(mk, mk_len, racf_pass, &racf_pass_len)) {
-			OCK_LOG_DEBUG("Failed to get RACF password.\n");
+			TRACE_DEBUG("Failed to get RACF password.\n");
 			return CKR_FUNCTION_FAILED;
 		}
 
@@ -564,13 +564,13 @@ login(LDAP **ld, CK_SLOT_ID slot_id, CK_BYTE *pin, CK_ULONG pin_len,
 	}
 
 	if (ret) {
-		OCK_LOG_DEBUG("Failed to bind to %s\n", data.uri);
+		TRACE_DEBUG("Failed to bind to %s\n", data.uri);
 		rc = CKR_FUNCTION_FAILED;
 		goto done;
 	}
 
 	if (icsf_check_pkcs_extension(ldapd)) {
-		OCK_LOG_DEBUG("ICSF LDAP externsion not supported.\n");
+		TRACE_ERROR("ICSF LDAP externsion not supported.\n");
 		rc = CKR_FUNCTION_FAILED;
 		goto done;
 	}
@@ -599,32 +599,31 @@ reset_token_data(CK_SLOT_ID slot_id, CK_CHAR_PTR pin, CK_ULONG pin_len)
 	if (slot_data[slot_id]->mech == ICSF_CFG_MECH_SIMPLE) {
 		sprintf(fname, "%s/MK_USER", get_pk_dir(pk_dir_buf));
 		if (unlink(fname) && errno == ENOENT)
-			OCK_LOG_DEBUG("Failed to remove \"%s\".\n", fname);
+			TRACE_WARNING("Failed to remove \"%s\".\n", fname);
 
 		/* Load master key */
 		sprintf(fname, "%s/MK_SO", get_pk_dir(pk_dir_buf));
 		if (get_masterkey(pin, pin_len, fname, mk, &mk_len)) {
-			OCK_LOG_DEBUG("Failed to load masterkey \"%s\".\n",
+			TRACE_DEBUG("Failed to load masterkey \"%s\".\n",
 				      fname);
 			return CKR_FUNCTION_FAILED;
 		}
 
 		/* Load RACF password */
 		if (get_racf(mk, mk_len, racf_pass, &racf_pass_len)) {
-			OCK_LOG_DEBUG("Failed to get RACF password.\n");
+			TRACE_DEBUG("Failed to get RACF password.\n");
 			return CKR_FUNCTION_FAILED;
 		}
 
 		/* Generate new key */
 		if (get_randombytes(mk, mk_len)) {
-			OCK_LOG_DEBUG("Failed to generate the "
-				      "new master key.\n");
+			TRACE_DEBUG("Failed to generate new master key.\n");
 			return CKR_FUNCTION_FAILED;
 		}
 
 		/* Save racf password using the new master key */
 		if (secure_racf(racf_pass, racf_pass_len, mk, mk_len)) {
-			OCK_LOG_DEBUG("Failed to save racf password.\n");
+			TRACE_DEBUG("Failed to save racf password.\n");
 			return CKR_FUNCTION_FAILED;
 		}
 	}
@@ -638,7 +637,7 @@ reset_token_data(CK_SLOT_ID slot_id, CK_CHAR_PTR pin, CK_ULONG pin_len)
 	/* Reset SO pin to default and user pin to invalid */
 	pin_len = strlen((pin = "87654321"));
 	if (compute_sha1(pin, pin_len, nv_token_data->so_pin_sha)) {
-		OCK_LOG_DEBUG("Failed to reset so pin.\n");
+		TRACE_ERROR("Failed to reset so pin.\n");
 		return CKR_FUNCTION_FAILED;
 	}
 	memset(nv_token_data->user_pin_sha, '0',
@@ -647,13 +646,13 @@ reset_token_data(CK_SLOT_ID slot_id, CK_CHAR_PTR pin, CK_ULONG pin_len)
 	if (slot_data[slot_id]->mech == ICSF_CFG_MECH_SIMPLE) {
 		/* Save master key */
 		if (secure_masterkey(mk, mk_len, pin, pin_len, fname)) {
-			OCK_LOG_DEBUG("Failed to save the new master key.\n");
+			TRACE_DEBUG("Failed to save the new master key.\n");
 			return CKR_FUNCTION_FAILED;
 		}
 	}
 
 	if (save_token_data(slot_id)) {
-		OCK_LOG_DEBUG("Failed to save token data.\n");
+		TRACE_DEBUG("Failed to save token data.\n");
 		return CKR_FUNCTION_FAILED;
 	}
 
@@ -675,14 +674,14 @@ destroy_objects(CK_SLOT_ID slot_id, CK_CHAR_PTR token_name, CK_CHAR_PTR pin,
 	if (login(&ld, slot_id, pin, pin_len, RACFFILE))
 		return CKR_FUNCTION_FAILED;
 
-	OCK_LOG_DEBUG("Destroying objects in slot %lu.\n", slot_id);
+	TRACE_DEBUG("Destroying objects in slot %lu.\n", slot_id);
 	do {
 		records_len = sizeof(records)/sizeof(records[0]);
 
 		rc = icsf_list_objects(ld, NULL, token_name, 0, NULL,
 					previous, records, &records_len, 0);
 		if (ICSF_RC_IS_ERROR(rc)) {
-			OCK_LOG_DEBUG("Failed to list objects for slot %lu.\n",
+			TRACE_DEBUG("Failed to list objects for slot %lu.\n",
 				      slot_id);
 			rc = CKR_FUNCTION_FAILED;
 			goto done;
@@ -690,7 +689,7 @@ destroy_objects(CK_SLOT_ID slot_id, CK_CHAR_PTR token_name, CK_CHAR_PTR pin,
 
 		for (i = 0; i < records_len; i++) {
 			if ((rc = icsf_destroy_object(ld, &reason, &records[i]))) {
-				OCK_LOG_DEBUG("Failed to destroy object "
+				TRACE_DEBUG("Failed to destroy object "
 					      "%s/%lu/%c in slot %lu.\n",
 					      records[i].token_name,
 					      records[i].sequence,
@@ -724,7 +723,7 @@ token_specific_init_token(CK_SLOT_ID slot_id, CK_CHAR_PTR pin, CK_ULONG pin_len,
 	/* Check pin */
 	rc = compute_sha1(pin, pin_len, hash_sha);
 	if (memcmp(nv_token_data->so_pin_sha, hash_sha, SHA1_HASH_SIZE) != 0) {
-		OCK_LOG_ERR(ERR_PIN_INCORRECT);
+		TRACE_ERROR("%s\n", ock_err(ERR_PIN_INCORRECT));
 		rc = CKR_PIN_INCORRECT;
 		goto done;
 	}
@@ -738,7 +737,7 @@ token_specific_init_token(CK_SLOT_ID slot_id, CK_CHAR_PTR pin, CK_ULONG pin_len,
 
 	/* purge the object btree */
 	if (purge_object_mapping()) {
-		OCK_LOG_DEBUG("Failed to purge objects.\n");
+		TRACE_DEBUG("Failed to purge objects.\n");
 		rc = CKR_FUNCTION_FAILED;
 	}
 
@@ -761,7 +760,7 @@ token_specific_init_pin(SESSION *sess, CK_CHAR_PTR pPin, CK_ULONG ulPinLen)
 	/* compute the SHA of the user pin */
 	rc = compute_sha1(pPin, ulPinLen, hash_sha);
 	if (rc != CKR_OK) {
-		OCK_LOG_ERR(ERR_HASH_COMPUTATION);
+		TRACE_ERROR("Hash Computation Failed.\n");
 		return rc;
 	}
 
@@ -775,14 +774,14 @@ token_specific_init_pin(SESSION *sess, CK_CHAR_PTR pPin, CK_ULONG ulPinLen)
 		rc = secure_masterkey(master_key, AES_KEY_SIZE_256, pPin,
 					ulPinLen, fname);
 		if (rc != CKR_OK) {
-			OCK_LOG_DEBUG("Could not create MK_USER.\n");
+			TRACE_DEBUG("Could not create MK_USER.\n");
 			return rc;
 		}
 	}
 
 	rc = XProcLock();
 	if (rc != CKR_OK) {
-		OCK_LOG_ERR(ERR_PROCESS_LOCK);
+		TRACE_ERROR("Process Lock Failed.\n");
 		return rc;
 	}
 	memcpy(nv_token_data->user_pin_sha, hash_sha, SHA1_HASH_SIZE);
@@ -811,19 +810,19 @@ token_specific_set_pin(SESSION *sess, CK_CHAR_PTR pOldPin, CK_ULONG ulOldLen,
 	rc = compute_sha1(pNewPin, ulNewLen, new_hash_sha );
 	rc |= compute_sha1( pOldPin, ulOldLen, old_hash_sha );
 	if (rc != CKR_OK) {
-		OCK_LOG_ERR(ERR_HASH_COMPUTATION);
+		TRACE_ERROR("Hash Computation Failed.\n");
 		return rc;
 	}
 
 	/* check that the old pin  and new pin are not the same. */
 	if (memcmp(old_hash_sha, new_hash_sha, SHA1_HASH_SIZE) == 0) {
-		OCK_LOG_ERR(ERR_PIN_INVALID);
+		TRACE_ERROR("%s\n", ock_err(ERR_PIN_INVALID));
 		return CKR_PIN_INVALID;
 	}
 
 	/* check the length requirements */
 	if ((ulNewLen < MIN_PIN_LEN) || (ulNewLen > MAX_PIN_LEN)) {
-		OCK_LOG_ERR(ERR_PIN_LEN_RANGE);
+		TRACE_ERROR("%s\n", ock_err(ERR_PIN_LEN_RANGE));
 		return CKR_PIN_LEN_RANGE;
 	}
 
@@ -831,7 +830,7 @@ token_specific_set_pin(SESSION *sess, CK_CHAR_PTR pOldPin, CK_ULONG ulOldLen,
 	    (sess->session_info.state == CKS_RW_PUBLIC_SESSION)) {
 		/* check that old pin matches what is in NVTOK.DAT */
 		if (memcmp(nv_token_data->user_pin_sha, old_hash_sha, SHA1_HASH_SIZE) != 0) {
-			OCK_LOG_ERR(ERR_PIN_INCORRECT);
+			TRACE_ERROR("%s\n", ock_err(ERR_PIN_INCORRECT));
 			return CKR_PIN_INCORRECT;
 		}
 		/* if using simple auth, encrypt masterkey with new pin */
@@ -840,7 +839,7 @@ token_specific_set_pin(SESSION *sess, CK_CHAR_PTR pOldPin, CK_ULONG ulOldLen,
 			rc = secure_masterkey(master_key, AES_KEY_SIZE_256,
 						pNewPin, ulNewLen, fname);
 			if (rc != CKR_OK) {
-				OCK_LOG_ERR(ERR_MASTER_KEY_SAVE);
+				TRACE_ERROR("Save Master Key Failed.\n");
 				return rc;
 			}
 		}
@@ -848,7 +847,7 @@ token_specific_set_pin(SESSION *sess, CK_CHAR_PTR pOldPin, CK_ULONG ulOldLen,
 		/* grab lock and change shared memory */
 		rc = XProcLock();
 		if (rc != CKR_OK) {
-			OCK_LOG_ERR(ERR_PROCESS_LOCK);
+			TRACE_ERROR("Process Lock Failed.\n");
 			return rc;
 		}
 		memcpy(nv_token_data->user_pin_sha, new_hash_sha, SHA1_HASH_SIZE);
@@ -859,13 +858,13 @@ token_specific_set_pin(SESSION *sess, CK_CHAR_PTR pOldPin, CK_ULONG ulOldLen,
 
 		/* check that old pin matches what is in NVTOK.DAT */
 		if (memcmp(nv_token_data->so_pin_sha, old_hash_sha, SHA1_HASH_SIZE) != 0) {
-			OCK_LOG_ERR(ERR_PIN_INCORRECT);
+			TRACE_ERROR("%s\n", ock_err(ERR_PIN_INCORRECT));
 			return CKR_PIN_INCORRECT;
 		}
 
 		/* check that new pin is not the default */
 		if (memcmp(new_hash_sha, default_so_pin_sha, SHA1_HASH_SIZE) == 0) {
-			OCK_LOG_ERR(ERR_PIN_INVALID);
+			TRACE_ERROR("%s\n", ock_err(ERR_PIN_INVALID));
 			return CKR_PIN_INVALID;
 		}
 
@@ -877,7 +876,7 @@ token_specific_set_pin(SESSION *sess, CK_CHAR_PTR pOldPin, CK_ULONG ulOldLen,
 			rc = secure_masterkey(master_key, AES_KEY_SIZE_256,
 					      pNewPin, ulNewLen, fname);
 			if (rc != CKR_OK) {
-				OCK_LOG_ERR(ERR_MASTER_KEY_SAVE);
+				TRACE_ERROR("Save Master Key Failed.\n");
 				return rc;
 			}
 		}
@@ -885,20 +884,20 @@ token_specific_set_pin(SESSION *sess, CK_CHAR_PTR pOldPin, CK_ULONG ulOldLen,
 		/* grab lock and change shared memory */
 		rc = XProcLock();
 		if (rc != CKR_OK) {
-			OCK_LOG_ERR(ERR_PROCESS_LOCK);
+			TRACE_ERROR("Process Lock Failed.\n");
 			return rc;
 		}
 		memcpy(nv_token_data->so_pin_sha, new_hash_sha, SHA1_HASH_SIZE);
 		nv_token_data->token_info.flags &= ~(CKF_SO_PIN_TO_BE_CHANGED);
 		XProcUnLock();
 	} else {
-		OCK_LOG_ERR(ERR_SESSION_READ_ONLY);
+		TRACE_ERROR("%s\n", ock_err(ERR_SESSION_READ_ONLY));
 		return CKR_SESSION_READ_ONLY;
 	}
 
 	rc = save_token_data(sid);
 	if (rc != CKR_OK) {
-		OCK_LOG_ERR(ERR_TOKEN_SAVE);
+		TRACE_ERROR("Save Token Failed.\n");
 		return rc;
 	}
 
@@ -913,7 +912,7 @@ token_specific_open_session(SESSION *sess)
 	/* Add session to list */
 	session_state = malloc(sizeof(struct session_state));
 	if (!session_state) {
-		OCK_LOG_ERR(ERR_HOST_MEMORY);
+		TRACE_ERROR("%s\n", ock_err(ERR_HOST_MEMORY));
 		return CKR_FUNCTION_FAILED;
 	}
 	session_state->session_id = sess->handle;
@@ -921,7 +920,7 @@ token_specific_open_session(SESSION *sess)
 
 	/* Lock to add a new session in the list */
 	if (pthread_mutex_lock(&sess_list_mutex)) {
-		OCK_LOG_ERR(ERR_MUTEX_LOCK);
+		TRACE_ERROR("Failed to lock mutex.\n");
 		free(session_state);
 		return CKR_FUNCTION_FAILED;
 	}
@@ -930,7 +929,7 @@ token_specific_open_session(SESSION *sess)
 
 	/* Unlock */
 	if (pthread_mutex_unlock(&sess_list_mutex)) {
-		OCK_LOG_ERR(ERR_MUTEX_UNLOCK);
+		TRACE_ERROR("Mutex Unlock Failed.\n");
 		return CKR_FUNCTION_FAILED;
 	}
 
@@ -950,7 +949,7 @@ close_session(struct session_state *session_state)
 	int reason = 0;
 
 	if (pthread_rwlock_wrlock(&obj_list_rw_mutex)) {
-		OCK_LOG_ERR(ERR_MUTEX_LOCK);
+		TRACE_ERROR("Failed to lock mutex.\n");
 		return CKR_FUNCTION_FAILED;
 	}
 
@@ -973,7 +972,7 @@ close_session(struct session_state *session_state)
 		if ((rc = icsf_destroy_object(session_state->ld, &reason,
 					      &mapping->icsf_object))) {
 			/* Log error */
-			OCK_LOG_DEBUG("Failed to remove icsf object: %s/%lu/%c",
+			TRACE_EBUG("Failed to remove icsf object: %s/%lu/%c",
 				      mapping->icsf_object.token_name,
 				      mapping->icsf_object.sequence,
 				      mapping->icsf_object.id);
@@ -986,7 +985,7 @@ close_session(struct session_state *session_state)
 	}
 
 	if (pthread_rwlock_unlock(&obj_list_rw_mutex)) {
-		OCK_LOG_ERR(ERR_MUTEX_UNLOCK);
+		TRACE_ERROR("Mutex Unlock Failed.\n");
 		return CKR_FUNCTION_FAILED;
 	}
 	if (rc)
@@ -995,7 +994,7 @@ close_session(struct session_state *session_state)
 	/* Log off from LDAP server */
 	if (session_state->ld) {
 		if (icsf_logout(session_state->ld)) {
-			OCK_LOG_DEBUG("Failed to disconnect from LDAP server.\n");
+			TRACE_DEBUG("Failed to disconnect from LDAP server.\n");
 			return CKR_FUNCTION_FAILED;
 		}
 		session_state->ld = NULL;
@@ -1005,7 +1004,7 @@ close_session(struct session_state *session_state)
 	list_remove(&session_state->sessions);
 	if (list_is_empty(&sessions)) {
 		if (purge_object_mapping()) {
-			OCK_LOG_DEBUG("Failed to purge objects.\n");
+			TRACE_DEBUG("Failed to purge objects.\n");
 			rc = CKR_FUNCTION_FAILED;
 		}
 	}
@@ -1025,22 +1024,22 @@ token_specific_close_session(SESSION *session)
 
 	/* Get the related session_state */
 	if (!(session_state = get_session_state(session->handle))) {
-		OCK_LOG_DEBUG("Session not found for session id %lu.\n",
-				(unsigned long) session);
+		TRACE_ERROR("Session not found for session id %lu.\n",
+			    (unsigned long) session);
 		return CKR_SESSION_HANDLE_INVALID;
 	}
 
 	/* Remove session_state from the list and free it */
 	if (pthread_mutex_lock(&sess_list_mutex)) {
-		OCK_LOG_ERR(ERR_MUTEX_LOCK);
+		TRACE_ERROR("Failed to lock mutex.\n");
 		return CKR_FUNCTION_FAILED;
 	}
 
 	if ((rc = close_session(session_state)))
-		OCK_LOG_ERR(ERR_FUNCTION_FAILED);
+		TRACE_ERROR("close_session failed\n");
 
 	if (pthread_mutex_unlock(&sess_list_mutex)) {
-		OCK_LOG_ERR(ERR_MUTEX_UNLOCK);
+		TRACE_ERROR("Mutex Unlock Failed.\n");
 		rc = CKR_FUNCTION_FAILED;
 	}
 
@@ -1059,7 +1058,7 @@ token_specific_final(void)
 
 	/* Lock to add a new session in the list */
 	if (pthread_mutex_lock(&sess_list_mutex)) {
-		OCK_LOG_ERR(ERR_MUTEX_LOCK);
+		TRACE_ERROR("Failed to lock mutex.\n");
 		return CKR_FUNCTION_FAILED;
 	}
 
@@ -1071,7 +1070,7 @@ token_specific_final(void)
 
 	/* Unlock */
 	if (pthread_mutex_unlock(&sess_list_mutex)) {
-		OCK_LOG_ERR(ERR_MUTEX_UNLOCK);
+		TRACE_ERROR("Mutex Unlock Failed.\n");
 		return CKR_FUNCTION_FAILED;
 	}
 
@@ -1097,14 +1096,14 @@ token_specific_login(SESSION *sess, CK_USER_TYPE userType, CK_CHAR_PTR pPin,
 
 	/* Check Slot ID */
 	if (slot_id < 0 || slot_id > MAX_SLOT_ID) {
-		OCK_LOG_DEBUG("Invalid slot ID: %d\n", slot_id);
+		TRACE_ERROR("Invalid slot ID: %d\n", slot_id);
 		return CKR_FUNCTION_FAILED;
 	}
 
 	/* compute the sha of the pin. */
 	rc = compute_sha1(pPin, ulPinLen, hash_sha);
 	if (rc != CKR_OK) {
-		OCK_LOG_ERR(ERR_HASH_COMPUTATION);
+		TRACE_ERROR("Hash Computation Failed.\n");
 		return rc;
 	}
 
@@ -1113,14 +1112,15 @@ token_specific_login(SESSION *sess, CK_USER_TYPE userType, CK_CHAR_PTR pPin,
 	if (userType == CKU_USER) {
 		/* check if pin initialized */
 		if (memcmp(nv_token_data->user_pin_sha, "00000000000000000000", SHA1_HASH_SIZE) == 0) {
-			OCK_LOG_ERR(ERR_USER_PIN_NOT_INITIALIZED);
+			TRACE_ERROR("%s\n",
+				    ock_err(ERR_USER_PIN_NOT_INITIALIZED));
 			rc = CKR_USER_PIN_NOT_INITIALIZED;
 			goto done;
 		}
 
 		/* check that pin is the same as the one in NVTOK.DAT */
 		if (memcmp(nv_token_data->user_pin_sha, hash_sha, SHA1_HASH_SIZE) != 0) {
-			OCK_LOG_ERR(ERR_PIN_INCORRECT);
+			TRACE_ERROR("%s\n", ock_err(ERR_PIN_INCORRECT));
 			rc = CKR_PIN_INCORRECT;
 			goto done;
 		}
@@ -1131,7 +1131,7 @@ token_specific_login(SESSION *sess, CK_USER_TYPE userType, CK_CHAR_PTR pPin,
 			rc = get_masterkey(pPin, ulPinLen, fname, master_key,
 					   &mklen);
 			if (rc != CKR_OK) {
-				OCK_LOG_DEBUG("Failed to load master key.\n");
+				TRACE_DEBUG("Failed to load master key.\n");
 				goto done;
 			}
 		}
@@ -1140,7 +1140,7 @@ token_specific_login(SESSION *sess, CK_USER_TYPE userType, CK_CHAR_PTR pPin,
 
 		/* check that pin is the same as the one in NVTOK.DAT */
 		if (memcmp(nv_token_data->so_pin_sha, hash_sha, SHA1_HASH_SIZE) != 0) {
-			OCK_LOG_ERR(ERR_PIN_INCORRECT);
+			TRACE_ERROR("%s\n", ock_err(ERR_PIN_INCORRECT));
 			rc = CKR_PIN_INCORRECT;
 			goto done;
 		}
@@ -1151,7 +1151,7 @@ token_specific_login(SESSION *sess, CK_USER_TYPE userType, CK_CHAR_PTR pPin,
 			rc = get_masterkey(pPin, ulPinLen, fname, master_key,
 					   &mklen);
 			if (rc != CKR_OK) {
-				OCK_LOG_DEBUG("Failed to load master key.\n");
+				TRACE_DEBUG("Failed to load master key.\n");
 				goto done;
 			}
 		}
@@ -1159,19 +1159,19 @@ token_specific_login(SESSION *sess, CK_USER_TYPE userType, CK_CHAR_PTR pPin,
 
 	/* The pPin looks good, so now lets authenticate to ldap server */
 	if (slot_data[slot_id] == NULL) {
-		OCK_LOG_DEBUG("ICSF slot data not initialized.\n");
+		TRACE_ERROR("ICSF slot data not initialized.\n");
 		rc = CKR_FUNCTION_FAILED;
 		goto done;
 	}
 
 	/* Check if using sasl or simple auth */
 	if (slot_data[slot_id]->mech == ICSF_CFG_MECH_SIMPLE) {
-		OCK_LOG_DEBUG("Using SIMPLE auth with slot ID: %d\n", slot_id);
+		TRACE_INFO("Using SIMPLE auth with slot ID: %d\n", slot_id);
 
 		/* get racf passwd */
 		rc = get_racf(master_key, AES_KEY_SIZE_256, racfpwd, &racflen);
 		if (rc != CKR_OK) {
-			OCK_LOG_DEBUG("Failed to get racf passwd.\n");
+			TRACE_DEBUG("Failed to get racf passwd.\n");
 			goto done;
 		}
 
@@ -1179,27 +1179,27 @@ token_specific_login(SESSION *sess, CK_USER_TYPE userType, CK_CHAR_PTR pPin,
 		rc = icsf_login(&ld, slot_data[slot_id]->uri,
 				slot_data[slot_id]->dn, racfpwd);
 		if (rc != CKR_OK) {
-			OCK_LOG_DEBUG("Failed to bind to ldap server.\n");
+			TRACE_DEBUG("Failed to bind to ldap server.\n");
 			goto done;
 		}
 
 	}
 	else {
-		OCK_LOG_DEBUG("Using SASL auth with slot ID: %d\n", slot_id);
+		TRACE_INFO("Using SASL auth with slot ID: %d\n", slot_id);
 
 		rc = icsf_sasl_login(&ld, slot_data[slot_id]->uri,
 				     slot_data[slot_id]->cert_file,
 				     slot_data[slot_id]->key_file,
 				     slot_data[slot_id]->ca_file, ca_dir);
 		if (rc != CKR_OK) {
-			OCK_LOG_DEBUG("Failed to bind to ldap server.\n");
+			TRACE_DEBUG("Failed to bind to ldap server.\n");
 			goto done;
 		}
 	}
 
 	/* Save LDAP handle */
 	if (!(session_state = get_session_state(sess->handle))) {
-		OCK_LOG_DEBUG("Session not found for session id %lu.\n",
+		TRACE_ERROR("Session not found for session id %lu.\n",
 				(unsigned long) sess->handle);
 		rc = CKR_SESSION_HANDLE_INVALID;
 		goto done;
@@ -1242,12 +1242,12 @@ check_session_permissions(SESSION *sess, CK_ATTRIBUTE *attrs,
 
 	if (sess->session_info.state == CKS_RO_PUBLIC_SESSION) {
 		if (is_priv_obj) {
-			OCK_LOG_ERR(ERR_USER_NOT_LOGGED_IN);
+			TRACE_ERROR("%s\n", ock_err(ERR_USER_NOT_LOGGED_IN));
 			rc = CKR_USER_NOT_LOGGED_IN;
 			goto done;
 		}
 		if (is_token_obj) {
-			OCK_LOG_ERR(ERR_SESSION_READ_ONLY);
+			TRACE_ERROR("%s\n", ock_err(ERR_SESSION_READ_ONLY));
 			rc = CKR_SESSION_READ_ONLY;
 			goto done;
 		}
@@ -1255,7 +1255,7 @@ check_session_permissions(SESSION *sess, CK_ATTRIBUTE *attrs,
 
 	if (sess->session_info.state == CKS_RO_USER_FUNCTIONS) {
 		if (is_token_obj) {
-			OCK_LOG_ERR(ERR_SESSION_READ_ONLY);
+			TRACE_ERROR("%s\n", ock_err(ERR_SESSION_READ_ONLY));
 			rc = CKR_SESSION_READ_ONLY;
 			goto done;
 		}
@@ -1263,7 +1263,7 @@ check_session_permissions(SESSION *sess, CK_ATTRIBUTE *attrs,
 
 	if (sess->session_info.state == CKS_RW_PUBLIC_SESSION) {
 		if (is_priv_obj) {
-			OCK_LOG_ERR(ERR_USER_NOT_LOGGED_IN);
+			TRACE_ERROR("%s\n", ock_err(ERR_USER_NOT_LOGGED_IN));
 			rc = CKR_USER_NOT_LOGGED_IN;
 			goto done;
 		}
@@ -1271,7 +1271,7 @@ check_session_permissions(SESSION *sess, CK_ATTRIBUTE *attrs,
 
 	if (sess->session_info.state == CKS_RW_SO_FUNCTIONS) {
 		if (is_priv_obj) {
-			OCK_LOG_ERR(ERR_USER_NOT_LOGGED_IN);
+			TRACE_ERROR("%s\n", ock_err(ERR_USER_NOT_LOGGED_IN));
 			rc = CKR_USER_NOT_LOGGED_IN;
 			goto done;
 		}
@@ -1311,15 +1311,15 @@ token_specific_copy_object(SESSION * session, CK_ATTRIBUTE_PTR attrs,
 
 	/* Get session state */
 	if (!(session_state = get_session_state(session->handle))) {
-		OCK_LOG_DEBUG("Session not found for session id %lu.\n",
-				(unsigned long)session->handle);
+		TRACE_ERROR("Session not found for session id %lu.\n",
+			    (unsigned long)session->handle);
 		rc = CKR_SESSION_HANDLE_INVALID;
 		goto done;
 	}
 
 	/* Allocate structure for new object */
 	if (!(mapping_dst = malloc(sizeof(*mapping_dst)))) {
-		OCK_LOG_ERR(ERR_HOST_MEMORY);
+		TRACE_ERROR("%s\n", ock_err(ERR_HOST_MEMORY));
 		rc = CKR_HOST_MEMORY;
 		goto done;
 	}
@@ -1328,14 +1328,14 @@ token_specific_copy_object(SESSION * session, CK_ATTRIBUTE_PTR attrs,
 	mapping_src = bt_get_node_value(&objects, src);
 	pthread_rwlock_unlock(&obj_list_rw_mutex);
 	if (!mapping_src) {
-		OCK_LOG_ERR(ERR_HOST_MEMORY);
+		TRACE_ERROR("%s\n", ock_err(ERR_HOST_MEMORY));
 		rc = CKR_OBJECT_HANDLE_INVALID;
 		goto done;
 	}
 
 	rc = icsf_get_attribute(session_state->ld, &reason, &mapping_src->icsf_object, priv_attrs, 2);
 	if (rc != CKR_OK) {
-		OCK_LOG_ERR(ERR_FUNCTION_FAILED);
+		TRACE_ERROR("icsf_get_attribute failed\n");
 		goto done;
 	}
 
@@ -1358,24 +1358,23 @@ token_specific_copy_object(SESSION * session, CK_ATTRIBUTE_PTR attrs,
 	/* Check permissions based on attributes and session */
 	rc = check_session_permissions(session, priv_attrs, 2);
 	if (rc_permission != CKR_OK) {
-		OCK_LOG_ERR(ERR_FUNCTION_FAILED);
+		TRACE_DEBUG("check_session_permissions failed\n");
 		goto done;
 	}
 
 	/* Call ICSF service */
-	rc = icsf_copy_object
-		(session_state->ld, &reason, attrs, attrs_len, &mapping_src->icsf_object,
-		 &mapping_dst->icsf_object);
-
+	rc = icsf_copy_object(session_state->ld, &reason, attrs, attrs_len,
+			      &mapping_src->icsf_object,
+			      &mapping_dst->icsf_object);
 	if (rc != 0) {
-		OCK_LOG_DEBUG("Failed to Copy object.\n");
+		TRACE_DEBUG("Failed to Copy object.\n");
 		rc = icsf_to_ock_err(rc, reason);
 		goto done;
 	}
 
 	/* Lock the object list */
 	if (pthread_rwlock_wrlock(&obj_list_rw_mutex)) {
-		OCK_LOG_ERR(ERR_MUTEX_UNLOCK);
+		TRACE_ERROR("Failed to lock mutex.\n");
 		rc = CKR_FUNCTION_FAILED;
 		goto done;
 	}
@@ -1383,7 +1382,7 @@ token_specific_copy_object(SESSION * session, CK_ATTRIBUTE_PTR attrs,
 
 	/* Add info about object into session */
 	if (!(node_number = bt_node_add(&objects, mapping_dst))) {
-		OCK_LOG_DEBUG("Failed to add object to binary tree.\n");
+		TRACE_ERROR("Failed to add object to binary tree.\n");
 		rc = CKR_FUNCTION_FAILED;
 		goto done;
 	}
@@ -1393,7 +1392,7 @@ token_specific_copy_object(SESSION * session, CK_ATTRIBUTE_PTR attrs,
 
 done:
 	if (is_obj_locked && pthread_rwlock_unlock(&obj_list_rw_mutex)) {
-		OCK_LOG_ERR(ERR_MUTEX_UNLOCK);
+		TRACE_ERROR("Mutex Unlock Failed.\n");
 		rc = CKR_FUNCTION_FAILED;
 	}
 
@@ -1431,7 +1430,7 @@ token_specific_create_object(SESSION *session, CK_ATTRIBUTE_PTR attrs,
 
 	/* Allocate structure to keep ICSF object information */
 	if (!(mapping = malloc(sizeof(*mapping)))) {
-		OCK_LOG_ERR(ERR_HOST_MEMORY);
+		TRACE_ERROR("%s\n", ock_err(ERR_HOST_MEMORY));
 		return CKR_HOST_MEMORY;
 	}
 	memset(mapping, 0, sizeof(struct icsf_object_mapping));
@@ -1439,8 +1438,8 @@ token_specific_create_object(SESSION *session, CK_ATTRIBUTE_PTR attrs,
 
 	/* Get session state */
 	if (!(session_state = get_session_state(session->handle))) {
-		OCK_LOG_DEBUG("Session not found for session id %lu.\n",
-				(unsigned long) session->handle);
+		TRACE_ERROR("Session not found for session id %lu.\n",
+			    (unsigned long) session->handle);
 		rc = CKR_FUNCTION_FAILED;
 		goto done;
 	}
@@ -1449,14 +1448,14 @@ token_specific_create_object(SESSION *session, CK_ATTRIBUTE_PTR attrs,
 	if ((rc = icsf_create_object(session_state->ld, &reason, token_name,
 				     attrs, attrs_len,
 				     &mapping->icsf_object))) {
-		OCK_LOG_DEBUG("Failed to call ICSF.\n");
+		TRACE_DEBUG("icsf_create_object failed\n");
 		rc = icsf_to_ock_err(rc, reason);
 		goto done;
 	}
 
 	/* Lock the object list */
 	if (pthread_rwlock_wrlock(&obj_list_rw_mutex)) {
-		OCK_LOG_ERR(ERR_MUTEX_UNLOCK);
+		TRACE_ERROR("Failed to lock mutex.\n");
 		rc = CKR_FUNCTION_FAILED;
 		goto done;
 	}
@@ -1464,7 +1463,7 @@ token_specific_create_object(SESSION *session, CK_ATTRIBUTE_PTR attrs,
 
 	/* Add info about object into session */
 	if(!(node_number = bt_node_add(&objects, mapping))) {
-		OCK_LOG_DEBUG("Failed to add object to binary tree.\n");
+		TRACE_ERROR("Failed to add object to binary tree.\n");
 		rc = CKR_FUNCTION_FAILED;
 		goto done;
 	}
@@ -1474,7 +1473,7 @@ token_specific_create_object(SESSION *session, CK_ATTRIBUTE_PTR attrs,
 
 done:
 	if (is_obj_locked && pthread_rwlock_unlock(&obj_list_rw_mutex)) {
-		OCK_LOG_ERR(ERR_MUTEX_UNLOCK);
+		TRACE_ERROR("Mutex Unlock failed.\n");
 		rc = CKR_FUNCTION_FAILED;
 	}
 
@@ -1512,7 +1511,8 @@ check_key_attributes(CK_ULONG class, CK_ULONG key_type,
 		if (attr) {
 			/* Check the expected value */
 			if (*((CK_ULONG *) attr->pValue) != *check_values[i]) {
-				OCK_LOG_ERR(ERR_ATTRIBUTE_VALUE_INVALID);
+				TRACE_ERROR("%s\n",
+					  ock_err(ERR_ATTRIBUTE_VALUE_INVALID));
 				rc = CKR_ATTRIBUTE_VALUE_INVALID;
 				goto cleanup;
 			}
@@ -1607,7 +1607,7 @@ token_specific_generate_key_pair(SESSION *session,
 
 	/* Check and set default attributes based on mech */
 	if ((key_type = get_generate_key_type(mech)) == -1) {
-		OCK_LOG_ERR(ERR_MECHANISM_INVALID);
+		TRACE_ERROR("%s\n", ock_err(ERR_MECHANISM_INVALID));
 		rc = CKR_MECHANISM_INVALID;
 		goto done;
 	}
@@ -1633,7 +1633,7 @@ token_specific_generate_key_pair(SESSION *session,
 
 	/* Get session state */
 	if (!(session_state = get_session_state(session->handle))) {
-		OCK_LOG_DEBUG("Session not found for session id %lu.\n",
+		TRACE_DEBUG("Session not found for session id %lu.\n",
 				(unsigned long) session->handle);
 		rc = CKR_FUNCTION_FAILED;
 		goto done;
@@ -1647,7 +1647,7 @@ token_specific_generate_key_pair(SESSION *session,
 	/* Allocate structure to keep ICSF objects information */
 	if (!(pub_key_mapping = malloc(sizeof(*pub_key_mapping))) ||
 	    !(priv_key_mapping = malloc(sizeof(*priv_key_mapping)))) {
-		OCK_LOG_ERR(ERR_HOST_MEMORY);
+		TRACE_ERROR("%s\n", ock_err(ERR_HOST_MEMORY));
 		rc = CKR_HOST_MEMORY;
 		goto done;
 	}
@@ -1658,14 +1658,14 @@ token_specific_generate_key_pair(SESSION *session,
 					 new_priv_attrs, new_priv_attrs_len,
 					 &pub_key_mapping->icsf_object,
 					 &priv_key_mapping->icsf_object))) {
-		OCK_LOG_DEBUG("Failed to call ICSF.\n");
+		TRACE_DEBUG("icsf_generate_key_pair failed\n");
 		rc = icsf_to_ock_err(rc, reason);
 		goto done;
 	}
 
 	/* Lock the object list */
 	if (pthread_rwlock_wrlock(&obj_list_rw_mutex)) {
-		OCK_LOG_ERR(ERR_MUTEX_UNLOCK);
+		TRACE_ERROR("Failed to lock mutex.\n");
 		rc = CKR_FUNCTION_FAILED;
 		goto done;
 	}
@@ -1674,7 +1674,7 @@ token_specific_generate_key_pair(SESSION *session,
 	/* Add info about objects into session */
 	if(!(pub_node_number = bt_node_add(&objects, pub_key_mapping)) ||
 	   !(priv_node_number = bt_node_add(&objects, priv_key_mapping))) {
-		OCK_LOG_DEBUG("Failed to add object to binary tree.\n");
+		TRACE_ERROR("Failed to add object to binary tree.\n");
 		rc = CKR_FUNCTION_FAILED;
 		goto done;
 	}
@@ -1685,7 +1685,7 @@ token_specific_generate_key_pair(SESSION *session,
 
 done:
 	if (is_obj_locked && pthread_rwlock_unlock(&obj_list_rw_mutex)) {
-		OCK_LOG_ERR(ERR_MUTEX_UNLOCK);
+		TRACE_ERROR("Failed to unlock mutex.\n");
 		rc = CKR_FUNCTION_FAILED;
 	}
 
@@ -1723,7 +1723,7 @@ token_specific_generate_key(SESSION *session, CK_MECHANISM_PTR mech,
 
 	/* Check attributes */
 	if ((key_type = get_generate_key_type(mech)) == -1) {
-		OCK_LOG_ERR(ERR_MECHANISM_INVALID);
+		TRACE_ERROR("%s\n", ock_err(ERR_MECHANISM_INVALID));
 		rc = CKR_MECHANISM_INVALID;
 		goto done;
 	}
@@ -1745,7 +1745,7 @@ token_specific_generate_key(SESSION *session, CK_MECHANISM_PTR mech,
 
 	/* Allocate structure to keep ICSF object information */
 	if (!(mapping = malloc(sizeof(*mapping)))) {
-		OCK_LOG_ERR(ERR_HOST_MEMORY);
+		TRACE_ERROR("%s\n", ock_err(ERR_HOST_MEMORY));
 		goto done;
 	}
 	memset(mapping, 0, sizeof(struct icsf_object_mapping));
@@ -1753,7 +1753,7 @@ token_specific_generate_key(SESSION *session, CK_MECHANISM_PTR mech,
 
 	/* Get session state */
 	if (!(session_state = get_session_state(session->handle))) {
-		OCK_LOG_DEBUG("Session not found for session id %lu.\n",
+		TRACE_DEBUG("Session not found for session id %lu.\n",
 				(unsigned long) session->handle);
 		rc = CKR_FUNCTION_FAILED;
 		goto done;
@@ -1763,14 +1763,14 @@ token_specific_generate_key(SESSION *session, CK_MECHANISM_PTR mech,
 	if ((rc = icsf_generate_secret_key(session_state->ld, &reason, token_name,
 					   mech, new_attrs, new_attrs_len,
 					   &mapping->icsf_object))) {
-		OCK_LOG_DEBUG("Failed to call ICSF.\n");
+		TRACE_DEBUG("icsf_generate_secret_key failed\n");
 		rc = icsf_to_ock_err(rc, reason);
 		goto done;
 	}
 
 	/* Lock the object list */
 	if (pthread_rwlock_wrlock(&obj_list_rw_mutex)) {
-		OCK_LOG_ERR(ERR_MUTEX_UNLOCK);
+		TRACE_ERROR("Failed to lock mutex.\n");
 		rc = CKR_FUNCTION_FAILED;
 		goto done;
 	}
@@ -1778,7 +1778,7 @@ token_specific_generate_key(SESSION *session, CK_MECHANISM_PTR mech,
 
 	/* Add info about object into session */
 	if(!(node_number = bt_node_add(&objects, mapping))) {
-		OCK_LOG_DEBUG("Failed to add object to binary tree.\n");
+		TRACE_ERROR("Failed to add object to binary tree.\n");
 		rc = CKR_FUNCTION_FAILED;
 		goto done;
 	}
@@ -1788,7 +1788,7 @@ token_specific_generate_key(SESSION *session, CK_MECHANISM_PTR mech,
 
 done:
 	if (is_obj_locked && pthread_rwlock_unlock(&obj_list_rw_mutex)) {
-		OCK_LOG_ERR(ERR_MUTEX_UNLOCK);
+		TRACE_ERROR("Mutex Unlock failed.\n");
 		rc = CKR_FUNCTION_FAILED;
 	}
 
@@ -1869,7 +1869,7 @@ token_specific_encrypt_init(SESSION *session, CK_MECHANISM_PTR mech,
 	/* Check session */
 	if (!get_session_state(session->handle)) {
 		rc = CKR_SESSION_HANDLE_INVALID;
-		OCK_LOG_ERR(ERR_SESSION_HANDLE_INVALID);
+		TRACE_ERROR("%s\n", ock_err(ERR_SESSION_HANDLE_INVALID));
 		goto done;
 	}
 
@@ -1881,7 +1881,7 @@ token_specific_encrypt_init(SESSION *session, CK_MECHANISM_PTR mech,
 	pthread_rwlock_rdlock(&obj_list_rw_mutex);
 	if(!bt_get_node_value(&objects, key)) {
 		rc = CKR_KEY_HANDLE_INVALID;
-		OCK_LOG_ERR(ERR_KEY_HANDLE_INVALID);
+		TRACE_ERROR("%s\n", ock_err(ERR_KEY_HANDLE_INVALID));
 	}
 	pthread_rwlock_unlock(&obj_list_rw_mutex);
 	if (rc != CKR_OK)
@@ -1899,7 +1899,7 @@ token_specific_encrypt_init(SESSION *session, CK_MECHANISM_PTR mech,
 	} else {
 		encr_ctx->mech.pParameter = malloc(mech->ulParameterLen);
 		if (!encr_ctx->mech.pParameter) {
-			OCK_LOG_ERR(ERR_HOST_MEMORY);
+			TRACE_ERROR("%s\n", ock_err(ERR_HOST_MEMORY));
 			rc = CKR_HOST_MEMORY;
 			goto done;
 		}
@@ -1918,7 +1918,7 @@ token_specific_encrypt_init(SESSION *session, CK_MECHANISM_PTR mech,
 
 	/* Allocate context for multi-part operations */
 	if (!(multi_part_ctx = malloc(sizeof(*multi_part_ctx)))) {
-		OCK_LOG_ERR(ERR_HOST_MEMORY);
+		TRACE_ERROR("%s\n", ock_err(ERR_HOST_MEMORY));
 		rc = CKR_HOST_MEMORY;
 		goto done;
 	}
@@ -1938,7 +1938,7 @@ token_specific_encrypt_init(SESSION *session, CK_MECHANISM_PTR mech,
 	multi_part_ctx->data_len = block_size;
 	multi_part_ctx->data = malloc(multi_part_ctx->data_len);
 	if (!multi_part_ctx->data) {
-		OCK_LOG_ERR(ERR_HOST_MEMORY);
+		TRACE_ERROR("%s\n", ock_err(ERR_HOST_MEMORY));
 		rc = CKR_HOST_MEMORY;
 		goto done;
 	}
@@ -1974,14 +1974,14 @@ token_specific_encrypt(SESSION *session, CK_BYTE_PTR input_data,
 
 	/* Check if there's a multi-part encryption in progress */
 	if (encr_ctx->multi) {
-		OCK_LOG_ERR(ERR_FUNCTION_FAILED);
-		rc = CKR_FUNCTION_FAILED;
+		TRACE_ERROR("%s\n", ock_err(ERR_OPERATION_ACTIVE));
+		rc = CKR_OPERATION_ACTIVE;
 		goto done;
 	}
 
 	/* Check session */
 	if (!(session_state = get_session_state(session->handle))) {
-		OCK_LOG_ERR(ERR_SESSION_HANDLE_INVALID);
+		TRACE_ERROR("%s\n", ock_err(ERR_SESSION_HANDLE_INVALID));
 		rc = CKR_SESSION_HANDLE_INVALID;
 		goto done;
 	}
@@ -1989,7 +1989,7 @@ token_specific_encrypt(SESSION *session, CK_BYTE_PTR input_data,
 	/* Check if key exists */
 	pthread_rwlock_rdlock(&obj_list_rw_mutex);
 	if(!(mapping = bt_get_node_value(&objects, encr_ctx->key))) {
-		OCK_LOG_ERR(ERR_KEY_HANDLE_INVALID);
+		TRACE_ERROR("%s\n", ock_err(ERR_KEY_HANDLE_INVALID));
 		rc = CKR_KEY_HANDLE_INVALID;
 	}
 	pthread_rwlock_unlock(&obj_list_rw_mutex);
@@ -2021,12 +2021,13 @@ token_specific_encrypt(SESSION *session, CK_BYTE_PTR input_data,
 				 */
 				rc = CKR_OK;
 			} else {
-				OCK_LOG_ERR(ERR_BUFFER_TOO_SMALL);
+				TRACE_ERROR("%s\n",
+					    ock_err(ERR_BUFFER_TOO_SMALL));
 				rc = CKR_BUFFER_TOO_SMALL;
 			}
 		} else {
-			OCK_LOG_DEBUG("Failed to encrypt data. reason = %d\n",
-					reason);
+			TRACE_ERROR("Failed to encrypt data. reason = %d\n",
+				     reason);
 			rc = icsf_to_ock_err(rc, reason);
 		}
 		goto done;
@@ -2065,14 +2066,14 @@ token_specific_encrypt_update(SESSION *session, CK_BYTE_PTR input_part,
 	if ((rc = get_crypt_type(&encr_ctx->mech, &symmetric)))
 		goto done;
 	if (!symmetric) {
-		OCK_LOG_ERR(ERR_MECHANISM_INVALID);
+		TRACE_ERROR("%s\n", ock_err(ERR_MECHANISM_INVALID));
 		rc = CKR_MECHANISM_INVALID;
 		goto done;
 	}
 
 	/* Check session */
 	if (!(session_state = get_session_state(session->handle))) {
-		OCK_LOG_ERR(ERR_SESSION_HANDLE_INVALID);
+		TRACE_ERROR("%s\n", ock_err(ERR_SESSION_HANDLE_INVALID));
 		rc = CKR_SESSION_HANDLE_INVALID;
 		goto done;
 	}
@@ -2080,7 +2081,7 @@ token_specific_encrypt_update(SESSION *session, CK_BYTE_PTR input_part,
 	/* Check if key exists */
 	pthread_rwlock_rdlock(&obj_list_rw_mutex);
 	if(!(mapping = bt_get_node_value(&objects, encr_ctx->key))) {
-		OCK_LOG_ERR(ERR_KEY_HANDLE_INVALID);
+		TRACE_ERROR("%s\n", ock_err(ERR_KEY_HANDLE_INVALID));
 		rc = CKR_KEY_HANDLE_INVALID;
 	}
 	pthread_rwlock_unlock(&obj_list_rw_mutex);
@@ -2130,7 +2131,7 @@ token_specific_encrypt_update(SESSION *session, CK_BYTE_PTR input_part,
 	 * concatenated with part of the data given.
 	 */
 	if (!(buffer = malloc(total - remaining))) {
-		OCK_LOG_ERR(ERR_HOST_MEMORY);
+		TRACE_ERROR("%s\n", ock_err(ERR_HOST_MEMORY));
 		rc = CKR_HOST_MEMORY;
 		goto done;
 	}
@@ -2154,12 +2155,13 @@ token_specific_encrypt_update(SESSION *session, CK_BYTE_PTR input_part,
 				 */
 				rc = CKR_OK;
 			} else {
-				OCK_LOG_ERR(ERR_BUFFER_TOO_SMALL);
+				TRACE_ERROR("%s\n",
+					    ock_err(ERR_BUFFER_TOO_SMALL));
 				rc = CKR_BUFFER_TOO_SMALL;
 			}
 		} else {
-			OCK_LOG_DEBUG("Failed to encrypt data."
-					"reason = %d\n", reason);
+			TRACE_DEBUG("Failed to encrypt data. reason = %d\n",
+				    reason);
 			rc = icsf_to_ock_err(rc, reason);
 		}
 		goto done;
@@ -2230,14 +2232,14 @@ token_specific_encrypt_final(SESSION *session, CK_BYTE_PTR output_part,
 	if ((rc = get_crypt_type(&encr_ctx->mech, &symmetric)))
 		goto done;
 	if (!symmetric) {
-		OCK_LOG_ERR(ERR_MECHANISM_INVALID);
+		TRACE_ERROR("%s\n", ock_err(ERR_MECHANISM_INVALID));
 		rc = CKR_MECHANISM_INVALID;
 		goto done;
 	}
 
 	/* Check session */
 	if (!(session_state = get_session_state(session->handle))) {
-		OCK_LOG_ERR(ERR_SESSION_HANDLE_INVALID);
+		TRACE_ERROR("%s\n", ock_err(ERR_SESSION_HANDLE_INVALID));
 		rc = CKR_SESSION_HANDLE_INVALID;
 		goto done;
 	}
@@ -2245,7 +2247,7 @@ token_specific_encrypt_final(SESSION *session, CK_BYTE_PTR output_part,
 	/* Check if key exists */
 	pthread_rwlock_rdlock(&obj_list_rw_mutex);
 	if(!(mapping = bt_get_node_value(&objects, encr_ctx->key))) {
-		OCK_LOG_ERR(ERR_KEY_HANDLE_INVALID);
+		TRACE_ERROR("%s\n", ock_err(ERR_KEY_HANDLE_INVALID));
 		rc = CKR_KEY_HANDLE_INVALID;
 	}
 	pthread_rwlock_unlock(&obj_list_rw_mutex);
@@ -2300,12 +2302,13 @@ token_specific_encrypt_final(SESSION *session, CK_BYTE_PTR output_part,
 				 */
 				rc = CKR_OK;
 			} else {
-				OCK_LOG_ERR(ERR_BUFFER_TOO_SMALL);
+				TRACE_ERROR("%s\n",
+					    ock_err(ERR_BUFFER_TOO_SMALL));
 				rc = CKR_BUFFER_TOO_SMALL;
 			}
 		} else {
-			OCK_LOG_DEBUG("Failed to encrypt data."
-					"reason = %d\n", reason);
+			TRACE_DEBUG("Failed to encrypt data. reason = %d\n",
+				    reason);
 			rc = icsf_to_ock_err(rc, reason);
 		}
 		goto done;
@@ -2335,7 +2338,7 @@ token_specific_decrypt_init(SESSION *session, CK_MECHANISM_PTR mech,
 	/* Check session */
 	if (!get_session_state(session->handle)) {
 		rc = CKR_SESSION_HANDLE_INVALID;
-		OCK_LOG_ERR(ERR_SESSION_HANDLE_INVALID);
+		TRACE_ERROR("%s\n", ock_err(ERR_SESSION_HANDLE_INVALID));
 		goto done;
 	}
 
@@ -2347,7 +2350,7 @@ token_specific_decrypt_init(SESSION *session, CK_MECHANISM_PTR mech,
 	pthread_rwlock_rdlock(&obj_list_rw_mutex);
 	if(!bt_get_node_value(&objects, key)) {
 		rc = CKR_KEY_HANDLE_INVALID;
-		OCK_LOG_ERR(ERR_KEY_HANDLE_INVALID);
+		TRACE_ERROR("%s\n", ock_err(ERR_KEY_HANDLE_INVALID));
 	}
 	pthread_rwlock_unlock(&obj_list_rw_mutex);
 	if (rc != CKR_OK)
@@ -2365,7 +2368,7 @@ token_specific_decrypt_init(SESSION *session, CK_MECHANISM_PTR mech,
 	} else {
 		decr_ctx->mech.pParameter = malloc(mech->ulParameterLen);
 		if (!decr_ctx->mech.pParameter) {
-			OCK_LOG_ERR(ERR_HOST_MEMORY);
+			TRACE_ERROR("%s\n", ock_err(ERR_HOST_MEMORY));
 			rc = CKR_HOST_MEMORY;
 			goto done;
 		}
@@ -2384,7 +2387,7 @@ token_specific_decrypt_init(SESSION *session, CK_MECHANISM_PTR mech,
 
 	/* Allocate context for multi-part operations */
 	if (!(multi_part_ctx = malloc(sizeof(*multi_part_ctx)))) {
-		OCK_LOG_ERR(ERR_HOST_MEMORY);
+		TRACE_ERROR("%s\n", ock_err(ERR_HOST_MEMORY));
 		rc = CKR_HOST_MEMORY;
 		goto done;
 	}
@@ -2404,7 +2407,7 @@ token_specific_decrypt_init(SESSION *session, CK_MECHANISM_PTR mech,
 	multi_part_ctx->data_len = block_size;
 	multi_part_ctx->data = malloc(multi_part_ctx->data_len);
 	if (!multi_part_ctx->data) {
-		OCK_LOG_ERR(ERR_HOST_MEMORY);
+		TRACE_ERROR("%s\n", ock_err(ERR_HOST_MEMORY));
 		rc = CKR_HOST_MEMORY;
 		goto done;
 	}
@@ -2440,14 +2443,14 @@ token_specific_decrypt(SESSION *session, CK_BYTE_PTR input_data,
 
 	/* Check if there's a multi-part decryption in progress */
 	if (decr_ctx->multi) {
-		OCK_LOG_ERR(ERR_FUNCTION_FAILED);
-		rc = CKR_FUNCTION_FAILED;
+		TRACE_ERROR("%s\n", ock_err(ERR_OPERATION_ACTIVE));
+		rc = CKR_OPERATION_ACTIVE;
 		goto done;
 	}
 
 	/* Check session */
 	if (!(session_state = get_session_state(session->handle))) {
-		OCK_LOG_ERR(ERR_SESSION_HANDLE_INVALID);
+		TRACE_ERROR("%s\n", ock_err(ERR_SESSION_HANDLE_INVALID));
 		rc = CKR_SESSION_HANDLE_INVALID;
 		goto done;
 	}
@@ -2455,7 +2458,7 @@ token_specific_decrypt(SESSION *session, CK_BYTE_PTR input_data,
 	/* Check if key exists */
 	pthread_rwlock_rdlock(&obj_list_rw_mutex);
 	if(!(mapping = bt_get_node_value(&objects, decr_ctx->key))) {
-		OCK_LOG_ERR(ERR_KEY_HANDLE_INVALID);
+		TRACE_ERROR("%s\n", ock_err(ERR_KEY_HANDLE_INVALID));
 		rc = CKR_KEY_HANDLE_INVALID;
 	}
 	pthread_rwlock_unlock(&obj_list_rw_mutex);
@@ -2487,12 +2490,13 @@ token_specific_decrypt(SESSION *session, CK_BYTE_PTR input_data,
 				 */
 				rc = CKR_OK;
 			} else {
-				OCK_LOG_ERR(ERR_BUFFER_TOO_SMALL);
+				TRACE_ERROR("%s\n",
+					    ock_err(ERR_BUFFER_TOO_SMALL));
 				rc = CKR_BUFFER_TOO_SMALL;
 			}
 		} else {
-			OCK_LOG_DEBUG("Failed to decrypt data. reason = %d\n",
-					reason);
+			TRACE_DEBUG("Failed to decrypt data. reason = %d\n",
+				    reason);
 			rc = icsf_to_ock_err(rc, reason);
 		}
 		goto done;
@@ -2532,14 +2536,14 @@ token_specific_decrypt_update(SESSION *session, CK_BYTE_PTR input_part,
 	if ((rc = get_crypt_type(&decr_ctx->mech, &symmetric)))
 		goto done;
 	if (!symmetric) {
-		OCK_LOG_ERR(ERR_MECHANISM_INVALID);
+		TRACE_ERROR("%s\n", ock_err(ERR_MECHANISM_INVALID));
 		rc = CKR_MECHANISM_INVALID;
 		goto done;
 	}
 
 	/* Check session */
 	if (!(session_state = get_session_state(session->handle))) {
-		OCK_LOG_ERR(ERR_SESSION_HANDLE_INVALID);
+		TRACE_ERROR("%s\n", ock_err(ERR_SESSION_HANDLE_INVALID));
 		rc = CKR_SESSION_HANDLE_INVALID;
 		goto done;
 	}
@@ -2547,7 +2551,7 @@ token_specific_decrypt_update(SESSION *session, CK_BYTE_PTR input_part,
 	/* Check if key exists */
 	pthread_rwlock_rdlock(&obj_list_rw_mutex);
 	if(!(mapping = bt_get_node_value(&objects, decr_ctx->key))) {
-		OCK_LOG_ERR(ERR_KEY_HANDLE_INVALID);
+		TRACE_ERROR("%s\n", ock_err(ERR_KEY_HANDLE_INVALID));
 		rc = CKR_KEY_HANDLE_INVALID;
 	}
 	pthread_rwlock_unlock(&obj_list_rw_mutex);
@@ -2613,7 +2617,7 @@ token_specific_decrypt_update(SESSION *session, CK_BYTE_PTR input_part,
 	 * concatenated with part of the data given.
 	 */
 	if (!(buffer = malloc(total - remaining))) {
-		OCK_LOG_ERR(ERR_HOST_MEMORY);
+		TRACE_ERROR("%s\n", ock_err(ERR_HOST_MEMORY));
 		rc = CKR_HOST_MEMORY;
 		goto done;
 	}
@@ -2637,12 +2641,13 @@ token_specific_decrypt_update(SESSION *session, CK_BYTE_PTR input_part,
 				 */
 				rc = CKR_OK;
 			} else {
-				OCK_LOG_ERR(ERR_BUFFER_TOO_SMALL);
+				TRACE_ERROR("%s\n",
+					    ock_err(ERR_BUFFER_TOO_SMALL));
 				rc = CKR_BUFFER_TOO_SMALL;
 			}
 		} else {
-			OCK_LOG_DEBUG("Failed to decrypt data."
-					"reason = %d\n", reason);
+			TRACE_DEBUG("Failed to decrypt data. reason = %d\n",
+				    reason);
 			rc = icsf_to_ock_err(rc, reason);
 		}
 		goto done;
@@ -2714,14 +2719,14 @@ token_specific_decrypt_final(SESSION *session, CK_BYTE_PTR output_part,
 	if ((rc = get_crypt_type(&decr_ctx->mech, &symmetric)))
 		goto done;
 	if (!symmetric) {
-		OCK_LOG_ERR(ERR_MECHANISM_INVALID);
+		TRACE_ERROR("%s\n", ock_err(ERR_MECHANISM_INVALID));
 		rc = CKR_MECHANISM_INVALID;
 		goto done;
 	}
 
 	/* Check session */
 	if (!(session_state = get_session_state(session->handle))) {
-		OCK_LOG_ERR(ERR_SESSION_HANDLE_INVALID);
+		TRACE_ERROR("%s\n", ock_err(ERR_SESSION_HANDLE_INVALID));
 		rc = CKR_SESSION_HANDLE_INVALID;
 		goto done;
 	}
@@ -2729,7 +2734,7 @@ token_specific_decrypt_final(SESSION *session, CK_BYTE_PTR output_part,
 	/* Check if key exists */
 	pthread_rwlock_rdlock(&obj_list_rw_mutex);
 	if(!(mapping = bt_get_node_value(&objects, decr_ctx->key))) {
-		OCK_LOG_ERR(ERR_KEY_HANDLE_INVALID);
+		TRACE_ERROR("%s\n", ock_err(ERR_KEY_HANDLE_INVALID));
 		rc = CKR_KEY_HANDLE_INVALID;
 	}
 	pthread_rwlock_unlock(&obj_list_rw_mutex);
@@ -2784,12 +2789,13 @@ token_specific_decrypt_final(SESSION *session, CK_BYTE_PTR output_part,
 				 */
 				rc = CKR_OK;
 			} else {
-				OCK_LOG_ERR(ERR_BUFFER_TOO_SMALL);
+				TRACE_ERROR("%s\n",
+					    ock_err(ERR_BUFFER_TOO_SMALL));
 				rc = CKR_BUFFER_TOO_SMALL;
 			}
 		} else {
-			OCK_LOG_DEBUG("Failed to decrypt data."
-					"reason = %d\n", reason);
+			TRACE_DEBUG("Failed to decrypt data. reason = %d\n",
+				    reason);
 			rc = icsf_to_ock_err(rc, reason);
 		}
 		goto done;
@@ -2823,22 +2829,22 @@ token_specific_get_attribute_value(SESSION *sess, CK_OBJECT_HANDLE handle,
 
 	/* Get session state */
 	if (!(session_state = get_session_state(sess->handle))) {
-		OCK_LOG_DEBUG("Session not found for session id %lu.\n",
-				(unsigned long) handle);
+		TRACE_ERROR("Session not found for session id %lu.\n",
+			    (unsigned long) handle);
 		return CKR_FUNCTION_FAILED;
 	}
 
 	/* get the object handle */
 	/* get a read lock */
 	if (pthread_rwlock_rdlock(&obj_list_rw_mutex)) {
-		OCK_LOG_ERR(ERR_MUTEX_UNLOCK);
+		TRACE_ERROR("Failed to lock mutex.\n");
 		return CKR_FUNCTION_FAILED;
 	}
 
 	mapping = bt_get_node_value(&objects, handle);
 
 	if (!mapping) {
-		OCK_LOG_ERR(ERR_OBJECT_HANDLE_INVALID);
+		TRACE_ERROR("%s\n", ock_err(ERR_OBJECT_HANDLE_INVALID));
 		rc = CKR_OBJECT_HANDLE_INVALID;
 		goto done;
 	}
@@ -2847,7 +2853,7 @@ token_specific_get_attribute_value(SESSION *sess, CK_OBJECT_HANDLE handle,
 	rc = icsf_get_attribute(session_state->ld, &reason,
 				&mapping->icsf_object, priv_attr, 1);
 	if (rc != CKR_OK) {
-		OCK_LOG_ERR(ERR_FUNCTION_FAILED);
+		TRACE_DEBUG("icsf_get_attribute failed\n");
 		rc = icsf_to_ock_err(rc, reason);
 		goto done;
 	}
@@ -2855,7 +2861,7 @@ token_specific_get_attribute_value(SESSION *sess, CK_OBJECT_HANDLE handle,
 	if (priv_obj == TRUE) {
 		if (sess->session_info.state == CKS_RO_PUBLIC_SESSION ||
 		    sess->session_info.state == CKS_RW_PUBLIC_SESSION) {
-			OCK_LOG_ERR(ERR_USER_NOT_LOGGED_IN);
+			TRACE_ERROR("%s\n", ock_err(ERR_USER_NOT_LOGGED_IN));
 			rc = CKR_USER_NOT_LOGGED_IN;
 			goto done;
 		}
@@ -2865,13 +2871,13 @@ token_specific_get_attribute_value(SESSION *sess, CK_OBJECT_HANDLE handle,
 	rc = icsf_get_attribute(session_state->ld, &reason,
 				&mapping->icsf_object, pTemplate, ulCount);
 	if (rc != CKR_OK) {
-		OCK_LOG_ERR(ERR_OBJ_GETATTR_VALUES);
+		TRACE_DEBUG("icsf_get_attribute failed\n");
 		rc = icsf_to_ock_err(rc, reason);
 	}
 
 done:
 	if (pthread_rwlock_unlock(&obj_list_rw_mutex)) {
-		OCK_LOG_ERR(ERR_MUTEX_UNLOCK);
+		TRACE_ERROR("Mutex Unlock failed.\n");
 		rc = CKR_FUNCTION_FAILED;
 	}
 
@@ -2900,21 +2906,21 @@ token_specific_set_attribute_value(SESSION *sess, CK_OBJECT_HANDLE handle,
 
 	/* Get session state */
 	if (!(session_state = get_session_state(sess->handle))) {
-		OCK_LOG_DEBUG("Session not found for session id %lu.\n",
-				(unsigned long) handle);
+		TRACE_ERROR("Session not found for session id %lu.\n",
+			    (unsigned long) handle);
 		return CKR_FUNCTION_FAILED;
 	}
 
 	/* get the object handle */
 	/* get a read lock */
 	if (pthread_rwlock_rdlock(&obj_list_rw_mutex)) {
-		OCK_LOG_ERR(ERR_MUTEX_UNLOCK);
+		TRACE_ERROR("Failed to lock mutex.\n");
 		return CKR_FUNCTION_FAILED;
 	}
 	mapping = bt_get_node_value(&objects, handle);
 
 	if (!mapping) {
-		OCK_LOG_ERR(ERR_OBJECT_HANDLE_INVALID);
+		TRACE_ERROR("%s\n", ock_err(ERR_OBJECT_HANDLE_INVALID));
 		rc = CKR_OBJECT_HANDLE_INVALID;
 		goto done;
 	}
@@ -2926,7 +2932,7 @@ token_specific_set_attribute_value(SESSION *sess, CK_OBJECT_HANDLE handle,
 	rc = icsf_get_attribute(session_state->ld, &reason,
 				&mapping->icsf_object, priv_attrs, 2);
 	if (rc != CKR_OK) {
-		OCK_LOG_ERR(ERR_FUNCTION_FAILED);
+		TRACE_DEBUG("icsf_get_attribute failed\n");
 		rc = icsf_to_ock_err(rc, reason);
 		goto done;
 	}
@@ -2934,7 +2940,7 @@ token_specific_set_attribute_value(SESSION *sess, CK_OBJECT_HANDLE handle,
 	/* Check permissions based on attributes and session */
 	rc = check_session_permissions(sess, priv_attrs, 2);
 	if (rc != CKR_OK) {
-		OCK_LOG_ERR(ERR_FUNCTION_FAILED);
+		TRACE_DEBUG("check_session_permissions failed\n");
 		goto done;
 	}
 
@@ -2942,7 +2948,7 @@ token_specific_set_attribute_value(SESSION *sess, CK_OBJECT_HANDLE handle,
 	rc = icsf_set_attribute(session_state->ld, &reason,
 				&mapping->icsf_object, pTemplate, ulCount);
 	if (rc != CKR_OK) {
-		OCK_LOG_ERR(ERR_OBJ_SETATTR_VALUES);
+		TRACE_ERROR("icsf_set_attribute failed\n");
 		rc = icsf_to_ock_err(rc, reason);
 		goto done;
 	}
@@ -2950,7 +2956,7 @@ token_specific_set_attribute_value(SESSION *sess, CK_OBJECT_HANDLE handle,
 done:
 	/* Unlock */
 	if (pthread_rwlock_unlock(&obj_list_rw_mutex)) {
-		OCK_LOG_ERR(ERR_MUTEX_UNLOCK);
+		TRACE_ERROR("Mutex Unlock failed.\n");
 		rc = CKR_FUNCTION_FAILED;
 	}
 
@@ -2983,7 +2989,7 @@ token_specific_find_objects_init(SESSION *sess, CK_ATTRIBUTE *pTemplate,
 	if (sess->session_info.state == CKS_RO_PUBLIC_SESSION ||
 	    sess->session_info.state == CKS_RW_PUBLIC_SESSION ||
 	    sess->session_info.state == CKS_RW_SO_FUNCTIONS) {
-		OCK_LOG_DEBUG("You must authenticate to access ICSF token.\n");
+		TRACE_ERROR("You must authenticate to access ICSF token.\n");
 		return CKR_FUNCTION_FAILED;
 	}
 
@@ -2995,7 +3001,7 @@ token_specific_find_objects_init(SESSION *sess, CK_ATTRIBUTE *pTemplate,
 		sess->find_list = (CK_OBJECT_HANDLE *) malloc(
 					10 * sizeof(CK_OBJECT_HANDLE));
 		if (!sess->find_list) {
-			OCK_LOG_ERR(ERR_HOST_MEMORY);
+			TRACE_ERROR("%s\n", ock_err(ERR_HOST_MEMORY));
 			return CKR_HOST_MEMORY;
 		}
 		sess->find_len = 10;
@@ -3013,8 +3019,8 @@ token_specific_find_objects_init(SESSION *sess, CK_ATTRIBUTE *pTemplate,
 
 	/* Get session state */
 	if (!(session_state = get_session_state(sess->handle))) {
-		OCK_LOG_DEBUG("Session not found for session id %lu.\n",
-				(unsigned long) sess->handle);
+		TRACE_ERROR("Session not found for session id %lu.\n",
+			    (unsigned long) sess->handle);
 		return CKR_FUNCTION_FAILED;
 	}
 
@@ -3022,7 +3028,7 @@ token_specific_find_objects_init(SESSION *sess, CK_ATTRIBUTE *pTemplate,
 	memset(records, 0, MAX_RECORDS*(sizeof(struct icsf_object_record)));
 
 	if (pthread_rwlock_wrlock(&obj_list_rw_mutex)) {
-		OCK_LOG_ERR(ERR_MUTEX_LOCK);
+		TRACE_ERROR("Failed to lock mutex.\n");
 		return CKR_FUNCTION_FAILED;
 	}
 
@@ -3032,7 +3038,7 @@ token_specific_find_objects_init(SESSION *sess, CK_ATTRIBUTE *pTemplate,
 				       ulCount, pTemplate, previous, records,
 				       &records_len, 0);
 		if (ICSF_RC_IS_ERROR(rc)) {
-			OCK_LOG_DEBUG("Failed to list objects.\n");
+			TRACE_DEBUG("Failed to list objects.\n");
 			rc = icsf_to_ock_err(rc, reason);
 			goto done;
 		}
@@ -3071,7 +3077,8 @@ token_specific_find_objects_init(SESSION *sess, CK_ATTRIBUTE *pTemplate,
 				struct icsf_object_mapping *new_mapping;
 
 				if (!(new_mapping = malloc(sizeof(*new_mapping)))) {
-					OCK_LOG_ERR(ERR_HOST_MEMORY);
+					TRACE_ERROR("%s\n",
+						    ock_err(ERR_HOST_MEMORY));
 					rc = CKR_HOST_MEMORY;
 					goto done;
 				}
@@ -3080,8 +3087,8 @@ token_specific_find_objects_init(SESSION *sess, CK_ATTRIBUTE *pTemplate,
 
 				if(!(node_number = bt_node_add(&objects,
 								new_mapping))) {
-					OCK_LOG_DEBUG("Failed to add object to "
-							"binary tree.\n");
+					TRACE_ERROR("Failed to add object to "
+						    "binary tree.\n");
 					rc = CKR_FUNCTION_FAILED;
 					goto done;
 				}
@@ -3099,7 +3106,8 @@ token_specific_find_objects_init(SESSION *sess, CK_ATTRIBUTE *pTemplate,
 							find_len *
 							sizeof(CK_OBJECT_HANDLE));
 					if (!find_list) {
-						OCK_LOG_ERR(ERR_HOST_MEMORY);
+						TRACE_ERROR("%s\n",
+						      ock_err(ERR_HOST_MEMORY));
 						rc = CKR_HOST_MEMORY;
 						goto done;
 					}
@@ -3117,7 +3125,7 @@ token_specific_find_objects_init(SESSION *sess, CK_ATTRIBUTE *pTemplate,
 
 done:
 	if (pthread_rwlock_unlock(&obj_list_rw_mutex)) {
-		OCK_LOG_ERR(ERR_MUTEX_LOCK);
+		TRACE_ERROR("Mutex Unlock failed.\n");
 		return CKR_FUNCTION_FAILED;
 	}
 
@@ -3138,14 +3146,14 @@ token_specific_destroy_object(SESSION *sess, CK_OBJECT_HANDLE handle)
 
         /* Get session state */
         if (!(session_state = get_session_state(sess->handle))) {
-                OCK_LOG_DEBUG("Session not found for session id %lu.\n",
-                                (unsigned long) handle);
+                TRACE_ERROR("Session not found for session id %lu.\n",
+                            (unsigned long) handle);
                 return CKR_FUNCTION_FAILED;
         }
 
 	/* Lock the object list */
 	if (pthread_rwlock_wrlock(&obj_list_rw_mutex)) {
-		OCK_LOG_ERR(ERR_MUTEX_UNLOCK);
+		TRACE_ERROR("Failed to lock mutex.\n");
 		return CKR_FUNCTION_FAILED;
 	}
 
@@ -3153,15 +3161,16 @@ token_specific_destroy_object(SESSION *sess, CK_OBJECT_HANDLE handle)
 	mapping = bt_get_node_value(&objects, handle);
 
 	if (!mapping) {
-		OCK_LOG_ERR(ERR_OBJECT_HANDLE_INVALID);
+		TRACE_ERROR("%s\n", ock_err(ERR_OBJECT_HANDLE_INVALID));
 		rc = CKR_OBJECT_HANDLE_INVALID;
 		goto done;
 	}
 
 	/* Now remove the object from ICSF */
-	rc = icsf_destroy_object(session_state->ld, &reason, &mapping->icsf_object);
+	rc = icsf_destroy_object(session_state->ld, &reason,
+				 &mapping->icsf_object);
 	if (rc != 0) {
-		OCK_LOG_ERR(ERR_FUNCTION_FAILED);
+		TRACE_DEBUG("icsf_destroy_object failed\n");
 		rc = CKR_FUNCTION_FAILED;
 		goto done;
 	}
@@ -3171,7 +3180,7 @@ token_specific_destroy_object(SESSION *sess, CK_OBJECT_HANDLE handle)
 
 done:
         if (pthread_rwlock_unlock(&obj_list_rw_mutex)) {
-                OCK_LOG_ERR(ERR_MUTEX_LOCK);
+                TRACE_ERROR("Mutex Unlock failed.\n");
                 return CKR_FUNCTION_FAILED;
         }
 
@@ -3239,7 +3248,7 @@ token_specific_sign_init(SESSION *session, CK_MECHANISM *mech,
 
 	/* Check session */
 	if (!(session_state = get_session_state(session->handle))) {
-		OCK_LOG_ERR(ERR_SESSION_HANDLE_INVALID);
+		TRACE_ERROR("%s\n", ock_err(ERR_SESSION_HANDLE_INVALID));
 		rc = CKR_SESSION_HANDLE_INVALID;
 		goto done;
 	}
@@ -3247,7 +3256,7 @@ token_specific_sign_init(SESSION *session, CK_MECHANISM *mech,
 	/* Check if key exists */
 	pthread_rwlock_rdlock(&obj_list_rw_mutex);
 	if(!(mapping = bt_get_node_value(&objects, key))) {
-		OCK_LOG_ERR(ERR_KEY_HANDLE_INVALID);
+		TRACE_ERROR("%s\n", ock_err(ERR_KEY_HANDLE_INVALID));
 		rc = CKR_KEY_HANDLE_INVALID;
 	}
 	pthread_rwlock_unlock(&obj_list_rw_mutex);
@@ -3265,7 +3274,8 @@ token_specific_sign_init(SESSION *session, CK_MECHANISM *mech,
 		 * a mechanism parameter.
 		 */
 		if (mech->ulParameterLen != 0) {
-			OCK_LOG_ERR(ERR_MECHANISM_PARAM_INVALID);
+			TRACE_ERROR("%s\n",
+				    ock_err(ERR_MECHANISM_PARAM_INVALID));
 			return CKR_MECHANISM_PARAM_INVALID;
 		}
 		multi = FALSE;
@@ -3281,7 +3291,8 @@ token_specific_sign_init(SESSION *session, CK_MECHANISM *mech,
 		 *  mechanism parameter.
 		 */
 		if (mech->ulParameterLen != 0) {
-			OCK_LOG_ERR(ERR_MECHANISM_PARAM_INVALID);
+			TRACE_ERROR("%s\n",
+				    ock_err(ERR_MECHANISM_PARAM_INVALID));
 			return CKR_MECHANISM_PARAM_INVALID;
 		}
 		multi = TRUE;
@@ -3295,12 +3306,14 @@ token_specific_sign_init(SESSION *session, CK_MECHANISM *mech,
 		param = (CK_MAC_GENERAL_PARAMS *)mech->pParameter;
 
 		if (mech->ulParameterLen != sizeof(CK_MAC_GENERAL_PARAMS)) {
-			OCK_LOG_ERR(ERR_MECHANISM_PARAM_INVALID);
+			TRACE_ERROR("%s\n",
+				    ock_err(ERR_MECHANISM_PARAM_INVALID));
 			return CKR_MECHANISM_PARAM_INVALID;
 		}
 		if (((mech->mechanism == CKM_SSL3_MD5_MAC) && (*param != 16)) ||
 		    ((mech->mechanism == CKM_SSL3_SHA1_MAC) && (*param != 20))){
-			OCK_LOG_ERR(ERR_MECHANISM_PARAM_INVALID);
+			TRACE_ERROR("%s\n",
+				    ock_err(ERR_MECHANISM_PARAM_INVALID));
 			return CKR_MECHANISM_PARAM_INVALID;
 		}
 
@@ -3319,7 +3332,8 @@ token_specific_sign_init(SESSION *session, CK_MECHANISM *mech,
 		 * and do not require a mechanism parameter.
 		 */
 		if (mech->ulParameterLen != 0) {
-			OCK_LOG_ERR(ERR_MECHANISM_PARAM_INVALID);
+			TRACE_ERROR("%s\n",
+				    ock_err(ERR_MECHANISM_PARAM_INVALID));
 			return CKR_MECHANISM_PARAM_INVALID;
 		}
 		multi = TRUE;
@@ -3327,7 +3341,7 @@ token_specific_sign_init(SESSION *session, CK_MECHANISM *mech,
 		break;
 
 	default:
-		OCK_LOG_ERR(ERR_MECHANISM_INVALID);
+		TRACE_ERROR("%s\n", ock_err(ERR_MECHANISM_INVALID));
 		return CKR_MECHANISM_INVALID;
 	}
 
@@ -3341,7 +3355,7 @@ token_specific_sign_init(SESSION *session, CK_MECHANISM *mech,
 	} else {
 		ctx->mech.pParameter = malloc(mech->ulParameterLen);
 		if (!ctx->mech.pParameter) {
-			OCK_LOG_ERR(ERR_HOST_MEMORY);
+			TRACE_ERROR("%s\n", ock_err(ERR_HOST_MEMORY));
 			rc = CKR_HOST_MEMORY;
 			goto done;
 		}
@@ -3355,7 +3369,7 @@ token_specific_sign_init(SESSION *session, CK_MECHANISM *mech,
 	if (multi) {
 		/* Allocate context for multi-part operations */
 		if (!(multi_part_ctx = malloc(sizeof(*multi_part_ctx)))) {
-			OCK_LOG_ERR(ERR_HOST_MEMORY);
+			TRACE_ERROR("%s\n", ock_err(ERR_HOST_MEMORY));
 			rc = CKR_HOST_MEMORY;
 			goto done;
 		}
@@ -3376,7 +3390,7 @@ token_specific_sign_init(SESSION *session, CK_MECHANISM *mech,
 			multi_part_ctx->data_len = blocksize;
 			multi_part_ctx->data = malloc(multi_part_ctx->data_len);
 			if (!multi_part_ctx->data) {
-				OCK_LOG_ERR(ERR_HOST_MEMORY);
+				TRACE_ERROR("%s\n", ock_err(ERR_HOST_MEMORY));
 				rc = CKR_HOST_MEMORY;
 				goto done;
 			}
@@ -3397,7 +3411,6 @@ done:
 
 	return rc;
 }
-
 CK_RV
 token_specific_sign(SESSION *session, CK_BBOOL length_only, CK_BYTE *in_data,
 		CK_ULONG in_data_len, CK_BYTE *signature, CK_ULONG *sig_len)
@@ -3411,30 +3424,30 @@ token_specific_sign(SESSION *session, CK_BBOOL length_only, CK_BYTE *in_data,
 	int hlen, reason;
 
 	if (!ctx || !sig_len) {
-		OCK_LOG_ERR(ERR_FUNCTION_FAILED);
+		TRACE_ERROR("%s\n", ock_err(ERR_FUNCTION_FAILED));
 		return CKR_FUNCTION_FAILED;
 	}
 
 	if ((length_only == FALSE) && (!in_data || !signature)) {
-		OCK_LOG_ERR(ERR_FUNCTION_FAILED);
+		TRACE_ERROR("%s\n", ock_err(ERR_FUNCTION_FAILED));
 		return CKR_FUNCTION_FAILED;
 	}
 
 	if (ctx->multi == TRUE) {
-		OCK_LOG_ERR(ERR_OPERATION_ACTIVE);
+		TRACE_ERROR("%s\n", ock_err(ERR_OPERATION_ACTIVE));
 		return CKR_OPERATION_ACTIVE;
 	}
 
 	/* Check session */
 	if (!(session_state = get_session_state(session->handle))) {
-		OCK_LOG_ERR(ERR_SESSION_HANDLE_INVALID);
+		TRACE_ERROR("%s\n", ock_err(ERR_SESSION_HANDLE_INVALID));
 		return CKR_SESSION_HANDLE_INVALID;
 	}
 
 	/* Check if key exists */
 	pthread_rwlock_rdlock(&obj_list_rw_mutex);
 	if(!(mapping = bt_get_node_value(&objects, ctx->key))) {
-		OCK_LOG_ERR(ERR_KEY_HANDLE_INVALID);
+		TRACE_ERROR("%s\n", ock_err(ERR_KEY_HANDLE_INVALID));
 		rc = CKR_KEY_HANDLE_INVALID;
 	}
 	pthread_rwlock_unlock(&obj_list_rw_mutex);
@@ -3453,7 +3466,7 @@ token_specific_sign(SESSION *session, CK_BBOOL length_only, CK_BYTE *in_data,
 		if (length_only) {
 			hlen = get_signverify_len(ctx->mech);
 			if (hlen < 0) {
-				OCK_LOG_ERR(ERR_MECHANISM_INVALID);
+				TRACE_ERROR("%s\n", ock_err(ERR_MECHANISM_INVALID));
 				return CKR_MECHANISM_INVALID;
 			}
 			*sig_len = hlen;
@@ -3480,7 +3493,7 @@ token_specific_sign(SESSION *session, CK_BBOOL length_only, CK_BYTE *in_data,
 					&& length_only) {
 				rc = CKR_OK;
 			} else {
-				OCK_LOG_ERR(CKR_FUNCTION_FAILED);
+				TRACE_DEBUG("icsf_private_key_sign failed\n");
 				rc = icsf_to_ock_err(rc, reason);
 			}
 		}
@@ -3502,14 +3515,14 @@ token_specific_sign(SESSION *session, CK_BBOOL length_only, CK_BYTE *in_data,
 					&& length_only) {
 				rc = CKR_OK;
 			} else {
-				OCK_LOG_ERR(CKR_FUNCTION_FAILED);
+				TRACE_DEBUG("icsf_hash_signverify failed\n");
 				rc = icsf_to_ock_err(rc, reason);
 			}
 		}
 		break;
 
 	default:
-		OCK_LOG_ERR(ERR_MECHANISM_INVALID);
+		TRACE_ERROR("%s\n", ock_err(ERR_MECHANISM_INVALID));
 		rc = CKR_MECHANISM_INVALID;
 	}
 
@@ -3537,14 +3550,14 @@ token_specific_sign_update(SESSION *session, CK_BYTE *in_data,
 
 	/* Check session */
 	if (!(session_state = get_session_state(session->handle))) {
-		OCK_LOG_ERR(ERR_SESSION_HANDLE_INVALID);
+		TRACE_ERROR("%s\n", ock_err(ERR_SESSION_HANDLE_INVALID));
 		return CKR_SESSION_HANDLE_INVALID;
 	}
 
 	/* Check if key exists */
 	pthread_rwlock_rdlock(&obj_list_rw_mutex);
 	if(!(mapping = bt_get_node_value(&objects, ctx->key))) {
-		OCK_LOG_ERR(ERR_KEY_HANDLE_INVALID);
+		TRACE_ERROR("%s\n", ock_err(ERR_KEY_HANDLE_INVALID));
 		rc = CKR_KEY_HANDLE_INVALID;
 	}
 	pthread_rwlock_unlock(&obj_list_rw_mutex);
@@ -3580,7 +3593,7 @@ token_specific_sign_update(SESSION *session, CK_BYTE *in_data,
 				chain_data, &chain_data_len);
 
 		if (rc != 0) {
-			OCK_LOG_ERR(CKR_FUNCTION_FAILED);
+			TRACE_DEBUG("icsf_hmac_sign failed\n");
 			rc = icsf_to_ock_err(rc, reason);
 		}
 		break;
@@ -3614,7 +3627,8 @@ token_specific_sign_update(SESSION *session, CK_BYTE *in_data,
 
 				/* prepare a buffer to send data in */
 				if (!(buffer = malloc(out_len))) {
-					OCK_LOG_ERR(ERR_HOST_MEMORY);
+					TRACE_ERROR("%s\n",
+						    ock_err(ERR_HOST_MEMORY));
 					rc = CKR_HOST_MEMORY;
 					goto done;
 				}
@@ -3643,7 +3657,7 @@ token_specific_sign_update(SESSION *session, CK_BYTE *in_data,
 				chain_data, &chain_data_len, 0);
 
 		if (rc != 0) {
-			OCK_LOG_ERR(CKR_FUNCTION_FAILED);
+			TRACE_DEBUG("icsf_hash_signverify failed\n");
 			rc = icsf_to_ock_err(rc, reason);
 		} else {
 			multi_part_ctx->initiated = TRUE;
@@ -3657,7 +3671,7 @@ token_specific_sign_update(SESSION *session, CK_BYTE *in_data,
 		break;
 
 	default:
-		OCK_LOG_ERR(ERR_MECHANISM_INVALID);
+		TRACE_ERROR("%s\n", ock_err(ERR_MECHANISM_INVALID));
 		rc = CKR_MECHANISM_INVALID;
 	}
 
@@ -3683,20 +3697,20 @@ token_specific_sign_final(SESSION *session, CK_BBOOL length_only,
 	int hlen, reason;
 
 	if (!sig_len) {
-		OCK_LOG_ERR(ERR_FUNCTION_FAILED);
-		return CKR_FUNCTION_FAILED;
+		TRACE_ERROR("%s\n", ock_err(ERR_ARGUMENTS_BAD));
+		return CKR_ARGUMENTS_BAD;
 	}
 
 	/* Check session */
 	if (!(session_state = get_session_state(session->handle))) {
-		OCK_LOG_ERR(ERR_SESSION_HANDLE_INVALID);
+		TRACE_ERROR("%s\n", ock_err(ERR_SESSION_HANDLE_INVALID));
 		return CKR_SESSION_HANDLE_INVALID;
 	}
 
 	/* Check if key exists */
 	pthread_rwlock_rdlock(&obj_list_rw_mutex);
 	if(!(mapping = bt_get_node_value(&objects, ctx->key))) {
-		OCK_LOG_ERR(ERR_KEY_HANDLE_INVALID);
+		TRACE_ERROR("%s\n", ock_err(ERR_KEY_HANDLE_INVALID));
 		rc = CKR_KEY_HANDLE_INVALID;
 	}
 	pthread_rwlock_unlock(&obj_list_rw_mutex);
@@ -3722,7 +3736,7 @@ token_specific_sign_final(SESSION *session, CK_BBOOL length_only,
 		if (length_only) {
 			hlen = get_signverify_len(ctx->mech);
 			if (hlen < 0) {
-				OCK_LOG_ERR(ERR_MECHANISM_INVALID);
+				TRACE_ERROR("%s\n", ock_err(ERR_MECHANISM_INVALID));
 				return CKR_MECHANISM_INVALID;
 			}
 
@@ -3749,7 +3763,7 @@ token_specific_sign_final(SESSION *session, CK_BBOOL length_only,
 		/* see if any data left in the cache */
 		if (multi_part_ctx && multi_part_ctx->used_data_len) {
 			if (!(buffer = malloc(multi_part_ctx->used_data_len))) {
-				OCK_LOG_ERR(ERR_HOST_MEMORY);
+				TRACE_ERROR("%s\n", ock_err(ERR_HOST_MEMORY));
 				rc = CKR_HOST_MEMORY;
 				goto done;
 			}
@@ -3768,7 +3782,7 @@ token_specific_sign_final(SESSION *session, CK_BBOOL length_only,
 			if (length_only && reason == 3003)
 					rc = CKR_OK;
 			else {
-				OCK_LOG_ERR(CKR_FUNCTION_FAILED);
+				TRACE_DEBUG("icsf_hash_signverify failed\n");
 				rc = icsf_to_ock_err(rc, reason);
 			}
 		}
@@ -3778,7 +3792,7 @@ token_specific_sign_final(SESSION *session, CK_BBOOL length_only,
 		break;
 
 	default:
-		OCK_LOG_ERR(ERR_MECHANISM_INVALID);
+		TRACE_ERROR("%s\n", ock_err(ERR_MECHANISM_INVALID));
 		rc = CKR_MECHANISM_INVALID;
 	}
 
@@ -3803,7 +3817,7 @@ token_specific_verify_init(SESSION *session, CK_MECHANISM *mech,
 
 	/* Check session */
 	if (!(session_state = get_session_state(session->handle))) {
-		OCK_LOG_ERR(ERR_SESSION_HANDLE_INVALID);
+		TRACE_ERROR("%s\n", ock_err(ERR_SESSION_HANDLE_INVALID));
 		rc = CKR_SESSION_HANDLE_INVALID;
 		goto done;
 	}
@@ -3811,7 +3825,7 @@ token_specific_verify_init(SESSION *session, CK_MECHANISM *mech,
 	/* Check if key exists */
 	pthread_rwlock_rdlock(&obj_list_rw_mutex);
 	if(!(mapping = bt_get_node_value(&objects, key))) {
-		OCK_LOG_ERR(ERR_KEY_HANDLE_INVALID);
+		TRACE_ERROR("%s\n", ock_err(ERR_KEY_HANDLE_INVALID));
 		rc = CKR_KEY_HANDLE_INVALID;
 	}
 	pthread_rwlock_unlock(&obj_list_rw_mutex);
@@ -3829,7 +3843,7 @@ token_specific_verify_init(SESSION *session, CK_MECHANISM *mech,
 		 * a mechanism parameter.
 		 */
 		if (mech->ulParameterLen != 0) {
-			OCK_LOG_ERR(ERR_MECHANISM_PARAM_INVALID);
+			TRACE_ERROR("%s\n", ock_err(ERR_MECHANISM_PARAM_INVALID));
 			return CKR_MECHANISM_PARAM_INVALID;
 		}
 		multi = FALSE;
@@ -3845,7 +3859,7 @@ token_specific_verify_init(SESSION *session, CK_MECHANISM *mech,
 		 *  mechanism parameter.
 		 */
 		if (mech->ulParameterLen != 0) {
-			OCK_LOG_ERR(ERR_MECHANISM_PARAM_INVALID);
+			TRACE_ERROR("%s\n", ock_err(ERR_MECHANISM_PARAM_INVALID));
 			return CKR_MECHANISM_PARAM_INVALID;
 		}
 		multi = TRUE;
@@ -3859,12 +3873,12 @@ token_specific_verify_init(SESSION *session, CK_MECHANISM *mech,
 		param = (CK_MAC_GENERAL_PARAMS *)mech->pParameter;
 
 		if (mech->ulParameterLen != sizeof(CK_MAC_GENERAL_PARAMS)) {
-			OCK_LOG_ERR(ERR_MECHANISM_PARAM_INVALID);
+			TRACE_ERROR("%s\n", ock_err(ERR_MECHANISM_PARAM_INVALID));
 			return CKR_MECHANISM_PARAM_INVALID;
 		}
 		if (((mech->mechanism == CKM_SSL3_MD5_MAC) && (*param != 16)) ||
 		    ((mech->mechanism == CKM_SSL3_SHA1_MAC) && (*param != 20))){
-			OCK_LOG_ERR(ERR_MECHANISM_PARAM_INVALID);
+			TRACE_ERROR("%s\n", ock_err(ERR_MECHANISM_PARAM_INVALID));
 			return CKR_MECHANISM_PARAM_INVALID;
 		}
 
@@ -3883,7 +3897,7 @@ token_specific_verify_init(SESSION *session, CK_MECHANISM *mech,
 		 * but do not require a mechanism parameter
 		 */
 		if (mech->ulParameterLen != 0) {
-			OCK_LOG_ERR(ERR_MECHANISM_PARAM_INVALID);
+			TRACE_ERROR("%s\n", ock_err(ERR_MECHANISM_PARAM_INVALID));
 			return CKR_MECHANISM_PARAM_INVALID;
 		}
 		multi = TRUE;
@@ -3891,7 +3905,7 @@ token_specific_verify_init(SESSION *session, CK_MECHANISM *mech,
 		break;
 
 	default:
-		OCK_LOG_ERR(ERR_MECHANISM_INVALID);
+		TRACE_ERROR("%s\n", ock_err(ERR_MECHANISM_INVALID));
 		return CKR_MECHANISM_INVALID;
 	}
 
@@ -3905,7 +3919,7 @@ token_specific_verify_init(SESSION *session, CK_MECHANISM *mech,
 	} else {
 		ctx->mech.pParameter = malloc(mech->ulParameterLen);
 		if (!ctx->mech.pParameter) {
-			OCK_LOG_ERR(ERR_HOST_MEMORY);
+			TRACE_ERROR("%s\n", ock_err(ERR_HOST_MEMORY));
 			rc = CKR_HOST_MEMORY;
 			goto done;
 		}
@@ -3919,7 +3933,7 @@ token_specific_verify_init(SESSION *session, CK_MECHANISM *mech,
 	if (multi) {
 		/* Allocate context for multi-part operations */
 		if (!(multi_part_ctx = malloc(sizeof(*multi_part_ctx)))) {
-			OCK_LOG_ERR(ERR_HOST_MEMORY);
+			TRACE_ERROR("%s\n", ock_err(ERR_HOST_MEMORY));
 			rc = CKR_HOST_MEMORY;
 			goto done;
 		}
@@ -3940,7 +3954,7 @@ token_specific_verify_init(SESSION *session, CK_MECHANISM *mech,
 			multi_part_ctx->data_len = blocksize;
 			multi_part_ctx->data = malloc(multi_part_ctx->data_len);
 			if (!multi_part_ctx->data) {
-				OCK_LOG_ERR(ERR_HOST_MEMORY);
+				TRACE_ERROR("%s\n", ock_err(ERR_HOST_MEMORY));
 				rc = CKR_HOST_MEMORY;
 				goto done;
 			}
@@ -3975,25 +3989,25 @@ token_specific_verify(SESSION *session, CK_BYTE *in_data, CK_ULONG in_data_len,
 	int hlen, reason;
 
 	if (!session || !ctx || !in_data || !signature) {
-		OCK_LOG_ERR(ERR_FUNCTION_FAILED);
+		TRACE_ERROR("%s\n", ock_err(ERR_FUNCTION_FAILED));
 		return CKR_FUNCTION_FAILED;
 	}
 
 	if (ctx->multi == TRUE) {
-		OCK_LOG_ERR(ERR_OPERATION_ACTIVE);
+		TRACE_ERROR("%s\n", ock_err(ERR_OPERATION_ACTIVE));
 		return CKR_OPERATION_ACTIVE;
 	}
 
 	/* Check session */
 	if (!(session_state = get_session_state(session->handle))) {
-		OCK_LOG_ERR(ERR_SESSION_HANDLE_INVALID);
+		TRACE_ERROR("%s\n", ock_err(ERR_SESSION_HANDLE_INVALID));
 		return CKR_SESSION_HANDLE_INVALID;
 	}
 
 	/* Check if key exists */
 	pthread_rwlock_rdlock(&obj_list_rw_mutex);
 	if(!(mapping = bt_get_node_value(&objects, ctx->key))) {
-		OCK_LOG_ERR(ERR_KEY_HANDLE_INVALID);
+		TRACE_ERROR("%s\n", ock_err(ERR_KEY_HANDLE_INVALID));
 		rc = CKR_KEY_HANDLE_INVALID;
 	}
 	pthread_rwlock_unlock(&obj_list_rw_mutex);
@@ -4045,7 +4059,7 @@ token_specific_verify(SESSION *session, CK_BYTE *in_data, CK_ULONG in_data_len,
 		break;
 
 	default:
-		OCK_LOG_ERR(ERR_MECHANISM_INVALID);
+		TRACE_ERROR("%s\n", ock_err(ERR_MECHANISM_INVALID));
 		rc = CKR_MECHANISM_INVALID;
 	}
 
@@ -4071,14 +4085,14 @@ token_specific_verify_update(SESSION *session, CK_BYTE *in_data,
 
 	/* Check session */
 	if (!(session_state = get_session_state(session->handle))) {
-		OCK_LOG_ERR(ERR_SESSION_HANDLE_INVALID);
+		TRACE_ERROR("%s\n", ock_err(ERR_SESSION_HANDLE_INVALID));
 		return CKR_SESSION_HANDLE_INVALID;
 	}
 
 	/* Check if key exists */
 	pthread_rwlock_rdlock(&obj_list_rw_mutex);
 	if(!(mapping = bt_get_node_value(&objects, ctx->key))) {
-		OCK_LOG_ERR(ERR_KEY_HANDLE_INVALID);
+		TRACE_ERROR("%s\n", ock_err(ERR_KEY_HANDLE_INVALID));
 		rc = CKR_KEY_HANDLE_INVALID;
 	}
 	pthread_rwlock_unlock(&obj_list_rw_mutex);
@@ -4112,7 +4126,7 @@ token_specific_verify_update(SESSION *session, CK_BYTE *in_data,
 				chain_data, &chain_data_len);
 
 		if (rc != 0) {
-			OCK_LOG_ERR(CKR_FUNCTION_FAILED);
+			TRACE_DEBUG("icsf_hmac_verify failed\n");
 			rc = icsf_to_ock_err(rc, reason);
 		}
 		break;
@@ -4145,7 +4159,7 @@ token_specific_verify_update(SESSION *session, CK_BYTE *in_data,
 
 				/* prepare a buffer to send data in */
 				if (!(buffer = malloc(out_len))) {
-					OCK_LOG_ERR(ERR_HOST_MEMORY);
+					TRACE_ERROR("%s\n", ock_err(ERR_HOST_MEMORY));
 					rc = CKR_HOST_MEMORY;
 					goto done;
 				}
@@ -4174,7 +4188,7 @@ token_specific_verify_update(SESSION *session, CK_BYTE *in_data,
 				chain_data, &chain_data_len, 1);
 
 		if (rc != 0) {
-			OCK_LOG_ERR(CKR_FUNCTION_FAILED);
+			TRACE_DEBUG("icsf_hash_signverify failed\n");
 			rc = icsf_to_ock_err(rc, reason);
 		} else {
 			multi_part_ctx->initiated = TRUE;
@@ -4187,7 +4201,7 @@ token_specific_verify_update(SESSION *session, CK_BYTE *in_data,
 		break;
 
 	default:
-		OCK_LOG_ERR(ERR_MECHANISM_INVALID);
+		TRACE_ERROR("%s\n", ock_err(ERR_MECHANISM_INVALID));
 		rc = CKR_MECHANISM_INVALID;
 	}
 
@@ -4213,20 +4227,20 @@ token_specific_verify_final(SESSION *session, CK_BYTE *signature,
 	char *buffer = NULL;
 
 	if (!sig_len) {
-		OCK_LOG_ERR(ERR_FUNCTION_FAILED);
-		return CKR_FUNCTION_FAILED;
+		TRACE_ERROR("%s\n", ock_err(ERR_ARGUMENTS_BAD));
+		return CKR_ARGUMENTS_BAD;
 	}
 
 	/* Check session */
 	if (!(session_state = get_session_state(session->handle))) {
-		OCK_LOG_ERR(ERR_SESSION_HANDLE_INVALID);
+		TRACE_ERROR("%s\n", ock_err(ERR_SESSION_HANDLE_INVALID));
 		return CKR_SESSION_HANDLE_INVALID;
 	}
 
 	/* Check if key exists */
 	pthread_rwlock_rdlock(&obj_list_rw_mutex);
 	if(!(mapping = bt_get_node_value(&objects, ctx->key))) {
-		OCK_LOG_ERR(ERR_KEY_HANDLE_INVALID);
+		TRACE_ERROR("%s\n", ock_err(ERR_KEY_HANDLE_INVALID));
 		rc = CKR_KEY_HANDLE_INVALID;
 	}
 	pthread_rwlock_unlock(&obj_list_rw_mutex);
@@ -4270,7 +4284,7 @@ token_specific_verify_final(SESSION *session, CK_BYTE *signature,
 		/* see if any data left in the cache */
 		if (multi_part_ctx && multi_part_ctx->used_data_len) {
 			if (!(buffer = malloc(multi_part_ctx->used_data_len))) {
-				OCK_LOG_ERR(ERR_HOST_MEMORY);
+				TRACE_ERROR("%s\n", ock_err(ERR_HOST_MEMORY));
 				rc = CKR_HOST_MEMORY;
 				goto done;
 			}
@@ -4293,7 +4307,7 @@ token_specific_verify_final(SESSION *session, CK_BYTE *signature,
 		break;
 
 	default:
-		OCK_LOG_ERR(ERR_MECHANISM_INVALID);
+		TRACE_ERROR("%s\n", ock_err(ERR_MECHANISM_INVALID));
 		rc = CKR_MECHANISM_INVALID;
 	}
 
@@ -4319,7 +4333,7 @@ token_specific_wrap_key(SESSION *session, CK_MECHANISM_PTR mech,
 
 	/* Check session */
 	if (!(session_state = get_session_state(session->handle))) {
-		OCK_LOG_ERR(ERR_SESSION_HANDLE_INVALID);
+		TRACE_ERROR("%s\n", ock_err(ERR_SESSION_HANDLE_INVALID));
 		return  CKR_SESSION_HANDLE_INVALID;
 	}
 
@@ -4329,7 +4343,7 @@ token_specific_wrap_key(SESSION *session, CK_MECHANISM_PTR mech,
 	key_mapping = bt_get_node_value(&objects, key);
 	pthread_rwlock_unlock(&obj_list_rw_mutex);
 	if (!wrapping_key_mapping || !key_mapping) {
-		OCK_LOG_ERR(ERR_KEY_HANDLE_INVALID);
+		TRACE_ERROR("%s\n", ock_err(ERR_KEY_HANDLE_INVALID));
 		return CKR_KEY_HANDLE_INVALID;
 	}
 
@@ -4339,7 +4353,7 @@ token_specific_wrap_key(SESSION *session, CK_MECHANISM_PTR mech,
 			  &key_mapping->icsf_object, wrapped_key,
 			  p_wrapped_key_len);
 	if (rc) {
-		OCK_LOG_DEBUG("Failed to call ICSF.\n");
+		TRACE_DEBUG("icsf_wrap_key failed\n");
 		return icsf_to_ock_err(rc, reason);
 	}
 
@@ -4366,7 +4380,7 @@ token_specific_unwrap_key(SESSION *session, CK_MECHANISM_PTR mech,
 
 	/* Check session */
 	if (!(session_state = get_session_state(session->handle))) {
-		OCK_LOG_ERR(ERR_SESSION_HANDLE_INVALID);
+		TRACE_ERROR("%s\n", ock_err(ERR_SESSION_HANDLE_INVALID));
 		return  CKR_SESSION_HANDLE_INVALID;
 	}
 
@@ -4375,13 +4389,13 @@ token_specific_unwrap_key(SESSION *session, CK_MECHANISM_PTR mech,
 	wrapping_key_mapping = bt_get_node_value(&objects, wrapping_key);
 	pthread_rwlock_unlock(&obj_list_rw_mutex);
 	if (!wrapping_key_mapping) {
-		OCK_LOG_ERR(ERR_KEY_HANDLE_INVALID);
+		TRACE_ERROR("%s\n", ock_err(ERR_KEY_HANDLE_INVALID));
 		return CKR_KEY_HANDLE_INVALID;
 	}
 
 	/* Allocate structure to keep ICSF object information */
 	if (!(key_mapping = malloc(sizeof(*key_mapping)))) {
-		OCK_LOG_ERR(ERR_HOST_MEMORY);
+		TRACE_ERROR("%s\n", ock_err(ERR_HOST_MEMORY));
 		return CKR_HOST_MEMORY;
 	}
 	memset(key_mapping, 0, sizeof(*key_mapping));
@@ -4393,14 +4407,14 @@ token_specific_unwrap_key(SESSION *session, CK_MECHANISM_PTR mech,
 			     wrapped_key, wrapped_key_len,
 			     attrs, attrs_len, &key_mapping->icsf_object);
 	if (rc) {
-		OCK_LOG_DEBUG("Failed to call ICSF.\n");
+		TRACE_DEBUG("icsf_unwrap_key failed\n");
 		rc = icsf_to_ock_err(rc, reason);
 		goto done;
 	}
 
 	/* Lock the object list */
 	if (pthread_rwlock_wrlock(&obj_list_rw_mutex)) {
-		OCK_LOG_ERR(ERR_MUTEX_UNLOCK);
+		TRACE_ERROR("Failed to lock mutex.\n");
 		rc = CKR_FUNCTION_FAILED;
 		goto done;
 	}
@@ -4408,7 +4422,7 @@ token_specific_unwrap_key(SESSION *session, CK_MECHANISM_PTR mech,
 
 	/* Add info about object into session */
 	if(!(node_number = bt_node_add(&objects, key_mapping))) {
-		OCK_LOG_DEBUG("Failed to add object to binary tree.\n");
+		TRACE_ERROR("Failed to add object to binary tree.\n");
 		rc = CKR_FUNCTION_FAILED;
 		goto done;
 	}
@@ -4418,7 +4432,7 @@ token_specific_unwrap_key(SESSION *session, CK_MECHANISM_PTR mech,
 
 done:
 	if (is_obj_locked && pthread_rwlock_unlock(&obj_list_rw_mutex)) {
-		OCK_LOG_ERR(ERR_MUTEX_UNLOCK);
+		TRACE_ERROR("Mutex Unlock failed.\n");
 		rc = CKR_FUNCTION_FAILED;
 	}
 
@@ -4479,7 +4493,7 @@ token_specific_derive_key(SESSION *session, CK_MECHANISM_PTR mech,
 	/* Allocate structure to keep ICSF object information */
 	for (i = 0; i < sizeof(mappings)/sizeof(*mappings); i++) {
 		if (!(mappings[i] = malloc(sizeof(*mappings[i])))) {
-			OCK_LOG_ERR(ERR_HOST_MEMORY);
+			TRACE_ERROR("%s\n", ock_err(ERR_HOST_MEMORY));
 			rc = CKR_HOST_MEMORY;
 			goto done;
 		}
@@ -4493,8 +4507,8 @@ token_specific_derive_key(SESSION *session, CK_MECHANISM_PTR mech,
 
 	/* Get session state */
 	if (!(session_state = get_session_state(session->handle))) {
-		OCK_LOG_DEBUG("Session not found for session id %lu.\n",
-				(unsigned long) session->handle);
+		TRACE_ERROR("Session not found for session id %lu.\n",
+			    (unsigned long) session->handle);
 		rc = CKR_FUNCTION_FAILED;
 		goto done;
 	}
@@ -4504,7 +4518,7 @@ token_specific_derive_key(SESSION *session, CK_MECHANISM_PTR mech,
 	base_key_mapping = bt_get_node_value(&objects, hBaseKey);
 	pthread_rwlock_unlock(&obj_list_rw_mutex);
 	if(!base_key_mapping) {
-		OCK_LOG_ERR(ERR_KEY_HANDLE_INVALID);
+		TRACE_ERROR("%s\n", ock_err(ERR_KEY_HANDLE_INVALID));
 		rc = CKR_KEY_HANDLE_INVALID;
 		goto done;
 	}
@@ -4532,7 +4546,7 @@ token_specific_derive_key(SESSION *session, CK_MECHANISM_PTR mech,
 
 	/* Lock the object list */
 	if (pthread_rwlock_wrlock(&obj_list_rw_mutex)) {
-		OCK_LOG_ERR(ERR_MUTEX_UNLOCK);
+		TRACE_ERROR("Mutex Unlock failed.\n");
 		rc = CKR_FUNCTION_FAILED;
 		goto done;
 	}
@@ -4541,7 +4555,7 @@ token_specific_derive_key(SESSION *session, CK_MECHANISM_PTR mech,
 	for (i = 0; i < sizeof(mappings)/sizeof(*mappings); i++) {
 		/* Add info about object into session */
 		if(!(node_number = bt_node_add(&objects, mappings[i]))) {
-			OCK_LOG_DEBUG("Failed to add object to binary tree.\n");
+			TRACE_ERROR("Failed to add object to binary tree.\n");
 			rc = CKR_FUNCTION_FAILED;
 			goto done;
 		}
@@ -4556,7 +4570,7 @@ token_specific_derive_key(SESSION *session, CK_MECHANISM_PTR mech,
 
 done:
 	if (is_obj_locked && pthread_rwlock_unlock(&obj_list_rw_mutex)) {
-		OCK_LOG_ERR(ERR_MUTEX_UNLOCK);
+		TRACE_ERROR("Mutex Unlock failed.\n");
 		rc = CKR_FUNCTION_FAILED;
 	}
 
