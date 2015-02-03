@@ -307,6 +307,7 @@
 #include "tok_struct.h"
 #include "stdll.h"
 #include "attributes.h"
+#include "trace.h"
 
 #include <sys/types.h>
 #include <sys/stat.h>
@@ -330,14 +331,12 @@ static FILE *EP11Tok_logfile = NULL;
 
 #define EP11TOK_LOG(_loglevel, _format, ...) {                                      \
         if (EP11Tok_loglevel >= _loglevel && EP11Tok_logfile) {                     \
-            fprintf(EP11Tok_logfile, "%s " _format "\n", __func__, ## __VA_ARGS__); \
-	    ock_logit("EP11_TOK DEBUG %s " _format "\n", __func__, ## __VA_ARGS__); }}
+            fprintf(EP11Tok_logfile, "%s " _format "\n", __func__, ## __VA_ARGS__); }}
 
 #define EP11TOK_ELOG(_loglevel, _format, ...) {                                            \
         if (EP11Tok_loglevel >= _loglevel && EP11Tok_logfile) {                            \
             fprintf(EP11Tok_logfile, "ERROR: %s " _format "\n", __func__, ## __VA_ARGS__); \
-  	    OCK_SYSLOG(LOG_ERR, _format, ## __VA_ARGS__);		                   \
-	    ock_logit("EP11_TOK ERROR %s " _format "\n", __func__, ## __VA_ARGS__); }}
+	    OCK_SYSLOG(LOG_ERR, _format, ## __VA_ARGS__); }}
 
 #define EP11TOK_DUMP(_loglevel, _text, _buf, _buflen) {                  \
         if (EP11Tok_loglevel >= _loglevel && EP11Tok_logfile) {          \
@@ -345,8 +344,7 @@ static FILE *EP11Tok_logfile = NULL;
             for (i=0; i < (_buflen) && 2*i < sizeof(str)-2; i++) {       \
                 sprintf(str+2*i, "%02hhx", ((unsigned char*)(_buf))[i]); \
                 *(str+2*i+2) = '\0'; }                                   \
-            fprintf(EP11Tok_logfile, _text " %s\n", str);                \
-	    ock_logit("EP11_TOK DEBUG " _text " %s\n", str); }}
+            fprintf(EP11Tok_logfile, _text " %s\n", str); }}
 
 
 CK_CHAR manuf[] = "IBM Corp.";
@@ -550,13 +548,13 @@ ber_encode_RSAPublicKey(CK_BBOOL length_only, CK_BYTE **data, CK_ULONG *data_len
 	offset += len;
 
 	if (rc != CKR_OK) {
-		OCK_LOG_ERR(ERR_FUNCTION_FAILED);
+		TRACE_DEBUG("%s\n", ock_err(ERR_FUNCTION_FAILED));
 		return CKR_FUNCTION_FAILED;
 	}
 
 	buf = (CK_BYTE *)malloc(offset);
 	if (!buf) {
-		OCK_LOG_ERR(ERR_HOST_MEMORY);
+		TRACE_ERROR("%s\n", ock_err(ERR_HOST_MEMORY));
 		return CKR_HOST_MEMORY;
 	}
 	offset = 0;
@@ -566,7 +564,7 @@ ber_encode_RSAPublicKey(CK_BBOOL length_only, CK_BYTE **data, CK_ULONG *data_len
 				(CK_BYTE *)modulus + sizeof(CK_ATTRIBUTE),
 				modulus->ulValueLen);
 	if (rc != CKR_OK) {
-		OCK_LOG_ERR(ERR_ENCODE_INT);
+		TRACE_DEBUG("Encode Integer Failed.\n");
 		return rc;
 	}
 	memcpy(buf+offset, buf2, len);
@@ -577,7 +575,7 @@ ber_encode_RSAPublicKey(CK_BBOOL length_only, CK_BYTE **data, CK_ULONG *data_len
 				(CK_BYTE *)publ_exp + sizeof(CK_ATTRIBUTE),
 				publ_exp->ulValueLen);
 	if (rc != CKR_OK) {
-		OCK_LOG_ERR(ERR_ENCODE_INT);
+		TRACE_DEBUG("Encode Integer Failed.\n");
 		return rc;
 	}
 	memcpy(buf+offset, buf2, len);
@@ -586,14 +584,14 @@ ber_encode_RSAPublicKey(CK_BBOOL length_only, CK_BYTE **data, CK_ULONG *data_len
 
 	rc = ber_encode_SEQUENCE(FALSE, &buf2, &len, buf, offset);
 	if (rc != CKR_OK) {
-		OCK_LOG_ERR(ERR_ENCODE_SEQ);
+		TRACE_DEBUG("Encode Sequence Failed\n");
 		return rc;
 	}
 
 	/* length of outer sequence */
 	rc = ber_encode_OCTET_STRING(TRUE, NULL, &total, buf2, len);
 	if (rc != CKR_OK) {
-		OCK_LOG_ERR(ERR_ENCODE_OCTET);
+		TRACE_DEBUG("Encode Octet String Failed.\n");
 		return rc;
 	} else
 		total_len += total + 1;
@@ -601,7 +599,7 @@ ber_encode_RSAPublicKey(CK_BBOOL length_only, CK_BYTE **data, CK_ULONG *data_len
 	/* mem for outer sequence */
 	buf3 = (CK_BYTE *)malloc(total_len);
 	if (!buf3) {
-		OCK_LOG_ERR(ERR_HOST_MEMORY);
+		TRACE_ERROR("%s\n", ock_err(ERR_HOST_MEMORY));
 		return CKR_HOST_MEMORY;
 	}
 	total_len = 0;
@@ -619,7 +617,7 @@ ber_encode_RSAPublicKey(CK_BBOOL length_only, CK_BYTE **data, CK_ULONG *data_len
 
 	rc = ber_encode_SEQUENCE(FALSE, data, data_len, buf3, total_len);
 	if (rc != CKR_OK)
-		OCK_LOG_ERR(ERR_ENCODE_SEQ);
+		TRACE_DEBUG("Encode Sequence Failed.\n");
 
 	return rc;
 }
@@ -1460,7 +1458,7 @@ static CK_RV import_RSA_key(OBJECT *rsa_key_obj, CK_BYTE *blob, size_t *blob_siz
 	rc = rsa_priv_wrap_get_data(rsa_key_obj->template, FALSE,
 				    &data, &data_len);
 	if (rc != CKR_OK) {
-		OCK_LOG_ERR(ERR_RSA_WRAP_GETDATA);
+		TRACE_DEBUG("RSA Wrap Get Data Failed\n");
 		goto import_RSA_key_end;
 	}
 
@@ -2715,7 +2713,7 @@ CK_RV token_specific_generate_key_pair(SESSION * sess,
 				    CKO_PUBLIC_KEY, publ_ktype,
 				    &public_key_obj);
 	if (rc != CKR_OK) {
-		OCK_LOG_ERR(ERR_OBJMGR_CREATE_SKEL);
+		TRACE_DEBUG("Object Mgr Create Skeleton failed\n");
 		goto error;
 	}
     
@@ -2724,7 +2722,7 @@ CK_RV token_specific_generate_key_pair(SESSION * sess,
 				    CKO_PRIVATE_KEY, priv_ktype,
 				    &private_key_obj);
 	if (rc != CKR_OK) {
-		OCK_LOG_ERR(ERR_OBJMGR_CREATE_SKEL);
+		TRACE_DEBUG("Object Mgr Create Skeleton failed\n");
 		goto error;
 	}
     
@@ -2818,13 +2816,13 @@ CK_RV token_specific_generate_key_pair(SESSION * sess,
 	 */
 	rc = object_mgr_create_final(sess, public_key_obj, phPublicKey);
 	if (rc != CKR_OK) {
-		OCK_LOG_ERR(ERR_OBJMGR_CREATE_FINAL);
+		TRACE_DEBUG("Object Mgr Create Final failed\n");
 		goto error;
 	}
 
 	rc = object_mgr_create_final(sess, private_key_obj, phPrivateKey);
 	if (rc != CKR_OK) {
-		OCK_LOG_ERR(ERR_OBJMGR_CREATE_FINAL);
+		TRACE_DEBUG("Object Mgr Create Final failed\n");
 		object_mgr_destroy_object(sess, *phPublicKey);
 		public_key_obj = NULL;
 		goto error;
