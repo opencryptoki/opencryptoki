@@ -313,6 +313,7 @@
 #include "host_defs.h"
 #include "h_extern.h"
 #include "tok_spec_struct.h"
+#include "trace.h"
 
 
 static CK_BBOOL true = TRUE, false = FALSE;
@@ -335,11 +336,11 @@ key_mgr_generate_key( SESSION           * sess,
 
 
    if (!sess || !mech || !handle){
-      OCK_LOG_ERR(ERR_FUNCTION_FAILED);
+      TRACE_ERROR("%s received bad argument(s)\n", __FUNCTION__);
       return CKR_FUNCTION_FAILED;
    }
    if (!pTemplate && (ulCount != 0)){
-      OCK_LOG_ERR(ERR_FUNCTION_FAILED);
+      TRACE_ERROR("%s received bad argument(s)\n", __FUNCTION__);
       return CKR_FUNCTION_FAILED;
    }
    // it's silly but Cryptoki allows the user to specify the CKA_CLASS
@@ -353,7 +354,7 @@ key_mgr_generate_key( SESSION           * sess,
       if (pTemplate[i].type == CKA_CLASS) {
          keyclass = *(CK_OBJECT_CLASS *)pTemplate[i].pValue;
          if (keyclass != CKO_SECRET_KEY){
-            OCK_LOG_ERR(ERR_TEMPLATE_INCONSISTENT);
+            TRACE_ERROR("%s\n", ock_err(ERR_TEMPLATE_INCONSISTENT));
             return CKR_TEMPLATE_INCONSISTENT;
          }
       }
@@ -366,7 +367,7 @@ key_mgr_generate_key( SESSION           * sess,
    switch (mech->mechanism) {
       case CKM_DES_KEY_GEN:
          if (subclass != 0 && subclass != CKK_DES){
-            OCK_LOG_ERR(ERR_TEMPLATE_INCONSISTENT);
+            TRACE_ERROR("%s\n", ock_err(ERR_TEMPLATE_INCONSISTENT));
             return CKR_TEMPLATE_INCONSISTENT;
          }
 
@@ -375,7 +376,7 @@ key_mgr_generate_key( SESSION           * sess,
 
       case CKM_DES3_KEY_GEN:
          if (subclass != 0 && subclass != CKK_DES3){
-            OCK_LOG_ERR(ERR_TEMPLATE_INCONSISTENT);
+            TRACE_ERROR("%s\n", ock_err(ERR_TEMPLATE_INCONSISTENT));
             return CKR_TEMPLATE_INCONSISTENT;
          }
 
@@ -385,7 +386,7 @@ key_mgr_generate_key( SESSION           * sess,
 #if !(NOCDMF)
       case CKM_CDMF_KEY_GEN:
          if (subclass != 0 && subclass != CKK_CDMF){
-            OCK_LOG_ERR(ERR_TEMPLATE_INCONSISTENT);
+            TRACE_ERROR("%s\n", ock_err(ERR_TEMPLATE_INCONSISTENT));
             return CKR_TEMPLATE_INCONSISTENT;
          }
 
@@ -395,11 +396,11 @@ key_mgr_generate_key( SESSION           * sess,
 
       case CKM_SSL3_PRE_MASTER_KEY_GEN:
          if (subclass != 0 && subclass != CKK_GENERIC_SECRET){
-            OCK_LOG_ERR(ERR_TEMPLATE_INCONSISTENT);
+            TRACE_ERROR("%s\n", ock_err(ERR_TEMPLATE_INCONSISTENT));
             return CKR_TEMPLATE_INCONSISTENT;
          }
          if (mech->ulParameterLen != sizeof(CK_VERSION)){
-            OCK_LOG_ERR(ERR_MECHANISM_PARAM_INVALID);
+            TRACE_ERROR("%s\n", ock_err(ERR_MECHANISM_PARAM_INVALID));
             return CKR_MECHANISM_PARAM_INVALID;
          }
          subclass = CKK_GENERIC_SECRET;
@@ -407,7 +408,7 @@ key_mgr_generate_key( SESSION           * sess,
 
       case CKM_AES_KEY_GEN:
 	 if (subclass != 0 && subclass != CKK_AES){
-	    OCK_LOG_ERR(ERR_TEMPLATE_INCONSISTENT);
+	    TRACE_ERROR("%s\n", ock_err(ERR_TEMPLATE_INCONSISTENT));
 	    return CKR_TEMPLATE_INCONSISTENT;
 	 }
 
@@ -415,7 +416,7 @@ key_mgr_generate_key( SESSION           * sess,
 	 break;
 
       default:
-         OCK_LOG_ERR(ERR_MECHANISM_INVALID);
+         TRACE_ERROR("%s\n", ock_err(ERR_MECHANISM_INVALID));
          return CKR_MECHANISM_INVALID;
    }
 
@@ -426,7 +427,7 @@ key_mgr_generate_key( SESSION           * sess,
                                 CKO_SECRET_KEY, subclass,
                                 &key_obj );
    if (rc != CKR_OK){
-      OCK_LOG_ERR(ERR_OBJMGR_CREATE_SKEL);
+      TRACE_DEBUG("object_mgr_create_skel failed.\n");
       goto error;
    }
 
@@ -459,12 +460,12 @@ key_mgr_generate_key( SESSION           * sess,
 	    break;
 #endif
       default:
-         OCK_LOG_ERR(ERR_MECHANISM_INVALID);
+         TRACE_ERROR("%s\n", ock_err(ERR_MECHANISM_INVALID));
          rc = CKR_MECHANISM_INVALID;
    }
 
    if (rc != CKR_OK){
-      OCK_LOG_ERR(ERR_KEYGEN);
+      TRACE_ERROR("Key generation failed.\n");
       goto error;
    }
 
@@ -478,14 +479,14 @@ key_mgr_generate_key( SESSION           * sess,
 
       rc = build_attribute( CKA_ALWAYS_SENSITIVE, &flag, sizeof(CK_BBOOL), &new_attr );
       if (rc != CKR_OK){
-         OCK_LOG_ERR(ERR_BLD_ATTR);
+         TRACE_DEBUG("build attribute failed.\n");
          goto error;
       }
       template_update_attribute( key_obj->template, new_attr );
 
    } else {
       rc = CKR_FUNCTION_FAILED;
-      OCK_LOG_ERR(ERR_FUNCTION_FAILED);
+      TRACE_ERROR("Failed to find CKA_SENSITIVE in key object template.\n");
       goto error;
    }
 
@@ -496,7 +497,7 @@ key_mgr_generate_key( SESSION           * sess,
 
       rc = build_attribute( CKA_NEVER_EXTRACTABLE, &true, sizeof(CK_BBOOL), &new_attr );
       if (rc != CKR_OK){
-         OCK_LOG_ERR(ERR_BLD_ATTR);
+         TRACE_DEBUG("build_attribute failed\n");
          goto error;
       }
       if (flag == TRUE)
@@ -506,7 +507,7 @@ key_mgr_generate_key( SESSION           * sess,
 
    } else {
       rc = CKR_FUNCTION_FAILED;
-      OCK_LOG_ERR(ERR_FUNCTION_FAILED);
+      TRACE_ERROR("Failed to find CKA_EXTRACTABLE in key object template.\n");
       goto error;
    }
 
@@ -516,7 +517,7 @@ key_mgr_generate_key( SESSION           * sess,
    //
    rc = object_mgr_create_final( sess, key_obj, handle );
    if (rc != CKR_OK){
-      OCK_LOG_ERR(ERR_OBJMGR_CREATE_FINAL);
+      TRACE_DEBUG("object_mgr_create_final failed.\n");
       goto error;
    }
    return rc;
@@ -551,15 +552,15 @@ key_mgr_generate_key_pair( SESSION           * sess,
    CK_RV           rc;
 
    if (!sess || !mech || !publ_key_handle || !priv_key_handle){
-      OCK_LOG_ERR(ERR_FUNCTION_FAILED);
+      TRACE_ERROR("%s received bad argument(s)\n", __FUNCTION__);
       return CKR_FUNCTION_FAILED;
    }
    if (!publ_tmpl && (publ_count != 0)){
-      OCK_LOG_ERR(ERR_FUNCTION_FAILED);
+      TRACE_ERROR("%s received bad argument(s)\n", __FUNCTION__);
       return CKR_FUNCTION_FAILED;
    }
    if (!priv_tmpl && (priv_count != 0)){
-      OCK_LOG_ERR(ERR_FUNCTION_FAILED);
+      TRACE_ERROR("%s received bad argument(s)\n", __FUNCTION__);
       return CKR_FUNCTION_FAILED;
    }
 
@@ -574,7 +575,7 @@ key_mgr_generate_key_pair( SESSION           * sess,
       if (publ_tmpl[i].type == CKA_CLASS) {
          keyclass = *(CK_OBJECT_CLASS *)publ_tmpl[i].pValue;
          if (keyclass != CKO_PUBLIC_KEY){
-            OCK_LOG_ERR(ERR_TEMPLATE_INCONSISTENT);
+            TRACE_ERROR("%s\n", ock_err(ERR_TEMPLATE_INCONSISTENT));
             return CKR_TEMPLATE_INCONSISTENT;
          }
       }
@@ -588,7 +589,7 @@ key_mgr_generate_key_pair( SESSION           * sess,
       if (priv_tmpl[i].type == CKA_CLASS) {
          keyclass = *(CK_OBJECT_CLASS *)priv_tmpl[i].pValue;
          if (keyclass != CKO_PRIVATE_KEY){
-            OCK_LOG_ERR(ERR_TEMPLATE_INCONSISTENT);
+            TRACE_ERROR("%s\n", ock_err(ERR_TEMPLATE_INCONSISTENT));
             return CKR_TEMPLATE_INCONSISTENT;
          }
       }
@@ -596,7 +597,7 @@ key_mgr_generate_key_pair( SESSION           * sess,
       if (priv_tmpl[i].type == CKA_KEY_TYPE) {
          CK_ULONG temp = *(CK_ULONG *)priv_tmpl[i].pValue;
          if (temp != subclass){
-            OCK_LOG_ERR(ERR_TEMPLATE_INCONSISTENT);
+            TRACE_ERROR("%s\n", ock_err(ERR_TEMPLATE_INCONSISTENT));
             return CKR_TEMPLATE_INCONSISTENT;
          }
       }
@@ -606,7 +607,7 @@ key_mgr_generate_key_pair( SESSION           * sess,
    switch (mech->mechanism) {
       case CKM_RSA_PKCS_KEY_PAIR_GEN:
          if (subclass != 0 && subclass != CKK_RSA){
-            OCK_LOG_ERR(ERR_TEMPLATE_INCONSISTENT);
+            TRACE_ERROR("%s\n", ock_err(ERR_TEMPLATE_INCONSISTENT));
             return CKR_TEMPLATE_INCONSISTENT;
           }
 
@@ -615,7 +616,7 @@ key_mgr_generate_key_pair( SESSION           * sess,
 
       case CKM_EC_KEY_PAIR_GEN:
          if (subclass != 0 && subclass != CKK_EC){
-            OCK_LOG_ERR(ERR_TEMPLATE_INCONSISTENT);
+            TRACE_ERROR("%s\n", ock_err(ERR_TEMPLATE_INCONSISTENT));
             return CKR_TEMPLATE_INCONSISTENT;
           }
 
@@ -625,7 +626,7 @@ key_mgr_generate_key_pair( SESSION           * sess,
 #if !(NODSA)
       case CKM_DSA_KEY_PAIR_GEN:
          if (subclass != 0 && subclass != CKK_DSA){
-           OCK_LOG_ERR(ERR_TEMPLATE_INCONSISTENT);
+           TRACE_ERROR("%s\n", ock_err(ERR_TEMPLATE_INCONSISTENT));
            return CKR_TEMPLATE_INCONSISTENT;
          }
          subclass = CKK_DSA;
@@ -636,7 +637,7 @@ key_mgr_generate_key_pair( SESSION           * sess,
 #if !(NODH)
       case CKM_DH_PKCS_KEY_PAIR_GEN:
          if (subclass != 0 && subclass != CKK_DH){
-           OCK_LOG_ERR(ERR_TEMPLATE_INCONSISTENT);
+           TRACE_ERROR("%s\n", ock_err(ERR_TEMPLATE_INCONSISTENT));
            return CKR_TEMPLATE_INCONSISTENT;
          }
          subclass = CKK_DH;
@@ -645,7 +646,7 @@ key_mgr_generate_key_pair( SESSION           * sess,
 /* End  code contributed by Corrent corp. */
 
       default:
-         OCK_LOG_ERR(ERR_MECHANISM_INVALID);
+         TRACE_ERROR("%s\n", ock_err(ERR_MECHANISM_INVALID));
          return CKR_MECHANISM_INVALID;
    }
 
@@ -656,7 +657,7 @@ key_mgr_generate_key_pair( SESSION           * sess,
                                 CKO_PUBLIC_KEY,  subclass,
                                 &publ_key_obj );
    if (rc != CKR_OK){
-      OCK_LOG_ERR(ERR_OBJMGR_CREATE_SKEL);
+      TRACE_DEBUG("object_mgr_create_skel failed.\n");
       goto error;
    }
    rc = object_mgr_create_skel( sess,
@@ -665,7 +666,7 @@ key_mgr_generate_key_pair( SESSION           * sess,
                                 CKO_PRIVATE_KEY, subclass,
                                 &priv_key_obj );
    if (rc != CKR_OK){
-      OCK_LOG_ERR(ERR_OBJMGR_CREATE_SKEL);
+      TRACE_DEBUG("object_mgr_create_skel failed.\n");
       goto error;
    }
 
@@ -702,13 +703,13 @@ key_mgr_generate_key_pair( SESSION           * sess,
 /* End code contributed by Corrent corp. */
 
       default:
-         OCK_LOG_ERR(ERR_MECHANISM_INVALID);
+         TRACE_ERROR("%s\n", ock_err(ERR_MECHANISM_INVALID));
          rc = CKR_MECHANISM_INVALID;
          break;
    }
 
    if (rc != CKR_OK){
-      OCK_LOG_ERR(ERR_KEYGEN);
+      TRACE_DEBUG("Key Generation failed.\n");
       goto error;
    }
 
@@ -722,13 +723,13 @@ key_mgr_generate_key_pair( SESSION           * sess,
 
       rc = build_attribute( CKA_ALWAYS_SENSITIVE, &flag, sizeof(CK_BBOOL), &new_attr );
       if (rc != CKR_OK){
-         OCK_LOG_ERR(ERR_BLD_ATTR);
+         TRACE_DEBUG("build_attribute failed.\n");
          goto error;
       }
       template_update_attribute( priv_key_obj->template, new_attr );
 
    } else {
-      OCK_LOG_ERR(ERR_FUNCTION_FAILED);
+      TRACE_ERROR("Failed to find CKA_SENSITIVE in key object template.\n");
       rc = CKR_FUNCTION_FAILED;
       goto error;
    }
@@ -740,7 +741,7 @@ key_mgr_generate_key_pair( SESSION           * sess,
 
       rc = build_attribute( CKA_NEVER_EXTRACTABLE, &true, sizeof(CK_BBOOL), &new_attr );
       if (rc != CKR_OK){
-         OCK_LOG_ERR(ERR_BLD_ATTR);
+         TRACE_DEBUG("build_attribute failed.\n");
          goto error;
       }
       if (flag == TRUE)
@@ -749,7 +750,7 @@ key_mgr_generate_key_pair( SESSION           * sess,
       template_update_attribute( priv_key_obj->template, new_attr );
 
    } else {
-      OCK_LOG_ERR(ERR_FUNCTION_FAILED);
+      TRACE_ERROR("Failed to find CKA_EXTRACTABLE in key object template.\n");
       rc = CKR_FUNCTION_FAILED;
       goto error;
    }
@@ -760,12 +761,12 @@ key_mgr_generate_key_pair( SESSION           * sess,
    //
    rc = object_mgr_create_final( sess, publ_key_obj, publ_key_handle );
    if (rc != CKR_OK){
-      OCK_LOG_ERR(ERR_OBJMGR_CREATE_FINAL);
+      TRACE_DEBUG("object_mgr_create_final failed.\n");
       goto error;
    }
    rc = object_mgr_create_final( sess, priv_key_obj, priv_key_handle );
    if (rc != CKR_OK){
-      OCK_LOG_ERR(ERR_OBJMGR_CREATE_FINAL);
+      TRACE_DEBUG("object_mgr_create_final failed.\n");
       // just calling object_free in the error path below would lead to a double
       // free error on session close - KEY 09/26/07
       object_mgr_destroy_object( sess, *publ_key_handle );
@@ -809,32 +810,39 @@ key_mgr_wrap_key( SESSION           * sess,
 
 
    if (!sess || !wrapped_key_len){
-      OCK_LOG_ERR(ERR_FUNCTION_FAILED);
+      TRACE_ERROR("%s received bad argument(s)\n", __FUNCTION__);
       return CKR_FUNCTION_FAILED;
    }
 
    rc = object_mgr_find_in_map1( h_wrapping_key, &key1_obj );
    if (rc != CKR_OK){
-      OCK_LOG_ERR(ERR_WRAPPING_KEY_HANDLE_INVALID);
-      return CKR_WRAPPING_KEY_HANDLE_INVALID;
+      TRACE_ERROR("%s\n", ock_err(ERR_WRAPPING_KEY_HANDLE_INVALID));
+      if (rc == CKR_OBJECT_HANDLE_INVALID)
+         return CKR_WRAPPING_KEY_HANDLE_INVALID;
+      else
+	 return rc;
    }
+
    rc = object_mgr_find_in_map1( h_key, &key2_obj );
    if (rc != CKR_OK){
-      OCK_LOG_ERR(ERR_KEY_HANDLE_INVALID);
-      return CKR_KEY_HANDLE_INVALID;
+      TRACE_ERROR("Failed to acquire key from specified handle");
+      if (rc == CKR_OBJECT_HANDLE_INVALID)
+         return CKR_KEY_HANDLE_INVALID;
+      else
+	 return rc;
    }
 
    // is the key-to-be-wrapped EXTRACTABLE?
    //
    rc = template_attribute_find( key2_obj->template, CKA_EXTRACTABLE, &attr );
    if (rc == FALSE){
-      OCK_LOG_DEBUG("CKA_EXTRACTABLE is missing for key to be wrapped.\n");
+      TRACE_ERROR("Failed to find CKA_EXTRACTABLE in key template.\n");
       return CKR_KEY_NOT_WRAPPABLE;  // could happen if user tries to wrap a public key
    }
    else {
       flag = *(CK_BBOOL *)attr->pValue;
       if (flag == FALSE){
-         OCK_LOG_ERR(ERR_KEY_UNEXTRACTABLE);
+         TRACE_ERROR("%s\n", ock_err(ERR_KEY_UNEXTRACTABLE));
          return CKR_KEY_UNEXTRACTABLE;
       }
    }
@@ -844,7 +852,7 @@ key_mgr_wrap_key( SESSION           * sess,
    //
    rc = template_attribute_find( key2_obj->template, CKA_CLASS, &attr );
    if (rc == FALSE) {
-      OCK_LOG_DEBUG("CKA_CLASS is missing for key to be wrapped.\n");
+      TRACE_DEBUG("CKA_CLASS is missing for key to be wrapped.\n");
       return CKR_KEY_NOT_WRAPPABLE;
    }
    else
@@ -880,7 +888,7 @@ key_mgr_wrap_key( SESSION           * sess,
       case CKM_AES_CFB64:
       case CKM_AES_CFB128:
          if ((class != CKO_SECRET_KEY) && (class != CKO_PRIVATE_KEY)) {
-            OCK_LOG_DEBUG("Specified mechanism only wraps secret & private keys.\n");
+            TRACE_ERROR("Specified mechanism only wraps secret & private keys.\n");
             return CKR_KEY_NOT_WRAPPABLE;
          }
 	 break;
@@ -893,13 +901,13 @@ key_mgr_wrap_key( SESSION           * sess,
       case CKM_RSA_PKCS:
       case CKM_RSA_X_509:
          if (class != CKO_SECRET_KEY){
-            OCK_LOG_DEBUG("Specified mechanism only wraps secret keys.\n");
+            TRACE_ERROR("Specified mechanism only wraps secret keys.\n");
             return CKR_KEY_NOT_WRAPPABLE;
          }
          break;
 
       default:
-         OCK_LOG_DEBUG("The mechanism does not support wrapping keys.\n");
+         TRACE_ERROR("The mechanism does not support wrapping keys.\n");
          return CKR_MECHANISM_INVALID;
    }
 
@@ -908,7 +916,7 @@ key_mgr_wrap_key( SESSION           * sess,
    //
    rc = template_attribute_find( key2_obj->template, CKA_KEY_TYPE, &attr );
    if (rc == FALSE){
-      OCK_LOG_ERR(ERR_KEY_NOT_WRAPPABLE);
+      TRACE_ERROR("Failed to find CKA_KEY_TYPE in key template.\n");
       return CKR_KEY_NOT_WRAPPABLE;
    }
    else
@@ -921,7 +929,7 @@ key_mgr_wrap_key( SESSION           * sess,
       case CKK_DES:
          rc = des_wrap_get_data( key2_obj->template, length_only, &data, &data_len );
          if (rc != CKR_OK){
-            OCK_LOG_ERR(ERR_DES_WRAP_GETDATA);
+            TRACE_DEBUG("des_wrap_get_data failed.\n");
             return rc;
          }
          break;
@@ -929,7 +937,7 @@ key_mgr_wrap_key( SESSION           * sess,
       case CKK_DES3:
          rc = des3_wrap_get_data( key2_obj->template, length_only, &data, &data_len );
          if (rc != CKR_OK){
-            OCK_LOG_ERR(ERR_DES3_WRAP_GETDATA);
+            TRACE_DEBUG("des3_wrap_get_data failed.\n");
             return rc;
          }
          break;
@@ -937,7 +945,7 @@ key_mgr_wrap_key( SESSION           * sess,
       case CKK_RSA:
          rc = rsa_priv_wrap_get_data( key2_obj->template, length_only, &data, &data_len );
          if (rc != CKR_OK){
-            OCK_LOG_ERR(ERR_RSA_WRAP_GETDATA);
+            TRACE_DEBUG("rsa_priv_wrap_get_data failed.\n");
             return rc;
          }
          break;
@@ -946,7 +954,7 @@ key_mgr_wrap_key( SESSION           * sess,
       case CKK_DSA:
          rc = dsa_priv_wrap_get_data( key2_obj->template, length_only, &data, &data_len );
          if (rc != CKR_OK){
-            OCK_LOG_ERR(ERR_DSA_WRAP_GETDATA);
+            TRACE_DEBUG("dsa_priv_wrap_get_data failed.\n");
             return rc;
          }
          break;
@@ -955,7 +963,7 @@ key_mgr_wrap_key( SESSION           * sess,
       case CKK_GENERIC_SECRET:
          rc = generic_secret_wrap_get_data( key2_obj->template, length_only, &data, &data_len );
          if (rc != CKR_OK){
-            OCK_LOG_ERR(ERR_GENERIC_WRAP_GETDATA);
+            TRACE_DEBUG("generic_secret_wrap_get_data failed.\n");
             return rc;
          }
          break;
@@ -963,13 +971,13 @@ key_mgr_wrap_key( SESSION           * sess,
       case CKK_AES:
 	 rc = aes_wrap_get_data( key2_obj->template, length_only, &data, &data_len );
 	 if (rc != CKR_OK){
-	    OCK_LOG_ERR(ERR_AES_WRAP_GETDATA);
+	    TRACE_DEBUG("aes_wrap_get_data failed.\n");
 	    return rc;
 	 }
 	 break;
 #endif
       default:
-         OCK_LOG_ERR(ERR_KEY_NOT_WRAPPABLE);
+         TRACE_ERROR("%s\n", ock_err(ERR_KEY_NOT_WRAPPABLE));
          return CKR_KEY_NOT_WRAPPABLE;
    }
 
@@ -986,7 +994,7 @@ key_mgr_wrap_key( SESSION           * sess,
       case CKM_DES3_CBC:
          rc = ckm_des_wrap_format( length_only, &data, &data_len );
          if (rc != CKR_OK) {
-            OCK_LOG_ERR(ERR_DES_WRAP_FORMAT);
+            TRACE_DEBUG("ckm_des_wrap_format failed.\n");
             if (data) free( data );
             return rc;
          }
@@ -1001,7 +1009,7 @@ key_mgr_wrap_key( SESSION           * sess,
       case CKM_AES_CFB128:
 	 rc = ckm_aes_wrap_format( length_only, &data, &data_len );
 	 if (rc != CKR_OK) {
-	    OCK_LOG_ERR(ERR_AES_WRAP_FORMAT);
+	    TRACE_DEBUG("ckm_aes_wrap_format failed.\n");
 	    if (data) free( data );
 	    return rc;
 	 }
@@ -1023,13 +1031,13 @@ key_mgr_wrap_key( SESSION           * sess,
          break;
 
       default:
-         OCK_LOG_ERR(ERR_MECHANISM_INVALID);
+         TRACE_ERROR("%s\n", ock_err(ERR_MECHANISM_INVALID));
          return CKR_MECHANISM_INVALID;
    }
 
    ctx = (ENCR_DECR_CONTEXT *)malloc(sizeof(ENCR_DECR_CONTEXT));
    if (!ctx){
-      OCK_LOG_ERR(ERR_HOST_MEMORY);
+      TRACE_ERROR("%s\n", ock_err(ERR_HOST_MEMORY));
       return CKR_HOST_MEMORY;
    }
    memset( ctx, 0x0, sizeof(ENCR_DECR_CONTEXT) );
@@ -1038,7 +1046,7 @@ key_mgr_wrap_key( SESSION           * sess,
    //
    rc = encr_mgr_init( sess, ctx, OP_WRAP, mech, h_wrapping_key );
    if (rc != CKR_OK){
-      OCK_LOG_ERR(ERR_ENCRYPTMGR_INIT);
+      TRACE_DEBUG("encr_mgr_init failed.\n");
       return rc;
    }
    // do the encryption and clean up.  at this point, 'value' may or may not
@@ -1082,14 +1090,17 @@ key_mgr_unwrap_key( SESSION           * sess,
 
 
    if (!sess || !wrapped_key || !h_unwrapped_key){
-      OCK_LOG_ERR(ERR_FUNCTION_FAILED);
+      TRACE_ERROR("%s received bad argument(s)\n", __FUNCTION__);
       return CKR_FUNCTION_FAILED;
    }
 
    rc = object_mgr_find_in_map1( h_unwrapping_key, &tmp_obj );
    if (rc != CKR_OK){
-      OCK_LOG_ERR(ERR_WRAPPING_KEY_HANDLE_INVALID);
-      return CKR_WRAPPING_KEY_HANDLE_INVALID;
+      TRACE_ERROR("Failed to acquire key from specified handle");
+      if (rc == CKR_OBJECT_HANDLE_INVALID)
+         return CKR_WRAPPING_KEY_HANDLE_INVALID;
+      else
+	 return rc;
    }
 
    if (template_attribute_find(tmp_obj->template, CKA_IBM_OPAQUE, &attr) == TRUE)
@@ -1131,7 +1142,7 @@ key_mgr_unwrap_key( SESSION           * sess,
 
    if (found_class == FALSE || 
       (found_type == FALSE && keyclass != CKO_PRIVATE_KEY)) {
-      OCK_LOG_ERR(ERR_TEMPLATE_INCOMPLETE);
+      TRACE_ERROR("%s\n", ock_err(ERR_TEMPLATE_INCOMPLETE));
       return CKR_TEMPLATE_INCOMPLETE;
    }
 	
@@ -1144,7 +1155,7 @@ key_mgr_unwrap_key( SESSION           * sess,
       case CKM_RSA_PKCS:
       case CKM_RSA_X_509:
          if (keyclass != CKO_SECRET_KEY){
-            OCK_LOG_DEBUG("The specified mechanism only unwraps secret keys.\n");
+            TRACE_ERROR("The specified mechanism unwraps secret keys only.\n");
             return CKR_ARGUMENTS_BAD;
          }
          break;
@@ -1165,20 +1176,20 @@ key_mgr_unwrap_key( SESSION           * sess,
       case CKM_DES3_CBC_PAD:
       case CKM_AES_CBC_PAD:
          if ((keyclass != CKO_SECRET_KEY) && (keyclass != CKO_PRIVATE_KEY)) {
-            OCK_LOG_DEBUG("Specified mech only unwraps secret & private keys.\n");
+            TRACE_ERROR("Specified mech unwraps secret & private keys only.\n");
             return CKR_ARGUMENTS_BAD;
          }
 	 break;
 
       default:
-         OCK_LOG_DEBUG("The specified mechanism cannot unwrap keys.\n");
+         TRACE_ERROR("The specified mechanism cannot unwrap keys.\n");
          return CKR_MECHANISM_INVALID;
    }
 
    // looks okay... do the decryption
    ctx = (ENCR_DECR_CONTEXT *)malloc(sizeof(ENCR_DECR_CONTEXT));
    if (!ctx){
-      OCK_LOG_ERR(ERR_HOST_MEMORY);
+      TRACE_ERROR("%s\n", ock_err(ERR_HOST_MEMORY));
       return CKR_HOST_MEMORY;
    }
    memset( ctx, 0x0, sizeof(ENCR_DECR_CONTEXT) );
@@ -1193,12 +1204,12 @@ key_mgr_unwrap_key( SESSION           * sess,
                           wrapped_key, wrapped_key_len,
                           data,       &data_len );
    if (rc != CKR_OK){
-      OCK_LOG_ERR(ERR_DECRYPTMGR_DECRYPT);
+      TRACE_DEBUG("decr_mgr_decrypt failed.\n");
       goto error;
    }
    data = (CK_BYTE *)malloc(data_len);
    if (!data) {
-      OCK_LOG_ERR(ERR_HOST_MEMORY);
+      TRACE_ERROR("%s\n", ock_err(ERR_HOST_MEMORY));
       rc = CKR_HOST_MEMORY;
       goto error;
    }
@@ -1213,7 +1224,7 @@ key_mgr_unwrap_key( SESSION           * sess,
    free( ctx );
 
    if (rc != CKR_OK){
-      OCK_LOG_ERR(ERR_DECRYPTMGR_DECRYPT);
+      TRACE_DEBUG("decr_mgr_decrypt failed.\n");
       goto error;
    }
    // if we use X.509, the data will be padded from the front with zeros.
@@ -1232,7 +1243,7 @@ key_mgr_unwrap_key( SESSION           * sess,
    if (keyclass == CKO_PRIVATE_KEY) {
       rc = key_mgr_get_private_key_type( data, data_len, &keytype );
       if (rc != CKR_OK){
-         OCK_LOG_ERR(ERR_KEYMGR_GETPRIVKEY);
+         TRACE_DEBUG("key_mgr_get_private_key_type failed.\n");
          goto error;
       }
    }
@@ -1248,7 +1259,7 @@ key_mgr_unwrap_key( SESSION           * sess,
                                 keyclass,      keytype,
                                 &key_obj );
    if (rc != CKR_OK){
-      OCK_LOG_ERR(ERR_OBJMGR_CREATE_SKEL);
+      TRACE_DEBUG("object_mgr_create_skel failed.\n");
       goto error;
    }
    // at this point, 'key_obj' should contain a skeleton key.  depending on
@@ -1273,7 +1284,7 @@ key_mgr_unwrap_key( SESSION           * sess,
    }
 
    if (rc != CKR_OK){
-      OCK_LOG_ERR(ERR_KEY_UNWRAP);
+      TRACE_DEBUG("key_unwrap failed.\n");
       goto error;
    }
    // at this point, the key should be fully constructed...assign
@@ -1281,7 +1292,7 @@ key_mgr_unwrap_key( SESSION           * sess,
    //
    rc = object_mgr_create_final( sess, key_obj, h_unwrapped_key );
    if (rc != CKR_OK){
-      OCK_LOG_ERR(ERR_OBJMGR_CREATE_FINAL);
+      TRACE_DEBUG("object_mgr_create_final failed.\n");
       goto error;
    }
    if (data) free(data);
@@ -1307,7 +1318,7 @@ key_mgr_get_private_key_type( CK_BYTE     *keydata,
 
    rc = ber_decode_PrivateKeyInfo( keydata, keylen, &alg, &alg_len, &priv_key );
    if (rc != CKR_OK){
-      OCK_LOG_ERR(ERR_KEYMGR_GETPRIVKEY);
+      TRACE_DEBUG("ber_decode_PrivateKeyInfo failed.\n");
       return rc;
    }
    // check the entire AlgorithmIdentifier for RSA
@@ -1328,7 +1339,7 @@ key_mgr_get_private_key_type( CK_BYTE     *keydata,
       }
    }
 
-   OCK_LOG_ERR(ERR_TEMPLATE_INCOMPLETE);
+   TRACE_ERROR("%s\n", ock_err(ERR_TEMPLATE_INCOMPLETE));
    return CKR_TEMPLATE_INCOMPLETE;
 }
 
@@ -1344,11 +1355,11 @@ key_mgr_derive_key( SESSION           * sess,
                     CK_ULONG            ulCount )
 {
    if (!sess || !mech){
-      OCK_LOG_ERR(ERR_FUNCTION_FAILED);
+      TRACE_ERROR("%s received bad argument(s)\n", __FUNCTION__);
       return CKR_FUNCTION_FAILED;
    }
    if (!pTemplate && (ulCount != 0)){
-      OCK_LOG_ERR(ERR_FUNCTION_FAILED);
+      TRACE_ERROR("%s received bad argument(s)\n", __FUNCTION__);
       return CKR_FUNCTION_FAILED;
    }
    switch (mech->mechanism)
@@ -1356,7 +1367,7 @@ key_mgr_derive_key( SESSION           * sess,
       case CKM_SSL3_MASTER_KEY_DERIVE:
       {
          if (!derived_key){
-            OCK_LOG_ERR(ERR_FUNCTION_FAILED);
+            TRACE_ERROR("%s received bad argument(s)\n", __FUNCTION__);
             return CKR_FUNCTION_FAILED;
          }
          return ssl3_master_key_derive( sess, mech, base_key,
@@ -1376,7 +1387,7 @@ key_mgr_derive_key( SESSION           * sess,
       case CKM_DH_PKCS_DERIVE:
       {
          if (!derived_key){
-            OCK_LOG_ERR(ERR_FUNCTION_FAILED);
+            TRACE_ERROR("%s received bad argument(s)\n", __FUNCTION__);
             return CKR_FUNCTION_FAILED;
          }
          return dh_pkcs_derive( sess, mech, base_key,
@@ -1387,8 +1398,7 @@ key_mgr_derive_key( SESSION           * sess,
 /* End code contributed by Corrent corp. */
       
       default:
-         OCK_LOG_ERR(ERR_MECHANISM_INVALID);
+         TRACE_ERROR("%s\n", ock_err(ERR_MECHANISM_INVALID));
          return CKR_MECHANISM_INVALID;
    }
 }
-

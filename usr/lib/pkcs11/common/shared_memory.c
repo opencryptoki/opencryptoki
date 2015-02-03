@@ -28,6 +28,7 @@
 #include "defs.h"
 #include "host_defs.h"
 #include "h_extern.h"
+#include "trace.h"
 
 #include "shared_memory.h"
 
@@ -41,7 +42,7 @@
 			strcpy(_sys_error, "Unknown error");		\
 		syslog(LOG_ERR, "Error: " _msg " %s (errno=%d)",	\
 			##__VA_ARGS__, _sys_error, _errno);		\
-		OCK_LOG_DEBUG("Error: " _msg " %s (errno=%d)",		\
+		TRACE_ERROR("Error: " _msg " %s (errno=%d)",		\
 			##__VA_ARGS__, _sys_error, _errno);		\
 	} while (0)
 
@@ -103,13 +104,13 @@ convert_path_to_shm_name(const char *file_path)
 		len++;
 
 	if (len > SM_NAME_LEN) {
-		OCK_LOG_DEBUG("Error: path \"%s\" too long.\n", file_path);
+		TRACE_ERROR("Error: path \"%s\" too long.\n", file_path);
 		return NULL;
 	}
 
 	it = name = malloc(len + 1);
 	if (name == NULL) {
-		OCK_LOG_DEBUG("Error: failed to allocate memory for "
+		TRACE_ERROR("Error: failed to allocate memory for "
 				"path \"%s\".\n", file_path);
 		return NULL;
 	}
@@ -127,7 +128,7 @@ convert_path_to_shm_name(const char *file_path)
 	}
 	*it = '\0';
 
-	OCK_LOG_DEBUG("File path \"%s\" converted to \"%s\".\n",
+	TRACE_DEBUG("File path \"%s\" converted to \"%s\".\n",
 		      file_path, name);
 	return name;
 }
@@ -215,7 +216,7 @@ sm_open(const char *sm_name, int mode, void **p_addr, size_t len, int force)
 		 * memory, such as its size and identifier.
 		 */
 		created = 1;
-		OCK_LOG_DEBUG("Truncating \"%s\".\n", name);
+		TRACE_DEBUG("Truncating \"%s\".\n", name);
 		if (ftruncate(fd, real_len) < 0) {
 			rc = -errno;
 			SYS_ERROR(errno, "Cannot truncate \"%s\".\n", name);
@@ -223,7 +224,7 @@ sm_open(const char *sm_name, int mode, void **p_addr, size_t len, int force)
 		}
 	} else if (stat_buf.st_size != real_len) {
 		rc = -1;
-		OCK_LOG_DEBUG("Error: shared memory \"%s\" exists and does not "
+		TRACE_ERROR("Error: shared memory \"%s\" exists and does not "
 				"match the expected size.\n", name);
 		goto done;
 	}
@@ -267,7 +268,7 @@ sm_open(const char *sm_name, int mode, void **p_addr, size_t len, int force)
 			sm_close(addr, 1);
 		goto done;
 	}
-	OCK_LOG_DEBUG("open: ref = %d\n", ctx->ref);
+	TRACE_DEBUG("open: ref = %d\n", ctx->ref);
 
 done:
 	if (fd >= 0)
@@ -290,13 +291,13 @@ sm_close(void *addr, int destroy)
 	struct shm_context *ctx = get_shm_context(addr);
 
 	if (ctx->ref <= 0) {
-		OCK_LOG_DEBUG("Error: invalid shared memory address %p "
+		TRACE_ERROR("Error: invalid shared memory address %p "
 				"(ref=%d).\n", addr, ctx->ref);
 		return -EINVAL;
 	}
 
 	ref = --ctx->ref;
-	OCK_LOG_DEBUG("close: ref = %d\n", ref);
+	TRACE_DEBUG("close: ref = %d\n", ref);
 	if (ref == 0 && destroy) {
 		strncpy(name, ctx->name, SM_NAME_LEN);
 		name[SM_NAME_LEN] = '\0';
@@ -309,7 +310,7 @@ sm_close(void *addr, int destroy)
 	}
 
 	if (ref == 0 && destroy) {
-		OCK_LOG_DEBUG("Deleting shared memory \"%s\".\n", name);
+		TRACE_DEBUG("Deleting shared memory \"%s\".\n", name);
 		if ((rc = sm_destroy(name)) != 0)
 			return rc;
 	}
@@ -344,7 +345,7 @@ sm_sync(void *addr)
 	struct shm_context *ctx = get_shm_context(addr);
 
 	if (ctx->ref <= 0) {
-		OCK_LOG_DEBUG("Error: invalid shared memory address %p "
+		TRACE_ERROR("Error: invalid shared memory address %p "
 				"(ref=%d).\n", addr, ctx->ref);
 		return -EINVAL;
 	}
@@ -363,7 +364,7 @@ sm_copy_name(void *addr, char *buffer, size_t len)
 	struct shm_context *ctx = get_shm_context(addr);
 
 	if (ctx->ref <= 0) {
-		OCK_LOG_DEBUG("Error: invalid shared memory address %p "
+		TRACE_ERROR("Error: invalid shared memory address %p "
 				"(ref=%d).\n", addr, ctx->ref);
 		return -EINVAL;
 	}
@@ -385,7 +386,7 @@ sm_get_count(void *addr)
 	struct shm_context *ctx = get_shm_context(addr);
 
 	if (ctx->ref <= 0) {
-		OCK_LOG_DEBUG("Error: invalid shared memory address %p "
+		TRACE_ERROR("Error: invalid shared memory address %p "
 				"(ref=%d).\n", addr, ctx->ref);
 		return -EINVAL;
 	}

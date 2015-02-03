@@ -309,6 +309,7 @@
 #include "tok_spec_struct.h"
 #include "pkcs32.h"
 #include "sw_crypt.h"
+#include "trace.h"
 
 /* #include "../api/apiproto.h" */
 
@@ -341,8 +342,8 @@ static CK_RV get_encryption_info_for_clear_key(CK_ULONG *p_key_len,
 		block_size = AES_BLOCK_SIZE;
 		break;
 	default:
-		OCK_LOG_ERR(ERR_MECHANISM_INVALID);
-		return CKR_MECHANISM_INVALID;
+		TRACE_ERROR("%s\n", ock_err(ERR_MECHANISM_INVALID));
+		return ERR_MECHANISM_INVALID;
 	}
 
 	if (p_key_len)
@@ -419,20 +420,20 @@ static CK_RV encrypt_data(CK_BYTE *key, CK_ULONG keylen, const CK_BYTE *iv,
 		keyType = CKK_AES;
 		break;
 	default:
-		OCK_LOG_ERR(ERR_MECHANISM_INVALID);
-		return CKR_MECHANISM_INVALID;
+		TRACE_ERROR("%s\n", ock_err(ERR_MECHANISM_INVALID));
+		return ERR_MECHANISM_INVALID;
 	}
 	rc = object_create_skel(key_tmpl, 3, MODE_CREATE, CKO_SECRET_KEY,
 				keyType, &keyobj);
 	if (rc != CKR_OK) {
-		OCK_LOG_ERR(ERR_OBJMGR_CREATE_SKEL);
+		TRACE_DEBUG("object_create_skel failed.\n");
 		return rc;
 	}
 
 	initial_vector = duplicate_initial_vector(iv);
 	if (initial_vector == NULL) {
-		OCK_LOG_ERR(ERR_HOST_MEMORY);
-		return CKR_HOST_MEMORY;
+		TRACE_ERROR("%s\n", ock_err(ERR_HOST_MEMORY));
+		return ERR_HOST_MEMORY;
 	}
 
 	switch (token_specific.data_store.encryption_algorithm) {
@@ -447,8 +448,8 @@ static CK_RV encrypt_data(CK_BYTE *key, CK_ULONG keylen, const CK_BYTE *iv,
 					 initial_vector, keyobj);
 		break;
 	default:
-		OCK_LOG_ERR(ERR_MECHANISM_INVALID);
-		rc = CKR_MECHANISM_INVALID;
+		TRACE_ERROR("%s\n", ock_err(ERR_MECHANISM_INVALID));
+		rc = ERR_MECHANISM_INVALID;
 	}
 
 	if (initial_vector)
@@ -482,8 +483,8 @@ static CK_RV encrypt_data_with_clear_key(CK_BYTE *key, CK_ULONG keylen,
 	/* Fall back to a software alternative if key is secure. */
 	initial_vector = duplicate_initial_vector(iv);
 	if (initial_vector == NULL) {
-		OCK_LOG_ERR(ERR_HOST_MEMORY);
-		return CKR_HOST_MEMORY;
+		TRACE_ERROR("%s\n", ock_err(ERR_HOST_MEMORY));
+		return ERR_HOST_MEMORY;
 	}
 
 	switch (token_specific.data_store.encryption_algorithm) {
@@ -493,8 +494,8 @@ static CK_RV encrypt_data_with_clear_key(CK_BYTE *key, CK_ULONG keylen,
 					 initial_vector, key);
 		break;
 	default:
-		OCK_LOG_ERR(ERR_MECHANISM_INVALID);
-		rc = CKR_MECHANISM_INVALID;
+		TRACE_ERROR("%s\n", ock_err(ERR_MECHANISM_INVALID));
+		rc = ERR_MECHANISM_INVALID;
 	}
 
 	if (initial_vector)
@@ -533,20 +534,20 @@ static CK_RV decrypt_data(CK_BYTE *key, CK_ULONG keylen, const CK_BYTE *iv,
 		keyType = CKK_AES;
 		break;
 	default:
-		OCK_LOG_ERR(ERR_MECHANISM_INVALID);
-		return CKR_MECHANISM_INVALID;
+		TRACE_ERROR("%s\n", ock_err(ERR_MECHANISM_INVALID));
+		return ERR_MECHANISM_INVALID;
 	}
 	rc = object_create_skel(key_tmpl, 3, MODE_CREATE, CKO_SECRET_KEY,
 				keyType, &keyobj);
 	if (rc != CKR_OK) {
-		OCK_LOG_ERR(ERR_OBJMGR_CREATE_SKEL);
+		TRACE_DEBUG("object_create_skel failed.\n");
 		return rc;
 	}
 
 	initial_vector = duplicate_initial_vector(iv);
 	if (initial_vector == NULL) {
-		OCK_LOG_ERR(ERR_HOST_MEMORY);
-		return CKR_HOST_MEMORY;
+		TRACE_ERROR("%s\n", ock_err(ERR_HOST_MEMORY));
+		return ERR_HOST_MEMORY;
 	}
 
 	switch (token_specific.data_store.encryption_algorithm) {
@@ -561,8 +562,8 @@ static CK_RV decrypt_data(CK_BYTE *key, CK_ULONG keylen, const CK_BYTE *iv,
 					 initial_vector, keyobj);
 		break;
 	default:
-		OCK_LOG_ERR(ERR_MECHANISM_INVALID);
-		rc = CKR_MECHANISM_INVALID;
+		TRACE_ERROR("%s\n", ock_err(ERR_MECHANISM_INVALID));
+		rc = ERR_MECHANISM_INVALID;
 	}
 
 	if (initial_vector)
@@ -596,8 +597,8 @@ static CK_RV decrypt_data_with_clear_key(CK_BYTE *key, CK_ULONG keylen,
 	/* Fall back to a software alternative if key is secure. */
 	initial_vector = duplicate_initial_vector(iv);
 	if (initial_vector == NULL) {
-		OCK_LOG_ERR(ERR_HOST_MEMORY);
-		return CKR_HOST_MEMORY;
+		TRACE_ERROR("%s\n", ock_err(ERR_HOST_MEMORY));
+		return ERR_HOST_MEMORY;
 	}
 
 	switch (token_specific.data_store.encryption_algorithm) {
@@ -606,8 +607,8 @@ static CK_RV decrypt_data_with_clear_key(CK_BYTE *key, CK_ULONG keylen,
 					 initial_vector, key);
 		break;
 	default:
-		OCK_LOG_ERR(ERR_MECHANISM_INVALID);
-		rc = CKR_MECHANISM_INVALID;
+		TRACE_ERROR("%s\n", ock_err(ERR_MECHANISM_INVALID));
+		rc = ERR_MECHANISM_INVALID;
 	}
 
 	if (initial_vector)
@@ -648,9 +649,7 @@ void set_perm(int file)
 	return;
 
 error:
-	//TODO: More detailed error for this scenario. Possibly propagate
-	//      error better
-	OCK_LOG_ERR(ERR_FUNCTION_FAILED);
+	TRACE_DEBUG("Unable to set permissions on file.\n");
 }
 
 //
@@ -666,7 +665,7 @@ load_token_data(CK_SLOT_ID slot_id)
 
 	rc = XProcLock();
 	if (rc != CKR_OK) {
-		OCK_LOG_ERR(ERR_PROCESS_LOCK);
+		TRACE_ERROR("Failed to get Process Lock.\n");
 		goto out_nolock;
 	}
 
@@ -682,7 +681,7 @@ load_token_data(CK_SLOT_ID slot_id)
 			init_token_data(slot_id);
 			rc = XProcLock();
 			if (rc != CKR_OK) {
-				OCK_LOG_ERR(ERR_PROCESS_LOCK);
+				TRACE_ERROR("Failed to get Process Lock.\n");
 				goto out_nolock;
 			}
 
@@ -690,13 +689,14 @@ load_token_data(CK_SLOT_ID slot_id)
 			if (!fp) {
 				// were really hosed here since the created
 				// did not occur
-				OCK_LOG_ERR(ERR_FUNCTION_FAILED);
+				TRACE_ERROR("fopen(%s): %s\n",
+					     fname, strerror(errno));
 				rc = CKR_FUNCTION_FAILED;
 				goto out_unlock;
 			}
 		} else {
 			/* Could not open file for some unknown reason */
-			OCK_LOG_ERR(ERR_FUNCTION_FAILED);
+			TRACE_ERROR("fopen(%s): %s\n", fname, strerror(errno));
 			rc = CKR_FUNCTION_FAILED;
 			goto out_unlock;
 		}
@@ -741,7 +741,7 @@ CK_RV save_token_data(CK_SLOT_ID slot_id)
 
 	rc = XProcLock();
 	if (rc != CKR_OK) {
-		OCK_LOG_ERR(ERR_PROCESS_LOCK);
+		TRACE_ERROR("Failed to get Process Lock.\n");
 		goto out_nolock;
 	}
 
@@ -750,7 +750,7 @@ CK_RV save_token_data(CK_SLOT_ID slot_id)
 	if (!fp) {
 		fp = fopen((char *)fname, "w");
 		if (!fp) {
-			OCK_LOG_ERR(ERR_FUNCTION_FAILED);
+			TRACE_ERROR("fopen(%s): %s\n", fname, strerror(errno));
 			rc = CKR_FUNCTION_FAILED;
 			goto done;
 		}
@@ -797,10 +797,8 @@ CK_RV save_token_object(OBJECT * obj)
 	else
 		rc = save_public_token_object(obj);
 
-	if (rc != CKR_OK) {
-		// OCK_LOG_ERR(ERR_TOKEN_SAVE);
+	if (rc != CKR_OK)
 		return rc;
-	}
 
 	// update the index file if it exists
 	sprintf(fname, "%s/%s/%s", get_pk_dir(pk_dir_buf), PK_LITE_OBJ_DIR,
@@ -826,7 +824,7 @@ CK_RV save_token_object(OBJECT * obj)
 	//
 	fp = fopen((char *)fname, "a");
 	if (!fp) {
-		OCK_LOG_ERR(ERR_FUNCTION_FAILED);
+		TRACE_ERROR("fopen(%s): %s\n", fname, strerror(errno));
 		return CKR_FUNCTION_FAILED;
 	}
 	set_perm(fileno(fp));
@@ -861,7 +859,7 @@ CK_RV save_public_token_object(OBJECT * obj)
 	strncat((char *)fname, (char *)obj->name, 8);
 	fp = fopen((char *)fname, "w");
 	if (!fp) {
-		OCK_LOG_ERR(ERR_FUNCTION_FAILED);
+		TRACE_ERROR("fopen(%s): %s\n", fname, strerror(errno));
 		rc = CKR_FUNCTION_FAILED;
 		goto error;
 	}
@@ -976,7 +974,7 @@ CK_RV save_private_token_object(OBJECT * obj)
 	strncat((char *)fname, (char *)obj->name, 8);
 	fp = fopen((char *)fname, "w");
 	if (!fp) {
-		OCK_LOG_ERR(ERR_FUNCTION_FAILED);
+		TRACE_ERROR("fopen(%s): %s\n", fname, strerror(errno));
 		rc = CKR_FUNCTION_FAILED;
 		goto error;
 	}
@@ -1158,10 +1156,8 @@ CK_RV load_private_token_objects(void)
 			MY_LockMutex(&obj_list_mutex);
 			rc = restore_private_token_object(buf, size, NULL);
 			MY_UnlockMutex(&obj_list_mutex);
-			if (rc != CKR_OK) {
-				// OCK_LOG_ERR(ERR_TOKEN_RESTORE_PRIV);
+			if (rc != CKR_OK)
 				goto error;
-			}
 
 			free(buf);
 			fclose(fp2);
@@ -1209,7 +1205,7 @@ CK_RV restore_private_token_object(CK_BYTE * data, CK_ULONG len, OBJECT * pObj)
 
 	clear = (CK_BYTE *) malloc(len);
 	if (!clear) {
-		OCK_LOG_ERR(ERR_HOST_MEMORY);
+		TRACE_ERROR("%s\n", ock_err(ERR_HOST_MEMORY));
 		rc = CKR_HOST_MEMORY;
 		goto done;
 	}
@@ -1222,7 +1218,7 @@ CK_RV restore_private_token_object(CK_BYTE * data, CK_ULONG len, OBJECT * pObj)
 	// decrypt the encrypted chunk
 	key = malloc(key_len);
 	if (!key) {
-		rc = CKR_HOST_MEMORY;
+		rc = ERR_HOST_MEMORY;
 		goto done;
 	}
 	memcpy(key, master_key, key_len);
@@ -1240,7 +1236,7 @@ CK_RV restore_private_token_object(CK_BYTE * data, CK_ULONG len, OBJECT * pObj)
 	// tampered with or the key was incorrect
 	//
 	if (rc != CKR_OK || (clear_len > len)) {
-		OCK_LOG_ERR(ERR_FUNCTION_FAILED);
+		TRACE_DEBUG("strip_pkcs_padding failed.\n");
 		rc = CKR_FUNCTION_FAILED;
 		goto done;
 	}
@@ -1251,7 +1247,7 @@ CK_RV restore_private_token_object(CK_BYTE * data, CK_ULONG len, OBJECT * pObj)
 
 	// prevent buffer overflow in sha_update
 	if (obj_data_len > clear_len) {
-		OCK_LOG_ERR(ERR_FUNCTION_FAILED);
+		TRACE_ERROR("stripped length is greater than clear length\n");
 		rc = CKR_FUNCTION_FAILED;
 		goto done;
 	}
@@ -1268,7 +1264,7 @@ CK_RV restore_private_token_object(CK_BYTE * data, CK_ULONG len, OBJECT * pObj)
 	ptr += obj_data_len;
 
 	if (memcmp(ptr, hash_sha, SHA1_HASH_SIZE) != 0) {
-		OCK_LOG_ERR(ERR_FUNCTION_FAILED);
+		TRACE_ERROR("stored hash does not match restored data hash.\n");
 		rc = CKR_FUNCTION_FAILED;
 		goto done;
 	}
@@ -1326,7 +1322,7 @@ CK_RV load_masterkey_so(void)
 	cipher = malloc(cipher_len);
 	clear = malloc(clear_len);
 	if (key == NULL || cipher == NULL || clear == NULL) {
-		rc = CKR_HOST_MEMORY;
+		rc = ERR_HOST_MEMORY;
 		goto done;
 	}
 
@@ -1336,7 +1332,7 @@ CK_RV load_masterkey_so(void)
 	sprintf(fname, "%s/MK_SO", get_pk_dir(pk_dir_buf));
 	fp = fopen((char *)fname, "r");
 	if (!fp) {
-		OCK_LOG_ERR(ERR_FUNCTION_FAILED);
+		TRACE_ERROR("fopen(%s): %s\n", fname, strerror(errno));
 		rc = CKR_FUNCTION_FAILED;
 		goto done;
 	}
@@ -1344,7 +1340,7 @@ CK_RV load_masterkey_so(void)
 
 	rc = fread(cipher, cipher_len, 1, fp);
 	if (rc != 1) {
-		OCK_LOG_ERR(ERR_FUNCTION_FAILED);
+		TRACE_ERROR("fread() failed.\n");
 		rc = CKR_FUNCTION_FAILED;
 		goto done;
 	}
@@ -1360,7 +1356,7 @@ CK_RV load_masterkey_so(void)
 					 cipher, cipher_len,
 					 clear, &clear_len);
 	if (rc != CKR_OK) {
-		OCK_LOG_ERR(rc);
+		TRACE_DEBUG("decrypt_data_with_clear_key failed.\n");
 		goto done;
 	}
 
@@ -1377,7 +1373,7 @@ CK_RV load_masterkey_so(void)
 	}
 
 	if (memcmp(hash_sha, clear + master_key_len, SHA1_HASH_SIZE) != 0) {
-		OCK_LOG_ERR(ERR_FUNCTION_FAILED);
+		TRACE_ERROR("masterkey hashes do not match\n");
 		rc = CKR_FUNCTION_FAILED;
 		goto done;
 	}
@@ -1433,7 +1429,7 @@ CK_RV load_masterkey_user(void)
 	cipher = malloc(cipher_len);
 	clear = malloc(clear_len);
 	if (key == NULL || cipher == NULL || clear == NULL) {
-		rc = CKR_HOST_MEMORY;
+		rc = ERR_HOST_MEMORY;
 		goto done;
 	}
 
@@ -1443,7 +1439,7 @@ CK_RV load_masterkey_user(void)
 	sprintf(fname, "%s/MK_USER", get_pk_dir(pk_dir_buf));
 	fp = fopen((char *)fname, "r");
 	if (!fp) {
-		OCK_LOG_DEBUG("fopen(%s): %s\n", fname, strerror(errno));
+		TRACE_ERROR("fopen(%s): %s\n", fname, strerror(errno));
 		rc = CKR_FUNCTION_FAILED;
 		goto done;
 	}
@@ -1451,7 +1447,7 @@ CK_RV load_masterkey_user(void)
 
 	rc = fread(cipher, cipher_len, 1, fp);
 	if (rc != 1) {
-		OCK_LOG_ERR(ERR_FUNCTION_FAILED);
+		TRACE_ERROR("fread failed.\n");
 		rc = CKR_FUNCTION_FAILED;
 		goto done;
 	}
@@ -1466,7 +1462,7 @@ CK_RV load_masterkey_user(void)
 					 cipher, cipher_len,
 					 clear, &clear_len);
 	if (rc != CKR_OK) {
-		OCK_LOG_ERR(ERR_DES3_CBC_DECRYPT);
+		TRACE_DEBUG("decrypt_data_with_clear_key failed.\n");
 		goto done;
 	}
 
@@ -1483,7 +1479,7 @@ CK_RV load_masterkey_user(void)
 	}
 
 	if (memcmp(hash_sha, clear + master_key_len, SHA1_HASH_SIZE) != 0) {
-		OCK_LOG_ERR(ERR_FUNCTION_FAILED);
+		TRACE_ERROR("User's masterkey hashes do not match.\n");
 		rc = CKR_FUNCTION_FAILED;
 		goto done;
 	}
@@ -1539,8 +1535,8 @@ CK_RV save_masterkey_so(void)
 	clear = malloc(clear_len);
 	cipher = malloc(cipher_len);
 	if (key == NULL || clear == NULL || cipher == NULL) {
-		OCK_LOG_ERR(ERR_HOST_MEMORY);
-		rc = CKR_HOST_MEMORY;
+		TRACE_ERROR("%s\n", ock_err(ERR_HOST_MEMORY));
+		rc = ERR_HOST_MEMORY;
 		goto done;
 	}
 
@@ -1571,7 +1567,7 @@ CK_RV save_masterkey_so(void)
 	sprintf(fname, "%s/MK_SO", get_pk_dir(pk_dir_buf));
 	fp = fopen((char *)fname, "w");
 	if (!fp) {
-		OCK_LOG_ERR(ERR_FUNCTION_FAILED);
+		TRACE_ERROR("fopen(%s): %s\n", fname, strerror(errno));
 		rc = CKR_FUNCTION_FAILED;
 		goto done;
 	}
@@ -1579,7 +1575,7 @@ CK_RV save_masterkey_so(void)
 
 	rc = fwrite(cipher, cipher_len, 1, fp);
 	if (rc != 1) {
-		OCK_LOG_ERR(ERR_FUNCTION_FAILED);
+		TRACE_ERROR("fwrite failed.\n");
 		rc = CKR_FUNCTION_FAILED;
 		goto done;
 	}
@@ -1630,8 +1626,8 @@ CK_RV save_masterkey_user(void)
 	clear = malloc(clear_len);
 	cipher = malloc(cipher_len);
 	if (key == NULL || clear == NULL || cipher == NULL) {
-		OCK_LOG_ERR(ERR_HOST_MEMORY);
-		rc = CKR_HOST_MEMORY;
+		TRACE_ERROR("%s\n", ock_err(ERR_HOST_MEMORY));
+		rc = ERR_HOST_MEMORY;
 		goto done;
 	}
 
@@ -1662,7 +1658,7 @@ CK_RV save_masterkey_user(void)
 	sprintf(fname, "%s/MK_USER", get_pk_dir(pk_dir_buf));
 	fp = fopen((char *)fname, "w");
 	if (!fp) {
-		OCK_LOG_ERR(ERR_FUNCTION_FAILED);
+		TRACE_ERROR("fopen(%s): %s\n", fname, strerror(errno));
 		rc = CKR_FUNCTION_FAILED;
 		goto done;
 	}
@@ -1670,7 +1666,7 @@ CK_RV save_masterkey_user(void)
 	set_perm(fileno(fp));
 	rc = fwrite(cipher, cipher_len, 1, fp);
 	if (rc != 1) {
-		OCK_LOG_ERR(ERR_FUNCTION_FAILED);
+		TRACE_ERROR("fwrite failed.\n");
 		rc = CKR_FUNCTION_FAILED;
 		goto done;
 	}
@@ -1712,7 +1708,7 @@ CK_RV reload_token_object(OBJECT * obj)
 
 	fp = fopen((char *)fname, "r");
 	if (!fp) {
-		OCK_LOG_ERR(ERR_FUNCTION_FAILED);
+		TRACE_ERROR("fopen(%s): %s\n", fname, strerror(errno));
 		rc = CKR_FUNCTION_FAILED;
 		goto done;
 	}
@@ -1744,19 +1740,10 @@ CK_RV reload_token_object(OBJECT * obj)
 
 	size_64 = size;
 
-	if (priv) {
+	if (priv)
 		rc = restore_private_token_object(buf, size_64, obj);
-		if (rc != CKR_OK)
-			// OCK_LOG_ERR(ERR_TOKEN_RESTORE_PRIV);
-		{
-		}
-	} else {
+	else
 		rc = object_mgr_restore_obj(buf, obj);
-		if (rc != CKR_OK)
-			// OCK_LOG_ERR(ERR_OBJ_RESTORE);
-		{
-		}
-	}
 
 done:
 	if (fp)
@@ -1796,7 +1783,7 @@ CK_RV delete_token_object(OBJECT * obj)
 			fclose(fp1);
 		if (fp2)
 			fclose(fp2);
-		OCK_LOG_ERR(ERR_FUNCTION_FAILED);
+		TRACE_ERROR("fopen failed\n");
 		return CKR_FUNCTION_FAILED;
 	}
 
@@ -1822,7 +1809,7 @@ CK_RV delete_token_object(OBJECT * obj)
 			fclose(fp1);
 		if (fp2)
 			fclose(fp2);
-		OCK_LOG_ERR(ERR_FUNCTION_FAILED);
+		TRACE_ERROR("fopen failed\n");
 		return CKR_FUNCTION_FAILED;
 	}
 
@@ -1880,7 +1867,7 @@ CK_RV generate_master_key(CK_BYTE *key)
 
 	if ((rc = get_encryption_info_for_clear_key(&key_len, NULL)) != CKR_OK ||
 	    (rc = get_encryption_info(&master_key_len, NULL)) != CKR_OK)
-		return CKR_FUNCTION_FAILED;
+		return ERR_FUNCTION_FAILED;
 
 	/* For secure key tokens, object encrypt/decrypt uses
 	 * software(openssl), not token. So generate masterkey via RNG.
@@ -1900,5 +1887,5 @@ CK_RV generate_master_key(CK_BYTE *key)
 						    key_len);
 	}
 
-	return CKR_MECHANISM_INVALID;
+	return ERR_MECHANISM_INVALID;
 }

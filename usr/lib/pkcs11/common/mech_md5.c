@@ -299,6 +299,7 @@
 #include "host_defs.h"
 #include "h_extern.h"
 #include "tok_spec_struct.h"
+#include "trace.h"
 
 
 // forward declaration
@@ -333,7 +334,7 @@ md5_hash( SESSION         * sess,
 
 
    if (!sess || !ctx || !out_data_len){
-      OCK_LOG_ERR(ERR_FUNCTION_FAILED);
+      TRACE_ERROR("%s received bad argument(s)\n", __FUNCTION__);
       return CKR_FUNCTION_FAILED;
    }
 
@@ -344,8 +345,8 @@ md5_hash( SESSION         * sess,
 
    rc = md5_hash_update( sess, ctx, in_data, in_data_len );
    if (rc != CKR_OK){
-      OCK_LOG_ERR(ERR_FUNCTION_FAILED);
-      return CKR_FUNCTION_FAILED;
+      TRACE_DEBUG("md5_hash_update failed\n");
+      return rc;
    }
    return md5_hash_final( sess,      FALSE,
                           ctx,
@@ -362,7 +363,7 @@ md5_hash_update( SESSION         * sess,
                  CK_ULONG          in_data_len )
 {
    if (!sess || !ctx || !in_data){
-      OCK_LOG_ERR(ERR_FUNCTION_FAILED);
+      TRACE_ERROR("%s received bad argument(s)\n", __FUNCTION__);
       return CKR_FUNCTION_FAILED;
    }
    return ckm_md5_update( (MD5_CONTEXT *)ctx->context,
@@ -383,7 +384,7 @@ md5_hash_final( SESSION         * sess,
 
 
    if (!sess || !ctx || !out_data_len){
-      OCK_LOG_ERR(ERR_FUNCTION_FAILED);
+      TRACE_ERROR("%s received bad argument(s)\n", __FUNCTION__);
       return CKR_FUNCTION_FAILED;
    }
    if (length_only == TRUE) {
@@ -429,7 +430,7 @@ md5_hmac_sign( SESSION              * sess,
 
 
    if (!sess || !ctx || !out_data_len){
-      OCK_LOG_ERR(ERR_FUNCTION_FAILED);
+      TRACE_ERROR("%s received bad argument(s)\n", __FUNCTION__);
       return CKR_FUNCTION_FAILED;
    }
 
@@ -458,7 +459,7 @@ md5_hmac_sign( SESSION              * sess,
 
    rc = template_attribute_find( key_obj->template, CKA_VALUE, &attr );
    if (rc == FALSE){
-      OCK_LOG_ERR(ERR_FUNCTION_FAILED);
+      TRACE_ERROR("Could not find CKA_VALUE in the template\n");
       return CKR_FUNCTION_FAILED;
    }
    else
@@ -518,21 +519,21 @@ md5_hmac_sign( SESSION              * sess,
    rc = digest_mgr_init( sess, &digest_ctx, &digest_mech );
    if (rc != CKR_OK)
    {
-      OCK_LOG_ERR(ERR_DIGEST_INIT);
+      TRACE_DEBUG("Digest Mgr Init failed.\n");
       return rc;
    }
 
    rc = digest_mgr_digest_update( sess, &digest_ctx, k_ipad, MD5_BLOCK_SIZE );
    if (rc != CKR_OK)
    {
-      OCK_LOG_ERR(ERR_DIGEST_UPDATE);
+      TRACE_DEBUG("Digest Mgr Update failed.\n");
       return rc;
    }
 
    rc = digest_mgr_digest_update( sess, &digest_ctx, in_data, in_data_len );
    if (rc != CKR_OK)
    {
-      OCK_LOG_ERR(ERR_DIGEST_UPDATE);
+      TRACE_DEBUG("Digest Mgr Update failed.\n");
       return rc;
    }
 
@@ -540,7 +541,7 @@ md5_hmac_sign( SESSION              * sess,
    rc = digest_mgr_digest_final( sess, FALSE, &digest_ctx, hash, &hash_len );
    if (rc != CKR_OK)
    {
-      OCK_LOG_ERR(ERR_DIGEST_FINAL);
+      TRACE_DEBUG("Digest Mgr Final failed.\n");
       return rc;
    }
 
@@ -552,21 +553,21 @@ md5_hmac_sign( SESSION              * sess,
    rc = digest_mgr_init( sess, &digest_ctx, &digest_mech );
    if (rc != CKR_OK)
    {
-      OCK_LOG_ERR(ERR_DIGEST_INIT);
+      TRACE_DEBUG("Digest Mgr Init failed.\n");
       return rc;
    }
 
    rc = digest_mgr_digest_update( sess, &digest_ctx, k_opad, MD5_BLOCK_SIZE );
    if (rc != CKR_OK)
    {
-      OCK_LOG_ERR(ERR_DIGEST_UPDATE);
+      TRACE_DEBUG("Digest Mgr Update failed.\n");
       return rc;
    }
 
    rc = digest_mgr_digest_update( sess, &digest_ctx, hash, hash_len );
    if (rc != CKR_OK)
    {
-      OCK_LOG_ERR(ERR_DIGEST_UPDATE);
+      TRACE_DEBUG("Digest Mgr Update failed.\n");
       return rc;
    }
 
@@ -574,7 +575,7 @@ md5_hmac_sign( SESSION              * sess,
    rc = digest_mgr_digest_final( sess, FALSE, &digest_ctx, hash, &hash_len );
    if (rc != CKR_OK)
    {
-      OCK_LOG_ERR(ERR_DIGEST_FINAL);
+      TRACE_DEBUG("Digest Mgr Final failed.\n");
       return rc;
    }
 
@@ -601,7 +602,7 @@ md5_hmac_verify( SESSION              * sess,
    CK_RV                rc;
 
    if (!sess || !ctx || !in_data || !signature){
-      OCK_LOG_ERR(ERR_FUNCTION_FAILED);
+      TRACE_ERROR("%s received bad argument(s)\n", __FUNCTION__);
       return CKR_FUNCTION_FAILED;
    }
    if (ctx->mech.mechanism == CKM_MD5_HMAC_GENERAL)
@@ -627,11 +628,11 @@ md5_hmac_verify( SESSION              * sess,
    }
 
    if ((len != hmac_len) || (len != sig_len)){
-      OCK_LOG_ERR(ERR_SIGNATURE_LEN_RANGE);
+      TRACE_ERROR("%s\n", ock_err(ERR_SIGNATURE_LEN_RANGE));
       return CKR_SIGNATURE_LEN_RANGE;
    }
    if (memcmp(hmac, signature, hmac_len) != 0){
-      OCK_LOG_ERR(ERR_SIGNATURE_INVALID);
+      TRACE_ERROR("%s\n", ock_err(ERR_SIGNATURE_INVALID));
       rc = CKR_SIGNATURE_INVALID;
    }
    sign_mgr_cleanup( &hmac_ctx );
@@ -715,9 +716,14 @@ ckm_md5_final( MD5_CONTEXT *context,
   CK_ULONG  i, ii;
   CK_ULONG  padLen;
 
-   if (!out_data || (out_data_len < MD5_HASH_SIZE)){
-      OCK_LOG_ERR(ERR_FUNCTION_FAILED);
-      return CKR_FUNCTION_FAILED;
+   if (!out_data) {
+	TRACE_ERROR("%s received bad argument(s)\n", __FUNCTION__);
+	return CKR_FUNCTION_FAILED;
+   }
+
+   if (out_data_len < MD5_HASH_SIZE) {
+      TRACE_ERROR("%s\n", ock_err(ERR_BUFFER_TOO_SMALL));
+      return CKR_BUFFER_TOO_SMALL;
    }
   // save number of bits
   //

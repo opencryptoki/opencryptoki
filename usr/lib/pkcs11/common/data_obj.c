@@ -307,6 +307,7 @@
 #include "defs.h"
 #include "host_defs.h"
 #include "h_extern.h"
+#include "trace.h"
 
 
 // data_object_check_required_attributes()
@@ -350,7 +351,7 @@ data_object_set_default_attributes( TEMPLATE *tmpl, CK_ULONG mode )
       if (class_attr) free( class_attr );
       if (app_attr)   free( app_attr );
       if (value_attr) free( value_attr );
-      OCK_LOG_ERR(ERR_HOST_MEMORY);
+      TRACE_ERROR("%s\n", ock_err(ERR_HOST_MEMORY));
       return CKR_HOST_MEMORY;
    }
 
@@ -383,7 +384,7 @@ CK_RV
 data_object_validate_attribute( TEMPLATE *tmpl, CK_ATTRIBUTE *attr, CK_ULONG mode )
 {
    if (!attr){
-      OCK_LOG_ERR(ERR_FUNCTION_FAILED);
+      TRACE_ERROR("Invalid function arguments.\n");
       return CKR_FUNCTION_FAILED;
    }
    switch (attr->type) {

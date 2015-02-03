@@ -303,6 +303,7 @@
 #include "host_defs.h"
 #include "h_extern.h"
 #include "tok_spec_struct.h"
+#include "trace.h"
 
 
 //
@@ -315,11 +316,11 @@ digest_mgr_init( SESSION           *sess,
    CK_BYTE  * ptr = NULL;
 
    if (!sess || !ctx){
-      OCK_LOG_ERR(ERR_FUNCTION_FAILED);
+      TRACE_ERROR("Invalid function arguments.\n");
       return CKR_FUNCTION_FAILED;
    }
    if (ctx->active != FALSE){
-      OCK_LOG_ERR(ERR_OPERATION_ACTIVE);     
+      TRACE_ERROR("%s\n", ock_err(ERR_OPERATION_ACTIVE));
       return CKR_OPERATION_ACTIVE;
    }
    // is the mechanism supported?  is the parameter present if required?
@@ -328,7 +329,7 @@ digest_mgr_init( SESSION           *sess,
       case CKM_SHA_1:
          {
             if (mech->ulParameterLen != 0){
-               OCK_LOG_ERR(ERR_MECHANISM_PARAM_INVALID);
+               TRACE_ERROR("%s\n", ock_err(ERR_MECHANISM_PARAM_INVALID));
                return CKR_MECHANISM_PARAM_INVALID;
             }
 
@@ -337,7 +338,7 @@ digest_mgr_init( SESSION           *sess,
 
             if (!ctx->context) {
                digest_mgr_cleanup(ctx);  // to de-initialize context above
-               OCK_LOG_ERR(ERR_HOST_MEMORY);
+               TRACE_ERROR("%s\n", ock_err(ERR_HOST_MEMORY));
                return CKR_HOST_MEMORY;
             }
          }
@@ -346,7 +347,7 @@ digest_mgr_init( SESSION           *sess,
       case CKM_SHA256:
          {
             if (mech->ulParameterLen != 0){
-               OCK_LOG_ERR(ERR_MECHANISM_PARAM_INVALID);
+               TRACE_ERROR("%s\n", ock_err(ERR_MECHANISM_PARAM_INVALID));
                return CKR_MECHANISM_PARAM_INVALID;
             }
 
@@ -355,7 +356,7 @@ digest_mgr_init( SESSION           *sess,
 
             if (!ctx->context) {
                digest_mgr_cleanup(ctx);  // to de-initialize context above
-               OCK_LOG_ERR(ERR_HOST_MEMORY);
+               TRACE_ERROR("%s\n", ock_err(ERR_HOST_MEMORY));
                return CKR_HOST_MEMORY;
             }
          }
@@ -364,7 +365,7 @@ digest_mgr_init( SESSION           *sess,
       case CKM_SHA384:
          {
             if (mech->ulParameterLen != 0){
-               OCK_LOG_ERR(ERR_MECHANISM_PARAM_INVALID);
+               TRACE_ERROR("%s\n", ock_err(ERR_MECHANISM_PARAM_INVALID));
                return CKR_MECHANISM_PARAM_INVALID;
             }
 
@@ -373,7 +374,7 @@ digest_mgr_init( SESSION           *sess,
 
             if (!ctx->context) {
                digest_mgr_cleanup(ctx);  // to de-initialize context above
-               OCK_LOG_ERR(ERR_HOST_MEMORY);
+               TRACE_ERROR("%s\n", ock_err(ERR_HOST_MEMORY));
                return CKR_HOST_MEMORY;
             }
          }
@@ -382,7 +383,7 @@ digest_mgr_init( SESSION           *sess,
       case CKM_SHA512:
          {
             if (mech->ulParameterLen != 0){
-               OCK_LOG_ERR(ERR_MECHANISM_PARAM_INVALID);
+               TRACE_ERROR("%s\n", ock_err(ERR_MECHANISM_PARAM_INVALID));
                return CKR_MECHANISM_PARAM_INVALID;
             }
 
@@ -391,7 +392,7 @@ digest_mgr_init( SESSION           *sess,
 
             if (!ctx->context) {
                digest_mgr_cleanup(ctx);  // to de-initialize context above
-               OCK_LOG_ERR(ERR_HOST_MEMORY);
+               TRACE_ERROR("%s\n", ock_err(ERR_HOST_MEMORY));
                return CKR_HOST_MEMORY;
             }
          }
@@ -400,14 +401,14 @@ digest_mgr_init( SESSION           *sess,
       case CKM_MD2:
          {
             if (mech->ulParameterLen != 0){
-               OCK_LOG_ERR(ERR_MECHANISM_PARAM_INVALID);     
+               TRACE_ERROR("%s\n", ock_err(ERR_MECHANISM_PARAM_INVALID));
                return CKR_MECHANISM_PARAM_INVALID;
             }
             ctx->context_len = sizeof(MD2_CONTEXT);
             ctx->context     = (CK_BYTE *)malloc(sizeof(MD2_CONTEXT));
             if (!ctx->context){
                digest_mgr_cleanup(ctx);  // to de-initialize context above
-               OCK_LOG_ERR(ERR_HOST_MEMORY);     
+               TRACE_ERROR("%s\n", ock_err(ERR_HOST_MEMORY));
                return CKR_HOST_MEMORY;
             }
             memset( ctx->context, 0x0, sizeof(MD2_CONTEXT) );
@@ -417,14 +418,14 @@ digest_mgr_init( SESSION           *sess,
       case CKM_MD5:
          {
             if (mech->ulParameterLen != 0){
-               OCK_LOG_ERR(ERR_MECHANISM_PARAM_INVALID);     
+               TRACE_ERROR("%s\n", ock_err(ERR_MECHANISM_PARAM_INVALID));
                return CKR_MECHANISM_PARAM_INVALID;
             }
             ctx->context_len = sizeof(MD5_CONTEXT);
             ctx->context     = (CK_BYTE *)malloc(sizeof(MD5_CONTEXT));
             if (!ctx->context){
                digest_mgr_cleanup(ctx);  // to de-initialize context above
-               OCK_LOG_ERR(ERR_HOST_MEMORY);     
+               TRACE_ERROR("%s\n", ock_err(ERR_HOST_MEMORY));
                return CKR_HOST_MEMORY;
             }
             ckm_md5_init( (MD5_CONTEXT *)ctx->context );
@@ -432,7 +433,7 @@ digest_mgr_init( SESSION           *sess,
          break;
 
       default:
-         OCK_LOG_ERR(ERR_MECHANISM_INVALID);     
+         TRACE_ERROR("%s\n", ock_err(ERR_MECHANISM_INVALID));
          return CKR_MECHANISM_INVALID;
    }
 
@@ -440,7 +441,7 @@ digest_mgr_init( SESSION           *sess,
       ptr = (CK_BYTE *)malloc(mech->ulParameterLen);
       if (!ptr){
          digest_mgr_cleanup(ctx);  // to de-initialize context above
-         OCK_LOG_ERR(ERR_HOST_MEMORY);     
+         TRACE_ERROR("%s\n", ock_err(ERR_HOST_MEMORY));
          return CKR_HOST_MEMORY;
       }
       memcpy( ptr, mech->pParameter, mech->ulParameterLen );
@@ -461,7 +462,7 @@ CK_RV
 digest_mgr_cleanup( DIGEST_CONTEXT *ctx )
 {
    if (!ctx){
-      OCK_LOG_ERR(ERR_FUNCTION_FAILED);
+      TRACE_ERROR("Invalid function argument.\n");
       return CKR_FUNCTION_FAILED;
    }
    ctx->mech.ulParameterLen = 0;
@@ -499,11 +500,11 @@ digest_mgr_digest( SESSION         *sess,
    CK_RV        rc;
 
    if (!sess || !ctx){
-      OCK_LOG_ERR(ERR_FUNCTION_FAILED);
+      TRACE_ERROR("Invalid function arguments.\n");
       return CKR_FUNCTION_FAILED;
    }
    if (ctx->active == FALSE){
-      OCK_LOG_ERR(ERR_OPERATION_NOT_INITIALIZED);
+      TRACE_ERROR("%s\n", ock_err(ERR_OPERATION_NOT_INITIALIZED));
       return CKR_OPERATION_NOT_INITIALIZED;
    }
 
@@ -511,14 +512,14 @@ digest_mgr_digest( SESSION         *sess,
    // specify the input data.  I just need the data length
    //
    if ((length_only == FALSE) && (!in_data || !out_data)){
-      OCK_LOG_ERR(ERR_FUNCTION_FAILED);
+      TRACE_ERROR("%s\n", ock_err(ERR_FUNCTION_FAILED));
       rc = CKR_FUNCTION_FAILED;
       goto out;
    }
 
    if (ctx->multi == TRUE){
-      OCK_LOG_ERR(ERR_FUNCTION_FAILED);
-      rc = CKR_FUNCTION_FAILED;
+      TRACE_ERROR("%s\n", ock_err(ERR_OPERATION_ACTIVE));
+      rc = CKR_OPERATION_ACTIVE;
       goto out;
    }
    switch (ctx->mech.mechanism) {
@@ -561,8 +562,8 @@ digest_mgr_digest( SESSION         *sess,
          break;
 
       default:
-         OCK_LOG_ERR(ERR_FUNCTION_FAILED);
-         rc = CKR_FUNCTION_FAILED;  // shouldn't happen
+         TRACE_ERROR("%s\n", ock_err(ERR_MECHANISM_INVALID));
+         rc = CKR_MECHANISM_INVALID;
    }
 
 out:
@@ -590,11 +591,11 @@ digest_mgr_digest_update( SESSION         *sess,
    CK_RV        rc;
 
    if (!sess || !ctx){
-      OCK_LOG_ERR(ERR_FUNCTION_FAILED);
+      TRACE_ERROR("Invalid function arguments.\n");
       return CKR_FUNCTION_FAILED;
    }
    if (ctx->active == FALSE){
-      OCK_LOG_ERR(ERR_OPERATION_NOT_INITIALIZED);
+      TRACE_ERROR("%s\n", ock_err(ERR_OPERATION_NOT_INITIALIZED));
       return CKR_OPERATION_NOT_INITIALIZED;
    }
 
@@ -628,7 +629,7 @@ digest_mgr_digest_update( SESSION         *sess,
          break;
 
       default:
-         OCK_LOG_ERR(ERR_MECHANISM_INVALID);
+         TRACE_ERROR("%s\n", ock_err(ERR_MECHANISM_INVALID));
          rc = CKR_MECHANISM_INVALID;
    }
 
@@ -655,13 +656,13 @@ digest_mgr_digest_key( SESSION          * sess,
 
 
    if (!sess || !ctx){
-      OCK_LOG_ERR(ERR_FUNCTION_FAILED);
+      TRACE_ERROR("Invalid function arguments.\n");
       return CKR_FUNCTION_FAILED;
    }
 
    rc = object_mgr_find_in_map1( key_handle, &key_obj );
    if (rc != CKR_OK){
-      OCK_LOG_ERR(ERR_KEY_HANDLE_INVALID);
+      TRACE_ERROR("%s\n", ock_err(ERR_KEY_HANDLE_INVALID));
       rc = CKR_KEY_HANDLE_INVALID;
       goto out;
    }
@@ -669,7 +670,7 @@ digest_mgr_digest_key( SESSION          * sess,
    //
    rc = template_attribute_find( key_obj->template, CKA_CLASS, &attr );
    if (rc == FALSE) {
-      OCK_LOG_ERR(ERR_KEY_INDIGESTIBLE);
+      TRACE_ERROR("%s\n", ock_err(ERR_KEY_INDIGESTIBLE));
       rc = CKR_KEY_INDIGESTIBLE;
       goto out;
    }
@@ -677,7 +678,7 @@ digest_mgr_digest_key( SESSION          * sess,
       class = *(CK_OBJECT_CLASS *)attr->pValue;
 
    if (class != CKO_SECRET_KEY){
-      OCK_LOG_ERR(ERR_KEY_INDIGESTIBLE);
+      TRACE_ERROR("%s\n", ock_err(ERR_KEY_INDIGESTIBLE));
       rc = CKR_KEY_INDIGESTIBLE;
       goto out;
    }
@@ -686,7 +687,7 @@ digest_mgr_digest_key( SESSION          * sess,
    //
    rc = template_attribute_find( key_obj->template, CKA_VALUE, &attr );
    if (!rc){
-      OCK_LOG_ERR(ERR_KEY_INDIGESTIBLE);
+      TRACE_ERROR("%s\n", ock_err(ERR_KEY_INDIGESTIBLE));
       rc = CKR_KEY_INDIGESTIBLE;
       goto out;
    }
@@ -695,7 +696,7 @@ digest_mgr_digest_key( SESSION          * sess,
                                   attr->pValue,
                                   attr->ulValueLen );
    if (rc != CKR_OK){
-      OCK_LOG_ERR(ERR_DIGEST_UPDATE);
+      TRACE_DEBUG("digest_mgr_digest_update failed\n");
    }
 
 out:
@@ -718,11 +719,11 @@ digest_mgr_digest_final( SESSION         *sess,
    CK_RV        rc;
 
    if (!sess || !ctx){
-      OCK_LOG_ERR(ERR_FUNCTION_FAILED);
+      TRACE_ERROR("Invalid function arguments.\n");
       return CKR_FUNCTION_FAILED;
    }
    if (ctx->active == FALSE){
-      OCK_LOG_ERR(ERR_OPERATION_NOT_INITIALIZED);
+      TRACE_ERROR("%s\n", ock_err(ERR_OPERATION_NOT_INITIALIZED));
       return CKR_OPERATION_NOT_INITIALIZED;
    }
 
@@ -766,7 +767,7 @@ digest_mgr_digest_final( SESSION         *sess,
          break;
 
       default:
-         OCK_LOG_ERR(ERR_MECHANISM_INVALID);
+         TRACE_ERROR("%s\n", ock_err(ERR_MECHANISM_INVALID));
          rc = CKR_MECHANISM_INVALID;   // shouldn't happen
    }
 

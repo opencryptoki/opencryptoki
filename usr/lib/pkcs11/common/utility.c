@@ -302,6 +302,7 @@
 #include "tok_spec_struct.h"
 #include "pkcs32.h"
 #include "shared_memory.h"
+#include "trace.h"
 
 #include <sys/file.h>
 #include <syslog.h>
@@ -629,7 +630,7 @@ CK_RV XProcLock(void)
 	if (spinxplfd != -1)
 		flock(spinxplfd, LOCK_EX);
 	else
-		OCK_LOG_DEBUG("No file descriptor to lock with.\n");
+		TRACE_DEBUG("No file descriptor to lock with.\n");
 
 	return CKR_OK;
 }
@@ -639,7 +640,7 @@ CK_RV XProcUnLock(void)
 	if (spinxplfd != -1)
 		flock(spinxplfd, LOCK_UN);
 	else
-		OCK_LOG_DEBUG("No file descriptor to unlock with.\n");
+		TRACE_DEBUG("No file descriptor to unlock with.\n");
 
 	return CKR_OK;
 }
@@ -781,14 +782,14 @@ CK_RV init_token_data(CK_SLOT_ID slot_id)
 		//
 		rc = generate_master_key(master_key);
 		if (rc != CKR_OK) {
-			OCK_LOG_ERR(ERR_FUNCTION_FAILED);
+			TRACE_DEBUG("generate_master_key failed.\n");
 			return CKR_FUNCTION_FAILED;
 		}
 
 		rc = save_masterkey_so();
 		if (rc != CKR_OK) {
-			OCK_LOG_ERR(ERR_FUNCTION_FAILED);
-			return CKR_FUNCTION_FAILED;
+			TRACE_DEBUG("save_masterkey_so failed.\n");
+			return rc;
 		}
 	}
 
@@ -810,7 +811,7 @@ CK_RV compute_next_token_obj_name(CK_BYTE * current, CK_BYTE * next)
 	int i;
 
 	if (!current || !next) {
-		OCK_LOG_ERR(ERR_FUNCTION_FAILED);
+		TRACE_ERROR("Invalid function arguments.\n");
 		return CKR_FUNCTION_FAILED;
 	}
 	// Convert to integral base 36
@@ -861,8 +862,8 @@ build_attribute(CK_ATTRIBUTE_TYPE type,
 
 	attr = (CK_ATTRIBUTE *) malloc(sizeof(CK_ATTRIBUTE) + data_len);
 	if (!attr) {
-		OCK_LOG_ERR(ERR_HOST_MEMORY);
-		return CKR_DEVICE_MEMORY;
+		TRACE_ERROR("%s\n", ock_err(ERR_HOST_MEMORY));
+		return CKR_HOST_MEMORY;
 	}
 	attr->type = type;
 	attr->ulValueLen = data_len;
@@ -918,7 +919,7 @@ add_pkcs_padding(CK_BYTE * ptr,
 	pad_value = (CK_BYTE) pad_len;
 
 	if (data_len + pad_len > total_len) {
-		OCK_LOG_ERR(ERR_FUNCTION_FAILED);
+		TRACE_ERROR("The total length is too small to add padding.\n");
 		return CKR_FUNCTION_FAILED;
 	}
 	for (i = 0; i < pad_len; i++)
@@ -935,7 +936,7 @@ CK_RV strip_pkcs_padding(CK_BYTE * ptr, CK_ULONG total_len, CK_ULONG * data_len)
 
 	pad_value = ptr[total_len - 1];
 	if (pad_value > total_len) {
-		OCK_LOG_ERR(ERR_ENCRYPTED_DATA_INVALID);
+		TRACE_ERROR("%s\n", ock_err(ERR_ENCRYPTED_DATA_INVALID));
 		return CKR_ENCRYPTED_DATA_INVALID;
 	}
 	// thus, we have 'pad_value' bytes of 'pad_value' appended to the end
@@ -987,7 +988,8 @@ CK_RV attach_shm(CK_SLOT_ID slot_id, LW_SHM_TYPE **shm)
 	 */
 	ret = sm_open(get_pk_dir(buf), 0666, (void**) shm, sizeof(**shm), 0);
 	if (ret < 0) {
-		OCK_LOG_ERR((rc = CKR_FUNCTION_FAILED));
+		TRACE_DEBUG("sm_open failed.\n");
+		rc = CKR_FUNCTION_FAILED;
 		goto done;
 	}
 
@@ -1002,8 +1004,10 @@ CK_RV detach_shm()
 
 	XProcLock();
 
-	if (sm_close((void *)global_shm, 0))
-		OCK_LOG_ERR((rc = CKR_FUNCTION_FAILED));
+	if (sm_close((void *)global_shm, 0)) {
+		TRACE_DEBUG("sm_close failed.\n");
+		rc = CKR_FUNCTION_FAILED;
+	}
 
 	XProcUnLock();
 
@@ -1108,12 +1112,12 @@ CK_RV get_keytype(CK_OBJECT_HANDLE hkey, CK_KEY_TYPE *keytype)
 
 	rc = object_mgr_find_in_map1(hkey, &key_obj);
 	if (rc != CKR_OK) {
-		OCK_LOG_ERR(ERR_OBJMGR_FIND_MAP);
+		TRACE_DEBUG("object_mgr_find_in_map1 failed.\n");
 		return rc;
 	}
 	rc = template_attribute_find(key_obj->template, CKA_KEY_TYPE, &attr);
 	if (rc == FALSE) {
-		OCK_LOG_ERR(ERR_KEY_TYPE_INCONSISTENT);
+		TRACE_ERROR("%s\n", ock_err(ERR_KEY_TYPE_INCONSISTENT));
 		return CKR_KEY_TYPE_INCONSISTENT;
 	} else {
 		*keytype = *(CK_KEY_TYPE *)attr->pValue;

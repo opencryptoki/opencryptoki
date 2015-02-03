@@ -304,7 +304,7 @@
 #include "host_defs.h"
 #include "h_extern.h"
 #include "tok_spec_struct.h"
-
+#include "trace.h"
 
 
 //
@@ -327,15 +327,19 @@ dsa_sign( SESSION             * sess,
 
 
    rc = object_mgr_find_in_map1( ctx->key, &key_obj );
-   if (rc != CKR_OK){
-      OCK_LOG_ERR(ERR_OBJMGR_FIND_MAP);
-      return rc;
+   if (rc != CKR_OK) {
+      TRACE_ERROR("Failed to acquire key from specified handle");
+      if (rc == CKR_OBJECT_HANDLE_INVALID)
+          return CKR_KEY_HANDLE_INVALID;
+      else
+        return rc
    }
+
    // must be a PRIVATE key operation
    //
    flag = template_attribute_find( key_obj->template, CKA_CLASS, &attr );
    if (flag == FALSE){
-      OCK_LOG_ERR(ERR_FUNCTION_FAILED);
+      TRACE_ERROR("Could not find <the_attribute_name> in the template\n");
       return CKR_FUNCTION_FAILED;
    }
    else
@@ -345,15 +349,15 @@ dsa_sign( SESSION             * sess,
    // that somehow a public key got assigned a CKA_SIGN attribute
    //
    if (class != CKO_PRIVATE_KEY){
-      OCK_LOG_ERR(ERR_FUNCTION_FAILED);
-      return CKR_FUNCTION_FAILED;
+      TRACE_ERROR("This operation requires a private key.\n");
+      return CKR_KEY_FUNCTION_NOT_PERMITTED;
    }
 
    // check input data length restrictions.  Generic DSA works on the SHA-1
    // hash of the data so the input to the DSA operation must be 20 bytes
    //
    if (in_data_len != 20){
-      OCK_LOG_ERR(ERR_DATA_LEN_RANGE);
+      TRACE_ERROR("%s\n", ock_err(ERR_DATA_LEN_RANGE));
       return CKR_DATA_LEN_RANGE;
    }
    if (length_only == TRUE) {
@@ -389,38 +393,40 @@ dsa_verify( SESSION             * sess,
 
 
    rc = object_mgr_find_in_map1( ctx->key, &key_obj );
-   if (rc != CKR_OK){
-      OCK_LOG_ERR(ERR_OBJMGR_FIND_MAP);
-      return rc;
+   if (rc != CKR_OK) {
+      TRACE_ERROR("Failed to acquire key from specified handle");
+      if (rc == CKR_OBJECT_HANDLE_INVALID)
+          return CKR_KEY_HANDLE_INVALID;
+      else
+        return rc
    }
+
    // must be a PUBLIC key operation
    //
    flag = template_attribute_find( key_obj->template, CKA_CLASS, &attr );
    if (flag == FALSE){
-      OCK_LOG_ERR(ERR_FUNCTION_FAILED);
+      TRACE_ERROR("Could not find CKA_CLASS in the template\n");
       return CKR_FUNCTION_FAILED;
    }
    else
       class = *(CK_OBJECT_CLASS *)attr->pValue;
 
    if (class != CKO_PUBLIC_KEY){
-      OCK_LOG_ERR(ERR_FUNCTION_FAILED);
-      return CKR_FUNCTION_FAILED;
+      TRACE_ERROR("This operation requires a public key.\n");
+      return CKR_KEY_FUNCTION_NOT_PERMITTED;
    }
 
    // check input data length restrictions
    //
    if (sig_len != DSA_SIGNATURE_SIZE){
-      OCK_LOG_ERR(ERR_SIGNATURE_LEN_RANGE);
+      TRACE_ERROR("%s\n", ock_err(ERR_SIGNATURE_LEN_RANGE));
       return CKR_SIGNATURE_LEN_RANGE;
    }
    if (in_data_len != 20){
-      OCK_LOG_ERR(ERR_DATA_LEN_RANGE);
+      TRACE_ERROR("%s\n", ock_err(ERR_DATA_LEN_RANGE));
       return CKR_DATA_LEN_RANGE;
    }
    rc = ckm_dsa_verify( signature, in_data, key_obj );
-   if (rc != CKR_OK)
-      OCK_LOG_ERR(ERR_DSA_VERIFY);
    return rc;
 }
 
@@ -449,13 +455,13 @@ ckm_dsa_key_pair_gen( TEMPLATE  * publ_tmpl,
 
 
    if (token_specific.t_dsa_generate_keypair == NULL) {
-      OCK_LOG_ERR(ERR_MECHANISM_INVALID);
+      TRACE_ERROR("%s\n", ock_err(ERR_MECHANISM_INVALID));
       return CKR_MECHANISM_INVALID;
    }
 
    rc = token_specific.t_dsa_generate_keypair(publ_tmpl,priv_tmpl);
    if (rc != CKR_OK)
-      OCK_LOG_ERR(ERR_KEYGEN);
+      TRACE_DEBUG("Tpken specific dsa keypair generation failed.\n");
    return rc;
 }
 
@@ -478,7 +484,7 @@ ckm_dsa_sign( CK_BYTE   * in_data,
 
    rc = template_attribute_find( priv_key->template, CKA_CLASS, &attr );
    if (rc == FALSE){
-      OCK_LOG_ERR(ERR_FUNCTION_FAILED);
+      TRACE_ERROR("Could not find CKA_CLASS in the template\n");
       return CKR_FUNCTION_FAILED;
    }
    else
@@ -487,18 +493,18 @@ ckm_dsa_sign( CK_BYTE   * in_data,
    // this had better be a private key
    //
    if (keyclass != CKO_PRIVATE_KEY){
-      OCK_LOG_ERR(ERR_FUNCTION_FAILED);
-      return CKR_FUNCTION_FAILED;
+      TRACE_ERROR("This operation requires a private key.\n");
+      return CKR_KEY_FUNCTION_NOT_PERMITTED;
    }
 
    if (token_specific.t_dsa_sign == NULL) {
-      OCK_LOG_ERR(ERR_MECHANISM_INVALID);
+      TRACE_ERROR("%s\n", ock_err(ERR_MECHANISM_INVALID));
       return CKR_MECHANISM_INVALID;
    }
 
    rc = token_specific.t_dsa_sign(in_data, signature, priv_key);
    if (rc != CKR_OK)
-      OCK_LOG_ERR(ERR_DSA_SIGN);
+      TRACE_DEBUG("Token specific dsa sign failed.\n");
    return rc;
 }
 
@@ -521,7 +527,7 @@ ckm_dsa_verify( CK_BYTE   * signature,
 
    rc = template_attribute_find( publ_key->template, CKA_CLASS, &attr );
    if (rc == FALSE){
-      OCK_LOG_ERR(ERR_FUNCTION_FAILED);
+      TRACE_ERROR("Could not find CKA_CLASS in the template\n");
       return CKR_FUNCTION_FAILED;
    }
    else
@@ -530,17 +536,17 @@ ckm_dsa_verify( CK_BYTE   * signature,
    // this had better be a private key
    //
    if (keyclass != CKO_PUBLIC_KEY){
-      OCK_LOG_ERR(ERR_FUNCTION_FAILED);
-      return CKR_FUNCTION_FAILED;
+      TRACE_ERROR("This operation requires a public key.\n");
+      return CKR_KEY_FUNCTION_NOT_PERMITTED;
    }
 
    if (token_specific.t_dsa_verify == NULL) {
-      OCK_LOG_ERR(ERR_MECHANISM_INVALID);
+      TRACE_ERROR("%s\n", ock_err(ERR_MECHANISM_INVALID));
       return CKR_MECHANISM_INVALID;
    }
    rc = token_specific.t_dsa_verify(signature, data, publ_key);
    if (rc != CKR_OK)
-      OCK_LOG_ERR(ERR_DSA_VERIFY);
+      TRACE_DEBUG("Token specific dsa verify failed.\n");
    return rc;
 }
 

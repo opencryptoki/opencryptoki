@@ -302,7 +302,6 @@
 #include <sys/stat.h>
 #include <fcntl.h>
 
-
 #include "pkcs11types.h"
 #include "defs.h"
 #include "host_defs.h"
@@ -310,6 +309,7 @@
 
 #include "tok_spec_struct.h"
 #include "tok_specific.h"
+#include "trace.h"
 
 //
 //
@@ -349,6 +349,6 @@ rng_generate( CK_BYTE *output, CK_ULONG bytes )
 		rc = local_rng(output, bytes);
 
 	if (rc != CKR_OK)
-		OCK_LOG_ERR(ERR_RNG);
+		TRACE_DEBUG("Token specific rng failed.\n");
 	return rc;
 }

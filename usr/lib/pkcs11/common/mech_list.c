@@ -296,6 +296,7 @@
 #include "host_defs.h"
 #include "h_extern.h"
 #include "tok_spec_struct.h"
+#include "trace.h"
 
 void mech_array_to_list(struct mech_list_item *head,
 			MECH_LIST_ELEMENT mech_list_arr[],
@@ -362,7 +363,7 @@ ock_generic_get_mechanism_list(CK_MECHANISM_TYPE_PTR pMechanismList,
 	}
 	if ((*pulCount) < mech_list_len) {
 		(*pulCount) = mech_list_len;
-		OCK_LOG_ERR(ERR_BUFFER_TOO_SMALL); 
+		TRACE_ERROR("%s\n", ock_err(ERR_BUFFER_TOO_SMALL));
 		rc = CKR_BUFFER_TOO_SMALL;
 		goto out;
 	}
@@ -386,7 +387,7 @@ ock_generic_get_mechanism_info(CK_MECHANISM_TYPE type,
 			goto out;
 		}
 	}
-	OCK_LOG_ERR(ERR_MECHANISM_INVALID); 
+	TRACE_ERROR("%s\n", ock_err(ERR_MECHANISM_INVALID));
 	rc = CKR_MECHANISM_INVALID;
  out:
 	return rc;

@@ -317,6 +317,7 @@
 #include "host_defs.h"
 #include "h_extern.h"
 #include "tok_spec_struct.h"
+#include "trace.h"
 
 #define SHA_HARDWARE_THRESHHOLD 128000
 
@@ -655,7 +656,7 @@ void sw_sha1_init(DIGEST_CONTEXT *ctx)
 	ctx->context_len = sizeof(SHA1_CONTEXT);
 	ctx->context = (CK_BYTE *)malloc(sizeof(SHA1_CONTEXT));
 	if (ctx->context == NULL) {
-		OCK_LOG_ERR(ERR_HOST_MEMORY);
+		TRACE_ERROR("%s\n", ock_err(ERR_HOST_MEMORY));
 		// TODO: propagate error up?
 		return;
 	}
@@ -677,13 +678,13 @@ CK_RV sw_sha1_hash(DIGEST_CONTEXT *ctx, CK_BYTE *in_data, CK_ULONG in_data_len,
 	CK_RV rv;
    
 	if (!ctx || !out_data_len) {
-		OCK_LOG_ERR(ERR_FUNCTION_FAILED);
+		TRACE_ERROR("%s received bad argument(s)\n", __FUNCTION__);
 		return CKR_FUNCTION_FAILED;
 	}
 
 	if (*out_data_len < SHA1_HASH_SIZE) {
-		OCK_LOG_ERR(ERR_FUNCTION_FAILED);
-		return CKR_FUNCTION_FAILED;
+		TRACE_ERROR("%s\n", ock_err(ERR_BUFFER_TOO_SMALL));
+		return CKR_BUFFER_TOO_SMALL;
 	}
 
 	if (ctx->context == NULL)
@@ -702,7 +703,7 @@ CK_RV sha1_hash(SESSION *sess, CK_BBOOL length_only, DIGEST_CONTEXT *ctx,
 	CK_RV rv;
    
 	if (!ctx || !out_data_len) {
-		OCK_LOG_ERR(ERR_FUNCTION_FAILED);
+		TRACE_ERROR("%s received bad argument(s)\n", __FUNCTION__);
 		return CKR_FUNCTION_FAILED;
 	}
 
@@ -712,8 +713,8 @@ CK_RV sha1_hash(SESSION *sess, CK_BBOOL length_only, DIGEST_CONTEXT *ctx,
 	}
 
 	if (*out_data_len < SHA1_HASH_SIZE) {
-		OCK_LOG_ERR(ERR_FUNCTION_FAILED);
-		return CKR_FUNCTION_FAILED;
+		TRACE_ERROR("%s\n", ock_err(ERR_BUFFER_TOO_SMALL));
+		return CKR_BUFFER_TOO_SMALL;
 	}
 
 	if (ctx->context == NULL)
@@ -734,7 +735,7 @@ CK_RV sha2_hash(SESSION *sess, CK_BBOOL length_only, DIGEST_CONTEXT *ctx,
 	CK_RV rv;
 
 	if (!ctx || !out_data_len) {
-		OCK_LOG_ERR(ERR_FUNCTION_FAILED);
+		TRACE_ERROR("%s received bad argument(s)\n", __FUNCTION__);
 		return CKR_FUNCTION_FAILED;
 	}
 
@@ -761,7 +762,7 @@ sha3_hash(SESSION *sess, CK_BBOOL length_only, DIGEST_CONTEXT *ctx,
 	CK_RV rv;
 
 	if (!ctx || !out_data_len) {
-		OCK_LOG_ERR(ERR_FUNCTION_FAILED);
+		TRACE_ERROR("%s received bad argument(s)\n", __FUNCTION__);
 		return CKR_FUNCTION_FAILED;
 	}
 
@@ -788,7 +789,7 @@ CK_RV sha5_hash(SESSION *sess, CK_BBOOL length_only, DIGEST_CONTEXT *ctx,
 	CK_RV rv;
 
 	if (!ctx || !out_data_len) {
-		OCK_LOG_ERR(ERR_FUNCTION_FAILED);
+		TRACE_ERROR("%s received bad argument(s)\n", __FUNCTION__);
 		return CKR_FUNCTION_FAILED;
 	}
 
@@ -866,7 +867,7 @@ CK_RV sha1_hash_final(SESSION *sess, CK_BYTE length_only, DIGEST_CONTEXT *ctx,
 		      CK_BYTE *out_data, CK_ULONG *out_data_len)
 {
 	if (!ctx || !out_data_len) {
-		OCK_LOG_ERR(ERR_FUNCTION_FAILED);
+		TRACE_ERROR("%s received bad argument(s)\n", __FUNCTION__);
 		return CKR_FUNCTION_FAILED;
 	}
 
@@ -876,8 +877,8 @@ CK_RV sha1_hash_final(SESSION *sess, CK_BYTE length_only, DIGEST_CONTEXT *ctx,
 	}
 
         if (*out_data_len < SHA1_HASH_SIZE){
-            OCK_LOG_ERR(ERR_FUNCTION_FAILED);
-            return CKR_FUNCTION_FAILED;
+            TRACE_ERROR("%s\n", ock_err(ERR_BUFFER_TOO_SMALL));
+            return CKR_BUFFER_TOO_SMALL;
         }
 
 	if (token_specific.t_sha_final == NULL) {
@@ -892,7 +893,7 @@ CK_RV sha2_hash_final(SESSION *sess, CK_BYTE length_only, DIGEST_CONTEXT *ctx,
 		      CK_BYTE *out_data, CK_ULONG *out_data_len)
 {
 	if (!ctx || !out_data_len) {
-		OCK_LOG_ERR(ERR_FUNCTION_FAILED);
+		TRACE_ERROR("%s received bad argument(s)\n", __FUNCTION__);
 		return CKR_FUNCTION_FAILED;
 	}
 	if (length_only == TRUE) {
@@ -910,7 +911,7 @@ CK_RV sha3_hash_final(SESSION *sess, CK_BYTE length_only, DIGEST_CONTEXT *ctx,
 		      CK_BYTE *out_data, CK_ULONG *out_data_len)
 {
 	if (!ctx || !out_data_len) {
-		OCK_LOG_ERR(ERR_FUNCTION_FAILED);
+		TRACE_ERROR("%s received bad argument(s)\n", __FUNCTION__);
 		return CKR_FUNCTION_FAILED;
 	}
 
@@ -929,7 +930,7 @@ CK_RV sha5_hash_final(SESSION *sess, CK_BYTE length_only, DIGEST_CONTEXT *ctx,
 		      CK_BYTE *out_data, CK_ULONG *out_data_len)
 {
 	if (!ctx || !out_data_len) {
-		OCK_LOG_ERR(ERR_FUNCTION_FAILED);
+		TRACE_ERROR("%s received bad argument(s)\n", __FUNCTION__);
 		return CKR_FUNCTION_FAILED;
 	}
 
@@ -965,7 +966,7 @@ CK_RV sha1_hmac_sign(SESSION *sess, CK_BBOOL length_only,
 	CK_RV rc;
 
 	if (!sess || !ctx || !out_data_len) {
-		OCK_LOG_ERR(ERR_FUNCTION_FAILED);
+		TRACE_ERROR("%s received bad argument(s)\n", __FUNCTION__);
 		return CKR_FUNCTION_FAILED;
 	}
 
@@ -988,13 +989,16 @@ CK_RV sha1_hmac_sign(SESSION *sess, CK_BBOOL length_only,
 
 	rc = object_mgr_find_in_map1(ctx->key, &key_obj);
 	if (rc != CKR_OK) {
-		OCK_LOG_ERR(ERR_OBJMGR_FIND_MAP);
-		return rc;
+		TRACE_ERROR("Failed to acquire key from specified handle");
+		if (rc == CKR_OBJECT_HANDLE_INVALID)
+			return CKR_KEY_HANDLE_INVALID;
+		else
+			return rc;
 	}
 
 	rc = template_attribute_find(key_obj->template, CKA_VALUE, &attr);
 	if (rc == FALSE) {
-		OCK_LOG_ERR(ERR_FUNCTION_FAILED);
+		TRACE_ERROR("Could not find CKA_VALUE in the template\n");
 		return CKR_FUNCTION_FAILED;
 	} else
 		key_bytes = attr->ulValueLen;
@@ -1009,7 +1013,7 @@ CK_RV sha1_hmac_sign(SESSION *sess, CK_BBOOL length_only,
 
 		rc = digest_mgr_init(sess, &digest_ctx, &digest_mech);
 		if (rc != CKR_OK) {
-			OCK_LOG_ERR(ERR_DIGEST_INIT);
+			TRACE_DEBUG("Digest Mgr Init failed.\n");
 			return rc;
 		}
 
@@ -1017,7 +1021,7 @@ CK_RV sha1_hmac_sign(SESSION *sess, CK_BBOOL length_only,
 		rc = digest_mgr_digest(sess, FALSE, &digest_ctx, attr->pValue,
 				       attr->ulValueLen, hash, &hash_len);
 		if (rc != CKR_OK) {
-			OCK_LOG_ERR(ERR_DIGEST);
+			TRACE_DEBUG("Digest Mgr Digest failed.\n");
 			return rc;
 		}
 
@@ -1050,27 +1054,27 @@ CK_RV sha1_hmac_sign(SESSION *sess, CK_BBOOL length_only,
 	//
 	rc = digest_mgr_init(sess, &digest_ctx, &digest_mech);
 	if (rc != CKR_OK) {
-		OCK_LOG_ERR(ERR_DIGEST_INIT);
+		TRACE_DEBUG("Digest Mgr Init failed.\n");
 		return rc;
 	}
 
 	rc = digest_mgr_digest_update(sess, &digest_ctx, k_ipad,
 				      SHA1_BLOCK_SIZE);
 	if (rc != CKR_OK) {
-		OCK_LOG_ERR(ERR_DIGEST_UPDATE);
+		TRACE_DEBUG("Digest Mgr Update failed.\n");
 		return rc;
 	}
 
 	rc = digest_mgr_digest_update(sess, &digest_ctx, in_data, in_data_len);
 	if (rc != CKR_OK) {
-		OCK_LOG_ERR(ERR_DIGEST_UPDATE);
+		TRACE_DEBUG("Digest Mgr Update failed.\n");
 		return rc;
 	}
 
 	hash_len = sizeof(hash);
 	rc = digest_mgr_digest_final(sess, FALSE, &digest_ctx, hash, &hash_len);
 	if (rc != CKR_OK) {
-		OCK_LOG_ERR(ERR_DIGEST_FINAL);
+		TRACE_DEBUG("Digest Mgr Final failed.\n");
 		return rc;
 	}
 
@@ -1080,27 +1084,27 @@ CK_RV sha1_hmac_sign(SESSION *sess, CK_BBOOL length_only,
 	//
 	rc = digest_mgr_init(sess, &digest_ctx, &digest_mech);
 	if (rc != CKR_OK) {
-		OCK_LOG_ERR(ERR_DIGEST_INIT);
+		TRACE_DEBUG("Digest Mgr Init failed.\n");
 		return rc;
 	}
 
 	rc = digest_mgr_digest_update(sess, &digest_ctx, k_opad,
 					SHA1_BLOCK_SIZE);
 	if (rc != CKR_OK) {
-		OCK_LOG_ERR(ERR_DIGEST_UPDATE);
+		TRACE_DEBUG("Digest Mgr Update failed.\n");
 		return rc;
 	}
 
 	rc = digest_mgr_digest_update(sess, &digest_ctx, hash, hash_len);
 	if (rc != CKR_OK) {
-		OCK_LOG_ERR(ERR_DIGEST_UPDATE);
+		TRACE_DEBUG("Digest Mgr Update failed.\n");
 		return rc;
 	}
 
 	hash_len = sizeof(hash);
 	rc = digest_mgr_digest_final(sess, FALSE, &digest_ctx, hash, &hash_len);
 	if (rc != CKR_OK) {
-		OCK_LOG_ERR(ERR_DIGEST_FINAL);
+		TRACE_DEBUG("Digest Mgr Final failed.\n");
 		return rc;
 	}
 
@@ -1131,7 +1135,7 @@ CK_RV sha2_hmac_sign(SESSION *sess, CK_BBOOL length_only,
 	CK_RV rc;
 
 	if (!sess || !ctx || !out_data_len) {
-		OCK_LOG_ERR(ERR_FUNCTION_FAILED);
+		TRACE_ERROR("%s received bad argument(s)\n", __FUNCTION__);
 		return CKR_FUNCTION_FAILED;
 	}
 
@@ -1154,12 +1158,15 @@ CK_RV sha2_hmac_sign(SESSION *sess, CK_BBOOL length_only,
 
 	rc = object_mgr_find_in_map1(ctx->key, &key_obj);
 	if (rc != CKR_OK) {
-		OCK_LOG_ERR(ERR_OBJMGR_FIND_MAP);
-		return rc;
+		TRACE_ERROR("Failed to acquire key from specified handle");
+		if (rc == CKR_OBJECT_HANDLE_INVALID)
+			return CKR_KEY_HANDLE_INVALID;
+		else
+			return rc;
 	}
 	rc = template_attribute_find(key_obj->template, CKA_VALUE, &attr);
 	if (rc == FALSE) {
-		OCK_LOG_ERR(ERR_FUNCTION_FAILED);
+		TRACE_ERROR("Could not find CKA_VALUE in the template\n");
 		return CKR_FUNCTION_FAILED;
 	} else
 		key_bytes = attr->ulValueLen;
@@ -1173,7 +1180,7 @@ CK_RV sha2_hmac_sign(SESSION *sess, CK_BBOOL length_only,
 
 		rc = digest_mgr_init(sess, &digest_ctx, &digest_mech);
 		if (rc != CKR_OK) {
-			OCK_LOG_ERR(ERR_DIGEST_INIT);
+			TRACE_DEBUG("Digest Mgr Init failed.\n");
 			return rc;
 		}
 
@@ -1181,7 +1188,7 @@ CK_RV sha2_hmac_sign(SESSION *sess, CK_BBOOL length_only,
 		rc = digest_mgr_digest(sess, FALSE, &digest_ctx, attr->pValue,
 					attr->ulValueLen, hash, &hash_len);
 		if (rc != CKR_OK) {
-			OCK_LOG_ERR(ERR_DIGEST);
+			TRACE_DEBUG("Digest Mgr Digest failed.\n");
 			return rc;
 		}
 
@@ -1214,26 +1221,26 @@ CK_RV sha2_hmac_sign(SESSION *sess, CK_BBOOL length_only,
 	//
 	rc = digest_mgr_init(sess, &digest_ctx, &digest_mech);
 	if (rc != CKR_OK) {
-		OCK_LOG_ERR(ERR_DIGEST_INIT);
+		TRACE_DEBUG("Digest Mgr Init failed.\n");
 		return rc;
 	}
 
 	rc = digest_mgr_digest_update(sess, &digest_ctx, k_ipad, SHA2_BLOCK_SIZE);
 	if (rc != CKR_OK) {
-		OCK_LOG_ERR(ERR_DIGEST_UPDATE);
+		TRACE_DEBUG("Digest Mgr Update failed.\n");
 		return rc;
 	}
 
 	rc = digest_mgr_digest_update(sess, &digest_ctx, in_data, in_data_len);
 	if (rc != CKR_OK) {
-		OCK_LOG_ERR(ERR_DIGEST_UPDATE);
+		TRACE_DEBUG("Digest Mgr Update failed.\n");
 		return rc;
 	}
 
 	hash_len = sizeof(hash);
 	rc = digest_mgr_digest_final(sess, FALSE, &digest_ctx, hash, &hash_len);
 	if (rc != CKR_OK) {
-		OCK_LOG_ERR(ERR_DIGEST_FINAL);
+		TRACE_DEBUG("Digest Mgr Final failed.\n");
 		return rc;
 	}
 
@@ -1243,26 +1250,26 @@ CK_RV sha2_hmac_sign(SESSION *sess, CK_BBOOL length_only,
 	//
 	rc = digest_mgr_init(sess, &digest_ctx, &digest_mech);
 	if (rc != CKR_OK) {
-		OCK_LOG_ERR(ERR_DIGEST_INIT);
+		TRACE_DEBUG("Digest Mgr Init failed.\n");
 		return rc;
 	}
 
 	rc = digest_mgr_digest_update(sess, &digest_ctx, k_opad, SHA2_BLOCK_SIZE);
 	if (rc != CKR_OK) {
-		OCK_LOG_ERR(ERR_DIGEST_UPDATE);
+		TRACE_DEBUG("Digest Mgr Update failed.\n");
 		return rc;
 	}
 
 	rc = digest_mgr_digest_update(sess, &digest_ctx, hash, hash_len);
 	if (rc != CKR_OK) {
-		OCK_LOG_ERR(ERR_DIGEST_UPDATE);
+		TRACE_DEBUG("Digest Mgr Update failed.\n");
 		return rc;
 	}
 
 	hash_len = sizeof(hash);
 	rc = digest_mgr_digest_final(sess, FALSE, &digest_ctx, hash, &hash_len);
 	if (rc != CKR_OK) {
-		OCK_LOG_ERR(ERR_DIGEST_FINAL);
+		TRACE_DEBUG("Digest Mgr Final failed.\n");
 		return rc;
 	}
 
@@ -1293,7 +1300,7 @@ CK_RV sha3_hmac_sign(SESSION *sess, CK_BBOOL length_only,
 	CK_RV rc;
 
 	if (!sess || !ctx || !out_data_len) {
-		OCK_LOG_ERR(ERR_FUNCTION_FAILED);
+		TRACE_ERROR("%s received bad argument(s)\n", __FUNCTION__);
 		return CKR_FUNCTION_FAILED;
 	}
 
@@ -1316,12 +1323,15 @@ CK_RV sha3_hmac_sign(SESSION *sess, CK_BBOOL length_only,
 
 	rc = object_mgr_find_in_map1( ctx->key, &key_obj );
 	if (rc != CKR_OK) {
-		OCK_LOG_ERR(ERR_OBJMGR_FIND_MAP);
-		return rc;
+		TRACE_ERROR("Failed to acquire key from specified handle");
+		if (rc == CKR_OBJECT_HANDLE_INVALID)
+			return CKR_KEY_HANDLE_INVALID;
+		else
+			return rc;
 	}
 	rc = template_attribute_find(key_obj->template, CKA_VALUE, &attr);
 	if (rc == FALSE) {
-		OCK_LOG_ERR(ERR_FUNCTION_FAILED);
+		TRACE_ERROR("Could not find CKA_VALUE in the template\n");
 		return CKR_FUNCTION_FAILED;
 	} else
 		key_bytes = attr->ulValueLen;
@@ -1335,7 +1345,7 @@ CK_RV sha3_hmac_sign(SESSION *sess, CK_BBOOL length_only,
 
 		rc = digest_mgr_init(sess, &digest_ctx, &digest_mech);
 		if (rc != CKR_OK) {
-			OCK_LOG_ERR(ERR_DIGEST_INIT);
+			TRACE_DEBUG("Digest Mgr Init failed.\n");
 			return rc;
 		}
 
@@ -1343,7 +1353,7 @@ CK_RV sha3_hmac_sign(SESSION *sess, CK_BBOOL length_only,
 		rc = digest_mgr_digest(sess, FALSE, &digest_ctx, attr->pValue,
 					attr->ulValueLen, hash, &hash_len);
 		if (rc != CKR_OK) {
-			OCK_LOG_ERR(ERR_DIGEST);
+			TRACE_DEBUG("Digest Mgr Digest failed.\n");
 			return rc;
 		}
 
@@ -1376,26 +1386,26 @@ CK_RV sha3_hmac_sign(SESSION *sess, CK_BBOOL length_only,
 	//
 	rc = digest_mgr_init(sess, &digest_ctx, &digest_mech);
 	if (rc != CKR_OK) {
-		OCK_LOG_ERR(ERR_DIGEST_INIT);
+		TRACE_DEBUG("Digest Mgr Init failed.\n");
 		return rc;
 	}
 
 	rc = digest_mgr_digest_update(sess, &digest_ctx, k_ipad, SHA3_BLOCK_SIZE);
 	if (rc != CKR_OK) {
-		OCK_LOG_ERR(ERR_DIGEST_UPDATE);
+		TRACE_DEBUG("Digest Mgr Update failed.\n");
 		return rc;
 	}
 
 	rc = digest_mgr_digest_update(sess, &digest_ctx, in_data, in_data_len);
 	if (rc != CKR_OK) {
-		OCK_LOG_ERR(ERR_DIGEST_UPDATE);
+		TRACE_DEBUG("Digest Mgr Update failed.\n");
 		return rc;
 	}
 
 	hash_len = sizeof(hash);
 	rc = digest_mgr_digest_final(sess, FALSE, &digest_ctx, hash, &hash_len);
 	if (rc != CKR_OK) {
-		OCK_LOG_ERR(ERR_DIGEST_FINAL);
+		TRACE_DEBUG("Digest Mgr Final failed.\n");
 		return rc;
 	}
 
@@ -1405,26 +1415,26 @@ CK_RV sha3_hmac_sign(SESSION *sess, CK_BBOOL length_only,
 	//
 	rc = digest_mgr_init(sess, &digest_ctx, &digest_mech);
 	if (rc != CKR_OK) {
-		OCK_LOG_ERR(ERR_DIGEST_INIT);
+		TRACE_DEBUG("Digest Mgr Init failed.\n");
 		return rc;
 	}
 
 	rc = digest_mgr_digest_update(sess, &digest_ctx, k_opad, SHA3_BLOCK_SIZE);
 	if (rc != CKR_OK) {
-		OCK_LOG_ERR(ERR_DIGEST_UPDATE);
+		TRACE_DEBUG("Digest Mgr Update failed.\n");
 		return rc;
 	}
 
 	rc = digest_mgr_digest_update(sess, &digest_ctx, hash, hash_len);
 	if (rc != CKR_OK) {
-		OCK_LOG_ERR(ERR_DIGEST_UPDATE);
+		TRACE_DEBUG("Digest Mgr Update failed.\n");
 		return rc;
 	}
 
 	hash_len = sizeof(hash);
 	rc = digest_mgr_digest_final(sess, FALSE, &digest_ctx, hash, &hash_len);
 	if (rc != CKR_OK) {
-		OCK_LOG_ERR(ERR_DIGEST_FINAL);
+		TRACE_DEBUG("Digest Mgr Final failed.\n");
 		return rc;
 	}
 
@@ -1455,7 +1465,7 @@ CK_RV sha5_hmac_sign(SESSION *sess, CK_BBOOL length_only,
 	CK_RV rc;
 
 	if (!sess || !ctx || !out_data_len) {
-		OCK_LOG_ERR(ERR_FUNCTION_FAILED);
+		TRACE_ERROR("%s received bad argument(s)\n", __FUNCTION__);
 		return CKR_FUNCTION_FAILED;
 	}
 
@@ -1478,12 +1488,15 @@ CK_RV sha5_hmac_sign(SESSION *sess, CK_BBOOL length_only,
 
 	rc = object_mgr_find_in_map1(ctx->key, &key_obj);
 	if (rc != CKR_OK) {
-		OCK_LOG_ERR(ERR_OBJMGR_FIND_MAP);
-		return rc;
+		TRACE_ERROR("Failed to acquire key from specified handle");
+		if (rc == CKR_OBJECT_HANDLE_INVALID)
+			return CKR_KEY_HANDLE_INVALID;
+		else
+			return rc;
 	}
 	rc = template_attribute_find(key_obj->template, CKA_VALUE, &attr);
 	if (rc == FALSE) {
-		OCK_LOG_ERR(ERR_FUNCTION_FAILED);
+		TRACE_ERROR("Could not find CKA_VALUE in the template\n");
 		return CKR_FUNCTION_FAILED;
 	} else
 		key_bytes = attr->ulValueLen;
@@ -1497,7 +1510,7 @@ CK_RV sha5_hmac_sign(SESSION *sess, CK_BBOOL length_only,
 
 		rc = digest_mgr_init(sess, &digest_ctx, &digest_mech);
 		if (rc != CKR_OK) {
-			OCK_LOG_ERR(ERR_DIGEST_INIT);
+			TRACE_DEBUG("Digest Mgr Init failed.\n");
 			return rc;
 		}
 
@@ -1505,7 +1518,7 @@ CK_RV sha5_hmac_sign(SESSION *sess, CK_BBOOL length_only,
 		rc = digest_mgr_digest(sess, FALSE, &digest_ctx, attr->pValue,
 					attr->ulValueLen, hash, &hash_len);
 		if (rc != CKR_OK) {
-			OCK_LOG_ERR(ERR_DIGEST);
+			TRACE_DEBUG("Digest Mgr Digest failed.\n");
 			return rc;
 		}
 
@@ -1538,26 +1551,26 @@ CK_RV sha5_hmac_sign(SESSION *sess, CK_BBOOL length_only,
 	//
 	rc = digest_mgr_init(sess, &digest_ctx, &digest_mech);
 	if (rc != CKR_OK) {
-		OCK_LOG_ERR(ERR_DIGEST_INIT);
+		TRACE_DEBUG("Digest Mgr Init failed.\n");
 		return rc;
 	}
 
 	rc = digest_mgr_digest_update(sess, &digest_ctx, k_ipad, SHA5_BLOCK_SIZE);
 	if (rc != CKR_OK) {
-		OCK_LOG_ERR(ERR_DIGEST_UPDATE);
+		TRACE_DEBUG("Digest Mgr Update failed.\n");
 		return rc;
 	}
 
 	rc = digest_mgr_digest_update(sess, &digest_ctx, in_data, in_data_len);
 	if (rc != CKR_OK) {
-		OCK_LOG_ERR(ERR_DIGEST_UPDATE);
+		TRACE_DEBUG("Digest Mgr Update failed.\n");
 		return rc;
 	}
 
 	hash_len = sizeof(hash);
 	rc = digest_mgr_digest_final(sess, FALSE, &digest_ctx, hash, &hash_len);
 	if (rc != CKR_OK) {
-		OCK_LOG_ERR(ERR_DIGEST_FINAL);
+		TRACE_DEBUG("Digest Mgr Final failed.\n");
 		return rc;
 	}
 
@@ -1567,26 +1580,26 @@ CK_RV sha5_hmac_sign(SESSION *sess, CK_BBOOL length_only,
 	//
 	rc = digest_mgr_init(sess, &digest_ctx, &digest_mech);
 	if (rc != CKR_OK) {
-		OCK_LOG_ERR(ERR_DIGEST_INIT);
+		TRACE_DEBUG("Digest Mgr Init failed.\n");
 		return rc;
 	}
 
 	rc = digest_mgr_digest_update(sess, &digest_ctx, k_opad, SHA5_BLOCK_SIZE);
 	if (rc != CKR_OK) {
-		OCK_LOG_ERR(ERR_DIGEST_UPDATE);
+		TRACE_DEBUG("Digest Mgr Update failed.\n");
 		return rc;
 	}
 
 	rc = digest_mgr_digest_update(sess, &digest_ctx, hash, hash_len);
 	if (rc != CKR_OK) {
-		OCK_LOG_ERR(ERR_DIGEST_UPDATE);
+		TRACE_DEBUG("Digest Mgr Update failed.\n");
 		return rc;
 	}
 
 	hash_len = sizeof(hash);
 	rc = digest_mgr_digest_final(sess, FALSE, &digest_ctx, hash, &hash_len);
 	if (rc != CKR_OK) {
-		OCK_LOG_ERR(ERR_DIGEST_FINAL);
+		TRACE_DEBUG("Digest Mgr Final failed.\n");
 		return rc;
 	}
 
@@ -1606,7 +1619,7 @@ CK_RV sha1_hmac_verify(SESSION *sess, SIGN_VERIFY_CONTEXT *ctx,
 	CK_RV rc;
 
 	if (!sess || !ctx || !in_data || !signature) {
-		OCK_LOG_ERR(ERR_FUNCTION_FAILED);
+		TRACE_ERROR("%s received bad argument(s)\n", __FUNCTION__);
 		return CKR_FUNCTION_FAILED;
 	}
 
@@ -1619,24 +1632,24 @@ CK_RV sha1_hmac_verify(SESSION *sess, SIGN_VERIFY_CONTEXT *ctx,
 
 	rc = sign_mgr_init(sess, &hmac_ctx, &ctx->mech, FALSE, ctx->key);
 	if (rc != CKR_OK) {
-		OCK_LOG_ERR(ERR_SIGN_INIT);
+		TRACE_DEBUG("Sign Mgr Init failed.\n");
 		goto done;
 	}
 	len = sizeof(hmac);
 	rc = sign_mgr_sign(sess, FALSE, &hmac_ctx, in_data, in_data_len,
 			   hmac, &len);
 	if (rc != CKR_OK) {
-		OCK_LOG_ERR(ERR_SIGN);
+		TRACE_DEBUG("Sign Mgr Sign failed.\n");
 		goto done;
 	}
 	if ((len != hmac_len) || (len != sig_len)) {
-		OCK_LOG_ERR(ERR_SIGNATURE_LEN_RANGE);
+		TRACE_ERROR("%s\n", ock_err(ERR_SIGNATURE_LEN_RANGE));
 		rc = CKR_SIGNATURE_LEN_RANGE;
 		goto done;
 	}
 
 	if (memcmp(hmac, signature, hmac_len) != 0) {
-		OCK_LOG_ERR(ERR_SIGNATURE_INVALID);
+		TRACE_ERROR("%s\n", ock_err(ERR_SIGNATURE_INVALID));
 		rc = CKR_SIGNATURE_INVALID;
 	}
 
@@ -1655,7 +1668,7 @@ CK_RV sha2_hmac_verify(SESSION *sess, SIGN_VERIFY_CONTEXT *ctx,
 	CK_RV rc;
 
 	if (!sess || !ctx || !in_data || !signature) {
-		OCK_LOG_ERR(ERR_FUNCTION_FAILED);
+		TRACE_ERROR("%s received bad argument(s)\n", __FUNCTION__);
 		return CKR_FUNCTION_FAILED;
 	}
 
@@ -1668,7 +1681,7 @@ CK_RV sha2_hmac_verify(SESSION *sess, SIGN_VERIFY_CONTEXT *ctx,
 
 	rc = sign_mgr_init(sess, &hmac_ctx, &ctx->mech, FALSE, ctx->key);
 	if (rc != CKR_OK) {
-		OCK_LOG_ERR(ERR_SIGN_INIT);
+		TRACE_DEBUG("Sign Mgr Init failed.\n");
 		goto done;
 	}
 
@@ -1676,18 +1689,18 @@ CK_RV sha2_hmac_verify(SESSION *sess, SIGN_VERIFY_CONTEXT *ctx,
 	rc = sign_mgr_sign(sess, FALSE, &hmac_ctx, in_data, in_data_len,
 			   hmac, &len);
 	if (rc != CKR_OK) {
-		OCK_LOG_ERR(ERR_SIGN);
+		TRACE_DEBUG("Sign Mgr Sign failed.\n");
 		goto done;
 	}
 
 	if ((len != hmac_len) || (len != sig_len)) {
-		OCK_LOG_ERR(ERR_SIGNATURE_LEN_RANGE);
+		TRACE_ERROR("%s\n", ock_err(ERR_SIGNATURE_LEN_RANGE));
 		rc = CKR_SIGNATURE_LEN_RANGE;
 		goto done;
 	}
 
 	if (memcmp(hmac, signature, hmac_len) != 0) {
-		OCK_LOG_ERR(ERR_SIGNATURE_INVALID);
+		TRACE_ERROR("%s\n", ock_err(ERR_SIGNATURE_INVALID));
 		rc = CKR_SIGNATURE_INVALID;
 	}
 
@@ -1706,7 +1719,7 @@ CK_RV sha3_hmac_verify(SESSION *sess, SIGN_VERIFY_CONTEXT *ctx,
 	CK_RV rc;
 
 	if (!sess || !ctx || !in_data || !signature) {
-		OCK_LOG_ERR(ERR_FUNCTION_FAILED);
+		TRACE_ERROR("%s received bad argument(s)\n", __FUNCTION__);
 		return CKR_FUNCTION_FAILED;
 	}
 	if (ctx->mech.mechanism == CKM_SHA384_HMAC_GENERAL)
@@ -1718,24 +1731,24 @@ CK_RV sha3_hmac_verify(SESSION *sess, SIGN_VERIFY_CONTEXT *ctx,
 
 	rc = sign_mgr_init(sess, &hmac_ctx, &ctx->mech, FALSE, ctx->key);
 	if (rc != CKR_OK) {
-		OCK_LOG_ERR(ERR_SIGN_INIT);
+		TRACE_DEBUG("Sign Mgr Init failed.\n");
 		goto done;
 	}
 	len = sizeof(hmac);
 	rc = sign_mgr_sign(sess, FALSE, &hmac_ctx, in_data, in_data_len,
 			   hmac, &len);
 	if (rc != CKR_OK) {
-		OCK_LOG_ERR(ERR_SIGN);
+		TRACE_DEBUG("Sign Mgr Sign failed.\n");
 		goto done;
 	}
 	if ((len != hmac_len) || (len != sig_len)) {
-		OCK_LOG_ERR(ERR_SIGNATURE_LEN_RANGE);
+		TRACE_ERROR("%s\n", ock_err(ERR_SIGNATURE_LEN_RANGE));
 		rc = CKR_SIGNATURE_LEN_RANGE;
 		goto done;
 	}
 
 	if (memcmp(hmac, signature, hmac_len) != 0) {
-		OCK_LOG_ERR(ERR_SIGNATURE_INVALID);
+		TRACE_ERROR("%s\n", ock_err(ERR_SIGNATURE_INVALID));
 		rc = CKR_SIGNATURE_INVALID;
 	}
 done:
@@ -1753,7 +1766,7 @@ CK_RV sha5_hmac_verify(SESSION *sess, SIGN_VERIFY_CONTEXT *ctx,
 	CK_RV rc;
 
 	if (!sess || !ctx || !in_data || !signature) {
-		OCK_LOG_ERR(ERR_FUNCTION_FAILED);
+		TRACE_ERROR("%s received bad argument(s)\n", __FUNCTION__);
 		return CKR_FUNCTION_FAILED;
 	}
 	if (ctx->mech.mechanism == CKM_SHA512_HMAC_GENERAL)
@@ -1765,24 +1778,24 @@ CK_RV sha5_hmac_verify(SESSION *sess, SIGN_VERIFY_CONTEXT *ctx,
 
 	rc = sign_mgr_init(sess, &hmac_ctx, &ctx->mech, FALSE, ctx->key);
 	if (rc != CKR_OK) {
-		OCK_LOG_ERR(ERR_SIGN_INIT);
+		TRACE_DEBUG("Sign Mgr Init failed.\n");
 		goto done;
 	}
 	len = sizeof(hmac);
 	rc = sign_mgr_sign(sess, FALSE, &hmac_ctx, in_data, in_data_len,
 			   hmac, &len);
 	if (rc != CKR_OK) {
-		OCK_LOG_ERR(ERR_SIGN);
+		TRACE_DEBUG("Sign Mgr Sign failed.\n");
 		goto done;
 	}
 	if ((len != hmac_len) || (len != sig_len)) {
-		OCK_LOG_ERR(ERR_SIGNATURE_LEN_RANGE);
+		TRACE_ERROR("%s\n", ock_err(ERR_SIGNATURE_LEN_RANGE));
 		rc = CKR_SIGNATURE_LEN_RANGE;
 		goto done;
 	}
 
 	if (memcmp(hmac, signature, hmac_len) != 0) {
-		OCK_LOG_ERR(ERR_SIGNATURE_INVALID);
+		TRACE_ERROR("%s\n", ock_err(ERR_SIGNATURE_INVALID));
 		rc = CKR_SIGNATURE_INVALID;
 	}
 done:

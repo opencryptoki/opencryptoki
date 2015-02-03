@@ -297,6 +297,7 @@
 #include "defs.h"
 #include "host_defs.h"
 #include "h_extern.h"
+#include "trace.h"
 #include "sw_crypt.h"
 
 CK_RV
@@ -315,13 +316,10 @@ sw_des3_cbc(CK_BYTE * in_data,
 	const_des_cblock key_SSL1, key_SSL2, key_SSL3;
 	des_cblock ivec;
 
-	OCK_LOG_DEBUG("Enter");
-
 	// the des decrypt will only fail if the data length is not evenly divisible
 	// by 8
 	if (in_data_len % 8) {
-		OCK_LOG_ERR(ERR_DATA_LEN_RANGE);
-		OCK_LOG_DEBUG("CKR_DATA_LEN_RANGE");
+		TRACE_ERROR("%s\n", ock_err(ERR_DATA_LEN_RANGE));
 		return CKR_DATA_LEN_RANGE;
 	}
 

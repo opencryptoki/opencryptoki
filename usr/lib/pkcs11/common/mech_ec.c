@@ -19,6 +19,7 @@
 #include "host_defs.h"
 #include "h_extern.h"
 #include "tok_spec_struct.h"
+#include "trace.h"
 
 CK_RV
 ckm_ec_key_pair_gen( TEMPLATE  * publ_tmpl,
@@ -27,7 +28,7 @@ ckm_ec_key_pair_gen( TEMPLATE  * publ_tmpl,
 	CK_RV rc;
 	rc = token_specific.t_ec_generate_keypair(publ_tmpl, priv_tmpl);
 	if (rc != CKR_OK)
-		OCK_LOG_ERR(ERR_KEYGEN);
+		TRACE_ERROR("Key Generation failed\n");
 	return rc;
 }
 
@@ -44,7 +45,7 @@ ckm_ec_sign( CK_BYTE		*in_data,
 
 	rc = template_attribute_find( key_obj->template, CKA_CLASS, &attr );
 	if (rc == FALSE){
-		OCK_LOG_ERR(ERR_FUNCTION_FAILED);
+		TRACE_ERROR("Could not find CKA_CLASS in the template\n");
 		return CKR_FUNCTION_FAILED;
 	}
 	else
@@ -53,13 +54,13 @@ ckm_ec_sign( CK_BYTE		*in_data,
 	// this had better be a private key
 	//
 	if (keyclass != CKO_PRIVATE_KEY){
-		OCK_LOG_ERR(ERR_FUNCTION_FAILED);
-		return CKR_FUNCTION_FAILED;
+		TRACE_ERROR("This operation requires a private key.\n");
+		return CKR_KEY_FUNCTION_NOT_PERMITTED;
 	}
 	rc = token_specific.t_ec_sign(in_data, in_data_len, out_data,
 					out_data_len, key_obj);
 	if (rc != CKR_OK)
-		OCK_LOG_ERR(ERR_EC_SIGN);
+		TRACE_DEBUG("EC Sign failed.\n");
 
 	return rc;
 }
@@ -79,19 +80,22 @@ ec_sign( SESSION			*sess,
 	CK_RV            rc;
 
 	if (!sess || !ctx || !out_data_len){
-		OCK_LOG_ERR(ERR_FUNCTION_FAILED);
+		TRACE_ERROR("%s received bad argument(s)\n", __FUNCTION__);
 		return CKR_FUNCTION_FAILED;
 	}
 
 	rc = object_mgr_find_in_map1( ctx->key, &key_obj );
 	if (rc != CKR_OK){
-		OCK_LOG_ERR(ERR_OBJMGR_FIND_MAP);
-		return rc;
+		TRACE_ERROR("Failed to acquire key from specified handle");
+		if (rc == CKR_OBJECT_HANDLE_INVALID)
+			return CKR_KEY_HANDLE_INVALID;
+		else
+			return rc;
 	}
 
 	rc = get_ecsiglen(key_obj, &plen);
 	if (rc != CKR_OK) {
-		OCK_LOG_ERR(ERR_FUNCTION_FAILED);
+		TRACE_DEBUG("get_ecsiglen failed.\n");
 		return rc;
 	}
 
@@ -101,15 +105,12 @@ ec_sign( SESSION			*sess,
 	}
 
 	if (*out_data_len < plen) {
-		OCK_LOG_ERR(ERR_BUFFER_TOO_SMALL);
+		TRACE_ERROR("%s\n", ock_err(ERR_BUFFER_TOO_SMALL));
 		return CKR_BUFFER_TOO_SMALL;
 	}
 
 	rc = ckm_ec_sign( in_data, in_data_len, out_data,
 			out_data_len, key_obj );
-	if (rc != CKR_OK)
-		OCK_LOG_ERR(ERR_EC_SIGN);
-
 	return rc;
 }
 
@@ -126,7 +127,7 @@ ckm_ec_verify( CK_BYTE		*in_data,
 
 	rc = template_attribute_find( key_obj->template, CKA_CLASS, &attr );
 	if (rc == FALSE){
-		OCK_LOG_ERR(ERR_FUNCTION_FAILED);
+		TRACE_ERROR("Could not find CKA_CLASS in the template\n");
 		return CKR_FUNCTION_FAILED;
 	}
 	else
@@ -135,14 +136,14 @@ ckm_ec_verify( CK_BYTE		*in_data,
 	// this had better be a public key
 	//
 	if (keyclass != CKO_PUBLIC_KEY){
-		OCK_LOG_ERR(ERR_FUNCTION_FAILED);
-		return CKR_FUNCTION_FAILED;
+		TRACE_ERROR("This operation requires a public key.\n");
+		return CKR_KEY_FUNCTION_NOT_PERMITTED;
 	}
 
 	rc = token_specific.t_ec_verify(in_data, in_data_len,
 			out_data, out_data_len, key_obj);
 	if (rc != CKR_OK)
-		OCK_LOG_ERR(ERR_EC_VERIFY);
+		TRACE_ERROR("Token specific ec verify failed.\n");
 
 	return rc;
 }
@@ -163,26 +164,27 @@ ec_verify(SESSION		*sess,
 
 	rc = object_mgr_find_in_map1(ctx->key, &key_obj);
 	if (rc != CKR_OK){
-		OCK_LOG_ERR(ERR_OBJMGR_FIND_MAP);
-		return rc;
+		TRACE_ERROR("Failed to acquire key from specified handle");
+		if (rc == CKR_OBJECT_HANDLE_INVALID)
+			return CKR_KEY_HANDLE_INVALID;
+		else
+			return rc;
 	}
 
 	rc = get_ecsiglen(key_obj, &plen);
 	if (rc != CKR_OK) {
-		OCK_LOG_ERR(ERR_FUNCTION_FAILED);
+		TRACE_DEBUG("get_ecsiglen failed.\n");
 		return rc;
 	}
 
 	// check input data length restrictions
 	//
 	if (sig_len > plen){
-		OCK_LOG_ERR(ERR_SIGNATURE_LEN_RANGE);
+		TRACE_ERROR("%s\n", ock_err(ERR_SIGNATURE_LEN_RANGE));
 		return CKR_SIGNATURE_LEN_RANGE;
 	}
 	rc = ckm_ec_verify(in_data, in_data_len, signature,
 			sig_len, key_obj);
-	if (rc != CKR_OK)
-		OCK_LOG_ERR(ERR_EC_VERIFY);
 
 	return rc;
 }
@@ -205,7 +207,7 @@ ec_hash_sign( SESSION              * sess,
    CK_RV                rc;
 
    if (!sess || !ctx || !in_data){
-      OCK_LOG_ERR(ERR_FUNCTION_FAILED);
+      TRACE_ERROR("%s received bad argument(s)\n", __FUNCTION__);
       return CKR_FUNCTION_FAILED;
    }
    memset( &digest_ctx, 0x0, sizeof(digest_ctx) );
@@ -217,13 +219,13 @@ ec_hash_sign( SESSION              * sess,
 
    rc = digest_mgr_init( sess, &digest_ctx, &digest_mech );
    if (rc != CKR_OK){
-      OCK_LOG_ERR(ERR_DIGEST_INIT);
+      TRACE_DEBUG("Digest Mgr Init failed.\n");
       return rc;
    }
    hash_len = sizeof(hash);
    rc = digest_mgr_digest( sess, length_only, &digest_ctx, in_data, in_data_len, hash, &hash_len );
    if (rc != CKR_OK){
-      OCK_LOG_ERR(ERR_DIGEST);
+      TRACE_DEBUG("Digest Mgr Digest failed.\n");
       return rc;
    }
 
@@ -233,13 +235,13 @@ ec_hash_sign( SESSION              * sess,
 
    rc = sign_mgr_init( sess, &sign_ctx, &sign_mech, FALSE, ctx->key );
    if (rc != CKR_OK){
-      OCK_LOG_ERR(ERR_SIGN_INIT);
+      TRACE_DEBUG("Sign Mgr Init failed.\n");
       goto error;
    }
 
    rc = sign_mgr_sign( sess, length_only, &sign_ctx, hash, hash_len, signature, sig_len );
    if (rc != CKR_OK)
-      OCK_LOG_ERR(ERR_SIGN);
+      TRACE_DEBUG("Sign Mgr Sign failed.\n");
 
 error:
    sign_mgr_cleanup( &sign_ctx );
@@ -257,7 +259,7 @@ ec_hash_sign_update( SESSION              * sess,
    CK_RV                 rc;
 
    if (!sess || !ctx) {
-      OCK_LOG_ERR(ERR_FUNCTION_FAILED);
+      TRACE_ERROR("%s received bad argument(s)\n", __FUNCTION__);
       return CKR_FUNCTION_FAILED;
    }
    context = (RSA_DIGEST_CONTEXT *)ctx->context;
@@ -269,7 +271,7 @@ ec_hash_sign_update( SESSION              * sess,
 
       rc = digest_mgr_init( sess, &context->hash_context, &digest_mech );
       if (rc != CKR_OK){
-         OCK_LOG_ERR(ERR_DIGEST_INIT);
+	 TRACE_DEBUG("Digest Mgr Init failed.\n");
          return rc;
       }
       context->flag = TRUE;
@@ -277,7 +279,7 @@ ec_hash_sign_update( SESSION              * sess,
 
    rc = digest_mgr_digest_update( sess, &context->hash_context, in_data, in_data_len );
    if (rc != CKR_OK){
-      OCK_LOG_ERR(ERR_DIGEST_UPDATE);
+      TRACE_DEBUG("Digest Mgr Update failed.\n");
       return rc;
    }
    return CKR_OK;
@@ -298,7 +300,7 @@ ec_hash_sign_final( SESSION              * sess,
    CK_RV                 rc;
 
    if (!sess || !ctx || !sig_len){
-      OCK_LOG_ERR(ERR_FUNCTION_FAILED);
+      TRACE_ERROR("%s received bad argument(s)\n", __FUNCTION__);
       return CKR_FUNCTION_FAILED;
    }
 
@@ -309,7 +311,7 @@ ec_hash_sign_final( SESSION              * sess,
    hash_len = sizeof(hash);
    rc = digest_mgr_digest_final( sess, length_only, &context->hash_context, hash, &hash_len );
    if (rc != CKR_OK){
-      OCK_LOG_ERR(ERR_DIGEST_FINAL);
+      TRACE_DEBUG("Digest Mgr Final failed.\n");
       return rc;
    }
 
@@ -319,14 +321,14 @@ ec_hash_sign_final( SESSION              * sess,
 
    rc = sign_mgr_init( sess, &sign_ctx, &sign_mech, FALSE, ctx->key );
    if (rc != CKR_OK){
-      OCK_LOG_ERR(ERR_SIGN_INIT);
+      TRACE_DEBUG("Sign Mgr Init failed.\n");
       goto done;
    }
 
    //rc = sign_mgr_sign( sess, length_only, &sign_ctx, ber_data, ber_data_len, signature, sig_len );
    rc = sign_mgr_sign( sess, length_only, &sign_ctx, hash, hash_len, signature, sig_len );
    if (rc != CKR_OK)
-      OCK_LOG_ERR(ERR_SIGN);
+      TRACE_DEBUG("Sign Mgr Sign failed.\n");
 
    if (length_only == TRUE || rc == CKR_BUFFER_TOO_SMALL) {
       sign_mgr_cleanup( &sign_ctx );
@@ -355,7 +357,7 @@ ec_hash_verify( SESSION              * sess,
    CK_RV                rc;
 
    if (!sess || !ctx || !in_data){
-      OCK_LOG_ERR(ERR_FUNCTION_FAILED);
+      TRACE_ERROR("%s received bad argument(s)\n", __FUNCTION__);
       return CKR_FUNCTION_FAILED;
    }
    memset( &digest_ctx, 0x0, sizeof(digest_ctx) );
@@ -367,13 +369,13 @@ ec_hash_verify( SESSION              * sess,
 
    rc = digest_mgr_init( sess, &digest_ctx, &digest_mech );
    if (rc != CKR_OK){
-      OCK_LOG_ERR(ERR_DIGEST_INIT);
+      TRACE_DEBUG("Digest Mgr Init failed.\n");
       return rc;
    }
    hash_len = sizeof(hash);
    rc = digest_mgr_digest( sess, FALSE, &digest_ctx, in_data, in_data_len, hash, &hash_len );
    if (rc != CKR_OK){
-      OCK_LOG_ERR(ERR_DIGEST);
+      TRACE_DEBUG("Digest Mgr Digest failed.\n");
       return rc;
    }
 
@@ -385,14 +387,14 @@ ec_hash_verify( SESSION              * sess,
 
    rc = verify_mgr_init( sess, &verify_ctx, &verify_mech, FALSE, ctx->key );
    if (rc != CKR_OK){
-      OCK_LOG_ERR(ERR_VERIFY_INIT);
+      TRACE_DEBUG("Verify Mgr Init failed.\n");
       goto done;
    }
 
    //rc = verify_mgr_verify( sess, &verify_ctx, ber_data, ber_data_len, signature, sig_len );
    rc = verify_mgr_verify( sess, &verify_ctx, hash, hash_len, signature, sig_len );
    if (rc != CKR_OK)
-      OCK_LOG_ERR(ERR_VERIFY);
+      TRACE_DEBUG("Verify Mgr Verify failed.\n");
 done:
    sign_mgr_cleanup( &verify_ctx );
    return rc;
@@ -410,7 +412,7 @@ ec_hash_verify_update( SESSION              * sess,
    CK_RV                 rc;
 
    if (!sess || !ctx) {
-      OCK_LOG_ERR(ERR_FUNCTION_FAILED);
+      TRACE_ERROR("%s received bad argument(s)\n", __FUNCTION__);
       return CKR_FUNCTION_FAILED;
    }
    context = (RSA_DIGEST_CONTEXT *)ctx->context;
@@ -422,7 +424,7 @@ ec_hash_verify_update( SESSION              * sess,
 
       rc = digest_mgr_init( sess, &context->hash_context, &digest_mech );
       if (rc != CKR_OK){
-         OCK_LOG_ERR(ERR_DIGEST_INIT);
+	 TRACE_DEBUG("Digest Mgr Init failed.\n");
          return rc;
       }
       context->flag = TRUE;
@@ -430,7 +432,7 @@ ec_hash_verify_update( SESSION              * sess,
 
    rc = digest_mgr_digest_update( sess, &context->hash_context, in_data, in_data_len );
    if (rc != CKR_OK){
-      OCK_LOG_ERR(ERR_DIGEST_UPDATE);
+      TRACE_DEBUG("Digest Mgr Update failed.\n");
       return rc;
    }
    return CKR_OK;
@@ -450,7 +452,7 @@ ec_hash_verify_final( SESSION              * sess,
    CK_RV                 rc;
 
    if (!sess || !ctx || !signature){
-      OCK_LOG_ERR(ERR_FUNCTION_FAILED);
+      TRACE_ERROR("%s received bad argument(s)\n", __FUNCTION__);
       return CKR_FUNCTION_FAILED;
    }
    memset( &verify_ctx, 0x0, sizeof(verify_ctx));
@@ -460,7 +462,7 @@ ec_hash_verify_final( SESSION              * sess,
    hash_len = sizeof(hash);
    rc = digest_mgr_digest_final( sess, FALSE, &context->hash_context, hash, &hash_len );
    if (rc != CKR_OK){
-      OCK_LOG_ERR(ERR_DIGEST_FINAL);
+      TRACE_DEBUG("Digest Mgr Final failed.\n");
       return rc;
    }
    verify_mech.mechanism      = CKM_ECDSA;
@@ -469,13 +471,13 @@ ec_hash_verify_final( SESSION              * sess,
 
    rc = verify_mgr_init( sess, &verify_ctx, &verify_mech, FALSE, ctx->key );
    if (rc != CKR_OK){
-      OCK_LOG_ERR(ERR_VERIFY_INIT);
+      TRACE_DEBUG("Verify Mgr Init failed.\n");
       goto done;
    }
 
    rc = verify_mgr_verify( sess, &verify_ctx, hash, hash_len, signature, sig_len );
    if (rc != CKR_OK)
-      OCK_LOG_ERR(ERR_VERIFY);
+      TRACE_DEBUG("Verify Mgr Verify failed.\n");
 done:
    verify_mgr_cleanup( &verify_ctx );
    return rc;

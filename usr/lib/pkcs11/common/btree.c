@@ -34,15 +34,7 @@
 
 #include "pkcs11types.h"
 #include "local_types.h"
-
-#ifdef DEBUG
-#define OCK_LOG_DEBUG	ock_logit
-#define DBG(fmt, ...)	OCK_LOG_DEBUG("%s:%d " fmt "\n", __FILE__, __LINE__, ##__VA_ARGS__)
-#else
-#define OCK_LOG_DEBUG(fmt, ...)
-#define DBG(fmt, ...)
-#endif
-
+#include "trace.h"
 
 #define GET_NODE_HANDLE(n)	get_node_handle(n, 1)
 #define TREE_DUMP(t)		tree_dump((t)->top, 0)
@@ -95,7 +87,7 @@ node_create(struct btnode **child_ptr, struct btnode *parent_ptr, void *value)
 	struct btnode *node = malloc(sizeof(struct btnode));
 
 	if (!node) {
-		DBG("malloc of %d bytes failed", sizeof(struct btnode));
+		TRACE_ERROR("malloc of %d bytes failed", sizeof(struct btnode));
 		return NULL;
 	}
 
@@ -136,11 +128,10 @@ bt_node_add(struct btree *t, void *value)
 		/* no root node yet exists, create it */
 		t->size = 1;
 		if (!node_create(&t->top, NULL, value)) {
-			DBG("Error creating node");
+			TRACE_ERROR("Error creating node");
 			return 0;
 		}
 
-		//DBG("bt_node_add returned new node handle 1 for value %p", value);
 		return 1;
 	} else if (t->free_list) {
 		/* there's a node on the free list, use it instead of mallocing new */
@@ -150,7 +141,6 @@ bt_node_add(struct btree *t, void *value)
 		temp->flags &= (~BT_FLAG_FREE);
 		t->free_nodes--;
 		new_node_index = GET_NODE_HANDLE(temp);
-		//DBG("bt_node_add returned new node handle %lu for value %p", new_node_index, value);
 		return new_node_index;
 	}
 
@@ -161,7 +151,7 @@ bt_node_add(struct btree *t, void *value)
 		if (new_node_index & 1) {
 			if (!temp->right) {
 				if (!(node_create(&temp->right, temp, value))) {
-					DBG("node_create failed");
+					TRACE_ERROR("node_create failed");
 					return 0;
 				}
 
@@ -172,7 +162,7 @@ bt_node_add(struct btree *t, void *value)
 		} else {
 			if (!temp->left) {
 				if (!(node_create(&temp->left, temp, value))) {
-					DBG("node_create failed");
+					TRACE_ERROR("node_create failed");
 					return 0;
 				}
 
@@ -186,7 +176,6 @@ bt_node_add(struct btree *t, void *value)
 	}
 
 	t->size++;
-	//DBG("bt_node_add returned new node handle %lu for value %p", t->size, value);
 
 	return t->size;
 }

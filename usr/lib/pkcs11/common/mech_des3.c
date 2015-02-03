@@ -302,6 +302,7 @@
 #include "host_defs.h"
 #include "h_extern.h"
 #include "tok_spec_struct.h"
+#include "trace.h"
 
 
 //
@@ -320,19 +321,19 @@ des3_ecb_encrypt( SESSION           *sess,
 
 
    if (!sess || !ctx || !out_data_len){
-      OCK_LOG_ERR(ERR_FUNCTION_FAILED);
+      TRACE_ERROR("%s received bad argument(s)\n", __FUNCTION__);
       return CKR_FUNCTION_FAILED;
    }
    // CKM_DES3_ECB requires the input data to be an integral
    // multiple of the block size
    //
    if (in_data_len % DES_BLOCK_SIZE != 0){
-      OCK_LOG_ERR(ERR_DATA_LEN_RANGE);
+      TRACE_ERROR("%s\n", ock_err(ERR_DATA_LEN_RANGE));
       return CKR_DATA_LEN_RANGE;
    }
    rc = object_mgr_find_in_map1( ctx->key, &key );
    if (rc != CKR_OK){
-      OCK_LOG_ERR(ERR_OBJMGR_FIND_MAP);
+      TRACE_ERROR("Failed to find specified object.\n");
       return rc;
    }
 
@@ -343,7 +344,7 @@ des3_ecb_encrypt( SESSION           *sess,
 
    if (*out_data_len < in_data_len) {
       *out_data_len = in_data_len;
-      OCK_LOG_ERR(ERR_BUFFER_TOO_SMALL);
+      TRACE_ERROR("%s\n", ock_err(ERR_BUFFER_TOO_SMALL));
       return CKR_BUFFER_TOO_SMALL;
    }
 
@@ -368,19 +369,19 @@ des3_ecb_decrypt( SESSION           *sess,
 
 
    if (!sess || !ctx || !out_data_len){
-      OCK_LOG_ERR(ERR_FUNCTION_FAILED);
+      TRACE_ERROR("%s received bad argument(s)\n", __FUNCTION__);
       return CKR_FUNCTION_FAILED;
    }
    // CKM_DES3_ECB requires the input data to be an integral
    // multiple of the block size
    //
    if (in_data_len % DES_BLOCK_SIZE != 0){
-      OCK_LOG_ERR(ERR_DATA_LEN_RANGE);
+      TRACE_ERROR("%s\n", ock_err(ERR_ENCRYPTED_DATA_LEN_RANGE));
       return CKR_ENCRYPTED_DATA_LEN_RANGE;
    }
    rc = object_mgr_find_in_map1( ctx->key, &key );
    if (rc != CKR_OK){
-      OCK_LOG_ERR(ERR_OBJMGR_FIND_MAP);
+      TRACE_ERROR("Failed to find specified object.\n");
       return rc; 
    }
 
@@ -391,7 +392,7 @@ des3_ecb_decrypt( SESSION           *sess,
 
    if (*out_data_len < in_data_len) {
       *out_data_len = in_data_len;
-      OCK_LOG_ERR(ERR_BUFFER_TOO_SMALL);
+      TRACE_ERROR("%s\n", ock_err(ERR_BUFFER_TOO_SMALL));
       return CKR_BUFFER_TOO_SMALL;
    }
 
@@ -415,20 +416,20 @@ des3_cbc_encrypt( SESSION           *sess,
    CK_RV         rc;
 
    if (!sess || !ctx || !out_data_len){
-      OCK_LOG_ERR(ERR_FUNCTION_FAILED);
+      TRACE_ERROR("%s received bad argument(s)\n", __FUNCTION__);
       return CKR_FUNCTION_FAILED;
    }
    // CKM_DES3_CBC requires the input data to be an integral
    // multiple of the block size
    //
    if (in_data_len % DES_BLOCK_SIZE != 0){
-      OCK_LOG_ERR(ERR_DATA_LEN_RANGE);
+      TRACE_ERROR("%s\n", ock_err(ERR_DATA_LEN_RANGE));
       return CKR_DATA_LEN_RANGE;
    }
 
    rc = object_mgr_find_in_map1( ctx->key, &key );
    if (rc != CKR_OK){
-      OCK_LOG_ERR(ERR_OBJMGR_FIND_MAP);
+      TRACE_ERROR("Failed to find specified object.\n");
       return rc;
    }
 
@@ -439,7 +440,7 @@ des3_cbc_encrypt( SESSION           *sess,
 
    if (*out_data_len < in_data_len) {
       *out_data_len = in_data_len;
-      OCK_LOG_ERR(ERR_BUFFER_TOO_SMALL);
+      TRACE_ERROR("%s\n", ock_err(ERR_BUFFER_TOO_SMALL));
       return CKR_BUFFER_TOO_SMALL;
    }
 
@@ -463,19 +464,19 @@ des3_cbc_decrypt( SESSION            *sess,
 
 
    if (!sess || !ctx || !out_data_len){
-      OCK_LOG_ERR(ERR_FUNCTION_FAILED);
+      TRACE_ERROR("%s received bad argument(s)\n", __FUNCTION__);
       return CKR_FUNCTION_FAILED;
    }
    // CKM_DES3_CBC requires the input data to be an integral
    // multiple of the block size
    //
    if (in_data_len % DES_BLOCK_SIZE != 0){
-      OCK_LOG_ERR(ERR_DATA_LEN_RANGE);
+      TRACE_ERROR("%s\n", ock_err(ERR_ENCRYPTED_DATA_LEN_RANGE));
       return CKR_ENCRYPTED_DATA_LEN_RANGE;
    }
    rc = object_mgr_find_in_map1( ctx->key, &key );
    if (rc != CKR_OK){
-      OCK_LOG_ERR(ERR_OBJMGR_FIND_MAP);
+      TRACE_ERROR("Failed to find specified object.\n");
       return rc;
    }
 
@@ -486,7 +487,7 @@ des3_cbc_decrypt( SESSION            *sess,
 
    if (*out_data_len < in_data_len) {
       *out_data_len = in_data_len;
-      OCK_LOG_ERR(ERR_BUFFER_TOO_SMALL);
+      TRACE_ERROR("%s\n", ock_err(ERR_BUFFER_TOO_SMALL));
       return CKR_BUFFER_TOO_SMALL;
    }
 
@@ -512,7 +513,7 @@ des3_cbc_pad_encrypt( SESSION           *sess,
    CK_RV         rc;
 
    if (!sess || !ctx || !out_data_len){
-      OCK_LOG_ERR(ERR_FUNCTION_FAILED);
+      TRACE_ERROR("%s received bad argument(s)\n", __FUNCTION__);
       return CKR_FUNCTION_FAILED;
    }
    // DES3-CBC-PAD has no input length requirements
@@ -520,7 +521,7 @@ des3_cbc_pad_encrypt( SESSION           *sess,
 
    rc = object_mgr_find_in_map1( ctx->key, &key );
    if (rc != CKR_OK){
-      OCK_LOG_ERR(ERR_OBJMGR_FIND_MAP);
+      TRACE_ERROR("Failed to find specified object.\n");
       return rc;
    }
 
@@ -535,13 +536,13 @@ des3_cbc_pad_encrypt( SESSION           *sess,
 
    if (*out_data_len < padded_len) {
       *out_data_len = padded_len;
-      OCK_LOG_ERR(ERR_BUFFER_TOO_SMALL);
+      TRACE_ERROR("%s\n", ock_err(ERR_BUFFER_TOO_SMALL));
       return CKR_BUFFER_TOO_SMALL;
    }
 
    clear = (CK_BYTE *)malloc( padded_len );
    if (!clear){
-      OCK_LOG_ERR(ERR_HOST_MEMORY);
+      TRACE_ERROR("%s\n", ock_err(ERR_HOST_MEMORY));
       return CKR_HOST_MEMORY;
    }
    memcpy( clear, in_data, in_data_len );
@@ -553,9 +554,6 @@ des3_cbc_pad_encrypt( SESSION           *sess,
 
    rc = ckm_des3_cbc_encrypt(clear, padded_len, out_data, out_data_len,
                               ctx->mech.pParameter, key);
-
-   if (rc != CKR_OK)
-      OCK_LOG_ERR(ERR_DES3_CBC_ENCRYPT);
 
    free( clear );
    return rc;
@@ -580,7 +578,7 @@ des3_cbc_pad_decrypt( SESSION            *sess,
 
 
    if (!sess || !ctx || !out_data_len){
-      OCK_LOG_ERR(ERR_FUNCTION_FAILED);
+      TRACE_ERROR("%s received bad argument(s)\n", __FUNCTION__);
       return CKR_FUNCTION_FAILED;
    }
    //
@@ -589,7 +587,7 @@ des3_cbc_pad_decrypt( SESSION            *sess,
 
    rc = object_mgr_find_in_map1( ctx->key, &key );
    if (rc != CKR_OK){
-      OCK_LOG_ERR(ERR_OBJMGR_FIND_MAP);
+      TRACE_ERROR("Failed to find specified object.\n");
       return rc;
    }
 
@@ -597,7 +595,7 @@ des3_cbc_pad_decrypt( SESSION            *sess,
    // number of block to decrypt
    //
    if (in_data_len % DES_BLOCK_SIZE != 0){
-      OCK_LOG_ERR(ERR_DATA_LEN_RANGE);
+      TRACE_ERROR("%s\n", ock_err(ERR_DATA_LEN_RANGE));
       return CKR_ENCRYPTED_DATA_LEN_RANGE;
    }
    // the amount of cleartext after stripping the padding will actually be less
@@ -612,7 +610,7 @@ des3_cbc_pad_decrypt( SESSION            *sess,
 
    clear = (CK_BYTE *)malloc( padded_len );
    if (!clear){
-      OCK_LOG_ERR(ERR_HOST_MEMORY);
+      TRACE_ERROR("%s\n", ock_err(ERR_HOST_MEMORY));
       return CKR_HOST_MEMORY;
    }
    rc = ckm_des3_cbc_decrypt(in_data, in_data_len, clear, &padded_len,
@@ -622,8 +620,6 @@ des3_cbc_pad_decrypt( SESSION            *sess,
       strip_pkcs_padding( clear, padded_len, out_data_len );
       memcpy( out_data, clear, *out_data_len );
    }
-   else
-      OCK_LOG_ERR(ERR_DES3_CBC_DECRYPT);
 
    free( clear );
    return rc;
@@ -648,7 +644,7 @@ des3_ecb_encrypt_update( SESSION           *sess,
    CK_RV          rc;
 
    if (!sess || !ctx || !out_data_len){
-      OCK_LOG_ERR(ERR_FUNCTION_FAILED);
+      TRACE_ERROR("%s received bad argument(s)\n", __FUNCTION__);
       return CKR_FUNCTION_FAILED;
    }
    context = (DES_CONTEXT *)ctx->context;
@@ -662,8 +658,7 @@ des3_ecb_encrypt_update( SESSION           *sess,
       }
       *out_data_len = 0;
       return CKR_OK;
-   }
-   else {
+   } else {
       // we have at least 1 block
       //
       remain  = (total % DES_BLOCK_SIZE);
@@ -676,13 +671,13 @@ des3_ecb_encrypt_update( SESSION           *sess,
 
       rc = object_mgr_find_in_map_nocache( ctx->key, &key );
       if (rc != CKR_OK){
-         OCK_LOG_ERR(ERR_OBJMGR_FIND_MAP);
+	 TRACE_ERROR("Failed to find specified object.\n");
          return rc;
       }
 
       clear = (CK_BYTE *)malloc( out_len );
       if (!clear){
-         OCK_LOG_ERR(ERR_HOST_MEMORY);
+         TRACE_ERROR("%s\n", ock_err(ERR_HOST_MEMORY));
          return CKR_HOST_MEMORY;
       }
       // copy any data left over from the previous encryption operation first
@@ -707,9 +702,6 @@ des3_ecb_encrypt_update( SESSION           *sess,
       free( clear );
       return rc;
    }
-   OCK_LOG_ERR(ERR_FUNCTION_FAILED);
-
-   return CKR_FUNCTION_FAILED;  // shouldn't reach this
 }
 
 
@@ -731,7 +723,7 @@ des3_ecb_decrypt_update( SESSION           *sess,
    CK_RV          rc;
 
    if (!sess || !ctx || !out_data_len){
-      OCK_LOG_ERR(ERR_FUNCTION_FAILED);
+      TRACE_ERROR("%s received bad argument(s)\n", __FUNCTION__);
       return CKR_FUNCTION_FAILED;
    }
    context = (DES_CONTEXT *)ctx->context;
@@ -760,13 +752,13 @@ des3_ecb_decrypt_update( SESSION           *sess,
 
       rc = object_mgr_find_in_map1( ctx->key, &key );
       if (rc != CKR_OK){
-         OCK_LOG_ERR(ERR_OBJMGR_FIND_MAP);
+	 TRACE_ERROR("Failed to find specified object.\n");
          return rc;
       }
 
       cipher = (CK_BYTE *)malloc( out_len );
       if (!cipher){
-         OCK_LOG_ERR(ERR_HOST_MEMORY);
+         TRACE_ERROR("%s\n", ock_err(ERR_HOST_MEMORY));
          return CKR_HOST_MEMORY;
       }
       // copy any data left over from the previous decryption operation first
@@ -784,15 +776,11 @@ des3_ecb_decrypt_update( SESSION           *sess,
             memcpy( context->data, in_data + (in_data_len - remain), remain );
          context->len = remain;
       }
-      else 
-         OCK_LOG_ERR(ERR_DES3_CBC_ENCRYPT);
 
       free( cipher );
       return rc;
    }
 
-   OCK_LOG_ERR(ERR_FUNCTION_FAILED);
-   return CKR_FUNCTION_FAILED;  // shouldn't reach this
 }
 
 
@@ -815,7 +803,7 @@ des3_cbc_encrypt_update( SESSION           *sess,
 
 
    if (!sess || !ctx || !out_data_len){
-      OCK_LOG_ERR(ERR_FUNCTION_FAILED);
+      TRACE_ERROR("%s received bad argument(s)\n", __FUNCTION__);
       return CKR_FUNCTION_FAILED;
    }
    context = (DES_CONTEXT *)ctx->context;
@@ -830,8 +818,7 @@ des3_cbc_encrypt_update( SESSION           *sess,
 
       *out_data_len = 0;
       return CKR_OK;
-   }
-   else {
+   } else {
       // we have at least 1 block
       //
       remain  = (total % DES_BLOCK_SIZE);
@@ -844,7 +831,7 @@ des3_cbc_encrypt_update( SESSION           *sess,
 
       rc = object_mgr_find_in_map_nocache( ctx->key, &key );
       if (rc != CKR_OK){
-         OCK_LOG_ERR(ERR_OBJMGR_FIND_MAP);
+	 TRACE_ERROR("Failed to find specified object.\n");
          return rc;
       }
 
@@ -852,7 +839,7 @@ des3_cbc_encrypt_update( SESSION           *sess,
       //
       clear  = (CK_BYTE *)malloc( out_len );
       if (!clear){
-         OCK_LOG_ERR(ERR_HOST_MEMORY);
+         TRACE_ERROR("%s\n", ock_err(ERR_HOST_MEMORY));
          return CKR_HOST_MEMORY;
       }
       // copy any data left over from the previous encryption operation first
@@ -876,16 +863,10 @@ des3_cbc_encrypt_update( SESSION           *sess,
             memcpy( context->data, in_data + (in_data_len - remain), remain );
          context->len = remain;
       }
-      else 
-         OCK_LOG_ERR(ERR_DES3_CBC_ENCRYPT);
-
 
       free( clear );
       return rc;
    }
-
-   OCK_LOG_ERR(ERR_FUNCTION_FAILED);
-   return CKR_FUNCTION_FAILED;
 }
 
 
@@ -908,7 +889,7 @@ des3_cbc_decrypt_update( SESSION           *sess,
 
 
    if (!sess || !ctx || !out_data_len){
-      OCK_LOG_ERR(ERR_FUNCTION_FAILED);
+      TRACE_ERROR("%s received bad argument(s)\n", __FUNCTION__);
       return CKR_FUNCTION_FAILED;
    }
    context = (DES_CONTEXT *)ctx->context;
@@ -937,7 +918,7 @@ des3_cbc_decrypt_update( SESSION           *sess,
 
       rc = object_mgr_find_in_map_nocache( ctx->key, &key );
       if (rc != CKR_OK){
-         OCK_LOG_ERR(ERR_OBJMGR_FIND_MAP);
+	 TRACE_ERROR("Failed to find specified object.\n");
          return rc;
       }
 
@@ -945,7 +926,7 @@ des3_cbc_decrypt_update( SESSION           *sess,
       //
       cipher = (CK_BYTE *)malloc( out_len );
       if (!cipher){
-         OCK_LOG_ERR(ERR_HOST_MEMORY);
+         TRACE_ERROR("%s\n", ock_err(ERR_HOST_MEMORY));
          return CKR_HOST_MEMORY;
       }
       // copy any data left over from the previous decryption operation first
@@ -970,16 +951,11 @@ des3_cbc_decrypt_update( SESSION           *sess,
 
          context->len = remain;
       }
-      else 
-         OCK_LOG_ERR(ERR_DES3_CBC_DECRYPT);
-
 
       free( cipher );
       return rc;
    }
 
-   OCK_LOG_ERR(ERR_FUNCTION_FAILED);
-   return CKR_FUNCTION_FAILED;
 }
 
 
@@ -1002,7 +978,7 @@ des3_cbc_pad_encrypt_update( SESSION           *sess,
 
 
    if (!sess || !ctx || !out_data_len){
-      OCK_LOG_ERR(ERR_FUNCTION_FAILED);
+      TRACE_ERROR("%s received bad argument(s)\n", __FUNCTION__);
       return CKR_FUNCTION_FAILED;
    }
    context = (DES_CONTEXT *)ctx->context;
@@ -1040,7 +1016,7 @@ des3_cbc_pad_encrypt_update( SESSION           *sess,
       //
       rc = object_mgr_find_in_map_nocache( ctx->key, &key );
       if (rc != CKR_OK){
-         OCK_LOG_ERR(ERR_OBJMGR_FIND_MAP);
+	 TRACE_ERROR("Failed to find specified object.\n");
          return rc;
       }
 
@@ -1048,7 +1024,7 @@ des3_cbc_pad_encrypt_update( SESSION           *sess,
       //
       clear = (CK_BYTE *)malloc( out_len );
       if (!clear){
-         OCK_LOG_ERR(ERR_HOST_MEMORY);
+         TRACE_ERROR("%s\n", ock_err(ERR_HOST_MEMORY));
          return CKR_HOST_MEMORY;
       }
       // copy any data left over from the previous encryption operation first
@@ -1099,7 +1075,7 @@ des3_cbc_pad_decrypt_update( SESSION           *sess,
 
 
    if (!sess || !ctx || !out_data_len){
-      OCK_LOG_ERR(ERR_FUNCTION_FAILED);
+      TRACE_ERROR("%s received bad argument(s)\n", __FUNCTION__);
       return CKR_FUNCTION_FAILED;
    }
    context = (DES_CONTEXT *)ctx->context;
@@ -1139,7 +1115,7 @@ des3_cbc_pad_decrypt_update( SESSION           *sess,
       //
       rc = object_mgr_find_in_map_nocache( ctx->key, &key );
       if (rc != CKR_OK){
-         OCK_LOG_ERR(ERR_OBJMGR_FIND_MAP);
+	 TRACE_ERROR("Failed to find specified object.\n");
          return rc;
       }
 
@@ -1147,7 +1123,7 @@ des3_cbc_pad_decrypt_update( SESSION           *sess,
       //
       cipher = (CK_BYTE *)malloc( out_len );
       if (!cipher){
-         OCK_LOG_ERR(ERR_HOST_MEMORY);
+         TRACE_ERROR("%s\n", ock_err(ERR_HOST_MEMORY));
          return CKR_HOST_MEMORY;
       }
       // copy any data left over from the previous decryption operation first
@@ -1173,9 +1149,6 @@ des3_cbc_pad_decrypt_update( SESSION           *sess,
       free( cipher );
       return rc;
    }
-
-   OCK_LOG_ERR(ERR_FUNCTION_FAILED);
-   return CKR_FUNCTION_FAILED;
 }
 
 
@@ -1191,7 +1164,7 @@ des3_ecb_encrypt_final( SESSION           *sess,
    DES_CONTEXT *context   = NULL;
 
    if (!sess || !ctx || !out_data_len){
-      OCK_LOG_ERR(ERR_FUNCTION_FAILED);
+      TRACE_ERROR("%s received bad argument(s)\n", __FUNCTION__);
       return CKR_FUNCTION_FAILED;
    }
    // satisfy the compiler
@@ -1206,13 +1179,12 @@ des3_ecb_encrypt_final( SESSION           *sess,
    // that the overall data length was not a multiple of the blocksize
    //
    if (context->len != 0){
-      OCK_LOG_ERR(ERR_DATA_LEN_RANGE);
+      TRACE_ERROR("%s\n", ock_err(ERR_DATA_LEN_RANGE));
       return CKR_DATA_LEN_RANGE;
    }
    *out_data_len = 0;
    return CKR_OK;
 }
-
 
 //
 //
@@ -1226,7 +1198,7 @@ des3_ecb_decrypt_final( SESSION           *sess,
    DES_CONTEXT *context   = NULL;
 
    if (!sess || !ctx || !out_data_len){
-      OCK_LOG_ERR(ERR_FUNCTION_FAILED);
+      TRACE_ERROR("%s received bad argument(s)\n", __FUNCTION__);
       return CKR_FUNCTION_FAILED;
    }
    // satisfy the compiler
@@ -1241,8 +1213,8 @@ des3_ecb_decrypt_final( SESSION           *sess,
    // that the overall data length was not a multiple of the blocksize
    //
    if (context->len != 0){
-      OCK_LOG_ERR(ERR_DATA_LEN_RANGE);
-      return CKR_DATA_LEN_RANGE;
+      TRACE_ERROR("%s\n", ock_err(ERR_ENCRYPTED_DATA_LEN_RANGE));
+      return CKR_ENCRYPTED_DATA_LEN_RANGE;
    }
    *out_data_len = 0;
    return CKR_OK;
@@ -1261,7 +1233,7 @@ des3_cbc_encrypt_final( SESSION            *sess,
    DES_CONTEXT *context   = NULL;
 
    if (!sess || !ctx || !out_data_len){
-      OCK_LOG_ERR(ERR_FUNCTION_FAILED);
+      TRACE_ERROR("%s received bad argument(s)\n", __FUNCTION__);
       return CKR_FUNCTION_FAILED;
    }
    // satisfy the compiler
@@ -1276,7 +1248,7 @@ des3_cbc_encrypt_final( SESSION            *sess,
    // that the overall data length was not a multiple of the blocksize
    //
    if (context->len != 0){
-      OCK_LOG_ERR(ERR_DATA_LEN_RANGE);
+      TRACE_ERROR("%s\n", ock_err(ERR_DATA_LEN_RANGE));
       return CKR_DATA_LEN_RANGE;
    }
    *out_data_len = 0;
@@ -1296,7 +1268,7 @@ des3_cbc_decrypt_final( SESSION           *sess,
    DES_CONTEXT *context   = NULL;
 
    if (!sess || !ctx || !out_data_len){
-      OCK_LOG_ERR(ERR_FUNCTION_FAILED);
+      TRACE_ERROR("%s received bad argument(s)\n", __FUNCTION__);
       return CKR_FUNCTION_FAILED;
    }
    // satisfy the compiler
@@ -1311,8 +1283,8 @@ des3_cbc_decrypt_final( SESSION           *sess,
    // that the overall data length was not a multiple of the blocksize
    //
    if (context->len != 0){
-      OCK_LOG_ERR(ERR_DATA_LEN_RANGE);
-      return CKR_DATA_LEN_RANGE;
+      TRACE_ERROR("%s\n", ock_err(ERR_ENCRYPTED_DATA_LEN_RANGE));
+      return CKR_ENCRYPTED_DATA_LEN_RANGE;
    }
    *out_data_len = 0;
    return CKR_OK;
@@ -1336,13 +1308,13 @@ des3_cbc_pad_encrypt_final( SESSION           *sess,
 
 
    if (!sess || !ctx || !out_data_len){
-      OCK_LOG_ERR(ERR_FUNCTION_FAILED);
+      TRACE_ERROR("%s received bad argument(s)\n", __FUNCTION__);
       return CKR_FUNCTION_FAILED;
    }
 
    rc = object_mgr_find_in_map1( ctx->key, &key );
    if (rc != CKR_OK){
-      OCK_LOG_ERR(ERR_OBJMGR_FIND_MAP);
+      TRACE_ERROR("Failed to find specified object.\n");
       return rc;
    }
 
@@ -1372,9 +1344,6 @@ des3_cbc_pad_encrypt_final( SESSION           *sess,
 
       rc = ckm_des3_cbc_encrypt(clear, out_len, out_data, out_data_len,
                                  ctx->mech.pParameter, key);
-      if (rc != CKR_OK) 
-         OCK_LOG_ERR(ERR_DES3_CBC_ENCRYPT);
-      
       return rc;
    }
 }
@@ -1396,12 +1365,12 @@ des3_cbc_pad_decrypt_final( SESSION           *sess,
    CK_RV           rc;
 
    if (!sess || !ctx || !out_data_len){
-      OCK_LOG_ERR(ERR_FUNCTION_FAILED);
+      TRACE_ERROR("%s received bad argument(s)\n", __FUNCTION__);
       return CKR_FUNCTION_FAILED;
    }
    rc = object_mgr_find_in_map1( ctx->key, &key );
    if (rc != CKR_OK){
-      OCK_LOG_ERR(ERR_OBJMGR_FIND_MAP);
+      TRACE_ERROR("Failed to find specified object.\n");
       return rc;
    }
 
@@ -1410,7 +1379,7 @@ des3_cbc_pad_decrypt_final( SESSION           *sess,
    // there had better be a full block in the context buffer
    //
    if (context->len != DES_BLOCK_SIZE){
-      OCK_LOG_ERR(ERR_DATA_LEN_RANGE);
+      TRACE_ERROR("%s\n", ock_err(ERR_ENCRYPTED_DATA_LEN_RANGE));
       return CKR_ENCRYPTED_DATA_LEN_RANGE;
    }
    // we don't know a priori how much data we'll be returning.  we won't
@@ -1435,8 +1404,6 @@ des3_cbc_pad_decrypt_final( SESSION           *sess,
 
          *out_data_len = out_len;
       }
-      else
-         OCK_LOG_ERR(ERR_DES3_CBC_DECRYPT);
       return rc;
    }
 }
@@ -1454,8 +1421,8 @@ des3_ofb_encrypt( SESSION              * sess,
    OBJECT      * key_obj  = NULL;
 
    if (!sess || !ctx || !in_data || !out_data_len) {
-      OCK_LOG_ERR(ERR_ARGUMENTS_BAD);
-      return CKR_ARGUMENTS_BAD;
+      TRACE_ERROR("%s received bad argument(s)\n", __FUNCTION__);
+      return CKR_FUNCTION_FAILED;
    }
 
    if (length_only == TRUE) {
@@ -1464,21 +1431,20 @@ des3_ofb_encrypt( SESSION              * sess,
    }
 
    if (*out_data_len < in_data_len){
-      OCK_LOG_ERR(ERR_BUFFER_TOO_SMALL);
+      TRACE_ERROR("%s\n", ock_err(ERR_BUFFER_TOO_SMALL));
       return CKR_BUFFER_TOO_SMALL;
    }
 
    rc = object_mgr_find_in_map1( ctx->key, &key_obj );
    if (rc != CKR_OK){
-      OCK_LOG_ERR(ERR_OBJMGR_FIND_MAP);
+      TRACE_ERROR("Failed to find specified object.\n");
       return rc;
    }
 
    rc = token_specific.t_tdes_ofb(in_data, out_data, in_data_len,
                               key_obj, ctx->mech.pParameter, 1);
-
    if (rc != CKR_OK)
-      OCK_LOG_ERR(ERR_DES3_OFB_TOK_SPEC);
+      TRACE_DEBUG("Token specific des3 ofb encrypt failed.\n");
    return rc;
 }
 
@@ -1498,8 +1464,8 @@ des3_ofb_encrypt_update( SESSION              * sess,
    OBJECT       * key_obj  = NULL;
 
    if (!sess || !ctx || !out_data_len) {
-      OCK_LOG_ERR(ERR_ARGUMENTS_BAD);
-      return CKR_ARGUMENTS_BAD;
+      TRACE_ERROR("%s received bad argument(s)\n", __FUNCTION__);
+      return CKR_FUNCTION_FAILED;
    }
    context = (DES_DATA_CONTEXT *)ctx->context;
 
@@ -1525,19 +1491,19 @@ des3_ofb_encrypt_update( SESSION              * sess,
       }
 
       if (*out_data_len < out_len){
-         OCK_LOG_ERR(ERR_BUFFER_TOO_SMALL);
+         TRACE_ERROR("%s\n", ock_err(ERR_BUFFER_TOO_SMALL));
          return CKR_BUFFER_TOO_SMALL;
       }
 
       rc = object_mgr_find_in_map1( ctx->key, &key_obj );
       if (rc != CKR_OK){
-         OCK_LOG_ERR(ERR_OBJMGR_FIND_MAP);
+	 TRACE_ERROR("Failed to find specified object.\n");
          return rc;
       }
 
       cipher = (CK_BYTE *)malloc( out_len );
       if (!cipher){
-         OCK_LOG_ERR(ERR_HOST_MEMORY);
+         TRACE_ERROR("%s\n", ock_err(ERR_HOST_MEMORY));
          return CKR_HOST_MEMORY;
       }
       // copy any data left over from the previous encryption operation first
@@ -1554,9 +1520,8 @@ des3_ofb_encrypt_update( SESSION              * sess,
          if (remain != 0)
             memcpy( context->data, in_data + (in_data_len - remain), remain );
          context->len = remain;
-      }
-      else
-         OCK_LOG_ERR(ERR_DES3_OFB_TOK_SPEC);
+      } else
+	TRACE_DEBUG("Token specific des3 ofb encrypt failed.\n");
       free( cipher );
       return rc;
    }
@@ -1574,7 +1539,7 @@ des3_ofb_encrypt_final( SESSION           *sess,
    CK_RV             rc;
 
    if (!sess || !ctx || !out_data_len){
-      OCK_LOG_ERR(ERR_FUNCTION_FAILED);
+      TRACE_ERROR("%s received bad argument(s)\n", __FUNCTION__);
       return CKR_FUNCTION_FAILED;
    }
 
@@ -1597,15 +1562,14 @@ des3_ofb_encrypt_final( SESSION           *sess,
 
       rc = object_mgr_find_in_map1( ctx->key, &key_obj );
       if (rc != CKR_OK){
-         OCK_LOG_ERR(ERR_OBJMGR_FIND_MAP);
+	 TRACE_ERROR("Failed to find specified object.\n");
          return rc;
       }
 
       rc = token_specific.t_tdes_ofb(context->data, out_data, context->len,
                               key_obj, ctx->mech.pParameter, 1);
-
       if (rc != CKR_OK)
-         OCK_LOG_ERR(ERR_DES3_OFB_TOK_SPEC);
+	 TRACE_DEBUG("Token specific des3 ofb encrypt failed.\n");
 
       *out_data_len = context->len;
       return rc;
@@ -1625,8 +1589,8 @@ des3_ofb_decrypt( SESSION              * sess,
    OBJECT           *key_obj  = NULL;
 
    if (!sess || !ctx || !in_data || !out_data_len) {
-      OCK_LOG_ERR(ERR_ARGUMENTS_BAD);
-      return CKR_ARGUMENTS_BAD;
+      TRACE_ERROR("%s received bad argument(s)\n", __FUNCTION__);
+      return CKR_FUNCTION_FAILED;
    }
 
    if (length_only == TRUE) {
@@ -1635,13 +1599,13 @@ des3_ofb_decrypt( SESSION              * sess,
    }
 
    if (*out_data_len < in_data_len){
-      OCK_LOG_ERR(ERR_BUFFER_TOO_SMALL);
+      TRACE_ERROR("%s\n", ock_err(ERR_BUFFER_TOO_SMALL));
       return CKR_BUFFER_TOO_SMALL;
    }
 
    rc = object_mgr_find_in_map1( ctx->key, &key_obj );
    if (rc != CKR_OK){
-      OCK_LOG_ERR(ERR_OBJMGR_FIND_MAP);
+      TRACE_ERROR("Failed to find specified object.\n");
       return rc;
    }
 
@@ -1649,7 +1613,7 @@ des3_ofb_decrypt( SESSION              * sess,
                               key_obj, ctx->mech.pParameter, 0);
 
    if (rc != CKR_OK)
-      OCK_LOG_ERR(ERR_DES3_OFB_TOK_SPEC);
+	TRACE_DEBUG("Token specific des3 ofb decrypt failed.\n");
    return rc;
 }
 
@@ -1669,8 +1633,8 @@ des3_ofb_decrypt_update( SESSION              * sess,
    OBJECT            * key_obj  = NULL;
 
    if (!sess || !ctx || !out_data_len) {
-      OCK_LOG_ERR(ERR_ARGUMENTS_BAD);
-      return CKR_ARGUMENTS_BAD;
+      TRACE_ERROR("%s received bad argument(s)\n", __FUNCTION__);
+      return CKR_FUNCTION_FAILED;
    }
    context = (DES_CONTEXT *)ctx->context;
 
@@ -1696,19 +1660,19 @@ des3_ofb_decrypt_update( SESSION              * sess,
       }
 
       if (*out_data_len < out_len){
-         OCK_LOG_ERR(ERR_BUFFER_TOO_SMALL);
+         TRACE_ERROR("%s\n", ock_err(ERR_BUFFER_TOO_SMALL));
          return CKR_BUFFER_TOO_SMALL;
       }
 
       rc = object_mgr_find_in_map1( ctx->key, &key_obj );
       if (rc != CKR_OK){
-         OCK_LOG_ERR(ERR_OBJMGR_FIND_MAP);
+	 TRACE_ERROR("Failed to find specified object.\n");
          return rc;
       }
 
       cipher = (CK_BYTE *)malloc( out_len );
       if (!cipher){
-         OCK_LOG_ERR(ERR_HOST_MEMORY);
+         TRACE_ERROR("%s\n", ock_err(ERR_HOST_MEMORY));
          return CKR_HOST_MEMORY;
       }
       // copy any data left over from the previous decryption operation first
@@ -1727,7 +1691,7 @@ des3_ofb_decrypt_update( SESSION              * sess,
          context->len = remain;
       }
       else
-         OCK_LOG_ERR(ERR_DES3_OFB_TOK_SPEC);
+         TRACE_DEBUG("Token specific des3 ofb decrypt failed.\n");
       free( cipher );
       return rc;
    }
@@ -1745,7 +1709,7 @@ des3_ofb_decrypt_final( SESSION           *sess,
    CK_RV             rc;
 
    if (!sess || !ctx || !out_data_len){
-      OCK_LOG_ERR(ERR_FUNCTION_FAILED);
+      TRACE_ERROR("%s received bad argument(s)\n", __FUNCTION__);
       return CKR_FUNCTION_FAILED;
    }
 
@@ -1768,7 +1732,7 @@ des3_ofb_decrypt_final( SESSION           *sess,
 
       rc = object_mgr_find_in_map1( ctx->key, &key_obj );
       if (rc != CKR_OK){
-         OCK_LOG_ERR(ERR_OBJMGR_FIND_MAP);
+	 TRACE_ERROR("Failed to find specified object.\n");
          return rc;
       }
 
@@ -1776,7 +1740,7 @@ des3_ofb_decrypt_final( SESSION           *sess,
                               key_obj, ctx->mech.pParameter, 0);
 
       if (rc != CKR_OK)
-         OCK_LOG_ERR(ERR_DES3_OFB_TOK_SPEC);
+         TRACE_DEBUG("Token specific des3 ofb decrypt failed.\n");
 
       *out_data_len = context->len;
       return rc;
@@ -1797,8 +1761,8 @@ des3_cfb_encrypt( SESSION             * sess,
    OBJECT           *key_obj  = NULL;
 
    if (!sess || !ctx || !in_data || !out_data_len) {
-      OCK_LOG_ERR(ERR_ARGUMENTS_BAD);
-      return CKR_ARGUMENTS_BAD;
+      TRACE_ERROR("%s received bad argument(s)\n", __FUNCTION__);
+      return CKR_FUNCTION_FAILED;
    }
 
    if (length_only == TRUE) {
@@ -1807,13 +1771,13 @@ des3_cfb_encrypt( SESSION             * sess,
    }
 
    if (*out_data_len < in_data_len){
-      OCK_LOG_ERR(ERR_BUFFER_TOO_SMALL);
+      TRACE_ERROR("%s\n", ock_err(ERR_BUFFER_TOO_SMALL));
       return CKR_BUFFER_TOO_SMALL;
    }
 
    rc = object_mgr_find_in_map1( ctx->key, &key_obj );
    if (rc != CKR_OK){
-      OCK_LOG_ERR(ERR_OBJMGR_FIND_MAP);
+      TRACE_ERROR("Failed to find specified object.\n");
       return rc;
    }
 
@@ -1821,7 +1785,7 @@ des3_cfb_encrypt( SESSION             * sess,
                    key_obj, ctx->mech.pParameter, cfb_len,  1);
 
    if (rc != CKR_OK)
-      OCK_LOG_ERR(ERR_DES3_CFB_TOK_SPEC);
+      TRACE_DEBUG("Token specific des3 cfb encrypt failed.\n");
    return rc;
 }
 
@@ -1842,8 +1806,8 @@ des3_cfb_encrypt_update( SESSION              * sess,
    OBJECT            * key_obj  = NULL;
 
    if (!sess || !ctx || !out_data_len) {
-      OCK_LOG_ERR(ERR_ARGUMENTS_BAD);
-      return CKR_ARGUMENTS_BAD;
+      TRACE_ERROR("%s received bad argument(s)\n", __FUNCTION__);
+      return CKR_FUNCTION_FAILED;
    }
    context = (DES_CONTEXT *)ctx->context;
 
@@ -1869,18 +1833,18 @@ des3_cfb_encrypt_update( SESSION              * sess,
       }
 
       if (*out_data_len < out_len){
-         OCK_LOG_ERR(ERR_BUFFER_TOO_SMALL);
+         TRACE_ERROR("%s\n", ock_err(ERR_BUFFER_TOO_SMALL));
          return CKR_BUFFER_TOO_SMALL;
       }
 
       rc = object_mgr_find_in_map1( ctx->key, &key_obj );
       if (rc != CKR_OK){
-         OCK_LOG_ERR(ERR_OBJMGR_FIND_MAP);
+	 TRACE_ERROR("Failed to find specified object.\n");
          return rc;
       }
       cipher = (CK_BYTE *)malloc( out_len );
       if (!cipher){
-         OCK_LOG_ERR(ERR_HOST_MEMORY);
+         TRACE_ERROR("%s\n", ock_err(ERR_HOST_MEMORY));
          return CKR_HOST_MEMORY;
       }
       // copy any data left over from the previous encryption operation first
@@ -1899,7 +1863,7 @@ des3_cfb_encrypt_update( SESSION              * sess,
          context->len = remain;
       }
       else
-         OCK_LOG_ERR(ERR_DES3_CFB_TOK_SPEC);
+         TRACE_DEBUG("Token specific des3 cfb encrypt failed.\n");
       free( cipher );
       return rc;
    }
@@ -1918,7 +1882,7 @@ des3_cfb_encrypt_final( SESSION           *sess,
    CK_RV             rc;
 
    if (!sess || !ctx || !out_data_len){
-      OCK_LOG_ERR(ERR_FUNCTION_FAILED);
+      TRACE_ERROR("%s received bad argument(s)\n", __FUNCTION__);
       return CKR_FUNCTION_FAILED;
    }
 
@@ -1941,7 +1905,7 @@ des3_cfb_encrypt_final( SESSION           *sess,
    else {
       rc = object_mgr_find_in_map1( ctx->key, &key_obj );
       if (rc != CKR_OK){
-         OCK_LOG_ERR(ERR_OBJMGR_FIND_MAP);
+	 TRACE_ERROR("Failed to find specified object.\n");
          return rc;
       }
 
@@ -1949,7 +1913,7 @@ des3_cfb_encrypt_final( SESSION           *sess,
                               key_obj, ctx->mech.pParameter, cfb_len, 1);
 
       if (rc != CKR_OK)
-         OCK_LOG_ERR(ERR_DES3_CFB_TOK_SPEC);
+         TRACE_DEBUG("Token specific des3 cfb encrypt failed.\n");
 
       *out_data_len = context->len;
       return rc;
@@ -1970,8 +1934,8 @@ des3_cfb_decrypt( SESSION              * sess,
    OBJECT           *key_obj  = NULL;
 
    if (!sess || !ctx || !in_data || !out_data_len) {
-      OCK_LOG_ERR(ERR_ARGUMENTS_BAD);
-      return CKR_ARGUMENTS_BAD;
+      TRACE_ERROR("%s received bad argument(s)\n", __FUNCTION__);
+      return CKR_FUNCTION_FAILED;
    }
 
    if (length_only == TRUE) {
@@ -1980,13 +1944,13 @@ des3_cfb_decrypt( SESSION              * sess,
    }
 
    if (*out_data_len < in_data_len){
-      OCK_LOG_ERR(ERR_BUFFER_TOO_SMALL);
+      TRACE_ERROR("%s\n", ock_err(ERR_BUFFER_TOO_SMALL));
       return CKR_BUFFER_TOO_SMALL;
    }
 
    rc = object_mgr_find_in_map1( ctx->key, &key_obj );
    if (rc != CKR_OK){
-      OCK_LOG_ERR(ERR_OBJMGR_FIND_MAP);
+      TRACE_ERROR("Failed to find specified object.\n");
       return rc;
    }
 
@@ -1994,7 +1958,7 @@ des3_cfb_decrypt( SESSION              * sess,
                    key_obj, ctx->mech.pParameter, cfb_len,  0);
 
    if (rc != CKR_OK)
-      OCK_LOG_ERR(ERR_DES3_CFB_TOK_SPEC);
+      TRACE_DEBUG("Token specific des3 cfd decrypt failed.\n");
    return rc;
 }
 
@@ -2015,8 +1979,8 @@ des3_cfb_decrypt_update( SESSION              * sess,
    OBJECT            * key_obj = NULL;
 
    if (!sess || !ctx || !out_data_len) {
-      OCK_LOG_ERR(ERR_ARGUMENTS_BAD);
-      return CKR_ARGUMENTS_BAD;
+      TRACE_ERROR("%s received bad argument(s)\n", __FUNCTION__);
+      return CKR_FUNCTION_FAILED;
    }
 
    context = (DES_CONTEXT *)ctx->context;
@@ -2043,18 +2007,18 @@ des3_cfb_decrypt_update( SESSION              * sess,
       }
 
       if (*out_data_len < out_len){
-         OCK_LOG_ERR(ERR_BUFFER_TOO_SMALL);
+         TRACE_ERROR("%s\n", ock_err(ERR_BUFFER_TOO_SMALL));
          return CKR_BUFFER_TOO_SMALL;
       }
 
       rc = object_mgr_find_in_map1( ctx->key, &key_obj );
       if (rc != CKR_OK){
-         OCK_LOG_ERR(ERR_OBJMGR_FIND_MAP);
+	 TRACE_ERROR("Failed to find specified object.\n");
          return rc;
       }
       cipher = (CK_BYTE *)malloc( out_len );
       if (!cipher){
-         OCK_LOG_ERR(ERR_HOST_MEMORY);
+         TRACE_ERROR("%s\n", ock_err(ERR_HOST_MEMORY));
          return CKR_HOST_MEMORY;
       }
       // copy any data left over from the previous decryption operation first
@@ -2073,7 +2037,7 @@ des3_cfb_decrypt_update( SESSION              * sess,
          context->len = remain;
       }
       else
-         OCK_LOG_ERR(ERR_DES3_CFB_TOK_SPEC);
+         TRACE_DEBUG("Token specific des3 cfb decrypt failed.\n");
       free( cipher );
       return rc;
    }
@@ -2092,8 +2056,8 @@ des3_cfb_decrypt_final( SESSION           *sess,
    CK_RV             rc;
 
    if (!sess || !ctx || !out_data_len){
-      OCK_LOG_ERR(ERR_ARGUMENTS_BAD);
-      return CKR_ARGUMENTS_BAD;
+      TRACE_ERROR("%s received bad argument(s)\n", __FUNCTION__);
+      return CKR_FUNCTION_FAILED;
    }
 
    context = (DES_CONTEXT *)ctx->context;
@@ -2115,7 +2079,7 @@ des3_cfb_decrypt_final( SESSION           *sess,
    else {
       rc = object_mgr_find_in_map1( ctx->key, &key_obj );
       if (rc != CKR_OK){
-         OCK_LOG_ERR(ERR_OBJMGR_FIND_MAP);
+	 TRACE_ERROR("Failed to find specified object.\n");
          return rc;
       }
 
@@ -2123,7 +2087,7 @@ des3_cfb_decrypt_final( SESSION           *sess,
                               key_obj, ctx->mech.pParameter, cfb_len, 0);
 
       if (rc != CKR_OK)
-         OCK_LOG_ERR(ERR_DES3_CFB_TOK_SPEC);
+         TRACE_DEBUG("Token specific des3 cfb decrypt failed.\n");
 
       *out_data_len = context->len;
       return rc;
@@ -2144,8 +2108,8 @@ des3_mac_sign( SESSION              * sess,
  CK_ULONG         mac_len;
 
    if (!sess || !ctx || !in_data || !out_data_len){
-      OCK_LOG_ERR(ERR_ARGUMENTS_BAD);
-      return CKR_ARGUMENTS_BAD;
+      TRACE_ERROR("%s received bad argument(s)\n", __FUNCTION__);
+      return CKR_FUNCTION_FAILED;
    }
 
    if (ctx->mech.pParameter)
@@ -2160,36 +2124,30 @@ des3_mac_sign( SESSION              * sess,
 
  if ( (in_data_len % DES_BLOCK_SIZE) != 0) {
     rc = des3_mac_sign_update(sess, ctx, in_data, in_data_len);
-    if (rc != CKR_OK) {
-       OCK_LOG_ERR(ERR_FUNCTION_FAILED);
-       return CKR_FUNCTION_FAILED;
-    }
+    if (rc != CKR_OK)
+       return rc;
 
     rc = des3_mac_sign_final(sess, length_only, ctx, out_data, out_data_len);
-    if (rc != CKR_OK) {
-       OCK_LOG_ERR(ERR_FUNCTION_FAILED);
-       return CKR_FUNCTION_FAILED;
-    }
     return rc;
  }
  else {
 
    if (*out_data_len < mac_len) {
       *out_data_len = mac_len;
-      OCK_LOG_ERR(ERR_BUFFER_TOO_SMALL);
+      TRACE_ERROR("%s\n", ock_err(ERR_BUFFER_TOO_SMALL));
       return CKR_BUFFER_TOO_SMALL;
    }
 
    rc = object_mgr_find_in_map1( ctx->key, &key_obj );
    if (rc != CKR_OK){
-      OCK_LOG_ERR(ERR_OBJMGR_FIND_MAP);
+      TRACE_ERROR("Failed to find specified object.\n");
       return rc;
    }
    rc = token_specific.t_tdes_mac(in_data, in_data_len, key_obj,
                            ((DES_DATA_CONTEXT *)ctx->context)->iv);
 
    if (rc != CKR_OK)
-      OCK_LOG_ERR(ERR_DES3_MAC_TOK_SPEC);
+      TRACE_DEBUG("Token specific des3 mac failed.\n");
 
    memcpy(out_data, ((DES_DATA_CONTEXT *)ctx->context)->iv, mac_len);
    *out_data_len = mac_len;
@@ -2210,8 +2168,8 @@ des3_mac_sign_update ( SESSION              * sess,
    CK_ULONG           total, remain, out_len;
 
    if (!sess || !ctx) {
-       OCK_LOG_ERR(ERR_ARGUMENTS_BAD);
-       return CKR_ARGUMENTS_BAD;
+       TRACE_ERROR("%s received bad argument(s)\n", __FUNCTION__);
+       return CKR_FUNCTION_FAILED;
    }
 
    context = (DES_DATA_CONTEXT *)ctx->context;
@@ -2230,13 +2188,13 @@ des3_mac_sign_update ( SESSION              * sess,
 
       rc = object_mgr_find_in_map1( ctx->key, &key_obj );
       if (rc != CKR_OK){
-         OCK_LOG_ERR(ERR_OBJMGR_FIND_MAP);
+	 TRACE_ERROR("Failed to find specified object.\n");
          return rc;
       }
 
       cipher = (CK_BYTE *)malloc( out_len );
       if (!cipher){
-         OCK_LOG_ERR(ERR_HOST_MEMORY);
+         TRACE_ERROR("%s\n", ock_err(ERR_HOST_MEMORY));
          return CKR_HOST_MEMORY;
       }
       // copy any data left over from the previous signUpdate operation first
@@ -2252,7 +2210,7 @@ des3_mac_sign_update ( SESSION              * sess,
          context->len = remain;
       }
       else
-         OCK_LOG_ERR(ERR_DES3_MAC_TOK_SPEC);
+         TRACE_DEBUG("Token specific des3 mac failed.\n");
 
       free( cipher );
       return rc;
@@ -2272,8 +2230,8 @@ des3_mac_sign_final( SESSION              * sess,
    DES_DATA_CONTEXT * context  = NULL;
 
    if (!sess || !ctx || !out_data_len){
-      OCK_LOG_ERR(ERR_ARGUMENTS_BAD);
-      return CKR_ARGUMENTS_BAD;
+      TRACE_ERROR("%s received bad argument(s)\n", __FUNCTION__);
+      return CKR_FUNCTION_FAILED;
    }
 
    context = (DES_DATA_CONTEXT *)ctx->context;
@@ -2297,7 +2255,7 @@ des3_mac_sign_final( SESSION              * sess,
 
       if (*out_data_len < mac_len) {
          *out_data_len = mac_len;
-         OCK_LOG_ERR(ERR_BUFFER_TOO_SMALL);
+         TRACE_ERROR("%s\n", ock_err(ERR_BUFFER_TOO_SMALL));
          return CKR_BUFFER_TOO_SMALL;
       }
 
@@ -2306,12 +2264,12 @@ des3_mac_sign_final( SESSION              * sess,
 
       rc = object_mgr_find_in_map1( ctx->key, &key_obj );
       if (rc != CKR_OK){
-         OCK_LOG_ERR(ERR_OBJMGR_FIND_MAP);
+	 TRACE_ERROR("Failed to find specified object.\n");
          return rc;
       }
       rc = token_specific.t_tdes_mac(context->data, DES_BLOCK_SIZE, key_obj, context->iv);
       if (rc != CKR_OK) {
-         OCK_LOG_ERR(ERR_DES3_MAC_TOK_SPEC);
+         TRACE_DEBUG("Token specific des3 mac failed.\n");
          return rc;
       }
    }
@@ -2334,22 +2292,16 @@ des3_mac_verify( SESSION              * sess,
  CK_ULONG         mac_len;
 
    if (!sess || !ctx || !in_data || !out_data){
-      OCK_LOG_ERR(ERR_ARGUMENTS_BAD);
-      return CKR_ARGUMENTS_BAD;
+      TRACE_ERROR("%s received bad argument(s)\n", __FUNCTION__);
+      return CKR_FUNCTION_FAILED;
    }
 
  if ( (in_data_len % DES_BLOCK_SIZE) != 0) {
     rc = des3_mac_verify_update(sess, ctx, in_data, in_data_len);
-    if (rc != CKR_OK) {
-       OCK_LOG_ERR(ERR_FUNCTION_FAILED);
-       return CKR_FUNCTION_FAILED;
-    }
+    if (rc != CKR_OK)
+       return rc;
 
     rc = des3_mac_verify_final(sess, ctx, out_data, out_data_len);
-    if (rc != CKR_OK) {
-       OCK_LOG_ERR(ERR_FUNCTION_FAILED);
-       return CKR_FUNCTION_FAILED;
-    }
     return rc;
  }
  else {
@@ -2360,20 +2312,20 @@ des3_mac_verify( SESSION              * sess,
       mac_len = DES_BLOCK_SIZE / 2;
 
    if (out_data_len != mac_len) {
-           OCK_LOG_ERR(ERR_SIGNATURE_LEN_RANGE);
+           TRACE_ERROR("%s\n", ock_err(ERR_SIGNATURE_LEN_RANGE));
            return CKR_SIGNATURE_LEN_RANGE;
    }
 
    rc = object_mgr_find_in_map1( ctx->key, &key_obj );
    if (rc != CKR_OK){
-      OCK_LOG_ERR(ERR_OBJMGR_FIND_MAP);
+      TRACE_ERROR("Failed to find specified object.\n");
       return rc;
    }
 
    rc = token_specific.t_tdes_mac(in_data, in_data_len, key_obj,
                          ((DES_DATA_CONTEXT *)ctx->context)->iv);
    if (rc != CKR_OK)
-      OCK_LOG_ERR(ERR_DES3_MAC_TOK_SPEC);
+      TRACE_DEBUG("Token specific des3 mac failed.\n");
 
    if (memcmp(
        out_data, ((DES_DATA_CONTEXT *)ctx->context)->iv, out_data_len) == 0) {
@@ -2397,8 +2349,8 @@ des3_mac_verify_update( SESSION              * sess,
  CK_ULONG         total, remain, out_len;
 
  if (!sess || !ctx) {
-      OCK_LOG_ERR(ERR_ARGUMENTS_BAD);
-      return CKR_ARGUMENTS_BAD;
+      TRACE_ERROR("%s received bad argument(s)\n", __FUNCTION__);
+      return CKR_FUNCTION_FAILED;
    }
 
    context = (DES_DATA_CONTEXT *)ctx->context;
@@ -2417,13 +2369,13 @@ des3_mac_verify_update( SESSION              * sess,
 
       rc = object_mgr_find_in_map1( ctx->key, &key_obj );
       if (rc != CKR_OK){
-         OCK_LOG_ERR(ERR_OBJMGR_FIND_MAP);
+	 TRACE_ERROR("Failed to find specified object.\n");
          return rc;
       }
 
       cipher = (CK_BYTE *)malloc( out_len );
       if (!cipher){
-         OCK_LOG_ERR(ERR_HOST_MEMORY);
+         TRACE_ERROR("%s\n", ock_err(ERR_HOST_MEMORY));
          return CKR_HOST_MEMORY;
       }
       // copy any data left over from the previous signUpdate operation first
@@ -2438,7 +2390,7 @@ des3_mac_verify_update( SESSION              * sess,
          context->len = remain;
       }
       else
-         OCK_LOG_ERR(ERR_DES3_MAC_TOK_SPEC);
+         TRACE_DEBUG("Token specific des3 mac failed.\n");
 
       free( cipher );
       return rc;
@@ -2457,8 +2409,8 @@ des3_mac_verify_final( SESSION              * sess,
    DES_DATA_CONTEXT * context  = NULL;
 
    if (!sess || !ctx || !signature){
-      OCK_LOG_ERR(ERR_ARGUMENTS_BAD);
-      return CKR_ARGUMENTS_BAD;
+      TRACE_ERROR("%s received bad argument(s)\n", __FUNCTION__);
+      return CKR_FUNCTION_FAILED;
    }
 
    context = (DES_DATA_CONTEXT *)ctx->context;
@@ -2476,7 +2428,7 @@ des3_mac_verify_final( SESSION              * sess,
    if (context->len > 0) {
 
       if (signature_len != mac_len) {
-           OCK_LOG_ERR(ERR_SIGNATURE_LEN_RANGE);
+           TRACE_ERROR("%s\n", ock_err(ERR_SIGNATURE_LEN_RANGE));
            return CKR_SIGNATURE_LEN_RANGE;
       }
 
@@ -2485,13 +2437,13 @@ des3_mac_verify_final( SESSION              * sess,
 
       rc = object_mgr_find_in_map1( ctx->key, &key_obj );
       if (rc != CKR_OK){
-         OCK_LOG_ERR(ERR_OBJMGR_FIND_MAP);
+	 TRACE_ERROR("Failed to find specified object.\n");
          return rc;
       }
 
       rc = token_specific.t_tdes_mac(context->data, DES_BLOCK_SIZE, key_obj, context->iv);
       if (rc != CKR_OK) {
-         OCK_LOG_ERR(ERR_DES3_MAC_TOK_SPEC);
+         TRACE_DEBUG("Token specific des3 mac failed.\n");
          return rc;
       }
    }
@@ -2525,7 +2477,7 @@ ckm_des3_key_gen( TEMPLATE *tmpl )
    CK_ULONG           keysize;
 
    if (token_specific.t_des_key_gen == NULL) {
-      OCK_LOG_ERR(ERR_MECHANISM_INVALID);
+      TRACE_ERROR("%s\n", ock_err(ERR_MECHANISM_INVALID));
       return CKR_MECHANISM_INVALID;
    }
 
@@ -2535,7 +2487,7 @@ ckm_des3_key_gen( TEMPLATE *tmpl )
 	keysize = (3 * DES_KEY_SIZE);
 
    if ((des_key = (CK_BYTE *)malloc(keysize)) == NULL) {
-    OCK_LOG_ERR(ERR_HOST_MEMORY);
+    TRACE_ERROR("%s\n", ock_err(ERR_HOST_MEMORY));
     return CKR_HOST_MEMORY;
    }
 
@@ -2549,8 +2501,8 @@ ckm_des3_key_gen( TEMPLATE *tmpl )
    if (token_specific.token_keysize) {
 	opaque_attr = (CK_ATTRIBUTE *)malloc(sizeof(CK_ATTRIBUTE) + keysize);
         if (!opaque_attr) {
-	   OCK_LOG_ERR(ERR_FUNCTION_FAILED);
-	   rc = CKR_FUNCTION_FAILED;
+	   TRACE_ERROR("%s\n", ock_err(ERR_HOST_MEMORY));
+	   rc = CKR_HOST_MEMORY;
 	   goto err;
 	}
 	opaque_attr->type = CKA_IBM_OPAQUE;
@@ -2571,8 +2523,8 @@ ckm_des3_key_gen( TEMPLATE *tmpl )
       if (class_attr)    free( class_attr );
       if (local_attr)    free( local_attr );
 
-      OCK_LOG_ERR(ERR_FUNCTION_FAILED);
-      rc = CKR_FUNCTION_FAILED;
+      TRACE_ERROR("%s\n", ock_err(ERR_HOST_MEMORY));
+      rc = CKR_HOST_MEMORY;
       goto err;
    }
 
@@ -2627,15 +2579,15 @@ ckm_des3_ecb_encrypt( CK_BYTE     * in_data,
 
 
    if (!in_data || !out_data || !key){
-      OCK_LOG_ERR(ERR_FUNCTION_FAILED);
+      TRACE_ERROR("%s received bad argument(s)\n", __FUNCTION__);
       return CKR_FUNCTION_FAILED;
    }
    if (*out_data_len < in_data_len){
-      OCK_LOG_ERR(ERR_FUNCTION_FAILED);
-      return CKR_FUNCTION_FAILED;
+      TRACE_ERROR("%s\n", ock_err(ERR_BUFFER_TOO_SMALL));
+      return CKR_BUFFER_TOO_SMALL;
    }
    if (token_specific.t_tdes_ecb == NULL) {
-      OCK_LOG_ERR(ERR_MECHANISM_INVALID);
+      TRACE_ERROR("%s\n", ock_err(ERR_MECHANISM_INVALID));
       return CKR_MECHANISM_INVALID;
    }
    rc = token_specific.t_tdes_ecb(in_data, in_data_len,
@@ -2643,7 +2595,7 @@ ckm_des3_ecb_encrypt( CK_BYTE     * in_data,
 
    
    if (rc != CKR_OK)
-      OCK_LOG_ERR(ERR_DES3_ECB_TOK_SPEC);
+      TRACE_DEBUG("Token specific des3 ecb encrypt failed.\n");
    return rc;
 }
 
@@ -2661,23 +2613,23 @@ ckm_des3_ecb_decrypt( CK_BYTE     * in_data,
 
 
    if (!in_data || !out_data || !key){
-      OCK_LOG_ERR(ERR_FUNCTION_FAILED);
+      TRACE_ERROR("%s received bad argument(s)\n", __FUNCTION__);
       return CKR_FUNCTION_FAILED;
    }
    if (*out_data_len < in_data_len){
-      OCK_LOG_ERR(ERR_FUNCTION_FAILED);
-      return CKR_FUNCTION_FAILED;
+      TRACE_ERROR("%s\n", ock_err(ERR_BUFFER_TOO_SMALL));
+      return CKR_BUFFER_TOO_SMALL;
    }
 
    if (token_specific.t_tdes_ecb == NULL) {
-      OCK_LOG_ERR(ERR_MECHANISM_INVALID);
+      TRACE_ERROR("%s\n", ock_err(ERR_MECHANISM_INVALID));
       return CKR_MECHANISM_INVALID;
    }
    rc = token_specific.t_tdes_ecb(in_data, in_data_len,
 				  out_data, out_data_len, key, 0);
    
    if (rc != CKR_OK)
-      OCK_LOG_ERR(ERR_DES3_ECB_TOK_SPEC);
+      TRACE_DEBUG("Token specific des3 ecb decrypt failed.\n");
 
    return rc;
 }
@@ -2697,23 +2649,23 @@ ckm_des3_cbc_encrypt( CK_BYTE     * in_data,
 
 
    if (!in_data || !out_data || !init_v || !key){
-      OCK_LOG_ERR(ERR_FUNCTION_FAILED);
+      TRACE_ERROR("%s received bad argument(s)\n", __FUNCTION__);
       return CKR_FUNCTION_FAILED;
    }
    if (*out_data_len < in_data_len){
       *out_data_len = in_data_len;
-      OCK_LOG_ERR(ERR_BUFFER_TOO_SMALL);
+      TRACE_ERROR("%s\n", ock_err(ERR_BUFFER_TOO_SMALL));
       return CKR_BUFFER_TOO_SMALL;
    }
    if (token_specific.t_tdes_cbc == NULL) {
-      OCK_LOG_ERR(ERR_MECHANISM_INVALID);
+      TRACE_ERROR("%s\n", ock_err(ERR_MECHANISM_INVALID));
       return CKR_MECHANISM_INVALID;
    }
    rc = token_specific.t_tdes_cbc(in_data, in_data_len,
 				  out_data, out_data_len, key, init_v, 1);
 
    if (rc != CKR_OK)
-      OCK_LOG_ERR(ERR_DES3_CBC_TOK_SPEC);
+      TRACE_DEBUG("Token specific des3 cbc encrypt failed.\n");
    return rc;
 }
 
@@ -2732,21 +2684,21 @@ ckm_des3_cbc_decrypt( CK_BYTE     * in_data,
 
 
    if (!in_data || !out_data || !init_v || !key){
-      OCK_LOG_ERR(ERR_FUNCTION_FAILED);
+      TRACE_ERROR("%s received bad argument(s)\n", __FUNCTION__);
       return CKR_FUNCTION_FAILED;
    }
    if (*out_data_len < in_data_len){
-      OCK_LOG_ERR(ERR_FUNCTION_FAILED);
-      return CKR_FUNCTION_FAILED;
+      TRACE_ERROR("%s\n", ock_err(ERR_BUFFER_TOO_SMALL));
+      return CKR_BUFFER_TOO_SMALL;
    }
    if (token_specific.t_tdes_cbc == NULL) {
-      OCK_LOG_ERR(ERR_MECHANISM_INVALID);
+      TRACE_ERROR("%s\n", ock_err(ERR_MECHANISM_INVALID));
       return CKR_MECHANISM_INVALID;
    }
    rc = token_specific.t_tdes_cbc(in_data, in_data_len,
 				  out_data, out_data_len, key, init_v, 0);
 
    if (rc != CKR_OK)
-      OCK_LOG_ERR(ERR_DES3_CBC_TOK_SPEC);
+      TRACE_DEBUG("Token specific des3 cbc decrypt failed.\n");
    return rc;
 }

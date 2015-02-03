@@ -302,6 +302,7 @@
 #include "defs.h"
 #include "host_defs.h"
 #include "h_extern.h"
+#include "trace.h"
 
 #include "tok_spec_struct.h"
 
@@ -319,7 +320,7 @@ hwf_object_check_required_attributes( TEMPLATE *tmpl, CK_ULONG mode )
    found = template_attribute_find( tmpl, CKA_HW_FEATURE_TYPE, &attr );
    if (!found) {
       if (mode == MODE_CREATE){
-         OCK_LOG_ERR(ERR_TEMPLATE_INCOMPLETE);
+         TRACE_ERROR("%s\n", ock_err(ERR_TEMPLATE_INCOMPLETE));
          return CKR_TEMPLATE_INCOMPLETE;
       }
    }
@@ -336,7 +337,7 @@ clock_check_required_attributes( TEMPLATE *tmpl, CK_ULONG mode )
    if (mode == MODE_CREATE){
       found = template_attribute_find( tmpl, CKA_VALUE, &attr );
       if (!found) {
-         OCK_LOG_ERR(ERR_TEMPLATE_INCOMPLETE);
+         TRACE_ERROR("%s\n", ock_err(ERR_TEMPLATE_INCOMPLETE));
          return CKR_TEMPLATE_INCOMPLETE;
       }
    }
@@ -353,19 +354,19 @@ counter_check_required_attributes( TEMPLATE *tmpl, CK_ULONG mode )
    if (mode == MODE_CREATE){
       found = template_attribute_find( tmpl, CKA_VALUE, &attr );
       if (!found) {
-         OCK_LOG_ERR(ERR_TEMPLATE_INCOMPLETE);
+         TRACE_ERROR("%s\n", ock_err(ERR_TEMPLATE_INCOMPLETE));
          return CKR_TEMPLATE_INCOMPLETE;
       }
       
       found = template_attribute_find( tmpl, CKA_HAS_RESET, &attr );
       if (!found) {
-         OCK_LOG_ERR(ERR_TEMPLATE_INCOMPLETE);
+         TRACE_ERROR("%s\n", ock_err(ERR_TEMPLATE_INCOMPLETE));
          return CKR_TEMPLATE_INCOMPLETE;
       }
       
       found = template_attribute_find( tmpl, CKA_RESET_ON_INIT, &attr );
       if (!found) {
-         OCK_LOG_ERR(ERR_TEMPLATE_INCOMPLETE);
+         TRACE_ERROR("%s\n", ock_err(ERR_TEMPLATE_INCOMPLETE));
          return CKR_TEMPLATE_INCOMPLETE;
       }
    }
@@ -385,7 +386,7 @@ hwf_object_set_default_attributes( TEMPLATE *tmpl, CK_ULONG mode )
    local_attr     = (CK_ATTRIBUTE *)malloc( sizeof(CK_ATTRIBUTE) + sizeof(CK_BBOOL) );
 
    if (!local_attr) {
-      OCK_LOG_ERR(ERR_HOST_MEMORY);
+      TRACE_ERROR("%s\n", ock_err(ERR_HOST_MEMORY));
       return CKR_HOST_MEMORY;
    }
 
@@ -410,7 +411,7 @@ hwf_validate_attribute( TEMPLATE *tmpl, CK_ATTRIBUTE *attr, CK_ULONG mode)
          if (mode == MODE_CREATE)
             return CKR_OK;
          else{
-            OCK_LOG_ERR(ERR_ATTRIBUTE_READ_ONLY);
+            TRACE_ERROR("%s\n", ock_err(ERR_ATTRIBUTE_READ_ONLY));
             return CKR_ATTRIBUTE_READ_ONLY;
          }
 
@@ -418,7 +419,7 @@ hwf_validate_attribute( TEMPLATE *tmpl, CK_ATTRIBUTE *attr, CK_ULONG mode)
          return template_validate_base_attribute( tmpl, attr, mode );
    }
 
-   OCK_LOG_ERR(ERR_ATTRIBUTE_TYPE_INVALID);
+   TRACE_ERROR("%s\n", ock_err(ERR_ATTRIBUTE_TYPE_INVALID));
    return CKR_ATTRIBUTE_TYPE_INVALID;
 }
 
@@ -449,7 +450,7 @@ counter_validate_attribute( TEMPLATE *tmpl, CK_ATTRIBUTE *attr, CK_ULONG mode)
       case CKA_HAS_RESET:
 	 /* Fall Through */
       case CKA_RESET_ON_INIT:
-            OCK_LOG_ERR(ERR_ATTRIBUTE_READ_ONLY);
+            TRACE_ERROR("%s\n", ock_err(ERR_ATTRIBUTE_READ_ONLY));
             return CKR_ATTRIBUTE_READ_ONLY;
 
       default:
@@ -471,7 +472,7 @@ clock_set_default_attributes( TEMPLATE *tmpl, CK_ULONG mode )
    value_attr = (CK_ATTRIBUTE *)malloc( sizeof(CK_ATTRIBUTE) );
 
    if (!value_attr) {
-      OCK_LOG_ERR(ERR_HOST_MEMORY);
+      TRACE_ERROR("%s\n", ock_err(ERR_HOST_MEMORY));
       return CKR_HOST_MEMORY;
    }
 
@@ -504,7 +505,7 @@ counter_set_default_attributes( TEMPLATE *tmpl, CK_ULONG mode )
       if (value_attr) free( value_attr );
       if (hasreset_attr) free( hasreset_attr );
       if (resetoninit_attr) free( resetoninit_attr );
-      OCK_LOG_ERR(ERR_HOST_MEMORY);
+      TRACE_ERROR("%s\n", ock_err(ERR_HOST_MEMORY));
       return CKR_HOST_MEMORY;
    }
 

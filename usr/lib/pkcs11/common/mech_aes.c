@@ -303,6 +303,7 @@
 #include "host_defs.h"
 #include "h_extern.h"
 #include "tok_spec_struct.h"
+#include "trace.h"
 
 
 //
@@ -320,17 +321,17 @@ aes_ecb_encrypt( SESSION           *sess,
    CK_RV         rc;
 
 
-   if (!sess || !ctx || !out_data_len){
-      OCK_LOG_ERR(ERR_FUNCTION_FAILED);
+   if (!sess || !ctx || !out_data_len) {
+      TRACE_ERROR("%s received bad argument(s)\n", __FUNCTION__);
       return CKR_FUNCTION_FAILED;
    }
    if (in_data_len % AES_BLOCK_SIZE != 0){
-      OCK_LOG_ERR(ERR_DATA_LEN_RANGE);
+      TRACE_ERROR("%s\n", ock_err(ERR_DATA_LEN_RANGE));
       return CKR_DATA_LEN_RANGE;
    }
    rc = object_mgr_find_in_map1( ctx->key, &key );
    if (rc != CKR_OK){
-      OCK_LOG_ERR(ERR_OBJMGR_FIND_MAP);
+      TRACE_ERROR("Failed to find specified object.\n");
       return rc;
    }
 
@@ -341,7 +342,7 @@ aes_ecb_encrypt( SESSION           *sess,
 
    if (*out_data_len < in_data_len) {
       *out_data_len = in_data_len;
-      OCK_LOG_ERR(ERR_BUFFER_TOO_SMALL);
+      TRACE_ERROR("%s\n", ock_err(ERR_BUFFER_TOO_SMALL));
       return CKR_BUFFER_TOO_SMALL;
    }
 
@@ -365,20 +366,21 @@ aes_ecb_decrypt( SESSION           *sess,
    CK_RV         rc;
 
 
-   if (!sess || !ctx || !out_data_len){
-      OCK_LOG_ERR(ERR_FUNCTION_FAILED);
+   if (!sess || !ctx || !out_data_len) {
+      TRACE_ERROR("%s received bad argument(s)\n", __FUNCTION__);
       return CKR_FUNCTION_FAILED;
    }
+
    // CKM_DES3_ECB requires the input data to be an integral
    // multiple of the block size
    //
    if (in_data_len % AES_BLOCK_SIZE != 0){
-      OCK_LOG_ERR(ERR_DATA_LEN_RANGE);
+      TRACE_ERROR("%s\n", ock_err(ERR_ENCRYPTED_DATA_LEN_RANGE));
       return CKR_ENCRYPTED_DATA_LEN_RANGE;
    }
    rc = object_mgr_find_in_map1( ctx->key, &key );
    if (rc != CKR_OK){
-      OCK_LOG_ERR(ERR_OBJMGR_FIND_MAP);
+      TRACE_ERROR("Failed to find specified object.\n");
       return rc; 
    }
 
@@ -389,7 +391,7 @@ aes_ecb_decrypt( SESSION           *sess,
 
    if (*out_data_len < in_data_len) {
       *out_data_len = in_data_len;
-      OCK_LOG_ERR(ERR_BUFFER_TOO_SMALL);
+      TRACE_ERROR("%s\n", ock_err(ERR_BUFFER_TOO_SMALL));
       return CKR_BUFFER_TOO_SMALL;
    }
 
@@ -412,21 +414,21 @@ aes_cbc_encrypt( SESSION           *sess,
    OBJECT       *key       = NULL;
    CK_RV         rc;
 
-   if (!sess || !ctx || !out_data_len){
-      OCK_LOG_ERR(ERR_FUNCTION_FAILED);
+   if (!sess || !ctx || !out_data_len) {
+      TRACE_ERROR("%s received bad argument(s)\n", __FUNCTION__);
       return CKR_FUNCTION_FAILED;
    }
    // CKM_DES3_CBC requires the input data to be an integral
    // multiple of the block size
    //
    if (in_data_len % AES_BLOCK_SIZE != 0){
-      OCK_LOG_ERR(ERR_DATA_LEN_RANGE);
+      TRACE_ERROR("%s\n", ock_err(ERR_DATA_LEN_RANGE));
       return CKR_DATA_LEN_RANGE;
    }
 
    rc = object_mgr_find_in_map1( ctx->key, &key );
    if (rc != CKR_OK){
-      OCK_LOG_ERR(ERR_OBJMGR_FIND_MAP);
+      TRACE_ERROR("Failed to find specified object.\n");
       return rc;
    }
 
@@ -437,7 +439,7 @@ aes_cbc_encrypt( SESSION           *sess,
 
    if (*out_data_len < in_data_len) {
       *out_data_len = in_data_len;
-      OCK_LOG_ERR(ERR_BUFFER_TOO_SMALL);
+      TRACE_ERROR("%s\n", ock_err(ERR_BUFFER_TOO_SMALL));
       return CKR_BUFFER_TOO_SMALL;
    }
 
@@ -460,20 +462,20 @@ aes_cbc_decrypt( SESSION            *sess,
    CK_RV         rc;
 
 
-   if (!sess || !ctx || !out_data_len){
-      OCK_LOG_ERR(ERR_FUNCTION_FAILED);
+   if (!sess || !ctx || !out_data_len) {
+      TRACE_ERROR("%s received bad argument(s)\n", __FUNCTION__);
       return CKR_FUNCTION_FAILED;
    }
    // CKM_DES3_CBC requires the input data to be an integral
    // multiple of the block size
    //
    if (in_data_len % AES_BLOCK_SIZE != 0){
-      OCK_LOG_ERR(ERR_DATA_LEN_RANGE);
+      TRACE_ERROR("%s\n", ock_err(ERR_ENCRYPTED_DATA_LEN_RANGE));
       return CKR_ENCRYPTED_DATA_LEN_RANGE;
    }
    rc = object_mgr_find_in_map1( ctx->key, &key );
    if (rc != CKR_OK){
-      OCK_LOG_ERR(ERR_OBJMGR_FIND_MAP);
+      TRACE_ERROR("Failed to find specified object.\n");
       return rc;
    }
 
@@ -484,7 +486,7 @@ aes_cbc_decrypt( SESSION            *sess,
 
    if (*out_data_len < in_data_len) {
       *out_data_len = in_data_len;
-      OCK_LOG_ERR(ERR_BUFFER_TOO_SMALL);
+      TRACE_ERROR("%s\n", ock_err(ERR_BUFFER_TOO_SMALL));
       return CKR_BUFFER_TOO_SMALL;
    }
 
@@ -509,8 +511,8 @@ aes_cbc_pad_encrypt( SESSION           *sess,
    CK_ULONG      padded_len;
    CK_RV         rc;
 
-   if (!sess || !ctx || !out_data_len){
-      OCK_LOG_ERR(ERR_FUNCTION_FAILED);
+   if (!sess || !ctx || !out_data_len) {
+      TRACE_ERROR("%s received bad argument(s)\n", __FUNCTION__);
       return CKR_FUNCTION_FAILED;
    }
    // DES3-CBC-PAD has no input length requirements
@@ -518,7 +520,7 @@ aes_cbc_pad_encrypt( SESSION           *sess,
 
    rc = object_mgr_find_in_map1( ctx->key, &key );
    if (rc != CKR_OK){
-      OCK_LOG_ERR(ERR_OBJMGR_FIND_MAP);
+      TRACE_ERROR("Failed to find specified object.\n");
       return rc;
    }
 
@@ -533,13 +535,13 @@ aes_cbc_pad_encrypt( SESSION           *sess,
 
    if (*out_data_len < padded_len) {
       *out_data_len = padded_len;
-      OCK_LOG_ERR(ERR_BUFFER_TOO_SMALL);
+      TRACE_ERROR("%s\n", ock_err(ERR_BUFFER_TOO_SMALL));
       return CKR_BUFFER_TOO_SMALL;
    }
 
    clear = (CK_BYTE *)malloc( padded_len );
    if (!clear){
-      OCK_LOG_ERR(ERR_HOST_MEMORY);
+      TRACE_ERROR("%s\n", ock_err(ERR_HOST_MEMORY));
       return CKR_HOST_MEMORY;
    }
    memcpy( clear, in_data, in_data_len );
@@ -551,9 +553,6 @@ aes_cbc_pad_encrypt( SESSION           *sess,
 
    rc = ckm_aes_cbc_encrypt(clear, padded_len, out_data, out_data_len,
                              ctx->mech.pParameter, key);
-
-   if (rc != CKR_OK)
-      OCK_LOG_ERR(ERR_AES_CBC_ENCRYPT);
 
    free( clear );
    return rc;
@@ -577,8 +576,8 @@ aes_cbc_pad_decrypt( SESSION            *sess,
    CK_RV         rc;
 
 
-   if (!sess || !ctx || !out_data_len){
-      OCK_LOG_ERR(ERR_FUNCTION_FAILED);
+   if (!sess || !ctx || !out_data_len) {
+      TRACE_ERROR("%s received bad argument(s)\n", __FUNCTION__);
       return CKR_FUNCTION_FAILED;
    }
    //
@@ -587,7 +586,7 @@ aes_cbc_pad_decrypt( SESSION            *sess,
 
    rc = object_mgr_find_in_map1( ctx->key, &key );
    if (rc != CKR_OK){
-      OCK_LOG_ERR(ERR_OBJMGR_FIND_MAP);
+      TRACE_ERROR("Failed to find specified object.\n");
       return rc;
    }
 
@@ -595,7 +594,7 @@ aes_cbc_pad_decrypt( SESSION            *sess,
    // number of block to decrypt
    //
    if (in_data_len % AES_BLOCK_SIZE != 0){
-      OCK_LOG_ERR(ERR_DATA_LEN_RANGE);
+      TRACE_ERROR("%s\n", ock_err(ERR_ENCRYPTED_DATA_LEN_RANGE));
       return CKR_ENCRYPTED_DATA_LEN_RANGE;
    }
    // the amount of cleartext after stripping the padding will actually be less
@@ -610,7 +609,7 @@ aes_cbc_pad_decrypt( SESSION            *sess,
 
    clear = (CK_BYTE *)malloc( padded_len );
    if (!clear){
-      OCK_LOG_ERR(ERR_HOST_MEMORY);
+      TRACE_ERROR("%s\n", ock_err(ERR_HOST_MEMORY));
       return CKR_HOST_MEMORY;
    }
    rc = ckm_aes_cbc_decrypt(in_data, in_data_len, clear, &padded_len,
@@ -620,8 +619,6 @@ aes_cbc_pad_decrypt( SESSION            *sess,
       strip_pkcs_padding( clear, padded_len, out_data_len );
       memcpy( out_data, clear, *out_data_len );
    }
-   else
-      OCK_LOG_ERR(ERR_AES_CBC_DECRYPT);
 
    free( clear );
    return rc;
@@ -641,17 +638,17 @@ aes_ctr_encrypt( SESSION           *sess,
    CK_RV rc;
    CK_AES_CTR_PARAMS *aesctr = NULL;
 
-   if (!sess || !ctx || !out_data_len){
-      OCK_LOG_ERR(ERR_FUNCTION_FAILED);
+   if (!sess || !ctx || !out_data_len) {
+      TRACE_ERROR("%s received bad argument(s)\n", __FUNCTION__);
       return CKR_FUNCTION_FAILED;
    }
    if (in_data_len % AES_BLOCK_SIZE != 0){
-      OCK_LOG_ERR(ERR_DATA_LEN_RANGE);
+      TRACE_ERROR("%s\n", ock_err(ERR_DATA_LEN_RANGE));
       return CKR_DATA_LEN_RANGE;
    }
    rc = object_mgr_find_in_map1( ctx->key, &key );
    if (rc != CKR_OK){
-      OCK_LOG_ERR(ERR_OBJMGR_FIND_MAP);
+      TRACE_ERROR("Failed to find specified object.\n");
       return rc;
    }
 
@@ -662,7 +659,7 @@ aes_ctr_encrypt( SESSION           *sess,
 
    if (*out_data_len < in_data_len) {
       *out_data_len = in_data_len;
-      OCK_LOG_ERR(ERR_BUFFER_TOO_SMALL);
+      TRACE_ERROR("%s\n", ock_err(ERR_BUFFER_TOO_SMALL));
       return CKR_BUFFER_TOO_SMALL;
    }
 
@@ -688,17 +685,17 @@ aes_ctr_decrypt( SESSION           *sess,
    CK_RV rc;
    CK_AES_CTR_PARAMS *aesctr = NULL;
 
-   if (!sess || !ctx || !out_data_len){
-      OCK_LOG_ERR(ERR_FUNCTION_FAILED);
+   if (!sess || !ctx || !out_data_len) {
+      TRACE_ERROR("%s received bad argument(s)\n", __FUNCTION__);
       return CKR_FUNCTION_FAILED;
    }
    if (in_data_len % AES_BLOCK_SIZE != 0){
-      OCK_LOG_ERR(ERR_DATA_LEN_RANGE);
-      return CKR_DATA_LEN_RANGE;
+      TRACE_ERROR("%s\n", ock_err(ERR_ENCRYPTED_DATA_LEN_RANGE));
+      return CKR_ENCRYPTED_DATA_LEN_RANGE;
    }
    rc = object_mgr_find_in_map1( ctx->key, &key );
    if (rc != CKR_OK){
-      OCK_LOG_ERR(ERR_OBJMGR_FIND_MAP);
+      TRACE_ERROR("Failed to find specified object.\n");
       return rc;
    }
 
@@ -709,7 +706,7 @@ aes_ctr_decrypt( SESSION           *sess,
 
    if (*out_data_len < in_data_len) {
       *out_data_len = in_data_len;
-       OCK_LOG_ERR(ERR_BUFFER_TOO_SMALL);
+       TRACE_ERROR("%s\n", ock_err(ERR_BUFFER_TOO_SMALL));
        return CKR_BUFFER_TOO_SMALL;
    }
 
@@ -737,8 +734,8 @@ aes_ecb_encrypt_update( SESSION           *sess,
    CK_ULONG       total, remain, out_len;
    CK_RV          rc;
 
-   if (!sess || !ctx || !out_data_len){
-      OCK_LOG_ERR(ERR_FUNCTION_FAILED);
+   if (!sess || !ctx || !out_data_len) {
+      TRACE_ERROR("%s received bad arguments\n", __FUNCTION__);
       return CKR_FUNCTION_FAILED;
    }
    context = (AES_CONTEXT *)ctx->context;
@@ -766,13 +763,13 @@ aes_ecb_encrypt_update( SESSION           *sess,
 
       rc = object_mgr_find_in_map_nocache( ctx->key, &key );
       if (rc != CKR_OK){
-         OCK_LOG_ERR(ERR_OBJMGR_FIND_MAP);
+	 TRACE_ERROR("Failed to find specified object.\n");
          return rc;
       }
 
       clear = (CK_BYTE *)malloc( out_len );
       if (!clear){
-         OCK_LOG_ERR(ERR_HOST_MEMORY);
+         TRACE_ERROR("%s\n", ock_err(ERR_HOST_MEMORY));
          return CKR_HOST_MEMORY;
       }
       // copy any data left over from the previous encryption operation first
@@ -796,9 +793,6 @@ aes_ecb_encrypt_update( SESSION           *sess,
       free( clear );
       return rc;
    }
-   OCK_LOG_ERR(ERR_FUNCTION_FAILED);
-
-   return CKR_FUNCTION_FAILED;  // shouldn't reach this
 }
 
 
@@ -819,8 +813,8 @@ aes_ecb_decrypt_update( SESSION           *sess,
    CK_ULONG       total, remain, out_len;
    CK_RV          rc;
 
-   if (!sess || !ctx || !out_data_len){
-      OCK_LOG_ERR(ERR_FUNCTION_FAILED);
+   if (!sess || !ctx || !out_data_len) {
+      TRACE_ERROR("%s received bad argument(s)\n", __FUNCTION__);
       return CKR_FUNCTION_FAILED;
    }
    context = (AES_CONTEXT *)ctx->context;
@@ -849,13 +843,13 @@ aes_ecb_decrypt_update( SESSION           *sess,
 
       rc = object_mgr_find_in_map_nocache( ctx->key, &key );
       if (rc != CKR_OK){
-         OCK_LOG_ERR(ERR_OBJMGR_FIND_MAP);
+	 TRACE_ERROR("Failed to find specified object.\n");
          return rc;
       }
 
       cipher = (CK_BYTE *)malloc( out_len );
       if (!cipher){
-         OCK_LOG_ERR(ERR_HOST_MEMORY);
+         TRACE_ERROR("%s\n", ock_err(ERR_HOST_MEMORY));
          return CKR_HOST_MEMORY;
       }
       // copy any data left over from the previous decryption operation first
@@ -873,15 +867,10 @@ aes_ecb_decrypt_update( SESSION           *sess,
             memcpy( context->data, in_data + (in_data_len - remain), remain );
          context->len = remain;
       }
-      else 
-         OCK_LOG_ERR(ERR_AES_ECB_DECRYPT);
 
       free( cipher );
       return rc;
    }
-
-   OCK_LOG_ERR(ERR_FUNCTION_FAILED);
-   return CKR_FUNCTION_FAILED;  // shouldn't reach this
 }
 
 
@@ -903,8 +892,8 @@ aes_cbc_encrypt_update( SESSION           *sess,
    CK_RV          rc;
 
 
-   if (!sess || !ctx || !out_data_len){
-      OCK_LOG_ERR(ERR_FUNCTION_FAILED);
+   if (!sess || !ctx || !out_data_len) {
+      TRACE_ERROR("%s received bad argument(s)\n", __FUNCTION__);
       return CKR_FUNCTION_FAILED;
    }
    context = (AES_CONTEXT *)ctx->context;
@@ -933,7 +922,7 @@ aes_cbc_encrypt_update( SESSION           *sess,
 
       rc = object_mgr_find_in_map_nocache( ctx->key, &key );
       if (rc != CKR_OK){
-         OCK_LOG_ERR(ERR_OBJMGR_FIND_MAP);
+	 TRACE_ERROR("Failed to find specified object.\n");
          return rc;
       }
 
@@ -941,7 +930,7 @@ aes_cbc_encrypt_update( SESSION           *sess,
       //
       clear  = (CK_BYTE *)malloc( out_len );
       if (!clear){
-         OCK_LOG_ERR(ERR_HOST_MEMORY);
+         TRACE_ERROR("%s\n", ock_err(ERR_HOST_MEMORY));
          return CKR_HOST_MEMORY;
       }
       // copy any data left over from the previous encryption operation first
@@ -965,16 +954,10 @@ aes_cbc_encrypt_update( SESSION           *sess,
             memcpy( context->data, in_data + (in_data_len - remain), remain );
          context->len = remain;
       }
-      else 
-         OCK_LOG_ERR(ERR_AES_CBC_ENCRYPT);
-
 
       free( clear );
       return rc;
    }
-
-   OCK_LOG_ERR(ERR_FUNCTION_FAILED);
-   return CKR_FUNCTION_FAILED;
 }
 
 
@@ -996,10 +979,11 @@ aes_cbc_decrypt_update( SESSION           *sess,
    CK_RV          rc;
 
 
-   if (!sess || !ctx || !out_data_len){
-      OCK_LOG_ERR(ERR_FUNCTION_FAILED);
+   if (!sess || !ctx || !out_data_len) {
+      TRACE_ERROR("%s received bad argument(s)\n", __FUNCTION__);
       return CKR_FUNCTION_FAILED;
    }
+
    context = (AES_CONTEXT *)ctx->context;
 
    total = context->len + in_data_len;
@@ -1026,7 +1010,7 @@ aes_cbc_decrypt_update( SESSION           *sess,
 
       rc = object_mgr_find_in_map_nocache( ctx->key, &key );
       if (rc != CKR_OK){
-         OCK_LOG_ERR(ERR_OBJMGR_FIND_MAP);
+	 TRACE_ERROR("Failed to find specified object.\n");
          return rc;
       }
 
@@ -1034,7 +1018,7 @@ aes_cbc_decrypt_update( SESSION           *sess,
       //
       cipher = (CK_BYTE *)malloc( out_len );
       if (!cipher){
-         OCK_LOG_ERR(ERR_HOST_MEMORY);
+         TRACE_ERROR("%s\n", ock_err(ERR_HOST_MEMORY));
          return CKR_HOST_MEMORY;
       }
       // copy any data left over from the previous decryption operation first
@@ -1059,16 +1043,10 @@ aes_cbc_decrypt_update( SESSION           *sess,
 
          context->len = remain;
       }
-      else 
-         OCK_LOG_ERR(ERR_AES_CBC_DECRYPT);
-
 
       free( cipher );
       return rc;
    }
-
-   OCK_LOG_ERR(ERR_FUNCTION_FAILED);
-   return CKR_FUNCTION_FAILED;
 }
 
 
@@ -1090,10 +1068,11 @@ aes_cbc_pad_encrypt_update( SESSION           *sess,
    CK_RV          rc;
 
 
-   if (!sess || !ctx || !out_data_len){
-      OCK_LOG_ERR(ERR_FUNCTION_FAILED);
+   if (!sess || !ctx || !out_data_len) {
+      TRACE_ERROR("%s received bad argument(s)\n", __FUNCTION__);
       return CKR_FUNCTION_FAILED;
    }
+
    context = (AES_CONTEXT *)ctx->context;
 
    total     = (context->len + in_data_len);
@@ -1129,7 +1108,7 @@ aes_cbc_pad_encrypt_update( SESSION           *sess,
       //
       rc = object_mgr_find_in_map_nocache( ctx->key, &key );
       if (rc != CKR_OK){
-         OCK_LOG_ERR(ERR_OBJMGR_FIND_MAP);
+	 TRACE_ERROR("Failed to find specified object.\n");
          return rc;
       }
 
@@ -1137,7 +1116,7 @@ aes_cbc_pad_encrypt_update( SESSION           *sess,
       //
       clear = (CK_BYTE *)malloc( out_len );
       if (!clear){
-         OCK_LOG_ERR(ERR_HOST_MEMORY);
+         TRACE_ERROR("%s\n", ock_err(ERR_HOST_MEMORY));
          return CKR_HOST_MEMORY;
       }
       // copy any data left over from the previous encryption operation first
@@ -1187,10 +1166,11 @@ aes_cbc_pad_decrypt_update( SESSION           *sess,
    CK_RV          rc;
 
 
-   if (!sess || !ctx || !out_data_len){
-      OCK_LOG_ERR(ERR_FUNCTION_FAILED);
+   if (!sess || !ctx || !out_data_len) {
+      TRACE_ERROR("%s received bad argument(s)\n", __FUNCTION__);
       return CKR_FUNCTION_FAILED;
    }
+
    context = (AES_CONTEXT *)ctx->context;
 
    total = (context->len + in_data_len);
@@ -1228,7 +1208,7 @@ aes_cbc_pad_decrypt_update( SESSION           *sess,
       //
       rc = object_mgr_find_in_map_nocache( ctx->key, &key );
       if (rc != CKR_OK){
-         OCK_LOG_ERR(ERR_OBJMGR_FIND_MAP);
+	 TRACE_ERROR("Failed to find specified object.\n");
          return rc;
       }
 
@@ -1236,7 +1216,7 @@ aes_cbc_pad_decrypt_update( SESSION           *sess,
       //
       cipher = (CK_BYTE *)malloc( out_len );
       if (!cipher){
-         OCK_LOG_ERR(ERR_HOST_MEMORY);
+         TRACE_ERROR("%s\n", ock_err(ERR_HOST_MEMORY));
          return CKR_HOST_MEMORY;
       }
       // copy any data left over from the previous decryption operation first
@@ -1262,9 +1242,6 @@ aes_cbc_pad_decrypt_update( SESSION           *sess,
       free( cipher );
       return rc;
    }
-
-   OCK_LOG_ERR(ERR_FUNCTION_FAILED);
-   return CKR_FUNCTION_FAILED;
 }
 //
 //
@@ -1283,10 +1260,10 @@ aes_ctr_encrypt_update( SESSION                *sess,
    CK_ULONG       total, remain, out_len;
    CK_RV          rc;
    CK_AES_CTR_PARAMS *aesctr = NULL;
-   if ( !sess || !ctx || !out_data_len)
-   {
-      OCK_LOG_ERR(ERR_FUNCTION_FAILED);
-      CKR_FUNCTION_FAILED;
+
+   if (!sess || !ctx || !out_data_len) {
+      TRACE_ERROR("%s received bad argument(s)\n", __FUNCTION__);
+      return CKR_FUNCTION_FAILED;
    }
    context = (AES_CONTEXT *)ctx -> context;
    total = (context->len + in_data_len);
@@ -1309,14 +1286,14 @@ aes_ctr_encrypt_update( SESSION                *sess,
      }
      rc = object_mgr_find_in_map_nocache(ctx->key, &key);
      if(rc != CKR_OK){
-       OCK_LOG_ERR(ERR_OBJMGR_FIND_MAP);
+	TRACE_ERROR("Failed to find specified object.\n");
 	return rc;
      }
 
      //these buffers need to be longword aligned
      clear = (CK_BYTE*) malloc (out_len);
      if (!clear){
-	OCK_LOG_ERR(ERR_HOST_MEMORY);
+	TRACE_ERROR("%s\n", ock_err(ERR_HOST_MEMORY));
         return CKR_HOST_MEMORY;
      }
      //copy all the leftover data  from the previous encryption operation first
@@ -1333,13 +1310,10 @@ aes_ctr_encrypt_update( SESSION                *sess,
            memcpy( context->data, in_data + (in_data_len - remain), remain );
            context->len = remain;
       }
-      else
-          OCK_LOG_ERR(ERR_AES_CTR_ENCRYPT);
+
       free( clear );
       return rc;
-      }
-  OCK_LOG_ERR(ERR_FUNCTION_FAILED);
-  return CKR_FUNCTION_FAILED;
+   }
 }
 //
 //
@@ -1358,9 +1332,10 @@ aes_ctr_decrypt_update( SESSION                 *sess,
    CK_ULONG       total, remain, out_len;
    CK_RV          rc;
    CK_AES_CTR_PARAMS *aesctr = NULL;
-   if ( !sess || !ctx || !out_data_len){
-      OCK_LOG_ERR(ERR_FUNCTION_FAILED);
-      CKR_FUNCTION_FAILED;
+
+   if (!sess || !ctx || !out_data_len) {
+      TRACE_ERROR("%s received bad argument(s)\n", __FUNCTION__);
+      return CKR_FUNCTION_FAILED;
    }
    context = (AES_CONTEXT *)ctx -> context;
    total = (context->len + in_data_len);
@@ -1382,14 +1357,14 @@ aes_ctr_decrypt_update( SESSION                 *sess,
      }
      rc = object_mgr_find_in_map_nocache(ctx->key, &key);
      if(rc != CKR_OK){
-       OCK_LOG_ERR(ERR_OBJMGR_FIND_MAP);
+       TRACE_ERROR("Failed to find specified object.\n");
        return rc;
      }
 
      //these buffers need to be longword aligned
      clear = (CK_BYTE*) malloc (out_len);
      if (!clear){
-	OCK_LOG_ERR(ERR_HOST_MEMORY);
+	TRACE_ERROR("%s\n", ock_err(ERR_HOST_MEMORY));
 	return CKR_HOST_MEMORY;
      }
      //copy all the leftover data  from the previous encryption operation first
@@ -1406,14 +1381,10 @@ aes_ctr_decrypt_update( SESSION                 *sess,
            memcpy( context->data, in_data + (in_data_len - remain), remain );
         context->len = remain;
      }
-     else
-        OCK_LOG_ERR(ERR_AES_CTR_ENCRYPT);
 
      free( clear );
      return rc;
      }
-     OCK_LOG_ERR(ERR_FUNCTION_FAILED);
-     return CKR_FUNCTION_FAILED;
 }
 //
 //
@@ -1426,8 +1397,8 @@ aes_ecb_encrypt_final( SESSION           *sess,
 {
    AES_CONTEXT *context   = NULL;
 
-   if (!sess || !ctx || !out_data_len){
-      OCK_LOG_ERR(ERR_FUNCTION_FAILED);
+   if (!sess || !ctx || !out_data_len) {
+      TRACE_ERROR("%s received bad argument(s)\n", __FUNCTION__);
       return CKR_FUNCTION_FAILED;
    }
    // satisfy the compiler
@@ -1442,7 +1413,7 @@ aes_ecb_encrypt_final( SESSION           *sess,
    // that the overall data length was not a multiple of the blocksize
    //
    if (context->len != 0){
-      OCK_LOG_ERR(ERR_DATA_LEN_RANGE);
+      TRACE_ERROR("%s\n", ock_err(ERR_DATA_LEN_RANGE));
       return CKR_DATA_LEN_RANGE;
    }
    *out_data_len = 0;
@@ -1461,8 +1432,8 @@ aes_ecb_decrypt_final( SESSION           *sess,
 {
    AES_CONTEXT *context   = NULL;
 
-   if (!sess || !ctx || !out_data_len){
-      OCK_LOG_ERR(ERR_FUNCTION_FAILED);
+   if (!sess || !ctx || !out_data_len) {
+      TRACE_ERROR("%s received bad argument(s)\n", __FUNCTION__);
       return CKR_FUNCTION_FAILED;
    }
    // satisfy the compiler
@@ -1477,8 +1448,8 @@ aes_ecb_decrypt_final( SESSION           *sess,
    // that the overall data length was not a multiple of the blocksize
    //
    if (context->len != 0){
-      OCK_LOG_ERR(ERR_DATA_LEN_RANGE);
-      return CKR_DATA_LEN_RANGE;
+      TRACE_ERROR("%s\n", ock_err(ERR_ENCRYPTED_DATA_LEN_RANGE));
+      return CKR_ENCRYPTED_DATA_LEN_RANGE;
    }
    *out_data_len = 0;
    return CKR_OK;
@@ -1496,8 +1467,8 @@ aes_cbc_encrypt_final( SESSION           *sess,
 {
    AES_CONTEXT *context   = NULL;
 
-   if (!sess || !ctx || !out_data_len){
-      OCK_LOG_ERR(ERR_FUNCTION_FAILED);
+   if (!sess || !ctx || !out_data_len) {
+      TRACE_ERROR("%s received bad argument(s)\n", __FUNCTION__);
       return CKR_FUNCTION_FAILED;
    }
    // satisfy the compiler
@@ -1512,7 +1483,7 @@ aes_cbc_encrypt_final( SESSION           *sess,
    // that the overall data length was not a multiple of the blocksize
    //
    if (context->len != 0){
-      OCK_LOG_ERR(ERR_DATA_LEN_RANGE);
+      TRACE_ERROR("%s\n", ock_err(ERR_DATA_LEN_RANGE));
       return CKR_DATA_LEN_RANGE;
    }
    *out_data_len = 0;
@@ -1531,8 +1502,8 @@ aes_cbc_decrypt_final( SESSION           *sess,
 {
    AES_CONTEXT *context   = NULL;
 
-   if (!sess || !ctx || !out_data_len){
-      OCK_LOG_ERR(ERR_FUNCTION_FAILED);
+   if (!sess || !ctx || !out_data_len) {
+      TRACE_ERROR("%s received bad argument(s)\n", __FUNCTION__);
       return CKR_FUNCTION_FAILED;
    }
    // satisfy the compiler
@@ -1543,8 +1514,8 @@ aes_cbc_decrypt_final( SESSION           *sess,
    context = (AES_CONTEXT *)ctx->context;
 
    if (context->len != 0){
-      OCK_LOG_ERR(ERR_DATA_LEN_RANGE);
-      return CKR_DATA_LEN_RANGE;
+      TRACE_ERROR("%s\n", ock_err(ERR_ENCRYPTED_DATA_LEN_RANGE));
+      return CKR_ENCRYPTED_DATA_LEN_RANGE;
    }
    *out_data_len = 0;
    return CKR_OK;
@@ -1567,14 +1538,14 @@ aes_cbc_pad_encrypt_final( SESSION           *sess,
    CK_RV           rc;
 
 
-   if (!sess || !ctx || !out_data_len){
-      OCK_LOG_ERR(ERR_FUNCTION_FAILED);
+   if (!sess || !ctx || !out_data_len) {
+      TRACE_ERROR("%s received bad argument(s)\n", __FUNCTION__);
       return CKR_FUNCTION_FAILED;
    }
 
    rc = object_mgr_find_in_map1( ctx->key, &key );
    if (rc != CKR_OK){
-      OCK_LOG_ERR(ERR_OBJMGR_FIND_MAP);
+      TRACE_ERROR("Failed to find specified object.\n");
       return rc;
    }
 
@@ -1604,8 +1575,6 @@ aes_cbc_pad_encrypt_final( SESSION           *sess,
 
       rc = ckm_aes_cbc_encrypt(clear, out_len, out_data, out_data_len,
                                 ctx->mech.pParameter, key);
-      if (rc != CKR_OK) 
-         OCK_LOG_ERR(ERR_AES_CBC_ENCRYPT);
       
       return rc;
    }
@@ -1627,13 +1596,13 @@ aes_cbc_pad_decrypt_final( SESSION           *sess,
    CK_ULONG        out_len;
    CK_RV           rc;
 
-   if (!sess || !ctx || !out_data_len){
-      OCK_LOG_ERR(ERR_FUNCTION_FAILED);
+   if (!sess || !ctx || !out_data_len) {
+      TRACE_ERROR("%s received bad argument(s)\n", __FUNCTION__);
       return CKR_FUNCTION_FAILED;
    }
    rc = object_mgr_find_in_map1( ctx->key, &key );
    if (rc != CKR_OK){
-      OCK_LOG_ERR(ERR_OBJMGR_FIND_MAP);
+      TRACE_ERROR("Failed to find specified object.\n");
       return rc;
    }
 
@@ -1642,7 +1611,7 @@ aes_cbc_pad_decrypt_final( SESSION           *sess,
    // there had better be a full block in the context buffer
    //
    if (context->len != AES_BLOCK_SIZE){
-      OCK_LOG_ERR(ERR_DATA_LEN_RANGE);
+      TRACE_ERROR("%s\n", ock_err(ERR_ENCRYPTED_DATA_LEN_RANGE));
       return CKR_ENCRYPTED_DATA_LEN_RANGE;
    }
    // we don't know a priori how much data we'll be returning.  we won't
@@ -1667,8 +1636,7 @@ aes_cbc_pad_decrypt_final( SESSION           *sess,
 
          *out_data_len = out_len;
       }
-      else
-         OCK_LOG_ERR(ERR_AES_CBC_DECRYPT);
+
       return rc;
    }
 }
@@ -1685,8 +1653,8 @@ aes_ctr_encrypt_final( SESSION           *sess,
    AES_CONTEXT *context   = NULL;
    CK_AES_CTR_PARAMS *aesctr = NULL;
 
-   if (!sess || !ctx || !out_data_len){
-      OCK_LOG_ERR(ERR_FUNCTION_FAILED);
+   if (!sess || !ctx || !out_data_len) {
+      TRACE_ERROR("%s received bad argument(s)\n", __FUNCTION__);
       return CKR_FUNCTION_FAILED;
    }
    // satisfy the compiler
@@ -1701,14 +1669,14 @@ aes_ctr_encrypt_final( SESSION           *sess,
    // that the overall data length was not a multiple of the blocksize
    //
    if (context->len != 0){
-      OCK_LOG_ERR(ERR_DATA_LEN_RANGE);
+      TRACE_ERROR("%s\n", ock_err(ERR_DATA_LEN_RANGE));
       return CKR_DATA_LEN_RANGE;
    }
    aesctr = (CK_AES_CTR_PARAMS *)ctx->mech.pParameter;
    //to check that the counter buffer doesnot overflow
    if ( ((CK_ULONG)aesctr->ulCounterBits) > ((CK_ULONG)aesctr->ulCounterBits+1) )
    {
-	OCK_LOG_ERR(ERR_DATA_LEN_RANGE);
+	TRACE_ERROR("%s\n", ock_err(ERR_DATA_LEN_RANGE));
 	return CKR_DATA_LEN_RANGE;
    }
 
@@ -1728,8 +1696,8 @@ aes_ctr_decrypt_final( SESSION           *sess,
    AES_CONTEXT *context   = NULL;
    CK_AES_CTR_PARAMS *aesctr = NULL;
 
-   if (!sess || !ctx || !out_data_len){
-      OCK_LOG_ERR(ERR_FUNCTION_FAILED);
+   if (!sess || !ctx || !out_data_len) {
+      TRACE_ERROR("%s received bad argument(s)\n", __FUNCTION__);
       return CKR_FUNCTION_FAILED;
    }
    // satisfy the compiler
@@ -1744,14 +1712,14 @@ aes_ctr_decrypt_final( SESSION           *sess,
    // that the overall data length was not a multiple of the blocksize
    //
    if (context->len != 0){
-      OCK_LOG_ERR(ERR_DATA_LEN_RANGE);
-      return CKR_DATA_LEN_RANGE;
+      TRACE_ERROR("%s\n", ock_err(ERR_ENCRYPTED_DATA_LEN_RANGE));
+      return CKR_ENCRYPTED_DATA_LEN_RANGE;
    }
    aesctr = (CK_AES_CTR_PARAMS *)ctx->mech.pParameter;
    //to check that the counter buffer doesnot overflow
    if ( ((CK_ULONG)aesctr->ulCounterBits) > ((CK_ULONG)aesctr->ulCounterBits+1) )
    {
-	OCK_LOG_ERR(ERR_DATA_LEN_RANGE);
+	TRACE_ERROR("%s\n", ock_err(ERR_DATA_LEN_RANGE));
 	return CKR_DATA_LEN_RANGE;
    }
    *out_data_len = 0;
@@ -1771,8 +1739,8 @@ aes_ofb_encrypt( SESSION           * sess,
    OBJECT           * key_obj  = NULL;
 
    if (!sess || !ctx || !in_data || !out_data_len) {
-      OCK_LOG_ERR(ERR_ARGUMENTS_BAD);
-      return CKR_ARGUMENTS_BAD;
+      TRACE_ERROR("%s received bad argument(s)\n", __FUNCTION__);
+      return CKR_FUNCTION_FAILED;
    }
 
    if (length_only == TRUE) {
@@ -1781,13 +1749,13 @@ aes_ofb_encrypt( SESSION           * sess,
    }
 
    if (*out_data_len < in_data_len){
-      OCK_LOG_ERR(ERR_BUFFER_TOO_SMALL);
+      TRACE_ERROR("%s\n", ock_err(ERR_BUFFER_TOO_SMALL));
       return CKR_BUFFER_TOO_SMALL;
    }
 
    rc = object_mgr_find_in_map1( ctx->key, &key_obj );
    if (rc != CKR_OK){
-      OCK_LOG_ERR(ERR_OBJMGR_FIND_MAP);
+      TRACE_ERROR("Failed to find specified object.\n");
       return rc;
    }
 
@@ -1795,7 +1763,7 @@ aes_ofb_encrypt( SESSION           * sess,
                               key_obj, ctx->mech.pParameter, 1);
 
    if (rc != CKR_OK)
-      OCK_LOG_ERR(ERR_AES_OFB_TOK_SPEC);
+	TRACE_DEBUG("Token specific aes ofb encrypt failed.\n");
    return rc;
 }
 
@@ -1815,8 +1783,8 @@ aes_ofb_encrypt_update( SESSION              * sess,
    OBJECT       * key_obj  = NULL;
 
    if (!sess || !ctx || !out_data_len) {
-      OCK_LOG_ERR(ERR_ARGUMENTS_BAD);
-      return CKR_ARGUMENTS_BAD;
+      TRACE_ERROR("%s received bad argument(s)\n", __FUNCTION__);
+      return CKR_FUNCTION_FAILED;
    }
    context = (AES_CONTEXT *)ctx->context;
 
@@ -1842,19 +1810,19 @@ aes_ofb_encrypt_update( SESSION              * sess,
       }
 
       if (*out_data_len < out_len){
-         OCK_LOG_ERR(ERR_BUFFER_TOO_SMALL);
+         TRACE_ERROR("%s\n", ock_err(ERR_BUFFER_TOO_SMALL));
          return CKR_BUFFER_TOO_SMALL;
       }
 
       rc = object_mgr_find_in_map1( ctx->key, &key_obj );
       if (rc != CKR_OK){
-         OCK_LOG_ERR(ERR_OBJMGR_FIND_MAP);
+	 TRACE_ERROR("Failed to find specified object.\n");
          return rc;
       }
 
       cipher = (CK_BYTE *)malloc( out_len );
       if (!cipher){
-         OCK_LOG_ERR(ERR_HOST_MEMORY);
+         TRACE_ERROR("%s\n", ock_err(ERR_HOST_MEMORY));
          return CKR_HOST_MEMORY;
       }
       // copy any data left over from the previous encryption operation first
@@ -1871,9 +1839,8 @@ aes_ofb_encrypt_update( SESSION              * sess,
          if (remain != 0)
             memcpy( context->data, in_data + (in_data_len - remain), remain );
          context->len = remain;
-      }
-      else
-         OCK_LOG_ERR(ERR_AES_OFB_TOK_SPEC);
+      } else
+	    TRACE_DEBUG("Token specific aes ofb encrypt failed.\n");
       free( cipher );
       return rc;
    }
@@ -1890,8 +1857,8 @@ aes_ofb_encrypt_final( SESSION           *sess,
    AES_CONTEXT *context  = NULL;
    CK_RV        rc;
 
-   if (!sess || !ctx || !out_data_len){
-      OCK_LOG_ERR(ERR_FUNCTION_FAILED);
+   if (!sess || !ctx || !out_data_len) {
+      TRACE_ERROR("%s received bad argument(s)\n", __FUNCTION__);
       return CKR_FUNCTION_FAILED;
    }
 
@@ -1914,7 +1881,7 @@ aes_ofb_encrypt_final( SESSION           *sess,
 
       rc = object_mgr_find_in_map1( ctx->key, &key_obj );
       if (rc != CKR_OK){
-         OCK_LOG_ERR(ERR_OBJMGR_FIND_MAP);
+         TRACE_ERROR("Failed to find specified object.\n");
          return rc;
       }
 
@@ -1922,7 +1889,7 @@ aes_ofb_encrypt_final( SESSION           *sess,
                               key_obj, ctx->mech.pParameter, 1);
 
       if (rc != CKR_OK)
-         OCK_LOG_ERR(ERR_AES_OFB_TOK_SPEC);
+	 TRACE_DEBUG("Token specific aes ofb encrypt failed.\n");
 
       *out_data_len = context->len;
       return rc;
@@ -1942,8 +1909,8 @@ aes_ofb_decrypt( SESSION           * sess,
    OBJECT           *key_obj  = NULL;
 
    if (!sess || !ctx || !in_data || !out_data_len) {
-      OCK_LOG_ERR(ERR_ARGUMENTS_BAD);
-      return CKR_ARGUMENTS_BAD;
+      TRACE_ERROR("%s received bad argument(s)\n", __FUNCTION__);
+      return CKR_FUNCTION_FAILED;
    }
 
    if (length_only == TRUE) {
@@ -1952,13 +1919,13 @@ aes_ofb_decrypt( SESSION           * sess,
    }
 
    if (*out_data_len < in_data_len){
-      OCK_LOG_ERR(ERR_BUFFER_TOO_SMALL);
+      TRACE_ERROR("%s\n", ock_err(ERR_BUFFER_TOO_SMALL));
       return CKR_BUFFER_TOO_SMALL;
    }
 
    rc = object_mgr_find_in_map1( ctx->key, &key_obj );
    if (rc != CKR_OK){
-      OCK_LOG_ERR(ERR_OBJMGR_FIND_MAP);
+      TRACE_ERROR("Failed to find specified object.\n");
       return rc;
    }
 
@@ -1966,7 +1933,7 @@ aes_ofb_decrypt( SESSION           * sess,
                               key_obj, ctx->mech.pParameter, 0);
 
    if (rc != CKR_OK)
-      OCK_LOG_ERR(ERR_AES_OFB_TOK_SPEC);
+	TRACE_DEBUG("Token specific aes ofb decrypt failed.\n");
    return rc;
 }
 
@@ -1986,8 +1953,8 @@ aes_ofb_decrypt_update( SESSION              * sess,
    OBJECT       * key_obj  = NULL;
 
    if (!sess || !ctx || !out_data_len) {
-      OCK_LOG_ERR(ERR_ARGUMENTS_BAD);
-      return CKR_ARGUMENTS_BAD;
+      TRACE_ERROR("%s received bad argument(s)\n", __FUNCTION__);
+      return CKR_FUNCTION_FAILED;
    }
 
    context = (AES_CONTEXT *)ctx->context;
@@ -2014,19 +1981,19 @@ aes_ofb_decrypt_update( SESSION              * sess,
       }
 
       if (*out_data_len < out_len){
-         OCK_LOG_ERR(ERR_BUFFER_TOO_SMALL);
+         TRACE_ERROR("%s\n", ock_err(ERR_BUFFER_TOO_SMALL));
          return CKR_BUFFER_TOO_SMALL;
       }
 
       rc = object_mgr_find_in_map1( ctx->key, &key_obj );
       if (rc != CKR_OK){
-         OCK_LOG_ERR(ERR_OBJMGR_FIND_MAP);
+	 TRACE_ERROR("Failed to find specified object.\n");
          return rc;
       }
 
       cipher = (CK_BYTE *)malloc( out_len );
       if (!cipher){
-         OCK_LOG_ERR(ERR_HOST_MEMORY);
+         TRACE_ERROR("%s\n", ock_err(ERR_HOST_MEMORY));
          return CKR_HOST_MEMORY;
       }
       // copy any data left over from the previous decryption operation first
@@ -2043,9 +2010,8 @@ aes_ofb_decrypt_update( SESSION              * sess,
          if (remain != 0)
             memcpy( context->data, in_data + (in_data_len - remain), remain );
          context->len = remain;
-      }
-      else
-         OCK_LOG_ERR(ERR_AES_OFB_TOK_SPEC);
+      } else
+	 TRACE_DEBUG("Token specific aes ofb decrypt failed.\n");
       free( cipher );
       return rc;
    }
@@ -2063,7 +2029,7 @@ aes_ofb_decrypt_final( SESSION           *sess,
    CK_RV         rc;
 
    if (!sess || !ctx || !out_data_len){
-      OCK_LOG_ERR(ERR_FUNCTION_FAILED);
+      TRACE_ERROR("%s received bad argument(s)\n", __FUNCTION__);
       return CKR_FUNCTION_FAILED;
    }
    // satisfy the compiler
@@ -2089,7 +2055,7 @@ aes_ofb_decrypt_final( SESSION           *sess,
 
       rc = object_mgr_find_in_map1( ctx->key, &key_obj );
       if (rc != CKR_OK){
-         OCK_LOG_ERR(ERR_OBJMGR_FIND_MAP);
+	 TRACE_ERROR("Failed to find specified object.\n");
          return rc;
       }
 
@@ -2097,7 +2063,7 @@ aes_ofb_decrypt_final( SESSION           *sess,
                                            key_obj, ctx->mech.pParameter, 0);
 
       if (rc != CKR_OK)
-         OCK_LOG_ERR(ERR_AES_OFB_TOK_SPEC);
+         TRACE_DEBUG("Token specific aes ofb decrypt failed.\n");
 
       *out_data_len = context->len;
       return rc;
@@ -2118,8 +2084,8 @@ aes_cfb_encrypt( SESSION           * sess,
    OBJECT           *key_obj = NULL;
 
    if (!sess || !ctx || !in_data || !out_data_len) {
-      OCK_LOG_ERR(ERR_ARGUMENTS_BAD);
-      return CKR_ARGUMENTS_BAD;
+      TRACE_ERROR("%s received bad argument(s)\n", __FUNCTION__);
+      return CKR_FUNCTION_FAILED;
    }
 
    if (length_only == TRUE) {
@@ -2128,13 +2094,13 @@ aes_cfb_encrypt( SESSION           * sess,
    }
 
    if (*out_data_len < in_data_len){
-      OCK_LOG_ERR(ERR_BUFFER_TOO_SMALL);
+      TRACE_ERROR("%s\n", ock_err(ERR_BUFFER_TOO_SMALL));
       return CKR_BUFFER_TOO_SMALL;
    }
 
    rc = object_mgr_find_in_map1( ctx->key, &key_obj );
    if (rc != CKR_OK){
-      OCK_LOG_ERR(ERR_OBJMGR_FIND_MAP);
+      TRACE_ERROR("Failed to find specified object.\n");
       return rc;
    }
 
@@ -2142,7 +2108,7 @@ aes_cfb_encrypt( SESSION           * sess,
                      key_obj, ctx->mech.pParameter, cfb_len, 1);
 
    if (rc != CKR_OK)
-      OCK_LOG_ERR(ERR_AES_CFB_TOK_SPEC);
+      TRACE_DEBUG("Token specific aes cfb encrypt failed.\n");
    return rc;
 }
 
@@ -2163,8 +2129,8 @@ aes_cfb_encrypt_update( SESSION              * sess,
    OBJECT       * key_obj  = NULL;
 
    if (!sess || !ctx || !out_data_len) {
-      OCK_LOG_ERR(ERR_ARGUMENTS_BAD);
-      return CKR_ARGUMENTS_BAD;
+      TRACE_ERROR("%s received bad argument(s)\n", __FUNCTION__);
+      return CKR_FUNCTION_FAILED;
    }
    context = (AES_CONTEXT *)ctx->context;
 
@@ -2190,19 +2156,19 @@ aes_cfb_encrypt_update( SESSION              * sess,
       }
 
       if (*out_data_len < out_len){
-         OCK_LOG_ERR(ERR_BUFFER_TOO_SMALL);
+         TRACE_ERROR("%s\n", ock_err(ERR_BUFFER_TOO_SMALL));
          return CKR_BUFFER_TOO_SMALL;
       }
 
       rc = object_mgr_find_in_map1( ctx->key, &key_obj );
       if (rc != CKR_OK){
-         OCK_LOG_ERR(ERR_OBJMGR_FIND_MAP);
+	 TRACE_ERROR("Failed to find specified object.\n");
          return rc;
       }
 
       cipher = (CK_BYTE *)malloc( out_len );
       if (!cipher){
-         OCK_LOG_ERR(ERR_HOST_MEMORY);
+         TRACE_ERROR("%s\n", ock_err(ERR_HOST_MEMORY));
          return CKR_HOST_MEMORY;
       }
       // copy any data left over from the previous encryption operation first
@@ -2219,9 +2185,8 @@ aes_cfb_encrypt_update( SESSION              * sess,
          if (remain != 0)
             memcpy( context->data, in_data + (in_data_len - remain), remain );
          context->len = remain;
-      }
-      else
-         OCK_LOG_ERR(ERR_AES_OFB_TOK_SPEC);
+      } else
+         TRACE_DEBUG("Token specific aes cfb encrypt failed.\n");
       free( cipher );
       return rc;
    }
@@ -2240,7 +2205,7 @@ aes_cfb_encrypt_final( SESSION           *sess,
    CK_RV        rc;
 
    if (!sess || !ctx || !out_data_len){
-      OCK_LOG_ERR(ERR_FUNCTION_FAILED);
+      TRACE_ERROR("%s received bad argument(s)\n", __FUNCTION__);
       return CKR_FUNCTION_FAILED;
    }
 
@@ -2263,7 +2228,7 @@ aes_cfb_encrypt_final( SESSION           *sess,
    else {
       rc = object_mgr_find_in_map1( ctx->key, &key_obj );
       if (rc != CKR_OK){
-         OCK_LOG_ERR(ERR_OBJMGR_FIND_MAP);
+	TRACE_ERROR("Failed to find specified object.\n");
          return rc;
       }
 
@@ -2271,7 +2236,7 @@ aes_cfb_encrypt_final( SESSION           *sess,
                               key_obj, ctx->mech.pParameter, cfb_len, 1);
 
       if (rc != CKR_OK)
-         OCK_LOG_ERR(ERR_AES_CFB_TOK_SPEC);
+         TRACE_DEBUG("Token specific aes cfb encrypt failed.\n");
 
       *out_data_len = context->len;
       return rc;
@@ -2292,8 +2257,8 @@ aes_cfb_decrypt( SESSION           * sess,
    OBJECT           *key_obj = NULL;
 
    if (!sess || !ctx || !in_data || !out_data_len) {
-      OCK_LOG_ERR(ERR_ARGUMENTS_BAD);
-      return CKR_ARGUMENTS_BAD;
+      TRACE_ERROR("%s received bad argument(s)\n", __FUNCTION__);
+      return CKR_FUNCTION_FAILED;
    }
 
    if (length_only == TRUE) {
@@ -2302,13 +2267,13 @@ aes_cfb_decrypt( SESSION           * sess,
    }
 
    if (*out_data_len < in_data_len){
-      OCK_LOG_ERR(ERR_BUFFER_TOO_SMALL);
+      TRACE_ERROR("%s\n", ock_err(ERR_BUFFER_TOO_SMALL));
       return CKR_BUFFER_TOO_SMALL;
    }
 
    rc = object_mgr_find_in_map1( ctx->key, &key_obj );
    if (rc != CKR_OK){
-      OCK_LOG_ERR(ERR_OBJMGR_FIND_MAP);
+      TRACE_ERROR("Failed to find specified object.\n");
       return rc;
    }
 
@@ -2316,7 +2281,7 @@ aes_cfb_decrypt( SESSION           * sess,
                      key_obj, ctx->mech.pParameter, cfb_len, 0);
 
    if (rc != CKR_OK)
-      OCK_LOG_ERR(ERR_AES_CFB_TOK_SPEC);
+      TRACE_DEBUG("Token specific aes cfb decrypt failed.\n");
    return rc;
 }
 
@@ -2337,8 +2302,8 @@ aes_cfb_decrypt_update( SESSION              * sess,
    OBJECT       * key_obj  = NULL;
 
    if (!sess || !ctx || !out_data_len) {
-      OCK_LOG_ERR(ERR_ARGUMENTS_BAD);
-      return CKR_ARGUMENTS_BAD;
+      TRACE_ERROR("%s received bad argument(s)\n", __FUNCTION__);
+      return CKR_FUNCTION_FAILED;
    }
    context = (AES_CONTEXT *)ctx->context;
 
@@ -2364,19 +2329,19 @@ aes_cfb_decrypt_update( SESSION              * sess,
       }
 
       if (*out_data_len < out_len){
-         OCK_LOG_ERR(ERR_BUFFER_TOO_SMALL);
+         TRACE_ERROR("%s\n", ock_err(ERR_BUFFER_TOO_SMALL));
          return CKR_BUFFER_TOO_SMALL;
       }
 
       rc = object_mgr_find_in_map1( ctx->key, &key_obj );
       if (rc != CKR_OK){
-         OCK_LOG_ERR(ERR_OBJMGR_FIND_MAP);
+	 TRACE_ERROR("Failed to find specified object.\n");
          return rc;
       }
 
       cipher = (CK_BYTE *)malloc( out_len );
       if (!cipher){
-         OCK_LOG_ERR(ERR_HOST_MEMORY);
+         TRACE_ERROR("%s\n", ock_err(ERR_HOST_MEMORY));
          return CKR_HOST_MEMORY;
       }
       // copy any data left over from the previous decryption operation first
@@ -2395,7 +2360,7 @@ aes_cfb_decrypt_update( SESSION              * sess,
          context->len = remain;
       }
       else
-         OCK_LOG_ERR(ERR_AES_OFB_TOK_SPEC);
+         TRACE_DEBUG("Token specific aes cfb decrypt failed.\n");
       free( cipher );
       return rc;
    }
@@ -2414,7 +2379,7 @@ aes_cfb_decrypt_final( SESSION           *sess,
    CK_RV        rc;
 
    if (!sess || !ctx || !out_data_len){
-      OCK_LOG_ERR(ERR_FUNCTION_FAILED);
+      TRACE_ERROR("%s received bad argument(s)\n", __FUNCTION__);
       return CKR_FUNCTION_FAILED;
    }
 
@@ -2437,7 +2402,7 @@ aes_cfb_decrypt_final( SESSION           *sess,
    else {
       rc = object_mgr_find_in_map1( ctx->key, &key_obj );
       if (rc != CKR_OK){
-         OCK_LOG_ERR(ERR_OBJMGR_FIND_MAP);
+	 TRACE_ERROR("Failed to find specified object.\n");
          return rc;
       }
 
@@ -2445,7 +2410,7 @@ aes_cfb_decrypt_final( SESSION           *sess,
                               key_obj, ctx->mech.pParameter, cfb_len, 0);
 
       if (rc != CKR_OK)
-         OCK_LOG_ERR(ERR_AES_CFB_TOK_SPEC);
+         TRACE_DEBUG("Token specific aes cfb decrypt failed.\n");
 
       *out_data_len = context->len;
       return rc;
@@ -2467,8 +2432,8 @@ aes_mac_sign( SESSION              * sess,
  CK_ULONG         mac_len;
 
    if (!sess || !ctx || !out_data_len){
-      OCK_LOG_ERR(ERR_ARGUMENTS_BAD);
-      return CKR_ARGUMENTS_BAD;
+      TRACE_ERROR("%s received bad argument(s)\n", __FUNCTION__);
+      return CKR_FUNCTION_FAILED;
    }
 
    if (ctx->mech.pParameter)
@@ -2483,36 +2448,31 @@ aes_mac_sign( SESSION              * sess,
 
  if ( (in_data_len % AES_BLOCK_SIZE) != 0) {
     rc = aes_mac_sign_update(sess, ctx, in_data, in_data_len);
-    if (rc != CKR_OK) {
-       OCK_LOG_ERR(ERR_FUNCTION_FAILED);
-       return CKR_FUNCTION_FAILED;
-    }
+    if (rc != CKR_OK)
+       return rc;
 
     rc = aes_mac_sign_final(sess, length_only, ctx, out_data, out_data_len);
-    if (rc != CKR_OK) {
-       OCK_LOG_ERR(ERR_FUNCTION_FAILED);
-       return CKR_FUNCTION_FAILED;
-    }
+
     return rc;
  }
  else {
 
    if (*out_data_len < mac_len) {
       *out_data_len = mac_len;
-      OCK_LOG_ERR(ERR_BUFFER_TOO_SMALL);
+      TRACE_ERROR("%s\n", ock_err(ERR_BUFFER_TOO_SMALL));
       return CKR_BUFFER_TOO_SMALL;
    }
 
    rc = object_mgr_find_in_map1( ctx->key, &key_obj );
    if (rc != CKR_OK){
-      OCK_LOG_ERR(ERR_OBJMGR_FIND_MAP);
+      TRACE_ERROR("Failed to find specified object.\n");
       return rc;
    }
 
    rc = token_specific.t_aes_mac(in_data, in_data_len,
         key_obj, ((AES_DATA_CONTEXT *)ctx->context)->iv);
    if (rc != CKR_OK)
-      OCK_LOG_ERR(ERR_AES_MAC_TOK_SPEC);
+      TRACE_DEBUG("Token specific aes mac failed.\n");
 
    memcpy(out_data, ((AES_DATA_CONTEXT *)ctx->context)->iv, mac_len);
    *out_data_len = mac_len;
@@ -2534,8 +2494,8 @@ aes_mac_sign_update ( SESSION              * sess,
  CK_ULONG         total, remain, out_len;
 
   if (!sess || !ctx) {
-      OCK_LOG_ERR(ERR_ARGUMENTS_BAD);
-      return CKR_ARGUMENTS_BAD;
+      TRACE_ERROR("%s received bad argument(s)\n", __FUNCTION__);
+      return CKR_FUNCTION_FAILED;
   }
 
    context = (AES_DATA_CONTEXT *)ctx->context;
@@ -2554,13 +2514,13 @@ aes_mac_sign_update ( SESSION              * sess,
 
       rc = object_mgr_find_in_map1( ctx->key, &key_obj );
       if (rc != CKR_OK){
-         OCK_LOG_ERR(ERR_OBJMGR_FIND_MAP);
+	 TRACE_ERROR("Failed to find specified object.\n");
          return rc;
       }
 
       cipher = (CK_BYTE *)malloc( out_len );
       if (!cipher){
-         OCK_LOG_ERR(ERR_HOST_MEMORY);
+         TRACE_ERROR("%s\n", ock_err(ERR_HOST_MEMORY));
          return CKR_HOST_MEMORY;
       }
       // copy any data left over from the previous signUpdate operation first
@@ -2574,9 +2534,8 @@ aes_mac_sign_update ( SESSION              * sess,
          if (remain != 0)
             memcpy( context->data, in_data + (in_data_len - remain), remain );
          context->len = remain;
-      }
-      else
-         OCK_LOG_ERR(ERR_AES_MAC_TOK_SPEC);
+      } else
+         TRACE_DEBUG("Token specific aes mac failed.\n");
 
       free( cipher );
       return rc;
@@ -2596,8 +2555,8 @@ aes_mac_sign_final( SESSION              * sess,
   OBJECT           * key_obj  = NULL;
 
    if (!sess || !ctx || !out_data_len){
-      OCK_LOG_ERR(ERR_ARGUMENTS_BAD);
-      return CKR_ARGUMENTS_BAD;
+      TRACE_ERROR("%s received bad argument(s)\n", __FUNCTION__);
+      return CKR_FUNCTION_FAILED;
    }
 
    context = (AES_DATA_CONTEXT *)ctx->context;
@@ -2621,7 +2580,7 @@ aes_mac_sign_final( SESSION              * sess,
 
       if (*out_data_len < mac_len) {
          *out_data_len = mac_len;
-         OCK_LOG_ERR(ERR_BUFFER_TOO_SMALL);
+         TRACE_ERROR("%s\n", ock_err(ERR_BUFFER_TOO_SMALL));
          return CKR_BUFFER_TOO_SMALL;
       }
 
@@ -2630,13 +2589,13 @@ aes_mac_sign_final( SESSION              * sess,
 
       rc = object_mgr_find_in_map1( ctx->key, &key_obj );
       if (rc != CKR_OK){
-         OCK_LOG_ERR(ERR_OBJMGR_FIND_MAP);
+	 TRACE_ERROR("Failed to find specified object.\n");
          return rc;
       }
 
       rc = token_specific.t_aes_mac(context->data, AES_BLOCK_SIZE, key_obj, context->iv);
       if (rc != CKR_OK) {
-         OCK_LOG_ERR(ERR_AES_MAC_TOK_SPEC);
+         TRACE_DEBUG("Token Specific aes mac failed.\n");
          return rc;
       }
    }
@@ -2659,22 +2618,16 @@ aes_mac_verify( SESSION              * sess,
  CK_ULONG         mac_len;
 
    if (!sess || !ctx || !in_data || !out_data){
-      OCK_LOG_ERR(ERR_ARGUMENTS_BAD);
-      return CKR_ARGUMENTS_BAD;
+      TRACE_ERROR("%s received bad argument(s)\n", __FUNCTION__);
+      return CKR_FUNCTION_FAILED;
    }
 
  if ( (in_data_len % AES_BLOCK_SIZE) != 0) {
     rc = aes_mac_verify_update(sess, ctx, in_data, in_data_len);
-    if (rc != CKR_OK) {
-       OCK_LOG_ERR(ERR_FUNCTION_FAILED);
-       return CKR_FUNCTION_FAILED;
-    }
+    if (rc != CKR_OK)
+       return rc;
 
     rc = aes_mac_verify_final(sess, ctx, out_data, out_data_len);
-    if (rc != CKR_OK) {
-       OCK_LOG_ERR(ERR_FUNCTION_FAILED);
-       return CKR_FUNCTION_FAILED;
-    }
     return rc;
  }
  else {
@@ -2685,13 +2638,13 @@ aes_mac_verify( SESSION              * sess,
       mac_len = AES_BLOCK_SIZE / 2;
 
    if (out_data_len != mac_len) {
-           OCK_LOG_ERR(ERR_SIGNATURE_LEN_RANGE);
+           TRACE_ERROR("%s\n", ock_err(ERR_SIGNATURE_LEN_RANGE));
            return CKR_SIGNATURE_LEN_RANGE;
    }
 
    rc = object_mgr_find_in_map1( ctx->key, &key_obj );
    if (rc != CKR_OK){
-      OCK_LOG_ERR(ERR_OBJMGR_FIND_MAP);
+      TRACE_ERROR("Failed to find specified object.\n");
       return rc;
    }
 
@@ -2699,7 +2652,7 @@ aes_mac_verify( SESSION              * sess,
         key_obj, ((AES_DATA_CONTEXT *)ctx->context)->iv);
 
    if (rc != CKR_OK)
-      OCK_LOG_ERR(ERR_AES_MAC_TOK_SPEC);
+      TRACE_DEBUG("Token specific aes mac failed.\n");
    if (memcmp(
        out_data, ((AES_DATA_CONTEXT *)ctx->context)->iv, out_data_len) == 0) {
        return CKR_OK;
@@ -2724,8 +2677,8 @@ aes_mac_verify_update( SESSION              * sess,
  CK_ULONG         total, remain, out_len;
 
    if (!sess || !ctx) {
-      OCK_LOG_ERR(ERR_ARGUMENTS_BAD);
-      return CKR_ARGUMENTS_BAD;
+      TRACE_ERROR("%s received bad argument(s)\n", __FUNCTION__);
+      return CKR_FUNCTION_FAILED;
    }
 
    context = (AES_DATA_CONTEXT *)ctx->context;
@@ -2744,13 +2697,13 @@ aes_mac_verify_update( SESSION              * sess,
 
       rc = object_mgr_find_in_map1( ctx->key, &key_obj );
       if (rc != CKR_OK){
-         OCK_LOG_ERR(ERR_OBJMGR_FIND_MAP);
+	 TRACE_ERROR("Failed to find specified object.\n");
          return rc;
       }
 
       cipher = (CK_BYTE *)malloc( out_len );
       if (!cipher){
-         OCK_LOG_ERR(ERR_HOST_MEMORY);
+         TRACE_ERROR("%s\n", ock_err(ERR_HOST_MEMORY));
          return CKR_HOST_MEMORY;
       }
       // copy any data left over from the previous signUpdate operation first
@@ -2765,7 +2718,7 @@ aes_mac_verify_update( SESSION              * sess,
          context->len = remain;
       }
       else
-         OCK_LOG_ERR(ERR_AES_MAC_TOK_SPEC);
+         TRACE_DEBUG("Token specific aes mac failed.\n");
 
       free( cipher );
       return rc;
@@ -2784,8 +2737,8 @@ aes_mac_verify_final( SESSION              * sess,
  AES_DATA_CONTEXT * context  = NULL;
 
    if (!sess || !ctx || !signature){
-      OCK_LOG_ERR(ERR_ARGUMENTS_BAD);
-      return CKR_ARGUMENTS_BAD;
+      TRACE_ERROR("%s received bad argument(s)\n", __FUNCTION__);
+      return CKR_FUNCTION_FAILED;
    }
 
    context = (AES_DATA_CONTEXT *)ctx->context;
@@ -2803,7 +2756,7 @@ aes_mac_verify_final( SESSION              * sess,
    if (context->len > 0) {
 
       if (signature_len != mac_len) {
-           OCK_LOG_ERR(ERR_SIGNATURE_LEN_RANGE);
+           TRACE_ERROR("%s\n", ock_err(ERR_SIGNATURE_LEN_RANGE));
            return CKR_SIGNATURE_LEN_RANGE;
       }
 
@@ -2812,12 +2765,12 @@ aes_mac_verify_final( SESSION              * sess,
 
       rc = object_mgr_find_in_map1( ctx->key, &key_obj );
       if (rc != CKR_OK){
-         OCK_LOG_ERR(ERR_OBJMGR_FIND_MAP);
+	 TRACE_ERROR("Failed to find specified object.\n");
          return rc;
       }
       rc = token_specific.t_aes_mac(context->data, AES_BLOCK_SIZE, key_obj, context->iv);
       if (rc != CKR_OK) {
-         OCK_LOG_ERR(ERR_AES_MAC_TOK_SPEC);
+         TRACE_DEBUG("Token specific aes mac failed.\n");
          return rc;
       }
    }
@@ -2866,7 +2819,7 @@ ckm_aes_key_gen( TEMPLATE *tmpl )
    }
    
    if (token_specific.t_aes_key_gen == NULL) {
-      OCK_LOG_ERR(ERR_MECHANISM_INVALID);
+      TRACE_ERROR("%s\n", ock_err(ERR_MECHANISM_INVALID));
       return CKR_MECHANISM_INVALID;
    }
 
@@ -2876,7 +2829,7 @@ ckm_aes_key_gen( TEMPLATE *tmpl )
 	token_keysize = key_size;
 
    if ((aes_key = (CK_BYTE *)malloc(token_keysize)) == NULL) {
-      OCK_LOG_ERR(ERR_HOST_MEMORY);
+      TRACE_ERROR("%s\n", ock_err(ERR_HOST_MEMORY));
       return CKR_HOST_MEMORY;
    }
 
@@ -2891,8 +2844,8 @@ ckm_aes_key_gen( TEMPLATE *tmpl )
    if (token_specific.token_keysize) {
         opaque_attr = (CK_ATTRIBUTE *)malloc(sizeof(CK_ATTRIBUTE) + token_keysize);
         if (!opaque_attr) {
-           OCK_LOG_ERR(ERR_FUNCTION_FAILED);
-           rc = CKR_FUNCTION_FAILED;
+           TRACE_ERROR("%s\n", ock_err(ERR_HOST_MEMORY));
+           rc = CKR_HOST_MEMORY;
            goto err;
         }
         opaque_attr->type = CKA_IBM_OPAQUE;
@@ -2913,8 +2866,8 @@ ckm_aes_key_gen( TEMPLATE *tmpl )
       if (class_attr)    free( class_attr );
       if (local_attr)    free( local_attr );
 
-      OCK_LOG_ERR(ERR_FUNCTION_FAILED);
-      rc = CKR_FUNCTION_FAILED;
+      TRACE_ERROR("%s\n", ock_err(ERR_HOST_MEMORY));
+      rc = CKR_HOST_MEMORY;
       goto err;
    }
 
@@ -2968,16 +2921,16 @@ ckm_aes_ecb_encrypt( CK_BYTE     * in_data,
    CK_ULONG         rc;
 
    if (!in_data || !out_data || !key){
-      OCK_LOG_ERR(ERR_FUNCTION_FAILED);
+      TRACE_ERROR("%s received bad argument(s)\n", __FUNCTION__);
       return CKR_FUNCTION_FAILED;
    }
    if (*out_data_len < in_data_len){
-      OCK_LOG_ERR(ERR_FUNCTION_FAILED);
-      return CKR_FUNCTION_FAILED;
+      TRACE_ERROR("%s\n", ock_err(ERR_BUFFER_TOO_SMALL));
+      return CKR_BUFFER_TOO_SMALL;
    }
 
    if (token_specific.t_aes_ecb == NULL) {
-      OCK_LOG_ERR(ERR_MECHANISM_INVALID);
+      TRACE_ERROR("%s\n", ock_err(ERR_MECHANISM_INVALID));
       return CKR_MECHANISM_INVALID;
    }
 
@@ -2985,7 +2938,7 @@ ckm_aes_ecb_encrypt( CK_BYTE     * in_data,
 				 out_data,out_data_len, key, 1);
    
    if (rc != CKR_OK)
-      OCK_LOG_ERR(ERR_AES_ECB_TOK_SPEC);
+      TRACE_DEBUG("Token specific aes ecb encrypt failed.\n");
    return rc;
 }
 
@@ -3002,16 +2955,16 @@ ckm_aes_ecb_decrypt( CK_BYTE     * in_data,
 
 
    if (!in_data || !out_data || !key){
-      OCK_LOG_ERR(ERR_FUNCTION_FAILED);
+      TRACE_ERROR("%s received bad argument(s)\n", __FUNCTION__);
       return CKR_FUNCTION_FAILED;
    }
    if (*out_data_len < in_data_len){
-      OCK_LOG_ERR(ERR_FUNCTION_FAILED);
-      return CKR_FUNCTION_FAILED;
+      TRACE_ERROR("%s\n", ock_err(ERR_BUFFER_TOO_SMALL));
+      return CKR_BUFFER_TOO_SMALL;
    }
    
    if (token_specific.t_aes_ecb == NULL) {
-      OCK_LOG_ERR(ERR_MECHANISM_INVALID);
+      TRACE_ERROR("%s\n", ock_err(ERR_MECHANISM_INVALID));
       return CKR_MECHANISM_INVALID;
    }
 
@@ -3019,7 +2972,7 @@ ckm_aes_ecb_decrypt( CK_BYTE     * in_data,
 		      		 out_data,out_data_len, key, 0);
    
    if (rc != CKR_OK)
-      OCK_LOG_ERR(ERR_AES_ECB_TOK_SPEC);
+      TRACE_DEBUG("token specific aes ecb decrypt failed.\n");
 
    return rc;
 }
@@ -3038,17 +2991,17 @@ ckm_aes_cbc_encrypt( CK_BYTE     * in_data,
    CK_ULONG         rc;
 
    if (!in_data || !out_data || !init_v || !key){
-      OCK_LOG_ERR(ERR_FUNCTION_FAILED);
+      TRACE_ERROR("%s received bad argument(s)\n", __FUNCTION__);
       return CKR_FUNCTION_FAILED;
    }
    if (*out_data_len < in_data_len){
       *out_data_len = in_data_len;
-      OCK_LOG_ERR(ERR_BUFFER_TOO_SMALL);
+      TRACE_ERROR("%s\n", ock_err(ERR_BUFFER_TOO_SMALL));
       return CKR_BUFFER_TOO_SMALL;
    }
    
    if (token_specific.t_aes_cbc == NULL) {
-      OCK_LOG_ERR(ERR_MECHANISM_INVALID);
+      TRACE_ERROR("%s\n", ock_err(ERR_MECHANISM_INVALID));
       return CKR_MECHANISM_INVALID;
    }
 
@@ -3056,7 +3009,7 @@ ckm_aes_cbc_encrypt( CK_BYTE     * in_data,
 		      		 out_data,out_data_len, key, init_v, 1);
 
    if (rc != CKR_OK)
-      OCK_LOG_ERR(ERR_AES_CBC_TOK_SPEC);
+      TRACE_DEBUG("Token specific aes cbc encrypt failed.\n");
    return rc;
 }
 
@@ -3074,16 +3027,16 @@ ckm_aes_cbc_decrypt( CK_BYTE     * in_data,
    CK_ULONG         rc;
 
    if (!in_data || !out_data || !init_v || !key ){
-      OCK_LOG_ERR(ERR_FUNCTION_FAILED);
+      TRACE_ERROR("%s received bad argument(s)\n", __FUNCTION__);
       return CKR_FUNCTION_FAILED;
    }
    if (*out_data_len < in_data_len){
-      OCK_LOG_ERR(ERR_FUNCTION_FAILED);
-      return CKR_FUNCTION_FAILED;
+      TRACE_ERROR("%s\n", ock_err(ERR_BUFFER_TOO_SMALL));
+      return CKR_BUFFER_TOO_SMALL;
    }
    
    if (token_specific.t_aes_cbc == NULL) {
-      OCK_LOG_ERR(ERR_MECHANISM_INVALID);
+      TRACE_ERROR("%s\n", ock_err(ERR_MECHANISM_INVALID));
       return CKR_MECHANISM_INVALID;
    }
 
@@ -3091,7 +3044,7 @@ ckm_aes_cbc_decrypt( CK_BYTE     * in_data,
 		      		 out_data, out_data_len, key, init_v,0);
    
    if (rc != CKR_OK)
-      OCK_LOG_ERR(ERR_AES_CBC_TOK_SPEC);
+      TRACE_DEBUG("Token specific aes cbc decrypt failed.\n");
    return rc;
 }
 //
@@ -3107,21 +3060,21 @@ ckm_aes_ctr_encrypt( CK_BYTE    *in_data,
 {
    CK_ULONG         rc;
    if (!in_data || !out_data || !counterblock || !key){
-      OCK_LOG_ERR(ERR_FUNCTION_FAILED);
+      TRACE_ERROR("%s received bad argument(s)\n", __FUNCTION__);
       return CKR_FUNCTION_FAILED;
    }
    if (*out_data_len < in_data_len){
       *out_data_len = in_data_len;
-      OCK_LOG_ERR(ERR_BUFFER_TOO_SMALL);
+      TRACE_ERROR("%s\n", ock_err(ERR_BUFFER_TOO_SMALL));
       return CKR_BUFFER_TOO_SMALL;
    }
    if (counter_width % 8 != 0){
-      OCK_LOG_ERR(ERR_MECHANISM_PARAM_INVALID);
+      TRACE_ERROR("%s\n", ock_err(ERR_MECHANISM_PARAM_INVALID));
       return CKR_MECHANISM_PARAM_INVALID;
    }
 
    if (token_specific.t_aes_ctr == NULL) {
-      OCK_LOG_ERR(ERR_MECHANISM_INVALID);
+      TRACE_ERROR("%s\n", ock_err(ERR_MECHANISM_INVALID));
       return CKR_MECHANISM_INVALID;
    }
 
@@ -3129,7 +3082,7 @@ ckm_aes_ctr_encrypt( CK_BYTE    *in_data,
                                  out_data, out_data_len, key,
 				 counterblock, counter_width, 1);
    if (rc != CKR_OK)
-      OCK_LOG_ERR(ERR_AES_CTR_TOK_SPEC);
+      TRACE_DEBUG("Token specific aes ctr encrypt failed.\n");
    return rc;
 }
 //
@@ -3145,21 +3098,21 @@ ckm_aes_ctr_decrypt( CK_BYTE       *in_data,
 {
    CK_ULONG         rc;
    if (!in_data || !out_data || !counterblock || !key){
-      OCK_LOG_ERR(ERR_FUNCTION_FAILED);
+      TRACE_ERROR("%s received bad argument(s)\n", __FUNCTION__);
       return CKR_FUNCTION_FAILED;
    }
    if (*out_data_len < in_data_len){
       *out_data_len = in_data_len;
-      OCK_LOG_ERR(ERR_BUFFER_TOO_SMALL);
+      TRACE_ERROR("%s\n", ock_err(ERR_BUFFER_TOO_SMALL));
       return CKR_BUFFER_TOO_SMALL;
    }
    if (counter_width % 8 != 0){
-      OCK_LOG_ERR(ERR_MECHANISM_PARAM_INVALID);
+      TRACE_ERROR("%s\n", ock_err(ERR_MECHANISM_PARAM_INVALID));
       return CKR_MECHANISM_PARAM_INVALID;
    }
 
    if (token_specific.t_aes_ctr == NULL) {
-      OCK_LOG_ERR(ERR_MECHANISM_INVALID);
+      TRACE_ERROR("%s\n", ock_err(ERR_MECHANISM_INVALID));
       return CKR_MECHANISM_INVALID;
    }
 
@@ -3167,7 +3120,7 @@ ckm_aes_ctr_decrypt( CK_BYTE       *in_data,
                                  out_data,out_data_len, key, 
 				 counterblock, counter_width, 0);
    if (rc != CKR_OK)
-      OCK_LOG_ERR(ERR_AES_CTR_TOK_SPEC);
+      TRACE_ERROR("Token specific aes ctr decrypt failed.\n");
    return rc;
 }
 //
@@ -3192,7 +3145,7 @@ ckm_aes_wrap_format( CK_BBOOL    length_only,
       if (length_only == FALSE) {
          ptr = (CK_BYTE *)realloc(*data, len2);
          if (!ptr){
-            OCK_LOG_ERR(ERR_HOST_MEMORY);
+            TRACE_ERROR("%s\n", ock_err(ERR_HOST_MEMORY));
             return CKR_HOST_MEMORY;
          }
          else

@@ -306,6 +306,7 @@
 #include "host_defs.h"
 #include "h_extern.h"
 #include "tok_spec_struct.h"
+#include "trace.h"
 
 
 CK_RV
@@ -317,14 +318,14 @@ rsa_get_key_info(OBJECT *key_obj, CK_ULONG *mod_bytes,
 
 	rc = template_attribute_find(key_obj->template, CKA_MODULUS, &attr);
 	if (rc == FALSE) {
-		OCK_LOG_ERR(ERR_FUNCTION_FAILED);
+		TRACE_ERROR("Could not find CKA_MODULUS in the template\n");
 		return CKR_FUNCTION_FAILED;
 	} else
 	*mod_bytes = attr->ulValueLen;
 
 	rc = template_attribute_find(key_obj->template, CKA_CLASS, &attr);
 	if (rc == FALSE) {
-		OCK_LOG_ERR(ERR_FUNCTION_FAILED);
+		TRACE_ERROR("Could not find CKA_CLASS in the template\n");
 		return CKR_FUNCTION_FAILED;
 	}
 	else
@@ -350,13 +351,12 @@ rsa_format_block( CK_BYTE   * in_data,
     CK_RV           rc;
 
     if (!in_data || !in_data_len || !out_data || !out_data_len) {
-        OCK_LOG_ERR(ERR_FUNCTION_FAILED);
-        rc = CKR_FUNCTION_FAILED;
-        return rc;
+	TRACE_ERROR("%s received bad argument(s)\n", __FUNCTION__);
+	return CKR_FUNCTION_FAILED;
     }
 
     if (out_data_len < (in_data_len + 11)) {
-      OCK_LOG_ERR(ERR_BUFFER_TOO_SMALL);
+      TRACE_ERROR("%s\n", ock_err(ERR_BUFFER_TOO_SMALL));
       rc = CKR_BUFFER_TOO_SMALL;
       return rc;
     }
@@ -373,7 +373,7 @@ rsa_format_block( CK_BYTE   * in_data,
      * encryption blocks.
      */
     if ((type == 1 || type == 2) && ((padding_len) < 8)) {
-        OCK_LOG_ERR(ERR_DATA_LEN_RANGE);
+        TRACE_ERROR("%s\n", ock_err(ERR_DATA_LEN_RANGE));
         rc = CKR_DATA_LEN_RANGE;
         return rc;
     }
@@ -396,7 +396,7 @@ rsa_format_block( CK_BYTE   * in_data,
          */
         case 0:
             if (in_data[0] == (CK_BYTE)0) {
-                OCK_LOG_ERR(ERR_DATA_INVALID);
+                TRACE_ERROR("%s\n", ock_err(ERR_DATA_INVALID));
                 rc = CKR_DATA_INVALID;
                 return rc;
             }
@@ -426,7 +426,7 @@ rsa_format_block( CK_BYTE   * in_data,
             for (i = 2; i < (padding_len + 2); i++) {
                 rc = rng_generate(&out_data[i], 1);
                 if (rc != CKR_OK) {
-                    OCK_LOG_ERR(ERR_RNG);
+                    TRACE_DEBUG("rng_generate failed.\n");
                     return rc;
                 }
                 if (out_data[i] == (CK_BYTE)0) {
@@ -439,7 +439,7 @@ rsa_format_block( CK_BYTE   * in_data,
             break;
 
         default:
-            OCK_LOG_ERR(ERR_DATA_INVALID);
+            TRACE_ERROR("%s\n", ock_err(ERR_DATA_INVALID));
             rc = CKR_DATA_INVALID;
             return rc;
     }
@@ -470,13 +470,12 @@ rsa_parse_block( CK_BYTE  * in_data,
     CK_RV           rc;
 
     if (!in_data || !out_data || !out_data_len) {
-        OCK_LOG_ERR(ERR_FUNCTION_FAILED);
-        rc = CKR_FUNCTION_FAILED;
-        return rc;
+	TRACE_ERROR("%s received bad argument(s)\n", __FUNCTION__);
+	return CKR_FUNCTION_FAILED;
     }
 
     if (in_data_len <= 11) {
-        OCK_LOG_ERR(ERR_FUNCTION_FAILED);
+        TRACE_DEBUG("%s\n", ock_err(ERR_FUNCTION_FAILED));
         rc = CKR_FUNCTION_FAILED;
         return rc;
     }
@@ -485,7 +484,7 @@ rsa_parse_block( CK_BYTE  * in_data,
      * Check for the leading 00 octet.
      */
     if (in_data[0] != (CK_BYTE)0) {
-        OCK_LOG_ERR(ERR_ENCRYPTED_DATA_INVALID);
+        TRACE_ERROR("%s\n", ock_err(ERR_ENCRYPTED_DATA_INVALID));
         rc = CKR_ENCRYPTED_DATA_INVALID;
         return rc;
     }
@@ -494,7 +493,7 @@ rsa_parse_block( CK_BYTE  * in_data,
      * Check the block type.
      */
     if (in_data[1] != (CK_BYTE)type) {
-        OCK_LOG_ERR(ERR_ENCRYPTED_DATA_INVALID);
+        TRACE_ERROR("%s\n", ock_err(ERR_ENCRYPTED_DATA_INVALID));
         rc = CKR_ENCRYPTED_DATA_INVALID;
         return rc;
     }
@@ -541,7 +540,7 @@ rsa_parse_block( CK_BYTE  * in_data,
                         break;
                     }
 
-                    OCK_LOG_ERR(ERR_ENCRYPTED_DATA_INVALID);
+                    TRACE_ERROR("%s\n", ock_err(ERR_ENCRYPTED_DATA_INVALID));
                     rc = CKR_ENCRYPTED_DATA_INVALID;
                     return rc;
                 }
@@ -564,7 +563,7 @@ rsa_parse_block( CK_BYTE  * in_data,
             break;
 
         default:
-            OCK_LOG_ERR(ERR_ENCRYPTED_DATA_INVALID);
+            TRACE_ERROR("%s\n", ock_err(ERR_ENCRYPTED_DATA_INVALID));
             rc = CKR_ENCRYPTED_DATA_INVALID;
             return rc;
     }
@@ -576,19 +575,19 @@ rsa_parse_block( CK_BYTE  * in_data,
      * encryption blocks.
      */
     if ((type == 1 || type == 2) && ((i - 3) < 8)) {
-        OCK_LOG_ERR(ERR_ENCRYPTED_DATA_INVALID);
+        TRACE_ERROR("%s\n", ock_err(ERR_ENCRYPTED_DATA_INVALID));
         rc = CKR_ENCRYPTED_DATA_INVALID;
         return rc;
     }
 
     if (in_data_len <= i) {
-        OCK_LOG_ERR(ERR_ENCRYPTED_DATA_INVALID);
+        TRACE_ERROR("%s\n", ock_err(ERR_ENCRYPTED_DATA_INVALID));
         rc = CKR_ENCRYPTED_DATA_INVALID;
         return rc;
     }
 
     if (*out_data_len < (in_data_len - i)) {
-      OCK_LOG_ERR(ERR_BUFFER_TOO_SMALL);
+      TRACE_ERROR("%s\n", ock_err(ERR_BUFFER_TOO_SMALL));
       rc = CKR_BUFFER_TOO_SMALL;
       return rc;
     }
@@ -642,20 +641,23 @@ rsa_pkcs_encrypt( SESSION           *sess,
 
    rc = object_mgr_find_in_map1( ctx->key, &key_obj );
    if (rc != CKR_OK){
-      OCK_LOG_ERR(ERR_OBJMGR_FIND_MAP);
-      return rc;
+      TRACE_ERROR("Failed to acquire key from specified handle");
+      if (rc == CKR_OBJECT_HANDLE_INVALID)
+	 return CKR_KEY_HANDLE_INVALID;
+      else
+	 return rc;
    }
 
    rc = rsa_get_key_info(key_obj, &modulus_bytes, &keyclass);
    if (rc != CKR_OK) {
-      OCK_LOG_ERR(ERR_FUNCTION_FAILED);
-      return CKR_FUNCTION_FAILED;
+      TRACE_DEBUG("rsa_get_key_info failed.\n");
+      return rc;
    }
 
    // check input data length restrictions
    //
    if (in_data_len > (modulus_bytes - 11)){
-      OCK_LOG_ERR(ERR_DATA_LEN_RANGE);
+      TRACE_ERROR("%s\n", ock_err(ERR_DATA_LEN_RANGE));
       return CKR_DATA_LEN_RANGE;
    }
 
@@ -666,25 +668,25 @@ rsa_pkcs_encrypt( SESSION           *sess,
 
    if (*out_data_len < modulus_bytes) {
       *out_data_len = modulus_bytes;
-      OCK_LOG_ERR(ERR_BUFFER_TOO_SMALL);
+      TRACE_ERROR("%s\n", ock_err(ERR_BUFFER_TOO_SMALL));
       return CKR_BUFFER_TOO_SMALL;
    }
 
    // this had better be a public key
    if (keyclass != CKO_PUBLIC_KEY){
-      OCK_LOG_ERR(ERR_FUNCTION_FAILED);
-      return CKR_FUNCTION_FAILED;
+      TRACE_ERROR("This operation requires a public key.\n");
+      return CKR_KEY_FUNCTION_NOT_PERMITTED;
    }
 
-   if( token_specific.t_rsa_encrypt == NULL ) {
-     OCK_LOG_ERR(ERR_MECHANISM_INVALID);
+   if ( token_specific.t_rsa_encrypt == NULL ) {
+     TRACE_ERROR("%s\n", ock_err(ERR_MECHANISM_INVALID));
      return CKR_MECHANISM_INVALID;
    }
 
    rc = token_specific.t_rsa_encrypt(in_data, in_data_len, out_data, out_data_len, key_obj);
 
    if (rc != CKR_OK)
-      OCK_LOG_ERR(ERR_RSA_ENCRYPT);
+      TRACE_DEBUG("Token Specific rsa encrypt failed.\n");
 
    return rc;
 }
@@ -708,21 +710,24 @@ rsa_pkcs_decrypt( SESSION           *sess,
 
 
    rc = object_mgr_find_in_map1( ctx->key, &key_obj );
-   if (rc != CKR_OK){
-      OCK_LOG_ERR(ERR_OBJMGR_FIND_MAP);
-      return rc;
+   if (rc != CKR_OK) {
+      TRACE_ERROR("Failed to acquire key from specified handle");
+      if (rc == CKR_OBJECT_HANDLE_INVALID)
+	 return CKR_KEY_HANDLE_INVALID;
+      else
+         return rc;
    }
 
    rc = rsa_get_key_info(key_obj, &modulus_bytes, &keyclass);
    if (rc != CKR_OK) {
-      OCK_LOG_ERR(ERR_FUNCTION_FAILED);
-      return CKR_FUNCTION_FAILED;
+      TRACE_DEBUG("rsa_get_key_info failed.\n");
+      return rc;
    }
 
    // check input data length restrictions
    //
    if (in_data_len != modulus_bytes){
-      OCK_LOG_ERR(ERR_ENCRYPTED_DATA_LEN_RANGE);
+      TRACE_ERROR("%s\n", ock_err(ERR_ENCRYPTED_DATA_LEN_RANGE));
       return CKR_ENCRYPTED_DATA_LEN_RANGE;
    }
    if (length_only == TRUE) {
@@ -735,19 +740,19 @@ rsa_pkcs_decrypt( SESSION           *sess,
 
    if (*out_data_len < (modulus_bytes - 11)) {
       *out_data_len = modulus_bytes - 11;
-      OCK_LOG_ERR(ERR_BUFFER_TOO_SMALL);
+      TRACE_ERROR("%s\n", ock_err(ERR_BUFFER_TOO_SMALL));
       return CKR_BUFFER_TOO_SMALL;
    }
 
    // this had better be a private key
    if (keyclass != CKO_PRIVATE_KEY){
-      OCK_LOG_ERR(ERR_FUNCTION_FAILED);
-      return CKR_FUNCTION_FAILED;
+      TRACE_ERROR("This operation requires a private key.\n");
+      return CKR_KEY_FUNCTION_NOT_PERMITTED;
    }
 
    /* check for token specific call first */
    if( token_specific.t_rsa_decrypt == NULL ) {
-     OCK_LOG_ERR(ERR_MECHANISM_INVALID);
+     TRACE_ERROR("%s\n", ock_err(ERR_MECHANISM_INVALID));
      return CKR_MECHANISM_INVALID;
    }
 
@@ -755,10 +760,10 @@ rsa_pkcs_decrypt( SESSION           *sess,
 
    if (rc != CKR_OK) {
       if (rc == CKR_DATA_LEN_RANGE) {
-         OCK_LOG_ERR(ERR_ENCRYPTED_DATA_LEN_RANGE);
+         TRACE_ERROR("%s\n", ock_err(ERR_ENCRYPTED_DATA_LEN_RANGE));
          return CKR_ENCRYPTED_DATA_LEN_RANGE;
       }
-      OCK_LOG_ERR(ERR_RSA_DECRYPT);
+      TRACE_DEBUG("Token Specific rsa decrypt failed.\n");
    }
 
    return rc;
@@ -779,13 +784,16 @@ CK_RV rsa_oaep_crypt(SESSION *sess, CK_BBOOL length_only,
 
 	rc = object_mgr_find_in_map1(ctx->key, &key_obj);
 	if (rc != CKR_OK) {
-		OCK_LOG_ERR(ERR_OBJMGR_FIND_MAP);
-		return rc;
+		TRACE_ERROR("Failed to acquire key from specified handle");
+		if (rc == CKR_OBJECT_HANDLE_INVALID)
+			return CKR_KEY_HANDLE_INVALID;
+		else
+			return rc;
 	}
 
 	rc = rsa_get_key_info(key_obj, &modulus_bytes, &keyclass);
 	if (rc != CKR_OK) {
-		OCK_LOG_ERR(ERR_FUNCTION_FAILED);
+		TRACE_DEBUG("rsa_get_key_info failed.\n");
 		return CKR_FUNCTION_FAILED;
 	}
 
@@ -796,7 +804,7 @@ CK_RV rsa_oaep_crypt(SESSION *sess, CK_BBOOL length_only,
 
 	if (*out_data_len < modulus_bytes) {
 		*out_data_len = modulus_bytes;
-		OCK_LOG_ERR(ERR_BUFFER_TOO_SMALL);
+		TRACE_ERROR("%s\n", ock_err(ERR_BUFFER_TOO_SMALL));
 		return CKR_BUFFER_TOO_SMALL;
 	}
 
@@ -812,7 +820,7 @@ CK_RV rsa_oaep_crypt(SESSION *sess, CK_BBOOL length_only,
 	oaepParms = (CK_RSA_PKCS_OAEP_PARAMS_PTR)ctx->mech.pParameter;
 	if (!(oaepParms->source) && (oaepParms->pSourceData ||
 		oaepParms->ulSourceDataLen)) {
-		OCK_LOG_ERR(ERR_MECHANISM_PARAM_INVALID);
+		TRACE_ERROR("%s\n", ock_err(ERR_MECHANISM_PARAM_INVALID));
 		return CKR_MECHANISM_PARAM_INVALID;
 	}
 
@@ -820,13 +828,13 @@ CK_RV rsa_oaep_crypt(SESSION *sess, CK_BBOOL length_only,
 	hlen = 0;
 	rc = get_sha_size(oaepParms->hashAlg, &hlen);
 	if (rc != CKR_OK) {
-		OCK_LOG_ERR(ERR_MECHANISM_PARAM_INVALID);
+		TRACE_ERROR("%s\n", ock_err(ERR_MECHANISM_PARAM_INVALID));
 		return CKR_MECHANISM_PARAM_INVALID;
 	}
 
 	/* modulus size should be >= 2*hashsize+2 */
 	if (modulus_bytes < (2 * hlen + 2)) {
-		OCK_LOG_ERR(ERR_KEY_SIZE_RANGE);
+		TRACE_ERROR("%s\n", ock_err(ERR_KEY_SIZE_RANGE));
 		return CKR_KEY_SIZE_RANGE;
 	}
 
@@ -840,18 +848,18 @@ CK_RV rsa_oaep_crypt(SESSION *sess, CK_BBOOL length_only,
 	
 	if (encrypt) {
 		if (in_data_len > (modulus_bytes - 2 * hlen - 2)) {
-			OCK_LOG_ERR(ERR_DATA_LEN_RANGE);
+			TRACE_ERROR("%s\n", ock_err(ERR_DATA_LEN_RANGE));
 			return CKR_DATA_LEN_RANGE;
 		}
 
 		// this had better be a public key
 		if (keyclass != CKO_PUBLIC_KEY) {
-			OCK_LOG_ERR(ERR_KEY_TYPE_INCONSISTENT);
-			return CKR_KEY_TYPE_INCONSISTENT;
+			TRACE_ERROR("This operation requires a public key.\n");
+			return CKR_KEY_FUNCTION_NOT_PERMITTED;
 		}
 
 		if (token_specific.t_rsa_oaep_encrypt == NULL) {
-			OCK_LOG_ERR(ERR_MECHANISM_INVALID);
+			TRACE_ERROR("%s\n", ock_err(ERR_MECHANISM_INVALID));
 			return CKR_MECHANISM_INVALID;
 		}
 
@@ -862,18 +870,19 @@ CK_RV rsa_oaep_crypt(SESSION *sess, CK_BBOOL length_only,
 	} else {
 		// decrypt
 		if (in_data_len != modulus_bytes) {
-			OCK_LOG_ERR(ERR_ENCRYPTED_DATA_LEN_RANGE);
+			TRACE_ERROR("%s\n",
+				    ock_err(ERR_ENCRYPTED_DATA_LEN_RANGE));
 			return CKR_ENCRYPTED_DATA_LEN_RANGE;
 		}
 
 		// this had better be a private key
 		if (keyclass != CKO_PRIVATE_KEY) {
-			OCK_LOG_ERR(ERR_KEY_TYPE_INCONSISTENT);
-			return CKR_KEY_TYPE_INCONSISTENT;
+			TRACE_ERROR("This operation requires a private key.\n");
+			return CKR_KEY_FUNCTION_NOT_PERMITTED;
 		}
 
 		if (token_specific.t_rsa_oaep_decrypt == NULL) {
-			OCK_LOG_ERR(ERR_MECHANISM_INVALID);
+			TRACE_ERROR("%s\n", ock_err(ERR_MECHANISM_INVALID));
 			return CKR_MECHANISM_INVALID;
 		}
 
@@ -884,7 +893,7 @@ CK_RV rsa_oaep_crypt(SESSION *sess, CK_BBOOL length_only,
 	}
 
 	if (rc != CKR_OK)
-		OCK_LOG_ERR(ERR_FUNCTION_FAILED);
+		TRACE_DEBUG("Token Specific rsa oaep decrypt failed.\n");
 
 	return rc;
 }
@@ -905,25 +914,28 @@ rsa_pkcs_sign( SESSION             *sess,
 
 
    if (!sess || !ctx || !out_data_len){
-      OCK_LOG_ERR(ERR_FUNCTION_FAILED);
+      TRACE_ERROR("%s received bad argument(s)\n", __FUNCTION__);
       return CKR_FUNCTION_FAILED;
    }
    rc = object_mgr_find_in_map1( ctx->key, &key_obj );
    if (rc != CKR_OK){
-      OCK_LOG_ERR(ERR_OBJMGR_FIND_MAP);
-      return rc;
+      TRACE_ERROR("Failed to acquire key from specified handle");
+      if (rc == CKR_OBJECT_HANDLE_INVALID)
+	 return CKR_KEY_HANDLE_INVALID;
+      else
+         return rc;
    }
 
    rc = rsa_get_key_info(key_obj, &modulus_bytes, &keyclass);
    if (rc != CKR_OK) {
-      OCK_LOG_ERR(ERR_FUNCTION_FAILED);
-      return CKR_FUNCTION_FAILED;
+      TRACE_DEBUG("rsa_get_key_info failed.\n");
+      return rc;
    }
 
    // check input data length restrictions
    //
    if (in_data_len > (modulus_bytes - 11)){
-      OCK_LOG_ERR(ERR_DATA_LEN_RANGE);
+      TRACE_ERROR("%s\n", ock_err(ERR_DATA_LEN_RANGE));
       return CKR_DATA_LEN_RANGE;
    }
    if (length_only == TRUE) {
@@ -933,27 +945,27 @@ rsa_pkcs_sign( SESSION             *sess,
 
    if (*out_data_len < modulus_bytes) {
       *out_data_len = modulus_bytes;
-      OCK_LOG_ERR(ERR_BUFFER_TOO_SMALL);
+      TRACE_ERROR("%s\n", ock_err(ERR_BUFFER_TOO_SMALL));
       return CKR_BUFFER_TOO_SMALL;
    }
 
    // this had better be a private key
    //
    if (keyclass != CKO_PRIVATE_KEY){
-      OCK_LOG_ERR(ERR_FUNCTION_FAILED);
-      return CKR_FUNCTION_FAILED;
+      TRACE_ERROR("This operation requires a private key.\n");
+      return CKR_KEY_FUNCTION_NOT_PERMITTED;
    }
 
    /* check for token specific call first */
    if(token_specific.t_rsa_sign == NULL) {
-     OCK_LOG_ERR(ERR_MECHANISM_INVALID);
+     TRACE_ERROR("%s\n", ock_err(ERR_MECHANISM_INVALID));
      return CKR_MECHANISM_INVALID;
    }
 
    rc = token_specific.t_rsa_sign(in_data, in_data_len, out_data, out_data_len, key_obj);
 
    if (rc != CKR_OK)
-      OCK_LOG_ERR(ERR_RSA_SIGN);
+      TRACE_DEBUG("Token Specific rsa sign failed.\n");
    return rc;
 }
 
@@ -976,39 +988,42 @@ rsa_pkcs_verify( SESSION             * sess,
 
    rc = object_mgr_find_in_map1( ctx->key, &key_obj );
    if (rc != CKR_OK){
-      OCK_LOG_ERR(ERR_OBJMGR_FIND_MAP);
-      return rc;
+      TRACE_ERROR("Failed to acquire key from specified handle");
+      if (rc == CKR_OBJECT_HANDLE_INVALID)
+	 return CKR_KEY_HANDLE_INVALID;
+      else
+         return rc;
    }
 
    rc = rsa_get_key_info(key_obj, &modulus_bytes, &keyclass);
    if (rc != CKR_OK) {
-      OCK_LOG_ERR(ERR_FUNCTION_FAILED);
-      return CKR_FUNCTION_FAILED;
+      TRACE_DEBUG("rsa_get_key_info failed.\n");
+      return rc;
    }
 
    // check input data length restrictions
    //
    if (sig_len != modulus_bytes){
-      OCK_LOG_ERR(ERR_SIGNATURE_LEN_RANGE);
+      TRACE_ERROR("%s\n", ock_err(ERR_SIGNATURE_LEN_RANGE));
       return CKR_SIGNATURE_LEN_RANGE;
    }
 
    // verifying is a public key operation
    //
    if (keyclass != CKO_PUBLIC_KEY) {
-      OCK_LOG_ERR(ERR_FUNCTION_FAILED);
-      return CKR_FUNCTION_FAILED;
+      TRACE_ERROR("This operation requires a public key.\n");
+      return CKR_KEY_FUNCTION_NOT_PERMITTED;
    }
 
    /* check for token specific call first */
    if (token_specific.t_rsa_verify == NULL) {
-      OCK_LOG_ERR(ERR_MECHANISM_INVALID);
+      TRACE_ERROR("%s\n", ock_err(ERR_MECHANISM_INVALID));
       return CKR_MECHANISM_INVALID;
    }
 
    rc = token_specific.t_rsa_verify(in_data, in_data_len, signature, sig_len, key_obj);
    if (rc != CKR_OK)
-      OCK_LOG_ERR(ERR_RSA_VERIFY);
+      TRACE_DEBUG("Token Specific rsa verify failed.\n");
 
    return rc;
 }
@@ -1032,25 +1047,28 @@ rsa_pkcs_verify_recover( SESSION             * sess,
 
 
    if (!sess || !ctx || !out_data_len){
-      OCK_LOG_ERR(ERR_FUNCTION_FAILED);
+      TRACE_ERROR("%s received bad argument(s)\n", __FUNCTION__);
       return CKR_FUNCTION_FAILED;
    }
    rc = object_mgr_find_in_map1( ctx->key, &key_obj );
    if (rc != CKR_OK){
-      OCK_LOG_ERR(ERR_OBJMGR_FIND_MAP);
-      return rc;
+      TRACE_ERROR("Failed to acquire key from specified handle");
+      if (rc == CKR_OBJECT_HANDLE_INVALID)
+	 return CKR_KEY_HANDLE_INVALID;
+      else
+         return rc;
    }
 
    rc = rsa_get_key_info(key_obj, &modulus_bytes, &keyclass);
    if (rc != CKR_OK) {
-      OCK_LOG_ERR(ERR_FUNCTION_FAILED);
-      return CKR_FUNCTION_FAILED;
+      TRACE_DEBUG("rsa_get_key_info failed.\n");
+      return rc;
    }
 
    // check input data length restrictions
    //
    if (sig_len != modulus_bytes){
-      OCK_LOG_ERR(ERR_SIGNATURE_LEN_RANGE);
+      TRACE_ERROR("%s\n", ock_err(ERR_SIGNATURE_LEN_RANGE));
       return CKR_SIGNATURE_LEN_RANGE;
    }
    if (length_only == TRUE) {
@@ -1060,19 +1078,19 @@ rsa_pkcs_verify_recover( SESSION             * sess,
 
     /* this had better be a public key */
    if (keyclass != CKO_PUBLIC_KEY) {
-      OCK_LOG_ERR(ERR_FUNCTION_FAILED);
-      return CKR_FUNCTION_FAILED;
+      TRACE_ERROR("This operation requires a public key.\n");
+      return CKR_KEY_FUNCTION_NOT_PERMITTED;
    }
 
      /* check for token specific call first */
    if (token_specific.t_rsa_verify_recover == NULL) {
-      OCK_LOG_ERR(ERR_MECHANISM_INVALID);
+      TRACE_ERROR("%s\n", ock_err(ERR_MECHANISM_INVALID));
       return CKR_MECHANISM_INVALID;
    }
 
    rc = token_specific.t_rsa_verify_recover(signature, sig_len, out_data, out_data_len, key_obj);
    if (rc != CKR_OK)
-      OCK_LOG_ERR(ERR_RSA_VERIFY_RECOVER);
+      TRACE_DEBUG("Token Specific rsa verify failed.\n");
 
    return rc;
 }
@@ -1097,20 +1115,23 @@ rsa_x509_encrypt( SESSION           *sess,
 
    rc = object_mgr_find_in_map1( ctx->key, &key_obj );
    if (rc != CKR_OK){
-      OCK_LOG_ERR(ERR_OBJMGR_FIND_MAP);
-      return rc;
+      TRACE_ERROR("Failed to acquire key from specified handle");
+      if (rc == CKR_OBJECT_HANDLE_INVALID)
+	 return CKR_KEY_HANDLE_INVALID;
+      else
+         return rc;
    }
 
    rc = rsa_get_key_info(key_obj, &modulus_bytes, &keyclass);
    if (rc != CKR_OK) {
-      OCK_LOG_ERR(ERR_FUNCTION_FAILED);
-      return CKR_FUNCTION_FAILED;
+      TRACE_DEBUG("rsa_get_key_info failed.\n");
+      return rc;
    }
 
    // CKM_RSA_X_509 requires input data length to be no bigger than the modulus
    //
    if (in_data_len > modulus_bytes){
-      OCK_LOG_ERR(ERR_DATA_LEN_RANGE);
+      TRACE_ERROR("%s\n", ock_err(ERR_DATA_LEN_RANGE));
       return CKR_DATA_LEN_RANGE;
    }
    if (length_only == TRUE) {
@@ -1120,25 +1141,25 @@ rsa_x509_encrypt( SESSION           *sess,
 
    if (*out_data_len < modulus_bytes) {
       *out_data_len = modulus_bytes;
-      OCK_LOG_ERR(ERR_BUFFER_TOO_SMALL);
+      TRACE_ERROR("%s\n", ock_err(ERR_BUFFER_TOO_SMALL));
       return CKR_BUFFER_TOO_SMALL;
    }
 
     /* this had better be a public key */
    if (keyclass != CKO_PUBLIC_KEY) {
-      OCK_LOG_ERR(ERR_FUNCTION_FAILED);
-      return CKR_FUNCTION_FAILED;
+      TRACE_ERROR("This operation requires a public key.\n");
+      return CKR_KEY_FUNCTION_NOT_PERMITTED;
    }
 
      /* check for token specific call first */
    if (token_specific.t_rsa_x509_encrypt == NULL) {
-      OCK_LOG_ERR(ERR_MECHANISM_INVALID);
+      TRACE_ERROR("%s\n", ock_err(ERR_MECHANISM_INVALID));
       return CKR_MECHANISM_INVALID;
    }
 
    rc = token_specific.t_rsa_x509_encrypt(in_data, in_data_len, out_data, out_data_len, key_obj);
    if (rc != CKR_OK)
-      OCK_LOG_ERR(ERR_RSA_X509_ENCRYPT);
+      TRACE_DEBUG("Token Specific rsa x509 encrypt failed.\n");
 
    return rc;
 }
@@ -1163,20 +1184,23 @@ rsa_x509_decrypt( SESSION           *sess,
 
    rc = object_mgr_find_in_map1( ctx->key, &key_obj );
    if (rc != CKR_OK){
-      OCK_LOG_ERR(ERR_OBJMGR_FIND_MAP);
-      return rc;
+      TRACE_ERROR("Failed to acquire key from specified handle");
+      if (rc == CKR_OBJECT_HANDLE_INVALID)
+	 return CKR_KEY_HANDLE_INVALID;
+      else
+         return rc;
    }
 
    rc = rsa_get_key_info(key_obj, &modulus_bytes, &keyclass);
    if (rc != CKR_OK) {
-      OCK_LOG_ERR(ERR_FUNCTION_FAILED);
-      return CKR_FUNCTION_FAILED;
+      TRACE_DEBUG("rsa_get_key_info failed.\n");
+      return rc;
    }
 
    // check input data length restrictions
    //
    if (in_data_len != modulus_bytes){
-      OCK_LOG_ERR(ERR_ENCRYPTED_DATA_LEN_RANGE);
+      TRACE_ERROR("%s\n", ock_err(ERR_ENCRYPTED_DATA_LEN_RANGE));
       return CKR_ENCRYPTED_DATA_LEN_RANGE;
    }
    if (length_only == TRUE) {
@@ -1190,30 +1214,30 @@ rsa_x509_decrypt( SESSION           *sess,
    //
    if (*out_data_len < modulus_bytes) {
       *out_data_len = modulus_bytes;
-      OCK_LOG_ERR(ERR_BUFFER_TOO_SMALL);
+      TRACE_ERROR("%s\n", ock_err(ERR_BUFFER_TOO_SMALL));
       return CKR_BUFFER_TOO_SMALL;
    }
 
     /* this had better be a private key */
    if (keyclass != CKO_PRIVATE_KEY) {
-      OCK_LOG_ERR(ERR_FUNCTION_FAILED);
-      return CKR_FUNCTION_FAILED;
+      TRACE_ERROR("This operation requires a private key.\n");
+      return CKR_KEY_FUNCTION_NOT_PERMITTED;
    }
 
     /* check for token specific call first */
    if (token_specific.t_rsa_x509_encrypt == NULL) {
-      OCK_LOG_ERR(ERR_MECHANISM_INVALID);
+      TRACE_ERROR("%s\n", ock_err(ERR_MECHANISM_INVALID));
       return CKR_MECHANISM_INVALID;
    }
 
    rc = token_specific.t_rsa_x509_decrypt(in_data, in_data_len, out_data, out_data_len, key_obj);
    if (rc != CKR_OK)
-      OCK_LOG_ERR(ERR_RSA_X509_DECRYPT);
+      TRACE_ERROR("Token Specific rsa x509 decrypt failed.\n");
    // ckm_rsa_operation is used for all RSA operations so we need to adjust
    // the return code accordingly
    //
    if (rc == CKR_DATA_LEN_RANGE){
-      OCK_LOG_ERR(ERR_ENCRYPTED_DATA_LEN_RANGE);
+      TRACE_ERROR("%s\n", ock_err(ERR_ENCRYPTED_DATA_LEN_RANGE));
       return CKR_ENCRYPTED_DATA_LEN_RANGE;
    }
    return rc;
@@ -1238,25 +1262,28 @@ rsa_x509_sign( SESSION             *sess,
 
 
    if (!sess || !ctx || !out_data_len){
-      OCK_LOG_ERR(ERR_FUNCTION_FAILED);
+      TRACE_ERROR("%s received bad argument(s)\n", __FUNCTION__);
       return CKR_FUNCTION_FAILED;
    }
    rc = object_mgr_find_in_map1( ctx->key, &key_obj );
    if (rc != CKR_OK){
-      OCK_LOG_ERR(ERR_OBJMGR_FIND_MAP);
-      return rc;
+      TRACE_ERROR("Failed to acquire key from specified handle");
+      if (rc == CKR_OBJECT_HANDLE_INVALID)
+	 return CKR_KEY_HANDLE_INVALID;
+      else
+         return rc;
    }
 
    rc = rsa_get_key_info(key_obj, &modulus_bytes, &keyclass);
    if (rc != CKR_OK) {
-      OCK_LOG_ERR(ERR_FUNCTION_FAILED);
-      return CKR_FUNCTION_FAILED;
+      TRACE_DEBUG("rsa_get_key_info failed.\n");
+      return rc;
    }
 
    // check input data length restrictions
    //
    if (in_data_len > modulus_bytes){
-      OCK_LOG_ERR(ERR_DATA_LEN_RANGE);
+      TRACE_ERROR("%s\n", ock_err(ERR_DATA_LEN_RANGE));
       return CKR_DATA_LEN_RANGE;
    }
    if (length_only == TRUE) {
@@ -1266,24 +1293,24 @@ rsa_x509_sign( SESSION             *sess,
 
    if (*out_data_len < modulus_bytes) {
       *out_data_len = modulus_bytes;
-      OCK_LOG_ERR(ERR_BUFFER_TOO_SMALL);
+      TRACE_ERROR("%s\n", ock_err(ERR_BUFFER_TOO_SMALL));
       return CKR_BUFFER_TOO_SMALL;
    }
 
     /* this had better be a private key */
    if (keyclass != CKO_PRIVATE_KEY) {
-      OCK_LOG_ERR(ERR_FUNCTION_FAILED);
-      return CKR_FUNCTION_FAILED;
+      TRACE_ERROR("This operation requires a private key.\n");
+      return CKR_KEY_FUNCTION_NOT_PERMITTED;
    }
 
     /* check for token specific call first */
    if (token_specific.t_rsa_x509_sign == NULL) {
-      OCK_LOG_ERR(ERR_MECHANISM_INVALID);
+      TRACE_ERROR("%s\n", ock_err(ERR_MECHANISM_INVALID));
       return CKR_MECHANISM_INVALID;
    }
    rc = token_specific.t_rsa_x509_sign(in_data, in_data_len, out_data, out_data_len, key_obj);
    if (rc != CKR_OK)
-      OCK_LOG_ERR(ERR_RSA_X509_SIGN);
+      TRACE_DEBUG("Token Specific rsa x509 sign failed.\n");
 
    return rc;
 }
@@ -1307,39 +1334,42 @@ rsa_x509_verify( SESSION             * sess,
 
    rc = object_mgr_find_in_map1( ctx->key, &key_obj );
    if (rc != CKR_OK){
-      OCK_LOG_ERR(ERR_OBJMGR_FIND_MAP);
-      return rc;
+      TRACE_ERROR("Failed to acquire key from specified handle");
+      if (rc == CKR_OBJECT_HANDLE_INVALID)
+	 return CKR_KEY_HANDLE_INVALID;
+      else
+         return rc;
    }
 
    rc = rsa_get_key_info(key_obj, &modulus_bytes, &keyclass);
    if (rc != CKR_OK) {
-      OCK_LOG_ERR(ERR_FUNCTION_FAILED);
-      return CKR_FUNCTION_FAILED;
+      TRACE_DEBUG("rsa_get_key_info failed.\n");
+      return rc;
    }
 
    // check input data length restrictions
    //
    if (sig_len != modulus_bytes){
-      OCK_LOG_ERR(ERR_SIGNATURE_LEN_RANGE);
+      TRACE_ERROR("%s\n", ock_err(ERR_SIGNATURE_LEN_RANGE));
       return CKR_SIGNATURE_LEN_RANGE;
    }
 
     /* this had better be a public key */
    if (keyclass != CKO_PUBLIC_KEY) {
-      OCK_LOG_ERR(ERR_FUNCTION_FAILED);
-      return CKR_FUNCTION_FAILED;
+       TRACE_ERROR("This operation requires a public key.\n");
+       return CKR_KEY_FUNCTION_NOT_PERMITTED;
    }
 
     /* check for token specific call first */
    if (token_specific.t_rsa_x509_verify == NULL) {
-      OCK_LOG_ERR(ERR_MECHANISM_INVALID);
+      TRACE_ERROR("%s\n", ock_err(ERR_MECHANISM_INVALID));
       return CKR_MECHANISM_INVALID;
    }
    // verify is a public key operation --> encrypt
    //
    rc = token_specific.t_rsa_x509_verify(in_data, in_data_len, signature, sig_len, key_obj);
    if (rc != CKR_OK)
-      OCK_LOG_ERR(ERR_RSA_X509_VERIFY);
+      TRACE_ERROR("Token Specific rsa x509 verify failed.\n");
 
    return rc;
 }
@@ -1363,25 +1393,28 @@ rsa_x509_verify_recover( SESSION             * sess,
 
 
    if (!sess || !ctx || !out_data_len){
-      OCK_LOG_ERR(ERR_FUNCTION_FAILED);
+      TRACE_ERROR("%s received bad argument(s)\n", __FUNCTION__);
       return CKR_FUNCTION_FAILED;
    }
    rc = object_mgr_find_in_map1( ctx->key, &key_obj );
    if (rc != CKR_OK){
-      OCK_LOG_ERR(ERR_OBJMGR_FIND_MAP);
-      return rc;
+      TRACE_ERROR("Failed to acquire key from specified handle");
+      if (rc == CKR_OBJECT_HANDLE_INVALID)
+	 return CKR_KEY_HANDLE_INVALID;
+      else
+         return rc;
    }
 
    rc = rsa_get_key_info(key_obj, &modulus_bytes, &keyclass);
    if (rc != CKR_OK) {
-      OCK_LOG_ERR(ERR_FUNCTION_FAILED);
-      return CKR_FUNCTION_FAILED;
+      TRACE_DEBUG("rsa_get_key_info failed.\n");
+      return rc;
    }
 
    // check input data length restrictions
    //
    if (sig_len != modulus_bytes){
-      OCK_LOG_ERR(ERR_SIGNATURE_LEN_RANGE);
+      TRACE_ERROR("%s\n", ock_err(ERR_SIGNATURE_LEN_RANGE));
       return CKR_SIGNATURE_LEN_RANGE;
    }
    if (length_only == TRUE) {
@@ -1393,19 +1426,19 @@ rsa_x509_verify_recover( SESSION             * sess,
    //
    if (*out_data_len < modulus_bytes) {
       *out_data_len = modulus_bytes;
-      OCK_LOG_ERR(ERR_BUFFER_TOO_SMALL);
+      TRACE_ERROR("%s\n", ock_err(ERR_BUFFER_TOO_SMALL));
       return CKR_BUFFER_TOO_SMALL;
    }
 
     /* this had better be a public key */
    if (keyclass != CKO_PUBLIC_KEY) {
-      OCK_LOG_ERR(ERR_FUNCTION_FAILED);
-      return CKR_FUNCTION_FAILED;
+      TRACE_ERROR("This operation requires a public key.\n");
+      return CKR_KEY_FUNCTION_NOT_PERMITTED;
    }
 
     /* check for token specific call first */
    if (token_specific.t_rsa_x509_verify_recover == NULL) {
-      OCK_LOG_ERR(ERR_MECHANISM_INVALID);
+      TRACE_ERROR("%s\n", ock_err(ERR_MECHANISM_INVALID));
       return CKR_MECHANISM_INVALID;
    }
 
@@ -1413,7 +1446,7 @@ rsa_x509_verify_recover( SESSION             * sess,
    //
    rc = token_specific.t_rsa_x509_verify_recover(signature, sig_len, out_data, out_data_len, key_obj);
    if (rc != CKR_OK)
-      OCK_LOG_ERR(ERR_RSA_X509_VERIFY_RECOVER);
+      TRACE_ERROR("Token Specific rsa x509 verify recover.\n");
 
    return rc;
 }
@@ -1430,21 +1463,24 @@ CK_RV rsa_pss_sign(SESSION *sess, CK_BBOOL length_only,
 	CK_RSA_PKCS_PSS_PARAMS_PTR pssParms = NULL;
 
 	if (!sess || !ctx || !out_data_len) {
-		OCK_LOG_ERR(ERR_FUNCTION_FAILED);
+		TRACE_ERROR("%s received bad argument(s)\n", __FUNCTION__);
 		return CKR_FUNCTION_FAILED;
 	}
 
 	rc = object_mgr_find_in_map1(ctx->key, &key_obj);
 	if (rc != CKR_OK) {
-		OCK_LOG_ERR(ERR_OBJMGR_FIND_MAP);
-		return rc;
+		TRACE_ERROR("Failed to acquire key from specified handle");
+		if (rc == CKR_OBJECT_HANDLE_INVALID)
+			return CKR_KEY_HANDLE_INVALID;
+		else
+			return rc;
 	}
 
 	/* get modulus and key class */
 	rc = rsa_get_key_info(key_obj, &modulus_bytes, &keyclass);
 	if (rc != CKR_OK) {
-		OCK_LOG_ERR(ERR_FUNCTION_FAILED);
-		return CKR_FUNCTION_FAILED;
+		TRACE_DEBUG("rsa_get_key_info failed.\n");
+		return rc;
 	}
 
 	if (length_only == TRUE) {
@@ -1457,7 +1493,7 @@ CK_RV rsa_pss_sign(SESSION *sess, CK_BBOOL length_only,
         hlen = 0;
         rc = get_sha_size(pssParms->hashAlg, &hlen);
         if (rc != CKR_OK) {
-                OCK_LOG_ERR(ERR_MECHANISM_PARAM_INVALID);
+                TRACE_ERROR("%s\n", ock_err(ERR_MECHANISM_PARAM_INVALID));
                 return CKR_MECHANISM_PARAM_INVALID;
         }
 
@@ -1466,31 +1502,31 @@ CK_RV rsa_pss_sign(SESSION *sess, CK_BBOOL length_only,
 	 * It assumes the input data is the hashed message.
 	 */
 	if (in_data_len != hlen) {
-		OCK_LOG_ERR(CKR_DATA_LEN_RANGE);
+		TRACE_ERROR("%s\n", ock_err(CKR_DATA_LEN_RANGE));
 		return CKR_DATA_LEN_RANGE;
 	}
 
 	if (*out_data_len < modulus_bytes) {
 		*out_data_len = modulus_bytes;
-		OCK_LOG_ERR(ERR_BUFFER_TOO_SMALL);
+		TRACE_ERROR("%s\n", ock_err(ERR_BUFFER_TOO_SMALL));
 		return CKR_BUFFER_TOO_SMALL;
 	}
 
 	/* this had better be a private key */
 	if (keyclass != CKO_PRIVATE_KEY) {
-		OCK_LOG_ERR(ERR_KEY_TYPE_INCONSISTENT);
-		return CKR_KEY_TYPE_INCONSISTENT;
+		TRACE_ERROR("This operation requires a private key.\n");
+		return CKR_KEY_FUNCTION_NOT_PERMITTED;
 	}
 
 	if (token_specific.t_rsa_pss_sign == NULL) {
-		OCK_LOG_ERR(ERR_MECHANISM_INVALID);
+		TRACE_ERROR("%s\n", ock_err(ERR_MECHANISM_INVALID));
 		return CKR_MECHANISM_INVALID;
 	}
 
 	rc = token_specific.t_rsa_pss_sign(ctx, in_data, in_data_len, out_data,
 					   out_data_len);
 	if (rc != CKR_OK)
-		OCK_LOG_ERR(ERR_RSA_SIGN);
+		TRACE_DEBUG("Token Specific rsa pss sign failed.\n");
 
 	return rc;
 }
@@ -1506,38 +1542,41 @@ CK_RV rsa_pss_verify(SESSION *sess, SIGN_VERIFY_CONTEXT *ctx, CK_BYTE *in_data,
 
 	rc = object_mgr_find_in_map1(ctx->key, &key_obj);
 	if (rc != CKR_OK) {
-		OCK_LOG_ERR(ERR_OBJMGR_FIND_MAP);
-		return rc;
+		TRACE_ERROR("Failed to acquire key from specified handle");
+		if (rc == CKR_OBJECT_HANDLE_INVALID)
+			return CKR_KEY_HANDLE_INVALID;
+		else
+			return rc;
 	}
 
 	/* get modulus and key class */
 	rc = rsa_get_key_info(key_obj, &modulus_bytes, &keyclass);
 	if (rc != CKR_OK) {
-		OCK_LOG_ERR(ERR_FUNCTION_FAILED);
-		return CKR_FUNCTION_FAILED;
+		TRACE_DEBUG("rsa_get_key_info failed.\n");
+		return rc;
 	}
 
 	/* check input data length restrictions */
 	if (sig_len != modulus_bytes) {
-		OCK_LOG_ERR(ERR_SIGNATURE_LEN_RANGE);
+		TRACE_ERROR("%s\n", ock_err(ERR_SIGNATURE_LEN_RANGE));
 		return CKR_SIGNATURE_LEN_RANGE;
 	}
 
 	/* this had better be a public key */
 	if (keyclass != CKO_PUBLIC_KEY) {
-		OCK_LOG_ERR(ERR_KEY_TYPE_INCONSISTENT);
-		return CKR_KEY_TYPE_INCONSISTENT;
+		TRACE_ERROR("This operation requires a public key.\n");
+		return CKR_KEY_FUNCTION_NOT_PERMITTED;
 	}
 
 	if (token_specific.t_rsa_pss_verify == NULL) {
-		OCK_LOG_ERR(ERR_MECHANISM_INVALID);
+		TRACE_ERROR("%s\n", ock_err(ERR_MECHANISM_INVALID));
 		return CKR_MECHANISM_INVALID;
 	}
 
 	rc = token_specific.t_rsa_pss_verify(ctx, in_data, in_data_len,
 					     signature, sig_len);
 	if (rc != CKR_OK)
-		OCK_LOG_ERR(ERR_RSA_SIGN);
+		TRACE_ERROR("Token Specific rsa pss verify.\n");
 
 	return rc;
 }
@@ -1554,7 +1593,7 @@ CK_RV rsa_hash_pss_sign(SESSION *sess, CK_BBOOL length_only,
 	CK_RV rc;
 
 	if (!sess || !ctx || !in_data) {
-		OCK_LOG_ERR(ERR_FUNCTION_FAILED);
+		TRACE_ERROR("%s received bad argument(s)\n", __FUNCTION__);
 		return CKR_FUNCTION_FAILED;
 	}
 
@@ -1583,20 +1622,20 @@ CK_RV rsa_hash_pss_sign(SESSION *sess, CK_BBOOL length_only,
 
         rc = get_sha_size(digest_mech.mechanism, &hlen);
         if (rc != CKR_OK) {
-                OCK_LOG_ERR(ERR_MECHANISM_PARAM_INVALID);
+                TRACE_ERROR("%s\n", ock_err(ERR_MECHANISM_PARAM_INVALID));
                 return CKR_MECHANISM_PARAM_INVALID;
         }
 
 	rc = digest_mgr_init(sess, &digest_ctx, &digest_mech);
 	if (rc != CKR_OK) {
-		OCK_LOG_ERR(ERR_DIGEST_INIT);
+		TRACE_DEBUG("Digest Mgr Init failed.\n");
 		return rc;
 	}
 
 	rc = digest_mgr_digest(sess, length_only, &digest_ctx, in_data,
 			       in_data_len, hash, &hlen);
 	if (rc != CKR_OK) {
-		OCK_LOG_ERR(ERR_DIGEST);
+		TRACE_DEBUG("Digest Mgr Digest failed.\n");
 		return rc;
 	}
 
@@ -1607,14 +1646,14 @@ CK_RV rsa_hash_pss_sign(SESSION *sess, CK_BBOOL length_only,
 
 	rc = sign_mgr_init(sess, &sign_ctx, &sign_mech, FALSE, ctx->key);
 	if (rc != CKR_OK) {
-		OCK_LOG_ERR(ERR_SIGN_INIT);
+		TRACE_DEBUG("Sign Mgr Init failed.\n");
 		goto done;
 	}
 
 	rc = sign_mgr_sign(sess, length_only, &sign_ctx, hash, hlen,
 			   sig, sig_len);
 	if (rc != CKR_OK)
-		OCK_LOG_ERR(ERR_SIGN);
+		TRACE_DEBUG("Sign Mgr Sign failed.\n");
 
 done:
 	sign_mgr_cleanup(&sign_ctx);
@@ -1629,7 +1668,7 @@ CK_RV rsa_hash_pss_update(SESSION *sess, SIGN_VERIFY_CONTEXT *ctx,
 	CK_RV rc;
 
 	if (!sess || !ctx) {
-		OCK_LOG_ERR(ERR_FUNCTION_FAILED);
+		TRACE_ERROR("%s received bad argument(s)\n", __FUNCTION__);
 		return CKR_FUNCTION_FAILED;
 	}
 
@@ -1658,14 +1697,14 @@ CK_RV rsa_hash_pss_update(SESSION *sess, SIGN_VERIFY_CONTEXT *ctx,
 
 		rc = digest_mgr_init(sess, digest_ctx, &digest_mech);
 		if (rc != CKR_OK) {
-			OCK_LOG_ERR(ERR_DIGEST_INIT);
+			TRACE_DEBUG("Digest Mgr Init failed.\n");
 			return rc;
 		}
 	}
 
 	rc = digest_mgr_digest_update(sess, digest_ctx, in_data, in_data_len);
 	if (rc != CKR_OK)
-		OCK_LOG_ERR(ERR_DIGEST);
+		TRACE_DEBUG("Digest Mgr Update failed.\n");
 
 	return rc;
 }
@@ -1682,7 +1721,7 @@ CK_RV rsa_hash_pss_sign_final(SESSION *sess, CK_BBOOL length_only,
 	CK_RV rc;
 
 	if (!sess || !ctx || !sig_len) {
-		OCK_LOG_ERR(ERR_FUNCTION_FAILED);
+		TRACE_ERROR("%s received bad argument(s)\n", __FUNCTION__);
 		return CKR_FUNCTION_FAILED;
 	}
 
@@ -1692,14 +1731,14 @@ CK_RV rsa_hash_pss_sign_final(SESSION *sess, CK_BBOOL length_only,
 
         rc = get_sha_size(digest_ctx->mech.mechanism, &hlen);
         if (rc != CKR_OK) {
-                OCK_LOG_ERR(ERR_MECHANISM_PARAM_INVALID);
+                TRACE_ERROR("%s\n", ock_err(ERR_MECHANISM_PARAM_INVALID));
                 return CKR_MECHANISM_PARAM_INVALID;
         }
 
 	rc = digest_mgr_digest_final(sess, length_only, digest_ctx,
 				     hash, &hlen);
 	if (rc != CKR_OK) {
-		OCK_LOG_ERR(ERR_DIGEST_FINAL);
+		TRACE_DEBUG("Digest Mgr Final failed.\n");
 		return rc;
 	}
 
@@ -1710,14 +1749,14 @@ CK_RV rsa_hash_pss_sign_final(SESSION *sess, CK_BBOOL length_only,
 
 	rc = sign_mgr_init(sess, &sign_ctx, &sign_mech, FALSE, ctx->key);
 	if (rc != CKR_OK) {
-		OCK_LOG_ERR(ERR_SIGN_INIT);
+		TRACE_DEBUG("Sign Mgr Init failed.\n");
 		goto done;
 	}
 
 	rc = sign_mgr_sign(sess, length_only, &sign_ctx, hash, hlen,
 			   signature, sig_len);
 	if (rc != CKR_OK)
-		OCK_LOG_ERR(ERR_SIGN);
+		TRACE_DEBUG("Sign Mgr Sign failed.\n");
 
 done:
 	sign_mgr_cleanup(&sign_ctx);
@@ -1736,7 +1775,7 @@ CK_RV rsa_hash_pss_verify(SESSION *sess, SIGN_VERIFY_CONTEXT *ctx,
 	CK_RV rc;
 
 	if (!sess || !ctx || !in_data) {
-		OCK_LOG_ERR(ERR_FUNCTION_FAILED);
+		TRACE_ERROR("%s received bad argument(s)\n", __FUNCTION__);
 		return CKR_FUNCTION_FAILED;
 	}
 	memset(&digest_ctx, 0x0, sizeof(digest_ctx));
@@ -1762,22 +1801,22 @@ CK_RV rsa_hash_pss_verify(SESSION *sess, SIGN_VERIFY_CONTEXT *ctx,
 	digest_mech.ulParameterLen = 0;
 	digest_mech.pParameter = NULL;
 
-        rc = get_sha_size(digest_mech.mechanism, &hlen);
-        if (rc != CKR_OK) {
-                OCK_LOG_ERR(ERR_MECHANISM_PARAM_INVALID);
-                return CKR_MECHANISM_PARAM_INVALID;
-        }
+	rc = get_sha_size(digest_mech.mechanism, &hlen);
+	if (rc != CKR_OK) {
+		TRACE_ERROR("%s\n", ock_err(ERR_MECHANISM_PARAM_INVALID));
+		return CKR_MECHANISM_PARAM_INVALID;
+	}
 
 	rc = digest_mgr_init(sess, &digest_ctx, &digest_mech);
 	if (rc != CKR_OK) {
-		OCK_LOG_ERR(ERR_DIGEST_INIT);
+		TRACE_DEBUG("Digest Mgr Init failed.\n");
 		return rc;
 	}
 
 	rc = digest_mgr_digest(sess, FALSE, &digest_ctx, in_data,
 			       in_data_len, hash, &hlen);
 	if (rc != CKR_OK) {
-		OCK_LOG_ERR(ERR_DIGEST);
+		TRACE_DEBUG("Digest Mgr Digest failed.\n");
 		return rc;
 	}
 
@@ -1788,14 +1827,14 @@ CK_RV rsa_hash_pss_verify(SESSION *sess, SIGN_VERIFY_CONTEXT *ctx,
 
 	rc = verify_mgr_init(sess, &verify_ctx, &verify_mech, FALSE, ctx->key);
 	if (rc != CKR_OK) {
-		OCK_LOG_ERR(ERR_SIGN_INIT);
+		TRACE_DEBUG("Verify Mgr Init failed.\n");
 		goto done;
 	}
 
 	rc = verify_mgr_verify(sess, &verify_ctx, hash, hlen, signature,
 			       sig_len);
 	if (rc != CKR_OK)
-		OCK_LOG_ERR(ERR_VERIFY);
+		TRACE_DEBUG("Verify Mgr Verify failed.\n");
 
 done:
 	verify_mgr_cleanup(&verify_ctx);
@@ -1813,7 +1852,7 @@ CK_RV rsa_hash_pss_verify_final(SESSION *sess, SIGN_VERIFY_CONTEXT *ctx,
 	CK_RV rc;
 
 	if (!sess || !ctx || !signature) {
-		OCK_LOG_ERR(ERR_FUNCTION_FAILED);
+		TRACE_ERROR("%s received bad argument(s)\n", __FUNCTION__);
 		return CKR_FUNCTION_FAILED;
 	}
 
@@ -1821,15 +1860,15 @@ CK_RV rsa_hash_pss_verify_final(SESSION *sess, SIGN_VERIFY_CONTEXT *ctx,
 
 	digest_ctx = (DIGEST_CONTEXT *)ctx->context;
 
-        rc = get_sha_size(digest_ctx->mech.mechanism, &hlen);
-        if (rc != CKR_OK) {
-                OCK_LOG_ERR(ERR_MECHANISM_PARAM_INVALID);
-                return CKR_MECHANISM_PARAM_INVALID;
-        }
+	rc = get_sha_size(digest_ctx->mech.mechanism, &hlen);
+	if (rc != CKR_OK) {
+		TRACE_ERROR("%s\n", ock_err(ERR_MECHANISM_PARAM_INVALID));
+		return CKR_MECHANISM_PARAM_INVALID;
+	}
 
 	rc = digest_mgr_digest_final(sess, FALSE, digest_ctx, hash, &hlen);
 	if (rc != CKR_OK) {
-		OCK_LOG_ERR(ERR_DIGEST_FINAL);
+		TRACE_DEBUG("Digest Mgr Final failed.\n");
 		return rc;
 	}
 
@@ -1840,14 +1879,14 @@ CK_RV rsa_hash_pss_verify_final(SESSION *sess, SIGN_VERIFY_CONTEXT *ctx,
 
 	rc = verify_mgr_init(sess, &verify_ctx, &verify_mech, FALSE, ctx->key);
 	if (rc != CKR_OK) {
-		OCK_LOG_ERR(ERR_SIGN_INIT);
+		TRACE_DEBUG("Verify Mgr Init failed.\n");
 		goto done;
 	}
 
 	rc = verify_mgr_verify(sess, &verify_ctx, hash, hlen, signature,
 			       sig_len);
 	if (rc != CKR_OK)
-		OCK_LOG_ERR(ERR_VERIFY);
+		TRACE_DEBUG("Verify Mgr Verify failed.\n");
 
 done:
 	verify_mgr_cleanup(&verify_ctx);
@@ -1881,7 +1920,7 @@ rsa_hash_pkcs_sign( SESSION              * sess,
    CK_RV                rc;
 
    if (!sess || !ctx || !in_data){
-      OCK_LOG_ERR(ERR_FUNCTION_FAILED);
+      TRACE_ERROR("%s received bad argument(s)\n", __FUNCTION__);
       return CKR_FUNCTION_FAILED;
    }
    memset( &digest_ctx, 0x0, sizeof(digest_ctx) );
@@ -1924,20 +1963,20 @@ rsa_hash_pkcs_sign( SESSION              * sess,
 
    rc = digest_mgr_init( sess, &digest_ctx, &digest_mech );
    if (rc != CKR_OK){
-      OCK_LOG_ERR(ERR_DIGEST_INIT);
+      TRACE_DEBUG("Digest Mgr Init failed.\n");
       return rc;
    }
    hash_len = sizeof(hash);
    rc = digest_mgr_digest( sess, length_only, &digest_ctx, in_data, in_data_len, hash, &hash_len );
    if (rc != CKR_OK){
-      OCK_LOG_ERR(ERR_DIGEST);
+      TRACE_DEBUG("Digest Mgr Digest failed.\n");
       return rc;
    }
       // build the BER-encodings
 
     rc = ber_encode_OCTET_STRING( FALSE, &octet_str, &octet_str_len, hash, hash_len );
     if (rc != CKR_OK){
-       OCK_LOG_ERR(ERR_ENCODE_OCTET);
+      TRACE_DEBUG("ber_encode_OCTET_STRING failed.\n");
        goto error;
     }
     tmp = (CK_BYTE *)buf1;
@@ -1946,7 +1985,7 @@ rsa_hash_pkcs_sign( SESSION              * sess,
 
     rc = ber_encode_SEQUENCE( FALSE, &ber_data, &ber_data_len, tmp, (oid_len + octet_str_len) );
     if (rc != CKR_OK){
-       OCK_LOG_ERR(ERR_ENCODE_SEQ);
+       TRACE_DEBUG("ber_encode_SEQUENCE failed.\n");
        goto error;
     }
     // sign the BER-encoded data block
@@ -1958,12 +1997,12 @@ rsa_hash_pkcs_sign( SESSION              * sess,
 
    rc = sign_mgr_init( sess, &sign_ctx, &sign_mech, FALSE, ctx->key );
    if (rc != CKR_OK){
-      OCK_LOG_ERR(ERR_SIGN_INIT);
+      TRACE_DEBUG("Sign Mgr Init failed.\n");
       goto error;
    }
    rc = sign_mgr_sign( sess, length_only, &sign_ctx, ber_data, ber_data_len, signature, sig_len );
    if (rc != CKR_OK)
-      OCK_LOG_ERR(ERR_SIGN);
+      TRACE_DEBUG("Sign Mgr Sign failed.\n");
 
 error:
    if (octet_str) free( octet_str );
@@ -1986,7 +2025,7 @@ rsa_hash_pkcs_sign_update( SESSION              * sess,
    CK_RV                 rc;
 
    if (!sess || !ctx) {
-      OCK_LOG_ERR(ERR_FUNCTION_FAILED);
+      TRACE_ERROR("%s received bad argument(s)\n", __FUNCTION__);
       return CKR_FUNCTION_FAILED;
    }
    context = (RSA_DIGEST_CONTEXT *)ctx->context;
@@ -2010,7 +2049,7 @@ rsa_hash_pkcs_sign_update( SESSION              * sess,
 
       rc = digest_mgr_init( sess, &context->hash_context, &digest_mech );
       if (rc != CKR_OK){
-         OCK_LOG_ERR(ERR_DIGEST_INIT);
+         TRACE_DEBUG("Digest Mgr Init failed.\n");
          return rc;
       }
       context->flag = TRUE;
@@ -2018,7 +2057,7 @@ rsa_hash_pkcs_sign_update( SESSION              * sess,
 
    rc = digest_mgr_digest_update( sess, &context->hash_context, in_data, in_data_len );
    if (rc != CKR_OK){
-      OCK_LOG_ERR(ERR_DIGEST_UPDATE);
+      TRACE_DEBUG("Digest Mgr Digest failed.\n");
       return rc;
    }
    return CKR_OK;
@@ -2050,7 +2089,7 @@ rsa_hash_pkcs_verify( SESSION              * sess,
    CK_RV                rc;
 
    if (!sess || !ctx || !in_data){
-      OCK_LOG_ERR(ERR_FUNCTION_FAILED);
+      TRACE_ERROR("%s received bad argument(s)\n", __FUNCTION__);
       return CKR_FUNCTION_FAILED;
    }
    memset( &digest_ctx, 0x0, sizeof(digest_ctx) );
@@ -2093,13 +2132,13 @@ rsa_hash_pkcs_verify( SESSION              * sess,
 
    rc = digest_mgr_init( sess, &digest_ctx, &digest_mech );
    if (rc != CKR_OK){
-      OCK_LOG_ERR(ERR_DIGEST_INIT);
+      TRACE_DEBUG("Digest Mgr Init failed.\n");
       return rc;
    }
    hash_len = sizeof(hash);
    rc = digest_mgr_digest( sess, FALSE, &digest_ctx, in_data, in_data_len, hash, &hash_len );
    if (rc != CKR_OK){
-      OCK_LOG_ERR(ERR_DIGEST);
+      TRACE_DEBUG("Digest Mgr Digest failed.\n");
       return rc;
    }
 
@@ -2107,7 +2146,7 @@ rsa_hash_pkcs_verify( SESSION              * sess,
    //
    rc = ber_encode_OCTET_STRING( FALSE, &octet_str, &octet_str_len, hash, hash_len );
    if (rc != CKR_OK){
-      OCK_LOG_ERR(ERR_ENCODE_OCTET);
+      TRACE_DEBUG("ber_encode_OCTET_STRING failed.\n");
       goto done;
    }
    tmp = (CK_BYTE *)buf1;
@@ -2116,7 +2155,7 @@ rsa_hash_pkcs_verify( SESSION              * sess,
 
    rc = ber_encode_SEQUENCE( FALSE, &ber_data, &ber_data_len, tmp, (oid_len + octet_str_len) );
    if (rc != CKR_OK){
-      OCK_LOG_ERR(ERR_ENCODE_SEQ);
+      TRACE_DEBUG("ber_encode_SEQUENCE failed.\n");
       goto done;
    }
    // Verify the Signed BER-encoded Data block
@@ -2127,12 +2166,12 @@ rsa_hash_pkcs_verify( SESSION              * sess,
 
    rc = verify_mgr_init( sess, &verify_ctx, &verify_mech, FALSE, ctx->key );
    if (rc != CKR_OK){
-      OCK_LOG_ERR(ERR_VERIFY_INIT);
+      TRACE_DEBUG("Verify Mgr Init failed.\n");
       goto done;
    }
    rc = verify_mgr_verify( sess, &verify_ctx, ber_data, ber_data_len, signature, sig_len );
    if (rc != CKR_OK)
-      OCK_LOG_ERR(ERR_VERIFY);
+      TRACE_DEBUG("Verify Mgr Verify failed.\n");
 done:
    if (octet_str) free( octet_str );
    if (ber_data)  free( ber_data );
@@ -2153,7 +2192,7 @@ rsa_hash_pkcs_verify_update( SESSION              * sess,
    CK_RV                 rc;
 
    if (!sess || !ctx) {
-      OCK_LOG_ERR(ERR_FUNCTION_FAILED);
+      TRACE_ERROR("%s received bad argument(s)\n", __FUNCTION__);
       return CKR_FUNCTION_FAILED;
    }
    context = (RSA_DIGEST_CONTEXT *)ctx->context;
@@ -2177,7 +2216,7 @@ rsa_hash_pkcs_verify_update( SESSION              * sess,
 
       rc = digest_mgr_init( sess, &context->hash_context, &digest_mech );
       if (rc != CKR_OK){
-         OCK_LOG_ERR(ERR_DIGEST_INIT);
+         TRACE_DEBUG("Digest Mgr Init failed.\n");
          return rc;
       }
       context->flag = TRUE;
@@ -2185,7 +2224,7 @@ rsa_hash_pkcs_verify_update( SESSION              * sess,
 
    rc = digest_mgr_digest_update( sess, &context->hash_context, in_data, in_data_len );
    if (rc != CKR_OK){
-      OCK_LOG_ERR(ERR_DIGEST_UPDATE);
+      TRACE_DEBUG("Digest Mgr Update failed.\n");
       return rc;
    }
    return CKR_OK;
@@ -2216,7 +2255,7 @@ rsa_hash_pkcs_sign_final( SESSION              * sess,
    CK_RV                 rc;
 
    if (!sess || !ctx || !sig_len){
-      OCK_LOG_ERR(ERR_FUNCTION_FAILED);
+      TRACE_ERROR("%s received bad argument(s)\n", __FUNCTION__);
       return CKR_FUNCTION_FAILED;
    }
 
@@ -2252,14 +2291,14 @@ rsa_hash_pkcs_sign_final( SESSION              * sess,
    hash_len = sizeof(hash);
    rc = digest_mgr_digest_final( sess, length_only, &context->hash_context, hash, &hash_len );
    if (rc != CKR_OK){
-      OCK_LOG_ERR(ERR_DIGEST_FINAL);
+      TRACE_DEBUG("Digest Mgr Final failed.\n");
       return rc;
    }
    // Build the BER Encoded Data block
    //
    rc = ber_encode_OCTET_STRING( FALSE, &octet_str, &octet_str_len, hash, hash_len );
    if (rc != CKR_OK){
-      OCK_LOG_ERR(ERR_ENCODE_OCTET);
+      TRACE_DEBUG("ber_encode_OCTET_STRING failed.\n");
       return rc;
    }
    tmp = (CK_BYTE *)buf1;
@@ -2268,7 +2307,7 @@ rsa_hash_pkcs_sign_final( SESSION              * sess,
 
    rc = ber_encode_SEQUENCE( FALSE, &ber_data, &ber_data_len, tmp, (oid_len + octet_str_len) );
    if (rc != CKR_OK){
-      OCK_LOG_ERR(ERR_ENCODE_SEQ);
+      TRACE_DEBUG("ber_encode_SEQUENCE failed.\n");
       goto done;
    }
    // sign the BER-encoded data block
@@ -2280,13 +2319,12 @@ rsa_hash_pkcs_sign_final( SESSION              * sess,
 
    rc = sign_mgr_init( sess, &sign_ctx, &sign_mech, FALSE, ctx->key );
    if (rc != CKR_OK){
-      OCK_LOG_ERR(ERR_SIGN_INIT);
+      TRACE_DEBUG("Sign Mgr Init failed.\n");
       goto done;
    }
-   //rc = sign_mgr_sign( sess, length_only, &sign_ctx, hash, hash_len, signature, sig_len );
    rc = sign_mgr_sign( sess, length_only, &sign_ctx, ber_data, ber_data_len, signature, sig_len );
    if (rc != CKR_OK)
-      OCK_LOG_ERR(ERR_SIGN);
+      TRACE_DEBUG("Sign Mgr Sign failed.\n");
 
    if (length_only == TRUE || rc == CKR_BUFFER_TOO_SMALL) {
       sign_mgr_cleanup( &sign_ctx );
@@ -2323,7 +2361,7 @@ rsa_hash_pkcs_verify_final( SESSION              * sess,
    CK_RV                 rc;
 
    if (!sess || !ctx || !signature){
-      OCK_LOG_ERR(ERR_FUNCTION_FAILED);
+      TRACE_ERROR("%s received bad argument(s)\n", __FUNCTION__);
       return CKR_FUNCTION_FAILED;
    }
    if (ctx->mech.mechanism == CKM_MD2_RSA_PKCS) {
@@ -2358,14 +2396,14 @@ rsa_hash_pkcs_verify_final( SESSION              * sess,
    hash_len = sizeof(hash);
    rc = digest_mgr_digest_final( sess, FALSE, &context->hash_context, hash, &hash_len );
    if (rc != CKR_OK){
-      OCK_LOG_ERR(ERR_DIGEST_FINAL);
+      TRACE_DEBUG("Digest Mgr Final failed.\n");
       return rc;
    }
    // Build the BER encoding
    //
    rc = ber_encode_OCTET_STRING( FALSE, &octet_str, &octet_str_len, hash, hash_len );
    if (rc != CKR_OK){
-      OCK_LOG_ERR(ERR_ENCODE_OCTET);
+      TRACE_DEBUG("ber_encode_OCTET_STRING failed.\n");
       goto done;
    }
    tmp = (CK_BYTE *)buf1;
@@ -2374,7 +2412,7 @@ rsa_hash_pkcs_verify_final( SESSION              * sess,
 
    rc = ber_encode_SEQUENCE( FALSE, &ber_data, &ber_data_len, tmp, (oid_len + octet_str_len) );
    if (rc != CKR_OK){
-      OCK_LOG_ERR(ERR_ENCODE_SEQ);
+      TRACE_DEBUG("ber_encode_SEQUENCE failed.\n");
       goto done;
    }
    // verify the signed BER-encoded data block
@@ -2386,12 +2424,12 @@ rsa_hash_pkcs_verify_final( SESSION              * sess,
 
    rc = verify_mgr_init( sess, &verify_ctx, &verify_mech, FALSE, ctx->key );
    if (rc != CKR_OK){
-      OCK_LOG_ERR(ERR_VERIFY_INIT);
+      TRACE_DEBUG("Verify Mgr Init failed.\n");
       goto done;
    }
    rc = verify_mgr_verify( sess, &verify_ctx, ber_data, ber_data_len, signature, sig_len );
    if (rc != CKR_OK)
-      OCK_LOG_ERR(ERR_VERIFY);
+      TRACE_DEBUG("Verify Mgr Verify failed.\n");
 done:
    if (octet_str) free( octet_str );
    if (ber_data)  free( ber_data );
@@ -2416,13 +2454,13 @@ ckm_rsa_key_pair_gen( TEMPLATE  * publ_tmpl,
 
    /* check for token specific call first */
    if (token_specific.t_rsa_generate_keypair == NULL) {
-      OCK_LOG_ERR(ERR_MECHANISM_INVALID);
+      TRACE_ERROR("%s\n", ock_err(ERR_MECHANISM_INVALID));
       return CKR_MECHANISM_INVALID;
    }
 
    rc = token_specific.t_rsa_generate_keypair(publ_tmpl, priv_tmpl);
    if (rc != CKR_OK)
-      OCK_LOG_ERR(ERR_KEYGEN);
+      TRACE_DEBUG("Token specific rsa generate keypair failed.\n");
 
    return rc;
 }
@@ -2506,7 +2544,7 @@ CK_RV encode_eme_oaep(CK_BYTE *mData, CK_ULONG mLen, CK_BYTE *emData,
         CK_RV rc = CKR_OK;
 
         if (!mData || !emData) {
-                OCK_LOG_ERR(ERR_FUNCTION_FAILED);
+		TRACE_ERROR("%s received bad argument(s)\n", __FUNCTION__);
                 return CKR_FUNCTION_FAILED;
         }
 
@@ -2546,7 +2584,7 @@ CK_RV encode_eme_oaep(CK_BYTE *mData, CK_ULONG mLen, CK_BYTE *emData,
 	dbMask_len = modLength - hlen - 1;
 	dbMask = malloc(sizeof(CK_BYTE) * dbMask_len);
 	if (dbMask == NULL) {
-		OCK_LOG_ERR(ERR_HOST_MEMORY);
+		TRACE_ERROR("%s\n", ock_err(ERR_HOST_MEMORY));
 		return CKR_HOST_MEMORY;
 	}
 
@@ -2589,8 +2627,8 @@ CK_RV decode_eme_oaep(CK_BYTE *emData, CK_ULONG emLen, CK_BYTE *out_data,
 	CK_BYTE *maskedSeed, *maskedDB, *dbMask, *seedMask;
 
 	if (!emData || !out_data) {
-		OCK_LOG_ERR(ERR_FUNCTION_FAILED);
-		return CKR_FUNCTION_FAILED;
+		TRACE_ERROR("%s received bad argument(s)\n", __FUNCTION__);
+                return CKR_FUNCTION_FAILED;
 	}
 
 	/* allocate memory now for later use */
@@ -2598,7 +2636,7 @@ CK_RV decode_eme_oaep(CK_BYTE *emData, CK_ULONG emLen, CK_BYTE *out_data,
 	dbMask = malloc(sizeof(CK_BYTE) * dbMask_len);
 	seedMask = malloc(sizeof(CK_BYTE) * hlen);
 	if ((seedMask == NULL) || (dbMask == NULL)) {
-		OCK_LOG_ERR(ERR_HOST_MEMORY);
+		TRACE_ERROR("%s\n", ock_err(ERR_HOST_MEMORY));
 		rc = CKR_HOST_MEMORY;
 		goto done;
 	}
@@ -2873,7 +2911,7 @@ CK_RV check_pss_params(CK_MECHANISM *mech, CK_ULONG modlen)
 	pssParams = (CK_RSA_PKCS_PSS_PARAMS *)mech->pParameter;
 
 	if (mech->ulParameterLen != sizeof(CK_RSA_PKCS_PSS_PARAMS)) {
-		OCK_LOG_ERR(ERR_MECHANISM_PARAM_INVALID);
+		TRACE_ERROR("%s\n", ock_err(ERR_MECHANISM_PARAM_INVALID));
 		return CKR_MECHANISM_PARAM_INVALID;
 	}
 
@@ -2887,7 +2925,7 @@ CK_RV check_pss_params(CK_MECHANISM *mech, CK_ULONG modlen)
 	 */
 	rc = get_mgf_mech(pssParams->mgf, &mgf_mech);
 	if (rc != CKR_OK) {
-		OCK_LOG_ERR(ERR_FUNCTION_FAILED);
+		TRACE_DEBUG("MGF mechanism is invalid.\n");
 		return rc;
 	}
 
@@ -2895,7 +2933,8 @@ CK_RV check_pss_params(CK_MECHANISM *mech, CK_ULONG modlen)
 	case CKM_SHA1_RSA_PKCS_PSS:
 		if ((pssParams->hashAlg != CKM_SHA_1) &&
 		    (pssParams->hashAlg != mgf_mech)) {
-			OCK_LOG_ERR(ERR_MECHANISM_PARAM_INVALID);
+			TRACE_ERROR("%s\n",
+				    ock_err(ERR_MECHANISM_PARAM_INVALID));
 			return CKR_MECHANISM_PARAM_INVALID;
 		}
 		break;
@@ -2903,7 +2942,8 @@ CK_RV check_pss_params(CK_MECHANISM *mech, CK_ULONG modlen)
 	case CKM_SHA256_RSA_PKCS_PSS:
 		if ((pssParams->hashAlg != CKM_SHA256) &&
 		    (pssParams->hashAlg != mgf_mech)) {
-			OCK_LOG_ERR(ERR_MECHANISM_PARAM_INVALID);
+			TRACE_ERROR("%s\n",
+				    ock_err(ERR_MECHANISM_PARAM_INVALID));
 			return CKR_MECHANISM_PARAM_INVALID;
 		}
 		break;
@@ -2911,7 +2951,8 @@ CK_RV check_pss_params(CK_MECHANISM *mech, CK_ULONG modlen)
 	case CKM_SHA384_RSA_PKCS_PSS:
 		if ((pssParams->hashAlg != CKM_SHA384) &&
 		    (pssParams->hashAlg != mgf_mech)) {
-			OCK_LOG_ERR(ERR_MECHANISM_PARAM_INVALID);
+			TRACE_ERROR("%s\n",
+				    ock_err(ERR_MECHANISM_PARAM_INVALID));
 			return CKR_MECHANISM_PARAM_INVALID;
 		}
 		break;
@@ -2919,33 +2960,35 @@ CK_RV check_pss_params(CK_MECHANISM *mech, CK_ULONG modlen)
 	case CKM_SHA512_RSA_PKCS_PSS:
 		if ((pssParams->hashAlg != CKM_SHA512) &&
 		    (pssParams->hashAlg != mgf_mech)) {
-			OCK_LOG_ERR(ERR_MECHANISM_PARAM_INVALID);
+			TRACE_ERROR("%s\n",
+				    ock_err(ERR_MECHANISM_PARAM_INVALID));
 			return CKR_MECHANISM_PARAM_INVALID;
 		}
 		break;
 
 	case CKM_RSA_PKCS_PSS:
 		if (pssParams->hashAlg != mgf_mech) {
-			OCK_LOG_ERR(ERR_MECHANISM_PARAM_INVALID);
+			TRACE_ERROR("%s\n",
+				    ock_err(ERR_MECHANISM_PARAM_INVALID));
 			return CKR_MECHANISM_PARAM_INVALID;
 		}
 		break;
 
 	default:
-		OCK_LOG_ERR(ERR_MECHANISM_INVALID);
+		TRACE_ERROR("%s\n", ock_err(ERR_MECHANISM_INVALID));
 		return CKR_MECHANISM_INVALID;
 	}
 
 	/* check the salt length,  pkcs11v2.2 Section 12.1.14 */
 	rc = get_sha_size(pssParams->hashAlg, &hlen);
 	if (rc != CKR_OK) {
-		OCK_LOG_ERR(ERR_MECHANISM_PARAM_INVALID);
+		TRACE_ERROR("%s\n", ock_err(ERR_MECHANISM_PARAM_INVALID));
 		return CKR_MECHANISM_PARAM_INVALID;
 	}
 
 	if (!((pssParams->sLen >= 0) &&
 	      (pssParams->sLen <= modlen - 2 - hlen))) {
-		OCK_LOG_ERR(ERR_MECHANISM_PARAM_INVALID);
+		TRACE_ERROR("%s\n", ock_err(ERR_MECHANISM_PARAM_INVALID));
 		return CKR_MECHANISM_PARAM_INVALID;
 	}
 

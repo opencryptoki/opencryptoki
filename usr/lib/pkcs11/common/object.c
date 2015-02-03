@@ -314,6 +314,7 @@
 #include "h_extern.h"
 #include "tok_spec_struct.h"
 #include "pkcs32.h"
+#include "trace.h"
 
 // object_create()
 //
@@ -343,7 +344,7 @@ object_create( CK_ATTRIBUTE  * pTemplate,
    unsigned int    i;
 
    if (!pTemplate){
-      OCK_LOG_ERR(ERR_FUNCTION_FAILED);
+      TRACE_ERROR("Invalid function arguments.\n");
       return CKR_FUNCTION_FAILED;
    }
    // extract the object class and subclass
@@ -372,19 +373,19 @@ object_create( CK_ATTRIBUTE  * pTemplate,
    }
 
    if (class_given == FALSE){
-      OCK_LOG_ERR(ERR_TEMPLATE_INCOMPLETE);
+      TRACE_ERROR("%s\n", ock_err(ERR_TEMPLATE_INCOMPLETE));
       return CKR_TEMPLATE_INCOMPLETE;
    }
 
 	// Return CKR_ATTRIBUTE_TYPE_INVALID when trying to create a
 	// vendor-defined object.
 	if (class >= CKO_VENDOR_DEFINED) {
-		OCK_LOG_ERR(ERR_ATTRIBUTE_TYPE_INVALID);
+		TRACE_ERROR("%s\n", ock_err(ERR_ATTRIBUTE_TYPE_INVALID));
 		return CKR_ATTRIBUTE_TYPE_INVALID;
 	}
 
    if (class != CKO_DATA && subclass_given != TRUE){
-      OCK_LOG_ERR(ERR_TEMPLATE_INCOMPLETE);
+      TRACE_ERROR("%s\n", ock_err(ERR_TEMPLATE_INCOMPLETE));
       return CKR_TEMPLATE_INCOMPLETE;
    }
 
@@ -393,7 +394,7 @@ object_create( CK_ATTRIBUTE  * pTemplate,
                             class, subclass,
                             &o );
    if (rc != CKR_OK){
-      OCK_LOG_ERR(ERR_OBJMGR_CREATE_SKEL); 
+      TRACE_DEBUG("object_create_skel failed.\n");
       return rc;
    }
    // for key objects, we need be careful...
@@ -407,7 +408,7 @@ object_create( CK_ATTRIBUTE  * pTemplate,
    if (class == CKO_PRIVATE_KEY || class == CKO_SECRET_KEY) {
       rc = template_attribute_find( o->template, CKA_SENSITIVE, &attr );
       if (rc == FALSE) {
-         OCK_LOG_ERR(ERR_FUNCTION_FAILED);
+	 TRACE_ERROR("Failed to find CKA_SENSITIVE for the key.\n");
          rc = CKR_FUNCTION_FAILED;
          goto error;
       }
@@ -416,13 +417,13 @@ object_create( CK_ATTRIBUTE  * pTemplate,
 
       rc = build_attribute( CKA_ALWAYS_SENSITIVE, &flag, sizeof(CK_BYTE), &sensitive );
       if (rc != CKR_OK){
-         OCK_LOG_ERR(ERR_BLD_ATTR); 
+         TRACE_DEBUG("build_attribute failed.\n");
          goto error;
       }
 
       rc = template_attribute_find( o->template, CKA_EXTRACTABLE, &attr );
       if (rc == FALSE) {
-         OCK_LOG_ERR(ERR_FUNCTION_FAILED);
+	 TRACE_ERROR("Failed to find CKA_EXTRACTABLE for the key.\n");
          rc = CKR_FUNCTION_FAILED;
          goto error;
       }
@@ -432,7 +433,7 @@ object_create( CK_ATTRIBUTE  * pTemplate,
 
       rc = build_attribute( CKA_NEVER_EXTRACTABLE, &flag, sizeof(CK_BYTE), &extractable );
       if (rc != CKR_OK){
-         OCK_LOG_ERR(ERR_BLD_ATTR); 
+         TRACE_DEBUG("build attribute failed.\n");
          goto error;
       }
       template_update_attribute( o->template, sensitive );
@@ -482,7 +483,7 @@ object_copy( CK_ATTRIBUTE  * pTemplate,
 
 
    if (!old_obj || !pTemplate || !new_obj){
-      OCK_LOG_ERR(ERR_FUNCTION_FAILED);
+      TRACE_ERROR("Invalid function arguments.\n");
       return CKR_FUNCTION_FAILED; 
    }
    o        = (OBJECT   *)malloc(sizeof(OBJECT));
@@ -491,7 +492,7 @@ object_copy( CK_ATTRIBUTE  * pTemplate,
 
    if (!o || !tmpl || !new_tmpl) {
       rc = CKR_HOST_MEMORY;
-      OCK_LOG_ERR(ERR_HOST_MEMORY);
+      TRACE_ERROR("%s\n", ock_err(ERR_HOST_MEMORY));
       goto error;
    }
 
@@ -503,12 +504,12 @@ object_copy( CK_ATTRIBUTE  * pTemplate,
    //
    rc = template_copy( tmpl, old_obj->template );
    if (rc != CKR_OK){
-      OCK_LOG_ERR(ERR_TEMPLATE_COPY); 
+      TRACE_DEBUG("Failed to copy template.\n");
       goto error;
    }
    rc = template_add_attributes( new_tmpl, pTemplate, ulCount );
    if (rc != CKR_OK){
-      OCK_LOG_ERR(ERR_ATTR_ADD); 
+      TRACE_DEBUG("template_add_attributes failed.\n");
       goto error;
    }
    // at this point, the new object has the list of attributes.  we need
@@ -521,7 +522,7 @@ object_copy( CK_ATTRIBUTE  * pTemplate,
 
    found = template_get_class( tmpl, &class, &subclass );
    if (found == FALSE) {
-      OCK_LOG_ERR(ERR_TEMPLATE_INCONSISTENT); 
+      TRACE_ERROR("Could not find CKA_CLASS in object's template.\n");
       rc = CKR_TEMPLATE_INCONSISTENT;
       goto error;
    }
@@ -536,14 +537,14 @@ object_copy( CK_ATTRIBUTE  * pTemplate,
    //
    rc = template_validate_attributes( new_tmpl, class, subclass, MODE_COPY );
    if (rc != CKR_OK){
-      OCK_LOG_ERR(ERR_ATTR_VALIDATE); 
+      TRACE_DEBUG("template_validate_attributes failed.\n");
       goto error;
    }
    // merge in the new attributes
    //
    rc = template_merge( tmpl, &new_tmpl );
    if (rc != CKR_OK){
-      OCK_LOG_ERR(ERR_TEMPLATE_MERGE); 
+      TRACE_DEBUG("template_merge failed.\n");
       goto error;
    }
    // do we need this?  since an attribute cannot be removed, the original
@@ -552,7 +553,7 @@ object_copy( CK_ATTRIBUTE  * pTemplate,
    //
    rc = template_check_required_attributes( tmpl, class, subclass, MODE_COPY );
    if (rc != CKR_OK){
-      OCK_LOG_ERR(ERR_ATTR_REQD_CHECK); 
+      TRACE_ERROR("template_check_required_attributes failed.\n");
       goto error;
    }
    // at this point, we should have a valid object with correct attributes
@@ -585,7 +586,7 @@ object_flatten( OBJECT    * obj,
    long         rc;
 
    if (!obj){
-      OCK_LOG_ERR(ERR_FUNCTION_FAILED);
+      TRACE_ERROR("Invalid function arguments.\n");
       return CKR_FUNCTION_FAILED;
    }
    count    = template_get_count( obj->template );
@@ -595,7 +596,7 @@ object_flatten( OBJECT    * obj,
 
    buf = (CK_BYTE *)malloc(total_len);
    if (!buf){ // SAB  XXX FIXME  This was DATA
-      OCK_LOG_ERR(ERR_HOST_MEMORY);
+      TRACE_ERROR("%s\n", ock_err(ERR_HOST_MEMORY));
       return CKR_HOST_MEMORY;
    }
 
@@ -779,7 +780,7 @@ object_get_attribute_values( OBJECT        * obj,
    for (i=0; i < ulCount; i++) {
       flag = template_check_exportability( obj_tmpl, pTemplate[i].type);
       if (flag == FALSE) {
-         OCK_LOG_ERR(ERR_ATTRIBUTE_SENSITIVE); 
+         TRACE_ERROR("%s\n", ock_err(ERR_ATTRIBUTE_SENSITIVE));
          rc = CKR_ATTRIBUTE_SENSITIVE;
          pTemplate[i].ulValueLen = (CK_ULONG)-1;
          continue;
@@ -787,7 +788,7 @@ object_get_attribute_values( OBJECT        * obj,
 
       flag = template_attribute_find( obj_tmpl, pTemplate[i].type, &attr );
       if (flag == FALSE) {
-         OCK_LOG_ERR(ERR_ATTRIBUTE_TYPE_INVALID); 
+         TRACE_ERROR("%s\n", ock_err(ERR_ATTRIBUTE_TYPE_INVALID));
          rc = CKR_ATTRIBUTE_TYPE_INVALID;
          pTemplate[i].ulValueLen = (CK_ULONG)-1;
          continue;
@@ -801,7 +802,7 @@ object_get_attribute_values( OBJECT        * obj,
          pTemplate[i].ulValueLen = attr->ulValueLen;
       }
       else {
-         OCK_LOG_ERR(ERR_BUFFER_TOO_SMALL); 
+         TRACE_ERROR("%s\n", ock_err(ERR_BUFFER_TOO_SMALL));
          rc = CKR_BUFFER_TOO_SMALL;
          pTemplate[i].ulValueLen = (CK_ULONG)-1;
       }
@@ -809,7 +810,6 @@ object_get_attribute_values( OBJECT        * obj,
 
    return rc;
 }
-
 
 // object_set_attribute_values()
 //
@@ -825,27 +825,27 @@ object_set_attribute_values( OBJECT        * obj,
 
 
    if (!obj || !pTemplate){
-      OCK_LOG_ERR(ERR_FUNCTION_FAILED);
+      TRACE_ERROR("Invalid function arguments.\n");
       return CKR_FUNCTION_FAILED;
    }
 
    found = template_get_class( obj->template, &class, &subclass );
    if (found == FALSE) {
-      OCK_LOG_ERR(ERR_FUNCTION_FAILED);
+      TRACE_ERROR("Failed to find CKA_CLASS in object template.\n");
       rc = CKR_FUNCTION_FAILED;
       goto error;
    }
 
    new_tmpl = (TEMPLATE *)malloc(sizeof(TEMPLATE));
    if (!new_tmpl){
-      OCK_LOG_ERR(ERR_HOST_MEMORY);
+      TRACE_ERROR("%s\n", ock_err(ERR_HOST_MEMORY));
       return CKR_HOST_MEMORY;
    }
    memset( new_tmpl, 0x0, sizeof(TEMPLATE) );
 
    rc = template_add_attributes( new_tmpl, pTemplate, ulCount );
    if (rc != CKR_OK){
-      OCK_LOG_ERR(ERR_ATTR_ADD); 
+      TRACE_DEBUG("template_add_attributes failed.\n");
       goto error;
    }
 
@@ -858,7 +858,7 @@ object_set_attribute_values( OBJECT        * obj,
    //
    rc = template_validate_attributes( new_tmpl, class, subclass, MODE_MODIFY );
    if (rc != CKR_OK){
-      OCK_LOG_ERR(ERR_ATTR_VALIDATE); 
+      TRACE_DEBUG("template_validate_attributes failed.\n");
       goto error;
    }
 
@@ -866,7 +866,7 @@ object_set_attribute_values( OBJECT        * obj,
    //
    rc = template_merge( obj->template, &new_tmpl );
    if (rc != CKR_OK){
-      OCK_LOG_ERR(ERR_TEMPLATE_MERGE); 
+      TRACE_DEBUG("template_merge failed.\n");
       return rc;
    }
    return CKR_OK;
@@ -901,12 +901,12 @@ object_restore_withSize( CK_BYTE *data, OBJECT **new_obj, CK_BBOOL replace, int 
    CK_RV       rc;
 
    if (!data || !new_obj){
-      OCK_LOG_ERR(ERR_FUNCTION_FAILED);
+      TRACE_ERROR("Invalid function arguments.\n");
       return CKR_FUNCTION_FAILED;
    }
    obj = (OBJECT *)malloc(sizeof(OBJECT));
    if (!obj) {
-      OCK_LOG_ERR(ERR_HOST_MEMORY);
+      TRACE_ERROR("%s\n", ock_err(ERR_HOST_MEMORY));
       rc = CKR_HOST_MEMORY;
       goto error;
    }
@@ -926,7 +926,7 @@ object_restore_withSize( CK_BYTE *data, OBJECT **new_obj, CK_BBOOL replace, int 
 
    rc = template_unflatten_withSize( &tmpl, data + offset, count, data_size );
    if (rc != CKR_OK){
-      OCK_LOG_ERR(ERR_TEMPLATE_UNFLATTEN);
+      TRACE_DEBUG("template_unflatten_withSize failed.\n");
       goto error;
    }
    obj->template = tmpl;
@@ -968,11 +968,11 @@ object_create_skel( CK_ATTRIBUTE  * pTemplate,
 
 
    if (!obj){
-      OCK_LOG_ERR(ERR_FUNCTION_FAILED);
+      TRACE_ERROR("Invalid function arguments.\n");
       return CKR_FUNCTION_FAILED;
    }
    if (!pTemplate && (ulCount != 0)){
-      OCK_LOG_ERR(ERR_FUNCTION_FAILED);
+      TRACE_ERROR("Invalid function arguments.\n");
       return CKR_FUNCTION_FAILED;
    }
    o     = (OBJECT *)malloc(sizeof(OBJECT));
@@ -980,7 +980,7 @@ object_create_skel( CK_ATTRIBUTE  * pTemplate,
    tmpl2 = (TEMPLATE *)malloc(sizeof(TEMPLATE));
 
    if (!o || !tmpl || !tmpl2) {
-      OCK_LOG_ERR(ERR_HOST_MEMORY);
+      TRACE_ERROR("%s\n", ock_err(ERR_HOST_MEMORY));
       rc = CKR_HOST_MEMORY;
       goto done;
    }
@@ -1004,13 +1004,13 @@ object_create_skel( CK_ATTRIBUTE  * pTemplate,
 
    rc = template_validate_attributes( tmpl2, class, subclass, mode );
    if (rc != CKR_OK){
-      OCK_LOG_ERR(ERR_ATTR_REQD_CHECK); 
+      TRACE_DEBUG("template_validate_attributes failed.\n");
       goto done;
    }
 
    rc = template_check_required_attributes( tmpl2, class, subclass, mode );
    if (rc != CKR_OK){
-      OCK_LOG_ERR(ERR_ATTR_REQD_CHECK); 
+      TRACE_DEBUG("template_check_required_attributes failed.\n");
       goto done;
    }
 
@@ -1021,7 +1021,7 @@ object_create_skel( CK_ATTRIBUTE  * pTemplate,
 
    rc = template_merge( tmpl, &tmpl2 );
    if (rc != CKR_OK){
-      OCK_LOG_ERR(ERR_TEMPLATE_MERGE); 
+      TRACE_DEBUG("template_merge failed.\n");
       goto done;
    }
    // at this point, we should have a valid object with correct attributes
@@ -1038,4 +1038,3 @@ done:
 
    return rc;
 }
-

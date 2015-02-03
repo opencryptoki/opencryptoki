@@ -14,6 +14,7 @@
 #include "defs.h"
 #include "host_defs.h"
 #include "h_extern.h"
+#include "trace.h"
 
 /*
  * Free an array of attributes allocated with dup_attribute_array().
@@ -50,7 +51,7 @@ dup_attribute_array(CK_ATTRIBUTE_PTR orig, CK_ULONG orig_len,
 	dest_len = orig_len;
 	dest = malloc(dest_len * sizeof(*dest));
 	if (dest == NULL) {
-		OCK_LOG_ERR(ERR_HOST_MEMORY);
+		TRACE_ERROR("%s\n", ock_err(ERR_HOST_MEMORY));
 		return CKR_HOST_MEMORY;
 	}
 	memset(dest, 0, dest_len);
@@ -61,7 +62,7 @@ dup_attribute_array(CK_ATTRIBUTE_PTR orig, CK_ULONG orig_len,
 		it->ulValueLen = orig->ulValueLen;
 		it->pValue = malloc(it->ulValueLen);
 		if (it->pValue == NULL) {
-			OCK_LOG_ERR(ERR_HOST_MEMORY);
+			TRACE_ERROR("%s\n", ock_err(ERR_HOST_MEMORY));
 			rc = CKR_HOST_MEMORY;
 			goto done;
 		}
@@ -104,7 +105,7 @@ add_to_attribute_array(CK_ATTRIBUTE_PTR *p_attrs, CK_ULONG_PTR p_attrs_len,
 
 	copied_value = malloc(value_len);
 	if (copied_value == NULL) {
-		OCK_LOG_ERR(ERR_HOST_MEMORY);
+		TRACE_ERROR("%s\n", ock_err(ERR_HOST_MEMORY));
 		return CKR_HOST_MEMORY;
 	}
 	memcpy(copied_value, value, value_len);
@@ -112,7 +113,7 @@ add_to_attribute_array(CK_ATTRIBUTE_PTR *p_attrs, CK_ULONG_PTR p_attrs_len,
 	attrs = realloc(*p_attrs, sizeof(**p_attrs) * (*p_attrs_len + 1));
 	if (attrs == NULL) {
 		free(copied_value);
-		OCK_LOG_ERR(ERR_HOST_MEMORY);
+		TRACE_ERROR("%s\n", ock_err(ERR_HOST_MEMORY));
 		return CKR_HOST_MEMORY;
 	}
 

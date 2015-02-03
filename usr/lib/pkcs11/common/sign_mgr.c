@@ -304,7 +304,7 @@
 #include "host_defs.h"
 #include "h_extern.h"
 #include "tok_spec_struct.h"
-
+#include "trace.h"
 
 //
 //
@@ -325,11 +325,11 @@ sign_mgr_init( SESSION                * sess,
 
 
    if (!sess || !ctx){
-      OCK_LOG_ERR(ERR_FUNCTION_FAILED); 
+      TRACE_ERROR("Invalid function arguments.\n");
       return CKR_FUNCTION_FAILED;
    }
    if (ctx->active != FALSE){
-      OCK_LOG_ERR(ERR_OPERATION_ACTIVE); 
+      TRACE_ERROR("%s\n", ock_err(ERR_OPERATION_ACTIVE));
       return CKR_OPERATION_ACTIVE;
    }
 
@@ -337,20 +337,24 @@ sign_mgr_init( SESSION                * sess,
    //
    rc = object_mgr_find_in_map1( key, &key_obj );
    if (rc != CKR_OK){
-      OCK_LOG_ERR(ERR_KEY_HANDLE_INVALID); 
-      return CKR_KEY_HANDLE_INVALID;
+      TRACE_ERROR("Failed to acquire key from specified handle");
+      if (rc == CKR_OBJECT_HANDLE_INVALID)
+	 return CKR_KEY_HANDLE_INVALID;
+      else
+	 return rc;
    }
+
    // is key allowed to generate signatures?
    //
    rc = template_attribute_find( key_obj->template, CKA_SIGN, &attr );
    if (rc == FALSE){
-      OCK_LOG_ERR(ERR_KEY_TYPE_INCONSISTENT); 
-      return CKR_KEY_TYPE_INCONSISTENT;
+      TRACE_ERROR("Could not find CKA_SIGN for the key.\n");
+      return CKR_KEY_FUNCTION_NOT_PERMITTED;
    }
    else {
       flag = *(CK_BBOOL *)attr->pValue;
       if (flag != TRUE){
-         OCK_LOG_ERR(ERR_KEY_FUNCTION_NOT_PERMITTED); 
+         TRACE_ERROR("%s\n", ock_err(ERR_KEY_FUNCTION_NOT_PERMITTED));
          return CKR_KEY_FUNCTION_NOT_PERMITTED;
       }
    }
@@ -369,41 +373,41 @@ sign_mgr_init( SESSION                * sess,
 		rc = template_attribute_find(key_obj->template, CKA_MODULUS,
 					     &attr);
 		if (rc == FALSE) {
-		    OCK_LOG_ERR(ERR_TEMPLATE_INCOMPLETE);
-		    return CKR_TEMPLATE_INCOMPLETE;
+		    TRACE_ERROR("Could not find CKA_MODULUS for the key\n");
+		    return CKR_FUNCTION_FAILED;
 		}
 
 		rc = check_pss_params(mech, attr->ulValueLen);
 		if (rc != CKR_OK) {
-		    OCK_LOG_ERR(ERR_FUNCTION_FAILED);
+		    TRACE_DEBUG("check_pss_params failed.\n");
 		    return rc;
 		}
 	    } else {
             	if (mech->ulParameterLen != 0) {
-               	    OCK_LOG_ERR(ERR_MECHANISM_PARAM_INVALID);
+		    TRACE_ERROR("%s\n", ock_err(ERR_MECHANISM_PARAM_INVALID));
                     return CKR_MECHANISM_PARAM_INVALID;
 		}
 	    }
 
             rc = template_attribute_find( key_obj->template, CKA_KEY_TYPE, &attr );
             if (rc == FALSE){
-               OCK_LOG_ERR(ERR_KEY_TYPE_INCONSISTENT); 
-               return CKR_KEY_TYPE_INCONSISTENT;
+	       TRACE_ERROR("Could not find CKA_KEY_TYPE for the key\n");
+	       return CKR_FUNCTION_FAILED;
             }
             else {
                keytype = *(CK_KEY_TYPE *)attr->pValue;
                if (keytype != CKK_RSA){
-                  OCK_LOG_ERR(ERR_KEY_TYPE_INCONSISTENT); 
+                  TRACE_ERROR("%s\n", ock_err(ERR_KEY_TYPE_INCONSISTENT));
                   return CKR_KEY_TYPE_INCONSISTENT;
                }
             }
 
             // must be a PRIVATE key
             //
-            flag = template_attribute_find( key_obj->template, CKA_CLASS, &attr );
+            flag = template_attribute_find(key_obj->template, CKA_CLASS, &attr);
             if (flag == FALSE){
-               OCK_LOG_ERR(ERR_KEY_TYPE_INCONSISTENT); 
-               return CKR_KEY_TYPE_INCONSISTENT;
+	       TRACE_ERROR("Could not find CKA_CLASS for the key\n");
+	       return CKR_FUNCTION_FAILED;
             }
             else
                class = *(CK_OBJECT_CLASS *)attr->pValue;
@@ -412,8 +416,8 @@ sign_mgr_init( SESSION                * sess,
             // that somehow a public key got assigned a CKA_SIGN attribute
             //
             if (class != CKO_PRIVATE_KEY){
-               OCK_LOG_ERR(ERR_KEY_TYPE_INCONSISTENT); 
-               return CKR_KEY_TYPE_INCONSISTENT;
+	       TRACE_ERROR("This operation requires a private key.\n");
+	       return CKR_KEY_FUNCTION_NOT_PERMITTED;
             }
             // PKCS #11 doesn't allow multi-part RSA operations
             //
@@ -426,18 +430,18 @@ sign_mgr_init( SESSION                * sess,
       case CKM_ECDSA_SHA1:
          {
             if (mech->ulParameterLen != 0){
-               OCK_LOG_ERR(ERR_MECHANISM_PARAM_INVALID);
+               TRACE_ERROR("%s\n", ock_err(ERR_MECHANISM_PARAM_INVALID));
                return CKR_MECHANISM_PARAM_INVALID;
             }
             rc = template_attribute_find( key_obj->template, CKA_KEY_TYPE, &attr );
             if (rc == FALSE){
-               OCK_LOG_ERR(ERR_KEY_TYPE_INCONSISTENT);
-               return CKR_KEY_TYPE_INCONSISTENT;
+	       TRACE_ERROR("Could not find CKA_KEY_TYPE for the key\n");
+	       return CKR_FUNCTION_FAILED;
             }
             else {
                keytype = *(CK_KEY_TYPE *)attr->pValue;
                if (keytype != CKK_EC){
-                  OCK_LOG_ERR(ERR_KEY_TYPE_INCONSISTENT);
+                  TRACE_ERROR("%s\n", ock_err(ERR_KEY_TYPE_INCONSISTENT));
                   return CKR_KEY_TYPE_INCONSISTENT;
                }
             }
@@ -446,15 +450,15 @@ sign_mgr_init( SESSION                * sess,
             //
             flag = template_attribute_find( key_obj->template, CKA_CLASS, &attr );
             if (flag == FALSE){
-               OCK_LOG_ERR(ERR_KEY_TYPE_INCONSISTENT);
-               return CKR_KEY_TYPE_INCONSISTENT;
+	       TRACE_ERROR("Could not find CKA_CLASS for the key\n");
+	       return CKR_FUNCTION_FAILED;
             }
             else
                class = *(CK_OBJECT_CLASS *)attr->pValue;
 
             if (class != CKO_PRIVATE_KEY){
-               OCK_LOG_ERR(ERR_KEY_TYPE_INCONSISTENT);
-               return CKR_KEY_TYPE_INCONSISTENT;
+	       TRACE_ERROR("This operation requires a private key.\n");
+	       return CKR_KEY_FUNCTION_NOT_PERMITTED;
             }
 
 	    if (mech->mechanism == CKM_ECDSA) {
@@ -464,7 +468,7 @@ sign_mgr_init( SESSION                * sess,
 		    ctx->context_len = sizeof(RSA_DIGEST_CONTEXT);
 		    ctx->context     = (CK_BYTE *)malloc(sizeof(RSA_DIGEST_CONTEXT));
 		    if (!ctx->context){
-			    OCK_LOG_ERR(ERR_HOST_MEMORY);
+			    TRACE_ERROR("%s\n", ock_err(ERR_HOST_MEMORY));
 			    return CKR_HOST_MEMORY;
 		    }
 		    memset( ctx->context, 0x0, sizeof(RSA_DIGEST_CONTEXT));
@@ -481,18 +485,18 @@ sign_mgr_init( SESSION                * sess,
       case CKM_SHA512_RSA_PKCS:
          {
             if (mech->ulParameterLen != 0){
-               OCK_LOG_ERR(ERR_MECHANISM_PARAM_INVALID); 
+               TRACE_ERROR("%s\n", ock_err(ERR_MECHANISM_PARAM_INVALID));
                return CKR_MECHANISM_PARAM_INVALID;
             }
             rc = template_attribute_find( key_obj->template, CKA_KEY_TYPE, &attr );
             if (rc == FALSE){
-               OCK_LOG_ERR(ERR_KEY_TYPE_INCONSISTENT); 
-               return CKR_KEY_TYPE_INCONSISTENT;
+	       TRACE_ERROR("Could not find CKA_KEY_TYPE for the key\n");
+	       return CKR_FUNCTION_FAILED;
             }
             else {
                keytype = *(CK_KEY_TYPE *)attr->pValue;
                if (keytype != CKK_RSA){
-                  OCK_LOG_ERR(ERR_KEY_TYPE_INCONSISTENT); 
+                  TRACE_ERROR("%s\n", ock_err(ERR_KEY_TYPE_INCONSISTENT));
                   return CKR_KEY_TYPE_INCONSISTENT;
                }
             }
@@ -501,20 +505,20 @@ sign_mgr_init( SESSION                * sess,
             //
             flag = template_attribute_find( key_obj->template, CKA_CLASS, &attr );
             if (flag == FALSE){
-               OCK_LOG_ERR(ERR_FUNCTION_FAILED); 
-               return CKR_FUNCTION_FAILED;
+	       TRACE_ERROR("Could not find CKA_CLASS for the key\n");
+	       return CKR_FUNCTION_FAILED;
             }
             else
                class = *(CK_OBJECT_CLASS *)attr->pValue;
 
             if (class != CKO_PRIVATE_KEY){
-               OCK_LOG_ERR(ERR_FUNCTION_FAILED); 
-               return CKR_FUNCTION_FAILED;
+	       TRACE_ERROR("This operation requires a private key.\n");
+	       return CKR_KEY_FUNCTION_NOT_PERMITTED;
             }
             ctx->context_len = sizeof(RSA_DIGEST_CONTEXT);
             ctx->context     = (CK_BYTE *)malloc(sizeof(RSA_DIGEST_CONTEXT));
             if (!ctx->context){
-               OCK_LOG_ERR(ERR_HOST_MEMORY); 
+               TRACE_ERROR("%s\n", ock_err(ERR_HOST_MEMORY));
                return CKR_HOST_MEMORY;
             }
             memset( ctx->context, 0x0, sizeof(RSA_DIGEST_CONTEXT));
@@ -528,25 +532,25 @@ sign_mgr_init( SESSION                * sess,
 	 {
 	    rc = template_attribute_find(key_obj->template, CKA_MODULUS, &attr);
 	    if (rc == FALSE) {
-		OCK_LOG_ERR(ERR_TEMPLATE_INCOMPLETE);
-		return CKR_TEMPLATE_INCOMPLETE;
+	       TRACE_ERROR("Could not find CKA_CLASS for the key\n");
+	       return CKR_FUNCTION_FAILED;
 	    }
 
 	    rc = check_pss_params(mech, attr->ulValueLen);
 	    if (rc != CKR_OK) {
-		OCK_LOG_ERR(ERR_FUNCTION_FAILED);
+		TRACE_DEBUG("check_pss_params failed.\n");
 		return rc;
 	    }
 
             rc = template_attribute_find(key_obj->template, CKA_KEY_TYPE,
 					 &attr);
             if (rc == FALSE) {
-               OCK_LOG_ERR(ERR_KEY_TYPE_INCONSISTENT);
-               return CKR_KEY_TYPE_INCONSISTENT;
+	       TRACE_ERROR("Could not find CKA_KEY_TYPE for the key\n");
+	       return CKR_FUNCTION_FAILED;
             } else {
                keytype = *(CK_KEY_TYPE *)attr->pValue;
                if (keytype != CKK_RSA) {
-                  OCK_LOG_ERR(ERR_KEY_TYPE_INCONSISTENT);
+                  TRACE_ERROR("%s\n", ock_err(ERR_KEY_TYPE_INCONSISTENT));
                   return CKR_KEY_TYPE_INCONSISTENT;
                }
             }
@@ -555,19 +559,19 @@ sign_mgr_init( SESSION                * sess,
             //
             flag = template_attribute_find(key_obj->template, CKA_CLASS, &attr);
             if (flag == FALSE) {
-               OCK_LOG_ERR(ERR_FUNCTION_FAILED);
+	       TRACE_ERROR("Could not find CKA_CLASS for the key\n");
                return CKR_FUNCTION_FAILED;
             } else
                class = *(CK_OBJECT_CLASS *)attr->pValue;
 
             if (class != CKO_PRIVATE_KEY) {
-               OCK_LOG_ERR(ERR_FUNCTION_FAILED);
-               return CKR_FUNCTION_FAILED;
+	       TRACE_ERROR("This operation requires a private key.\n");
+	       return CKR_KEY_FUNCTION_NOT_PERMITTED;
             }
             ctx->context_len = sizeof(DIGEST_CONTEXT);
             ctx->context = (CK_BYTE *)malloc(ctx->context_len);
             if (!ctx->context) {
-               OCK_LOG_ERR(ERR_HOST_MEMORY);
+               TRACE_ERROR("%s\n", ock_err(ERR_HOST_MEMORY));
                return CKR_HOST_MEMORY;
             }
             memset(ctx->context, 0x0, ctx->context_len);
@@ -578,18 +582,18 @@ sign_mgr_init( SESSION                * sess,
       case CKM_DSA:
          {
             if (mech->ulParameterLen != 0){
-               OCK_LOG_ERR(ERR_MECHANISM_PARAM_INVALID); 
+               TRACE_ERROR("%s\n", ock_err(ERR_MECHANISM_PARAM_INVALID));
                return CKR_MECHANISM_PARAM_INVALID;
             }
             rc = template_attribute_find( key_obj->template, CKA_KEY_TYPE, &attr );
             if (rc == FALSE){
-               OCK_LOG_ERR(ERR_KEY_TYPE_INCONSISTENT); 
-               return CKR_KEY_TYPE_INCONSISTENT;
+	       TRACE_ERROR("Could not find CKA_KEY_TYPE for the key\n");
+               return CKR_FUNCTION_FAILED;
             }
             else {
                keytype = *(CK_KEY_TYPE *)attr->pValue;
                if (keytype != CKK_DSA){
-                  OCK_LOG_ERR(ERR_KEY_TYPE_INCONSISTENT); 
+                  TRACE_ERROR("%s\n", ock_err(ERR_KEY_TYPE_INCONSISTENT));
                   return CKR_KEY_TYPE_INCONSISTENT;
                }
             }
@@ -598,8 +602,8 @@ sign_mgr_init( SESSION                * sess,
             //
             flag = template_attribute_find( key_obj->template, CKA_CLASS, &attr );
             if (flag == FALSE){
-               OCK_LOG_ERR(ERR_KEY_TYPE_INCONSISTENT); 
-               return CKR_KEY_TYPE_INCONSISTENT;
+	       TRACE_ERROR("Could not find CKA_CLASS for the key\n");
+               return CKR_FUNCTION_FAILED;
             }
             else
                class = *(CK_OBJECT_CLASS *)attr->pValue;
@@ -608,8 +612,8 @@ sign_mgr_init( SESSION                * sess,
             // that somehow a public key got assigned a CKA_SIGN attribute
             //
             if (class != CKO_PRIVATE_KEY){
-               OCK_LOG_ERR(ERR_KEY_TYPE_INCONSISTENT); 
-               return CKR_KEY_TYPE_INCONSISTENT;
+	       TRACE_ERROR("This operation requires a private key.\n");
+	       return CKR_KEY_FUNCTION_NOT_PERMITTED;
             }
             // PKCS #11 doesn't allow multi-part DSA operations
             //
@@ -629,18 +633,18 @@ sign_mgr_init( SESSION                * sess,
       case CKM_SHA512_HMAC:
          {
             if (mech->ulParameterLen != 0){
-               OCK_LOG_ERR(ERR_MECHANISM_PARAM_INVALID); 
+               TRACE_ERROR("%s\n", ock_err(ERR_MECHANISM_PARAM_INVALID));
                return CKR_MECHANISM_PARAM_INVALID;
             }
             rc = template_attribute_find( key_obj->template, CKA_KEY_TYPE, &attr );
             if (rc == FALSE){
-               OCK_LOG_ERR(ERR_KEY_TYPE_INCONSISTENT); 
-               return CKR_KEY_TYPE_INCONSISTENT;
+	       TRACE_ERROR("Could not find CKA_KEY_TYPE for the key\n");
+               return CKR_FUNCTION_FAILED;
             }
             else {
                keytype = *(CK_KEY_TYPE *)attr->pValue;
                if (keytype != CKK_GENERIC_SECRET){
-                  OCK_LOG_ERR(ERR_KEY_TYPE_INCONSISTENT); 
+                  TRACE_ERROR("%s\n", ock_err(ERR_KEY_TYPE_INCONSISTENT));
                   return CKR_KEY_TYPE_INCONSISTENT;
                }
             }
@@ -664,47 +668,47 @@ sign_mgr_init( SESSION                * sess,
             CK_MAC_GENERAL_PARAMS *param = (CK_MAC_GENERAL_PARAMS *)mech->pParameter;
 
             if (mech->ulParameterLen != sizeof(CK_MAC_GENERAL_PARAMS)){
-               OCK_LOG_ERR(ERR_MECHANISM_PARAM_INVALID); 
+               TRACE_ERROR("%s\n", ock_err(ERR_MECHANISM_PARAM_INVALID));
                return CKR_MECHANISM_PARAM_INVALID;
             }
 
 #if  !(NOMD2)
             if ((mech->mechanism == CKM_MD2_HMAC_GENERAL) && (*param > 16)){
-               OCK_LOG_ERR(ERR_MECHANISM_PARAM_INVALID); 
+               TRACE_ERROR("%s\n", ock_err(ERR_MECHANISM_PARAM_INVALID));
                return CKR_MECHANISM_PARAM_INVALID;
             }
 #endif
 
             if ((mech->mechanism == CKM_MD5_HMAC_GENERAL) && (*param > 16)){
-               OCK_LOG_ERR(ERR_MECHANISM_PARAM_INVALID); 
+               TRACE_ERROR("%s\n", ock_err(ERR_MECHANISM_PARAM_INVALID));
                return CKR_MECHANISM_PARAM_INVALID;
             }
             if ((mech->mechanism == CKM_SHA_1_HMAC_GENERAL) && (*param > 20)){
-               OCK_LOG_ERR(ERR_MECHANISM_PARAM_INVALID); 
+               TRACE_ERROR("%s\n", ock_err(ERR_MECHANISM_PARAM_INVALID));
                return CKR_MECHANISM_PARAM_INVALID;
             }
             if ((mech->mechanism == CKM_SHA256_HMAC_GENERAL) && (*param > 32)){
-               OCK_LOG_ERR(ERR_MECHANISM_PARAM_INVALID); 
+               TRACE_ERROR("%s\n", ock_err(ERR_MECHANISM_PARAM_INVALID));
                return CKR_MECHANISM_PARAM_INVALID;
             }
             if ((mech->mechanism == CKM_SHA384_HMAC_GENERAL) && (*param > 48)){
-               OCK_LOG_ERR(ERR_MECHANISM_PARAM_INVALID);
+               TRACE_ERROR("%s\n", ock_err(ERR_MECHANISM_PARAM_INVALID));
                return CKR_MECHANISM_PARAM_INVALID;
             }
             if ((mech->mechanism == CKM_SHA512_HMAC_GENERAL) && (*param > 64)){
-               OCK_LOG_ERR(ERR_MECHANISM_PARAM_INVALID);
+               TRACE_ERROR("%s\n", ock_err(ERR_MECHANISM_PARAM_INVALID));
                return CKR_MECHANISM_PARAM_INVALID;
             }
             rc = template_attribute_find( key_obj->template, CKA_KEY_TYPE, &attr );
             if (rc == FALSE){
-               OCK_LOG_ERR(ERR_KEY_TYPE_INCONSISTENT); 
-               return CKR_KEY_TYPE_INCONSISTENT;
+	       TRACE_ERROR("Could not find CKA_KEY_TYPE for the key\n");
+               return CKR_FUNCTION_FAILED;
             }
             else {
                keytype = *(CK_KEY_TYPE *)attr->pValue;
                if (keytype != CKK_GENERIC_SECRET){
-                  OCK_LOG_ERR(ERR_KEY_TYPE_INCONSISTENT); 
-                  return CKR_KEY_TYPE_INCONSISTENT;
+		  TRACE_ERROR("A generic secret key is required.\n");
+		  return CKR_KEY_FUNCTION_NOT_PERMITTED;
                }
             }
 
@@ -721,42 +725,42 @@ sign_mgr_init( SESSION                * sess,
             CK_MAC_GENERAL_PARAMS *param = (CK_MAC_GENERAL_PARAMS *)mech->pParameter;
 
             if (mech->ulParameterLen != sizeof(CK_MAC_GENERAL_PARAMS)){
-               OCK_LOG_ERR(ERR_MECHANISM_PARAM_INVALID); 
+               TRACE_ERROR("%s\n", ock_err(ERR_MECHANISM_PARAM_INVALID));
                return CKR_MECHANISM_PARAM_INVALID;
             }
             // FIXME - Netscape sets the parameter == 16.  PKCS #11 limit is 8
             //
             if (mech->mechanism == CKM_SSL3_MD5_MAC) {
                if (*param < 4 || *param > 16){
-                  OCK_LOG_ERR(ERR_MECHANISM_PARAM_INVALID); 
+                  TRACE_ERROR("%s\n", ock_err(ERR_MECHANISM_PARAM_INVALID));
                   return CKR_MECHANISM_PARAM_INVALID;
                }
             }
 
             if (mech->mechanism == CKM_SSL3_SHA1_MAC) {
                if (*param < 4 || *param > 20){
-                  OCK_LOG_ERR(ERR_MECHANISM_PARAM_INVALID); 
+                  TRACE_ERROR("%s\n", ock_err(ERR_MECHANISM_PARAM_INVALID));
                   return CKR_MECHANISM_PARAM_INVALID;
                }
             }
 
             rc = template_attribute_find( key_obj->template, CKA_CLASS, &attr );
             if (rc == FALSE){
-               OCK_LOG_ERR(ERR_KEY_TYPE_INCONSISTENT); 
-               return CKR_KEY_TYPE_INCONSISTENT;
+	       TRACE_ERROR("Could not find CKA_CLASS for the key\n");
+               return CKR_FUNCTION_FAILED;
             }
             else {
                class = *(CK_OBJECT_CLASS *)attr->pValue;
                if (class != CKO_SECRET_KEY){
-                  OCK_LOG_ERR(ERR_KEY_TYPE_INCONSISTENT); 
-                  return CKR_KEY_TYPE_INCONSISTENT;
+		  TRACE_ERROR("This operation requires a secret key.\n");
+		  return CKR_KEY_FUNCTION_NOT_PERMITTED;
                }
             }
 
             ctx->context_len = sizeof(SSL3_MAC_CONTEXT);
             ctx->context     = (CK_BYTE *)malloc(sizeof(SSL3_MAC_CONTEXT));
             if (!ctx->context){
-               OCK_LOG_ERR(ERR_HOST_MEMORY); 
+               TRACE_ERROR("%s\n", ock_err(ERR_HOST_MEMORY));
                return CKR_HOST_MEMORY;
             }
             memset( ctx->context, 0x0, sizeof(SSL3_MAC_CONTEXT));
@@ -769,7 +773,7 @@ sign_mgr_init( SESSION                * sess,
          if (mech->pParameter) {
 
             if (mech->ulParameterLen != sizeof(CK_MAC_GENERAL_PARAMS)){
-               OCK_LOG_ERR(ERR_MECHANISM_PARAM_INVALID);
+               TRACE_ERROR("%s\n", ock_err(ERR_MECHANISM_PARAM_INVALID));
                return CKR_MECHANISM_PARAM_INVALID;
             }
 
@@ -777,7 +781,7 @@ sign_mgr_init( SESSION                * sess,
 
             if (mech->mechanism == CKM_DES3_MAC_GENERAL) {
                if (*param < 1 || *param > DES_BLOCK_SIZE){
-                  OCK_LOG_ERR(ERR_MECHANISM_PARAM_INVALID);
+                  TRACE_ERROR("%s\n", ock_err(ERR_MECHANISM_PARAM_INVALID));
                   return CKR_MECHANISM_PARAM_INVALID;
                }
             }
@@ -791,7 +795,7 @@ sign_mgr_init( SESSION                * sess,
           ctx->context_len = sizeof(DES_DATA_CONTEXT);
 
           if (!ctx->context){
-               OCK_LOG_ERR(ERR_HOST_MEMORY);
+               TRACE_ERROR("%s\n", ock_err(ERR_HOST_MEMORY));
                return CKR_HOST_MEMORY;
           }
           memset( ctx->context, 0x0, sizeof(DES_DATA_CONTEXT));
@@ -804,7 +808,7 @@ sign_mgr_init( SESSION                * sess,
           if (mech->pParameter) {
 
               if (mech->ulParameterLen != sizeof(CK_MAC_GENERAL_PARAMS)){
-                 OCK_LOG_ERR(ERR_MECHANISM_PARAM_INVALID);
+                 TRACE_ERROR("%s\n", ock_err(ERR_MECHANISM_PARAM_INVALID));
                  return CKR_MECHANISM_PARAM_INVALID;
               }
 
@@ -812,7 +816,7 @@ sign_mgr_init( SESSION                * sess,
 
               if (mech->mechanism == CKM_AES_MAC_GENERAL) {
                  if (*param < 1 || *param > AES_BLOCK_SIZE){
-                    OCK_LOG_ERR(ERR_MECHANISM_PARAM_INVALID);
+                    TRACE_ERROR("%s\n", ock_err(ERR_MECHANISM_PARAM_INVALID));
                     return CKR_MECHANISM_PARAM_INVALID;
                  }
               }
@@ -824,7 +828,7 @@ sign_mgr_init( SESSION                * sess,
           ctx->context_len = sizeof(AES_DATA_CONTEXT);
 
           if (!ctx->context){
-               OCK_LOG_ERR(ERR_HOST_MEMORY);
+               TRACE_ERROR("%s\n", ock_err(ERR_HOST_MEMORY));
                return CKR_HOST_MEMORY;
           }
           memset( ctx->context, 0x0, sizeof(AES_DATA_CONTEXT));
@@ -832,7 +836,7 @@ sign_mgr_init( SESSION                * sess,
          break;
 
       default:
-         OCK_LOG_ERR(ERR_MECHANISM_INVALID); 
+         TRACE_ERROR("%s\n", ock_err(ERR_MECHANISM_INVALID));
          return CKR_MECHANISM_INVALID;
    }
 
@@ -840,7 +844,7 @@ sign_mgr_init( SESSION                * sess,
    if (mech->ulParameterLen > 0) {
       ptr = (CK_BYTE *)malloc(mech->ulParameterLen);
       if (!ptr){
-         OCK_LOG_ERR(ERR_HOST_MEMORY); 
+         TRACE_ERROR("%s\n", ock_err(ERR_HOST_MEMORY));
          return CKR_HOST_MEMORY;
       }
       memcpy( ptr, mech->pParameter, mech->ulParameterLen );
@@ -864,7 +868,7 @@ CK_RV
 sign_mgr_cleanup( SIGN_VERIFY_CONTEXT *ctx )
 {
    if (!ctx){
-      OCK_LOG_ERR(ERR_FUNCTION_FAILED); 
+      TRACE_ERROR("Invalid function argument.\n");
       return CKR_FUNCTION_FAILED;
    }
    ctx->key                 = 0;
@@ -901,15 +905,15 @@ sign_mgr_sign( SESSION              * sess,
                CK_ULONG             * out_data_len )
 {
    if (!sess || !ctx){
-      OCK_LOG_ERR(ERR_FUNCTION_FAILED); 
+      TRACE_ERROR("Invalid function arguments.\n");
       return CKR_FUNCTION_FAILED;
    }
    if (ctx->active == FALSE){
-      OCK_LOG_ERR(ERR_OPERATION_NOT_INITIALIZED); 
+      TRACE_ERROR("%s\n", ock_err(ERR_OPERATION_NOT_INITIALIZED));
       return CKR_OPERATION_NOT_INITIALIZED;
    }
    if (ctx->recover == TRUE){
-      OCK_LOG_ERR(ERR_OPERATION_NOT_INITIALIZED); 
+      TRACE_ERROR("%s\n", ock_err(ERR_OPERATION_NOT_INITIALIZED));
       return CKR_OPERATION_NOT_INITIALIZED;
    }
 
@@ -917,11 +921,11 @@ sign_mgr_sign( SESSION              * sess,
    // specify the input data.  I just need the input data length
    //
    if ((length_only == FALSE) && (!in_data || !out_data)){
-      OCK_LOG_ERR(ERR_FUNCTION_FAILED); 
+      TRACE_ERROR("%s\n", ock_err(ERR_FUNCTION_FAILED));
       return CKR_FUNCTION_FAILED;
    }
    if (ctx->multi == TRUE){
-      OCK_LOG_ERR(ERR_OPERATION_ACTIVE); 
+      TRACE_ERROR("%s\n", ock_err(ERR_OPERATION_ACTIVE));
       return CKR_OPERATION_ACTIVE;
    }
    switch (ctx->mech.mechanism) {
@@ -1027,11 +1031,11 @@ sign_mgr_sign( SESSION              * sess,
          return aes_mac_sign( sess, length_only, ctx, in_data, in_data_len, out_data, out_data_len );
 
       default:
-         OCK_LOG_ERR(ERR_MECHANISM_INVALID); 
+         TRACE_ERROR("%s\n", ock_err(ERR_MECHANISM_INVALID));
          return CKR_MECHANISM_INVALID;
    }
 
-   OCK_LOG_ERR(ERR_FUNCTION_FAILED); 
+   TRACE_DEBUG("%s\n", ock_err(ERR_FUNCTION_FAILED));
    return CKR_FUNCTION_FAILED;
 }
 
@@ -1045,16 +1049,16 @@ sign_mgr_sign_update( SESSION             * sess,
                       CK_ULONG              in_data_len )
 {
    if (!sess || !ctx) {
-      OCK_LOG_ERR(ERR_FUNCTION_FAILED); 
+      TRACE_ERROR("Invalid function arguments.\n");
       return CKR_FUNCTION_FAILED;
    }
 
    if (ctx->active == FALSE){
-      OCK_LOG_ERR(ERR_OPERATION_NOT_INITIALIZED); 
+      TRACE_ERROR("%s\n", ock_err(ERR_OPERATION_NOT_INITIALIZED));
       return CKR_OPERATION_NOT_INITIALIZED;
    }
    if (ctx->recover == TRUE){
-      OCK_LOG_ERR(ERR_OPERATION_NOT_INITIALIZED); 
+      TRACE_ERROR("%s\n", ock_err(ERR_OPERATION_NOT_INITIALIZED));
       return CKR_OPERATION_NOT_INITIALIZED;
    }
    ctx->multi = TRUE;
@@ -1092,11 +1096,12 @@ sign_mgr_sign_update( SESSION             * sess,
       	 return ec_hash_sign_update( sess, ctx, in_data, in_data_len );
 
       default:
-         OCK_LOG_ERR(ERR_MECHANISM_INVALID); 
+         TRACE_ERROR("%s\n", ock_err(ERR_MECHANISM_INVALID));
          return CKR_MECHANISM_INVALID;
    }
-   OCK_LOG_ERR(ERR_MECHANISM_INVALID); 
-   return CKR_MECHANISM_INVALID;
+
+   TRACE_DEBUG("%s\n", ock_err(ERR_FUNCTION_FAILED));
+   return CKR_FUNCTION_FAILED;
 }
 
 
@@ -1110,15 +1115,15 @@ sign_mgr_sign_final( SESSION             * sess,
                      CK_ULONG            * sig_len )
 {
    if (!sess || !ctx){
-      OCK_LOG_ERR(ERR_FUNCTION_FAILED); 
+      TRACE_ERROR("Invalid function arguments.\n");
       return CKR_FUNCTION_FAILED;
    }
    if (ctx->active == FALSE){
-      OCK_LOG_ERR(ERR_OPERATION_NOT_INITIALIZED); 
+      TRACE_ERROR("%s\n", ock_err(ERR_OPERATION_NOT_INITIALIZED));
       return CKR_OPERATION_NOT_INITIALIZED;
    }
    if (ctx->recover == TRUE){
-      OCK_LOG_ERR(ERR_OPERATION_NOT_INITIALIZED); 
+      TRACE_ERROR("%s\n", ock_err(ERR_OPERATION_NOT_INITIALIZED));
       return CKR_OPERATION_NOT_INITIALIZED;
    }
    switch (ctx->mech.mechanism) {
@@ -1154,12 +1159,12 @@ sign_mgr_sign_final( SESSION             * sess,
 	 return ec_hash_sign_final (sess, length_only, ctx, signature, sig_len );
 
       default:
-         OCK_LOG_ERR(ERR_MECHANISM_INVALID); 
+         TRACE_ERROR("%s\n", ock_err(ERR_MECHANISM_INVALID));
          return CKR_MECHANISM_INVALID;
    }
 
-   OCK_LOG_ERR(ERR_MECHANISM_INVALID); 
-   return CKR_MECHANISM_INVALID;
+   TRACE_DEBUG("%s\n", ock_err(ERR_FUNCTION_FAILED));
+   return CKR_FUNCTION_FAILED;
 }
 
 
@@ -1175,15 +1180,15 @@ sign_mgr_sign_recover( SESSION             * sess,
                        CK_ULONG            * out_data_len )
 {
    if (!sess || !ctx){
-      OCK_LOG_ERR(ERR_FUNCTION_FAILED); 
+      TRACE_ERROR("Invalid function arguments.\n");
       return CKR_FUNCTION_FAILED;
    }
    if (ctx->active == FALSE){
-      OCK_LOG_ERR(ERR_OPERATION_NOT_INITIALIZED); 
+      TRACE_ERROR("%s\n", ock_err(ERR_OPERATION_NOT_INITIALIZED));
       return CKR_OPERATION_NOT_INITIALIZED;
    }
    if (ctx->recover == FALSE){
-      OCK_LOG_ERR(ERR_OPERATION_NOT_INITIALIZED); 
+      TRACE_ERROR("%s\n", ock_err(ERR_OPERATION_NOT_INITIALIZED));
       return CKR_OPERATION_NOT_INITIALIZED;
    }
 
@@ -1191,11 +1196,11 @@ sign_mgr_sign_recover( SESSION             * sess,
    // specify the input data.  I just need the input data length
    //
    if ((length_only == FALSE) && (!in_data || !out_data)){
-      OCK_LOG_ERR(ERR_FUNCTION_FAILED); 
+      TRACE_ERROR("%s\n", ock_err(ERR_FUNCTION_FAILED));
       return CKR_FUNCTION_FAILED;
    }
    if (ctx->multi == TRUE){
-      OCK_LOG_ERR(ERR_OPERATION_ACTIVE); 
+      TRACE_ERROR("%s\n", ock_err(ERR_OPERATION_ACTIVE));
       return CKR_OPERATION_ACTIVE;
    }
    switch (ctx->mech.mechanism) {
@@ -1212,10 +1217,10 @@ sign_mgr_sign_recover( SESSION             * sess,
                                out_data, out_data_len );
 
       default:
-         OCK_LOG_ERR(ERR_MECHANISM_INVALID); 
+         TRACE_ERROR("%s\n", ock_err(ERR_MECHANISM_INVALID));
          return CKR_MECHANISM_INVALID;
    }
 
-   OCK_LOG_ERR(ERR_FUNCTION_FAILED); 
+   TRACE_DEBUG("%s\n", ock_err(ERR_FUNCTION_FAILED));
    return CKR_FUNCTION_FAILED;
 }

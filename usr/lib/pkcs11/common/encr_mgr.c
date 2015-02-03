@@ -303,6 +303,7 @@
 #include "host_defs.h"
 #include "h_extern.h"
 #include "tok_spec_struct.h"
+#include "trace.h"
 
 
 //
@@ -323,11 +324,11 @@ encr_mgr_init( SESSION           * sess,
 
 
    if (!sess || !ctx || !mech){
-      OCK_LOG_ERR(ERR_FUNCTION_FAILED);
+      TRACE_ERROR("Invalid function arguments.\n");
       return CKR_FUNCTION_FAILED;
    }
    if (ctx->active != FALSE){
-      OCK_LOG_ERR(ERR_OPERATION_ACTIVE);
+      TRACE_ERROR("%s\n", ock_err(ERR_OPERATION_ACTIVE));
       return CKR_OPERATION_ACTIVE;
    }
 
@@ -337,21 +338,24 @@ encr_mgr_init( SESSION           * sess,
    {
       rc = object_mgr_find_in_map1( key_handle, &key_obj );
       if (rc != CKR_OK){
-         OCK_LOG_ERR(ERR_KEY_HANDLE_INVALID);
-         return CKR_KEY_HANDLE_INVALID;
+	 TRACE_ERROR("Failed to acquire key from specified handle");
+	 if (rc == CKR_OBJECT_HANDLE_INVALID)
+            return CKR_KEY_HANDLE_INVALID;
+	 else
+	    return rc;
       }
       // is key allowed to do general encryption?
       //
       rc = template_attribute_find( key_obj->template, CKA_ENCRYPT, &attr );
       if (rc == FALSE){
-         OCK_LOG_ERR(ERR_KEY_FUNCTION_NOT_PERMITTED);
+	 TRACE_ERROR("Could not find CKA_ENCRYPT for the key.\n");
          return CKR_KEY_FUNCTION_NOT_PERMITTED;
       }
       else
       {
          flag = *(CK_BBOOL *)attr->pValue;
          if (flag != TRUE){
-            OCK_LOG_ERR(ERR_KEY_FUNCTION_NOT_PERMITTED);
+            TRACE_ERROR("%s\n", ock_err(ERR_KEY_FUNCTION_NOT_PERMITTED));
             return CKR_KEY_FUNCTION_NOT_PERMITTED;
          }
       }
@@ -360,27 +364,30 @@ encr_mgr_init( SESSION           * sess,
    {
       rc = object_mgr_find_in_map1( key_handle, &key_obj );
       if (rc != CKR_OK){
-         OCK_LOG_ERR(ERR_WRAPPING_KEY_HANDLE_INVALID);
-         return CKR_WRAPPING_KEY_HANDLE_INVALID;
+	 TRACE_ERROR("Failed to acquire  key from specified handle");
+	 if (rc == CKR_OBJECT_HANDLE_INVALID)
+            return CKR_WRAPPING_KEY_HANDLE_INVALID;
+	 else
+	    return rc;
       }
       // is key allowed to wrap other keys?
       //
       rc = template_attribute_find( key_obj->template, CKA_WRAP, &attr );
       if (rc == FALSE){
-         OCK_LOG_ERR(ERR_KEY_NOT_WRAPPABLE);
-         return CKR_KEY_NOT_WRAPPABLE;
+	 TRACE_ERROR("Could not find CKA_WRAP for the key.\n");
+         return CKR_KEY_FUNCTION_NOT_PERMITTED;
       }
       else
       {
          flag = *(CK_BBOOL *)attr->pValue;
          if (flag == FALSE){
-            OCK_LOG_ERR(ERR_KEY_NOT_WRAPPABLE);
-            return CKR_KEY_NOT_WRAPPABLE;
+            TRACE_ERROR("CKA_WRAP is set to FALSE.\n");
+            return CKR_KEY_FUNCTION_NOT_PERMITTED;
          }
       }
    }
    else{
-      OCK_LOG_ERR(ERR_FUNCTION_FAILED);
+      TRACE_ERROR("%s\n", ock_err(ERR_FUNCTION_FAILED));
       return CKR_FUNCTION_FAILED;
    }
 
@@ -395,21 +402,20 @@ encr_mgr_init( SESSION           * sess,
       case CKM_DES_ECB:
          {
             if (mech->ulParameterLen != 0){
-               OCK_LOG_ERR(ERR_MECHANISM_PARAM_INVALID);
+               TRACE_ERROR("%s\n", ock_err(ERR_MECHANISM_PARAM_INVALID));
                return CKR_MECHANISM_PARAM_INVALID;
             }
             // is the key type correct?
             //
             rc = template_attribute_find( key_obj->template, CKA_KEY_TYPE, &attr );
             if (rc == FALSE){
-               OCK_LOG_ERR(ERR_KEY_TYPE_INCONSISTENT);
-               return CKR_KEY_TYPE_INCONSISTENT;
+		TRACE_ERROR("Could not find CKA_KEY_TYPE for the key.\n");
+		return CKR_FUNCTION_FAILED;
             }
-            else
-            {
+            else {
                keytype = *(CK_KEY_TYPE *)attr->pValue;
                if (keytype != CKK_DES){
-                  OCK_LOG_ERR(ERR_KEY_TYPE_INCONSISTENT);
+                  TRACE_ERROR("%s\n", ock_err(ERR_KEY_TYPE_INCONSISTENT));
                   return CKR_KEY_TYPE_INCONSISTENT;
                }
             }
@@ -422,7 +428,7 @@ encr_mgr_init( SESSION           * sess,
             ctx->context_len = sizeof(DES_CONTEXT);
             ctx->context     = (CK_BYTE *)malloc(sizeof(DES_CONTEXT));
             if (!ctx->context){
-               OCK_LOG_ERR(ERR_HOST_MEMORY);
+               TRACE_ERROR("%s\n", ock_err(ERR_HOST_MEMORY));
                return CKR_HOST_MEMORY;
             }
             memset( ctx->context, 0x0, sizeof(DES_CONTEXT) );
@@ -432,21 +438,21 @@ encr_mgr_init( SESSION           * sess,
       case CKM_CDMF_ECB:
          {
             if (mech->ulParameterLen != 0){
-               OCK_LOG_ERR(ERR_MECHANISM_PARAM_INVALID);
+               TRACE_ERROR("%s\n", ock_err(ERR_MECHANISM_PARAM_INVALID));
                return CKR_MECHANISM_PARAM_INVALID;
             }
             // is the key type correct?
             //
             rc = template_attribute_find( key_obj->template, CKA_KEY_TYPE, &attr );
             if (rc == FALSE){
-               OCK_LOG_ERR(ERR_KEY_TYPE_INCONSISTENT);
-               return CKR_KEY_TYPE_INCONSISTENT;
+		TRACE_ERROR("Could not find CKA_KEY_TYPE for the key.\n");
+		return CKR_FUNCTION_FAILED;
             }
             else
             {
                keytype = *(CK_KEY_TYPE *)attr->pValue;
                if (keytype != CKK_CDMF){
-                  OCK_LOG_ERR(ERR_KEY_TYPE_INCONSISTENT);
+                  TRACE_ERROR("%s\n", ock_err(ERR_KEY_TYPE_INCONSISTENT));
                   return CKR_KEY_TYPE_INCONSISTENT;
                }
             }
@@ -454,7 +460,7 @@ encr_mgr_init( SESSION           * sess,
             ctx->context_len = sizeof(DES_CONTEXT);
             ctx->context     = (CK_BYTE *)malloc(sizeof(DES_CONTEXT));
             if (!ctx->context){
-               OCK_LOG_ERR(ERR_HOST_MEMORY);
+               TRACE_ERROR("%s\n", ock_err(ERR_HOST_MEMORY));
                return CKR_HOST_MEMORY;
             }
             memset( ctx->context, 0x0, sizeof(DES_CONTEXT) );
@@ -465,21 +471,20 @@ encr_mgr_init( SESSION           * sess,
       case CKM_DES_CBC_PAD:
          {
             if (mech->ulParameterLen != DES_BLOCK_SIZE){
-               OCK_LOG_ERR(ERR_MECHANISM_PARAM_INVALID);
+               TRACE_ERROR("%s\n", ock_err(ERR_MECHANISM_PARAM_INVALID));
                return CKR_MECHANISM_PARAM_INVALID;
             }
             // is the key type correct?
             //
             rc = template_attribute_find( key_obj->template, CKA_KEY_TYPE, &attr );
             if (rc == FALSE){
-               OCK_LOG_ERR(ERR_KEY_TYPE_INCONSISTENT);
-               return CKR_KEY_TYPE_INCONSISTENT;
+		TRACE_ERROR("Could not find CKA_KEY_TYPE for the key.\n");
+		return CKR_FUNCTION_FAILED;
             }
-            else
-            {
+            else {
                keytype = *(CK_KEY_TYPE *)attr->pValue;
                if (keytype != CKK_DES){
-                  OCK_LOG_ERR(ERR_KEY_TYPE_INCONSISTENT);
+                  TRACE_ERROR("%s\n", ock_err(ERR_KEY_TYPE_INCONSISTENT));
                   return CKR_KEY_TYPE_INCONSISTENT;
                }
             }
@@ -492,7 +497,7 @@ encr_mgr_init( SESSION           * sess,
             ctx->context_len = sizeof(DES_CONTEXT);
             ctx->context     = (CK_BYTE *)malloc(sizeof(DES_CONTEXT));
             if (!ctx->context){
-               OCK_LOG_ERR(ERR_HOST_MEMORY);
+               TRACE_ERROR("%s\n", ock_err(ERR_HOST_MEMORY));
                return CKR_HOST_MEMORY;
             }
             memset( ctx->context, 0x0, sizeof(DES_CONTEXT) );
@@ -504,18 +509,18 @@ encr_mgr_init( SESSION           * sess,
       case CKM_DES_OFB64:
          {
            if (mech->ulParameterLen != DES_BLOCK_SIZE){
-              OCK_LOG_ERR(ERR_MECHANISM_PARAM_INVALID);
+              TRACE_ERROR("%s\n", ock_err(ERR_MECHANISM_PARAM_INVALID));
               return CKR_MECHANISM_PARAM_INVALID;
            }
 
            rc = template_attribute_find( key_obj->template, CKA_KEY_TYPE, &attr );
            if (rc == FALSE){
-              OCK_LOG_ERR(ERR_KEY_TYPE_INCONSISTENT);
-              return CKR_KEY_TYPE_INCONSISTENT;
+		TRACE_ERROR("Could not find CKA_KEY_TYPE for the key.\n");
+		return CKR_FUNCTION_FAILED;
            } else {
               keytype = *(CK_KEY_TYPE *)attr->pValue;
               if ((keytype != CKK_DES3) ) {
-                 OCK_LOG_ERR(ERR_KEY_TYPE_INCONSISTENT);
+                 TRACE_ERROR("%s\n", ock_err(ERR_KEY_TYPE_INCONSISTENT));
                  return CKR_KEY_TYPE_INCONSISTENT;
               }
            }
@@ -523,7 +528,7 @@ encr_mgr_init( SESSION           * sess,
            ctx->context_len = sizeof(DES_CONTEXT);
            ctx->context     = (CK_BYTE *)malloc(sizeof(DES_CONTEXT));
            if (!ctx->context){
-              OCK_LOG_ERR(ERR_HOST_MEMORY);
+              TRACE_ERROR("%s\n", ock_err(ERR_HOST_MEMORY));
               return CKR_HOST_MEMORY;
            }
            memset( ctx->context, 0x0, sizeof(DES_CONTEXT) );
@@ -534,21 +539,20 @@ encr_mgr_init( SESSION           * sess,
       case CKM_CDMF_CBC_PAD:
          {
             if (mech->ulParameterLen != DES_BLOCK_SIZE){
-               OCK_LOG_ERR(ERR_MECHANISM_PARAM_INVALID);
+               TRACE_ERROR("%s\n", ock_err(ERR_MECHANISM_PARAM_INVALID));
                return CKR_MECHANISM_PARAM_INVALID;
             }
             // is the key type correct?
             //
             rc = template_attribute_find( key_obj->template, CKA_KEY_TYPE, &attr );
             if (rc == FALSE){
-               OCK_LOG_ERR(ERR_KEY_TYPE_INCONSISTENT);
-               return CKR_KEY_TYPE_INCONSISTENT;
+		TRACE_ERROR("Could not find CKA_KEY_TYPE for the key.\n");
+		return CKR_FUNCTION_FAILED;
             }
-            else
-            {
+            else {
                keytype = *(CK_KEY_TYPE *)attr->pValue;
                if (keytype != CKK_CDMF){
-                  OCK_LOG_ERR(ERR_KEY_TYPE_INCONSISTENT);
+                  TRACE_ERROR("%s\n", ock_err(ERR_KEY_TYPE_INCONSISTENT));
                   return CKR_KEY_TYPE_INCONSISTENT;
                }
             }
@@ -557,7 +561,7 @@ encr_mgr_init( SESSION           * sess,
             ctx->context_len = sizeof(DES_CONTEXT);
             ctx->context     = (CK_BYTE *)malloc(sizeof(DES_CONTEXT));
             if (!ctx->context){
-               OCK_LOG_ERR(ERR_HOST_MEMORY);
+               TRACE_ERROR("%s\n", ock_err(ERR_HOST_MEMORY));
                return CKR_HOST_MEMORY;
             }
             memset( ctx->context, 0x0, sizeof(DES_CONTEXT) );
@@ -567,7 +571,7 @@ encr_mgr_init( SESSION           * sess,
       case CKM_DES3_ECB:
          {
             if (mech->ulParameterLen != 0){
-               OCK_LOG_ERR(ERR_MECHANISM_PARAM_INVALID);
+               TRACE_ERROR("%s\n", ock_err(ERR_MECHANISM_PARAM_INVALID));
                return CKR_MECHANISM_PARAM_INVALID;
             }
 
@@ -575,14 +579,13 @@ encr_mgr_init( SESSION           * sess,
             //
             rc = template_attribute_find( key_obj->template, CKA_KEY_TYPE, &attr );
             if (rc == FALSE){
-               OCK_LOG_ERR(ERR_KEY_TYPE_INCONSISTENT);
-               return CKR_KEY_TYPE_INCONSISTENT;
+		TRACE_ERROR("Could not find CKA_KEY_TYPE for the key.\n");
+		return CKR_FUNCTION_FAILED;
             }
-            else
-            {
+            else {
                keytype = *(CK_KEY_TYPE *)attr->pValue;
                if (keytype != CKK_DES3 && keytype != CKK_DES2){
-                  OCK_LOG_ERR(ERR_KEY_TYPE_INCONSISTENT);
+                  TRACE_ERROR("%s\n", ock_err(ERR_KEY_TYPE_INCONSISTENT));
                   return CKR_KEY_TYPE_INCONSISTENT;
                }
             }
@@ -595,7 +598,7 @@ encr_mgr_init( SESSION           * sess,
             ctx->context_len = sizeof(DES_CONTEXT);
             ctx->context     = (CK_BYTE *)malloc(sizeof(DES_CONTEXT));
             if (!ctx->context){
-               OCK_LOG_ERR(ERR_HOST_MEMORY);
+               TRACE_ERROR("%s\n", ock_err(ERR_HOST_MEMORY));
                return CKR_HOST_MEMORY;
             }
             memset( ctx->context, 0x0, sizeof(DES_CONTEXT) );
@@ -606,21 +609,21 @@ encr_mgr_init( SESSION           * sess,
       case CKM_DES3_CBC_PAD:
          {
             if (mech->ulParameterLen != DES_BLOCK_SIZE){
-               OCK_LOG_ERR(ERR_MECHANISM_PARAM_INVALID);
+               TRACE_ERROR("%s\n", ock_err(ERR_MECHANISM_PARAM_INVALID));
                return CKR_MECHANISM_PARAM_INVALID;
             }
             // is the key type correct?
             //
             rc = template_attribute_find( key_obj->template, CKA_KEY_TYPE, &attr );
             if (rc == FALSE){
-               OCK_LOG_ERR(ERR_KEY_TYPE_INCONSISTENT);
-               return CKR_KEY_TYPE_INCONSISTENT;
+		TRACE_ERROR("Could not find CKA_KEY_TYPE for the key.\n");
+		return CKR_FUNCTION_FAILED;
             }
             else
             {
                keytype = *(CK_KEY_TYPE *)attr->pValue;
                if (keytype != CKK_DES3 && keytype != CKK_DES2){
-                  OCK_LOG_ERR(ERR_KEY_TYPE_INCONSISTENT);
+                  TRACE_ERROR("%s\n", ock_err(ERR_KEY_TYPE_INCONSISTENT));
                   return CKR_KEY_TYPE_INCONSISTENT;
                }
             }
@@ -633,7 +636,7 @@ encr_mgr_init( SESSION           * sess,
             ctx->context_len = sizeof(DES_CONTEXT);
             ctx->context     = (CK_BYTE *)malloc(sizeof(DES_CONTEXT));
             if (!ctx->context){
-               OCK_LOG_ERR(ERR_HOST_MEMORY);
+               TRACE_ERROR("%s\n", ock_err(ERR_HOST_MEMORY));
                return CKR_HOST_MEMORY;
             }
             memset( ctx->context, 0x0, sizeof(DES_CONTEXT) );
@@ -642,18 +645,18 @@ encr_mgr_init( SESSION           * sess,
 
       case CKM_RSA_PKCS_OAEP:
 	    if (mech->ulParameterLen == 0) {
-		OCK_LOG_ERR(ERR_MECHANISM_PARAM_INVALID);
+		TRACE_ERROR("%s\n", ock_err(ERR_MECHANISM_PARAM_INVALID));
 		return CKR_MECHANISM_PARAM_INVALID;
 	    }
 	    rc = template_attribute_find(key_obj->template, CKA_KEY_TYPE,
 					  &attr);
 	    if (rc == FALSE) {
-		OCK_LOG_ERR(ERR_KEY_TYPE_INCONSISTENT);
-		return CKR_KEY_TYPE_INCONSISTENT;
+		TRACE_ERROR("Could not find CKA_KEY_TYPE for the key.\n");
+		return CKR_FUNCTION_FAILED;
 	    }
             keytype = *(CK_KEY_TYPE *)attr->pValue;
             if (keytype != CKK_RSA) {
-		OCK_LOG_ERR(ERR_KEY_TYPE_INCONSISTENT);
+		TRACE_ERROR("%s\n", ock_err(ERR_KEY_TYPE_INCONSISTENT));
 		return CKR_KEY_TYPE_INCONSISTENT;
 	    }
 	    // RSA cannot be used for multi-part operations
@@ -667,19 +670,18 @@ encr_mgr_init( SESSION           * sess,
       case CKM_RSA_PKCS:
          {
             if (mech->ulParameterLen != 0){
-               OCK_LOG_ERR(ERR_MECHANISM_PARAM_INVALID);
+               TRACE_ERROR("%s\n", ock_err(ERR_MECHANISM_PARAM_INVALID));
                return CKR_MECHANISM_PARAM_INVALID;
             }
             rc = template_attribute_find( key_obj->template, CKA_KEY_TYPE, &attr );
             if (rc == FALSE){
-               OCK_LOG_ERR(ERR_KEY_TYPE_INCONSISTENT);
-               return CKR_KEY_TYPE_INCONSISTENT;
+		TRACE_ERROR("Could not find CKA_KEY_TYPE for the key.\n");
+		return CKR_FUNCTION_FAILED;
             }
-            else
-            {
+            else {
                keytype = *(CK_KEY_TYPE *)attr->pValue;
                if (keytype != CKK_RSA){
-                  OCK_LOG_ERR(ERR_KEY_TYPE_INCONSISTENT);
+                  TRACE_ERROR("%s\n", ock_err(ERR_KEY_TYPE_INCONSISTENT));
                   return CKR_KEY_TYPE_INCONSISTENT;
                }
             }
@@ -696,7 +698,7 @@ encr_mgr_init( SESSION           * sess,
 	    // XXX Copied in from DES3, should be verified - KEY
 		
             if (mech->ulParameterLen != 0){
-               OCK_LOG_ERR(ERR_MECHANISM_PARAM_INVALID);
+               TRACE_ERROR("%s\n", ock_err(ERR_MECHANISM_PARAM_INVALID));
                return CKR_MECHANISM_PARAM_INVALID;
             }
 
@@ -704,14 +706,13 @@ encr_mgr_init( SESSION           * sess,
             //
             rc = template_attribute_find( key_obj->template, CKA_KEY_TYPE, &attr );
             if (rc == FALSE){
-               OCK_LOG_ERR(ERR_KEY_TYPE_INCONSISTENT);
-               return CKR_KEY_TYPE_INCONSISTENT;
+		TRACE_ERROR("Could not find CKA_KEY_TYPE for the key.\n");
+		return CKR_FUNCTION_FAILED;
             }
-            else
-            {
+            else {
                keytype = *(CK_KEY_TYPE *)attr->pValue;
                if (keytype != CKK_AES){
-                  OCK_LOG_ERR(ERR_KEY_TYPE_INCONSISTENT);
+                  TRACE_ERROR("%s\n", ock_err(ERR_KEY_TYPE_INCONSISTENT));
                   return CKR_KEY_TYPE_INCONSISTENT;
                }
             }
@@ -719,7 +720,7 @@ encr_mgr_init( SESSION           * sess,
             ctx->context_len = sizeof(AES_CONTEXT);
             ctx->context     = (CK_BYTE *)malloc(sizeof(AES_CONTEXT));
             if (!ctx->context){
-               OCK_LOG_ERR(ERR_HOST_MEMORY);
+               TRACE_ERROR("%s\n", ock_err(ERR_HOST_MEMORY));
                return CKR_HOST_MEMORY;
             }
             memset( ctx->context, 0x0, sizeof(AES_CONTEXT) );
@@ -733,21 +734,20 @@ encr_mgr_init( SESSION           * sess,
 	    // XXX Copied in from DES3, should be verified - KEY
 		
             if (mech->ulParameterLen != AES_INIT_VECTOR_SIZE){
-               OCK_LOG_ERR(ERR_MECHANISM_PARAM_INVALID);
+               TRACE_ERROR("%s\n", ock_err(ERR_MECHANISM_PARAM_INVALID));
                return CKR_MECHANISM_PARAM_INVALID;
             }
             // is the key type correct?
             //
             rc = template_attribute_find( key_obj->template, CKA_KEY_TYPE, &attr );
             if (rc == FALSE){
-               OCK_LOG_ERR(ERR_KEY_TYPE_INCONSISTENT);
-               return CKR_KEY_TYPE_INCONSISTENT;
+		TRACE_ERROR("Could not find CKA_KEY_TYPE for the key.\n");
+		return CKR_FUNCTION_FAILED;
             }
-            else
-            {
+            else {
                keytype = *(CK_KEY_TYPE *)attr->pValue;
                if (keytype != CKK_AES){
-                  OCK_LOG_ERR(ERR_KEY_TYPE_INCONSISTENT);
+                  TRACE_ERROR("%s\n", ock_err(ERR_KEY_TYPE_INCONSISTENT));
                   return CKR_KEY_TYPE_INCONSISTENT;
                }
             }
@@ -755,7 +755,7 @@ encr_mgr_init( SESSION           * sess,
             ctx->context_len = sizeof(AES_CONTEXT);
             ctx->context     = (CK_BYTE *)malloc(sizeof(AES_CONTEXT));
             if (!ctx->context){
-               OCK_LOG_ERR(ERR_HOST_MEMORY);
+               TRACE_ERROR("%s\n", ock_err(ERR_HOST_MEMORY));
                return CKR_HOST_MEMORY;
             }
             memset( ctx->context, 0x0, sizeof(AES_CONTEXT) );
@@ -766,20 +766,19 @@ encr_mgr_init( SESSION           * sess,
 	 {
 	    CK_AES_CTR_PARAMS aesctr;
 	    if (mech->ulParameterLen != sizeof(CK_AES_CTR_PARAMS)){
-	       OCK_LOG_ERR(ERR_MECHANISM_PARAM_INVALID);
+	       TRACE_ERROR("%s\n", ock_err(ERR_MECHANISM_PARAM_INVALID));
 	       return CKR_MECHANISM_PARAM_INVALID;
 	    }
 	    // is the key type correct
             rc = template_attribute_find( key_obj->template, CKA_KEY_TYPE, &attr );
             if (rc == FALSE){
-               OCK_LOG_ERR(ERR_KEY_TYPE_INCONSISTENT);
-               return CKR_KEY_TYPE_INCONSISTENT;
-           }
-           else
-           {
+		TRACE_ERROR("Could not find CKA_KEY_TYPE for the key.\n");
+		return CKR_FUNCTION_FAILED;
+            }
+            else {
                keytype = *(CK_KEY_TYPE *)attr->pValue;
                if (keytype != CKK_AES){
-                  OCK_LOG_ERR(ERR_KEY_TYPE_INCONSISTENT);
+                  TRACE_ERROR("%s\n", ock_err(ERR_KEY_TYPE_INCONSISTENT));
                   return CKR_KEY_TYPE_INCONSISTENT;
                }
             }
@@ -787,7 +786,7 @@ encr_mgr_init( SESSION           * sess,
            ctx->context_len = sizeof(AES_CONTEXT);
            ctx->context     = (CK_BYTE *)malloc(sizeof(AES_CONTEXT));
            if (!ctx->context){
-              OCK_LOG_ERR(ERR_HOST_MEMORY);
+              TRACE_ERROR("%s\n", ock_err(ERR_HOST_MEMORY));
               return CKR_HOST_MEMORY;
            }
            memset( ctx->context, 0x0, sizeof(AES_CONTEXT) );
@@ -800,18 +799,18 @@ encr_mgr_init( SESSION           * sess,
      case CKM_AES_CFB128:
         {
           if (mech->ulParameterLen != AES_INIT_VECTOR_SIZE){
-             OCK_LOG_ERR(ERR_MECHANISM_PARAM_INVALID);
+             TRACE_ERROR("%s\n", ock_err(ERR_MECHANISM_PARAM_INVALID));
              return CKR_MECHANISM_PARAM_INVALID;
           }
 
           rc = template_attribute_find( key_obj->template, CKA_KEY_TYPE, &attr );
           if (rc == FALSE){
-             OCK_LOG_ERR(ERR_KEY_TYPE_INCONSISTENT);
-             return CKR_KEY_TYPE_INCONSISTENT;
+		TRACE_ERROR("Could not find CKA_KEY_TYPE for the key.\n");
+		return CKR_FUNCTION_FAILED;
           } else {
              keytype = *(CK_KEY_TYPE *)attr->pValue;
              if ( keytype != CKK_AES ){
-                OCK_LOG_ERR(ERR_KEY_TYPE_INCONSISTENT);
+                TRACE_ERROR("%s\n", ock_err(ERR_KEY_TYPE_INCONSISTENT));
                 return CKR_KEY_TYPE_INCONSISTENT;
              }
           }
@@ -819,7 +818,7 @@ encr_mgr_init( SESSION           * sess,
           ctx->context_len = sizeof(AES_CONTEXT);
           ctx->context     = (CK_BYTE *)malloc(sizeof(AES_CONTEXT));
           if (!ctx->context){
-             OCK_LOG_ERR(ERR_HOST_MEMORY);
+             TRACE_ERROR("%s\n", ock_err(ERR_HOST_MEMORY));
              return CKR_HOST_MEMORY;
           }
           memset( ctx->context, 0x0, sizeof(AES_CONTEXT) );
@@ -827,14 +826,14 @@ encr_mgr_init( SESSION           * sess,
          break;
 
      default:
-         OCK_LOG_ERR(ERR_MECHANISM_PARAM_INVALID);
+         TRACE_ERROR("%s\n", ock_err(ERR_MECHANISM_PARAM_INVALID));
          return CKR_MECHANISM_INVALID;
    }
 
    if ((mech->ulParameterLen > 0) || (mech->mechanism == CKM_AES_CTR)){
         ptr = (CK_BYTE *)malloc (mech->ulParameterLen);
 	if (!ptr){
-	   OCK_LOG_ERR(ERR_HOST_MEMORY);
+	   TRACE_ERROR("%s\n", ock_err(ERR_HOST_MEMORY));
 	   return CKR_HOST_MEMORY;
 	}
 	memcpy( ptr, mech->pParameter, mech->ulParameterLen );
@@ -842,7 +841,7 @@ encr_mgr_init( SESSION           * sess,
    else if (mech->ulParameterLen > 0){
            ptr = (CK_BYTE *)malloc(mech->ulParameterLen);
            if (!ptr){
-              OCK_LOG_ERR(ERR_HOST_MEMORY);
+              TRACE_ERROR("%s\n", ock_err(ERR_HOST_MEMORY));
               return CKR_HOST_MEMORY;
            }
            memcpy( ptr, mech->pParameter, mech->ulParameterLen );
@@ -863,7 +862,7 @@ CK_RV
 encr_mgr_cleanup( ENCR_DECR_CONTEXT *ctx )
 {
    if (!ctx){
-      OCK_LOG_ERR(ERR_FUNCTION_FAILED);
+      TRACE_ERROR("Invalid function argument.\n");
       return CKR_FUNCTION_FAILED;
    }
    ctx->key                 = 0;
@@ -899,22 +898,22 @@ encr_mgr_encrypt( SESSION           *sess,
    CK_KEY_TYPE   keytype;
 
    if (!sess || !ctx){
-      OCK_LOG_ERR(ERR_FUNCTION_FAILED);
+      TRACE_ERROR("Invalid function arguments.\n");
       return CKR_FUNCTION_FAILED;
    }
    if (ctx->active == FALSE){
-      OCK_LOG_ERR(ERR_OPERATION_NOT_INITIALIZED);
+      TRACE_ERROR("%s\n", ock_err(ERR_OPERATION_NOT_INITIALIZED));
       return CKR_OPERATION_NOT_INITIALIZED;
    }
    // if the caller just wants the encrypted length, there is no reason to
    // specify the input data.  I just need the data length
    //
    if ((length_only == FALSE) && (!in_data || !out_data)){
-      OCK_LOG_ERR(ERR_FUNCTION_FAILED);
+      TRACE_ERROR("%s\n", ock_err(ERR_FUNCTION_FAILED));
       return CKR_FUNCTION_FAILED;
    }
    if (ctx->multi == TRUE){
-      OCK_LOG_ERR(ERR_OPERATION_ACTIVE);
+      TRACE_ERROR("%s\n", ock_err(ERR_OPERATION_ACTIVE));
       return CKR_OPERATION_ACTIVE;
    }
    switch (ctx->mech.mechanism) {
@@ -947,7 +946,7 @@ encr_mgr_encrypt( SESSION           *sess,
                                       in_data,  in_data_len,
                                       out_data, out_data_len );
          } else {
-            OCK_LOG_ERR(ERR_KEY_TYPE_INCONSISTENT);
+            TRACE_ERROR("%s\n", ock_err(ERR_KEY_TYPE_INCONSISTENT));
             return CKR_KEY_TYPE_INCONSISTENT;
          }
 
@@ -959,7 +958,7 @@ encr_mgr_encrypt( SESSION           *sess,
                                      in_data,  in_data_len,
                                      out_data, out_data_len, 0x01);
          } else {
-            OCK_LOG_ERR(ERR_KEY_TYPE_INCONSISTENT);
+            TRACE_ERROR("%s\n", ock_err(ERR_KEY_TYPE_INCONSISTENT));
             return CKR_KEY_TYPE_INCONSISTENT;
          }
 
@@ -971,7 +970,7 @@ encr_mgr_encrypt( SESSION           *sess,
                                      in_data,  in_data_len,
                                      out_data, out_data_len, 0x08);
          } else {
-            OCK_LOG_ERR(ERR_KEY_TYPE_INCONSISTENT);
+            TRACE_ERROR("%s\n", ock_err(ERR_KEY_TYPE_INCONSISTENT));
             return CKR_KEY_TYPE_INCONSISTENT;
          }
 
@@ -1056,10 +1055,10 @@ encr_mgr_encrypt( SESSION           *sess,
 #endif
 
       default:
-         OCK_LOG_ERR(ERR_MECHANISM_PARAM_INVALID);
+         TRACE_ERROR("%s\n", ock_err(ERR_MECHANISM_PARAM_INVALID));
          return CKR_MECHANISM_INVALID;
    }
-   OCK_LOG_ERR(ERR_FUNCTION_FAILED);
+   TRACE_ERROR("%s\n", ock_err(ERR_FUNCTION_FAILED));
 
    return CKR_FUNCTION_FAILED;
 }
@@ -1077,17 +1076,17 @@ encr_mgr_encrypt_update( SESSION            *sess,
    CK_KEY_TYPE   keytype;
 
    if (!sess || !ctx){
-      OCK_LOG_ERR(ERR_FUNCTION_FAILED);
+      TRACE_ERROR("Invalid function arguments.\n");
       return CKR_FUNCTION_FAILED;
    }
 
    if (!out_data && !length_only){
-      OCK_LOG_ERR(ERR_FUNCTION_FAILED);
+      TRACE_ERROR("%s\n", ock_err(ERR_FUNCTION_FAILED));
       return CKR_FUNCTION_FAILED;
    }
 
    if (ctx->active == FALSE){
-      OCK_LOG_ERR(ERR_OPERATION_NOT_INITIALIZED);
+      TRACE_ERROR("%s\n", ock_err(ERR_OPERATION_NOT_INITIALIZED));
       return CKR_OPERATION_NOT_INITIALIZED;
    }
    ctx->multi = TRUE;
@@ -1122,7 +1121,7 @@ encr_mgr_encrypt_update( SESSION            *sess,
                                             in_data,  in_data_len,
                                             out_data, out_data_len );
          } else {
-            OCK_LOG_ERR(ERR_KEY_TYPE_INCONSISTENT);
+            TRACE_ERROR("%s\n", ock_err(ERR_KEY_TYPE_INCONSISTENT));
             return CKR_KEY_TYPE_INCONSISTENT;
          }
 
@@ -1134,7 +1133,7 @@ encr_mgr_encrypt_update( SESSION            *sess,
                                              in_data,  in_data_len,
                                              out_data, out_data_len, 0x01);
          } else {
-            OCK_LOG_ERR(ERR_KEY_TYPE_INCONSISTENT);
+            TRACE_ERROR("%s\n", ock_err(ERR_KEY_TYPE_INCONSISTENT));
             return CKR_KEY_TYPE_INCONSISTENT;
          }
 
@@ -1146,7 +1145,7 @@ encr_mgr_encrypt_update( SESSION            *sess,
                                              in_data,  in_data_len,
                                              out_data, out_data_len, 0x08);
          } else {
-            OCK_LOG_ERR(ERR_KEY_TYPE_INCONSISTENT);
+            TRACE_ERROR("%s\n", ock_err(ERR_KEY_TYPE_INCONSISTENT));
             return CKR_KEY_TYPE_INCONSISTENT;
          }
 
@@ -1218,7 +1217,7 @@ encr_mgr_encrypt_update( SESSION            *sess,
       default:
          return CKR_MECHANISM_INVALID;
    }
-   OCK_LOG_ERR(ERR_FUNCTION_FAILED);
+   TRACE_ERROR("%s\n", ock_err(ERR_FUNCTION_FAILED));
 
    return CKR_FUNCTION_FAILED;
 }
@@ -1234,11 +1233,11 @@ encr_mgr_encrypt_final( SESSION            *sess,
    CK_KEY_TYPE   keytype;
 
    if (!sess || !ctx){
-      OCK_LOG_ERR(ERR_FUNCTION_FAILED);
+      TRACE_ERROR("Invalid function arguments.\n");
       return CKR_FUNCTION_FAILED;
    }
    if (ctx->active == FALSE){
-      OCK_LOG_ERR(ERR_OPERATION_NOT_INITIALIZED);
+      TRACE_ERROR("%s\n", ock_err(ERR_OPERATION_NOT_INITIALIZED));
       return CKR_OPERATION_NOT_INITIALIZED;
    }
    switch (ctx->mech.mechanism) {
@@ -1267,7 +1266,7 @@ encr_mgr_encrypt_final( SESSION            *sess,
                                            ctx,
                                            out_data, out_data_len );
          } else {
-            OCK_LOG_ERR(ERR_KEY_TYPE_INCONSISTENT);
+            TRACE_ERROR("%s\n", ock_err(ERR_KEY_TYPE_INCONSISTENT));
             return CKR_KEY_TYPE_INCONSISTENT;
          }
 
@@ -1278,7 +1277,7 @@ encr_mgr_encrypt_final( SESSION            *sess,
                                            ctx,
                                            out_data, out_data_len, 0x01);
          } else {
-            OCK_LOG_ERR(ERR_KEY_TYPE_INCONSISTENT);
+            TRACE_ERROR("%s\n", ock_err(ERR_KEY_TYPE_INCONSISTENT));
             return CKR_KEY_TYPE_INCONSISTENT;
          }
 
@@ -1289,7 +1288,7 @@ encr_mgr_encrypt_final( SESSION            *sess,
                                            ctx,
                                            out_data, out_data_len, 0x08);
          } else {
-            OCK_LOG_ERR(ERR_KEY_TYPE_INCONSISTENT);
+            TRACE_ERROR("%s\n", ock_err(ERR_KEY_TYPE_INCONSISTENT));
             return CKR_KEY_TYPE_INCONSISTENT;
          }
 
@@ -1349,6 +1348,6 @@ encr_mgr_encrypt_final( SESSION            *sess,
          return CKR_MECHANISM_INVALID;
    }
 
-   OCK_LOG_ERR(ERR_FUNCTION_FAILED);
+   TRACE_ERROR("%s\n", ock_err(ERR_FUNCTION_FAILED));
    return CKR_FUNCTION_FAILED;
 }

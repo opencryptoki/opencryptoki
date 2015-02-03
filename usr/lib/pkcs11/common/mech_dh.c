@@ -316,6 +316,7 @@
 #include "host_defs.h"
 #include "h_extern.h"
 #include "tok_spec_struct.h"
+#include "trace.h"
 
 #ifndef NODH
 
@@ -347,29 +348,24 @@ dh_pkcs_derive( SESSION           * sess,
         (mech->ulParameterLen != 96) &&
         (mech->ulParameterLen != 128) &&
         (mech->ulParameterLen != 192) &&
-        (mech->ulParameterLen != 256)))
-   {
-      OCK_LOG_ERR(ERR_FUNCTION_FAILED);
-      return CKR_FUNCTION_FAILED;
+        (mech->ulParameterLen != 256))) {
+     TRACE_ERROR("%s\n", ock_err(ERR_MECHANISM_PARAM_INVALID));
+      return(CKR_MECHANISM_PARAM_INVALID) ;
    }
       
    // Check valid object handle on base_key
-   if (&base_key == NULL)
-   {
-      OCK_LOG_ERR(ERR_FUNCTION_FAILED);
-      return CKR_FUNCTION_FAILED;
+   if (&base_key == NULL) {
+      TRACE_ERROR("%s\n", ock_err(ERR_KEY_HANDLE_INVALID));
+      return CKR_KEY_HANDLE_INVALID;
    }
 
    // Extract the object class and keytype from the supplied template.
-      for (i=0; i < ulCount; i++) 
-      {
-         if (pTemplate[i].type == CKA_CLASS) 
-         {
+      for (i=0; i < ulCount; i++) {
+         if (pTemplate[i].type == CKA_CLASS) {
             keyclass = *(CK_OBJECT_CLASS *)pTemplate[i].pValue;
-            if (keyclass != CKO_SECRET_KEY)
-            {
-               OCK_LOG_ERR(ERR_TEMPLATE_INCONSISTENT);
-               return CKR_TEMPLATE_INCONSISTENT;
+            if (keyclass != CKO_SECRET_KEY) {
+	       TRACE_ERROR("This operation requires a secret key.\n");
+               return CKR_KEY_FUNCTION_NOT_PERMITTED;
             }
          }
  
@@ -383,17 +379,13 @@ dh_pkcs_derive( SESSION           * sess,
    rc = ckm_dh_pkcs_derive( mech->pParameter, mech->ulParameterLen, 
                             base_key, secret_key_value, &secret_key_value_len );
    if (rc != CKR_OK)
-   {
-      OCK_LOG_ERR(ERR_FUNCTION_FAILED);
-      return CKR_FUNCTION_FAILED ;
-   }
+      return rc;
 
    // Build the attribute from the vales that were returned back
    rc = build_attribute( CKA_VALUE, secret_key_value, secret_key_value_len, &new_attr );
-   if (rc != CKR_OK)
-   {
-      OCK_LOG_ERR(ERR_BLD_ATTR);
-      return CKR_FUNCTION_FAILED ;
+   if (rc != CKR_OK) {
+      TRACE_DEBUG("Failed to build the new attribute.\n");
+      return rc ;
    }
 
    // Create the object that will be passed back as a handle. This will
@@ -405,7 +397,7 @@ dh_pkcs_derive( SESSION           * sess,
                                 keyclass,  keytype,
                                 &temp_obj );
    if (rc != CKR_OK){
-      OCK_LOG_ERR(ERR_OBJMGR_CREATE_SKEL);
+      TRACE_DEBUG("Object Mgr create skeleton failed.\n");
       return rc;  
    }
 
@@ -417,7 +409,7 @@ dh_pkcs_derive( SESSION           * sess,
    //
    rc = object_mgr_create_final( sess, temp_obj, handle );
    if (rc != CKR_OK) {
-      OCK_LOG_ERR(ERR_OBJMGR_CREATE_FINAL);
+      TRACE_DEBUG("Object Mgr create final failed.\n");
       object_free( temp_obj );
       return rc;  
    }
@@ -449,16 +441,18 @@ ckm_dh_pkcs_derive( CK_VOID_PTR        other_pubkey,
 
    rc = object_mgr_find_in_map1( base_key, &base_key_obj );
    if (rc != CKR_OK){
-      OCK_LOG_ERR(ERR_KEY_HANDLE_INVALID);
-      return CKR_KEY_HANDLE_INVALID;
+      TRACE_ERROR("Failed to acquire key from specified handle");
+      if (rc == CKR_OBJECT_HANDLE_INVALID)
+	 return CKR_KEY_HANDLE_INVALID;
+      else
+	 return rc;
    }
 
    // Extract secret (x) from base_key
    rc = template_attribute_find( base_key_obj->template, CKA_VALUE, &temp_attr );
-   if (rc == FALSE)
-   {
-      OCK_LOG_ERR(ERR_KEY_TYPE_INCONSISTENT);
-      return CKR_KEY_TYPE_INCONSISTENT;
+   if (rc == FALSE) {
+      TRACE_ERROR("Could not find CKA_VALUE in the template\n");
+      return CKR_FUNCTION_FAILED;
    }
    else 
    {
@@ -469,10 +463,9 @@ ckm_dh_pkcs_derive( CK_VOID_PTR        other_pubkey,
    
    // Extract prime (p) from base_key
    rc = template_attribute_find( base_key_obj->template, CKA_PRIME, &temp_attr );
-   if (rc == FALSE)
-   {
-      OCK_LOG_ERR(ERR_KEY_TYPE_INCONSISTENT);
-      return CKR_KEY_TYPE_INCONSISTENT;
+   if (rc == FALSE) {
+      TRACE_ERROR("Could not find CKA_PRIME in the template\n");
+      return CKR_FUNCTION_FAILED;
    }
    else 
    {
@@ -487,10 +480,7 @@ ckm_dh_pkcs_derive( CK_VOID_PTR        other_pubkey,
    rc = token_specific.t_dh_pkcs_derive(secret_value, secret_value_len, p_other_pubkey, 
                                         other_pubkey_len, x, x_len, p, p_len );
    if (rc != CKR_OK)
-   {
-      OCK_LOG_ERR(ERR_FUNCTION_FAILED);
-      return CKR_FUNCTION_FAILED ;
-   }
+      TRACE_DEBUG("Token specific dh pkcs derive failed.\n");
 
    return rc;
 }
@@ -505,9 +495,7 @@ ckm_dh_pkcs_key_pair_gen( TEMPLATE  * publ_tmpl,
 
    rc = token_specific.t_dh_pkcs_key_pair_gen(publ_tmpl,priv_tmpl);
    if (rc != CKR_OK)
-   {
-      OCK_LOG_ERR(ERR_KEYGEN);
-   }
+      TRACE_DEBUG("Token specific dh pkcs key pair gen failed.\n");
 
    return rc;
 }
