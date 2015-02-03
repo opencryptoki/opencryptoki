@@ -46,6 +46,7 @@
 #include "h_extern.h"
 #include "tok_specific.h"
 #include "tok_spec_struct.h"
+#include "trace.h"
 
 #include "tpm_specific.h"
 
@@ -85,7 +86,9 @@ regen_rsa_key:
 			RSA_free(rsa);
 			counter++;
 			if (counter == KEYGEN_RETRY) {
-				OCK_LOG_DEBUG("Tried %d times to generate a valid RSA key, failed.\n", KEYGEN_RETRY);
+				TRACE_DEBUG("Tried %d times to generate a "
+					    "valid RSA key, failed.\n",
+					    KEYGEN_RETRY);
 				return NULL;
 			}
 			goto regen_rsa_key;
@@ -112,7 +115,7 @@ openssl_write_key(RSA *rsa, char *filename, CK_BYTE *pPin)
 
 	errno = 0;
 	if ((pw = getpwuid(getuid())) == NULL) {
-		OCK_LOG_DEBUG("%s: Error getting username: %s\n", __FUNCTION__, strerror(errno));
+		TRACE_ERROR("Error getting username: %s\n", strerror(errno));
 		return -1;
 	}
 
@@ -120,13 +123,13 @@ openssl_write_key(RSA *rsa, char *filename, CK_BYTE *pPin)
 
 	b = BIO_new_file(loc, "w");
 	if (!b) {
-		OCK_LOG_DEBUG("%s: Error opening file for write: %s\n", __FUNCTION__, loc);
+		TRACE_ERROR("Error opening file for write: %s\n", loc);
 		return -1;
 	}
 
 	if (!PEM_write_bio_RSAPrivateKey(b, rsa, EVP_aes_256_cbc(), NULL, 0, 0, pPin)) {
 		BIO_free(b);
-		OCK_LOG_DEBUG("Writing key %s to disk failed.\n", loc);
+		TRACE_ERROR("Writing key %s to disk failed.\n", loc);
 		DEBUG_openssl_print_errors();
 		return -1;
 	}
@@ -134,7 +137,7 @@ openssl_write_key(RSA *rsa, char *filename, CK_BYTE *pPin)
 	BIO_free(b);
 
 	if (util_set_file_mode(loc, (S_IRUSR|S_IWUSR))) {
-		OCK_LOG_DEBUG("Setting file mode of %s failed\n", loc);
+		TRACE_ERROR("Setting file mode of %s failed\n", loc);
 	}
 
 	return 0;
@@ -151,7 +154,7 @@ openssl_read_key(char *filename, CK_BYTE *pPin, RSA **ret)
 
 	errno = 0;
 	if ((pw = getpwuid(getuid())) == NULL) {
-		OCK_LOG_DEBUG("%s: Error getting username: %s\n", __FUNCTION__, strerror(errno));
+		TRACE_ERROR("Error getting username: %s\n", strerror(errno));
 		return CKR_FUNCTION_FAILED;
 	}
 
@@ -164,12 +167,12 @@ openssl_read_key(char *filename, CK_BYTE *pPin, RSA **ret)
 
 	b = BIO_new_file(loc, "r+");
 	if (b == NULL) {
-		OCK_LOG_DEBUG("%s: Error opening file for read: %s\n", __FUNCTION__, loc);
+		TRACE_ERROR("Error opening file for read: %s\n", loc);
 		return CKR_FILE_NOT_FOUND;
 	}
 
 	if ((rsa = PEM_read_bio_RSAPrivateKey(b, NULL, 0, pPin)) == NULL) {
-		OCK_LOG_DEBUG("Reading key %s from disk failed.\n", loc);
+		TRACE_ERROR("Reading key %s from disk failed.\n", loc);
 		DEBUG_openssl_print_errors();
 		if (ERR_GET_REASON(ERR_get_error()) == PEM_R_BAD_DECRYPT) {
 			rc = CKR_PIN_INCORRECT;

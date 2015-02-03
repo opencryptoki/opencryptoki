@@ -43,6 +43,7 @@
 #include "defs.h"
 #include "host_defs.h"
 #include "h_extern.h"
+#include "trace.h"
 
 #include "tpm_specific.h"
 
@@ -89,8 +90,7 @@ util_create_id(int type)
 		case TPMTOK_PRIVATE_ROOT_KEY:
 			size = TPMTOK_PRIVATE_ROOT_KEY_ID_SIZE + 1;
 			if ((ret = malloc(size)) == NULL) {
-				OCK_LOG_DEBUG("malloc of %d bytes failed.",
-						size);
+				TRACE_ERROR("malloc of %d bytes failed.", size);
 				break;
 			}
 
@@ -99,8 +99,7 @@ util_create_id(int type)
 		case TPMTOK_PUBLIC_ROOT_KEY:
 			size = TPMTOK_PUBLIC_ROOT_KEY_ID_SIZE + 1;
 			if ((ret = malloc(size)) == NULL) {
-				OCK_LOG_DEBUG("malloc of %d bytes failed.",
-						size);
+				TRACE_ERROR("malloc of %d bytes failed.", size);
 				break;
 			}
 
@@ -109,8 +108,7 @@ util_create_id(int type)
 		case TPMTOK_PUBLIC_LEAF_KEY:
 			size = TPMTOK_PUBLIC_LEAF_KEY_ID_SIZE + 1;
 			if ((ret = malloc(size)) == NULL) {
-				OCK_LOG_DEBUG("malloc of %d bytes failed.",
-						size);
+				TRACE_ERROR("malloc of %d bytes failed.", size);
 				break;
 			}
 
@@ -119,15 +117,14 @@ util_create_id(int type)
 		case TPMTOK_PRIVATE_LEAF_KEY:
 			size = TPMTOK_PRIVATE_LEAF_KEY_ID_SIZE + 1;
 			if ((ret = malloc(size)) == NULL) {
-				OCK_LOG_DEBUG("malloc of %d bytes failed.",
-						size);
+				TRACE_ERROR("malloc of %d bytes failed.", size);
 				break;
 			}
 
 			sprintf((char *)ret, "%s", TPMTOK_PRIVATE_LEAF_KEY_ID);
 			break;
 		default:
-			OCK_LOG_DEBUG("Unknown type passed to %s: %d", __FUNCTION__, type);
+			TRACE_ERROR("Unknown type: %d\n", type);
 			break;
 	}
 
@@ -140,11 +137,12 @@ util_set_file_mode(char *filename, mode_t mode)
 	struct stat file_stat;
 
 	if (stat(filename, &file_stat) == -1) {
-		OCK_LOG_DEBUG("%s: stat: %s", __FUNCTION__, strerror(errno));
+		TRACE_ERROR("stat failed: %s\n", strerror(errno));
 		return -1;
 	} else if ((file_stat.st_mode ^ mode) != 0) {
 		if (chmod(filename, mode) == -1) {
-			OCK_LOG_DEBUG("chmod(%s) failed: %s", filename, strerror(errno));
+			TRACE_ERROR("chmod(%s) failed: %s\n", filename,
+				     strerror(errno));
 			return -1;
 		}
 	}
@@ -163,7 +161,7 @@ util_check_public_exponent(TEMPLATE *tmpl)
 
 	flag = template_attribute_find(tmpl, CKA_PUBLIC_EXPONENT, &publ_exp_attr);
 	if (!flag){
-		OCK_LOG_DEBUG("Couldn't find public exponent attribute");
+		TRACE_ERROR("Couldn't find public exponent attribute.\n");
 		return CKR_TEMPLATE_INCOMPLETE;
 	}
 
@@ -196,14 +194,14 @@ util_set_public_modulus(TSS_HKEY hKey, unsigned long size_n, unsigned char *n)
 	result = Tspi_GetAttribData(hKey, TSS_TSPATTRIB_KEY_BLOB, TSS_TSPATTRIB_KEYBLOB_PUBLIC_KEY,
 				    &blob_size, &blob);
 	if (result != TSS_SUCCESS) {
-		OCK_LOG_DEBUG("Tspi_GetAttribData failed: rc=0x%x", result);
+		TRACE_ERROR("Tspi_GetAttribData failed: rc=0x%x", result);
 		return result;
 	}
 
 	offset = 0;
 	result = Trspi_UnloadBlob_PUBKEY(&offset, blob, &pub_key);
 	if (result != TSS_SUCCESS) {
-		OCK_LOG_DEBUG("Tspi_GetAttribData failed: rc=0x%x", result);
+		TRACE_ERROR("Tspi_GetAttribData failed: rc=0x%x", result);
 		return result;
 	}
 
@@ -223,7 +221,7 @@ util_set_public_modulus(TSS_HKEY hKey, unsigned long size_n, unsigned char *n)
 	result = Tspi_SetAttribData(hKey, TSS_TSPATTRIB_KEY_BLOB, TSS_TSPATTRIB_KEYBLOB_PUBLIC_KEY,
 				    (UINT32)offset, pub_blob);
 	if (result != TSS_SUCCESS) {
-		OCK_LOG_DEBUG("Tspi_SetAttribData failed: rc=0x%x", result);
+		TRACE_ERROR("Tspi_SetAttribData failed: rc=0x%x", result);
 		return result;
 	}
 
@@ -247,7 +245,7 @@ get_srk_mode(void)
 			return tss_modes[i].mode;
 	}
 
-	OCK_LOG_DEBUG("Unknown TSS mode set in OCK_SRK_MODE, %s.\n", mode);
+	TRACE_ERROR("Unknown TSS mode set in OCK_SRK_MODE, %s.\n", mode);
 	return -1;
 } 
 	
@@ -279,7 +277,7 @@ get_srk_info(struct srk_info *srk)
 
 	/* A mode required at this point...  */
 	if (srk->mode == 0) {
-		OCK_LOG_DEBUG("SRK policy's secret mode is not set.\n");
+		TRACE_ERROR("SRK policy's secret mode is not set.\n");
 		return -1;
 	}
 
@@ -290,7 +288,7 @@ get_srk_info(struct srk_info *srk)
 	
 	if (srk->len != 0) {
 		if ((secret = (char *)malloc(srk->len)) == NULL) {
-			OCK_LOG_DEBUG("malloc of %d bytes failed.\n", srk->len);
+			TRACE_ERROR("malloc of %d bytes failed.\n", srk->len);
 			return -1;
 		}
 		memcpy(secret, passwd_ptr, srk->len);
@@ -306,7 +304,7 @@ get_srk_info(struct srk_info *srk)
 		int h_len = TPM_SHA1_160_HASH_LEN;
 		
 		if ((secret_h = (char *)malloc(h_len)) == NULL) {
-			OCK_LOG_DEBUG("malloc of %d bytes failed.\n", h_len);
+			TRACE_ERROR("malloc of %d bytes failed.\n", h_len);
 			goto error;
 		}
 
@@ -319,8 +317,8 @@ get_srk_info(struct srk_info *srk)
 		 * represent the hash.
 		 */
 		if (srk->len != (h_len * 2)) {
-			OCK_LOG_DEBUG("Hashed secret is %d bytes, expected %d.\n",
-				      srk->len, h_len*2);
+			TRACE_DEBUG("Hashed secret is %d bytes, expected %d.\n",
+				     srk->len, h_len*2);
 			goto error;
 		}
 
