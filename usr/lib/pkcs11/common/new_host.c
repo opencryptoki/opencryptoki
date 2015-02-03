@@ -476,21 +476,19 @@ inline CK_ULONG long_reverse(CK_ULONG x)
 
 // verify that the mech specified is in the
 // mech list for this token...
-#define VALID_MECH(m, f)							\
-	if (m && token_specific.t_get_mechanism_info) {				\
-		int _rc;							\
-		CK_MECHANISM_INFO info;						\
-		memset(&info, 0, sizeof(info));					\
-		_rc = token_specific.t_get_mechanism_info(m->mechanism, &info);	\
-		if (_rc != CKR_OK || !(info.flags & (f))) {			\
-			rc = CKR_MECHANISM_INVALID;				\
-			goto done;						\
-		}								\
-	}
+CK_RV valid_mech(CK_MECHANISM_PTR m, CK_FLAGS f)
+{
+	CK_RV rc;
+	CK_MECHANISM_INFO info;
 
-// Defines to allow NT code to work correctly
-#define WaitForSingleObject(x,y)  pthread_mutex_lock(&(x))
-#define ReleaseMutex(x)           pthread_mutex_unlock(&(x))
+	if (m && token_specific.t_get_mechanism_info) {
+		memset(&info, 0, sizeof(info));
+		rc = token_specific.t_get_mechanism_info(m->mechanism, &info);
+		if (rc != CKR_OK || !(info.flags & (f)))
+			return CKR_MECHANISM_INVALID;
+	}
+	return CKR_OK;
+}
 
 void
 init_data_store(char *directory)
@@ -580,7 +578,10 @@ CK_RV ST_Initialize(void **FunctionList, CK_SLOT_ID SlotNumber, char *conf_name,
 	// One of the things we do during initialization is create the mutex for
 	// PKCS#11 operations; until we do so, we have to use the native mutex...
 	//
-	WaitForSingleObject( native_mutex, INFINITE );
+	if (pthread_mutex_lock(&native_mutex)) {
+		rc = CKR_FUNCTION_FAILED;
+		TRACE_ERROR("Failed to lock mutex.\n");
+	}
 
 	// SAB need to call Fork_Initializer here
 	// instead of at the end of the loop...
@@ -652,9 +653,11 @@ CK_RV ST_Initialize(void **FunctionList, CK_SLOT_ID SlotNumber, char *conf_name,
 	(*FunctionList) = &function_list;
 
  done:
-	ReleaseMutex( native_mutex );
-	if (rc != 0)
-		TRACE_ERROR("Mutex unlock failed.\n");
+	if (pthread_mutex_unlock(&native_mutex)) {
+		TRACE_ERROR("Failed to unlock mutex.\n");
+		rc = CKR_FUNCTION_FAILED;
+	}
+
 	return rc;
 }
 
@@ -2253,7 +2256,9 @@ CK_RV SC_EncryptInit(ST_SESSION_HANDLE *sSession,
 		goto done;
 	}
 
-	VALID_MECH(pMechanism, CKF_ENCRYPT);
+	rc = valid_mech(pMechanism, CKF_ENCRYPT);
+	if (rc != CKR_OK)
+		goto done;
 
 	sess = SESSION_MGR_FIND( hSession );
 	if (!sess) {
@@ -2530,7 +2535,10 @@ CK_RV SC_DecryptInit(ST_SESSION_HANDLE *sSession,
 		rc = CKR_ARGUMENTS_BAD;
 		goto done;
 	}
-	VALID_MECH(pMechanism, CKF_DECRYPT);
+
+	rc = valid_mech(pMechanism, CKF_DECRYPT);
+	if (rc != CKR_OK)
+		goto done;
 
 	sess = SESSION_MGR_FIND( hSession );
 	if (!sess) {
@@ -2792,8 +2800,9 @@ CK_RV SC_DigestInit( ST_SESSION_HANDLE  *sSession,
 		goto done;
 	}
 
-	VALID_MECH(pMechanism, CKF_DIGEST);
-
+	rc = valid_mech(pMechanism, CKF_DIGEST);
+	if (rc != CKR_OK)
+		goto done;
 
 	sess = SESSION_MGR_FIND( hSession );
 	if (!sess) {
@@ -3070,7 +3079,10 @@ CK_RV SC_SignInit( ST_SESSION_HANDLE  *sSession,
 		rc = CKR_SESSION_HANDLE_INVALID;
 		goto done;
 	}
-	VALID_MECH(pMechanism, CKF_SIGN);
+
+	rc = valid_mech(pMechanism, CKF_SIGN);
+	if (rc != CKR_OK)
+		goto done;
 
 	if (pin_expired(&sess->session_info, nv_token_data->token_info.flags) == TRUE) {
 		TRACE_ERROR("%s\n", ock_err(ERR_PIN_EXPIRED));
@@ -3311,7 +3323,10 @@ CK_RV SC_SignRecoverInit( ST_SESSION_HANDLE  *sSession,
 		rc = CKR_ARGUMENTS_BAD;
 		goto done;
 	}
-	VALID_MECH(pMechanism, CKF_SIGN_RECOVER);
+
+	rc = valid_mech(pMechanism, CKF_SIGN_RECOVER);
+	if (rc != CKR_OK)
+		goto done;
 
 	sess = SESSION_MGR_FIND( hSession );
 	if (!sess) {
@@ -3430,7 +3445,10 @@ CK_RV SC_VerifyInit( ST_SESSION_HANDLE  *sSession,
 		rc = CKR_ARGUMENTS_BAD;
 		goto done;
 	}
-	VALID_MECH(pMechanism, CKF_VERIFY);
+
+	rc = valid_mech(pMechanism, CKF_VERIFY);
+	if (rc != CKR_OK)
+		goto done;
 
 	sess = SESSION_MGR_FIND( hSession );
 	if (!sess) {
@@ -3668,7 +3686,10 @@ CK_RV SC_VerifyRecoverInit( ST_SESSION_HANDLE  *sSession,
 		rc = CKR_ARGUMENTS_BAD;
 		goto done;
 	}
-	VALID_MECH(pMechanism, CKF_VERIFY_RECOVER);
+
+	rc = valid_mech(pMechanism, CKF_VERIFY_RECOVER);
+	if (rc != CKR_OK)
+		goto done;
 
 	sess = SESSION_MGR_FIND( hSession );
 	if (!sess) {
@@ -3871,7 +3892,10 @@ CK_RV SC_GenerateKey( ST_SESSION_HANDLE    *sSession,
 		rc = CKR_ARGUMENTS_BAD;
 		goto done;
 	}
-	VALID_MECH(pMechanism, CKF_GENERATE);
+
+	rc = valid_mech(pMechanism, CKF_GENERATE);
+	if (rc != CKR_OK)
+		goto done;
 
 	sess = SESSION_MGR_FIND(hSession);
 	if (!sess) {
@@ -3952,7 +3976,10 @@ CK_RV SC_GenerateKeyPair(ST_SESSION_HANDLE *sSession,
 		rc = CKR_ARGUMENTS_BAD;
 		goto done;
 	}
-	VALID_MECH(pMechanism, CKF_GENERATE_KEY_PAIR);
+
+	rc = valid_mech(pMechanism, CKF_GENERATE_KEY_PAIR);
+	if (rc != CKR_OK)
+		goto done;
 
 	sess = SESSION_MGR_FIND(hSession);
 	if (!sess) {
@@ -4047,7 +4074,10 @@ CK_RV SC_WrapKey(ST_SESSION_HANDLE *sSession, CK_MECHANISM_PTR pMechanism,
 		rc = CKR_ARGUMENTS_BAD;
 		goto done;
 	}
-	VALID_MECH(pMechanism, CKF_WRAP);
+
+	rc = valid_mech(pMechanism, CKF_WRAP);
+	if (rc != CKR_OK)
+		goto done;
 
 	if (!pWrappedKey)
 		length_only = TRUE;
@@ -4117,7 +4147,10 @@ CK_RV SC_UnwrapKey(ST_SESSION_HANDLE *sSession, CK_MECHANISM_PTR pMechanism,
 		rc = CKR_ARGUMENTS_BAD;
 		goto done;
 	}
-	VALID_MECH(pMechanism, CKF_UNWRAP);
+
+	rc = valid_mech(pMechanism, CKF_UNWRAP);
+	if (rc != CKR_OK)
+		goto done;
 
 	sess = SESSION_MGR_FIND( hSession );
 	if (!sess) {
@@ -4199,7 +4232,10 @@ CK_RV SC_DeriveKey( ST_SESSION_HANDLE    *sSession,
 		rc = CKR_ARGUMENTS_BAD;
 		goto done;
 	}
-	VALID_MECH(pMechanism, CKF_DERIVE);
+
+	rc = valid_mech(pMechanism, CKF_DERIVE);
+	if (rc != CKR_OK)
+		goto done;
 
 	sess = SESSION_MGR_FIND( hSession );
 	if (!sess) {
