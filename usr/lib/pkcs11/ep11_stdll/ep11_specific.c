@@ -323,28 +323,39 @@
 #define EP11SHAREDLIB "libep11.so"
 
 
-/* logging stuff */
-static int   EP11Tok_loglevel = 0;
-static FILE *EP11Tok_logfile = NULL;
+#ifdef DEBUG
 
-#define EP11TOK_LOGFILEMASK "/var/log/ock_ep11_token.%u.log"
+/* a simple function for dumping out a memory area */
+inline void hexdump(void *buf, size_t buflen)
+{
+	/*           1         2         3         4         5         6
+	   0123456789012345678901234567890123456789012345678901234567890123456789
+	   xx xx xx xx xx xx xx xx xx xx xx xx xx xx xx xx    ................
+	*/
 
-#define EP11TOK_LOG(_loglevel, _format, ...) {                                      \
-        if (EP11Tok_loglevel >= _loglevel && EP11Tok_logfile) {                     \
-            fprintf(EP11Tok_logfile, "%s " _format "\n", __func__, ## __VA_ARGS__); }}
+	int i, j;
+	char line[68];
+	for (i=0; i < buflen; i += 16) {
+		for (j=0; j < 16; j++) {
+			if (i+j < buflen) {
+				unsigned char b = ((unsigned char*)buf)[i+j];
+				sprintf(line + j*3, "%02hhx ", b);
+				line[51+j] = (isalnum(b) ? b : '.');
+			} else {
+				sprintf(line + j*3, "   ");
+				line[51+j] = ' ';
+			}
+		}
+		line[47] = line[48] = line[49] = line[50] = ' ';
+		line[67] = '\0';
+		TRACE_DEVEL("%s\n", line);
+	}
+}
 
-#define EP11TOK_ELOG(_loglevel, _format, ...) {                                            \
-        if (EP11Tok_loglevel >= _loglevel && EP11Tok_logfile) {                            \
-            fprintf(EP11Tok_logfile, "ERROR: %s " _format "\n", __func__, ## __VA_ARGS__); \
-	    OCK_SYSLOG(LOG_ERR, _format, ## __VA_ARGS__); }}
+#define TRACE_DEVEL_DUMP(_buf, _buflen) hexdump(_buf, _buflen)
 
-#define EP11TOK_DUMP(_loglevel, _text, _buf, _buflen) {                  \
-        if (EP11Tok_loglevel >= _loglevel && EP11Tok_logfile) {          \
-            int i; char str[1024];                                       \
-            for (i=0; i < (_buflen) && 2*i < sizeof(str)-2; i++) {       \
-                sprintf(str+2*i, "%02hhx", ((unsigned char*)(_buf))[i]); \
-                *(str+2*i+2) = '\0'; }                                   \
-            fprintf(EP11Tok_logfile, _text " %s\n", str); }}
+#endif /* DEBUG */
+
 
 
 CK_CHAR manuf[] = "IBM Corp.";
@@ -403,9 +414,9 @@ static ep11_target_t ep11_targets;
 /* defined in the makefile, ep11 library can run standalone (without HW card),
    crypto algorithms are implemented in software then (no secure key) */
 #ifdef EP11_STANDALONE
-static unsigned long long ep11tok_target = 0x0000000100000008ull;
+static uint64_t ep11tok_target = 0x0000000100000008ull;
 #else
-static void* ep11tok_target = (void*) &ep11_targets;
+static uint64_t ep11tok_target = (uint64_t) &ep11_targets;
 #endif
 
 /* */
@@ -533,7 +544,6 @@ ber_encode_RSAPublicKey(CK_BBOOL length_only, CK_BYTE **data, CK_ULONG *data_len
 	CK_BYTE *buf = NULL;
 	CK_BYTE *buf2 = NULL;
 	CK_BYTE *buf3 = NULL;
-	CK_BYTE *tmp = NULL;
 	BerValue *val;
 	BerElement *ber;
 
@@ -548,13 +558,13 @@ ber_encode_RSAPublicKey(CK_BBOOL length_only, CK_BYTE **data, CK_ULONG *data_len
 	offset += len;
 
 	if (rc != CKR_OK) {
-		TRACE_DEBUG("%s\n", ock_err(ERR_FUNCTION_FAILED));
+		TRACE_DEBUG("%s ber_encode_Int failed with rc=0x%lx\n", __func__, rc);
 		return CKR_FUNCTION_FAILED;
 	}
 
 	buf = (CK_BYTE *)malloc(offset);
 	if (!buf) {
-		TRACE_ERROR("%s\n", ock_err(ERR_HOST_MEMORY));
+		TRACE_ERROR("%s Memory allocation failed\n", __func__);
 		return CKR_HOST_MEMORY;
 	}
 	offset = 0;
@@ -564,7 +574,7 @@ ber_encode_RSAPublicKey(CK_BBOOL length_only, CK_BYTE **data, CK_ULONG *data_len
 				(CK_BYTE *)modulus + sizeof(CK_ATTRIBUTE),
 				modulus->ulValueLen);
 	if (rc != CKR_OK) {
-		TRACE_DEBUG("Encode Integer Failed.\n");
+		TRACE_DEBUG("%s ber_encode_Int failed with rc=0x%lx\n", __func__, rc);
 		return rc;
 	}
 	memcpy(buf+offset, buf2, len);
@@ -575,7 +585,7 @@ ber_encode_RSAPublicKey(CK_BBOOL length_only, CK_BYTE **data, CK_ULONG *data_len
 				(CK_BYTE *)publ_exp + sizeof(CK_ATTRIBUTE),
 				publ_exp->ulValueLen);
 	if (rc != CKR_OK) {
-		TRACE_DEBUG("Encode Integer Failed.\n");
+		TRACE_DEBUG("%s ber_encode_Int failed with rc=0x%lx\n", __func__, rc);
 		return rc;
 	}
 	memcpy(buf+offset, buf2, len);
@@ -584,14 +594,14 @@ ber_encode_RSAPublicKey(CK_BBOOL length_only, CK_BYTE **data, CK_ULONG *data_len
 
 	rc = ber_encode_SEQUENCE(FALSE, &buf2, &len, buf, offset);
 	if (rc != CKR_OK) {
-		TRACE_DEBUG("Encode Sequence Failed\n");
+		TRACE_DEBUG("%s ber_encode_Seq failed with rc=0x%lx\n", __func__, rc);
 		return rc;
 	}
 
 	/* length of outer sequence */
 	rc = ber_encode_OCTET_STRING(TRUE, NULL, &total, buf2, len);
 	if (rc != CKR_OK) {
-		TRACE_DEBUG("Encode Octet String Failed.\n");
+		TRACE_DEBUG("%s ber_encode_Oct_Str failed with rc=0x%lx\n", __func__, rc);
 		return rc;
 	} else
 		total_len += total + 1;
@@ -599,7 +609,7 @@ ber_encode_RSAPublicKey(CK_BBOOL length_only, CK_BYTE **data, CK_ULONG *data_len
 	/* mem for outer sequence */
 	buf3 = (CK_BYTE *)malloc(total_len);
 	if (!buf3) {
-		TRACE_ERROR("%s\n", ock_err(ERR_HOST_MEMORY));
+		TRACE_ERROR("%s Memory allocation failed\n", __func__);
 		return CKR_HOST_MEMORY;
 	}
 	total_len = 0;
@@ -617,7 +627,7 @@ ber_encode_RSAPublicKey(CK_BBOOL length_only, CK_BYTE **data, CK_ULONG *data_len
 
 	rc = ber_encode_SEQUENCE(FALSE, data, data_len, buf3, total_len);
 	if (rc != CKR_OK)
-		TRACE_DEBUG("Encode Sequence Failed.\n");
+		TRACE_DEBUG("%s ber_encode_Seq failed with rc=0x%lx\n", __func__, rc);
 
 	return rc;
 }
@@ -643,14 +653,15 @@ ep11_spki_key(CK_BYTE *spki, CK_BYTE **key, CK_ULONG *bit_str_len)
 	CK_ULONG key_len_bytes;
 	CK_RV rc;
 	CK_ULONG length_octets = 0;
-	CK_ULONG len;
+	CK_ULONG len = 0;
 
 	*bit_str_len = 0;
 	out_seq = spki;
 	rc = ber_decode_SEQUENCE(out_seq, &data, &data_len, &field_len);
 
 	if (rc != CKR_OK) {
-		EP11TOK_ELOG(1,"ber_decode_SEQUENCE #1 failed rc=0x%lx", rc);
+		TRACE_ERROR("%s ber_decode_SEQUENCE #1 failed rc=0x%lx\n",
+			    __func__, rc);
 		return CKR_FUNCTION_FAILED;
 	}
 
@@ -658,14 +669,15 @@ ep11_spki_key(CK_BYTE *spki, CK_BYTE **key, CK_ULONG *bit_str_len)
 	/* get id seq length */
 	rc = ber_decode_SEQUENCE(id_seq, &data, &data_len, &field_len);
 	if (rc != CKR_OK) {
-		EP11TOK_ELOG(1,"ber_decode_SEQUENCE #2 failed rc=0x%lx", rc);
+		TRACE_ERROR("%s ber_decode_SEQUENCE #2 failed rc=0x%lx\n",
+			    __func__, rc);
 		return CKR_FUNCTION_FAILED;
 	}
 
 	bit_str = id_seq + field_len;
 	/* we should be at a bistring */
 	if (bit_str[0] != 0x03) {
-		EP11TOK_ELOG(1,"ber_decode no BITSTRING");
+		TRACE_ERROR("%s ber_decode no BITSTRING\n", __func__);
 		return CKR_GENERAL_ERROR;
 	}
 
@@ -711,10 +723,10 @@ ep11_get_keytype(CK_ATTRIBUTE *attrs, CK_ULONG attrs_len,
 {
 	int i;
 	CK_RV rc = CKR_TEMPLATE_INCONSISTENT;
-  
+
 	*type  = 0;
 	*class = 0;
-  
+
 	for (i = 0; i < attrs_len; i++) {
 		if (attrs[i].type == CKA_CLASS)
 			*class = *(CK_ULONG *)attrs[i].pValue;
@@ -726,49 +738,48 @@ ep11_get_keytype(CK_ATTRIBUTE *attrs, CK_ULONG attrs_len,
 			return CKR_OK;
 		}
 	}
-  
+
 	/* no CKA_KEY_TYPE found, derive from mech */
 
 	switch (mech->mechanism) {
 	case CKM_DES_KEY_GEN:
 		*type = CKK_DES;
 		break;
-    
+
 	case CKM_DES3_KEY_GEN:
 		*type = CKK_DES3;
 		break;
-    
+
 	case CKM_CDMF_KEY_GEN:
 		*type = CKK_CDMF;
 		break;
-    
+
 	case CKM_AES_KEY_GEN:
 		*type = CKK_AES;
 		break;
-    
+
 	case CKM_RSA_PKCS_KEY_PAIR_GEN:
 		*type = CKK_RSA;
 		break;
-    
+
 	case CKM_EC_KEY_PAIR_GEN:
 		*type = CKK_EC;
 		break;
-    
+
 	case CKM_DSA_KEY_PAIR_GEN:
 		*type = CKK_DSA;
 		break;
-    
+
 	case CKM_DH_PKCS_KEY_PAIR_GEN:
 		*type = CKK_DH;
 		break;
-    
+
 	default:
 		return CKR_MECHANISM_INVALID;
 	}
-  
+
 	rc = CKR_OK;
 
-error:
 	return rc;
 }
 
@@ -982,7 +993,9 @@ static const char* ep11_get_ckm(CK_ULONG mechanism)
 	case CKM_VENDOR_DEFINED + 0x1000d: return "CKM_IBM_EAC";
 	case CKM_VENDOR_DEFINED + 0x40001: return "CKM_IBM_RETAINKEY";
 	case CKM_VENDOR_DEFINED + 0x10007: return "CKA_IBM_MACKEY";
-	default: EP11TOK_LOG(1,"unknown mechanism %lx",mechanism); return "UNKNOWN";
+	default:
+		TRACE_WARNING("%s unknown mechanism %lx\n", __func__, mechanism);
+		return "UNKNOWN";
 	}
 }
 
@@ -1047,7 +1060,8 @@ static CK_RV rawkey_2_blob(unsigned char *key, CK_ULONG ksize,
 						    a->type, a->pValue,
 						    a->ulValueLen);
 			if (rc != CKR_OK) {
-				EP11TOK_ELOG(1, "adding attribute failed type=0x%lx rc=0x%lx", a->type, rc);
+				TRACE_ERROR("%s adding attribute failed type=0x%lx rc=0x%lx\n",
+					    __func__, a->type, rc);
 				goto rawkey_2_blob_end;
 			}
 		}
@@ -1066,16 +1080,18 @@ static CK_RV rawkey_2_blob(unsigned char *key, CK_ULONG ksize,
 			     key, ksize, cipher, &clen, ep11tok_target);
 
 	if (rc != CKR_OK) {
-		EP11TOK_ELOG(1, "encrypt ksize=0x%lx clen=0x%lx rc=0x%lx",
-			     ksize, clen, rc);
+		TRACE_ERROR("%s encrypt ksize=0x%lx clen=0x%lx rc=0x%lx\n",
+			    __func__, ksize, clen, rc);
 		goto rawkey_2_blob_end;
 	}
-	EP11TOK_LOG(2, "encrypt ksize=0x%lx clen=0x%lx rc=0x%lx", ksize, clen, rc);
+	TRACE_INFO("%s encrypt ksize=0x%lx clen=0x%lx rc=0x%lx\n",
+		   __func__, ksize, clen, rc);
 
 	rc = check_key_attributes(ktype, CKO_SECRET_KEY, p_attrs, attrs_len,
 				  &new_p_attrs, &new_attrs_len);
 	if (rc != CKR_OK) {
-		EP11TOK_ELOG(1,"RSA / EC check private key attributes failed with rc=0x%lx",rc);
+		TRACE_ERROR("%s RSA/EC check private key attributes failed with rc=0x%lx\n",
+			    __func__, rc);
 		return rc;
 	}
 
@@ -1088,11 +1104,11 @@ static CK_RV rawkey_2_blob(unsigned char *key, CK_ULONG ksize,
 			 ep11tok_target);
 
 	if (rc != CKR_OK) {
-		EP11TOK_ELOG(1,"unwrap blen=%d rc=0x%lx ep11_blobs=0x%llx",
-			     *blen,rc,ep11_blobs);
+		TRACE_ERROR("%s unwrap blen=%d rc=0x%lx ep11_blobs=0x%llx\n",
+			    __func__, *blen,rc,ep11_blobs);
 	} else {
-		EP11TOK_LOG(2,"unwrap blen=%d rc=0x%lx ep11_blobs=0x%llx",
-			    *blen,rc,ep11_blobs);
+		TRACE_INFO("%s unwrap blen=%d rc=0x%lx ep11_blobs=0x%llx\n",
+			   __func__, *blen,rc,ep11_blobs);
 	}
 
 	rawkey_2_blob_end:
@@ -1142,24 +1158,26 @@ static CK_RV print_mechanism(void)
 	/* first call is just to fetch the count value */
 	rc = token_specific_get_mechanism_list(list, &count);
 	if (rc != CKR_OK) {
-		EP11TOK_ELOG(1,"can't fetch mechanism list.");
-		return rc;		
+		TRACE_ERROR("%s can't fetch mechanism list (get_mech_list rc=0x%lx)\n",
+			    __func__, rc);
+		return rc;
 	}
 	list = (CK_MECHANISM_TYPE_PTR)malloc(sizeof(CK_MECHANISM_TYPE) * count);
 	if (!list) {
-		EP11TOK_ELOG(1,"Memory allocation failed.");
+		TRACE_ERROR("%s Memory allocation failed\n", __func__);
 		return CKR_HOST_MEMORY;
 	}
 
 	/* now really fill the list */
 	rc = token_specific_get_mechanism_list(list, &count);
 	if (rc != CKR_OK) {
-		EP11TOK_ELOG(1,"can't fetch mechanism list!");
+		TRACE_ERROR("%s can't fetch mechanism list (get_mech_list rc=0x%lx)\n",
+			    __func__, rc);
 		free(list);
-		return rc;		
+		return rc;
 	}
 
-	EP11TOK_LOG(2,"EP11 token mechanism list, %lu entries:", count);
+	TRACE_INFO("%s EP11 token mechanism list, %lu entries:\n", __func__, count);
 	for (i = 0; i < count; i++) {
 		char strflags[1024];
 		strflags[0] = 0;
@@ -1174,8 +1192,8 @@ static CK_RV print_mechanism(void)
 				}
 			}
 		}
-		EP11TOK_LOG(2," %s {%lu,%lu%s}", ep11_get_ckm(list[i]),
-			    m_info.ulMinKeySize, m_info.ulMaxKeySize, strflags);
+		TRACE_INFO(" %s {%lu,%lu%s}\n", ep11_get_ckm(list[i]),
+			   m_info.ulMinKeySize, m_info.ulMaxKeySize, strflags);
 	}
 
 	free(list);
@@ -1188,7 +1206,8 @@ CK_RV token_specific_rng(CK_BYTE *output, CK_ULONG bytes)
 {
 	CK_RV rc = m_GenerateRandom(output,bytes,ep11tok_target);
 	if (rc != CKR_OK)
-		EP11TOK_ELOG(1,"output=%p bytes=%lu rc=0x%lx", output, bytes, rc);
+		TRACE_ERROR("%s output=%p bytes=%lu rc=0x%lx\n",
+			    __func__, output, bytes, rc);
 	return rc;
 }
 
@@ -1199,7 +1218,7 @@ int tok_slot2local(CK_SLOT_ID snum)
 	return snum;
 }
 
-  
+
 
 /*
  * for importing keys we need to encrypt the keys and build the blob by
@@ -1215,8 +1234,8 @@ static CK_RV make_wrapblob(CK_ATTRIBUTE *tmpl_in, CK_ULONG tmpl_len)
 
 
 	if (raw2key_wrap_blob_l != 0) {
-		EP11TOK_LOG(2,"blob already exists raw2key_wrap_blob_l=0x%x",
-			    raw2key_wrap_blob_l);
+		TRACE_INFO("%s blob already exists raw2key_wrap_blob_l=0x%x\n",
+			   __func__, raw2key_wrap_blob_l);
 		return CKR_OK;
 	}
 
@@ -1226,73 +1245,33 @@ static CK_RV make_wrapblob(CK_ATTRIBUTE *tmpl_in, CK_ULONG tmpl_len)
 
 
 	if (rc != CKR_OK) {
-		EP11TOK_ELOG(1, "end raw2key_wrap_blob_l=0x%x rc=0x%lx",
-			     raw2key_wrap_blob_l, rc);
+		TRACE_ERROR("%s end raw2key_wrap_blob_l=0x%x rc=0x%lx\n",
+			    __func__, raw2key_wrap_blob_l, rc);
 	} else {
-		EP11TOK_LOG(2, "end raw2key_wrap_blob_l=0x%x rc=0x%lx",
-			    raw2key_wrap_blob_l, rc);
+		TRACE_INFO("%s end raw2key_wrap_blob_l=0x%x rc=0x%lx\n",
+			   __func__, raw2key_wrap_blob_l, rc);
 	}
 
 	return rc;
 }
 
-static CK_RV open_logfile()
-{
-	char logfilename[PATH_MAX];
-	struct group *grp;
-	mode_t m;
-
-	/* create the log file */
-	sprintf(logfilename, EP11TOK_LOGFILEMASK, (unsigned) getpid());
-	EP11Tok_logfile = fopen(logfilename, "w+");
-	if (!EP11Tok_logfile) {
-		fprintf(stderr, "ERROR: ock_ep11_token: can't open log "
-			"file '%s' (errno=%d) !!!\n", logfilename, errno);
-		return CKR_FUNCTION_FAILED;
-	}
-
-	/* change group to pkcs11, ignore failure */
-	grp = getgrnam("pkcs11");
-	if (grp)
-		chown(logfilename, -1, grp->gr_gid);
-
-	/* change permissions to 640, ignore failure */
-	m = S_IRUSR | S_IWUSR | S_IRGRP;
-	chmod(logfilename, m);
-
-	return CKR_OK;
-}
 
 CK_RV token_specific_init(CK_SLOT_ID SlotNumber, char *conf_name)
 {
 	CK_RV rc;
 	void *lib_ep11;
-	const char *env_loglevel = getenv("OCK_EP11_TOKEN_LOGLEVEL");
-  
-	WRAP_TEMPLATE;
-  
-	if (env_loglevel) {
-		int loglevel = atoi(env_loglevel);
-		if (loglevel > 0) {
-			open_logfile();
-			/* continue even on failure opening the ep11 log file */
-			EP11Tok_loglevel = loglevel;
-		} else {
-			/* environment variable is present but value
-			 * is 0 or invalid
-			 */
-			EP11Tok_loglevel = -1;
-		}
-	}
-	EP11TOK_LOG(1,"init running");
 
-	/* read ep11 specific config file with user specified adapter/domain pairs, loglevel, ... */
+	WRAP_TEMPLATE;
+
+	TRACE_INFO("%s init running\n", __func__);
+
+	/* read ep11 specific config file with user specified adapter/domain pairs, ... */
 	rc = read_adapter_config_file(conf_name);
 	if (rc != CKR_OK) {
-		EP11TOK_ELOG(1,"ep11 config file error rc=0x%lx", rc);
+		TRACE_ERROR("%s ep11 config file error rc=0x%lx\n", __func__, rc);
 		return CKR_GENERAL_ERROR;
 	}
-  
+
 	/* wrap key name */
 	memset(wrap_key_name, 0, sizeof(wrap_key_name));
 	memcpy(wrap_key_name, "EP11_wrapkey", sizeof("EP11_wrapkey"));
@@ -1300,58 +1279,46 @@ CK_RV token_specific_init(CK_SLOT_ID SlotNumber, char *conf_name)
 	/* dynamically load in the ep11 shared library */
 	lib_ep11 = dlopen(EP11SHAREDLIB, RTLD_GLOBAL | RTLD_NOW);
 	if (!lib_ep11) {
-		EP11TOK_ELOG(1,"Error loading shared lib '%s' [%s]", EP11SHAREDLIB, dlerror());
+		TRACE_ERROR("%s Error loading shared lib '%s' [%s]\n",
+			    __func__, EP11SHAREDLIB, dlerror());
 		return CKR_FUNCTION_FAILED;
 	}
+
+#ifndef XCP_STANDALONE
 	/* call ep11 shared lib init */
 	if (m_init() < 0) {
-		EP11TOK_ELOG(1,"ep11 lib init failed");
-		return CKR_DEVICE_ERROR;
-	}
-  
-#ifndef XCP_STANDALONE
-	/* for real HW on Z-series, this would open the
-	 * device driver file /dev/zcrypt.
-	 */
-	if (m_init() < 0) {
-		EP11TOK_ELOG(1,"open of the zcrypt device driver failed");
+		TRACE_ERROR("%s ep11 lib init failed\n", __func__);
 		return CKR_DEVICE_ERROR;
 	}
 #endif
-        
+
 	/* print mechanismlist to log file */
 	rc = print_mechanism();
 	if (rc != CKR_OK) {
-		EP11TOK_ELOG(1,"failure on fetching mechanism list rc=0x%lx, maybe wrong config ?", rc);
+		TRACE_ERROR("%s failure on fetching mechanism list rc=0x%lx, maybe wrong config ?\n",
+			    __func__, rc);
 		return CKR_GENERAL_ERROR;
 	}
-    
+
 	/* create an AES key needed for importing keys
 	 * (encrypt by wrap_key and m_UnwrapKey by wrap key)
 	 */
 	rc = make_wrapblob(wrap_tmpl, 8);
 	if (rc != CKR_OK) {
-		EP11TOK_ELOG(1,"make_wrapblob failed rc=0x%lx", rc);
+		TRACE_ERROR("%s make_wrapblob failed rc=0x%lx\n", __func__, rc);
 		return CKR_GENERAL_ERROR;
 	}
-    
-	EP11TOK_LOG(1,"init done successfully");
-    
+
+	TRACE_INFO("%s init done successfully\n", __func__);
+
 	return CKR_OK;
 }
 
 CK_RV token_specific_final()
 {
-	EP11TOK_LOG(1,"final running");
+	TRACE_INFO("%s final running\n", __func__);
 
-	if (EP11Tok_logfile) {
-		fflush(EP11Tok_logfile);
-		fclose(EP11Tok_logfile);
-		EP11Tok_logfile = NULL;
-	}
-
-	CK_RV rc = CKR_OK;
-	return rc;
+	return CKR_OK;
 }
 
 
@@ -1384,7 +1351,7 @@ static CK_RV import_RSA_key(OBJECT *rsa_key_obj, CK_BYTE *blob, size_t *blob_siz
 
 	/* need class for private/public key info */
 	if (!template_attribute_find(rsa_key_obj->template, CKA_CLASS, &attr)) {
-		EP11TOK_ELOG(1,"no CKA_CLASS");
+		TRACE_ERROR("%s no CKA_CLASS\n", __func__);
 		return CKR_TEMPLATE_INCOMPLETE;
 	}
 
@@ -1404,16 +1371,17 @@ static CK_RV import_RSA_key(OBJECT *rsa_key_obj, CK_BYTE *blob, size_t *blob_siz
 						    a->type, a->pValue,
 						    a->ulValueLen);
 			if (rc != CKR_OK) {
-				EP11TOK_ELOG(1, "adding attribute failed type=0x%lx rc=0x%lx", a->type, rc);
+				TRACE_ERROR("%s adding attribute failed type=0x%lx rc=0x%lx\n",
+					    __func__, a->type, rc);
 				goto import_RSA_key_end;
 			}
 		}
-        
+
 		node = node->next;
 	}
-    
+
 	class = *(CK_OBJECT_CLASS *)attr->pValue;
-    
+
 	/* an imported public RSA key, we need a SPKI for it. */
 	if (class != CKO_PRIVATE_KEY) {
 		CK_ATTRIBUTE *modulus;
@@ -1436,12 +1404,14 @@ static CK_RV import_RSA_key(OBJECT *rsa_key_obj, CK_BYTE *blob, size_t *blob_siz
 		rc = ber_encode_RSAPublicKey(0, &data, &data_len,
 					     modulus, publ_exp);
 		if (rc != CKR_OK) {
-			EP11TOK_ELOG(1,"public key import class=0x%lx rc=0x%lx data_len=0x%lx",class,rc,data_len);
+			TRACE_ERROR("%s public key import class=0x%lx rc=0x%lx data_len=0x%lx\n",
+				    __func__, class,rc,data_len);
 			goto import_RSA_key_end;
 		} else {
-			EP11TOK_LOG(2,"public key import class=0x%lx rc=0x%lx data_len=0x%lx",class,rc,data_len);
+			TRACE_INFO("%s public key import class=0x%lx rc=0x%lx data_len=0x%lx\n",
+				   __func__, class,rc,data_len);
 		}
-        
+
 		/* save the SPKI as blob although it is not a blob.
 		 * The card expects SPKIs as public keys.
 		 */
@@ -1458,7 +1428,7 @@ static CK_RV import_RSA_key(OBJECT *rsa_key_obj, CK_BYTE *blob, size_t *blob_siz
 	rc = rsa_priv_wrap_get_data(rsa_key_obj->template, FALSE,
 				    &data, &data_len);
 	if (rc != CKR_OK) {
-		TRACE_DEBUG("RSA Wrap Get Data Failed\n");
+		TRACE_DEBUG("%s RSA wrap get data failed\n", __func__);
 		goto import_RSA_key_end;
 	}
 
@@ -1470,18 +1440,20 @@ static CK_RV import_RSA_key(OBJECT *rsa_key_obj, CK_BYTE *blob, size_t *blob_siz
 	if (data != NULL)
 		free (data);
 
-	EP11TOK_LOG(2,"wrapping wrap key rc=0x%lx cipher_l=0x%lx",rc,cipher_l);
-    
+	TRACE_INFO("%s wrapping wrap key rc=0x%lx cipher_l=0x%lx\n",
+		   __func__, rc, cipher_l);
+
 	if (rc != CKR_OK) {
-		EP11TOK_ELOG(1,"wrapping wrap key rc=0x%lx cipher_l=0x%lx",
-			     rc, cipher_l);
+		TRACE_ERROR("%s wrapping wrap key rc=0x%lx cipher_l=0x%lx\n",
+			    __func__, rc, cipher_l);
 		goto import_RSA_key_end;
 	}
 
 	rc = check_key_attributes(CKK_RSA, CKO_PRIVATE_KEY, p_attrs, attrs_len,
 					&new_p_attrs, &new_attrs_len);
 	if (rc != CKR_OK) {
-		EP11TOK_ELOG(1,"RSA / EC check private key attributes failed with rc=0x%lx",rc);
+		TRACE_ERROR("%s RSA/EC check private key attributes failed with rc=0x%lx\n",
+			    __func__, rc);
 		return rc;
 	}
 
@@ -1494,13 +1466,13 @@ static CK_RV import_RSA_key(OBJECT *rsa_key_obj, CK_BYTE *blob, size_t *blob_siz
 			 ep11tok_target);
 
 	if (rc != CKR_OK) {
-		EP11TOK_ELOG(1,"wrapping unwrap key rc=0x%lx blob_size=0x%x",
-			     rc, *blob_size);
+		TRACE_ERROR("%s wrapping unwrap key rc=0x%lx blob_size=0x%x\n",
+			    __func__, rc, *blob_size);
 	} else {
-		EP11TOK_LOG(2,"wrapping unwrap key rc=0x%lx blob_size=0x%x",
-			    rc, *blob_size);
+		TRACE_INFO("%s wrapping unwrap key rc=0x%lx blob_size=0x%x\n",
+			   __func__, rc, *blob_size);
 	}
-    
+
 import_RSA_key_end:
 	if (p_attrs != NULL)
 		free_attribute_array(p_attrs, attrs_len);
@@ -1509,7 +1481,7 @@ import_RSA_key_end:
 	return rc;
 }
 
-CK_RV 
+CK_RV
 token_specific_object_add(OBJECT *obj)
 {
 	CK_KEY_TYPE keytype;
@@ -1533,12 +1505,12 @@ token_specific_object_add(OBJECT *obj)
 	case CKK_RSA:
 		rc = import_RSA_key(obj,new_op.blob,&new_op.blob_size);
 		if (rc != CKR_OK) {
-			EP11TOK_ELOG(1,"import RSA key rc=0x%lx blob_size=0x%x",
-				     rc, new_op.blob_size);
+			TRACE_ERROR("%s import RSA key rc=0x%lx blob_size=0x%x\n",
+				    __func__, rc, new_op.blob_size);
 			return CKR_FUNCTION_FAILED;
 		}
-		EP11TOK_LOG(2,"import RSA key rc=0x%lx blob_size=0x%x",
-			    rc, new_op.blob_size);
+		TRACE_INFO("%s import RSA key rc=0x%lx blob_size=0x%x\n",
+			   __func__, rc, new_op.blob_size);
 		break;
 
 	case CKK_DES2:
@@ -1547,7 +1519,8 @@ token_specific_object_add(OBJECT *obj)
 	case CKK_GENERIC_SECRET:
 		/* get key value */
 		if (template_attribute_find(obj->template, CKA_VALUE, &attr) == FALSE) {
-			EP11TOK_ELOG(1,"token_specific_object_add incomplete template");
+			TRACE_ERROR("%s token_specific_object_add incomplete template\n",
+				    __func__);
 			return CKR_TEMPLATE_INCOMPLETE;
 		}
 		/* attr holds key value specified by user,
@@ -1556,13 +1529,13 @@ token_specific_object_add(OBJECT *obj)
 		rc = rawkey_2_blob(attr->pValue, attr->ulValueLen, keytype,
 				   new_op.blob, &new_op.blob_size, obj);
 		if (rc != CKR_OK) {
-			EP11TOK_ELOG(1,"rawkey_2_blob rc=0x%lx blob_size=0x%x",
-				     rc, new_op.blob_size);
+			TRACE_ERROR("%s rawkey_2_blob rc=0x%lx blob_size=0x%x\n",
+				    __func__, rc, new_op.blob_size);
 			return CKR_FUNCTION_FAILED;
 		}
 
-		EP11TOK_LOG(2,"rawkey_2_blob rc=0x%lx blob_size=0x%x",
-			    rc, new_op.blob_size);
+		TRACE_INFO("%s rawkey_2_blob rc=0x%lx blob_size=0x%x\n",
+			   __func__, rc, new_op.blob_size);
 
 		break;
 	default:
@@ -1570,18 +1543,20 @@ token_specific_object_add(OBJECT *obj)
 	}
 
 	new_op.blob_id = ep11_blobs_inc();
-  
+
 	/* store the blob in the key obj */
 	rc = build_attribute(CKA_IBM_OPAQUE, (CK_BYTE *) &new_op,
 			     sizeof(ep11_opaque), &attr);
 	if (rc != CKR_OK) {
-		EP11TOK_ELOG(1,"build_attribute failed with rc=0x%lx",rc);
+		TRACE_ERROR("%s build_attribute failed with rc=0x%lx\n",
+			    __func__, rc);
 		return rc;
 	}
-  
+
 	rc = template_update_attribute(obj->template, attr);
 	if (rc != CKR_OK) {
-		EP11TOK_ELOG(1,"template_update_attribute failed with rc=0x%lx",rc);
+		TRACE_ERROR("%s template_update_attribute failed with rc=0x%lx\n",
+			    __func__, rc);
 		return rc;
 	}
 
@@ -1611,15 +1586,16 @@ CK_RV token_specific_generate_key(SESSION *session, CK_MECHANISM_PTR mech,
 	/* Get the keytype to use when creating the key object */
 	rc = ep11_get_keytype(attrs, attrs_len, mech, &ktype, &class);
 	if (rc != CKR_OK) {
-		EP11TOK_ELOG(1,"get_subclass failed with rc=0x%lx",rc);
+		TRACE_ERROR("%s get_subclass failed with rc=0x%lx\n",
+			    __func__, rc);
 		goto error;
 	}
 
 	rc = check_key_attributes(ktype, CKO_SECRET_KEY, attrs, attrs_len,
 					&new_attrs, &new_attrs_len);
 	if (rc != CKR_OK) {
-		EP11TOK_ELOG(1,"check secret key attributes failed: rc=0x%lx",
-			     rc);
+		TRACE_ERROR("%s check secret key attributes failed: rc=0x%lx\n",
+			    __func__, rc);
 		return rc;
 	}
 
@@ -1627,33 +1603,36 @@ CK_RV token_specific_generate_key(SESSION *session, CK_MECHANISM_PTR mech,
 				 ep11_pin_blob_len, new_op.blob,&new_op.blob_size,
 				 csum,&csum_len, ep11tok_target);
 	if (rc != CKR_OK) {
-		EP11TOK_ELOG(1,"m_GenerateKey rc=0x%lx mech='%s' attrs_len=0x%lx",
-			     rc, ep11_get_ckm(mech->mechanism), attrs_len);
+		TRACE_ERROR("%s m_GenerateKey rc=0x%lx mech='%s' attrs_len=0x%lx\n",
+			    __func__, rc, ep11_get_ckm(mech->mechanism), attrs_len);
 		return rc;
 	}
 
-	EP11TOK_LOG(2,"m_GenerateKey rc=0x%lx mech='%s' attrs_len=0x%lx",
-		    rc, ep11_get_ckm(mech->mechanism), attrs_len);
-    
+	TRACE_INFO("%s m_GenerateKey rc=0x%lx mech='%s' attrs_len=0x%lx\n",
+		   __func__, rc, ep11_get_ckm(mech->mechanism), attrs_len);
+
 	/* Start creating the key object */
 	rc = object_mgr_create_skel(session, new_attrs, new_attrs_len,
 				    MODE_KEYGEN, CKO_SECRET_KEY, ktype,
 				    &key_obj);
 	if (rc != CKR_OK) {
-		EP11TOK_ELOG(1,"object_mgr_create_skel failed with rc=0x%lx",rc);
+		TRACE_ERROR("%s object_mgr_create_skel failed with rc=0x%lx\n",
+			    __func__, rc);
 		goto error;
 	}
-    
+
 	rc = build_attribute(CKA_IBM_OPAQUE, (CK_BYTE *) &new_op,
 			     sizeof(ep11_opaque), &attr);
 	if (rc != CKR_OK) {
-		EP11TOK_ELOG(1,"build_attribute failed with rc=0x%lx",rc);
+		TRACE_ERROR("%s build_attribute failed with rc=0x%lx\n",
+			    __func__, rc);
 		goto error;
 	}
-     
+
 	rc = template_update_attribute(key_obj->template, attr);
 	if (rc != CKR_OK) {
-		EP11TOK_ELOG(1,"template_update_attribute failed with rc=0x%lx",rc);
+		TRACE_ERROR("%s template_update_attribute failed with rc=0x%lx\n",
+			    __func__, rc);
 		goto error;
 	}
 
@@ -1662,10 +1641,11 @@ CK_RV token_specific_generate_key(SESSION *session, CK_MECHANISM_PTR mech,
 	 */
 	rc = object_mgr_create_final(session, key_obj, handle);
 	if (rc != CKR_OK) {
-		EP11TOK_ELOG(1,"object_mgr_create_final with rc=0x%lx",rc);
+		TRACE_ERROR("%s object_mgr_create_final with rc=0x%lx\n",
+			    __func__, rc);
 		goto error;
 	}
-    
+
 	goto done;
 error:
 	if (key_obj)
@@ -1682,7 +1662,7 @@ CK_RV token_specific_sha_init(DIGEST_CONTEXT *c)
 	CK_RV rc;
 	CK_BYTE *state   = malloc(blobsize); /* freed by dig_mgr.c */
 	if (!state) {
-		EP11TOK_ELOG(1,"Memory allocation failed.");
+		TRACE_ERROR("%s Memory allocation failed\n", __func__);
 		return CKR_HOST_MEMORY;
 	}
 	size_t state_len = blobsize;
@@ -1691,18 +1671,18 @@ CK_RV token_specific_sha_init(DIGEST_CONTEXT *c)
 	rc = m_DigestInit (state, &state_len, &mechanism, ep11tok_target) ;
 
 	if (rc != CKR_OK) {
+		TRACE_ERROR("%s rc=0x%lx\n", __func__, rc);
 		free(state);
-		EP11TOK_ELOG(1,"rc=0x%lx",rc);
 	} else {
-		/* DIGEST_CONTEXT will show up with following 
+		/* DIGEST_CONTEXT will show up with following
 		 *  requests (sha_update), 'state' is build by the card
 		 * and holds all to continue, even by another adapter
 		 */
 		c->mech = mechanism;
 		c->context = state;
 		c->context_len = state_len;
-		
-		EP11TOK_LOG(2,"rc=0x%lx",rc);
+
+		TRACE_INFO("%s rc=0x%lx\n", __func__, rc);
 	}
 
 	return rc;
@@ -1713,19 +1693,19 @@ CK_RV token_specific_sha(DIGEST_CONTEXT *c, CK_BYTE *in_data,
 			 CK_ULONG in_data_len, CK_BYTE *out_data,
 			 CK_ULONG *out_data_len)
 {
-        CK_RV rc;
-	
+	CK_RV rc;
+
 	rc = m_Digest(c->context, c->context_len, in_data, in_data_len,
 		      out_data, out_data_len, ep11tok_target);
-	
+
 	if (rc != CKR_OK) {
-		EP11TOK_ELOG(1,"rc=0x%lx",rc);
+		TRACE_ERROR("%s rc=0x%lx\n", __func__, rc);
 	} else {
-		EP11TOK_LOG(2,"rc=0x%lx",rc);
+		TRACE_INFO("%s rc=0x%lx\n", __func__, rc);
 	}
 	return rc;
 }
-	
+
 
 CK_RV token_specific_sha_update(DIGEST_CONTEXT *c, CK_BYTE *in_data,
 				CK_ULONG in_data_len)
@@ -1736,9 +1716,9 @@ CK_RV token_specific_sha_update(DIGEST_CONTEXT *c, CK_BYTE *in_data,
 			    ep11tok_target) ;
 
 	if (rc != CKR_OK) {
-		EP11TOK_ELOG(1,"rc=0x%lx",rc);
+		TRACE_ERROR("%s rc=0x%lx\n", __func__, rc);
 	} else {
-		EP11TOK_LOG(2,"rc=0x%lx",rc);
+		TRACE_INFO("%s rc=0x%lx\n", __func__, rc);
 	}
 	return rc;
 }
@@ -1753,9 +1733,9 @@ CK_RV token_specific_sha_final(DIGEST_CONTEXT *c, CK_BYTE *out_data,
 			   ep11tok_target) ;
 
 	if (rc != CKR_OK) {
-		EP11TOK_ELOG(1,"rc=0x%lx",rc);
+		TRACE_ERROR("%s rc=0x%lx\n", __func__, rc);
 	} else {
-		EP11TOK_LOG(2,"rc=0x%lx",rc);
+		TRACE_INFO("%s rc=0x%lx\n", __func__, rc);
 	}
 
 	return rc;
@@ -1767,7 +1747,7 @@ CK_RV token_specific_sha2_init(DIGEST_CONTEXT *c)
 	CK_RV rc;
 	CK_BYTE *state = malloc(blobsize);
 	if (!state) {
-		EP11TOK_ELOG(1,"Memory allocation failed.");
+		TRACE_ERROR("%s Memory allocation failed\n", __func__);
 		return CKR_HOST_MEMORY;
 	}
 	size_t state_len = blobsize;
@@ -1777,12 +1757,12 @@ CK_RV token_specific_sha2_init(DIGEST_CONTEXT *c)
 
 	if (rc != CKR_OK) {
 		free(state);
-		EP11TOK_ELOG(1,"rc=0x%lx",rc);
+		TRACE_ERROR("%s rc=0x%lx\n", __func__, rc);
 	} else {
 		c->mech = mechanism;
 		c->context = state;
 		c->context_len = state_len;
-		EP11TOK_LOG(2,"rc=0x%lx",rc);
+		TRACE_INFO("%s rc=0x%lx\n", __func__, rc);
 	}
 
 	return rc;
@@ -1793,7 +1773,7 @@ CK_RV token_specific_sha3_init(DIGEST_CONTEXT *c)
 	CK_RV rc;
 	CK_BYTE *state = malloc(blobsize);
 	if (!state) {
-		EP11TOK_ELOG(1,"Memory allocation failed.");
+		TRACE_ERROR("%s Memory allocation failed\n", __func__);
 		return CKR_HOST_MEMORY;
 	}
 	size_t state_len = blobsize;
@@ -1803,12 +1783,12 @@ CK_RV token_specific_sha3_init(DIGEST_CONTEXT *c)
 
 	if (rc != CKR_OK) {
 		free(state);
-		EP11TOK_ELOG(1,"rc=0x%lx",rc);
+		TRACE_ERROR("%s rc=0x%lx\n", __func__, rc);
 	} else {
 		c->mech = mechanism;
 		c->context = state;
 		c->context_len = state_len;
-		EP11TOK_LOG(2,"rc=0x%lx",rc);
+		TRACE_INFO("%s rc=0x%lx\n", __func__, rc);
 	}
 
 	return rc;
@@ -1820,7 +1800,7 @@ CK_RV token_specific_sha5_init(DIGEST_CONTEXT *c)
 	CK_RV rc;
 	CK_BYTE *state = malloc(blobsize);
 	if (!state) {
-		EP11TOK_ELOG(1,"Memory allocation failed.");
+		TRACE_ERROR("%s Memory allocation failed\n", __func__);
 		return CKR_HOST_MEMORY;
 	}
 	size_t state_len = blobsize;
@@ -1830,12 +1810,12 @@ CK_RV token_specific_sha5_init(DIGEST_CONTEXT *c)
 
 	if (rc != CKR_OK) {
 		free(state);
-		EP11TOK_ELOG(1,"rc=0x%lx",rc);
+		TRACE_ERROR("%s rc=0x%lx\n", __func__, rc);
 	} else {
 		c->mech = mechanism;
 		c->context = state;
 		c->context_len = state_len;
-		EP11TOK_LOG(2,"rc=0x%lx",rc);
+		TRACE_INFO("%s rc=0x%lx\n", __func__, rc);
 	}
 
 	return rc;
@@ -1864,21 +1844,22 @@ CK_RV token_specific_derive_key(SESSION *session, CK_MECHANISM_PTR mech,
 
 	rc = h_opaque_2_blob(hBaseKey, &blob, &blob_len, &key_obj);
 	if (rc != CKR_OK) {
-		EP11TOK_ELOG(1,"FAIL hBaseKey=0x%lx",hBaseKey);
+		TRACE_ERROR("%s failedL hBaseKey=0x%lx\n", __func__, hBaseKey);
 		return rc;
 	}
 
 	/* Get the keytype to use when creating the key object */
 	rc = ep11_get_keytype(attrs, attrs_len, mech, &ktype, &class);
 	if (rc != CKR_OK) {
-		EP11TOK_ELOG(1,"get_subclass failed with rc=0x%lx", rc);
+		TRACE_ERROR("%s get_subclass failed with rc=0x%lx\n", __func__, rc);
 		goto error;
 	}
 
 	rc = check_key_attributes(ktype, class, attrs, attrs_len,
 				&new_attrs, &new_attrs_len);
 	if (rc != CKR_OK) {
-		EP11TOK_ELOG(1,"Check key attributes for derived key failed with rc=0x%lx",rc);
+		TRACE_ERROR("%s Check key attributes for derived key failed with rc=0x%lx\n",
+			    __func__, rc);
 		return rc;
 	}
 
@@ -1887,42 +1868,45 @@ CK_RV token_specific_derive_key(SESSION *session, CK_MECHANISM_PTR mech,
 			  &secret_op.blob_size, csum, &cslen, ep11tok_target);
 
 	if (rc != CKR_OK) {
-		EP11TOK_ELOG(1,"hBaseKey=0x%lx rc=0x%lx handle=0x%lx blob_size=0x%x", hBaseKey, rc, *handle, secret_op.blob_size);
+		TRACE_ERROR("%s hBaseKey=0x%lx rc=0x%lx handle=0x%lx blob_size=0x%x\n",
+			    __func__, hBaseKey, rc, *handle, secret_op.blob_size);
 		return rc;
 	}
-	EP11TOK_LOG(2,"hBaseKey=0x%lx rc=0x%lx handle=0x%lx blob_size=0x%x",
-		    hBaseKey, rc, *handle, secret_op.blob_size);
+	TRACE_INFO("%s hBaseKey=0x%lx rc=0x%lx handle=0x%lx blob_size=0x%x\n",
+		   __func__, hBaseKey, rc, *handle, secret_op.blob_size);
 
 	/* Start creating the key object */
 	rc = object_mgr_create_skel(session, new_attrs, new_attrs_len,
 				    MODE_DERIVE, class, ktype, &key_obj);
 	if (rc != CKR_OK) {
-		EP11TOK_ELOG(1, "object_mgr_create_skel failed with rc=0x%lx", rc);
+		TRACE_ERROR("%s object_mgr_create_skel failed with rc=0x%lx\n",
+			    __func__, rc);
 		goto error;
 	}
-    
+
 	rc = build_attribute(CKA_IBM_OPAQUE, (CK_BYTE *) &secret_op,
 			     sizeof(ep11_opaque), &opaque_attr);
 	if (rc != CKR_OK) {
-		EP11TOK_ELOG(1, "build_attribute failed with rc=0x%lx", rc);
+		TRACE_ERROR("%s build_attribute failed with rc=0x%lx\n", __func__, rc);
 		goto error;
 	}
-     
+
 	rc = template_update_attribute(key_obj->template, opaque_attr);
 	if (rc != CKR_OK) {
-		EP11TOK_ELOG(1, "template_update_attribute failed with rc=0x%lx", rc);
+		TRACE_ERROR("%s template_update_attribute failed with rc=0x%lx\n",
+			    __func__, rc);
 		goto error;
 	}
-    
+
 	/* key should be fully constructed.
 	 * Assign an object handle and store key
 	 */
 	rc = object_mgr_create_final(session, key_obj, handle);
 	if (rc != CKR_OK) {
-		EP11TOK_ELOG(1, "object_mgr_create_final with rc=0x%lx", rc);
+		TRACE_ERROR("%s object_mgr_create_final with rc=0x%lx\n", __func__, rc);
 		goto error;
 	}
-    
+
 	return rc;
 
 error:
@@ -1954,13 +1938,12 @@ static CK_RV dh_generate_keypair(CK_MECHANISM_PTR pMechanism,
 	CK_ATTRIBUTE *value_attr = NULL;
 	CK_ATTRIBUTE *attr = NULL;
 	CK_ATTRIBUTE  *pPublicKeyTemplate_new = NULL;
-	size_t p_len,g_len;
+	size_t p_len=0, g_len=0;
 	int i,new_public_attr;
 	CK_ULONG data_len;
 	CK_ULONG field_len;
 	CK_BYTE  *data;
 	CK_BYTE  *y_start;
-	int  ylen_bytes;
 	CK_ULONG bit_str_len;
 
 	/* ep11 accepts CKA_PRIME and CKA_BASE parameters/attributes
@@ -1970,7 +1953,7 @@ static CK_RV dh_generate_keypair(CK_MECHANISM_PTR pMechanism,
 		size_t pg_bytes; /* total size: 2*bytecount(P) */
 		unsigned char *pg;
 	} dh_pgs;
-
+	memset(&dh_pgs, 0, sizeof(dh_pgs));
 	memset(&publ_op, 0, sizeof(publ_op));
 	memset(&priv_op, 0, sizeof(priv_op));
 	publ_op.blob_size = blobsize;
@@ -1979,7 +1962,7 @@ static CK_RV dh_generate_keypair(CK_MECHANISM_PTR pMechanism,
 	/* card does not want CKA_PRIME/CKA_BASE in template but in dh_pgs */
 	pPublicKeyTemplate_new = (CK_ATTRIBUTE *)malloc(sizeof(CK_ATTRIBUTE) * ulPublicKeyAttributeCount);
 	if (!pPublicKeyTemplate_new) {
-		EP11TOK_ELOG(1,"Memory allocation failed.");
+		TRACE_ERROR("%s Memory allocation failed\n", __func__);
 		return CKR_HOST_MEMORY;
 	}
 	memset(pPublicKeyTemplate_new, 0, sizeof(CK_ATTRIBUTE) * ulPublicKeyAttributeCount);
@@ -2006,7 +1989,8 @@ static CK_RV dh_generate_keypair(CK_MECHANISM_PTR pMechanism,
 	}
 
 	if (prime_attr == NULL || base_attr == NULL) {
-		EP11TOK_ELOG(1,"incomplete template prime_attr=%p base_attr=%p", prime_attr, base_attr);
+		TRACE_ERROR("%s Incomplete template prime_attr=%p base_attr=%p\n",
+			    __func__, prime_attr, base_attr);
 		rc = CKR_TEMPLATE_INCOMPLETE;
 		goto dh_generate_keypair_end;
 	}
@@ -2015,30 +1999,32 @@ static CK_RV dh_generate_keypair(CK_MECHANISM_PTR pMechanism,
 	rc = build_attribute(CKA_PRIME, prime_attr->pValue,
 			     prime_attr->ulValueLen, &attr);
 	if (rc != CKR_OK) {
-		EP11TOK_ELOG(1,"build_attribute failed with rc=0x%lx",rc);
+		TRACE_ERROR("%s build_attribute failed with rc=0x%lx\n", __func__, rc);
 		goto dh_generate_keypair_end;
 	}
 	rc = template_update_attribute(priv_tmpl, attr);
 	if (rc != CKR_OK) {
-		EP11TOK_ELOG(1,"template_update_attribute failed with rc=0x%lx",rc);
+		TRACE_ERROR("%s template_update_attribute failed with rc=0x%lx\n",
+			    __func__, rc);
 		goto dh_generate_keypair_end;
 	}
 	rc = build_attribute(CKA_BASE, base_attr->pValue,
 				base_attr->ulValueLen, &attr);
 	if (rc != CKR_OK) {
-		EP11TOK_ELOG(1,"build_attribute failed with rc=0x%lx",rc);
+		TRACE_ERROR("%s build_attribute failed with rc=0x%lx\n", __func__, rc);
 		goto dh_generate_keypair_end;
 	}
 	rc = template_update_attribute(priv_tmpl, attr);
 	if (rc != CKR_OK) {
-		EP11TOK_ELOG(1,"template_update_attribute failed with rc=0x%lx",rc);
+		TRACE_ERROR("%s template_update_attribute failed with rc=0x%lx\n",
+			    __func__, rc);
 		goto dh_generate_keypair_end;
 	}
 
 	/* copy CKA_PRIME/CKA_BASE values */
 	dh_pgs.pg = malloc(p_len*2);
 	if (!dh_pgs.pg) {
-		EP11TOK_ELOG(1,"Memory allocation failed.");
+		TRACE_ERROR("%s Memory allocation failed\n", __func__);
 		return CKR_HOST_MEMORY;
 	}
 	memset(dh_pgs.pg,0,p_len*2);
@@ -2049,8 +2035,12 @@ static CK_RV dh_generate_keypair(CK_MECHANISM_PTR pMechanism,
 	memcpy(dh_pgs.pg + p_len + (p_len - g_len),base_attr->pValue,g_len);
 	dh_pgs.pg_bytes = p_len * 2;
 
-	EP11TOK_DUMP(2, "P:", &dh_pgs.pg[0], p_len);
-	EP11TOK_DUMP(2, "G:", &dh_pgs.pg[p_len], p_len);
+#ifdef DEBUG
+	TRACE_DEVEL("%s P:\n", __func__);
+	TRACE_DEVEL_DUMP(&dh_pgs.pg[0], p_len);
+	TRACE_DEVEL("%s G:\n", __func__);
+	TRACE_DEVEL_DUMP(&dh_pgs.pg[p_len], p_len);
+#endif
 
 	/* add special attribute, do not add it to ock's pPublicKeyTemplate */
 	CK_ATTRIBUTE pgs[] = { CKA_IBM_STRUCT_PARAMS, (CK_VOID_PTR) dh_pgs.pg,
@@ -2066,7 +2056,7 @@ static CK_RV dh_generate_keypair(CK_MECHANISM_PTR pMechanism,
 				&publ_op.blob_size, ep11tok_target);
 
 	if (rc != CKR_OK) {
-		EP11TOK_ELOG(1,"m_GenerateKeyPair failed rc=0x%lx", rc);
+		TRACE_ERROR("%s m_GenerateKeyPair failed rc=0x%lx\n", __func__, rc);
 		goto dh_generate_keypair_end;
 	}
 
@@ -2074,44 +2064,49 @@ static CK_RV dh_generate_keypair(CK_MECHANISM_PTR pMechanism,
 	publ_op.blob_id = ep11_blobs_inc();
 	priv_op.blob_id = ep11_blobs_inc();
 
-	EP11TOK_LOG(2,"rc=0x%lx blobs1=0x%llx blobs2=0x%llx plen=%d pub.blob_size=0x%x priv.blob_size=0x%x",
-		rc, ep11_blobs-1, ep11_blobs-2, p_len, publ_op.blob_size,
-		priv_op.blob_size);
+	TRACE_INFO("%s rc=0x%lx blobs1=0x%llx blobs2=0x%llx plen=%d"
+		   " pub.blob_size=0x%x priv.blob_size=0x%x\n",
+		   __func__, rc, ep11_blobs-1, ep11_blobs-2, p_len,
+		   publ_op.blob_size, priv_op.blob_size);
 
 	/* store the blobs */
 	rc = build_attribute(CKA_IBM_OPAQUE, (CK_BYTE *) &publ_op,
 			     sizeof(ep11_opaque), &opaque_attr);
 	if (rc != CKR_OK) {
-		EP11TOK_ELOG(1,"build_attribute failed with rc=0x%lx",rc);
+		TRACE_ERROR("%s build_attribute failed with rc=0x%lx\n", __func__, rc);
 		goto dh_generate_keypair_end;
 	}
 
 	rc = template_update_attribute(publ_tmpl, opaque_attr);
 	if (rc != CKR_OK) {
-		EP11TOK_ELOG(1,"template_update_attribute failed with rc=0x%lx",rc);
-		goto dh_generate_keypair_end;
-	}
-    
-	rc = build_attribute(CKA_IBM_OPAQUE, (CK_BYTE *) &priv_op,
-			     sizeof(ep11_opaque), &opaque_attr);
-	if (rc != CKR_OK) {
-		EP11TOK_ELOG(1,"build_attribute failed with rc=0x%lx",rc);
-		goto dh_generate_keypair_end;
-	}
-      
-	rc = template_update_attribute(priv_tmpl, opaque_attr);
-	if (rc != CKR_OK) {
-		EP11TOK_ELOG(1,"template_update_attribute failed with rc=0x%lx",rc);
+		TRACE_ERROR("%s template_update_attribute failed with rc=0x%lx\n",
+			    __func__, rc);
 		goto dh_generate_keypair_end;
 	}
 
-	/* only debug */
-	EP11TOK_DUMP(2, "DH SPKI", publ_op.blob, publ_op.blob_size);
+	rc = build_attribute(CKA_IBM_OPAQUE, (CK_BYTE *) &priv_op,
+			     sizeof(ep11_opaque), &opaque_attr);
+	if (rc != CKR_OK) {
+		TRACE_ERROR("%s build_attribute failed with rc=0x%lx\n", __func__, rc);
+		goto dh_generate_keypair_end;
+	}
+
+	rc = template_update_attribute(priv_tmpl, opaque_attr);
+	if (rc != CKR_OK) {
+		TRACE_ERROR("%s template_update_attribute failed with rc=0x%lx\n",
+			    __func__, rc);
+		goto dh_generate_keypair_end;
+	}
+
+#ifdef DEBUG
+	TRACE_DEVEL("%s DH SPKI\n", __func__ );
+	TRACE_DEVEL_DUMP(publ_op.blob, publ_op.blob_size);
+#endif
 
 	/* CKA_VALUE of the public key must hold 'y' */
 	rc = ep11_spki_key(publ_op.blob, &y_start, &bit_str_len);
 	if (rc != CKR_OK) {
-		EP11TOK_ELOG(1,"ber_decode SKPI failed rc=0x%lx", rc);
+		TRACE_ERROR("%s ber_decode SKPI failed rc=0x%lx\n", __func__, rc);
 		rc = CKR_GENERAL_ERROR;
 		goto dh_generate_keypair_end;
 	}
@@ -2119,13 +2114,14 @@ static CK_RV dh_generate_keypair(CK_MECHANISM_PTR pMechanism,
 	/* DHPublicKey ::= INTEGER -- public key, y = g^x mod p */
 	rc = ber_decode_INTEGER(y_start, &data, &data_len, &field_len);
 	if (rc != CKR_OK) {
-		EP11TOK_ELOG(1,"ber_decode_INTEGER failed rc=0x%lx", rc);
+		TRACE_ERROR("%s ber_decode_INTEGER failed rc=0x%lx\n", __func__, rc);
 		rc = CKR_GENERAL_ERROR;
 		goto dh_generate_keypair_end;
 	}
 
-	EP11TOK_LOG(2,"DH SPKI decode INTEGER rc=0x%lx y_start=0x%x field_len=%lu data_len=%lu data=0x%hhx",
-		    rc, y_start[1], field_len, data_len, data[0]);
+	TRACE_INFO("%s DH SPKI decode INTEGER rc=0x%lx y_start=0x%x"
+		   " field_len=%lu data_len=%lu data=0x%hhx\n",
+		   __func__, rc, y_start[1], field_len, data_len, data[0]);
 
 	/* remove leading zero, a leading zero is needed
 	 * (according to standard) if left most bit of first byte is 1,
@@ -2136,19 +2132,21 @@ static CK_RV dh_generate_keypair(CK_MECHANISM_PTR pMechanism,
 	if (data[0] == 0) {
 		data_len = data_len - 1;
 		data = data + 1;
-		EP11TOK_LOG(2,"DH SPKI removed leading zero rc=0x%lx y_start=0x%x field_len=%lu data_len=%lu data=0x%hhx",
-			    rc, y_start[1], field_len, data_len, data[0]);
+		TRACE_INFO("%s DH SPKI removed leading zero rc=0x%lx"
+			   " y_start=0x%x field_len=%lu data_len=%lu data=0x%hhx\n",
+			   __func__, rc, y_start[1], field_len, data_len, data[0]);
 	}
 
 	rc = build_attribute(CKA_VALUE,data, data_len, &value_attr);
 	if (rc != CKR_OK) {
-		EP11TOK_ELOG(1,"build_attribute failed with rc=0x%lx",rc);
+		TRACE_ERROR("%s build_attribute failed with rc=0x%lx\n", __func__, rc);
 		goto dh_generate_keypair_end;
 	}
 
 	rc = template_update_attribute(publ_tmpl, value_attr);
 	if (rc != CKR_OK) {
-		EP11TOK_ELOG(1,"template_update_attribute failed with rc=0x%lx",rc);
+		TRACE_ERROR("%s template_update_attribute failed with rc=0x%lx\n",
+			    __func__, rc);
 	}
 
 dh_generate_keypair_end:
@@ -2175,7 +2173,7 @@ static CK_RV dsa_generate_keypair(CK_MECHANISM_PTR pMechanism,
 	CK_ATTRIBUTE *opaque_attr = NULL;
 	CK_ATTRIBUTE *value_attr = NULL;
 	CK_ATTRIBUTE *attr = NULL;
-	size_t p_len,q_len,g_len;
+	size_t p_len=0, q_len=0, g_len=0;
 	int i,new_public_attr;
 	CK_ATTRIBUTE *pPublicKeyTemplate_new = NULL;
 	CK_BYTE *key;
@@ -2191,7 +2189,7 @@ static CK_RV dsa_generate_keypair(CK_MECHANISM_PTR pMechanism,
 		size_t pqg_bytes;   /* total size: 3*bytecount(P) */
 		unsigned char *pqg;
 	} dsa_pqgs;
-
+	memset(&dsa_pqgs, 0, sizeof(dsa_pqgs));
 	memset(&publ_op, 0, sizeof(publ_op));
 	memset(&priv_op, 0, sizeof(priv_op));
 	publ_op.blob_size = blobsize;
@@ -2202,7 +2200,7 @@ static CK_RV dsa_generate_keypair(CK_MECHANISM_PTR pMechanism,
 	 */
 	pPublicKeyTemplate_new = (CK_ATTRIBUTE *)malloc(sizeof(CK_ATTRIBUTE) * ulPublicKeyAttributeCount);
 	if (!pPublicKeyTemplate_new) {
-		EP11TOK_ELOG(1,"Memory allocation failed.");
+		TRACE_ERROR("%s Memory allocation failed\n", __func__);
 		return CKR_HOST_MEMORY;
 	}
 	 memset(pPublicKeyTemplate_new, 0,
@@ -2237,39 +2235,39 @@ static CK_RV dsa_generate_keypair(CK_MECHANISM_PTR pMechanism,
 	rc = build_attribute(CKA_PRIME, prime_attr->pValue,
 			     prime_attr->ulValueLen, &attr);
 	if (rc != CKR_OK) {
-		EP11TOK_ELOG(1,"build_attribute failed with rc=0x%lx",rc);
+		TRACE_ERROR("%s build_attribute failed with rc=0x%lx\n", __func__, rc);
 		goto dsa_generate_keypair_end;
 	}
 
 	rc = template_update_attribute( priv_tmpl, attr);
 	if (rc != CKR_OK) {
-		EP11TOK_ELOG(1,"template_update_attribute failed with rc=0x%lx",rc);
+		TRACE_ERROR("%s template_update_attribute failed with rc=0x%lx\n", __func__, rc);
 		goto dsa_generate_keypair_end;
 	}
 
 	rc = build_attribute(CKA_BASE, base_attr->pValue,
 			     base_attr->ulValueLen, &attr);
 	if (rc != CKR_OK) {
-		EP11TOK_ELOG(1,"build_attribute failed with rc=0x%lx",rc);
+		TRACE_ERROR("%s build_attribute failed with rc=0x%lx\n", __func__, rc);
 		goto dsa_generate_keypair_end;
 	}
 
 	rc = template_update_attribute(priv_tmpl, attr);
 	if (rc != CKR_OK) {
-		EP11TOK_ELOG(1,"template_update_attribute failed with rc=0x%lx",rc);
+		TRACE_ERROR("%s template_update_attribute failed with rc=0x%lx\n", __func__, rc);
 		goto dsa_generate_keypair_end;
 	}
 
 	rc = build_attribute(CKA_PRIME, sub_prime_attr->pValue,
 			     sub_prime_attr->ulValueLen, &attr);
 	if (rc != CKR_OK) {
-		EP11TOK_ELOG(1,"build_attribute failed with rc=0x%lx",rc);
+		TRACE_ERROR("%s build_attribute failed with rc=0x%lx\n", __func__, rc);
 		goto dsa_generate_keypair_end;
 	}
 
 	rc = template_update_attribute(priv_tmpl, attr);
 	if (rc != CKR_OK) {
-		EP11TOK_ELOG(1,"template_update_attribute failed with rc=0x%lx",rc);
+		TRACE_ERROR("%s template_update_attribute failed with rc=0x%lx\n", __func__, rc);
 		goto dsa_generate_keypair_end;
 	}
 
@@ -2279,7 +2277,7 @@ static CK_RV dsa_generate_keypair(CK_MECHANISM_PTR pMechanism,
 	 */
 	dsa_pqgs.pqg = malloc(p_len*3);
 	if (!dsa_pqgs.pqg) {
-		EP11TOK_ELOG(1,"Memory allocation failed.");
+		TRACE_ERROR("%s Memory allocation failed\n", __func__);
 		return CKR_HOST_MEMORY;
 	}
 	memset(dsa_pqgs.pqg, 0, p_len*3);
@@ -2290,12 +2288,17 @@ static CK_RV dsa_generate_keypair(CK_MECHANISM_PTR pMechanism,
 		base_attr->pValue, g_len);
 	dsa_pqgs.pqg_bytes = p_len * 3;
 
-	EP11TOK_DUMP(2, "P:", &dsa_pqgs.pqg[0], p_len);
-	EP11TOK_DUMP(2, "Q:", &dsa_pqgs.pqg[p_len], p_len);
-	EP11TOK_DUMP(2, "G:", &dsa_pqgs.pqg[2*p_len], p_len);
+#ifdef DEBUG
+	TRACE_DEVEL("%s P:\n", __func__);
+	TRACE_DEVEL_DUMP(&dsa_pqgs.pqg[0], p_len);
+	TRACE_DEVEL("%s Q:\n", __func__);
+	TRACE_DEVEL_DUMP(&dsa_pqgs.pqg[p_len], p_len);
+	TRACE_DEVEL("%s G:\n", __func__);
+	TRACE_DEVEL_DUMP(&dsa_pqgs.pqg[2*p_len], p_len);
+#endif
 
 	CK_ATTRIBUTE pqgs[] = { CKA_IBM_STRUCT_PARAMS, (CK_VOID_PTR)dsa_pqgs.pqg,
-                            dsa_pqgs.pqg_bytes };
+			    dsa_pqgs.pqg_bytes };
 	/* add special attribute, do not add it to ock's pPublicKeyTemplate */
 	memcpy(&(pPublicKeyTemplate_new[new_public_attr]),
 		&(pqgs[0]), sizeof(CK_ATTRIBUTE));
@@ -2305,7 +2308,8 @@ static CK_RV dsa_generate_keypair(CK_MECHANISM_PTR pMechanism,
 				&dsa_pPublicKeyTemplate,
 				&dsa_ulPublicKeyAttributeCount);
 	if (rc != CKR_OK) {
-		EP11TOK_ELOG(1,"RSA / EC check public key attributes failed with rc=0x%lx",rc);
+		TRACE_ERROR("%s RSA/EC check public key attributes failed with rc=0x%lx\n",
+			    __func__, rc);
 		return rc;
 	}
 
@@ -2314,7 +2318,8 @@ static CK_RV dsa_generate_keypair(CK_MECHANISM_PTR pMechanism,
 				&dsa_pPrivateKeyTemplate,
 				&dsa_ulPrivateKeyAttributeCount);
 	if (rc != CKR_OK) {
-		EP11TOK_ELOG(1,"RSA / EC check private key attributes failed with rc=0x%lx",rc);
+		TRACE_ERROR("%s RSA/EC check private key attributes failed with rc=0x%lx\n",
+			    __func__, rc);
 		return rc;
 	}
 
@@ -2327,68 +2332,76 @@ static CK_RV dsa_generate_keypair(CK_MECHANISM_PTR pMechanism,
 			       &publ_op.blob_size, ep11tok_target);
 
 	if (rc != CKR_OK) {
-		EP11TOK_ELOG(1,"m_GenerateKeyPair failed rc=0x%lx", rc);
+		TRACE_ERROR("%s m_GenerateKeyPair failed with rc=0x%lx\n", __func__, rc);
 		goto dsa_generate_keypair_end;
 	}
 
 	publ_op.blob_id = ep11_blobs_inc();
 	priv_op.blob_id = ep11_blobs_inc();
 
-	EP11TOK_LOG(2,"rc=0x%lx blobs1=0x%llx blobs2=0x%llx p_len=%d pub.blob_size=0x%x priv.blob_size=0x%x npattr=0x%x",
-		    rc, ep11_blobs-1, ep11_blobs-2, p_len, publ_op.blob_size,
-		    priv_op.blob_size, new_public_attr+1);
+	TRACE_INFO("%s rc=0x%lx blobs1=0x%llx blobs2=0x%llx p_len=%d"
+		   " pub.blob_size=0x%x priv.blob_size=0x%x npattr=0x%x\n",
+		   __func__, rc, ep11_blobs-1, ep11_blobs-2, p_len,
+		   publ_op.blob_size, priv_op.blob_size, new_public_attr+1);
 
 	rc = build_attribute(CKA_IBM_OPAQUE, (CK_BYTE *) &publ_op,
 			     sizeof(ep11_opaque), &opaque_attr);
 	if (rc != CKR_OK) {
-		EP11TOK_ELOG(1,"build_attribute failed with rc=0x%lx",rc);
+		TRACE_ERROR("%s build_attribute failed with rc=0x%lx\n", __func__, rc);
 		goto dsa_generate_keypair_end;
 	}
 
 	rc = template_update_attribute(publ_tmpl, opaque_attr);
 	if (rc != CKR_OK) {
-		EP11TOK_ELOG(1,"template_update_attribute failed with rc=0x%lx",rc);
+		TRACE_ERROR("%s template_update_attribute failed with rc=0x%lx\n",
+			    __func__, rc);
 		goto dsa_generate_keypair_end;
 	}
 
 	rc = build_attribute(CKA_IBM_OPAQUE, (CK_BYTE *) &priv_op,
 			     sizeof(ep11_opaque), &opaque_attr);
 	if (rc != CKR_OK) {
-		EP11TOK_ELOG(1,"build_attribute failed with rc=0x%lx",rc);
+		TRACE_ERROR("%s build_attribute failed with rc=0x%lx\n", __func__, rc);
 		goto dsa_generate_keypair_end;
 	}
-    
+
 	rc = template_update_attribute(priv_tmpl, opaque_attr);
 	if (rc != CKR_OK) {
-		EP11TOK_ELOG(1,"template_update_attribute failed with rc=0x%lx",rc);
+		TRACE_ERROR("%s template_update_attribute failed with rc=0x%lx\n",
+			    __func__, rc);
 		goto dsa_generate_keypair_end;
 	}
 
 	/* set CKA_VALUE of the public key, first get key from SPKI */
 	rc = ep11_spki_key(publ_op.blob, &key, &bit_str_len);
 	if (rc != CKR_OK) {
-		EP11TOK_ELOG(1,"reading DSA SPKI failed with rc=0x%lx",rc);
+		TRACE_ERROR("%s reading DSA SPKI failed with rc=0x%lx\n", __func__, rc);
 		goto dsa_generate_keypair_end;
 	}
 
 	/* key must be an integer */
 	rc = ber_decode_INTEGER(key, &data, &data_len, &field_len);
 	if (rc != CKR_OK) {
-		EP11TOK_ELOG(1,"reading DSA public key failed with rc=0x%lx",rc);
+		TRACE_ERROR("%s reading DSA public key failed with rc=0x%lx\n",
+			    __func__, rc);
 		goto dsa_generate_keypair_end;
 	}
 
-	EP11TOK_DUMP(2, "dsa_generate_keypair public key", data, data_len);
+#ifdef DEBUG
+	TRACE_DEVEL("%s dsa_generate_keypair public key:\n", __func__);
+	TRACE_DEVEL_DUMP(data, data_len);
+#endif
 
 	rc = build_attribute(CKA_VALUE, data, data_len, &value_attr);
 	if (rc != CKR_OK) {
-		EP11TOK_ELOG(1,"build_attribute failed with rc=0x%lx",rc);
+		TRACE_ERROR("%s build_attribute failed with rc=0x%lx\n", __func__, rc);
 		goto dsa_generate_keypair_end;
 	}
 
 	rc = template_update_attribute(publ_tmpl, value_attr);
 	if (rc != CKR_OK) {
-		EP11TOK_ELOG(1,"template_update_attribute failed with rc=0x%lx",rc);
+		TRACE_ERROR("%s template_update_attribute failed with rc=0x%lx\n",
+			    __func__, rc);
 	}
 
 dsa_generate_keypair_end:
@@ -2439,7 +2452,8 @@ static CK_RV rsa_ec_generate_keypair(CK_MECHANISM_PTR pMechanism,
 		 (pMechanism->mechanism == CKM_RSA_X9_31_KEY_PAIR_GEN))
 		ktype = CKK_RSA;
 	else {
-		EP11TOK_ELOG(1,"Neither RSA nor EC mech type provided for RSA/EC_key_pair_gen");
+		TRACE_ERROR("%s Neither RSA nor EC mech type provided for RSA/EC_key_pair_gen\n",
+			    __func__);
 		return CKR_MECHANISM_INVALID;
 	}
 
@@ -2448,7 +2462,8 @@ static CK_RV rsa_ec_generate_keypair(CK_MECHANISM_PTR pMechanism,
 				  &new_pPublicKeyTemplate,
 				  &new_ulPublicKeyAttributeCount);
 	if (rc != CKR_OK) {
-		EP11TOK_ELOG(1,"RSA / EC check public key attributes failed with rc=0x%lx",rc);
+		TRACE_ERROR("%s RSA/EC check public key attributes failed with rc=0x%lx\n",
+			    __func__, rc);
 		return rc;
 	}
 
@@ -2457,16 +2472,17 @@ static CK_RV rsa_ec_generate_keypair(CK_MECHANISM_PTR pMechanism,
 				  &new_pPrivateKeyTemplate,
 				  &new_ulPrivateKeyAttributeCount);
 	if (rc != CKR_OK) {
-		EP11TOK_ELOG(1,"RSA / EC check private key attributes failed with rc=0x%lx",rc);
+		TRACE_ERROR("%s RSA/EC check private key attributes failed with rc=0x%lx\n",
+			    __func__, rc);
 		goto error;
 	}
 
 	/* debug */
 	for (i = 0; i < new_ulPrivateKeyAttributeCount; i++) {
-		EP11TOK_LOG(2,"gen priv attr type=0x%lx valuelen=0x%lx attrcnt=0x%lx",
-			    new_pPrivateKeyTemplate[i].type,
-			    new_pPrivateKeyTemplate[i].ulValueLen,
-			    new_ulPrivateKeyAttributeCount);
+		TRACE_INFO("%s gen priv attr type=0x%lx valuelen=0x%lx attrcnt=0x%lx\n",
+			   __func__, new_pPrivateKeyTemplate[i].type,
+			   new_pPrivateKeyTemplate[i].ulValueLen,
+			   new_ulPrivateKeyAttributeCount);
 	}
 
 	rc = m_GenerateKeyPair(pMechanism, new_pPublicKeyTemplate,
@@ -2476,19 +2492,19 @@ static CK_RV rsa_ec_generate_keypair(CK_MECHANISM_PTR pMechanism,
 			       &privkey_blob_len, spki,&spki_len,
 			       ep11tok_target);
 	if (rc != CKR_OK) {
-		EP11TOK_ELOG(1,"m_GenerateKeyPair rc=0x%lx spki_len=0x%x privkey_blob_len=0x%x"
-			     " ep11_blobs=0x%llx ep11_blobs+1=0x%llx mech='%s'",
-			     rc, spki_len, privkey_blob_len, ep11_blobs,
-			     ep11_blobs+1, ep11_get_ckm(pMechanism->mechanism));
+		TRACE_ERROR("%s m_GenerateKeyPair rc=0x%lx spki_len=0x%x privkey_blob_len=0x%x"
+			    " ep11_blobs=0x%llx ep11_blobs+1=0x%llx mech='%s'\n",
+			    __func__, rc, spki_len, privkey_blob_len, ep11_blobs,
+			    ep11_blobs+1, ep11_get_ckm(pMechanism->mechanism));
 		goto error;
 	}
-	EP11TOK_LOG(2,"m_GenerateKeyPair rc=0x%lx spki_len=0x%x privkey_blob_len=0x%x"
-		    " ep11_blobs=0x%llx ep11_blobs+1=0x%llx mech='%s'",
-		    rc, spki_len, privkey_blob_len, ep11_blobs, ep11_blobs+1,
-		    ep11_get_ckm(pMechanism->mechanism));
+	TRACE_INFO("%s m_GenerateKeyPair rc=0x%lx spki_len=0x%x privkey_blob_len=0x%x"
+		   " ep11_blobs=0x%llx ep11_blobs+1=0x%llx mech='%s'\n",
+		   __func__, rc, spki_len, privkey_blob_len, ep11_blobs, ep11_blobs+1,
+		   ep11_get_ckm(pMechanism->mechanism));
 
 	if (spki_len > blobsize || privkey_blob_len > blobsize) {
-		EP11TOK_ELOG(1,"blobsize error");
+		TRACE_ERROR("%s blobsize error\n", __func__);
 		rc = CKR_KEY_INDIGESTIBLE;
 		goto error;
 	}
@@ -2507,34 +2523,41 @@ static CK_RV rsa_ec_generate_keypair(CK_MECHANISM_PTR pMechanism,
 	rc = build_attribute(CKA_IBM_OPAQUE, (CK_BYTE *) &publ_op,
 			     sizeof(ep11_opaque), &attr);
 	if (rc != CKR_OK) {
-		EP11TOK_ELOG(1,"build_attribute failed with rc=0x%lx",rc);
+		TRACE_ERROR("%s build_attribute failed with rc=0x%lx\n", __func__, rc);
 		goto error;
 	}
 	rc = template_update_attribute(publ_tmpl, attr);
 	if (rc != CKR_OK) {
-		EP11TOK_ELOG(1,"template_update_attribute failed with rc=0x%lx",rc);
+		TRACE_ERROR("%s template_update_attribute failed with rc=0x%lx\n",
+			    __func__, rc);
 		goto error;
 	}
 
 	rc = build_attribute(CKA_IBM_OPAQUE, (CK_BYTE *) &priv_op,
 			     sizeof(ep11_opaque), &attr);
 	if (rc != CKR_OK) {
-		EP11TOK_ELOG(1,"build_attribute failed with rc=0x%lx",rc);
+		TRACE_ERROR("%s build_attribute failed with rc=0x%lx\n",
+			    __func__, rc);
 		goto error;
 	}
 	rc = template_update_attribute(priv_tmpl, attr);
 	if (rc != CKR_OK) {
-		EP11TOK_ELOG(1,"template_update_attribute failed with rc=0x%lx",rc);
+		TRACE_ERROR("%s template_update_attribute failed with rc=0x%lx\n",
+			    __func__, rc);
 		goto error;
 	}
 
 	if (pMechanism->mechanism == CKM_EC_KEY_PAIR_GEN) {
 		/* scan the SPKI for CKA_EC_POINT */
 
-		EP11TOK_DUMP(2, "ec_generate_keypair spki", spki, spki_len);
+#ifdef DEBUG
+		TRACE_DEVEL("%s ec_generate_keypair spki:\n", __func__);
+		TRACE_DEVEL_DUMP(spki, spki_len);
+#endif
 		rc = ep11_spki_key(spki, &key, &bit_str_len);
 		if (rc != CKR_OK) {
-			EP11TOK_ELOG(1,"read key from SPKI failed with rc=0x%lx",rc);
+			TRACE_ERROR("%s read key from SPKI failed with rc=0x%lx\n",
+				    __func__, rc);
 			goto error;
 		}
 
@@ -2549,21 +2572,26 @@ static CK_RV rsa_ec_generate_keypair(CK_MECHANISM_PTR pMechanism,
 		 * bit of the OCTET STRING becomes the least significant bit
 		 * of the BIT STRING.
 		 */
-		EP11TOK_LOG(1,"ecpoint length 0x%lx",bit_str_len);
+		TRACE_INFO("%s ecpoint length 0x%lx\n", __func__, bit_str_len);
 		data_len = bit_str_len;
 		data = key;
 
-		EP11TOK_DUMP(2, "ec_generate_keypair ecpoint", data, data_len);
+#ifdef DEBUG
+		TRACE_DEVEL("%s ec_generate_keypair ecpoint:\n", __func__);
+		TRACE_DEVEL_DUMP(data, data_len);
+#endif
 
 		/* build and add CKA_EC_POINT */
 		rc = build_attribute(CKA_EC_POINT, data, data_len, &attr);
 		if (rc != CKR_OK) {
-			EP11TOK_ELOG(1,"build_attribute failed with rc=0x%lx",rc);
+			TRACE_ERROR("%s build_attribute failed with rc=0x%lx\n",
+				    __func__, rc);
 			goto error;
 		}
 		rc = template_update_attribute(publ_tmpl, attr);
 		if (rc != CKR_OK) {
-			EP11TOK_ELOG(1,"template_update_attribute failed with rc=0x%lx",rc);
+			TRACE_ERROR("%s template_update_attribute failed with rc=0x%lx\n",
+				    __func__, rc);
 			goto error;
 		}
 
@@ -2572,13 +2600,15 @@ static CK_RV rsa_ec_generate_keypair(CK_MECHANISM_PTR pMechanism,
 			rc = build_attribute(attr->type, attr->pValue,
 					     attr->ulValueLen, &n_attr);
 			if (rc != CKR_OK) {
-				EP11TOK_ELOG(1,"build_attribute failed with rc=0x%lx",rc);
+				TRACE_ERROR("%s build_attribute failed with rc=0x%lx\n",
+					    __func__, rc);
 				goto error;
 			}
 
 			rc = template_update_attribute(priv_tmpl, n_attr);
 			if (rc != CKR_OK) {
-				EP11TOK_ELOG(1,"template_update_attribute failed with rc=0x%lx",rc);
+				TRACE_ERROR("%s template_update_attribute failed with rc=0x%lx\n",
+					    __func__, rc);
 				goto error;
 			}
 		}
@@ -2587,13 +2617,15 @@ static CK_RV rsa_ec_generate_keypair(CK_MECHANISM_PTR pMechanism,
 			rc = build_attribute(attr->type, attr->pValue,
 					     attr->ulValueLen, &n_attr);
 			if (rc != CKR_OK) {
-				EP11TOK_ELOG(1,"build_attribute failed with rc=0x%lx",rc);
+				TRACE_ERROR("%s build_attribute failed with rc=0x%lx\n",
+					    __func__, rc);
 				goto error;
 			}
 
 			rc = template_update_attribute(priv_tmpl, n_attr);
 			if (rc != CKR_OK) {
-				EP11TOK_ELOG(1,"template_update_attribute failed with rc=0x%lx",rc);
+				TRACE_ERROR("%s template_update_attribute failed with rc=0x%lx\n",
+					    __func__, rc);
 				goto error;
 			}
 		}
@@ -2606,7 +2638,8 @@ static CK_RV rsa_ec_generate_keypair(CK_MECHANISM_PTR pMechanism,
 
 		rc = ep11_spki_key(spki, &key, &bit_str_len);
 		if (rc != CKR_OK) {
-			EP11TOK_ELOG(1,"read key from SPKI failed with rc=0x%lx",rc);
+			TRACE_ERROR("%s read key from SPKI failed with rc=0x%lx\n",
+				    __func__, rc);
 			goto error;
 		}
 
@@ -2615,28 +2648,35 @@ static CK_RV rsa_ec_generate_keypair(CK_MECHANISM_PTR pMechanism,
 		 */
 		rc = ber_decode_SEQUENCE(key, &data, &data_len, &field_len);
 		if (rc != CKR_OK) {
-			EP11TOK_ELOG(1,"read sequence failed with rc=0x%lx",rc);
+			TRACE_ERROR("%s read sequence failed with rc=0x%lx\n",
+				    __func__, rc);
 			goto error;
 		}
 
 		modulus = key + field_len - data_len;
 		rc = ber_decode_INTEGER(modulus, &data, &data_len, &field_len);
 		if (rc != CKR_OK) {
-			EP11TOK_ELOG(1,"read modulus failed with rc=0x%lx",rc);
+			TRACE_ERROR("%s read modulus failed with rc=0x%lx\n",
+				    __func__, rc);
 			goto error;
 		}
 
-		EP11TOK_DUMP(2, "rsa_generate_keypair modulus", data, data_len);
+#ifdef DEBUG
+		TRACE_DEVEL("%s rsa_generate_keypair modulus:\n", __func__);
+		TRACE_DEVEL_DUMP(data, data_len);
+#endif
 
 		/* build and add CKA_MODULUS */
 		rc = build_attribute(CKA_MODULUS, data, data_len, &attr);
 		if (rc != CKR_OK) {
-			EP11TOK_ELOG(1,"build_attribute failed with rc=0x%lx",rc);
+			TRACE_ERROR("%s build_attribute failed with rc=0x%lx\n",
+				    __func__, rc);
 			goto error;
 		}
 		rc = template_update_attribute(publ_tmpl, attr);
 		if (rc != CKR_OK) {
-			EP11TOK_ELOG(1,"template_update_attribute failed with rc=0x%lx",rc);
+			TRACE_ERROR("%s template_update_attribute failed with rc=0x%lx\n",
+				    __func__, rc);
 			goto error;
 		}
 
@@ -2644,21 +2684,27 @@ static CK_RV rsa_ec_generate_keypair(CK_MECHANISM_PTR pMechanism,
 		publ_exp = modulus + field_len;
 		rc = ber_decode_INTEGER(publ_exp, &data, &data_len, &field_len);
 		if (rc != CKR_OK) {
-			EP11TOK_ELOG(1,"read public exponent failed with rc=0x%lx",rc);
+			TRACE_ERROR("%s read public exponent failed with rc=0x%lx\n",
+				    __func__, rc);
 			goto error;
 		}
 
-		EP11TOK_DUMP(2, "rsa_generate_keypair public exponent", data, data_len);
+#ifdef DEBUG
+		TRACE_DEVEL("%s rsa_generate_keypair public exponent:\n", __func__);
+		TRACE_DEVEL_DUMP(data, data_len);
+#endif
 
 		/* build and add CKA_PUBLIC_EXPONENT */
 		rc = build_attribute(CKA_PUBLIC_EXPONENT, data, data_len, &attr);
 		if (rc != CKR_OK) {
-			EP11TOK_ELOG(1,"build_attribute failed with rc=0x%lx",rc);
+			TRACE_ERROR("%s build_attribute failed with rc=0x%lx\n",
+				    __func__, rc);
 			goto error;
 		}
 		rc = template_update_attribute(publ_tmpl, attr);
 		if (rc != CKR_OK) {
-			EP11TOK_ELOG(1,"template_update_attribute failed with rc=0x%lx",rc);
+			TRACE_ERROR("%s template_update_attribute failed with rc=0x%lx\n",
+				    __func__, rc);
 			goto error;
 		}
 	}
@@ -2691,41 +2737,41 @@ CK_RV token_specific_generate_key_pair(SESSION * sess,
 	CK_ULONG class;
 	CK_ATTRIBUTE *attr = NULL;
 	CK_ATTRIBUTE *n_attr = NULL;
-    
+
 	/* Get the keytype to use when creating the key object */
 	rc = ep11_get_keytype(pPrivateKeyTemplate, ulPrivateKeyAttributeCount,
 				pMechanism, &priv_ktype, &class);
 	if (rc != CKR_OK) {
-		EP11TOK_ELOG(1,"get_keytype failed with rc=0x%lx",rc);
+		TRACE_ERROR("%s get_keytype failed with rc=0x%lx\n", __func__, rc);
 		goto error;
 	}
 
 	rc = ep11_get_keytype(pPublicKeyTemplate, ulPublicKeyAttributeCount,
 				pMechanism, &publ_ktype, &class);
 	if (rc != CKR_OK) {
-		EP11TOK_ELOG(1,"get_keytype failed with rc=0x%lx",rc);
+		TRACE_ERROR("%s get_keytype failed with rc=0x%lx\n", __func__, rc);
 		goto error;
 	}
-    
+
 	/* Now build the skeleton key. */
 	rc = object_mgr_create_skel(sess, pPublicKeyTemplate,
 				    ulPublicKeyAttributeCount, MODE_KEYGEN,
 				    CKO_PUBLIC_KEY, publ_ktype,
 				    &public_key_obj);
 	if (rc != CKR_OK) {
-		TRACE_DEBUG("Object Mgr Create Skeleton failed\n");
+		TRACE_DEBUG("%s Object mgr create skeleton failed\n", __func__);
 		goto error;
 	}
-    
+
 	rc = object_mgr_create_skel(sess, pPrivateKeyTemplate,
 				    ulPrivateKeyAttributeCount, MODE_KEYGEN,
 				    CKO_PRIVATE_KEY, priv_ktype,
 				    &private_key_obj);
 	if (rc != CKR_OK) {
-		TRACE_DEBUG("Object Mgr Create Skeleton failed\n");
+		TRACE_DEBUG("%s Object mgr create skeleton failed\n", __func__);
 		goto error;
 	}
-    
+
 	switch(pMechanism->mechanism) {
 	case CKM_DH_PKCS_KEY_PAIR_GEN:
 		rc = dh_generate_keypair(pMechanism, public_key_obj->template,
@@ -2761,23 +2807,23 @@ CK_RV token_specific_generate_key_pair(SESSION * sess,
 					  sess->handle);
 		break;
 	default:
-		EP11TOK_ELOG(1,"invalid mech %s",
-			     ep11_get_ckm(pMechanism->mechanism));
+		TRACE_ERROR("%s invalid mech %s\n", __func__,
+			    ep11_get_ckm(pMechanism->mechanism));
 		rc = CKR_MECHANISM_INVALID;
 		goto error;
 	}
 
 	if (rc != CKR_OK) {
-		EP11TOK_ELOG(1,"rc=0x%lx hpubkey=0x%lx hprivkey=0x%lx"
-			" pub_name='%s' priv_name='%s' pub_obj=%p priv_obj=%p",
-			rc, *phPublicKey, *phPrivateKey, public_key_obj->name,
-			private_key_obj->name, public_key_obj, private_key_obj);
+		TRACE_ERROR("%s rc=0x%lx hpubkey=0x%lx hprivkey=0x%lx"
+			    " pub_name='%s' priv_name='%s' pub_obj=%p priv_obj=%p\n",
+			    __func__, rc, *phPublicKey, *phPrivateKey, public_key_obj->name,
+			    private_key_obj->name, public_key_obj, private_key_obj);
 		goto error;
 	} else {
-		EP11TOK_LOG(2,"rc=0x%lx hpubkey=0x%lx hprivkey=0x%lx"
-			" pub_name='%s' priv_name='%s' pub_obj=%p priv_obj=%p",
-			rc, *phPublicKey, *phPrivateKey, public_key_obj->name,
-			private_key_obj->name, public_key_obj, private_key_obj);
+		TRACE_INFO("%s rc=0x%lx hpubkey=0x%lx hprivkey=0x%lx"
+			   " pub_name='%s' priv_name='%s' pub_obj=%p priv_obj=%p\n",
+			   __func__, rc, *phPublicKey, *phPrivateKey, public_key_obj->name,
+			   private_key_obj->name, public_key_obj, private_key_obj);
 	}
 
 	/* copy CKA_CLASS, CKA_KEY_TYPE to private template */
@@ -2785,13 +2831,15 @@ CK_RV token_specific_generate_key_pair(SESSION * sess,
 		rc = build_attribute(attr->type, attr->pValue,
 					attr->ulValueLen, &n_attr);
 		if (rc != CKR_OK) {
-			EP11TOK_ELOG(1,"build_attribute failed with rc=0x%lx",rc);
+			TRACE_ERROR("%s build_attribute failed with rc=0x%lx\n",
+				    __func__, rc);
 			goto error;
 		}
 
 		rc = template_update_attribute(private_key_obj->template, n_attr);
 		if (rc != CKR_OK) {
-			EP11TOK_ELOG(1,"template_update_attribute failed with rc=0x%lx",rc);
+			TRACE_ERROR("%s template_update_attribute failed with rc=0x%lx\n",
+				    __func__, rc);
 			goto error;
 		}
 	}
@@ -2800,13 +2848,15 @@ CK_RV token_specific_generate_key_pair(SESSION * sess,
 		rc = build_attribute(attr->type, attr->pValue,
 					attr->ulValueLen, &n_attr);
 		if (rc != CKR_OK) {
-			EP11TOK_ELOG(1,"build_attribute failed with rc=0x%lx",rc);
+			TRACE_ERROR("%s build_attribute failed with rc=0x%lx\n",
+				    __func__, rc);
 			goto error;
 		}
 
 		rc = template_update_attribute(private_key_obj->template, n_attr);
 		if (rc != CKR_OK) {
-			EP11TOK_ELOG(1,"template_update_attribute failed with rc=0x%lx",rc);
+			TRACE_ERROR("%s template_update_attribute failed with rc=0x%lx\n",
+				    __func__, rc);
 			goto error;
 		}
 	}
@@ -2816,13 +2866,13 @@ CK_RV token_specific_generate_key_pair(SESSION * sess,
 	 */
 	rc = object_mgr_create_final(sess, public_key_obj, phPublicKey);
 	if (rc != CKR_OK) {
-		TRACE_DEBUG("Object Mgr Create Final failed\n");
+		TRACE_DEBUG("%s Object mgr create final failed\n", __func__);
 		goto error;
 	}
 
 	rc = object_mgr_create_final(sess, private_key_obj, phPrivateKey);
 	if (rc != CKR_OK) {
-		TRACE_DEBUG("Object Mgr Create Final failed\n");
+		TRACE_DEBUG("%s Object mgr create final failed\n", __func__);
 		object_mgr_destroy_object(sess, *phPublicKey);
 		public_key_obj = NULL;
 		goto error;
@@ -2854,10 +2904,10 @@ static CK_RV h_opaque_2_blob(CK_OBJECT_HANDLE handle,
 	/* find the key obj by the key handle */
 	rc = object_mgr_find_in_map1(handle,&key_obj);
 	if (rc != CKR_OK) {
-		EP11TOK_ELOG(1,"key 0x%lx not mapped", handle);
+		TRACE_ERROR("%s key 0x%lx not mapped\n", __func__, handle);
 		return rc;
 	}
-    
+
 	/* blob already exists */
 	if (template_attribute_find(key_obj->template, CKA_IBM_OPAQUE, &attr) &&
 				    (attr->ulValueLen > 0)) {
@@ -2865,15 +2915,16 @@ static CK_RV h_opaque_2_blob(CK_OBJECT_HANDLE handle,
 		*blob = op->blob;
 		*blob_len = op->blob_size;
 		*kobj = key_obj;
-		EP11TOK_LOG(2,"blob found blob_len=0x%x valuelen=0x%lx blob_id=0x%x", *blob_len, attr->ulValueLen, op->blob_id);
-      
+		TRACE_INFO("%s blob found blob_len=0x%x valuelen=0x%lx blob_id=0x%x\n",
+			   __func__, *blob_len, attr->ulValueLen, op->blob_id);
+
 		return CKR_OK;
 	} else {
-    
+
 		/* should not happen, imported key types not supported
 		 * should cause a failing token_specific_object_add
 		 */
-		EP11TOK_ELOG(1,"no blob");
+		TRACE_ERROR("%s no blob\n", __func__);
 		return CKR_FUNCTION_FAILED;
 	}
 }
@@ -2887,18 +2938,18 @@ CK_RV token_specific_sign_init(SESSION *session, CK_MECHANISM *mech,
 	SIGN_VERIFY_CONTEXT *ctx = &session->sign_ctx;
 	CK_BYTE *ep11_sign_state;
 	size_t ep11_sign_state_l;
- 	OBJECT *key_obj = NULL;
+	OBJECT *key_obj = NULL;
 
 	ep11_sign_state_l = blobsize;
 	ep11_sign_state = malloc(blobsize);
 	if (!ep11_sign_state) {
-		EP11TOK_ELOG(1,"Memory allocation failed.");
+		TRACE_ERROR("%s Memory allocation failed\n", __func__);
 		return CKR_HOST_MEMORY;
 	}
 
 	rc = h_opaque_2_blob(key, &privkey_blob, &blob_len, &key_obj);
 	if (rc != CKR_OK) {
-		EP11TOK_ELOG(1,"no blob rc=0x%lx",rc);
+		TRACE_ERROR("%s no blob rc=0x%lx\n", __func__, rc);
 		return rc;
 	}
 
@@ -2906,7 +2957,8 @@ CK_RV token_specific_sign_init(SESSION *session, CK_MECHANISM *mech,
 			mech, privkey_blob, blob_len, ep11tok_target) ;
 
 	if (rc != CKR_OK) {
-		EP11TOK_ELOG(1,"rc=0x%lx blob_len=0x%x key=0x%lx mech=0x%lx", rc, blob_len, key, mech->mechanism);
+		TRACE_ERROR("%s rc=0x%lx blob_len=0x%x key=0x%lx mech=0x%lx\n",
+			    __func__, rc, blob_len, key, mech->mechanism);
 		free(ep11_sign_state);
 	} else {
 		/* SIGN_VERIFY_CONTEX holds all needed for continuing,
@@ -2917,9 +2969,9 @@ CK_RV token_specific_sign_init(SESSION *session, CK_MECHANISM *mech,
 		ctx->active = TRUE;
 		ctx->context = ep11_sign_state;
 		ctx->context_len = ep11_sign_state_l;
-		
-		EP11TOK_LOG(2,"rc=0x%lx blob_len=0x%x key=0x%lx mech=0x%lx",
-			    rc, blob_len, key, mech->mechanism);
+
+		TRACE_INFO("%s rc=0x%lx blob_len=0x%x key=0x%lx mech=0x%lx\n",
+			   __func__, rc, blob_len, key, mech->mechanism);
 	}
 
 	return rc;
@@ -2937,9 +2989,9 @@ CK_RV token_specific_sign(SESSION *session, CK_BBOOL length_only,
 		    signature, sig_len, ep11tok_target);
 
 	if (rc != CKR_OK) {
-		EP11TOK_ELOG(1,"rc=0x%lx",rc);
+		TRACE_ERROR("%s rc=0x%lx\n", __func__, rc);
 	} else {
-		EP11TOK_LOG(2,"rc=0x%lx",rc);
+		TRACE_INFO("%s rc=0x%lx\n", __func__, rc);
 	}
 
 	return rc;
@@ -2959,9 +3011,9 @@ CK_RV token_specific_sign_update(SESSION *session, CK_BYTE *in_data,
 			  in_data_len, ep11tok_target);
 
 	if (rc != CKR_OK) {
-		EP11TOK_ELOG(1,"rc=0x%lx",rc);
+		TRACE_ERROR("%s rc=0x%lx\n", __func__, rc);
 	} else {
-		EP11TOK_LOG(2,"rc=0x%lx",rc);
+		TRACE_INFO("%s rc=0x%lx\n", __func__, rc);
 	}
 
 	return rc;
@@ -2978,9 +3030,9 @@ CK_RV token_specific_sign_final(SESSION *session, CK_BBOOL length_only,
 			ep11tok_target);
 
 	if (rc != CKR_OK) {
-		EP11TOK_ELOG(1,"rc=0x%lx",rc);
+		TRACE_ERROR("%s rc=0x%lx\n", __func__, rc);
 	} else {
-		EP11TOK_LOG(2,"rc=0x%lx",rc);
+		TRACE_INFO("%s rc=0x%lx\n", __func__, rc);
 	}
 
 	return rc;
@@ -3001,13 +3053,13 @@ CK_RV token_specific_verify_init(SESSION *session, CK_MECHANISM *mech,
 	ep11_sign_state_l = blobsize;
 	ep11_sign_state = malloc(blobsize);
 	if (!ep11_sign_state) {
-		EP11TOK_ELOG(1,"Memory allocation failed.");
+		TRACE_ERROR("%s Memory allocation failed\n", __func__);
 		return CKR_HOST_MEMORY;
 	}
 
 	rc = h_opaque_2_blob(key, &spki, &spki_len, &key_obj);
 	if (rc != CKR_OK) {
-		EP11TOK_ELOG(1,"no blob rc=0x%lx",rc);
+		TRACE_ERROR("%s no blob rc=0x%lx\n", __func__, rc);
 		return rc;
 	}
 
@@ -3015,7 +3067,8 @@ CK_RV token_specific_verify_init(SESSION *session, CK_MECHANISM *mech,
 			  spki, spki_len, ep11tok_target);
 
 	if (rc != CKR_OK) {
-		EP11TOK_ELOG(1,"rc=0x%lx spki_len=0x%x key=0x%lx ep11_sing_state_l=0x%x mech=0x%lx", rc, spki_len, key, ep11_sign_state_l, mech->mechanism);
+		TRACE_ERROR("%s rc=0x%lx spki_len=0x%x key=0x%lx ep11_sing_state_l=0x%x mech=0x%lx\n",
+			    __func__, rc, spki_len, key, ep11_sign_state_l, mech->mechanism);
 	} else {
 		ctx->key = key;
 		ctx->multi = FALSE;
@@ -3023,7 +3076,8 @@ CK_RV token_specific_verify_init(SESSION *session, CK_MECHANISM *mech,
 		ctx->context = ep11_sign_state;
 		ctx->context_len = ep11_sign_state_l;
 
-		EP11TOK_LOG(2,"rc=0x%lx spki_len=0x%x key=0x%lx ep11_sing_state_l=0x%x mech=0x%lx", rc, spki_len, key, ep11_sign_state_l, mech->mechanism);
+		TRACE_INFO("%s rc=0x%lx spki_len=0x%x key=0x%lx ep11_sing_state_l=0x%x mech=0x%lx\n",
+			   __func__, rc, spki_len, key, ep11_sign_state_l, mech->mechanism);
 	}
 
 	return rc;
@@ -3041,9 +3095,9 @@ CK_RV token_specific_verify(SESSION *session, CK_BYTE *in_data,
 			signature, sig_len, ep11tok_target);
 
 	if (rc != CKR_OK) {
-		EP11TOK_ELOG(1,"rc=0x%lx",rc);
+		TRACE_ERROR("%s rc=0x%lx\n", __func__, rc);
 	} else {
-		EP11TOK_LOG(2,"rc=0x%lx",rc);
+		TRACE_INFO("%s rc=0x%lx\n", __func__, rc);
 	}
 
 	return rc;
@@ -3063,9 +3117,9 @@ CK_RV token_specific_verify_update(SESSION *session, CK_BYTE *in_data,
 				in_data_len, ep11tok_target);
 
 	if (rc != CKR_OK) {
-		EP11TOK_ELOG(1,"rc=0x%lx",rc);
+		TRACE_ERROR("%s rc=0x%lx\n", __func__, rc);
 	} else {
-		EP11TOK_LOG(2,"rc=0x%lx",rc);
+		TRACE_INFO("%s rc=0x%lx\n", __func__, rc);
 	}
 
 	return rc;
@@ -3081,9 +3135,9 @@ CK_RV token_specific_verify_final(SESSION *session, CK_BYTE *signature,
 	rc = m_VerifyFinal(ctx->context, ctx->context_len, signature,
 			    sig_len, ep11tok_target);
 	if (rc != CKR_OK) {
-		EP11TOK_ELOG(1,"rc=0x%lx",rc);
+		TRACE_ERROR("%s rc=0x%lx\n", __func__, rc);
 	} else {
-		EP11TOK_LOG(2,"rc=0x%lx",rc);
+		TRACE_INFO("%s rc=0x%lx\n", __func__, rc);
 	}
 
 	return rc;
@@ -3100,9 +3154,9 @@ CK_RV token_specific_decrypt_final(SESSION *session, CK_BYTE_PTR output_part,
 			    output_part, p_output_part_len, ep11tok_target);
 
 	if (rc != CKR_OK) {
-		EP11TOK_ELOG(1,"rc=0x%lx",rc);
+		TRACE_ERROR("%s rc=0x%lx\n", __func__, rc);
 	} else {
-		EP11TOK_LOG(2,"rc=0x%lx",rc);
+		TRACE_INFO("%s rc=0x%lx\n", __func__, rc);
 	}
 
 	return rc;
@@ -3121,9 +3175,9 @@ CK_RV token_specific_decrypt(SESSION *session, CK_BYTE_PTR input_data,
 			ep11tok_target);
 
 	if (rc != CKR_OK) {
-		EP11TOK_ELOG(1,"rc=0x%lx",rc);
+		TRACE_ERROR("%s rc=0x%lx\n", __func__, rc);
 	} else {
-		EP11TOK_LOG(2,"rc=0x%lx",rc);
+		TRACE_INFO("%s rc=0x%lx\n", __func__, rc);
 	}
 
 	return rc;
@@ -3148,9 +3202,9 @@ CK_RV token_specific_decrypt_update(SESSION *session, CK_BYTE_PTR input_part,
 			     p_output_part_len, ep11tok_target) ;
 
 	if (rc != CKR_OK) {
-		EP11TOK_ELOG(1,"rc=0x%lx",rc);
+		TRACE_ERROR("%s rc=0x%lx\n", __func__, rc);
 	} else {
-		EP11TOK_LOG(2,"rc=0x%lx",rc);
+		TRACE_INFO("%s rc=0x%lx\n", __func__, rc);
 	}
 
 	return rc;
@@ -3167,9 +3221,9 @@ CK_RV token_specific_encrypt_final(SESSION *session, CK_BYTE_PTR output_part,
 			    output_part, p_output_part_len, ep11tok_target);
 
 	if (rc != CKR_OK) {
-		EP11TOK_ELOG(1,"rc=0x%lx",rc);
+		TRACE_ERROR("%s rc=0x%lx\n", __func__, rc);
 	} else {
-		EP11TOK_LOG(2,"rc=0x%lx",rc);
+		TRACE_INFO("%s rc=0x%lx\n", __func__, rc);
 	}
 
 	return rc;
@@ -3188,9 +3242,9 @@ CK_RV token_specific_encrypt(SESSION *session, CK_BYTE_PTR input_data,
 		       ep11tok_target);
 
 	if (rc != CKR_OK) {
-		EP11TOK_ELOG(1,"rc=0x%lx",rc);
+		TRACE_ERROR("%s rc=0x%lx\n", __func__, rc);
 	} else {
-		EP11TOK_LOG(2,"rc=0x%lx",rc);
+		TRACE_INFO("%s rc=0x%lx\n", __func__, rc);
 	}
 
 	return rc;
@@ -3215,9 +3269,9 @@ CK_RV token_specific_encrypt_update(SESSION *session, CK_BYTE_PTR input_part,
 			     p_output_part_len, ep11tok_target);
 
 	if (rc != CKR_OK) {
-		EP11TOK_ELOG(1,"rc=0x%lx",rc);
+		TRACE_ERROR("%s rc=0x%lx\n", __func__, rc);
 	} else {
-		EP11TOK_LOG(2,"rc=0x%lx",rc);
+		TRACE_INFO("%s rc=0x%lx\n", __func__, rc);
 	}
 
 	return rc;
@@ -3239,13 +3293,13 @@ static CK_RV ep11_ende_crypt_init(SESSION *session, CK_MECHANISM_PTR mech,
 	ep11_state_l = blobsize;
 	ep11_state = malloc(blobsize); /* freed by encr/decr_mgr.c */
 	if (!ep11_state) {
-		EP11TOK_ELOG(1,"Memory allocation failed.");
+		TRACE_ERROR("%s Memory allocation failed\n", __func__);
 		return CKR_HOST_MEMORY;
 	}
 
 	rc = h_opaque_2_blob(key, &blob, &blob_len, &key_obj);
 	if (rc != CKR_OK) {
-		EP11TOK_ELOG(1,"no blob rc=0x%lx",rc);
+		TRACE_ERROR("%s no blob rc=0x%lx\n", __func__, rc);
 		return rc;
 	}
 
@@ -3257,9 +3311,11 @@ static CK_RV ep11_ende_crypt_init(SESSION *session, CK_MECHANISM_PTR mech,
 		decr_ctx->context = ep11_state;
 		decr_ctx->context_len = ep11_state_l;
 		if (rc != CKR_OK) {
-			EP11TOK_ELOG(1,"m_DecryptInit rc=0x%lx blob_len=0x%x mech=0x%lx",rc,blob_len,mech->mechanism);
+			TRACE_ERROR("%s m_DecryptInit rc=0x%lx blob_len=0x%x mech=0x%lx\n",
+				    __func__, rc, blob_len, mech->mechanism);
 		} else {
-			EP11TOK_LOG(2,"m_DecryptInit rc=0x%lx blob_len=0x%x mech=0x%lx",rc,blob_len,mech->mechanism);
+			TRACE_INFO("%s m_DecryptInit rc=0x%lx blob_len=0x%x mech=0x%lx\n",
+				   __func__, rc, blob_len, mech->mechanism);
 		}
 
 		return rc;
@@ -3271,9 +3327,11 @@ static CK_RV ep11_ende_crypt_init(SESSION *session, CK_MECHANISM_PTR mech,
 		encr_ctx->context = ep11_state;
 		encr_ctx->context_len = ep11_state_l;
 		if (rc != CKR_OK) {
-			EP11TOK_ELOG(1,"m_EncryptInit rc=0x%lx blob_len=0x%x mech=0x%lx",rc,blob_len,mech->mechanism);
+			TRACE_ERROR("%s m_EncryptInit rc=0x%lx blob_len=0x%x mech=0x%lx\n",
+				    __func__, rc,blob_len,mech->mechanism);
 		} else {
-			EP11TOK_LOG(2,"m_EncryptInit rc=0x%lx blob_len=0x%x mech=0x%lx",rc,blob_len,mech->mechanism);
+			TRACE_INFO("%s m_EncryptInit rc=0x%lx blob_len=0x%x mech=0x%lx\n",
+				   __func__, rc, blob_len, mech->mechanism);
 		}
 
 		return rc;
@@ -3286,14 +3344,14 @@ CK_RV token_specific_encrypt_init(SESSION *session, CK_MECHANISM_PTR mech,
 {
 	CK_RV rc;
 
-	EP11TOK_LOG(2,"key=0x%lx",key);
+	TRACE_INFO("%s key=0x%lx\n", __func__, key);
 
 	rc = ep11_ende_crypt_init(session, mech, key, ENCRYPT);
 
 	if (rc != CKR_OK) {
-		EP11TOK_ELOG(1,"rc=0x%lx",rc);
+		TRACE_ERROR("%s rc=0x%lx\n", __func__, rc);
 	} else {
-		EP11TOK_LOG(2,"rc=0x%lx",rc);
+		TRACE_INFO("%s rc=0x%lx\n", __func__, rc);
 	}
 
 	return rc;
@@ -3305,14 +3363,14 @@ CK_RV token_specific_decrypt_init(SESSION *session, CK_MECHANISM_PTR mech,
 {
 	CK_RV rc;
 
-	EP11TOK_LOG(2,"key=0x%lx mech=0x%lx", key, mech->mechanism);
+	TRACE_INFO("%s key=0x%lx mech=0x%lx\n", __func__, key, mech->mechanism);
 
 	rc = ep11_ende_crypt_init(session, mech, key, DECRYPT);
 
 	if (rc != CKR_OK) {
-		EP11TOK_ELOG(1,"rc=0x%lx",rc);
+		TRACE_ERROR("%s rc=0x%lx\n", __func__, rc);
 	} else {
-		EP11TOK_LOG(2,"rc=0x%lx",rc);
+		TRACE_INFO("%s rc=0x%lx\n", __func__, rc);
 	}
 
 	return rc;
@@ -3327,13 +3385,13 @@ CK_RV token_specific_wrap_key(SESSION *session, CK_MECHANISM_PTR mech,
 	CK_RV rc;
 	CK_BYTE *wrapping_blob;
 	size_t wrapping_blob_len;
-  
+
 	CK_BYTE *wrap_target_blob;
 	size_t wrap_target_blob_len;
 	int size_querry = 0;
- 	OBJECT *key_obj = NULL;
+	OBJECT *key_obj = NULL;
 	CK_ATTRIBUTE *attr;
- 
+
 	/* ep11 weakness:
 	 * it does not set *p_wrapped_key_len if wrapped_key == NULL
 	 * (that is with a size query)
@@ -3343,15 +3401,16 @@ CK_RV token_specific_wrap_key(SESSION *session, CK_MECHANISM_PTR mech,
 		*p_wrapped_key_len = blobsize;
 		wrapped_key = malloc(blobsize);
 		if (!wrapped_key) {
-			EP11TOK_ELOG(1,"Memory allocation failed.");
+			TRACE_ERROR("%s Memory allocation failed\n", __func__);
 			return CKR_HOST_MEMORY;
 		}
 	}
-  
+
 	/* the key that encrypts */
 	rc = h_opaque_2_blob(wrapping_key, &wrapping_blob, &wrapping_blob_len, &key_obj);
 	if (rc != CKR_OK) {
-		EP11TOK_ELOG(1,"h_opaque_2_blob(wrapping_key) failed with rc=0x%lx", rc);
+		TRACE_ERROR("%s h_opaque_2_blob(wrapping_key) failed with rc=0x%lx\n",
+			    __func__, rc);
 		if (size_querry) free(wrapped_key);
 		return rc;
 	}
@@ -3359,7 +3418,7 @@ CK_RV token_specific_wrap_key(SESSION *session, CK_MECHANISM_PTR mech,
 	/* the key to be wrapped */
 	rc = h_opaque_2_blob(key, &wrap_target_blob, &wrap_target_blob_len, &key_obj);
 	if (rc != CKR_OK) {
-		EP11TOK_ELOG(1,"h_opaque_2_blob(key) failed with rc=0x%lx", rc);
+		TRACE_ERROR("%s h_opaque_2_blob(key) failed with rc=0x%lx\n", __func__, rc);
 		if (size_querry) free(wrapped_key);
 		return rc;
 	}
@@ -3368,20 +3427,20 @@ CK_RV token_specific_wrap_key(SESSION *session, CK_MECHANISM_PTR mech,
 	 * AES_ECB and AES_CBC is only allowed to wrap secret keys.
 	 */
 	if (!template_attribute_find(key_obj->template, CKA_CLASS, &attr)) {
-		EP11TOK_ELOG(1,"No CKA_CLASS attribute found in key template.");
+		TRACE_ERROR("%s No CKA_CLASS attribute found in key template\n", __func__);
 		return CKR_TEMPLATE_INCOMPLETE;
 	}
 
 	if ((*(CK_OBJECT_CLASS *)attr->pValue != CKO_SECRET_KEY) &&
-	    	((mech->mechanism == CKM_AES_ECB) ||
-		 (mech->mechanism == CKM_AES_CBC))) {
-		EP11TOK_ELOG(1,"Wrap mechanism does not match to target key type.");
-                return CKR_KEY_NOT_WRAPPABLE;
+	    ((mech->mechanism == CKM_AES_ECB) ||
+	     (mech->mechanism == CKM_AES_CBC))) {
+		TRACE_ERROR("%s Wrap mechanism does not match to target key type\n", __func__);
+		return CKR_KEY_NOT_WRAPPABLE;
 	}
 
-        /* debug */
-        EP11TOK_LOG(2,"start wrapKey: mech=0x%lx wr_key=0x%lx",
-			mech->mechanism, wrapping_key);
+	/* debug */
+	TRACE_INFO("%s start wrapKey: mech=0x%lx wr_key=0x%lx\n",
+		   __func__, mech->mechanism, wrapping_key);
 
 	/* the key to be wrapped is extracted from its blob by the card
 	 * and a standard BER encoding is build which is encryted by
@@ -3391,12 +3450,12 @@ CK_RV token_specific_wrap_key(SESSION *session, CK_MECHANISM_PTR mech,
 	rc = m_WrapKey(wrap_target_blob,wrap_target_blob_len, wrapping_blob,
 		       wrapping_blob_len, NULL, ~0, mech, wrapped_key,
 		       p_wrapped_key_len, ep11tok_target);
-  
+
 	if (rc != CKR_OK) {
-		EP11TOK_ELOG(1,"m_WrapKey failed with rc=0x%lx", rc);
+		TRACE_ERROR("%s m_WrapKey failed with rc=0x%lx\n", __func__, rc);
 	} else {
-		EP11TOK_LOG(2,"rc=0x%lx wr_key=%p wr_key_len=0x%lx",
-			    rc, wrapped_key, *p_wrapped_key_len);
+		TRACE_INFO("%s rc=0x%lx wr_key=%p wr_key_len=0x%lx\n",
+			   __func__, rc, wrapped_key, *p_wrapped_key_len);
 	}
 
 	if (size_querry) free(wrapped_key);
@@ -3408,8 +3467,8 @@ CK_RV token_specific_unwrap_key(SESSION *session, CK_MECHANISM_PTR mech,
 				CK_ATTRIBUTE_PTR attrs, CK_ULONG attrs_len,
 				CK_BYTE_PTR wrapped_key,
 				CK_ULONG wrapped_key_len,
-                                CK_OBJECT_HANDLE wrapping_key,
-                                CK_OBJECT_HANDLE_PTR p_key)
+				CK_OBJECT_HANDLE wrapping_key,
+				CK_OBJECT_HANDLE_PTR p_key)
 {
 	CK_RV rc;
 	CK_BYTE *wrapping_blob;
@@ -3420,7 +3479,6 @@ CK_RV token_specific_unwrap_key(SESSION *session, CK_MECHANISM_PTR mech,
 	ep11_opaque op;
 	CK_ATTRIBUTE *attr = NULL;
 	int i = 0;
-	DL_NODE  *node = NULL;
 	CK_ULONG ktype;
 	CK_ULONG class;
 	CK_ULONG len;
@@ -3431,16 +3489,16 @@ CK_RV token_specific_unwrap_key(SESSION *session, CK_MECHANISM_PTR mech,
 	/* get wrapping key blob */
 	rc = h_opaque_2_blob(wrapping_key, &wrapping_blob, &wrapping_blob_len, &kobj);
 	if (rc != CKR_OK) {
-		EP11TOK_ELOG(1,"h_opaque_2_blob(wrapping_key) failed with rc=0x%lx", rc);
+		TRACE_ERROR("%s h_opaque_2_blob(wrapping_key) failed with rc=0x%lx\n", __func__, rc);
 		return rc;
 	}
-  
-	/* debug */
-	EP11TOK_LOG(2,"start unwrapKey:  mech=0x%lx attrs_len=0x%lx wr_key=0x%lx",
-		    mech->mechanism, attrs_len, wrapping_key);
-	for (i = 0; i < attrs_len; i++)
-		EP11TOK_LOG(2,"attribute attrs.type=0x%lx", attrs[i].type);
-  
+
+	TRACE_DEBUG("%s start unwrapKey:  mech=0x%lx attrs_len=0x%lx wr_key=0x%lx\n",
+		    __func__, mech->mechanism, attrs_len, wrapping_key);
+	for (i = 0; i < attrs_len; i++) {
+		TRACE_DEBUG(" attribute attrs.type=0x%lx\n", attrs[i].type);
+	}
+
 	memset(&op, 0, sizeof(op));
 	op.blob_size = blobsize;
 
@@ -3448,7 +3506,7 @@ CK_RV token_specific_unwrap_key(SESSION *session, CK_MECHANISM_PTR mech,
 	CK_ATTRIBUTE_PTR cla_attr = get_attribute_by_type(attrs, attrs_len, CKA_CLASS);
 	CK_ATTRIBUTE_PTR keytype_attr = get_attribute_by_type(attrs, attrs_len, CKA_KEY_TYPE);
 	if (!cla_attr || !keytype_attr) {
-		EP11TOK_ELOG(1,"CKA_CLASS or CKA_KEY_CLASS attributes not found.");
+		TRACE_ERROR("%s CKA_CLASS or CKA_KEY_CLASS attributes not found\n", __func__);
 		return CKR_FUNCTION_FAILED;
 	}
 	switch (*(CK_KEY_TYPE *)cla_attr->pValue) {
@@ -3469,19 +3527,19 @@ CK_RV token_specific_unwrap_key(SESSION *session, CK_MECHANISM_PTR mech,
 					  &new_attrs, &new_attrs_len);
 		break;
 	default:
-		EP11TOK_ELOG(1,"Missing CKA_CLASS type of wrapped key.");
+		TRACE_ERROR("%s Missing CKA_CLASS type of wrapped key\n", __func__);
 		return CKR_TEMPLATE_INCOMPLETE;
 	}
 	if (rc != CKR_OK) {
-		EP11TOK_ELOG(1,"check key attributes failed: rc=0x%lx",	rc);
+		TRACE_ERROR("%s check key attributes failed: rc=0x%lx\n", __func__, rc);
 		goto error;
 	}
 
 	/* check if unwrap mechanism is allowed for the key to be unwrapped.
 	 * AES_ECB and AES_CBC only allowed to unwrap secret keys.
 	 */
-	if ( (*(CK_OBJECT_CLASS *)cla_attr->pValue != CKO_SECRET_KEY) &&  
-		((mech->mechanism == CKM_AES_ECB) || 
+	if ( (*(CK_OBJECT_CLASS *)cla_attr->pValue != CKO_SECRET_KEY) &&
+		((mech->mechanism == CKM_AES_ECB) ||
 		 (mech->mechanism == CKM_AES_CBC)))
 		return CKR_ARGUMENTS_BAD;
 
@@ -3493,25 +3551,27 @@ CK_RV token_specific_unwrap_key(SESSION *session, CK_MECHANISM_PTR mech,
 			 ep11_pin_blob_len, mech, new_attrs, new_attrs_len,
 			 op.blob, &(op.blob_size), csum, &cslen,
 			 ep11tok_target);
-  
+
 	op.blob_id = ep11_blobs_inc();
-  
+
 	if (rc != CKR_OK) {
-		EP11TOK_ELOG(1,"m_UnwrapKey rc=0x%lx blob_size=0x%x mech=0x%lx ep11_blobs-1=%llx", rc, op.blob_size, mech->mechanism, ep11_blobs-1);
+		TRACE_ERROR("%s m_UnwrapKey rc=0x%lx blob_size=0x%x mech=0x%lx ep11_blobs-1=%llx\n",
+			    __func__, rc, op.blob_size, mech->mechanism, ep11_blobs-1);
 		goto error;
 	}
-	EP11TOK_LOG(2,"m_UnwrapKey rc=0x%lx blob_size=0x%x mech=0x%lx ep11_blobs-1=%llx", rc, op.blob_size, mech->mechanism, ep11_blobs-1);
+	TRACE_INFO("%s m_UnwrapKey rc=0x%lx blob_size=0x%x mech=0x%lx ep11_blobs-1=%llx\n",
+		   __func__, rc, op.blob_size, mech->mechanism, ep11_blobs-1);
 
 	/* card provides length in csum bytes 4 - 7, big endian */
 	len = csum[6] + 256*csum[5] + 256*256*csum[4] + 256*256*256*csum[3];
 	len = len/8;  /* comes in bits */
-	EP11TOK_LOG(2,"m_UnwrapKey length 0x%lx 0x%lx 0x%lx 0x%lx 0x%lx",
-		    csum[3],csum[4],csum[5],csum[6],len);
-  
+	TRACE_INFO("%s m_UnwrapKey length 0x%hhx 0x%hhx 0x%hhx 0x%hhx 0x%lx\n",
+		   __func__, csum[3],csum[4],csum[5],csum[6],len);
+
 	/* Get the keytype to use when creating the key object */
 	rc = ep11_get_keytype(new_attrs, new_attrs_len, mech, &ktype, &class);
 	if (rc != CKR_OK) {
-		EP11TOK_ELOG(1,"get_subclass failed with rc=0x%lx",rc);
+		TRACE_ERROR("%s get_subclass failed with rc=0x%lx\n", __func__, rc);
 		goto error;
 	}
 
@@ -3519,31 +3579,31 @@ CK_RV token_specific_unwrap_key(SESSION *session, CK_MECHANISM_PTR mech,
 	rc = object_mgr_create_skel(session, new_attrs, new_attrs_len,
 				    MODE_UNWRAP, class, ktype, &key_obj);
 	if (rc != CKR_OK) {
-		EP11TOK_ELOG(1,"object_mgr_create_skel failed with rc=0x%lx",rc);
+		TRACE_ERROR("%s object_mgr_create_skel failed with rc=0x%lx\n", __func__, rc);
 		goto error;
 	}
-  
+
 	rc = build_attribute(CKA_IBM_OPAQUE, (CK_BYTE *) &op, sizeof(ep11_opaque), &attr);
 	if (rc != CKR_OK) {
-		EP11TOK_ELOG(1,"build_attribute failed with rc=0x%lx",rc);
-		goto error;
-	}
-  
-	rc = template_update_attribute(key_obj->template, attr);
-	if (rc != CKR_OK) {
-		EP11TOK_ELOG(1,"template_update_attribute failed with rc=0x%lx",rc);
-		goto error;
-	}
-  
-	rc = build_attribute(CKA_VALUE_LEN, (CK_BYTE *) &len, sizeof(CK_ULONG), &attr);
-	if (rc != CKR_OK) {
-		EP11TOK_ELOG(1,"build_attribute failed with rc=0x%lx",rc);
+		TRACE_ERROR("%s build_attribute failed with rc=0x%lx\n", __func__, rc);
 		goto error;
 	}
 
 	rc = template_update_attribute(key_obj->template, attr);
 	if (rc != CKR_OK) {
-		EP11TOK_ELOG(1,"template_update_attribute failed with rc=0x%lx",rc);
+		TRACE_ERROR("%s template_update_attribute failed with rc=0x%lx\n", __func__, rc);
+		goto error;
+	}
+
+	rc = build_attribute(CKA_VALUE_LEN, (CK_BYTE *) &len, sizeof(CK_ULONG), &attr);
+	if (rc != CKR_OK) {
+		TRACE_ERROR("%s build_attribute failed with rc=0x%lx\n", __func__, rc);
+		goto error;
+	}
+
+	rc = template_update_attribute(key_obj->template, attr);
+	if (rc != CKR_OK) {
+		TRACE_ERROR("%s template_update_attribute failed with rc=0x%lx\n", __func__, rc);
 		goto error;
 	}
 
@@ -3552,12 +3612,12 @@ CK_RV token_specific_unwrap_key(SESSION *session, CK_MECHANISM_PTR mech,
 	 */
 	rc = object_mgr_create_final(session, key_obj, p_key);
 	if (rc != CKR_OK) {
-		EP11TOK_ELOG(1,"object_mgr_create_final with rc=0x%lx",rc);
+		TRACE_ERROR("%s object_mgr_create_final with rc=0x%lx\n", __func__, rc);
 		goto error;
 	}
 
 	goto done;
-  
+
 error:
 	if (key_obj) object_free(key_obj);
 	*p_key = 0;
@@ -3625,7 +3685,7 @@ CK_RV token_specific_get_mechanism_list(CK_MECHANISM_TYPE_PTR pMechanismList,
 		rc = m_GetMechanismList(0, pMechanismList, pulCount,
 					ep11tok_target);
 		if (rc != CKR_OK) {
-			EP11TOK_ELOG(1,"bad rc=0x%lx from m_GetMechanismList()", rc);
+			TRACE_ERROR("%s bad rc=0x%lx from m_GetMechanismList() #1\n", __func__, rc);
 			return rc;
 		}
 
@@ -3635,12 +3695,12 @@ CK_RV token_specific_get_mechanism_list(CK_MECHANISM_TYPE_PTR pMechanismList,
 		counter = *pulCount;
 		mlist = (CK_MECHANISM_TYPE *)malloc(sizeof(CK_MECHANISM_TYPE) * counter);
 		if (!mlist) {
-			EP11TOK_ELOG(1,"Memory allocation failed.");
+			TRACE_ERROR("%s Memory allocation failed\n", __func__);
 			return CKR_HOST_MEMORY;
 		}
 		rc = m_GetMechanismList(0, mlist, &counter, ep11tok_target);
 		if (rc != CKR_OK) {
-			EP11TOK_ELOG(1,"bad rc=0x%lx from m_GetMechanismList()", rc);
+			TRACE_ERROR("%s bad rc=0x%lx from m_GetMechanismList() #2\n", __func__, rc);
 			free(mlist);
 			return rc;
 		}
@@ -3650,8 +3710,8 @@ CK_RV token_specific_get_mechanism_list(CK_MECHANISM_TYPE_PTR pMechanismList,
 			for (j = 0; j < banned_mech_list_len; j++) {
 				if (mlist[i] == ep11_banned_mech_list[j]) {
 					banned = 1;
-					EP11TOK_LOG(2,"banned mech '%s'",
-					ep11_get_ckm(ep11_banned_mech_list[j]));
+					TRACE_INFO("%s banned mech '%s'\n",
+						   __func__, ep11_get_ckm(ep11_banned_mech_list[j]));
 				}
 			}
 			if (banned == 1) {
@@ -3670,25 +3730,26 @@ CK_RV token_specific_get_mechanism_list(CK_MECHANISM_TYPE_PTR pMechanismList,
 		 */
 		rc = m_GetMechanismList(0,mlist,&counter,ep11tok_target);
 		if (rc != CKR_OK) {
-			EP11TOK_ELOG(1,"bad rc=0x%lx from m_GetMechanismList()", rc);
+			TRACE_ERROR("%s bad rc=0x%lx from m_GetMechanismList() #3\n", __func__, rc);
 			return rc;
 		}
 
 		mlist = (CK_MECHANISM_TYPE *)malloc(sizeof(CK_MECHANISM_TYPE) * counter);
 		if (!mlist) {
-			EP11TOK_ELOG(1,"Memory allocation failed.");
+			TRACE_ERROR("%s Memory allocation failed\n", __func__);
 			return CKR_HOST_MEMORY;
 		}
 		/* all the card has */
 		rc = m_GetMechanismList(0, mlist, &counter, ep11tok_target);
 		if (rc != CKR_OK) {
-			EP11TOK_ELOG(1,"bad rc #4 rc=0x%lx", rc);
+			TRACE_ERROR("%s bad rc=0x%lx from m_GetMechanismList() #4\n", __func__, rc);
 			free(mlist);
 			return rc;
 		}
 
 		for (i = 0; i < counter; i++)
-			EP11TOK_LOG(2,"raw mech list entry '%s'",ep11_get_ckm(mlist[i]));
+			TRACE_INFO("%s raw mech list entry '%s'\n",
+				   __func__, ep11_get_ckm(mlist[i]));
 
 			/* copy only mechanisms not banned */
 			*pulCount = 0;
@@ -3721,7 +3782,8 @@ CK_RV token_specific_get_mechanism_info(CK_MECHANISM_TYPE type,
 
 	rc = m_GetMechanismInfo(0,type,pInfo,ep11tok_target);
 	if (rc != CKR_OK) {
-		EP11TOK_ELOG(1,"m_GetMechanismInfo(0x%lx) failed with rc=0x%lx", type, rc);
+		TRACE_ERROR("%s m_GetMechanismInfo(0x%lx) failed with rc=0x%lx\n",
+			    __func__, type, rc);
 		return rc;
 	}
 
@@ -3729,7 +3791,7 @@ CK_RV token_specific_get_mechanism_info(CK_MECHANISM_TYPE type,
 	 * key sizes, but, in theory, can also operate with weaker key sizes.
 	 * Customers are not interested in theory but in what mechanism
 	 * they can use (mechanisms that are not rejected by the card).
-         */
+	 */
 	for (i = 0; i < banned_mech_list_len; i++) {
 		if (type == ep11_banned_mech_list[i])
 			return CKR_MECHANISM_INVALID;
@@ -3782,7 +3844,8 @@ CK_RV token_specific_get_mechanism_info(CK_MECHANISM_TYPE type,
 #endif /* DEFENSIVE_MECHLIST */
 
 	if (rc != CKR_OK)
-		EP11TOK_ELOG(1,"rc=0x%lx unsupported '%s'", rc, ep11_get_ckm(type));
+		TRACE_ERROR("%s rc=0x%lx unsupported '%s'\n",
+			    __func__, rc, ep11_get_ckm(type));
 	return rc;
 }
 
@@ -3796,15 +3859,17 @@ static inline short check_n(char *nptr, int j, int *apqn_i)
 	long int num = strtol(nptr, &endptr, 10);
 
 	if (*endptr != '\0') {
-		EP11TOK_ELOG(1,"invalid number '%s' (%d)", nptr, j);
+		TRACE_ERROR("%s invalid number '%s' (%d)\n", __func__, nptr, j);
 		return -1;
 	}
 
 	if (num < 0 || num > 255) {
-		EP11TOK_ELOG(1,"invalid number '%s' %d(%d)", nptr, (int)num, j);
+		TRACE_ERROR("%s invalid number '%s' %d(%d)\n",
+			    __func__, nptr, (int)num, j);
 		return -1;
 	} else if (*apqn_i < 0 || *apqn_i >= MAX_APQN*2) {
-		EP11TOK_ELOG(1,"invalid amount of numbers %d(%d)", (int)num, j);
+		TRACE_ERROR("%s invalid amount of numbers %d(%d)\n",
+			    __func__, (int)num, j);
 		return -1;
 	} else {
 		/* insert number into target variable */
@@ -3851,16 +3916,16 @@ static int read_adapter_config_file(const char* conf_name)
 			ap_fp = fopen(fname,"r");
 
 			if (!ap_fp)
-				EP11TOK_LOG(2, "fopen('%s') failed with errno %d",
-					    fname, errno);
+				TRACE_DEBUG("%s fopen('%s') failed with errno %d\n",
+					    __func__, fname, errno);
 		}
 		if (!ap_fp) {
 			snprintf(fname, sizeof(fname), "%s/%s", conf_dir, EP11_DEFAULT_CFG_FILE);
 			fname[sizeof(fname)-1] = '\0';
 			ap_fp = fopen(fname,"r");
 			if (!ap_fp)
-				EP11TOK_LOG(2, "fopen('%s') failed with errno %d",
-					    fname, errno);
+				TRACE_DEBUG("%s fopen('%s') failed with errno %d\n",
+					    __func__, fname, errno);
 		}
 	} else {
 		if (conf_name && strlen(conf_name) > 0) {
@@ -3868,27 +3933,32 @@ static int read_adapter_config_file(const char* conf_name)
 			fname[sizeof(fname)-1] = '\0';
 			ap_fp = fopen(fname,"r");
 			if (!ap_fp) {
-				EP11TOK_LOG(2,"fopen('%s') failed with errno %d", fname, errno);
+				TRACE_DEBUG("%s fopen('%s') failed with errno %d\n",
+					    __func__, fname, errno);
 				snprintf(fname, sizeof(fname), "%s/%s", OCK_CONFDIR, conf_name);
 				fname[sizeof(fname)-1] = '\0';
 				ap_fp = fopen(fname,"r");
-				if (!ap_fp) EP11TOK_LOG(2,"fopen('%s') failed with errno %d", fname, errno);
+				if (!ap_fp)
+					TRACE_DEBUG("%s fopen('%s') failed with errno %d\n",
+						    __func__, fname, errno);
 			}
 		} else {
 			snprintf(fname, sizeof(fname), "%s/%s", OCK_CONFDIR, EP11_DEFAULT_CFG_FILE);
 			fname[sizeof(fname)-1] = '\0';
 			ap_fp = fopen(fname,"r");
-			if (!ap_fp) EP11TOK_LOG(2,"fopen('%s') failed with errno %d", fname, errno);
+			if (!ap_fp)
+				TRACE_DEBUG("%s fopen('%s') failed with errno %d\n",
+					    __func__, fname, errno);
 		}
 	}
 
 	/* now we should really have an open ep11 token config file */
 	if (!ap_fp) {
-		EP11TOK_ELOG(1,"no valid EP 11 config file found");
+		TRACE_ERROR("%s no valid EP 11 config file found\n", __func__);
 		return APQN_FILE_INV_2;
 	}
 
-	EP11TOK_LOG(2,"EP 11 token config file is '%s'", fname);
+	TRACE_INFO("%s EP 11 token config file is '%s'\n", __func__, fname);
 
 	/* read config file line by line,
 	 * ignore empty and # and copy rest into file buf
@@ -3907,7 +3977,8 @@ static int read_adapter_config_file(const char* conf_name)
 				memcpy(filebuf+ap_file_size, p, len);
 				ap_file_size += len;
 			} else {
-				EP11TOK_ELOG(1,"EP 11 config file filename too large");
+				TRACE_ERROR("%s EP 11 config file filename too large\n",
+					    __func__);
 				return  APQN_FILE_INV_FILE_SIZE;
 			}
 		}
@@ -3915,6 +3986,10 @@ static int read_adapter_config_file(const char* conf_name)
 
 	ep11_targets.length = 0;
 
+	/* parse the file buf
+	 * please note, we still accept the LOGLEVEL entry
+	 * for compatibility reasons but just ignore it.
+	 */
 	for (i=0,j=0,str=filebuf; rc == 0; str=NULL) {
 		/* strtok tokenizes the string,
 		 * delimiters are newline and whitespace.
@@ -3940,9 +4015,10 @@ static int read_adapter_config_file(const char* conf_name)
 				i = 3;
 			else {
 				/* syntax error */
-				EP11TOK_ELOG(1,"Expected APQN_WHITELIST or"
-				" APQN_BLACKLIST or APQN_ANY or LOGLEVEL"
-				" keyword, found '%s' in configfile", token);
+				TRACE_ERROR("%s Expected APQN_WHITELIST or"
+					    " APQN_BLACKLIST or APQN_ANY or LOGLEVEL"
+					    " keyword, found '%s' in configfile\n",
+					    __func__, token);
 				rc = APQN_FILE_SYNTAX_ERROR_0;
 				break;
 			}
@@ -3964,7 +4040,8 @@ static int read_adapter_config_file(const char* conf_name)
 			 * (number range 0...255)
 			 */
 			if (strncmp(token,"END",3) == 0) {
-				EP11TOK_ELOG(1,"Expected 2nd number, found '%s' in configfile", token);
+				TRACE_ERROR("%s Expected 2nd number, found '%s' in configfile\n",
+					    __func__, token);
 				rc = APQN_FILE_SYNTAX_ERROR_2;
 				break;
 			}
@@ -3974,7 +4051,8 @@ static int read_adapter_config_file(const char* conf_name)
 			}
 			ep11_targets.length++;
 			if (ep11_targets.length > MAX_APQN) {
-				EP11TOK_ELOG(1,"Too many APQNs in configfile (max %d)", (int) MAX_APQN);
+				TRACE_ERROR("%s Too many APQNs in configfile (max %d)\n",
+					    __func__, (int) MAX_APQN);
 				rc = APQN_FILE_SYNTAX_ERROR_4;
 				break;
 			}
@@ -3987,15 +4065,13 @@ static int read_adapter_config_file(const char* conf_name)
 			char *endptr;
 			int loglevel  = strtol(token, &endptr, 10);
 			if (*endptr != '\0' || loglevel < 0 || loglevel > 9) {
-				EP11TOK_ELOG(1,"Invalid loglevel value '%s' in configfile", token);
+				TRACE_ERROR("%s Invalid loglevel value '%s' in configfile\n",
+					    __func__, token);
 				rc = APQN_FILE_SYNTAX_ERROR_5;
 				break;
 			}
-			if (loglevel > 0 && EP11Tok_loglevel == 0 &&					    !EP11Tok_logfile) {
-				open_logfile();
-				/* continue even on failure */
-				EP11Tok_loglevel = loglevel;
-			}
+			TRACE_WARNING("%s LOGLEVEL setting is not supported any more !\n", __func__);
+			TRACE_WARNING("%s Use opencryptoki logging/tracing facilities instead.\n", __func__);
 			i = 0;
 		}
 	}
@@ -4003,13 +4079,14 @@ static int read_adapter_config_file(const char* conf_name)
 	/* do some checks: */
 	if (rc == 0) {
 		if ( !(whitemode || blackmode || anymode)) {
-			EP11TOK_ELOG(1,"At least one APQN mode needs to be present in configfile:"
-				     " APQN_WHITEMODE or APQN_BLACKMODE or APQN_ANY");
+			TRACE_ERROR("%s At least one APQN mode needs to be present in configfile:"
+				    " APQN_WHITEMODE or APQN_BLACKMODE or APQN_ANY\n", __func__);
 			rc = APQN_FILE_NO_APQN_MODE;
 		} else if (whitemode || blackmode) {
 			/* at least one APQN needs to be defined */
 			if (ep11_targets.length < 1) {
-				EP11TOK_ELOG(1,"At least one APQN needs to be defined in the configfile");
+				TRACE_ERROR("%s At least one APQN needs to be defined in the configfile\n",
+					    __func__);
 				rc = APQN_FILE_NO_APQN_GIVEN;
 			}
 		}
@@ -4017,9 +4094,13 @@ static int read_adapter_config_file(const char* conf_name)
 
 	/* log the white- or blacklist of APQNs */
 	if (rc == 0 && (whitemode || blackmode)) {
-		EP11TOK_LOG(2,"%s with %d APQNs defined:", blackmode ? "blacklist" : "whitelist", ep11_targets.length);
+		TRACE_INFO("%s %s with %d APQNs defined:\n",
+			   __func__, blackmode ? "blacklist" : "whitelist",
+			   ep11_targets.length);
 		for (i=0; i < ep11_targets.length; i++) {
-			EP11TOK_LOG(2,"APQN %d: %d %d", i, ep11_targets.apqns[2*i], ep11_targets.apqns[2*i+1]);
+			TRACE_INFO(" APQN %d: %d %d\n", i,
+				   ep11_targets.apqns[2*i],
+				   ep11_targets.apqns[2*i+1]);
 		}
 	}
 
