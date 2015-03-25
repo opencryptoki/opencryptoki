@@ -42,7 +42,6 @@ token_spec_t token_specific = {
 	&token_specific_init_token_data,
 	&token_specific_load_token_data,
 	&token_specific_save_token_data,
-	&tok_slot2local,
 	NULL,			// rng
 	&token_specific_open_session,
 	&token_specific_close_session,

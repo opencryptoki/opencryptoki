@@ -163,12 +163,6 @@ token_specific_rng(CK_BYTE *output, CK_ULONG bytes)
         return CKR_OK;
 }
 
-int
-tok_slot2local(CK_SLOT_ID snum)
-{
-	return 1;
-}
-
 CK_RV
 token_specific_init(CK_SLOT_ID SlotNumber, char *conf_name)
 {

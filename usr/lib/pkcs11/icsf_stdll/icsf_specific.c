@@ -236,15 +236,6 @@ struct slot_data {
 struct slot_data *slot_data[MAX_SLOT_ID + 1];
 
 /*
- * Convert pkcs slot number to local representation
- */
-int
-tok_slot2local(CK_SLOT_ID snum)
-{
-	return 1;
-}
-
-/*
  * Converts an ICSF reason code to an ock error code
  */
 int

@@ -343,11 +343,6 @@ struct token_specific_struct {
 	CK_RV (*t_load_token_data) (CK_SLOT_ID slot_id, FILE *fh);
 	CK_RV (*t_save_token_data) (CK_SLOT_ID slot_id, FILE *fh);
 
-	// convert PKCS#11 slot to a local index 
-	// generaly not used but if a STDLL actualy 
-	// managed multiple devices, this would conv
-	int (*t_slot2local) (CK_SLOT_ID);
-
 	// Random Number Gen
 	CK_RV(*t_rng) (CK_BYTE *, CK_ULONG);
 

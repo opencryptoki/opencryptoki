@@ -334,16 +334,6 @@ void SC_SetFunctionList(void);
 
 CK_ULONG  usage_count = 0;	/* track DLL usage */
 
-#define  SLT_CHECK  \
-   CK_SLOT_ID     slot_id; \
-   int            sid1; \
- \
-   if ( (sid1 = token_specific.t_slot2local(sid)) != -1 ){ \
-      slot_id = sid1; \
-   } else { \
-      return CKR_ARGUMENTS_BAD; \
-   }
-
 void Fork_Initializer(void)
 {
 
@@ -457,7 +447,7 @@ CK_RV ST_Initialize(void **FunctionList, CK_SLOT_ID SlotNumber, char *conf_name,
 	/* Handle global initialization issues first if we have not
 	 * been initialized.
 	 */
-	if (initialized == FALSE){
+	if (initialized == FALSE) {
 
 		rc = attach_shm(SlotNumber, &global_shm);
 		if (rc != CKR_OK) {
@@ -515,7 +505,6 @@ CK_RV SC_Finalize(CK_SLOT_ID sid)
 {
 	CK_RV rc, rc_mutex;
 
-	SLT_CHECK;
 	if (initialized == FALSE) {
 		TRACE_ERROR("%s\n", ock_err(ERR_CRYPTOKI_NOT_INITIALIZED));
 		return CKR_CRYPTOKI_NOT_INITIALIZED;
@@ -565,7 +554,6 @@ CK_RV SC_GetTokenInfo(CK_SLOT_ID sid, CK_TOKEN_INFO_PTR pInfo)
 	CK_RV rc = CKR_OK;
 	time_t now;
 
-	SLT_CHECK;
 	if (initialized == FALSE) {
 		TRACE_ERROR("%s\n", ock_err(ERR_CRYPTOKI_NOT_INITIALIZED));
 		rc = CKR_CRYPTOKI_NOT_INITIALIZED;
@@ -576,7 +564,7 @@ CK_RV SC_GetTokenInfo(CK_SLOT_ID sid, CK_TOKEN_INFO_PTR pInfo)
 		rc = CKR_ARGUMENTS_BAD;
 		goto done;
 	}
-	if (slot_id > MAX_SLOT_ID) {
+	if (sid > MAX_SLOT_ID) {
 		TRACE_ERROR("%s\n", ock_err(ERR_SLOT_ID_INVALID));
 		rc = CKR_SLOT_ID_INVALID;
 		goto done;
@@ -611,7 +599,6 @@ CK_RV SC_GetMechanismList(CK_SLOT_ID sid, CK_MECHANISM_TYPE_PTR pMechList,
 {
 	CK_RV rc = CKR_OK;
 
-	SLT_CHECK;
 	if (initialized == FALSE) {
 		TRACE_ERROR("%s\n", ock_err(ERR_CRYPTOKI_NOT_INITIALIZED));
 		rc = CKR_CRYPTOKI_NOT_INITIALIZED;
@@ -622,7 +609,7 @@ CK_RV SC_GetMechanismList(CK_SLOT_ID sid, CK_MECHANISM_TYPE_PTR pMechList,
 		rc = CKR_ARGUMENTS_BAD;
 		goto out;
 	}
-	if (slot_id > MAX_SLOT_ID) {
+	if (sid > MAX_SLOT_ID) {
 		TRACE_ERROR("%s\n", ock_err(ERR_SLOT_ID_INVALID));
 		rc = CKR_SLOT_ID_INVALID;
 		goto out;
@@ -653,7 +640,6 @@ CK_RV SC_GetMechanismInfo(CK_SLOT_ID sid, CK_MECHANISM_TYPE type,
 {
 	CK_RV rc = CKR_OK;
 
-	SLT_CHECK;
 	if (initialized == FALSE) {
 		TRACE_ERROR("%s\n", ock_err(ERR_CRYPTOKI_NOT_INITIALIZED));
 		rc = CKR_CRYPTOKI_NOT_INITIALIZED;
@@ -664,7 +650,7 @@ CK_RV SC_GetMechanismInfo(CK_SLOT_ID sid, CK_MECHANISM_TYPE type,
 		rc = CKR_ARGUMENTS_BAD;
 		goto out;
 	}
-	if (slot_id > MAX_SLOT_ID) {
+	if (sid > MAX_SLOT_ID) {
 		TRACE_ERROR("%s\n", ock_err(ERR_SLOT_ID_INVALID));
 		rc = CKR_SLOT_ID_INVALID;
 		goto out;
@@ -693,11 +679,8 @@ CK_RV SC_InitToken(CK_SLOT_ID sid, CK_CHAR_PTR pPin, CK_ULONG ulPinLen,
 {
 	CK_RV rc = CKR_OK;
 	CK_BYTE hash_sha[SHA1_HASH_SIZE];
-	CK_SLOT_ID slotID;
 	char *pk_full_path = NULL;
 
-	SLT_CHECK;
-	slotID = slot_id;
 	if (initialized == FALSE) {
 		TRACE_ERROR("%s\n", ock_err(ERR_CRYPTOKI_NOT_INITIALIZED));
 		rc = CKR_CRYPTOKI_NOT_INITIALIZED;
@@ -746,7 +729,7 @@ CK_RV SC_InitToken(CK_SLOT_ID sid, CK_CHAR_PTR pPin, CK_ULONG ulPinLen,
 	memcpy(nv_token_data->token_info.label, pLabel, 32);
 
 	rc = save_token_data(sid);
-	if (rc != CKR_OK){
+	if (rc != CKR_OK) {
 		TRACE_DEBUG("Failed to save token data.\n");
 		goto done;
 	}
@@ -889,7 +872,7 @@ CK_RV SC_SetPIN(ST_SESSION_HANDLE *sSession, CK_CHAR_PTR pOldPin,
 		goto done;
 	}
 	rc = compute_sha1(pOldPin, ulOldLen, old_hash_sha);
-	if (rc != CKR_OK){
+	if (rc != CKR_OK) {
 		TRACE_ERROR("Failed to compute sha for old pin.\n");
 		goto done;
 	}
@@ -922,7 +905,7 @@ CK_RV SC_SetPIN(ST_SESSION_HANDLE *sSession, CK_CHAR_PTR pOldPin,
 			goto done;
 		}
 		rc = XProcLock();
-		if (rc != CKR_OK){
+		if (rc != CKR_OK) {
 			TRACE_DEBUG("Failed to get process lock.\n");
 			goto done;
 		}
@@ -952,7 +935,8 @@ CK_RV SC_SetPIN(ST_SESSION_HANDLE *sSession, CK_CHAR_PTR pOldPin,
 			goto done;
 		}
 		/* The old PIN matches, now make sure its different
-		 * than the new and is not the default. */
+		 * than the new and is not the default.
+		 */
 		if ((memcmp(old_hash_sha, new_hash_sha, SHA1_HASH_SIZE) == 0) ||
 		    (memcmp(new_hash_sha, default_so_pin_sha, SHA1_HASH_SIZE)
 		     == 0)) {
@@ -961,16 +945,16 @@ CK_RV SC_SetPIN(ST_SESSION_HANDLE *sSession, CK_CHAR_PTR pOldPin,
 			goto done;
 		}
 		rc = XProcLock();
-		if (rc != CKR_OK){
+		if (rc != CKR_OK) {
 			TRACE_DEBUG("Failed to get process lock.\n");
 			goto done;
 		}
 		memcpy(nv_token_data->so_pin_sha, new_hash_sha, SHA1_HASH_SIZE);
-		memcpy( so_pin_md5, hash_md5, MD5_HASH_SIZE );
+		memcpy(so_pin_md5, hash_md5, MD5_HASH_SIZE);
 		nv_token_data->token_info.flags &= ~(CKF_SO_PIN_TO_BE_CHANGED);
 		XProcUnLock();
 		rc = save_token_data(sess->session_info.slotID);
-		if (rc != CKR_OK){
+		if (rc != CKR_OK) {
 			TRACE_DEBUG("Failed to save token data.\n");
 			goto done;
 		}
@@ -993,7 +977,6 @@ CK_RV SC_OpenSession(CK_SLOT_ID sid, CK_FLAGS flags,
 	CK_BBOOL locked = FALSE;
 	CK_RV rc = CKR_OK;
 
-	SLT_CHECK;
 	if (initialized == FALSE) {
 		TRACE_ERROR("%s\n", ock_err(ERR_CRYPTOKI_NOT_INITIALIZED));
 		rc = CKR_CRYPTOKI_NOT_INITIALIZED;
@@ -1004,7 +987,7 @@ CK_RV SC_OpenSession(CK_SLOT_ID sid, CK_FLAGS flags,
 		rc = CKR_ARGUMENTS_BAD;
 		goto done;
 	}
-	if (slot_id > MAX_SLOT_ID) {
+	if (sid > MAX_SLOT_ID) {
 		TRACE_ERROR("%s\n", ock_err(ERR_SLOT_ID_INVALID));
 		rc = CKR_SLOT_ID_INVALID;
 		goto done;
@@ -1072,7 +1055,6 @@ CK_RV SC_CloseAllSessions(CK_SLOT_ID sid)
 {
 	CK_RV rc = CKR_OK;
 
-	SLT_CHECK;
 	if (initialized == FALSE) {
 		TRACE_ERROR("%s\n", ock_err(ERR_CRYPTOKI_NOT_INITIALIZED));
 		rc = CKR_CRYPTOKI_NOT_INITIALIZED;
@@ -1082,7 +1064,7 @@ CK_RV SC_CloseAllSessions(CK_SLOT_ID sid)
 	if (rc != CKR_OK)
 		TRACE_DEBUG("session_mgr_close_all_sessions() failed.\n");
 done:
-	TRACE_INFO("C_CloseAllSessions: rc = 0x%08x slot = %d\n", rc, slot_id);
+	TRACE_INFO("C_CloseAllSessions: rc = 0x%08x slot = %d\n", rc, sid);
 	return rc;
 }
 
@@ -1336,9 +1318,7 @@ CK_RV SC_Login(ST_SESSION_HANDLE *sSession, CK_USER_TYPE userType,
 		XProcLock();
 		global_shm->priv_loaded = TRUE;
 		XProcUnLock();
-
-	}
-	else {
+	} else {
 		if (*flags & CKF_SO_PIN_LOCKED) {
 			TRACE_ERROR("%s\n", ock_err(ERR_PIN_LOCKED));
 			rc = CKR_PIN_LOCKED;
@@ -1370,12 +1350,11 @@ CK_RV SC_Login(ST_SESSION_HANDLE *sSession, CK_USER_TYPE userType,
 			goto done;
 		}
 		/* Successful login, clear flags */
-		*flags &= 	~(CKF_SO_PIN_LOCKED | 
-				  CKF_SO_PIN_FINAL_TRY | 
-				  CKF_SO_PIN_COUNT_LOW);
+		*flags &= ~(CKF_SO_PIN_LOCKED | CKF_SO_PIN_FINAL_TRY |
+			    CKF_SO_PIN_COUNT_LOW);
 
-		compute_md5( pPin, ulPinLen, so_pin_md5 );
-		memset( user_pin_md5, 0x0, MD5_HASH_SIZE );
+		compute_md5(pPin, ulPinLen, so_pin_md5);
+		memset(user_pin_md5, 0x0, MD5_HASH_SIZE);
 
 		rc = load_masterkey_so();
 		if (rc != CKR_OK)

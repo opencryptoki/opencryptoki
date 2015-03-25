@@ -1211,15 +1211,6 @@ CK_RV token_specific_rng(CK_BYTE *output, CK_ULONG bytes)
 	return rc;
 }
 
-
-/* not used by opencryptoki */
-int tok_slot2local(CK_SLOT_ID snum)
-{
-	return snum;
-}
-
-
-
 /*
  * for importing keys we need to encrypt the keys and build the blob by
  * m_UnwrapKey, use one wrap key for this purpose, can be any key,

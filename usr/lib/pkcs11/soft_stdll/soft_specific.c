@@ -337,14 +337,6 @@ CK_CHAR model[] = "IBM SoftTok ";
 CK_CHAR descr[] = "IBM PKCS#11 Soft token";
 CK_CHAR label[] = "IBM OS PKCS#11   ";
 
-// convert pkcs slot number to local representation
-int
-tok_slot2local(CK_SLOT_ID snum)
-{
-   return 1;  
-}
-
-
 CK_RV
 token_specific_init(CK_SLOT_ID SlotNumber, char *conf_name)
 {
