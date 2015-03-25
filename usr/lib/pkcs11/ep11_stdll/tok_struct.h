@@ -324,14 +324,14 @@ token_spec_t token_specific = {
 	},
 	NULL,			// t_creatlock
 	NULL,			// t_attach_shm
-	&token_specific_init,
+	NULL,			// init
 	NULL,			// init_token_data
 	NULL,			// load_token_data
 	NULL,			// save_token_data
 	&token_specific_rng,
 	NULL,           	// open_session
 	NULL,                   // close_session
-	&token_specific_final,
+	NULL, 			// final
 	NULL,			// init_token
 	NULL,                   // token_specific_login,
 	NULL,                   // token_specific_logout,
@@ -343,27 +343,27 @@ token_spec_t token_specific = {
 	NULL,			// set_attribute_value
 	NULL,			// find_objects_init
 	NULL,                   // token_specific_destroy_object
-	&token_specific_generate_key,            	// generate_key
-	&token_specific_generate_key_pair,              // generate_key_pair
-	&token_specific_encrypt_init,			// encrypt_init
-	&token_specific_encrypt,			// encrypt
-	&token_specific_encrypt_update,			// encrypt_update
-	&token_specific_encrypt_final,			// encrypt_final
-	&token_specific_decrypt_init,			// decrypt_init
-	&token_specific_decrypt,			// decrypt
-	&token_specific_decrypt_update,			// decrypt_update
-	&token_specific_decrypt_final,			// decrypt_final
-        &token_specific_derive_key,                     // derive_key
-	&token_specific_wrap_key,                       // wrap_key
-	&token_specific_unwrap_key,                     // unwrap_key
-	&token_specific_sign_init,
-	&token_specific_sign,
-	&token_specific_sign_update,
-	&token_specific_sign_final,
-	&token_specific_verify_init,
-	&token_specific_verify,
-	&token_specific_verify_update,
-	&token_specific_verify_final,
+	NULL,            	// generate_key
+	NULL,			// generate_key_pair
+	NULL,			// encrypt_init
+	NULL,			// encrypt
+	NULL,			// encrypt_update
+	NULL,			// encrypt_final
+	NULL,			// decrypt_init
+	NULL,			// decrypt
+	NULL,			// decrypt_update
+	NULL,			// decrypt_final
+        NULL,                   // derive_key
+	NULL,                   // wrap_key
+	NULL,                   // unwrap_key
+	NULL,			// sign_init
+	NULL,			// sign
+	NULL,			// sign_update
+	NULL,			// sign_final
+	NULL,			// verify_init
+	NULL,			// verify
+	NULL,			// verify_update
+	NULL,			// verify_final
 	// DES
 	NULL,			// des_key_gen,
 	NULL,			// des_ecb,
@@ -429,8 +429,8 @@ token_spec_t token_specific = {
 	NULL,                   // dsa_generate_keypair,
 	NULL,			// dsa_sign
 	NULL,			// dsa_verify
-	&token_specific_get_mechanism_list,
-	&token_specific_get_mechanism_info,
+	NULL,			// get_mechanism_list
+	NULL,			// get mechanism_info
         &token_specific_object_add,
 };
 

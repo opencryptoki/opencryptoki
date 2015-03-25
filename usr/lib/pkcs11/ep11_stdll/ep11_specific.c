@@ -322,6 +322,11 @@
 #include "ep11.h"
 #define EP11SHAREDLIB "libep11.so"
 
+CK_RV ep11tok_get_mechanism_list(CK_MECHANISM_TYPE_PTR mlist,
+				 CK_ULONG_PTR count);
+CK_RV ep11tok_get_mechanism_info(CK_MECHANISM_TYPE type,
+				 CK_MECHANISM_INFO_PTR pInfo);
+
 
 #ifdef DEBUG
 
@@ -1156,7 +1161,7 @@ static CK_RV print_mechanism(void)
 	CK_RV rc;
 
 	/* first call is just to fetch the count value */
-	rc = token_specific_get_mechanism_list(list, &count);
+	rc = ep11tok_get_mechanism_list(list, &count);
 	if (rc != CKR_OK) {
 		TRACE_ERROR("%s can't fetch mechanism list (get_mech_list rc=0x%lx)\n",
 			    __func__, rc);
@@ -1169,7 +1174,7 @@ static CK_RV print_mechanism(void)
 	}
 
 	/* now really fill the list */
-	rc = token_specific_get_mechanism_list(list, &count);
+	rc = ep11tok_get_mechanism_list(list, &count);
 	if (rc != CKR_OK) {
 		TRACE_ERROR("%s can't fetch mechanism list (get_mech_list rc=0x%lx)\n",
 			    __func__, rc);
@@ -1182,7 +1187,7 @@ static CK_RV print_mechanism(void)
 		char strflags[1024];
 		strflags[0] = 0;
 		memset(&m_info, 0, sizeof(m_info));
-		token_specific_get_mechanism_info(list[i], &m_info);
+		ep11tok_get_mechanism_info(list[i], &m_info);
 		if (m_info.flags) {
 			CK_ULONG flag;
 			for (flag = 1; flag < 0x80000000; flag = flag * 2) {
@@ -1247,7 +1252,7 @@ static CK_RV make_wrapblob(CK_ATTRIBUTE *tmpl_in, CK_ULONG tmpl_len)
 }
 
 
-CK_RV token_specific_init(CK_SLOT_ID SlotNumber, char *conf_name)
+CK_RV ep11tok_init(CK_SLOT_ID SlotNumber, char *conf_name)
 {
 	CK_RV rc;
 	void *lib_ep11;
@@ -1305,7 +1310,7 @@ CK_RV token_specific_init(CK_SLOT_ID SlotNumber, char *conf_name)
 	return CKR_OK;
 }
 
-CK_RV token_specific_final()
+CK_RV ep11tok_final()
 {
 	TRACE_INFO("%s final running\n", __func__);
 
@@ -1555,9 +1560,9 @@ token_specific_object_add(OBJECT *obj)
 }
 
 
-CK_RV token_specific_generate_key(SESSION *session, CK_MECHANISM_PTR mech,
-                                  CK_ATTRIBUTE_PTR attrs, CK_ULONG attrs_len,
-                                  CK_OBJECT_HANDLE_PTR handle)
+CK_RV ep11tok_generate_key(SESSION *session, CK_MECHANISM_PTR mech,
+			   CK_ATTRIBUTE_PTR attrs, CK_ULONG attrs_len,
+			   CK_OBJECT_HANDLE_PTR handle)
 {
 	ep11_opaque new_op;
 	CK_BYTE csum[64];
@@ -1812,10 +1817,9 @@ CK_RV token_specific_sha5_init(DIGEST_CONTEXT *c)
 	return rc;
 }
 
-CK_RV token_specific_derive_key(SESSION *session, CK_MECHANISM_PTR mech,
-				CK_OBJECT_HANDLE hBaseKey,
-				CK_OBJECT_HANDLE_PTR handle,
-				CK_ATTRIBUTE_PTR attrs, CK_ULONG attrs_len)
+CK_RV ep11tok_derive_key(SESSION *session, CK_MECHANISM_PTR mech,
+			 CK_OBJECT_HANDLE hBaseKey, CK_OBJECT_HANDLE_PTR handle,
+			 CK_ATTRIBUTE_PTR attrs, CK_ULONG attrs_len)
 {
 	CK_RV rc;
 	unsigned char *blob;
@@ -2712,14 +2716,13 @@ error:
 
 
 /* generic function to generate RSA,DH,EC and DSA key pairs */
-CK_RV token_specific_generate_key_pair(SESSION * sess,
-                                       CK_MECHANISM_PTR pMechanism,
-                                       CK_ATTRIBUTE_PTR pPublicKeyTemplate,
-                                       CK_ULONG ulPublicKeyAttributeCount,
-                                       CK_ATTRIBUTE_PTR pPrivateKeyTemplate,
-                                       CK_ULONG ulPrivateKeyAttributeCount,
-                                       CK_OBJECT_HANDLE_PTR phPublicKey,
-                                       CK_OBJECT_HANDLE_PTR phPrivateKey)
+CK_RV ep11tok_generate_key_pair(SESSION * sess, CK_MECHANISM_PTR pMechanism,
+				CK_ATTRIBUTE_PTR pPublicKeyTemplate,
+				CK_ULONG ulPublicKeyAttributeCount,
+				CK_ATTRIBUTE_PTR pPrivateKeyTemplate,
+				CK_ULONG ulPrivateKeyAttributeCount,
+				CK_OBJECT_HANDLE_PTR phPublicKey,
+				CK_OBJECT_HANDLE_PTR phPrivateKey)
 {
 	CK_RV rc;
 	OBJECT *public_key_obj = NULL;
@@ -2920,8 +2923,8 @@ static CK_RV h_opaque_2_blob(CK_OBJECT_HANDLE handle,
 	}
 }
 
-CK_RV token_specific_sign_init(SESSION *session, CK_MECHANISM *mech,
-			       CK_BBOOL recover_mode, CK_OBJECT_HANDLE key)
+CK_RV ep11tok_sign_init(SESSION *session, CK_MECHANISM *mech,
+			CK_BBOOL recover_mode, CK_OBJECT_HANDLE key)
 {
 	CK_BYTE *privkey_blob;
 	size_t blob_len = 0;
@@ -2969,9 +2972,8 @@ CK_RV token_specific_sign_init(SESSION *session, CK_MECHANISM *mech,
 }
 
 
-CK_RV token_specific_sign(SESSION *session, CK_BBOOL length_only,
-			  CK_BYTE *in_data, CK_ULONG in_data_len,
-			  CK_BYTE *signature, CK_ULONG *sig_len)
+CK_RV ep11tok_sign(SESSION *session, CK_BBOOL length_only, CK_BYTE *in_data,
+		   CK_ULONG in_data_len, CK_BYTE *signature, CK_ULONG *sig_len)
 {
 	CK_RV rc;
 	SIGN_VERIFY_CONTEXT *ctx = &session->sign_ctx;
@@ -2989,8 +2991,8 @@ CK_RV token_specific_sign(SESSION *session, CK_BBOOL length_only,
 }
 
 
-CK_RV token_specific_sign_update(SESSION *session, CK_BYTE *in_data,
-				 CK_ULONG in_data_len)
+CK_RV ep11tok_sign_update(SESSION *session, CK_BYTE *in_data,
+			  CK_ULONG in_data_len)
 {
 	CK_RV rc;
 	SIGN_VERIFY_CONTEXT *ctx = &session->sign_ctx;
@@ -3011,8 +3013,8 @@ CK_RV token_specific_sign_update(SESSION *session, CK_BYTE *in_data,
 }
 
 
-CK_RV token_specific_sign_final(SESSION *session, CK_BBOOL length_only,
-				CK_BYTE *signature, CK_ULONG *sig_len)
+CK_RV ep11tok_sign_final(SESSION *session, CK_BBOOL length_only,
+			 CK_BYTE *signature, CK_ULONG *sig_len)
 {
 	CK_RV rc;
 	SIGN_VERIFY_CONTEXT *ctx = &session->sign_ctx;
@@ -3030,8 +3032,8 @@ CK_RV token_specific_sign_final(SESSION *session, CK_BBOOL length_only,
 }
 
 
-CK_RV token_specific_verify_init(SESSION *session, CK_MECHANISM *mech,
-				 CK_BBOOL recover_mode, CK_OBJECT_HANDLE key)
+CK_RV ep11tok_verify_init(SESSION *session, CK_MECHANISM *mech,
+			  CK_BBOOL recover_mode, CK_OBJECT_HANDLE key)
 {
 	CK_BYTE *spki;
 	size_t spki_len = 0;
@@ -3075,9 +3077,8 @@ CK_RV token_specific_verify_init(SESSION *session, CK_MECHANISM *mech,
 }
 
 
-CK_RV token_specific_verify(SESSION *session, CK_BYTE *in_data,
-			    CK_ULONG in_data_len, CK_BYTE *signature,
-			    CK_ULONG sig_len)
+CK_RV ep11tok_verify(SESSION *session, CK_BYTE *in_data, CK_ULONG in_data_len,
+		     CK_BYTE *signature, CK_ULONG sig_len)
 {
 	CK_RV rc;
 	SIGN_VERIFY_CONTEXT *ctx = &session->verify_ctx;
@@ -3095,8 +3096,8 @@ CK_RV token_specific_verify(SESSION *session, CK_BYTE *in_data,
 }
 
 
-CK_RV token_specific_verify_update(SESSION *session, CK_BYTE *in_data,
-				   CK_ULONG in_data_len)
+CK_RV ep11tok_verify_update(SESSION *session, CK_BYTE *in_data,
+			    CK_ULONG in_data_len)
 {
 	CK_RV rc;
 	SIGN_VERIFY_CONTEXT *ctx = &session->verify_ctx;
@@ -3117,8 +3118,8 @@ CK_RV token_specific_verify_update(SESSION *session, CK_BYTE *in_data,
 }
 
 
-CK_RV token_specific_verify_final(SESSION *session, CK_BYTE *signature,
-				  CK_ULONG sig_len)
+CK_RV ep11tok_verify_final(SESSION *session, CK_BYTE *signature,
+			   CK_ULONG sig_len)
 {
 	CK_RV rc;
 	SIGN_VERIFY_CONTEXT *ctx = &session->verify_ctx;
@@ -3135,8 +3136,8 @@ CK_RV token_specific_verify_final(SESSION *session, CK_BYTE *signature,
 }
 
 
-CK_RV token_specific_decrypt_final(SESSION *session, CK_BYTE_PTR output_part,
-				   CK_ULONG_PTR p_output_part_len)
+CK_RV ep11tok_decrypt_final(SESSION *session, CK_BYTE_PTR output_part,
+			    CK_ULONG_PTR p_output_part_len)
 {
 	CK_RV rc = CKR_OK;
 	ENCR_DECR_CONTEXT *decr_ctx = &session->decr_ctx;
@@ -3154,9 +3155,9 @@ CK_RV token_specific_decrypt_final(SESSION *session, CK_BYTE_PTR output_part,
 }
 
 
-CK_RV token_specific_decrypt(SESSION *session, CK_BYTE_PTR input_data,
-			     CK_ULONG input_data_len, CK_BYTE_PTR output_data,
-			     CK_ULONG_PTR p_output_data_len)
+CK_RV ep11tok_decrypt(SESSION *session, CK_BYTE_PTR input_data,
+		      CK_ULONG input_data_len, CK_BYTE_PTR output_data,
+		      CK_ULONG_PTR p_output_data_len)
 {
 	CK_RV rc = CKR_OK;
 	ENCR_DECR_CONTEXT *decr_ctx = &session->decr_ctx;
@@ -3175,10 +3176,9 @@ CK_RV token_specific_decrypt(SESSION *session, CK_BYTE_PTR input_data,
 }
 
 
-CK_RV token_specific_decrypt_update(SESSION *session, CK_BYTE_PTR input_part,
-				    CK_ULONG input_part_len,
-				    CK_BYTE_PTR output_part,
-				    CK_ULONG_PTR p_output_part_len)
+CK_RV ep11tok_decrypt_update(SESSION *session, CK_BYTE_PTR input_part,
+			     CK_ULONG input_part_len, CK_BYTE_PTR output_part,
+			     CK_ULONG_PTR p_output_part_len)
 {
 	CK_RV rc = CKR_OK;
 	ENCR_DECR_CONTEXT *decr_ctx = &session->decr_ctx;
@@ -3202,8 +3202,8 @@ CK_RV token_specific_decrypt_update(SESSION *session, CK_BYTE_PTR input_part,
 }
 
 
-CK_RV token_specific_encrypt_final(SESSION *session, CK_BYTE_PTR output_part,
-				   CK_ULONG_PTR p_output_part_len)
+CK_RV ep11tok_encrypt_final(SESSION *session, CK_BYTE_PTR output_part,
+			    CK_ULONG_PTR p_output_part_len)
 {
 	CK_RV rc = CKR_OK;
 	ENCR_DECR_CONTEXT *encr_ctx = &session->encr_ctx;
@@ -3221,9 +3221,9 @@ CK_RV token_specific_encrypt_final(SESSION *session, CK_BYTE_PTR output_part,
 }
 
 
-CK_RV token_specific_encrypt(SESSION *session, CK_BYTE_PTR input_data,
-			     CK_ULONG input_data_len, CK_BYTE_PTR output_data,
-			     CK_ULONG_PTR p_output_data_len)
+CK_RV ep11tok_encrypt(SESSION *session, CK_BYTE_PTR input_data,
+		      CK_ULONG input_data_len, CK_BYTE_PTR output_data,
+		      CK_ULONG_PTR p_output_data_len)
 {
 	CK_RV rc = CKR_OK;
 	ENCR_DECR_CONTEXT *encr_ctx = &session->encr_ctx;
@@ -3242,10 +3242,9 @@ CK_RV token_specific_encrypt(SESSION *session, CK_BYTE_PTR input_data,
 }
 
 
-CK_RV token_specific_encrypt_update(SESSION *session, CK_BYTE_PTR input_part,
-				    CK_ULONG input_part_len,
-				    CK_BYTE_PTR output_part,
-				    CK_ULONG_PTR p_output_part_len)
+CK_RV ep11tok_encrypt_update(SESSION *session, CK_BYTE_PTR input_part,
+			     CK_ULONG input_part_len, CK_BYTE_PTR output_part,
+			     CK_ULONG_PTR p_output_part_len)
 {
 	CK_RV rc = CKR_OK;
 	ENCR_DECR_CONTEXT *encr_ctx = &session->encr_ctx;
@@ -3330,8 +3329,8 @@ static CK_RV ep11_ende_crypt_init(SESSION *session, CK_MECHANISM_PTR mech,
 }
 
 
-CK_RV token_specific_encrypt_init(SESSION *session, CK_MECHANISM_PTR mech,
-				  CK_OBJECT_HANDLE key)
+CK_RV ep11tok_encrypt_init(SESSION *session, CK_MECHANISM_PTR mech,
+			   CK_OBJECT_HANDLE key)
 {
 	CK_RV rc;
 
@@ -3349,8 +3348,8 @@ CK_RV token_specific_encrypt_init(SESSION *session, CK_MECHANISM_PTR mech,
 }
 
 
-CK_RV token_specific_decrypt_init(SESSION *session, CK_MECHANISM_PTR mech,
-				  CK_OBJECT_HANDLE key)
+CK_RV ep11tok_decrypt_init(SESSION *session, CK_MECHANISM_PTR mech,
+			   CK_OBJECT_HANDLE key)
 {
 	CK_RV rc;
 
@@ -3368,10 +3367,9 @@ CK_RV token_specific_decrypt_init(SESSION *session, CK_MECHANISM_PTR mech,
 }
 
 
-CK_RV token_specific_wrap_key(SESSION *session, CK_MECHANISM_PTR mech,
-			      CK_OBJECT_HANDLE wrapping_key,
-			      CK_OBJECT_HANDLE key, CK_BYTE_PTR wrapped_key,
-			      CK_ULONG_PTR p_wrapped_key_len)
+CK_RV ep11tok_wrap_key(SESSION *session, CK_MECHANISM_PTR mech,
+		       CK_OBJECT_HANDLE wrapping_key, CK_OBJECT_HANDLE key,
+		       CK_BYTE_PTR wrapped_key, CK_ULONG_PTR p_wrapped_key_len)
 {
 	CK_RV rc;
 	CK_BYTE *wrapping_blob;
@@ -3454,12 +3452,11 @@ CK_RV token_specific_wrap_key(SESSION *session, CK_MECHANISM_PTR mech,
 }
 
 
-CK_RV token_specific_unwrap_key(SESSION *session, CK_MECHANISM_PTR mech,
-				CK_ATTRIBUTE_PTR attrs, CK_ULONG attrs_len,
-				CK_BYTE_PTR wrapped_key,
-				CK_ULONG wrapped_key_len,
-				CK_OBJECT_HANDLE wrapping_key,
-				CK_OBJECT_HANDLE_PTR p_key)
+CK_RV ep11tok_unwrap_key(SESSION *session, CK_MECHANISM_PTR mech,
+			 CK_ATTRIBUTE_PTR attrs, CK_ULONG attrs_len,
+			 CK_BYTE_PTR wrapped_key, CK_ULONG wrapped_key_len,
+			 CK_OBJECT_HANDLE wrapping_key,
+			 CK_OBJECT_HANDLE_PTR p_key)
 {
 	CK_RV rc;
 	CK_BYTE *wrapping_blob;
@@ -3663,8 +3660,8 @@ CK_ULONG banned_mech_list_len = (sizeof(ep11_banned_mech_list) / sizeof(CK_MECHA
 /* filtering out some mechanisms we do not want to provide
  * makes it complicated
  */
-CK_RV token_specific_get_mechanism_list(CK_MECHANISM_TYPE_PTR pMechanismList,
-                                        CK_ULONG_PTR pulCount)
+CK_RV ep11tok_get_mechanism_list(CK_MECHANISM_TYPE_PTR pMechanismList,
+				 CK_ULONG_PTR pulCount)
 {
 	CK_RV rc = 0;
 	CK_ULONG counter = 0;
@@ -3765,8 +3762,8 @@ CK_RV token_specific_get_mechanism_list(CK_MECHANISM_TYPE_PTR pMechanismList,
 }
 
 
-CK_RV token_specific_get_mechanism_info(CK_MECHANISM_TYPE type,
-                                        CK_MECHANISM_INFO_PTR pInfo)
+CK_RV ep11tok_get_mechanism_info(CK_MECHANISM_TYPE type,
+				 CK_MECHANISM_INFO_PTR pInfo)
 {
 	CK_RV rc;
 	int i;
