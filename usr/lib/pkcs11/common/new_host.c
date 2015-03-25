@@ -330,7 +330,6 @@
 /* Declared in obj_mgr.c */
 extern pthread_rwlock_t obj_list_rw_mutex;
 
-char *pk_dir;
 void SC_SetFunctionList(void);
 
 CK_ULONG  usage_count = 0;	/* track DLL usage */
@@ -348,32 +347,36 @@ CK_ULONG  usage_count = 0;	/* track DLL usage */
 void Fork_Initializer(void)
 {
 
-	// Initialize spinlock.
+	/* Initialize spinlock. */
 	XProcLock_Init();
 
-	// Force logout.  This cleans out the private session and list
-	// and cleans out the private object map
+	/* Force logout.  This cleans out the private session and list
+	 * and cleans out the private object map
+	 */
 	session_mgr_logout_all();
 
-	// Clean out the public object map
-	// First parm is no longer used..
+	/* Clean out the public object map
+	 * First parm is no longer used..
+	 */
 	object_mgr_purge_map((SESSION *)0xFFFF, PUBLIC);
 	object_mgr_purge_map((SESSION *)0xFFFF, PRIVATE);
 
-	// This should clear the entire session list out
+	/* This should clear the entire session list out */
 	session_mgr_close_all_sessions();
 
-	// Clean out the global login state variable
-	// When implemented...  Although logout_all should clear this up.
+	/* Clean out the global login state variable
+	 * When implemented...  Although logout_all should clear this up.
+	 */
 
 	bt_destroy(&priv_token_obj_btree, object_free);
 	bt_destroy(&publ_token_obj_btree, object_free);
 
-	// Need to do something to prevent the shared memory from
-	// having the objects loaded again.... The most likely place
-	// is in the obj_mgr file where the object is added to shared
-	// memory (object_mgr_add_to_shm) a query should be done to
-	// the appropriate object list....
+	/* Need to do something to prevent the shared memory from
+	 * having the objects loaded again.... The most likely place
+	 * is in the obj_mgr file where the object is added to shared
+	 * memory (object_mgr_add_to_shm) a query should be done to
+	 * the appropriate object list....
+	 */
 }
 
 /* verify that the mech specified is in the
@@ -393,67 +396,6 @@ CK_RV valid_mech(CK_MECHANISM_PTR m, CK_FLAGS f)
 	return CKR_OK;
 }
 
-void init_data_store(char *directory)
-{
-	char *pkdir;
-	if ( (pkdir = getenv("PKCS_APP_STORE")) != NULL){
-		pk_dir =  (char *) malloc(strlen(pkdir)+1024);
-		memset(pk_dir, 0, strlen(pkdir)+1024);
-		sprintf(pk_dir,"%s/%s",pkdir,SUB_DIR);
-	} else {
-		pk_dir  = (char *)malloc(strlen(directory)+25);
-		memset(pk_dir, 0, strlen(directory)+25);
-		sprintf(pk_dir,"%s",directory);
-
-	}
-}
-
-CK_RV check_user_and_group()
-{
-	int i;
-	uid_t uid, euid;
-	struct passwd *pw, *epw;
-	struct group *grp;
-
-	/*
-	 * Check for root user or Group PKCS#11 Membership.
-	 * Only these are allowed.
-	 */
-	uid = getuid();
-	euid = geteuid();
-
-	/* Root or effective Root is ok */
-	if (uid != 0 && euid != 0)
-		return CKR_OK;
-
-	/*
-	 * Check for member of group. SAB get login seems to not work with some
-	 * instances of application invocations (particularly when forked).
-	 * So we need to get the group information.  Really need to take the uid
-	 * and map it to a name.
-	 */
-	grp = getgrnam("pkcs11");
-	if (grp == NULL) {
-		OCK_SYSLOG(LOG_ERR, "getgrnam() failed: %s\n", strerror(errno));
-		goto error;
-	}
-
-	if (getgid() == grp->gr_gid || getegid() == grp->gr_gid)
-		return CKR_OK;
-
-	/* Check if user or effective user is member of pkcs11 group */
-	pw = getpwuid(uid);
-	epw = getpwuid(euid);
-	for (i = 0; grp->gr_mem[i]; i++) {
-		if ((pw && strcmp(pw->pw_name, grp->gr_mem[i]) == 0) ||
-		    (epw && strcmp(epw->pw_name, grp->gr_mem[i]) == 0))
-			return CKR_OK;
-	}
-
-error:
-	TRACE_ERROR("%s\n", ock_err(ERR_FUNCTION_FAILED));
-	return CKR_FUNCTION_FAILED;
-}
 
 /* In an STDLL this is called once for each card in the system
  * therefore the initialized only flags certain one time things.
@@ -618,40 +560,6 @@ done:
 	return rc;
 }
 
-void copy_token_contents_sensibly(CK_TOKEN_INFO_PTR pInfo,
-				  TOKEN_DATA *nv_token_data)
-{
-	memcpy(pInfo, &nv_token_data->token_info, sizeof(CK_TOKEN_INFO_32));
-	pInfo->flags = nv_token_data->token_info.flags;
-
-	pInfo->ulMaxPinLen = nv_token_data->token_info.ulMaxPinLen;
-	pInfo->ulMinPinLen = nv_token_data->token_info.ulMinPinLen;
-
-	if (nv_token_data->token_info.ulTotalPublicMemory == (CK_ULONG_32)CK_UNAVAILABLE_INFORMATION)
-		pInfo->ulTotalPublicMemory = (CK_ULONG)CK_UNAVAILABLE_INFORMATION;
-	else
-		pInfo->ulTotalPublicMemory = nv_token_data->token_info.ulTotalPublicMemory;
-	if (nv_token_data->token_info.ulFreePublicMemory == (CK_ULONG_32)CK_UNAVAILABLE_INFORMATION)
-		pInfo->ulFreePublicMemory = (CK_ULONG)CK_UNAVAILABLE_INFORMATION;
-	else
-		pInfo->ulFreePublicMemory = nv_token_data->token_info.ulFreePublicMemory;
-	if (nv_token_data->token_info.ulTotalPrivateMemory == (CK_ULONG_32)CK_UNAVAILABLE_INFORMATION)
-		pInfo->ulTotalPrivateMemory = (CK_ULONG)CK_UNAVAILABLE_INFORMATION;
-	else
-		pInfo->ulTotalPrivateMemory = nv_token_data->token_info.ulTotalPrivateMemory;
-	if (nv_token_data->token_info.ulFreePrivateMemory == (CK_ULONG_32)CK_UNAVAILABLE_INFORMATION)
-		pInfo->ulFreePrivateMemory = (CK_ULONG)CK_UNAVAILABLE_INFORMATION;
-	else
-		pInfo->ulFreePrivateMemory = nv_token_data->token_info.ulFreePrivateMemory;
-
-	pInfo->hardwareVersion = nv_token_data->token_info.hardwareVersion;
-	pInfo->firmwareVersion = nv_token_data->token_info.firmwareVersion;
-	pInfo->ulMaxSessionCount = ULONG_MAX - 1;
-	/* pInfo->ulSessionCount is set at the API level */
-	pInfo->ulMaxRwSessionCount = ULONG_MAX - 1;
-	pInfo->ulRwSessionCount = CK_UNAVAILABLE_INFORMATION;
-}
-
 CK_RV SC_GetTokenInfo(CK_SLOT_ID sid, CK_TOKEN_INFO_PTR pInfo)
 {
 	CK_RV rc = CKR_OK;
@@ -696,37 +604,6 @@ CK_RV SC_WaitForSlotEvent(CK_FLAGS flags, CK_SLOT_ID_PTR pSlot,
 }
 
 /*
- * For Netscape we want to not support the SSL3 mechs since the native
- * ones perform much better.  Force those slots to be RSA... it's ugly
- * but it works.
- */
-static void
-netscape_hack(CK_MECHANISM_TYPE_PTR mech_arr_ptr, CK_ULONG count)
-{
-	char *envrn;
-	CK_ULONG i;
-	if ((envrn = getenv("NS_SERVER_HOME")) != NULL) {
-		for (i = 0; i < count; i++){
-			switch (mech_arr_ptr[i]) {
-			case CKM_SSL3_PRE_MASTER_KEY_GEN:
-			case CKM_SSL3_MASTER_KEY_DERIVE:
-			case CKM_SSL3_KEY_AND_MAC_DERIVE:
-			case CKM_SSL3_MD5_MAC:
-			case CKM_SSL3_SHA1_MAC:
-				mech_arr_ptr[i] = CKM_RSA_PKCS;
-				break;
-			}
-		}
-	}
-}
-
-void mechanism_list_transformations(CK_MECHANISM_TYPE_PTR mech_arr_ptr,
-				    CK_ULONG_PTR count_ptr)
-{
-	netscape_hack(mech_arr_ptr, (*count_ptr));
-}
-
-/*
  * Get the mechanism type list for the current token.
  */
 CK_RV SC_GetMechanismList(CK_SLOT_ID sid, CK_MECHANISM_TYPE_PTR pMechList,
@@ -758,7 +635,8 @@ CK_RV SC_GetMechanismList(CK_SLOT_ID sid, CK_MECHANISM_TYPE_PTR pMechList,
 	rc = token_specific.t_get_mechanism_list(pMechList, count);
 	if (rc == CKR_OK) {
 		/* To accomodate certain special cases, we may need to
-		 * make adjustments to the token's mechanism list. */
+		 * make adjustments to the token's mechanism list.
+		 */
 		mechanism_list_transformations(pMechList, count);
 	}
 out:
@@ -872,7 +750,6 @@ CK_RV SC_InitToken(CK_SLOT_ID sid, CK_CHAR_PTR pPin, CK_ULONG ulPinLen,
 		TRACE_DEBUG("Failed to save token data.\n");
 		goto done;
 	}
-
 done:
 	TRACE_INFO("C_InitToken: rc = 0x%08x\n", rc);
 	return rc;
@@ -920,7 +797,7 @@ CK_RV SC_InitPIN(ST_SESSION_HANDLE *sSession, CK_CHAR_PTR pPin,
 	 */
 	if (token_specific.t_init_pin) {
 		rc = token_specific.t_init_pin(sess, pPin, ulPinLen);
-		if (rc == CKR_OK){
+		if (rc == CKR_OK) {
 			flags = &nv_token_data->token_info.flags;
 			*flags &= ~(CKF_USER_PIN_LOCKED |
 				  CKF_USER_PIN_FINAL_TRY |
@@ -946,7 +823,7 @@ CK_RV SC_InitPIN(ST_SESSION_HANDLE *sSession, CK_CHAR_PTR pPin,
 		goto done;
 	}
 	rc = XProcLock();
-	if (rc != CKR_OK){
+	if (rc != CKR_OK) {
 		TRACE_ERROR("Failed to get process lock.\n");
 		goto done;
 	}
@@ -957,7 +834,7 @@ CK_RV SC_InitPIN(ST_SESSION_HANDLE *sSession, CK_CHAR_PTR pPin,
 	XProcUnLock();
 	memcpy(user_pin_md5, hash_md5, MD5_HASH_SIZE);
 	rc = save_token_data(sess->session_info.slotID);
-	if (rc != CKR_OK){
+	if (rc != CKR_OK) {
 		TRACE_DEBUG("Failed to save token data.\n");
 		goto done;
 	}

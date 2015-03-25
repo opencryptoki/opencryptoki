@@ -313,6 +313,8 @@
 
 /* #include "../api/apiproto.h" */
 
+char *pk_dir;
+
 CK_BYTE *get_pk_dir(char *fname)
 {
 	struct passwd *pw = NULL;
@@ -1888,4 +1890,18 @@ CK_RV generate_master_key(CK_BYTE *key)
 	}
 
 	return ERR_MECHANISM_INVALID;
+}
+
+void init_data_store(char *directory)
+{
+	char *pkdir;
+	if ((pkdir = getenv("PKCS_APP_STORE")) != NULL) {
+		pk_dir = (char *)malloc(strlen(pkdir) + 1024);
+		memset(pk_dir, 0, strlen(pkdir) + 1024);
+		sprintf(pk_dir, "%s/%s", pkdir, SUB_DIR);
+	} else {
+		pk_dir = (char *)malloc(strlen(directory) + 25);
+		memset(pk_dir, 0, strlen(directory) + 25);
+		sprintf(pk_dir, "%s", directory);
+	}
 }

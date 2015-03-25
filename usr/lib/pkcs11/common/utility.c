@@ -1124,3 +1124,89 @@ CK_RV get_keytype(CK_OBJECT_HANDLE hkey, CK_KEY_TYPE *keytype)
 		return CKR_OK;
 	}
 }
+
+CK_RV check_user_and_group()
+{
+	int i;
+	uid_t uid, euid;
+	struct passwd *pw, *epw;
+	struct group *grp;
+
+	/*
+	 * Check for root user or Group PKCS#11 Membershp.
+	 * Only these are allowed.
+	 */
+	uid = getuid();
+	euid = geteuid();
+
+	/* Root or effective Root is ok */
+	if (uid != 0 && euid != 0)
+		return CKR_OK;
+
+	/*
+	 * Check for member of group. SAB get login seems to not work
+	 * with some instances of application invocations (particularly
+	 * when forked). So we need to get the group information.
+	 * Really need to take the uid and map it to a name.
+	 */
+	grp = getgrnam("pkcs11");
+	if (grp == NULL) {
+		OCK_SYSLOG(LOG_ERR, "getgrnam() failed: %s\n", strerror(errno));
+		goto error;
+	}
+
+	if (getgid() == grp->gr_gid || getegid() == grp->gr_gid)
+		return CKR_OK;
+	/* Check if user or effective user is member of pkcs11 group */
+	pw = getpwuid(uid);
+	epw = getpwuid(euid);
+	for (i = 0; grp->gr_mem[i]; i++) {
+		if ((pw && strcmp(pw->pw_name, grp->gr_mem[i]) == 0) ||
+		    (epw && strcmp(epw->pw_name, grp->gr_mem[i]) == 0))
+			return CKR_OK;
+	}
+
+error:
+	TRACE_ERROR("%s\n", ock_err(ERR_FUNCTION_FAILED));
+	return CKR_FUNCTION_FAILED;
+}
+
+void copy_token_contents_sensibly(CK_TOKEN_INFO_PTR pInfo,
+				  TOKEN_DATA *nv_token_data)
+{
+	memcpy(pInfo, &nv_token_data->token_info, sizeof(CK_TOKEN_INFO_32));
+	pInfo->flags = nv_token_data->token_info.flags;
+	pInfo->ulMaxPinLen = nv_token_data->token_info.ulMaxPinLen;
+	pInfo->ulMinPinLen = nv_token_data->token_info.ulMinPinLen;
+
+	if (nv_token_data->token_info.ulTotalPublicMemory ==
+	    (CK_ULONG_32)CK_UNAVAILABLE_INFORMATION)
+		pInfo->ulTotalPublicMemory = (CK_ULONG)CK_UNAVAILABLE_INFORMATION;
+	else
+		pInfo->ulTotalPublicMemory = nv_token_data->token_info.ulTotalPublicMemory;
+
+	if (nv_token_data->token_info.ulFreePublicMemory ==
+	    (CK_ULONG_32)CK_UNAVAILABLE_INFORMATION)
+		pInfo->ulFreePublicMemory = (CK_ULONG)CK_UNAVAILABLE_INFORMATION;
+	else
+		pInfo->ulFreePublicMemory = nv_token_data->token_info.ulFreePublicMemory;
+
+	if (nv_token_data->token_info.ulTotalPrivateMemory ==
+	    (CK_ULONG_32)CK_UNAVAILABLE_INFORMATION)
+		pInfo->ulTotalPrivateMemory = (CK_ULONG)CK_UNAVAILABLE_INFORMATION;
+	else
+		pInfo->ulTotalPrivateMemory = nv_token_data->token_info.ulTotalPrivateMemory;
+
+	if (nv_token_data->token_info.ulFreePrivateMemory ==
+	   (CK_ULONG_32)CK_UNAVAILABLE_INFORMATION)
+		pInfo->ulFreePrivateMemory = (CK_ULONG)CK_UNAVAILABLE_INFORMATION;
+	else
+		pInfo->ulFreePrivateMemory = nv_token_data->token_info.ulFreePrivateMemory;
+
+	pInfo->hardwareVersion = nv_token_data->token_info.hardwareVersion;
+	pInfo->firmwareVersion = nv_token_data->token_info.firmwareVersion;
+	pInfo->ulMaxSessionCount = ULONG_MAX - 1;
+	/* pInfo->ulSessionCount is set at the API level */
+	pInfo->ulMaxRwSessionCount = ULONG_MAX - 1;
+	pInfo->ulRwSessionCount = CK_UNAVAILABLE_INFORMATION;
+}

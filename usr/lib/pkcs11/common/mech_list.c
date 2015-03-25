@@ -392,3 +392,33 @@ ock_generic_get_mechanism_info(CK_MECHANISM_TYPE type,
  out:
 	return rc;
 }
+
+/*
+ * For Netscape we want to not support the SSL3 mechs since the native
+ * ones perform much better.  Force those slots to be RSA... it's ugly
+ * but it works.
+ */
+static void netscape_hack(CK_MECHANISM_TYPE_PTR mech_arr_ptr, CK_ULONG count)
+{
+	char *envrn;
+	CK_ULONG i;
+	if ((envrn = getenv("NS_SERVER_HOME")) != NULL) {
+		for (i = 0; i < count; i++) {
+			switch (mech_arr_ptr[i]) {
+			case CKM_SSL3_PRE_MASTER_KEY_GEN:
+			case CKM_SSL3_MASTER_KEY_DERIVE:
+			case CKM_SSL3_KEY_AND_MAC_DERIVE:
+			case CKM_SSL3_MD5_MAC:
+			case CKM_SSL3_SHA1_MAC:
+				mech_arr_ptr[i] = CKM_RSA_PKCS;
+				break;
+			}
+		}
+	}
+}
+
+void mechanism_list_transformations(CK_MECHANISM_TYPE_PTR mech_arr_ptr,
+				    CK_ULONG_PTR count_ptr)
+{
+	netscape_hack(mech_arr_ptr, (*count_ptr));
+}
