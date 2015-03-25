@@ -397,9 +397,6 @@ extern struct ST_FCN_LIST   function_list;
 
 extern CK_C_INITIALIZE_ARGS cinit_args;
 
-CK_ULONG long_reverse( CK_ULONG x );
-
-
 // VACPP C runtime initialization/cleanup entry points
 //
 int  _CRT_init(void);
@@ -822,8 +819,6 @@ CK_RV get_sha_size(CK_ULONG mech, CK_ULONG *hsize);
 
 CK_RV mgf1(CK_BYTE *seed, CK_ULONG seedlen, CK_BYTE *mask, CK_ULONG maskLen,
 	   CK_RSA_PKCS_MGF_TYPE mgf);
-
-CK_ULONG long_reverse( CK_ULONG x );
 
 //CK_RV load_FCV( void );
 //CK_RV save_FCV( FUNCTION_CTRL_VEC_RECORD *new_FCV );

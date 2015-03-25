@@ -327,68 +327,25 @@
 
 #include "../api/apiproto.h"
 
-#define UCHAR  unsigned char
-
 /* Declared in obj_mgr.c */
 extern pthread_rwlock_t obj_list_rw_mutex;
 
 char *pk_dir;
 void SC_SetFunctionList(void);
 
-#define SESSION_MGR_FIND(x) session_mgr_find(x) /* All these need to
-						 * get the lock */
+CK_ULONG  usage_count = 0;	/* track DLL usage */
 
-/* Maximum number of supported devices (rather arbitrary) */
-#define PKW_MAX_DEVICES                10
+#define  SLT_CHECK  \
+   CK_SLOT_ID     slot_id; \
+   int            sid1; \
+ \
+   if ( (sid1 = token_specific.t_slot2local(sid)) != -1 ){ \
+      slot_id = sid1; \
+   } else { \
+      return CKR_ARGUMENTS_BAD; \
+   }
 
-// Netscape/SSL is fairly timing-sensitive so can't always use a debugger
-//
-// If the CRYPTOKI_DEBUG environment variable is defined, information
-// about each successful PKCS#11 call made is written to the file named
-// in that environment variable.
-//
-// If the CRYPTOKI_PROFILE environment variable is defined, information
-// about the amount of time spent in each PKCS#11 API during a "run"
-//
-// If the CRYPTOKI_DEBUG environment variable is defined, information
-// about each successful PKCS#11 call made is written to the file named
-// in that environment variable.
-//
-// If the CRYPTOKI_PROFILE environment variable is defined, information
-// about the amount of time spent in each PKCS#11 API during a "run"
-// (i.e., from _DLL_InitTerm init call to _DLL_InitTerm term call) is
-// appended to the file named in that environment variable.
-//
-// If the CRYPTOKI_STATS_FILE environment variable is defined, information
-// about various internal metrics at the end of a "run" is appended to
-// the file named in that environment variable.  The CRYPTOKI_STATS
-// environment variable specifies the argument(s) that are passed to
-// the function that returns the metrics to specify which metric(s) are
-// returned.
-//
-#define MAXFILENAME 1024
-
-static char *debugfilepathbuffer;
-static int debugon = 1;
-int  debugfile = 0;
-#define FFLUSH(x) 
-
-pid_t  initedpid=0;  // for initialized pid
-
-CK_ULONG  usage_count = 0; // variable for number of times the DLL has
-			   // been used.
-
-CK_C_INITIALIZE_ARGS cinit_args = { NULL, NULL, NULL, NULL, 0, NULL };
-
-CK_BBOOL
-st_Initialized()
-{
-	if (initialized == FALSE ) return FALSE;
-	return TRUE;
-}
-
-void
-Fork_Initializer(void)
+void Fork_Initializer(void)
 {
 
 	// Initialize spinlock.
@@ -419,63 +376,9 @@ Fork_Initializer(void)
 	// the appropriate object list....
 }
 
-#ifdef ALLLOCK
-#define LOCKIT   pthread_mutex_lock(&native_mutex)
-#define LLOCK
-#define UNLOCKIT   pthread_mutex_unlock(&native_mutex)
-#else
-#ifdef DEBLOCK
-#define LOCKIT
-#define LLOCK   pthread_mutex_lock(&native_mutex)
-#define UNLOCKIT   pthread_mutex_unlock(&native_mutex)
-#else
-#define LOCKIT
-#define LLOCK
-#define UNLOCKIT
-#endif
-#endif
-
-int
-APISlot2Local(snum)
-CK_SLOT_ID  snum;
-{
-	return(token_specific.t_slot2local(snum));
-}
-
-
-#define  SLT_CHECK  \
-   CK_SLOT_ID     slot_id; \
-   int            sid1; \
- \
-   if ( (sid1 = APISlot2Local(sid)) != -1 ){ \
-      slot_id = sid1; \
-   } else { \
-      return CKR_ARGUMENTS_BAD; \
-   }
-
-
-//#define SESSION_HANDLE   sSession.sessionh
-#define SESS_HANDLE(s)	((s)->sessionh)
-#define SLOTID    APISlot2Local(sSession.slotID)
-
-
-// More efficient long reverse
-inline CK_ULONG long_reverse(CK_ULONG x)
-{
-#ifdef _POWER   // Power Architecture requires reversal to talk to adapter
-	return (
-		((0x000000FF & x)<<24) |
-		((0x0000FF00 & x)<<8) |
-		((0x00FF0000 & x)>>8) |
-		((0xFF000000 & x)>>24) );
-#else
-	return (x); // Others don't require  reversal.
-#endif
-
-}
-
-// verify that the mech specified is in the
-// mech list for this token...
+/* verify that the mech specified is in the
+ * mech list for this token...
+ */
 CK_RV valid_mech(CK_MECHANISM_PTR m, CK_FLAGS f)
 {
 	CK_RV rc;
@@ -490,8 +393,7 @@ CK_RV valid_mech(CK_MECHANISM_PTR m, CK_FLAGS f)
 	return CKR_OK;
 }
 
-void
-init_data_store(char *directory)
+void init_data_store(char *directory)
 {
 	char *pkdir;
 	if ( (pkdir = getenv("PKCS_APP_STORE")) != NULL){
@@ -506,8 +408,7 @@ init_data_store(char *directory)
 	}
 }
 
-CK_RV
-check_user_and_group()
+CK_RV check_user_and_group()
 {
 	int i;
 	uid_t uid, euid;
@@ -515,7 +416,7 @@ check_user_and_group()
 	struct group *grp;
 
 	/*
-	 * Check for root user or Group PKCS#11 Membershp.
+	 * Check for root user or Group PKCS#11 Membership.
 	 * Only these are allowed.
 	 */
 	uid = getuid();
@@ -560,45 +461,48 @@ error:
 CK_RV ST_Initialize(void **FunctionList, CK_SLOT_ID SlotNumber, char *conf_name,
 		    struct trace_handle_t t)
 {
-	int    i;
-	CK_RV  rc = CKR_OK;
+	int i;
+	CK_RV rc = CKR_OK;
 
 	if ((rc = check_user_and_group()) != CKR_OK)
 		return rc;
 
-	// assume that the upper API prevents multiple calls of initialize
-	// since that only happens on C_Initialize and that is the
-	// resonsibility of the upper layer..
-	initialized = FALSE; /// So the rest of the code works correctly
+	/* assume that the upper API prevents multiple calls of initialize
+	 * since that only happens on C_Initialize and that is the
+	 * resonsibility of the upper layer..
+	 */
+	initialized = FALSE; /* So the rest of the code works correctly */
 
-	// If we're not already initialized, grab the mutex and do the
-	// initialization.  Check to see if another thread did so while we
-	// were waiting...
-	//
-	// One of the things we do during initialization is create the mutex for
-	// PKCS#11 operations; until we do so, we have to use the native mutex...
-	//
+	/* If we're not already initialized, grab the mutex and do the
+	 * initialization.  Check to see if another thread did so while we
+	 * were waiting...
+	 *
+	 * One of the things we do during initialization is create the mutex
+	 * for PKCS#11 operations; until we do so, we have to use the native
+	 * mutex...
+	 */
 	if (pthread_mutex_lock(&native_mutex)) {
 		rc = CKR_FUNCTION_FAILED;
 		TRACE_ERROR("Failed to lock mutex.\n");
 	}
 
-	// SAB need to call Fork_Initializer here
-	// instead of at the end of the loop...
-	// it may also need to call destroy of the following 3 mutexes..
-	// it may not matter...
+	/* SAB need to call Fork_Initializer here
+	 * instead of at the end of the loop...
+	 * it may also need to call destroy of the following 3 mutexes..
+	 * it may not matter...
+	 */
 	Fork_Initializer();
 
 	/* set trace info */
 	set_trace(t);
 
-	MY_CreateMutex( &pkcs_mutex      );
-	MY_CreateMutex( &obj_list_mutex  );
+	MY_CreateMutex(&pkcs_mutex);
+	MY_CreateMutex(&obj_list_mutex);
 	if (pthread_rwlock_init(&obj_list_rw_mutex, NULL)) {
 		TRACE_ERROR("Mutex lock failed.\n");
 	}
-	MY_CreateMutex( &sess_list_mutex );
-	MY_CreateMutex( &login_mutex     );
+	MY_CreateMutex(&sess_list_mutex);
+	MY_CreateMutex(&login_mutex);
 
 	/* Create lockfile */
 	if (CreateXProcLock() != CKR_OK) {
@@ -608,10 +512,10 @@ CK_RV ST_Initialize(void **FunctionList, CK_SLOT_ID SlotNumber, char *conf_name,
 
 	init_data_store((char *)PK_DIR);
 
-
-	// Handle global initialization issues first if we have not
-	// been initialized.
-	if (st_Initialized() == FALSE){
+	/* Handle global initialization issues first if we have not
+	 * been initialized.
+	 */
+	if (initialized == FALSE){
 
 		rc = attach_shm(SlotNumber, &global_shm);
 		if (rc != CKR_OK) {
@@ -621,12 +525,11 @@ CK_RV ST_Initialize(void **FunctionList, CK_SLOT_ID SlotNumber, char *conf_name,
 
 		nv_token_data = &global_shm->nv_token_data;
 		initialized = TRUE;
-		initedpid = getpid();
 		SC_SetFunctionList();
 
-		// Always call the token_specific_init function....
+		/* Always call the token_specific_init function.... */
 		rc =  token_specific.t_init(SlotNumber, conf_name);
-		if (rc != 0) {   // Zero means success, right?!?
+		if (rc != 0) {
 			*FunctionList = NULL;
 			TRACE_DEBUG("Token Specific Init failed.\n");
 			goto done;
@@ -640,7 +543,9 @@ CK_RV ST_Initialize(void **FunctionList, CK_SLOT_ID SlotNumber, char *conf_name,
 		goto done;
 	}
 
-	/* no need to return error here, we load the token data we can and syslog the rest */
+	/* no need to return error here, we load the token data we can
+	 * and syslog the rest
+	 */
 	load_public_token_objects();
 
 	XProcLock();
@@ -652,50 +557,49 @@ CK_RV ST_Initialize(void **FunctionList, CK_SLOT_ID SlotNumber, char *conf_name,
 	usage_count++;
 	(*FunctionList) = &function_list;
 
- done:
+done:
 	if (pthread_mutex_unlock(&native_mutex)) {
 		TRACE_ERROR("Failed to unlock mutex.\n");
 		rc = CKR_FUNCTION_FAILED;
 	}
-
 	return rc;
 }
 
-// What does this really have to do in this new token...  probably
-// need to close the adapters that are opened, and clear the other
-// stuff
-CK_RV SC_Finalize( CK_SLOT_ID sid )
+/* What does this really have to do in this new token...  probably
+ * need to close the adapters that are opened, and clear the other
+ * stuff
+ */
+CK_RV SC_Finalize(CK_SLOT_ID sid)
 {
 	CK_RV rc, rc_mutex;
+
 	SLT_CHECK;
-	if (st_Initialized() == FALSE) {
+	if (initialized == FALSE) {
 		TRACE_ERROR("%s\n", ock_err(ERR_CRYPTOKI_NOT_INITIALIZED));
 		return CKR_CRYPTOKI_NOT_INITIALIZED;
 	}
 
-	rc = MY_LockMutex( &pkcs_mutex );
-	if (rc != CKR_OK){
+	rc = MY_LockMutex(&pkcs_mutex);
+	if (rc != CKR_OK) {
 		TRACE_ERROR("Mutex lock failed.\n");
 		return rc;
 	}
 
-	// If somebody else has taken care of things, leave...
-	if (st_Initialized() == FALSE) {
-		MY_UnlockMutex( &pkcs_mutex ); // ? Somebody else has
-					       // also destroyed the
-					       // mutex...
+	/* If somebody else has taken care of things, leave... */
+	if (initialized == FALSE) {
+		MY_UnlockMutex(&pkcs_mutex);
 		TRACE_ERROR("%s\n", ock_err(ERR_CRYPTOKI_NOT_INITIALIZED));
 		rc = CKR_CRYPTOKI_NOT_INITIALIZED;
 		goto done;
 	}
 	usage_count--;
-	if (usage_count == 0){
+	if (usage_count == 0) {
 		initialized = FALSE;
 	}
 	session_mgr_close_all_sessions();
 	object_mgr_purge_token_objects();
 	detach_shm();
-	// close spin lock file
+	/* close spin lock file	*/
 	CloseXProcLock();
 	if (token_specific.t_final != NULL) {
 		rc = token_specific.t_final();
@@ -706,16 +610,16 @@ CK_RV SC_Finalize( CK_SLOT_ID sid )
 	}
 
 done:
-	rc_mutex = MY_UnlockMutex( &pkcs_mutex );
-	if (rc_mutex != CKR_OK){
+	rc_mutex = MY_UnlockMutex(&pkcs_mutex);
+	if (rc_mutex != CKR_OK) {
 		TRACE_ERROR("Mutex unlock failed.\n");
 		return rc_mutex;
 	}
 	return rc;
 }
 
-void
-copy_token_contents_sensibly(CK_TOKEN_INFO_PTR pInfo, TOKEN_DATA *nv_token_data)
+void copy_token_contents_sensibly(CK_TOKEN_INFO_PTR pInfo,
+				  TOKEN_DATA *nv_token_data)
 {
 	memcpy(pInfo, &nv_token_data->token_info, sizeof(CK_TOKEN_INFO_32));
 	pInfo->flags = nv_token_data->token_info.flags;
@@ -723,51 +627,38 @@ copy_token_contents_sensibly(CK_TOKEN_INFO_PTR pInfo, TOKEN_DATA *nv_token_data)
 	pInfo->ulMaxPinLen = nv_token_data->token_info.ulMaxPinLen;
 	pInfo->ulMinPinLen = nv_token_data->token_info.ulMinPinLen;
 
-	if ( nv_token_data->token_info.ulTotalPublicMemory == (CK_ULONG_32)CK_UNAVAILABLE_INFORMATION ) {
-	  pInfo->ulTotalPublicMemory = (CK_ULONG)CK_UNAVAILABLE_INFORMATION;
-	} else {
-	  pInfo->ulTotalPublicMemory = nv_token_data->token_info.ulTotalPublicMemory;
-	}
-	if ( nv_token_data->token_info.ulFreePublicMemory == (CK_ULONG_32)CK_UNAVAILABLE_INFORMATION ) {
-	  pInfo->ulFreePublicMemory = (CK_ULONG)CK_UNAVAILABLE_INFORMATION;
-	} else {
-	  pInfo->ulFreePublicMemory = nv_token_data->token_info.ulFreePublicMemory;
-	}
-	if ( nv_token_data->token_info.ulTotalPrivateMemory == (CK_ULONG_32)CK_UNAVAILABLE_INFORMATION ) {
-	  pInfo->ulTotalPrivateMemory = (CK_ULONG)CK_UNAVAILABLE_INFORMATION;
-	} else {
-	  pInfo->ulTotalPrivateMemory = nv_token_data->token_info.ulTotalPrivateMemory;
-	}
-	if ( nv_token_data->token_info.ulFreePrivateMemory == (CK_ULONG_32)CK_UNAVAILABLE_INFORMATION ) {
-	  pInfo->ulFreePrivateMemory = (CK_ULONG)CK_UNAVAILABLE_INFORMATION;
-	} else {
-	  pInfo->ulFreePrivateMemory = nv_token_data->token_info.ulFreePrivateMemory;
-	}
+	if (nv_token_data->token_info.ulTotalPublicMemory == (CK_ULONG_32)CK_UNAVAILABLE_INFORMATION)
+		pInfo->ulTotalPublicMemory = (CK_ULONG)CK_UNAVAILABLE_INFORMATION;
+	else
+		pInfo->ulTotalPublicMemory = nv_token_data->token_info.ulTotalPublicMemory;
+	if (nv_token_data->token_info.ulFreePublicMemory == (CK_ULONG_32)CK_UNAVAILABLE_INFORMATION)
+		pInfo->ulFreePublicMemory = (CK_ULONG)CK_UNAVAILABLE_INFORMATION;
+	else
+		pInfo->ulFreePublicMemory = nv_token_data->token_info.ulFreePublicMemory;
+	if (nv_token_data->token_info.ulTotalPrivateMemory == (CK_ULONG_32)CK_UNAVAILABLE_INFORMATION)
+		pInfo->ulTotalPrivateMemory = (CK_ULONG)CK_UNAVAILABLE_INFORMATION;
+	else
+		pInfo->ulTotalPrivateMemory = nv_token_data->token_info.ulTotalPrivateMemory;
+	if (nv_token_data->token_info.ulFreePrivateMemory == (CK_ULONG_32)CK_UNAVAILABLE_INFORMATION)
+		pInfo->ulFreePrivateMemory = (CK_ULONG)CK_UNAVAILABLE_INFORMATION;
+	else
+		pInfo->ulFreePrivateMemory = nv_token_data->token_info.ulFreePrivateMemory;
 
 	pInfo->hardwareVersion = nv_token_data->token_info.hardwareVersion;
 	pInfo->firmwareVersion = nv_token_data->token_info.firmwareVersion;
-	pInfo->flags = long_reverse(pInfo->flags);
 	pInfo->ulMaxSessionCount = ULONG_MAX - 1;
 	/* pInfo->ulSessionCount is set at the API level */
 	pInfo->ulMaxRwSessionCount = ULONG_MAX - 1;
 	pInfo->ulRwSessionCount = CK_UNAVAILABLE_INFORMATION;
-
-	pInfo->ulMaxPinLen = long_reverse(pInfo->ulMaxPinLen);
-	pInfo->ulMinPinLen = long_reverse(pInfo->ulMinPinLen);
-	pInfo->ulTotalPublicMemory = long_reverse(pInfo->ulTotalPublicMemory);
-	pInfo->ulFreePublicMemory = long_reverse(pInfo->ulFreePublicMemory);
-	pInfo->ulTotalPrivateMemory = long_reverse(pInfo->ulTotalPrivateMemory);
-	pInfo->ulFreePrivateMemory = long_reverse(pInfo->ulFreePrivateMemory);	
 }
 
-CK_RV SC_GetTokenInfo( CK_SLOT_ID         sid,
-                       CK_TOKEN_INFO_PTR  pInfo )
+CK_RV SC_GetTokenInfo(CK_SLOT_ID sid, CK_TOKEN_INFO_PTR pInfo)
 {
-	CK_RV             rc = CKR_OK;
+	CK_RV rc = CKR_OK;
 	time_t now;
+
 	SLT_CHECK;
-	LOCKIT;
-	if (st_Initialized() == FALSE) {
+	if (initialized == FALSE) {
 		TRACE_ERROR("%s\n", ock_err(ERR_CRYPTOKI_NOT_INITIALIZED));
 		rc = CKR_CRYPTOKI_NOT_INITIALIZED;
 		goto done;
@@ -782,31 +673,21 @@ CK_RV SC_GetTokenInfo( CK_SLOT_ID         sid,
 		rc = CKR_SLOT_ID_INVALID;
 		goto done;
 	}
-/* TODO: This should always be enabled; eliminate the PKCS64 flag */
-#ifdef PKCS64
 	copy_token_contents_sensibly(pInfo, nv_token_data);
-#else
-	memcpy( pInfo, &nv_token_data->token_info, sizeof(CK_TOKEN_INFO) );
-#endif
 
-
-	// Set the time
+	/* Set the time	*/
 	now = time ((time_t *)NULL);
-	strftime( (char *)pInfo->utcTime, 16, "%X", localtime(&now) );
+	strftime((char *)pInfo->utcTime, 16, "%X", localtime(&now));
 
- done:
-	LLOCK;
+done:
 	TRACE_INFO("C_GetTokenInfo: rc = 0x%08x\n", rc);
-
-	UNLOCKIT;
 	return rc;
 }
 
-CK_RV SC_WaitForSlotEvent( CK_FLAGS        flags,
-			   CK_SLOT_ID_PTR  pSlot,
-			   CK_VOID_PTR     pReserved )
+CK_RV SC_WaitForSlotEvent(CK_FLAGS flags, CK_SLOT_ID_PTR pSlot,
+			  CK_VOID_PTR pReserved)
 {
-	if (st_Initialized() == FALSE){
+	if (initialized == FALSE) {
 		TRACE_ERROR("%s\n", ock_err(ERR_CRYPTOKI_NOT_INITIALIZED));
 		return CKR_CRYPTOKI_NOT_INITIALIZED;
 	}
@@ -814,7 +695,7 @@ CK_RV SC_WaitForSlotEvent( CK_FLAGS        flags,
 	return CKR_FUNCTION_NOT_SUPPORTED;
 }
 
-/**
+/*
  * For Netscape we want to not support the SSL3 mechs since the native
  * ones perform much better.  Force those slots to be RSA... it's ugly
  * but it works.
@@ -842,22 +723,19 @@ netscape_hack(CK_MECHANISM_TYPE_PTR mech_arr_ptr, CK_ULONG count)
 void mechanism_list_transformations(CK_MECHANISM_TYPE_PTR mech_arr_ptr,
 				    CK_ULONG_PTR count_ptr)
 {
-#ifndef NO_NETSCAPE_HACK
 	netscape_hack(mech_arr_ptr, (*count_ptr));
-#endif /* #ifndef NO_NETSCAPE_HACK */
 }
 
-/**
+/*
  * Get the mechanism type list for the current token.
  */
-CK_RV SC_GetMechanismList(CK_SLOT_ID sid,
-                          CK_MECHANISM_TYPE_PTR pMechList,
+CK_RV SC_GetMechanismList(CK_SLOT_ID sid, CK_MECHANISM_TYPE_PTR pMechList,
                           CK_ULONG_PTR count)
 {
 	CK_RV rc = CKR_OK;
+
 	SLT_CHECK;
-	LOCKIT;
-	if (st_Initialized() == FALSE) {
+	if (initialized == FALSE) {
 		TRACE_ERROR("%s\n", ock_err(ERR_CRYPTOKI_NOT_INITIALIZED));
 		rc = CKR_CRYPTOKI_NOT_INITIALIZED;
 		goto out;
@@ -883,25 +761,22 @@ CK_RV SC_GetMechanismList(CK_SLOT_ID sid,
 		 * make adjustments to the token's mechanism list. */
 		mechanism_list_transformations(pMechList, count);
 	}
- out:
-	LLOCK;
+out:
 	TRACE_INFO("C_GetMechanismList:  rc = 0x%08x, # mechanisms: %d\n",
 		    rc, *count);
-	UNLOCKIT;
 	return rc;
 }
 
-/**
+/*
  * Get the mechanism info for the current type and token.
  */
-CK_RV SC_GetMechanismInfo(CK_SLOT_ID sid,
-                          CK_MECHANISM_TYPE type,
+CK_RV SC_GetMechanismInfo(CK_SLOT_ID sid, CK_MECHANISM_TYPE type,
                           CK_MECHANISM_INFO_PTR pInfo)
 {
 	CK_RV rc = CKR_OK;
+
 	SLT_CHECK;
-	LOCKIT;
-	if (st_Initialized() == FALSE) {
+	if (initialized == FALSE) {
 		TRACE_ERROR("%s\n", ock_err(ERR_CRYPTOKI_NOT_INITIALIZED));
 		rc = CKR_CRYPTOKI_NOT_INITIALIZED;
 		goto out;
@@ -922,23 +797,21 @@ CK_RV SC_GetMechanismInfo(CK_SLOT_ID sid,
 		goto out;
 	}
 	rc = token_specific.t_get_mechanism_info(type, pInfo);
- out:
-	LLOCK;
+out:
 	TRACE_INFO("C_GetMechanismInfo: rc = 0x%08x, mech type = 0x%08x\n",
 		     rc, type);
 	
-	UNLOCKIT;
 	return rc;
 }
 
-/* This routine should only be called if no other processes are
+/*
+ * This routine should only be called if no other processes are
  * attached to the token.  we need to somehow check that this is the
  * only process Meta API should prevent this since it knows session
- * states in the shared memory. */
-CK_RV SC_InitToken( CK_SLOT_ID   sid,
-                    CK_CHAR_PTR  pPin,
-                    CK_ULONG     ulPinLen,
-                    CK_CHAR_PTR  pLabel )
+ * states in the shared memory.
+*/
+CK_RV SC_InitToken(CK_SLOT_ID sid, CK_CHAR_PTR pPin, CK_ULONG ulPinLen,
+		   CK_CHAR_PTR pLabel)
 {
 	CK_RV rc = CKR_OK;
 	CK_BYTE hash_sha[SHA1_HASH_SIZE];
@@ -947,9 +820,7 @@ CK_RV SC_InitToken( CK_SLOT_ID   sid,
 
 	SLT_CHECK;
 	slotID = slot_id;
-	LOCKIT;
-
-	if (st_Initialized() == FALSE) {
+	if (initialized == FALSE) {
 		TRACE_ERROR("%s\n", ock_err(ERR_CRYPTOKI_NOT_INITIALIZED));
 		rc = CKR_CRYPTOKI_NOT_INITIALIZED;
 		goto done;
@@ -984,8 +855,9 @@ CK_RV SC_InitToken( CK_SLOT_ID   sid,
 		goto done;
 	}
 
-	// Before we reconstruct all the data, we should delete the
-	// token objects from the filesystem.
+	/* Before we reconstruct all the data, we should delete the
+	 * token objects from the filesystem.
+	 */
 	object_mgr_destroy_token_objects();
 	delete_token_data();
 
@@ -1001,29 +873,22 @@ CK_RV SC_InitToken( CK_SLOT_ID   sid,
 		goto done;
 	}
 
- done:
-	LLOCK;
+done:
 	TRACE_INFO("C_InitToken: rc = 0x%08x\n", rc);
-	UNLOCKIT;
 	return rc;
 }
 
 
-//
-//
-CK_RV SC_InitPIN( ST_SESSION_HANDLE  *sSession,
-                  CK_CHAR_PTR        pPin,
-                  CK_ULONG           ulPinLen )
+CK_RV SC_InitPIN(ST_SESSION_HANDLE *sSession, CK_CHAR_PTR pPin,
+		 CK_ULONG ulPinLen)
 {
-	SESSION         * sess = NULL;
-	CK_BYTE           hash_sha[SHA1_HASH_SIZE];
-	CK_BYTE           hash_md5[MD5_HASH_SIZE];
-	CK_RV             rc = CKR_OK;
-	CK_SESSION_HANDLE hSession = SESS_HANDLE(sSession);
-	CK_FLAGS_32     * flags = NULL;
+	SESSION *sess = NULL;
+	CK_BYTE hash_sha[SHA1_HASH_SIZE];
+	CK_BYTE hash_md5[MD5_HASH_SIZE];
+	CK_RV rc = CKR_OK;
+	CK_FLAGS_32 *flags = NULL;
 
-	LOCKIT;
-	if (st_Initialized() == FALSE) {
+	if (initialized == FALSE) {
 		TRACE_ERROR("%s\n", ock_err(ERR_CRYPTOKI_NOT_INITIALIZED));
 		rc = CKR_CRYPTOKI_NOT_INITIALIZED;
 		goto done;
@@ -1033,7 +898,7 @@ CK_RV SC_InitPIN( ST_SESSION_HANDLE  *sSession,
 		rc = CKR_ARGUMENTS_BAD;
 		goto done;
 	}
-	sess = SESSION_MGR_FIND( hSession );
+	sess = session_mgr_find(sSession->sessionh);
 	if (!sess) {
 		TRACE_ERROR("%s\n", ock_err(ERR_SESSION_HANDLE_INVALID));
 		rc = CKR_SESSION_HANDLE_INVALID;
@@ -1073,10 +938,10 @@ CK_RV SC_InitPIN( ST_SESSION_HANDLE  *sSession,
 		rc = CKR_PIN_LEN_RANGE;
 		goto done;
 	}
-	// compute the SHA and MD5 hashes of the user pin
+	/* compute the SHA and MD5 hashes of the user pin */
 	rc  = compute_sha1(pPin, ulPinLen, hash_sha);
 	rc |= compute_md5( pPin, ulPinLen, hash_md5 );
-	if (rc != CKR_OK){
+	if (rc != CKR_OK) {
 		TRACE_ERROR("Failed to compute sha or md5 for user pin.\n");
 		goto done;
 	}
@@ -1090,7 +955,7 @@ CK_RV SC_InitPIN( ST_SESSION_HANDLE  *sSession,
 	nv_token_data->token_info.flags &= ~(CKF_USER_PIN_TO_BE_CHANGED);
 	nv_token_data->token_info.flags &= ~(CKF_USER_PIN_LOCKED);
 	XProcUnLock();
-	memcpy( user_pin_md5, hash_md5, MD5_HASH_SIZE  );
+	memcpy(user_pin_md5, hash_md5, MD5_HASH_SIZE);
 	rc = save_token_data(sess->session_info.slotID);
 	if (rc != CKR_OK){
 		TRACE_DEBUG("Failed to save token data.\n");
@@ -1100,32 +965,27 @@ CK_RV SC_InitPIN( ST_SESSION_HANDLE  *sSession,
 	if (rc != CKR_OK)
 		TRACE_DEBUG("Failed to save user's masterkey.\n");
 
- done:
-	LLOCK;
-	TRACE_INFO("C_InitPin: rc = 0x%08x, session = %d\n", rc, hSession);
-	UNLOCKIT;
+done:
+	TRACE_INFO("C_InitPin: rc = 0x%08x, session = %d\n",
+		   rc, sSession->sessionh);
 	return rc;
 }
 
-CK_RV SC_SetPIN( ST_SESSION_HANDLE  *sSession,
-                 CK_CHAR_PTR        pOldPin,
-                 CK_ULONG           ulOldLen,
-                 CK_CHAR_PTR        pNewPin,
-                 CK_ULONG           ulNewLen )
+CK_RV SC_SetPIN(ST_SESSION_HANDLE *sSession, CK_CHAR_PTR pOldPin,
+		CK_ULONG ulOldLen, CK_CHAR_PTR pNewPin, CK_ULONG ulNewLen)
 {
 	SESSION *sess = NULL;
 	CK_BYTE old_hash_sha[SHA1_HASH_SIZE];
 	CK_BYTE new_hash_sha[SHA1_HASH_SIZE];
 	CK_BYTE hash_md5[MD5_HASH_SIZE];
 	CK_RV rc = CKR_OK;
-	CK_SESSION_HANDLE hSession = SESS_HANDLE(sSession);
-	LOCKIT;
-	if (st_Initialized() == FALSE) {
+
+	if (initialized == FALSE) {
 		TRACE_ERROR("%s\n", ock_err(ERR_CRYPTOKI_NOT_INITIALIZED));
 		rc = CKR_CRYPTOKI_NOT_INITIALIZED;
 		goto done;
 	}
-	sess = SESSION_MGR_FIND( hSession );
+	sess = session_mgr_find(sSession->sessionh);
 	if (!sess) {
 		TRACE_ERROR("%s\n", ock_err(ERR_SESSION_HANDLE_INVALID));
 		rc = CKR_SESSION_HANDLE_INVALID;
@@ -1170,7 +1030,7 @@ CK_RV SC_SetPIN( ST_SESSION_HANDLE  *sSession,
 			goto done;
 		}
 		rc  = compute_sha1(pNewPin, ulNewLen, new_hash_sha);
-		rc |= compute_md5( pNewPin, ulNewLen, hash_md5 );
+		rc |= compute_md5(pNewPin, ulNewLen, hash_md5);
 		if (rc != CKR_OK) {
 			TRACE_ERROR("Failed to compute hash for new pin.\n");
 			goto done;
@@ -1244,22 +1104,20 @@ CK_RV SC_SetPIN( ST_SESSION_HANDLE  *sSession,
 		TRACE_ERROR("%s\n", ock_err(ERR_SESSION_READ_ONLY));
 		rc = CKR_SESSION_READ_ONLY;
 	}
- done:
-	LLOCK;
-	TRACE_INFO("C_SetPin: rc = 0x%08x, session = %d\n", rc, hSession);
-	UNLOCKIT;
+done:
+	TRACE_INFO("C_SetPin: rc = 0x%08x, session = %d\n",
+		   rc, sSession->sessionh);
 	return rc;
 }
 
-CK_RV SC_OpenSession(CK_SLOT_ID             sid,
-		     CK_FLAGS               flags,
-		     CK_SESSION_HANDLE_PTR  phSession)
+CK_RV SC_OpenSession(CK_SLOT_ID sid, CK_FLAGS flags,
+		     CK_SESSION_HANDLE_PTR phSession)
 {
-	CK_BBOOL               locked = FALSE;
-	CK_RV                  rc = CKR_OK;
+	CK_BBOOL locked = FALSE;
+	CK_RV rc = CKR_OK;
+
 	SLT_CHECK;
-	LOCKIT;
-	if (st_Initialized() == FALSE) {
+	if (initialized == FALSE) {
 		TRACE_ERROR("%s\n", ock_err(ERR_CRYPTOKI_NOT_INITIALIZED));
 		rc = CKR_CRYPTOKI_NOT_INITIALIZED;
 		goto done;
@@ -1283,65 +1141,62 @@ CK_RV SC_OpenSession(CK_SLOT_ID             sid,
 		}
 	}
 	// Get the mutex because we may modify the pid_list
-	rc = MY_LockMutex( &pkcs_mutex );
-	if (rc != CKR_OK){
+	rc = MY_LockMutex(&pkcs_mutex);
+	if (rc != CKR_OK) {
 		TRACE_ERROR("Failed to get mutex lock.\n");
 		goto done;
 	}
 	locked = TRUE;
-	MY_UnlockMutex( &pkcs_mutex );
+	MY_UnlockMutex(&pkcs_mutex);
 	locked = FALSE;
-	rc = session_mgr_new( flags, sid, phSession );
-	if (rc != CKR_OK){
+	rc = session_mgr_new(flags, sid, phSession);
+	if (rc != CKR_OK) {
 		TRACE_DEBUG("session_mgr_new() failed\n");
 		goto done;
 	}
 
 	if (token_specific.t_open_session) {
-		SESSION *sess = SESSION_MGR_FIND(*phSession);
+		SESSION *sess = session_mgr_find(*phSession);
 		rc = token_specific.t_open_session(sess);
 	}
- done:
+done:
 	if (locked)
-		MY_UnlockMutex( &pkcs_mutex );
-	LLOCK;
+		MY_UnlockMutex(&pkcs_mutex);
+
 	TRACE_INFO("C_OpenSession: rc = 0x%08x\n", rc);
-	UNLOCKIT;
 	return rc;
 }
 
-CK_RV SC_CloseSession( ST_SESSION_HANDLE  *sSession )
+CK_RV SC_CloseSession(ST_SESSION_HANDLE *sSession)
 {
-	CK_RV      rc = CKR_OK;
-	CK_SESSION_HANDLE hSession = SESS_HANDLE(sSession);
-	LOCKIT;
-	if (st_Initialized() == FALSE) {
+	CK_RV rc = CKR_OK;
+
+	if (initialized == FALSE) {
 		TRACE_ERROR("%s\n", ock_err(ERR_CRYPTOKI_NOT_INITIALIZED));
 		rc = CKR_CRYPTOKI_NOT_INITIALIZED;
 		goto done;
 	}
 
 	if (token_specific.t_close_session) {
-		SESSION *sess = SESSION_MGR_FIND(hSession);
+		SESSION *sess = session_mgr_find(sSession->sessionh);
 		rc = token_specific.t_close_session(sess);
 		if (rc)
 			goto done;
 	}
 
-	rc = session_mgr_close_session(hSession);
- done:
-	LLOCK;
-	TRACE_INFO("C_CloseSession: rc = 0x%08x  sess = %d\n", rc, hSession );
-	UNLOCKIT;
+	rc = session_mgr_close_session(sSession->sessionh);
+done:
+	TRACE_INFO("C_CloseSession: rc = 0x%08x  sess = %d\n",
+		   rc, sSession->sessionh);
 	return rc;
 }
 
-CK_RV SC_CloseAllSessions( CK_SLOT_ID  sid )
+CK_RV SC_CloseAllSessions(CK_SLOT_ID sid)
 {
 	CK_RV rc = CKR_OK;
+
 	SLT_CHECK;
-	LOCKIT;
-	if (st_Initialized() == FALSE) {
+	if (initialized == FALSE) {
 		TRACE_ERROR("%s\n", ock_err(ERR_CRYPTOKI_NOT_INITIALIZED));
 		rc = CKR_CRYPTOKI_NOT_INITIALIZED;
 		goto done;
@@ -1349,21 +1204,17 @@ CK_RV SC_CloseAllSessions( CK_SLOT_ID  sid )
 	rc = session_mgr_close_all_sessions();
 	if (rc != CKR_OK)
 		TRACE_DEBUG("session_mgr_close_all_sessions() failed.\n");
- done:
-	LLOCK;
+done:
 	TRACE_INFO("C_CloseAllSessions: rc = 0x%08x slot = %d\n", rc, slot_id);
-	UNLOCKIT;
 	return rc;
 }
 
-CK_RV SC_GetSessionInfo( ST_SESSION_HANDLE   *sSession,
-			 CK_SESSION_INFO_PTR pInfo )
+CK_RV SC_GetSessionInfo(ST_SESSION_HANDLE *sSession, CK_SESSION_INFO_PTR pInfo)
 {
-	SESSION  * sess = NULL;
-	CK_RV      rc = CKR_OK;
-	CK_SESSION_HANDLE hSession = SESS_HANDLE(sSession);
-	LOCKIT;
-	if (st_Initialized() == FALSE) {
+	SESSION *sess = NULL;
+	CK_RV rc = CKR_OK;
+
+	if (initialized == FALSE) {
 		TRACE_ERROR("%s\n", ock_err(ERR_CRYPTOKI_NOT_INITIALIZED));
 		rc = CKR_CRYPTOKI_NOT_INITIALIZED;
 		goto done;
@@ -1375,31 +1226,29 @@ CK_RV SC_GetSessionInfo( ST_SESSION_HANDLE   *sSession,
 		goto done;
 	}
 
-	sess = SESSION_MGR_FIND( hSession );
+	sess = session_mgr_find(sSession->sessionh);
 	if (!sess) {
 		TRACE_ERROR("%s\n", ock_err(ERR_SESSION_HANDLE_INVALID));
 		rc = CKR_SESSION_HANDLE_INVALID;
 		goto done;
 	}
 
-	memcpy( pInfo, &sess->session_info, sizeof(CK_SESSION_INFO) );
+	memcpy(pInfo, &sess->session_info, sizeof(CK_SESSION_INFO));
 
- done:
-	TRACE_INFO("C_GetSessionInfo: session = %d\n", hSession);
-	UNLOCKIT;
+done:
+	TRACE_INFO("C_GetSessionInfo: session = %d\n", sSession->sessionh);
 	return rc;
 }
 
-CK_RV SC_GetOperationState( ST_SESSION_HANDLE  *sSession,
-			    CK_BYTE_PTR        pOperationState,
-			    CK_ULONG_PTR       pulOperationStateLen )
+CK_RV SC_GetOperationState(ST_SESSION_HANDLE *sSession,
+			   CK_BYTE_PTR pOperationState,
+			   CK_ULONG_PTR pulOperationStateLen)
 {
-	SESSION  * sess = NULL;
-	CK_BBOOL   length_only = FALSE;
-	CK_RV      rc = CKR_OK;
-	CK_SESSION_HANDLE hSession = SESS_HANDLE(sSession);
-	LOCKIT;
-	if (st_Initialized() == FALSE) {
+	SESSION *sess = NULL;
+	CK_BBOOL length_only = FALSE;
+	CK_RV rc = CKR_OK;
+
+	if (initialized == FALSE) {
 		TRACE_ERROR("%s\n", ock_err(ERR_CRYPTOKI_NOT_INITIALIZED));
 		rc = CKR_CRYPTOKI_NOT_INITIALIZED;
 		goto done;
@@ -1414,42 +1263,34 @@ CK_RV SC_GetOperationState( ST_SESSION_HANDLE  *sSession,
 	if (!pOperationState)
 		length_only = TRUE;
 
-	sess = SESSION_MGR_FIND( hSession );
+	sess = session_mgr_find(sSession->sessionh);
 	if (!sess) {
 		TRACE_ERROR("%s\n", ock_err(ERR_SESSION_HANDLE_INVALID));
 		rc = CKR_SESSION_HANDLE_INVALID;
 		goto done;
 	}
 
-	rc = session_mgr_get_op_state( sess, length_only,
-				       pOperationState,
-				       pulOperationStateLen );
+	rc = session_mgr_get_op_state(sess, length_only, pOperationState,
+				      pulOperationStateLen);
 	if (rc != CKR_OK)
 		TRACE_DEBUG("session_mgr_get_op_state() failed.\n");
- done:
-	LLOCK;
+done:
 	TRACE_INFO("C_GetOperationState: rc = 0x%08x, session = %d\n",
-		    rc, hSession);
-	UNLOCKIT;
+		   rc, sSession->sessionh);
 	return rc;
 }
 
 
-//
-//
-CK_RV SC_SetOperationState( ST_SESSION_HANDLE  *sSession,
-			    CK_BYTE_PTR        pOperationState,
-			    CK_ULONG           ulOperationStateLen,
-			    CK_OBJECT_HANDLE   hEncryptionKey,
-			    CK_OBJECT_HANDLE   hAuthenticationKey )
+CK_RV SC_SetOperationState(ST_SESSION_HANDLE *sSession,
+			   CK_BYTE_PTR pOperationState,
+			   CK_ULONG ulOperationStateLen,
+			   CK_OBJECT_HANDLE hEncryptionKey,
+			   CK_OBJECT_HANDLE hAuthenticationKey)
 {
-	SESSION  * sess = NULL;
-	CK_RV      rc = CKR_OK;
-	CK_SESSION_HANDLE hSession = SESS_HANDLE(sSession);
+	SESSION *sess = NULL;
+	CK_RV rc = CKR_OK;
 
-
-		LOCKIT;
-	if (st_Initialized() == FALSE) {
+	if (initialized == FALSE) {
 		TRACE_ERROR("%s\n", ock_err(ERR_CRYPTOKI_NOT_INITIALIZED));
 		rc = CKR_CRYPTOKI_NOT_INITIALIZED;
 		goto done;
@@ -1461,59 +1302,49 @@ CK_RV SC_SetOperationState( ST_SESSION_HANDLE  *sSession,
 		goto done;
 	}
 
-	sess = SESSION_MGR_FIND( hSession );
+	sess = session_mgr_find(sSession->sessionh);
 	if (!sess) {
 		TRACE_ERROR("%s\n", ock_err(ERR_SESSION_HANDLE_INVALID));
 		rc = CKR_SESSION_HANDLE_INVALID;
 		goto done;
 	}
 
-	rc = session_mgr_set_op_state( sess,
-				       hEncryptionKey,  hAuthenticationKey,
-				       pOperationState, ulOperationStateLen );
+	rc = session_mgr_set_op_state(sess, hEncryptionKey, hAuthenticationKey,
+				      pOperationState, ulOperationStateLen);
 
 	if (rc != CKR_OK)
 		TRACE_DEBUG("session_mgr_set_op_state() failed.\n");
- done:
-	LLOCK;
+done:
 	TRACE_INFO("C_SetOperationState: rc = 0x%08x, session = %d\n",
-		   rc, hSession);
-	UNLOCKIT;
+		   rc, sSession->sessionh);
 	return rc;
 }
 
 
-
-//
-//
-CK_RV SC_Login( ST_SESSION_HANDLE  *sSession,
-                CK_USER_TYPE        userType,
-                CK_CHAR_PTR         pPin,
-                CK_ULONG            ulPinLen )
+CK_RV SC_Login(ST_SESSION_HANDLE *sSession, CK_USER_TYPE userType,
+	       CK_CHAR_PTR pPin, CK_ULONG ulPinLen)
 {
-	SESSION        * sess = NULL;
-	CK_FLAGS_32    * flags = NULL;
-	CK_BYTE          hash_sha[SHA1_HASH_SIZE];
-	CK_RV            rc = CKR_OK;
+	SESSION *sess = NULL;
+	CK_FLAGS_32 *flags = NULL;
+	CK_BYTE hash_sha[SHA1_HASH_SIZE];
+	CK_RV rc = CKR_OK;
 
-	CK_SESSION_HANDLE hSession = SESS_HANDLE(sSession);
-	LOCKIT;
-
-	// In v2.11, logins should be exclusive, since token
-	// specific flags may need to be set for a bad login. - KEY
-	rc = MY_LockMutex( &login_mutex );
-	if (rc != CKR_OK){
+	/* In v2.11, logins should be exclusive, since token
+	 * specific flags may need to be set for a bad login. - KEY
+	 */
+	rc = MY_LockMutex(&login_mutex);
+	if (rc != CKR_OK) {
 		TRACE_ERROR("Failed to get mutex lock.\n");
 		return CKR_FUNCTION_FAILED;
 	}
 	  
-	if (st_Initialized() == FALSE) {
+	if (initialized == FALSE) {
 		TRACE_ERROR("%s\n", ock_err(ERR_CRYPTOKI_NOT_INITIALIZED));
 		rc = CKR_CRYPTOKI_NOT_INITIALIZED;
 		goto done;
 	}
 	
-	sess = SESSION_MGR_FIND( hSession );
+	sess = session_mgr_find(sSession->sessionh);
 	if (!sess) {
 		TRACE_ERROR("%s\n", ock_err(ERR_SESSION_HANDLE_INVALID));
 		rc = CKR_SESSION_HANDLE_INVALID;
@@ -1528,31 +1359,31 @@ CK_RV SC_Login( ST_SESSION_HANDLE  *sSession,
 		goto done;
 	}
 	
-	// PKCS #11 v2.01 requires that all sessions have the same login status:
-	//    --> all sessions are public, all are SO or all are USER
-	//
+	/* PKCS #11 v2.01 requires that all sessions have the same login status:
+	 * --> all sessions are public, all are SO or all are USER
+	 */
 	if (userType == CKU_USER) {
-		if (session_mgr_so_session_exists()){
+		if (session_mgr_so_session_exists()) {
 			TRACE_ERROR("%s\n",
 				   ock_err(ERR_USER_ANOTHER_ALREADY_LOGGED_IN));
 			rc = CKR_USER_ANOTHER_ALREADY_LOGGED_IN;
 		}
-		if (session_mgr_user_session_exists()){
+		if (session_mgr_user_session_exists()) {
 			TRACE_ERROR("%s\n",ock_err(ERR_USER_ALREADY_LOGGED_IN));
 			rc = CKR_USER_ALREADY_LOGGED_IN;
 		}
 	}
 	else if (userType == CKU_SO) {
-		if (session_mgr_user_session_exists()){
+		if (session_mgr_user_session_exists()) {
 			TRACE_ERROR("%s\n",
 				   ock_err(ERR_USER_ANOTHER_ALREADY_LOGGED_IN));
 			rc = CKR_USER_ANOTHER_ALREADY_LOGGED_IN;
 		}
-		if (session_mgr_so_session_exists()){
+		if (session_mgr_so_session_exists()) {
 			TRACE_ERROR("%s\n",ock_err(ERR_USER_ALREADY_LOGGED_IN));
 			rc = CKR_USER_ALREADY_LOGGED_IN;
 		}
-		if (session_mgr_readonly_session_exists()){
+		if (session_mgr_readonly_session_exists()) {
 			TRACE_ERROR("%s\n",
 				    ock_err(ERR_SESSION_READ_ONLY_EXISTS));
 			rc = CKR_SESSION_READ_ONLY_EXISTS;
@@ -1599,7 +1430,8 @@ CK_RV SC_Login( ST_SESSION_HANDLE  *sSession,
 		}
 
 		rc = compute_sha1(pPin, ulPinLen, hash_sha);
-		if (memcmp(nv_token_data->user_pin_sha, hash_sha, SHA1_HASH_SIZE) != 0) {
+		if (memcmp(nv_token_data->user_pin_sha, hash_sha,
+			   SHA1_HASH_SIZE) != 0) {
 			set_login_flags(userType, flags);
 			TRACE_ERROR("%s\n", ock_err(ERR_PIN_INCORRECT));
 			rc = CKR_PIN_INCORRECT;
@@ -1640,7 +1472,7 @@ CK_RV SC_Login( ST_SESSION_HANDLE  *sSession,
 		 * fall back to default behaviour.
 		 */
 		if (token_specific.t_login) {
-			// call the pluggable login function here - KEY
+			/* call the pluggable login function here - KEY */
 			rc = token_specific.t_login(sess, userType,
 						    pPin, ulPinLen);
 			if (rc == CKR_OK) {
@@ -1673,48 +1505,39 @@ CK_RV SC_Login( ST_SESSION_HANDLE  *sSession,
 			TRACE_DEBUG("Failed to load SO's masterkey.\n");
 	}
 
- done:
+done:
  	if (rc == CKR_OK) {
-		rc = session_mgr_login_all( userType );
+		rc = session_mgr_login_all(userType);
 		if (rc != CKR_OK)
 			TRACE_DEBUG("session_mgr_login_all failed.\n");
 	}
 
-	LLOCK;
 	TRACE_INFO("C_Login: rc = 0x%08x\n", rc);
-
-	UNLOCKIT;
 	save_token_data(sess->session_info.slotID);
-	MY_UnlockMutex( &login_mutex );
+	MY_UnlockMutex(&login_mutex);
 	return rc;
 }
 
 
-//
-//
-CK_RV SC_Logout( ST_SESSION_HANDLE  *sSession )
+CK_RV SC_Logout(ST_SESSION_HANDLE *sSession)
 {
-	SESSION  * sess = NULL;
-	CK_RV      rc = CKR_OK;
+	SESSION *sess = NULL;
+	CK_RV rc = CKR_OK;
 
-	CK_SESSION_HANDLE hSession = SESS_HANDLE(sSession);
-	
-		LOCKIT;
-	if (st_Initialized() == FALSE) {
+	if (initialized == FALSE) {
 		TRACE_ERROR("%s\n", ock_err(ERR_CRYPTOKI_NOT_INITIALIZED));
 		rc = CKR_CRYPTOKI_NOT_INITIALIZED;
 		goto done;
 	}
 	
-	sess = SESSION_MGR_FIND( hSession );
+	sess = session_mgr_find(sSession->sessionh);
 	if (!sess) {
 		TRACE_ERROR("%s\n", ock_err(ERR_SESSION_HANDLE_INVALID));
 		rc = CKR_SESSION_HANDLE_INVALID;
 		goto done;
 	}
 	
-	// all sessions have the same state so we just have to check one
-	//
+	/* all sessions have the same state so we just have to check one */
 	if (session_mgr_public_session_exists()) {
 		TRACE_ERROR("%s\n", ock_err(ERR_USER_NOT_LOGGED_IN));
 		rc = CKR_USER_NOT_LOGGED_IN;
@@ -1733,39 +1556,31 @@ CK_RV SC_Logout( ST_SESSION_HANDLE  *sSession )
 		goto done;
 	}
 
-	memset( user_pin_md5, 0x0, MD5_HASH_SIZE );
-	memset( so_pin_md5,   0x0, MD5_HASH_SIZE );
+	memset(user_pin_md5, 0x0, MD5_HASH_SIZE);
+	memset(so_pin_md5, 0x0, MD5_HASH_SIZE);
 	
 	object_mgr_purge_private_token_objects();
 	
- done:
-	LLOCK;
+done:
 	TRACE_INFO("C_Logout: rc = 0x%08x\n", rc);
-   
-	UNLOCKIT; return rc;
+	return rc;
 }
 
 
-// This is a Leeds-Lite solution so we have to store objects on the host.
-//
-CK_RV SC_CreateObject(ST_SESSION_HANDLE *sSession,
-		      CK_ATTRIBUTE_PTR pTemplate,
-		      CK_ULONG ulCount,
-		      CK_OBJECT_HANDLE_PTR phObject)
+CK_RV SC_CreateObject(ST_SESSION_HANDLE *sSession, CK_ATTRIBUTE_PTR pTemplate,
+		      CK_ULONG ulCount, CK_OBJECT_HANDLE_PTR phObject)
 {
-	SESSION * sess = NULL;
+	SESSION *sess = NULL;
 	CK_ULONG i;
 	CK_RV rc = CKR_OK;
-	CK_SESSION_HANDLE hSession = SESS_HANDLE(sSession);
 
-	LOCKIT;
-	if (st_Initialized() == FALSE) {
+	if (initialized == FALSE) {
 		TRACE_ERROR("%s\n", ock_err(ERR_CRYPTOKI_NOT_INITIALIZED));
 		rc = CKR_CRYPTOKI_NOT_INITIALIZED;
 		goto done;
 	}
 
-	sess = SESSION_MGR_FIND(hSession);
+	sess = session_mgr_find(sSession->sessionh);
 	if (!sess) {
 		TRACE_ERROR("%s\n", ock_err(ERR_SESSION_HANDLE_INVALID));
 		rc = CKR_SESSION_HANDLE_INVALID;
@@ -1787,9 +1602,8 @@ CK_RV SC_CreateObject(ST_SESSION_HANDLE *sSession,
 	if (rc != CKR_OK)
 		TRACE_DEBUG("object_mgr_add() failed.\n");
 
- done:
-	LLOCK;
-	TRACE_INFO("C_CreateObject:  rc = 0x%08x\n", rc);
+done:
+	TRACE_INFO("C_CreateObject: rc = 0x%08x\n", rc);
 
 #ifdef DEBUG
 	for (i = 0; i < ulCount; i++) {
@@ -1802,31 +1616,24 @@ CK_RV SC_CreateObject(ST_SESSION_HANDLE *sSession,
 		TRACE_DEBUG("Handle:  %d\n", *phObject);
 #endif
 
-	UNLOCKIT;
 	return rc;
 }
 
 
-//
-//
-CK_RV  SC_CopyObject( ST_SESSION_HANDLE   *sSession,
-		      CK_OBJECT_HANDLE     hObject,
-		      CK_ATTRIBUTE_PTR     pTemplate,
-		      CK_ULONG             ulCount,
-		      CK_OBJECT_HANDLE_PTR phNewObject )
+CK_RV  SC_CopyObject(ST_SESSION_HANDLE *sSession, CK_OBJECT_HANDLE hObject,
+		     CK_ATTRIBUTE_PTR pTemplate, CK_ULONG ulCount,
+		     CK_OBJECT_HANDLE_PTR phNewObject)
 {
-	SESSION              * sess = NULL;
-	CK_RV                  rc = CKR_OK;
-	CK_SESSION_HANDLE hSession = SESS_HANDLE(sSession);
+	SESSION *sess = NULL;
+	CK_RV rc = CKR_OK;
 
-		LOCKIT;
-	if (st_Initialized() == FALSE) {
+	if (initialized == FALSE) {
 		TRACE_ERROR("%s\n", ock_err(ERR_CRYPTOKI_NOT_INITIALIZED));
 		rc = CKR_CRYPTOKI_NOT_INITIALIZED;
 		goto done;
 	}
 
-	sess = SESSION_MGR_FIND( hSession );
+	sess = session_mgr_find(sSession->sessionh);
 	if (!sess) {
 		TRACE_ERROR("%s\n", ock_err(ERR_SESSION_HANDLE_INVALID));
 		rc = CKR_SESSION_HANDLE_INVALID;
@@ -1850,33 +1657,25 @@ CK_RV  SC_CopyObject( ST_SESSION_HANDLE   *sSession,
 	if (rc != CKR_OK)
 		TRACE_DEBUG("object_mgr_copy() failed\n");
 
- done:
-	LLOCK;
+done:
 	TRACE_INFO("C_CopyObject:rc = 0x%08x,old handle = %d,new handle = %d\n",
 		   rc, hObject, *phNewObject);
-
-	UNLOCKIT; return rc;
+	return rc;
 }
 
 
-//
-//
-CK_RV SC_DestroyObject( ST_SESSION_HANDLE  *sSession,
-			CK_OBJECT_HANDLE   hObject )
+CK_RV SC_DestroyObject(ST_SESSION_HANDLE *sSession, CK_OBJECT_HANDLE hObject)
 {
-	SESSION               * sess = NULL;
-	CK_RV                   rc = CKR_OK;
-	CK_SESSION_HANDLE hSession = SESS_HANDLE(sSession);
+	SESSION *sess = NULL;
+	CK_RV rc = CKR_OK;
 
-
-		LOCKIT;
-	if (st_Initialized() == FALSE) {
+	if (initialized == FALSE) {
 		TRACE_ERROR("%s\n", ock_err(ERR_CRYPTOKI_NOT_INITIALIZED));
 		rc = CKR_CRYPTOKI_NOT_INITIALIZED;
 		goto done;
 	}
 
-	sess = SESSION_MGR_FIND( hSession );
+	sess = session_mgr_find(sSession->sessionh);
 	if (!sess) {
 		TRACE_ERROR("%s\n", ock_err(ERR_SESSION_HANDLE_INVALID));
 		rc = CKR_SESSION_HANDLE_INVALID;
@@ -1896,91 +1695,75 @@ CK_RV SC_DestroyObject( ST_SESSION_HANDLE  *sSession,
 
 	if (rc != CKR_OK)
 		TRACE_DEBUG("*_destroy_object() failed\n");
- done:
-	LLOCK;
+done:
 	TRACE_INFO("C_DestroyObject: rc = 0x%08x, handle = %d\n", rc, hObject);
-
-	UNLOCKIT; return rc;
+	return rc;
 }
 
 
-//
-//
-CK_RV SC_GetObjectSize( ST_SESSION_HANDLE  *sSession,
-			CK_OBJECT_HANDLE   hObject,
-			CK_ULONG_PTR       pulSize )
+CK_RV SC_GetObjectSize(ST_SESSION_HANDLE *sSession, CK_OBJECT_HANDLE hObject,
+		       CK_ULONG_PTR pulSize)
 {
-	SESSION               * sess = NULL;
-	CK_RV                   rc = CKR_OK;
-	CK_SESSION_HANDLE hSession = SESS_HANDLE(sSession);
+	SESSION *sess = NULL;
+	CK_RV rc = CKR_OK;
 
-
-		LOCKIT;
-	if (st_Initialized() == FALSE) {
+	if (initialized == FALSE) {
 		TRACE_ERROR("%s\n", ock_err(ERR_CRYPTOKI_NOT_INITIALIZED));
 		rc = CKR_CRYPTOKI_NOT_INITIALIZED;
 		goto done;
 	}
 
-	sess = SESSION_MGR_FIND( hSession );
+	sess = session_mgr_find(sSession->sessionh);
 	if (!sess) {
 		TRACE_ERROR("%s\n", ock_err(ERR_SESSION_HANDLE_INVALID));
 		rc = CKR_SESSION_HANDLE_INVALID;
 		goto done;
 	}
 
-	rc = object_mgr_get_object_size( hObject, pulSize );
+	rc = object_mgr_get_object_size(hObject, pulSize);
 	if (rc != CKR_OK)
 		TRACE_ERROR("object_mgr_get_object_size() failed.\n");
 
- done:
-	LLOCK;
+done:
 	TRACE_INFO("C_GetObjectSize: rc = 0x%08x, handle = %d\n", rc, hObject);
-
-	UNLOCKIT; return rc;
+	return rc;
 }
 
 
-//
-//
-CK_RV SC_GetAttributeValue( ST_SESSION_HANDLE  *sSession,
-			    CK_OBJECT_HANDLE   hObject,
-			    CK_ATTRIBUTE_PTR   pTemplate,
-			    CK_ULONG           ulCount )
+CK_RV SC_GetAttributeValue(ST_SESSION_HANDLE *sSession,
+			   CK_OBJECT_HANDLE hObject, CK_ATTRIBUTE_PTR pTemplate,
+			   CK_ULONG ulCount)
 {
-	SESSION        * sess = NULL;
-	CK_ATTRIBUTE   * attr = NULL;
-	CK_BYTE        * ptr  = NULL;
-	CK_ULONG         i;
-	CK_RV            rc = CKR_OK;
-	CK_SESSION_HANDLE hSession = SESS_HANDLE(sSession);
+	SESSION *sess = NULL;
+	CK_ATTRIBUTE *attr = NULL;
+	CK_BYTE *ptr = NULL;
+	CK_ULONG i;
+	CK_RV rc = CKR_OK;
 
-
-		LOCKIT;
-	if (st_Initialized() == FALSE) {
+	if (initialized == FALSE) {
 		TRACE_ERROR("%s\n", ock_err(ERR_CRYPTOKI_NOT_INITIALIZED));
 		rc = CKR_CRYPTOKI_NOT_INITIALIZED;
 		goto done;
 	}
 
-	sess = SESSION_MGR_FIND( hSession );
+	sess = session_mgr_find(sSession->sessionh);
 	if (!sess) {
 		TRACE_ERROR("%s\n", ock_err(ERR_SESSION_HANDLE_INVALID));
 		rc = CKR_SESSION_HANDLE_INVALID;
 		goto done;
 	}
 
-	if (token_specific.t_get_attribute_value) {
-		rc = token_specific.t_get_attribute_value(sess, hObject, pTemplate, ulCount);
-	} else {
-		rc = object_mgr_get_attribute_values( sess, hObject, pTemplate, ulCount );
-	}
+	if (token_specific.t_get_attribute_value)
+		rc = token_specific.t_get_attribute_value(sess, hObject,
+							  pTemplate, ulCount);
+	else
+		rc = object_mgr_get_attribute_values(sess, hObject, pTemplate,
+						     ulCount);
 
 	if (rc != CKR_OK)
 		TRACE_DEBUG("*_get_attribute_value() failed.\n");
 
- done:
-	LLOCK;
+done:
 	TRACE_INFO("C_GetAttributeValue: rc = 0x%08x, handle = %d\n",
 		    rc, hObject);
 
@@ -1997,32 +1780,26 @@ CK_RV SC_GetAttributeValue( ST_SESSION_HANDLE  *sSession,
 				    ptr[0], ptr[1], ptr[2], ptr[3]);
 	}
 #endif
-	UNLOCKIT; return rc;
+	return rc;
 }
 
 
-//
-//
-CK_RV  SC_SetAttributeValue( ST_SESSION_HANDLE   *sSession,
-			     CK_OBJECT_HANDLE     hObject,
-			     CK_ATTRIBUTE_PTR     pTemplate,
-			     CK_ULONG             ulCount )
+CK_RV SC_SetAttributeValue(ST_SESSION_HANDLE *sSession,
+			   CK_OBJECT_HANDLE hObject, CK_ATTRIBUTE_PTR pTemplate,
+			   CK_ULONG ulCount)
 {
-	SESSION       * sess = NULL;
-	CK_ATTRIBUTE  * attr = NULL;
-	CK_ULONG        i;
-	CK_RV           rc = CKR_OK;
-	CK_SESSION_HANDLE hSession = SESS_HANDLE(sSession);
+	SESSION *sess = NULL;
+	CK_ATTRIBUTE *attr = NULL;
+	CK_ULONG i;
+	CK_RV rc = CKR_OK;
 
-
-		LOCKIT;
-	if (st_Initialized() == FALSE) {
+	if (initialized == FALSE) {
 		TRACE_ERROR("%s\n", ock_err(ERR_CRYPTOKI_NOT_INITIALIZED));
 		rc = CKR_CRYPTOKI_NOT_INITIALIZED;
 		goto done;
 	}
 
-	sess = SESSION_MGR_FIND( hSession );
+	sess = session_mgr_find(sSession->sessionh);
 	if (!sess) {
 		TRACE_ERROR("%s\n", ock_err(ERR_SESSION_HANDLE_INVALID));
 		rc = CKR_SESSION_HANDLE_INVALID;
@@ -2038,8 +1815,7 @@ CK_RV  SC_SetAttributeValue( ST_SESSION_HANDLE   *sSession,
 	if (rc != CKR_OK)
 		TRACE_DEBUG("*_set_attribute_values() failed.\n");
 
- done:
-	LLOCK;
+done:
 	TRACE_INFO("C_SetAttributeValue: rc = 0x%08x, handle = %d\n",
 		   rc, hObject);
 #ifdef DEBUG
@@ -2056,30 +1832,25 @@ CK_RV  SC_SetAttributeValue( ST_SESSION_HANDLE   *sSession,
 	}
 #endif
 
-	UNLOCKIT; return rc;
+	return rc;
 }
 
 
-//
-//
-CK_RV SC_FindObjectsInit( ST_SESSION_HANDLE  *sSession,
-			  CK_ATTRIBUTE_PTR    pTemplate,
-			  CK_ULONG            ulCount )
+CK_RV SC_FindObjectsInit(ST_SESSION_HANDLE *sSession,
+			 CK_ATTRIBUTE_PTR pTemplate, CK_ULONG ulCount)
 {
-	SESSION        * sess  = NULL;
-	CK_ATTRIBUTE   * attr = NULL;
-	CK_ULONG         i;
-	CK_RV            rc = CKR_OK;
-	CK_SESSION_HANDLE hSession = SESS_HANDLE(sSession);
+	SESSION *sess = NULL;
+	CK_ATTRIBUTE *attr = NULL;
+	CK_ULONG i;
+	CK_RV rc = CKR_OK;
 
-		LOCKIT;
-	if (st_Initialized() == FALSE) {
+	if (initialized == FALSE) {
 		TRACE_ERROR("%s\n", ock_err(ERR_CRYPTOKI_NOT_INITIALIZED));
 		rc = CKR_CRYPTOKI_NOT_INITIALIZED;
 		goto done;
 	}
 
-	sess = SESSION_MGR_FIND( hSession );
+	sess = session_mgr_find(sSession->sessionh);
 	if (!sess) {
 		TRACE_ERROR("%s\n", ock_err(ERR_SESSION_HANDLE_INVALID));
 		rc = CKR_SESSION_HANDLE_INVALID;
@@ -2101,10 +1872,9 @@ CK_RV SC_FindObjectsInit( ST_SESSION_HANDLE  *sSession,
 	if (token_specific.t_find_objects_init)
 		rc = token_specific.t_find_objects_init(sess, pTemplate, ulCount);
 	else	
-		rc = object_mgr_find_init( sess, pTemplate, ulCount );
+		rc = object_mgr_find_init(sess, pTemplate, ulCount);
 
- done:
-	LLOCK;
+done:
 	TRACE_INFO("C_FindObjectsInit:  rc = 0x%08x\n", rc);
 
 #ifdef DEBUG
@@ -2121,25 +1891,18 @@ CK_RV SC_FindObjectsInit( ST_SESSION_HANDLE  *sSession,
 	}
 #endif
 
-	UNLOCKIT; return rc;
+	return rc;
 }
 
 
-//
-//
-CK_RV SC_FindObjects( ST_SESSION_HANDLE    *sSession,
-		      CK_OBJECT_HANDLE_PTR  phObject,
-		      CK_ULONG              ulMaxObjectCount,
-		      CK_ULONG_PTR          pulObjectCount )
+CK_RV SC_FindObjects(ST_SESSION_HANDLE *sSession, CK_OBJECT_HANDLE_PTR phObject,
+		     CK_ULONG ulMaxObjectCount, CK_ULONG_PTR pulObjectCount)
 {
-	SESSION    * sess  = NULL;
-	CK_ULONG     count = 0;
-	CK_RV        rc = CKR_OK;
-	CK_SESSION_HANDLE hSession = SESS_HANDLE(sSession);
+	SESSION *sess = NULL;
+	CK_ULONG count = 0;
+	CK_RV rc = CKR_OK;
 
-
-		LOCKIT;
-	if (st_Initialized() == FALSE) {
+	if (initialized == FALSE) {
 		TRACE_ERROR("%s\n", ock_err(ERR_CRYPTOKI_NOT_INITIALIZED));
 		rc = CKR_CRYPTOKI_NOT_INITIALIZED;
 		goto done;
@@ -2151,7 +1914,7 @@ CK_RV SC_FindObjects( ST_SESSION_HANDLE    *sSession,
 		goto done;
 	}
 
-	sess = SESSION_MGR_FIND( hSession );
+	sess = session_mgr_find(sSession->sessionh);
 	if (!sess) {
 		TRACE_ERROR("%s\n", ock_err(ERR_SESSION_HANDLE_INVALID));
 		rc = CKR_SESSION_HANDLE_INVALID;
@@ -2171,39 +1934,32 @@ CK_RV SC_FindObjects( ST_SESSION_HANDLE    *sSession,
 	}
 	count = MIN(ulMaxObjectCount, (sess->find_count - sess->find_idx));
 
-	memcpy( phObject, sess->find_list + sess->find_idx, count * sizeof(CK_OBJECT_HANDLE) );
+	memcpy(phObject, sess->find_list + sess->find_idx,
+	       count * sizeof(CK_OBJECT_HANDLE));
 	*pulObjectCount = count;
 
 	sess->find_idx += count;
 	rc = CKR_OK;
 
- done:
-	LLOCK;
+done:
 	TRACE_INFO("C_FindObjects: rc = 0x%08x, returned %d objects\n",
 		    rc, count);
-
-	UNLOCKIT; return rc;
+	return rc;
 }
 
 
-
-//
-//
-CK_RV SC_FindObjectsFinal( ST_SESSION_HANDLE *sSession )
+CK_RV SC_FindObjectsFinal(ST_SESSION_HANDLE *sSession)
 {
-	SESSION     * sess = NULL;
-	CK_RV         rc = CKR_OK;
-	CK_SESSION_HANDLE hSession = SESS_HANDLE(sSession);
+	SESSION *sess = NULL;
+	CK_RV rc = CKR_OK;
 
-
-		LOCKIT;
-	if (st_Initialized() == FALSE) {
+	if (initialized == FALSE) {
 		TRACE_ERROR("%s\n", ock_err(ERR_CRYPTOKI_NOT_INITIALIZED));
 		rc = CKR_CRYPTOKI_NOT_INITIALIZED;
 		goto done;
 	}
 
-	sess = SESSION_MGR_FIND( hSession );
+	sess = session_mgr_find(sSession->sessionh);
 	if (!sess) {
 		TRACE_ERROR("%s\n", ock_err(ERR_SESSION_HANDLE_INVALID));
 		rc = CKR_SESSION_HANDLE_INVALID;
@@ -2217,34 +1973,28 @@ CK_RV SC_FindObjectsFinal( ST_SESSION_HANDLE *sSession )
 	}
 
 	if (sess->find_list)
-		free( sess->find_list );
+		free(sess->find_list);
 
-	sess->find_list   = NULL;
-	sess->find_len    = 0;
-	sess->find_idx    = 0;
+	sess->find_list = NULL;
+	sess->find_len = 0;
+	sess->find_idx = 0;
 	sess->find_active = FALSE;
 
 	rc = CKR_OK;
 
- done:
-	LLOCK;
+done:
 	TRACE_INFO("C_FindObjectsFinal: rc = 0x%08x\n", rc);
-
-	UNLOCKIT; return rc;
+	return rc;
 }
 
-//
-//
-CK_RV SC_EncryptInit(ST_SESSION_HANDLE *sSession,
-		     CK_MECHANISM_PTR pMechanism,
-		     CK_OBJECT_HANDLE hKey )
+
+CK_RV SC_EncryptInit(ST_SESSION_HANDLE *sSession, CK_MECHANISM_PTR pMechanism,
+		     CK_OBJECT_HANDLE hKey)
 {
 	SESSION *sess = NULL;
 	CK_RV rc = CKR_OK;
-	CK_SESSION_HANDLE hSession = SESS_HANDLE(sSession);
 
-	LOCKIT;
-	if (st_Initialized() == FALSE) {
+	if (initialized == FALSE) {
 		TRACE_ERROR("%s\n", ock_err(ERR_CRYPTOKI_NOT_INITIALIZED));
 		rc = CKR_CRYPTOKI_NOT_INITIALIZED;
 		goto done;
@@ -2260,7 +2010,7 @@ CK_RV SC_EncryptInit(ST_SESSION_HANDLE *sSession,
 	if (rc != CKR_OK)
 		goto done;
 
-	sess = SESSION_MGR_FIND( hSession );
+	sess = session_mgr_find(sSession->sessionh);
 	if (!sess) {
 		TRACE_ERROR("%s\n", ock_err(ERR_SESSION_HANDLE_INVALID));
 		rc = CKR_SESSION_HANDLE_INVALID;
@@ -2279,38 +2029,29 @@ CK_RV SC_EncryptInit(ST_SESSION_HANDLE *sSession,
 		goto done;
 	}
 
-	if (token_specific.t_encrypt_init) {
+	if (token_specific.t_encrypt_init)
 		rc = token_specific.t_encrypt_init(sess, pMechanism, hKey);
-	} else {
+	else
 		rc = encr_mgr_init(sess, &sess->encr_ctx, OP_ENCRYPT_INIT,
 				   pMechanism, hKey);
-	}
 done:
-	LLOCK;
 	TRACE_INFO("C_EncryptInit: rc = 0x%08x, sess = %d, mech = 0x%x\n",
 		   rc, (sess == NULL) ? -1 : (CK_LONG)sess->handle,
 		   pMechanism->mechanism);
 
-	UNLOCKIT;
 	return rc;
 }
 
 
-//
-//
-CK_RV SC_Encrypt(ST_SESSION_HANDLE *sSession,
-		 CK_BYTE_PTR pData,
-		 CK_ULONG ulDataLen,
-		 CK_BYTE_PTR pEncryptedData,
+CK_RV SC_Encrypt(ST_SESSION_HANDLE *sSession, CK_BYTE_PTR pData,
+		 CK_ULONG ulDataLen, CK_BYTE_PTR pEncryptedData,
 		 CK_ULONG_PTR pulEncryptedDataLen)
 {
 	SESSION *sess = NULL;
 	CK_BBOOL length_only = FALSE;
 	CK_RV rc = CKR_OK;
-	CK_SESSION_HANDLE hSession = SESS_HANDLE(sSession);
 
-	LOCKIT;
-	if (st_Initialized() == FALSE) {
+	if (initialized == FALSE) {
 		TRACE_ERROR("%s\n", ock_err(ERR_CRYPTOKI_NOT_INITIALIZED));
 		rc = CKR_CRYPTOKI_NOT_INITIALIZED;
 		goto done;
@@ -2322,7 +2063,7 @@ CK_RV SC_Encrypt(ST_SESSION_HANDLE *sSession,
 		goto done;
 	}
 
-	sess = SESSION_MGR_FIND( hSession );
+	sess = session_mgr_find(sSession->sessionh);
 	if (!sess) {
 		TRACE_ERROR("%s\n", ock_err(ERR_SESSION_HANDLE_INVALID));
 		rc = CKR_SESSION_HANDLE_INVALID;
@@ -2338,46 +2079,37 @@ CK_RV SC_Encrypt(ST_SESSION_HANDLE *sSession,
 	if (!pEncryptedData)
 		length_only = TRUE;
 
-	if (token_specific.t_encrypt) {
+	if (token_specific.t_encrypt)
 		rc = token_specific.t_encrypt(sess, pData, ulDataLen,
 					      pEncryptedData,
 					      pulEncryptedDataLen);
-	} else {
+	else
 		rc = encr_mgr_encrypt(sess, length_only, &sess->encr_ctx, pData,
 				      ulDataLen, pEncryptedData,
 				      pulEncryptedDataLen);
-	}
 	if (rc != CKR_OK)
 		TRACE_DEBUG("*_encrypt() failed.\n");
 
 done:
-	LLOCK;
 	if (rc != CKR_BUFFER_TOO_SMALL && (rc != CKR_OK || length_only != TRUE))
 		encr_mgr_cleanup( &sess->encr_ctx );
 
 	TRACE_INFO("C_Encrypt: rc = 0x%08x, sess = %d, amount = %d\n",
 		   rc, (sess == NULL) ? -1 : (CK_LONG)sess->handle, ulDataLen);
 
-	UNLOCKIT;
 	return rc;
 }
 
 
-//
-//
-CK_RV SC_EncryptUpdate(ST_SESSION_HANDLE *sSession,
-		       CK_BYTE_PTR pPart,
-		       CK_ULONG ulPartLen,
-		       CK_BYTE_PTR pEncryptedPart,
+CK_RV SC_EncryptUpdate(ST_SESSION_HANDLE *sSession, CK_BYTE_PTR pPart,
+		       CK_ULONG ulPartLen, CK_BYTE_PTR pEncryptedPart,
 		       CK_ULONG_PTR pulEncryptedPartLen)
 {
-	SESSION * sess = NULL;
+	SESSION *sess = NULL;
 	CK_BBOOL length_only = FALSE;
 	CK_RV rc = CKR_OK;
-	CK_SESSION_HANDLE hSession = SESS_HANDLE(sSession);
 
-	LOCKIT;
-	if (st_Initialized() == FALSE) {
+	if (initialized == FALSE) {
 		TRACE_ERROR("%s\n", ock_err(ERR_CRYPTOKI_NOT_INITIALIZED));
 		rc = CKR_CRYPTOKI_NOT_INITIALIZED;
 		goto done;
@@ -2389,7 +2121,7 @@ CK_RV SC_EncryptUpdate(ST_SESSION_HANDLE *sSession,
 		goto done;
 	}
 
-	sess = SESSION_MGR_FIND( hSession );
+	sess = session_mgr_find(sSession->sessionh);
 	if (!sess) {
 		TRACE_ERROR("%s\n", ock_err(ERR_SESSION_HANDLE_INVALID));
 		rc = CKR_SESSION_HANDLE_INVALID;
@@ -2405,52 +2137,48 @@ CK_RV SC_EncryptUpdate(ST_SESSION_HANDLE *sSession,
 	if (!pEncryptedPart)
 		length_only = TRUE;
 
-	if (token_specific.t_encrypt_update) {
+	if (token_specific.t_encrypt_update)
 		rc = token_specific.t_encrypt_update(sess, pPart, ulPartLen,
 						     pEncryptedPart,
 						     pulEncryptedPartLen);
-	} else {
+	else
 		rc = encr_mgr_encrypt_update(sess, length_only, &sess->encr_ctx,
 					     pPart, ulPartLen, pEncryptedPart,
 					     pulEncryptedPartLen);
-	}
 	if (rc != CKR_OK)
 		TRACE_DEBUG("*_encrypt_update() failed.\n");
 
 done:
-	LLOCK;
 	if (rc != CKR_OK && rc != CKR_BUFFER_TOO_SMALL)
 		encr_mgr_cleanup( &sess->encr_ctx );
 
 	TRACE_INFO("C_EncryptUpdate: rc = 0x%08x, sess = %d, amount = %d\n",
 		   rc, (sess == NULL) ? -1 : (CK_LONG) sess->handle, ulPartLen);
 
-	UNLOCKIT;
 	return rc;
 }
 
 
-// I think RSA goofed when designing the specification for C_EncryptFinal.
-// This function is supposed to follow the Cryptoki standard that if
-// pLastEncryptedPart == NULL then the user is requesting only the length
-// of the output.
-//
-// But it's quite possible that no output will be returned (say the user
-// specifies a total of 64 bytes of input data throughout the multi-part
-// encryption).  The same thing can happen during an EncryptUpdate.
-//
-// ie:
-//
-//    1) user calls C_EncryptFinal to get the needed length
-//       --> we return "0 bytes required"
-//    2) user passes in a NULL pointer for pLastEncryptedPart
-//       --> we think the user is requesting the length again <--
-//
-// So the user needs to pass in a non-NULL pointer even though we're not
-// going to return anything in it.  It would have been cleaner if RSA would
-// have simply included a "give-me-the-length-only flag" as an argument.
-//
-//
+/* I think RSA goofed when designing the specification for C_EncryptFinal.
+ * This function is supposed to follow the Cryptoki standard that if
+ * pLastEncryptedPart == NULL then the user is requesting only the length
+ * of the output.
+ *
+ * But it's quite possible that no output will be returned (say the user
+ * specifies a total of 64 bytes of input data throughout the multi-part
+ * encryption).  The same thing can happen during an EncryptUpdate.
+ *
+ * ie:
+ *
+ *    1) user calls C_EncryptFinal to get the needed length
+ *       --> we return "0 bytes required"
+ *    2) user passes in a NULL pointer for pLastEncryptedPart
+ *       --> we think the user is requesting the length again <--
+ *
+ * So the user needs to pass in a non-NULL pointer even though we're not
+ * going to return anything in it.  It would have been cleaner if RSA would
+ * have simply included a "give-me-the-length-only flag" as an argument.
+ */
 CK_RV SC_EncryptFinal(ST_SESSION_HANDLE *sSession,
 		      CK_BYTE_PTR pLastEncryptedPart,
 		      CK_ULONG_PTR pulLastEncryptedPartLen)
@@ -2458,10 +2186,8 @@ CK_RV SC_EncryptFinal(ST_SESSION_HANDLE *sSession,
 	SESSION *sess = NULL;
 	CK_BBOOL length_only = FALSE;
 	CK_RV rc = CKR_OK;
-	CK_SESSION_HANDLE hSession = SESS_HANDLE(sSession);
 
-	LOCKIT;
-	if (st_Initialized() == FALSE) {
+	if (initialized == FALSE) {
 		TRACE_ERROR("%s\n", ock_err(ERR_CRYPTOKI_NOT_INITIALIZED));
 		rc = CKR_CRYPTOKI_NOT_INITIALIZED;
 		goto done;
@@ -2473,7 +2199,7 @@ CK_RV SC_EncryptFinal(ST_SESSION_HANDLE *sSession,
 		goto done;
 	}
 
-	sess = SESSION_MGR_FIND( hSession );
+	sess = session_mgr_find(sSession->sessionh);
 	if (!sess) {
 		TRACE_ERROR("%s\n", ock_err(ERR_SESSION_HANDLE_INVALID));
 		rc = CKR_SESSION_HANDLE_INVALID;
@@ -2489,42 +2215,34 @@ CK_RV SC_EncryptFinal(ST_SESSION_HANDLE *sSession,
 	if (!pLastEncryptedPart)
 		length_only = TRUE;
 
-	if (token_specific.t_encrypt_final) {
+	if (token_specific.t_encrypt_final)
 		rc = token_specific.t_encrypt_final(sess, pLastEncryptedPart,
 						    pulLastEncryptedPartLen);
-	} else {
+	else
 		rc = encr_mgr_encrypt_final(sess,length_only, &sess->encr_ctx,
 					    pLastEncryptedPart,
 					    pulLastEncryptedPartLen);
-	}
 	if (rc != CKR_OK)
 		TRACE_ERROR("*_encrypt_final() failed.\n");
 
 done:
-	LLOCK;
 	if (rc != CKR_BUFFER_TOO_SMALL && (rc != CKR_OK || length_only != TRUE))
 		encr_mgr_cleanup( &sess->encr_ctx );
 
 	TRACE_INFO("C_EncryptFinal: rc = 0x%08x, sess = %d\n",
 		   rc, (sess == NULL) ? -1 : (CK_LONG) sess->handle);
 
-	UNLOCKIT;
 	return rc;
 }
 
 
-//
-//
-CK_RV SC_DecryptInit(ST_SESSION_HANDLE *sSession,
-		     CK_MECHANISM_PTR pMechanism,
+CK_RV SC_DecryptInit(ST_SESSION_HANDLE *sSession, CK_MECHANISM_PTR pMechanism,
 		     CK_OBJECT_HANDLE hKey)
 {
 	SESSION *sess = NULL;
 	CK_RV rc = CKR_OK;
-	CK_SESSION_HANDLE hSession = SESS_HANDLE(sSession);
 
-	LOCKIT;
-	if (st_Initialized() == FALSE) {
+	if (initialized == FALSE) {
 		TRACE_ERROR("%s\n", ock_err(ERR_CRYPTOKI_NOT_INITIALIZED));
 		rc = CKR_CRYPTOKI_NOT_INITIALIZED;
 		goto done;
@@ -2540,7 +2258,7 @@ CK_RV SC_DecryptInit(ST_SESSION_HANDLE *sSession,
 	if (rc != CKR_OK)
 		goto done;
 
-	sess = SESSION_MGR_FIND( hSession );
+	sess = session_mgr_find(sSession->sessionh);
 	if (!sess) {
 		TRACE_ERROR("%s\n", ock_err(ERR_SESSION_HANDLE_INVALID));
 		rc = CKR_SESSION_HANDLE_INVALID;
@@ -2559,41 +2277,33 @@ CK_RV SC_DecryptInit(ST_SESSION_HANDLE *sSession,
 		goto done;
 	}
 
-	if (token_specific.t_decrypt_init) {
+	if (token_specific.t_decrypt_init)
 		rc = token_specific.t_decrypt_init(sess, pMechanism, hKey);
-	} else {
+	else
 		rc = decr_mgr_init(sess, &sess->decr_ctx, OP_DECRYPT_INIT,
 				   pMechanism, hKey);
-	}
+
 	if (rc != CKR_OK)
 		TRACE_DEBUG("*_decrypt_init() failed.\n");
 
 done:
-	LLOCK;
 	TRACE_INFO("C_DecryptInit: rc = 0x%08x, sess = %d, mech = 0x%x\n",
 		   rc, (sess == NULL) ? -1 : (CK_LONG)sess->handle,
 		   pMechanism->mechanism);
 
-	UNLOCKIT;
 	return rc;
 }
 
 
-//
-//
-CK_RV SC_Decrypt(ST_SESSION_HANDLE *sSession,
-		 CK_BYTE_PTR pEncryptedData,
-		 CK_ULONG ulEncryptedDataLen,
-		 CK_BYTE_PTR pData,
+CK_RV SC_Decrypt(ST_SESSION_HANDLE *sSession, CK_BYTE_PTR pEncryptedData,
+		 CK_ULONG ulEncryptedDataLen, CK_BYTE_PTR pData,
 		 CK_ULONG_PTR pulDataLen)
 {
 	SESSION *sess = NULL;
 	CK_BBOOL length_only = FALSE;
 	CK_RV rc = CKR_OK;
-	CK_SESSION_HANDLE hSession = SESS_HANDLE(sSession);
 
-	LOCKIT;
-	if (st_Initialized() == FALSE) {
+	if (initialized == FALSE) {
 		TRACE_ERROR("%s\n", ock_err(ERR_CRYPTOKI_NOT_INITIALIZED));
 		rc = CKR_CRYPTOKI_NOT_INITIALIZED;
 		goto done;
@@ -2605,7 +2315,7 @@ CK_RV SC_Decrypt(ST_SESSION_HANDLE *sSession,
 		goto done;
 	}
 
-	sess = SESSION_MGR_FIND( hSession );
+	sess = session_mgr_find(sSession->sessionh);
 	if (!sess) {
 		TRACE_ERROR("%s\n", ock_err(ERR_SESSION_HANDLE_INVALID));
 		rc = CKR_SESSION_HANDLE_INVALID;
@@ -2634,7 +2344,6 @@ CK_RV SC_Decrypt(ST_SESSION_HANDLE *sSession,
 		TRACE_DEBUG("*_decrypt() failed.\n");
 
 done:
-	LLOCK;
 	if (rc != CKR_BUFFER_TOO_SMALL && (rc != CKR_OK || length_only != TRUE))
 		decr_mgr_cleanup( &sess->decr_ctx );
 
@@ -2642,26 +2351,19 @@ done:
 		   rc, (sess == NULL) ? -1 : (CK_LONG)sess->handle,
 		   ulEncryptedDataLen);
 
-	UNLOCKIT;
 	return rc;
 }
 
 
-//
-//
-CK_RV SC_DecryptUpdate(ST_SESSION_HANDLE *sSession,
-		       CK_BYTE_PTR pEncryptedPart,
-		       CK_ULONG ulEncryptedPartLen,
-		       CK_BYTE_PTR pPart,
+CK_RV SC_DecryptUpdate(ST_SESSION_HANDLE *sSession, CK_BYTE_PTR pEncryptedPart,
+		       CK_ULONG ulEncryptedPartLen, CK_BYTE_PTR pPart,
 		       CK_ULONG_PTR pulPartLen)
 {
 	SESSION *sess = NULL;
 	CK_BBOOL length_only = FALSE;
 	CK_RV rc = CKR_OK;
-	CK_SESSION_HANDLE hSession = SESS_HANDLE(sSession);
 
-	LOCKIT;
-	if (st_Initialized() == FALSE) {
+	if (initialized == FALSE) {
 		TRACE_ERROR("%s\n", ock_err(ERR_CRYPTOKI_NOT_INITIALIZED));
 		rc = CKR_CRYPTOKI_NOT_INITIALIZED;
 		goto done;
@@ -2673,7 +2375,7 @@ CK_RV SC_DecryptUpdate(ST_SESSION_HANDLE *sSession,
 		goto done;
 	}
 
-	sess = SESSION_MGR_FIND( hSession );
+	sess = session_mgr_find(sSession->sessionh);
 	if (!sess) {
 		TRACE_ERROR("%s\n", ock_err(ERR_SESSION_HANDLE_INVALID));
 		rc = CKR_SESSION_HANDLE_INVALID;
@@ -2702,7 +2404,6 @@ CK_RV SC_DecryptUpdate(ST_SESSION_HANDLE *sSession,
 		TRACE_DEBUG("*_decrypt_update() failed.\n");
 
 done:
-	LLOCK;
 	if (rc != CKR_OK && rc != CKR_BUFFER_TOO_SMALL)
 		decr_mgr_cleanup( &sess->decr_ctx );
 
@@ -2710,24 +2411,18 @@ done:
 		   rc, (sess == NULL) ? -1 : (CK_LONG)sess->handle,
 		   ulEncryptedPartLen);
 
-	UNLOCKIT;
 	return rc;
 }
 
 
-//
-//
-CK_RV SC_DecryptFinal(ST_SESSION_HANDLE *sSession,
-		      CK_BYTE_PTR pLastPart,
+CK_RV SC_DecryptFinal(ST_SESSION_HANDLE *sSession, CK_BYTE_PTR pLastPart,
 		      CK_ULONG_PTR pulLastPartLen)
 {
 	SESSION *sess = NULL;
 	CK_BBOOL length_only = FALSE;
 	CK_RV rc = CKR_OK;
-	CK_SESSION_HANDLE hSession = SESS_HANDLE(sSession);
 
-	LOCKIT;
-	if (st_Initialized() == FALSE) {
+	if (initialized == FALSE) {
 		TRACE_ERROR("%s\n", ock_err(ERR_CRYPTOKI_NOT_INITIALIZED));
 		rc = CKR_CRYPTOKI_NOT_INITIALIZED;
 		goto done;
@@ -2739,7 +2434,7 @@ CK_RV SC_DecryptFinal(ST_SESSION_HANDLE *sSession,
 		goto done;
 	}
 
-	sess = SESSION_MGR_FIND( hSession );
+	sess = session_mgr_find(sSession->sessionh);
 	if (!sess) {
 		TRACE_ERROR("%s\n", ock_err(ERR_SESSION_HANDLE_INVALID));
 		rc = CKR_SESSION_HANDLE_INVALID;
@@ -2765,7 +2460,6 @@ CK_RV SC_DecryptFinal(ST_SESSION_HANDLE *sSession,
 	if (rc != CKR_OK)
 		TRACE_DEBUG("*_decrypt_final() failed.\n");
 done:
-	LLOCK;
 	if (rc != CKR_BUFFER_TOO_SMALL && (rc != CKR_OK || length_only != TRUE))
 		decr_mgr_cleanup( &sess->decr_ctx );
 
@@ -2773,23 +2467,16 @@ done:
 		   rc, (sess == NULL) ? -1 : (CK_LONG)sess->handle,
 		   *pulLastPartLen);
 
-	UNLOCKIT;
 	return rc;
 }
 
 
-//
-//
-CK_RV SC_DigestInit( ST_SESSION_HANDLE  *sSession,
-		     CK_MECHANISM_PTR   pMechanism )
+CK_RV SC_DigestInit(ST_SESSION_HANDLE *sSession, CK_MECHANISM_PTR pMechanism)
 {
-	SESSION   * sess = NULL;
-	CK_RV       rc = CKR_OK;
-	CK_SESSION_HANDLE hSession = SESS_HANDLE(sSession);
+	SESSION *sess = NULL;
+	CK_RV rc = CKR_OK;
 
-
-	LOCKIT;
-	if (st_Initialized() == FALSE) {
+	if (initialized == FALSE) {
 		TRACE_ERROR("%s\n", ock_err(ERR_CRYPTOKI_NOT_INITIALIZED));
 		rc = CKR_CRYPTOKI_NOT_INITIALIZED;
 		goto done;
@@ -2804,7 +2491,7 @@ CK_RV SC_DigestInit( ST_SESSION_HANDLE  *sSession,
 	if (rc != CKR_OK)
 		goto done;
 
-	sess = SESSION_MGR_FIND( hSession );
+	sess = session_mgr_find(sSession->sessionh);
 	if (!sess) {
 		TRACE_ERROR("%s\n", ock_err(ERR_SESSION_HANDLE_INVALID));
 		rc = CKR_SESSION_HANDLE_INVALID;
@@ -2823,51 +2510,43 @@ CK_RV SC_DigestInit( ST_SESSION_HANDLE  *sSession,
 		goto done;
 	}
 
-	rc = digest_mgr_init( sess, &sess->digest_ctx, pMechanism );
+	rc = digest_mgr_init(sess, &sess->digest_ctx, pMechanism);
 	if (rc != CKR_OK)
 		TRACE_DEBUG("digest_mgr_init() failed.\n");
 
- done:
-	LLOCK;
+done:
 	TRACE_INFO("C_DigestInit: rc = 0x%08x, sess = %d, mech = %x\n",
 		   rc, (sess == NULL)?-1:(CK_LONG)sess->handle,
 		   pMechanism->mechanism);
 
-	UNLOCKIT; return rc;
+	return rc;
 }
 
 
-//
-//
-CK_RV SC_Digest( ST_SESSION_HANDLE  *sSession,
-		 CK_BYTE_PTR        pData,
-		 CK_ULONG           ulDataLen,
-		 CK_BYTE_PTR        pDigest,
-		 CK_ULONG_PTR       pulDigestLen )
+CK_RV SC_Digest(ST_SESSION_HANDLE *sSession, CK_BYTE_PTR pData,
+		CK_ULONG ulDataLen, CK_BYTE_PTR pDigest,
+		CK_ULONG_PTR pulDigestLen)
 {
-	SESSION  * sess = NULL;
-	CK_BBOOL   length_only = FALSE;
-	CK_RV      rc = CKR_OK;
-	CK_SESSION_HANDLE hSession = SESS_HANDLE(sSession);
+	SESSION *sess = NULL;
+	CK_BBOOL length_only = FALSE;
+	CK_RV rc = CKR_OK;
 
-
-	LOCKIT;
-	if (st_Initialized() == FALSE) {
+	if (initialized == FALSE) {
 		TRACE_ERROR("%s\n", ock_err(ERR_CRYPTOKI_NOT_INITIALIZED));
 		rc = CKR_CRYPTOKI_NOT_INITIALIZED;
 		goto done;
 	}
 
-	// Netscape has been known to pass a null pData to DigestUpdate
-	// but never for Digest.  It doesn't really make sense to allow it here
-	//
+	/* Netscape has been known to pass a null pData to DigestUpdate
+	 * but never for Digest.  It doesn't really make sense to allow it here
+	 */
 	if (!pData || !pulDigestLen) {
 		TRACE_ERROR("%s\n", ock_err(ERR_ARGUMENTS_BAD));
 		rc = CKR_ARGUMENTS_BAD;
 		goto done;
 	}
 
-	sess = SESSION_MGR_FIND( hSession );
+	sess = session_mgr_find(sSession->sessionh);
 	if (!sess) {
 		TRACE_ERROR("%s\n", ock_err(ERR_SESSION_HANDLE_INVALID));
 		rc = CKR_SESSION_HANDLE_INVALID;
@@ -2883,35 +2562,26 @@ CK_RV SC_Digest( ST_SESSION_HANDLE  *sSession,
 	if (!pDigest)
 		length_only = TRUE;
 
-	rc = digest_mgr_digest( sess,    length_only,
-				&sess->digest_ctx,
-				pData,   ulDataLen,
-				pDigest, pulDigestLen );
+	rc = digest_mgr_digest(sess, length_only, &sess->digest_ctx, pData,
+			       ulDataLen, pDigest, pulDigestLen);
 	if (rc != CKR_OK)
 		TRACE_DEBUG("digest_mgr_digest() failed.\n");
 
- done:
-	LLOCK;
+done:
 	TRACE_INFO("C_Digest: rc = 0x%08x, sess = %d, datalen = %d\n",
 		   rc, (sess == NULL)?-1:(CK_LONG)sess->handle, ulDataLen);
 
-	UNLOCKIT; return rc;
+	return rc;
 }
 
 
-//
-//
-CK_RV SC_DigestUpdate( ST_SESSION_HANDLE  *sSession,
-		       CK_BYTE_PTR        pPart,
-		       CK_ULONG           ulPartLen )
+CK_RV SC_DigestUpdate(ST_SESSION_HANDLE *sSession, CK_BYTE_PTR pPart,
+		      CK_ULONG ulPartLen)
 {
-	SESSION  * sess = NULL;
-	CK_RV      rc   = CKR_OK;
-	CK_SESSION_HANDLE hSession = SESS_HANDLE(sSession);
+	SESSION *sess = NULL;
+	CK_RV rc = CKR_OK;
 
-
-		LOCKIT;
-	if (st_Initialized() == FALSE) {
+	if (initialized == FALSE) {
 		TRACE_ERROR("%s\n", ock_err(ERR_CRYPTOKI_NOT_INITIALIZED));
 		rc = CKR_CRYPTOKI_NOT_INITIALIZED;
 		goto done;
@@ -2923,7 +2593,7 @@ CK_RV SC_DigestUpdate( ST_SESSION_HANDLE  *sSession,
 		goto done;
 	}
 
-	sess = SESSION_MGR_FIND( hSession );
+	sess = session_mgr_find(sSession->sessionh);
 	if (!sess) {
 		TRACE_ERROR("%s\n", ock_err(ERR_SESSION_HANDLE_INVALID));
 		rc = CKR_SESSION_HANDLE_INVALID;
@@ -2938,36 +2608,31 @@ CK_RV SC_DigestUpdate( ST_SESSION_HANDLE  *sSession,
 
 	/* If there is data to hash, do so. */
 	if (ulPartLen) {
-		rc = digest_mgr_digest_update( sess, &sess->digest_ctx, pPart, ulPartLen );
+		rc = digest_mgr_digest_update(sess, &sess->digest_ctx, pPart,
+					      ulPartLen);
 		if (rc != CKR_OK)
 			TRACE_DEBUG("digest_mgr_digest_update() failed.\n");
 	}
- done:
-	LLOCK;
+done:
 	TRACE_INFO("C_DigestUpdate: rc = %08x, sess = %d, datalen = %d\n",
 		   rc, (sess == NULL)?-1:(CK_LONG)sess->handle, ulPartLen);
 
-	UNLOCKIT; return rc;
+	return rc;
 }
 
 
-//
-//
-CK_RV SC_DigestKey( ST_SESSION_HANDLE  *sSession,
-		    CK_OBJECT_HANDLE   hKey )
+CK_RV SC_DigestKey(ST_SESSION_HANDLE *sSession, CK_OBJECT_HANDLE hKey)
 {
-	SESSION  * sess = NULL;
-	CK_RV      rc = CKR_OK;
-	CK_SESSION_HANDLE hSession = SESS_HANDLE(sSession);
+	SESSION *sess = NULL;
+	CK_RV rc = CKR_OK;
 
-	LOCKIT;
-	if (st_Initialized() == FALSE) {
+	if (initialized == FALSE) {
 		TRACE_ERROR("%s\n", ock_err(ERR_CRYPTOKI_NOT_INITIALIZED));
 		rc = CKR_CRYPTOKI_NOT_INITIALIZED;
 		goto done;
 	}
 
-	sess = SESSION_MGR_FIND( hSession );
+	sess = session_mgr_find(sSession->sessionh);
 	if (!sess) {
 		TRACE_ERROR("%s\n", ock_err(ERR_SESSION_HANDLE_INVALID));
 		rc = CKR_SESSION_HANDLE_INVALID;
@@ -2980,33 +2645,26 @@ CK_RV SC_DigestKey( ST_SESSION_HANDLE  *sSession,
 		goto done;
 	}
 
-	rc = digest_mgr_digest_key( sess, &sess->digest_ctx, hKey );
+	rc = digest_mgr_digest_key(sess, &sess->digest_ctx, hKey);
 	if (rc != CKR_OK)
 		TRACE_DEBUG("digest_mgr_digest_key() failed.\n");
 
- done:
-	LLOCK;
+done:
 	TRACE_INFO("C_DigestKey: rc = %08x, sess = %d, key = %d\n",
 		   rc, (sess == NULL)?-1:(CK_LONG)sess->handle, hKey);
 
-	UNLOCKIT; return rc;
+	return rc;
 }
 
 
-//
-//
-CK_RV SC_DigestFinal( ST_SESSION_HANDLE  *sSession,
-		      CK_BYTE_PTR        pDigest,
-		      CK_ULONG_PTR       pulDigestLen )
+CK_RV SC_DigestFinal(ST_SESSION_HANDLE *sSession, CK_BYTE_PTR pDigest,
+		     CK_ULONG_PTR pulDigestLen)
 {
-	SESSION  * sess = NULL;
-	CK_BBOOL   length_only = FALSE;
-	CK_RV      rc = CKR_OK;
-	CK_SESSION_HANDLE hSession = SESS_HANDLE(sSession);
+	SESSION *sess = NULL;
+	CK_BBOOL length_only = FALSE;
+	CK_RV rc = CKR_OK;
 
-
-		LOCKIT;
-	if (st_Initialized() == FALSE) {
+	if (initialized == FALSE) {
 		TRACE_ERROR("%s\n", ock_err(ERR_CRYPTOKI_NOT_INITIALIZED));
 		rc = CKR_CRYPTOKI_NOT_INITIALIZED;
 		goto done;
@@ -3018,7 +2676,7 @@ CK_RV SC_DigestFinal( ST_SESSION_HANDLE  *sSession,
 		goto done;
 	}
 
-	sess = SESSION_MGR_FIND( hSession );
+	sess = session_mgr_find(sSession->sessionh);
 	if (!sess) {
 		TRACE_ERROR("%s\n", ock_err(ERR_SESSION_HANDLE_INVALID));
 		rc = CKR_SESSION_HANDLE_INVALID;
@@ -3034,46 +2692,38 @@ CK_RV SC_DigestFinal( ST_SESSION_HANDLE  *sSession,
 	if (!pDigest)
 		length_only = TRUE;
 
-	rc = digest_mgr_digest_final( sess,    length_only,
-				      &sess->digest_ctx,
-				      pDigest, pulDigestLen );
+	rc = digest_mgr_digest_final(sess, length_only, &sess->digest_ctx,
+				     pDigest, pulDigestLen);
 	if (rc != CKR_OK)
 		TRACE_ERROR("digest_mgr_digest_final() failed.\n");
 
- done:
-	LLOCK;
+done:
 	TRACE_INFO("C_DigestFinal: rc = %08x, sess = %d\n",
 		   rc, (sess == NULL)?-1:(CK_LONG)sess->handle);
 
-	UNLOCKIT; return rc;
+	return rc;
 }
 
 
-//
-//
-CK_RV SC_SignInit( ST_SESSION_HANDLE  *sSession,
-		   CK_MECHANISM_PTR   pMechanism,
-		   CK_OBJECT_HANDLE   hKey )
+CK_RV SC_SignInit(ST_SESSION_HANDLE *sSession, CK_MECHANISM_PTR pMechanism,
+		  CK_OBJECT_HANDLE hKey)
 {
-	SESSION   * sess = NULL;
-	CK_RV       rc = CKR_OK;
-	CK_SESSION_HANDLE hSession = SESS_HANDLE(sSession);
+	SESSION *sess = NULL;
+	CK_RV rc = CKR_OK;
 
-
-		LOCKIT;
-	if (st_Initialized() == FALSE) {
+	if (initialized == FALSE) {
 		TRACE_ERROR("%s\n", ock_err(ERR_CRYPTOKI_NOT_INITIALIZED));
 		rc = CKR_CRYPTOKI_NOT_INITIALIZED;
 		goto done;
 	}
 
-	if (!pMechanism ){
+	if (!pMechanism ) {
 		TRACE_ERROR("%s\n", ock_err(ERR_ARGUMENTS_BAD));
 		rc = CKR_ARGUMENTS_BAD;
 		goto done;
 	}
 
-	sess = SESSION_MGR_FIND( hSession );
+	sess = session_mgr_find(sSession->sessionh);
 	if (!sess) {
 		TRACE_ERROR("%s\n", ock_err(ERR_SESSION_HANDLE_INVALID));
 		rc = CKR_SESSION_HANDLE_INVALID;
@@ -3105,32 +2755,24 @@ CK_RV SC_SignInit( ST_SESSION_HANDLE  *sSession,
 	if (rc != CKR_OK)
 		TRACE_DEBUG("*_sign_init() failed.\n");
 
- done:
-	LLOCK;
+done:
 	TRACE_INFO("C_SignInit: rc = %08x, sess = %d, mech = %x\n",
 		   rc, (sess == NULL)?-1:(CK_LONG)sess->handle,
 		   pMechanism->mechanism);
 
-	UNLOCKIT; return rc;
+	return rc;
 }
 
 
-//
-//
-CK_RV SC_Sign( ST_SESSION_HANDLE  *sSession,
-	       CK_BYTE_PTR        pData,
-	       CK_ULONG           ulDataLen,
-	       CK_BYTE_PTR        pSignature,
-	       CK_ULONG_PTR       pulSignatureLen )
+CK_RV SC_Sign(ST_SESSION_HANDLE *sSession, CK_BYTE_PTR pData,
+	      CK_ULONG ulDataLen, CK_BYTE_PTR pSignature,
+	      CK_ULONG_PTR pulSignatureLen)
 {
-	SESSION  * sess = NULL;
-	CK_BBOOL   length_only = FALSE;
-	CK_RV      rc = CKR_OK;
-	CK_SESSION_HANDLE hSession = SESS_HANDLE(sSession);
+	SESSION *sess = NULL;
+	CK_BBOOL length_only = FALSE;
+	CK_RV rc = CKR_OK;
 
-
-	LOCKIT;
-	if (st_Initialized() == FALSE) {
+	if (initialized == FALSE) {
 		TRACE_ERROR("%s\n", ock_err(ERR_CRYPTOKI_NOT_INITIALIZED));
 		rc = CKR_CRYPTOKI_NOT_INITIALIZED;
 		goto done;
@@ -3142,7 +2784,7 @@ CK_RV SC_Sign( ST_SESSION_HANDLE  *sSession,
 		goto done;
 	}
 
-	sess = SESSION_MGR_FIND( hSession );
+	sess = session_mgr_find(sSession->sessionh);
 	if (!sess) {
 		TRACE_ERROR("%s\n", ock_err(ERR_SESSION_HANDLE_INVALID));
 		rc = CKR_SESSION_HANDLE_INVALID;
@@ -3168,31 +2810,24 @@ CK_RV SC_Sign( ST_SESSION_HANDLE  *sSession,
 	if (rc != CKR_OK)
 		TRACE_DEBUG("*_sign() failed.\n");
 
- done:
+done:
 	if (rc != CKR_BUFFER_TOO_SMALL && (rc != CKR_OK || length_only != TRUE))
-		sign_mgr_cleanup( &sess->sign_ctx );
+		sign_mgr_cleanup(&sess->sign_ctx);
 
-	LLOCK;
 	TRACE_INFO("C_Sign: rc = %08x, sess = %d, datalen = %d\n",
 		   rc, (sess == NULL)?-1:(CK_LONG)sess->handle, ulDataLen);
 
-	UNLOCKIT; return rc;
+	return rc;
 }
 
 
-//
-//
-CK_RV SC_SignUpdate( ST_SESSION_HANDLE  *sSession,
-		     CK_BYTE_PTR        pPart,
-		     CK_ULONG           ulPartLen )
+CK_RV SC_SignUpdate(ST_SESSION_HANDLE *sSession, CK_BYTE_PTR pPart,
+		    CK_ULONG ulPartLen)
 {
-	SESSION  * sess = NULL;
-	CK_RV      rc   = CKR_OK;
-	CK_SESSION_HANDLE hSession = SESS_HANDLE(sSession);
+	SESSION *sess = NULL;
+	CK_RV rc = CKR_OK;
 
-
-		LOCKIT;
-	if (st_Initialized() == FALSE) {
+	if (initialized == FALSE) {
 		TRACE_ERROR("%s\n", ock_err(ERR_CRYPTOKI_NOT_INITIALIZED));
 		rc = CKR_CRYPTOKI_NOT_INITIALIZED;
 		goto done;
@@ -3204,7 +2839,7 @@ CK_RV SC_SignUpdate( ST_SESSION_HANDLE  *sSession,
 		goto done;
 	}
 
-	sess = SESSION_MGR_FIND( hSession );
+	sess = session_mgr_find(sSession->sessionh);
 	if (!sess) {
 		TRACE_ERROR("%s\n", ock_err(ERR_SESSION_HANDLE_INVALID));
 		rc = CKR_SESSION_HANDLE_INVALID;
@@ -3226,32 +2861,25 @@ CK_RV SC_SignUpdate( ST_SESSION_HANDLE  *sSession,
 	if (rc != CKR_OK)
 		TRACE_DEBUG("*_sign_update() failed.\n");
 
- done:
+done:
 	if (rc != CKR_OK)
-		sign_mgr_cleanup( &sess->sign_ctx );
+		sign_mgr_cleanup(&sess->sign_ctx);
 
-	LLOCK;
 	TRACE_INFO("C_SignUpdate: rc = %08x, sess = %d, datalen = %d\n",
 		   rc, (sess == NULL)?-1:(CK_LONG)sess->handle, ulPartLen);
 
-	UNLOCKIT; return rc;
+	return rc;
 }
 
 
-//
-//
-CK_RV SC_SignFinal( ST_SESSION_HANDLE  *sSession,
-		    CK_BYTE_PTR        pSignature,
-		    CK_ULONG_PTR       pulSignatureLen )
+CK_RV SC_SignFinal(ST_SESSION_HANDLE *sSession, CK_BYTE_PTR pSignature,
+		   CK_ULONG_PTR pulSignatureLen)
 {
-	SESSION  * sess = NULL;
-	CK_BBOOL   length_only = FALSE;
-	CK_RV      rc = CKR_OK;
-	CK_SESSION_HANDLE hSession = SESS_HANDLE(sSession);
+	SESSION *sess = NULL;
+	CK_BBOOL length_only = FALSE;
+	CK_RV rc = CKR_OK;
 
-
-	LOCKIT;
-	if (st_Initialized() == FALSE) {
+	if (initialized == FALSE) {
 		TRACE_ERROR("%s\n", ock_err(ERR_CRYPTOKI_NOT_INITIALIZED));
 		rc = CKR_CRYPTOKI_NOT_INITIALIZED;
 		goto done;
@@ -3263,7 +2891,7 @@ CK_RV SC_SignFinal( ST_SESSION_HANDLE  *sSession,
 		goto done;
 	}
 
-	sess = SESSION_MGR_FIND( hSession );
+	sess = session_mgr_find(sSession->sessionh);
 	if (!sess) {
 		TRACE_ERROR("%s\n", ock_err(ERR_SESSION_HANDLE_INVALID));
 		rc = CKR_SESSION_HANDLE_INVALID;
@@ -3289,31 +2917,24 @@ CK_RV SC_SignFinal( ST_SESSION_HANDLE  *sSession,
 	if (rc != CKR_OK)
 		TRACE_ERROR("*_sign_final() failed.\n");
 
- done:
+done:
 	if (rc != CKR_BUFFER_TOO_SMALL && (rc != CKR_OK || length_only != TRUE))
-		sign_mgr_cleanup( &sess->sign_ctx );
+		sign_mgr_cleanup(&sess->sign_ctx);
 
-	LLOCK;
 	TRACE_INFO("C_SignFinal: rc = %08x, sess = %d\n",
 		   rc, (sess == NULL)?-1:(CK_LONG)sess->handle);
 
-	UNLOCKIT; return rc;
+	return rc;
 }
 
 
-//
-//
-CK_RV SC_SignRecoverInit( ST_SESSION_HANDLE  *sSession,
-			  CK_MECHANISM_PTR   pMechanism,
-			  CK_OBJECT_HANDLE   hKey )
+CK_RV SC_SignRecoverInit(ST_SESSION_HANDLE *sSession,
+			 CK_MECHANISM_PTR pMechanism, CK_OBJECT_HANDLE hKey)
 {
-	SESSION   * sess = NULL;
-	CK_RV       rc = CKR_OK;
-	CK_SESSION_HANDLE hSession = SESS_HANDLE(sSession);
+	SESSION *sess = NULL;
+	CK_RV rc = CKR_OK;
 
-
-	LOCKIT;
-	if (st_Initialized() == FALSE) {
+	if (initialized == FALSE) {
 		TRACE_ERROR("%s\n", ock_err(ERR_CRYPTOKI_NOT_INITIALIZED));
 		rc = CKR_CRYPTOKI_NOT_INITIALIZED;
 		goto done;
@@ -3328,7 +2949,7 @@ CK_RV SC_SignRecoverInit( ST_SESSION_HANDLE  *sSession,
 	if (rc != CKR_OK)
 		goto done;
 
-	sess = SESSION_MGR_FIND( hSession );
+	sess = session_mgr_find(sSession->sessionh);
 	if (!sess) {
 		TRACE_ERROR("%s\n", ock_err(ERR_SESSION_HANDLE_INVALID));
 		rc = CKR_SESSION_HANDLE_INVALID;
@@ -3347,36 +2968,28 @@ CK_RV SC_SignRecoverInit( ST_SESSION_HANDLE  *sSession,
 		goto done;
 	}
 
-	rc = sign_mgr_init( sess, &sess->sign_ctx, pMechanism, TRUE, hKey );
+	rc = sign_mgr_init(sess, &sess->sign_ctx, pMechanism, TRUE, hKey);
 	if (rc != CKR_OK)
-		TRACE_DEBUG("sign__mgr_init() failed.\n");
+		TRACE_DEBUG("sign_mgr_init() failed.\n");
 
- done:
-	LLOCK;
+done:
 	TRACE_INFO("C_SignRecoverInit: rc = %08x, sess = %d, mech = %x\n",
 		   rc, (sess == NULL)?-1:(CK_LONG)sess->handle,
 		   pMechanism->mechanism);
 
-	UNLOCKIT; return rc;
+	return rc;
 }
 
 
-//
-//
-CK_RV SC_SignRecover( ST_SESSION_HANDLE  *sSession,
-		      CK_BYTE_PTR        pData,
-		      CK_ULONG           ulDataLen,
-		      CK_BYTE_PTR        pSignature,
-		      CK_ULONG_PTR       pulSignatureLen )
+CK_RV SC_SignRecover(ST_SESSION_HANDLE *sSession, CK_BYTE_PTR pData,
+		     CK_ULONG ulDataLen, CK_BYTE_PTR pSignature,
+		     CK_ULONG_PTR pulSignatureLen)
 {
-	SESSION  * sess = NULL;
-	CK_BBOOL   length_only = FALSE;
-	CK_RV      rc = CKR_OK;
-	CK_SESSION_HANDLE hSession = SESS_HANDLE(sSession);
+	SESSION *sess = NULL;
+	CK_BBOOL length_only = FALSE;
+	CK_RV rc = CKR_OK;
 
-
-	LOCKIT;
-	if (st_Initialized() == FALSE) {
+	if (initialized == FALSE) {
 		TRACE_ERROR("%s\n", ock_err(ERR_CRYPTOKI_NOT_INITIALIZED));
 		rc = CKR_CRYPTOKI_NOT_INITIALIZED;
 		goto done;
@@ -3388,14 +3001,15 @@ CK_RV SC_SignRecover( ST_SESSION_HANDLE  *sSession,
 		goto done;
 	}
 
-	sess = SESSION_MGR_FIND( hSession );
+	sess = session_mgr_find(sSession->sessionh);
 	if (!sess) {
 		TRACE_ERROR("%s\n", ock_err(ERR_SESSION_HANDLE_INVALID));
 		rc = CKR_SESSION_HANDLE_INVALID;
 		goto done;
 	}
 
-	if ((sess->sign_ctx.active == FALSE) || (sess->sign_ctx.recover == FALSE)) {
+	if ((sess->sign_ctx.active == FALSE) ||
+	    (sess->sign_ctx.recover == FALSE)) {
 		rc = CKR_OPERATION_NOT_INITIALIZED;
 		TRACE_ERROR("%s\n", ock_err(ERR_OPERATION_NOT_INITIALIZED));
 		goto done;
@@ -3404,43 +3018,34 @@ CK_RV SC_SignRecover( ST_SESSION_HANDLE  *sSession,
 	if (!pSignature)
 		length_only = TRUE;
 
-	rc = sign_mgr_sign_recover( sess,       length_only,
-				    &sess->sign_ctx,
-				    pData,      ulDataLen,
-				    pSignature, pulSignatureLen );
+	rc = sign_mgr_sign_recover(sess, length_only, &sess->sign_ctx, pData,
+				   ulDataLen, pSignature, pulSignatureLen);
 	if (rc != CKR_OK)
 		TRACE_DEBUG("sign_mgr_sign_recover() failed.\n");
 
- done:
+done:
 	if (rc != CKR_BUFFER_TOO_SMALL && (rc != CKR_OK || length_only != TRUE))
-		sign_mgr_cleanup( &sess->sign_ctx );
+		sign_mgr_cleanup(&sess->sign_ctx);
 
-	LLOCK;
 	TRACE_INFO("C_SignRecover: rc = %08x, sess = %d, datalen = %d\n",
 		   rc, (sess == NULL)?-1:(CK_LONG)sess->handle, ulDataLen);
 
-	UNLOCKIT; return rc;
+	return rc;
 }
 
 
-//
-//
-CK_RV SC_VerifyInit( ST_SESSION_HANDLE  *sSession,
-		     CK_MECHANISM_PTR   pMechanism,
-		     CK_OBJECT_HANDLE   hKey )
+CK_RV SC_VerifyInit(ST_SESSION_HANDLE *sSession, CK_MECHANISM_PTR pMechanism,
+		    CK_OBJECT_HANDLE hKey)
 {
-	SESSION   * sess = NULL;
-	CK_RV       rc = CKR_OK;
-	CK_SESSION_HANDLE hSession = SESS_HANDLE(sSession);
+	SESSION *sess = NULL;
+	CK_RV rc = CKR_OK;
 
-
-	LOCKIT;
-	if (st_Initialized() == FALSE) {
+	if (initialized == FALSE) {
 		TRACE_ERROR("%s\n", ock_err(ERR_CRYPTOKI_NOT_INITIALIZED));
 		rc = CKR_CRYPTOKI_NOT_INITIALIZED;
 		goto done;
 	}
-	if (!pMechanism ){
+	if (!pMechanism ) {
 		TRACE_ERROR("%s\n", ock_err(ERR_ARGUMENTS_BAD));
 		rc = CKR_ARGUMENTS_BAD;
 		goto done;
@@ -3450,14 +3055,15 @@ CK_RV SC_VerifyInit( ST_SESSION_HANDLE  *sSession,
 	if (rc != CKR_OK)
 		goto done;
 
-	sess = SESSION_MGR_FIND( hSession );
+	sess = session_mgr_find(sSession->sessionh);
 	if (!sess) {
 		TRACE_ERROR("%s\n", ock_err(ERR_SESSION_HANDLE_INVALID));
 		rc = CKR_SESSION_HANDLE_INVALID;
 		goto done;
 	}
 
-	if (pin_expired(&sess->session_info, nv_token_data->token_info.flags) == TRUE) {
+	if (pin_expired(&sess->session_info,
+	    nv_token_data->token_info.flags) == TRUE) {
 		TRACE_ERROR("%s\n", ock_err(ERR_PIN_EXPIRED));
 		rc = CKR_PIN_EXPIRED;
 		goto done;
@@ -3478,31 +3084,23 @@ CK_RV SC_VerifyInit( ST_SESSION_HANDLE  *sSession,
 	if (rc != CKR_OK)
 		TRACE_DEBUG("*_verify_init() failed.\n");
 
- done:
-	LLOCK;
+done:
 	TRACE_INFO("C_VerifyInit: rc = %08x, sess = %d, mech = %x\n",
 		   rc, (sess == NULL)?-1:(CK_LONG)sess->handle,
 		   pMechanism->mechanism);
 
-	UNLOCKIT; return rc;
+	return rc;
 }
 
 
-//
-//
-CK_RV SC_Verify( ST_SESSION_HANDLE  *sSession,
-		 CK_BYTE_PTR        pData,
-		 CK_ULONG           ulDataLen,
-		 CK_BYTE_PTR        pSignature,
-		 CK_ULONG           ulSignatureLen )
+CK_RV SC_Verify(ST_SESSION_HANDLE *sSession, CK_BYTE_PTR pData,
+		CK_ULONG ulDataLen, CK_BYTE_PTR pSignature,
+		CK_ULONG ulSignatureLen)
 {
-	SESSION  * sess = NULL;
-	CK_RV      rc = CKR_OK;
-	CK_SESSION_HANDLE hSession = SESS_HANDLE(sSession);
+	SESSION *sess = NULL;
+	CK_RV rc = CKR_OK;
 
-
-	LOCKIT;
-	if (st_Initialized() == FALSE) {
+	if (initialized == FALSE) {
 		TRACE_ERROR("%s\n", ock_err(ERR_CRYPTOKI_NOT_INITIALIZED));
 		rc = CKR_CRYPTOKI_NOT_INITIALIZED;
 		goto done;
@@ -3514,7 +3112,7 @@ CK_RV SC_Verify( ST_SESSION_HANDLE  *sSession,
 		goto done;
 	}
 
-	sess = SESSION_MGR_FIND( hSession );
+	sess = session_mgr_find(sSession->sessionh);
 	if (!sess) {
 		TRACE_ERROR("%s\n", ock_err(ERR_SESSION_HANDLE_INVALID));
 		rc = CKR_SESSION_HANDLE_INVALID;
@@ -3537,30 +3135,23 @@ CK_RV SC_Verify( ST_SESSION_HANDLE  *sSession,
 	if (rc != CKR_OK)
 		TRACE_DEBUG("*_verify() failed.\n");
 
- done:
-	verify_mgr_cleanup( &sess->verify_ctx );
+done:
+	verify_mgr_cleanup(&sess->verify_ctx);
 
-	LLOCK;
 	TRACE_INFO("C_Verify: rc = %08x, sess = %d, datalen = %d\n",
 		   rc, (sess == NULL)?-1:(CK_LONG)sess->handle, ulDataLen);
 
-	UNLOCKIT; return rc;
+	return rc;
 }
 
 
-//
-//
-CK_RV SC_VerifyUpdate( ST_SESSION_HANDLE  *sSession,
-		       CK_BYTE_PTR        pPart,
-		       CK_ULONG           ulPartLen )
+CK_RV SC_VerifyUpdate(ST_SESSION_HANDLE *sSession, CK_BYTE_PTR pPart,
+		      CK_ULONG ulPartLen)
 {
-	SESSION  * sess = NULL;
-	CK_RV      rc   = CKR_OK;
-	CK_SESSION_HANDLE hSession = SESS_HANDLE(sSession);
+	SESSION *sess = NULL;
+	CK_RV rc = CKR_OK;
 
-
-	LOCKIT;
-	if (st_Initialized() == FALSE) {
+	if (initialized == FALSE) {
 		TRACE_ERROR("%s\n", ock_err(ERR_CRYPTOKI_NOT_INITIALIZED));
 		rc = CKR_CRYPTOKI_NOT_INITIALIZED;
 		goto done;
@@ -3572,7 +3163,7 @@ CK_RV SC_VerifyUpdate( ST_SESSION_HANDLE  *sSession,
 		goto done;
 	}
 
-	sess = SESSION_MGR_FIND( hSession );
+	sess = session_mgr_find(sSession->sessionh);
 	if (!sess) {
 		TRACE_ERROR("%s\n", ock_err(ERR_SESSION_HANDLE_INVALID));
 		rc = CKR_SESSION_HANDLE_INVALID;
@@ -3594,31 +3185,24 @@ CK_RV SC_VerifyUpdate( ST_SESSION_HANDLE  *sSession,
 	if (rc != CKR_OK)
 		TRACE_DEBUG("*_verify_update() failed.\n");
 
- done:
+done:
 	if (rc != CKR_OK)
-		verify_mgr_cleanup( &sess->verify_ctx );
+		verify_mgr_cleanup(&sess->verify_ctx);
 
-	LLOCK;
 	TRACE_INFO("C_VerifyUpdate: rc = %08x, sess = %d, datalen = %d\n",
 		   rc, (sess == NULL)?-1:(CK_LONG)sess->handle, ulPartLen);
 
-	UNLOCKIT; return rc;
+	return rc;
 }
 
 
-//
-//
-CK_RV SC_VerifyFinal( ST_SESSION_HANDLE  *sSession,
-		      CK_BYTE_PTR        pSignature,
-		      CK_ULONG           ulSignatureLen )
+CK_RV SC_VerifyFinal(ST_SESSION_HANDLE *sSession, CK_BYTE_PTR pSignature,
+		     CK_ULONG ulSignatureLen)
 {
-	SESSION  * sess = NULL;
-	CK_RV      rc = CKR_OK;
-	CK_SESSION_HANDLE hSession = SESS_HANDLE(sSession);
+	SESSION *sess = NULL;
+	CK_RV rc = CKR_OK;
 
-
-	LOCKIT;
-	if (st_Initialized() == FALSE) {
+	if (initialized == FALSE) {
 		TRACE_ERROR("%s\n", ock_err(ERR_CRYPTOKI_NOT_INITIALIZED));
 		rc = CKR_CRYPTOKI_NOT_INITIALIZED;
 		goto done;
@@ -3630,7 +3214,7 @@ CK_RV SC_VerifyFinal( ST_SESSION_HANDLE  *sSession,
 		goto done;
 	}
 
-	sess = SESSION_MGR_FIND( hSession );
+	sess = session_mgr_find(sSession->sessionh);
 	if (!sess) {
 		TRACE_ERROR("%s\n", ock_err(ERR_SESSION_HANDLE_INVALID));
 		rc = CKR_SESSION_HANDLE_INVALID;
@@ -3654,34 +3238,27 @@ CK_RV SC_VerifyFinal( ST_SESSION_HANDLE  *sSession,
 		TRACE_DEBUG("*_verify_final() failed.\n");
 
  done:
-	verify_mgr_cleanup( &sess->verify_ctx );
+	verify_mgr_cleanup(&sess->verify_ctx);
 
-	LLOCK;
 	TRACE_INFO("C_VerifyFinal: rc = %08x, sess = %d\n",
 		   rc, (sess == NULL)?-1:(CK_LONG)sess->handle);
 
-	UNLOCKIT; return rc;
+	return rc;
 }
 
 
-//
-//
-CK_RV SC_VerifyRecoverInit( ST_SESSION_HANDLE  *sSession,
-			    CK_MECHANISM_PTR   pMechanism,
-			    CK_OBJECT_HANDLE   hKey )
+CK_RV SC_VerifyRecoverInit(ST_SESSION_HANDLE *sSession,
+			   CK_MECHANISM_PTR pMechanism, CK_OBJECT_HANDLE hKey)
 {
-	SESSION   * sess = NULL;
-	CK_RV       rc = CKR_OK;
-	CK_SESSION_HANDLE hSession = SESS_HANDLE(sSession);
+	SESSION *sess = NULL;
+	CK_RV rc = CKR_OK;
 
-
-	LOCKIT;
-	if (st_Initialized() == FALSE) {
+	if (initialized == FALSE) {
 		TRACE_ERROR("%s\n", ock_err(ERR_CRYPTOKI_NOT_INITIALIZED));
 		rc = CKR_CRYPTOKI_NOT_INITIALIZED;
 		goto done;
 	}
-	if (!pMechanism ){
+	if (!pMechanism) {
 		TRACE_ERROR("%s\n", ock_err(ERR_ARGUMENTS_BAD));
 		rc = CKR_ARGUMENTS_BAD;
 		goto done;
@@ -3691,14 +3268,15 @@ CK_RV SC_VerifyRecoverInit( ST_SESSION_HANDLE  *sSession,
 	if (rc != CKR_OK)
 		goto done;
 
-	sess = SESSION_MGR_FIND( hSession );
+	sess = session_mgr_find(sSession->sessionh);
 	if (!sess) {
 		TRACE_ERROR("%s\n", ock_err(ERR_SESSION_HANDLE_INVALID));
 		rc = CKR_SESSION_HANDLE_INVALID;
 		goto done;
 	}
 
-	if (pin_expired(&sess->session_info, nv_token_data->token_info.flags) == TRUE) {
+	if (pin_expired(&sess->session_info,
+			nv_token_data->token_info.flags) == TRUE) {
 		TRACE_ERROR("%s\n", ock_err(ERR_PIN_EXPIRED));
 		rc = CKR_PIN_EXPIRED;
 		goto done;
@@ -3710,36 +3288,28 @@ CK_RV SC_VerifyRecoverInit( ST_SESSION_HANDLE  *sSession,
 		goto done;
 	}
 
-	rc = verify_mgr_init( sess, &sess->verify_ctx, pMechanism, TRUE, hKey );
+	rc = verify_mgr_init(sess, &sess->verify_ctx, pMechanism, TRUE, hKey);
 	if (rc != CKR_OK)
 		TRACE_DEBUG("verify_mgr_init() failed.\n");
 
- done:
-	LLOCK;
+done:
 	TRACE_INFO("C_VerifyRecoverInit: rc = %08x, sess = %d, mech = %x\n",
 		   rc, (sess == NULL)?-1:(CK_LONG)sess->handle,
 		   pMechanism->mechanism);
 
-	UNLOCKIT; return rc;
+	return rc;
 }
 
 
-//
-//
-CK_RV SC_VerifyRecover( ST_SESSION_HANDLE  *sSession,
-			CK_BYTE_PTR        pSignature,
-			CK_ULONG           ulSignatureLen,
-			CK_BYTE_PTR        pData,
-			CK_ULONG_PTR       pulDataLen )
+CK_RV SC_VerifyRecover(ST_SESSION_HANDLE *sSession, CK_BYTE_PTR pSignature,
+		       CK_ULONG ulSignatureLen, CK_BYTE_PTR pData,
+		       CK_ULONG_PTR pulDataLen)
 {
-	SESSION  * sess = NULL;
-	CK_BBOOL   length_only = FALSE;
-	CK_RV      rc = CKR_OK;
-	CK_SESSION_HANDLE hSession = SESS_HANDLE(sSession);
+	SESSION *sess = NULL;
+	CK_BBOOL length_only = FALSE;
+	CK_RV rc = CKR_OK;
 
-
-	LOCKIT;
-	if (st_Initialized() == FALSE) {
+	if (initialized == FALSE) {
 		TRACE_ERROR("%s\n", ock_err(ERR_CRYPTOKI_NOT_INITIALIZED));
 		rc = CKR_CRYPTOKI_NOT_INITIALIZED;
 		goto done;
@@ -3751,55 +3321,47 @@ CK_RV SC_VerifyRecover( ST_SESSION_HANDLE  *sSession,
 		goto done;
 	}
 
-	sess = SESSION_MGR_FIND( hSession );
+	sess = session_mgr_find(sSession->sessionh);
 	if (!sess) {
 		TRACE_ERROR("%s\n", ock_err(ERR_SESSION_HANDLE_INVALID));
 		rc = CKR_SESSION_HANDLE_INVALID;
 		goto done;
 	}
 
-	if ((sess->verify_ctx.active == FALSE) || (sess->verify_ctx.recover == FALSE)) {
+	if ((sess->verify_ctx.active == FALSE) ||
+	    (sess->verify_ctx.recover == FALSE)) {
 		rc = CKR_OPERATION_NOT_INITIALIZED;
 		TRACE_ERROR("%s\n", ock_err(ERR_OPERATION_NOT_INITIALIZED));
 		goto done;
 	}
 
-
 	if (!pData)
 		length_only = TRUE;
 
-	rc = verify_mgr_verify_recover( sess,       length_only,
-					&sess->verify_ctx,
-					pSignature, ulSignatureLen,
-					pData,      pulDataLen );
+	rc = verify_mgr_verify_recover(sess, length_only, &sess->verify_ctx,
+				       pSignature, ulSignatureLen, pData,
+				       pulDataLen);
 	if (rc != CKR_OK)
 		TRACE_DEBUG("verify_mgr_verify_recover() failed.\n");
 
- done:
+done:
 	if (rc != CKR_BUFFER_TOO_SMALL && (rc != CKR_OK || length_only != TRUE))
-		verify_mgr_cleanup( &sess->verify_ctx );
+		verify_mgr_cleanup(&sess->verify_ctx);
 
-	LLOCK;
 	TRACE_INFO("C_VerifyRecover: rc = %08x, sess = %d, recover len = %d, "
 		   "length_only = %d\n", rc,
 		   (sess == NULL)?-1:(CK_LONG)sess->handle, *pulDataLen,
 		   length_only);
 
-	UNLOCKIT; return rc;
+	return rc;
 }
 
 
-//
-//
-CK_RV SC_DigestEncryptUpdate( ST_SESSION_HANDLE  *sSession,
-			      CK_BYTE_PTR        pPart,
-			      CK_ULONG           ulPartLen,
-			      CK_BYTE_PTR        pEncryptedPart,
-			      CK_ULONG_PTR       pulEncryptedPartLen )
+CK_RV SC_DigestEncryptUpdate(ST_SESSION_HANDLE *sSession, CK_BYTE_PTR pPart,
+			     CK_ULONG ulPartLen, CK_BYTE_PTR pEncryptedPart,
+			     CK_ULONG_PTR pulEncryptedPartLen)
 {
-	CK_SESSION_HANDLE hSession = SESS_HANDLE(sSession);
-
-	if (st_Initialized() == FALSE){
+	if (initialized == FALSE) {
 		TRACE_ERROR("%s\n", ock_err(ERR_CRYPTOKI_NOT_INITIALIZED));
 		return CKR_CRYPTOKI_NOT_INITIALIZED;
 	}
@@ -3808,17 +3370,12 @@ CK_RV SC_DigestEncryptUpdate( ST_SESSION_HANDLE  *sSession,
 }
 
 
-//
-//
-CK_RV SC_DecryptDigestUpdate( ST_SESSION_HANDLE  *sSession,
-			      CK_BYTE_PTR        pEncryptedPart,
-			      CK_ULONG           ulEncryptedPartLen,
-			      CK_BYTE_PTR        pPart,
-			      CK_ULONG_PTR       pulPartLen )
+CK_RV SC_DecryptDigestUpdate(ST_SESSION_HANDLE *sSession,
+			     CK_BYTE_PTR pEncryptedPart,
+			     CK_ULONG ulEncryptedPartLen, CK_BYTE_PTR pPart,
+			     CK_ULONG_PTR pulPartLen)
 {
-	CK_SESSION_HANDLE hSession = SESS_HANDLE(sSession);
-
-	if (st_Initialized() == FALSE){
+	if (initialized == FALSE) {
 		TRACE_ERROR("%s\n", ock_err(ERR_CRYPTOKI_NOT_INITIALIZED));
 		return CKR_CRYPTOKI_NOT_INITIALIZED;
 	}
@@ -3828,17 +3385,11 @@ CK_RV SC_DecryptDigestUpdate( ST_SESSION_HANDLE  *sSession,
 }
 
 
-//
-//
-CK_RV SC_SignEncryptUpdate( ST_SESSION_HANDLE  *sSession,
-			    CK_BYTE_PTR        pPart,
-			    CK_ULONG           ulPartLen,
-			    CK_BYTE_PTR        pEncryptedPart,
-			    CK_ULONG_PTR       pulEncryptedPartLen )
+CK_RV SC_SignEncryptUpdate(ST_SESSION_HANDLE *sSession, CK_BYTE_PTR pPart,
+			   CK_ULONG ulPartLen, CK_BYTE_PTR pEncryptedPart,
+			   CK_ULONG_PTR pulEncryptedPartLen)
 {
-	CK_SESSION_HANDLE hSession = SESS_HANDLE(sSession);
-
-	if (st_Initialized() == FALSE){
+	if (initialized == FALSE) {
 		TRACE_ERROR("%s\n", ock_err(ERR_CRYPTOKI_NOT_INITIALIZED));
 		return CKR_CRYPTOKI_NOT_INITIALIZED;
 	}
@@ -3847,17 +3398,12 @@ CK_RV SC_SignEncryptUpdate( ST_SESSION_HANDLE  *sSession,
 }
 
 
-//
-//
-CK_RV SC_DecryptVerifyUpdate( ST_SESSION_HANDLE  *sSession,
-			      CK_BYTE_PTR        pEncryptedPart,
-			      CK_ULONG           ulEncryptedPartLen,
-			      CK_BYTE_PTR        pPart,
-			      CK_ULONG_PTR       pulPartLen )
+CK_RV SC_DecryptVerifyUpdate(ST_SESSION_HANDLE *sSession,
+			     CK_BYTE_PTR pEncryptedPart,
+			     CK_ULONG ulEncryptedPartLen, CK_BYTE_PTR pPart,
+			     CK_ULONG_PTR pulPartLen)
 {
-	CK_SESSION_HANDLE hSession = SESS_HANDLE(sSession);
-
-	if (st_Initialized() == FALSE){
+	if (initialized == FALSE) {
 		TRACE_ERROR("%s\n", ock_err(ERR_CRYPTOKI_NOT_INITIALIZED));
 		return CKR_CRYPTOKI_NOT_INITIALIZED;
 	}
@@ -3866,22 +3412,16 @@ CK_RV SC_DecryptVerifyUpdate( ST_SESSION_HANDLE  *sSession,
 }
 
 
-//
-//
-CK_RV SC_GenerateKey( ST_SESSION_HANDLE    *sSession,
-		      CK_MECHANISM_PTR      pMechanism,
-		      CK_ATTRIBUTE_PTR      pTemplate,
-		      CK_ULONG              ulCount,
-		      CK_OBJECT_HANDLE_PTR  phKey )
+CK_RV SC_GenerateKey(ST_SESSION_HANDLE *sSession, CK_MECHANISM_PTR pMechanism,
+		     CK_ATTRIBUTE_PTR pTemplate, CK_ULONG ulCount,
+		     CK_OBJECT_HANDLE_PTR phKey)
 {
-	SESSION * sess = NULL;
+	SESSION *sess = NULL;
 	CK_RV rc = CKR_OK;
-	CK_SESSION_HANDLE hSession = SESS_HANDLE(sSession);
-	CK_ATTRIBUTE * attr = NULL;
+	CK_ATTRIBUTE *attr = NULL;
 	CK_ULONG i;
 
-	LOCKIT;
-	if (st_Initialized() == FALSE) {
+	if (initialized == FALSE) {
 		TRACE_ERROR("%s\n", ock_err(ERR_CRYPTOKI_NOT_INITIALIZED));
 		rc = CKR_CRYPTOKI_NOT_INITIALIZED;
 		goto done;
@@ -3897,7 +3437,7 @@ CK_RV SC_GenerateKey( ST_SESSION_HANDLE    *sSession,
 	if (rc != CKR_OK)
 		goto done;
 
-	sess = SESSION_MGR_FIND(hSession);
+	sess = session_mgr_find(sSession->sessionh);
 	if (!sess) {
 		TRACE_ERROR("%s\n", ock_err(ERR_SESSION_HANDLE_INVALID));
 		rc = CKR_SESSION_HANDLE_INVALID;
@@ -3921,8 +3461,7 @@ CK_RV SC_GenerateKey( ST_SESSION_HANDLE    *sSession,
 	if (rc != CKR_OK)
 		TRACE_DEBUG("*_generate_key() failed.\n");
 
- done:
-	LLOCK;
+done:
 	TRACE_INFO("C_GenerateKey: rc = %08x, sess = %d, mech = %x\n", rc,
 		    (sess == NULL) ? -1 : (CK_LONG) sess->handle,
 		    pMechanism->mechanism);
@@ -3940,13 +3479,10 @@ CK_RV SC_GenerateKey( ST_SESSION_HANDLE    *sSession,
 	}
 #endif
 
-	UNLOCKIT;
 	return rc;
 }
 
 
-//
-//
 CK_RV SC_GenerateKeyPair(ST_SESSION_HANDLE *sSession,
 			 CK_MECHANISM_PTR pMechanism,
 			 CK_ATTRIBUTE_PTR pPublicKeyTemplate,
@@ -3958,12 +3494,10 @@ CK_RV SC_GenerateKeyPair(ST_SESSION_HANDLE *sSession,
 {
 	SESSION *sess = NULL;
 	CK_RV rc = CKR_OK;
-	CK_SESSION_HANDLE hSession = SESS_HANDLE(sSession);
 	CK_ATTRIBUTE *attr = NULL;
 	CK_ULONG i;
 
-	LOCKIT;
-	if (st_Initialized() == FALSE) {
+	if (initialized == FALSE) {
 		TRACE_ERROR("%s\n", ock_err(ERR_CRYPTOKI_NOT_INITIALIZED));
 		rc = CKR_CRYPTOKI_NOT_INITIALIZED;
 		goto done;
@@ -3981,7 +3515,7 @@ CK_RV SC_GenerateKeyPair(ST_SESSION_HANDLE *sSession,
 	if (rc != CKR_OK)
 		goto done;
 
-	sess = SESSION_MGR_FIND(hSession);
+	sess = session_mgr_find(sSession->sessionh);
 	if (!sess) {
 		TRACE_ERROR("%s\n", ock_err(ERR_SESSION_HANDLE_INVALID));
 		rc = CKR_SESSION_HANDLE_INVALID;
@@ -4014,7 +3548,6 @@ CK_RV SC_GenerateKeyPair(ST_SESSION_HANDLE *sSession,
 		TRACE_DEBUG("*_generate_key_pair() faild.\n");
 
 done:
-	LLOCK;
 	TRACE_INFO("C_GenerateKeyPair: rc = %08x, sess = %d, mech = %x\n",
 		   rc, (sess == NULL) ? -1 : ((CK_LONG) sess->handle),
 		   pMechanism->mechanism);
@@ -4047,12 +3580,10 @@ done:
 				    ptr[0], ptr[1], ptr[2], ptr[3]);
 	}
 #endif
-	UNLOCKIT;
 	return rc;
 }
 
-//
-//
+
 CK_RV SC_WrapKey(ST_SESSION_HANDLE *sSession, CK_MECHANISM_PTR pMechanism,
 		 CK_OBJECT_HANDLE hWrappingKey, CK_OBJECT_HANDLE hKey,
 		 CK_BYTE_PTR pWrappedKey, CK_ULONG_PTR pulWrappedKeyLen)
@@ -4060,10 +3591,8 @@ CK_RV SC_WrapKey(ST_SESSION_HANDLE *sSession, CK_MECHANISM_PTR pMechanism,
 	SESSION *sess = NULL;
 	CK_BBOOL length_only = FALSE;
 	CK_RV rc = CKR_OK;
-	CK_SESSION_HANDLE hSession = SESS_HANDLE(sSession);
 
-	LOCKIT;
-	if (st_Initialized() == FALSE) {
+	if (initialized == FALSE) {
 		TRACE_ERROR("%s\n", ock_err(ERR_CRYPTOKI_NOT_INITIALIZED));
 		rc = CKR_CRYPTOKI_NOT_INITIALIZED;
 		goto done;
@@ -4082,7 +3611,7 @@ CK_RV SC_WrapKey(ST_SESSION_HANDLE *sSession, CK_MECHANISM_PTR pMechanism,
 	if (!pWrappedKey)
 		length_only = TRUE;
 
-	sess = SESSION_MGR_FIND( hSession );
+	sess = session_mgr_find(sSession->sessionh);
 	if (!sess) {
 		TRACE_ERROR("%s\n", ock_err(ERR_SESSION_HANDLE_INVALID));
 		rc = CKR_SESSION_HANDLE_INVALID;
@@ -4108,19 +3637,16 @@ CK_RV SC_WrapKey(ST_SESSION_HANDLE *sSession, CK_MECHANISM_PTR pMechanism,
 	if (rc != CKR_OK)
 		TRACE_DEBUG("*_wrap_key() failed.\n");
 
- done:
-	LLOCK;
+done:
 	TRACE_INFO("C_WrapKey: rc = %08x, sess = %d, encrypting key = %d, "
 		   "wrapped key = %d\n", rc,
 		   (sess == NULL) ? -1 : (CK_LONG) sess->handle,
 		   hWrappingKey, hKey);
 
-	UNLOCKIT;
 	return rc;
 }
 
-//
-//
+
 CK_RV SC_UnwrapKey(ST_SESSION_HANDLE *sSession, CK_MECHANISM_PTR pMechanism,
 		   CK_OBJECT_HANDLE hUnwrappingKey, CK_BYTE_PTR pWrappedKey,
 		   CK_ULONG ulWrappedKeyLen, CK_ATTRIBUTE_PTR pTemplate,
@@ -4131,18 +3657,15 @@ CK_RV SC_UnwrapKey(ST_SESSION_HANDLE *sSession, CK_MECHANISM_PTR pMechanism,
 	CK_BYTE *ptr  = NULL;
 	CK_ULONG i;
 	CK_RV rc = CKR_OK;
-	CK_SESSION_HANDLE hSession = SESS_HANDLE(sSession);
 
-	LOCKIT;
-	if (st_Initialized() == FALSE) {
+	if (initialized == FALSE) {
 		TRACE_ERROR("%s\n", ock_err(ERR_CRYPTOKI_NOT_INITIALIZED));
 		rc = CKR_CRYPTOKI_NOT_INITIALIZED;
 		goto done;
 	}
 
 	if (!pMechanism || !pWrappedKey ||
-	    (!pTemplate && ulCount != 0) || !phKey)
-	{
+	    (!pTemplate && ulCount != 0) || !phKey) {
 		TRACE_ERROR("%s\n", ock_err(ERR_ARGUMENTS_BAD));
 		rc = CKR_ARGUMENTS_BAD;
 		goto done;
@@ -4152,7 +3675,7 @@ CK_RV SC_UnwrapKey(ST_SESSION_HANDLE *sSession, CK_MECHANISM_PTR pMechanism,
 	if (rc != CKR_OK)
 		goto done;
 
-	sess = SESSION_MGR_FIND( hSession );
+	sess = session_mgr_find(sSession->sessionh);
 	if (!sess) {
 		TRACE_ERROR("%s\n", ock_err(ERR_SESSION_HANDLE_INVALID));
 		rc = CKR_SESSION_HANDLE_INVALID;
@@ -4179,8 +3702,7 @@ CK_RV SC_UnwrapKey(ST_SESSION_HANDLE *sSession, CK_MECHANISM_PTR pMechanism,
 	if (rc != CKR_OK)
 		TRACE_DEBUG("*_unwrap_key() failed.\n");
 
- done:
-	LLOCK;
+done:
 	TRACE_INFO("C_UnwrapKey: rc = %08x, sess = %d, decrypting key = %d,"
 		   "unwrapped key = %d\n", rc,
 		   (sess == NULL) ? -1 : (CK_LONG) sess->handle,
@@ -4198,30 +3720,21 @@ CK_RV SC_UnwrapKey(ST_SESSION_HANDLE *sSession, CK_MECHANISM_PTR pMechanism,
 
 	}
 #endif
-	UNLOCKIT;
 	return rc;
 }
 
 
-//
-//
-CK_RV SC_DeriveKey( ST_SESSION_HANDLE    *sSession,
-		    CK_MECHANISM_PTR      pMechanism,
-		    CK_OBJECT_HANDLE      hBaseKey,
-		    CK_ATTRIBUTE_PTR      pTemplate,
-		    CK_ULONG              ulCount,
-		    CK_OBJECT_HANDLE_PTR  phKey )
+CK_RV SC_DeriveKey(ST_SESSION_HANDLE *sSession, CK_MECHANISM_PTR pMechanism,
+		   CK_OBJECT_HANDLE hBaseKey, CK_ATTRIBUTE_PTR pTemplate,
+		   CK_ULONG ulCount, CK_OBJECT_HANDLE_PTR phKey)
 {
-	SESSION        * sess = NULL;
-	CK_ATTRIBUTE   * attr = NULL;
-	CK_BYTE        * ptr  = NULL;
-	CK_ULONG         i;
-	CK_RV            rc = CKR_OK;
-	CK_SESSION_HANDLE hSession = SESS_HANDLE(sSession);
+	SESSION *sess = NULL;
+	CK_ATTRIBUTE *attr = NULL;
+	CK_BYTE *ptr = NULL;
+	CK_ULONG i;
+	CK_RV rc = CKR_OK;
 
-
-	LOCKIT;
-	if (st_Initialized() == FALSE) {
+	if (initialized == FALSE) {
 		TRACE_ERROR("%s\n", ock_err(ERR_CRYPTOKI_NOT_INITIALIZED));
 		rc = CKR_CRYPTOKI_NOT_INITIALIZED;
 		goto done;
@@ -4237,14 +3750,15 @@ CK_RV SC_DeriveKey( ST_SESSION_HANDLE    *sSession,
 	if (rc != CKR_OK)
 		goto done;
 
-	sess = SESSION_MGR_FIND( hSession );
+	sess = session_mgr_find(sSession->sessionh);
 	if (!sess) {
 		TRACE_ERROR("%s\n", ock_err(ERR_SESSION_HANDLE_INVALID));
 		rc = CKR_SESSION_HANDLE_INVALID;
 		goto done;
 	}
 
-	if (pin_expired(&sess->session_info, nv_token_data->token_info.flags) == TRUE) {
+	if (pin_expired(&sess->session_info,
+			nv_token_data->token_info.flags) == TRUE) {
 		TRACE_ERROR("%s\n", ock_err(ERR_PIN_EXPIRED));
 		rc = CKR_PIN_EXPIRED;
 		goto done;
@@ -4261,8 +3775,7 @@ CK_RV SC_DeriveKey( ST_SESSION_HANDLE    *sSession,
 	if (rc != CKR_OK)
 		TRACE_DEBUG("*_derive_key() failed.\n");
 
- done:
-	LLOCK;
+done:
 	TRACE_INFO("C_DeriveKey: rc = %08x, sess = %d, mech = %x\n",
 		   rc, (sess == NULL)?-1:(CK_LONG)sess->handle,
 		   pMechanism->mechanism);
@@ -4310,38 +3823,30 @@ CK_RV SC_DeriveKey( ST_SESSION_HANDLE    *sSession,
 
 #endif /* DEBUG */
 
-	UNLOCKIT; return rc;
+	return rc;
 }
 
 
-//
-//
-CK_RV SC_SeedRandom( ST_SESSION_HANDLE  *sSession,
-		     CK_BYTE_PTR        pSeed,
-		     CK_ULONG           ulSeedLen )
+CK_RV SC_SeedRandom(ST_SESSION_HANDLE *sSession, CK_BYTE_PTR pSeed,
+		    CK_ULONG ulSeedLen)
 {
-	CK_SESSION_HANDLE hSession = SESS_HANDLE(sSession);
-
-	if (st_Initialized() == FALSE){
+	if (initialized == FALSE){
 		TRACE_ERROR("%s\n", ock_err(ERR_CRYPTOKI_NOT_INITIALIZED));
 		return CKR_CRYPTOKI_NOT_INITIALIZED;
 	}
-	return CKR_OK;
+
+	TRACE_ERROR("%s\n", ock_err(ERR_RANDOM_SEED_NOT_SUPPORTED));
+	return CKR_RANDOM_SEED_NOT_SUPPORTED;
 }
 
 
-//
-//
-CK_RV SC_GenerateRandom( ST_SESSION_HANDLE  *sSession,
-			 CK_BYTE_PTR        pRandomData,
-			 CK_ULONG           ulRandomLen )
+CK_RV SC_GenerateRandom(ST_SESSION_HANDLE *sSession, CK_BYTE_PTR pRandomData,
+			CK_ULONG ulRandomLen)
 {
 	SESSION *sess = NULL;
-	CK_RV    rc = CKR_OK;
-	CK_SESSION_HANDLE hSession = SESS_HANDLE(sSession);
+	CK_RV rc = CKR_OK;
 
-	LOCKIT;
-	if (st_Initialized() == FALSE) {
+	if (initialized == FALSE) {
 		TRACE_ERROR("%s\n", ock_err(ERR_CRYPTOKI_NOT_INITIALIZED));
 		rc = CKR_CRYPTOKI_NOT_INITIALIZED;
 		goto done;
@@ -4353,32 +3858,26 @@ CK_RV SC_GenerateRandom( ST_SESSION_HANDLE  *sSession,
 		goto done;
 	}
 
-	sess = SESSION_MGR_FIND( hSession );
+	sess = session_mgr_find(sSession->sessionh);
 	if (!sess) {
 		TRACE_ERROR("%s\n", ock_err(ERR_SESSION_HANDLE_INVALID));
 		rc = CKR_SESSION_HANDLE_INVALID;
 		goto done;
 	}
 
-	rc = rng_generate( pRandomData, ulRandomLen );
+	rc = rng_generate(pRandomData, ulRandomLen);
 	if (rc != CKR_OK)
 		TRACE_DEBUG("rng_generate() failed.\n");
 
- done:
-	LLOCK;
+done:
 	TRACE_INFO("C_GenerateRandom: rc = %08x, %d bytes\n", rc, ulRandomLen);
-
-	UNLOCKIT; return rc;
+	return rc;
 }
 
 
-//
-//
-CK_RV SC_GetFunctionStatus( ST_SESSION_HANDLE *sSession )
+CK_RV SC_GetFunctionStatus(ST_SESSION_HANDLE *sSession)
 {
-	CK_SESSION_HANDLE hSession = SESS_HANDLE(sSession);
-
-	if (st_Initialized() == FALSE){
+	if (initialized == FALSE){
 		TRACE_ERROR("%s\n", ock_err(ERR_CRYPTOKI_NOT_INITIALIZED));
 		return CKR_CRYPTOKI_NOT_INITIALIZED;
 	}
@@ -4387,13 +3886,9 @@ CK_RV SC_GetFunctionStatus( ST_SESSION_HANDLE *sSession )
 }
 
 
-//
-//
-CK_RV SC_CancelFunction( ST_SESSION_HANDLE *sSession )
+CK_RV SC_CancelFunction(ST_SESSION_HANDLE *sSession)
 {
-	CK_SESSION_HANDLE hSession = SESS_HANDLE(sSession);
-
-	if (st_Initialized() == FALSE){
+	if (initialized == FALSE){
 		TRACE_ERROR("%s\n", ock_err(ERR_CRYPTOKI_NOT_INITIALIZED));
 		return CKR_CRYPTOKI_NOT_INITIALIZED;
 	}
@@ -4401,27 +3896,8 @@ CK_RV SC_CancelFunction( ST_SESSION_HANDLE *sSession )
 	return CKR_FUNCTION_NOT_PARALLEL;
 }
 
-//
-//
-CK_RV QueryTweakValues( void )
-{
-	TRACE_ERROR("%s\n", ock_err(ERR_FUNCTION_NOT_SUPPORTED));
-	return CKR_FUNCTION_NOT_SUPPORTED;
-}
 
-
-//
-//
-CK_RV UpdateTweakValues( void )
-{
-	TRACE_ERROR("%s\n", ock_err(ERR_FUNCTION_NOT_SUPPORTED));
-	return CKR_FUNCTION_NOT_SUPPORTED;
-}
-
-// Added for AIX work
-void
-SC_SetFunctionList(void){
-
+void SC_SetFunctionList(void) {
 	function_list.ST_Initialize          = (void *)ST_Initialize;
 	function_list.ST_GetTokenInfo        = SC_GetTokenInfo;
 	function_list.ST_GetMechanismList    = SC_GetMechanismList;
