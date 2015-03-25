@@ -4227,7 +4227,7 @@ CK_RV SC_DeriveKey( ST_SESSION_HANDLE    *sSession,
 		goto done;
 	}
 
-	if (!pMechanism || !phKey || (!pTemplate && ulCount != 0)) {
+	if (!pMechanism || (!pTemplate && ulCount != 0)) {
 		TRACE_ERROR("%s\n", ock_err(ERR_ARGUMENTS_BAD));
 		rc = CKR_ARGUMENTS_BAD;
 		goto done;
