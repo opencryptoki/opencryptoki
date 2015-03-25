@@ -34,7 +34,7 @@ opencryptoki_stdll_libpkcs11_icsf_la_SOURCES = ../common/asn1.c		\
 					       ../common/key.c		\
 					       ../common/mech_dh.c	\
 					       ../common/mech_rng.c	\
-					       ../common/new_host.c	\
+					       new_host.c		\
 					       ../common/sign_mgr.c	\
 					       ../common/cert.c		\
 					       ../common/dp_obj.c	\

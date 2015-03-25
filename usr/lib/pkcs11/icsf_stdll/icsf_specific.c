@@ -153,8 +153,7 @@ struct icsf_multi_part_context {
 /*
  * Get the session specific structure.
  */
-static struct session_state *
-get_session_state(CK_SESSION_HANDLE session_id)
+static struct session_state *get_session_state(CK_SESSION_HANDLE session_id)
 {
 	struct session_state *found = NULL;
 	struct session_state *s;
@@ -185,8 +184,7 @@ done:
 /*
  * Remove all mapped objects.
  */
-static CK_RV
-purge_object_mapping()
+static CK_RV purge_object_mapping()
 {
 	if (pthread_rwlock_wrlock(&obj_list_rw_mutex)) {
 		TRACE_ERROR("Failed to lock mutex.\n");
@@ -201,25 +199,6 @@ purge_object_mapping()
 	}
 
 	return CKR_OK;
-}
-
-CK_RV
-token_specific_get_mechanism_list(CK_MECHANISM_TYPE_PTR pMechanismList,
-					CK_ULONG_PTR pulCount)
-{
-	int rc;
-	rc = ock_generic_get_mechanism_list(pMechanismList, pulCount);
-	return rc;
-}
-
-CK_RV
-token_specific_get_mechanism_info(CK_MECHANISM_TYPE type,
-				  CK_MECHANISM_INFO_PTR pInfo)
-{
-	int rc;
-	/* common/mech_list.c */
-	rc = ock_generic_get_mechanism_info(type, pInfo);
-	return rc;
 }
 
 /* Store ICSF specific data for each slot*/
@@ -238,8 +217,7 @@ struct slot_data *slot_data[MAX_SLOT_ID + 1];
 /*
  * Converts an ICSF reason code to an ock error code
  */
-int
-icsf_to_ock_err(int icsf_return_code, int icsf_reason_code)
+int icsf_to_ock_err(int icsf_return_code, int icsf_reason_code)
 {
 	switch(icsf_return_code) {
 	case 0:
@@ -293,8 +271,7 @@ icsf_to_ock_err(int icsf_return_code, int icsf_reason_code)
 /*
  * Called during C_Initialize.
  */
-CK_RV
-token_specific_init(CK_SLOT_ID slot_id, char *conf_name)
+CK_RV icsftok_init(CK_SLOT_ID slot_id, char *conf_name)
 {
 	CK_RV rc = CKR_OK;
 	struct slot_data *data;
@@ -323,8 +300,7 @@ done:
 	return rc;
 }
 
-CK_RV
-token_specific_init_token_data(CK_SLOT_ID slot_id)
+CK_RV token_specific_init_token_data(CK_SLOT_ID slot_id)
 {
 	CK_RV rc = CKR_OK;
 	const char *conf_name = NULL;
@@ -386,8 +362,7 @@ done:
 	return rc;
 }
 
-CK_RV
-token_specific_load_token_data(CK_SLOT_ID slot_id, FILE *fh)
+CK_RV token_specific_load_token_data(CK_SLOT_ID slot_id, FILE *fh)
 {
 	CK_RV rc = CKR_OK;
 	struct slot_data data;
@@ -453,8 +428,7 @@ done:
  * this because it uses additional data in the shared memory and in the future
  * multiple slots should be supported for ICSF.
  */
-CK_RV
-token_specific_attach_shm(CK_SLOT_ID slot_id, LW_SHM_TYPE **shm)
+CK_RV token_specific_attach_shm(CK_SLOT_ID slot_id, LW_SHM_TYPE **shm)
 {
 	CK_RV rc = CKR_OK;
 	int ret;
@@ -498,9 +472,8 @@ done:
 	return rc;
 }
 
-CK_RV
-login(LDAP **ld, CK_SLOT_ID slot_id, CK_BYTE *pin, CK_ULONG pin_len,
-      const char *pass_file_type)
+CK_RV login(LDAP **ld, CK_SLOT_ID slot_id, CK_BYTE *pin, CK_ULONG pin_len,
+	    const char *pass_file_type)
 {
 	CK_RV rc = CKR_OK;
 	struct slot_data data;
@@ -576,8 +549,7 @@ done:
 	return rc;
 }
 
-CK_RV
-reset_token_data(CK_SLOT_ID slot_id, CK_CHAR_PTR pin, CK_ULONG pin_len)
+CK_RV reset_token_data(CK_SLOT_ID slot_id, CK_CHAR_PTR pin, CK_ULONG pin_len)
 {
 	CK_BYTE mk[MAX_KEY_SIZE];
 	CK_BYTE racf_pass[PIN_SIZE];
@@ -650,9 +622,8 @@ reset_token_data(CK_SLOT_ID slot_id, CK_CHAR_PTR pin, CK_ULONG pin_len)
 	return CKR_OK;
 }
 
-CK_RV
-destroy_objects(CK_SLOT_ID slot_id, CK_CHAR_PTR token_name, CK_CHAR_PTR pin,
-		CK_ULONG pin_len)
+CK_RV destroy_objects(CK_SLOT_ID slot_id, CK_CHAR_PTR token_name,
+		      CK_CHAR_PTR pin, CK_ULONG pin_len)
 {
 	CK_RV rc = CKR_OK;
 	LDAP *ld = NULL;
@@ -704,9 +675,8 @@ done:
 /*
  * Initialize token.
  */
-CK_RV
-token_specific_init_token(CK_SLOT_ID slot_id, CK_CHAR_PTR pin, CK_ULONG pin_len,
-			  CK_CHAR_PTR label)
+CK_RV icsftok_init_token(CK_SLOT_ID slot_id, CK_CHAR_PTR pin, CK_ULONG pin_len,
+			 CK_CHAR_PTR label)
 {
 	CK_RV rc = CKR_OK;
 	CK_BYTE hash_sha[SHA1_HASH_SIZE];
@@ -736,8 +706,7 @@ done:
 	return rc;
 }
 
-CK_RV
-token_specific_init_pin(SESSION *sess, CK_CHAR_PTR pPin, CK_ULONG ulPinLen)
+CK_RV icsftok_init_pin(SESSION *sess, CK_CHAR_PTR pPin, CK_ULONG ulPinLen)
 {
 	CK_RV rc = CKR_OK;
 	CK_BYTE hash_sha[SHA1_HASH_SIZE];
@@ -784,9 +753,8 @@ token_specific_init_pin(SESSION *sess, CK_CHAR_PTR pPin, CK_ULONG ulPinLen)
 	return rc;
 }
 
-CK_RV
-token_specific_set_pin(SESSION *sess, CK_CHAR_PTR pOldPin, CK_ULONG ulOldLen,
-		       CK_CHAR_PTR pNewPin, CK_ULONG ulNewLen)
+CK_RV icsftok_set_pin(SESSION *sess, CK_CHAR_PTR pOldPin, CK_ULONG ulOldLen,
+		      CK_CHAR_PTR pNewPin, CK_ULONG ulNewLen)
 {
 	CK_RV rc = CKR_OK;
 	CK_BYTE new_hash_sha[SHA1_HASH_SIZE];
@@ -895,8 +863,7 @@ token_specific_set_pin(SESSION *sess, CK_CHAR_PTR pOldPin, CK_ULONG ulOldLen,
 	return rc;
 }
 
-CK_RV
-token_specific_open_session(SESSION *sess)
+CK_RV icsftok_open_session(SESSION *sess)
 {
 	struct session_state *session_state;
 
@@ -932,8 +899,7 @@ token_specific_open_session(SESSION *sess)
  *
  * Must be called with sess_list_mutex locked.
  */
-static CK_RV
-close_session(struct session_state *session_state)
+static CK_RV close_session(struct session_state *session_state)
 {
 	CK_RV rc = CKR_OK;
 	unsigned long i;
@@ -1007,8 +973,7 @@ close_session(struct session_state *session_state)
 /*
  * Called during C_CloseSession.
  */
-CK_RV
-token_specific_close_session(SESSION *session)
+CK_RV icsftok_close_session(SESSION *session)
 {
 	CK_RV rc;
 	struct session_state *session_state;
@@ -1040,8 +1005,7 @@ token_specific_close_session(SESSION *session)
 /*
  * Called during C_Finalize.
  */
-CK_RV
-token_specific_final(void)
+CK_RV icsftok_final(void)
 {
 	CK_RV rc;
 	struct session_state *session_state;
@@ -1068,9 +1032,8 @@ token_specific_final(void)
 	return rc;
 }
 
-CK_RV
-token_specific_login(SESSION *sess, CK_USER_TYPE userType, CK_CHAR_PTR pPin,
-		     CK_ULONG ulPinLen)
+CK_RV icsftok_login(SESSION *sess, CK_USER_TYPE userType, CK_CHAR_PTR pPin,
+		    CK_ULONG ulPinLen)
 {
 	CK_RV rc;
 	char fname[PATH_MAX];
@@ -1275,10 +1238,9 @@ done:
 /*
  * Copy an existing object.
  */
-CK_RV
-token_specific_copy_object(SESSION * session, CK_ATTRIBUTE_PTR attrs,
-			   CK_ULONG attrs_len, CK_OBJECT_HANDLE src,
-			   CK_OBJECT_HANDLE_PTR dst)
+CK_RV icsftok_copy_object(SESSION * session, CK_ATTRIBUTE_PTR attrs,
+			  CK_ULONG attrs_len, CK_OBJECT_HANDLE src,
+			  CK_OBJECT_HANDLE_PTR dst)
 {
 	CK_RV rc = CKR_OK;
 	struct session_state *session_state;
@@ -1397,9 +1359,8 @@ done:
 /*
  * Create a new object.
  */
-CK_RV
-token_specific_create_object(SESSION *session, CK_ATTRIBUTE_PTR attrs,
-			     CK_ULONG attrs_len, CK_OBJECT_HANDLE_PTR handle)
+CK_RV icsftok_create_object(SESSION *session, CK_ATTRIBUTE_PTR attrs,
+			    CK_ULONG attrs_len, CK_OBJECT_HANDLE_PTR handle)
 {
 	CK_RV rc = CKR_OK;
 	struct session_state *session_state;
@@ -1572,15 +1533,13 @@ get_generate_key_type(CK_MECHANISM_PTR mech)
 /*
  * Generate a key pair.
  */
-CK_RV
-token_specific_generate_key_pair(SESSION *session,
-				 CK_MECHANISM_PTR mech,
-				 CK_ATTRIBUTE_PTR pub_attrs,
-				 CK_ULONG pub_attrs_len,
-				 CK_ATTRIBUTE_PTR priv_attrs,
-				 CK_ULONG priv_attrs_len,
-				 CK_OBJECT_HANDLE_PTR p_pub_key,
-				 CK_OBJECT_HANDLE_PTR p_priv_key)
+CK_RV icsftok_generate_key_pair(SESSION *session, CK_MECHANISM_PTR mech,
+				CK_ATTRIBUTE_PTR pub_attrs,
+				CK_ULONG pub_attrs_len,
+				CK_ATTRIBUTE_PTR priv_attrs,
+				CK_ULONG priv_attrs_len,
+				CK_OBJECT_HANDLE_PTR p_pub_key,
+				CK_OBJECT_HANDLE_PTR p_priv_key)
 {
 	CK_RV rc;
 	char token_name[sizeof(nv_token_data->token_info.label)];
@@ -1695,10 +1654,9 @@ done:
 /*
  * Generate a symmetric key.
  */
-CK_RV
-token_specific_generate_key(SESSION *session, CK_MECHANISM_PTR mech,
-			    CK_ATTRIBUTE_PTR attrs, CK_ULONG attrs_len,
-			    CK_OBJECT_HANDLE_PTR handle)
+CK_RV icsftok_generate_key(SESSION *session, CK_MECHANISM_PTR mech,
+			   CK_ATTRIBUTE_PTR attrs, CK_ULONG attrs_len,
+			   CK_OBJECT_HANDLE_PTR handle)
 {
 	CK_RV rc = CKR_OK;
 	struct session_state *session_state;
@@ -1847,8 +1805,7 @@ get_crypt_type(CK_MECHANISM_PTR mech, int *p_symmetric)
 /*
  * Initialize an encryption operation.
  */
-CK_RV
-token_specific_encrypt_init(SESSION *session, CK_MECHANISM_PTR mech,
+CK_RV icsftok_encrypt_init(SESSION *session, CK_MECHANISM_PTR mech,
 			   CK_OBJECT_HANDLE key)
 {
 	CK_RV rc = CKR_OK;
@@ -1944,8 +1901,7 @@ done:
 /*
  * Encrypt data and finalize an encryption operation.
  */
-CK_RV
-token_specific_encrypt(SESSION *session, CK_BYTE_PTR input_data,
+CK_RV icsftok_encrypt(SESSION *session, CK_BYTE_PTR input_data,
 		       CK_ULONG input_data_len, CK_BYTE_PTR output_data,
 		       CK_ULONG_PTR p_output_data_len)
 {
@@ -2034,8 +1990,7 @@ done:
 /*
  * Multi-part encryption.
  */
-CK_RV
-token_specific_encrypt_update(SESSION *session, CK_BYTE_PTR input_part,
+CK_RV icsftok_encrypt_update(SESSION *session, CK_BYTE_PTR input_part,
 			      CK_ULONG input_part_len, CK_BYTE_PTR output_part,
 			      CK_ULONG_PTR p_output_part_len)
 {
@@ -2203,8 +2158,7 @@ done:
 /*
  * Finalize a multi-part encryption.
  */
-CK_RV
-token_specific_encrypt_final(SESSION *session, CK_BYTE_PTR output_part,
+CK_RV icsftok_encrypt_final(SESSION *session, CK_BYTE_PTR output_part,
 			     CK_ULONG_PTR p_output_part_len)
 {
 	CK_RV rc = CKR_OK;
@@ -2316,8 +2270,7 @@ done:
 /*
  * Initialize a decryption operation.
  */
-CK_RV
-token_specific_decrypt_init(SESSION *session, CK_MECHANISM_PTR mech,
+CK_RV icsftok_decrypt_init(SESSION *session, CK_MECHANISM_PTR mech,
 			    CK_OBJECT_HANDLE key)
 {
 	CK_RV rc = CKR_OK;
@@ -2413,8 +2366,7 @@ done:
 /*
  * Decrypt data and finalize a decryption operation.
  */
-CK_RV
-token_specific_decrypt(SESSION *session, CK_BYTE_PTR input_data,
+CK_RV icsftok_decrypt(SESSION *session, CK_BYTE_PTR input_data,
 		       CK_ULONG input_data_len, CK_BYTE_PTR output_data,
 		       CK_ULONG_PTR p_output_data_len)
 {
@@ -2503,8 +2455,7 @@ done:
 /*
  * Multi-part decryption.
  */
-CK_RV
-token_specific_decrypt_update(SESSION *session, CK_BYTE_PTR input_part,
+CK_RV icsftok_decrypt_update(SESSION *session, CK_BYTE_PTR input_part,
 			      CK_ULONG input_part_len, CK_BYTE_PTR output_part,
 			      CK_ULONG_PTR p_output_part_len)
 {
@@ -2690,8 +2641,7 @@ done:
 /*
  * Finalize a multi-part decryption.
  */
-CK_RV
-token_specific_decrypt_final(SESSION *session, CK_BYTE_PTR output_part,
+CK_RV icsftok_decrypt_final(SESSION *session, CK_BYTE_PTR output_part,
 			     CK_ULONG_PTR p_output_part_len)
 {
 	CK_RV rc = CKR_OK;
@@ -2803,8 +2753,7 @@ done:
 /*
  * Get the attribute values for a list of attributes.
  */
-CK_RV
-token_specific_get_attribute_value(SESSION *sess, CK_OBJECT_HANDLE handle,
+CK_RV icsftok_get_attribute_value(SESSION *sess, CK_OBJECT_HANDLE handle,
 				   CK_ATTRIBUTE *pTemplate, CK_ULONG ulCount)
 {
 	CK_RV rc = CKR_OK;
@@ -2816,7 +2765,6 @@ token_specific_get_attribute_value(SESSION *sess, CK_OBJECT_HANDLE handle,
 	CK_ATTRIBUTE priv_attr[] = {
 		{CKA_PRIVATE, &priv_obj, sizeof(priv_obj)},
 	};
-
 
 	/* Get session state */
 	if (!(session_state = get_session_state(sess->handle))) {
@@ -2878,11 +2826,9 @@ done:
 /*
  * Set attribute values for a list of attributes.
  */
-CK_RV
-token_specific_set_attribute_value(SESSION *sess, CK_OBJECT_HANDLE handle,
-				   CK_ATTRIBUTE *pTemplate, CK_ULONG ulCount)
+CK_RV icsftok_set_attribute_value(SESSION *sess, CK_OBJECT_HANDLE handle,
+				  CK_ATTRIBUTE *pTemplate, CK_ULONG ulCount)
 {
-
 	struct session_state *session_state;
 	struct icsf_object_mapping *mapping = NULL;
 	CK_BBOOL is_priv;
@@ -2957,8 +2903,7 @@ done:
 /*
  * Initialize a search for token and session objects that match a template.
  */
-CK_RV
-token_specific_find_objects_init(SESSION *sess, CK_ATTRIBUTE *pTemplate,
+CK_RV icsftok_find_objects_init(SESSION *sess, CK_ATTRIBUTE *pTemplate,
 				CK_ULONG ulCount)
 {
 	char token_name[sizeof(nv_token_data->token_info.label)];
@@ -3126,10 +3071,8 @@ done:
 /*
  * Destroy an object.
  */
-CK_RV
-token_specific_destroy_object(SESSION *sess, CK_OBJECT_HANDLE handle)
+CK_RV icsftok_destroy_object(SESSION *sess, CK_OBJECT_HANDLE handle)
 {
-
 	struct session_state *session_state;
 	struct icsf_object_mapping *mapping = NULL;
 	int reason;
@@ -3224,8 +3167,7 @@ get_signverify_len(CK_MECHANISM mech)
 	return -1;
 }
 
-CK_RV
-token_specific_sign_init(SESSION *session, CK_MECHANISM *mech,
+CK_RV icsftok_sign_init(SESSION *session, CK_MECHANISM *mech,
 			CK_BBOOL recover_mode, CK_OBJECT_HANDLE key)
 {
 	struct session_state *session_state;
@@ -3402,9 +3344,8 @@ done:
 
 	return rc;
 }
-CK_RV
-token_specific_sign(SESSION *session, CK_BBOOL length_only, CK_BYTE *in_data,
-		CK_ULONG in_data_len, CK_BYTE *signature, CK_ULONG *sig_len)
+CK_RV icsftok_sign(SESSION *session, CK_BBOOL length_only, CK_BYTE *in_data,
+		   CK_ULONG in_data_len, CK_BYTE *signature, CK_ULONG *sig_len)
 {
 	struct session_state *session_state;
 	SIGN_VERIFY_CONTEXT *ctx = &session->sign_ctx;
@@ -3523,9 +3464,8 @@ token_specific_sign(SESSION *session, CK_BBOOL length_only, CK_BYTE *in_data,
 	return rc;
 }
 
-CK_RV
-token_specific_sign_update(SESSION *session, CK_BYTE *in_data,
-			   CK_ULONG in_data_len)
+CK_RV icsftok_sign_update(SESSION *session, CK_BYTE *in_data,
+			  CK_ULONG in_data_len)
 {
 	struct session_state *session_state;
 	SIGN_VERIFY_CONTEXT *ctx = &session->sign_ctx;
@@ -3673,9 +3613,8 @@ done:
 	return rc;
 }
 
-CK_RV
-token_specific_sign_final(SESSION *session, CK_BBOOL length_only,
-			  CK_BYTE *signature, CK_ULONG *sig_len)
+CK_RV icsftok_sign_final(SESSION *session, CK_BBOOL length_only,
+			 CK_BYTE *signature, CK_ULONG *sig_len)
 {
 	struct session_state *session_state;
 	SIGN_VERIFY_CONTEXT *ctx = &session->sign_ctx;
@@ -3793,9 +3732,8 @@ done:
 	return rc;
 }
 
-CK_RV
-token_specific_verify_init(SESSION *session, CK_MECHANISM *mech,
-			CK_BBOOL recover_mode, CK_OBJECT_HANDLE key)
+CK_RV icsftok_verify_init(SESSION *session, CK_MECHANISM *mech,
+				   CK_BBOOL recover_mode, CK_OBJECT_HANDLE key)
 {
 	struct session_state *session_state;
 	SIGN_VERIFY_CONTEXT *ctx = &session->verify_ctx;
@@ -3967,9 +3905,8 @@ done:
 	return rc;
 }
 
-CK_RV
-token_specific_verify(SESSION *session, CK_BYTE *in_data, CK_ULONG in_data_len,
-		      CK_BYTE *signature, CK_ULONG sig_len)
+CK_RV icsftok_verify(SESSION *session, CK_BYTE *in_data, CK_ULONG in_data_len,
+		     CK_BYTE *signature, CK_ULONG sig_len)
 {
 	struct session_state *session_state;
 	SIGN_VERIFY_CONTEXT *ctx = &session->verify_ctx;
@@ -4059,9 +3996,8 @@ token_specific_verify(SESSION *session, CK_BYTE *in_data, CK_ULONG in_data_len,
 	return rc;
 }
 
-CK_RV
-token_specific_verify_update(SESSION *session, CK_BYTE *in_data,
-			     CK_ULONG in_data_len)
+CK_RV icsftok_verify_update(SESSION *session, CK_BYTE *in_data,
+			    CK_ULONG in_data_len)
 {
 	struct session_state *session_state;
 	SIGN_VERIFY_CONTEXT *ctx = &session->verify_ctx;
@@ -4203,9 +4139,8 @@ done:
 	return rc;
 }
 
-CK_RV
-token_specific_verify_final(SESSION *session, CK_BYTE *signature,
-			    CK_ULONG sig_len)
+CK_RV icsftok_verify_final(SESSION *session, CK_BYTE *signature,
+			   CK_ULONG sig_len)
 {
 	struct session_state *session_state;
 	SIGN_VERIFY_CONTEXT *ctx = &session->verify_ctx;
@@ -4311,10 +4246,9 @@ done:
 /*
  * Wrap a key and return it as binary data.
  */
-CK_RV
-token_specific_wrap_key(SESSION *session, CK_MECHANISM_PTR mech,
-		        CK_OBJECT_HANDLE wrapping_key, CK_OBJECT_HANDLE key,
-		        CK_BYTE_PTR wrapped_key, CK_ULONG_PTR p_wrapped_key_len)
+CK_RV icsftok_wrap_key(SESSION *session, CK_MECHANISM_PTR mech,
+		       CK_OBJECT_HANDLE wrapping_key, CK_OBJECT_HANDLE key,
+		       CK_BYTE_PTR wrapped_key, CK_ULONG_PTR p_wrapped_key_len)
 {
 	int rc;
 	int reason = 0;
@@ -4354,12 +4288,11 @@ token_specific_wrap_key(SESSION *session, CK_MECHANISM_PTR mech,
 /*
  * Unwrap a key from binary data and create a new key object.
  */
-CK_RV
-token_specific_unwrap_key(SESSION *session, CK_MECHANISM_PTR mech,
-			  CK_ATTRIBUTE_PTR attrs, CK_ULONG attrs_len,
-			  CK_BYTE_PTR wrapped_key, CK_ULONG wrapped_key_len,
-			  CK_OBJECT_HANDLE wrapping_key,
-			  CK_OBJECT_HANDLE_PTR p_key)
+CK_RV icsftok_unwrap_key(SESSION *session, CK_MECHANISM_PTR mech,
+			 CK_ATTRIBUTE_PTR attrs, CK_ULONG attrs_len,
+			 CK_BYTE_PTR wrapped_key, CK_ULONG wrapped_key_len,
+			 CK_OBJECT_HANDLE wrapping_key,
+			 CK_OBJECT_HANDLE_PTR p_key)
 {
 	int rc;
 	int reason = 0;
@@ -4437,11 +4370,9 @@ done:
 /*
  * Derive a key from a base key, creating a new key object.
  */
-CK_RV
-token_specific_derive_key(SESSION *session, CK_MECHANISM_PTR mech,
-			  CK_OBJECT_HANDLE hBaseKey,
-			  CK_OBJECT_HANDLE_PTR handle,
-			  CK_ATTRIBUTE_PTR attrs, CK_ULONG attrs_len)
+CK_RV icsftok_derive_key(SESSION *session, CK_MECHANISM_PTR mech,
+			 CK_OBJECT_HANDLE hBaseKey, CK_OBJECT_HANDLE_PTR handle,
+			 CK_ATTRIBUTE_PTR attrs, CK_ULONG attrs_len)
 {
 	CK_RV rc = CKR_OK;
 	struct session_state *session_state;
