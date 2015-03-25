@@ -3526,7 +3526,12 @@ CK_RV icsftok_sign_update(SESSION *session, CK_BYTE *in_data,
 		if (rc != 0) {
 			TRACE_DEBUG("icsf_hmac_sign failed\n");
 			rc = icsf_to_ock_err(rc, reason);
+		} else {
+			multi_part_ctx->initiated = TRUE;
+			memcpy(multi_part_ctx->chain_data, chain_data,
+			       chain_data_len);
 		}
+
 		break;
 
 	case CKM_MD5_RSA_PKCS:
@@ -3675,7 +3680,8 @@ CK_RV icsftok_sign_final(SESSION *session, CK_BBOOL length_only,
 		}
 
 		rc = icsf_hmac_sign(session_state->ld, &reason,
-				&mapping->icsf_object, &ctx->mech, "LAST", "",
+				&mapping->icsf_object, &ctx->mech,
+				multi_part_ctx->initiated ? "LAST":"ONLY", "",
 				0, signature, sig_len, chain_data,
 				&chain_data_len);
 		if (rc != 0)
@@ -4055,7 +4061,12 @@ CK_RV icsftok_verify_update(SESSION *session, CK_BYTE *in_data,
 		if (rc != 0) {
 			TRACE_DEBUG("icsf_hmac_verify failed\n");
 			rc = icsf_to_ock_err(rc, reason);
+		} else {
+			multi_part_ctx->initiated = TRUE;
+			memcpy(multi_part_ctx->chain_data, chain_data,
+			       chain_data_len);
 		}
+
 		break;
 
 	case CKM_MD5_RSA_PKCS:
@@ -4122,6 +4133,7 @@ CK_RV icsftok_verify_update(SESSION *session, CK_BYTE *in_data,
 			memcpy(multi_part_ctx->chain_data, chain_data,
 			       chain_data_len);
 		}
+
 		if (buffer)
 			free(buffer);
 
@@ -4191,7 +4203,8 @@ CK_RV icsftok_verify_final(SESSION *session, CK_BYTE *signature,
 
 		/* get the chain data */
 		rc = icsf_hmac_verify(session_state->ld, &reason,
-				&mapping->icsf_object, &ctx->mech, "LAST", "",
+				&mapping->icsf_object, &ctx->mech,
+				multi_part_ctx->initiated ? "LAST":"ONLY", "",
 				0, signature, sig_len, chain_data,
 				&chain_data_len);
 		if (rc != 0)
