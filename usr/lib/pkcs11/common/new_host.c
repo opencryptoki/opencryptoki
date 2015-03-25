@@ -1014,11 +1014,6 @@ CK_RV SC_OpenSession(CK_SLOT_ID sid, CK_FLAGS flags,
 		TRACE_DEBUG("session_mgr_new() failed\n");
 		goto done;
 	}
-
-	if (token_specific.t_open_session) {
-		SESSION *sess = session_mgr_find(*phSession);
-		rc = token_specific.t_open_session(sess);
-	}
 done:
 	if (locked)
 		MY_UnlockMutex(&pkcs_mutex);
@@ -1035,13 +1030,6 @@ CK_RV SC_CloseSession(ST_SESSION_HANDLE *sSession)
 		TRACE_ERROR("%s\n", ock_err(ERR_CRYPTOKI_NOT_INITIALIZED));
 		rc = CKR_CRYPTOKI_NOT_INITIALIZED;
 		goto done;
-	}
-
-	if (token_specific.t_close_session) {
-		SESSION *sess = session_mgr_find(sSession->sessionh);
-		rc = token_specific.t_close_session(sess);
-		if (rc)
-			goto done;
 	}
 
 	rc = session_mgr_close_session(sSession->sessionh);
@@ -1449,12 +1437,7 @@ CK_RV SC_CreateObject(ST_SESSION_HANDLE *sSession, CK_ATTRIBUTE_PTR pTemplate,
 		goto done;
 	}
 
-	if (token_specific.t_create_object) {
-		rc = token_specific.t_create_object(sess, pTemplate, ulCount,
-						    phObject);
-	} else {
-		rc = object_mgr_add(sess, pTemplate, ulCount, phObject);
-	}
+	rc = object_mgr_add(sess, pTemplate, ulCount, phObject);
 	if (rc != CKR_OK)
 		TRACE_DEBUG("object_mgr_add() failed.\n");
 
@@ -1502,14 +1485,7 @@ CK_RV  SC_CopyObject(ST_SESSION_HANDLE *sSession, CK_OBJECT_HANDLE hObject,
 		goto done;
 	}
    
-	if (token_specific.t_copy_object) {
-		rc = token_specific.t_copy_object(sess, pTemplate, ulCount,
-						  hObject, phNewObject);
-	} else {
-		rc = object_mgr_copy(sess, pTemplate, ulCount, hObject,
-				     phNewObject);
-	}
-
+	rc = object_mgr_copy(sess, pTemplate, ulCount, hObject, phNewObject);
 	if (rc != CKR_OK)
 		TRACE_DEBUG("object_mgr_copy() failed\n");
 
@@ -1544,13 +1520,9 @@ CK_RV SC_DestroyObject(ST_SESSION_HANDLE *sSession, CK_OBJECT_HANDLE hObject)
 		goto done;
 	}
    
-	if (token_specific.t_destroy_object)
-		rc = token_specific.t_destroy_object(sess, hObject);
-	else
-		rc = object_mgr_destroy_object(sess, hObject);
-
+	rc = object_mgr_destroy_object(sess, hObject);
 	if (rc != CKR_OK)
-		TRACE_DEBUG("*_destroy_object() failed\n");
+		TRACE_DEBUG("object_mgr_destroy_object() failed\n");
 done:
 	TRACE_INFO("C_DestroyObject: rc = 0x%08x, handle = %d\n", rc, hObject);
 	return rc;
@@ -1609,15 +1581,9 @@ CK_RV SC_GetAttributeValue(ST_SESSION_HANDLE *sSession,
 		goto done;
 	}
 
-	if (token_specific.t_get_attribute_value)
-		rc = token_specific.t_get_attribute_value(sess, hObject,
-							  pTemplate, ulCount);
-	else
-		rc = object_mgr_get_attribute_values(sess, hObject, pTemplate,
-						     ulCount);
-
+	rc = object_mgr_get_attribute_values(sess, hObject, pTemplate, ulCount);
 	if (rc != CKR_OK)
-		TRACE_DEBUG("*_get_attribute_value() failed.\n");
+		TRACE_DEBUG("object_mgr_get_attribute_value() failed.\n");
 
 done:
 	TRACE_INFO("C_GetAttributeValue: rc = 0x%08x, handle = %d\n",
@@ -1662,14 +1628,9 @@ CK_RV SC_SetAttributeValue(ST_SESSION_HANDLE *sSession,
 		goto done;
 	}
 
-	if (token_specific.t_set_attribute_value)
-		rc = token_specific.t_set_attribute_value(sess, hObject,
-							  pTemplate, ulCount);
-        else
-		rc = object_mgr_set_attribute_values(sess, hObject,
-						     pTemplate, ulCount);
+	rc = object_mgr_set_attribute_values(sess, hObject, pTemplate, ulCount);
 	if (rc != CKR_OK)
-		TRACE_DEBUG("*_set_attribute_values() failed.\n");
+		TRACE_DEBUG("object_mgr_set_attribute_values() failed.\n");
 
 done:
 	TRACE_INFO("C_SetAttributeValue: rc = 0x%08x, handle = %d\n",
@@ -1725,10 +1686,7 @@ CK_RV SC_FindObjectsInit(ST_SESSION_HANDLE *sSession,
 		goto done;
 	}
 
-	if (token_specific.t_find_objects_init)
-		rc = token_specific.t_find_objects_init(sess, pTemplate, ulCount);
-	else	
-		rc = object_mgr_find_init(sess, pTemplate, ulCount);
+	rc = object_mgr_find_init(sess, pTemplate, ulCount);
 
 done:
 	TRACE_INFO("C_FindObjectsInit:  rc = 0x%08x\n", rc);
@@ -1885,11 +1843,8 @@ CK_RV SC_EncryptInit(ST_SESSION_HANDLE *sSession, CK_MECHANISM_PTR pMechanism,
 		goto done;
 	}
 
-	if (token_specific.t_encrypt_init)
-		rc = token_specific.t_encrypt_init(sess, pMechanism, hKey);
-	else
-		rc = encr_mgr_init(sess, &sess->encr_ctx, OP_ENCRYPT_INIT,
-				   pMechanism, hKey);
+	rc = encr_mgr_init(sess, &sess->encr_ctx, OP_ENCRYPT_INIT,
+			   pMechanism, hKey);
 done:
 	TRACE_INFO("C_EncryptInit: rc = 0x%08x, sess = %d, mech = 0x%x\n",
 		   rc, (sess == NULL) ? -1 : (CK_LONG)sess->handle,
@@ -1935,16 +1890,10 @@ CK_RV SC_Encrypt(ST_SESSION_HANDLE *sSession, CK_BYTE_PTR pData,
 	if (!pEncryptedData)
 		length_only = TRUE;
 
-	if (token_specific.t_encrypt)
-		rc = token_specific.t_encrypt(sess, pData, ulDataLen,
-					      pEncryptedData,
-					      pulEncryptedDataLen);
-	else
-		rc = encr_mgr_encrypt(sess, length_only, &sess->encr_ctx, pData,
-				      ulDataLen, pEncryptedData,
-				      pulEncryptedDataLen);
+	rc = encr_mgr_encrypt(sess, length_only, &sess->encr_ctx, pData,
+			      ulDataLen, pEncryptedData, pulEncryptedDataLen);
 	if (rc != CKR_OK)
-		TRACE_DEBUG("*_encrypt() failed.\n");
+		TRACE_DEBUG("encr_mgr_encrypt() failed.\n");
 
 done:
 	if (rc != CKR_BUFFER_TOO_SMALL && (rc != CKR_OK || length_only != TRUE))
@@ -1993,16 +1942,11 @@ CK_RV SC_EncryptUpdate(ST_SESSION_HANDLE *sSession, CK_BYTE_PTR pPart,
 	if (!pEncryptedPart)
 		length_only = TRUE;
 
-	if (token_specific.t_encrypt_update)
-		rc = token_specific.t_encrypt_update(sess, pPart, ulPartLen,
-						     pEncryptedPart,
-						     pulEncryptedPartLen);
-	else
-		rc = encr_mgr_encrypt_update(sess, length_only, &sess->encr_ctx,
-					     pPart, ulPartLen, pEncryptedPart,
-					     pulEncryptedPartLen);
+	rc = encr_mgr_encrypt_update(sess, length_only, &sess->encr_ctx,
+				     pPart, ulPartLen, pEncryptedPart,
+				     pulEncryptedPartLen);
 	if (rc != CKR_OK)
-		TRACE_DEBUG("*_encrypt_update() failed.\n");
+		TRACE_DEBUG("encr_mgr_encrypt_update() failed.\n");
 
 done:
 	if (rc != CKR_OK && rc != CKR_BUFFER_TOO_SMALL)
@@ -2071,15 +2015,11 @@ CK_RV SC_EncryptFinal(ST_SESSION_HANDLE *sSession,
 	if (!pLastEncryptedPart)
 		length_only = TRUE;
 
-	if (token_specific.t_encrypt_final)
-		rc = token_specific.t_encrypt_final(sess, pLastEncryptedPart,
-						    pulLastEncryptedPartLen);
-	else
-		rc = encr_mgr_encrypt_final(sess,length_only, &sess->encr_ctx,
-					    pLastEncryptedPart,
-					    pulLastEncryptedPartLen);
+	rc = encr_mgr_encrypt_final(sess,length_only, &sess->encr_ctx,
+				    pLastEncryptedPart,
+				    pulLastEncryptedPartLen);
 	if (rc != CKR_OK)
-		TRACE_ERROR("*_encrypt_final() failed.\n");
+		TRACE_ERROR("encr_mgr_encrypt_final() failed.\n");
 
 done:
 	if (rc != CKR_BUFFER_TOO_SMALL && (rc != CKR_OK || length_only != TRUE))
@@ -2133,14 +2073,10 @@ CK_RV SC_DecryptInit(ST_SESSION_HANDLE *sSession, CK_MECHANISM_PTR pMechanism,
 		goto done;
 	}
 
-	if (token_specific.t_decrypt_init)
-		rc = token_specific.t_decrypt_init(sess, pMechanism, hKey);
-	else
-		rc = decr_mgr_init(sess, &sess->decr_ctx, OP_DECRYPT_INIT,
-				   pMechanism, hKey);
-
+	rc = decr_mgr_init(sess, &sess->decr_ctx, OP_DECRYPT_INIT,
+			   pMechanism, hKey);
 	if (rc != CKR_OK)
-		TRACE_DEBUG("*_decrypt_init() failed.\n");
+		TRACE_DEBUG("decr_mgr_init() failed.\n");
 
 done:
 	TRACE_INFO("C_DecryptInit: rc = 0x%08x, sess = %d, mech = 0x%x\n",
@@ -2187,17 +2123,11 @@ CK_RV SC_Decrypt(ST_SESSION_HANDLE *sSession, CK_BYTE_PTR pEncryptedData,
 	if (!pData)
 		length_only = TRUE;
 
-	if (token_specific.t_decrypt) {
-		rc = token_specific.t_decrypt(sess, pEncryptedData,
-					      ulEncryptedDataLen, pData,
-					      pulDataLen);
-	} else {
-		rc = decr_mgr_decrypt(sess, length_only, &sess->decr_ctx,
-				      pEncryptedData, ulEncryptedDataLen, pData,
-				      pulDataLen);
-	}
+	rc = decr_mgr_decrypt(sess, length_only, &sess->decr_ctx,
+			      pEncryptedData, ulEncryptedDataLen, pData,
+			      pulDataLen);
 	if (rc != CKR_OK)
-		TRACE_DEBUG("*_decrypt() failed.\n");
+		TRACE_DEBUG("decr_mgr_decrypt() failed.\n");
 
 done:
 	if (rc != CKR_BUFFER_TOO_SMALL && (rc != CKR_OK || length_only != TRUE))
@@ -2247,17 +2177,11 @@ CK_RV SC_DecryptUpdate(ST_SESSION_HANDLE *sSession, CK_BYTE_PTR pEncryptedPart,
 	if (!pPart)
 		length_only = TRUE;
 
-	if (token_specific.t_decrypt_update) {
-		rc = token_specific.t_decrypt_update(sess, pEncryptedPart,
-						     ulEncryptedPartLen, pPart,
-						     pulPartLen);
-	} else {
-		rc = decr_mgr_decrypt_update(sess, length_only, &sess->decr_ctx,
-					     pEncryptedPart,ulEncryptedPartLen,
-					     pPart, pulPartLen);
-	}
+	rc = decr_mgr_decrypt_update(sess, length_only, &sess->decr_ctx,
+				     pEncryptedPart,ulEncryptedPartLen,
+				     pPart, pulPartLen);
 	if (rc != CKR_OK)
-		TRACE_DEBUG("*_decrypt_update() failed.\n");
+		TRACE_DEBUG("decr_mgr_decrypt_update() failed.\n");
 
 done:
 	if (rc != CKR_OK && rc != CKR_BUFFER_TOO_SMALL)
@@ -2306,15 +2230,10 @@ CK_RV SC_DecryptFinal(ST_SESSION_HANDLE *sSession, CK_BYTE_PTR pLastPart,
 	if (!pLastPart)
 		length_only = TRUE;
 
-	if (token_specific.t_decrypt_final) {
-		rc = token_specific.t_decrypt_final(sess, pLastPart,
-						    pulLastPartLen);
-	} else {
-		rc = decr_mgr_decrypt_final(sess, length_only, &sess->decr_ctx,
-					    pLastPart, pulLastPartLen);
-	}
+	rc = decr_mgr_decrypt_final(sess, length_only, &sess->decr_ctx,
+				    pLastPart, pulLastPartLen);
 	if (rc != CKR_OK)
-		TRACE_DEBUG("*_decrypt_final() failed.\n");
+		TRACE_DEBUG("decr_mgr_decrypt_final() failed.\n");
 done:
 	if (rc != CKR_BUFFER_TOO_SMALL && (rc != CKR_OK || length_only != TRUE))
 		decr_mgr_cleanup( &sess->decr_ctx );
@@ -2602,14 +2521,9 @@ CK_RV SC_SignInit(ST_SESSION_HANDLE *sSession, CK_MECHANISM_PTR pMechanism,
 		goto done;
 	}
 
-	if (token_specific.t_sign_init)
-		rc = token_specific.t_sign_init(sess, pMechanism, FALSE, hKey);
-	else
-		rc = sign_mgr_init(sess, &sess->sign_ctx, pMechanism,
-				   FALSE, hKey);
-
+	rc = sign_mgr_init(sess, &sess->sign_ctx, pMechanism, FALSE, hKey);
 	if (rc != CKR_OK)
-		TRACE_DEBUG("*_sign_init() failed.\n");
+		TRACE_DEBUG("sign_mgr_init() failed.\n");
 
 done:
 	TRACE_INFO("C_SignInit: rc = %08x, sess = %d, mech = %x\n",
@@ -2656,15 +2570,10 @@ CK_RV SC_Sign(ST_SESSION_HANDLE *sSession, CK_BYTE_PTR pData,
 	if (!pSignature)
 		length_only = TRUE;
 
-	if (token_specific.t_sign)
-		rc = token_specific.t_sign(sess, length_only, pData, ulDataLen,
-					   pSignature, pulSignatureLen);
-	else
-		rc = sign_mgr_sign(sess, length_only, &sess->sign_ctx, pData,
-				   ulDataLen, pSignature, pulSignatureLen);
-
+	rc = sign_mgr_sign(sess, length_only, &sess->sign_ctx, pData,
+			   ulDataLen, pSignature, pulSignatureLen);
 	if (rc != CKR_OK)
-		TRACE_DEBUG("*_sign() failed.\n");
+		TRACE_DEBUG("sign_mgr_sign() failed.\n");
 
 done:
 	if (rc != CKR_BUFFER_TOO_SMALL && (rc != CKR_OK || length_only != TRUE))
@@ -2708,14 +2617,9 @@ CK_RV SC_SignUpdate(ST_SESSION_HANDLE *sSession, CK_BYTE_PTR pPart,
 		goto done;
 	}
 
-	if (token_specific.t_sign_update)
-		rc = token_specific.t_sign_update(sess, pPart, ulPartLen);
-	else
-		rc = sign_mgr_sign_update(sess, &sess->sign_ctx, pPart,
-					  ulPartLen);
-
+	rc = sign_mgr_sign_update(sess, &sess->sign_ctx, pPart, ulPartLen);
 	if (rc != CKR_OK)
-		TRACE_DEBUG("*_sign_update() failed.\n");
+		TRACE_DEBUG("sign_mgr_sign_update() failed.\n");
 
 done:
 	if (rc != CKR_OK)
@@ -2763,15 +2667,10 @@ CK_RV SC_SignFinal(ST_SESSION_HANDLE *sSession, CK_BYTE_PTR pSignature,
 	if (!pSignature)
 		length_only = TRUE;
 
-	if (token_specific.t_sign_final)
-		rc = token_specific.t_sign_final(sess, length_only, pSignature,
-						 pulSignatureLen);
-	else
-		rc = sign_mgr_sign_final(sess, length_only, &sess->sign_ctx,
-					 pSignature, pulSignatureLen);
-
+	rc = sign_mgr_sign_final(sess, length_only, &sess->sign_ctx,
+				 pSignature, pulSignatureLen);
 	if (rc != CKR_OK)
-		TRACE_ERROR("*_sign_final() failed.\n");
+		TRACE_ERROR("sign_mgr_sign_final() failed.\n");
 
 done:
 	if (rc != CKR_BUFFER_TOO_SMALL && (rc != CKR_OK || length_only != TRUE))
@@ -2931,14 +2830,9 @@ CK_RV SC_VerifyInit(ST_SESSION_HANDLE *sSession, CK_MECHANISM_PTR pMechanism,
 		goto done;
 	}
 
-	if (token_specific.t_verify_init)
-		rc = token_specific.t_verify_init(sess, pMechanism, FALSE, hKey);
-	else
-		rc = verify_mgr_init(sess, &sess->verify_ctx, pMechanism,
-				     FALSE, hKey);
-
+	rc = verify_mgr_init(sess, &sess->verify_ctx, pMechanism, FALSE, hKey);
 	if (rc != CKR_OK)
-		TRACE_DEBUG("*_verify_init() failed.\n");
+		TRACE_DEBUG("verify_mgr_init() failed.\n");
 
 done:
 	TRACE_INFO("C_VerifyInit: rc = %08x, sess = %d, mech = %x\n",
@@ -2981,15 +2875,10 @@ CK_RV SC_Verify(ST_SESSION_HANDLE *sSession, CK_BYTE_PTR pData,
 		goto done;
 	}
 
-	if (token_specific.t_verify)
-		rc = token_specific.t_verify(sess, pData, ulDataLen,
-					     pSignature, ulSignatureLen);
-	else
-		rc = verify_mgr_verify(sess, &sess->verify_ctx, pData,
-				       ulDataLen, pSignature, ulSignatureLen);
-
+	rc = verify_mgr_verify(sess, &sess->verify_ctx, pData, ulDataLen,
+			       pSignature, ulSignatureLen);
 	if (rc != CKR_OK)
-		TRACE_DEBUG("*_verify() failed.\n");
+		TRACE_DEBUG("verify_mgr_verify() failed.\n");
 
 done:
 	verify_mgr_cleanup(&sess->verify_ctx);
@@ -3032,14 +2921,10 @@ CK_RV SC_VerifyUpdate(ST_SESSION_HANDLE *sSession, CK_BYTE_PTR pPart,
 		goto done;
 	}
 
-	if (token_specific.t_verify_update)
-		rc = token_specific.t_verify_update(sess, pPart, ulPartLen);
-	else
-		rc = verify_mgr_verify_update(sess, &sess->verify_ctx, pPart,
-						ulPartLen);
-
+	rc = verify_mgr_verify_update(sess, &sess->verify_ctx, pPart,
+				      ulPartLen);
 	if (rc != CKR_OK)
-		TRACE_DEBUG("*_verify_update() failed.\n");
+		TRACE_DEBUG("verify_mgr_verify_update() failed.\n");
 
 done:
 	if (rc != CKR_OK)
@@ -3083,15 +2968,10 @@ CK_RV SC_VerifyFinal(ST_SESSION_HANDLE *sSession, CK_BYTE_PTR pSignature,
 		goto done;
 	}
 
-	if (token_specific.t_verify_final)
-		rc = token_specific.t_verify_final(sess, pSignature,
-						   ulSignatureLen);
-	else
-		rc = verify_mgr_verify_final(sess, &sess->verify_ctx,
-					     pSignature, ulSignatureLen);
-
+	rc = verify_mgr_verify_final(sess, &sess->verify_ctx, pSignature,
+				     ulSignatureLen);
 	if (rc != CKR_OK)
-		TRACE_DEBUG("*_verify_final() failed.\n");
+		TRACE_DEBUG("verify_mgr_verify_final() failed.\n");
 
  done:
 	verify_mgr_cleanup(&sess->verify_ctx);
@@ -3307,15 +3187,9 @@ CK_RV SC_GenerateKey(ST_SESSION_HANDLE *sSession, CK_MECHANISM_PTR pMechanism,
 		goto done;
 	}
 
-	if (token_specific.t_generate_key) {
-		rc = token_specific.t_generate_key(sess, pMechanism, pTemplate,
-				ulCount, phKey);
-	} else {
-		rc = key_mgr_generate_key(sess, pMechanism, pTemplate,
-				ulCount, phKey);
-	}
+	rc = key_mgr_generate_key(sess, pMechanism, pTemplate, ulCount, phKey);
 	if (rc != CKR_OK)
-		TRACE_DEBUG("*_generate_key() failed.\n");
+		TRACE_DEBUG("key_mgr_generate_key() failed.\n");
 
 done:
 	TRACE_INFO("C_GenerateKey: rc = %08x, sess = %d, mech = %x\n", rc,
@@ -3385,23 +3259,13 @@ CK_RV SC_GenerateKeyPair(ST_SESSION_HANDLE *sSession,
 		goto done;
 	}
 
-	if (token_specific.t_generate_key_pair) {
-		rc = token_specific.t_generate_key_pair(sess, pMechanism,
-						pPublicKeyTemplate,
-						ulPublicKeyAttributeCount,
-						pPrivateKeyTemplate,
-						ulPrivateKeyAttributeCount,
-						phPublicKey, phPrivateKey);
-	} else {
-		rc = key_mgr_generate_key_pair(sess, pMechanism,
-					       pPublicKeyTemplate,
-					       ulPublicKeyAttributeCount,
-					       pPrivateKeyTemplate,
-					       ulPrivateKeyAttributeCount,
-					       phPublicKey, phPrivateKey);
-	}
+	rc = key_mgr_generate_key_pair(sess, pMechanism, pPublicKeyTemplate,
+				       ulPublicKeyAttributeCount,
+				       pPrivateKeyTemplate,
+				       ulPrivateKeyAttributeCount,
+				       phPublicKey, phPrivateKey);
 	if (rc != CKR_OK)
-		TRACE_DEBUG("*_generate_key_pair() faild.\n");
+		TRACE_DEBUG("key_mgr_generate_key_pair() failed.\n");
 
 done:
 	TRACE_INFO("C_GenerateKeyPair: rc = %08x, sess = %d, mech = %x\n",
@@ -3481,17 +3345,10 @@ CK_RV SC_WrapKey(ST_SESSION_HANDLE *sSession, CK_MECHANISM_PTR pMechanism,
 		goto done;
 	}
 
-	if (token_specific.t_wrap_key) {
-		rc = token_specific.t_wrap_key(sess, pMechanism, hWrappingKey,
-					       hKey, pWrappedKey,
-					       pulWrappedKeyLen);
-	} else {
-		rc = key_mgr_wrap_key(sess, length_only, pMechanism,
-				      hWrappingKey, hKey, pWrappedKey,
-				      pulWrappedKeyLen);
-	}
+	rc = key_mgr_wrap_key(sess, length_only, pMechanism, hWrappingKey,
+			      hKey, pWrappedKey, pulWrappedKeyLen);
 	if (rc != CKR_OK)
-		TRACE_DEBUG("*_wrap_key() failed.\n");
+		TRACE_DEBUG("key_mgr_wrap_key() failed.\n");
 
 done:
 	TRACE_INFO("C_WrapKey: rc = %08x, sess = %d, encrypting key = %d, "
@@ -3545,18 +3402,11 @@ CK_RV SC_UnwrapKey(ST_SESSION_HANDLE *sSession, CK_MECHANISM_PTR pMechanism,
 		goto done;
 	}
 
-	if (token_specific.t_unwrap_key) {
-		rc = token_specific.t_unwrap_key(sess, pMechanism, pTemplate,
-						 ulCount, pWrappedKey,
-						 ulWrappedKeyLen,
-						 hUnwrappingKey, phKey);
-	} else {
-		rc = key_mgr_unwrap_key(sess, pMechanism, pTemplate, ulCount,
-					pWrappedKey, ulWrappedKeyLen,
-					hUnwrappingKey, phKey);
-	}
+	rc = key_mgr_unwrap_key(sess, pMechanism, pTemplate, ulCount,
+				pWrappedKey, ulWrappedKeyLen, hUnwrappingKey,
+				phKey);
 	if (rc != CKR_OK)
-		TRACE_DEBUG("*_unwrap_key() failed.\n");
+		TRACE_DEBUG("key_mgr_unwrap_key() failed.\n");
 
 done:
 	TRACE_INFO("C_UnwrapKey: rc = %08x, sess = %d, decrypting key = %d,"
@@ -3620,16 +3470,10 @@ CK_RV SC_DeriveKey(ST_SESSION_HANDLE *sSession, CK_MECHANISM_PTR pMechanism,
 		goto done;
 	}
 
-	if (token_specific.t_derive_key)
-		rc = token_specific.t_derive_key(sess, pMechanism,
-						hBaseKey, phKey,
-						pTemplate, ulCount);
-	else
-		rc = key_mgr_derive_key( sess,      pMechanism,
-				 hBaseKey,  phKey,
-				 pTemplate, ulCount );
+	rc = key_mgr_derive_key(sess, pMechanism, hBaseKey, phKey, pTemplate,
+				ulCount );
 	if (rc != CKR_OK)
-		TRACE_DEBUG("*_derive_key() failed.\n");
+		TRACE_DEBUG("key_mgr_derive_key() failed.\n");
 
 done:
 	TRACE_INFO("C_DeriveKey: rc = %08x, sess = %d, mech = %x\n",

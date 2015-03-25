@@ -329,41 +329,12 @@ token_spec_t token_specific = {
 	NULL,			// load_token_data
 	NULL,			// save_token_data
 	&token_specific_rng,
-	NULL,           	// open_session
-	NULL,                   // close_session
 	NULL, 			// final
 	NULL,			// init_token
 	NULL,                   // token_specific_login,
 	NULL,                   // token_specific_logout,
 	NULL,                   // init_pin,
 	NULL,                   // set_pin
-	NULL,                   // copy object
-	NULL,                   // token_specific_create_object,
-	NULL,			// get_attribute_value
-	NULL,			// set_attribute_value
-	NULL,			// find_objects_init
-	NULL,                   // token_specific_destroy_object
-	NULL,            	// generate_key
-	NULL,			// generate_key_pair
-	NULL,			// encrypt_init
-	NULL,			// encrypt
-	NULL,			// encrypt_update
-	NULL,			// encrypt_final
-	NULL,			// decrypt_init
-	NULL,			// decrypt
-	NULL,			// decrypt_update
-	NULL,			// decrypt_final
-        NULL,                   // derive_key
-	NULL,                   // wrap_key
-	NULL,                   // unwrap_key
-	NULL,			// sign_init
-	NULL,			// sign
-	NULL,			// sign_update
-	NULL,			// sign_final
-	NULL,			// verify_init
-	NULL,			// verify
-	NULL,			// verify_update
-	NULL,			// verify_final
 	// DES
 	NULL,			// des_key_gen,
 	NULL,			// des_ecb,

@@ -321,24 +321,12 @@ CK_RV token_specific_init_token_data(CK_SLOT_ID slot_id);
 CK_RV token_specific_load_token_data(CK_SLOT_ID slot_id, FILE *fh);
 CK_RV token_specific_save_token_data(CK_SLOT_ID slot_id, FILE *fh);
 
-CK_RV token_specific_open_session(SESSION *);
-CK_RV token_specific_close_session(SESSION *);
 CK_RV token_specific_final(void);
 CK_RV token_specific_init_token(CK_SLOT_ID, CK_CHAR_PTR, CK_ULONG, CK_CHAR_PTR);
 CK_RV token_specific_login(SESSION *, CK_USER_TYPE, CK_CHAR_PTR, CK_ULONG);
 CK_RV token_specific_logout();
 CK_RV token_specific_init_pin(SESSION *, CK_CHAR_PTR, CK_ULONG);
 CK_RV token_specific_set_pin(SESSION *, CK_CHAR_PTR, CK_ULONG, CK_CHAR_PTR, CK_ULONG);
-
-CK_RV token_specific_get_attribute_value(SESSION *, CK_OBJECT_HANDLE,
-                                         CK_ATTRIBUTE_PTR, CK_ULONG);
-
-CK_RV token_specific_set_attribute_value(SESSION *, CK_OBJECT_HANDLE,
-                                         CK_ATTRIBUTE_PTR, CK_ULONG);
-
-CK_RV token_specific_find_objects_init (SESSION *, CK_ATTRIBUTE_PTR, CK_ULONG);
-
-CK_RV token_specific_destroy_object (SESSION *, CK_OBJECT_HANDLE);
 
 CK_RV token_specific_des_key_gen(CK_BYTE  *,CK_ULONG, CK_ULONG) ;
 
@@ -409,71 +397,6 @@ token_specific_rsa_encrypt( CK_BYTE   * ,
 CK_RV
 token_specific_rsa_generate_keypair( TEMPLATE  * ,
                             TEMPLATE  * );
-CK_RV
-token_specific_encrypt_init(SESSION *, CK_MECHANISM_PTR, CK_OBJECT_HANDLE);
-
-CK_RV
-token_specific_encrypt(SESSION *, CK_BYTE_PTR, CK_ULONG,
-		      CK_BYTE_PTR, CK_ULONG_PTR);
-
-CK_RV
-token_specific_encrypt_update(SESSION *, CK_BYTE_PTR, CK_ULONG,
-			     CK_BYTE_PTR, CK_ULONG_PTR);
-
-CK_RV
-token_specific_encrypt_final(SESSION *, CK_BYTE_PTR, CK_ULONG_PTR);
-
-CK_RV
-token_specific_decrypt_init(SESSION *, CK_MECHANISM_PTR, CK_OBJECT_HANDLE);
-
-CK_RV
-token_specific_decrypt(SESSION *, CK_BYTE_PTR, CK_ULONG,
-		      CK_BYTE_PTR, CK_ULONG_PTR);
-
-CK_RV
-token_specific_decrypt_update(SESSION *, CK_BYTE_PTR, CK_ULONG,
-			     CK_BYTE_PTR, CK_ULONG_PTR);
-
-CK_RV
-token_specific_decrypt_final(SESSION *, CK_BYTE_PTR, CK_ULONG_PTR);
-
-CK_RV
-token_specific_derive_key(SESSION *, CK_MECHANISM_PTR, CK_OBJECT_HANDLE,
-			  CK_OBJECT_HANDLE_PTR, CK_ATTRIBUTE_PTR, CK_ULONG);
-
-CK_RV token_specific_wrap_key(SESSION *, CK_MECHANISM_PTR, CK_OBJECT_HANDLE,
-			      CK_OBJECT_HANDLE, CK_BYTE_PTR, CK_ULONG_PTR);
-
-CK_RV token_specific_unwrap_key(SESSION *, CK_MECHANISM_PTR, CK_ATTRIBUTE_PTR,
-				CK_ULONG, CK_BYTE_PTR, CK_ULONG,
-				CK_OBJECT_HANDLE, CK_OBJECT_HANDLE_PTR);
-
-CK_RV
-token_specific_sign_init(SESSION *, CK_MECHANISM_PTR, CK_BBOOL,
-			 CK_OBJECT_HANDLE);
-
-CK_RV
-token_specific_sign(SESSION *, CK_BBOOL, CK_BYTE_PTR, CK_ULONG, CK_BYTE_PTR,
-		    CK_ULONG_PTR);
-
-CK_RV
-token_specific_sign_update(SESSION *, CK_BYTE_PTR, CK_ULONG);
-
-CK_RV
-token_specific_sign_final(SESSION *, CK_BBOOL, CK_BYTE_PTR, CK_ULONG_PTR);
-
-CK_RV
-token_specific_verify_init(SESSION *, CK_MECHANISM_PTR, CK_BBOOL,
-			   CK_OBJECT_HANDLE);
-
-CK_RV
-token_specific_verify(SESSION *, CK_BYTE_PTR, CK_ULONG, CK_BYTE_PTR, CK_ULONG);
-
-CK_RV
-token_specific_verify_update(SESSION *, CK_BYTE_PTR, CK_ULONG);
-
-CK_RV
-token_specific_verify_final(SESSION *, CK_BYTE_PTR, CK_ULONG);
 
 CK_RV
 token_specific_rsa_sign(CK_BYTE *, CK_ULONG, CK_BYTE *, CK_ULONG *,
