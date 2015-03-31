@@ -473,11 +473,13 @@ CK_RV do_SSL3_MultipleKeysDerive(CK_SESSION_HANDLE session)
 	};
 
 	CK_OBJECT_CLASS class = CKO_SECRET_KEY;
-	CK_KEY_TYPE key_type = CKK_GENERIC_SECRET;
+	CK_KEY_TYPE key_type = CKK_AES;
+	CK_ULONG key_len = 16;
 	CK_ATTRIBUTE  complete_tmpl[] =
 	{
 		{CKA_CLASS, &class, sizeof(class)},
 		{CKA_KEY_TYPE, &key_type, sizeof(key_type)},
+		{CKA_VALUE_LEN, &key_len, sizeof(CK_ULONG)},
 		{CKA_TOKEN, &false_value, sizeof(false_value)},
 		{CKA_SENSITIVE, &false_value, sizeof(false_value)},
 		{CKA_EXTRACTABLE, &true_value, sizeof(true_value)}
@@ -497,9 +499,9 @@ CK_RV do_SSL3_MultipleKeysDerive(CK_SESSION_HANDLE session)
 
 	CK_SSL3_KEY_MAT_PARAMS params = {
 		.ulMacSizeInBits = 128,
-		.ulKeySizeInBits = 128,
+		.ulKeySizeInBits = key_len * 8,
 		.ulIVSizeInBits = 128,
-		.bIsExport = TRUE,
+		.bIsExport = FALSE,
 		.RandomInfo = {
 			.pClientRandom = client_random_data,
 			.ulClientRandomLen = sizeof(client_random_data),
