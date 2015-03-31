@@ -2488,10 +2488,6 @@ CK_RV mgf1(CK_BYTE *seed, CK_ULONG seedlen, CK_BYTE *mask, CK_ULONG maskLen,
 	if (rc != CKR_OK)
 		return CKR_FUNCTION_FAILED;
 
-	/* Step 1: see if mask too long */
-	if (maskLen > ((1 << 31) * hlen))
-		return CKR_FUNCTION_FAILED;
-
 	/* do some preparations */
 	seed_buffer = malloc(seedlen + 4);
 	if (seed_buffer == NULL)
