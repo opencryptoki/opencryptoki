@@ -1444,7 +1444,7 @@ des3_ofb_encrypt( SESSION              * sess,
    rc = token_specific.t_tdes_ofb(in_data, out_data, in_data_len,
                               key_obj, ctx->mech.pParameter, 1);
    if (rc != CKR_OK)
-      TRACE_DEBUG("Token specific des3 ofb encrypt failed.\n");
+      TRACE_DEVEL("Token specific des3 ofb encrypt failed.\n");
    return rc;
 }
 
@@ -1521,7 +1521,7 @@ des3_ofb_encrypt_update( SESSION              * sess,
             memcpy( context->data, in_data + (in_data_len - remain), remain );
          context->len = remain;
       } else
-	TRACE_DEBUG("Token specific des3 ofb encrypt failed.\n");
+	TRACE_DEVEL("Token specific des3 ofb encrypt failed.\n");
       free( cipher );
       return rc;
    }
@@ -1569,7 +1569,7 @@ des3_ofb_encrypt_final( SESSION           *sess,
       rc = token_specific.t_tdes_ofb(context->data, out_data, context->len,
                               key_obj, ctx->mech.pParameter, 1);
       if (rc != CKR_OK)
-	 TRACE_DEBUG("Token specific des3 ofb encrypt failed.\n");
+	 TRACE_DEVEL("Token specific des3 ofb encrypt failed.\n");
 
       *out_data_len = context->len;
       return rc;
@@ -1613,7 +1613,7 @@ des3_ofb_decrypt( SESSION              * sess,
                               key_obj, ctx->mech.pParameter, 0);
 
    if (rc != CKR_OK)
-	TRACE_DEBUG("Token specific des3 ofb decrypt failed.\n");
+	TRACE_DEVEL("Token specific des3 ofb decrypt failed.\n");
    return rc;
 }
 
@@ -1691,7 +1691,7 @@ des3_ofb_decrypt_update( SESSION              * sess,
          context->len = remain;
       }
       else
-         TRACE_DEBUG("Token specific des3 ofb decrypt failed.\n");
+         TRACE_DEVEL("Token specific des3 ofb decrypt failed.\n");
       free( cipher );
       return rc;
    }
@@ -1740,7 +1740,7 @@ des3_ofb_decrypt_final( SESSION           *sess,
                               key_obj, ctx->mech.pParameter, 0);
 
       if (rc != CKR_OK)
-         TRACE_DEBUG("Token specific des3 ofb decrypt failed.\n");
+         TRACE_DEVEL("Token specific des3 ofb decrypt failed.\n");
 
       *out_data_len = context->len;
       return rc;
@@ -1785,7 +1785,7 @@ des3_cfb_encrypt( SESSION             * sess,
                    key_obj, ctx->mech.pParameter, cfb_len,  1);
 
    if (rc != CKR_OK)
-      TRACE_DEBUG("Token specific des3 cfb encrypt failed.\n");
+      TRACE_DEVEL("Token specific des3 cfb encrypt failed.\n");
    return rc;
 }
 
@@ -1863,7 +1863,7 @@ des3_cfb_encrypt_update( SESSION              * sess,
          context->len = remain;
       }
       else
-         TRACE_DEBUG("Token specific des3 cfb encrypt failed.\n");
+         TRACE_DEVEL("Token specific des3 cfb encrypt failed.\n");
       free( cipher );
       return rc;
    }
@@ -1913,7 +1913,7 @@ des3_cfb_encrypt_final( SESSION           *sess,
                               key_obj, ctx->mech.pParameter, cfb_len, 1);
 
       if (rc != CKR_OK)
-         TRACE_DEBUG("Token specific des3 cfb encrypt failed.\n");
+         TRACE_DEVEL("Token specific des3 cfb encrypt failed.\n");
 
       *out_data_len = context->len;
       return rc;
@@ -1958,7 +1958,7 @@ des3_cfb_decrypt( SESSION              * sess,
                    key_obj, ctx->mech.pParameter, cfb_len,  0);
 
    if (rc != CKR_OK)
-      TRACE_DEBUG("Token specific des3 cfd decrypt failed.\n");
+      TRACE_DEVEL("Token specific des3 cfd decrypt failed.\n");
    return rc;
 }
 
@@ -2037,7 +2037,7 @@ des3_cfb_decrypt_update( SESSION              * sess,
          context->len = remain;
       }
       else
-         TRACE_DEBUG("Token specific des3 cfb decrypt failed.\n");
+         TRACE_DEVEL("Token specific des3 cfb decrypt failed.\n");
       free( cipher );
       return rc;
    }
@@ -2087,7 +2087,7 @@ des3_cfb_decrypt_final( SESSION           *sess,
                               key_obj, ctx->mech.pParameter, cfb_len, 0);
 
       if (rc != CKR_OK)
-         TRACE_DEBUG("Token specific des3 cfb decrypt failed.\n");
+         TRACE_DEVEL("Token specific des3 cfb decrypt failed.\n");
 
       *out_data_len = context->len;
       return rc;
@@ -2147,7 +2147,7 @@ des3_mac_sign( SESSION              * sess,
                            ((DES_DATA_CONTEXT *)ctx->context)->iv);
 
    if (rc != CKR_OK)
-      TRACE_DEBUG("Token specific des3 mac failed.\n");
+      TRACE_DEVEL("Token specific des3 mac failed.\n");
 
    memcpy(out_data, ((DES_DATA_CONTEXT *)ctx->context)->iv, mac_len);
    *out_data_len = mac_len;
@@ -2210,7 +2210,7 @@ des3_mac_sign_update ( SESSION              * sess,
          context->len = remain;
       }
       else
-         TRACE_DEBUG("Token specific des3 mac failed.\n");
+         TRACE_DEVEL("Token specific des3 mac failed.\n");
 
       free( cipher );
       return rc;
@@ -2269,7 +2269,7 @@ des3_mac_sign_final( SESSION              * sess,
       }
       rc = token_specific.t_tdes_mac(context->data, DES_BLOCK_SIZE, key_obj, context->iv);
       if (rc != CKR_OK) {
-         TRACE_DEBUG("Token specific des3 mac failed.\n");
+         TRACE_DEVEL("Token specific des3 mac failed.\n");
          return rc;
       }
    }
@@ -2325,7 +2325,7 @@ des3_mac_verify( SESSION              * sess,
    rc = token_specific.t_tdes_mac(in_data, in_data_len, key_obj,
                          ((DES_DATA_CONTEXT *)ctx->context)->iv);
    if (rc != CKR_OK)
-      TRACE_DEBUG("Token specific des3 mac failed.\n");
+      TRACE_DEVEL("Token specific des3 mac failed.\n");
 
    if (memcmp(
        out_data, ((DES_DATA_CONTEXT *)ctx->context)->iv, out_data_len) == 0) {
@@ -2390,7 +2390,7 @@ des3_mac_verify_update( SESSION              * sess,
          context->len = remain;
       }
       else
-         TRACE_DEBUG("Token specific des3 mac failed.\n");
+         TRACE_DEVEL("Token specific des3 mac failed.\n");
 
       free( cipher );
       return rc;
@@ -2443,7 +2443,7 @@ des3_mac_verify_final( SESSION              * sess,
 
       rc = token_specific.t_tdes_mac(context->data, DES_BLOCK_SIZE, key_obj, context->iv);
       if (rc != CKR_OK) {
-         TRACE_DEBUG("Token specific des3 mac failed.\n");
+         TRACE_DEVEL("Token specific des3 mac failed.\n");
          return rc;
       }
    }
@@ -2595,7 +2595,7 @@ ckm_des3_ecb_encrypt( CK_BYTE     * in_data,
 
    
    if (rc != CKR_OK)
-      TRACE_DEBUG("Token specific des3 ecb encrypt failed.\n");
+      TRACE_DEVEL("Token specific des3 ecb encrypt failed.\n");
    return rc;
 }
 
@@ -2629,7 +2629,7 @@ ckm_des3_ecb_decrypt( CK_BYTE     * in_data,
 				  out_data, out_data_len, key, 0);
    
    if (rc != CKR_OK)
-      TRACE_DEBUG("Token specific des3 ecb decrypt failed.\n");
+      TRACE_DEVEL("Token specific des3 ecb decrypt failed.\n");
 
    return rc;
 }
@@ -2665,7 +2665,7 @@ ckm_des3_cbc_encrypt( CK_BYTE     * in_data,
 				  out_data, out_data_len, key, init_v, 1);
 
    if (rc != CKR_OK)
-      TRACE_DEBUG("Token specific des3 cbc encrypt failed.\n");
+      TRACE_DEVEL("Token specific des3 cbc encrypt failed.\n");
    return rc;
 }
 
@@ -2699,6 +2699,6 @@ ckm_des3_cbc_decrypt( CK_BYTE     * in_data,
 				  out_data, out_data_len, key, init_v, 0);
 
    if (rc != CKR_OK)
-      TRACE_DEBUG("Token specific des3 cbc decrypt failed.\n");
+      TRACE_DEVEL("Token specific des3 cbc decrypt failed.\n");
    return rc;
 }

@@ -345,7 +345,7 @@ md5_hash( SESSION         * sess,
 
    rc = md5_hash_update( sess, ctx, in_data, in_data_len );
    if (rc != CKR_OK){
-      TRACE_DEBUG("md5_hash_update failed\n");
+      TRACE_DEVEL("md5_hash_update failed\n");
       return rc;
    }
    return md5_hash_final( sess,      FALSE,
@@ -519,21 +519,21 @@ md5_hmac_sign( SESSION              * sess,
    rc = digest_mgr_init( sess, &digest_ctx, &digest_mech );
    if (rc != CKR_OK)
    {
-      TRACE_DEBUG("Digest Mgr Init failed.\n");
+      TRACE_DEVEL("Digest Mgr Init failed.\n");
       return rc;
    }
 
    rc = digest_mgr_digest_update( sess, &digest_ctx, k_ipad, MD5_BLOCK_SIZE );
    if (rc != CKR_OK)
    {
-      TRACE_DEBUG("Digest Mgr Update failed.\n");
+      TRACE_DEVEL("Digest Mgr Update failed.\n");
       return rc;
    }
 
    rc = digest_mgr_digest_update( sess, &digest_ctx, in_data, in_data_len );
    if (rc != CKR_OK)
    {
-      TRACE_DEBUG("Digest Mgr Update failed.\n");
+      TRACE_DEVEL("Digest Mgr Update failed.\n");
       return rc;
    }
 
@@ -541,7 +541,7 @@ md5_hmac_sign( SESSION              * sess,
    rc = digest_mgr_digest_final( sess, FALSE, &digest_ctx, hash, &hash_len );
    if (rc != CKR_OK)
    {
-      TRACE_DEBUG("Digest Mgr Final failed.\n");
+      TRACE_DEVEL("Digest Mgr Final failed.\n");
       return rc;
    }
 
@@ -553,21 +553,21 @@ md5_hmac_sign( SESSION              * sess,
    rc = digest_mgr_init( sess, &digest_ctx, &digest_mech );
    if (rc != CKR_OK)
    {
-      TRACE_DEBUG("Digest Mgr Init failed.\n");
+      TRACE_DEVEL("Digest Mgr Init failed.\n");
       return rc;
    }
 
    rc = digest_mgr_digest_update( sess, &digest_ctx, k_opad, MD5_BLOCK_SIZE );
    if (rc != CKR_OK)
    {
-      TRACE_DEBUG("Digest Mgr Update failed.\n");
+      TRACE_DEVEL("Digest Mgr Update failed.\n");
       return rc;
    }
 
    rc = digest_mgr_digest_update( sess, &digest_ctx, hash, hash_len );
    if (rc != CKR_OK)
    {
-      TRACE_DEBUG("Digest Mgr Update failed.\n");
+      TRACE_DEVEL("Digest Mgr Update failed.\n");
       return rc;
    }
 
@@ -575,7 +575,7 @@ md5_hmac_sign( SESSION              * sess,
    rc = digest_mgr_digest_final( sess, FALSE, &digest_ctx, hash, &hash_len );
    if (rc != CKR_OK)
    {
-      TRACE_DEBUG("Digest Mgr Final failed.\n");
+      TRACE_DEVEL("Digest Mgr Final failed.\n");
       return rc;
    }
 

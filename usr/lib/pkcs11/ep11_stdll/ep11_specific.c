@@ -353,11 +353,11 @@ inline void hexdump(void *buf, size_t buflen)
 		}
 		line[47] = line[48] = line[49] = line[50] = ' ';
 		line[67] = '\0';
-		TRACE_DEVEL("%s\n", line);
+		TRACE_DEBUG("%s\n", line);
 	}
 }
 
-#define TRACE_DEVEL_DUMP(_buf, _buflen) hexdump(_buf, _buflen)
+#define TRACE_DEBUG_DUMP(_buf, _buflen) hexdump(_buf, _buflen)
 
 #endif /* DEBUG */
 
@@ -563,7 +563,7 @@ ber_encode_RSAPublicKey(CK_BBOOL length_only, CK_BYTE **data, CK_ULONG *data_len
 	offset += len;
 
 	if (rc != CKR_OK) {
-		TRACE_DEBUG("%s ber_encode_Int failed with rc=0x%lx\n", __func__, rc);
+		TRACE_DEVEL("%s ber_encode_Int failed with rc=0x%lx\n", __func__, rc);
 		return CKR_FUNCTION_FAILED;
 	}
 
@@ -579,7 +579,7 @@ ber_encode_RSAPublicKey(CK_BBOOL length_only, CK_BYTE **data, CK_ULONG *data_len
 				(CK_BYTE *)modulus + sizeof(CK_ATTRIBUTE),
 				modulus->ulValueLen);
 	if (rc != CKR_OK) {
-		TRACE_DEBUG("%s ber_encode_Int failed with rc=0x%lx\n", __func__, rc);
+		TRACE_DEVEL("%s ber_encode_Int failed with rc=0x%lx\n", __func__, rc);
 		return rc;
 	}
 	memcpy(buf+offset, buf2, len);
@@ -590,7 +590,7 @@ ber_encode_RSAPublicKey(CK_BBOOL length_only, CK_BYTE **data, CK_ULONG *data_len
 				(CK_BYTE *)publ_exp + sizeof(CK_ATTRIBUTE),
 				publ_exp->ulValueLen);
 	if (rc != CKR_OK) {
-		TRACE_DEBUG("%s ber_encode_Int failed with rc=0x%lx\n", __func__, rc);
+		TRACE_DEVEL("%s ber_encode_Int failed with rc=0x%lx\n", __func__, rc);
 		return rc;
 	}
 	memcpy(buf+offset, buf2, len);
@@ -599,14 +599,14 @@ ber_encode_RSAPublicKey(CK_BBOOL length_only, CK_BYTE **data, CK_ULONG *data_len
 
 	rc = ber_encode_SEQUENCE(FALSE, &buf2, &len, buf, offset);
 	if (rc != CKR_OK) {
-		TRACE_DEBUG("%s ber_encode_Seq failed with rc=0x%lx\n", __func__, rc);
+		TRACE_DEVEL("%s ber_encode_Seq failed with rc=0x%lx\n", __func__, rc);
 		return rc;
 	}
 
 	/* length of outer sequence */
 	rc = ber_encode_OCTET_STRING(TRUE, NULL, &total, buf2, len);
 	if (rc != CKR_OK) {
-		TRACE_DEBUG("%s ber_encode_Oct_Str failed with rc=0x%lx\n", __func__, rc);
+		TRACE_DEVEL("%s ber_encode_Oct_Str failed with rc=0x%lx\n", __func__, rc);
 		return rc;
 	} else
 		total_len += total + 1;
@@ -632,7 +632,7 @@ ber_encode_RSAPublicKey(CK_BBOOL length_only, CK_BYTE **data, CK_ULONG *data_len
 
 	rc = ber_encode_SEQUENCE(FALSE, data, data_len, buf3, total_len);
 	if (rc != CKR_OK)
-		TRACE_DEBUG("%s ber_encode_Seq failed with rc=0x%lx\n", __func__, rc);
+		TRACE_DEVEL("%s ber_encode_Seq failed with rc=0x%lx\n", __func__, rc);
 
 	return rc;
 }
@@ -1424,7 +1424,7 @@ static CK_RV import_RSA_key(OBJECT *rsa_key_obj, CK_BYTE *blob, size_t *blob_siz
 	rc = rsa_priv_wrap_get_data(rsa_key_obj->template, FALSE,
 				    &data, &data_len);
 	if (rc != CKR_OK) {
-		TRACE_DEBUG("%s RSA wrap get data failed\n", __func__);
+		TRACE_DEVEL("%s RSA wrap get data failed\n", __func__);
 		goto import_RSA_key_end;
 	}
 
@@ -2031,10 +2031,10 @@ static CK_RV dh_generate_keypair(CK_MECHANISM_PTR pMechanism,
 	dh_pgs.pg_bytes = p_len * 2;
 
 #ifdef DEBUG
-	TRACE_DEVEL("%s P:\n", __func__);
-	TRACE_DEVEL_DUMP(&dh_pgs.pg[0], p_len);
-	TRACE_DEVEL("%s G:\n", __func__);
-	TRACE_DEVEL_DUMP(&dh_pgs.pg[p_len], p_len);
+	TRACE_DEBUG("%s P:\n", __func__);
+	TRACE_DEBUG_DUMP(&dh_pgs.pg[0], p_len);
+	TRACE_DEBUG("%s G:\n", __func__);
+	TRACE_DEBUG_DUMP(&dh_pgs.pg[p_len], p_len);
 #endif
 
 	/* add special attribute, do not add it to ock's pPublicKeyTemplate */
@@ -2094,8 +2094,8 @@ static CK_RV dh_generate_keypair(CK_MECHANISM_PTR pMechanism,
 	}
 
 #ifdef DEBUG
-	TRACE_DEVEL("%s DH SPKI\n", __func__ );
-	TRACE_DEVEL_DUMP(publ_op.blob, publ_op.blob_size);
+	TRACE_DEBUG("%s DH SPKI\n", __func__ );
+	TRACE_DEBUG_DUMP(publ_op.blob, publ_op.blob_size);
 #endif
 
 	/* CKA_VALUE of the public key must hold 'y' */
@@ -2284,12 +2284,12 @@ static CK_RV dsa_generate_keypair(CK_MECHANISM_PTR pMechanism,
 	dsa_pqgs.pqg_bytes = p_len * 3;
 
 #ifdef DEBUG
-	TRACE_DEVEL("%s P:\n", __func__);
-	TRACE_DEVEL_DUMP(&dsa_pqgs.pqg[0], p_len);
-	TRACE_DEVEL("%s Q:\n", __func__);
-	TRACE_DEVEL_DUMP(&dsa_pqgs.pqg[p_len], p_len);
-	TRACE_DEVEL("%s G:\n", __func__);
-	TRACE_DEVEL_DUMP(&dsa_pqgs.pqg[2*p_len], p_len);
+	TRACE_DEBUG("%s P:\n", __func__);
+	TRACE_DEBUG_DUMP(&dsa_pqgs.pqg[0], p_len);
+	TRACE_DEBUG("%s Q:\n", __func__);
+	TRACE_DEBUG_DUMP(&dsa_pqgs.pqg[p_len], p_len);
+	TRACE_DEBUG("%s G:\n", __func__);
+	TRACE_DEBUG_DUMP(&dsa_pqgs.pqg[2*p_len], p_len);
 #endif
 
 	CK_ATTRIBUTE pqgs[] = { CKA_IBM_STRUCT_PARAMS, (CK_VOID_PTR)dsa_pqgs.pqg,
@@ -2383,8 +2383,8 @@ static CK_RV dsa_generate_keypair(CK_MECHANISM_PTR pMechanism,
 	}
 
 #ifdef DEBUG
-	TRACE_DEVEL("%s dsa_generate_keypair public key:\n", __func__);
-	TRACE_DEVEL_DUMP(data, data_len);
+	TRACE_DEBUG("%s dsa_generate_keypair public key:\n", __func__);
+	TRACE_DEBUG_DUMP(data, data_len);
 #endif
 
 	rc = build_attribute(CKA_VALUE, data, data_len, &value_attr);
@@ -2546,8 +2546,8 @@ static CK_RV rsa_ec_generate_keypair(CK_MECHANISM_PTR pMechanism,
 		/* scan the SPKI for CKA_EC_POINT */
 
 #ifdef DEBUG
-		TRACE_DEVEL("%s ec_generate_keypair spki:\n", __func__);
-		TRACE_DEVEL_DUMP(spki, spki_len);
+		TRACE_DEBUG("%s ec_generate_keypair spki:\n", __func__);
+		TRACE_DEBUG_DUMP(spki, spki_len);
 #endif
 		rc = ep11_spki_key(spki, &key, &bit_str_len);
 		if (rc != CKR_OK) {
@@ -2572,8 +2572,8 @@ static CK_RV rsa_ec_generate_keypair(CK_MECHANISM_PTR pMechanism,
 		data = key;
 
 #ifdef DEBUG
-		TRACE_DEVEL("%s ec_generate_keypair ecpoint:\n", __func__);
-		TRACE_DEVEL_DUMP(data, data_len);
+		TRACE_DEBUG("%s ec_generate_keypair ecpoint:\n", __func__);
+		TRACE_DEBUG_DUMP(data, data_len);
 #endif
 
 		/* build and add CKA_EC_POINT */
@@ -2657,8 +2657,8 @@ static CK_RV rsa_ec_generate_keypair(CK_MECHANISM_PTR pMechanism,
 		}
 
 #ifdef DEBUG
-		TRACE_DEVEL("%s rsa_generate_keypair modulus:\n", __func__);
-		TRACE_DEVEL_DUMP(data, data_len);
+		TRACE_DEBUG("%s rsa_generate_keypair modulus:\n", __func__);
+		TRACE_DEBUG_DUMP(data, data_len);
 #endif
 
 		/* build and add CKA_MODULUS */
@@ -2685,8 +2685,8 @@ static CK_RV rsa_ec_generate_keypair(CK_MECHANISM_PTR pMechanism,
 		}
 
 #ifdef DEBUG
-		TRACE_DEVEL("%s rsa_generate_keypair public exponent:\n", __func__);
-		TRACE_DEVEL_DUMP(data, data_len);
+		TRACE_DEBUG("%s rsa_generate_keypair public exponent:\n", __func__);
+		TRACE_DEBUG_DUMP(data, data_len);
 #endif
 
 		/* build and add CKA_PUBLIC_EXPONENT */
@@ -2753,7 +2753,7 @@ CK_RV ep11tok_generate_key_pair(SESSION * sess, CK_MECHANISM_PTR pMechanism,
 				    CKO_PUBLIC_KEY, publ_ktype,
 				    &public_key_obj);
 	if (rc != CKR_OK) {
-		TRACE_DEBUG("%s Object mgr create skeleton failed\n", __func__);
+		TRACE_DEVEL("%s Object mgr create skeleton failed\n", __func__);
 		goto error;
 	}
 
@@ -2762,7 +2762,7 @@ CK_RV ep11tok_generate_key_pair(SESSION * sess, CK_MECHANISM_PTR pMechanism,
 				    CKO_PRIVATE_KEY, priv_ktype,
 				    &private_key_obj);
 	if (rc != CKR_OK) {
-		TRACE_DEBUG("%s Object mgr create skeleton failed\n", __func__);
+		TRACE_DEVEL("%s Object mgr create skeleton failed\n", __func__);
 		goto error;
 	}
 
@@ -2860,13 +2860,13 @@ CK_RV ep11tok_generate_key_pair(SESSION * sess, CK_MECHANISM_PTR pMechanism,
 	 */
 	rc = object_mgr_create_final(sess, public_key_obj, phPublicKey);
 	if (rc != CKR_OK) {
-		TRACE_DEBUG("%s Object mgr create final failed\n", __func__);
+		TRACE_DEVEL("%s Object mgr create final failed\n", __func__);
 		goto error;
 	}
 
 	rc = object_mgr_create_final(sess, private_key_obj, phPrivateKey);
 	if (rc != CKR_OK) {
-		TRACE_DEBUG("%s Object mgr create final failed\n", __func__);
+		TRACE_DEVEL("%s Object mgr create final failed\n", __func__);
 		object_mgr_destroy_object(sess, *phPublicKey);
 		public_key_obj = NULL;
 		goto error;
@@ -3481,10 +3481,10 @@ CK_RV ep11tok_unwrap_key(SESSION *session, CK_MECHANISM_PTR mech,
 		return rc;
 	}
 
-	TRACE_DEBUG("%s start unwrapKey:  mech=0x%lx attrs_len=0x%lx wr_key=0x%lx\n",
+	TRACE_DEVEL("%s start unwrapKey:  mech=0x%lx attrs_len=0x%lx wr_key=0x%lx\n",
 		    __func__, mech->mechanism, attrs_len, wrapping_key);
 	for (i = 0; i < attrs_len; i++) {
-		TRACE_DEBUG(" attribute attrs.type=0x%lx\n", attrs[i].type);
+		TRACE_DEVEL(" attribute attrs.type=0x%lx\n", attrs[i].type);
 	}
 
 	memset(&op, 0, sizeof(op));
@@ -3904,7 +3904,7 @@ static int read_adapter_config_file(const char* conf_name)
 			ap_fp = fopen(fname,"r");
 
 			if (!ap_fp)
-				TRACE_DEBUG("%s fopen('%s') failed with errno %d\n",
+				TRACE_DEVEL("%s fopen('%s') failed with errno %d\n",
 					    __func__, fname, errno);
 		}
 		if (!ap_fp) {
@@ -3912,7 +3912,7 @@ static int read_adapter_config_file(const char* conf_name)
 			fname[sizeof(fname)-1] = '\0';
 			ap_fp = fopen(fname,"r");
 			if (!ap_fp)
-				TRACE_DEBUG("%s fopen('%s') failed with errno %d\n",
+				TRACE_DEVEL("%s fopen('%s') failed with errno %d\n",
 					    __func__, fname, errno);
 		}
 	} else {
@@ -3921,13 +3921,13 @@ static int read_adapter_config_file(const char* conf_name)
 			fname[sizeof(fname)-1] = '\0';
 			ap_fp = fopen(fname,"r");
 			if (!ap_fp) {
-				TRACE_DEBUG("%s fopen('%s') failed with errno %d\n",
+				TRACE_DEVEL("%s fopen('%s') failed with errno %d\n",
 					    __func__, fname, errno);
 				snprintf(fname, sizeof(fname), "%s/%s", OCK_CONFDIR, conf_name);
 				fname[sizeof(fname)-1] = '\0';
 				ap_fp = fopen(fname,"r");
 				if (!ap_fp)
-					TRACE_DEBUG("%s fopen('%s') failed with errno %d\n",
+					TRACE_DEVEL("%s fopen('%s') failed with errno %d\n",
 						    __func__, fname, errno);
 			}
 		} else {
@@ -3935,7 +3935,7 @@ static int read_adapter_config_file(const char* conf_name)
 			fname[sizeof(fname)-1] = '\0';
 			ap_fp = fopen(fname,"r");
 			if (!ap_fp)
-				TRACE_DEBUG("%s fopen('%s') failed with errno %d\n",
+				TRACE_DEVEL("%s fopen('%s') failed with errno %d\n",
 					    __func__, fname, errno);
 		}
 	}

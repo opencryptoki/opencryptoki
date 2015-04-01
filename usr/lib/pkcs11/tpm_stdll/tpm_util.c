@@ -317,7 +317,7 @@ get_srk_info(struct srk_info *srk)
 		 * represent the hash.
 		 */
 		if (srk->len != (h_len * 2)) {
-			TRACE_DEBUG("Hashed secret is %d bytes, expected %d.\n",
+			TRACE_DEVEL("Hashed secret is %d bytes, expected %d.\n",
 				     srk->len, h_len*2);
 			goto error;
 		}

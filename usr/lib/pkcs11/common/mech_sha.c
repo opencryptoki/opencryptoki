@@ -1013,7 +1013,7 @@ CK_RV sha1_hmac_sign(SESSION *sess, CK_BBOOL length_only,
 
 		rc = digest_mgr_init(sess, &digest_ctx, &digest_mech);
 		if (rc != CKR_OK) {
-			TRACE_DEBUG("Digest Mgr Init failed.\n");
+			TRACE_DEVEL("Digest Mgr Init failed.\n");
 			return rc;
 		}
 
@@ -1021,7 +1021,7 @@ CK_RV sha1_hmac_sign(SESSION *sess, CK_BBOOL length_only,
 		rc = digest_mgr_digest(sess, FALSE, &digest_ctx, attr->pValue,
 				       attr->ulValueLen, hash, &hash_len);
 		if (rc != CKR_OK) {
-			TRACE_DEBUG("Digest Mgr Digest failed.\n");
+			TRACE_DEVEL("Digest Mgr Digest failed.\n");
 			return rc;
 		}
 
@@ -1054,27 +1054,27 @@ CK_RV sha1_hmac_sign(SESSION *sess, CK_BBOOL length_only,
 	//
 	rc = digest_mgr_init(sess, &digest_ctx, &digest_mech);
 	if (rc != CKR_OK) {
-		TRACE_DEBUG("Digest Mgr Init failed.\n");
+		TRACE_DEVEL("Digest Mgr Init failed.\n");
 		return rc;
 	}
 
 	rc = digest_mgr_digest_update(sess, &digest_ctx, k_ipad,
 				      SHA1_BLOCK_SIZE);
 	if (rc != CKR_OK) {
-		TRACE_DEBUG("Digest Mgr Update failed.\n");
+		TRACE_DEVEL("Digest Mgr Update failed.\n");
 		return rc;
 	}
 
 	rc = digest_mgr_digest_update(sess, &digest_ctx, in_data, in_data_len);
 	if (rc != CKR_OK) {
-		TRACE_DEBUG("Digest Mgr Update failed.\n");
+		TRACE_DEVEL("Digest Mgr Update failed.\n");
 		return rc;
 	}
 
 	hash_len = sizeof(hash);
 	rc = digest_mgr_digest_final(sess, FALSE, &digest_ctx, hash, &hash_len);
 	if (rc != CKR_OK) {
-		TRACE_DEBUG("Digest Mgr Final failed.\n");
+		TRACE_DEVEL("Digest Mgr Final failed.\n");
 		return rc;
 	}
 
@@ -1084,27 +1084,27 @@ CK_RV sha1_hmac_sign(SESSION *sess, CK_BBOOL length_only,
 	//
 	rc = digest_mgr_init(sess, &digest_ctx, &digest_mech);
 	if (rc != CKR_OK) {
-		TRACE_DEBUG("Digest Mgr Init failed.\n");
+		TRACE_DEVEL("Digest Mgr Init failed.\n");
 		return rc;
 	}
 
 	rc = digest_mgr_digest_update(sess, &digest_ctx, k_opad,
 					SHA1_BLOCK_SIZE);
 	if (rc != CKR_OK) {
-		TRACE_DEBUG("Digest Mgr Update failed.\n");
+		TRACE_DEVEL("Digest Mgr Update failed.\n");
 		return rc;
 	}
 
 	rc = digest_mgr_digest_update(sess, &digest_ctx, hash, hash_len);
 	if (rc != CKR_OK) {
-		TRACE_DEBUG("Digest Mgr Update failed.\n");
+		TRACE_DEVEL("Digest Mgr Update failed.\n");
 		return rc;
 	}
 
 	hash_len = sizeof(hash);
 	rc = digest_mgr_digest_final(sess, FALSE, &digest_ctx, hash, &hash_len);
 	if (rc != CKR_OK) {
-		TRACE_DEBUG("Digest Mgr Final failed.\n");
+		TRACE_DEVEL("Digest Mgr Final failed.\n");
 		return rc;
 	}
 
@@ -1180,7 +1180,7 @@ CK_RV sha2_hmac_sign(SESSION *sess, CK_BBOOL length_only,
 
 		rc = digest_mgr_init(sess, &digest_ctx, &digest_mech);
 		if (rc != CKR_OK) {
-			TRACE_DEBUG("Digest Mgr Init failed.\n");
+			TRACE_DEVEL("Digest Mgr Init failed.\n");
 			return rc;
 		}
 
@@ -1188,7 +1188,7 @@ CK_RV sha2_hmac_sign(SESSION *sess, CK_BBOOL length_only,
 		rc = digest_mgr_digest(sess, FALSE, &digest_ctx, attr->pValue,
 					attr->ulValueLen, hash, &hash_len);
 		if (rc != CKR_OK) {
-			TRACE_DEBUG("Digest Mgr Digest failed.\n");
+			TRACE_DEVEL("Digest Mgr Digest failed.\n");
 			return rc;
 		}
 
@@ -1221,26 +1221,26 @@ CK_RV sha2_hmac_sign(SESSION *sess, CK_BBOOL length_only,
 	//
 	rc = digest_mgr_init(sess, &digest_ctx, &digest_mech);
 	if (rc != CKR_OK) {
-		TRACE_DEBUG("Digest Mgr Init failed.\n");
+		TRACE_DEVEL("Digest Mgr Init failed.\n");
 		return rc;
 	}
 
 	rc = digest_mgr_digest_update(sess, &digest_ctx, k_ipad, SHA2_BLOCK_SIZE);
 	if (rc != CKR_OK) {
-		TRACE_DEBUG("Digest Mgr Update failed.\n");
+		TRACE_DEVEL("Digest Mgr Update failed.\n");
 		return rc;
 	}
 
 	rc = digest_mgr_digest_update(sess, &digest_ctx, in_data, in_data_len);
 	if (rc != CKR_OK) {
-		TRACE_DEBUG("Digest Mgr Update failed.\n");
+		TRACE_DEVEL("Digest Mgr Update failed.\n");
 		return rc;
 	}
 
 	hash_len = sizeof(hash);
 	rc = digest_mgr_digest_final(sess, FALSE, &digest_ctx, hash, &hash_len);
 	if (rc != CKR_OK) {
-		TRACE_DEBUG("Digest Mgr Final failed.\n");
+		TRACE_DEVEL("Digest Mgr Final failed.\n");
 		return rc;
 	}
 
@@ -1250,26 +1250,26 @@ CK_RV sha2_hmac_sign(SESSION *sess, CK_BBOOL length_only,
 	//
 	rc = digest_mgr_init(sess, &digest_ctx, &digest_mech);
 	if (rc != CKR_OK) {
-		TRACE_DEBUG("Digest Mgr Init failed.\n");
+		TRACE_DEVEL("Digest Mgr Init failed.\n");
 		return rc;
 	}
 
 	rc = digest_mgr_digest_update(sess, &digest_ctx, k_opad, SHA2_BLOCK_SIZE);
 	if (rc != CKR_OK) {
-		TRACE_DEBUG("Digest Mgr Update failed.\n");
+		TRACE_DEVEL("Digest Mgr Update failed.\n");
 		return rc;
 	}
 
 	rc = digest_mgr_digest_update(sess, &digest_ctx, hash, hash_len);
 	if (rc != CKR_OK) {
-		TRACE_DEBUG("Digest Mgr Update failed.\n");
+		TRACE_DEVEL("Digest Mgr Update failed.\n");
 		return rc;
 	}
 
 	hash_len = sizeof(hash);
 	rc = digest_mgr_digest_final(sess, FALSE, &digest_ctx, hash, &hash_len);
 	if (rc != CKR_OK) {
-		TRACE_DEBUG("Digest Mgr Final failed.\n");
+		TRACE_DEVEL("Digest Mgr Final failed.\n");
 		return rc;
 	}
 
@@ -1345,7 +1345,7 @@ CK_RV sha3_hmac_sign(SESSION *sess, CK_BBOOL length_only,
 
 		rc = digest_mgr_init(sess, &digest_ctx, &digest_mech);
 		if (rc != CKR_OK) {
-			TRACE_DEBUG("Digest Mgr Init failed.\n");
+			TRACE_DEVEL("Digest Mgr Init failed.\n");
 			return rc;
 		}
 
@@ -1353,7 +1353,7 @@ CK_RV sha3_hmac_sign(SESSION *sess, CK_BBOOL length_only,
 		rc = digest_mgr_digest(sess, FALSE, &digest_ctx, attr->pValue,
 					attr->ulValueLen, hash, &hash_len);
 		if (rc != CKR_OK) {
-			TRACE_DEBUG("Digest Mgr Digest failed.\n");
+			TRACE_DEVEL("Digest Mgr Digest failed.\n");
 			return rc;
 		}
 
@@ -1386,26 +1386,26 @@ CK_RV sha3_hmac_sign(SESSION *sess, CK_BBOOL length_only,
 	//
 	rc = digest_mgr_init(sess, &digest_ctx, &digest_mech);
 	if (rc != CKR_OK) {
-		TRACE_DEBUG("Digest Mgr Init failed.\n");
+		TRACE_DEVEL("Digest Mgr Init failed.\n");
 		return rc;
 	}
 
 	rc = digest_mgr_digest_update(sess, &digest_ctx, k_ipad, SHA3_BLOCK_SIZE);
 	if (rc != CKR_OK) {
-		TRACE_DEBUG("Digest Mgr Update failed.\n");
+		TRACE_DEVEL("Digest Mgr Update failed.\n");
 		return rc;
 	}
 
 	rc = digest_mgr_digest_update(sess, &digest_ctx, in_data, in_data_len);
 	if (rc != CKR_OK) {
-		TRACE_DEBUG("Digest Mgr Update failed.\n");
+		TRACE_DEVEL("Digest Mgr Update failed.\n");
 		return rc;
 	}
 
 	hash_len = sizeof(hash);
 	rc = digest_mgr_digest_final(sess, FALSE, &digest_ctx, hash, &hash_len);
 	if (rc != CKR_OK) {
-		TRACE_DEBUG("Digest Mgr Final failed.\n");
+		TRACE_DEVEL("Digest Mgr Final failed.\n");
 		return rc;
 	}
 
@@ -1415,26 +1415,26 @@ CK_RV sha3_hmac_sign(SESSION *sess, CK_BBOOL length_only,
 	//
 	rc = digest_mgr_init(sess, &digest_ctx, &digest_mech);
 	if (rc != CKR_OK) {
-		TRACE_DEBUG("Digest Mgr Init failed.\n");
+		TRACE_DEVEL("Digest Mgr Init failed.\n");
 		return rc;
 	}
 
 	rc = digest_mgr_digest_update(sess, &digest_ctx, k_opad, SHA3_BLOCK_SIZE);
 	if (rc != CKR_OK) {
-		TRACE_DEBUG("Digest Mgr Update failed.\n");
+		TRACE_DEVEL("Digest Mgr Update failed.\n");
 		return rc;
 	}
 
 	rc = digest_mgr_digest_update(sess, &digest_ctx, hash, hash_len);
 	if (rc != CKR_OK) {
-		TRACE_DEBUG("Digest Mgr Update failed.\n");
+		TRACE_DEVEL("Digest Mgr Update failed.\n");
 		return rc;
 	}
 
 	hash_len = sizeof(hash);
 	rc = digest_mgr_digest_final(sess, FALSE, &digest_ctx, hash, &hash_len);
 	if (rc != CKR_OK) {
-		TRACE_DEBUG("Digest Mgr Final failed.\n");
+		TRACE_DEVEL("Digest Mgr Final failed.\n");
 		return rc;
 	}
 
@@ -1510,7 +1510,7 @@ CK_RV sha5_hmac_sign(SESSION *sess, CK_BBOOL length_only,
 
 		rc = digest_mgr_init(sess, &digest_ctx, &digest_mech);
 		if (rc != CKR_OK) {
-			TRACE_DEBUG("Digest Mgr Init failed.\n");
+			TRACE_DEVEL("Digest Mgr Init failed.\n");
 			return rc;
 		}
 
@@ -1518,7 +1518,7 @@ CK_RV sha5_hmac_sign(SESSION *sess, CK_BBOOL length_only,
 		rc = digest_mgr_digest(sess, FALSE, &digest_ctx, attr->pValue,
 					attr->ulValueLen, hash, &hash_len);
 		if (rc != CKR_OK) {
-			TRACE_DEBUG("Digest Mgr Digest failed.\n");
+			TRACE_DEVEL("Digest Mgr Digest failed.\n");
 			return rc;
 		}
 
@@ -1551,26 +1551,26 @@ CK_RV sha5_hmac_sign(SESSION *sess, CK_BBOOL length_only,
 	//
 	rc = digest_mgr_init(sess, &digest_ctx, &digest_mech);
 	if (rc != CKR_OK) {
-		TRACE_DEBUG("Digest Mgr Init failed.\n");
+		TRACE_DEVEL("Digest Mgr Init failed.\n");
 		return rc;
 	}
 
 	rc = digest_mgr_digest_update(sess, &digest_ctx, k_ipad, SHA5_BLOCK_SIZE);
 	if (rc != CKR_OK) {
-		TRACE_DEBUG("Digest Mgr Update failed.\n");
+		TRACE_DEVEL("Digest Mgr Update failed.\n");
 		return rc;
 	}
 
 	rc = digest_mgr_digest_update(sess, &digest_ctx, in_data, in_data_len);
 	if (rc != CKR_OK) {
-		TRACE_DEBUG("Digest Mgr Update failed.\n");
+		TRACE_DEVEL("Digest Mgr Update failed.\n");
 		return rc;
 	}
 
 	hash_len = sizeof(hash);
 	rc = digest_mgr_digest_final(sess, FALSE, &digest_ctx, hash, &hash_len);
 	if (rc != CKR_OK) {
-		TRACE_DEBUG("Digest Mgr Final failed.\n");
+		TRACE_DEVEL("Digest Mgr Final failed.\n");
 		return rc;
 	}
 
@@ -1580,26 +1580,26 @@ CK_RV sha5_hmac_sign(SESSION *sess, CK_BBOOL length_only,
 	//
 	rc = digest_mgr_init(sess, &digest_ctx, &digest_mech);
 	if (rc != CKR_OK) {
-		TRACE_DEBUG("Digest Mgr Init failed.\n");
+		TRACE_DEVEL("Digest Mgr Init failed.\n");
 		return rc;
 	}
 
 	rc = digest_mgr_digest_update(sess, &digest_ctx, k_opad, SHA5_BLOCK_SIZE);
 	if (rc != CKR_OK) {
-		TRACE_DEBUG("Digest Mgr Update failed.\n");
+		TRACE_DEVEL("Digest Mgr Update failed.\n");
 		return rc;
 	}
 
 	rc = digest_mgr_digest_update(sess, &digest_ctx, hash, hash_len);
 	if (rc != CKR_OK) {
-		TRACE_DEBUG("Digest Mgr Update failed.\n");
+		TRACE_DEVEL("Digest Mgr Update failed.\n");
 		return rc;
 	}
 
 	hash_len = sizeof(hash);
 	rc = digest_mgr_digest_final(sess, FALSE, &digest_ctx, hash, &hash_len);
 	if (rc != CKR_OK) {
-		TRACE_DEBUG("Digest Mgr Final failed.\n");
+		TRACE_DEVEL("Digest Mgr Final failed.\n");
 		return rc;
 	}
 
@@ -1632,14 +1632,14 @@ CK_RV sha1_hmac_verify(SESSION *sess, SIGN_VERIFY_CONTEXT *ctx,
 
 	rc = sign_mgr_init(sess, &hmac_ctx, &ctx->mech, FALSE, ctx->key);
 	if (rc != CKR_OK) {
-		TRACE_DEBUG("Sign Mgr Init failed.\n");
+		TRACE_DEVEL("Sign Mgr Init failed.\n");
 		goto done;
 	}
 	len = sizeof(hmac);
 	rc = sign_mgr_sign(sess, FALSE, &hmac_ctx, in_data, in_data_len,
 			   hmac, &len);
 	if (rc != CKR_OK) {
-		TRACE_DEBUG("Sign Mgr Sign failed.\n");
+		TRACE_DEVEL("Sign Mgr Sign failed.\n");
 		goto done;
 	}
 	if ((len != hmac_len) || (len != sig_len)) {
@@ -1681,7 +1681,7 @@ CK_RV sha2_hmac_verify(SESSION *sess, SIGN_VERIFY_CONTEXT *ctx,
 
 	rc = sign_mgr_init(sess, &hmac_ctx, &ctx->mech, FALSE, ctx->key);
 	if (rc != CKR_OK) {
-		TRACE_DEBUG("Sign Mgr Init failed.\n");
+		TRACE_DEVEL("Sign Mgr Init failed.\n");
 		goto done;
 	}
 
@@ -1689,7 +1689,7 @@ CK_RV sha2_hmac_verify(SESSION *sess, SIGN_VERIFY_CONTEXT *ctx,
 	rc = sign_mgr_sign(sess, FALSE, &hmac_ctx, in_data, in_data_len,
 			   hmac, &len);
 	if (rc != CKR_OK) {
-		TRACE_DEBUG("Sign Mgr Sign failed.\n");
+		TRACE_DEVEL("Sign Mgr Sign failed.\n");
 		goto done;
 	}
 
@@ -1731,14 +1731,14 @@ CK_RV sha3_hmac_verify(SESSION *sess, SIGN_VERIFY_CONTEXT *ctx,
 
 	rc = sign_mgr_init(sess, &hmac_ctx, &ctx->mech, FALSE, ctx->key);
 	if (rc != CKR_OK) {
-		TRACE_DEBUG("Sign Mgr Init failed.\n");
+		TRACE_DEVEL("Sign Mgr Init failed.\n");
 		goto done;
 	}
 	len = sizeof(hmac);
 	rc = sign_mgr_sign(sess, FALSE, &hmac_ctx, in_data, in_data_len,
 			   hmac, &len);
 	if (rc != CKR_OK) {
-		TRACE_DEBUG("Sign Mgr Sign failed.\n");
+		TRACE_DEVEL("Sign Mgr Sign failed.\n");
 		goto done;
 	}
 	if ((len != hmac_len) || (len != sig_len)) {
@@ -1778,14 +1778,14 @@ CK_RV sha5_hmac_verify(SESSION *sess, SIGN_VERIFY_CONTEXT *ctx,
 
 	rc = sign_mgr_init(sess, &hmac_ctx, &ctx->mech, FALSE, ctx->key);
 	if (rc != CKR_OK) {
-		TRACE_DEBUG("Sign Mgr Init failed.\n");
+		TRACE_DEVEL("Sign Mgr Init failed.\n");
 		goto done;
 	}
 	len = sizeof(hmac);
 	rc = sign_mgr_sign(sess, FALSE, &hmac_ctx, in_data, in_data_len,
 			   hmac, &len);
 	if (rc != CKR_OK) {
-		TRACE_DEBUG("Sign Mgr Sign failed.\n");
+		TRACE_DEVEL("Sign Mgr Sign failed.\n");
 		goto done;
 	}
 	if ((len != hmac_len) || (len != sig_len)) {

@@ -461,7 +461,7 @@ ckm_dsa_key_pair_gen( TEMPLATE  * publ_tmpl,
 
    rc = token_specific.t_dsa_generate_keypair(publ_tmpl,priv_tmpl);
    if (rc != CKR_OK)
-      TRACE_DEBUG("Tpken specific dsa keypair generation failed.\n");
+      TRACE_DEVEL("Tpken specific dsa keypair generation failed.\n");
    return rc;
 }
 
@@ -504,7 +504,7 @@ ckm_dsa_sign( CK_BYTE   * in_data,
 
    rc = token_specific.t_dsa_sign(in_data, signature, priv_key);
    if (rc != CKR_OK)
-      TRACE_DEBUG("Token specific dsa sign failed.\n");
+      TRACE_DEVEL("Token specific dsa sign failed.\n");
    return rc;
 }
 
@@ -546,7 +546,7 @@ ckm_dsa_verify( CK_BYTE   * signature,
    }
    rc = token_specific.t_dsa_verify(signature, data, publ_key);
    if (rc != CKR_OK)
-      TRACE_DEBUG("Token specific dsa verify failed.\n");
+      TRACE_DEVEL("Token specific dsa verify failed.\n");
    return rc;
 }
 

@@ -128,7 +128,7 @@ convert_path_to_shm_name(const char *file_path)
 	}
 	*it = '\0';
 
-	TRACE_DEBUG("File path \"%s\" converted to \"%s\".\n",
+	TRACE_DEVEL("File path \"%s\" converted to \"%s\".\n",
 		      file_path, name);
 	return name;
 }
@@ -216,7 +216,7 @@ sm_open(const char *sm_name, int mode, void **p_addr, size_t len, int force)
 		 * memory, such as its size and identifier.
 		 */
 		created = 1;
-		TRACE_DEBUG("Truncating \"%s\".\n", name);
+		TRACE_DEVEL("Truncating \"%s\".\n", name);
 		if (ftruncate(fd, real_len) < 0) {
 			rc = -errno;
 			SYS_ERROR(errno, "Cannot truncate \"%s\".\n", name);
@@ -268,7 +268,7 @@ sm_open(const char *sm_name, int mode, void **p_addr, size_t len, int force)
 			sm_close(addr, 1);
 		goto done;
 	}
-	TRACE_DEBUG("open: ref = %d\n", ctx->ref);
+	TRACE_DEVEL("open: ref = %d\n", ctx->ref);
 
 done:
 	if (fd >= 0)
@@ -297,7 +297,7 @@ sm_close(void *addr, int destroy)
 	}
 
 	ref = --ctx->ref;
-	TRACE_DEBUG("close: ref = %d\n", ref);
+	TRACE_DEVEL("close: ref = %d\n", ref);
 	if (ref == 0 && destroy) {
 		strncpy(name, ctx->name, SM_NAME_LEN);
 		name[SM_NAME_LEN] = '\0';
@@ -310,7 +310,7 @@ sm_close(void *addr, int destroy)
 	}
 
 	if (ref == 0 && destroy) {
-		TRACE_DEBUG("Deleting shared memory \"%s\".\n", name);
+		TRACE_DEVEL("Deleting shared memory \"%s\".\n", name);
 		if ((rc = sm_destroy(name)) != 0)
 			return rc;
 	}

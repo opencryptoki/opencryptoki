@@ -630,7 +630,7 @@ CK_RV XProcLock(void)
 	if (spinxplfd != -1)
 		flock(spinxplfd, LOCK_EX);
 	else
-		TRACE_DEBUG("No file descriptor to lock with.\n");
+		TRACE_DEVEL("No file descriptor to lock with.\n");
 
 	return CKR_OK;
 }
@@ -640,7 +640,7 @@ CK_RV XProcUnLock(void)
 	if (spinxplfd != -1)
 		flock(spinxplfd, LOCK_UN);
 	else
-		TRACE_DEBUG("No file descriptor to unlock with.\n");
+		TRACE_DEVEL("No file descriptor to unlock with.\n");
 
 	return CKR_OK;
 }
@@ -782,13 +782,13 @@ CK_RV init_token_data(CK_SLOT_ID slot_id)
 		//
 		rc = generate_master_key(master_key);
 		if (rc != CKR_OK) {
-			TRACE_DEBUG("generate_master_key failed.\n");
+			TRACE_DEVEL("generate_master_key failed.\n");
 			return CKR_FUNCTION_FAILED;
 		}
 
 		rc = save_masterkey_so();
 		if (rc != CKR_OK) {
-			TRACE_DEBUG("save_masterkey_so failed.\n");
+			TRACE_DEVEL("save_masterkey_so failed.\n");
 			return rc;
 		}
 	}
@@ -988,7 +988,7 @@ CK_RV attach_shm(CK_SLOT_ID slot_id, LW_SHM_TYPE **shm)
 	 */
 	ret = sm_open(get_pk_dir(buf), 0666, (void**) shm, sizeof(**shm), 0);
 	if (ret < 0) {
-		TRACE_DEBUG("sm_open failed.\n");
+		TRACE_DEVEL("sm_open failed.\n");
 		rc = CKR_FUNCTION_FAILED;
 		goto done;
 	}
@@ -1005,7 +1005,7 @@ CK_RV detach_shm()
 	XProcLock();
 
 	if (sm_close((void *)global_shm, 0)) {
-		TRACE_DEBUG("sm_close failed.\n");
+		TRACE_DEVEL("sm_close failed.\n");
 		rc = CKR_FUNCTION_FAILED;
 	}
 
@@ -1112,7 +1112,7 @@ CK_RV get_keytype(CK_OBJECT_HANDLE hkey, CK_KEY_TYPE *keytype)
 
 	rc = object_mgr_find_in_map1(hkey, &key_obj);
 	if (rc != CKR_OK) {
-		TRACE_DEBUG("object_mgr_find_in_map1 failed.\n");
+		TRACE_DEVEL("object_mgr_find_in_map1 failed.\n");
 		return rc;
 	}
 	rc = template_attribute_find(key_obj->template, CKA_KEY_TYPE, &attr);

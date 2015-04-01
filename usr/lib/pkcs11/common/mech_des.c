@@ -1621,7 +1621,7 @@ ckm_des_ecb_encrypt( CK_BYTE   * in_data,
 				 out_data, out_data_len, key, 1); 
 
    if (rc != CKR_OK)
-      TRACE_DEBUG("Token specific des_ecb encrypt failed.\n");
+      TRACE_DEVEL("Token specific des_ecb encrypt failed.\n");
    return rc;
 }
 

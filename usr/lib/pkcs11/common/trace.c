@@ -436,9 +436,9 @@ CK_RV trace_initialize(void)
 	case TRACE_LEVEL_ERROR:
 	case TRACE_LEVEL_WARNING:
 	case TRACE_LEVEL_INFO:
-	case TRACE_LEVEL_DEBUG:
-#ifdef DEBUG
 	case TRACE_LEVEL_DEVEL:
+#ifdef DEBUG
+	case TRACE_LEVEL_DEBUG:
 #endif
 		trace.level = num;
 		break;

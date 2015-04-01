@@ -837,7 +837,7 @@ ber_encode_PrivateKeyInfo( CK_BBOOL    length_only,
 
    rc = ber_encode_INTEGER( TRUE, NULL, &total, version, sizeof(version) );
    if (rc != CKR_OK){
-      TRACE_DEBUG("ber_encode_INTEGER failed\n");
+      TRACE_DEVEL("ber_encode_INTEGER failed\n");
       return rc;
    }
    else
@@ -847,7 +847,7 @@ ber_encode_PrivateKeyInfo( CK_BBOOL    length_only,
 
    rc = ber_encode_OCTET_STRING( TRUE, NULL, &total, priv_key, priv_key_len );
    if (rc != CKR_OK){
-      TRACE_DEBUG("ber_encode_OCTET_STRING failed\n");
+      TRACE_DEVEL("ber_encode_OCTET_STRING failed\n");
       return rc;
    }
    else
@@ -862,7 +862,7 @@ ber_encode_PrivateKeyInfo( CK_BBOOL    length_only,
       if (rc == CKR_OK)
          *data_len = total;
       if (rc != CKR_OK)
-         TRACE_DEBUG("ber_encode_SEQUENCE failed\n");
+         TRACE_DEVEL("ber_encode_SEQUENCE failed\n");
       return rc;
    }
 
@@ -874,7 +874,7 @@ ber_encode_PrivateKeyInfo( CK_BBOOL    length_only,
    len = 0;
    rc = ber_encode_INTEGER( FALSE, &tmp, &total, version, sizeof(version) );
    if (rc != CKR_OK){
-      TRACE_DEBUG("ber_encode_INTEGER failed\n");
+      TRACE_DEVEL("ber_encode_INTEGER failed\n");
       goto error;
    }
    memcpy( buf+len, tmp, total );
@@ -886,7 +886,7 @@ ber_encode_PrivateKeyInfo( CK_BBOOL    length_only,
 
    rc = ber_encode_OCTET_STRING( FALSE, &tmp, &total, priv_key, priv_key_len );
    if (rc != CKR_OK){
-      TRACE_DEBUG("ber_encode_OCTET_STRING failed\n");
+      TRACE_DEVEL("ber_encode_OCTET_STRING failed\n");
       goto error;
    }
    memcpy( buf+len, tmp, total );
@@ -895,7 +895,7 @@ ber_encode_PrivateKeyInfo( CK_BBOOL    length_only,
 
    rc = ber_encode_SEQUENCE( FALSE, data, data_len, buf, len );
    if (rc != CKR_OK)
-      TRACE_DEBUG("ber_encode_SEQUENCE failed\n");
+      TRACE_DEVEL("ber_encode_SEQUENCE failed\n");
 
 error:
    free( buf );
@@ -924,7 +924,7 @@ ber_decode_PrivateKeyInfo( CK_BYTE   * data,
    }
    rc = ber_decode_SEQUENCE( data, &buf, &buf_len, &field_len );
    if (rc != CKR_OK){
-      TRACE_DEBUG("ber_decode_SEQUENCE failed\n");
+      TRACE_DEVEL("ber_decode_SEQUENCE failed\n");
       return rc;
    }
    // version -- we just ignore this
@@ -932,7 +932,7 @@ ber_decode_PrivateKeyInfo( CK_BYTE   * data,
    offset = 0;
    rc = ber_decode_INTEGER( buf+offset, &ver, &len, &field_len );
    if (rc != CKR_OK){
-      TRACE_DEBUG("ber_decode_INTEGER failed\n");
+      TRACE_DEVEL("ber_decode_INTEGER failed\n");
       return rc;
    }
    offset += field_len;
@@ -941,7 +941,7 @@ ber_decode_PrivateKeyInfo( CK_BYTE   * data,
    //
    rc = ber_decode_SEQUENCE( buf+offset, &alg, &len, &field_len );
    if (rc != CKR_OK){
-      TRACE_DEBUG("ber_decode_SEQUENCE failed\n");
+      TRACE_DEVEL("ber_decode_SEQUENCE failed\n");
       return rc;
    }
    *algorithm = alg;
@@ -949,7 +949,7 @@ ber_decode_PrivateKeyInfo( CK_BYTE   * data,
 
    rc = ber_decode_OCTET_STRING( alg + len, priv_key, &buf_len, &field_len );
    if (rc != CKR_OK)
-      TRACE_DEBUG("ber_decode_OCTET_STRING failed\n");
+      TRACE_DEVEL("ber_decode_OCTET_STRING failed\n");
    return rc;
 }
 
@@ -1009,13 +1009,13 @@ ber_encode_RSAPrivateKey( CK_BBOOL    length_only,
    }
 
    if (rc != CKR_OK){
-      TRACE_DEBUG("ber_encode_INTEGER failed\n");
+      TRACE_DEVEL("ber_encode_INTEGER failed\n");
       return CKR_FUNCTION_FAILED;
    }
    if (length_only == TRUE) {
       rc = ber_encode_SEQUENCE( TRUE, NULL, &len, NULL, offset );
       if (rc != CKR_OK){
-         TRACE_DEBUG("ber_encode_SEQUENCE failed\n");
+         TRACE_DEVEL("ber_encode_SEQUENCE failed\n");
          return rc;
       }
       rc = ber_encode_PrivateKeyInfo( TRUE,
@@ -1023,7 +1023,7 @@ ber_encode_RSAPrivateKey( CK_BBOOL    length_only,
                                       NULL, ber_AlgIdRSAEncryptionLen,
                                       NULL, len );
       if (rc != CKR_OK){
-         TRACE_DEBUG("ber_encode_PrivateKeyInfo failed\n");
+         TRACE_DEVEL("ber_encode_PrivateKeyInfo failed\n");
          return rc;
       }
       return rc;
@@ -1039,7 +1039,7 @@ ber_encode_RSAPrivateKey( CK_BBOOL    length_only,
 
    rc = ber_encode_INTEGER( FALSE, &buf2, &len, version, sizeof(version) );
    if (rc != CKR_OK){
-      TRACE_DEBUG("ber_encode_INTEGER failed\n");
+      TRACE_DEVEL("ber_encode_INTEGER failed\n");
       goto error;
    }
    memcpy( buf+offset, buf2, len );
@@ -1048,7 +1048,7 @@ ber_encode_RSAPrivateKey( CK_BBOOL    length_only,
 
    rc = ber_encode_INTEGER( FALSE, &buf2, &len, (CK_BYTE *)modulus + sizeof(CK_ATTRIBUTE), modulus->ulValueLen );
    if (rc != CKR_OK){
-      TRACE_DEBUG("ber_encode_INTEGER failed\n");
+      TRACE_DEVEL("ber_encode_INTEGER failed\n");
       goto error;
    }
    memcpy( buf+offset, buf2, len );
@@ -1057,7 +1057,7 @@ ber_encode_RSAPrivateKey( CK_BBOOL    length_only,
 
    rc = ber_encode_INTEGER( FALSE, &buf2, &len, (CK_BYTE *)publ_exp + sizeof(CK_ATTRIBUTE), publ_exp->ulValueLen );
    if (rc != CKR_OK){
-      TRACE_DEBUG("ber_encode_INTEGER failed\n");
+      TRACE_DEVEL("ber_encode_INTEGER failed\n");
       goto error;
    }
    memcpy( buf+offset, buf2, len );
@@ -1068,7 +1068,7 @@ ber_encode_RSAPrivateKey( CK_BBOOL    length_only,
       // the CKA_IBM_OPAQUE attrib
       rc = ber_encode_OCTET_STRING( FALSE, &buf2, &len, (CK_BYTE *)opaque + sizeof(CK_ATTRIBUTE), opaque->ulValueLen );
       if (rc != CKR_OK){
-         TRACE_DEBUG("ber_encode_OCTET_STRING failed\n");
+         TRACE_DEVEL("ber_encode_OCTET_STRING failed\n");
          goto error;
       }
       memcpy( buf+offset, buf2, len );
@@ -1077,7 +1077,7 @@ ber_encode_RSAPrivateKey( CK_BBOOL    length_only,
    } else {
       rc = ber_encode_INTEGER( FALSE, &buf2, &len, (CK_BYTE *)priv_exp  + sizeof(CK_ATTRIBUTE),  priv_exp->ulValueLen );
       if (rc != CKR_OK){
-         TRACE_DEBUG("ber_encode_INTEGER failed\n");
+         TRACE_DEVEL("ber_encode_INTEGER failed\n");
          goto error;
       }
       memcpy( buf+offset, buf2, len );
@@ -1086,7 +1086,7 @@ ber_encode_RSAPrivateKey( CK_BBOOL    length_only,
 
       rc = ber_encode_INTEGER( FALSE, &buf2, &len, (CK_BYTE *)prime1    + sizeof(CK_ATTRIBUTE),    prime1->ulValueLen );
       if (rc != CKR_OK){
-         TRACE_DEBUG("ber_encode_INTEGER failed\n");
+         TRACE_DEVEL("ber_encode_INTEGER failed\n");
          goto error;
       }
       memcpy( buf+offset, buf2, len );
@@ -1095,7 +1095,7 @@ ber_encode_RSAPrivateKey( CK_BBOOL    length_only,
 
       rc = ber_encode_INTEGER( FALSE, &buf2, &len, (CK_BYTE *)prime2    + sizeof(CK_ATTRIBUTE),    prime2->ulValueLen );
       if (rc != CKR_OK){
-         TRACE_DEBUG("ber_encode_INTEGER failed\n");
+         TRACE_DEVEL("ber_encode_INTEGER failed\n");
          goto error;
       }
       memcpy( buf+offset, buf2, len );
@@ -1104,7 +1104,7 @@ ber_encode_RSAPrivateKey( CK_BBOOL    length_only,
 
       rc = ber_encode_INTEGER( FALSE, &buf2, &len, (CK_BYTE *)exponent1 + sizeof(CK_ATTRIBUTE), exponent1->ulValueLen );
       if (rc != CKR_OK){
-         TRACE_DEBUG("ber_encode_INTEGER failed\n");
+         TRACE_DEVEL("ber_encode_INTEGER failed\n");
          goto error;
       }
       memcpy( buf+offset, buf2, len );
@@ -1113,7 +1113,7 @@ ber_encode_RSAPrivateKey( CK_BBOOL    length_only,
 
       rc = ber_encode_INTEGER( FALSE, &buf2, &len, (CK_BYTE *)exponent2 + sizeof(CK_ATTRIBUTE), exponent2->ulValueLen );
       if (rc != CKR_OK){
-         TRACE_DEBUG("ber_encode_INTEGER failed\n");
+         TRACE_DEVEL("ber_encode_INTEGER failed\n");
          goto error;
       }
       memcpy( buf+offset, buf2, len );
@@ -1122,7 +1122,7 @@ ber_encode_RSAPrivateKey( CK_BBOOL    length_only,
 
       rc = ber_encode_INTEGER( FALSE, &buf2, &len, (CK_BYTE *)coeff     + sizeof(CK_ATTRIBUTE),     coeff->ulValueLen );
       if (rc != CKR_OK){
-         TRACE_DEBUG("ber_encode_INTEGER failed\n");
+         TRACE_DEVEL("ber_encode_INTEGER failed\n");
          goto error;
       }
       memcpy( buf+offset, buf2, len );
@@ -1132,7 +1132,7 @@ ber_encode_RSAPrivateKey( CK_BBOOL    length_only,
 
    rc = ber_encode_SEQUENCE( FALSE, &buf2, &len, buf, offset );
    if (rc != CKR_OK){
-      TRACE_DEBUG("ber_encode_SEQUENCE failed\n");
+      TRACE_DEVEL("ber_encode_SEQUENCE failed\n");
       goto error;
    }
    rc = ber_encode_PrivateKeyInfo( FALSE,
@@ -1184,7 +1184,7 @@ ber_decode_RSAPrivateKey( CK_BYTE    * data,
 
    rc = ber_decode_PrivateKeyInfo( data, data_len, &alg, &len, &rsa_priv_key );
    if (rc != CKR_OK){
-      TRACE_DEBUG("ber_decode_PrivateKeyInfo failed\n");
+      TRACE_DEVEL("ber_decode_PrivateKeyInfo failed\n");
       return rc;
    }
    // make sure we're dealing with an RSA key
@@ -1205,7 +1205,7 @@ ber_decode_RSAPrivateKey( CK_BYTE    * data,
    //
    rc = ber_decode_INTEGER( buf+offset, &tmp, &len, &field_len );
    if (rc != CKR_OK){
-      TRACE_DEBUG("ber_decode_INTEGER failed\n");
+      TRACE_DEVEL("ber_decode_INTEGER failed\n");
       goto cleanup;
    }
    offset += field_len;
@@ -1214,7 +1214,7 @@ ber_decode_RSAPrivateKey( CK_BYTE    * data,
    //
    rc = ber_decode_INTEGER( buf+offset, &tmp, &len, &field_len );
    if (rc != CKR_OK){
-      TRACE_DEBUG("ber_decode_INTEGER failed\n");
+      TRACE_DEVEL("ber_decode_INTEGER failed\n");
       goto cleanup;
    }
    offset += field_len;
@@ -1223,7 +1223,7 @@ ber_decode_RSAPrivateKey( CK_BYTE    * data,
    //
    rc = ber_decode_INTEGER( buf+offset, &tmp, &len, &field_len );
    if (rc != CKR_OK){
-      TRACE_DEBUG("ber_decode_INTEGER failed\n");
+      TRACE_DEVEL("ber_decode_INTEGER failed\n");
       goto cleanup;
    }
    offset += field_len;
@@ -1233,7 +1233,7 @@ ber_decode_RSAPrivateKey( CK_BYTE    * data,
       //
       rc = ber_decode_OCTET_STRING( buf+offset, &tmp, &len, &field_len );
       if (rc != CKR_OK){
-         TRACE_DEBUG("ber_decode_OCTET_STRING failed\n");
+         TRACE_DEVEL("ber_decode_OCTET_STRING failed\n");
          goto cleanup;
       }
       offset += field_len;
@@ -1243,7 +1243,7 @@ ber_decode_RSAPrivateKey( CK_BYTE    * data,
      //
      rc = ber_decode_INTEGER( buf+offset, &tmp, &len, &field_len );
      if (rc != CKR_OK){
-        TRACE_DEBUG("ber_decode_INTEGER failed\n");
+        TRACE_DEVEL("ber_decode_INTEGER failed\n");
         goto cleanup;
      }
      offset += field_len;
@@ -1252,7 +1252,7 @@ ber_decode_RSAPrivateKey( CK_BYTE    * data,
      //
      rc = ber_decode_INTEGER( buf+offset, &tmp, &len, &field_len );
      if (rc != CKR_OK){
-        TRACE_DEBUG("ber_decode_INTEGER failed\n");
+        TRACE_DEVEL("ber_decode_INTEGER failed\n");
         goto cleanup;
      }
      offset += field_len;
@@ -1261,7 +1261,7 @@ ber_decode_RSAPrivateKey( CK_BYTE    * data,
      //
      rc = ber_decode_INTEGER( buf+offset, &tmp, &len, &field_len );
      if (rc != CKR_OK){
-        TRACE_DEBUG("ber_decode_INTEGER failed\n");
+        TRACE_DEVEL("ber_decode_INTEGER failed\n");
         goto cleanup;
      }
      offset += field_len;
@@ -1270,7 +1270,7 @@ ber_decode_RSAPrivateKey( CK_BYTE    * data,
      //
      rc = ber_decode_INTEGER( buf+offset, &tmp, &len, &field_len );
      if (rc != CKR_OK){
-        TRACE_DEBUG("ber_decode_INTEGER failed\n");
+        TRACE_DEVEL("ber_decode_INTEGER failed\n");
         goto cleanup;
      }
      offset += field_len;
@@ -1279,7 +1279,7 @@ ber_decode_RSAPrivateKey( CK_BYTE    * data,
      //
      rc = ber_decode_INTEGER( buf+offset, &tmp, &len, &field_len );
      if (rc != CKR_OK){
-        TRACE_DEBUG("ber_decode_INTEGER failed\n");
+        TRACE_DEVEL("ber_decode_INTEGER failed\n");
         goto cleanup;
      }
      offset += field_len;
@@ -1288,7 +1288,7 @@ ber_decode_RSAPrivateKey( CK_BYTE    * data,
      //
      rc = ber_decode_INTEGER( buf+offset, &tmp, &len, &field_len );
      if (rc != CKR_OK){
-        TRACE_DEBUG("ber_decode_INTEGER failed\n");
+        TRACE_DEVEL("ber_decode_INTEGER failed\n");
         goto cleanup;
      }
      offset += field_len;
@@ -1309,7 +1309,7 @@ ber_decode_RSAPrivateKey( CK_BYTE    * data,
    //
    rc = ber_decode_INTEGER( buf+offset, &tmp, &len, &field_len );
    if (rc != CKR_OK){
-      TRACE_DEBUG("ber_decode_INTEGER failed\n");
+      TRACE_DEVEL("ber_decode_INTEGER failed\n");
       goto cleanup;
    }
    offset += field_len;
@@ -1318,13 +1318,13 @@ ber_decode_RSAPrivateKey( CK_BYTE    * data,
    //
    rc = ber_decode_INTEGER( buf+offset, &tmp, &len, &field_len );
    if (rc != CKR_OK){
-      TRACE_DEBUG("ber_decode_INTEGER failed\n");
+      TRACE_DEVEL("ber_decode_INTEGER failed\n");
       goto cleanup;
    }
    else {
       rc = build_attribute( CKA_MODULUS, tmp, len, &n_attr );
       if (rc != CKR_OK){
-         TRACE_DEBUG("build_attribute failed\n");
+         TRACE_DEVEL("build_attribute failed\n");
          goto cleanup;
       }
       offset += field_len;
@@ -1334,13 +1334,13 @@ ber_decode_RSAPrivateKey( CK_BYTE    * data,
    //
    rc = ber_decode_INTEGER( buf+offset, &tmp, &len, &field_len );
    if (rc != CKR_OK){
-      TRACE_DEBUG("ber_decode_INTEGER failed\n");
+      TRACE_DEVEL("ber_decode_INTEGER failed\n");
       goto cleanup;
    }
    else {
       rc = build_attribute( CKA_PUBLIC_EXPONENT, tmp, len, &e_attr );
       if (rc != CKR_OK){
-         TRACE_DEBUG("build_attribute failed\n");
+         TRACE_DEVEL("build_attribute failed\n");
          goto cleanup;
       }
       offset += field_len;
@@ -1351,13 +1351,13 @@ ber_decode_RSAPrivateKey( CK_BYTE    * data,
       //
       rc = ber_decode_OCTET_STRING( buf+offset, &tmp, &len, &field_len );
       if (rc != CKR_OK){
-         TRACE_DEBUG("ber_decode_OCTET_STRING failed\n");
+         TRACE_DEVEL("ber_decode_OCTET_STRING failed\n");
          goto cleanup;
       }
       else {
          rc = build_attribute( CKA_IBM_OPAQUE, tmp, len, &o_attr );
          if (rc != CKR_OK){
-            TRACE_DEBUG("build_attribute failed\n");
+            TRACE_DEVEL("build_attribute failed\n");
             goto cleanup;
          }
          offset += field_len;
@@ -1368,13 +1368,13 @@ ber_decode_RSAPrivateKey( CK_BYTE    * data,
       //
       rc = ber_decode_INTEGER( buf+offset, &tmp, &len, &field_len );
       if (rc != CKR_OK){
-         TRACE_DEBUG("ber_decode_INTEGER failed\n");
+         TRACE_DEVEL("ber_decode_INTEGER failed\n");
          goto cleanup;
       }
       else {
          rc = build_attribute( CKA_PRIVATE_EXPONENT, tmp, len, &d_attr );
          if (rc != CKR_OK){
-            TRACE_DEBUG("build_attribute failed\n");
+            TRACE_DEVEL("build_attribute failed\n");
             goto cleanup;
          }
          offset += field_len;
@@ -1384,13 +1384,13 @@ ber_decode_RSAPrivateKey( CK_BYTE    * data,
       //
       rc = ber_decode_INTEGER( buf+offset, &tmp, &len, &field_len );
       if (rc != CKR_OK){
-         TRACE_DEBUG("ber_decode_INTEGER failed\n");
+         TRACE_DEVEL("ber_decode_INTEGER failed\n");
          goto cleanup;
       }
       else {
          rc = build_attribute( CKA_PRIME_1, tmp, len, &p_attr );
          if (rc != CKR_OK){
-            TRACE_DEBUG("build_attribute failed\n");
+            TRACE_DEVEL("build_attribute failed\n");
             goto cleanup;
          }
          offset += field_len;
@@ -1400,13 +1400,13 @@ ber_decode_RSAPrivateKey( CK_BYTE    * data,
       //
       rc = ber_decode_INTEGER( buf+offset, &tmp, &len, &field_len );
       if (rc != CKR_OK){
-         TRACE_DEBUG("ber_decode_INTEGER failed\n");
+         TRACE_DEVEL("ber_decode_INTEGER failed\n");
          goto cleanup;
       }
       else {
          rc = build_attribute( CKA_PRIME_2, tmp, len, &q_attr );
          if (rc != CKR_OK){
-            TRACE_DEBUG("build_attribute failed\n");
+            TRACE_DEVEL("build_attribute failed\n");
             goto cleanup;
          }
          offset += field_len;
@@ -1416,13 +1416,13 @@ ber_decode_RSAPrivateKey( CK_BYTE    * data,
       //
       rc = ber_decode_INTEGER( buf+offset, &tmp, &len, &field_len );
       if (rc != CKR_OK){
-         TRACE_DEBUG("ber_decode_INTEGER failed\n");
+         TRACE_DEVEL("ber_decode_INTEGER failed\n");
          goto cleanup;
       }
       else {
          rc = build_attribute( CKA_EXPONENT_1, tmp, len, &e1_attr );
          if (rc != CKR_OK){
-            TRACE_DEBUG("build_attribute failed\n");
+            TRACE_DEVEL("build_attribute failed\n");
             goto cleanup;
          }
          offset += field_len;
@@ -1432,13 +1432,13 @@ ber_decode_RSAPrivateKey( CK_BYTE    * data,
       //
       rc = ber_decode_INTEGER( buf+offset, &tmp, &len, &field_len );
       if (rc != CKR_OK){
-         TRACE_DEBUG("ber_decode_INTEGER failed\n");
+         TRACE_DEVEL("ber_decode_INTEGER failed\n");
          goto cleanup;
       }
       else {
          rc = build_attribute( CKA_EXPONENT_2, tmp, len, &e2_attr );
          if (rc != CKR_OK){
-            TRACE_DEBUG("build_attribute failed\n");
+            TRACE_DEVEL("build_attribute failed\n");
             goto cleanup;
          }
          offset += field_len;
@@ -1448,13 +1448,13 @@ ber_decode_RSAPrivateKey( CK_BYTE    * data,
       //
       rc = ber_decode_INTEGER( buf+offset, &tmp, &len, &field_len );
       if (rc != CKR_OK){
-         TRACE_DEBUG("ber_decode_INTEGER failed\n");
+         TRACE_DEVEL("ber_decode_INTEGER failed\n");
          goto cleanup;
       }
       else {
          rc = build_attribute( CKA_COEFFICIENT, tmp, len, &coeff_attr );
          if (rc != CKR_OK){
-            TRACE_DEBUG("build_attribute failed\n");
+            TRACE_DEVEL("build_attribute failed\n");
             goto cleanup;
          }
          offset += len;
@@ -1530,18 +1530,18 @@ ber_encode_DSAPrivateKey( CK_BBOOL    length_only,
    rc |= ber_encode_INTEGER( TRUE, NULL, &len, NULL, base->ulValueLen   );  offset += len;
 
    if (rc != CKR_OK){
-      TRACE_DEBUG("ber_encode_INTEGER failed\n");
+      TRACE_DEVEL("ber_encode_INTEGER failed\n");
       return CKR_FUNCTION_FAILED;
    }
    if (length_only == TRUE) {
       rc = ber_encode_SEQUENCE( TRUE, NULL, &param_len, NULL, offset );
       if (rc != CKR_OK){
-         TRACE_DEBUG("ber_encode_SEQUENCE failed\n");
+         TRACE_DEVEL("ber_encode_SEQUENCE failed\n");
          return rc;
       }
       rc = ber_encode_INTEGER( TRUE, NULL, &len, NULL, priv_key->ulValueLen );
       if (rc != CKR_OK){
-         TRACE_DEBUG("ber_encode_INTEGER failed\n");
+         TRACE_DEVEL("ber_encode_INTEGER failed\n");
          return rc;
       }
       rc = ber_encode_PrivateKeyInfo( TRUE,
@@ -1549,7 +1549,7 @@ ber_encode_DSAPrivateKey( CK_BBOOL    length_only,
                                       NULL,  ber_idDSALen + param_len,
                                       NULL,  len );
       if (rc != CKR_OK){
-         TRACE_DEBUG("ber_encode_PrivateKeyInfo failed\n");
+         TRACE_DEVEL("ber_encode_PrivateKeyInfo failed\n");
       }
       return rc;
    }
@@ -1566,7 +1566,7 @@ ber_encode_DSAPrivateKey( CK_BBOOL    length_only,
 
    rc = ber_encode_INTEGER( FALSE, &tmp, &len, (CK_BYTE *)prime1 + sizeof(CK_ATTRIBUTE), prime1->ulValueLen );
    if (rc != CKR_OK){
-      TRACE_DEBUG("ber_encode_INTEGER failed\n");
+      TRACE_DEVEL("ber_encode_INTEGER failed\n");
       goto error;
    }
    memcpy( buf+offset, tmp, len );
@@ -1576,7 +1576,7 @@ ber_encode_DSAPrivateKey( CK_BBOOL    length_only,
 
    rc = ber_encode_INTEGER( FALSE, &tmp, &len, (CK_BYTE *)prime2 + sizeof(CK_ATTRIBUTE), prime2->ulValueLen );
    if (rc != CKR_OK){
-      TRACE_DEBUG("ber_encode_INTEGER failed\n");
+      TRACE_DEVEL("ber_encode_INTEGER failed\n");
       goto error;
    }
    memcpy( buf+offset, tmp, len );
@@ -1586,7 +1586,7 @@ ber_encode_DSAPrivateKey( CK_BBOOL    length_only,
 
    rc = ber_encode_INTEGER( FALSE, &tmp, &len, (CK_BYTE *)base   + sizeof(CK_ATTRIBUTE), base->ulValueLen   );
    if (rc != CKR_OK){
-      TRACE_DEBUG("ber_encode_INTEGER failed\n");
+      TRACE_DEVEL("ber_encode_INTEGER failed\n");
       goto error;
    }
    memcpy( buf+offset, tmp, len );
@@ -1596,7 +1596,7 @@ ber_encode_DSAPrivateKey( CK_BBOOL    length_only,
 
    rc = ber_encode_SEQUENCE( FALSE, &param, &param_len, buf, offset );
    if (rc != CKR_OK) {
-      TRACE_DEBUG("ber_encode_SEQUENCE failed\n");
+      TRACE_DEVEL("ber_encode_SEQUENCE failed\n");
       free(buf);
       return rc;
    }
@@ -1625,7 +1625,7 @@ ber_encode_DSAPrivateKey( CK_BBOOL    length_only,
 
    rc = ber_encode_SEQUENCE( FALSE, &alg, &alg_len, buf, len );
    if (rc != CKR_OK){
-      TRACE_DEBUG("ber_encode_SEQUENCE failed\n");
+      TRACE_DEVEL("ber_encode_SEQUENCE failed\n");
       goto error;
    }
    free( buf );
@@ -1635,7 +1635,7 @@ ber_encode_DSAPrivateKey( CK_BBOOL    length_only,
    //
    rc = ber_encode_INTEGER( FALSE, &buf, &len, (CK_BYTE *)priv_key + sizeof(CK_ATTRIBUTE), priv_key->ulValueLen );
    if (rc != CKR_OK){
-      TRACE_DEBUG("ber_encode_INTEGER failed\n");
+      TRACE_DEVEL("ber_encode_INTEGER failed\n");
       goto error;
    }
 
@@ -1644,7 +1644,7 @@ ber_encode_DSAPrivateKey( CK_BBOOL    length_only,
                                    alg,     alg_len,
                                    buf,     len );
    if (rc != CKR_OK){
-      TRACE_DEBUG("ber_encode_PrivateKeyInfo failed\n");
+      TRACE_DEVEL("ber_encode_PrivateKeyInfo failed\n");
       goto error;
    }
 
@@ -1682,7 +1682,7 @@ ber_decode_DSAPrivateKey( CK_BYTE     * data,
 
    rc = ber_decode_PrivateKeyInfo( data, data_len, &alg, &len, &dsakey );
    if (rc != CKR_OK){
-      TRACE_DEBUG("ber_decode_PrivateKeyInfo failed\n");
+      TRACE_DEVEL("ber_decode_PrivateKeyInfo failed\n");
       return rc;
    }
 
@@ -1698,7 +1698,7 @@ ber_decode_DSAPrivateKey( CK_BYTE     * data,
    //
    rc = ber_decode_SEQUENCE( alg + ber_idDSALen, &buf, &buf_len, &field_len );
    if (rc != CKR_OK){
-      TRACE_DEBUG("ber_decode_SEQUENCE failed\n");
+      TRACE_DEVEL("ber_decode_SEQUENCE failed\n");
       return rc;
    }
    offset = 0;
@@ -1707,7 +1707,7 @@ ber_decode_DSAPrivateKey( CK_BYTE     * data,
    //
    rc = ber_decode_INTEGER( buf+offset, &tmp, &len, &field_len );
    if (rc != CKR_OK){
-      TRACE_DEBUG("ber_decode_INTEGER failed\n");
+      TRACE_DEVEL("ber_decode_INTEGER failed\n");
       goto cleanup;
    }
    offset += field_len;
@@ -1716,7 +1716,7 @@ ber_decode_DSAPrivateKey( CK_BYTE     * data,
    //
    rc = ber_decode_INTEGER( buf+offset, &tmp, &len, &field_len );
    if (rc != CKR_OK){
-      TRACE_DEBUG("ber_decode_INTEGER failed\n");
+      TRACE_DEVEL("ber_decode_INTEGER failed\n");
       goto cleanup;
    }
    offset += field_len;
@@ -1725,7 +1725,7 @@ ber_decode_DSAPrivateKey( CK_BYTE     * data,
    //
    rc = ber_decode_INTEGER( buf+offset, &tmp, &len, &field_len );
    if (rc != CKR_OK){
-      TRACE_DEBUG("ber_decode_INTEGER failed\n");
+      TRACE_DEVEL("ber_decode_INTEGER failed\n");
       goto cleanup;
    }
    offset += field_len;
@@ -1744,13 +1744,13 @@ ber_decode_DSAPrivateKey( CK_BYTE     * data,
    //
    rc = ber_decode_INTEGER( buf+offset, &tmp, &len, &field_len );
    if (rc != CKR_OK){
-      TRACE_DEBUG("ber_decode_INTEGER failed\n");
+      TRACE_DEVEL("ber_decode_INTEGER failed\n");
       goto cleanup;
    }
    else {
       rc = build_attribute( CKA_PRIME, tmp, len, &p_attr );
       if (rc != CKR_OK){
-         TRACE_DEBUG("build_attribute failed\n");
+         TRACE_DEVEL("build_attribute failed\n");
          goto cleanup;
       }
       offset += field_len;
@@ -1760,13 +1760,13 @@ ber_decode_DSAPrivateKey( CK_BYTE     * data,
    //
    rc = ber_decode_INTEGER( buf+offset, &tmp, &len, &field_len );
    if (rc != CKR_OK){
-      TRACE_DEBUG("ber_decode_INTEGER failed\n");
+      TRACE_DEVEL("ber_decode_INTEGER failed\n");
       goto cleanup;
    }
    else {
       rc = build_attribute( CKA_SUBPRIME, tmp, len, &q_attr );
       if (rc != CKR_OK){
-         TRACE_DEBUG("build_attribute failed\n");
+         TRACE_DEVEL("build_attribute failed\n");
          goto cleanup;
       }
       offset += field_len;
@@ -1776,13 +1776,13 @@ ber_decode_DSAPrivateKey( CK_BYTE     * data,
    //
    rc = ber_decode_INTEGER( buf+offset, &tmp, &len, &field_len );
    if (rc != CKR_OK){
-      TRACE_DEBUG("ber_decode_INTEGER failed\n");
+      TRACE_DEVEL("ber_decode_INTEGER failed\n");
       goto cleanup;
    }
    else {
       rc = build_attribute( CKA_BASE, tmp, len, &g_attr );
       if (rc != CKR_OK){
-         TRACE_DEBUG("build_attribute failed\n");
+         TRACE_DEVEL("build_attribute failed\n");
          goto cleanup;
       }
       offset += field_len;
@@ -1792,13 +1792,13 @@ ber_decode_DSAPrivateKey( CK_BYTE     * data,
    //
    rc = ber_decode_INTEGER( dsakey, &tmp, &len, &field_len );
    if (rc != CKR_OK){
-      TRACE_DEBUG("ber_decode_INTEGER failed\n");
+      TRACE_DEVEL("ber_decode_INTEGER failed\n");
       goto cleanup;
    }
    else {
       rc = build_attribute( CKA_VALUE, tmp, len, &x_attr );
       if (rc != CKR_OK){
-         TRACE_DEBUG("build_attribute failed\n");
+         TRACE_DEVEL("build_attribute failed\n");
          goto cleanup;
       }
       offset += field_len;

@@ -567,7 +567,7 @@ publ_key_set_default_attributes( TEMPLATE *tmpl, CK_ULONG mode )
 
    rc = key_object_set_default_attributes( tmpl, mode );
    if (rc != CKR_OK){
-      TRACE_DEBUG("key_object_set_default_attributes failed\n");
+      TRACE_DEVEL("key_object_set_default_attributes failed\n");
       return rc;
    }
    // add the default CKO_PUBLIC_KEY attributes
@@ -697,7 +697,7 @@ priv_key_set_default_attributes( TEMPLATE *tmpl, CK_ULONG mode )
 
    rc = key_object_set_default_attributes( tmpl, mode );
    if (rc != CKR_OK){
-      TRACE_DEBUG("key_object_set_default_attributes failed\n");
+      TRACE_DEVEL("key_object_set_default_attributes failed\n");
       return rc;
    }
    // add the default CKO_PUBLIC_KEY attributes
@@ -832,7 +832,7 @@ priv_key_unwrap( TEMPLATE *tmpl,
    }
 
    if (rc != CKR_OK) {
-      TRACE_DEBUG("priv unwrap failed\n");
+      TRACE_DEVEL("priv unwrap failed\n");
       return rc;
    }
 
@@ -844,27 +844,27 @@ priv_key_unwrap( TEMPLATE *tmpl,
    //
    rc = build_attribute( CKA_LOCAL,  &false, 1, &local );
    if (rc != CKR_OK){
-      TRACE_DEBUG("build_attribute failed\n");
+      TRACE_DEVEL("build_attribute failed\n");
       goto cleanup;
    }
    rc = build_attribute( CKA_ALWAYS_SENSITIVE,  &false, 1, &always_sens );
    if (rc != CKR_OK){
-      TRACE_DEBUG("build_attribute failed\n");
+      TRACE_DEVEL("build_attribute failed\n");
       goto cleanup;
    }
    rc = build_attribute( CKA_SENSITIVE,         &false, 1, &sensitive );
    if (rc != CKR_OK){
-      TRACE_DEBUG("build_attribute failed\n");
+      TRACE_DEVEL("build_attribute failed\n");
       goto cleanup;
    }
    rc = build_attribute( CKA_EXTRACTABLE,       &true,  1, &extractable );
    if (rc != CKR_OK){
-      TRACE_DEBUG("build_attribute failed\n");
+      TRACE_DEVEL("build_attribute failed\n");
       goto cleanup;
    }
    rc = build_attribute( CKA_NEVER_EXTRACTABLE, &false, 1, &never_extract );
    if (rc != CKR_OK){
-      TRACE_DEBUG("build_attribute failed\n");
+      TRACE_DEVEL("build_attribute failed\n");
       goto cleanup;
    }
    template_update_attribute( tmpl, local );
@@ -1174,27 +1174,27 @@ secret_key_unwrap( TEMPLATE *tmpl,
    //
    rc = build_attribute( CKA_LOCAL,             &false, 1, &local );
    if (rc != CKR_OK){
-      TRACE_DEBUG("build attribute failed\n");
+      TRACE_DEVEL("build attribute failed\n");
       goto cleanup;
    }
    rc = build_attribute( CKA_ALWAYS_SENSITIVE,  &false, 1, &always_sens );
    if (rc != CKR_OK){
-      TRACE_DEBUG("build attribute failed\n");
+      TRACE_DEVEL("build attribute failed\n");
       goto cleanup;
    }
    rc = build_attribute( CKA_SENSITIVE,         &false, 1, &sensitive );
    if (rc != CKR_OK){
-      TRACE_DEBUG("build_attribute failed\n");
+      TRACE_DEVEL("build_attribute failed\n");
       goto cleanup;
    }
    rc = build_attribute( CKA_EXTRACTABLE,       &true,  1, &extractable );
    if (rc != CKR_OK){
-      TRACE_DEBUG("build_attribute failed\n");
+      TRACE_DEVEL("build_attribute failed\n");
       goto cleanup;
    }
    rc = build_attribute( CKA_NEVER_EXTRACTABLE, &false, 1, &never_extract );
    if (rc != CKR_OK){
-      TRACE_DEBUG("build_attribute failed\n");
+      TRACE_DEVEL("build_attribute failed\n");
       goto cleanup;
    }
    template_update_attribute( tmpl, local );
@@ -1769,7 +1769,7 @@ FALSE){
 				 publ_exp, priv_exp, prime1, prime2,
 				 exponent1, exponent2, coeff, opaque);
    if (rc != CKR_OK){
-      TRACE_DEBUG("ber_encode_RSAPrivateKey failed\n");
+      TRACE_DEVEL("ber_encode_RSAPrivateKey failed\n");
    }
    return rc;
 }
@@ -1808,7 +1808,7 @@ rsa_priv_unwrap( TEMPLATE *tmpl,
 				  isopaque );
 
    if (rc != CKR_OK){
-      TRACE_DEBUG("ber_decode_RSAPrivateKey failed\n");
+      TRACE_DEVEL("ber_decode_RSAPrivateKey failed\n");
       return rc;
    }
    p11_attribute_trim( modulus );
@@ -2253,7 +2253,7 @@ dsa_priv_wrap_get_data( TEMPLATE  *tmpl,
    rc = ber_encode_DSAPrivateKey( length_only, data, data_len,
                                   prime, subprime, base, value );
    if (rc != CKR_OK)
-      TRACE_DEBUG("ber_encode_DSAPrivateKe failed\n");
+      TRACE_DEVEL("ber_encode_DSAPrivateKe failed\n");
 
    return rc;
 }
@@ -2276,7 +2276,7 @@ dsa_priv_unwrap( TEMPLATE *tmpl,
                                   &prime, &subprime, &base, &value );
 
    if (rc != CKR_OK){
-      TRACE_DEBUG("ber_decode_DSAPrivateKey failed\n");
+      TRACE_DEVEL("ber_decode_DSAPrivateKey failed\n");
       return rc;
    }
    p11_attribute_trim( prime );
@@ -3322,13 +3322,13 @@ generic_secret_unwrap( TEMPLATE *tmpl,
       rc = build_attribute( CKA_VALUE, ptr, data_len, &value_attr );
 
    if (rc != CKR_OK){
-      TRACE_DEBUG("build_attribute failed\n");
+      TRACE_DEVEL("build_attribute failed\n");
       goto error;
    }
    if (data_len != len) {
       rc = build_attribute( CKA_VALUE_LEN, (CK_BYTE *)&data_len, sizeof(CK_ULONG), &value_len_attr );
       if (rc != CKR_OK){
-         TRACE_DEBUG("build_attribute failed\n");
+         TRACE_DEVEL("build_attribute failed\n");
          goto error;
       }
    }

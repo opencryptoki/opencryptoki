@@ -409,12 +409,12 @@ ssl3_mac_sign( SESSION              * sess,
    //
    rc = digest_mgr_init( sess, &digest_ctx, &digest_mech );
    if (rc != CKR_OK){
-      TRACE_DEBUG("Digest Init failed.\n");
+      TRACE_DEVEL("Digest Init failed.\n");
       return rc;
    }
    rc = digest_mgr_digest_update( sess, &digest_ctx, key_data, key_bytes );
    if (rc != CKR_OK){
-      TRACE_DEBUG("Digest update failed.\n");
+      TRACE_DEVEL("Digest update failed.\n");
       return rc;
    }
    if (ctx->mech.mechanism == CKM_SSL3_MD5_MAC){
@@ -424,18 +424,18 @@ ssl3_mac_sign( SESSION              * sess,
       rc = digest_mgr_digest_update( sess, &digest_ctx, inner, 40 );
    }
    if (rc != CKR_OK){
-      TRACE_DEBUG("Digest update failed.\n");
+      TRACE_DEVEL("Digest update failed.\n");
       return rc;
    }
    rc = digest_mgr_digest_update( sess, &digest_ctx, in_data, in_data_len );
    if (rc != CKR_OK){
-      TRACE_DEBUG("Digest update failed.\n");
+      TRACE_DEVEL("Digest update failed.\n");
       return rc;
    }
    hash_len = sizeof(hash);
    rc = digest_mgr_digest_final( sess, FALSE, &digest_ctx,  hash, &hash_len );
    if (rc != CKR_OK){
-      TRACE_DEBUG("Digest final failed.\n");
+      TRACE_DEVEL("Digest final failed.\n");
       return rc;
    }
    memset( &digest_ctx, 0x0, sizeof(DIGEST_CONTEXT) );
@@ -445,12 +445,12 @@ ssl3_mac_sign( SESSION              * sess,
    //
    rc = digest_mgr_init( sess, &digest_ctx, &digest_mech );
    if (rc != CKR_OK){
-      TRACE_DEBUG("Digest Init failed.\n");
+      TRACE_DEVEL("Digest Init failed.\n");
       return rc;
    }
    rc = digest_mgr_digest_update( sess, &digest_ctx, key_data, key_bytes );
    if (rc != CKR_OK){
-      TRACE_DEBUG("Digest update failed.\n");
+      TRACE_DEVEL("Digest update failed.\n");
       return rc;
    }
    if (ctx->mech.mechanism == CKM_SSL3_MD5_MAC)
@@ -458,18 +458,18 @@ ssl3_mac_sign( SESSION              * sess,
    else
       rc = digest_mgr_digest_update( sess, &digest_ctx, outer, 40 );
    if (rc != CKR_OK){
-      TRACE_DEBUG("Digest update failed.\n");
+      TRACE_DEVEL("Digest update failed.\n");
       return rc;
    }
    rc = digest_mgr_digest_update( sess, &digest_ctx, hash, hash_len );
    if (rc != CKR_OK){
-      TRACE_DEBUG("Digest update failed.\n");
+      TRACE_DEVEL("Digest update failed.\n");
       return rc;
    }
    hash_len = sizeof(hash);
    rc = digest_mgr_digest_final( sess, FALSE, &digest_ctx, hash, &hash_len );
    if (rc != CKR_OK){
-      TRACE_DEBUG("Digest final failed.\n");
+      TRACE_DEVEL("Digest final failed.\n");
       return rc;
    }
    memcpy( out_data, hash, mac_len );
@@ -540,12 +540,12 @@ ssl3_mac_sign_update( SESSION              * sess,
       //
       rc = digest_mgr_init( sess, &context->hash_context, &digest_mech );
       if (rc != CKR_OK){
-         TRACE_DEBUG("Digest Init failed.\n");
+         TRACE_DEVEL("Digest Init failed.\n");
          return rc;
       }
       rc = digest_mgr_digest_update( sess, &context->hash_context, key_data, key_bytes );
       if (rc != CKR_OK){
-         TRACE_DEBUG("Digest update failed.\n");
+         TRACE_DEVEL("Digest update failed.\n");
          return rc;
       }
       if (ctx->mech.mechanism == CKM_SSL3_MD5_MAC)
@@ -553,7 +553,7 @@ ssl3_mac_sign_update( SESSION              * sess,
       else
          rc = digest_mgr_digest_update( sess, &context->hash_context, inner, 40 );
       if (rc != CKR_OK){
-         TRACE_DEBUG("Digest update failed.\n");
+         TRACE_DEVEL("Digest update failed.\n");
          return rc;
       }
       context->flag = TRUE;
@@ -562,7 +562,7 @@ ssl3_mac_sign_update( SESSION              * sess,
 
    rc = digest_mgr_digest_update( sess, &context->hash_context, in_data, in_data_len );
    if (rc != CKR_OK){
-      TRACE_DEBUG("Digest update failed.\n");
+      TRACE_DEVEL("Digest update failed.\n");
       return rc;
    }
 
@@ -633,7 +633,7 @@ ssl3_mac_sign_final( SESSION              * sess,
    hash_len = sizeof(hash);
    rc = digest_mgr_digest_final( sess, FALSE, &context->hash_context, hash, &hash_len );
    if (rc != CKR_OK){
-      TRACE_DEBUG("Digest Final failed.\n");
+      TRACE_DEVEL("Digest Final failed.\n");
       return rc;
    }
    // now, do the outer hash
@@ -652,12 +652,12 @@ ssl3_mac_sign_final( SESSION              * sess,
 
    rc = digest_mgr_init( sess, &context->hash_context, &digest_mech );
    if (rc != CKR_OK){
-      TRACE_DEBUG("Digest Init failed.\n");
+      TRACE_DEVEL("Digest Init failed.\n");
       return rc;
    }
    rc = digest_mgr_digest_update( sess, &context->hash_context, key_data, key_bytes );
    if (rc != CKR_OK){
-      TRACE_DEBUG("Digest Update failed.\n");
+      TRACE_DEVEL("Digest Update failed.\n");
       return rc;
    }
    if (ctx->mech.mechanism == CKM_SSL3_MD5_MAC)
@@ -666,18 +666,18 @@ ssl3_mac_sign_final( SESSION              * sess,
       rc = digest_mgr_digest_update( sess, &context->hash_context, outer, 40 );
 
    if (rc != CKR_OK){
-      TRACE_DEBUG("Digest Update failed.\n");
+      TRACE_DEVEL("Digest Update failed.\n");
       return rc;
    }
    rc = digest_mgr_digest_update( sess, &context->hash_context, hash, hash_len );
    if (rc != CKR_OK){
-      TRACE_DEBUG("Digest Update failed.\n");
+      TRACE_DEVEL("Digest Update failed.\n");
       return rc;
    }
    hash_len = sizeof(hash);
    rc = digest_mgr_digest_final( sess, FALSE, &context->hash_context, hash, &hash_len );
    if (rc != CKR_OK){
-      TRACE_DEBUG("Digest Final failed.\n");
+      TRACE_DEVEL("Digest Final failed.\n");
       return rc;
    }
    memcpy( out_data, hash, mac_len );
@@ -713,7 +713,7 @@ ssl3_mac_verify( SESSION              * sess,
 
    rc = sign_mgr_init( sess, &mac_ctx, &ctx->mech, FALSE, ctx->key );
    if (rc != CKR_OK){
-      TRACE_DEBUG("Sign Init failed.\n");
+      TRACE_DEVEL("Sign Init failed.\n");
       goto error;
    }
    len = sizeof(mac);
@@ -721,7 +721,7 @@ ssl3_mac_verify( SESSION              * sess,
                        in_data, in_data_len,
                        mac,     &len );
    if (rc != CKR_OK){
-      TRACE_DEBUG("Sign failed.\n");
+      TRACE_DEVEL("Sign failed.\n");
       goto error;
    }
    if ((len != mac_len) || (len != sig_len)) {
@@ -801,12 +801,12 @@ ssl3_mac_verify_update( SESSION              * sess,
       //
       rc = digest_mgr_init( sess, &context->hash_context, &digest_mech );
       if (rc != CKR_OK){
-         TRACE_DEBUG("Digest Init failed.\n");
+         TRACE_DEVEL("Digest Init failed.\n");
          return rc;
       }
       rc = digest_mgr_digest_update( sess, &context->hash_context, key_data, key_bytes );
       if (rc != CKR_OK){
-         TRACE_DEBUG("Digest Update failed.\n");
+         TRACE_DEVEL("Digest Update failed.\n");
          return rc;
       }
       if (ctx->mech.mechanism == CKM_SSL3_MD5_MAC)
@@ -814,7 +814,7 @@ ssl3_mac_verify_update( SESSION              * sess,
       else
          rc = digest_mgr_digest_update( sess, &context->hash_context, inner, 40 );
       if (rc != CKR_OK){
-         TRACE_DEBUG("Digest Update failed.\n");
+         TRACE_DEVEL("Digest Update failed.\n");
          return rc;
       }
       context->flag = TRUE;
@@ -822,7 +822,7 @@ ssl3_mac_verify_update( SESSION              * sess,
 
    rc = digest_mgr_digest_update( sess, &context->hash_context, in_data, in_data_len );
    if (rc != CKR_OK){
-      TRACE_DEBUG("Digest Update failed.\n");
+      TRACE_DEVEL("Digest Update failed.\n");
       return rc;
    }
 
@@ -881,7 +881,7 @@ ssl3_mac_verify_final( SESSION              * sess,
    hash_len = sizeof(hash);
    rc = digest_mgr_digest_final( sess, FALSE, &context->hash_context, hash, &hash_len );
    if (rc != CKR_OK){
-      TRACE_DEBUG("Digest Final failed.\n");
+      TRACE_DEVEL("Digest Final failed.\n");
       return rc;
    }
    // now, do the outer hash
@@ -900,12 +900,12 @@ ssl3_mac_verify_final( SESSION              * sess,
 
    rc = digest_mgr_init( sess, &context->hash_context, &digest_mech );
    if (rc != CKR_OK){
-      TRACE_DEBUG("Digest Init failed.\n");
+      TRACE_DEVEL("Digest Init failed.\n");
       return rc;
    }
    rc = digest_mgr_digest_update( sess, &context->hash_context, key_data, key_bytes );
    if (rc != CKR_OK){
-      TRACE_DEBUG("Digest Update failed.\n");
+      TRACE_DEVEL("Digest Update failed.\n");
       return rc;
    }
    if (ctx->mech.mechanism == CKM_SSL3_MD5_MAC)
@@ -914,18 +914,18 @@ ssl3_mac_verify_final( SESSION              * sess,
       rc = digest_mgr_digest_update( sess, &context->hash_context, outer, 40 );
 
    if (rc != CKR_OK){
-      TRACE_DEBUG("Digest Update failed.\n");
+      TRACE_DEVEL("Digest Update failed.\n");
       return rc;
    }
    rc = digest_mgr_digest_update( sess, &context->hash_context, hash, hash_len );
    if (rc != CKR_OK){
-      TRACE_DEBUG("Digest Update failed.\n");
+      TRACE_DEVEL("Digest Update failed.\n");
       return rc;
    }
    hash_len = sizeof(hash);
    rc = digest_mgr_digest_final( sess, FALSE, &context->hash_context, hash, &hash_len );
    if (rc != CKR_OK){
-      TRACE_DEBUG("Digest Final failed.\n");
+      TRACE_DEVEL("Digest Final failed.\n");
       return rc;
    }
    if ((mac_len != sig_len) || (mac_len > hash_len)){
@@ -960,7 +960,7 @@ ckm_ssl3_pre_master_key_gen( TEMPLATE     * tmpl,
 
    rc = rng_generate( key, 48 );
    if (rc != CKR_OK){
-      TRACE_DEBUG("rng_generate failed.\n");
+      TRACE_DEVEL("rng_generate failed.\n");
       return rc;
    }
    value_attr     = (CK_ATTRIBUTE *)malloc(sizeof(CK_ATTRIBUTE) + 48 );
@@ -1056,7 +1056,7 @@ ssl3_sha_then_md5( SESSION   * sess,
 
    rc = digest_mgr_init( sess, &digest_ctx, &digest_mech );
    if (rc != CKR_OK){
-      TRACE_DEBUG("Digest Init failed.\n");
+      TRACE_DEVEL("Digest Init failed.\n");
       return rc;
    }
    rc = digest_mgr_digest_update( sess,
@@ -1064,12 +1064,12 @@ ssl3_sha_then_md5( SESSION   * sess,
                                   variableData,
                                   variableDataLen );
    if (rc != CKR_OK){
-      TRACE_DEBUG("Digest Update failed.\n");
+      TRACE_DEVEL("Digest Update failed.\n");
       return rc;
    }
    rc = digest_mgr_digest_update( sess, &digest_ctx, secret, 48 );
    if (rc != CKR_OK){
-      TRACE_DEBUG("Digest Update failed.\n");
+      TRACE_DEVEL("Digest Update failed.\n");
       return rc;
    }
    rc = digest_mgr_digest_update( sess,
@@ -1077,7 +1077,7 @@ ssl3_sha_then_md5( SESSION   * sess,
                                   firstRandom,
                                   firstRandomLen );
    if (rc != CKR_OK){
-      TRACE_DEBUG("Digest Update failed.\n");
+      TRACE_DEVEL("Digest Update failed.\n");
       return rc;
    }
    rc = digest_mgr_digest_update( sess,
@@ -1085,13 +1085,13 @@ ssl3_sha_then_md5( SESSION   * sess,
                                   secondRandom,
                                   secondRandomLen );
    if (rc != CKR_OK){
-      TRACE_DEBUG("Digest Update failed.\n");
+      TRACE_DEVEL("Digest Update failed.\n");
       return rc;
    }
    len = sizeof(hash);
    rc = digest_mgr_digest_final( sess, FALSE, &digest_ctx, hash, &len );
    if (rc != CKR_OK){
-      TRACE_DEBUG("Digest Final failed.\n");
+      TRACE_DEVEL("Digest Final failed.\n");
       return rc;
    }
 
@@ -1104,17 +1104,17 @@ ssl3_sha_then_md5( SESSION   * sess,
 
    rc = digest_mgr_init( sess, &digest_ctx, &digest_mech );
    if (rc != CKR_OK){
-      TRACE_DEBUG("Digest Init failed.\n");
+      TRACE_DEVEL("Digest Init failed.\n");
       return rc;
    }
    rc = digest_mgr_digest_update( sess, &digest_ctx, secret, 48 );
    if (rc != CKR_OK){
-      TRACE_DEBUG("Digest Update failed.\n");
+      TRACE_DEVEL("Digest Update failed.\n");
       return rc;
    }
    rc = digest_mgr_digest_update( sess, &digest_ctx, hash, len );
    if (rc != CKR_OK){
-      TRACE_DEBUG("Digest Update failed.\n");
+      TRACE_DEVEL("Digest Update failed.\n");
       return rc;
    }
    len = sizeof(hash);
@@ -1124,7 +1124,7 @@ ssl3_sha_then_md5( SESSION   * sess,
       memcpy( outBuff, hash, len );
    }
    else
-      TRACE_DEBUG("Digest Final failed.\n");
+      TRACE_DEVEL("Digest Final failed.\n");
 
    return rc;
 }
@@ -1162,7 +1162,7 @@ ssl3_md5_only( SESSION   * sess,
 
    rc = digest_mgr_init( sess, &digest_ctx, &digest_mech );
    if (rc != CKR_OK){
-      TRACE_DEBUG("Digest Init failed.\n");
+      TRACE_DEVEL("Digest Init failed.\n");
       return rc;
    }
    if (firstString != NULL) {
@@ -1171,7 +1171,7 @@ ssl3_md5_only( SESSION   * sess,
                                      firstString,
                                      firstStringLen );
       if (rc != CKR_OK){
-         TRACE_DEBUG("Digest Update failed.\n");
+         TRACE_DEVEL("Digest Update failed.\n");
          return rc;
       }
    }
@@ -1181,7 +1181,7 @@ ssl3_md5_only( SESSION   * sess,
                                   secondString,
                                   secondStringLen );
    if (rc != CKR_OK){
-      TRACE_DEBUG("Digest Update failed.\n");
+      TRACE_DEVEL("Digest Update failed.\n");
       return rc;
    }
    rc = digest_mgr_digest_update( sess,
@@ -1189,14 +1189,14 @@ ssl3_md5_only( SESSION   * sess,
                                   thirdString,
                                   thirdStringLen );
    if (rc != CKR_OK){
-      TRACE_DEBUG("Digest Update failed.\n");
+      TRACE_DEVEL("Digest Update failed.\n");
       return rc;
    }
    len = sizeof(hash);
    rc = digest_mgr_digest_final( sess, FALSE, &digest_ctx, hash, &len );
 
    if (rc == CKR_OK){
-      TRACE_DEBUG("Digest Final failed.\n");
+      TRACE_DEVEL("Digest Final failed.\n");
       memcpy( outBuff, hash, len );
    }
 
@@ -1313,7 +1313,7 @@ ssl3_master_key_derive( SESSION           * sess,
                            key_data );
 
    if (rc != CKR_OK){
-      TRACE_DEBUG("ssl3_sha_then_md5 failed.\n");
+      TRACE_DEVEL("ssl3_sha_then_md5 failed.\n");
       goto error;
    }
    rc = ssl3_sha_then_md5( sess,
@@ -1326,7 +1326,7 @@ ssl3_master_key_derive( SESSION           * sess,
                            2,
                            &key_data[16] );
    if (rc != CKR_OK){
-      TRACE_DEBUG("ssl3_sha_then_md5 failed.\n");
+      TRACE_DEVEL("ssl3_sha_then_md5 failed.\n");
       goto error;
    }
    rc = ssl3_sha_then_md5( sess,
@@ -1339,7 +1339,7 @@ ssl3_master_key_derive( SESSION           * sess,
                            3,
                            &key_data[32] );
    if (rc != CKR_OK){
-      TRACE_DEBUG("ssl3_sha_then_md5 failed.\n");
+      TRACE_DEVEL("ssl3_sha_then_md5 failed.\n");
       goto error;
    }
    // build the key skeleton
@@ -1350,18 +1350,18 @@ ssl3_master_key_derive( SESSION           * sess,
                                 CKO_SECRET_KEY,  CKK_GENERIC_SECRET,
                                 &derived_key_obj );
    if (rc != CKR_OK){
-      TRACE_DEBUG("Object Mgr Create Skeleton failed.\n");
+      TRACE_DEVEL("Object Mgr Create Skeleton failed.\n");
       goto error;
    }
 
    rc = build_attribute( CKA_VALUE, key_data, 48, &value_attr );
    if (rc != CKR_OK){
-      TRACE_DEBUG("Failed to build CKA_VALUE attribute.\n");
+      TRACE_DEVEL("Failed to build CKA_VALUE attribute.\n");
       goto error;
    }
    rc = build_attribute( CKA_VALUE_LEN, (CK_BYTE *)&base_key_len, sizeof(CK_ULONG), &value_len_attr );
    if (rc != CKR_OK){
-      TRACE_DEBUG("Failed to build CKA_VALUE_LEN attribute.\n");
+      TRACE_DEVEL("Failed to build CKA_VALUE_LEN attribute.\n");
       goto error;
    }
 
@@ -1393,7 +1393,7 @@ ssl3_master_key_derive( SESSION           * sess,
 
    rc = build_attribute( CKA_ALWAYS_SENSITIVE, &flag, sizeof(CK_BBOOL), &always_sens_attr );
    if (rc != CKR_OK){
-      TRACE_DEBUG("Failed to build CKA_ALWAYS_SENSITIVE attribute.\n");
+      TRACE_DEVEL("Failed to build CKA_ALWAYS_SENSITIVE attribute.\n");
       goto error;
    }
 
@@ -1402,7 +1402,7 @@ ssl3_master_key_derive( SESSION           * sess,
    //
    rc = template_attribute_find( base_key_obj->template, CKA_NEVER_EXTRACTABLE, &attr );
    if (rc == FALSE) {
-      TRACE_DEBUG("Failed to build CKA_NEVER_EXTRACTABLE attribute.\n");
+      TRACE_DEVEL("Failed to build CKA_NEVER_EXTRACTABLE attribute.\n");
       rc = CKR_FUNCTION_FAILED;
       goto error;
    }
@@ -1411,7 +1411,7 @@ ssl3_master_key_derive( SESSION           * sess,
    if (flag == TRUE) {
       rc = template_attribute_find( derived_key_obj->template, CKA_EXTRACTABLE, &attr );
       if (rc == FALSE) {
-         TRACE_DEBUG("Failed to build CKA_EXTRACTABLE attribute.\n");
+         TRACE_DEVEL("Failed to build CKA_EXTRACTABLE attribute.\n");
          rc = CKR_FUNCTION_FAILED;
          goto error;
       }
@@ -1423,7 +1423,7 @@ ssl3_master_key_derive( SESSION           * sess,
 
    rc = build_attribute( CKA_NEVER_EXTRACTABLE, &flag, sizeof(CK_BBOOL), &extract_attr );
    if (rc != CKR_OK){
-      TRACE_DEBUG("Failed to build CKA_NEVER_EXTRACTABLE attribute.\n");
+      TRACE_DEVEL("Failed to build CKA_NEVER_EXTRACTABLE attribute.\n");
       goto error;
    }
    template_update_attribute( derived_key_obj->template, value_attr );
@@ -1436,7 +1436,7 @@ ssl3_master_key_derive( SESSION           * sess,
    //
    rc = object_mgr_create_final( sess, derived_key_obj, handle );
    if (rc != CKR_OK) {
-      TRACE_DEBUG("Object Mgr create final failed.\n");
+      TRACE_DEVEL("Object Mgr create final failed.\n");
       object_free( derived_key_obj );
       return rc;  // do NOT goto error
    }
@@ -1614,7 +1614,7 @@ ssl3_key_and_mac_derive( SESSION           * sess,
    // we stop at 'ZZZZ....'  presumably this is enough for all cases?
    //
    if (key_material_loop_count > 26 * 16){
-      TRACE_DEBUG("key_material_loop_count is too big.\n");
+      TRACE_DEVEL("key_material_loop_count is too big.\n");
       return CKR_FUNCTION_FAILED;
    }
    key_material_loop_count = (key_material_loop_count + 15) / 16;
@@ -1634,7 +1634,7 @@ ssl3_key_and_mac_derive( SESSION           * sess,
                               i+1,
                               &(key_block[i*16]) );
       if (rc != CKR_OK){
-         TRACE_DEBUG("ssl3_sha_then_md5 failed.\n");
+         TRACE_DEVEL("ssl3_sha_then_md5 failed.\n");
          goto error;
       }
    }
@@ -1668,7 +1668,7 @@ ssl3_key_and_mac_derive( SESSION           * sess,
                           params->RandomInfo.ulServerRandomLen,
                           &(key_block[16*26]) );
       if (rc != CKR_OK){
-	 TRACE_DEBUG("ssl3_md5_only failed.\n");
+	 TRACE_DEVEL("ssl3_md5_only failed.\n");
          goto error;
       }
       client_write_key_value = &(key_block[16*26]);
@@ -1682,7 +1682,7 @@ ssl3_key_and_mac_derive( SESSION           * sess,
                           params->RandomInfo.ulClientRandomLen,
                           &(key_block[16*26+16]) );
       if (rc != CKR_OK){
-	 TRACE_DEBUG("ssl3_md5_only failed.\n");
+	 TRACE_DEVEL("ssl3_md5_only failed.\n");
          goto error;
       }
       server_write_key_value = &(key_block[16*26+16]);
@@ -1698,7 +1698,7 @@ ssl3_key_and_mac_derive( SESSION           * sess,
                              params->RandomInfo.ulServerRandomLen,
                              &(key_block[16*26+2*16]) );
          if (rc != CKR_OK){
-	    TRACE_DEBUG("ssl3_md5_only failed.\n");
+	    TRACE_DEVEL("ssl3_md5_only failed.\n");
             goto error;
          }
          client_IV = &(key_block[16*26+2*16]);
@@ -1712,7 +1712,7 @@ ssl3_key_and_mac_derive( SESSION           * sess,
                              params->RandomInfo.ulClientRandomLen,
                              &(key_block[16*26+3*16]) );
          if (rc != CKR_OK){
-	    TRACE_DEBUG("ssl3_md5_only failed.\n");
+	    TRACE_DEVEL("ssl3_md5_only failed.\n");
             goto error;
          }
          server_IV = &(key_block[16*26+3*16]);
@@ -1725,7 +1725,7 @@ ssl3_key_and_mac_derive( SESSION           * sess,
                                    &server_MAC_handle, server_MAC_key_value,
                                    MAC_len );
    if (rc != CKR_OK){
-      TRACE_DEBUG("ssl3_kmd_process_mac_keys failed.\n");
+      TRACE_DEVEL("ssl3_kmd_process_mac_keys failed.\n");
       goto error;
    }
 
@@ -1734,7 +1734,7 @@ ssl3_key_and_mac_derive( SESSION           * sess,
                                      &server_write_handle, server_write_key_value,
                                      write_len );
    if (rc != CKR_OK){
-      TRACE_DEBUG("ssl3_kmd_process_write_keys failed.\n");
+      TRACE_DEVEL("ssl3_kmd_process_write_keys failed.\n");
       goto error;
    }
 
@@ -1872,7 +1872,7 @@ ssl3_kmd_process_mac_keys( SESSION           * sess,
                                 CKK_GENERIC_SECRET,
                                 &client_obj );
    if (rc != CKR_OK){
-      TRACE_DEBUG("Object Mgr Create Skeleton failed.\n");
+      TRACE_DEVEL("Object Mgr Create Skeleton failed.\n");
       goto error;
    }
    rc = object_mgr_create_skel( sess,
@@ -1882,7 +1882,7 @@ ssl3_kmd_process_mac_keys( SESSION           * sess,
                                 CKK_GENERIC_SECRET,
                                 &server_obj );
    if (rc != CKR_OK){
-      TRACE_DEBUG("Object Mgr Create Skeleton failed.\n");
+      TRACE_DEVEL("Object Mgr Create Skeleton failed.\n");
       goto error;
    }
    for (i=0; i < ulCount; i++)
@@ -1893,22 +1893,22 @@ ssl3_kmd_process_mac_keys( SESSION           * sess,
 
    rc = build_attribute( CKA_VALUE, client_value, mac_len, &client_val_attr );
    if (rc != CKR_OK){
-      TRACE_DEBUG("Failed to build CKA_VALUE attribute.\n");
+      TRACE_DEVEL("Failed to build CKA_VALUE attribute.\n");
       goto error;
    }
    rc = build_attribute( CKA_VALUE, server_value, mac_len, &server_val_attr );
    if (rc != CKR_OK){
-      TRACE_DEBUG("Failed to build CKA_VALUE attribute.\n");
+      TRACE_DEVEL("Failed to build CKA_VALUE attribute.\n");
       goto error;
    }
    rc = build_attribute( CKA_VALUE_LEN, (CK_BYTE *)&mac_len, sizeof(CK_ULONG), &client_val_len_attr );
    if (rc != CKR_OK){
-      TRACE_DEBUG("Failed to build CKA_VALUE_LEN attribute.\n");
+      TRACE_DEVEL("Failed to build CKA_VALUE_LEN attribute.\n");
       goto error;
    }
    rc = build_attribute( CKA_VALUE_LEN, (CK_BYTE *)&mac_len, sizeof(CK_ULONG), &server_val_len_attr );
    if (rc != CKR_OK){
-      TRACE_DEBUG("Failed to build CKA_VALUE_LEN attribute.\n");
+      TRACE_DEVEL("Failed to build CKA_VALUE_LEN attribute.\n");
       goto error;
    }
    template_update_attribute( client_obj->template, client_val_attr );
@@ -1919,12 +1919,12 @@ ssl3_kmd_process_mac_keys( SESSION           * sess,
 
    rc = object_mgr_create_final( sess, client_obj, client_handle );
    if (rc != CKR_OK){
-      TRACE_DEBUG("Object Mgr Create Final failed.\n");
+      TRACE_DEVEL("Object Mgr Create Final failed.\n");
       goto error;
    }
    rc = object_mgr_create_final( sess, server_obj, server_handle );
    if (rc != CKR_OK){
-      TRACE_DEBUG("Object Mgr Create Final failed.\n");
+      TRACE_DEVEL("Object Mgr Create Final failed.\n");
       goto error;
    }
 
@@ -2057,7 +2057,7 @@ ssl3_kmd_process_write_keys( SESSION           * sess,
                                 keytype,
                                 &client_obj );
    if (rc != CKR_OK){
-      TRACE_DEBUG("Object Mgr Create Skeleton failed.\n");
+      TRACE_DEVEL("Object Mgr Create Skeleton failed.\n");
       goto error;
    }
    rc = object_mgr_create_skel( sess,
@@ -2067,7 +2067,7 @@ ssl3_kmd_process_write_keys( SESSION           * sess,
                                 keytype,
                                 &server_obj );
    if (rc != CKR_OK){
-      TRACE_DEBUG("Object Mgr Create Skeleton failed.\n");
+      TRACE_DEVEL("Object Mgr Create Skeleton failed.\n");
       goto error;
    }
    for (i=0; i < ulCount; i++) {
@@ -2081,7 +2081,7 @@ ssl3_kmd_process_write_keys( SESSION           * sess,
    rc  = build_attribute( CKA_VALUE, client_value, write_len, &client_val_attr );
    rc |= build_attribute( CKA_VALUE, server_value, write_len, &server_val_attr );
    if (rc != CKR_OK){
-      TRACE_DEBUG("Failed to build CKA_VALUE attribute.\n");
+      TRACE_DEVEL("Failed to build CKA_VALUE attribute.\n");
       goto error;
    }
    switch (keytype) {
@@ -2099,7 +2099,7 @@ ssl3_kmd_process_write_keys( SESSION           * sess,
             rc  = build_attribute( CKA_VALUE_LEN, (CK_BYTE *)&write_len, sizeof(CK_ULONG), &client_val_len_attr );
             rc |= build_attribute( CKA_VALUE_LEN, (CK_BYTE *)&write_len, sizeof(CK_ULONG), &server_val_len_attr );
             if (rc != CKR_OK){
-	       TRACE_DEBUG("Failed to build CKA_VALUE_LEN attribute.\n");
+	       TRACE_DEVEL("Failed to build CKA_VALUE_LEN attribute.\n");
                goto error;
             }
             rc  = template_validate_attribute( client_obj->template,
@@ -2128,7 +2128,7 @@ ssl3_kmd_process_write_keys( SESSION           * sess,
                                                keytype,
                                                MODE_CREATE );
             if (rc != CKR_OK){
-	       TRACE_DEBUG("template_validate_attribute failed.\n");
+	       TRACE_DEVEL("template_validate_attribute failed.\n");
                goto error;
             }
             template_update_attribute( client_obj->template, client_val_attr );
@@ -2158,7 +2158,7 @@ ssl3_kmd_process_write_keys( SESSION           * sess,
                                                keytype,
                                                MODE_CREATE );
             if (rc != CKR_OK){
-	       TRACE_DEBUG("template_validate_attribute failed.\n");
+	       TRACE_DEVEL("template_validate_attribute failed.\n");
                goto error;
             }
             template_update_attribute( client_obj->template, client_val_attr );
@@ -2176,12 +2176,12 @@ ssl3_kmd_process_write_keys( SESSION           * sess,
    //
    rc = object_mgr_create_final( sess, client_obj, client_handle );
    if (rc != CKR_OK){
-      TRACE_DEBUG("Object Mgr Create Final failed.\n");
+      TRACE_DEVEL("Object Mgr Create Final failed.\n");
       goto error;
    }
    rc = object_mgr_create_final( sess, server_obj, server_handle );
    if (rc != CKR_OK){
-      TRACE_DEBUG("Object Mgr Create Final failed.\n");
+      TRACE_DEVEL("Object Mgr Create Final failed.\n");
       goto error;
    }
    return CKR_OK;

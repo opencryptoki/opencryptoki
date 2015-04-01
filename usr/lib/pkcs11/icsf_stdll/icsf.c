@@ -273,7 +273,7 @@ icsf_login(LDAP **ld, const char *uri, const char *dn, const char *password)
 	dn = (dn && dn[0]) ? dn : NULL;
 
 	/* Connect to LDAP server */
-	TRACE_DEBUG("Connecting to: %s\n", uri ? uri : "(null)");
+	TRACE_DEVEL("Connecting to: %s\n", uri ? uri : "(null)");
 	rc = ldap_initialize(ld, uri);
 	if (rc != LDAP_SUCCESS) {
 		TRACE_ERROR("Failed to connect to \"%s\": %s (%d)\n",
@@ -284,7 +284,7 @@ icsf_login(LDAP **ld, const char *uri, const char *dn, const char *password)
 	if (icsf_force_ldap_v3(*ld))
 		return -1;
 
-	TRACE_DEBUG("Binding with DN: %s\n", dn ? dn : "(null)");
+	TRACE_DEVEL("Binding with DN: %s\n", dn ? dn : "(null)");
 	cred.bv_len = strlen(password);
 	cred.bv_val = (char *) password;
 	rc = ldap_sasl_bind_s(*ld, dn, LDAP_SASL_SIMPLE, &cred, NULL, NULL,
@@ -312,9 +312,9 @@ icsf_set_sasl_params(LDAP *ld, const char *cert, const char *key,
 
 	CHECK_ARG_NON_NULL(ld);
 
-	TRACE_DEBUG("Preparing environment for TLS\n");
+	TRACE_DEVEL("Preparing environment for TLS\n");
 	if (cert && *cert) {
-		TRACE_DEBUG("Using certificate: %s\n", cert);
+		TRACE_DEVEL("Using certificate: %s\n", cert);
 		rc = ldap_set_option(NULL, LDAP_OPT_X_TLS_CERTFILE, cert);
 		if (rc != LDAP_SUCCESS) {
 			TRACE_ERROR("Failed to set certificate file for TLS: "
@@ -334,7 +334,7 @@ icsf_set_sasl_params(LDAP *ld, const char *cert, const char *key,
 	}
 
 	if (ca && *ca) {
-		TRACE_DEBUG("Using CA certificate file: %s\n", ca);
+		TRACE_DEVEL("Using CA certificate file: %s\n", ca);
 		rc = ldap_set_option(NULL, LDAP_OPT_X_TLS_CACERTFILE, ca);
 		if (rc != LDAP_SUCCESS) {
 			TRACE_ERROR("Failed to set CA certificate file for TLS:"
@@ -344,7 +344,7 @@ icsf_set_sasl_params(LDAP *ld, const char *cert, const char *key,
 	}
 
 	if (ca_dir && *ca_dir) {
-		TRACE_DEBUG("Using CA certificate dir: %s\n", ca_dir);
+		TRACE_DEVEL("Using CA certificate dir: %s\n", ca_dir);
 		rc = ldap_set_option(NULL, LDAP_OPT_X_TLS_CACERTDIR, ca_dir);
 		if (rc != LDAP_SUCCESS) {
 			TRACE_ERROR("Failed to set CA certificate dir for TLS: "
@@ -372,7 +372,7 @@ icsf_sasl_login(LDAP **ld, const char *uri, const char *cert,
 	uri = (uri && uri[0]) ? uri : NULL;
 
 	/* Connect to LDAP server */
-	TRACE_DEBUG("Connecting to: %s\n", uri ? uri : "(null)");
+	TRACE_DEVEL("Connecting to: %s\n", uri ? uri : "(null)");
 	rc = ldap_initialize(ld, uri);
 	if (rc != LDAP_SUCCESS) {
 		TRACE_ERROR("Failed to connect to \"%s\": %s (%d)\n",
@@ -387,7 +387,7 @@ icsf_sasl_login(LDAP **ld, const char *uri, const char *cert,
 	if (icsf_set_sasl_params(*ld, cert, key, ca, ca_dir))
 		return -1;
 
-	TRACE_DEBUG("Binding\n");
+	TRACE_DEVEL("Binding\n");
 	rc = ldap_sasl_bind_s(*ld, NULL, "EXTERNAL", NULL, NULL, NULL, NULL);
 	if (rc != LDAP_SUCCESS) {
 		char *ext_msg = NULL;
@@ -680,7 +680,7 @@ icsf_call(LDAP *ld, int *reason, char *handle, size_t handle_len,
 		memset(handle + len, 0, handle_len - len);
 	}
 
-	TRACE_DEBUG("ICSF call result: %d (%d)\n", return_code, reason_code);
+	TRACE_DEVEL("ICSF call result: %d (%d)\n", return_code, reason_code);
 
 	if (ICSF_RC_IS_ERROR(return_code)) {
 		TRACE_ERROR("ICSF call failed: %d (%d)\n", return_code,
@@ -1167,7 +1167,7 @@ icsf_copy_object(LDAP * ld, int *reason,
 		}
 
 		if (icsf_ber_put_attribute_list(msg, attrs, attrs_len) < 0) {
-			TRACE_DEBUG("icsf_ber_put_attribute_list failed\n");
+			TRACE_DEVEL("icsf_ber_put_attribute_list failed\n");
 			goto cleanup;
 		}
 
@@ -2192,7 +2192,7 @@ icsf_get_attribute(LDAP *ld, int *reason, struct icsf_object_record *object,
 	rc = icsf_call(ld, reason, handle, sizeof(handle), "", 0,
 			ICSF_TAG_CSFPGAV, msg, &result);
 	if (rc != 0) {
-		TRACE_DEBUG("icsf_call failed.\n");
+		TRACE_DEVEL("icsf_call failed.\n");
 		goto cleanup;
 	}
 
@@ -2536,7 +2536,7 @@ int icsf_hmac_sign(LDAP *ld, int *reason, struct icsf_object_record *key,
 			sizeof(rule_array), ICSF_TAG_CSFPHMG, msg, &result);
 
 	if (ICSF_RC_IS_ERROR(rc)) {
-		TRACE_DEBUG("icsf_call failed\n");
+		TRACE_DEVEL("icsf_call failed\n");
 		goto done;
 	}
 
@@ -2680,7 +2680,7 @@ int icsf_hmac_verify(LDAP *ld, int *reason, struct icsf_object_record *key,
 			sizeof(rule_array), ICSF_TAG_CSFPHMV, msg, &result);
 
 	if (ICSF_RC_IS_ERROR(rc)) {
-		TRACE_DEBUG("icsf_call failed\n");
+		TRACE_DEVEL("icsf_call failed\n");
 		goto done;
 	}
 
@@ -3106,7 +3106,7 @@ icsf_derive_key(LDAP *ld, int *reason, CK_MECHANISM_PTR mech,
 	}
 
 	if (icsf_ber_put_attribute_list(msg, attrs, attrs_len) < 0 ) {
-		TRACE_DEBUG("Failed to encode message.\n");
+		TRACE_DEVEL("Failed to encode message.\n");
 		goto cleanup;
 	}
 

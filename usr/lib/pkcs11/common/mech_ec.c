@@ -60,7 +60,7 @@ ckm_ec_sign( CK_BYTE		*in_data,
 	rc = token_specific.t_ec_sign(in_data, in_data_len, out_data,
 					out_data_len, key_obj);
 	if (rc != CKR_OK)
-		TRACE_DEBUG("EC Sign failed.\n");
+		TRACE_DEVEL("EC Sign failed.\n");
 
 	return rc;
 }
@@ -95,7 +95,7 @@ ec_sign( SESSION			*sess,
 
 	rc = get_ecsiglen(key_obj, &plen);
 	if (rc != CKR_OK) {
-		TRACE_DEBUG("get_ecsiglen failed.\n");
+		TRACE_DEVEL("get_ecsiglen failed.\n");
 		return rc;
 	}
 
@@ -173,7 +173,7 @@ ec_verify(SESSION		*sess,
 
 	rc = get_ecsiglen(key_obj, &plen);
 	if (rc != CKR_OK) {
-		TRACE_DEBUG("get_ecsiglen failed.\n");
+		TRACE_DEVEL("get_ecsiglen failed.\n");
 		return rc;
 	}
 
@@ -219,13 +219,13 @@ ec_hash_sign( SESSION              * sess,
 
    rc = digest_mgr_init( sess, &digest_ctx, &digest_mech );
    if (rc != CKR_OK){
-      TRACE_DEBUG("Digest Mgr Init failed.\n");
+      TRACE_DEVEL("Digest Mgr Init failed.\n");
       return rc;
    }
    hash_len = sizeof(hash);
    rc = digest_mgr_digest( sess, length_only, &digest_ctx, in_data, in_data_len, hash, &hash_len );
    if (rc != CKR_OK){
-      TRACE_DEBUG("Digest Mgr Digest failed.\n");
+      TRACE_DEVEL("Digest Mgr Digest failed.\n");
       return rc;
    }
 
@@ -235,13 +235,13 @@ ec_hash_sign( SESSION              * sess,
 
    rc = sign_mgr_init( sess, &sign_ctx, &sign_mech, FALSE, ctx->key );
    if (rc != CKR_OK){
-      TRACE_DEBUG("Sign Mgr Init failed.\n");
+      TRACE_DEVEL("Sign Mgr Init failed.\n");
       goto error;
    }
 
    rc = sign_mgr_sign( sess, length_only, &sign_ctx, hash, hash_len, signature, sig_len );
    if (rc != CKR_OK)
-      TRACE_DEBUG("Sign Mgr Sign failed.\n");
+      TRACE_DEVEL("Sign Mgr Sign failed.\n");
 
 error:
    sign_mgr_cleanup( &sign_ctx );
@@ -271,7 +271,7 @@ ec_hash_sign_update( SESSION              * sess,
 
       rc = digest_mgr_init( sess, &context->hash_context, &digest_mech );
       if (rc != CKR_OK){
-	 TRACE_DEBUG("Digest Mgr Init failed.\n");
+	 TRACE_DEVEL("Digest Mgr Init failed.\n");
          return rc;
       }
       context->flag = TRUE;
@@ -279,7 +279,7 @@ ec_hash_sign_update( SESSION              * sess,
 
    rc = digest_mgr_digest_update( sess, &context->hash_context, in_data, in_data_len );
    if (rc != CKR_OK){
-      TRACE_DEBUG("Digest Mgr Update failed.\n");
+      TRACE_DEVEL("Digest Mgr Update failed.\n");
       return rc;
    }
    return CKR_OK;
@@ -311,7 +311,7 @@ ec_hash_sign_final( SESSION              * sess,
    hash_len = sizeof(hash);
    rc = digest_mgr_digest_final( sess, length_only, &context->hash_context, hash, &hash_len );
    if (rc != CKR_OK){
-      TRACE_DEBUG("Digest Mgr Final failed.\n");
+      TRACE_DEVEL("Digest Mgr Final failed.\n");
       return rc;
    }
 
@@ -321,14 +321,14 @@ ec_hash_sign_final( SESSION              * sess,
 
    rc = sign_mgr_init( sess, &sign_ctx, &sign_mech, FALSE, ctx->key );
    if (rc != CKR_OK){
-      TRACE_DEBUG("Sign Mgr Init failed.\n");
+      TRACE_DEVEL("Sign Mgr Init failed.\n");
       goto done;
    }
 
    //rc = sign_mgr_sign( sess, length_only, &sign_ctx, ber_data, ber_data_len, signature, sig_len );
    rc = sign_mgr_sign( sess, length_only, &sign_ctx, hash, hash_len, signature, sig_len );
    if (rc != CKR_OK)
-      TRACE_DEBUG("Sign Mgr Sign failed.\n");
+      TRACE_DEVEL("Sign Mgr Sign failed.\n");
 
    if (length_only == TRUE || rc == CKR_BUFFER_TOO_SMALL) {
       sign_mgr_cleanup( &sign_ctx );
@@ -369,13 +369,13 @@ ec_hash_verify( SESSION              * sess,
 
    rc = digest_mgr_init( sess, &digest_ctx, &digest_mech );
    if (rc != CKR_OK){
-      TRACE_DEBUG("Digest Mgr Init failed.\n");
+      TRACE_DEVEL("Digest Mgr Init failed.\n");
       return rc;
    }
    hash_len = sizeof(hash);
    rc = digest_mgr_digest( sess, FALSE, &digest_ctx, in_data, in_data_len, hash, &hash_len );
    if (rc != CKR_OK){
-      TRACE_DEBUG("Digest Mgr Digest failed.\n");
+      TRACE_DEVEL("Digest Mgr Digest failed.\n");
       return rc;
    }
 
@@ -387,14 +387,14 @@ ec_hash_verify( SESSION              * sess,
 
    rc = verify_mgr_init( sess, &verify_ctx, &verify_mech, FALSE, ctx->key );
    if (rc != CKR_OK){
-      TRACE_DEBUG("Verify Mgr Init failed.\n");
+      TRACE_DEVEL("Verify Mgr Init failed.\n");
       goto done;
    }
 
    //rc = verify_mgr_verify( sess, &verify_ctx, ber_data, ber_data_len, signature, sig_len );
    rc = verify_mgr_verify( sess, &verify_ctx, hash, hash_len, signature, sig_len );
    if (rc != CKR_OK)
-      TRACE_DEBUG("Verify Mgr Verify failed.\n");
+      TRACE_DEVEL("Verify Mgr Verify failed.\n");
 done:
    sign_mgr_cleanup( &verify_ctx );
    return rc;
@@ -424,7 +424,7 @@ ec_hash_verify_update( SESSION              * sess,
 
       rc = digest_mgr_init( sess, &context->hash_context, &digest_mech );
       if (rc != CKR_OK){
-	 TRACE_DEBUG("Digest Mgr Init failed.\n");
+	 TRACE_DEVEL("Digest Mgr Init failed.\n");
          return rc;
       }
       context->flag = TRUE;
@@ -432,7 +432,7 @@ ec_hash_verify_update( SESSION              * sess,
 
    rc = digest_mgr_digest_update( sess, &context->hash_context, in_data, in_data_len );
    if (rc != CKR_OK){
-      TRACE_DEBUG("Digest Mgr Update failed.\n");
+      TRACE_DEVEL("Digest Mgr Update failed.\n");
       return rc;
    }
    return CKR_OK;
@@ -462,7 +462,7 @@ ec_hash_verify_final( SESSION              * sess,
    hash_len = sizeof(hash);
    rc = digest_mgr_digest_final( sess, FALSE, &context->hash_context, hash, &hash_len );
    if (rc != CKR_OK){
-      TRACE_DEBUG("Digest Mgr Final failed.\n");
+      TRACE_DEVEL("Digest Mgr Final failed.\n");
       return rc;
    }
    verify_mech.mechanism      = CKM_ECDSA;
@@ -471,13 +471,13 @@ ec_hash_verify_final( SESSION              * sess,
 
    rc = verify_mgr_init( sess, &verify_ctx, &verify_mech, FALSE, ctx->key );
    if (rc != CKR_OK){
-      TRACE_DEBUG("Verify Mgr Init failed.\n");
+      TRACE_DEVEL("Verify Mgr Init failed.\n");
       goto done;
    }
 
    rc = verify_mgr_verify( sess, &verify_ctx, hash, hash_len, signature, sig_len );
    if (rc != CKR_OK)
-      TRACE_DEBUG("Verify Mgr Verify failed.\n");
+      TRACE_DEVEL("Verify Mgr Verify failed.\n");
 done:
    verify_mgr_cleanup( &verify_ctx );
    return rc;

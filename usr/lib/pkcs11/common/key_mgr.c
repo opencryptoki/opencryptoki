@@ -427,7 +427,7 @@ key_mgr_generate_key( SESSION           * sess,
                                 CKO_SECRET_KEY, subclass,
                                 &key_obj );
    if (rc != CKR_OK){
-      TRACE_DEBUG("object_mgr_create_skel failed.\n");
+      TRACE_DEVEL("object_mgr_create_skel failed.\n");
       goto error;
    }
 
@@ -479,7 +479,7 @@ key_mgr_generate_key( SESSION           * sess,
 
       rc = build_attribute( CKA_ALWAYS_SENSITIVE, &flag, sizeof(CK_BBOOL), &new_attr );
       if (rc != CKR_OK){
-         TRACE_DEBUG("build attribute failed.\n");
+         TRACE_DEVEL("build attribute failed.\n");
          goto error;
       }
       template_update_attribute( key_obj->template, new_attr );
@@ -497,7 +497,7 @@ key_mgr_generate_key( SESSION           * sess,
 
       rc = build_attribute( CKA_NEVER_EXTRACTABLE, &true, sizeof(CK_BBOOL), &new_attr );
       if (rc != CKR_OK){
-         TRACE_DEBUG("build_attribute failed\n");
+         TRACE_DEVEL("build_attribute failed\n");
          goto error;
       }
       if (flag == TRUE)
@@ -517,7 +517,7 @@ key_mgr_generate_key( SESSION           * sess,
    //
    rc = object_mgr_create_final( sess, key_obj, handle );
    if (rc != CKR_OK){
-      TRACE_DEBUG("object_mgr_create_final failed.\n");
+      TRACE_DEVEL("object_mgr_create_final failed.\n");
       goto error;
    }
    return rc;
@@ -657,7 +657,7 @@ key_mgr_generate_key_pair( SESSION           * sess,
                                 CKO_PUBLIC_KEY,  subclass,
                                 &publ_key_obj );
    if (rc != CKR_OK){
-      TRACE_DEBUG("object_mgr_create_skel failed.\n");
+      TRACE_DEVEL("object_mgr_create_skel failed.\n");
       goto error;
    }
    rc = object_mgr_create_skel( sess,
@@ -666,7 +666,7 @@ key_mgr_generate_key_pair( SESSION           * sess,
                                 CKO_PRIVATE_KEY, subclass,
                                 &priv_key_obj );
    if (rc != CKR_OK){
-      TRACE_DEBUG("object_mgr_create_skel failed.\n");
+      TRACE_DEVEL("object_mgr_create_skel failed.\n");
       goto error;
    }
 
@@ -709,7 +709,7 @@ key_mgr_generate_key_pair( SESSION           * sess,
    }
 
    if (rc != CKR_OK){
-      TRACE_DEBUG("Key Generation failed.\n");
+      TRACE_DEVEL("Key Generation failed.\n");
       goto error;
    }
 
@@ -723,7 +723,7 @@ key_mgr_generate_key_pair( SESSION           * sess,
 
       rc = build_attribute( CKA_ALWAYS_SENSITIVE, &flag, sizeof(CK_BBOOL), &new_attr );
       if (rc != CKR_OK){
-         TRACE_DEBUG("build_attribute failed.\n");
+         TRACE_DEVEL("build_attribute failed.\n");
          goto error;
       }
       template_update_attribute( priv_key_obj->template, new_attr );
@@ -741,7 +741,7 @@ key_mgr_generate_key_pair( SESSION           * sess,
 
       rc = build_attribute( CKA_NEVER_EXTRACTABLE, &true, sizeof(CK_BBOOL), &new_attr );
       if (rc != CKR_OK){
-         TRACE_DEBUG("build_attribute failed.\n");
+         TRACE_DEVEL("build_attribute failed.\n");
          goto error;
       }
       if (flag == TRUE)
@@ -761,12 +761,12 @@ key_mgr_generate_key_pair( SESSION           * sess,
    //
    rc = object_mgr_create_final( sess, publ_key_obj, publ_key_handle );
    if (rc != CKR_OK){
-      TRACE_DEBUG("object_mgr_create_final failed.\n");
+      TRACE_DEVEL("object_mgr_create_final failed.\n");
       goto error;
    }
    rc = object_mgr_create_final( sess, priv_key_obj, priv_key_handle );
    if (rc != CKR_OK){
-      TRACE_DEBUG("object_mgr_create_final failed.\n");
+      TRACE_DEVEL("object_mgr_create_final failed.\n");
       // just calling object_free in the error path below would lead to a double
       // free error on session close - KEY 09/26/07
       object_mgr_destroy_object( sess, *publ_key_handle );
@@ -852,7 +852,7 @@ key_mgr_wrap_key( SESSION           * sess,
    //
    rc = template_attribute_find( key2_obj->template, CKA_CLASS, &attr );
    if (rc == FALSE) {
-      TRACE_DEBUG("CKA_CLASS is missing for key to be wrapped.\n");
+      TRACE_DEVEL("CKA_CLASS is missing for key to be wrapped.\n");
       return CKR_KEY_NOT_WRAPPABLE;
    }
    else
@@ -929,7 +929,7 @@ key_mgr_wrap_key( SESSION           * sess,
       case CKK_DES:
          rc = des_wrap_get_data( key2_obj->template, length_only, &data, &data_len );
          if (rc != CKR_OK){
-            TRACE_DEBUG("des_wrap_get_data failed.\n");
+            TRACE_DEVEL("des_wrap_get_data failed.\n");
             return rc;
          }
          break;
@@ -937,7 +937,7 @@ key_mgr_wrap_key( SESSION           * sess,
       case CKK_DES3:
          rc = des3_wrap_get_data( key2_obj->template, length_only, &data, &data_len );
          if (rc != CKR_OK){
-            TRACE_DEBUG("des3_wrap_get_data failed.\n");
+            TRACE_DEVEL("des3_wrap_get_data failed.\n");
             return rc;
          }
          break;
@@ -945,7 +945,7 @@ key_mgr_wrap_key( SESSION           * sess,
       case CKK_RSA:
          rc = rsa_priv_wrap_get_data( key2_obj->template, length_only, &data, &data_len );
          if (rc != CKR_OK){
-            TRACE_DEBUG("rsa_priv_wrap_get_data failed.\n");
+            TRACE_DEVEL("rsa_priv_wrap_get_data failed.\n");
             return rc;
          }
          break;
@@ -954,7 +954,7 @@ key_mgr_wrap_key( SESSION           * sess,
       case CKK_DSA:
          rc = dsa_priv_wrap_get_data( key2_obj->template, length_only, &data, &data_len );
          if (rc != CKR_OK){
-            TRACE_DEBUG("dsa_priv_wrap_get_data failed.\n");
+            TRACE_DEVEL("dsa_priv_wrap_get_data failed.\n");
             return rc;
          }
          break;
@@ -963,7 +963,7 @@ key_mgr_wrap_key( SESSION           * sess,
       case CKK_GENERIC_SECRET:
          rc = generic_secret_wrap_get_data( key2_obj->template, length_only, &data, &data_len );
          if (rc != CKR_OK){
-            TRACE_DEBUG("generic_secret_wrap_get_data failed.\n");
+            TRACE_DEVEL("generic_secret_wrap_get_data failed.\n");
             return rc;
          }
          break;
@@ -971,7 +971,7 @@ key_mgr_wrap_key( SESSION           * sess,
       case CKK_AES:
 	 rc = aes_wrap_get_data( key2_obj->template, length_only, &data, &data_len );
 	 if (rc != CKR_OK){
-	    TRACE_DEBUG("aes_wrap_get_data failed.\n");
+	    TRACE_DEVEL("aes_wrap_get_data failed.\n");
 	    return rc;
 	 }
 	 break;
@@ -994,7 +994,7 @@ key_mgr_wrap_key( SESSION           * sess,
       case CKM_DES3_CBC:
          rc = ckm_des_wrap_format( length_only, &data, &data_len );
          if (rc != CKR_OK) {
-            TRACE_DEBUG("ckm_des_wrap_format failed.\n");
+            TRACE_DEVEL("ckm_des_wrap_format failed.\n");
             if (data) free( data );
             return rc;
          }
@@ -1009,7 +1009,7 @@ key_mgr_wrap_key( SESSION           * sess,
       case CKM_AES_CFB128:
 	 rc = ckm_aes_wrap_format( length_only, &data, &data_len );
 	 if (rc != CKR_OK) {
-	    TRACE_DEBUG("ckm_aes_wrap_format failed.\n");
+	    TRACE_DEVEL("ckm_aes_wrap_format failed.\n");
 	    if (data) free( data );
 	    return rc;
 	 }
@@ -1046,7 +1046,7 @@ key_mgr_wrap_key( SESSION           * sess,
    //
    rc = encr_mgr_init( sess, ctx, OP_WRAP, mech, h_wrapping_key );
    if (rc != CKR_OK){
-      TRACE_DEBUG("encr_mgr_init failed.\n");
+      TRACE_DEVEL("encr_mgr_init failed.\n");
       return rc;
    }
    // do the encryption and clean up.  at this point, 'value' may or may not
@@ -1204,7 +1204,7 @@ key_mgr_unwrap_key( SESSION           * sess,
                           wrapped_key, wrapped_key_len,
                           data,       &data_len );
    if (rc != CKR_OK){
-      TRACE_DEBUG("decr_mgr_decrypt failed.\n");
+      TRACE_DEVEL("decr_mgr_decrypt failed.\n");
       goto error;
    }
    data = (CK_BYTE *)malloc(data_len);
@@ -1224,7 +1224,7 @@ key_mgr_unwrap_key( SESSION           * sess,
    free( ctx );
 
    if (rc != CKR_OK){
-      TRACE_DEBUG("decr_mgr_decrypt failed.\n");
+      TRACE_DEVEL("decr_mgr_decrypt failed.\n");
       goto error;
    }
    // if we use X.509, the data will be padded from the front with zeros.
@@ -1243,7 +1243,7 @@ key_mgr_unwrap_key( SESSION           * sess,
    if (keyclass == CKO_PRIVATE_KEY) {
       rc = key_mgr_get_private_key_type( data, data_len, &keytype );
       if (rc != CKR_OK){
-         TRACE_DEBUG("key_mgr_get_private_key_type failed.\n");
+         TRACE_DEVEL("key_mgr_get_private_key_type failed.\n");
          goto error;
       }
    }
@@ -1259,7 +1259,7 @@ key_mgr_unwrap_key( SESSION           * sess,
                                 keyclass,      keytype,
                                 &key_obj );
    if (rc != CKR_OK){
-      TRACE_DEBUG("object_mgr_create_skel failed.\n");
+      TRACE_DEVEL("object_mgr_create_skel failed.\n");
       goto error;
    }
    // at this point, 'key_obj' should contain a skeleton key.  depending on
@@ -1284,7 +1284,7 @@ key_mgr_unwrap_key( SESSION           * sess,
    }
 
    if (rc != CKR_OK){
-      TRACE_DEBUG("key_unwrap failed.\n");
+      TRACE_DEVEL("key_unwrap failed.\n");
       goto error;
    }
    // at this point, the key should be fully constructed...assign
@@ -1292,7 +1292,7 @@ key_mgr_unwrap_key( SESSION           * sess,
    //
    rc = object_mgr_create_final( sess, key_obj, h_unwrapped_key );
    if (rc != CKR_OK){
-      TRACE_DEBUG("object_mgr_create_final failed.\n");
+      TRACE_DEVEL("object_mgr_create_final failed.\n");
       goto error;
    }
    if (data) free(data);
@@ -1318,7 +1318,7 @@ key_mgr_get_private_key_type( CK_BYTE     *keydata,
 
    rc = ber_decode_PrivateKeyInfo( keydata, keylen, &alg, &alg_len, &priv_key );
    if (rc != CKR_OK){
-      TRACE_DEBUG("ber_decode_PrivateKeyInfo failed.\n");
+      TRACE_DEVEL("ber_decode_PrivateKeyInfo failed.\n");
       return rc;
    }
    // check the entire AlgorithmIdentifier for RSA

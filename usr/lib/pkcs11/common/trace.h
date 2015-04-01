@@ -381,8 +381,8 @@ typedef enum {
 	TRACE_LEVEL_ERROR,
 	TRACE_LEVEL_WARNING,
 	TRACE_LEVEL_INFO,
-	TRACE_LEVEL_DEBUG,
-	TRACE_LEVEL_DEVEL
+	TRACE_LEVEL_DEVEL,
+	TRACE_LEVEL_DEBUG
 } trace_level_t;
 
 
@@ -403,14 +403,14 @@ const char *ock_err(int num);
 #define TRACE_ERROR(fmt, ...)	ock_traceit(TRACE_LEVEL_ERROR, "[%s:%d %s] ERROR: " fmt, __FILE__, __LINE__, STDLL_NAME, ##__VA_ARGS__)
 #define TRACE_WARNING(fmt, ...)	ock_traceit(TRACE_LEVEL_WARNING, "[%s:%d %s] WARN: " fmt, __FILE__, __LINE__, STDLL_NAME, ##__VA_ARGS__)
 #define TRACE_INFO(fmt, ...)	ock_traceit(TRACE_LEVEL_INFO, "[%s:%d %s] INFO: " fmt, __FILE__, __LINE__, STDLL_NAME, ##__VA_ARGS__)
-#define TRACE_DEBUG(fmt, ...)	ock_traceit(TRACE_LEVEL_DEBUG, "[%s:%d %s] DEBUG: " fmt, __FILE__, __LINE__, STDLL_NAME, ##__VA_ARGS__)
+#define TRACE_DEVEL(fmt, ...)	ock_traceit(TRACE_LEVEL_DEVEL, "[%s:%d %s] DEVEL: " fmt, __FILE__, __LINE__, STDLL_NAME, ##__VA_ARGS__)
 
 #ifdef DEBUG
-#define TRACE_DEVEL(fmt, ...)	ock_traceit(TRACE_LEVEL_DEVEL, "[%s:%d %s] DEVEL: " fmt, __FILE__, __LINE__, STDLL_NAME, ##__VA_ARGS__)
+#define TRACE_DEBUG(fmt, ...)	ock_traceit(TRACE_LEVEL_DEBUG, "[%s:%d %s] DEBUG: " fmt, __FILE__, __LINE__, STDLL_NAME, ##__VA_ARGS__)
 void dump_shm(const char *);
 #define DUMP_SHM(x)	dump_shm(x)
 #else
-#define TRACE_DEVEL(fmt, ...)
+#define TRACE_DEBUG(fmt, ...)
 #define DUMP_SHM(x)
 #endif
 

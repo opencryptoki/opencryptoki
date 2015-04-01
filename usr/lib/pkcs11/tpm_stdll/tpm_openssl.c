@@ -86,7 +86,7 @@ regen_rsa_key:
 			RSA_free(rsa);
 			counter++;
 			if (counter == KEYGEN_RETRY) {
-				TRACE_DEBUG("Tried %d times to generate a "
+				TRACE_DEVEL("Tried %d times to generate a "
 					    "valid RSA key, failed.\n",
 					    KEYGEN_RETRY);
 				return NULL;

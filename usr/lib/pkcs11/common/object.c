@@ -394,7 +394,7 @@ object_create( CK_ATTRIBUTE  * pTemplate,
                             class, subclass,
                             &o );
    if (rc != CKR_OK){
-      TRACE_DEBUG("object_create_skel failed.\n");
+      TRACE_DEVEL("object_create_skel failed.\n");
       return rc;
    }
    // for key objects, we need be careful...
@@ -417,7 +417,7 @@ object_create( CK_ATTRIBUTE  * pTemplate,
 
       rc = build_attribute( CKA_ALWAYS_SENSITIVE, &flag, sizeof(CK_BYTE), &sensitive );
       if (rc != CKR_OK){
-         TRACE_DEBUG("build_attribute failed.\n");
+         TRACE_DEVEL("build_attribute failed.\n");
          goto error;
       }
 
@@ -433,7 +433,7 @@ object_create( CK_ATTRIBUTE  * pTemplate,
 
       rc = build_attribute( CKA_NEVER_EXTRACTABLE, &flag, sizeof(CK_BYTE), &extractable );
       if (rc != CKR_OK){
-         TRACE_DEBUG("build attribute failed.\n");
+         TRACE_DEVEL("build attribute failed.\n");
          goto error;
       }
       template_update_attribute( o->template, sensitive );
@@ -504,12 +504,12 @@ object_copy( CK_ATTRIBUTE  * pTemplate,
    //
    rc = template_copy( tmpl, old_obj->template );
    if (rc != CKR_OK){
-      TRACE_DEBUG("Failed to copy template.\n");
+      TRACE_DEVEL("Failed to copy template.\n");
       goto error;
    }
    rc = template_add_attributes( new_tmpl, pTemplate, ulCount );
    if (rc != CKR_OK){
-      TRACE_DEBUG("template_add_attributes failed.\n");
+      TRACE_DEVEL("template_add_attributes failed.\n");
       goto error;
    }
    // at this point, the new object has the list of attributes.  we need
@@ -537,14 +537,14 @@ object_copy( CK_ATTRIBUTE  * pTemplate,
    //
    rc = template_validate_attributes( new_tmpl, class, subclass, MODE_COPY );
    if (rc != CKR_OK){
-      TRACE_DEBUG("template_validate_attributes failed.\n");
+      TRACE_DEVEL("template_validate_attributes failed.\n");
       goto error;
    }
    // merge in the new attributes
    //
    rc = template_merge( tmpl, &new_tmpl );
    if (rc != CKR_OK){
-      TRACE_DEBUG("template_merge failed.\n");
+      TRACE_DEVEL("template_merge failed.\n");
       goto error;
    }
    // do we need this?  since an attribute cannot be removed, the original
@@ -845,7 +845,7 @@ object_set_attribute_values( OBJECT        * obj,
 
    rc = template_add_attributes( new_tmpl, pTemplate, ulCount );
    if (rc != CKR_OK){
-      TRACE_DEBUG("template_add_attributes failed.\n");
+      TRACE_DEVEL("template_add_attributes failed.\n");
       goto error;
    }
 
@@ -858,7 +858,7 @@ object_set_attribute_values( OBJECT        * obj,
    //
    rc = template_validate_attributes( new_tmpl, class, subclass, MODE_MODIFY );
    if (rc != CKR_OK){
-      TRACE_DEBUG("template_validate_attributes failed.\n");
+      TRACE_DEVEL("template_validate_attributes failed.\n");
       goto error;
    }
 
@@ -866,7 +866,7 @@ object_set_attribute_values( OBJECT        * obj,
    //
    rc = template_merge( obj->template, &new_tmpl );
    if (rc != CKR_OK){
-      TRACE_DEBUG("template_merge failed.\n");
+      TRACE_DEVEL("template_merge failed.\n");
       return rc;
    }
    return CKR_OK;
@@ -926,7 +926,7 @@ object_restore_withSize( CK_BYTE *data, OBJECT **new_obj, CK_BBOOL replace, int 
 
    rc = template_unflatten_withSize( &tmpl, data + offset, count, data_size );
    if (rc != CKR_OK){
-      TRACE_DEBUG("template_unflatten_withSize failed.\n");
+      TRACE_DEVEL("template_unflatten_withSize failed.\n");
       goto error;
    }
    obj->template = tmpl;
@@ -1004,13 +1004,13 @@ object_create_skel( CK_ATTRIBUTE  * pTemplate,
 
    rc = template_validate_attributes( tmpl2, class, subclass, mode );
    if (rc != CKR_OK){
-      TRACE_DEBUG("template_validate_attributes failed.\n");
+      TRACE_DEVEL("template_validate_attributes failed.\n");
       goto done;
    }
 
    rc = template_check_required_attributes( tmpl2, class, subclass, mode );
    if (rc != CKR_OK){
-      TRACE_DEBUG("template_check_required_attributes failed.\n");
+      TRACE_DEVEL("template_check_required_attributes failed.\n");
       goto done;
    }
 
@@ -1021,7 +1021,7 @@ object_create_skel( CK_ATTRIBUTE  * pTemplate,
 
    rc = template_merge( tmpl, &tmpl2 );
    if (rc != CKR_OK){
-      TRACE_DEBUG("template_merge failed.\n");
+      TRACE_DEVEL("template_merge failed.\n");
       goto done;
    }
    // at this point, we should have a valid object with correct attributes

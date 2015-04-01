@@ -360,7 +360,7 @@ template_add_attributes( TEMPLATE     * tmpl,
       rc = template_update_attribute( tmpl, attr );
       if (rc != CKR_OK) {
          free( attr );
-         TRACE_DEBUG("template_update_attribute failed.\n");
+         TRACE_DEVEL("template_update_attribute failed.\n");
          return rc;
       }
    }
@@ -386,7 +386,7 @@ template_add_default_attributes( TEMPLATE * tmpl,
    //
    rc = template_set_default_common_attributes( tmpl );
    if (rc != CKR_OK){
-      TRACE_DEBUG("template_set_default_common_attributes failed.\n");
+      TRACE_DEVEL("template_set_default_common_attributes failed.\n");
       return rc;
    }
    // set the template class-specific default attributes
@@ -1342,7 +1342,7 @@ template_merge( TEMPLATE *dest, TEMPLATE **src )
 
       rc = template_update_attribute( dest, attr );
       if (rc != CKR_OK){
-         TRACE_DEBUG("template_update_attribute failed.\n");
+         TRACE_DEVEL("template_update_attribute failed.\n");
          return rc;
       }
       // we've assigned the node's data to a node in 'dest'
@@ -1655,7 +1655,7 @@ template_validate_attributes( TEMPLATE * tmpl,
 
       rc = template_validate_attribute( tmpl, attr, class, subclass, mode );
       if (rc != CKR_OK){
-         TRACE_DEBUG("template_validate_attribute failed.\n");
+         TRACE_DEVEL("template_validate_attribute failed.\n");
          return rc;
       }
       node = node->next;

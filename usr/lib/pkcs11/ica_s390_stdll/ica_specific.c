@@ -1479,7 +1479,7 @@ os_specific_rsa_keygen(TEMPLATE *publ_tmpl,  TEMPLATE *priv_tmpl)
    rc = build_attribute( CKA_MODULUS, ptr,
                         tmpsize, &attr );
    if (rc != CKR_OK){
-      TRACE_DEBUG("build_attribute failed\n");
+      TRACE_DEVEL("build_attribute failed\n");
       goto privkey_cleanup;
    }
    template_update_attribute( publ_tmpl, attr );
@@ -1491,7 +1491,7 @@ os_specific_rsa_keygen(TEMPLATE *publ_tmpl,  TEMPLATE *priv_tmpl)
    rc = build_attribute( CKA_PUBLIC_EXPONENT, ptr,
                         tmpsize, &attr);
    if (rc != CKR_OK){
-      TRACE_DEBUG("build attribute failed\n");
+      TRACE_DEVEL("build attribute failed\n");
       goto privkey_cleanup;
    }
    template_update_attribute( publ_tmpl, attr );
@@ -1502,7 +1502,7 @@ os_specific_rsa_keygen(TEMPLATE *publ_tmpl,  TEMPLATE *priv_tmpl)
    flag = TRUE;
    rc = build_attribute( CKA_LOCAL, &flag, sizeof(CK_BBOOL), &attr );
    if (rc != CKR_OK){
-      TRACE_DEBUG("build_attribute failed\n");
+      TRACE_DEVEL("build_attribute failed\n");
       goto privkey_cleanup;
    }
    template_update_attribute( publ_tmpl, attr );
@@ -1517,7 +1517,7 @@ os_specific_rsa_keygen(TEMPLATE *publ_tmpl,  TEMPLATE *priv_tmpl)
    ptr = p11_bigint_trim(publKey->exponent, &tmpsize);
    rc = build_attribute( CKA_PUBLIC_EXPONENT, ptr, tmpsize, &attr );
    if (rc != CKR_OK) {
-      TRACE_DEBUG("build_attribute failed\n");
+      TRACE_DEVEL("build_attribute failed\n");
       goto privkey_cleanup;
    }
    template_update_attribute( priv_tmpl, attr );
@@ -1535,7 +1535,7 @@ os_specific_rsa_keygen(TEMPLATE *publ_tmpl,  TEMPLATE *priv_tmpl)
    rc = build_attribute( CKA_MODULUS, ptr,
                         tmpsize, &attr );
    if (rc != CKR_OK){
-      TRACE_DEBUG("build_attribute failed\n");
+      TRACE_DEVEL("build_attribute failed\n");
       goto privkey_cleanup;
    }
    template_update_attribute( priv_tmpl, attr );
@@ -1547,7 +1547,7 @@ os_specific_rsa_keygen(TEMPLATE *publ_tmpl,  TEMPLATE *priv_tmpl)
    rc = build_attribute( CKA_EXPONENT_1, ptr,
                         tmpsize, &attr );
    if (rc != CKR_OK){
-      TRACE_DEBUG("build_attribute failed\n");
+      TRACE_DEVEL("build_attribute failed\n");
       goto privkey_cleanup;
    }
    template_update_attribute( priv_tmpl, attr );
@@ -1559,7 +1559,7 @@ os_specific_rsa_keygen(TEMPLATE *publ_tmpl,  TEMPLATE *priv_tmpl)
    rc = build_attribute( CKA_EXPONENT_2, ptr,
                         tmpsize, &attr );
    if (rc != CKR_OK){
-      TRACE_DEBUG("build_attribute failed\n");
+      TRACE_DEVEL("build_attribute failed\n");
       goto privkey_cleanup;
    }
    template_update_attribute( priv_tmpl, attr );
@@ -1571,7 +1571,7 @@ os_specific_rsa_keygen(TEMPLATE *publ_tmpl,  TEMPLATE *priv_tmpl)
    rc = build_attribute( CKA_PRIME_1, ptr,
                         tmpsize, &attr );
    if (rc != CKR_OK){
-      TRACE_DEBUG("build_attribute failed\n");
+      TRACE_DEVEL("build_attribute failed\n");
       goto privkey_cleanup;
    }
    template_update_attribute( priv_tmpl, attr );
@@ -1584,7 +1584,7 @@ os_specific_rsa_keygen(TEMPLATE *publ_tmpl,  TEMPLATE *priv_tmpl)
    rc = build_attribute( CKA_PRIME_2, privKey->q,
                         privKey->key_length/2, &attr );
    if (rc != CKR_OK){
-      TRACE_DEBUG("build_attribute failed\n");
+      TRACE_DEVEL("build_attribute failed\n");
       goto privkey_cleanup;
    }
    template_update_attribute( priv_tmpl, attr );
@@ -1597,7 +1597,7 @@ os_specific_rsa_keygen(TEMPLATE *publ_tmpl,  TEMPLATE *priv_tmpl)
    rc = build_attribute( CKA_COEFFICIENT, ptr,
                         tmpsize, &attr );
    if (rc != CKR_OK){
-      TRACE_DEBUG("build_attribute failed\n");
+      TRACE_DEVEL("build_attribute failed\n");
       goto privkey_cleanup;
    }
    template_update_attribute( priv_tmpl, attr );
@@ -1625,7 +1625,7 @@ token_specific_rsa_generate_keypair( TEMPLATE  * publ_tmpl,
 
    rc = os_specific_rsa_keygen(publ_tmpl,priv_tmpl);
    if (rc != CKR_OK)
-         TRACE_DEBUG("os_specific_rsa_keygen failed\n");
+         TRACE_DEVEL("os_specific_rsa_keygen failed\n");
    return rc;
 }
 
@@ -1833,7 +1833,7 @@ token_specific_rsa_encrypt(CK_BYTE *in_data, CK_ULONG in_data_len,
 	/* format the data */
 	rc = rsa_format_block(in_data, in_data_len, clear, modulus_bytes, PKCS_BT_2);
 	if (rc != CKR_OK) {
-		TRACE_DEBUG("rsa_format_block failed\n");
+		TRACE_DEVEL("rsa_format_block failed\n");
 		return rc;
 	}
 
@@ -1842,7 +1842,7 @@ token_specific_rsa_encrypt(CK_BYTE *in_data, CK_ULONG in_data_len,
 		memcpy(out_data, cipher, modulus_bytes);
 		*out_data_len = modulus_bytes;
 	} else
-		TRACE_DEBUG("os_specific_rsa_encrypt failed\n");
+		TRACE_DEVEL("os_specific_rsa_encrypt failed\n");
 
 	return rc;
 }
@@ -1859,13 +1859,13 @@ token_specific_rsa_decrypt(CK_BYTE *in_data, CK_ULONG in_data_len,
 	rc = os_specific_rsa_decrypt(in_data, in_data_len, out, key_obj);
 
 	if (rc != CKR_OK) {
-		TRACE_DEBUG("os_specific_rsa_decrypt failed\n");
+		TRACE_DEVEL("os_specific_rsa_decrypt failed\n");
 		return rc;
 	}
 
 	rc = rsa_parse_block(out,in_data_len,out_data,out_data_len,PKCS_BT_2);
 	if (rc != CKR_OK) {
-		TRACE_DEBUG("rsa_parse_block failed\n");
+		TRACE_DEVEL("rsa_parse_block failed\n");
 		return rc;
 	}
 
@@ -1901,7 +1901,7 @@ token_specific_rsa_sign(CK_BYTE *in_data, CK_ULONG in_data_len,
 
 	rc = rsa_format_block(in_data, in_data_len, data, modulus_bytes, PKCS_BT_1);
 	if (rc != CKR_OK) {
-		TRACE_DEBUG("rsa_format_block failed\n");
+		TRACE_DEVEL("rsa_format_block failed\n");
 		return rc;
 	}
 
@@ -1911,7 +1911,7 @@ token_specific_rsa_sign(CK_BYTE *in_data, CK_ULONG in_data_len,
 		memcpy( out_data, sig, modulus_bytes );
 		*out_data_len = modulus_bytes;
 	} else
-		TRACE_DEBUG("os_specific_rsa_decrypt failed\n");
+		TRACE_DEVEL("os_specific_rsa_decrypt failed\n");
 	return rc;
 }
 
@@ -1954,7 +1954,7 @@ token_specific_rsa_verify (CK_BYTE *in_data, CK_ULONG in_data_len,
 			return CKR_FUNCTION_FAILED;
 		}
 	} else
-		TRACE_DEBUG("rsa_parse_block failed\n");
+		TRACE_DEVEL("rsa_parse_block failed\n");
 
 	return rc;
 }
@@ -1979,7 +1979,7 @@ token_specific_rsa_verify_recover(CK_BYTE *signature, CK_ULONG sig_len,
 
 	rc = os_specific_rsa_encrypt(signature, modulus_bytes, out, key_obj);
 	if (rc != CKR_OK) {
-		TRACE_DEBUG("os_specific_rsa_encrypt failed\n");
+		TRACE_DEVEL("os_specific_rsa_encrypt failed\n");
 		return rc;
 	}
 
@@ -1988,7 +1988,7 @@ token_specific_rsa_verify_recover(CK_BYTE *signature, CK_ULONG sig_len,
 		TRACE_ERROR("%s\n", ock_err(ERR_SIGNATURE_INVALID));
 		return CKR_SIGNATURE_INVALID;
 	} else if (rc != CKR_OK)
-		TRACE_DEBUG("rsa_parse_block failed\n");
+		TRACE_DEVEL("rsa_parse_block failed\n");
 
 	return rc;
 }
@@ -2021,7 +2021,7 @@ token_specific_rsa_x509_encrypt(CK_BYTE *in_data, CK_ULONG in_data_len,
 		memcpy(out_data, cipher, modulus_bytes);
 		*out_data_len = modulus_bytes;
 	} else
-		TRACE_DEBUG("os_specific_rsa_encrypt failed\n");
+		TRACE_DEVEL("os_specific_rsa_encrypt failed\n");
 
 	return rc;
 }
@@ -2049,7 +2049,7 @@ token_specific_rsa_x509_decrypt(CK_BYTE *in_data, CK_ULONG in_data_len,
 		memcpy(out_data, out, modulus_bytes);
 		*out_data_len = modulus_bytes;
 	} else
-		TRACE_DEBUG("os_specific_rsa_decrypt failed\n");
+		TRACE_DEVEL("os_specific_rsa_decrypt failed\n");
 
 	return rc;
 }
@@ -2082,7 +2082,7 @@ token_specific_rsa_x509_sign(CK_BYTE *in_data, CK_ULONG in_data_len,
 		memcpy(out_data, sig, modulus_bytes);
 		*out_data_len = modulus_bytes;
 	} else
-		TRACE_DEBUG("os_specific_rsa_decrypt failed\n");
+		TRACE_DEVEL("os_specific_rsa_decrypt failed\n");
 	return rc;
 }
 
@@ -2136,7 +2136,7 @@ token_specific_rsa_x509_verify(CK_BYTE *in_data, CK_ULONG in_data_len,
 		}
 		return CKR_OK;
 	} else
-		TRACE_DEBUG("os_specific_rsa_encrypt failed\n");
+		TRACE_DEVEL("os_specific_rsa_encrypt failed\n");
 
 	return rc;
 }
@@ -2165,7 +2165,7 @@ token_specific_rsa_x509_verify_recover(CK_BYTE *signature, CK_ULONG sig_len,
 		memcpy(out_data, out, modulus_bytes);
 		*out_data_len = modulus_bytes;
 	} else
-		TRACE_DEBUG("os_specific_rsa_encrypt failed\n");
+		TRACE_DEVEL("os_specific_rsa_encrypt failed\n");
 
 	return rc;
 }
@@ -2193,7 +2193,7 @@ CK_RV token_specific_rsa_oaep_encrypt(ENCR_DECR_CONTEXT *ctx, CK_BYTE *in_data,
 	
 	rc = object_mgr_find_in_map1(ctx->key, &key_obj);
 	if (rc != CKR_OK) {
-		TRACE_DEBUG("object_mgr_find_in_map1 failed\n");
+		TRACE_DEVEL("object_mgr_find_in_map1 failed\n");
 		return rc;
 	}
 
@@ -2223,7 +2223,7 @@ CK_RV token_specific_rsa_oaep_encrypt(ENCR_DECR_CONTEXT *ctx, CK_BYTE *in_data,
                 memcpy(out_data, cipher, modulus_bytes);
                 *out_data_len = modulus_bytes;
         } else
-                TRACE_DEBUG("os_specific_rsa_encrypt failed\n");
+                TRACE_DEVEL("os_specific_rsa_encrypt failed\n");
 
 done:
 	if (em_data)
@@ -2252,7 +2252,7 @@ CK_RV token_specific_rsa_oaep_decrypt(ENCR_DECR_CONTEXT *ctx, CK_BYTE *in_data,
 
 	rc = object_mgr_find_in_map1(ctx->key, &key_obj);
 	if (rc != CKR_OK) {
-		TRACE_DEBUG("object_mgr_find_in_map1 failed\n");
+		TRACE_DEVEL("object_mgr_find_in_map1 failed\n");
 		return rc;
 	}
 
@@ -2312,7 +2312,7 @@ CK_RV token_specific_rsa_pss_sign(SIGN_VERIFY_CONTEXT *ctx, CK_BYTE *in_data,
 	/* get the key */
 	rc = object_mgr_find_in_map1(ctx->key, &key_obj);
 	if (rc != CKR_OK) {
-		TRACE_DEBUG("object_mgr_find_in_map1 failed\n");
+		TRACE_DEVEL("object_mgr_find_in_map1 failed\n");
 		return rc;
 	}
 
@@ -2338,7 +2338,7 @@ CK_RV token_specific_rsa_pss_sign(SIGN_VERIFY_CONTEXT *ctx, CK_BYTE *in_data,
 	if (rc == CKR_OK)
 		*sig_len = modbytes;
 	else
-		TRACE_DEBUG("os_specific_rsa_decrypt failed\n");
+		TRACE_DEVEL("os_specific_rsa_decrypt failed\n");
 
 done:
 	if (emdata)
@@ -2375,14 +2375,14 @@ CK_RV token_specific_rsa_pss_verify(SIGN_VERIFY_CONTEXT *ctx, CK_BYTE *in_data,
 	/* get the key */
 	rc = object_mgr_find_in_map1(ctx->key, &key_obj);
 	if (rc != CKR_OK) {
-		TRACE_DEBUG("object_mgr_find_in_map1 failed\n");
+		TRACE_DEVEL("object_mgr_find_in_map1 failed\n");
 		return rc;
 	}
 
 	/* verify is a public key operation ... encrypt */
 	rc = os_specific_rsa_encrypt(signature, sig_len, out, key_obj);
 	if (rc != CKR_OK) {
-		TRACE_DEBUG("os_specific_rsa_encrypt failed\n");
+		TRACE_DEVEL("os_specific_rsa_encrypt failed\n");
 		return rc;
 	}
 
@@ -2791,7 +2791,7 @@ token_specific_dh_pkcs_key_pair_gen( TEMPLATE  * publ_tmpl,
     rc = build_attribute( CKA_VALUE, temp_byte, temp_bn_len, &temp_attr ); // in bytes
     if (rc != CKR_OK)
     {
-        TRACE_DEBUG("build_attribute failed\n");
+        TRACE_DEVEL("build_attribute failed\n");
         return rc;
     }
     template_update_attribute( publ_tmpl, temp_attr );
@@ -2808,7 +2808,7 @@ token_specific_dh_pkcs_key_pair_gen( TEMPLATE  * publ_tmpl,
     rc = build_attribute( CKA_VALUE, temp_byte, temp_bn_len, &temp_attr ); // in bytes
     if (rc != CKR_OK)
     {
-        TRACE_DEBUG("build_attribute failed\n");
+        TRACE_DEVEL("build_attribute failed\n");
         return rc;
     }
     template_update_attribute( priv_tmpl, temp_attr );
@@ -2827,7 +2827,7 @@ token_specific_dh_pkcs_key_pair_gen( TEMPLATE  * publ_tmpl,
                           prime_attr->ulValueLen, &temp_attr ); // in bytes
     if (rc != CKR_OK)
     {
-        TRACE_DEBUG("build_attribute failed\n");
+        TRACE_DEVEL("build_attribute failed\n");
         return rc;
     }
     template_update_attribute( priv_tmpl, temp_attr );
@@ -2836,7 +2836,7 @@ token_specific_dh_pkcs_key_pair_gen( TEMPLATE  * publ_tmpl,
                           base_attr->ulValueLen, &temp_attr ); // in bytes
     if (rc != CKR_OK)
     {
-        TRACE_DEBUG("build_attribute failed\n");
+        TRACE_DEVEL("build_attribute failed\n");
         return rc;
     }
     template_update_attribute( priv_tmpl, temp_attr );

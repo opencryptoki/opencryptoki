@@ -376,7 +376,7 @@ md2_hash( SESSION         * sess,
 
    rc = md2_hash_update( sess, ctx, in_data, in_data_len );
    if (rc != CKR_OK){
-      TRACE_DEBUG("md2_hash_update failed.\n");
+      TRACE_DEVEL("md2_hash_update failed.\n");
       return CKR_FUNCTION_FAILED;
    }
    return md2_hash_final( sess,      FALSE,
@@ -511,7 +511,7 @@ md2_hmac_sign( SESSION              * sess,
 
       rc = digest_mgr_init( sess, &digest_ctx, &digest_mech );
       if (rc != CKR_OK){
-	 TRACE_DEBUG("Digest Mgr Init failed.\n");
+	 TRACE_DEVEL("Digest Mgr Init failed.\n");
          return rc;
       }
       hash_len = sizeof(hash);
@@ -519,7 +519,7 @@ md2_hmac_sign( SESSION              * sess,
                               attr->pValue, attr->ulValueLen,
                               hash,  &hash_len );
       if (rc != CKR_OK){
-	 TRACE_DEBUG("Digest Mgr Digest failed.\n");
+	 TRACE_DEVEL("Digest Mgr Digest failed.\n");
          return rc;
       }
       memset( &digest_ctx, 0x0, sizeof(DIGEST_CONTEXT) );
@@ -556,23 +556,23 @@ md2_hmac_sign( SESSION              * sess,
    //
    rc = digest_mgr_init( sess, &digest_ctx, &digest_mech );
    if (rc != CKR_OK){
-      TRACE_DEBUG("Digest Mgr Init failed.\n");
+      TRACE_DEVEL("Digest Mgr Init failed.\n");
       return rc;
    }
    rc = digest_mgr_digest_update( sess, &digest_ctx, k_ipad, MD2_BLOCK_SIZE );
    if (rc != CKR_OK){
-      TRACE_DEBUG("Digest Mgr Update failed.\n");
+      TRACE_DEVEL("Digest Mgr Update failed.\n");
       return rc;
    }
    rc = digest_mgr_digest_update( sess, &digest_ctx, in_data, in_data_len );
    if (rc != CKR_OK){
-      TRACE_DEBUG("Digest Mgr Update failed.\n");
+      TRACE_DEVEL("Digest Mgr Update failed.\n");
       return rc;
    }
    hash_len = sizeof(hash);
    rc = digest_mgr_digest_final( sess, FALSE, &digest_ctx, hash, &hash_len );
    if (rc != CKR_OK){
-      TRACE_DEBUG("Digest Mgr Final failed.\n");
+      TRACE_DEVEL("Digest Mgr Final failed.\n");
       return rc;
    }
    memset( &digest_ctx, 0x0, sizeof(DIGEST_CONTEXT) );
@@ -582,23 +582,23 @@ md2_hmac_sign( SESSION              * sess,
    //
    rc = digest_mgr_init( sess, &digest_ctx, &digest_mech );
    if (rc != CKR_OK){
-      TRACE_DEBUG("Digest Mgr Init failed.\n");
+      TRACE_DEVEL("Digest Mgr Init failed.\n");
       return rc;
    }
    rc = digest_mgr_digest_update( sess, &digest_ctx, k_opad, MD2_BLOCK_SIZE );
    if (rc != CKR_OK){
-      TRACE_DEBUG("Digest Mgr Update failed.\n");
+      TRACE_DEVEL("Digest Mgr Update failed.\n");
       return rc;
    }
    rc = digest_mgr_digest_update( sess, &digest_ctx, hash, hash_len );
    if (rc != CKR_OK){
-      TRACE_DEBUG("Digest Mgr Update failed.\n");
+      TRACE_DEVEL("Digest Mgr Update failed.\n");
       return rc;
    }
    hash_len = sizeof(hash);
    rc = digest_mgr_digest_final( sess, FALSE, &digest_ctx, hash, &hash_len );
    if (rc != CKR_OK){
-      TRACE_DEBUG("Digest Mgr Final failed.\n");
+      TRACE_DEVEL("Digest Mgr Final failed.\n");
       return rc;
    }
    memcpy( out_data, hash, hmac_len );
@@ -636,7 +636,7 @@ md2_hmac_verify( SESSION              * sess,
 
    rc = sign_mgr_init( sess, &hmac_ctx, &ctx->mech, FALSE, ctx->key );
    if (rc != CKR_OK){
-      TRACE_DEBUG("Sign Mgr Init failed.\n");
+      TRACE_DEVEL("Sign Mgr Init failed.\n");
       return rc;
    }
    len = sizeof(hmac);
@@ -644,7 +644,7 @@ md2_hmac_verify( SESSION              * sess,
                        in_data, in_data_len,
                        hmac,   &len );
    if (rc != CKR_OK){
-      TRACE_DEBUG("Sign Mgr Sign failed.\n");
+      TRACE_DEVEL("Sign Mgr Sign failed.\n");
       return rc;
    }
    if ((len != hmac_len) || (len != sig_len)){

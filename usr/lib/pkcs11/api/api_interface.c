@@ -439,7 +439,7 @@ CK_RV C_CloseSession(CK_SESSION_HANDLE hSession)
 	if (fcn->ST_CloseSession) {
 		// Map the Session to the slot session
 		rv = fcn->ST_CloseSession(&rSession);
-		TRACE_DEBUG("Called STDLL rv = 0x%x\n", rv);
+		TRACE_DEVEL("Called STDLL rv = 0x%x\n", rv);
 		//  If the STDLL successfuly closed the session
 		//  we can free it.. Otherwise we will have to leave it
 		//  lying arround.
@@ -452,7 +452,7 @@ CK_RV C_CloseSession(CK_SESSION_HANDLE hSession)
 			// other applications have the token active. 
 			decr_sess_counts(rSession.slotID);
 		} else
-			TRACE_DEBUG("fcn->ST_CloseSession failed:0x%x\n", rv);
+			TRACE_DEVEL("fcn->ST_CloseSession failed:0x%x\n", rv);
 	} else {
 		TRACE_ERROR("%s\n", ock_err(ERR_FUNCTION_NOT_SUPPORTED));
 		rv = CKR_FUNCTION_NOT_SUPPORTED;
@@ -589,7 +589,7 @@ C_CreateObject(CK_SESSION_HANDLE hSession,
 		// Map the Session to the slot session
 		rv = fcn->ST_CreateObject(&rSession, pTemplate, ulCount,
 					  phObject);
-		TRACE_DEBUG("fcn->ST_CreateObject returned:0x%x\n", rv);
+		TRACE_DEVEL("fcn->ST_CreateObject returned:0x%x\n", rv);
 	} else {
 		TRACE_ERROR("%s\n", ock_err(ERR_FUNCTION_NOT_SUPPORTED));
 		rv = CKR_FUNCTION_NOT_SUPPORTED;
@@ -647,7 +647,7 @@ C_Decrypt(CK_SESSION_HANDLE hSession,
 		// Map the Session to the slot session
 		rv = fcn->ST_Decrypt(&rSession, pEncryptedData,
 				     ulEncryptedDataLen, pData, pulDataLen);
-		TRACE_DEBUG("fcn->ST_Decrypt returned:0x%x\n", rv);
+		TRACE_DEVEL("fcn->ST_Decrypt returned:0x%x\n", rv);
 	} else {
 		TRACE_ERROR("%s\n", ock_err(ERR_FUNCTION_NOT_SUPPORTED));
 		rv = CKR_FUNCTION_NOT_SUPPORTED;
@@ -704,7 +704,7 @@ C_DecryptDigestUpdate(CK_SESSION_HANDLE hSession,
 		rv = fcn->ST_DecryptDigestUpdate(&rSession, pEncryptedPart,
 						 ulEncryptedPartLen, pPart,
 						 pulPartLen);
-		TRACE_DEBUG("fcn->ST_DecryptDigestUpdate returned:0x%x\n", rv);
+		TRACE_DEVEL("fcn->ST_DecryptDigestUpdate returned:0x%x\n", rv);
 	} else {
 		TRACE_ERROR("%s\n", ock_err(ERR_FUNCTION_NOT_SUPPORTED));
 		rv = CKR_FUNCTION_NOT_SUPPORTED;
@@ -763,7 +763,7 @@ C_DecryptFinal(CK_SESSION_HANDLE hSession,
 	if (fcn->ST_DecryptFinal) {
 		// Map the Session to the slot session
 		rv = fcn->ST_DecryptFinal(&rSession, pLastPart, pulLastPartLen);
-		TRACE_DEBUG("fcn->ST_DecryptFinal returned: 0x%x\n", rv);
+		TRACE_DEVEL("fcn->ST_DecryptFinal returned: 0x%x\n", rv);
 	} else {
 		TRACE_ERROR("%s\n", ock_err(ERR_FUNCTION_NOT_SUPPORTED));
 		rv = CKR_FUNCTION_NOT_SUPPORTED;
@@ -817,7 +817,7 @@ C_DecryptInit(CK_SESSION_HANDLE hSession,
 	if (fcn->ST_DecryptInit) {
 		// Map the Session to the slot session
 		rv = fcn->ST_DecryptInit(&rSession, pMechanism, hKey);
-		TRACE_DEBUG("fcn->ST_DecryptInit returned:0x%x\n", rv);
+		TRACE_DEVEL("fcn->ST_DecryptInit returned:0x%x\n", rv);
 	} else {
 		TRACE_ERROR("%s\n", ock_err(ERR_FUNCTION_NOT_SUPPORTED));
 		rv = CKR_FUNCTION_NOT_SUPPORTED;
@@ -875,7 +875,7 @@ C_DecryptUpdate(CK_SESSION_HANDLE hSession,
 		rv = fcn->ST_DecryptUpdate(&rSession, pEncryptedPart,
 					   ulEncryptedPartLen, pPart,
 					   pulPartLen);
-		TRACE_DEBUG("fcn->ST_DecryptUpdate:0x%x\n", rv);
+		TRACE_DEVEL("fcn->ST_DecryptUpdate:0x%x\n", rv);
 	} else {
 		TRACE_ERROR("%s\n", ock_err(ERR_FUNCTION_NOT_SUPPORTED));
 		rv = CKR_FUNCTION_NOT_SUPPORTED;
@@ -929,7 +929,7 @@ C_DecryptVerifyUpdate(CK_SESSION_HANDLE hSession,
 		rv = fcn->ST_DecryptVerifyUpdate(&rSession, pEncryptedPart,
 						 ulEncryptedPartLen, pPart,
 						 pulPartLen);
-		TRACE_DEBUG("fcn->ST_DecryptVerifyUpdate returned:0x%x\n", rv);
+		TRACE_DEVEL("fcn->ST_DecryptVerifyUpdate returned:0x%x\n", rv);
 	} else {
 		TRACE_ERROR("%s\n", ock_err(ERR_FUNCTION_NOT_SUPPORTED));
 		rv = CKR_FUNCTION_NOT_SUPPORTED;
@@ -994,7 +994,7 @@ C_DeriveKey(CK_SESSION_HANDLE hSession,
 		// Map the Session to the slot session
 		rv = fcn->ST_DeriveKey(&rSession, pMechanism, hBaseKey,
 				       pTemplate, ulAttributeCount, phKey);
-		TRACE_DEBUG("fcn->ST_DeriveKey returned:0x%x\n", rv);
+		TRACE_DEVEL("fcn->ST_DeriveKey returned:0x%x\n", rv);
 	} else {
 		TRACE_ERROR("%s\n", ock_err(ERR_FUNCTION_NOT_SUPPORTED));
 		rv = CKR_FUNCTION_NOT_SUPPORTED;
@@ -1043,7 +1043,7 @@ CK_RV C_DestroyObject(CK_SESSION_HANDLE hSession, CK_OBJECT_HANDLE hObject)
 	if (fcn->ST_DestroyObject) {
 		// Map the Session to the slot session
 		rv = fcn->ST_DestroyObject(&rSession, hObject);
-		TRACE_DEBUG("fcn->ST_DestroyObject returned:0x%x\n", rv);
+		TRACE_DEVEL("fcn->ST_DestroyObject returned:0x%x\n", rv);
 	} else {
 		TRACE_ERROR("%s\n", ock_err(ERR_FUNCTION_NOT_SUPPORTED));
 		rv = CKR_FUNCTION_NOT_SUPPORTED;
@@ -1094,7 +1094,7 @@ C_Digest(CK_SESSION_HANDLE hSession,
 		// Map the Session to the slot session
 		rv = fcn->ST_Digest(&rSession, pData, ulDataLen, pDigest,
 				    pulDigestLen);
-		TRACE_DEBUG("fcn->ST_Digest:0x%x\n", rv);
+		TRACE_DEVEL("fcn->ST_Digest:0x%x\n", rv);
 	} else {
 		TRACE_ERROR("%s\n", ock_err(ERR_FUNCTION_NOT_SUPPORTED));
 		rv = CKR_FUNCTION_NOT_SUPPORTED;
@@ -1151,7 +1151,7 @@ C_DigestEncryptUpdate(CK_SESSION_HANDLE hSession,
 		rv = fcn->ST_DigestEncryptUpdate(&rSession, pPart, ulPartLen,
 						 pEncryptedPart,
 						 pulEncryptedPartLen);
-		TRACE_DEBUG("fcn->ST_DigestEncryptUpdate returned:0x%x\n", rv);
+		TRACE_DEVEL("fcn->ST_DigestEncryptUpdate returned:0x%x\n", rv);
 	} else {
 		TRACE_ERROR("%s\n", ock_err(ERR_FUNCTION_NOT_SUPPORTED));
 		rv = CKR_FUNCTION_NOT_SUPPORTED;
@@ -1200,7 +1200,7 @@ C_DigestFinal(CK_SESSION_HANDLE hSession,
 	if (fcn->ST_DigestFinal) {
 		// Map the Session to the slot session
 		rv = fcn->ST_DigestFinal(&rSession, pDigest, pulDigestLen);
-		TRACE_DEBUG("fcn->ST_DigestFinal returned:0x%x\n", rv);
+		TRACE_DEVEL("fcn->ST_DigestFinal returned:0x%x\n", rv);
 	} else {
 		TRACE_ERROR("%s\n", ock_err(ERR_FUNCTION_NOT_SUPPORTED));
 		rv = CKR_FUNCTION_NOT_SUPPORTED;
@@ -1249,7 +1249,7 @@ CK_RV C_DigestInit(CK_SESSION_HANDLE hSession, CK_MECHANISM_PTR pMechanism)
 	if (fcn->ST_DigestInit) {
 		// Map the Session to the slot session
 		rv = fcn->ST_DigestInit(&rSession, pMechanism);
-		TRACE_DEBUG("fcn->ST_DigestInit returned:0x%x\n", rv);
+		TRACE_DEVEL("fcn->ST_DigestInit returned:0x%x\n", rv);
 	} else {
 		TRACE_ERROR("%s\n", ock_err(ERR_FUNCTION_NOT_SUPPORTED));
 		rv = CKR_FUNCTION_NOT_SUPPORTED;
@@ -1292,7 +1292,7 @@ CK_RV C_DigestKey(CK_SESSION_HANDLE hSession, CK_OBJECT_HANDLE hKey)
 	if (fcn->ST_DigestKey) {
 		// Map the Session to the slot session
 		rv = fcn->ST_DigestKey(&rSession, hKey);
-		TRACE_DEVEL("fcn->ST_DigestKey returned:0x%x\n", rv);
+		TRACE_DEBUG("fcn->ST_DigestKey returned:0x%x\n", rv);
 	} else {
 		TRACE_ERROR("%s\n", ock_err(ERR_FUNCTION_NOT_SUPPORTED));
 		rv = CKR_FUNCTION_NOT_SUPPORTED;
@@ -1337,7 +1337,7 @@ C_DigestUpdate(CK_SESSION_HANDLE hSession,
 	if (fcn->ST_DigestUpdate) {
 		// Map the Session to the slot session
 		rv = fcn->ST_DigestUpdate(&rSession, pPart, ulPartLen);
-		TRACE_DEBUG("fcn->ST_DigestUpdate returned:0x%x\n", rv);
+		TRACE_DEVEL("fcn->ST_DigestUpdate returned:0x%x\n", rv);
 	} else {
 		TRACE_ERROR("%s\n", ock_err(ERR_FUNCTION_NOT_SUPPORTED));
 		rv = CKR_FUNCTION_NOT_SUPPORTED;
@@ -1390,7 +1390,7 @@ C_Encrypt(CK_SESSION_HANDLE hSession,
 		// Map the Session to the slot session
 		rv = fcn->ST_Encrypt(&rSession, pData, ulDataLen,
 				     pEncryptedData, pulEncryptedDataLen);
-		TRACE_DEBUG("fcn->ST_Encrypt returned: 0x%x\n", rv);
+		TRACE_DEVEL("fcn->ST_Encrypt returned: 0x%x\n", rv);
 	} else {
 		TRACE_ERROR("%s\n", ock_err(ERR_FUNCTION_NOT_SUPPORTED));
 		rv = CKR_FUNCTION_NOT_SUPPORTED;
@@ -1441,7 +1441,7 @@ C_EncryptFinal(CK_SESSION_HANDLE hSession,
 		// Map the Session to the slot session
 		rv = fcn->ST_EncryptFinal(&rSession, pLastEncryptedPart,
 					  pulLastEncryptedPartLen);
-		TRACE_DEBUG("fcn->ST_EncryptFinal: 0x%x\n", rv);
+		TRACE_DEVEL("fcn->ST_EncryptFinal: 0x%x\n", rv);
 	} else {
 		TRACE_ERROR("%s\n", ock_err(ERR_FUNCTION_NOT_SUPPORTED));
 		rv = CKR_FUNCTION_NOT_SUPPORTED;
@@ -1545,7 +1545,7 @@ C_EncryptUpdate(CK_SESSION_HANDLE hSession,
 		// Map the Session to the slot session
 		rv = fcn->ST_EncryptUpdate(&rSession, pPart, ulPartLen,
 					   pEncryptedPart, pulEncryptedPartLen);
-		TRACE_DEBUG("fcn->ST_EncryptUpdate returned:0x%x\n", rv);
+		TRACE_DEVEL("fcn->ST_EncryptUpdate returned:0x%x\n", rv);
 	} else {
 		TRACE_ERROR("%s\n", ock_err(ERR_FUNCTION_NOT_SUPPORTED));
 		rv = CKR_FUNCTION_NOT_SUPPORTED;
@@ -1669,7 +1669,7 @@ C_FindObjects(CK_SESSION_HANDLE hSession,
 		// Map the Session to the slot session
 		rv = fcn->ST_FindObjects(&rSession, phObject, ulMaxObjectCount,
 					 pulObjectCount);
-		TRACE_DEBUG("fcn->ST_FindObjects returned:0x%x\n", rv);
+		TRACE_DEVEL("fcn->ST_FindObjects returned:0x%x\n", rv);
 	} else {
 		TRACE_ERROR("%s\n", ock_err(ERR_FUNCTION_NOT_SUPPORTED));
 		rv = CKR_FUNCTION_NOT_SUPPORTED;
@@ -1718,7 +1718,7 @@ CK_RV C_FindObjectsFinal(CK_SESSION_HANDLE hSession)
 	if (fcn->ST_FindObjectsFinal) {
 		// Map the Session to the slot session
 		rv = fcn->ST_FindObjectsFinal(&rSession);
-		TRACE_DEBUG("fcn->ST_FindObjectsFinal returned: 0x%x\n", rv);
+		TRACE_DEVEL("fcn->ST_FindObjectsFinal returned: 0x%x\n", rv);
 	} else {
 		TRACE_ERROR("%s\n", ock_err(ERR_FUNCTION_NOT_SUPPORTED));
 		rv = CKR_FUNCTION_NOT_SUPPORTED;
@@ -1771,7 +1771,7 @@ C_FindObjectsInit(CK_SESSION_HANDLE hSession,
 	if (fcn->ST_FindObjectsInit) {
 		// Map the Session to the slot session
 		rv = fcn->ST_FindObjectsInit(&rSession, pTemplate, ulCount);
-		TRACE_DEBUG("fcn->ST_FindObjectsInit returned:0x%x\n", rv);
+		TRACE_DEVEL("fcn->ST_FindObjectsInit returned:0x%x\n", rv);
 	} else {
 		TRACE_ERROR("%s\n", ock_err(ERR_FUNCTION_NOT_SUPPORTED));
 		rv = CKR_FUNCTION_NOT_SUPPORTED;
@@ -1828,7 +1828,7 @@ C_GenerateKey(CK_SESSION_HANDLE hSession,
 		// Map the Session to the slot session
 		rv = fcn->ST_GenerateKey(&rSession, pMechanism, pTemplate,
 					 ulCount, phKey);
-		TRACE_DEBUG("fcn->ST_GenerateKey returned:0x%x\n", rv);
+		TRACE_DEVEL("fcn->ST_GenerateKey returned:0x%x\n", rv);
 	} else {
 		TRACE_ERROR("%s\n", ock_err(ERR_FUNCTION_NOT_SUPPORTED));
 		rv = CKR_FUNCTION_NOT_SUPPORTED;
@@ -1897,7 +1897,7 @@ C_GenerateKeyPair(CK_SESSION_HANDLE hSession,
 					     pPrivateKeyTemplate,
 					     ulPrivateKeyAttributeCount,
 					     phPublicKey, phPrivateKey);
-		TRACE_DEBUG("fcn->ST_GenerateKeyPair returned:0x%x\n", rv);
+		TRACE_DEVEL("fcn->ST_GenerateKeyPair returned:0x%x\n", rv);
 	} else {
 		TRACE_ERROR("%s\n", ock_err(ERR_FUNCTION_NOT_SUPPORTED));
 		rv = CKR_FUNCTION_NOT_SUPPORTED;
@@ -1946,7 +1946,7 @@ C_GenerateRandom(CK_SESSION_HANDLE hSession,
 	if (fcn->ST_GenerateRandom) {
 		// Map the Session to the slot session
 		rv = fcn->ST_GenerateRandom(&rSession, RandomData, ulRandomLen);
-		TRACE_DEBUG("fcn->ST_GenerateRandom returned:0x%x\n", rv);
+		TRACE_DEVEL("fcn->ST_GenerateRandom returned:0x%x\n", rv);
 	} else {
 		TRACE_ERROR("%s\n", ock_err(ERR_FUNCTION_NOT_SUPPORTED));
 		rv = CKR_FUNCTION_NOT_SUPPORTED;
@@ -2007,7 +2007,7 @@ C_GetAttributeValue(CK_SESSION_HANDLE hSession,
 		// Map the Session to the slot session
 		rv = fcn->ST_GetAttributeValue(&rSession, hObject, pTemplate,
 					       ulCount);
-		TRACE_DEBUG("fcn->ST_GetAttributeValue returned:0x%x\n", rv);
+		TRACE_DEVEL("fcn->ST_GetAttributeValue returned:0x%x\n", rv);
 	} else {
 		TRACE_ERROR("%s\n", ock_err(ERR_FUNCTION_NOT_SUPPORTED));
 		rv = CKR_FUNCTION_NOT_SUPPORTED;
@@ -2192,7 +2192,7 @@ C_GetMechanismInfo(CK_SLOT_ID slotID,
 	}
 	if (fcn->ST_GetMechanismInfo) {
 		rv = fcn->ST_GetMechanismInfo(slotID, type, pInfo);
-		TRACE_DEBUG("fcn->ST_GetMechanismInfo returned:0x%x\n", rv);
+		TRACE_DEVEL("fcn->ST_GetMechanismInfo returned:0x%x\n", rv);
 	} else {
 		TRACE_ERROR("%s\n", ock_err(ERR_FUNCTION_NOT_SUPPORTED));
 		rv = CKR_FUNCTION_NOT_SUPPORTED;
@@ -2247,7 +2247,7 @@ C_GetMechanismList(CK_SLOT_ID slotID,
 	}
 	if (fcn->ST_GetMechanismList) {
 		rv = fcn->ST_GetMechanismList(slotID, pMechanismList, pulCount);
-		TRACE_DEBUG("fcn->ST_GetMechanismList returned: 0x%x\n", rv);
+		TRACE_DEVEL("fcn->ST_GetMechanismList returned: 0x%x\n", rv);
 	} else {
 		TRACE_ERROR("%s\n", ock_err(ERR_FUNCTION_NOT_SUPPORTED));
 		rv = CKR_FUNCTION_NOT_SUPPORTED;
@@ -2257,7 +2257,7 @@ C_GetMechanismList(CK_SLOT_ID slotID,
 		if (pMechanismList) {
 			unsigned long i;
 			for (i = 0; i < *pulCount; i++) {
-				TRACE_DEBUG("Mechanism[%d] 0x%08X \n", i,
+				TRACE_DEVEL("Mechanism[%d] 0x%08X \n", i,
 					    pMechanismList[i]);
 			}
 		}
@@ -2312,7 +2312,7 @@ C_GetObjectSize(CK_SESSION_HANDLE hSession,
 	if (fcn->ST_GetObjectSize) {
 		// Map the Session to the slot session
 		rv = fcn->ST_GetObjectSize(&rSession, hObject, pulSize);
-		TRACE_DEBUG("fcn->ST_GetObjectSize retuned: 0x%x\n", rv);
+		TRACE_DEVEL("fcn->ST_GetObjectSize retuned: 0x%x\n", rv);
 	} else {
 		TRACE_ERROR("%s\n", ock_err(ERR_FUNCTION_NOT_SUPPORTED));
 		rv = CKR_FUNCTION_NOT_SUPPORTED;
@@ -2365,7 +2365,7 @@ C_GetOperationState(CK_SESSION_HANDLE hSession,
 		// Map the Session to the slot session
 		rv = fcn->ST_GetOperationState(&rSession, pOperationState,
 					       pulOperationStateLen);
-		TRACE_DEBUG("fcn->ST_GetOperationState returned:0x%x\n", rv);
+		TRACE_DEVEL("fcn->ST_GetOperationState returned:0x%x\n", rv);
 	} else {
 		TRACE_ERROR("%s\n", ock_err(ERR_FUNCTION_NOT_SUPPORTED));
 		rv = CKR_FUNCTION_NOT_SUPPORTED;
@@ -2419,8 +2419,8 @@ CK_RV C_GetSessionInfo(CK_SESSION_HANDLE hSession, CK_SESSION_INFO_PTR pInfo)
 		// Map the Session to the slot session
 		rv = fcn->ST_GetSessionInfo(&rSession, pInfo);
 
-		TRACE_DEBUG("fcn->ST_GetSessionInfo returned: 0x%x\n", rv);
-		TRACE_DEBUG("Slot %d  State %x  Flags %x DevErr %x\n",
+		TRACE_DEVEL("fcn->ST_GetSessionInfo returned: 0x%x\n", rv);
+		TRACE_DEVEL("Slot %d  State %x  Flags %x DevErr %x\n",
 			    pInfo->slotID, pInfo->state, pInfo->flags,
 			    pInfo->ulDeviceError);
 
@@ -2568,7 +2568,7 @@ C_GetSlotList(CK_BBOOL tokenPresent,
 #endif
 
 	TRACE_INFO("C_GetSlotList\n");
-	TRACE_DEBUG(" Pres %d Count %d\n", tokenPresent, *pulCount);
+	TRACE_DEVEL(" Pres %d Count %d\n", tokenPresent, *pulCount);
 	if (API_Initialized() == FALSE) {
 		TRACE_ERROR("%s\n", ock_err(ERR_CRYPTOKI_NOT_INITIALIZED));
 		return CKR_CRYPTOKI_NOT_INITIALIZED;
@@ -2721,7 +2721,7 @@ CK_RV C_GetTokenInfo(CK_SLOT_ID slotID, CK_TOKEN_INFO_PTR pInfo)
 	}
 
 	sltp = &(Anchor->SltList[slotID]);
-	TRACE_DEBUG("Slot p = %x id %d\n", sltp, slotID);
+	TRACE_DEVEL("Slot p = %x id %d\n", sltp, slotID);
 	if (sltp->DLLoaded == FALSE) {
 		TRACE_ERROR("%s\n", ock_err(ERR_TOKEN_NOT_PRESENT));
 		return CKR_TOKEN_NOT_PRESENT;
@@ -2743,7 +2743,7 @@ CK_RV C_GetTokenInfo(CK_SLOT_ID slotID, CK_TOKEN_INFO_PTR pInfo)
 		if (rv == CKR_OK) {
 			get_sess_count(slotID, &(pInfo->ulSessionCount));
 		}
-		TRACE_DEBUG("rv %d CK_TOKEN_INFO Flags %x\n", rv, pInfo->flags);
+		TRACE_DEVEL("rv %d CK_TOKEN_INFO Flags %x\n", rv, pInfo->flags);
 	} else {
 		TRACE_ERROR("%s\n", ock_err(ERR_FUNCTION_NOT_SUPPORTED));
 		rv = CKR_FUNCTION_NOT_SUPPORTED;
@@ -2795,7 +2795,7 @@ CK_RV C_Initialize(CK_VOID_PTR pVoid)
 
 	memset(slot_loaded, 0, sizeof(int) * NUMBER_SLOTS_MANAGED);	// Clear out the load list
 
-	TRACE_DEVEL("Anchor allocated at %x\n", (char *)Anchor);
+	TRACE_DEBUG("Anchor allocated at %x\n", (char *)Anchor);
 
 	// Validation of the parameters passed
 
@@ -2804,7 +2804,7 @@ CK_RV C_Initialize(CK_VOID_PTR pVoid)
 	// locks anyhow.  
 	//
 	if (pVoid != NULL) {
-		TRACE_DEBUG("Initialization arg = %x   Flags %d\n", pVoid,
+		TRACE_DEVEL("Initialization arg = %x   Flags %d\n", pVoid,
 			      ((CK_C_INITIALIZE_ARGS *) pVoid)->flags);
 
 		pArg = (CK_C_INITIALIZE_ARGS *) pVoid;
@@ -2839,7 +2839,7 @@ CK_RV C_Initialize(CK_VOID_PTR pVoid)
 		// Right now the library DOES NOT create threads and therefore this
 		// check is irrelavant.
 		if (pArg->flags & CKF_LIBRARY_CANT_CREATE_OS_THREADS) {
-			TRACE_DEBUG("Can't create OS threads...This is OK\n");
+			TRACE_DEVEL("Can't create OS threads...This is OK\n");
 		}
 		// Since this is an initialization path, we will be verbose in the
 		// code rather than efficient.
@@ -2921,7 +2921,7 @@ CK_RV C_Initialize(CK_VOID_PTR pVoid)
 		TRACE_ERROR("%s\n", ock_err(ERR_HOST_MEMORY));
 		return CKR_HOST_MEMORY;
 	}
-	TRACE_DEVEL("Shared memory %x \n", Anchor->SharedMemP);
+	TRACE_DEBUG("Shared memory %x \n", Anchor->SharedMemP);
 
 	if (!init_socket_data()) {
 		OCK_SYSLOG(LOG_ERR, "C_Initialize: Module failed to create a "
@@ -3023,7 +3023,7 @@ CK_RV C_InitPIN(CK_SESSION_HANDLE hSession, CK_CHAR_PTR pPin, CK_ULONG ulPinLen)
 	if (fcn->ST_InitPIN) {
 		// Map the Session to the slot session
 		rv = fcn->ST_InitPIN(&rSession, pPin, ulPinLen);
-		TRACE_DEBUG("fcn->ST_InitPIN returned: 0x%x\n", rv);
+		TRACE_DEVEL("fcn->ST_InitPIN returned: 0x%x\n", rv);
 	} else {
 		TRACE_ERROR("%s\n", ock_err(ERR_FUNCTION_NOT_SUPPORTED));
 		rv = CKR_FUNCTION_NOT_SUPPORTED;
@@ -3091,7 +3091,7 @@ C_InitToken(CK_SLOT_ID slotID,
 	}
 	if (fcn->ST_InitToken) {
 		rv = fcn->ST_InitToken(slotID, pPin, ulPinLen, pLabel);
-		TRACE_DEBUG("fcn->ST_InitToken returned: 0x%x\n", rv);
+		TRACE_DEVEL("fcn->ST_InitToken returned: 0x%x\n", rv);
 	} else {
 		TRACE_ERROR("%s\n", ock_err(ERR_FUNCTION_NOT_SUPPORTED));
 		rv = CKR_FUNCTION_NOT_SUPPORTED;
@@ -3149,7 +3149,7 @@ C_Login(CK_SESSION_HANDLE hSession,
 	if (fcn->ST_Login) {
 		// Map the Session to the slot session
 		rv = fcn->ST_Login(&rSession, userType, pPin, ulPinLen);
-		TRACE_DEBUG("fcn->ST_Login returned:0x%x\n", rv);
+		TRACE_DEVEL("fcn->ST_Login returned:0x%x\n", rv);
 	} else {
 		TRACE_ERROR("%s\n", ock_err(ERR_FUNCTION_NOT_SUPPORTED));
 		rv = CKR_FUNCTION_NOT_SUPPORTED;
@@ -3198,7 +3198,7 @@ CK_RV C_Logout(CK_SESSION_HANDLE hSession)
 	if (fcn->ST_Logout) {
 		// Map the Session to the slot session
 		rv = fcn->ST_Logout(&rSession);
-		TRACE_DEBUG("fcn->ST_Logout returned:0x%x\n", rv);
+		TRACE_DEVEL("fcn->ST_Logout returned:0x%x\n", rv);
 	} else {
 		TRACE_ERROR("%s\n", ock_err(ERR_FUNCTION_NOT_SUPPORTED));
 		rv = CKR_FUNCTION_NOT_SUPPORTED;
@@ -3269,7 +3269,7 @@ C_OpenSession(CK_SLOT_ID slotID,
 
 	if (fcn->ST_OpenSession) {
 		rv = fcn->ST_OpenSession(slotID, flags, &(apiSessp->sessionh));
-		TRACE_DEBUG("fcn->ST_OpenSession returned: 0x%x\n", rv);
+		TRACE_DEVEL("fcn->ST_OpenSession returned: 0x%x\n", rv);
 
 		// If the session allocation is successful, then we need to 
 		// complete the API session block and  return.  Otherwise
@@ -3350,7 +3350,7 @@ C_SeedRandom(CK_SESSION_HANDLE hSession, CK_BYTE_PTR pSeed, CK_ULONG ulSeedLen)
 	if (fcn->ST_SeedRandom) {
 		// Map the Session to the slot session
 		rv = fcn->ST_SeedRandom(&rSession, pSeed, ulSeedLen);
-		TRACE_DEBUG("fcn->ST_SeedRandom returned: 0x%x\n", rv);
+		TRACE_DEVEL("fcn->ST_SeedRandom returned: 0x%x\n", rv);
 	} else {
 		TRACE_ERROR("%s\n", ock_err(ERR_FUNCTION_NOT_SUPPORTED));
 		rv = CKR_FUNCTION_NOT_SUPPORTED;
@@ -3413,7 +3413,7 @@ C_SetAttributeValue(CK_SESSION_HANDLE hSession,
 		// Map the Session to the slot session
 		rv = fcn->ST_SetAttributeValue(&rSession, hObject, pTemplate,
 					       ulCount);
-		TRACE_DEBUG("fcn->ST_SetAttributeValue returned:0x%x\n", rv);
+		TRACE_DEVEL("fcn->ST_SetAttributeValue returned:0x%x\n", rv);
 	} else {
 		TRACE_ERROR("%s\n", ock_err(ERR_FUNCTION_NOT_SUPPORTED));
 		rv = CKR_FUNCTION_NOT_SUPPORTED;
@@ -3469,7 +3469,7 @@ C_SetOperationState(CK_SESSION_HANDLE hSession,
 					       ulOperationStateLen,
 					       hEncryptionKey,
 					       hAuthenticationKey);
-		TRACE_DEBUG("fcn->ST_SetOperationState returned:0x%x\n", rv);
+		TRACE_DEVEL("fcn->ST_SetOperationState returned:0x%x\n", rv);
 	} else {
 		TRACE_ERROR("%s\n", ock_err(ERR_FUNCTION_NOT_SUPPORTED));
 		rv = CKR_FUNCTION_NOT_SUPPORTED;
@@ -3527,7 +3527,7 @@ C_SetPIN(CK_SESSION_HANDLE hSession,
 		// Map the Session to the slot session
 		rv = fcn->ST_SetPIN(&rSession, pOldPin, ulOldLen, pNewPin,
 				    ulNewLen);
-		TRACE_DEBUG("fcn->ST_SetPIN returned: 0x%x\n", rv);
+		TRACE_DEVEL("fcn->ST_SetPIN returned: 0x%x\n", rv);
 	} else {
 		TRACE_ERROR("%s\n", ock_err(ERR_FUNCTION_NOT_SUPPORTED));
 		rv = CKR_FUNCTION_NOT_SUPPORTED;
@@ -3583,7 +3583,7 @@ C_Sign(CK_SESSION_HANDLE hSession,
 		// Map the Session to the slot session
 		rv = fcn->ST_Sign(&rSession, pData, ulDataLen, pSignature,
 				  pulSignatureLen);
-		TRACE_DEBUG("fcn->ST_Sign returned: 0x%x\n", rv);
+		TRACE_DEVEL("fcn->ST_Sign returned: 0x%x\n", rv);
 	} else {
 		TRACE_ERROR("%s\n", ock_err(ERR_FUNCTION_NOT_SUPPORTED));
 		rv = CKR_FUNCTION_NOT_SUPPORTED;
@@ -3637,7 +3637,7 @@ C_SignEncryptUpdate(CK_SESSION_HANDLE hSession,
 		rv = fcn->ST_SignEncryptUpdate(&rSession, pPart, ulPartLen,
 					       pEncryptedPart,
 					       pulEncryptedPartLen);
-		TRACE_DEBUG("fcn->ST_SignEncryptUpdate return: 0x%x\n", rv);
+		TRACE_DEVEL("fcn->ST_SignEncryptUpdate return: 0x%x\n", rv);
 	} else {
 		TRACE_ERROR("%s\n", ock_err(ERR_FUNCTION_NOT_SUPPORTED));
 		rv = CKR_FUNCTION_NOT_SUPPORTED;
@@ -3693,7 +3693,7 @@ C_SignFinal(CK_SESSION_HANDLE hSession,
 	if (fcn->ST_SignFinal) {
 		// Map the Session to the slot session
 		rv = fcn->ST_SignFinal(&rSession, pSignature, pulSignatureLen);
-		TRACE_DEBUG("fcn->ST_SignFinal returned: 0x%x\n", rv);
+		TRACE_DEVEL("fcn->ST_SignFinal returned: 0x%x\n", rv);
 	} else {
 		TRACE_ERROR("%s\n", ock_err(ERR_FUNCTION_NOT_SUPPORTED));
 		rv = CKR_FUNCTION_NOT_SUPPORTED;
@@ -3749,7 +3749,7 @@ C_SignInit(CK_SESSION_HANDLE hSession,
 	if (fcn->ST_SignInit) {
 		// Map the Session to the slot session
 		rv = fcn->ST_SignInit(&rSession, pMechanism, hKey);
-		TRACE_DEBUG("fcn->ST_SignInit returned: 0x%x\n", rv);
+		TRACE_DEVEL("fcn->ST_SignInit returned: 0x%x\n", rv);
 	} else {
 		TRACE_ERROR("%s\n", ock_err(ERR_FUNCTION_NOT_SUPPORTED));
 		rv = CKR_FUNCTION_NOT_SUPPORTED;
@@ -3801,7 +3801,7 @@ C_SignRecover(CK_SESSION_HANDLE hSession,
 		// Map the Session to the slot session
 		rv = fcn->ST_SignRecover(&rSession, pData, ulDataLen,
 					 pSignature, pulSignatureLen);
-		TRACE_DEBUG("fcn->ST_SignRecover returned:0x%x\n", rv);
+		TRACE_DEVEL("fcn->ST_SignRecover returned:0x%x\n", rv);
 	} else {
 		TRACE_ERROR("%s\n", ock_err(ERR_FUNCTION_NOT_SUPPORTED));
 		rv = CKR_FUNCTION_NOT_SUPPORTED;
@@ -3853,7 +3853,7 @@ C_SignRecoverInit(CK_SESSION_HANDLE hSession,
 	if (fcn->ST_SignRecoverInit) {
 		// Map the Session to the slot session
 		rv = fcn->ST_SignRecoverInit(&rSession, pMechanism, hKey);
-		TRACE_DEBUG("fcn->ST_SignRecoverInit returned: 0x%x\n", rv);
+		TRACE_DEVEL("fcn->ST_SignRecoverInit returned: 0x%x\n", rv);
 	} else {
 		TRACE_ERROR("%s\n", ock_err(ERR_FUNCTION_NOT_SUPPORTED));
 		rv = CKR_FUNCTION_NOT_SUPPORTED;
@@ -3903,7 +3903,7 @@ C_SignUpdate(CK_SESSION_HANDLE hSession, CK_BYTE_PTR pPart, CK_ULONG ulPartLen)
 	if (fcn->ST_SignUpdate) {
 		// Map the Session to the slot session
 		rv = fcn->ST_SignUpdate(&rSession, pPart, ulPartLen);
-		TRACE_DEBUG("fcn->ST_SignUpdate returned: 0x%x\n", rv);
+		TRACE_DEVEL("fcn->ST_SignUpdate returned: 0x%x\n", rv);
 	} else {
 		TRACE_ERROR("%s\n", ock_err(ERR_FUNCTION_NOT_SUPPORTED));
 		rv = CKR_FUNCTION_NOT_SUPPORTED;
@@ -3969,7 +3969,7 @@ C_UnwrapKey(CK_SESSION_HANDLE hSession,
 		rv = fcn->ST_UnwrapKey(&rSession, pMechanism, hUnwrappingKey,
 				       pWrappedKey, ulWrappedKeyLen, pTemplate,
 				       ulAttributeCount, phKey);
-		TRACE_DEBUG("fcn->ST_UnwrapKey returned: 0x%x\n", rv);
+		TRACE_DEVEL("fcn->ST_UnwrapKey returned: 0x%x\n", rv);
 	} else {
 		TRACE_ERROR("%s\n", ock_err(ERR_FUNCTION_NOT_SUPPORTED));
 		rv = CKR_FUNCTION_NOT_SUPPORTED;
@@ -4024,7 +4024,7 @@ C_Verify(CK_SESSION_HANDLE hSession,
 		// Map the Session to the slot session
 		rv = fcn->ST_Verify(&rSession, pData, ulDataLen, pSignature,
 				    ulSignatureLen);
-		TRACE_DEBUG("fcn->ST_Verify returned: 0x%x\n", rv);
+		TRACE_DEVEL("fcn->ST_Verify returned: 0x%x\n", rv);
 	} else {
 		TRACE_ERROR("%s\n", ock_err(ERR_FUNCTION_NOT_SUPPORTED));
 		rv = CKR_FUNCTION_NOT_SUPPORTED;
@@ -4073,7 +4073,7 @@ C_VerifyFinal(CK_SESSION_HANDLE hSession,
 	if (fcn->ST_VerifyFinal) {
 		// Map the Session to the slot session
 		rv = fcn->ST_VerifyFinal(&rSession, pSignature, ulSignatureLen);
-		TRACE_DEBUG("fcn->ST_VerifyFinal returned: 0x%x\n", rv);
+		TRACE_DEVEL("fcn->ST_VerifyFinal returned: 0x%x\n", rv);
 	} else {
 		TRACE_ERROR("%s\n", ock_err(ERR_FUNCTION_NOT_SUPPORTED));
 		rv = CKR_FUNCTION_NOT_SUPPORTED;
@@ -4124,7 +4124,7 @@ C_VerifyInit(CK_SESSION_HANDLE hSession,
 	if (fcn->ST_VerifyInit) {
 		// Map the Session to the slot session
 		rv = fcn->ST_VerifyInit(&rSession, pMechanism, hKey);
-		TRACE_DEBUG("fcn->ST_VerifyInit returned: 0x%x\n", rv);
+		TRACE_DEVEL("fcn->ST_VerifyInit returned: 0x%x\n", rv);
 	} else {
 		TRACE_ERROR("%s\n", ock_err(ERR_FUNCTION_NOT_SUPPORTED));
 		rv = CKR_FUNCTION_NOT_SUPPORTED;
@@ -4177,7 +4177,7 @@ C_VerifyRecover(CK_SESSION_HANDLE hSession,
 		// Map the Session to the slot session
 		rv = fcn->ST_VerifyRecover(&rSession, pSignature,
 					   ulSignatureLen, pData, pulDataLen);
-		TRACE_DEBUG("fcn->ST_VerifyRecover returned: 0x%x\n", rv);
+		TRACE_DEVEL("fcn->ST_VerifyRecover returned: 0x%x\n", rv);
 	} else {
 		TRACE_ERROR("%s\n", ock_err(ERR_FUNCTION_NOT_SUPPORTED));
 		rv = CKR_FUNCTION_NOT_SUPPORTED;
@@ -4226,7 +4226,7 @@ C_VerifyRecoverInit(CK_SESSION_HANDLE hSession,
 	if (fcn->ST_VerifyRecoverInit) {
 		// Map the Session to the slot session
 		rv = fcn->ST_VerifyRecoverInit(&rSession, pMechanism, hKey);
-		TRACE_DEBUG("fcn->ST_VerifyRecoverInit returned:0x%x\n", rv);
+		TRACE_DEVEL("fcn->ST_VerifyRecoverInit returned:0x%x\n", rv);
 	} else {
 		TRACE_ERROR("%s\n", ock_err(ERR_FUNCTION_NOT_SUPPORTED));
 		rv = CKR_FUNCTION_NOT_SUPPORTED;
@@ -4271,7 +4271,7 @@ C_VerifyUpdate(CK_SESSION_HANDLE hSession,
 	if (fcn->ST_VerifyUpdate) {
 		// Map the Session to the slot session
 		rv = fcn->ST_VerifyUpdate(&rSession, pPart, ulPartLen);
-		TRACE_DEBUG("fcn->ST_VerifyUpdate returned: 0x%x\n", rv);
+		TRACE_DEVEL("fcn->ST_VerifyUpdate returned: 0x%x\n", rv);
 	} else {
 		TRACE_ERROR("%s\n", ock_err(ERR_FUNCTION_NOT_SUPPORTED));
 		rv = CKR_FUNCTION_NOT_SUPPORTED;
@@ -4373,7 +4373,7 @@ C_WaitForSlotEvent(CK_FLAGS flags, CK_SLOT_ID_PTR pSlot, CK_VOID_PTR pReserved)
 			// for this process.  According to the spec this behavior is undefined.
 			// We will choose to fail the call.
 			if (procp->blocking) {
-				TRACE_DEBUG("WaitForSlot event called by process twice.\n");
+				TRACE_DEVEL("WaitForSlot event called by process twice.\n");
 				XProcUnLock();	// Unlock aftersetting
 				TRACE_ERROR("%s\n",
 					    ock_err(ERR_FUNCTION_FAILED));
@@ -4463,7 +4463,7 @@ C_WrapKey(CK_SESSION_HANDLE hSession,
 		// Map the Session to the slot session
 		rv = fcn->ST_WrapKey(&rSession, pMechanism, hWrappingKey, hKey,
 				     pWrappedKey, pulWrappedKeyLen);
-		TRACE_DEBUG("fcn->ST_WrapKey returned: 0x%x\n", rv);
+		TRACE_DEVEL("fcn->ST_WrapKey returned: 0x%x\n", rv);
 	} else {
 		TRACE_ERROR("%s\n", ock_err(ERR_FUNCTION_NOT_SUPPORTED));
 		rv = CKR_FUNCTION_NOT_SUPPORTED;

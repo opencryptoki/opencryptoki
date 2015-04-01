@@ -426,7 +426,7 @@ rsa_format_block( CK_BYTE   * in_data,
             for (i = 2; i < (padding_len + 2); i++) {
                 rc = rng_generate(&out_data[i], 1);
                 if (rc != CKR_OK) {
-                    TRACE_DEBUG("rng_generate failed.\n");
+                    TRACE_DEVEL("rng_generate failed.\n");
                     return rc;
                 }
                 if (out_data[i] == (CK_BYTE)0) {
@@ -475,7 +475,7 @@ rsa_parse_block( CK_BYTE  * in_data,
     }
 
     if (in_data_len <= 11) {
-        TRACE_DEBUG("%s\n", ock_err(ERR_FUNCTION_FAILED));
+        TRACE_DEVEL("%s\n", ock_err(ERR_FUNCTION_FAILED));
         rc = CKR_FUNCTION_FAILED;
         return rc;
     }
@@ -650,7 +650,7 @@ rsa_pkcs_encrypt( SESSION           *sess,
 
    rc = rsa_get_key_info(key_obj, &modulus_bytes, &keyclass);
    if (rc != CKR_OK) {
-      TRACE_DEBUG("rsa_get_key_info failed.\n");
+      TRACE_DEVEL("rsa_get_key_info failed.\n");
       return rc;
    }
 
@@ -686,7 +686,7 @@ rsa_pkcs_encrypt( SESSION           *sess,
    rc = token_specific.t_rsa_encrypt(in_data, in_data_len, out_data, out_data_len, key_obj);
 
    if (rc != CKR_OK)
-      TRACE_DEBUG("Token Specific rsa encrypt failed.\n");
+      TRACE_DEVEL("Token Specific rsa encrypt failed.\n");
 
    return rc;
 }
@@ -720,7 +720,7 @@ rsa_pkcs_decrypt( SESSION           *sess,
 
    rc = rsa_get_key_info(key_obj, &modulus_bytes, &keyclass);
    if (rc != CKR_OK) {
-      TRACE_DEBUG("rsa_get_key_info failed.\n");
+      TRACE_DEVEL("rsa_get_key_info failed.\n");
       return rc;
    }
 
@@ -763,7 +763,7 @@ rsa_pkcs_decrypt( SESSION           *sess,
          TRACE_ERROR("%s\n", ock_err(ERR_ENCRYPTED_DATA_LEN_RANGE));
          return CKR_ENCRYPTED_DATA_LEN_RANGE;
       }
-      TRACE_DEBUG("Token Specific rsa decrypt failed.\n");
+      TRACE_DEVEL("Token Specific rsa decrypt failed.\n");
    }
 
    return rc;
@@ -793,7 +793,7 @@ CK_RV rsa_oaep_crypt(SESSION *sess, CK_BBOOL length_only,
 
 	rc = rsa_get_key_info(key_obj, &modulus_bytes, &keyclass);
 	if (rc != CKR_OK) {
-		TRACE_DEBUG("rsa_get_key_info failed.\n");
+		TRACE_DEVEL("rsa_get_key_info failed.\n");
 		return CKR_FUNCTION_FAILED;
 	}
 
@@ -893,7 +893,7 @@ CK_RV rsa_oaep_crypt(SESSION *sess, CK_BBOOL length_only,
 	}
 
 	if (rc != CKR_OK)
-		TRACE_DEBUG("Token Specific rsa oaep decrypt failed.\n");
+		TRACE_DEVEL("Token Specific rsa oaep decrypt failed.\n");
 
 	return rc;
 }
@@ -928,7 +928,7 @@ rsa_pkcs_sign( SESSION             *sess,
 
    rc = rsa_get_key_info(key_obj, &modulus_bytes, &keyclass);
    if (rc != CKR_OK) {
-      TRACE_DEBUG("rsa_get_key_info failed.\n");
+      TRACE_DEVEL("rsa_get_key_info failed.\n");
       return rc;
    }
 
@@ -965,7 +965,7 @@ rsa_pkcs_sign( SESSION             *sess,
    rc = token_specific.t_rsa_sign(in_data, in_data_len, out_data, out_data_len, key_obj);
 
    if (rc != CKR_OK)
-      TRACE_DEBUG("Token Specific rsa sign failed.\n");
+      TRACE_DEVEL("Token Specific rsa sign failed.\n");
    return rc;
 }
 
@@ -997,7 +997,7 @@ rsa_pkcs_verify( SESSION             * sess,
 
    rc = rsa_get_key_info(key_obj, &modulus_bytes, &keyclass);
    if (rc != CKR_OK) {
-      TRACE_DEBUG("rsa_get_key_info failed.\n");
+      TRACE_DEVEL("rsa_get_key_info failed.\n");
       return rc;
    }
 
@@ -1023,7 +1023,7 @@ rsa_pkcs_verify( SESSION             * sess,
 
    rc = token_specific.t_rsa_verify(in_data, in_data_len, signature, sig_len, key_obj);
    if (rc != CKR_OK)
-      TRACE_DEBUG("Token Specific rsa verify failed.\n");
+      TRACE_DEVEL("Token Specific rsa verify failed.\n");
 
    return rc;
 }
@@ -1061,7 +1061,7 @@ rsa_pkcs_verify_recover( SESSION             * sess,
 
    rc = rsa_get_key_info(key_obj, &modulus_bytes, &keyclass);
    if (rc != CKR_OK) {
-      TRACE_DEBUG("rsa_get_key_info failed.\n");
+      TRACE_DEVEL("rsa_get_key_info failed.\n");
       return rc;
    }
 
@@ -1090,7 +1090,7 @@ rsa_pkcs_verify_recover( SESSION             * sess,
 
    rc = token_specific.t_rsa_verify_recover(signature, sig_len, out_data, out_data_len, key_obj);
    if (rc != CKR_OK)
-      TRACE_DEBUG("Token Specific rsa verify failed.\n");
+      TRACE_DEVEL("Token Specific rsa verify failed.\n");
 
    return rc;
 }
@@ -1124,7 +1124,7 @@ rsa_x509_encrypt( SESSION           *sess,
 
    rc = rsa_get_key_info(key_obj, &modulus_bytes, &keyclass);
    if (rc != CKR_OK) {
-      TRACE_DEBUG("rsa_get_key_info failed.\n");
+      TRACE_DEVEL("rsa_get_key_info failed.\n");
       return rc;
    }
 
@@ -1159,7 +1159,7 @@ rsa_x509_encrypt( SESSION           *sess,
 
    rc = token_specific.t_rsa_x509_encrypt(in_data, in_data_len, out_data, out_data_len, key_obj);
    if (rc != CKR_OK)
-      TRACE_DEBUG("Token Specific rsa x509 encrypt failed.\n");
+      TRACE_DEVEL("Token Specific rsa x509 encrypt failed.\n");
 
    return rc;
 }
@@ -1193,7 +1193,7 @@ rsa_x509_decrypt( SESSION           *sess,
 
    rc = rsa_get_key_info(key_obj, &modulus_bytes, &keyclass);
    if (rc != CKR_OK) {
-      TRACE_DEBUG("rsa_get_key_info failed.\n");
+      TRACE_DEVEL("rsa_get_key_info failed.\n");
       return rc;
    }
 
@@ -1276,7 +1276,7 @@ rsa_x509_sign( SESSION             *sess,
 
    rc = rsa_get_key_info(key_obj, &modulus_bytes, &keyclass);
    if (rc != CKR_OK) {
-      TRACE_DEBUG("rsa_get_key_info failed.\n");
+      TRACE_DEVEL("rsa_get_key_info failed.\n");
       return rc;
    }
 
@@ -1310,7 +1310,7 @@ rsa_x509_sign( SESSION             *sess,
    }
    rc = token_specific.t_rsa_x509_sign(in_data, in_data_len, out_data, out_data_len, key_obj);
    if (rc != CKR_OK)
-      TRACE_DEBUG("Token Specific rsa x509 sign failed.\n");
+      TRACE_DEVEL("Token Specific rsa x509 sign failed.\n");
 
    return rc;
 }
@@ -1343,7 +1343,7 @@ rsa_x509_verify( SESSION             * sess,
 
    rc = rsa_get_key_info(key_obj, &modulus_bytes, &keyclass);
    if (rc != CKR_OK) {
-      TRACE_DEBUG("rsa_get_key_info failed.\n");
+      TRACE_DEVEL("rsa_get_key_info failed.\n");
       return rc;
    }
 
@@ -1407,7 +1407,7 @@ rsa_x509_verify_recover( SESSION             * sess,
 
    rc = rsa_get_key_info(key_obj, &modulus_bytes, &keyclass);
    if (rc != CKR_OK) {
-      TRACE_DEBUG("rsa_get_key_info failed.\n");
+      TRACE_DEVEL("rsa_get_key_info failed.\n");
       return rc;
    }
 
@@ -1479,7 +1479,7 @@ CK_RV rsa_pss_sign(SESSION *sess, CK_BBOOL length_only,
 	/* get modulus and key class */
 	rc = rsa_get_key_info(key_obj, &modulus_bytes, &keyclass);
 	if (rc != CKR_OK) {
-		TRACE_DEBUG("rsa_get_key_info failed.\n");
+		TRACE_DEVEL("rsa_get_key_info failed.\n");
 		return rc;
 	}
 
@@ -1526,7 +1526,7 @@ CK_RV rsa_pss_sign(SESSION *sess, CK_BBOOL length_only,
 	rc = token_specific.t_rsa_pss_sign(ctx, in_data, in_data_len, out_data,
 					   out_data_len);
 	if (rc != CKR_OK)
-		TRACE_DEBUG("Token Specific rsa pss sign failed.\n");
+		TRACE_DEVEL("Token Specific rsa pss sign failed.\n");
 
 	return rc;
 }
@@ -1552,7 +1552,7 @@ CK_RV rsa_pss_verify(SESSION *sess, SIGN_VERIFY_CONTEXT *ctx, CK_BYTE *in_data,
 	/* get modulus and key class */
 	rc = rsa_get_key_info(key_obj, &modulus_bytes, &keyclass);
 	if (rc != CKR_OK) {
-		TRACE_DEBUG("rsa_get_key_info failed.\n");
+		TRACE_DEVEL("rsa_get_key_info failed.\n");
 		return rc;
 	}
 
@@ -1628,14 +1628,14 @@ CK_RV rsa_hash_pss_sign(SESSION *sess, CK_BBOOL length_only,
 
 	rc = digest_mgr_init(sess, &digest_ctx, &digest_mech);
 	if (rc != CKR_OK) {
-		TRACE_DEBUG("Digest Mgr Init failed.\n");
+		TRACE_DEVEL("Digest Mgr Init failed.\n");
 		return rc;
 	}
 
 	rc = digest_mgr_digest(sess, length_only, &digest_ctx, in_data,
 			       in_data_len, hash, &hlen);
 	if (rc != CKR_OK) {
-		TRACE_DEBUG("Digest Mgr Digest failed.\n");
+		TRACE_DEVEL("Digest Mgr Digest failed.\n");
 		return rc;
 	}
 
@@ -1646,14 +1646,14 @@ CK_RV rsa_hash_pss_sign(SESSION *sess, CK_BBOOL length_only,
 
 	rc = sign_mgr_init(sess, &sign_ctx, &sign_mech, FALSE, ctx->key);
 	if (rc != CKR_OK) {
-		TRACE_DEBUG("Sign Mgr Init failed.\n");
+		TRACE_DEVEL("Sign Mgr Init failed.\n");
 		goto done;
 	}
 
 	rc = sign_mgr_sign(sess, length_only, &sign_ctx, hash, hlen,
 			   sig, sig_len);
 	if (rc != CKR_OK)
-		TRACE_DEBUG("Sign Mgr Sign failed.\n");
+		TRACE_DEVEL("Sign Mgr Sign failed.\n");
 
 done:
 	sign_mgr_cleanup(&sign_ctx);
@@ -1697,14 +1697,14 @@ CK_RV rsa_hash_pss_update(SESSION *sess, SIGN_VERIFY_CONTEXT *ctx,
 
 		rc = digest_mgr_init(sess, digest_ctx, &digest_mech);
 		if (rc != CKR_OK) {
-			TRACE_DEBUG("Digest Mgr Init failed.\n");
+			TRACE_DEVEL("Digest Mgr Init failed.\n");
 			return rc;
 		}
 	}
 
 	rc = digest_mgr_digest_update(sess, digest_ctx, in_data, in_data_len);
 	if (rc != CKR_OK)
-		TRACE_DEBUG("Digest Mgr Update failed.\n");
+		TRACE_DEVEL("Digest Mgr Update failed.\n");
 
 	return rc;
 }
@@ -1738,7 +1738,7 @@ CK_RV rsa_hash_pss_sign_final(SESSION *sess, CK_BBOOL length_only,
 	rc = digest_mgr_digest_final(sess, length_only, digest_ctx,
 				     hash, &hlen);
 	if (rc != CKR_OK) {
-		TRACE_DEBUG("Digest Mgr Final failed.\n");
+		TRACE_DEVEL("Digest Mgr Final failed.\n");
 		return rc;
 	}
 
@@ -1749,14 +1749,14 @@ CK_RV rsa_hash_pss_sign_final(SESSION *sess, CK_BBOOL length_only,
 
 	rc = sign_mgr_init(sess, &sign_ctx, &sign_mech, FALSE, ctx->key);
 	if (rc != CKR_OK) {
-		TRACE_DEBUG("Sign Mgr Init failed.\n");
+		TRACE_DEVEL("Sign Mgr Init failed.\n");
 		goto done;
 	}
 
 	rc = sign_mgr_sign(sess, length_only, &sign_ctx, hash, hlen,
 			   signature, sig_len);
 	if (rc != CKR_OK)
-		TRACE_DEBUG("Sign Mgr Sign failed.\n");
+		TRACE_DEVEL("Sign Mgr Sign failed.\n");
 
 done:
 	sign_mgr_cleanup(&sign_ctx);
@@ -1809,14 +1809,14 @@ CK_RV rsa_hash_pss_verify(SESSION *sess, SIGN_VERIFY_CONTEXT *ctx,
 
 	rc = digest_mgr_init(sess, &digest_ctx, &digest_mech);
 	if (rc != CKR_OK) {
-		TRACE_DEBUG("Digest Mgr Init failed.\n");
+		TRACE_DEVEL("Digest Mgr Init failed.\n");
 		return rc;
 	}
 
 	rc = digest_mgr_digest(sess, FALSE, &digest_ctx, in_data,
 			       in_data_len, hash, &hlen);
 	if (rc != CKR_OK) {
-		TRACE_DEBUG("Digest Mgr Digest failed.\n");
+		TRACE_DEVEL("Digest Mgr Digest failed.\n");
 		return rc;
 	}
 
@@ -1827,14 +1827,14 @@ CK_RV rsa_hash_pss_verify(SESSION *sess, SIGN_VERIFY_CONTEXT *ctx,
 
 	rc = verify_mgr_init(sess, &verify_ctx, &verify_mech, FALSE, ctx->key);
 	if (rc != CKR_OK) {
-		TRACE_DEBUG("Verify Mgr Init failed.\n");
+		TRACE_DEVEL("Verify Mgr Init failed.\n");
 		goto done;
 	}
 
 	rc = verify_mgr_verify(sess, &verify_ctx, hash, hlen, signature,
 			       sig_len);
 	if (rc != CKR_OK)
-		TRACE_DEBUG("Verify Mgr Verify failed.\n");
+		TRACE_DEVEL("Verify Mgr Verify failed.\n");
 
 done:
 	verify_mgr_cleanup(&verify_ctx);
@@ -1868,7 +1868,7 @@ CK_RV rsa_hash_pss_verify_final(SESSION *sess, SIGN_VERIFY_CONTEXT *ctx,
 
 	rc = digest_mgr_digest_final(sess, FALSE, digest_ctx, hash, &hlen);
 	if (rc != CKR_OK) {
-		TRACE_DEBUG("Digest Mgr Final failed.\n");
+		TRACE_DEVEL("Digest Mgr Final failed.\n");
 		return rc;
 	}
 
@@ -1879,14 +1879,14 @@ CK_RV rsa_hash_pss_verify_final(SESSION *sess, SIGN_VERIFY_CONTEXT *ctx,
 
 	rc = verify_mgr_init(sess, &verify_ctx, &verify_mech, FALSE, ctx->key);
 	if (rc != CKR_OK) {
-		TRACE_DEBUG("Verify Mgr Init failed.\n");
+		TRACE_DEVEL("Verify Mgr Init failed.\n");
 		goto done;
 	}
 
 	rc = verify_mgr_verify(sess, &verify_ctx, hash, hlen, signature,
 			       sig_len);
 	if (rc != CKR_OK)
-		TRACE_DEBUG("Verify Mgr Verify failed.\n");
+		TRACE_DEVEL("Verify Mgr Verify failed.\n");
 
 done:
 	verify_mgr_cleanup(&verify_ctx);
@@ -1963,20 +1963,20 @@ rsa_hash_pkcs_sign( SESSION              * sess,
 
    rc = digest_mgr_init( sess, &digest_ctx, &digest_mech );
    if (rc != CKR_OK){
-      TRACE_DEBUG("Digest Mgr Init failed.\n");
+      TRACE_DEVEL("Digest Mgr Init failed.\n");
       return rc;
    }
    hash_len = sizeof(hash);
    rc = digest_mgr_digest( sess, length_only, &digest_ctx, in_data, in_data_len, hash, &hash_len );
    if (rc != CKR_OK){
-      TRACE_DEBUG("Digest Mgr Digest failed.\n");
+      TRACE_DEVEL("Digest Mgr Digest failed.\n");
       return rc;
    }
       // build the BER-encodings
 
     rc = ber_encode_OCTET_STRING( FALSE, &octet_str, &octet_str_len, hash, hash_len );
     if (rc != CKR_OK){
-      TRACE_DEBUG("ber_encode_OCTET_STRING failed.\n");
+      TRACE_DEVEL("ber_encode_OCTET_STRING failed.\n");
        goto error;
     }
     tmp = (CK_BYTE *)buf1;
@@ -1985,7 +1985,7 @@ rsa_hash_pkcs_sign( SESSION              * sess,
 
     rc = ber_encode_SEQUENCE( FALSE, &ber_data, &ber_data_len, tmp, (oid_len + octet_str_len) );
     if (rc != CKR_OK){
-       TRACE_DEBUG("ber_encode_SEQUENCE failed.\n");
+       TRACE_DEVEL("ber_encode_SEQUENCE failed.\n");
        goto error;
     }
     // sign the BER-encoded data block
@@ -1997,12 +1997,12 @@ rsa_hash_pkcs_sign( SESSION              * sess,
 
    rc = sign_mgr_init( sess, &sign_ctx, &sign_mech, FALSE, ctx->key );
    if (rc != CKR_OK){
-      TRACE_DEBUG("Sign Mgr Init failed.\n");
+      TRACE_DEVEL("Sign Mgr Init failed.\n");
       goto error;
    }
    rc = sign_mgr_sign( sess, length_only, &sign_ctx, ber_data, ber_data_len, signature, sig_len );
    if (rc != CKR_OK)
-      TRACE_DEBUG("Sign Mgr Sign failed.\n");
+      TRACE_DEVEL("Sign Mgr Sign failed.\n");
 
 error:
    if (octet_str) free( octet_str );
@@ -2049,7 +2049,7 @@ rsa_hash_pkcs_sign_update( SESSION              * sess,
 
       rc = digest_mgr_init( sess, &context->hash_context, &digest_mech );
       if (rc != CKR_OK){
-         TRACE_DEBUG("Digest Mgr Init failed.\n");
+         TRACE_DEVEL("Digest Mgr Init failed.\n");
          return rc;
       }
       context->flag = TRUE;
@@ -2057,7 +2057,7 @@ rsa_hash_pkcs_sign_update( SESSION              * sess,
 
    rc = digest_mgr_digest_update( sess, &context->hash_context, in_data, in_data_len );
    if (rc != CKR_OK){
-      TRACE_DEBUG("Digest Mgr Digest failed.\n");
+      TRACE_DEVEL("Digest Mgr Digest failed.\n");
       return rc;
    }
    return CKR_OK;
@@ -2132,13 +2132,13 @@ rsa_hash_pkcs_verify( SESSION              * sess,
 
    rc = digest_mgr_init( sess, &digest_ctx, &digest_mech );
    if (rc != CKR_OK){
-      TRACE_DEBUG("Digest Mgr Init failed.\n");
+      TRACE_DEVEL("Digest Mgr Init failed.\n");
       return rc;
    }
    hash_len = sizeof(hash);
    rc = digest_mgr_digest( sess, FALSE, &digest_ctx, in_data, in_data_len, hash, &hash_len );
    if (rc != CKR_OK){
-      TRACE_DEBUG("Digest Mgr Digest failed.\n");
+      TRACE_DEVEL("Digest Mgr Digest failed.\n");
       return rc;
    }
 
@@ -2146,7 +2146,7 @@ rsa_hash_pkcs_verify( SESSION              * sess,
    //
    rc = ber_encode_OCTET_STRING( FALSE, &octet_str, &octet_str_len, hash, hash_len );
    if (rc != CKR_OK){
-      TRACE_DEBUG("ber_encode_OCTET_STRING failed.\n");
+      TRACE_DEVEL("ber_encode_OCTET_STRING failed.\n");
       goto done;
    }
    tmp = (CK_BYTE *)buf1;
@@ -2155,7 +2155,7 @@ rsa_hash_pkcs_verify( SESSION              * sess,
 
    rc = ber_encode_SEQUENCE( FALSE, &ber_data, &ber_data_len, tmp, (oid_len + octet_str_len) );
    if (rc != CKR_OK){
-      TRACE_DEBUG("ber_encode_SEQUENCE failed.\n");
+      TRACE_DEVEL("ber_encode_SEQUENCE failed.\n");
       goto done;
    }
    // Verify the Signed BER-encoded Data block
@@ -2166,12 +2166,12 @@ rsa_hash_pkcs_verify( SESSION              * sess,
 
    rc = verify_mgr_init( sess, &verify_ctx, &verify_mech, FALSE, ctx->key );
    if (rc != CKR_OK){
-      TRACE_DEBUG("Verify Mgr Init failed.\n");
+      TRACE_DEVEL("Verify Mgr Init failed.\n");
       goto done;
    }
    rc = verify_mgr_verify( sess, &verify_ctx, ber_data, ber_data_len, signature, sig_len );
    if (rc != CKR_OK)
-      TRACE_DEBUG("Verify Mgr Verify failed.\n");
+      TRACE_DEVEL("Verify Mgr Verify failed.\n");
 done:
    if (octet_str) free( octet_str );
    if (ber_data)  free( ber_data );
@@ -2216,7 +2216,7 @@ rsa_hash_pkcs_verify_update( SESSION              * sess,
 
       rc = digest_mgr_init( sess, &context->hash_context, &digest_mech );
       if (rc != CKR_OK){
-         TRACE_DEBUG("Digest Mgr Init failed.\n");
+         TRACE_DEVEL("Digest Mgr Init failed.\n");
          return rc;
       }
       context->flag = TRUE;
@@ -2224,7 +2224,7 @@ rsa_hash_pkcs_verify_update( SESSION              * sess,
 
    rc = digest_mgr_digest_update( sess, &context->hash_context, in_data, in_data_len );
    if (rc != CKR_OK){
-      TRACE_DEBUG("Digest Mgr Update failed.\n");
+      TRACE_DEVEL("Digest Mgr Update failed.\n");
       return rc;
    }
    return CKR_OK;
@@ -2291,14 +2291,14 @@ rsa_hash_pkcs_sign_final( SESSION              * sess,
    hash_len = sizeof(hash);
    rc = digest_mgr_digest_final( sess, length_only, &context->hash_context, hash, &hash_len );
    if (rc != CKR_OK){
-      TRACE_DEBUG("Digest Mgr Final failed.\n");
+      TRACE_DEVEL("Digest Mgr Final failed.\n");
       return rc;
    }
    // Build the BER Encoded Data block
    //
    rc = ber_encode_OCTET_STRING( FALSE, &octet_str, &octet_str_len, hash, hash_len );
    if (rc != CKR_OK){
-      TRACE_DEBUG("ber_encode_OCTET_STRING failed.\n");
+      TRACE_DEVEL("ber_encode_OCTET_STRING failed.\n");
       return rc;
    }
    tmp = (CK_BYTE *)buf1;
@@ -2307,7 +2307,7 @@ rsa_hash_pkcs_sign_final( SESSION              * sess,
 
    rc = ber_encode_SEQUENCE( FALSE, &ber_data, &ber_data_len, tmp, (oid_len + octet_str_len) );
    if (rc != CKR_OK){
-      TRACE_DEBUG("ber_encode_SEQUENCE failed.\n");
+      TRACE_DEVEL("ber_encode_SEQUENCE failed.\n");
       goto done;
    }
    // sign the BER-encoded data block
@@ -2319,12 +2319,12 @@ rsa_hash_pkcs_sign_final( SESSION              * sess,
 
    rc = sign_mgr_init( sess, &sign_ctx, &sign_mech, FALSE, ctx->key );
    if (rc != CKR_OK){
-      TRACE_DEBUG("Sign Mgr Init failed.\n");
+      TRACE_DEVEL("Sign Mgr Init failed.\n");
       goto done;
    }
    rc = sign_mgr_sign( sess, length_only, &sign_ctx, ber_data, ber_data_len, signature, sig_len );
    if (rc != CKR_OK)
-      TRACE_DEBUG("Sign Mgr Sign failed.\n");
+      TRACE_DEVEL("Sign Mgr Sign failed.\n");
 
    if (length_only == TRUE || rc == CKR_BUFFER_TOO_SMALL) {
       sign_mgr_cleanup( &sign_ctx );
@@ -2396,14 +2396,14 @@ rsa_hash_pkcs_verify_final( SESSION              * sess,
    hash_len = sizeof(hash);
    rc = digest_mgr_digest_final( sess, FALSE, &context->hash_context, hash, &hash_len );
    if (rc != CKR_OK){
-      TRACE_DEBUG("Digest Mgr Final failed.\n");
+      TRACE_DEVEL("Digest Mgr Final failed.\n");
       return rc;
    }
    // Build the BER encoding
    //
    rc = ber_encode_OCTET_STRING( FALSE, &octet_str, &octet_str_len, hash, hash_len );
    if (rc != CKR_OK){
-      TRACE_DEBUG("ber_encode_OCTET_STRING failed.\n");
+      TRACE_DEVEL("ber_encode_OCTET_STRING failed.\n");
       goto done;
    }
    tmp = (CK_BYTE *)buf1;
@@ -2412,7 +2412,7 @@ rsa_hash_pkcs_verify_final( SESSION              * sess,
 
    rc = ber_encode_SEQUENCE( FALSE, &ber_data, &ber_data_len, tmp, (oid_len + octet_str_len) );
    if (rc != CKR_OK){
-      TRACE_DEBUG("ber_encode_SEQUENCE failed.\n");
+      TRACE_DEVEL("ber_encode_SEQUENCE failed.\n");
       goto done;
    }
    // verify the signed BER-encoded data block
@@ -2424,12 +2424,12 @@ rsa_hash_pkcs_verify_final( SESSION              * sess,
 
    rc = verify_mgr_init( sess, &verify_ctx, &verify_mech, FALSE, ctx->key );
    if (rc != CKR_OK){
-      TRACE_DEBUG("Verify Mgr Init failed.\n");
+      TRACE_DEVEL("Verify Mgr Init failed.\n");
       goto done;
    }
    rc = verify_mgr_verify( sess, &verify_ctx, ber_data, ber_data_len, signature, sig_len );
    if (rc != CKR_OK)
-      TRACE_DEBUG("Verify Mgr Verify failed.\n");
+      TRACE_DEVEL("Verify Mgr Verify failed.\n");
 done:
    if (octet_str) free( octet_str );
    if (ber_data)  free( ber_data );
@@ -2460,7 +2460,7 @@ ckm_rsa_key_pair_gen( TEMPLATE  * publ_tmpl,
 
    rc = token_specific.t_rsa_generate_keypair(publ_tmpl, priv_tmpl);
    if (rc != CKR_OK)
-      TRACE_DEBUG("Token specific rsa generate keypair failed.\n");
+      TRACE_DEVEL("Token specific rsa generate keypair failed.\n");
 
    return rc;
 }
@@ -2921,7 +2921,7 @@ CK_RV check_pss_params(CK_MECHANISM *mech, CK_ULONG modlen)
 	 */
 	rc = get_mgf_mech(pssParams->mgf, &mgf_mech);
 	if (rc != CKR_OK) {
-		TRACE_DEBUG("MGF mechanism is invalid.\n");
+		TRACE_DEVEL("MGF mechanism is invalid.\n");
 		return rc;
 	}
 

@@ -379,7 +379,7 @@ verify_mgr_init( SESSION             * sess,
 
 		rc = check_pss_params(mech, attr->ulValueLen);
 		if (rc != CKR_OK) {
-		    TRACE_DEBUG("check_pss_params failed.\n");
+		    TRACE_DEVEL("check_pss_params failed.\n");
 		    return rc;
 		}
             } else {
@@ -534,7 +534,7 @@ verify_mgr_init( SESSION             * sess,
 
 	    rc = check_pss_params(mech, attr->ulValueLen);
 	    if (rc != CKR_OK) {
-		TRACE_DEBUG("check_pss_params failed.\n");
+		TRACE_DEVEL("check_pss_params failed.\n");
 		return rc;
 	    }
 

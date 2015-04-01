@@ -1763,7 +1763,7 @@ aes_ofb_encrypt( SESSION           * sess,
                               key_obj, ctx->mech.pParameter, 1);
 
    if (rc != CKR_OK)
-	TRACE_DEBUG("Token specific aes ofb encrypt failed.\n");
+	TRACE_DEVEL("Token specific aes ofb encrypt failed.\n");
    return rc;
 }
 
@@ -1840,7 +1840,7 @@ aes_ofb_encrypt_update( SESSION              * sess,
             memcpy( context->data, in_data + (in_data_len - remain), remain );
          context->len = remain;
       } else
-	    TRACE_DEBUG("Token specific aes ofb encrypt failed.\n");
+	    TRACE_DEVEL("Token specific aes ofb encrypt failed.\n");
       free( cipher );
       return rc;
    }
@@ -1889,7 +1889,7 @@ aes_ofb_encrypt_final( SESSION           *sess,
                               key_obj, ctx->mech.pParameter, 1);
 
       if (rc != CKR_OK)
-	 TRACE_DEBUG("Token specific aes ofb encrypt failed.\n");
+	 TRACE_DEVEL("Token specific aes ofb encrypt failed.\n");
 
       *out_data_len = context->len;
       return rc;
@@ -1933,7 +1933,7 @@ aes_ofb_decrypt( SESSION           * sess,
                               key_obj, ctx->mech.pParameter, 0);
 
    if (rc != CKR_OK)
-	TRACE_DEBUG("Token specific aes ofb decrypt failed.\n");
+	TRACE_DEVEL("Token specific aes ofb decrypt failed.\n");
    return rc;
 }
 
@@ -2011,7 +2011,7 @@ aes_ofb_decrypt_update( SESSION              * sess,
             memcpy( context->data, in_data + (in_data_len - remain), remain );
          context->len = remain;
       } else
-	 TRACE_DEBUG("Token specific aes ofb decrypt failed.\n");
+	 TRACE_DEVEL("Token specific aes ofb decrypt failed.\n");
       free( cipher );
       return rc;
    }
@@ -2063,7 +2063,7 @@ aes_ofb_decrypt_final( SESSION           *sess,
                                            key_obj, ctx->mech.pParameter, 0);
 
       if (rc != CKR_OK)
-         TRACE_DEBUG("Token specific aes ofb decrypt failed.\n");
+         TRACE_DEVEL("Token specific aes ofb decrypt failed.\n");
 
       *out_data_len = context->len;
       return rc;
@@ -2108,7 +2108,7 @@ aes_cfb_encrypt( SESSION           * sess,
                      key_obj, ctx->mech.pParameter, cfb_len, 1);
 
    if (rc != CKR_OK)
-      TRACE_DEBUG("Token specific aes cfb encrypt failed.\n");
+      TRACE_DEVEL("Token specific aes cfb encrypt failed.\n");
    return rc;
 }
 
@@ -2186,7 +2186,7 @@ aes_cfb_encrypt_update( SESSION              * sess,
             memcpy( context->data, in_data + (in_data_len - remain), remain );
          context->len = remain;
       } else
-         TRACE_DEBUG("Token specific aes cfb encrypt failed.\n");
+         TRACE_DEVEL("Token specific aes cfb encrypt failed.\n");
       free( cipher );
       return rc;
    }
@@ -2236,7 +2236,7 @@ aes_cfb_encrypt_final( SESSION           *sess,
                               key_obj, ctx->mech.pParameter, cfb_len, 1);
 
       if (rc != CKR_OK)
-         TRACE_DEBUG("Token specific aes cfb encrypt failed.\n");
+         TRACE_DEVEL("Token specific aes cfb encrypt failed.\n");
 
       *out_data_len = context->len;
       return rc;
@@ -2281,7 +2281,7 @@ aes_cfb_decrypt( SESSION           * sess,
                      key_obj, ctx->mech.pParameter, cfb_len, 0);
 
    if (rc != CKR_OK)
-      TRACE_DEBUG("Token specific aes cfb decrypt failed.\n");
+      TRACE_DEVEL("Token specific aes cfb decrypt failed.\n");
    return rc;
 }
 
@@ -2360,7 +2360,7 @@ aes_cfb_decrypt_update( SESSION              * sess,
          context->len = remain;
       }
       else
-         TRACE_DEBUG("Token specific aes cfb decrypt failed.\n");
+         TRACE_DEVEL("Token specific aes cfb decrypt failed.\n");
       free( cipher );
       return rc;
    }
@@ -2410,7 +2410,7 @@ aes_cfb_decrypt_final( SESSION           *sess,
                               key_obj, ctx->mech.pParameter, cfb_len, 0);
 
       if (rc != CKR_OK)
-         TRACE_DEBUG("Token specific aes cfb decrypt failed.\n");
+         TRACE_DEVEL("Token specific aes cfb decrypt failed.\n");
 
       *out_data_len = context->len;
       return rc;
@@ -2472,7 +2472,7 @@ aes_mac_sign( SESSION              * sess,
    rc = token_specific.t_aes_mac(in_data, in_data_len,
         key_obj, ((AES_DATA_CONTEXT *)ctx->context)->iv);
    if (rc != CKR_OK)
-      TRACE_DEBUG("Token specific aes mac failed.\n");
+      TRACE_DEVEL("Token specific aes mac failed.\n");
 
    memcpy(out_data, ((AES_DATA_CONTEXT *)ctx->context)->iv, mac_len);
    *out_data_len = mac_len;
@@ -2535,7 +2535,7 @@ aes_mac_sign_update ( SESSION              * sess,
             memcpy( context->data, in_data + (in_data_len - remain), remain );
          context->len = remain;
       } else
-         TRACE_DEBUG("Token specific aes mac failed.\n");
+         TRACE_DEVEL("Token specific aes mac failed.\n");
 
       free( cipher );
       return rc;
@@ -2595,7 +2595,7 @@ aes_mac_sign_final( SESSION              * sess,
 
       rc = token_specific.t_aes_mac(context->data, AES_BLOCK_SIZE, key_obj, context->iv);
       if (rc != CKR_OK) {
-         TRACE_DEBUG("Token Specific aes mac failed.\n");
+         TRACE_DEVEL("Token Specific aes mac failed.\n");
          return rc;
       }
    }
@@ -2652,7 +2652,7 @@ aes_mac_verify( SESSION              * sess,
         key_obj, ((AES_DATA_CONTEXT *)ctx->context)->iv);
 
    if (rc != CKR_OK)
-      TRACE_DEBUG("Token specific aes mac failed.\n");
+      TRACE_DEVEL("Token specific aes mac failed.\n");
    if (memcmp(
        out_data, ((AES_DATA_CONTEXT *)ctx->context)->iv, out_data_len) == 0) {
        return CKR_OK;
@@ -2718,7 +2718,7 @@ aes_mac_verify_update( SESSION              * sess,
          context->len = remain;
       }
       else
-         TRACE_DEBUG("Token specific aes mac failed.\n");
+         TRACE_DEVEL("Token specific aes mac failed.\n");
 
       free( cipher );
       return rc;
@@ -2770,7 +2770,7 @@ aes_mac_verify_final( SESSION              * sess,
       }
       rc = token_specific.t_aes_mac(context->data, AES_BLOCK_SIZE, key_obj, context->iv);
       if (rc != CKR_OK) {
-         TRACE_DEBUG("Token specific aes mac failed.\n");
+         TRACE_DEVEL("Token specific aes mac failed.\n");
          return rc;
       }
    }
@@ -2938,7 +2938,7 @@ ckm_aes_ecb_encrypt( CK_BYTE     * in_data,
 				 out_data,out_data_len, key, 1);
    
    if (rc != CKR_OK)
-      TRACE_DEBUG("Token specific aes ecb encrypt failed.\n");
+      TRACE_DEVEL("Token specific aes ecb encrypt failed.\n");
    return rc;
 }
 
@@ -2972,7 +2972,7 @@ ckm_aes_ecb_decrypt( CK_BYTE     * in_data,
 		      		 out_data,out_data_len, key, 0);
    
    if (rc != CKR_OK)
-      TRACE_DEBUG("token specific aes ecb decrypt failed.\n");
+      TRACE_DEVEL("token specific aes ecb decrypt failed.\n");
 
    return rc;
 }
@@ -3009,7 +3009,7 @@ ckm_aes_cbc_encrypt( CK_BYTE     * in_data,
 		      		 out_data,out_data_len, key, init_v, 1);
 
    if (rc != CKR_OK)
-      TRACE_DEBUG("Token specific aes cbc encrypt failed.\n");
+      TRACE_DEVEL("Token specific aes cbc encrypt failed.\n");
    return rc;
 }
 
@@ -3044,7 +3044,7 @@ ckm_aes_cbc_decrypt( CK_BYTE     * in_data,
 		      		 out_data, out_data_len, key, init_v,0);
    
    if (rc != CKR_OK)
-      TRACE_DEBUG("Token specific aes cbc decrypt failed.\n");
+      TRACE_DEVEL("Token specific aes cbc decrypt failed.\n");
    return rc;
 }
 //
@@ -3082,7 +3082,7 @@ ckm_aes_ctr_encrypt( CK_BYTE    *in_data,
                                  out_data, out_data_len, key,
 				 counterblock, counter_width, 1);
    if (rc != CKR_OK)
-      TRACE_DEBUG("Token specific aes ctr encrypt failed.\n");
+      TRACE_DEVEL("Token specific aes ctr encrypt failed.\n");
    return rc;
 }
 //

@@ -379,7 +379,7 @@ sign_mgr_init( SESSION                * sess,
 
 		rc = check_pss_params(mech, attr->ulValueLen);
 		if (rc != CKR_OK) {
-		    TRACE_DEBUG("check_pss_params failed.\n");
+		    TRACE_DEVEL("check_pss_params failed.\n");
 		    return rc;
 		}
 	    } else {
@@ -538,7 +538,7 @@ sign_mgr_init( SESSION                * sess,
 
 	    rc = check_pss_params(mech, attr->ulValueLen);
 	    if (rc != CKR_OK) {
-		TRACE_DEBUG("check_pss_params failed.\n");
+		TRACE_DEVEL("check_pss_params failed.\n");
 		return rc;
 	    }
 
@@ -1035,7 +1035,7 @@ sign_mgr_sign( SESSION              * sess,
          return CKR_MECHANISM_INVALID;
    }
 
-   TRACE_DEBUG("%s\n", ock_err(ERR_FUNCTION_FAILED));
+   TRACE_DEVEL("%s\n", ock_err(ERR_FUNCTION_FAILED));
    return CKR_FUNCTION_FAILED;
 }
 
@@ -1100,7 +1100,7 @@ sign_mgr_sign_update( SESSION             * sess,
          return CKR_MECHANISM_INVALID;
    }
 
-   TRACE_DEBUG("%s\n", ock_err(ERR_FUNCTION_FAILED));
+   TRACE_DEVEL("%s\n", ock_err(ERR_FUNCTION_FAILED));
    return CKR_FUNCTION_FAILED;
 }
 
@@ -1163,7 +1163,7 @@ sign_mgr_sign_final( SESSION             * sess,
          return CKR_MECHANISM_INVALID;
    }
 
-   TRACE_DEBUG("%s\n", ock_err(ERR_FUNCTION_FAILED));
+   TRACE_DEVEL("%s\n", ock_err(ERR_FUNCTION_FAILED));
    return CKR_FUNCTION_FAILED;
 }
 
@@ -1221,6 +1221,6 @@ sign_mgr_sign_recover( SESSION             * sess,
          return CKR_MECHANISM_INVALID;
    }
 
-   TRACE_DEBUG("%s\n", ock_err(ERR_FUNCTION_FAILED));
+   TRACE_DEVEL("%s\n", ock_err(ERR_FUNCTION_FAILED));
    return CKR_FUNCTION_FAILED;
 }

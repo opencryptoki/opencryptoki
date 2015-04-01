@@ -696,7 +696,7 @@ digest_mgr_digest_key( SESSION          * sess,
                                   attr->pValue,
                                   attr->ulValueLen );
    if (rc != CKR_OK){
-      TRACE_DEBUG("digest_mgr_digest_update failed\n");
+      TRACE_DEVEL("digest_mgr_digest_update failed\n");
    }
 
 out:

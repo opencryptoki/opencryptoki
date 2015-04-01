@@ -384,7 +384,7 @@ dh_pkcs_derive( SESSION           * sess,
    // Build the attribute from the vales that were returned back
    rc = build_attribute( CKA_VALUE, secret_key_value, secret_key_value_len, &new_attr );
    if (rc != CKR_OK) {
-      TRACE_DEBUG("Failed to build the new attribute.\n");
+      TRACE_DEVEL("Failed to build the new attribute.\n");
       return rc ;
    }
 
@@ -397,7 +397,7 @@ dh_pkcs_derive( SESSION           * sess,
                                 keyclass,  keytype,
                                 &temp_obj );
    if (rc != CKR_OK){
-      TRACE_DEBUG("Object Mgr create skeleton failed.\n");
+      TRACE_DEVEL("Object Mgr create skeleton failed.\n");
       return rc;  
    }
 
@@ -409,7 +409,7 @@ dh_pkcs_derive( SESSION           * sess,
    //
    rc = object_mgr_create_final( sess, temp_obj, handle );
    if (rc != CKR_OK) {
-      TRACE_DEBUG("Object Mgr create final failed.\n");
+      TRACE_DEVEL("Object Mgr create final failed.\n");
       object_free( temp_obj );
       return rc;  
    }
@@ -480,7 +480,7 @@ ckm_dh_pkcs_derive( CK_VOID_PTR        other_pubkey,
    rc = token_specific.t_dh_pkcs_derive(secret_value, secret_value_len, p_other_pubkey, 
                                         other_pubkey_len, x, x_len, p, p_len );
    if (rc != CKR_OK)
-      TRACE_DEBUG("Token specific dh pkcs derive failed.\n");
+      TRACE_DEVEL("Token specific dh pkcs derive failed.\n");
 
    return rc;
 }
@@ -495,7 +495,7 @@ ckm_dh_pkcs_key_pair_gen( TEMPLATE  * publ_tmpl,
 
    rc = token_specific.t_dh_pkcs_key_pair_gen(publ_tmpl,priv_tmpl);
    if (rc != CKR_OK)
-      TRACE_DEBUG("Token specific dh pkcs key pair gen failed.\n");
+      TRACE_DEVEL("Token specific dh pkcs key pair gen failed.\n");
 
    return rc;
 }

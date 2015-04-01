@@ -337,14 +337,14 @@ object_mgr_add( SESSION          * sess,
 
    rc = object_create( pTemplate, ulCount, &o );
    if (rc != CKR_OK){
-      TRACE_DEBUG("Object Create failed.\n");
+      TRACE_DEVEL("Object Create failed.\n");
       goto done;
    }
 
    if (token_specific.t_object_add != NULL) {
       rc = token_specific.t_object_add(o);
       if (rc != CKR_OK) {
-	 TRACE_DEBUG("Token Specific object add failed.\n");
+	 TRACE_DEVEL("Token Specific object add failed.\n");
 	 goto done;
       }
    }
@@ -581,7 +581,7 @@ object_mgr_add_to_map( SESSION          * sess,
    // add the new map entry to the list
    if (pthread_rwlock_wrlock(&obj_list_rw_mutex)) {
       free(map_node);
-      TRACE_DEBUG("Failed to acqquire mutex lock.\n");
+      TRACE_DEVEL("Failed to acqquire mutex lock.\n");
       return CKR_FUNCTION_FAILED;
    }
 
@@ -646,12 +646,12 @@ object_mgr_copy( SESSION          * sess,
 
    rc = object_mgr_find_in_map1( old_handle, &old_obj );
    if (rc != CKR_OK){
-      TRACE_DEBUG("object_mgr_find_in_map1 failed.\n");
+      TRACE_DEVEL("object_mgr_find_in_map1 failed.\n");
       goto done;
    }
    rc = object_copy( pTemplate, ulCount, old_obj, &new_obj );
    if (rc != CKR_OK){
-      TRACE_DEBUG("Object Copy failed.\n");
+      TRACE_DEVEL("Object Copy failed.\n");
       goto done;
    }
 
@@ -787,7 +787,7 @@ object_mgr_copy( SESSION          * sess,
 
    rc = object_mgr_add_to_map( sess, new_obj, obj_handle, new_handle );
    if (rc != CKR_OK) {
-      TRACE_DEBUG("object_mgr_add_to_map failed.\n");
+      TRACE_DEVEL("object_mgr_add_to_map failed.\n");
 
       // this is messy but we need to remove the object from whatever
       // list we just added it to
@@ -872,7 +872,7 @@ object_mgr_create_skel( SESSION       * sess,
                             obj_type, sub_class,
                             &o );
    if (rc != CKR_OK){
-      TRACE_DEBUG("object_create_skel failed.\n");
+      TRACE_DEVEL("object_create_skel failed.\n");
       return rc;
    }
    sess_obj = object_is_session_object( o );
@@ -1023,7 +1023,7 @@ object_mgr_create_final( SESSION           * sess,
 
    rc = object_mgr_add_to_map( sess, obj, obj_handle, handle );
    if (rc != CKR_OK) {
-      TRACE_DEBUG("object_mgr_add_to_map failed.\n");
+      TRACE_DEVEL("object_mgr_add_to_map failed.\n");
       // this is messy but we need to remove the object from whatever
       // list we just added it to
       //
@@ -1359,7 +1359,7 @@ object_mgr_find_in_map1( CK_OBJECT_HANDLE    handle,
    	XProcUnLock();
 
         if (rc != CKR_OK) {
-		TRACE_DEBUG("object_mgr_check_shm failed.\n");
+		TRACE_DEVEL("object_mgr_check_shm failed.\n");
 		goto done;
 	}
    }
@@ -1469,7 +1469,7 @@ find_build_list_cb(void *node, unsigned long obj_handle, void *p3)
       if (rc != CKR_OK) {
          rc = object_mgr_add_to_map( fa->sess, obj, obj_handle, &map_handle );
          if (rc != CKR_OK){
-            TRACE_DEBUG("object_mgr_add_to_map failed.\n");
+            TRACE_DEVEL("object_mgr_add_to_map failed.\n");
             return;
          }
       }
@@ -1479,7 +1479,7 @@ find_build_list_cb(void *node, unsigned long obj_handle, void *p3)
       if ((fa->hw_feature == FALSE) &&
 	  (template_attribute_find(obj->template, CKA_CLASS, &attr) == TRUE)) {
 	 if (attr->pValue == NULL) {
-	    TRACE_DEBUG("%s\n", ock_err(ERR_GENERAL_ERROR));
+	    TRACE_DEVEL("%s\n", ock_err(ERR_GENERAL_ERROR));
 	    return;
 	 }
 	 if (*(CK_OBJECT_CLASS *)attr->pValue == CKO_HW_FEATURE)
@@ -1665,7 +1665,7 @@ object_mgr_get_attribute_values( SESSION           * sess,
 
    rc = object_mgr_find_in_map1( handle, &obj );
    if (rc != CKR_OK){
-      TRACE_DEBUG("object_mgr_find_in_map1 failed.\n");
+      TRACE_DEVEL("object_mgr_find_in_map1 failed.\n");
       goto done;
    }
    priv_obj = object_is_private( obj );
@@ -1682,7 +1682,7 @@ object_mgr_get_attribute_values( SESSION           * sess,
 
    rc = object_get_attribute_values( obj, pTemplate, ulCount );
    if (rc != CKR_OK)
-         TRACE_DEBUG("object_get_attribute_values failed.\n");
+         TRACE_DEVEL("object_get_attribute_values failed.\n");
 done:
    if (locked)
       MY_UnlockMutex( &obj_list_mutex );
@@ -1707,7 +1707,7 @@ object_mgr_get_object_size( CK_OBJECT_HANDLE   handle,
    }
    rc = object_mgr_find_in_map1( handle, &obj );
    if (rc != CKR_OK) {
-      TRACE_DEBUG("object_mgr_find_in_map1 failed.\n");
+      TRACE_DEVEL("object_mgr_find_in_map1 failed.\n");
       goto done;
    }
 
@@ -1906,7 +1906,7 @@ object_mgr_restore_obj_withSize( CK_BYTE *data, OBJECT *oldObj, int data_size )
 
          XProcUnLock();
       } else {
-         TRACE_DEBUG("object_restore_withSize failed.\n");
+         TRACE_DEVEL("object_restore_withSize failed.\n");
       }
    }
 
@@ -1943,7 +1943,7 @@ object_mgr_set_attribute_values( SESSION           * sess,
    MY_UnlockMutex( &obj_list_mutex );
 
    if (rc != CKR_OK) {
-      TRACE_DEBUG("object_mgr_find_in_map1 failed.\n");
+      TRACE_DEVEL("object_mgr_find_in_map1 failed.\n");
       return rc;
    }
 
@@ -1995,7 +1995,7 @@ object_mgr_set_attribute_values( SESSION           * sess,
 
    rc = object_set_attribute_values( obj, pTemplate, ulCount );
    if (rc != CKR_OK){
-      TRACE_DEBUG("object_set_attribute_values failed.\n");
+      TRACE_DEVEL("object_set_attribute_values failed.\n");
       return rc;
    }
    // okay.  the object has been updated.  if it's a session object,
@@ -2027,7 +2027,7 @@ object_mgr_set_attribute_values( SESSION           * sess,
                                              obj, &index );
 
          if (rc != CKR_OK) {
-            TRACE_DEBUG("object_mgr_search_shm_for_obj failed.\n");
+            TRACE_DEVEL("object_mgr_search_shm_for_obj failed.\n");
             XProcUnLock();
             return rc;
          }
@@ -2039,7 +2039,7 @@ object_mgr_set_attribute_values( SESSION           * sess,
                                              0, global_shm->num_publ_tok_obj-1,
                                              obj, &index );
          if (rc != CKR_OK) {
-            TRACE_DEBUG("object_mgr_search_shm_for_obj failed.\n");
+            TRACE_DEVEL("object_mgr_search_shm_for_obj failed.\n");
             XProcUnLock();
             return rc;
          }
@@ -2114,7 +2114,7 @@ object_mgr_del_from_shm( OBJECT *obj )
                                           0, global_shm->num_priv_tok_obj-1,
                                           obj, &index );
       if (rc != CKR_OK){
-         TRACE_DEBUG("object_mgr_search_shm_for_obj failed.\n");
+         TRACE_DEVEL("object_mgr_search_shm_for_obj failed.\n");
          return rc;
       }
       // Since the number of objects starts at 1 and index starts at zero, we
@@ -2152,7 +2152,7 @@ object_mgr_del_from_shm( OBJECT *obj )
                                           0, global_shm->num_publ_tok_obj-1,
                                           obj, &index );
       if (rc != CKR_OK){
-         TRACE_DEBUG("object_mgr_search_shm_for_obj failed.\n");
+         TRACE_DEVEL("object_mgr_search_shm_for_obj failed.\n");
          return rc;
       }
       global_shm->num_publ_tok_obj--;
@@ -2489,14 +2489,14 @@ void
 dump_shm(const char *s)
 {
 	CK_ULONG i;
-	TRACE_DEVEL("%s: dump_shm priv:", s);
+	TRACE_DEBUG("%s: dump_shm priv:", s);
 
 	for (i = 0; i < global_shm->num_priv_tok_obj; i++) {
-		TRACE_DEVEL("[%lu]: %.8s", i, global_shm->priv_tok_objs[i].name);
+		TRACE_DEBUG("[%lu]: %.8s", i, global_shm->priv_tok_objs[i].name);
 	}
-	TRACE_DEVEL("%s: dump_shm publ:", s);
+	TRACE_DEBUG("%s: dump_shm publ:", s);
 	for (i = 0; i < global_shm->num_publ_tok_obj; i++) {
-		TRACE_DEVEL("[%lu]: %.8s", i, global_shm->publ_tok_objs[i].name);
+		TRACE_DEBUG("[%lu]: %.8s", i, global_shm->publ_tok_objs[i].name);
 	}
 }
 #endif

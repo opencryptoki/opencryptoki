@@ -428,7 +428,7 @@ static CK_RV encrypt_data(CK_BYTE *key, CK_ULONG keylen, const CK_BYTE *iv,
 	rc = object_create_skel(key_tmpl, 3, MODE_CREATE, CKO_SECRET_KEY,
 				keyType, &keyobj);
 	if (rc != CKR_OK) {
-		TRACE_DEBUG("object_create_skel failed.\n");
+		TRACE_DEVEL("object_create_skel failed.\n");
 		return rc;
 	}
 
@@ -542,7 +542,7 @@ static CK_RV decrypt_data(CK_BYTE *key, CK_ULONG keylen, const CK_BYTE *iv,
 	rc = object_create_skel(key_tmpl, 3, MODE_CREATE, CKO_SECRET_KEY,
 				keyType, &keyobj);
 	if (rc != CKR_OK) {
-		TRACE_DEBUG("object_create_skel failed.\n");
+		TRACE_DEVEL("object_create_skel failed.\n");
 		return rc;
 	}
 
@@ -651,7 +651,7 @@ void set_perm(int file)
 	return;
 
 error:
-	TRACE_DEBUG("Unable to set permissions on file.\n");
+	TRACE_DEVEL("Unable to set permissions on file.\n");
 }
 
 //
@@ -1238,7 +1238,7 @@ CK_RV restore_private_token_object(CK_BYTE * data, CK_ULONG len, OBJECT * pObj)
 	// tampered with or the key was incorrect
 	//
 	if (rc != CKR_OK || (clear_len > len)) {
-		TRACE_DEBUG("strip_pkcs_padding failed.\n");
+		TRACE_DEVEL("strip_pkcs_padding failed.\n");
 		rc = CKR_FUNCTION_FAILED;
 		goto done;
 	}
@@ -1358,7 +1358,7 @@ CK_RV load_masterkey_so(void)
 					 cipher, cipher_len,
 					 clear, &clear_len);
 	if (rc != CKR_OK) {
-		TRACE_DEBUG("decrypt_data_with_clear_key failed.\n");
+		TRACE_DEVEL("decrypt_data_with_clear_key failed.\n");
 		goto done;
 	}
 
@@ -1464,7 +1464,7 @@ CK_RV load_masterkey_user(void)
 					 cipher, cipher_len,
 					 clear, &clear_len);
 	if (rc != CKR_OK) {
-		TRACE_DEBUG("decrypt_data_with_clear_key failed.\n");
+		TRACE_DEVEL("decrypt_data_with_clear_key failed.\n");
 		goto done;
 	}
 

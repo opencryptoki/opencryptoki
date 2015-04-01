@@ -463,7 +463,7 @@ CK_RV ST_Initialize(void **FunctionList, CK_SLOT_ID SlotNumber, char *conf_name,
 		rc =  token_specific.t_init(SlotNumber, conf_name);
 		if (rc != 0) {
 			*FunctionList = NULL;
-			TRACE_DEBUG("Token Specific Init failed.\n");
+			TRACE_DEVEL("Token Specific Init failed.\n");
 			goto done;
 		}
 	}
@@ -471,7 +471,7 @@ CK_RV ST_Initialize(void **FunctionList, CK_SLOT_ID SlotNumber, char *conf_name,
 	rc = load_token_data(SlotNumber);
 	if (rc != CKR_OK) {
 		*FunctionList = NULL;
-		TRACE_DEBUG("Failed to load token data.\n");
+		TRACE_DEVEL("Failed to load token data.\n");
 		goto done;
 	}
 
@@ -730,7 +730,7 @@ CK_RV SC_InitToken(CK_SLOT_ID sid, CK_CHAR_PTR pPin, CK_ULONG ulPinLen,
 
 	rc = save_token_data(sid);
 	if (rc != CKR_OK) {
-		TRACE_DEBUG("Failed to save token data.\n");
+		TRACE_DEVEL("Failed to save token data.\n");
 		goto done;
 	}
 done:
@@ -788,7 +788,7 @@ CK_RV SC_InitPIN(ST_SESSION_HANDLE *sSession, CK_CHAR_PTR pPin,
 
 			rc = save_token_data(sess->session_info.slotID);
 			if (rc != CKR_OK)
-				TRACE_DEBUG("Failed to save token data.\n");
+				TRACE_DEVEL("Failed to save token data.\n");
 		}
 		goto done;
 	}
@@ -818,12 +818,12 @@ CK_RV SC_InitPIN(ST_SESSION_HANDLE *sSession, CK_CHAR_PTR pPin,
 	memcpy(user_pin_md5, hash_md5, MD5_HASH_SIZE);
 	rc = save_token_data(sess->session_info.slotID);
 	if (rc != CKR_OK) {
-		TRACE_DEBUG("Failed to save token data.\n");
+		TRACE_DEVEL("Failed to save token data.\n");
 		goto done;
 	}
 	rc = save_masterkey_user();
 	if (rc != CKR_OK)
-		TRACE_DEBUG("Failed to save user's masterkey.\n");
+		TRACE_DEVEL("Failed to save user's masterkey.\n");
 
 done:
 	TRACE_INFO("C_InitPin: rc = 0x%08x, session = %d\n",
@@ -906,7 +906,7 @@ CK_RV SC_SetPIN(ST_SESSION_HANDLE *sSession, CK_CHAR_PTR pOldPin,
 		}
 		rc = XProcLock();
 		if (rc != CKR_OK) {
-			TRACE_DEBUG("Failed to get process lock.\n");
+			TRACE_DEVEL("Failed to get process lock.\n");
 			goto done;
 		}
 		memcpy(nv_token_data->user_pin_sha, new_hash_sha,
@@ -917,7 +917,7 @@ CK_RV SC_SetPIN(ST_SESSION_HANDLE *sSession, CK_CHAR_PTR pOldPin,
 		XProcUnLock();
 		rc = save_token_data(sess->session_info.slotID);
 		if (rc != CKR_OK) {
-			TRACE_DEBUG("Failed to save token data.\n");
+			TRACE_DEVEL("Failed to save token data.\n");
 			goto done;
 		}
 		rc = save_masterkey_user();
@@ -946,7 +946,7 @@ CK_RV SC_SetPIN(ST_SESSION_HANDLE *sSession, CK_CHAR_PTR pOldPin,
 		}
 		rc = XProcLock();
 		if (rc != CKR_OK) {
-			TRACE_DEBUG("Failed to get process lock.\n");
+			TRACE_DEVEL("Failed to get process lock.\n");
 			goto done;
 		}
 		memcpy(nv_token_data->so_pin_sha, new_hash_sha, SHA1_HASH_SIZE);
@@ -955,12 +955,12 @@ CK_RV SC_SetPIN(ST_SESSION_HANDLE *sSession, CK_CHAR_PTR pOldPin,
 		XProcUnLock();
 		rc = save_token_data(sess->session_info.slotID);
 		if (rc != CKR_OK) {
-			TRACE_DEBUG("Failed to save token data.\n");
+			TRACE_DEVEL("Failed to save token data.\n");
 			goto done;
 		}
 		rc = save_masterkey_so();
 		if (rc != CKR_OK)
-			TRACE_DEBUG("Failed to save SO's masterkey.\n");
+			TRACE_DEVEL("Failed to save SO's masterkey.\n");
 	} else {
 		TRACE_ERROR("%s\n", ock_err(ERR_SESSION_READ_ONLY));
 		rc = CKR_SESSION_READ_ONLY;
@@ -1011,7 +1011,7 @@ CK_RV SC_OpenSession(CK_SLOT_ID sid, CK_FLAGS flags,
 	locked = FALSE;
 	rc = session_mgr_new(flags, sid, phSession);
 	if (rc != CKR_OK) {
-		TRACE_DEBUG("session_mgr_new() failed\n");
+		TRACE_DEVEL("session_mgr_new() failed\n");
 		goto done;
 	}
 done:
@@ -1050,7 +1050,7 @@ CK_RV SC_CloseAllSessions(CK_SLOT_ID sid)
 	}
 	rc = session_mgr_close_all_sessions();
 	if (rc != CKR_OK)
-		TRACE_DEBUG("session_mgr_close_all_sessions() failed.\n");
+		TRACE_DEVEL("session_mgr_close_all_sessions() failed.\n");
 done:
 	TRACE_INFO("C_CloseAllSessions: rc = 0x%08x slot = %d\n", rc, sid);
 	return rc;
@@ -1120,7 +1120,7 @@ CK_RV SC_GetOperationState(ST_SESSION_HANDLE *sSession,
 	rc = session_mgr_get_op_state(sess, length_only, pOperationState,
 				      pulOperationStateLen);
 	if (rc != CKR_OK)
-		TRACE_DEBUG("session_mgr_get_op_state() failed.\n");
+		TRACE_DEVEL("session_mgr_get_op_state() failed.\n");
 done:
 	TRACE_INFO("C_GetOperationState: rc = 0x%08x, session = %d\n",
 		   rc, sSession->sessionh);
@@ -1160,7 +1160,7 @@ CK_RV SC_SetOperationState(ST_SESSION_HANDLE *sSession,
 				      pOperationState, ulOperationStateLen);
 
 	if (rc != CKR_OK)
-		TRACE_DEBUG("session_mgr_set_op_state() failed.\n");
+		TRACE_DEVEL("session_mgr_set_op_state() failed.\n");
 done:
 	TRACE_INFO("C_SetOperationState: rc = 0x%08x, session = %d\n",
 		   rc, sSession->sessionh);
@@ -1294,7 +1294,7 @@ CK_RV SC_Login(ST_SESSION_HANDLE *sSession, CK_USER_TYPE userType,
 
 		rc = load_masterkey_user();
 		if (rc != CKR_OK){
-			TRACE_DEBUG("Failed to load user's masterkey.\n");
+			TRACE_DEVEL("Failed to load user's masterkey.\n");
 			goto done;
 		}
 
@@ -1346,14 +1346,14 @@ CK_RV SC_Login(ST_SESSION_HANDLE *sSession, CK_USER_TYPE userType,
 
 		rc = load_masterkey_so();
 		if (rc != CKR_OK)
-			TRACE_DEBUG("Failed to load SO's masterkey.\n");
+			TRACE_DEVEL("Failed to load SO's masterkey.\n");
 	}
 
 done:
  	if (rc == CKR_OK) {
 		rc = session_mgr_login_all(userType);
 		if (rc != CKR_OK)
-			TRACE_DEBUG("session_mgr_login_all failed.\n");
+			TRACE_DEVEL("session_mgr_login_all failed.\n");
 	}
 
 	TRACE_INFO("C_Login: rc = 0x%08x\n", rc);
@@ -1390,7 +1390,7 @@ CK_RV SC_Logout(ST_SESSION_HANDLE *sSession)
 
 	rc = session_mgr_logout_all();
 	if (rc != CKR_OK)
-		TRACE_DEBUG("session_mgr_logout_all failed.\n");
+		TRACE_DEVEL("session_mgr_logout_all failed.\n");
 
 	/* Check if token has a specific handler for this, otherwise fall back
 	 * to default behaviour.
@@ -1439,7 +1439,7 @@ CK_RV SC_CreateObject(ST_SESSION_HANDLE *sSession, CK_ATTRIBUTE_PTR pTemplate,
 
 	rc = object_mgr_add(sess, pTemplate, ulCount, phObject);
 	if (rc != CKR_OK)
-		TRACE_DEBUG("object_mgr_add() failed.\n");
+		TRACE_DEVEL("object_mgr_add() failed.\n");
 
 done:
 	TRACE_INFO("C_CreateObject: rc = 0x%08x\n", rc);
@@ -1487,7 +1487,7 @@ CK_RV  SC_CopyObject(ST_SESSION_HANDLE *sSession, CK_OBJECT_HANDLE hObject,
    
 	rc = object_mgr_copy(sess, pTemplate, ulCount, hObject, phNewObject);
 	if (rc != CKR_OK)
-		TRACE_DEBUG("object_mgr_copy() failed\n");
+		TRACE_DEVEL("object_mgr_copy() failed\n");
 
 done:
 	TRACE_INFO("C_CopyObject:rc = 0x%08x,old handle = %d,new handle = %d\n",
@@ -1522,7 +1522,7 @@ CK_RV SC_DestroyObject(ST_SESSION_HANDLE *sSession, CK_OBJECT_HANDLE hObject)
    
 	rc = object_mgr_destroy_object(sess, hObject);
 	if (rc != CKR_OK)
-		TRACE_DEBUG("object_mgr_destroy_object() failed\n");
+		TRACE_DEVEL("object_mgr_destroy_object() failed\n");
 done:
 	TRACE_INFO("C_DestroyObject: rc = 0x%08x, handle = %d\n", rc, hObject);
 	return rc;
@@ -1583,7 +1583,7 @@ CK_RV SC_GetAttributeValue(ST_SESSION_HANDLE *sSession,
 
 	rc = object_mgr_get_attribute_values(sess, hObject, pTemplate, ulCount);
 	if (rc != CKR_OK)
-		TRACE_DEBUG("object_mgr_get_attribute_value() failed.\n");
+		TRACE_DEVEL("object_mgr_get_attribute_value() failed.\n");
 
 done:
 	TRACE_INFO("C_GetAttributeValue: rc = 0x%08x, handle = %d\n",
@@ -1630,7 +1630,7 @@ CK_RV SC_SetAttributeValue(ST_SESSION_HANDLE *sSession,
 
 	rc = object_mgr_set_attribute_values(sess, hObject, pTemplate, ulCount);
 	if (rc != CKR_OK)
-		TRACE_DEBUG("object_mgr_set_attribute_values() failed.\n");
+		TRACE_DEVEL("object_mgr_set_attribute_values() failed.\n");
 
 done:
 	TRACE_INFO("C_SetAttributeValue: rc = 0x%08x, handle = %d\n",
@@ -1742,7 +1742,7 @@ CK_RV SC_FindObjects(ST_SESSION_HANDLE *sSession, CK_OBJECT_HANDLE_PTR phObject,
 	}
 
 	if (!sess->find_list) {
-		TRACE_DEBUG("sess->find_list is NULL.\n");
+		TRACE_DEVEL("sess->find_list is NULL.\n");
 		rc = CKR_FUNCTION_FAILED;
 		goto done;
 	}
@@ -1893,7 +1893,7 @@ CK_RV SC_Encrypt(ST_SESSION_HANDLE *sSession, CK_BYTE_PTR pData,
 	rc = encr_mgr_encrypt(sess, length_only, &sess->encr_ctx, pData,
 			      ulDataLen, pEncryptedData, pulEncryptedDataLen);
 	if (rc != CKR_OK)
-		TRACE_DEBUG("encr_mgr_encrypt() failed.\n");
+		TRACE_DEVEL("encr_mgr_encrypt() failed.\n");
 
 done:
 	if (rc != CKR_BUFFER_TOO_SMALL && (rc != CKR_OK || length_only != TRUE))
@@ -1946,7 +1946,7 @@ CK_RV SC_EncryptUpdate(ST_SESSION_HANDLE *sSession, CK_BYTE_PTR pPart,
 				     pPart, ulPartLen, pEncryptedPart,
 				     pulEncryptedPartLen);
 	if (rc != CKR_OK)
-		TRACE_DEBUG("encr_mgr_encrypt_update() failed.\n");
+		TRACE_DEVEL("encr_mgr_encrypt_update() failed.\n");
 
 done:
 	if (rc != CKR_OK && rc != CKR_BUFFER_TOO_SMALL)
@@ -2076,7 +2076,7 @@ CK_RV SC_DecryptInit(ST_SESSION_HANDLE *sSession, CK_MECHANISM_PTR pMechanism,
 	rc = decr_mgr_init(sess, &sess->decr_ctx, OP_DECRYPT_INIT,
 			   pMechanism, hKey);
 	if (rc != CKR_OK)
-		TRACE_DEBUG("decr_mgr_init() failed.\n");
+		TRACE_DEVEL("decr_mgr_init() failed.\n");
 
 done:
 	TRACE_INFO("C_DecryptInit: rc = 0x%08x, sess = %d, mech = 0x%x\n",
@@ -2127,7 +2127,7 @@ CK_RV SC_Decrypt(ST_SESSION_HANDLE *sSession, CK_BYTE_PTR pEncryptedData,
 			      pEncryptedData, ulEncryptedDataLen, pData,
 			      pulDataLen);
 	if (rc != CKR_OK)
-		TRACE_DEBUG("decr_mgr_decrypt() failed.\n");
+		TRACE_DEVEL("decr_mgr_decrypt() failed.\n");
 
 done:
 	if (rc != CKR_BUFFER_TOO_SMALL && (rc != CKR_OK || length_only != TRUE))
@@ -2181,7 +2181,7 @@ CK_RV SC_DecryptUpdate(ST_SESSION_HANDLE *sSession, CK_BYTE_PTR pEncryptedPart,
 				     pEncryptedPart,ulEncryptedPartLen,
 				     pPart, pulPartLen);
 	if (rc != CKR_OK)
-		TRACE_DEBUG("decr_mgr_decrypt_update() failed.\n");
+		TRACE_DEVEL("decr_mgr_decrypt_update() failed.\n");
 
 done:
 	if (rc != CKR_OK && rc != CKR_BUFFER_TOO_SMALL)
@@ -2233,7 +2233,7 @@ CK_RV SC_DecryptFinal(ST_SESSION_HANDLE *sSession, CK_BYTE_PTR pLastPart,
 	rc = decr_mgr_decrypt_final(sess, length_only, &sess->decr_ctx,
 				    pLastPart, pulLastPartLen);
 	if (rc != CKR_OK)
-		TRACE_DEBUG("decr_mgr_decrypt_final() failed.\n");
+		TRACE_DEVEL("decr_mgr_decrypt_final() failed.\n");
 done:
 	if (rc != CKR_BUFFER_TOO_SMALL && (rc != CKR_OK || length_only != TRUE))
 		decr_mgr_cleanup( &sess->decr_ctx );
@@ -2287,7 +2287,7 @@ CK_RV SC_DigestInit(ST_SESSION_HANDLE *sSession, CK_MECHANISM_PTR pMechanism)
 
 	rc = digest_mgr_init(sess, &sess->digest_ctx, pMechanism);
 	if (rc != CKR_OK)
-		TRACE_DEBUG("digest_mgr_init() failed.\n");
+		TRACE_DEVEL("digest_mgr_init() failed.\n");
 
 done:
 	TRACE_INFO("C_DigestInit: rc = 0x%08x, sess = %d, mech = %x\n",
@@ -2340,7 +2340,7 @@ CK_RV SC_Digest(ST_SESSION_HANDLE *sSession, CK_BYTE_PTR pData,
 	rc = digest_mgr_digest(sess, length_only, &sess->digest_ctx, pData,
 			       ulDataLen, pDigest, pulDigestLen);
 	if (rc != CKR_OK)
-		TRACE_DEBUG("digest_mgr_digest() failed.\n");
+		TRACE_DEVEL("digest_mgr_digest() failed.\n");
 
 done:
 	TRACE_INFO("C_Digest: rc = 0x%08x, sess = %d, datalen = %d\n",
@@ -2386,7 +2386,7 @@ CK_RV SC_DigestUpdate(ST_SESSION_HANDLE *sSession, CK_BYTE_PTR pPart,
 		rc = digest_mgr_digest_update(sess, &sess->digest_ctx, pPart,
 					      ulPartLen);
 		if (rc != CKR_OK)
-			TRACE_DEBUG("digest_mgr_digest_update() failed.\n");
+			TRACE_DEVEL("digest_mgr_digest_update() failed.\n");
 	}
 done:
 	TRACE_INFO("C_DigestUpdate: rc = %08x, sess = %d, datalen = %d\n",
@@ -2422,7 +2422,7 @@ CK_RV SC_DigestKey(ST_SESSION_HANDLE *sSession, CK_OBJECT_HANDLE hKey)
 
 	rc = digest_mgr_digest_key(sess, &sess->digest_ctx, hKey);
 	if (rc != CKR_OK)
-		TRACE_DEBUG("digest_mgr_digest_key() failed.\n");
+		TRACE_DEVEL("digest_mgr_digest_key() failed.\n");
 
 done:
 	TRACE_INFO("C_DigestKey: rc = %08x, sess = %d, key = %d\n",
@@ -2523,7 +2523,7 @@ CK_RV SC_SignInit(ST_SESSION_HANDLE *sSession, CK_MECHANISM_PTR pMechanism,
 
 	rc = sign_mgr_init(sess, &sess->sign_ctx, pMechanism, FALSE, hKey);
 	if (rc != CKR_OK)
-		TRACE_DEBUG("sign_mgr_init() failed.\n");
+		TRACE_DEVEL("sign_mgr_init() failed.\n");
 
 done:
 	TRACE_INFO("C_SignInit: rc = %08x, sess = %d, mech = %x\n",
@@ -2573,7 +2573,7 @@ CK_RV SC_Sign(ST_SESSION_HANDLE *sSession, CK_BYTE_PTR pData,
 	rc = sign_mgr_sign(sess, length_only, &sess->sign_ctx, pData,
 			   ulDataLen, pSignature, pulSignatureLen);
 	if (rc != CKR_OK)
-		TRACE_DEBUG("sign_mgr_sign() failed.\n");
+		TRACE_DEVEL("sign_mgr_sign() failed.\n");
 
 done:
 	if (rc != CKR_BUFFER_TOO_SMALL && (rc != CKR_OK || length_only != TRUE))
@@ -2619,7 +2619,7 @@ CK_RV SC_SignUpdate(ST_SESSION_HANDLE *sSession, CK_BYTE_PTR pPart,
 
 	rc = sign_mgr_sign_update(sess, &sess->sign_ctx, pPart, ulPartLen);
 	if (rc != CKR_OK)
-		TRACE_DEBUG("sign_mgr_sign_update() failed.\n");
+		TRACE_DEVEL("sign_mgr_sign_update() failed.\n");
 
 done:
 	if (rc != CKR_OK)
@@ -2725,7 +2725,7 @@ CK_RV SC_SignRecoverInit(ST_SESSION_HANDLE *sSession,
 
 	rc = sign_mgr_init(sess, &sess->sign_ctx, pMechanism, TRUE, hKey);
 	if (rc != CKR_OK)
-		TRACE_DEBUG("sign_mgr_init() failed.\n");
+		TRACE_DEVEL("sign_mgr_init() failed.\n");
 
 done:
 	TRACE_INFO("C_SignRecoverInit: rc = %08x, sess = %d, mech = %x\n",
@@ -2776,7 +2776,7 @@ CK_RV SC_SignRecover(ST_SESSION_HANDLE *sSession, CK_BYTE_PTR pData,
 	rc = sign_mgr_sign_recover(sess, length_only, &sess->sign_ctx, pData,
 				   ulDataLen, pSignature, pulSignatureLen);
 	if (rc != CKR_OK)
-		TRACE_DEBUG("sign_mgr_sign_recover() failed.\n");
+		TRACE_DEVEL("sign_mgr_sign_recover() failed.\n");
 
 done:
 	if (rc != CKR_BUFFER_TOO_SMALL && (rc != CKR_OK || length_only != TRUE))
@@ -2832,7 +2832,7 @@ CK_RV SC_VerifyInit(ST_SESSION_HANDLE *sSession, CK_MECHANISM_PTR pMechanism,
 
 	rc = verify_mgr_init(sess, &sess->verify_ctx, pMechanism, FALSE, hKey);
 	if (rc != CKR_OK)
-		TRACE_DEBUG("verify_mgr_init() failed.\n");
+		TRACE_DEVEL("verify_mgr_init() failed.\n");
 
 done:
 	TRACE_INFO("C_VerifyInit: rc = %08x, sess = %d, mech = %x\n",
@@ -2878,7 +2878,7 @@ CK_RV SC_Verify(ST_SESSION_HANDLE *sSession, CK_BYTE_PTR pData,
 	rc = verify_mgr_verify(sess, &sess->verify_ctx, pData, ulDataLen,
 			       pSignature, ulSignatureLen);
 	if (rc != CKR_OK)
-		TRACE_DEBUG("verify_mgr_verify() failed.\n");
+		TRACE_DEVEL("verify_mgr_verify() failed.\n");
 
 done:
 	verify_mgr_cleanup(&sess->verify_ctx);
@@ -2924,7 +2924,7 @@ CK_RV SC_VerifyUpdate(ST_SESSION_HANDLE *sSession, CK_BYTE_PTR pPart,
 	rc = verify_mgr_verify_update(sess, &sess->verify_ctx, pPart,
 				      ulPartLen);
 	if (rc != CKR_OK)
-		TRACE_DEBUG("verify_mgr_verify_update() failed.\n");
+		TRACE_DEVEL("verify_mgr_verify_update() failed.\n");
 
 done:
 	if (rc != CKR_OK)
@@ -2971,7 +2971,7 @@ CK_RV SC_VerifyFinal(ST_SESSION_HANDLE *sSession, CK_BYTE_PTR pSignature,
 	rc = verify_mgr_verify_final(sess, &sess->verify_ctx, pSignature,
 				     ulSignatureLen);
 	if (rc != CKR_OK)
-		TRACE_DEBUG("verify_mgr_verify_final() failed.\n");
+		TRACE_DEVEL("verify_mgr_verify_final() failed.\n");
 
  done:
 	verify_mgr_cleanup(&sess->verify_ctx);
@@ -3026,7 +3026,7 @@ CK_RV SC_VerifyRecoverInit(ST_SESSION_HANDLE *sSession,
 
 	rc = verify_mgr_init(sess, &sess->verify_ctx, pMechanism, TRUE, hKey);
 	if (rc != CKR_OK)
-		TRACE_DEBUG("verify_mgr_init() failed.\n");
+		TRACE_DEVEL("verify_mgr_init() failed.\n");
 
 done:
 	TRACE_INFO("C_VerifyRecoverInit: rc = %08x, sess = %d, mech = %x\n",
@@ -3078,7 +3078,7 @@ CK_RV SC_VerifyRecover(ST_SESSION_HANDLE *sSession, CK_BYTE_PTR pSignature,
 				       pSignature, ulSignatureLen, pData,
 				       pulDataLen);
 	if (rc != CKR_OK)
-		TRACE_DEBUG("verify_mgr_verify_recover() failed.\n");
+		TRACE_DEVEL("verify_mgr_verify_recover() failed.\n");
 
 done:
 	if (rc != CKR_BUFFER_TOO_SMALL && (rc != CKR_OK || length_only != TRUE))
@@ -3189,7 +3189,7 @@ CK_RV SC_GenerateKey(ST_SESSION_HANDLE *sSession, CK_MECHANISM_PTR pMechanism,
 
 	rc = key_mgr_generate_key(sess, pMechanism, pTemplate, ulCount, phKey);
 	if (rc != CKR_OK)
-		TRACE_DEBUG("key_mgr_generate_key() failed.\n");
+		TRACE_DEVEL("key_mgr_generate_key() failed.\n");
 
 done:
 	TRACE_INFO("C_GenerateKey: rc = %08x, sess = %d, mech = %x\n", rc,
@@ -3265,7 +3265,7 @@ CK_RV SC_GenerateKeyPair(ST_SESSION_HANDLE *sSession,
 				       ulPrivateKeyAttributeCount,
 				       phPublicKey, phPrivateKey);
 	if (rc != CKR_OK)
-		TRACE_DEBUG("key_mgr_generate_key_pair() failed.\n");
+		TRACE_DEVEL("key_mgr_generate_key_pair() failed.\n");
 
 done:
 	TRACE_INFO("C_GenerateKeyPair: rc = %08x, sess = %d, mech = %x\n",
@@ -3348,7 +3348,7 @@ CK_RV SC_WrapKey(ST_SESSION_HANDLE *sSession, CK_MECHANISM_PTR pMechanism,
 	rc = key_mgr_wrap_key(sess, length_only, pMechanism, hWrappingKey,
 			      hKey, pWrappedKey, pulWrappedKeyLen);
 	if (rc != CKR_OK)
-		TRACE_DEBUG("key_mgr_wrap_key() failed.\n");
+		TRACE_DEVEL("key_mgr_wrap_key() failed.\n");
 
 done:
 	TRACE_INFO("C_WrapKey: rc = %08x, sess = %d, encrypting key = %d, "
@@ -3406,7 +3406,7 @@ CK_RV SC_UnwrapKey(ST_SESSION_HANDLE *sSession, CK_MECHANISM_PTR pMechanism,
 				pWrappedKey, ulWrappedKeyLen, hUnwrappingKey,
 				phKey);
 	if (rc != CKR_OK)
-		TRACE_DEBUG("key_mgr_unwrap_key() failed.\n");
+		TRACE_DEVEL("key_mgr_unwrap_key() failed.\n");
 
 done:
 	TRACE_INFO("C_UnwrapKey: rc = %08x, sess = %d, decrypting key = %d,"
@@ -3473,7 +3473,7 @@ CK_RV SC_DeriveKey(ST_SESSION_HANDLE *sSession, CK_MECHANISM_PTR pMechanism,
 	rc = key_mgr_derive_key(sess, pMechanism, hBaseKey, phKey, pTemplate,
 				ulCount );
 	if (rc != CKR_OK)
-		TRACE_DEBUG("key_mgr_derive_key() failed.\n");
+		TRACE_DEVEL("key_mgr_derive_key() failed.\n");
 
 done:
 	TRACE_INFO("C_DeriveKey: rc = %08x, sess = %d, mech = %x\n",
@@ -3567,7 +3567,7 @@ CK_RV SC_GenerateRandom(ST_SESSION_HANDLE *sSession, CK_BYTE_PTR pRandomData,
 
 	rc = rng_generate(pRandomData, ulRandomLen);
 	if (rc != CKR_OK)
-		TRACE_DEBUG("rng_generate() failed.\n");
+		TRACE_DEVEL("rng_generate() failed.\n");
 
 done:
 	TRACE_INFO("C_GenerateRandom: rc = %08x, %d bytes\n", rc, ulRandomLen);

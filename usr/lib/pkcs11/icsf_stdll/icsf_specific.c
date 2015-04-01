@@ -322,7 +322,7 @@ CK_RV token_specific_init_token_data(CK_SLOT_ID slot_id)
 
 	/* Check if data needs to be retrieved for this slot */
 	if (slot_data[slot_id]->initialized) {
-		TRACE_DEBUG("Slot data already initialized for slot %d. "
+		TRACE_DEVEL("Slot data already initialized for slot %d. "
 			      "Skipping it\n", slot_id);
 		goto done;
 	}
@@ -334,7 +334,7 @@ CK_RV token_specific_init_token_data(CK_SLOT_ID slot_id)
 		return CKR_FUNCTION_FAILED;
 	}
 
-	TRACE_DEBUG("DEBUG: conf_name=\"%s\".\n", conf_name);
+	TRACE_DEVEL("DEBUG: conf_name=\"%s\".\n", conf_name);
 	if (parse_config_file(conf_name, slot_id, &config)) {
 		TRACE_ERROR("Failed to parse file \"%s\" for slot %d.\n",
 			      conf_name, slot_id);
@@ -446,7 +446,7 @@ CK_RV token_specific_attach_shm(CK_SLOT_ID slot_id, LW_SHM_TYPE **shm)
 			      "for slot %d.\n", slot_id);
 		return CKR_HOST_MEMORY;
 	}
-	TRACE_DEBUG("Attaching to shared memory \"%s\".\n", shm_id);
+	TRACE_DEVEL("Attaching to shared memory \"%s\".\n", shm_id);
 
 	XProcLock();
 
@@ -509,13 +509,13 @@ CK_RV login(LDAP **ld, CK_SLOT_ID slot_id, CK_BYTE *pin, CK_ULONG pin_len,
 		/* Load master key */
 		sprintf(fname, "%s/MK_SO", get_pk_dir(pk_dir_buf));
 		if (get_masterkey(pin, pin_len, fname, mk, &mk_len)) {
-			TRACE_DEBUG("Failed to get masterkey \"%s\".\n", fname);
+			TRACE_DEVEL("Failed to get masterkey \"%s\".\n", fname);
 			return CKR_FUNCTION_FAILED;
 		}
 
 		/* Load RACF password */
 		if (get_racf(mk, mk_len, racf_pass, &racf_pass_len)) {
-			TRACE_DEBUG("Failed to get RACF password.\n");
+			TRACE_DEVEL("Failed to get RACF password.\n");
 			return CKR_FUNCTION_FAILED;
 		}
 
@@ -528,7 +528,7 @@ CK_RV login(LDAP **ld, CK_SLOT_ID slot_id, CK_BYTE *pin, CK_ULONG pin_len,
 	}
 
 	if (ret) {
-		TRACE_DEBUG("Failed to bind to %s\n", data.uri);
+		TRACE_DEVEL("Failed to bind to %s\n", data.uri);
 		rc = CKR_FUNCTION_FAILED;
 		goto done;
 	}
@@ -567,26 +567,26 @@ CK_RV reset_token_data(CK_SLOT_ID slot_id, CK_CHAR_PTR pin, CK_ULONG pin_len)
 		/* Load master key */
 		sprintf(fname, "%s/MK_SO", get_pk_dir(pk_dir_buf));
 		if (get_masterkey(pin, pin_len, fname, mk, &mk_len)) {
-			TRACE_DEBUG("Failed to load masterkey \"%s\".\n",
+			TRACE_DEVEL("Failed to load masterkey \"%s\".\n",
 				      fname);
 			return CKR_FUNCTION_FAILED;
 		}
 
 		/* Load RACF password */
 		if (get_racf(mk, mk_len, racf_pass, &racf_pass_len)) {
-			TRACE_DEBUG("Failed to get RACF password.\n");
+			TRACE_DEVEL("Failed to get RACF password.\n");
 			return CKR_FUNCTION_FAILED;
 		}
 
 		/* Generate new key */
 		if (get_randombytes(mk, mk_len)) {
-			TRACE_DEBUG("Failed to generate new master key.\n");
+			TRACE_DEVEL("Failed to generate new master key.\n");
 			return CKR_FUNCTION_FAILED;
 		}
 
 		/* Save racf password using the new master key */
 		if (secure_racf(racf_pass, racf_pass_len, mk, mk_len)) {
-			TRACE_DEBUG("Failed to save racf password.\n");
+			TRACE_DEVEL("Failed to save racf password.\n");
 			return CKR_FUNCTION_FAILED;
 		}
 	}
@@ -609,13 +609,13 @@ CK_RV reset_token_data(CK_SLOT_ID slot_id, CK_CHAR_PTR pin, CK_ULONG pin_len)
 	if (slot_data[slot_id]->mech == ICSF_CFG_MECH_SIMPLE) {
 		/* Save master key */
 		if (secure_masterkey(mk, mk_len, pin, pin_len, fname)) {
-			TRACE_DEBUG("Failed to save the new master key.\n");
+			TRACE_DEVEL("Failed to save the new master key.\n");
 			return CKR_FUNCTION_FAILED;
 		}
 	}
 
 	if (save_token_data(slot_id)) {
-		TRACE_DEBUG("Failed to save token data.\n");
+		TRACE_DEVEL("Failed to save token data.\n");
 		return CKR_FUNCTION_FAILED;
 	}
 
@@ -636,14 +636,14 @@ CK_RV destroy_objects(CK_SLOT_ID slot_id, CK_CHAR_PTR token_name,
 	if (login(&ld, slot_id, pin, pin_len, RACFFILE))
 		return CKR_FUNCTION_FAILED;
 
-	TRACE_DEBUG("Destroying objects in slot %lu.\n", slot_id);
+	TRACE_DEVEL("Destroying objects in slot %lu.\n", slot_id);
 	do {
 		records_len = sizeof(records)/sizeof(records[0]);
 
 		rc = icsf_list_objects(ld, NULL, token_name, 0, NULL,
 					previous, records, &records_len, 0);
 		if (ICSF_RC_IS_ERROR(rc)) {
-			TRACE_DEBUG("Failed to list objects for slot %lu.\n",
+			TRACE_DEVEL("Failed to list objects for slot %lu.\n",
 				      slot_id);
 			rc = CKR_FUNCTION_FAILED;
 			goto done;
@@ -651,7 +651,7 @@ CK_RV destroy_objects(CK_SLOT_ID slot_id, CK_CHAR_PTR token_name,
 
 		for (i = 0; i < records_len; i++) {
 			if ((rc = icsf_destroy_object(ld, &reason, &records[i]))) {
-				TRACE_DEBUG("Failed to destroy object "
+				TRACE_DEVEL("Failed to destroy object "
 					      "%s/%lu/%c in slot %lu.\n",
 					      records[i].token_name,
 					      records[i].sequence,
@@ -698,7 +698,7 @@ CK_RV icsftok_init_token(CK_SLOT_ID slot_id, CK_CHAR_PTR pin, CK_ULONG pin_len,
 
 	/* purge the object btree */
 	if (purge_object_mapping()) {
-		TRACE_DEBUG("Failed to purge objects.\n");
+		TRACE_DEVEL("Failed to purge objects.\n");
 		rc = CKR_FUNCTION_FAILED;
 	}
 
@@ -734,7 +734,7 @@ CK_RV icsftok_init_pin(SESSION *sess, CK_CHAR_PTR pPin, CK_ULONG ulPinLen)
 		rc = secure_masterkey(master_key, AES_KEY_SIZE_256, pPin,
 					ulPinLen, fname);
 		if (rc != CKR_OK) {
-			TRACE_DEBUG("Could not create MK_USER.\n");
+			TRACE_DEVEL("Could not create MK_USER.\n");
 			return rc;
 		}
 	}
@@ -951,7 +951,7 @@ static CK_RV close_session(struct session_state *session_state)
 	/* Log off from LDAP server */
 	if (session_state->ld) {
 		if (icsf_logout(session_state->ld)) {
-			TRACE_DEBUG("Failed to disconnect from LDAP server.\n");
+			TRACE_DEVEL("Failed to disconnect from LDAP server.\n");
 			return CKR_FUNCTION_FAILED;
 		}
 		session_state->ld = NULL;
@@ -961,7 +961,7 @@ static CK_RV close_session(struct session_state *session_state)
 	list_remove(&session_state->sessions);
 	if (list_is_empty(&sessions)) {
 		if (purge_object_mapping()) {
-			TRACE_DEBUG("Failed to purge objects.\n");
+			TRACE_DEVEL("Failed to purge objects.\n");
 			rc = CKR_FUNCTION_FAILED;
 		}
 	}
@@ -1007,7 +1007,7 @@ CK_RV icsftok_close_session(SESSION *session)
  */
 CK_RV icsftok_final(void)
 {
-	CK_RV rc;
+	CK_RV rc = CKR_OK;
 	struct session_state *session_state;
 	list_entry_t *e;
 
@@ -1085,7 +1085,7 @@ CK_RV icsftok_login(SESSION *sess, CK_USER_TYPE userType, CK_CHAR_PTR pPin,
 			rc = get_masterkey(pPin, ulPinLen, fname, master_key,
 					   &mklen);
 			if (rc != CKR_OK) {
-				TRACE_DEBUG("Failed to load master key.\n");
+				TRACE_DEVEL("Failed to load master key.\n");
 				goto done;
 			}
 		}
@@ -1105,7 +1105,7 @@ CK_RV icsftok_login(SESSION *sess, CK_USER_TYPE userType, CK_CHAR_PTR pPin,
 			rc = get_masterkey(pPin, ulPinLen, fname, master_key,
 					   &mklen);
 			if (rc != CKR_OK) {
-				TRACE_DEBUG("Failed to load master key.\n");
+				TRACE_DEVEL("Failed to load master key.\n");
 				goto done;
 			}
 		}
@@ -1125,7 +1125,7 @@ CK_RV icsftok_login(SESSION *sess, CK_USER_TYPE userType, CK_CHAR_PTR pPin,
 		/* get racf passwd */
 		rc = get_racf(master_key, AES_KEY_SIZE_256, racfpwd, &racflen);
 		if (rc != CKR_OK) {
-			TRACE_DEBUG("Failed to get racf passwd.\n");
+			TRACE_DEVEL("Failed to get racf passwd.\n");
 			goto done;
 		}
 
@@ -1133,7 +1133,7 @@ CK_RV icsftok_login(SESSION *sess, CK_USER_TYPE userType, CK_CHAR_PTR pPin,
 		rc = icsf_login(&ld, slot_data[slot_id]->uri,
 				slot_data[slot_id]->dn, racfpwd);
 		if (rc != CKR_OK) {
-			TRACE_DEBUG("Failed to bind to ldap server.\n");
+			TRACE_DEVEL("Failed to bind to ldap server.\n");
 			goto done;
 		}
 
@@ -1146,7 +1146,7 @@ CK_RV icsftok_login(SESSION *sess, CK_USER_TYPE userType, CK_CHAR_PTR pPin,
 				     slot_data[slot_id]->key_file,
 				     slot_data[slot_id]->ca_file, ca_dir);
 		if (rc != CKR_OK) {
-			TRACE_DEBUG("Failed to bind to ldap server.\n");
+			TRACE_DEVEL("Failed to bind to ldap server.\n");
 			goto done;
 		}
 	}
@@ -1311,7 +1311,7 @@ CK_RV icsftok_copy_object(SESSION * session, CK_ATTRIBUTE_PTR attrs,
 	/* Check permissions based on attributes and session */
 	rc = check_session_permissions(session, priv_attrs, 2);
 	if (rc_permission != CKR_OK) {
-		TRACE_DEBUG("check_session_permissions failed\n");
+		TRACE_DEVEL("check_session_permissions failed\n");
 		goto done;
 	}
 
@@ -1320,7 +1320,7 @@ CK_RV icsftok_copy_object(SESSION * session, CK_ATTRIBUTE_PTR attrs,
 			      &mapping_src->icsf_object,
 			      &mapping_dst->icsf_object);
 	if (rc != 0) {
-		TRACE_DEBUG("Failed to Copy object.\n");
+		TRACE_DEVEL("Failed to Copy object.\n");
 		rc = icsf_to_ock_err(rc, reason);
 		goto done;
 	}
@@ -1400,7 +1400,7 @@ CK_RV icsftok_create_object(SESSION *session, CK_ATTRIBUTE_PTR attrs,
 	if ((rc = icsf_create_object(session_state->ld, &reason, token_name,
 				     attrs, attrs_len,
 				     &mapping->icsf_object))) {
-		TRACE_DEBUG("icsf_create_object failed\n");
+		TRACE_DEVEL("icsf_create_object failed\n");
 		rc = icsf_to_ock_err(rc, reason);
 		goto done;
 	}
@@ -1583,7 +1583,7 @@ CK_RV icsftok_generate_key_pair(SESSION *session, CK_MECHANISM_PTR mech,
 
 	/* Get session state */
 	if (!(session_state = get_session_state(session->handle))) {
-		TRACE_DEBUG("Session not found for session id %lu.\n",
+		TRACE_DEVEL("Session not found for session id %lu.\n",
 				(unsigned long) session->handle);
 		rc = CKR_FUNCTION_FAILED;
 		goto done;
@@ -1608,7 +1608,7 @@ CK_RV icsftok_generate_key_pair(SESSION *session, CK_MECHANISM_PTR mech,
 					 new_priv_attrs, new_priv_attrs_len,
 					 &pub_key_mapping->icsf_object,
 					 &priv_key_mapping->icsf_object))) {
-		TRACE_DEBUG("icsf_generate_key_pair failed\n");
+		TRACE_DEVEL("icsf_generate_key_pair failed\n");
 		rc = icsf_to_ock_err(rc, reason);
 		goto done;
 	}
@@ -1702,7 +1702,7 @@ CK_RV icsftok_generate_key(SESSION *session, CK_MECHANISM_PTR mech,
 
 	/* Get session state */
 	if (!(session_state = get_session_state(session->handle))) {
-		TRACE_DEBUG("Session not found for session id %lu.\n",
+		TRACE_DEVEL("Session not found for session id %lu.\n",
 				(unsigned long) session->handle);
 		rc = CKR_FUNCTION_FAILED;
 		goto done;
@@ -1712,7 +1712,7 @@ CK_RV icsftok_generate_key(SESSION *session, CK_MECHANISM_PTR mech,
 	if ((rc = icsf_generate_secret_key(session_state->ld, &reason, token_name,
 					   mech, new_attrs, new_attrs_len,
 					   &mapping->icsf_object))) {
-		TRACE_DEBUG("icsf_generate_secret_key failed\n");
+		TRACE_DEVEL("icsf_generate_secret_key failed\n");
 		rc = icsf_to_ock_err(rc, reason);
 		goto done;
 	}
@@ -2106,7 +2106,7 @@ CK_RV icsftok_encrypt_update(SESSION *session, CK_BYTE_PTR input_part,
 				rc = CKR_BUFFER_TOO_SMALL;
 			}
 		} else {
-			TRACE_DEBUG("Failed to encrypt data. reason = %d\n",
+			TRACE_DEVEL("Failed to encrypt data. reason = %d\n",
 				    reason);
 			rc = icsf_to_ock_err(rc, reason);
 		}
@@ -2252,7 +2252,7 @@ CK_RV icsftok_encrypt_final(SESSION *session, CK_BYTE_PTR output_part,
 				rc = CKR_BUFFER_TOO_SMALL;
 			}
 		} else {
-			TRACE_DEBUG("Failed to encrypt data. reason = %d\n",
+			TRACE_DEVEL("Failed to encrypt data. reason = %d\n",
 				    reason);
 			rc = icsf_to_ock_err(rc, reason);
 		}
@@ -2438,7 +2438,7 @@ CK_RV icsftok_decrypt(SESSION *session, CK_BYTE_PTR input_data,
 				rc = CKR_BUFFER_TOO_SMALL;
 			}
 		} else {
-			TRACE_DEBUG("Failed to decrypt data. reason = %d\n",
+			TRACE_DEVEL("Failed to decrypt data. reason = %d\n",
 				    reason);
 			rc = icsf_to_ock_err(rc, reason);
 		}
@@ -2588,7 +2588,7 @@ CK_RV icsftok_decrypt_update(SESSION *session, CK_BYTE_PTR input_part,
 				rc = CKR_BUFFER_TOO_SMALL;
 			}
 		} else {
-			TRACE_DEBUG("Failed to decrypt data. reason = %d\n",
+			TRACE_DEVEL("Failed to decrypt data. reason = %d\n",
 				    reason);
 			rc = icsf_to_ock_err(rc, reason);
 		}
@@ -2735,7 +2735,7 @@ CK_RV icsftok_decrypt_final(SESSION *session, CK_BYTE_PTR output_part,
 				rc = CKR_BUFFER_TOO_SMALL;
 			}
 		} else {
-			TRACE_DEBUG("Failed to decrypt data. reason = %d\n",
+			TRACE_DEVEL("Failed to decrypt data. reason = %d\n",
 				    reason);
 			rc = icsf_to_ock_err(rc, reason);
 		}
@@ -2792,7 +2792,7 @@ CK_RV icsftok_get_attribute_value(SESSION *sess, CK_OBJECT_HANDLE handle,
 	rc = icsf_get_attribute(session_state->ld, &reason,
 				&mapping->icsf_object, priv_attr, 1);
 	if (rc != CKR_OK) {
-		TRACE_DEBUG("icsf_get_attribute failed\n");
+		TRACE_DEVEL("icsf_get_attribute failed\n");
 		rc = icsf_to_ock_err(rc, reason);
 		goto done;
 	}
@@ -2810,7 +2810,7 @@ CK_RV icsftok_get_attribute_value(SESSION *sess, CK_OBJECT_HANDLE handle,
 	rc = icsf_get_attribute(session_state->ld, &reason,
 				&mapping->icsf_object, pTemplate, ulCount);
 	if (rc != CKR_OK) {
-		TRACE_DEBUG("icsf_get_attribute failed\n");
+		TRACE_DEVEL("icsf_get_attribute failed\n");
 		rc = icsf_to_ock_err(rc, reason);
 	}
 
@@ -2869,7 +2869,7 @@ CK_RV icsftok_set_attribute_value(SESSION *sess, CK_OBJECT_HANDLE handle,
 	rc = icsf_get_attribute(session_state->ld, &reason,
 				&mapping->icsf_object, priv_attrs, 2);
 	if (rc != CKR_OK) {
-		TRACE_DEBUG("icsf_get_attribute failed\n");
+		TRACE_DEVEL("icsf_get_attribute failed\n");
 		rc = icsf_to_ock_err(rc, reason);
 		goto done;
 	}
@@ -2877,7 +2877,7 @@ CK_RV icsftok_set_attribute_value(SESSION *sess, CK_OBJECT_HANDLE handle,
 	/* Check permissions based on attributes and session */
 	rc = check_session_permissions(sess, priv_attrs, 2);
 	if (rc != CKR_OK) {
-		TRACE_DEBUG("check_session_permissions failed\n");
+		TRACE_DEVEL("check_session_permissions failed\n");
 		goto done;
 	}
 
@@ -2974,7 +2974,7 @@ CK_RV icsftok_find_objects_init(SESSION *sess, CK_ATTRIBUTE *pTemplate,
 				       ulCount, pTemplate, previous, records,
 				       &records_len, 0);
 		if (ICSF_RC_IS_ERROR(rc)) {
-			TRACE_DEBUG("Failed to list objects.\n");
+			TRACE_DEVEL("Failed to list objects.\n");
 			rc = icsf_to_ock_err(rc, reason);
 			goto done;
 		}
@@ -3104,7 +3104,7 @@ CK_RV icsftok_destroy_object(SESSION *sess, CK_OBJECT_HANDLE handle)
 	rc = icsf_destroy_object(session_state->ld, &reason,
 				 &mapping->icsf_object);
 	if (rc != 0) {
-		TRACE_DEBUG("icsf_destroy_object failed\n");
+		TRACE_DEVEL("icsf_destroy_object failed\n");
 		rc = CKR_FUNCTION_FAILED;
 		goto done;
 	}
@@ -3425,7 +3425,7 @@ CK_RV icsftok_sign(SESSION *session, CK_BBOOL length_only, CK_BYTE *in_data,
 					&& length_only) {
 				rc = CKR_OK;
 			} else {
-				TRACE_DEBUG("icsf_private_key_sign failed\n");
+				TRACE_DEVEL("icsf_private_key_sign failed\n");
 				rc = icsf_to_ock_err(rc, reason);
 			}
 		}
@@ -3447,7 +3447,7 @@ CK_RV icsftok_sign(SESSION *session, CK_BBOOL length_only, CK_BYTE *in_data,
 					&& length_only) {
 				rc = CKR_OK;
 			} else {
-				TRACE_DEBUG("icsf_hash_signverify failed\n");
+				TRACE_DEVEL("icsf_hash_signverify failed\n");
 				rc = icsf_to_ock_err(rc, reason);
 			}
 		}
@@ -3524,7 +3524,7 @@ CK_RV icsftok_sign_update(SESSION *session, CK_BYTE *in_data,
 				chain_data, &chain_data_len);
 
 		if (rc != 0) {
-			TRACE_DEBUG("icsf_hmac_sign failed\n");
+			TRACE_DEVEL("icsf_hmac_sign failed\n");
 			rc = icsf_to_ock_err(rc, reason);
 		} else {
 			multi_part_ctx->initiated = TRUE;
@@ -3593,7 +3593,7 @@ CK_RV icsftok_sign_update(SESSION *session, CK_BYTE *in_data,
 				chain_data, &chain_data_len, 0);
 
 		if (rc != 0) {
-			TRACE_DEBUG("icsf_hash_signverify failed\n");
+			TRACE_DEVEL("icsf_hash_signverify failed\n");
 			rc = icsf_to_ock_err(rc, reason);
 		} else {
 			multi_part_ctx->initiated = TRUE;
@@ -3718,7 +3718,7 @@ CK_RV icsftok_sign_final(SESSION *session, CK_BBOOL length_only,
 			if (length_only && reason == 3003)
 					rc = CKR_OK;
 			else {
-				TRACE_DEBUG("icsf_hash_signverify failed\n");
+				TRACE_DEVEL("icsf_hash_signverify failed\n");
 				rc = icsf_to_ock_err(rc, reason);
 			}
 		}
@@ -4059,7 +4059,7 @@ CK_RV icsftok_verify_update(SESSION *session, CK_BYTE *in_data,
 				chain_data, &chain_data_len);
 
 		if (rc != 0) {
-			TRACE_DEBUG("icsf_hmac_verify failed\n");
+			TRACE_DEVEL("icsf_hmac_verify failed\n");
 			rc = icsf_to_ock_err(rc, reason);
 		} else {
 			multi_part_ctx->initiated = TRUE;
@@ -4126,7 +4126,7 @@ CK_RV icsftok_verify_update(SESSION *session, CK_BYTE *in_data,
 				chain_data, &chain_data_len, 1);
 
 		if (rc != 0) {
-			TRACE_DEBUG("icsf_hash_signverify failed\n");
+			TRACE_DEVEL("icsf_hash_signverify failed\n");
 			rc = icsf_to_ock_err(rc, reason);
 		} else {
 			multi_part_ctx->initiated = TRUE;
@@ -4291,7 +4291,7 @@ CK_RV icsftok_wrap_key(SESSION *session, CK_MECHANISM_PTR mech,
 			  &key_mapping->icsf_object, wrapped_key,
 			  p_wrapped_key_len);
 	if (rc) {
-		TRACE_DEBUG("icsf_wrap_key failed\n");
+		TRACE_DEVEL("icsf_wrap_key failed\n");
 		return icsf_to_ock_err(rc, reason);
 	}
 
@@ -4344,7 +4344,7 @@ CK_RV icsftok_unwrap_key(SESSION *session, CK_MECHANISM_PTR mech,
 			     wrapped_key, wrapped_key_len,
 			     attrs, attrs_len, &key_mapping->icsf_object);
 	if (rc) {
-		TRACE_DEBUG("icsf_unwrap_key failed\n");
+		TRACE_DEVEL("icsf_unwrap_key failed\n");
 		rc = icsf_to_ock_err(rc, reason);
 		goto done;
 	}

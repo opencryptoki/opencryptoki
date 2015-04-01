@@ -349,6 +349,6 @@ rng_generate( CK_BYTE *output, CK_ULONG bytes )
 		rc = local_rng(output, bytes);
 
 	if (rc != CKR_OK)
-		TRACE_DEBUG("Token specific rng failed.\n");
+		TRACE_DEVEL("Token specific rng failed.\n");
 	return rc;
 }

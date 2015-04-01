@@ -359,7 +359,7 @@ token_specific_des_cbc(CK_BYTE  *in_data,
 	 * Else, memcpy the data back to the user's buffer
 	 */
 	if ((local_out != out_data) && ((CK_ULONG)length > *out_data_len)) {
-		TRACE_DEBUG("CKR_BUFFER_TOO_SMALL: %ld bytes to write into %ld "
+		TRACE_DEVEL("CKR_BUFFER_TOO_SMALL: %ld bytes to write into %ld "
 			    "bytes space", length, *out_data_len);
 		TRACE_ERROR("%s\n", ock_err(ERR_BUFFER_TOO_SMALL));
 		free(local_out);
@@ -466,33 +466,33 @@ token_create_keypair_object(TEMPLATE *tmpl, CK_ULONG tok_len, CK_BYTE *tok)
 	/* That's right, n is stored in the private key area. Get it there */
 	if ((rv = cca_inttok_privkey_get_n(&tok[CCA_RSA_INTTOK_PRIVKEY_OFFSET],
 					   &n_len, n))) {
-		TRACE_DEBUG("cca_inttok_privkey_get_n() failed. rv=0x%lx", rv);
+		TRACE_DEVEL("cca_inttok_privkey_get_n() failed. rv=0x%lx", rv);
 		return rv;
 	}
 
 	/* Get e */
 	if ((rv = cca_inttok_pubkey_get_e(&tok[pubkey_offset], &e_len, e))) {
-		TRACE_DEBUG("cca_inttok_pubkey_get_e() failed. rv=0x%lx", rv);
+		TRACE_DEVEL("cca_inttok_pubkey_get_e() failed. rv=0x%lx", rv);
 		return rv;
 	}
 
 	/* Add n's value to the template */
 	if ((rv = build_attribute(CKA_MODULUS, n, n_len, &modulus))) {
-		TRACE_DEBUG("build_attribute for n failed. rv=0x%lx", rv);
+		TRACE_DEVEL("build_attribute for n failed. rv=0x%lx", rv);
 		return rv;
 	}
 	template_update_attribute(tmpl, modulus);
 
 	/* Add e's value to the template */
 	if ((rv = build_attribute(CKA_PUBLIC_EXPONENT, e, e_len, &pub_exp))) {
-		TRACE_DEBUG("build_attribute for e failed. rv=0x%lx", rv);
+		TRACE_DEVEL("build_attribute for e failed. rv=0x%lx", rv);
 		return rv;
 	}
 	template_update_attribute(tmpl, pub_exp);
 
 	/* Add the opaque key object to the template */
 	if ((rv = build_attribute(CKA_IBM_OPAQUE, tok, tok_len, &opaque_key))) {
-		TRACE_DEBUG("build_attribute for opaque key failed. rv=0x%lx",
+		TRACE_DEVEL("build_attribute for opaque key failed. rv=0x%lx",
 			     rv);
 		return rv;
 	}
@@ -513,7 +513,7 @@ token_create_priv_key(TEMPLATE *priv_tmpl, CK_ULONG tok_len, CK_BYTE *tok)
 	/* That's right, n is stored in the private key area. Get it there */
 	if ((rv = cca_inttok_privkey_get_n(&tok[CCA_RSA_INTTOK_PRIVKEY_OFFSET],
 					   &n_len, n))) {
-		TRACE_DEBUG("cca_inttok_privkey_get_n() failed. rv=0x%lx", rv);
+		TRACE_DEVEL("cca_inttok_privkey_get_n() failed. rv=0x%lx", rv);
 		return rv;
 	}
 
@@ -522,14 +522,14 @@ token_create_priv_key(TEMPLATE *priv_tmpl, CK_ULONG tok_len, CK_BYTE *tok)
 	 * sizes against the size of the CKA_MODULUS attribute of whatever
 	 * key object it gets */
 	if ((rv = build_attribute(CKA_MODULUS, n, n_len, &modulus))) {
-		TRACE_DEBUG("build_attribute for n failed. rv=0x%lx", rv);
+		TRACE_DEVEL("build_attribute for n failed. rv=0x%lx", rv);
 		return rv;
 	}
 	template_update_attribute(priv_tmpl, modulus);
 
 	/* Add the opaque key object to the template */
 	if ((rv = build_attribute(CKA_IBM_OPAQUE, tok, tok_len, &opaque_key))) {
-		TRACE_DEBUG("build_attribute for opaque key failed. rv=0x%lx",
+		TRACE_DEVEL("build_attribute for opaque key failed. rv=0x%lx",
 			    rv);
 		return rv;
 	}
@@ -690,20 +690,20 @@ token_specific_rsa_generate_keypair(TEMPLATE *publ_tmpl,
                 return CKR_FUNCTION_FAILED;
         }
 
-	TRACE_DEBUG("RSA secure key token generated. size: %ld\n",
+	TRACE_DEVEL("RSA secure key token generated. size: %ld\n",
 		    generated_key_token_length);
 
 	rv = token_create_keypair_object(publ_tmpl, generated_key_token_length,
 					 generated_key_token);
 	if (rv != CKR_OK) {
-		TRACE_DEBUG("token_create_keypair_object failed. rv: %lu", rv);
+		TRACE_DEVEL("token_create_keypair_object failed. rv: %lu", rv);
 		return rv;
 	}
 
 	rv = token_create_keypair_object(priv_tmpl, generated_key_token_length,
 					 generated_key_token);
 	if (rv != CKR_OK)
-		TRACE_DEBUG("token_create_keypair_object failed. rv: %lu", rv);
+		TRACE_DEVEL("token_create_keypair_object failed. rv: %lu", rv);
 
 	return rv;
 }
@@ -891,7 +891,7 @@ token_specific_rsa_verify(CK_BYTE  * in_data,
 	if (return_code == 4 && reason_code == 429) {
 		return CKR_SIGNATURE_INVALID;
 	} else if (return_code != CCA_SUCCESS) {
-		TRACE_DEBUG("CSNDDSV (RSA VERIFY) failed. return: %ld, "
+		TRACE_DEVEL("CSNDDSV (RSA VERIFY) failed. return: %ld, "
 			    "reason: %ld\n", return_code, reason_code);
 		return CKR_FUNCTION_FAILED;
 	}
@@ -943,7 +943,7 @@ token_specific_aes_key_gen(CK_BYTE *aes_key, CK_ULONG len, CK_ULONG key_size)
 #ifdef DEBUG
 		{
 			uint32_t j;
-			TRACE_DEVEL("Rule Array:");
+			TRACE_DEBUG("Rule Array:");
 			for ( j = 0; j < 32; j++)
 				printf("%c", rule_array[j]);
 			printf("\n");
@@ -1203,7 +1203,7 @@ token_specific_dh_pkcs_derive(CK_BYTE  *z,
                               CK_BYTE  *p,
                               CK_ULONG  p_len)
 {
-	TRACE_DEBUG("Unsupported function reached.");
+	TRACE_DEVEL("Unsupported function reached.");
 	return CKR_FUNCTION_NOT_SUPPORTED;
 }
 
@@ -1211,7 +1211,7 @@ CK_RV
 token_specific_dh_pkcs_key_pair_gen(TEMPLATE *publ_tmpl,
                                     TEMPLATE *priv_tmpl )
 {
-	TRACE_DEBUG("Unsupported function reached.");
+	TRACE_DEVEL("Unsupported function reached.");
 	return CKR_FUNCTION_NOT_SUPPORTED;
 }
 /* End code contributed by Corrent corp. */
@@ -1269,7 +1269,7 @@ build_update_attribute(TEMPLATE *tmpl,
 	CK_ATTRIBUTE *attr;
 	CK_RV rv;
 	if (rv = build_attribute(type, data, data_len, &attr)) {
-		TRACE_DEBUG("Build attribute for type=%d failed rv=0x%lx\n",
+		TRACE_DEVEL("Build attribute for type=%d failed rv=0x%lx\n",
 			    type, rv);
 		return rv;
 	}
@@ -1351,7 +1351,7 @@ token_create_ec_keypair(TEMPLATE *publ_tmpl,
 
 	if ((rv = build_update_attribute(publ_tmpl, CKA_EC_POINT, q, q_len)))
 	{
-		TRACE_DEBUG("build_update_attribute for q failed rv=0x%lx\n",
+		TRACE_DEVEL("build_update_attribute for q failed rv=0x%lx\n",
 			    rv);
 		return rv;
 	}
@@ -1364,7 +1364,7 @@ token_create_ec_keypair(TEMPLATE *publ_tmpl,
 
 	if ((rv = build_update_attribute(priv_tmpl, CKA_ECDSA_PARAMS,
 					attr->pValue, attr->ulValueLen))) {
-		TRACE_DEBUG("build_update_attribute for der data failed "
+		TRACE_DEVEL("build_update_attribute for der data failed "
 			    "rv=0x%lx\n", rv);
 		return rv;
 	}
@@ -1373,13 +1373,13 @@ token_create_ec_keypair(TEMPLATE *publ_tmpl,
 	 * Save the CKA_IBM_OPAQUE for both keys.
 	 */
 	if ((rv = build_update_attribute(publ_tmpl, CKA_IBM_OPAQUE, tok, tok_len))) {
-		TRACE_DEBUG("build_update_attribute for tok failed rv=0x%lx\n",
+		TRACE_DEVEL("build_update_attribute for tok failed rv=0x%lx\n",
 			    rv);
 		return rv;
 	}
 
 	if ((rv = build_update_attribute(priv_tmpl, CKA_IBM_OPAQUE, tok, tok_len))) {
-		TRACE_DEBUG("build_update_attribute for tok failed rv=0x%lx\n",
+		TRACE_DEVEL("build_update_attribute for tok failed rv=0x%lx\n",
 			    rv);
 		return rv;
 	}
@@ -1503,13 +1503,13 @@ token_specific_ec_generate_keypair(TEMPLATE *publ_tmpl,
 			return CKR_FUNCTION_FAILED;
 	}
 
-	TRACE_DEBUG("ECC secure key token generated. size: %ld\n",
+	TRACE_DEVEL("ECC secure key token generated. size: %ld\n",
 		     generated_key_token_length);
 
 	rv = token_create_ec_keypair(publ_tmpl, priv_tmpl,
 			generated_key_token_length, generated_key_token);
 	if (rv != CKR_OK) {
-		TRACE_DEBUG("token_create_ec_keypair failed. rv: %lu", rv);
+		TRACE_DEVEL("token_create_ec_keypair failed. rv: %lu", rv);
 		return rv;
 	}
 
@@ -1918,7 +1918,7 @@ CK_RV cca_sha_final(DIGEST_CONTEXT *ctx, CK_BYTE *out_data,
 		return CKR_MECHANISM_INVALID;
 	}
 
-	TRACE_DEVEL("tail_len: %lu, tail: %p, cvl: %lu, sl: %lu\n",
+	TRACE_DEBUG("tail_len: %lu, tail: %p, cvl: %lu, sl: %lu\n",
 		    cca_ctx->tail_len,
 		    cca_ctx->tail ? cca_ctx->tail : dummy_buf,
 		    cca_ctx->chain_vector_len, cca_ctx->hash_len);
@@ -2156,12 +2156,12 @@ CK_RV rsa_import_privkey_crt(TEMPLATE *priv_tmpl)
 	/* Add the key object to the template */
 	if ((rc = build_attribute(CKA_IBM_OPAQUE, target_key_token,
 				  target_key_token_length, &opaque_key))) {
-		TRACE_DEBUG("build_attribute failed\n");
+		TRACE_DEVEL("build_attribute failed\n");
 		return rc;
 	}
 	rc = template_update_attribute(priv_tmpl, opaque_key);
 	if (rc != CKR_OK) {
-		TRACE_DEBUG("template_update_attribute failed\n");
+		TRACE_DEVEL("template_update_attribute failed\n");
 		return rc;
 	}
 
@@ -2268,13 +2268,13 @@ rsa_import_pubkey(TEMPLATE *publ_tmpl)
 	// Add the key object to the template.
 	if ((rc = build_attribute(CKA_IBM_OPAQUE, key_token, key_token_length,
 				  &opaque_key))) {
-		TRACE_DEBUG("build_attribute failed\n");
+		TRACE_DEVEL("build_attribute failed\n");
 		return rc;
 	}
 
 	rc = template_update_attribute(publ_tmpl, opaque_key);
 	if (rc != CKR_OK) {
-		TRACE_DEBUG("template_update_attribute failed\n");
+		TRACE_DEVEL("template_update_attribute failed\n");
 		return rc;
 	}
 
@@ -2298,7 +2298,7 @@ token_specific_object_add(OBJECT *object)
 	rc = template_attribute_find(object->template, CKA_KEY_TYPE, &attr);
 	if (rc == FALSE) {
 		// not a key, so nothing to do. Just return.
-		TRACE_DEBUG("object not a key, no need to import.");
+		TRACE_DEVEL("object not a key, no need to import.");
 		return CKR_OK;
 	}
 
@@ -2329,7 +2329,7 @@ token_specific_object_add(OBJECT *object)
 		}
 
 		if (rc != CKR_OK) {
-			TRACE_DEBUG("rsa import failed\n");
+			TRACE_DEVEL("rsa import failed\n");
 			return rc;
 		}
 	}
@@ -2365,7 +2365,7 @@ get_ecsiglen(OBJECT *key_obj, CK_ULONG *size)
 				*size = (*size / 8) * 2;
 			else
 				*size = ((*size / 8) + 1) * 2;
-			TRACE_DEBUG("getlen, curve = %d, size = %d\n", der_ec_supported[i].len_bits, *size);
+			TRACE_DEVEL("getlen, curve = %d, size = %d\n", der_ec_supported[i].len_bits, *size);
                         return CKR_OK;
                 }
         }
