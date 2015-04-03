@@ -337,7 +337,7 @@ sign_mgr_init( SESSION                * sess,
    //
    rc = object_mgr_find_in_map1( key, &key_obj );
    if (rc != CKR_OK){
-      TRACE_ERROR("Failed to acquire key from specified handle");
+      TRACE_ERROR("Failed to acquire key from specified handle.\n");
       if (rc == CKR_OBJECT_HANDLE_INVALID)
 	 return CKR_KEY_HANDLE_INVALID;
       else
@@ -373,13 +373,13 @@ sign_mgr_init( SESSION                * sess,
 		rc = template_attribute_find(key_obj->template, CKA_MODULUS,
 					     &attr);
 		if (rc == FALSE) {
-		    TRACE_ERROR("Could not find CKA_MODULUS for the key\n");
+		    TRACE_ERROR("Could not find CKA_MODULUS for the key.\n");
 		    return CKR_FUNCTION_FAILED;
 		}
 
 		rc = check_pss_params(mech, attr->ulValueLen);
 		if (rc != CKR_OK) {
-		    TRACE_DEVEL("check_pss_params failed.\n");
+		    TRACE_DEVEL("check_pss_params() failed.\n");
 		    return rc;
 		}
 	    } else {
@@ -391,7 +391,7 @@ sign_mgr_init( SESSION                * sess,
 
             rc = template_attribute_find( key_obj->template, CKA_KEY_TYPE, &attr );
             if (rc == FALSE){
-	       TRACE_ERROR("Could not find CKA_KEY_TYPE for the key\n");
+	       TRACE_ERROR("Could not find CKA_KEY_TYPE for the key.\n");
 	       return CKR_FUNCTION_FAILED;
             }
             else {
@@ -406,7 +406,7 @@ sign_mgr_init( SESSION                * sess,
             //
             flag = template_attribute_find(key_obj->template, CKA_CLASS, &attr);
             if (flag == FALSE){
-	       TRACE_ERROR("Could not find CKA_CLASS for the key\n");
+	       TRACE_ERROR("Could not find CKA_CLASS for the key.\n");
 	       return CKR_FUNCTION_FAILED;
             }
             else
@@ -435,7 +435,7 @@ sign_mgr_init( SESSION                * sess,
             }
             rc = template_attribute_find( key_obj->template, CKA_KEY_TYPE, &attr );
             if (rc == FALSE){
-	       TRACE_ERROR("Could not find CKA_KEY_TYPE for the key\n");
+	       TRACE_ERROR("Could not find CKA_KEY_TYPE for the key.\n");
 	       return CKR_FUNCTION_FAILED;
             }
             else {
@@ -450,7 +450,7 @@ sign_mgr_init( SESSION                * sess,
             //
             flag = template_attribute_find( key_obj->template, CKA_CLASS, &attr );
             if (flag == FALSE){
-	       TRACE_ERROR("Could not find CKA_CLASS for the key\n");
+	       TRACE_ERROR("Could not find CKA_CLASS for the key.\n");
 	       return CKR_FUNCTION_FAILED;
             }
             else
@@ -490,7 +490,7 @@ sign_mgr_init( SESSION                * sess,
             }
             rc = template_attribute_find( key_obj->template, CKA_KEY_TYPE, &attr );
             if (rc == FALSE){
-	       TRACE_ERROR("Could not find CKA_KEY_TYPE for the key\n");
+	       TRACE_ERROR("Could not find CKA_KEY_TYPE for the key.\n");
 	       return CKR_FUNCTION_FAILED;
             }
             else {
@@ -505,7 +505,7 @@ sign_mgr_init( SESSION                * sess,
             //
             flag = template_attribute_find( key_obj->template, CKA_CLASS, &attr );
             if (flag == FALSE){
-	       TRACE_ERROR("Could not find CKA_CLASS for the key\n");
+	       TRACE_ERROR("Could not find CKA_CLASS for the key.\n");
 	       return CKR_FUNCTION_FAILED;
             }
             else
@@ -532,7 +532,7 @@ sign_mgr_init( SESSION                * sess,
 	 {
 	    rc = template_attribute_find(key_obj->template, CKA_MODULUS, &attr);
 	    if (rc == FALSE) {
-	       TRACE_ERROR("Could not find CKA_CLASS for the key\n");
+	       TRACE_ERROR("Could not find CKA_CLASS for the key.\n");
 	       return CKR_FUNCTION_FAILED;
 	    }
 
@@ -545,7 +545,7 @@ sign_mgr_init( SESSION                * sess,
             rc = template_attribute_find(key_obj->template, CKA_KEY_TYPE,
 					 &attr);
             if (rc == FALSE) {
-	       TRACE_ERROR("Could not find CKA_KEY_TYPE for the key\n");
+	       TRACE_ERROR("Could not find CKA_KEY_TYPE for the key.\n");
 	       return CKR_FUNCTION_FAILED;
             } else {
                keytype = *(CK_KEY_TYPE *)attr->pValue;
@@ -559,7 +559,7 @@ sign_mgr_init( SESSION                * sess,
             //
             flag = template_attribute_find(key_obj->template, CKA_CLASS, &attr);
             if (flag == FALSE) {
-	       TRACE_ERROR("Could not find CKA_CLASS for the key\n");
+	       TRACE_ERROR("Could not find CKA_CLASS for the key.\n");
                return CKR_FUNCTION_FAILED;
             } else
                class = *(CK_OBJECT_CLASS *)attr->pValue;
@@ -587,7 +587,7 @@ sign_mgr_init( SESSION                * sess,
             }
             rc = template_attribute_find( key_obj->template, CKA_KEY_TYPE, &attr );
             if (rc == FALSE){
-	       TRACE_ERROR("Could not find CKA_KEY_TYPE for the key\n");
+	       TRACE_ERROR("Could not find CKA_KEY_TYPE for the key.\n");
                return CKR_FUNCTION_FAILED;
             }
             else {
@@ -602,7 +602,7 @@ sign_mgr_init( SESSION                * sess,
             //
             flag = template_attribute_find( key_obj->template, CKA_CLASS, &attr );
             if (flag == FALSE){
-	       TRACE_ERROR("Could not find CKA_CLASS for the key\n");
+	       TRACE_ERROR("Could not find CKA_CLASS for the key.\n");
                return CKR_FUNCTION_FAILED;
             }
             else
@@ -638,7 +638,7 @@ sign_mgr_init( SESSION                * sess,
             }
             rc = template_attribute_find( key_obj->template, CKA_KEY_TYPE, &attr );
             if (rc == FALSE){
-	       TRACE_ERROR("Could not find CKA_KEY_TYPE for the key\n");
+	       TRACE_ERROR("Could not find CKA_KEY_TYPE for the key.\n");
                return CKR_FUNCTION_FAILED;
             }
             else {
@@ -701,7 +701,7 @@ sign_mgr_init( SESSION                * sess,
             }
             rc = template_attribute_find( key_obj->template, CKA_KEY_TYPE, &attr );
             if (rc == FALSE){
-	       TRACE_ERROR("Could not find CKA_KEY_TYPE for the key\n");
+	       TRACE_ERROR("Could not find CKA_KEY_TYPE for the key.\n");
                return CKR_FUNCTION_FAILED;
             }
             else {
@@ -746,7 +746,7 @@ sign_mgr_init( SESSION                * sess,
 
             rc = template_attribute_find( key_obj->template, CKA_CLASS, &attr );
             if (rc == FALSE){
-	       TRACE_ERROR("Could not find CKA_CLASS for the key\n");
+	       TRACE_ERROR("Could not find CKA_CLASS for the key.\n");
                return CKR_FUNCTION_FAILED;
             }
             else {

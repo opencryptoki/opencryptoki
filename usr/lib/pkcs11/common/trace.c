@@ -432,7 +432,7 @@ CK_RV trace_initialize(void)
 
 	switch(num) {
 	case TRACE_LEVEL_NONE:
-			return;
+		return CKR_OK;
 	case TRACE_LEVEL_ERROR:
 	case TRACE_LEVEL_WARNING:
 	case TRACE_LEVEL_INFO:

@@ -338,7 +338,7 @@ encr_mgr_init( SESSION           * sess,
    {
       rc = object_mgr_find_in_map1( key_handle, &key_obj );
       if (rc != CKR_OK){
-	 TRACE_ERROR("Failed to acquire key from specified handle");
+	 TRACE_ERROR("Failed to acquire key from specified handle.\n");
 	 if (rc == CKR_OBJECT_HANDLE_INVALID)
             return CKR_KEY_HANDLE_INVALID;
 	 else
@@ -364,7 +364,7 @@ encr_mgr_init( SESSION           * sess,
    {
       rc = object_mgr_find_in_map1( key_handle, &key_obj );
       if (rc != CKR_OK){
-	 TRACE_ERROR("Failed to acquire  key from specified handle");
+	 TRACE_ERROR("Failed to acquire key from specified handle.\n");
 	 if (rc == CKR_OBJECT_HANDLE_INVALID)
             return CKR_WRAPPING_KEY_HANDLE_INVALID;
 	 else
