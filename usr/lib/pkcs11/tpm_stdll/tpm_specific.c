@@ -2191,9 +2191,9 @@ token_specific_des_ecb(CK_BYTE * in_data,
 	CK_ULONG       rc;
 	CK_ATTRIBUTE *attr = NULL;
 
-	des_key_schedule des_key2;
-	const_des_cblock key_val_SSL, in_key_data;
-	des_cblock out_key_data;
+	DES_key_schedule des_key2;
+	const_DES_cblock key_val_SSL, in_key_data;
+	DES_cblock out_key_data;
 	unsigned int i,j;
 
 	// get the key value
@@ -2204,7 +2204,7 @@ token_specific_des_ecb(CK_BYTE * in_data,
 
 	// Create the key schedule
 	memcpy(&key_val_SSL, attr->pValue, 8);
-	des_set_key_unchecked(&key_val_SSL, des_key2);
+	DES_set_key_unchecked(&key_val_SSL, &des_key2);
 
 	// the des decrypt will only fail if the data length is not evenly divisible
 	// by 8
@@ -2217,7 +2217,7 @@ token_specific_des_ecb(CK_BYTE * in_data,
 	if (encrypt) {
 		for (i=0; i<in_data_len; i=i+8) {
 			memcpy(in_key_data, in_data+i, 8);
-			des_ecb_encrypt(&in_key_data, &out_key_data, des_key2, DES_ENCRYPT);
+			DES_ecb_encrypt(&in_key_data, &out_key_data, &des_key2, DES_ENCRYPT);
 			memcpy(out_data+i, out_key_data, 8);
 		}
 
@@ -2227,7 +2227,7 @@ token_specific_des_ecb(CK_BYTE * in_data,
 
 		for(j=0; j < in_data_len; j=j+8) {
 			memcpy(in_key_data, in_data+j, 8);
-			des_ecb_encrypt(&in_key_data, &out_key_data, des_key2, DES_DECRYPT);
+			DES_ecb_encrypt(&in_key_data, &out_key_data, &des_key2, DES_DECRYPT);
 			memcpy(out_data+j, out_key_data, 8);
 		}
 
@@ -2250,9 +2250,9 @@ token_specific_des_cbc(CK_BYTE * in_data,
 	CK_ULONG         rc;
 	CK_ATTRIBUTE *attr = NULL;
 
-	des_cblock ivec;
+	DES_cblock ivec;
 
-	des_key_schedule des_key2;
+	DES_key_schedule des_key2;
 	const_DES_cblock key_val_SSL;
 
 	// get the key value
@@ -2263,7 +2263,7 @@ token_specific_des_cbc(CK_BYTE * in_data,
 
 	// Create the key schedule
 	memcpy(&key_val_SSL, attr->pValue, 8);
-	des_set_key_unchecked(&key_val_SSL, des_key2);
+	DES_set_key_unchecked(&key_val_SSL, &des_key2);
 
 	memcpy(&ivec, init_v, 8);
 	// the des decrypt will only fail if the data length is not evenly divisible
@@ -2275,11 +2275,11 @@ token_specific_des_cbc(CK_BYTE * in_data,
 
 
 	if ( encrypt){
-		des_ncbc_encrypt(in_data, out_data, in_data_len, des_key2, &ivec, DES_ENCRYPT);
+		DES_ncbc_encrypt(in_data, out_data, in_data_len, &des_key2, &ivec, DES_ENCRYPT);
 		*out_data_len = in_data_len;
 		rc = CKR_OK;
 	} else {
-		des_ncbc_encrypt(in_data, out_data, in_data_len, des_key2, &ivec, DES_DECRYPT);
+		DES_ncbc_encrypt(in_data, out_data, in_data_len, &des_key2, &ivec, DES_DECRYPT);
 		*out_data_len = in_data_len;
 		rc = CKR_OK;
 	}
@@ -2300,12 +2300,12 @@ token_specific_tdes_ecb(CK_BYTE * in_data,
 	CK_BYTE key_value[3*DES_KEY_SIZE];
 
 	unsigned int k, j;
-	des_key_schedule des_key1;
-	des_key_schedule des_key2;
-	des_key_schedule des_key3;
+	DES_key_schedule des_key1;
+	DES_key_schedule des_key2;
+	DES_key_schedule des_key3;
 
-	const_des_cblock key_SSL1, key_SSL2, key_SSL3, in_key_data;
-	des_cblock out_key_data;
+	const_DES_cblock key_SSL1, key_SSL2, key_SSL3, in_key_data;
+	DES_cblock out_key_data;
 
 	// get the key type
 	rc = template_attribute_find(key->template, CKA_KEY_TYPE, &attr);
@@ -2331,9 +2331,9 @@ token_specific_tdes_ecb(CK_BYTE * in_data,
 	memcpy(&key_SSL1, key_value, 8);
 	memcpy(&key_SSL2, key_value+8, 8);
 	memcpy(&key_SSL3, key_value+16, 8);
-	des_set_key_unchecked(&key_SSL1, des_key1);
-	des_set_key_unchecked(&key_SSL2, des_key2);
-	des_set_key_unchecked(&key_SSL3, des_key3);
+	DES_set_key_unchecked(&key_SSL1, &des_key1);
+	DES_set_key_unchecked(&key_SSL2, &des_key2);
+	DES_set_key_unchecked(&key_SSL3, &des_key3);
 
 	// the des decrypt will only fail if the data length is not evenly divisible
 	// by 8
@@ -2346,11 +2346,11 @@ token_specific_tdes_ecb(CK_BYTE * in_data,
 	if (encrypt) {
 		for(k=0;k<in_data_len;k=k+8){
 			memcpy(in_key_data, in_data+k, 8);
-			des_ecb3_encrypt((const_DES_cblock *)&in_key_data,
+			DES_ecb3_encrypt((const_DES_cblock *)&in_key_data,
 					(DES_cblock *)&out_key_data,
-					des_key1,
-					des_key2,
-					des_key3,
+					&des_key1,
+					&des_key2,
+					&des_key3,
 					DES_ENCRYPT);
 			memcpy(out_data+k, out_key_data, 8);
 		}
@@ -2359,11 +2359,11 @@ token_specific_tdes_ecb(CK_BYTE * in_data,
 	} else {
 		for (j=0;j<in_data_len;j=j+8){
 			memcpy(in_key_data, in_data+j, 8);
-			des_ecb3_encrypt((const_DES_cblock *)&in_key_data,
+			DES_ecb3_encrypt((const_DES_cblock *)&in_key_data,
 					 (DES_cblock *)&out_key_data,
-					des_key1,
-					des_key2,
-					des_key3,
+					&des_key1,
+					&des_key2,
+					&des_key3,
 					DES_DECRYPT);
 			memcpy(out_data+j, out_key_data, 8);
 		}
@@ -2388,12 +2388,12 @@ token_specific_tdes_cbc(CK_BYTE * in_data,
 	CK_KEY_TYPE keytype;
 	CK_BYTE key_value[3*DES_KEY_SIZE];
 
-	des_key_schedule des_key1;
-	des_key_schedule des_key2;
-	des_key_schedule des_key3;
+	DES_key_schedule des_key1;
+	DES_key_schedule des_key2;
+	DES_key_schedule des_key3;
 
-	const_des_cblock key_SSL1, key_SSL2, key_SSL3;
-	des_cblock ivec;
+	const_DES_cblock key_SSL1, key_SSL2, key_SSL3;
+	DES_cblock ivec;
 
 	// get the key type
 	rc = template_attribute_find(key->template, CKA_KEY_TYPE, &attr);
@@ -2419,9 +2419,9 @@ token_specific_tdes_cbc(CK_BYTE * in_data,
 	memcpy(&key_SSL1, key_value, 8);
 	memcpy(&key_SSL2, key_value+8, 8);
 	memcpy(&key_SSL3, key_value+16, 8);
-	des_set_key_unchecked(&key_SSL1, des_key1);
-	des_set_key_unchecked(&key_SSL2, des_key2);
-	des_set_key_unchecked(&key_SSL3, des_key3);
+	DES_set_key_unchecked(&key_SSL1, &des_key1);
+	DES_set_key_unchecked(&key_SSL2, &des_key2);
+	DES_set_key_unchecked(&key_SSL3, &des_key3);
 
 	memcpy(ivec, init_v, sizeof(ivec));
 
@@ -2434,23 +2434,23 @@ token_specific_tdes_cbc(CK_BYTE * in_data,
 
 	// Encrypt or decrypt the data
 	if (encrypt){
-		des_ede3_cbc_encrypt(in_data,
+		DES_ede3_cbc_encrypt(in_data,
 				out_data,
 				in_data_len,
-				des_key1,
-				des_key2,
-				des_key3,
+				&des_key1,
+				&des_key2,
+				&des_key3,
 				&ivec,
 				DES_ENCRYPT);
 		*out_data_len = in_data_len;
 		rc = CKR_OK;
 	}else {
-		des_ede3_cbc_encrypt(in_data,
+		DES_ede3_cbc_encrypt(in_data,
 				out_data,
 				in_data_len,
-				des_key1,
-				des_key2,
-				des_key3,
+				&des_key1,
+				&des_key2,
+				&des_key3,
 				&ivec,
 				DES_DECRYPT);
 
