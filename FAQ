@@ -39,14 +39,28 @@
 
  4. Q. How can I get the complete debug logs from openCryptoki?
 
-    A. In the opencryptoki version 2.4 release, if opencryptoki has
-       been compiled with debugging enabled (configure --enable-debug),
-       then debug messages are logged to the file specified with
-       OPENCRYPTOKI_DEBUG_FILE environment variable. If this environment
-       variable is not set, then  opencryptoki debug messages are not logged.
-       
-       Note: Error messages that used to be sent to stderr when debugging was
-       enabled in prior versions of opencryptoki, are now logged to this file.
+    A. In opencryptoki version 3.3, tracing was introduced. Trace
+       messages are enabled via the environment variable, 
+       OPENCRYPTOKI_TRACE_LEVEL=<level>. Set this environment variable to 
+       one of several trace levels available:
+	1 - log error messages
+	2 - log warning messages
+	3 - log informational messages
+	4 - log development debug messages; these messages may help debug
+	    while developing pkcs#11 applications.
+	5 - debug messages that are useful to opencryptoki developers;
+	    this level must be enabled via --enable-debug option in the
+	    configure script.
+
+	Note: Trace messages increase as the trace level increases.
+	In other words, trace level 4 includes all the messages from 
+	trace levels 1, 2 and 3. 
+
+       Prior to opencryptoki version 3.3, opencryptoki had to be compiled
+       with debugging enabled, i.e configure --enable-debug. Debug messages
+       were then logged to the file specified with the 
+       OPENCRYPTOKI_DEBUG_FILE environment variable. If the environment
+       variable was not set, then opencryptoki debug messages were not logged.
        Debugging does not have to be enabled for syslog messages to be
        logged.  Syslog messages are logged according to the system's syslog
        configuration.
@@ -74,10 +88,6 @@
         option (or if you install the -debug rpms), /var/log/debuglog
         will receive its debugging messages.
 
- 5. Q. My PKCS#11 app is hangs at the point where the PKCS11_API.so tries
-    to log data to the system log. What can I do to fix this?
-
-	A. Link your application against the pthread library.
 
 -----------------------------------------------------------------------------
  openCryptoki FAQ
