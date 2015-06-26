@@ -36,6 +36,7 @@ opencryptoki_stdll_libpkcs11_sw_la_SOURCES = ../common/asn1.c		\
 					     ../common/mech_rsa.c	\
 					     ../common/mech_sha.c	\
 					     ../common/mech_ssl3.c	\
+					     ../common/mech_ec.c	\
 					     ../common/new_host.c	\
 					     ../common/obj_mgr.c	\
 					     ../common/object.c		\
