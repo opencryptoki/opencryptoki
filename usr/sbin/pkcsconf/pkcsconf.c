@@ -763,7 +763,7 @@ display_pkcs11_info(void){
    /* Get the PKCS11 infomation structure and if fails print message */
    rc = FunctionPtr->C_GetInfo(&CryptokiInfo);
    if (rc != CKR_OK) {
-      printf("Error getting PKCS#11 info: 0x%X (%s)\n", rc, p11_get_ckr(rc));
+      printf("Error getting PKCS#11 info: 0x%lX (%s)\n", rc, p11_get_ckr(rc));
       return rc;
    }
 
@@ -772,7 +772,7 @@ display_pkcs11_info(void){
    printf("\tVersion %d.%d \n", CryptokiInfo.cryptokiVersion.major,
          CryptokiInfo.cryptokiVersion.minor);
    printf("\tManufacturer: %.32s \n", CryptokiInfo.manufacturerID);
-   printf("\tFlags: 0x%X  \n", CryptokiInfo.flags);
+   printf("\tFlags: 0x%lX  \n", CryptokiInfo.flags);
    printf("\tLibrary Description: %.32s \n", CryptokiInfo.libraryDescription);
    printf("\tLibrary Version %d.%d \n", CryptokiInfo.libraryVersion.major,
          CryptokiInfo.libraryVersion.minor);
@@ -783,12 +783,11 @@ display_pkcs11_info(void){
 CK_RV
 get_slot_list(){
    CK_RV                 rc;                   // Return Code
-   CK_SLOT_ID_PTR        TempSlotList = NULL;  // Temporary Slot List
 
    /* Find out how many tokens are present in slots */
    rc = FunctionPtr->C_GetSlotList(TRUE, NULL_PTR, &SlotCount);
    if (rc != CKR_OK) {
-      printf("Error getting number of slots: 0x%X (%s)\n", rc, p11_get_ckr(rc));
+      printf("Error getting number of slots: 0x%lX (%s)\n", rc, p11_get_ckr(rc));
       return rc;
    }
 
@@ -803,7 +802,7 @@ get_slot_list(){
 
    rc = FunctionPtr->C_GetSlotList(TRUE, SlotList, &SlotCount);
    if (rc != CKR_OK) {
-      printf("Error getting slot list: 0x%X (%s)\n", rc, p11_get_ckr(rc));
+      printf("Error getting slot list: 0x%lX (%s)\n", rc, p11_get_ckr(rc));
       return rc;
    }
 
@@ -856,7 +855,7 @@ print_mech_info(int slot_id)
     /* For each slot find out how many mechanisms are supported */
     rc = FunctionPtr->C_GetMechanismList(slot_id, NULL_PTR, &MechanismCount);
     if (rc != CKR_OK) {
-        printf("Error getting number of mechanisms: 0x%X (%s)\n",
+        printf("Error getting number of mechanisms: 0x%lX (%s)\n",
                 rc, p11_get_ckr(rc));
         return rc;
     }
@@ -869,7 +868,7 @@ print_mech_info(int slot_id)
     rc = FunctionPtr->C_GetMechanismList(slot_id, MechanismList,
             &MechanismCount);
     if (rc != CKR_OK) {
-        printf("Error getting mechanisms list: 0x%X (%s)\n", rc, p11_get_ckr(rc));
+        printf("Error getting mechanisms list: 0x%lX (%s)\n", rc, p11_get_ckr(rc));
         return rc;
     }
 
@@ -880,18 +879,18 @@ print_mech_info(int slot_id)
         rc = FunctionPtr->C_GetMechanismInfo(slot_id,
                 MechanismList[i], &MechanismInfo);
         if (rc != CKR_OK) {
-            printf("Error getting mechanisms info: 0x%X (%s)\n", rc, p11_get_ckr(rc));
+            printf("Error getting mechanisms info: 0x%lX (%s)\n", rc, p11_get_ckr(rc));
             return rc;
         }
         printf("Mechanism #%d\n", i);
-        printf("\tMechanism: 0x%X ", MechanismList[i]);
+        printf("\tMechanism: 0x%lX ", MechanismList[i]);
 
         display_mechanism_name(MechanismList[i]);
         printf("\n");
 
-        printf("\tKey Size: %d-%d\n", MechanismInfo.ulMinKeySize,
+        printf("\tKey Size: %lu-%lu\n", MechanismInfo.ulMinKeySize,
                 MechanismInfo.ulMaxKeySize);
-        printf("\tFlags: 0x%X ", MechanismInfo.flags);
+        printf("\tFlags: 0x%lX ", MechanismInfo.flags);
 
         display_mechanism_flags(MechanismInfo.flags);
         printf("\n");
@@ -904,10 +903,6 @@ print_mech_info(int slot_id)
 
 CK_RV
 display_mechanism_info(int slot_id){
-    CK_MECHANISM_TYPE_PTR   MechanismList   = NULL; // Head to Mechanism list
-    CK_MECHANISM_INFO       MechanismInfo;          // Structure to hold Mechanism Info
-    CK_ULONG                MechanismCount  = 0;    // Number of supported mechanisms
-    unsigned int            i;
     CK_ULONG                lcv;
 
     if (slot_id == -1) {
@@ -928,7 +923,7 @@ print_slot_info(int slot_id, CK_SLOT_INFO *SlotInfo)
       printf("Slot #%d Info\n", slot_id);
       printf("\tDescription: %.64s\n", SlotInfo->slotDescription);
       printf("\tManufacturer: %.32s\n", SlotInfo->manufacturerID);
-      printf("\tFlags: 0x%X (", SlotInfo->flags);
+      printf("\tFlags: 0x%lX (", SlotInfo->flags);
 
       if (SlotInfo->flags & CKF_TOKEN_PRESENT)
 	      printf("TOKEN_PRESENT|");
@@ -954,7 +949,7 @@ display_slot_info(int slot_id)
    if (slot_id != -1) {
       rc = FunctionPtr->C_GetSlotInfo(slot_id, &SlotInfo);
       if (rc != CKR_OK) {
-         printf("Error getting slot info: 0x%X (%s) \n", rc,
+         printf("Error getting slot info: 0x%lX (%s) \n", rc,
 		p11_get_ckr(rc));
          return rc;
       }
@@ -967,7 +962,7 @@ display_slot_info(int slot_id)
       /* Get the info for the slot we are examining and store in SlotInfo*/
       rc = FunctionPtr->C_GetSlotInfo(SlotList[lcv], &SlotInfo);
       if (rc != CKR_OK) {
-         printf("Error getting slot info: 0x%X (%s) \n", rc, p11_get_ckr(rc));
+         printf("Error getting slot info: 0x%lX (%s) \n", rc, p11_get_ckr(rc));
          return rc;
       }
 
@@ -986,12 +981,12 @@ list_slot(int slot_id){
     if (slot_id != -1) {
         rc = FunctionPtr->C_GetSlotInfo(slot_id, &SlotInfo);
         if (rc != CKR_OK) {
-            printf("Error getting slot info: 0x%X (%s)\n", rc, p11_get_ckr(rc));
+            printf("Error getting slot info: 0x%lX (%s)\n", rc, p11_get_ckr(rc));
             return rc;
         }
 
         /* Display the slot description */
-        printf("%ld:", slot_id);
+        printf("%d:", slot_id);
         printf("\tDescription: %.64s\n", SlotInfo.slotDescription);
 
         return CKR_OK;
@@ -1002,7 +997,7 @@ list_slot(int slot_id){
         /* Get the info for the slot we are examining and store in SlotInfo*/
         rc = FunctionPtr->C_GetSlotInfo(SlotList[lcv], &SlotInfo);
         if (rc != CKR_OK) {
-            printf("Error getting slot info: 0x%X (%s)\n", rc, p11_get_ckr(rc));
+            printf("Error getting slot info: 0x%lX (%s)\n", rc, p11_get_ckr(rc));
             return rc;
         }
 
@@ -1022,7 +1017,7 @@ print_token_info(int slot_id, CK_TOKEN_INFO *TokenInfo)
       printf("\tManufacturer: %.32s\n", TokenInfo->manufacturerID);
       printf("\tModel: %.16s\n", TokenInfo->model);
       printf("\tSerial Number: %.16s\n", TokenInfo->serialNumber);
-      printf("\tFlags: 0x%X (", TokenInfo->flags);
+      printf("\tFlags: 0x%lX (", TokenInfo->flags);
 
       /* print more informative flag message */
       if (TokenInfo->flags & CKF_RNG)
@@ -1063,15 +1058,15 @@ print_token_info(int slot_id, CK_TOKEN_INFO *TokenInfo)
 	      printf("SO_PIN_TO_BE_CHANGED|");
       printf(")\n");
 
-      printf("\tSessions: %d/%d\n", TokenInfo->ulSessionCount,
+      printf("\tSessions: %lu/%lu\n", TokenInfo->ulSessionCount,
             TokenInfo->ulMaxSessionCount);
-      printf("\tR/W Sessions: %d/%d\n", TokenInfo->ulRwSessionCount,
+      printf("\tR/W Sessions: %lu/%lu\n", TokenInfo->ulRwSessionCount,
 	    TokenInfo->ulMaxRwSessionCount);
-      printf("\tPIN Length: %d-%d\n", TokenInfo->ulMinPinLen,
+      printf("\tPIN Length: %lu-%lu\n", TokenInfo->ulMinPinLen,
 	    TokenInfo->ulMaxPinLen);
-      printf("\tPublic Memory: 0x%X/0x%X\n", TokenInfo->ulFreePublicMemory,
+      printf("\tPublic Memory: 0x%lX/0x%lX\n", TokenInfo->ulFreePublicMemory,
 	    TokenInfo->ulTotalPublicMemory);
-      printf("\tPrivate Memory: 0x%X/0x%X\n", TokenInfo->ulFreePrivateMemory,
+      printf("\tPrivate Memory: 0x%lX/0x%lX\n", TokenInfo->ulFreePrivateMemory,
 	    TokenInfo->ulTotalPrivateMemory);
       printf("\tHardware Version: %d.%d\n", TokenInfo->hardwareVersion.major,
             TokenInfo->hardwareVersion.minor);
@@ -1090,7 +1085,7 @@ display_token_info(int slot_id)
    if (slot_id != -1) {
       rc = FunctionPtr->C_GetTokenInfo(slot_id, &TokenInfo);
       if (rc != CKR_OK) {
-         printf("Error getting token info: 0x%X (%s)\n", rc, p11_get_ckr(rc));
+         printf("Error getting token info: 0x%lX (%s)\n", rc, p11_get_ckr(rc));
          return rc;
       }
 
@@ -1102,7 +1097,7 @@ display_token_info(int slot_id)
       /* Get the Token info for each slot in the system */
       rc = FunctionPtr->C_GetTokenInfo(SlotList[lcv], &TokenInfo);
       if (rc != CKR_OK) {
-         printf("Error getting token info: 0x%X (%s)\n", rc, p11_get_ckr(rc));
+         printf("Error getting token info: 0x%lX (%s)\n", rc, p11_get_ckr(rc));
          return rc;
       }
 
@@ -1155,7 +1150,7 @@ init_token(int slot_id, CK_CHAR_PTR pin){
             fflush(stdout);
         }
         else {
-            printf("Error initializing token: 0x%X (%s)\n", rc, p11_get_ckr(rc));
+            printf("Error initializing token: 0x%lX (%s)\n", rc, p11_get_ckr(rc));
             fflush(stdout);
         }
         return rc;
@@ -1184,7 +1179,7 @@ init_user_pin(int slot_id, CK_CHAR_PTR pin, CK_CHAR_PTR sopin){
     rc = FunctionPtr->C_OpenSession(slot_id, flags, NULL, NULL,
             &session_handle);
     if (rc != CKR_OK){
-        printf("Error opening session: 0x%X (%s)\n", rc, p11_get_ckr(rc));
+        printf("Error opening session: 0x%lX (%s)\n", rc, p11_get_ckr(rc));
         fflush(stdout);
         return rc;
     }
@@ -1197,7 +1192,7 @@ init_user_pin(int slot_id, CK_CHAR_PTR pin, CK_CHAR_PTR sopin){
             fflush(stdout);
         }
         else {
-            printf("Error logging in: 0x%X (%s)\n", rc, p11_get_ckr(rc));
+            printf("Error logging in: 0x%lX (%s)\n", rc, p11_get_ckr(rc));
             fflush(stdout);
         }
         return rc;
@@ -1206,21 +1201,21 @@ init_user_pin(int slot_id, CK_CHAR_PTR pin, CK_CHAR_PTR sopin){
     /* Call the function to Init the PIN */
     rc = FunctionPtr->C_InitPIN(session_handle, pin, pinlen);
     if (rc != CKR_OK){
-        printf("Error setting PIN: 0x%X (%s)\n", rc, p11_get_ckr(rc));
+        printf("Error setting PIN: 0x%lX (%s)\n", rc, p11_get_ckr(rc));
         fflush(stdout);
     }
 
     /* Logout so that others can use the PIN */
     rc = FunctionPtr->C_Logout(session_handle);
     if (rc != CKR_OK){
-        printf("Error logging out: 0x%X (%s)\n", rc, p11_get_ckr(rc));
+        printf("Error logging out: 0x%lX (%s)\n", rc, p11_get_ckr(rc));
         fflush(stdout);
     }
 
     /* Close the session */
     rc = FunctionPtr->C_CloseSession(session_handle);
     if (rc != CKR_OK){
-        printf("Error closing session: 0x%X (%s)\n", rc, p11_get_ckr(rc));
+        printf("Error closing session: 0x%lX (%s)\n", rc, p11_get_ckr(rc));
         fflush(stdout);
         return rc;
     }
@@ -1249,7 +1244,7 @@ set_user_pin(int slot_id, CK_USER_TYPE user, CK_CHAR_PTR oldpin, CK_CHAR_PTR new
     rc = FunctionPtr->C_OpenSession(slot_id, flags, NULL, NULL,
             &session_handle);
     if (rc != CKR_OK){
-        printf("Error opening session: 0x%X (%s)\n", rc, p11_get_ckr(rc));
+        printf("Error opening session: 0x%lX (%s)\n", rc, p11_get_ckr(rc));
         fflush(stdout);
         return rc;
     }
@@ -1262,7 +1257,7 @@ set_user_pin(int slot_id, CK_USER_TYPE user, CK_CHAR_PTR oldpin, CK_CHAR_PTR new
             fflush(stdout);
         }
         else {
-            printf("Error logging in: 0x%X (%s)\n", rc, p11_get_ckr(rc));
+            printf("Error logging in: 0x%lX (%s)\n", rc, p11_get_ckr(rc));
             fflush(stdout);
         }
         return rc;
@@ -1272,14 +1267,14 @@ set_user_pin(int slot_id, CK_USER_TYPE user, CK_CHAR_PTR oldpin, CK_CHAR_PTR new
     rc = FunctionPtr->C_SetPIN(session_handle, oldpin, oldpinlen,
             newpin, newpinlen);
     if (rc != CKR_OK){
-        printf("Error setting PIN: 0x%X (%s)\n", rc, p11_get_ckr(rc));
+        printf("Error setting PIN: 0x%lX (%s)\n", rc, p11_get_ckr(rc));
         fflush(stdout);
     }
 
     /* and of course clean up after ourselves */
     rc = FunctionPtr->C_CloseSession(session_handle);
     if (rc != CKR_OK){
-        printf("Error closing session: 0x%X (%s)\n", rc, p11_get_ckr(rc));
+        printf("Error closing session: 0x%lX (%s)\n", rc, p11_get_ckr(rc));
         fflush(stdout);
         return rc;
     }
@@ -1308,7 +1303,7 @@ init(void){
    symPtr = (void (*)())dlsym(dllPtr, "C_GetFunctionList");
    if (!symPtr) {
       rc = errno;
-      printf("Error getting function list: 0x%X (%s)\n", rc, p11_get_ckr(rc));
+      printf("Error getting function list: 0x%lX (%s)\n", rc, p11_get_ckr(rc));
       fflush(stdout);
       return rc;
    }
@@ -1319,7 +1314,7 @@ init(void){
     * calls, so we will execute the PKCS11 Initilize command. */
    rc = FunctionPtr->C_Initialize(NULL);
    if (rc != CKR_OK) {
-      printf("Error initializing the PKCS11 library: 0x%X (%s)\n", rc, p11_get_ckr(rc));
+      printf("Error initializing the PKCS11 library: 0x%lX (%s)\n", rc, p11_get_ckr(rc));
       fflush(stdout);
       cleanup();
    }
