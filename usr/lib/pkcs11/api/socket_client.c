@@ -311,7 +311,6 @@ init_socket_data() {
 	struct stat file_info;
 	struct group *grp;
 	int bytes_received;
-	socklen_t address_length;
 	Slot_Mgr_Socket_t daemon_socket_data;
 
 	if (stat(SOCKET_FILE_PATH, &file_info)) {
@@ -349,7 +348,7 @@ init_socket_data() {
 	bytes_received = read(socketfd, &daemon_socket_data,
 			      sizeof(daemon_socket_data));
 	if (bytes_received != sizeof(daemon_socket_data)) {
-		OCK_SYSLOG(LOG_ERR, "init_socket_data: did not recieve expected number of bytes from slot manager daemon. Expected %d bytes, got %d bytes.",
+		OCK_SYSLOG(LOG_ERR, "init_socket_data: did not recieve expected number of bytes from slot manager daemon. Expected %zd bytes, got %d bytes.",
 			   sizeof(daemon_socket_data), bytes_received);
 	}
 

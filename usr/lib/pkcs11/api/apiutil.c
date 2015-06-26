@@ -585,7 +585,7 @@ void Terminate_All_Process_Sessions()
 		// since we are terminating the session.  
 		// For now we will just log it
 		if (rv != CKR_OK) {
-			TRACE_DEBUG("Terminate_All_Process_Sessions RV %x\n",
+			TRACE_DEBUG("Terminate_All_Process_Sessions RV %lx\n",
 				      rv);
 		}
 	}
@@ -677,8 +677,8 @@ int API_Register()
 
 	Anchor->MgrProcIndex = indx;
 
-	TRACE_DEVEL("API_Register MgrProcIndc %d  pid %d \n", procp->proc_id,
-		      Anchor->MgrProcIndex);
+	TRACE_DEVEL("API_Register MgrProcIndc %d  pid %ld \n", procp->proc_id,
+		      (long int)Anchor->MgrProcIndex);
 
 	//??? What to do about the Mutex and cond variable
 	//Does initializing them in the slotd allow for them to not be 
@@ -886,7 +886,7 @@ int DL_Load_and_Init(API_Slot_t *sltp, CK_SLOT_ID slotID)
 	}
 
 	if (!sltp->dlop_p) {
-		TRACE_DEBUG("DL_Load_and_Init pointer %x\n", sltp->dlop_p);
+		TRACE_DEBUG("DL_Load_and_Init pointer %p\n", sltp->dlop_p);
 
 		return FALSE;
 	}
@@ -899,7 +899,7 @@ int DL_Load_and_Init(API_Slot_t *sltp, CK_SLOT_ID slotID)
 	}
 	// Returns true or false
 	rv = pSTinit(&(sltp->FcnList), slotID, sinfp->confname, trace);
-	TRACE_DEBUG("return from STDDLL Init = %x\n", rv);
+	TRACE_DEBUG("return from STDDLL Init = %lx\n", rv);
 
 	if (rv != CKR_OK) {
 		// clean up and unload

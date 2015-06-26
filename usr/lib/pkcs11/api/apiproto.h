@@ -335,6 +335,9 @@ void CK_Info_From_Internal (CK_INFO_PTR dest, CK_INFO_PTR_64 src);
 
 int sessions_exist(CK_SLOT_ID);
 
+void CloseAllSessions(CK_SLOT_ID slot_id);
+int init_socket_data();
+
 #define OCK_SYSLOG(priority, fmt, ...) \
         syslog(priority, "%s " fmt, __FILE__, ##__VA_ARGS__);
 

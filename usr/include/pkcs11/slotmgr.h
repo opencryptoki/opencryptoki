@@ -418,7 +418,7 @@ typedef struct Slot_Mgr_Proc_t_64 {
   // pthread_cond_t   proc_slot_cond;   
 
    CK_BOOL    inuse;  // flag indicating if the entry is in use
-   pid_t_64  proc_id;// This could also be used to indicate inuse. however
+   pid_t      proc_id;// This could also be used to indicate inuse. however
                      // we will actualy use it to provide a check for a bad
                      // process which did not C_finalize and remove itself
                      // properly.

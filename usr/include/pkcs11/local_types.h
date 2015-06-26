@@ -335,6 +335,9 @@ void *bt_get_node_value(struct btree *t, unsigned long node_num);
 inline int bt_is_empty(struct btree *t);
 void bt_for_each_node(struct btree *t, void (*)(void *, unsigned long, void *), void *);
 unsigned long bt_nodes_in_use(struct btree *t);
+unsigned long bt_node_add(struct btree *t, void *value);
+struct btnode *bt_node_free(struct btree *t, unsigned long node_num, void (*delete_func)(void *));
+void bt_destroy(struct btree *t, void (*func)(void *));
 
 #endif
 
