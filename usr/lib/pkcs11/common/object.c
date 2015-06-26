@@ -630,15 +630,13 @@ object_flatten( OBJECT    * obj,
 //
 // does what it says...
 //
-CK_BBOOL
-object_free( OBJECT *obj )
+void object_free(OBJECT *obj)
 {
-   template_free( obj->template );
-   free( obj );
-
-   return TRUE;
+	if (obj && obj->template) {
+		template_free(obj->template);
+		free(obj);
+	}
 }
-
 
 // object_is_modifiable()
 //

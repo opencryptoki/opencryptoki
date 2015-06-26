@@ -20,6 +20,7 @@
 #include "h_extern.h"
 #include "tok_spec_struct.h"
 #include "trace.h"
+#include "tok_specific.h"
 
 CK_RV
 ckm_ec_key_pair_gen( TEMPLATE  * publ_tmpl,
@@ -76,7 +77,6 @@ ec_sign( SESSION			*sess,
 {
 	OBJECT          *key_obj   = NULL;
 	CK_ULONG         plen;
-	CK_BBOOL         flag;
 	CK_RV            rc;
 
 	if (!sess || !ctx || !out_data_len){
@@ -158,7 +158,6 @@ ec_verify(SESSION		*sess,
 {
 	OBJECT          *key_obj  = NULL;
 	CK_ULONG         plen;
-	CK_BBOOL         flag;
 	CK_RV            rc;
 
 

@@ -2671,7 +2671,6 @@ aes_mac_verify_update( SESSION              * sess,
 {
  CK_ULONG         rc;
  OBJECT           * key_obj  = NULL;
- CK_ULONG         mac_len;
  AES_DATA_CONTEXT * context  = NULL;
  CK_BYTE          * cipher   = NULL;
  CK_ULONG         total, remain, out_len;

@@ -286,7 +286,7 @@
 // routines associated with loading/saving files
 //
 //
-
+#define _GNU_SOURCE
 #include <pthread.h>
 #include <stdio.h>
 #include <stdlib.h>
@@ -738,7 +738,6 @@ CK_RV save_token_data(CK_SLOT_ID slot_id)
 	TOKEN_DATA td;
 	CK_RV rc;
 	CK_BYTE fname[PATH_MAX];
-	fpos_t fpos;
 	char pk_dir_buf[PATH_MAX];
 
 	rc = XProcLock();
@@ -1026,7 +1025,6 @@ CK_RV load_public_token_objects(void)
 	CK_BBOOL priv;
 	CK_ULONG_32 size;
 	size_t read_size;
-	struct passwd *pw = NULL;
 	char pk_dir_buf[PATH_MAX];
 
 	sprintf(iname, "%s/%s/%s", get_pk_dir(pk_dir_buf), PK_LITE_OBJ_DIR,
@@ -1185,8 +1183,7 @@ CK_RV restore_private_token_object(CK_BYTE * data, CK_ULONG len, OBJECT * pObj)
 {
 	CK_BYTE *clear = NULL;
 	CK_BYTE *obj_data = NULL;
-	CK_BYTE *cipher = NULL;
-	CK_BYTE *ptr = NULL;
+        CK_BYTE *ptr = NULL;
 	CK_BYTE *key = NULL;
 	CK_ULONG key_len;
 	CK_ULONG block_size;
@@ -1211,8 +1208,6 @@ CK_RV restore_private_token_object(CK_BYTE * data, CK_ULONG len, OBJECT * pObj)
 		rc = CKR_HOST_MEMORY;
 		goto done;
 	}
-
-	cipher = data;
 
 	if ((rc = get_encryption_info(&key_len, &block_size)) != CKR_OK)
 		goto done;
@@ -1411,7 +1406,6 @@ CK_RV load_masterkey_user(void)
 	CK_ULONG key_len = 0L;
 	CK_ULONG master_key_len = 0L;
 	CK_ULONG block_size = 0L;
-	struct passwd *pw = NULL;
 	char pk_dir_buf[PATH_MAX];
 
 	if ((rc = get_encryption_info_for_clear_key(&key_len,

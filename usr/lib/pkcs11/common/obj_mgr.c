@@ -1247,7 +1247,6 @@ CK_RV
 object_mgr_find_in_map_nocache( CK_OBJECT_HANDLE    handle,
                          OBJECT           ** ptr )
 {
-   DL_NODE    * node = NULL;
    OBJECT_MAP * map  = NULL;
    OBJECT     * obj  = NULL;
    CK_RV      rc = CKR_OK;

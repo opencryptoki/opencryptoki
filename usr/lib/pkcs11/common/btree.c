@@ -87,7 +87,7 @@ node_create(struct btnode **child_ptr, struct btnode *parent_ptr, void *value)
 	struct btnode *node = malloc(sizeof(struct btnode));
 
 	if (!node) {
-		TRACE_ERROR("malloc of %d bytes failed", sizeof(struct btnode));
+		TRACE_ERROR("malloc of %lu bytes failed", sizeof(struct btnode));
 		return NULL;
 	}
 

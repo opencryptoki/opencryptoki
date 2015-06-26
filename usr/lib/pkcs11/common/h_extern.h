@@ -812,6 +812,11 @@ CK_RV save_masterkey_user( void );
 
 CK_RV generate_master_key(CK_BYTE *key);
 
+void init_data_store(char *directory);
+
+void copy_token_contents_sensibly(CK_TOKEN_INFO_PTR pInfo,
+                                  TOKEN_DATA *nv_token_data);
+
 CK_RV compute_md5( CK_BYTE *data, CK_ULONG len, CK_BYTE *hash );
 CK_RV compute_sha1(CK_BYTE *data, CK_ULONG len, CK_BYTE *hash);
 CK_RV compute_sha(CK_BYTE *data, CK_ULONG len, CK_BYTE *hash, CK_ULONG mech);
@@ -819,6 +824,8 @@ CK_RV get_sha_size(CK_ULONG mech, CK_ULONG *hsize);
 
 CK_RV mgf1(CK_BYTE *seed, CK_ULONG seedlen, CK_BYTE *mask, CK_ULONG maskLen,
 	   CK_RSA_PKCS_MGF_TYPE mgf);
+
+CK_RV get_ecsiglen(OBJECT *key_obj, CK_ULONG *size);
 
 //CK_RV load_FCV( void );
 //CK_RV save_FCV( FUNCTION_CTRL_VEC_RECORD *new_FCV );
@@ -1032,6 +1039,43 @@ CK_RV  rsa_hash_pkcs_verify_final ( SESSION             * sess,
                                     CK_BYTE             * signature,
                                     CK_ULONG              sig_len );
 
+CK_RV rsa_pss_sign(SESSION *sess, CK_BBOOL length_only,
+                   SIGN_VERIFY_CONTEXT *ctx, CK_BYTE *in_data,
+                   CK_ULONG in_data_len, CK_BYTE *out_data,
+                   CK_ULONG *out_data_len);
+
+CK_RV rsa_hash_pss_sign(SESSION *sess, CK_BBOOL length_only,
+                        SIGN_VERIFY_CONTEXT *ctx, CK_BYTE *in_data,
+                        CK_ULONG in_data_len, CK_BYTE *sig, CK_ULONG *sig_len);
+
+CK_RV rsa_hash_pss_update(SESSION *sess, SIGN_VERIFY_CONTEXT *ctx,
+                          CK_BYTE *in_data, CK_ULONG in_data_len);
+
+CK_RV rsa_hash_pss_sign_final(SESSION *sess, CK_BBOOL length_only,
+                              SIGN_VERIFY_CONTEXT *ctx, CK_BYTE *signature,
+                              CK_ULONG *sig_len);
+
+CK_RV rsa_pss_verify(SESSION *sess, SIGN_VERIFY_CONTEXT *ctx, CK_BYTE *in_data,
+                     CK_ULONG in_data_len, CK_BYTE *signature, CK_ULONG sig_len);
+
+CK_RV rsa_hash_pss_verify(SESSION *sess, SIGN_VERIFY_CONTEXT *ctx,
+                          CK_BYTE *in_data, CK_ULONG in_data_len,
+                          CK_BYTE *signature, CK_ULONG sig_len);
+
+CK_RV rsa_hash_pss_verify_final(SESSION *sess, SIGN_VERIFY_CONTEXT *ctx,
+                                CK_BYTE *signature, CK_ULONG sig_len);
+
+CK_RV rsa_format_block( CK_BYTE   * in_data,
+                  CK_ULONG    in_data_len,
+                  CK_BYTE   * out_data,
+                  CK_ULONG    out_data_len,
+                  CK_ULONG    type );
+
+CK_RV rsa_parse_block( CK_BYTE  * in_data,
+                 CK_ULONG   in_data_len,
+                 CK_BYTE  * out_data,
+                 CK_ULONG * out_data_len,
+                 CK_ULONG   type );
 
 // RSA mechanisms
 //
@@ -1358,6 +1402,8 @@ CK_RV des3_mac_verify_update( SESSION * sess, SIGN_VERIFY_CONTEXT * ctx,
 CK_RV des3_mac_verify_final( SESSION  * sess, SIGN_VERIFY_CONTEXT  * ctx,
                              CK_BYTE  * signature, CK_ULONG signature_len);
 
+
+
 // DES3 mechanisms
 //
 CK_RV  ckm_des3_key_gen( TEMPLATE *tmpl );
@@ -1376,6 +1422,58 @@ CK_RV  ckm_des3_cbc_decrypt( CK_BYTE *in_data,   CK_ULONG    in_data_len,
                              CK_BYTE *out_data,  CK_ULONG   *out_data_len,
                              CK_BYTE *init_v,    OBJECT     *key );
 
+CK_RV des3_ofb_encrypt( SESSION  * sess,  CK_BBOOL  length_only,
+                        ENCR_DECR_CONTEXT  * ctx, CK_BYTE  * in_data,
+                        CK_ULONG  in_data_len, CK_BYTE   * out_data,
+                        CK_ULONG  *out_data_len);
+CK_RV des3_ofb_decrypt( SESSION   * sess,  CK_BBOOL  length_only,
+                        ENCR_DECR_CONTEXT   * ctx,  CK_BYTE * in_data,
+                        CK_ULONG  in_data_len, CK_BYTE * out_data,
+                        CK_ULONG  * out_data_len);
+
+CK_RV des3_ofb_encrypt_update( SESSION   * sess, CK_BBOOL  length_only,
+                               ENCR_DECR_CONTEXT   * ctx,  CK_BYTE  * in_data,
+                               CK_ULONG   in_data_len, CK_BYTE   * out_data,
+                               CK_ULONG  * out_data_len);
+
+CK_RV des3_ofb_encrypt_final( SESSION  *sess,  CK_BBOOL  length_only,
+                       ENCR_DECR_CONTEXT *ctx, CK_BYTE  *out_data,
+                       CK_ULONG  *out_data_len );
+
+
+CK_RV des3_ofb_decrypt_update (SESSION * sess, CK_BBOOL  length_only, ENCR_DECR_CONTEXT  * ctx,
+                               CK_BYTE  * in_data, CK_ULONG  in_data_len, CK_BYTE   * out_data,
+                               CK_ULONG  * out_data_len);
+
+CK_RV des3_ofb_decrypt_final( SESSION  *sess, CK_BBOOL  length_only,
+                              ENCR_DECR_CONTEXT  *ctx, CK_BYTE  *out_data,
+                              CK_ULONG  *out_data_len );
+
+CK_RV des3_cfb_encrypt( SESSION  * sess,  CK_BBOOL  length_only,
+                        ENCR_DECR_CONTEXT  *ctx,  CK_BYTE  * in_data,
+                        CK_ULONG  in_data_len,  CK_BYTE  * out_data,
+                        CK_ULONG  * out_data_len, CK_ULONG  cfb_len);
+CK_RV des3_cfb_decrypt( SESSION  * sess, CK_BBOOL  length_only, ENCR_DECR_CONTEXT * ctx,
+                        CK_BYTE  * in_data, CK_ULONG    in_data_len, CK_BYTE  * out_data,
+                        CK_ULONG  * out_data_len, CK_ULONG  cfb_len);
+
+CK_RV des3_cfb_encrypt_update( SESSION   * sess, CK_BBOOL  length_only,
+                        ENCR_DECR_CONTEXT  * ctx,  CK_BYTE  * in_data,
+                        CK_ULONG   in_data_len,  CK_BYTE   * out_data,
+                        CK_ULONG  * out_data_len,  CK_ULONG  cfb_len);
+
+CK_RV des3_cfb_encrypt_final( SESSION  *sess,  CK_BBOOL  length_only,
+                       ENCR_DECR_CONTEXT *ctx, CK_BYTE   *out_data,
+                       CK_ULONG  *out_data_len, CK_ULONG  cfb_len);
+
+CK_RV des3_cfb_decrypt_update( SESSION  * sess, CK_BBOOL length_only,
+                               ENCR_DECR_CONTEXT  * ctx, CK_BYTE  * in_data,
+                               CK_ULONG  in_data_len, CK_BYTE  * out_data,
+                               CK_ULONG * out_data_len, CK_ULONG  cfb_len);
+
+CK_RV des3_cfb_decrypt_final( SESSION  *sess,  CK_BBOOL  length_only,
+                              ENCR_DECR_CONTEXT *ctx, CK_BYTE  *out_data,
+                              CK_ULONG   *out_data_len, CK_ULONG  cfb_len);
 
 // AES routines
 //
@@ -1407,14 +1505,14 @@ CK_RV  aes_cbc_pad_decrypt( SESSION  *sess,     CK_BBOOL  length_only,
                             CK_BYTE  *out_data, CK_ULONG *out_data_len );
 
 CK_RV  aes_ctr_encrypt( SESSION  *sess,       CK_BBOOL length_only,
-			ENCR_DECR_CONTEXT *context,
-			CK_BYTE  *in_data,    CK_ULONG  in_data_len,
-			CK_BYTE  *out_data,   CK_ULONG *out_data_len);
+                        ENCR_DECR_CONTEXT *context,
+                        CK_BYTE  *in_data,    CK_ULONG  in_data_len,
+                        CK_BYTE  *out_data,   CK_ULONG *out_data_len);
 
 CK_RV  aes_ctr_decrypt( SESSION  *sess,       CK_BBOOL  length_only,
-			ENCR_DECR_CONTEXT   *context,
-			CK_BYTE  *in_data,    CK_ULONG  in_data_len,
-			CK_BYTE  *out_data,   CK_ULONG *out_data_len);
+                        ENCR_DECR_CONTEXT   *context,
+                        CK_BYTE  *in_data,    CK_ULONG  in_data_len,
+                        CK_BYTE  *out_data,   CK_ULONG *out_data_len);
 
 CK_RV  aes_ecb_encrypt_update( SESSION  *sess,     CK_BBOOL  length_only,
                                ENCR_DECR_CONTEXT *context,
@@ -1504,6 +1602,7 @@ CK_RV aes_mac_verify_final( SESSION  * sess, SIGN_VERIFY_CONTEXT  * ctx,
                             CK_BYTE  * signature, CK_ULONG signature_len);
 
 
+
 // AES mechanisms
 //
 CK_RV  ckm_aes_key_gen( TEMPLATE *tmpl );
@@ -1537,6 +1636,63 @@ CK_RV ckm_aes_wrap_format( CK_BBOOL    length_only,
 			   CK_BYTE  ** data,
 			   CK_ULONG  * data_len );
 
+CK_RV aes_ofb_encrypt( SESSION  * sess,  CK_BBOOL length_only,
+                       ENCR_DECR_CONTEXT * ctx, CK_BYTE  * in_data,
+                       CK_ULONG  in_data_len,   CK_BYTE  * out_data,
+                       CK_ULONG  * out_data_len);
+
+CK_RV aes_ofb_encrypt_update( SESSION   * sess, CK_BBOOL length_only,
+                        ENCR_DECR_CONTEXT    * ctx, CK_BYTE  * in_data,
+                        CK_ULONG  in_data_len, CK_BYTE  * out_data,
+                        CK_ULONG  * out_data_len);
+
+CK_RV aes_ofb_encrypt_final( SESSION   *sess, CK_BBOOL  length_only,
+                             ENCR_DECR_CONTEXT *ctx, CK_BYTE   *out_data,
+                             CK_ULONG  *out_data_len );
+
+CK_RV aes_ofb_decrypt( SESSION *sess, CK_BBOOL  length_only, ENCR_DECR_CONTEXT *ctx,
+                       CK_BYTE *in_data, CK_ULONG  in_data_len, CK_BYTE *out_data,
+                       CK_ULONG *out_data_len );
+
+CK_RV aes_ofb_decrypt_update( SESSION  * sess, CK_BBOOL  length_only,
+                              ENCR_DECR_CONTEXT  * ctx,  CK_BYTE  * in_data,
+                              CK_ULONG  in_data_len, CK_BYTE  * out_data,
+                              CK_ULONG  * out_data_len);
+
+CK_RV aes_ofb_decrypt_final( SESSION   *sess, CK_BBOOL  length_only,
+                             ENCR_DECR_CONTEXT *ctx, CK_BYTE   *out_data,
+                             CK_ULONG  *out_data_len );
+
+CK_RV aes_cfb_encrypt( SESSION  * sess, CK_BBOOL  length_only,
+                       ENCR_DECR_CONTEXT * ctx,  CK_BYTE  * in_data,
+                       CK_ULONG  in_data_len,    CK_BYTE  * out_data,
+                       CK_ULONG  * out_data_len, CK_ULONG   cfb_len );
+
+CK_RV aes_cfb_encrypt_update( SESSION  * sess,
+                        CK_BBOOL   length_only,  ENCR_DECR_CONTEXT    * ctx,
+                        CK_BYTE   * in_data, CK_ULONG   in_data_len,
+                        CK_BYTE   * out_data, CK_ULONG  * out_data_len,
+                        CK_ULONG  cfb_len);
+
+CK_RV aes_cfb_encrypt_final( SESSION  *sess, CK_BBOOL  length_only,
+                             ENCR_DECR_CONTEXT *ctx,  CK_BYTE  *out_data,
+                             CK_ULONG  *out_data_len, CK_ULONG  cfb_len);
+
+CK_RV aes_cfb_decrypt( SESSION * sess, CK_BBOOL  length_only, ENCR_DECR_CONTEXT * ctx,
+                       CK_BYTE * in_data, CK_ULONG  in_data_len, CK_BYTE * out_data,
+                       CK_ULONG* out_data_len,
+                       CK_ULONG  cfb_len );
+
+CK_RV aes_cfb_decrypt_update( SESSION  * sess, CK_BBOOL  length_only,
+                              ENCR_DECR_CONTEXT  * ctx, CK_BYTE  * in_data,
+                              CK_ULONG  in_data_len, CK_BYTE   * out_data,
+                              CK_ULONG  * out_data_len,
+                              CK_ULONG  cfb_len);
+
+CK_RV aes_cfb_decrypt_final( SESSION  *sess, CK_BBOOL length_only,
+                             ENCR_DECR_CONTEXT *ctx, CK_BYTE   *out_data,
+                             CK_ULONG  *out_data_len, CK_ULONG  cfb_len);
+
 // SHA-1 mechanisms
 //
 CK_RV  sha1_hash( SESSION  *sess,     CK_BBOOL  length_only,
@@ -1565,6 +1721,13 @@ CK_RV  sha1_hmac_verify( SESSION             * sess,
                          CK_BYTE             * signature,
                          CK_ULONG              sig_len );
 
+void sha1_init(DIGEST_CONTEXT *ctx);
+
+void sw_sha1_init(DIGEST_CONTEXT *ctx);
+
+CK_RV sw_sha1_hash(DIGEST_CONTEXT *ctx, CK_BYTE *in_data, CK_ULONG in_data_len,
+                   CK_BYTE *out_data, CK_ULONG *out_data_len);
+
 // SHA-256 mechanisms
 //
 CK_RV  sha2_hash( SESSION  *sess,     CK_BBOOL  length_only,
@@ -1592,6 +1755,54 @@ CK_RV  sha2_hmac_verify( SESSION             * sess,
                          CK_ULONG              in_data_len,
                          CK_BYTE             * signature,
                          CK_ULONG              sig_len );
+
+void sha2_init(DIGEST_CONTEXT *ctx);
+
+//SHA-3 mechanisms
+
+void sha3_init(DIGEST_CONTEXT *ctx);
+
+CK_RV sha3_hash(SESSION *sess, CK_BBOOL length_only, DIGEST_CONTEXT *ctx,
+                CK_BYTE *in_data, CK_ULONG in_data_len, CK_BYTE *out_data,
+                CK_ULONG *out_data_len);
+
+CK_RV sha3_hash_update(SESSION *sess, DIGEST_CONTEXT *ctx, CK_BYTE *in_data,
+                       CK_ULONG in_data_len);
+
+CK_RV sha3_hash_final(SESSION *sess, CK_BYTE length_only, DIGEST_CONTEXT *ctx,
+                      CK_BYTE *out_data, CK_ULONG *out_data_len);
+
+CK_RV sha3_hmac_sign(SESSION *sess, CK_BBOOL length_only,
+                     SIGN_VERIFY_CONTEXT *ctx, CK_BYTE *in_data,
+                     CK_ULONG in_data_len, CK_BYTE *out_data,
+                     CK_ULONG *out_data_len);
+
+CK_RV sha3_hmac_verify(SESSION *sess, SIGN_VERIFY_CONTEXT *ctx,
+                       CK_BYTE *in_data, CK_ULONG in_data_len,
+                       CK_BYTE *signature, CK_ULONG sig_len);
+
+//SHA-5 mechanisms
+
+void sha5_init(DIGEST_CONTEXT *ctx);
+
+CK_RV sha5_hash(SESSION *sess, CK_BBOOL length_only, DIGEST_CONTEXT *ctx,
+                CK_BYTE *in_data, CK_ULONG in_data_len, CK_BYTE *out_data,
+                CK_ULONG *out_data_len);
+
+CK_RV sha5_hash_update(SESSION *sess, DIGEST_CONTEXT *ctx, CK_BYTE *in_data,
+                       CK_ULONG in_data_len);
+
+CK_RV sha5_hash_final(SESSION *sess, CK_BYTE length_only, DIGEST_CONTEXT *ctx,
+                      CK_BYTE *out_data, CK_ULONG *out_data_len);
+
+CK_RV sha5_hmac_sign(SESSION *sess, CK_BBOOL length_only,
+                     SIGN_VERIFY_CONTEXT *ctx, CK_BYTE *in_data,
+                     CK_ULONG in_data_len, CK_BYTE *out_data,
+                     CK_ULONG *out_data_len);
+
+CK_RV sha5_hmac_verify(SESSION *sess, SIGN_VERIFY_CONTEXT *ctx,
+                       CK_BYTE *in_data, CK_ULONG in_data_len,
+                       CK_BYTE *signature, CK_ULONG sig_len);
 
 // MD2 mechanisms
 //
@@ -1668,6 +1879,74 @@ CK_RV  ckm_md5_final( MD5_CONTEXT  *context,
 
 void   ckm_md5_transform( CK_ULONG *buf, CK_ULONG *in );
 
+//Elliptic curve (EC) mechanisms
+//
+CK_RV ckm_ec_key_pair_gen( TEMPLATE  * publ_tmpl, TEMPLATE  * priv_tmpl );
+
+CK_RV ckm_ec_sign( CK_BYTE        *in_data,
+                   CK_ULONG       in_data_len,
+                   CK_BYTE        *out_data,
+                   CK_ULONG       *out_data_len,
+                   OBJECT         *key_obj );
+
+CK_RV ec_sign( SESSION              *sess,
+               CK_BBOOL             length_only,
+               SIGN_VERIFY_CONTEXT  *ctx,
+               CK_BYTE              *in_data,
+               CK_ULONG             in_data_len,
+               CK_BYTE              *out_data,
+               CK_ULONG             *out_data_len );
+
+CK_RV ckm_ec_verify( CK_BYTE         *in_data,
+                     CK_ULONG        in_data_len,
+                     CK_BYTE         *out_data,
+                     CK_ULONG        out_data_len,
+                     OBJECT          *key_obj );
+
+CK_RV ec_verify(SESSION               *sess,
+                SIGN_VERIFY_CONTEXT   *ctx,
+                CK_BYTE               *in_data,
+                CK_ULONG              in_data_len,
+                CK_BYTE               *signature,
+                CK_ULONG              sig_len );
+
+CK_RV ec_hash_sign( SESSION          * sess,
+                CK_BBOOL               length_only,
+                SIGN_VERIFY_CONTEXT  * ctx,
+                CK_BYTE              * in_data,
+                CK_ULONG               in_data_len,
+                CK_BYTE              * signature,
+                CK_ULONG             * sig_len );
+
+CK_RV ec_hash_sign_update( SESSION        * sess,
+                     SIGN_VERIFY_CONTEXT  * ctx,
+                     CK_BYTE              * in_data,
+                     CK_ULONG               in_data_len );
+
+CK_RV ec_hash_sign_final( SESSION        * sess,
+                    CK_BBOOL               length_only,
+                    SIGN_VERIFY_CONTEXT  * ctx,
+                    CK_BYTE              * signature,
+                    CK_ULONG             * sig_len );
+
+CK_RV ec_hash_verify( SESSION        * sess,
+                SIGN_VERIFY_CONTEXT  * ctx,
+                CK_BYTE              * in_data,
+                CK_ULONG               in_data_len,
+                CK_BYTE              * signature,
+                CK_ULONG               sig_len );
+
+CK_RV ec_hash_verify_update( SESSION        * sess,
+                       SIGN_VERIFY_CONTEXT  * ctx,
+                       CK_BYTE              * in_data,
+                       CK_ULONG               in_data_len );
+
+
+CK_RV ec_hash_verify_final( SESSION        * sess,
+                      SIGN_VERIFY_CONTEXT  * ctx,
+                      CK_BYTE              * signature,
+                      CK_ULONG               sig_len );
+
 
 // linked-list routines
 //
@@ -1689,6 +1968,21 @@ CK_RV _UnlockMutex( MUTEX *mutex );
 
 CK_RV attach_shm(CK_SLOT_ID slot_id, LW_SHM_TYPE **shmem);
 CK_RV detach_shm(void);
+
+//get keytype
+CK_RV get_keytype(CK_OBJECT_HANDLE hkey, CK_KEY_TYPE *keytype);
+CK_RV check_user_and_group();
+
+//lock and unlock routines
+CK_RV XProcLock(void);
+CK_RV XProcUnLock(void);
+void XProcLock_Init(void);
+void CloseXProcLock(void);
+
+//list mechanisms
+//
+void mechanism_list_transformations(CK_MECHANISM_TYPE_PTR mech_arr_ptr,
+                                    CK_ULONG_PTR count_ptr);
 
 // encryption manager routines
 //
@@ -2094,7 +2388,7 @@ CK_RV     object_flatten( OBJECT    * obj,
                           CK_BYTE  ** data,
                           CK_ULONG  * len );
 
-CK_BBOOL  object_free( OBJECT *obj );
+void object_free( OBJECT *obj );
 
 CK_RV     object_get_attribute_values( OBJECT       * obj,
                                        CK_ATTRIBUTE * pTemplate,

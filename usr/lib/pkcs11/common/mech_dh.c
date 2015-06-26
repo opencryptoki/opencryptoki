@@ -353,8 +353,8 @@ dh_pkcs_derive( SESSION           * sess,
       return(CKR_MECHANISM_PARAM_INVALID) ;
    }
       
-   // Check valid object handle on base_key
-   if (&base_key == NULL) {
+   // Check valid object handle pointer of derived key
+   if (handle == NULL) {
       TRACE_ERROR("%s\n", ock_err(ERR_KEY_HANDLE_INVALID));
       return CKR_KEY_HANDLE_INVALID;
    }

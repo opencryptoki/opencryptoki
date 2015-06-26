@@ -764,7 +764,6 @@ encr_mgr_init( SESSION           * sess,
 	 break;
      case CKM_AES_CTR:
 	 {
-	    CK_AES_CTR_PARAMS aesctr;
 	    if (mech->ulParameterLen != sizeof(CK_AES_CTR_PARAMS)){
 	       TRACE_ERROR("%s\n", ock_err(ERR_MECHANISM_PARAM_INVALID));
 	       return CKR_MECHANISM_PARAM_INVALID;

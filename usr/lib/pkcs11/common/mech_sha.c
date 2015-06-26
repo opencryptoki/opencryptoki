@@ -675,7 +675,6 @@ void sw_sha1_init(DIGEST_CONTEXT *ctx)
 CK_RV sw_sha1_hash(DIGEST_CONTEXT *ctx, CK_BYTE *in_data, CK_ULONG in_data_len,
 		   CK_BYTE *out_data, CK_ULONG *out_data_len)
 {
-	CK_RV rv;
    
 	if (!ctx || !out_data_len) {
 		TRACE_ERROR("%s received bad argument(s)\n", __FUNCTION__);
@@ -700,7 +699,6 @@ CK_RV sha1_hash(SESSION *sess, CK_BBOOL length_only, DIGEST_CONTEXT *ctx,
 		CK_BYTE *in_data, CK_ULONG in_data_len, CK_BYTE *out_data,
 		CK_ULONG *out_data_len)
 {
-	CK_RV rv;
    
 	if (!ctx || !out_data_len) {
 		TRACE_ERROR("%s received bad argument(s)\n", __FUNCTION__);
@@ -732,7 +730,6 @@ CK_RV sha2_hash(SESSION *sess, CK_BBOOL length_only, DIGEST_CONTEXT *ctx,
 		CK_BYTE *in_data, CK_ULONG in_data_len, CK_BYTE *out_data,
 		CK_ULONG *out_data_len)
 {
-	CK_RV rv;
 
 	if (!ctx || !out_data_len) {
 		TRACE_ERROR("%s received bad argument(s)\n", __FUNCTION__);
@@ -759,7 +756,6 @@ sha3_hash(SESSION *sess, CK_BBOOL length_only, DIGEST_CONTEXT *ctx,
 	  CK_BYTE *in_data, CK_ULONG in_data_len, CK_BYTE *out_data,
 	  CK_ULONG *out_data_len)
 {
-	CK_RV rv;
 
 	if (!ctx || !out_data_len) {
 		TRACE_ERROR("%s received bad argument(s)\n", __FUNCTION__);
@@ -786,7 +782,6 @@ CK_RV sha5_hash(SESSION *sess, CK_BBOOL length_only, DIGEST_CONTEXT *ctx,
 		CK_BYTE *in_data, CK_ULONG in_data_len, CK_BYTE *out_data,
 		CK_ULONG *out_data_len)
 {
-	CK_RV rv;
 
 	if (!ctx || !out_data_len) {
 		TRACE_ERROR("%s received bad argument(s)\n", __FUNCTION__);
@@ -1814,7 +1809,7 @@ void sha1_init(DIGEST_CONTEXT *ctx)
 		token_specific.t_sha_init(ctx);
 }
 
-sha2_init(DIGEST_CONTEXT *ctx)
+void sha2_init(DIGEST_CONTEXT *ctx)
 {
 	if (token_specific.t_sha2_init == NULL) {
 	        /* TODO: Software implementation here */
@@ -1827,7 +1822,7 @@ sha2_init(DIGEST_CONTEXT *ctx)
 	}
 }
 
-sha3_init(DIGEST_CONTEXT *ctx)
+void sha3_init(DIGEST_CONTEXT *ctx)
 {
 	if (token_specific.t_sha3_init == NULL) {
 		/* TODO: Software implementation here */
@@ -1840,7 +1835,7 @@ sha3_init(DIGEST_CONTEXT *ctx)
 	}
 }
 
-sha5_init(DIGEST_CONTEXT * ctx)
+void sha5_init(DIGEST_CONTEXT * ctx)
 {
 	if (token_specific.t_sha5_init == NULL) {
 		/* TODO: Software implementation here */

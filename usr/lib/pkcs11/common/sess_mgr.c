@@ -317,7 +317,6 @@
 SESSION *
 session_mgr_find( CK_SESSION_HANDLE handle )
 {
-   struct btnode *n;
    SESSION  * result = NULL;
    CK_RV      rc;
 
@@ -351,7 +350,6 @@ CK_RV
 session_mgr_new( CK_ULONG flags, CK_SLOT_ID slot_id, CK_SESSION_HANDLE_PTR phSession )
 {
    SESSION  * new_session  = NULL;
-   SESSION  * s            = NULL;
    CK_BBOOL   user_session = FALSE;
    CK_BBOOL   so_session   = FALSE;
    CK_BBOOL   pkcs_locked  = TRUE;
@@ -560,7 +558,6 @@ session_mgr_readonly_session_exists( void )
 CK_RV
 session_mgr_close_session( CK_SESSION_HANDLE handle )
 {
-   struct btnode *n;
    SESSION *sess;
    CK_RV      rc = CKR_OK;
 
@@ -709,8 +706,6 @@ CK_RV
 session_mgr_close_all_sessions( void )
 {
    CK_RV   rc = CKR_OK;
-   SESSION *sess;
-   unsigned long i;
 
    rc = MY_LockMutex( &sess_list_mutex );
    if (rc != CKR_OK){
@@ -759,9 +754,6 @@ session_login(void *node_value, unsigned long node_idx, void *p3)
 CK_RV
 session_mgr_login_all( CK_USER_TYPE user_type )
 {
-   struct btnode *n;
-   unsigned long i;
-   SESSION *s;
    CK_RV      rc = CKR_OK;
 
    rc = MY_LockMutex( &sess_list_mutex );
@@ -805,8 +797,6 @@ session_logout(void *node_value, unsigned long node_idx, void *p3)
 CK_RV
 session_mgr_logout_all( void )
 {
-   unsigned long i;
-   SESSION  * s    = NULL;
    CK_RV      rc   = CKR_OK;
 
    rc = MY_LockMutex( &sess_list_mutex );

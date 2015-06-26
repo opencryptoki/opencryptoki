@@ -443,7 +443,7 @@ CK_RV trace_initialize(void)
 		trace.level = num;
 		break;
 	default :
-		OCK_SYSLOG(LOG_WARNING, "Trace level %d is out of range. "
+		OCK_SYSLOG(LOG_WARNING, "Trace level %ld is out of range. "
 			   "Tracing disabled.", num);
 		return(CKR_FUNCTION_FAILED);
 	}

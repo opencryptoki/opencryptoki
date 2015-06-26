@@ -397,7 +397,8 @@ extern struct trace_handle_t trace;
 void set_trace(struct trace_handle_t t);
 CK_RV trace_initialize();
 void trace_finalize();
-void ock_traceit(trace_level_t level, const char *fmt, ...);
+void ock_traceit(trace_level_t level, const char *fmt, ...)
+     __attribute__ ((format(printf, 2, 3)));
 const char *ock_err(int num);
 
 #define TRACE_ERROR(fmt, ...)	ock_traceit(TRACE_LEVEL_ERROR, "[%s:%d %s] ERROR: " fmt, __FILE__, __LINE__, STDLL_NAME, ##__VA_ARGS__)

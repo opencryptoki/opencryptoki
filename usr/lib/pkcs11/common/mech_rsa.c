@@ -776,7 +776,7 @@ CK_RV rsa_oaep_crypt(SESSION *sess, CK_BBOOL length_only,
 		     CK_ULONG *out_data_len, CK_BBOOL encrypt)
 {
 	OBJECT *key_obj = NULL;
-	CK_ULONG hlen, modulus_bytes, mgf_mech;
+	CK_ULONG hlen, modulus_bytes;
 	CK_OBJECT_CLASS keyclass;
 	CK_BYTE hash[MAX_SHA_HASH_SIZE];
 	CK_RV rc;
@@ -1536,9 +1536,8 @@ CK_RV rsa_pss_verify(SESSION *sess, SIGN_VERIFY_CONTEXT *ctx, CK_BYTE *in_data,
 {
 	CK_RV rc;
 	OBJECT *key_obj = NULL;
-	CK_ULONG modulus_bytes, hlen;
+	CK_ULONG modulus_bytes;
 	CK_OBJECT_CLASS keyclass;
-	CK_RSA_PKCS_PSS_PARAMS_PTR pssParms = NULL;
 
 	rc = object_mgr_find_in_map1(ctx->key, &key_obj);
 	if (rc != CKR_OK) {

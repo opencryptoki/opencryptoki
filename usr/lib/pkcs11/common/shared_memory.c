@@ -19,8 +19,8 @@
 #include <fcntl.h>
 #include <unistd.h>
 #include <errno.h>
-#include <string.h>
 #include <stddef.h>
+#include <string.h>
 #include <syslog.h>
 
 /* For logging functions: */
