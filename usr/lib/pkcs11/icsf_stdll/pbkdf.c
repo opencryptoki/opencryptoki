@@ -545,7 +545,6 @@ pbkdf(CK_BYTE *password, CK_ULONG len, CK_BYTE *salt, CK_BYTE *dkey, CK_ULONG kl
 	unsigned char *result;
 	unsigned int r, num_of_blocks;
 	unsigned int count, hashlen;
-	unsigned char *ret;
 	CK_ULONG rc = CKR_OK;
 	int i, j, k;
 

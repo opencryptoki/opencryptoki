@@ -252,4 +252,15 @@ int icsf_hash_signverify(LDAP *ld, int *reason, struct icsf_object_record *key,
 			 const char *clear_text, unsigned long clear_text_len,
 			 char *sig, unsigned long *sig_len, char *chain_data,
 			 size_t *chain_data_len, int verify);
+
+int icsf_derive_multiple_keys(LDAP *ld, int *p_reason, CK_MECHANISM_PTR mech,
+			     struct icsf_object_record *key,
+			     CK_ATTRIBUTE_PTR attrs, CK_ULONG attrs_len,
+			     struct icsf_object_record *client_mac_handle,
+			     struct icsf_object_record *server_mac_handle,
+			     struct icsf_object_record *client_key_handle,
+			     struct icsf_object_record *server_key_handle,
+			     unsigned char *client_iv,
+			     unsigned char *server_iv);
+
 #endif

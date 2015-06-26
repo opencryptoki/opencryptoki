@@ -35,6 +35,7 @@
 #include "attributes.h"
 #include "../api/apiproto.h"
 #include "trace.h"
+#include "shared_memory.h"
 
 /* Default token attributes */
 CK_CHAR manuf[] = "IBM Corp.";
@@ -44,59 +45,57 @@ CK_CHAR label[] = "IBM OS PKCS#11   ";
 
 /* mechanisms provided by this token */
 MECH_LIST_ELEMENT mech_list[] = {
-	{CKM_DES_KEY_GEN, 8, 8,	CKF_HW|CKF_GENERATE},
-	{CKM_DES_ECB, 0, 0, CKF_HW|CKF_ENCRYPT|CKF_DECRYPT},
-	{CKM_DES_CBC, 0, 0, CKF_HW|CKF_ENCRYPT|CKF_DECRYPT},
-	{CKM_DES_CBC_PAD, 0, 0,	CKF_HW|CKF_ENCRYPT|CKF_DECRYPT|CKF_WRAP|
-				CKF_UNWRAP},
-	{CKM_DES3_ECB, 0, 0, CKF_HW|CKF_ENCRYPT|CKF_DECRYPT},
-	{CKM_DES3_CBC, 0, 0, CKF_HW|CKF_ENCRYPT|CKF_DECRYPT},
-	{CKM_DES3_CBC_PAD, 0, 0, CKF_HW|CKF_ENCRYPT|CKF_DECRYPT|CKF_WRAP|
-				 CKF_UNWRAP},
-	{CKM_DES3_KEY_GEN, 24, 24, CKF_HW|CKF_GENERATE},
-	{CKM_DES2_KEY_GEN, 24, 24, CKF_HW|CKF_GENERATE},
-	{CKM_RSA_PKCS_KEY_PAIR_GEN, 512, 4096, CKF_HW|CKF_GENERATE_KEY_PAIR},
-	{CKM_RSA_PKCS, 512, 4096, CKF_HW|CKF_ENCRYPT|CKF_DECRYPT|CKF_WRAP|
-				  CKF_UNWRAP|CKF_SIGN|CKF_VERIFY|
-				  CKF_SIGN_RECOVER|CKF_VERIFY_RECOVER},
-	{CKM_RSA_X_509, 512, 4096, CKF_HW|CKF_ENCRYPT|CKF_DECRYPT|CKF_SIGN|
-				   CKF_VERIFY|CKF_SIGN_RECOVER|
-				   CKF_VERIFY_RECOVER},
-	{CKM_MD5_RSA_PKCS, 512,	4096, CKF_HW|CKF_SIGN|CKF_VERIFY},
-	{CKM_SHA1_RSA_PKCS, 512, 4096, CKF_HW|CKF_SIGN|CKF_VERIFY},
-	{CKM_SHA256_RSA_PKCS, 512, 4096, CKF_HW|CKF_SIGN|CKF_VERIFY},
-	{CKM_SHA384_RSA_PKCS, 512, 4096, CKF_HW|CKF_SIGN|CKF_VERIFY},
-	{CKM_SHA512_RSA_PKCS, 512, 4096, CKF_HW|CKF_SIGN|CKF_VERIFY},
-	{CKM_SHA_1, 0, 0, CKF_HW|CKF_DIGEST},
-	{CKM_SHA_1_HMAC, 0, 0, CKF_HW|CKF_SIGN|CKF_VERIFY},
-	{CKM_SHA256_HMAC, 0, 0,	CKF_HW|CKF_SIGN|CKF_VERIFY},
-	{CKM_SHA384_HMAC, 0, 0,	CKF_HW|CKF_SIGN|CKF_VERIFY},
-	{CKM_SHA512_HMAC, 0, 0,	CKF_HW|CKF_SIGN|CKF_VERIFY},
-	{CKM_MD5, 0, 0,	CKF_DIGEST},
-	{CKM_MD5_HMAC, 0, 0, CKF_SIGN|CKF_VERIFY},
-	{CKM_AES_KEY_GEN, 16, 32, CKF_HW|CKF_GENERATE},
-	{CKM_AES_ECB, 16, 32, CKF_HW|CKF_ENCRYPT|CKF_DECRYPT},
-	{CKM_AES_CBC, 16, 32, CKF_HW|CKF_ENCRYPT|CKF_DECRYPT},
-	{CKM_AES_CBC_PAD, 16, 32, CKF_HW|CKF_ENCRYPT|CKF_DECRYPT|CKF_WRAP|
-				  CKF_UNWRAP},
-	{CKM_DH_PKCS_KEY_PAIR_GEN, 512,	2048, CKF_GENERATE_KEY_PAIR},
-	{CKM_DH_PKCS_DERIVE, 512, 2048,	CKF_DERIVE},
-	{CKM_DSA_KEY_PAIR_GEN, 	512, 2048, CKF_HW|CKF_GENERATE_KEY_PAIR},
-	{CKM_DSA_SHA1, 512, 4096, CKF_HW|CKF_SIGN|CKF_VERIFY},
-	{CKM_DSA, 512, 2048, CKF_HW|CKF_SIGN|CKF_VERIFY},
-	{CKM_ECDSA_SHA1, 512, 4096, CKF_HW|CKF_SIGN|CKF_VERIFY|CKF_EC_F_P|
-				    CKF_EC_NAMEDCURVE|CKF_EC_UNCOMPRESS},
-	{CKM_ECDSA, 160, 521, CKF_HW|CKF_SIGN|CKF_VERIFY|CKF_EC_F_P|
-			      CKF_EC_NAMEDCURVE|CKF_EC_UNCOMPRESS},
-	{CKM_EC_KEY_PAIR_GEN, 160, 521,	CKF_HW|CKF_GENERATE_KEY_PAIR|
-					CKF_EC_F_P|CKF_EC_NAMEDCURVE|
-					CKF_EC_UNCOMPRESS},
-	{CKM_SSL3_PRE_MASTER_KEY_GEN, 48, 48, CKF_HW|CKF_GENERATE},
-	{CKM_SSL3_MD5_MAC, 384,	384, CKF_SIGN|CKF_VERIFY},
-	{CKM_SSL3_SHA1_MAC, 384, 384, CKF_SIGN|CKF_VERIFY},
-	{CKM_SSL3_MASTER_KEY_DERIVE, 48, 48, CKF_DERIVE},
-	{CKM_SSL3_KEY_AND_MAC_DERIVE, 48, 48, CKF_DERIVE},
-	{CKM_TLS_KEY_AND_MAC_DERIVE, 48, 48, CKF_DERIVE},
+	{CKM_DES_KEY_GEN, {8, 8, CKF_HW|CKF_GENERATE}},
+	{CKM_DES_ECB, {0, 0, CKF_HW|CKF_ENCRYPT|CKF_DECRYPT}},
+	{CKM_DES_CBC, {0, 0, CKF_HW|CKF_ENCRYPT|CKF_DECRYPT}},
+	{CKM_DES_CBC_PAD, {0, 0, CKF_HW|CKF_ENCRYPT|CKF_DECRYPT|CKF_WRAP|
+			   CKF_UNWRAP}},
+	{CKM_DES3_ECB, {0, 0, CKF_HW|CKF_ENCRYPT|CKF_DECRYPT}},
+	{CKM_DES3_CBC, {0, 0, CKF_HW|CKF_ENCRYPT|CKF_DECRYPT}},
+	{CKM_DES3_CBC_PAD, {0, 0, CKF_HW|CKF_ENCRYPT|CKF_DECRYPT|CKF_WRAP|
+			    CKF_UNWRAP}},
+	{CKM_DES3_KEY_GEN, {24, 24, CKF_HW|CKF_GENERATE}},
+	{CKM_DES2_KEY_GEN, {24, 24, CKF_HW|CKF_GENERATE}},
+	{CKM_RSA_PKCS_KEY_PAIR_GEN, {512, 4096, CKF_HW|CKF_GENERATE_KEY_PAIR}},
+	{CKM_RSA_PKCS, {512, 4096, CKF_HW|CKF_ENCRYPT|CKF_DECRYPT|CKF_WRAP|
+			CKF_UNWRAP|CKF_SIGN|CKF_VERIFY|CKF_SIGN_RECOVER|
+			CKF_VERIFY_RECOVER}},
+	{CKM_RSA_X_509, {512, 4096, CKF_HW|CKF_ENCRYPT|CKF_DECRYPT|CKF_SIGN|
+			 CKF_VERIFY|CKF_SIGN_RECOVER|CKF_VERIFY_RECOVER}},
+	{CKM_MD5_RSA_PKCS, {512, 4096, CKF_HW|CKF_SIGN|CKF_VERIFY}},
+	{CKM_SHA1_RSA_PKCS, {512, 4096, CKF_HW|CKF_SIGN|CKF_VERIFY}},
+	{CKM_SHA256_RSA_PKCS, {512, 4096, CKF_HW|CKF_SIGN|CKF_VERIFY}},
+	{CKM_SHA384_RSA_PKCS, {512, 4096, CKF_HW|CKF_SIGN|CKF_VERIFY}},
+	{CKM_SHA512_RSA_PKCS, {512, 4096, CKF_HW|CKF_SIGN|CKF_VERIFY}},
+	{CKM_SHA_1, {0, 0, CKF_HW|CKF_DIGEST}},
+	{CKM_SHA_1_HMAC, {0, 0, CKF_HW|CKF_SIGN|CKF_VERIFY}},
+	{CKM_SHA256_HMAC, {0, 0, CKF_HW|CKF_SIGN|CKF_VERIFY}},
+	{CKM_SHA384_HMAC, {0, 0, CKF_HW|CKF_SIGN|CKF_VERIFY}},
+	{CKM_SHA512_HMAC, {0, 0, CKF_HW|CKF_SIGN|CKF_VERIFY}},
+	{CKM_MD5, {0, 0, CKF_DIGEST}},
+	{CKM_MD5_HMAC, {0, 0, CKF_SIGN|CKF_VERIFY}},
+	{CKM_AES_KEY_GEN, {16, 32, CKF_HW|CKF_GENERATE}},
+	{CKM_AES_ECB, {16, 32, CKF_HW|CKF_ENCRYPT|CKF_DECRYPT}},
+	{CKM_AES_CBC, {16, 32, CKF_HW|CKF_ENCRYPT|CKF_DECRYPT}},
+	{CKM_AES_CBC_PAD, {16, 32, CKF_HW|CKF_ENCRYPT|CKF_DECRYPT|CKF_WRAP|
+			   CKF_UNWRAP}},
+	{CKM_DH_PKCS_KEY_PAIR_GEN, {512, 2048, CKF_GENERATE_KEY_PAIR}},
+	{CKM_DH_PKCS_DERIVE, {512, 2048, CKF_DERIVE}},
+	{CKM_DSA_KEY_PAIR_GEN, {512, 2048, CKF_HW|CKF_GENERATE_KEY_PAIR}},
+	{CKM_DSA_SHA1, {512, 4096, CKF_HW|CKF_SIGN|CKF_VERIFY}},
+	{CKM_DSA, {512, 2048, CKF_HW|CKF_SIGN|CKF_VERIFY}},
+	{CKM_ECDSA_SHA1, {512, 4096, CKF_HW|CKF_SIGN|CKF_VERIFY|CKF_EC_F_P|
+			  CKF_EC_NAMEDCURVE|CKF_EC_UNCOMPRESS}},
+	{CKM_ECDSA, {160, 521, CKF_HW|CKF_SIGN|CKF_VERIFY|CKF_EC_F_P|
+		     CKF_EC_NAMEDCURVE|CKF_EC_UNCOMPRESS}},
+	{CKM_EC_KEY_PAIR_GEN, {160, 521, CKF_HW|CKF_GENERATE_KEY_PAIR|
+			       CKF_EC_F_P|CKF_EC_NAMEDCURVE|CKF_EC_UNCOMPRESS}},
+	{CKM_SSL3_PRE_MASTER_KEY_GEN, {48, 48, CKF_HW|CKF_GENERATE}},
+	{CKM_SSL3_MD5_MAC, {384, 384, CKF_SIGN|CKF_VERIFY}},
+	{CKM_SSL3_SHA1_MAC, {384, 384, CKF_SIGN|CKF_VERIFY}},
+	{CKM_SSL3_MASTER_KEY_DERIVE, {48, 48, CKF_DERIVE}},
+	{CKM_SSL3_KEY_AND_MAC_DERIVE, {48, 48, CKF_DERIVE}},
+	{CKM_TLS_KEY_AND_MAC_DERIVE, {48, 48, CKF_DERIVE}},
 };
 
 CK_ULONG mech_list_len = (sizeof(mech_list) / sizeof(MECH_LIST_ELEMENT));
@@ -278,7 +277,7 @@ CK_RV icsftok_init(CK_SLOT_ID slot_id, char *conf_name)
 
 	/* Check Slot ID */
 	if (slot_id < 0 || slot_id > MAX_SLOT_ID) {
-		TRACE_ERROR("Invalid slot ID: %d\n", slot_id);
+		TRACE_ERROR("Invalid slot ID: %lu\n", slot_id);
 		return CKR_FUNCTION_FAILED;
 	}
 
@@ -308,7 +307,7 @@ CK_RV token_specific_init_token_data(CK_SLOT_ID slot_id)
 
 	/* Check Slot ID */
 	if (slot_id < 0 || slot_id > MAX_SLOT_ID) {
-		TRACE_ERROR("Invalid slot ID: %d\n", slot_id);
+		TRACE_ERROR("Invalid slot ID: %lu\n", slot_id);
 		return CKR_FUNCTION_FAILED;
 	}
 
@@ -322,7 +321,7 @@ CK_RV token_specific_init_token_data(CK_SLOT_ID slot_id)
 
 	/* Check if data needs to be retrieved for this slot */
 	if (slot_data[slot_id]->initialized) {
-		TRACE_DEVEL("Slot data already initialized for slot %d. "
+		TRACE_DEVEL("Slot data already initialized for slot %lu. "
 			      "Skipping it\n", slot_id);
 		goto done;
 	}
@@ -330,13 +329,13 @@ CK_RV token_specific_init_token_data(CK_SLOT_ID slot_id)
 	/* Check config file */
 	conf_name = slot_data[slot_id]->conf_name;
 	if (!conf_name || !conf_name[0]) {
-		TRACE_ERROR("Missing config for slot %d.\n", slot_id);
+		TRACE_ERROR("Missing config for slot %lu.\n", slot_id);
 		return CKR_FUNCTION_FAILED;
 	}
 
 	TRACE_DEVEL("DEBUG: conf_name=\"%s\".\n", conf_name);
 	if (parse_config_file(conf_name, slot_id, &config)) {
-		TRACE_ERROR("Failed to parse file \"%s\" for slot %d.\n",
+		TRACE_ERROR("Failed to parse file \"%s\" for slot %lu.\n",
 			      conf_name, slot_id);
 		rc = CKR_FUNCTION_FAILED;
 		goto done;
@@ -369,7 +368,7 @@ CK_RV token_specific_load_token_data(CK_SLOT_ID slot_id, FILE *fh)
 
 	/* Check Slot ID */
 	if (slot_id < 0 || slot_id > MAX_SLOT_ID) {
-		TRACE_ERROR("Invalid slot ID: %d\n", slot_id);
+		TRACE_ERROR("Invalid slot ID: %lu\n", slot_id);
 		return CKR_FUNCTION_FAILED;
 	}
 
@@ -400,7 +399,7 @@ token_specific_save_token_data(CK_SLOT_ID slot_id, FILE *fh)
 
 	/* Check Slot ID */
 	if (slot_id < 0 || slot_id > MAX_SLOT_ID) {
-		TRACE_ERROR("Invalid slot ID: %d\n", slot_id);
+		TRACE_ERROR("Invalid slot ID: %lu\n", slot_id);
 		return CKR_FUNCTION_FAILED;
 	}
 
@@ -437,13 +436,13 @@ CK_RV token_specific_attach_shm(CK_SLOT_ID slot_id, LW_SHM_TYPE **shm)
 	char *shm_id = NULL;
 
 	if (slot_id < 0 || slot_id > MAX_SLOT_ID) {
-		TRACE_ERROR("Invalid slot ID: %d\n", slot_id);
+		TRACE_ERROR("Invalid slot ID: %lu\n", slot_id);
 		return CKR_FUNCTION_FAILED;
 	}
 
-	if (asprintf(&shm_id, "/icsf-%d", slot_id) < 0) {
+	if (asprintf(&shm_id, "/icsf-%lu", slot_id) < 0) {
 		TRACE_ERROR("Failed to allocate shared memory id "
-			      "for slot %d.\n", slot_id);
+			      "for slot %lu.\n", slot_id);
 		return CKR_HOST_MEMORY;
 	}
 	TRACE_DEVEL("Attaching to shared memory \"%s\".\n", shm_id);
@@ -483,7 +482,7 @@ CK_RV login(LDAP **ld, CK_SLOT_ID slot_id, CK_BYTE *pin, CK_ULONG pin_len,
 
 	/* Check Slot ID */
 	if (slot_id < 0 || slot_id > MAX_SLOT_ID) {
-		TRACE_ERROR("Invalid slot ID: %d\n", slot_id);
+		TRACE_ERROR("Invalid slot ID: %lu\n", slot_id);
 		return CKR_FUNCTION_FAILED;
 	}
 
@@ -555,7 +554,6 @@ CK_RV reset_token_data(CK_SLOT_ID slot_id, CK_CHAR_PTR pin, CK_ULONG pin_len)
 	CK_BYTE racf_pass[PIN_SIZE];
 	int mk_len = sizeof(mk);
 	int racf_pass_len = sizeof(racf_pass);
-	char token_name[sizeof(nv_token_data->token_info.label)];
 	CK_BYTE pk_dir_buf[PATH_MAX], fname[PATH_MAX];
 
 	/* Remove user's masterkey */
@@ -627,7 +625,6 @@ CK_RV destroy_objects(CK_SLOT_ID slot_id, CK_CHAR_PTR token_name,
 {
 	CK_RV rc = CKR_OK;
 	LDAP *ld = NULL;
-	size_t object_num = 0;
 	struct icsf_object_record records[16];
 	struct icsf_object_record *previous = NULL;
 	size_t i, records_len;
@@ -929,7 +926,7 @@ static CK_RV close_session(struct session_state *session_state)
 		if ((rc = icsf_destroy_object(session_state->ld, &reason,
 					      &mapping->icsf_object))) {
 			/* Log error */
-			TRACE_EBUG("Failed to remove icsf object: %s/%lu/%c",
+			TRACE_DEBUG("Failed to remove icsf object: %s/%lu/%c",
 				      mapping->icsf_object.token_name,
 				      mapping->icsf_object.sequence,
 				      mapping->icsf_object.id);
@@ -1045,12 +1042,11 @@ CK_RV icsftok_login(SESSION *sess, CK_USER_TYPE userType, CK_CHAR_PTR pPin,
 	char *ca_dir = NULL;
 	CK_SLOT_ID slot_id = sess->session_info.slotID;
 	struct session_state *session_state;
-	int sessions_locked = 0;
 	LDAP *ld;
 
 	/* Check Slot ID */
 	if (slot_id < 0 || slot_id > MAX_SLOT_ID) {
-		TRACE_ERROR("Invalid slot ID: %d\n", slot_id);
+		TRACE_ERROR("Invalid slot ID: %lu\n", slot_id);
 		return CKR_FUNCTION_FAILED;
 	}
 
@@ -1120,7 +1116,7 @@ CK_RV icsftok_login(SESSION *sess, CK_USER_TYPE userType, CK_CHAR_PTR pPin,
 
 	/* Check if using sasl or simple auth */
 	if (slot_data[slot_id]->mech == ICSF_CFG_MECH_SIMPLE) {
-		TRACE_INFO("Using SIMPLE auth with slot ID: %d\n", slot_id);
+		TRACE_INFO("Using SIMPLE auth with slot ID: %lu\n", slot_id);
 
 		/* get racf passwd */
 		rc = get_racf(master_key, AES_KEY_SIZE_256, racfpwd, &racflen);
@@ -1139,7 +1135,7 @@ CK_RV icsftok_login(SESSION *sess, CK_USER_TYPE userType, CK_CHAR_PTR pPin,
 
 	}
 	else {
-		TRACE_INFO("Using SASL auth with slot ID: %d\n", slot_id);
+		TRACE_INFO("Using SASL auth with slot ID: %lu\n", slot_id);
 
 		rc = icsf_sasl_login(&ld, slot_data[slot_id]->uri,
 				     slot_data[slot_id]->cert_file,
@@ -1170,11 +1166,8 @@ check_session_permissions(SESSION *sess, CK_ATTRIBUTE *attrs,
 			  CK_ULONG attrs_len)
 {
 	CK_RV rc = CKR_OK;
-	CK_ULONG i;
-
 	/* PKCS#11 default value for CKA_TOKEN is FALSE */
 	CK_BBOOL is_token_obj = FALSE;
-
 	/* ICSF default value for CKA_PRIVATE is TRUE */
 	CK_BBOOL is_priv_obj = TRUE;
 
@@ -1244,7 +1237,6 @@ CK_RV icsftok_copy_object(SESSION * session, CK_ATTRIBUTE_PTR attrs,
 {
 	CK_RV rc = CKR_OK;
 	struct session_state *session_state;
-	struct session_object *session_object;
 	struct icsf_object_mapping *mapping_dst = NULL;
 	struct icsf_object_mapping *mapping_src = NULL;
 	CK_ULONG node_number;
@@ -3476,7 +3468,7 @@ CK_RV icsftok_sign_update(SESSION *session, CK_BYTE *in_data,
 	CK_RV rc = CKR_OK;
 	int reason;
 	size_t siglen = 0;
-	CK_ULONG total, remain, out_len;
+	CK_ULONG total, remain, out_len = 0;
 	char *buffer = NULL;
 
 	/* Check session */
@@ -3920,7 +3912,7 @@ CK_RV icsftok_verify(SESSION *session, CK_BYTE *in_data, CK_ULONG in_data_len,
 	CK_BYTE chain_data[ICSF_CHAINING_DATA_LEN] = { 0, };
 	size_t chain_data_len = sizeof(chain_data);
 	CK_RV rc = CKR_OK;
-	int hlen, reason;
+	int reason;
 
 	if (!session || !ctx || !in_data || !signature) {
 		TRACE_ERROR("%s\n", ock_err(ERR_FUNCTION_FAILED));
@@ -4013,7 +4005,7 @@ CK_RV icsftok_verify_update(SESSION *session, CK_BYTE *in_data,
 	size_t chain_data_len = sizeof(chain_data);
 	CK_RV rc = CKR_OK;
 	int reason;
-	CK_ULONG total, remain, out_len;
+	CK_ULONG total, remain, out_len = 0;
 	char *buffer = NULL;
 
 	/* Check session */
@@ -4392,7 +4384,7 @@ CK_RV icsftok_derive_key(SESSION *session, CK_MECHANISM_PTR mech,
 	struct icsf_object_mapping *base_key_mapping;
 	CK_ULONG node_number;
 	char token_name[sizeof(nv_token_data->token_info.label)];
-	CK_SSL3_KEY_MAT_PARAMS *params;
+	CK_SSL3_KEY_MAT_PARAMS *params = {0};
 	int is_obj_locked = 0;
 	int reason = 0;
 	int i;
@@ -4465,7 +4457,7 @@ CK_RV icsftok_derive_key(SESSION *session, CK_MECHANISM_PTR mech,
 					&mappings[0]->icsf_object, attrs,
 					attrs_len);
 	else
-		rc = icsf_derive_multple_keys(session_state->ld, &reason,
+		rc = icsf_derive_multiple_keys(session_state->ld, &reason,
 					mech, &base_key_mapping->icsf_object,
 			 		attrs, attrs_len,
 					&mappings[0]->icsf_object,

@@ -1,3 +1,12 @@
+/*
+ * Licensed materials, Property of IBM Corp.
+ *
+ * OpenCryptoki ICSF token configuration tool.
+ *
+ * (C) COPYRIGHT International Business Machines Corp. 2012
+ *
+ */
+#define _GNU_SOURCE
 #include <ctype.h>
 #include <stdlib.h>
 #include <stdio.h>
@@ -137,7 +146,7 @@ get_start_slot(void)
 
 	fp = fopen(OCK_CONFIG, "r");
 	if (fp == NULL) {
-		fprintf(stderr, "open failed, line %s: %s\n",
+		fprintf(stderr, "open failed, line %d: %s\n",
 			__LINE__, strerror(errno));
                 return(-1);
 	}
@@ -189,7 +198,6 @@ add_token_config(const char *configname, struct icsf_token_record token, int slo
 {
 	FILE *tfp;
 	int rc = 0;
-	mode_t mode = S_IRUSR|S_IWUSR|S_IRGRP|S_IROTH;
 
 	/* create the token config file */
 	tfp = fopen(configname, "w");
@@ -236,7 +244,6 @@ config_add_slotinfo(int num_of_slots, struct icsf_token_record *tokens)
 {
 	struct stat statbuf;
 	FILE *fp;
-	mode_t mode = S_IRUSR|S_IWUSR|S_IRGRP|S_IROTH;
 	int start_slot = -1;
 	char configname[LINESIZ];
 	int i, rc;
@@ -266,7 +273,6 @@ config_add_slotinfo(int num_of_slots, struct icsf_token_record *tokens)
 	 *        from the ICSF and the BIND authentication info.
 	 */
 	for (i = 0; i < num_of_slots; i++) {
-		size_t offset = i * ICSF_TOKEN_RECORD_LEN;
 
 		/* create the config name using the token's name */
 		memset(configname, 0, sizeof(configname));
@@ -318,7 +324,7 @@ list_tokens(void)
 			return -1;
 
 		for (i = 0; i < tokenCount; i++) {
-			printf("Token #:      %lu\n"
+			printf("Token #:      %d\n"
 				"Token name:   %s\n"
 				"Manufacturer: %s\n"
 				"Model:        %s\n"
@@ -475,7 +481,6 @@ main(int argc, char **argv)
 {
 	char *racfpwd = NULL;
 	size_t racflen;
-	unsigned char *ret;
 	char *tokenname = NULL;
 	int c;
 	int rc = 0;
@@ -487,7 +492,7 @@ main(int argc, char **argv)
 			flags |= CFG_ADD;
 			if ((tokenname = strdup(optarg)) == NULL) {
 				rc = -1;
-				fprintf(stderr, "strdup failed: line %s\n",
+				fprintf(stderr, "strdup failed: line %d\n",
 					__LINE__);
 				goto cleanup;
 			}
@@ -499,34 +504,34 @@ main(int argc, char **argv)
 			flags |= CFG_BINDDN;
 			if ((binddn = strdup(optarg)) == NULL) {
 				rc = -1;
-				fprintf(stderr, "strdup failed: line %s\n",
+				fprintf(stderr, "strdup failed: line %d\n",
 					__LINE__);
 				goto cleanup;
 			}
 			break;
 		case 'c':
-			flags != CFG_CERT;
+			flags |= CFG_CERT;
 			if ((cert = strdup(optarg)) == NULL) {
 				rc = -1;
-				fprintf(stderr, "strdup failed: line %s\n",
+				fprintf(stderr, "strdup failed: line %d\n",
 					__LINE__);
 				goto cleanup;
 			}
 			break;
 		case 'k':
-			flags != CFG_PRIVKEY;
+			flags |= CFG_PRIVKEY;
 			if ((privkey = strdup(optarg)) == NULL) {
 				rc = -1;
-				fprintf(stderr, "strdup failed: line %s\n",
+				fprintf(stderr, "strdup failed: line %d\n",
 					__LINE__);
 				goto cleanup;
 			}
 			break;
 		case 'C':
-			flags != CFG_CACERT;
+			flags |= CFG_CACERT;
 			if ((cacert = strdup(optarg)) == NULL) {
 				rc = -1;
-				fprintf(stderr, "strdup failed: line %s\n",
+				fprintf(stderr, "strdup failed: line %d\n",
 					__LINE__);
 				goto cleanup;
 			}
@@ -535,7 +540,7 @@ main(int argc, char **argv)
 			flags |= CFG_URI;
 			if ((uri = strdup(optarg)) == NULL) {
 				rc = -1;
-				fprintf(stderr, "strdup failed: line %s\n",
+				fprintf(stderr, "strdup failed: line %d\n",
 					__LINE__);
 				goto cleanup;
 			}
@@ -544,7 +549,7 @@ main(int argc, char **argv)
 			flags |= CFG_MECH;
 			if ((mech = strdup(optarg)) == NULL) {
 				rc = -1;
-				fprintf(stderr, "strdup failed: line %s\n",
+				fprintf(stderr, "strdup failed: line %d\n",
 					__LINE__);
 				goto cleanup;
 			}
@@ -685,7 +690,7 @@ cleanup:
 	if (uri)
 		free(uri);
 	if (mech)
-		mech;
+		free(mech);
 	if (racfpwd)
 		free(racfpwd);
 	return rc;

@@ -2614,7 +2614,6 @@ int icsf_hmac_verify(LDAP *ld, int *reason, struct icsf_object_record *key,
 	char rule_array[2 * ICSF_RULE_ITEM_LEN];
 	BerElement *msg = NULL;
 	BerElement *result = NULL;
-	struct berval bvHmac = { 0UL, NULL };
 	struct berval bvChain = { 0UL, NULL };
 	const char *rule_alg;
 
@@ -3204,11 +3203,9 @@ icsf_derive_multple_keys(LDAP *ld, int *p_reason, CK_MECHANISM_PTR mech,
 			 struct icsf_object_record *server_mac_handle,
 			 struct icsf_object_record *client_key_handle,
 			 struct icsf_object_record *server_key_handle,
-			 struct icsf_object_record *client_iv,
-			 struct icsf_object_record *server_iv)
+			 unsigned char *client_iv, unsigned char *server_iv)
 {
 	int rc = 0;
-	int reason = 0;
 	const char *rule_alg;
 	char handle[ICSF_HANDLE_LEN];
 	char rule_array[ICSF_RULE_ITEM_LEN];

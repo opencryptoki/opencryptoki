@@ -463,7 +463,7 @@ parse_config_file(const char *conf_name, CK_SLOT_ID slot_id,
 	rc = yyparse();
 	fclose(yyin);
 	if (rc || out_rc) {
-		TRACE_ERROR("Failed to parser file \"%s\" (%d:%d).\n",
+		TRACE_ERROR("Failed to parser file \"%s\" (%lu:%d).\n",
 			      conf_name, rc, out_rc);
 		return CKR_FUNCTION_FAILED;
 	}
@@ -488,7 +488,7 @@ parse_config_file(const char *conf_name, CK_SLOT_ID slot_id,
 	#if DEBUG
 	{
 		size_t i;
-		TRACE_DEVEL("ICSF configs for slot %d.\n", slot_id);
+		TRACE_DEVEL("ICSF configs for slot %lu.\n", slot_id);
 		for (i = 0; i < refs_len; i++) {
 			TRACE_DEVEL(" %s = \"%s\"\n", refs[i].key,
 				      refs[i].addr);
