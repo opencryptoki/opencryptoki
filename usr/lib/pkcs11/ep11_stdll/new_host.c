@@ -312,6 +312,7 @@
 #include "tok_spec_struct.h"
 #include "pkcs32.h"
 #include "trace.h"
+#include "ep11_specific.h"
 
 #include "../api/apiproto.h"
 
@@ -381,7 +382,6 @@ CK_RV valid_mech(CK_MECHANISM_PTR m, CK_FLAGS f)
 CK_RV ST_Initialize(void **FunctionList, CK_SLOT_ID SlotNumber, char *conf_name,
 		    struct trace_handle_t t)
 {
-	int i;
 	CK_RV rc = CKR_OK;
 
 	if ((rc = check_user_and_group()) != CKR_OK)
@@ -561,7 +561,7 @@ CK_RV SC_GetTokenInfo(CK_SLOT_ID sid, CK_TOKEN_INFO_PTR pInfo)
 	strftime((char *)pInfo->utcTime, 16, "%X", localtime(&now));
 
 done:
-	TRACE_INFO("C_GetTokenInfo: rc = 0x%08x\n", rc);
+	TRACE_INFO("C_GetTokenInfo: rc = 0x%08lx\n", rc);
 	return rc;
 }
 
@@ -609,7 +609,7 @@ CK_RV SC_GetMechanismList(CK_SLOT_ID sid, CK_MECHANISM_TYPE_PTR pMechList,
 		mechanism_list_transformations(pMechList, count);
 	}
 out:
-	TRACE_INFO("C_GetMechanismList:  rc = 0x%08x, # mechanisms: %d\n",
+	TRACE_INFO("C_GetMechanismList:  rc = 0x%08lx, # mechanisms: %lu\n",
 		    rc, *count);
 	return rc;
 }
@@ -640,7 +640,7 @@ CK_RV SC_GetMechanismInfo(CK_SLOT_ID sid, CK_MECHANISM_TYPE type,
 
 	rc = ep11tok_get_mechanism_info(type, pInfo);
 out:
-	TRACE_INFO("C_GetMechanismInfo: rc = 0x%08x, mech type = 0x%08x\n",
+	TRACE_INFO("C_GetMechanismInfo: rc = 0x%08lx, mech type = 0x%08lx\n",
 		     rc, type);
 
 	return rc;
@@ -657,7 +657,6 @@ CK_RV SC_InitToken(CK_SLOT_ID sid, CK_CHAR_PTR pPin, CK_ULONG ulPinLen,
 {
 	CK_RV rc = CKR_OK;
 	CK_BYTE hash_sha[SHA1_HASH_SIZE];
-	char *pk_full_path = NULL;
 
 	if (initialized == FALSE) {
 		TRACE_ERROR("%s\n", ock_err(ERR_CRYPTOKI_NOT_INITIALIZED));
@@ -700,7 +699,7 @@ CK_RV SC_InitToken(CK_SLOT_ID sid, CK_CHAR_PTR pPin, CK_ULONG ulPinLen,
 		goto done;
 	}
 done:
-	TRACE_INFO("C_InitToken: rc = 0x%08x\n", rc);
+	TRACE_INFO("C_InitToken: rc = 0x%08lx\n", rc);
 	return rc;
 }
 
@@ -712,7 +711,6 @@ CK_RV SC_InitPIN(ST_SESSION_HANDLE *sSession, CK_CHAR_PTR pPin,
 	CK_BYTE hash_sha[SHA1_HASH_SIZE];
 	CK_BYTE hash_md5[MD5_HASH_SIZE];
 	CK_RV rc = CKR_OK;
-	CK_FLAGS_32 *flags = NULL;
 
 	if (initialized == FALSE) {
 		TRACE_ERROR("%s\n", ock_err(ERR_CRYPTOKI_NOT_INITIALIZED));
@@ -774,7 +772,7 @@ CK_RV SC_InitPIN(ST_SESSION_HANDLE *sSession, CK_CHAR_PTR pPin,
 		TRACE_DEVEL("Failed to save user's masterkey.\n");
 
 done:
-	TRACE_INFO("C_InitPin: rc = 0x%08x, session = %d\n",
+	TRACE_INFO("C_InitPin: rc = 0x%08lx, session = %lu\n",
 		   rc, sSession->sessionh);
 	return rc;
 }
@@ -910,7 +908,7 @@ CK_RV SC_SetPIN(ST_SESSION_HANDLE *sSession, CK_CHAR_PTR pOldPin,
 		rc = CKR_SESSION_READ_ONLY;
 	}
 done:
-	TRACE_INFO("C_SetPin: rc = 0x%08x, session = %d\n",
+	TRACE_INFO("C_SetPin: rc = 0x%08lx, session = %lu\n",
 		   rc, sSession->sessionh);
 	return rc;
 }
@@ -963,7 +961,7 @@ done:
 	if (locked)
 		MY_UnlockMutex(&pkcs_mutex);
 
-	TRACE_INFO("C_OpenSession: rc = 0x%08x\n", rc);
+	TRACE_INFO("C_OpenSession: rc = 0x%08lx\n", rc);
 	return rc;
 }
 
@@ -979,7 +977,7 @@ CK_RV SC_CloseSession(ST_SESSION_HANDLE *sSession)
 
 	rc = session_mgr_close_session(sSession->sessionh);
 done:
-	TRACE_INFO("C_CloseSession: rc = 0x%08x  sess = %d\n",
+	TRACE_INFO("C_CloseSession: rc = 0x%08lx  sess = %lu\n",
 		   rc, sSession->sessionh);
 	return rc;
 }
@@ -997,7 +995,7 @@ CK_RV SC_CloseAllSessions(CK_SLOT_ID sid)
 	if (rc != CKR_OK)
 		TRACE_DEVEL("session_mgr_close_all_sessions() failed.\n");
 done:
-	TRACE_INFO("C_CloseAllSessions: rc = 0x%08x slot = %d\n", rc, sid);
+	TRACE_INFO("C_CloseAllSessions: rc = 0x%08lx slot = %lu\n", rc, sid);
 	return rc;
 }
 
@@ -1028,7 +1026,7 @@ CK_RV SC_GetSessionInfo(ST_SESSION_HANDLE *sSession, CK_SESSION_INFO_PTR pInfo)
 	memcpy(pInfo, &sess->session_info, sizeof(CK_SESSION_INFO));
 
 done:
-	TRACE_INFO("C_GetSessionInfo: session = %d\n", sSession->sessionh);
+	TRACE_INFO("C_GetSessionInfo: session = %lu\n", sSession->sessionh);
 	return rc;
 }
 
@@ -1067,7 +1065,7 @@ CK_RV SC_GetOperationState(ST_SESSION_HANDLE *sSession,
 	if (rc != CKR_OK)
 		TRACE_DEVEL("session_mgr_get_op_state() failed.\n");
 done:
-	TRACE_INFO("C_GetOperationState: rc = 0x%08x, session = %d\n",
+	TRACE_INFO("C_GetOperationState: rc = 0x%08lx, session = %lu\n",
 		   rc, sSession->sessionh);
 	return rc;
 }
@@ -1107,7 +1105,7 @@ CK_RV SC_SetOperationState(ST_SESSION_HANDLE *sSession,
 	if (rc != CKR_OK)
 		TRACE_DEVEL("session_mgr_set_op_state() failed.\n");
 done:
-	TRACE_INFO("C_SetOperationState: rc = 0x%08x, session = %d\n",
+	TRACE_INFO("C_SetOperationState: rc = 0x%08lx, session = %lu\n",
 		   rc, sSession->sessionh);
 	return rc;
 }
@@ -1266,7 +1264,7 @@ done:
 			TRACE_DEVEL("session_mgr_login_all failed.\n");
 	}
 
-	TRACE_INFO("C_Login: rc = 0x%08x\n", rc);
+	TRACE_INFO("C_Login: rc = 0x%08lx\n", rc);
 	save_token_data(sess->session_info.slotID);
 	MY_UnlockMutex(&login_mutex);
 	return rc;
@@ -1308,7 +1306,7 @@ CK_RV SC_Logout(ST_SESSION_HANDLE *sSession)
 	object_mgr_purge_private_token_objects();
 
 done:
-	TRACE_INFO("C_Logout: rc = 0x%08x\n", rc);
+	TRACE_INFO("C_Logout: rc = 0x%08lx\n", rc);
 	return rc;
 }
 
@@ -1317,7 +1315,6 @@ CK_RV SC_CreateObject(ST_SESSION_HANDLE *sSession, CK_ATTRIBUTE_PTR pTemplate,
 		      CK_ULONG ulCount, CK_OBJECT_HANDLE_PTR phObject)
 {
 	SESSION *sess = NULL;
-	CK_ULONG i;
 	CK_RV rc = CKR_OK;
 
 	if (initialized == FALSE) {
@@ -1344,17 +1341,19 @@ CK_RV SC_CreateObject(ST_SESSION_HANDLE *sSession, CK_ATTRIBUTE_PTR pTemplate,
 		TRACE_DEVEL("object_mgr_add() failed.\n");
 
 done:
-	TRACE_INFO("C_CreateObject: rc = 0x%08x\n", rc);
+	TRACE_INFO("C_CreateObject: rc = 0x%08lx\n", rc);
 
 #ifdef DEBUG
+	int i;
+
 	for (i = 0; i < ulCount; i++) {
 		if (pTemplate[i].type == CKA_CLASS) {
-			TRACE_DEBUG("Object Type:  0x%02x\n",
+			TRACE_DEBUG("Object Type:  0x%02lx\n",
 				      *((CK_ULONG *) pTemplate[i].pValue));
 		}
 	}
 	if (rc == CKR_OK)
-		TRACE_DEBUG("Handle:  %d\n", *phObject);
+		TRACE_DEBUG("Handle: %lu\n", *phObject);
 #endif
 
 	return rc;
@@ -1393,8 +1392,8 @@ CK_RV  SC_CopyObject(ST_SESSION_HANDLE *sSession, CK_OBJECT_HANDLE hObject,
 		TRACE_DEVEL("object_mgr_copy() failed\n");
 
 done:
-	TRACE_INFO("C_CopyObject:rc = 0x%08x,old handle = %d,new handle = %d\n",
-		   rc, hObject, *phNewObject);
+	TRACE_INFO("C_CopyObject:rc = 0x%08lx,old handle = %lu, "
+		   "new handle = %lu\n", rc, hObject, *phNewObject);
 	return rc;
 }
 
@@ -1427,7 +1426,7 @@ CK_RV SC_DestroyObject(ST_SESSION_HANDLE *sSession, CK_OBJECT_HANDLE hObject)
 	if (rc != CKR_OK)
 		TRACE_DEVEL("*_destroy_object() failed\n");
 done:
-	TRACE_INFO("C_DestroyObject: rc = 0x%08x, handle = %d\n", rc, hObject);
+	TRACE_INFO("C_DestroyObject: rc = 0x%08lx, handle = %lu\n", rc, hObject);
 	return rc;
 }
 
@@ -1456,7 +1455,7 @@ CK_RV SC_GetObjectSize(ST_SESSION_HANDLE *sSession, CK_OBJECT_HANDLE hObject,
 		TRACE_ERROR("object_mgr_get_object_size() failed.\n");
 
 done:
-	TRACE_INFO("C_GetObjectSize: rc = 0x%08x, handle = %d\n", rc, hObject);
+	TRACE_INFO("C_GetObjectSize: rc = 0x%08lx, handle = %lu\n", rc, hObject);
 	return rc;
 }
 
@@ -1466,9 +1465,6 @@ CK_RV SC_GetAttributeValue(ST_SESSION_HANDLE *sSession,
 			   CK_ULONG ulCount)
 {
 	SESSION *sess = NULL;
-	CK_ATTRIBUTE *attr = NULL;
-	CK_BYTE *ptr = NULL;
-	CK_ULONG i;
 	CK_RV rc = CKR_OK;
 
 	if (initialized == FALSE) {
@@ -1490,15 +1486,19 @@ CK_RV SC_GetAttributeValue(ST_SESSION_HANDLE *sSession,
 		TRACE_DEVEL("obj_mgr_get_attribute_value() failed.\n");
 
 done:
-	TRACE_INFO("C_GetAttributeValue: rc = 0x%08x, handle = %d\n",
+	TRACE_INFO("C_GetAttributeValue: rc = 0x%08lx, handle = %lu\n",
 		    rc, hObject);
 
 #ifdef DEBUG
+	CK_ATTRIBUTE *attr = NULL;
+	CK_BYTE *ptr = NULL;
+	int i;
+
 	attr = pTemplate;
 	for (i = 0; i < ulCount; i++, attr++) {
 		ptr = (CK_BYTE *)attr->pValue;
 
-		TRACE_DEBUG("%d: Attribute type: 0x%08x, Value Length: %d\n",
+		TRACE_DEBUG("%d: Attribute type: 0x%08lx, Value Length: %lu\n",
 			    i, attr->type, attr->ulValueLen);
 
 		if (attr->ulValueLen != (CK_ULONG)(-1) && (ptr != NULL))
@@ -1515,8 +1515,6 @@ CK_RV SC_SetAttributeValue(ST_SESSION_HANDLE *sSession,
 			   CK_ULONG ulCount)
 {
 	SESSION *sess = NULL;
-	CK_ATTRIBUTE *attr = NULL;
-	CK_ULONG i;
 	CK_RV rc = CKR_OK;
 
 	if (initialized == FALSE) {
@@ -1537,14 +1535,17 @@ CK_RV SC_SetAttributeValue(ST_SESSION_HANDLE *sSession,
 		TRACE_DEVEL("obj_mgr_set_attribute_values() failed.\n");
 
 done:
-	TRACE_INFO("C_SetAttributeValue: rc = 0x%08x, handle = %d\n",
+	TRACE_INFO("C_SetAttributeValue: rc = 0x%08lx, handle = %lu\n",
 		   rc, hObject);
 #ifdef DEBUG
+	CK_ATTRIBUTE *attr = NULL;
+	int i;
+
 	attr = pTemplate;
 	for (i = 0; i < ulCount; i++, attr++) {
 		CK_BYTE *ptr = (CK_BYTE *)attr->pValue;
 
-		TRACE_DEBUG("%d: Attribute type: 0x%08x, Value Length: %d\n",
+		TRACE_DEBUG("%d: Attribute type: 0x%08lx, Value Length: %lu\n",
 			     i, attr->type, attr->ulValueLen);
 
 		if (attr->ulValueLen != (CK_ULONG)(-1) && (ptr != NULL))
@@ -1561,8 +1562,6 @@ CK_RV SC_FindObjectsInit(ST_SESSION_HANDLE *sSession,
 			 CK_ATTRIBUTE_PTR pTemplate, CK_ULONG ulCount)
 {
 	SESSION *sess = NULL;
-	CK_ATTRIBUTE *attr = NULL;
-	CK_ULONG i;
 	CK_RV rc = CKR_OK;
 
 	if (initialized == FALSE) {
@@ -1593,14 +1592,17 @@ CK_RV SC_FindObjectsInit(ST_SESSION_HANDLE *sSession,
 	rc = object_mgr_find_init(sess, pTemplate, ulCount);
 
 done:
-	TRACE_INFO("C_FindObjectsInit:  rc = 0x%08x\n", rc);
+	TRACE_INFO("C_FindObjectsInit:  rc = 0x%08lx\n", rc);
 
 #ifdef DEBUG
+	CK_ATTRIBUTE *attr = NULL;
+	int i;
+
 	attr = pTemplate;
 	for (i = 0; i < ulCount; i++, attr++) {
 		CK_BYTE *ptr = (CK_BYTE *)attr->pValue;
 
-		TRACE_DEBUG("%d: Attribute type: 0x%08x, Value Length: %d\n",
+		TRACE_DEBUG("%d: Attribute type: 0x%08lx, Value Length: %lu\n",
 			    i, attr->type, attr->ulValueLen);
 
 		if (attr->ulValueLen != (CK_ULONG)(-1) && (ptr != NULL))
@@ -1660,7 +1662,7 @@ CK_RV SC_FindObjects(ST_SESSION_HANDLE *sSession, CK_OBJECT_HANDLE_PTR phObject,
 	rc = CKR_OK;
 
 done:
-	TRACE_INFO("C_FindObjects: rc = 0x%08x, returned %d objects\n",
+	TRACE_INFO("C_FindObjects: rc = 0x%08lx, returned %lu objects\n",
 		    rc, count);
 	return rc;
 }
@@ -1701,7 +1703,7 @@ CK_RV SC_FindObjectsFinal(ST_SESSION_HANDLE *sSession)
 	rc = CKR_OK;
 
 done:
-	TRACE_INFO("C_FindObjectsFinal: rc = 0x%08x\n", rc);
+	TRACE_INFO("C_FindObjectsFinal: rc = 0x%08lx\n", rc);
 	return rc;
 }
 
@@ -1750,7 +1752,7 @@ CK_RV SC_EncryptInit(ST_SESSION_HANDLE *sSession, CK_MECHANISM_PTR pMechanism,
 	rc = ep11tok_encrypt_init(sess, pMechanism, hKey);
 
 done:
-	TRACE_INFO("C_EncryptInit: rc = 0x%08x, sess = %d, mech = 0x%x\n",
+	TRACE_INFO("C_EncryptInit: rc = 0x%08lx, sess = %ld, mech = 0x%lx\n",
 		   rc, (sess == NULL) ? -1 : (CK_LONG)sess->handle,
 		   pMechanism->mechanism);
 
@@ -1803,7 +1805,7 @@ done:
 	if (rc != CKR_BUFFER_TOO_SMALL && (rc != CKR_OK || length_only != TRUE))
 		encr_mgr_cleanup( &sess->encr_ctx );
 
-	TRACE_INFO("C_Encrypt: rc = 0x%08x, sess = %d, amount = %d\n",
+	TRACE_INFO("C_Encrypt: rc = 0x%08lx, sess = %ld, amount = %lu\n",
 		   rc, (sess == NULL) ? -1 : (CK_LONG)sess->handle, ulDataLen);
 
 	return rc;
@@ -1815,7 +1817,6 @@ CK_RV SC_EncryptUpdate(ST_SESSION_HANDLE *sSession, CK_BYTE_PTR pPart,
 		       CK_ULONG_PTR pulEncryptedPartLen)
 {
 	SESSION *sess = NULL;
-	CK_BBOOL length_only = FALSE;
 	CK_RV rc = CKR_OK;
 
 	if (initialized == FALSE) {
@@ -1843,9 +1844,6 @@ CK_RV SC_EncryptUpdate(ST_SESSION_HANDLE *sSession, CK_BYTE_PTR pPart,
 		goto done;
 	}
 
-	if (!pEncryptedPart)
-		length_only = TRUE;
-
 	rc = ep11tok_encrypt_update(sess, pPart, ulPartLen, pEncryptedPart,
 				    pulEncryptedPartLen);
 	if (rc != CKR_OK)
@@ -1855,7 +1853,7 @@ done:
 	if (rc != CKR_OK && rc != CKR_BUFFER_TOO_SMALL)
 		encr_mgr_cleanup( &sess->encr_ctx );
 
-	TRACE_INFO("C_EncryptUpdate: rc = 0x%08x, sess = %d, amount = %d\n",
+	TRACE_INFO("C_EncryptUpdate: rc = 0x%08lx, sess = %ld, amount = %lu\n",
 		   rc, (sess == NULL) ? -1 : (CK_LONG) sess->handle, ulPartLen);
 
 	return rc;
@@ -1907,7 +1905,7 @@ done:
 	if (rc != CKR_BUFFER_TOO_SMALL && (rc != CKR_OK || length_only != TRUE))
 		encr_mgr_cleanup( &sess->encr_ctx );
 
-	TRACE_INFO("C_EncryptFinal: rc = 0x%08x, sess = %d\n",
+	TRACE_INFO("C_EncryptFinal: rc = 0x%08lx, sess = %ld\n",
 		   rc, (sess == NULL) ? -1 : (CK_LONG) sess->handle);
 
 	return rc;
@@ -1960,7 +1958,7 @@ CK_RV SC_DecryptInit(ST_SESSION_HANDLE *sSession, CK_MECHANISM_PTR pMechanism,
 		TRACE_DEVEL("ep11tok_decrypt_init() failed.\n");
 
 done:
-	TRACE_INFO("C_DecryptInit: rc = 0x%08x, sess = %d, mech = 0x%x\n",
+	TRACE_INFO("C_DecryptInit: rc = 0x%08lx, sess = %ld, mech = 0x%lx\n",
 		   rc, (sess == NULL) ? -1 : (CK_LONG)sess->handle,
 		   pMechanism->mechanism);
 
@@ -2013,7 +2011,7 @@ done:
 	if (rc != CKR_BUFFER_TOO_SMALL && (rc != CKR_OK || length_only != TRUE))
 		decr_mgr_cleanup( &sess->decr_ctx );
 
-	TRACE_INFO("C_Decrypt: rc = 0x%08x, sess = %d, amount = %d\n",
+	TRACE_INFO("C_Decrypt: rc = 0x%08lx, sess = %ld, amount = %lu\n",
 		   rc, (sess == NULL) ? -1 : (CK_LONG)sess->handle,
 		   ulEncryptedDataLen);
 
@@ -2026,7 +2024,6 @@ CK_RV SC_DecryptUpdate(ST_SESSION_HANDLE *sSession, CK_BYTE_PTR pEncryptedPart,
 		       CK_ULONG_PTR pulPartLen)
 {
 	SESSION *sess = NULL;
-	CK_BBOOL length_only = FALSE;
 	CK_RV rc = CKR_OK;
 
 	if (initialized == FALSE) {
@@ -2054,9 +2051,6 @@ CK_RV SC_DecryptUpdate(ST_SESSION_HANDLE *sSession, CK_BYTE_PTR pEncryptedPart,
 		goto done;
 	}
 
-	if (!pPart)
-		length_only = TRUE;
-
 	rc = ep11tok_decrypt_update(sess, pEncryptedPart, ulEncryptedPartLen,
 				    pPart, pulPartLen);
 	if (rc != CKR_OK)
@@ -2066,7 +2060,7 @@ done:
 	if (rc != CKR_OK && rc != CKR_BUFFER_TOO_SMALL)
 		decr_mgr_cleanup( &sess->decr_ctx );
 
-	TRACE_INFO("C_DecryptUpdate: rc = 0x%08x, sess = %d, amount = %d\n",
+	TRACE_INFO("C_DecryptUpdate: rc = 0x%08lx, sess = %ld, amount = %lu\n",
 		   rc, (sess == NULL) ? -1 : (CK_LONG)sess->handle,
 		   ulEncryptedPartLen);
 
@@ -2116,7 +2110,7 @@ done:
 	if (rc != CKR_BUFFER_TOO_SMALL && (rc != CKR_OK || length_only != TRUE))
 		decr_mgr_cleanup( &sess->decr_ctx );
 
-	TRACE_INFO("C_DecryptFinal:  rc = 0x%08x, sess = %d, amount = %d\n",
+	TRACE_INFO("C_DecryptFinal:  rc = 0x%08lx, sess = %ld, amount = %lu\n",
 		   rc, (sess == NULL) ? -1 : (CK_LONG)sess->handle,
 		   *pulLastPartLen);
 
@@ -2168,7 +2162,7 @@ CK_RV SC_DigestInit(ST_SESSION_HANDLE *sSession, CK_MECHANISM_PTR pMechanism)
 		TRACE_DEVEL("digest_mgr_init() failed.\n");
 
 done:
-	TRACE_INFO("C_DigestInit: rc = 0x%08x, sess = %d, mech = %x\n",
+	TRACE_INFO("C_DigestInit: rc = 0x%08lx, sess = %ld, mech = %lu\n",
 		   rc, (sess == NULL)?-1:(CK_LONG)sess->handle,
 		   pMechanism->mechanism);
 
@@ -2221,7 +2215,7 @@ CK_RV SC_Digest(ST_SESSION_HANDLE *sSession, CK_BYTE_PTR pData,
 		TRACE_DEVEL("digest_mgr_digest() failed.\n");
 
 done:
-	TRACE_INFO("C_Digest: rc = 0x%08x, sess = %d, datalen = %d\n",
+	TRACE_INFO("C_Digest: rc = 0x%08lx, sess = %ld, datalen = %lu\n",
 		   rc, (sess == NULL)?-1:(CK_LONG)sess->handle, ulDataLen);
 
 	return rc;
@@ -2267,7 +2261,7 @@ CK_RV SC_DigestUpdate(ST_SESSION_HANDLE *sSession, CK_BYTE_PTR pPart,
 			TRACE_DEVEL("digest_mgr_digest_update() failed.\n");
 	}
 done:
-	TRACE_INFO("C_DigestUpdate: rc = %08x, sess = %d, datalen = %d\n",
+	TRACE_INFO("C_DigestUpdate: rc = %08lx, sess = %ld, datalen = %lu\n",
 		   rc, (sess == NULL)?-1:(CK_LONG)sess->handle, ulPartLen);
 
 	return rc;
@@ -2303,7 +2297,7 @@ CK_RV SC_DigestKey(ST_SESSION_HANDLE *sSession, CK_OBJECT_HANDLE hKey)
 		TRACE_DEVEL("digest_mgr_digest_key() failed.\n");
 
 done:
-	TRACE_INFO("C_DigestKey: rc = %08x, sess = %d, key = %d\n",
+	TRACE_INFO("C_DigestKey: rc = %08lx, sess = %ld, key = %lu\n",
 		   rc, (sess == NULL)?-1:(CK_LONG)sess->handle, hKey);
 
 	return rc;
@@ -2351,7 +2345,7 @@ CK_RV SC_DigestFinal(ST_SESSION_HANDLE *sSession, CK_BYTE_PTR pDigest,
 		TRACE_ERROR("digest_mgr_digest_final() failed.\n");
 
 done:
-	TRACE_INFO("C_DigestFinal: rc = %08x, sess = %d\n",
+	TRACE_INFO("C_DigestFinal: rc = %08lx, sess = %ld\n",
 		   rc, (sess == NULL)?-1:(CK_LONG)sess->handle);
 
 	return rc;
@@ -2404,7 +2398,7 @@ CK_RV SC_SignInit(ST_SESSION_HANDLE *sSession, CK_MECHANISM_PTR pMechanism,
 		TRACE_DEVEL("*_sign_init() failed.\n");
 
 done:
-	TRACE_INFO("C_SignInit: rc = %08x, sess = %d, mech = %x\n",
+	TRACE_INFO("C_SignInit: rc = %08lx, sess = %ld, mech = %lx\n",
 		   rc, (sess == NULL)?-1:(CK_LONG)sess->handle,
 		   pMechanism->mechanism);
 
@@ -2457,7 +2451,7 @@ done:
 	if (rc != CKR_BUFFER_TOO_SMALL && (rc != CKR_OK || length_only != TRUE))
 		sign_mgr_cleanup(&sess->sign_ctx);
 
-	TRACE_INFO("C_Sign: rc = %08x, sess = %d, datalen = %d\n",
+	TRACE_INFO("C_Sign: rc = %08lx, sess = %ld, datalen = %lu\n",
 		   rc, (sess == NULL)?-1:(CK_LONG)sess->handle, ulDataLen);
 
 	return rc;
@@ -2503,7 +2497,7 @@ done:
 	if (rc != CKR_OK)
 		sign_mgr_cleanup(&sess->sign_ctx);
 
-	TRACE_INFO("C_SignUpdate: rc = %08x, sess = %d, datalen = %d\n",
+	TRACE_INFO("C_SignUpdate: rc = %08lx, sess = %ld, datalen = %lu\n",
 		   rc, (sess == NULL)?-1:(CK_LONG)sess->handle, ulPartLen);
 
 	return rc;
@@ -2553,7 +2547,7 @@ done:
 	if (rc != CKR_BUFFER_TOO_SMALL && (rc != CKR_OK || length_only != TRUE))
 		sign_mgr_cleanup(&sess->sign_ctx);
 
-	TRACE_INFO("C_SignFinal: rc = %08x, sess = %d\n",
+	TRACE_INFO("C_SignFinal: rc = %08lx, sess = %ld\n",
 		   rc, (sess == NULL)?-1:(CK_LONG)sess->handle);
 
 	return rc;
@@ -2637,7 +2631,7 @@ CK_RV SC_VerifyInit(ST_SESSION_HANDLE *sSession, CK_MECHANISM_PTR pMechanism,
 		TRACE_DEVEL("ep11tok_verify_init() failed.\n");
 
 done:
-	TRACE_INFO("C_VerifyInit: rc = %08x, sess = %d, mech = %x\n",
+	TRACE_INFO("C_VerifyInit: rc = %08lx, sess = %ld, mech = %lx\n",
 		   rc, (sess == NULL)?-1:(CK_LONG)sess->handle,
 		   pMechanism->mechanism);
 
@@ -2684,7 +2678,7 @@ CK_RV SC_Verify(ST_SESSION_HANDLE *sSession, CK_BYTE_PTR pData,
 done:
 	verify_mgr_cleanup(&sess->verify_ctx);
 
-	TRACE_INFO("C_Verify: rc = %08x, sess = %d, datalen = %d\n",
+	TRACE_INFO("C_Verify: rc = %08lx, sess = %ld, datalen = %lu\n",
 		   rc, (sess == NULL)?-1:(CK_LONG)sess->handle, ulDataLen);
 
 	return rc;
@@ -2730,7 +2724,7 @@ done:
 	if (rc != CKR_OK)
 		verify_mgr_cleanup(&sess->verify_ctx);
 
-	TRACE_INFO("C_VerifyUpdate: rc = %08x, sess = %d, datalen = %d\n",
+	TRACE_INFO("C_VerifyUpdate: rc = %08lx, sess = %ld, datalen = %lu\n",
 		   rc, (sess == NULL)?-1:(CK_LONG)sess->handle, ulPartLen);
 
 	return rc;
@@ -2775,7 +2769,7 @@ CK_RV SC_VerifyFinal(ST_SESSION_HANDLE *sSession, CK_BYTE_PTR pSignature,
 done:
 	verify_mgr_cleanup(&sess->verify_ctx);
 
-	TRACE_INFO("C_VerifyFinal: rc = %08x, sess = %d\n",
+	TRACE_INFO("C_VerifyFinal: rc = %08lx, sess = %ld\n",
 		   rc, (sess == NULL)?-1:(CK_LONG)sess->handle);
 
 	return rc;
@@ -2875,8 +2869,6 @@ CK_RV SC_GenerateKey(ST_SESSION_HANDLE *sSession, CK_MECHANISM_PTR pMechanism,
 {
 	SESSION *sess = NULL;
 	CK_RV rc = CKR_OK;
-	CK_ATTRIBUTE *attr = NULL;
-	CK_ULONG i;
 
 	if (initialized == FALSE) {
 		TRACE_ERROR("%s\n", ock_err(ERR_CRYPTOKI_NOT_INITIALIZED));
@@ -2913,15 +2905,18 @@ CK_RV SC_GenerateKey(ST_SESSION_HANDLE *sSession, CK_MECHANISM_PTR pMechanism,
 		TRACE_DEVEL("ep11tok_generate_key() failed.\n");
 
 done:
-	TRACE_INFO("C_GenerateKey: rc = %08x, sess = %d, mech = %x\n", rc,
+	TRACE_INFO("C_GenerateKey: rc = %08lx, sess = %ld, mech = %lx\n", rc,
 		    (sess == NULL) ? -1 : (CK_LONG) sess->handle,
 		    pMechanism->mechanism);
 
 #ifdef DEBUG
+	CK_ATTRIBUTE *attr = NULL;
+	int i;
+
 	attr = pTemplate;
 	for (i = 0; i < ulCount; i++, attr++) {
 		CK_BYTE *ptr = (CK_BYTE *) attr->pValue;
-		TRACE_DEBUG("%d: Attribute type: 0x%08x,Value Length: %d\n",
+		TRACE_DEBUG("%d: Attribute type: 0x%08lx,Value Length: %lu\n",
 			    i, attr->type, attr->ulValueLen);
 		if (attr->ulValueLen != ((CK_ULONG) -1) && (ptr != NULL)) {
 			TRACE_DEBUG("First 4 bytes: %02x %02x %02x %02x\n",
@@ -2945,8 +2940,6 @@ CK_RV SC_GenerateKeyPair(ST_SESSION_HANDLE *sSession,
 {
 	SESSION *sess = NULL;
 	CK_RV rc = CKR_OK;
-	CK_ATTRIBUTE *attr = NULL;
-	CK_ULONG i;
 
 	if (initialized == FALSE) {
 		TRACE_ERROR("%s\n", ock_err(ERR_CRYPTOKI_NOT_INITIALIZED));
@@ -2989,13 +2982,16 @@ CK_RV SC_GenerateKeyPair(ST_SESSION_HANDLE *sSession,
 		TRACE_DEVEL("ep11tok_generate_key_pair() failed.\n");
 
 done:
-	TRACE_INFO("C_GenerateKeyPair: rc = %08x, sess = %d, mech = %x\n",
+	TRACE_INFO("C_GenerateKeyPair: rc = %08lx, sess = %ld, mech = %lx\n",
 		   rc, (sess == NULL) ? -1 : ((CK_LONG) sess->handle),
 		   pMechanism->mechanism);
 
 #ifdef DEBUG
+	CK_ATTRIBUTE *attr = NULL;
+	int i;
+
 	if (rc == CKR_OK) {
-		TRACE_DEBUG("Public handle: %d, Private handle: %d\n",
+		TRACE_DEBUG("Public handle: %lu, Private handle: %lu\n",
 			    *phPublicKey, *phPrivateKey);
 	}
 
@@ -3003,7 +2999,7 @@ done:
 	attr = pPublicKeyTemplate;
 	for (i = 0; i < ulPublicKeyAttributeCount; i++, attr++) {
 		CK_BYTE *ptr = (CK_BYTE *) attr->pValue;
-		TRACE_DEBUG("%d: Attribute type: 0x%08x, Value Length: %d\n",
+		TRACE_DEBUG("%d: Attribute type: 0x%08lx, Value Length: %lu\n",
 			    i, attr->type, attr->ulValueLen);
 		if (attr->ulValueLen != ((CK_ULONG) -1) && (ptr != NULL))
 			TRACE_DEBUG("First 4 bytes: %02x %02x %02x %02x\n",
@@ -3014,7 +3010,7 @@ done:
 	attr = pPublicKeyTemplate;
 	for (i = 0; i < ulPublicKeyAttributeCount; i++, attr++) {
 		CK_BYTE *ptr = (CK_BYTE *) attr->pValue;
-		TRACE_DEBUG("%d: Attribute type: 0x%08x, Value Length: %d\n",
+		TRACE_DEBUG("%d: Attribute type: 0x%08lx, Value Length: %lu\n",
 			    i, attr->type, attr->ulValueLen);
 		if (attr->ulValueLen != (CK_ULONG)(-1) && (ptr != NULL))
 			TRACE_DEBUG("First 4 bytes: %02x %02x %02x %02x\n",
@@ -3030,7 +3026,6 @@ CK_RV SC_WrapKey(ST_SESSION_HANDLE *sSession, CK_MECHANISM_PTR pMechanism,
 		 CK_BYTE_PTR pWrappedKey, CK_ULONG_PTR pulWrappedKeyLen)
 {
 	SESSION *sess = NULL;
-	CK_BBOOL length_only = FALSE;
 	CK_RV rc = CKR_OK;
 
 	if (initialized == FALSE) {
@@ -3048,9 +3043,6 @@ CK_RV SC_WrapKey(ST_SESSION_HANDLE *sSession, CK_MECHANISM_PTR pMechanism,
 	rc = valid_mech(pMechanism, CKF_WRAP);
 	if (rc != CKR_OK)
 		goto done;
-
-	if (!pWrappedKey)
-		length_only = TRUE;
 
 	sess = session_mgr_find(sSession->sessionh);
 	if (!sess) {
@@ -3072,8 +3064,8 @@ CK_RV SC_WrapKey(ST_SESSION_HANDLE *sSession, CK_MECHANISM_PTR pMechanism,
 		TRACE_DEVEL("ep11tok_wrap_key() failed.\n");
 
 done:
-	TRACE_INFO("C_WrapKey: rc = %08x, sess = %d, encrypting key = %d, "
-		   "wrapped key = %d\n", rc,
+	TRACE_INFO("C_WrapKey: rc = %08lx, sess = %ld, encrypting key = %lu, "
+		   "wrapped key = %lu\n", rc,
 		   (sess == NULL) ? -1 : (CK_LONG) sess->handle,
 		   hWrappingKey, hKey);
 
@@ -3087,9 +3079,6 @@ CK_RV SC_UnwrapKey(ST_SESSION_HANDLE *sSession, CK_MECHANISM_PTR pMechanism,
 		   CK_ULONG ulCount, CK_OBJECT_HANDLE_PTR phKey)
 {
 	SESSION *sess = NULL;
-	CK_ATTRIBUTE *attr = NULL;
-	CK_BYTE *ptr  = NULL;
-	CK_ULONG i;
 	CK_RV rc = CKR_OK;
 
 	if (initialized == FALSE) {
@@ -3130,16 +3119,20 @@ CK_RV SC_UnwrapKey(ST_SESSION_HANDLE *sSession, CK_MECHANISM_PTR pMechanism,
 		TRACE_DEVEL("ep11tok_unwrap_key() failed.\n");
 
 done:
-	TRACE_INFO("C_UnwrapKey: rc = %08x, sess = %d, decrypting key = %d,"
-		   "unwrapped key = %d\n", rc,
+	TRACE_INFO("C_UnwrapKey: rc = %08lx, sess = %ld, decrypting key = %lu,"
+		   "unwrapped key = %lu\n", rc,
 		   (sess == NULL) ? -1 : (CK_LONG) sess->handle,
 		   hUnwrappingKey, *phKey);
 
 #ifdef DEBUG
+	CK_ATTRIBUTE *attr = NULL;
+	CK_BYTE *ptr = NULL;
+	int i;
+
 	attr = pTemplate;
 	for (i = 0; i < ulCount; i++, attr++) {
 		ptr = (CK_BYTE *)attr->pValue;
-		TRACE_DEBUG("%d: Attribute type:  0x%08x, Value Length: %d\n",
+		TRACE_DEBUG("%d: Attribute type:  0x%08lx, Value Length: %lu\n",
 			    i, attr->type, attr->ulValueLen);
 		if (attr->ulValueLen != ((CK_ULONG) -1) && (ptr != NULL))
 			TRACE_DEBUG("First 4 bytes:  %02x %02x %02x %02x\n",
@@ -3156,9 +3149,6 @@ CK_RV SC_DeriveKey(ST_SESSION_HANDLE *sSession, CK_MECHANISM_PTR pMechanism,
 		   CK_ULONG ulCount, CK_OBJECT_HANDLE_PTR phKey)
 {
 	SESSION *sess = NULL;
-	CK_ATTRIBUTE *attr = NULL;
-	CK_BYTE *ptr = NULL;
-	CK_ULONG i;
 	CK_RV rc = CKR_OK;
 
 	if (initialized == FALSE) {
@@ -3197,10 +3187,14 @@ CK_RV SC_DeriveKey(ST_SESSION_HANDLE *sSession, CK_MECHANISM_PTR pMechanism,
 		TRACE_DEVEL("epl11tok_derive_key() failed.\n");
 
 done:
-	TRACE_INFO("C_DeriveKey: rc = %08x, sess = %d, mech = %x\n",
+	TRACE_INFO("C_DeriveKey: rc = %08lx, sess = %ld, mech = %lx\n",
 		   rc, (sess == NULL)?-1:(CK_LONG)sess->handle,
 		   pMechanism->mechanism);
 #ifdef DEBUG
+	CK_ATTRIBUTE *attr = NULL;
+	CK_BYTE *ptr = NULL;
+	int i;
+
 	if (rc == CKR_OK) {
 		switch (pMechanism->mechanism) {
 		case CKM_SSL3_KEY_AND_MAC_DERIVE:
@@ -3210,8 +3204,8 @@ done:
 			pReq = (CK_SSL3_KEY_MAT_PARAMS *)pMechanism->pParameter;
 			pPtr = pReq->pReturnedKeyMaterial;
 
-			TRACE_DEBUG("Client MAC key: %d, Server MAC key: %d, "
-				    "Client Key: %d, Server Key: %d\n",
+			TRACE_DEBUG("Client MAC key: %lu, Server MAC key: %lu, "
+				    "Client Key: %lu, Server Key: %lu\n",
 				    pPtr->hClientMacSecret,
 				    pPtr->hServerMacSecret, pPtr->hClientKey,
 				    pPtr->hServerKey);
@@ -3225,7 +3219,7 @@ done:
 		break ;
 
 		default:
-			TRACE_DEBUG("Derived key: %d\n", *phKey);
+			TRACE_DEBUG("Derived key: %lu\n", *phKey);
 		}
 	}
 
@@ -3233,7 +3227,7 @@ done:
 	for (i = 0; i < ulCount; i++, attr++) {
 		ptr = (CK_BYTE *)attr->pValue;
 
-		TRACE_DEBUG("%d: Attribute type: 0x%08x, Value Length: %d\n",
+		TRACE_DEBUG("%d: Attribute type: 0x%08lx, Value Length: %lu\n",
 			    i, attr->type, attr->ulValueLen);
 
 		if (attr->ulValueLen != (CK_ULONG)(-1) && (ptr != NULL))
@@ -3291,7 +3285,7 @@ CK_RV SC_GenerateRandom(ST_SESSION_HANDLE *sSession, CK_BYTE_PTR pRandomData,
 		TRACE_DEVEL("rng_generate() failed.\n");
 
 done:
-	TRACE_INFO("C_GenerateRandom: rc = %08x, %d bytes\n", rc, ulRandomLen);
+	TRACE_INFO("C_GenerateRandom:rc = %08lx, %lu bytes\n", rc, ulRandomLen);
 	return rc;
 }
 

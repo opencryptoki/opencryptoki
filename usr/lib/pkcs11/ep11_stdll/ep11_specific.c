@@ -319,6 +319,10 @@
 #include <lber.h>
 #include <grp.h>
 
+#ifdef DEBUG
+#include <ctype.h>
+#endif
+
 #include "ep11.h"
 
 #define EP11SHAREDLIB "libep11.so"
@@ -362,28 +366,10 @@ inline void hexdump(void *buf, size_t buflen)
 
 #endif /* DEBUG */
 
-
-
 CK_CHAR manuf[] = "IBM Corp.";
 CK_CHAR model[] = "IBM EP11Tok ";
 CK_CHAR descr[] = "IBM PKCS#11 EP11 token";
 CK_CHAR label[] = "IBM OS PKCS#11   ";
-
-/* needed for import of keys:
-   an imported key is encrypted by the 'wrap key' and
-   then m_UnwrapKey (called with the encrypted key and the 'wrap key') builds the blob */
-#define WRAP_TEMPLATE							\
-    CK_ULONG len = 16;                                      \
-    CK_BBOOL cktrue = 1;                                                \
-    CK_MECHANISM mech   = { CKM_AES_KEY_GEN, NULL_PTR, 0 };				\
-    CK_ATTRIBUTE wrap_tmpl[] = {{CKA_VALUE_LEN, &len, sizeof(CK_ULONG)}, \
-                                {CKA_WRAP,(void *) &cktrue, sizeof(cktrue)} , \
-                                {CKA_UNWRAP,(void *) &cktrue, sizeof(cktrue)}, \
-                                {CKA_ENCRYPT,(void *) &cktrue, sizeof(cktrue)}, \
-                                {CKA_DECRYPT,(void *) &cktrue, sizeof(cktrue)}, \
-                                {CKA_EXTRACTABLE,(void *) &cktrue, sizeof(cktrue) }, \
-                                {CKA_LABEL,(void *) wrap_key_name, sizeof(wrap_key_name)}, \
-                                {CKA_TOKEN,(void *) &cktrue, sizeof(cktrue)}};
 
 /* largest blobsize ever seen is about 5k (for 4096 mod bits RSA keys) */
 #define blobsize   2048*4
@@ -1110,11 +1096,11 @@ static CK_RV rawkey_2_blob(unsigned char *key, CK_ULONG ksize,
 			 ep11tok_target);
 
 	if (rc != CKR_OK) {
-		TRACE_ERROR("%s unwrap blen=%d rc=0x%lx ep11_blobs=0x%llx\n",
-			    __func__, *blen,rc,ep11_blobs);
+		TRACE_ERROR("%s unwrap blen=%zd rc=0x%lx ep11_blobs=0x%llx\n",
+			    __func__, *blen, rc, ep11_blobs);
 	} else {
-		TRACE_INFO("%s unwrap blen=%d rc=0x%lx ep11_blobs=0x%llx\n",
-			   __func__, *blen,rc,ep11_blobs);
+		TRACE_INFO("%s unwrap blen=%zd rc=0x%lx ep11_blobs=0x%llx\n",
+			   __func__, *blen, rc, ep11_blobs);
 	}
 
 	rawkey_2_blob_end:
@@ -1231,7 +1217,7 @@ static CK_RV make_wrapblob(CK_ATTRIBUTE *tmpl_in, CK_ULONG tmpl_len)
 
 
 	if (raw2key_wrap_blob_l != 0) {
-		TRACE_INFO("%s blob already exists raw2key_wrap_blob_l=0x%x\n",
+		TRACE_INFO("%s blob already exists raw2key_wrap_blob_l=0x%zx\n",
 			   __func__, raw2key_wrap_blob_l);
 		return CKR_OK;
 	}
@@ -1242,10 +1228,10 @@ static CK_RV make_wrapblob(CK_ATTRIBUTE *tmpl_in, CK_ULONG tmpl_len)
 
 
 	if (rc != CKR_OK) {
-		TRACE_ERROR("%s end raw2key_wrap_blob_l=0x%x rc=0x%lx\n",
+		TRACE_ERROR("%s end raw2key_wrap_blob_l=0x%zx rc=0x%lx\n",
 			    __func__, raw2key_wrap_blob_l, rc);
 	} else {
-		TRACE_INFO("%s end raw2key_wrap_blob_l=0x%x rc=0x%lx\n",
+		TRACE_INFO("%s end raw2key_wrap_blob_l=0x%zx rc=0x%lx\n",
 			   __func__, raw2key_wrap_blob_l, rc);
 	}
 
@@ -1257,8 +1243,16 @@ CK_RV ep11tok_init(CK_SLOT_ID SlotNumber, char *conf_name)
 {
 	CK_RV rc;
 	void *lib_ep11;
-
-	WRAP_TEMPLATE;
+	CK_ULONG len = 16;
+	CK_BBOOL cktrue = 1;
+	CK_ATTRIBUTE wrap_tmpl[] = {{CKA_VALUE_LEN, &len, sizeof(CK_ULONG)},
+			{CKA_WRAP, (void *)&cktrue, sizeof(cktrue)},
+			{CKA_UNWRAP, (void *)&cktrue, sizeof(cktrue)},
+			{CKA_ENCRYPT, (void *)&cktrue, sizeof(cktrue)},
+			{CKA_DECRYPT, (void *)&cktrue, sizeof(cktrue)},
+			{CKA_EXTRACTABLE, (void *)&cktrue, sizeof(cktrue)},
+			{CKA_LABEL,(void *)wrap_key_name,sizeof(wrap_key_name)},
+			{CKA_TOKEN, (void *)&cktrue, sizeof(cktrue)}};
 
 	TRACE_INFO("%s init running\n", __func__);
 
@@ -1338,7 +1332,6 @@ static CK_RV import_RSA_key(OBJECT *rsa_key_obj, CK_BYTE *blob, size_t *blob_siz
 {
 	CK_RV rc;
 	CK_ATTRIBUTE *attr = NULL;
-	WRAP_TEMPLATE;
 	CK_BYTE iv[AES_BLOCK_SIZE];
 	CK_MECHANISM mech_w = {CKM_AES_CBC_PAD, iv, AES_BLOCK_SIZE};
 	CK_BYTE cipher[blobsize];
@@ -1411,12 +1404,14 @@ static CK_RV import_RSA_key(OBJECT *rsa_key_obj, CK_BYTE *blob, size_t *blob_siz
 		rc = ber_encode_RSAPublicKey(0, &data, &data_len,
 					     modulus, publ_exp);
 		if (rc != CKR_OK) {
-			TRACE_ERROR("%s public key import class=0x%lx rc=0x%lx data_len=0x%lx\n",
-				    __func__, class,rc,data_len);
+			TRACE_ERROR("%s public key import class=0x%lx rc=0x%lx "
+				    "data_len=0x%lx\n", __func__, class, rc,
+				    data_len);
 			goto import_RSA_key_end;
 		} else {
-			TRACE_INFO("%s public key import class=0x%lx rc=0x%lx data_len=0x%lx\n",
-				   __func__, class,rc,data_len);
+			TRACE_INFO("%s public key import class=0x%lx rc=0x%lx "
+				   "data_len=0x%lx\n", __func__, class, rc,
+				   data_len);
 		}
 
 		/* save the SPKI as blob although it is not a blob.
@@ -1473,10 +1468,10 @@ static CK_RV import_RSA_key(OBJECT *rsa_key_obj, CK_BYTE *blob, size_t *blob_siz
 			 ep11tok_target);
 
 	if (rc != CKR_OK) {
-		TRACE_ERROR("%s wrapping unwrap key rc=0x%lx blob_size=0x%x\n",
+		TRACE_ERROR("%s wrapping unwrap key rc=0x%lx blob_size=0x%zx\n",
 			    __func__, rc, *blob_size);
 	} else {
-		TRACE_INFO("%s wrapping unwrap key rc=0x%lx blob_size=0x%x\n",
+		TRACE_INFO("%s wrapping unwrap key rc=0x%lx blob_size=0x%zx\n",
 			   __func__, rc, *blob_size);
 	}
 
@@ -1512,11 +1507,12 @@ token_specific_object_add(OBJECT *obj)
 	case CKK_RSA:
 		rc = import_RSA_key(obj,new_op.blob,&new_op.blob_size);
 		if (rc != CKR_OK) {
-			TRACE_ERROR("%s import RSA key rc=0x%lx blob_size=0x%x\n",
-				    __func__, rc, new_op.blob_size);
+			TRACE_ERROR("%s import RSA key rc=0x%lx "
+				    "blob_size=0x%zx\n", __func__, rc,
+				    new_op.blob_size);
 			return CKR_FUNCTION_FAILED;
 		}
-		TRACE_INFO("%s import RSA key rc=0x%lx blob_size=0x%x\n",
+		TRACE_INFO("%s import RSA key rc=0x%lx blob_size=0x%zx\n",
 			   __func__, rc, new_op.blob_size);
 		break;
 
@@ -1536,12 +1532,13 @@ token_specific_object_add(OBJECT *obj)
 		rc = rawkey_2_blob(attr->pValue, attr->ulValueLen, keytype,
 				   new_op.blob, &new_op.blob_size, obj);
 		if (rc != CKR_OK) {
-			TRACE_ERROR("%s rawkey_2_blob rc=0x%lx blob_size=0x%x\n",
-				    __func__, rc, new_op.blob_size);
+			TRACE_ERROR("%s rawkey_2_blob rc=0x%lx "
+				    "blob_size=0x%zx\n", __func__, rc,
+				    new_op.blob_size);
 			return CKR_FUNCTION_FAILED;
 		}
 
-		TRACE_INFO("%s rawkey_2_blob rc=0x%lx blob_size=0x%x\n",
+		TRACE_INFO("%s rawkey_2_blob rc=0x%lx blob_size=0x%zx\n",
 			   __func__, rc, new_op.blob_size);
 
 		break;
@@ -1874,11 +1871,12 @@ CK_RV ep11tok_derive_key(SESSION *session, CK_MECHANISM_PTR mech,
 			  &secret_op.blob_size, csum, &cslen, ep11tok_target);
 
 	if (rc != CKR_OK) {
-		TRACE_ERROR("%s hBaseKey=0x%lx rc=0x%lx handle=0x%lx blob_size=0x%x\n",
-			    __func__, hBaseKey, rc, *handle, secret_op.blob_size);
+		TRACE_ERROR("%s hBaseKey=0x%lx rc=0x%lx handle=0x%lx "
+			    "blob_size=0x%zx\n", __func__, hBaseKey, rc,
+			    *handle, secret_op.blob_size);
 		return rc;
 	}
-	TRACE_INFO("%s hBaseKey=0x%lx rc=0x%lx handle=0x%lx blob_size=0x%x\n",
+	TRACE_INFO("%s hBaseKey=0x%lx rc=0x%lx handle=0x%lx blob_size=0x%zx\n",
 		   __func__, hBaseKey, rc, *handle, secret_op.blob_size);
 
 	/* Start creating the key object */
@@ -2049,8 +2047,8 @@ static CK_RV dh_generate_keypair(CK_MECHANISM_PTR pMechanism,
 #endif
 
 	/* add special attribute, do not add it to ock's pPublicKeyTemplate */
-	CK_ATTRIBUTE pgs[] = { CKA_IBM_STRUCT_PARAMS, (CK_VOID_PTR) dh_pgs.pg,
-				dh_pgs.pg_bytes };
+	CK_ATTRIBUTE pgs[] = {{CKA_IBM_STRUCT_PARAMS, (CK_VOID_PTR) dh_pgs.pg,
+				dh_pgs.pg_bytes}};
 	memcpy(&(pPublicKeyTemplate_new[new_public_attr]),
 		&(pgs[0]), sizeof(CK_ATTRIBUTE));
 
@@ -2070,8 +2068,8 @@ static CK_RV dh_generate_keypair(CK_MECHANISM_PTR pMechanism,
 	publ_op.blob_id = ep11_blobs_inc();
 	priv_op.blob_id = ep11_blobs_inc();
 
-	TRACE_INFO("%s rc=0x%lx blobs1=0x%llx blobs2=0x%llx plen=%d"
-		   " pub.blob_size=0x%x priv.blob_size=0x%x\n",
+	TRACE_INFO("%s rc=0x%lx blobs1=0x%llx blobs2=0x%llx plen=%zd"
+		   " pub.blob_size=0x%zx priv.blob_size=0x%zx\n",
 		   __func__, rc, ep11_blobs-1, ep11_blobs-2, p_len,
 		   publ_op.blob_size, priv_op.blob_size);
 
@@ -2303,8 +2301,9 @@ static CK_RV dsa_generate_keypair(CK_MECHANISM_PTR pMechanism,
 	TRACE_DEBUG_DUMP(&dsa_pqgs.pqg[2*p_len], p_len);
 #endif
 
-	CK_ATTRIBUTE pqgs[] = { CKA_IBM_STRUCT_PARAMS, (CK_VOID_PTR)dsa_pqgs.pqg,
-			    dsa_pqgs.pqg_bytes };
+	CK_ATTRIBUTE pqgs[] = {{CKA_IBM_STRUCT_PARAMS,
+			       (CK_VOID_PTR)dsa_pqgs.pqg, dsa_pqgs.pqg_bytes}};
+
 	/* add special attribute, do not add it to ock's pPublicKeyTemplate */
 	memcpy(&(pPublicKeyTemplate_new[new_public_attr]),
 		&(pqgs[0]), sizeof(CK_ATTRIBUTE));
@@ -2345,8 +2344,8 @@ static CK_RV dsa_generate_keypair(CK_MECHANISM_PTR pMechanism,
 	publ_op.blob_id = ep11_blobs_inc();
 	priv_op.blob_id = ep11_blobs_inc();
 
-	TRACE_INFO("%s rc=0x%lx blobs1=0x%llx blobs2=0x%llx p_len=%d"
-		   " pub.blob_size=0x%x priv.blob_size=0x%x npattr=0x%x\n",
+	TRACE_INFO("%s rc=0x%lx blobs1=0x%llx blobs2=0x%llx p_len=%zd"
+		   " pub.blob_size=0x%zx priv.blob_size=0x%zx npattr=0x%x\n",
 		   __func__, rc, ep11_blobs-1, ep11_blobs-2, p_len,
 		   publ_op.blob_size, priv_op.blob_size, new_public_attr+1);
 
@@ -2498,15 +2497,17 @@ static CK_RV rsa_ec_generate_keypair(CK_MECHANISM_PTR pMechanism,
 			       &privkey_blob_len, spki,&spki_len,
 			       ep11tok_target);
 	if (rc != CKR_OK) {
-		TRACE_ERROR("%s m_GenerateKeyPair rc=0x%lx spki_len=0x%x privkey_blob_len=0x%x"
-			    " ep11_blobs=0x%llx ep11_blobs+1=0x%llx mech='%s'\n",
-			    __func__, rc, spki_len, privkey_blob_len, ep11_blobs,
+		TRACE_ERROR("%s m_GenerateKeyPair rc=0x%lx spki_len=0x%zx "
+			    "privkey_blob_len=0x%zx ep11_blobs=0x%llx "
+			    "ep11_blobs+1=0x%llx mech='%s'\n", __func__, rc,
+			    spki_len, privkey_blob_len, ep11_blobs,
 			    ep11_blobs+1, ep11_get_ckm(pMechanism->mechanism));
 		goto error;
 	}
-	TRACE_INFO("%s m_GenerateKeyPair rc=0x%lx spki_len=0x%x privkey_blob_len=0x%x"
-		   " ep11_blobs=0x%llx ep11_blobs+1=0x%llx mech='%s'\n",
-		   __func__, rc, spki_len, privkey_blob_len, ep11_blobs, ep11_blobs+1,
+	TRACE_INFO("%s m_GenerateKeyPair rc=0x%lx spki_len=0x%zx "
+		   "privkey_blob_len=0x%zx ep11_blobs=0x%llx "
+		   "ep11_blobs+1=0x%llx mech='%s'\n", __func__, rc, spki_len,
+		   privkey_blob_len, ep11_blobs, ep11_blobs+1,
 		   ep11_get_ckm(pMechanism->mechanism));
 
 	if (spki_len > blobsize || privkey_blob_len > blobsize) {
@@ -2920,9 +2921,9 @@ static CK_RV h_opaque_2_blob(CK_OBJECT_HANDLE handle,
 		*blob = op->blob;
 		*blob_len = op->blob_size;
 		*kobj = key_obj;
-		TRACE_INFO("%s blob found blob_len=0x%x valuelen=0x%lx blob_id=0x%x\n",
-			   __func__, *blob_len, attr->ulValueLen, op->blob_id);
-
+		TRACE_INFO("%s blob found blob_len=0x%zx valuelen=0x%lx "
+			   "blob_id=0x%zx\n", __func__, *blob_len,
+			   attr->ulValueLen, op->blob_id);
 		return CKR_OK;
 	} else {
 
@@ -2962,7 +2963,7 @@ CK_RV ep11tok_sign_init(SESSION *session, CK_MECHANISM *mech,
 			mech, privkey_blob, blob_len, ep11tok_target) ;
 
 	if (rc != CKR_OK) {
-		TRACE_ERROR("%s rc=0x%lx blob_len=0x%x key=0x%lx mech=0x%lx\n",
+		TRACE_ERROR("%s rc=0x%lx blob_len=0x%zx key=0x%lx mech=0x%lx\n",
 			    __func__, rc, blob_len, key, mech->mechanism);
 		free(ep11_sign_state);
 	} else {
@@ -2975,7 +2976,7 @@ CK_RV ep11tok_sign_init(SESSION *session, CK_MECHANISM *mech,
 		ctx->context = ep11_sign_state;
 		ctx->context_len = ep11_sign_state_l;
 
-		TRACE_INFO("%s rc=0x%lx blob_len=0x%x key=0x%lx mech=0x%lx\n",
+		TRACE_INFO("%s rc=0x%lx blob_len=0x%zx key=0x%lx mech=0x%lx\n",
 			   __func__, rc, blob_len, key, mech->mechanism);
 	}
 
@@ -3071,8 +3072,10 @@ CK_RV ep11tok_verify_init(SESSION *session, CK_MECHANISM *mech,
 			  spki, spki_len, ep11tok_target);
 
 	if (rc != CKR_OK) {
-		TRACE_ERROR("%s rc=0x%lx spki_len=0x%x key=0x%lx ep11_sing_state_l=0x%x mech=0x%lx\n",
-			    __func__, rc, spki_len, key, ep11_sign_state_l, mech->mechanism);
+		TRACE_ERROR("%s rc=0x%lx spki_len=0x%zx key=0x%lx "
+			    "ep11_sign_state_l=0x%zx mech=0x%lx\n", __func__,
+			    rc, spki_len, key, ep11_sign_state_l,
+			    mech->mechanism);
 	} else {
 		ctx->key = key;
 		ctx->multi = FALSE;
@@ -3080,8 +3083,10 @@ CK_RV ep11tok_verify_init(SESSION *session, CK_MECHANISM *mech,
 		ctx->context = ep11_sign_state;
 		ctx->context_len = ep11_sign_state_l;
 
-		TRACE_INFO("%s rc=0x%lx spki_len=0x%x key=0x%lx ep11_sing_state_l=0x%x mech=0x%lx\n",
-			   __func__, rc, spki_len, key, ep11_sign_state_l, mech->mechanism);
+		TRACE_INFO("%s rc=0x%lx spki_len=0x%zx key=0x%lx "
+			   "ep11_sign_state_l=0x%zx mech=0x%lx\n", __func__,
+			   rc, spki_len, key, ep11_sign_state_l,
+			   mech->mechanism);
 	}
 
 	return rc;
@@ -3312,11 +3317,13 @@ static CK_RV ep11_ende_crypt_init(SESSION *session, CK_MECHANISM_PTR mech,
 		decr_ctx->context = ep11_state;
 		decr_ctx->context_len = ep11_state_l;
 		if (rc != CKR_OK) {
-			TRACE_ERROR("%s m_DecryptInit rc=0x%lx blob_len=0x%x mech=0x%lx\n",
-				    __func__, rc, blob_len, mech->mechanism);
+			TRACE_ERROR("%s m_DecryptInit rc=0x%lx blob_len=0x%zx "
+				    "mech=0x%lx\n", __func__, rc, blob_len,
+				    mech->mechanism);
 		} else {
-			TRACE_INFO("%s m_DecryptInit rc=0x%lx blob_len=0x%x mech=0x%lx\n",
-				   __func__, rc, blob_len, mech->mechanism);
+			TRACE_INFO("%s m_DecryptInit rc=0x%lx blob_len=0x%zx "
+				   "mech=0x%lx\n", __func__, rc, blob_len,
+				   mech->mechanism);
 		}
 
 		return rc;
@@ -3328,11 +3335,13 @@ static CK_RV ep11_ende_crypt_init(SESSION *session, CK_MECHANISM_PTR mech,
 		encr_ctx->context = ep11_state;
 		encr_ctx->context_len = ep11_state_l;
 		if (rc != CKR_OK) {
-			TRACE_ERROR("%s m_EncryptInit rc=0x%lx blob_len=0x%x mech=0x%lx\n",
-				    __func__, rc,blob_len,mech->mechanism);
+			TRACE_ERROR("%s m_EncryptInit rc=0x%lx blob_len=0x%zx "
+				    "mech=0x%lx\n", __func__, rc, blob_len,
+				     mech->mechanism);
 		} else {
-			TRACE_INFO("%s m_EncryptInit rc=0x%lx blob_len=0x%x mech=0x%lx\n",
-				   __func__, rc, blob_len, mech->mechanism);
+			TRACE_INFO("%s m_EncryptInit rc=0x%lx blob_len=0x%zx "
+				   "mech=0x%lx\n", __func__, rc, blob_len,
+				   mech->mechanism);
 		}
 
 		return rc;
@@ -3554,12 +3563,14 @@ CK_RV ep11tok_unwrap_key(SESSION *session, CK_MECHANISM_PTR mech,
 	op.blob_id = ep11_blobs_inc();
 
 	if (rc != CKR_OK) {
-		TRACE_ERROR("%s m_UnwrapKey rc=0x%lx blob_size=0x%x mech=0x%lx ep11_blobs-1=%llx\n",
-			    __func__, rc, op.blob_size, mech->mechanism, ep11_blobs-1);
+		TRACE_ERROR("%s m_UnwrapKey rc=0x%lx blob_size=0x%zx "
+			    "mech=0x%lx ep11_blobs-1=%llx\n", __func__, rc,
+			    op.blob_size, mech->mechanism, ep11_blobs-1);
 		goto error;
 	}
-	TRACE_INFO("%s m_UnwrapKey rc=0x%lx blob_size=0x%x mech=0x%lx ep11_blobs-1=%llx\n",
-		   __func__, rc, op.blob_size, mech->mechanism, ep11_blobs-1);
+	TRACE_INFO("%s m_UnwrapKey rc=0x%lx blob_size=0x%zx mech=0x%lx "
+		   "ep11_blobs-1=%llx\n", __func__, rc, op.blob_size,
+		   mech->mechanism, ep11_blobs-1);
 
 	/* card provides length in csum bytes 4 - 7, big endian */
 	len = csum[6] + 256*csum[5] + 256*256*csum[4] + 256*256*256*csum[3];
