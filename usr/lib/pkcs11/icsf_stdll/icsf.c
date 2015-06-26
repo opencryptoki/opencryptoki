@@ -14,6 +14,7 @@
 #include <stdio.h>
 #include <string.h>
 #include <ctype.h>
+#include <lber.h>
 #include "icsf.h"
 
 /* For logging functions: */
