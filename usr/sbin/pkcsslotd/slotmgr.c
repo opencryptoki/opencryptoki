@@ -291,10 +291,13 @@
 
 #include <stdio.h>
 #include <stdlib.h>
+#include <unistd.h>
 #include <errno.h>
+#include <sys/types.h>
 
 #include "log.h"
 #include "slotmgr.h"
+#include "pkcsslotd.h"
 
 Slot_Mgr_Shr_t	*shmp;     // pointer to the shared memory region.
 int		shmid;
@@ -376,7 +379,7 @@ int main ( int argc, char *argv[], char *envp[]) {
    DbgLog(DL0,"SHMID %d  token %#X \n", shmid, tok);
 
    /* Now that we've created the shared memory segment, we attach to it */
-   if ( ! AttachToSharedMemeory() ) {
+   if ( ! AttachToSharedMemory() ) {
      /* AttachToSharedMemory() does it's own error logging */
      DestroySharedMemory();
      return 2;

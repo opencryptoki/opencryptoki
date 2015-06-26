@@ -288,6 +288,7 @@
 
 /* (C) COPYRIGHT International Business Machines Corp. 2001          */
 
+#include <unistd.h>
 #include <errno.h>
 #include <signal.h>
 #include <stdio.h>

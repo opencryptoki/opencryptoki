@@ -510,31 +510,4 @@ typedef struct {
 
 #define RESTART_SYS_CALLS 1
 
-
-//
-// Function prototypes
-//
-
-/* shmem.c */
-int                    CreateSharedMemory ( void );
-int                    AttachToSharedMemeory ( void );
-int                    InitSharedMemory ( Slot_Mgr_Shr_t *sp );
-void                   DetachFromSharedMemory ( void );
-void                   DestroySharedMemory ( void );
-
-
-/* mutex.c */
-int                    InitializeMutexes ( void );
-int                    DestroyMutexes ( void );
-
-
-
-/* signal.c */
-void                   slotdSIGTERMhandler ( int signum );
-int                    SetupSignalHandlers ( void );
-void                   slotdGenericSignalHandler( int Signal );
-
-
-
-
 #endif /* _SLOTMGR_H */

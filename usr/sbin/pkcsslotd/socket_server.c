@@ -313,7 +313,6 @@ int CreateListenerSocket (void) {
 	struct sockaddr_un address;
 	struct group *grp;
 	int socketfd;
-	socklen_t address_length;
 
 	socketfd = socket(PF_UNIX, SOCK_STREAM | SOCK_NONBLOCK, 0);
 	if (socketfd < 0) {

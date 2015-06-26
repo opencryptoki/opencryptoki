@@ -469,14 +469,14 @@ int CreateSharedMemory ( void ) {
 
 /***********************************************************************
  *
- * AttachToSharedMemeory - 
+ * AttachToSharedMemory -
  *
  *     Called after creating the shared memory file
  *     Basically allows us to have access to the memory we've just created
  *
  ***********************************************************************/
 
-int AttachToSharedMemeory ( void ) {
+int AttachToSharedMemory ( void ) {
 
 #if !MMAP
    shmp = NULL;

@@ -290,14 +290,17 @@
 
 
 #include <stdio.h>
+#include <stdlib.h>
 #include <string.h>
 #include <syslog.h>
 #include <stdarg.h>
+#include <unistd.h>
 #include <sys/types.h>
 
 #include "log.h"
 #include "err.h"
 #include "slotmgr.h"
+#include "pkcsslotd.h"
 
 
 #define DEFAULT_PROGRAM_NAME "Program"
@@ -378,7 +381,6 @@ static BOOL                     InitLogging               ( void );
 static pLoggingFacilityInfo     GetLogInfoPtr             ( LogHandle   hLog );
 static BOOL                     GetFreeLogInfo            ( pLogHandle  Dest );
 static void                     CloseAllLoggingFacilities ( void );
-static BOOL                     SetLogPriorityMask        ( LogHandle   hLog,    u_int32       Priority );
 static BOOL                     SyslogOpen                ( pLoggingFacilityInfo pInfo );
 
 
@@ -516,19 +518,9 @@ static pLoggingFacilityInfo GetLogInfoPtr ( LogHandle hLog ) {
 
 BOOL NewLoggingFacility ( char *ID, pLoggingFacility pStuff ) {
 
-  int                       LogFacility;
-  pLoggingFacilityInfo      pInfo               = NULL;
+  pLoggingFacilityInfo      pInfo = NULL;
   LogHandle                 hLog;
   pLogHandle                Result;
-  extern BOOL               Daemon;
-
-  /* We use Daemon here instead of IsDaemon because these facilities
-     might get set up before we've actually daemonized */
-  if ( Daemon ) {
-    LogFacility = LOG_DAEMON;
-  } else {
-    LogFacility = LOG_USER;
-  }
 
   /* See if there's room in the array.  This'd be nice if it were dynamically allocated */
   if ( ! GetFreeLogInfo(&hLog) ) {
@@ -682,48 +674,6 @@ static void CloseAllLoggingFacilities ( void ) {
   return;
 
 }
-
-
-
-/***********************************************************************
- *  SetLogPriorityMask -
- *  
- *  Sets the log priority mask to exactly what is passed in as a parameter
- *  This means that you should pass in LOG_UPTO(LOG_DEBUG) if that's what you mean
- *  Passing in LOG_DEBUG will ONLY print debug messages
- *  
- ***********************************************************************/
-
-static BOOL SetLogPriorityMask ( LogHandle hLog, u_int32 Priority ) {
-
-  pLoggingFacilityInfo      pInfo               = NULL;
-
-  /* Get a pointer to the syslog_data structure */
-  if ( (pInfo = GetLogInfoPtr(hLog)) == NULL ) {
-    return FALSE;
-  }
-
-  /* Make sure that they called NewLoggingFacility() for this handle */
-  if ( pInfo->Initialized != TRUE ) {
-    return FALSE;
-  }
-
-  if ( ! pInfo->UseSyslog ) {
-#ifdef DEV
-    fprintf(stderr, "SetLogPriorityMask: Tried to set the mask on a log handle that isn't using syslog\n");
-#endif
-    return FALSE;
-  } else {
-    setlogmask( Priority );
-  }
-
-  return TRUE;
-
-}
-
-
-
-
 
 /***********************************************************************
  *  PKCS_Log -
@@ -1052,8 +1002,6 @@ int main ( int argc, char *argv[], char *envp[] ) {
 
 static BOOL SyslogOpen ( pLoggingFacilityInfo pInfo ) {
 
-  extern BOOL Daemon;
-
   ASSERT(pInfo != NULL);
 
   if ( !( pInfo->UseSyslog ) ) {
@@ -1066,7 +1014,7 @@ static BOOL SyslogOpen ( pLoggingFacilityInfo pInfo ) {
     closelog();
   }
 
-  /* Default to log all messages.  This can be changed by a subsequent call to SetLogPriorityMask */
+  /* Default to log all messages. */
   setlogmask( LOG_UPTO(LOG_DEBUG));
  
   /* Mark this as having been set by this process */

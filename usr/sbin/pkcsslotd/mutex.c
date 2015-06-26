@@ -288,11 +288,14 @@
 
 /* (C) COPYRIGHT International Business Machines Corp. 2001          */
 
+#include <unistd.h>
 #include <errno.h>
 #include <stdarg.h>
 #include <sys/types.h>
 #include <sys/file.h>
+#include <sys/stat.h>
 #include <grp.h>
+#include <string.h>
 
 #include "log.h"
 #include "slotmgr.h"

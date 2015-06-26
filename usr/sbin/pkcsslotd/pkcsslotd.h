@@ -350,55 +350,33 @@
  * Function Prototypes *
  ***********************/
 
+BOOL IsDaemon(void);
+BOOL GetStartDirectory(char *Buffer, u_int32 BufSize);
+BOOL SaveStartupDirectory(char *Arg0);
+BOOL StopGCThread(void *Ptr);
+BOOL StartGCThread(Slot_Mgr_Shr_t *MemPtr);
+BOOL CheckForGarbage(Slot_Mgr_Shr_t *MemPtr);
+int InitializeMutexes(void);
+int DestroyMutexes(void);
+int CreateSharedMemory(void);
+int AttachToSharedMemory(void);
+int InitSharedMemory(Slot_Mgr_Shr_t *sp);
+void DetachFromSharedMemory(void);
+void DestroySharedMemory(void);
+int SetupSignalHandlers(void);
+void slotdGenericSignalHandler(int Signal);
+void PopulateCKInfo(CK_INFO_PTR_64 ckinf);
+void PopulateSlotInfo(Slot_Info_t_64 *slot_info, int *processed);
 
-/* System non-prototyped functions causing warnings */
-/* Still throws a warning; sigh - SCM */
-/* int             *_Errno();*/   /* pointer to function which returns int */
+int XProcLock(void);
+int XProcUnLock(void);
+int CreateXProcLock(void);
 
+int CreateListenerSocket(void);
+int InitSocketData(Slot_Mgr_Socket_t *sp);
+int SocketConnectionHandler(int socketfd, int timeout_secs);
+void DetachSocketListener(int socketfd);
 
-/* daemon.c */
-extern BOOL	IsDaemon ( void );
-extern BOOL	GetStartDirectory ( char *Buffer, u_int32 BufSize );
-extern BOOL	SaveStartupDirectory ( char *Arg0 );
-
-
-/* garbage.c */
-extern BOOL	StopGCThread    ( void *Ptr );
-extern BOOL	StartGCThread   ( Slot_Mgr_Shr_t *MemPtr );
-extern BOOL	CheckForGarbage ( Slot_Mgr_Shr_t *MemPtr );
-
-
-
-/* mutex.c */
-extern int	InitializeMutexes ( void );
-extern int	DestroyMutexes ( void );
-
-
-
-/* shmem.c */
-extern int	CreateSharedMemory ( void );
-extern int	AttachToSharedMemeory ( void );
-extern int	InitSharedMemory ( Slot_Mgr_Shr_t *sp );
-extern void	DetachFromSharedMemory ( void );
-extern void	DestroySharedMemory ( void );
-
-/* signal.c */
-extern int	SetupSignalHandlers ( void );
-extern void	slotdGenericSignalHandler( int Signal );
-
-
-/* pkcsslotd_util.c */
-void PopulateCKInfo( CK_INFO_PTR_64 ckinf );
-
-/* Cross Process locking */
-extern int	XProcLock(void);
-extern int	XProcUnLock(void);
-extern int	CreateXProcLock(void);
-
-/* socket_server.c */
-int		CreateSocketListener(void);
-int		InitSocketData(Slot_Mgr_Socket_t *sp);
-int		SocketConnectionHandler(int socketfd, int timeout_secs);
-void		DetachSocketListener(int socketfd);
+int load_and_parse(const char *configfile);
 
 #endif /* _SLOTMGR_H */
