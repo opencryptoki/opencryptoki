@@ -20,6 +20,7 @@
 #include <limits.h>
 #include <syslog.h>
 #include <dlfcn.h>
+#include <arpa/inet.h>
 #include "cca_stdll.h"
 #include "pkcs11types.h"
 #include "p11util.h"
@@ -41,49 +42,49 @@ CK_CHAR label[] = "IBM PKCS#11 for CCA";
 
 /* mechanisms provided by this token */
 MECH_LIST_ELEMENT mech_list[] = {
-	{CKM_DES_KEY_GEN, 8, 8, CKF_HW|CKF_GENERATE},
-	{CKM_DES3_KEY_GEN, 24, 24, CKF_HW|CKF_GENERATE},
-	{CKM_RSA_PKCS_KEY_PAIR_GEN, 512, 4096, CKF_HW|CKF_GENERATE_KEY_PAIR},
-	{CKM_RSA_PKCS, 512, 4096, CKF_HW|CKF_ENCRYPT|CKF_DECRYPT|CKF_SIGN|
-				  CKF_VERIFY},
-	{CKM_MD5_RSA_PKCS, 512,4096, CKF_HW|CKF_SIGN|CKF_VERIFY},
-	{CKM_SHA1_RSA_PKCS, 512, 4096, CKF_HW|CKF_SIGN|CKF_VERIFY},
-	{CKM_SHA256_RSA_PKCS, 512, 4096, CKF_HW|CKF_SIGN|CKF_VERIFY},
-	{CKM_DES_CBC, 8, 8, CKF_HW|CKF_ENCRYPT|CKF_DECRYPT|CKF_WRAP|CKF_UNWRAP},
-	{CKM_DES_CBC_PAD, 8, 8, CKF_HW|CKF_ENCRYPT|CKF_DECRYPT|CKF_WRAP|
-				CKF_UNWRAP},
-	{CKM_DES3_CBC, 24, 24, CKF_HW|CKF_ENCRYPT|CKF_DECRYPT|CKF_WRAP|
-				CKF_UNWRAP},
-	{CKM_DES3_CBC_PAD, 24, 24, CKF_HW|CKF_ENCRYPT|CKF_DECRYPT|CKF_WRAP|
-				   CKF_UNWRAP},
-	{CKM_AES_KEY_GEN, 16, 32, CKF_HW|CKF_GENERATE},
-	{CKM_AES_ECB, 16, 32, CKF_HW|CKF_ENCRYPT|CKF_DECRYPT|CKF_WRAP|
-			      CKF_UNWRAP},
-	{CKM_AES_CBC, 16, 32, CKF_HW|CKF_ENCRYPT|CKF_DECRYPT|CKF_WRAP|
-			      CKF_UNWRAP},
-	{CKM_AES_CBC_PAD, 16, 32, CKF_HW|CKF_ENCRYPT|CKF_DECRYPT|CKF_WRAP|
-				  CKF_UNWRAP},
-	{CKM_SHA512, 0, 0, CKF_HW|CKF_DIGEST},
-	{CKM_SHA512_HMAC, 0, 0, CKF_SIGN|CKF_VERIFY},
-	{CKM_SHA512_HMAC_GENERAL, 0, 0, CKF_SIGN|CKF_VERIFY},
-	{CKM_SHA384, 0, 0, CKF_HW|CKF_DIGEST},
-	{CKM_SHA384_HMAC, 0, 0, CKF_SIGN|CKF_VERIFY},
-	{CKM_SHA384_HMAC_GENERAL, 0, 0, CKF_SIGN|CKF_VERIFY},
-	{CKM_SHA256, 0, 0, CKF_HW|CKF_DIGEST},
-	{CKM_SHA256_HMAC, 0, 0, CKF_SIGN|CKF_VERIFY},
-	{CKM_SHA256_HMAC_GENERAL, 0, 0, CKF_SIGN|CKF_VERIFY},
-	{CKM_SHA_1, 0, 0, CKF_DIGEST},
-	{CKM_SHA_1_HMAC, 0, 0, CKF_SIGN|CKF_VERIFY},
-	{CKM_SHA_1_HMAC_GENERAL, 0, 0, CKF_SIGN|CKF_VERIFY},
-	{CKM_MD5, 0, 0, CKF_DIGEST},
-	{CKM_MD5_HMAC, 0, 0, CKF_SIGN|CKF_VERIFY},
-	{CKM_MD5_HMAC_GENERAL, 0, 0, CKF_SIGN|CKF_VERIFY},
-	{CKM_EC_KEY_PAIR_GEN, 160, 521, CKF_HW|CKF_GENERATE_KEY_PAIR|
-					CKF_EC_NAMEDCURVE|CKF_EC_F_P},
-	{CKM_ECDSA, 160, 521, CKF_HW|CKF_SIGN|CKF_VERIFY|CKF_EC_NAMEDCURVE|
-			      CKF_EC_F_P},
-	{CKM_ECDSA_SHA1, 160, 521, CKF_HW|CKF_SIGN|CKF_VERIFY|
-				   CKF_EC_NAMEDCURVE|CKF_EC_F_P}
+	{CKM_DES_KEY_GEN, {8, 8, CKF_HW|CKF_GENERATE}},
+	{CKM_DES3_KEY_GEN, {24, 24, CKF_HW|CKF_GENERATE}},
+	{CKM_RSA_PKCS_KEY_PAIR_GEN, {512, 4096, CKF_HW|CKF_GENERATE_KEY_PAIR}},
+	{CKM_RSA_PKCS, {512, 4096, CKF_HW|CKF_ENCRYPT|CKF_DECRYPT|CKF_SIGN|
+				  CKF_VERIFY}},
+	{CKM_MD5_RSA_PKCS, {512,4096, CKF_HW|CKF_SIGN|CKF_VERIFY}},
+	{CKM_SHA1_RSA_PKCS, {512, 4096, CKF_HW|CKF_SIGN|CKF_VERIFY}},
+	{CKM_SHA256_RSA_PKCS, {512, 4096, CKF_HW|CKF_SIGN|CKF_VERIFY}},
+	{CKM_DES_CBC, {8, 8, CKF_HW|CKF_ENCRYPT|CKF_DECRYPT|CKF_WRAP|CKF_UNWRAP}},
+	{CKM_DES_CBC_PAD, {8, 8, CKF_HW|CKF_ENCRYPT|CKF_DECRYPT|CKF_WRAP|
+				CKF_UNWRAP}},
+	{CKM_DES3_CBC, {24, 24, CKF_HW|CKF_ENCRYPT|CKF_DECRYPT|CKF_WRAP|
+				CKF_UNWRAP}},
+	{CKM_DES3_CBC_PAD, {24, 24, CKF_HW|CKF_ENCRYPT|CKF_DECRYPT|CKF_WRAP|
+				   CKF_UNWRAP}},
+	{CKM_AES_KEY_GEN, {16, 32, CKF_HW|CKF_GENERATE}},
+	{CKM_AES_ECB, {16, 32, CKF_HW|CKF_ENCRYPT|CKF_DECRYPT|CKF_WRAP|
+			      CKF_UNWRAP}},
+	{CKM_AES_CBC, {16, 32, CKF_HW|CKF_ENCRYPT|CKF_DECRYPT|CKF_WRAP|
+			      CKF_UNWRAP}},
+	{CKM_AES_CBC_PAD, {16, 32, CKF_HW|CKF_ENCRYPT|CKF_DECRYPT|CKF_WRAP|
+				  CKF_UNWRAP}},
+	{CKM_SHA512, {0, 0, CKF_HW|CKF_DIGEST}},
+	{CKM_SHA512_HMAC, {0, 0, CKF_SIGN|CKF_VERIFY}},
+	{CKM_SHA512_HMAC_GENERAL, {0, 0, CKF_SIGN|CKF_VERIFY}},
+	{CKM_SHA384, {0, 0, CKF_HW|CKF_DIGEST}},
+	{CKM_SHA384_HMAC, {0, 0, CKF_SIGN|CKF_VERIFY}},
+	{CKM_SHA384_HMAC_GENERAL, {0, 0, CKF_SIGN|CKF_VERIFY}},
+	{CKM_SHA256, {0, 0, CKF_HW|CKF_DIGEST}},
+	{CKM_SHA256_HMAC, {0, 0, CKF_SIGN|CKF_VERIFY}},
+	{CKM_SHA256_HMAC_GENERAL, {0, 0, CKF_SIGN|CKF_VERIFY}},
+	{CKM_SHA_1, {0, 0, CKF_DIGEST}},
+	{CKM_SHA_1_HMAC, {0, 0, CKF_SIGN|CKF_VERIFY}},
+	{CKM_SHA_1_HMAC_GENERAL, {0, 0, CKF_SIGN|CKF_VERIFY}},
+	{CKM_MD5, {0, 0, CKF_DIGEST}},
+	{CKM_MD5_HMAC, {0, 0, CKF_SIGN|CKF_VERIFY}},
+	{CKM_MD5_HMAC_GENERAL, {0, 0, CKF_SIGN|CKF_VERIFY}},
+	{CKM_EC_KEY_PAIR_GEN, {160, 521, CKF_HW|CKF_GENERATE_KEY_PAIR|
+					CKF_EC_NAMEDCURVE|CKF_EC_F_P}},
+	{CKM_ECDSA, {160, 521, CKF_HW|CKF_SIGN|CKF_VERIFY|CKF_EC_NAMEDCURVE|
+			      CKF_EC_F_P}},
+	{CKM_ECDSA_SHA1, {160, 521, CKF_HW|CKF_SIGN|CKF_VERIFY|
+				   CKF_EC_NAMEDCURVE|CKF_EC_F_P}}
 };
 
 CK_ULONG mech_list_len = (sizeof(mech_list) / sizeof(MECH_LIST_ELEMENT));
@@ -187,7 +188,6 @@ CK_RV cca_key_gen(enum cca_key_type type, CK_BYTE *key, unsigned char *key_form,
 	unsigned char key_type_2[CCA_KEYWORD_SIZE] = { 0, };
 	unsigned char kek_key_identifier_1[CCA_KEY_ID_SIZE] = { 0, };
 	unsigned char kek_key_identifier_2[CCA_KEY_ID_SIZE] = { 0, };
-	unsigned char *generated_key_identifier_1 = key;
 	unsigned char generated_key_identifier_2[CCA_KEY_ID_SIZE] = { 0, };
 
 	if (type == CCA_DES_KEY) {
@@ -250,8 +250,7 @@ CK_RV cca_key_gen(enum cca_key_type type, CK_BYTE *key, unsigned char *key_form,
 CK_RV
 token_specific_des_key_gen(CK_BYTE *des_key, CK_ULONG len, CK_ULONG keysize)
 {
-	long return_code, reason_code;
-	unsigned char key_form[CCA_KEYWORD_SIZE], key_length[CCA_KEYWORD_SIZE];
+	unsigned char key_form[CCA_KEYWORD_SIZE];
 	unsigned char key_type_1[CCA_KEYWORD_SIZE];
 
 	/* make sure key is the right size for the token */
@@ -768,11 +767,11 @@ token_specific_rsa_encrypt(CK_BYTE  *in_data,
 		out_data);
 
 	if (return_code != CCA_SUCCESS) {
-		TRACE_ERROR("CSNDPKE (RSA ENCRYPT) failed. return: %ld ",
-			    "reason: %ld\n", return_code, reason_code);
+		TRACE_ERROR("CSNDPKE (RSA ENCRYPT) failed. return: %ld,"
+			    " reason: %ld\n", return_code, reason_code);
 		return CKR_FUNCTION_FAILED;
 	 } else if (reason_code != 0) {
-		TRACE_WARNING("CSNDPKE (RSA ENCRYPT) succeeded, but ",
+		TRACE_WARNING("CSNDPKE (RSA ENCRYPT) succeeded, but "
 			      "returned reason: %ld\n", reason_code);
 	}
 
@@ -933,9 +932,7 @@ CK_RV
 token_specific_aes_key_gen(CK_BYTE *aes_key, CK_ULONG len, CK_ULONG key_size)
 {
 	long return_code, reason_code;
-	unsigned char key_length[CCA_KEYWORD_SIZE];
 	unsigned char key_token[CCA_KEY_ID_SIZE] = { 0, };
-	unsigned char key_value[32];
 	unsigned char key_form[CCA_KEYWORD_SIZE];
 	unsigned char key_type[CCA_KEYWORD_SIZE];
 	unsigned char rule_array[CCA_RULE_ARRAY_SIZE] = { 0x20, };
@@ -944,8 +941,6 @@ token_specific_aes_key_gen(CK_BYTE *aes_key, CK_ULONG len, CK_ULONG key_size)
 	unsigned char reserved_1[4] = { 0, };
 	unsigned char point_to_array_of_zeros = 0;
 	unsigned char mkvp[16] = { 0, };
-	CK_RV	      rc;
-	CK_ATTRIBUTE  *opaque_attr = NULL;
 	
 	/* make sure key is the right size for the token */
 	if (len != CCA_KEY_ID_SIZE)
@@ -1019,9 +1014,8 @@ token_specific_aes_ecb(CK_BYTE  *in_data,
 		       CK_BYTE	 encrypt)
 {
 	
-	long return_code, reason_code, rule_array_count, length;
-	long pad_character = 0, block_size = 16;
-	unsigned char chaining_vector[CCA_OCV_SIZE];
+	long return_code, reason_code, rule_array_count;
+	long block_size = 16;
 	unsigned char rule_array[CCA_RULE_ARRAY_SIZE];
 	long opt_data_len = 0, key_params_len =0, exit_data_len = 0, IV_len = 0, chain_vector_len = 0;
 	char exit_data[0];
@@ -1116,8 +1110,7 @@ token_specific_aes_cbc(CK_BYTE  *in_data,
 		       CK_BYTE	 encrypt)
 {
 	long return_code, reason_code, rule_array_count, length;
-	long pad_character = 0, block_size = 16;
-	unsigned char IV[8] = { 0xfe, 0x43, 0x12, 0xed, 0xaa, 0xbb, 0xdd, 0x90 };
+	long block_size = 16;
 	unsigned char chaining_vector[32];
 	unsigned char rule_array[CCA_RULE_ARRAY_SIZE];
 	long opt_data_len = 0, key_params_len =0, exit_data_len = 0, IV_len = 16, chain_vector_len = 32;
@@ -1315,8 +1308,8 @@ build_update_attribute(TEMPLATE *tmpl,
 {
 	CK_ATTRIBUTE *attr;
 	CK_RV rv;
-	if (rv = build_attribute(type, data, data_len, &attr)) {
-		TRACE_DEVEL("Build attribute for type=%d failed rv=0x%lx\n",
+	if ((rv = build_attribute(type, data, data_len, &attr))) {
+		TRACE_DEVEL("Build attribute for type=%lu failed rv=0x%lx\n",
 			    type, rv);
 		return rv;
 	}
@@ -1359,10 +1352,8 @@ token_create_ec_keypair(TEMPLATE *publ_tmpl,
 		CK_BYTE *tok)
 {
 	uint16_t pubkey_offset, qlen_offset, q_offset;
-	uint16_t p_len, p_len_offset, i;
 	CK_ULONG q_len;
 	CK_BYTE q[CCATOK_EC_MAX_Q_LEN];
-	CK_BBOOL found = FALSE;
 	CK_RV rv;
 	CK_ATTRIBUTE *attr = NULL;
 
@@ -2021,7 +2012,7 @@ CK_RV rsa_import_privkey_crt(TEMPLATE *priv_tmpl)
 
 	long offset, key_value_structure_length = CCA_KEY_VALUE_STRUCT_SIZE;
 	long private_key_name_length, key_token_length,
-	target_key_token_length, regeneration_data_length;
+	target_key_token_length;
 
 	unsigned char key_value_structure[CCA_KEY_VALUE_STRUCT_SIZE] = { 0, };
 	unsigned char private_key_name[CCA_PRIVATE_KEY_NAME_SIZE] = { 0, };
@@ -2029,11 +2020,10 @@ CK_RV rsa_import_privkey_crt(TEMPLATE *priv_tmpl)
 	unsigned char target_key_token[CCA_KEY_TOKEN_SIZE] = { 0, };
 	unsigned char transport_key_identifier[CCA_KEY_ID_SIZE] = { 0, };
 
-	uint16_t size_of_e, size_of_d;
+	uint16_t size_of_e;
 	uint16_t mod_bits, mod_bytes, bytes;
 	CK_ATTRIBUTE *opaque_key = NULL, *pub_exp = NULL, *mod = NULL,
-	*priv_exp = NULL, *attr = NULL, *p_prime=NULL,
-	*q_prime=NULL, *dmp1=NULL, *dmq1=NULL, *iqmp=NULL;
+	*p_prime=NULL, *q_prime=NULL, *dmp1=NULL, *dmq1=NULL, *iqmp=NULL;
 	CK_RV rc;
 
 	/* Look for parameters to set key in the CRT format */
@@ -2200,8 +2190,7 @@ CK_RV rsa_import_privkey_crt(TEMPLATE *priv_tmpl)
 		target_key_token);
 
 	if (return_code != CCA_SUCCESS) {
-		TRACE_ERROR("CSNDPKI (RSA KEY TOKEN IMPORT) failed.",
-			    "return: %ld, reason: %ld\n",
+		TRACE_ERROR("CSNDPKI (RSA KEY TOKEN IMPORT) failed. return: %ld, reason: %ld\n",
 			    return_code, reason_code);
 		return CKR_FUNCTION_FAILED;
 	}
@@ -2418,7 +2407,7 @@ get_ecsiglen(OBJECT *key_obj, CK_ULONG *size)
 				*size = (*size / 8) * 2;
 			else
 				*size = ((*size / 8) + 1) * 2;
-			TRACE_DEVEL("getlen, curve = %d, size = %d\n", der_ec_supported[i].len_bits, *size);
+			TRACE_DEVEL("getlen, curve = %d, size = %lu\n", der_ec_supported[i].len_bits, *size);
                         return CKR_OK;
                 }
         }

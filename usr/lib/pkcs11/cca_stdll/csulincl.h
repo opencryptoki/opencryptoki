@@ -112,6 +112,7 @@
   #define CSNDRKX   CSNDRKX_32
   #define CSNBKET   CSNBKET_32
   #define CSNBSAE   CSNBSAE_32
+  #define CSNBSAD   CSNBSAD_32
 
 /*
  * security API prototypes
@@ -421,6 +422,29 @@ extern void SECURITYAPI
               unsigned char * text,
               long          * ciphertext_length,
               unsigned char * ciphertext,
+              long          * optional_data_length,
+              unsigned char * optional_data);
+
+extern void SECURITYAPI
+   CSNBSAD_32(long          * return_code,
+              long          * reason_code,
+              long          * exit_data_length,
+              unsigned char * exit_data,
+              long	    * rule_array_count,
+	      unsigned char * rule_array,
+	      long	    * key_identifier_length,
+	      unsigned char * key_identifier,
+              long	    * key_params_length,
+	      unsigned char * key_params,
+	      long	    * block_size,
+              long          * initialization_vector_length,
+              unsigned char * initialization_vector,
+              long          * chaining_vector_length,
+              unsigned char * chaining_vector,
+              long          * ciphertext_length,
+              unsigned char * ciphertext,
+              long          * text_length,
+              unsigned char * text,
               long          * optional_data_length,
               unsigned char * optional_data);
 

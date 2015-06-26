@@ -10,6 +10,7 @@
  *
  */
 
+#define _GNU_SOURCE
 #include <stdio.h>
 #include <stdlib.h>
 #include <unistd.h>
@@ -141,9 +142,9 @@ int load_private_token_objects(unsigned char *data_store,
 	unsigned char tmp[PATH_MAX], fname[PATH_MAX], iname[PATH_MAX];
 	CK_BBOOL priv;
 	unsigned int size;
-	int rc, scount= 0, fcount = 0;
+	int rc = 0, scount = 0, fcount = 0;
 	size_t read_size;
-	unsigned char *new_cipher;
+	unsigned char *new_cipher = NULL;
 	unsigned long new_cipher_len;
 
 	snprintf(iname, sizeof(iname), "%s/TOK_OBJ/OBJ.IDX", data_store);
@@ -259,7 +260,7 @@ int load_masterkey(char *mkfile, char *pin, char *masterkey)
 	CK_RV rc;
 	FILE *fp = NULL;
 
-	clear_len = cipher_len = MASTER_KEY_SIZE + SHA1_HASH_SIZE + (DES_BLOCK_SIZE - 1) & ~(DES_BLOCK_SIZE - 1);
+	clear_len = cipher_len = (MASTER_KEY_SIZE + SHA1_HASH_SIZE + (DES_BLOCK_SIZE - 1)) & ~(DES_BLOCK_SIZE - 1);
 
 	fp = fopen((char *)mkfile, "r");
 	if (!fp) {
@@ -479,8 +480,7 @@ void usage(char *progname)
 
 int main(int argc, char **argv)
 {
-	int ret, opt;
-	unsigned int m_flag = 0;
+	int ret = 0, opt;
 	char *sopin = NULL, *userpin = NULL;
 	size_t sopinlen, userpinlen;
 	unsigned char masterkey[MASTER_KEY_SIZE];
@@ -497,7 +497,6 @@ int main(int argc, char **argv)
 		{ 0, 0, 0, 0 }
 	};
 
-	int long_index;
 	while ((opt = getopt_long(argc, argv, "d:m:hv", long_opts, NULL)) != -1) {
 		switch (opt) {
 		case 'd':
