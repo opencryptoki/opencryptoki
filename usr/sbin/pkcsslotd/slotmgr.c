@@ -298,6 +298,7 @@
 #include "log.h"
 #include "slotmgr.h"
 #include "pkcsslotd.h"
+#include "parser.h"
 
 Slot_Mgr_Shr_t	*shmp;     // pointer to the shared memory region.
 int		shmid;
