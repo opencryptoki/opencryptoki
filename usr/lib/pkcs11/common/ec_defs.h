@@ -30,18 +30,19 @@
 
 /* Supported Elliptic Curves */
 #define NUMEC			12	/* number of supported curves */
-CK_BYTE brainpoolP160r1[] = { 0x06, 0x09, 0x2B, 0x24, 0x03, 0x03, 0x02, 0x08, 0x01, 0x01, 0x01 };
-CK_BYTE brainpoolP192r1[] = { 0x06, 0x09, 0x2B, 0x24, 0x03, 0x03, 0x02, 0x08, 0x01, 0x01, 0x03 };
-CK_BYTE brainpoolP224r1[] = { 0x06, 0x09, 0x2B, 0x24, 0x03, 0x03, 0x02, 0x08, 0x01, 0x01, 0x05 };
-CK_BYTE brainpoolP256r1[] = { 0x06, 0x09, 0x2B, 0x24, 0x03, 0x03, 0x02, 0x08, 0x01, 0x01, 0x07 };
-CK_BYTE brainpoolP320r1[] = { 0x06, 0x09, 0x2B, 0x24, 0x03, 0x03, 0x02, 0x08, 0x01, 0x01, 0x09 };
-CK_BYTE brainpoolP384r1[] = { 0x06, 0x09, 0x2B, 0x24, 0x03, 0x03, 0x02, 0x08, 0x01, 0x01, 0x0B };
-CK_BYTE brainpoolP512r1[] = { 0x06, 0x09, 0x2B, 0x24, 0x03, 0x03, 0x02, 0x08, 0x01, 0x01, 0x0D };
-CK_BYTE prime192[] = { 0x06, 0x08, 0x2A, 0x86, 0x48, 0xCE, 0x3D, 0x03, 0x01, 0x01 };
-CK_BYTE secp224[] = { 0x06, 0x05, 0x2B, 0x81, 0x04, 0x00, 0x21 };
-CK_BYTE prime256[] = { 0x06, 0x08, 0x2A, 0x86, 0x48, 0xCE, 0x3D, 0x03, 0x01, 0x07 };
-CK_BYTE secp384[] = { 0x06, 0x05, 0x2B, 0x81, 0x04, 0x00, 0x22 };
-CK_BYTE secp521[] = { 0x06, 0x05, 0x2B, 0x81, 0x04, 0x00, 0x23 };
+extern CK_BYTE brainpoolP160r1[];
+extern CK_BYTE brainpoolP192r1[];
+extern CK_BYTE brainpoolP224r1[];
+extern CK_BYTE brainpoolP256r1[];
+extern CK_BYTE brainpoolP320r1[];
+extern CK_BYTE brainpoolP384r1[];
+extern CK_BYTE brainpoolP512r1[];
+extern CK_BYTE prime192[];
+extern CK_BYTE secp224[];
+extern CK_BYTE prime256[];
+extern CK_BYTE secp384[];
+extern CK_BYTE secp521[];
+
 
 // structure of supported Elliptic Curves
 
@@ -52,19 +53,5 @@ struct _ec {
 	CK_VOID_PTR	data;
 }__attribute__ ((__packed__));
 
-struct _ec der_ec_supported[NUMEC] = {
-	{BRAINPOOL_CURVE, CURVE160, sizeof(brainpoolP160r1), &brainpoolP160r1},
-	{BRAINPOOL_CURVE, CURVE192, sizeof(brainpoolP192r1), &brainpoolP192r1},
-	{BRAINPOOL_CURVE, CURVE224, sizeof(brainpoolP224r1), &brainpoolP224r1},
-	{BRAINPOOL_CURVE, CURVE256, sizeof(brainpoolP256r1), &brainpoolP256r1},
-	{BRAINPOOL_CURVE, CURVE320, sizeof(brainpoolP320r1), &brainpoolP320r1},
-	{BRAINPOOL_CURVE, CURVE384, sizeof(brainpoolP384r1), &brainpoolP384r1},
-	{BRAINPOOL_CURVE, CURVE512, sizeof(brainpoolP512r1), &brainpoolP512r1},
-	{PRIME_CURVE, CURVE192, sizeof(prime192), &prime192},
-	{PRIME_CURVE, CURVE224, sizeof(secp224), &secp224},
-	{PRIME_CURVE, CURVE256, sizeof(prime256), &prime256},
-	{PRIME_CURVE, CURVE384, sizeof(secp384), &secp384},
-	{PRIME_CURVE, CURVE521, sizeof(secp521), &secp521},
-};
-
+extern struct _ec der_ec_supported[NUMEC];
 #endif

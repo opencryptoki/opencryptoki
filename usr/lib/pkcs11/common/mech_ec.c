@@ -13,6 +13,7 @@
 //
 #include <stdio.h>
 #include <stdlib.h>
+#include <stdint.h>
 #include <string.h>
 #include "pkcs11types.h"
 #include "defs.h"
@@ -21,6 +22,80 @@
 #include "tok_spec_struct.h"
 #include "trace.h"
 #include "tok_specific.h"
+#include "ec_defs.h"
+
+CK_BYTE brainpoolP160r1[] = { 0x06,0x09,0x2B,0x24,0x03,0x03,0x02,0x08,
+			      0x01,0x01,0x01 };
+CK_BYTE brainpoolP192r1[] = { 0x06,0x09,0x2B,0x24,0x03,0x03,0x02,0x08,
+			      0x01,0x01,0x03 };
+CK_BYTE brainpoolP224r1[] = { 0x06,0x09,0x2B,0x24,0x03,0x03,0x02,0x08,
+			      0x01,0x01,0x05 };
+CK_BYTE brainpoolP256r1[] = { 0x06,0x09,0x2B,0x24,0x03,0x03,0x02,0x08,
+			      0x01,0x01,0x07 };
+CK_BYTE brainpoolP320r1[] = { 0x06,0x09,0x2B,0x24,0x03,0x03,0x02,0x08,
+			      0x01,0x01,0x09 };
+CK_BYTE brainpoolP384r1[] = { 0x06,0x09,0x2B,0x24,0x03,0x03,0x02,0x08,
+			      0x01,0x01,0x0B };
+CK_BYTE brainpoolP512r1[] = { 0x06,0x09,0x2B,0x24,0x03,0x03,0x02,0x08,
+			      0x01,0x01,0x0D };
+CK_BYTE prime192[] = { 0x06,0x08,0x2A,0x86,0x48,0xCE,0x3D,0x03,0x01,0x01 };
+CK_BYTE secp224[] = { 0x06,0x05,0x2B,0x81,0x04,0x00,0x21 };
+CK_BYTE prime256[] = { 0x06,0x08,0x2A,0x86,0x48,0xCE,0x3D,0x03,0x01,0x07 };
+CK_BYTE secp384[] = { 0x06,0x05,0x2B,0x81,0x04,0x00,0x22 };
+CK_BYTE secp521[] = { 0x06,0x05,0x2B,0x81,0x04,0x00,0x23 };
+
+struct _ec der_ec_supported[NUMEC] = {
+	{BRAINPOOL_CURVE, CURVE160, sizeof(brainpoolP160r1), &brainpoolP160r1},
+	{BRAINPOOL_CURVE, CURVE192, sizeof(brainpoolP192r1), &brainpoolP192r1},
+	{BRAINPOOL_CURVE, CURVE224, sizeof(brainpoolP224r1), &brainpoolP224r1},
+	{BRAINPOOL_CURVE, CURVE256, sizeof(brainpoolP256r1), &brainpoolP256r1},
+	{BRAINPOOL_CURVE, CURVE320, sizeof(brainpoolP320r1), &brainpoolP320r1},
+	{BRAINPOOL_CURVE, CURVE384, sizeof(brainpoolP384r1), &brainpoolP384r1},
+	{BRAINPOOL_CURVE, CURVE512, sizeof(brainpoolP512r1), &brainpoolP512r1},
+	{PRIME_CURVE, CURVE192, sizeof(prime192), &prime192},
+	{PRIME_CURVE, CURVE224, sizeof(secp224), &secp224},
+	{PRIME_CURVE, CURVE256, sizeof(prime256), &prime256},
+	{PRIME_CURVE, CURVE384, sizeof(secp384), &secp384},
+	{PRIME_CURVE, CURVE521, sizeof(secp521), &secp521},
+};
+
+
+CK_RV get_ecsiglen(OBJECT *key_obj, CK_ULONG *size)
+{
+	CK_BBOOL flag;
+	CK_ATTRIBUTE *attr = NULL;
+	int i;
+
+	flag = template_attribute_find(key_obj->template, CKA_ECDSA_PARAMS,
+					&attr);
+	if (flag == FALSE) {
+		TRACE_ERROR("Could not find CKA_ECDSA_PARAMS for the key.\n");
+		return CKR_FUNCTION_FAILED;
+	}
+
+	/* loop thru supported curves to find the size.
+	 * both pkcs#11v2.20 and CCA expect the signature length to be
+	 * twice the length of p.
+	 * (See EC Signatures in pkcs#11v2.20 and docs for CSNDDSG.)
+	 */
+	for (i = 0; i < NUMEC; i++) {
+		if ((memcmp(attr->pValue, der_ec_supported[i].data,
+		     attr->ulValueLen) == 0)) {
+			*size = der_ec_supported[i].len_bits;
+			/* round up if necessary */
+			if ((*size % 8) == 0)
+				*size = (*size / 8) * 2;
+			else
+				*size = ((*size / 8) + 1) * 2;
+			TRACE_DEVEL("getlen, curve = %d, size = %lu\n",
+				    der_ec_supported[i].len_bits, *size);
+			return CKR_OK;
+		}
+	}
+
+	TRACE_ERROR("%s\n", ock_err(ERR_MECHANISM_PARAM_INVALID));
+	return CKR_MECHANISM_PARAM_INVALID;
+}
 
 CK_RV
 ckm_ec_key_pair_gen( TEMPLATE  * publ_tmpl,
