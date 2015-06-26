@@ -28,6 +28,7 @@ opencryptoki_stdll_libpkcs11_ica_la_SOURCES = ../common/asn1.c		\
 					      ../common/dig_mgr.c	\
 					      ../common/encr_mgr.c	\
 					      ../common/globals.c	\
+					      ../common/sw_crypt.c	\
 					      ../common/loadsave.c	\
 					      ../common/key.c		\
 					      ../common/key_mgr.c	\

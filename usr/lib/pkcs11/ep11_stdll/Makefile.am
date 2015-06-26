@@ -24,6 +24,7 @@ opencryptoki_stdll_libpkcs11_ep11_la_SOURCES = ../common/asn1.c		\
 					     ../common/dig_mgr.c	\
 					     ../common/globals.c	\
 					     ../common/loadsave.c	\
+					     ../common/mech_ec.c	\
 					     ../common/mech_md5.c	\
 					     ../common/mech_md2.c	\
 					     ../common/mech_rng.c	\

@@ -35,6 +35,7 @@ opencryptoki_stdll_libpkcs11_tpm_la_SOURCES = ../common/asn1.c		\
 					      ../common/mech_aes.c	\
 					      ../common/$(MECH_DSA)	\
 					      ../common/mech_rsa.c	\
+					      ../common/mech_ec.c	\
 					      ../common/obj_mgr.c	\
 					      ../common/template.c	\
 					      ../common/p11util.c	\
@@ -46,6 +47,7 @@ opencryptoki_stdll_libpkcs11_tpm_la_SOURCES = ../common/asn1.c		\
 					      ../common/object.c	\
 					      ../common/decr_mgr.c	\
 					      ../common/globals.c	\
+					      ../common/sw_crypt.c	\
 					      ../common/loadsave.c	\
 					      ../common/utility.c	\
 					      ../common/mech_des.c	\
