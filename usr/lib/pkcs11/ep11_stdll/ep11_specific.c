@@ -320,6 +320,7 @@
 #include <grp.h>
 
 #include "ep11.h"
+
 #define EP11SHAREDLIB "libep11.so"
 
 CK_RV ep11tok_get_mechanism_list(CK_MECHANISM_TYPE_PTR mlist,
@@ -1275,7 +1276,10 @@ CK_RV ep11tok_init(CK_SLOT_ID SlotNumber, char *conf_name)
 	/* dynamically load in the ep11 shared library */
 	lib_ep11 = dlopen(EP11SHAREDLIB, RTLD_GLOBAL | RTLD_NOW);
 	if (!lib_ep11) {
-		TRACE_ERROR("%s Error loading shared lib '%s' [%s]\n",
+		OCK_SYSLOG(LOG_ERR,
+			   "%s: Error loading shared library '%s' [%s]\n",
+			    __func__, EP11SHAREDLIB, dlerror());
+		TRACE_ERROR("%s Error loading shared library '%s' [%s]\n",
 			    __func__, EP11SHAREDLIB, dlerror());
 		return CKR_FUNCTION_FAILED;
 	}
@@ -1302,6 +1306,13 @@ CK_RV ep11tok_init(CK_SLOT_ID SlotNumber, char *conf_name)
 	rc = make_wrapblob(wrap_tmpl, 8);
 	if (rc != CKR_OK) {
 		TRACE_ERROR("%s make_wrapblob failed rc=0x%lx\n", __func__, rc);
+		if (rc == 0x80010009) {
+			TRACE_ERROR("%s rc is CKR_IBM_WK_NOT_INITIALIZED, "
+				    "no master key set ?\n", __func__);
+			OCK_SYSLOG(LOG_ERR,
+				   "%s: CKR_IBM_WK_NOT_INITIALIZED occured, no "
+				   "master key set ?\n", __func__);
+		}
 		return CKR_GENERAL_ERROR;
 	}
 

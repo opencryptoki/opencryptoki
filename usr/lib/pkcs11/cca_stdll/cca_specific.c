@@ -37,6 +37,8 @@ CK_CHAR model[] = "IBM CCA Token";
 CK_CHAR descr[] = "IBM PKCS#11 CCA Token";
 CK_CHAR label[] = "IBM PKCS#11 for CCA";
 
+#define CCASHAREDLIB "libcsulcca.so"
+
 /* mechanisms provided by this token */
 MECH_LIST_ELEMENT mech_list[] = {
 	{CKM_DES_KEY_GEN, 8, 8, CKF_HW|CKF_GENERATE},
@@ -131,9 +133,12 @@ token_specific_init(CK_SLOT_ID SlotNumber, char *conf_name)
 	long return_code, reason_code, rule_array_count, verb_data_length;
 	void *lib_csulcca;
 	
-	lib_csulcca = dlopen("libcsulcca.so",  (RTLD_GLOBAL | RTLD_NOW));
+	lib_csulcca = dlopen(CCASHAREDLIB, RTLD_GLOBAL | RTLD_NOW);
 	if (lib_csulcca == NULL) {
-		OCK_SYSLOG(LOG_ERR, "%s: Error loading library: [%s]\n", __FUNCTION__, dlerror());
+		OCK_SYSLOG(LOG_ERR, "%s: Error loading library: '%s' [%s]\n",
+			   __func__, CCASHAREDLIB, dlerror());
+		TRACE_ERROR("%s: Error loading shared library '%s' [%s]\n",
+			    __func__, CCASHAREDLIB, dlerror());
 		return CKR_FUNCTION_FAILED;
 	}
 
@@ -346,11 +351,22 @@ token_specific_des_cbc(CK_BYTE  *in_data,
 	}
 
 	if (return_code != CCA_SUCCESS) {
-		TRACE_ERROR("CSNBENC (DES ENCRYPT) failed. return:%ld, "
-			    "reason:%ld\n", return_code, reason_code);
+		if (encrypt)
+			TRACE_ERROR("CSNBENC (DES ENCRYPT) failed. return:%ld,"
+			    " reason:%ld\n", return_code, reason_code);
+		else
+			TRACE_ERROR("CSNBENC (DES DECRYPT) failed. return:%ld,"
+			    " reason:%ld\n", return_code, reason_code);
 		if (out_data != local_out)
 			free(local_out);
 		return CKR_FUNCTION_FAILED;
+	} else if (reason_code != 0) {
+		if (encrypt)
+			TRACE_WARNING("CSNBENC (DES ENCRYPT) succeeded, but "
+				      "returned reason:%ld\n", reason_code);
+		else
+			TRACE_WARNING("CSNBDEC (DES DECRYPT) succeeded, but "
+				      "returned reason:%ld\n", reason_code);
 	}
 
 	/* If we malloc'd a new buffer due to overflow concerns and the data
@@ -382,7 +398,7 @@ token_specific_tdes_ecb(CK_BYTE  *in_data,
 			OBJECT   *key,
 			CK_BYTE   encrypt)
 {
-	TRACE_WARN("Unsupported function reached.");
+	TRACE_WARNING("Unsupported function reached.");
 	return CKR_FUNCTION_NOT_SUPPORTED;
 }
 
@@ -755,6 +771,9 @@ token_specific_rsa_encrypt(CK_BYTE  *in_data,
 		TRACE_ERROR("CSNDPKE (RSA ENCRYPT) failed. return: %ld ",
 			    "reason: %ld\n", return_code, reason_code);
 		return CKR_FUNCTION_FAILED;
+	 } else if (reason_code != 0) {
+		TRACE_WARNING("CSNDPKE (RSA ENCRYPT) succeeded, but ",
+			      "returned reason: %ld\n", reason_code);
 	}
 
 	return CKR_OK;
@@ -806,6 +825,9 @@ token_specific_rsa_decrypt(CK_BYTE  *in_data,
 		TRACE_ERROR("CSNDPKD (RSA DECRYPT) failed. return: %ld, "
 			    "reason: %ld\n", return_code, reason_code);
 		return CKR_FUNCTION_FAILED;
+	} else if (reason_code != 0) {
+		TRACE_WARNING("CSNDPKD (RSA DECRYPT) succeeded, but "
+			      "returned reason: %ld\n", reason_code);
 	}
 
 	return CKR_OK;
@@ -846,10 +868,13 @@ token_specific_rsa_sign(CK_BYTE  * in_data,
                 &signature_bit_length,
                 out_data);
 
-        if (return_code != CCA_SUCCESS) {
+	if (return_code != CCA_SUCCESS) {
                 TRACE_ERROR("CSNDDSG (RSA SIGN) failed. return :%ld, "
 			    "reason: %ld\n", return_code, reason_code);
-                return CKR_FUNCTION_FAILED;
+		return CKR_FUNCTION_FAILED;
+	} else if (reason_code != 0) {
+		TRACE_WARNING("CSNDDSG (RSA SIGN) succeeded, but "
+			      "returned reason: %ld\n", reason_code);
         }
 
         return CKR_OK;
@@ -891,9 +916,12 @@ token_specific_rsa_verify(CK_BYTE  * in_data,
 	if (return_code == 4 && reason_code == 429) {
 		return CKR_SIGNATURE_INVALID;
 	} else if (return_code != CCA_SUCCESS) {
-		TRACE_DEVEL("CSNDDSV (RSA VERIFY) failed. return: %ld, "
+		TRACE_ERROR("CSNDDSV (RSA VERIFY) failed. return: %ld, "
 			    "reason: %ld\n", return_code, reason_code);
 		return CKR_FUNCTION_FAILED;
+	} else if (reason_code != 0) {
+		TRACE_WARNING("CSNDDSV (RSA VERIFY) succeeded, but "
+			      "returned reason: %ld\n", reason_code);
 	}
 
 	return CKR_OK;
@@ -1066,6 +1094,13 @@ token_specific_aes_ecb(CK_BYTE  *in_data,
 				    "reason: %ld\n", return_code, reason_code);
 		(*out_data_len) = 0;
 		return CKR_FUNCTION_FAILED;
+	} else if (reason_code != 0) {
+		if (encrypt)
+			TRACE_WARNING("CSNBSAE (AES ENCRYPT) succeeded, but "
+				      "returned reason: %ld\n", reason_code);
+		else
+			TRACE_WARNING("CSNBSAD (AES DECRYPT) succeeded, but "
+				      "returned reason: %ld\n", reason_code);
 	}
 
 	return CKR_OK;
@@ -1165,9 +1200,21 @@ token_specific_aes_cbc(CK_BYTE  *in_data,
 	}
 	
 	if (return_code != CCA_SUCCESS) {
-		TRACE_ERROR("CSNBENC (AES ENCRYPT) failed. return: %ld, "
-			    "reason: %ld\n", return_code, reason_code);
+		if (encrypt)
+			TRACE_ERROR("CSNBSAE (AES ENCRYPT) failed. return: %ld "
+				    "reason: %ld\n", return_code, reason_code);
+		else
+			TRACE_ERROR("CSNBSAD (AES DECRYPT) failed. return: %ld "
+				    "reason: %ld\n", return_code, reason_code);
+		(*out_data_len) = 0;
 		return CKR_FUNCTION_FAILED;
+	} else if (reason_code != 0) {
+		if (encrypt)
+			TRACE_WARNING("CSNBSAE (AES ENCRYPT) succeeded, but "
+				      "returned reason: %ld\n", reason_code);
+		else
+			TRACE_WARNING("CSNBSAD (AES DECRYPT) succeeded, but "
+				      "returned reason: %ld\n", reason_code);
 	}
 
 	/* If we malloc'd a new buffer due to overflow concerns and the data
@@ -1553,9 +1600,12 @@ token_specific_ec_sign(CK_BYTE  * in_data,
 			out_data);
 
 	if (return_code != CCA_SUCCESS) {
-			TRACE_ERROR("CSNDDSG (EC SIGN) failed. return: %ld, "
+		TRACE_ERROR("CSNDDSG (EC SIGN) failed. return: %ld, "
 				    "reason: %ld\n", return_code, reason_code);
-			return CKR_FUNCTION_FAILED;
+		return CKR_FUNCTION_FAILED;
+	} else if (reason_code != 0) {
+		TRACE_ERROR("CSNDDSG (EC SIGN) succeeded, but "
+			    "returned reason: %ld\n", reason_code);
 	}
 
 	return CKR_OK;
@@ -1601,6 +1651,9 @@ token_specific_ec_verify(CK_BYTE  * in_data,
 		TRACE_ERROR("CSNDDSV (EC VERIFY) failed. reason: %ld, "
 			    "return: %ld\n", return_code, reason_code);
 		return CKR_FUNCTION_FAILED;
+	} else if (reason_code != 0) {
+		TRACE_ERROR("CSNDDSV (EC VERIFY) succeeded, but "
+			    "returned reason: %ld\n", reason_code);
 	}
 
 	return CKR_OK;
