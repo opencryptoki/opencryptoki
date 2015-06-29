@@ -18,6 +18,7 @@
 #include <ep11.h>
 #include <ep11adm.h>
 #include <p11util.h>
+#include <ctype.h>
 
 #define EP11SHAREDLIB "libep11.so"
 #define PKCS11_MAX_PIN_LEN	128
