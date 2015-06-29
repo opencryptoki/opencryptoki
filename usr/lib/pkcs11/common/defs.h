@@ -303,25 +303,11 @@
 #ifndef _DEFS_H
 #define _DEFS_H
 
-#if (LEEDS)
-  #pragma pack(1)
-  #pragma options align=packed
-#endif
-
-#if (LEEDS)
-#include <linuxdef.h>
-#else
-#define PACK_DATA
-#endif
-
-
 #define MAX_SESSION_COUNT     64
 #define MAX_PIN_LEN           8
 #define MIN_PIN_LEN           4
 
 #define MAX_SLOT_ID           10
-
-#define LEEDS_MAX_REQ_LEN     4096
 
 #ifndef MIN
   #define MIN(a, b)  ((a) < (b) ? (a) : (b))
@@ -334,7 +320,6 @@
 #define PKCS_11_VERSION        1
 #define PKCS_11_INSTANCE       0
 #define PKCS_11_QUEUE          0
-#define LEEDS_PRG_ID_PKCS_11   "PKCS11"
 
 // the following are "boolean" attributes
 //
@@ -445,121 +430,6 @@ typedef enum {
    PUBLIC
 } SESS_OBJ_TYPE;
 
-#if (LEEDS_BUILD)
-
-enum cmdconst {
-   FIRST_ENTRY = 0,
-   DUMMYFUNCTION = 1,
-   FCVFUNCTION,
-   UPDATETWEAKVALUES,
-   QUERYTWEAKVALUES,
-
-   PK_DES_KEYGEN,
-   PK_CDMF_KEYGEN,
-   PK_CDMF_TRANSFORM_KEY,
-   PK_RSA_KEYPAIR_GEN,
-   PK_DSA_KEYPAIR_GEN,
-
-   PK_GENERATE_RND,
-
-   PK_DES_ECB_ENCRYPT,
-   PK_DES_ECB_DECRYPT,
-   PK_DES_CBC_ENCRYPT,
-   PK_DES_CBC_DECRYPT,
-
-   PK_DES3_ECB_ENCRYPT,
-   PK_DES3_ECB_DECRYPT,
-   PK_DES3_CBC_ENCRYPT,
-   PK_DES3_CBC_DECRYPT,
-
-   PK_RSA_ENCRYPT,
-   PK_RSA_DECRYPT,
-
-   PK_DSA_SIGN,
-   PK_DSA_VERIFY,
-
-   PK_SHA1_DIGEST,
-   PK_SHA1_UPDATE,
-   PK_SHA1_FINAL,
-
-   LAST_ENTRY
-};
-
-
-typedef struct _LEEDS_REQUEST
-{
-   CK_ULONG    pid;
-   CK_ULONG    req_len;      // size of request data
-   CK_ULONG    repl_max[4];
-   // any command-specific request data gets appended here
-   //
-} PACK_DATA LEEDS_REQUEST;
-
-typedef struct _LEEDS_REPLY
-{
-   CK_RV     rc;
-   CK_ULONG  repl_len[4];   // size of data
-   // any command-specific reply data gets appended here
-   //
-} PACK_DATA LEEDS_REPLY;
-
-#endif
-
-// this is a flattened version of the CK_SSL3_RANDOM_DATA
-//
-typedef struct _SSL3_RANDOM_DATA
-{
-   CK_ULONG    client_data_len;
-   CK_ULONG    server_data_len;
-   // client data is appended here
-   // server data is appended here
-   //
-} PACK_DATA SSL3_RANDOM_DATA;
-
-
-//
-//
-typedef struct _SSL3_MASTER_KEY_DERIVE_PARAMS
-{
-   CK_VERSION  version;
-   CK_ULONG    client_data_len;
-   CK_ULONG    server_data_len;
-   // client data is appended here
-   // server data is appended here
-   //
-} PACK_DATA SSL3_MASTER_KEY_DERIVE_PARAMS;
-
-
-//
-//
-typedef struct _SSL3_KEY_MAT_OUT
-{
-   CK_OBJECT_HANDLE  client_mac_secret;
-   CK_OBJECT_HANDLE  server_mac_secret;
-   CK_OBJECT_HANDLE  client_key;
-   CK_OBJECT_HANDLE  server_key;
-   CK_ULONG          iv_len; // in bytes
-   // client IV is appended here
-   // server IV is appended here
-   //
-} PACK_DATA SSL3_KEY_MAT_OUT;
-
-
-//
-//
-typedef struct _SSL3_KEY_MAT_PARAMS
-{
-   CK_ULONG mac_size_bits;
-   CK_ULONG key_size_bits;
-   CK_ULONG iv_size_bits;
-   CK_BBOOL export;
-   CK_ULONG client_data_len;
-   CK_ULONG server_data_len;
-   // client data is appended here
-   // server data is appended here
-   //
-} PACK_DATA SSL3_KEY_MAT_PARAMS;
-
 
 typedef struct _DL_NODE
 {
@@ -567,7 +437,6 @@ typedef struct _DL_NODE
    struct _DL_NODE   *prev;
    void              *data;
 } DL_NODE;
-
 
 
 // Token local
@@ -582,10 +451,5 @@ typedef struct _DL_NODE
 #define PK_LITE_OBJ_IDX "OBJ.IDX"
 
 #define DEL_CMD "/bin/rm -f"
-
-#if  (LEEDS)
-  #pragma options align=full
-  #pragma pack() 
-#endif
 
 #endif

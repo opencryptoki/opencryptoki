@@ -310,12 +310,6 @@
 
 #include <stdio.h>
 
-#if (LEEDS_BUILD)
-#pragma options align=packed
-#endif
-
-
-
 extern char * pk_dir;
 // global variables
 //
@@ -2794,10 +2788,6 @@ CK_RV    ber_decode_DSAPrivateKey( CK_BYTE     * data,
 
 #include "tok_spec_struct.h"
 extern token_spec_t token_specific;
-
-#if (LEEDS_BUILD)
-#pragma options align=full
-#endif
 
 /* logging */
 #define OCK_SYSLOG(priority, fmt, ...) \
