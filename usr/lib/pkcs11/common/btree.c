@@ -231,8 +231,7 @@ bt_node_free(struct btree *t, unsigned long node_num, void (*delete_func)(void *
  *
  * return 0 if binary tree has at least 1 node in use, !0 otherwise
  */
-inline int
-bt_is_empty(struct btree *t)
+int bt_is_empty(struct btree *t)
 {
 	return (t->free_nodes == t->size);
 }
@@ -241,8 +240,7 @@ bt_is_empty(struct btree *t)
  *
  * return the number of nodes in the binary tree that are not free'd
  */
-inline unsigned long
-bt_nodes_in_use(struct btree *t)
+unsigned long bt_nodes_in_use(struct btree *t)
 {
 	return (t->size - t->free_nodes);
 }
