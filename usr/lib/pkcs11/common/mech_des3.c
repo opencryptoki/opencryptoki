@@ -2486,7 +2486,7 @@ ckm_des3_key_gen( TEMPLATE *tmpl )
    else
 	keysize = (3 * DES_KEY_SIZE);
 
-   if ((des_key = (CK_BYTE *)malloc(keysize)) == NULL) {
+   if ((des_key = (CK_BYTE *)calloc(1,keysize)) == NULL) {
     TRACE_ERROR("%s\n", ock_err(ERR_HOST_MEMORY));
     return CKR_HOST_MEMORY;
    }

@@ -2827,7 +2827,7 @@ ckm_aes_key_gen( TEMPLATE *tmpl )
    else
 	token_keysize = key_size;
 
-   if ((aes_key = (CK_BYTE *)malloc(token_keysize)) == NULL) {
+   if ((aes_key = (CK_BYTE *)calloc(1,token_keysize)) == NULL) {
       TRACE_ERROR("%s\n", ock_err(ERR_HOST_MEMORY));
       return CKR_HOST_MEMORY;
    }
