@@ -133,7 +133,7 @@ token_specific_init(CK_SLOT_ID SlotNumber, char *conf_name)
 	unsigned char rule_array[256] = { 0, };
 	long return_code, reason_code, rule_array_count, verb_data_length;
 	void *lib_csulcca;
-	
+
 	lib_csulcca = dlopen(CCASHAREDLIB, RTLD_GLOBAL | RTLD_NOW);
 	if (lib_csulcca == NULL) {
 		OCK_SYSLOG(LOG_ERR, "%s: Error loading library: '%s' [%s]\n",
@@ -145,22 +145,22 @@ token_specific_init(CK_SLOT_ID SlotNumber, char *conf_name)
 
 	memcpy(rule_array, "STATCCAE", 8);
 
-        rule_array_count = 1;
-        verb_data_length = 0;
-        CSUACFQ(&return_code,
-                &reason_code,
-                NULL,
-                NULL,
-                &rule_array_count,
-                rule_array,
-                &verb_data_length,
-                NULL);
+	rule_array_count = 1;
+	verb_data_length = 0;
+	CSUACFQ(&return_code,
+		&reason_code,
+		NULL,
+		NULL,
+		&rule_array_count,
+		rule_array,
+		&verb_data_length,
+		NULL);
 
-        if (return_code != CCA_SUCCESS) {
-                TRACE_ERROR("CSUACFQ failed. return: %ld, reason: %ld\n",
+	if (return_code != CCA_SUCCESS) {
+		TRACE_ERROR("CSUACFQ failed. return:%ld, reason:%ld\n",
 			    return_code, reason_code);
-                return CKR_FUNCTION_FAILED;
-        }
+		return CKR_FUNCTION_FAILED;
+	}
 
 	/* This value should be 2 if the master key is set in the card */
 	if (memcmp(&rule_array[CCA_STATCCAE_SYM_CMK_OFFSET], "2       ", 8)) {
@@ -354,18 +354,18 @@ token_specific_des_cbc(CK_BYTE  *in_data,
 			TRACE_ERROR("CSNBENC (DES ENCRYPT) failed. return:%ld,"
 			    " reason:%ld\n", return_code, reason_code);
 		else
-			TRACE_ERROR("CSNBENC (DES DECRYPT) failed. return:%ld,"
+			TRACE_ERROR("CSNBDEC (DES DECRYPT) failed. return:%ld,"
 			    " reason:%ld\n", return_code, reason_code);
 		if (out_data != local_out)
 			free(local_out);
 		return CKR_FUNCTION_FAILED;
 	} else if (reason_code != 0) {
 		if (encrypt)
-			TRACE_WARNING("CSNBENC (DES ENCRYPT) succeeded, but "
-				      "returned reason:%ld\n", reason_code);
+			TRACE_WARNING("CSNBENC (DES ENCRYPT) succeeded, but"
+				      " returned reason:%ld\n", reason_code);
 		else
-			TRACE_WARNING("CSNBDEC (DES DECRYPT) succeeded, but "
-				      "returned reason:%ld\n", reason_code);
+			TRACE_WARNING("CSNBDEC (DES DECRYPT) succeeded, but"
+				      " returned reason:%ld\n", reason_code);
 	}
 
 	/* If we malloc'd a new buffer due to overflow concerns and the data
@@ -576,8 +576,8 @@ token_specific_rsa_generate_keypair(TEMPLATE *publ_tmpl,
 	uint16_t mod_bits;
 	CK_ATTRIBUTE *pub_exp = NULL, *attr = NULL;
 	CK_RV rv;
-        CK_BYTE_PTR ptr;
-        CK_ULONG tmpsize, tmpexp;
+	CK_BYTE_PTR ptr;
+	CK_ULONG tmpsize, tmpexp;
 
 
 	if (!template_attribute_find(publ_tmpl, CKA_MODULUS_BITS, &attr)) {
@@ -591,29 +591,29 @@ token_specific_rsa_generate_keypair(TEMPLATE *publ_tmpl,
 	rv = template_attribute_find(publ_tmpl, CKA_PUBLIC_EXPONENT, &pub_exp);
 	if (rv == TRUE) {
 
-                /* Per CCA manual, we really only support 3 values here:        *
-                 * * 0 (generate random public exponent)                        *
-                 * * 3 or                                                       *
-                 * * 65537                                                      *
-                 * Trim the P11 value so we can check what's comming our way    */
+		/* Per CCA manual, we really only support 3 values here:        *
+		 * * 0 (generate random public exponent)                        *
+		 * * 3 or                                                       *
+		 * * 65537                                                      *
+		 * Trim the P11 value so we can check what's comming our way    */
 
-                tmpsize = pub_exp->ulValueLen;
-                ptr = p11_bigint_trim(pub_exp->pValue, &tmpsize);
-                /* If we trimmed the number correctly, only 3 bytes are         *
-                 * sufficient to hold 65537 (0x010001)                          */
-                if (tmpsize > 3)
+		tmpsize = pub_exp->ulValueLen;
+		ptr = p11_bigint_trim(pub_exp->pValue, &tmpsize);
+		/* If we trimmed the number correctly, only 3 bytes are         *
+		 * sufficient to hold 65537 (0x010001)                          */
+		if (tmpsize > 3)
 			return CKR_TEMPLATE_INCONSISTENT;
 
-                /* make pValue into CK_ULONG so we can compare */
-                tmpexp = 0;
-                memcpy((void *)&tmpexp + sizeof(CK_ULONG) - tmpsize,    // right align
-                       ptr, tmpsize);
+		/* make pValue into CK_ULONG so we can compare */
+		tmpexp = 0;
+		memcpy((void *)&tmpexp + sizeof(CK_ULONG) - tmpsize,    // right align
+		       ptr, tmpsize);
 
-                /* Check for one of the three allowed values */
-                if ( (tmpexp != 0) &&
-                     (tmpexp != 3) &&
-                     (tmpexp != 65537) )
-                        return CKR_TEMPLATE_INCONSISTENT;
+		/* Check for one of the three allowed values */
+		if ( (tmpexp != 0) &&
+		     (tmpexp != 3) &&
+		     (tmpexp != 65537) )
+			return CKR_TEMPLATE_INCONSISTENT;
 
 
 		size_of_e = (uint16_t)tmpsize;
@@ -627,19 +627,19 @@ token_specific_rsa_generate_keypair(TEMPLATE *publ_tmpl,
 	key_value_structure_length = CCA_KEY_VALUE_STRUCT_SIZE;
 	memcpy(key_value_structure, &mod_bits, sizeof(uint16_t));
 
-        /* One last check. CCA can't auto-generate a random public      *
-         * exponent if the modulus length is more than 2048 bits        *
-         * We should be ok checking the public exponent length in the   *
-         * key_value_structure, since either the caller never           *
-         * specified it or we trimmed it's size. The size should be     *
-         * zero if the value is zero in both cases.                     *
-         * public exponent has CCA_PKB_E_SIZE_OFFSET offset with        *
-         * 2-bytes size                                                 */
-        if (mod_bits > 2048 &&
-            key_value_structure[CCA_PKB_E_SIZE_OFFSET] == 0x00 &&
-            key_value_structure[CCA_PKB_E_SIZE_OFFSET + 1] == 0x00) {
-                return CKR_TEMPLATE_INCONSISTENT;
-        }
+	/* One last check. CCA can't auto-generate a random public      *
+	 * exponent if the modulus length is more than 2048 bits        *
+	 * We should be ok checking the public exponent length in the   *
+	 * key_value_structure, since either the caller never           *
+	 * specified it or we trimmed it's size. The size should be     *
+	 * zero if the value is zero in both cases.                     *
+	 * public exponent has CCA_PKB_E_SIZE_OFFSET offset with        *
+	 * 2-bytes size                                                 */
+	if (mod_bits > 2048 &&
+	    key_value_structure[CCA_PKB_E_SIZE_OFFSET] == 0x00 &&
+	    key_value_structure[CCA_PKB_E_SIZE_OFFSET + 1] == 0x00) {
+		return CKR_TEMPLATE_INCONSISTENT;
+	}
 
 	rule_array_count = 2;
 	memcpy(rule_array, "RSA-CRT KEY-MGMT", (size_t)(CCA_KEYWORD_SIZE * 2));
@@ -648,62 +648,62 @@ token_specific_rsa_generate_keypair(TEMPLATE *publ_tmpl,
 
 	key_token_length = CCA_KEY_TOKEN_SIZE;
 
-        CSNDPKB(&return_code,
-                &reason_code,
+	CSNDPKB(&return_code,
+		&reason_code,
 		NULL,
-                NULL,
-                &rule_array_count,
-                rule_array,
-                &key_value_structure_length,
-                key_value_structure,
-                &private_key_name_length,
-                private_key_name,
-                0,
-                NULL,
-                0,
-                NULL,
-                0,
-                NULL,
-                0,
-                NULL,
-                0,
-                NULL,
-                &key_token_length,
-                key_token);
+		NULL,
+		&rule_array_count,
+		rule_array,
+		&key_value_structure_length,
+		key_value_structure,
+		&private_key_name_length,
+		private_key_name,
+		0,
+		NULL,
+		0,
+		NULL,
+		0,
+		NULL,
+		0,
+		NULL,
+		0,
+		NULL,
+		&key_token_length,
+		key_token);
 
-        if (return_code != CCA_SUCCESS) {
-                TRACE_ERROR("CSNDPKB (RSA KEY TOKEN BUILD) failed. return:%ld,"
+	if (return_code != CCA_SUCCESS) {
+		TRACE_ERROR("CSNDPKB (RSA KEY TOKEN BUILD) failed. return:%ld,"
 			    " reason:%ld\n", return_code, reason_code);
-                return CKR_FUNCTION_FAILED;
-        }
+		return CKR_FUNCTION_FAILED;
+	}
 
-        rule_array_count = 1;
-        memset(rule_array, 0, sizeof(rule_array));
-        memcpy(rule_array, "MASTER  ", (size_t)CCA_KEYWORD_SIZE);
+	rule_array_count = 1;
+	memset(rule_array, 0, sizeof(rule_array));
+	memcpy(rule_array, "MASTER  ", (size_t)CCA_KEYWORD_SIZE);
 
-        generated_key_token_length = CCA_KEY_TOKEN_SIZE;
+	generated_key_token_length = CCA_KEY_TOKEN_SIZE;
 
-        regeneration_data_length = 0;
+	regeneration_data_length = 0;
 
-        CSNDPKG(&return_code,
-                &reason_code,
-                NULL,
-                NULL,
-                &rule_array_count,
-                rule_array,
-                &regeneration_data_length,
-                regeneration_data,
-                &key_token_length,
-                key_token,
-                transport_key_identifier,
-                &generated_key_token_length,
-                generated_key_token);
+	CSNDPKG(&return_code,
+		&reason_code,
+		NULL,
+		NULL,
+		&rule_array_count,
+		rule_array,
+		&regeneration_data_length,
+		regeneration_data,
+		&key_token_length,
+		key_token,
+		transport_key_identifier,
+		&generated_key_token_length,
+		generated_key_token);
 
-        if (return_code != CCA_SUCCESS) {
-                TRACE_ERROR("CSNDPKG (RSA KEY GENERATE) failed. return: %ld, "
-			    "return: %ld\n", return_code, reason_code);
-                return CKR_FUNCTION_FAILED;
-        }
+	if (return_code != CCA_SUCCESS) {
+		TRACE_ERROR("CSNDPKG (RSA KEY GENERATE) failed. return:%ld,"
+			    " reason:%ld\n", return_code, reason_code);
+		return CKR_FUNCTION_FAILED;
+	}
 
 	TRACE_DEVEL("RSA secure key token generated. size: %ld\n",
 		    generated_key_token_length);
@@ -767,12 +767,12 @@ token_specific_rsa_encrypt(CK_BYTE  *in_data,
 		out_data);
 
 	if (return_code != CCA_SUCCESS) {
-		TRACE_ERROR("CSNDPKE (RSA ENCRYPT) failed. return: %ld,"
-			    " reason: %ld\n", return_code, reason_code);
+		TRACE_ERROR("CSNDPKE (RSA ENCRYPT) failed. return:%ld,"
+			    " reason:%ld\n", return_code, reason_code);
 		return CKR_FUNCTION_FAILED;
 	 } else if (reason_code != 0) {
-		TRACE_WARNING("CSNDPKE (RSA ENCRYPT) succeeded, but "
-			      "returned reason: %ld\n", reason_code);
+		TRACE_WARNING("CSNDPKE (RSA ENCRYPT) succeeded, but"
+			      " returned reason:%ld\n", reason_code);
 	}
 
 	return CKR_OK;
@@ -821,12 +821,12 @@ token_specific_rsa_decrypt(CK_BYTE  *in_data,
 		out_data);
 
 	if (return_code != CCA_SUCCESS) {
-		TRACE_ERROR("CSNDPKD (RSA DECRYPT) failed. return: %ld, "
-			    "reason: %ld\n", return_code, reason_code);
+		TRACE_ERROR("CSNDPKD (RSA DECRYPT) failed. return:%ld,"
+			    " reason:%ld\n", return_code, reason_code);
 		return CKR_FUNCTION_FAILED;
 	} else if (reason_code != 0) {
-		TRACE_WARNING("CSNDPKD (RSA DECRYPT) succeeded, but "
-			      "returned reason: %ld\n", reason_code);
+		TRACE_WARNING("CSNDPKD (RSA DECRYPT) succeeded, but"
+			      " returned reason:%ld\n", reason_code);
 	}
 
 	return CKR_OK;
@@ -839,9 +839,9 @@ token_specific_rsa_sign(CK_BYTE  * in_data,
 			CK_ULONG * out_data_len,
 			OBJECT   * key_obj )
 {
-        long return_code, reason_code, rule_array_count;
-        unsigned char rule_array[CCA_RULE_ARRAY_SIZE] = { 0, };
-        long signature_bit_length;
+	long return_code, reason_code, rule_array_count;
+	unsigned char rule_array[CCA_RULE_ARRAY_SIZE] = { 0, };
+	long signature_bit_length;
 	CK_ATTRIBUTE *attr;
 
 	/* Find the secure key token */
@@ -850,33 +850,33 @@ token_specific_rsa_sign(CK_BYTE  * in_data,
 		return CKR_TEMPLATE_INCOMPLETE;
 	}
 
-        rule_array_count = 1;
-        memcpy(rule_array, "PKCS-1.1", CCA_KEYWORD_SIZE);
+	rule_array_count = 1;
+	memcpy(rule_array, "PKCS-1.1", CCA_KEYWORD_SIZE);
 
-        CSNDDSG(&return_code,
-                &reason_code,
-                NULL,
-                NULL,
-                &rule_array_count,
-                rule_array,
-                (long *)&(attr->ulValueLen),
-                attr->pValue,
-                (long *)&in_data_len,
-                in_data,
-                (long *)out_data_len,
-                &signature_bit_length,
-                out_data);
+	CSNDDSG(&return_code,
+		&reason_code,
+		NULL,
+		NULL,
+		&rule_array_count,
+		rule_array,
+		(long *)&(attr->ulValueLen),
+		attr->pValue,
+		(long *)&in_data_len,
+		in_data,
+		(long *)out_data_len,
+		&signature_bit_length,
+		out_data);
 
 	if (return_code != CCA_SUCCESS) {
-                TRACE_ERROR("CSNDDSG (RSA SIGN) failed. return :%ld, "
+		TRACE_ERROR("CSNDDSG (RSA SIGN) failed. return :%ld, "
 			    "reason: %ld\n", return_code, reason_code);
 		return CKR_FUNCTION_FAILED;
 	} else if (reason_code != 0) {
 		TRACE_WARNING("CSNDDSG (RSA SIGN) succeeded, but "
 			      "returned reason: %ld\n", reason_code);
-        }
+	}
 
-        return CKR_OK;
+	return CKR_OK;
 }
 
 CK_RV
@@ -915,12 +915,12 @@ token_specific_rsa_verify(CK_BYTE  * in_data,
 	if (return_code == 4 && reason_code == 429) {
 		return CKR_SIGNATURE_INVALID;
 	} else if (return_code != CCA_SUCCESS) {
-		TRACE_ERROR("CSNDDSV (RSA VERIFY) failed. return: %ld, "
-			    "reason: %ld\n", return_code, reason_code);
+		TRACE_ERROR("CSNDDSV (RSA VERIFY) failed. return:%ld,"
+			    " reason:%ld\n", return_code, reason_code);
 		return CKR_FUNCTION_FAILED;
 	} else if (reason_code != 0) {
-		TRACE_WARNING("CSNDDSV (RSA VERIFY) succeeded, but "
-			      "returned reason: %ld\n", reason_code);
+		TRACE_WARNING("CSNDDSV (RSA VERIFY) succeeded, but"
+			      " returned reason:%ld\n", reason_code);
 	}
 
 	return CKR_OK;
@@ -941,14 +941,14 @@ token_specific_aes_key_gen(CK_BYTE *aes_key, CK_ULONG len, CK_ULONG key_size)
 	unsigned char reserved_1[4] = { 0, };
 	unsigned char point_to_array_of_zeros = 0;
 	unsigned char mkvp[16] = { 0, };
-	
+
 	/* make sure key is the right size for the token */
 	if (len != CCA_KEY_ID_SIZE)
 		return CKR_FUNCTION_FAILED;
 
 	memcpy(rule_array, "INTERNALAES     NO-KEY  ", (size_t) (CCA_KEYWORD_SIZE*3));
 	memcpy(key_type, "DATA    ", (size_t)CCA_KEYWORD_SIZE);
-	
+
 	switch (key_size) {
 		case 16:
 			memcpy(rule_array + 3*CCA_KEYWORD_SIZE, "KEYLN16 ", CCA_KEYWORD_SIZE);
@@ -992,15 +992,15 @@ token_specific_aes_key_gen(CK_BYTE *aes_key, CK_ULONG len, CK_ULONG key_size)
 		NULL,
 		NULL,
 		mkvp);
-	
+
 	if (return_code != CCA_SUCCESS) {
-		TRACE_ERROR("CSNBTKB (TOKEN BUILD) failed. return: %ld, "
-			    "reason: %ld\n", return_code, reason_code);
+		TRACE_ERROR("CSNBTKB (TOKEN BUILD) failed. return:%ld,"
+			    " reason:%ld\n", return_code, reason_code);
 		return CKR_FUNCTION_FAILED;
 	}
 	memcpy(key_form, "OP      ", (size_t)CCA_KEYWORD_SIZE);
 	memcpy(key_type, "AESTOKEN", (size_t) CCA_KEYWORD_SIZE);
-        memcpy(aes_key, key_token, (size_t)CCA_KEY_ID_SIZE);
+	memcpy(aes_key, key_token, (size_t)CCA_KEY_ID_SIZE);
 
 	return cca_key_gen(CCA_AES_KEY, aes_key, key_form, key_type, key_size);
 }
@@ -1013,7 +1013,7 @@ token_specific_aes_ecb(CK_BYTE  *in_data,
 		       OBJECT	*key,
 		       CK_BYTE	 encrypt)
 {
-	
+
 	long return_code, reason_code, rule_array_count;
 	long block_size = 16;
 	unsigned char rule_array[CCA_RULE_ARRAY_SIZE];
@@ -1028,11 +1028,11 @@ token_specific_aes_ecb(CK_BYTE  *in_data,
 		return CKR_FUNCTION_FAILED;
 	}
 
-	key_len = 64;	
+	key_len = 64;
 	rule_array_count = 4;
-	memcpy(rule_array, "AES     ECB     KEYIDENTINITIAL ", 
+	memcpy(rule_array, "AES     ECB     KEYIDENTINITIAL ",
 	       rule_array_count*(size_t)CCA_KEYWORD_SIZE);
-	
+
 	if (encrypt) {
 		CSNBSAE(&return_code,
 			&reason_code,
@@ -1078,23 +1078,23 @@ token_specific_aes_ecb(CK_BYTE  *in_data,
 			&opt_data_len,
 			NULL);
 	}
-	
+
 	if (return_code != CCA_SUCCESS) {
 		if (encrypt)
-			TRACE_ERROR("CSNBSAE (AES ENCRYPT) failed. return: %ld "
-				    "reason: %ld\n", return_code, reason_code);
+			TRACE_ERROR("CSNBSAE (AES ENCRYPT) failed. return:%ld,"
+				    " reason:%ld\n", return_code, reason_code);
 		else
-			TRACE_ERROR("CSNBSAD (AES DECRYPT) failed. return: %ld "
-				    "reason: %ld\n", return_code, reason_code);
+			TRACE_ERROR("CSNBSAD (AES DECRYPT) failed. return:%ld,"
+				    " reason:%ld\n", return_code, reason_code);
 		(*out_data_len) = 0;
 		return CKR_FUNCTION_FAILED;
 	} else if (reason_code != 0) {
 		if (encrypt)
-			TRACE_WARNING("CSNBSAE (AES ENCRYPT) succeeded, but "
-				      "returned reason: %ld\n", reason_code);
+			TRACE_WARNING("CSNBSAE (AES ENCRYPT) succeeded, but"
+				      " returned reason:%ld\n", reason_code);
 		else
-			TRACE_WARNING("CSNBSAD (AES DECRYPT) succeeded, but "
-				      "returned reason: %ld\n", reason_code);
+			TRACE_WARNING("CSNBSAD (AES DECRYPT) succeeded, but"
+				      " returned reason:%ld\n", reason_code);
 	}
 
 	return CKR_OK;
@@ -1127,7 +1127,7 @@ token_specific_aes_cbc(CK_BYTE  *in_data,
 
 	if (in_data_len%16 == 0) {
 		rule_array_count = 3;
-		memcpy(rule_array, "AES     KEYIDENTINITIAL ", 
+		memcpy(rule_array, "AES     KEYIDENTINITIAL ",
 		       rule_array_count*(size_t)CCA_KEYWORD_SIZE);
 	} else {
 		if ((encrypt) && (*out_data_len < (in_data_len + 16))) {
@@ -1140,7 +1140,7 @@ token_specific_aes_cbc(CK_BYTE  *in_data,
 		}
 
 		rule_array_count = 3;
-		memcpy(rule_array, "AES     PKCS-PADKEYIDENT", 
+		memcpy(rule_array, "AES     PKCS-PADKEYIDENT",
 		       rule_array_count*(size_t)CCA_KEYWORD_SIZE);
 	}
 
@@ -1191,23 +1191,23 @@ token_specific_aes_cbc(CK_BYTE  *in_data,
 			&opt_data_len,
 			NULL);
 	}
-	
+
 	if (return_code != CCA_SUCCESS) {
 		if (encrypt)
-			TRACE_ERROR("CSNBSAE (AES ENCRYPT) failed. return: %ld "
-				    "reason: %ld\n", return_code, reason_code);
+			TRACE_ERROR("CSNBSAE (AES ENCRYPT) failed. return:%ld,"
+				    " reason:%ld\n", return_code, reason_code);
 		else
-			TRACE_ERROR("CSNBSAD (AES DECRYPT) failed. return: %ld "
-				    "reason: %ld\n", return_code, reason_code);
+			TRACE_ERROR("CSNBSAD (AES DECRYPT) failed. return:%ld,"
+				    " reason:%ld\n", return_code, reason_code);
 		(*out_data_len) = 0;
 		return CKR_FUNCTION_FAILED;
 	} else if (reason_code != 0) {
 		if (encrypt)
-			TRACE_WARNING("CSNBSAE (AES ENCRYPT) succeeded, but "
-				      "returned reason: %ld\n", reason_code);
+			TRACE_WARNING("CSNBSAE (AES ENCRYPT) succeeded, but"
+				      " returned reason:%ld\n", reason_code);
 		else
-			TRACE_WARNING("CSNBSAD (AES DECRYPT) succeeded, but "
-				      "returned reason: %ld\n", reason_code);
+			TRACE_WARNING("CSNBSAD (AES DECRYPT) succeeded, but"
+				      " returned reason:%ld\n", reason_code);
 	}
 
 	/* If we malloc'd a new buffer due to overflow concerns and the data
@@ -1235,13 +1235,13 @@ token_specific_aes_cbc(CK_BYTE  *in_data,
 /* Begin code contributed by Corrent corp. */
 CK_RV
 token_specific_dh_pkcs_derive(CK_BYTE  *z,
-                              CK_ULONG *z_len,
-                              CK_BYTE  *y,
-                              CK_ULONG  y_len,
-                              CK_BYTE  *x,
-                              CK_ULONG  x_len,
-                              CK_BYTE  *p,
-                              CK_ULONG  p_len)
+			      CK_ULONG *z_len,
+			      CK_BYTE  *y,
+			      CK_ULONG  y_len,
+			      CK_BYTE  *x,
+			      CK_ULONG  x_len,
+			      CK_BYTE  *p,
+			      CK_ULONG  p_len)
 {
 	TRACE_DEVEL("Unsupported function reached.");
 	return CKR_FUNCTION_NOT_SUPPORTED;
@@ -1249,7 +1249,7 @@ token_specific_dh_pkcs_derive(CK_BYTE  *z,
 
 CK_RV
 token_specific_dh_pkcs_key_pair_gen(TEMPLATE *publ_tmpl,
-                                    TEMPLATE *priv_tmpl )
+				    TEMPLATE *priv_tmpl )
 {
 	TRACE_DEVEL("Unsupported function reached.");
 	return CKR_FUNCTION_NOT_SUPPORTED;
@@ -1286,18 +1286,18 @@ token_specific_get_mechanism_list(CK_MECHANISM_TYPE *pMechanismList, CK_ULONG *p
 CK_RV
 token_specific_get_mechanism_info(CK_MECHANISM_TYPE type, CK_MECHANISM_INFO *pInfo)
 {
-        CK_ULONG i;
+	CK_ULONG i;
 
 	for (i = 0; i < mech_list_len; i++) {
-                if (mech_list[i].mech_type == type) {
-                        memcpy(pInfo, &mech_list[i].mech_info,
-                               sizeof(CK_MECHANISM_INFO));
-                        return CKR_OK;
-                }
-        }
+		if (mech_list[i].mech_type == type) {
+			memcpy(pInfo, &mech_list[i].mech_info,
+			       sizeof(CK_MECHANISM_INFO));
+			return CKR_OK;
+		}
+	}
 
-        TRACE_ERROR("%s\n", ock_err(ERR_MECHANISM_INVALID));
-        return CKR_MECHANISM_INVALID;
+	TRACE_ERROR("%s\n", ock_err(ERR_MECHANISM_INVALID));
+	return CKR_MECHANISM_INVALID;
 }
 
 CK_RV
@@ -1507,8 +1507,8 @@ token_specific_ec_generate_keypair(TEMPLATE *publ_tmpl,
 			key_token);
 
 	if (return_code != CCA_SUCCESS) {
-		TRACE_ERROR("CSNDPKB (EC KEY TOKEN BUILD) failed. return: %ld, "
-			    "reason: %ld\n", return_code, reason_code);
+		TRACE_ERROR("CSNDPKB (EC KEY TOKEN BUILD) failed. return:%ld,"
+			    " reason:%ld\n", return_code, reason_code);
 		return CKR_FUNCTION_FAILED;
 	}
 
@@ -1535,9 +1535,9 @@ token_specific_ec_generate_keypair(TEMPLATE *publ_tmpl,
 			generated_key_token);
 
 	if (return_code != CCA_SUCCESS) {
-			TRACE_ERROR("CSNDPKG (EC KEY GENERATE) failed. return: "
-				    "%ld, reason: %ld\n", return_code,
-				    reason_code);
+			TRACE_ERROR("CSNDPKG (EC KEY GENERATE) failed."
+				    " return:%ld, reason:%ld\n",
+				    return_code, reason_code);
 			return CKR_FUNCTION_FAILED;
 	}
 
@@ -1591,12 +1591,12 @@ token_specific_ec_sign(CK_BYTE  * in_data,
 			out_data);
 
 	if (return_code != CCA_SUCCESS) {
-		TRACE_ERROR("CSNDDSG (EC SIGN) failed. return: %ld, "
-				    "reason: %ld\n", return_code, reason_code);
+		TRACE_ERROR("CSNDDSG (EC SIGN) failed. return:%ld,"
+				    " reason:%ld\n", return_code, reason_code);
 		return CKR_FUNCTION_FAILED;
 	} else if (reason_code != 0) {
-		TRACE_ERROR("CSNDDSG (EC SIGN) succeeded, but "
-			    "returned reason: %ld\n", reason_code);
+		TRACE_WARNING("CSNDDSG (EC SIGN) succeeded, but"
+			    " returned reason:%ld\n", reason_code);
 	}
 
 	return CKR_OK;
@@ -1639,12 +1639,12 @@ token_specific_ec_verify(CK_BYTE  * in_data,
 	if (return_code == 4 && reason_code == 429) {
 		return CKR_SIGNATURE_INVALID;
 	} else if (return_code != CCA_SUCCESS) {
-		TRACE_ERROR("CSNDDSV (EC VERIFY) failed. reason: %ld, "
-			    "return: %ld\n", return_code, reason_code);
+		TRACE_ERROR("CSNDDSV (EC VERIFY) failed. return:%ld,"
+			    " reason:%ld\n", return_code, reason_code);
 		return CKR_FUNCTION_FAILED;
 	} else if (reason_code != 0) {
-		TRACE_ERROR("CSNDDSV (EC VERIFY) succeeded, but "
-			    "returned reason: %ld\n", reason_code);
+		TRACE_WARNING("CSNDDSV (EC VERIFY) succeeded, but"
+			      " returned reason:%ld\n", reason_code);
 	}
 
 	return CKR_OK;
@@ -1710,7 +1710,7 @@ CK_RV cca_sha(DIGEST_CONTEXT *ctx, CK_BYTE *in_data, CK_ULONG in_data_len,
 	case CKM_SHA384:
 		memcpy(rule_array, "SHA-384 ONLY    ", CCA_KEYWORD_SIZE * 2);
 		cca_ctx->part = CCA_HASH_PART_ONLY;
-                break;
+		break;
 	case CKM_SHA512:
 		memcpy(rule_array, "SHA-512 ONLY    ", CCA_KEYWORD_SIZE * 2);
 		cca_ctx->part = CCA_HASH_PART_ONLY;
@@ -1725,7 +1725,7 @@ CK_RV cca_sha(DIGEST_CONTEXT *ctx, CK_BYTE *in_data, CK_ULONG in_data_len,
 		cca_ctx->chain_vector, &cca_ctx->hash_len, cca_ctx->hash);
 
 	if (return_code != CCA_SUCCESS) {
-		TRACE_ERROR("CSNBOWH failed. return: %ld, reason: %ld\n",
+		TRACE_ERROR("CSNBOWH failed. return:%ld, reason:%ld\n",
 			    return_code, reason_code);
 		free(cca_ctx->tail);
 		return CKR_FUNCTION_FAILED;
@@ -1739,24 +1739,24 @@ CK_RV cca_sha(DIGEST_CONTEXT *ctx, CK_BYTE *in_data, CK_ULONG in_data_len,
 }
 
 CK_RV token_specific_sha2(DIGEST_CONTEXT *ctx, CK_BYTE *in_data,
-                          CK_ULONG in_data_len, CK_BYTE *out_data,
-                          CK_ULONG *out_data_len)
+			  CK_ULONG in_data_len, CK_BYTE *out_data,
+			  CK_ULONG *out_data_len)
 {
-        return cca_sha(ctx, in_data, in_data_len, out_data, out_data_len);
+	return cca_sha(ctx, in_data, in_data_len, out_data, out_data_len);
 }
 
 CK_RV token_specific_sha3(DIGEST_CONTEXT *ctx, CK_BYTE *in_data,
-                          CK_ULONG in_data_len, CK_BYTE *out_data,
-                          CK_ULONG *out_data_len)
+			  CK_ULONG in_data_len, CK_BYTE *out_data,
+			  CK_ULONG *out_data_len)
 {
-        return cca_sha(ctx, in_data, in_data_len, out_data, out_data_len);
+	return cca_sha(ctx, in_data, in_data_len, out_data, out_data_len);
 }
 
 CK_RV token_specific_sha5(DIGEST_CONTEXT *ctx, CK_BYTE *in_data,
-                          CK_ULONG in_data_len, CK_BYTE *out_data,
-                          CK_ULONG *out_data_len)
+			  CK_ULONG in_data_len, CK_BYTE *out_data,
+			  CK_ULONG *out_data_len)
 {
-        return cca_sha(ctx, in_data, in_data_len, out_data, out_data_len);
+	return cca_sha(ctx, in_data, in_data_len, out_data, out_data_len);
 }
 
 CK_RV cca_sha_update(DIGEST_CONTEXT *ctx, CK_BYTE *in_data,
@@ -1766,9 +1766,9 @@ CK_RV cca_sha_update(DIGEST_CONTEXT *ctx, CK_BYTE *in_data,
 	long return_code, reason_code, total, buffer_len, rule_array_count = 2;
 	unsigned char rule_array[CCA_RULE_ARRAY_SIZE] = { 0, };
 	CK_RV rc = CKR_OK;
-	unsigned char *buffer = NULL;	
+	unsigned char *buffer = NULL;
 	int blocksz, blocksz_mask, use_buffer = 0;
-	
+
 	if (!in_data)
 		return CKR_ARGUMENTS_BAD;
 
@@ -1792,14 +1792,14 @@ CK_RV cca_sha_update(DIGEST_CONTEXT *ctx, CK_BYTE *in_data,
 	cca_ctx = (struct cca_sha_ctx *)ctx->context;
 
 	/* just send if input a multiple of block size and
- 	 * cca_ctx-> tail is empty.
- 	 */
+	 * cca_ctx-> tail is empty.
+	 */
 	if ((cca_ctx->tail_len == 0) && ((in_data_len & blocksz_mask) == 0))
 		goto send;
 
 	/* at this point, in_data is not multiple of blocksize
- 	 * and/or there is saved data from previous update still
- 	 * needing to be processed
+	 * and/or there is saved data from previous update still
+	 * needing to be processed
 	 */
 
 	/* get totals */
@@ -1811,7 +1811,7 @@ CK_RV cca_sha_update(DIGEST_CONTEXT *ctx, CK_BYTE *in_data,
 
 		remainder = total & blocksz_mask;
 		buffer_len = total - remainder;
-		
+
 		/* allocate a buffer for sending... */
 		if (!(buffer = malloc(buffer_len))) {
 			TRACE_ERROR("%s\n", ock_err(ERR_HOST_MEMORY));
@@ -1820,16 +1820,16 @@ CK_RV cca_sha_update(DIGEST_CONTEXT *ctx, CK_BYTE *in_data,
 		}
 
 		memcpy(buffer, cca_ctx->tail, cca_ctx->tail_len);
-		memcpy(buffer + cca_ctx->tail_len, in_data, 
+		memcpy(buffer + cca_ctx->tail_len, in_data,
 			in_data_len - remainder);
-		use_buffer = 1;			
+		use_buffer = 1;
 
 		/* save remainder data for next time */
 		if (remainder)
 			memcpy(cca_ctx->tail,
 				in_data + (in_data_len - remainder), remainder);
 		cca_ctx->tail_len = remainder;
-		
+
 	} else {
 		/* not enough to fill a block, save off data for next round */
 		memcpy(cca_ctx->tail + cca_ctx->tail_len, in_data, in_data_len);
@@ -1870,15 +1870,15 @@ send:
 		}
 		break;
 	}
-		
+
 	CSNBOWH(&return_code, &reason_code, NULL, NULL, &rule_array_count,
 		rule_array, use_buffer ? &buffer_len : (long *)&in_data_len,
 		use_buffer ? buffer : in_data, &cca_ctx->chain_vector_len,
 		cca_ctx->chain_vector, &cca_ctx->hash_len, cca_ctx->hash);
 
 	if (return_code != CCA_SUCCESS) {
-		TRACE_ERROR("CSNBOWH (SHA UPDATE) failed. return: %ld, "
-			    "reason: %ld\n", return_code, reason_code);
+		TRACE_ERROR("CSNBOWH (SHA UPDATE) failed. return:%ld,"
+			    " reason:%ld\n", return_code, reason_code);
 		rc = CKR_FUNCTION_FAILED;
 	}
 
@@ -1974,8 +1974,8 @@ CK_RV cca_sha_final(DIGEST_CONTEXT *ctx, CK_BYTE *out_data,
 		&cca_ctx->hash_len, cca_ctx->hash);
 
 	if (return_code != CCA_SUCCESS) {
-		TRACE_ERROR("CSNBOWH (SHA FINAL) failed. return: %ld, "
-			    "reason: %ld\n", return_code, reason_code);
+		TRACE_ERROR("CSNBOWH (SHA FINAL) failed. return:%ld,"
+			    " reason:%ld\n", return_code, reason_code);
 		free(cca_ctx->tail);
 		return CKR_FUNCTION_FAILED;
 	}
@@ -2005,7 +2005,7 @@ CK_RV token_specific_sha5_final(DIGEST_CONTEXT *ctx, CK_BYTE *out_data,
 	return cca_sha_final(ctx, out_data, out_data_len);
 }
 
-CK_RV rsa_import_privkey_crt(TEMPLATE *priv_tmpl)
+static CK_RV rsa_import_privkey_crt(TEMPLATE *priv_tmpl)
 {
 	long return_code, reason_code, rule_array_count, total = 0;
 	unsigned char rule_array[CCA_RULE_ARRAY_SIZE] = { 0, };
@@ -2170,8 +2170,8 @@ CK_RV rsa_import_privkey_crt(TEMPLATE *priv_tmpl)
 		0, NULL, 0, NULL, 0, NULL, &key_token_length, key_token);
 
 	if (return_code != CCA_SUCCESS) {
-		TRACE_ERROR("CSNDPKB (RSA KEY TOKEN BUILD RSA CRT) failed. "
-			    "return: %ld, reason: %ld\n",
+		TRACE_ERROR("CSNDPKB (RSA KEY TOKEN BUILD RSA CRT) failed."
+			    " return:%ld, reason:%ld\n",
 			    return_code, reason_code);
 		return CKR_FUNCTION_FAILED;
 	}
@@ -2190,7 +2190,8 @@ CK_RV rsa_import_privkey_crt(TEMPLATE *priv_tmpl)
 		target_key_token);
 
 	if (return_code != CCA_SUCCESS) {
-		TRACE_ERROR("CSNDPKI (RSA KEY TOKEN IMPORT) failed. return: %ld, reason: %ld\n",
+		TRACE_ERROR("CSNDPKI (RSA KEY TOKEN IMPORT) failed."
+			    " return:%ld, reason:%ld\n",
 			    return_code, reason_code);
 		return CKR_FUNCTION_FAILED;
 	}
@@ -2210,8 +2211,7 @@ CK_RV rsa_import_privkey_crt(TEMPLATE *priv_tmpl)
 	return CKR_OK;
 }
 
-CK_RV
-rsa_import_pubkey(TEMPLATE *publ_tmpl)
+static CK_RV rsa_import_pubkey(TEMPLATE *publ_tmpl)
 {
 	long return_code, reason_code, rule_array_count;
 	unsigned char rule_array[CCA_RULE_ARRAY_SIZE] = { 0, };
@@ -2301,8 +2301,8 @@ rsa_import_pubkey(TEMPLATE *publ_tmpl)
 		NULL, 0, NULL, 0, NULL, 0, NULL, &key_token_length, key_token);
 
 	if (return_code != CCA_SUCCESS) {
-		TRACE_ERROR("CSNDPKB (RSA KEY TOKEN BUILD RSA-PUBL) failed. "
-			    "return: %ld, reason: %ld\n",
+		TRACE_ERROR("CSNDPKB (RSA KEY TOKEN BUILD RSA-PUBL) failed."
+			    " return:%ld, reason:%ld\n",
 			    return_code, reason_code);
 		return CKR_FUNCTION_FAILED;
 	}
