@@ -28,6 +28,7 @@
 #define CCA_PKB_E_OFFSET                18
 #define CCA_PKB_E_SIZE                  2
 #define CCA_PKB_E_SIZE_OFFSET           4
+#define CCA_RULE_ITEM_LEN		8
 
 /* Elliptic Curve constants */
 /* CCA spec: page 94 */

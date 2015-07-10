@@ -2323,12 +2323,64 @@ static CK_RV rsa_import_pubkey(TEMPLATE *publ_tmpl)
 	return CKR_OK;
 }
 
-CK_RV
-token_specific_object_add(OBJECT *object)
+static CK_RV import_symmetric_key(OBJECT *object, CK_ULONG keytype)
+{
+	CK_RV rc;
+	long return_code, reason_code, rule_array_count;
+	unsigned char target_key_id[CCA_KEY_ID_SIZE] = { 0 };
+	unsigned char rule_array[CCA_RULE_ITEM_LEN] = { 0 };
+	CK_ATTRIBUTE *opaque_key = NULL;
+	CK_ATTRIBUTE *attr = NULL;
+
+	rc = template_attribute_find(object->template, CKA_VALUE, &attr);
+	if (rc == FALSE) {
+		TRACE_ERROR("Incomplete key template\n");
+		return CKR_TEMPLATE_INCOMPLETE;
+	}
+
+	switch(keytype) {
+	case CKK_AES:
+		memcpy(rule_array, "AES     ", CCA_KEYWORD_SIZE);
+		break;
+	case CKK_DES:
+	case CKK_DES3:
+		memcpy(rule_array, "DES     ", CCA_KEYWORD_SIZE);
+		break;
+	default:
+		return CKR_KEY_FUNCTION_NOT_PERMITTED;
+	}
+
+	rule_array_count = 1;
+
+	CSNBCKM(&return_code, &reason_code, NULL, NULL, &rule_array_count,
+		rule_array, &attr->ulValueLen, attr->pValue, target_key_id);
+
+	if (return_code != CCA_SUCCESS) {
+		TRACE_ERROR("CSNBCKM failed. return:%ld, reason:%ld\n",
+			     return_code, reason_code);
+		return CKR_FUNCTION_FAILED;
+	}
+
+	/* Add the key object to the template */
+	if ((rc = build_attribute(CKA_IBM_OPAQUE, target_key_id,
+				  CCA_KEY_ID_SIZE, &opaque_key))) {
+		TRACE_DEVEL("build_attribute(CKA_IBM_OPAQUE) failed\n");
+		return rc;
+	}
+	rc = template_update_attribute(object->template, opaque_key);
+	if (rc != CKR_OK) {
+		TRACE_DEVEL("template_update_attribute(CKA_IBM_OPAQUE) failed\n");
+		return rc;
+	}
+
+	return CKR_OK;
+}
+
+CK_RV token_specific_object_add(OBJECT *object)
 {
 
 	CK_RV rc;
-	CK_ATTRIBUTE *attr;
+	CK_ATTRIBUTE *attr = NULL;
 	CK_KEY_TYPE keytype;
 	CK_OBJECT_CLASS keyclass;
 
@@ -2346,7 +2398,8 @@ token_specific_object_add(OBJECT *object)
 
 	keytype = *(CK_KEY_TYPE *)attr->pValue;
 
-	if (keytype == CKK_RSA) {
+	switch (keytype) {
+	case CKK_RSA:
 		rc = template_attribute_find(object->template, CKA_CLASS, &attr);
 		if (rc == FALSE) {
 			TRACE_ERROR("%s\n", ock_err(ERR_TEMPLATE_INCOMPLETE));
@@ -2374,6 +2427,25 @@ token_specific_object_add(OBJECT *object)
 			TRACE_DEVEL("rsa import failed\n");
 			return rc;
 		}
+
+		break;
+
+	case CKK_AES:
+	case CKK_DES:
+	case CKK_DES3:
+
+		rc = import_symmetric_key(object, keytype);
+		if (rc != CKR_OK) {
+			TRACE_DEVEL("Symmetric key import failed, rc=0x%lx\n",
+				     rc);
+			return CKR_FUNCTION_FAILED;
+		}
+		TRACE_INFO("symmetric key with len=%ld successful imported\n",
+			    attr->ulValueLen);
+		break;
+
+	default:
+		return CKR_KEY_FUNCTION_NOT_PERMITTED;
 	}
 
 	return CKR_OK;
