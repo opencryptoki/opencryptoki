@@ -34,6 +34,7 @@
   #define CSNBKGN   CSNBKGN_32
   #define CSNBKIM   CSNBKIM_32
   #define CSNBKPI   CSNBKPI_32
+  #define CSNBKPI2  CSNBKPI2_32
   #define CSNBKRC   CSNBKRC_32
   #define CSNBAKRC  CSNBAKRC_32
   #define CSNBKRD   CSNBKRD_32
@@ -55,6 +56,7 @@
   #define CSNBMGN   CSNBMGN_32
   #define CSNBMVR   CSNBMVR_32
   #define CSNBKTB   CSNBKTB_32
+  #define CSNBKTB2  CSNBKTB2_32
   #define CSNDPKG   CSNDPKG_32
   #define CSNDPKB   CSNDPKB_32
   #define CSNBOWH   CSNBOWH_32
@@ -217,6 +219,19 @@ extern void SECURITYAPI
               unsigned char * rule_array,
               unsigned char * key_part,
               unsigned char * key_identifier);
+
+/* Key Part Import2 */
+extern void SECURITYAPI
+   CSNBKPI2_32(long          * return_code,
+               long          * reason_code,
+               long          * exit_data_length,
+               unsigned char * exit_data,
+               long          * rule_array_count,
+               unsigned char * rule_array,
+               long          * clear_key_part_length,
+               unsigned char * clear_key_part,
+               long          * key_identifier_length,
+               unsigned char * key_identifier);
 
 /* Key Storage Initialization */
 extern void SECURITYAPI
@@ -527,6 +542,27 @@ extern void SECURITYAPI
               unsigned char * reserved_field_6,
               unsigned char * master_key_verification_number );
 
+
+/* Key Token Build2 */
+extern void SECURITYAPI
+   CSNBKTB2_32(long          * return_code,
+               long          * reason_code,
+               long          * exit_data_length,
+               unsigned char * exit_data,
+               long          * rule_array_count,
+               unsigned char * rule_array,
+               long          * clear_key_bit_length,
+               unsigned char * clear_key_value,
+               long          * key_name_length,
+               unsigned char * key_name,
+               long          * user_associated_data_length,
+               unsigned char * user_associated_data,
+               long          * token_data_length,
+               unsigned char * token_data,
+               long          * reserved_length,
+               unsigned char * reserved,
+               long          * target_key_token_length,
+               unsigned char * target_key_token);
 
 /* PKA Key Generate */
 extern void SECURITYAPI

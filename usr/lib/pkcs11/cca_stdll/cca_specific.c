@@ -2328,7 +2328,7 @@ static CK_RV import_symmetric_key(OBJECT *object, CK_ULONG keytype)
 	CK_RV rc;
 	long return_code, reason_code, rule_array_count;
 	unsigned char target_key_id[CCA_KEY_ID_SIZE] = { 0 };
-	unsigned char rule_array[CCA_RULE_ITEM_LEN] = { 0 };
+	unsigned char rule_array[CCA_KEYWORD_SIZE] = { 0 };
 	CK_ATTRIBUTE *opaque_key = NULL;
 	CK_ATTRIBUTE *attr = NULL;
 
@@ -2364,6 +2364,93 @@ static CK_RV import_symmetric_key(OBJECT *object, CK_ULONG keytype)
 	/* Add the key object to the template */
 	if ((rc = build_attribute(CKA_IBM_OPAQUE, target_key_id,
 				  CCA_KEY_ID_SIZE, &opaque_key))) {
+		TRACE_DEVEL("build_attribute(CKA_IBM_OPAQUE) failed\n");
+		return rc;
+	}
+	rc = template_update_attribute(object->template, opaque_key);
+	if (rc != CKR_OK) {
+		TRACE_DEVEL("template_update_attribute(CKA_IBM_OPAQUE) failed\n");
+		return rc;
+	}
+
+	return CKR_OK;
+}
+
+
+static CK_RV import_generic_secret_key(OBJECT *object)
+{
+	CK_RV rc;
+	long return_code, reason_code, rule_array_count;
+	unsigned char key_token[CCA_KEY_TOKEN_SIZE] = { 0 };
+	unsigned char rule_array[5 * CCA_KEYWORD_SIZE] = { 0 };
+	long key_name_len = 0, clr_key_len = 0;
+	long user_data_len = 0, key_part_len = 0;
+	long token_data_len = 0, verb_data_len = 0;
+	long key_token_len = sizeof(key_token);
+	CK_ATTRIBUTE *opaque_key = NULL;
+	CK_ATTRIBUTE *attr = NULL;
+	CK_ULONG keylen;
+
+	rc = template_attribute_find(object->template, CKA_VALUE, &attr);
+	if (rc == FALSE) {
+		TRACE_ERROR("Incomplete Generic Secret (HMAC) key template\n");
+		return CKR_TEMPLATE_INCOMPLETE;
+}
+	keylen = attr->ulValueLen;
+	/* key len needs to be 80-2048 bits */
+	if (8*keylen < 80 || 8*keylen > 2048) {
+		TRACE_ERROR("HMAC key size of %lu bits not within"
+			    " CCA required range of 80-2048 bits\n", 8*keylen);
+		return CKR_KEY_SIZE_RANGE;
+	}
+
+	memcpy(rule_array, "INTERNALNO-KEY  HMAC    MAC     GENERATE",
+	       5 * CCA_KEYWORD_SIZE);
+	 rule_array_count = 5;
+
+	CSNBKTB2(&return_code, &reason_code, NULL, NULL, &rule_array_count,
+		 rule_array, &clr_key_len, NULL, &key_name_len, NULL,
+		 &user_data_len, NULL, &token_data_len, NULL, &verb_data_len,
+		 NULL, &key_token_len, key_token);
+	if (return_code != CCA_SUCCESS) {
+		TRACE_ERROR("CSNBKTB2 (HMAC KEY TOKEN BUILD) failed."
+			    " return:%ld, reason:%ld\n",
+			    return_code, reason_code);
+		return CKR_FUNCTION_FAILED;
+	}
+
+	memcpy(rule_array, "HMAC    FIRST   MIN1PART", 3 * CCA_KEYWORD_SIZE);
+	rule_array_count = 3;
+	key_part_len = keylen * 8;
+	key_token_len = sizeof(key_token);
+
+	CSNBKPI2(&return_code, &reason_code, NULL, NULL, &rule_array_count,
+		 rule_array, &key_part_len, attr->pValue, &key_token_len,
+		 key_token);
+	if (return_code != CCA_SUCCESS) {
+		TRACE_ERROR("CSNBKPI2 (HMAC KEY IMPORT FIRST) failed."
+			    " return:%ld, reason:%ld\n",
+			    return_code, reason_code);
+		return CKR_FUNCTION_FAILED;
+	}
+
+	memcpy(rule_array, "HMAC    COMPLETE", 2 * CCA_KEYWORD_SIZE);
+	rule_array_count = 2;
+	key_part_len = 0;
+	key_token_len = sizeof(key_token);
+
+	CSNBKPI2(&return_code, &reason_code, NULL, NULL, &rule_array_count,
+		 rule_array, &key_part_len, NULL, &key_token_len, key_token);
+	if (return_code != CCA_SUCCESS) {
+		TRACE_ERROR("CSNBKPI2 (HMAC KEY IMPORT COMPLETE) failed."
+			    " return:%ld, reason:%ld\n",
+			    return_code, reason_code);
+		return CKR_FUNCTION_FAILED;
+	}
+
+	/* Add the key object to the template */
+	if ((rc = build_attribute(CKA_IBM_OPAQUE, key_token, key_token_len,
+				  &opaque_key))) {
 		TRACE_DEVEL("build_attribute(CKA_IBM_OPAQUE) failed\n");
 		return rc;
 	}
@@ -2433,7 +2520,6 @@ CK_RV token_specific_object_add(OBJECT *object)
 	case CKK_AES:
 	case CKK_DES:
 	case CKK_DES3:
-
 		rc = import_symmetric_key(object, keytype);
 		if (rc != CKR_OK) {
 			TRACE_DEVEL("Symmetric key import failed, rc=0x%lx\n",
@@ -2444,7 +2530,20 @@ CK_RV token_specific_object_add(OBJECT *object)
 			    attr->ulValueLen);
 		break;
 
+	case CKK_GENERIC_SECRET:
+		rc = import_generic_secret_key(object);
+		if (rc != CKR_OK) {
+			TRACE_DEVEL("Generic Secret (HMAC) key import failed "
+				    " with rc=0x%lx\n", rc);
+			return CKR_FUNCTION_FAILED;
+		}
+		TRACE_INFO("Generic Secret (HMAC) key with len=%ld successfully"
+			   " imported\n", attr->ulValueLen);
+		break;
+
 	default:
+		/* unknown/unsupported key type */
+		TRACE_ERROR("Unknown/unsupported key type 0x%lx\n", keytype);
 		return CKR_KEY_FUNCTION_NOT_PERMITTED;
 	}
 
