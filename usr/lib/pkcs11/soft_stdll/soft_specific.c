@@ -2358,3 +2358,311 @@ done:
 	ctx->context = NULL;
 	return rv;
 }
+
+static CK_RV softtok_hmac_init(SIGN_VERIFY_CONTEXT *ctx, CK_MECHANISM_PTR mech,
+			       CK_OBJECT_HANDLE Hkey)
+{
+	int rc;
+	OBJECT *key = NULL;
+	CK_ATTRIBUTE *attr = NULL;
+	EVP_MD_CTX *mdctx = NULL;
+	EVP_PKEY *pkey = NULL;
+
+	rc = object_mgr_find_in_map1(Hkey, &key);
+	if (rc != CKR_OK) {
+		TRACE_ERROR("Failed to find specified object.\n");
+		return rc;
+	}
+
+	if (template_attribute_find(key->template, CKA_VALUE, &attr) == FALSE) {
+		TRACE_ERROR("Could not find CKA_VALUE for the key.\n");
+		return CKR_FUNCTION_FAILED;
+	}
+
+	pkey = EVP_PKEY_new_mac_key(EVP_PKEY_HMAC, NULL, attr->pValue,
+				    attr->ulValueLen);
+	if (pkey == NULL) {
+		TRACE_ERROR("EVP_PKEY_new_mac_key() failed.\n");
+		return CKR_FUNCTION_FAILED;
+	}
+
+	mdctx = EVP_MD_CTX_create();
+
+	switch(mech->mechanism) {
+	case CKM_SHA_1_HMAC_GENERAL:
+	case CKM_SHA_1_HMAC:
+		rc = EVP_DigestSignInit(mdctx, NULL, EVP_sha1(), NULL, pkey);
+		break;
+	case CKM_SHA256_HMAC_GENERAL:
+	case CKM_SHA256_HMAC:
+		rc = EVP_DigestSignInit(mdctx, NULL, EVP_sha256(), NULL, pkey);
+		break;
+	case CKM_SHA384_HMAC_GENERAL:
+	case CKM_SHA384_HMAC:
+		rc = EVP_DigestSignInit(mdctx, NULL, EVP_sha384(), NULL, pkey);
+		break;
+	case CKM_SHA512_HMAC_GENERAL:
+	case CKM_SHA512_HMAC:
+		rc = EVP_DigestSignInit(mdctx, NULL, EVP_sha512(), NULL, pkey);
+		break;
+	default:
+		EVP_MD_CTX_destroy(mdctx);
+		TRACE_ERROR("%s\n", ock_err(ERR_MECHANISM_INVALID));
+		return CKR_MECHANISM_INVALID;
+	}
+
+	if (rc != 1) {
+		EVP_MD_CTX_destroy(mdctx);
+		ctx->context = NULL;
+		TRACE_ERROR("EVP_DigestSignInit failed.\n");
+		return CKR_FUNCTION_FAILED;
+	} else
+		ctx->context = (CK_BYTE *)mdctx;
+
+	return CKR_OK;
+}
+
+CK_RV token_specific_hmac_sign_init (SESSION *sess, CK_MECHANISM *mech,
+				     CK_OBJECT_HANDLE Hkey)
+{
+	return softtok_hmac_init(&sess->sign_ctx, mech, Hkey);
+}
+
+CK_RV token_specific_hmac_verify_init (SESSION *sess, CK_MECHANISM *mech,
+				       CK_OBJECT_HANDLE Hkey)
+{
+	return softtok_hmac_init(&sess->verify_ctx, mech, Hkey);
+}
+
+static CK_RV softtok_hmac(SIGN_VERIFY_CONTEXT *ctx, CK_BYTE *in_data,
+                          CK_ULONG in_data_len, CK_BYTE *signature,
+			  CK_ULONG *sig_len, CK_BBOOL sign)
+{
+	int rc;
+	size_t mac_len, len;
+	unsigned char mac[MAX_SHA_HASH_SIZE];
+	EVP_MD_CTX *mdctx = NULL;
+	CK_RV rv = CKR_OK;
+	CK_BBOOL general = FALSE;
+
+	if (!ctx || !ctx->context) {
+		TRACE_ERROR("%s received bad argument(s)\n", __FUNCTION__);
+		return CKR_FUNCTION_FAILED;
+	}
+
+	if (sign && !sig_len) {
+		TRACE_ERROR("%s received bad argument(s)\n", __FUNCTION__);
+		return CKR_FUNCTION_FAILED;
+	}
+
+	switch(ctx->mech.mechanism) {
+	case CKM_SHA_1_HMAC_GENERAL:
+		general = TRUE;
+	case CKM_SHA_1_HMAC:
+		mac_len = SHA1_HASH_SIZE;
+		break;
+	case CKM_SHA256_HMAC_GENERAL:
+		general = TRUE;
+	case CKM_SHA256_HMAC:
+		mac_len = SHA2_HASH_SIZE;
+		break;
+	case CKM_SHA384_HMAC_GENERAL:
+		general = TRUE;
+	case CKM_SHA384_HMAC:
+		mac_len = SHA3_HASH_SIZE;
+		break;
+	case CKM_SHA512_HMAC_GENERAL:
+		general = TRUE;
+	case CKM_SHA512_HMAC:
+		mac_len = SHA5_HASH_SIZE;
+		break;
+	default:
+		TRACE_ERROR("%s\n", ock_err(ERR_MECHANISM_INVALID));
+		return CKR_MECHANISM_INVALID;
+	}
+
+	mdctx = (EVP_MD_CTX *)ctx->context;
+
+	rc = EVP_DigestSignUpdate(mdctx, in_data, in_data_len);
+	if (rc != 1) {
+		TRACE_ERROR("EVP_DigestSignUpdate failed.\n");
+		rv = CKR_FUNCTION_FAILED;
+		goto done;
+	}
+
+	rc = EVP_DigestSignFinal(mdctx, mac, &mac_len);
+	if (rc != 1) {
+		TRACE_ERROR("EVP_DigestSignFinal failed.\n");
+		rv = CKR_FUNCTION_FAILED;
+		goto done;
+	}
+
+	if (sign) {
+		if (general)
+			*sig_len = *(CK_ULONG *)ctx->mech.pParameter;
+		else
+			*sig_len = mac_len;
+
+		memcpy(signature, mac, *sig_len);
+
+	} else {
+		if (general)
+			len = *(CK_ULONG *)ctx->mech.pParameter;
+		else
+			len = mac_len;
+
+		if (memcmp(signature, mac, len) != 0) {
+			TRACE_ERROR("%s\n", ock_err(ERR_SIGNATURE_INVALID));
+			rv = CKR_SIGNATURE_INVALID;
+		}
+	}
+done:
+	EVP_MD_CTX_destroy(mdctx);
+	ctx->context = NULL;
+	return rv;
+}
+
+CK_RV token_specific_hmac_sign(SESSION *sess, CK_BYTE *in_data,
+			       CK_ULONG in_data_len, CK_BYTE *signature,
+			       CK_ULONG *sig_len)
+{
+	return softtok_hmac(&sess->sign_ctx, in_data, in_data_len, signature,
+			    sig_len, TRUE);
+}
+
+CK_RV token_specific_hmac_verify(SESSION *sess, CK_BYTE *in_data,
+				 CK_ULONG in_data_len, CK_BYTE *signature,
+				 CK_ULONG sig_len)
+{
+	return softtok_hmac(&sess->verify_ctx, in_data, in_data_len, signature,
+                            &sig_len, FALSE);
+}
+
+static CK_RV softtok_hmac_update(SIGN_VERIFY_CONTEXT *ctx, CK_BYTE *in_data,
+				 CK_ULONG in_data_len, CK_BBOOL sign)
+{
+	int rc;
+	EVP_MD_CTX *mdctx = NULL;
+	CK_RV rv = CKR_OK;
+
+	if (!ctx || !ctx->context)
+		return CKR_OPERATION_NOT_INITIALIZED;
+
+	mdctx = (EVP_MD_CTX *)ctx->context;
+
+	rc = EVP_DigestSignUpdate(mdctx, in_data, in_data_len);
+	if (rc != 1) {
+		TRACE_ERROR("EVP_DigestSignUpdate failed.\n");
+		rv = CKR_FUNCTION_FAILED;
+	} else {
+		ctx->context = (CK_BYTE *)mdctx;
+		return CKR_OK;
+	}
+
+	EVP_MD_CTX_destroy(mdctx);
+	ctx->context = NULL;
+	return rv;
+}
+
+CK_RV token_specific_hmac_sign_update(SESSION *sess, CK_BYTE *in_data,
+				      CK_ULONG in_data_len)
+{
+	return softtok_hmac_update(&sess->sign_ctx, in_data, in_data_len, TRUE);
+}
+
+CK_RV token_specific_hmac_verify_update(SESSION *sess, CK_BYTE *in_data,
+					CK_ULONG in_data_len)
+{
+	return softtok_hmac_update(&sess->verify_ctx, in_data, in_data_len,
+				   FALSE);
+}
+
+static CK_RV softtok_hmac_final(SIGN_VERIFY_CONTEXT *ctx, CK_BYTE *signature,
+				CK_ULONG *sig_len, CK_BBOOL sign)
+{
+	int rc;
+	size_t mac_len, len;
+	unsigned char mac[MAX_SHA_HASH_SIZE];
+	EVP_MD_CTX *mdctx = NULL;
+	CK_RV rv = CKR_OK;
+	CK_BBOOL general = FALSE;
+
+	if (!ctx || !ctx->context)
+		return CKR_OPERATION_NOT_INITIALIZED;
+
+	if (sign && !sig_len) {
+		TRACE_ERROR("%s received bad argument(s)\n", __FUNCTION__);
+		return CKR_FUNCTION_FAILED;
+	}
+
+	switch(ctx->mech.mechanism) {
+	case CKM_SHA_1_HMAC_GENERAL:
+		general = TRUE;
+	case CKM_SHA_1_HMAC:
+		mac_len = SHA1_HASH_SIZE;
+		break;
+	case CKM_SHA256_HMAC_GENERAL:
+		general = TRUE;
+	case CKM_SHA256_HMAC:
+		mac_len = SHA2_HASH_SIZE;
+		break;
+	case CKM_SHA384_HMAC_GENERAL:
+		general = TRUE;
+	case CKM_SHA384_HMAC:
+		mac_len = SHA3_HASH_SIZE;
+		break;
+	case CKM_SHA512_HMAC_GENERAL:
+		general = TRUE;
+	case CKM_SHA512_HMAC:
+		mac_len = SHA5_HASH_SIZE;
+		break;
+	default:
+		TRACE_ERROR("%s\n", ock_err(ERR_MECHANISM_INVALID));
+		return CKR_MECHANISM_INVALID;
+	}
+
+	mdctx = (EVP_MD_CTX *)ctx->context;
+
+	rc = EVP_DigestSignFinal(mdctx, mac, &mac_len);
+	if (rc != 1) {
+		TRACE_ERROR("EVP_DigestSignFinal failed.\n");
+		rv = CKR_FUNCTION_FAILED;
+		goto done;
+	}
+
+	if (sign) {
+		if (general)
+			*sig_len = *(CK_ULONG *)ctx->mech.pParameter;
+		else
+			*sig_len = mac_len;
+
+		memcpy(signature, mac, *sig_len);
+
+	} else {
+		if (general)
+			len = *(CK_ULONG *)ctx->mech.pParameter;
+		else
+			len = mac_len;
+
+		if (memcmp(signature, mac, len) != 0) {
+			TRACE_ERROR("%s\n", ock_err(ERR_SIGNATURE_INVALID));
+			rv = CKR_SIGNATURE_INVALID;
+		}
+	}
+done:
+	EVP_MD_CTX_destroy(mdctx);
+	ctx->context = NULL;
+	return rv;
+}
+
+CK_RV token_specific_hmac_sign_final(SESSION *sess, CK_BYTE *signature,
+				     CK_ULONG *sig_len)
+{
+	return softtok_hmac_final(&sess->sign_ctx, signature, sig_len, TRUE);
+}
+
+CK_RV token_specific_hmac_verify_final(SESSION *sess, CK_BYTE *signature,
+				       CK_ULONG sig_len)
+{
+	return softtok_hmac_final(&sess->verify_ctx, signature, &sig_len, FALSE);
+}
