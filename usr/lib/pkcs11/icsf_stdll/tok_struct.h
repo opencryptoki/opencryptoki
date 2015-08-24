@@ -92,6 +92,15 @@ token_spec_t token_specific = {
 	NULL,			// sha
 	NULL,			// sha_update
 	NULL,			// sha_final
+	//HMAC
+	NULL,			// hmac_sign_init
+	NULL,			// hmac_sign
+	NULL,			// hmac_sign_update
+	NULL,			// hmac_sign_final
+	NULL,			// hmac_verify_init
+	NULL,			// hmac_verify
+	NULL,			// hmac_verify_update
+	NULL,			// hmac_verify_final
 	// AES
 	NULL,			// aes_key_gen
 	NULL,			// aes_ecb

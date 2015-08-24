@@ -653,6 +653,12 @@ sign_mgr_init( SESSION                * sess,
             //
             ctx->context_len = 0;
             ctx->context     = NULL;
+
+	    rc = hmac_sign_init(sess, mech, key);
+	    if (rc != CKR_OK) {
+		TRACE_ERROR("Failed to initialize hmac.\n");
+		return rc;
+	    }
          }
          break;
 
@@ -716,6 +722,12 @@ sign_mgr_init( SESSION                * sess,
             //
             ctx->context_len = 0;
             ctx->context     = NULL;
+
+	    rc = hmac_sign_init(sess, mech, key);
+	    if (rc != CKR_OK) {
+		TRACE_ERROR("Failed to initialize hmac.\n");
+		return rc;
+	    }
          }
          break;
 
@@ -1095,6 +1107,16 @@ sign_mgr_sign_update( SESSION             * sess,
       case CKM_ECDSA_SHA1:
       	 return ec_hash_sign_update( sess, ctx, in_data, in_data_len );
 
+      case CKM_SHA_1_HMAC:
+      case CKM_SHA256_HMAC:
+      case CKM_SHA384_HMAC:
+      case CKM_SHA512_HMAC:
+      case CKM_SHA_1_HMAC_GENERAL:
+      case CKM_SHA256_HMAC_GENERAL:
+      case CKM_SHA384_HMAC_GENERAL:
+      case CKM_SHA512_HMAC_GENERAL:
+	return hmac_sign_update(sess, in_data, in_data_len);
+
       default:
          TRACE_ERROR("%s\n", ock_err(ERR_MECHANISM_INVALID));
          return CKR_MECHANISM_INVALID;
@@ -1157,6 +1179,15 @@ sign_mgr_sign_final( SESSION             * sess,
 
       case CKM_ECDSA_SHA1:
 	 return ec_hash_sign_final (sess, length_only, ctx, signature, sig_len );
+      case CKM_SHA_1_HMAC:
+      case CKM_SHA256_HMAC:
+      case CKM_SHA384_HMAC:
+      case CKM_SHA512_HMAC:
+      case CKM_SHA_1_HMAC_GENERAL:
+      case CKM_SHA256_HMAC_GENERAL:
+      case CKM_SHA384_HMAC_GENERAL:
+      case CKM_SHA512_HMAC_GENERAL:
+	return hmac_sign_final(sess, signature, sig_len);
 
       default:
          TRACE_ERROR("%s\n", ock_err(ERR_MECHANISM_INVALID));

@@ -510,6 +510,26 @@ CK_RV token_specific_sha_update(DIGEST_CONTEXT *, CK_BYTE *, CK_ULONG);
 
 CK_RV token_specific_sha_final(DIGEST_CONTEXT *, CK_BYTE *, CK_ULONG *);
 
+CK_RV token_specific_hmac_sign_init(SESSION *, CK_MECHANISM *,
+				    CK_OBJECT_HANDLE);
+
+CK_RV token_specific_hmac_sign(SESSION *, CK_BYTE *, CK_ULONG, CK_BYTE *,
+			       CK_ULONG *);
+
+CK_RV token_specific_hmac_sign_update(SESSION *, CK_BYTE *, CK_ULONG);
+
+CK_RV token_specific_hmac_sign_final(SESSION *, CK_BYTE *, CK_ULONG *);
+
+CK_RV token_specific_hmac_verify_init(SESSION *, CK_MECHANISM *,
+				      CK_OBJECT_HANDLE);
+
+CK_RV token_specific_hmac_verify(SESSION *, CK_BYTE *, CK_ULONG, CK_BYTE *,
+				 CK_ULONG);
+
+CK_RV token_specific_hmac_verify_update(SESSION *, CK_BYTE *, CK_ULONG);
+
+CK_RV token_specific_hmac_verify_final(SESSION *, CK_BYTE *, CK_ULONG);
+
 #ifndef NOAES
 CK_RV
 token_specific_aes_key_gen( CK_BYTE *,

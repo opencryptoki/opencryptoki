@@ -858,6 +858,14 @@ CK_RV sha1_hmac_sign(SESSION *sess, CK_BBOOL length_only,
 		return CKR_OK;
 	}
 
+	if (token_specific.t_hmac_sign != NULL)
+		return token_specific.t_hmac_sign(sess, in_data, in_data_len,
+						  out_data, out_data_len);
+
+	/* Do manual hmac if token doesn't have an hmac crypto call.
+	 * Secure tokens should not do manual hmac.
+	 */
+
 	memset(&digest_ctx, 0x0, sizeof(DIGEST_CONTEXT));
 
 	rc = object_mgr_find_in_map1(ctx->key, &key_obj);
@@ -1027,6 +1035,13 @@ CK_RV sha2_hmac_sign(SESSION *sess, CK_BBOOL length_only,
 		return CKR_OK;
 	}
 
+	if (token_specific.t_hmac_sign != NULL)
+		return token_specific.t_hmac_sign(sess, in_data, in_data_len,
+						  out_data, out_data_len);
+
+	/* Do manual hmac if token doesn't have an hmac crypto call.
+	 * Secure tokens should not do manual hmac.
+	 */
 	memset(&digest_ctx, 0x0, sizeof(DIGEST_CONTEXT));
 
 	rc = object_mgr_find_in_map1(ctx->key, &key_obj);
@@ -1191,6 +1206,14 @@ CK_RV sha3_hmac_sign(SESSION *sess, CK_BBOOL length_only,
 		*out_data_len = hmac_len;
 		return CKR_OK;
 	}
+
+	if (token_specific.t_hmac_sign != NULL)
+		return token_specific.t_hmac_sign(sess, in_data, in_data_len,
+						  out_data, out_data_len);
+
+	/* Do manual hmac if token doesn't have an hmac crypto call.
+	 * Secure tokens should not do manual hmac.
+	 */
 
 	memset( &digest_ctx, 0x0, sizeof(DIGEST_CONTEXT) );
 
@@ -1357,6 +1380,13 @@ CK_RV sha5_hmac_sign(SESSION *sess, CK_BBOOL length_only,
 		return CKR_OK;
 	}
 
+	if (token_specific.t_hmac_sign != NULL)
+		return token_specific.t_hmac_sign(sess, in_data, in_data_len,
+						  out_data, out_data_len);
+
+	/* Do manual hmac if token doesn't have an hmac crypto call.
+	 * Secure tokens should not do manual hmac.
+	 */
 	memset(&digest_ctx, 0x0, sizeof(DIGEST_CONTEXT));
 
 	rc = object_mgr_find_in_map1(ctx->key, &key_obj);
@@ -1447,6 +1477,13 @@ CK_RV sha5_hmac_sign(SESSION *sess, CK_BBOOL length_only,
 		return rc;
 	}
 
+	if (token_specific.t_hmac_sign != NULL)
+		return token_specific.t_hmac_sign(sess, in_data, in_data_len,
+						  out_data, out_data_len);
+
+	/* Do manual hmac if token doesn't have an hmac crypto call.
+	 * Secure tokens should not do manual hmac.
+	 */
 	memset( &digest_ctx, 0x0, sizeof(DIGEST_CONTEXT) );
 
 	// outer hash
@@ -1496,6 +1533,13 @@ CK_RV sha1_hmac_verify(SESSION *sess, SIGN_VERIFY_CONTEXT *ctx,
 		return CKR_FUNCTION_FAILED;
 	}
 
+	if (token_specific.t_hmac_verify != NULL)
+		return token_specific.t_hmac_verify(sess, in_data, in_data_len,
+						    signature, sig_len);
+
+	/* Do manual hmac verify  if token doesn't have an hmac crypto call.
+	 * Secure tokens should not do manual hmac.
+	 */
 	if (ctx->mech.mechanism == CKM_SHA_1_HMAC_GENERAL)
 		hmac_len = *(CK_ULONG *)ctx->mech.pParameter;
 	else
@@ -1545,6 +1589,13 @@ CK_RV sha2_hmac_verify(SESSION *sess, SIGN_VERIFY_CONTEXT *ctx,
 		return CKR_FUNCTION_FAILED;
 	}
 
+	if (token_specific.t_hmac_verify != NULL)
+		return token_specific.t_hmac_verify(sess, in_data, in_data_len,
+						    signature, sig_len);
+
+	/* Do manual hmac verify  if token doesn't have an hmac crypto call.
+	 * Secure tokens should not do manual hmac.
+	 */
 	if (ctx->mech.mechanism == CKM_SHA256_HMAC_GENERAL)
 		hmac_len = *(CK_ULONG *)ctx->mech.pParameter;
 	else
@@ -1595,6 +1646,13 @@ CK_RV sha3_hmac_verify(SESSION *sess, SIGN_VERIFY_CONTEXT *ctx,
 		TRACE_ERROR("%s received bad argument(s)\n", __FUNCTION__);
 		return CKR_FUNCTION_FAILED;
 	}
+	if (token_specific.t_hmac_verify != NULL)
+		return token_specific.t_hmac_verify(sess, in_data, in_data_len,
+						    signature, sig_len);
+
+	/* Do manual hmac verify  if token doesn't have an hmac crypto call.
+	 * Secure tokens should not do manual hmac.
+	 */
 	if (ctx->mech.mechanism == CKM_SHA384_HMAC_GENERAL)
 		hmac_len = *(CK_ULONG *)ctx->mech.pParameter;
 	else
@@ -1642,6 +1700,13 @@ CK_RV sha5_hmac_verify(SESSION *sess, SIGN_VERIFY_CONTEXT *ctx,
 		TRACE_ERROR("%s received bad argument(s)\n", __FUNCTION__);
 		return CKR_FUNCTION_FAILED;
 	}
+	if (token_specific.t_hmac_verify != NULL)
+		return token_specific.t_hmac_verify(sess, in_data, in_data_len,
+						    signature, sig_len);
+
+	/* Do manual hmac verify  if token doesn't have an hmac crypto call.
+	 * Secure tokens should not do manual hmac.
+	 */
 	if (ctx->mech.mechanism == CKM_SHA512_HMAC_GENERAL)
 		hmac_len = *(CK_ULONG *)ctx->mech.pParameter;
 	else
@@ -1694,5 +1759,104 @@ CK_RV sha_init(SESSION *sess, DIGEST_CONTEXT *ctx, CK_MECHANISM *mech)
 			return CKR_OK;
 		} else
 			return CKR_MECHANISM_INVALID;
+	}
+}
+
+CK_RV hmac_sign_init(SESSION *sess, CK_MECHANISM *mech, CK_OBJECT_HANDLE hkey)
+{
+	if (token_specific.t_hmac_sign_init != NULL)
+                return token_specific.t_hmac_sign_init(sess, mech, hkey);
+	else
+		/* Return ok with the intention that the local hmac
+		 * implementation will get used instead.
+		 * For those tokens not supporting HMAC at all,
+		 * will need to return CKR_MECHANISM_INVALID.
+		 */
+		return CKR_OK;
+}
+
+CK_RV hmac_sign_update(SESSION *sess, CK_BYTE *in_data, CK_ULONG in_data_len)
+{
+	SIGN_VERIFY_CONTEXT *ctx = &sess->sign_ctx;
+
+	if (!sess || !ctx) {
+		TRACE_ERROR("%s received bad argument(s)\n", __FUNCTION__);
+		return CKR_FUNCTION_FAILED;
+	}
+
+	if (token_specific.t_hmac_sign_update != NULL)
+		return token_specific.t_hmac_sign_update(sess, in_data,
+							 in_data_len);
+	else {
+		TRACE_ERROR("hmac-update is not supported\n");
+		return CKR_MECHANISM_INVALID;
+	}
+}
+
+CK_RV hmac_sign_final(SESSION *sess, CK_BYTE *signature, CK_ULONG *sig_len)
+{
+	SIGN_VERIFY_CONTEXT *ctx = &sess->sign_ctx;
+
+	if (!sess || !ctx) {
+		TRACE_ERROR("%s received bad argument(s)\n", __FUNCTION__);
+		return CKR_FUNCTION_FAILED;
+	}
+
+	if (token_specific.t_hmac_sign_final != NULL)
+		return token_specific.t_hmac_sign_final(sess, signature,
+							sig_len);
+	else {
+		TRACE_ERROR("hmac-final is not supported\n");
+		return CKR_MECHANISM_INVALID;
+	}
+}
+
+CK_RV hmac_verify_init(SESSION *sess, CK_MECHANISM *mech,
+		       CK_OBJECT_HANDLE hkey)
+{
+	if (token_specific.t_hmac_verify_init != NULL)
+                return token_specific.t_hmac_verify_init(sess, mech, hkey);
+	else
+		/* Return ok with the intention that the local hmac
+		 * implementation will get used instead.
+		 * For those tokens not supporting HMAC at all,
+		 * will need to return CKR_MECHANISM_INVALID.
+		 */
+		return CKR_OK;
+}
+
+CK_RV hmac_verify_update(SESSION *sess, CK_BYTE *in_data, CK_ULONG in_data_len)
+{
+	SIGN_VERIFY_CONTEXT *ctx = &sess->sign_ctx;
+
+	if (!sess || !ctx) {
+		TRACE_ERROR("%s received bad argument(s)\n", __FUNCTION__);
+		return CKR_FUNCTION_FAILED;
+	}
+
+	if (token_specific.t_hmac_verify_update != NULL)
+		return token_specific.t_hmac_verify_update(sess, in_data,
+							   in_data_len);
+	else {
+		TRACE_ERROR("hmac-update is not supported\n");
+		return CKR_MECHANISM_INVALID;
+	}
+}
+
+CK_RV hmac_verify_final(SESSION *sess, CK_BYTE *signature, CK_ULONG sig_len)
+{
+	SIGN_VERIFY_CONTEXT *ctx = &sess->sign_ctx;
+
+	if (!sess || ! ctx) {
+		TRACE_ERROR("%s received bad argument(s)\n", __FUNCTION__);
+		return CKR_FUNCTION_FAILED;
+	}
+
+	if (token_specific.t_hmac_verify_final != NULL)
+		return token_specific.t_hmac_verify_final(sess, signature,
+							  sig_len);
+	else {
+		TRACE_ERROR("hmac-final is not supported\n");
+		return CKR_MECHANISM_INVALID;
 	}
 }
