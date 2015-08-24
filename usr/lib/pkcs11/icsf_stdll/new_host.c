@@ -2303,8 +2303,7 @@ CK_RV SC_SignUpdate(ST_SESSION_HANDLE *sSession, CK_BYTE_PTR pPart,
 
 	rc = icsftok_sign_update(sess, pPart, ulPartLen);
 	if (rc != CKR_OK)
-		TRACE_DEVEL("*_sign_update() failed.\n");
-
+		TRACE_DEVEL("icsftok_sign_update() failed.\n");
 done:
 	if (rc != CKR_OK)
 		sign_mgr_cleanup(&sess->sign_ctx);

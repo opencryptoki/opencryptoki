@@ -2525,8 +2525,9 @@ int icsf_hmac_sign(LDAP *ld, int *reason, struct icsf_object_record *key,
 	 * }
 	 */
 
-	if (ber_printf(msg, "ooi", clear_text, clear_text_len, chain_data,
-			*chain_data_len, *hmac_len) < 0) {
+	if (ber_printf(msg, "ooi", (clear_text) ? clear_text : "",
+		       clear_text_len, chain_data, *chain_data_len,
+		       *hmac_len) < 0) {
 		rc = -1;
 		TRACE_ERROR("Failed to encode message: %d.\n", rc);
 		goto done;
@@ -2668,8 +2669,9 @@ int icsf_hmac_verify(LDAP *ld, int *reason, struct icsf_object_record *key,
 	 *   many bytes in length as required based on the mechanism.
 	 * - For a FIRST or MIDDLE call, hmac is ignored.
 	 */
-	if (ber_printf(msg, "ooo", clear_text, clear_text_len, chain_data,
-			*chain_data_len, hmac, hmac_len) < 0) {
+	if (ber_printf(msg, "ooo", (clear_text) ? clear_text : "",
+		       clear_text_len, chain_data, *chain_data_len,
+		       hmac, hmac_len) < 0) {
 		rc = -1;
 		TRACE_ERROR("Failed to encode message: %d.\n", rc);
 		goto done;
