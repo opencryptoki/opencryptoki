@@ -65,17 +65,17 @@ MECH_LIST_ELEMENT mech_list[] = {
 	{CKM_AES_CBC_PAD, {16, 32, CKF_HW|CKF_ENCRYPT|CKF_DECRYPT|CKF_WRAP|
 				  CKF_UNWRAP}},
 	{CKM_SHA512, {0, 0, CKF_HW|CKF_DIGEST}},
-	{CKM_SHA512_HMAC, {0, 0, CKF_SIGN|CKF_VERIFY}},
-	{CKM_SHA512_HMAC_GENERAL, {0, 0, CKF_SIGN|CKF_VERIFY}},
+	{CKM_SHA512_HMAC, {80, 2048, CKF_SIGN|CKF_VERIFY}},
+	{CKM_SHA512_HMAC_GENERAL, {80, 2048, CKF_SIGN|CKF_VERIFY}},
 	{CKM_SHA384, {0, 0, CKF_HW|CKF_DIGEST}},
-	{CKM_SHA384_HMAC, {0, 0, CKF_SIGN|CKF_VERIFY}},
-	{CKM_SHA384_HMAC_GENERAL, {0, 0, CKF_SIGN|CKF_VERIFY}},
+	{CKM_SHA384_HMAC, {80, 2048, CKF_SIGN|CKF_VERIFY}},
+	{CKM_SHA384_HMAC_GENERAL, {80, 2048, CKF_SIGN|CKF_VERIFY}},
 	{CKM_SHA256, {0, 0, CKF_HW|CKF_DIGEST}},
-	{CKM_SHA256_HMAC, {0, 0, CKF_SIGN|CKF_VERIFY}},
-	{CKM_SHA256_HMAC_GENERAL, {0, 0, CKF_SIGN|CKF_VERIFY}},
+	{CKM_SHA256_HMAC, {80, 2048, CKF_SIGN|CKF_VERIFY}},
+	{CKM_SHA256_HMAC_GENERAL, {80, 2048, CKF_SIGN|CKF_VERIFY}},
 	{CKM_SHA_1, {0, 0, CKF_DIGEST}},
-	{CKM_SHA_1_HMAC, {0, 0, CKF_SIGN|CKF_VERIFY}},
-	{CKM_SHA_1_HMAC_GENERAL, {0, 0, CKF_SIGN|CKF_VERIFY}},
+	{CKM_SHA_1_HMAC, {80, 2048, CKF_SIGN|CKF_VERIFY}},
+	{CKM_SHA_1_HMAC_GENERAL, {80, 2048, CKF_SIGN|CKF_VERIFY}},
 	{CKM_MD5, {0, 0, CKF_DIGEST}},
 	{CKM_MD5_HMAC, {0, 0, CKF_SIGN|CKF_VERIFY}},
 	{CKM_MD5_HMAC_GENERAL, {0, 0, CKF_SIGN|CKF_VERIFY}},
@@ -1985,6 +1985,494 @@ CK_RV token_specific_sha_final(DIGEST_CONTEXT *ctx, CK_BYTE *out_data,
 
 	/* ctx->context should get freed in digest_mgr_cleanup() */
 	return CKR_OK;
+}
+
+static long get_mac_len(CK_MECHANISM *mech)
+{
+	switch (mech->mechanism) {
+	case CKM_SHA_1_HMAC_GENERAL:
+	case CKM_SHA256_HMAC_GENERAL:
+	case CKM_SHA384_HMAC_GENERAL:
+	case CKM_SHA512_HMAC_GENERAL:
+		return *(CK_ULONG *)(mech->pParameter);
+	case CKM_SHA_1_HMAC:
+		return SHA1_HASH_SIZE;
+	case CKM_SHA256_HMAC:
+		return SHA2_HASH_SIZE;
+	case CKM_SHA384_HMAC:
+		return SHA3_HASH_SIZE;
+	case CKM_SHA512_HMAC:
+		return SHA5_HASH_SIZE;
+	default:
+		TRACE_ERROR("%s\n", ock_err(ERR_MECHANISM_INVALID));
+		return -1;
+	}
+}
+
+static CK_RV ccatok_hmac_init(SIGN_VERIFY_CONTEXT *ctx, CK_MECHANISM *mech,
+			      CK_OBJECT_HANDLE key)
+{
+	struct cca_sha_ctx *cca_ctx;
+
+	ctx->context = calloc(1, sizeof(struct cca_sha_ctx));
+	if (ctx->context == NULL) {
+		TRACE_ERROR("malloc failed in sha digest init\n");
+		return CKR_HOST_MEMORY;
+	}
+	ctx->context_len = sizeof(struct cca_sha_ctx);
+
+	cca_ctx = (struct cca_sha_ctx *)ctx->context;
+
+	memset(cca_ctx, 0, sizeof(struct cca_sha_ctx));
+	cca_ctx->chain_vector_len = CCA_CHAIN_VECTOR_LEN;
+	cca_ctx->hash_len = get_mac_len(mech);
+
+        return CKR_OK;
+}
+
+CK_RV token_specific_hmac_sign_init(SESSION *sess, CK_MECHANISM *mech,
+				    CK_OBJECT_HANDLE key)
+{
+	return ccatok_hmac_init(&sess->sign_ctx, mech, key);
+}
+
+CK_RV token_specific_hmac_verify_init(SESSION *sess, CK_MECHANISM *mech,
+				      CK_OBJECT_HANDLE key)
+{
+	return ccatok_hmac_init(&sess->verify_ctx, mech, key);
+}
+
+CK_RV ccatok_hmac(SIGN_VERIFY_CONTEXT *ctx, CK_BYTE *in_data,
+			       CK_ULONG in_data_len, CK_BYTE *signature,
+			       CK_ULONG *sig_len, CK_BBOOL sign)
+{
+	struct cca_sha_ctx *cca_ctx;
+	long return_code = 0, reason_code = 0, rule_array_count = 3;
+	unsigned char rule_array[CCA_KEYWORD_SIZE];
+	OBJECT *key = NULL;
+	CK_ATTRIBUTE *attr = NULL;
+	CK_RV rc = CKR_OK;
+
+	if (!ctx || !ctx->context) {
+		TRACE_ERROR("%s\n", ock_err(ERR_OPERATION_NOT_INITIALIZED));
+		return CKR_OPERATION_NOT_INITIALIZED;
+	}
+
+	if (sign && !sig_len) {
+		TRACE_ERROR("%s received bad argument(s)\n", __FUNCTION__);
+		return CKR_FUNCTION_FAILED;
+	}
+
+	rc = object_mgr_find_in_map1(ctx->key, &key);
+	if (rc != CKR_OK) {
+		TRACE_ERROR("Failed to find specified object.\n");
+		return rc;
+	}
+
+	if (template_attribute_find(key->template, CKA_IBM_OPAQUE,
+				    &attr) == FALSE) {
+		TRACE_ERROR("Could not find CKA_IBM_OPAQUE for the key.\n");
+		return CKR_FUNCTION_FAILED;
+	}
+
+	cca_ctx = (struct cca_sha_ctx *)ctx->context;
+
+	switch (ctx->mech.mechanism) {
+	case CKM_SHA_1_HMAC_GENERAL:
+	case CKM_SHA_1_HMAC:
+		memcpy(rule_array, "HMAC    SHA-1   ONLY    ",
+		       3 * CCA_KEYWORD_SIZE);
+		break;
+	case CKM_SHA256_HMAC_GENERAL:
+	case CKM_SHA256_HMAC:
+		memcpy(rule_array, "HMAC    SHA-256 ONLY    ",
+		       3 * CCA_KEYWORD_SIZE);
+		break;
+	case CKM_SHA384_HMAC_GENERAL:
+	case CKM_SHA384_HMAC:
+		memcpy(rule_array, "HMAC    SHA-384 ONLY    ",
+		       3 * CCA_KEYWORD_SIZE);
+		break;
+	case CKM_SHA512_HMAC_GENERAL:
+		memcpy(rule_array, "HMAC    SHA-512 ONLY    ",
+		       3 * CCA_KEYWORD_SIZE);
+		break;
+	default:
+		TRACE_ERROR("%s\n", ock_err(ERR_MECHANISM_INVALID));
+		return CKR_MECHANISM_INVALID;
+	}
+
+	TRACE_INFO("ccatok_hmac: key length is %lu\n", attr->ulValueLen);
+	TRACE_INFO("The mac length is %ld\n", cca_ctx->hash_len);
+
+	if (sign) {
+		CSNBHMG(&return_code, &reason_code, NULL, NULL,
+			&rule_array_count, rule_array, &attr->ulValueLen,
+			attr->pValue, &in_data_len, in_data,
+			&cca_ctx->chain_vector_len, cca_ctx->chain_vector,
+			&cca_ctx->hash_len, cca_ctx->hash);
+
+		if (return_code != CCA_SUCCESS) {
+			TRACE_ERROR("CSNBHMG (HMAC GENERATE) failed. "
+				    "return:%ld, reason:%ld\n", return_code,
+				    reason_code);
+			*sig_len = 0;
+			return CKR_FUNCTION_FAILED;
+		}
+
+		/* Copy the signature into the user supplied variable.
+		 * For hmac general mechs, only copy over the specified
+		 * number of bytes for the mac.
+		 */
+		memcpy(signature, cca_ctx->hash, cca_ctx->hash_len);
+		*sig_len = cca_ctx->hash_len;
+	} else {		// verify
+		CSNBHMV(&return_code, &reason_code, NULL, NULL,
+			&rule_array_count, rule_array, &attr->ulValueLen,
+			attr->pValue, &in_data_len, in_data,
+			&cca_ctx->chain_vector_len, cca_ctx->chain_vector,
+			&cca_ctx->hash_len, signature);
+
+		if (return_code == 4 && (reason_code == 429 ||
+		    reason_code == 1)) {
+			TRACE_ERROR("%s\n", ock_err(ERR_SIGNATURE_INVALID));
+			return CKR_SIGNATURE_INVALID;
+		} else if (return_code != CCA_SUCCESS) {
+			TRACE_ERROR("CSNBHMV (HMAC VERIFY) failed. return:%ld,"
+				    " reason:%ld\n", return_code, reason_code);
+			return CKR_FUNCTION_FAILED;
+		} else if (reason_code != 0) {
+			TRACE_WARNING("CSNBHMV (HMAC VERIFY) succeeded, but"
+				      " returned reason:%ld\n", reason_code);
+		}
+	}
+
+	return CKR_OK;
+}
+
+CK_RV token_specific_hmac_sign(SESSION *sess, CK_BYTE *in_data,
+			       CK_ULONG in_data_len, CK_BYTE *signature,
+			       CK_ULONG *sig_len)
+{
+	return ccatok_hmac(&sess->sign_ctx, in_data, in_data_len, signature,
+			   sig_len, TRUE);
+}
+
+CK_RV token_specific_hmac_verify(SESSION *sess, CK_BYTE *in_data,
+				 CK_ULONG in_data_len, CK_BYTE *signature,
+				 CK_ULONG sig_len)
+{
+	return ccatok_hmac(&sess->verify_ctx, in_data, in_data_len, signature,
+			   &sig_len, FALSE);
+}
+
+CK_RV ccatok_hmac_update(SIGN_VERIFY_CONTEXT *ctx, CK_BYTE *in_data,
+			 CK_ULONG in_data_len, CK_BBOOL sign)
+{
+	struct cca_sha_ctx *cca_ctx;
+	long return_code, reason_code, total, buffer_len;
+	long hsize, rule_array_count = 3;
+	unsigned char rule_array[CCA_RULE_ARRAY_SIZE] = { 0, };
+	unsigned char *buffer = NULL;
+	int blocksz, blocksz_mask, use_buffer = 0;
+	OBJECT *key = NULL;
+	CK_ATTRIBUTE *attr = NULL;
+	CK_RV rc = CKR_OK;
+
+	if (!ctx || !ctx->context) {
+		TRACE_ERROR("%s\n", ock_err(ERR_OPERATION_NOT_INITIALIZED));
+		return CKR_OPERATION_NOT_INITIALIZED;
+	}
+
+	/* if zero input data, then just do nothing and return.
+	 * "final" should catch if this is case of hashing zero input.
+	 */
+	if (in_data_len == 0)
+		return CKR_OK;
+
+	rc = object_mgr_find_in_map1(ctx->key, &key);
+	if (rc != CKR_OK) {
+		TRACE_ERROR("Failed to find specified object.\n");
+		return rc;
+	}
+
+	if (template_attribute_find(key->template, CKA_IBM_OPAQUE,
+				    &attr) == FALSE) {
+		TRACE_ERROR("Could not find CKA_IBM_OPAQUE for the key.\n");
+		return CKR_FUNCTION_FAILED;
+	}
+
+	switch(ctx->mech.mechanism) {
+	case CKM_SHA_1_HMAC:
+	case CKM_SHA_1_HMAC_GENERAL:
+	case CKM_SHA256_HMAC:
+	case CKM_SHA256_HMAC_GENERAL:
+		blocksz = SHA1_BLOCK_SIZE;		// set to 64 bytes
+		blocksz_mask = SHA1_BLOCK_SIZE_MASK;	// set to 63
+		break;
+	case CKM_SHA384_HMAC:
+	case CKM_SHA384_HMAC_GENERAL:
+	case CKM_SHA512_HMAC:
+	case CKM_SHA512_HMAC_GENERAL:
+		blocksz = SHA5_BLOCK_SIZE;		// set to 128 bytes
+		blocksz_mask = SHA5_BLOCK_SIZE_MASK;	// set to 127
+		break;
+	default:
+		return CKR_MECHANISM_INVALID;
+	}
+
+	cca_ctx = (struct cca_sha_ctx *)ctx->context;
+
+	/* just send if input a multiple of block size and
+	 * cca_ctx-> tail is empty.
+	 */
+        if ((cca_ctx->tail_len == 0) && ((in_data_len & blocksz_mask) == 0))
+                goto send;
+
+	/* at this point, in_data is not multiple of blocksize
+	 * and/or there is saved data from previous update still
+	 * needing to be processed
+	 */
+
+	/* get totals */
+	total = cca_ctx->tail_len + in_data_len;
+
+	/* see if we have enough to fill a block */
+	if (total >= blocksz) {
+		int remainder;
+
+		remainder = total & blocksz_mask;	// save left over
+		buffer_len = total - remainder;
+
+		/* allocate a buffer for sending... */
+		if (!(buffer = malloc(buffer_len))) {
+			TRACE_ERROR("%s\n", ock_err(ERR_HOST_MEMORY));
+			rc = CKR_HOST_MEMORY;
+			goto done;
+		}
+
+		/* copy data to send.
+		 * first get any data saved in tail from prior call,
+		 * then fill up remaining space in block with in_data
+		 */
+		memcpy(buffer, cca_ctx->tail, cca_ctx->tail_len);
+		memcpy(buffer + cca_ctx->tail_len, in_data,
+			in_data_len - remainder);
+		use_buffer = 1;
+
+		/* save remainder data for next time */
+		if (remainder)
+			memcpy(cca_ctx->tail,
+			       in_data + (in_data_len - remainder), remainder);
+		cca_ctx->tail_len = remainder;
+	} else {
+		/* not enough to fill a block,
+		 * so save off data for next round
+		 */
+		memcpy(cca_ctx->tail + cca_ctx->tail_len, in_data, in_data_len);
+		cca_ctx->tail_len += in_data_len;
+		return CKR_OK;
+	}
+
+send:
+	switch(ctx->mech.mechanism) {
+	case CKM_SHA_1_HMAC:
+	case CKM_SHA_1_HMAC_GENERAL:
+		hsize = SHA1_HASH_SIZE;
+		memcpy(rule_array, "HMAC    SHA-1   ", CCA_KEYWORD_SIZE * 2);
+                break;
+	case CKM_SHA256_HMAC:
+	case CKM_SHA256_HMAC_GENERAL:
+		hsize = SHA2_HASH_SIZE;
+		memcpy(rule_array, "HMAC    SHA-256 ", CCA_KEYWORD_SIZE * 2);
+		break;
+	case CKM_SHA384_HMAC:
+	case CKM_SHA384_HMAC_GENERAL:
+		hsize = SHA3_HASH_SIZE;
+		memcpy(rule_array, "HMAC    SHA-384 ", CCA_KEYWORD_SIZE * 2);
+                break;
+	case CKM_SHA512_HMAC:
+	case CKM_SHA512_HMAC_GENERAL:
+		hsize = SHA5_HASH_SIZE;
+		memcpy(rule_array, "HMAC    SHA-512 ", CCA_KEYWORD_SIZE * 2);
+                break;
+        }
+
+	if (cca_ctx->part == CCA_HASH_PART_FIRST) {
+		memcpy(rule_array + (CCA_KEYWORD_SIZE*2), "FIRST   ",
+		       CCA_KEYWORD_SIZE);
+		cca_ctx->part = CCA_HASH_PART_MIDDLE;
+	} else {
+		memcpy(rule_array + (CCA_KEYWORD_SIZE*2), "MIDDLE  ",
+		       CCA_KEYWORD_SIZE);
+	}
+
+	TRACE_INFO("CSNBHMG: key length is %lu\n", attr->ulValueLen);
+
+	if (sign) {
+		CSNBHMG(&return_code, &reason_code, NULL, NULL,
+			&rule_array_count, rule_array, &attr->ulValueLen,
+			attr->pValue,
+			use_buffer ? &buffer_len : (long *)&in_data_len,
+			use_buffer ? buffer : in_data,
+			&cca_ctx->chain_vector_len, cca_ctx->chain_vector,
+			&hsize, cca_ctx->hash);
+
+		if (return_code != CCA_SUCCESS) {
+			TRACE_ERROR("CSNBHMG (HMAC SIGN UPDATE) failed. "
+				     "return:%ld, reason:%ld\n", return_code,
+				     reason_code);
+			rc = CKR_FUNCTION_FAILED;
+		}
+	} else {	// verify
+		CSNBHMV(&return_code, &reason_code, NULL, NULL,
+			&rule_array_count, rule_array, &attr->ulValueLen,
+			attr->pValue,
+			use_buffer ? &buffer_len : (long *)&in_data_len,
+			use_buffer ? buffer : in_data,
+			&cca_ctx->chain_vector_len, cca_ctx->chain_vector,
+			&hsize, cca_ctx->hash);
+		if (return_code != CCA_SUCCESS) {
+			TRACE_ERROR("CSNBHMG (HMAC VERIFY UPDATE) failed. "
+				    "return:%ld, reason:%ld\n", return_code,
+				    reason_code);
+			rc =  CKR_FUNCTION_FAILED;
+		}
+	}
+done:
+	if (buffer)
+		free(buffer);
+	return rc;
+}
+
+CK_RV token_specific_hmac_sign_update(SESSION *sess, CK_BYTE *in_data,
+				      CK_ULONG in_data_len)
+{
+	return ccatok_hmac_update(&sess->sign_ctx, in_data, in_data_len, TRUE);
+}
+
+CK_RV token_specific_hmac_verify_update(SESSION *sess, CK_BYTE *in_data,
+					CK_ULONG in_data_len)
+{
+	return ccatok_hmac_update(&sess->verify_ctx, in_data, in_data_len, FALSE);
+}
+
+CK_RV ccatok_hmac_final(SIGN_VERIFY_CONTEXT *ctx, CK_BYTE *signature,
+			CK_ULONG *sig_len, CK_BBOOL sign)
+{
+	struct cca_sha_ctx *cca_ctx;
+	long return_code, reason_code, rule_array_count = 3;
+	unsigned char rule_array[CCA_RULE_ARRAY_SIZE] = { 0, };
+	OBJECT *key = NULL;
+	CK_ATTRIBUTE *attr = NULL;
+	CK_RV rc = CKR_OK;
+
+	if (!ctx || !ctx->context) {
+		TRACE_ERROR("%s\n", ock_err(ERR_OPERATION_NOT_INITIALIZED));
+		return CKR_OPERATION_NOT_INITIALIZED;
+	}
+
+	rc = object_mgr_find_in_map1(ctx->key, &key);
+	if (rc != CKR_OK) {
+		TRACE_ERROR("Failed to find specified object.\n");
+		return rc;
+	}
+
+	if (template_attribute_find(key->template, CKA_IBM_OPAQUE,
+				    &attr) == FALSE) {
+		TRACE_ERROR("Could not find CKA_IBM_OPAQUE for the key.\n");
+		return CKR_FUNCTION_FAILED;
+	}
+
+	cca_ctx = (struct cca_sha_ctx *)ctx->context;
+
+	switch(ctx->mech.mechanism) {
+	case CKM_SHA_1_HMAC:
+	case CKM_SHA_1_HMAC_GENERAL:
+		memcpy(rule_array, "HMAC    SHA-1   ", CCA_KEYWORD_SIZE * 2);
+                break;
+	case CKM_SHA256_HMAC:
+	case CKM_SHA256_HMAC_GENERAL:
+		memcpy(rule_array, "HMAC    SHA-256 ", CCA_KEYWORD_SIZE * 2);
+		break;
+	case CKM_SHA384_HMAC:
+	case CKM_SHA384_HMAC_GENERAL:
+		memcpy(rule_array, "HMAC    SHA-384 ", CCA_KEYWORD_SIZE * 2);
+                break;
+	case CKM_SHA512_HMAC:
+	case CKM_SHA512_HMAC_GENERAL:
+		memcpy(rule_array, "HMAC    SHA-512 ", CCA_KEYWORD_SIZE * 2);
+                break;
+	default:
+		return CKR_MECHANISM_INVALID;
+        }
+
+	if (cca_ctx->part == CCA_HASH_PART_FIRST)
+		memcpy(rule_array + (CCA_KEYWORD_SIZE*2), "ONLY    ",
+		       CCA_KEYWORD_SIZE);
+	else
+		memcpy(rule_array + (CCA_KEYWORD_SIZE*2), "LAST    ",
+		       CCA_KEYWORD_SIZE);
+
+	TRACE_INFO("CSNBHMG: key length is %lu\n", attr->ulValueLen);
+	TRACE_INFO("The mac length is %ld\n", cca_ctx->hash_len);
+
+	if (sign) {
+		CSNBHMG(&return_code, &reason_code, NULL, NULL,
+			&rule_array_count, rule_array, &attr->ulValueLen,
+			attr->pValue, &cca_ctx->tail_len, cca_ctx->tail,
+			&cca_ctx->chain_vector_len, cca_ctx->chain_vector,
+			&cca_ctx->hash_len, cca_ctx->hash);
+
+		if (return_code != CCA_SUCCESS) {
+			TRACE_ERROR("CSNBHMG (HMAC SIGN FINAL) failed. "
+				    "return:%ld, reason:%ld\n", return_code,
+				     reason_code);
+			*sig_len = 0;
+			return CKR_FUNCTION_FAILED;
+		}
+		/* Copy the signature into the user supplied variable.
+		 * For hmac general mechs, only copy over the specified
+		 * number of bytes for the mac.
+		 */
+		memcpy(signature, cca_ctx->hash, cca_ctx->hash_len);
+		*sig_len = cca_ctx->hash_len;
+
+	} else {		// verify
+		CSNBHMV(&return_code, &reason_code, NULL, NULL,
+			&rule_array_count,rule_array, &attr->ulValueLen,
+			attr->pValue, &cca_ctx->tail_len, cca_ctx->tail,
+			&cca_ctx->chain_vector_len, cca_ctx->chain_vector,
+			&cca_ctx->hash_len, signature);
+
+		if (return_code == 4 && (reason_code == 429 ||
+		    reason_code == 1)) {
+			TRACE_ERROR("%s\n", ock_err(ERR_SIGNATURE_INVALID));
+			return CKR_SIGNATURE_INVALID;
+		} else if (return_code != CCA_SUCCESS) {
+			TRACE_ERROR("CSNBHMV (HMAC VERIFY) failed. return:%ld,"
+				    " reason:%ld\n", return_code, reason_code);
+			return CKR_FUNCTION_FAILED;
+		} else if (reason_code != 0) {
+			TRACE_WARNING("CSNBHMV (HMAC VERIFY) succeeded, but"
+				      " returned reason:%ld\n", reason_code);
+		}
+
+	}
+
+	return CKR_OK;
+}
+
+CK_RV token_specific_hmac_sign_final(SESSION *sess, CK_BYTE *signature,
+				     CK_ULONG *sig_len)
+{
+	return ccatok_hmac_final(&sess->sign_ctx, signature, sig_len, TRUE);
+}
+
+CK_RV token_specific_hmac_verify_final(SESSION *sess, CK_BYTE *signature,
+				       CK_ULONG sig_len)
+{
+	return ccatok_hmac_final(&sess->verify_ctx, signature, &sig_len, FALSE);
 }
 
 static CK_RV rsa_import_privkey_crt(TEMPLATE *priv_tmpl)

@@ -115,6 +115,8 @@
   #define CSNBKET   CSNBKET_32
   #define CSNBSAE   CSNBSAE_32
   #define CSNBSAD   CSNBSAD_32
+  #define CSNBHMG   CSNBHMG_32
+  #define CSNBHMV   CSNBHMV_32
 
 /*
  * security API prototypes
@@ -1434,3 +1436,37 @@ extern void SECURITYAPI
 
 
 #endif
+
+/* HMAC Generate */
+extern void SECURITYAPI
+   CSNBHMG_32(long          * return_code,
+              long          * reason_code,
+              long          * exit_data_length,
+              unsigned char * exit_data,
+              long          * rule_array_count,
+              unsigned char * rule_array,
+              long          * key_identifier_length,
+              unsigned char * key_identifier,
+              long          * message_text_length,
+              unsigned char * message_text,
+              long          * chaining_vector_length,
+              unsigned char * chaining_vector,
+              long          * MAC_length,
+              unsigned char * MAC_text);
+
+/* HMAC Verify */
+extern void SECURITYAPI
+   CSNBHMV_32(long          * return_code,
+              long          * reason_code,
+              long          * exit_data_length,
+              unsigned char * exit_data,
+              long          * rule_array_count,
+              unsigned char * rule_array,
+              long          * key_identifier_length,
+              unsigned char * key_identifier,
+              long          * message_text_length,
+              unsigned char * message_text,
+              long          * chaining_vector_length,
+              unsigned char * chaining_vector,
+              long          * MAC_length,
+              unsigned char * MAC_text);
