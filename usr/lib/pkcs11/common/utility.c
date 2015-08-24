@@ -1049,30 +1049,12 @@ CK_RV compute_sha(CK_BYTE * data, CK_ULONG len, CK_BYTE *hash, CK_ULONG mech)
 	if (rv != CKR_OK)
 		return rv;
 
-	switch(mech) {
-	case CKM_SHA_1:
-		sha1_init(&ctx);
-		if (ctx.context == NULL)
-			return CKR_HOST_MEMORY;
-		return sha1_hash(NULL, FALSE, &ctx, data, len, hash, &hash_len);
-        case CKM_SHA256:
-		sha2_init(&ctx);
-		if (ctx.context == NULL)
-			return CKR_HOST_MEMORY;
-		return sha2_hash(NULL, FALSE, &ctx, data, len, hash, &hash_len);
-        case CKM_SHA384:
-		sha3_init(&ctx);
-		if (ctx.context == NULL)
-			return CKR_HOST_MEMORY;
-		return sha3_hash(NULL, FALSE, &ctx, data, len, hash, &hash_len);
-        case CKM_SHA512:
-		sha5_init(&ctx);
-		if (ctx.context == NULL)
-			return CKR_HOST_MEMORY;
-		return sha5_hash(NULL, FALSE, &ctx, data, len, hash, &hash_len);
-        default:
-                return CKR_MECHANISM_INVALID;
-        }
+	rv = sha_init(NULL, &ctx, &ctx.mech);
+	if (rv != CKR_OK) {
+		TRACE_DEBUG("failed to create digest.\n");
+		return rv;
+	}
+	return sha_hash(NULL, FALSE, &ctx, data, len, hash, &hash_len);
 }
 
 /* Compute SHA1 using software implementation */
