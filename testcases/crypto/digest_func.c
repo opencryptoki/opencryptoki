@@ -253,6 +253,867 @@ testcase_cleanup:
 }
 
 /** Tests signature verification with published test vectors. **/
+CK_RV do_Sign_FIPS_HMAC_GENERAL (struct FIPS_HMAC_TEST_SUITE_INFO *tsuite)
+{
+	int i;
+	CK_MECHANISM mech;
+	CK_BYTE	key[MAX_KEY_SIZE], data[MAX_DATA_SIZE];
+	CK_ULONG key_len, data_len, actual_mac_len, expected_mac_len, mac_size;
+	CK_BYTE	actual_mac[MAX_HASH_SIZE], expected_mac[MAX_HASH_SIZE];
+	CK_SESSION_HANDLE session;
+	CK_SLOT_ID slot_id = SLOT_ID;
+	CK_ULONG flags;
+	CK_RV rc;
+	CK_OBJECT_HANDLE h_key;
+	CK_BYTE	 user_pin[PKCS11_MAX_PIN_LEN];
+	CK_ULONG user_pin_len;
+
+	/** begin testsuite **/
+	testsuite_begin("%s Sign.", tsuite->name);
+	testcase_rw_session();
+	testcase_user_login();
+
+	rc = CKR_OK;    // set rc
+
+	/** skip test if mech is not supported with this slot **/
+	if (! mech_supported(SLOT_ID, tsuite->mech.mechanism)){
+		testsuite_skip(tsuite->tvcount,
+			"mechanism %s is not supported with slot %ld",
+			tsuite->name, slot_id);
+		goto testcase_cleanup;
+	}
+
+	/** iterate over test vectors **/
+	for(i = 0; i < tsuite->tvcount; i++){
+
+		/** begin test **/
+		testcase_begin("Sign %s with test vector %d.",
+			tsuite->name, i);
+
+		/** get mechanism and set parameter **/
+		mech = tsuite->mech;
+		mac_size = tsuite->tv[i].mac_len;
+
+		mech.ulParameterLen = sizeof(CK_ULONG);
+		mech.pParameter = &mac_size;
+
+		/** clear buffers **/
+		memset(key, 0, sizeof(key));
+		memset(data, 0, sizeof(data));
+		memset(actual_mac, 0, sizeof(actual_mac));
+		memset(expected_mac, 0, sizeof(expected_mac));
+
+		/** get test vector info **/
+		data_len = tsuite->tv[i].data_len;
+		actual_mac_len = sizeof(actual_mac);
+		expected_mac_len = tsuite->tv[i].mac_len;
+		key_len = tsuite->tv[i].key_len;
+		memcpy(key, tsuite->tv[i].key, key_len);
+		memcpy(data, tsuite->tv[i].data, data_len);
+		memcpy(expected_mac, tsuite->tv[i].mac, expected_mac_len);
+
+		/** create key object **/
+		rc = create_GenericSecretKey(session, key, key_len, &h_key);
+		if(rc != CKR_OK){
+			testcase_error("create_GenericSecretKey rc=%s",
+				p11_get_ckr(rc));
+			goto error;
+		}
+
+		/** initialize signing **/
+		rc = funcs->C_SignInit(session, &mech, h_key);
+		if (rc != CKR_OK) {
+			testcase_error("C_SignInit rc=%s", p11_get_ckr(rc));
+			goto error;
+		}
+
+		/** do signing  **/
+		rc = funcs->C_Sign(session, data, data_len, actual_mac,
+				   &actual_mac_len);
+		if (rc != CKR_OK) {
+			testcase_error("C_Sign rc=%s", p11_get_ckr(rc));
+			goto error;
+		}
+
+		/** compare sign/verify results with expected results **/
+		testcase_new_assertion();
+
+		if (actual_mac_len != expected_mac_len) {
+			testcase_fail("hashed data length does not match test "
+				      "vector's hashed data length\nexpected "
+				      "length=%ld, found length=%ld",
+				      expected_mac_len, actual_mac_len);
+			goto error;
+		} else if (memcmp(actual_mac, expected_mac, expected_mac_len)) {
+			testcase_fail("hashed data does not match test "
+				      "vector's hashed data");
+			goto error;
+		} else {
+			testcase_pass("%s Sign with test vector %d passed",
+				      tsuite->name, i);
+		}
+error:
+		/** clean up **/
+		rc = funcs->C_DestroyObject(session, h_key);
+		if (rc != CKR_OK) {
+			testcase_error("C_DestroyObject rc=%s.",
+				p11_get_ckr(rc));
+			goto testcase_cleanup;
+		}
+	}
+
+testcase_cleanup:
+	testcase_user_logout();
+	rc = funcs->C_CloseAllSessions(slot_id);
+	if (rc != CKR_OK) {
+		testcase_error("C_CloseAllSessions rc=%s", p11_get_ckr(rc));
+	}
+	return rc;
+}
+
+/** Tests signature verification with published test vectors. **/
+CK_RV do_Verify_FIPS_HMAC_GENERAL (struct FIPS_HMAC_TEST_SUITE_INFO *tsuite)
+{
+	int i;
+	CK_MECHANISM mech;
+	CK_BYTE	key[MAX_KEY_SIZE], data[MAX_DATA_SIZE];
+	CK_ULONG key_len, data_len, expected_mac_len, mac_size;
+	CK_BYTE	expected_mac[MAX_HASH_SIZE];
+	CK_SESSION_HANDLE session;
+	CK_SLOT_ID slot_id = SLOT_ID;
+	CK_ULONG flags;
+	CK_RV rc;
+	CK_OBJECT_HANDLE h_key;
+	CK_BYTE	 user_pin[PKCS11_MAX_PIN_LEN];
+	CK_ULONG user_pin_len;
+
+	/** begin testsuite **/
+	testsuite_begin("%s Verify.", tsuite->name);
+	testcase_rw_session();
+	testcase_user_login();
+
+	rc = CKR_OK;    // set rc
+
+	/** skip test if mech is not supported with this slot **/
+	if (! mech_supported(SLOT_ID, tsuite->mech.mechanism)){
+		testsuite_skip(tsuite->tvcount,
+			"mechanism %s is not supported with slot %ld",
+			tsuite->name, slot_id);
+		goto testcase_cleanup;
+	}
+
+	/** iterate over test vectors **/
+	for(i = 0; i < tsuite->tvcount; i++){
+
+		/** begin test **/
+		testcase_begin("Verify %s with test vector %d.",
+			tsuite->name, i);
+
+		/** get mechanism and set parameter **/
+		mech = tsuite->mech;
+		mac_size = tsuite->tv[i].mac_len;
+
+		mech.ulParameterLen = sizeof(CK_ULONG);
+		mech.pParameter = &mac_size;
+
+		/** clear buffers **/
+		memset(key, 0, sizeof(key));
+		memset(data, 0, sizeof(data));
+		memset(expected_mac, 0, sizeof(expected_mac));
+
+		/** get test vector info **/
+		data_len = tsuite->tv[i].data_len;
+		expected_mac_len = tsuite->tv[i].mac_len;
+		key_len = tsuite->tv[i].key_len;
+		memcpy(key, tsuite->tv[i].key, key_len);
+		memcpy(data, tsuite->tv[i].data, data_len);
+		memcpy(expected_mac, tsuite->tv[i].mac, expected_mac_len);
+
+		/** create key object **/
+		rc = create_GenericSecretKey(session, key, key_len, &h_key);
+		if(rc != CKR_OK){
+			testcase_error("create_GenericSecretKey rc=%s",
+				p11_get_ckr(rc));
+			goto error;
+		}
+
+		/** initilaize verification **/
+		rc = funcs->C_VerifyInit(session, &mech, h_key);
+		if (rc != CKR_OK) {
+			testcase_error("C_VerifyInit rc=%s", p11_get_ckr(rc));
+			goto error;
+		}
+
+		/** see if signature verifies **/
+		testcase_new_assertion();
+
+		/** do verification **/
+		rc = funcs->C_Verify(session, data, data_len, expected_mac,
+				     expected_mac_len);
+		if (rc != CKR_OK)
+			testcase_fail("C_Verify rc=%s", p11_get_ckr(rc));
+		else
+			testcase_pass("%s C_Verify with test vector %d passed",
+				      tsuite->name, i);
+
+error:
+		/** clean up **/
+		rc = funcs->C_DestroyObject(session, h_key);
+		if (rc != CKR_OK) {
+			testcase_error("C_DestroyObject rc=%s.",
+				p11_get_ckr(rc));
+			goto testcase_cleanup;
+		}
+	}
+
+testcase_cleanup:
+	testcase_user_logout();
+	rc = funcs->C_CloseAllSessions(slot_id);
+	if (rc != CKR_OK) {
+		testcase_error("C_CloseAllSessions rc=%s", p11_get_ckr(rc));
+	}
+	return rc;
+}
+
+
+/** Tests signature generation with published test vectors. **/
+CK_RV do_Sign_FIPS_HMAC(struct FIPS_HMAC_TEST_SUITE_INFO *tsuite)
+{
+	int i;
+	CK_MECHANISM mech;
+	CK_BYTE	key[MAX_KEY_SIZE], data[MAX_DATA_SIZE];
+	CK_ULONG key_len, data_len, actual_mac_len, expected_mac_len;
+	CK_BYTE	actual_mac[MAX_HASH_SIZE], expected_mac[MAX_HASH_SIZE];
+	CK_SESSION_HANDLE session;
+	CK_SLOT_ID slot_id = SLOT_ID;
+	CK_ULONG flags;
+	CK_RV rc;
+	CK_OBJECT_HANDLE h_key;
+	CK_BYTE	user_pin[PKCS11_MAX_PIN_LEN];
+	CK_ULONG user_pin_len;
+
+	/** begin testsuite **/
+	testsuite_begin("%s Sign.", tsuite->name);
+	testcase_rw_session();
+	testcase_user_login();
+
+	rc = CKR_OK;    // set rc
+
+	/** skip test if mech is not supported with this slot **/
+	if (! mech_supported(SLOT_ID, tsuite->mech.mechanism)) {
+		testsuite_skip(tsuite->tvcount,
+			"mechanism %s is not supported with slot %ld",
+			tsuite->name, slot_id);
+		goto testcase_cleanup;
+	}
+
+	/** iterate over test vectors **/
+	for (i = 0; i < tsuite->tvcount; i++) {
+
+		/** begin test **/
+		testcase_begin("Sign %s with test vector %d.",
+			tsuite->name, i);
+
+		/** get mechanism **/
+		mech = tsuite->mech;
+
+		/* only run hmac testcases with appropriate mac length */
+		switch (mech.mechanism) {
+		case CKM_SHA_1_HMAC:
+			if (tsuite->tv[i].mac_len != 20) {
+				testcase_skip("Skip, this testcase is not"
+					      " for SHA1 HMAC");
+				continue;
+			}
+			break;
+		case CKM_SHA256_HMAC:
+			if (tsuite->tv[i].mac_len != 32) {
+				testcase_skip("Skip, this testcase is not"
+					      " for SHA256 HMAC");
+				continue;
+			}
+			break;
+		case CKM_SHA384_HMAC:
+			if (tsuite->tv[i].mac_len != 48) {
+				testcase_skip("Skip, this testcase is not"
+					      " for SHA384 HMAC");
+				continue;
+			}
+			break;
+		case CKM_SHA512_HMAC:
+			if (tsuite->tv[i].mac_len != 64) {
+				testcase_skip("Skip, this testcase is not"
+					      " for SHA512 HMAC");
+				continue;
+			}
+			break;
+		default:
+			testcase_error("Invalid Mechanism\n");
+			goto testcase_cleanup;
+		}
+
+		/** clear buffers **/
+		memset(key, 0, sizeof(key));
+		memset(data, 0, sizeof(data));
+		memset(actual_mac, 0, sizeof(actual_mac));
+		memset(expected_mac, 0, sizeof(expected_mac));
+
+		/** get test vector info **/
+		data_len = tsuite->tv[i].data_len;
+		actual_mac_len = sizeof(actual_mac);
+		expected_mac_len = tsuite->tv[i].mac_len;
+		key_len = tsuite->tv[i].key_len;
+		memcpy(key, tsuite->tv[i].key, key_len);
+		memcpy(data, tsuite->tv[i].data, data_len);
+		memcpy(expected_mac, tsuite->tv[i].mac, expected_mac_len);
+
+		/** create key object **/
+		rc = create_GenericSecretKey(session, key, key_len, &h_key);
+		if(rc != CKR_OK){
+			testcase_error("create_GenericSecretKey rc=%s",
+				p11_get_ckr(rc));
+			goto error;
+		}
+
+		/** initialize signing **/
+		rc = funcs->C_SignInit(session, &mech, h_key);
+		if (rc != CKR_OK) {
+			testcase_error("C_SignInit rc=%s", p11_get_ckr(rc));
+			goto error;
+		}
+
+		/** do signing  **/
+		rc = funcs->C_Sign(session, data, data_len, actual_mac,
+				   &actual_mac_len);
+		if (rc != CKR_OK) {
+			testcase_error("C_Sign rc=%s", p11_get_ckr(rc));
+			goto error;
+		}
+		/** compare sign results with expected results **/
+		testcase_new_assertion();
+
+		if (actual_mac_len != expected_mac_len) {
+			testcase_fail("hashed data length does not match test "
+				      "vector's hashed data length\nexpected "
+				      "length=%ld, found length=%ld",
+				      expected_mac_len, actual_mac_len);
+		} else if (memcmp(actual_mac, expected_mac, expected_mac_len)) {
+			testcase_fail("hashed data does not match test "
+				      "vector's hashed data");
+		} else {
+			testcase_pass("%s C_Sign with test vector %d passed.",
+				      tsuite->name, i);
+		}
+error:
+		/** clean up **/
+		rc = funcs->C_DestroyObject(session, h_key);
+		if (rc != CKR_OK) {
+			testcase_error("C_DestroyObject rc=%s.",
+				p11_get_ckr(rc));
+			goto testcase_cleanup;
+		}
+	}
+testcase_cleanup:
+	testcase_user_logout();
+	rc = funcs->C_CloseAllSessions(slot_id);
+	if (rc != CKR_OK) {
+		testcase_error("C_CloseAllSessions rc=%s", p11_get_ckr(rc));
+	}
+	return rc;
+}
+
+
+/** Tests signature generation with published test vectors. **/
+CK_RV do_Verify_FIPS_HMAC(struct FIPS_HMAC_TEST_SUITE_INFO *tsuite)
+{
+	int i;
+	CK_MECHANISM mech;
+	CK_BYTE	key[MAX_KEY_SIZE], data[MAX_DATA_SIZE];
+	CK_ULONG key_len, data_len, expected_mac_len;
+	CK_BYTE	expected_mac[MAX_HASH_SIZE];
+	CK_SESSION_HANDLE session;
+	CK_SLOT_ID slot_id = SLOT_ID;
+	CK_ULONG flags;
+	CK_RV rc;
+	CK_OBJECT_HANDLE h_key;
+	CK_BYTE	user_pin[PKCS11_MAX_PIN_LEN];
+	CK_ULONG user_pin_len;
+
+	/** begin testsuite **/
+	testsuite_begin("%s Verify.", tsuite->name);
+	testcase_rw_session();
+	testcase_user_login();
+
+	rc = CKR_OK;    // set rc
+
+	/** skip test if mech is not supported with this slot **/
+	if (! mech_supported(SLOT_ID, tsuite->mech.mechanism)) {
+		testsuite_skip(tsuite->tvcount,
+			"mechanism %s is not supported with slot %ld",
+			tsuite->name, slot_id);
+		goto testcase_cleanup;
+	}
+
+	/** iterate over test vectors **/
+	for (i = 0; i < tsuite->tvcount; i++) {
+
+		/** begin test **/
+		testcase_begin("Verify %s with test vector %d.",
+			tsuite->name, i);
+
+		/** get mechanism **/
+		mech = tsuite->mech;
+
+		/* only run hmac testcases with appropriate mac length */
+		switch (mech.mechanism) {
+		case CKM_SHA_1_HMAC:
+			if (tsuite->tv[i].mac_len != 20) {
+				testcase_skip("Skip, this testcase is not"
+					      " for SHA1 HMAC");
+				continue;
+			}
+			break;
+		case CKM_SHA256_HMAC:
+			if (tsuite->tv[i].mac_len != 32) {
+				testcase_skip("Skip, this testcase is not"
+					      " for SHA256 HMAC");
+				continue;
+			}
+			break;
+		case CKM_SHA384_HMAC:
+			if (tsuite->tv[i].mac_len != 48) {
+				testcase_skip("Skip, this testcase is not"
+					      " for SHA384 HMAC");
+				continue;
+			}
+			break;
+		case CKM_SHA512_HMAC:
+			if (tsuite->tv[i].mac_len != 64) {
+				testcase_skip("Skip, this testcase is not"
+					      " for SHA512 HMAC");
+				continue;
+			}
+			break;
+		default:
+			testcase_error("Invalid Mechanism\n");
+			goto testcase_cleanup;
+		}
+
+		/** clear buffers **/
+		memset(key, 0, sizeof(key));
+		memset(data, 0, sizeof(data));
+		memset(expected_mac, 0, sizeof(expected_mac));
+
+		/** get test vector info **/
+		data_len = tsuite->tv[i].data_len;
+		expected_mac_len = tsuite->tv[i].mac_len;
+		key_len = tsuite->tv[i].key_len;
+		memcpy(key, tsuite->tv[i].key, key_len);
+		memcpy(data, tsuite->tv[i].data, data_len);
+		memcpy(expected_mac, tsuite->tv[i].mac, expected_mac_len);
+
+		/** create key object **/
+		rc = create_GenericSecretKey(session, key, key_len, &h_key);
+		if(rc != CKR_OK){
+			testcase_error("create_GenericSecretKey rc=%s",
+				p11_get_ckr(rc));
+			goto error;
+		}
+
+		/** initilaize verification **/
+		rc = funcs->C_VerifyInit(session, &mech, h_key);
+		if (rc != CKR_OK) {
+			testcase_error("C_VerifyInit rc=%s", p11_get_ckr(rc));
+			goto error;
+		}
+
+		testcase_new_assertion();
+
+		/** do verification **/
+		rc = funcs->C_Verify(session, data, data_len, expected_mac,
+				     expected_mac_len);
+
+		if (rc != CKR_OK)
+			testcase_fail("C_Verify rc=%s", p11_get_ckr(rc));
+
+		else
+			testcase_pass("%s C_Verify with test vector %d passed.",
+				      tsuite->name, i);
+error:
+		/** clean up **/
+		rc = funcs->C_DestroyObject(session, h_key);
+		if (rc != CKR_OK) {
+			testcase_error("C_DestroyObject rc=%s.",
+				p11_get_ckr(rc));
+			goto testcase_cleanup;
+		}
+	}
+
+testcase_cleanup:
+	testcase_user_logout();
+	rc = funcs->C_CloseAllSessions(slot_id);
+	if (rc != CKR_OK) {
+		testcase_error("C_CloseAllSessions rc=%s", p11_get_ckr(rc));
+	}
+	return rc;
+}
+
+
+/** Tests signature generation with published test vectors. **/
+CK_RV do_SignUpdate_FIPS_HMAC(struct FIPS_HMAC_TEST_SUITE_INFO *tsuite)
+{
+	int i;
+	CK_MECHANISM  mech;
+	CK_BYTE	key[MAX_KEY_SIZE], data[MAX_DATA_SIZE];
+	CK_ULONG key_len, data_len, actual_mac_len, expected_mac_len;
+	CK_BYTE	actual_mac[MAX_HASH_SIZE], expected_mac[MAX_HASH_SIZE];
+	CK_SESSION_HANDLE session;
+	CK_SLOT_ID slot_id = SLOT_ID;
+	CK_ULONG flags;
+	CK_RV rc;
+	CK_OBJECT_HANDLE h_key;
+	CK_BYTE	user_pin[PKCS11_MAX_PIN_LEN];
+	CK_ULONG user_pin_len;
+
+	/** begin testsuite **/
+	testsuite_begin("%s SignUpdate.", tsuite->name);
+	testcase_rw_session();
+	testcase_user_login();
+
+	rc = CKR_OK;    // set rc
+
+	/** skip test if mech is not supported with this slot **/
+	if (! mech_supported(SLOT_ID, tsuite->mech.mechanism)){
+		testsuite_skip(tsuite->tvcount,
+			"mechanism %s is not supported with slot %ld",
+			tsuite->name, slot_id);
+		goto testcase_cleanup;
+	}
+
+	/** iterate over test vectors **/
+	for (i = 0; i < tsuite->tvcount; i++) {
+
+		/** begin test **/
+		testcase_begin("Multipart SignUpdate %s with test vector %d.",
+			tsuite->name, i);
+
+		/** get mechanism and set parameter **/
+		mech = tsuite->mech;
+
+		/* only run hmac testcases with appropriate mac length */
+		switch (mech.mechanism) {
+		case CKM_SHA_1_HMAC:
+			if (tsuite->tv[i].mac_len != 20) {
+				testcase_skip("Skip, testcase not applicable"
+					      " to SHA1 HMAC");
+				continue;
+			}
+			break;
+		case CKM_SHA256_HMAC:
+			if (tsuite->tv[i].mac_len != 32) {
+				testcase_skip("Skip, testcase not applicable"
+                                              " to SHA256 HMAC");
+				continue;
+			}
+			break;
+		case CKM_SHA384_HMAC:
+			if (tsuite->tv[i].mac_len != 48) {
+				testcase_skip("Skip, testcase not applicable"
+                                              " to SHA384 HMAC");
+				continue;
+			}
+			break;
+		case CKM_SHA512_HMAC:
+			if (tsuite->tv[i].mac_len != 64) {
+				testcase_skip("Skip, testcase not applicable"
+					      " to SHA512 HMAC");
+				continue;
+			}
+			break;
+		default:
+			testcase_error("Invalid Mechanism\n");
+			goto testcase_cleanup;
+		}
+
+		/** clear buffers **/
+		memset(key, 0, sizeof(key));
+		memset(data, 0, sizeof(data));
+		memset(actual_mac, 0, sizeof(actual_mac));
+		memset(expected_mac, 0, sizeof(expected_mac));
+
+		/** get test vector info **/
+		data_len = tsuite->tv[i].data_len;
+		actual_mac_len = sizeof(actual_mac);
+		expected_mac_len = tsuite->tv[i].mac_len;
+		key_len = tsuite->tv[i].key_len;
+		memcpy(key, tsuite->tv[i].key, key_len);
+		memcpy(data, tsuite->tv[i].data, data_len);
+		memcpy(expected_mac, tsuite->tv[i].mac, expected_mac_len);
+
+		/** create key object **/
+		rc = create_GenericSecretKey(session, key, key_len, &h_key);
+		if(rc != CKR_OK){
+			testcase_error("create_GenericSecretKey rc=%s",
+				p11_get_ckr(rc));
+			goto error;
+		}
+
+		/** initialize signing **/
+		rc = funcs->C_SignInit(session, &mech, h_key);
+		if (rc != CKR_OK) {
+			testcase_error("C_SignInit rc=%s", p11_get_ckr(rc));
+			goto error;
+		}
+
+		/* for chunks, -1 is NULL, and 0 is empty string,
+		 * and a value > 0 is amount of data from test vector's
+		 * plaintext data. This way we test vary-sized chunks.
+		 */
+		if (tsuite->tv[i].num_chunks) {
+			int j, k = 0;
+			CK_ULONG len;
+			CK_BYTE *data_chunk = NULL;
+
+			for (j = 0; j < tsuite->tv[i].num_chunks; j++) {
+				if (tsuite->tv[i].chunks[j] == -1) {
+					len = 0;
+					data_chunk = NULL;
+				} else if (tsuite->tv[i].chunks[j] == 0) {
+					len = 0;
+					data_chunk = (CK_BYTE *)"";
+				} else {
+					len = tsuite->tv[i].chunks[j];
+					data_chunk = data + k;
+				}
+
+				rc = funcs->C_SignUpdate(session, data_chunk,
+							 len);
+				if (rc != CKR_OK) {
+					testcase_error("C_SignUpdate rc=%s",
+							p11_get_ckr(rc));
+					goto error;
+				}
+				k += len;
+			}
+		} else  {
+			rc = funcs->C_SignUpdate(session, data, data_len);
+			if (rc != CKR_OK) {
+				testcase_error("C_SignUpdate rc=%s",
+						p11_get_ckr(rc));
+				goto error;
+			}
+		}
+
+		rc = funcs->C_SignFinal(session, actual_mac, &actual_mac_len);
+		if (rc != CKR_OK) {
+			testcase_error("C_SignFinal rc=%s", p11_get_ckr(rc));
+			goto error;
+		}
+
+		/** compare results with expected results **/
+		testcase_new_assertion()
+		if (actual_mac_len != expected_mac_len) {
+			testcase_fail("hashed data length does not match test "
+				      "vector's hashed data length\nexpected "
+				      "length=%ld, found length=%ld",
+				      expected_mac_len, actual_mac_len);
+		} else if (memcmp(actual_mac, expected_mac, expected_mac_len)) {
+			testcase_fail("hashed data does not match test "
+				      "vector's hashed data");
+		} else {
+			testcase_pass("%s Sign with test vector %d passed.",
+					tsuite->name, i);
+		}
+
+error:
+		/** clean up **/
+		rc = funcs->C_DestroyObject(session, h_key);
+		if (rc != CKR_OK) {
+			testcase_error("C_DestroyObject rc=%s.",
+				p11_get_ckr(rc));
+			goto testcase_cleanup;
+		}
+	}
+
+testcase_cleanup:
+	testcase_user_logout();
+	rc = funcs->C_CloseAllSessions(slot_id);
+	if (rc != CKR_OK)
+		testcase_error("C_CloseAllSessions rc=%s", p11_get_ckr(rc));
+        return rc;
+}
+
+/** Tests signature verification with published test vectors. **/
+CK_RV do_VerifyUpdate_FIPS_HMAC(struct FIPS_HMAC_TEST_SUITE_INFO *tsuite)
+{
+	int i;
+	CK_MECHANISM  mech;
+	CK_BYTE	key[MAX_KEY_SIZE], data[MAX_DATA_SIZE];
+	CK_ULONG key_len, data_len, expected_mac_len;
+	CK_BYTE	 expected_mac[MAX_HASH_SIZE];
+	CK_SESSION_HANDLE session;
+	CK_SLOT_ID slot_id = SLOT_ID;
+	CK_ULONG flags;
+	CK_RV rc;
+	CK_OBJECT_HANDLE h_key;
+	CK_BYTE	user_pin[PKCS11_MAX_PIN_LEN];
+	CK_ULONG user_pin_len;
+
+	/** begin testsuite **/
+	testsuite_begin("%s VerifyUpdate.", tsuite->name);
+	testcase_rw_session();
+	testcase_user_login();
+
+	rc = CKR_OK;    // set rc
+
+	/** skip test if mech is not supported with this slot **/
+	if (! mech_supported(SLOT_ID, tsuite->mech.mechanism)){
+		testsuite_skip(tsuite->tvcount,
+			"mechanism %s is not supported with slot %ld",
+			tsuite->name, slot_id);
+		goto testcase_cleanup;
+	}
+
+	/** iterate over test vectors **/
+	for (i = 0; i < tsuite->tvcount; i++) {
+
+		/** begin test **/
+		testcase_begin("Multipart VerifyUpdate %s with test vector %d.",
+			tsuite->name, i);
+
+		/** get mechanism and set parameter **/
+		mech = tsuite->mech;
+
+		/* only run hmac testcases with appropriate mac length */
+		switch (mech.mechanism) {
+		case CKM_SHA_1_HMAC:
+			if (tsuite->tv[i].mac_len != 20) {
+				testcase_skip("Skip, testcase not applicable"
+					      " to SHA1 HMAC");
+				continue;
+			}
+			break;
+		case CKM_SHA256_HMAC:
+			if (tsuite->tv[i].mac_len != 32) {
+				testcase_skip("Skip, testcase not applicable"
+                                              " to SHA256 HMAC");
+				continue;
+			}
+			break;
+		case CKM_SHA384_HMAC:
+			if (tsuite->tv[i].mac_len != 48) {
+				testcase_skip("Skip, testcase not applicable"
+                                              " to SHA384 HMAC");
+				continue;
+			}
+			break;
+		case CKM_SHA512_HMAC:
+			if (tsuite->tv[i].mac_len != 64) {
+				testcase_skip("Skip, testcase not applicable"
+					      " to SHA512 HMAC");
+				continue;
+			}
+			break;
+		default:
+			testcase_error("Invalid Mechanism\n");
+			goto testcase_cleanup;
+		}
+
+		/** clear buffers **/
+		memset(key, 0, sizeof(key));
+		memset(data, 0, sizeof(data));
+		memset(expected_mac, 0, sizeof(expected_mac));
+
+		/** get test vector info **/
+		data_len = tsuite->tv[i].data_len;
+		expected_mac_len = tsuite->tv[i].mac_len;
+		key_len = tsuite->tv[i].key_len;
+		memcpy(key, tsuite->tv[i].key, key_len);
+		memcpy(data, tsuite->tv[i].data, data_len);
+		memcpy(expected_mac, tsuite->tv[i].mac, expected_mac_len);
+
+		/** create key object **/
+		rc = create_GenericSecretKey(session, key, key_len, &h_key);
+		if(rc != CKR_OK){
+			testcase_error("create_GenericSecretKey rc=%s",
+				p11_get_ckr(rc));
+			goto error;
+		}
+
+		/** initialize signing **/
+		rc = funcs->C_VerifyInit(session, &mech, h_key);
+		if (rc != CKR_OK) {
+			testcase_error("C_SignInit rc=%s", p11_get_ckr(rc));
+			goto error;
+		}
+
+		/* for chunks, -1 is NULL, and 0 is empty string,
+		 * and a value > 0 is amount of data from test vector's
+		 * plaintext data. This way we test vary-sized chunks.
+		 */
+		if (tsuite->tv[i].num_chunks) {
+			int j, k = 0;
+			CK_ULONG len;
+			CK_BYTE *data_chunk = NULL;
+
+			for (j = 0; j < tsuite->tv[i].num_chunks; j++) {
+				if (tsuite->tv[i].chunks[j] == -1) {
+					len = 0;
+					data_chunk = NULL;
+				} else if (tsuite->tv[i].chunks[j] == 0) {
+					len = 0;
+					data_chunk = (CK_BYTE *)"";
+				} else {
+					len = tsuite->tv[i].chunks[j];
+					data_chunk = data + k;
+				}
+
+				rc = funcs->C_VerifyUpdate(session, data_chunk,
+							 len);
+				if (rc != CKR_OK) {
+					testcase_error("C_VerifyUpdate rc=%s",
+							p11_get_ckr(rc));
+					goto error;
+				}
+				k += len;
+			}
+		} else  {
+			rc = funcs->C_VerifyUpdate(session, data, data_len);
+			if (rc != CKR_OK) {
+				testcase_error("C_SignUpdate rc=%s",
+						p11_get_ckr(rc));
+				goto error;
+			}
+		}
+
+		testcase_new_assertion();
+
+		rc = funcs->C_VerifyFinal(session, expected_mac,
+					  expected_mac_len);
+		if (rc != CKR_OK)
+			testcase_fail("C_VerifyFinal rc=%s", p11_get_ckr(rc));
+		else
+			testcase_pass("%s Verfied with test vector %d passed.",
+					tsuite->name, i);
+error:
+		/** clean up **/
+		rc = funcs->C_DestroyObject(session, h_key);
+		if (rc != CKR_OK) {
+			testcase_error("C_DestroyObject rc=%s.",
+				p11_get_ckr(rc));
+			goto testcase_cleanup;
+		}
+	}
+
+testcase_cleanup:
+	testcase_user_logout();
+	rc = funcs->C_CloseAllSessions(slot_id);
+	if (rc != CKR_OK)
+		testcase_error("C_CloseAllSessions rc=%s", p11_get_ckr(rc));
+        return rc;
+}
+
+/** Tests signature verification with published test vectors. **/
 CK_RV do_SignVerify_HMAC(struct HMAC_TEST_SUITE_INFO *tsuite){
 
 	int	     	i;
@@ -319,10 +1180,10 @@ CK_RV do_SignVerify_HMAC(struct HMAC_TEST_SUITE_INFO *tsuite){
 		/** get test vector info **/
 		data_len = tsuite->tv[i].data_len;
 		actual_len = sizeof(actual);
-		expected_len = tsuite->tv[i].hash_len;
+		expected_len = tsuite->tv[i].mac_len;
 		memcpy(key, tsuite->tv[i].key, key_len);
 		memcpy(data, tsuite->tv[i].data, data_len);
-		memcpy(expected, tsuite->tv[i].result, expected_len);
+		memcpy(expected, tsuite->tv[i].mac, expected_len);
 
 		/** create key object **/
 		rc = create_GenericSecretKey(session, key, key_len, &h_key);
@@ -477,10 +1338,10 @@ CK_RV do_SignVerify_HMAC_Update(struct HMAC_TEST_SUITE_INFO *tsuite)
 		/** get test vector info **/
 		data_len = tsuite->tv[i].data_len;
 		actual_len = sizeof(actual);
-		expected_len = tsuite->tv[i].hash_len;
+		expected_len = tsuite->tv[i].mac_len;
 		memcpy(key, tsuite->tv[i].key, key_len);
 		memcpy(data, tsuite->tv[i].data, data_len);
-		memcpy(expected, tsuite->tv[i].result, expected_len);
+		memcpy(expected, tsuite->tv[i].mac, expected_len);
 
 		/** create key object **/
 		rc = create_GenericSecretKey(session, key, key_len, &h_key);
@@ -620,24 +1481,37 @@ CK_RV digest_funcs() {
 			return rc;
 		}
 	}
+
 	/** HMAC tests **/
-	for(i = 0; i < NUM_OF_HMAC_TEST_SUITES; i++){
-		rc = do_SignVerify_HMAC(&hmac_test_suites[i]);
-		if (rc && !no_stop) {
-			return rc;
-		}
+	for (i = 0; i < NUM_OF_FIPS_HMAC_TEST_SUITES; i++) {
+		rc = do_Sign_FIPS_HMAC(&fips_hmac_test_suites[i]);
+		if (rc && !no_stop)
+			break;
+
+		rc = do_Verify_FIPS_HMAC(&fips_hmac_test_suites[i]);
+		if (rc && !no_stop)
+			break;
+
+		rc = do_Sign_FIPS_HMAC_GENERAL(&fips_hmac_general_test_suites[i]);
+		if (rc && !no_stop)
+			break;
+
+		rc = do_Verify_FIPS_HMAC_GENERAL(&fips_hmac_general_test_suites[i]);
+		if (rc && !no_stop)
+			break;
 	}
 
 	/** HMAC Multipart tests **/
 	/* Only icsf token supports multipart hmac right now. */
-	if (!(is_ep11_token(SLOT_ID)) && !(is_ica_token(SLOT_ID)) &&
-	    !(is_cca_token(SLOT_ID)) && !(is_soft_token(SLOT_ID)) &&
-	    !(is_tpm_token(SLOT_ID))) {
-		for(i = 0; i < NUM_OF_HMAC_TEST_SUITES; i++){
-			rc = do_SignVerify_HMAC_Update(&hmac_test_suites[i]);
-			if (rc && !no_stop) {
-				return rc;
-			}
+	if (!(is_ica_token(SLOT_ID)) && !(is_tpm_token(SLOT_ID))) {
+		for(i = 0; i < NUM_OF_FIPS_HMAC_TEST_SUITES; i++){
+			rc = do_SignUpdate_FIPS_HMAC(&fips_hmac_test_suites[i]);
+			if (rc && !no_stop)
+				break;
+
+			rc = do_VerifyUpdate_FIPS_HMAC(&fips_hmac_test_suites[i]);
+			if (rc && !no_stop)
+				break;
 		}
 	}
 
