@@ -501,50 +501,14 @@ CK_RV
 tok_cdmv_transform(CK_VOID_PTR, CK_ULONG);
 
 
-CK_RV token_specific_sha_generic_init(DIGEST_CONTEXT *ctx);
-CK_RV token_specific_sha_generic(DIGEST_CONTEXT *ctx, CK_BYTE *in_data,
-				 CK_ULONG in_data_len, CK_BYTE *out_data,
-				 CK_ULONG *out_data_len);
-CK_RV token_specific_sha_generic_update(DIGEST_CONTEXT *ctx, CK_BYTE *in_data,
-					CK_ULONG in_data_len);
-CK_RV token_specific_sha_generic_final(DIGEST_CONTEXT *ctx, CK_BYTE *out_data,
-				       CK_ULONG *out_data_len);
-
-CK_RV token_specific_sha_init( DIGEST_CONTEXT * );
+CK_RV token_specific_sha_init(DIGEST_CONTEXT *, CK_MECHANISM *);
 
 CK_RV token_specific_sha(DIGEST_CONTEXT *, CK_BYTE *, CK_ULONG, CK_BYTE *,
-			  CK_ULONG *);
+			 CK_ULONG *);
 
 CK_RV token_specific_sha_update(DIGEST_CONTEXT *, CK_BYTE *, CK_ULONG);
 
 CK_RV token_specific_sha_final(DIGEST_CONTEXT *, CK_BYTE *, CK_ULONG *);
-
-CK_RV token_specific_sha2_init(DIGEST_CONTEXT *);
-
-CK_RV token_specific_sha2(DIGEST_CONTEXT *, CK_BYTE *, CK_ULONG, CK_BYTE *,
-			  CK_ULONG *);
-
-CK_RV token_specific_sha2_update(DIGEST_CONTEXT *, CK_BYTE *, CK_ULONG);
-
-CK_RV token_specific_sha2_final(DIGEST_CONTEXT *, CK_BYTE *, CK_ULONG *);
-
-CK_RV token_specific_sha3_init(DIGEST_CONTEXT *);
-
-CK_RV token_specific_sha3(DIGEST_CONTEXT *, CK_BYTE *, CK_ULONG, CK_BYTE *,
-			  CK_ULONG *);
-
-CK_RV token_specific_sha3_update(DIGEST_CONTEXT *, CK_BYTE *, CK_ULONG);
-
-CK_RV token_specific_sha3_final(DIGEST_CONTEXT *, CK_BYTE *, CK_ULONG *);
-
-CK_RV token_specific_sha5_init(DIGEST_CONTEXT *);
-
-CK_RV token_specific_sha5(DIGEST_CONTEXT *, CK_BYTE *, CK_ULONG, CK_BYTE *,
-			  CK_ULONG *);
-
-CK_RV token_specific_sha5_update(DIGEST_CONTEXT *, CK_BYTE *, CK_ULONG);
-
-CK_RV token_specific_sha5_final(DIGEST_CONTEXT *, CK_BYTE *, CK_ULONG *);
 
 #ifndef NOAES
 CK_RV

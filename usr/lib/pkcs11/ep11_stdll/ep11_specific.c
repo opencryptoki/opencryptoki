@@ -1661,16 +1661,38 @@ done:
 	return rc;
 }
 
-CK_RV token_specific_sha_init(DIGEST_CONTEXT *c)
+CK_RV token_specific_sha_init(DIGEST_CONTEXT *c, CK_MECHANISM *mech)
 {
 	CK_RV rc;
-	CK_BYTE *state   = malloc(blobsize); /* freed by dig_mgr.c */
+	size_t state_len = blobsize;
+	CK_BYTE *state;
+	CK_MECHANISM mechanism;
+
+	state = malloc(blobsize); /* freed by dig_mgr.c */
 	if (!state) {
 		TRACE_ERROR("%s Memory allocation failed\n", __func__);
 		return CKR_HOST_MEMORY;
 	}
-	size_t state_len = blobsize;
-	CK_MECHANISM mechanism = { CKM_SHA_1, NULL_PTR, 0 };
+
+	mechanism.pParameter = NULL;
+	mechanism.ulParameterLen = 0;
+
+	switch(mech->mechanism) {
+	case CKM_SHA_1:
+		mechanism.mechanism = CKM_SHA_1;
+		break;
+	case CKM_SHA256:
+		mechanism.mechanism = CKM_SHA256;
+		break;
+	case CKM_SHA384:
+		mechanism.mechanism = CKM_SHA384;
+		break;
+	case CKM_SHA512:
+		mechanism.mechanism = CKM_SHA512;
+		break;
+	default:
+		return CKR_MECHANISM_INVALID;
+	}
 
 	rc = m_DigestInit (state, &state_len, &mechanism, ep11tok_target) ;
 
@@ -1733,92 +1755,12 @@ CK_RV token_specific_sha_final(DIGEST_CONTEXT *c, CK_BYTE *out_data,
 {
 	CK_RV rc;
 
-	rc = m_DigestFinal(c->context,c->context_len, out_data,out_data_len,
+	rc = m_DigestFinal(c->context, c->context_len, out_data, out_data_len,
 			   ep11tok_target) ;
 
 	if (rc != CKR_OK) {
 		TRACE_ERROR("%s rc=0x%lx\n", __func__, rc);
 	} else {
-		TRACE_INFO("%s rc=0x%lx\n", __func__, rc);
-	}
-
-	return rc;
-}
-
-
-CK_RV token_specific_sha2_init(DIGEST_CONTEXT *c)
-{
-	CK_RV rc;
-	CK_BYTE *state = malloc(blobsize);
-	if (!state) {
-		TRACE_ERROR("%s Memory allocation failed\n", __func__);
-		return CKR_HOST_MEMORY;
-	}
-	size_t state_len = blobsize;
-	CK_MECHANISM mechanism = { CKM_SHA256, NULL_PTR, 0 };
-
-	rc = m_DigestInit (state, &state_len, &mechanism, ep11tok_target);
-
-	if (rc != CKR_OK) {
-		free(state);
-		TRACE_ERROR("%s rc=0x%lx\n", __func__, rc);
-	} else {
-		c->mech = mechanism;
-		c->context = state;
-		c->context_len = state_len;
-		TRACE_INFO("%s rc=0x%lx\n", __func__, rc);
-	}
-
-	return rc;
-}
-
-CK_RV token_specific_sha3_init(DIGEST_CONTEXT *c)
-{
-	CK_RV rc;
-	CK_BYTE *state = malloc(blobsize);
-	if (!state) {
-		TRACE_ERROR("%s Memory allocation failed\n", __func__);
-		return CKR_HOST_MEMORY;
-	}
-	size_t state_len = blobsize;
-	CK_MECHANISM mechanism = { CKM_SHA384, NULL_PTR, 0 };
-
-	rc = m_DigestInit (state, &state_len, &mechanism, ep11tok_target) ;
-
-	if (rc != CKR_OK) {
-		free(state);
-		TRACE_ERROR("%s rc=0x%lx\n", __func__, rc);
-	} else {
-		c->mech = mechanism;
-		c->context = state;
-		c->context_len = state_len;
-		TRACE_INFO("%s rc=0x%lx\n", __func__, rc);
-	}
-
-	return rc;
-}
-
-
-CK_RV token_specific_sha5_init(DIGEST_CONTEXT *c)
-{
-	CK_RV rc;
-	CK_BYTE *state = malloc(blobsize);
-	if (!state) {
-		TRACE_ERROR("%s Memory allocation failed\n", __func__);
-		return CKR_HOST_MEMORY;
-	}
-	size_t state_len = blobsize;
-	CK_MECHANISM mechanism = { CKM_SHA512, NULL_PTR, 0 };
-
-	rc = m_DigestInit (state, &state_len, &mechanism, ep11tok_target) ;
-
-	if (rc != CKR_OK) {
-		free(state);
-		TRACE_ERROR("%s rc=0x%lx\n", __func__, rc);
-	} else {
-		c->mech = mechanism;
-		c->context = state;
-		c->context_len = state_len;
 		TRACE_INFO("%s rc=0x%lx\n", __func__, rc);
 	}
 

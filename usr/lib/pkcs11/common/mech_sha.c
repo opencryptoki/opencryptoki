@@ -695,22 +695,40 @@ CK_RV sw_sha1_hash(DIGEST_CONTEXT *ctx, CK_BYTE *in_data, CK_ULONG in_data_len,
 	return CKR_OK;
 }
 
-CK_RV sha1_hash(SESSION *sess, CK_BBOOL length_only, DIGEST_CONTEXT *ctx,
-		CK_BYTE *in_data, CK_ULONG in_data_len, CK_BYTE *out_data,
-		CK_ULONG *out_data_len)
+CK_RV sha_hash(SESSION *sess, CK_BBOOL length_only, DIGEST_CONTEXT *ctx,
+	       CK_BYTE *in_data, CK_ULONG in_data_len, CK_BYTE *out_data,
+	       CK_ULONG *out_data_len)
 {
-   
+	CK_ULONG hsize;
+
 	if (!ctx || !out_data_len) {
 		TRACE_ERROR("%s received bad argument(s)\n", __FUNCTION__);
 		return CKR_FUNCTION_FAILED;
 	}
 
+	switch(ctx->mech.mechanism) {
+	case CKM_SHA_1:
+		hsize = SHA1_HASH_SIZE;
+		break;
+	case CKM_SHA256:
+		hsize = SHA2_HASH_SIZE;
+		break;
+	case CKM_SHA384:
+		hsize = SHA3_HASH_SIZE;
+		break;
+	case CKM_SHA512:
+		hsize = SHA5_HASH_SIZE;
+		break;
+	default:
+		return CKR_MECHANISM_INVALID;
+	}
+
 	if (length_only == TRUE) {
-		*out_data_len = SHA1_HASH_SIZE;
+		*out_data_len = hsize;
 		return CKR_OK;
 	}
 
-	if (*out_data_len < SHA1_HASH_SIZE) {
+	if (*out_data_len < hsize) {
 		TRACE_ERROR("%s\n", ock_err(ERR_BUFFER_TOO_SMALL));
 		return CKR_BUFFER_TOO_SMALL;
 	}
@@ -718,226 +736,86 @@ CK_RV sha1_hash(SESSION *sess, CK_BBOOL length_only, DIGEST_CONTEXT *ctx,
 	if (ctx->context == NULL)
 		return CKR_HOST_MEMORY;
 
-	if (token_specific.t_sha == NULL ) {
-		return sw_sha1_hash(ctx, in_data, in_data_len, out_data,
-			     out_data_len);
-	} else 
+	if (token_specific.t_sha != NULL)
 		return token_specific.t_sha(ctx, in_data, in_data_len,
-						out_data, out_data_len);
-}
-
-CK_RV sha2_hash(SESSION *sess, CK_BBOOL length_only, DIGEST_CONTEXT *ctx,
-		CK_BYTE *in_data, CK_ULONG in_data_len, CK_BYTE *out_data,
-		CK_ULONG *out_data_len)
-{
-
-	if (!ctx || !out_data_len) {
-		TRACE_ERROR("%s received bad argument(s)\n", __FUNCTION__);
-		return CKR_FUNCTION_FAILED;
+					    out_data, out_data_len);
+	else {
+		if (ctx->mech.mechanism == CKM_SHA_1)
+			return sw_sha1_hash(ctx, in_data, in_data_len, out_data,
+					    out_data_len);
+		else
+			return CKR_MECHANISM_INVALID;
 	}
-
-	if (length_only == TRUE) {
-		*out_data_len = SHA2_HASH_SIZE;
-		return CKR_OK;
-	}
-
-	if (ctx->context == NULL)
-	return CKR_HOST_MEMORY;
-
-	if (token_specific.t_sha2 == NULL) 
-        	return CKR_MECHANISM_INVALID;
-	else
-    		return token_specific.t_sha2(ctx, in_data, in_data_len,
-						out_data, out_data_len);
-}
-
-CK_RV
-sha3_hash(SESSION *sess, CK_BBOOL length_only, DIGEST_CONTEXT *ctx,
-	  CK_BYTE *in_data, CK_ULONG in_data_len, CK_BYTE *out_data,
-	  CK_ULONG *out_data_len)
-{
-
-	if (!ctx || !out_data_len) {
-		TRACE_ERROR("%s received bad argument(s)\n", __FUNCTION__);
-		return CKR_FUNCTION_FAILED;
-	}
-
-	if (length_only == TRUE) {
-		*out_data_len = SHA3_HASH_SIZE;
-		return CKR_OK;
-	}
-
-	if (ctx->context == NULL)
-		return CKR_HOST_MEMORY;
-
-	if (token_specific.t_sha3 == NULL)
-		return CKR_MECHANISM_INVALID;
-	else
-    		return token_specific.t_sha3(ctx, in_data, in_data_len,
-					     out_data, out_data_len);
-
-}
-
-CK_RV sha5_hash(SESSION *sess, CK_BBOOL length_only, DIGEST_CONTEXT *ctx,
-		CK_BYTE *in_data, CK_ULONG in_data_len, CK_BYTE *out_data,
-		CK_ULONG *out_data_len)
-{
-
-	if (!ctx || !out_data_len) {
-		TRACE_ERROR("%s received bad argument(s)\n", __FUNCTION__);
-		return CKR_FUNCTION_FAILED;
-	}
-
-	if (length_only == TRUE) {
-		*out_data_len = SHA5_HASH_SIZE;
-		return CKR_OK;
-	}
-
-	if (ctx->context == NULL)
-		return CKR_HOST_MEMORY;
-
-	if (token_specific.t_sha5 == NULL)
-		return CKR_MECHANISM_INVALID;
-
-	return token_specific.t_sha5(ctx, in_data, in_data_len, out_data, 
-					out_data_len);
 }
 
 //
 //
-CK_RV sha1_hash_update(SESSION *sess, DIGEST_CONTEXT *ctx, CK_BYTE *in_data,
-		       CK_ULONG in_data_len)
+CK_RV sha_hash_update(SESSION *sess, DIGEST_CONTEXT *ctx, CK_BYTE *in_data,
+		      CK_ULONG in_data_len)
 {
 	/* if no data to hash, just return */
 	if (!in_data_len)
 		return CKR_OK;
 
-	if (token_specific.t_sha_update == NULL) {
-        	shaUpdate((SHA1_CONTEXT *)ctx->context, in_data, in_data_len);
-		return CKR_OK;
-	} else
+	if (token_specific.t_sha_update != NULL)
 		return token_specific.t_sha_update(ctx, in_data, in_data_len);
+	else {
+		if (ctx->mech.mechanism == CKM_SHA_1) {
+			shaUpdate((SHA1_CONTEXT *)ctx->context, in_data,
+				  in_data_len);
+			return CKR_OK;
+		} else
+			return CKR_MECHANISM_INVALID;
+	}
 }
 
-CK_RV sha2_hash_update(SESSION *sess, DIGEST_CONTEXT *ctx, CK_BYTE *in_data,
-		       CK_ULONG in_data_len)
+CK_RV sha_hash_final(SESSION *sess, CK_BYTE length_only, DIGEST_CONTEXT *ctx,
+		     CK_BYTE *out_data, CK_ULONG *out_data_len)
 {
-	/* if no data to hash, just return */
-	if (!in_data_len)
-		return CKR_OK;
+	CK_ULONG hsize;
 
-	if (token_specific.t_sha2_update == NULL)
-		return CKR_MECHANISM_INVALID;
-	else
-		return token_specific.t_sha2_update(ctx, in_data, in_data_len);
-}
-
-CK_RV sha3_hash_update(SESSION *sess, DIGEST_CONTEXT *ctx, CK_BYTE *in_data,
-		       CK_ULONG in_data_len)
-{
-	/* if no data to hash, just return */
-	if (!in_data_len)
-		return CKR_OK;
-
-	if (token_specific.t_sha3_update == NULL)
-		return CKR_MECHANISM_INVALID;
-    	else
-		return token_specific.t_sha3_update(ctx, in_data, in_data_len);
-}
-
-CK_RV sha5_hash_update(SESSION *sess, DIGEST_CONTEXT *ctx, CK_BYTE *in_data,
-		       CK_ULONG in_data_len)
-{
-	/* if no data to hash, just return */
-	if (!in_data_len)
-		return CKR_OK;
-	
-	if(token_specific.t_sha5_update == NULL)
-		return CKR_MECHANISM_INVALID;
-	else
-		return token_specific.t_sha5_update(ctx, in_data, in_data_len);
-}
-
-CK_RV sha1_hash_final(SESSION *sess, CK_BYTE length_only, DIGEST_CONTEXT *ctx,
-		      CK_BYTE *out_data, CK_ULONG *out_data_len)
-{
-	if (!ctx || !out_data_len) {
+	if (!out_data_len) {
 		TRACE_ERROR("%s received bad argument(s)\n", __FUNCTION__);
 		return CKR_FUNCTION_FAILED;
 	}
 
+	switch(ctx->mech.mechanism) {
+	case CKM_SHA_1:
+		hsize = SHA1_HASH_SIZE;
+		break;
+	case CKM_SHA256:
+		hsize = SHA2_HASH_SIZE;
+		break;
+	case CKM_SHA384:
+		hsize = SHA3_HASH_SIZE;
+		break;
+	case CKM_SHA512:
+		hsize = SHA5_HASH_SIZE;
+		break;
+	default:
+		return CKR_MECHANISM_INVALID;
+	}
+
 	if (length_only == TRUE) {
-		*out_data_len = SHA1_HASH_SIZE;
+		*out_data_len = hsize;
 		return CKR_OK;
 	}
 
-        if (*out_data_len < SHA1_HASH_SIZE){
+        if (*out_data_len < hsize) {
             TRACE_ERROR("%s\n", ock_err(ERR_BUFFER_TOO_SMALL));
             return CKR_BUFFER_TOO_SMALL;
         }
 
-	if (token_specific.t_sha_final == NULL) {
-		shaFinal((SHA1_CONTEXT *)ctx->context, out_data);
-		*out_data_len = SHA1_HASH_SIZE;
-		return CKR_OK;
-	} else
+	if (token_specific.t_sha_final != NULL)
 		return token_specific.t_sha_final(ctx, out_data, out_data_len);
-}
-
-CK_RV sha2_hash_final(SESSION *sess, CK_BYTE length_only, DIGEST_CONTEXT *ctx,
-		      CK_BYTE *out_data, CK_ULONG *out_data_len)
-{
-	if (!ctx || !out_data_len) {
-		TRACE_ERROR("%s received bad argument(s)\n", __FUNCTION__);
-		return CKR_FUNCTION_FAILED;
+	else {
+		if (ctx->mech.mechanism == CKM_SHA_1) {
+			shaFinal((SHA1_CONTEXT *)ctx->context, out_data);
+			*out_data_len = hsize;
+			return CKR_OK;
+		} else
+			return CKR_MECHANISM_INVALID;
 	}
-	if (length_only == TRUE) {
-		*out_data_len = SHA2_HASH_SIZE;
-		return CKR_OK;
-	}
-
-	if (token_specific.t_sha2_final == NULL)
-		return CKR_MECHANISM_INVALID;
-	else
-		return token_specific.t_sha2_final(ctx, out_data, out_data_len);
-}
-
-CK_RV sha3_hash_final(SESSION *sess, CK_BYTE length_only, DIGEST_CONTEXT *ctx,
-		      CK_BYTE *out_data, CK_ULONG *out_data_len)
-{
-	if (!ctx || !out_data_len) {
-		TRACE_ERROR("%s received bad argument(s)\n", __FUNCTION__);
-		return CKR_FUNCTION_FAILED;
-	}
-
-	if (length_only == TRUE) {
-		*out_data_len = SHA3_HASH_SIZE;
-		return CKR_OK;
-	}
-
-	if (token_specific.t_sha3_final == NULL)
-		return CKR_MECHANISM_INVALID;
-	else
-		return token_specific.t_sha3_final(ctx, out_data, out_data_len);
-}
-
-CK_RV sha5_hash_final(SESSION *sess, CK_BYTE length_only, DIGEST_CONTEXT *ctx,
-		      CK_BYTE *out_data, CK_ULONG *out_data_len)
-{
-	if (!ctx || !out_data_len) {
-		TRACE_ERROR("%s received bad argument(s)\n", __FUNCTION__);
-		return CKR_FUNCTION_FAILED;
-	}
-
-	if (length_only == TRUE) {
-		*out_data_len = SHA5_HASH_SIZE;
-		return CKR_OK;
-	}
-
-	if (token_specific.t_sha5_final == NULL)
-		return CKR_MECHANISM_INVALID;
-	else
-		return token_specific.t_sha5_final(ctx, out_data, out_data_len);
 }
 
 // this routine gets called for two mechanisms actually:
@@ -1798,52 +1676,23 @@ done:
 	return rc;
 }
 
-void sha1_init(DIGEST_CONTEXT *ctx)
+CK_RV sha_init(SESSION *sess, DIGEST_CONTEXT *ctx, CK_MECHANISM *mech)
 {
-	if (token_specific.t_sha_init == NULL)
-		sw_sha1_init(ctx);
-	else
-		/* SAB XXX call token specific init... the init MUST
-		 * allocate it's context
+	if (token_specific.t_sha_init != NULL)
+		return token_specific.t_sha_init(ctx, mech);
+	else {
+		/* For current tokens, continue legacy of using software
+		 *  implemented SHA-1 if the token does not have its own
+		 *  SHA-1 implementation.
+		 *  Future tokens' crypto should be its own so that
+		 *  opencryptoki is not responsible for crypto. If token
+		 *  does not have SHA-1, then should be mechanism not
+		 *  supported. JML
 		 */
-		token_specific.t_sha_init(ctx);
-}
-
-void sha2_init(DIGEST_CONTEXT *ctx)
-{
-	if (token_specific.t_sha2_init == NULL) {
-	        /* TODO: Software implementation here */
-		return;
-	 } else {
-		/* SAB XXX call token specific init... the init
-		 * MUST allocate it's context
-		 */
-		token_specific.t_sha2_init(ctx);
-	}
-}
-
-void sha3_init(DIGEST_CONTEXT *ctx)
-{
-	if (token_specific.t_sha3_init == NULL) {
-		/* TODO: Software implementation here */
-		return;
-	} else {
-		/* SAB XXX call token specific init... the init
-		 * MUST allocate it's context
-		 */
-		token_specific.t_sha3_init(ctx);
-	}
-}
-
-void sha5_init(DIGEST_CONTEXT * ctx)
-{
-	if (token_specific.t_sha5_init == NULL) {
-		/* TODO: Software implementation here */
-		return;
-	} else {
-		/* SAB XXX call token specific init... the init
-		 * MUST allocate it's context
-		 */
-		token_specific.t_sha5_init(ctx);
+		if (mech->mechanism == CKM_SHA_1) {
+			sw_sha1_init(ctx);
+			return CKR_OK;
+		} else
+			return CKR_MECHANISM_INVALID;
 	}
 }

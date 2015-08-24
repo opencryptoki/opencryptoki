@@ -313,6 +313,7 @@ digest_mgr_init( SESSION           *sess,
                  DIGEST_CONTEXT    *ctx,
                  CK_MECHANISM      *mech )
 {
+   CK_RV rc = CKR_OK;
    CK_BYTE  * ptr = NULL;
 
    if (!sess || !ctx){
@@ -327,59 +328,8 @@ digest_mgr_init( SESSION           *sess,
    //
    switch (mech->mechanism) {
       case CKM_SHA_1:
-         {
-            if (mech->ulParameterLen != 0){
-               TRACE_ERROR("%s\n", ock_err(ERR_MECHANISM_PARAM_INVALID));
-               return CKR_MECHANISM_PARAM_INVALID;
-            }
-
-            ctx->context = NULL;
-            sha1_init( ctx );
-
-            if (!ctx->context) {
-               digest_mgr_cleanup(ctx);  // to de-initialize context above
-               TRACE_ERROR("%s\n", ock_err(ERR_HOST_MEMORY));
-               return CKR_HOST_MEMORY;
-            }
-         }
-         break;
-
       case CKM_SHA256:
-         {
-            if (mech->ulParameterLen != 0){
-               TRACE_ERROR("%s\n", ock_err(ERR_MECHANISM_PARAM_INVALID));
-               return CKR_MECHANISM_PARAM_INVALID;
-            }
-
-            ctx->context = NULL;
-            sha2_init( ctx );
-
-            if (!ctx->context) {
-               digest_mgr_cleanup(ctx);  // to de-initialize context above
-               TRACE_ERROR("%s\n", ock_err(ERR_HOST_MEMORY));
-               return CKR_HOST_MEMORY;
-            }
-         }
-         break;
-
       case CKM_SHA384:
-         {
-            if (mech->ulParameterLen != 0){
-               TRACE_ERROR("%s\n", ock_err(ERR_MECHANISM_PARAM_INVALID));
-               return CKR_MECHANISM_PARAM_INVALID;
-            }
-
-            ctx->context = NULL;
-            sha3_init( ctx );
-
-            if (!ctx->context) {
-               digest_mgr_cleanup(ctx);  // to de-initialize context above
-               TRACE_ERROR("%s\n", ock_err(ERR_HOST_MEMORY));
-               return CKR_HOST_MEMORY;
-            }
-         }
-         break;
-
       case CKM_SHA512:
          {
             if (mech->ulParameterLen != 0){
@@ -388,12 +338,11 @@ digest_mgr_init( SESSION           *sess,
             }
 
             ctx->context = NULL;
-            sha5_init( ctx );
-
-            if (!ctx->context) {
+            rc = sha_init(sess, ctx, mech);
+            if (rc != CKR_OK) {
                digest_mgr_cleanup(ctx);  // to de-initialize context above
-               TRACE_ERROR("%s\n", ock_err(ERR_HOST_MEMORY));
-               return CKR_HOST_MEMORY;
+	       TRACE_ERROR("Failed to init sha context.\n");
+               return rc;
             }
          }
          break;
@@ -524,27 +473,11 @@ digest_mgr_digest( SESSION         *sess,
    }
    switch (ctx->mech.mechanism) {
       case CKM_SHA_1:
-         rc = sha1_hash( sess,      length_only, ctx,
-                           in_data,   in_data_len,
-                           out_data,  out_data_len );
-         break;
-
       case CKM_SHA256:
-         rc = sha2_hash( sess,      length_only, ctx,
-                           in_data,   in_data_len,
-                           out_data,  out_data_len );
-         break;
-
       case CKM_SHA384:
-         rc = sha3_hash( sess,      length_only, ctx,
-                           in_data,   in_data_len,
-                           out_data,  out_data_len );
-         break;
-
       case CKM_SHA512:
-         rc = sha5_hash( sess,      length_only, ctx,
-                           in_data,   in_data_len,
-                           out_data,  out_data_len );
+         rc = sha_hash(sess, length_only, ctx, in_data, in_data_len, out_data,
+		       out_data_len);
          break;
 
 #if !(NOMD2 )
@@ -603,19 +536,10 @@ digest_mgr_digest_update( SESSION         *sess,
 
    switch (ctx->mech.mechanism) {
       case CKM_SHA_1:
-         rc = sha1_hash_update( sess, ctx, data, data_len );
-         break;
-
       case CKM_SHA256:
-         rc = sha2_hash_update( sess, ctx, data, data_len );
-         break;
-
       case CKM_SHA384:
-         rc = sha3_hash_update( sess, ctx, data, data_len );
-         break;
-
       case CKM_SHA512:
-         rc = sha5_hash_update( sess, ctx, data, data_len );
+         rc = sha_hash_update(sess, ctx, data, data_len);
          break;
 
 #if !(NOMD2)
@@ -729,27 +653,10 @@ digest_mgr_digest_final( SESSION         *sess,
 
    switch (ctx->mech.mechanism) {
       case CKM_SHA_1:
-         rc = sha1_hash_final( sess, length_only,
-                                 ctx,
-                                 hash, hash_len );
-         break;
-
       case CKM_SHA256:
-         rc = sha2_hash_final( sess, length_only,
-                                 ctx,
-                                 hash, hash_len );
-         break;
-
       case CKM_SHA384:
-         rc = sha3_hash_final( sess, length_only,
-                                 ctx,
-                                 hash, hash_len );
-         break;
-
       case CKM_SHA512:
-         rc = sha5_hash_final( sess, length_only,
-                                 ctx,
-                                 hash, hash_len );
+         rc = sha_hash_final(sess, length_only, ctx, hash, hash_len);
          break;
 
 #if !(NOMD2)

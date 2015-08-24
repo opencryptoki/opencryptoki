@@ -89,26 +89,11 @@ token_spec_t token_specific = {
 	NULL,
 	NULL,
 #endif
-	// SHA-1
-	NULL,			// sha_init
-	NULL,			// sha
-	NULL,			// sha_update
-	NULL,			// sha_final
-	// SHA-256
-	token_specific_sha2_init,
-	token_specific_sha2,
-	token_specific_sha2_update,
-	token_specific_sha2_final,
-	// SHA-384
-	token_specific_sha3_init,
-	token_specific_sha3,
-	token_specific_sha3_update,
-	token_specific_sha3_final,
-	// SHA-512
-	token_specific_sha5_init,
-	token_specific_sha5,
-	token_specific_sha5_update,
-	token_specific_sha5_final,
+	// SHA
+	token_specific_sha_init,
+	token_specific_sha,
+	token_specific_sha_update,
+	token_specific_sha_final,
 #ifndef NOAES
 	// AES
 	&token_specific_aes_key_gen,

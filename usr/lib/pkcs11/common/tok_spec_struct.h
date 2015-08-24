@@ -441,30 +441,11 @@ struct token_specific_struct {
 	/* End code contributed by Corrent corp. */
 
 	// Token Specific SHA1 functions 
-	CK_RV(*t_sha_init) (DIGEST_CONTEXT *);
-	CK_RV(*t_sha) (DIGEST_CONTEXT *, CK_BYTE *, CK_ULONG, CK_BYTE *, 
-			CK_ULONG *);
+	CK_RV(*t_sha_init) (DIGEST_CONTEXT *, CK_MECHANISM *);
+	CK_RV(*t_sha) (DIGEST_CONTEXT *, CK_BYTE *, CK_ULONG, CK_BYTE *,
+		       CK_ULONG *);
 	CK_RV(*t_sha_update) (DIGEST_CONTEXT *, CK_BYTE *, CK_ULONG);
 	CK_RV(*t_sha_final) (DIGEST_CONTEXT *, CK_BYTE *, CK_ULONG *);
-
-	// Token Specific SHA256 functions 
-	CK_RV(*t_sha2_init) (DIGEST_CONTEXT *);
-	CK_RV(*t_sha2) (DIGEST_CONTEXT *, CK_BYTE *, CK_ULONG, CK_BYTE *, 
-			CK_ULONG *);
-	CK_RV(*t_sha2_update) (DIGEST_CONTEXT *, CK_BYTE *, CK_ULONG);
-	CK_RV(*t_sha2_final) (DIGEST_CONTEXT *, CK_BYTE *, CK_ULONG *);
-
-	CK_RV(*t_sha3_init) (DIGEST_CONTEXT *);
-	CK_RV(*t_sha3) (DIGEST_CONTEXT *, CK_BYTE *, CK_ULONG, CK_BYTE *, 
-			CK_ULONG *);
-	CK_RV(*t_sha3_update) (DIGEST_CONTEXT *, CK_BYTE *, CK_ULONG);
-	CK_RV(*t_sha3_final) (DIGEST_CONTEXT *, CK_BYTE *, CK_ULONG *);
-
-	CK_RV(*t_sha5_init) (DIGEST_CONTEXT *);
-	CK_RV(*t_sha5) (DIGEST_CONTEXT *, CK_BYTE *, CK_ULONG, CK_BYTE *, 
-			CK_ULONG *);
-	CK_RV(*t_sha5_update) (DIGEST_CONTEXT *, CK_BYTE *, CK_ULONG);
-	CK_RV(*t_sha5_final) (DIGEST_CONTEXT *, CK_BYTE *, CK_ULONG *);
 
 	// Token Specific AES functions
 	CK_RV(*t_aes_key_gen) (CK_BYTE *, CK_ULONG, CK_ULONG);

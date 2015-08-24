@@ -1650,9 +1650,27 @@ token_specific_ec_verify(CK_BYTE  * in_data,
 	return CKR_OK;
 }
 
-CK_RV cca_sha_init(DIGEST_CONTEXT *ctx, CK_ULONG hash_size)
+CK_RV token_specific_sha_init(DIGEST_CONTEXT *ctx, CK_MECHANISM *mech)
 {
+	CK_ULONG hash_size;
 	struct cca_sha_ctx *cca_ctx;
+
+	switch(mech->mechanism) {
+	case CKM_SHA_1:
+		hash_size = SHA1_HASH_SIZE;
+		break;
+	case CKM_SHA256:
+		hash_size = SHA2_HASH_SIZE;
+		break;
+	case CKM_SHA384:
+		hash_size = SHA3_HASH_SIZE;
+		break;
+	case CKM_SHA512:
+		hash_size = SHA5_HASH_SIZE;
+		break;
+	default:
+		return CKR_MECHANISM_INVALID;
+	}
 
 	ctx->context = calloc(1, sizeof(struct cca_sha_ctx));
 	if (ctx->context == NULL) {
@@ -1669,29 +1687,15 @@ CK_RV cca_sha_init(DIGEST_CONTEXT *ctx, CK_ULONG hash_size)
 	return CKR_OK;
 }
 
-CK_RV token_specific_sha2_init(DIGEST_CONTEXT *ctx)
-{
-	return cca_sha_init(ctx, SHA2_HASH_SIZE);
-}
-
-CK_RV token_specific_sha3_init(DIGEST_CONTEXT *ctx)
-{
-	return cca_sha_init(ctx, SHA3_HASH_SIZE);
-}
-
-CK_RV token_specific_sha5_init(DIGEST_CONTEXT *ctx)
-{
-	return cca_sha_init(ctx, SHA5_HASH_SIZE);
-}
-
-CK_RV cca_sha(DIGEST_CONTEXT *ctx, CK_BYTE *in_data, CK_ULONG in_data_len,
-	     CK_BYTE *out_data, CK_ULONG *out_data_len)
+CK_RV token_specific_sha(DIGEST_CONTEXT *ctx, CK_BYTE *in_data,
+			 CK_ULONG in_data_len, CK_BYTE *out_data,
+			 CK_ULONG *out_data_len)
 {
 	struct cca_sha_ctx *cca_ctx;
 	long return_code, reason_code, rule_array_count = 2;
 	unsigned char rule_array[CCA_RULE_ARRAY_SIZE] = { 0, };
 
-	if (!ctx)
+	if (!ctx || !ctx->context)
 		return CKR_OPERATION_NOT_INITIALIZED;
 
 	if (!in_data || !out_data)
@@ -1703,6 +1707,10 @@ CK_RV cca_sha(DIGEST_CONTEXT *ctx, CK_BYTE *in_data, CK_ULONG in_data_len,
 		return CKR_BUFFER_TOO_SMALL;
 
 	switch (ctx->mech.mechanism) {
+	case CKM_SHA_1:
+		memcpy(rule_array, "SHA-1   ONLY    ", CCA_KEYWORD_SIZE * 2);
+		cca_ctx->part = CCA_HASH_PART_ONLY;
+		break;
 	case CKM_SHA256:
 		memcpy(rule_array, "SHA-256 ONLY    ", CCA_KEYWORD_SIZE * 2);
 		cca_ctx->part = CCA_HASH_PART_ONLY;
@@ -1738,29 +1746,8 @@ CK_RV cca_sha(DIGEST_CONTEXT *ctx, CK_BYTE *in_data, CK_ULONG in_data_len,
 	return CKR_OK;
 }
 
-CK_RV token_specific_sha2(DIGEST_CONTEXT *ctx, CK_BYTE *in_data,
-			  CK_ULONG in_data_len, CK_BYTE *out_data,
-			  CK_ULONG *out_data_len)
-{
-	return cca_sha(ctx, in_data, in_data_len, out_data, out_data_len);
-}
-
-CK_RV token_specific_sha3(DIGEST_CONTEXT *ctx, CK_BYTE *in_data,
-			  CK_ULONG in_data_len, CK_BYTE *out_data,
-			  CK_ULONG *out_data_len)
-{
-	return cca_sha(ctx, in_data, in_data_len, out_data, out_data_len);
-}
-
-CK_RV token_specific_sha5(DIGEST_CONTEXT *ctx, CK_BYTE *in_data,
-			  CK_ULONG in_data_len, CK_BYTE *out_data,
-			  CK_ULONG *out_data_len)
-{
-	return cca_sha(ctx, in_data, in_data_len, out_data, out_data_len);
-}
-
-CK_RV cca_sha_update(DIGEST_CONTEXT *ctx, CK_BYTE *in_data,
-		     CK_ULONG in_data_len)
+CK_RV token_specific_sha_update(DIGEST_CONTEXT *ctx, CK_BYTE *in_data,
+				CK_ULONG in_data_len)
 {
 	struct cca_sha_ctx *cca_ctx;
 	long return_code, reason_code, total, buffer_len, rule_array_count = 2;
@@ -1772,7 +1759,14 @@ CK_RV cca_sha_update(DIGEST_CONTEXT *ctx, CK_BYTE *in_data,
 	if (!in_data)
 		return CKR_ARGUMENTS_BAD;
 
+	if (!ctx || !ctx->context)
+		return CKR_OPERATION_NOT_INITIALIZED;
+
 	switch(ctx->mech.mechanism) {
+	case CKM_SHA_1:
+		blocksz = SHA1_BLOCK_SIZE;
+		blocksz_mask = SHA1_BLOCK_SIZE_MASK;
+		break;
 	case CKM_SHA256:
 		blocksz = SHA2_BLOCK_SIZE;
 		blocksz_mask = SHA2_BLOCK_SIZE_MASK;
@@ -1839,6 +1833,16 @@ CK_RV cca_sha_update(DIGEST_CONTEXT *ctx, CK_BYTE *in_data,
 
 send:
 	switch(ctx->mech.mechanism) {
+	case CKM_SHA_1:
+		if (cca_ctx->part == CCA_HASH_PART_FIRST) {
+			memcpy(rule_array, "SHA-1   FIRST   ",
+				CCA_KEYWORD_SIZE * 2);
+			cca_ctx->part = CCA_HASH_PART_MIDDLE;
+		} else {
+			memcpy(rule_array, "SHA-1   MIDDLE  ",
+				CCA_KEYWORD_SIZE * 2);
+		}
+		break;
 	case CKM_SHA256:
 		if (cca_ctx->part == CCA_HASH_PART_FIRST) {
 			memcpy(rule_array, "SHA-256 FIRST   ",
@@ -1888,32 +1892,16 @@ done:
 	return rc;
 }
 
-
-CK_RV token_specific_sha2_update(DIGEST_CONTEXT *ctx, CK_BYTE *in_data,
-				 CK_ULONG in_data_len)
-{
-	return cca_sha_update(ctx, in_data, in_data_len);
-}
-
-CK_RV token_specific_sha3_update(DIGEST_CONTEXT *ctx, CK_BYTE *in_data,
-				 CK_ULONG in_data_len)
-{
-	return cca_sha_update(ctx, in_data, in_data_len);
-}
-
-CK_RV token_specific_sha5_update(DIGEST_CONTEXT *ctx, CK_BYTE *in_data,
-				 CK_ULONG in_data_len)
-{
-	return cca_sha_update(ctx, in_data, in_data_len);
-}
-
-CK_RV cca_sha_final(DIGEST_CONTEXT *ctx, CK_BYTE *out_data,
-		    CK_ULONG *out_data_len)
+CK_RV token_specific_sha_final(DIGEST_CONTEXT *ctx, CK_BYTE *out_data,
+			       CK_ULONG *out_data_len)
 {
 	struct cca_sha_ctx *cca_ctx;
 	long return_code, reason_code, rule_array_count = 2;
 	unsigned char rule_array[CCA_RULE_ARRAY_SIZE] = { 0, };
 	unsigned char dummy_buf[1] = { 0 };
+
+	if (!ctx || !ctx->context)
+		return CKR_OPERATION_NOT_INITIALIZED;
 
 	cca_ctx = (struct cca_sha_ctx *)ctx->context;
 	if (*out_data_len < cca_ctx->hash_len) {
@@ -1922,6 +1910,18 @@ CK_RV cca_sha_final(DIGEST_CONTEXT *ctx, CK_BYTE *out_data,
 	}
 
 	switch(ctx->mech.mechanism) {
+	case CKM_SHA_1:
+		if (cca_ctx->part == CCA_HASH_PART_FIRST) {
+			memcpy(rule_array, "SHA-1   ONLY    ",
+				CCA_KEYWORD_SIZE * 2);
+		} else {
+			/* there's some extra data we need to hash to
+			 * complete the operation
+			 */
+			memcpy(rule_array, "SHA-1   LAST    ",
+				CCA_KEYWORD_SIZE * 2);
+		}
+		break;
 	case CKM_SHA256:
 		if (cca_ctx->part == CCA_HASH_PART_FIRST) {
 			memcpy(rule_array, "SHA-256 ONLY    ",
@@ -1985,24 +1985,6 @@ CK_RV cca_sha_final(DIGEST_CONTEXT *ctx, CK_BYTE *out_data,
 
 	/* ctx->context should get freed in digest_mgr_cleanup() */
 	return CKR_OK;
-}
-
-CK_RV token_specific_sha2_final(DIGEST_CONTEXT *ctx, CK_BYTE *out_data,
-				CK_ULONG *out_data_len)
-{
-	return cca_sha_final(ctx, out_data, out_data_len);
-}
-
-CK_RV token_specific_sha3_final(DIGEST_CONTEXT *ctx, CK_BYTE *out_data,
-				CK_ULONG *out_data_len)
-{
-	return cca_sha_final(ctx, out_data, out_data_len);
-}
-
-CK_RV token_specific_sha5_final(DIGEST_CONTEXT *ctx, CK_BYTE *out_data,
-				CK_ULONG *out_data_len)
-{
-	return cca_sha_final(ctx, out_data, out_data_len);
 }
 
 static CK_RV rsa_import_privkey_crt(TEMPLATE *priv_tmpl)

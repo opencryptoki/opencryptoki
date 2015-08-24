@@ -364,24 +364,9 @@ token_spec_t token_specific = {
 #endif
 	// SHA
 	&token_specific_sha_init,
-	&token_specific_sha_generic,
-	&token_specific_sha_generic_update,
-	&token_specific_sha_generic_final,
-	/* SHA-256 */
-	&token_specific_sha2_init,
-	&token_specific_sha_generic,
-	&token_specific_sha_generic_update,
-	&token_specific_sha_generic_final,
-	// SHA-384
-	&token_specific_sha3_init,
-	&token_specific_sha_generic,
-	&token_specific_sha_generic_update,
-	&token_specific_sha_generic_final,
-	// SHA-512
-	&token_specific_sha5_init,
-	&token_specific_sha_generic,
-	&token_specific_sha_generic_update,
-	&token_specific_sha_generic_final,
+	&token_specific_sha,
+	&token_specific_sha_update,
+	&token_specific_sha_final,
 	// AES
 	&token_specific_aes_key_gen,
 	&token_specific_aes_ecb,

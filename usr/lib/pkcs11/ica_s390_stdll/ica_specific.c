@@ -736,8 +736,7 @@ token_specific_tdes_mac(CK_BYTE *message, CK_ULONG message_len, OBJECT *key,
 /*
  * Init SHA data structures
  */
-static CK_RV ica_sha_generic_init(DIGEST_CONTEXT *ctx,
-				  CK_MECHANISM_TYPE sha_type)
+CK_RV token_specific_sha_init(DIGEST_CONTEXT *ctx, CK_MECHANISM *mech)
 {
 	unsigned int dev_ctx_size;
 	struct oc_sha_ctx *sc;
@@ -750,7 +749,7 @@ static CK_RV ica_sha_generic_init(DIGEST_CONTEXT *ctx,
 			free(sc->dev_ctx);
 		free(ctx->context);
 	}
-	/* The caller will check to see if ctx->context == NULL */
+
 	ctx->context_len = sizeof(struct oc_sha_ctx);
 	ctx->context = malloc(sizeof(struct oc_sha_ctx));
 	if(ctx->context == NULL) {
@@ -760,7 +759,7 @@ static CK_RV ica_sha_generic_init(DIGEST_CONTEXT *ctx,
 	memset(ctx->context, 0, ctx->context_len);
 	sc = (struct oc_sha_ctx *)ctx->context;
 
-	switch (sha_type) {
+	switch (mech->mechanism) {
 	case CKM_SHA_1:
 		sc->hash_len = SHA1_HASH_SIZE;
 		sc->hash_blksize = SHA1_BLOCK_SIZE;
@@ -796,35 +795,15 @@ static CK_RV ica_sha_generic_init(DIGEST_CONTEXT *ctx,
 	return CKR_OK;
 }
 
-CK_RV token_specific_sha_init(DIGEST_CONTEXT *ctx)
-{
-	return ica_sha_generic_init(ctx, CKM_SHA_1);
-}
-
-CK_RV token_specific_sha2_init(DIGEST_CONTEXT *ctx)
-{
-	return ica_sha_generic_init(ctx, CKM_SHA256);
-}
-
-CK_RV token_specific_sha3_init(DIGEST_CONTEXT *ctx)
-{
-	return ica_sha_generic_init(ctx, CKM_SHA384);
-}
-
-CK_RV token_specific_sha5_init(DIGEST_CONTEXT *ctx)
-{
-	return ica_sha_generic_init(ctx, CKM_SHA512);
-}
-
-CK_RV token_specific_sha_generic(DIGEST_CONTEXT *ctx, CK_BYTE *in_data,
-				 CK_ULONG in_data_len, CK_BYTE *out_data,
-				 CK_ULONG *out_data_len)
+CK_RV token_specific_sha(DIGEST_CONTEXT *ctx, CK_BYTE *in_data,
+			 CK_ULONG in_data_len, CK_BYTE *out_data,
+			 CK_ULONG *out_data_len)
 {
 	int rc;
 	CK_RV rv = CKR_OK;
 	struct oc_sha_ctx *oc_sha_ctx;
 	
-	if (!ctx)
+	if (!ctx || !ctx->context)
 		return CKR_OPERATION_NOT_INITIALIZED;
 
 	if (!in_data || !out_data)
@@ -892,7 +871,6 @@ CK_RV token_specific_sha_generic(DIGEST_CONTEXT *ctx, CK_BYTE *in_data,
 
 static CK_RV ica_sha_call(DIGEST_CONTEXT *ctx, CK_BYTE *data, CK_ULONG data_len)
 {
-
 	struct oc_sha_ctx *oc_sha_ctx = (struct oc_sha_ctx *)ctx->context;
 	CK_RV ret;
 	
@@ -954,13 +932,13 @@ static CK_RV ica_sha_call(DIGEST_CONTEXT *ctx, CK_BYTE *data, CK_ULONG data_len)
 	return(ret ? CKR_FUNCTION_FAILED : CKR_OK);
 }
 
-CK_RV token_specific_sha_generic_update(DIGEST_CONTEXT *ctx, CK_BYTE *in_data,
-					CK_ULONG in_data_len)
+CK_RV token_specific_sha_update(DIGEST_CONTEXT *ctx, CK_BYTE *in_data,
+				CK_ULONG in_data_len)
 {
 	struct oc_sha_ctx *oc_sha_ctx;
 	int fill, len, rest, ret;
 
-	if (!ctx)
+	if (!ctx || !ctx->context)
 		return CKR_OPERATION_NOT_INITIALIZED;
 
 	if (!in_data_len)
@@ -1033,14 +1011,14 @@ CK_RV token_specific_sha_generic_update(DIGEST_CONTEXT *ctx, CK_BYTE *in_data,
 	return CKR_OK;
 }
 
-CK_RV token_specific_sha_generic_final(DIGEST_CONTEXT *ctx, CK_BYTE *out_data,
+CK_RV token_specific_sha_final(DIGEST_CONTEXT *ctx, CK_BYTE *out_data,
 				       CK_ULONG *out_data_len)
 {
 	int rc; 
 	CK_RV rv = CKR_OK;
 	struct oc_sha_ctx *oc_sha_ctx;
 
-	if (!ctx)
+	if (!ctx || !ctx->context)
 		return CKR_OPERATION_NOT_INITIALIZED;
 
 	if (!out_data || !out_data_len)
