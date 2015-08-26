@@ -2843,6 +2843,9 @@ static CK_RV import_symmetric_key(OBJECT *object, CK_ULONG keytype)
 		return rc;
 	}
 
+	/* zero clear key value */
+	memset(attr->pValue, 0, attr->ulValueLen);
+
 	return CKR_OK;
 }
 
@@ -2865,7 +2868,7 @@ static CK_RV import_generic_secret_key(OBJECT *object)
 	if (rc == FALSE) {
 		TRACE_ERROR("Incomplete Generic Secret (HMAC) key template\n");
 		return CKR_TEMPLATE_INCOMPLETE;
-}
+	}
 	keylen = attr->ulValueLen;
 	/* key len needs to be 80-2048 bits */
 	if (8*keylen < 80 || 8*keylen > 2048) {
@@ -2929,6 +2932,9 @@ static CK_RV import_generic_secret_key(OBJECT *object)
 		TRACE_DEVEL("template_update_attribute(CKA_IBM_OPAQUE) failed\n");
 		return rc;
 	}
+
+	/* zero clear key value */
+	memset(attr->pValue, 0, attr->ulValueLen);
 
 	return CKR_OK;
 }
