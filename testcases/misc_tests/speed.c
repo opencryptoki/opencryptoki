@@ -489,6 +489,12 @@ int do_DES3_EncrDecr(const char* mode)
 	testcase_begin("DES3 Encrypt with mode=%s datalen=%d\n",
 			mode, BIG_REQUEST);
 
+	if (is_cca_token(SLOT_ID) && strcmp(mode, "ECB") == 0) {
+		testcase_skip("Slot %u doesn't support DES3 ECB En/Decrypt\n",
+			      (unsigned) SLOT_ID);
+		return TRUE;
+	}
+
 	testcase_rw_session();
 	testcase_user_login();
 

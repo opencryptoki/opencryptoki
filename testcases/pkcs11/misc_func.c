@@ -14,6 +14,7 @@
 #include "pkcs11types.h"
 #include "regress.h"
 #include "pkcs32.h"
+#include "common.c"
 
 #define BAD_USER_PIN		"534566346"
 #define BAD_USER_PIN_LEN	strlen(BAD_USER_PIN)
@@ -891,9 +892,8 @@ CK_RV do_GenerateRandomData( void )
 		return rc;
 	}
 
-
 	rc = funcs->C_SeedRandom(h1, rand_seed,sizeof(rand_seed));
-	if (rc != CKR_OK){
+	if ((rc != CKR_OK) && (rc != CKR_RANDOM_SEED_NOT_SUPPORTED)) {
 		show_error("   C_SeedRandom #1",rc);
 		return rc;
 	}
@@ -922,18 +922,20 @@ CK_RV do_GenerateRandomData( void )
 }
 
 
-//  //1) generate a DES key from a RO, PUBLIC session.  should fail
-//  //2) generate a DES key from a RW, PUBLIC session.  should fail
-//  3) generate a DES key from a RO, USER   session.
-//  4) generate a DES key from a RW, USER   session.
+//  1) generate a AES key from a RO, PUBLIC session.  should fail
+//  2) generate a AES key from a RW, PUBLIC session.  should fail
+//  3) generate a AES key from a RO, USER   session.
+//  4) generate a AES key from a RW, USER   session.
 //
-//  5) generate a DES key from a RO, PUBLIC session.  specify template for PUBLIC object
-//  6) generate a DES key from a RO, PUBLIC session.  specify template for PUBLIC object
+//  5) generate a AES key from a RO, PUBLIC session.
+//     specify template for PUBLIC object
+//  6) generate a AES key from a RO, PUBLIC session.
+//     specify template for PUBLIC object
 //
-//  7) generate a DES key from a RW, USER   session.  specify wrong class
-//  8) generate a DES key from a RW, USER   session.  specify right class
-//  9) generate a DES key from a RW, USER   session.  specify wrong key type
-// 10) generate a DES key from a RW, USER   session.  specify right key type
+//  7) generate a AES key from a RW, USER   session.  specify wrong class
+//  8) generate a AES key from a RW, USER   session.  specify right class
+//  9) generate a AES key from a RW, USER   session.  specify wrong key type
+// 10) generate a AES key from a RW, USER   session.  specify right key type
 //
 //
 CK_RV do_GenerateKey( void )
@@ -956,7 +958,7 @@ CK_RV do_GenerateKey( void )
 		return CKR_FUNCTION_FAILED;
 	user_pin_len = (CK_ULONG)strlen((char *)user_pin);
 
-	mech.mechanism      = CKM_DES_KEY_GEN;
+	mech.mechanism      = CKM_AES_KEY_GEN;
 	mech.ulParameterLen = 0;
 	mech.pParameter     = NULL;
 
@@ -983,7 +985,7 @@ CK_RV do_GenerateKey( void )
 	//   }
 	//
 	//
-	//   // 2) generate a DES key from RW PUBLIC session.  this should also fail.
+	//   // 2) generate a AES key from RW PUBLIC session.  this should also fail.
 	//   //
 	//   flags = CKF_SERIAL_SESSION | CKF_RW_SESSION;
 	//   rc = funcs->C_OpenSession( slot_id, flags, NULL, NULL, &session );
@@ -1006,7 +1008,7 @@ CK_RV do_GenerateKey( void )
 	//   }
 
 
-	// 3) generate a DES key from RO USER session
+	// 3) generate a AES key from RO USER session
 	//
 	flags = CKF_SERIAL_SESSION;
 	rc = funcs->C_OpenSession( slot_id, flags, NULL, NULL, &session );
@@ -1034,7 +1036,7 @@ CK_RV do_GenerateKey( void )
 	}
 
 
-	// 4) generate a DES key from RW USER session
+	// 4) generate a AES key from RW USER session
 	//
 	flags = CKF_SERIAL_SESSION;
 	rc = funcs->C_OpenSession( slot_id, flags, NULL, NULL, &session );
@@ -1062,7 +1064,7 @@ CK_RV do_GenerateKey( void )
 	}
 
 
-	// 5) generate a DES key from a RO PUBLIC session.  specify a template
+	// 5) generate a AES key from a RO PUBLIC session.  specify a template
 	//    to indicate this is a public object
 	//
 	{
@@ -1092,7 +1094,7 @@ CK_RV do_GenerateKey( void )
 	}
 
 
-	// 6) generate a DES key from a RW PUBLIC session.  specify a template
+	// 6) generate a AES key from a RW PUBLIC session.  specify a template
 	//    to indicate this is a public object
 	//
 	{
@@ -1122,7 +1124,7 @@ CK_RV do_GenerateKey( void )
 	}
 
 
-	// 7) generate a DES key from a RW USER session.  specify a template
+	// 7) generate a AES key from a RW USER session.  specify a template
 	//    to that specifies the wrong CKA_CLASS
 	//
 	{
@@ -1160,7 +1162,7 @@ CK_RV do_GenerateKey( void )
 	}
 
 
-	// 8) generate a DES key from a RW USER session.  specify a template
+	// 8) generate a AES key from a RW USER session.  specify a template
 	//    to that specifies the correct CKA_CLASS
 	//
 	{
@@ -1197,7 +1199,7 @@ CK_RV do_GenerateKey( void )
 	}
 
 
-	// 9) generate a DES key from a RW USER session.  specify a template
+	// 9) generate a AES key from a RW USER session.  specify a template
 	//    to that specifies the wrong CKA_KEY_TYPE
 	//
 	{
@@ -1235,7 +1237,7 @@ CK_RV do_GenerateKey( void )
 	}
 
 
-	// 10) generate a DES key from a RW USER session.  specify a template
+	// 10) generate a AES key from a RW USER session.  specify a template
 	//     to that specifies the correct CKA_KEY_TYPE
 	//
 	{
@@ -1367,24 +1369,30 @@ do_ExtractableSensitiveTest()
 	mech.ulParameterLen = 0;
 	mech.pParameter     = NULL;
 
-	rc |= test_ExtractableAndSensitive(session, &mech, sens_tmpl, 1, "Sensitive DES key");
-	rc |= test_ExtractableAndSensitive(session, &mech, ext_tmpl, 1, "Extractable DES key");
+	if (mech_supported(slot_id, mech.mechanism)) {
+		rc |= test_ExtractableAndSensitive(session, &mech, sens_tmpl, 1, "Sensitive DES key");
+		rc |= test_ExtractableAndSensitive(session, &mech, ext_tmpl, 1, "Extractable DES key");
+	}
 
 	/* TEST 2: 3DES key */
 	mech.mechanism      = CKM_DES3_KEY_GEN;
 	mech.ulParameterLen = 0;
 	mech.pParameter     = NULL;
 
-	rc |= test_ExtractableAndSensitive(session, &mech, sens_tmpl, 1, "Sensitive 3DES key");
-	rc |= test_ExtractableAndSensitive(session, &mech, ext_tmpl, 1, "Extractable 3DES key");
+	if (mech_supported(slot_id, mech.mechanism)) {
+		rc |= test_ExtractableAndSensitive(session, &mech, sens_tmpl, 1, "Sensitive 3DES key");
+		rc |= test_ExtractableAndSensitive(session, &mech, ext_tmpl, 1, "Extractable 3DES key");
+	}
 
 	/* TEST 3: SSLv3 key */
 	mech.mechanism      = CKM_SSL3_PRE_MASTER_KEY_GEN;
 	mech.ulParameterLen = sizeof(CK_VERSION);
 	mech.pParameter     = &version;
 
-	rc |= test_ExtractableAndSensitive(session, &mech, sens_tmpl, 1, "Sensitive SSLv3 key");
-	rc |= test_ExtractableAndSensitive(session, &mech, ext_tmpl, 1, "Extractable SSLv3 key");
+	if (mech_supported(slot_id, mech.mechanism)) {
+		rc |= test_ExtractableAndSensitive(session, &mech, sens_tmpl, 1, "Sensitive SSLv3 key");
+		rc |= test_ExtractableAndSensitive(session, &mech, ext_tmpl, 1, "Extractable SSLv3 key");
+	}
 
 	/* TEST 4: AES 128 key */
 	mech.mechanism      = CKM_AES_KEY_GEN;

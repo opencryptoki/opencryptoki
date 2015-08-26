@@ -53,7 +53,9 @@ int create_des_encrypt_context(CK_SESSION_HANDLE_PTR hsess, CK_OBJECT_HANDLE_PTR
 	CK_SLOT_ID        slot_id;
 	CK_FLAGS          flags;
 	CK_RV             rc;
-        CK_MECHANISM      mech;
+	CK_MECHANISM      mech;
+	CK_ULONG          key_len = 16;
+	CK_ATTRIBUTE      tkey = {CKA_VALUE_LEN, &key_len, sizeof(CK_ULONG)};
 
 	/* create session */
 	slot_id = SLOT_ID;
@@ -66,20 +68,20 @@ int create_des_encrypt_context(CK_SESSION_HANDLE_PTR hsess, CK_OBJECT_HANDLE_PTR
 	}
 
 	/* generate key in this specific session */
-	mech.mechanism = CKM_DES_KEY_GEN;
+	mech.mechanism = CKM_AES_KEY_GEN;
 	mech.ulParameterLen = 0;
 	mech.pParameter = NULL;
 
-        rc = funcs->C_GenerateKey(*hsess, &mech, NULL, 0, hkey);
+	rc = funcs->C_GenerateKey(*hsess, &mech, &tkey, 1, hkey);
 	if (rc != CKR_OK) {
 		show_error("   C_GenerateKey #1", rc);
 		return FALSE;
 	}
 
 	/* Get Random for Initialization Vector */
-	mech.mechanism = CKM_DES_CBC;
-	mech.ulParameterLen = 8;
-        mech.pParameter = "12345678";
+	mech.mechanism = CKM_AES_CBC;
+	mech.ulParameterLen = 16;
+	mech.pParameter = "1234567890123456";
 
 	/* Create encryption context using this session and key */
 	rc = funcs->C_EncryptInit(*hsess, &mech, *hkey);
@@ -91,16 +93,18 @@ int create_des_encrypt_context(CK_SESSION_HANDLE_PTR hsess, CK_OBJECT_HANDLE_PTR
 	return TRUE;
 }
 
-int encrypt_DATA(CK_SESSION_HANDLE hsess, CK_OBJECT_HANDLE hkey, CK_ULONG blocklen) {
-	CK_RV             rc;
-       CK_ULONG          outlen = 8;
-        unsigned long int i;
+int encrypt_DATA(CK_SESSION_HANDLE hsess, CK_OBJECT_HANDLE hkey,
+		 CK_ULONG blocklen)
+{
+	CK_RV rc;
+	CK_ULONG outlen = 8;
+	unsigned long int i;
 
 	for (i = 0; i < DATALEN; i+=outlen) {
 		rc = funcs->C_EncryptUpdate(hsess, (CK_BYTE_PTR)(DATA + i) , blocklen,
 					    (CK_BYTE_PTR)(DUMP + i), &outlen);
 		if (rc != CKR_OK) {
-			show_error("   C_Encrypt #1", rc);
+			show_error("C_Encrypt #1", rc);
 			return FALSE;
 		}
 	}
@@ -116,13 +120,13 @@ int finalize_des_encrypt_context(CK_SESSION_HANDLE hsess)
 
 	rc = funcs->C_EncryptFinal(hsess, DUMP, &outlen);
 	if (rc != CKR_OK) {
-		show_error("   C_EncryptFinal#1", rc);
+		show_error("C_EncryptFinal#1", rc);
 		return FALSE;
 	}
 
 	rc = funcs->C_CloseSession(hsess);
 	if (rc != CKR_OK) {
-		show_error("   C_CloseSession #1", rc );
+		show_error("C_CloseSession #1", rc );
 		return FALSE;
 	}
 
@@ -140,7 +144,7 @@ int close_all_sess( void )
 
 	rc = funcs->C_CloseAllSessions( slot_id );
 	if (rc != CKR_OK) {
-		show_error("   C_CloseAllSessions #1", rc );
+		show_error("C_CloseAllSessions #1", rc );
 		return FALSE;
 	}
 
@@ -154,13 +158,13 @@ int do_SessionPerformance(unsigned int count)
 	context_table_t   *t = NULL;
 
 	if (count == 0) {
-		show_error("   do_SessionPerformance: zero session count", (CK_RV)0);
+		show_error("do_SessionPerformance: zero session count", (CK_RV)0);
 		return FALSE;
 	}
 
 	t = (context_table_t *) calloc(count, sizeof(context_table_t));
 	if (t == NULL) {
-		show_error("    do_SessionPerformance: insuficient memory", (CK_RV)0);
+		show_error("do_SessionPerformance: insuficient memory", (CK_RV)0);
 		return FALSE;
 	}
 
@@ -168,23 +172,23 @@ int do_SessionPerformance(unsigned int count)
 	for (i = 0; i < count; i++) {
 		rc = create_des_encrypt_context(&(t[i].hsess), &(t[i].hkey));
 		if (rc == FALSE) {
-			show_error("    create_des_encrypt_context", (CK_RV)0);
+			show_error("create_aes_encrypt_context", (CK_RV)0);
 			return FALSE;
 		}
 	}
 
         /* Time encrypt operation in the first and last session */
 	GetSystemTime(&t1);
-	rc = encrypt_DATA(t[0].hsess, t[0].hkey, 8);
+	rc = encrypt_DATA(t[0].hsess, t[0].hkey, 16);
 	if (rc == FALSE) {
-		show_error("   encrypt_DATA #1", (CK_RV)0);
+		show_error("encrypt_DATA #1", (CK_RV)0);
 		return FALSE;
 
 	}
 
-	rc = encrypt_DATA(t[count - 1].hsess, t[count - 1].hkey, 8);
+	rc = encrypt_DATA(t[count - 1].hsess, t[count - 1].hkey, 16);
 	if (rc == FALSE) {
-		show_error("   encrypt_DATA #2", (CK_RV)0);
+		show_error("encrypt_DATA #2", (CK_RV)0);
 		return FALSE;
 
 	}
@@ -194,7 +198,7 @@ int do_SessionPerformance(unsigned int count)
 	for (i = 0; i < count; i++) {
 		rc = finalize_des_encrypt_context(t[i].hsess);
 		if (rc == FALSE) {
-			show_error("    finalize_des_encrypt_context", (CK_RV)0);
+			show_error("finalize_aes_encrypt_context", (CK_RV)0);
 			return FALSE;
 		}
 	}

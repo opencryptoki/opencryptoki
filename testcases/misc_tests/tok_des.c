@@ -79,7 +79,8 @@ do_VerifyTokenSymKey(CK_SESSION_HANDLE sess, CK_BYTE *label)
 
 		/* The public exponent is element 0 and modulus is element 1 */
 		if (tmpl[0].ulValueLen > 256 || tmpl[0].ulValueLen < 8) {
-			PRINT_ERR("secret key value (%lu) OOB!", tmpl[1].ulValueLen);
+			PRINT_ERR("secret key value (%lu) OOB!",
+				  tmpl[0].ulValueLen);
 			return CKR_FUNCTION_FAILED;
 		}
 
