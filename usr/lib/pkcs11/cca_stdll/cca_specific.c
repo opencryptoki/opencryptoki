@@ -199,7 +199,7 @@ CK_RV cca_key_gen(enum cca_key_type type, CK_BYTE *key, unsigned char *key_form,
 			memcpy(key_length, "KEYLN24 ", (size_t)CCA_KEYWORD_SIZE);
 			break;
 		default:
-			TRACE_ERROR("Invalid key length: %lu", key_size);
+			TRACE_ERROR("Invalid key length: %lu\n", key_size);
 			return CKR_KEY_SIZE_RANGE;
 		}
 	} else if (type == CCA_AES_KEY) {
@@ -214,7 +214,7 @@ CK_RV cca_key_gen(enum cca_key_type type, CK_BYTE *key, unsigned char *key_form,
 			memcpy(key_length, "        ", (size_t)CCA_KEYWORD_SIZE);
 			break;
 		default:
-			TRACE_ERROR("Invalid key length: %lu", key_size);
+			TRACE_ERROR("Invalid key length: %lu\n", key_size);
 			return CKR_KEY_SIZE_RANGE;
 		}
 	} else {
@@ -272,7 +272,7 @@ token_specific_des_ecb(CK_BYTE  *in_data,
 		       OBJECT   *key,
 		       CK_BYTE   encrypt)
 {
-	TRACE_INFO("Unsupported function reached.");
+	TRACE_INFO("Unsupported function reached.\n");
 	return CKR_FUNCTION_NOT_SUPPORTED;
 }
 
@@ -309,7 +309,7 @@ token_specific_des_cbc(CK_BYTE  *in_data,
 	if (*out_data_len < (in_data_len + 8)) {
 		local_out = malloc(in_data_len + 8);
 		if (!local_out) {
-			TRACE_ERROR("Malloc of %lu bytes failed.",
+			TRACE_ERROR("Malloc of %lu bytes failed.\n",
 				    in_data_len + 8);
 			return CKR_HOST_MEMORY;
 		}
@@ -375,7 +375,7 @@ token_specific_des_cbc(CK_BYTE  *in_data,
 	 */
 	if ((local_out != out_data) && ((CK_ULONG)length > *out_data_len)) {
 		TRACE_DEVEL("CKR_BUFFER_TOO_SMALL: %ld bytes to write into %ld "
-			    "bytes space", length, *out_data_len);
+			    "bytes space\n", length, *out_data_len);
 		TRACE_ERROR("%s\n", ock_err(ERR_BUFFER_TOO_SMALL));
 		free(local_out);
 		return CKR_BUFFER_TOO_SMALL;
@@ -397,7 +397,7 @@ token_specific_tdes_ecb(CK_BYTE  *in_data,
 			OBJECT   *key,
 			CK_BYTE   encrypt)
 {
-	TRACE_WARNING("Unsupported function reached.");
+	TRACE_WARNING("Unsupported function reached.\n");
 	return CKR_FUNCTION_NOT_SUPPORTED;
 }
 
@@ -433,7 +433,7 @@ cca_inttok_privkey_get_n(CK_BYTE *tok, CK_ULONG *n_len, CK_BYTE *n)
 	n_length = *(uint16_t *)&tok[CCA_RSA_INTTOK_PRIVKEY_N_LENGTH_OFFSET];
 
 	if (n_length > (*n_len)) {
-		TRACE_ERROR("Not enough room to return n. (Got %lu, need %hu)",
+		TRACE_ERROR("Not enough room to return n.(Got %lu, need %hu)\n",
 			    *n_len, n_length);
 		return CKR_FUNCTION_FAILED;
 	}
@@ -455,7 +455,7 @@ cca_inttok_pubkey_get_e(CK_BYTE *tok, CK_ULONG *e_len, CK_BYTE *e)
 	e_length = *(uint16_t *)&tok[CCA_RSA_INTTOK_PUBKEY_E_LENGTH_OFFSET];
 
 	if (e_length > (*e_len)) {
-		TRACE_ERROR("Not enough room to return e. (Got %lu, need %hu)",
+		TRACE_ERROR("Not enough room to return e.(Got %lu, need %hu)\n",
 			    *e_len, e_length);
 		return CKR_FUNCTION_FAILED;
 	}
@@ -481,33 +481,34 @@ token_create_keypair_object(TEMPLATE *tmpl, CK_ULONG tok_len, CK_BYTE *tok)
 	/* That's right, n is stored in the private key area. Get it there */
 	if ((rv = cca_inttok_privkey_get_n(&tok[CCA_RSA_INTTOK_PRIVKEY_OFFSET],
 					   &n_len, n))) {
-		TRACE_DEVEL("cca_inttok_privkey_get_n() failed. rv=0x%lx", rv);
+		TRACE_DEVEL("cca_inttok_privkey_get_n() failed. rv=0x%lx\n",
+			    rv);
 		return rv;
 	}
 
 	/* Get e */
 	if ((rv = cca_inttok_pubkey_get_e(&tok[pubkey_offset], &e_len, e))) {
-		TRACE_DEVEL("cca_inttok_pubkey_get_e() failed. rv=0x%lx", rv);
+		TRACE_DEVEL("cca_inttok_pubkey_get_e() failed. rv=0x%lx\n", rv);
 		return rv;
 	}
 
 	/* Add n's value to the template */
 	if ((rv = build_attribute(CKA_MODULUS, n, n_len, &modulus))) {
-		TRACE_DEVEL("build_attribute for n failed. rv=0x%lx", rv);
+		TRACE_DEVEL("build_attribute for n failed. rv=0x%lx\n", rv);
 		return rv;
 	}
 	template_update_attribute(tmpl, modulus);
 
 	/* Add e's value to the template */
 	if ((rv = build_attribute(CKA_PUBLIC_EXPONENT, e, e_len, &pub_exp))) {
-		TRACE_DEVEL("build_attribute for e failed. rv=0x%lx", rv);
+		TRACE_DEVEL("build_attribute for e failed. rv=0x%lx\n", rv);
 		return rv;
 	}
 	template_update_attribute(tmpl, pub_exp);
 
 	/* Add the opaque key object to the template */
 	if ((rv = build_attribute(CKA_IBM_OPAQUE, tok, tok_len, &opaque_key))) {
-		TRACE_DEVEL("build_attribute for opaque key failed. rv=0x%lx",
+		TRACE_DEVEL("build_attribute for opaque key failed. rv=0x%lx\n",
 			     rv);
 		return rv;
 	}
@@ -711,15 +712,14 @@ token_specific_rsa_generate_keypair(TEMPLATE *publ_tmpl,
 	rv = token_create_keypair_object(publ_tmpl, generated_key_token_length,
 					 generated_key_token);
 	if (rv != CKR_OK) {
-		TRACE_DEVEL("token_create_keypair_object failed. rv: %lu", rv);
+		TRACE_DEVEL("token_create_keypair_object failed. rv:%lu\n", rv);
 		return rv;
 	}
 
 	rv = token_create_keypair_object(priv_tmpl, generated_key_token_length,
 					 generated_key_token);
 	if (rv != CKR_OK)
-		TRACE_DEVEL("token_create_keypair_object failed. rv: %lu", rv);
-
+		TRACE_DEVEL("token_create_keypair_object failed. rv:%lu\n", rv);
 	return rv;
 }
 
@@ -960,7 +960,7 @@ token_specific_aes_key_gen(CK_BYTE *aes_key, CK_ULONG len, CK_ULONG key_size)
 			memcpy(rule_array + 3*CCA_KEYWORD_SIZE, "KEYLN32 ", (size_t)CCA_KEYWORD_SIZE);
 			break;
 		default:
-			TRACE_ERROR("Invalid key length: %lu", key_size);
+			TRACE_ERROR("Invalid key length: %lu\n", key_size);
 			return CKR_KEY_SIZE_RANGE;
 	}
 #ifdef DEBUG
@@ -1243,7 +1243,7 @@ token_specific_dh_pkcs_derive(CK_BYTE  *z,
 			      CK_BYTE  *p,
 			      CK_ULONG  p_len)
 {
-	TRACE_DEVEL("Unsupported function reached.");
+	TRACE_DEVEL("Unsupported function reached.\n");
 	return CKR_FUNCTION_NOT_SUPPORTED;
 }
 
@@ -1251,7 +1251,7 @@ CK_RV
 token_specific_dh_pkcs_key_pair_gen(TEMPLATE *publ_tmpl,
 				    TEMPLATE *priv_tmpl )
 {
-	TRACE_DEVEL("Unsupported function reached.");
+	TRACE_DEVEL("Unsupported function reached.\n");
 	return CKR_FUNCTION_NOT_SUPPORTED;
 }
 /* End code contributed by Corrent corp. */
@@ -1325,7 +1325,7 @@ cca_ec_privkey_offset(CK_BYTE *tok)
 	if ((memcmp(&privkey_rec, &privkey_id, sizeof(uint8_t)) == 0)) {
 		return CCA_EC_HEADER_SIZE;
 	}
-	TRACE_WARNING("+++++++++ Token key private section is CORRUPTED");
+	TRACE_WARNING("+++++++++ Token key private section is CORRUPTED\n");
 	return CCA_EC_HEADER_SIZE;
 }
 
@@ -1341,7 +1341,7 @@ cca_ec_publkey_offset(CK_BYTE *tok)
 	if ((memcmp(&publkey_rec, &publkey_id, sizeof(uint8_t)) == 0)) {
 		return (priv_offset + privSec_len);
 	}
-	TRACE_WARNING("++++++++ Token key public section is CORRUPTED");
+	TRACE_WARNING("++++++++ Token key public section is CORRUPTED\n");
 	return (priv_offset + privSec_len);
 }
 
@@ -1547,7 +1547,7 @@ token_specific_ec_generate_keypair(TEMPLATE *publ_tmpl,
 	rv = token_create_ec_keypair(publ_tmpl, priv_tmpl,
 			generated_key_token_length, generated_key_token);
 	if (rv != CKR_OK) {
-		TRACE_DEVEL("token_create_ec_keypair failed. rv: %lu", rv);
+		TRACE_DEVEL("token_create_ec_keypair failed. rv: %lu\n", rv);
 		return rv;
 	}
 
@@ -2498,50 +2498,50 @@ static CK_RV rsa_import_privkey_crt(TEMPLATE *priv_tmpl)
 
 	/* Look for parameters to set key in the CRT format */
 	if (!template_attribute_find(priv_tmpl, CKA_PRIME_1, &p_prime)) {
-		TRACE_ERROR("CKA_PRIME_1 attribute missing for CRT.");
+		TRACE_ERROR("CKA_PRIME_1 attribute missing for CRT.\n");
 		return CKR_TEMPLATE_INCOMPLETE;
 	}
 	total += p_prime->ulValueLen;
 
 	if (!template_attribute_find(priv_tmpl, CKA_PRIME_2, &q_prime)) {
-		TRACE_ERROR("CKA_PRIME_2 attribute missing for CRT.");
+		TRACE_ERROR("CKA_PRIME_2 attribute missing for CRT.\n");
 		return CKR_TEMPLATE_INCOMPLETE;
 	}
 	total += q_prime->ulValueLen;
 
 	if (!template_attribute_find(priv_tmpl, CKA_EXPONENT_1, &dmp1)) {
-		TRACE_ERROR("CKA_EXPONENT_1 attribute missing for CRT.");
+		TRACE_ERROR("CKA_EXPONENT_1 attribute missing for CRT.\n");
 		return CKR_TEMPLATE_INCOMPLETE;
 	}
 	total += dmp1->ulValueLen;
 
 	if (!template_attribute_find(priv_tmpl, CKA_EXPONENT_2, &dmq1)) {
-		TRACE_ERROR("CKA_EXPONENT_2 attribute missing for CRT.");
+		TRACE_ERROR("CKA_EXPONENT_2 attribute missing for CRT.\n");
 		return CKR_TEMPLATE_INCOMPLETE;
 	}
 	total += dmq1->ulValueLen;
 
 	if (!template_attribute_find(priv_tmpl, CKA_COEFFICIENT, &iqmp)) {
-		TRACE_ERROR("CKA_COEFFICIENT attribute missing for CRT.");
+		TRACE_ERROR("CKA_COEFFICIENT attribute missing for CRT.\n");
 		return CKR_TEMPLATE_INCOMPLETE;
 	}
 	total += iqmp->ulValueLen;
 
 	if (!template_attribute_find(priv_tmpl, CKA_PUBLIC_EXPONENT, &pub_exp)) {
-		TRACE_ERROR("CKA_PUBLIC_EXPONENT attribute missing for CRT.");
+		TRACE_ERROR("CKA_PUBLIC_EXPONENT attribute missing for CRT.\n");
 		return CKR_TEMPLATE_INCOMPLETE;
 	}
 	total += pub_exp->ulValueLen;
 
 	if (!template_attribute_find(priv_tmpl, CKA_MODULUS, &mod)) {
-		TRACE_ERROR("CKA_MODULUS attribute missing for CRT.");
+		TRACE_ERROR("CKA_MODULUS attribute missing for CRT.\n");
 		return CKR_TEMPLATE_INCOMPLETE;
 	}
 	total += mod->ulValueLen;
 
 	/* check total length does not exceed key_value_structure_length */
 	if ((total + 18) > key_value_structure_length) {
-		TRACE_ERROR("total length of key exceeds CCA_KEY_VALUE_STRUCT_SIZE.");
+		TRACE_ERROR("total length of key exceeds CCA_KEY_VALUE_STRUCT_SIZE.\n");
 		return CKR_KEY_SIZE_RANGE;
 	}
 
@@ -2700,23 +2700,23 @@ static CK_RV rsa_import_pubkey(TEMPLATE *publ_tmpl)
 
 	/* check that modulus and public exponent are available */
 	if (!template_attribute_find(publ_tmpl, CKA_PUBLIC_EXPONENT, &pub_exp)){
-		TRACE_ERROR("CKA_PUBLIC_EXPONENT attribute missing.");
+		TRACE_ERROR("CKA_PUBLIC_EXPONENT attribute missing.\n");
 		return CKR_TEMPLATE_INCOMPLETE;
 	}
 
 	if (!template_attribute_find(publ_tmpl, CKA_MODULUS, &pub_mod)) {
-		TRACE_ERROR("CKA_MODULUS attribute missing." );
+		TRACE_ERROR("CKA_MODULUS attribute missing.\n" );
 		return CKR_TEMPLATE_INCOMPLETE;
 	}
 
 	if (!template_attribute_find(publ_tmpl, CKA_MODULUS_BITS, &attr)) {
-		TRACE_ERROR("CKA_MODULUS_BITS attribute missing.");
+		TRACE_ERROR("CKA_MODULUS_BITS attribute missing.\n");
 		return CKR_TEMPLATE_INCOMPLETE;
 	}
 
 	/* check total length does not exceed key_value_structure_length */
 	if ((pub_mod->ulValueLen + 8) > key_value_structure_length) {
-		TRACE_ERROR("total length of key exceeds CCA_KEY_VALUE_STRUCT_SIZE.");
+		TRACE_ERROR("total length of key exceeds CCA_KEY_VALUE_STRUCT_SIZE.\n");
 		return CKR_KEY_SIZE_RANGE;
 	}
 
@@ -2955,7 +2955,7 @@ CK_RV token_specific_object_add(OBJECT *object)
 	rc = template_attribute_find(object->template, CKA_KEY_TYPE, &attr);
 	if (rc == FALSE) {
 		// not a key, so nothing to do. Just return.
-		TRACE_DEVEL("object not a key, no need to import.");
+		TRACE_DEVEL("object not a key, no need to import.\n");
 		return CKR_OK;
 	}
 
