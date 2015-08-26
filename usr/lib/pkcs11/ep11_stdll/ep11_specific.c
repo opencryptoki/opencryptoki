@@ -978,13 +978,24 @@ static const char* ep11_get_ckm(CK_ULONG mechanism)
 	case CKM_SHA224_HMAC: return "CKM_SHA224_HMAC";
 	case CKM_SHA384_KEY_DERIVATION: return "CKM_SHA384_KEY_DERIVATION";
 	case CKM_SHA512_KEY_DERIVATION: return "CKM_SHA512_KEY_DERIVATION";
-	case CKM_VENDOR_DEFINED + 0x20007: return "CKM_IBM_ECDH1_DERIVE_RAW";
-	case CKR_VENDOR_DEFINED + 0x1000c: return "CKM_IBM_EC_MULTIPLY";
-	case CKM_VENDOR_DEFINED + 0x20006: return "CKM_IBM_DH_PKCS_DERIVE_RAW";
-	case CKM_VENDOR_DEFINED + 0x20004: return "CKM_IBM_ATTRIBUTEBOUND_WRAP";
-	case CKM_VENDOR_DEFINED + 0x1000d: return "CKM_IBM_EAC";
-	case CKM_VENDOR_DEFINED + 0x40001: return "CKM_IBM_RETAINKEY";
 	case CKM_VENDOR_DEFINED + 0x10007: return "CKA_IBM_MACKEY";
+	case CKM_VENDOR_DEFINED + 0x10008: return "CKM_IBM_ECDSA_SHA224";
+	case CKM_VENDOR_DEFINED + 0x10009: return "CKM_IBM_ECDSA_SHA256";
+	case CKM_VENDOR_DEFINED + 0x1000a: return "CKM_IBM_ECDSA_SHA384";
+	case CKM_VENDOR_DEFINED + 0x1000b: return "CKM_IBM_ECDSA_SHA512";
+	case CKR_VENDOR_DEFINED + 0x1000c: return "CKM_IBM_EC_MULTIPLY";
+	case CKM_VENDOR_DEFINED + 0x1000d: return "CKM_IBM_EAC";
+	case CKM_VENDOR_DEFINED + 0x10012: return "CKM_IBM_SHA512_256";
+	case CKM_VENDOR_DEFINED + 0x10013: return "CKM_IBM_SHA512_224";
+	case CKM_VENDOR_DEFINED + 0x10014: return "CKM_IBM_SHA512_256_HMAC";
+	case CKM_VENDOR_DEFINED + 0x10015: return "CKM_IBM_SHA512_224_HMAC";
+	case CKM_VENDOR_DEFINED + 0x10016: return "CKM_IBM_SHA512_256_KEY_DERIVATION";
+	case CKM_VENDOR_DEFINED + 0x10017: return "CKM_IBM_SHA512_224_KEY_DERIVATION";
+	case CKM_VENDOR_DEFINED + 0x20004: return "CKM_IBM_ATTRIBUTEBOUND_WRAP";
+	case CKM_VENDOR_DEFINED + 0x20005: return "CKM_IBM_TRANSPORTKEY";
+	case CKM_VENDOR_DEFINED + 0x20006: return "CKM_IBM_DH_PKCS_DERIVE_RAW";
+	case CKM_VENDOR_DEFINED + 0x20007: return "CKM_IBM_ECDH1_DERIVE_RAW";
+	case CKM_VENDOR_DEFINED + 0x40001: return "CKM_IBM_RETAINKEY";
 	default:
 		TRACE_WARNING("%s unknown mechanism %lx\n", __func__, mechanism);
 		return "UNKNOWN";
@@ -1537,6 +1548,9 @@ token_specific_object_add(OBJECT *obj)
 				    new_op.blob_size);
 			return CKR_FUNCTION_FAILED;
 		}
+
+		/* clear value attribute */
+		memset(attr->pValue, 0, attr->ulValueLen);
 
 		TRACE_INFO("%s rawkey_2_blob rc=0x%lx blob_size=0x%zx\n",
 			   __func__, rc, new_op.blob_size);
