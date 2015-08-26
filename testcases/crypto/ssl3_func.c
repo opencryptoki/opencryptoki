@@ -688,7 +688,10 @@ int main(int argc, char **argv)
 
 	}
 
+	testcase_setup(0);
+
 	rv = ssl3_functions();
+
 	testcase_print_result();
 
 	/* make sure we return non-zero if rv is non-zero */

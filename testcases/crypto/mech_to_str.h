@@ -94,6 +94,12 @@ mech_to_str(CK_ULONG mech)
 		return "CKM_DES_MAC_GENERAL";
 	if (mech == CKM_DES_CBC_PAD)
 		return "CKM_DES_CBC_PAD";
+	if (mech == CKM_DES_OFB64)
+		return "CKM_DES_OFB64";
+	if (mech == CKM_DES_CFB64)
+		return "CKM_DES_CFB64";
+	if (mech == CKM_DES_CFB8)
+		return "CKM_DES_CFB8";
 	if (mech == CKM_DES2_KEY_GEN)
 		return "CKM_DES2_KEY_GEN";
 	if (mech == CKM_DES3_KEY_GEN)
@@ -400,6 +406,14 @@ mech_to_str(CK_ULONG mech)
 		return "CKM_AES_CBC_PAD";
 	if (mech == CKM_AES_CTR)
 		return "CKM_AES_CTR";
+	if (mech == CKM_AES_OFB)
+		return "CKM_AES_OFB";
+	if (mech == CKM_AES_CFB128)
+		return "CKM_AES_CFB128";
+	if (mech == CKM_AES_CFB64)
+		return "CKM_AES_CFB64";
+	if (mech == CKM_AES_CFB8)
+		return "CKM_AES_CFB8";
 	if (mech == CKM_DSA_PARAMETER_GEN)
 		return "CKM_DSA_PARAMETER_GEN";
 	if (mech == CKM_DH_PKCS_PARAMETER_GEN)

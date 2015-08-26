@@ -1750,31 +1750,25 @@ testcase_cleanup:
 }
 
 CK_RV aes_funcs() {
-	int i, generate_key;
+	int i;
 	CK_RV rv = CKR_OK;
 
-	generate_key = securekey; // true if mech requires secure key
-				  // generate keys and skip published tests
-
 	for (i = 0; i < NUM_OF_PUBLISHED_TESTSUITES; i++) {
-		if (!generate_key) {
-			rv = do_EncryptAES(&published_test_suites[i]);
-			if (rv != CKR_OK && (!no_stop))
-				break;
+		rv = do_EncryptAES(&published_test_suites[i]);
+		if (rv != CKR_OK && (!no_stop))
+			break;
 
-			rv = do_DecryptAES(&published_test_suites[i]);
-			if (rv != CKR_OK && (!no_stop))
-				break;
+		rv = do_DecryptAES(&published_test_suites[i]);
+		if (rv != CKR_OK && (!no_stop))
+			break;
 
-			rv = do_EncryptUpdateAES(&published_test_suites[i]);
-			if (rv != CKR_OK && (!no_stop))
-				break;
+		rv = do_EncryptUpdateAES(&published_test_suites[i]);
+		if (rv != CKR_OK && (!no_stop))
+			break;
 
-			rv = do_DecryptUpdateAES(&published_test_suites[i]);
-			if (rv != CKR_OK && (!no_stop))
-				break;
-		}
-
+		rv = do_DecryptUpdateAES(&published_test_suites[i]);
+		if (rv != CKR_OK && (!no_stop))
+			break;
 	}
 
 	for (i = 0; i < NUM_OF_GENERATED_TESTSUITES; i++) {
@@ -1793,7 +1787,6 @@ CK_RV aes_funcs() {
 		rv = do_WrapUnwrapRSA(&generated_test_suites[i]);
 		if (rv != CKR_OK && (!no_stop))
 			break;
-
 	}
 
 	/***** Error scenarios *****/
@@ -1822,7 +1815,6 @@ int main  (int argc, char **argv) {
 
 	printf("Using slot #%lu...\n\n", SLOT_ID );
 	printf("With option: nostop: %d\n", no_stop);
-	printf("With option: securekey: %d\n", securekey);
 
 	rc = do_GetFunctionList();
 	if (!rc) {

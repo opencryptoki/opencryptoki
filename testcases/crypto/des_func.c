@@ -1142,30 +1142,26 @@ testcase_cleanup:
 }
 
 CK_RV des_funcs() {
-	int i, generate_key;
+	int i;
 	CK_RV rv;
-
-	generate_key = securekey;
 
 	/** published (known answer) tests **/
 	for (i = 0; i < NUM_OF_PUBLISHED_TESTSUITES; i++) {
-		if (!generate_key) {
-			rv = do_EncryptDES(&published_test_suites[i]);
-			if (rv != CKR_OK && (!no_stop))
-				break;
+		rv = do_EncryptDES(&published_test_suites[i]);
+		if (rv != CKR_OK && (!no_stop))
+			break;
 
-			rv = do_DecryptDES(&published_test_suites[i]);
-			if (rv != CKR_OK && (!no_stop))
-				break;
+		rv = do_DecryptDES(&published_test_suites[i]);
+		if (rv != CKR_OK && (!no_stop))
+			break;
 
-			rv = do_EncryptUpdateDES(&published_test_suites[i]);
-			if (rv != CKR_OK && (!no_stop))
-				break;
+		rv = do_EncryptUpdateDES(&published_test_suites[i]);
+		if (rv != CKR_OK && (!no_stop))
+			break;
 
-			rv = do_DecryptUpdateDES(&published_test_suites[i]);
-			if (rv != CKR_OK && (!no_stop))
-				break;
-		}
+		rv = do_DecryptUpdateDES(&published_test_suites[i]);
+		if (rv != CKR_OK && (!no_stop))
+			break;
 	}
 
 	/** generated tests **/
@@ -1182,7 +1178,6 @@ CK_RV des_funcs() {
 	}
 
 	return rv;
-
 }
 
 int main  (int argc, char **argv){

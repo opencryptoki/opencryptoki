@@ -1151,31 +1151,26 @@ testcase_cleanup:
 }
 
 CK_RV des3_funcs() {
-	int i, generate_key;
+	int i;
 	CK_RV rv;
-
-	generate_key = securekey;  // true if slot requires generated
-					// (secure) keys
 
 	/** published (known answer) tests **/
 	for (i = 0; i < NUM_OF_PUBLISHED_TESTSUITES; i++) {
-		if (!generate_key) {
-			rv = do_EncryptDES3(&published_test_suites[i]);
-			if (rv != CKR_OK && (!no_stop))
-				break;
+		rv = do_EncryptDES3(&published_test_suites[i]);
+		if (rv != CKR_OK && (!no_stop))
+			break;
 
-			rv = do_DecryptDES3(&published_test_suites[i]);
-			if (rv != CKR_OK && (!no_stop))
-				break;
+		rv = do_DecryptDES3(&published_test_suites[i]);
+		if (rv != CKR_OK && (!no_stop))
+			break;
 
-			rv = do_EncryptUpdateDES3(&published_test_suites[i]);
-			if (rv != CKR_OK && (!no_stop))
-				break;
+		rv = do_EncryptUpdateDES3(&published_test_suites[i]);
+		if (rv != CKR_OK && (!no_stop))
+			break;
 
-			rv = do_DecryptUpdateDES3(&published_test_suites[i]);
-			if (rv != CKR_OK && (!no_stop))
-				break;
-		}
+		rv = do_DecryptUpdateDES3(&published_test_suites[i]);
+		if (rv != CKR_OK && (!no_stop))
+			break;
 	}
 
 	/** generated key tests **/

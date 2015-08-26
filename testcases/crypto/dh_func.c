@@ -307,6 +307,7 @@
 
 #include "pkcs11types.h"
 #include "regress.h"
+#include "common.c"
 
 
 // These values were obtained from IPsec second oakley group.
@@ -730,8 +731,12 @@ int main(int argc, char **argv)
 
 	}
 
+	testcase_setup(0);
+
 	rv = dh_functions();
+
+	testcase_print_result();
+
 	/* make sure we return non-zero if rv is non-zero */
 	return ((rv==0) || (rv % 256) ? rv : -1);
 }
-

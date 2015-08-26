@@ -232,7 +232,6 @@ testcase_cleanup:
 // keylength: 512, 1024, 2048, 4096
 int do_RSA_KeyGen(int keylength)
 {
-	CK_SLOT_ID slot_id;
 	CK_SESSION_HANDLE session;
 	CK_MECHANISM mech;
 	CK_FLAGS flags;
@@ -251,8 +250,6 @@ int do_RSA_KeyGen(int keylength)
 			{CKA_PUBLIC_EXPONENT, &pub_exp, sizeof(pub_exp)}};
 
 	testcase_begin("RSA KeyGen with keylen=%d", keylength);
-
-	slot_id = SLOT_ID;
 
 	testcase_rw_session();
 	testcase_user_login();

@@ -58,8 +58,6 @@ int do_create_token_object( void )
    CK_FLAGS          flags;
    CK_SESSION_HANDLE h_session;
    CK_RV             rc;
-   CK_BYTE           user_pin[PKCS11_MAX_PIN_LEN];
-   CK_ULONG          user_pin_len;
 
    CK_BYTE           true  = TRUE;
    CK_BYTE           false = FALSE;
@@ -80,12 +78,6 @@ int do_create_token_object( void )
        {CKA_PRIVATE,          &true,              sizeof(false)         }
    };
 
-
-
-   if (get_user_pin(user_pin))
-	   return CKR_FUNCTION_FAILED;
-   user_pin_len = (CK_ULONG)strlen((char *)user_pin);
-
    // create a USER R/W session
    //
    flags = CKF_SERIAL_SESSION | CKF_RW_SESSION;
@@ -96,13 +88,6 @@ int do_create_token_object( void )
       goto done;
    }
 
-//   rc = funcs->C_Login( h_session, CKU_USER, user_pin, user_pin_len );
-//   if (rc != CKR_OK) {
-//      show_error("   C_Login #1", rc );
-//      rc = FALSE;
-//      goto done;
-//   }
-
    // create the token objects
    //
    rc = funcs->C_CreateObject( h_session, cert1_attribs, 6, &h_cert1 );
@@ -111,7 +96,6 @@ int do_create_token_object( void )
       rc = FALSE;
       goto done;
    }
-
 
    rc = TRUE;
 
@@ -127,9 +111,6 @@ thread_func(void *thid)
 {
    int   i=0;
    CK_RV  rv;
-   int   *id ;
-
-   id = (int *)thid;
   
    do {
      rv = do_create_token_object();

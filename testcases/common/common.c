@@ -395,7 +395,7 @@ int is_ep11_token(CK_SLOT_ID slot_id)
 
 	rc = funcs->C_GetTokenInfo(slot_id, &tokinfo);
 	if (rc != CKR_OK)
-		return -1;
+		return FALSE;
 
 	return strstr((const char *)tokinfo.model, "EP11") != NULL;
 }
@@ -421,9 +421,8 @@ int is_icsf_token(CK_SLOT_ID slot_id)
         CK_TOKEN_INFO   tokinfo;
 
         rc = funcs->C_GetTokenInfo(slot_id, &tokinfo);
-        if (rc != CKR_OK) {
-                return -1;
-        }
+	if (rc != CKR_OK)
+		return FALSE;
 
 	if ((strstr((const char *)tokinfo.model, "ICA") == NULL) &&
 	    (strstr((const char *)tokinfo.model, "EP11") == NULL) &&
@@ -449,9 +448,8 @@ int is_ica_token(CK_SLOT_ID slot_id)
         CK_TOKEN_INFO   tokinfo;
 
         rc = funcs->C_GetTokenInfo(slot_id, &tokinfo);
-        if (rc != CKR_OK) {
-                return -1;
-        }
+	if (rc != CKR_OK)
+		return FALSE;
 
         return strstr((const char *)tokinfo.model, "ICA") != NULL;
 
@@ -464,9 +462,8 @@ int is_cca_token(CK_SLOT_ID slot_id)
         CK_TOKEN_INFO   tokinfo;
 
         rc = funcs->C_GetTokenInfo(slot_id, &tokinfo);
-        if (rc != CKR_OK) {
-                return -1;
-        }
+	if (rc != CKR_OK)
+                return FALSE;
 
         return strstr((const char *)tokinfo.model, "CCA") != NULL;
 }
@@ -478,9 +475,8 @@ int is_soft_token(CK_SLOT_ID slot_id)
         CK_TOKEN_INFO   tokinfo;
 
         rc = funcs->C_GetTokenInfo(slot_id, &tokinfo);
-        if (rc != CKR_OK) {
-                return -1;
-        }
+	if (rc != CKR_OK)
+		return FALSE;
 
         return strstr((const char *)tokinfo.model, "SoftTok") != NULL;
 }
@@ -492,9 +488,8 @@ int is_tpm_token(CK_SLOT_ID slot_id)
         CK_TOKEN_INFO   tokinfo;
 
         rc = funcs->C_GetTokenInfo(slot_id, &tokinfo);
-        if (rc != CKR_OK) {
-                return -1;
-        }
+	if (rc != CKR_OK)
+		return FALSE;
 
         return strstr((const char *)tokinfo.model, "TPM") != NULL;
 }

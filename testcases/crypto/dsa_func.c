@@ -48,14 +48,14 @@ CK_BYTE DSA_PUBL_BASE[128] =
 //
 CK_RV do_GenerateDSAKeyPair( void )
 {
-	CK_SLOT_ID          slot_id;
+	CK_SLOT_ID          slot_id = SLOT_ID;
 	CK_SESSION_HANDLE   session;
 	CK_MECHANISM        mech;
 	CK_OBJECT_HANDLE    publ_key, priv_key;
 	CK_FLAGS            flags;
 	CK_BYTE             user_pin[PKCS11_MAX_PIN_LEN];
 	CK_ULONG            user_pin_len;
-	CK_RV               rc, loc_rc;
+	CK_RV               rc;
 
 	CK_ATTRIBUTE  publ_tmpl[] =
 	{
@@ -64,50 +64,27 @@ CK_RV do_GenerateDSAKeyPair( void )
 		{CKA_BASE,     DSA_PUBL_BASE,     sizeof(DSA_PUBL_BASE)     }
 	};
 
-
-	printf("do_GenerateDSAKeyPair...\n");
-
-	slot_id = SLOT_ID;
-
-	if (get_user_pin(user_pin))
-		return CKR_FUNCTION_FAILED;
-	user_pin_len = (CK_ULONG)strlen((char *)user_pin);
-
 	mech.mechanism      = CKM_DSA_KEY_PAIR_GEN;
 	mech.ulParameterLen = 0;
 	mech.pParameter     = NULL;
 
+	testcase_begin("GenerateDSAKeyPair");
+	testcase_rw_session();
+	testcase_user_login();
 
-	flags = CKF_SERIAL_SESSION;
-	rc = funcs->C_OpenSession( slot_id, flags, NULL, NULL, &session );
-	if (rc != CKR_OK) {
-		show_error("   C_OpenSession #3", rc );
-		return rc;
-	}
+	testcase_new_assertion();
 
-	rc = funcs->C_Login( session, CKU_USER, user_pin, user_pin_len );
-	if (rc != CKR_OK) {
-		show_error("   C_Login #1", rc );
-		return rc;
-	}
+	rc = funcs->C_GenerateKeyPair(session, &mech, publ_tmpl, 3, NULL, 0,
+				      &publ_key, &priv_key);
+	if (rc != CKR_OK)
+		testcase_fail("C_GenerateKeyPair rc=%s", p11_get_ckr(rc));
+	else
+		testcase_pass("GenerateDSAKeyPair passed");
 
-	rc = funcs->C_GenerateKeyPair( session,   &mech,
-			publ_tmpl,  3,
-			NULL,       0,
-			&publ_key, &priv_key );
-	if (rc != CKR_OK) {
-		show_error("   C_GenerateKeyPair #1", rc );
-		goto session_close;
-	}
-
-	printf("Looks okay...\n");
-
-session_close:
-
-	/* Close the session */
-	if( (loc_rc = funcs->C_CloseSession(session)) != CKR_OK )
-		show_error("C_CloseSession", loc_rc);
-	
+testcase_cleanup:
+	testcase_user_logout();
+	if (funcs->C_CloseAllSessions(slot_id) != CKR_OK)
+		testcase_error("C_CloseAllSession failed.");
 	return rc;
 }
 
@@ -119,7 +96,7 @@ CK_RV do_SignDSA( void )
 {
 	CK_BYTE             data1[20];
 	CK_BYTE             signature[256];
-	CK_SLOT_ID          slot_id;
+	CK_SLOT_ID          slot_id = SLOT_ID;
 	CK_SESSION_HANDLE   session;
 	CK_MECHANISM        mech;
 	CK_OBJECT_HANDLE    publ_key, priv_key;
@@ -128,7 +105,7 @@ CK_RV do_SignDSA( void )
 	CK_ULONG            user_pin_len;
 	CK_ULONG            i;
 	CK_ULONG            len1, sig_len;
-	CK_RV               rc, loc_rc;
+	CK_RV               rc;
 
 	CK_ATTRIBUTE  publ_tmpl[] =
 	{
@@ -137,41 +114,24 @@ CK_RV do_SignDSA( void )
 		{CKA_BASE,     DSA_PUBL_BASE,     sizeof(DSA_PUBL_BASE)     }
 	};
 
-	printf("do_SignDSA...\n");
-
-	slot_id = SLOT_ID;
-	flags = CKF_SERIAL_SESSION | CKF_RW_SESSION;
-	rc = funcs->C_OpenSession( slot_id, flags, NULL, NULL, &session );
-	if (rc != CKR_OK) {
-		show_error("   C_OpenSession #1", rc );
-		goto session_close;
-	}
-
-
-	if (get_user_pin(user_pin))
-		return CKR_FUNCTION_FAILED;
-	user_pin_len = (CK_ULONG)strlen((char *)user_pin);
-
-	rc = funcs->C_Login( session, CKU_USER, user_pin, user_pin_len );
-	if (rc != CKR_OK) {
-		show_error("   C_Login #1", rc );
-		goto session_close;
-	}
-
 	mech.mechanism      = CKM_DSA_KEY_PAIR_GEN;
 	mech.ulParameterLen = 0;
 	mech.pParameter     = NULL;
 
-	rc = funcs->C_GenerateKeyPair( session,   &mech,
-			publ_tmpl,  3,
-			NULL,       0,
-			&publ_key, &priv_key );
+	testcase_begin("DSA Sign/Verify");
+	testcase_rw_session();
+	testcase_user_login();
+
+	testcase_new_assertion();
+
+	rc = funcs->C_GenerateKeyPair(session, &mech, publ_tmpl, 3, NULL, 0,
+				      &publ_key, &priv_key);
 	if (rc != CKR_OK) {
-		show_error("   C_GenerateKeyPair #1", rc );
-		goto session_close;
+		testcase_error("C_GenerateKeyPair rc=%s", p11_get_ckr(rc));
+		goto testcase_cleanup;
 	}
 
-	// now, encrypt some data
+	// now, sign some data
 	//
 	len1 = sizeof(data1);
 	sig_len = sizeof(signature);
@@ -185,28 +145,28 @@ CK_RV do_SignDSA( void )
 
 	rc = funcs->C_SignInit( session, &mech, priv_key );
 	if (rc != CKR_OK) {
-		show_error("   C_SignInit #1", rc );
-		goto session_close;
+		testcase_error("C_SignInit rc=%s", p11_get_ckr(rc));
+		goto testcase_cleanup;
 	}
 
 	rc = funcs->C_Sign( session, data1, len1, signature, &sig_len );
 	if (rc != CKR_OK) {
-		show_error("   C_Sign #1", rc );
-		goto session_close;
+		testcase_error("C_Sign rc=%s", p11_get_ckr(rc));
+		goto testcase_cleanup;
 	}
 
 	// now, verify the signature
 	//
 	rc = funcs->C_VerifyInit( session, &mech, publ_key );
 	if (rc != CKR_OK) {
-		show_error("   C_VerifyInit #1", rc );
-		goto session_close;
+		testcase_error("C_VerifyInit rc=%s", p11_get_ckr(rc));
+		goto testcase_cleanup;
 	}
 
 	rc = funcs->C_Verify( session, data1, len1, signature, sig_len );
 	if (rc != CKR_OK) {
-		show_error("   C_Verify #1", rc );
-		goto session_close;
+		testcase_error("C_Verify rc=%s", p11_get_ckr(rc));
+		goto testcase_cleanup;
 	}
 
 	// now, corrupt the signature and try to re-verify.
@@ -215,25 +175,21 @@ CK_RV do_SignDSA( void )
 
 	rc = funcs->C_VerifyInit( session, &mech, publ_key );
 	if (rc != CKR_OK) {
-		show_error("   C_VerifyInit #2", rc );
-		goto session_close;
+		testcase_error("C_VerifyInit rc=%s", p11_get_ckr(rc));
+		goto testcase_cleanup;
 	}
 
 	rc = funcs->C_Verify( session, data1, len1, signature, sig_len );
 	if (rc != CKR_SIGNATURE_INVALID) {
-		show_error("   C_Verify #2", rc );
-		PRINT_ERR("   Expected CKR_SIGNATURE_INVALID\n");
-		goto session_close;
-	} else
-		rc = CKR_OK;
+		testcase_fail("Verify expected CKR_SIGNATURE_INVALID, got %s",
+				p11_get_ckr(rc));
+		goto testcase_cleanup;
+	}
 
-	printf("Looks okay...\n");
-
-session_close:
-
-	/* Close the session */
-	if( (loc_rc = funcs->C_CloseSession(session)) != CKR_OK )
-		show_error("C_CloseSession", loc_rc);
+testcase_cleanup:
+	testcase_user_logout();
+	if (funcs->C_CloseAllSessions(slot_id) != CKR_OK)
+		testcase_error("C_CloseAllSessions failed.");
 	
 	return rc;
 }
@@ -313,7 +269,12 @@ int main(int argc, char **argv)
 
 	}
 
+	testcase_setup(0);
+
 	rv = dsa_functions();
+
+	testcase_print_result();
+
 	/* make sure we return non-zero if rv is non-zero */
 	return ((rv == 0) || (rv % 256) ? rv : -1);
 }

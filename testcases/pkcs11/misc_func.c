@@ -330,19 +330,19 @@ CK_RV do_InitToken( void )
 		return CKR_FUNCTION_FAILED;
 	so_pin_len = (CK_ULONG)strlen((char *)so_pin);
 
-	rc = funcs->C_InitToken( SLOT_ID, NULL, strlen((char *)so_pin), label );
+	rc = funcs->C_InitToken(SLOT_ID, NULL, so_pin_len, label);
 	if (rc != CKR_ARGUMENTS_BAD) {
 		show_error(" C_InitToken Fail #1",rc);
 		goto done;
 	}
 
-	rc = funcs->C_InitToken( SLOT_ID, so_pin, strlen((char *)so_pin), NULL );
+	rc = funcs->C_InitToken(SLOT_ID, so_pin, so_pin_len, NULL);
 	if (rc != CKR_ARGUMENTS_BAD) {
 		show_error(" C_InitToken Fail #2",rc);
 		goto done;
 	}
 
-	rc = funcs->C_InitToken( SLOT_ID, so_pin, strlen((char *)so_pin), label );
+	rc = funcs->C_InitToken(SLOT_ID, so_pin, so_pin_len, label);
 	if (rc != CKR_OK) {
 		show_error(" C_InitToken #1", rc );
 		goto done;

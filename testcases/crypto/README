@@ -7,18 +7,12 @@ aes_tests
 	ICSF token - secret keys cannot wrap secret keys. 
 	These testcase will fail in ICSF token. 
 
-	CCA token -  uses secure key, the "-securekey" flag should be 
-	used to ensure appropriate testcases are run.
-
 des_tests
 	Tests des ecb/cbc modes using published test vectors and generated
 	test data.
 
 	ICSF token - secret keys cannot wrap secret keys. 
 	These testcase will fail in ICSF token. 
-
-	CCA token -  uses secure key, the "-securekey" flag should be 
-	used to ensure appropriate testcases are run.
 
 des3_tests
 	Tests des3 ecb/cbc modes using published test vectors and generated
@@ -27,9 +21,6 @@ des3_tests
 
 	ICSF token - secret keys cannot wrap secret keys. 
 	These testcase will fail in ICSF token. 
-
-	CCA token -  uses secure key, the "-securekey" flag should be 
-	used to ensure appropriate testcases are run.
 
 dh_tests
 	Tests key generation and key derivation.
