@@ -1,294 +1,294 @@
 /*
-             Common Public License Version 1.0
+	     Common Public License Version 1.0
 
-             THE ACCOMPANYING PROGRAM IS PROVIDED UNDER THE TERMS OF
-             THIS COMMON PUBLIC LICENSE ("AGREEMENT"). ANY USE,
-             REPRODUCTION OR DISTRIBUTION OF THE PROGRAM CONSTITUTES
-             RECIPIENT'S ACCEPTANCE OF THIS AGREEMENT.
+	     THE ACCOMPANYING PROGRAM IS PROVIDED UNDER THE TERMS OF
+	     THIS COMMON PUBLIC LICENSE ("AGREEMENT"). ANY USE,
+	     REPRODUCTION OR DISTRIBUTION OF THE PROGRAM CONSTITUTES
+	     RECIPIENT'S ACCEPTANCE OF THIS AGREEMENT.
 
-             1. DEFINITIONS
+	     1. DEFINITIONS
 
-             "Contribution" means:
-                   a) in the case of the initial Contributor, the
-                   initial code and documentation distributed under
-                   this Agreement, and
+	     "Contribution" means:
+		   a) in the case of the initial Contributor, the
+		   initial code and documentation distributed under
+		   this Agreement, and
 
-                   b) in the case of each subsequent Contributor:
-                   i) changes to the Program, and
-                   ii) additions to the Program;
+		   b) in the case of each subsequent Contributor:
+		   i) changes to the Program, and
+		   ii) additions to the Program;
 
-                   where such changes and/or additions to the Program
-                   originate from and are distributed by that
-                   particular Contributor. A Contribution 'originates'
-                   from a Contributor if it was added to the Program
-                   by such Contributor itself or anyone acting on such
-                   Contributor's behalf. Contributions do not include
-                   additions to the Program which: (i) are separate
-                   modules of software distributed in conjunction with
-                   the Program under their own license agreement, and
-                   (ii) are not derivative works of the Program.
-
-
-             "Contributor" means any person or entity that distributes
-             the Program.
-
-             "Licensed Patents " mean patent claims licensable by a
-             Contributor which are necessarily infringed by the use or
-             sale of its Contribution alone or when combined with the
-             Program.
-
-             "Program" means the Contributions distributed in
-             accordance with this Agreement.
-
-             "Recipient" means anyone who receives the Program under
-             this Agreement, including all Contributors.
-
-             2. GRANT OF RIGHTS
-
-                   a) Subject to the terms of this Agreement, each
-                   Contributor hereby grants Recipient a
-                   non-exclusive, worldwide, royalty-free copyright
-                   license to reproduce, prepare derivative works of,
-                   publicly display, publicly perform, distribute and
-                   sublicense the Contribution of such Contributor, if
-                   any, and such derivative works, in source code and
-                   object code form.
-
-                   b) Subject to the terms of this Agreement, each
-                   Contributor hereby grants Recipient a
-                   non-exclusive, worldwide, royalty-free patent
-                   license under Licensed Patents to make, use, sell,
-                   offer to sell, import and otherwise transfer the
-                   Contribution of such Contributor, if any, in source
-                   code and object code form. This patent license
-                   shall apply to the combination of the Contribution
-                   and the Program if, at the time the Contribution is
-                   added by the Contributor, such addition of the
-                   Contribution causes such combination to be covered
-                   by the Licensed Patents. The patent license shall
-                   not apply to any other combinations which include
-                   the Contribution. No hardware per se is licensed
-                   hereunder.
-
-                   c) Recipient understands that although each
-                   Contributor grants the licenses to its
-                   Contributions set forth herein, no assurances are
-                   provided by any Contributor that the Program does
-                   not infringe the patent or other intellectual
-                   property rights of any other entity. Each
-                   Contributor disclaims any liability to Recipient
-                   for claims brought by any other entity based on
-                   infringement of intellectual property rights or
-                   otherwise. As a condition to exercising the rights
-                   and licenses granted hereunder, each Recipient
-                   hereby assumes sole responsibility to secure any
-                   other intellectual property rights needed, if any.
-
-                   For example, if a third party patent license is
-                   required to allow Recipient to distribute the
-                   Program, it is Recipient's responsibility to
-                   acquire that license before distributing the
-                   Program.
-
-                   d) Each Contributor represents that to its
-                   knowledge it has sufficient copyright rights in its
-                   Contribution, if any, to grant the copyright
-                   license set forth in this Agreement.
-
-             3. REQUIREMENTS
-
-             A Contributor may choose to distribute the Program in
-             object code form under its own license agreement, provided
-             that:
-                   a) it complies with the terms and conditions of
-                   this Agreement; and
-
-                   b) its license agreement:
-                   i) effectively disclaims on behalf of all
-                   Contributors all warranties and conditions, express
-                   and implied, including warranties or conditions of
-                   title and non-infringement, and implied warranties
-                   or conditions of merchantability and fitness for a
-                   particular purpose;
-
-                   ii) effectively excludes on behalf of all
-                   Contributors all liability for damages, including
-                   direct, indirect, special, incidental and
-                   consequential damages, such as lost profits;
-
-                   iii) states that any provisions which differ from
-                   this Agreement are offered by that Contributor
-                   alone and not by any other party; and
-
-                   iv) states that source code for the Program is
-                   available from such Contributor, and informs
-                   licensees how to obtain it in a reasonable manner
-                   on or through a medium customarily used for
-                   software exchange.
-
-             When the Program is made available in source code form:
-                   a) it must be made available under this Agreement;
-                   and
-                   b) a copy of this Agreement must be included with
-                   each copy of the Program.
-
-             Contributors may not remove or alter any copyright notices
-             contained within the Program.
-
-             Each Contributor must identify itself as the originator of
-             its Contribution, if any, in a manner that reasonably
-             allows subsequent Recipients to identify the originator of
-             the Contribution.
+		   where such changes and/or additions to the Program
+		   originate from and are distributed by that
+		   particular Contributor. A Contribution 'originates'
+		   from a Contributor if it was added to the Program
+		   by such Contributor itself or anyone acting on such
+		   Contributor's behalf. Contributions do not include
+		   additions to the Program which: (i) are separate
+		   modules of software distributed in conjunction with
+		   the Program under their own license agreement, and
+		   (ii) are not derivative works of the Program.
 
 
-             4. COMMERCIAL DISTRIBUTION
+	     "Contributor" means any person or entity that distributes
+	     the Program.
 
-             Commercial distributors of software may accept certain
-             responsibilities with respect to end users, business
-             partners and the like. While this license is intended to
-             facilitate the commercial use of the Program, the
-             Contributor who includes the Program in a commercial
-             product offering should do so in a manner which does not
-             create potential liability for other Contributors.
-             Therefore, if a Contributor includes the Program in a
-             commercial product offering, such Contributor ("Commercial
-             Contributor") hereby agrees to defend and indemnify every
-             other Contributor ("Indemnified Contributor") against any
-             losses, damages and costs (collectively "Losses") arising
-             from claims, lawsuits and other legal actions brought by a
-             third party against the Indemnified Contributor to the
-             extent caused by the acts or omissions of such Commercial
-             Contributor in connection with its distribution of the
-             Program in a commercial product offering. The obligations
-             in this section do not apply to any claims or Losses
-             relating to any actual or alleged intellectual property
-             infringement. In order to qualify, an Indemnified
-             Contributor must: a) promptly notify the Commercial
-             Contributor in writing of such claim, and b) allow the
-             Commercial Contributor to control, and cooperate with the
-             Commercial Contributor in, the defense and any related
-             settlement negotiations. The Indemnified Contributor may
-             participate in any such claim at its own expense.
+	     "Licensed Patents " mean patent claims licensable by a
+	     Contributor which are necessarily infringed by the use or
+	     sale of its Contribution alone or when combined with the
+	     Program.
 
+	     "Program" means the Contributions distributed in
+	     accordance with this Agreement.
 
-             For example, a Contributor might include the Program in a
-             commercial product offering, Product X. That Contributor
-             is then a Commercial Contributor. If that Commercial
-             Contributor then makes performance claims, or offers
-             warranties related to Product X, those performance claims
-             and warranties are such Commercial Contributor's
-             responsibility alone. Under this section, the Commercial
-             Contributor would have to defend claims against the other
-             Contributors related to those performance claims and
-             warranties, and if a court requires any other Contributor
-             to pay any damages as a result, the Commercial Contributor
-             must pay those damages.
+	     "Recipient" means anyone who receives the Program under
+	     this Agreement, including all Contributors.
 
+	     2. GRANT OF RIGHTS
 
-             5. NO WARRANTY
+		   a) Subject to the terms of this Agreement, each
+		   Contributor hereby grants Recipient a
+		   non-exclusive, worldwide, royalty-free copyright
+		   license to reproduce, prepare derivative works of,
+		   publicly display, publicly perform, distribute and
+		   sublicense the Contribution of such Contributor, if
+		   any, and such derivative works, in source code and
+		   object code form.
 
-             EXCEPT AS EXPRESSLY SET FORTH IN THIS AGREEMENT, THE
-             PROGRAM IS PROVIDED ON AN "AS IS" BASIS, WITHOUT
-             WARRANTIES OR CONDITIONS OF ANY KIND, EITHER EXPRESS OR
-             IMPLIED INCLUDING, WITHOUT LIMITATION, ANY WARRANTIES OR
-             CONDITIONS OF TITLE, NON-INFRINGEMENT, MERCHANTABILITY OR
-             FITNESS FOR A PARTICULAR PURPOSE. Each Recipient is solely
-             responsible for determining the appropriateness of using
-             and distributing the Program and assumes all risks
-             associated with its exercise of rights under this
-             Agreement, including but not limited to the risks and
-             costs of program errors, compliance with applicable laws,
-             damage to or loss of data, programs or equipment, and
-             unavailability or interruption of operations.
+		   b) Subject to the terms of this Agreement, each
+		   Contributor hereby grants Recipient a
+		   non-exclusive, worldwide, royalty-free patent
+		   license under Licensed Patents to make, use, sell,
+		   offer to sell, import and otherwise transfer the
+		   Contribution of such Contributor, if any, in source
+		   code and object code form. This patent license
+		   shall apply to the combination of the Contribution
+		   and the Program if, at the time the Contribution is
+		   added by the Contributor, such addition of the
+		   Contribution causes such combination to be covered
+		   by the Licensed Patents. The patent license shall
+		   not apply to any other combinations which include
+		   the Contribution. No hardware per se is licensed
+		   hereunder.
 
-             6. DISCLAIMER OF LIABILITY
-             EXCEPT AS EXPRESSLY SET FORTH IN THIS AGREEMENT, NEITHER
-             RECIPIENT NOR ANY CONTRIBUTORS SHALL HAVE ANY LIABILITY
-             FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY,
-             OR CONSEQUENTIAL DAMAGES (INCLUDING WITHOUT LIMITATION
-             LOST PROFITS), HOWEVER CAUSED AND ON ANY THEORY OF
-             LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT
-             (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT
-             OF THE USE OR DISTRIBUTION OF THE PROGRAM OR THE EXERCISE
-             OF ANY RIGHTS GRANTED HEREUNDER, EVEN IF ADVISED OF THE
-             POSSIBILITY OF SUCH DAMAGES.
+		   c) Recipient understands that although each
+		   Contributor grants the licenses to its
+		   Contributions set forth herein, no assurances are
+		   provided by any Contributor that the Program does
+		   not infringe the patent or other intellectual
+		   property rights of any other entity. Each
+		   Contributor disclaims any liability to Recipient
+		   for claims brought by any other entity based on
+		   infringement of intellectual property rights or
+		   otherwise. As a condition to exercising the rights
+		   and licenses granted hereunder, each Recipient
+		   hereby assumes sole responsibility to secure any
+		   other intellectual property rights needed, if any.
 
-             7. GENERAL
+		   For example, if a third party patent license is
+		   required to allow Recipient to distribute the
+		   Program, it is Recipient's responsibility to
+		   acquire that license before distributing the
+		   Program.
 
-             If any provision of this Agreement is invalid or
-             unenforceable under applicable law, it shall not affect
-             the validity or enforceability of the remainder of the
-             terms of this Agreement, and without further action by the
-             parties hereto, such provision shall be reformed to the
-             minimum extent necessary to make such provision valid and
-             enforceable.
+		   d) Each Contributor represents that to its
+		   knowledge it has sufficient copyright rights in its
+		   Contribution, if any, to grant the copyright
+		   license set forth in this Agreement.
 
+	     3. REQUIREMENTS
 
-             If Recipient institutes patent litigation against a
-             Contributor with respect to a patent applicable to
-             software (including a cross-claim or counterclaim in a
-             lawsuit), then any patent licenses granted by that
-             Contributor to such Recipient under this Agreement shall
-             terminate as of the date such litigation is filed. In
-             addition, If Recipient institutes patent litigation
-             against any entity (including a cross-claim or
-             counterclaim in a lawsuit) alleging that the Program
-             itself (excluding combinations of the Program with other
-             software or hardware) infringes such Recipient's
-             patent(s), then such Recipient's rights granted under
-             Section 2(b) shall terminate as of the date such
-             litigation is filed.
+	     A Contributor may choose to distribute the Program in
+	     object code form under its own license agreement, provided
+	     that:
+		   a) it complies with the terms and conditions of
+		   this Agreement; and
 
-             All Recipient's rights under this Agreement shall
-             terminate if it fails to comply with any of the material
-             terms or conditions of this Agreement and does not cure
-             such failure in a reasonable period of time after becoming
-             aware of such noncompliance. If all Recipient's rights
-             under this Agreement terminate, Recipient agrees to cease
-             use and distribution of the Program as soon as reasonably
-             practicable. However, Recipient's obligations under this
-             Agreement and any licenses granted by Recipient relating
-             to the Program shall continue and survive.
+		   b) its license agreement:
+		   i) effectively disclaims on behalf of all
+		   Contributors all warranties and conditions, express
+		   and implied, including warranties or conditions of
+		   title and non-infringement, and implied warranties
+		   or conditions of merchantability and fitness for a
+		   particular purpose;
 
-             Everyone is permitted to copy and distribute copies of
-             this Agreement, but in order to avoid inconsistency the
-             Agreement is copyrighted and may only be modified in the
-             following manner. The Agreement Steward reserves the right
-             to publish new versions (including revisions) of this
-             Agreement from time to time. No one other than the
-             Agreement Steward has the right to modify this Agreement.
+		   ii) effectively excludes on behalf of all
+		   Contributors all liability for damages, including
+		   direct, indirect, special, incidental and
+		   consequential damages, such as lost profits;
 
-             IBM is the initial Agreement Steward. IBM may assign the
-             responsibility to serve as the Agreement Steward to a
-             suitable separate entity. Each new version of the
-             Agreement will be given a distinguishing version number.
-             The Program (including Contributions) may always be
-             distributed subject to the version of the Agreement under
-             which it was received. In addition, after a new version of
-             the Agreement is published, Contributor may elect to
-             distribute the Program (including its Contributions) under
-             the new version. Except as expressly stated in Sections
-             2(a) and 2(b) above, Recipient receives no rights or
-             licenses to the intellectual property of any Contributor
-             under this Agreement, whether expressly, by implication,
-             estoppel or otherwise. All rights in the Program not
-             expressly granted under this Agreement are reserved.
+		   iii) states that any provisions which differ from
+		   this Agreement are offered by that Contributor
+		   alone and not by any other party; and
+
+		   iv) states that source code for the Program is
+		   available from such Contributor, and informs
+		   licensees how to obtain it in a reasonable manner
+		   on or through a medium customarily used for
+		   software exchange.
+
+	     When the Program is made available in source code form:
+		   a) it must be made available under this Agreement;
+		   and
+		   b) a copy of this Agreement must be included with
+		   each copy of the Program.
+
+	     Contributors may not remove or alter any copyright notices
+	     contained within the Program.
+
+	     Each Contributor must identify itself as the originator of
+	     its Contribution, if any, in a manner that reasonably
+	     allows subsequent Recipients to identify the originator of
+	     the Contribution.
 
 
-             This Agreement is governed by the laws of the State of New
-             York and the intellectual property laws of the United
-             States of America. No party to this Agreement will bring a
-             legal action under this Agreement more than one year after
-             the cause of action arose. Each party waives its rights to
-             a jury trial in any resulting litigation.
+	     4. COMMERCIAL DISTRIBUTION
+
+	     Commercial distributors of software may accept certain
+	     responsibilities with respect to end users, business
+	     partners and the like. While this license is intended to
+	     facilitate the commercial use of the Program, the
+	     Contributor who includes the Program in a commercial
+	     product offering should do so in a manner which does not
+	     create potential liability for other Contributors.
+	     Therefore, if a Contributor includes the Program in a
+	     commercial product offering, such Contributor ("Commercial
+	     Contributor") hereby agrees to defend and indemnify every
+	     other Contributor ("Indemnified Contributor") against any
+	     losses, damages and costs (collectively "Losses") arising
+	     from claims, lawsuits and other legal actions brought by a
+	     third party against the Indemnified Contributor to the
+	     extent caused by the acts or omissions of such Commercial
+	     Contributor in connection with its distribution of the
+	     Program in a commercial product offering. The obligations
+	     in this section do not apply to any claims or Losses
+	     relating to any actual or alleged intellectual property
+	     infringement. In order to qualify, an Indemnified
+	     Contributor must: a) promptly notify the Commercial
+	     Contributor in writing of such claim, and b) allow the
+	     Commercial Contributor to control, and cooperate with the
+	     Commercial Contributor in, the defense and any related
+	     settlement negotiations. The Indemnified Contributor may
+	     participate in any such claim at its own expense.
+
+
+	     For example, a Contributor might include the Program in a
+	     commercial product offering, Product X. That Contributor
+	     is then a Commercial Contributor. If that Commercial
+	     Contributor then makes performance claims, or offers
+	     warranties related to Product X, those performance claims
+	     and warranties are such Commercial Contributor's
+	     responsibility alone. Under this section, the Commercial
+	     Contributor would have to defend claims against the other
+	     Contributors related to those performance claims and
+	     warranties, and if a court requires any other Contributor
+	     to pay any damages as a result, the Commercial Contributor
+	     must pay those damages.
+
+
+	     5. NO WARRANTY
+
+	     EXCEPT AS EXPRESSLY SET FORTH IN THIS AGREEMENT, THE
+	     PROGRAM IS PROVIDED ON AN "AS IS" BASIS, WITHOUT
+	     WARRANTIES OR CONDITIONS OF ANY KIND, EITHER EXPRESS OR
+	     IMPLIED INCLUDING, WITHOUT LIMITATION, ANY WARRANTIES OR
+	     CONDITIONS OF TITLE, NON-INFRINGEMENT, MERCHANTABILITY OR
+	     FITNESS FOR A PARTICULAR PURPOSE. Each Recipient is solely
+	     responsible for determining the appropriateness of using
+	     and distributing the Program and assumes all risks
+	     associated with its exercise of rights under this
+	     Agreement, including but not limited to the risks and
+	     costs of program errors, compliance with applicable laws,
+	     damage to or loss of data, programs or equipment, and
+	     unavailability or interruption of operations.
+
+	     6. DISCLAIMER OF LIABILITY
+	     EXCEPT AS EXPRESSLY SET FORTH IN THIS AGREEMENT, NEITHER
+	     RECIPIENT NOR ANY CONTRIBUTORS SHALL HAVE ANY LIABILITY
+	     FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY,
+	     OR CONSEQUENTIAL DAMAGES (INCLUDING WITHOUT LIMITATION
+	     LOST PROFITS), HOWEVER CAUSED AND ON ANY THEORY OF
+	     LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT
+	     (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT
+	     OF THE USE OR DISTRIBUTION OF THE PROGRAM OR THE EXERCISE
+	     OF ANY RIGHTS GRANTED HEREUNDER, EVEN IF ADVISED OF THE
+	     POSSIBILITY OF SUCH DAMAGES.
+
+	     7. GENERAL
+
+	     If any provision of this Agreement is invalid or
+	     unenforceable under applicable law, it shall not affect
+	     the validity or enforceability of the remainder of the
+	     terms of this Agreement, and without further action by the
+	     parties hereto, such provision shall be reformed to the
+	     minimum extent necessary to make such provision valid and
+	     enforceable.
+
+
+	     If Recipient institutes patent litigation against a
+	     Contributor with respect to a patent applicable to
+	     software (including a cross-claim or counterclaim in a
+	     lawsuit), then any patent licenses granted by that
+	     Contributor to such Recipient under this Agreement shall
+	     terminate as of the date such litigation is filed. In
+	     addition, If Recipient institutes patent litigation
+	     against any entity (including a cross-claim or
+	     counterclaim in a lawsuit) alleging that the Program
+	     itself (excluding combinations of the Program with other
+	     software or hardware) infringes such Recipient's
+	     patent(s), then such Recipient's rights granted under
+	     Section 2(b) shall terminate as of the date such
+	     litigation is filed.
+
+	     All Recipient's rights under this Agreement shall
+	     terminate if it fails to comply with any of the material
+	     terms or conditions of this Agreement and does not cure
+	     such failure in a reasonable period of time after becoming
+	     aware of such noncompliance. If all Recipient's rights
+	     under this Agreement terminate, Recipient agrees to cease
+	     use and distribution of the Program as soon as reasonably
+	     practicable. However, Recipient's obligations under this
+	     Agreement and any licenses granted by Recipient relating
+	     to the Program shall continue and survive.
+
+	     Everyone is permitted to copy and distribute copies of
+	     this Agreement, but in order to avoid inconsistency the
+	     Agreement is copyrighted and may only be modified in the
+	     following manner. The Agreement Steward reserves the right
+	     to publish new versions (including revisions) of this
+	     Agreement from time to time. No one other than the
+	     Agreement Steward has the right to modify this Agreement.
+
+	     IBM is the initial Agreement Steward. IBM may assign the
+	     responsibility to serve as the Agreement Steward to a
+	     suitable separate entity. Each new version of the
+	     Agreement will be given a distinguishing version number.
+	     The Program (including Contributions) may always be
+	     distributed subject to the version of the Agreement under
+	     which it was received. In addition, after a new version of
+	     the Agreement is published, Contributor may elect to
+	     distribute the Program (including its Contributions) under
+	     the new version. Except as expressly stated in Sections
+	     2(a) and 2(b) above, Recipient receives no rights or
+	     licenses to the intellectual property of any Contributor
+	     under this Agreement, whether expressly, by implication,
+	     estoppel or otherwise. All rights in the Program not
+	     expressly granted under this Agreement are reserved.
+
+
+	     This Agreement is governed by the laws of the State of New
+	     York and the intellectual property laws of the United
+	     States of America. No party to this Agreement will bring a
+	     legal action under this Agreement more than one year after
+	     the cause of action arose. Each party waives its rights to
+	     a jury trial in any resulting litigation.
 
 */
 
 /* (C) COPYRIGHT International Business Machines Corp. 2001,2002,2013      */
 
 /***************************************************************************
-                          Change Log
-                          ==========
+			  Change Log
+			  ==========
 ****************************************************************************/
 #define _BSD_SOURCE
 
@@ -339,8 +339,8 @@ CK_RV ep11tok_get_mechanism_info(CK_MECHANISM_TYPE type,
 inline void hexdump(void *buf, size_t buflen)
 {
 	/*           1         2         3         4         5         6
-	   0123456789012345678901234567890123456789012345678901234567890123456789
-	   xx xx xx xx xx xx xx xx xx xx xx xx xx xx xx xx    ................
+		     0123456789012345678901234567890123456789012345678901234567890123456789
+		     xx xx xx xx xx xx xx xx xx xx xx xx xx xx xx xx    ................
 	*/
 
 	int i, j;
@@ -453,9 +453,9 @@ check_key_attributes(CK_KEY_TYPE kt, CK_OBJECT_CLASS kc, CK_ATTRIBUTE_PTR attrs,
 	CK_ULONG check_types_pub[] = {CKA_VERIFY, CKA_ENCRYPT, CKA_WRAP };
 	CK_ULONG check_types_priv[] = {CKA_SIGN, CKA_DECRYPT, CKA_UNWRAP };
 	CK_ULONG check_types_sec[] =
-			{CKA_ENCRYPT, CKA_DECRYPT, CKA_WRAP, CKA_UNWRAP};
+		{CKA_ENCRYPT, CKA_DECRYPT, CKA_WRAP, CKA_UNWRAP};
 	CK_ULONG check_types_gen_sec[] =
-			{CKA_SIGN, CKA_VERIFY, CKA_ENCRYPT, CKA_DECRYPT};
+		{CKA_SIGN, CKA_VERIFY, CKA_ENCRYPT, CKA_DECRYPT};
 	CK_ULONG check_types_derive[] = {CKA_DERIVE};
 	CK_ULONG *check_types = NULL;
 	CK_BBOOL *check_values[] = { &true, &true, &true, &true };
@@ -463,56 +463,56 @@ check_key_attributes(CK_KEY_TYPE kt, CK_OBJECT_CLASS kc, CK_ATTRIBUTE_PTR attrs,
 
 	/* check/add attributes for public key template */
 	if ((rc = dup_attribute_array(attrs, attrs_len,
-					p_attrs, p_attrs_len)))
+				      p_attrs, p_attrs_len)))
 		return rc;
 
 	switch (kc) {
-		case CKO_SECRET_KEY:
-			if (kt == CKK_GENERIC_SECRET) {
-				check_types = &check_types_gen_sec[0];
-				attr_cnt = sizeof(check_types_gen_sec)/sizeof(CK_ULONG);
-			} else {
-				check_types = &check_types_sec[0];
-				attr_cnt = sizeof(check_types_sec)/sizeof(CK_ULONG);
+	case CKO_SECRET_KEY:
+		if (kt == CKK_GENERIC_SECRET) {
+			check_types = &check_types_gen_sec[0];
+			attr_cnt = sizeof(check_types_gen_sec)/sizeof(CK_ULONG);
+		} else {
+			check_types = &check_types_sec[0];
+			attr_cnt = sizeof(check_types_sec)/sizeof(CK_ULONG);
 		}
 		break;
-		case CKO_PUBLIC_KEY:
-			if ((kt == CKK_EC) || (kt == CKK_ECDSA) ||
-			    (kt == CKK_DSA)) {
-				check_types = &check_types_pub[0];
-				attr_cnt = 1; /* only CKA_VERIFY */
-			} else if (kt == CKK_RSA) {
-				check_types = &check_types_pub[0];
-				attr_cnt = sizeof(check_types_pub)/sizeof(CK_ULONG);
-			}
-			/* do nothing for CKM_DH_PKCS_KEY_PAIR_GEN
-			   and CKM_DH_PKCS_PARAMETER_GEN */
+	case CKO_PUBLIC_KEY:
+		if ((kt == CKK_EC) || (kt == CKK_ECDSA) ||
+		    (kt == CKK_DSA)) {
+			check_types = &check_types_pub[0];
+			attr_cnt = 1; /* only CKA_VERIFY */
+		} else if (kt == CKK_RSA) {
+			check_types = &check_types_pub[0];
+			attr_cnt = sizeof(check_types_pub)/sizeof(CK_ULONG);
+		}
+		/* do nothing for CKM_DH_PKCS_KEY_PAIR_GEN
+		   and CKM_DH_PKCS_PARAMETER_GEN */
 		break;
-		case CKO_PRIVATE_KEY:
-			if ((kt == CKK_EC) || (kt == CKK_ECDSA) ||
-			    (kt == CKK_DSA)) {
-				check_types = &check_types_priv[0];
-				attr_cnt = 1; /* only CKA_SIGN */
-			} else if (kt == CKK_RSA) {
-				check_types = &check_types_priv[0];
-				attr_cnt = sizeof(check_types_priv)/sizeof(CK_ULONG);
-			} else if (kt == CKK_DH) {
-				check_types = &check_types_derive[0];
-				attr_cnt = sizeof(check_types_derive)/sizeof(CK_ULONG);
-			}
+	case CKO_PRIVATE_KEY:
+		if ((kt == CKK_EC) || (kt == CKK_ECDSA) ||
+		    (kt == CKK_DSA)) {
+			check_types = &check_types_priv[0];
+			attr_cnt = 1; /* only CKA_SIGN */
+		} else if (kt == CKK_RSA) {
+			check_types = &check_types_priv[0];
+			attr_cnt = sizeof(check_types_priv)/sizeof(CK_ULONG);
+		} else if (kt == CKK_DH) {
+			check_types = &check_types_derive[0];
+			attr_cnt = sizeof(check_types_derive)/sizeof(CK_ULONG);
+		}
 		break;
-		default:
-			return CKR_OK;
+	default:
+		return CKR_OK;
 	}
 
 	for (i = 0; i < attr_cnt; i++, check_types++) {
 		CK_ATTRIBUTE_PTR attr = get_attribute_by_type(*p_attrs,
-					*p_attrs_len, *check_types);
+							      *p_attrs_len, *check_types);
 		if (!attr) {
 			rc = add_to_attribute_array(p_attrs, p_attrs_len,
-						*check_types,
-						(CK_BYTE *) check_values[i],
-						sizeof(*check_values[i]));
+						    *check_types,
+						    (CK_BYTE *) check_values[i],
+						    sizeof(*check_values[i]));
 			if (rc)
 				goto cleanup;
 		}
@@ -638,7 +638,7 @@ ber_encode_RSAPublicKey(CK_BBOOL length_only, CK_BYTE **data, CK_ULONG *data_len
 CK_RV
 ep11_spki_key(CK_BYTE *spki, CK_BYTE **key, CK_ULONG *bit_str_len)
 {
-	CK_BYTE *out_seq,*id_seq,*bit_str;
+	CK_BYTE *out_seq, *id_seq, *bit_str;
 	CK_BYTE *data;
 	CK_ULONG data_len;
 	CK_ULONG field_len;
@@ -709,9 +709,9 @@ ep11_spki_key(CK_BYTE *spki, CK_BYTE **key, CK_ULONG *bit_str_len)
 }
 
 
-CK_RV 
+CK_RV
 ep11_get_keytype(CK_ATTRIBUTE *attrs, CK_ULONG attrs_len,
-                 CK_MECHANISM_PTR mech, CK_ULONG *type, CK_ULONG *class)
+		 CK_MECHANISM_PTR mech, CK_ULONG *type, CK_ULONG *class)
 {
 	int i;
 	CK_RV rc = CKR_TEMPLATE_INCONSISTENT;
@@ -1003,7 +1003,7 @@ static const char* ep11_get_ckm(CK_ULONG mechanism)
 }
 
 static CK_RV h_opaque_2_blob(CK_OBJECT_HANDLE handle,
-                             CK_BYTE **blob, size_t *blob_len, OBJECT **kobj);
+			     CK_BYTE **blob, size_t *blob_len, OBJECT **kobj);
 
 #define EP11_DEFAULT_CFG_FILE "ep11tok.conf"
 #define EP11_CFG_FILE_SIZE 4096
@@ -1079,7 +1079,7 @@ static CK_RV rawkey_2_blob(unsigned char *key, CK_ULONG ksize,
 	 * calls the ep11 lib (which in turns sends the request to the card),
 	 * all m_ function are ep11 functions
 	 */
-	rc = m_EncryptSingle(raw2key_wrap_blob,raw2key_wrap_blob_l, &mech,
+	rc = m_EncryptSingle(raw2key_wrap_blob, raw2key_wrap_blob_l, &mech,
 			     key, ksize, cipher, &clen, ep11tok_target);
 
 	if (rc != CKR_OK) {
@@ -1103,7 +1103,7 @@ static CK_RV rawkey_2_blob(unsigned char *key, CK_ULONG ksize,
 	 */
 	rc = m_UnwrapKey(cipher, clen, raw2key_wrap_blob, raw2key_wrap_blob_l,
 			 NULL, ~0, ep11_pin_blob, ep11_pin_blob_len, &mech,
-			 new_p_attrs,new_attrs_len, blob, blen, csum, &cslen,
+			 new_p_attrs, new_attrs_len, blob, blen, csum, &cslen,
 			 ep11tok_target);
 
 	if (rc != CKR_OK) {
@@ -1114,7 +1114,7 @@ static CK_RV rawkey_2_blob(unsigned char *key, CK_ULONG ksize,
 			   __func__, *blen, rc, ep11_blobs);
 	}
 
-	rawkey_2_blob_end:
+rawkey_2_blob_end:
 	if (p_attrs != NULL)
 		free_attribute_array(p_attrs, attrs_len);
 	if (new_p_attrs)
@@ -1138,7 +1138,7 @@ static const char* print_flags(CK_ULONG flags)
 	case CKF_WRAP              : return "WRAP";
 	case CKF_UNWRAP            : return "UNWRAP";
 	case CKF_DERIVE            : return "DERIVE";
-	/* The following are new for v2.11 */
+		/* The following are new for v2.11 */
 	case CKF_EC_F_P            : return "CKF_EC_F_P";
 	case CKF_EC_F_2M           : return "CKF_EC_F_2M";
 	case CKF_EC_ECPARAMETERS   : return "EC_ECPARAMETERS";
@@ -1207,7 +1207,7 @@ static CK_RV print_mechanism(void)
 /* random number generator */
 CK_RV token_specific_rng(CK_BYTE *output, CK_ULONG bytes)
 {
-	CK_RV rc = m_GenerateRandom(output,bytes,ep11tok_target);
+	CK_RV rc = m_GenerateRandom(output, bytes, ep11tok_target);
 	if (rc != CKR_OK)
 		TRACE_ERROR("%s output=%p bytes=%lu rc=0x%lx\n",
 			    __func__, output, bytes, rc);
@@ -1234,7 +1234,7 @@ static CK_RV make_wrapblob(CK_ATTRIBUTE *tmpl_in, CK_ULONG tmpl_len)
 	}
 
 	raw2key_wrap_blob_l = blobsize;
-	rc = m_GenerateKey(&mech, tmpl_in, tmpl_len, NULL,0, raw2key_wrap_blob,
+	rc = m_GenerateKey(&mech, tmpl_in, tmpl_len, NULL, 0, raw2key_wrap_blob,
 			   &raw2key_wrap_blob_l, csum, &csum_l, ep11tok_target);
 
 
@@ -1257,13 +1257,13 @@ CK_RV ep11tok_init(CK_SLOT_ID SlotNumber, char *conf_name)
 	CK_ULONG len = 16;
 	CK_BBOOL cktrue = 1;
 	CK_ATTRIBUTE wrap_tmpl[] = {{CKA_VALUE_LEN, &len, sizeof(CK_ULONG)},
-			{CKA_WRAP, (void *)&cktrue, sizeof(cktrue)},
-			{CKA_UNWRAP, (void *)&cktrue, sizeof(cktrue)},
-			{CKA_ENCRYPT, (void *)&cktrue, sizeof(cktrue)},
-			{CKA_DECRYPT, (void *)&cktrue, sizeof(cktrue)},
-			{CKA_EXTRACTABLE, (void *)&cktrue, sizeof(cktrue)},
-			{CKA_LABEL,(void *)wrap_key_name,sizeof(wrap_key_name)},
-			{CKA_TOKEN, (void *)&cktrue, sizeof(cktrue)}};
+				    {CKA_WRAP, (void*)&cktrue, sizeof(cktrue)},
+				    {CKA_UNWRAP, (void*)&cktrue, sizeof(cktrue)},
+				    {CKA_ENCRYPT, (void*)&cktrue, sizeof(cktrue)},
+				    {CKA_DECRYPT, (void*)&cktrue, sizeof(cktrue)},
+				    {CKA_EXTRACTABLE, (void*)&cktrue, sizeof(cktrue)},
+				    {CKA_LABEL, (void*)wrap_key_name, sizeof(wrap_key_name)},
+				    {CKA_TOKEN, (void*)&cktrue, sizeof(cktrue)}};
 
 	TRACE_INFO("%s init running\n", __func__);
 
@@ -1283,7 +1283,7 @@ CK_RV ep11tok_init(CK_SLOT_ID SlotNumber, char *conf_name)
 	if (!lib_ep11) {
 		OCK_SYSLOG(LOG_ERR,
 			   "%s: Error loading shared library '%s' [%s]\n",
-			    __func__, EP11SHAREDLIB, dlerror());
+			   __func__, EP11SHAREDLIB, dlerror());
 		TRACE_ERROR("%s Error loading shared library '%s' [%s]\n",
 			    __func__, EP11SHAREDLIB, dlerror());
 		return CKR_FUNCTION_FAILED;
@@ -1399,12 +1399,12 @@ static CK_RV import_RSA_key(OBJECT *rsa_key_obj, CK_BYTE *blob, size_t *blob_siz
 		CK_ATTRIBUTE *publ_exp;
 
 		if (!template_attribute_find(rsa_key_obj->template,
-		    CKA_MODULUS, &modulus)) {
+					     CKA_MODULUS, &modulus)) {
 			rc = CKR_TEMPLATE_INCOMPLETE;
 			goto import_RSA_key_end;
 		}
 		if (!template_attribute_find(rsa_key_obj->template,
-		    CKA_PUBLIC_EXPONENT, &publ_exp)) {
+					     CKA_PUBLIC_EXPONENT, &publ_exp)) {
 			rc = CKR_TEMPLATE_INCOMPLETE;
 			goto import_RSA_key_end;
 		}
@@ -1463,7 +1463,7 @@ static CK_RV import_RSA_key(OBJECT *rsa_key_obj, CK_BYTE *blob, size_t *blob_siz
 	}
 
 	rc = check_key_attributes(CKK_RSA, CKO_PRIVATE_KEY, p_attrs, attrs_len,
-					&new_p_attrs, &new_attrs_len);
+				  &new_p_attrs, &new_attrs_len);
 	if (rc != CKR_OK) {
 		TRACE_ERROR("%s RSA/EC check private key attributes failed with rc=0x%lx\n",
 			    __func__, rc);
@@ -1473,9 +1473,9 @@ static CK_RV import_RSA_key(OBJECT *rsa_key_obj, CK_BYTE *blob, size_t *blob_siz
 	/* calls the card, it decrypts the private RSA key,
 	 * reads its BER format and builds a blob.
 	 */
-	rc = m_UnwrapKey(cipher,cipher_l, raw2key_wrap_blob, raw2key_wrap_blob_l,
-			 NULL, ~0, ep11_pin_blob,ep11_pin_blob_len, &mech_w,
-			 new_p_attrs,new_attrs_len, blob, blob_size, csum, &cslen,
+	rc = m_UnwrapKey(cipher, cipher_l, raw2key_wrap_blob, raw2key_wrap_blob_l,
+			 NULL, ~0, ep11_pin_blob, ep11_pin_blob_len, &mech_w,
+			 new_p_attrs, new_attrs_len, blob, blob_size, csum, &cslen,
 			 ep11tok_target);
 
 	if (rc != CKR_OK) {
@@ -1516,7 +1516,7 @@ token_specific_object_add(OBJECT *obj)
 	/* only these keys can be imported */
 	switch(keytype) {
 	case CKK_RSA:
-		rc = import_RSA_key(obj,new_op.blob,&new_op.blob_size);
+		rc = import_RSA_key(obj, new_op.blob, &new_op.blob_size);
 		if (rc != CKR_OK) {
 			TRACE_ERROR("%s import RSA key rc=0x%lx "
 				    "blob_size=0x%zx\n", __func__, rc,
@@ -1610,7 +1610,7 @@ CK_RV ep11tok_generate_key(SESSION *session, CK_MECHANISM_PTR mech,
 	}
 
 	rc = check_key_attributes(ktype, CKO_SECRET_KEY, attrs, attrs_len,
-					&new_attrs, &new_attrs_len);
+				  &new_attrs, &new_attrs_len);
 	if (rc != CKR_OK) {
 		TRACE_ERROR("%s check secret key attributes failed: rc=0x%lx\n",
 			    __func__, rc);
@@ -1618,8 +1618,8 @@ CK_RV ep11tok_generate_key(SESSION *session, CK_MECHANISM_PTR mech,
 	}
 
 	rc = m_GenerateKey(mech, new_attrs, new_attrs_len, ep11_pin_blob,
-				 ep11_pin_blob_len, new_op.blob,&new_op.blob_size,
-				 csum,&csum_len, ep11tok_target);
+			   ep11_pin_blob_len, new_op.blob, &new_op.blob_size,
+			   csum, &csum_len, ep11tok_target);
 	if (rc != CKR_OK) {
 		TRACE_ERROR("%s m_GenerateKey rc=0x%lx mech='%s' attrs_len=0x%lx\n",
 			    __func__, rc, ep11_get_ckm(mech->mechanism), attrs_len);
@@ -1752,7 +1752,7 @@ CK_RV token_specific_sha_update(DIGEST_CONTEXT *c, CK_BYTE *in_data,
 {
 	CK_RV rc;
 
-	rc = m_DigestUpdate(c->context,c->context_len, in_data,in_data_len,
+	rc = m_DigestUpdate(c->context, c->context_len, in_data, in_data_len,
 			    ep11tok_target) ;
 
 	if (rc != CKR_OK) {
@@ -1765,7 +1765,7 @@ CK_RV token_specific_sha_update(DIGEST_CONTEXT *c, CK_BYTE *in_data,
 
 
 CK_RV token_specific_sha_final(DIGEST_CONTEXT *c, CK_BYTE *out_data,
-				CK_ULONG *out_data_len)
+			       CK_ULONG *out_data_len)
 {
 	CK_RV rc;
 
@@ -1815,7 +1815,7 @@ CK_RV ep11tok_derive_key(SESSION *session, CK_MECHANISM_PTR mech,
 	}
 
 	rc = check_key_attributes(ktype, class, attrs, attrs_len,
-				&new_attrs, &new_attrs_len);
+				  &new_attrs, &new_attrs_len);
 	if (rc != CKR_OK) {
 		TRACE_ERROR("%s Check key attributes for derived key failed with rc=0x%lx\n",
 			    __func__, rc);
@@ -1823,7 +1823,7 @@ CK_RV ep11tok_derive_key(SESSION *session, CK_MECHANISM_PTR mech,
 	}
 
 	rc = m_DeriveKey (mech, new_attrs, new_attrs_len, blob, blob_len, NULL,
-			  0, ep11_pin_blob,ep11_pin_blob_len, secret_op.blob,
+			  0, ep11_pin_blob, ep11_pin_blob_len, secret_op.blob,
 			  &secret_op.blob_size, csum, &cslen, ep11tok_target);
 
 	if (rc != CKR_OK) {
@@ -1899,7 +1899,7 @@ static CK_RV dh_generate_keypair(CK_MECHANISM_PTR pMechanism,
 	CK_ATTRIBUTE *attr = NULL;
 	CK_ATTRIBUTE  *pPublicKeyTemplate_new = NULL;
 	size_t p_len=0, g_len=0;
-	int i,new_public_attr;
+	int i, new_public_attr;
 	CK_ULONG data_len;
 	CK_ULONG field_len;
 	CK_BYTE  *data;
@@ -1969,7 +1969,7 @@ static CK_RV dh_generate_keypair(CK_MECHANISM_PTR pMechanism,
 		goto dh_generate_keypair_end;
 	}
 	rc = build_attribute(CKA_BASE, base_attr->pValue,
-				base_attr->ulValueLen, &attr);
+			     base_attr->ulValueLen, &attr);
 	if (rc != CKR_OK) {
 		TRACE_ERROR("%s build_attribute failed with rc=0x%lx\n", __func__, rc);
 		goto dh_generate_keypair_end;
@@ -1987,12 +1987,12 @@ static CK_RV dh_generate_keypair(CK_MECHANISM_PTR pMechanism,
 		TRACE_ERROR("%s Memory allocation failed\n", __func__);
 		return CKR_HOST_MEMORY;
 	}
-	memset(dh_pgs.pg,0,p_len*2);
-	memcpy(dh_pgs.pg,prime_attr->pValue,p_len); /* copy CKA_PRIME value */
+	memset(dh_pgs.pg, 0, p_len*2);
+	memcpy(dh_pgs.pg, prime_attr->pValue, p_len); /* copy CKA_PRIME value */
 	/* copy CKA_BASE value, it must have leading zeros
 	 * if it is shorter than CKA_PRIME
 	 */
-	memcpy(dh_pgs.pg + p_len + (p_len - g_len),base_attr->pValue,g_len);
+	memcpy(dh_pgs.pg + p_len + (p_len - g_len), base_attr->pValue, g_len);
 	dh_pgs.pg_bytes = p_len * 2;
 
 #ifdef DEBUG
@@ -2004,16 +2004,16 @@ static CK_RV dh_generate_keypair(CK_MECHANISM_PTR pMechanism,
 
 	/* add special attribute, do not add it to ock's pPublicKeyTemplate */
 	CK_ATTRIBUTE pgs[] = {{CKA_IBM_STRUCT_PARAMS, (CK_VOID_PTR) dh_pgs.pg,
-				dh_pgs.pg_bytes}};
+			       dh_pgs.pg_bytes}};
 	memcpy(&(pPublicKeyTemplate_new[new_public_attr]),
-		&(pgs[0]), sizeof(CK_ATTRIBUTE));
+	       &(pgs[0]), sizeof(CK_ATTRIBUTE));
 
 	rc = m_GenerateKeyPair(pMechanism, pPublicKeyTemplate_new,
-				new_public_attr+1, pPrivateKeyTemplate,
-				ulPrivateKeyAttributeCount, ep11_pin_blob,
-				ep11_pin_blob_len, priv_op.blob,
-				&priv_op.blob_size, publ_op.blob,
-				&publ_op.blob_size, ep11tok_target);
+			       new_public_attr+1, pPrivateKeyTemplate,
+			       ulPrivateKeyAttributeCount, ep11_pin_blob,
+			       ep11_pin_blob_len, priv_op.blob,
+			       &priv_op.blob_size, publ_op.blob,
+			       &publ_op.blob_size, ep11tok_target);
 
 	if (rc != CKR_OK) {
 		TRACE_ERROR("%s m_GenerateKeyPair failed rc=0x%lx\n", __func__, rc);
@@ -2097,7 +2097,7 @@ static CK_RV dh_generate_keypair(CK_MECHANISM_PTR pMechanism,
 			   __func__, rc, y_start[1], field_len, data_len, data[0]);
 	}
 
-	rc = build_attribute(CKA_VALUE,data, data_len, &value_attr);
+	rc = build_attribute(CKA_VALUE, data, data_len, &value_attr);
 	if (rc != CKR_OK) {
 		TRACE_ERROR("%s build_attribute failed with rc=0x%lx\n", __func__, rc);
 		goto dh_generate_keypair_end;
@@ -2134,11 +2134,11 @@ static CK_RV dsa_generate_keypair(CK_MECHANISM_PTR pMechanism,
 	CK_ATTRIBUTE *value_attr = NULL;
 	CK_ATTRIBUTE *attr = NULL;
 	size_t p_len=0, q_len=0, g_len=0;
-	int i,new_public_attr;
+	int i, new_public_attr;
 	CK_ATTRIBUTE *pPublicKeyTemplate_new = NULL;
 	CK_BYTE *key;
 	CK_BYTE *data;
-	CK_ULONG data_len,field_len,bit_str_len;
+	CK_ULONG data_len, field_len, bit_str_len;
 	CK_ATTRIBUTE_PTR dsa_pPublicKeyTemplate = NULL;
 	CK_ULONG dsa_ulPublicKeyAttributeCount = 0;
 	CK_ATTRIBUTE_PTR dsa_pPrivateKeyTemplate = NULL;
@@ -2163,8 +2163,8 @@ static CK_RV dsa_generate_keypair(CK_MECHANISM_PTR pMechanism,
 		TRACE_ERROR("%s Memory allocation failed\n", __func__);
 		return CKR_HOST_MEMORY;
 	}
-	 memset(pPublicKeyTemplate_new, 0,
-		sizeof(CK_ATTRIBUTE) * ulPublicKeyAttributeCount);
+	memset(pPublicKeyTemplate_new, 0,
+	       sizeof(CK_ATTRIBUTE) * ulPublicKeyAttributeCount);
 
 	for (i = 0, new_public_attr = 0; i < ulPublicKeyAttributeCount; i++) {
 		switch(pPublicKeyTemplate[i].type) {
@@ -2243,9 +2243,9 @@ static CK_RV dsa_generate_keypair(CK_MECHANISM_PTR pMechanism,
 	memset(dsa_pqgs.pqg, 0, p_len*3);
 	memcpy(dsa_pqgs.pqg, prime_attr->pValue, p_len);
 	memcpy(dsa_pqgs.pqg + p_len + (p_len - q_len),
-		sub_prime_attr->pValue, q_len);
+	       sub_prime_attr->pValue, q_len);
 	memcpy(dsa_pqgs.pqg + 2*p_len + (p_len - g_len),
-		base_attr->pValue, g_len);
+	       base_attr->pValue, g_len);
 	dsa_pqgs.pqg_bytes = p_len * 3;
 
 #ifdef DEBUG
@@ -2258,16 +2258,16 @@ static CK_RV dsa_generate_keypair(CK_MECHANISM_PTR pMechanism,
 #endif
 
 	CK_ATTRIBUTE pqgs[] = {{CKA_IBM_STRUCT_PARAMS,
-			       (CK_VOID_PTR)dsa_pqgs.pqg, dsa_pqgs.pqg_bytes}};
+				(CK_VOID_PTR)dsa_pqgs.pqg, dsa_pqgs.pqg_bytes}};
 
 	/* add special attribute, do not add it to ock's pPublicKeyTemplate */
 	memcpy(&(pPublicKeyTemplate_new[new_public_attr]),
-		&(pqgs[0]), sizeof(CK_ATTRIBUTE));
+	       &(pqgs[0]), sizeof(CK_ATTRIBUTE));
 
 	rc = check_key_attributes(CKK_DSA, CKO_PUBLIC_KEY,
-				pPublicKeyTemplate_new, new_public_attr+1,
-				&dsa_pPublicKeyTemplate,
-				&dsa_ulPublicKeyAttributeCount);
+				  pPublicKeyTemplate_new, new_public_attr+1,
+				  &dsa_pPublicKeyTemplate,
+				  &dsa_ulPublicKeyAttributeCount);
 	if (rc != CKR_OK) {
 		TRACE_ERROR("%s RSA/EC check public key attributes failed with rc=0x%lx\n",
 			    __func__, rc);
@@ -2275,9 +2275,9 @@ static CK_RV dsa_generate_keypair(CK_MECHANISM_PTR pMechanism,
 	}
 
 	rc = check_key_attributes(CKK_DSA, CKO_PRIVATE_KEY,
-				pPrivateKeyTemplate, ulPrivateKeyAttributeCount,
-				&dsa_pPrivateKeyTemplate,
-				&dsa_ulPrivateKeyAttributeCount);
+				  pPrivateKeyTemplate, ulPrivateKeyAttributeCount,
+				  &dsa_pPrivateKeyTemplate,
+				  &dsa_ulPrivateKeyAttributeCount);
 	if (rc != CKR_OK) {
 		TRACE_ERROR("%s RSA/EC check private key attributes failed with rc=0x%lx\n",
 			    __func__, rc);
@@ -2375,7 +2375,7 @@ dsa_generate_keypair_end:
 	if (dsa_pPrivateKeyTemplate)
 		free_attribute_array(dsa_pPrivateKeyTemplate,
 				     dsa_ulPrivateKeyAttributeCount);
-    return rc;
+	return rc;
 }
 
 static CK_RV rsa_ec_generate_keypair(CK_MECHANISM_PTR pMechanism,
@@ -2450,7 +2450,7 @@ static CK_RV rsa_ec_generate_keypair(CK_MECHANISM_PTR pMechanism,
 			       new_ulPublicKeyAttributeCount, new_pPrivateKeyTemplate,
 			       new_ulPrivateKeyAttributeCount, ep11_pin_blob,
 			       ep11_pin_blob_len, privkey_blob,
-			       &privkey_blob_len, spki,&spki_len,
+			       &privkey_blob_len, spki, &spki_len,
 			       ep11tok_target);
 	if (rc != CKR_OK) {
 		TRACE_ERROR("%s m_GenerateKeyPair rc=0x%lx spki_len=0x%zx "
@@ -2475,7 +2475,7 @@ static CK_RV rsa_ec_generate_keypair(CK_MECHANISM_PTR pMechanism,
 	memset(&publ_op, 0, sizeof(publ_op));
 	memset(&priv_op, 0, sizeof(priv_op));
 
-	memcpy(publ_op.blob,spki,spki_len);
+	memcpy(publ_op.blob, spki, spki_len);
 	publ_op.blob_size = spki_len;
 	publ_op.blob_id = ep11_blobs_inc();
 
@@ -2597,7 +2597,7 @@ static CK_RV rsa_ec_generate_keypair(CK_MECHANISM_PTR pMechanism,
 		 * set the public key attributes, a user would use the
 		 * already built SPKI (in CKA_IBM_OPAQUE of the public key).
 		 */
-		CK_BYTE *modulus,*publ_exp;
+		CK_BYTE *modulus, *publ_exp;
 
 		rc = ep11_spki_key(spki, &key, &bit_str_len);
 		if (rc != CKR_OK) {
@@ -2702,14 +2702,14 @@ CK_RV ep11tok_generate_key_pair(SESSION * sess, CK_MECHANISM_PTR pMechanism,
 
 	/* Get the keytype to use when creating the key object */
 	rc = ep11_get_keytype(pPrivateKeyTemplate, ulPrivateKeyAttributeCount,
-				pMechanism, &priv_ktype, &class);
+			      pMechanism, &priv_ktype, &class);
 	if (rc != CKR_OK) {
 		TRACE_ERROR("%s get_keytype failed with rc=0x%lx\n", __func__, rc);
 		goto error;
 	}
 
 	rc = ep11_get_keytype(pPublicKeyTemplate, ulPublicKeyAttributeCount,
-				pMechanism, &publ_ktype, &class);
+			      pMechanism, &publ_ktype, &class);
 	if (rc != CKR_OK) {
 		TRACE_ERROR("%s get_keytype failed with rc=0x%lx\n", __func__, rc);
 		goto error;
@@ -2791,7 +2791,7 @@ CK_RV ep11tok_generate_key_pair(SESSION * sess, CK_MECHANISM_PTR pMechanism,
 	/* copy CKA_CLASS, CKA_KEY_TYPE to private template */
 	if (template_attribute_find(public_key_obj->template, CKA_CLASS, &attr)) {
 		rc = build_attribute(attr->type, attr->pValue,
-					attr->ulValueLen, &n_attr);
+				     attr->ulValueLen, &n_attr);
 		if (rc != CKR_OK) {
 			TRACE_ERROR("%s build_attribute failed with rc=0x%lx\n",
 				    __func__, rc);
@@ -2808,7 +2808,7 @@ CK_RV ep11tok_generate_key_pair(SESSION * sess, CK_MECHANISM_PTR pMechanism,
 
 	if (template_attribute_find(public_key_obj->template, CKA_KEY_TYPE, &attr)) {
 		rc = build_attribute(attr->type, attr->pValue,
-					attr->ulValueLen, &n_attr);
+				     attr->ulValueLen, &n_attr);
 		if (rc != CKR_OK) {
 			TRACE_ERROR("%s build_attribute failed with rc=0x%lx\n",
 				    __func__, rc);
@@ -2856,7 +2856,7 @@ error:
  * The blob is created if none was build yet.
  */
 static CK_RV h_opaque_2_blob(CK_OBJECT_HANDLE handle,
-                             CK_BYTE **blob, size_t *blob_len, OBJECT **kobj)
+			     CK_BYTE **blob, size_t *blob_len, OBJECT **kobj)
 {
 	OBJECT *key_obj;
 	CK_ATTRIBUTE *attr = NULL;
@@ -2864,7 +2864,7 @@ static CK_RV h_opaque_2_blob(CK_OBJECT_HANDLE handle,
 	CK_RV rc;
 
 	/* find the key obj by the key handle */
-	rc = object_mgr_find_in_map1(handle,&key_obj);
+	rc = object_mgr_find_in_map1(handle, &key_obj);
 	if (rc != CKR_OK) {
 		TRACE_ERROR("%s key 0x%lx not mapped\n", __func__, handle);
 		return rc;
@@ -2872,7 +2872,7 @@ static CK_RV h_opaque_2_blob(CK_OBJECT_HANDLE handle,
 
 	/* blob already exists */
 	if (template_attribute_find(key_obj->template, CKA_IBM_OPAQUE, &attr) &&
-				    (attr->ulValueLen > 0)) {
+	    (attr->ulValueLen > 0)) {
 		op = attr->pValue;
 		*blob = op->blob;
 		*blob_len = op->blob_size;
@@ -2988,7 +2988,7 @@ CK_RV ep11tok_sign_final(SESSION *session, CK_BBOOL length_only,
 	SIGN_VERIFY_CONTEXT *ctx = &session->sign_ctx;
 
 	rc = m_SignFinal(ctx->context, ctx->context_len, signature, sig_len,
-			ep11tok_target);
+			 ep11tok_target);
 
 	if (rc != CKR_OK) {
 		TRACE_ERROR("%s rc=0x%lx\n", __func__, rc);
@@ -3056,7 +3056,7 @@ CK_RV ep11tok_verify(SESSION *session, CK_BYTE *in_data, CK_ULONG in_data_len,
 	SIGN_VERIFY_CONTEXT *ctx = &session->verify_ctx;
 
 	rc = m_Verify(ctx->context, ctx->context_len, in_data, in_data_len,
-			signature, sig_len, ep11tok_target);
+		      signature, sig_len, ep11tok_target);
 
 	if (rc != CKR_OK) {
 		TRACE_ERROR("%s rc=0x%lx\n", __func__, rc);
@@ -3078,7 +3078,7 @@ CK_RV ep11tok_verify_update(SESSION *session, CK_BYTE *in_data,
 		return CKR_OK;
 
 	rc = m_VerifyUpdate(ctx->context, ctx->context_len, in_data,
-				in_data_len, ep11tok_target);
+			    in_data_len, ep11tok_target);
 
 	if (rc != CKR_OK) {
 		TRACE_ERROR("%s rc=0x%lx\n", __func__, rc);
@@ -3097,7 +3097,7 @@ CK_RV ep11tok_verify_final(SESSION *session, CK_BYTE *signature,
 	SIGN_VERIFY_CONTEXT *ctx = &session->verify_ctx;
 
 	rc = m_VerifyFinal(ctx->context, ctx->context_len, signature,
-			    sig_len, ep11tok_target);
+			   sig_len, ep11tok_target);
 	if (rc != CKR_OK) {
 		TRACE_ERROR("%s rc=0x%lx\n", __func__, rc);
 	} else {
@@ -3114,7 +3114,7 @@ CK_RV ep11tok_decrypt_final(SESSION *session, CK_BYTE_PTR output_part,
 	CK_RV rc = CKR_OK;
 	ENCR_DECR_CONTEXT *decr_ctx = &session->decr_ctx;
 
-	rc = m_DecryptFinal(decr_ctx->context,decr_ctx->context_len,
+	rc = m_DecryptFinal(decr_ctx->context, decr_ctx->context_len,
 			    output_part, p_output_part_len, ep11tok_target);
 
 	if (rc != CKR_OK) {
@@ -3134,9 +3134,9 @@ CK_RV ep11tok_decrypt(SESSION *session, CK_BYTE_PTR input_data,
 	CK_RV rc = CKR_OK;
 	ENCR_DECR_CONTEXT *decr_ctx = &session->decr_ctx;
 
-	rc = m_Decrypt(decr_ctx->context,decr_ctx->context_len, input_data,
-			input_data_len, output_data, p_output_data_len,
-			ep11tok_target);
+	rc = m_Decrypt(decr_ctx->context, decr_ctx->context_len, input_data,
+		       input_data_len, output_data, p_output_data_len,
+		       ep11tok_target);
 
 	if (rc != CKR_OK) {
 		TRACE_ERROR("%s rc=0x%lx\n", __func__, rc);
@@ -3160,7 +3160,7 @@ CK_RV ep11tok_decrypt_update(SESSION *session, CK_BYTE_PTR input_part,
 		return CKR_OK; /* nothing to update, keep context */
 	}
 
-	rc = m_DecryptUpdate(decr_ctx->context,decr_ctx->context_len,
+	rc = m_DecryptUpdate(decr_ctx->context, decr_ctx->context_len,
 			     input_part, input_part_len, output_part,
 			     p_output_part_len, ep11tok_target) ;
 
@@ -3241,7 +3241,7 @@ CK_RV ep11tok_encrypt_update(SESSION *session, CK_BYTE_PTR input_part,
 
 
 static CK_RV ep11_ende_crypt_init(SESSION *session, CK_MECHANISM_PTR mech,
-                                  CK_OBJECT_HANDLE key, int op)
+				  CK_OBJECT_HANDLE key, int op)
 {
 	CK_RV rc = CKR_OK;
 	ENCR_DECR_CONTEXT *decr_ctx = &session->decr_ctx;
@@ -3293,7 +3293,7 @@ static CK_RV ep11_ende_crypt_init(SESSION *session, CK_MECHANISM_PTR mech,
 		if (rc != CKR_OK) {
 			TRACE_ERROR("%s m_EncryptInit rc=0x%lx blob_len=0x%zx "
 				    "mech=0x%lx\n", __func__, rc, blob_len,
-				     mech->mechanism);
+				    mech->mechanism);
 		} else {
 			TRACE_INFO("%s m_EncryptInit rc=0x%lx blob_len=0x%zx "
 				   "mech=0x%lx\n", __func__, rc, blob_len,
@@ -3412,7 +3412,7 @@ CK_RV ep11tok_wrap_key(SESSION *session, CK_MECHANISM_PTR mech,
 	 * the wrapping key (wrapping_blob).
 	 * The wrapped key can be processed by any PKCS11 implementation.
 	 */
-	rc = m_WrapKey(wrap_target_blob,wrap_target_blob_len, wrapping_blob,
+	rc = m_WrapKey(wrap_target_blob, wrap_target_blob_len, wrapping_blob,
 		       wrapping_blob_len, NULL, ~0, mech, wrapped_key,
 		       p_wrapped_key_len, ep11tok_target);
 
@@ -3503,8 +3503,8 @@ CK_RV ep11tok_unwrap_key(SESSION *session, CK_MECHANISM_PTR mech,
 	 * AES_ECB and AES_CBC only allowed to unwrap secret keys.
 	 */
 	if ( (*(CK_OBJECT_CLASS *)cla_attr->pValue != CKO_SECRET_KEY) &&
-		((mech->mechanism == CKM_AES_ECB) ||
-		 (mech->mechanism == CKM_AES_CBC)))
+	     ((mech->mechanism == CKM_AES_ECB) ||
+	      (mech->mechanism == CKM_AES_CBC)))
 		return CKR_ARGUMENTS_BAD;
 
 	/* we need a blob for the new key created by unwrapping,
@@ -3532,7 +3532,7 @@ CK_RV ep11tok_unwrap_key(SESSION *session, CK_MECHANISM_PTR mech,
 	len = csum[6] + 256*csum[5] + 256*256*csum[4] + 256*256*256*csum[3];
 	len = len/8;  /* comes in bits */
 	TRACE_INFO("%s m_UnwrapKey length 0x%hhx 0x%hhx 0x%hhx 0x%hhx 0x%lx\n",
-		   __func__, csum[3],csum[4],csum[5],csum[6],len);
+		   __func__, csum[3], csum[4], csum[5], csum[6], len);
 
 	/* Get the keytype to use when creating the key object */
 	rc = ep11_get_keytype(new_attrs, new_attrs_len, mech, &ktype, &class);
@@ -3688,13 +3688,13 @@ CK_RV ep11tok_get_mechanism_list(CK_MECHANISM_TYPE_PTR pMechanismList,
 			}
 		}
 	} else {
-		 /* 2. call, content request */
+		/* 2. call, content request */
 
 		/* find out size ep11 will report, cannot use the size
 		 * that comes as parameter, this is a 'reduced size',
 		 * ep11 would complain about insufficient list size
 		 */
-		rc = m_GetMechanismList(0,mlist,&counter,ep11tok_target);
+		rc = m_GetMechanismList(0, mlist, &counter, ep11tok_target);
 		if (rc != CKR_OK) {
 			TRACE_ERROR("%s bad rc=0x%lx from m_GetMechanismList() #3\n", __func__, rc);
 			return rc;
@@ -3717,22 +3717,22 @@ CK_RV ep11tok_get_mechanism_list(CK_MECHANISM_TYPE_PTR pMechanismList,
 			TRACE_INFO("%s raw mech list entry '%s'\n",
 				   __func__, ep11_get_ckm(mlist[i]));
 
-			/* copy only mechanisms not banned */
-			*pulCount = 0;
-			for (i = 0; i < counter; i++) {
-				banned = 0;
-				for (j = 0; j < banned_mech_list_len; j++) {
-					if (mlist[i] == ep11_banned_mech_list[j]) {
-						banned = 1;
-					}
+		/* copy only mechanisms not banned */
+		*pulCount = 0;
+		for (i = 0; i < counter; i++) {
+			banned = 0;
+			for (j = 0; j < banned_mech_list_len; j++) {
+				if (mlist[i] == ep11_banned_mech_list[j]) {
+					banned = 1;
 				}
-				if (banned == 0) {
-					pMechanismList[*pulCount] = mlist[i];
-					*pulCount = *pulCount + 1;
-				} else {
-					;
-				} /* do not copy banned mech */
 			}
+			if (banned == 0) {
+				pMechanismList[*pulCount] = mlist[i];
+				*pulCount = *pulCount + 1;
+			} else {
+				;
+			} /* do not copy banned mech */
+		}
 	}
 
 	if (mlist) free(mlist);
@@ -3746,7 +3746,7 @@ CK_RV ep11tok_get_mechanism_info(CK_MECHANISM_TYPE type,
 	CK_RV rc;
 	int i;
 
-	rc = m_GetMechanismInfo(0,type,pInfo,ep11tok_target);
+	rc = m_GetMechanismInfo(0, type, pInfo, ep11tok_target);
 	if (rc != CKR_OK) {
 		TRACE_ERROR("%s m_GetMechanismInfo(0x%lx) failed with rc=0x%lx\n",
 			    __func__, type, rc);
@@ -3800,7 +3800,7 @@ CK_RV ep11tok_get_mechanism_info(CK_MECHANISM_TYPE type,
 			 * lower key sizes < 80 bits.
 			 */
 			if (pInfo->ulMinKeySize == 8)
-		                pInfo->ulMinKeySize = 16;
+				pInfo->ulMinKeySize = 16;
 			break;
 
 		default:
@@ -3851,10 +3851,10 @@ static int read_adapter_config_file(const char* conf_name)
 {
 	FILE *ap_fp = NULL;       /* file pointer adapter config file */
 	int ap_file_size = 0;     /* size adapter config file */
-	char *token,*str;
+	char *token, *str;
 	char filebuf[EP11_CFG_FILE_SIZE];
 	char line[1024];
-	int i,j;
+	int i, j;
 	int blackmode = 0;
 	int whitemode = 0;
 	int anymode   = 0;
@@ -3867,7 +3867,7 @@ static int read_adapter_config_file(const char* conf_name)
 		return 0;
 	}
 
-	memset(fname,0,PATH_MAX);
+	memset(fname, 0, PATH_MAX);
 
 	/* via envrionment variable it is possible to overwrite the
 	 * directory where the ep11 token config file is searched.
@@ -3879,7 +3879,7 @@ static int read_adapter_config_file(const char* conf_name)
 
 			snprintf(fname, sizeof(fname), "%s/%s", conf_dir, conf_name+i+1);
 			fname[sizeof(fname)-1] = '\0';
-			ap_fp = fopen(fname,"r");
+			ap_fp = fopen(fname, "r");
 
 			if (!ap_fp)
 				TRACE_DEVEL("%s fopen('%s') failed with errno %d\n",
@@ -3888,7 +3888,7 @@ static int read_adapter_config_file(const char* conf_name)
 		if (!ap_fp) {
 			snprintf(fname, sizeof(fname), "%s/%s", conf_dir, EP11_DEFAULT_CFG_FILE);
 			fname[sizeof(fname)-1] = '\0';
-			ap_fp = fopen(fname,"r");
+			ap_fp = fopen(fname, "r");
 			if (!ap_fp)
 				TRACE_DEVEL("%s fopen('%s') failed with errno %d\n",
 					    __func__, fname, errno);
@@ -3897,13 +3897,13 @@ static int read_adapter_config_file(const char* conf_name)
 		if (conf_name && strlen(conf_name) > 0) {
 			strncpy(fname, conf_name, sizeof(fname));
 			fname[sizeof(fname)-1] = '\0';
-			ap_fp = fopen(fname,"r");
+			ap_fp = fopen(fname, "r");
 			if (!ap_fp) {
 				TRACE_DEVEL("%s fopen('%s') failed with errno %d\n",
 					    __func__, fname, errno);
 				snprintf(fname, sizeof(fname), "%s/%s", OCK_CONFDIR, conf_name);
 				fname[sizeof(fname)-1] = '\0';
-				ap_fp = fopen(fname,"r");
+				ap_fp = fopen(fname, "r");
 				if (!ap_fp)
 					TRACE_DEVEL("%s fopen('%s') failed with errno %d\n",
 						    __func__, fname, errno);
@@ -3911,7 +3911,7 @@ static int read_adapter_config_file(const char* conf_name)
 		} else {
 			snprintf(fname, sizeof(fname), "%s/%s", OCK_CONFDIR, EP11_DEFAULT_CFG_FILE);
 			fname[sizeof(fname)-1] = '\0';
-			ap_fp = fopen(fname,"r");
+			ap_fp = fopen(fname, "r");
 			if (!ap_fp)
 				TRACE_DEVEL("%s fopen('%s') failed with errno %d\n",
 					    __func__, fname, errno);
@@ -3929,7 +3929,7 @@ static int read_adapter_config_file(const char* conf_name)
 	/* read config file line by line,
 	 * ignore empty and # and copy rest into file buf
 	 */
-	memset(filebuf,0,EP11_CFG_FILE_SIZE);
+	memset(filebuf, 0, EP11_CFG_FILE_SIZE);
 	while (fgets((char *)line, sizeof(line), ap_fp)) {
 		char *p;
 		int len;
@@ -3956,28 +3956,28 @@ static int read_adapter_config_file(const char* conf_name)
 	 * please note, we still accept the LOGLEVEL entry
 	 * for compatibility reasons but just ignore it.
 	 */
-	for (i=0,j=0,str=filebuf; rc == 0; str=NULL) {
+	for (i=0, j=0, str=filebuf; rc == 0; str=NULL) {
 		/* strtok tokenizes the string,
 		 * delimiters are newline and whitespace.
 		 */
 		token = strtok(str, "\n\t ");
 
 		if (i == 0) {
-			 /* expecting APQN_WHITELIST or APQN_BLACKLIST
-			  * or APQN_ANY or LOGLEVEL or eof.
-			  */
+			/* expecting APQN_WHITELIST or APQN_BLACKLIST
+			 * or APQN_ANY or LOGLEVEL or eof.
+			 */
 			if (token == NULL)
 				break;
-			if (strncmp(token,"APQN_WHITELIST",14) == 0) {
+			if (strncmp(token, "APQN_WHITELIST", 14) == 0) {
 				whitemode = 1;
 				i = 1;
-			} else if (strncmp(token,"APQN_BLACKLIST",14) == 0) {
+			} else if (strncmp(token, "APQN_BLACKLIST", 14) == 0) {
 				blackmode = 1;
 				i = 1;
-			} else if (strncmp(token,"APQN_ANY",8) == 0) {
+			} else if (strncmp(token, "APQN_ANY", 8) == 0) {
 				anymode = 1;
 				i = 0;
-			} else if (strncmp(token,"LOGLEVEL",8) == 0)
+			} else if (strncmp(token, "LOGLEVEL", 8) == 0)
 				i = 3;
 			else {
 				/* syntax error */
@@ -3992,7 +3992,7 @@ static int read_adapter_config_file(const char* conf_name)
 			/* expecting END or first number of a number
 			 * pair (number range 0...255)
 			 */
-			if (strncmp(token,"END",3) == 0)
+			if (strncmp(token, "END", 3) == 0)
 				i = 0;
 			else {
 				if (check_n(token, j, &apqn_i) < 0) {
@@ -4005,7 +4005,7 @@ static int read_adapter_config_file(const char* conf_name)
 			/* expecting second number of a number pair
 			 * (number range 0...255)
 			 */
-			if (strncmp(token,"END",3) == 0) {
+			if (strncmp(token, "END", 3) == 0) {
 				TRACE_ERROR("%s Expected 2nd number, found '%s' in configfile\n",
 					    __func__, token);
 				rc = APQN_FILE_SYNTAX_ERROR_2;
@@ -4025,9 +4025,9 @@ static int read_adapter_config_file(const char* conf_name)
 			i = 1;
 			j++;
 		} else if (i == 3) {
-			 /* expecting log level value
-			  * (a number in the range 0...9)
-			  */
+			/* expecting log level value
+			 * (a number in the range 0...9)
+			 */
 			char *endptr;
 			int loglevel  = strtol(token, &endptr, 10);
 			if (*endptr != '\0' || loglevel < 0 || loglevel > 9) {
