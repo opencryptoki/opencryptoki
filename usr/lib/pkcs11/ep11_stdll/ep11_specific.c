@@ -372,24 +372,18 @@ CK_CHAR descr[] = "IBM PKCS#11 EP11 token";
 CK_CHAR label[] = "IBM OS PKCS#11   ";
 
 /* largest blobsize ever seen is about 5k (for 4096 mod bits RSA keys) */
-#define blobsize   2048*4
+#define MAX_BLOBSIZE 8192
+#define MAX_CSUMSIZE 64
+#define MAX_DIGEST_STATE_BYTES 1024
+#define MAX_CRYPT_STATE_BYTES 8192
+#define MAX_SIGN_STATE_BYTES 8192
 #define MAX_APQN 256
 
 /* wrap_key is used for importing keys */
-char             wrap_key_name[16];
+char     wrap_key_name[] = "EP11_wrapkey";
 /* blob and blobsize of wrap key */
-CK_BYTE  raw2key_wrap_blob[blobsize];
+CK_BYTE  raw2key_wrap_blob[MAX_BLOBSIZE];
 size_t   raw2key_wrap_blob_l = 0;
-
-/* blob id for debugging */
-static unsigned long long ep11_blobs = 0;
-
-/* blobs are stored in attribute IBM_OPAQUE and this is the layout */
-typedef struct {
-	size_t	blob_size;
-	size_t	blob_id;
-	unsigned char blob[blobsize];
-} ep11_opaque;
 
 /* target list of adapters/domains, specified in a config file by user,
    tells the device driver which adapter/domain pairs should be used,
@@ -427,20 +421,7 @@ static CK_ULONG ep11_pin_blob_len = 0;
 #define CKM_SHA384_KEY_DERIVATION 0x00000394
 #define CKM_SHA512_KEY_DERIVATION 0x00000395
 
-static pthread_mutex_t ep11blob_lock = PTHREAD_MUTEX_INITIALIZER;
-
 static CK_BBOOL ep11_initialized = FALSE;
-
-static unsigned long long ep11_blobs_inc()
-{
-	unsigned long long count;
-
-	pthread_mutex_lock(&ep11blob_lock);
-	count = ep11_blobs++;
-	pthread_mutex_unlock(&ep11blob_lock);
-	return count;
-}
-
 
 static CK_RV
 check_key_attributes(CK_KEY_TYPE kt, CK_OBJECT_CLASS kc, CK_ATTRIBUTE_PTR attrs,
@@ -1034,10 +1015,10 @@ static CK_RV rawkey_2_blob(unsigned char *key, CK_ULONG ksize,
 			   CK_KEY_TYPE ktype, unsigned char *blob,
 			   size_t *blen, OBJECT *key_obj)
 {
-	char   cipher[blobsize];
-	CK_ULONG clen = blobsize;
-	char csum[64];
-	CK_ULONG cslen = 64;
+	char   cipher[MAX_BLOBSIZE];
+	CK_ULONG clen = sizeof(cipher);
+	CK_BYTE csum[MAX_CSUMSIZE];
+	size_t cslen = sizeof(csum);
 	CK_BYTE iv[AES_BLOCK_SIZE];
 	CK_MECHANISM mech = { CKM_AES_CBC_PAD, iv, AES_BLOCK_SIZE };
 	DL_NODE *node = key_obj->template->attribute_list;
@@ -1072,7 +1053,7 @@ static CK_RV rawkey_2_blob(unsigned char *key, CK_ULONG ksize,
 		node = node->next;
 	}
 
-	memset(cipher, 0, blobsize);
+	memset(cipher, 0, sizeof(cipher));
 	memcpy(iv, "1234567812345678", AES_BLOCK_SIZE);
 
 	/*
@@ -1107,11 +1088,9 @@ static CK_RV rawkey_2_blob(unsigned char *key, CK_ULONG ksize,
 			 ep11tok_target);
 
 	if (rc != CKR_OK) {
-		TRACE_ERROR("%s unwrap blen=%zd rc=0x%lx ep11_blobs=0x%llx\n",
-			    __func__, *blen, rc, ep11_blobs);
+		TRACE_ERROR("%s unwrap blen=%zd rc=0x%lx\n", __func__, *blen, rc);
 	} else {
-		TRACE_INFO("%s unwrap blen=%zd rc=0x%lx ep11_blobs=0x%llx\n",
-			   __func__, *blen, rc, ep11_blobs);
+		TRACE_INFO("%s unwrap blen=%zd rc=0x%lx\n", __func__, *blen, rc);
 	}
 
 rawkey_2_blob_end:
@@ -1222,10 +1201,9 @@ CK_RV token_specific_rng(CK_BYTE *output, CK_ULONG bytes)
 static CK_RV make_wrapblob(CK_ATTRIBUTE *tmpl_in, CK_ULONG tmpl_len)
 {
 	CK_MECHANISM mech = {CKM_AES_KEY_GEN, NULL_PTR, 0};
-	unsigned char csum[64];
-	size_t csum_l = 64;
+	unsigned char csum[MAX_CSUMSIZE];
+	size_t csum_l = sizeof(csum);
 	CK_RV rc;
-
 
 	if (raw2key_wrap_blob_l != 0) {
 		TRACE_INFO("%s blob already exists raw2key_wrap_blob_l=0x%zx\n",
@@ -1233,7 +1211,7 @@ static CK_RV make_wrapblob(CK_ATTRIBUTE *tmpl_in, CK_ULONG tmpl_len)
 		return CKR_OK;
 	}
 
-	raw2key_wrap_blob_l = blobsize;
+	raw2key_wrap_blob_l = sizeof(raw2key_wrap_blob);
 	rc = m_GenerateKey(&mech, tmpl_in, tmpl_len, NULL, 0, raw2key_wrap_blob,
 			   &raw2key_wrap_blob_l, csum, &csum_l, ep11tok_target);
 
@@ -1273,10 +1251,6 @@ CK_RV ep11tok_init(CK_SLOT_ID SlotNumber, char *conf_name)
 		TRACE_ERROR("%s ep11 config file error rc=0x%lx\n", __func__, rc);
 		return CKR_GENERAL_ERROR;
 	}
-
-	/* wrap key name */
-	memset(wrap_key_name, 0, sizeof(wrap_key_name));
-	memcpy(wrap_key_name, "EP11_wrapkey", sizeof("EP11_wrapkey"));
 
 	/* dynamically load in the ep11 shared library */
 	lib_ep11 = dlopen(EP11SHAREDLIB, RTLD_GLOBAL | RTLD_NOW);
@@ -1345,17 +1319,17 @@ static CK_RV import_RSA_key(OBJECT *rsa_key_obj, CK_BYTE *blob, size_t *blob_siz
 	CK_ATTRIBUTE *attr = NULL;
 	CK_BYTE iv[AES_BLOCK_SIZE];
 	CK_MECHANISM mech_w = {CKM_AES_CBC_PAD, iv, AES_BLOCK_SIZE};
-	CK_BYTE cipher[blobsize];
-	CK_ULONG cipher_l = blobsize;
+	CK_BYTE cipher[MAX_BLOBSIZE];
+	CK_ULONG cipher_l = sizeof(cipher);
 	DL_NODE *node;
 	CK_ATTRIBUTE_PTR p_attrs = NULL;
 	CK_ULONG attrs_len = 0;
 	CK_ATTRIBUTE_PTR new_p_attrs = NULL;
 	CK_ULONG new_attrs_len = 0;
-	char csum[blobsize];
-	CK_ULONG cslen = blobsize;
+	char csum[MAX_BLOBSIZE];
+	CK_ULONG cslen = sizeof(csum);
 	CK_OBJECT_CLASS class;
-	CK_BYTE *data;
+	CK_BYTE *data = NULL;
 	CK_ULONG data_len;
 
 	memcpy(iv, "1234567812345678", AES_BLOCK_SIZE);
@@ -1393,8 +1367,10 @@ static CK_RV import_RSA_key(OBJECT *rsa_key_obj, CK_BYTE *blob, size_t *blob_siz
 
 	class = *(CK_OBJECT_CLASS *)attr->pValue;
 
-	/* an imported public RSA key, we need a SPKI for it. */
 	if (class != CKO_PRIVATE_KEY) {
+
+		/* an imported public RSA key, we need a SPKI for it. */
+
 		CK_ATTRIBUTE *modulus;
 		CK_ATTRIBUTE *publ_exp;
 
@@ -1430,63 +1406,62 @@ static CK_RV import_RSA_key(OBJECT *rsa_key_obj, CK_BYTE *blob, size_t *blob_siz
 		 */
 		memcpy(blob, data, data_len);
 		*blob_size = data_len;
-		goto import_RSA_key_end;
-	}
 
-	/* only imported private RSA keys go here */
-
-	/* extract the secret data to be wrapped
-	 * since this is AES_CBC_PAD, padding is done in mechanism.
-	 */
-	rc = rsa_priv_wrap_get_data(rsa_key_obj->template, FALSE,
-				    &data, &data_len);
-	if (rc != CKR_OK) {
-		TRACE_DEVEL("%s RSA wrap get data failed\n", __func__);
-		goto import_RSA_key_end;
-	}
-
-	/* encrypt */
-	rc = m_EncryptSingle(raw2key_wrap_blob, raw2key_wrap_blob_l, &mech_w,
-			     data, data_len, cipher, &cipher_l, ep11tok_target);
-
-	/* done with data */
-	if (data != NULL)
-		free (data);
-
-	TRACE_INFO("%s wrapping wrap key rc=0x%lx cipher_l=0x%lx\n",
-		   __func__, rc, cipher_l);
-
-	if (rc != CKR_OK) {
-		TRACE_ERROR("%s wrapping wrap key rc=0x%lx cipher_l=0x%lx\n",
-			    __func__, rc, cipher_l);
-		goto import_RSA_key_end;
-	}
-
-	rc = check_key_attributes(CKK_RSA, CKO_PRIVATE_KEY, p_attrs, attrs_len,
-				  &new_p_attrs, &new_attrs_len);
-	if (rc != CKR_OK) {
-		TRACE_ERROR("%s RSA/EC check private key attributes failed with rc=0x%lx\n",
-			    __func__, rc);
-		return rc;
-	}
-
-	/* calls the card, it decrypts the private RSA key,
-	 * reads its BER format and builds a blob.
-	 */
-	rc = m_UnwrapKey(cipher, cipher_l, raw2key_wrap_blob, raw2key_wrap_blob_l,
-			 NULL, ~0, ep11_pin_blob, ep11_pin_blob_len, &mech_w,
-			 new_p_attrs, new_attrs_len, blob, blob_size, csum, &cslen,
-			 ep11tok_target);
-
-	if (rc != CKR_OK) {
-		TRACE_ERROR("%s wrapping unwrap key rc=0x%lx blob_size=0x%zx\n",
-			    __func__, rc, *blob_size);
 	} else {
-		TRACE_INFO("%s wrapping unwrap key rc=0x%lx blob_size=0x%zx\n",
-			   __func__, rc, *blob_size);
+
+		/* imported private RSA key goes here */
+
+		/* extract the secret data to be wrapped
+		 * since this is AES_CBC_PAD, padding is done in mechanism.
+		 */
+		rc = rsa_priv_wrap_get_data(rsa_key_obj->template, FALSE,
+					    &data, &data_len);
+		if (rc != CKR_OK) {
+			TRACE_DEVEL("%s RSA wrap get data failed\n", __func__);
+			goto import_RSA_key_end;
+		}
+
+		/* encrypt */
+		rc = m_EncryptSingle(raw2key_wrap_blob, raw2key_wrap_blob_l, &mech_w,
+				     data, data_len, cipher, &cipher_l, ep11tok_target);
+
+		TRACE_INFO("%s wrapping wrap key rc=0x%lx cipher_l=0x%lx\n",
+			   __func__, rc, cipher_l);
+
+		if (rc != CKR_OK) {
+			TRACE_ERROR("%s wrapping wrap key rc=0x%lx cipher_l=0x%lx\n",
+				    __func__, rc, cipher_l);
+			goto import_RSA_key_end;
+		}
+
+		rc = check_key_attributes(CKK_RSA, CKO_PRIVATE_KEY, p_attrs, attrs_len,
+					  &new_p_attrs, &new_attrs_len);
+		if (rc != CKR_OK) {
+			TRACE_ERROR("%s RSA/EC check private key attributes failed with rc=0x%lx\n",
+				    __func__, rc);
+			return rc;
+		}
+
+		/* calls the card, it decrypts the private RSA key,
+		 * reads its BER format and builds a blob.
+		 */
+		rc = m_UnwrapKey(cipher, cipher_l, raw2key_wrap_blob, raw2key_wrap_blob_l,
+				 NULL, ~0, ep11_pin_blob, ep11_pin_blob_len, &mech_w,
+				 new_p_attrs, new_attrs_len, blob, blob_size, csum, &cslen,
+				 ep11tok_target);
+
+		if (rc != CKR_OK) {
+			TRACE_ERROR("%s wrapping unwrap key rc=0x%lx blob_size=0x%zx\n",
+				    __func__, rc, *blob_size);
+		} else {
+			TRACE_INFO("%s wrapping unwrap key rc=0x%lx blob_size=0x%zx\n",
+				   __func__, rc, *blob_size);
+		}
 	}
 
 import_RSA_key_end:
+	if (data)
+		free(data);
 	if (p_attrs != NULL)
 		free_attribute_array(p_attrs, attrs_len);
 	if (new_p_attrs)
@@ -1499,7 +1474,8 @@ token_specific_object_add(OBJECT *obj)
 {
 	CK_KEY_TYPE keytype;
 	CK_ATTRIBUTE *attr = NULL;
-	ep11_opaque new_op;
+	CK_BYTE blob[MAX_BLOBSIZE];
+	size_t blobsize = sizeof(blob);
 	CK_RV rc;
 
 	/* get key type */
@@ -1510,21 +1486,19 @@ token_specific_object_add(OBJECT *obj)
 
 	keytype = *(CK_KEY_TYPE *)attr->pValue;
 
-	memset(&new_op, 0, sizeof(new_op));
-	new_op.blob_size = blobsize;
+	memset(blob, 0, sizeof(blob));
 
 	/* only these keys can be imported */
 	switch(keytype) {
 	case CKK_RSA:
-		rc = import_RSA_key(obj, new_op.blob, &new_op.blob_size);
+		rc = import_RSA_key(obj, blob, &blobsize);
 		if (rc != CKR_OK) {
-			TRACE_ERROR("%s import RSA key rc=0x%lx "
-				    "blob_size=0x%zx\n", __func__, rc,
-				    new_op.blob_size);
+			TRACE_ERROR("%s import RSA key rc=0x%lx blobsize=0x%zx\n",
+				    __func__, rc, blobsize);
 			return CKR_FUNCTION_FAILED;
 		}
-		TRACE_INFO("%s import RSA key rc=0x%lx blob_size=0x%zx\n",
-			   __func__, rc, new_op.blob_size);
+		TRACE_INFO("%s import RSA key rc=0x%lx blobsize=0x%zx\n",
+			   __func__, rc, blobsize);
 		break;
 
 	case CKK_DES2:
@@ -1541,30 +1515,26 @@ token_specific_object_add(OBJECT *obj)
 		 * import that key (make a blob)
 		 */
 		rc = rawkey_2_blob(attr->pValue, attr->ulValueLen, keytype,
-				   new_op.blob, &new_op.blob_size, obj);
+				   blob, &blobsize, obj);
 		if (rc != CKR_OK) {
 			TRACE_ERROR("%s rawkey_2_blob rc=0x%lx "
-				    "blob_size=0x%zx\n", __func__, rc,
-				    new_op.blob_size);
+				    "blobsize=0x%zx\n", __func__, rc, blobsize);
 			return CKR_FUNCTION_FAILED;
 		}
 
 		/* clear value attribute */
 		memset(attr->pValue, 0, attr->ulValueLen);
 
-		TRACE_INFO("%s rawkey_2_blob rc=0x%lx blob_size=0x%zx\n",
-			   __func__, rc, new_op.blob_size);
+		TRACE_INFO("%s rawkey_2_blob rc=0x%lx blobsize=0x%zx\n",
+			   __func__, rc, blobsize);
 
 		break;
 	default:
 		return CKR_KEY_FUNCTION_NOT_PERMITTED;
 	}
 
-	new_op.blob_id = ep11_blobs_inc();
-
 	/* store the blob in the key obj */
-	rc = build_attribute(CKA_IBM_OPAQUE, (CK_BYTE *) &new_op,
-			     sizeof(ep11_opaque), &attr);
+	rc = build_attribute(CKA_IBM_OPAQUE, blob, blobsize, &attr);
 	if (rc != CKR_OK) {
 		TRACE_ERROR("%s build_attribute failed with rc=0x%lx\n",
 			    __func__, rc);
@@ -1586,9 +1556,10 @@ CK_RV ep11tok_generate_key(SESSION *session, CK_MECHANISM_PTR mech,
 			   CK_ATTRIBUTE_PTR attrs, CK_ULONG attrs_len,
 			   CK_OBJECT_HANDLE_PTR handle)
 {
-	ep11_opaque new_op;
-	CK_BYTE csum[64];
-	size_t csum_len = 64;
+	CK_BYTE blob[MAX_BLOBSIZE];
+	size_t blobsize = sizeof(blob);
+	CK_BYTE csum[MAX_CSUMSIZE];
+	size_t csum_len = sizeof(csum);
 	CK_ATTRIBUTE *attr = NULL;
 	OBJECT *key_obj = NULL;
 	CK_ULONG ktype;
@@ -1597,9 +1568,8 @@ CK_RV ep11tok_generate_key(SESSION *session, CK_MECHANISM_PTR mech,
 	CK_ULONG new_attrs_len = 0;
 	CK_RV rc;
 
-	memset(&new_op, 0, sizeof(new_op));
+	memset(blob, 0, sizeof(blob));
 	memset(csum, 0, sizeof(csum));
-	new_op.blob_size = blobsize;
 
 	/* Get the keytype to use when creating the key object */
 	rc = ep11_get_keytype(attrs, attrs_len, mech, &ktype, &class);
@@ -1618,7 +1588,7 @@ CK_RV ep11tok_generate_key(SESSION *session, CK_MECHANISM_PTR mech,
 	}
 
 	rc = m_GenerateKey(mech, new_attrs, new_attrs_len, ep11_pin_blob,
-			   ep11_pin_blob_len, new_op.blob, &new_op.blob_size,
+			   ep11_pin_blob_len, blob, &blobsize,
 			   csum, &csum_len, ep11tok_target);
 	if (rc != CKR_OK) {
 		TRACE_ERROR("%s m_GenerateKey rc=0x%lx mech='%s' attrs_len=0x%lx\n",
@@ -1639,8 +1609,7 @@ CK_RV ep11tok_generate_key(SESSION *session, CK_MECHANISM_PTR mech,
 		goto error;
 	}
 
-	rc = build_attribute(CKA_IBM_OPAQUE, (CK_BYTE *) &new_op,
-			     sizeof(ep11_opaque), &attr);
+	rc = build_attribute(CKA_IBM_OPAQUE, blob, blobsize, &attr);
 	if (rc != CKR_OK) {
 		TRACE_ERROR("%s build_attribute failed with rc=0x%lx\n",
 			    __func__, rc);
@@ -1678,37 +1647,16 @@ done:
 CK_RV token_specific_sha_init(DIGEST_CONTEXT *c, CK_MECHANISM *mech)
 {
 	CK_RV rc;
-	size_t state_len = blobsize;
+	size_t state_len = MAX_DIGEST_STATE_BYTES;
 	CK_BYTE *state;
-	CK_MECHANISM mechanism;
 
-	state = malloc(blobsize); /* freed by dig_mgr.c */
+	state = malloc(state_len); /* freed by dig_mgr.c */
 	if (!state) {
 		TRACE_ERROR("%s Memory allocation failed\n", __func__);
 		return CKR_HOST_MEMORY;
 	}
 
-	mechanism.pParameter = NULL;
-	mechanism.ulParameterLen = 0;
-
-	switch(mech->mechanism) {
-	case CKM_SHA_1:
-		mechanism.mechanism = CKM_SHA_1;
-		break;
-	case CKM_SHA256:
-		mechanism.mechanism = CKM_SHA256;
-		break;
-	case CKM_SHA384:
-		mechanism.mechanism = CKM_SHA384;
-		break;
-	case CKM_SHA512:
-		mechanism.mechanism = CKM_SHA512;
-		break;
-	default:
-		return CKR_MECHANISM_INVALID;
-	}
-
-	rc = m_DigestInit (state, &state_len, &mechanism, ep11tok_target) ;
+	rc = m_DigestInit (state, &state_len, mech, ep11tok_target) ;
 
 	if (rc != CKR_OK) {
 		TRACE_ERROR("%s rc=0x%lx\n", __func__, rc);
@@ -1718,7 +1666,9 @@ CK_RV token_specific_sha_init(DIGEST_CONTEXT *c, CK_MECHANISM *mech)
 		 *  requests (sha_update), 'state' is build by the card
 		 * and holds all to continue, even by another adapter
 		 */
-		c->mech = mechanism;
+		c->mech.ulParameterLen = mech->ulParameterLen;
+		c->mech.mechanism = mech->mechanism;
+		c->mech.pParameter = NULL;
 		c->context = state;
 		c->context_len = state_len;
 
@@ -1786,11 +1736,12 @@ CK_RV ep11tok_derive_key(SESSION *session, CK_MECHANISM_PTR mech,
 			 CK_ATTRIBUTE_PTR attrs, CK_ULONG attrs_len)
 {
 	CK_RV rc;
-	unsigned char *blob;
-	size_t blob_len = 0;
-	ep11_opaque secret_op;
-	char csum[blobsize];
-	CK_ULONG cslen = blobsize;
+	CK_BYTE *keyblob;
+	size_t keyblobsize;
+	CK_BYTE newblob[MAX_BLOBSIZE];
+	size_t newblobsize = sizeof(newblob);
+	char csum[MAX_BLOBSIZE];
+	CK_ULONG cslen = sizeof(csum);
 	CK_ATTRIBUTE *opaque_attr = NULL;
 	OBJECT *key_obj = NULL;
 	CK_ULONG ktype;
@@ -1798,10 +1749,9 @@ CK_RV ep11tok_derive_key(SESSION *session, CK_MECHANISM_PTR mech,
 	CK_ATTRIBUTE_PTR new_attrs = NULL;
 	CK_ULONG new_attrs_len = 0;
 
-	memset(&secret_op, 0, sizeof(secret_op));
-	secret_op.blob_size = blobsize;
+	memset(newblob, 0, sizeof(newblob));
 
-	rc = h_opaque_2_blob(hBaseKey, &blob, &blob_len, &key_obj);
+	rc = h_opaque_2_blob(hBaseKey, &keyblob, &keyblobsize, &key_obj);
 	if (rc != CKR_OK) {
 		TRACE_ERROR("%s failedL hBaseKey=0x%lx\n", __func__, hBaseKey);
 		return rc;
@@ -1822,18 +1772,17 @@ CK_RV ep11tok_derive_key(SESSION *session, CK_MECHANISM_PTR mech,
 		return rc;
 	}
 
-	rc = m_DeriveKey (mech, new_attrs, new_attrs_len, blob, blob_len, NULL,
-			  0, ep11_pin_blob, ep11_pin_blob_len, secret_op.blob,
-			  &secret_op.blob_size, csum, &cslen, ep11tok_target);
+	rc = m_DeriveKey (mech, new_attrs, new_attrs_len, keyblob, keyblobsize, NULL,
+			  0, ep11_pin_blob, ep11_pin_blob_len, newblob, &newblobsize,
+			  csum, &cslen, ep11tok_target);
 
 	if (rc != CKR_OK) {
-		TRACE_ERROR("%s hBaseKey=0x%lx rc=0x%lx handle=0x%lx "
-			    "blob_size=0x%zx\n", __func__, hBaseKey, rc,
-			    *handle, secret_op.blob_size);
+		TRACE_ERROR("%s hBaseKey=0x%lx rc=0x%lx handle=0x%lx blobsize=0x%zx\n",
+			    __func__, hBaseKey, rc, *handle, newblobsize);
 		return rc;
 	}
-	TRACE_INFO("%s hBaseKey=0x%lx rc=0x%lx handle=0x%lx blob_size=0x%zx\n",
-		   __func__, hBaseKey, rc, *handle, secret_op.blob_size);
+	TRACE_INFO("%s hBaseKey=0x%lx rc=0x%lx handle=0x%lx blobsize=0x%zx\n",
+		   __func__, hBaseKey, rc, *handle, newblobsize);
 
 	/* Start creating the key object */
 	rc = object_mgr_create_skel(session, new_attrs, new_attrs_len,
@@ -1844,8 +1793,7 @@ CK_RV ep11tok_derive_key(SESSION *session, CK_MECHANISM_PTR mech,
 		goto error;
 	}
 
-	rc = build_attribute(CKA_IBM_OPAQUE, (CK_BYTE *) &secret_op,
-			     sizeof(ep11_opaque), &opaque_attr);
+	rc = build_attribute(CKA_IBM_OPAQUE, newblob, newblobsize, &opaque_attr);
 	if (rc != CKR_OK) {
 		TRACE_ERROR("%s build_attribute failed with rc=0x%lx\n", __func__, rc);
 		goto error;
@@ -1890,8 +1838,10 @@ static CK_RV dh_generate_keypair(CK_MECHANISM_PTR pMechanism,
 				 CK_SESSION_HANDLE h)
 {
 	CK_RV  rc;
-	ep11_opaque publ_op;
-	ep11_opaque priv_op;
+	CK_BYTE publblob[MAX_BLOBSIZE];
+	size_t publblobsize = sizeof(publblob);
+	CK_BYTE privblob[MAX_BLOBSIZE];
+	size_t privblobsize = sizeof(privblob);
 	CK_ATTRIBUTE *prime_attr = NULL;
 	CK_ATTRIBUTE *base_attr = NULL;
 	CK_ATTRIBUTE *opaque_attr = NULL;
@@ -1914,10 +1864,8 @@ static CK_RV dh_generate_keypair(CK_MECHANISM_PTR pMechanism,
 		unsigned char *pg;
 	} dh_pgs;
 	memset(&dh_pgs, 0, sizeof(dh_pgs));
-	memset(&publ_op, 0, sizeof(publ_op));
-	memset(&priv_op, 0, sizeof(priv_op));
-	publ_op.blob_size = blobsize;
-	priv_op.blob_size = blobsize;
+	memset(publblob, 0, sizeof(publblob));
+	memset(privblob, 0, sizeof(privblob));
 
 	/* card does not want CKA_PRIME/CKA_BASE in template but in dh_pgs */
 	pPublicKeyTemplate_new = (CK_ATTRIBUTE *)malloc(sizeof(CK_ATTRIBUTE) * ulPublicKeyAttributeCount);
@@ -2011,27 +1959,19 @@ static CK_RV dh_generate_keypair(CK_MECHANISM_PTR pMechanism,
 	rc = m_GenerateKeyPair(pMechanism, pPublicKeyTemplate_new,
 			       new_public_attr+1, pPrivateKeyTemplate,
 			       ulPrivateKeyAttributeCount, ep11_pin_blob,
-			       ep11_pin_blob_len, priv_op.blob,
-			       &priv_op.blob_size, publ_op.blob,
-			       &publ_op.blob_size, ep11tok_target);
+			       ep11_pin_blob_len, privblob, &privblobsize,
+			       publblob, &publblobsize, ep11tok_target);
 
 	if (rc != CKR_OK) {
 		TRACE_ERROR("%s m_GenerateKeyPair failed rc=0x%lx\n", __func__, rc);
 		goto dh_generate_keypair_end;
 	}
 
-	/* only debug */
-	publ_op.blob_id = ep11_blobs_inc();
-	priv_op.blob_id = ep11_blobs_inc();
-
-	TRACE_INFO("%s rc=0x%lx blobs1=0x%llx blobs2=0x%llx plen=%zd"
-		   " pub.blob_size=0x%zx priv.blob_size=0x%zx\n",
-		   __func__, rc, ep11_blobs-1, ep11_blobs-2, p_len,
-		   publ_op.blob_size, priv_op.blob_size);
+	TRACE_INFO("%s rc=0x%lx plen=%zd publblobsize=0x%zx privblobsize=0x%zx\n",
+		   __func__, rc, p_len, publblobsize, privblobsize);
 
 	/* store the blobs */
-	rc = build_attribute(CKA_IBM_OPAQUE, (CK_BYTE *) &publ_op,
-			     sizeof(ep11_opaque), &opaque_attr);
+	rc = build_attribute(CKA_IBM_OPAQUE, publblob, publblobsize, &opaque_attr);
 	if (rc != CKR_OK) {
 		TRACE_ERROR("%s build_attribute failed with rc=0x%lx\n", __func__, rc);
 		goto dh_generate_keypair_end;
@@ -2044,8 +1984,7 @@ static CK_RV dh_generate_keypair(CK_MECHANISM_PTR pMechanism,
 		goto dh_generate_keypair_end;
 	}
 
-	rc = build_attribute(CKA_IBM_OPAQUE, (CK_BYTE *) &priv_op,
-			     sizeof(ep11_opaque), &opaque_attr);
+	rc = build_attribute(CKA_IBM_OPAQUE, privblob, privblobsize, &opaque_attr);
 	if (rc != CKR_OK) {
 		TRACE_ERROR("%s build_attribute failed with rc=0x%lx\n", __func__, rc);
 		goto dh_generate_keypair_end;
@@ -2060,11 +1999,11 @@ static CK_RV dh_generate_keypair(CK_MECHANISM_PTR pMechanism,
 
 #ifdef DEBUG
 	TRACE_DEBUG("%s DH SPKI\n", __func__ );
-	TRACE_DEBUG_DUMP(publ_op.blob, publ_op.blob_size);
+	TRACE_DEBUG_DUMP(publblob, publblobsize);
 #endif
 
 	/* CKA_VALUE of the public key must hold 'y' */
-	rc = ep11_spki_key(publ_op.blob, &y_start, &bit_str_len);
+	rc = ep11_spki_key(publblob, &y_start, &bit_str_len);
 	if (rc != CKR_OK) {
 		TRACE_ERROR("%s ber_decode SKPI failed rc=0x%lx\n", __func__, rc);
 		rc = CKR_GENERAL_ERROR;
@@ -2125,8 +2064,10 @@ static CK_RV dsa_generate_keypair(CK_MECHANISM_PTR pMechanism,
 				  CK_SESSION_HANDLE h)
 {
 	CK_RV  rc;
-	ep11_opaque publ_op;
-	ep11_opaque priv_op;
+	CK_BYTE publblob[MAX_BLOBSIZE];
+	size_t publblobsize = sizeof(publblob);
+	CK_BYTE privblob[MAX_BLOBSIZE];
+	size_t privblobsize = sizeof(privblob);
 	CK_ATTRIBUTE *prime_attr = NULL;
 	CK_ATTRIBUTE *sub_prime_attr = NULL;
 	CK_ATTRIBUTE *base_attr = NULL;
@@ -2150,10 +2091,8 @@ static CK_RV dsa_generate_keypair(CK_MECHANISM_PTR pMechanism,
 		unsigned char *pqg;
 	} dsa_pqgs;
 	memset(&dsa_pqgs, 0, sizeof(dsa_pqgs));
-	memset(&publ_op, 0, sizeof(publ_op));
-	memset(&priv_op, 0, sizeof(priv_op));
-	publ_op.blob_size = blobsize;
-	priv_op.blob_size = blobsize;
+	memset(publblob, 0, sizeof(publblob));
+	memset(privblob, 0, sizeof(privblob));
 
 	/* card does not want CKA_PRIME/CKA_BASE/CKA_SUBPRIME
 	 * in template but in dsa_pqgs
@@ -2288,25 +2227,18 @@ static CK_RV dsa_generate_keypair(CK_MECHANISM_PTR pMechanism,
 			       dsa_ulPublicKeyAttributeCount,
 			       dsa_pPrivateKeyTemplate,
 			       dsa_ulPrivateKeyAttributeCount, ep11_pin_blob,
-			       ep11_pin_blob_len, priv_op.blob,
-			       &priv_op.blob_size, publ_op.blob,
-			       &publ_op.blob_size, ep11tok_target);
+			       ep11_pin_blob_len, privblob, &privblobsize,
+			       publblob, &publblobsize, ep11tok_target);
 
 	if (rc != CKR_OK) {
 		TRACE_ERROR("%s m_GenerateKeyPair failed with rc=0x%lx\n", __func__, rc);
 		goto dsa_generate_keypair_end;
 	}
 
-	publ_op.blob_id = ep11_blobs_inc();
-	priv_op.blob_id = ep11_blobs_inc();
+	TRACE_INFO("%s rc=0x%lx p_len=%zd publblobsize=0x%zx privblobsize=0x%zx npattr=0x%x\n",
+		   __func__, rc, p_len, publblobsize, privblobsize, new_public_attr+1);
 
-	TRACE_INFO("%s rc=0x%lx blobs1=0x%llx blobs2=0x%llx p_len=%zd"
-		   " pub.blob_size=0x%zx priv.blob_size=0x%zx npattr=0x%x\n",
-		   __func__, rc, ep11_blobs-1, ep11_blobs-2, p_len,
-		   publ_op.blob_size, priv_op.blob_size, new_public_attr+1);
-
-	rc = build_attribute(CKA_IBM_OPAQUE, (CK_BYTE *) &publ_op,
-			     sizeof(ep11_opaque), &opaque_attr);
+	rc = build_attribute(CKA_IBM_OPAQUE, publblob, publblobsize, &opaque_attr);
 	if (rc != CKR_OK) {
 		TRACE_ERROR("%s build_attribute failed with rc=0x%lx\n", __func__, rc);
 		goto dsa_generate_keypair_end;
@@ -2319,8 +2251,7 @@ static CK_RV dsa_generate_keypair(CK_MECHANISM_PTR pMechanism,
 		goto dsa_generate_keypair_end;
 	}
 
-	rc = build_attribute(CKA_IBM_OPAQUE, (CK_BYTE *) &priv_op,
-			     sizeof(ep11_opaque), &opaque_attr);
+	rc = build_attribute(CKA_IBM_OPAQUE, privblob, privblobsize, &opaque_attr);
 	if (rc != CKR_OK) {
 		TRACE_ERROR("%s build_attribute failed with rc=0x%lx\n", __func__, rc);
 		goto dsa_generate_keypair_end;
@@ -2334,7 +2265,7 @@ static CK_RV dsa_generate_keypair(CK_MECHANISM_PTR pMechanism,
 	}
 
 	/* set CKA_VALUE of the public key, first get key from SPKI */
-	rc = ep11_spki_key(publ_op.blob, &key, &bit_str_len);
+	rc = ep11_spki_key(publblob, &key, &bit_str_len);
 	if (rc != CKR_OK) {
 		TRACE_ERROR("%s reading DSA SPKI failed with rc=0x%lx\n", __func__, rc);
 		goto dsa_generate_keypair_end;
@@ -2389,12 +2320,14 @@ static CK_RV rsa_ec_generate_keypair(CK_MECHANISM_PTR pMechanism,
 	CK_RV rc;
 	CK_ATTRIBUTE *attr = NULL;
 	CK_ATTRIBUTE *n_attr = NULL;
-	unsigned char privkey_blob[blobsize];
-	unsigned char spki[blobsize];
-	size_t privkey_blob_len = blobsize;
-	size_t spki_len = blobsize;
-	ep11_opaque publ_op;
-	ep11_opaque priv_op;
+	CK_BYTE privkey_blob[MAX_BLOBSIZE];
+	size_t privkey_blob_len = sizeof(privkey_blob);
+	unsigned char spki[MAX_BLOBSIZE];
+	size_t spki_len = sizeof(spki);
+	CK_BYTE publblob[MAX_BLOBSIZE];
+	size_t publblobsize = sizeof(publblob);
+	CK_BYTE privblob[MAX_BLOBSIZE];
+	size_t privblobsize = sizeof(privblob);
 	int i;
 	CK_ULONG bit_str_len;
 	CK_BYTE *key;
@@ -2454,37 +2387,32 @@ static CK_RV rsa_ec_generate_keypair(CK_MECHANISM_PTR pMechanism,
 			       ep11tok_target);
 	if (rc != CKR_OK) {
 		TRACE_ERROR("%s m_GenerateKeyPair rc=0x%lx spki_len=0x%zx "
-			    "privkey_blob_len=0x%zx ep11_blobs=0x%llx "
-			    "ep11_blobs+1=0x%llx mech='%s'\n", __func__, rc,
-			    spki_len, privkey_blob_len, ep11_blobs,
-			    ep11_blobs+1, ep11_get_ckm(pMechanism->mechanism));
+			    "privkey_blob_len=0x%zx mech='%s'\n",
+			    __func__, rc, spki_len, privkey_blob_len,
+			    ep11_get_ckm(pMechanism->mechanism));
 		goto error;
 	}
 	TRACE_INFO("%s m_GenerateKeyPair rc=0x%lx spki_len=0x%zx "
-		   "privkey_blob_len=0x%zx ep11_blobs=0x%llx "
-		   "ep11_blobs+1=0x%llx mech='%s'\n", __func__, rc, spki_len,
-		   privkey_blob_len, ep11_blobs, ep11_blobs+1,
+		   "privkey_blob_len=0x%zx mech='%s'\n",
+		   __func__, rc, spki_len, privkey_blob_len,
 		   ep11_get_ckm(pMechanism->mechanism));
 
-	if (spki_len > blobsize || privkey_blob_len > blobsize) {
+	if (spki_len > MAX_BLOBSIZE || privkey_blob_len > MAX_BLOBSIZE) {
 		TRACE_ERROR("%s blobsize error\n", __func__);
 		rc = CKR_KEY_INDIGESTIBLE;
 		goto error;
 	}
 
-	memset(&publ_op, 0, sizeof(publ_op));
-	memset(&priv_op, 0, sizeof(priv_op));
+	memset(publblob, 0, sizeof(publblob));
+	memset(privblob, 0, sizeof(privblob));
 
-	memcpy(publ_op.blob, spki, spki_len);
-	publ_op.blob_size = spki_len;
-	publ_op.blob_id = ep11_blobs_inc();
+	memcpy(publblob, spki, spki_len);
+	publblobsize = spki_len;
 
-	memcpy(priv_op.blob, privkey_blob, privkey_blob_len);
-	priv_op.blob_size = privkey_blob_len;
-	priv_op.blob_id = ep11_blobs_inc();
+	memcpy(privblob, privkey_blob, privkey_blob_len);
+	privblobsize = privkey_blob_len;
 
-	rc = build_attribute(CKA_IBM_OPAQUE, (CK_BYTE *) &publ_op,
-			     sizeof(ep11_opaque), &attr);
+	rc = build_attribute(CKA_IBM_OPAQUE, publblob, publblobsize, &attr);
 	if (rc != CKR_OK) {
 		TRACE_ERROR("%s build_attribute failed with rc=0x%lx\n", __func__, rc);
 		goto error;
@@ -2496,8 +2424,7 @@ static CK_RV rsa_ec_generate_keypair(CK_MECHANISM_PTR pMechanism,
 		goto error;
 	}
 
-	rc = build_attribute(CKA_IBM_OPAQUE, (CK_BYTE *) &priv_op,
-			     sizeof(ep11_opaque), &attr);
+	rc = build_attribute(CKA_IBM_OPAQUE, privblob, privblobsize, &attr);
 	if (rc != CKR_OK) {
 		TRACE_ERROR("%s build_attribute failed with rc=0x%lx\n",
 			    __func__, rc);
@@ -2856,11 +2783,10 @@ error:
  * The blob is created if none was build yet.
  */
 static CK_RV h_opaque_2_blob(CK_OBJECT_HANDLE handle,
-			     CK_BYTE **blob, size_t *blob_len, OBJECT **kobj)
+			     CK_BYTE **blob, size_t *blobsize, OBJECT **kobj)
 {
 	OBJECT *key_obj;
 	CK_ATTRIBUTE *attr = NULL;
-	ep11_opaque *op;
 	CK_RV rc;
 
 	/* find the key obj by the key handle */
@@ -2873,13 +2799,11 @@ static CK_RV h_opaque_2_blob(CK_OBJECT_HANDLE handle,
 	/* blob already exists */
 	if (template_attribute_find(key_obj->template, CKA_IBM_OPAQUE, &attr) &&
 	    (attr->ulValueLen > 0)) {
-		op = attr->pValue;
-		*blob = op->blob;
-		*blob_len = op->blob_size;
+		*blob = attr->pValue;
+		*blobsize = (size_t) attr->ulValueLen;
 		*kobj = key_obj;
-		TRACE_INFO("%s blob found blob_len=0x%zx valuelen=0x%lx "
-			   "blob_id=0x%zx\n", __func__, *blob_len,
-			   attr->ulValueLen, op->blob_id);
+		TRACE_INFO("%s blob found blobsize=0x%zx\n",
+			   __func__, *blobsize);
 		return CKR_OK;
 	} else {
 
@@ -2894,33 +2818,31 @@ static CK_RV h_opaque_2_blob(CK_OBJECT_HANDLE handle,
 CK_RV ep11tok_sign_init(SESSION *session, CK_MECHANISM *mech,
 			CK_BBOOL recover_mode, CK_OBJECT_HANDLE key)
 {
-	CK_BYTE *privkey_blob;
-	size_t blob_len = 0;
 	CK_RV rc;
-	SIGN_VERIFY_CONTEXT *ctx = &session->sign_ctx;
-	CK_BYTE *ep11_sign_state;
-	size_t ep11_sign_state_l;
+	size_t keyblobsize = 0;
+	CK_BYTE *keyblob;
 	OBJECT *key_obj = NULL;
+	SIGN_VERIFY_CONTEXT *ctx = &session->sign_ctx;
+	size_t ep11_sign_state_l = MAX_SIGN_STATE_BYTES;
+	CK_BYTE *ep11_sign_state = malloc(ep11_sign_state_l);
 
-	ep11_sign_state_l = blobsize;
-	ep11_sign_state = malloc(blobsize);
 	if (!ep11_sign_state) {
 		TRACE_ERROR("%s Memory allocation failed\n", __func__);
 		return CKR_HOST_MEMORY;
 	}
 
-	rc = h_opaque_2_blob(key, &privkey_blob, &blob_len, &key_obj);
+	rc = h_opaque_2_blob(key, &keyblob, &keyblobsize, &key_obj);
 	if (rc != CKR_OK) {
 		TRACE_ERROR("%s no blob rc=0x%lx\n", __func__, rc);
 		return rc;
 	}
 
 	rc = m_SignInit(ep11_sign_state, &ep11_sign_state_l,
-			mech, privkey_blob, blob_len, ep11tok_target) ;
+			mech, keyblob, keyblobsize, ep11tok_target) ;
 
 	if (rc != CKR_OK) {
-		TRACE_ERROR("%s rc=0x%lx blob_len=0x%zx key=0x%lx mech=0x%lx\n",
-			    __func__, rc, blob_len, key, mech->mechanism);
+		TRACE_ERROR("%s rc=0x%lx blobsize=0x%zx key=0x%lx mech=0x%lx\n",
+			    __func__, rc, keyblobsize, key, mech->mechanism);
 		free(ep11_sign_state);
 	} else {
 		/* SIGN_VERIFY_CONTEX holds all needed for continuing,
@@ -2932,8 +2854,8 @@ CK_RV ep11tok_sign_init(SESSION *session, CK_MECHANISM *mech,
 		ctx->context = ep11_sign_state;
 		ctx->context_len = ep11_sign_state_l;
 
-		TRACE_INFO("%s rc=0x%lx blob_len=0x%zx key=0x%lx mech=0x%lx\n",
-			   __func__, rc, blob_len, key, mech->mechanism);
+		TRACE_INFO("%s rc=0x%lx blobsize=0x%zx key=0x%lx mech=0x%lx\n",
+			   __func__, rc, keyblobsize, key, mech->mechanism);
 	}
 
 	return rc;
@@ -3003,16 +2925,14 @@ CK_RV ep11tok_sign_final(SESSION *session, CK_BBOOL length_only,
 CK_RV ep11tok_verify_init(SESSION *session, CK_MECHANISM *mech,
 			  CK_BBOOL recover_mode, CK_OBJECT_HANDLE key)
 {
+	CK_RV rc;
 	CK_BYTE *spki;
 	size_t spki_len = 0;
-	CK_RV rc;
-	SIGN_VERIFY_CONTEXT *ctx = &session->verify_ctx;
-	CK_BYTE *ep11_sign_state;
-	size_t ep11_sign_state_l;
 	OBJECT *key_obj = NULL;
+	SIGN_VERIFY_CONTEXT *ctx = &session->verify_ctx;
+	size_t ep11_sign_state_l = MAX_SIGN_STATE_BYTES;
+	CK_BYTE *ep11_sign_state = malloc(ep11_sign_state_l);
 
-	ep11_sign_state_l = blobsize;
-	ep11_sign_state = malloc(blobsize);
 	if (!ep11_sign_state) {
 		TRACE_ERROR("%s Memory allocation failed\n", __func__);
 		return CKR_HOST_MEMORY;
@@ -3098,6 +3018,7 @@ CK_RV ep11tok_verify_final(SESSION *session, CK_BYTE *signature,
 
 	rc = m_VerifyFinal(ctx->context, ctx->context_len, signature,
 			   sig_len, ep11tok_target);
+
 	if (rc != CKR_OK) {
 		TRACE_ERROR("%s rc=0x%lx\n", __func__, rc);
 	} else {
@@ -3112,9 +3033,9 @@ CK_RV ep11tok_decrypt_final(SESSION *session, CK_BYTE_PTR output_part,
 			    CK_ULONG_PTR p_output_part_len)
 {
 	CK_RV rc = CKR_OK;
-	ENCR_DECR_CONTEXT *decr_ctx = &session->decr_ctx;
+	ENCR_DECR_CONTEXT *ctx = &session->decr_ctx;
 
-	rc = m_DecryptFinal(decr_ctx->context, decr_ctx->context_len,
+	rc = m_DecryptFinal(ctx->context, ctx->context_len,
 			    output_part, p_output_part_len, ep11tok_target);
 
 	if (rc != CKR_OK) {
@@ -3132,9 +3053,9 @@ CK_RV ep11tok_decrypt(SESSION *session, CK_BYTE_PTR input_data,
 		      CK_ULONG_PTR p_output_data_len)
 {
 	CK_RV rc = CKR_OK;
-	ENCR_DECR_CONTEXT *decr_ctx = &session->decr_ctx;
+	ENCR_DECR_CONTEXT *ctx = &session->decr_ctx;
 
-	rc = m_Decrypt(decr_ctx->context, decr_ctx->context_len, input_data,
+	rc = m_Decrypt(ctx->context, ctx->context_len, input_data,
 		       input_data_len, output_data, p_output_data_len,
 		       ep11tok_target);
 
@@ -3153,14 +3074,14 @@ CK_RV ep11tok_decrypt_update(SESSION *session, CK_BYTE_PTR input_part,
 			     CK_ULONG_PTR p_output_part_len)
 {
 	CK_RV rc = CKR_OK;
-	ENCR_DECR_CONTEXT *decr_ctx = &session->decr_ctx;
+	ENCR_DECR_CONTEXT *ctx = &session->decr_ctx;
 
 	if (!input_part || !input_part_len) {
 		*p_output_part_len = 0;
 		return CKR_OK; /* nothing to update, keep context */
 	}
 
-	rc = m_DecryptUpdate(decr_ctx->context, decr_ctx->context_len,
+	rc = m_DecryptUpdate(ctx->context, ctx->context_len,
 			     input_part, input_part_len, output_part,
 			     p_output_part_len, ep11tok_target) ;
 
@@ -3178,9 +3099,9 @@ CK_RV ep11tok_encrypt_final(SESSION *session, CK_BYTE_PTR output_part,
 			    CK_ULONG_PTR p_output_part_len)
 {
 	CK_RV rc = CKR_OK;
-	ENCR_DECR_CONTEXT *encr_ctx = &session->encr_ctx;
+	ENCR_DECR_CONTEXT *ctx = &session->encr_ctx;
 
-	rc = m_EncryptFinal(encr_ctx->context, encr_ctx->context_len,
+	rc = m_EncryptFinal(ctx->context, ctx->context_len,
 			    output_part, p_output_part_len, ep11tok_target);
 
 	if (rc != CKR_OK) {
@@ -3198,9 +3119,9 @@ CK_RV ep11tok_encrypt(SESSION *session, CK_BYTE_PTR input_data,
 		      CK_ULONG_PTR p_output_data_len)
 {
 	CK_RV rc = CKR_OK;
-	ENCR_DECR_CONTEXT *encr_ctx = &session->encr_ctx;
+	ENCR_DECR_CONTEXT *ctx = &session->encr_ctx;
 
-	rc = m_Encrypt(encr_ctx->context, encr_ctx->context_len, input_data,
+	rc = m_Encrypt(ctx->context, ctx->context_len, input_data,
 		       input_data_len, output_data, p_output_data_len,
 		       ep11tok_target);
 
@@ -3219,14 +3140,14 @@ CK_RV ep11tok_encrypt_update(SESSION *session, CK_BYTE_PTR input_part,
 			     CK_ULONG_PTR p_output_part_len)
 {
 	CK_RV rc = CKR_OK;
-	ENCR_DECR_CONTEXT *encr_ctx = &session->encr_ctx;
+	ENCR_DECR_CONTEXT *ctx = &session->encr_ctx;
 
 	if (!input_part || !input_part_len) {
 		*p_output_part_len = 0;
 		return CKR_OK; /* nothing to update, keep context */
 	}
 
-	rc = m_EncryptUpdate(encr_ctx->context, encr_ctx->context_len,
+	rc = m_EncryptUpdate(ctx->context, ctx->context_len,
 			     input_part, input_part_len, output_part,
 			     p_output_part_len, ep11tok_target);
 
@@ -3244,16 +3165,12 @@ static CK_RV ep11_ende_crypt_init(SESSION *session, CK_MECHANISM_PTR mech,
 				  CK_OBJECT_HANDLE key, int op)
 {
 	CK_RV rc = CKR_OK;
-	ENCR_DECR_CONTEXT *decr_ctx = &session->decr_ctx;
-	ENCR_DECR_CONTEXT *encr_ctx = &session->encr_ctx;
-	CK_BYTE *ep11_state;
-	size_t ep11_state_l;
 	CK_BYTE *blob;
 	size_t blob_len = 0;
 	OBJECT *key_obj = NULL;
+	size_t ep11_state_l = MAX_CRYPT_STATE_BYTES;
+	CK_BYTE *ep11_state = malloc(ep11_state_l); /* freed by encr/decr_mgr.c */
 
-	ep11_state_l = blobsize;
-	ep11_state = malloc(blobsize); /* freed by encr/decr_mgr.c */
 	if (!ep11_state) {
 		TRACE_ERROR("%s Memory allocation failed\n", __func__);
 		return CKR_HOST_MEMORY;
@@ -3266,12 +3183,13 @@ static CK_RV ep11_ende_crypt_init(SESSION *session, CK_MECHANISM_PTR mech,
 	}
 
 	if (op == DECRYPT) {
+		ENCR_DECR_CONTEXT *ctx = &session->decr_ctx;
 		rc = m_DecryptInit(ep11_state, &ep11_state_l, mech, blob,
 				   blob_len, ep11tok_target);
-		decr_ctx->key = key;
-		decr_ctx->active = TRUE;
-		decr_ctx->context = ep11_state;
-		decr_ctx->context_len = ep11_state_l;
+		ctx->key = key;
+		ctx->active = TRUE;
+		ctx->context = ep11_state;
+		ctx->context_len = ep11_state_l;
 		if (rc != CKR_OK) {
 			TRACE_ERROR("%s m_DecryptInit rc=0x%lx blob_len=0x%zx "
 				    "mech=0x%lx\n", __func__, rc, blob_len,
@@ -3281,15 +3199,14 @@ static CK_RV ep11_ende_crypt_init(SESSION *session, CK_MECHANISM_PTR mech,
 				   "mech=0x%lx\n", __func__, rc, blob_len,
 				   mech->mechanism);
 		}
-
-		return rc;
 	} else {
+		ENCR_DECR_CONTEXT *ctx = &session->encr_ctx;
 		rc = m_EncryptInit (ep11_state, &ep11_state_l, mech, blob,
 				    blob_len, ep11tok_target);
-		encr_ctx->key = key;
-		encr_ctx->active = TRUE;
-		encr_ctx->context = ep11_state;
-		encr_ctx->context_len = ep11_state_l;
+		ctx->key = key;
+		ctx->active = TRUE;
+		ctx->context = ep11_state;
+		ctx->context_len = ep11_state_l;
 		if (rc != CKR_OK) {
 			TRACE_ERROR("%s m_EncryptInit rc=0x%lx blob_len=0x%zx "
 				    "mech=0x%lx\n", __func__, rc, blob_len,
@@ -3299,9 +3216,9 @@ static CK_RV ep11_ende_crypt_init(SESSION *session, CK_MECHANISM_PTR mech,
 				   "mech=0x%lx\n", __func__, rc, blob_len,
 				   mech->mechanism);
 		}
-
-		return rc;
 	}
+
+	return rc;
 }
 
 
@@ -3363,8 +3280,8 @@ CK_RV ep11tok_wrap_key(SESSION *session, CK_MECHANISM_PTR mech,
 	 */
 	if (wrapped_key == NULL) {
 		size_querry = 1;
-		*p_wrapped_key_len = blobsize;
-		wrapped_key = malloc(blobsize);
+		*p_wrapped_key_len = MAX_BLOBSIZE;
+		wrapped_key = malloc(MAX_BLOBSIZE);
 		if (!wrapped_key) {
 			TRACE_ERROR("%s Memory allocation failed\n", __func__);
 			return CKR_HOST_MEMORY;
@@ -3437,10 +3354,11 @@ CK_RV ep11tok_unwrap_key(SESSION *session, CK_MECHANISM_PTR mech,
 	CK_RV rc;
 	CK_BYTE *wrapping_blob;
 	size_t wrapping_blob_len;
-	char csum[blobsize];
-	CK_ULONG cslen = blobsize;
+	char csum[MAX_BLOBSIZE];
+	CK_ULONG cslen = sizeof(csum);
 	OBJECT *key_obj = NULL;
-	ep11_opaque op;
+	CK_BYTE keyblob[MAX_BLOBSIZE];
+	size_t keyblobsize = sizeof(keyblob);
 	CK_ATTRIBUTE *attr = NULL;
 	int i = 0;
 	CK_ULONG ktype;
@@ -3463,8 +3381,7 @@ CK_RV ep11tok_unwrap_key(SESSION *session, CK_MECHANISM_PTR mech,
 		TRACE_DEVEL(" attribute attrs.type=0x%lx\n", attrs[i].type);
 	}
 
-	memset(&op, 0, sizeof(op));
-	op.blob_size = blobsize;
+	memset(keyblob, 0, sizeof(keyblob));
 
 	/*get key type of unwrapped key*/
 	CK_ATTRIBUTE_PTR cla_attr = get_attribute_by_type(attrs, attrs_len, CKA_CLASS);
@@ -3513,20 +3430,15 @@ CK_RV ep11tok_unwrap_key(SESSION *session, CK_MECHANISM_PTR mech,
 	rc = m_UnwrapKey(wrapped_key, wrapped_key_len, wrapping_blob,
 			 wrapping_blob_len, NULL, ~0, ep11_pin_blob,
 			 ep11_pin_blob_len, mech, new_attrs, new_attrs_len,
-			 op.blob, &(op.blob_size), csum, &cslen,
-			 ep11tok_target);
-
-	op.blob_id = ep11_blobs_inc();
+			 keyblob, &keyblobsize, csum, &cslen, ep11tok_target);
 
 	if (rc != CKR_OK) {
-		TRACE_ERROR("%s m_UnwrapKey rc=0x%lx blob_size=0x%zx "
-			    "mech=0x%lx ep11_blobs-1=%llx\n", __func__, rc,
-			    op.blob_size, mech->mechanism, ep11_blobs-1);
+		TRACE_ERROR("%s m_UnwrapKey rc=0x%lx blobsize=0x%zx mech=0x%lx\n",
+			    __func__, rc, keyblobsize, mech->mechanism);
 		goto error;
 	}
-	TRACE_INFO("%s m_UnwrapKey rc=0x%lx blob_size=0x%zx mech=0x%lx "
-		   "ep11_blobs-1=%llx\n", __func__, rc, op.blob_size,
-		   mech->mechanism, ep11_blobs-1);
+	TRACE_INFO("%s m_UnwrapKey rc=0x%lx blobsize=0x%zx mech=0x%lx\n",
+		   __func__, rc, keyblobsize, mech->mechanism);
 
 	/* card provides length in csum bytes 4 - 7, big endian */
 	len = csum[6] + 256*csum[5] + 256*256*csum[4] + 256*256*256*csum[3];
@@ -3549,7 +3461,7 @@ CK_RV ep11tok_unwrap_key(SESSION *session, CK_MECHANISM_PTR mech,
 		goto error;
 	}
 
-	rc = build_attribute(CKA_IBM_OPAQUE, (CK_BYTE *) &op, sizeof(ep11_opaque), &attr);
+	rc = build_attribute(CKA_IBM_OPAQUE, keyblob, keyblobsize, &attr);
 	if (rc != CKR_OK) {
 		TRACE_ERROR("%s build_attribute failed with rc=0x%lx\n", __func__, rc);
 		goto error;
@@ -3594,10 +3506,6 @@ done:
 	return rc;
 }
 
-
-/* use ep11 mech list */
-MECH_LIST_ELEMENT mech_list[] = { };
-CK_ULONG mech_list_len = (sizeof(mech_list) / sizeof(MECH_LIST_ELEMENT));
 
 /* mechanisms ep11 reports but should be hidden because e.g.
    the EP11 card operates in a FIPS mode that forbides the mechanism,
