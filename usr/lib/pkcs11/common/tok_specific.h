@@ -530,6 +530,8 @@ CK_RV token_specific_hmac_verify_update(SESSION *, CK_BYTE *, CK_ULONG);
 
 CK_RV token_specific_hmac_verify_final(SESSION *, CK_BYTE *, CK_ULONG);
 
+CK_RV token_specific_generic_secret_key_gen(TEMPLATE *template);
+
 #ifndef NOAES
 CK_RV
 token_specific_aes_key_gen( CK_BYTE *,

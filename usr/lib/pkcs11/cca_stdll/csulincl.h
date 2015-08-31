@@ -32,6 +32,7 @@
   #define CSNBMKP   CSNBMKP_32
   #define CSNBKEX   CSNBKEX_32
   #define CSNBKGN   CSNBKGN_32
+  #define CSNBKGN2  CSNBKGN2_32
   #define CSNBKIM   CSNBKIM_32
   #define CSNBKPI   CSNBKPI_32
   #define CSNBKPI2  CSNBKPI2_32
@@ -199,6 +200,34 @@ extern void SECURITYAPI
               unsigned char * KEK_key_identifier_2,
               unsigned char * generated_key_identifier_1,
               unsigned char * generated_key_identifier_2);
+
+/* Key Generate2 */
+extern void SECURITYAPI
+   CSNBKGN2_32(long             * return_code,
+               long             * reason_code,
+               long             * exit_data_length,
+               unsigned char    * exit_data,
+               long             * rule_array_count,
+               unsigned char    * rule_array,
+               long             * clear_key_bit_length,
+               unsigned char    * key_type_1,
+               unsigned char    * key_type_2,
+               long             * key_name_1_length,
+               unsigned char    * key_name_1,
+               long             * key_name_2_length,
+               unsigned char    * key_name_2,
+               long             * user_associated_data_1_length,
+               unsigned char    * user_associated_data_1,
+               long             * user_associated_data_2_length,
+               unsigned char    * user_associated_data_2,
+               long             * key_encrypting_key_identifier_1_length,
+               unsigned char    * key_encrypting_key_identifier_1,
+               long             * key_encrypting_key_identifier_2_length,
+               unsigned char    * key_encrypting_key_identifier_2,
+               long             * generated_key_identifier_1_length,
+               unsigned char    * generated_key_identifier_1,
+               long             * generated_key_identifier_2_length,
+               unsigned char    * generated_key_identifier_2);
 
 /* Key Import */
 extern void SECURITYAPI

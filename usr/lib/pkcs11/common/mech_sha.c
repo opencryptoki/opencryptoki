@@ -1860,3 +1860,12 @@ CK_RV hmac_verify_final(SESSION *sess, CK_BYTE *signature, CK_ULONG sig_len)
 		return CKR_MECHANISM_INVALID;
 	}
 }
+
+CK_RV ckm_generic_secret_key_gen(TEMPLATE *tmpl)
+{
+	if (token_specific.t_generic_secret_key_gen == NULL) {
+		TRACE_ERROR("%s\n", ock_err(ERR_MECHANISM_INVALID));
+		return CKR_MECHANISM_INVALID;
+	} else
+		return token_specific.t_generic_secret_key_gen(tmpl);
+}

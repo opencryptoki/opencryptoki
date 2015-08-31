@@ -415,6 +415,15 @@ key_mgr_generate_key( SESSION           * sess,
 	 subclass = CKK_AES;
 	 break;
 
+      case CKM_GENERIC_SECRET_KEY_GEN:
+         if (subclass != 0 && subclass != CKK_GENERIC_SECRET){
+           TRACE_ERROR("%s\n", ock_err(ERR_TEMPLATE_INCONSISTENT));
+           return CKR_TEMPLATE_INCONSISTENT;
+         }
+
+         subclass = CKK_GENERIC_SECRET;
+         break;
+
       default:
          TRACE_ERROR("%s\n", ock_err(ERR_MECHANISM_INVALID));
          return CKR_MECHANISM_INVALID;
@@ -459,6 +468,10 @@ key_mgr_generate_key( SESSION           * sess,
 	    rc = ckm_aes_key_gen( key_obj->template );
 	    break;
 #endif
+         case CKM_GENERIC_SECRET_KEY_GEN:
+            rc = ckm_generic_secret_key_gen( key_obj->template );
+            break;
+
       default:
          TRACE_ERROR("%s\n", ock_err(ERR_MECHANISM_INVALID));
          rc = CKR_MECHANISM_INVALID;

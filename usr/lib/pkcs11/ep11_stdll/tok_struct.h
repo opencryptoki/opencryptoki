@@ -382,6 +382,7 @@ token_spec_t token_specific = {
 	NULL,			// hmac_verify
 	NULL,			// hmac_verify_update
 	NULL,			// hmac_verify_final
+	NULL,			// generic_secret_key_gen
 	// AES
 	NULL,                   // aes_key_gen,
 	NULL,                   // aes_ecb,
@@ -396,7 +397,7 @@ token_spec_t token_specific = {
 	NULL,			// dsa_verify
 	NULL,			// get_mechanism_list
 	NULL,			// get mechanism_info
-        &token_specific_object_add,
+	&token_specific_object_add
 };
 
 #endif

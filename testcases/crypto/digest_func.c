@@ -1462,6 +1462,107 @@ testcase_cleanup:
 	return rc;
 }
 
+
+/* This function tests generating a generic secret key to be used
+ * with hmac sign and verify.
+ */
+CK_RV do_HMAC_SignVerify_WithGenKey(void)
+{
+	CK_MECHANISM secret_mech = {CKM_GENERIC_SECRET_KEY_GEN, 0, 0};
+	CK_MECHANISM hash_mech = {CKM_SHA_1_HMAC, 0, 0};
+	CK_ULONG key_len = 20;
+	CK_BYTE data[] = {"Hi There"};
+	CK_ULONG data_len = 8;
+	CK_BYTE actual[MAX_HASH_SIZE];
+	CK_ULONG actual_len;
+	CK_SESSION_HANDLE session;
+	CK_SLOT_ID slot_id = SLOT_ID;
+	CK_ULONG flags;
+	CK_RV rc;
+	CK_OBJECT_HANDLE h_key;
+	CK_BYTE user_pin[PKCS11_MAX_PIN_LEN];
+	CK_ULONG user_pin_len;
+
+	/** begin test **/
+	testsuite_begin("do_HMAC_SignVerify_WithGenKey");
+	testcase_begin("Generate Generic Secret Key And Sign/Verify with it.");
+	testcase_rw_session();
+	testcase_user_login();
+
+	rc = CKR_OK;	// set rc
+
+	/* skip test if mech is not supported with this slot,
+	 * checking for generic secret key mechanism
+	 * and also sha1-hmac mechanism
+	 */
+	if (!mech_supported(SLOT_ID, secret_mech.mechanism)) {
+		testsuite_skip(1, "mechanism %ld not supported with slot %ld",
+			       secret_mech.mechanism, slot_id);
+		goto testcase_cleanup;
+	}
+	if (!mech_supported(SLOT_ID, hash_mech.mechanism)) {
+		testsuite_skip(1, "mechanism %ld not supported with slot %ld",
+			       hash_mech.mechanism, slot_id);
+		goto testcase_cleanup;
+	}
+
+	/** clear buffers **/
+	memset(actual, 0, sizeof(actual));
+
+	/** get test vector info **/
+	actual_len = sizeof(actual);
+
+	/** generate key object **/
+	rc = generate_SecretKey(session, key_len, &secret_mech, &h_key);
+	if(rc != CKR_OK) {
+		testcase_error("generate_SecretKey rc=%s", p11_get_ckr(rc));
+		goto testcase_cleanup;
+	}
+
+	/** initialize signing **/
+	rc = funcs->C_SignInit(session, &hash_mech, h_key);
+	if (rc != CKR_OK) {
+		testcase_error("C_SignInit rc=%s", p11_get_ckr(rc));
+		goto error;
+	}
+
+	/** do signing  **/
+	rc = funcs->C_Sign(session, data, data_len, actual, &actual_len);
+	if (rc != CKR_OK) {
+		testcase_error("C_Sign rc=%s", p11_get_ckr(rc));
+		goto error;
+	}
+
+	/* Ensure the generated key can verify what it signed */
+	testcase_new_assertion();
+
+	/** initilaize verification **/
+	rc = funcs->C_VerifyInit(session, &hash_mech, h_key);
+	if (rc != CKR_OK) {
+		testcase_error("C_VerifyInit rc=%s", p11_get_ckr(rc));
+		goto error;
+	}
+
+	/** do verification **/
+	rc = funcs->C_Verify(session, data, data_len, actual, actual_len);
+	if (rc != CKR_OK)
+		testcase_fail("C_Verify rc=%s", p11_get_ckr(rc));
+	else
+		testcase_pass("Sign Verify with generated generic secret key "
+                                "passed.");
+
+error:
+        if (funcs->C_DestroyObject(session, h_key) != CKR_OK)
+                testcase_error("C_DestroyObject rc=%s.", p11_get_ckr(rc));
+
+testcase_cleanup:
+        testcase_user_logout();
+        if (funcs->C_CloseAllSessions(slot_id) != CKR_OK)
+                testcase_error("C_CloseAllSessions rc=%s", p11_get_ckr(rc));
+
+        return rc;
+}
+
 CK_RV digest_funcs() {
 	CK_RV rc;
 	int i;
@@ -1514,6 +1615,9 @@ CK_RV digest_funcs() {
 				break;
 		}
 	}
+
+	/* HMAC test with a generated generic secret key */
+	rc = do_HMAC_SignVerify_WithGenKey();
 
 	return rc;
 }

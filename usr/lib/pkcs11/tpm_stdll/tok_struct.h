@@ -107,6 +107,7 @@ struct token_specific_struct token_specific = {
 	NULL,			// hmac_verify
 	NULL,			// hmac_verify_update
 	NULL,			// hmac_verify_final
+        NULL,			// generic_secret_key_gen
 	// AES
 	&token_specific_aes_key_gen,
 	&token_specific_aes_ecb,

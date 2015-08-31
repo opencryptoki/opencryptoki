@@ -1763,6 +1763,9 @@ CK_RV sha5_hmac_verify(SESSION *sess, SIGN_VERIFY_CONTEXT *ctx,
                        CK_BYTE *in_data, CK_ULONG in_data_len,
                        CK_BYTE *signature, CK_ULONG sig_len);
 
+//adding the hmac secret key generation here
+CK_RV ckm_generic_secret_key_gen(TEMPLATE *tmpl);
+
 // MD2 mechanisms
 //
 CK_RV  md2_hash( SESSION  *sess,     CK_BBOOL  length_only,

@@ -84,7 +84,8 @@ MECH_LIST_ELEMENT mech_list[] = {
 	{CKM_ECDSA, {160, 521, CKF_HW|CKF_SIGN|CKF_VERIFY|CKF_EC_NAMEDCURVE|
 			      CKF_EC_F_P}},
 	{CKM_ECDSA_SHA1, {160, 521, CKF_HW|CKF_SIGN|CKF_VERIFY|
-				   CKF_EC_NAMEDCURVE|CKF_EC_F_P}}
+				   CKF_EC_NAMEDCURVE|CKF_EC_F_P}},
+        {CKM_GENERIC_SECRET_KEY_GEN, {80, 2048, CKF_HW|CKF_GENERATE}}
 };
 
 CK_ULONG mech_list_len = (sizeof(mech_list) / sizeof(MECH_LIST_ELEMENT));
@@ -3021,6 +3022,104 @@ CK_RV token_specific_object_add(OBJECT *object)
 		/* unknown/unsupported key type */
 		TRACE_ERROR("Unknown/unsupported key type 0x%lx\n", keytype);
 		return CKR_KEY_FUNCTION_NOT_PERMITTED;
+	}
+
+	return CKR_OK;
+}
+
+CK_RV token_specific_generic_secret_key_gen (TEMPLATE *template)
+{
+	CK_RV rc;
+	long return_code, reason_code, rule_array_count;
+	long zero_length = 0;
+	long key_name_length = 0, clear_key_length = 0, user_data_length = 0;
+	CK_ATTRIBUTE *opaque_key = NULL;
+	CK_ATTRIBUTE *attr = NULL;
+	CK_ULONG keylength = 0;
+	unsigned char key_type1[8] = {0};
+	unsigned char key_type2[8] = {0};
+	unsigned char key_token[CCA_KEY_TOKEN_SIZE] = { 0 };
+	long key_token_length = sizeof(key_token);
+	unsigned char rule_array[4 * CCA_KEYWORD_SIZE] = { 0 };
+
+	rc = template_attribute_find(template, CKA_VALUE_LEN, &attr);
+	if (rc == FALSE) {
+		TRACE_ERROR("Incomplete Generic Secret (HMAC) key template\n");
+		return CKR_TEMPLATE_INCOMPLETE;
+	}
+
+	keylength = *(CK_ULONG *)attr->pValue;
+
+	/* HMAC key length needs to be 80-2048 bits */
+	if (((8*keylength) < 80) || ((8*keylength) > 2048)) {
+		TRACE_ERROR("HMAC key size of %lu bits not within CCA required "
+			    "range of 80-2048 bits\n", 8*keylength);
+		return CKR_KEY_SIZE_RANGE;
+	}
+
+	rule_array_count = 4;
+	memcpy(rule_array, "INTERNALHMAC    MAC     GENERATE",
+	       4 * CCA_KEYWORD_SIZE);
+
+	CSNBKTB2(&return_code, &reason_code, NULL, NULL, &rule_array_count,
+		 rule_array, &clear_key_length, NULL, &key_name_length,
+		 NULL, &user_data_length, NULL, &zero_length, NULL,
+		 &zero_length, NULL, &key_token_length, key_token);
+
+	if (return_code != CCA_SUCCESS) {
+		TRACE_ERROR("CSNBKTB2 (HMAC KEY TOKEN BUILD) failed."
+			    " return:%ld, reason:%ld\n",
+			    return_code, reason_code);
+		return CKR_FUNCTION_FAILED;
+	}
+
+	/** generate the hmac key here **/
+	/* reset some values usually previously */
+	rule_array_count = 2;
+	memset(rule_array, 0, sizeof(rule_array));
+
+	key_token_length = sizeof(key_token);
+
+	/* create rule_array with 2 keywords */
+	memcpy(rule_array, "HMAC    OP      ", 2 * CCA_KEYWORD_SIZE);
+
+	/* ask to create the hmac key with application
+	 * specified key length in bits
+	 */
+	clear_key_length = keylength * 8;
+	memcpy(key_type1, "TOKEN   ", CCA_KEYWORD_SIZE);
+
+        /* for only one copy of key generated, specify 8 spaces in
+	 * key_type2 per CCA basic services guide
+	 */
+	memcpy(key_type2, "        ", CCA_KEYWORD_SIZE);
+
+	CSNBKGN2(&return_code, &reason_code, &zero_length, NULL,
+		 &rule_array_count, rule_array, &clear_key_length, key_type1,
+		 key_type2, &key_name_length, NULL, &key_name_length, NULL,
+		 &user_data_length, NULL, &user_data_length, NULL, &zero_length,
+		 NULL, &zero_length, NULL, &key_token_length, key_token,
+		 &zero_length, NULL);
+
+	if (return_code != CCA_SUCCESS) {
+		TRACE_ERROR("CSNBKGN2 (HMAC KEY GENERATE) failed."
+			    " return:%ld, reason:%ld\n",
+			    return_code, reason_code);
+		return CKR_FUNCTION_FAILED;
+	}
+
+	/* Add the key object to the template */
+	rc = build_attribute(CKA_IBM_OPAQUE, key_token, key_token_length,
+			     &opaque_key);
+	if (rc != CKR_OK) {
+		TRACE_DEVEL("build_attribute(CKA_IBM_OPAQUE) failed\n");
+		return rc;
+	}
+
+	rc = template_update_attribute(template, opaque_key);
+	if (rc != CKR_OK) {
+		TRACE_DEVEL("template_update_attribute(CKA_IBM_OPAQUE) failed.\n");
+		return rc;
 	}
 
 	return CKR_OK;

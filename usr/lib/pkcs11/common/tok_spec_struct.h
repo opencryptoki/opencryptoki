@@ -461,6 +461,8 @@ struct token_specific_struct {
 	CK_RV(*t_hmac_verify_update) (SESSION *, CK_BYTE *, CK_ULONG);
 	CK_RV(*t_hmac_verify_final) (SESSION *, CK_BYTE *, CK_ULONG);
 
+	CK_RV (*t_generic_secret_key_gen) (TEMPLATE *);
+
 	// Token Specific AES functions
 	CK_RV(*t_aes_key_gen) (CK_BYTE *, CK_ULONG, CK_ULONG);
 
