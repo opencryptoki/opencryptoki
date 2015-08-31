@@ -464,7 +464,7 @@ CK_RV do_GetSlotInfo( void )
 		return rc;
 	}
 
-	printf("   CK_SLOT_INFO for slot #1:  \n");
+	printf("   CK_SLOT_INFO for slot #%d:  \n", (int)slot_id);
 	printf("      slotDescription:  %64.64s\n",  info.slotDescription );
 	printf("      manufacturerID:   %32.32s\n",  info.manufacturerID );
 	printf("      flags:            %p\n",       (void *)info.flags );
@@ -496,7 +496,7 @@ CK_RV do_GetTokenInfo( void )
 	}
 
 
-	printf("   CK_TOKEN_INFO for slot #1:  \n");
+	printf("   CK_TOKEN_INFO for slot #%d:  \n", (int)slot_id);
 	printf("      label:                   %32.32s\n",  info.label );
 	printf("      manufacturerID:          %32.32s\n",  info.manufacturerID );
 	printf("      model:                   %16.16s\n",  info.model );
