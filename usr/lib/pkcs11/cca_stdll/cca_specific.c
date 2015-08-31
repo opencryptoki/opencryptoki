@@ -2014,6 +2014,11 @@ static CK_RV ccatok_hmac_init(SIGN_VERIFY_CONTEXT *ctx, CK_MECHANISM *mech,
 			      CK_OBJECT_HANDLE key)
 {
 	struct cca_sha_ctx *cca_ctx;
+	long maclen = -1;
+
+	maclen = get_mac_len(mech);
+	if (maclen < 0)
+		return CKR_MECHANISM_INVALID;
 
 	ctx->context = calloc(1, sizeof(struct cca_sha_ctx));
 	if (ctx->context == NULL) {
@@ -2026,7 +2031,7 @@ static CK_RV ccatok_hmac_init(SIGN_VERIFY_CONTEXT *ctx, CK_MECHANISM *mech,
 
 	memset(cca_ctx, 0, sizeof(struct cca_sha_ctx));
 	cca_ctx->chain_vector_len = CCA_CHAIN_VECTOR_LEN;
-	cca_ctx->hash_len = get_mac_len(mech);
+	cca_ctx->hash_len = maclen;
 
         return CKR_OK;
 }
@@ -2095,6 +2100,7 @@ CK_RV ccatok_hmac(SIGN_VERIFY_CONTEXT *ctx, CK_BYTE *in_data,
 		       3 * CCA_KEYWORD_SIZE);
 		break;
 	case CKM_SHA512_HMAC_GENERAL:
+	case CKM_SHA512_HMAC:
 		memcpy(rule_array, "HMAC    SHA-512 ONLY    ",
 		       3 * CCA_KEYWORD_SIZE);
 		break;

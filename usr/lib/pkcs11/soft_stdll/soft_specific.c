@@ -2187,9 +2187,13 @@ token_specific_get_mechanism_info(CK_MECHANISM_TYPE type,
 CK_RV token_specific_sha_init(DIGEST_CONTEXT *ctx, CK_MECHANISM *mech)
 {
 	int rc;
-	EVP_MD_CTX *mdctx;
+	EVP_MD_CTX *mdctx = NULL;
 
 	mdctx = EVP_MD_CTX_create();
+	if (mdctx == NULL) {
+		TRACE_ERROR("%s\n", ock_err(ERR_HOST_MEMORY));
+		return CKR_HOST_MEMORY;
+	}
 
 	switch(mech->mechanism) {
 	case CKM_SHA_1:
@@ -2387,6 +2391,10 @@ static CK_RV softtok_hmac_init(SIGN_VERIFY_CONTEXT *ctx, CK_MECHANISM_PTR mech,
 	}
 
 	mdctx = EVP_MD_CTX_create();
+	if (mdctx == NULL) {
+		TRACE_ERROR("%s\n", ock_err(ERR_HOST_MEMORY));
+		return CKR_HOST_MEMORY;
+	}
 
 	switch(mech->mechanism) {
 	case CKM_SHA_1_HMAC_GENERAL:
