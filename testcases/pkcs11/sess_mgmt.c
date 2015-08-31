@@ -10,6 +10,7 @@
 
 #include "pkcs11types.h"
 #include "regress.h"
+#include "common.c"
 
 //
 //
@@ -552,6 +553,14 @@ CK_RV do_OperationState1( void )
 	mech.ulParameterLen = 0;
 	mech.pParameter     = NULL;
 
+	if (!mech_supported(slot_id, mech.mechanism)) {
+		printf("Mechanism %ld not supported. (skipped)\n",
+			mech.mechanism);
+		funcs->C_CloseSession(session1);
+		funcs->C_CloseSession(session2);
+		return 0;
+	}
+
 	rc = funcs->C_GenerateKey( session1, &mech, NULL, 0, &h_key );
 	if (rc != CKR_OK) {
 		show_error("   C_GenerateKey #1", rc );
@@ -770,6 +779,15 @@ CK_RV do_OperationState2( void )
 	mech.mechanism      = CKM_MD5;
 	mech.pParameter     = NULL;
 	mech.ulParameterLen = 0;
+
+	if (!mech_supported(slot_id, mech.mechanism)) {
+		printf("Mechanism %ld not supported. (skipped)\n",
+			mech.mechanism);
+		funcs->C_CloseSession(session1);
+		funcs->C_CloseSession(session2);
+		funcs->C_CloseSession(session3);
+		return 0;
+	}
 
 	rc = funcs->C_DigestInit( session1, &mech );
 	if (rc != CKR_OK) {
@@ -1009,6 +1027,15 @@ CK_RV do_OperationState3( void )
 	mech1.pParameter     = NULL;
 	mech1.ulParameterLen = 0;
 
+	if (!mech_supported(slot_id, mech1.mechanism)) {
+		printf("Mechanism %ld not supported. (skipped)\n",
+			mech1.mechanism);
+		funcs->C_CloseSession(session1);
+		funcs->C_CloseSession(session2);
+		funcs->C_CloseSession(session3);
+		return 0;
+	}
+
 	rc = funcs->C_GenerateKey( session1, &mech1, NULL, 0, &key );
 	if (rc != CKR_OK) {
 		show_error("   C_GenerateKey #1", rc );
@@ -1020,6 +1047,15 @@ CK_RV do_OperationState3( void )
 	mech1.pParameter     = NULL;
 	mech1.ulParameterLen = 0;
 
+	if (!mech_supported(slot_id, mech1.mechanism)) {
+		printf("Mechanism %ld not supported. (skipped)\n",
+			mech1.mechanism);
+		funcs->C_CloseSession(session1);
+		funcs->C_CloseSession(session2);
+		funcs->C_CloseSession(session3);
+		return 0;
+	}
+
 	rc = funcs->C_EncryptInit( session1, &mech1, key );
 	if (rc != CKR_OK) {
 		show_error("   C_EncryptInit #1", rc );
@@ -1029,6 +1065,15 @@ CK_RV do_OperationState3( void )
 	mech2.mechanism      = CKM_MD5;
 	mech2.pParameter     = NULL;
 	mech2.ulParameterLen = 0;
+
+	if (!mech_supported(slot_id, mech2.mechanism)) {
+		printf("Mechanism %ld not supported. (skipped)\n",
+			mech2.mechanism);
+		funcs->C_CloseSession(session1);
+		funcs->C_CloseSession(session2);
+		funcs->C_CloseSession(session3);
+		return 0;
+	}
 
 	rc = funcs->C_DigestInit( session2, &mech2 );
 	if (rc != CKR_OK) {
