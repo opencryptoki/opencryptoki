@@ -321,17 +321,15 @@ ICA_ADAPTER_HANDLE adapter_handle;
 #define KEYTYPE_MODEXPO   1
 #define KEYTYPE_PKCSCRT   2
 
+#define MAX_GENERIC_KEY_SIZE 256
+
 CK_CHAR manuf[] = "IBM Corp.";
 CK_CHAR model[] = "IBM ICA     ";
 CK_CHAR descr[] = "IBM PKCS#11 ICA token ";
 CK_CHAR label[] = "IBM ICA  PKCS #11";
 
-
-
 pthread_mutex_t  rngmtx = PTHREAD_MUTEX_INITIALIZER;
 unsigned int  rnginitialized=0;
-
-
 
 CK_RV
 token_specific_rng(CK_BYTE *output, CK_ULONG bytes)
@@ -2956,6 +2954,7 @@ REF_MECH_LIST_ELEMENT ref_mech_list[] = {
 
 	{68, CKM_AES_MAC_GENERAL, {16, 32, CKF_HW|CKF_SIGN|CKF_VERIFY}},
 #endif
+        {80, CKM_GENERIC_SECRET_KEY_GEN, {80, 2048, CKF_HW|CKF_GENERATE}},
 };
 
 CK_ULONG ref_mech_list_len = (sizeof(ref_mech_list) / sizeof(MECH_LIST_ELEMENT));
@@ -3254,4 +3253,53 @@ mech_list_ica_initialize(void)
 	}
 	mech_list_ica_init = TRUE;
 	return rc;
+}
+
+CK_RV token_specific_generic_secret_key_gen(TEMPLATE *tmpl)
+{
+	CK_ATTRIBUTE *attr = NULL;
+	CK_RV rc = CKR_OK;
+	CK_BYTE secret_key[MAX_GENERIC_KEY_SIZE];
+	CK_ULONG key_length = 0;
+	CK_ULONG key_length_in_bits = 0;
+	CK_ATTRIBUTE *value_attr = NULL;
+
+	rc = template_attribute_find(tmpl, CKA_VALUE_LEN, &attr);
+	if (rc == FALSE) {
+		TRACE_ERROR("CKA_VALUE_LEM missing in key template\n");
+		return CKR_TEMPLATE_INCOMPLETE;
+	}
+
+	key_length = *(CK_ULONG *)attr->pValue; //app specified key length in bytes
+	key_length_in_bits = key_length * 8;
+
+	/* After looking at fips cavs test vectors for HMAC ops,
+	 * it was decided that the key length should fall between
+	 * 80 and 2048 bits inclusive.
+	 */
+	if ((key_length_in_bits < 80) || (key_length_in_bits > 2048 )) {
+		TRACE_ERROR("Generic secret key size of %lu bits not within"
+			    " required range of 80-2048 bits\n", key_length_in_bits);
+		return CKR_KEY_SIZE_RANGE;
+	}
+
+        /* libica does not have generic secret key generation,
+	 * so call token rng here.
+	 */
+	rc = rng_generate(secret_key, key_length);
+	if (rc != CKR_OK) {
+		TRACE_DEVEL("Generic secret key generation failed.\n");
+		return rc;
+        }
+
+	rc = build_attribute(CKA_VALUE, secret_key, key_length, &value_attr);
+	if (rc != CKR_OK) {
+		TRACE_DEVEL("build_attribute(CKA_VALUE) failed\n");
+		return rc;
+	}
+	rc = template_update_attribute(tmpl, value_attr);
+        if (rc != CKR_OK)
+                TRACE_DEVEL("template_update_attribute(CKA_VALUE) failed\n");
+
+        return rc;
 }
