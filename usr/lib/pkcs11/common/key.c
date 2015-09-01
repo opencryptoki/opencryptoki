@@ -341,6 +341,7 @@
 //
 //    generic_secret_check_required_attributes
 //    generic_secret_validate_attribute
+//    generic_secret_set_default_attributes
 //
 //    rc2_check_required_attributes
 //    rc2_validate_attribute
@@ -3134,53 +3135,221 @@ generic_secret_check_required_attributes( TEMPLATE *tmpl, CK_ULONG mode )
 
 //  generic_secret_set_default_attributes()
 //
-CK_RV
-generic_secret_set_default_attributes( TEMPLATE *tmpl, CK_ULONG mode )
+CK_RV generic_secret_set_default_attributes(TEMPLATE *tmpl, CK_ULONG mode)
 {
-   CK_ATTRIBUTE   *value_attr       = NULL;
-   CK_ATTRIBUTE   *value_len_attr   = NULL;
-   CK_ATTRIBUTE   *type_attr        = NULL;
-   CK_ULONG    len = 0L;
+	CK_ATTRIBUTE *value_attr = NULL;
+	CK_ATTRIBUTE *value_len_attr = NULL;
+	CK_ATTRIBUTE *type_attr = NULL;
+	CK_ATTRIBUTE *class_attr = NULL;
+	CK_ATTRIBUTE *sensitive_attr = NULL;
+	CK_ATTRIBUTE *encrypt_attr = NULL;
+	CK_ATTRIBUTE *decrypt_attr = NULL;
+	CK_ATTRIBUTE *sign_attr = NULL;
+	CK_ATTRIBUTE *verify_attr = NULL;
+	CK_ATTRIBUTE *wrap_attr = NULL;
+	CK_ATTRIBUTE *unwrap_attr = NULL;
+	CK_ATTRIBUTE *extractable_attr = NULL;
+	CK_ATTRIBUTE *never_extr_attr = NULL;
+	CK_ATTRIBUTE *always_sens_attr = NULL;
+	CK_ATTRIBUTE *id_attr = NULL;
+	CK_ATTRIBUTE *sdate_attr = NULL;
+	CK_ATTRIBUTE *edate_attr = NULL;
+	CK_ATTRIBUTE *derive_attr = NULL;
+	CK_ATTRIBUTE *local_attr = NULL;
+	CK_ULONG len = 0L;
 
-   if (mode)
-      value_attr = NULL;
+	if (mode) {
+		value_attr = NULL;
+		id_attr = NULL;
+	}
 
-   secret_key_set_default_attributes( tmpl, mode );
+	/* First set the Common Key Attributes's defaults for Generic Secret Keys. */
 
-   type_attr       = (CK_ATTRIBUTE *)malloc( sizeof(CK_ATTRIBUTE) + sizeof(CK_KEY_TYPE) );
-   value_attr      = (CK_ATTRIBUTE *)malloc( sizeof(CK_ATTRIBUTE) );
-   value_len_attr  = (CK_ATTRIBUTE *)malloc( sizeof(CK_ATTRIBUTE) + sizeof(CK_ULONG) );
+	id_attr = (CK_ATTRIBUTE *)malloc(sizeof(CK_ATTRIBUTE));
+	sdate_attr = (CK_ATTRIBUTE *)malloc(sizeof(CK_ATTRIBUTE));
+	edate_attr = (CK_ATTRIBUTE *)malloc(sizeof(CK_ATTRIBUTE));
+	derive_attr = (CK_ATTRIBUTE *)malloc(sizeof(CK_ATTRIBUTE) + sizeof(CK_BBOOL));
+	local_attr = (CK_ATTRIBUTE *)malloc(sizeof(CK_ATTRIBUTE) + sizeof(CK_BBOOL));
 
-   if (!type_attr || !value_attr || !value_len_attr) {
-      if (type_attr)      free( type_attr );
-      if (value_attr)     free( value_attr );
-      if (value_len_attr) free( value_len_attr );
-      TRACE_ERROR("%s\n", ock_err(ERR_HOST_MEMORY));
+	if (!id_attr || !sdate_attr || !edate_attr || !derive_attr || !local_attr) {
+		if (id_attr) free(id_attr);
+		if (sdate_attr) free(sdate_attr);
+		if (edate_attr) free(edate_attr);
+		if (derive_attr) free(derive_attr);
+		if (local_attr) free(local_attr);
+		TRACE_ERROR("%s\n", ock_err(ERR_HOST_MEMORY));
+		return CKR_HOST_MEMORY;
+	}
 
-      return CKR_HOST_MEMORY;
-   }
+	id_attr->type = CKA_ID;
+	id_attr->ulValueLen = 0;
+	id_attr->pValue = NULL;
 
-   value_attr->type       = CKA_VALUE;
-   value_attr->ulValueLen = 0;
-   value_attr->pValue     = NULL;
+	sdate_attr->type = CKA_START_DATE;
+	sdate_attr->ulValueLen = 0;
+	sdate_attr->pValue = NULL;
 
-   value_len_attr->type       = CKA_VALUE_LEN;
-   value_len_attr->ulValueLen = sizeof(CK_ULONG);
-   value_len_attr->pValue     = (CK_BYTE *)value_len_attr + sizeof(CK_ATTRIBUTE);
-   *(CK_ULONG *)value_len_attr->pValue = len;
+	edate_attr->type = CKA_END_DATE;
+	edate_attr->ulValueLen = 0;
+	edate_attr->pValue = NULL;
 
-   type_attr->type       = CKA_KEY_TYPE;
-   type_attr->ulValueLen = sizeof(CK_KEY_TYPE);
-   type_attr->pValue     = (CK_BYTE *)type_attr + sizeof(CK_ATTRIBUTE);
-   *(CK_KEY_TYPE *)type_attr->pValue = CKK_GENERIC_SECRET;
+	derive_attr->type = CKA_DERIVE;
+	derive_attr->ulValueLen = sizeof(CK_BBOOL);
+	derive_attr->pValue = (CK_BYTE *)derive_attr + sizeof(CK_ATTRIBUTE);
+	*(CK_BBOOL *)derive_attr->pValue = TRUE;
 
-   template_update_attribute( tmpl, type_attr );
-   template_update_attribute( tmpl, value_attr );
-   template_update_attribute( tmpl, value_len_attr );
+	/* should be safe to set CKA_LOCAL here...  */
+	local_attr->type        = CKA_LOCAL;
+	local_attr->ulValueLen  = sizeof(CK_BBOOL);
+	local_attr->pValue      = (CK_BYTE *)local_attr + sizeof(CK_ATTRIBUTE);
+	if (mode == MODE_KEYGEN)
+		*(CK_BBOOL *)local_attr->pValue = TRUE;
+	else
+		*(CK_BBOOL *)local_attr->pValue = FALSE;
 
-   return CKR_OK;
+	template_update_attribute(tmpl, id_attr);
+	template_update_attribute(tmpl, sdate_attr);
+	template_update_attribute(tmpl, edate_attr);
+	template_update_attribute(tmpl, derive_attr);
+	template_update_attribute(tmpl, local_attr);
+
+	/* Next, set the Common Secret Key Attributes and defaults for
+	 * Generic Secret Keys.
+	 */
+
+	class_attr = (CK_ATTRIBUTE *)malloc(sizeof(CK_ATTRIBUTE) + sizeof(CK_OBJECT_CLASS));
+	sensitive_attr = (CK_ATTRIBUTE *)malloc(sizeof(CK_ATTRIBUTE) + sizeof(CK_BBOOL));
+	encrypt_attr = (CK_ATTRIBUTE *)malloc(sizeof(CK_ATTRIBUTE) + sizeof(CK_BBOOL));
+	decrypt_attr = (CK_ATTRIBUTE *)malloc(sizeof(CK_ATTRIBUTE) + sizeof(CK_BBOOL));
+	sign_attr = (CK_ATTRIBUTE *)malloc(sizeof(CK_ATTRIBUTE) + sizeof(CK_BBOOL));
+	verify_attr = (CK_ATTRIBUTE *)malloc(sizeof(CK_ATTRIBUTE) + sizeof(CK_BBOOL));
+	wrap_attr = (CK_ATTRIBUTE *)malloc(sizeof(CK_ATTRIBUTE) + sizeof(CK_BBOOL));
+	unwrap_attr = (CK_ATTRIBUTE *)malloc(sizeof(CK_ATTRIBUTE) + sizeof(CK_BBOOL));
+	extractable_attr = (CK_ATTRIBUTE *)malloc(sizeof(CK_ATTRIBUTE) + sizeof(CK_BBOOL));
+	never_extr_attr = (CK_ATTRIBUTE *)malloc(sizeof(CK_ATTRIBUTE) + sizeof(CK_BBOOL));
+	always_sens_attr = (CK_ATTRIBUTE *)malloc(sizeof(CK_ATTRIBUTE) + sizeof(CK_BBOOL));
+	if (!class_attr || !sensitive_attr || !encrypt_attr || !decrypt_attr ||
+	    !sign_attr || !verify_attr | !wrap_attr || !unwrap_attr ||
+	    !extractable_attr || !never_extr_attr || !always_sens_attr) {
+		if (class_attr) free(class_attr);
+		if (sensitive_attr) free(sensitive_attr);
+		if (encrypt_attr) free(encrypt_attr);
+		if (decrypt_attr) free(decrypt_attr);
+		if (sign_attr) free(sign_attr);
+		if (verify_attr) free(verify_attr);
+		if (wrap_attr) free(wrap_attr);
+		if (unwrap_attr) free(unwrap_attr);
+		if (extractable_attr) free(extractable_attr);
+		if (never_extr_attr) free(never_extr_attr);
+		if (always_sens_attr) free(always_sens_attr);
+		TRACE_ERROR("%s\n", ock_err(ERR_HOST_MEMORY));
+		return CKR_HOST_MEMORY;
+	}
+
+	class_attr->type = CKA_CLASS;
+	class_attr->ulValueLen = sizeof(CK_OBJECT_CLASS);
+	class_attr->pValue = (CK_BYTE *)class_attr + sizeof(CK_ATTRIBUTE);
+	*(CK_OBJECT_CLASS *)class_attr->pValue = CKO_SECRET_KEY;
+
+	sensitive_attr->type = CKA_SENSITIVE;
+	sensitive_attr->ulValueLen = sizeof(CK_BBOOL);
+	sensitive_attr->pValue = (CK_BYTE *)sensitive_attr + sizeof(CK_ATTRIBUTE);
+	*(CK_BBOOL *)sensitive_attr->pValue = FALSE;
+
+	encrypt_attr->type = CKA_ENCRYPT;
+	encrypt_attr->ulValueLen = sizeof(CK_BBOOL);
+	encrypt_attr->pValue = (CK_BYTE *)encrypt_attr + sizeof(CK_ATTRIBUTE);
+	*(CK_BBOOL *)encrypt_attr->pValue = FALSE;
+
+	decrypt_attr->type = CKA_DECRYPT;
+	decrypt_attr->ulValueLen = sizeof(CK_BBOOL);
+	decrypt_attr->pValue = (CK_BYTE *)decrypt_attr + sizeof(CK_ATTRIBUTE);
+	*(CK_BBOOL *)decrypt_attr->pValue = FALSE;
+
+	sign_attr->type = CKA_SIGN;
+	sign_attr->ulValueLen = sizeof(CK_BBOOL);
+	sign_attr->pValue = (CK_BYTE *)sign_attr + sizeof(CK_ATTRIBUTE);
+	*(CK_BBOOL *)sign_attr->pValue = TRUE;
+
+	verify_attr->type = CKA_VERIFY;
+	verify_attr->ulValueLen = sizeof(CK_BBOOL);
+	verify_attr->pValue = (CK_BYTE *)verify_attr + sizeof(CK_ATTRIBUTE);
+	*(CK_BBOOL *)verify_attr->pValue = TRUE;
+
+	wrap_attr->type = CKA_WRAP;
+	wrap_attr->ulValueLen = sizeof(CK_BBOOL);
+	wrap_attr->pValue = (CK_BYTE *)wrap_attr + sizeof(CK_ATTRIBUTE);
+	*(CK_BBOOL *)wrap_attr->pValue = FALSE;
+
+	unwrap_attr->type = CKA_UNWRAP;
+	unwrap_attr->ulValueLen = sizeof(CK_BBOOL);
+	unwrap_attr->pValue = (CK_BYTE *)unwrap_attr + sizeof(CK_ATTRIBUTE);
+	*(CK_BBOOL *)unwrap_attr->pValue = FALSE;
+
+	extractable_attr->type = CKA_EXTRACTABLE;
+	extractable_attr->ulValueLen = sizeof(CK_BBOOL);
+	extractable_attr->pValue = (CK_BYTE *)extractable_attr + sizeof(CK_ATTRIBUTE);
+	*(CK_BBOOL *)extractable_attr->pValue = TRUE;
+
+	/* by default, we'll set NEVER_EXTRACTABLE == FALSE and
+	 * ALWAYS_SENSITIVE == FALSE
+	 * If the key is being created with KEYGEN, it will adjust as necessary.
+	 */
+	always_sens_attr->type = CKA_ALWAYS_SENSITIVE;
+	always_sens_attr->ulValueLen = sizeof(CK_BBOOL);
+	always_sens_attr->pValue = (CK_BYTE *)always_sens_attr + sizeof(CK_ATTRIBUTE);
+	*(CK_BBOOL *)always_sens_attr->pValue = FALSE;
+
+	never_extr_attr->type = CKA_NEVER_EXTRACTABLE;
+	never_extr_attr->ulValueLen = sizeof(CK_BBOOL);
+	never_extr_attr->pValue = (CK_BYTE *)never_extr_attr + sizeof(CK_ATTRIBUTE);
+	*(CK_BBOOL *)never_extr_attr->pValue = FALSE;
+
+	template_update_attribute(tmpl, class_attr);
+	template_update_attribute(tmpl, sensitive_attr);
+	template_update_attribute(tmpl, encrypt_attr);
+	template_update_attribute(tmpl, decrypt_attr);
+	template_update_attribute(tmpl, sign_attr);
+	template_update_attribute(tmpl, verify_attr);
+	template_update_attribute(tmpl, wrap_attr);
+	template_update_attribute(tmpl, unwrap_attr);
+	template_update_attribute(tmpl, extractable_attr);
+	template_update_attribute(tmpl, never_extr_attr);
+	template_update_attribute(tmpl, always_sens_attr);
+
+	/* Now set the type, value and value_len */
+	type_attr = (CK_ATTRIBUTE *)malloc(sizeof(CK_ATTRIBUTE) + sizeof(CK_KEY_TYPE));
+	value_attr = (CK_ATTRIBUTE *)malloc(sizeof(CK_ATTRIBUTE));
+	value_len_attr = (CK_ATTRIBUTE *)malloc(sizeof(CK_ATTRIBUTE) + sizeof(CK_ULONG));
+
+	if (!type_attr || !value_attr || !value_len_attr) {
+		if (type_attr) free(type_attr);
+		if (value_attr) free(value_attr);
+		if (value_len_attr) free(value_len_attr);
+		TRACE_ERROR("%s\n", ock_err(ERR_HOST_MEMORY));
+		return CKR_HOST_MEMORY;
+	}
+
+	value_attr->type = CKA_VALUE;
+	value_attr->ulValueLen = 0;
+	value_attr->pValue = NULL;
+
+	value_len_attr->type = CKA_VALUE_LEN;
+	value_len_attr->ulValueLen = sizeof(CK_ULONG);
+	value_len_attr->pValue = (CK_BYTE *)value_len_attr + sizeof(CK_ATTRIBUTE);
+	*(CK_ULONG *)value_len_attr->pValue = len;
+
+	type_attr->type = CKA_KEY_TYPE;
+	type_attr->ulValueLen = sizeof(CK_KEY_TYPE);
+	type_attr->pValue = (CK_BYTE *)type_attr + sizeof(CK_ATTRIBUTE);
+	*(CK_KEY_TYPE *)type_attr->pValue = CKK_GENERIC_SECRET;
+
+	template_update_attribute(tmpl, type_attr);
+	template_update_attribute(tmpl, value_attr);
+	template_update_attribute(tmpl, value_len_attr);
+
+	return CKR_OK;
 }
-
 
 // generic_secret_validate_attribute()
 //
