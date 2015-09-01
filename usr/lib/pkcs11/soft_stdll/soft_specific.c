@@ -332,6 +332,8 @@ pthread_mutex_t  rngmtx = PTHREAD_MUTEX_INITIALIZER;
 pthread_mutex_t  nextmutex = PTHREAD_MUTEX_INITIALIZER;
 unsigned int  rnginitialized=0;
 
+#define MAX_GENERIC_KEY_SIZE 256
+
 CK_CHAR manuf[] = "IBM Corp.";
 CK_CHAR model[] = "IBM SoftTok ";
 CK_CHAR descr[] = "IBM PKCS#11 Soft token";
@@ -2160,6 +2162,7 @@ MECH_LIST_ELEMENT mech_list[] = {
 	{CKM_AES_CBC, {16, 32, CKF_ENCRYPT|CKF_DECRYPT|CKF_WRAP|CKF_UNWRAP}},
 	{CKM_AES_CBC_PAD, {16, 32, CKF_ENCRYPT|CKF_DECRYPT|CKF_WRAP|CKF_UNWRAP}},
 #endif
+        {CKM_GENERIC_SECRET_KEY_GEN, {80, 2048, CKF_GENERATE}}
 };
 
 CK_ULONG mech_list_len = (sizeof(mech_list) / sizeof(MECH_LIST_ELEMENT));
@@ -2673,4 +2676,52 @@ CK_RV token_specific_hmac_verify_final(SESSION *sess, CK_BYTE *signature,
 				       CK_ULONG sig_len)
 {
 	return softtok_hmac_final(&sess->verify_ctx, signature, &sig_len, FALSE);
+}
+
+CK_RV token_specific_generic_secret_key_gen(TEMPLATE *tmpl)
+{
+	CK_ATTRIBUTE *attr = NULL;
+	CK_ATTRIBUTE *gkey = NULL;
+	CK_RV rc = CKR_OK;
+	CK_BYTE secret_key[MAX_GENERIC_KEY_SIZE];
+	CK_ULONG key_length = 0;
+	CK_ULONG key_length_in_bits = 0;
+
+	rc = template_attribute_find(tmpl, CKA_VALUE_LEN, &attr);
+	if (rc == FALSE) {
+		TRACE_ERROR("CKA_VALUE_LEN missing in (HMAC) key template\n");
+		return CKR_TEMPLATE_INCOMPLETE;
+	}
+
+	key_length = *(CK_ULONG *)attr->pValue; //app specified key length in bytes
+	key_length_in_bits = key_length * 8;
+
+	/* After looking at fips cavs test vectors for HMAC ops,
+	 * it was decided that the key length should fall between
+	 * 80 and 2048 bits inclusive. openssl does not explicitly
+	 * specify limits to key sizes for secret keys
+	 */
+	if ((key_length_in_bits < 80) || (key_length_in_bits > 2048 )) {
+		TRACE_ERROR("Generic secret key size of %lu bits not within"
+			    " required range of 80-2048 bits\n", key_length_in_bits);
+		return CKR_KEY_SIZE_RANGE;
+	}
+
+	rc = rng_generate(secret_key, key_length);
+	if (rc != CKR_OK) {
+		TRACE_DEVEL("Generic secret key generation failed.\n");
+		return rc;
+	}
+
+	rc = build_attribute(CKA_VALUE, secret_key, key_length, &gkey);
+	if (rc != CKR_OK) {
+		TRACE_DEVEL("build_attribute(CKA_VALUE) failed\n");
+		return rc;
+	}
+
+	rc = template_update_attribute(tmpl, gkey);
+	if (rc != CKR_OK)
+		TRACE_DEVEL("template_update_attribute(CKA_VALUE) failed.\n");
+
+        return rc;
 }

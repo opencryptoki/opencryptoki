@@ -394,7 +394,7 @@ token_spec_t token_specific = {
 	&token_specific_hmac_verify,
 	&token_specific_hmac_verify_update,
 	&token_specific_hmac_verify_final,
-	NULL,			// generic_secret_key_gen
+	&token_specific_generic_secret_key_gen,
 	// AES
 	&token_specific_aes_key_gen,
 	&token_specific_aes_ecb,
