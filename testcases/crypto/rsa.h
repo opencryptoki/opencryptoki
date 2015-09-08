@@ -404,7 +404,7 @@ static struct RSA_GENERATED_TEST_VECTOR rsa_keywrap_generated_tv[] = {
 		.modbits = 512,
 		.publ_exp_len = 1,
 		.publ_exp = { 0x03 },
-		.keylen = 1,
+		.keylen = 10,
 		.keytype = {CKM_GENERIC_SECRET_KEY_GEN, 0, 0},
 	}, {	// 1
 		.modbits = 512,
@@ -438,597 +438,561 @@ static struct RSA_GENERATED_TEST_VECTOR rsa_keywrap_generated_tv[] = {
 		.keytype = {CKM_AES_KEY_GEN, 0, 0},
 	},{	// 6
                 .modbits = 512,
-                .publ_exp_len = 1,
-                .publ_exp = { 0x03 },
-                .keylen = 64,
+                .publ_exp_len = 2,
+                .publ_exp = { 0x00, 0x11 },
+                .keylen = 32,
                 .keytype = {CKM_GENERIC_SECRET_KEY_GEN, 0, 0},
         }, {	// 7
                 .modbits = 512,
                 .publ_exp_len = 2,
                 .publ_exp = { 0x00, 0x11 },
-                .keylen = 1,
-                .keytype = {CKM_GENERIC_SECRET_KEY_GEN, 0, 0},
+                .keylen = 8,
+                .keytype = {CKM_CDMF_KEY_GEN, 0, 0},
         }, {	// 8
                 .modbits = 512,
                 .publ_exp_len = 2,
                 .publ_exp = { 0x00, 0x11 },
                 .keylen = 8,
-                .keytype = {CKM_CDMF_KEY_GEN, 0, 0},
+                .keytype = {CKM_DES_KEY_GEN, 0, 0},
         }, {	// 9
                 .modbits = 512,
                 .publ_exp_len = 2,
                 .publ_exp = { 0x00, 0x11 },
-                .keylen = 8,
-                .keytype = {CKM_DES_KEY_GEN, 0, 0},
-        }, {	// 10
-                .modbits = 512,
-                .publ_exp_len = 2,
-                .publ_exp = { 0x00, 0x11 },
                 .keylen = 24,
                 .keytype = {CKM_DES3_KEY_GEN, 0, 0},
-        }, {	// 11
+        }, {	// 10
                 .modbits = 512,
                 .publ_exp_len = 2,
                 .publ_exp = { 0x00, 0x11 },
                 .keylen = 16,
                 .keytype = {CKM_AES_KEY_GEN, 0, 0},
-        }, {	// 12
+        }, {	// 11
                 .modbits = 512,
                 .publ_exp_len = 2,
                 .publ_exp = { 0x00, 0x11 },
                 .keylen = 32,
                 .keytype = {CKM_AES_KEY_GEN, 0, 0},
-        }, {	// 13
-                .modbits = 512,
-                .publ_exp_len = 2,
-                .publ_exp = { 0x00, 0x11 },
-                .keylen = 64,
-                .keytype = {CKM_GENERIC_SECRET_KEY_GEN, 0, 0},
-        }, {	// 14
+        }, {	// 12
                 .modbits = 512,
                 .publ_exp_len = 3,
                 .publ_exp = { 0x01, 0x00, 0x01 },
-                .keylen = 1,
+                .keylen = 10,
                 .keytype = {CKM_GENERIC_SECRET_KEY_GEN, 0, 0},
-        }, {	// 15
+        }, {	// 13
                 .modbits = 512,
                 .publ_exp_len = 3,
                 .publ_exp = { 0x01, 0x00, 0x01 },
                 .keylen = 8,
                 .keytype = {CKM_CDMF_KEY_GEN, 0, 0},
-        }, {	// 16
+        }, {	// 14
                 .modbits = 512,
                 .publ_exp_len = 3,
                 .publ_exp = { 0x01, 0x00, 0x01 },
                 .keylen = 8,
                 .keytype = {CKM_DES_KEY_GEN, 0, 0},
-        }, {	// 17
+        }, {	// 15
                 .modbits = 512,
                 .publ_exp_len = 3,
                 .publ_exp = { 0x01, 0x00, 0x01 },
                 .keylen = 24,
                 .keytype = {CKM_DES3_KEY_GEN, 0, 0},
-        }, {	// 18
+        }, {	// 16
                 .modbits = 512,
                 .publ_exp_len = 3,
                 .publ_exp = { 0x01, 0x00, 0x01 },
                 .keylen = 16,
                 .keytype = {CKM_AES_KEY_GEN, 0, 0},
-        }, {	// 19
+        }, {	// 17
                 .modbits = 512,
                 .publ_exp_len = 3,
                 .publ_exp = { 0x01, 0x00, 0x01 },
                 .keylen = 32,
                 .keytype = {CKM_AES_KEY_GEN, 0, 0},
-        },{	// 20
-                .modbits = 512,
-                .publ_exp_len = 3,
-                .publ_exp = { 0x01, 0x00, 0x01 },
-                .keylen = 64,
-                .keytype = {CKM_GENERIC_SECRET_KEY_GEN, 0, 0},
-        }, {	// 21
+        }, {	// 18
 		.modbits = 768,
 		.publ_exp_len = 1,
 		.publ_exp = { 0x03 },
-		.keylen = 1,
+		.keylen = 10,
 		.keytype = {CKM_GENERIC_SECRET_KEY_GEN, 0, 0}
-	}, {	// 22
+	}, {	// 19
 		.modbits = 768,
 		.publ_exp_len = 1,
 		.publ_exp = { 0x03 },
 		.keylen = 8,
 		.keytype = {CKM_CDMF_KEY_GEN, 0, 0},
-	}, {	// 23
+	}, {	// 20
 		.modbits = 768,
 		.publ_exp_len = 1,
 		.publ_exp = { 0x03 },
 		.keylen = 8,
 		.keytype = {CKM_DES_KEY_GEN, 0, 0},
-	}, {	// 24
+	}, {	// 21
 		.modbits = 768,
 		.publ_exp_len = 1,
 		.publ_exp = { 0x03 },
 		.keylen = 24,
 		.keytype = {CKM_DES3_KEY_GEN, 0, 0},
-	}, {	// 25
+	}, {	// 22
 		.modbits = 768,
 		.publ_exp_len = 1,
 		.publ_exp = { 0x03 },
 		.keylen = 16,
 		.keytype = {CKM_AES_KEY_GEN, 0, 0},
-	}, {	// 26
+	}, {	// 23
 		.modbits = 768,
 		.publ_exp_len = 1,
 		.publ_exp = { 0x03 },
 		.keylen = 32,
 		.keytype = {CKM_AES_KEY_GEN, 0, 0},
-	},{	// 27
+	},{	// 24
                 .modbits = 768,
                 .publ_exp_len = 1,
                 .publ_exp = { 0x03 },
                 .keylen = 64,
                 .keytype = {CKM_GENERIC_SECRET_KEY_GEN, 0, 0},
-        }, {	// 28
+        }, {	// 25
                 .modbits = 768,
                 .publ_exp_len = 2,
                 .publ_exp = { 0x00, 0x11 },
-                .keylen = 1,
+                .keylen = 10,
                 .keytype = {CKM_GENERIC_SECRET_KEY_GEN, 0, 0},
-        }, {	// 29
+        }, {	// 26
                 .modbits = 768,
                 .publ_exp_len = 2,
                 .publ_exp = { 0x00, 0x11 },
                 .keylen = 8,
                 .keytype = {CKM_CDMF_KEY_GEN, 0, 0},
-        }, {	// 30
+        }, {	// 27
                 .modbits = 768,
                 .publ_exp_len = 2,
                 .publ_exp = { 0x00, 0x11 },
                 .keylen = 8,
                 .keytype = {CKM_DES_KEY_GEN, 0, 0},
-        }, {	// 31
+        }, {	// 28
                 .modbits = 768,
                 .publ_exp_len = 2,
                 .publ_exp = { 0x00, 0x11 },
                 .keylen = 24,
                 .keytype = {CKM_DES3_KEY_GEN, 0, 0}
-        }, {	// 32
+        }, {	// 29
                 .modbits = 768,
                 .publ_exp_len = 2,
                 .publ_exp = { 0x00, 0x11 },
                 .keylen = 16,
                 .keytype = {CKM_AES_KEY_GEN, 0, 0},
-        }, {	// 33
+        }, {	// 30
                 .modbits = 768,
                 .publ_exp_len = 2,
                 .publ_exp = { 0x00, 0x11 },
                 .keylen = 32,
                 .keytype = {CKM_AES_KEY_GEN, 0, 0},
-        },{	// 34
+        },{	// 31
                 .modbits = 768,
                 .publ_exp_len = 2,
                 .publ_exp = { 0x00, 0x11 },
                 .keylen = 64,
                 .keytype = {CKM_GENERIC_SECRET_KEY_GEN, 0, 0},
-        }, {	// 35
+        }, {	// 32
                 .modbits = 768,
                 .publ_exp_len = 3,
                 .publ_exp = { 0x01, 0x00, 0x01 },
-                .keylen = 1,
+                .keylen = 10,
                 .keytype = {CKM_GENERIC_SECRET_KEY_GEN, 0, 0},
-        }, {	// 36
+        }, {	// 33
                 .modbits = 768,
                 .publ_exp_len = 3,
                 .publ_exp = { 0x01, 0x00, 0x01 },
                 .keylen = 8,
                 .keytype = {CKM_CDMF_KEY_GEN, 0, 0},
-        }, {	// 37
+        }, {	// 34
                 .modbits = 768,
                 .publ_exp_len = 3,
                 .publ_exp = { 0x01, 0x00, 0x01 },
                 .keylen = 8,
                 .keytype = {CKM_DES_KEY_GEN, 0, 0},
-        }, {	// 38
+        }, {	// 35
                 .modbits = 768,
                 .publ_exp_len = 3,
                 .publ_exp = { 0x01, 0x00, 0x01 },
                 .keylen = 24,
                 .keytype = {CKM_DES3_KEY_GEN, 0, 0},
-        }, {	// 39
+        }, {	// 36
                 .modbits = 768,
                 .publ_exp_len = 3,
                 .publ_exp = { 0x01, 0x00, 0x01 },
                 .keylen = 16,
                 .keytype = {CKM_AES_KEY_GEN, 0, 0},
-        }, {	// 40
+        }, {	// 37
                 .modbits = 768,
                 .publ_exp_len = 3,
                 .publ_exp = { 0x01, 0x00, 0x01 },
                 .keylen = 32,
                 .keytype = {CKM_AES_KEY_GEN, 0, 0},
-        }, {	// 41
-		.modbits = 768,
-		.publ_exp_len = 3,
-		.publ_exp = { 0x01, 0x00, 0x01 },
-		.keylen = 96,
-		.keytype = {CKM_GENERIC_SECRET_KEY_GEN, 0, 0},
-	}, {	// 42
+	}, {	// 38
                 .modbits = 1024,
                 .publ_exp_len = 1,
                 .publ_exp = { 0x03 },
-                .keylen = 1,
+                .keylen = 10,
                 .keytype = {CKM_GENERIC_SECRET_KEY_GEN, 0, 0},
-        }, {	// 43
+        }, {	// 39
 		.modbits = 1024,
 		.publ_exp_len = 1,
 		.publ_exp = { 0x03 },
 		.keylen = 8,
 		.keytype = {CKM_CDMF_KEY_GEN, 0, 0},
-	}, {	// 44
+	}, {	// 40
 		.modbits = 1024,
 		.publ_exp_len = 1,
 		.publ_exp = { 0x03 },
 		.keylen = 8,
 		.keytype = {CKM_DES_KEY_GEN, 0, 0},
-	}, {	// 45
+	}, {	// 41
 		.modbits = 1024,
 		.publ_exp_len = 1,
 		.publ_exp = { 0x03 },
 		.keylen = 24,
 		.keytype = {CKM_DES3_KEY_GEN, 0, 0},
-	}, {	// 46
+	}, {	// 42
 		.modbits = 1024,
 		.publ_exp_len = 1,
 		.publ_exp = { 0x03 },
 		.keylen = 16,
 		.keytype = {CKM_AES_KEY_GEN, 0, 0},
-	}, {	// 47
+	}, {	// 43
 		.modbits = 1024,
 		.publ_exp_len = 1,
 		.publ_exp = { 0x03 },
 		.keylen = 32,
 		.keytype = {CKM_AES_KEY_GEN, 0, 0},
-	},{	// 48
+	},{	// 44
                 .modbits = 1024,
                 .publ_exp_len = 1,
                 .publ_exp = { 0x03 },
                 .keylen = 96,
                 .keytype = {CKM_GENERIC_SECRET_KEY_GEN, 0, 0},
+        }, {	// 45
+                .modbits = 1024,
+                .publ_exp_len = 2,
+                .publ_exp = { 0x00, 0x11 },
+                .keylen = 10,
+                .keytype = {CKM_GENERIC_SECRET_KEY_GEN, 0, 0},
+        }, {	// 46
+                .modbits = 1024,
+                .publ_exp_len = 2,
+                .publ_exp = { 0x00, 0x11 },
+                .keylen = 8,
+                .keytype = {CKM_CDMF_KEY_GEN, 0, 0},
+        }, {	// 47
+                .modbits = 1024,
+                .publ_exp_len = 2,
+                .publ_exp = { 0x00, 0x11 },
+                .keylen = 8,
+                .keytype = {CKM_DES_KEY_GEN, 0, 0},
+        }, {	// 48
+                .modbits = 1024,
+                .publ_exp_len = 2,
+                .publ_exp = { 0x00, 0x11 },
+                .keylen = 24,
+                .keytype = {CKM_DES3_KEY_GEN, 0, 0},
         }, {	// 49
                 .modbits = 1024,
                 .publ_exp_len = 2,
                 .publ_exp = { 0x00, 0x11 },
-                .keylen = 1,
-                .keytype = {CKM_GENERIC_SECRET_KEY_GEN, 0, 0},
+                .keylen = 16,
+                .keytype = {CKM_AES_KEY_GEN, 0, 0},
         }, {	// 50
                 .modbits = 1024,
                 .publ_exp_len = 2,
                 .publ_exp = { 0x00, 0x11 },
-                .keylen = 8,
-                .keytype = {CKM_CDMF_KEY_GEN, 0, 0},
-        }, {	// 51
-                .modbits = 1024,
-                .publ_exp_len = 2,
-                .publ_exp = { 0x00, 0x11 },
-                .keylen = 8,
-                .keytype = {CKM_DES_KEY_GEN, 0, 0},
-        }, {	// 52
-                .modbits = 1024,
-                .publ_exp_len = 2,
-                .publ_exp = { 0x00, 0x11 },
-                .keylen = 24,
-                .keytype = {CKM_DES3_KEY_GEN, 0, 0},
-        }, {	// 53
-                .modbits = 1024,
-                .publ_exp_len = 2,
-                .publ_exp = { 0x00, 0x11 },
-                .keylen = 16,
-                .keytype = {CKM_AES_KEY_GEN, 0, 0},
-        }, {	// 54
-                .modbits = 1024,
-                .publ_exp_len = 2,
-                .publ_exp = { 0x00, 0x11 },
                 .keylen = 32,
                 .keytype = {CKM_AES_KEY_GEN, 0, 0},
-        },{	// 55
+        },{	// 51
                 .modbits = 1024,
                 .publ_exp_len = 2,
                 .publ_exp = { 0x00, 0x11 },
-                .keylen = 128,
+                .keylen = 64,
                 .keytype = {CKM_GENERIC_SECRET_KEY_GEN, 0, 0},
+        }, {	// 52
+                .modbits = 1024,
+                .publ_exp_len = 3,
+                .publ_exp = { 0x01, 0x00, 0x01 },
+                .keylen = 10,
+                .keytype = {CKM_GENERIC_SECRET_KEY_GEN, 0, 0},
+        }, {	// 53
+                .modbits = 1024,
+                .publ_exp_len = 3,
+                .publ_exp = { 0x01, 0x00, 0x01 },
+                .keylen = 8,
+                .keytype = {CKM_CDMF_KEY_GEN, 0, 0},
+        }, {	// 54
+                .modbits = 1024,
+                .publ_exp_len = 3,
+                .publ_exp = { 0x01, 0x00, 0x01 },
+                .keylen = 8,
+                .keytype = {CKM_DES_KEY_GEN, 0, 0},
+        }, {	// 55
+                .modbits = 1024,
+                .publ_exp_len = 3,
+                .publ_exp = { 0x01, 0x00, 0x01 },
+                .keylen = 24,
+                .keytype = {CKM_DES3_KEY_GEN, 0, 0},
         }, {	// 56
                 .modbits = 1024,
                 .publ_exp_len = 3,
                 .publ_exp = { 0x01, 0x00, 0x01 },
-                .keylen = 1,
-                .keytype = {CKM_GENERIC_SECRET_KEY_GEN, 0, 0},
+                .keylen = 16,
+                .keytype = {CKM_AES_KEY_GEN, 0, 0},
         }, {	// 57
                 .modbits = 1024,
                 .publ_exp_len = 3,
                 .publ_exp = { 0x01, 0x00, 0x01 },
-                .keylen = 8,
-                .keytype = {CKM_CDMF_KEY_GEN, 0, 0},
+                .keylen = 32,
+                .keytype = {CKM_AES_KEY_GEN, 0, 0},
         }, {	// 58
                 .modbits = 1024,
                 .publ_exp_len = 3,
                 .publ_exp = { 0x01, 0x00, 0x01 },
-                .keylen = 8,
-                .keytype = {CKM_DES_KEY_GEN, 0, 0},
-        }, {	// 59
-                .modbits = 1024,
-                .publ_exp_len = 3,
-                .publ_exp = { 0x01, 0x00, 0x01 },
-                .keylen = 24,
-                .keytype = {CKM_DES3_KEY_GEN, 0, 0},
-        }, {	// 60
-                .modbits = 1024,
-                .publ_exp_len = 3,
-                .publ_exp = { 0x01, 0x00, 0x01 },
-                .keylen = 16,
-                .keytype = {CKM_AES_KEY_GEN, 0, 0},
-        }, {	// 61
-                .modbits = 1024,
-                .publ_exp_len = 3,
-                .publ_exp = { 0x01, 0x00, 0x01 },
                 .keylen = 32,
-                .keytype = {CKM_AES_KEY_GEN, 0, 0},
-        }, {	// 62
-                .modbits = 1024,
-                .publ_exp_len = 3,
-                .publ_exp = { 0x01, 0x00, 0x01 },
-                .keylen = 128,
                 .keytype = {CKM_GENERIC_SECRET_KEY_GEN, 0, 0},
-        }, {	// 63
+        }, {	// 59
 		.modbits = 2048,
 		.publ_exp_len = 1,
 		.publ_exp = { 0x03 },
-		.keylen = 1,
+		.keylen = 10,
 		.keytype = {CKM_GENERIC_SECRET_KEY_GEN, 0, 0},
+	}, {	// 60
+		.modbits = 2048,
+		.publ_exp_len = 1,
+		.publ_exp = { 0x03 },
+		.keylen = 8,
+		.keytype = {CKM_CDMF_KEY_GEN, 0, 0},
+	}, {	// 61
+		.modbits = 2048,
+		.publ_exp_len = 1,
+		.publ_exp = { 0x03 },
+		.keylen = 8,
+		.keytype = {CKM_DES_KEY_GEN, 0, 0},
+	}, {	// 62
+		.modbits = 2048,
+		.publ_exp_len = 1,
+		.publ_exp = { 0x03 },
+		.keylen = 24,
+		.keytype = {CKM_DES3_KEY_GEN, 0, 0},
+	}, {	// 63
+		.modbits = 2048,
+		.publ_exp_len = 1,
+		.publ_exp = { 0x03 },
+		.keylen = 16,
+		.keytype = {CKM_AES_KEY_GEN, 0, 0},
 	}, {	// 64
 		.modbits = 2048,
 		.publ_exp_len = 1,
 		.publ_exp = { 0x03 },
-		.keylen = 8,
-		.keytype = {CKM_CDMF_KEY_GEN, 0, 0},
-	}, {	// 65
-		.modbits = 2048,
-		.publ_exp_len = 1,
-		.publ_exp = { 0x03 },
-		.keylen = 8,
-		.keytype = {CKM_DES_KEY_GEN, 0, 0},
-	}, {	// 66
-		.modbits = 2048,
-		.publ_exp_len = 1,
-		.publ_exp = { 0x03 },
-		.keylen = 24,
-		.keytype = {CKM_DES3_KEY_GEN, 0, 0},
-	}, {	// 67
-		.modbits = 2048,
-		.publ_exp_len = 1,
-		.publ_exp = { 0x03 },
-		.keylen = 16,
-		.keytype = {CKM_AES_KEY_GEN, 0, 0},
-	}, {	// 68
-		.modbits = 2048,
-		.publ_exp_len = 1,
-		.publ_exp = { 0x03 },
 		.keylen = 32,
 		.keytype = {CKM_AES_KEY_GEN, 0, 0},
-	},{	// 69
+	},{	// 65
                 .modbits = 2048,
                 .publ_exp_len = 1,
                 .publ_exp = { 0x03 },
-                .keylen = 256,
+                .keylen = 64,
                 .keytype = {CKM_GENERIC_SECRET_KEY_GEN, 0, 0},
+        }, {	// 66
+                .modbits = 2048,
+                .publ_exp_len = 2,
+                .publ_exp = { 0x00, 0x11 },
+                .keylen = 10,
+                .keytype = {CKM_GENERIC_SECRET_KEY_GEN, 0, 0},
+        }, {	// 67
+                .modbits = 2048,
+                .publ_exp_len = 2,
+                .publ_exp = { 0x00, 0x11 },
+                .keylen = 8,
+                .keytype = {CKM_CDMF_KEY_GEN, 0, 0},
+        }, {	// 68
+                .modbits = 2048,
+                .publ_exp_len = 2,
+                .publ_exp = { 0x00, 0x11 },
+                .keylen = 8,
+                .keytype = {CKM_DES_KEY_GEN, 0, 0},
+        }, {	// 69
+                .modbits = 2048,
+                .publ_exp_len = 2,
+                .publ_exp = { 0x00, 0x11 },
+                .keylen = 24,
+                .keytype = {CKM_DES3_KEY_GEN, 0, 0},
         }, {	// 70
                 .modbits = 2048,
                 .publ_exp_len = 2,
                 .publ_exp = { 0x00, 0x11 },
-                .keylen = 1,
-                .keytype = {CKM_GENERIC_SECRET_KEY_GEN, 0, 0},
+                .keylen = 16,
+                .keytype = {CKM_AES_KEY_GEN, 0, 0},
         }, {	// 71
                 .modbits = 2048,
                 .publ_exp_len = 2,
                 .publ_exp = { 0x00, 0x11 },
-                .keylen = 8,
-                .keytype = {CKM_CDMF_KEY_GEN, 0, 0},
-        }, {	// 72
-                .modbits = 2048,
-                .publ_exp_len = 2,
-                .publ_exp = { 0x00, 0x11 },
-                .keylen = 8,
-                .keytype = {CKM_DES_KEY_GEN, 0, 0},
-        }, {	// 73
-                .modbits = 2048,
-                .publ_exp_len = 2,
-                .publ_exp = { 0x00, 0x11 },
-                .keylen = 24,
-                .keytype = {CKM_DES3_KEY_GEN, 0, 0},
-        }, {	// 74
-                .modbits = 2048,
-                .publ_exp_len = 2,
-                .publ_exp = { 0x00, 0x11 },
-                .keylen = 16,
-                .keytype = {CKM_AES_KEY_GEN, 0, 0},
-        }, {	// 75
-                .modbits = 2048,
-                .publ_exp_len = 2,
-                .publ_exp = { 0x00, 0x11 },
                 .keylen = 32,
                 .keytype = {CKM_AES_KEY_GEN, 0, 0},
-        },{	// 76
+        },{	// 72
                 .modbits = 2048,
                 .publ_exp_len = 2,
                 .publ_exp = { 0x00, 0x11 },
-                .keylen = 256,
+                .keylen = 128,
                 .keytype = {CKM_GENERIC_SECRET_KEY_GEN, 0, 0},
+        }, {	// 73
+                .modbits = 2048,
+                .publ_exp_len = 3,
+                .publ_exp = { 0x01, 0x00, 0x01 },
+                .keylen = 10,
+                .keytype = {CKM_GENERIC_SECRET_KEY_GEN, 0, 0},
+        },{	// 74
+                .modbits = 2048,
+                .publ_exp_len = 3,
+                .publ_exp = { 0x01, 0x00, 0x01 },
+                .keylen = 8,
+                .keytype = {CKM_CDMF_KEY_GEN, 0, 0},
+        }, {	// 75
+                .modbits = 2048,
+                .publ_exp_len = 3,
+                .publ_exp = { 0x01, 0x00, 0x01 },
+                .keylen = 8,
+                .keytype = {CKM_DES_KEY_GEN, 0, 0},
+        }, {	// 76
+                .modbits = 2048,
+                .publ_exp_len = 3,
+                .publ_exp = { 0x01, 0x00, 0x01 },
+                .keylen = 24,
+                .keytype = {CKM_DES3_KEY_GEN, 0, 0},
         }, {	// 77
                 .modbits = 2048,
                 .publ_exp_len = 3,
                 .publ_exp = { 0x01, 0x00, 0x01 },
-                .keylen = 1,
-                .keytype = {CKM_GENERIC_SECRET_KEY_GEN, 0, 0},
-        },{	// 78
-                .modbits = 2048,
-                .publ_exp_len = 3,
-                .publ_exp = { 0x01, 0x00, 0x01 },
-                .keylen = 8,
-                .keytype = {CKM_CDMF_KEY_GEN, 0, 0},
-        }, {	// 79
-                .modbits = 2048,
-                .publ_exp_len = 3,
-                .publ_exp = { 0x01, 0x00, 0x01 },
-                .keylen = 8,
-                .keytype = {CKM_DES_KEY_GEN, 0, 0},
-        }, {	// 80
-                .modbits = 2048,
-                .publ_exp_len = 3,
-                .publ_exp = { 0x01, 0x00, 0x01 },
-                .keylen = 24,
-                .keytype = {CKM_DES3_KEY_GEN, 0, 0},
-        }, {	// 81
-                .modbits = 2048,
-                .publ_exp_len = 3,
-                .publ_exp = { 0x01, 0x00, 0x01 },
                 .keylen = 16,
                 .keytype = {CKM_AES_KEY_GEN, 0, 0},
-        }, {	// 82
+        }, {	// 78
                 .modbits = 2048,
                 .publ_exp_len = 3,
                 .publ_exp = { 0x01, 0x00, 0x01 },
                 .keylen = 32,
                 .keytype = {CKM_AES_KEY_GEN, 0, 0},
-        }, {	// 83
-                .modbits = 2048,
-                .publ_exp_len = 3,
-                .publ_exp = { 0x01, 0x00, 0x01 },
-                .keylen = 256,
-                .keytype = {CKM_GENERIC_SECRET_KEY_GEN, 0, 0},
-        }, {	// 84
+        }, {	// 79
 		.modbits = 4096,
 		.publ_exp_len = 1,
 		.publ_exp = { 0x03 },
-		.keylen = 1,
+		.keylen = 10,
 		.keytype = {CKM_GENERIC_SECRET_KEY_GEN, 0, 0},
-	}, {	// 85
+	}, {	// 80
 		.modbits = 4096,
 		.publ_exp_len = 1,
 		.publ_exp = { 0x03 },
 		.keylen = 8,
 		.keytype = {CKM_CDMF_KEY_GEN, 0, 0},
-	}, {	// 86
+	}, {	// 81
 		.modbits = 4096,
 		.publ_exp_len = 1,
 		.publ_exp = { 0x03 },
 		.keylen = 8,
 		.keytype = {CKM_DES_KEY_GEN, 0, 0},
-	}, {	// 87
+	}, {	// 82
 		.modbits = 4096,
 		.publ_exp_len = 1,
 		.publ_exp = { 0x03 },
 		.keylen = 24,
 		.keytype = {CKM_DES3_KEY_GEN, 0, 0},
-	}, {	// 88
+	}, {	// 83
 		.modbits = 4096,
 		.publ_exp_len = 1,
 		.publ_exp = { 0x03 },
 		.keylen = 16,
 		.keytype = {CKM_AES_KEY_GEN, 0, 0},
-	}, {	// 89
+	}, {	// 84
 		.modbits = 4096,
 		.publ_exp_len = 1,
 		.publ_exp = { 0x03 },
 		.keylen = 32,
 		.keytype = {CKM_AES_KEY_GEN, 0, 0},
-	},{	// 90
-                .modbits = 4096,
-                .publ_exp_len = 1,
-                .publ_exp = { 0x03 },
-                .keylen = 512,
-                .keytype = {CKM_GENERIC_SECRET_KEY_GEN, 0, 0},
-        }, {	// 91
+        }, {	// 85
                 .modbits = 4096,
                 .publ_exp_len = 2,
                 .publ_exp = { 0x00, 0x11 },
-                .keylen = 1,
+                .keylen = 10,
                 .keytype = {CKM_GENERIC_SECRET_KEY_GEN, 0, 0},
-        }, {	// 92
+        }, {	// 86
                 .modbits = 4096,
                 .publ_exp_len = 2,
                 .publ_exp = { 0x00, 0x11 },
                 .keylen = 8,
                 .keytype = {CKM_CDMF_KEY_GEN, 0, 0},
-        }, {	// 93
+        }, {	// 87
                 .modbits = 4096,
                 .publ_exp_len = 2,
                 .publ_exp = { 0x00, 0x11 },
                 .keylen = 8,
                 .keytype = {CKM_DES_KEY_GEN, 0, 0},
-        }, {	// 94
+        }, {	// 88
                 .modbits = 4096,
                 .publ_exp_len = 2,
                 .publ_exp = { 0x00, 0x11 },
                 .keylen = 24,
                 .keytype = {CKM_DES3_KEY_GEN, 0, 0},
-        }, {	// 95
+        }, {	// 89
                 .modbits = 4096,
                 .publ_exp_len = 2,
                 .publ_exp = { 0x00, 0x11 },
                 .keylen = 16,
                 .keytype = {CKM_AES_KEY_GEN, 0, 0},
-        }, {	// 96
+        }, {	// 90
                 .modbits = 4096,
                 .publ_exp_len = 2,
                 .publ_exp = { 0x00, 0x11 },
                 .keylen = 32,
                 .keytype = {CKM_AES_KEY_GEN, 0, 0},
-        },{	// 97
+        },{	// 91
                 .modbits = 4096,
                 .publ_exp_len = 2,
                 .publ_exp = { 0x00, 0x11 },
-                .keylen = 512,
+                .keylen = 256,
                 .keytype = {CKM_GENERIC_SECRET_KEY_GEN, 0, 0},
+        }, {	// 92
+                .modbits = 4096,
+                .publ_exp_len = 3,
+                .publ_exp = { 0x01, 0x00, 0x01 },
+                .keylen = 10,
+                .keytype = {CKM_GENERIC_SECRET_KEY_GEN, 0, 0},
+        },{	// 93
+                .modbits = 4096,
+                .publ_exp_len = 3,
+                .publ_exp = { 0x01, 0x00, 0x01 },
+                .keylen = 8,
+                .keytype = {CKM_CDMF_KEY_GEN, 0, 0},
+        }, {	// 94
+                .modbits = 4096,
+                .publ_exp_len = 3,
+                .publ_exp = { 0x01, 0x00, 0x01 },
+                .keylen = 8,
+                .keytype = {CKM_DES_KEY_GEN, 0, 0},
+        }, {	// 95
+                .modbits = 4096,
+                .publ_exp_len = 3,
+                .publ_exp = { 0x01, 0x00, 0x01 },
+                .keylen = 24,
+                .keytype = {CKM_DES3_KEY_GEN, 0, 0},
+        }, {	// 96
+                .modbits = 4096,
+                .publ_exp_len = 3,
+                .publ_exp = { 0x01, 0x00, 0x01 },
+                .keylen = 16,
+                .keytype = {CKM_AES_KEY_GEN, 0, 0},
+        }, {	// 97
+                .modbits = 4096,
+                .publ_exp_len = 3,
+                .publ_exp = { 0x01, 0x00, 0x01 },
+                .keylen = 32,
+                .keytype = {CKM_AES_KEY_GEN, 0, 0},
         }, {	// 98
                 .modbits = 4096,
                 .publ_exp_len = 3,
                 .publ_exp = { 0x01, 0x00, 0x01 },
-                .keylen = 1,
-                .keytype = {CKM_GENERIC_SECRET_KEY_GEN, 0, 0},
-        },{	// 99
-                .modbits = 4096,
-                .publ_exp_len = 3,
-                .publ_exp = { 0x01, 0x00, 0x01 },
-                .keylen = 8,
-                .keytype = {CKM_CDMF_KEY_GEN, 0, 0},
-        }, {	// 100
-                .modbits = 4096,
-                .publ_exp_len = 3,
-                .publ_exp = { 0x01, 0x00, 0x01 },
-                .keylen = 8,
-                .keytype = {CKM_DES_KEY_GEN, 0, 0},
-        }, {	// 101
-                .modbits = 4096,
-                .publ_exp_len = 3,
-                .publ_exp = { 0x01, 0x00, 0x01 },
-                .keylen = 24,
-                .keytype = {CKM_DES3_KEY_GEN, 0, 0},
-        }, {	// 102
-                .modbits = 4096,
-                .publ_exp_len = 3,
-                .publ_exp = { 0x01, 0x00, 0x01 },
-                .keylen = 16,
-                .keytype = {CKM_AES_KEY_GEN, 0, 0},
-        }, {	// 103
-                .modbits = 4096,
-                .publ_exp_len = 3,
-                .publ_exp = { 0x01, 0x00, 0x01 },
-                .keylen = 32,
-                .keytype = {CKM_AES_KEY_GEN, 0, 0},
-        }, {	// 104
-                .modbits = 4096,
-                .publ_exp_len = 3,
-                .publ_exp = { 0x01, 0x00, 0x01 },
-                .keylen = 512,
+                .keylen = 256,
                 .keytype = {CKM_GENERIC_SECRET_KEY_GEN, 0, 0},
         }
 
@@ -1378,12 +1342,12 @@ static struct RSA_GENERATED_TEST_VECTOR rsa_x509_generated_tv[] = {
 struct GENERATED_TEST_SUITE_INFO generated_keywrap_test_suites[] = {
 	{
 		.name = "RSA PKCS",
-		.tvcount = 105,
+		.tvcount = 99,
 		.tv = rsa_keywrap_generated_tv,
 		.mech = {CKM_RSA_PKCS, 0, 0},
 	}, {
 		.name = "RSA X.509",
-		.tvcount = 105,
+		.tvcount = 99,
 		.tv = rsa_keywrap_generated_tv,
 		.mech = {CKM_RSA_X_509, 0, 0},
 	}
