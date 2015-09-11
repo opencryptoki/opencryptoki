@@ -2715,41 +2715,6 @@ CK_RV ep11tok_generate_key_pair(SESSION * sess, CK_MECHANISM_PTR pMechanism,
 			   private_key_obj->name, public_key_obj, private_key_obj);
 	}
 
-	/* copy CKA_CLASS, CKA_KEY_TYPE to private template */
-	if (template_attribute_find(public_key_obj->template, CKA_CLASS, &attr)) {
-		rc = build_attribute(attr->type, attr->pValue,
-				     attr->ulValueLen, &n_attr);
-		if (rc != CKR_OK) {
-			TRACE_ERROR("%s build_attribute failed with rc=0x%lx\n",
-				    __func__, rc);
-			goto error;
-		}
-
-		rc = template_update_attribute(private_key_obj->template, n_attr);
-		if (rc != CKR_OK) {
-			TRACE_ERROR("%s template_update_attribute failed with rc=0x%lx\n",
-				    __func__, rc);
-			goto error;
-		}
-	}
-
-	if (template_attribute_find(public_key_obj->template, CKA_KEY_TYPE, &attr)) {
-		rc = build_attribute(attr->type, attr->pValue,
-				     attr->ulValueLen, &n_attr);
-		if (rc != CKR_OK) {
-			TRACE_ERROR("%s build_attribute failed with rc=0x%lx\n",
-				    __func__, rc);
-			goto error;
-		}
-
-		rc = template_update_attribute(private_key_obj->template, n_attr);
-		if (rc != CKR_OK) {
-			TRACE_ERROR("%s template_update_attribute failed with rc=0x%lx\n",
-				    __func__, rc);
-			goto error;
-		}
-	}
-
 	/* Keys should be fully constructed,
 	 * assign object handles and store keys.
 	 */
