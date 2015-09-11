@@ -1342,7 +1342,7 @@ rsa_publ_check_required_attributes( TEMPLATE *tmpl, CK_ULONG mode )
 
    found = template_attribute_find( tmpl, CKA_PUBLIC_EXPONENT, &attr );
    if (!found) {
-      if (mode == MODE_CREATE || mode == MODE_KEYGEN){
+      if (mode == MODE_CREATE){
          TRACE_ERROR("%s\n", ock_err(ERR_TEMPLATE_INCOMPLETE));
          return CKR_TEMPLATE_INCOMPLETE;
       }
@@ -1363,13 +1363,14 @@ rsa_publ_set_default_attributes( TEMPLATE *tmpl, TEMPLATE *basetmpl, CK_ULONG mo
    CK_ATTRIBUTE   *public_exp_attr   = NULL;
    CK_ATTRIBUTE   *tmpattr           = NULL;
    CK_ULONG        bits = 0L;
+   CK_BYTE pubExp[3] = { 0x01,0x00,0x01 };
 
    publ_key_set_default_attributes( tmpl, mode );
 
    type_attr         = (CK_ATTRIBUTE *)malloc( sizeof(CK_ATTRIBUTE) + sizeof(CK_KEY_TYPE) );
    modulus_attr      = (CK_ATTRIBUTE *)malloc( sizeof(CK_ATTRIBUTE) );
    modulus_bits_attr = (CK_ATTRIBUTE *)malloc( sizeof(CK_ATTRIBUTE) + sizeof(CK_ULONG) );
-   public_exp_attr   = (CK_ATTRIBUTE *)malloc( sizeof(CK_ATTRIBUTE) );
+   public_exp_attr   = (CK_ATTRIBUTE *)malloc( sizeof(CK_ATTRIBUTE) + sizeof(pubExp) );
 
    if (!type_attr || !modulus_attr || !modulus_bits_attr || !public_exp_attr) {
       if (type_attr)         free( type_attr );
@@ -1402,8 +1403,9 @@ rsa_publ_set_default_attributes( TEMPLATE *tmpl, TEMPLATE *basetmpl, CK_ULONG mo
    }
 
    public_exp_attr->type       = CKA_PUBLIC_EXPONENT;
-   public_exp_attr->ulValueLen = 0;
-   public_exp_attr->pValue     = NULL;
+   public_exp_attr->ulValueLen =  sizeof(pubExp);
+   public_exp_attr->pValue     = (CK_BYTE *)public_exp_attr + sizeof(CK_ATTRIBUTE);
+   memcpy(public_exp_attr->pValue, pubExp, sizeof(pubExp));
 
    template_update_attribute( tmpl, type_attr );
    template_update_attribute( tmpl, modulus_attr );
