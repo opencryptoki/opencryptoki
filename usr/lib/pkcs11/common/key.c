@@ -2416,7 +2416,7 @@ ecdsa_priv_check_required_attributes( TEMPLATE *tmpl, CK_ULONG mode )
       }
    }
 
-   found = template_attribute_find( tmpl, CKA_EC_POINT, &attr );
+   found = template_attribute_find( tmpl, CKA_VALUE, &attr );
    if (!found) {
       if (mode == MODE_CREATE){
          TRACE_ERROR("%s\n", ock_err(ERR_TEMPLATE_INCOMPLETE));
