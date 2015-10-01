@@ -991,6 +991,12 @@ static CK_RV close_session(struct session_state *session_state)
 	unsigned long i;
 	int reason = 0;
 
+	/* check ldap handle */
+	if (session_state->ld == NULL) {
+		TRACE_ERROR("No LDAP handle.\n");
+		return CKR_FUNCTION_FAILED;
+	}
+
 	if (pthread_rwlock_wrlock(&obj_list_rw_mutex)) {
 		TRACE_ERROR("Failed to lock mutex.\n");
 		return CKR_FUNCTION_FAILED;
@@ -1066,8 +1072,7 @@ CK_RV icsftok_close_session(SESSION *session)
 
 	/* Get the related session_state */
 	if (!(session_state = get_session_state(session->handle))) {
-		TRACE_ERROR("Session not found for session id %lu.\n",
-			    (unsigned long) session);
+		TRACE_ERROR("%s\n", ock_err(ERR_SESSION_HANDLE_INVALID));
 		return CKR_SESSION_HANDLE_INVALID;
 	}
 
@@ -1294,9 +1299,15 @@ CK_RV icsftok_copy_object(SESSION * session, CK_ATTRIBUTE_PTR attrs,
 
 	/* Get session state */
 	if (!(session_state = get_session_state(session->handle))) {
-		TRACE_ERROR("Session not found for session id %lu.\n",
-			    (unsigned long)session->handle);
+		TRACE_ERROR("%s\n", ock_err(ERR_SESSION_HANDLE_INVALID));
 		rc = CKR_SESSION_HANDLE_INVALID;
+		goto done;
+	}
+
+	/* check ldap handle */
+	if (session_state->ld == NULL) {
+		TRACE_ERROR("No LDAP handle.\n");
+		rc = CKR_FUNCTION_FAILED;
 		goto done;
 	}
 
@@ -1420,8 +1431,14 @@ CK_RV icsftok_create_object(SESSION *session, CK_ATTRIBUTE_PTR attrs,
 
 	/* Get session state */
 	if (!(session_state = get_session_state(session->handle))) {
-		TRACE_ERROR("Session not found for session id %lu.\n",
-			    (unsigned long) session->handle);
+		TRACE_ERROR("%s\n", ock_err(ERR_SESSION_HANDLE_INVALID));
+		rc = CKR_SESSION_HANDLE_INVALID;
+		goto done;
+	}
+
+	/* check ldap handle */
+	if (session_state->ld == NULL) {
+		TRACE_ERROR("No LDAP handle.\n");
 		rc = CKR_FUNCTION_FAILED;
 		goto done;
 	}
@@ -1614,8 +1631,14 @@ CK_RV icsftok_generate_key_pair(SESSION *session, CK_MECHANISM_PTR mech,
 
 	/* Get session state */
 	if (!(session_state = get_session_state(session->handle))) {
-		TRACE_DEVEL("Session not found for session id %lu.\n",
-				(unsigned long) session->handle);
+		TRACE_ERROR("%s\n", ock_err(ERR_SESSION_HANDLE_INVALID));
+		rc = CKR_SESSION_HANDLE_INVALID;
+		goto done;
+	}
+
+	/* check ldap handle */
+	if (session_state->ld == NULL) {
+		TRACE_ERROR("No LDAP handle.\n");
 		rc = CKR_FUNCTION_FAILED;
 		goto done;
 	}
@@ -1733,8 +1756,14 @@ CK_RV icsftok_generate_key(SESSION *session, CK_MECHANISM_PTR mech,
 
 	/* Get session state */
 	if (!(session_state = get_session_state(session->handle))) {
-		TRACE_DEVEL("Session not found for session id %lu.\n",
-				(unsigned long) session->handle);
+		TRACE_ERROR("%s\n", ock_err(ERR_SESSION_HANDLE_INVALID));
+		rc = CKR_SESSION_HANDLE_INVALID;
+		goto done;
+	}
+
+	/* check ldap handle */
+	if (session_state->ld == NULL) {
+		TRACE_ERROR("No LDAP handle.\n");
 		rc = CKR_FUNCTION_FAILED;
 		goto done;
 	}
@@ -1964,6 +1993,13 @@ CK_RV icsftok_encrypt(SESSION *session, CK_BYTE_PTR input_data,
 		goto done;
 	}
 
+	/* check ldap handle */
+	if (session_state->ld == NULL) {
+		TRACE_ERROR("No LDAP handle.\n");
+		rc = CKR_FUNCTION_FAILED;
+		goto done;
+	}
+
 	/* Check if key exists */
 	pthread_rwlock_rdlock(&obj_list_rw_mutex);
 	if(!(mapping = bt_get_node_value(&objects, encr_ctx->key))) {
@@ -2052,6 +2088,13 @@ CK_RV icsftok_encrypt_update(SESSION *session, CK_BYTE_PTR input_part,
 	if (!(session_state = get_session_state(session->handle))) {
 		TRACE_ERROR("%s\n", ock_err(ERR_SESSION_HANDLE_INVALID));
 		rc = CKR_SESSION_HANDLE_INVALID;
+		goto done;
+	}
+
+	/* check ldap handle */
+	if (session_state->ld == NULL) {
+		TRACE_ERROR("No LDAP handle.\n");
+		rc = CKR_FUNCTION_FAILED;
 		goto done;
 	}
 
@@ -2217,6 +2260,13 @@ CK_RV icsftok_encrypt_final(SESSION *session, CK_BYTE_PTR output_part,
 	if (!(session_state = get_session_state(session->handle))) {
 		TRACE_ERROR("%s\n", ock_err(ERR_SESSION_HANDLE_INVALID));
 		rc = CKR_SESSION_HANDLE_INVALID;
+		goto done;
+	}
+
+	/* check ldap handle */
+	if (session_state->ld == NULL) {
+		TRACE_ERROR("No LDAP handle.\n");
+		rc = CKR_FUNCTION_FAILED;
 		goto done;
 	}
 
@@ -2429,6 +2479,13 @@ CK_RV icsftok_decrypt(SESSION *session, CK_BYTE_PTR input_data,
 		goto done;
 	}
 
+	/* check ldap handle */
+	if (session_state->ld == NULL) {
+		TRACE_ERROR("No LDAP handle.\n");
+		rc = CKR_FUNCTION_FAILED;
+		goto done;
+	}
+
 	/* Check if key exists */
 	pthread_rwlock_rdlock(&obj_list_rw_mutex);
 	if(!(mapping = bt_get_node_value(&objects, decr_ctx->key))) {
@@ -2518,6 +2575,13 @@ CK_RV icsftok_decrypt_update(SESSION *session, CK_BYTE_PTR input_part,
 	if (!(session_state = get_session_state(session->handle))) {
 		TRACE_ERROR("%s\n", ock_err(ERR_SESSION_HANDLE_INVALID));
 		rc = CKR_SESSION_HANDLE_INVALID;
+		goto done;
+	}
+
+	/* check ldap handle */
+	if (session_state->ld == NULL) {
+		TRACE_ERROR("No LDAP handle.\n");
+		rc = CKR_FUNCTION_FAILED;
 		goto done;
 	}
 
@@ -2703,6 +2767,13 @@ CK_RV icsftok_decrypt_final(SESSION *session, CK_BYTE_PTR output_part,
 		goto done;
 	}
 
+	/* check ldap handle */
+	if (session_state->ld == NULL) {
+		TRACE_ERROR("No LDAP handle.\n");
+		rc = CKR_FUNCTION_FAILED;
+		goto done;
+	}
+
 	/* Check if key exists */
 	pthread_rwlock_rdlock(&obj_list_rw_mutex);
 	if(!(mapping = bt_get_node_value(&objects, decr_ctx->key))) {
@@ -2799,8 +2870,13 @@ CK_RV icsftok_get_attribute_value(SESSION *sess, CK_OBJECT_HANDLE handle,
 
 	/* Get session state */
 	if (!(session_state = get_session_state(sess->handle))) {
-		TRACE_ERROR("Session not found for session id %lu.\n",
-			    (unsigned long) handle);
+		TRACE_ERROR("%s\n", ock_err(ERR_SESSION_HANDLE_INVALID));
+		return CKR_SESSION_HANDLE_INVALID;
+	}
+
+	/* check ldap handle */
+	if (session_state->ld == NULL) {
+		TRACE_ERROR("No LDAP handle.\n");
 		return CKR_FUNCTION_FAILED;
 	}
 
@@ -2874,8 +2950,13 @@ CK_RV icsftok_set_attribute_value(SESSION *sess, CK_OBJECT_HANDLE handle,
 
 	/* Get session state */
 	if (!(session_state = get_session_state(sess->handle))) {
-		TRACE_ERROR("Session not found for session id %lu.\n",
-			    (unsigned long) handle);
+		TRACE_ERROR("%s\n", ock_err(ERR_SESSION_HANDLE_INVALID));
+		return CKR_SESSION_HANDLE_INVALID;
+	}
+
+	/* check ldap handle */
+	if (session_state->ld == NULL) {
+		TRACE_ERROR("No LDAP handle.\n");
 		return CKR_FUNCTION_FAILED;
 	}
 
@@ -2986,8 +3067,13 @@ CK_RV icsftok_find_objects_init(SESSION *sess, CK_ATTRIBUTE *pTemplate,
 
 	/* Get session state */
 	if (!(session_state = get_session_state(sess->handle))) {
-		TRACE_ERROR("Session not found for session id %lu.\n",
-			    (unsigned long) sess->handle);
+		TRACE_ERROR("%s\n", ock_err(ERR_SESSION_HANDLE_INVALID));
+		return CKR_SESSION_HANDLE_INVALID;
+	}
+
+	/* check ldap handle */
+	if (session_state->ld == NULL) {
+		TRACE_ERROR("No LDAP handle.\n");
 		return CKR_FUNCTION_FAILED;
 	}
 
@@ -3110,11 +3196,16 @@ CK_RV icsftok_destroy_object(SESSION *sess, CK_OBJECT_HANDLE handle)
 	CK_RV rc = CKR_OK;
 
         /* Get session state */
-        if (!(session_state = get_session_state(sess->handle))) {
-                TRACE_ERROR("Session not found for session id %lu.\n",
-                            (unsigned long) handle);
-                return CKR_FUNCTION_FAILED;
+	if (!(session_state = get_session_state(sess->handle))) {
+		TRACE_ERROR("%s\n", ock_err(ERR_SESSION_HANDLE_INVALID));
+                return CKR_SESSION_HANDLE_INVALID;;
         }
+
+	/* check ldap handle */
+	if (session_state->ld == NULL) {
+		TRACE_ERROR("No LDAP handle.\n");
+		return CKR_FUNCTION_FAILED;
+	}
 
 	/* Lock the object list */
 	if (pthread_rwlock_wrlock(&obj_list_rw_mutex)) {
@@ -3407,6 +3498,12 @@ CK_RV icsftok_sign(SESSION *session, CK_BBOOL length_only, CK_BYTE *in_data,
 		return CKR_SESSION_HANDLE_INVALID;
 	}
 
+	/* check ldap handle */
+	if (session_state->ld == NULL) {
+		TRACE_ERROR("No LDAP handle.\n");
+		return CKR_FUNCTION_FAILED;
+	}
+
 	/* Check if key exists */
 	pthread_rwlock_rdlock(&obj_list_rw_mutex);
 	if(!(mapping = bt_get_node_value(&objects, ctx->key))) {
@@ -3514,6 +3611,12 @@ CK_RV icsftok_sign_update(SESSION *session, CK_BYTE *in_data,
 	if (!(session_state = get_session_state(session->handle))) {
 		TRACE_ERROR("%s\n", ock_err(ERR_SESSION_HANDLE_INVALID));
 		return CKR_SESSION_HANDLE_INVALID;
+	}
+
+	/* check ldap handle */
+	if (session_state->ld == NULL) {
+		TRACE_ERROR("No LDAP handle.\n");
+		return CKR_FUNCTION_FAILED;
 	}
 
 	/* Check if key exists */
@@ -3671,6 +3774,12 @@ CK_RV icsftok_sign_final(SESSION *session, CK_BBOOL length_only,
 	if (!(session_state = get_session_state(session->handle))) {
 		TRACE_ERROR("%s\n", ock_err(ERR_SESSION_HANDLE_INVALID));
 		return CKR_SESSION_HANDLE_INVALID;
+	}
+
+	/* check ldap handle */
+	if (session_state->ld == NULL) {
+		TRACE_ERROR("No LDAP handle.\n");
+		return CKR_FUNCTION_FAILED;
 	}
 
 	/* Check if key exists */
@@ -3969,6 +4078,12 @@ CK_RV icsftok_verify(SESSION *session, CK_BYTE *in_data, CK_ULONG in_data_len,
 		return CKR_SESSION_HANDLE_INVALID;
 	}
 
+	/* check ldap handle */
+	if (session_state->ld == NULL) {
+		TRACE_ERROR("No LDAP handle.\n");
+		return CKR_FUNCTION_FAILED;
+	}
+
 	/* Check if key exists */
 	pthread_rwlock_rdlock(&obj_list_rw_mutex);
 	if(!(mapping = bt_get_node_value(&objects, ctx->key))) {
@@ -4051,6 +4166,12 @@ CK_RV icsftok_verify_update(SESSION *session, CK_BYTE *in_data,
 	if (!(session_state = get_session_state(session->handle))) {
 		TRACE_ERROR("%s\n", ock_err(ERR_SESSION_HANDLE_INVALID));
 		return CKR_SESSION_HANDLE_INVALID;
+	}
+
+	/* check ldap handle */
+	if (session_state->ld == NULL) {
+		TRACE_ERROR("No LDAP handle.\n");
+		return CKR_FUNCTION_FAILED;
 	}
 
 	/* Check if key exists */
@@ -4206,6 +4327,12 @@ CK_RV icsftok_verify_final(SESSION *session, CK_BYTE *signature,
 		return CKR_SESSION_HANDLE_INVALID;
 	}
 
+	/* check ldap handle */
+	if (session_state->ld == NULL) {
+		TRACE_ERROR("No LDAP handle.\n");
+		return CKR_FUNCTION_FAILED;
+	}
+
 	/* Check if key exists */
 	pthread_rwlock_rdlock(&obj_list_rw_mutex);
 	if(!(mapping = bt_get_node_value(&objects, ctx->key))) {
@@ -4306,6 +4433,12 @@ CK_RV icsftok_wrap_key(SESSION *session, CK_MECHANISM_PTR mech,
 		return  CKR_SESSION_HANDLE_INVALID;
 	}
 
+	/* check ldap handle */
+	if (session_state->ld == NULL) {
+		TRACE_ERROR("No LDAP handle.\n");
+		return CKR_FUNCTION_FAILED;
+	}
+
 	/* Check if keys exist */
 	pthread_rwlock_rdlock(&obj_list_rw_mutex);
 	wrapping_key_mapping = bt_get_node_value(&objects, wrapping_key);
@@ -4350,6 +4483,12 @@ CK_RV icsftok_unwrap_key(SESSION *session, CK_MECHANISM_PTR mech,
 	if (!(session_state = get_session_state(session->handle))) {
 		TRACE_ERROR("%s\n", ock_err(ERR_SESSION_HANDLE_INVALID));
 		return  CKR_SESSION_HANDLE_INVALID;
+	}
+
+	/* check ldap handle */
+	if (session_state->ld == NULL) {
+		TRACE_ERROR("No LDAP handle.\n");
+		return CKR_FUNCTION_FAILED;
 	}
 
 	/* Check if key exists */
@@ -4473,8 +4612,14 @@ CK_RV icsftok_derive_key(SESSION *session, CK_MECHANISM_PTR mech,
 
 	/* Get session state */
 	if (!(session_state = get_session_state(session->handle))) {
-		TRACE_ERROR("Session not found for session id %lu.\n",
-			    (unsigned long) session->handle);
+		TRACE_ERROR("%s\n", ock_err(ERR_SESSION_HANDLE_INVALID));
+		rc = CKR_SESSION_HANDLE_INVALID;
+		goto done;
+	}
+
+	/* check ldap handle */
+	if (session_state->ld == NULL) {
+		TRACE_ERROR("No LDAP handle.\n");
 		rc = CKR_FUNCTION_FAILED;
 		goto done;
 	}
