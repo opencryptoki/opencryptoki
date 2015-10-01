@@ -1089,9 +1089,9 @@ CK_RV icsftok_close_session(SESSION *session)
 }
 
 /*
- * Called during C_Finalize.
+ * Called during C_Finalize and C_CloseAllSessions
  */
-CK_RV icsftok_final(void)
+CK_RV icsftok_close_all_sessions(void)
 {
 	CK_RV rc = CKR_OK;
 	struct session_state *session_state;

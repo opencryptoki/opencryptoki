@@ -516,7 +516,7 @@ CK_RV SC_Finalize(CK_SLOT_ID sid)
 	/* close spin lock file	*/
 	CloseXProcLock();
 
-	rc = icsftok_final();
+	rc = icsftok_close_all_sessions();
 	if (rc != CKR_OK) {
 		TRACE_ERROR("Token specific final call failed.\n");
 		goto done;
@@ -849,8 +849,15 @@ CK_RV SC_CloseAllSessions(CK_SLOT_ID sid)
 		goto done;
 	}
 	rc = session_mgr_close_all_sessions();
-	if (rc != CKR_OK)
+	if (rc != CKR_OK) {
 		TRACE_DEVEL("session_mgr_close_all_sessions() failed.\n");
+		goto done;
+	}
+
+        rc = icsftok_close_all_sessions();
+        if (rc != CKR_OK)
+                TRACE_DEVEL("Failed to remove icsf specific session_states.\n");
+
 done:
 	TRACE_INFO("C_CloseAllSessions: rc = 0x%08lx slot = %lu\n", rc, sid);
 	return rc;
