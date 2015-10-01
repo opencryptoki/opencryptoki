@@ -2214,7 +2214,7 @@ CK_RV SC_SignInit(ST_SESSION_HANDLE *sSession, CK_MECHANISM_PTR pMechanism,
 		goto done;
 	}
 
-	rc = icsftok_sign_init(sess, pMechanism, FALSE, hKey);
+	rc = icsftok_sign_init(sess, pMechanism, hKey);
 	if (rc != CKR_OK)
 		TRACE_DEVEL("icsftok_sign_init() failed.\n");
 
@@ -2232,7 +2232,6 @@ CK_RV SC_Sign(ST_SESSION_HANDLE *sSession, CK_BYTE_PTR pData,
 	      CK_ULONG_PTR pulSignatureLen)
 {
 	SESSION *sess = NULL;
-	CK_BBOOL length_only = FALSE;
 	CK_RV rc = CKR_OK;
 
 	if (initialized == FALSE) {
@@ -2260,16 +2259,13 @@ CK_RV SC_Sign(ST_SESSION_HANDLE *sSession, CK_BYTE_PTR pData,
 		goto done;
 	}
 
-	if (!pSignature)
-		length_only = TRUE;
-
-	rc = icsftok_sign(sess, length_only, pData, ulDataLen, pSignature,
+	rc = icsftok_sign(sess, pData, ulDataLen, pSignature,
                           pulSignatureLen);
 	if (rc != CKR_OK)
 		TRACE_DEVEL("icsftok_sign() failed.\n");
 
 done:
-	if (rc != CKR_BUFFER_TOO_SMALL && (rc != CKR_OK || length_only != TRUE))
+	if (rc != CKR_BUFFER_TOO_SMALL && (rc != CKR_OK || pSignature))
 		sign_mgr_cleanup(&sess->sign_ctx);
 
 	TRACE_INFO("C_Sign: rc = %08lx, sess = %ld, datalen = %lu\n",
@@ -2328,7 +2324,6 @@ CK_RV SC_SignFinal(ST_SESSION_HANDLE *sSession, CK_BYTE_PTR pSignature,
 		   CK_ULONG_PTR pulSignatureLen)
 {
 	SESSION *sess = NULL;
-	CK_BBOOL length_only = FALSE;
 	CK_RV rc = CKR_OK;
 
 	if (initialized == FALSE) {
@@ -2356,15 +2351,12 @@ CK_RV SC_SignFinal(ST_SESSION_HANDLE *sSession, CK_BYTE_PTR pSignature,
 		goto done;
 	}
 
-	if (!pSignature)
-		length_only = TRUE;
-
-	rc = icsftok_sign_final(sess, length_only, pSignature, pulSignatureLen);
+	rc = icsftok_sign_final(sess, pSignature, pulSignatureLen);
 	if (rc != CKR_OK)
 		TRACE_ERROR("icsftok_sign_final() failed.\n");
 
 done:
-	if (rc != CKR_BUFFER_TOO_SMALL && (rc != CKR_OK || length_only != TRUE))
+	if (rc != CKR_BUFFER_TOO_SMALL && (rc != CKR_OK || pSignature))
 		sign_mgr_cleanup(&sess->sign_ctx);
 
 	TRACE_INFO("C_SignFinal: rc = %08lx, sess = %ld\n",
@@ -2443,7 +2435,7 @@ CK_RV SC_VerifyInit(ST_SESSION_HANDLE *sSession, CK_MECHANISM_PTR pMechanism,
 		goto done;
 	}
 
-	rc = icsftok_verify_init(sess, pMechanism, FALSE, hKey);
+	rc = icsftok_verify_init(sess, pMechanism, hKey);
 	if (rc != CKR_OK)
 		TRACE_DEVEL("icsftok_verify_init() failed.\n");
 

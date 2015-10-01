@@ -79,19 +79,19 @@ CK_RV icsftok_decrypt_final(SESSION *session, CK_BYTE_PTR output_part,
 			    CK_ULONG_PTR p_output_part_len);
 
 CK_RV icsftok_sign_init(SESSION *session, CK_MECHANISM *mech,
-			CK_BBOOL recover_mode, CK_OBJECT_HANDLE key);
+			CK_OBJECT_HANDLE key);
 
-CK_RV icsftok_sign(SESSION *session, CK_BBOOL length_only, CK_BYTE *in_data,
-		   CK_ULONG in_data_len, CK_BYTE *signature, CK_ULONG *sig_len);
+CK_RV icsftok_sign(SESSION *session, CK_BYTE *in_data, CK_ULONG in_data_len,
+		   CK_BYTE *signature, CK_ULONG *sig_len);
 
 CK_RV icsftok_sign_update(SESSION *session, CK_BYTE *in_data,
 			  CK_ULONG in_data_len);
 
-CK_RV icsftok_sign_final(SESSION *session, CK_BBOOL length_only,
-			 CK_BYTE *signature, CK_ULONG *sig_len);
+CK_RV icsftok_sign_final(SESSION *session, CK_BYTE *signature,
+			 CK_ULONG *sig_len);
 
 CK_RV icsftok_verify_init(SESSION *session, CK_MECHANISM *mech,
-			  CK_BBOOL recover_mode, CK_OBJECT_HANDLE key);
+			  CK_OBJECT_HANDLE key);
 
 CK_RV icsftok_verify(SESSION *session, CK_BYTE *in_data, CK_ULONG in_data_len,
 		     CK_BYTE *signature, CK_ULONG sig_len);

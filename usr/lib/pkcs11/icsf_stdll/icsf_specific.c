@@ -3290,7 +3290,7 @@ get_signverify_len(CK_MECHANISM mech)
 }
 
 CK_RV icsftok_sign_init(SESSION *session, CK_MECHANISM *mech,
-			CK_BBOOL recover_mode, CK_OBJECT_HANDLE key)
+			CK_OBJECT_HANDLE key)
 {
 	struct session_state *session_state;
 	SIGN_VERIFY_CONTEXT *ctx = &session->sign_ctx;
@@ -3304,8 +3304,7 @@ CK_RV icsftok_sign_init(SESSION *session, CK_MECHANISM *mech,
 	/* Check session */
 	if (!(session_state = get_session_state(session->handle))) {
 		TRACE_ERROR("%s\n", ock_err(ERR_SESSION_HANDLE_INVALID));
-		rc = CKR_SESSION_HANDLE_INVALID;
-		goto done;
+		return CKR_SESSION_HANDLE_INVALID;
 	}
 
 	/* Check if key exists */
@@ -3316,7 +3315,7 @@ CK_RV icsftok_sign_init(SESSION *session, CK_MECHANISM *mech,
 	}
 	pthread_rwlock_unlock(&obj_list_rw_mutex);
 	if (rc != CKR_OK)
-		goto done;
+		return rc;
 
 	/* Check the mechanism info */
 	switch (mech->mechanism) {
@@ -3466,8 +3465,8 @@ done:
 
 	return rc;
 }
-CK_RV icsftok_sign(SESSION *session, CK_BBOOL length_only, CK_BYTE *in_data,
-		   CK_ULONG in_data_len, CK_BYTE *signature, CK_ULONG *sig_len)
+CK_RV icsftok_sign(SESSION *session, CK_BYTE *in_data, CK_ULONG in_data_len,
+		   CK_BYTE *signature, CK_ULONG *sig_len)
 {
 	struct session_state *session_state;
 	SIGN_VERIFY_CONTEXT *ctx = &session->sign_ctx;
@@ -3476,32 +3475,26 @@ CK_RV icsftok_sign(SESSION *session, CK_BBOOL length_only, CK_BYTE *in_data,
 	size_t chain_data_len = sizeof(chain_data);
 	CK_RV rc = CKR_OK;
 	int hlen, reason;
-
-	if (!ctx || !sig_len) {
-		TRACE_ERROR("%s\n", ock_err(ERR_FUNCTION_FAILED));
-		return CKR_FUNCTION_FAILED;
-	}
-
-	if ((length_only == FALSE) && (!in_data || !signature)) {
-		TRACE_ERROR("%s\n", ock_err(ERR_FUNCTION_FAILED));
-		return CKR_FUNCTION_FAILED;
-	}
+	CK_BBOOL length_only = (signature == NULL);
 
 	if (ctx->multi == TRUE) {
 		TRACE_ERROR("%s\n", ock_err(ERR_OPERATION_ACTIVE));
-		return CKR_OPERATION_ACTIVE;
+		rc = CKR_OPERATION_ACTIVE;
+		goto done;
 	}
 
 	/* Check session */
 	if (!(session_state = get_session_state(session->handle))) {
 		TRACE_ERROR("%s\n", ock_err(ERR_SESSION_HANDLE_INVALID));
-		return CKR_SESSION_HANDLE_INVALID;
+		rc = CKR_SESSION_HANDLE_INVALID;
+		goto done;
 	}
 
 	/* check ldap handle */
 	if (session_state->ld == NULL) {
 		TRACE_ERROR("No LDAP handle.\n");
-		return CKR_FUNCTION_FAILED;
+		rc = CKR_FUNCTION_FAILED;
+		goto done;
 	}
 
 	/* Check if key exists */
@@ -3512,7 +3505,7 @@ CK_RV icsftok_sign(SESSION *session, CK_BBOOL length_only, CK_BYTE *in_data,
 	}
 	pthread_rwlock_unlock(&obj_list_rw_mutex);
 	if (rc != CKR_OK)
-		return rc;
+		goto done;
 
 	switch (ctx->mech.mechanism) {
 	case CKM_MD5_HMAC:
@@ -3527,10 +3520,12 @@ CK_RV icsftok_sign(SESSION *session, CK_BBOOL length_only, CK_BYTE *in_data,
 			hlen = get_signverify_len(ctx->mech);
 			if (hlen < 0) {
 				TRACE_ERROR("%s\n", ock_err(ERR_MECHANISM_INVALID));
-				return CKR_MECHANISM_INVALID;
+				rc = CKR_MECHANISM_INVALID;
+				goto done;
 			}
 			*sig_len = hlen;
-			return CKR_OK;
+			rc = CKR_OK;
+			goto done;
 		}
 
 		rc = icsf_hmac_sign(session_state->ld, &reason,
@@ -3586,7 +3581,8 @@ CK_RV icsftok_sign(SESSION *session, CK_BBOOL length_only, CK_BYTE *in_data,
 		rc = CKR_MECHANISM_INVALID;
 	}
 
-	if (rc != CKR_OK)
+done:
+	if (rc != CKR_BUFFER_TOO_SMALL && !(rc == CKR_OK && length_only))
 		free_sv_ctx(ctx);
 
 	return rc;
@@ -3610,13 +3606,15 @@ CK_RV icsftok_sign_update(SESSION *session, CK_BYTE *in_data,
 	/* Check session */
 	if (!(session_state = get_session_state(session->handle))) {
 		TRACE_ERROR("%s\n", ock_err(ERR_SESSION_HANDLE_INVALID));
-		return CKR_SESSION_HANDLE_INVALID;
+		rc = CKR_SESSION_HANDLE_INVALID;
+		goto done;
 	}
 
 	/* check ldap handle */
 	if (session_state->ld == NULL) {
 		TRACE_ERROR("No LDAP handle.\n");
-		return CKR_FUNCTION_FAILED;
+		rc = CKR_FUNCTION_FAILED;
+		goto done;
 	}
 
 	/* Check if key exists */
@@ -3627,7 +3625,7 @@ CK_RV icsftok_sign_update(SESSION *session, CK_BYTE *in_data,
 	}
 	pthread_rwlock_unlock(&obj_list_rw_mutex);
 	if (rc != CKR_OK)
-		return rc;
+		goto done;
 
 	/* indicate this is multipart operation and get chain info from ctx.
 	 * if any mechanisms that cannot do multipart sign come here, they
@@ -3746,14 +3744,14 @@ CK_RV icsftok_sign_update(SESSION *session, CK_BYTE *in_data,
 	}
 
 done:
-	if (rc != 0)
+	if (rc != CKR_OK)
 		free_sv_ctx(ctx);
 
 	return rc;
 }
 
-CK_RV icsftok_sign_final(SESSION *session, CK_BBOOL length_only,
-			 CK_BYTE *signature, CK_ULONG *sig_len)
+CK_RV icsftok_sign_final(SESSION *session, CK_BYTE *signature,
+			 CK_ULONG *sig_len)
 {
 	struct session_state *session_state;
 	SIGN_VERIFY_CONTEXT *ctx = &session->sign_ctx;
@@ -3764,22 +3762,20 @@ CK_RV icsftok_sign_final(SESSION *session, CK_BBOOL length_only,
 	char *buffer = NULL;
 	CK_RV rc = CKR_OK;
 	int hlen, reason;
-
-	if (!sig_len) {
-		TRACE_ERROR("%s\n", ock_err(ERR_ARGUMENTS_BAD));
-		return CKR_ARGUMENTS_BAD;
-	}
+	CK_BBOOL length_only = (signature == NULL);
 
 	/* Check session */
 	if (!(session_state = get_session_state(session->handle))) {
 		TRACE_ERROR("%s\n", ock_err(ERR_SESSION_HANDLE_INVALID));
-		return CKR_SESSION_HANDLE_INVALID;
+		rc = CKR_SESSION_HANDLE_INVALID;
+		goto done;
 	}
 
 	/* check ldap handle */
 	if (session_state->ld == NULL) {
 		TRACE_ERROR("No LDAP handle.\n");
-		return CKR_FUNCTION_FAILED;
+		rc = CKR_FUNCTION_FAILED;
+		goto done;
 	}
 
 	/* Check if key exists */
@@ -3790,7 +3786,7 @@ CK_RV icsftok_sign_final(SESSION *session, CK_BBOOL length_only,
 	}
 	pthread_rwlock_unlock(&obj_list_rw_mutex);
 	if (rc != CKR_OK)
-		return rc;
+		goto done;
 
 	/* get the chain data from ctx */
 	if (ctx->context) {
@@ -3873,13 +3869,14 @@ CK_RV icsftok_sign_final(SESSION *session, CK_BBOOL length_only,
 	}
 
 done:
-	if (rc != CKR_OK)
+	if (rc != CKR_BUFFER_TOO_SMALL && !(rc == CKR_OK && length_only))
 		free_sv_ctx(ctx);
+
 	return rc;
 }
 
 CK_RV icsftok_verify_init(SESSION *session, CK_MECHANISM *mech,
-				   CK_BBOOL recover_mode, CK_OBJECT_HANDLE key)
+			  CK_OBJECT_HANDLE key)
 {
 	struct session_state *session_state;
 	SIGN_VERIFY_CONTEXT *ctx = &session->verify_ctx;
@@ -3893,8 +3890,7 @@ CK_RV icsftok_verify_init(SESSION *session, CK_MECHANISM *mech,
 	/* Check session */
 	if (!(session_state = get_session_state(session->handle))) {
 		TRACE_ERROR("%s\n", ock_err(ERR_SESSION_HANDLE_INVALID));
-		rc = CKR_SESSION_HANDLE_INVALID;
-		goto done;
+		return CKR_SESSION_HANDLE_INVALID;
 	}
 
 	/* Check if key exists */
@@ -4062,26 +4058,24 @@ CK_RV icsftok_verify(SESSION *session, CK_BYTE *in_data, CK_ULONG in_data_len,
 	CK_RV rc = CKR_OK;
 	int reason;
 
-	if (!session || !ctx || !in_data || !signature) {
-		TRACE_ERROR("%s\n", ock_err(ERR_FUNCTION_FAILED));
-		return CKR_FUNCTION_FAILED;
-	}
-
 	if (ctx->multi == TRUE) {
 		TRACE_ERROR("%s\n", ock_err(ERR_OPERATION_ACTIVE));
-		return CKR_OPERATION_ACTIVE;
+		rc = CKR_OPERATION_ACTIVE;
+		goto done;
 	}
 
 	/* Check session */
 	if (!(session_state = get_session_state(session->handle))) {
 		TRACE_ERROR("%s\n", ock_err(ERR_SESSION_HANDLE_INVALID));
-		return CKR_SESSION_HANDLE_INVALID;
+		rc = CKR_SESSION_HANDLE_INVALID;
+		goto done;
 	}
 
 	/* check ldap handle */
 	if (session_state->ld == NULL) {
 		TRACE_ERROR("No LDAP handle.\n");
-		return CKR_FUNCTION_FAILED;
+		rc = CKR_FUNCTION_FAILED;
+		goto done;
 	}
 
 	/* Check if key exists */
@@ -4092,7 +4086,7 @@ CK_RV icsftok_verify(SESSION *session, CK_BYTE *in_data, CK_ULONG in_data_len,
 	}
 	pthread_rwlock_unlock(&obj_list_rw_mutex);
 	if (rc != CKR_OK)
-		return rc;
+		goto done;
 
 	switch (ctx->mech.mechanism) {
 	case CKM_MD5_HMAC:
@@ -4143,8 +4137,8 @@ CK_RV icsftok_verify(SESSION *session, CK_BYTE *in_data, CK_ULONG in_data_len,
 		rc = CKR_MECHANISM_INVALID;
 	}
 
-	if (rc != CKR_OK)
-		free_sv_ctx(ctx);
+done:
+	free_sv_ctx(ctx);
 	return rc;
 }
 
@@ -4165,13 +4159,15 @@ CK_RV icsftok_verify_update(SESSION *session, CK_BYTE *in_data,
 	/* Check session */
 	if (!(session_state = get_session_state(session->handle))) {
 		TRACE_ERROR("%s\n", ock_err(ERR_SESSION_HANDLE_INVALID));
-		return CKR_SESSION_HANDLE_INVALID;
+		rc = CKR_SESSION_HANDLE_INVALID;
+		goto done;
 	}
 
 	/* check ldap handle */
 	if (session_state->ld == NULL) {
 		TRACE_ERROR("No LDAP handle.\n");
-		return CKR_FUNCTION_FAILED;
+		rc = CKR_FUNCTION_FAILED;
+		goto done;
 	}
 
 	/* Check if key exists */
@@ -4182,7 +4178,7 @@ CK_RV icsftok_verify_update(SESSION *session, CK_BYTE *in_data,
 	}
 	pthread_rwlock_unlock(&obj_list_rw_mutex);
 	if (rc != CKR_OK)
-		return rc;
+		goto done;
 
 	/* indicate this is multipart operation and get chain info from ctx.
 	 * if any mechanisms that cannot do multipart verify come here, they
@@ -4297,7 +4293,7 @@ CK_RV icsftok_verify_update(SESSION *session, CK_BYTE *in_data,
 	}
 
 done:
-	if (rc != 0)
+	if (rc != CKR_OK)
 		free_sv_ctx(ctx);
 
 	return rc;
@@ -4318,19 +4314,22 @@ CK_RV icsftok_verify_final(SESSION *session, CK_BYTE *signature,
 
 	if (!sig_len) {
 		TRACE_ERROR("%s\n", ock_err(ERR_ARGUMENTS_BAD));
-		return CKR_ARGUMENTS_BAD;
+		rc = CKR_ARGUMENTS_BAD;
+		goto done;
 	}
 
 	/* Check session */
 	if (!(session_state = get_session_state(session->handle))) {
 		TRACE_ERROR("%s\n", ock_err(ERR_SESSION_HANDLE_INVALID));
-		return CKR_SESSION_HANDLE_INVALID;
+		rc = CKR_SESSION_HANDLE_INVALID;
+		goto done;
 	}
 
 	/* check ldap handle */
 	if (session_state->ld == NULL) {
 		TRACE_ERROR("No LDAP handle.\n");
-		return CKR_FUNCTION_FAILED;
+		rc = CKR_FUNCTION_FAILED;
+		goto done;
 	}
 
 	/* Check if key exists */
@@ -4341,7 +4340,7 @@ CK_RV icsftok_verify_final(SESSION *session, CK_BYTE *signature,
 	}
 	pthread_rwlock_unlock(&obj_list_rw_mutex);
 	if (rc != CKR_OK)
-		return rc;
+		goto done;
 
 	/* get the chain data from ctx */
 	if (ctx->context) {
@@ -4409,8 +4408,7 @@ CK_RV icsftok_verify_final(SESSION *session, CK_BYTE *signature,
 	}
 
 done:
-	if (rc != CKR_OK)
-		free_sv_ctx(ctx);
+	free_sv_ctx(ctx);
 	return rc;
 }
 
