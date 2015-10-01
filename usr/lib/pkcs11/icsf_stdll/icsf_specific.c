@@ -861,8 +861,77 @@ CK_RV icsftok_set_pin(SESSION *sess, CK_CHAR_PTR pOldPin, CK_ULONG ulOldLen,
 	return rc;
 }
 
+LDAP *getLDAPhandle(CK_SLOT_ID slot_id)
+{
+	CK_BYTE racfpwd[PIN_SIZE];
+	int racflen;
+	char *ca_dir = NULL;
+	LDAP *new_ld = NULL;
+	CK_RV rc = CKR_OK;
+
+	if (slot_data[slot_id] == NULL) {
+		TRACE_ERROR("ICSF slot data not initialized.\n");
+		return NULL;
+	}
+	/* Check if using sasl or simple auth */
+	if (slot_data[slot_id]->mech == ICSF_CFG_MECH_SIMPLE) {
+		TRACE_INFO("Using SIMPLE auth with slot ID: %lu\n", slot_id);
+		/* get racf passwd */
+		rc = get_racf(master_key, AES_KEY_SIZE_256, racfpwd, &racflen);
+		if (rc != CKR_OK) {
+			TRACE_DEVEL("Failed to get racf passwd.\n");
+			return NULL;
+		}
+
+		/* ok got the passwd, perform simple ldap bind call */
+		rc = icsf_login(&new_ld, slot_data[slot_id]->uri,
+				slot_data[slot_id]->dn, racfpwd);
+		if (rc != CKR_OK) {
+			TRACE_DEVEL("Failed to bind to ldap server.\n");
+			return NULL;
+		}
+	} else {
+		TRACE_INFO("Using SASL auth with slot ID: %lu\n", slot_id);
+		rc = icsf_sasl_login(&new_ld, slot_data[slot_id]->uri,
+				     slot_data[slot_id]->cert_file,
+				     slot_data[slot_id]->key_file,
+				     slot_data[slot_id]->ca_file, ca_dir);
+		if (rc != CKR_OK) {
+			TRACE_DEVEL("Failed to bind to ldap server.\n");
+			return NULL;
+		}
+	}
+
+	return new_ld;
+}
+
+CK_RV icsf_get_handles(CK_SLOT_ID slot_id)
+{
+	struct session_state *s;
+
+        /* Any prior sessions without an ldap descriptor, can now get one. */
+        /* Lock sessions list */
+        if (pthread_mutex_lock(&sess_list_mutex)) {
+                TRACE_ERROR("Failed to lock mutex.\n");
+                return CKR_FUNCTION_FAILED;
+        }
+
+        for_each_list_entry(&sessions, struct session_state, s, sessions) {
+                 if (s->ld == NULL)
+                        s->ld = getLDAPhandle(slot_id);
+        }
+
+        if (pthread_mutex_unlock(&sess_list_mutex)) {
+                TRACE_ERROR("Mutex Unlock failed.\n");
+                return CKR_FUNCTION_FAILED;
+        }
+	return CKR_OK;
+}
+
 CK_RV icsftok_open_session(SESSION *sess)
 {
+	CK_RV rc = CKR_OK;
+	LDAP *ld;
 	struct session_state *session_state;
 
 	/* Add session to list */
@@ -874,22 +943,41 @@ CK_RV icsftok_open_session(SESSION *sess)
 	session_state->session_id = sess->handle;
 	session_state->ld = NULL;
 
-	/* Lock to add a new session in the list */
 	if (pthread_mutex_lock(&sess_list_mutex)) {
 		TRACE_ERROR("Failed to lock mutex.\n");
 		free(session_state);
 		return CKR_FUNCTION_FAILED;
 	}
+	/* see if user has logged in to acquire ldap handle for session.
+	 * pkcs#11v2.2 states that all sessions within a process have
+	 * same login state.
+	 */
+	if (global_login_state == CKS_RW_USER_FUNCTIONS ||
+	    global_login_state == CKS_RO_USER_FUNCTIONS) {
+		ld = getLDAPhandle(sess->session_info.slotID);
+		if (ld == NULL) {
+			TRACE_DEVEL("Failed to get LDAP handle for session.\n");
+			rc = CKR_FUNCTION_FAILED;
+			goto done;
+		}
+		/* put the new ldap handle into the session state. */
+		session_state->ld = ld;
+	}
 
+	/* put new session_state into the list */
 	list_insert_head(&sessions, &session_state->sessions);
 
+done:
 	/* Unlock */
 	if (pthread_mutex_unlock(&sess_list_mutex)) {
 		TRACE_ERROR("Mutex Unlock Failed.\n");
-		return CKR_FUNCTION_FAILED;
+		rc = CKR_FUNCTION_FAILED;
 	}
 
-	return CKR_OK;
+	if (rc != CKR_OK)
+		free(session_state);
+
+	return rc;;
 }
 
 /*
@@ -1033,17 +1121,12 @@ CK_RV icsftok_final(void)
 CK_RV icsftok_login(SESSION *sess, CK_USER_TYPE userType, CK_CHAR_PTR pPin,
 		    CK_ULONG ulPinLen)
 {
-	CK_RV rc;
+	CK_RV rc = CKR_OK;
 	char fname[PATH_MAX];
-	CK_BYTE racfpwd[PIN_SIZE];
 	CK_BYTE hash_sha[SHA1_HASH_SIZE];
-	int racflen;
 	int mklen;
 	char pk_dir_buf[PATH_MAX];
-	char *ca_dir = NULL;
 	CK_SLOT_ID slot_id = sess->session_info.slotID;
-	struct session_state *session_state;
-	LDAP *ld;
 
 	/* Check Slot ID */
 	if (slot_id < 0 || slot_id > MAX_SLOT_ID) {
@@ -1107,56 +1190,10 @@ CK_RV icsftok_login(SESSION *sess, CK_USER_TYPE userType, CK_CHAR_PTR pPin,
 			}
 		}
 	}
-
-	/* The pPin looks good, so now lets authenticate to ldap server */
-	if (slot_data[slot_id] == NULL) {
-		TRACE_ERROR("ICSF slot data not initialized.\n");
-		rc = CKR_FUNCTION_FAILED;
-		goto done;
-	}
-
-	/* Check if using sasl or simple auth */
-	if (slot_data[slot_id]->mech == ICSF_CFG_MECH_SIMPLE) {
-		TRACE_INFO("Using SIMPLE auth with slot ID: %lu\n", slot_id);
-
-		/* get racf passwd */
-		rc = get_racf(master_key, AES_KEY_SIZE_256, racfpwd, &racflen);
-		if (rc != CKR_OK) {
-			TRACE_DEVEL("Failed to get racf passwd.\n");
-			goto done;
-		}
-
-		/* ok got the passwd, perform simple ldap bind call */
-		rc = icsf_login(&ld, slot_data[slot_id]->uri,
-				slot_data[slot_id]->dn, racfpwd);
-		if (rc != CKR_OK) {
-			TRACE_DEVEL("Failed to bind to ldap server.\n");
-			goto done;
-		}
-
-	}
-	else {
-		TRACE_INFO("Using SASL auth with slot ID: %lu\n", slot_id);
-
-		rc = icsf_sasl_login(&ld, slot_data[slot_id]->uri,
-				     slot_data[slot_id]->cert_file,
-				     slot_data[slot_id]->key_file,
-				     slot_data[slot_id]->ca_file, ca_dir);
-		if (rc != CKR_OK) {
-			TRACE_DEVEL("Failed to bind to ldap server.\n");
-			goto done;
-		}
-	}
-
-	/* Save LDAP handle */
-	if (!(session_state = get_session_state(sess->handle))) {
-		TRACE_ERROR("Session not found for session id %lu.\n",
-				(unsigned long) sess->handle);
-		rc = CKR_SESSION_HANDLE_INVALID;
-		goto done;
-	}
-	session_state->ld = ld;
-
+	/* Now that user is authenticated, can get racf passwd and
+	 * establish ldap handle for session. This will get done
+	 * when we call icsf_get_handles() in SC_Login().
+	 */
 done:
 	XProcUnLock();
 	return rc;

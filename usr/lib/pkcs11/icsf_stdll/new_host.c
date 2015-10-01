@@ -1075,6 +1075,8 @@ done:
 		rc = session_mgr_login_all(userType);
 		if (rc != CKR_OK)
 			TRACE_DEVEL("session_mgr_login_all failed.\n");
+		else
+			rc = icsf_get_handles(sess->session_info.slotID);
 	}
 
 	TRACE_INFO("C_Login: rc = 0x%08lx\n", rc);

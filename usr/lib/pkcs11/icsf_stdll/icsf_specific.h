@@ -127,4 +127,7 @@ CK_RV icsftok_generate_key_pair(SESSION *session, CK_MECHANISM_PTR mech,
 CK_RV icsftok_generate_key(SESSION *session, CK_MECHANISM_PTR mech,
 			   CK_ATTRIBUTE_PTR attrs, CK_ULONG attrs_len,
 			   CK_OBJECT_HANDLE_PTR handle);
+
+CK_RV icsf_get_handles(CK_SLOT_ID slot_id);
+
 #endif
