@@ -406,6 +406,8 @@ mech_to_str(CK_ULONG mech)
 		return "CKM_AES_CBC_PAD";
 	if (mech == CKM_AES_CTR)
 		return "CKM_AES_CTR";
+	if (mech == CKM_AES_GCM)
+		return "CKM_AES_GCM";
 	if (mech == CKM_AES_OFB)
 		return "CKM_AES_OFB";
 	if (mech == CKM_AES_CFB128)

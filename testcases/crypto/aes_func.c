@@ -408,9 +408,10 @@ testcase_cleanup:
 CK_RV do_EncryptAES(struct published_test_suite_info *tsuite)
 {
 	int			i;
-	CK_BYTE			actual[BIG_REQUEST];    // encryption buffer
+	CK_BYTE			input[BIG_REQUEST];     // cleartext buffer
+	CK_BYTE			output[BIG_REQUEST];    // encryption buffer
 	CK_BYTE			expected[BIG_REQUEST];  // encrypted data
-	CK_ULONG		actual_len, expected_len;
+	CK_ULONG		input_len, output_len, expected_len;
 	CK_ULONG		user_pin_len;
 	CK_BYTE			user_pin[PKCS11_MAX_PIN_LEN];
 	CK_SESSION_HANDLE	session;
@@ -419,6 +420,7 @@ CK_RV do_EncryptAES(struct published_test_suite_info *tsuite)
 	CK_RV			rc = CKR_OK;
 	CK_FLAGS		flags;
 	CK_SLOT_ID		slot_id = SLOT_ID;
+	CK_GCM_PARAMS 		*gcm_param;
 
 	/** begin testsuite **/
 	testsuite_begin("%s Encryption.", tsuite->name);
@@ -455,18 +457,27 @@ CK_RV do_EncryptAES(struct published_test_suite_info *tsuite)
 
 		/** get mech **/
 		mech = tsuite->mech;
+		if (mech.mechanism == CKM_AES_GCM) {
+			gcm_param = ((CK_GCM_PARAMS *)mech.pParameter);
+			gcm_param->pIv = (CK_BYTE *)tsuite->tv[i].iv;
+			gcm_param->ulIvLen = tsuite->tv[i].ivlen;
+			gcm_param->pAAD = tsuite->tv[i].aad;
+			gcm_param->ulAADLen = tsuite->tv[i].aadlen;
+			gcm_param->ulTagBits = tsuite->tv[i].taglen;
+		}
 
 		/** clear buffers **/
 		memset(expected, 0, sizeof(expected));
-		memset(actual, 0, sizeof(actual));
+		memset(input, 0, sizeof(input));
+		memset(output, 0, sizeof(output));
 
 		/** get ciphertext (expected results) **/
 		expected_len = tsuite->tv[i].clen;
 		memcpy(expected, tsuite->tv[i].ciphertext, expected_len);
 
 		/** get plaintext **/
-		actual_len = tsuite->tv[i].plen;
-		memcpy(actual, tsuite->tv[i].plaintext, actual_len);
+		input_len = tsuite->tv[i].plen;
+		memcpy(input, tsuite->tv[i].plaintext, input_len);
 
 		/** single (in-place) encryption **/
 		rc = funcs->C_EncryptInit(session, &mech, h_key);
@@ -475,11 +486,15 @@ CK_RV do_EncryptAES(struct published_test_suite_info *tsuite)
 			goto error;
 		}
 
-		rc = funcs->C_Encrypt(session,
-				actual,
-				actual_len,
-				actual,
-				&actual_len);
+		rc = funcs->C_Encrypt(session, input, input_len,
+							  NULL, &output_len);
+		if (rc != CKR_OK) {
+			testcase_error("C_Encrypt rc=%s", p11_get_ckr(rc));
+			goto error;
+		}
+
+		rc = funcs->C_Encrypt(session, input, input_len,
+							  output, &output_len);
 
 		if (rc != CKR_OK) {
 			testcase_error("C_Encrypt rc=%s", p11_get_ckr(rc));
@@ -489,14 +504,14 @@ CK_RV do_EncryptAES(struct published_test_suite_info *tsuite)
 		/** compare actual results with expected results. **/
 		testcase_new_assertion();
 
-		if (actual_len != expected_len) {
+		if (output_len != expected_len) {
 			testcase_fail("encrypted data length does not match "
 				"test vector's encrypted data length.\n\n"
 				"expected length=%ld, but found length=%ld\n",
-				expected_len, actual_len);
+				expected_len, output_len);
 		}
 
-		else if (memcmp(actual, expected, expected_len)) {
+		else if (memcmp(output, expected, expected_len)) {
 			testcase_fail("encrypted data does not match test "
 				"vector's encrypted data");
 		}
@@ -544,6 +559,7 @@ CK_RV do_EncryptUpdateAES(struct published_test_suite_info *tsuite)
 	CK_RV			rc = CKR_OK;
 	CK_FLAGS		flags;
 	CK_SLOT_ID	      slot_id = SLOT_ID;
+	CK_GCM_PARAMS 		*gcm_param;
 
 	testsuite_begin("%s Multipart Encryption.", tsuite->name);
 	testcase_rw_session();
@@ -579,6 +595,14 @@ CK_RV do_EncryptUpdateAES(struct published_test_suite_info *tsuite)
 
 		/** get mech **/
 		mech = tsuite->mech;
+		if (mech.mechanism == CKM_AES_GCM) {
+			gcm_param = ((CK_GCM_PARAMS *)mech.pParameter);
+			gcm_param->pIv = (CK_BYTE *)tsuite->tv[i].iv;
+			gcm_param->ulIvLen = tsuite->tv[i].ivlen;
+			gcm_param->pAAD = tsuite->tv[i].aad;
+			gcm_param->ulAADLen = tsuite->tv[i].aadlen;
+			gcm_param->ulTagBits = tsuite->tv[i].taglen;
+		}
 
 		/** clear buffers **/
 		memset(expected, 0, sizeof(expected));
@@ -604,7 +628,7 @@ CK_RV do_EncryptUpdateAES(struct published_test_suite_info *tsuite)
 		 * and a value > 0 is amount of data from test vector's
 		 * plaintext data. This way we test vary-sized chunks.
 		 */
-		if (tsuite->tv[i].num_chunks) {
+		if (tsuite->tv[i].num_chunks_plain) {
 			int j;
 			CK_ULONG outlen, len;
 			CK_BYTE *data_chunk = NULL;
@@ -613,15 +637,15 @@ CK_RV do_EncryptUpdateAES(struct published_test_suite_info *tsuite)
 			crypt_len = 0;
 			outlen = sizeof(crypt);
 
-			for (j = 0; j < tsuite->tv[i].num_chunks; j++) {
-				if (tsuite->tv[i].chunks[j] == -1) {
+			for (j = 0; j < tsuite->tv[i].num_chunks_plain; j++) {
+				if (tsuite->tv[i].chunks_plain[j] == -1) {
 					len = 0;
 					data_chunk = NULL;
-				} else if (tsuite->tv[i].chunks[j] == 0) {
+				} else if (tsuite->tv[i].chunks_plain[j] == 0) {
 					len = 0;
 					data_chunk = (CK_BYTE *)"";
 				} else {
-					len = tsuite->tv[i].chunks[j];
+					len = tsuite->tv[i].chunks_plain[j];
 					data_chunk = plaintext + k;
 				}
 
@@ -655,6 +679,8 @@ CK_RV do_EncryptUpdateAES(struct published_test_suite_info *tsuite)
 			testcase_error("C_EncryptFinal rc=%s", p11_get_ckr(rc));
 			goto error;
 		}
+
+		crypt_len += k;
 
 		/** compare encryption results with expected results. **/
 		testcase_new_assertion();
@@ -702,9 +728,10 @@ testcase_cleanup:
 CK_RV do_DecryptAES(struct published_test_suite_info *tsuite)
 {
 	int			i;
-	CK_BYTE			actual[BIG_REQUEST];    // decryption buffer
+	CK_BYTE			input[BIG_REQUEST];     // encrypted buffer
+	CK_BYTE			output[BIG_REQUEST];    // decryption buffer
 	CK_BYTE			expected[BIG_REQUEST];  // decrypted data
-	CK_ULONG		actual_len, expected_len;
+	CK_ULONG		input_len, output_len, expected_len;
 	CK_ULONG		user_pin_len;
 	CK_BYTE			user_pin[PKCS11_MAX_PIN_LEN];
 	CK_SESSION_HANDLE	session;
@@ -713,6 +740,7 @@ CK_RV do_DecryptAES(struct published_test_suite_info *tsuite)
 	CK_RV			rc = CKR_OK;
 	CK_FLAGS		flags;
 	CK_SLOT_ID	      	slot_id = SLOT_ID;
+	CK_GCM_PARAMS 		*gcm_param;
 
 	testsuite_begin("%s Decryption.", tsuite->name);
 	testcase_rw_session();
@@ -748,18 +776,27 @@ CK_RV do_DecryptAES(struct published_test_suite_info *tsuite)
 
 		/** get mech **/
 		mech = tsuite->mech;
+		if (mech.mechanism == CKM_AES_GCM) {
+			gcm_param = ((CK_GCM_PARAMS *)mech.pParameter);
+			gcm_param->pIv = (CK_BYTE *)tsuite->tv[i].iv;
+			gcm_param->ulIvLen = tsuite->tv[i].ivlen;
+			gcm_param->pAAD = tsuite->tv[i].aad;
+			gcm_param->ulAADLen = tsuite->tv[i].aadlen;
+			gcm_param->ulTagBits = tsuite->tv[i].taglen;
+		}
 
 		/** clear buffers **/
 		memset(expected, 0, sizeof(expected));
-		memset(actual, 0, sizeof(actual));
+		memset(input, 0, sizeof(input));
+		memset(output, 0, sizeof(output));
 
 		/** get plaintext (expected results) **/
 		expected_len = tsuite->tv[i].plen;
 		memcpy(expected, tsuite->tv[i].plaintext, expected_len);
 
 		/** get ciphertext **/
-		actual_len = tsuite->tv[i].clen;
-		memcpy(actual, tsuite->tv[i].ciphertext, actual_len);
+		input_len = tsuite->tv[i].clen;
+		memcpy(input, tsuite->tv[i].ciphertext, input_len);
 
 		/** single (in-place) decryption **/
 		rc = funcs->C_DecryptInit(session, &mech, h_key);
@@ -768,12 +805,15 @@ CK_RV do_DecryptAES(struct published_test_suite_info *tsuite)
 			goto error;
 		}
 
-		rc = funcs->C_Decrypt(session,
-				actual,
-				actual_len,
-				actual,
-				&actual_len);
+		rc = funcs->C_Decrypt(session, input, input_len,
+							  NULL, &output_len);
+		if (rc != CKR_OK) {
+			testcase_error("C_Decrypt rc=%s", p11_get_ckr(rc));
+			goto error;
+		}
 
+		rc = funcs->C_Decrypt(session, input, input_len,
+							  output, &output_len);
 		if (rc != CKR_OK) {
 			testcase_error("C_Decrypt rc=%s", p11_get_ckr(rc));
 			goto error;
@@ -782,14 +822,14 @@ CK_RV do_DecryptAES(struct published_test_suite_info *tsuite)
 		/** compare actual results with expected results. **/
 		testcase_new_assertion();
 
-		if (actual_len != expected_len) {
+		if (output_len != expected_len) {
 			testcase_fail("decrypted data length does not match "
 				"test vector's decrypted data length.\n\n"
 				"expected length=%ld, but found length=%ld\n",
-				expected_len, actual_len);
+				expected_len, output_len);
 		}
 
-		else if (memcmp(actual, expected, expected_len)) {
+		else if (memcmp(output, expected, expected_len)) {
 			testcase_fail("decrypted data does not match test "
 				"vector's decrypted data");
 		}
@@ -837,6 +877,7 @@ CK_RV do_DecryptUpdateAES(struct published_test_suite_info *tsuite)
 	CK_RV			rc = CKR_OK;
 	CK_FLAGS		flags;
 	CK_SLOT_ID	      slot_id = SLOT_ID;
+	CK_GCM_PARAMS 		*gcm_param;
 
 	testsuite_begin("%s Multipart Decryption.", tsuite->name);
 	testcase_rw_session();
@@ -870,6 +911,14 @@ CK_RV do_DecryptUpdateAES(struct published_test_suite_info *tsuite)
 
 		/** get mech **/
 		mech = tsuite->mech;
+		if (mech.mechanism == CKM_AES_GCM) {
+			gcm_param = ((CK_GCM_PARAMS *)mech.pParameter);
+			gcm_param->pIv = (CK_BYTE *)tsuite->tv[i].iv;
+			gcm_param->ulIvLen = tsuite->tv[i].ivlen;
+			gcm_param->pAAD = tsuite->tv[i].aad;
+			gcm_param->ulAADLen = tsuite->tv[i].aadlen;
+			gcm_param->ulTagBits = tsuite->tv[i].taglen;
+		}
 
 		/** clear buffers **/
 		memset(expected, 0, sizeof(expected));
@@ -895,7 +944,7 @@ CK_RV do_DecryptUpdateAES(struct published_test_suite_info *tsuite)
 		 * and a value > 0 is amount of data from test vector's
 		 * plaintext data. This way we test vary-sized chunks.
 		 */
-		if (tsuite->tv[i].num_chunks) {
+		if (tsuite->tv[i].num_chunks_ciph) {
 			int j;
 			CK_ULONG outlen, len;
 			CK_BYTE *data_chunk = NULL;
@@ -903,15 +952,15 @@ CK_RV do_DecryptUpdateAES(struct published_test_suite_info *tsuite)
 			k = 0;
 			p_len = 0;
 			outlen = sizeof(plaintext);
-			for (j = 0; j < tsuite->tv[i].num_chunks; j++) {
-				if (tsuite->tv[i].chunks[j] == -1) {
+			for (j = 0; j < tsuite->tv[i].num_chunks_ciph; j++) {
+				if (tsuite->tv[i].chunks_ciph[j] == -1) {
 					len = 0;
 					data_chunk = NULL;
-				} else if (tsuite->tv[i].chunks[j] == 0) {
+				} else if (tsuite->tv[i].chunks_ciph[j] == 0) {
 					len = 0;
 					data_chunk = (CK_BYTE *)"";
 				} else {
-					len = tsuite->tv[i].chunks[j];
+					len = tsuite->tv[i].chunks_ciph[j];
 					data_chunk = cipher + k;
 				}
 
@@ -945,6 +994,7 @@ CK_RV do_DecryptUpdateAES(struct published_test_suite_info *tsuite)
 			testcase_error("C_DecryptFinal rc=%s", p11_get_ckr(rc));
 			goto error;
 		}
+		p_len += k; /* add possible last part to overall length */
 
 		/** compare decryption results with expected results. **/
 		testcase_new_assertion();
@@ -1769,6 +1819,7 @@ CK_RV aes_funcs() {
 		rv = do_DecryptUpdateAES(&published_test_suites[i]);
 		if (rv != CKR_OK && (!no_stop))
 			break;
+
 	}
 
 	for (i = 0; i < NUM_OF_GENERATED_TESTSUITES; i++) {
@@ -1790,7 +1841,6 @@ CK_RV aes_funcs() {
 	}
 
 	/***** Error scenarios *****/
-
 	for (i = 0; i < NUM_OF_GENERATED_ERR_TESTSUITES; i++) {
 		rv = do_WrapRSA_Err(&generated_err_test_suites[i]);
 		if (rv != CKR_OK && (!no_stop))
