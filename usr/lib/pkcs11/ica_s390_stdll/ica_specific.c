@@ -2517,6 +2517,431 @@ token_specific_aes_ctr(CK_BYTE          *in_data,
    return rc;
 }
 
+CK_RV token_specific_aes_gcm_init(SESSION *sess, ENCR_DECR_CONTEXT *ctx,
+				  CK_MECHANISM *mech, CK_OBJECT_HANDLE key,
+				  CK_BYTE encrypt)
+{
+	CK_RV rc = CKR_OK;
+	OBJECT *key_obj = NULL;
+	CK_ATTRIBUTE *attr = NULL;
+	CK_GCM_PARAMS *aes_gcm_param = NULL;
+	AES_GCM_CONTEXT *context = NULL;
+	CK_BYTE *icv, *icb, *ucb, *subkey;
+	CK_ULONG icv_length;
+
+	/* find key object */
+	rc = object_mgr_find_in_map1 (key, &key_obj);
+	if (rc != CKR_OK){
+		TRACE_ERROR("Failed to find specified object.\n");
+		return rc;
+	}
+
+	/* get the key value */
+	rc = template_attribute_find(key_obj->template, CKA_VALUE, &attr);
+	if (rc == FALSE) {
+		TRACE_ERROR("Could not find CKA_KEY_VALUE for the key.\n");
+		return CKR_FUNCTION_FAILED;
+	}
+
+	/* prepare initial counterblock */
+	aes_gcm_param = (CK_GCM_PARAMS *)mech->pParameter;
+	context = (AES_GCM_CONTEXT *)ctx->context;
+
+	context->ulAlen = aes_gcm_param->ulAADLen;
+	icb = (CK_BYTE *)context->icb;
+	ucb = (CK_BYTE *)context->ucb;
+	subkey = (CK_BYTE *)context->subkey;
+
+	icv = (CK_BYTE *)aes_gcm_param->pIv;
+	icv_length = aes_gcm_param->ulIvLen;
+
+	if (encrypt) {
+		rc = ica_aes_gcm_initialize(icv, icv_length,
+				            (char *)attr->pValue,
+					    attr->ulValueLen, icb, ucb,
+					    subkey, 1);
+	} else {
+		rc = ica_aes_gcm_initialize(icv, icv_length,
+					    (char *)attr->pValue,
+					    attr->ulValueLen, icb, ucb,
+					    subkey, 0);
+	}
+	if (rc != 0) {
+		TRACE_ERROR("ica_aes_gcm_initialize() failed.\n");
+		return CKR_FUNCTION_FAILED;
+	} else
+		return CKR_OK;
+}
+
+CK_RV token_specific_aes_gcm(SESSION *sess, ENCR_DECR_CONTEXT *ctx,
+			     CK_BYTE *in_data, CK_ULONG in_data_len,
+			     CK_BYTE *out_data, CK_ULONG *out_data_len,
+			     CK_BYTE encrypt)
+{
+	CK_RV rc;
+	OBJECT *key = NULL;
+	CK_ATTRIBUTE *attr = NULL;
+	CK_GCM_PARAMS *aes_gcm_param = NULL;
+	CK_BYTE *counterblock;
+	CK_ULONG counter_width;
+	CK_BYTE *tag_data,*auth_data;
+	CK_ULONG auth_data_len;
+	CK_ULONG tag_data_len;
+
+	/*
+	 * Checks for input and output data length and block sizes are already
+	 * being carried out in mech_aes.c, so we skip those
+	 *
+	 * libica for AES-GCM Mode uses one function for both encrypt
+	 * and decrypt, so they use the variable 'direction' to know if
+	 * the data is to be encrypted or decrypted.
+	 * 0 -- Decrypt
+	 * 1 -- Encrypt
+	 */
+
+	aes_gcm_param = (CK_GCM_PARAMS *)ctx->mech.pParameter;
+	counterblock = (CK_BYTE *)aes_gcm_param->pIv;
+	counter_width = aes_gcm_param->ulIvLen;
+	auth_data = (CK_BYTE *)aes_gcm_param->pAAD;
+	auth_data_len = aes_gcm_param->ulAADLen;
+	tag_data_len = (aes_gcm_param->ulTagBits + 7) / 8;
+
+	/* find key object */
+	rc = object_mgr_find_in_map1(ctx->key, &key);
+	if (rc != CKR_OK) {
+		TRACE_ERROR("Failed to find specified object.\n");
+		return rc;
+	}
+
+	/* get key value */
+	if (template_attribute_find(key->template, CKA_VALUE, &attr) == FALSE) {
+		TRACE_ERROR("Could not find CKA_VALUE for the key.\n");
+		return CKR_FUNCTION_FAILED;
+	}
+
+	if (encrypt) {
+		tag_data = out_data + in_data_len;
+		rc = ica_aes_gcm(in_data, (unsigned int) in_data_len, out_data,
+				 counterblock, (unsigned int) counter_width,
+				 auth_data, (unsigned int) auth_data_len,
+				 tag_data, AES_BLOCK_SIZE, attr->pValue,
+				 (unsigned int) attr->ulValueLen, 1);
+		if (rc == 0) {
+			(*out_data_len) = in_data_len + tag_data_len;
+			rc = CKR_OK;
+		}
+	} else {
+		unsigned int len;
+
+		tag_data = in_data + in_data_len - tag_data_len;
+		len = in_data_len - tag_data_len;
+		rc = ica_aes_gcm(out_data,
+				 (unsigned int)len, in_data, counterblock,
+				 (unsigned int ) counter_width, auth_data,
+				 (unsigned int) auth_data_len, tag_data,
+				 (unsigned int)tag_data_len, attr->pValue,
+				 (unsigned int) attr->ulValueLen, 0);
+		if (rc == 0) {
+			(*out_data_len) = len;
+			rc = CKR_OK;
+		}
+	}
+
+	if (rc != 0) {
+		TRACE_ERROR("ica_aes_gcm failed with %lx.\n", rc);
+		(*out_data_len) = 0;
+		rc = CKR_FUNCTION_FAILED;
+	}
+
+	return rc;
+}
+
+CK_RV token_specific_aes_gcm_update(SESSION *sess, ENCR_DECR_CONTEXT *ctx,
+				    CK_BYTE *in_data, CK_ULONG in_data_len,
+				    CK_BYTE *out_data, CK_ULONG *out_data_len,
+				    CK_BYTE encrypt)
+{
+	CK_RV rc;
+	CK_ATTRIBUTE *attr = NULL;
+	OBJECT *key = NULL;
+	AES_GCM_CONTEXT *context = NULL;
+	CK_GCM_PARAMS *aes_gcm_param = NULL;
+	CK_ULONG total, tag_data_len, remain, auth_data_len;
+	CK_ULONG out_len;
+	CK_BYTE *auth_data, *tag_data;
+	CK_BYTE *ucb, *subkey;
+	CK_BYTE *buffer = NULL;
+
+	context = (AES_GCM_CONTEXT *)ctx->context;
+	total = (context->len + in_data_len);
+	ucb = (CK_BYTE *)context->ucb;
+	tag_data = context->hash;
+	auth_data_len = context->ulAlen;
+	subkey = (CK_BYTE *)context->subkey;
+
+	aes_gcm_param = (CK_GCM_PARAMS *)ctx->mech.pParameter;
+	tag_data_len = (aes_gcm_param->ulTagBits + 7) / 8;
+	auth_data = (CK_BYTE *)aes_gcm_param->pAAD;
+
+	/* if there isn't enough data to make a block, just save it */
+	if (encrypt) {
+		remain = (total % AES_BLOCK_SIZE);
+		if (total < AES_BLOCK_SIZE) {
+			memcpy(context->data + context->len, in_data, in_data_len);
+			context->len += in_data_len;
+			*out_data_len = 0;
+			return CKR_OK;
+		}
+	 } else {
+		/* decrypt */
+		remain = ((total - tag_data_len)  % AES_BLOCK_SIZE)
+			  + tag_data_len;
+		if (total < AES_BLOCK_SIZE + tag_data_len) {
+			memcpy(context->data + context->len, in_data, in_data_len);
+			context->len += in_data_len;
+			*out_data_len = 0;
+			return CKR_OK;
+		}
+	}
+
+	/* At least we have 1 block */
+	/* find key object */
+	rc = object_mgr_find_in_map_nocache(ctx->key, &key);
+	if(rc != CKR_OK) {
+		TRACE_ERROR("Failed to find specified object.\n");
+		return rc;
+	}
+
+	/* get key value */
+	if (template_attribute_find(key->template, CKA_VALUE, &attr) == FALSE) {
+		TRACE_ERROR("Could not find CKA_VALUE for the key.\n");
+		return CKR_FUNCTION_FAILED;
+	}
+
+	out_len = total - remain;
+
+	buffer = (CK_BYTE*)malloc(out_len);
+	if (!buffer) {
+		TRACE_ERROR("%s\n", ock_err(ERR_HOST_MEMORY));
+		rc = CKR_HOST_MEMORY;
+		goto done;
+	}
+
+	if (encrypt) {
+		/* copy all the leftover data from previous encryption first */
+		memcpy (buffer, context->data, context->len);
+		memcpy (buffer+context->len, in_data, out_len - context->len);
+
+		TRACE_DEVEL("Ciphertext length (%02ld bytes).\n", in_data_len);
+
+		rc = ica_aes_gcm_intermediate(buffer, (unsigned int)out_len,
+					      out_data, ucb, auth_data,
+					      (unsigned int)auth_data_len,
+					      tag_data, AES_BLOCK_SIZE,
+					      attr->pValue,
+					      (unsigned int)attr->ulValueLen,
+					      subkey, 1);
+
+		/* save any remaining data */
+		if (remain != 0)
+			memcpy(context->data, in_data + (in_data_len - remain),
+			       remain);
+		context->len = remain;
+
+	} else {
+		/* decrypt */
+		/* copy all the leftover data from previous encryption first */
+		if (in_data_len >= tag_data_len) { /* case 1  */
+			/* copy complete context to buffer first*/
+			memcpy (buffer, context->data, context->len);
+			/* Append in_data to buffer */
+			memcpy (buffer + context->len, in_data,
+				out_len - context->len);
+			/* copy remaining data to context */
+			memcpy(context->data, in_data + out_len - context->len,
+				remain);
+			context->len = remain;
+		} else { /* case 2 - partial data */
+			memcpy(buffer, context->data, AES_BLOCK_SIZE);
+			memcpy(context->data, context->data + AES_BLOCK_SIZE,
+			       context->len - AES_BLOCK_SIZE);
+			memcpy(context->data + context->len - AES_BLOCK_SIZE,
+			       in_data, in_data_len);
+			context->len = context->len - AES_BLOCK_SIZE
+				       + in_data_len;
+		}
+
+		rc = ica_aes_gcm_intermediate(out_data, (unsigned int)out_len,
+					      buffer, ucb, auth_data,
+					      (unsigned int)auth_data_len,
+					      tag_data,
+					      (unsigned int)tag_data_len,
+					      attr->pValue,
+					      (unsigned int)attr->ulValueLen,
+					      subkey, 0);
+
+	}
+
+	if( rc != 0) {
+		TRACE_ERROR("ica_aes_gcm_update failed with %lx.\n", rc);
+		rc = CKR_FUNCTION_FAILED;
+		goto done;
+	}
+
+	(*out_data_len) = out_len;
+
+	context->ulClen += out_len;
+
+	/* AAD only processed in first update seuence,
+	 * mark it empty for all subsequent calls
+	 */
+	context->ulAlen = 0;
+
+done:
+	if (buffer)
+		free(buffer);
+
+	return rc;
+}
+
+CK_RV token_specific_aes_gcm_final(SESSION *sess, ENCR_DECR_CONTEXT *ctx,
+				   CK_BYTE *out_data, CK_ULONG *out_data_len,
+				   CK_BYTE encrypt)
+{
+	CK_RV rc = CKR_OK;
+	CK_ATTRIBUTE *attr = NULL;
+	OBJECT *key = NULL;
+	AES_GCM_CONTEXT  *context = NULL;
+	CK_GCM_PARAMS *aes_gcm_param = NULL;
+	CK_BYTE *icb, *ucb;
+	CK_BYTE *tag_data, *subkey, *auth_data, *final_tag_data;
+	CK_ULONG auth_data_len, tag_data_len;
+	CK_BYTE *buffer = NULL;
+
+	/* find key object */
+	rc = object_mgr_find_in_map_nocache(ctx->key, &key);
+	if(rc != CKR_OK) {
+		TRACE_ERROR("Failed to find specified object.\n");
+		return rc;
+	}
+	if (template_attribute_find(key->template, CKA_VALUE, &attr) == FALSE) {
+		TRACE_ERROR("Could not find CKA_VALUE for the key.\n");
+		return CKR_FUNCTION_FAILED;
+	}
+
+	context = (AES_GCM_CONTEXT *)ctx->context;
+	ucb = (CK_BYTE *)context->ucb;
+	icb = (CK_BYTE *)context->icb;
+	tag_data = context->hash;
+	subkey = (CK_BYTE *)context->subkey;
+
+	aes_gcm_param = (CK_GCM_PARAMS *)ctx->mech.pParameter;
+	auth_data = (CK_BYTE *)aes_gcm_param->pAAD;
+	auth_data_len = aes_gcm_param->ulAADLen;
+	tag_data_len = (aes_gcm_param->ulTagBits + 7) / 8;
+
+	if (encrypt) {
+		if (context->len != 0) {
+			buffer = (CK_BYTE*) malloc (AES_BLOCK_SIZE);
+			if (!buffer) {
+				TRACE_ERROR("%s\n", ock_err(ERR_HOST_MEMORY));
+				return CKR_HOST_MEMORY;
+			}
+			memcpy(buffer, context->data, context->len);
+
+			rc = ica_aes_gcm_intermediate(buffer, context->len,
+						 out_data, ucb, auth_data,
+						 context->ulAlen, tag_data,
+						 AES_BLOCK_SIZE, attr->pValue,
+						 (unsigned int)attr->ulValueLen,
+						 subkey, 1);
+
+			if (rc != 0) {
+				TRACE_ERROR("ica_aes_gcm_intermediate() "
+					    "failed to encrypt\n");
+				rc = CKR_FUNCTION_FAILED;
+				goto done;
+			}
+
+			context->ulClen += context->len;
+			*out_data_len = context->len + tag_data_len;
+		} else
+			*out_data_len = tag_data_len;
+
+		TRACE_DEVEL("GCM Final: context->len=%ld, tag_data_len=%ld, out_data_len=%ld\n", context->len, tag_data_len, *out_data_len);
+
+		rc = ica_aes_gcm_last(icb, (unsigned int)auth_data_len,
+				      (unsigned int)context->ulClen, tag_data,
+				      NULL, 0, attr->pValue,
+				      (unsigned int) attr->ulValueLen,
+				      subkey, 1);
+
+		if (rc != 0) {
+			TRACE_ERROR("ica_aes_gcm_final failed with %lx.\n", rc);
+			rc = CKR_FUNCTION_FAILED;
+			goto done;
+		}
+
+		memcpy(out_data + context->len, tag_data, tag_data_len);
+	} else {
+		/* decrypt */
+
+		if (context->len > tag_data_len) {
+			buffer = (CK_BYTE*) malloc(AES_BLOCK_SIZE);
+			if (!buffer) {
+				TRACE_ERROR("%s\n", ock_err(ERR_HOST_MEMORY));
+				rc = CKR_HOST_MEMORY;
+				goto done;
+			}
+			memcpy(buffer, context->data,
+			       context->len - tag_data_len);
+
+			rc = ica_aes_gcm_intermediate(out_data,
+					(unsigned int)context->len-tag_data_len,
+					buffer, ucb, auth_data,
+					(unsigned int)context->ulAlen, tag_data,
+					AES_BLOCK_SIZE, attr->pValue,
+					(unsigned int) attr->ulValueLen,
+					subkey, 0);
+
+			if (rc != 0) {
+				TRACE_ERROR("ica_aes_gcm_intermediate() "
+					    "failed to decrypt.\n");
+				rc = CKR_FUNCTION_FAILED;
+				goto done;
+			}
+			(*out_data_len) = context->len - tag_data_len;
+			context->ulClen += context->len - tag_data_len;
+
+		} else if (context->len == tag_data_len) {
+			/* remaining data are tag data */
+			*out_data_len = 0;
+		} else { /* (context->len < tag_data_len) */
+			TRACE_ERROR("Incoming data are not consistent.\n");
+			rc = CKR_DATA_INVALID;
+			goto done;
+		}
+
+		final_tag_data = context->data + context->len - tag_data_len;
+
+		rc = ica_aes_gcm_last(icb, aes_gcm_param->ulAADLen,
+				      context->ulClen, tag_data, final_tag_data,
+				      tag_data_len, attr->pValue,
+				      (unsigned int)attr->ulValueLen, subkey,
+				      0);
+		if (rc != 0) {
+			TRACE_ERROR("ica_aes_gcm_final failed with %lx.\n", rc);
+			rc = CKR_FUNCTION_FAILED;
+		}
+	}
+
+done:
+	if (buffer)
+		free(buffer);
+
+	return rc;
+}
+
 /**
  * In libica for AES-OFB Mode it uses one function for both encrypt and decrypt
  * The variable direction is used as an indicator either for encrypt or decrypt
@@ -2949,6 +3374,10 @@ REF_MECH_LIST_ELEMENT ref_mech_list[] = {
 
 	{65, CKM_AES_CTR,
 	 {16, 32, CKF_HW|CKF_ENCRYPT|CKF_DECRYPT|CKF_WRAP|CKF_UNWRAP}},
+
+	{70, CKM_AES_GCM, {16, 32, CKF_HW|CKF_ENCRYPT|CKF_DECRYPT}},
+
+	{70, CKM_AES_GCM, {16, 32, CKF_HW|CKF_ENCRYPT|CKF_DECRYPT}},
 
 	{68, CKM_AES_MAC, {16, 32, CKF_HW|CKF_SIGN|CKF_VERIFY}},
 
