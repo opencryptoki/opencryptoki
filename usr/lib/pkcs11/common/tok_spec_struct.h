@@ -483,6 +483,18 @@ struct token_specific_struct {
 			   CK_ULONG *,
 			   OBJECT *, CK_BYTE *, CK_ULONG, CK_BYTE);
 
+	CK_RV(*t_aes_gcm_init) (SESSION *, ENCR_DECR_CONTEXT *, CK_MECHANISM *,
+				CK_OBJECT_HANDLE, CK_BYTE);
+
+	CK_RV(*t_aes_gcm) (SESSION *, ENCR_DECR_CONTEXT *, CK_BYTE *, CK_ULONG,
+			   CK_BYTE *, CK_ULONG *, CK_BYTE);
+
+	CK_RV(*t_aes_gcm_update) (SESSION *, ENCR_DECR_CONTEXT *, CK_BYTE *,
+				  CK_ULONG, CK_BYTE *, CK_ULONG *, CK_BYTE);
+
+	CK_RV(*t_aes_gcm_final) (SESSION *, ENCR_DECR_CONTEXT *, CK_BYTE *,
+				 CK_ULONG *, CK_BYTE);
+
 	CK_RV(*t_aes_ofb)(CK_BYTE *, CK_ULONG, CK_BYTE *, OBJECT *, CK_BYTE *,
 			  uint_32);
 

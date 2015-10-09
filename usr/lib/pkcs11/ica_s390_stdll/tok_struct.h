@@ -382,6 +382,10 @@ token_spec_t token_specific = {
 	&token_specific_aes_ecb,
 	&token_specific_aes_cbc,
 	&token_specific_aes_ctr,
+	NULL,			// aes_gcm_init
+	NULL,			// aes_gcm
+	NULL,			// aes_gcm_update
+	NULL,			// aes_gcm_final
 	&token_specific_aes_ofb,
 	&token_specific_aes_cfb,
 	&token_specific_aes_mac,

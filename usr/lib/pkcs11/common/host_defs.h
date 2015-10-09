@@ -385,6 +385,20 @@ typedef struct _AES_DATA_CONTEXT
    CK_BYTE  iv[ AES_BLOCK_SIZE ];
 } AES_DATA_CONTEXT;
 
+typedef struct _AES_GCM_CONTEXT
+{
+	/* Data buffer for DecryptUpdate needs space
+	 * for tag data and remaining tail data */
+	CK_BYTE  data[2*AES_BLOCK_SIZE];
+	CK_ULONG len;
+	CK_BYTE  icb[AES_BLOCK_SIZE];
+	CK_BYTE  ucb[AES_BLOCK_SIZE];
+	CK_BYTE  hash[AES_BLOCK_SIZE];
+	CK_BYTE  subkey[AES_BLOCK_SIZE];
+	CK_ULONG ulAlen;
+	CK_ULONG ulClen;
+} AES_GCM_CONTEXT;
+
 typedef struct _SHA1_CONTEXT
 {
    unsigned int  buf[16];

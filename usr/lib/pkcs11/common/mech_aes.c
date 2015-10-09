@@ -2781,6 +2781,280 @@ aes_mac_verify_final( SESSION              * sess,
       return CKR_SIGNATURE_INVALID;
 }
 
+CK_RV aes_gcm_init(SESSION *sess, ENCR_DECR_CONTEXT *ctx, CK_MECHANISM *mech,
+		   CK_OBJECT_HANDLE key, CK_BYTE direction)
+{
+	if (token_specific.t_aes_gcm_init == NULL) {
+		TRACE_ERROR("%s\n", ock_err(ERR_MECHANISM_INVALID));
+		return CKR_MECHANISM_INVALID;
+	}
+
+	return token_specific.t_aes_gcm_init(sess, ctx, mech, key, direction);
+}
+
+CK_RV aes_gcm_encrypt(SESSION *sess, CK_BBOOL length_only,
+		      ENCR_DECR_CONTEXT	*ctx, CK_BYTE *in_data,
+		      CK_ULONG in_data_len, CK_BYTE *out_data,
+		      CK_ULONG *out_data_len)
+{
+	CK_RV rc;
+	CK_GCM_PARAMS *aesgcm = NULL;
+	CK_ULONG tag_data_len;
+
+	if (!sess || !ctx || !in_data || !out_data_len) {
+		TRACE_ERROR("%s received bad argument(s)\n", __FUNCTION__);
+		return CKR_FUNCTION_FAILED;
+	}
+
+	aesgcm = (CK_GCM_PARAMS *)ctx->mech.pParameter;
+	tag_data_len = (aesgcm->ulTagBits + 7) / 8; /* round to full byte */
+
+
+	if (length_only == TRUE) {
+		*out_data_len = in_data_len + tag_data_len;
+		return CKR_OK;
+	}
+
+	if (*out_data_len < in_data_len + tag_data_len) {
+		*out_data_len = in_data_len + tag_data_len;
+		TRACE_ERROR("%s\n", ock_err(ERR_BUFFER_TOO_SMALL));
+		return CKR_BUFFER_TOO_SMALL;
+	}
+
+	if (token_specific.t_aes_gcm == NULL) {
+		TRACE_ERROR("%s\n", ock_err(ERR_MECHANISM_INVALID));
+		return CKR_MECHANISM_INVALID;
+	}
+
+	rc = token_specific.t_aes_gcm(sess, ctx , in_data, in_data_len,
+				      out_data, out_data_len, 1);
+	if (rc != CKR_OK)
+		TRACE_ERROR("Token specific aes gcm encrypt failed:  %02lx\n",
+			    rc);
+	return rc;
+
+}
+
+CK_RV aes_gcm_encrypt_update(SESSION *sess, CK_BBOOL length_only,
+			     ENCR_DECR_CONTEXT *ctx, CK_BYTE *in_data,
+			     CK_ULONG in_data_len, CK_BYTE *out_data,
+			     CK_ULONG *out_data_len)
+{
+	AES_GCM_CONTEXT *context = NULL;
+	CK_ULONG total, remain, out_len;
+	CK_RV rc;
+
+	if (!sess || !ctx || !out_data_len) {
+		TRACE_ERROR("%s received bad argument(s)\n", __FUNCTION__);
+		return CKR_FUNCTION_FAILED;
+	}
+
+	context = (AES_GCM_CONTEXT *)ctx->context;
+	total = (context->len + in_data_len);
+
+	if (length_only) {
+		if (total < AES_BLOCK_SIZE) {
+			*out_data_len = 0;
+			return CKR_OK;
+		} else {
+			remain = (total % AES_BLOCK_SIZE);
+			out_len = total - remain;
+			*out_data_len = out_len;
+			TRACE_DEVEL("Length Only requested (%02ld bytes).\n",
+				    *out_data_len);
+			return CKR_OK;
+		}
+	}
+
+	if (token_specific.t_aes_gcm_update == NULL) {
+		TRACE_ERROR("%s\n", ock_err(ERR_MECHANISM_INVALID));
+		return CKR_MECHANISM_INVALID;
+	}
+
+	rc = token_specific.t_aes_gcm_update(sess, ctx, in_data, in_data_len,
+					     out_data, out_data_len, 1);
+	if (rc != CKR_OK)
+		TRACE_ERROR("Token specific AES GCM EncryptUpdate failed: "
+			    "%02lx\n", rc);
+	return rc;
+}
+
+CK_RV aes_gcm_encrypt_final(SESSION *sess, CK_BBOOL length_only,
+			    ENCR_DECR_CONTEXT *ctx, CK_BYTE *out_data,
+			    CK_ULONG *out_data_len)
+{
+	CK_GCM_PARAMS *aesgcm = NULL;
+	AES_GCM_CONTEXT	*context = NULL;
+	CK_ULONG tag_data_len;
+	CK_RV rc = CKR_OK;
+
+	if (!sess || !ctx || !out_data_len) {
+		TRACE_ERROR("%s received bad argument(s)\n", __FUNCTION__);
+		return CKR_FUNCTION_FAILED;
+	}
+
+	context = (AES_GCM_CONTEXT *)ctx->context;
+
+	aesgcm = (CK_GCM_PARAMS *)ctx->mech.pParameter;
+	tag_data_len = (aesgcm->ulTagBits + 7) / 8; /* round to full byte */
+
+	if (length_only) {
+		if (context->len == 0) {
+			*out_data_len = tag_data_len;
+		} else {
+			*out_data_len = context->len + tag_data_len;
+		}
+		return CKR_OK;
+	}
+
+	if (*out_data_len < context->len + tag_data_len) {
+		TRACE_ERROR("%s\n", ock_err(ERR_BUFFER_TOO_SMALL));
+		return CKR_BUFFER_TOO_SMALL;
+	}
+
+	if (token_specific.t_aes_gcm_final == NULL) {
+		TRACE_ERROR("%s\n", ock_err(ERR_MECHANISM_INVALID));
+		return CKR_MECHANISM_INVALID;
+	}
+
+	rc = token_specific.t_aes_gcm_final(sess, ctx, out_data, out_data_len, 1);
+	if (rc != CKR_OK)
+		TRACE_ERROR("Token specific AES GCM EncryptFinal failed: "
+			    "%02lx\n", rc);
+	return rc;
+}
+
+CK_RV aes_gcm_decrypt(SESSION *sess, CK_BBOOL length_only,
+		      ENCR_DECR_CONTEXT	*ctx, CK_BYTE *in_data,
+		      CK_ULONG in_data_len, CK_BYTE *out_data,
+		      CK_ULONG *out_data_len)
+{
+	CK_GCM_PARAMS *aesgcm = NULL;
+	CK_ULONG tag_data_len;
+	CK_RV rc;
+
+	aesgcm = (CK_GCM_PARAMS *)ctx->mech.pParameter;
+	tag_data_len = (aesgcm->ulTagBits + 7) / 8; /* round to full byte */
+
+	if (!sess || !ctx || !in_data || !out_data_len) {
+		TRACE_ERROR("%s received bad argument(s)\n", __FUNCTION__);
+		return CKR_FUNCTION_FAILED;
+	}
+
+	if (length_only == TRUE) {
+		*out_data_len = in_data_len - tag_data_len;
+		return CKR_OK;
+	}
+
+	if (*out_data_len < in_data_len - tag_data_len) {
+		*out_data_len = in_data_len - tag_data_len;
+		TRACE_ERROR("%s\n", ock_err(ERR_BUFFER_TOO_SMALL));
+		return CKR_BUFFER_TOO_SMALL;
+	}
+
+	if (token_specific.t_aes_gcm == NULL) {
+		TRACE_ERROR("%s\n", ock_err(ERR_MECHANISM_INVALID));
+		return CKR_MECHANISM_INVALID;
+	}
+
+	rc = token_specific.t_aes_gcm(sess, ctx, in_data, in_data_len, out_data,
+				      out_data_len, 0);
+	if (rc != CKR_OK)
+		TRACE_ERROR("Token specific aes gcm decrypt failed.\n");
+
+	return rc;
+}
+
+CK_RV aes_gcm_decrypt_update(SESSION *sess, CK_BBOOL length_only,
+			     ENCR_DECR_CONTEXT *ctx, CK_BYTE *in_data,
+			     CK_ULONG in_data_len, CK_BYTE *out_data,
+			     CK_ULONG *out_data_len)
+{
+	AES_GCM_CONTEXT	*context = NULL;
+	CK_GCM_PARAMS *aesgcm = NULL;
+	CK_ULONG total, remain, out_len;
+	CK_ULONG tag_data_len;
+	CK_RV rc;
+
+	if (!sess || !ctx || !out_data_len) {
+		TRACE_ERROR("%s received bad argument(s)\n", __FUNCTION__);
+		return CKR_FUNCTION_FAILED;
+	}
+
+	/* Be aware that this part of incoming data could be the last chunk,
+	 * that means it's tag data, not encrypted plaintext.
+	 * Hence we'll keep at least tag data size in the context buffer */
+
+	context = (AES_GCM_CONTEXT *)ctx->context;
+	total = (context->len + in_data_len);
+
+	aesgcm = (CK_GCM_PARAMS *)ctx->mech.pParameter;
+	tag_data_len = (aesgcm->ulTagBits + 7) / 8; /* round to full byte */
+
+	if (length_only) {
+		if (total < AES_BLOCK_SIZE + tag_data_len) {
+			*out_data_len = 0;
+			return CKR_OK;
+		} else {
+			remain = ((total - tag_data_len) % AES_BLOCK_SIZE)
+				   + tag_data_len;
+			out_len = total - remain;
+			*out_data_len = out_len;
+			TRACE_DEVEL("Length Only requested (%02ld bytes).\n",
+				    *out_data_len);
+			return CKR_OK;
+		}
+	}
+
+	if (token_specific.t_aes_gcm_update == NULL) {
+		TRACE_ERROR("%s\n", ock_err(ERR_MECHANISM_INVALID));
+		return CKR_MECHANISM_INVALID;
+	}
+
+	rc = token_specific.t_aes_gcm_update(sess, ctx, in_data, in_data_len,
+					     out_data, out_data_len, 0 );
+	if (rc != CKR_OK)
+		TRACE_ERROR("Token specific AES GCM DecryptUpdate "
+			    "failed: %02lx\n", rc);
+	return rc;
+}
+
+CK_RV aes_gcm_decrypt_final(SESSION *sess, CK_BBOOL length_only,
+			    ENCR_DECR_CONTEXT *ctx, CK_BYTE *out_data,
+			    CK_ULONG *out_data_len)
+{
+	AES_GCM_CONTEXT	*context = NULL;
+	CK_RV rc = CKR_OK;
+
+	if (!sess || !ctx || !out_data_len) {
+		TRACE_ERROR("%s received bad argument(s)\n", __FUNCTION__);
+		return CKR_FUNCTION_FAILED;
+	}
+
+	context = (AES_GCM_CONTEXT *)ctx->context;
+
+	if (length_only) {
+		if (context->len == 0) {
+			*out_data_len = 0;
+		} else {
+			*out_data_len = context->len;
+		}
+		return CKR_OK;
+	}
+
+	if (token_specific.t_aes_gcm_final == NULL) {
+		TRACE_ERROR("%s\n", ock_err(ERR_MECHANISM_INVALID));
+		return CKR_MECHANISM_INVALID;
+	}
+
+	rc = token_specific.t_aes_gcm_final(sess, ctx, out_data, out_data_len, 0);
+	if (rc != CKR_OK)
+		TRACE_ERROR("Token specific AES GCM DecryptFinal failed: "
+			    "%02lx\n", rc);
+
+	return rc;
+}
+
 //
 // mechanisms
 //

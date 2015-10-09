@@ -115,6 +115,10 @@ token_spec_t token_specific = {
 	NULL,
 #endif
 	NULL,			// aes_ctr
+	NULL,			// aes_gcm_init,
+	NULL,			// aes_gcm
+	NULL,			// aes_gcm_update
+	NULL,			// aes_gcm_final
 	NULL,			// aes_ofb
 	NULL,			// aes_cfb
 	NULL,			// aes_mac

@@ -113,6 +113,10 @@ struct token_specific_struct token_specific = {
 	&token_specific_aes_ecb,
 	&token_specific_aes_cbc,
 	NULL,			// aes_ctr
+	NULL,			// aes_gcm_init
+	NULL,			// aes_gcm
+	NULL,			// aes_gcm_update
+	NULL,			// aes_gcm_final
 	NULL,			// aes_ofb
 	NULL,			// aes_cfb
 	NULL,			// aes_mac

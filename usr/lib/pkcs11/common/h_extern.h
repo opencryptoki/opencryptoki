@@ -1625,10 +1625,30 @@ CK_RV ckm_aes_ctr_decrypt( CK_BYTE *in_data,  CK_ULONG in_data_len,
                            CK_BYTE *counterblock,CK_ULONG counter_width,
                            OBJECT  *key );
 
-
 CK_RV ckm_aes_wrap_format( CK_BBOOL    length_only,
 			   CK_BYTE  ** data,
 			   CK_ULONG  * data_len );
+
+CK_RV aes_gcm_init(SESSION *, ENCR_DECR_CONTEXT *, CK_MECHANISM *,
+		   CK_OBJECT_HANDLE, CK_BYTE);
+
+CK_RV aes_gcm_encrypt(SESSION *, CK_BBOOL, ENCR_DECR_CONTEXT *, CK_BYTE *,
+		      CK_ULONG, CK_BYTE *, CK_ULONG *);
+
+CK_RV aes_gcm_encrypt_update(SESSION *, CK_BBOOL, ENCR_DECR_CONTEXT *,
+			     CK_BYTE *, CK_ULONG, CK_BYTE *, CK_ULONG *);
+
+CK_RV aes_gcm_encrypt_final(SESSION *, CK_BBOOL, ENCR_DECR_CONTEXT *,
+			    CK_BYTE *, CK_ULONG *);
+
+CK_RV aes_gcm_decrypt(SESSION *, CK_BBOOL, ENCR_DECR_CONTEXT *, CK_BYTE *,
+		      CK_ULONG, CK_BYTE *, CK_ULONG *);
+
+CK_RV aes_gcm_decrypt_update(SESSION *, CK_BBOOL, ENCR_DECR_CONTEXT *,
+			     CK_BYTE *, CK_ULONG, CK_BYTE *, CK_ULONG *);
+
+CK_RV aes_gcm_decrypt_final(SESSION *, CK_BBOOL, ENCR_DECR_CONTEXT *,
+			    CK_BYTE *, CK_ULONG *);
 
 CK_RV aes_ofb_encrypt( SESSION  * sess,  CK_BBOOL length_only,
                        ENCR_DECR_CONTEXT * ctx, CK_BYTE  * in_data,

@@ -810,6 +810,42 @@ decr_mgr_init( SESSION           *sess,
             memset( ctx->context, 0x0, sizeof(AES_CONTEXT) );
         }
         break;
+	case CKM_AES_GCM:
+	{
+		if (mech->ulParameterLen != sizeof(CK_GCM_PARAMS)) {
+			TRACE_ERROR("%s\n",
+				    ock_err(ERR_MECHANISM_PARAM_INVALID));
+			return CKR_MECHANISM_PARAM_INVALID;
+		}
+		rc = template_attribute_find(key_obj->template, CKA_KEY_TYPE,
+					     &attr);
+		if (rc == FALSE) {
+			TRACE_ERROR("Could not find CKA_KEY_TYPE for key.\n");
+			return CKR_FUNCTION_FAILED;
+		} else {
+			keytype = *(CK_KEY_TYPE *)attr->pValue;
+			if (keytype != CKK_AES) {
+				TRACE_ERROR("%s\n",
+					    ock_err(ERR_KEY_TYPE_INCONSISTENT));
+				return CKR_KEY_TYPE_INCONSISTENT;
+			}
+		}
+
+		ctx->context_len = sizeof(AES_GCM_CONTEXT);
+		ctx->context = (CK_BYTE *)malloc(sizeof(AES_GCM_CONTEXT));
+		if (!ctx->context) {
+			TRACE_ERROR("%s\n", ock_err(ERR_HOST_MEMORY));
+			return CKR_HOST_MEMORY;
+		}
+		memset(ctx->context, 0x0, sizeof(AES_GCM_CONTEXT));
+
+		rc = aes_gcm_init(sess, ctx, mech, key_handle, 0);
+		if (rc) {
+			TRACE_ERROR("Could not initialize AES_GCM parms.\n");
+			return CKR_FUNCTION_FAILED;
+		}
+	}
+	break;
 
       case CKM_AES_OFB:
       case CKM_AES_CFB8:
@@ -849,7 +885,8 @@ decr_mgr_init( SESSION           *sess,
          return CKR_MECHANISM_INVALID;
    }
 
-   if ((mech->mechanism == CKM_AES_CTR) || (mech->ulParameterLen > 0)){
+      if ((mech->ulParameterLen > 0) || (mech->mechanism == CKM_AES_CTR) ||
+	  (mech->mechanism == CKM_AES_GCM)) {
 	ptr = (CK_BYTE *) malloc(mech->ulParameterLen);
 	if (!ptr){
 	   TRACE_ERROR("%s\n", ock_err(ERR_HOST_MEMORY));
@@ -1049,6 +1086,10 @@ decr_mgr_decrypt( SESSION           *sess,
 				 in_data,  in_data_len,
 				 out_data, out_data_len );
 
+	case CKM_AES_GCM:
+		return aes_gcm_decrypt(sess, length_only, ctx, in_data,
+				       in_data_len, out_data, out_data_len);
+
       case CKM_AES_OFB:
          return aes_ofb_decrypt( sess,     length_only,
                                  ctx,
@@ -1209,6 +1250,11 @@ decr_mgr_decrypt_update( SESSION            *sess,
 					in_data,  in_data_len,
 					out_data, out_data_len);
 
+	case CKM_AES_GCM:
+		return aes_gcm_decrypt_update(sess, length_only, ctx, in_data,
+					      in_data_len, out_data,
+					      out_data_len);
+
      case CKM_AES_OFB:
         return aes_ofb_decrypt_update( sess,     length_only,
                                        ctx,
@@ -1363,6 +1409,11 @@ decr_mgr_decrypt_final( SESSION            *sess,
 	 return aes_ctr_decrypt_final( sess,    length_only,
 				       ctx,
 				       out_data, out_data_len);
+
+	case CKM_AES_GCM:
+		return aes_gcm_decrypt_final(sess, length_only, ctx, out_data,
+					     out_data_len);
+
 #endif
       default:
 	 TRACE_ERROR("%s\n", ock_err(ERR_MECHANISM_INVALID));
