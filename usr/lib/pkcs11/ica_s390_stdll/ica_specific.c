@@ -655,8 +655,8 @@ token_specific_tdes_ofb(CK_BYTE *in_data, CK_BYTE *out_data, CK_ULONG data_len,
     }
 
    rc = ica_3des_ofb(in_data, out_data, (unsigned int) data_len,
-                   (const unsigned char *) attr->pValue, (unsigned char *) iv,
-                   direction);
+                    (unsigned char *) attr->pValue, (unsigned char *) iv,
+                    direction);
 
    if (rc != 0) {
          TRACE_ERROR("%s\n", ock_err(ERR_FUNCTION_FAILED));
@@ -683,7 +683,7 @@ token_specific_tdes_cfb(CK_BYTE *in_data, CK_BYTE *out_data, CK_ULONG data_len,
     }
 
    rc = ica_3des_cfb(in_data, out_data, (unsigned int) data_len,
-                   (const unsigned char *) attr->pValue, (unsigned char *) iv,
+                    (unsigned char *) attr->pValue, (unsigned char *) iv,
                     cfb_len, direction);
 
    if (rc != 0) {
@@ -722,7 +722,7 @@ token_specific_tdes_mac(CK_BYTE *message, CK_ULONG message_len, OBJECT *key,
       memcpy(key_value, attr->pValue, 3*DES_KEY_SIZE);
 
    rc = ica_3des_cmac_intermediate(message, (unsigned long) message_len,
-                                          (const unsigned char *) key_value, mac);
+                                   (unsigned char *) key_value, mac);
 
    if (rc != 0) {
          TRACE_ERROR("%s\n", ock_err(ERR_FUNCTION_FAILED));
