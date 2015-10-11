@@ -1,8 +1,4 @@
 
-if ENABLE_PKCSCCA_MIGRATE
-PKCSCCA_MIGRATE_DIR = pkcscca_migrate
-endif
-
 if ENABLE_ICSFTOK
 PKCSICSF_DIR = pkcsicsf
 endif
@@ -15,4 +11,4 @@ if ENABLE_CCATOK
 PKCSCCA_DIR = pkcscca
 endif
 
-SUBDIRS = pkcsslotd pkcsconf $(PKCSICSF_DIR) $(PKCSCCA_MIGRATE_DIR) $(PKCSEP11_MIGRATE_DIR) $(PKCSCCA_DIR)
+SUBDIRS = pkcsslotd pkcsconf $(PKCSICSF_DIR) $(PKCSEP11_MIGRATE_DIR) $(PKCSCCA_DIR)

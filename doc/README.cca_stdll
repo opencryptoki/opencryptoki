@@ -171,3 +171,49 @@ TroubleShooting:
 reboot or remove the shared memory file. This will cause token to create
 shared memory again and load the newly migrated private token objects
 into shared memory.
+
+Key Migration Information
+-------------------------
+
+There may be situations when CCA master keys must be changed. All CCA secret
+and private keys are enciphered (wrapped) with a master key (MK). After a CCA
+master key is changed, the keys wrapped with an old master key need to be
+re-enciphered with the new master key. Only openCryptoki keys with attribute
+CKA_EXTRACTABLE=TRUE can be migrated.
+
+Key Migration Steps
+-------------------
+
+The key migration tool pkcscca can be used to perform the migration of the
+old CCA master key to the new master key. After a new master key is loaded
+and set, perform the following steps:
+
+1. Stop all processes that are currently using OpenCryptoki with the
+CCA token.
+
+2. Make sure pkcsslotd is running.
+
+3. Back up the token object repository of the CCA token. For example, you can
+use the following commands:
+
+	cd /var/lib/opencryptoki/cca/
+	tar -cvzf ~/cca/TOK_OBJ_backup.tgz TOK_OBJ
+
+4. Migrate the keys of the CCA token object repository with the pkcscca
+migration tool.
+
+	pkcscca -m keys -s <slotid> -k <aes|apka|asym|sym>
+
+The following parameters are mandatory:
+
+-s
+	- slot number for the CCA token
+-k
+	- master key type to be migrated: aes, apka, asym, or sym
+
+All the specified token objects representing extractable keys that are
+found for the CCA token, are re-encrypted and ready for use. Keys with an
+attribute CKA_EXTRACTABLE=FALSE are not migratable.The keys that failed to
+migrate are displayed to the user.
+
+5. Re-start the previously stopped openCryptoki processes.

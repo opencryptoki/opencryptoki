@@ -3,36 +3,55 @@
 pkcscca \- configuration utility for the CCA token
 
 .SH SYNOPSIS
+.SS "VERSION MIGRATION"
 \fBpkcscca\fP
-[\fB-h\fP]
 [\fB-m v2objectsv3\fP]
 [\fIOPTIONS\fP]
 
+.SS "KEY MIGRATION"
+\fBpkcscca\fP
+[\fB-m keys\fP]
+[\fB-s SLOTID\fP]
+[\fB-k aes|apka|asym|sym\fP]
+[\fIOPTIONS\fP]
+
 .SH DESCRIPTION
-The \fBpkcscca\fP utility assists in administering the CCA token. Currently it
-migrates opencryptoki version 2 private token objects to the encryption
-method used in opencryptoki version 3.
+The \fBpkcscca\fP utility assists in administering the CCA token.
 
 In verion 2 of opencryptoki, CCA private token objects were encrypted in CCA
 hardware. In version 3 these objects are encrypted in software. The
-\fBv2objectsv3\fP migration option migrates these version 2 objects by
+\fBv2objectsv3\fP migration option migrates these v2 objects by
 decrypting them in CCA hardware using a secure key and then re-encrypting
 them in software using a software key. Afterwards, v2 objects can be accessed
 in version 3.
 
-.SH "FLAGS"
-.IP "\fB-h\fP" 10
-show usage information
-.IP "\fB-m\fP" 10
-perform a migration. \fBv2objectsv3\fP is currently the only type of migration
-supported and must be specified along with this flag.
+There may be situations where CCA master keys must be changed. All CCA secret
+and private keys are wrapped with a master key. After a CCA master key is
+changed, keys wrapped with the old master key need to be re-wrapped with the
+current master key. The \fBkeys\fP migration option migrates these wrapped keys
+by unwrapping them with the old master key and wrapping them with the current
+master key.
 
-.SH "MIGRATION OPTIONS"
+.SH "GENERAL OPTIONS"
 .IP "\fB-d|--datastore\fP \fIdirectory\fp" 10
 the directory where the CCA token information is kept. This directory will be
 used to locate the private token objects to be migrated. i.e. /var/lib/opencryptoki/ccatok
-.IP "\fB-v|--verbose\fP" 10
-provide detailed output during migration
+.IP "\fB-v|--verbose\fP" 5
+Provide more detailed output
+
+.SH "VERSION MIGRATION"
+.IP "\fB-m v2objectsv3\fP" 5
+Migrates CCA private token objects from CCA encryption (used in v2) to software
+encryption (used in v3).
+
+.SH "KEY MIGRATION"
+.IP "\fB-m keys\fP" 5
+Unwraps private keys with an old CCA master key and wraps them with a new CCA
+master key.
+.IP "\fB-k aes|apka|asym|sym\fP" 5
+Migrate keys wrapped with the selected master key type.
+.IP "\fB-s|--slotid\fP \fISLOTID\fP" 5
+The PKCS slot number.
 
 .SH "FILES"
 .IP "/var/lib/opencryptoki/ccatok/TOK_OBJ/OBJ.IDX"

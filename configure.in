@@ -115,12 +115,6 @@ AC_ARG_ENABLE([icsftok],
 	[enable_icsftok=check])
 
 dnl --- token-specific stuff
-dnl --- pkcscca_migrate
-AC_ARG_ENABLE([pkcscca_migrate],
-	AS_HELP_STRING([--enable-pkcscca_migrate],[build pkcscca_migrate (CCA token key migration tool) @<:@default=enabled if CCA library is present@:>@]),
-	[],
-	[enable_pkcscca_migrate=check])
-
 dnl --- pkcsep11_migrate
 AC_ARG_ENABLE([pkcsep11_migrate],
 	AS_HELP_STRING([--enable-pkcsep11_migrate],[build pkcsep11_migrate (EP11 token key migration tool) @<:@default=enabled if EP11 library is present@:>@]),
@@ -544,19 +538,6 @@ fi
 AM_CONDITIONAL([ENABLE_TPMTOK], [test "x$enable_tpmtok" = "xyes"])
 
 
-dnl --- enable_pkcscca_migrate
-if test "x$enable_pkcscca_migrate" = "xyes"; then
-	if test "x$with_xcryptolinz" != "xyes"; then
-		AC_MSG_ERROR([pkcscca_migrate build requested but no xcryptolinz libraries found])
-		enable_pkcscca_migrate=no
-	fi
-fi
-if test "x$enable_pkcscca_migrate" = "xno" -a "x$with_xcryptolinz" != "xno"; then
-	enable_pkcscca_migrate=yes
-else
-	enable_pkcscca_migrate=no
-fi
-
 dnl --- enable_pkcsep11_migrate
 if test "x$enable_pkcsep11_migrate" = "xyes"; then
 	if test "x$with_zcrypt" != "xyes"; then
@@ -571,7 +552,6 @@ else
         enable_pkcsep11_migrate=no
 fi
 
-AM_CONDITIONAL([ENABLE_PKCSCCA_MIGRATE], [test "x$enable_pkcscca_migrate" = "xyes"])
 AM_CONDITIONAL([ENABLE_PKCSEP11_MIGRATE], [test "x$enable_pkcsep11_migrate" = "xyes"])
 
 CFLAGS="$CFLAGS -DPKCS64 -D_XOPEN_SOURCE=500 -Wall -Wno-pointer-sign"
@@ -594,7 +574,6 @@ AC_CONFIG_FILES([Makefile usr/Makefile \
           usr/sbin/pkcsconf/Makefile \
           usr/sbin/pkcsicsf/Makefile \
           usr/sbin/pkcscca/Makefile \
-          usr/sbin/pkcscca_migrate/Makefile \
           usr/sbin/pkcsep11_migrate/Makefile \
           usr/lib/pkcs11/soft_stdll/Makefile \
           usr/lib/pkcs11/ep11_stdll/Makefile \
@@ -638,7 +617,6 @@ echo "	TPM token:		$enable_tpmtok"
 echo "	ICSF token:		$enable_icsftok"
 echo
 echo "Token-specific features:"
-echo "	pkcsccamigrate build:	$enable_pkcscca_migrate"
 echo "	pkcsep11migrate build:	$enable_pkcsep11_migrate"
 echo
 echo "CFLAGS=$CFLAGS"
