@@ -2715,6 +2715,49 @@ CK_RV ep11tok_generate_key_pair(SESSION * sess, CK_MECHANISM_PTR pMechanism,
 			   private_key_obj->name, public_key_obj, private_key_obj);
 	}
 
+	/* Copy CKA_MODULUS and CKA_PUBLIC_EXPONENT attributes from
+	 * public key object to private key object to fulfill PKCS#11
+	 * private key template requirements
+	 */
+
+	if (template_attribute_find(public_key_obj->template, CKA_MODULUS,
+				    &attr)) {
+		rc = build_attribute(attr->type, attr->pValue, attr->ulValueLen,
+				     &n_attr);
+		if (rc != CKR_OK) {
+			TRACE_ERROR("%s build_attribute failed with rc=0x%lx\n",
+				    __func__, rc);
+			goto error;
+		}
+
+		rc = template_update_attribute(private_key_obj->template,
+					       n_attr);
+		if (rc != CKR_OK) {
+			TRACE_ERROR("%s template_update_attribute failed with "
+				    "rc=0x%lx\n", __func__, rc);
+			goto error;
+		}
+	}
+
+	if (template_attribute_find(public_key_obj->template,
+				    CKA_PUBLIC_EXPONENT, &attr)) {
+		rc = build_attribute(attr->type, attr->pValue, attr->ulValueLen,
+				     &n_attr);
+		if (rc != CKR_OK) {
+			TRACE_ERROR("%s build_attribute failed with rc=0x%lx\n",
+				    __func__, rc);
+			goto error;
+		}
+
+		rc = template_update_attribute(private_key_obj->template,
+					       n_attr);
+		if (rc != CKR_OK) {
+			TRACE_ERROR("%s template_update_attribute failed with "
+				     "rc=0x%lx\n", __func__, rc);
+			goto error;
+		}
+	}
+
 	/* Keys should be fully constructed,
 	 * assign object handles and store keys.
 	 */
