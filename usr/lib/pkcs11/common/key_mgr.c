@@ -1060,6 +1060,7 @@ key_mgr_wrap_key( SESSION           * sess,
    rc = encr_mgr_init( sess, ctx, OP_WRAP, mech, h_wrapping_key );
    if (rc != CKR_OK){
       TRACE_DEVEL("encr_mgr_init failed.\n");
+      free( ctx );
       return rc;
    }
    // do the encryption and clean up.  at this point, 'value' may or may not

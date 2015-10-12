@@ -785,6 +785,7 @@ dp_x9dh_set_default_attributes( TEMPLATE *tmpl, CK_ULONG mode )
    template_update_attribute( tmpl, subprime_attr );
    template_update_attribute( tmpl, base_attr );
    template_update_attribute( tmpl, primebits_attr );
+   template_update_attribute( tmpl, subprimebits_attr );
    template_update_attribute( tmpl, type_attr );
 
    return CKR_OK;

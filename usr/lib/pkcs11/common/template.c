@@ -982,6 +982,7 @@ template_unflatten_withSize( TEMPLATE ** new_tmpl,
    ptr = buf;
    for (i=0; i < count; i++) {
    if (buf_size >= 0 && ((ptr + sizeof(CK_ATTRIBUTE)) > (buf + buf_size))) {
+       template_free( tmpl );
        return CKR_FUNCTION_FAILED;
    }
 
@@ -998,6 +999,8 @@ template_unflatten_withSize( TEMPLATE ** new_tmpl,
 
       //if a buffer size is given, make sure it doesn't get overrun
       if (buf_size >= 0 && (((void*)a1_64 + len) > ((void*)buf + buf_size))) {
+          free( a2 );
+          template_free( tmpl );
           return CKR_FUNCTION_FAILED;
       }
       memcpy( a2, a1_64, len );
@@ -1019,6 +1022,7 @@ template_unflatten_withSize( TEMPLATE ** new_tmpl,
 
          a2 = (CK_ATTRIBUTE *)malloc(len);
          if (!a2){
+            template_free( tmpl );
             TRACE_ERROR("%s\n", ock_err(ERR_HOST_MEMORY));
             return CKR_HOST_MEMORY;
          }
@@ -1062,6 +1066,8 @@ template_unflatten_withSize( TEMPLATE ** new_tmpl,
 		    pb += sizeof(CK_ATTRIBUTE_32);
             //if a buffer size is given, make sure it doesn't get overrun
             if (buf_size >= 0 && (pb + a1->ulValueLen) > (buf + buf_size)) {
+                free( a2 );
+                template_free( tmpl );
                 return CKR_FUNCTION_FAILED;
             }
             memcpy( pb2, pb, a1->ulValueLen );

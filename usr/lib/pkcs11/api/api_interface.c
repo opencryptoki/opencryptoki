@@ -3296,6 +3296,7 @@ C_OpenSession(CK_SLOT_ID slotID,
 		}
 	} else {
 		TRACE_ERROR("%s\n", ock_err(ERR_FUNCTION_NOT_SUPPORTED));
+		free(apiSessp);
 		rv = CKR_FUNCTION_NOT_SUPPORTED;
 	}
 done:

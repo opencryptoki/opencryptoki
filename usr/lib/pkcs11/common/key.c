@@ -3014,6 +3014,7 @@ kea_priv_set_default_attributes( TEMPLATE *tmpl, CK_ULONG mode )
    value_attr      = (CK_ATTRIBUTE *)malloc( sizeof(CK_ATTRIBUTE) );
 
    if (!type_attr || !prime_attr || !base_attr || !value_attr || !subprime_attr) {
+      if (type_attr)    free( type_attr );
       if (prime_attr)    free( prime_attr );
       if (subprime_attr) free( subprime_attr );
       if (base_attr)     free( base_attr );
