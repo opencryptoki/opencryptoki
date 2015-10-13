@@ -239,6 +239,8 @@ main(int argc, char **argv)
 	rc = do_DestroyObjects();
 	testcase_print_result();
 
+	funcs->C_Finalize(NULL);
+
 	/* make sure we return non-zero if rv is non-zero */
 	return ((rv == 0) || (rv % 256) ? rv : -1);
 }

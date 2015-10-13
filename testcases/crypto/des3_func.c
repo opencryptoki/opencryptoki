@@ -1229,6 +1229,9 @@ int main  (int argc, char **argv){
 	testcase_setup(0); //TODO
 	rc = des3_funcs();
 	testcase_print_result();
+
+	funcs->C_Finalize(NULL);
+
 	return rc;
 }
 
