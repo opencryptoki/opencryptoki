@@ -46,7 +46,7 @@ testcases/pkcs11/findobjects
 testcases/pkcs11/destroyobjects
 testcases/pkcs11/copyobjects
 testcases/pkcs11/generate_keypair
-testcases/pkcs11/misc_tests
+testcases/pkcs11/gen_purpose
 testcases/login/digest_init
 testcases/login/init_pin
 testcases/login/init_tok
