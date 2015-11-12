@@ -253,7 +253,7 @@ testcase_cleanup:
 }
 
 /** Tests signature verification with published test vectors. **/
-CK_RV do_Sign_FIPS_HMAC_GENERAL (struct FIPS_HMAC_TEST_SUITE_INFO *tsuite)
+CK_RV do_Sign_FIPS_HMAC_GENERAL (struct HMAC_TEST_SUITE_INFO *tsuite)
 {
 	int i;
 	CK_MECHANISM mech;
@@ -372,7 +372,7 @@ testcase_cleanup:
 }
 
 /** Tests signature verification with published test vectors. **/
-CK_RV do_Verify_FIPS_HMAC_GENERAL (struct FIPS_HMAC_TEST_SUITE_INFO *tsuite)
+CK_RV do_Verify_FIPS_HMAC_GENERAL (struct HMAC_TEST_SUITE_INFO *tsuite)
 {
 	int i;
 	CK_MECHANISM mech;
@@ -477,7 +477,7 @@ testcase_cleanup:
 
 
 /** Tests signature generation with published test vectors. **/
-CK_RV do_Sign_FIPS_HMAC(struct FIPS_HMAC_TEST_SUITE_INFO *tsuite)
+CK_RV do_Sign_FIPS_HMAC(struct HMAC_TEST_SUITE_INFO *tsuite)
 {
 	int i;
 	CK_MECHANISM mech;
@@ -624,7 +624,7 @@ testcase_cleanup:
 
 
 /** Tests signature generation with published test vectors. **/
-CK_RV do_Verify_FIPS_HMAC(struct FIPS_HMAC_TEST_SUITE_INFO *tsuite)
+CK_RV do_Verify_FIPS_HMAC(struct HMAC_TEST_SUITE_INFO *tsuite)
 {
 	int i;
 	CK_MECHANISM mech;
@@ -760,7 +760,7 @@ testcase_cleanup:
 
 
 /** Tests signature generation with published test vectors. **/
-CK_RV do_SignUpdate_FIPS_HMAC(struct FIPS_HMAC_TEST_SUITE_INFO *tsuite)
+CK_RV do_SignUpdate_FIPS_HMAC(struct HMAC_TEST_SUITE_INFO *tsuite)
 {
 	int i;
 	CK_MECHANISM  mech;
@@ -944,7 +944,7 @@ testcase_cleanup:
 }
 
 /** Tests signature verification with published test vectors. **/
-CK_RV do_VerifyUpdate_FIPS_HMAC(struct FIPS_HMAC_TEST_SUITE_INFO *tsuite)
+CK_RV do_VerifyUpdate_FIPS_HMAC(struct HMAC_TEST_SUITE_INFO *tsuite)
 {
 	int i;
 	CK_MECHANISM  mech;
@@ -1583,7 +1583,15 @@ CK_RV digest_funcs() {
 		}
 	}
 
-	/** HMAC tests **/
+
+	/**  RFC HMAC tests **/
+	for(i = 0; i < NUM_OF_HMAC_TEST_SUITES; i++){
+		rc = do_SignVerify_HMAC(&hmac_test_suites[i]);
+		if (rc && !no_stop)
+			return rc;
+	}
+
+	/** FIPS HMAC tests **/
 	for (i = 0; i < NUM_OF_FIPS_HMAC_TEST_SUITES; i++) {
 		rc = do_Sign_FIPS_HMAC(&fips_hmac_test_suites[i]);
 		if (rc && !no_stop)
@@ -1603,7 +1611,7 @@ CK_RV digest_funcs() {
 	}
 
 	/** HMAC Multipart tests **/
-	/* Only icsf token supports multipart hmac right now. */
+	/* ica and tpm tokens do not yet support multipart hmac right now. */
 	if (!(is_ica_token(SLOT_ID)) && !(is_tpm_token(SLOT_ID))) {
 		for(i = 0; i < NUM_OF_FIPS_HMAC_TEST_SUITES; i++){
 			rc = do_SignUpdate_FIPS_HMAC(&fips_hmac_test_suites[i]);
