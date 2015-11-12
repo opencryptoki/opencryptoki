@@ -1256,29 +1256,13 @@ done:
 CK_RV SC_GetObjectSize(ST_SESSION_HANDLE *sSession, CK_OBJECT_HANDLE hObject,
 		       CK_ULONG_PTR pulSize)
 {
-	SESSION *sess = NULL;
-	CK_RV rc = CKR_OK;
-
 	if (initialized == FALSE) {
 		TRACE_ERROR("%s\n", ock_err(ERR_CRYPTOKI_NOT_INITIALIZED));
-		rc = CKR_CRYPTOKI_NOT_INITIALIZED;
-		goto done;
+		return CKR_CRYPTOKI_NOT_INITIALIZED;
 	}
 
-	sess = session_mgr_find(sSession->sessionh);
-	if (!sess) {
-		TRACE_ERROR("%s\n", ock_err(ERR_SESSION_HANDLE_INVALID));
-		rc = CKR_SESSION_HANDLE_INVALID;
-		goto done;
-	}
-
-	rc = object_mgr_get_object_size(hObject, pulSize);
-	if (rc != CKR_OK)
-		TRACE_ERROR("object_mgr_get_object_size() failed.\n");
-
-done:
-	TRACE_INFO("C_GetObjectSize:rc = 0x%08lx, handle = %lu\n", rc, hObject);
-	return rc;
+	TRACE_ERROR("%s\n", ock_err(ERR_FUNCTION_NOT_SUPPORTED));
+	return CKR_FUNCTION_NOT_SUPPORTED;
 }
 
 
