@@ -627,6 +627,33 @@ sign_mgr_init( SESSION                * sess,
       case CKM_MD2_HMAC:
 #endif
       case CKM_MD5_HMAC:
+	{
+	    if (mech->ulParameterLen != 0){
+               TRACE_ERROR("%s\n", ock_err(ERR_MECHANISM_PARAM_INVALID));
+	       return CKR_MECHANISM_PARAM_INVALID;
+	    }
+	    rc = template_attribute_find( key_obj->template, CKA_KEY_TYPE, &attr );
+	    if (rc == FALSE){
+	       TRACE_ERROR("Could not find CKA_KEY_TYPE for the key.\n");
+		return CKR_FUNCTION_FAILED;
+	    } else {
+		keytype = *(CK_KEY_TYPE *)attr->pValue;
+		if (keytype != CKK_GENERIC_SECRET){
+                   TRACE_ERROR("%s\n", ock_err(ERR_KEY_TYPE_INCONSISTENT));
+		   return CKR_KEY_TYPE_INCONSISTENT;
+		}
+	    }
+
+            /* Note: It was previously believed that pkcs#11 did not
+	     * support hmac multipart. As a result, those tokens using the
+	     * locally implemented hmac helper functions do not support
+	     * multipart hmac.
+	     */
+	    ctx->context_len = 0;
+	    ctx->context     = NULL;
+	  }
+	  break;
+
       case CKM_SHA_1_HMAC:
       case CKM_SHA256_HMAC:
       case CKM_SHA384_HMAC:
@@ -666,10 +693,6 @@ sign_mgr_init( SESSION                * sess,
       case CKM_MD2_HMAC_GENERAL:
 #endif
       case CKM_MD5_HMAC_GENERAL:
-      case CKM_SHA_1_HMAC_GENERAL:
-      case CKM_SHA256_HMAC_GENERAL:
-      case CKM_SHA384_HMAC_GENERAL:
-      case CKM_SHA512_HMAC_GENERAL:
          {
             CK_MAC_GENERAL_PARAMS *param = (CK_MAC_GENERAL_PARAMS *)mech->pParameter;
 
@@ -689,6 +712,38 @@ sign_mgr_init( SESSION                * sess,
                TRACE_ERROR("%s\n", ock_err(ERR_MECHANISM_PARAM_INVALID));
                return CKR_MECHANISM_PARAM_INVALID;
             }
+            rc = template_attribute_find( key_obj->template, CKA_KEY_TYPE, &attr );
+            if (rc == FALSE){
+	       TRACE_ERROR("Could not find CKA_KEY_TYPE for the key.\n");
+               return CKR_FUNCTION_FAILED;
+            }
+            else {
+               keytype = *(CK_KEY_TYPE *)attr->pValue;
+               if (keytype != CKK_GENERIC_SECRET){
+		  TRACE_ERROR("A generic secret key is required.\n");
+		  return CKR_KEY_FUNCTION_NOT_PERMITTED;
+               }
+            }
+
+            // PKCS #11 doesn't allow multi-part HMAC operations
+            //
+            ctx->context_len = 0;
+            ctx->context     = NULL;
+	 }
+	 break;
+
+      case CKM_SHA_1_HMAC_GENERAL:
+      case CKM_SHA256_HMAC_GENERAL:
+      case CKM_SHA384_HMAC_GENERAL:
+      case CKM_SHA512_HMAC_GENERAL:
+         {
+            CK_MAC_GENERAL_PARAMS *param = (CK_MAC_GENERAL_PARAMS *)mech->pParameter;
+
+            if (mech->ulParameterLen != sizeof(CK_MAC_GENERAL_PARAMS)){
+               TRACE_ERROR("%s\n", ock_err(ERR_MECHANISM_PARAM_INVALID));
+               return CKR_MECHANISM_PARAM_INVALID;
+            }
+
             if ((mech->mechanism == CKM_SHA_1_HMAC_GENERAL) && (*param > 20)){
                TRACE_ERROR("%s\n", ock_err(ERR_MECHANISM_PARAM_INVALID));
                return CKR_MECHANISM_PARAM_INVALID;
@@ -718,8 +773,11 @@ sign_mgr_init( SESSION                * sess,
                }
             }
 
-            // PKCS #11 doesn't allow multi-part HMAC operations
-            //
+            /* Note: It was previously believed that pkcs#11 did not
+	     * support hmac multipart. As a result, those tokens using the
+	     * locally implemented hmac helper functions do not support
+	     * multipart hmac.
+	     */
             ctx->context_len = 0;
             ctx->context     = NULL;
 
