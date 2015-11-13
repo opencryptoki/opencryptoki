@@ -13,7 +13,7 @@ CK_RV do_TestAttributes(void)
 
 	CK_OBJECT_HANDLE	obj_handle;
 	CK_SESSION_HANDLE	session;
-	CK_RV			rc = 0;
+	CK_RV			rc = 0, rv = 0;
 	CK_FLAGS		flags;
 	CK_BYTE			user_pin[PKCS11_MAX_PIN_LEN];
 	CK_ULONG		user_pin_len;
@@ -83,20 +83,25 @@ CK_RV do_TestAttributes(void)
 	}
 
 	/* Now add new attributes */
+	testcase_new_assertion();
 	rc = funcs->C_SetAttributeValue(session, obj_handle, new_attrs, 2);
 	if (rc != CKR_OK) {
 		testcase_fail("C_SetAttributeValue() rc = %s", p11_get_ckr(rc));
 		goto testcase_cleanup;
-	}
+	} else
+		testcase_pass("Successfully added new attributes.");
 
 	/* Now update an existing attribute */
+	testcase_new_assertion();
 	rc = funcs->C_SetAttributeValue(session, obj_handle, update_label, 1);
 	if (rc != CKR_OK) {
 		testcase_fail("C_SetAttributeValue() rc = %s", p11_get_ckr(rc));
 		goto testcase_cleanup;
-	}
+	} else
+		testcase_pass("Successfully updated existing attribute.");
 
 	/* Now get the attributes that were updated */
+	testcase_new_assertion();
 	rc = funcs->C_GetAttributeValue(session, obj_handle, verify_attrs, 3);
 	if (rc != CKR_OK) {
 		testcase_fail("C_GetAttributeValue() rc = %s", p11_get_ckr(rc));
@@ -104,28 +109,32 @@ CK_RV do_TestAttributes(void)
 	}
 
 	/* verify the attribute values retrieved */
-	if (*(CK_BBOOL *)verify_attrs[0].pValue != false)
+	if (*(CK_BBOOL *)verify_attrs[0].pValue != false) {
 		testcase_fail("CKA_ENCRYPT mismatch");
+		goto testcase_cleanup;
+	}
 
-	if (*(CK_BBOOL *)verify_attrs[1].pValue != false)
+	if (*(CK_BBOOL *)verify_attrs[1].pValue != false) {
 		testcase_fail("CKA_WRAP mismatch");
+		goto testcase_cleanup;
+	}
 
 	if (memcmp(verify_attrs[2].pValue, newlabel, verify_attrs[2].ulValueLen) != 0)
 		testcase_fail("CKA_LABEL mismatch");
+	else
+		testcase_pass("Successfully verified updated attributes.");
 
 testcase_cleanup:
 
-	rc = funcs->C_DestroyObject(session, obj_handle);
-	if (rc != CKR_OK) {
-		testcase_error("C_DestroyObject rc=%s", p11_get_ckr(rc));
-	}
-
+	rv = funcs->C_DestroyObject(session, obj_handle);
+	if (rv != CKR_OK)
+		testcase_error("C_DestroyObject rv=%s", p11_get_ckr(rv));
 
 	testcase_user_logout();
-	rc = funcs->C_CloseSession(session);
-	if (rc != CKR_OK) {
-		testcase_error("C_CloseSessions rc=%s", p11_get_ckr(rc));
-	}
+	rv = funcs->C_CloseSession(session);
+	if (rv != CKR_OK)
+		testcase_error("C_CloseSessions rv=%s", p11_get_ckr(rv));
+
 	return rc;
 }
 
@@ -164,6 +173,7 @@ int main  (int argc, char **argv) {
 			return rc;
 	}
 
+	testcase_setup(0);
 	rc = do_TestAttributes();
 	testcase_print_result();
 
