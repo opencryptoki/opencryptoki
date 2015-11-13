@@ -1,21 +1,13 @@
 PKCS11 Testcases
 
+generate_keypair
+	Note: Currently does not work on secure key tokens, cca and ep11.
+
 hw_fn
-	TODO - Needs to be tested.
+	TODO - Not tested; Needs to be refactored and tested.
 
 misc_tests
-	TODO - Needs to be tested.
+	TODO - Not tested; Needs to be refactored and tested.
 
 sess_mgmt_tests
-	TODO - Needs to be tested.
-
-sess_bench
-	TODO - Needs to be tested.
-
-attributes
-        Tested.
-        TODO - add more attribute testcases.
-
-findobjects
-	Tested.
-	TODO - add more testcases.
+	TODO - Not tested;  Needs to be refactored and tested.

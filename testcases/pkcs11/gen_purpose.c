@@ -651,9 +651,12 @@ CK_RV api_driver(void)
         if(rc && !no_stop)
                 return rc;
 
-	rc = do_InitToken();
-        if(rc && !no_stop)
-                return rc;
+	/* do not run on icsf token */
+	if (!is_icsf_token(SLOT_ID)) {
+		rc = do_InitToken();
+		if(rc && !no_stop)
+			return rc;
+	}
 
 	rc = do_InitPIN();
         if(rc && !no_stop)
