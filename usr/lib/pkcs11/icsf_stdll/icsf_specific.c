@@ -991,12 +991,6 @@ static CK_RV close_session(struct session_state *session_state)
 	unsigned long i;
 	int reason = 0;
 
-	/* check ldap handle */
-	if (session_state->ld == NULL) {
-		TRACE_ERROR("No LDAP handle.\n");
-		return CKR_FUNCTION_FAILED;
-	}
-
 	if (pthread_rwlock_wrlock(&obj_list_rw_mutex)) {
 		TRACE_ERROR("Failed to lock mutex.\n");
 		return CKR_FUNCTION_FAILED;
