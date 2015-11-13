@@ -97,7 +97,7 @@ int encrypt_DATA(CK_SESSION_HANDLE hsess, CK_OBJECT_HANDLE hkey,
 		 CK_ULONG blocklen)
 {
 	CK_RV rc;
-	CK_ULONG outlen = 8;
+	CK_ULONG outlen = 16;
 	unsigned long int i;
 
 	for (i = 0; i < DATALEN; i+=outlen) {

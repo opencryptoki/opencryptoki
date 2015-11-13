@@ -115,11 +115,11 @@ CK_RV do_TestAttributes(void)
 
 testcase_cleanup:
 
-/*	rc = funcs->C_DestroyObject(session, obj_handle);
+	rc = funcs->C_DestroyObject(session, obj_handle);
 	if (rc != CKR_OK) {
 		testcase_error("C_DestroyObject rc=%s", p11_get_ckr(rc));
 	}
-*/
+
 
 	testcase_user_logout();
 	rc = funcs->C_CloseSession(session);
