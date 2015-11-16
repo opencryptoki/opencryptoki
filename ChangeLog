@@ -1,6 +1,29 @@
+* opencryptoki 3.4
+- CCA master key migration added to the pkcscca tool. When the masterkey on
+  the CCA adapter changes, this allows the token key objects containing
+  keys wrapped with the card's former masterkey to be wrapped under the
+  card's new masterkey. And thus "migrated".
+- AES GCM support added to ica token.
+- Ability to generate generic secret keys for CKM_GENERIC_SECRET_KEY_GEN
+  added to opencryptoki.
+- The soft, cca, ep11, and icsf tokens support HMAC single and multipart for
+  SHA1, SHA256, SHA384, and SHA512.
+- CCA token, a secure key token, can now import AES, DES3 and
+  Genric Secret keys.
+- Add -Wall and fix various compiler warnings.
+- Coverity scan cleanup.
+- Additional test vectors and various testcase improvements made.
+- Various bugfixes
+
 * opencryptoki 3.3
 - Dynamic tracing introduced via the new environment variable, 
-  OPENCRYPTOKI_TRACE_LEVEL=<level>. 
+  OPENCRYPTOKI_TRACE_LEVEL=<level>. The opencryptoki base as well as all
+  tokens changed to use the new tracing.
+- Allow root to run pkcs11 commands without being in pkcs11 group.
+- EncryptUpdate, DecryptUpdate, DigestUpdate, SignUpdate, VerifyUpdate
+  now allow zero length data.
+- Refactored ICA token's SHA .
+- Various testcase improvements.
 - Various bugfixes.
 
 * opencryptoki 3.2

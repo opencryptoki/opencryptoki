@@ -7,7 +7,7 @@ OVERVIEW
 
 openCryptoki version 3.1 implements the PKCS#11 specification version 2.11.
 This package includes several cryptographic tokens;
- CCA, ICA, TPM , SWToken, and ICSF.
+ CCA, ICA, TPM , SWToken, ICSF, and EP11.
 
 REQUIREMENTS:
 

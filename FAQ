@@ -39,10 +39,11 @@
 
  4. Q. How can I get the complete debug logs from openCryptoki?
 
-    A. In opencryptoki version 3.3, tracing was introduced. Trace
-       messages are enabled via the environment variable, 
-       OPENCRYPTOKI_TRACE_LEVEL=<level>. Set this environment variable to 
-       one of several trace levels available:
+    A. In opencryptoki version 3.3, tracing was introduced. There is no
+       longer a need to compile opencryptoki with debug enabled via
+       "configure --enable-debug" to debug problems. Trace messages are
+       enabled via the environment variable, OPENCRYPTOKI_TRACE_LEVEL=<level>.
+       Set this environment variable to one of several trace levels available:
 	1 - log error messages
 	2 - log warning messages
 	3 - log informational messages
@@ -55,6 +56,16 @@
 	Note: Trace messages increase as the trace level increases.
 	In other words, trace level 4 includes all the messages from 
 	trace levels 1, 2 and 3. 
+
+	An additional level 5 is included for those implementing new
+	features into opencryptoki source code. This level 5 allows for more
+	debug output. Level 5 is enabled when compiling opencryptoki
+	source code using "configure --enable-debug" and exporting
+	OPENCRYPTOKI_TRACE_LEVEL=5.
+
+       All trace output is logged into trace.<pid> file in the
+       /var/log/opencryptoki directory. A trace file is created per
+       process.
 
        Prior to opencryptoki version 3.3, opencryptoki had to be compiled
        with debugging enabled, i.e configure --enable-debug. Debug messages
