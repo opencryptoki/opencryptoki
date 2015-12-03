@@ -402,7 +402,11 @@ static ep11_target_t ep11_targets;
 #ifdef EP11_STANDALONE
 static uint64_t ep11tok_target = 0x0000000100000008ull;
 #else
+#ifdef __s390x__
 static uint64_t ep11tok_target = (uint64_t) &ep11_targets;
+#else
+#define ep11tok_target (uint64_t)(long)(&ep11_targets)
+#endif
 #endif
 
 /* */
