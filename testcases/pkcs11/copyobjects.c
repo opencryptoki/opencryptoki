@@ -102,23 +102,29 @@ CK_RV do_CopyObjects(void)
 	}
 
 	// Step thru template to see if new object matches original...
-	if ((memcmp
-	     (test_tmpl[0].pValue, aes_tmpl[0].pValue,
-	      aes_tmpl[0].ulValueLen) == 0)
-	    &&
-	    (memcmp
-	     (test_tmpl[1].pValue, aes_tmpl[1].pValue,
-	      aes_tmpl[1].ulValueLen) == 0)
-	    &&
-	    (memcmp
-	     (test_tmpl[2].pValue, aes_tmpl[2].pValue,
-	      aes_tmpl[2].ulValueLen) == 0)
-	    &&
-	    (memcmp
-	     (test_tmpl[3].pValue, aes_tmpl[3].pValue,
-	      aes_tmpl[3].ulValueLen) == 0))
-		testcase_pass("Copied object's attributes are the same.");
-	else
+	if ((memcmp(test_tmpl[0].pValue, aes_tmpl[0].pValue,
+	     aes_tmpl[0].ulValueLen) == 0) &&
+	    (memcmp(test_tmpl[1].pValue, aes_tmpl[1].pValue,
+	     aes_tmpl[1].ulValueLen) == 0) &&
+	    (memcmp(test_tmpl[3].pValue, aes_tmpl[3].pValue,
+	     aes_tmpl[3].ulValueLen) == 0))  {
+
+		/* CKA_VALUE is suppose to be zeroed out for
+		 * secure key tokens after importing the key.
+		 */
+		if ((is_cca_token(SLOT_ID)) || (is_ep11_token(SLOT_ID))) {
+			if (*(CK_BYTE *)test_tmpl[2].pValue == 0)
+				testcase_pass("Copied object's attributes are correct");
+			else
+				 testcase_fail("Copied object's attributes are incorrect.");
+		} else {
+			if (memcmp(test_tmpl[2].pValue, aes_tmpl[2].pValue,
+				aes_tmpl[2].ulValueLen) == 0)
+				testcase_pass("Copied object's attributes are the same.");
+			else
+				testcase_fail("Copied object's attributes are different.");
+		}
+	} else
 		testcase_fail("Copied object's attributes are different.");
 
 
