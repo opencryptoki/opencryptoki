@@ -1,3 +1,8 @@
+* opencryptoki 3.4.1
+- fix 32-bit compiler error for ep11 
+- fix buffer overflow for cca token 
+- fix a testcase
+
 * opencryptoki 3.4
 - CCA master key migration added to the pkcscca tool. When the masterkey on
   the CCA adapter changes, this allows the token key objects containing
