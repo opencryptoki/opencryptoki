@@ -2054,7 +2054,7 @@ CK_RV ccatok_hmac(SIGN_VERIFY_CONTEXT *ctx, CK_BYTE *in_data,
 {
 	struct cca_sha_ctx *cca_ctx;
 	long return_code = 0, reason_code = 0, rule_array_count = 3;
-	unsigned char rule_array[CCA_KEYWORD_SIZE];
+	unsigned char rule_array[CCA_RULE_ARRAY_SIZE];
 	OBJECT *key = NULL;
 	CK_ATTRIBUTE *attr = NULL;
 	CK_RV rc = CKR_OK;
@@ -2805,7 +2805,7 @@ static CK_RV import_symmetric_key(OBJECT *object, CK_ULONG keytype)
 	CK_RV rc;
 	long return_code, reason_code, rule_array_count;
 	unsigned char target_key_id[CCA_KEY_ID_SIZE] = { 0 };
-	unsigned char rule_array[CCA_KEYWORD_SIZE] = { 0 };
+	unsigned char rule_array[CCA_RULE_ARRAY_SIZE] = { 0 };
 	CK_ATTRIBUTE *opaque_key = NULL;
 	CK_ATTRIBUTE *attr = NULL;
 
@@ -2862,7 +2862,7 @@ static CK_RV import_generic_secret_key(OBJECT *object)
 	CK_RV rc;
 	long return_code, reason_code, rule_array_count;
 	unsigned char key_token[CCA_KEY_TOKEN_SIZE] = { 0 };
-	unsigned char rule_array[5 * CCA_KEYWORD_SIZE] = { 0 };
+	unsigned char rule_array[CCA_RULE_ARRAY_SIZE] = { 0 };
 	long key_name_len = 0, clr_key_len = 0;
 	long user_data_len = 0, key_part_len = 0;
 	long token_data_len = 0, verb_data_len = 0;
@@ -3046,7 +3046,7 @@ CK_RV token_specific_generic_secret_key_gen (TEMPLATE *template)
 	unsigned char key_type2[8] = {0};
 	unsigned char key_token[CCA_KEY_TOKEN_SIZE] = { 0 };
 	long key_token_length = sizeof(key_token);
-	unsigned char rule_array[4 * CCA_KEYWORD_SIZE] = { 0 };
+	unsigned char rule_array[CCA_RULE_ARRAY_SIZE] = { 0 };
 
 	rc = template_attribute_find(template, CKA_VALUE_LEN, &attr);
 	if (rc == FALSE) {
