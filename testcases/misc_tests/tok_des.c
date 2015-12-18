@@ -14,6 +14,7 @@
 
 #include "pkcs11types.h"
 #include "regress.h"
+#include "common.c"
 
 int do_GetFunctionList(void);
 
@@ -71,21 +72,27 @@ do_VerifyTokenSymKey(CK_SESSION_HANDLE sess, CK_BYTE *label)
 
 		tmpl[0].pValue = value;
 
-		rv = funcs->C_GetAttributeValue(sess, obj_handles[i], tmpl, 1);
-		if (rv != CKR_OK) {
-			show_error("   C_GetAttributeValue", rv );
-			return rv;
-		}
-
-		/* The public exponent is element 0 and modulus is element 1 */
-		if (tmpl[0].ulValueLen > 256 || tmpl[0].ulValueLen < 8) {
-			PRINT_ERR("secret key value (%lu) OOB!",
+		if (is_ep11_token(SLOT_ID) || is_cca_token(SLOT_ID)) {
+		 /*
+		  * Secure key, there is no value or just a dummy
+		  * value attribute. So skip processing the value.
+		  */
+		 } else {
+			 rv = funcs->C_GetAttributeValue(sess, obj_handles[i], tmpl, 1);
+			 if (rv != CKR_OK) {
+				show_error("   C_GetAttributeValue", rv );
+				return rv;
+			 }
+			/* The public exponent is element 0 and modulus is element 1 */
+			if (tmpl[0].ulValueLen > 256 || tmpl[0].ulValueLen < 8) {
+				PRINT_ERR("secret key value (%lu) OOB!",
 				  tmpl[0].ulValueLen);
-			return CKR_FUNCTION_FAILED;
+				return CKR_FUNCTION_FAILED;
+			}
+			printf("%lu byte secret key found.\nValue:\n", tmpl[0].ulValueLen);
+			print_hex(tmpl[0].pValue, tmpl[0].ulValueLen);
 		}
 
-		printf("%lu byte secret key found.\nValue:\n", tmpl[0].ulValueLen);
-		print_hex(tmpl[0].pValue, tmpl[0].ulValueLen);
 
 		rv = funcs->C_DestroyObject(sess, obj_handles[i]);
 		if (rv != CKR_OK) {
@@ -203,17 +210,27 @@ main( int argc, char **argv )
 		return rv;
 	}
 
-	rv = do_GenerateTokenSymKey(session, des_label, CKM_DES_KEY_GEN);
-	if (rv != CKR_OK) {
-		show_error("do_GenerateTokenRSAKeyPair(512)", rv);
-		return -1;
-	}
+	if (mech_supported(slot_id, CKM_DES_KEY_GEN)) {
+		rv = do_GenerateTokenSymKey(session, des_label, CKM_DES_KEY_GEN);
+		if (rv != CKR_OK) {
+			show_error("do_GenerateTokenRSAKeyPair(512)", rv);
+			return -1;
+		}
+	 } else {
+		 testcase_skip("GenerateTokenSymKey(...DES_KEY_GEN)");
+		 des_label[0] = 0;
+	 }
 
-	rv = do_GenerateTokenSymKey(session, tdes_label, CKM_DES3_KEY_GEN);
-	if (rv != CKR_OK) {
-		show_error("do_GenerateTokenRSAKeyPair(512)", rv);
-		return -1;
-	}
+	if (mech_supported(slot_id, CKM_DES3_KEY_GEN)) {
+		rv = do_GenerateTokenSymKey(session, tdes_label, CKM_DES3_KEY_GEN);
+		if (rv != CKR_OK) {
+			show_error("do_GenerateTokenRSAKeyPair(512)", rv);
+			return -1;
+		}
+	 } else {
+		 testcase_skip("GenerateTokenSymKey(...DES3_KEY_GEN)");
+		 tdes_label[0] = 0;
+	 }
 
 	rv = funcs->C_CloseSession( session );
 	if (rv != CKR_OK) {
@@ -248,16 +265,24 @@ main( int argc, char **argv )
 		goto close_session;
 	}
 
-	rv = do_VerifyTokenSymKey(session, des_label);
-	if (rv != CKR_OK) {
-		show_error("do_VerifyTokenRSAKeyPair(512)", rv);
-		goto close_session;
-	}
+	if (des_label[0]) {
+		rv = do_VerifyTokenSymKey(session, des_label);
+		if (rv != CKR_OK) {
+			show_error("do_VerifyTokenRSAKeyPair(512)", rv);
+			goto close_session;
+		}
+	 } else {
+		testcase_skip("VerifyTokenSymKey(...DES_KEY...)");
+	 }
 
-	rv = do_VerifyTokenSymKey(session, tdes_label);
-	if (rv != CKR_OK) {
-		show_error("do_VerifyTokenRSAKeyPair(1024)", rv);
-		goto close_session;
+	if (tdes_label[0]) {
+		rv = do_VerifyTokenSymKey(session, tdes_label);
+		if (rv != CKR_OK) {
+			show_error("do_VerifyTokenRSAKeyPair(1024)", rv);
+			goto close_session;
+		}
+	} else {
+		testcase_skip("VerifyTokenSymKey(...DES3_KEY...)");
 	}
 
 close_session:
