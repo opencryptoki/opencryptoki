@@ -26,14 +26,17 @@ CK_RV do_GenerateKeyPairRSA(void)
 
 	CK_KEY_TYPE keytype = CKK_RSA;
 	CK_ULONG modbits = 2048;
+	int modbytes = modbits / 8;
+	CK_BYTE pubExp[3] = { 0x01,0x00,0x01 };
 	CK_ATTRIBUTE publ_tmpl[] = {
 		{CKA_KEY_TYPE, &keytype, sizeof(keytype)},
-		{CKA_MODULUS_BITS, &modbits, sizeof(modbits)}
+		{CKA_MODULUS_BITS, &modbits, sizeof(modbits)},
+		{CKA_PUBLIC_EXPONENT, pubExp, sizeof(pubExp)}
 	};
 
 	CK_OBJECT_CLASS class;
-	CK_BYTE pubExp[3] = { 0x01,0x00,0x01 }, publicExponent[3];
-	CK_BYTE modulus[256];
+	CK_BYTE publicExponent[4];
+	CK_BYTE modulus[512];
 	CK_BYTE subject[20], id[20];;
 	CK_BYTE start_date[20], end_date[20];
 	CK_BBOOL encrypt, decrypt, sign, sign_recover, verify, verify_recover;
@@ -92,7 +95,7 @@ CK_RV do_GenerateKeyPairRSA(void)
 	/* Assertion #1: generate an RSA key pair. */
 	testcase_new_assertion();
 
-	rc = funcs->C_GenerateKeyPair(session, &mech, publ_tmpl, 2, NULL,
+	rc = funcs->C_GenerateKeyPair(session, &mech, publ_tmpl, 3, NULL,
 				      0, &publ_key, &priv_key);
 	if (rc != CKR_OK) {
 		testcase_fail("C_GenerateKeyPair() rc = %s", p11_get_ckr(rc));
@@ -116,13 +119,44 @@ CK_RV do_GenerateKeyPairRSA(void)
 		goto testcase_cleanup;
 	}
 
-	if ((*(CK_ULONG *)publ_def[0].pValue == CKK_RSA) &&
-	    (*(CK_ULONG *)publ_def[1].pValue == CKO_PUBLIC_KEY) &&
-	    (memcmp(publ_def[2].pValue, pubExp, sizeof(pubExp)) == 0) &&
-	    (publ_def[3].ulValueLen == 256)) 
-		testcase_pass("Public RSA key generated correctly.\n");
-	else
-		testcase_fail("Public RSA key was not generated correctly.\n");
+	if (*(CK_ULONG *)publ_def[0].pValue != CKK_RSA) {
+		testcase_fail("Public RSA key was not generated correctly"
+						       " (wrong CKA_KEY_TYPE).\n");
+	}
+	if (*(CK_ULONG *)publ_def[1].pValue != CKO_PUBLIC_KEY) {
+		testcase_fail("Public RSA key was not generated correctly"
+						       " (wrong CKA_CLASS).\n");
+	}
+	if (publ_def[2].ulValueLen != sizeof(pubExp)) {
+		 /* some tokens add an leading 0x00 to the exponent value */
+		unsigned char *pv = (unsigned char*) publ_def[2].pValue;
+		if (publ_def[2].ulValueLen == sizeof(pubExp) + 1
+			&& pv[0] == 0x00
+			&& memcmp(pv+1, pubExp, sizeof(pubExp)) == 0) {
+			/* len is just +1, first byte is 0, rest matches to pubExp */
+		} else {
+			testcase_fail("Public RSA key was not generated correctly"
+								       " (pub exp mismatch).\n");
+			}
+	} else {
+		/* same length, check value */
+		if (memcmp(publ_def[2].pValue, pubExp, sizeof(pubExp)) != 0) {
+			testcase_fail("Public RSA key was not generated correctly"
+								       " (pub exp mismatch).\n");
+		}
+	}
+	if (publ_def[3].ulValueLen != modbytes) {
+		/* some tokens add an leading 0x00 to the modulus value */
+		unsigned char *pv = (unsigned char*) publ_def[3].pValue;
+		if (publ_def[3].ulValueLen == modbytes + 1
+			&& pv[0] == 0x00) {
+			/* len is just +1, first byte is 0, all fine */
+		} else {
+			testcase_fail("Public RSA key was not generated correctly"
+								       " (modulus length mismatch).\n");
+		}
+	}
+	testcase_pass("Public RSA key generated correctly.\n");
 
 	testcase_new_assertion();
 
@@ -144,11 +178,15 @@ CK_RV do_GenerateKeyPairRSA(void)
 	 * and those the implementation should have contributed for RSA PKCS#1
 	 * key pairs. (Section 12.1.4 of pkcs#11v2.20)
 	 */
-	if ((*(CK_ULONG *)priv_def[0].pValue == CKK_RSA) &&
-	    (*(CK_ULONG *)priv_def[1].pValue == CKO_PRIVATE_KEY))
-		testcase_pass("Private RSA key generated correctly.\n");
-	else
-		testcase_fail("Private RSA key was not generated correctly.\n");
+	if (*(CK_ULONG *)priv_def[0].pValue != CKK_RSA) {
+		testcase_fail("Private RSA key was not generated correctly"
+			       " (wrong CKA_KEY_TYPE).\n");
+	}
+	if (*(CK_ULONG *)priv_def[1].pValue != CKO_PRIVATE_KEY) {
+		 testcase_fail("Private RSA key was not generated correctly"
+			       " (wrong CKA_CLASS).\n");
+	}
+	testcase_pass("Private RSA key generated correctly.\n");
 
 testcase_cleanup:
 	funcs->C_DestroyObject(session, priv_key);
