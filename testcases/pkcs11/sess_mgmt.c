@@ -10,6 +10,7 @@
 
 #include "pkcs11types.h"
 #include "regress.h"
+#include "mech_to_str.h"
 #include "common.c"
 
 //
@@ -494,6 +495,10 @@ CK_RV do_OperationState1( void )
 	CK_ULONG      orig_len, crypt1_len, crypt2_len, trash1_len, trash2_len;
 	CK_ULONG      i;
 
+	CK_ULONG      key_len = 16;
+	CK_ATTRIBUTE  key_gen_tmpl[] =
+		 {{CKA_VALUE_LEN, &key_len, sizeof(CK_ULONG)}};
+
 	CK_MECHANISM     mech;
 	CK_OBJECT_HANDLE h_key;
 
@@ -547,21 +552,21 @@ CK_RV do_OperationState1( void )
 	memcpy( trash1, "asdflkjasdlkjadslkj", trash1_len );
 
 
-	// first generate a DES key
+	// first generate a AES key
 	//
-	mech.mechanism      = CKM_DES_KEY_GEN;
+	mech.mechanism      = CKM_AES_KEY_GEN;
 	mech.ulParameterLen = 0;
 	mech.pParameter     = NULL;
 
 	if (!mech_supported(slot_id, mech.mechanism)) {
-		printf("Mechanism %ld not supported. (skipped)\n",
-			mech.mechanism);
+		printf("Mechanism %s not supported. (skipped)\n",
+			mech_to_str(mech.mechanism));
 		funcs->C_CloseSession(session1);
 		funcs->C_CloseSession(session2);
 		return 0;
 	}
 
-	rc = funcs->C_GenerateKey( session1, &mech, NULL, 0, &h_key );
+	rc = funcs->C_GenerateKey( session1, &mech, key_gen_tmpl, 1, &h_key );
 	if (rc != CKR_OK) {
 		show_error("   C_GenerateKey #1", rc );
 		return rc;
@@ -569,9 +574,9 @@ CK_RV do_OperationState1( void )
 
 	// now encrypt the original data all at once using CBC
 	//
-	mech.mechanism = CKM_DES_CBC;
-	mech.ulParameterLen = 8;
-	mech.pParameter     = "asdfqwer";
+	mech.mechanism = CKM_AES_CBC;
+	mech.ulParameterLen = 16;
+	mech.pParameter     = "1234qwerasdfyxcv";
 
 	rc = funcs->C_EncryptInit( session1, &mech, h_key );
 	if (rc != CKR_OK) {
@@ -781,8 +786,8 @@ CK_RV do_OperationState2( void )
 	mech.ulParameterLen = 0;
 
 	if (!mech_supported(slot_id, mech.mechanism)) {
-		printf("Mechanism %ld not supported. (skipped)\n",
-			mech.mechanism);
+		printf("Mechanism %s not supported. (skipped)\n",
+			        mech_to_str(mech.mechanism));
 		funcs->C_CloseSession(session1);
 		funcs->C_CloseSession(session2);
 		funcs->C_CloseSession(session3);
@@ -967,6 +972,10 @@ CK_RV do_OperationState3( void )
 
 	CK_ULONG    i;
 
+	CK_ULONG      key_len = 16;
+	CK_ATTRIBUTE  key_gen_tmpl[] =
+		{{CKA_VALUE_LEN, &key_len, sizeof(CK_ULONG)}};
+
 	CK_MECHANISM      mech1, mech2;
 	CK_OBJECT_HANDLE  key;
 
@@ -1023,33 +1032,33 @@ CK_RV do_OperationState3( void )
 		original[i] = i % 255;
 
 
-	mech1.mechanism      = CKM_DES_KEY_GEN;
+	mech1.mechanism      = CKM_AES_KEY_GEN;
 	mech1.pParameter     = NULL;
 	mech1.ulParameterLen = 0;
 
 	if (!mech_supported(slot_id, mech1.mechanism)) {
-		printf("Mechanism %ld not supported. (skipped)\n",
-			mech1.mechanism);
+		printf("Mechanism %s not supported. (skipped)\n",
+			        mech_to_str(mech1.mechanism));
 		funcs->C_CloseSession(session1);
 		funcs->C_CloseSession(session2);
 		funcs->C_CloseSession(session3);
 		return 0;
 	}
 
-	rc = funcs->C_GenerateKey( session1, &mech1, NULL, 0, &key );
+	rc = funcs->C_GenerateKey( session1, &mech1, key_gen_tmpl, 1, &key );
 	if (rc != CKR_OK) {
 		show_error("   C_GenerateKey #1", rc );
 		return rc;
 	}
 
 
-	mech1.mechanism      = CKM_DES_ECB;
+	mech1.mechanism      = CKM_AES_ECB;
 	mech1.pParameter     = NULL;
 	mech1.ulParameterLen = 0;
 
 	if (!mech_supported(slot_id, mech1.mechanism)) {
-		printf("Mechanism %ld not supported. (skipped)\n",
-			mech1.mechanism);
+		printf("Mechanism %s not supported. (skipped)\n",
+			        mech_to_str(mech1.mechanism));
 		funcs->C_CloseSession(session1);
 		funcs->C_CloseSession(session2);
 		funcs->C_CloseSession(session3);
@@ -1067,8 +1076,8 @@ CK_RV do_OperationState3( void )
 	mech2.ulParameterLen = 0;
 
 	if (!mech_supported(slot_id, mech2.mechanism)) {
-		printf("Mechanism %ld not supported. (skipped)\n",
-			mech2.mechanism);
+		printf("Mechanism %s not supported. (skipped)\n",
+		        mech_to_str(mech2.mechanism));
 		funcs->C_CloseSession(session1);
 		funcs->C_CloseSession(session2);
 		funcs->C_CloseSession(session3);
