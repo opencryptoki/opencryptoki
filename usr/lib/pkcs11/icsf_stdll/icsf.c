@@ -1701,6 +1701,8 @@ icsf_block_size(CK_MECHANISM_TYPE mech_type, CK_ULONG_PTR p_block_size)
 
 	case CKM_SHA1_RSA_PKCS:
 	case CKM_SHA256_RSA_PKCS:
+	case CKM_DSA_SHA1:
+	case CKM_ECDSA_SHA1:
 		block_size = SHA1_BLOCK_SIZE;
 		break;
 
