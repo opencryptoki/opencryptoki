@@ -1952,7 +1952,7 @@ CK_RV SC_EncryptUpdate(ST_SESSION_HANDLE *sSession, CK_BYTE_PTR pPart,
 		TRACE_DEVEL("encr_mgr_encrypt_update() failed.\n");
 
 done:
-	if (rc != CKR_OK && rc != CKR_BUFFER_TOO_SMALL)
+	if (rc != CKR_OK && rc != CKR_BUFFER_TOO_SMALL && sess != NULL)
 		encr_mgr_cleanup( &sess->encr_ctx );
 
 	TRACE_INFO("C_EncryptUpdate: rc = 0x%08lx, sess = %ld, amount = %lu\n",
@@ -2187,7 +2187,7 @@ CK_RV SC_DecryptUpdate(ST_SESSION_HANDLE *sSession, CK_BYTE_PTR pEncryptedPart,
 		TRACE_DEVEL("decr_mgr_decrypt_update() failed.\n");
 
 done:
-	if (rc != CKR_OK && rc != CKR_BUFFER_TOO_SMALL)
+	if (rc != CKR_OK && rc != CKR_BUFFER_TOO_SMALL && sess != NULL)
 		decr_mgr_cleanup( &sess->decr_ctx );
 
 	TRACE_INFO("C_DecryptUpdate: rc = 0x%08lx, sess = %ld, amount = %lu\n",
