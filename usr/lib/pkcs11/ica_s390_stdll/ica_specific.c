@@ -354,15 +354,16 @@ token_specific_rng(CK_BYTE *output, CK_ULONG bytes)
 CK_RV
 token_specific_init(CK_SLOT_ID  SlotNumber, char *conf_name)
 {
-
-   return ica_open_adapter(&adapter_handle);
+	TRACE_INFO("ica %s slot=%lu running\n", __func__, SlotNumber);
+	return ica_open_adapter(&adapter_handle);
 }
 
 CK_RV
 token_specific_final()
 {
-   ica_close_adapter(adapter_handle);
-   return CKR_OK;
+	TRACE_INFO("ica %s running\n", __func__);
+	ica_close_adapter(adapter_handle);
+	return CKR_OK;
 }
 
 // count_ones_in_byte: for use in adjust_des_key_parity_bits below

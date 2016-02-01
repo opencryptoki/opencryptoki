@@ -135,6 +135,8 @@ token_specific_init(CK_SLOT_ID SlotNumber, char *conf_name)
 	long return_code, reason_code, rule_array_count, verb_data_length;
 	void *lib_csulcca;
 
+	TRACE_INFO("cca %s slot=%lu running\n", __func__, SlotNumber);
+
 	lib_csulcca = dlopen(CCASHAREDLIB, RTLD_GLOBAL | RTLD_NOW);
 	if (lib_csulcca == NULL) {
 		OCK_SYSLOG(LOG_ERR, "%s: Error loading library: '%s' [%s]\n",
@@ -177,6 +179,7 @@ token_specific_init(CK_SLOT_ID SlotNumber, char *conf_name)
 CK_RV
 token_specific_final()
 {
+	TRACE_INFO("cca %s running\n", __func__);
 	return CKR_OK;
 }
 

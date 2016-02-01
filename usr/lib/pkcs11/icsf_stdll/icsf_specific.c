@@ -276,6 +276,8 @@ CK_RV icsftok_init(CK_SLOT_ID slot_id, char *conf_name)
 	CK_RV rc = CKR_OK;
 	struct slot_data *data;
 
+	TRACE_INFO("icsf %s slot=%lu running\n", __func__, slot_id);
+
 	/* Check Slot ID */
 	if (slot_id < 0 || slot_id > MAX_SLOT_ID) {
 		TRACE_ERROR("Invalid slot ID: %lu\n", slot_id);

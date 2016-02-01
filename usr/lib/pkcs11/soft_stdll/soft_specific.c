@@ -342,14 +342,15 @@ CK_CHAR label[] = "IBM OS PKCS#11   ";
 CK_RV
 token_specific_init(CK_SLOT_ID SlotNumber, char *conf_name)
 {
-   return CKR_OK;
-
+	TRACE_INFO("soft %s slot=%lu running\n", __func__, SlotNumber);
+	return CKR_OK;
 }
 
 CK_RV
 token_specific_final()
 {
-  return CKR_OK;
+	TRACE_INFO("soft %s running\n", __func__);
+	return CKR_OK;
 }
 
 

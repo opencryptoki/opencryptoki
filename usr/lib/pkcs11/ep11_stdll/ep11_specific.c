@@ -1247,7 +1247,7 @@ CK_RV ep11tok_init(CK_SLOT_ID SlotNumber, char *conf_name)
 				    {CKA_LABEL, (void*)wrap_key_name, sizeof(wrap_key_name)},
 				    {CKA_TOKEN, (void*)&cktrue, sizeof(cktrue)}};
 
-	TRACE_INFO("%s init running\n", __func__);
+	TRACE_INFO("ep11 %s slot=%lu running\n", __func__, SlotNumber);
 
 	/* read ep11 specific config file with user specified adapter/domain pairs, ... */
 	rc = read_adapter_config_file(conf_name);
@@ -1306,7 +1306,7 @@ CK_RV ep11tok_init(CK_SLOT_ID SlotNumber, char *conf_name)
 
 CK_RV ep11tok_final()
 {
-	TRACE_INFO("%s final running\n", __func__);
+	TRACE_INFO("ep11 %s running\n", __func__);
 
 	return CKR_OK;
 }

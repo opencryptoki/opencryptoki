@@ -173,6 +173,8 @@ token_specific_init(CK_SLOT_ID SlotNumber, char *conf_name)
 	char path_buf[PATH_MAX], fname[PATH_MAX];
 	struct stat statbuf;
 
+	TRACE_INFO("tpm %s slot=%lu running\n", __func__, SlotNumber);
+
 	// if the user specific directory doesn't exist, create it
 	sprintf(path_buf, "%s", get_pk_dir(fname));
 	if (stat(path_buf, &statbuf) < 0) {
@@ -2153,6 +2155,8 @@ CK_RV
 token_specific_final()
 {
 	TSS_RESULT result;
+
+	TRACE_INFO("tpm %s running\n", __func__);
 
         if ((result = Tspi_Context_Close(tspContext))) {
                 TRACE_ERROR("Tspi_Context_Close failed. rc=0x%x\n", result);
