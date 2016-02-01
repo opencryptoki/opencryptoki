@@ -3394,3 +3394,78 @@ done:
 		ber_free(msg, 1);
 	return rc;
 }
+
+/** get size of an icsf object */
+int
+icsf_get_object_size(LDAP *ld, int *reason, struct icsf_object_record *object,
+		    CK_ULONG attrs_len, CK_ULONG *obj_size)
+{
+
+	char handle[ICSF_HANDLE_LEN];
+	BerElement *msg = NULL;
+	BerElement *result = NULL;
+	int rc = 0;
+	int size = 0;
+
+	CHECK_ARG_NON_NULL(ld);
+	CHECK_ARG_NON_NULL(object);
+
+	object_record_to_handle(handle, object);
+
+	if (!(msg = ber_alloc_t(LBER_USE_DER))) {
+		TRACE_ERROR("%s\n", ock_err(ERR_HOST_MEMORY));
+		return CKR_HOST_MEMORY;
+	}
+
+	/* Encode message:
+	 *
+	 * GAVInput ::= attrListLen
+	 *
+	 * attrListLen ::= INTEGER (0 .. MaxCSFPInteger)
+	 *
+	 */
+
+	rc = ber_printf(msg, "i", attrs_len);
+	if (rc < 0)
+		goto cleanup;
+
+	rc = icsf_call(ld, reason, handle, sizeof(handle), "", 0,
+			ICSF_TAG_CSFPGAV, msg, &result);
+	if (rc != 0) {
+		TRACE_DEVEL("icsf_call failed. rc=%d, reason=%d", rc, *reason);
+		goto cleanup;
+	}
+
+	/* Decode the result:
+	 *
+	 * GAVOutput ::= SEQUENCE {
+	 *    attrList		Attributes,
+	 *    attrListLen	INTEGER (0 .. MaxCSFPInteger)
+	 * }
+	 *
+	 * asn.1 {{{ito|i} {ito|i} ...}i}
+	 */
+
+	if (ber_scanf(result, "{") == LBER_ERROR) {
+                TRACE_ERROR("Failed to decode message - icsf_get_object_size");
+		goto cleanup;
+	}
+
+	//interested only in the list length which will be the size of the object in bytes
+	if (ber_scanf(result, "xi}", &size) == LBER_ERROR) {
+		TRACE_ERROR("Failed to decode message - icsf_get_object_size");
+		goto cleanup;
+	}
+	TRACE_INFO("icsf_get_object_size - size = %d\n", size);
+
+	*obj_size = size;
+
+cleanup:
+	if (msg)
+		ber_free(msg, 1);
+
+	if (result)
+		ber_free(result, 1);
+
+	return rc;
+}

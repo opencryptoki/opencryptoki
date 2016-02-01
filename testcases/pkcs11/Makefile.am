@@ -1,4 +1,4 @@
-noinst_PROGRAMS=hw_fn sess_mgmt_tests sess_bench attribute findobjects destroyobjects copyobjects generate_keypair gen_purpose
+noinst_PROGRAMS=hw_fn sess_mgmt_tests sess_bench attribute findobjects destroyobjects copyobjects generate_keypair gen_purpose getobjectsize
 
 AM_CFLAGS=-I. -I../../usr/include/pkcs11 -I../include -I../common -I../../usr/lib/pkcs11/common -Wall
 
@@ -13,3 +13,4 @@ destroyobjects_SOURCES = destroyobjects.c
 copyobjects_SOURCES = copyobjects.c
 generate_keypair_SOURCES = generate_keypair.c
 gen_purpose_SOURCES = gen_purpose.c
+getobjectsize_SOURCES = getobjectsize.c

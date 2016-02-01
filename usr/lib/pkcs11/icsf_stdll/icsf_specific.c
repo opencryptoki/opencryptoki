@@ -2852,7 +2852,7 @@ done:
  * Get the attribute values for a list of attributes.
  */
 CK_RV icsftok_get_attribute_value(SESSION *sess, CK_OBJECT_HANDLE handle,
-				   CK_ATTRIBUTE *pTemplate, CK_ULONG ulCount)
+				   CK_ATTRIBUTE *pTemplate, CK_ULONG ulCount, CK_ULONG *obj_size)
 {
 	CK_RV rc = CKR_OK;
 	CK_BBOOL priv_obj;
@@ -2902,19 +2902,32 @@ CK_RV icsftok_get_attribute_value(SESSION *sess, CK_OBJECT_HANDLE handle,
 
 	if (priv_obj == TRUE) {
 		if (sess->session_info.state == CKS_RO_PUBLIC_SESSION ||
-		    sess->session_info.state == CKS_RW_PUBLIC_SESSION) {
+			sess->session_info.state == CKS_RW_PUBLIC_SESSION) {
 			TRACE_ERROR("%s\n", ock_err(ERR_USER_NOT_LOGGED_IN));
 			rc = CKR_USER_NOT_LOGGED_IN;
 			goto done;
 		}
 	}
 
-	/* Now call icsf to get the attribute values */
-	rc = icsf_get_attribute(session_state->ld, &reason,
+	// get requested attributes and values if the obj_size ptr is not set
+	if (!obj_size) {
+		/* Now call icsf to get the attribute values */
+		rc = icsf_get_attribute(session_state->ld, &reason,
 				&mapping->icsf_object, pTemplate, ulCount);
-	if (rc != CKR_OK) {
-		TRACE_DEVEL("icsf_get_attribute failed\n");
-		rc = icsf_to_ock_err(rc, reason);
+
+		if (rc != CKR_OK) {
+			TRACE_DEVEL("icsf_get_attribute failed\n");
+			rc = icsf_to_ock_err(rc, reason);
+		}
+	} else {
+		/* if size is specified get the object size from remote end*/
+		rc = icsf_get_object_size(session_state->ld, &reason,
+				&mapping->icsf_object, ulCount, obj_size);
+
+		if (rc != CKR_OK) {
+			TRACE_DEVEL("icsf_get_object_size failed\n");
+			rc = icsf_to_ock_err(rc, reason);
+		}
 	}
 
 done:

@@ -1256,13 +1256,44 @@ done:
 CK_RV SC_GetObjectSize(ST_SESSION_HANDLE *sSession, CK_OBJECT_HANDLE hObject,
 		       CK_ULONG_PTR pulSize)
 {
+	SESSION *sess = NULL;
+	CK_RV rc = CKR_OK;
+	/**
+	ock does not do object management for icsf token. To get the
+	object size call CSFPGAV and extract the attr_length returned.
+	icsf_get_attribute does not pass the user provided template
+	attributes to remote icsf, instead gets all the attributes from
+	remote icsf and returns only the user requested attributes.
+	icsf_get_object_size tries to do the same and extracts only the
+	attribute_list_length from the result. Setting attribute list to
+	NULL here and providing a dummy count value.
+	 **/
+	CK_ATTRIBUTE_PTR pTemplate = NULL;
+	CK_ULONG ulCount = 1;
+
 	if (initialized == FALSE) {
 		TRACE_ERROR("%s\n", ock_err(ERR_CRYPTOKI_NOT_INITIALIZED));
 		return CKR_CRYPTOKI_NOT_INITIALIZED;
 	}
 
-	TRACE_ERROR("%s\n", ock_err(ERR_FUNCTION_NOT_SUPPORTED));
-	return CKR_FUNCTION_NOT_SUPPORTED;
+	sess = session_mgr_find(sSession->sessionh);
+	if (!sess) {
+		TRACE_ERROR("%s\n", ock_err(ERR_SESSION_HANDLE_INVALID));
+		rc = CKR_SESSION_HANDLE_INVALID;
+		goto done;
+	}
+
+	rc = icsftok_get_attribute_value(sess, hObject, pTemplate,
+					ulCount, pulSize);
+	if (rc != CKR_OK)
+		TRACE_DEVEL("icsftok_get_attribute_value() failed.\n");
+
+
+done:
+	TRACE_INFO("C_GetObjectSize: rc = 0x%08lx, handle = %lu\n",
+		    rc, hObject);
+
+	return rc;
 }
 
 
@@ -1286,7 +1317,8 @@ CK_RV SC_GetAttributeValue(ST_SESSION_HANDLE *sSession,
 		goto done;
 	}
 
-	rc = icsftok_get_attribute_value(sess, hObject, pTemplate, ulCount);
+	rc = icsftok_get_attribute_value(sess, hObject, pTemplate,
+					ulCount, NULL);
 	if (rc != CKR_OK)
 		TRACE_DEVEL("icsftok_get_attribute_value() failed.\n");
 
