@@ -255,11 +255,9 @@ int icsf_to_ock_err(int icsf_return_code, int icsf_reason_code)
 		case 3041:
 			return CKR_KEY_NOT_WRAPPABLE;
 		case 3043:
-			return CKR_BUFFER_TOO_SMALL;
+			return CKR_KEY_HANDLE_INVALID;
 		case 3045:
 			return CKR_KEY_UNEXTRACTABLE;
-		case 3046:
-			return CKR_BUFFER_TOO_SMALL;
 		case 11000:
 			return CKR_DATA_LEN_RANGE;
 		}
