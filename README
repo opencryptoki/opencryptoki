@@ -136,7 +136,7 @@ main directory and do the following:
 CONFIGURATION
 
      See:
-     http://www-128.ibm.com/developerworks/security/library/s-pkcs/index.html
+     https://www.ibm.com/support/knowledgecenter/linuxonibm/com.ibm.linux.z.lxce/lxce_stackoverview.html
 
      openCryptoki defaults to be usable by anyone who is in the group
      ``pkcs11''.
