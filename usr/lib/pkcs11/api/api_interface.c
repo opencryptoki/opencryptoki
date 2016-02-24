@@ -2214,8 +2214,7 @@ C_GetMechanismList(CK_SLOT_ID slotID,
 	API_Slot_t *sltp;
 	STDLL_FcnList_t *fcn;
 
-	TRACE_INFO("C_GetMechanismList  (%lu  %p  %lu)\n", slotID,
-		    pMechanismList, *pulCount);
+	TRACE_INFO("C_GetMechanismList\n");
 	if (API_Initialized() == FALSE) {
 		TRACE_ERROR("%s\n", ock_err(ERR_CRYPTOKI_NOT_INITIALIZED));
 		return CKR_CRYPTOKI_NOT_INITIALIZED;
@@ -2225,6 +2224,10 @@ C_GetMechanismList(CK_SLOT_ID slotID,
 		TRACE_ERROR("%s\n", ock_err(ERR_ARGUMENTS_BAD));
 		return CKR_ARGUMENTS_BAD;
 	}
+
+	TRACE_DEVEL("Slot %lu MechList %p Count %lu\n",
+			slotID, pMechanismList, *pulCount);
+
 	// Null PMechanism is valid to get a count of mechanisms
 
 	if (slotID >= NUMBER_SLOTS_MANAGED) {
@@ -2502,7 +2505,7 @@ CK_RV C_GetSlotInfo(CK_SLOT_ID slotID, CK_SLOT_INFO_PTR pInfo)
 	Slot_Info_t *sinfp;
 	Slot_Mgr_Socket_t *shData = &(Anchor->SocketDataP);
 
-	TRACE_INFO("C_GetSlotInfo Slot=%d  ptr=%x\n", slotID, pInfo);
+	TRACE_INFO("C_GetSlotInfo Slot=%d  ptr=%p\n", slotID, pInfo);
 	if (API_Initialized() == FALSE) {
 		TRACE_ERROR("%s\n", ock_err(ERR_CRYPTOKI_NOT_INITIALIZED));
 		return CKR_CRYPTOKI_NOT_INITIALIZED;
@@ -2562,7 +2565,6 @@ C_GetSlotList(CK_BBOOL tokenPresent,
 #endif
 
 	TRACE_INFO("C_GetSlotList\n");
-	TRACE_DEVEL(" Pres %d Count %lu\n", tokenPresent, *pulCount);
 	if (API_Initialized() == FALSE) {
 		TRACE_ERROR("%s\n", ock_err(ERR_CRYPTOKI_NOT_INITIALIZED));
 		return CKR_CRYPTOKI_NOT_INITIALIZED;
@@ -2573,6 +2575,7 @@ C_GetSlotList(CK_BBOOL tokenPresent,
 		TRACE_ERROR("%s\n", ock_err(ERR_FUNCTION_FAILED));
 		return CKR_FUNCTION_FAILED;
 	}
+	TRACE_DEVEL(" Pres %d Count %lu\n", tokenPresent, *pulCount);
 
 	sinfp = shData->slot_info;
 	count = 0;
