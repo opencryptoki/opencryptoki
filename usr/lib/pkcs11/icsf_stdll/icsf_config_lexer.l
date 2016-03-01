@@ -284,6 +284,9 @@
 %{
 #include <string.h>
 #include "icsf_config_parse.h"
+
+extern void yyerror(const char *s);
+
 %}
 
 %option noyywrap

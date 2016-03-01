@@ -308,6 +308,8 @@ int out_rc;
 /* Function used to report error. */
 void yyerror(const char *str);
 
+extern int yylex();
+
 /* */
 struct ref {
 	char *key;

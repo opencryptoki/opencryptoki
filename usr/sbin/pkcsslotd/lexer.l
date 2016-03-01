@@ -291,6 +291,7 @@
 
 int line_num = 1;
 
+extern void yyerror(const char *s);
 %}
 
 %option noyywrap

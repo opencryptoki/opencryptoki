@@ -310,6 +310,7 @@ extern FILE *yyin;
 extern int yyparse();
 extern void yyerror(const char *s);
 extern int line_num;
+extern int yylex();
 
 typedef enum {
 	KW_STDLL,
@@ -337,6 +338,10 @@ static const struct ock_key ock_keywords[] = {
 
 void set_init(void);
 void set_defaults(void);
+int lookup_keyword(const char *key);
+int do_str(char *slotinfo, int size, char* kw, char *val);
+int do_vers(CK_VERSION *slotinfo, char *kw, char *val);
+
 %}
 
 %union {
