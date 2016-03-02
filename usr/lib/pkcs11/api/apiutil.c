@@ -369,6 +369,16 @@ CK_RV XProcUnLock(void)
 	return CKR_OK;
 }
 
+CK_RV XProcClose(void)
+{
+	if (xplfd != -1)
+		close(xplfd);
+	else
+		TRACE_DEVEL("XProcClose: No file descriptor open to close.\n");
+
+	return CKR_OK;
+}
+
 unsigned long AddToSessionList(ST_SESSION_T * pSess)
 {
 	unsigned long handle;

@@ -320,6 +320,7 @@ int DL_Load_and_Init(API_Slot_t *, CK_SLOT_ID);
 CK_RV CreateXProcLock(void);
 CK_RV XProcLock(void);
 CK_RV XProcUnLock(void);
+CK_RV XProcClose(void);
 
 void _init(void);
 void get_sess_count(CK_SLOT_ID, CK_ULONG *);

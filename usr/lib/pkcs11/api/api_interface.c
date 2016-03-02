@@ -1616,6 +1616,9 @@ CK_RV C_Finalize(CK_VOID_PTR pReserved)
 
 	trace_finalize();
 
+	//close the lock file descriptor here to avoid memory leak
+	XProcClose();
+
 	return CKR_OK;
 }				// end of C_Finalize
 
