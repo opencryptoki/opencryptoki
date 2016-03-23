@@ -347,8 +347,8 @@ void Fork_Initializer(void)
 	 * When implemented...  Although logout_all should clear this up.
 	 */
 
-	bt_destroy(&priv_token_obj_btree, object_free);
-	bt_destroy(&publ_token_obj_btree, object_free);
+	bt_destroy(&priv_token_obj_btree, call_free);
+	bt_destroy(&publ_token_obj_btree, call_free);
 
 	/* Need to do something to prevent the shared memory from
 	 * having the objects loaded again.... The most likely place

@@ -358,8 +358,8 @@ void Fork_Initializer(void)
 	 * When implemented...  Although logout_all should clear this up.
 	 */
 
-	bt_destroy(&priv_token_obj_btree, object_free);
-	bt_destroy(&publ_token_obj_btree, object_free);
+	bt_destroy(&priv_token_obj_btree, call_free);
+	bt_destroy(&publ_token_obj_btree, call_free);
 
 	/* Need to do something to prevent the shared memory from
 	 * having the objects loaded again.... The most likely place
@@ -627,7 +627,7 @@ CK_RV SC_GetMechanismList(CK_SLOT_ID sid, CK_MECHANISM_TYPE_PTR pMechList,
 	}
 out:
 	TRACE_INFO("C_GetMechanismList:  rc = 0x%08lx, # mechanisms: %lu\n",
-		    rc, *count);
+		    rc, (count ? *count : 0));
 	return rc;
 }
 
@@ -1850,7 +1850,7 @@ CK_RV SC_EncryptInit(ST_SESSION_HANDLE *sSession, CK_MECHANISM_PTR pMechanism,
 done:
 	TRACE_INFO("C_EncryptInit: rc = 0x%08lx, sess = %ld, mech = 0x%lx\n",
 		   rc, (sess == NULL) ? -1 : (CK_LONG)sess->handle,
-		   pMechanism->mechanism);
+		   (pMechanism ? pMechanism->mechanism : -1));
 
 	return rc;
 }
@@ -2083,7 +2083,7 @@ CK_RV SC_DecryptInit(ST_SESSION_HANDLE *sSession, CK_MECHANISM_PTR pMechanism,
 done:
 	TRACE_INFO("C_DecryptInit: rc = 0x%08lx, sess = %ld, mech = 0x%lx\n",
 		   rc, (sess == NULL) ? -1 : (CK_LONG)sess->handle,
-		   pMechanism->mechanism);
+		   (pMechanism ? pMechanism->mechanism : -1));
 
 	return rc;
 }
@@ -2242,7 +2242,7 @@ done:
 
 	TRACE_INFO("C_DecryptFinal:  rc = 0x%08lx, sess = %ld, amount = %lu\n",
 		   rc, (sess == NULL) ? -1 : (CK_LONG)sess->handle,
-		   *pulLastPartLen);
+		   (pulLastPartLen ? *pulLastPartLen : 0));
 
 	return rc;
 }
@@ -2294,7 +2294,7 @@ CK_RV SC_DigestInit(ST_SESSION_HANDLE *sSession, CK_MECHANISM_PTR pMechanism)
 done:
 	TRACE_INFO("C_DigestInit: rc = 0x%08lx, sess = %ld, mech = %lu\n",
 		   rc, (sess == NULL)?-1:(CK_LONG)sess->handle,
-		   pMechanism->mechanism);
+		   (pMechanism ? pMechanism->mechanism : -1));
 
 	return rc;
 }
@@ -2530,7 +2530,7 @@ CK_RV SC_SignInit(ST_SESSION_HANDLE *sSession, CK_MECHANISM_PTR pMechanism,
 done:
 	TRACE_INFO("C_SignInit: rc = %08lx, sess = %ld, mech = %lx\n",
 		   rc, (sess == NULL)?-1:(CK_LONG)sess->handle,
-		   pMechanism->mechanism);
+		   (pMechanism ? pMechanism->mechanism : -1));
 
 	return rc;
 }
@@ -2732,7 +2732,7 @@ CK_RV SC_SignRecoverInit(ST_SESSION_HANDLE *sSession,
 done:
 	TRACE_INFO("C_SignRecoverInit: rc = %08lx, sess = %ld, mech = %lx\n",
 		   rc, (sess == NULL)?-1:(CK_LONG)sess->handle,
-		   pMechanism->mechanism);
+		   (pMechanism ? pMechanism->mechanism : -1));
 
 	return rc;
 }
@@ -2839,7 +2839,7 @@ CK_RV SC_VerifyInit(ST_SESSION_HANDLE *sSession, CK_MECHANISM_PTR pMechanism,
 done:
 	TRACE_INFO("C_VerifyInit: rc = %08lx, sess = %ld, mech = %lx\n",
 		   rc, (sess == NULL)?-1:(CK_LONG)sess->handle,
-		   pMechanism->mechanism);
+		   (pMechanism ? pMechanism->mechanism : -1));
 
 	return rc;
 }
@@ -3033,7 +3033,7 @@ CK_RV SC_VerifyRecoverInit(ST_SESSION_HANDLE *sSession,
 done:
 	TRACE_INFO("C_VerifyRecoverInit: rc = %08lx, sess = %ld, mech = %lx\n",
 		   rc, (sess == NULL)?-1:(CK_LONG)sess->handle,
-		   pMechanism->mechanism);
+		   (pMechanism ? pMechanism->mechanism : -1));
 
 	return rc;
 }
@@ -3088,7 +3088,7 @@ done:
 
 	TRACE_INFO("C_VerifyRecover: rc = %08lx, sess = %ld, recover len = %lu, "
 		   "length_only = %d\n", rc,
-		   (sess == NULL)?-1:(CK_LONG)sess->handle, *pulDataLen,
+		   (sess == NULL)?-1:(CK_LONG)sess->handle, (pulDataLen ? *pulDataLen : 0),
 		   length_only);
 
 	return rc;
@@ -3194,7 +3194,7 @@ CK_RV SC_GenerateKey(ST_SESSION_HANDLE *sSession, CK_MECHANISM_PTR pMechanism,
 done:
 	TRACE_INFO("C_GenerateKey: rc = %08lx, sess = %ld, mech = %lx\n", rc,
 		    (sess == NULL) ? -1 : (CK_LONG) sess->handle,
-		    pMechanism->mechanism);
+		    (pMechanism ? pMechanism->mechanism : -1));
 
 #ifdef DEBUG
 	CK_ATTRIBUTE *attr = NULL;
@@ -3271,7 +3271,7 @@ CK_RV SC_GenerateKeyPair(ST_SESSION_HANDLE *sSession,
 done:
 	TRACE_INFO("C_GenerateKeyPair: rc = %08lx, sess = %ld, mech = %lu\n",
 		   rc, (sess == NULL) ? -1 : ((CK_LONG) sess->handle),
-		   pMechanism->mechanism);
+		   (pMechanism ? pMechanism->mechanism : -1));
 
 #ifdef DEBUG
 	CK_ATTRIBUTE *attr = NULL;
@@ -3413,7 +3413,7 @@ done:
 	TRACE_INFO("C_UnwrapKey: rc = %08lx, sess = %ld, decrypting key = %lu,"
 		   "unwrapped key = %lu\n", rc,
 		   (sess == NULL) ? -1 : (CK_LONG) sess->handle,
-		   hUnwrappingKey, *phKey);
+		   hUnwrappingKey, (phKey ? *phKey : 0));
 
 #ifdef DEBUG
 	CK_ATTRIBUTE *attr = NULL;
@@ -3480,7 +3480,7 @@ CK_RV SC_DeriveKey(ST_SESSION_HANDLE *sSession, CK_MECHANISM_PTR pMechanism,
 done:
 	TRACE_INFO("C_DeriveKey: rc = %08lx, sess = %ld, mech = %lu\n",
 		   rc, (sess == NULL)?-1:(CK_LONG)sess->handle,
-		   pMechanism->mechanism);
+		   (pMechanism ? pMechanism->mechanism : -1));
 #ifdef DEBUG
 	CK_ATTRIBUTE *attr = NULL;
 	CK_BYTE *ptr = NULL;

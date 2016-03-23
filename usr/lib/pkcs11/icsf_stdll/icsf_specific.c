@@ -934,6 +934,12 @@ CK_RV icsftok_open_session(SESSION *sess)
 	LDAP *ld;
 	struct session_state *session_state;
 
+	/* Sanity */
+	if (sess == NULL) {
+		TRACE_ERROR("%s\n", ock_err(ERR_ARGUMENTS_BAD));
+		return CKR_FUNCTION_FAILED;
+	}
+
 	/* Add session to list */
 	session_state = malloc(sizeof(struct session_state));
 	if (!session_state) {
@@ -1065,7 +1071,7 @@ CK_RV icsftok_close_session(SESSION *session)
 	struct session_state *session_state;
 
 	/* Get the related session_state */
-	if (!(session_state = get_session_state(session->handle))) {
+	if (session == NULL || !(session_state = get_session_state(session->handle))) {
 		TRACE_ERROR("%s\n", ock_err(ERR_SESSION_HANDLE_INVALID));
 		return CKR_SESSION_HANDLE_INVALID;
 	}
@@ -4197,6 +4203,10 @@ CK_RV icsftok_verify_update(SESSION *session, CK_BYTE *in_data,
 		if (multi_part_ctx->initiated)
 			memcpy(chain_data, multi_part_ctx->chain_data,
 				chain_data_len);
+	} else {
+		TRACE_ERROR("%s\n", ock_err(ERR_ARGUMENTS_BAD));
+		rc = ERR_ARGUMENTS_BAD;
+		goto done;
 	}
 
 	switch (ctx->mech.mechanism) {
@@ -4353,6 +4363,10 @@ CK_RV icsftok_verify_final(SESSION *session, CK_BYTE *signature,
 	if (ctx->context) {
 		multi_part_ctx = (struct icsf_multi_part_context *)ctx->context;
 		memcpy(chain_data, multi_part_ctx->chain_data, chain_data_len);
+	} else {
+		TRACE_ERROR("%s\n", ock_err(ERR_ARGUMENTS_BAD));
+		rc = ERR_ARGUMENTS_BAD;
+		goto done;
 	}
 
 	switch (ctx->mech.mechanism) {

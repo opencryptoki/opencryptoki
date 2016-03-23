@@ -1080,7 +1080,7 @@ destroy_object_cb(void *node)
 	OBJECT *o;
 
 	if (map->is_session_obj)
-		bt_node_free(&sess_obj_btree, map->obj_handle, object_free);
+		bt_node_free(&sess_obj_btree, map->obj_handle, call_free);
 	else {
 		if (map->is_private)
 			o = bt_get_node_value(&priv_token_obj_btree, map->obj_handle);
@@ -1105,9 +1105,9 @@ destroy_object_cb(void *node)
 		XProcUnLock();
 
 		if (map->is_private)
-			bt_node_free(&priv_token_obj_btree, map->obj_handle, object_free);
+			bt_node_free(&priv_token_obj_btree, map->obj_handle, call_free);
 		else
-			bt_node_free(&publ_token_obj_btree, map->obj_handle, object_free);
+			bt_node_free(&publ_token_obj_btree, map->obj_handle, call_free);
 	}
 done:
 	free(map);
@@ -1187,9 +1187,9 @@ delete_token_obj_cb(void *node, unsigned long map_handle, void *p3)
 		XProcUnLock();
 
 		if (map->is_private)
-			bt_node_free(&priv_token_obj_btree, map->obj_handle, object_free);
+			bt_node_free(&priv_token_obj_btree, map->obj_handle, call_free);
 		else
-			bt_node_free(&publ_token_obj_btree, map->obj_handle, object_free);
+			bt_node_free(&publ_token_obj_btree, map->obj_handle, call_free);
 	}
 done:
 	/* delete @node from this btree */
@@ -1741,7 +1741,7 @@ purge_session_obj_cb(void *node, unsigned long obj_handle, void *p3)
          if (obj->map_handle)
 	    bt_node_free(&object_map_btree, obj->map_handle, free);
 
-	 bt_node_free(&sess_obj_btree, obj_handle, object_free);
+	 bt_node_free(&sess_obj_btree, obj_handle, call_free);
       }
    }
 }
@@ -1790,7 +1790,7 @@ purge_token_obj_cb(void *node, unsigned long obj_handle, void *p3)
    if (obj->map_handle)
       bt_node_free(&object_map_btree, obj->map_handle, free);
 
-   bt_node_free(t, obj_handle, object_free);
+   bt_node_free(t, obj_handle, call_free);
 }
 
 // this routine cleans up the list of token objects.  in general, we don't
@@ -2343,7 +2343,7 @@ delete_objs_from_btree_cb(void *node, unsigned long obj_handle, void *p3)
    }
 
    /* didn't find it in SHM, delete it from its btree */
-   bt_node_free(ua->t, obj_handle, object_free);
+   bt_node_free(ua->t, obj_handle, call_free);
 }
 
 void

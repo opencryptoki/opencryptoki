@@ -391,6 +391,7 @@ static const char *ock_err_msg[] = {
 "API already Initialized",		/*ERR_CRYPTOKI_ALREADY_INITIALIZED*/
 "Mutex Invalid",			/*ERR_MUTEX_BAD*/
 "Mutex was not locked",			/*ERR_MUTEX_NOT_LOCKED*/
+"Unknown error",			/*ERR_MAX*/
 };
 
 void set_trace(struct trace_handle_t t_handle)

@@ -334,7 +334,7 @@ list_tokens(void)
 				num_seen, tokens[i].name,
 				tokens[i].manufacturer,
 				tokens[i].model, tokens[i].serial,
-				tokens[i].flags ? "yes" : "no");
+				ICSF_IS_TOKEN_READ_ONLY(tokens[i].flags) ? "yes" : "no");
 			num_seen++;
 		}
 

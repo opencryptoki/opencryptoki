@@ -2933,13 +2933,13 @@ CK_RV aes_gcm_decrypt(SESSION *sess, CK_BBOOL length_only,
 	CK_ULONG tag_data_len;
 	CK_RV rc;
 
-	aesgcm = (CK_GCM_PARAMS *)ctx->mech.pParameter;
-	tag_data_len = (aesgcm->ulTagBits + 7) / 8; /* round to full byte */
-
 	if (!sess || !ctx || !in_data || !out_data_len) {
 		TRACE_ERROR("%s received bad argument(s)\n", __FUNCTION__);
 		return CKR_FUNCTION_FAILED;
 	}
+
+	aesgcm = (CK_GCM_PARAMS *)ctx->mech.pParameter;
+	tag_data_len = (aesgcm->ulTagBits + 7) / 8; /* round to full byte */
 
 	if (length_only == TRUE) {
 		*out_data_len = in_data_len - tag_data_len;

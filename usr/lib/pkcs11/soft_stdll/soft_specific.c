@@ -2470,21 +2470,25 @@ static CK_RV softtok_hmac(SIGN_VERIFY_CONTEXT *ctx, CK_BYTE *in_data,
 	switch(ctx->mech.mechanism) {
 	case CKM_SHA_1_HMAC_GENERAL:
 		general = TRUE;
+		/* fallthrough */
 	case CKM_SHA_1_HMAC:
 		mac_len = SHA1_HASH_SIZE;
 		break;
 	case CKM_SHA256_HMAC_GENERAL:
 		general = TRUE;
+		/* fallthrough */
 	case CKM_SHA256_HMAC:
 		mac_len = SHA2_HASH_SIZE;
 		break;
 	case CKM_SHA384_HMAC_GENERAL:
 		general = TRUE;
+		/* fallthrough */
 	case CKM_SHA384_HMAC:
 		mac_len = SHA3_HASH_SIZE;
 		break;
 	case CKM_SHA512_HMAC_GENERAL:
 		general = TRUE;
+		/* fallthrough */
 	case CKM_SHA512_HMAC:
 		mac_len = SHA5_HASH_SIZE;
 		break;
@@ -2610,11 +2614,13 @@ static CK_RV softtok_hmac_final(SIGN_VERIFY_CONTEXT *ctx, CK_BYTE *signature,
 	switch(ctx->mech.mechanism) {
 	case CKM_SHA_1_HMAC_GENERAL:
 		general = TRUE;
+		/* fallthrough */
 	case CKM_SHA_1_HMAC:
 		mac_len = SHA1_HASH_SIZE;
 		break;
 	case CKM_SHA256_HMAC_GENERAL:
 		general = TRUE;
+		/* fallthrough */
 	case CKM_SHA256_HMAC:
 		mac_len = SHA2_HASH_SIZE;
 		break;
@@ -2625,6 +2631,7 @@ static CK_RV softtok_hmac_final(SIGN_VERIFY_CONTEXT *ctx, CK_BYTE *signature,
 		break;
 	case CKM_SHA512_HMAC_GENERAL:
 		general = TRUE;
+		/* fallthrough */
 	case CKM_SHA512_HMAC:
 		mac_len = SHA5_HASH_SIZE;
 		break;

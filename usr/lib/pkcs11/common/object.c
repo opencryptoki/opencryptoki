@@ -638,6 +638,15 @@ void object_free(OBJECT *obj)
 	}
 }
 
+//call_free()
+//This function is added to silence the compiler during implicit void (*)(void*) function pointer casting in call back functions.
+//
+void call_free(void *ptr)
+{
+	if (ptr)
+		object_free ((OBJECT*) ptr);
+}
+
 // object_is_modifiable()
 //
 CK_BBOOL
@@ -816,7 +825,7 @@ object_set_attribute_values( OBJECT        * obj,
                              CK_ATTRIBUTE  * pTemplate,
                              CK_ULONG        ulCount )
 {
-   TEMPLATE * new_tmpl;
+   TEMPLATE * new_tmpl = NULL;
    CK_BBOOL   found;
    CK_ULONG   class, subclass;
    CK_RV      rc;
