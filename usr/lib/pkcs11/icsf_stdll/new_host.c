@@ -998,7 +998,7 @@ CK_RV SC_Login(ST_SESSION_HANDLE *sSession, CK_USER_TYPE userType,
 	if (!sess) {
 		TRACE_ERROR("%s\n", ock_err(ERR_SESSION_HANDLE_INVALID));
 		rc = CKR_SESSION_HANDLE_INVALID;
-		return rc; /* can't goto done; We need sess to log */
+		goto done;
 	}
 	flags = &nv_token_data->token_info.flags;
 
@@ -1082,12 +1082,15 @@ done:
 		rc = session_mgr_login_all(userType);
 		if (rc != CKR_OK)
 			TRACE_DEVEL("session_mgr_login_all failed.\n");
-		else
-			rc = icsf_get_handles(sess->session_info.slotID);
+		else {
+			if (sess)
+				rc = icsf_get_handles(sess->session_info.slotID);
+		}
 	}
 
 	TRACE_INFO("C_Login: rc = 0x%08lx\n", rc);
-	save_token_data(sess->session_info.slotID);
+	if (sess)
+		save_token_data(sess->session_info.slotID);
 	MY_UnlockMutex(&login_mutex);
 	return rc;
 }
