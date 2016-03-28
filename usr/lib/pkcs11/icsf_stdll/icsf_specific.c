@@ -260,6 +260,8 @@ int icsf_to_ock_err(int icsf_return_code, int icsf_reason_code)
 			return CKR_KEY_UNEXTRACTABLE;
 		case 11000:
 			return CKR_DATA_LEN_RANGE;
+		case 11028:
+			return CKR_SIGNATURE_INVALID;
 		}
 		break;
 	}
