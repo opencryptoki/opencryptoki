@@ -1355,7 +1355,8 @@ done:
 	}
 
 	TRACE_INFO("C_Login: rc = 0x%08lx\n", rc);
-	save_token_data(sess->session_info.slotID);
+	if (sess)
+		save_token_data(sess->session_info.slotID);
 	MY_UnlockMutex(&login_mutex);
 	return rc;
 }

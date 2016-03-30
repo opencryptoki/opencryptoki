@@ -398,6 +398,7 @@ dh_pkcs_derive( SESSION           * sess,
                                 &temp_obj );
    if (rc != CKR_OK){
       TRACE_DEVEL("Object Mgr create skeleton failed.\n");
+      free(new_attr);
       return rc;  
    }
 

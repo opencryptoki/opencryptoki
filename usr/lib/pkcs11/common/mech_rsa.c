@@ -2325,10 +2325,9 @@ rsa_hash_pkcs_sign_final( SESSION              * sess,
    if (rc != CKR_OK)
       TRACE_DEVEL("Sign Mgr Sign failed.\n");
 
-   if (length_only == TRUE || rc == CKR_BUFFER_TOO_SMALL) {
-      sign_mgr_cleanup( &sign_ctx );
-      return rc;
-   }
+   /** Not sure why this check is here */
+   if (length_only == TRUE || rc == CKR_BUFFER_TOO_SMALL)
+	goto done;
 
 done:
    if (octet_str) free( octet_str );

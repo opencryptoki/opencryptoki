@@ -966,7 +966,6 @@ token_store_priv_key(TSS_HKEY hKey, int key_type, CK_OBJECT_HANDLE *ckKey)
 	flag = TRUE;
 	if ((rc = build_attribute(CKA_HIDDEN, &flag, sizeof(CK_BBOOL), &new_attr))) {
 		TRACE_DEVEL("build_attribute failed\n");
-		free(key_id);
 		return rc;
 	}
 	template_update_attribute( priv_key_obj->template, new_attr );

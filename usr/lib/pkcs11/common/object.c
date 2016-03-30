@@ -335,7 +335,6 @@ object_create( CK_ATTRIBUTE  * pTemplate,
    CK_ATTRIBUTE  * attr        = NULL;
    CK_ATTRIBUTE  * sensitive   = NULL;
    CK_ATTRIBUTE  * extractable = NULL;
-   CK_ATTRIBUTE  * local       = NULL;
    CK_BBOOL        class_given = FALSE;
    CK_BBOOL        subclass_given = FALSE;
    CK_BBOOL        flag;
@@ -447,7 +446,6 @@ object_create( CK_ATTRIBUTE  * pTemplate,
 error:
    if (sensitive)    free( sensitive );
    if (extractable)  free( extractable );
-   if (local)        free( local );
 
    object_free( o );
    return rc;
@@ -493,7 +491,10 @@ object_copy( CK_ATTRIBUTE  * pTemplate,
    if (!o || !tmpl || !new_tmpl) {
       rc = CKR_HOST_MEMORY;
       TRACE_ERROR("%s\n", ock_err(ERR_HOST_MEMORY));
-      goto error;
+      if (o)        free(o);
+      if (tmpl)     free(tmpl);
+      if (new_tmpl) free(new_tmpl);
+      return rc; // do not goto done -- memory might not be initialized
    }
 
    memset( o,        0x0, sizeof(OBJECT) );
@@ -632,8 +633,10 @@ object_flatten( OBJECT    * obj,
 //
 void object_free(OBJECT *obj)
 {
-	if (obj && obj->template) {
-		template_free(obj->template);
+	/* refactorization here to do actual free - fix from coverity scan */
+	if (obj) {
+		if (obj->template)
+			template_free(obj->template);
 		free(obj);
 	}
 }

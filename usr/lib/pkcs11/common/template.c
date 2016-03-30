@@ -1075,7 +1075,7 @@ CK_RV template_free(TEMPLATE *tmpl)
 CK_BBOOL template_get_class(TEMPLATE *tmpl, CK_ULONG *class, CK_ULONG *subclass)
 {
 	DL_NODE *node;
-	CK_BBOOL found;
+	CK_BBOOL found = FALSE;
 
 	if (!tmpl || !class || !subclass)
 		return FALSE;

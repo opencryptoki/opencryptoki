@@ -373,6 +373,7 @@ session_mgr_new( CK_ULONG flags, CK_SLOT_ID slot_id, CK_SESSION_HANDLE_PTR phSes
    rc = MY_LockMutex( &pkcs_mutex );      // this protects next_session_handle
    if (rc != CKR_OK){
       TRACE_ERROR("Mutex lock failed.\n");
+      free( new_session );
       return rc;
    }
    pkcs_locked = TRUE;
@@ -395,6 +396,7 @@ session_mgr_new( CK_ULONG flags, CK_SLOT_ID slot_id, CK_SESSION_HANDLE_PTR phSes
    rc = MY_LockMutex( &sess_list_mutex );
    if (rc != CKR_OK){
       TRACE_ERROR("Mutex lock failed.\n");
+      free( new_session );
       return rc;
    }
    sess_locked = TRUE;

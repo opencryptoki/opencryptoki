@@ -370,8 +370,6 @@ cert_validate_attribute( TEMPLATE *tmpl, CK_ATTRIBUTE *attr, CK_ULONG mode )
       default:
          return template_validate_base_attribute( tmpl, attr, mode );
    }
-
-   return template_validate_base_attribute( tmpl, attr, mode );
 }
 
 

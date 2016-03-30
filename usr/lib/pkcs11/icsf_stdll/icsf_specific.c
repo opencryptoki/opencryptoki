@@ -480,7 +480,6 @@ CK_RV login(LDAP **ld, CK_SLOT_ID slot_id, CK_BYTE *pin, CK_ULONG pin_len,
 	CK_RV rc = CKR_OK;
 	struct slot_data data;
 	LDAP *ldapd = NULL;
-	char *fname = NULL;
 	int ret;
 
 	/* Check Slot ID */
@@ -545,9 +544,6 @@ done:
 	if (rc == CKR_OK && ld)
 		*ld = ldapd;
 
-	if (fname)
-		free(fname);
-
 	return rc;
 }
 
@@ -604,7 +600,7 @@ CK_RV reset_token_data(CK_SLOT_ID slot_id, CK_CHAR_PTR pin, CK_ULONG pin_len)
 		TRACE_ERROR("Failed to reset so pin.\n");
 		return CKR_FUNCTION_FAILED;
 	}
-	memset(nv_token_data->user_pin_sha, '0',
+	memset(nv_token_data->user_pin_sha, 0,
 	       sizeof(nv_token_data->user_pin_sha));
 
 	if (slot_data[slot_id]->mech == ICSF_CFG_MECH_SIMPLE) {
@@ -2611,6 +2607,7 @@ CK_RV icsftok_decrypt_update(SESSION *session, CK_BYTE_PTR input_part,
 	case CKM_DES_CBC_PAD:
 	case CKM_DES3_CBC_PAD:
 		padding = 1;
+		/* fallthrough */
 	default:
 		if (multi_part_ctx->initiated) {
 			chaining = ICSF_CHAINING_CONTINUE;
@@ -3653,6 +3650,10 @@ CK_RV icsftok_sign_update(SESSION *session, CK_BYTE *in_data,
 		if (multi_part_ctx->initiated)
 			memcpy(chain_data, multi_part_ctx->chain_data,
 				chain_data_len);
+	} else {
+		TRACE_ERROR("%s\n", ock_err(ERR_ARGUMENTS_BAD));
+		rc = ERR_ARGUMENTS_BAD;
+		goto done;
 	}
 
 	switch (ctx->mech.mechanism) {
@@ -3807,6 +3808,10 @@ CK_RV icsftok_sign_final(SESSION *session, CK_BYTE *signature,
 	if (ctx->context) {
 		multi_part_ctx = (struct icsf_multi_part_context *)ctx->context;
 		memcpy(chain_data, multi_part_ctx->chain_data, chain_data_len);
+	} else {
+		TRACE_ERROR("%s\n", ock_err(ERR_ARGUMENTS_BAD));
+		rc = ERR_ARGUMENTS_BAD;
+		goto done;
 	}
 
 	switch (ctx->mech.mechanism) {

@@ -733,6 +733,7 @@ ber_encode_SEQUENCE( CK_BBOOL    length_only,
       return CKR_OK;
    }
 
+   free( buf );
    TRACE_ERROR("%s\n", ock_err(ERR_FUNCTION_FAILED));
    return CKR_FUNCTION_FAILED;
 }
@@ -1045,6 +1046,7 @@ ber_encode_RSAPrivateKey( CK_BBOOL    length_only,
    memcpy( buf+offset, buf2, len );
    offset += len;
    free( buf2 );
+   buf2 = NULL;
 
    rc = ber_encode_INTEGER( FALSE, &buf2, &len, (CK_BYTE *)modulus + sizeof(CK_ATTRIBUTE), modulus->ulValueLen );
    if (rc != CKR_OK){
@@ -1054,6 +1056,7 @@ ber_encode_RSAPrivateKey( CK_BBOOL    length_only,
    memcpy( buf+offset, buf2, len );
    offset += len;
    free( buf2 );
+   buf2 = NULL;
 
    rc = ber_encode_INTEGER( FALSE, &buf2, &len, (CK_BYTE *)publ_exp + sizeof(CK_ATTRIBUTE), publ_exp->ulValueLen );
    if (rc != CKR_OK){
@@ -1063,6 +1066,7 @@ ber_encode_RSAPrivateKey( CK_BBOOL    length_only,
    memcpy( buf+offset, buf2, len );
    offset += len;
    free( buf2 );
+   buf2 = NULL;
 
    if (opaque != NULL) {
       // the CKA_IBM_OPAQUE attrib
@@ -1074,6 +1078,7 @@ ber_encode_RSAPrivateKey( CK_BBOOL    length_only,
       memcpy( buf+offset, buf2, len );
       offset += len;
       free( buf2 );
+      buf2 = NULL;
    } else {
       rc = ber_encode_INTEGER( FALSE, &buf2, &len, (CK_BYTE *)priv_exp  + sizeof(CK_ATTRIBUTE),  priv_exp->ulValueLen );
       if (rc != CKR_OK){
@@ -1083,6 +1088,7 @@ ber_encode_RSAPrivateKey( CK_BBOOL    length_only,
       memcpy( buf+offset, buf2, len );
       offset += len;
       free( buf2 );
+      buf2 = NULL;
 
       rc = ber_encode_INTEGER( FALSE, &buf2, &len, (CK_BYTE *)prime1    + sizeof(CK_ATTRIBUTE),    prime1->ulValueLen );
       if (rc != CKR_OK){
@@ -1092,6 +1098,7 @@ ber_encode_RSAPrivateKey( CK_BBOOL    length_only,
       memcpy( buf+offset, buf2, len );
       offset += len;
       free( buf2 );
+      buf2 = NULL;
 
       rc = ber_encode_INTEGER( FALSE, &buf2, &len, (CK_BYTE *)prime2    + sizeof(CK_ATTRIBUTE),    prime2->ulValueLen );
       if (rc != CKR_OK){
@@ -1101,6 +1108,7 @@ ber_encode_RSAPrivateKey( CK_BBOOL    length_only,
       memcpy( buf+offset, buf2, len );
       offset += len;
       free( buf2 );
+      buf2 = NULL;
 
       rc = ber_encode_INTEGER( FALSE, &buf2, &len, (CK_BYTE *)exponent1 + sizeof(CK_ATTRIBUTE), exponent1->ulValueLen );
       if (rc != CKR_OK){
@@ -1110,6 +1118,7 @@ ber_encode_RSAPrivateKey( CK_BBOOL    length_only,
       memcpy( buf+offset, buf2, len );
       offset += len;
       free( buf2 );
+      buf2 = NULL;
 
       rc = ber_encode_INTEGER( FALSE, &buf2, &len, (CK_BYTE *)exponent2 + sizeof(CK_ATTRIBUTE), exponent2->ulValueLen );
       if (rc != CKR_OK){
@@ -1119,6 +1128,7 @@ ber_encode_RSAPrivateKey( CK_BBOOL    length_only,
       memcpy( buf+offset, buf2, len );
       offset += len;
       free( buf2 );
+      buf2 = NULL;
 
       rc = ber_encode_INTEGER( FALSE, &buf2, &len, (CK_BYTE *)coeff     + sizeof(CK_ATTRIBUTE),     coeff->ulValueLen );
       if (rc != CKR_OK){
@@ -1128,6 +1138,7 @@ ber_encode_RSAPrivateKey( CK_BBOOL    length_only,
       memcpy( buf+offset, buf2, len );
       offset += len;
       free( buf2 );
+      buf2 = NULL;
    }
 
    rc = ber_encode_SEQUENCE( FALSE, &buf2, &len, buf, offset );

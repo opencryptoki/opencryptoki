@@ -1752,7 +1752,7 @@ CK_RV token_specific_rsa_oaep_decrypt(ENCR_DECR_CONTEXT *ctx, CK_BYTE *in_data,
 
 	rc = os_specific_rsa_decrypt(in_data, in_data_len, decr_data, key_obj);
 	if (rc != CKR_OK)
-		return rc;
+		goto error;
 
 	/* pkcs1v2.2, section 7.1.2 Step 2:
 	 * EME-OAEP decoding.
@@ -1760,6 +1760,7 @@ CK_RV token_specific_rsa_oaep_decrypt(ENCR_DECR_CONTEXT *ctx, CK_BYTE *in_data,
 	rc = decode_eme_oaep(decr_data, in_data_len, out_data, out_data_len,
 			     oaepParms->mgf, hash, hlen);
 
+error:
 	if (decr_data)
 		free(decr_data);
 	return rc;
@@ -2626,6 +2627,7 @@ static CK_RV softtok_hmac_final(SIGN_VERIFY_CONTEXT *ctx, CK_BYTE *signature,
 		break;
 	case CKM_SHA384_HMAC_GENERAL:
 		general = TRUE;
+		/* fallthrough */
 	case CKM_SHA384_HMAC:
 		mac_len = SHA3_HASH_SIZE;
 		break;
