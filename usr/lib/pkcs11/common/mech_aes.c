@@ -1308,7 +1308,7 @@ aes_ctr_encrypt_update( SESSION                *sess,
 	// copy the remaining 'new' input data to the context buffer
         if (remain != 0)
            memcpy( context->data, in_data + (in_data_len - remain), remain );
-           context->len = remain;
+	context->len = remain;
       }
 
       free( clear );
