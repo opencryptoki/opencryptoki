@@ -1860,6 +1860,57 @@ get_crypt_type(CK_MECHANISM_PTR mech, int *p_symmetric)
 	return CKR_OK;
 }
 
+/**
+ * Validate mechanism parameter length here for the applicable
+ * encryption/decryption mechanisms supported by icsf token
+ */
+static CK_RV
+validate_mech_parameters(CK_MECHANISM_PTR mech)
+{
+	CK_RV rc = CKR_OK;
+	size_t expected_block_size = 0;
+
+	/* Verify the mechanisms that has a parameter length
+	* specification per pkcs11#v2.2 spec
+	 * */
+	switch (mech->mechanism) {
+        case CKM_DES_CBC:
+        case CKM_DES_CBC_PAD:
+        case CKM_DES3_CBC:
+        case CKM_DES3_CBC_PAD:
+        case CKM_AES_CBC:
+        case CKM_AES_CBC_PAD:
+		/* Get the expected block size. This check needs to be here as
+		* CKM_RSA_X_509 and CKM_RSA_PKCS does not have a block size */
+		if ((rc = icsf_block_size(mech->mechanism, &expected_block_size)))
+			return rc;
+
+		if (mech->ulParameterLen != expected_block_size) {
+			TRACE_ERROR("Invalid mechanism parameter length: %lu "
+					"(expected %lu)\n",
+					(unsigned long) mech->ulParameterLen,
+					(unsigned long) expected_block_size);
+			return CKR_MECHANISM_PARAM_INVALID;
+		}
+		break;
+	case CKM_DES_ECB:
+	case CKM_DES3_ECB:
+	case CKM_RSA_X_509:
+	case CKM_RSA_PKCS:
+	case CKM_AES_ECB:
+		if (mech->ulParameterLen != 0){
+			TRACE_ERROR("%s\n", ock_err(ERR_MECHANISM_PARAM_INVALID));
+			return CKR_MECHANISM_PARAM_INVALID;
+		}
+		break;
+	default:
+		break;
+        }
+
+	return rc;
+}
+
+
 /*
  * Initialize an encryption operation.
  */
@@ -1891,6 +1942,10 @@ CK_RV icsftok_encrypt_init(SESSION *session, CK_MECHANISM_PTR mech,
 	}
 	pthread_rwlock_unlock(&obj_list_rw_mutex);
 	if (rc != CKR_OK)
+		goto done;
+
+	/** validate the mechanism parameter length here */
+	if((rc = validate_mech_parameters(mech)))
 		goto done;
 
 	/* Initialize encryption context */
@@ -2377,6 +2432,10 @@ CK_RV icsftok_decrypt_init(SESSION *session, CK_MECHANISM_PTR mech,
 	}
 	pthread_rwlock_unlock(&obj_list_rw_mutex);
 	if (rc != CKR_OK)
+		goto done;
+
+	/** validate the mechanism parameter length here */
+	if((rc = validate_mech_parameters(mech)))
 		goto done;
 
 	/* Initialize decryption context */
