@@ -1871,7 +1871,7 @@ validate_mech_parameters(CK_MECHANISM_PTR mech)
 	size_t expected_block_size = 0;
 
 	/* Verify the mechanisms that has a parameter length
-	* specification per pkcs11#v2.2 spec
+	 * specification per pkcs11#v2.2 spec
 	 * */
 	switch (mech->mechanism) {
         case CKM_DES_CBC:
@@ -1882,7 +1882,8 @@ validate_mech_parameters(CK_MECHANISM_PTR mech)
         case CKM_AES_CBC_PAD:
 		/* Get the expected block size. This check needs to be here as
 		* CKM_RSA_X_509 and CKM_RSA_PKCS does not have a block size */
-		if ((rc = icsf_block_size(mech->mechanism, &expected_block_size)))
+		if ((rc = icsf_block_size(mech->mechanism,
+					&expected_block_size)))
 			return rc;
 
 		if (mech->ulParameterLen != expected_block_size) {
@@ -1899,12 +1900,15 @@ validate_mech_parameters(CK_MECHANISM_PTR mech)
 	case CKM_RSA_PKCS:
 	case CKM_AES_ECB:
 		if (mech->ulParameterLen != 0){
-			TRACE_ERROR("%s\n", ock_err(ERR_MECHANISM_PARAM_INVALID));
+			TRACE_ERROR("%s\n",
+				ock_err(ERR_MECHANISM_PARAM_INVALID));
 			return CKR_MECHANISM_PARAM_INVALID;
 		}
 		break;
 	default:
-		break;
+		/** Encryption/decryption mechanism not supported by icsf token */
+		TRACE_ERROR("icsf invalid mechanism %lu\n", mech->mechanism);
+		return CKR_MECHANISM_INVALID;
         }
 
 	return rc;
@@ -4511,6 +4515,7 @@ CK_RV icsftok_wrap_key(SESSION *session, CK_MECHANISM_PTR mech,
 	struct session_state *session_state;
 	struct icsf_object_mapping *wrapping_key_mapping = NULL;
 	struct icsf_object_mapping *key_mapping = NULL;
+	size_t expected_block_size = 0;
 
 	/* Check session */
 	if (!(session_state = get_session_state(session->handle))) {
@@ -4532,6 +4537,37 @@ CK_RV icsftok_wrap_key(SESSION *session, CK_MECHANISM_PTR mech,
 	if (!wrapping_key_mapping || !key_mapping) {
 		TRACE_ERROR("%s\n", ock_err(ERR_KEY_HANDLE_INVALID));
 		return CKR_KEY_HANDLE_INVALID;
+	}
+
+	/* validate mechanism parameters. Only 4 mechanisms support
+	* key wrapping in icsf token */
+	switch(mech->mechanism){
+	case CKM_DES_CBC_PAD:
+	case CKM_DES3_CBC_PAD:
+	case CKM_AES_CBC_PAD:
+		if ((rc = icsf_block_size(mech->mechanism,
+					&expected_block_size)))
+                        return rc;
+
+                if (mech->ulParameterLen != expected_block_size) {
+                        TRACE_ERROR("Invalid mechanism parameter length: %lu "
+                                        "(expected %lu)\n",
+                                        (unsigned long) mech->ulParameterLen,
+                                        (unsigned long) expected_block_size);
+                        return CKR_MECHANISM_PARAM_INVALID;
+                }
+                break;
+	case CKM_RSA_PKCS:
+		if (mech->ulParameterLen != 0){
+                        TRACE_ERROR("%s\n",
+				ock_err(ERR_MECHANISM_PARAM_INVALID));
+                        return CKR_MECHANISM_PARAM_INVALID;
+                }
+                break;
+	default:
+		TRACE_ERROR("icsf invalid %lu mechanism for key wrapping\n",
+			mech->mechanism);
+		return CKR_MECHANISM_INVALID;
 	}
 
 	/* Call ICSF service */
@@ -4563,6 +4599,7 @@ CK_RV icsftok_unwrap_key(SESSION *session, CK_MECHANISM_PTR mech,
 	struct icsf_object_mapping *key_mapping = NULL;
 	int is_obj_locked = 0;
 	CK_ULONG node_number;
+	size_t expected_block_size = 0;
 
 	/* Check session */
 	if (!(session_state = get_session_state(session->handle))) {
@@ -4592,6 +4629,37 @@ CK_RV icsftok_unwrap_key(SESSION *session, CK_MECHANISM_PTR mech,
 	}
 	memset(key_mapping, 0, sizeof(*key_mapping));
 	key_mapping->session_id = session->handle;
+
+	/* validate mechanism parameters. Only 4 mechanisms support
+	* key wrapping in icsf token */
+	switch(mech->mechanism){
+	case CKM_DES_CBC_PAD:
+	case CKM_DES3_CBC_PAD:
+	case CKM_AES_CBC_PAD:
+		if ((rc = icsf_block_size(mech->mechanism,
+					&expected_block_size)))
+                        return rc;
+
+                if (mech->ulParameterLen != expected_block_size) {
+                        TRACE_ERROR("Invalid mechanism parameter length: %lu "
+                                        "(expected %lu)\n",
+                                        (unsigned long) mech->ulParameterLen,
+                                        (unsigned long) expected_block_size);
+                        return CKR_MECHANISM_PARAM_INVALID;
+                }
+                break;
+	case CKM_RSA_PKCS:
+		if (mech->ulParameterLen != 0){
+                        TRACE_ERROR("%s\n",
+				ock_err(ERR_MECHANISM_PARAM_INVALID));
+                        return CKR_MECHANISM_PARAM_INVALID;
+                }
+                break;
+	default:
+		TRACE_ERROR("icsf invalid %lu mechanism for key wrapping\n",
+			mech->mechanism);
+		return CKR_MECHANISM_INVALID;
+	}
 
 	/* Call ICSF service */
 	rc = icsf_unwrap_key(session_state->ld, &reason, mech,
