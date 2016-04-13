@@ -721,6 +721,10 @@ typedef CK_ULONG          CK_CERTIFICATE_TYPE;
  * v2.0 */
 typedef CK_ULONG          CK_ATTRIBUTE_TYPE;
 
+/* The CKF_ARRAY_ATTRIBUTE flag identifies an attribute which
+ * consists of an array of values. */
+#define CKF_ARRAY_ATTRIBUTE    0x40000000
+
 /* The following attribute types are defined: */
 #define CKA_CLASS              0x00000000
 #define CKA_TOKEN              0x00000001
@@ -794,6 +798,9 @@ typedef CK_ULONG          CK_ATTRIBUTE_TYPE;
 #define CKA_HW_FEATURE_TYPE    0x00000300
 #define CKA_RESET_ON_INIT      0x00000301
 #define CKA_HAS_RESET          0x00000302
+
+#define CKA_WRAP_TEMPLATE        (CKF_ARRAY_ATTRIBUTE|0x00000211UL)
+#define CKA_UNWRAP_TEMPLATE      (CKF_ARRAY_ATTRIBUTE|0x00000212UL)
 
 #define CKA_VENDOR_DEFINED     0x80000000
 
