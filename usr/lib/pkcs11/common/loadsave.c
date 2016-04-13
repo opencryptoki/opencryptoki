@@ -634,8 +634,8 @@ void set_perm(int file)
 		 * restrict access to a single user */
 		fchmod(file,S_IRUSR|S_IWUSR);
 	} else {
-		// Set absolute permissions or rw-rw-r--
-		fchmod(file, S_IRUSR | S_IWUSR | S_IRGRP | S_IWGRP | S_IROTH);
+		// Set absolute permissions or rw-rw----
+		fchmod(file, S_IRUSR | S_IWUSR | S_IRGRP | S_IWGRP);
 
 		grp = getgrnam("pkcs11");	// Obtain the group id
 		if (grp) {
