@@ -1956,6 +1956,7 @@ CK_RV icsftok_encrypt_init(SESSION *session, CK_MECHANISM_PTR mech,
 	free_encr_ctx(encr_ctx);
 	encr_ctx->key = key;
 	encr_ctx->active = TRUE;
+	encr_ctx->multi = FALSE;
 
 	/* Copy mechanism */
 	if (mech->pParameter == NULL || mech->ulParameterLen == 0) {
@@ -2244,6 +2245,12 @@ CK_RV icsftok_encrypt_update(SESSION *session, CK_BYTE_PTR input_part,
 		goto done;
 	}
 
+	/** If this is the first block for multi-part operation, also set
+	 *  the encr_ctx->context_len here. This is needed for
+	 *  C_GetOperationState to work correctly */
+	if(!multi_part_ctx->initiated)
+		encr_ctx->context_len = sizeof(*multi_part_ctx);
+
 	/*
 	 * When blocks are sent it's necessary to keep the chain data returned
 	 * to be used in a subsequent call.
@@ -2254,6 +2261,9 @@ CK_RV icsftok_encrypt_update(SESSION *session, CK_BYTE_PTR input_part,
 
 		/* Mark multi-part operation as initiated */
 		multi_part_ctx->initiated = TRUE;
+
+		/* Mark the multi-part operation in encr_ctx */
+		encr_ctx->multi = TRUE;
 
 		/* Data stored in cache was used */
 		multi_part_ctx->used_data_len = 0;
@@ -2446,6 +2456,7 @@ CK_RV icsftok_decrypt_init(SESSION *session, CK_MECHANISM_PTR mech,
 	free_encr_ctx(decr_ctx);
 	decr_ctx->key = key;
 	decr_ctx->active = TRUE;
+	decr_ctx->multi = FALSE;
 
 	/* Copy mechanism */
 	if (mech->pParameter == NULL || mech->ulParameterLen == 0) {
@@ -2752,6 +2763,10 @@ CK_RV icsftok_decrypt_update(SESSION *session, CK_BYTE_PTR input_part,
 		goto done;
 	}
 
+	/* If this is the first block sent for multi-part set the context_len */
+	if (!multi_part_ctx->initiated)
+		decr_ctx->context_len = sizeof(*multi_part_ctx);
+
 	/*
 	 * When blocks are sent it's necessary to keep the chain data returned
 	 * to be used in a subsequent call.
@@ -2762,6 +2777,9 @@ CK_RV icsftok_decrypt_update(SESSION *session, CK_BYTE_PTR input_part,
 
 		/* Mark multi-part operation as initiated */
 		multi_part_ctx->initiated = TRUE;
+
+		/* Mark multi-part operation in decr_ctx in session */
+		decr_ctx->multi = TRUE;
 
 		/* Data stored in cache was used */
 		multi_part_ctx->used_data_len = 0;
