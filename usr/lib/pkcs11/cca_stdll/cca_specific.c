@@ -32,6 +32,7 @@
 #include "csulincl.h"
 #include "ec_defs.h"
 #include "trace.h"
+#include "cca_func.h"
 
 CK_CHAR manuf[] = "IBM Corp.";
 CK_CHAR model[] = "IBM CCA Token";
@@ -39,6 +40,100 @@ CK_CHAR descr[] = "IBM PKCS#11 CCA Token";
 CK_CHAR label[] = "IBM PKCS#11 for CCA";
 
 #define CCASHAREDLIB "libcsulcca.so"
+
+static CSNBCKI_t	dll_CSNBCKI;
+static CSNBCKM_t	dll_CSNBCKM;
+static CSNBDKX_t	dll_CSNBDKX;
+static CSNBDKM_t	dll_CSNBDKM;
+static CSNBMKP_t	dll_CSNBMKP;
+static CSNBKEX_t	dll_CSNBKEX;
+static CSNBKGN_t	dll_CSNBKGN;
+static CSNBKGN2_t	dll_CSNBKGN2;
+static CSNBKIM_t	dll_CSNBKIM;
+static CSNBKPI_t	dll_CSNBKPI;
+static CSNBKPI2_t	dll_CSNBKPI2;
+static CSNBKSI_t	dll_CSNBKSI;
+static CSNBKRC_t	dll_CSNBKRC;
+static CSNBAKRC_t	dll_CSNBAKRC;
+static CSNBKRD_t	dll_CSNBKRD;
+static CSNBKRL_t	dll_CSNBKRL;
+static CSNBKRR_t	dll_CSNBKRR;
+static CSNBKRW_t	dll_CSNBKRW;
+static CSNDKRC_t	dll_CSNDKRC;
+static CSNDKRD_t	dll_CSNDKRD;
+static CSNDKRL_t	dll_CSNDKRL;
+static CSNDKRR_t	dll_CSNDKRR;
+static CSNDKRW_t	dll_CSNDKRW;
+static CSNBKYT_t	dll_CSNBKYT;
+static CSNBKYTX_t	dll_CSNBKYTX;
+static CSNBKTC_t	dll_CSNBKTC;
+static CSNBKTR_t	dll_CSNBKTR;
+static CSNBRNG_t	dll_CSNBRNG;
+static CSNBSAE_t	dll_CSNBSAE;
+static CSNBSAD_t	dll_CSNBSAD;
+static CSNBDEC_t	dll_CSNBDEC;
+static CSNBENC_t	dll_CSNBENC;
+static CSNBMGN_t	dll_CSNBMGN;
+static CSNBMVR_t	dll_CSNBMVR;
+static CSNBKTB_t	dll_CSNBKTB;
+static CSNBKTB2_t	dll_CSNBKTB2;
+static CSNDPKG_t	dll_CSNDPKG;
+static CSNDPKB_t	dll_CSNDPKB;
+static CSNBOWH_t	dll_CSNBOWH;
+static CSNDPKI_t	dll_CSNDPKI;
+static CSNDDSG_t	dll_CSNDDSG;
+static CSNDDSV_t	dll_CSNDDSV;
+static CSNDKTC_t	dll_CSNDKTC;
+static CSNDPKX_t	dll_CSNDPKX;
+static CSNDSYI_t	dll_CSNDSYI;
+static CSNDSYX_t	dll_CSNDSYX;
+static CSUACFQ_t	dll_CSUACFQ;
+static CSUACFC_t	dll_CSUACFC;
+static CSNDSBC_t	dll_CSNDSBC;
+static CSNDSBD_t	dll_CSNDSBD;
+static CSUALCT_t	dll_CSUALCT;
+static CSUAACM_t	dll_CSUAACM;
+static CSUAACI_t	dll_CSUAACI;
+static CSNDPKH_t	dll_CSNDPKH;
+static CSNDPKR_t	dll_CSNDPKR;
+static CSUAMKD_t	dll_CSUAMKD;
+static CSNDRKD_t	dll_CSNDRKD;
+static CSNDRKL_t	dll_CSNDRKL;
+static CSNDSYG_t	dll_CSNDSYG;
+static CSNBPTR_t	dll_CSNBPTR;
+static CSNBCPE_t	dll_CSNBCPE;
+static CSNBCPA_t	dll_CSNBCPA;
+static CSNBPGN_t	dll_CSNBPGN;
+static CSNBPVR_t	dll_CSNBPVR;
+static CSNBDKG_t	dll_CSNBDKG;
+static CSNBEPG_t	dll_CSNBEPG;
+static CSNBCVE_t	dll_CSNBCVE;
+static CSNBCSG_t	dll_CSNBCSG;
+static CSNBCSV_t	dll_CSNBCSV;
+static CSNBCVG_t	dll_CSNBCVG;
+static CSNBKTP_t	dll_CSNBKTP;
+static CSNDPKE_t	dll_CSNDPKE;
+static CSNDPKD_t	dll_CSNDPKD;
+static CSNBPEX_t	dll_CSNBPEX;
+static CSNBPEXX_t	dll_CSNBPEXX;
+static CSUARNT_t	dll_CSUARNT;
+static CSNBCVT_t	dll_CSNBCVT;
+static CSNBMDG_t	dll_CSNBMDG;
+static CSUACRA_t	dll_CSUACRA;
+static CSUACRD_t	dll_CSUACRD;
+static CSNBTRV_t	dll_CSNBTRV;
+static CSNBSKY_t	dll_CSNBSKY;
+static CSNBSPN_t	dll_CSNBSPN;
+static CSNBPCU_t	dll_CSNBPCU;
+static CSUAPCV_t	dll_CSUAPCV;
+static CSUAPRB_t	dll_CSUAPRB;
+static CSUADHK_t	dll_CSUADHK;
+static CSUADHQ_t	dll_CSUADHQ;
+static CSNDTBC_t	dll_CSNDTBC;
+static CSNDRKX_t	dll_CSNDRKX;
+static CSNBKET_t	dll_CSNBKET;
+static CSNBHMG_t	dll_CSNBHMG;
+static CSNBHMV_t	dll_CSNBHMV;
 
 /* mechanisms provided by this token */
 MECH_LIST_ELEMENT mech_list[] = {
@@ -101,7 +196,7 @@ token_specific_rng(CK_BYTE *output, CK_ULONG bytes)
 	memcpy(form, "RANDOM  ", (size_t)CCA_KEYWORD_SIZE);
 
 	while (bytes_so_far < bytes) {
-		CSNBRNG(&return_code,
+		dll_CSNBRNG(&return_code,
 			&reason_code,
 			NULL,
 			NULL,
@@ -128,12 +223,120 @@ token_specific_rng(CK_BYTE *output, CK_ULONG bytes)
 	return CKR_OK;
 }
 
+CK_RV cca_resolve_lib_sym(void *hdl) {
+	char *error = NULL;
+
+	dlerror(); /* Clear existing error */
+
+	dll_CSNBCKI	= (CSNBCKI_t)dlsym(hdl, "CSNBCKI");
+	dll_CSNBCKM	= (CSNBCKM_t)dlsym(hdl, "CSNBCKM");
+	dll_CSNBDKX	= (CSNBDKX_t)dlsym(hdl, "CSNBDKX");
+	dll_CSNBDKM	= (CSNBDKM_t)dlsym(hdl, "CSNBDKM");
+	dll_CSNBMKP	= (CSNBMKP_t)dlsym(hdl, "CSNBMKP");
+	dll_CSNBKEX	= (CSNBKEX_t)dlsym(hdl, "CSNBKEX");
+	dll_CSNBKGN	= (CSNBKGN_t)dlsym(hdl, "CSNBKGN");
+	dll_CSNBKGN2	= (CSNBKGN2_t)dlsym(hdl, "CSNBKGN2");
+	dll_CSNBKIM	= (CSNBKIM_t)dlsym(hdl, "CSNBKIM");
+	dll_CSNBKPI	= (CSNBKPI_t)dlsym(hdl, "CSNBKPI");
+	dll_CSNBKPI2	= (CSNBKPI2_t)dlsym(hdl, "CSNBKPI2");
+	dll_CSNBKSI	= (CSNBKSI_t)dlsym(hdl, "CSNBKSI");
+	dll_CSNBKRC	= (CSNBKRC_t)dlsym(hdl, "CSNBKRC");
+	dll_CSNBAKRC	= (CSNBAKRC_t)dlsym(hdl, "CSNBAKRC");
+	dll_CSNBKRD	= (CSNBKRD_t)dlsym(hdl, "CSNBKRD");
+	dll_CSNBKRL	= (CSNBKRL_t)dlsym(hdl, "CSNBKRL");
+	dll_CSNBKRR	= (CSNBKRR_t)dlsym(hdl, "CSNBKRR");
+	dll_CSNBKRW	= (CSNBKRW_t)dlsym(hdl, "CSNBKRW");
+	dll_CSNDKRC	= (CSNDKRC_t)dlsym(hdl, "CSNDKRC");
+	dll_CSNDKRD	= (CSNDKRD_t)dlsym(hdl, "CSNDKRD");
+	dll_CSNDKRL	= (CSNDKRL_t)dlsym(hdl, "CSNDKRL");
+	dll_CSNDKRR	= (CSNDKRR_t)dlsym(hdl, "CSNDKRR");
+	dll_CSNDKRW	= (CSNDKRW_t)dlsym(hdl, "CSNDKRW");
+	dll_CSNBKYT	= (CSNBKYT_t)dlsym(hdl, "CSNBKYT");
+	dll_CSNBKYTX	= (CSNBKYTX_t)dlsym(hdl, "CSNBKYTX");
+	dll_CSNBKTC	= (CSNBKTC_t)dlsym(hdl, "CSNBKTC");
+	dll_CSNBKTR	= (CSNBKTR_t)dlsym(hdl, "CSNBKTR");
+	dll_CSNBRNG	= (CSNBRNG_t)dlsym(hdl, "CSNBRNG");
+	dll_CSNBSAE	= (CSNBSAE_t)dlsym(hdl, "CSNBSAE");
+	dll_CSNBSAD	= (CSNBSAD_t)dlsym(hdl, "CSNBSAD");
+	dll_CSNBDEC	= (CSNBDEC_t)dlsym(hdl, "CSNBDEC");
+	dll_CSNBENC	= (CSNBENC_t)dlsym(hdl, "CSNBENC");
+	dll_CSNBMGN	= (CSNBMGN_t)dlsym(hdl, "CSNBMGN");
+	dll_CSNBMVR	= (CSNBMVR_t)dlsym(hdl, "CSNBMVR");
+	dll_CSNBKTB	= (CSNBKTB_t)dlsym(hdl, "CSNBKTB");
+	dll_CSNBKTB2	= (CSNBKTB2_t)dlsym(hdl, "CSNBKTB2");
+	dll_CSNDPKG	= (CSNDPKG_t)dlsym(hdl, "CSNDPKG");
+	dll_CSNDPKB	= (CSNDPKB_t)dlsym(hdl, "CSNDPKB");
+	dll_CSNBOWH	= (CSNBOWH_t)dlsym(hdl, "CSNBOWH");
+	dll_CSNDPKI	= (CSNDPKI_t)dlsym(hdl, "CSNDPKI");
+	dll_CSNDDSG	= (CSNDDSG_t)dlsym(hdl, "CSNDDSG");
+	dll_CSNDDSV	= (CSNDDSV_t)dlsym(hdl, "CSNDDSV");
+	dll_CSNDKTC	= (CSNDKTC_t)dlsym(hdl, "CSNDKTC");
+	dll_CSNDPKX	= (CSNDPKX_t)dlsym(hdl, "CSNDPKX");
+	dll_CSNDSYI	= (CSNDSYI_t)dlsym(hdl, "CSNDSYI");
+	dll_CSNDSYX	= (CSNDSYX_t)dlsym(hdl, "CSNDSYX");
+	dll_CSUACFQ	= (CSUACFQ_t)dlsym(hdl, "CSUACFQ");
+	dll_CSUACFC	= (CSUACFC_t)dlsym(hdl, "CSUACFC");
+	dll_CSNDSBC	= (CSNDSBC_t)dlsym(hdl, "CSNDSBC");
+	dll_CSNDSBD	= (CSNDSBD_t)dlsym(hdl, "CSNDSBD");
+	dll_CSUALCT	= (CSUALCT_t)dlsym(hdl, "CSUALCT");
+	dll_CSUAACM	= (CSUAACM_t)dlsym(hdl, "CSUAACM");
+	dll_CSUAACI	= (CSUAACI_t)dlsym(hdl, "CSUAACI");
+	dll_CSNDPKH	= (CSNDPKH_t)dlsym(hdl, "CSNDPKH");
+	dll_CSNDPKR	= (CSNDPKR_t)dlsym(hdl, "CSNDPKR");
+	dll_CSUAMKD	= (CSUAMKD_t)dlsym(hdl, "CSUAMKD");
+	dll_CSNDRKD	= (CSNDRKD_t)dlsym(hdl, "CSNDRKD");
+	dll_CSNDRKL	= (CSNDRKL_t)dlsym(hdl, "CSNDRKL");
+	dll_CSNDSYG	= (CSNDSYG_t)dlsym(hdl, "CSNDSYG");
+	dll_CSNBPTR	= (CSNBPTR_t)dlsym(hdl, "CSNBPTR");
+	dll_CSNBCPE	= (CSNBCPE_t)dlsym(hdl, "CSNBCPE");
+	dll_CSNBCPA	= (CSNBCPA_t)dlsym(hdl, "CSNBCPA");
+	dll_CSNBPGN	= (CSNBPGN_t)dlsym(hdl, "CSNBPGN");
+	dll_CSNBPVR	= (CSNBPVR_t)dlsym(hdl, "CSNBPVR");
+	dll_CSNBDKG	= (CSNBDKG_t)dlsym(hdl, "CSNBDKG");
+	dll_CSNBEPG	= (CSNBEPG_t)dlsym(hdl, "CSNBEPG");
+	dll_CSNBCVE	= (CSNBCVE_t)dlsym(hdl, "CSNBCVE");
+	dll_CSNBCSG	= (CSNBCSG_t)dlsym(hdl, "CSNBCSG");
+	dll_CSNBCSV	= (CSNBCSV_t)dlsym(hdl, "CSNBCSV");
+	dll_CSNBCVG	= (CSNBCVG_t)dlsym(hdl, "CSNBCVG");
+	dll_CSNBKTP	= (CSNBKTP_t)dlsym(hdl, "CSNBKTP");
+	dll_CSNDPKE	= (CSNDPKE_t)dlsym(hdl, "CSNDPKE");
+	dll_CSNDPKD	= (CSNDPKD_t)dlsym(hdl, "CSNDPKD");
+	dll_CSNBPEX	= (CSNBPEX_t)dlsym(hdl, "CSNBPEX");
+	dll_CSNBPEXX	= (CSNBPEXX_t)dlsym(hdl, "CSNBPEXX");
+	dll_CSUARNT	= (CSUARNT_t)dlsym(hdl, "CSUARNT");
+	dll_CSNBCVT	= (CSNBCVT_t)dlsym(hdl, "CSNBCVT");
+	dll_CSNBMDG	= (CSNBMDG_t)dlsym(hdl, "CSNBMDG");
+	dll_CSUACRA	= (CSUACRA_t)dlsym(hdl, "CSUACRA");
+	dll_CSUACRD	= (CSUACRD_t)dlsym(hdl, "CSUACRD");
+	dll_CSNBTRV	= (CSNBTRV_t)dlsym(hdl, "CSNBTRV");
+	dll_CSNBSKY	= (CSNBSKY_t)dlsym(hdl, "CSNBSKY");
+	dll_CSNBSPN	= (CSNBSPN_t)dlsym(hdl, "CSNBSPN");
+	dll_CSNBPCU	= (CSNBPCU_t)dlsym(hdl, "CSNBPCU");
+	dll_CSUAPCV	= (CSUAPCV_t)dlsym(hdl, "CSUAPCV");
+	dll_CSUAPRB	= (CSUAPRB_t)dlsym(hdl, "CSUAPRB");
+	dll_CSUADHK	= (CSUADHK_t)dlsym(hdl, "CSUADHK");
+	dll_CSUADHQ	= (CSUADHQ_t)dlsym(hdl, "CSUADHQ");
+	dll_CSNDTBC	= (CSNDTBC_t)dlsym(hdl, "CSNDTBC");
+	dll_CSNDRKX	= (CSNDRKX_t)dlsym(hdl, "CSNDRKX");
+	dll_CSNBKET	= (CSNBKET_t)dlsym(hdl, "CSNBKET");
+	dll_CSNBHMG	= (CSNBHMG_t)dlsym(hdl, "CSNBHMG");
+	dll_CSNBHMV	= (CSNBHMV_t)dlsym(hdl, "CSNBHMV");
+
+	if ((error = dlerror()) != NULL)  {
+		OCK_SYSLOG(LOG_ERR, "%s\n", error);
+		exit(EXIT_FAILURE);
+	}
+	else
+		return CKR_OK;
+}
+
 CK_RV
 token_specific_init(CK_SLOT_ID SlotNumber, char *conf_name)
 {
 	unsigned char rule_array[256] = { 0, };
 	long return_code, reason_code, rule_array_count, verb_data_length;
 	void *lib_csulcca;
+	CK_RV rc;
 
 	TRACE_INFO("cca %s slot=%lu running\n", __func__, SlotNumber);
 
@@ -146,11 +349,15 @@ token_specific_init(CK_SLOT_ID SlotNumber, char *conf_name)
 		return CKR_FUNCTION_FAILED;
 	}
 
+	rc = cca_resolve_lib_sym(lib_csulcca);
+	if (rc)
+		exit(rc);
+
 	memcpy(rule_array, "STATCCAE", 8);
 
 	rule_array_count = 1;
 	verb_data_length = 0;
-	CSUACFQ(&return_code,
+	dll_CSUACFQ(&return_code,
 		&reason_code,
 		NULL,
 		NULL,
@@ -226,7 +433,7 @@ CK_RV cca_key_gen(enum cca_key_type type, CK_BYTE *key, unsigned char *key_form,
 		return CKR_FUNCTION_FAILED;
 	}
 
-	CSNBKGN(&return_code,
+	dll_CSNBKGN(&return_code,
 		&reason_code,
 		NULL,
 		NULL,
@@ -244,9 +451,6 @@ CK_RV cca_key_gen(enum cca_key_type type, CK_BYTE *key, unsigned char *key_form,
 			    return_code, reason_code);
 		return CKR_FUNCTION_FAILED;
 	}
-
-//	memcpy(key, generated_key_identifier_1, (size_t)CCA_KEY_ID_SIZE);
-
 
 	return CKR_OK;
 }
@@ -325,7 +529,7 @@ token_specific_des_cbc(CK_BYTE  *in_data,
 	memcpy(rule_array, "CBC     ", (size_t)CCA_KEYWORD_SIZE);
 
 	if (encrypt) {
-		CSNBENC(&return_code,
+		dll_CSNBENC(&return_code,
 			&reason_code,
 			NULL,
 			NULL,
@@ -339,7 +543,7 @@ token_specific_des_cbc(CK_BYTE  *in_data,
 			chaining_vector,
 			local_out);//out_data); //out);
 	} else {
-		CSNBDEC(&return_code,
+		dll_CSNBDEC(&return_code,
 			&reason_code,
 			NULL,
 			NULL,
@@ -653,7 +857,7 @@ token_specific_rsa_generate_keypair(TEMPLATE *publ_tmpl,
 
 	key_token_length = CCA_KEY_TOKEN_SIZE;
 
-	CSNDPKB(&return_code,
+	dll_CSNDPKB(&return_code,
 		&reason_code,
 		NULL,
 		NULL,
@@ -690,7 +894,7 @@ token_specific_rsa_generate_keypair(TEMPLATE *publ_tmpl,
 
 	regeneration_data_length = 0;
 
-	CSNDPKG(&return_code,
+	dll_CSNDPKG(&return_code,
 		&reason_code,
 		NULL,
 		NULL,
@@ -755,7 +959,7 @@ token_specific_rsa_encrypt(CK_BYTE  *in_data,
 
 	data_structure_length = 0;
 
-	CSNDPKE(&return_code,
+	dll_CSNDPKE(&return_code,
 		&reason_code,
 		NULL,
 		NULL,
@@ -809,7 +1013,7 @@ token_specific_rsa_decrypt(CK_BYTE  *in_data,
 
 	data_structure_length = 0;
 
-	CSNDPKD(&return_code,
+	dll_CSNDPKD(&return_code,
 		&reason_code,
 		NULL,
 		NULL,
@@ -857,7 +1061,7 @@ token_specific_rsa_sign(CK_BYTE  * in_data,
 	rule_array_count = 1;
 	memcpy(rule_array, "PKCS-1.1", CCA_KEYWORD_SIZE);
 
-	CSNDDSG(&return_code,
+	dll_CSNDDSG(&return_code,
 		&reason_code,
 		NULL,
 		NULL,
@@ -903,7 +1107,7 @@ token_specific_rsa_verify(CK_BYTE  * in_data,
 	rule_array_count = 1;
 	memcpy(rule_array, "PKCS-1.1", CCA_KEYWORD_SIZE);
 
-	CSNDDSV(&return_code,
+	dll_CSNDDSV(&return_code,
 		&reason_code,
 		NULL,
 		NULL,
@@ -979,7 +1183,7 @@ token_specific_aes_key_gen(CK_BYTE *aes_key, CK_ULONG len, CK_ULONG key_size)
 		}
 #endif
 	rule_array_count = 4;
-	CSNBKTB(&return_code,
+	dll_CSNBKTB(&return_code,
 		&reason_code,
 		&exit_data_len,
 		exit_data,
@@ -1038,7 +1242,7 @@ token_specific_aes_ecb(CK_BYTE  *in_data,
 	       rule_array_count*(size_t)CCA_KEYWORD_SIZE);
 
 	if (encrypt) {
-		CSNBSAE(&return_code,
+		dll_CSNBSAE(&return_code,
 			&reason_code,
 			&exit_data_len,
 			exit_data,
@@ -1060,7 +1264,7 @@ token_specific_aes_ecb(CK_BYTE  *in_data,
 			&opt_data_len,
 			NULL);
 	} else {
-		CSNBSAD(&return_code,
+		dll_CSNBSAD(&return_code,
 			&reason_code,
 			&exit_data_len,
 			exit_data,
@@ -1151,7 +1355,7 @@ token_specific_aes_cbc(CK_BYTE  *in_data,
 	length = in_data_len;
 	key_len = 64;
 	if (encrypt) {
-		CSNBSAE(&return_code,
+		dll_CSNBSAE(&return_code,
 			&reason_code,
 			&exit_data_len,
 			exit_data,
@@ -1173,7 +1377,7 @@ token_specific_aes_cbc(CK_BYTE  *in_data,
 			&opt_data_len,
 			NULL);
 	} else {
-		CSNBSAD(&return_code,
+		dll_CSNBSAD(&return_code,
 			&reason_code,
 			&exit_data_len,
 			exit_data,
@@ -1487,7 +1691,7 @@ token_specific_ec_generate_keypair(TEMPLATE *publ_tmpl,
 
 	key_token_length = CCA_KEY_TOKEN_SIZE;
 
-	CSNDPKB(&return_code,
+	dll_CSNDPKB(&return_code,
 			&reason_code,
 			&exit_data_len,
 			exit_data,
@@ -1524,7 +1728,7 @@ token_specific_ec_generate_keypair(TEMPLATE *publ_tmpl,
 
 	regeneration_data_length = 0;
 
-	CSNDPKG(&return_code,
+	dll_CSNDPKG(&return_code,
 			&reason_code,
 			NULL,
 			NULL,
@@ -1580,7 +1784,7 @@ token_specific_ec_sign(CK_BYTE  * in_data,
 	rule_array_count = 1;
 	memcpy(rule_array, "ECDSA   ", CCA_KEYWORD_SIZE);
 
-	CSNDDSG(&return_code,
+	dll_CSNDDSG(&return_code,
 			&reason_code,
 			NULL,
 			NULL,
@@ -1627,7 +1831,7 @@ token_specific_ec_verify(CK_BYTE  * in_data,
 	rule_array_count = 1;
 	memcpy(rule_array, "ECDSA   ", CCA_KEYWORD_SIZE);
 
-	CSNDDSV(&return_code,
+	dll_CSNDDSV(&return_code,
 			&reason_code,
 			NULL,
 			NULL,
@@ -1732,7 +1936,7 @@ CK_RV token_specific_sha(DIGEST_CONTEXT *ctx, CK_BYTE *in_data,
 	}
 
 
-	CSNBOWH(&return_code, &reason_code, NULL, NULL, &rule_array_count,
+	dll_CSNBOWH(&return_code, &reason_code, NULL, NULL, &rule_array_count,
 		rule_array, &in_data_len, in_data, &cca_ctx->chain_vector_len,
 		cca_ctx->chain_vector, &cca_ctx->hash_len, cca_ctx->hash);
 
@@ -1879,7 +2083,7 @@ send:
 		break;
 	}
 
-	CSNBOWH(&return_code, &reason_code, NULL, NULL, &rule_array_count,
+	dll_CSNBOWH(&return_code, &reason_code, NULL, NULL, &rule_array_count,
 		rule_array, use_buffer ? &buffer_len : (long *)&in_data_len,
 		use_buffer ? buffer : in_data, &cca_ctx->chain_vector_len,
 		cca_ctx->chain_vector, &cca_ctx->hash_len, cca_ctx->hash);
@@ -1971,7 +2175,7 @@ CK_RV token_specific_sha_final(DIGEST_CONTEXT *ctx, CK_BYTE *out_data,
 		    cca_ctx->tail ? cca_ctx->tail : dummy_buf,
 		    cca_ctx->chain_vector_len, cca_ctx->hash_len);
 
-	CSNBOWH(&return_code, &reason_code, NULL, NULL, &rule_array_count,
+	dll_CSNBOWH(&return_code, &reason_code, NULL, NULL, &rule_array_count,
 		rule_array, &cca_ctx->tail_len,
 		cca_ctx->tail ? cca_ctx->tail : dummy_buf,
 		&cca_ctx->chain_vector_len, cca_ctx->chain_vector,
@@ -2116,7 +2320,7 @@ CK_RV ccatok_hmac(SIGN_VERIFY_CONTEXT *ctx, CK_BYTE *in_data,
 	TRACE_INFO("The mac length is %ld\n", cca_ctx->hash_len);
 
 	if (sign) {
-		CSNBHMG(&return_code, &reason_code, NULL, NULL,
+		dll_CSNBHMG(&return_code, &reason_code, NULL, NULL,
 			&rule_array_count, rule_array, &attr->ulValueLen,
 			attr->pValue, &in_data_len, in_data,
 			&cca_ctx->chain_vector_len, cca_ctx->chain_vector,
@@ -2137,7 +2341,7 @@ CK_RV ccatok_hmac(SIGN_VERIFY_CONTEXT *ctx, CK_BYTE *in_data,
 		memcpy(signature, cca_ctx->hash, cca_ctx->hash_len);
 		*sig_len = cca_ctx->hash_len;
 	} else {		// verify
-		CSNBHMV(&return_code, &reason_code, NULL, NULL,
+		dll_CSNBHMV(&return_code, &reason_code, NULL, NULL,
 			&rule_array_count, rule_array, &attr->ulValueLen,
 			attr->pValue, &in_data_len, in_data,
 			&cca_ctx->chain_vector_len, cca_ctx->chain_vector,
@@ -2320,7 +2524,7 @@ send:
 	TRACE_INFO("CSNBHMG: key length is %lu\n", attr->ulValueLen);
 
 	if (sign) {
-		CSNBHMG(&return_code, &reason_code, NULL, NULL,
+		dll_CSNBHMG(&return_code, &reason_code, NULL, NULL,
 			&rule_array_count, rule_array, &attr->ulValueLen,
 			attr->pValue,
 			use_buffer ? &buffer_len : (long *)&in_data_len,
@@ -2335,7 +2539,7 @@ send:
 			rc = CKR_FUNCTION_FAILED;
 		}
 	} else {	// verify
-		CSNBHMV(&return_code, &reason_code, NULL, NULL,
+		dll_CSNBHMV(&return_code, &reason_code, NULL, NULL,
 			&rule_array_count, rule_array, &attr->ulValueLen,
 			attr->pValue,
 			use_buffer ? &buffer_len : (long *)&in_data_len,
@@ -2428,7 +2632,7 @@ CK_RV ccatok_hmac_final(SIGN_VERIFY_CONTEXT *ctx, CK_BYTE *signature,
 	TRACE_INFO("The mac length is %ld\n", cca_ctx->hash_len);
 
 	if (sign) {
-		CSNBHMG(&return_code, &reason_code, NULL, NULL,
+		dll_CSNBHMG(&return_code, &reason_code, NULL, NULL,
 			&rule_array_count, rule_array, &attr->ulValueLen,
 			attr->pValue, &cca_ctx->tail_len, cca_ctx->tail,
 			&cca_ctx->chain_vector_len, cca_ctx->chain_vector,
@@ -2449,7 +2653,7 @@ CK_RV ccatok_hmac_final(SIGN_VERIFY_CONTEXT *ctx, CK_BYTE *signature,
 		*sig_len = cca_ctx->hash_len;
 
 	} else {		// verify
-		CSNBHMV(&return_code, &reason_code, NULL, NULL,
+		dll_CSNBHMV(&return_code, &reason_code, NULL, NULL,
 			&rule_array_count,rule_array, &attr->ulValueLen,
 			attr->pValue, &cca_ctx->tail_len, cca_ctx->tail,
 			&cca_ctx->chain_vector_len, cca_ctx->chain_vector,
@@ -2644,7 +2848,7 @@ static CK_RV rsa_import_privkey_crt(TEMPLATE *priv_tmpl)
 
 	key_token_length = CCA_KEY_TOKEN_SIZE;
 
-	CSNDPKB(&return_code, &reason_code, NULL, NULL, &rule_array_count,
+	dll_CSNDPKB(&return_code, &reason_code, NULL, NULL, &rule_array_count,
 		rule_array, &key_value_structure_length, key_value_structure,
 		&private_key_name_length, private_key_name, 0, NULL, 0, NULL,
 		0, NULL, 0, NULL, 0, NULL, &key_token_length, key_token);
@@ -2664,7 +2868,7 @@ static CK_RV rsa_import_privkey_crt(TEMPLATE *priv_tmpl)
 
 	key_token_length = CCA_KEY_TOKEN_SIZE;
 
-	CSNDPKI(&return_code, &reason_code, NULL, NULL, &rule_array_count,
+	dll_CSNDPKI(&return_code, &reason_code, NULL, NULL, &rule_array_count,
 		rule_array, &key_token_length, key_token,
 		transport_key_identifier, &target_key_token_length,
 		target_key_token);
@@ -2775,7 +2979,7 @@ static CK_RV rsa_import_pubkey(TEMPLATE *publ_tmpl)
 
 	// Create a key token for the public key.
 	// Public keys do not need to be wrapped, so just call PKB.
-	CSNDPKB(&return_code, &reason_code, NULL, NULL, &rule_array_count,
+	dll_CSNDPKB(&return_code, &reason_code, NULL, NULL, &rule_array_count,
 		rule_array, &key_value_structure_length, key_value_structure,
 		&private_key_name_length, private_key_name, 0, NULL, 0,
 		NULL, 0, NULL, 0, NULL, 0, NULL, &key_token_length, key_token);
@@ -2832,7 +3036,7 @@ static CK_RV import_symmetric_key(OBJECT *object, CK_ULONG keytype)
 
 	rule_array_count = 1;
 
-	CSNBCKM(&return_code, &reason_code, NULL, NULL, &rule_array_count,
+	dll_CSNBCKM(&return_code, &reason_code, NULL, NULL, &rule_array_count,
 		rule_array, &attr->ulValueLen, attr->pValue, target_key_id);
 
 	if (return_code != CCA_SUCCESS) {
@@ -2891,7 +3095,7 @@ static CK_RV import_generic_secret_key(OBJECT *object)
 	       5 * CCA_KEYWORD_SIZE);
 	 rule_array_count = 5;
 
-	CSNBKTB2(&return_code, &reason_code, NULL, NULL, &rule_array_count,
+	dll_CSNBKTB2(&return_code, &reason_code, NULL, NULL, &rule_array_count,
 		 rule_array, &clr_key_len, NULL, &key_name_len, NULL,
 		 &user_data_len, NULL, &token_data_len, NULL, &verb_data_len,
 		 NULL, &key_token_len, key_token);
@@ -2907,7 +3111,7 @@ static CK_RV import_generic_secret_key(OBJECT *object)
 	key_part_len = keylen * 8;
 	key_token_len = sizeof(key_token);
 
-	CSNBKPI2(&return_code, &reason_code, NULL, NULL, &rule_array_count,
+	dll_CSNBKPI2(&return_code, &reason_code, NULL, NULL, &rule_array_count,
 		 rule_array, &key_part_len, attr->pValue, &key_token_len,
 		 key_token);
 	if (return_code != CCA_SUCCESS) {
@@ -2922,7 +3126,7 @@ static CK_RV import_generic_secret_key(OBJECT *object)
 	key_part_len = 0;
 	key_token_len = sizeof(key_token);
 
-	CSNBKPI2(&return_code, &reason_code, NULL, NULL, &rule_array_count,
+	dll_CSNBKPI2(&return_code, &reason_code, NULL, NULL, &rule_array_count,
 		 rule_array, &key_part_len, NULL, &key_token_len, key_token);
 	if (return_code != CCA_SUCCESS) {
 		TRACE_ERROR("CSNBKPI2 (HMAC KEY IMPORT COMPLETE) failed."
@@ -3070,7 +3274,7 @@ CK_RV token_specific_generic_secret_key_gen (TEMPLATE *template)
 	memcpy(rule_array, "INTERNALHMAC    MAC     GENERATE",
 	       4 * CCA_KEYWORD_SIZE);
 
-	CSNBKTB2(&return_code, &reason_code, NULL, NULL, &rule_array_count,
+	dll_CSNBKTB2(&return_code, &reason_code, NULL, NULL, &rule_array_count,
 		 rule_array, &clear_key_length, NULL, &key_name_length,
 		 NULL, &user_data_length, NULL, &zero_length, NULL,
 		 &zero_length, NULL, &key_token_length, key_token);
@@ -3103,7 +3307,7 @@ CK_RV token_specific_generic_secret_key_gen (TEMPLATE *template)
 	 */
 	memcpy(key_type2, "        ", CCA_KEYWORD_SIZE);
 
-	CSNBKGN2(&return_code, &reason_code, &zero_length, NULL,
+	dll_CSNBKGN2(&return_code, &reason_code, &zero_length, NULL,
 		 &rule_array_count, rule_array, &clear_key_length, key_type1,
 		 key_type2, &key_name_length, NULL, &key_name_length, NULL,
 		 &user_data_length, NULL, &user_data_length, NULL, &zero_length,

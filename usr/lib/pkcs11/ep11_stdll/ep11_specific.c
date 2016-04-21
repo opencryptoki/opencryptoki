@@ -324,6 +324,7 @@
 #endif
 
 #include "ep11.h"
+#include "ep11_func.h"
 
 #define EP11SHAREDLIB "libep11.so"
 
@@ -332,6 +333,59 @@ CK_RV ep11tok_get_mechanism_list(CK_MECHANISM_TYPE_PTR mlist,
 CK_RV ep11tok_get_mechanism_info(CK_MECHANISM_TYPE type,
 				 CK_MECHANISM_INFO_PTR pInfo);
 
+static m_GenerateRandom_t	dll_m_GenerateRandom;
+static m_SeedRandom_t		dll_m_SeedRandom;
+
+static m_Digest_t		dll_m_Digest;
+static m_DigestInit_t		dll_m_DigestInit;
+static m_DigestUpdate_t		dll_m_DigestUpdate;
+static m_DigestKey_t		dll_m_DigestKey;
+static m_DigestFinal_t		dll_m_DigestFinal;
+static m_DigestSingle_t		dll_m_DigestSingle;
+
+static m_Encrypt_t		dll_m_Encrypt;
+static m_EncryptInit_t		dll_m_EncryptInit;
+static m_EncryptUpdate_t	dll_m_EncryptUpdate;
+static m_EncryptFinal_t		dll_m_EncryptFinal;
+static m_EncryptSingle_t	dll_m_EncryptSingle;
+
+static m_Decrypt_t		dll_m_Decrypt;
+static m_DecryptInit_t		dll_m_DecryptInit;
+static m_DecryptUpdate_t	dll_m_DecryptUpdate;
+static m_DecryptFinal_t		dll_m_DecryptFinal;
+static m_DecryptSingle_t	dll_m_DecryptSingle;
+
+static m_ReencryptSingle_t	dll_m_ReencryptSingle;
+static m_GenerateKey_t		dll_m_GenerateKey;
+static m_GenerateKeyPair_t	dll_m_GenerateKeyPair;
+
+static m_Sign_t			dll_m_Sign;
+static m_SignInit_t		dll_m_SignInit;
+static m_SignUpdate_t		dll_m_SignUpdate;
+static m_SignFinal_t		dll_m_SignFinal;
+static m_SignSingle_t		dll_m_SignSingle;
+
+static m_Verify_t		dll_m_Verify;
+static m_VerifyInit_t		dll_m_VerifyInit;
+static m_VerifyUpdate_t		dll_m_VerifyUpdate;
+static m_VerifyFinal_t		dll_m_VerifyFinal;
+static m_VerifySingle_t		dll_m_VerifySingle;
+
+static m_WrapKey_t		dll_m_WrapKey;
+static m_UnwrapKey_t		dll_m_UnwrapKey;
+static m_DeriveKey_t		dll_m_DeriveKey;
+
+static m_GetMechanismList_t	dll_m_GetMechanismList;
+static m_GetMechanismInfo_t	dll_m_GetMechanismInfo;
+static m_GetAttributeValue_t	dll_m_GetAttributeValue;
+static m_SetAttributeValue_t	dll_m_SetAttributeValue;
+
+static m_Login_t		dll_m_Login;
+static m_Logout_t		dll_m_Logout;
+static m_admin_t		dll_m_admin;
+static m_add_backend_t		dll_m_add_backend;
+static m_init_t			dll_m_init;
+static m_shutdown_t		dll_m_shutdown;
 
 #ifdef DEBUG
 
@@ -1064,7 +1118,7 @@ static CK_RV rawkey_2_blob(unsigned char *key, CK_ULONG ksize,
 	 * calls the ep11 lib (which in turns sends the request to the card),
 	 * all m_ function are ep11 functions
 	 */
-	rc = m_EncryptSingle(raw2key_wrap_blob, raw2key_wrap_blob_l, &mech,
+	rc = dll_m_EncryptSingle(raw2key_wrap_blob, raw2key_wrap_blob_l, &mech,
 			     key, ksize, cipher, &clen, ep11tok_target);
 
 	if (rc != CKR_OK) {
@@ -1086,7 +1140,7 @@ static CK_RV rawkey_2_blob(unsigned char *key, CK_ULONG ksize,
 	/* the encrypted key is decrypted and a blob is build,
 	 * card accepts only blobs as keys
 	 */
-	rc = m_UnwrapKey(cipher, clen, raw2key_wrap_blob, raw2key_wrap_blob_l,
+	rc = dll_m_UnwrapKey(cipher, clen, raw2key_wrap_blob, raw2key_wrap_blob_l,
 			 NULL, ~0, ep11_pin_blob, ep11_pin_blob_len, &mech,
 			 new_p_attrs, new_attrs_len, blob, blen, csum, &cslen,
 			 ep11tok_target);
@@ -1190,7 +1244,7 @@ static CK_RV print_mechanism(void)
 /* random number generator */
 CK_RV token_specific_rng(CK_BYTE *output, CK_ULONG bytes)
 {
-	CK_RV rc = m_GenerateRandom(output, bytes, ep11tok_target);
+	CK_RV rc = dll_m_GenerateRandom(output, bytes, ep11tok_target);
 	if (rc != CKR_OK)
 		TRACE_ERROR("%s output=%p bytes=%lu rc=0x%lx\n",
 			    __func__, output, bytes, rc);
@@ -1216,7 +1270,7 @@ static CK_RV make_wrapblob(CK_ATTRIBUTE *tmpl_in, CK_ULONG tmpl_len)
 	}
 
 	raw2key_wrap_blob_l = sizeof(raw2key_wrap_blob);
-	rc = m_GenerateKey(&mech, tmpl_in, tmpl_len, NULL, 0, raw2key_wrap_blob,
+	rc = dll_m_GenerateKey(&mech, tmpl_in, tmpl_len, NULL, 0, raw2key_wrap_blob,
 			   &raw2key_wrap_blob_l, csum, &csum_l, ep11tok_target);
 
 
@@ -1231,6 +1285,73 @@ static CK_RV make_wrapblob(CK_ATTRIBUTE *tmpl_in, CK_ULONG tmpl_len)
 	return rc;
 }
 
+CK_RV ep11_resolve_lib_sym(void *hdl) {
+	char *error = NULL;
+
+	dlerror(); /* Clear existing error */
+
+	dll_m_GenerateRandom	= (m_GenerateRandom_t)dlsym(hdl, "m_GenerateRandom");
+	dll_m_SeedRandom	= (m_SeedRandom_t)dlsym(hdl, "m_SeedRandom");
+
+	dll_m_Digest		= (m_Digest_t)dlsym(hdl, "m_Digest");
+	dll_m_DigestInit	= (m_DigestInit_t)dlsym(hdl, "m_DigestInit");
+	dll_m_DigestUpdate	= (m_DigestUpdate_t)dlsym(hdl, "m_DigestUpdate");
+	dll_m_DigestFinal	= (m_DigestFinal_t)dlsym(hdl, "m_DigestFinal");
+	dll_m_DigestKey		= (m_DigestKey_t)dlsym(hdl, "m_DigestKey");
+	dll_m_DigestSingle	= (m_DigestSingle_t)dlsym(hdl, "m_DigestSingle");
+
+	dll_m_Encrypt		= (m_Encrypt_t)dlsym(hdl, "m_Encrypt");
+	dll_m_EncryptInit	= (m_EncryptInit_t)dlsym(hdl, "m_EncryptInit");
+	dll_m_EncryptUpdate	= (m_EncryptUpdate_t)dlsym(hdl, "m_EncryptUpdate");
+	dll_m_EncryptFinal	= (m_EncryptFinal_t)dlsym(hdl, "m_EncryptFinal");
+	dll_m_EncryptSingle	= (m_EncryptSingle_t)dlsym(hdl, "m_EncryptSingle");
+
+	dll_m_Decrypt		= (m_Decrypt_t)dlsym(hdl, "m_Decrypt");
+	dll_m_DecryptInit	= (m_DecryptInit_t)dlsym(hdl, "m_DecryptInit");
+	dll_m_DecryptUpdate	= (m_DecryptUpdate_t)dlsym(hdl, "m_DecryptUpdate");
+	dll_m_DecryptFinal	= (m_DecryptFinal_t)dlsym(hdl, "m_DecryptFinal");
+	dll_m_DecryptSingle	= (m_DecryptSingle_t)dlsym(hdl, "m_DecryptSingle");
+
+	dll_m_ReencryptSingle	= (m_ReencryptSingle_t)dlsym(hdl, "m_ReencryptSingle");
+	dll_m_GenerateKey	= (m_GenerateKey_t)dlsym(hdl, "m_GenerateKey");
+	dll_m_GenerateKeyPair	= (m_GenerateKeyPair_t)dlsym(hdl, "m_GenerateKeyPair");
+
+	dll_m_Sign		= (m_Sign_t)dlsym(hdl, "m_Sign");
+	dll_m_SignInit		= (m_SignInit_t)dlsym(hdl, "m_SignInit");
+	dll_m_SignUpdate	= (m_SignUpdate_t)dlsym(hdl, "m_SignUpdate");
+	dll_m_SignFinal		= (m_SignFinal_t)dlsym(hdl, "m_SignFinal");
+	dll_m_SignSingle	= (m_SignSingle_t)dlsym(hdl, "m_SignSingle");
+
+	dll_m_Verify		= (m_Verify_t)dlsym(hdl, "m_Verify");
+	dll_m_VerifyInit	= (m_VerifyInit_t)dlsym(hdl, "m_VerifyInit");
+	dll_m_VerifyUpdate	= (m_VerifyUpdate_t)dlsym(hdl, "m_VerifyUpdate");
+	dll_m_VerifyFinal	= (m_VerifyFinal_t)dlsym(hdl, "m_VerifyFinal");
+	dll_m_VerifySingle	= (m_VerifySingle_t)dlsym(hdl, "m_VerifySingle");
+
+	dll_m_WrapKey		= (m_WrapKey_t)dlsym(hdl, "m_WrapKey");
+	dll_m_UnwrapKey		= (m_UnwrapKey_t)dlsym(hdl, "m_UnwrapKey");
+	dll_m_DeriveKey		= (m_DeriveKey_t)dlsym(hdl, "m_DeriveKey");
+
+	dll_m_GetMechanismList	= (m_GetMechanismList_t)dlsym(hdl, "m_GetMechanismList");
+	dll_m_GetMechanismInfo	= (m_GetMechanismInfo_t)dlsym(hdl, "m_GetMechanismInfo");
+	dll_m_GetAttributeValue	= (m_GetAttributeValue_t)dlsym(hdl, "m_GetAttributeValue");
+	dll_m_SetAttributeValue	= (m_SetAttributeValue_t)dlsym(hdl, "m_SetAttributeValue");
+
+	dll_m_Login		= (m_Login_t)dlsym(hdl, "m_Login");
+	dll_m_Logout		= (m_Logout_t)dlsym(hdl, "m_Logout");
+	dll_m_admin		= (m_admin_t)dlsym(hdl, "m_admin");
+
+	dll_m_init		= (m_init_t)dlsym(hdl, "m_init");
+	dll_m_add_backend	= (m_add_backend_t)dlsym(hdl, "m_add_backend");
+	dll_m_shutdown		= (m_shutdown_t)dlsym(hdl, "m_shutdown");
+
+	if ((error = dlerror()) != NULL)  {
+		OCK_SYSLOG(LOG_ERR, "%s\n", error);
+		return (EXIT_FAILURE);
+	}
+	else
+		return CKR_OK;
+}
 
 CK_RV ep11tok_init(CK_SLOT_ID SlotNumber, char *conf_name)
 {
@@ -1267,9 +1388,13 @@ CK_RV ep11tok_init(CK_SLOT_ID SlotNumber, char *conf_name)
 		return CKR_FUNCTION_FAILED;
 	}
 
+	rc = ep11_resolve_lib_sym(lib_ep11);
+	if (rc)
+		exit(rc);
+
 #ifndef XCP_STANDALONE
 	/* call ep11 shared lib init */
-	if (m_init() < 0) {
+	if (dll_m_init() < 0) {
 		TRACE_ERROR("%s ep11 lib init failed\n", __func__);
 		return CKR_DEVICE_ERROR;
 	}
@@ -1426,7 +1551,7 @@ static CK_RV import_RSA_key(OBJECT *rsa_key_obj, CK_BYTE *blob, size_t *blob_siz
 		}
 
 		/* encrypt */
-		rc = m_EncryptSingle(raw2key_wrap_blob, raw2key_wrap_blob_l, &mech_w,
+		rc = dll_m_EncryptSingle(raw2key_wrap_blob, raw2key_wrap_blob_l, &mech_w,
 				     data, data_len, cipher, &cipher_l, ep11tok_target);
 
 		TRACE_INFO("%s wrapping wrap key rc=0x%lx cipher_l=0x%lx\n",
@@ -1449,7 +1574,7 @@ static CK_RV import_RSA_key(OBJECT *rsa_key_obj, CK_BYTE *blob, size_t *blob_siz
 		/* calls the card, it decrypts the private RSA key,
 		 * reads its BER format and builds a blob.
 		 */
-		rc = m_UnwrapKey(cipher, cipher_l, raw2key_wrap_blob, raw2key_wrap_blob_l,
+		rc = dll_m_UnwrapKey(cipher, cipher_l, raw2key_wrap_blob, raw2key_wrap_blob_l,
 				 NULL, ~0, ep11_pin_blob, ep11_pin_blob_len, &mech_w,
 				 new_p_attrs, new_attrs_len, blob, blob_size, csum, &cslen,
 				 ep11tok_target);
@@ -1591,7 +1716,7 @@ CK_RV ep11tok_generate_key(SESSION *session, CK_MECHANISM_PTR mech,
 		return rc;
 	}
 
-	rc = m_GenerateKey(mech, new_attrs, new_attrs_len, ep11_pin_blob,
+	rc = dll_m_GenerateKey(mech, new_attrs, new_attrs_len, ep11_pin_blob,
 			   ep11_pin_blob_len, blob, &blobsize,
 			   csum, &csum_len, ep11tok_target);
 	if (rc != CKR_OK) {
@@ -1660,7 +1785,7 @@ CK_RV token_specific_sha_init(DIGEST_CONTEXT *c, CK_MECHANISM *mech)
 		return CKR_HOST_MEMORY;
 	}
 
-	rc = m_DigestInit (state, &state_len, mech, ep11tok_target) ;
+	rc = dll_m_DigestInit (state, &state_len, mech, ep11tok_target) ;
 
 	if (rc != CKR_OK) {
 		TRACE_ERROR("%s rc=0x%lx\n", __func__, rc);
@@ -1689,7 +1814,7 @@ CK_RV token_specific_sha(DIGEST_CONTEXT *c, CK_BYTE *in_data,
 {
 	CK_RV rc;
 
-	rc = m_Digest(c->context, c->context_len, in_data, in_data_len,
+	rc = dll_m_Digest(c->context, c->context_len, in_data, in_data_len,
 		      out_data, out_data_len, ep11tok_target);
 
 	if (rc != CKR_OK) {
@@ -1706,7 +1831,7 @@ CK_RV token_specific_sha_update(DIGEST_CONTEXT *c, CK_BYTE *in_data,
 {
 	CK_RV rc;
 
-	rc = m_DigestUpdate(c->context, c->context_len, in_data, in_data_len,
+	rc = dll_m_DigestUpdate(c->context, c->context_len, in_data, in_data_len,
 			    ep11tok_target) ;
 
 	if (rc != CKR_OK) {
@@ -1723,7 +1848,7 @@ CK_RV token_specific_sha_final(DIGEST_CONTEXT *c, CK_BYTE *out_data,
 {
 	CK_RV rc;
 
-	rc = m_DigestFinal(c->context, c->context_len, out_data, out_data_len,
+	rc = dll_m_DigestFinal(c->context, c->context_len, out_data, out_data_len,
 			   ep11tok_target) ;
 
 	if (rc != CKR_OK) {
@@ -1776,7 +1901,7 @@ CK_RV ep11tok_derive_key(SESSION *session, CK_MECHANISM_PTR mech,
 		return rc;
 	}
 
-	rc = m_DeriveKey (mech, new_attrs, new_attrs_len, keyblob, keyblobsize, NULL,
+	rc = dll_m_DeriveKey (mech, new_attrs, new_attrs_len, keyblob, keyblobsize, NULL,
 			  0, ep11_pin_blob, ep11_pin_blob_len, newblob, &newblobsize,
 			  csum, &cslen, ep11tok_target);
 
@@ -1960,7 +2085,7 @@ static CK_RV dh_generate_keypair(CK_MECHANISM_PTR pMechanism,
 	memcpy(&(pPublicKeyTemplate_new[new_public_attr]),
 	       &(pgs[0]), sizeof(CK_ATTRIBUTE));
 
-	rc = m_GenerateKeyPair(pMechanism, pPublicKeyTemplate_new,
+	rc = dll_m_GenerateKeyPair(pMechanism, pPublicKeyTemplate_new,
 			       new_public_attr+1, pPrivateKeyTemplate,
 			       ulPrivateKeyAttributeCount, ep11_pin_blob,
 			       ep11_pin_blob_len, privblob, &privblobsize,
@@ -2227,7 +2352,7 @@ static CK_RV dsa_generate_keypair(CK_MECHANISM_PTR pMechanism,
 		return rc;
 	}
 
-	rc = m_GenerateKeyPair(pMechanism, dsa_pPublicKeyTemplate,
+	rc = dll_m_GenerateKeyPair(pMechanism, dsa_pPublicKeyTemplate,
 			       dsa_ulPublicKeyAttributeCount,
 			       dsa_pPrivateKeyTemplate,
 			       dsa_ulPrivateKeyAttributeCount, ep11_pin_blob,
@@ -2383,7 +2508,7 @@ static CK_RV rsa_ec_generate_keypair(CK_MECHANISM_PTR pMechanism,
 			   new_ulPrivateKeyAttributeCount);
 	}
 
-	rc = m_GenerateKeyPair(pMechanism, new_pPublicKeyTemplate,
+	rc = dll_m_GenerateKeyPair(pMechanism, new_pPublicKeyTemplate,
 			       new_ulPublicKeyAttributeCount, new_pPrivateKeyTemplate,
 			       new_ulPrivateKeyAttributeCount, ep11_pin_blob,
 			       ep11_pin_blob_len, privkey_blob,
@@ -2849,7 +2974,7 @@ CK_RV ep11tok_sign_init(SESSION *session, CK_MECHANISM *mech,
 		return rc;
 	}
 
-	rc = m_SignInit(ep11_sign_state, &ep11_sign_state_l,
+	rc = dll_m_SignInit(ep11_sign_state, &ep11_sign_state_l,
 			mech, keyblob, keyblobsize, ep11tok_target) ;
 
 	if (rc != CKR_OK) {
@@ -2880,7 +3005,7 @@ CK_RV ep11tok_sign(SESSION *session, CK_BBOOL length_only, CK_BYTE *in_data,
 	CK_RV rc;
 	SIGN_VERIFY_CONTEXT *ctx = &session->sign_ctx;
 
-	rc = m_Sign(ctx->context, ctx->context_len, in_data, in_data_len,
+	rc = dll_m_Sign(ctx->context, ctx->context_len, in_data, in_data_len,
 		    signature, sig_len, ep11tok_target);
 
 	if (rc != CKR_OK) {
@@ -2902,7 +3027,7 @@ CK_RV ep11tok_sign_update(SESSION *session, CK_BYTE *in_data,
 	if (!in_data || !in_data_len)
 		return CKR_OK;
 
-	rc = m_SignUpdate(ctx->context, ctx->context_len, in_data,
+	rc = dll_m_SignUpdate(ctx->context, ctx->context_len, in_data,
 			  in_data_len, ep11tok_target);
 
 	if (rc != CKR_OK) {
@@ -2921,7 +3046,7 @@ CK_RV ep11tok_sign_final(SESSION *session, CK_BBOOL length_only,
 	CK_RV rc;
 	SIGN_VERIFY_CONTEXT *ctx = &session->sign_ctx;
 
-	rc = m_SignFinal(ctx->context, ctx->context_len, signature, sig_len,
+	rc = dll_m_SignFinal(ctx->context, ctx->context_len, signature, sig_len,
 			 ep11tok_target);
 
 	if (rc != CKR_OK) {
@@ -2956,7 +3081,7 @@ CK_RV ep11tok_verify_init(SESSION *session, CK_MECHANISM *mech,
 		return rc;
 	}
 
-	rc = m_VerifyInit(ep11_sign_state, &ep11_sign_state_l, mech,
+	rc = dll_m_VerifyInit(ep11_sign_state, &ep11_sign_state_l, mech,
 			  spki, spki_len, ep11tok_target);
 
 	if (rc != CKR_OK) {
@@ -2987,7 +3112,7 @@ CK_RV ep11tok_verify(SESSION *session, CK_BYTE *in_data, CK_ULONG in_data_len,
 	CK_RV rc;
 	SIGN_VERIFY_CONTEXT *ctx = &session->verify_ctx;
 
-	rc = m_Verify(ctx->context, ctx->context_len, in_data, in_data_len,
+	rc = dll_m_Verify(ctx->context, ctx->context_len, in_data, in_data_len,
 		      signature, sig_len, ep11tok_target);
 
 	if (rc != CKR_OK) {
@@ -3009,7 +3134,7 @@ CK_RV ep11tok_verify_update(SESSION *session, CK_BYTE *in_data,
 	if (!in_data || !in_data_len)
 		return CKR_OK;
 
-	rc = m_VerifyUpdate(ctx->context, ctx->context_len, in_data,
+	rc = dll_m_VerifyUpdate(ctx->context, ctx->context_len, in_data,
 			    in_data_len, ep11tok_target);
 
 	if (rc != CKR_OK) {
@@ -3028,7 +3153,7 @@ CK_RV ep11tok_verify_final(SESSION *session, CK_BYTE *signature,
 	CK_RV rc;
 	SIGN_VERIFY_CONTEXT *ctx = &session->verify_ctx;
 
-	rc = m_VerifyFinal(ctx->context, ctx->context_len, signature,
+	rc = dll_m_VerifyFinal(ctx->context, ctx->context_len, signature,
 			   sig_len, ep11tok_target);
 
 	if (rc != CKR_OK) {
@@ -3047,7 +3172,7 @@ CK_RV ep11tok_decrypt_final(SESSION *session, CK_BYTE_PTR output_part,
 	CK_RV rc = CKR_OK;
 	ENCR_DECR_CONTEXT *ctx = &session->decr_ctx;
 
-	rc = m_DecryptFinal(ctx->context, ctx->context_len,
+	rc = dll_m_DecryptFinal(ctx->context, ctx->context_len,
 			    output_part, p_output_part_len, ep11tok_target);
 
 	if (rc != CKR_OK) {
@@ -3067,7 +3192,7 @@ CK_RV ep11tok_decrypt(SESSION *session, CK_BYTE_PTR input_data,
 	CK_RV rc = CKR_OK;
 	ENCR_DECR_CONTEXT *ctx = &session->decr_ctx;
 
-	rc = m_Decrypt(ctx->context, ctx->context_len, input_data,
+	rc = dll_m_Decrypt(ctx->context, ctx->context_len, input_data,
 		       input_data_len, output_data, p_output_data_len,
 		       ep11tok_target);
 
@@ -3093,7 +3218,7 @@ CK_RV ep11tok_decrypt_update(SESSION *session, CK_BYTE_PTR input_part,
 		return CKR_OK; /* nothing to update, keep context */
 	}
 
-	rc = m_DecryptUpdate(ctx->context, ctx->context_len,
+	rc = dll_m_DecryptUpdate(ctx->context, ctx->context_len,
 			     input_part, input_part_len, output_part,
 			     p_output_part_len, ep11tok_target) ;
 
@@ -3113,7 +3238,7 @@ CK_RV ep11tok_encrypt_final(SESSION *session, CK_BYTE_PTR output_part,
 	CK_RV rc = CKR_OK;
 	ENCR_DECR_CONTEXT *ctx = &session->encr_ctx;
 
-	rc = m_EncryptFinal(ctx->context, ctx->context_len,
+	rc = dll_m_EncryptFinal(ctx->context, ctx->context_len,
 			    output_part, p_output_part_len, ep11tok_target);
 
 	if (rc != CKR_OK) {
@@ -3133,7 +3258,7 @@ CK_RV ep11tok_encrypt(SESSION *session, CK_BYTE_PTR input_data,
 	CK_RV rc = CKR_OK;
 	ENCR_DECR_CONTEXT *ctx = &session->encr_ctx;
 
-	rc = m_Encrypt(ctx->context, ctx->context_len, input_data,
+	rc = dll_m_Encrypt(ctx->context, ctx->context_len, input_data,
 		       input_data_len, output_data, p_output_data_len,
 		       ep11tok_target);
 
@@ -3159,7 +3284,7 @@ CK_RV ep11tok_encrypt_update(SESSION *session, CK_BYTE_PTR input_part,
 		return CKR_OK; /* nothing to update, keep context */
 	}
 
-	rc = m_EncryptUpdate(ctx->context, ctx->context_len,
+	rc = dll_m_EncryptUpdate(ctx->context, ctx->context_len,
 			     input_part, input_part_len, output_part,
 			     p_output_part_len, ep11tok_target);
 
@@ -3196,7 +3321,7 @@ static CK_RV ep11_ende_crypt_init(SESSION *session, CK_MECHANISM_PTR mech,
 
 	if (op == DECRYPT) {
 		ENCR_DECR_CONTEXT *ctx = &session->decr_ctx;
-		rc = m_DecryptInit(ep11_state, &ep11_state_l, mech, blob,
+		rc = dll_m_DecryptInit(ep11_state, &ep11_state_l, mech, blob,
 				   blob_len, ep11tok_target);
 		ctx->key = key;
 		ctx->active = TRUE;
@@ -3213,7 +3338,7 @@ static CK_RV ep11_ende_crypt_init(SESSION *session, CK_MECHANISM_PTR mech,
 		}
 	} else {
 		ENCR_DECR_CONTEXT *ctx = &session->encr_ctx;
-		rc = m_EncryptInit (ep11_state, &ep11_state_l, mech, blob,
+		rc = dll_m_EncryptInit (ep11_state, &ep11_state_l, mech, blob,
 				    blob_len, ep11tok_target);
 		ctx->key = key;
 		ctx->active = TRUE;
@@ -3341,7 +3466,7 @@ CK_RV ep11tok_wrap_key(SESSION *session, CK_MECHANISM_PTR mech,
 	 * the wrapping key (wrapping_blob).
 	 * The wrapped key can be processed by any PKCS11 implementation.
 	 */
-	rc = m_WrapKey(wrap_target_blob, wrap_target_blob_len, wrapping_blob,
+	rc = dll_m_WrapKey(wrap_target_blob, wrap_target_blob_len, wrapping_blob,
 		       wrapping_blob_len, NULL, ~0, mech, wrapped_key,
 		       p_wrapped_key_len, ep11tok_target);
 
@@ -3439,7 +3564,7 @@ CK_RV ep11tok_unwrap_key(SESSION *session, CK_MECHANISM_PTR mech,
 	/* we need a blob for the new key created by unwrapping,
 	 * the wrapped key comes in BER
 	 */
-	rc = m_UnwrapKey(wrapped_key, wrapped_key_len, wrapping_blob,
+	rc = dll_m_UnwrapKey(wrapped_key, wrapped_key_len, wrapping_blob,
 			 wrapping_blob_len, NULL, ~0, ep11_pin_blob,
 			 ep11_pin_blob_len, mech, new_attrs, new_attrs_len,
 			 keyblob, &keyblobsize, csum, &cslen, ep11tok_target);
@@ -3568,7 +3693,7 @@ CK_RV ep11tok_get_mechanism_list(CK_MECHANISM_TYPE_PTR pMechanismList,
 
 	/* size querry */
 	if (pMechanismList == NULL) {
-		rc = m_GetMechanismList(0, pMechanismList, pulCount,
+		rc = dll_m_GetMechanismList(0, pMechanismList, pulCount,
 					ep11tok_target);
 		if (rc != CKR_OK) {
 			TRACE_ERROR("%s bad rc=0x%lx from m_GetMechanismList() #1\n", __func__, rc);
@@ -3584,7 +3709,7 @@ CK_RV ep11tok_get_mechanism_list(CK_MECHANISM_TYPE_PTR pMechanismList,
 			TRACE_ERROR("%s Memory allocation failed\n", __func__);
 			return CKR_HOST_MEMORY;
 		}
-		rc = m_GetMechanismList(0, mlist, &counter, ep11tok_target);
+		rc = dll_m_GetMechanismList(0, mlist, &counter, ep11tok_target);
 		if (rc != CKR_OK) {
 			TRACE_ERROR("%s bad rc=0x%lx from m_GetMechanismList() #2\n", __func__, rc);
 			free(mlist);
@@ -3614,7 +3739,7 @@ CK_RV ep11tok_get_mechanism_list(CK_MECHANISM_TYPE_PTR pMechanismList,
 		 * that comes as parameter, this is a 'reduced size',
 		 * ep11 would complain about insufficient list size
 		 */
-		rc = m_GetMechanismList(0, mlist, &counter, ep11tok_target);
+		rc = dll_m_GetMechanismList(0, mlist, &counter, ep11tok_target);
 		if (rc != CKR_OK) {
 			TRACE_ERROR("%s bad rc=0x%lx from m_GetMechanismList() #3\n", __func__, rc);
 			return rc;
@@ -3626,7 +3751,7 @@ CK_RV ep11tok_get_mechanism_list(CK_MECHANISM_TYPE_PTR pMechanismList,
 			return CKR_HOST_MEMORY;
 		}
 		/* all the card has */
-		rc = m_GetMechanismList(0, mlist, &counter, ep11tok_target);
+		rc = dll_m_GetMechanismList(0, mlist, &counter, ep11tok_target);
 		if (rc != CKR_OK) {
 			TRACE_ERROR("%s bad rc=0x%lx from m_GetMechanismList() #4\n", __func__, rc);
 			free(mlist);
@@ -3666,7 +3791,7 @@ CK_RV ep11tok_get_mechanism_info(CK_MECHANISM_TYPE type,
 	CK_RV rc;
 	int i;
 
-	rc = m_GetMechanismInfo(0, type, pInfo, ep11tok_target);
+	rc = dll_m_GetMechanismInfo(0, type, pInfo, ep11tok_target);
 	if (rc != CKR_OK) {
 		TRACE_ERROR("%s m_GetMechanismInfo(0x%lx) failed with rc=0x%lx\n",
 			    __func__, type, rc);
