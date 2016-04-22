@@ -332,7 +332,7 @@ struct btree
 
 struct btnode *bt_get_node(struct btree *t, unsigned long node_num);
 void *bt_get_node_value(struct btree *t, unsigned long node_num);
-inline int bt_is_empty(struct btree *t);
+int bt_is_empty(struct btree *t);
 void bt_for_each_node(struct btree *t, void (*)(void *, unsigned long, void *), void *);
 unsigned long bt_nodes_in_use(struct btree *t);
 unsigned long bt_node_add(struct btree *t, void *value);

@@ -1602,8 +1602,8 @@ CK_RV save_masterkey_user(void)
 	CK_BYTE *key = NULL;
 	CK_ULONG key_len = 0L;
 	CK_ULONG master_key_len = 0L;
-	CK_ULONG block_size;
-	CK_ULONG data_len;
+	CK_ULONG block_size = 0L;
+	CK_ULONG data_len = 0L;
 	CK_BYTE fname[PATH_MAX];
 	CK_RV rc;
 	char pk_dir_buf[PATH_MAX];
