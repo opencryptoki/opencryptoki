@@ -295,6 +295,7 @@
 #include <unistd.h>
 #include <grp.h>
 #include <errno.h>
+#include <stdlib.h>
 
 #include "apiproto.h"
 #include "slotmgr.h"
@@ -310,8 +311,9 @@ init_socket_data() {
 	struct sockaddr_un daemon_address;
 	struct stat file_info;
 	struct group *grp;
-	int bytes_received;
-	Slot_Mgr_Socket_t daemon_socket_data;
+	int n, bytes_received = 0;
+	Slot_Mgr_Socket_t *daemon_socket_data = NULL;
+	int ret = FALSE;
 
 	if (stat(SOCKET_FILE_PATH, &file_info)) {
 		OCK_SYSLOG(LOG_ERR, "init_socket_data: failed to find socket file, errno=%d", errno);
@@ -339,23 +341,58 @@ init_socket_data() {
 	strcpy(daemon_address.sun_path, SOCKET_FILE_PATH);
 
 	if (connect(socketfd, (struct sockaddr *) &daemon_address,
-	    sizeof(struct sockaddr_un)) != 0) {
-		OCK_SYSLOG(LOG_ERR, "init_socket_data: failed to connect to slot manager daemon, errno=%d", errno);
-		close(socketfd);
-		return FALSE;
+				sizeof(struct sockaddr_un)) != 0) {
+		OCK_SYSLOG(LOG_ERR, "init_socket_data: failed to connect to slotmanager daemon, errno=%d",
+				errno);
+		goto exit;
 	}
 
-	bytes_received = read(socketfd, &daemon_socket_data,
-			      sizeof(daemon_socket_data));
-	if (bytes_received != sizeof(daemon_socket_data)) {
-		OCK_SYSLOG(LOG_ERR, "init_socket_data: did not recieve expected number of bytes from slot manager daemon. Expected %zd bytes, got %d bytes.",
-			   sizeof(daemon_socket_data), bytes_received);
+	// allocate data buffer
+	daemon_socket_data = (Slot_Mgr_Socket_t*) malloc(sizeof(*daemon_socket_data));
+	if (!daemon_socket_data) {
+		OCK_SYSLOG(LOG_ERR, "init_socket_data: failed to \
+			allocate %lu bytes \
+			for daemon data, errno=%d",
+			sizeof(*daemon_socket_data), errno);
+		goto exit;
 	}
+
+	while (bytes_received < sizeof(*daemon_socket_data)) {
+		n = read(socketfd, ((char*)daemon_socket_data)+bytes_received,
+				sizeof(*daemon_socket_data)-bytes_received);
+		if (n < 0) {
+			// read error
+			if (errno == EINTR)
+				continue;
+			OCK_SYSLOG(LOG_ERR, "init_socket_data: read error \
+				on daemon socket, errno=%d", errno );
+			goto exit;
+		} else if (n == 0) {
+			// eof but we still expect some bytes
+			OCK_SYSLOG(LOG_ERR, "init_socket_data: read returned \
+				with eof but we still \
+				expect %lu bytes from daemon",
+				sizeof(*daemon_socket_data)-bytes_received);
+			goto exit;
+		} else {
+			// n > 0, we got some bytes
+			bytes_received += n;
+		}
+	}
+
+	ret = TRUE;
+
+	// copy the Slot_Mgr_Socket_t struct into global
+	// Anchor SocketDataPdata buffer
+	memcpy(&(Anchor->SocketDataP), daemon_socket_data,
+			sizeof(*daemon_socket_data));
+
+exit:
+	//free the data buffer after copy
+	if (daemon_socket_data)
+		free(daemon_socket_data);
 
 	close(socketfd);
 
-	memcpy(&(Anchor->SocketDataP), &daemon_socket_data,
-		sizeof(Slot_Mgr_Socket_t));
-
-	return TRUE;
+	return ret;
 }
