@@ -828,7 +828,6 @@ CK_RV save_token_object(OBJECT * obj)
 		TRACE_ERROR("fopen(%s): %s\n", fname, strerror(errno));
 		return CKR_FUNCTION_FAILED;
 	}
-	set_perm(fileno(fp));
 
 	set_perm(fileno(fp));
 	fprintf(fp, "%s\n", obj->name);

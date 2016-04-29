@@ -185,6 +185,8 @@ CK_RV do_SignDSA( void )
 				p11_get_ckr(rc));
 		goto testcase_cleanup;
 	}
+	else
+		testcase_pass("DSA Sign/Verify passed");
 
 testcase_cleanup:
 	testcase_user_logout();
