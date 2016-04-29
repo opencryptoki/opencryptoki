@@ -1,3 +1,16 @@
+* opencryptoki 3.5
+- Full Coverity scan fixes.
+- Fixes for compiler warnings.
+- Added support for C_GetObjectSize in icsf token.
+- Various bug fixes and memory leak fixes.
+- Removed global read permissions from token files.
+- Added missing PKCS#11v2.2 constants.
+- Fix for symbol resolution issue seen in Fedora 22 and 23 for
+  ep11 and cca tokens.
+- Improvements in socket read operation when a token comes up.
+- Replaced 32 bit CCA API declarations with latest header from
+  version 5.0 libsculcca rpm.
+
 * opencryptoki 3.4.1
 - fix 32-bit compiler error for ep11 
 - fix buffer overflow for cca token 
@@ -14,7 +27,7 @@
 - The soft, cca, ep11, and icsf tokens support HMAC single and multipart for
   SHA1, SHA256, SHA384, and SHA512.
 - CCA token, a secure key token, can now import AES, DES3 and
-  Genric Secret keys.
+  Generic Secret keys.
 - Add -Wall and fix various compiler warnings.
 - Coverity scan cleanup.
 - Additional test vectors and various testcase improvements made.
