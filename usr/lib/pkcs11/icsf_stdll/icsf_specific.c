@@ -4664,6 +4664,7 @@ CK_RV icsftok_unwrap_key(SESSION *session, CK_MECHANISM_PTR mech,
                                         "(expected %lu)\n",
                                         (unsigned long) mech->ulParameterLen,
                                         (unsigned long) expected_block_size);
+                        free(key_mapping);
                         return CKR_MECHANISM_PARAM_INVALID;
                 }
                 break;
@@ -4671,12 +4672,14 @@ CK_RV icsftok_unwrap_key(SESSION *session, CK_MECHANISM_PTR mech,
 		if (mech->ulParameterLen != 0){
                         TRACE_ERROR("%s\n",
 				ock_err(ERR_MECHANISM_PARAM_INVALID));
+                        free(key_mapping);
                         return CKR_MECHANISM_PARAM_INVALID;
                 }
                 break;
 	default:
 		TRACE_ERROR("icsf invalid %lu mechanism for key wrapping\n",
 			mech->mechanism);
+		free(key_mapping);
 		return CKR_MECHANISM_INVALID;
 	}
 
