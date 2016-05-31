@@ -820,7 +820,7 @@ DLL_Load_t *dllload;
 
 	} else {
 		char *e = dlerror();
-		OCK_SYSLOG(LOG_ERR,
+		OCK_SYSLOG(LOG_WARNING,
 			   "%s: dlopen() failed for [%s]; dlerror = [%s]\n",
 			   __FUNCTION__, sinfp->dll_location, e);
 		TRACE_DEVEL("DL_Load of %s failed, dlerror: %s\n",
