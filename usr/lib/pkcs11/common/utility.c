@@ -557,9 +557,11 @@ static int spinxplfd = -1;
 CK_RV CreateXProcLock(void)
 {
 	CK_BYTE lockfile[PATH_MAX];
+	CK_BYTE lockdir[PATH_MAX];
 	struct group *grp;
 	struct stat statbuf;
 	mode_t mode = (S_IRUSR | S_IRGRP);
+	int ret = -1;
 
 	if (spinxplfd == -1) {
 
@@ -571,9 +573,42 @@ CK_RV CreateXProcLock(void)
 				return CKR_FUNCTION_FAILED;
 		}
 
+		/** create lock subdir for each token if it doesn't exist.
+		  * The root directory should be created in slotmgr daemon **/
+		sprintf(lockdir, "%s/%s", LOCKDIR_PATH, SUB_DIR);
+
+		ret = stat(lockdir, &statbuf);
+		if (ret != 0 && errno == ENOENT) {
+			/* dir does not exist, try to create it */
+			ret  = mkdir(lockdir, S_IRWXU|S_IRWXG);
+			if (ret != 0) {
+				OCK_SYSLOG(LOG_ERR,
+						"Directory(%s) missing: %s\n",
+						lockdir,
+						strerror(errno));
+				goto err;
+			}
+			grp = getgrnam("pkcs11");
+			/* set ownership to euid, and pkcs11 group */
+			if (chown(lockdir, geteuid(), grp->gr_gid) != 0) {
+				fprintf(stderr, "Failed to set owner:group \
+						ownership\
+						on %s directory", lockdir);
+				goto err;
+			}
+			/* mkdir does not set group permission right, so
+			 ** trying explictly here again */
+			if (chmod(lockdir, S_IRWXU|S_IRWXG) != 0){
+				fprintf(stderr, "Failed to change \
+						permissions\
+						on %s directory", lockdir);
+				goto err;
+			}
+		}
+
 		/* create user lock file */
 		sprintf(lockfile, "%s/%s/LCK..%s",
-			LOCKDIR_PATH, SUB_DIR, SUB_DIR);
+				LOCKDIR_PATH, SUB_DIR, SUB_DIR);
 
 		if (stat(lockfile, &statbuf) == 0)
 			spinxplfd = open(lockfile, O_RDONLY, mode);
@@ -583,30 +618,30 @@ CK_RV CreateXProcLock(void)
 				/* umask may prevent correct mode,so set it. */
 				if (fchmod(spinxplfd, mode) == -1) {
 					OCK_SYSLOG(LOG_ERR, "fchmod(%s): %s\n",
-						   lockfile, strerror(errno));
+							lockfile, strerror(errno));
 					goto err;
 				}
 
 				grp = getgrnam("pkcs11");
 				if (grp != NULL) {
 					if (fchown(spinxplfd, -1, grp->gr_gid)
-					    == -1) {
+							== -1) {
 						OCK_SYSLOG(LOG_ERR,
-							   "fchown(%s): %s\n",
-							   lockfile,
-							   strerror(errno));
+								"fchown(%s): %s\n",
+								lockfile,
+								strerror(errno));
 						goto err;
 					}
 				} else {
 					OCK_SYSLOG(LOG_ERR, "getgrnam(): %s\n",
-						   strerror(errno));
+							strerror(errno));
 					goto err;
 				}
 			}
 		}
 		if (spinxplfd == -1) {
 			OCK_SYSLOG(LOG_ERR, "open(%s): %s\n",
-				   lockfile, strerror(errno));
+					lockfile, strerror(errno));
 			return CKR_FUNCTION_FAILED;
 		}
 	}
