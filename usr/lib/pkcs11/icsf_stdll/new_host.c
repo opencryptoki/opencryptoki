@@ -703,6 +703,9 @@ CK_RV SC_InitPIN(ST_SESSION_HANDLE *sSession, CK_CHAR_PTR pPin,
 		rc = CKR_SESSION_HANDLE_INVALID;
 		goto done;
 	}
+	//set the handle here as handle is never set into session during creation
+	sess->handle = sSession->sessionh;
+
 	if (pin_locked(&sess->session_info, nv_token_data->token_info.flags) == TRUE) {
 		TRACE_ERROR("%s\n", ock_err(ERR_PIN_LOCKED));
 		rc = CKR_PIN_LOCKED;
@@ -746,6 +749,9 @@ CK_RV SC_SetPIN(ST_SESSION_HANDLE *sSession, CK_CHAR_PTR pOldPin,
 		rc = CKR_SESSION_HANDLE_INVALID;
 		goto done;
 	}
+	//set the handle here as handle is never set into session during creation
+	sess->handle = sSession->sessionh;
+
 	if (pin_locked(&sess->session_info,
 		       nv_token_data->token_info.flags) == TRUE) {
 		TRACE_ERROR("%s\n", ock_err(ERR_PIN_LOCKED));
@@ -807,6 +813,7 @@ CK_RV SC_OpenSession(CK_SLOT_ID sid, CK_FLAGS flags,
 	}
 
 	sess = session_mgr_find(*phSession);
+	sess->handle = *phSession;
 	rc = icsftok_open_session(sess);
 done:
 	if (locked)
@@ -828,6 +835,8 @@ CK_RV SC_CloseSession(ST_SESSION_HANDLE *sSession)
 	}
 
 	sess = session_mgr_find(sSession->sessionh);
+	//set the handle here as handle is never set into session during creation
+	sess->handle = sSession->sessionh;
 	rc = icsftok_close_session(sess);
 	if (rc)
 		goto done;
@@ -923,6 +932,8 @@ CK_RV SC_GetOperationState(ST_SESSION_HANDLE *sSession,
 		rc = CKR_SESSION_HANDLE_INVALID;
 		goto done;
 	}
+	//set the handle into the session.
+	sess->handle = sSession->sessionh;
 
 	rc = session_mgr_get_op_state(sess, length_only, pOperationState,
 				      pulOperationStateLen);
@@ -962,6 +973,8 @@ CK_RV SC_SetOperationState(ST_SESSION_HANDLE *sSession,
 		rc = CKR_SESSION_HANDLE_INVALID;
 		goto done;
 	}
+	//set the handle into the session.
+	sess->handle = sSession->sessionh;
 
 	rc = session_mgr_set_op_state(sess, hEncryptionKey, hAuthenticationKey,
 				      pOperationState, ulOperationStateLen);
@@ -1000,6 +1013,9 @@ CK_RV SC_Login(ST_SESSION_HANDLE *sSession, CK_USER_TYPE userType,
 		rc = CKR_SESSION_HANDLE_INVALID;
 		goto done;
 	}
+	//set the handle into the session.
+	sess->handle = sSession->sessionh;
+
 	flags = &nv_token_data->token_info.flags;
 
 	if (!pPin || ulPinLen > MAX_PIN_LEN) {
@@ -1113,6 +1129,8 @@ CK_RV SC_Logout(ST_SESSION_HANDLE *sSession)
 		rc = CKR_SESSION_HANDLE_INVALID;
 		goto done;
 	}
+	//set the handle into the session.
+	sess->handle = sSession->sessionh;
 
 	/* all sessions have the same state so we just have to check one */
 	if (session_mgr_public_session_exists()) {
@@ -1155,6 +1173,8 @@ CK_RV SC_CreateObject(ST_SESSION_HANDLE *sSession, CK_ATTRIBUTE_PTR pTemplate,
 		rc = CKR_SESSION_HANDLE_INVALID;
 		goto done;
 	}
+	//set the handle into the session.
+	sess->handle = sSession->sessionh;
 
 	if (pin_expired(&sess->session_info, nv_token_data->token_info.flags)) {
 		TRACE_ERROR("%s\n", ock_err(ERR_PIN_EXPIRED));
@@ -1204,6 +1224,8 @@ CK_RV  SC_CopyObject(ST_SESSION_HANDLE *sSession, CK_OBJECT_HANDLE hObject,
 		rc = CKR_SESSION_HANDLE_INVALID;
 		goto done;
 	}
+	//set the handle into the session.
+	sess->handle = sSession->sessionh;
 
 	if (pin_expired(&sess->session_info, nv_token_data->token_info.flags) == TRUE) {
 		TRACE_ERROR("%s\n", ock_err(ERR_PIN_EXPIRED));
@@ -1240,6 +1262,8 @@ CK_RV SC_DestroyObject(ST_SESSION_HANDLE *sSession, CK_OBJECT_HANDLE hObject)
 		rc = CKR_SESSION_HANDLE_INVALID;
 		goto done;
 	}
+	//set the handle into the session.
+	sess->handle = sSession->sessionh;
 
 	if (pin_expired(&sess->session_info, nv_token_data->token_info.flags) == TRUE) {
 		TRACE_ERROR("%s\n", ock_err(ERR_PIN_EXPIRED));
@@ -1285,6 +1309,8 @@ CK_RV SC_GetObjectSize(ST_SESSION_HANDLE *sSession, CK_OBJECT_HANDLE hObject,
 		rc = CKR_SESSION_HANDLE_INVALID;
 		goto done;
 	}
+	//set the handle into the session.
+	sess->handle = sSession->sessionh;
 
 	rc = icsftok_get_attribute_value(sess, hObject, pTemplate,
 					ulCount, pulSize);
@@ -1319,6 +1345,8 @@ CK_RV SC_GetAttributeValue(ST_SESSION_HANDLE *sSession,
 		rc = CKR_SESSION_HANDLE_INVALID;
 		goto done;
 	}
+	//set the handle into the session.
+	sess->handle = sSession->sessionh;
 
 	rc = icsftok_get_attribute_value(sess, hObject, pTemplate,
 					ulCount, NULL);
@@ -1369,6 +1397,8 @@ CK_RV SC_SetAttributeValue(ST_SESSION_HANDLE *sSession,
 		rc = CKR_SESSION_HANDLE_INVALID;
 		goto done;
 	}
+	//set the handle into the session.
+	sess->handle = sSession->sessionh;
 
 	rc = icsftok_set_attribute_value(sess, hObject, pTemplate, ulCount);
 	if (rc != CKR_OK)
@@ -1416,6 +1446,8 @@ CK_RV SC_FindObjectsInit(ST_SESSION_HANDLE *sSession,
 		rc = CKR_SESSION_HANDLE_INVALID;
 		goto done;
 	}
+	//set the handle into the session.
+	sess->handle = sSession->sessionh;
 
 	if (pin_expired(&sess->session_info, nv_token_data->token_info.flags) == TRUE) {
 		TRACE_ERROR("%s\n", ock_err(ERR_PIN_EXPIRED));
@@ -1480,6 +1512,8 @@ CK_RV SC_FindObjects(ST_SESSION_HANDLE *sSession, CK_OBJECT_HANDLE_PTR phObject,
 		rc = CKR_SESSION_HANDLE_INVALID;
 		goto done;
 	}
+	//set the handle into the session.
+	sess->handle = sSession->sessionh;
 
 	if (sess->find_active == FALSE) {
 		TRACE_ERROR("%s\n", ock_err(ERR_OPERATION_NOT_INITIALIZED));
@@ -1525,6 +1559,8 @@ CK_RV SC_FindObjectsFinal(ST_SESSION_HANDLE *sSession)
 		rc = CKR_SESSION_HANDLE_INVALID;
 		goto done;
 	}
+	//set the handle into the session.
+	sess->handle = sSession->sessionh;
 
 	if (sess->find_active == FALSE) {
 		TRACE_ERROR("%s\n", ock_err(ERR_OPERATION_NOT_INITIALIZED));
@@ -1576,6 +1612,8 @@ CK_RV SC_EncryptInit(ST_SESSION_HANDLE *sSession, CK_MECHANISM_PTR pMechanism,
 		rc = CKR_SESSION_HANDLE_INVALID;
 		goto done;
 	}
+	//set the handle into the session.
+	sess->handle = sSession->sessionh;
 
 	if (pin_expired(&sess->session_info, nv_token_data->token_info.flags) == TRUE) {
 		TRACE_ERROR("%s\n", ock_err(ERR_PIN_EXPIRED));
@@ -1626,6 +1664,8 @@ CK_RV SC_Encrypt(ST_SESSION_HANDLE *sSession, CK_BYTE_PTR pData,
 		rc = CKR_SESSION_HANDLE_INVALID;
 		goto done;
 	}
+	//set the handle into the session.
+	sess->handle = sSession->sessionh;
 
 	if (sess->encr_ctx.active == FALSE) {
 		TRACE_ERROR("%s\n", ock_err(ERR_OPERATION_NOT_INITIALIZED));
@@ -1677,6 +1717,8 @@ CK_RV SC_EncryptUpdate(ST_SESSION_HANDLE *sSession, CK_BYTE_PTR pPart,
 		rc = CKR_SESSION_HANDLE_INVALID;
 		goto done;
 	}
+	//set the handle into the session.
+	sess->handle = sSession->sessionh;
 
 	if (sess->encr_ctx.active == FALSE) {
 		TRACE_ERROR("%s\n", ock_err(ERR_OPERATION_NOT_INITIALIZED));
@@ -1726,6 +1768,8 @@ CK_RV SC_EncryptFinal(ST_SESSION_HANDLE *sSession,
 		rc = CKR_SESSION_HANDLE_INVALID;
 		goto done;
 	}
+	//set the handle into the session.
+	sess->handle = sSession->sessionh;
 
 	if (sess->encr_ctx.active == FALSE) {
 		TRACE_ERROR("%s\n", ock_err(ERR_OPERATION_NOT_INITIALIZED));
@@ -1780,6 +1824,8 @@ CK_RV SC_DecryptInit(ST_SESSION_HANDLE *sSession, CK_MECHANISM_PTR pMechanism,
 		rc = CKR_SESSION_HANDLE_INVALID;
 		goto done;
 	}
+	//set the handle into the session.
+	sess->handle = sSession->sessionh;
 
 	if (pin_expired(&sess->session_info, nv_token_data->token_info.flags) == TRUE) {
 		TRACE_ERROR("%s\n", ock_err(ERR_PIN_EXPIRED));
@@ -1832,6 +1878,8 @@ CK_RV SC_Decrypt(ST_SESSION_HANDLE *sSession, CK_BYTE_PTR pEncryptedData,
 		rc = CKR_SESSION_HANDLE_INVALID;
 		goto done;
 	}
+	//set the handle into the session.
+	sess->handle = sSession->sessionh;
 
 	if (sess->decr_ctx.active == FALSE) {
 		TRACE_ERROR("%s\n", ock_err(ERR_OPERATION_NOT_INITIALIZED));
@@ -1884,6 +1932,8 @@ CK_RV SC_DecryptUpdate(ST_SESSION_HANDLE *sSession, CK_BYTE_PTR pEncryptedPart,
 		rc = CKR_SESSION_HANDLE_INVALID;
 		goto done;
 	}
+	//set the handle into the session.
+	sess->handle = sSession->sessionh;
 
 	if (sess->decr_ctx.active == FALSE) {
 		TRACE_ERROR("%s\n", ock_err(ERR_OPERATION_NOT_INITIALIZED));
@@ -1933,6 +1983,8 @@ CK_RV SC_DecryptFinal(ST_SESSION_HANDLE *sSession, CK_BYTE_PTR pLastPart,
 		rc = CKR_SESSION_HANDLE_INVALID;
 		goto done;
 	}
+	//set the handle into the session.
+	sess->handle = sSession->sessionh;
 
 	if (sess->decr_ctx.active == FALSE) {
 		TRACE_ERROR("%s\n", ock_err(ERR_OPERATION_NOT_INITIALIZED));
@@ -1984,6 +2036,8 @@ CK_RV SC_DigestInit(ST_SESSION_HANDLE *sSession, CK_MECHANISM_PTR pMechanism)
 		rc = CKR_SESSION_HANDLE_INVALID;
 		goto done;
 	}
+	//set the handle into the session.
+	sess->handle = sSession->sessionh;
 
 	if (pin_expired(&sess->session_info, nv_token_data->token_info.flags) == TRUE) {
 		TRACE_ERROR("%s\n", ock_err(ERR_PIN_EXPIRED));
@@ -2039,6 +2093,8 @@ CK_RV SC_Digest(ST_SESSION_HANDLE *sSession, CK_BYTE_PTR pData,
 		rc = CKR_SESSION_HANDLE_INVALID;
 		goto done;
 	}
+	//set the handle into the session.
+	sess->handle = sSession->sessionh;
 
 	if (sess->digest_ctx.active == FALSE) {
 		TRACE_ERROR("%s\n", ock_err(ERR_OPERATION_NOT_INITIALIZED));
@@ -2086,6 +2142,8 @@ CK_RV SC_DigestUpdate(ST_SESSION_HANDLE *sSession, CK_BYTE_PTR pPart,
 		rc = CKR_SESSION_HANDLE_INVALID;
 		goto done;
 	}
+	//set the handle into the session.
+	sess->handle = sSession->sessionh;
 
 	if (sess->digest_ctx.active == FALSE) {
 		TRACE_ERROR("%s\n", ock_err(ERR_OPERATION_NOT_INITIALIZED));
@@ -2125,6 +2183,8 @@ CK_RV SC_DigestKey(ST_SESSION_HANDLE *sSession, CK_OBJECT_HANDLE hKey)
 		rc = CKR_SESSION_HANDLE_INVALID;
 		goto done;
 	}
+	//set the handle into the session.
+	sess->handle = sSession->sessionh;
 
 	if (sess->digest_ctx.active == FALSE) {
 		TRACE_ERROR("%s\n", ock_err(ERR_OPERATION_NOT_INITIALIZED));
@@ -2169,6 +2229,8 @@ CK_RV SC_DigestFinal(ST_SESSION_HANDLE *sSession, CK_BYTE_PTR pDigest,
 		rc = CKR_SESSION_HANDLE_INVALID;
 		goto done;
 	}
+	//set the handle into the session.
+	sess->handle = sSession->sessionh;
 
 	if (sess->digest_ctx.active == FALSE) {
 		TRACE_ERROR("%s\n", ock_err(ERR_OPERATION_NOT_INITIALIZED));
@@ -2216,6 +2278,8 @@ CK_RV SC_SignInit(ST_SESSION_HANDLE *sSession, CK_MECHANISM_PTR pMechanism,
 		rc = CKR_SESSION_HANDLE_INVALID;
 		goto done;
 	}
+	//set the handle into the session.
+	sess->handle = sSession->sessionh;
 
 	rc = valid_mech(pMechanism, CKF_SIGN);
 	if (rc != CKR_OK)
@@ -2271,6 +2335,8 @@ CK_RV SC_Sign(ST_SESSION_HANDLE *sSession, CK_BYTE_PTR pData,
 		rc = CKR_SESSION_HANDLE_INVALID;
 		goto done;
 	}
+	//set the handle into the session.
+	sess->handle = sSession->sessionh;
 
 	if (sess->sign_ctx.active == FALSE) {
 		TRACE_ERROR("%s\n", ock_err(ERR_OPERATION_NOT_INITIALIZED));
@@ -2318,6 +2384,8 @@ CK_RV SC_SignUpdate(ST_SESSION_HANDLE *sSession, CK_BYTE_PTR pPart,
 		rc = CKR_SESSION_HANDLE_INVALID;
 		goto done;
 	}
+	//set the handle into the session.
+	sess->handle = sSession->sessionh;
 
 	if (sess->sign_ctx.active == FALSE) {
 		TRACE_ERROR("%s\n", ock_err(ERR_OPERATION_NOT_INITIALIZED));
@@ -2363,6 +2431,8 @@ CK_RV SC_SignFinal(ST_SESSION_HANDLE *sSession, CK_BYTE_PTR pSignature,
 		rc = CKR_SESSION_HANDLE_INVALID;
 		goto done;
 	}
+	//set the handle into the session.
+	sess->handle = sSession->sessionh;
 
 	if (sess->sign_ctx.active == FALSE) {
 		TRACE_ERROR("%s\n", ock_err(ERR_OPERATION_NOT_INITIALIZED));
@@ -2440,6 +2510,8 @@ CK_RV SC_VerifyInit(ST_SESSION_HANDLE *sSession, CK_MECHANISM_PTR pMechanism,
 		rc = CKR_SESSION_HANDLE_INVALID;
 		goto done;
 	}
+	//set the handle into the session.
+	sess->handle = sSession->sessionh;
 
 	if (pin_expired(&sess->session_info,
 	    nv_token_data->token_info.flags) == TRUE) {
@@ -2492,6 +2564,8 @@ CK_RV SC_Verify(ST_SESSION_HANDLE *sSession, CK_BYTE_PTR pData,
 		rc = CKR_SESSION_HANDLE_INVALID;
 		goto done;
 	}
+	//set the handle into the session.
+	sess->handle = sSession->sessionh;
 
 	if (sess->verify_ctx.active == FALSE) {
 		rc = CKR_OPERATION_NOT_INITIALIZED;
@@ -2537,6 +2611,8 @@ CK_RV SC_VerifyUpdate(ST_SESSION_HANDLE *sSession, CK_BYTE_PTR pPart,
 		rc = CKR_SESSION_HANDLE_INVALID;
 		goto done;
 	}
+	//set the handle into the session.
+	sess->handle = sSession->sessionh;
 
 	if (sess->verify_ctx.active == FALSE) {
 		rc = CKR_OPERATION_NOT_INITIALIZED;
@@ -2583,6 +2659,8 @@ CK_RV SC_VerifyFinal(ST_SESSION_HANDLE *sSession, CK_BYTE_PTR pSignature,
 		rc = CKR_SESSION_HANDLE_INVALID;
 		goto done;
 	}
+	//set the handle into the session.
+	sess->handle = sSession->sessionh;
 
 	if (sess->verify_ctx.active == FALSE) {
 		rc = CKR_OPERATION_NOT_INITIALIZED;
@@ -2718,6 +2796,8 @@ CK_RV SC_GenerateKey(ST_SESSION_HANDLE *sSession, CK_MECHANISM_PTR pMechanism,
 		rc = CKR_SESSION_HANDLE_INVALID;
 		goto done;
 	}
+	//set the handle into the session.
+	sess->handle = sSession->sessionh;
 
 	if (pin_expired(&sess->session_info,
 				nv_token_data->token_info.flags) == TRUE) {
@@ -2791,6 +2871,8 @@ CK_RV SC_GenerateKeyPair(ST_SESSION_HANDLE *sSession,
 		rc = CKR_SESSION_HANDLE_INVALID;
 		goto done;
 	}
+	//set the handle into the session.
+	sess->handle = sSession->sessionh;
 
 	if (pin_expired(&sess->session_info,
 			nv_token_data->token_info.flags) == TRUE) {
@@ -2875,6 +2957,8 @@ CK_RV SC_WrapKey(ST_SESSION_HANDLE *sSession, CK_MECHANISM_PTR pMechanism,
 		rc = CKR_SESSION_HANDLE_INVALID;
 		goto done;
 	}
+	//set the handle into the session.
+	sess->handle = sSession->sessionh;
 
 	if (pin_expired(&sess->session_info,
 			nv_token_data->token_info.flags) == TRUE) {
@@ -2929,6 +3013,8 @@ CK_RV SC_UnwrapKey(ST_SESSION_HANDLE *sSession, CK_MECHANISM_PTR pMechanism,
 		rc = CKR_SESSION_HANDLE_INVALID;
 		goto done;
 	}
+	//set the handle into the session.
+	sess->handle = sSession->sessionh;
 
 	if (pin_expired(&sess->session_info,
 			nv_token_data->token_info.flags) == TRUE) {
@@ -2998,6 +3084,8 @@ CK_RV SC_DeriveKey(ST_SESSION_HANDLE *sSession, CK_MECHANISM_PTR pMechanism,
 		rc = CKR_SESSION_HANDLE_INVALID;
 		goto done;
 	}
+	//set the handle into the session.
+	sess->handle = sSession->sessionh;
 
 	if (pin_expired(&sess->session_info,
 			nv_token_data->token_info.flags) == TRUE) {
@@ -3104,6 +3192,8 @@ CK_RV SC_GenerateRandom(ST_SESSION_HANDLE *sSession, CK_BYTE_PTR pRandomData,
 		rc = CKR_SESSION_HANDLE_INVALID;
 		goto done;
 	}
+	//set the handle into the session.
+	sess->handle = sSession->sessionh;
 
 	rc = rng_generate(pRandomData, ulRandomLen);
 	if (rc != CKR_OK)
