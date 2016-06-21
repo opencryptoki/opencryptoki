@@ -233,6 +233,8 @@ int icsf_to_ock_err(int icsf_return_code, int icsf_reason_code)
 		switch(icsf_reason_code) {
 		case 2154:
 			return CKR_KEY_TYPE_INCONSISTENT;
+		case 2028:
+			return CKR_WRAPPED_KEY_INVALID;
 		case 3003:
 			return CKR_BUFFER_TOO_SMALL;
 		case 3019:
