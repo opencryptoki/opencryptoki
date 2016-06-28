@@ -813,6 +813,11 @@ CK_RV SC_OpenSession(CK_SLOT_ID sid, CK_FLAGS flags,
 	}
 
 	sess = session_mgr_find(*phSession);
+	if (!sess) {
+		TRACE_ERROR("%s\n", ock_err(ERR_SESSION_HANDLE_INVALID));
+		rc = CKR_SESSION_HANDLE_INVALID;
+		goto done;
+	}
 	sess->handle = *phSession;
 	rc = icsftok_open_session(sess);
 done:
@@ -835,6 +840,11 @@ CK_RV SC_CloseSession(ST_SESSION_HANDLE *sSession)
 	}
 
 	sess = session_mgr_find(sSession->sessionh);
+	if (!sess) {
+		TRACE_ERROR("%s\n", ock_err(ERR_SESSION_HANDLE_INVALID));
+		rc = CKR_SESSION_HANDLE_INVALID;
+		goto done;
+	}
 	//set the handle here as handle is never set into session during creation
 	sess->handle = sSession->sessionh;
 	rc = icsftok_close_session(sess);

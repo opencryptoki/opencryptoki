@@ -589,6 +589,11 @@ CK_RV CreateXProcLock(void)
 				goto err;
 			}
 			grp = getgrnam("pkcs11");
+			if (grp == NULL) {
+				fprintf(stderr, "getgrname(pkcs11): %s",
+					strerror(errno));
+				goto err;
+			}
 			/* set ownership to euid, and pkcs11 group */
 			if (chown(lockdir, geteuid(), grp->gr_gid) != 0) {
 				fprintf(stderr, "Failed to set owner:group \
