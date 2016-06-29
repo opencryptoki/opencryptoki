@@ -461,10 +461,10 @@ CK_RV do_DeriveDHKey(void)
 	// Make sure peer's key is the right size
 	if ((extr1_tmpl[0].ulValueLen != sizeof(DH_PUBL_PRIME)) &&
 	    (extr1_tmpl[0].ulValueLen != sizeof(DH_PUBL_PRIME)-1)) {
-		testcase_fail("ERROR:size error peer's key %ld\n",extr1_tmpl[0].ulValueLen );
+		testcase_fail("ERROR:size error peer's key %ld",extr1_tmpl[0].ulValueLen );
 		goto testcase_cleanup;
 	} else
-		testcase_pass("Successfully derived key.\n");
+		testcase_pass("Successfully derived key");
 
 	// Testcase #2 - Now derive the secrets...
 	if (!securekey) {
@@ -500,7 +500,7 @@ CK_RV do_DeriveDHKey(void)
 		// Make sure party A's key is the right size
 		if ((extr2_tmpl[0].ulValueLen != sizeof(DH_PUBL_PRIME)) &&
 			(extr2_tmpl[0].ulValueLen != sizeof(DH_PUBL_PRIME)-1)) {
-			testcase_fail("ERROR:size error party A's key %ld\n",extr2_tmpl[0].ulValueLen);
+			testcase_fail("ERROR:size error party A's key %ld",extr2_tmpl[0].ulValueLen);
 			goto testcase_cleanup;
 		}
 
@@ -533,7 +533,7 @@ CK_RV do_DeriveDHKey(void)
 
 		if (extr1_tmpl[0].ulValueLen != sizeof(DH_PUBL_PRIME) ||
 			*((int*)extr1_tmpl[0].pValue) == 0) {
-			testcase_fail("ERROR:derived key #1 length or value %ld\n", extr1_tmpl[0].ulValueLen );
+			testcase_fail("ERROR:derived key #1 length or value %ld", extr1_tmpl[0].ulValueLen );
 			goto testcase_cleanup;
 		}
 
@@ -550,12 +550,12 @@ CK_RV do_DeriveDHKey(void)
 
 		if (extr2_tmpl[0].ulValueLen != sizeof(DH_PUBL_PRIME) ||
 			*((int*)extr2_tmpl[0].pValue) == 0) {
-			testcase_fail("ERROR:derived key #2 length or value %ld\n", extr2_tmpl[0].ulValueLen );
+			testcase_fail("ERROR:derived key #2 length or value %ld", extr2_tmpl[0].ulValueLen );
 			goto testcase_cleanup;
 		}
 
 		if (memcmp(key1_value, key2_value, sizeof(DH_PUBL_PRIME)) != 0){
-			testcase_fail("ERROR:derived key mismatch\n");
+			testcase_fail("ERROR:derived key mismatch");
 			goto testcase_cleanup;
 		}
 
@@ -600,7 +600,7 @@ CK_RV do_DeriveDHKey(void)
 		// Make sure party A's key is the right size
 		if ((extr2_tmpl[0].ulValueLen != sizeof(DH_PUBL_PRIME)) &&
 			(extr2_tmpl[0].ulValueLen != sizeof(DH_PUBL_PRIME)-1)) {
-			testcase_fail("ERROR:size error party A's key %ld\n",extr2_tmpl[0].ulValueLen);
+			testcase_fail("ERROR:size error party A's key %ld",extr2_tmpl[0].ulValueLen);
 			goto testcase_cleanup;
 		}
 
@@ -653,7 +653,7 @@ CK_RV do_DeriveDHKey(void)
 		}
 
 		if (memcmp(clear, re_cipher, 32) != 0) {
-			testcase_fail("ERROR:data mismatch\n");
+			testcase_fail("ERROR:data mismatch");
 			goto testcase_cleanup;
 		}
 
@@ -686,8 +686,15 @@ CK_RV dh_functions()
 
 	if ((rv == CKR_OK) && (rv2 == CKR_OK))
 		rv = do_DeriveDHKey();
-	else
-		rv = CKR_MECHANISM_INVALID;
+	else {
+		/*
+		 ** One of the above mechanism is not available, so skip
+		 ** the test but do not report any
+		 ** rv = CKR_MECHANISM_INVALID;
+		 ** invalid or however failures as this is not a failure.
+		 **/
+		return CKR_OK;
+	}
 
 	return rv;
 }
@@ -697,7 +704,7 @@ int main(int argc, char **argv)
 	CK_C_INITIALIZE_ARGS cinit_args;
 	int rc;
 	CK_RV rv;
-	
+
 	rc = do_ParseArgs(argc, argv);
 	if ( rc != 1)
 		return rc;
@@ -710,13 +717,21 @@ int main(int argc, char **argv)
 		PRINT_ERR("ERROR do_GetFunctionList() Failed , rc = 0x%0x\n", rc);
 		return rc;
 	}
-	
+
 	memset( &cinit_args, 0x0, sizeof(cinit_args) );
 	cinit_args.flags = CKF_OS_LOCKING_OK;
 
 	// SAB Add calls to ALL functions before the C_Initialize gets hit
 
 	funcs->C_Initialize( &cinit_args );
+
+	/*
+	 * -securekey option is needed on CCA and EP11 token,
+	 *  otherwise the testcase will fail. However, now this
+	 *  will be done automatically here.
+	 */
+	if (is_ep11_token(SLOT_ID) || is_cca_token(SLOT_ID))
+		securekey = 1;
 
 	{
 		CK_SESSION_HANDLE  hsess = 0;
@@ -728,7 +743,6 @@ int main(int argc, char **argv)
 		rc = funcs->C_CancelFunction(hsess);
 		if (rc  != CKR_FUNCTION_NOT_PARALLEL)
 			return rc;
-
 	}
 
 	testcase_setup(0);
