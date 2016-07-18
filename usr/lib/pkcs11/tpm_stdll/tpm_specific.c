@@ -44,6 +44,7 @@
 #include <errno.h>
 #include <pwd.h>
 #include <syslog.h>
+#include <grp.h>
 
 #include <openssl/des.h>
 #include <openssl/rand.h>
@@ -3393,15 +3394,57 @@ int
 token_specific_creatlock(void)
 {
 	CK_BYTE lockfile[PATH_MAX];
+	CK_BYTE lockdir[PATH_MAX];
 	struct passwd *pw = NULL;
 	struct stat statbuf;
 	mode_t mode = (S_IRUSR|S_IWUSR|S_IXUSR);
 	int lockfd;
+	int ret = -1;
+	struct group *grp;
 
 	/* get userid */
 	if ((pw = getpwuid(getuid())) == NULL) {
 		OCK_SYSLOG(LOG_ERR, "getpwuid(): %s\n",strerror(errno));
 		return -1;
+	}
+
+	/** create lock subdir for each token if it doesn't exist.
+	 * The root /var/lock/opencryptoki directory should be created in slotmgr
+	 * daemon **/
+	sprintf(lockdir, "%s/%s", LOCKDIR_PATH, SUB_DIR);
+
+	ret = stat(lockdir, &statbuf);
+	if (ret != 0 && errno == ENOENT) {
+		/* dir does not exist, try to create it */
+		ret  = mkdir(lockdir, S_IRWXU|S_IRWXG);
+		if (ret != 0) {
+			OCK_SYSLOG(LOG_ERR,
+					"Directory(%s) missing: %s\n",
+					lockdir,
+					strerror(errno));
+			goto err;
+		}
+		grp = getgrnam("pkcs11");
+		if (grp == NULL) {
+			fprintf(stderr, "getgrname(pkcs11): %s",
+					strerror(errno));
+			goto err;
+		}
+		/* set ownership to euid, and pkcs11 group */
+		if (chown(lockdir, geteuid(), grp->gr_gid) != 0) {
+			fprintf(stderr, "Failed to set owner:group \
+					ownership\
+					on %s directory", lockdir);
+			goto err;
+		}
+		/* mkdir does not set group permission right, so
+		 ** trying explictly here again */
+		if (chmod(lockdir, S_IRWXU|S_IRWXG) != 0){
+			fprintf(stderr, "Failed to change \
+					permissions\
+					on %s directory", lockdir);
+			goto err;
+		}
 	}
 
 	/* create user-specific directory */
