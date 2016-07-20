@@ -354,6 +354,14 @@ token_specific_rng(CK_BYTE *output, CK_ULONG bytes)
 CK_RV
 token_specific_init(CK_SLOT_ID  SlotNumber, char *conf_name)
 {
+	CK_ULONG rc = CKR_OK;
+
+	rc = mech_list_ica_initialize();
+	if (rc != CKR_OK) {
+		TRACE_ERROR("mech_list_ica_initialize failed\n");
+		return rc;
+	}
+
 	TRACE_INFO("ica %s slot=%lu running\n", __func__, SlotNumber);
 	return ica_open_adapter(&adapter_handle);
 }
@@ -3385,7 +3393,7 @@ REF_MECH_LIST_ELEMENT ref_mech_list[] = {
         {80, CKM_GENERIC_SECRET_KEY_GEN, {80, 2048, CKF_HW|CKF_GENERATE}},
 };
 
-CK_ULONG ref_mech_list_len = (sizeof(ref_mech_list) / sizeof(MECH_LIST_ELEMENT));
+CK_ULONG ref_mech_list_len = (sizeof(ref_mech_list) / sizeof(REF_MECH_LIST_ELEMENT));
 
 /**
  * new ica-token mechanism table
@@ -3431,18 +3439,9 @@ ica_specific_get_mechanism_list(CK_MECHANISM_TYPE_PTR pMechanismList,
 				CK_ULONG_PTR pulCount)
 {
 	unsigned int i;
-	CK_ULONG rc = CKR_OK;
 
 	if (pulCount == NULL) {
 		return CKR_ARGUMENTS_BAD;
-	}
-
-	if (!mech_list_ica_init) {
-		rc = mech_list_ica_initialize();
-		if (rc != CKR_OK) {
-			TRACE_ERROR("mech_list_ica_initialize failed\n");
-			return rc;
-		}
 	}
 
 	if (pMechanismList == NULL) {
@@ -3478,16 +3477,7 @@ token_specific_get_mechanism_info(CK_MECHANISM_TYPE type,
 CK_RV ica_specific_get_mechanism_info (CK_MECHANISM_TYPE type,
 				       CK_MECHANISM_INFO_PTR pInfo)
 {
-	int rc = CKR_OK;
 	unsigned int i;
-
-	if (!mech_list_ica_init) {
-		rc = mech_list_ica_initialize();
-		if (rc != CKR_OK) {
-			TRACE_ERROR("mech_list_ica_initialize failed\n");
-			return rc;
-		}
-	}
 
 	/*
 	 * find the requested mechanism and grab additional
