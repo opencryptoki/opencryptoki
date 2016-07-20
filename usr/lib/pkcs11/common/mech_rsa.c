@@ -423,12 +423,12 @@ rsa_format_block( CK_BYTE   * in_data,
          * Where ?? is nonzero.
          */
         case 2:
+            rc = rng_generate(&out_data[2], padding_len);
+            if (rc != CKR_OK) {
+                TRACE_DEVEL("rng_generate failed.\n");
+                return rc;
+            }
             for (i = 2; i < (padding_len + 2); i++) {
-                rc = rng_generate(&out_data[i], 1);
-                if (rc != CKR_OK) {
-                    TRACE_DEVEL("rng_generate failed.\n");
-                    return rc;
-                }
                 if (out_data[i] == (CK_BYTE)0) {
                     /* avoid zeros by explicitly making them all 0xff -
                      * won't hurt entropy that bad, and it's better than
