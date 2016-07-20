@@ -3398,9 +3398,9 @@ token_specific_creatlock(void)
 	struct passwd *pw = NULL;
 	struct stat statbuf;
 	mode_t mode = (S_IRUSR|S_IWUSR|S_IXUSR);
-	int lockfd;
+	int lockfd = -1;;
 	int ret = -1;
-	struct group *grp;
+	struct group *grp = NULL;
 
 	/* get userid */
 	if ((pw = getpwuid(getuid())) == NULL) {

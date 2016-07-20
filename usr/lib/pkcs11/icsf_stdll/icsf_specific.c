@@ -4658,8 +4658,10 @@ CK_RV icsftok_unwrap_key(SESSION *session, CK_MECHANISM_PTR mech,
 	case CKM_DES3_CBC_PAD:
 	case CKM_AES_CBC_PAD:
 		if ((rc = icsf_block_size(mech->mechanism,
-					&expected_block_size)))
+					&expected_block_size))){
+			free(key_mapping);
                         return rc;
+		}
 
                 if (mech->ulParameterLen != expected_block_size) {
                         TRACE_ERROR("Invalid mechanism parameter length: %lu "
