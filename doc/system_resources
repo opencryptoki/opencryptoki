@@ -1,0 +1,65 @@
+The following are the system resources used by opencryptoki as of opencryptoki-3.5 release.
+
+1.Shared memory = 1 per token + 1 segment between pkcsslotd &api = 7 max currently
+	a. Between pkcsslotd and api
+	The pkcsslotd daemon has its own shared memory segment that it creates and shares with API. 
+	Part of the data is now passed through sockets but there is still some data shared via shared memory.
+
+	b. Each token has its own shared memory segment. opencryptoki processes attach to the token segment and shared memory acts as a
+	global state tracking mechanism.
+	# ls /dev/shm
+	var.lib.opencryptoki.ccatok   var.lib.opencryptoki.swtok
+	var.lib.opencryptoki.ep11tok  var.lib.opencryptoki.tpm.root
+	var.lib.opencryptoki.lite
+
+2. Sockets - 1
+Unix socket between pkcsslotd and api to transfer slot information
+
+3. Files
+	a. Lock files - 1 global API LCK file + 1 per token (except tpm)  = 6 max currently + 1 lock file per user on tpm token
+	# ls -lh /var/lock/opencryptoki/
+	LCK..APIlock
+	ccatok/LCK..ccatok
+	ep11tok/LCK..ep11tok
+	icsf/LCK..icsf
+	lite/LCK..lite
+	swtok/LCK..swtok
+	tpm/<USER>/LCK..tpm
+
+	b. Trace files - These are generated based on the environment variable OPENCRYPTOKI_TRACE_LEVEL per process in /var/log/opencryptoki. No max limit.
+
+	c. Config files - 2
+	[root@s3545029 ~]# ls -lh /etc/opencryptoki/
+	total 8.0K
+	-rw-r--r--. 1 root root 390 Mar 31 10:55 ep11tok.conf
+	-rw-r--r--. 1 root root 674 Mar 31 10:55 opencryptoki.conf
+
+	d. Token data files - 3 files per token + 1 additional RACF file for icsf token + 1 MK_PRIVATE file for tpm token = 20
+	NVTOK.DAT - Token data like user pin, so pin etc
+	MK_SO - Master key used for internal encryption hashed with SOPIN. This file does not exist on tpm token. 
+	MK_USER - Master key used for internal encryption hashed with USERPIN. This file does not exist on tpm token.
+	RACF - icsf racf password encrypted.
+	tpm token has wrapped keys per user - 
+	/var/lib/opencryptoki/tpm/${USER}/PRIVATE_ROOT_KEY.pem
+	/var/lib/opencryptoki/tpm/${USER}/PUBLIC_ROOT_KEY.pem
+
+	e. Token object files - 1 OBJ_IDX file per token and the private object files. = 6 + as many number of private token objects for tokens
+	OBJ_IDX - A list of current token objects.
+
+4. Semaphores
+The following depend on the number of processes accessing opencryptoki on the system.
+	a. The structure API_Proc_Struct_t is allocated per process.It has a thread level mutex and a session level mutex to lock btree accesses. So two mutexes per process.
+
+	b. Per process Global Mutex used in API. - 1
+
+	c. There are 5 mutexes used in common directory per process - 5
+		pthread_mutex_t native_mutex ;
+		MUTEX pkcs_mutex, obj_list_mutex, sess_list_mutex, login_mutex;
+
+The following are mutexes local to tokens.
+	d. icsf token has its own mutexes - 2
+	e. Soft token has two mutexes - 2 though I dont see where one of them is used. 
+	g. ica token  - 1 
+
+5. There are 5 global btrees (in memory) for holding the session mapping information, session objects, public token and private token objects information. 
+
