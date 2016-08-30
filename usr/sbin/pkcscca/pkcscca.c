@@ -1387,9 +1387,9 @@ int main(int argc, char **argv)
 			return -1;
 		}
 
-		CSNDKTC = dlsym(lib_csulcca, "CSNDKTC_32");
-		CSNBKTC = dlsym(lib_csulcca, "CSNBKTC_32");
-		CSNBKTC2 = dlsym(lib_csulcca, "CSNBKTC2_32");
+		CSNDKTC = dlsym(lib_csulcca, "CSNDKTC");
+		CSNBKTC = dlsym(lib_csulcca, "CSNBKTC");
+		CSNBKTC2 = dlsym(lib_csulcca, "CSNBKTC2");
 		ret = migrate_wrapped_keys(slot_id, userpin, masterkey);
 	}
 done:
