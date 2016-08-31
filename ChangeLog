@@ -1,3 +1,6 @@
+* opencryptoki 3.5.1
+- Fix Illegal Intruction on pkcscca tool.
+
 * opencryptoki 3.5
 - Full Coverity scan fixes.
 - Fixes for compiler warnings.
