@@ -314,7 +314,7 @@
 #include "ica_specific.h"
 #include "ica_api.h"
 // declare the adapter open handle localy
-ICA_ADAPTER_HANDLE adapter_handle;
+ica_adapter_handle_t adapter_handle;
 
 // Linux really does not need these so we just dummy them up
 // so the common code across platforms is usable...
@@ -461,11 +461,11 @@ token_specific_des_ecb(CK_BYTE * in_data,
    }
 
    if ( encrypt) {
-      rc = ica_des_encrypt(MODE_DES_ECB, (unsigned int) in_data_len, in_data,
-                           NULL, (ica_des_key_single_t *)attr->pValue, out_data);
+      rc = ica_des_ecb(in_data, out_data, in_data_len, attr->pValue,
+		       ICA_ENCRYPT);
    } else {
-      rc = ica_des_decrypt(MODE_DES_ECB, (unsigned int) in_data_len, in_data,
-                           NULL, (ica_des_key_single_t *)attr->pValue, out_data);
+      rc = ica_des_ecb(in_data, out_data, in_data_len, attr->pValue,
+		       ICA_DECRYPT);
    }
 
    if (rc != 0) {
@@ -507,13 +507,11 @@ token_specific_des_cbc(CK_BYTE * in_data,
    }
 
    if ( encrypt ){
-      rc = ica_des_encrypt(MODE_DES_CBC, (unsigned int) in_data_len, in_data,
-                           (ica_des_vector_t *) init_v,
-			   (ica_des_key_single_t *) attr->pValue, out_data);
+      rc = ica_des_cbc(in_data, out_data, in_data_len, attr->pValue, init_v,
+		       ICA_ENCRYPT);
    } else {
-      rc = ica_des_decrypt(MODE_DES_CBC, (unsigned int) in_data_len, in_data,
-                           (ica_des_vector_t *) init_v,
-			   (ica_des_key_single_t *) attr->pValue, out_data);
+      rc = ica_des_cbc(in_data, out_data, in_data_len, attr->pValue, init_v,
+		       ICA_DECRYPT);
    }
    if (rc != 0) {
          TRACE_ERROR("%s\n", ock_err(ERR_FUNCTION_FAILED));
@@ -565,13 +563,11 @@ token_specific_tdes_ecb(CK_BYTE * in_data,
       memcpy(key_value, attr->pValue, 3*DES_KEY_SIZE);
 
    if ( encrypt) {
-      rc = ica_3des_encrypt(MODE_DES_ECB, (unsigned int) in_data_len, in_data,
-                            NULL, (ica_des_key_triple_t *) key_value,
-			    out_data);
+      rc = ica_3des_ecb(in_data, out_data, in_data_len, key_value,
+			ICA_ENCRYPT);
    } else {
-      rc = ica_3des_decrypt(MODE_DES_ECB, (unsigned int) in_data_len, in_data,
-                            NULL, (ica_des_key_triple_t *) key_value,
-			    out_data);
+      rc = ica_3des_ecb(in_data, out_data, in_data_len, key_value,
+			ICA_DECRYPT);
    }
 
    if (rc != 0) {
@@ -627,13 +623,11 @@ token_specific_tdes_cbc(CK_BYTE * in_data,
       memcpy(key_value, attr->pValue, 3*DES_KEY_SIZE);
 
    if ( encrypt ){
-   rc = ica_3des_encrypt(MODE_DES_CBC, (unsigned int) in_data_len, in_data,
-                         (ica_des_vector_t  *) init_v, 
-			 (ica_des_key_triple_t *) key_value, out_data);
+      rc = ica_3des_cbc(in_data, out_data, in_data_len, key_value, init_v,
+			ICA_ENCRYPT);
    } else {
-   rc = ica_3des_decrypt(MODE_DES_CBC, (unsigned int) in_data_len, in_data,
-                         (ica_des_vector_t *) init_v,
-			 (ica_des_key_triple_t *) key_value, out_data);
+      rc = ica_3des_cbc(in_data, out_data, in_data_len, key_value, init_v,
+			ICA_DECRYPT);
    }
    if (rc != 0) {
          TRACE_ERROR("%s\n", ock_err(ERR_FUNCTION_FAILED));
@@ -2410,13 +2404,11 @@ token_specific_aes_ecb(CK_BYTE *in_data, CK_ULONG in_data_len,
 	}
 
         if (encrypt) {
-        rc = ica_aes_encrypt(MODE_AES_ECB, (unsigned int) in_data_len,
-                             in_data, NULL, (unsigned  int) attr->ulValueLen,
-                             attr->pValue, out_data);
+		rc = ica_aes_ecb(in_data, out_data, in_data_len, attr->pValue,
+				 attr->ulValueLen, ICA_ENCRYPT);
         } else {
-        rc = ica_aes_decrypt(MODE_AES_ECB, (unsigned int) in_data_len,
-                             in_data, NULL, (unsigned int) attr->ulValueLen,
-                             attr->pValue, out_data);
+		rc = ica_aes_ecb(in_data, out_data, in_data_len, attr->pValue,
+				 attr->ulValueLen, ICA_DECRYPT);
         }
 	if (rc != 0) {
         (*out_data_len) = 0;
@@ -2453,15 +2445,11 @@ token_specific_aes_cbc(CK_BYTE         *in_data,
 	}
 
 	if (encrypt) {
-        rc = ica_aes_encrypt(MODE_AES_CBC, (unsigned int) in_data_len,
-                             in_data, (ica_aes_vector_t *) init_v,
-                             (unsigned int) attr->ulValueLen, attr->pValue,
-                             out_data);
+		rc = ica_aes_cbc(in_data, out_data, in_data_len, attr->pValue,
+				 attr->ulValueLen, init_v, ICA_ENCRYPT);
 	} else {
-        rc = ica_aes_decrypt(MODE_AES_CBC, (unsigned int) in_data_len,
-                             in_data, (ica_aes_vector_t *) init_v,
-                             (unsigned int) attr->ulValueLen, attr->pValue,
-                             out_data);
+		rc = ica_aes_cbc(in_data, out_data, in_data_len, attr->pValue,
+				 attr->ulValueLen, init_v, ICA_DECRYPT);
 	}
 	if (rc != 0) {
         (*out_data_len) = 0;
