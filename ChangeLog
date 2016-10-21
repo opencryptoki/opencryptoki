@@ -1,3 +1,15 @@
+* opencryptoki 3.6
+- Replace deprecated libica interfaces.
+- Performance improvement for ICA.
+- Improvement in documentation on system resources.
+- Improvement in testcases.
+- Added support for rc=8, reasoncode=2028 in icsf token.
+- Fix for session handle not set in session issue.
+- Multiple fixes for lock and log directories.
+- Downgraded a syslog error to warning.
+- Multiple fixes based on coverity scan results.
+- Added pkcs11 mapping for icsf reason code 72 for return code 8.
+
 * opencryptoki 3.5.1
 - Fix Illegal Intruction on pkcscca tool.
 
