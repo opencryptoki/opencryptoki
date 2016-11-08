@@ -325,6 +325,7 @@
 #include <openssl/dh.h>
 #include <openssl/aes.h>
 #include <openssl/evp.h>
+#include <openssl/sha.h>
 
 typedef unsigned int uint32_t;
 
@@ -2190,39 +2191,41 @@ token_specific_get_mechanism_info(CK_MECHANISM_TYPE type,
 CK_RV token_specific_sha_init(DIGEST_CONTEXT *ctx, CK_MECHANISM *mech)
 {
 	int rc;
-	EVP_MD_CTX *mdctx = NULL;
-
-	mdctx = EVP_MD_CTX_create();
-	if (mdctx == NULL) {
-		TRACE_ERROR("%s\n", ock_err(ERR_HOST_MEMORY));
-		return CKR_HOST_MEMORY;
-	}
+	int (*dgst)(CK_BYTE *);
+	CK_ULONG len;
 
 	switch(mech->mechanism) {
 	case CKM_SHA_1:
-		rc = EVP_DigestInit_ex(mdctx, EVP_sha1(), NULL);
+		len = sizeof(SHA_CTX);
+		dgst = &SHA1_Init;
 		break;
 	case CKM_SHA256:
-		rc = EVP_DigestInit_ex(mdctx, EVP_sha256(), NULL);
+		len = sizeof(SHA256_CTX);
+		dgst = &SHA256_Init;
 		break;
 	case CKM_SHA384:
-		rc = EVP_DigestInit_ex(mdctx, EVP_sha384(), NULL);
+		len = sizeof(SHA512_CTX);
+		dgst = &SHA384_Init;
 		break;
 	case CKM_SHA512:
-		rc = EVP_DigestInit_ex(mdctx, EVP_sha512(), NULL);
+		len = sizeof(SHA512_CTX);
+		dgst = &SHA512_Init;
 		break;
 	default:
-		EVP_MD_CTX_destroy(mdctx);
 		return CKR_MECHANISM_INVALID;
 	}
 
-	if (!rc) {
-		EVP_MD_CTX_destroy(mdctx);
-		ctx->context = NULL;
+	ctx->context_len = len;
+	ctx->context = (CK_BYTE *) malloc(len);
+	if (ctx->context == NULL) {
+		TRACE_ERROR("%s\n", ock_err(ERR_HOST_MEMORY));
+		return CKR_HOST_MEMORY;		
+	}
+	rc = dgst(ctx->context);
+
+	if (!rc) 
 		return CKR_FUNCTION_FAILED;
-	} else
-		ctx->context = (CK_BYTE *)mdctx;
-	
+
 	return CKR_OK;
 }
 
@@ -2231,139 +2234,133 @@ CK_RV token_specific_sha(DIGEST_CONTEXT *ctx, CK_BYTE *in_data,
 			 CK_ULONG *out_data_len)
 {
 	int rc;
-	CK_RV rv = CKR_OK;
-	EVP_MD_CTX *mdctx;
 	unsigned int hlen;
-	
+	int (*dgstup)(CK_BYTE *, CK_BYTE *, CK_ULONG);
+	int (*dgstfin)(CK_BYTE *, CK_BYTE *);
+
 	if (!ctx || !ctx->context)
 		return CKR_OPERATION_NOT_INITIALIZED;
-
-	mdctx = (EVP_MD_CTX *)ctx->context;
+	
+	if (!in_data || !out_data) 
+		return CKR_ARGUMENTS_BAD;
 	
 	switch(ctx->mech.mechanism) {
 	case CKM_SHA_1:
 		hlen = SHA1_HASH_SIZE;
+		dgstup = &SHA1_Update;
+		dgstfin = &SHA1_Final;
 		break;
 	case CKM_SHA256:
 		hlen = SHA2_HASH_SIZE;
+		dgstup = &SHA256_Update;
+		dgstfin = &SHA256_Final;
 		break;
 	case CKM_SHA384:
 		hlen = SHA3_HASH_SIZE;
+		dgstup = &SHA384_Update;
+		dgstfin = &SHA384_Final;
 		break;
 	case CKM_SHA512:
 		hlen = SHA5_HASH_SIZE;
+		dgstup = &SHA512_Update;
+		dgstfin = &SHA512_Final;
 		break;
 	default:
-		rv =  CKR_MECHANISM_INVALID;
-		goto done;
+		return CKR_MECHANISM_INVALID;
 	}
-
+	
 	if (*out_data_len < hlen) 
 		return CKR_BUFFER_TOO_SMALL;
 
-	if (!in_data || !out_data) {
-		rv = CKR_ARGUMENTS_BAD;
-		goto done;
-	}
+	rc = dgstup(ctx->context, in_data, in_data_len);
+	if (!rc)
+		return CKR_FUNCTION_FAILED;
 	
-	rc =  EVP_DigestUpdate(mdctx, in_data, in_data_len);
-	if (!rc) {
-		rv = CKR_FUNCTION_FAILED;
-		goto done;
-	}
+	rc = dgstfin(out_data, ctx->context);
+	if (!rc)
+		return CKR_FUNCTION_FAILED;
 
-	rc = EVP_DigestFinal_ex(mdctx, out_data, &hlen);
-	if (!rc) 
-		rv = CKR_FUNCTION_FAILED;
-	else
-		*out_data_len = hlen;
-		
-done:
-	EVP_MD_CTX_destroy(mdctx);
-	ctx->context = NULL;
-	return rv;
+	return CKR_OK;
 }	
 
 CK_RV token_specific_sha_update(DIGEST_CONTEXT *ctx, CK_BYTE *in_data,
 				CK_ULONG in_data_len)
 {
 	int rc;
-	EVP_MD_CTX *mdctx;
-	CK_RV rv = CKR_OK;
 	
 	if (!ctx || !ctx->context)
 		return CKR_OPERATION_NOT_INITIALIZED;
 
-	mdctx = (EVP_MD_CTX *)ctx->context;
-	
-	if (!in_data) {
-		rv = CKR_ARGUMENTS_BAD;
-		goto error;
+	if (!in_data) 
+		return CKR_ARGUMENTS_BAD;
+
+	switch(ctx->mech.mechanism) {
+	case CKM_SHA_1:
+		rc = SHA1_Update(ctx->context, in_data, in_data_len);
+		break;
+	case CKM_SHA256:
+		rc = SHA256_Update(ctx->context, in_data, in_data_len);
+		break;
+	case CKM_SHA384:
+		rc = SHA384_Update(ctx->context, in_data, in_data_len);
+		break;
+	case CKM_SHA512:
+		rc = SHA512_Update(ctx->context, in_data, in_data_len);
+		break;
+	default:
+		return CKR_MECHANISM_INVALID;
 	}
 
-	rc = EVP_DigestUpdate(mdctx, in_data, in_data_len);
 	if (!rc)
-		rv = CKR_FUNCTION_FAILED;
-	else {
-		ctx->context = (CK_BYTE *)mdctx;
-		return CKR_OK;
-	}
+		return CKR_FUNCTION_FAILED;
 	
-error:
-	EVP_MD_CTX_destroy(mdctx);
-	ctx->context = NULL;
-	return rv;
+	return CKR_OK;
 }
 
 CK_RV token_specific_sha_final(DIGEST_CONTEXT *ctx, CK_BYTE *out_data,
 			       CK_ULONG *out_data_len)
 {
 	int rc;
-	EVP_MD_CTX *mdctx;
-	CK_RV rv = CKR_OK;
 	unsigned int hlen;
+	int (*dgstfin)(CK_BYTE *, CK_BYTE *);
 
 	if (!ctx || !ctx->context)
 		return CKR_OPERATION_NOT_INITIALIZED;
 
-	mdctx = (EVP_MD_CTX *)ctx->context;
-		
-	if (!out_data) {
-		rv = CKR_ARGUMENTS_BAD;
-		goto done;		
-	}
+	if (!out_data)
+		return CKR_ARGUMENTS_BAD;
 
 	switch(ctx->mech.mechanism) {
 	case CKM_SHA_1:
 		hlen = SHA1_HASH_SIZE;
+		dgstfin = &SHA1_Final;
 		break;
 	case CKM_SHA256:
 		hlen = SHA2_HASH_SIZE;
+		dgstfin = &SHA256_Final;
 		break;
 	case CKM_SHA384:
 		hlen = SHA3_HASH_SIZE;
+		dgstfin = &SHA384_Final;
 		break;
 	case CKM_SHA512:
 		hlen = SHA5_HASH_SIZE;
+		dgstfin = &SHA512_Final;
 		break;
 	default:
-		rv =  CKR_MECHANISM_INVALID;
-		goto done;
+		return CKR_MECHANISM_INVALID;
 	}
 
 	if (*out_data_len < hlen)
 		return CKR_BUFFER_TOO_SMALL;
 
-	rc = EVP_DigestFinal_ex(mdctx, out_data, &hlen);
+	rc = dgstfin(out_data, ctx->context);
 	if (!rc)
-		rv = CKR_FUNCTION_FAILED;
+		return CKR_FUNCTION_FAILED;
 	else
 		*out_data_len = hlen;
 	
-done:
-	EVP_MD_CTX_destroy(mdctx);
-	ctx->context = NULL;
-	return rv;
+	return CKR_OK;
 }
 
 static CK_RV softtok_hmac_init(SIGN_VERIFY_CONTEXT *ctx, CK_MECHANISM_PTR mech,
