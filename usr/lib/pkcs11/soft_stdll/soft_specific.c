@@ -2280,6 +2280,8 @@ CK_RV token_specific_sha(DIGEST_CONTEXT *ctx, CK_BYTE *in_data,
 	if (!rc)
 		return CKR_FUNCTION_FAILED;
 
+	*out_data_len = hlen;
+
 	return CKR_OK;
 }	
 
@@ -2357,8 +2359,8 @@ CK_RV token_specific_sha_final(DIGEST_CONTEXT *ctx, CK_BYTE *out_data,
 	rc = dgstfin(out_data, ctx->context);
 	if (!rc)
 		return CKR_FUNCTION_FAILED;
-	else
-		*out_data_len = hlen;
+
+	*out_data_len = hlen;
 	
 	return CKR_OK;
 }
