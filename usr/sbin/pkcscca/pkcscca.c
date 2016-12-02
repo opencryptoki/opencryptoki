@@ -48,18 +48,21 @@ struct algo rsa = {"RTCMK   ", "RSA", 1};
 
 int compute_hash(int hash_type, int buf_size, char *buf, char *digest)
 {
-	EVP_MD_CTX md_ctx;
+	EVP_MD_CTX *md_ctx = NULL;
 	unsigned int result_size;
 	int rc;
 
+	md_ctx = EVP_MD_CTX_create();
+
 	switch (hash_type) {
 	case HASH_SHA1:
-		rc = EVP_DigestInit(&md_ctx, EVP_sha1());
+		rc = EVP_DigestInit(md_ctx, EVP_sha1());
 		break;
 	case HASH_MD5:
-		rc = EVP_DigestInit(&md_ctx, EVP_md5());
+		rc = EVP_DigestInit(md_ctx, EVP_md5());
 		break;
 	default:
+		EVP_MD_CTX_destroy(md_ctx);
 		return -1;
 	break;
 	}
@@ -69,19 +72,19 @@ int compute_hash(int hash_type, int buf_size, char *buf, char *digest)
 		return -1;
 	}
 
-        rc = EVP_DigestUpdate(&md_ctx, buf, buf_size);
+        rc = EVP_DigestUpdate(md_ctx, buf, buf_size);
         if (rc != 1) {
 		fprintf(stderr, "EVP_DigestUpdate() failed: rc = %d\n", rc);
 		return -1;
         }
 
-	result_size = EVP_MD_CTX_size(&md_ctx);
-	rc = EVP_DigestFinal(&md_ctx, (unsigned char *)digest, &result_size);
+	result_size = EVP_MD_CTX_size(md_ctx);
+	rc = EVP_DigestFinal(md_ctx, (unsigned char *)digest, &result_size);
         if (rc != 1) {
 		fprintf(stderr, "EVP_DigestFinal() failed: rc = %d\n", rc);
 		return -1;
         }
-
+	EVP_MD_CTX_destroy(md_ctx);
         return 0;
 }
 
