@@ -66,13 +66,24 @@ openssl_gen_key()
 	RSA *rsa;
 	int rc, counter = 0;
 	char buf[32];
+	BIGNUM *bne;
 
 	token_specific_rng((CK_BYTE *)buf, 32);
 	RAND_seed(buf, 32);
 
 regen_rsa_key:
-	rsa = RSA_generate_key(2048, 65537, NULL, NULL);
-	if (rsa == NULL) {
+	bne = BN_new();
+	rc = BN_set_word(bne, 65537);
+	if (!rc) {
+		fprintf(stderr, "Error generating bne\n");
+		ERR_load_crypto_strings();
+		ERR_print_errors_fp(stderr);
+		return NULL;
+	}
+
+	rsa = RSA_new();
+	rc = RSA_generate_key_ex(rsa, 2048, bne, NULL);
+	if (!rc) {
 		fprintf(stderr, "Error generating user's RSA key\n");
 		ERR_load_crypto_strings();
 		ERR_print_errors_fp(stderr);
@@ -191,14 +202,18 @@ int
 openssl_get_modulus_and_prime(RSA *rsa, unsigned int *size_n, unsigned char *n,
 		unsigned int *size_p, unsigned char *p)
 {
+	const BIGNUM *n_tmp, *p_tmp;
+
 	/* get the modulus from the RSA object */
-	if ((*size_n = BN_bn2bin(rsa->n, n)) <= 0) {
+	RSA_get0_key(rsa, &n_tmp, NULL, NULL);
+	if ((*size_n = BN_bn2bin(n_tmp, n)) <= 0) {
 		DEBUG_openssl_print_errors();
 		return -1;
 	}
 
 	/* get one of the primes from the RSA object */
-	if ((*size_p = BN_bn2bin(rsa->p, p)) <= 0) {
+	RSA_get0_factors(rsa, &p_tmp, NULL);
+	if ((*size_p = BN_bn2bin(p_tmp, p)) <= 0) {
 		DEBUG_openssl_print_errors();
 		return -1;
 	}
