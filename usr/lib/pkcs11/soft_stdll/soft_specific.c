@@ -2223,8 +2223,12 @@ CK_RV token_specific_sha_init(DIGEST_CONTEXT *ctx, CK_MECHANISM *mech)
 	}
 	rc = dgst(ctx->context);
 
-	if (!rc) 
+	if (!rc) {
+		free(ctx->context);
+		ctx->context = NULL;
+		ctx->context_len = 0;
 		return CKR_FUNCTION_FAILED;
+	}
 
 	return CKR_OK;
 }
@@ -2274,15 +2278,21 @@ CK_RV token_specific_sha(DIGEST_CONTEXT *ctx, CK_BYTE *in_data,
 
 	rc = dgstup(ctx->context, in_data, in_data_len);
 	if (!rc)
-		return CKR_FUNCTION_FAILED;
+		goto error;
 	
 	rc = dgstfin(out_data, ctx->context);
 	if (!rc)
-		return CKR_FUNCTION_FAILED;
+		goto error;
 
 	*out_data_len = hlen;
 
 	return CKR_OK;
+
+error:
+	free(ctx->context);
+	ctx->context = NULL;
+	ctx->context_len = 0;
+	return CKR_FUNCTION_FAILED;
 }	
 
 CK_RV token_specific_sha_update(DIGEST_CONTEXT *ctx, CK_BYTE *in_data,
@@ -2313,8 +2323,12 @@ CK_RV token_specific_sha_update(DIGEST_CONTEXT *ctx, CK_BYTE *in_data,
 		return CKR_MECHANISM_INVALID;
 	}
 
-	if (!rc)
+	if (!rc) {
+		free(ctx->context);
+		ctx->context = NULL;
+		ctx->context_len = 0;
 		return CKR_FUNCTION_FAILED;
+	}
 	
 	return CKR_OK;
 }
@@ -2357,8 +2371,12 @@ CK_RV token_specific_sha_final(DIGEST_CONTEXT *ctx, CK_BYTE *out_data,
 		return CKR_BUFFER_TOO_SMALL;
 
 	rc = dgstfin(out_data, ctx->context);
-	if (!rc)
+	if (!rc) {
+		free(ctx->context);
+		ctx->context = NULL;
+		ctx->context_len = 0;
 		return CKR_FUNCTION_FAILED;
+	}
 
 	*out_data_len = hlen;
 	
