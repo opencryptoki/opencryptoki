@@ -2,11 +2,11 @@
 .deps
 *.o
 *.lo
+*.m4
 Makefile
 Makefile.in
 config.log
 configure
-aclocal.m4
 autom4te.cache
 compile
 config.guess

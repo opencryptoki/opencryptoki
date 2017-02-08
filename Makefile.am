@@ -8,5 +8,6 @@ if ENABLE_DAEMON
 MISCDIR = misc
 endif
 
-SUBDIRS = usr man $(MISCDIR) $(TESTDIR)
+ACLOCAL_AMFLAGS = -I m4
 
+SUBDIRS = usr man $(MISCDIR) $(TESTDIR)

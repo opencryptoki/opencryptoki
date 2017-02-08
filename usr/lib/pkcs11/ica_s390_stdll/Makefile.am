@@ -56,7 +56,7 @@ opencryptoki_stdll_libpkcs11_ica_la_SOURCES = ../common/asn1.c		\
 					      ../common/shared_memory.c	\
 					      ica_specific.c
 
-INCLUDES = $(ICA_INC_DIRS) -I. -I../../../include/pkcs11/stdll		\
+AM_CPPFLAGS = $(ICA_INC_DIRS) -I. -I../../../include/pkcs11/stdll		\
 	   -I../../../include/pkcs11 -I../common -I../../../ica/inc	\
 	   -I../../../../ica/include -I.. -I../../../../ica/src/inc
 

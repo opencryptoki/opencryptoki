@@ -1,0 +1,4 @@
+REQUIRED FILE, PLEASE DON'T REMOVE IT.
+
+The current configure.ac requires the m4 directory, but git don't save empty
+directories in the repository.

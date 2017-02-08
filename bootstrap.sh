@@ -1,5 +1,5 @@
 #!/bin/sh
-set -x
+#set -x
 aclocal
 libtoolize --force -c
 automake --add-missing -c

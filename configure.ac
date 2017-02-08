@@ -4,7 +4,7 @@ AC_INIT([openCryptoki],[3.6.1],[opencryptoki-tech@lists.sourceforge.net])
 dnl Needed for $target!
 AC_CANONICAL_SYSTEM
 
-AM_INIT_AUTOMAKE([foreign 1.6])
+AM_INIT_AUTOMAKE([foreign 1.6 subdir-objects])
 
 dnl Checks for header files.
 AC_DISABLE_STATIC
@@ -560,6 +560,8 @@ CFLAGS+=' -DCONFIG_PATH=\"$(localstatedir)/lib/opencryptoki\" -DSBIN_PATH=\"$(sb
 
 # At this point, CFLAGS is set to something sensible
 AC_PROG_CC
+
+AC_CONFIG_MACRO_DIRS([m4])
 
 AC_CONFIG_FILES([Makefile usr/Makefile \
           usr/include/Makefile \

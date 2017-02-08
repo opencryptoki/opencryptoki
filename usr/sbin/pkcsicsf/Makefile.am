@@ -13,4 +13,4 @@ pkcsicsf_SOURCES = ../../lib/pkcs11/icsf_stdll/icsf.c	\
 		   ../../lib/pkcs11/common/trace.c	\
 		   pkcsicsf.c
 
-INCLUDES = -I../../include/pkcs11 -I. -I../../lib/pkcs11/common -I../../lib/pkcs11/icsf_stdll
+AM_CPPFLAGS = -I../../include/pkcs11 -I. -I../../lib/pkcs11/common -I../../lib/pkcs11/icsf_stdll
