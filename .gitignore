@@ -48,6 +48,7 @@ testcases/pkcs11/destroyobjects
 testcases/pkcs11/copyobjects
 testcases/pkcs11/generate_keypair
 testcases/pkcs11/gen_purpose
+testcases/pkcs11/getobjectsize
 testcases/login/digest_init
 testcases/login/init_pin
 testcases/login/init_tok
@@ -66,6 +67,7 @@ testcases/init_token.sh
 usr/lib/pkcs11/api/opencryptoki
 usr/lib/pkcs11/api/shrd_mem.c
 usr/lib/pkcs11/cca_stdll/opencryptoki
+usr/lib/pkcs11/common/.dirstamp
 usr/lib/pkcs11/soft_stdll/opencryptoki
 usr/lib/pkcs11/tpm_stdll/opencryptoki
 usr/lib/pkcs11/ica_s390_stdll/opencryptoki

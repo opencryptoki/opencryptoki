@@ -1,0 +1,23 @@
+
+# Ubuntu 14.04 Trusty support
+sudo: required
+dist: trusty
+
+language: c
+
+before_install:
+    - sudo apt-get -qq update
+    - sudo apt-get install -y expect
+before_script:
+    - sudo groupadd pkcs11
+    - sudo usermod -G pkcs11 root
+    - ./bootstrap.sh
+script:
+    - ./configure --enable-testcases && make
+    - sudo make install
+    - sudo ldconfig
+    - sudo touch /usr/local/var/lib/opencryptoki/pk_config_data
+    - sudo pkcsslotd
+    - sudo pkcsconf -t
+    - cd testcases
+    - sudo PKCS11_SO_PIN=87654321 PKCS11_USER_PIN=01234567 PKCSLIB=/usr/local/lib/pkcs11/libopencryptoki.so ./ock_tests.sh -s 3
