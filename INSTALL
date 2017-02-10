@@ -19,8 +19,8 @@ diffs or instructions to the address given in the `README' so they can
 be considered for the next release.  If at some point `config.cache'
 contains results you don't want to keep, you may remove or edit it.
 
-   The file `configure.in' is used to create `configure' by a program
-called `autoconf'.  You only need `configure.in' if you want to change
+   The file `configure.ac' is used to create `configure' by a program
+called `autoconf'.  You only need `configure.ac' if you want to change
 it or regenerate `configure' using a newer version of `autoconf'.
 
 The simplest way to compile this package is:
@@ -82,8 +82,11 @@ architecture.
 Installation Names
 ==================
 
-   By default, `make install' will install the pkcs11 API in `/usr/lib/pkcs11/', any STDLLs that were built in `/usr/lib/pkcs11/stdll', the config programs in `/usr/lib/pkcs11/methods', and the slot daemon in `/usr/sbin/'.  You can specify an installation prefix other than `/usr/local' by giving `configure' the
-option `--prefix=PATH'.
+   By default, `make install' will install the pkcs11 API in the directory
+`/usr/lib/pkcs11/', any STDLLs that were built in `/usr/lib/pkcs11/stdll',
+the config programs in `/usr/lib/pkcs11/methods', and the slot daemon in
+`/usr/sbin/'. You can specify an installation prefix other than `/usr/local'
+bygiving `configure' the option `--prefix=PATH'.
 
 Optional Features
 =================
