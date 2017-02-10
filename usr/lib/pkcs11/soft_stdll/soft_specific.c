@@ -327,6 +327,15 @@
 #include <openssl/evp.h>
 #include <openssl/sha.h>
 
+/*
+ * In order to make opencryptoki compatible with
+ * OpenSSL 1.1 API Changes and backward compatible
+ * we need to check for its version
+ */
+#if OPENSSL_VERSION_NUMBER < 0x10100000L
+#pragma GCC diagnostic ignored "-Wimplicit-function-declaration"
+#define OLDER_OPENSSL
+#endif
 typedef unsigned int uint32_t;
 
 pthread_mutex_t  rngmtx = PTHREAD_MUTEX_INITIALIZER;
@@ -700,7 +709,13 @@ rsa_convert_public_key( OBJECT    * key_obj )
 	// Convert from strings to BIGNUMs and stick them in the RSA struct
 	BN_bin2bn((unsigned char *)modulus->pValue, modulus->ulValueLen, bn_mod);
 	BN_bin2bn((unsigned char *)pub_exp->pValue, pub_exp->ulValueLen, bn_exp);
+
+#ifdef OLDER_OPENSSL
+	rsa->n = bn_mod;
+	rsa->e = bn_exp;
+#else
 	RSA_set0_key(rsa, bn_mod, bn_exp, NULL);
+#endif
 
 	return (void *)rsa;
 }
@@ -723,7 +738,7 @@ rsa_convert_private_key(OBJECT *key_obj)
 
 
 	rc  = template_attribute_find( key_obj->template, CKA_MODULUS,          &modulus );
-	rc &= template_attribute_find( key_obj->template, CKA_PUBLIC_EXPONENT, &pub_exp );
+	rc &= template_attribute_find( key_obj->template, CKA_PUBLIC_EXPONENT,  &pub_exp );
 	rc &= template_attribute_find( key_obj->template, CKA_PRIVATE_EXPONENT, &priv_exp );
 	rc &= template_attribute_find( key_obj->template, CKA_PRIME_1,          &prime1 );
 	rc &= template_attribute_find( key_obj->template, CKA_PRIME_2,          &prime2 );
@@ -778,15 +793,26 @@ rsa_convert_private_key(OBJECT *key_obj)
 		BN_bin2bn((unsigned char *)modulus->pValue, modulus->ulValueLen, bn_mod);
 		BN_bin2bn((unsigned char *)pub_exp->pValue, pub_exp->ulValueLen, bn_pub_exp);
 		BN_bin2bn((unsigned char *)priv_exp->pValue, priv_exp->ulValueLen, bn_priv_exp);
-		RSA_set0_key(rsa, bn_mod, bn_pub_exp, bn_priv_exp);
+
 		BN_bin2bn((unsigned char *)prime1->pValue, prime1->ulValueLen, bn_p1);
 		BN_bin2bn((unsigned char *)prime2->pValue, prime2->ulValueLen, bn_p2);
-		RSA_set0_factors(rsa, bn_p1, bn_p2);
+
 		BN_bin2bn((unsigned char *)exp1->pValue, exp1->ulValueLen, bn_e1);
 		BN_bin2bn((unsigned char *)exp2->pValue, exp2->ulValueLen, bn_e2);
 		BN_bin2bn((unsigned char *)coeff->pValue, coeff->ulValueLen, bn_cf);
+#ifdef OLDER_OPENSSL
+		rsa->n = bn_mod;
+		rsa->d = bn_priv_exp;
+		rsa->p = bn_p1;
+		rsa->q = bn_p2;
+		rsa->dmp1 = bn_e1;
+		rsa->dmq1 = bn_e2;
+		rsa->iqmp = bn_cf;
+#else
+		RSA_set0_key(rsa, bn_mod, bn_pub_exp, bn_priv_exp);
+		RSA_set0_factors(rsa, bn_p1, bn_p2);
 		RSA_set0_crt_params(rsa, bn_e1, bn_e2, bn_cf);
-
+#endif
 		return rsa;
 	} else {   // must be a non-CRT key
 		if (!priv_exp) {
@@ -795,7 +821,12 @@ rsa_convert_private_key(OBJECT *key_obj)
 		BN_bin2bn((unsigned char *)modulus->pValue, modulus->ulValueLen, bn_mod);
 		BN_bin2bn((unsigned char *)pub_exp->pValue, pub_exp->ulValueLen, bn_pub_exp);
 		BN_bin2bn((unsigned char *)priv_exp->pValue, priv_exp->ulValueLen, bn_priv_exp);
+#ifdef OLDER_OPENSSL
+		rsa->n = bn_mod;
+		rsa->d = bn_priv_exp;
+#else
 		RSA_set0_key(rsa, bn_mod, bn_pub_exp, bn_priv_exp);
+#endif
 	}
 	return (void *)rsa;
 }
@@ -889,7 +920,11 @@ os_specific_rsa_keygen(TEMPLATE *publ_tmpl,  TEMPLATE *priv_tmpl)
 	//
 	// modulus: n
 	//
+#ifdef OLDER_OPENSSL
+	bignum = rsa->n;
+#else
 	RSA_get0_key(rsa, &bignum, NULL, NULL);
+#endif
 	BNLength = BN_num_bytes(bignum);
 	ssl_ptr = malloc(BNLength);
 	if (ssl_ptr == NULL) {
@@ -907,7 +942,11 @@ os_specific_rsa_keygen(TEMPLATE *publ_tmpl,  TEMPLATE *priv_tmpl)
 	free(ssl_ptr);
 
 	// Public Exponent
-        RSA_get0_key(rsa, NULL, &bignum, NULL);
+#ifdef OLDER_OPENSSL
+	bignum = rsa->e;
+#else
+	RSA_get0_key(rsa, NULL, &bignum, NULL);
+#endif
         BNLength = BN_num_bytes(bignum);
         ssl_ptr = malloc(BNLength);
 	if (ssl_ptr == NULL) {
@@ -951,7 +990,11 @@ os_specific_rsa_keygen(TEMPLATE *publ_tmpl,  TEMPLATE *priv_tmpl)
 	// to force the system to not return this for RSA keys..
 
 	// Add the modulus to the private key information
+#ifdef OLDER_OPENSSL
+	bignum = rsa->n;
+#else
 	RSA_get0_key(rsa, &bignum, NULL, NULL);
+#endif
 	BNLength = BN_num_bytes(bignum);
 	ssl_ptr = malloc(BNLength);
 	if (ssl_ptr == NULL) {
@@ -969,8 +1012,11 @@ os_specific_rsa_keygen(TEMPLATE *publ_tmpl,  TEMPLATE *priv_tmpl)
 	free(ssl_ptr);
 
 	// Private Exponent
-
+#ifdef OLDER_OPENSSL
+	bignum = rsa->d;
+#else
         RSA_get0_key(rsa, NULL, NULL, &bignum);
+#endif
         BNLength = BN_num_bytes(bignum);
         ssl_ptr = malloc( BNLength);
 	if (ssl_ptr == NULL) {
@@ -989,7 +1035,11 @@ os_specific_rsa_keygen(TEMPLATE *publ_tmpl,  TEMPLATE *priv_tmpl)
 
 	// prime #1: p
 	//
+#ifdef OLDER_OPENSSL
+	bignum = rsa->p;
+#else
 	RSA_get0_factors(rsa, &bignum, NULL);
+#endif
 	BNLength = BN_num_bytes(bignum);
 	ssl_ptr = malloc(BNLength);
 	if (ssl_ptr == NULL) {
@@ -1008,7 +1058,11 @@ os_specific_rsa_keygen(TEMPLATE *publ_tmpl,  TEMPLATE *priv_tmpl)
 
 	// prime #2: q
 	//
+#ifdef OLDER_OPENSSL
+	bignum = rsa->q;
+#else
 	RSA_get0_factors(rsa, NULL, &bignum);
+#endif
 	BNLength = BN_num_bytes(bignum);
 	ssl_ptr = malloc(BNLength);
 	if (ssl_ptr == NULL) {
@@ -1027,7 +1081,11 @@ os_specific_rsa_keygen(TEMPLATE *publ_tmpl,  TEMPLATE *priv_tmpl)
 
 	// exponent 1: d mod(p-1)
 	//
+#ifdef OLDER_OPENSSL
+	bignum = rsa->dmp1;
+#else
 	RSA_get0_crt_params(rsa, &bignum, NULL, NULL);
+#endif
 	BNLength = BN_num_bytes(bignum);
 	ssl_ptr = malloc(BNLength);
 	if (ssl_ptr == NULL) {
@@ -1046,7 +1104,11 @@ os_specific_rsa_keygen(TEMPLATE *publ_tmpl,  TEMPLATE *priv_tmpl)
 
 	// exponent 2: d mod(q-1)
 	//
+#ifdef OLDER_OPENSSL
+	bignum = rsa->dmq1;
+#else
 	RSA_get0_crt_params(rsa, NULL, &bignum, NULL);
+#endif
 	BNLength = BN_num_bytes(bignum);
 	ssl_ptr = malloc(BNLength);
 	if (ssl_ptr == NULL) {
@@ -1065,7 +1127,11 @@ os_specific_rsa_keygen(TEMPLATE *publ_tmpl,  TEMPLATE *priv_tmpl)
 
 	// CRT coefficient:  q_inverse mod(p)
 	//
+#ifdef OLDER_OPENSSL
+	bignum = rsa->iqmp;
+#else
 	RSA_get0_crt_params(rsa, NULL, NULL, &bignum);
+#endif
 	BNLength = BN_num_bytes(bignum);
 	ssl_ptr = malloc(BNLength);
 	if (ssl_ptr == NULL) {
@@ -1992,7 +2058,12 @@ token_specific_dh_pkcs_key_pair_gen( TEMPLATE  * publ_tmpl,
     // Convert from strings to BIGNUMs and stick them in the DH struct
     BN_bin2bn((unsigned char *)prime_attr->pValue, prime_attr->ulValueLen, bn_p);
     BN_bin2bn((unsigned char *)base_attr->pValue, base_attr->ulValueLen, bn_g);
+#ifdef OLDER_OPENSSL
+    dh->p = bn_p;
+    dh->g = bn_g;
+#else
     DH_set0_pqg(dh, bn_p, NULL, bn_g);
+#endif
 
     // Generate the DH Key
     if (!DH_generate_key(dh))
@@ -2008,7 +2079,11 @@ token_specific_dh_pkcs_key_pair_gen( TEMPLATE  * publ_tmpl,
     // pub_key
     //
     //temp_bn = BN_new();
+#ifdef OLDER_OPENSSL
+    temp_bn = dh->pub_key;
+#else
     DH_get0_key(dh, &temp_bn, NULL);
+#endif
     temp_bn_len = BN_num_bytes(temp_bn);
     temp_byte = malloc(temp_bn_len);
     temp_bn_len = BN_bn2bin(temp_bn, temp_byte);
@@ -2025,7 +2100,11 @@ token_specific_dh_pkcs_key_pair_gen( TEMPLATE  * publ_tmpl,
     // priv_key
     //
     //temp_bn = BN_new();
+#ifdef OLDER_OPENSSL
+    temp_bn = dh->priv_key;
+#else
     DH_get0_key(dh, NULL, &temp_bn);
+#endif
     temp_bn_len = BN_num_bytes(temp_bn);
     temp_byte = malloc(temp_bn_len);
     temp_bn_len = BN_bn2bin(temp_bn, temp_byte);
