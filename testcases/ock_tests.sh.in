@@ -61,17 +61,14 @@ OCK_BENCHS="pkcs11/*bench"
 
 usage()
 {
-	cat <<-END >&2
-
-	usage: ./ock_tests.sh [-s <slot>] [-l <logfile>] [-n] [-h]
-		-l	  logfile to redirect output to (default is command line)
-		-h	  display this help
-		-q	  run quietly - display only total number of tests passed/failed
-		-s <slot> slot against which the testcases will run
-		-n	  don't stop in case one of the testcases fail
-                -b        also run benchmarks or performance tests
-	END
-	exit -1
+    echo -e "   usage: ./ock_tests.sh [-s <slot>] [-l <logfile>] [-n] [-h]"
+    echo -e "       -l          logfile to redirect output to (default is command line)"
+    echo -e "       -h          display this help"
+    echo -e "       -q          run quietly - display only total number of tests passed/failed"
+    echo -e "       -s <slot>   slot against which the testcases will run"
+    echo -e "       -n          don't stop in case one of the testcases fail"
+    echo -e "       -b          also run benchmarks or performance tests"
+    exit -1
 }
 
 ###
@@ -80,17 +77,17 @@ usage()
 ###
 check_tpmtok()
 {
-        # Check for tpmtoken_init
-        if ! which tpmtoken_init; then
-                echo "Error: tpmtoken_init could not be found on PATH"
-                return 1
-        fi
+    # Check for tpmtoken_init
+    if ! which tpmtoken_init; then
+        echo "Error: tpmtoken_init could not be found on PATH"
+        return 1
+    fi
 
-        # Check if tcsd is running
-        if ! pgrep tcsd; then
-                echo "Error: TCSD daemon not running"
-                return 1
-        fi
+    # Check if tcsd is running
+    if ! pgrep tcsd; then
+        echo "Error: TCSD daemon not running"
+        return 1
+    fi
 }
 
 ###
@@ -99,11 +96,11 @@ check_tpmtok()
 ###
 check_ccatok()
 {
-        # Check if catcher.exe is running
-        if ! pgrep catcher.exe; then
-                echo "Error: catcher.exe daemon not running"
-                return 1
-        fi
+    # Check if catcher.exe is running
+    if ! pgrep catcher.exe; then
+        echo "Error: catcher.exe daemon not running"
+        return 1
+    fi
 }
 
 ###
@@ -113,25 +110,25 @@ check_ccatok()
 ###
 init_slot()
 {
-        case $TOKTYPE in
-                TPM)
-                        echo "Initializing TPM token using init_tpmtoken.sh"
-                        if ! $TESTDIR/init_tpmtoken.sh; then
-                                echo "Error initializing TPM token"
-                                return 1
-                        fi
-                        ;;
-                CCA | ICA | Software)
-                        echo "Initializing $TOKTYPE using init_token.sh"
-                        if ! $TESTDIR/init_token.sh $1; then
-                                echo "Error initializing $TOKTYPE token"
-                                return 1
-                        fi
-                        ;;
-                *)
-                        echo "FATAL: Token type not recognized: $TOKTYPE"
-                        exit 1
-        esac
+    case $TOKTYPE in
+        TPM)
+            echo "Initializing TPM token using init_tpmtoken.sh"
+            if ! $TESTDIR/init_tpmtoken.sh; then
+                echo "Error initializing TPM token"
+                return 1
+            fi
+            ;;
+        CCA | ICA | Software)
+            echo "Initializing $TOKTYPE using init_token.sh"
+            if ! $TESTDIR/init_token.sh $1; then
+                echo "Error initializing $TOKTYPE token"
+                return 1
+            fi
+            ;;
+        *)
+            echo "FATAL: Token type not recognized: $TOKTYPE"
+            exit 1
+    esac
 }
 
 
@@ -142,33 +139,33 @@ init_slot()
 ###
 check_slot()
 {
-        # Check if the Slot exists, and what it actually is
-        TOKDESCR=`$PKCSCONFBIN -c $1 -t`
-        TOKMODEL=`echo "$TOKDESCR" | grep "Model:"`
+    # Check if the Slot exists, and what it actually is
+    TOKDESCR=`$PKCSCONFBIN -c $1 -t`
+    TOKMODEL=`echo "$TOKDESCR" | grep "Model:"`
 
-        case $TOKMODEL in
-                *TPM*)
-                        echo "TPM Token type detected"
-                        check_tpmtok || return
-                        TOKTYPE="TPM"
-                        ;;
-                *CCA*)
-                        echo "CCA Token type detected"
-                        check_ccatok || return
-                        TOKTYPE="CCA"
-                        ;;
-                *ICA*)
-                        echo "ICA Token type detected"
-                        TOKTYPE="ICA"
-                        ;;
-                *SoftTok*)
-                        echo "Software Token type detected"
-                        TOKTYPE="Software"
-                        ;;
-                *)
-                        echo "Error: unsupported or undetermined token type"
-                        echo "       wrong Slot?"
-                        return 1
+    case $TOKMODEL in
+        *TPM*)
+            echo "TPM Token type detected"
+            check_tpmtok || return
+            TOKTYPE="TPM"
+            ;;
+        *CCA*)
+            echo "CCA Token type detected"
+            check_ccatok || return
+            TOKTYPE="CCA"
+            ;;
+        *ICA*)
+            echo "ICA Token type detected"
+            TOKTYPE="ICA"
+            ;;
+        *SoftTok*)
+            echo "Software Token type detected"
+            TOKTYPE="Software"
+            ;;
+        *)
+            echo "Error: unsupported or undetermined token type"
+            echo "       wrong Slot?"
+            return 1
         esac
 }
 
@@ -177,55 +174,55 @@ check_slot()
 ##
 check_env()
 {
-        ## Check env vars first
-        if [ -z $PKCS11_SO_PIN ]; then
-                echo "FATAL: Must set PKCS11_SO_PIN"
-                exit 1
-        fi
+    ## Check env vars first
+    if [ -z $PKCS11_SO_PIN ]; then
+        echo "FATAL: Must set PKCS11_SO_PIN"
+        exit 1
+    fi
 
-        if [ -z $PKCS11_USER_PIN ]; then
-                echo "FATAL: Must set PKCS11_USER_PIN"
-                exit 1
-        fi
+    if [ -z $PKCS11_USER_PIN ]; then
+        echo "FATAL: Must set PKCS11_USER_PIN"
+        exit 1
+    fi
 
-        if [ -z $PKCSLIB ]; then
-                echo "FATAL: Must set PKCSLIB"
-                exit 1
-        fi
+    if [ -z $PKCSLIB ]; then
+        echo "FATAL: Must set PKCSLIB"
+        exit 1
+    fi
 
-        if [ ! -f $PKCSLIB ]; then
-                echo "FATAL: PKCSLIB=$PKCSLIB is invalid"
-                exit 1
-        fi
+    if [ ! -f $PKCSLIB ]; then
+        echo "FATAL: PKCSLIB=$PKCSLIB is invalid"
+        exit 1
+    fi
 
-        if [ ! -f $PKCONF ]; then
-                echo "FATAL: Can't find configuration data ($PKCONF)"
-                exit 1
-        fi
+    if [ ! -f $PKCONF ]; then
+        echo "FATAL: Can't find configuration data ($PKCONF)"
+        exit 1
+    fi
 
-        ## Check if the pkcs11 group 'exists'
-        P11GROUP=`getent group pkcs11 | cut -d ":" -f 3`
-        if [ -z $P11GROUP ]; then
-                echo "FATAL: Can't find pkcs11 group"
-                exit 1
-        fi
-        ## Check if we're part of it
-        if ! id -G | grep $P11GROUP; then
-                echo "FATAL: Must be part of the pkcs11 group"
-                exit 1
-        fi
+    ## Check if the pkcs11 group 'exists'
+    P11GROUP=`getent group pkcs11 | cut -d ":" -f 3`
+    if [ -z $P11GROUP ]; then
+        echo "FATAL: Can't find pkcs11 group"
+        exit 1
+    fi
+    ## Check if we're part of it
+    if ! id -G | grep $P11GROUP; then
+        echo "FATAL: Must be part of the pkcs11 group"
+        exit 1
+    fi
 
-        ## Make sure we have the slot daemon running
-        if ! pgrep pkcsslotd; then
-                echo "FATAL: The slot daemon (pkcsslotd) must be running"
-                exit 1
-        fi
+    ## Make sure we have the slot daemon running
+    if ! pgrep pkcsslotd; then
+        echo "FATAL: The slot daemon (pkcsslotd) must be running"
+        exit 1
+    fi
 
-        ## We also need pkcsconf
-        if [ ! -x $PKCSCONFBIN ]; then
-                echo "FATAL: Invalid pkcsconf utility ($PKCSCONFBIN)"
-                exit 1
-        fi
+    ## We also need pkcsconf
+    if [ ! -x $PKCSCONFBIN ]; then
+        echo "FATAL: Invalid pkcsconf utility ($PKCSCONFBIN)"
+        exit 1
+    fi
 }
 
 ###
@@ -235,12 +232,11 @@ check_env()
 ###
 run_tests()
 {
-	echo "***** Will run the following tests for slot $1: $(ls -U $OCK_TESTS)"
-	for i in $( ls -U $OCK_TESTS )
-	do
-		echo "** Now executing '$i'"
-		$i -slot $1 $NO_STOP 2>&1
-	done
+    echo "***** Will run the following tests for slot $1: $(ls -U $OCK_TESTS)"
+    for i in $( ls -U $OCK_TESTS ); do
+        echo "** Now executing '$i'"
+        $i -slot $1 $NO_STOP 2>&1
+    done
 }
 
 ###
@@ -250,72 +246,67 @@ run_tests()
 ###
 run_benchs()
 {
-	echo "***** Will run the following benchmarks for slot $1: $(ls -U $OCK_BENCHS)"
-	for i in $( ls -U $OCK_BENCHS )
-	do
-		echo "** Now executing '$i"
-		$i -slot $1 $NO_STOP 2>&1
-	done
+    echo "***** Will run the following benchmarks for slot $1: $(ls -U $OCK_BENCHS)"
+    for i in $( ls -U $OCK_BENCHS ); do
+        echo "** Now executing '$i"
+        $i -slot $1 $NO_STOP 2>&1
+    done
 }
 main_script()
 {
-        # check generic stuff first
-        check_env
+    # check generic stuff first
+    check_env
 
-        # where to run
-        if [ -z $SLOT ]; then
-                NUMSLOT=`wc -l $PKCONF | cut -d " " -f 1`
-                for ((i=0; i<$NUMSLOT; i++)); do
-                        SLOT="$SLOT $i"
-                done
-        fi
-
-        for i in $SLOT; do
-                echo "********** Testing Slot $i **********"
-                check_slot $i || { echo "SKIPPING slot $i"; continue; }
-                init_slot $i || { echo "SKIPPING slot $i"; continue; }
-                run_tests $i
-                [ -n "$BENCHMARK" ] && run_benchs $i
+    # where to run
+    if [ -z $SLOT ]; then
+        NUMSLOT=`wc -l $PKCONF | cut -d " " -f 1`
+        for ((i=0; i<$NUMSLOT; i++)); do
+            SLOT="$SLOT $i"
         done
+    fi
+
+    for i in $SLOT; do
+        echo "********** Testing Slot $i **********"
+        check_slot $i || { echo "SKIPPING slot $i"; continue; }
+        init_slot $i || { echo "SKIPPING slot $i"; continue; }
+        run_tests $i
+        [ -n "$BENCHMARK" ] && run_benchs $i
+    done
 }
 
-while getopts s:l:hc:n arg
-do
-	case $arg in
-		h)
-			usage
-			;;
-		l)
-			LOGGING=1
-			if [ -n $OPTARG ]
-			then
-				LOGFILE="$OPTARG"
-			fi
-			touch $LOGFILE
-			;;
-		c)
-			TESTCONF="$OPTARG"
-			touch $TESTCONF
-			;;
-		n)
-			NO_STOP="-nostop"
-			;;
-		s)
-			SLOT="$OPTARG"
-			;;
-                b)
-                        BENCHMARK="yes"
-                        ;;
-	esac
+while getopts s:l:hc:n arg; do
+    case $arg in
+        h)
+            usage
+            ;;
+        l)
+            LOGGING=1
+            if [ -n $OPTARG ]; then
+                LOGFILE="$OPTARG"
+            fi
+            touch $LOGFILE
+            ;;
+        c)
+            TESTCONF="$OPTARG"
+            touch $TESTCONF
+            ;;
+        n)
+            NO_STOP="-nostop"
+            ;;
+        s)
+            SLOT="$OPTARG"
+            ;;
+        b)
+            BENCHMARK="yes"
+            ;;
+    esac
 done
 
 
-if [ "$LOGGING" = "1" ]
-then
-	main_script >>$LOGFILE 2>&1
+if [ "$LOGGING" = "1" ]; then
+    main_script >>$LOGFILE 2>&1
 else
-	main_script
+    main_script
 fi
 
 exit 0
-
