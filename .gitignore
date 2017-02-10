@@ -73,6 +73,7 @@ usr/lib/pkcs11/tpm_stdll/opencryptoki
 usr/lib/pkcs11/ica_s390_stdll/opencryptoki
 usr/lib/pkcs11/ep11_stdll/opencryptoki
 usr/lib/pkcs11/icsf_stdll/opencryptoki
+usr/lib/pkcs11/icsf_stdll/.dirstamp
 usr/lib/pkcs11/icsf_stdll/icsf_config_lexer.c
 usr/lib/pkcs11/icsf_stdll/icsf_config_parse.c
 usr/lib/pkcs11/icsf_stdll/icsf_config_parse.h
