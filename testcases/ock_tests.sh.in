@@ -45,6 +45,7 @@ PKCONF="@localstatedir@/lib/opencryptoki/pk_config_data"
 PKCSCONFBIN="@sbindir@/pkcsconf"
 TESTCONF="$TESTDIR/ock-tests.config"
 TOKTYPE=""
+NONEED_TOKEN_INIT=0
 
 #
 # This is the list of the tests we'll be running once everything is initialized
@@ -167,6 +168,9 @@ check_slot()
             echo "       wrong Slot?"
             return 1
         esac
+
+        # Check if Tokem is initialized and set $NONEED_TOKEN_INIT if so
+        NONEED_TOKEN_INIT=`echo "$TOKDESCR" | grep "Flags:" | grep TOKEN_INITIALIZED | wc -l`
 }
 
 ##
@@ -268,7 +272,9 @@ main_script()
     for i in $SLOT; do
         echo "********** Testing Slot $i **********"
         check_slot $i || { echo "SKIPPING slot $i"; continue; }
-        init_slot $i || { echo "SKIPPING slot $i"; continue; }
+        if [ $NONEED_TOKEN_INIT -eq 0 ]; then
+            init_slot $i || { echo "SKIPPING slot $i"; continue; }
+        fi
         run_tests $i
         [ -n "$BENCHMARK" ] && run_benchs $i
     done
