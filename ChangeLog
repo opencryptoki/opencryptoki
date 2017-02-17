@@ -1,3 +1,10 @@
+* opencryptoki 3.6.2
+- Support OpenSSL-1.1.
+- Add Travis CI support.
+- Update autotools scripts and documentation.
+- Fix SegFault when a invalid session handle is passed in SC_EncryptUpdate and
+SC_DecryptUpdate.
+
 * opencryptoki 3.6.1
 - Fix SOFT token implementation of digest functions.
 - Replace deprecated OpenSSL interfaces.
