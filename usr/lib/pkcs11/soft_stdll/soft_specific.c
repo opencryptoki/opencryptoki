@@ -2270,25 +2270,25 @@ token_specific_get_mechanism_info(CK_MECHANISM_TYPE type,
 CK_RV token_specific_sha_init(DIGEST_CONTEXT *ctx, CK_MECHANISM *mech)
 {
 	int rc;
-	int (*dgst)(CK_BYTE *);
+	int (*dgst)(void *);
 	CK_ULONG len;
 
 	switch(mech->mechanism) {
 	case CKM_SHA_1:
 		len = sizeof(SHA_CTX);
-		dgst = &SHA1_Init;
+		dgst = (void*) &SHA1_Init;
 		break;
 	case CKM_SHA256:
 		len = sizeof(SHA256_CTX);
-		dgst = &SHA256_Init;
+		dgst = (void*) &SHA256_Init;
 		break;
 	case CKM_SHA384:
 		len = sizeof(SHA512_CTX);
-		dgst = &SHA384_Init;
+		dgst = (void*) &SHA384_Init;
 		break;
 	case CKM_SHA512:
 		len = sizeof(SHA512_CTX);
-		dgst = &SHA512_Init;
+		dgst = (void*) &SHA512_Init;
 		break;
 	default:
 		return CKR_MECHANISM_INVALID;
@@ -2318,8 +2318,8 @@ CK_RV token_specific_sha(DIGEST_CONTEXT *ctx, CK_BYTE *in_data,
 {
 	int rc;
 	unsigned int hlen;
-	int (*dgstup)(CK_BYTE *, CK_BYTE *, CK_ULONG);
-	int (*dgstfin)(CK_BYTE *, CK_BYTE *);
+	int (*dgstup)(void *, void *, CK_ULONG);
+	int (*dgstfin)(void *, void *);
 
 	if (!ctx || !ctx->context)
 		return CKR_OPERATION_NOT_INITIALIZED;
@@ -2330,23 +2330,23 @@ CK_RV token_specific_sha(DIGEST_CONTEXT *ctx, CK_BYTE *in_data,
 	switch(ctx->mech.mechanism) {
 	case CKM_SHA_1:
 		hlen = SHA1_HASH_SIZE;
-		dgstup = &SHA1_Update;
-		dgstfin = &SHA1_Final;
+		dgstup = (void*) &SHA1_Update;
+		dgstfin = (void*) &SHA1_Final;
 		break;
 	case CKM_SHA256:
 		hlen = SHA2_HASH_SIZE;
-		dgstup = &SHA256_Update;
-		dgstfin = &SHA256_Final;
+		dgstup = (void*) &SHA256_Update;
+		dgstfin = (void*) &SHA256_Final;
 		break;
 	case CKM_SHA384:
 		hlen = SHA3_HASH_SIZE;
-		dgstup = &SHA384_Update;
-		dgstfin = &SHA384_Final;
+		dgstup = (void*) &SHA384_Update;
+		dgstfin = (void*) &SHA384_Final;
 		break;
 	case CKM_SHA512:
 		hlen = SHA5_HASH_SIZE;
-		dgstup = &SHA512_Update;
-		dgstfin = &SHA512_Final;
+		dgstup = (void*) &SHA512_Update;
+		dgstfin = (void*) &SHA512_Final;
 		break;
 	default:
 		return CKR_MECHANISM_INVALID;
@@ -2387,16 +2387,16 @@ CK_RV token_specific_sha_update(DIGEST_CONTEXT *ctx, CK_BYTE *in_data,
 
 	switch(ctx->mech.mechanism) {
 	case CKM_SHA_1:
-		rc = SHA1_Update(ctx->context, in_data, in_data_len);
+		rc = SHA1_Update((SHA_CTX*) ctx->context, in_data, in_data_len);
 		break;
 	case CKM_SHA256:
-		rc = SHA256_Update(ctx->context, in_data, in_data_len);
+		rc = SHA256_Update((SHA256_CTX*) ctx->context, in_data, in_data_len);
 		break;
 	case CKM_SHA384:
-		rc = SHA384_Update(ctx->context, in_data, in_data_len);
+		rc = SHA384_Update((SHA512_CTX*) ctx->context, in_data, in_data_len);
 		break;
 	case CKM_SHA512:
-		rc = SHA512_Update(ctx->context, in_data, in_data_len);
+		rc = SHA512_Update((SHA512_CTX*) ctx->context, in_data, in_data_len);
 		break;
 	default:
 		return CKR_MECHANISM_INVALID;
@@ -2417,7 +2417,7 @@ CK_RV token_specific_sha_final(DIGEST_CONTEXT *ctx, CK_BYTE *out_data,
 {
 	int rc;
 	unsigned int hlen;
-	int (*dgstfin)(CK_BYTE *, CK_BYTE *);
+	int (*dgstfin)(void *, void *);
 
 	if (!ctx || !ctx->context)
 		return CKR_OPERATION_NOT_INITIALIZED;
@@ -2428,19 +2428,19 @@ CK_RV token_specific_sha_final(DIGEST_CONTEXT *ctx, CK_BYTE *out_data,
 	switch(ctx->mech.mechanism) {
 	case CKM_SHA_1:
 		hlen = SHA1_HASH_SIZE;
-		dgstfin = &SHA1_Final;
+		dgstfin = (void*) &SHA1_Final;
 		break;
 	case CKM_SHA256:
 		hlen = SHA2_HASH_SIZE;
-		dgstfin = &SHA256_Final;
+		dgstfin = (void*) &SHA256_Final;
 		break;
 	case CKM_SHA384:
 		hlen = SHA3_HASH_SIZE;
-		dgstfin = &SHA384_Final;
+		dgstfin = (void*) &SHA384_Final;
 		break;
 	case CKM_SHA512:
 		hlen = SHA5_HASH_SIZE;
-		dgstfin = &SHA512_Final;
+		dgstfin = (void*) &SHA512_Final;
 		break;
 	default:
 		return CKR_MECHANISM_INVALID;

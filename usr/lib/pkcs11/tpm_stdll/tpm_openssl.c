@@ -76,7 +76,9 @@ openssl_gen_key()
 	RSA *rsa;
 	int rc, counter = 0;
 	char buf[32];
-	BIGNUM *bne;
+	#ifndef OLDER_OPENSSL
+		BIGNUM *bne;
+	#endif
 
 	token_specific_rng((CK_BYTE *)buf, 32);
 	RAND_seed(buf, 32);
@@ -217,7 +219,9 @@ int
 openssl_get_modulus_and_prime(RSA *rsa, unsigned int *size_n, unsigned char *n,
 		unsigned int *size_p, unsigned char *p)
 {
-	const BIGNUM *n_tmp, *p_tmp;
+	#ifndef OLDER_OPENSSL
+		const BIGNUM *n_tmp, *p_tmp;
+	#endif
 
 	/* get the modulus from the RSA object */
 #ifdef OLDER_OPENSSL
