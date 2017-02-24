@@ -24,8 +24,6 @@
 int do_GetFunctionList(void);
 int clean_up(void);
 
-void *dl_handle;
-
 CK_SLOT_ID		slot_id;
 CK_FUNCTION_LIST	*funcs;
 CK_SESSION_HANDLE	sess;
@@ -181,14 +179,14 @@ int do_HW_Feature_Search(void)
 	}
 
 	if (obj_list[0] != h_obj1 && obj_list[0] != h_obj2) {
-		printf("%s:%d ERROR:  C_FindObjects #1 found the wrong objects!",
+		printf("%s:%d ERROR:  C_FindObjects #1 found the wrong objects!\n",
 				__FILE__, __LINE__);
 		rc = -1;
 		goto done;
 	}
 
 	if (obj_list[1] != h_obj1 && obj_list[1] != h_obj2) {
-		printf("%s:%d ERROR:  C_FindObjects #1 found the wrong objects!",
+		printf("%s:%d ERROR:  C_FindObjects #1 found the wrong objects!\n",
 				__FILE__, __LINE__);
 		rc = -1;
 		goto done;
@@ -230,7 +228,7 @@ int do_HW_Feature_Search(void)
 			obj_list[i] != h_clock) 
 		{
 
-			printf("%s:%d ERROR:  C_FindObjects #2 found the wrong"
+			printf("%s:%d ERROR:  C_FindObjects #2 found the wrong\n"
 					" objects!", __FILE__, __LINE__);
 			rc = -1;
 		}
@@ -280,7 +278,7 @@ int main(int argc, char **argv)
 
 	printf("Using slot %ld...\n\n", slot_id);
 
-	if(do_GetFunctionList())
+	if(!do_GetFunctionList())
 		return -1;
 
 	/* There will be no multi-threaded Cryptoki access in this app */
@@ -341,9 +339,6 @@ int clean_up(void)
 
         if( (rc = funcs->C_Finalize(NULL)) != CKR_OK)
 		show_error("C_Finalize", rc);
-
-	/* Decrement the reference count to libopencryptoki.so */
-	dlclose(dl_handle);
 
 	return rc;
 }
