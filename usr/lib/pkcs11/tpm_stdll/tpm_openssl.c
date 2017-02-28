@@ -236,7 +236,7 @@ openssl_get_modulus_and_prime(RSA *rsa, unsigned int *size_n, unsigned char *n,
 
 	/* get one of the primes from the RSA object */
 #ifdef OLDER_OPENSSL
-	if ((*size_n = BN_bn2bin(rsa->p, p)) <= 0) {
+	if ((*size_p = BN_bn2bin(rsa->p, p)) <= 0) {
 #else
 	RSA_get0_factors(rsa, &p_tmp, NULL);
 	if ((*size_p = BN_bn2bin(p_tmp, p)) <= 0) {
