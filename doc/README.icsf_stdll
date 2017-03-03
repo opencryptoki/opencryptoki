@@ -1,6 +1,6 @@
 THE ICSF TOKEN
 
-OverView
+Overview
 --------
 
 The ICSF token is a clear-key, remote crypto token.
@@ -49,8 +49,8 @@ Opencryptoki supports the Simple and SASL authentication methods when
 authenticating with the remote LDAP server to send an ICSF service request.
 
 You have the option of using,
-        1. exisiting LDAP config files for the information required
-        to bind and authenitcate to the LDAP server.
+        1. existing LDAP config files for the information required
+        to bind and authenticate to the LDAP server.
 
         OR
 
@@ -58,7 +58,7 @@ You have the option of using,
            when binding and authenticating to LDAP server. This is done
 	   through the pkcsiscf utility.
 
-The first option involves using an exisiting LDAP config file to bind and
+The first option involves using an existing LDAP config file to bind and
 authenticate to the remote server.
 
 When opencryptoki calls the openldap function to bind and authenticate,
@@ -66,7 +66,7 @@ the openldap function call will look for the ldaprc config file to
 acquire the information it needs to bind and authenticate to the server.
 
 When using this option,
-	- with Simple authentcation, you need to specify the authentication
+	- with Simple authentication, you need to specify the authentication
 	  mechanism as simple when adding the ICSF token into opencryptoki
 	  with the pkcsicsf utility. You will also be prompted for the
 	  RACF password, which will be securely stored on disk by
@@ -132,7 +132,7 @@ If a list of tokens are returned from the query, a single token must be chosen
 and installed into opencryptoki with the pkcsicsf utility.
 
 Upon adding the token into opencryptoki with the pkcsicsf utility,
-an icsf token entry will be created in the opencryptoki.conf file.
+an ICSF token entry will be created in the opencryptoki.conf file.
 
 For example,
 slot 4 {
@@ -193,7 +193,7 @@ available tokens from the remote.
         pkcsicsf -l -m sasl
 
 4. Using sasl authentication and giving opencryptoki the credentials to
-use to get a list of availabale tokens from the remote.
+use to get a list of available tokens from the remote.
         (TO DO)
 
 
@@ -237,7 +237,7 @@ add an ICSF token named, Foo into opencryptoki.
         pkcsicsf -a Foo -m sasl
 
 4. Using sasl authentication and giving opencryptoki the credentials to
-use to get a list of availabale tokens from the remote.
+use to get a list of available tokens from the remote.
         (TO DO)
 
 
@@ -254,7 +254,7 @@ using the pkcsconf utility.
         pkcsconf -t
 
 3. Initialize the ICSF token.
-   NOTE: For this example, my icsf token is listed in slot 4.
+   NOTE: For this example, my ICSF token is listed in slot 4.
         pkcsconf -I -c 4
 
         You will be prompted for the SO PIN.

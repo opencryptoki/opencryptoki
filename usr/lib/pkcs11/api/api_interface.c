@@ -437,7 +437,7 @@ CK_RV C_CloseSession(CK_SESSION_HANDLE hSession)
 		// Map the Session to the slot session
 		rv = fcn->ST_CloseSession(&rSession);
 		TRACE_DEVEL("Called STDLL rv = 0x%lx\n", rv);
-		//  If the STDLL successfuly closed the session
+		//  If the STDLL successfully closed the session
 		//  we can free it.. Otherwise we will have to leave it
 		//  lying arround.
 		if (rv == CKR_OK) {
@@ -2624,7 +2624,7 @@ C_GetSlotList(CK_BBOOL tokenPresent,
 	// set to present to return.
 	// ----------------------------------------------
 	// 
-	// Also need to validate that the STDLL successfuly loaded.
+	// Also need to validate that the STDLL successfully loaded.
 
 	for (index = 0; index < NUMBER_SLOTS_MANAGED; index++) {
 		// if there is a STDLL in the slot then we have to count it

@@ -1,6 +1,6 @@
 CCA TOKEN
 
-OverView
+Overview
 --------
 The CCA token is a secure key token.
 A Secure key - key value does not exist in the clear outside of the HSM
@@ -56,7 +56,7 @@ does not require any migrating.
 In version 2 private token objects are encrypted and decrypted with a secure
 key in the crypto adapter. In version 3, this encryption and decryption is
 done with a clear key using software crypto. Therefore, opencryptoki
-version 3, will not succesfully decrypt a version 2 private token object.
+version 3, will not successfully decrypt a version 2 private token object.
 
 Version 2 private token objects must be "migrated" to version 3 so that
 opencryptoki version 3 can access these objects. This migration will
@@ -66,13 +66,13 @@ using software crypto. The key bits that are stored in MK_USER will then be
 used as a clear key.
 
 Once the migration has completed, these private token objects should then be
-accessable to version 3.
+accessible to version 3.
 
 Migration Steps
 ---------------
 
 1. Either update or install version 3.
-a. Update to opencryptoki version 3. In most linux distributions, an update
+a. Update to opencryptoki version 3. In most Linux distributions, an update
 from version 2 to version 3 will preserve the contents of the CCA data-store.
 
 b. Install opencryptoki version 3. In most distributions, an install will
@@ -126,14 +126,14 @@ created after a reboot, an install, or an update of the opencryptoki package.
 If another opencryptoki process accessed the CCA token after install
 or update, then opencryptoki will have loaded all the token objects into
 shared memory, except for the private token objects requiring migration,
-since they will have failed decryption. Subsequent calls to the 
+since they will have failed decryption. Subsequent calls to the
 opencryptoki api will not find these objects since they have not
 been loaded into shared memory. Opencryptoki won't read the
 objects from disk and load into shared memory again until the next time
-shared memory is created. 
+shared memory is created.
 
-So, in this case, shared memory must be removed and created again so 
-that opencryptoki can successfuly load all the token objects including the 
+So, in this case, shared memory must be removed and created again so
+that opencryptoki can successfully load all the token objects including the
 newly migrated private token objects into CCA token's shared memory segment.
 
 Remove shared memory if,
@@ -156,9 +156,9 @@ CCA's shared memory can be removed two ways.
 	   before removing the shared memory. Otherwise, you risk corrupting
 	   any running opencryptoki processes.
 	   (2). If you have installed opencryptoki manually (not via a distro
-	   rpm) the CCA token shared memory segment may be named 
+	   rpm) the CCA token shared memory segment may be named
 	   usr.local.var.lib.opencryptoki.ccatok.
-	   
+
 The next opencryptoki process to run will cause opencryptoki to create
 a shared memory segment for the token and load the newly migrated objects
 as well as any other token objects for the token.

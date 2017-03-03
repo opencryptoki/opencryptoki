@@ -34,7 +34,7 @@ confname = ep11tok.conf
 defines the name of the configuration file of the EP11 token to be
 ep11tok.conf. Per default this file is searched in the directory where
 openCryptoki searches its global configuration file. This default path can
-be overriden using the OCK_EP11_TOKEN_DIR environment variable.
+be overridden using the OCK_EP11_TOKEN_DIR environment variable.
 
 EP11 token configuration files defines a list of adapter/domain pairs to which
 the EP11 token sends its cryptographic requests. This list can be specified as
@@ -120,7 +120,6 @@ supported mechanism list is currently fix and matches the most stringent
 setting of the Crypto Express adapter.
 
 Note, the EP11 coprocessor adapter can be configured to restrict the
-cryptographic capababilities in order for the adapter to comply with specific
+cryptographic capabilities in order for the adapter to comply with specific
 security requirements and regulations. Such restrictions on the adapter impact
 the capabilitiy of the EP11 token.
-

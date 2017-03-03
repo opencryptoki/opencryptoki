@@ -29,7 +29,7 @@ One of these mechanisms must be entered when listing the available
 ICSF tokens or when adding an ICSF token. Opencryptoki currently
 supports adding only one ICSF token.
 
-The system admin can either allow the ldap calls to utilize exisiting
+The system admin can either allow the ldap calls to utilize existing
 ldap configs, such as ldap.conf or .ldaprc for bind and
 authentication information or set the bind and authentication
 information within opencryptoki by using this utility and its options.

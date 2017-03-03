@@ -18,7 +18,7 @@ pkcscca \- configuration utility for the CCA token
 .SH DESCRIPTION
 The \fBpkcscca\fP utility assists in administering the CCA token.
 
-In verion 2 of opencryptoki, CCA private token objects were encrypted in CCA
+In version 2 of opencryptoki, CCA private token objects were encrypted in CCA
 hardware. In version 3 these objects are encrypted in software. The
 \fBv2objectsv3\fP migration option migrates these v2 objects by
 decrypting them in CCA hardware using a secure key and then re-encrypting
