@@ -408,7 +408,7 @@ struct oc_sha_ctx {
 	unsigned int tail_len;
 	int message_part;
 	unsigned char tail[MAX_SHA_BLOCK_SIZE];
-	void *dev_ctx;
+	unsigned int dev_ctx_offs;
 };
 
 #define MD2_HASH_SIZE   16
