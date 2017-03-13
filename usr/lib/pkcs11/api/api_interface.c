@@ -1,285 +1,12 @@
 /*
-             Common Public License Version 0.5
-
-             THE ACCOMPANYING PROGRAM IS PROVIDED UNDER THE TERMS OF
-             THIS COMMON PUBLIC LICENSE ("AGREEMENT"). ANY USE,
-             REPRODUCTION OR DISTRIBUTION OF THE PROGRAM CONSTITUTES
-             RECIPIENT'S ACCEPTANCE OF THIS AGREEMENT.
-
-             1. DEFINITIONS
-
-             "Contribution" means: 
-                   a) in the case of the initial Contributor, the
-                   initial code and documentation distributed under
-                   this Agreement, and 
-
-                   b) in the case of each subsequent Contributor:
-                   i) changes to the Program, and
-                   ii) additions to the Program;
-
-                   where such changes and/or additions to the Program
-                   originate from and are distributed by that
-                   particular Contributor. A Contribution 'originates'
-                   from a Contributor if it was added to the Program
-                   by such Contributor itself or anyone acting on such
-                   Contributor's behalf. Contributions do not include
-                   additions to the Program which: (i) are separate
-                   modules of software distributed in conjunction with
-                   the Program under their own license agreement, and
-                   (ii) are not derivative works of the Program.
-
-             "Contributor" means any person or entity that distributes
-             the Program.
-
-             "Licensed Patents " mean patent claims licensable by a
-             Contributor which are necessarily infringed by the use or
-             sale of its Contribution alone or when combined with the
-             Program. 
-
-             "Program" means the Contributions distributed in
-             accordance with this Agreement.
-
-             "Recipient" means anyone who receives the Program under
-             this Agreement, including all Contributors.
-
-             2. GRANT OF RIGHTS
-
-                   a) Subject to the terms of this Agreement, each
-                   Contributor hereby grants Recipient a
-                   non-exclusive, worldwide, royalty-free copyright
-                   license to reproduce, prepare derivative works of,
-                   publicly display, publicly perform, distribute and
-                   sublicense the Contribution of such Contributor, if
-                   any, and such derivative works, in source code and
-                   object code form.
-
-                   b) Subject to the terms of this Agreement, each
-                   Contributor hereby grants Recipient a
-                   non-exclusive, worldwide, royalty-free patent
-                   license under Licensed Patents to make, use, sell,
-                   offer to sell, import and otherwise transfer the
-                   Contribution of such Contributor, if any, in source
-                   code and object code form. This patent license
-                   shall apply to the combination of the Contribution
-                   and the Program if, at the time the Contribution is
-                   added by the Contributor, such addition of the
-                   Contribution causes such combination to be covered
-                   by the Licensed Patents. The patent license shall
-                   not apply to any other combinations which include
-                   the Contribution. No hardware per se is licensed
-                   hereunder.
-
-                   c) Recipient understands that although each
-                   Contributor grants the licenses to its
-                   Contributions set forth herein, no assurances are
-                   provided by any Contributor that the Program does
-                   not infringe the patent or other intellectual
-                   property rights of any other entity. Each
-                   Contributor disclaims any liability to Recipient
-                   for claims brought by any other entity based on
-                   infringement of intellectual property rights or
-                   otherwise. As a condition to exercising the rights
-                   and licenses granted hereunder, each Recipient
-                   hereby assumes sole responsibility to secure any
-                   other intellectual property rights needed, if any.
-
-                   For example, if a third party patent license is
-                   required to allow Recipient to distribute the
-                   Program, it is Recipient's responsibility to
-                   acquire that license before distributing the
-                   Program.
-
-                   d) Each Contributor represents that to its
-                   knowledge it has sufficient copyright rights in its
-                   Contribution, if any, to grant the copyright
-                   license set forth in this Agreement.
-
-             3. REQUIREMENTS
-
-             A Contributor may choose to distribute the Program in
-             object code form under its own license agreement, provided
-             that:
-                   a) it complies with the terms and conditions of
-                   this Agreement; and
-
-                   b) its license agreement:
-                   i) effectively disclaims on behalf of all
-                   Contributors all warranties and conditions, express
-                   and implied, including warranties or conditions of
-                   title and non-infringement, and implied warranties
-                   or conditions of merchantability and fitness for a
-                   particular purpose;
-
-                   ii) effectively excludes on behalf of all
-                   Contributors all liability for damages, including
-                   direct, indirect, special, incidental and
-                   consequential damages, such as lost profits;
-
-                   iii) states that any provisions which differ from
-                   this Agreement are offered by that Contributor
-                   alone and not by any other party; and
-
-                   iv) states that source code for the Program is
-                   available from such Contributor, and informs
-                   licensees how to obtain it in a reasonable manner
-                   on or through a medium customarily used for
-                   software exchange.
-
-             When the Program is made available in source code form:
-                   a) it must be made available under this Agreement;
-                   and
-                   b) a copy of this Agreement must be included with
-                   each copy of the Program. 
-
-             Contributors may not remove or alter any copyright notices
-             contained within the Program.
-
-             Each Contributor must identify itself as the originator of
-             its Contribution, if any, in a manner that reasonably
-             allows subsequent Recipients to identify the originator of
-             the Contribution. 
-
-             4. COMMERCIAL DISTRIBUTION
-
-             Commercial distributors of software may accept certain
-             responsibilities with respect to end users, business
-             partners and the like. While this license is intended to
-             facilitate the commercial use of the Program, the
-             Contributor who includes the Program in a commercial
-             product offering should do so in a manner which does not
-             create potential liability for other Contributors.
-             Therefore, if a Contributor includes the Program in a
-             commercial product offering, such Contributor ("Commercial
-             Contributor") hereby agrees to defend and indemnify every
-             other Contributor ("Indemnified Contributor") against any
-             losses, damages and costs (collectively "Losses") arising
-             from claims, lawsuits and other legal actions brought by a
-             third party against the Indemnified Contributor to the
-             extent caused by the acts or omissions of such Commercial
-             Contributor in connection with its distribution of the
-             Program in a commercial product offering. The obligations
-             in this section do not apply to any claims or Losses
-             relating to any actual or alleged intellectual property
-             infringement. In order to qualify, an Indemnified
-             Contributor must: a) promptly notify the Commercial
-             Contributor in writing of such claim, and b) allow the
-             Commercial Contributor to control, and cooperate with the
-             Commercial Contributor in, the defense and any related
-             settlement negotiations. The Indemnified Contributor may
-             participate in any such claim at its own expense.
-
-             For example, a Contributor might include the Program in a
-             commercial product offering, Product X. That Contributor
-             is then a Commercial Contributor. If that Commercial
-             Contributor then makes performance claims, or offers
-             warranties related to Product X, those performance claims
-             and warranties are such Commercial Contributor's
-             responsibility alone. Under this section, the Commercial
-             Contributor would have to defend claims against the other
-             Contributors related to those performance claims and
-             warranties, and if a court requires any other Contributor
-             to pay any damages as a result, the Commercial Contributor
-             must pay those damages.
-
-             5. NO WARRANTY
-
-             EXCEPT AS EXPRESSLY SET FORTH IN THIS AGREEMENT, THE
-             PROGRAM IS PROVIDED ON AN "AS IS" BASIS, WITHOUT
-             WARRANTIES OR CONDITIONS OF ANY KIND, EITHER EXPRESS OR
-             IMPLIED INCLUDING, WITHOUT LIMITATION, ANY WARRANTIES OR
-             CONDITIONS OF TITLE, NON-INFRINGEMENT, MERCHANTABILITY OR
-             FITNESS FOR A PARTICULAR PURPOSE. Each Recipient is solely
-             responsible for determining the appropriateness of using
-             and distributing the Program and assumes all risks
-             associated with its exercise of rights under this
-             Agreement, including but not limited to the risks and
-             costs of program errors, compliance with applicable laws,
-             damage to or loss of data, programs or equipment, and
-             unavailability or interruption of operations. 
-
-             6. DISCLAIMER OF LIABILITY
-             EXCEPT AS EXPRESSLY SET FORTH IN THIS AGREEMENT, NEITHER
-             RECIPIENT NOR ANY CONTRIBUTORS SHALL HAVE ANY LIABILITY
-             FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY,
-             OR CONSEQUENTIAL DAMAGES (INCLUDING WITHOUT LIMITATION
-             LOST PROFITS), HOWEVER CAUSED AND ON ANY THEORY OF
-             LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT
-             (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT
-             OF THE USE OR DISTRIBUTION OF THE PROGRAM OR THE EXERCISE
-             OF ANY RIGHTS GRANTED HEREUNDER, EVEN IF ADVISED OF THE
-             POSSIBILITY OF SUCH DAMAGES.
-
-             7. GENERAL
-
-             If any provision of this Agreement is invalid or
-             unenforceable under applicable law, it shall not affect
-             the validity or enforceability of the remainder of the
-             terms of this Agreement, and without further action by the
-             parties hereto, such provision shall be reformed to the
-             minimum extent necessary to make such provision valid and
-             enforceable.
-
-             If Recipient institutes patent litigation against a
-             Contributor with respect to a patent applicable to
-             software (including a cross-claim or counterclaim in a
-             lawsuit), then any patent licenses granted by that
-             Contributor to such Recipient under this Agreement shall
-             terminate as of the date such litigation is filed. In
-             addition, If Recipient institutes patent litigation
-             against any entity (including a cross-claim or
-             counterclaim in a lawsuit) alleging that the Program
-             itself (excluding combinations of the Program with other
-             software or hardware) infringes such Recipient's
-             patent(s), then such Recipient's rights granted under
-             Section 2(b) shall terminate as of the date such
-             litigation is filed.
-
-             All Recipient's rights under this Agreement shall
-             terminate if it fails to comply with any of the material
-             terms or conditions of this Agreement and does not cure
-             such failure in a reasonable period of time after becoming
-             aware of such noncompliance. If all Recipient's rights
-             under this Agreement terminate, Recipient agrees to cease
-             use and distribution of the Program as soon as reasonably
-             practicable. However, Recipient's obligations under this
-             Agreement and any licenses granted by Recipient relating
-             to the Program shall continue and survive. 
-
-             Everyone is permitted to copy and distribute copies of
-             this Agreement, but in order to avoid inconsistency the
-             Agreement is copyrighted and may only be modified in the
-             following manner. The Agreement Steward reserves the right
-             to publish new versions (including revisions) of this
-             Agreement from time to time. No one other than the
-             Agreement Steward has the right to modify this Agreement.
-
-             IBM is the initial Agreement Steward. IBM may assign the
-             responsibility to serve as the Agreement Steward to a
-             suitable separate entity. Each new version of the
-             Agreement will be given a distinguishing version number.
-             The Program (including Contributions) may always be
-             distributed subject to the version of the Agreement under
-             which it was received. In addition, after a new version of
-             the Agreement is published, Contributor may elect to
-             distribute the Program (including its Contributions) under
-             the new version. Except as expressly stated in Sections
-             2(a) and 2(b) above, Recipient receives no rights or
-             licenses to the intellectual property of any Contributor
-             under this Agreement, whether expressly, by implication,
-             estoppel or otherwise. All rights in the Program not
-             expressly granted under this Agreement are reserved.
-
-             This Agreement is governed by the laws of the State of New
-             York and the intellectual property laws of the United
-             States of America. No party to this Agreement will bring a
-             legal action under this Agreement more than one year after
-             the cause of action arose. Each party waives its rights to
-             a jury trial in any resulting litigation. 
-
-
-*/
-
-/* (C) COPYRIGHT International Business Machines Corp. 2001          */
+ * COPYRIGHT (c) International Business Machines Corp. 2001-2017
+ *
+ * This program is provided under the terms of the Common Public License,
+ * version 1.0 (CPL-1.0). Any use, reproduction or distribution for this
+ * software constitutes recipient's acceptance of CPL-1.0 terms which can be
+ * found in the file LICENSE file or at
+ * https://opensource.org/licenses/cpl1.0.php
+ */
 
 #if NGPTH
 #include <pth.h>
@@ -312,7 +39,7 @@ void api_init();
 // NOTES:
 // In many cases the specificaiton does not allow returns
 // of CKR_ARGUMENTSB_BAD.  We break the spec, since validation of parameters
-// to the function are best represented by this return code (where 
+// to the function are best represented by this return code (where
 // specific RC's such as CKR_INVALID_SESSION do not exist).
 // NOTE NOTE NOTE NOTE
 //    The parameter checking on the update operations may need to be
@@ -320,13 +47,13 @@ void api_init();
 //    anyway with sanatized parameters since on error, the encrypt/decrypt
 //    sign operations are all supposed to complete.
 //    Therefor the parameter checking here might need to be done in
-//    the STDLL instead of the API.  
+//    the STDLL instead of the API.
 //    This would affect ALL the Multipart operations which have
 //    an init followed by one or more operations.
 
 // Globals for the API
 
-API_Proc_Struct_t *Anchor = NULL;	// Initialized to NULL 
+API_Proc_Struct_t *Anchor = NULL;	// Initialized to NULL
 unsigned int Initialized = 0;	// Initialized flag
 pthread_mutex_t GlobMutex;	// Global Mutex
 CK_FUNCTION_LIST FuncList;
@@ -346,7 +73,7 @@ void child_fork_initializer()
 }
 
 //------------------------------------------------------------------------
-// API function C_CancelFunction   
+// API function C_CancelFunction
 //------------------------------------------------------------------------
 // This is a legacy function and performs no operations per the
 // specification.
@@ -446,7 +173,7 @@ CK_RV C_CloseSession(CK_SESSION_HANDLE hSession)
 			// as the per process slot session count to allow for
 			// proper tracking of the number of sessions on a slot.
 			// This allows things like InitToken to properly work in case
-			// other applications have the token active. 
+			// other applications have the token active.
 			decr_sess_counts(rSession.slotID);
 		} else
 			TRACE_DEVEL("fcn->ST_CloseSession failed:0x%lx\n", rv);
@@ -654,7 +381,7 @@ C_Decrypt(CK_SESSION_HANDLE hSession,
 }				// end of C_Decrypt
 
 //------------------------------------------------------------------------
-// API function C_DecryptDigestUpdate   
+// API function C_DecryptDigestUpdate
 //------------------------------------------------------------------------
 //  Netscape Required
 
@@ -681,7 +408,7 @@ C_DecryptDigestUpdate(CK_SESSION_HANDLE hSession,
 		return CKR_SESSION_HANDLE_INVALID;
 	}
 
-	// This may have to go to the STDLL for validation 
+	// This may have to go to the STDLL for validation
 	if (!pEncryptedPart || !pulPartLen) {
 		TRACE_ERROR("%s\n", ock_err(ERR_ARGUMENTS_BAD));
 		return CKR_ARGUMENTS_BAD;
@@ -738,7 +465,7 @@ C_DecryptFinal(CK_SESSION_HANDLE hSession,
 		TRACE_ERROR("%s\n", ock_err(ERR_SESSION_HANDLE_INVALID));
 		return CKR_SESSION_HANDLE_INVALID;
 	}
-	// This may have to go to the STDLL for validation 
+	// This may have to go to the STDLL for validation
 	// It is acceptable to have a Null pointer for the data since
 	// it is trying to get the length of the last part....
 	// The spec is unclear if a second call to Final is needed
@@ -882,7 +609,7 @@ C_DecryptUpdate(CK_SESSION_HANDLE hSession,
 }				// end of C_DecryptUpdate
 
 //------------------------------------------------------------------------
-// API function C_DecryptVerifyUpdate 
+// API function C_DecryptVerifyUpdate
 //------------------------------------------------------------------------
 
 CK_RV
@@ -935,7 +662,7 @@ C_DecryptVerifyUpdate(CK_SESSION_HANDLE hSession,
 }
 
 //------------------------------------------------------------------------
-// API function C_DeriveKey   
+// API function C_DeriveKey
 //------------------------------------------------------------------------
 
 CK_RV
@@ -1050,7 +777,7 @@ CK_RV C_DestroyObject(CK_SESSION_HANDLE hSession, CK_OBJECT_HANDLE hObject)
 }				// end of C_DestroyObject
 
 //------------------------------------------------------------------------
-// API function C_Digest   
+// API function C_Digest
 //------------------------------------------------------------------------
 
 CK_RV
@@ -1101,7 +828,7 @@ C_Digest(CK_SESSION_HANDLE hSession,
 }
 
 //------------------------------------------------------------------------
-// API function C_DigestEncryptUpdate   
+// API function C_DigestEncryptUpdate
 //------------------------------------------------------------------------
 
 CK_RV
@@ -1158,7 +885,7 @@ C_DigestEncryptUpdate(CK_SESSION_HANDLE hSession,
 }
 
 //------------------------------------------------------------------------
-// API function C_DigestFinal   
+// API function C_DigestFinal
 //------------------------------------------------------------------------
 
 CK_RV
@@ -1209,7 +936,7 @@ C_DigestFinal(CK_SESSION_HANDLE hSession,
 }
 
 //------------------------------------------------------------------------
-// API function C_DigestInit   
+// API function C_DigestInit
 //------------------------------------------------------------------------
 
 CK_RV C_DigestInit(CK_SESSION_HANDLE hSession, CK_MECHANISM_PTR pMechanism)
@@ -1256,7 +983,7 @@ CK_RV C_DigestInit(CK_SESSION_HANDLE hSession, CK_MECHANISM_PTR pMechanism)
 }
 
 //------------------------------------------------------------------------
-// API function C_DigestKey   
+// API function C_DigestKey
 //------------------------------------------------------------------------
 
 CK_RV C_DigestKey(CK_SESSION_HANDLE hSession, CK_OBJECT_HANDLE hKey)
@@ -1299,7 +1026,7 @@ CK_RV C_DigestKey(CK_SESSION_HANDLE hSession, CK_OBJECT_HANDLE hKey)
 }
 
 //------------------------------------------------------------------------
-// API function C_DigestUpdate   
+// API function C_DigestUpdate
 //------------------------------------------------------------------------
 
 CK_RV
@@ -1344,7 +1071,7 @@ C_DigestUpdate(CK_SESSION_HANDLE hSession,
 }
 
 //------------------------------------------------------------------------
-// API function C_Encrypt   
+// API function C_Encrypt
 //------------------------------------------------------------------------
 
 CK_RV
@@ -1397,7 +1124,7 @@ C_Encrypt(CK_SESSION_HANDLE hSession,
 }
 
 //------------------------------------------------------------------------
-// API function C_EncryptFinal   
+// API function C_EncryptFinal
 //------------------------------------------------------------------------
 
 CK_RV
@@ -1448,7 +1175,7 @@ C_EncryptFinal(CK_SESSION_HANDLE hSession,
 }
 
 //------------------------------------------------------------------------
-// API function C_EncryptInit   
+// API function C_EncryptInit
 //------------------------------------------------------------------------
 
 CK_RV
@@ -1500,7 +1227,7 @@ C_EncryptInit(CK_SESSION_HANDLE hSession,
 }
 
 //------------------------------------------------------------------------
-// API function C_EncryptUpdate  
+// API function C_EncryptUpdate
 //------------------------------------------------------------------------
 
 CK_RV
@@ -1578,7 +1305,7 @@ CK_RV C_Finalize(CK_VOID_PTR pReserved)
 
 	pthread_mutex_lock(&GlobMutex);	// Grab Process level Global MUTEX
 
-	Terminate_All_Process_Sessions();	// Terminate the sessions 
+	Terminate_All_Process_Sessions();	// Terminate the sessions
 
 	// unload all the STDLL's from the application
 	// This is in case the APP decides to do the re-initialize and
@@ -1611,7 +1338,7 @@ CK_RV C_Finalize(CK_VOID_PTR pReserved)
 	free(Anchor);		// Free API Proc Struct
 	Anchor = NULL;
 
-	// Unlock 
+	// Unlock
 	pthread_mutex_unlock(&GlobMutex);
 
 	trace_finalize();
@@ -1728,7 +1455,7 @@ CK_RV C_FindObjectsFinal(CK_SESSION_HANDLE hSession)
 }				// end of C_FindObjectsFinal
 
 //------------------------------------------------------------------------
-// API function 
+// API function
 // C_FindObjectsInit
 //------------------------------------------------------------------------
 //  Netscape Required
@@ -1752,7 +1479,7 @@ C_FindObjectsInit(CK_SESSION_HANDLE hSession,
 		TRACE_ERROR("%s\n", ock_err(ERR_CRYPTOKI_NOT_INITIALIZED));
 		return CKR_CRYPTOKI_NOT_INITIALIZED;
 	}
-	// What does a NULL template really mean 
+	// What does a NULL template really mean
 
 	if (!Valid_Session(hSession, &rSession)) {
 		TRACE_ERROR("%s\n", ock_err(ERR_SESSION_HANDLE_INVALID));
@@ -1781,7 +1508,7 @@ C_FindObjectsInit(CK_SESSION_HANDLE hSession,
 }				// end of C_FindObjectsInit
 
 //------------------------------------------------------------------------
-// API function C_GenerateKey  
+// API function C_GenerateKey
 //------------------------------------------------------------------------
 //  Netscape Required
 
@@ -1838,7 +1565,7 @@ C_GenerateKey(CK_SESSION_HANDLE hSession,
 }
 
 //------------------------------------------------------------------------
-// API function C_GenerateKeyPair 
+// API function C_GenerateKeyPair
 //------------------------------------------------------------------------
 //  Netscape Required
 
@@ -1907,7 +1634,7 @@ C_GenerateKeyPair(CK_SESSION_HANDLE hSession,
 }
 
 //------------------------------------------------------------------------
-// API function C_GenerateRandom   
+// API function C_GenerateRandom
 //------------------------------------------------------------------------
 //  Netscape Required
 
@@ -2108,7 +1835,7 @@ CK_RV C_GetFunctionList(CK_FUNCTION_LIST_PTR_PTR ppFunctionList)
 }
 
 //------------------------------------------------------------------------
-// API function C_GetFunctionStatus   
+// API function C_GetFunctionStatus
 //------------------------------------------------------------------------
 
 CK_RV C_GetFunctionStatus(CK_SESSION_HANDLE hSession)
@@ -2324,7 +2051,7 @@ C_GetObjectSize(CK_SESSION_HANDLE hSession,
 }				// end of C_GetObjectSize
 
 //------------------------------------------------------------------------
-// API function C_GetOperationState   
+// API function C_GetOperationState
 //------------------------------------------------------------------------
 
 CK_RV
@@ -2584,33 +2311,33 @@ C_GetSlotList(CK_BBOOL tokenPresent,
 	count = 0;
 	// Count the slots based off the present flag
 	// Go through all the slots and count them up
-	// Remember if the tokenPresent Flag is set do not count the 
+	// Remember if the tokenPresent Flag is set do not count the
 	// not present ones.
 	//
 	// ------------------------------------------------------------
-	// 
+	//
 	// Present indicates that the slot is managed by the Slot manager
 	// and that an appropriate registration has been made in the DB
 	//
 	// It does not imply that a token is present.
 	// Slots with STDLL's are ALWAYS present in the system wether they
 	// have a token or not is determined from the token functions.
-	// 
+	//
 	// According to the spec the tokenPresent flag indicates if all
 	// slots are wanted, or those which have tokens present.  We will
-	// use this to mean if a STDLL is present or not.  All slots 
+	// use this to mean if a STDLL is present or not.  All slots
 	// are in the system, if a STDLL is attached to a slot, then it is
 	// present( not to be confused with the Tokens  flags indicating
 	// presence).  Presence of a STDLL on a slot indicates that there
 	// is a "token reader" available.
-	// 
+	//
 	// Note: All slots should be named by the slot manager with the
 	// slot id in them...
 	// ------------------------------------------------------------
-	// 
+	//
 	// Note: The CK_INFO_STRUCT present flag indicates that a token is present
 	// in the reader located in the slot.  Right now we are dealing only
-	// with non-removable tokens, so the slot flags set in the slot DB 
+	// with non-removable tokens, so the slot flags set in the slot DB
 	// are fixed by the STDLL.  Ultimately when we get to removable tokens, the
 	// slot manager will have to monitor the device in the slot and set the flag
 	// accordingly.
@@ -2623,7 +2350,7 @@ C_GetSlotList(CK_BBOOL tokenPresent,
 	// First a stdll must be in the table, second the slot info flags must be
 	// set to present to return.
 	// ----------------------------------------------
-	// 
+	//
 	// Also need to validate that the STDLL successfully loaded.
 
 	for (index = 0; index < NUMBER_SLOTS_MANAGED; index++) {
@@ -2653,8 +2380,8 @@ C_GetSlotList(CK_BBOOL tokenPresent,
 		}
 		// Walk through the slot manager information and copy in the
 		// slot id to the list of slot indexes.
-		// 
-		//     This is incorrectly going to assume that the slots are 
+		//
+		//     This is incorrectly going to assume that the slots are
 		//     sequentialy allocated.  While most likely we should be robust
 		//     and handle it.
 		//     Count should correct based on the first loop.
@@ -2726,7 +2453,7 @@ CK_RV C_GetTokenInfo(CK_SLOT_ID slotID, CK_TOKEN_INFO_PTR pInfo)
 		TRACE_ERROR("%s\n", ock_err(ERR_TOKEN_NOT_PRESENT));
 		return CKR_TOKEN_NOT_PRESENT;
 	}
-	// Need to check if the slot is not populated 
+	// Need to check if the slot is not populated
 	// then we can return the proper return code for a
 	// slot that has no content.
 	sinfp = shData->slot_info;
@@ -2800,8 +2527,8 @@ CK_RV C_Initialize(CK_VOID_PTR pVoid)
 	// Validation of the parameters passed
 
 	// if pVoid is NULL, then everything is OK.  The applicaiton
-	// will not be doing multi thread accesses.  We can use the OS 
-	// locks anyhow.  
+	// will not be doing multi thread accesses.  We can use the OS
+	// locks anyhow.
 	//
 	if (pVoid != NULL) {
 		TRACE_DEVEL("Initialization arg = %p  Flags %lu\n", pVoid,
@@ -2843,7 +2570,7 @@ CK_RV C_Initialize(CK_VOID_PTR pVoid)
 		}
 		// Since this is an initialization path, we will be verbose in the
 		// code rather than efficient.
-		// 
+		//
 		// in reality, we only need to check for case 3 since all others
 		// are acceptable to us... for one reason or another.
 		//
@@ -2938,7 +2665,7 @@ CK_RV C_Initialize(CK_VOID_PTR pVoid)
 
 	//Register with pkcsslotd
 	if (!API_Register()) {
-		//   free memory allocated 
+		//   free memory allocated
 		//   return CKR_FUNCTION_FAILED
 		//   return CKR_FUNCTION_NOT_SUPPORTED;
 		detach_shared_memory(Anchor->SharedMemP);
@@ -3031,7 +2758,7 @@ CK_RV C_InitPIN(CK_SESSION_HANDLE hSession, CK_CHAR_PTR pPin, CK_ULONG ulPinLen)
 }				// end of C_InitPIN
 
 //------------------------------------------------------------------------
-// API function C_InitToken  
+// API function C_InitToken
 //------------------------------------------------------------------------
 //Netscape NEVER Calls this according to the Netscape documentation
 
@@ -3062,7 +2789,7 @@ C_InitToken(CK_SLOT_ID slotID,
 		TRACE_ERROR("%s\n", ock_err(ERR_ARGUMENTS_BAD));
 		return CKR_ARGUMENTS_BAD;
 	}
-	// Prior to invoking the Tokens initialization, the 
+	// Prior to invoking the Tokens initialization, the
 	// API needs to verify that NO other applications have any
 	// sessions established with this particular slot
 	//
@@ -3213,7 +2940,7 @@ CK_RV C_Logout(CK_SESSION_HANDLE hSession)
 //
 //
 //------------------------------------------------------------------------
-// 
+//
 // Note: Need to worry about handling the Notify and Applicaiton call backs
 // that are here...   STDLL will NEVER deal with these... The
 // usage of them appears to be optional from the specification
@@ -3252,7 +2979,7 @@ C_OpenSession(CK_SLOT_ID slotID,
 	if (sltp->DLLoaded == FALSE) {
 		TRACE_ERROR("%s\n", ock_err(ERR_TOKEN_NOT_PRESENT));
 		return CKR_TOKEN_NOT_PRESENT;
-		// 
+		//
 		// Need to handle the failure of a load here...
 	}
 	if ((fcn = sltp->FcnList) == NULL) {
@@ -3269,7 +2996,7 @@ C_OpenSession(CK_SLOT_ID slotID,
 		rv = fcn->ST_OpenSession(slotID, flags, &(apiSessp->sessionh));
 		TRACE_DEVEL("fcn->ST_OpenSession returned: 0x%lx\n", rv);
 
-		// If the session allocation is successful, then we need to 
+		// If the session allocation is successful, then we need to
 		// complete the API session block and  return.  Otherwise
 		// we free the API session block and exit
 		if (rv == CKR_OK) {
@@ -3287,7 +3014,7 @@ C_OpenSession(CK_SLOT_ID slotID,
 			}
 			apiSessp->slotID = slotID;
 
-			// NOTE:  Need to add Session counter to the shared 
+			// NOTE:  Need to add Session counter to the shared
 			// memory slot value.... Atomic operation.
 			// sharedmem->slot_info[slotID].sessioncount incremented
 			// when ever a session is attached.
@@ -3311,7 +3038,7 @@ done:
 }				// end of C_OpenSession
 
 //------------------------------------------------------------------------
-// API function C_SeedRandom   
+// API function C_SeedRandom
 //------------------------------------------------------------------------
 
 CK_RV
@@ -3422,7 +3149,7 @@ C_SetAttributeValue(CK_SESSION_HANDLE hSession,
 }				// end of C_SetAttributeValue
 
 //------------------------------------------------------------------------
-// API function C_SetOperationState   
+// API function C_SetOperationState
 //------------------------------------------------------------------------
 
 CK_RV
@@ -3592,7 +3319,7 @@ C_Sign(CK_SESSION_HANDLE hSession,
 }				// end of C_Sign
 
 //------------------------------------------------------------------------
-// API function C_SignEncryptUpdate   
+// API function C_SignEncryptUpdate
 //------------------------------------------------------------------------
 
 CK_RV
@@ -3758,7 +3485,7 @@ C_SignInit(CK_SESSION_HANDLE hSession,
 }				// end of C_SignInit
 
 //------------------------------------------------------------------------
-// API function C_SignRecover   
+// API function C_SignRecover
 //------------------------------------------------------------------------
 
 CK_RV
@@ -3812,7 +3539,7 @@ C_SignRecover(CK_SESSION_HANDLE hSession,
 }
 
 //------------------------------------------------------------------------
-// API function C_SignRecoverInit   
+// API function C_SignRecoverInit
 //------------------------------------------------------------------------
 
 CK_RV
@@ -3914,7 +3641,7 @@ C_SignUpdate(CK_SESSION_HANDLE hSession, CK_BYTE_PTR pPart, CK_ULONG ulPartLen)
 }				// end of C_SignUpdate
 
 //------------------------------------------------------------------------
-// API function C_UnwrapKey  
+// API function C_UnwrapKey
 //------------------------------------------------------------------------
 //  Netscape Required
 
@@ -3980,7 +3707,7 @@ C_UnwrapKey(CK_SESSION_HANDLE hSession,
 }
 
 //------------------------------------------------------------------------
-// API function C_Verify   
+// API function C_Verify
 //------------------------------------------------------------------------
 //  Netscape Required
 
@@ -4033,7 +3760,7 @@ C_Verify(CK_SESSION_HANDLE hSession,
 }
 
 //------------------------------------------------------------------------
-// API function C_VerifyFinal   
+// API function C_VerifyFinal
 //------------------------------------------------------------------------
 
 CK_RV
@@ -4084,7 +3811,7 @@ C_VerifyFinal(CK_SESSION_HANDLE hSession,
 }
 
 //------------------------------------------------------------------------
-// API function C_VerifyInit   
+// API function C_VerifyInit
 //------------------------------------------------------------------------
 
 CK_RV
@@ -4133,7 +3860,7 @@ C_VerifyInit(CK_SESSION_HANDLE hSession,
 }
 
 //------------------------------------------------------------------------
-// API function C_VerifyRecover   
+// API function C_VerifyRecover
 //------------------------------------------------------------------------
 //  Netscape Required
 
@@ -4186,7 +3913,7 @@ C_VerifyRecover(CK_SESSION_HANDLE hSession,
 }
 
 //------------------------------------------------------------------------
-// API function C_VerifyRecoverInit   
+// API function C_VerifyRecoverInit
 //------------------------------------------------------------------------
 
 CK_RV
@@ -4235,7 +3962,7 @@ C_VerifyRecoverInit(CK_SESSION_HANDLE hSession,
 }
 
 //------------------------------------------------------------------------
-// API function C_VerifyUpdate   
+// API function C_VerifyUpdate
 //------------------------------------------------------------------------
 
 CK_RV
@@ -4285,7 +4012,7 @@ C_VerifyUpdate(CK_SESSION_HANDLE hSession,
 //
 //
 //NOTE: We need to implement this one even though Netscape does not
-//make use of this...  
+//make use of this...
 //
 //Standard code template won't work with this.  We need to look at
 //the slot manager and the shared memory indicating the slot bitmap
@@ -4337,7 +4064,7 @@ C_WaitForSlotEvent(CK_FLAGS flags, CK_SLOT_ID_PTR pSlot, CK_VOID_PTR pReserved)
 	// Grab the mutex for the application in shared memory
 	// Check the bit mask for non-zero.  If the bit mask is non-zero
 	// find the first slot which is set and set the pSlot value
-	// and return CKR_OK.  
+	// and return CKR_OK.
 
 	// for now we will just lock the whole shared memory
 	//  REally should be the procp->proc_mutex
@@ -4361,7 +4088,7 @@ C_WaitForSlotEvent(CK_FLAGS flags, CK_SLOT_ID_PTR pSlot, CK_VOID_PTR pReserved)
 			XProcUnLock();
 			return CKR_NO_EVENT;
 		} else {
-			// WE need to 
+			// WE need to
 			// 1.  Set the blocking variable in the system map to true.
 			// 2. clear the condition variable
 			//
@@ -4415,8 +4142,8 @@ C_WaitForSlotEvent(CK_FLAGS flags, CK_SLOT_ID_PTR pSlot, CK_VOID_PTR pReserved)
 }				// end of C_WaitForSlotEvent
 
 //------------------------------------------------------------------------
-// API function 
-// C_WrapKey   
+// API function
+// C_WrapKey
 //------------------------------------------------------------------------
 //  Netscape Required
 

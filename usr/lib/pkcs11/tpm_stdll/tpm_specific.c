@@ -1,23 +1,11 @@
-
 /*
- * The Initial Developer of the Original Code is International
- * Business Machines Corporation. Portions created by IBM
- * Corporation are Copyright (C) 2005 International Business
- * Machines Corporation. All Rights Reserved.
+ * COPYRIGHT (c) International Business Machines Corp. 2005-2017
  *
- * This program is free software; you can redistribute it and/or modify
- * it under the terms of the Common Public License as published by
- * IBM Corporation; either version 1 of the License, or (at your option)
- * any later version.
- *
- * This program is distributed in the hope that it will be useful,
- * but WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
- * Common Public License for more details.
- *
- * You should have received a copy of the Common Public License
- * along with this program; if not, a copy can be viewed at
- * http://www.opensource.org/licenses/cpl1.0.php.
+ * This program is provided under the terms of the Common Public License,
+ * version 1.0 (CPL-1.0). Any use, reproduction or distribution for this
+ * software constitutes recipient's acceptance of CPL-1.0 terms which can be
+ * found in the file LICENSE file or at
+ * https://opensource.org/licenses/cpl1.0.php
  */
 
 /*
@@ -1919,7 +1907,7 @@ token_specific_set_pin(SESSION *sess,
 			}
 		}
 
-		if ((rc = check_pin_properties(CKU_USER, newpin_hash, 
+		if ((rc = check_pin_properties(CKU_USER, newpin_hash,
 					       ulNewPinLen))) {
 			return rc;
 		}
@@ -3148,7 +3136,7 @@ token_specific_aes_cbc(	CK_BYTE		*in_data,
 }
 
 #ifndef NODH
-/* Begin code contributed by Corrent corp. */ 
+/* Begin code contributed by Corrent corp. */
 
 // This computes DH shared secret, where:
 //     Output: z is computed shared secret

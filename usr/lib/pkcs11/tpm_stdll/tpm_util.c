@@ -1,23 +1,11 @@
-
 /*
- * The Initial Developer of the Original Code is International
- * Business Machines Corporation. Portions created by IBM
- * Corporation are Copyright (C) 2005 International Business
- * Machines Corporation. All Rights Reserved.
+ * COPYRIGHT (c) International Business Machines Corp. 2005-2017
  *
- * This program is free software; you can redistribute it and/or modify
- * it under the terms of the Common Public License as published by
- * IBM Corporation; either version 1 of the License, or (at your option)
- * any later version.
- *
- * This program is distributed in the hope that it will be useful,
- * but WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
- * Common Public License for more details.
- *
- * You should have received a copy of the Common Public License
- * along with this program; if not, a copy can be viewed at
- * http://www.opensource.org/licenses/cpl1.0.php.
+ * This program is provided under the terms of the Common Public License,
+ * version 1.0 (CPL-1.0). Any use, reproduction or distribution for this
+ * software constitutes recipient's acceptance of CPL-1.0 terms which can be
+ * found in the file LICENSE file or at
+ * https://opensource.org/licenses/cpl1.0.php
  */
 
 #include <stdlib.h>
@@ -234,7 +222,7 @@ get_srk_mode(void)
 	char *mode = NULL;
 	int i;
 	int num_modes = sizeof(tss_modes)/sizeof(tss_modes[0]);
-	
+
 	mode = getenv("OCK_SRK_MODE");
 	if (mode == NULL)
 		return 0;
@@ -247,8 +235,8 @@ get_srk_mode(void)
 
 	TRACE_ERROR("Unknown TSS mode set in OCK_SRK_MODE, %s.\n", mode);
 	return -1;
-} 
-	
+}
+
 int
 get_srk_info(struct srk_info *srk)
 {
@@ -264,7 +252,7 @@ get_srk_info(struct srk_info *srk)
 	passwd_ptr = getenv("OCK_SRK_SECRET");
 
 	/* If nothing is set, then use original opencryptoki default of
-	 *  secret is NULL and TSS_SECRET_MODE_PLAIN. 
+	 *  secret is NULL and TSS_SECRET_MODE_PLAIN.
 	 */
 	if (passwd_ptr == NULL) {
 		srk->len = 0;
@@ -273,7 +261,7 @@ get_srk_info(struct srk_info *srk)
 			return 0;
 		}
 	} else
-		srk->len = strlen(passwd_ptr);	
+		srk->len = strlen(passwd_ptr);
 
 	/* A mode required at this point...  */
 	if (srk->mode == 0) {
@@ -281,11 +269,11 @@ get_srk_info(struct srk_info *srk)
 		return -1;
 	}
 
-	 /*  
+	 /*
 	  * getenv() returns a ptr to the actual string in our env,
 	  * so be sure to make a copy to avoid problems.
 	  */
-	
+
 	if (srk->len != 0) {
 		if ((secret = (char *)malloc(srk->len)) == NULL) {
 			TRACE_ERROR("malloc of %d bytes failed.\n", srk->len);
@@ -302,7 +290,7 @@ get_srk_info(struct srk_info *srk)
 
 		char *secret_h;
 		int h_len = TPM_SHA1_160_HASH_LEN;
-		
+
 		if ((secret_h = (char *)malloc(h_len)) == NULL) {
 			TRACE_ERROR("malloc of %d bytes failed.\n", h_len);
 			goto error;
@@ -313,7 +301,7 @@ get_srk_info(struct srk_info *srk)
 
 		/* Assume hash is read in as string of hexidecimal digits.
 		 * 2 hex digits are required to represent a byte.
-		 * thus we need 2 * TPM_SHA1_160_HASH_LEN to 
+		 * thus we need 2 * TPM_SHA1_160_HASH_LEN to
 		 * represent the hash.
 		 */
 		if (srk->len != (h_len * 2)) {
@@ -332,12 +320,12 @@ get_srk_info(struct srk_info *srk)
 		srk->len = h_len;
 		srk->secret = secret_h;
 		free(secret);
-	} 
-		
+	}
+
 	return	0;
 
 error:
-	if (secret) 
+	if (secret)
 		free(secret);
 	return -1;
 }
