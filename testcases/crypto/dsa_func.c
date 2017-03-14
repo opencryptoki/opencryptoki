@@ -1,3 +1,13 @@
+/*
+ * COPYRIGHT (c) International Business Machines Corp. 2005-2017
+ *
+ * This program is provided under the terms of the Common Public License,
+ * version 1.0 (CPL-1.0). Any use, reproduction or distribution for this
+ * software constitutes recipient's acceptance of CPL-1.0 terms which can be
+ * found in the file LICENSE file or at
+ * https://opensource.org/licenses/cpl1.0.php
+ */
+
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -192,7 +202,7 @@ testcase_cleanup:
 	testcase_user_logout();
 	if (funcs->C_CloseAllSessions(slot_id) != CKR_OK)
 		testcase_error("C_CloseAllSessions failed.");
-	
+
 	return rc;
 }
 
@@ -237,7 +247,7 @@ int main(int argc, char **argv)
 	CK_C_INITIALIZE_ARGS cinit_args;
 	int rc;
 	CK_RV rv;
-	
+
 	rc = do_ParseArgs(argc, argv);
 	if ( rc != 1)
 		return rc;
@@ -250,7 +260,7 @@ int main(int argc, char **argv)
 		PRINT_ERR("ERROR do_GetFunctionList() Failed , rc = 0x%0x\n", rc);
 		return rc;
 	}
-	
+
 	memset( &cinit_args, 0x0, sizeof(cinit_args) );
 	cinit_args.flags = CKF_OS_LOCKING_OK;
 
@@ -262,7 +272,7 @@ int main(int argc, char **argv)
 		CK_SESSION_HANDLE  hsess = 0;
 
 		rc = funcs->C_GetFunctionStatus(hsess);
-		if (rc  != CKR_FUNCTION_NOT_PARALLEL)  
+		if (rc  != CKR_FUNCTION_NOT_PARALLEL)
 			return rc;
 
 		rc = funcs->C_CancelFunction(hsess);
@@ -282,4 +292,3 @@ int main(int argc, char **argv)
 	/* make sure we return non-zero if rv is non-zero */
 	return ((rv == 0) || (rv % 256) ? rv : -1);
 }
-

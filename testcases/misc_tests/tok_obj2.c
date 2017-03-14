@@ -1,7 +1,17 @@
-// File: tok_obj.c
-//
-// Test driver for testing the proper storage of token objects
-//
+/*
+ * COPYRIGHT (c) International Business Machines Corp. 2005-2017
+ *
+ * This program is provided under the terms of the Common Public License,
+ * version 1.0 (CPL-1.0). Any use, reproduction or distribution for this
+ * software constitutes recipient's acceptance of CPL-1.0 terms which can be
+ * found in the file LICENSE file or at
+ * https://opensource.org/licenses/cpl1.0.php
+ */
+
+/* File: tok_obj.c
+ *
+ * Test driver for testing the proper storage of token objects
+ */
 
 #include <stdio.h>
 #include <stdlib.h>
@@ -215,7 +225,7 @@ int do_count_token_objects( void )
       goto done;
    }
 
-   do { 
+   do {
    rc = funcs->C_FindObjects( h_session, obj_list, 1, &find_count );
    if (rc != CKR_OK) {
       show_error("   C_FindObjects #1", rc );

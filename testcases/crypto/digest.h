@@ -1,6 +1,16 @@
+/*
+ * COPYRIGHT (c) International Business Machines Corp. 2011-2017
+ *
+ * This program is provided under the terms of the Common Public License,
+ * version 1.0 (CPL-1.0). Any use, reproduction or distribution for this
+ * software constitutes recipient's acceptance of CPL-1.0 terms which can be
+ * found in the file LICENSE file or at
+ * https://opensource.org/licenses/cpl1.0.php
+ */
+
 #include "pkcs11types.h"
 
-#define MAX_KEY_SIZE  150 
+#define MAX_KEY_SIZE  150
 #define MAX_DATA_SIZE 512
 #define MAX_HASH_SIZE 64
 #define MAX_CHUNKS 8
@@ -407,7 +417,7 @@ struct DIGEST_TEST_VECTOR sha384_digest_test_vector[] = {
 				  0x34,0x29,0x0f,0xff,0x7c,0x8d,0x6d,0x83,0x53,
 				  0x1d,0xbd,0xd1,0xe8,0x1c,0xc4,0xed,0x42,0x46,
 				  0xe0,0x0b,0xd4,0x11,0x3e,0xf4,0x51,0x33,0x4d,
-				  0xaa }, 
+				  0xaa },
 		.data_len = 64,
 		.hash = 	{ 0x8d,0x46,0xcc,0x84,0xb6,0xc2,0xde,0xb2,0x06,
 				  0xaa,0x5c,0x86,0x17,0x98,0x79,0x87,0x51,0xa2,
@@ -520,7 +530,7 @@ struct DIGEST_TEST_VECTOR sha384_digest_test_vector[] = {
 				  0x1f,0xab,0xec,0xab,0x59,0x3d,0xb5,0x10,0x28,
 				  0x17,0x99 },
 
-		.data_len = 326, 
+		.data_len = 326,
 
 		.hash = 	{ 0x13,0x96,0xfe,0xa9,0x5c,0xe0,0xc1,0xc1,0xc2,
 				  0x24,0xb5,0x0a,0x07,0xdd,0x71,0x97,0xf1,0xd6,
@@ -8234,7 +8244,7 @@ struct HMAC_TEST_SUITE_INFO fips_hmac_general_test_suites[] = {
 	}
 };
 
-#define NUM_OF_HMAC_TEST_SUITES 10 
+#define NUM_OF_HMAC_TEST_SUITES 10
 struct HMAC_TEST_SUITE_INFO hmac_test_suites[] = {
         {
                 .name = "SHA-1 HMAC",

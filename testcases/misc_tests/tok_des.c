@@ -1,8 +1,17 @@
-// File: driver.c
-//
-//
-// Test driver.  In-depth regression test for PKCS #11
-//
+/*
+ * COPYRIGHT (c) International Business Machines Corp. 2006-2017
+ *
+ * This program is provided under the terms of the Common Public License,
+ * version 1.0 (CPL-1.0). Any use, reproduction or distribution for this
+ * software constitutes recipient's acceptance of CPL-1.0 terms which can be
+ * found in the file LICENSE file or at
+ * https://opensource.org/licenses/cpl1.0.php
+ */
+
+/* File: driver.c
+ *
+ * Test driver.  In-depth regression test for PKCS #11
+ */
 
 #include <stdio.h>
 #include <stdlib.h>

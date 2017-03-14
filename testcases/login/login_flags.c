@@ -1,5 +1,15 @@
 
 /*
+ * COPYRIGHT (c) International Business Machines Corp. 2002-2017
+ *
+ * This program is provided under the terms of the Common Public License,
+ * version 1.0 (CPL-1.0). Any use, reproduction or distribution for this
+ * software constitutes recipient's acceptance of CPL-1.0 terms which can be
+ * found in the file LICENSE file or at
+ * https://opensource.org/licenses/cpl1.0.php
+ */
+
+/*
  * openCryptoki testcase
  * - Tests the new login flags for v2.11
  *
@@ -92,26 +102,26 @@ int main(int argc, char **argv)
 	// 15. Check that USER PIN LAST TRY set
 	// 16. Login as USER with incorrect PIN
 	// 17. Check that USER PIN LOCKED set
-	// 
+	//
 
 	/* 1. Open a session with the token */
-	if( (rc = funcs->C_OpenSession(slot_id, 
-					(CKF_SERIAL_SESSION|CKF_RW_SESSION), 
-					NULL_PTR, 
-					NULL_PTR, 
+	if( (rc = funcs->C_OpenSession(slot_id,
+					(CKF_SERIAL_SESSION|CKF_RW_SESSION),
+					NULL_PTR,
+					NULL_PTR,
 					&session_handle)) != CKR_OK ) {
 		show_error("C_OpenSession #1", rc);
 		goto done;
 	}
 
-	
+
 	if( (rc = funcs->C_GetSessionInfo(session_handle, &si)) != CKR_OK) {
 		show_error("C_GetSessionInfo #1", rc);
 		goto session_close;
 	}
 
-	/* 2. Test the slot_id change.  This used to be hard coded to 1. 
-	 * It should now be the slot number of the token we're using 
+	/* 2. Test the slot_id change.  This used to be hard coded to 1.
+	 * It should now be the slot number of the token we're using
 	 */
 	if(si.slotID != slot_id) {
 		printf("Test #2 failed. Slot ID was %ld, expected %ld\n", si.slotID, slot_id);
@@ -140,14 +150,14 @@ int main(int argc, char **argv)
 		show_error("C_Login #3", rc);
 		goto session_close;
 	}
-	
+
 	rc = funcs->C_Logout(session_handle);
 	if( rc != CKR_OK ) {
 		show_error("C_Logout #3", rc);
 		goto session_close;
 	}
 
-	
+
 	// 4. Login as USER with an incorrect PIN
 	rc = funcs->C_Login(session_handle, CKU_USER, (CK_CHAR_PTR)BAD_USER_PIN, BAD_USER_PIN_LEN);
 	if( rc != CKR_PIN_INCORRECT ) {
@@ -161,7 +171,7 @@ int main(int argc, char **argv)
 	}
 
 	// 5. Check that USER PIN COUNT LOW set
-	if(((ti.flags & CKF_USER_PIN_COUNT_LOW) == 0) || 
+	if(((ti.flags & CKF_USER_PIN_COUNT_LOW) == 0) ||
 		(ti.flags & CKF_USER_PIN_FINAL_TRY)   ||
 		(ti.flags & CKF_USER_PIN_LOCKED)) {
 	  printf("Test #5 failed. Token flags: %p.\n", (void *)ti.flags);
@@ -181,13 +191,13 @@ int main(int argc, char **argv)
 	}
 
 	// 7. Check that USER PIN LAST TRY set
-	if((ti.flags & CKF_USER_PIN_COUNT_LOW) || 
+	if((ti.flags & CKF_USER_PIN_COUNT_LOW) ||
 		((ti.flags & CKF_USER_PIN_FINAL_TRY) == 0) ||
 		(ti.flags & CKF_USER_PIN_LOCKED)) {
 	        printf("Test #7 failed. Token flags: %p.\n", (void *)ti.flags);
 		goto session_close;
 	}
-	
+
 	// 8. Login correctly
 	rc = funcs->C_Login(session_handle, CKU_USER, user_pin, user_pin_len);
 	if( rc != CKR_OK ) {
@@ -201,7 +211,7 @@ int main(int argc, char **argv)
 	}
 
 	// 9. Check that flags are reset
-	if((ti.flags & CKF_USER_PIN_COUNT_LOW) || 
+	if((ti.flags & CKF_USER_PIN_COUNT_LOW) ||
 		(ti.flags & CKF_USER_PIN_FINAL_TRY)  ||
 		(ti.flags & CKF_USER_PIN_LOCKED) ) {
 
@@ -217,7 +227,7 @@ int main(int argc, char **argv)
 		show_error("Test #10", rc);
 		goto session_close;
 	}
-	
+
         // 12. Login as USER with an incorrect PIN
         rc = funcs->C_Login(session_handle, CKU_USER, (CK_CHAR_PTR)BAD_USER_PIN, BAD_USER_PIN_LEN);
         if( rc != CKR_PIN_INCORRECT ) {
@@ -258,8 +268,8 @@ int main(int argc, char **argv)
                 goto session_close;
         }
 
-	
-	
+
+
 	// 16. Login as USER with incorrect PIN
 	rc = funcs->C_Login(session_handle, CKU_USER, (CK_CHAR_PTR)BAD_USER_PIN, BAD_USER_PIN_LEN);
 	if( rc != CKR_PIN_INCORRECT ) {
@@ -273,24 +283,24 @@ int main(int argc, char **argv)
 	}
 
 	// 17. Check that USER PIN LOCKED set
-	if((ti.flags & CKF_USER_PIN_COUNT_LOW) || 
+	if((ti.flags & CKF_USER_PIN_COUNT_LOW) ||
 		(ti.flags & CKF_USER_PIN_FINAL_TRY)  ||
 		((ti.flags & CKF_USER_PIN_LOCKED) == 0)) {
 
                 printf("Test #17 failed. Token flags: %p.\n", (void *)ti.flags);
 		goto session_close;
 	}
-	
+
 	printf("Tests succeeded. USER PIN is now locked for slot %ld.\n"
 		"Re-running this test should return CKR_PIN_LOCKED.\n"
 		"To unlock this slot, run the init_tok testcase on the slot.\n", slot_id);
-	
+
 session_close:
-	
+
 	/* Close the session */
 	if( (rc = funcs->C_CloseSession(session_handle)) != CKR_OK )
 		show_error("C_CloseSession", rc);
-	
+
 done:
 	/* Call C_Finalize and dlclose the library */
 	return clean_up();
@@ -299,14 +309,12 @@ done:
 int clean_up(void)
 {
 	CK_RV rc;
-	
+
         if( (rc = funcs->C_Finalize(NULL)) != CKR_OK)
 		show_error("C_Finalize", rc);
 
 	/* Decrement the reference count to libopencryptoki.so */
 	dlclose(dl_handle);
-	
+
 	return rc;
 }
-
-

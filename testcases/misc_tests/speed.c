@@ -1,14 +1,24 @@
-// File: speed.c
-//
-// Performance tests for Opencryptoki
-//
-//    RSA keygen (with keylength 1024, 2048, 4096)
-//    RSA sign and verify (with keylength 1024, 2048, 4096)
-//    RSA encrypt and decrypt (with keylength 1024, 2048, 4096)
-//    DES3 encrypt and decrypt (with modes ECB and CBC)
-//    AES encrypt and decrypt (with modes ECB and CBC, with keylength 128, 192, 256)
-//    SHA1, SHA256, SHA512
-//
+/*
+ * COPYRIGHT (c) International Business Machines Corp. 2005-2017
+ *
+ * This program is provided under the terms of the Common Public License,
+ * version 1.0 (CPL-1.0). Any use, reproduction or distribution for this
+ * software constitutes recipient's acceptance of CPL-1.0 terms which can be
+ * found in the file LICENSE file or at
+ * https://opensource.org/licenses/cpl1.0.php
+ */
+
+/* File: speed.c
+ *
+ * Performance tests for Opencryptoki
+ *
+ *    RSA keygen (with keylength 1024, 2048, 4096)
+ *    RSA sign and verify (with keylength 1024, 2048, 4096)
+ *    RSA encrypt and decrypt (with keylength 1024, 2048, 4096)
+ *    DES3 encrypt and decrypt (with modes ECB and CBC)
+ *    AES encrypt and decrypt (with modes ECB and CBC, with keylength 128, 192,
+ *    256), SHA1, SHA256, SHA512
+ */
 
 
 #include <stdio.h>

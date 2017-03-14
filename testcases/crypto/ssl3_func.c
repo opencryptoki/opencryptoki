@@ -1,5 +1,12 @@
-// File: ssl3_func.c
-//
+/*
+ * COPYRIGHT (c) International Business Machines Corp. 2005-2017
+ *
+ * This program is provided under the terms of the Common Public License,
+ * version 1.0 (CPL-1.0). Any use, reproduction or distribution for this
+ * software constitutes recipient's acceptance of CPL-1.0 terms which can be
+ * found in the file LICENSE file or at
+ * https://opensource.org/licenses/cpl1.0.php
+ */
 
 #include <windows.h>
 
@@ -360,7 +367,7 @@ CK_RV do_SSL3_MasterKeyDerive(CK_SESSION_HANDLE session)
 		{CKA_KEY_TYPE, &keyType, sizeof(keyType)}
 	};
 	CK_SLOT_ID        slot_id = SLOT_ID;
-	
+
 	testcase_begin("starting do_SSL3_MasterKeyDerive...\n");
 
 	// generate the pre-master secret key
@@ -413,7 +420,7 @@ CK_RV do_SSL3_MasterKeyDerive(CK_SESSION_HANDLE session)
 	} else
 		testcase_pass("Successfully derived a key from pre-master.");
 
-	/*	
+	/*
 	 * This mechanism provides the following attributes:
 	 * CKA_CLASS = CKO_SECRET_KEY
 	 * CKA_KEY_TYPE = CKK_GENERIC_SECRET
@@ -427,14 +434,14 @@ CK_RV do_SSL3_MasterKeyDerive(CK_SESSION_HANDLE session)
 		goto done;
 	}
 	if (*(CK_OBJECT_CLASS *)test_tmpl[0].pValue != CKO_SECRET_KEY) {
-		testcase_fail("Derived key has incorrect class.");	
+		testcase_fail("Derived key has incorrect class.");
 		goto done;
 	}
-	
+
 	if (*(CK_KEY_TYPE *)test_tmpl[1].pValue != CKK_GENERIC_SECRET) {
 		testcase_fail("Derived key has incorrect key type.");
 		goto done;
-	} else 
+	} else
 		testcase_pass("Derived key has correct attributes.");
 
 done:
@@ -547,7 +554,7 @@ CK_RV do_SSL3_MultipleKeysDerive(CK_SESSION_HANDLE session)
 	mech.pParameter = &params;
 	mech.ulParameterLen = sizeof(params);
 
-	/* 
+	/*
 	 * Try deriving the key without required attributes...
 	 */
 	testcase_new_assertion();
@@ -562,7 +569,7 @@ CK_RV do_SSL3_MultipleKeysDerive(CK_SESSION_HANDLE session)
 	/*
 	 * Now derive key with required attributes...
 	 */
-	
+
 	testcase_new_assertion();
 	rc = funcs->C_DeriveKey(session, &mech, h_pm_secret, complete_tmpl,
 			sizeof(complete_tmpl)/sizeof(*complete_tmpl), NULL);
@@ -654,11 +661,11 @@ int main(int argc, char **argv)
 	CK_C_INITIALIZE_ARGS cinit_args;
 	int rc;
 	CK_RV rv;
-	
+
 	rc = do_ParseArgs(argc, argv);
 	if ( rc != 1)
 		return rc;
-	
+
 	printf("Using slot #%lu...\n\n", SLOT_ID );
 	printf("With option: no_init: %d\n", no_init);
 
@@ -667,7 +674,7 @@ int main(int argc, char **argv)
 		PRINT_ERR("ERROR do_GetFunctionList() Failed , rc = 0x%0x\n", rc);
 		return rc;
 	}
-	
+
 	memset( &cinit_args, 0x0, sizeof(cinit_args) );
 	cinit_args.flags = CKF_OS_LOCKING_OK;
 
@@ -679,7 +686,7 @@ int main(int argc, char **argv)
 		CK_SESSION_HANDLE  hsess = 0;
 
 		rc = funcs->C_GetFunctionStatus(hsess);
-		if (rc  != CKR_FUNCTION_NOT_PARALLEL)  
+		if (rc  != CKR_FUNCTION_NOT_PARALLEL)
 			return rc;
 
 		rc = funcs->C_CancelFunction(hsess);

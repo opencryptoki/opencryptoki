@@ -1,3 +1,13 @@
+/*
+ * COPYRIGHT (c) International Business Machines Corp. 2016-2017
+ *
+ * This program is provided under the terms of the Common Public License,
+ * version 1.0 (CPL-1.0). Any use, reproduction or distribution for this
+ * software constitutes recipient's acceptance of CPL-1.0 terms which can be
+ * found in the file LICENSE file or at
+ * https://opensource.org/licenses/cpl1.0.php
+ */
+
 #include <stdio.h>
 #include <stdlib.h>
 #include <unistd.h>
@@ -78,7 +88,7 @@ CK_RV do_GetObjectSize(void)
                 testcase_fail("C_GetObjectSize () rc = %s (expected CKR_OBJECT_HANDLE_INVALID)", p11_get_ckr(rc));
                 return rc;
         }
-	
+
 	printf("C_GetObjectSize test passed\n");
 
 testcase_cleanup:

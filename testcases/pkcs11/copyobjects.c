@@ -1,3 +1,13 @@
+/*
+ * COPYRIGHT (c) International Business Machines Corp. 2013-2017
+ *
+ * This program is provided under the terms of the Common Public License,
+ * version 1.0 (CPL-1.0). Any use, reproduction or distribution for this
+ * software constitutes recipient's acceptance of CPL-1.0 terms which can be
+ * found in the file LICENSE file or at
+ * https://opensource.org/licenses/cpl1.0.php
+ */
+
 #include <stdio.h>
 #include <stdlib.h>
 #include <unistd.h>
@@ -14,7 +24,7 @@
  * C_DestroyObject
  *
  * 3 TestCases
- * Setup: Create a key object. 
+ * Setup: Create a key object.
  * Testcase 1: Make an exact copy of the object with empty attribute list.
  * Testcase 2: make an exact copy of the object with one additional attribute.
  */
@@ -156,7 +166,7 @@ CK_RV do_CopyObjects(void)
 	// Testcase #3 - Copy object changing the value of CKA_SENSITIVE
 	// 		 from true to false. This should be allowed on copy.
 	testcase_new_assertion();
-	
+
 	rc = funcs->C_CopyObject(session, keyobj, true_sensitive_tmpl, 1, &thirdobj);
 	if (rc != CKR_OK) {
 		testcase_fail("C_CopyObject() rc = %s", p11_get_ckr(rc));
@@ -173,21 +183,21 @@ CK_RV do_CopyObjects(void)
 
 	if (*(CK_BBOOL *) test_sensitive_tmpl[0].pValue == TRUE)
 		testcase_pass("Copied object's CKA_SENSITIVE == TRUE.");
-	else 
+	else
 		testcase_fail("Copied object's CKA_SENSITIVE != TRUE.");
 
 
 	// Testcase #4 - Now try changing CKA_SENSITIVE from TRUE to False.
 	// This should not be allowed.
 	testcase_new_assertion();
-	
+
 	rc = funcs->C_CopyObject(session, thirdobj, false_sensitive_tmpl, 1, &fourthobj);
-	if (rc != CKR_OK) 
+	if (rc != CKR_OK)
 		testcase_pass("C_CopyObject) did not copy the object. rc = %s",
 				p11_get_ckr(rc));
 	else
 		testcase_fail("C_CopyObject() should have failed.");
-	
+
 
 testcase_cleanup:
 	funcs->C_DestroyObject(session, keyobj);

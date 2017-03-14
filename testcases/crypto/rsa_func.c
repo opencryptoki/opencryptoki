@@ -1,4 +1,14 @@
 /*
+ * COPYRIGHT (c) International Business Machines Corp. 2011-2017
+ *
+ * This program is provided under the terms of the Common Public License,
+ * version 1.0 (CPL-1.0). Any use, reproduction or distribution for this
+ * software constitutes recipient's acceptance of CPL-1.0 terms which can be
+ * found in the file LICENSE file or at
+ * https://opensource.org/licenses/cpl1.0.php
+ */
+
+ /*
  * openCryptoki testcase for RSA
  *
  * August 18, 2011
@@ -617,7 +627,7 @@ CK_RV do_SignVerify_RSAPSS(struct GENERATED_TEST_SUITE_INFO *tsuite)
 		for (j = 0; j < message_len; j++) {
 			message[j] = (j + 1) % 255;
 		}
-		
+
 		if (tsuite->mech.mechanism == CKM_RSA_PKCS_PSS) {
 			// create digest of message to pass to C_Sign
 			mech.mechanism = tsuite->tv[i].pss_params.hashAlg;
@@ -646,7 +656,7 @@ CK_RV do_SignVerify_RSAPSS(struct GENERATED_TEST_SUITE_INFO *tsuite)
 		mech.pParameter = &pss_params;
 		mech.ulParameterLen = sizeof(CK_RSA_PKCS_PSS_PARAMS);
 
-		// initialize Sign 
+		// initialize Sign
 		rc = funcs->C_SignInit(session, &mech, priv_key);
 		if (rc != CKR_OK) {
 			testcase_error("C_SignInit(), rc=%s", p11_get_ckr(rc));
@@ -689,7 +699,7 @@ CK_RV do_SignVerify_RSAPSS(struct GENERATED_TEST_SUITE_INFO *tsuite)
 		testcase_new_assertion();
 		if (rc == CKR_OK)
 			testcase_pass("C_Verify.");
-		else 
+		else
 			testcase_fail("C_Verify(), rc=%s", p11_get_ckr(rc));
 
 		// clean up
@@ -963,7 +973,7 @@ CK_RV do_WrapUnwrapRSA(struct GENERATED_TEST_SUITE_INFO *tsuite)
 		 * unwrapping the key.
 		 */
 		if (((keygen_mech.mechanism == CKM_AES_KEY_GEN) ||
-		    (keygen_mech.mechanism == CKM_GENERIC_SECRET_KEY_GEN)) && 
+		    (keygen_mech.mechanism == CKM_GENERIC_SECRET_KEY_GEN)) &&
 		    (wrap_mech.mechanism == CKM_RSA_X_509)) {
 			unwrapped_keylen = tsuite->tv[i].keylen;
 			unwrap_tmpl_len = 3;

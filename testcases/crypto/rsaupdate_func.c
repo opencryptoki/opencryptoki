@@ -1,4 +1,14 @@
 /*
+ * COPYRIGHT (c) International Business Machines Corp. 2011-2017
+ *
+ * This program is provided under the terms of the Common Public License,
+ * version 1.0 (CPL-1.0). Any use, reproduction or distribution for this
+ * software constitutes recipient's acceptance of CPL-1.0 terms which can be
+ * found in the file LICENSE file or at
+ * https://opensource.org/licenses/cpl1.0.php
+ */
+
+ /*
  * openCryptoki testcase for RSA
  *
  * August 18, 2011
@@ -182,7 +192,7 @@ CK_RV do_SignVerifyUpdateRSA(struct GENERATED_TEST_SUITE_INFO *tsuite)
 				inc = len;
 			else
 				inc = CHUNK;
-			
+
 			rc = funcs->C_SignUpdate(session, message+count, inc);
 			if (rc != CKR_OK) {
 				testcase_error("C_SignUpdate(), rc=%s.", p11_get_ckr(rc));
@@ -229,7 +239,7 @@ CK_RV do_SignVerifyUpdateRSA(struct GENERATED_TEST_SUITE_INFO *tsuite)
 				inc = len;
 			else
 				inc = CHUNK;
-			
+
 			rc = funcs->C_VerifyUpdate(session, message+count, inc);
 			if (rc != CKR_OK) {
 				testcase_error("C_VerifyUpdate(), rc=%s.",
@@ -605,7 +615,7 @@ CK_RV do_VerifyUpdateRSA(struct PUBLISHED_TEST_SUITE_INFO *tsuite)
 
 	// iterate over test vectors
 	for (i = 0; i < tsuite->tvcount; i++){
-		
+
 		if (p11_ahex_dump(&s, tsuite->tv[i].pub_exp,
 				   tsuite->tv[i].pubexp_len) == NULL) {
 			testcase_error("p11_ahex_dump() failed");
@@ -615,7 +625,7 @@ CK_RV do_VerifyUpdateRSA(struct PUBLISHED_TEST_SUITE_INFO *tsuite)
 
 		testcase_begin("%s Verify with test vector %d.",
 				tsuite->name, i);
-		
+
 		// special case for EP11
 		// modulus length must be multiple of 128 byte
 		// skip test if modulus length has unsuported size
@@ -645,7 +655,7 @@ CK_RV do_VerifyUpdateRSA(struct PUBLISHED_TEST_SUITE_INFO *tsuite)
 				continue;
 			}
 		}
-		
+
 		// free memory
 		free(s);
 
@@ -696,7 +706,7 @@ CK_RV do_VerifyUpdateRSA(struct PUBLISHED_TEST_SUITE_INFO *tsuite)
 				inc = len;
 			else
 				inc = CHUNK;
-			
+
 			rc = funcs->C_VerifyUpdate(session, message + j, inc);
 			if (rc != CKR_OK) {
 				testcase_error("C_VerifyUpdate(), rc=%s.",
@@ -712,7 +722,7 @@ CK_RV do_VerifyUpdateRSA(struct PUBLISHED_TEST_SUITE_INFO *tsuite)
 		rc = funcs->C_VerifyFinal(session, signature, signature_len);
 		if (rc == CKR_OK) {
 			testcase_pass("C_Verify.");
-		} 
+		}
 		else {
 			testcase_fail("%s Sign Verify with test vector %d "
 				"failed.", tsuite->name, i);
@@ -772,7 +782,7 @@ CK_RV do_SignUpdateRSA(struct PUBLISHED_TEST_SUITE_INFO *tsuite)
 	CK_ULONG		user_pin_len;
 	CK_RV			rc, loc_rc;
 	char *s;
-	
+
 	// begin testsuite
 	testsuite_begin("%s Sign. ", tsuite->name);
 	testcase_rw_session();
@@ -942,7 +952,7 @@ CK_RV do_SignUpdateRSA(struct PUBLISHED_TEST_SUITE_INFO *tsuite)
 				goto testcase_cleanup;
 			}
 		}
-		
+
 		/* get the required length */
 		testcase_new_assertion();
 		rc = funcs->C_SignFinal(session, NULL, &actual_len);
@@ -950,21 +960,21 @@ CK_RV do_SignUpdateRSA(struct PUBLISHED_TEST_SUITE_INFO *tsuite)
 			testcase_error("C_SignFinal(),rc=%s.", p11_get_ckr(rc));
 			goto error;
 		}
-		if (actual_len == tsuite->tv[i].mod_len)	
+		if (actual_len == tsuite->tv[i].mod_len)
 			testcase_pass("C_SignFinal set output length.");
 		else {
 			testcase_fail("C_SignFinal failed to set length: "
-				      "expected %ld, got %ld.", 
+				      "expected %ld, got %ld.",
 				      actual_len, tsuite->tv[i].mod_len);
 			goto error;
 		}
-		
+
 		rc = funcs->C_SignFinal(session, actual, &actual_len);
 		if (rc != CKR_OK) {
 			testcase_error("C_SignFinal(),rc=%s.", p11_get_ckr(rc));
 			goto error;
 		}
-			
+
 		// check results
 		testcase_new_assertion();
 

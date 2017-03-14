@@ -1,4 +1,12 @@
 #!/usr/bin/perl
+#
+# COPYRIGHT (c) International Business Machines Corp. 2011-2017
+#
+# This program is provided under the terms of the Common Public License,
+# version 1.0 (CPL-1.0). Any use, reproduction or distribution for this software
+# constitutes recipient's acceptance of CPL-1.0 terms which can be found
+# in the file LICENSE file or at https://opensource.org/licenses/cpl1.0.php
+#
 # This script parses the RSA test vectors found in $in_file
 # and formats them for openCryptoki tests
 #
@@ -1654,4 +1662,3 @@ sub print_sig(){
 	print $siglen;
 	print ",\n";
 }
-
