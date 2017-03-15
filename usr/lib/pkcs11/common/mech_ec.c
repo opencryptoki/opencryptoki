@@ -1,16 +1,18 @@
 /*
- * Licensed materials, Property of IBM Corp.
+ * COPYRIGHT (c) International Business Machines Corp. 2001-2017
  *
- * openCryptoki CCA token
- *
- * (C) COPYRIGHT International Business Machines Corp. 2001, 2002, 2006
- *
+ * This program is provided under the terms of the Common Public License,
+ * version 1.0 (CPL-1.0). Any use, reproduction or distribution for this
+ * software constitutes recipient's acceptance of CPL-1.0 terms which can be
+ * found in the file LICENSE file or at
+ * https://opensource.org/licenses/cpl1.0.php
  */
 
-// File:  mech_ec.c
-//
-// Mechanisms for Elliptic Curve (EC)
-//
+/* File:  mech_ec.c
+ *
+ * Mechanisms for Elliptic Curve (EC)
+ */
+
 #include <stdio.h>
 #include <stdlib.h>
 #include <stdint.h>

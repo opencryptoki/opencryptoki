@@ -1,14 +1,21 @@
 /*
- * Licensed materials, Property of IBM Corp.
+ * COPYRIGHT (c) International Business Machines Corp. 2012-2017
  *
+ * This program is provided under the terms of the Common Public License,
+ * version 1.0 (CPL-1.0). Any use, reproduction or distribution for this
+ * software constitutes recipient's acceptance of CPL-1.0 terms which can be
+ * found in the file LICENSE file or at
+ * https://opensource.org/licenses/cpl1.0.php
+ */
+
+/*
  * OpenCryptoki ICSF token - LDAP functions
- *
- * (C) COPYRIGHT International Business Machines Corp. 2012
  *
  * Author: Marcelo Cerri (mhcerri@br.ibm.com)
  *         Eduardo Otubo (eotubo@br.ibm.com)
  *
  */
+
 #define _GNU_SOURCE
 #include <stdlib.h>
 #include <stdio.h>

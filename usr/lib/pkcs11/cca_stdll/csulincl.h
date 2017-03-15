@@ -1,10 +1,16 @@
+/*
+ * COPYRIGHT (c) International Business Machines Corp. 1997-2017
+ *
+ * This program is provided under the terms of the Common Public License,
+ * version 1.0 (CPL-1.0). Any use, reproduction or distribution for this
+ * software constitutes recipient's acceptance of CPL-1.0 terms which can be
+ * found in the file LICENSE file or at
+ * https://opensource.org/licenses/cpl1.0.php
+ */
+
 /******************************************************************************/
 /* Module Name: csulincl.h                                                    */
 /*                                                                            */
-/* Copyright notice:                                                          */
-/* Licensed Materials Property of IBM                                         */
-/* © Copyright IBM Corporation, 1997, 2014                                    */
-/* All Rights Reserved                                                        */
 /* US Government Users Restricted Rights - Use, duplication or disclosure     */
 /* restricted by GSA ADP Schedule Contract with IBM Corp.                     */
 /*                                                                            */
@@ -31,7 +37,7 @@
 
 /*
  * The following defintion statements are provided for backward compatibility in case
- * some old version of applications are referring to these statements. This definitions 
+ * some old version of applications are referring to these statements. This definitions
  * will be removed in future.
  */
 
@@ -1794,7 +1800,7 @@ extern void SECURITYAPI
            unsigned char * pReserved2);
 
 /* FPE Encipher */
-extern void SECURITYAPI    
+extern void SECURITYAPI
   CSNBFPEE(long         * pReturnCode,
            long         * pReasonCode,
            long         * pExitDataLength,
@@ -1829,7 +1835,7 @@ extern void SECURITYAPI
            unsigned char* pReserved2);
 
 /* FPE_Translate */
-extern void SECURITYAPI    
+extern void SECURITYAPI
   CSNBFPET(long         * pReturnCode,
            long         * pReasonCode,
            long         * pExitDataLength,
@@ -2248,7 +2254,7 @@ void SECURITYAPI
              unsigned char * Reserved6);
 
 /*Translate Characters */
-extern void SECURITYAPI                                                     
+extern void SECURITYAPI
       CSNBXEA(long          * ReturnCode,
               long          * ReasonCode,
               long          * ExitDataLength,
@@ -2695,4 +2701,3 @@ extern void SECURITYAPI
 
 #endif // TKE_WKSTN
 #endif // __CSULINCL__
-

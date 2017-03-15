@@ -1,10 +1,16 @@
+/*
+ * COPYRIGHT (c) International Business Machines Corp. 1997-2017
+ *
+ * This program is provided under the terms of the Common Public License,
+ * version 1.0 (CPL-1.0). Any use, reproduction or distribution for this
+ * software constitutes recipient's acceptance of CPL-1.0 terms which can be
+ * found in the file LICENSE file or at
+ * https://opensource.org/licenses/cpl1.0.php
+ */
+
 /******************************************************************************/
-/*  Licensed Materials Property of IBM                                        */
-/*  (C) Copyright IBM Corporation, 1997, 2016                                 */
-/*  All Rights Reserved                                                       */
-/*  US Government Users Restricted Rights -                                   */
-/*  Use, duplication or disclosure restricted by                              */
-/*  GSA ADP Schedule Contract with IBM Corp.                                  */
+/*  US Government Users Restricted Rights - Use, duplication or disclosure    */
+/* restricted by GSA ADP Schedule Contract with IBM Corp.                     */
 /******************************************************************************/
 /*                                                                            */
 /*  This header file contains the Security API C language                     */

@@ -1,10 +1,16 @@
 
 /*
- * Licensed materials, Property of IBM Corp.
+ * COPYRIGHT (c) International Business Machines Corp. 2001-2017
  *
+ * This program is provided under the terms of the Common Public License,
+ * version 1.0 (CPL-1.0). Any use, reproduction or distribution for this
+ * software constitutes recipient's acceptance of CPL-1.0 terms which can be
+ * found in the file LICENSE file or at
+ * https://opensource.org/licenses/cpl1.0.php
+ */
+
+/*
  * openCryptoki CCA token
- *
- * (C) COPYRIGHT International Business Machines Corp. 2001, 2002, 2006
  *
  * Author: Kent E. Yoder <yoder1@us.ibm.com>
  *
@@ -91,7 +97,7 @@ enum cca_key_type
 #define CCADBG(fn, rc, reason)		ock_logit("CCA_TOK DEBUG %s:%d  %s failed. return: %ld, reason: %ld\n", __FUNCTION__, __LINE__, fn, rc, reason)
 
 #define DBG(fmt, ...)		ock_logit("CCA_TOK DEBUG %s:%d %s " fmt "\n", \
-				__FILE__, __LINE__, __FUNCTION__, ##__VA_ARGS__)		
+				__FILE__, __LINE__, __FUNCTION__, ##__VA_ARGS__)
 #else
 #define CCADBG(...)			do { } while (0)
 #define DBG(...)			do { } while (0)
