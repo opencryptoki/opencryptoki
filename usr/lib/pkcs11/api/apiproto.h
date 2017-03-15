@@ -1,7 +1,3 @@
-/*
- * $Header: /cvsroot/opencryptoki/opencryptoki/usr/lib/pkcs11/api/apiproto.h,v 1.2 2006/04/05 20:07:45 kyoder Exp $
- */
-
  /*
   * COPYRIGHT (c) International Business Machines Corp. 2001-2017
   *

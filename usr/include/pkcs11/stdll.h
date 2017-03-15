@@ -1,7 +1,3 @@
-/*
- * $Header: /cvsroot/opencryptoki/opencryptoki/usr/include/pkcs11/stdll.h,v 1.2 2005/02/22 20:47:40 mhalcrow Exp $
- */
-
  /*
   * COPYRIGHT (c) International Business Machines Corp. 2001-2017
   *

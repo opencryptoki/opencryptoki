@@ -1,7 +1,3 @@
-/*
- * $Header: /cvsroot/opencryptoki/opencryptoki/usr/lib/pkcs11/common/tok_specific.h,v 1.4 2007/12/05 22:52:01 mhalcrow Exp $
- */
-
  /*
   * COPYRIGHT (c) International Business Machines Corp. 2001-2017
   *

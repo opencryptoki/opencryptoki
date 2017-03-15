@@ -1,7 +1,3 @@
-/*
- * $Header: /cvsroot/opencryptoki/opencryptoki/usr/lib/pkcs11/common/host_defs.h,v 1.8 2007/09/06 15:40:12 tlendacky Exp $
- */
-
  /*
   * COPYRIGHT (c) International Business Machines Corp. 2001-2017
   *

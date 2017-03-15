@@ -1,7 +1,3 @@
-/*
- * $Header: /cvsroot/opencryptoki/opencryptoki/usr/sbin/pkcsslotd/garbage_linux.h,v 1.3 2006/03/09 17:21:01 mhalcrow Exp $
- */
-
  /*
   * COPYRIGHT (c) International Business Machines Corp. 2001-2017
   *
