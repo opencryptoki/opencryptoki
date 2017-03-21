@@ -3586,23 +3586,20 @@ CK_RV ep11tok_get_mechanism_info(CK_MECHANISM_TYPE type,
 /* used for reading in the adapter config file,
  * converts a 'token' to a number, returns 0 with success
  */
-static inline short check_n(char *nptr, int j, int *apqn_i)
+static inline short check_n(char *nptr, int *apqn_i)
 {
-	char *endptr;
-	long int num = strtol(nptr, &endptr, 10);
+	int num;
 
-	if (*endptr != '\0') {
-		TRACE_ERROR("%s invalid number '%s' (%d)\n", __func__, nptr, j);
+	if (sscanf(nptr, "%i", &num) != 1) {
+		TRACE_ERROR("%s invalid number '%s'\n", __func__, nptr);
 		return -1;
 	}
 
 	if (num < 0 || num > 255) {
-		TRACE_ERROR("%s invalid number '%s' %d(%d)\n",
-			    __func__, nptr, (int)num, j);
+		TRACE_ERROR("%s invalid number '%s' %d\n", __func__, nptr, num);
 		return -1;
 	} else if (*apqn_i < 0 || *apqn_i >= MAX_APQN*2) {
-		TRACE_ERROR("%s invalid amount of numbers %d(%d)\n",
-			    __func__, (int)num, j);
+		TRACE_ERROR("%s invalid amount of numbers %d\n", __func__, num);
 		return -1;
 	} else {
 		/* insert number into target variable */
@@ -3617,12 +3614,10 @@ static inline short check_n(char *nptr, int j, int *apqn_i)
 static int read_adapter_config_file(const char* conf_name)
 {
 	FILE *ap_fp = NULL;       /* file pointer adapter config file */
-	int ap_file_size = 0;     /* size adapter config file */
+	int i, ap_file_size = 0;     /* size adapter config file */
 	char *token, *str;
 	char filebuf[EP11_CFG_FILE_SIZE];
 	char line[1024];
-	int i, j;
-	int blackmode = 0;
 	int whitemode = 0;
 	int anymode   = 0;
 	int apqn_i = 0;     /* how many APQN numbers */
@@ -3630,9 +3625,8 @@ static int read_adapter_config_file(const char* conf_name)
 	char fname[PATH_MAX];
 	int rc = 0;
 
-	if (ep11_initialized) {
+	if (ep11_initialized)
 		return 0;
-	}
 
 	memset(fname, 0, PATH_MAX);
 
@@ -3723,23 +3717,18 @@ static int read_adapter_config_file(const char* conf_name)
 	 * please note, we still accept the LOGLEVEL entry
 	 * for compatibility reasons but just ignore it.
 	 */
-	for (i=0, j=0, str=filebuf; rc == 0; str=NULL) {
+	for (i=0, str=filebuf; rc == 0; str=NULL) {
 		/* strtok tokenizes the string,
 		 * delimiters are newline and whitespace.
 		 */
 		token = strtok(str, "\n\t ");
 
 		if (i == 0) {
-			/* expecting APQN_WHITELIST or APQN_BLACKLIST
-			 * or APQN_ANY or LOGLEVEL or eof.
-			 */
+			/* expecting APQN_WHITELIST or APQN_ANY or LOGLEVEL or eof */
 			if (token == NULL)
 				break;
 			if (strncmp(token, "APQN_WHITELIST", 14) == 0) {
 				whitemode = 1;
-				i = 1;
-			} else if (strncmp(token, "APQN_BLACKLIST", 14) == 0) {
-				blackmode = 1;
 				i = 1;
 			} else if (strncmp(token, "APQN_ANY", 8) == 0) {
 				anymode = 1;
@@ -3749,8 +3738,8 @@ static int read_adapter_config_file(const char* conf_name)
 			else {
 				/* syntax error */
 				TRACE_ERROR("%s Expected APQN_WHITELIST or"
-					    " APQN_BLACKLIST or APQN_ANY or LOGLEVEL"
-					    " keyword, found '%s' in configfile\n",
+					    " APQN_ANY or LOGLEVEL keyword,"
+					    " found '%s' in configfile\n",
 					    __func__, token);
 				rc = APQN_FILE_SYNTAX_ERROR_0;
 				break;
@@ -3762,7 +3751,7 @@ static int read_adapter_config_file(const char* conf_name)
 			if (strncmp(token, "END", 3) == 0)
 				i = 0;
 			else {
-				if (check_n(token, j, &apqn_i) < 0) {
+				if (check_n(token, &apqn_i) < 0) {
 					rc = APQN_FILE_SYNTAX_ERROR_1;
 					break;
 				}
@@ -3778,7 +3767,7 @@ static int read_adapter_config_file(const char* conf_name)
 				rc = APQN_FILE_SYNTAX_ERROR_2;
 				break;
 			}
-			if (check_n(token, j, &apqn_i) < 0) {
+			if (check_n(token, &apqn_i) < 0) {
 				rc = APQN_FILE_SYNTAX_ERROR_3;
 				break;
 			}
@@ -3790,7 +3779,6 @@ static int read_adapter_config_file(const char* conf_name)
 				break;
 			}
 			i = 1;
-			j++;
 		} else if (i == 3) {
 			/* expecting log level value
 			 * (a number in the range 0...9)
@@ -3811,11 +3799,11 @@ static int read_adapter_config_file(const char* conf_name)
 
 	/* do some checks: */
 	if (rc == 0) {
-		if ( !(whitemode || blackmode || anymode)) {
+		if ( !(whitemode || anymode)) {
 			TRACE_ERROR("%s At least one APQN mode needs to be present in configfile:"
-				    " APQN_WHITEMODE or APQN_BLACKMODE or APQN_ANY\n", __func__);
+				    " APQN_WHITEMODE or APQN_ANY\n", __func__);
 			rc = APQN_FILE_NO_APQN_MODE;
-		} else if (whitemode || blackmode) {
+		} else if (whitemode) {
 			/* at least one APQN needs to be defined */
 			if (ep11_targets.length < 1) {
 				TRACE_ERROR("%s At least one APQN needs to be defined in the configfile\n",
@@ -3825,20 +3813,16 @@ static int read_adapter_config_file(const char* conf_name)
 		}
 	}
 
-	/* log the white- or blacklist of APQNs */
-	if (rc == 0 && (whitemode || blackmode)) {
-		TRACE_INFO("%s %s with %d APQNs defined:\n",
-			   __func__, blackmode ? "blacklist" : "whitelist",
-			   ep11_targets.length);
+	/* log the whitelist of APQNs */
+	if (rc == 0 && whitemode) {
+		TRACE_INFO("%s whitelist with %d APQNs defined:\n",
+			   __func__, ep11_targets.length);
 		for (i=0; i < ep11_targets.length; i++) {
-			TRACE_INFO(" APQN %d: %d %d\n", i,
+			TRACE_INFO(" APQN entry %d: adapter=%d domain=%d\n", i,
 				   ep11_targets.apqns[2*i],
 				   ep11_targets.apqns[2*i+1]);
 		}
 	}
-
-	if (blackmode == 1)
-		ep11_targets.length *= -1;
 
 	ep11_initialized = TRUE;
 	return rc;
