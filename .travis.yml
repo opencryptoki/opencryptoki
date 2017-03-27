@@ -13,7 +13,7 @@ before_script:
     - sudo usermod -G pkcs11 root
     - ./bootstrap.sh
 script:
-    - ./configure --enable-testcases && make
+    - ./configure --enable-testcases --enable-debug && make
     - sudo make install
     - sudo ldconfig
     - sudo touch /usr/local/var/lib/opencryptoki/pk_config_data
