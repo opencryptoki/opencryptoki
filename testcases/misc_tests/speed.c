@@ -52,7 +52,7 @@
 #undef GetSystemTime
 #endif
 #define GetSystemTime(x) gettimeofday((x),NULL)
-inline unsigned long delta_time_us(struct timeval *t1, struct timeval *t2)
+static inline unsigned long delta_time_us(struct timeval *t1, struct timeval *t2)
 {
 		 unsigned long d;
 		 struct timeval td;
