@@ -112,7 +112,7 @@ static m_shutdown_t		dll_m_shutdown;
 #ifdef DEBUG
 
 /* a simple function for dumping out a memory area */
-inline void hexdump(void *buf, size_t buflen)
+static inline void hexdump(void *buf, size_t buflen)
 {
 	/*           1         2         3         4         5         6
 		     0123456789012345678901234567890123456789012345678901234567890123456789
