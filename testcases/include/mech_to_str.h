@@ -382,6 +382,12 @@ mech_to_str(CK_ULONG mech)
 		 		 return "CKM_ECDSA";
 		 if (mech == CKM_ECDSA_SHA1)
 		 		 return "CKM_ECDSA_SHA1";
+		 if (mech == CKM_ECDSA_SHA256)
+				 return "CKM_ECDSA_SHA256";
+		 if (mech == CKM_ECDSA_SHA384)
+				 return "CKM_ECDSA_SHA384";
+		 if (mech == CKM_ECDSA_SHA512)
+				 return "CKM_ECDSA_SHA512";
 		 if (mech == CKM_ECDH1_DERIVE)
 		 		 return "CKM_ECDH1_DERIVE";
 		 if (mech == CKM_ECDH1_COFACTOR_DERIVE)

@@ -147,6 +147,9 @@ sign_mgr_init( SESSION                * sess,
 
       case CKM_ECDSA:
       case CKM_ECDSA_SHA1:
+      case CKM_ECDSA_SHA256:
+      case CKM_ECDSA_SHA384:
+      case CKM_ECDSA_SHA512:
          {
             if (mech->ulParameterLen != 0){
                TRACE_ERROR("%s\n", ock_err(ERR_MECHANISM_PARAM_INVALID));
@@ -802,6 +805,9 @@ sign_mgr_sign( SESSION              * sess,
                                in_data,  in_data_len,
 			       out_data, out_data_len );
       case CKM_ECDSA_SHA1:
+      case CKM_ECDSA_SHA256:
+      case CKM_ECDSA_SHA384:
+      case CKM_ECDSA_SHA512:
          return ec_hash_sign( sess, length_only, ctx,
                                in_data,  in_data_len,
                                out_data, out_data_len );
@@ -882,6 +888,9 @@ sign_mgr_sign_update( SESSION             * sess,
           return aes_mac_sign_update( sess, ctx, in_data, in_data_len );
 
       case CKM_ECDSA_SHA1:
+      case CKM_ECDSA_SHA256:
+      case CKM_ECDSA_SHA384:
+      case CKM_ECDSA_SHA512:
       	 return ec_hash_sign_update( sess, ctx, in_data, in_data_len );
 
       case CKM_SHA_1_HMAC:
@@ -955,6 +964,9 @@ sign_mgr_sign_final( SESSION             * sess,
          return aes_mac_sign_final( sess, length_only, ctx, signature, sig_len );
 
       case CKM_ECDSA_SHA1:
+      case CKM_ECDSA_SHA256:
+      case CKM_ECDSA_SHA384:
+      case CKM_ECDSA_SHA512:
 	 return ec_hash_sign_final (sess, length_only, ctx, signature, sig_len );
       case CKM_SHA_1_HMAC:
       case CKM_SHA256_HMAC:

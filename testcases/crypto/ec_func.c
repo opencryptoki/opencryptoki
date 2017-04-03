@@ -141,18 +141,27 @@ _ec_struct der_ec_notsupported[NUMECINVAL] = {
 typedef struct signVerifyParam {
 	CK_MECHANISM_TYPE	mechtype;
 	CK_ULONG		inputlen;
+	CK_ULONG		parts; /* 0 means process in 1 chunk via C_Sign, >0 means process in n chunks via C_SignUpdate/C_SignFinal */
 }_signVerifyParam;
 
 
 _signVerifyParam signVerifyInput[] = {
-	{ CKM_ECDSA, 20 },
-	{ CKM_ECDSA, 32 },
-	{ CKM_ECDSA, 48 },
-	{ CKM_ECDSA, 64 }
+	{ CKM_ECDSA, 20, 0},
+	{ CKM_ECDSA, 32, 0},
+	{ CKM_ECDSA, 48, 0 },
+	{ CKM_ECDSA, 64, 0 },
+	{ CKM_ECDSA_SHA1, 100, 0 },
+	{ CKM_ECDSA_SHA1, 100, 4 },
+	{ CKM_ECDSA_SHA256, 100, 0 },
+	{ CKM_ECDSA_SHA256, 100, 4 },
+	{ CKM_ECDSA_SHA384, 100, 0 },
+	{ CKM_ECDSA_SHA384, 100, 4 },
+	{ CKM_ECDSA_SHA512, 100, 0 },
+	{ CKM_ECDSA_SHA512, 100, 4 }
 };
 
 CK_RV
-run_GenerateSignVerifyECC(CK_SESSION_HANDLE session, CK_MECHANISM_TYPE mechType, CK_ULONG inputlen, CK_OBJECT_HANDLE priv_key, CK_OBJECT_HANDLE publ_key)
+run_GenerateSignVerifyECC(CK_SESSION_HANDLE session, CK_MECHANISM_TYPE mechType, CK_ULONG inputlen, CK_ULONG parts, CK_OBJECT_HANDLE priv_key, CK_OBJECT_HANDLE publ_key)
 {
 	CK_MECHANISM		mech2;
 	CK_BYTE_PTR		data = NULL, signature = NULL;
@@ -160,7 +169,7 @@ run_GenerateSignVerifyECC(CK_SESSION_HANDLE session, CK_MECHANISM_TYPE mechType,
 	CK_MECHANISM_INFO	mech_info;
 	CK_RV rc;
 
-	testcase_begin("Starting with mechtype='%s', inputlen=%lu", p11_get_ckm(mechType), inputlen);
+	testcase_begin("Starting with mechtype='%s', inputlen=%lu parts=%lu", p11_get_ckm(mechType), inputlen, parts);
 
 	mech2.mechanism	= mechType;
 	mech2.ulParameterLen = 0;
@@ -199,11 +208,28 @@ run_GenerateSignVerifyECC(CK_SESSION_HANDLE session, CK_MECHANISM_TYPE mechType,
 		goto testcase_cleanup;
 	}
 
-	/* get signature length */
-	rc = funcs->C_Sign(session, data, inputlen, NULL, &signaturelen);
-	if (rc != CKR_OK) {
-		testcase_error("C_Sign rc=%s", p11_get_ckr(rc));
-		goto testcase_cleanup;
+	if (parts > 0) {
+		for (i = 0; i < parts; i++) {
+			rc = funcs->C_SignUpdate(session, data, inputlen);
+			if (rc != CKR_OK) {
+				testcase_error("C_SignUpdate rc=%s", p11_get_ckr(rc));
+				goto testcase_cleanup;
+			}
+		}
+
+		/* get signature length */
+		rc = funcs->C_SignFinal(session, signature, &signaturelen);
+		if (rc != CKR_OK) {
+			testcase_error("C_SignFinal rc=%s", p11_get_ckr(rc));
+			goto testcase_cleanup;
+		}
+	}
+	else {
+		rc = funcs->C_Sign(session, data, inputlen, NULL, &signaturelen);
+		if (rc != CKR_OK) {
+			testcase_error("C_Sign rc=%s", p11_get_ckr(rc));
+			goto testcase_cleanup;
+		}
 	}
 
 	signature = calloc(sizeof(CK_BYTE), signaturelen);
@@ -214,10 +240,19 @@ run_GenerateSignVerifyECC(CK_SESSION_HANDLE session, CK_MECHANISM_TYPE mechType,
 		goto testcase_cleanup;
 	}
 
-	rc = funcs->C_Sign(session, data, inputlen, signature, &signaturelen);
-	if (rc != CKR_OK) {
-		testcase_error("C_Sign rc=%s", p11_get_ckr(rc));
-		goto testcase_cleanup;
+	if (parts > 0) {
+		rc = funcs->C_SignFinal(session,signature, &signaturelen);
+		if (rc != CKR_OK) {
+			testcase_error("C_SignFinal rc=%s", p11_get_ckr(rc));
+			goto testcase_cleanup;
+		}
+	}
+	else {
+		rc = funcs->C_Sign(session, data, inputlen, signature, &signaturelen);
+		if (rc != CKR_OK) {
+			testcase_error("C_Sign rc=%s", p11_get_ckr(rc));
+			goto testcase_cleanup;
+		}
 	}
 
 	/****** Verify *******/
@@ -227,10 +262,27 @@ run_GenerateSignVerifyECC(CK_SESSION_HANDLE session, CK_MECHANISM_TYPE mechType,
 		goto testcase_cleanup;
 	}
 
-	rc = funcs->C_Verify(session, data, inputlen, signature, signaturelen);
-	if (rc != CKR_OK) {
-		testcase_error("C_Verify rc=%s", p11_get_ckr(rc));
-		goto testcase_cleanup;
+	if (parts > 0) {
+		for (i = 0; i < parts; i++) {
+			rc = funcs->C_VerifyUpdate(session, data, inputlen);
+			if (rc != CKR_OK) {
+				testcase_error("C_VerifyUpdate rc=%s", p11_get_ckr(rc));
+				goto testcase_cleanup;
+			}
+		}
+
+		rc = funcs->C_VerifyFinal(session, signature, signaturelen);
+		if (rc != CKR_OK) {
+			testcase_error("C_VerifyFinal rc=%s", p11_get_ckr(rc));
+			goto testcase_cleanup;
+		}
+	}
+	else {
+		rc = funcs->C_Verify(session, data, inputlen, signature, signaturelen);
+		if (rc != CKR_OK) {
+			testcase_error("C_Verify rc=%s", p11_get_ckr(rc));
+			goto testcase_cleanup;
+		}
 	}
 
 	// corrupt the signature and re-verify
@@ -242,11 +294,29 @@ run_GenerateSignVerifyECC(CK_SESSION_HANDLE session, CK_MECHANISM_TYPE mechType,
 		goto testcase_cleanup;
 	}
 
-	rc = funcs->C_Verify(session, data, inputlen, signature, signaturelen);
-	if (rc != CKR_SIGNATURE_INVALID) {
-		testcase_error("C_Verify rc=%s", p11_get_ckr(rc));
-		PRINT_ERR("		Expected CKR_SIGNATURE_INVALID\n");
-		goto testcase_cleanup;
+	if (parts > 0) {
+		for (i = 0; i < parts; i++) {
+			rc = funcs->C_VerifyUpdate(session, data, inputlen);
+			if (rc != CKR_OK) {
+				testcase_error("C_VerifyUpdate rc=%s", p11_get_ckr(rc));
+				goto testcase_cleanup;
+			}
+		}
+
+		rc = funcs->C_VerifyFinal(session, signature, signaturelen);
+		if (rc != CKR_SIGNATURE_INVALID) {
+			testcase_error("C_VerifyFinal rc=%s", p11_get_ckr(rc));
+			PRINT_ERR("		Expected CKR_SIGNATURE_INVALID\n");
+			goto testcase_cleanup;
+		}
+	}
+	else {
+		rc = funcs->C_Verify(session, data, inputlen, signature, signaturelen);
+		if (rc != CKR_SIGNATURE_INVALID) {
+			testcase_error("C_Verify rc=%s", p11_get_ckr(rc));
+			PRINT_ERR("		Expected CKR_SIGNATURE_INVALID\n");
+			goto testcase_cleanup;
+		}
 	}
 
 	rc = CKR_OK;
@@ -325,6 +395,7 @@ run_GenerateECCKeyPairSignVerify()
 					session,
 					signVerifyInput[j].mechtype,
 					signVerifyInput[j].inputlen,
+					signVerifyInput[j].parts,
 					priv_key,
 					publ_key);
 			if (rc != 0) {

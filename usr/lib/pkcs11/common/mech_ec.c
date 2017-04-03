@@ -145,12 +145,12 @@ ckm_ec_sign( CK_BYTE		*in_data,
 
 CK_RV
 ec_sign( SESSION			*sess,
-               CK_BBOOL			length_only,
-               SIGN_VERIFY_CONTEXT	*ctx,
-               CK_BYTE			*in_data,
-               CK_ULONG			in_data_len,
-               CK_BYTE			*out_data,
-               CK_ULONG			*out_data_len )
+	       CK_BBOOL			length_only,
+	       SIGN_VERIFY_CONTEXT	*ctx,
+	       CK_BYTE			*in_data,
+	       CK_ULONG			in_data_len,
+	       CK_BYTE			*out_data,
+	       CK_ULONG			*out_data_len )
 {
 	OBJECT          *key_obj   = NULL;
 	CK_ULONG         plen;
@@ -274,7 +274,7 @@ ec_hash_sign( SESSION              * sess,
 		CK_BYTE              * signature,
 		CK_ULONG             * sig_len )
 {
-   CK_BYTE              hash[SHA1_HASH_SIZE];
+   CK_BYTE              hash[MAX_SHA_HASH_SIZE];
    DIGEST_CONTEXT       digest_ctx;
    SIGN_VERIFY_CONTEXT  sign_ctx;
    CK_MECHANISM         digest_mech;
@@ -289,16 +289,38 @@ ec_hash_sign( SESSION              * sess,
    memset( &digest_ctx, 0x0, sizeof(digest_ctx) );
    memset( &sign_ctx,   0x0, sizeof(sign_ctx)   );
 
-   digest_mech.mechanism      = CKM_SHA_1;
+   switch(ctx->mech.mechanism){
+   case CKM_ECDSA_SHA1:
+       digest_mech.mechanism = CKM_SHA_1;
+       break;
+   case CKM_ECDSA_SHA256:
+       digest_mech.mechanism = CKM_SHA256;
+       break;
+   case CKM_ECDSA_SHA384:
+       digest_mech.mechanism = CKM_SHA384;
+       break;
+   case CKM_ECDSA_SHA512:
+       digest_mech.mechanism = CKM_SHA512;
+       break;
+   default:
+       return CKR_MECHANISM_INVALID;
+   }
+
    digest_mech.ulParameterLen = 0;
    digest_mech.pParameter     = NULL;
+
+   rc = get_sha_size(digest_mech.mechanism, &hash_len);
+   if (rc != CKR_OK){
+      TRACE_DEVEL("Get SHA Size failed.\n");
+      return rc;
+   }
 
    rc = digest_mgr_init( sess, &digest_ctx, &digest_mech );
    if (rc != CKR_OK){
       TRACE_DEVEL("Digest Mgr Init failed.\n");
       return rc;
    }
-   hash_len = sizeof(hash);
+
    rc = digest_mgr_digest( sess, length_only, &digest_ctx, in_data, in_data_len, hash, &hash_len );
    if (rc != CKR_OK){
       TRACE_DEVEL("Digest Mgr Digest failed.\n");
@@ -326,9 +348,9 @@ error:
 
 CK_RV
 ec_hash_sign_update( SESSION              * sess,
-                     SIGN_VERIFY_CONTEXT  * ctx,
-                     CK_BYTE              * in_data,
-                     CK_ULONG               in_data_len )
+		     SIGN_VERIFY_CONTEXT  * ctx,
+		     CK_BYTE              * in_data,
+		     CK_ULONG               in_data_len )
 {
    RSA_DIGEST_CONTEXT  * context = NULL;
    CK_MECHANISM          digest_mech;
@@ -341,14 +363,30 @@ ec_hash_sign_update( SESSION              * sess,
    context = (RSA_DIGEST_CONTEXT *)ctx->context;
 
    if (context->flag == FALSE) {
-      digest_mech.mechanism = CKM_SHA_1;
+      switch(ctx->mech.mechanism){
+      case CKM_ECDSA_SHA1:
+	  digest_mech.mechanism = CKM_SHA_1;
+	  break;
+      case CKM_ECDSA_SHA256:
+	  digest_mech.mechanism = CKM_SHA256;
+	  break;
+      case CKM_ECDSA_SHA384:
+	  digest_mech.mechanism = CKM_SHA384;
+	  break;
+      case CKM_ECDSA_SHA512:
+	  digest_mech.mechanism = CKM_SHA512;
+	  break;
+      default:
+	  return CKR_MECHANISM_INVALID;
+      }
+
       digest_mech.ulParameterLen = 0;
       digest_mech.pParameter     = NULL;
 
       rc = digest_mgr_init( sess, &context->hash_context, &digest_mech );
       if (rc != CKR_OK){
 	 TRACE_DEVEL("Digest Mgr Init failed.\n");
-         return rc;
+	 return rc;
       }
       context->flag = TRUE;
    }
@@ -363,12 +401,12 @@ ec_hash_sign_update( SESSION              * sess,
 
 CK_RV
 ec_hash_sign_final( SESSION              * sess,
-                    CK_BBOOL               length_only,
-                    SIGN_VERIFY_CONTEXT  * ctx,
-                    CK_BYTE              * signature,
-                    CK_ULONG             * sig_len )
+		    CK_BBOOL               length_only,
+		    SIGN_VERIFY_CONTEXT  * ctx,
+		    CK_BYTE              * signature,
+		    CK_ULONG             * sig_len )
 {
-   CK_BYTE               hash[SHA1_HASH_SIZE];
+   CK_BYTE               hash[MAX_SHA_HASH_SIZE];
    RSA_DIGEST_CONTEXT  * context = NULL;
    CK_ULONG              hash_len;
    CK_MECHANISM          sign_mech;
@@ -384,7 +422,12 @@ ec_hash_sign_final( SESSION              * sess,
 
    context = (RSA_DIGEST_CONTEXT *)ctx->context;
 
-   hash_len = sizeof(hash);
+   rc = get_sha_size(context->hash_context.mech.mechanism, &hash_len);
+   if (rc != CKR_OK){
+      TRACE_DEVEL("Get SHA Size failed.\n");
+      return rc;
+   }
+
    rc = digest_mgr_digest_final( sess, length_only, &context->hash_context, hash, &hash_len );
    if (rc != CKR_OK){
       TRACE_DEVEL("Digest Mgr Final failed.\n");
@@ -418,13 +461,13 @@ done:
 
 CK_RV
 ec_hash_verify( SESSION              * sess,
-                SIGN_VERIFY_CONTEXT  * ctx,
-                CK_BYTE              * in_data,
-                CK_ULONG               in_data_len,
-                CK_BYTE              * signature,
-                CK_ULONG               sig_len )
+		SIGN_VERIFY_CONTEXT  * ctx,
+		CK_BYTE              * in_data,
+		CK_ULONG               in_data_len,
+		CK_BYTE              * signature,
+		CK_ULONG               sig_len )
 {
-   CK_BYTE              hash[SHA1_HASH_SIZE];
+   CK_BYTE              hash[MAX_SHA_HASH_SIZE];
    DIGEST_CONTEXT       digest_ctx;
    SIGN_VERIFY_CONTEXT  verify_ctx;
    CK_MECHANISM         digest_mech;
@@ -439,16 +482,38 @@ ec_hash_verify( SESSION              * sess,
    memset( &digest_ctx, 0x0, sizeof(digest_ctx) );
    memset( &verify_ctx, 0x0, sizeof(verify_ctx) );
 
-   digest_mech.mechanism      = CKM_SHA_1;
+   switch(ctx->mech.mechanism){
+   case CKM_ECDSA_SHA1:
+       digest_mech.mechanism = CKM_SHA_1;
+       break;
+   case CKM_ECDSA_SHA256:
+       digest_mech.mechanism = CKM_SHA256;
+       break;
+   case CKM_ECDSA_SHA384:
+       digest_mech.mechanism = CKM_SHA384;
+       break;
+   case CKM_ECDSA_SHA512:
+       digest_mech.mechanism = CKM_SHA512;
+       break;
+   default:
+       return CKR_MECHANISM_INVALID;
+   }
+
    digest_mech.ulParameterLen = 0;
    digest_mech.pParameter     = NULL;
+
+   rc = get_sha_size(digest_mech.mechanism, &hash_len);
+   if (rc != CKR_OK){
+      TRACE_DEVEL("Get SHA Size failed.\n");
+      return rc;
+   }
 
    rc = digest_mgr_init( sess, &digest_ctx, &digest_mech );
    if (rc != CKR_OK){
       TRACE_DEVEL("Digest Mgr Init failed.\n");
       return rc;
    }
-   hash_len = sizeof(hash);
+
    rc = digest_mgr_digest( sess, FALSE, &digest_ctx, in_data, in_data_len, hash, &hash_len );
    if (rc != CKR_OK){
       TRACE_DEVEL("Digest Mgr Digest failed.\n");
@@ -479,9 +544,9 @@ done:
 
 CK_RV
 ec_hash_verify_update( SESSION              * sess,
-                       SIGN_VERIFY_CONTEXT  * ctx,
-                       CK_BYTE              * in_data,
-                       CK_ULONG               in_data_len )
+		       SIGN_VERIFY_CONTEXT  * ctx,
+		       CK_BYTE              * in_data,
+		       CK_ULONG               in_data_len )
 {
    RSA_DIGEST_CONTEXT  * context = NULL;
    CK_MECHANISM          digest_mech;
@@ -494,14 +559,30 @@ ec_hash_verify_update( SESSION              * sess,
    context = (RSA_DIGEST_CONTEXT *)ctx->context;
 
    if (context->flag == FALSE) {
-      digest_mech.mechanism = CKM_SHA_1;
+      switch(ctx->mech.mechanism){
+      case CKM_ECDSA_SHA1:
+	  digest_mech.mechanism = CKM_SHA_1;
+	  break;
+      case CKM_ECDSA_SHA256:
+	  digest_mech.mechanism = CKM_SHA256;
+	  break;
+      case CKM_ECDSA_SHA384:
+	  digest_mech.mechanism = CKM_SHA384;
+	  break;
+      case CKM_ECDSA_SHA512:
+	  digest_mech.mechanism = CKM_SHA512;
+	  break;
+      default:
+	  return CKR_MECHANISM_INVALID;
+      }
+
       digest_mech.ulParameterLen = 0;
       digest_mech.pParameter     = NULL;
 
       rc = digest_mgr_init( sess, &context->hash_context, &digest_mech );
       if (rc != CKR_OK){
 	 TRACE_DEVEL("Digest Mgr Init failed.\n");
-         return rc;
+	 return rc;
       }
       context->flag = TRUE;
    }
@@ -516,11 +597,11 @@ ec_hash_verify_update( SESSION              * sess,
 
 CK_RV
 ec_hash_verify_final( SESSION              * sess,
-                      SIGN_VERIFY_CONTEXT  * ctx,
-                      CK_BYTE              * signature,
-                      CK_ULONG               sig_len )
+		      SIGN_VERIFY_CONTEXT  * ctx,
+		      CK_BYTE              * signature,
+		      CK_ULONG               sig_len )
 {
-   CK_BYTE               hash[SHA1_HASH_SIZE];
+   CK_BYTE               hash[MAX_SHA_HASH_SIZE];
    RSA_DIGEST_CONTEXT  * context = NULL;
    CK_ULONG              hash_len;
    CK_MECHANISM          verify_mech;
@@ -535,7 +616,12 @@ ec_hash_verify_final( SESSION              * sess,
 
    context = (RSA_DIGEST_CONTEXT *)ctx->context;
 
-   hash_len = sizeof(hash);
+   rc = get_sha_size(context->hash_context.mech.mechanism, &hash_len);
+   if (rc != CKR_OK){
+      TRACE_DEVEL("Get SHA Size failed.\n");
+      return rc;
+   }
+
    rc = digest_mgr_digest_final( sess, FALSE, &context->hash_context, hash, &hash_len );
    if (rc != CKR_OK){
       TRACE_DEVEL("Digest Mgr Final failed.\n");

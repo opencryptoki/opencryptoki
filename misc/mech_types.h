@@ -234,6 +234,10 @@ typedef CK_ULONG          CK_MECHANISM_TYPE;
 #define CKM_EC_KEY_PAIR_GEN            0x00001040
 #define CKM_ECDSA                      0x00001041
 #define CKM_ECDSA_SHA1                 0x00001042
+/* The following are new for v2.3 */
+#define CKM_ECDSA_SHA256               0x00001044
+#define CKM_ECDSA_SHA384               0x00001045
+#define CKM_ECDSA_SHA512               0x00001046
 /* The following are new for v2.11 */
 #define CKM_ECDH1_DERIVE               0x00001050
 #define CKM_ECDH1_COFACTOR_DERIVE      0x00001051

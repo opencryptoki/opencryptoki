@@ -144,6 +144,9 @@ verify_mgr_init( SESSION             * sess,
 
       case CKM_ECDSA:
       case CKM_ECDSA_SHA1:
+      case CKM_ECDSA_SHA256:
+      case CKM_ECDSA_SHA384:
+      case CKM_ECDSA_SHA512:
          {
             if (mech->ulParameterLen != 0){
                TRACE_ERROR("%s\n", ock_err(ERR_MECHANISM_PARAM_INVALID));
@@ -800,6 +803,9 @@ verify_mgr_verify( SESSION             * sess,
                          in_data, in_data_len, signature, sig_len);
 
       case CKM_ECDSA_SHA1:
+      case CKM_ECDSA_SHA256:
+      case CKM_ECDSA_SHA384:
+      case CKM_ECDSA_SHA512:
          return ec_hash_verify( sess,	ctx,
                                  in_data,   in_data_len,
                                  signature, sig_len );
@@ -868,6 +874,9 @@ verify_mgr_verify_update( SESSION             * sess,
           return aes_mac_verify_update( sess, ctx, in_data, in_data_len );
 
       case CKM_ECDSA_SHA1:
+      case CKM_ECDSA_SHA256:
+      case CKM_ECDSA_SHA384:
+      case CKM_ECDSA_SHA512:
 	 return ec_hash_verify_update( sess, ctx, in_data, in_data_len );
 
       case CKM_SHA_1_HMAC:
@@ -937,6 +946,9 @@ verify_mgr_verify_final( SESSION             * sess,
          return aes_mac_verify_final( sess, ctx, signature, sig_len );
 
       case CKM_ECDSA_SHA1:
+      case CKM_ECDSA_SHA256:
+      case CKM_ECDSA_SHA384:
+      case CKM_ECDSA_SHA512:
 	 return ec_hash_verify_final( sess, ctx, signature, sig_len );
 
       case CKM_SHA_1_HMAC:
