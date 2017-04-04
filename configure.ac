@@ -35,8 +35,21 @@ AC_PATH_PROG([CHMOD], [chmod], [/bin/chmod])
 AC_PATH_PROG([CHGRP], [chgrp], [/bin/chgrp])
 AC_PROG_SED
 AC_PROG_MKDIR_P
+
 AM_PROG_LEX
+if test "x$LEX" != "xflex"; then
+    AC_MSG_ERROR(['flex' is missing on your system. Please install 'flex'.])
+fi
+
 AC_PROG_YACC
+if test "x$YACC" = "xyacc"; then
+    # AC_PROG_YACC only checks for yacc replacements, not for yacc itself
+    AC_CHECK_PROG([YACC_FOUND], [yacc], [yes], [no])
+    if test "x$YACC_FOUND" = "xno"; then
+        AC_MSG_ERROR(['YACC' program is missing on your system. Please install 'bison'.])
+    fi
+fi
+
 
 dnl Define custom variables
 
