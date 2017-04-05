@@ -27,7 +27,49 @@
 int do_GetFunctionList(void);
 
 CK_FUNCTION_LIST  *funcs;
-CK_SLOT_ID  SLOT_ID;
+
+
+CK_RV do_Cleanup(CK_SESSION_HANDLE sess)
+{
+	CK_RV rv;
+	CK_ULONG count;
+	CK_OBJECT_HANDLE handle;
+	CK_CHAR label[128];
+	CK_ATTRIBUTE tlabel = { CKA_LABEL, label, sizeof(label) };
+
+	rv = funcs->C_FindObjectsInit(sess, NULL, 0);
+	if (rv != CKR_OK) {
+		show_error("   C_FindObjectsInit #1", rv );
+		return rv;
+	}
+
+	while (1) {
+		rv = funcs->C_FindObjects(sess, &handle, 1, &count);
+		if (rv != CKR_OK) {
+			show_error("   C_FindObjects #1", rv );
+			return rv;
+		}
+		if (count < 1) break;
+		rv = funcs->C_GetAttributeValue(sess, handle, &tlabel, 1);
+		if (rv != CKR_OK)
+			continue;
+		if (strncmp(label, "XXX DELETE ME", 13) == 0) {
+			rv = funcs->C_DestroyObject(sess, handle);
+			if (rv != CKR_OK) {
+				show_error("   C_DestroyObject", rv );
+			}
+		}
+	}
+
+	rv = funcs->C_FindObjectsFinal(sess);
+	if (rv != CKR_OK) {
+		show_error("   C_FindObjectsFinal #1", rv );
+		return rv;
+	}
+
+	return rv;
+}
+
 
 CK_RV
 do_VerifyTokenRSAKeyPair(CK_SESSION_HANDLE sess, CK_BYTE *label, CK_ULONG bits)
@@ -90,9 +132,9 @@ do_VerifyTokenRSAKeyPair(CK_SESSION_HANDLE sess, CK_BYTE *label, CK_ULONG bits)
 			}
 
 			/* The public exponent is element 0 and modulus is element 1 */
-			if (pub_attrs[0].ulValueLen > 514 || pub_attrs[1].ulValueLen > 514) {
-				PRINT_ERR("e_size (%lu) or n_size (%lu) too big!",
-					  pub_attrs[0].ulValueLen, pub_attrs[1].ulValueLen);
+			if (pub_attrs[0].ulValueLen > (bits/8) || pub_attrs[1].ulValueLen > (bits/8)) {
+				PRINT_ERR("RSA public key '%s' e_size (%lu) or n_size (%lu) too big!",
+					  label, pub_attrs[0].ulValueLen, pub_attrs[1].ulValueLen);
 				return CKR_FUNCTION_FAILED;
 			}
 
@@ -180,28 +222,23 @@ do_GenerateTokenRSAKeyPair(CK_SESSION_HANDLE sess, CK_BYTE *label, CK_ULONG bits
 }
 
 
-//
-//
-	int
-main( int argc, char **argv )
+int main( int argc, char **argv )
 {
 	CK_C_INITIALIZE_ARGS  cinit_args;
-	int  i, bits;
-	CK_RV rv;
-	SLOT_ID = 0;
+	int		    i, bits, ret = 1;
+	CK_RV		    rv;
 	CK_BYTE             user_pin[128];
 	CK_ULONG            user_pin_len;
-	CK_SLOT_ID          slot_id;
+	CK_SLOT_ID          slot_id = 0;
 	CK_SESSION_HANDLE   session;
 	CK_FLAGS            flags;
 	CK_MECHANISM_INFO   rsakeygeninfo;
 	CK_BYTE             label[256];
 
-
 	for (i=1; i < argc; i++) {
 		if (strcmp(argv[i], "-slot") == 0) {
 			++i;
-			SLOT_ID = atoi(argv[i]);
+			slot_id = atoi(argv[i]);
 		}
 
 		if (strcmp(argv[i], "-h") == 0) {
@@ -213,14 +250,12 @@ main( int argc, char **argv )
 		}
 	}
 
-	printf("Using slot #%lu...\n\n", SLOT_ID );
-
-	slot_id = SLOT_ID;
+	printf("Using slot #%lu...\n\n", slot_id );
 
 	rv = do_GetFunctionList();
 	if (rv != TRUE) {
 		show_error("do_GetFunctionList", rv);
-		return -1;
+		goto out;
 	}
 
 	memset( &cinit_args, 0x0, sizeof(cinit_args) );
@@ -230,7 +265,7 @@ main( int argc, char **argv )
 
 	if ((rv = funcs->C_Initialize( &cinit_args ))) {
 		show_error("C_Initialize", rv);
-		return -1;
+		goto out;
 	}
 
 	if (get_user_pin(user_pin))
@@ -241,19 +276,25 @@ main( int argc, char **argv )
 	rv = funcs->C_OpenSession( slot_id, flags, NULL, NULL, &session );
 	if (rv != CKR_OK) {
 		show_error("   C_OpenSession #1", rv );
-		return rv;
+		goto finalize;
 	}
 
 	rv = funcs->C_Login( session, CKU_USER, user_pin, user_pin_len );
 	if (rv != CKR_OK) {
 		show_error("   C_Login #1", rv );
-		return rv;
+		goto close_session;
+	}
+
+	rv = do_Cleanup(session);
+	if (rv != CKR_OK) {
+		show_error("do_Cleanup()", rv);
+		goto close_session;
 	}
 
 	rv = funcs->C_GetMechanismInfo(slot_id, CKM_RSA_PKCS_KEY_PAIR_GEN, &rsakeygeninfo);
 	if (rv != CKR_OK) {
 		show_error("C_GetMechanismInfo(CKM_RSA_PKCS_KEY_PAIR_GEN)", rv);
-		return -1;
+		goto close_session;
 	}
 
 	bits = 512;
@@ -262,7 +303,7 @@ main( int argc, char **argv )
 		rv = do_GenerateTokenRSAKeyPair(session, label, bits);
 		if (rv != CKR_OK) {
 			show_error("do_GenerateTokenRSAKeyPair(512)", rv);
-			return -1;
+			goto close_session;
 		}
 	} else {
 		testcase_skip("do_GenerateTokenRSAKeyPair(512)");
@@ -274,7 +315,7 @@ main( int argc, char **argv )
 		rv = do_GenerateTokenRSAKeyPair(session, label, bits);
 		if (rv != CKR_OK) {
 			show_error("do_GenerateTokenRSAKeyPair(1024)", rv);
-			return -1;
+			goto close_session;
 		}
 	} else {
 		testcase_skip("do_GenerateTokenRSAKeyPair(1024)");
@@ -286,7 +327,7 @@ main( int argc, char **argv )
 		rv = do_GenerateTokenRSAKeyPair(session, label, bits);
 		if (rv != CKR_OK) {
 			show_error("do_GenerateTokenRSAKeyPair(2048)", rv);
-			return -1;
+			goto close_session;
 		}
 	} else {
 		testcase_skip("do_GenerateTokenRSAKeyPair(2048)");
@@ -298,7 +339,7 @@ main( int argc, char **argv )
 		rv = do_GenerateTokenRSAKeyPair(session, label, bits);
 		if (rv != CKR_OK) {
 			show_error("do_GenerateTokenRSAKeyPair(4096)", rv);
-			return -1;
+			goto close_session;
 		}
 	} else {
 		testcase_skip("do_GenerateTokenRSAKeyPair(4096)");
@@ -307,19 +348,19 @@ main( int argc, char **argv )
 	rv = funcs->C_CloseSession( session );
 	if (rv != CKR_OK) {
 		show_error("   C_CloseSession #3", rv );
-		return rv;
+		goto finalize;
 	}
 
 	rv = funcs->C_Finalize( NULL );
 	if (rv != CKR_OK) {
 		show_error("C_Finalize", rv);
-		return -1;
+		goto out;
 	}
 
 	/* Open a new session and re-login */
 	if ((rv = funcs->C_Initialize( &cinit_args ))) {
 		show_error("C_Initialize", rv);
-		return -1;
+		goto out;
 	}
 
 	rv = funcs->C_OpenSession( slot_id, flags, NULL, NULL, &session );
@@ -360,6 +401,7 @@ main( int argc, char **argv )
 		rv = do_VerifyTokenRSAKeyPair(session, label, bits);
 		if (rv != CKR_OK) {
 			show_error("do_VerifyTokenRSAKeyPair(2048)", rv);
+			goto close_session;
 		}
 	}
 
@@ -369,23 +411,34 @@ main( int argc, char **argv )
 		rv = do_VerifyTokenRSAKeyPair(session, label, bits);
 		if (rv != CKR_OK) {
 			show_error("do_VerifyTokenRSAKeyPair(4096)", rv);
+			goto close_session;
 		}
 	}
 
+	rv = do_Cleanup(session);
+	if (rv != CKR_OK) {
+		show_error("do_Cleanup()", rv);
+		goto close_session;
+	}
+
+	ret = 0;
 close_session:
 	rv = funcs->C_CloseSession( session );
 	if (rv != CKR_OK) {
 		show_error("   C_CloseSession #3", rv );
-		return rv;
+		ret = 1;
 	}
 finalize:
 	rv = funcs->C_Finalize( NULL );
 	if (rv != CKR_OK) {
 		show_error("C_Finalize", rv);
-		return -1;
+		ret = 1;
 	}
+out:
+	if (ret == 0)
+		printf("%s: Success\n", argv[0]);
+	else
+		printf("%s: Failure\n", argv[0]);
 
-	printf("%s: Success\n", argv[0]);
-
-	return 0;
+	return ret;
 }

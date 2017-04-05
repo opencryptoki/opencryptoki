@@ -34,22 +34,31 @@ ber_encode_INTEGER( CK_BBOOL    length_only,
                     CK_ULONG    data_len )
 {
    CK_BYTE   *buf = NULL;
-   CK_ULONG   len;
+   CK_ULONG   len, padding = 0;
 
+   // ber encoded integers are alway signed. So if the msb of the first byte
+   // is set, this would indicate an negative value if we just copy the
+   // (unsigned) big integer from *data to the ber buffer. So in this case
+   // a preceding 0x00 byte is stored before the actual data. The decode
+   // function does the reverse and may skip this padding.
+
+   if ((length_only && (!data || *data & 0x80))
+       || (*data & 0x80))
+	   padding = 1;
 
    // if data_len < 127 use short-form length id
    // if data_len < 256 use long-form length id with 1-byte length field
    // if data_len < 65536 use long-form length id with 2-byte length field
    // if data_len < 16777216 use long-form length id with 3-byte length field
    //
-   if (data_len < 128)
-      len = 1 + 1 + data_len;
-   else if (data_len < 256)
-      len = 1 + (1 + 1) + data_len;
-   else if (data_len < (1 << 16))
-      len = 1 + (1 + 2) + data_len;
-   else if (data_len < (1 << 24))
-      len = 1 + (1 + 3) + data_len;
+   if (data_len + padding < 128)
+      len = 1 + 1 + padding + data_len;
+   else if (data_len + padding < 256)
+      len = 1 + (1 + 1) + padding + data_len;
+   else if (data_len + padding < (1 << 16))
+      len = 1 + (1 + 2) + padding + data_len;
+   else if (data_len + padding < (1 << 24))
+      len = 1 + (1 + 3) + padding + data_len;
    else{
       TRACE_ERROR("%s\n", ock_err(ERR_FUNCTION_FAILED));
       return CKR_FUNCTION_FAILED;
@@ -64,47 +73,59 @@ ber_encode_INTEGER( CK_BBOOL    length_only,
       TRACE_ERROR("%s\n", ock_err(ERR_HOST_MEMORY));
       return CKR_HOST_MEMORY;
    }
-   if (data_len < 128) {
+   if (data_len + padding < 128) {
       buf[0] = 0x02;
-      buf[1] = data_len;
-      memcpy( &buf[2], data, data_len );
-
+      buf[1] = data_len + padding;
+      if (padding) {
+	      buf[2] = 0x00;
+	      memcpy( &buf[3], data, data_len );
+      } else
+	      memcpy( &buf[2], data, data_len );
       *ber_int_len = len;
       *ber_int     = buf;
       return CKR_OK;
    }
 
-   if (data_len < 256) {
+   if (data_len + padding < 256) {
       buf[0] = 0x02;
       buf[1] = 0x81;
-      buf[2] = data_len;
-      memcpy( &buf[3], data, data_len );
-
+      buf[2] = data_len + padding;
+      if (padding) {
+	      buf[3] = 0x00;
+	      memcpy( &buf[4], data, data_len );
+      } else
+	      memcpy( &buf[3], data, data_len );
       *ber_int_len = len;
       *ber_int     = buf;
       return CKR_OK;
    }
 
-   if (data_len < (1 << 16)) {
+   if (data_len + padding < (1 << 16)) {
       buf[0] = 0x02;
       buf[1] = 0x82;
-      buf[2] = (data_len >> 8) & 0xFF;
-      buf[3] = (data_len     ) & 0xFF;
-      memcpy( &buf[4], data, data_len );
-
+      buf[2] = ((data_len + padding) >> 8) & 0xFF;
+      buf[3] = ((data_len + padding)     ) & 0xFF;
+      if (padding) {
+	      buf[4] = 0x00;
+	      memcpy( &buf[5], data, data_len );
+      } else
+	      memcpy( &buf[4], data, data_len );
       *ber_int_len = len;
       *ber_int     = buf;
       return CKR_OK;
    }
 
-   if (data_len < (1 << 24)) {
+   if (data_len + padding < (1 << 24)) {
       buf[0] = 0x02;
       buf[1] = 0x83;
-      buf[2] = (data_len >> 16) & 0xFF;
-      buf[3] = (data_len >>  8) & 0xFF;
-      buf[4] = (data_len      ) & 0xFF;
-      memcpy( &buf[5], data, data_len );
-
+      buf[2] = ((data_len + padding) >> 16) & 0xFF;
+      buf[3] = ((data_len + padding) >>  8) & 0xFF;
+      buf[4] = ((data_len + padding)      ) & 0xFF;
+      if (padding) {
+	      buf[5] = 0x00;
+	      memcpy( &buf[6], data, data_len );
+      } else
+	      memcpy( &buf[5], data, data_len );
       *ber_int_len = len;
       *ber_int     = buf;
       return CKR_OK;
@@ -136,13 +157,25 @@ ber_decode_INTEGER( CK_BYTE   * ber_int,
       TRACE_ERROR("%s\n", ock_err(ERR_FUNCTION_FAILED));
       return CKR_FUNCTION_FAILED;
    }
+
+   // ber encoded integers are alway signed. So it may be that the very first
+   // byte is just a padding 0x00 value because the following byte has the msb
+   // set and without the padding the value would indicate a negative value.
+   // However, opencryptoki always stores big integers 'unsigned' meaning
+   // even when the msb is set, there is no preceding 0x00. Even more some
+   // tests may fail e.g. the size in bytes of a modulo big integer should be
+   // modulo bits / 8 which is not true with preceeding 0x00 byte.
+
    // short form lengths are easy
    //
    if ((ber_int[1] & 0x80) == 0) {
       len = ber_int[1] & 0x7F;
-
       *data      = &ber_int[2];
       *data_len  = len;
+      if (ber_int[2] == 0x00) {
+	      *data      = &ber_int[3];
+	      *data_len  = len - 1;
+      }
       *field_len = 1 + 1 + len;
       return CKR_OK;
    }
@@ -151,9 +184,12 @@ ber_decode_INTEGER( CK_BYTE   * ber_int,
 
    if (length_octets == 1) {
       len = ber_int[2];
-
       *data      = &ber_int[3];
       *data_len  = len;
+      if (ber_int[3] == 0x00) {
+	      *data      = &ber_int[4];
+	      *data_len  = len - 1;
+      }
       *field_len = 1 + (1 + 1) + len;
       return CKR_OK;
    }
@@ -162,9 +198,12 @@ ber_decode_INTEGER( CK_BYTE   * ber_int,
       len = ber_int[2];
       len = len << 8;
       len |= ber_int[3];
-
       *data      = &ber_int[4];
       *data_len  = len;
+      if (ber_int[4] == 0x00) {
+	      *data      = &ber_int[5];
+	      *data_len  = len - 1;
+      }
       *field_len = 1 + (1 + 2) + len;
       return CKR_OK;
    }
@@ -175,9 +214,12 @@ ber_decode_INTEGER( CK_BYTE   * ber_int,
       len |= ber_int[3];
       len = len << 8;
       len |= ber_int[4];
-
       *data      = &ber_int[5];
       *data_len  = len;
+      if (ber_int[5] == 0x00) {
+	      *data      = &ber_int[6];
+	      *data_len  = len - 1;
+      }
       *field_len = 1 + (1 + 3) + len;
       return CKR_OK;
    }
