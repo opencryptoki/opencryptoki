@@ -36,28 +36,31 @@
 struct btnode *
 bt_get_node(struct btree *t, unsigned long node_num)
 {
-	struct btnode *temp = t->top;
-	unsigned long i;
+	__transaction_atomic { /* start transaction */
+		struct btnode *temp = t->top;
+		unsigned long i;
 
-	if (!node_num || node_num > t->size)
-		return NULL;
-	if (node_num == 1) {
-		temp = t->top;
-		goto done;
-	}
-
-	i = node_num;
-	while (i != 1) {
-		if (i & 1) {
-			temp = temp->right;	// If the bit is a 1, traverse right
-		} else {
-			temp = temp->left;	// If the bit is a zero, traverse left
+		if (!node_num || node_num > t->size)
+			return NULL;
+		if (node_num == 1) {
+			temp = t->top;
+			goto done;
 		}
 
-		i >>= 1;
-	}
+		i = node_num;
+		while (i != 1) {
+			if (i & 1) {
+				 /* If the bit is 1, traverse right*/
+				temp = temp->right;
+			} else {
+				/* If the bit is 0, traverse left*/
+				temp = temp->left;
+			}
+			i >>= 1;
+		}
 done:
-	return ((temp->flags & BT_FLAG_FREE) ? NULL : temp);
+		return ((temp->flags & BT_FLAG_FREE) ? NULL : temp);
+	} /* end transaction */
 }
 
 void *
@@ -74,15 +77,12 @@ node_create(struct btnode **child_ptr, struct btnode *parent_ptr, void *value)
 {
 	struct btnode *node = malloc(sizeof(struct btnode));
 
-	if (!node) {
-		TRACE_ERROR("malloc of %lu bytes failed", sizeof(struct btnode));
+	if (!node)
 		return NULL;
-	}
 
 	node->left = node->right = NULL;
 	node->flags = 0;
 	node->value = value;
-
 	*child_ptr = node;
 	node->parent = parent_ptr;
 
@@ -109,63 +109,66 @@ get_node_handle(struct btnode *node, unsigned long handle_so_far)
 unsigned long
 bt_node_add(struct btree *t, void *value)
 {
-	struct btnode *temp = t->top;
-	unsigned long new_node_index;
+	__transaction_atomic { /*start transaction */
+		struct btnode *temp = t->top;
+		unsigned long new_node_index;
 
-	if (!temp) {
-		/* no root node yet exists, create it */
-		t->size = 1;
-		if (!node_create(&t->top, NULL, value)) {
-			TRACE_ERROR("Error creating node");
-			return 0;
+		if (!temp) { /* no root node yet exists, create it */
+			t->size = 1;
+			if (!node_create(&t->top, NULL, value)) {
+				return 0;
+			}
+
+			return 1;
+		} else if (t->free_list) {
+			/* there's a node on the free list,
+			 * use it instead of mallocing new
+			 */
+			temp = t->free_list;
+			t->free_list = temp->value;
+			temp->value = value;
+			temp->flags &= (~BT_FLAG_FREE);
+			t->free_nodes--;
+			new_node_index = GET_NODE_HANDLE(temp);
+			return new_node_index;
 		}
 
-		return 1;
-	} else if (t->free_list) {
-		/* there's a node on the free list, use it instead of mallocing new */
-		temp = t->free_list;
-		t->free_list = temp->value;
-		temp->value = value;
-		temp->flags &= (~BT_FLAG_FREE);
-		t->free_nodes--;
-		new_node_index = GET_NODE_HANDLE(temp);
-		return new_node_index;
-	}
+		new_node_index = t->size + 1;
 
-
-	new_node_index = t->size + 1;
-
-	while (new_node_index != 1) {
-		if (new_node_index & 1) {
-			if (!temp->right) {
-				if (!(node_create(&temp->right, temp, value))) {
-					TRACE_ERROR("node_create failed");
-					return 0;
+		while (new_node_index != 1) {
+			if (new_node_index & 1) {
+				if (!temp->right) {
+					if (!(node_create(&temp->right,
+							  temp,
+							  value))) {
+						return 0;
+					}
+					break;
+				} else {
+					/* If the bit is 1, traverse right */
+					temp = temp->right;
 				}
-
-				break;
 			} else {
-				temp = temp->right;	// If the bit is a 1, traverse right
-			}
-		} else {
-			if (!temp->left) {
-				if (!(node_create(&temp->left, temp, value))) {
-					TRACE_ERROR("node_create failed");
-					return 0;
+				if (!temp->left) {
+					if (!(node_create(&temp->left,
+							  temp,
+							  value))) {
+						return 0;
+					}
+					break;
+				} else {
+					/* If the bit is 0, traverse left */
+					temp = temp->left;
 				}
-
-				break;
-			} else {
-				temp = temp->left;	// If the bit is a zero, traverse left
 			}
+
+			new_node_index >>= 1;
 		}
 
-		new_node_index >>= 1;
-	}
+		t->size++;
 
-	t->size++;
-
-	return t->size;
+		return t->size;
+	} /* end transaction */
 }
 
 void
@@ -204,12 +207,18 @@ bt_node_free(struct btree *t, unsigned long node_num, void (*delete_func)(void *
 	if (node) {
 		if (delete_func)
 			(*delete_func)(node->value);
-		node->flags |= BT_FLAG_FREE;
 
-		/* add node to the free list, which is chained by using the value pointer */
-		node->value = t->free_list;
-		t->free_list = node;
-		t->free_nodes++;
+		__transaction_atomic { /* start transaction */
+			node->flags |= BT_FLAG_FREE;
+
+			/* add node to the free list,
+			 * which is chained by using
+			 * the value pointer
+			 */
+			node->value = t->free_list;
+			t->free_list = node;
+			t->free_nodes++;
+		} /* end transaction */
 	}
 
 	return node;
@@ -221,7 +230,9 @@ bt_node_free(struct btree *t, unsigned long node_num, void (*delete_func)(void *
  */
 int bt_is_empty(struct btree *t)
 {
-	return (t->free_nodes == t->size);
+	__transaction_atomic { /* start transaction */
+		return (t->free_nodes == t->size);
+	} /* end transaction */
 }
 
 /* bt_nodes_in_use
@@ -230,7 +241,9 @@ int bt_is_empty(struct btree *t)
  */
 unsigned long bt_nodes_in_use(struct btree *t)
 {
-	return (t->size - t->free_nodes);
+	__transaction_atomic { /* start transaction */
+		return (t->size - t->free_nodes);
+	} /* end transaction */
 }
 
 /* bt_for_each_node
@@ -269,17 +282,20 @@ bt_destroy(struct btree *t, void (*func)(void *))
 	struct btnode *temp;
 
 	while (t->size) {
-		temp = t->top;
-		i = t->size;
-		while (i != 1) {
-			if (i & 1) {
-				temp = temp->right;	// If the bit is a 1, traverse right
-			} else {
-				temp = temp->left;	// If the bit is a zero, traverse left
+		__transaction_atomic { /* start transaction */
+			temp = t->top;
+			i = t->size;
+			while (i != 1) {
+				if (i & 1) {
+					/* If the bit is 1, traverse right */
+					temp = temp->right;
+				} else {
+					/* If the bit is 0, traverse left */
+					temp = temp->left;
+				}
+				i >>= 1;
 			}
-
-			i >>= 1;
-		}
+		} /* end transaction */
 
 		/*
 		 * The value pointed by value in a node marked as freed points
@@ -290,12 +306,16 @@ bt_destroy(struct btree *t, void (*func)(void *))
 		if (func && !(temp->flags & BT_FLAG_FREE))
 			(*func)(temp->value);
 
-		free(temp);
-		t->size--;
+		__transaction_atomic { /* start transaction */
+			free(temp);
+			t->size--;
+		} /* end transaction */
 	}
 
-	/* the tree is gone now, clear all the other variables */
-	t->top = NULL;
-	t->free_list = NULL;
-	t->free_nodes = 0;
+	__transaction_atomic { /* start transaction */
+		/* the tree is gone now, clear all the other variables */
+		t->top = NULL;
+		t->free_list = NULL;
+		t->free_nodes = 0;
+	} /* end transaction */
 }
