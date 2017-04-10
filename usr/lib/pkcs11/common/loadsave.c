@@ -801,14 +801,12 @@ CK_RV load_public_token_objects(void)
 				continue;
 			}
 			// ... grab object mutex here.
-			MY_LockMutex(&obj_list_mutex);
 			if (object_mgr_restore_obj_withSize(buf, NULL, size) !=
 							    CKR_OK) {
 				OCK_SYSLOG(LOG_ERR,
 					   "Cannot restore token object %s "
 					   "(ignoring it)", fname);
 			}
-			MY_UnlockMutex(&obj_list_mutex);
 			free(buf);
 			fclose(fp2);
 		}
