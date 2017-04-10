@@ -210,30 +210,26 @@ done:
  */
 CK_RV SC_Finalize(CK_SLOT_ID sid)
 {
-	CK_RV rc, rc_mutex;
+	CK_RV rc;
 
 	if (initialized == FALSE) {
 		TRACE_ERROR("%s\n", ock_err(ERR_CRYPTOKI_NOT_INITIALIZED));
 		return CKR_CRYPTOKI_NOT_INITIALIZED;
 	}
 
-	rc = MY_LockMutex(&pkcs_mutex);
-	if (rc != CKR_OK) {
-		TRACE_ERROR("Mutex lock failed.\n");
-		return rc;
-	}
-
 	/* If somebody else has taken care of things, leave... */
 	if (initialized == FALSE) {
-		MY_UnlockMutex(&pkcs_mutex);
 		TRACE_ERROR("%s\n", ock_err(ERR_CRYPTOKI_NOT_INITIALIZED));
-		rc = CKR_CRYPTOKI_NOT_INITIALIZED;
-		goto done;
+		return CKR_CRYPTOKI_NOT_INITIALIZED;
 	}
-	usage_count--;
-	if (usage_count == 0) {
-		initialized = FALSE;
-	}
+
+	__transaction_atomic { /* start transaction */
+		usage_count--;
+		if (usage_count == 0) {
+			initialized = FALSE;
+		}
+	} /* end transaction */
+
 	session_mgr_close_all_sessions();
 	object_mgr_purge_token_objects();
 	detach_shm();
@@ -242,15 +238,9 @@ CK_RV SC_Finalize(CK_SLOT_ID sid)
 	rc = ep11tok_final();
 	if (rc != CKR_OK) {
 		TRACE_ERROR("Token specific final call failed.\n");
-		goto done;
+		return rc;
 	}
 
-done:
-	rc_mutex = MY_UnlockMutex(&pkcs_mutex);
-	if (rc_mutex != CKR_OK) {
-		TRACE_ERROR("Mutex unlock failed.\n");
-		return rc_mutex;
-	}
 	return rc;
 }
 
@@ -636,50 +626,32 @@ done:
 CK_RV SC_OpenSession(CK_SLOT_ID sid, CK_FLAGS flags,
 		     CK_SESSION_HANDLE_PTR phSession)
 {
-	CK_BBOOL locked = FALSE;
 	CK_RV rc = CKR_OK;
 
 	if (initialized == FALSE) {
 		TRACE_ERROR("%s\n", ock_err(ERR_CRYPTOKI_NOT_INITIALIZED));
-		rc = CKR_CRYPTOKI_NOT_INITIALIZED;
-		goto done;
+		return CKR_CRYPTOKI_NOT_INITIALIZED;
 	}
 	if (phSession == NULL) {
 		TRACE_ERROR("%s\n", ock_err(ERR_ARGUMENTS_BAD));
-		rc = CKR_ARGUMENTS_BAD;
-		goto done;
+		return CKR_ARGUMENTS_BAD;
 	}
 	if (sid > MAX_SLOT_ID) {
 		TRACE_ERROR("%s\n", ock_err(ERR_SLOT_ID_INVALID));
-		rc = CKR_SLOT_ID_INVALID;
-		goto done;
+		return CKR_SLOT_ID_INVALID;
 	}
 	flags |= CKF_SERIAL_SESSION;
 	if ((flags & CKF_RW_SESSION) == 0) {
 		if (session_mgr_so_session_exists()) {
 			TRACE_ERROR("%s\n", ock_err(ERR_SESSION_READ_WRITE_SO_EXISTS));
-			rc = CKR_SESSION_READ_WRITE_SO_EXISTS;
-			goto done;
+			return CKR_SESSION_READ_WRITE_SO_EXISTS;
 		}
 	}
-	/* Get the mutex because we may modify the pid_list */
-	rc = MY_LockMutex(&pkcs_mutex);
-	if (rc != CKR_OK) {
-		TRACE_ERROR("Failed to get mutex lock.\n");
-		goto done;
-	}
-	locked = TRUE;
-	MY_UnlockMutex(&pkcs_mutex);
-	locked = FALSE;
 	rc = session_mgr_new(flags, sid, phSession);
 	if (rc != CKR_OK) {
 		TRACE_DEVEL("session_mgr_new() failed\n");
-		goto done;
+		return rc;
 	}
-
-done:
-	if (locked)
-		MY_UnlockMutex(&pkcs_mutex);
 
 	TRACE_INFO("C_OpenSession: rc = 0x%08lx\n", rc);
 	return rc;
