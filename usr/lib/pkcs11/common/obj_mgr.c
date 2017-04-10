@@ -38,7 +38,6 @@ object_mgr_add( SESSION          * sess,
 {
    OBJECT    * o = NULL;
    CK_BBOOL    priv_obj, sess_obj;
-   CK_BBOOL    locked = FALSE;
    CK_RV       rc;
    unsigned long obj_handle;
 
@@ -46,13 +45,6 @@ object_mgr_add( SESSION          * sess,
       TRACE_ERROR("Invalid function arguments.\n");
       return CKR_FUNCTION_FAILED;
    }
-
-   rc = MY_LockMutex( &obj_list_mutex );
-   if (rc != CKR_OK) {
-      TRACE_ERROR("Mutex lock failed.\n");
-      return rc;
-   }
-   locked = TRUE;
 
    rc = object_create( pTemplate, ulCount, &o );
    if (rc != CKR_OK){
@@ -190,8 +182,6 @@ object_mgr_add( SESSION          * sess,
          //
          object_mgr_add_to_shm( o );
 
-         XProcUnLock();
-
          // save_token_data has to lock the mutex itself because it's used elsewhere
          //
          rc = save_token_data(sess->session_info.slotID);
@@ -200,6 +190,8 @@ object_mgr_add( SESSION          * sess,
                 XProcUnLock();
                 goto done;
          }
+
+         XProcUnLock();
 
       }
 
@@ -254,9 +246,6 @@ object_mgr_add( SESSION          * sess,
 
 
 done:
-   if (locked)
-      MY_UnlockMutex( &obj_list_mutex );
-
    if ((rc != CKR_OK) && (o != NULL))
       object_free( o );
 
@@ -297,13 +286,6 @@ object_mgr_add_to_map( SESSION          * sess,
 
    map_node->is_private = object_is_private( obj );
 
-   // add the new map entry to the list
-   if (pthread_rwlock_wrlock(&obj_list_rw_mutex)) {
-      free(map_node);
-      TRACE_DEVEL("Failed to acqquire mutex lock.\n");
-      return CKR_FUNCTION_FAILED;
-   }
-
    // map_node->obj_handle will store the index of the btree node in one of these lists:
    // publ_token_obj_btree - for public token object
    // priv_token_obj_btree - for private token objects
@@ -314,8 +296,6 @@ object_mgr_add_to_map( SESSION          * sess,
    //
    map_node->obj_handle = obj_handle;
    *map_handle = bt_node_add(&object_map_btree, map_node);
-
-   pthread_rwlock_unlock(&obj_list_rw_mutex);
 
    if (*map_handle == 0) {
       free(map_node);
@@ -347,7 +327,6 @@ object_mgr_copy( SESSION          * sess,
    OBJECT     *new_obj = NULL;
    CK_BBOOL    priv_obj;
    CK_BBOOL    sess_obj;
-   CK_BBOOL    locked = FALSE;
    CK_RV       rc;
    unsigned long obj_handle;
 
@@ -355,13 +334,6 @@ object_mgr_copy( SESSION          * sess,
       TRACE_ERROR("Invalid function arguments.\n");
       return CKR_FUNCTION_FAILED;
    }
-
-   rc = MY_LockMutex( &obj_list_mutex );
-   if (rc != CKR_OK){
-      TRACE_ERROR("Mutex lock failed.\n");
-      return rc;
-   }
-   locked = TRUE;
 
    rc = object_mgr_find_in_map1( old_handle, &old_obj );
    if (rc != CKR_OK){
@@ -546,9 +518,6 @@ object_mgr_copy( SESSION          * sess,
    }
 
 done:
-   if (locked)
-      MY_UnlockMutex( &obj_list_mutex );
-
    if ((rc != CKR_OK) && (new_obj != NULL))
       object_free( new_obj );
 
@@ -647,7 +616,6 @@ object_mgr_create_final( SESSION           * sess,
 {
    CK_BBOOL  sess_obj;
    CK_BBOOL  priv_obj;
-   CK_BBOOL  locked = FALSE;
    CK_RV     rc;
    unsigned long obj_handle;
 
@@ -655,12 +623,6 @@ object_mgr_create_final( SESSION           * sess,
       TRACE_ERROR("Invalid function arguments.\n");
       return CKR_FUNCTION_FAILED;
    }
-   rc = MY_LockMutex( &obj_list_mutex );
-   if (rc != CKR_OK){
-      TRACE_ERROR("Mutex lock failed.\n");
-      return rc;
-   }
-   locked = TRUE;
 
    sess_obj = object_is_session_object( obj );
    priv_obj = object_is_private( obj );
@@ -671,8 +633,7 @@ object_mgr_create_final( SESSION           * sess,
 
       if ((obj_handle = bt_node_add(&sess_obj_btree, obj)) == 0) {
 	 TRACE_ERROR("%s\n", ock_err(ERR_HOST_MEMORY));
-	 rc = CKR_HOST_MEMORY;
-	 goto done;
+	 return CKR_HOST_MEMORY;
       }
    }
    else {
@@ -685,7 +646,7 @@ object_mgr_create_final( SESSION           * sess,
       rc = XProcLock();
       if (rc != CKR_OK){
          TRACE_ERROR("Failed to get Process Lock.\n");
-         goto done;
+         return rc;
       }
       else {
 
@@ -695,16 +656,14 @@ object_mgr_create_final( SESSION           * sess,
             if (global_shm->num_priv_tok_obj >= MAX_TOK_OBJS) {
                XProcUnLock();
                TRACE_ERROR("%s\n", ock_err(ERR_HOST_MEMORY));
-               rc = CKR_HOST_MEMORY;
-               goto done;
+               return CKR_HOST_MEMORY;
             }
          }
          else {
             if (global_shm->num_publ_tok_obj >= MAX_TOK_OBJS) {
                XProcUnLock();
                TRACE_ERROR("%s\n", ock_err(ERR_HOST_MEMORY));
-               rc = CKR_HOST_MEMORY;
-               goto done;
+               return CKR_HOST_MEMORY;
             }
          }
          memcpy( current, &nv_token_data->next_token_object_name, 8 );
@@ -735,8 +694,7 @@ object_mgr_create_final( SESSION           * sess,
 
       if (!obj_handle) {
 	 TRACE_ERROR("%s\n", ock_err(ERR_HOST_MEMORY));
-	 rc = CKR_HOST_MEMORY;
-	 goto done;
+	 return CKR_HOST_MEMORY;
       }
    }
 
@@ -772,17 +730,13 @@ object_mgr_create_final( SESSION           * sess,
          rc = XProcLock();
          if (rc != CKR_OK){
             TRACE_ERROR("Failed to get Process Lock.\n");
-            goto done;
+            return rc;
          }
          object_mgr_del_from_shm( obj );
 
          XProcUnLock();
       }
    }
-
-done:
-   if (locked)
-      MY_UnlockMutex( &obj_list_mutex );
 
    return rc;
 }
@@ -838,35 +792,18 @@ CK_RV
 object_mgr_destroy_object( SESSION          * sess,
                            CK_OBJECT_HANDLE   handle )
 {
-   CK_BBOOL    locked = FALSE;
-   CK_RV       rc;
+   CK_RV rc = CKR_OK;
 
 
    if (!sess){
       TRACE_ERROR("Invalid function arguments.\n");
       return CKR_FUNCTION_FAILED;
    }
-   rc = MY_LockMutex( &obj_list_mutex );
-   if (rc != CKR_OK){
-      TRACE_ERROR("Mutex Lock failed.\n");
-      goto done;
-   }
-   locked = TRUE;
-   if (pthread_rwlock_wrlock(&obj_list_rw_mutex)) {
-	   TRACE_ERROR("Mutex Lock failed.\n");
-	   rc = CKR_FUNCTION_FAILED;
-	   goto done;
-   }
 
    if (!bt_node_free(&object_map_btree, handle, destroy_object_cb)) {
       TRACE_ERROR("%s\n", ock_err(ERR_OBJECT_HANDLE_INVALID));
       rc = CKR_OBJECT_HANDLE_INVALID;
    }
-
-   pthread_rwlock_unlock(&obj_list_rw_mutex);
-done:
-   if (locked)
-      MY_UnlockMutex( &obj_list_mutex );
 
    return rc;
 }
@@ -920,23 +857,16 @@ done:
 CK_RV
 object_mgr_destroy_token_objects( void )
 {
-   CK_BBOOL locked1 = FALSE, locked2 = FALSE;
+   CK_BBOOL locked = FALSE;
    CK_RV rc;
 
-   rc = MY_LockMutex( &obj_list_mutex );
-   if (rc != CKR_OK){
-      TRACE_ERROR("Mutex Lock failed.\n");
-      goto done;
-   }
-   else
-      locked1 = TRUE;
    bt_for_each_node(&object_map_btree, delete_token_obj_cb, NULL);
 
    // now we want to purge the token object list in shared memory
    //
    rc = XProcLock();
    if (rc == CKR_OK) {
-      locked2 = TRUE;
+      locked = TRUE;
 
       global_shm->num_priv_tok_obj = 0;
       global_shm->num_publ_tok_obj = 0;
@@ -946,10 +876,8 @@ object_mgr_destroy_token_objects( void )
    }
    else
       TRACE_ERROR("Failed to get Process Lock.\n");
-done:
-   if (locked1 == TRUE) MY_UnlockMutex( &obj_list_mutex );
-/*   if (locked2 == TRUE) XProcUnLock(); */
-   if (locked2 == TRUE) {
+
+   if (locked == TRUE) {
 	XProcUnLock();
    }
 
@@ -985,16 +913,10 @@ object_mgr_find_in_map_nocache( CK_OBJECT_HANDLE    handle,
    // no mutex here.  the calling function should have locked the mutex
    //
 
-   if (pthread_rwlock_rdlock(&obj_list_rw_mutex)) {
-     TRACE_ERROR("Mutex Lock failed.\n");
-     return CKR_FUNCTION_FAILED;
-   }
-
    map = bt_get_node_value(&object_map_btree, handle);
    if (!map) {
       TRACE_ERROR("%s\n", ock_err(ERR_OBJECT_HANDLE_INVALID));
-      rc = CKR_OBJECT_HANDLE_INVALID;
-      goto done;
+      return CKR_OBJECT_HANDLE_INVALID;
    }
 
    if (map->is_session_obj)
@@ -1006,13 +928,10 @@ object_mgr_find_in_map_nocache( CK_OBJECT_HANDLE    handle,
 
    if (!obj) {
       TRACE_ERROR("%s\n", ock_err(ERR_OBJECT_HANDLE_INVALID));
-      rc = CKR_OBJECT_HANDLE_INVALID;
-      goto done;
+      return CKR_OBJECT_HANDLE_INVALID;
    }
 
    *ptr = obj;
-done:
-   pthread_rwlock_unlock(&obj_list_rw_mutex);
 
    return rc;
 }
@@ -1034,16 +953,11 @@ object_mgr_find_in_map1( CK_OBJECT_HANDLE    handle,
       TRACE_ERROR("Invalid function arguments.\n");
       return CKR_FUNCTION_FAILED;
    }
-   if (pthread_rwlock_rdlock(&obj_list_rw_mutex)) {
-     TRACE_ERROR("Mutex Lock failed.\n");
-     return CKR_FUNCTION_FAILED;
-   }
 
    map = bt_get_node_value(&object_map_btree, handle);
    if (!map) {
       TRACE_ERROR("%s\n", ock_err(ERR_OBJECT_HANDLE_INVALID));
-      rc = CKR_OBJECT_HANDLE_INVALID;
-      goto done;
+      return CKR_OBJECT_HANDLE_INVALID;
    }
 
    if (map->is_session_obj)
@@ -1055,8 +969,7 @@ object_mgr_find_in_map1( CK_OBJECT_HANDLE    handle,
 
    if (!obj) {
       TRACE_ERROR("%s\n", ock_err(ERR_OBJECT_HANDLE_INVALID));
-      rc = CKR_OBJECT_HANDLE_INVALID;
-      goto done;
+      return CKR_OBJECT_HANDLE_INVALID;
    }
 
    /* SAB XXX Fix me.. need to make it more efficient than just looking
@@ -1078,13 +991,11 @@ object_mgr_find_in_map1( CK_OBJECT_HANDLE    handle,
 
         if (rc != CKR_OK) {
 		TRACE_DEVEL("object_mgr_check_shm failed.\n");
-		goto done;
+		return rc;
 	}
    }
 
    *ptr = obj;
-done:
-   pthread_rwlock_unlock(&obj_list_rw_mutex);
 
    return rc;
 }
@@ -1133,19 +1044,12 @@ object_mgr_find_in_map2( OBJECT           * obj,
    // no mutex here.  the calling function should have locked the mutex
    //
 
-   if (pthread_rwlock_rdlock(&obj_list_rw_mutex)) {
-     TRACE_ERROR("Mutex Lock failed.\n");
-     return CKR_FUNCTION_FAILED;
-   }
-
    fa.done = FALSE;
    fa.obj = obj;
    fa.map_handle = 0;
 
    // pass the fa structure with the values to operate on in the find_obj_cb function
    bt_for_each_node(&object_map_btree, find_obj_cb, &fa);
-
-   pthread_rwlock_unlock(&obj_list_rw_mutex);
 
    if (fa.done == FALSE || fa.map_handle == 0) {
       return CKR_OBJECT_HANDLE_INVALID;
@@ -1268,7 +1172,6 @@ object_mgr_find_init( SESSION      * sess,
    sess->find_idx   = 0;
 
 //  --- need to grab the object lock here
-   MY_LockMutex(&obj_list_mutex);
    XProcLock();
    object_mgr_update_from_shm();
    XProcUnLock();
@@ -1327,8 +1230,6 @@ object_mgr_find_init( SESSION      * sess,
          break;
    }
 
-   MY_UnlockMutex(&obj_list_mutex);
-
    sess->find_active = TRUE;
 
    return CKR_OK;
@@ -1367,24 +1268,17 @@ object_mgr_get_attribute_values( SESSION           * sess,
 {
    OBJECT   * obj;
    CK_BBOOL   priv_obj;
-   CK_BBOOL   locked = FALSE;
    CK_RV      rc;
 
    if (!pTemplate){
       TRACE_ERROR("Invalid function argument.\n");
       return CKR_FUNCTION_FAILED;
    }
-   rc = MY_LockMutex( &obj_list_mutex );
-   if (rc != CKR_OK){
-      TRACE_ERROR("Mutex Lock failed.\n");
-      return rc;
-   }
-   locked = TRUE;
 
    rc = object_mgr_find_in_map1( handle, &obj );
    if (rc != CKR_OK){
       TRACE_DEVEL("object_mgr_find_in_map1 failed.\n");
-      goto done;
+      return rc;
    }
    priv_obj = object_is_private( obj );
 
@@ -1393,17 +1287,13 @@ object_mgr_get_attribute_values( SESSION           * sess,
           sess->session_info.state == CKS_RW_PUBLIC_SESSION)
       {
          TRACE_ERROR("%s\n", ock_err(ERR_USER_NOT_LOGGED_IN));
-         rc = CKR_USER_NOT_LOGGED_IN;
-         goto done;
+         return CKR_USER_NOT_LOGGED_IN;
       }
    }
 
    rc = object_get_attribute_values( obj, pTemplate, ulCount );
    if (rc != CKR_OK)
          TRACE_DEVEL("object_get_attribute_values failed.\n");
-done:
-   if (locked)
-      MY_UnlockMutex( &obj_list_mutex );
 
    return rc;
 }
@@ -1418,21 +1308,14 @@ object_mgr_get_object_size( CK_OBJECT_HANDLE   handle,
    OBJECT    * obj;
    CK_RV       rc;
 
-   rc = MY_LockMutex( &obj_list_mutex );
-   if (rc != CKR_OK){
-      TRACE_ERROR("Mutex Lock failed.\n");
-      return rc;
-   }
    rc = object_mgr_find_in_map1( handle, &obj );
    if (rc != CKR_OK) {
       TRACE_DEVEL("object_mgr_find_in_map1 failed.\n");
-      goto done;
+      return rc;
    }
 
    *size = object_get_size( obj );
 
-done:
-   MY_UnlockMutex( &obj_list_mutex );
    return rc;
 }
 
@@ -1478,20 +1361,11 @@ object_mgr_purge_session_objects( SESSION       * sess,
                                   SESS_OBJ_TYPE   type )
 {
    struct purge_args pa = { sess, type };
-   CK_RV      rc;
 
    if (!sess)
       return FALSE;
 
-   rc = MY_LockMutex( &obj_list_mutex );
-   if (rc != CKR_OK){
-      TRACE_ERROR("Mutex Lock failed.\n");
-      return FALSE;
-   }
-
    bt_for_each_node(&sess_obj_btree, purge_session_obj_cb, &pa);
-
-   MY_UnlockMutex( &obj_list_mutex );
 
    return TRUE;
 }
@@ -1516,48 +1390,25 @@ purge_token_obj_cb(void *node, unsigned long obj_handle, void *p3)
 // need to do this but when tracing memory leaks, it's best that we free everything
 // that we've allocated
 //
-CK_BBOOL
-object_mgr_purge_token_objects( )
+CK_BBOOL object_mgr_purge_token_objects()
 {
-   CK_RV      rc;
-
-   rc = MY_LockMutex( &obj_list_mutex );
-   if (rc != CKR_OK){
-      TRACE_ERROR("Mutex Lock failed.\n");
-      return FALSE;
-   }
-
    bt_for_each_node(&priv_token_obj_btree, purge_token_obj_cb, &priv_token_obj_btree);
    bt_for_each_node(&publ_token_obj_btree, purge_token_obj_cb, &publ_token_obj_btree);
 
-   MY_UnlockMutex( &obj_list_mutex );
-
    return TRUE;
 }
 
 
-CK_BBOOL
-object_mgr_purge_private_token_objects( void )
+CK_BBOOL object_mgr_purge_private_token_objects(void)
 {
-   CK_RV      rc;
-
-   rc = MY_LockMutex( &obj_list_mutex );
-   if (rc != CKR_OK){
-      TRACE_ERROR("Mutex Lock failed.\n");
-      return FALSE;
-   }
-
    bt_for_each_node(&priv_token_obj_btree, purge_token_obj_cb, &priv_token_obj_btree);
 
-   MY_UnlockMutex( &obj_list_mutex );
-
    return TRUE;
 }
 
 //
 //
-CK_RV
-object_mgr_restore_obj( CK_BYTE *data, OBJECT *oldObj )
+CK_RV object_mgr_restore_obj(CK_BYTE *data, OBJECT *oldObj)
 {
     return object_mgr_restore_obj_withSize(data, oldObj, -1);
 }
@@ -1650,15 +1501,8 @@ object_mgr_set_attribute_values( SESSION           * sess,
       TRACE_ERROR("Invalid function argument.\n");
       return CKR_FUNCTION_FAILED;
    }
-   rc = MY_LockMutex( &obj_list_mutex );
-   if (rc != CKR_OK){
-      TRACE_ERROR("Mutex lock failed.\n");
-      return rc;
-   }
 
    rc = object_mgr_find_in_map1( handle, &obj );
-
-   MY_UnlockMutex( &obj_list_mutex );
 
    if (rc != CKR_OK) {
       TRACE_DEVEL("object_mgr_find_in_map1 failed.\n");
@@ -1786,7 +1630,6 @@ object_mgr_add_to_shm( OBJECT *obj )
 
    // the calling routine is responsible for locking the global_shm mutex
    //
-
    priv = object_is_private( obj );
 
    if (priv)
@@ -2190,14 +2033,7 @@ object_mgr_purge_map(
                       SESSION       * sess,
                       SESS_OBJ_TYPE   type )
 {
-   if (pthread_rwlock_wrlock(&obj_list_rw_mutex)) {
-     TRACE_ERROR("mutex lock failed.\n");
-     return CKR_FUNCTION_FAILED;
-   }
-
    bt_for_each_node(&object_map_btree, purge_map_by_type_cb, &type);
-
-   pthread_rwlock_unlock(&obj_list_rw_mutex);
 
    return TRUE;
 }
