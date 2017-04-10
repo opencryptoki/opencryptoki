@@ -37,20 +37,13 @@ SESSION *
 session_mgr_find( CK_SESSION_HANDLE handle )
 {
    SESSION  * result = NULL;
-   CK_RV      rc;
 
    if (!handle) {
       return NULL;
    }
 
-   rc = MY_LockMutex( &sess_list_mutex );
-   if (rc != CKR_OK){
-      TRACE_ERROR("Mutex Lock failed.\n");
-      return NULL;
-   }
    result = bt_get_node_value(&sess_btree, handle);
 
-   MY_UnlockMutex( &sess_list_mutex );
    return result;
 }
 
@@ -71,9 +64,7 @@ session_mgr_new( CK_ULONG flags, CK_SLOT_ID slot_id, CK_SESSION_HANDLE_PTR phSes
    SESSION  * new_session  = NULL;
    CK_BBOOL   user_session = FALSE;
    CK_BBOOL   so_session   = FALSE;
-   CK_BBOOL   pkcs_locked  = TRUE;
-   CK_BBOOL   sess_locked  = TRUE;
-   CK_RV      rc;
+   CK_RV      rc = CKR_OK;
 
 
    new_session = (SESSION *)malloc(sizeof(SESSION));
@@ -88,19 +79,6 @@ session_mgr_new( CK_ULONG flags, CK_SLOT_ID slot_id, CK_SESSION_HANDLE_PTR phSes
    // find an unused session handle.  session handles will wrap
    // automatically...
    //
-
-   rc = MY_LockMutex( &pkcs_mutex );      // this protects next_session_handle
-   if (rc != CKR_OK){
-      TRACE_ERROR("Mutex lock failed.\n");
-      free( new_session );
-      return rc;
-   }
-   pkcs_locked = TRUE;
-
-   MY_UnlockMutex( &pkcs_mutex );
-   pkcs_locked = FALSE;
-
-
    new_session->session_info.slotID        = slot_id;
    new_session->session_info.flags         = flags;
    new_session->session_info.ulDeviceError = 0;
@@ -111,14 +89,6 @@ session_mgr_new( CK_ULONG flags, CK_SLOT_ID slot_id, CK_SESSION_HANDLE_PTR phSes
    //
    so_session = session_mgr_so_session_exists();
    user_session = session_mgr_user_session_exists();
-
-   rc = MY_LockMutex( &sess_list_mutex );
-   if (rc != CKR_OK){
-      TRACE_ERROR("Mutex lock failed.\n");
-      free( new_session );
-      return rc;
-   }
-   sess_locked = TRUE;
 
    // we don't have to worry about having a user and SO session at the same time.
    // that is prevented in the login routine
@@ -150,14 +120,8 @@ session_mgr_new( CK_ULONG flags, CK_SLOT_ID slot_id, CK_SESSION_HANDLE_PTR phSes
    }
 
 done:
-   if (pkcs_locked)
-      MY_UnlockMutex( &pkcs_mutex );
-
-   if (sess_locked)
-      MY_UnlockMutex( &sess_list_mutex );
-
    if (rc != CKR_OK && new_session != NULL){
-      TRACE_ERROR("Mutex Lock failed.\n");
+      TRACE_ERROR("Failed to add session to the btree.\n");
       free( new_session );
    }
    return rc;
@@ -173,20 +137,13 @@ done:
 CK_BBOOL
 session_mgr_so_session_exists( void )
 {
-   CK_BBOOL result;
-   CK_RV rc;
+    __transaction_atomic { /* start transaction */
+	    CK_BBOOL result;
 
-   /* we must acquire sess_list_mutex in order to inspect glogal_login_state */
-   rc = MY_LockMutex( &sess_list_mutex );
-   if (rc != CKR_OK){
-      TRACE_ERROR("Mutex Lock failed.\n");
-      return FALSE;      // FIXME: make this function return proper errors
-   }
+	    result = (global_login_state == CKS_RW_SO_FUNCTIONS);
 
-   result = (global_login_state == CKS_RW_SO_FUNCTIONS);
-
-   MY_UnlockMutex( &sess_list_mutex );
-   return result;
+	    return result;
+    } /* end transaction */
 }
 
 
@@ -199,20 +156,14 @@ session_mgr_so_session_exists( void )
 CK_BBOOL
 session_mgr_user_session_exists( void )
 {
-   CK_BBOOL result;
-   CK_RV rc;
+   __transaction_atomic { /* start transaction */
+	   CK_BBOOL result;
 
-   /* we must acquire sess_list_mutex in order to inspect glogal_login_state */
-   rc = MY_LockMutex( &sess_list_mutex );
-   if (rc != CKR_OK){
-      TRACE_ERROR("Mutex Lock failed.\n");
-      return FALSE;        // FIXME: return proper errors
-   }
+	   result = ( (global_login_state == CKS_RO_USER_FUNCTIONS) ||
+			(global_login_state == CKS_RW_USER_FUNCTIONS) );
 
-   result = ( (global_login_state == CKS_RO_USER_FUNCTIONS) || (global_login_state == CKS_RW_USER_FUNCTIONS) );
-
-   MY_UnlockMutex( &sess_list_mutex );
-   return result;
+	   return result;
+   } /* end transaction */
 }
 
 
@@ -225,20 +176,14 @@ session_mgr_user_session_exists( void )
 CK_BBOOL
 session_mgr_public_session_exists( void )
 {
-   CK_BBOOL result;
-   CK_RV rc;
+  __transaction_atomic { /* start transaction */
+	  CK_BBOOL result;
 
-   /* we must acquire sess_list_mutex in order to inspect glogal_login_state */
-   rc = MY_LockMutex( &sess_list_mutex );
-   if (rc != CKR_OK){
-      TRACE_ERROR("Mutex Lock failed.\n");
-      return FALSE;      // FIXME: return proper errors
-   }
+	  result = ( (global_login_state == CKS_RO_PUBLIC_SESSION) ||
+			  (global_login_state == CKS_RW_PUBLIC_SESSION) );
 
-   result = ( (global_login_state == CKS_RO_PUBLIC_SESSION) || (global_login_state == CKS_RW_PUBLIC_SESSION) );
-
-   MY_UnlockMutex( &sess_list_mutex );
-   return result;
+	  return result;
+   } /* end transaction */
 }
 
 
@@ -250,20 +195,13 @@ session_mgr_public_session_exists( void )
 CK_BBOOL
 session_mgr_readonly_session_exists( void )
 {
-   CK_BBOOL result;
-   CK_RV rc;
+   __transaction_atomic { /* start transaction */
+	   CK_BBOOL result;
 
-   /* we must acquire sess_list_mutex in order to inspect glogal_login_state */
-   rc = MY_LockMutex( &sess_list_mutex );
-   if (rc != CKR_OK){
-      TRACE_ERROR("Mutex Lock failed.\n");
-      return rc;
-   }
+	   result = (ro_session_count > 0);
 
-   result = (ro_session_count > 0);
-
-   MY_UnlockMutex( &sess_list_mutex );
-   return result;
+	   return result;
+   } /* end transaction */
 }
 
 
@@ -282,12 +220,6 @@ session_mgr_close_session( CK_SESSION_HANDLE handle )
    SESSION *sess;
    CK_RV      rc = CKR_OK;
 
-   rc = MY_LockMutex( &sess_list_mutex );
-   if (rc != CKR_OK){
-      TRACE_ERROR("Mutex Lock failed.\n");
-      return CKR_FUNCTION_FAILED;
-   }
-
    sess = bt_get_node_value(&sess_btree, handle);
    if (!sess) {
 	   TRACE_ERROR("%s\n", ock_err(ERR_SESSION_HANDLE_INVALID));
@@ -297,10 +229,12 @@ session_mgr_close_session( CK_SESSION_HANDLE handle )
 
    object_mgr_purge_session_objects( sess, ALL );
 
-   if ( (sess->session_info.state == CKS_RO_PUBLIC_SESSION) ||
-        (sess->session_info.state == CKS_RO_USER_FUNCTIONS) ) {
-      ro_session_count--;
-   }
+   __transaction_atomic { /* start transaction */
+	   if ( (sess->session_info.state == CKS_RO_PUBLIC_SESSION) ||
+		(sess->session_info.state == CKS_RO_USER_FUNCTIONS) ) {
+		   ro_session_count--;
+	   }
+   } /* end transaction */
 
    // Make sure this address is now invalid
    sess->handle = CK_INVALID_HANDLE;
@@ -356,17 +290,16 @@ session_mgr_close_session( CK_SESSION_HANDLE handle )
         }
         object_mgr_purge_private_token_objects();
 
-      global_login_state = CKS_RO_PUBLIC_SESSION;
+	__transaction_atomic { /* start transaction */
+		global_login_state = CKS_RO_PUBLIC_SESSION;
+	} /* end transaction */
       // The objects really need to be purged .. but this impacts the
       // performance under linux.   So we need to make sure that the
       // login state is valid.    I don't really like this.
-      MY_LockMutex( &obj_list_mutex );
       object_mgr_purge_map((SESSION *)0xFFFF, PRIVATE);
-      MY_UnlockMutex( &obj_list_mutex );
    }
 
 done:
-   MY_UnlockMutex( &sess_list_mutex );
    return rc;
 }
 
@@ -426,20 +359,13 @@ session_free(void *node_value, unsigned long node_idx, void *p3)
 CK_RV
 session_mgr_close_all_sessions( void )
 {
-   CK_RV   rc = CKR_OK;
-
-   rc = MY_LockMutex( &sess_list_mutex );
-   if (rc != CKR_OK){
-      TRACE_ERROR("Mutex Lock failed.\n");
-      return CKR_FUNCTION_FAILED;
-   }
-
    bt_for_each_node(&sess_btree, session_free, NULL);
-   global_login_state = CKS_RO_PUBLIC_SESSION;
 
-   ro_session_count = 0;
+   __transaction_atomic { /* start transaction */
+	   global_login_state = CKS_RO_PUBLIC_SESSION;
+	   ro_session_count = 0;
+   } /* end transaction */
 
-   MY_UnlockMutex( &sess_list_mutex );
    return CKR_OK;
 }
 
@@ -475,17 +401,8 @@ session_login(void *node_value, unsigned long node_idx, void *p3)
 CK_RV
 session_mgr_login_all( CK_USER_TYPE user_type )
 {
-   CK_RV      rc = CKR_OK;
-
-   rc = MY_LockMutex( &sess_list_mutex );
-   if (rc != CKR_OK){
-      TRACE_ERROR("Mutex Lock failed.\n");
-      return CKR_FUNCTION_FAILED;
-   }
-
    bt_for_each_node(&sess_btree, session_login, (void *)&user_type);
 
-   MY_UnlockMutex( &sess_list_mutex );
    return CKR_OK;
 }
 
@@ -518,17 +435,8 @@ session_logout(void *node_value, unsigned long node_idx, void *p3)
 CK_RV
 session_mgr_logout_all( void )
 {
-   CK_RV      rc   = CKR_OK;
-
-   rc = MY_LockMutex( &sess_list_mutex );
-   if (rc != CKR_OK){
-      TRACE_ERROR("Mutex Lock failed.\n");
-      return CKR_FUNCTION_FAILED;
-   }
-
    bt_for_each_node(&sess_btree, session_logout, NULL);
 
-   MY_UnlockMutex( &sess_list_mutex );
    return CKR_OK;
 }
 
