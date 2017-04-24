@@ -6,7 +6,7 @@ opencryptoki_stdll_libpkcs11_ica_la_LDFLAGS = $(LCRYPTO)		\
 					     -Wl,-Bsymbolic		\
 					     -Wl,-soname,$@		\
 					     -Wl,-Bsymbolic -lc		\
-					     -lpthread -lica -ldl	\
+					     -lpthread -lica -ldl -litm	\
 					     -lcrypto
 
 # Not all versions of automake observe libname_CFLAGS

@@ -24,6 +24,7 @@ opencryptoki_stdll_libpkcs11_icsf_la_LDFLAGS = -shared			\
 					       -lcrypto			\
 					       -lldap			\
 					       -lpthread		\
+					       -litm			\
 					       -lrt			\
 					       -llber
 

@@ -567,7 +567,7 @@ fi
 
 AM_CONDITIONAL([ENABLE_PKCSEP11_MIGRATE], [test "x$enable_pkcsep11_migrate" = "xyes"])
 
-CFLAGS="$CFLAGS -DPKCS64 -D_XOPEN_SOURCE=600 -Wall -Wno-pointer-sign"
+CFLAGS="$CFLAGS -DPKCS64 -D_XOPEN_SOURCE=600 -Wall -Wno-pointer-sign -fgnu-tm"
 
 CFLAGS+=' -DCONFIG_PATH=\"$(localstatedir)/lib/opencryptoki\" -DSBIN_PATH=\"$(sbindir)\" -DLIB_PATH=\"$(libdir)\" -DLOCKDIR_PATH=\"$(lockdir)\" -DOCK_CONFDIR=\"$(sysconfdir)/opencryptoki\" -DOCK_LOGDIR=\"$(logdir)\"'
 

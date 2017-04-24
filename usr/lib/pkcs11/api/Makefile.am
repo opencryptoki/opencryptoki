@@ -5,7 +5,7 @@ SO_REVISION=0
 SO_AGE=0
 
 opencryptoki_libopencryptoki_la_LDFLAGS = -shared -Wl,-Bsymbolic -lc -ldl \
-					  -lpthread -version-info         \
+					  -lpthread -litm -version-info   \
 					  $(SO_CURRENT):$(SO_REVISION):$(SO_AGE)
 
 # Not all versions of automake observe libname_CFLAGS

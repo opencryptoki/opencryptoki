@@ -3,7 +3,7 @@
 nobase_lib_LTLIBRARIES = opencryptoki/stdll/libpkcs11_ep11.la
 
 opencryptoki_stdll_libpkcs11_ep11_la_LDFLAGS = -shared -Wl,-Bsymbolic	\
-					     -lc -lpthread -lcrypto -lrt -llber
+					     -lc -lpthread -litm -lcrypto -lrt -llber
 
 # Not all versions of automake observe libname_CFLAGS
 opencryptoki_stdll_libpkcs11_ep11_la_CFLAGS = -DDEV -D_THREAD_SAFE            \

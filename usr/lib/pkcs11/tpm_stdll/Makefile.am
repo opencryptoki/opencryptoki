@@ -18,7 +18,7 @@ opencryptoki_stdll_libpkcs11_tpm_la_CFLAGS = -DLINUX -DNOCDMF		\
 
 opencryptoki_stdll_libpkcs11_tpm_la_LDFLAGS = -shared -Wl,-Bsymbolic	\
 					      -lcrypto -ltspi -lpthread	\
-					      -lrt
+					      -litm -lrt
 
 opencryptoki_stdll_libpkcs11_tpm_la_SOURCES = ../common/asn1.c		\
 					      ../common/btree.c		\

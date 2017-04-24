@@ -15,7 +15,7 @@ opencryptoki_stdll_libpkcs11_cca_la_CFLAGS = -DLINUX -DNOCDMF		\
 					     -DSTDLL_NAME=\"ccatok\"
 
 opencryptoki_stdll_libpkcs11_cca_la_LDFLAGS = -shared -Wl,-Bsymbolic	\
-					      -lcrypto -lpthread	\
+					      -lcrypto -lpthread -litm	\
 					      -nostartfiles		\
 					      -Wl,-soname,$@		\
 					      -lrt
