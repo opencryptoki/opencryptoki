@@ -13,12 +13,6 @@
 //AIX Pkcs11 Api Utility functions
 //
 
-#if NGPTH
-#include <pth.h>
-#else
-#include <pthread.h>
-#endif
-
 #include <stdint.h>
 #include <stdlib.h>
 #include <stdio.h>
@@ -110,22 +104,14 @@ unsigned long AddToSessionList(ST_SESSION_T * pSess)
 {
 	unsigned long handle;
 
-	pthread_mutex_lock(&(Anchor->SessListMutex));
-
 	handle = bt_node_add(&(Anchor->sess_btree), pSess);
-
-	pthread_mutex_unlock(&(Anchor->SessListMutex));
 
 	return handle;
 }
 
 void RemoveFromSessionList(CK_SESSION_HANDLE handle)
 {
-	pthread_mutex_lock(&(Anchor->SessListMutex));
-
 	bt_node_free(&(Anchor->sess_btree), handle, free);
-
-	pthread_mutex_unlock(&(Anchor->SessListMutex));
 }
 
 /* CloseMe
@@ -162,30 +148,22 @@ void CloseMe(void *node_value, unsigned long node_handle, void *arg)
  */
 void CloseAllSessions(CK_SLOT_ID slot_id)
 {
-	pthread_mutex_lock(&(Anchor->SessListMutex));
-
 	/* for every node in the API-level session tree, call CloseMe on it */
 	bt_for_each_node(&(Anchor->sess_btree), CloseMe, (void *)&slot_id);
 
 	if (bt_is_empty(&(Anchor->sess_btree)))
 		bt_destroy(&(Anchor->sess_btree), NULL);
-
-	pthread_mutex_unlock(&(Anchor->SessListMutex));
 }
 
 int Valid_Session(CK_SESSION_HANDLE handle, ST_SESSION_T * rSession)
 {
 	ST_SESSION_T *tmp;
 
-	pthread_mutex_lock(&(Anchor->SessListMutex));
-
 	tmp = bt_get_node_value(&(Anchor->sess_btree), handle);
 	if (tmp) {
 		rSession->slotID = tmp->slotID;
 		rSession->sessionh = tmp->sessionh;
 	}
-
-	pthread_mutex_unlock(&(Anchor->SessListMutex));
 
 	return (tmp ? TRUE : FALSE);
 }
