@@ -1,11 +1,11 @@
 opencryptoki README
-Package version 3.6.2
+Package version 3.7.0
 
 Please see NEWS for additional version 3 information.
 
 OVERVIEW
 
-openCryptoki version 3.6.2 implements the PKCS#11 specification version 2.20.
+openCryptoki version 3.7.0 implements the PKCS#11 specification version 2.20.
 This package includes several cryptographic tokens;
  CCA, ICA, TPM , SWToken, ICSF, and EP11.
 

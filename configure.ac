@@ -1,5 +1,5 @@
 dnl Process this file with autoconf to produce a configure script.
-AC_INIT([openCryptoki],[3.6.2],[opencryptoki-tech@lists.sourceforge.net])
+AC_INIT([openCryptoki],[3.7.0],[opencryptoki-tech@lists.sourceforge.net])
 
 dnl Needed for $target!
 AC_CANONICAL_SYSTEM

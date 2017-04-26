@@ -1,3 +1,20 @@
+* opencryptoki 3.7.0
+- Update example spec file
+- Performance improvement. Moving from mutexes to transactional memory.
+- Add ECDSA SHA2 support for EP11 and CCA.
+- Fix declaration of inline functions.
+- Fix wrong testcase and ber en/decoding for integers.
+- Check for 'flex' and 'YACC' on configure.
+- EP11 config file rework.
+- Add enable-debug on travis build.
+- Add testcase for C_GetOperationState/C_SetOperationState.
+- Upgrade License to CPL-1.0
+- Ica token: fix openssh/ibmpkcs11 engine/libica crash.
+- Fix segfault and logic in hardware feature test.
+- Fix spelling of documentation and manuals.
+- Fix the retrieval of p from a generated rsa key.
+- Coverity scan fixes - incompatible pointer type and unused variables.
+
 * opencryptoki 3.6.2
 - Support OpenSSL-1.1.
 - Add Travis CI support.
