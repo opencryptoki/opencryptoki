@@ -192,17 +192,7 @@ done:
  */
 static CK_RV purge_object_mapping()
 {
-	if (pthread_rwlock_wrlock(&obj_list_rw_mutex)) {
-		TRACE_ERROR("Failed to lock mutex.\n");
-		return CKR_FUNCTION_FAILED;
-	}
-
 	bt_destroy(&objects, free);
-
-	if (pthread_rwlock_unlock(&obj_list_rw_mutex)) {
-		TRACE_ERROR("Mutex Unlock failed.\n");
-		return CKR_FUNCTION_FAILED;
-	}
 
 	return CKR_OK;
 }
@@ -1004,11 +994,6 @@ static CK_RV close_session(struct session_state *session_state)
 	unsigned long i;
 	int reason = 0;
 
-	if (pthread_rwlock_wrlock(&obj_list_rw_mutex)) {
-		TRACE_ERROR("Failed to lock mutex.\n");
-		return CKR_FUNCTION_FAILED;
-	}
-
 	/* Remove each session object */
 	for (i = 1; i <= objects.size; i++) {
 		struct icsf_object_mapping *mapping;
@@ -1038,11 +1023,6 @@ static CK_RV close_session(struct session_state *session_state)
 
 		/* Remove object from object list */
 		bt_node_free(&objects, i, &free);
-	}
-
-	if (pthread_rwlock_unlock(&obj_list_rw_mutex)) {
-		TRACE_ERROR("Mutex Unlock Failed.\n");
-		return CKR_FUNCTION_FAILED;
 	}
 	if (rc)
 		return rc;
@@ -1083,20 +1063,9 @@ CK_RV icsftok_close_session(SESSION *session)
 		return CKR_SESSION_HANDLE_INVALID;
 	}
 
-	/* Remove session_state from the list and free it */
-	if (pthread_mutex_lock(&sess_list_mutex)) {
-		TRACE_ERROR("Failed to lock mutex.\n");
-		return CKR_FUNCTION_FAILED;
-	}
-
 	if ((rc = close_session(session_state)))
 		TRACE_ERROR("close_session failed\n");
-
-	if (pthread_mutex_unlock(&sess_list_mutex)) {
-		TRACE_ERROR("Mutex Unlock Failed.\n");
-		rc = CKR_FUNCTION_FAILED;
-	}
-
+	
 	return rc;
 }
 
@@ -1290,7 +1259,6 @@ CK_RV icsftok_copy_object(SESSION * session, CK_ATTRIBUTE_PTR attrs,
 	struct icsf_object_mapping *mapping_dst = NULL;
 	struct icsf_object_mapping *mapping_src = NULL;
 	CK_ULONG node_number;
-	int is_obj_locked = 0;
 	int reason = 0;
 
 	CK_BBOOL is_priv;
@@ -1325,9 +1293,7 @@ CK_RV icsftok_copy_object(SESSION * session, CK_ATTRIBUTE_PTR attrs,
 		goto done;
 	}
 
-	pthread_rwlock_rdlock(&obj_list_rw_mutex);
 	mapping_src = bt_get_node_value(&objects, src);
-	pthread_rwlock_unlock(&obj_list_rw_mutex);
 	if (!mapping_src) {
 		TRACE_ERROR("%s\n", ock_err(ERR_HOST_MEMORY));
 		rc = CKR_OBJECT_HANDLE_INVALID;
@@ -1373,14 +1339,6 @@ CK_RV icsftok_copy_object(SESSION * session, CK_ATTRIBUTE_PTR attrs,
 		goto done;
 	}
 
-	/* Lock the object list */
-	if (pthread_rwlock_wrlock(&obj_list_rw_mutex)) {
-		TRACE_ERROR("Failed to lock mutex.\n");
-		rc = CKR_FUNCTION_FAILED;
-		goto done;
-	}
-	is_obj_locked = 1;
-
 	/* Add info about object into session */
 	if (!(node_number = bt_node_add(&objects, mapping_dst))) {
 		TRACE_ERROR("Failed to add object to binary tree.\n");
@@ -1392,11 +1350,6 @@ CK_RV icsftok_copy_object(SESSION * session, CK_ATTRIBUTE_PTR attrs,
 	*dst = node_number;
 
 done:
-	if (is_obj_locked && pthread_rwlock_unlock(&obj_list_rw_mutex)) {
-		TRACE_ERROR("Mutex Unlock Failed.\n");
-		rc = CKR_FUNCTION_FAILED;
-	}
-
 	/* If allocated, object must be freed in case of failure */
 	if (rc && mapping_dst)
 		free(mapping_dst);
@@ -1459,14 +1412,6 @@ CK_RV icsftok_create_object(SESSION *session, CK_ATTRIBUTE_PTR attrs,
 		goto done;
 	}
 
-	/* Lock the object list */
-	if (pthread_rwlock_wrlock(&obj_list_rw_mutex)) {
-		TRACE_ERROR("Failed to lock mutex.\n");
-		rc = CKR_FUNCTION_FAILED;
-		goto done;
-	}
-	is_obj_locked = 1;
-
 	/* Add info about object into session */
 	if(!(node_number = bt_node_add(&objects, mapping))) {
 		TRACE_ERROR("Failed to add object to binary tree.\n");
@@ -1478,11 +1423,6 @@ CK_RV icsftok_create_object(SESSION *session, CK_ATTRIBUTE_PTR attrs,
 	*handle = node_number;
 
 done:
-	if (is_obj_locked && pthread_rwlock_unlock(&obj_list_rw_mutex)) {
-		TRACE_ERROR("Mutex Unlock failed.\n");
-		rc = CKR_FUNCTION_FAILED;
-	}
-
 	/* If allocated, object must be freed in case of failure */
 	if (rc && mapping)
 		free(mapping);
@@ -1602,7 +1542,6 @@ CK_RV icsftok_generate_key_pair(SESSION *session, CK_MECHANISM_PTR mech,
 	struct icsf_object_mapping *pub_key_mapping = NULL;
 	struct icsf_object_mapping *priv_key_mapping = NULL;
 	int reason = 0;
-	int is_obj_locked = 0;
 	int pub_node_number, priv_node_number;
 	CK_ATTRIBUTE_PTR new_pub_attrs = NULL;
 	CK_ULONG new_pub_attrs_len = 0;
@@ -1674,14 +1613,6 @@ CK_RV icsftok_generate_key_pair(SESSION *session, CK_MECHANISM_PTR mech,
 		goto done;
 	}
 
-	/* Lock the object list */
-	if (pthread_rwlock_wrlock(&obj_list_rw_mutex)) {
-		TRACE_ERROR("Failed to lock mutex.\n");
-		rc = CKR_FUNCTION_FAILED;
-		goto done;
-	}
-	is_obj_locked = 1;
-
 	/* Add info about objects into session */
 	if(!(pub_node_number = bt_node_add(&objects, pub_key_mapping)) ||
 	   !(priv_node_number = bt_node_add(&objects, priv_key_mapping))) {
@@ -1695,11 +1626,6 @@ CK_RV icsftok_generate_key_pair(SESSION *session, CK_MECHANISM_PTR mech,
 	*p_priv_key = priv_node_number;
 
 done:
-	if (is_obj_locked && pthread_rwlock_unlock(&obj_list_rw_mutex)) {
-		TRACE_ERROR("Failed to unlock mutex.\n");
-		rc = CKR_FUNCTION_FAILED;
-	}
-
 	free_attribute_array(new_pub_attrs, new_pub_attrs_len);
 	free_attribute_array(new_priv_attrs, new_priv_attrs_len);
 
@@ -1724,7 +1650,6 @@ CK_RV icsftok_generate_key(SESSION *session, CK_MECHANISM_PTR mech,
 	struct icsf_object_mapping *mapping = NULL;
 	CK_ULONG node_number;
 	char token_name[sizeof(nv_token_data->token_info.label)];
-	int is_obj_locked = 0;
 	CK_ATTRIBUTE_PTR new_attrs = NULL;
 	CK_ULONG new_attrs_len = 0;
 	CK_ULONG class = CKO_SECRET_KEY;
@@ -1784,14 +1709,6 @@ CK_RV icsftok_generate_key(SESSION *session, CK_MECHANISM_PTR mech,
 		goto done;
 	}
 
-	/* Lock the object list */
-	if (pthread_rwlock_wrlock(&obj_list_rw_mutex)) {
-		TRACE_ERROR("Failed to lock mutex.\n");
-		rc = CKR_FUNCTION_FAILED;
-		goto done;
-	}
-	is_obj_locked = 1;
-
 	/* Add info about object into session */
 	if(!(node_number = bt_node_add(&objects, mapping))) {
 		TRACE_ERROR("Failed to add object to binary tree.\n");
@@ -1803,11 +1720,6 @@ CK_RV icsftok_generate_key(SESSION *session, CK_MECHANISM_PTR mech,
 	*handle = node_number;
 
 done:
-	if (is_obj_locked && pthread_rwlock_unlock(&obj_list_rw_mutex)) {
-		TRACE_ERROR("Mutex Unlock failed.\n");
-		rc = CKR_FUNCTION_FAILED;
-	}
-
 	if (new_attrs)
 		free_attribute_array(new_attrs, new_attrs_len);
 
@@ -1948,12 +1860,10 @@ CK_RV icsftok_encrypt_init(SESSION *session, CK_MECHANISM_PTR mech,
 		goto done;
 
 	/* Check if key exists */
-	pthread_rwlock_rdlock(&obj_list_rw_mutex);
 	if(!bt_get_node_value(&objects, key)) {
 		rc = CKR_KEY_HANDLE_INVALID;
 		TRACE_ERROR("%s\n", ock_err(ERR_KEY_HANDLE_INVALID));
 	}
-	pthread_rwlock_unlock(&obj_list_rw_mutex);
 	if (rc != CKR_OK)
 		goto done;
 
@@ -2068,12 +1978,10 @@ CK_RV icsftok_encrypt(SESSION *session, CK_BYTE_PTR input_data,
 	}
 
 	/* Check if key exists */
-	pthread_rwlock_rdlock(&obj_list_rw_mutex);
 	if(!(mapping = bt_get_node_value(&objects, encr_ctx->key))) {
 		TRACE_ERROR("%s\n", ock_err(ERR_KEY_HANDLE_INVALID));
 		rc = CKR_KEY_HANDLE_INVALID;
 	}
-	pthread_rwlock_unlock(&obj_list_rw_mutex);
 	if (rc != CKR_OK)
 		goto done;
 
@@ -2166,14 +2074,11 @@ CK_RV icsftok_encrypt_update(SESSION *session, CK_BYTE_PTR input_part,
 	}
 
 	/* Check if key exists */
-	pthread_rwlock_rdlock(&obj_list_rw_mutex);
 	if(!(mapping = bt_get_node_value(&objects, encr_ctx->key))) {
 		TRACE_ERROR("%s\n", ock_err(ERR_KEY_HANDLE_INVALID));
 		rc = CKR_KEY_HANDLE_INVALID;
-	}
-	pthread_rwlock_unlock(&obj_list_rw_mutex);
-	if (rc != CKR_OK)
 		goto done;
+	}
 
 	multi_part_ctx = (struct icsf_multi_part_context *) encr_ctx->context;
 
@@ -2347,14 +2252,11 @@ CK_RV icsftok_encrypt_final(SESSION *session, CK_BYTE_PTR output_part,
 	}
 
 	/* Check if key exists */
-	pthread_rwlock_rdlock(&obj_list_rw_mutex);
 	if(!(mapping = bt_get_node_value(&objects, encr_ctx->key))) {
 		TRACE_ERROR("%s\n", ock_err(ERR_KEY_HANDLE_INVALID));
 		rc = CKR_KEY_HANDLE_INVALID;
-	}
-	pthread_rwlock_unlock(&obj_list_rw_mutex);
-	if (rc != CKR_OK)
 		goto done;
+	}
 
 	/* Define the type of the call */
 	multi_part_ctx = (struct icsf_multi_part_context *) encr_ctx->context;
@@ -2448,14 +2350,11 @@ CK_RV icsftok_decrypt_init(SESSION *session, CK_MECHANISM_PTR mech,
 		goto done;
 
 	/* Check if key exists */
-	pthread_rwlock_rdlock(&obj_list_rw_mutex);
 	if(!bt_get_node_value(&objects, key)) {
 		rc = CKR_KEY_HANDLE_INVALID;
 		TRACE_ERROR("%s\n", ock_err(ERR_KEY_HANDLE_INVALID));
-	}
-	pthread_rwlock_unlock(&obj_list_rw_mutex);
-	if (rc != CKR_OK)
 		goto done;
+	}
 
 	/** validate the mechanism parameter length here */
 	if((rc = validate_mech_parameters(mech)))
@@ -2568,14 +2467,11 @@ CK_RV icsftok_decrypt(SESSION *session, CK_BYTE_PTR input_data,
 	}
 
 	/* Check if key exists */
-	pthread_rwlock_rdlock(&obj_list_rw_mutex);
 	if(!(mapping = bt_get_node_value(&objects, decr_ctx->key))) {
 		TRACE_ERROR("%s\n", ock_err(ERR_KEY_HANDLE_INVALID));
 		rc = CKR_KEY_HANDLE_INVALID;
-	}
-	pthread_rwlock_unlock(&obj_list_rw_mutex);
-	if (rc != CKR_OK)
 		goto done;
+	}
 
 	/* Decrypt data using remote token. */
 	if (symmetric) {
@@ -2667,14 +2563,11 @@ CK_RV icsftok_decrypt_update(SESSION *session, CK_BYTE_PTR input_part,
 	}
 
 	/* Check if key exists */
-	pthread_rwlock_rdlock(&obj_list_rw_mutex);
 	if(!(mapping = bt_get_node_value(&objects, decr_ctx->key))) {
 		TRACE_ERROR("%s\n", ock_err(ERR_KEY_HANDLE_INVALID));
 		rc = CKR_KEY_HANDLE_INVALID;
-	}
-	pthread_rwlock_unlock(&obj_list_rw_mutex);
-	if (rc != CKR_OK)
 		goto done;
+	}
 
 	multi_part_ctx = (struct icsf_multi_part_context *) decr_ctx->context;
 
@@ -2864,14 +2757,11 @@ CK_RV icsftok_decrypt_final(SESSION *session, CK_BYTE_PTR output_part,
 	}
 
 	/* Check if key exists */
-	pthread_rwlock_rdlock(&obj_list_rw_mutex);
 	if(!(mapping = bt_get_node_value(&objects, decr_ctx->key))) {
 		TRACE_ERROR("%s\n", ock_err(ERR_KEY_HANDLE_INVALID));
 		rc = CKR_KEY_HANDLE_INVALID;
-	}
-	pthread_rwlock_unlock(&obj_list_rw_mutex);
-	if (rc != CKR_OK)
 		goto done;
+	}
 
 	/* Define the type of the call */
 	multi_part_ctx = (struct icsf_multi_part_context *) decr_ctx->context;
@@ -2970,12 +2860,6 @@ CK_RV icsftok_get_attribute_value(SESSION *sess, CK_OBJECT_HANDLE handle,
 	}
 
 	/* get the object handle */
-	/* get a read lock */
-	if (pthread_rwlock_rdlock(&obj_list_rw_mutex)) {
-		TRACE_ERROR("Failed to lock mutex.\n");
-		return CKR_FUNCTION_FAILED;
-	}
-
 	mapping = bt_get_node_value(&objects, handle);
 
 	if (!mapping) {
@@ -3024,11 +2908,6 @@ CK_RV icsftok_get_attribute_value(SESSION *sess, CK_OBJECT_HANDLE handle,
 	}
 
 done:
-	if (pthread_rwlock_unlock(&obj_list_rw_mutex)) {
-		TRACE_ERROR("Mutex Unlock failed.\n");
-		rc = CKR_FUNCTION_FAILED;
-	}
-
 	return rc;
 }
 
@@ -3063,11 +2942,6 @@ CK_RV icsftok_set_attribute_value(SESSION *sess, CK_OBJECT_HANDLE handle,
 	}
 
 	/* get the object handle */
-	/* get a read lock */
-	if (pthread_rwlock_rdlock(&obj_list_rw_mutex)) {
-		TRACE_ERROR("Failed to lock mutex.\n");
-		return CKR_FUNCTION_FAILED;
-	}
 	mapping = bt_get_node_value(&objects, handle);
 
 	if (!mapping) {
@@ -3105,12 +2979,6 @@ CK_RV icsftok_set_attribute_value(SESSION *sess, CK_OBJECT_HANDLE handle,
 	}
 
 done:
-	/* Unlock */
-	if (pthread_rwlock_unlock(&obj_list_rw_mutex)) {
-		TRACE_ERROR("Mutex Unlock failed.\n");
-		rc = CKR_FUNCTION_FAILED;
-	}
-
 	return rc;
 }
 
@@ -3181,11 +3049,6 @@ CK_RV icsftok_find_objects_init(SESSION *sess, CK_ATTRIBUTE *pTemplate,
 
 	/* clear out records */
 	memset(records, 0, MAX_RECORDS*(sizeof(struct icsf_object_record)));
-
-	if (pthread_rwlock_wrlock(&obj_list_rw_mutex)) {
-		TRACE_ERROR("Failed to lock mutex.\n");
-		return CKR_FUNCTION_FAILED;
-	}
 
 	do {
 		records_len = sizeof(records)/sizeof(struct icsf_object_record);
@@ -3279,11 +3142,6 @@ CK_RV icsftok_find_objects_init(SESSION *sess, CK_ATTRIBUTE *pTemplate,
 	sess->find_active = TRUE;
 
 done:
-	if (pthread_rwlock_unlock(&obj_list_rw_mutex)) {
-		TRACE_ERROR("Mutex Unlock failed.\n");
-		return CKR_FUNCTION_FAILED;
-	}
-
 	return rc;
 }
 
@@ -3309,12 +3167,6 @@ CK_RV icsftok_destroy_object(SESSION *sess, CK_OBJECT_HANDLE handle)
 		return CKR_FUNCTION_FAILED;
 	}
 
-	/* Lock the object list */
-	if (pthread_rwlock_wrlock(&obj_list_rw_mutex)) {
-		TRACE_ERROR("Failed to lock mutex.\n");
-		return CKR_FUNCTION_FAILED;
-	}
-
 	/* get the object handle */
 	mapping = bt_get_node_value(&objects, handle);
 
@@ -3337,11 +3189,6 @@ CK_RV icsftok_destroy_object(SESSION *sess, CK_OBJECT_HANDLE handle)
 	bt_node_free(&objects, handle, free);
 
 done:
-        if (pthread_rwlock_unlock(&obj_list_rw_mutex)) {
-                TRACE_ERROR("Mutex Unlock failed.\n");
-                return CKR_FUNCTION_FAILED;
-        }
-
 	return rc;
 }
 
@@ -3410,14 +3257,11 @@ CK_RV icsftok_sign_init(SESSION *session, CK_MECHANISM *mech,
 	}
 
 	/* Check if key exists */
-	pthread_rwlock_rdlock(&obj_list_rw_mutex);
 	if(!(mapping = bt_get_node_value(&objects, key))) {
 		TRACE_ERROR("%s\n", ock_err(ERR_KEY_HANDLE_INVALID));
 		rc = CKR_KEY_HANDLE_INVALID;
-	}
-	pthread_rwlock_unlock(&obj_list_rw_mutex);
-	if (rc != CKR_OK)
 		return rc;
+	}
 
 	/* Check the mechanism info */
 	switch (mech->mechanism) {
@@ -3600,14 +3444,11 @@ CK_RV icsftok_sign(SESSION *session, CK_BYTE *in_data, CK_ULONG in_data_len,
 	}
 
 	/* Check if key exists */
-	pthread_rwlock_rdlock(&obj_list_rw_mutex);
 	if(!(mapping = bt_get_node_value(&objects, ctx->key))) {
 		TRACE_ERROR("%s\n", ock_err(ERR_KEY_HANDLE_INVALID));
 		rc = CKR_KEY_HANDLE_INVALID;
-	}
-	pthread_rwlock_unlock(&obj_list_rw_mutex);
-	if (rc != CKR_OK)
 		goto done;
+	}
 
 	switch (ctx->mech.mechanism) {
 	case CKM_MD5_HMAC:
@@ -3720,14 +3561,11 @@ CK_RV icsftok_sign_update(SESSION *session, CK_BYTE *in_data,
 	}
 
 	/* Check if key exists */
-	pthread_rwlock_rdlock(&obj_list_rw_mutex);
 	if(!(mapping = bt_get_node_value(&objects, ctx->key))) {
 		TRACE_ERROR("%s\n", ock_err(ERR_KEY_HANDLE_INVALID));
 		rc = CKR_KEY_HANDLE_INVALID;
-	}
-	pthread_rwlock_unlock(&obj_list_rw_mutex);
-	if (rc != CKR_OK)
 		goto done;
+	}
 
 	/* indicate this is multipart operation and get chain info from ctx.
 	 * if any mechanisms that cannot do multipart sign come here, they
@@ -3885,14 +3723,11 @@ CK_RV icsftok_sign_final(SESSION *session, CK_BYTE *signature,
 	}
 
 	/* Check if key exists */
-	pthread_rwlock_rdlock(&obj_list_rw_mutex);
 	if(!(mapping = bt_get_node_value(&objects, ctx->key))) {
 		TRACE_ERROR("%s\n", ock_err(ERR_KEY_HANDLE_INVALID));
 		rc = CKR_KEY_HANDLE_INVALID;
-	}
-	pthread_rwlock_unlock(&obj_list_rw_mutex);
-	if (rc != CKR_OK)
 		goto done;
+	}
 
 	/* get the chain data from ctx */
 	if (ctx->context) {
@@ -4004,14 +3839,11 @@ CK_RV icsftok_verify_init(SESSION *session, CK_MECHANISM *mech,
 	}
 
 	/* Check if key exists */
-	pthread_rwlock_rdlock(&obj_list_rw_mutex);
 	if(!(mapping = bt_get_node_value(&objects, key))) {
 		TRACE_ERROR("%s\n", ock_err(ERR_KEY_HANDLE_INVALID));
 		rc = CKR_KEY_HANDLE_INVALID;
-	}
-	pthread_rwlock_unlock(&obj_list_rw_mutex);
-	if (rc != CKR_OK)
 		return rc;
+	}
 
 	/* Check the mechanism info */
 	switch (mech->mechanism) {
@@ -4189,14 +4021,11 @@ CK_RV icsftok_verify(SESSION *session, CK_BYTE *in_data, CK_ULONG in_data_len,
 	}
 
 	/* Check if key exists */
-	pthread_rwlock_rdlock(&obj_list_rw_mutex);
 	if(!(mapping = bt_get_node_value(&objects, ctx->key))) {
 		TRACE_ERROR("%s\n", ock_err(ERR_KEY_HANDLE_INVALID));
 		rc = CKR_KEY_HANDLE_INVALID;
-	}
-	pthread_rwlock_unlock(&obj_list_rw_mutex);
-	if (rc != CKR_OK)
 		goto done;
+	}
 
 	switch (ctx->mech.mechanism) {
 	case CKM_MD5_HMAC:
@@ -4281,14 +4110,11 @@ CK_RV icsftok_verify_update(SESSION *session, CK_BYTE *in_data,
 	}
 
 	/* Check if key exists */
-	pthread_rwlock_rdlock(&obj_list_rw_mutex);
 	if(!(mapping = bt_get_node_value(&objects, ctx->key))) {
 		TRACE_ERROR("%s\n", ock_err(ERR_KEY_HANDLE_INVALID));
 		rc = CKR_KEY_HANDLE_INVALID;
-	}
-	pthread_rwlock_unlock(&obj_list_rw_mutex);
-	if (rc != CKR_OK)
 		goto done;
+	}
 
 	/* indicate this is multipart operation and get chain info from ctx.
 	 * if any mechanisms that cannot do multipart verify come here, they
@@ -4447,14 +4273,11 @@ CK_RV icsftok_verify_final(SESSION *session, CK_BYTE *signature,
 	}
 
 	/* Check if key exists */
-	pthread_rwlock_rdlock(&obj_list_rw_mutex);
 	if(!(mapping = bt_get_node_value(&objects, ctx->key))) {
 		TRACE_ERROR("%s\n", ock_err(ERR_KEY_HANDLE_INVALID));
 		rc = CKR_KEY_HANDLE_INVALID;
-	}
-	pthread_rwlock_unlock(&obj_list_rw_mutex);
-	if (rc != CKR_OK)
 		goto done;
+	}
 
 	/* get the chain data from ctx */
 	if (ctx->context) {
@@ -4557,10 +4380,8 @@ CK_RV icsftok_wrap_key(SESSION *session, CK_MECHANISM_PTR mech,
 	}
 
 	/* Check if keys exist */
-	pthread_rwlock_rdlock(&obj_list_rw_mutex);
 	wrapping_key_mapping = bt_get_node_value(&objects, wrapping_key);
 	key_mapping = bt_get_node_value(&objects, key);
-	pthread_rwlock_unlock(&obj_list_rw_mutex);
 	if (!wrapping_key_mapping || !key_mapping) {
 		TRACE_ERROR("%s\n", ock_err(ERR_KEY_HANDLE_INVALID));
 		return CKR_KEY_HANDLE_INVALID;
@@ -4624,7 +4445,6 @@ CK_RV icsftok_unwrap_key(SESSION *session, CK_MECHANISM_PTR mech,
 	struct session_state *session_state;
 	struct icsf_object_mapping *wrapping_key_mapping = NULL;
 	struct icsf_object_mapping *key_mapping = NULL;
-	int is_obj_locked = 0;
 	CK_ULONG node_number;
 	size_t expected_block_size = 0;
 
@@ -4641,9 +4461,7 @@ CK_RV icsftok_unwrap_key(SESSION *session, CK_MECHANISM_PTR mech,
 	}
 
 	/* Check if key exists */
-	pthread_rwlock_rdlock(&obj_list_rw_mutex);
 	wrapping_key_mapping = bt_get_node_value(&objects, wrapping_key);
-	pthread_rwlock_unlock(&obj_list_rw_mutex);
 	if (!wrapping_key_mapping) {
 		TRACE_ERROR("%s\n", ock_err(ERR_KEY_HANDLE_INVALID));
 		return CKR_KEY_HANDLE_INVALID;
@@ -4704,14 +4522,6 @@ CK_RV icsftok_unwrap_key(SESSION *session, CK_MECHANISM_PTR mech,
 		goto done;
 	}
 
-	/* Lock the object list */
-	if (pthread_rwlock_wrlock(&obj_list_rw_mutex)) {
-		TRACE_ERROR("Failed to lock mutex.\n");
-		rc = CKR_FUNCTION_FAILED;
-		goto done;
-	}
-	is_obj_locked = 1;
-
 	/* Add info about object into session */
 	if(!(node_number = bt_node_add(&objects, key_mapping))) {
 		TRACE_ERROR("Failed to add object to binary tree.\n");
@@ -4723,11 +4533,6 @@ CK_RV icsftok_unwrap_key(SESSION *session, CK_MECHANISM_PTR mech,
 	*p_key = node_number;
 
 done:
-	if (is_obj_locked && pthread_rwlock_unlock(&obj_list_rw_mutex)) {
-		TRACE_ERROR("Mutex Unlock failed.\n");
-		rc = CKR_FUNCTION_FAILED;
-	}
-
 	/* If allocated, object must be freed in case of failure */
 	if (rc && key_mapping)
 		free(key_mapping);
@@ -4748,7 +4553,6 @@ CK_RV icsftok_derive_key(SESSION *session, CK_MECHANISM_PTR mech,
 	CK_ULONG node_number;
 	char token_name[sizeof(nv_token_data->token_info.label)];
 	CK_SSL3_KEY_MAT_PARAMS *params = {0};
-	int is_obj_locked = 0;
 	int reason = 0;
 	int i;
 
@@ -4810,9 +4614,7 @@ CK_RV icsftok_derive_key(SESSION *session, CK_MECHANISM_PTR mech,
 	}
 
 	/* Convert the OCK_CK_OBJECT_HANDLE_PTR to ICSF */
-	pthread_rwlock_rdlock(&obj_list_rw_mutex);
 	base_key_mapping = bt_get_node_value(&objects, hBaseKey);
-	pthread_rwlock_unlock(&obj_list_rw_mutex);
 	if(!base_key_mapping) {
 		TRACE_ERROR("%s\n", ock_err(ERR_KEY_HANDLE_INVALID));
 		rc = CKR_KEY_HANDLE_INVALID;
@@ -4840,14 +4642,6 @@ CK_RV icsftok_derive_key(SESSION *session, CK_MECHANISM_PTR mech,
 		goto done;
 	}
 
-	/* Lock the object list */
-	if (pthread_rwlock_wrlock(&obj_list_rw_mutex)) {
-		TRACE_ERROR("Mutex Unlock failed.\n");
-		rc = CKR_FUNCTION_FAILED;
-		goto done;
-	}
-	is_obj_locked = 1;
-
 	for (i = 0; i < sizeof(mappings)/sizeof(*mappings); i++) {
 		/* Add info about object into session */
 		if(!(node_number = bt_node_add(&objects, mappings[i]))) {
@@ -4865,11 +4659,6 @@ CK_RV icsftok_derive_key(SESSION *session, CK_MECHANISM_PTR mech,
 	}
 
 done:
-	if (is_obj_locked && pthread_rwlock_unlock(&obj_list_rw_mutex)) {
-		TRACE_ERROR("Mutex Unlock failed.\n");
-		rc = CKR_FUNCTION_FAILED;
-	}
-
 	/* If allocated, object must be freed in case of failure */
 	if (rc) {
 		for (i = 0; i < sizeof(mappings)/sizeof(*mappings); i++)
