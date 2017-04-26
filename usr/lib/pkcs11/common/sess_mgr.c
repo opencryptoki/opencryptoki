@@ -12,8 +12,6 @@
 //
 // Session manager related functions
 //
-
-#include <pthread.h>
 #include <stdlib.h>
 #include <string.h>  // for memcmp() et al
 
