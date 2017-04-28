@@ -50,6 +50,7 @@ if test "x$YACC" = "xyacc"; then
     fi
 fi
 
+AC_CHECK_LIB([itm], [_ITM_commitTransaction], [], AC_MSG_ERROR(["libitm couldn't be found"]))
 
 dnl Define custom variables
 
