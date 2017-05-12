@@ -182,6 +182,7 @@ run_GenerateSignVerifyECC(CK_SESSION_HANDLE session, CK_MECHANISM_TYPE mechType,
 			/* no support for EC key gen? skip */
 			testcase_skip("Slot %u doesn't support %s",
 				(unsigned int) SLOT_ID, p11_get_ckm(mechType));
+			rc = CKR_OK;
 			goto testcase_cleanup;
 		}
 		else {
@@ -358,6 +359,7 @@ run_GenerateECCKeyPairSignVerify()
 			/* no support for EC key gen? skip */
 			testcase_skip("Slot %u doesn't support CKM_EC_KEY_PAIR_GEN",
 				(unsigned int) SLOT_ID);
+			rc = CKR_OK;
 			goto testcase_cleanup;
 		}
 		else {
