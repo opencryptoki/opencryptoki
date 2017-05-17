@@ -6,7 +6,6 @@ License:		CPL
 Group:			System Environment/Base
 URL:			http://sourceforge.net/projects/opencryptoki
 Source:			http://downloads.sourceforge.net/%{name}/%{name}-%{version}.tar.gz
-BuildRoot:		%(mktemp -ud %{_tmppath}/%{name}-%{version}-%{release}-XXXXXX)
 
 Requires(pre):		coreutils
 BuildRequires:		openssl-devel
@@ -210,9 +209,6 @@ rm -f $RPM_BUILD_ROOT/%{_libdir}/%{name}/stdll/*.la
 %postun ccatok -p /sbin/ldconfig
 %postun ep11tok -p /sbin/ldconfig
 %endif
-
-%clean
-rm -rf $RPM_BUILD_ROOT
 
 %pre libs
 # Create pkcs11 group
