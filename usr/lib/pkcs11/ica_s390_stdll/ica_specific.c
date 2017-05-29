@@ -3271,6 +3271,10 @@ mech_list_ica_initialize(void)
 	 */
 	ulPreDefMechCtr = mech_list_len;
 	for (i=0; i < ica_specific_mech_list_len; i++) {
+
+		if (libica_func_list[i].flags == 0)
+			continue;
+
 		// loop over libica supported list
 		ulActMechCtr = -1;
 
