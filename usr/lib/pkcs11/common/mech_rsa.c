@@ -2476,9 +2476,11 @@ CK_RV emsa_pss_encode(CK_RSA_PKCS_PSS_PARAMS *pssParms, CK_BYTE *in_data,
 
 	/* pkcs1v2.2, Step 4: Generate salt */
 	salt = buf + (8 + in_data_len);
-	rc = rng_generate(salt, pssParms->sLen);
-	if (rc != CKR_OK)
-		goto done;
+	if (pssParms->sLen > 0) {
+		rc = rng_generate(salt, pssParms->sLen);
+		if (rc != CKR_OK)
+			goto done;
+	}
 
 	/* pkcs1v2.2, Step 5: set M' */
 	memcpy(buf + 8, in_data, in_data_len);
