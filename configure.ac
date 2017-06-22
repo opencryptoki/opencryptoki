@@ -404,7 +404,7 @@ dnl - The above may not be necessary since opencryptoki brings this header file 
 		with_xcryptolinz=no
 	])
 	if test "x$with_xcryptolinz" != "xno"; then
-		AC_CHECK_LIB([csulsapi], [CSNBKTC],
+		AC_CHECK_LIB([csulcca], [CSNBKTC],
 			[with_xcryptolinz=yes], [
 				if test "x$with_xcryptolinz" != "xcheck"; then
 					AC_MSG_ERROR([Build with xcryptolinz requested but xcryptolinz libraries couldn't be found])
