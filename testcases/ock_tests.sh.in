@@ -31,7 +31,7 @@ LOGGING=0
 TESTDIR=`dirname $0`
 LOGFILE="$TESTDIR/ock-tests.log"
 ERR_SUMMARY="$TESTDIR/ock-tests.err"
-PKCONF="@localstatedir@/lib/opencryptoki/pk_config_data"
+PKCONF="@sysconfdir@/opencryptoki/opencryptoki.conf"
 PKCSCONFBIN="@sbindir@/pkcsconf"
 TESTCONF="$TESTDIR/ock-tests.config"
 TOKTYPE=""
@@ -258,7 +258,7 @@ main_script()
 
     # where to run
     if [ -z $SLOT ]; then
-        NUMSLOT=`wc -l $PKCONF | cut -d " " -f 1`
+        NUMSLOT=$(grep '^slot' $PKCONF | wc -l)
         for ((i=0; i<$NUMSLOT; i++)); do
             SLOT="$SLOT $i"
         done

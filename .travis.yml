@@ -16,7 +16,6 @@ script:
     - ./configure --enable-testcases --enable-debug && make
     - sudo make install
     - sudo ldconfig
-    - sudo touch /usr/local/var/lib/opencryptoki/pk_config_data
     - sudo pkcsslotd
     - sudo pkcsconf -t
     - cd testcases

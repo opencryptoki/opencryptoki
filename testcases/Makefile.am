@@ -7,7 +7,7 @@ EXTRA_DIST = ock_tests.sh.in init_token.sh.in
 CLEANFILES = ock_tests.sh init_token.sh
 
 ock_tests.sh: ock_tests.sh.in
-	@SED@	-e s!\@localstatedir\@!"@localstatedir@"!g	\
+	@SED@	-e s!\@sysconfdir\@!"@sysconfdir@"!g	\
 		-e s!\@sbindir\@!"@sbindir@"!g			\
 		-e s!\@libdir\@!"@libdir@"!g < $< > $@-t
 	@CHMOD@ a+x $@-t
