@@ -101,10 +101,6 @@ STEP 2:
    libxcryp.so		xcryptolinz
    libcrypto.so		openssl
 
-   When a token is detected by the startup scripts run by /etc/init.d/pkcsslotd, an
-   entry is made in the /var/lib/opencryptoki/pk_config_data file. This file will
-   contain 1 line per token.
-
 STEP 3:
 
   Initialize the CCA token.
