@@ -17,6 +17,7 @@
 #include <termios.h>
 #include <pkcs11types.h>
 #include <locale.h>
+#include <limits.h>
 #include <nl_types.h>
 #include <memory.h>
 #include <string.h>
@@ -50,6 +51,7 @@ CK_RV init(void);
 void usage(char *);
 int echo(int);
 int get_pin(CK_CHAR **);
+int get_slot(char *);
 CK_RV cleanup(void);
 CK_RV display_pkcs11_info(void);
 CK_RV get_slot_list(void);
@@ -75,8 +77,7 @@ main(int argc, char *argv[]){
    CK_CHAR_PTR sopin = NULL,   // The Security Office PIN
                pin = NULL,     // The User PIN
                newpin = NULL,  // To store PIN changes
-               newpin2 = NULL, // To store validation of PIN change
-               slot = NULL;    // The PKCS slot number
+               newpin2 = NULL; // To store validation of PIN change
 
    int c,                      // To store passed in options
        newpinlen, newpin2len,
@@ -93,8 +94,11 @@ main(int argc, char *argv[]){
             }
             else {
                 flags |= CFG_SLOT;
-                slot = (CK_CHAR_PTR) malloc(strlen(optarg)+1);
-                memcpy(slot, optarg, strlen(optarg)+1);
+                in_slot = get_slot(optarg);
+                if (in_slot < 0) {
+                    printf("Must specify a decimal number as slot.\n");
+                    errflag++;
+                }
             }
             break;
          case 'S':  /* the SO pin */
@@ -182,10 +186,6 @@ main(int argc, char *argv[]){
    /* Load the PKCS11 library and start the slotmanager if it is not running */
    if ( init() != CKR_OK )
 	exit(-1);
-
-   if (flags & CFG_SLOT) {
-     in_slot = atol((char *)slot);
-   }
 
    /* Get the slot list and indicate if a slot number was passed in or not */
    if ((rc = get_slot_list()))
@@ -438,6 +438,28 @@ int get_pin(CK_CHAR **pin)
 	strncpy((char *)*pin, buff, (strlen((char *)buff) + 1));
 out:
 	return rc;
+}
+
+int get_slot(char *optarg)
+{
+    char *endptr;
+    int val;
+
+    errno = 0;
+    val = (int) strtol(optarg, &endptr, 10);
+
+    /* Check for various possible errors */
+    if ((errno == ERANGE && (val == LONG_MAX || val == LONG_MIN))
+            || (errno != 0 && val == 0)) {
+        perror("strtol");
+        return -1;
+    }
+
+    /* No digits were found in optarg, so return error */
+    if (endptr == optarg)
+        return -1;
+
+    return val;
 }
 
 int
