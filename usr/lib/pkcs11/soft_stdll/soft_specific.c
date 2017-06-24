@@ -18,7 +18,7 @@
 
 
 ****************************************************************************/
-#define _BSD_SOURCE
+#define _DEFAULT_SOURCE
 
 #include <pthread.h>
 #include <string.h>            // for memcmp() et al
