@@ -283,8 +283,8 @@ static int spinxplfd = -1;
 
 CK_RV CreateXProcLock(void)
 {
-	CK_BYTE lockfile[PATH_MAX];
-	CK_BYTE lockdir[PATH_MAX];
+	CK_BYTE lockfile[2*PATH_MAX + sizeof(LOCKDIR_PATH) + 6];
+	CK_BYTE lockdir[PATH_MAX + sizeof(LOCKDIR_PATH)];
 	struct group *grp;
 	struct stat statbuf;
 	mode_t mode = (S_IRUSR | S_IRGRP);
