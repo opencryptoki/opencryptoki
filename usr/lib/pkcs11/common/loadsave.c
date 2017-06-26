@@ -474,14 +474,11 @@ CK_RV save_token_data(CK_SLOT_ID slot_id)
 	}
 
 	sprintf(fname, "%s/%s", get_pk_dir(pk_dir_buf), PK_LITE_NV);
-	fp = fopen((char *)fname, "r+");
+	fp = fopen((char *)fname, "w");
 	if (!fp) {
-		fp = fopen((char *)fname, "w");
-		if (!fp) {
-			TRACE_ERROR("fopen(%s): %s\n", fname, strerror(errno));
-			rc = CKR_FUNCTION_FAILED;
-			goto done;
-		}
+		TRACE_ERROR("fopen(%s): %s\n", fname, strerror(errno));
+		rc = CKR_FUNCTION_FAILED;
+		goto done;
 	}
 	set_perm(fileno(fp));
 
