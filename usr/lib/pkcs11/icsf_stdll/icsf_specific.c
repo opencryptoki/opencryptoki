@@ -1368,7 +1368,6 @@ CK_RV icsftok_create_object(SESSION *session, CK_ATTRIBUTE_PTR attrs,
 	struct icsf_object_mapping *mapping;
 	CK_ULONG node_number;
 	char token_name[sizeof(nv_token_data->token_info.label)];
-	int is_obj_locked = 0;
 	int reason = 0;
 
 	/* Check permissions based on attributes and session */
