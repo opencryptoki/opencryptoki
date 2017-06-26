@@ -589,10 +589,11 @@ os_specific_rsa_keygen(TEMPLATE *publ_tmpl,  TEMPLATE *priv_tmpl)
 	CK_BBOOL             flag;
 	CK_RV                rc;
 	CK_ULONG             BNLength;
-	RSA *rsa;
+	RSA *rsa = RSA_new();
 	const BIGNUM *bignum;
 	CK_BYTE *ssl_ptr;
-	unsigned long e = 0;
+	BIGNUM *e = BN_new();
+	unsigned long aux = 0;
 
 	flag = template_attribute_find( publ_tmpl, CKA_MODULUS_BITS, &attr );
 	if (!flag){
@@ -619,22 +620,24 @@ os_specific_rsa_keygen(TEMPLATE *publ_tmpl,  TEMPLATE *priv_tmpl)
 	}
 
 	if (publ_exp->ulValueLen == sizeof(CK_ULONG)) {
-		e = *(CK_ULONG *)publ_exp->pValue;
+		BN_set_word(e, *(CK_ULONG *)publ_exp->pValue);
 	} else {
-		memcpy(&e, publ_exp->pValue, publ_exp->ulValueLen);
+		memcpy(&aux, publ_exp->pValue, publ_exp->ulValueLen);
 
 		if (sizeof(CK_ULONG) == 4)
-			e = le32toh(e);
+			BN_set_word(e, le32toh(aux));
 		else
-			e = le64toh(e);
+			BN_set_word(e, le64toh(aux));
 	}
 
-	rsa = RSA_generate_key(mod_bits, e, NULL, NULL);
-	if (rsa == NULL) {
+	if (!RSA_generate_key_ex(rsa, mod_bits, e, NULL)) {
                 TRACE_ERROR("%s\n", ock_err(ERR_FUNCTION_FAILED));
                 return CKR_FUNCTION_FAILED;
         }
 	RSA_blinding_off(rsa);
+
+	if (e)
+		BN_free(e);
 
 	// Now fill in the objects..
 	//
