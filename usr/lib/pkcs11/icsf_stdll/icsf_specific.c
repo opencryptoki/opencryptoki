@@ -3503,6 +3503,11 @@ CK_RV icsftok_sign(SESSION *session, CK_BYTE *in_data, CK_ULONG in_data_len,
 	case CKM_SHA512_RSA_PKCS:
 	case CKM_DSA_SHA1:
 	case CKM_ECDSA_SHA1:
+		if (length_only) {
+			rc = CKR_OK;
+			goto done;
+		}
+
 		rc = icsf_hash_signverify(session_state->ld, &reason,
 				&mapping->icsf_object, &ctx->mech,
 				"ONLY", in_data, in_data_len, signature,
@@ -3775,6 +3780,10 @@ CK_RV icsftok_sign_final(SESSION *session, CK_BYTE *signature,
 	case CKM_SHA512_RSA_PKCS:
 	case CKM_DSA_SHA1:
 	case CKM_ECDSA_SHA1:
+		if (length_only) {
+			rc = CKR_OK;
+			goto done;
+		}
 
 		/* see if any data left in the cache */
 		if (multi_part_ctx && multi_part_ctx->used_data_len) {

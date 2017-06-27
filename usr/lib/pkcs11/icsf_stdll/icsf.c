@@ -3009,6 +3009,8 @@ int icsf_hash_signverify(LDAP *ld, int *reason, struct icsf_object_record *key,
 	 */
 	if (ICSF_RC_IS_ERROR(rc) && (reason_code != 3003))
 		goto done;
+	else if ((reason_code == 8000) || (reason_code == 11000))
+		goto done;
 
 	/* Parse the response. */
 	if (ber_scanf(result, "{ooi}", &bvChain, &bvSig, &length) < 0) {
