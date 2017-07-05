@@ -1,176 +1,232 @@
-opencryptoki README
+# Opencryptoki
+
 Package version 3.7.0
 
-Please see NEWS for additional version 3 information.
+Please see [ChangeLog](ChangeLog) for release specific information.
 
-OVERVIEW
+## OVERVIEW
 
-openCryptoki version 3.7.0 implements the PKCS#11 specification version 2.20.
-This package includes several cryptographic tokens;
- CCA, ICA, TPM , SWToken, ICSF, and EP11.
+OpenCryptoki version 3.7.0 implements the PKCS#11 specification version 2.20.
 
-REQUIREMENTS:
+This package includes several cryptographic tokens:
+CCA, ICA, TPM , SWToken, ICSF and EP11.
 
- - IBM ICA	requires libica library version 2.3.0 or higher for accessing
-		ICA hardware crypto on IBM zSeries.
- - IBM CCA	requires IBM XCrypto CEX3C card and the
-		CEX3C host libraries and tools version 4.1.
- - TPM 		requires a TPM, TPM tools, and TCG software stack.
- - SWToken 	The software token uses OpenSSL version 0.9.7 or higher.
- - ICSF		The Integrated Cryptographic Service Facility (ICSF) token
-		requires openldap and opeldap client software
-		version 2.4.23 or higher. Lex and Yacc are also required
-		to build this token.
- - EP11		The EP11 token is a token that uses the IBM Crypto Express
-		adapters (starting with Crypto Express 4S adapters) configured
-		with Enterprise PKCS#11 (EP11) firmware.
+## REQUIREMENTS:
 
+- IBM ICA - requires libica library version 2.3.0 or higher for accessing ICA
+hardware crypto on IBM zSeries.
 
-BUILD PROCESS
+- IBM CCA - requires IBM XCrypto CEX3C card (or higher) and the CEX3C host
+libraries and tools version 4.1 (or higher).
 
-The simplest way to compile this package is to enter the source code
-main directory and do the following:
+- TPM     - requires a TPM, TPM tools, and TCG software stack.
 
-  1. Run the bootstrap.sh script by typing:
-        % sh bootstrap.sh
+- SWToken - The software token uses OpenSSL version 0.9.7 or higher.
 
-  2. Configure the source code by typing:
-        % sh ./configure
+- ICSF    - The Integrated Cryptographic Service Facility (ICSF) token requires
+openldap and openldap client software version 2.4.23 or higher. Lex and Yacc are
+also required to build this token.
 
-     If you're planning to install the package into your home directory
-     or to a location other than `/usr/local' then add the flag
-     `--prefix=PATH' to `configure'. For example, if your home directory
-     is `/home/luser' you can configure the package to install itself there
-     by invoking:
-        % sh ./configure --prefix=/home/luser
+- EP11    - The EP11 token is a token that uses the IBM Crypto Express adapters
+(starting with Crypto Express 4S adapters) configured with Enterprise PKCS#11
+(EP11) firmware.
 
-     If your stdll headers and libraries are not under any standard
-     path, you will need to pass the paths to your files to the
-     configure script. For instance:
+## BUILD PROCESS
 
-     $ CPPFLAGS="-L/path/lib" LDFLAGS="-I/path/include" ./configure
+The simplest way to compile this package is to enter the source code main
+directory and do the following:
 
-     See ./configure --help for info on various options.  The default
-     behavior is to build a default token implicitly. For the s390
-     platform, the default token is ica_s390. For other platforms, the
-     default token is the software token. Other tokens may be enabled
-     using the corresponding --enable-<tok> configuration option
-     provided the appropriate libraries are available.
+1. Run the bootstrap.sh script by typing:
 
-     While running, `configure' prints some messages telling which
-     features is it checking for.
+```
+    $ ./bootstrap.sh
+```
 
-  3. Compile the package by typing:
-        % make
+2. Configure the source code by typing:
 
-  4. openCryptoki defaults to be usable by anyone who is in the group
-     ``pkcs11''. Add the pkcs11 group before installing it, by typping
-     as root the command:
-  	    % groupadd pkcs11
+```
+    $ ./configure
+```
 
-     In addition, add root to the pkcs11 group:
-  	    % usermod -G pkcs11 root
+   If you're planning to install the package into your home directory or to a
+   location other than `/usr/local` then add the flag `--prefix=PATH` to
+   `configure`. Fox example, if your home directory is `/home/luser` you can
+   configure the package to install itself there by invoking:
 
-  5. Type `make install' (as root) to install the programs and any data
-     files and documentation. During installation, the following files go
-     to the following directories:
-        /prefix/sbin/pkcsconf
-        /prefix/sbin/pkcsslotd
-        /prefix/sbin/pkcsicsf
-        /prefix/libdir/libopencryptoki.so
-        /prefix/libdir/libopencryptoki.so.0
-        /prefix/libdir/opencryptoki/libopencryptoki.so
-        /prefix/libdir/opencryptoki/libopencryptoki.so.0
-        /prefix/libdir/opencryptoki/libopencryptoki.so.0.0.0
-        /prefix/var/lib/opencryptoki
-	/prefix/etc/opencryptoki/opencryptoki.conf
+```
+    $ ./configure --prefix=/home/luser
+```
 
-     Token objects, which may be optionally built, go to the following
-     locations:
-        /prefix/libdir/opencryptoki/stdll/libpkcs11_ica.so
-        /prefix/libdir/opencryptoki/stdll/libpkcs11_ica.so.0
-        /prefix/libdir/opencryptoki/stdll/libpkcs11_ica.so.0.0.0
-        /prefix/libdir/opencryptoki/stdll/libpkcs11_sw.so
-        /prefix/libdir/opencryptoki/stdll/libpkcs11_sw.so.0
-        /prefix/libdir/opencryptoki/stdll/libpkcs11_sw.so.0.0.0
-        /prefix/libdir/opencryptoki/stdll/libpkcs11_tpm.so
-        /prefix/libdir/opencryptoki/stdll/libpkcs11_tpm.so.0
-        /prefix/libdir/opencryptoki/stdll/libpkcs11_tpm.so.0.0.0
+   If your stdll headers and libraries are not under any standard path, you
+   will need to pass the paths to your files to the configure script. For
+   instance:
 
-     where `prefix' is either `/usr/local' or the PATH that you specified
-     in the `--prefix' flag. `libdir' is the name of the library
-     directory; for 32-bit libraries it is usually `lib' and for
-     64-bit libraries it is usually `lib64'.
+```
+    $ CPPFLAGS="-L/path/lib" LDFLAGS="-I/path/include" ./configure
+```
 
-     To maintain backwards compatibility, some additional symlinks
-     are generated (note that these are deprecated, and applications
-     should migrate to use the LSB-compliant names and locations for
-     libraries and executables):
-        /prefix/lib/opencryptoki/PKCS11_API.so
-          - Symlink to /prefix/lib/opencryptoki/libopencryptoki.so
-        /prefix/lib/opencryptoki/stdll/PKCS11_ICA.so
-          - Symlink to /prefix/lib/opencryptoki/stdll/libpkcs11_ica.so
-        /prefix/lib/opencryptoki/stdll/PKCS11_SW.so
-	  - Symlink to /prefix/lib/opencryptoki/stdll/libpkcs11_sw.so
-        /prefix/lib/pkcs11/PKCS11_API.so
-	  - Symlink to /prefix/lib/opencryptoki/libopencryptoki.so
-        /prefix/lib/pkcs11
-	  - Directory created if non-existent
-        /prefix/lib/pkcs11/methods
-          - Symlink to /prefix/sbin
-        /prefix/lib/pkcs11/stdll
-	  - Symlink to /prefix/lib/opencryptoki/stdll
-	/prefix/etc/pkcs11
-          - Symlink to /prefix/var/lib/opencryptoki
+   See `./configure --help` for info on various options. The default behavior
+   is to build a default token implicitly. For the s390 platform, the default
+   token is ICA. For other platforms, the default token is the software token.
+   Other tokens may be enabled using the corresponding `--enable-<tok>`
+   configuration option provided the appropriate libraries are available.
 
-     If any of these directories do not presently exist, they will be
-     created on demand. Note that if ``prefix'' is ``/usr'', then
-     /prefix/var and /prefix/etc resolve to /var and /etc. On the
-     ``make install'' stage, if content exists in the old
-     /prefix/etc/pkcs11 directory, it will be migrated to the new
-     /prefix/var/lib/opencryptoki location.
+   While running, `configure` prints some messages telling which features is it
+   checking for.
 
-     If you are installing in your home directory make sure that
-     `/home/luser/bin' is in your path. If you're using the bash shell
-     add this line at the end of your .cshrc file:
-        PATH="/home/luser/bin:${PATH}"
-        export PATH
-     If you are using csh or tcsh, then use this line instead:
-        setenv PATH /home/luser/bin:${PATH}
-     By prepending your home directory to the rest of the PATH you can
-     override systemwide installed software with your own custom installation.
+3. Compile the package by typing:
 
+```
+    $ make
+```
 
-CONFIGURATION
+4. openCryptoki defaults to be usable by anyone who is in the group ``pkcs11``.
+Add the pkcs11 group before installing it, by typing as root the command:
 
-     See:
-     https://www.ibm.com/support/knowledgecenter/linuxonibm/com.ibm.linux.z.lxce/lxce_stackoverview.html
+```
+    # groupadd pkcs11
+```
 
-     Prior to version 3, opencryptoki used pk_config_data as its
-     configuration file. This file was created upon running pkcs11_startup.
-     In version 3, pkcs11_startup and pk_config_data have been
-     removed and replaced with a customizeable config file named,
-     opencryptoki.conf. It contains an entry for each token currently
-     supported by opencryptoki. However, only those tokens, whose
-     hardware and software requirements are available on the local system,
-     will show up as present and available upon running the pkcsconf -t
-     command.
+   In addition, add the necessary user to the pkcs11 group (root doesn't need to
+   be in pkcs11 group):
 
-     Before using, each token must be first initialized.
-     You can select the token with the -c command line option; refer
-     to the documentation linked to above for further instructions.
+```
+    # usermod -G pkcs11 <user>
+```
 
-     Initialize a particular token by running pkcsconf:
-       % pkcsconf -I -c
+5. Type `make install` (as root) to install the programs and any data files and
+documentation.  During installation, the following files go to the following
+directories:
 
-     In this version of openCrypoki, the default SO PIN is 87654321.
-     This should be changed to a different PIN value before use.
+```
+    /prefix/sbin/pkcsconf
+    /prefix/sbin/pkcsslotd
+    /prefix/sbin/pkcsicsf
+    /prefix/libdir/libopencryptoki.so
+    /prefix/libdir/libopencryptoki.so.0
+    /prefix/libdir/opencryptoki/libopencryptoki.so
+    /prefix/libdir/opencryptoki/libopencryptoki.so.0
+    /prefix/libdir/opencryptoki/libopencryptoki.so.0.0.0
+    /prefix/var/lib/opencryptoki
+    /prefix/etc/opencryptoki/opencryptoki.conf
+```
 
-     You can change the SO PIN by running pkcsconf:
-       % pkcsconf -P -c
+   Token objects, which may be optionally built, go to the following locations:
 
-     You can initialize and change the user PIN by typing:
-       % pkcsconf -u -c
+```
+    /prefix/libdir/opencryptoki/stdll/libpkcs11_ica.so
+    /prefix/libdir/opencryptoki/stdll/libpkcs11_ica.so.0
+    /prefix/libdir/opencryptoki/stdll/libpkcs11_ica.so.0.0.0
+    /prefix/libdir/opencryptoki/stdll/libpkcs11_sw.so
+    /prefix/libdir/opencryptoki/stdll/libpkcs11_sw.so.0
+    /prefix/libdir/opencryptoki/stdll/libpkcs11_sw.so.0.0.0
+    /prefix/libdir/opencryptoki/stdll/libpkcs11_tpm.so
+    /prefix/libdir/opencryptoki/stdll/libpkcs11_tpm.so.0
+    /prefix/libdir/opencryptoki/stdll/libpkcs11_tpm.so.0.0.0
+```
 
-     You can later change the user PIN again by typing:
-      % pkcsconf -p -c
+   where `prefix` is either `/usr/local` or the PATH that you specified in the
+   `--prefix` flag. `libdir`is the name of the library directory, for 32-bit
+   libraries it is usually `lib`and for 64-bit libraries it is usually `lib64`.
+
+   To maintain backwards compatibility, some additional symlinks are generated
+   (note that these are deprecated and applications should migrate to use the
+   LSB-compliant names and locations for libraries and executable):
+
+```
+    /prefix/lib/opencryptoki/PKCS11_API.so
+    - Symlink to /prefix/lib/opencryptoki/libopencryptoki.so
+
+    /prefix/lib/opencryptoki/stdll/PKCS11_ICA.so
+    - Symlink to /prefix/lib/opencryptoki/stdll/libpkcs11_ica.so
+
+    /prefix/lib/opencryptoki/stdll/PKCS11_SW.so
+    - Symlink to /prefix/lib/opencryptoki/stdll/libpkcs11_sw.so
+
+    /prefix/lib/pkcs11/PKCS11_API.so
+    - Symlink to /prefix/lib/opencryptoki/libopencryptoki.so
+
+    /prefix/lib/pkcs11
+    - Directory created if non-existent
+
+    /prefix/lib/pkcs11/methods
+    - Symlink to /prefix/sbin
+
+    /prefix/lib/pkcs11/stdll
+    - Symlink to /prefix/lib/opencryptoki/stdll
+
+    /prefix/etc/pkcs11
+    - Symlink to /prefix/var/lib/opencryptoki
+```
+
+   If any of these directories do not presently exist, they will be created on
+   demand. Note that if `prefix` is `/usr`, then `/prefix/var` and
+   `/prefix/etc` resolve to `/var`and `/etc`. On the `make install` stage, if
+   content exists in the old `/prefix/etc/pkcs11` directory, it will be
+   migrated to the new `/prefix/var/lib/opencryptoki` location.
+
+   If you are installing in your home directory make sure that
+   `/home/luser/bin` is in your path.  If you're using the bash shell add this
+   line at the end of your `.bashrc` file:
+
+```
+    PATH="/home/luser/bin:${PATH}"
+    export PATH
+```
+
+   If you are using csh or tcsh, then use this line instead:
+
+```
+    setenv PATH /home/luser/bin:${PATH}
+```
+
+   By prepending your home directory to the rest of the PATH you can override
+   systemwide installed software with your own custom installation.
+
+## CONFIGURATION
+
+See:
+https://www.ibm.com/support/knowledgecenter/linuxonibm/com.ibm.linux.z.lxce/lxce_stackoverview.html
+
+Prior to version 3, opencryptoki used `pk_config_data` as its configuration
+file. This file was created upon running `pkcs11_startup`. In version 3,
+`pkcs11_startup` and `pk_config_data` have been removed and replaced with a
+customizable config file named, `opencryptoki.conf`. It contains an entry for
+each token currently supported by opencryptoki. However, only those token, whose
+hardware and software requirements are available on the local system, will show
+up as present and available upon running the `pkcsconf -t` command.
+
+Before using, each token must be first initialized. You can select the token
+with the `-c` command line option; refer to the documentation linked to above
+for further instructions.
+
+Initialize a particular token by running `pkcsconf`:
+
+```
+    $ pkcsconf -I -c
+```
+
+In this version of openCrypoki, the default SO PIN is `87654321`. This should be
+changed to a different PIN value before use.
+
+You can change the SO PIN by running pkcsconf:
+
+```
+    $ pkcsconf -P -c
+```
+
+You can initialize and change the user PIN by typing:
+
+```
+    $ pkcsconf -u -c
+```
+
+You can later change the user PIN again by typing:
+
+```
+    $ pkcsconf -p -c
+```
+
+## CONTRIBUTING
+
+See [CONTRIBUTING.md](CONTRIBUTING.md).
