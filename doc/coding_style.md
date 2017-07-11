@@ -52,7 +52,8 @@ However, there is one special case, functions: their opening brace stays at the
 beginning of the next line, e.g.:
 
 ```
-    int func(int x) {
+    int func(int x)
+    {
         do_something();
     }
 ```
