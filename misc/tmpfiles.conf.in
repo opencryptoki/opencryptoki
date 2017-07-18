@@ -1,0 +1,2 @@
+# path          mode    uid     gid     age
+D @lockdir@     0770    root    pkcs11  -
