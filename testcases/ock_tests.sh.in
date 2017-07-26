@@ -194,16 +194,19 @@ check_env()
         exit 1
     fi
 
-    ## Check if the pkcs11 group 'exists'
-    P11GROUP=`getent group pkcs11 | cut -d ":" -f 3`
-    if [ -z $P11GROUP ]; then
-        echo "FATAL: Can't find pkcs11 group"
-        exit 1
-    fi
-    ## Check if we're part of it
-    if ! id -G | grep $P11GROUP; then
-        echo "FATAL: Must be part of the pkcs11 group"
-        exit 1
+    # if user is not root
+    if [ $EUID -ne 0 ]; then
+        ## Check if the pkcs11 group 'exists'
+        P11GROUP=`getent group pkcs11 | cut -d ":" -f 3`
+        if [ -z $P11GROUP ]; then
+            echo "FATAL: Can't find pkcs11 group"
+            exit 1
+        fi
+        ## Check if we're part of it
+        if ! id -G | grep $P11GROUP; then
+            echo "FATAL: Must be part of the pkcs11 group"
+            exit 1
+        fi
     fi
 
     ## Make sure we have the slot daemon running
