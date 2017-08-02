@@ -822,6 +822,7 @@ static const int APQN_FILE_SYNTAX_ERROR_4 = 11;
 static const int APQN_FILE_SYNTAX_ERROR_5 = 12;
 static const int APQN_FILE_NO_APQN_GIVEN = 13;
 static const int APQN_FILE_NO_APQN_MODE = 14;
+static const int APQN_FILE_UNEXPECTED_END_OF_FILE = 15;
 
 static int read_adapter_config_file(const char* conf_name);
 
@@ -3802,6 +3803,10 @@ static int read_adapter_config_file(const char* conf_name)
 			/* expecting END or first number of a number
 			 * pair (number range 0...255)
 			 */
+            if (token == NULL) {
+                rc = APQN_FILE_UNEXPECTED_END_OF_FILE;
+                break;
+            }
 			if (strncmp(token, "END", 3) == 0)
 				i = 0;
 			else {
@@ -3815,6 +3820,10 @@ static int read_adapter_config_file(const char* conf_name)
 			/* expecting second number of a number pair
 			 * (number range 0...255)
 			 */
+            if (token == NULL) {
+                rc = APQN_FILE_UNEXPECTED_END_OF_FILE;
+                break;
+            }
 			if (strncmp(token, "END", 3) == 0) {
 				TRACE_ERROR("%s Expected 2nd number, found '%s' in configfile\n",
 					    __func__, token);
@@ -3837,6 +3846,10 @@ static int read_adapter_config_file(const char* conf_name)
 			/* expecting log level value
 			 * (a number in the range 0...9)
 			 */
+            if (token == NULL) {
+                rc = APQN_FILE_UNEXPECTED_END_OF_FILE;
+                break;
+            }
 			char *endptr;
 			int loglevel  = strtol(token, &endptr, 10);
 			if (*endptr != '\0' || loglevel < 0 || loglevel > 9) {
