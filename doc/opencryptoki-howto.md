@@ -651,7 +651,6 @@ the `Makefile` after the sample.
 #include <stdio.h>
 #include <dlfcn.h>
 #include <pkcs11types.h>
-#include "slotmgr.h"
 
 #define CFG_SLOT        0x0004
 #define CFG_PKCS_INFO   0X0008
@@ -667,7 +666,6 @@ void *dll_ptr;
 CK_FUNCTION_LIST_PTR    function_ptr = NULL;
 CK_SLOT_ID_PTR          slot_list = NULL;
 CK_ULONG                slot_count = 0;
-Slot_Mgr_Shr_t          *shmp = NULL;
 int in_slot;
 
 int main(int argc, char *argv[])
