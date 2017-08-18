@@ -332,7 +332,8 @@ token_specific_dsa_verify( CK_BYTE *,
                            OBJECT * );
 
 CK_RV
-token_specific_get_mechanism_list(CK_MECHANISM_TYPE_PTR pMechanismList,
+token_specific_get_mechanism_list(STDLL_TokData_t *,
+				  CK_MECHANISM_TYPE_PTR pMechanismList,
                                   CK_ULONG_PTR pulCount);
 
 CK_RV

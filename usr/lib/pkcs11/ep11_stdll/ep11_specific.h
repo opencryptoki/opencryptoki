@@ -16,7 +16,8 @@
 #ifndef EP11_SPECIFIC_H
 #define EP11_SPECIFIC_H
 
-CK_RV ep11tok_get_mechanism_list(CK_MECHANISM_TYPE_PTR pMechanismList,
+CK_RV ep11tok_get_mechanism_list(STDLL_TokData_t *tokdata,
+				 CK_MECHANISM_TYPE_PTR pMechanismList,
 				 CK_ULONG_PTR pulCount);
 
 CK_RV ep11tok_get_mechanism_info(CK_MECHANISM_TYPE type,

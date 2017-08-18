@@ -50,7 +50,8 @@
 
 #define EP11SHAREDLIB "libep11.so"
 
-CK_RV ep11tok_get_mechanism_list(CK_MECHANISM_TYPE_PTR mlist,
+CK_RV ep11tok_get_mechanism_list(STDLL_TokData_t *tokdata,
+				 CK_MECHANISM_TYPE_PTR mlist,
 				 CK_ULONG_PTR count);
 CK_RV ep11tok_get_mechanism_info(CK_MECHANISM_TYPE type,
 				 CK_MECHANISM_INFO_PTR pInfo);
@@ -3460,7 +3461,8 @@ CK_ULONG banned_mech_list_len = (sizeof(ep11_banned_mech_list) / sizeof(CK_MECHA
 /* filtering out some mechanisms we do not want to provide
  * makes it complicated
  */
-CK_RV ep11tok_get_mechanism_list(CK_MECHANISM_TYPE_PTR pMechanismList,
+CK_RV ep11tok_get_mechanism_list(STDLL_TokData_t *tokdata,
+				 CK_MECHANISM_TYPE_PTR pMechanismList,
 				 CK_ULONG_PTR pulCount)
 {
 	CK_RV rc = 0;
@@ -3471,7 +3473,7 @@ CK_RV ep11tok_get_mechanism_list(CK_MECHANISM_TYPE_PTR pMechanismList,
 	/* size querry */
 	if (pMechanismList == NULL) {
 		rc = dll_m_GetMechanismList(0, pMechanismList, pulCount,
-					ep11tok_target);
+					    (uint64_t)tokdata->target_list);
 		if (rc != CKR_OK) {
 			TRACE_ERROR("%s bad rc=0x%lx from m_GetMechanismList() #1\n", __func__, rc);
 			return rc;
@@ -3486,7 +3488,7 @@ CK_RV ep11tok_get_mechanism_list(CK_MECHANISM_TYPE_PTR pMechanismList,
 			TRACE_ERROR("%s Memory allocation failed\n", __func__);
 			return CKR_HOST_MEMORY;
 		}
-		rc = dll_m_GetMechanismList(0, mlist, &counter, ep11tok_target);
+		rc = dll_m_GetMechanismList(0, mlist, &counter, (uint64_t)tokdata->target_list);
 		if (rc != CKR_OK) {
 			TRACE_ERROR("%s bad rc=0x%lx from m_GetMechanismList() #2\n", __func__, rc);
 			free(mlist);
@@ -3516,7 +3518,8 @@ CK_RV ep11tok_get_mechanism_list(CK_MECHANISM_TYPE_PTR pMechanismList,
 		 * that comes as parameter, this is a 'reduced size',
 		 * ep11 would complain about insufficient list size
 		 */
-		rc = dll_m_GetMechanismList(0, mlist, &counter, ep11tok_target);
+		rc = dll_m_GetMechanismList(0, mlist, &counter,
+					    (uint64_t)tokdata->target_list);
 		if (rc != CKR_OK) {
 			TRACE_ERROR("%s bad rc=0x%lx from m_GetMechanismList() #3\n", __func__, rc);
 			return rc;
@@ -3528,7 +3531,7 @@ CK_RV ep11tok_get_mechanism_list(CK_MECHANISM_TYPE_PTR pMechanismList,
 			return CKR_HOST_MEMORY;
 		}
 		/* all the card has */
-		rc = dll_m_GetMechanismList(0, mlist, &counter, ep11tok_target);
+		rc = dll_m_GetMechanismList(0, mlist, &counter, (uint64_t)tokdata->target_list);
 		if (rc != CKR_OK) {
 			TRACE_ERROR("%s bad rc=0x%lx from m_GetMechanismList() #4\n", __func__, rc);
 			free(mlist);

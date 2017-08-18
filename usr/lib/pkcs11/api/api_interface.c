@@ -1975,7 +1975,8 @@ C_GetMechanismList(CK_SLOT_ID slotID,
 		return CKR_TOKEN_NOT_PRESENT;
 	}
 	if (fcn->ST_GetMechanismList) {
-		rv = fcn->ST_GetMechanismList(slotID, pMechanismList, pulCount);
+		rv = fcn->ST_GetMechanismList(sltp->TokData, slotID,
+					      pMechanismList, pulCount);
 		TRACE_DEVEL("fcn->ST_GetMechanismList returned: 0x%lx\n", rv);
 	} else {
 		TRACE_ERROR("%s\n", ock_err(ERR_FUNCTION_NOT_SUPPORTED));
