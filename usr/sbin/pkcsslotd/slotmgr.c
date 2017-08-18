@@ -15,16 +15,20 @@
 #include <sys/types.h>
 #include <sys/stat.h>
 #include <grp.h>
+#include <string.h>
 
 #include "log.h"
 #include "slotmgr.h"
 #include "pkcsslotd.h"
 #include "parser.h"
 
+#define OBJ_DIR "TOK_OBJ"
+
 Slot_Mgr_Shr_t	*shmp;     // pointer to the shared memory region.
 int		shmid;
 key_t		tok;
 Slot_Info_t_64  sinfo[NUMBER_SLOTS_MANAGED];
+Slot_Info_t_64  *psinfo;
 unsigned char NumberSlotsInDB = 0;
 
 int socketfd;
@@ -135,6 +139,63 @@ void run_sanity_checks()
 	}
 }
 
+int chk_create_tokdir(char* tokdir) {
+	struct stat sbuf;
+	char tokendir[PATH_MAX];
+	struct group *grp;
+	gid_t grpid;
+	int uid, rc;
+
+	/* skip if no dedicated token directory is required */
+	if (!tokdir || strlen(tokdir) == 0)
+		return 0;
+
+	/* Create token specific directory */
+	sprintf(tokendir, "%s/%s", CONFIG_PATH, tokdir);
+	rc = stat(tokendir, &sbuf);
+	if (rc != 0 && errno == ENOENT) {
+		/* directory does not exist, create it */
+		rc = mkdir(tokendir, 0770);
+		if (rc != 0) {
+			fprintf(stderr,
+				"Creating directory '%s' failed [errno=%d].\n",
+				tokendir, errno);
+			return rc;
+		}
+	}
+
+	/* Create TOK_OBJ directory */
+	uid = (int) geteuid();
+	grp = getgrnam("pkcs11");
+	if (!grp) {
+		fprintf(stderr, "PKCS11 group does not exist [errno=%d].\n",
+                                    errno);
+		return errno;
+	} else
+		grpid = grp->gr_gid;
+
+	sprintf(tokendir, "%s/%s/%s", CONFIG_PATH, tokdir, OBJ_DIR);
+	rc = stat(tokendir, &sbuf);
+	if (rc != 0 && errno == ENOENT) {
+		/* directory does not exist, create it */
+		rc = mkdir(tokendir, 0770);
+		if (rc != 0) {
+			fprintf(stderr,
+				"Creating directory '%s' failed [errno=%d].\n",
+				tokendir, errno);
+			return rc;
+		}
+	}
+	rc = chown(tokendir, uid, grpid);
+	if (rc != 0) {
+		fprintf(stderr,
+			"Could not set PKCS11 group permission [errno=%d].\n",
+			errno);
+		return rc;
+	}
+	return 0;
+}
+
 /*****************************************
  *  main() -
  *      You know what main does.
@@ -144,7 +205,7 @@ void run_sanity_checks()
  *****************************************/
 
 int main ( int argc, char *argv[], char *envp[]) {
-	int ret;
+	int ret, i;
 
 	/**********************************/
 	/* Read in command-line arguments */
@@ -226,6 +287,14 @@ int main ( int argc, char *argv[], char *envp[]) {
 		DetachFromSharedMemory();
 		DestroySharedMemory();
 		return 6;
+	}
+
+	/* Create customized token directories */
+	psinfo = &socketData.slot_info[0];
+	for (i = 0; i < NUMBER_SLOTS_MANAGED; i++, psinfo++) {
+		ret = chk_create_tokdir(psinfo->tokname);
+		if (ret)
+			return EACCES;
 	}
 
 	/*
