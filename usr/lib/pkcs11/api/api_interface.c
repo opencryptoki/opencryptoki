@@ -719,8 +719,9 @@ C_DeriveKey(CK_SESSION_HANDLE hSession,
 	}
 	if (fcn->ST_DeriveKey) {
 		// Map the Session to the slot session
-		rv = fcn->ST_DeriveKey(&rSession, pMechanism, hBaseKey,
-				       pTemplate, ulAttributeCount, phKey);
+		rv = fcn->ST_DeriveKey(sltp->TokData, &rSession, pMechanism,
+				       hBaseKey, pTemplate, ulAttributeCount,
+				       phKey);
 		TRACE_DEVEL("fcn->ST_DeriveKey returned:0x%lx\n", rv);
 	} else {
 		TRACE_ERROR("%s\n", ock_err(ERR_FUNCTION_NOT_SUPPORTED));

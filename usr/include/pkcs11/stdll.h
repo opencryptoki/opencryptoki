@@ -275,7 +275,8 @@ typedef CK_RV (CK_PTR  ST_C_UnwrapKey)
                         CK_ULONG usWrappedKeyLen, CK_ATTRIBUTE_PTR pTemplate,
                         CK_ULONG usAttributeCount, CK_OBJECT_HANDLE_PTR phKey);
 typedef CK_RV (CK_PTR  ST_C_DeriveKey)
-                       (ST_SESSION_T *hSession, CK_MECHANISM_PTR pMechanism,
+                       (STDLL_TokData_t *tokdata, ST_SESSION_T *hSession,
+			CK_MECHANISM_PTR pMechanism,
                         CK_OBJECT_HANDLE hBaseKey, CK_ATTRIBUTE_PTR pTemplate,
                         CK_ULONG usAttributeCount, CK_OBJECT_HANDLE_PTR phKey);
 typedef CK_RV (CK_PTR  ST_C_SeedRandom)

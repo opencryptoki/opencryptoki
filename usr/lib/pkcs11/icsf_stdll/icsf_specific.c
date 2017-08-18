@@ -4576,9 +4576,10 @@ done:
 /*
  * Derive a key from a base key, creating a new key object.
  */
-CK_RV icsftok_derive_key(SESSION *session, CK_MECHANISM_PTR mech,
-			 CK_OBJECT_HANDLE hBaseKey, CK_OBJECT_HANDLE_PTR handle,
-			 CK_ATTRIBUTE_PTR attrs, CK_ULONG attrs_len)
+CK_RV icsftok_derive_key(STDLL_TokData_t *tokdata, SESSION *session,
+			 CK_MECHANISM_PTR mech, CK_OBJECT_HANDLE hBaseKey,
+			 CK_OBJECT_HANDLE_PTR handle, CK_ATTRIBUTE_PTR attrs,
+			 CK_ULONG attrs_len)
 {
 	CK_RV rc = CKR_OK;
 	struct session_state *session_state;

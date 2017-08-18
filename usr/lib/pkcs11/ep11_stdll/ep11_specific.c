@@ -1445,9 +1445,9 @@ token_specific_object_add(STDLL_TokData_t *tokdata, OBJECT *obj)
 }
 
 
-CK_RV ep11tok_generate_key(SESSION *session, CK_MECHANISM_PTR mech,
-			   CK_ATTRIBUTE_PTR attrs, CK_ULONG attrs_len,
-			   CK_OBJECT_HANDLE_PTR handle)
+CK_RV ep11tok_generate_key(SESSION *session,
+			   CK_MECHANISM_PTR mech, CK_ATTRIBUTE_PTR attrs,
+			   CK_ULONG attrs_len, CK_OBJECT_HANDLE_PTR handle)
 {
 	CK_BYTE blob[MAX_BLOBSIZE];
 	size_t blobsize = sizeof(blob);
@@ -1626,7 +1626,7 @@ CK_RV token_specific_sha_final(STDLL_TokData_t *tokdata, DIGEST_CONTEXT *c,
 	return rc;
 }
 
-CK_RV ep11tok_derive_key(SESSION *session, CK_MECHANISM_PTR mech,
+CK_RV ep11tok_derive_key(STDLL_TokData_t *tokdata, SESSION *session, CK_MECHANISM_PTR mech,
 			 CK_OBJECT_HANDLE hBaseKey, CK_OBJECT_HANDLE_PTR handle,
 			 CK_ATTRIBUTE_PTR attrs, CK_ULONG attrs_len)
 {
@@ -2509,7 +2509,8 @@ error:
 
 
 /* generic function to generate RSA,DH,EC and DSA key pairs */
-CK_RV ep11tok_generate_key_pair(SESSION * sess, CK_MECHANISM_PTR pMechanism,
+CK_RV ep11tok_generate_key_pair(SESSION * sess,
+				CK_MECHANISM_PTR pMechanism,
 				CK_ATTRIBUTE_PTR pPublicKeyTemplate,
 				CK_ULONG ulPublicKeyAttributeCount,
 				CK_ATTRIBUTE_PTR pPrivateKeyTemplate,
