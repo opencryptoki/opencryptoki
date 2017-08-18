@@ -707,7 +707,8 @@ done:
 	return rc;
 }
 
-CK_RV icsftok_init_pin(SESSION *sess, CK_CHAR_PTR pPin, CK_ULONG ulPinLen)
+CK_RV icsftok_init_pin(STDLL_TokData_t *tokdata, SESSION *sess,
+		       CK_CHAR_PTR pPin, CK_ULONG ulPinLen)
 {
 	CK_RV rc = CKR_OK;
 	CK_BYTE hash_sha[SHA1_HASH_SIZE];

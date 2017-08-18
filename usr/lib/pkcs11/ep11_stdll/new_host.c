@@ -438,15 +438,15 @@ done:
 }
 
 
-CK_RV SC_InitPIN(ST_SESSION_HANDLE *sSession, CK_CHAR_PTR pPin,
-		 CK_ULONG ulPinLen)
+CK_RV SC_InitPIN(STDLL_TokData_t *tokdata, ST_SESSION_HANDLE *sSession,
+		 CK_CHAR_PTR pPin, CK_ULONG ulPinLen)
 {
 	SESSION *sess = NULL;
 	CK_BYTE hash_sha[SHA1_HASH_SIZE];
 	CK_BYTE hash_md5[MD5_HASH_SIZE];
 	CK_RV rc = CKR_OK;
 
-	if (initialized == FALSE) {
+	if (tokdata->initialized == FALSE) {
 		TRACE_ERROR("%s\n", ock_err(ERR_CRYPTOKI_NOT_INITIALIZED));
 		rc = CKR_CRYPTOKI_NOT_INITIALIZED;
 		goto done;

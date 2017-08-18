@@ -2748,7 +2748,7 @@ CK_RV C_InitPIN(CK_SESSION_HANDLE hSession, CK_CHAR_PTR pPin, CK_ULONG ulPinLen)
 	}
 	if (fcn->ST_InitPIN) {
 		// Map the Session to the slot session
-		rv = fcn->ST_InitPIN(&rSession, pPin, ulPinLen);
+		rv = fcn->ST_InitPIN(sltp->TokData, &rSession, pPin, ulPinLen);
 		TRACE_DEVEL("fcn->ST_InitPIN returned: 0x%lx\n", rv);
 	} else {
 		TRACE_ERROR("%s\n", ock_err(ERR_FUNCTION_NOT_SUPPORTED));

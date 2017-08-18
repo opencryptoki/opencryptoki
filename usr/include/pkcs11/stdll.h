@@ -74,8 +74,8 @@ typedef CK_RV	(CK_PTR  ST_C_InitToken)
 						 CK_CHAR_PTR pPin, CK_ULONG usPinLen,
 						 CK_CHAR_PTR pLabel);
 typedef CK_RV	(CK_PTR  ST_C_InitPIN)
-						(ST_SESSION_T *hSession, CK_CHAR_PTR pPin,
-						 CK_ULONG usPinLen);
+						(STDLL_TokData_t *tokdata, ST_SESSION_T *hSession,
+						 CK_CHAR_PTR pPin, CK_ULONG usPinLen);
 typedef CK_RV	(CK_PTR  ST_C_SetPIN)
 						(ST_SESSION_T *hSession, CK_CHAR_PTR pOldPin,
 						 CK_ULONG usOldLen, CK_CHAR_PTR pNewPin,
