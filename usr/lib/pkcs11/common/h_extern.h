@@ -492,9 +492,9 @@ CK_RV communicate( CK_ULONG cmd_id,
 
 CK_RV compute_next_token_obj_name( CK_BYTE *current, CK_BYTE *next );
 
-CK_RV save_token_object        ( OBJECT *obj );
-CK_RV save_public_token_object ( OBJECT *obj );
-CK_RV save_private_token_object( OBJECT *obj );
+CK_RV save_token_object        ( STDLL_TokData_t * tokdata, OBJECT *obj );
+CK_RV save_public_token_object ( STDLL_TokData_t * tokdata, OBJECT *obj );
+CK_RV save_private_token_object( STDLL_TokData_t * tokdata, OBJECT *obj );
 
 CK_RV load_public_token_objects ( STDLL_TokData_t *tokdata);
 CK_RV load_private_token_objects( STDLL_TokData_t *tokdata );

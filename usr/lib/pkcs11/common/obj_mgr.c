@@ -172,7 +172,7 @@ object_mgr_add( STDLL_TokData_t  * tokdata,
          }
          memcpy( &tokdata->nv_token_data->next_token_object_name, next, 8 );
 
-         rc = save_token_object( o );
+         rc = save_token_object( tokdata, o );
          if (rc != CKR_OK) {
                  // TODO: handle error, check if rc is a valid per spec
                 XProcUnLock();
@@ -454,7 +454,7 @@ object_mgr_copy( STDLL_TokData_t  * tokdata,
          compute_next_token_obj_name( current, next );
          memcpy( &tokdata->nv_token_data->next_token_object_name, next, 8 );
 
-         save_token_object( new_obj );
+         save_token_object( tokdata, new_obj );
 
          // add the object identifier to the shared memory segment
          //
@@ -677,7 +677,7 @@ object_mgr_create_final( STDLL_TokData_t  * tokdata,
          compute_next_token_obj_name( current, next );
          memcpy( &tokdata->nv_token_data->next_token_object_name, next, 8 );
 
-         save_token_object( obj );
+         save_token_object( tokdata, obj );
 
          // add the object identifier to the shared memory segment
          //
@@ -1590,7 +1590,7 @@ object_mgr_set_attribute_values( SESSION           * sess,
       if (obj->count_lo == 0)
          obj->count_hi++;
 
-      save_token_object( obj );
+      save_token_object( tokdata, obj );
 
       rc = XProcLock();
       if (rc != CKR_OK){
