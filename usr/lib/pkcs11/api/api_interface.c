@@ -2100,7 +2100,8 @@ C_GetOperationState(CK_SESSION_HANDLE hSession,
 	}
 	if (fcn->ST_GetOperationState) {
 		// Map the Session to the slot session
-		rv = fcn->ST_GetOperationState(&rSession, pOperationState,
+		rv = fcn->ST_GetOperationState(sltp->TokData, &rSession,
+					       pOperationState,
 					       pulOperationStateLen);
 		TRACE_DEVEL("fcn->ST_GetOperationState returned:0x%lx\n", rv);
 	} else {
@@ -3201,7 +3202,8 @@ C_SetOperationState(CK_SESSION_HANDLE hSession,
 	}
 	if (fcn->ST_SetOperationState) {
 		// Map the Session to the slot session
-		rv = fcn->ST_SetOperationState(&rSession, pOperationState,
+		rv = fcn->ST_SetOperationState(sltp->TokData, &rSession,
+					       pOperationState,
 					       ulOperationStateLen,
 					       hEncryptionKey,
 					       hAuthenticationKey);

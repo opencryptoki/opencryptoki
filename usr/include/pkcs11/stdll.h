@@ -101,10 +101,12 @@ typedef CK_RV	(CK_PTR  ST_C_CloseAllSessions)
 typedef CK_RV	(CK_PTR  ST_C_GetSessionInfo)
 						(ST_SESSION_T *hSession, CK_SESSION_INFO_PTR pInfo);
 typedef CK_RV	(CK_PTR  ST_C_GetOperationState)
-						(ST_SESSION_T *hSession, CK_BYTE_PTR pOperationState,
+						(STDLL_TokData_t *tokdata, ST_SESSION_T *hSession,
+						 CK_BYTE_PTR pOperationState,
 						 CK_ULONG_PTR pulOperationStateLen);
 typedef CK_RV	(CK_PTR  ST_C_SetOperationState)
-						(ST_SESSION_T *hSession, CK_BYTE_PTR pOperationState,
+						(STDLL_TokData_t *tokdata, ST_SESSION_T *hSession,
+						 CK_BYTE_PTR pOperationState,
 						 CK_ULONG ulOperationStateLen,
 						 CK_OBJECT_HANDLE hEncryptionKey,
 						 CK_OBJECT_HANDLE hAuthenticationKey);

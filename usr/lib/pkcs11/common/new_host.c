@@ -808,7 +808,8 @@ done:
 	return rc;
 }
 
-CK_RV SC_GetOperationState(ST_SESSION_HANDLE *sSession,
+CK_RV SC_GetOperationState(STDLL_TokData_t *tokdata,
+			   ST_SESSION_HANDLE *sSession,
 			   CK_BYTE_PTR pOperationState,
 			   CK_ULONG_PTR pulOperationStateLen)
 {
@@ -816,7 +817,7 @@ CK_RV SC_GetOperationState(ST_SESSION_HANDLE *sSession,
 	CK_BBOOL length_only = FALSE;
 	CK_RV rc = CKR_OK;
 
-	if (initialized == FALSE) {
+	if (tokdata->initialized == FALSE) {
 		TRACE_ERROR("%s\n", ock_err(ERR_CRYPTOKI_NOT_INITIALIZED));
 		rc = CKR_CRYPTOKI_NOT_INITIALIZED;
 		goto done;
@@ -849,7 +850,8 @@ done:
 }
 
 
-CK_RV SC_SetOperationState(ST_SESSION_HANDLE *sSession,
+CK_RV SC_SetOperationState(STDLL_TokData_t *tokdata,
+			   ST_SESSION_HANDLE *sSession,
 			   CK_BYTE_PTR pOperationState,
 			   CK_ULONG ulOperationStateLen,
 			   CK_OBJECT_HANDLE hEncryptionKey,
@@ -858,7 +860,7 @@ CK_RV SC_SetOperationState(ST_SESSION_HANDLE *sSession,
 	SESSION *sess = NULL;
 	CK_RV rc = CKR_OK;
 
-	if (initialized == FALSE) {
+	if (tokdata->initialized == FALSE) {
 		TRACE_ERROR("%s\n", ock_err(ERR_CRYPTOKI_NOT_INITIALIZED));
 		rc = CKR_CRYPTOKI_NOT_INITIALIZED;
 		goto done;
