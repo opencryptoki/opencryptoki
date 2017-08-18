@@ -58,7 +58,7 @@ struct token_specific_struct {
 	CK_RV (*t_attach_shm) (CK_SLOT_ID slot_id, LW_SHM_TYPE **shmem);
 
 	// Initialization function
-	CK_RV(*t_init) (CK_SLOT_ID, char *);
+	CK_RV(*t_init) (STDLL_TokData_t *, CK_SLOT_ID, char *);
 
 	// Token data functions
 	CK_RV (*t_init_token_data) (CK_SLOT_ID slot_id);
@@ -71,7 +71,8 @@ struct token_specific_struct {
 	// any specific final code
 	CK_RV(*t_final) ();
 
-	CK_RV(*t_init_token) (CK_SLOT_ID, CK_CHAR_PTR, CK_ULONG, CK_CHAR_PTR);
+	CK_RV(*t_init_token) (STDLL_TokData_t *, CK_SLOT_ID, CK_CHAR_PTR,
+			      CK_ULONG, CK_CHAR_PTR);
 	CK_RV(*t_login) (SESSION *, CK_USER_TYPE, CK_CHAR_PTR, CK_ULONG);
 	CK_RV(*t_logout) ();
 	CK_RV(*t_init_pin) (SESSION *, CK_CHAR_PTR, CK_ULONG);

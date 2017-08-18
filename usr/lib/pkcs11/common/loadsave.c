@@ -1607,16 +1607,27 @@ CK_RV generate_master_key(CK_BYTE *key)
 	return ERR_MECHANISM_INVALID;
 }
 
-void init_data_store(char *directory)
+void init_data_store(char *directory, char *data_store)
 {
 	char *pkdir;
 	if ((pkdir = getenv("PKCS_APP_STORE")) != NULL) {
 		pk_dir = (char *)malloc(strlen(pkdir) + 1024);
 		memset(pk_dir, 0, strlen(pkdir) + 1024);
 		sprintf(pk_dir, "%s/%s", pkdir, SUB_DIR);
-	} else {
+		return;
+	}
+
+	if (directory) {
 		pk_dir = (char *)malloc(strlen(directory) + 25);
 		memset(pk_dir, 0, strlen(directory) + 25);
 		sprintf(pk_dir, "%s", directory);
+		memcpy(data_store, pk_dir, strlen(directory) + 25);
 	}
+	else {
+		pk_dir = (char *)malloc(strlen(PK_DIR) + 25);
+		memset(pk_dir, 0, strlen(PK_DIR) + 25);
+		sprintf(pk_dir, "%s", PK_DIR);
+		memcpy(data_store, pk_dir, strlen(PK_DIR) + 25);
+	}
+	return;
 }

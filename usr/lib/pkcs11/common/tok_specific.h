@@ -30,14 +30,15 @@
 int token_specific_creatlock(void);
 CK_RV token_specific_attach_shm(CK_SLOT_ID slot_id, LW_SHM_TYPE **shmem);
 CK_RV token_specific_rng(CK_BYTE *,  CK_ULONG);
-CK_RV token_specific_init(CK_SLOT_ID, char *);
+CK_RV token_specific_init(STDLL_TokData_t *,CK_SLOT_ID, char *);
 
 CK_RV token_specific_init_token_data(CK_SLOT_ID slot_id);
 CK_RV token_specific_load_token_data(CK_SLOT_ID slot_id, FILE *fh);
 CK_RV token_specific_save_token_data(CK_SLOT_ID slot_id, FILE *fh);
 
 CK_RV token_specific_final(void);
-CK_RV token_specific_init_token(CK_SLOT_ID, CK_CHAR_PTR, CK_ULONG, CK_CHAR_PTR);
+CK_RV token_specific_init_token(STDLL_TokData_t *, CK_SLOT_ID, CK_CHAR_PTR,
+				CK_ULONG, CK_CHAR_PTR);
 CK_RV token_specific_login(SESSION *, CK_USER_TYPE, CK_CHAR_PTR, CK_ULONG);
 CK_RV token_specific_logout();
 CK_RV token_specific_init_pin(SESSION *, CK_CHAR_PTR, CK_ULONG);

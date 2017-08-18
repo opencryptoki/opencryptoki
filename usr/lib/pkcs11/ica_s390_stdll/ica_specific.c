@@ -72,7 +72,8 @@ token_specific_rng(CK_BYTE *output, CK_ULONG bytes)
 }
 
 CK_RV
-token_specific_init(CK_SLOT_ID  SlotNumber, char *conf_name)
+token_specific_init(STDLL_TokData_t *tokdata, CK_SLOT_ID  SlotNumber,
+		    char *conf_name)
 {
 	CK_ULONG rc = CKR_OK;
 
