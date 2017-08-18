@@ -168,7 +168,7 @@ static CK_RV encrypt_data(STDLL_TokData_t *tokdata, CK_BYTE *key,
 
 	switch (token_specific.data_store.encryption_algorithm) {
 	case CKM_DES3_CBC:
-		rc = ckm_des3_cbc_encrypt(clear, clear_len,
+		rc = ckm_des3_cbc_encrypt(tokdata, clear, clear_len,
 					  cipher, p_cipher_len,
 					  initial_vector, keyobj);
 		break;
@@ -284,7 +284,7 @@ static CK_RV decrypt_data(STDLL_TokData_t *tokdata,
 
 	switch (token_specific.data_store.encryption_algorithm) {
 	case CKM_DES3_CBC:
-		rc = ckm_des3_cbc_decrypt(cipher, cipher_len,
+		rc = ckm_des3_cbc_decrypt(tokdata, cipher, cipher_len,
 					  clear, p_clear_len,
 					  initial_vector, keyobj);
 		break;

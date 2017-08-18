@@ -249,7 +249,8 @@ token_specific_des_cbc(STDLL_TokData_t *tokdata,
 }
 
 CK_RV
-token_specific_tdes_ecb(CK_BYTE * in_data,
+token_specific_tdes_ecb(STDLL_TokData_t *tokdata,
+		       CK_BYTE * in_data,
                        CK_ULONG in_data_len,
                        CK_BYTE *out_data,
                        CK_ULONG *out_data_len,
@@ -308,7 +309,8 @@ token_specific_tdes_ecb(CK_BYTE * in_data,
 }
 
 CK_RV
-token_specific_tdes_cbc(CK_BYTE * in_data,
+token_specific_tdes_cbc(STDLL_TokData_t *tokdata,
+		       CK_BYTE * in_data,
                        CK_ULONG in_data_len,
                        CK_BYTE *out_data,
                        CK_ULONG *out_data_len,
@@ -370,7 +372,8 @@ token_specific_tdes_cbc(CK_BYTE * in_data,
  * 1 Use the encrypt function.
  */
 CK_RV
-token_specific_tdes_ofb(CK_BYTE *in_data, CK_BYTE *out_data, CK_ULONG data_len,
+token_specific_tdes_ofb(STDLL_TokData_t *tokdata, CK_BYTE *in_data,
+			CK_BYTE *out_data, CK_ULONG data_len,
                         OBJECT *key, CK_BYTE *iv, uint_32 direction)
 {
    CK_RV rc;
@@ -397,7 +400,8 @@ token_specific_tdes_ofb(CK_BYTE *in_data, CK_BYTE *out_data, CK_ULONG data_len,
  * 1 Use the encrypt function.
  */
 CK_RV
-token_specific_tdes_cfb(CK_BYTE *in_data, CK_BYTE *out_data, CK_ULONG data_len,
+token_specific_tdes_cfb(STDLL_TokData_t *tokdata, CK_BYTE *in_data,
+			CK_BYTE *out_data, CK_ULONG data_len,
                         OBJECT *key, CK_BYTE *iv, uint_32 cfb_len,
                         uint_32 direction)
 {
@@ -421,8 +425,8 @@ token_specific_tdes_cfb(CK_BYTE *in_data, CK_BYTE *out_data, CK_ULONG data_len,
 }
 
 CK_RV
-token_specific_tdes_mac(CK_BYTE *message, CK_ULONG message_len, OBJECT *key,
-                        CK_BYTE *mac)
+token_specific_tdes_mac(STDLL_TokData_t *tokdata, CK_BYTE *message,
+			CK_ULONG message_len, OBJECT *key, CK_BYTE *mac)
 {
    CK_RV rc;
    CK_ATTRIBUTE *attr = NULL;

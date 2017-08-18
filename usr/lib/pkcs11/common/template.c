@@ -1193,7 +1193,7 @@ CK_RV template_validate_attribute(TEMPLATE *tmpl, CK_ATTRIBUTE *attr,
 			return des2_validate_attribute(tokdata, tmpl, attr, mode);
 
 		case CKK_DES3:
-			return des3_validate_attribute(tmpl, attr, mode);
+			return des3_validate_attribute(tokdata, tmpl, attr, mode);
 
 		case CKK_CAST:
 			return cast_validate_attribute(tokdata, tmpl, attr, mode);

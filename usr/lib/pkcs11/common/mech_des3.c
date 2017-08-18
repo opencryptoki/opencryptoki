@@ -27,7 +27,8 @@
 //
 //
 CK_RV
-des3_ecb_encrypt( SESSION           *sess,
+des3_ecb_encrypt( STDLL_TokData_t   *tokdata,
+		  SESSION           *sess,
                   CK_BBOOL           length_only,
                   ENCR_DECR_CONTEXT *ctx,
                   CK_BYTE           *in_data,
@@ -67,7 +68,7 @@ des3_ecb_encrypt( SESSION           *sess,
       return CKR_BUFFER_TOO_SMALL;
    }
 
-   return ckm_des3_ecb_encrypt(in_data, in_data_len,
+   return ckm_des3_ecb_encrypt(tokdata, in_data, in_data_len,
 			       out_data, out_data_len, key);
 }
 
@@ -75,7 +76,8 @@ des3_ecb_encrypt( SESSION           *sess,
 //
 //
 CK_RV
-des3_ecb_decrypt( SESSION           *sess,
+des3_ecb_decrypt( STDLL_TokData_t   *tokdata,
+		  SESSION           *sess,
                   CK_BBOOL           length_only,
                   ENCR_DECR_CONTEXT *ctx,
                   CK_BYTE           *in_data,
@@ -115,7 +117,7 @@ des3_ecb_decrypt( SESSION           *sess,
       return CKR_BUFFER_TOO_SMALL;
    }
 
-   return ckm_des3_ecb_decrypt(in_data, in_data_len,
+   return ckm_des3_ecb_decrypt(tokdata, in_data, in_data_len,
                                out_data, out_data_len, key);
 }
 
@@ -123,7 +125,8 @@ des3_ecb_decrypt( SESSION           *sess,
 //
 //
 CK_RV
-des3_cbc_encrypt( SESSION           *sess,
+des3_cbc_encrypt( STDLL_TokData_t   *tokdata,
+		  SESSION           *sess,
                   CK_BBOOL           length_only,
                   ENCR_DECR_CONTEXT *ctx,
                   CK_BYTE           *in_data,
@@ -163,14 +166,15 @@ des3_cbc_encrypt( SESSION           *sess,
       return CKR_BUFFER_TOO_SMALL;
    }
 
-   return ckm_des3_cbc_encrypt(in_data, in_data_len, out_data, out_data_len,
-                                ctx->mech.pParameter, key);
+   return ckm_des3_cbc_encrypt(tokdata, in_data, in_data_len, out_data,
+			       out_data_len, ctx->mech.pParameter, key);
 }
 
 //
 //
 CK_RV
-des3_cbc_decrypt( SESSION            *sess,
+des3_cbc_decrypt( STDLL_TokData_t    *tokdata,
+		  SESSION            *sess,
                   CK_BBOOL            length_only,
                   ENCR_DECR_CONTEXT  *ctx,
                   CK_BYTE            *in_data,
@@ -210,15 +214,16 @@ des3_cbc_decrypt( SESSION            *sess,
       return CKR_BUFFER_TOO_SMALL;
    }
 
-   return ckm_des3_cbc_decrypt(in_data, in_data_len, out_data, out_data_len,
-                                ctx->mech.pParameter, key);
+   return ckm_des3_cbc_decrypt(tokdata, in_data, in_data_len, out_data,
+			       out_data_len, ctx->mech.pParameter, key);
 }
 
 
 //
 //
 CK_RV
-des3_cbc_pad_encrypt( SESSION           *sess,
+des3_cbc_pad_encrypt( STDLL_TokData_t   *tokdata,
+		      SESSION           *sess,
                       CK_BBOOL           length_only,
                       ENCR_DECR_CONTEXT *ctx,
                       CK_BYTE           *in_data,
@@ -271,7 +276,7 @@ des3_cbc_pad_encrypt( SESSION           *sess,
                      in_data_len,
                      padded_len );
 
-   rc = ckm_des3_cbc_encrypt(clear, padded_len, out_data, out_data_len,
+   rc = ckm_des3_cbc_encrypt(tokdata, clear, padded_len, out_data, out_data_len,
                               ctx->mech.pParameter, key);
 
    free( clear );
@@ -282,7 +287,8 @@ des3_cbc_pad_encrypt( SESSION           *sess,
 //
 //
 CK_RV
-des3_cbc_pad_decrypt( SESSION            *sess,
+des3_cbc_pad_decrypt( STDLL_TokData_t    *tokdata,
+		      SESSION            *sess,
                       CK_BBOOL            length_only,
                       ENCR_DECR_CONTEXT  *ctx,
                       CK_BYTE            *in_data,
@@ -332,8 +338,8 @@ des3_cbc_pad_decrypt( SESSION            *sess,
       TRACE_ERROR("%s\n", ock_err(ERR_HOST_MEMORY));
       return CKR_HOST_MEMORY;
    }
-   rc = ckm_des3_cbc_decrypt(in_data, in_data_len, clear, &padded_len,
-                              ctx->mech.pParameter, key);
+   rc = ckm_des3_cbc_decrypt(tokdata, in_data, in_data_len, clear, &padded_len,
+                             ctx->mech.pParameter, key);
 
    if (rc == CKR_OK) {
       strip_pkcs_padding( clear, padded_len, out_data_len );
@@ -348,7 +354,8 @@ des3_cbc_pad_decrypt( SESSION            *sess,
 //
 //
 CK_RV
-des3_ecb_encrypt_update( SESSION           *sess,
+des3_ecb_encrypt_update( STDLL_TokData_t   *tokdata,
+			 SESSION           *sess,
                          CK_BBOOL           length_only,
                          ENCR_DECR_CONTEXT *ctx,
                          CK_BYTE           *in_data,
@@ -404,7 +411,7 @@ des3_ecb_encrypt_update( SESSION           *sess,
       memcpy( clear,                context->data, context->len );
       memcpy( clear + context->len, in_data,       out_len - context->len );
 
-      rc = ckm_des3_ecb_encrypt(clear, out_len,
+      rc = ckm_des3_ecb_encrypt(tokdata, clear, out_len,
 				out_data, out_data_len, key );
       if (rc == CKR_OK) {
          *out_data_len = out_len;
@@ -427,7 +434,8 @@ des3_ecb_encrypt_update( SESSION           *sess,
 //
 //
 CK_RV
-des3_ecb_decrypt_update( SESSION           *sess,
+des3_ecb_decrypt_update( STDLL_TokData_t   *tokdata,
+			 SESSION           *sess,
                          CK_BBOOL           length_only,
                          ENCR_DECR_CONTEXT *ctx,
                          CK_BYTE           *in_data,
@@ -485,7 +493,8 @@ des3_ecb_decrypt_update( SESSION           *sess,
       memcpy( cipher,                context->data, context->len );
       memcpy( cipher + context->len, in_data,       out_len - context->len );
 
-      rc = ckm_des3_ecb_decrypt(cipher, out_len, out_data, out_data_len, key);
+      rc = ckm_des3_ecb_decrypt(tokdata, cipher, out_len, out_data,
+				out_data_len, key);
       if (rc == CKR_OK) {
          *out_data_len = out_len;
 
@@ -506,7 +515,8 @@ des3_ecb_decrypt_update( SESSION           *sess,
 //
 //
 CK_RV
-des3_cbc_encrypt_update( SESSION           *sess,
+des3_cbc_encrypt_update( STDLL_TokData_t   *tokdata,
+			 SESSION           *sess,
                          CK_BBOOL           length_only,
                          ENCR_DECR_CONTEXT *ctx,
                          CK_BYTE           *in_data,
@@ -566,8 +576,8 @@ des3_cbc_encrypt_update( SESSION           *sess,
       memcpy( clear,                context->data, context->len );
       memcpy( clear + context->len, in_data,       out_len - context->len );
 
-      rc = ckm_des3_cbc_encrypt(clear, out_len, out_data, out_data_len,
-                                 ctx->mech.pParameter, key);
+      rc = ckm_des3_cbc_encrypt(tokdata, clear, out_len, out_data, out_data_len,
+                                ctx->mech.pParameter, key);
 
       if (rc == CKR_OK) {
          *out_data_len = out_len;
@@ -592,7 +602,8 @@ des3_cbc_encrypt_update( SESSION           *sess,
 //
 //
 CK_RV
-des3_cbc_decrypt_update( SESSION           *sess,
+des3_cbc_decrypt_update( STDLL_TokData_t   *tokdata,
+			 SESSION           *sess,
                          CK_BBOOL           length_only,
                          ENCR_DECR_CONTEXT *ctx,
                          CK_BYTE           *in_data,
@@ -653,8 +664,8 @@ des3_cbc_decrypt_update( SESSION           *sess,
       memcpy( cipher,                context->data, context->len );
       memcpy( cipher + context->len, in_data,       out_len - context->len );
 
-      rc = ckm_des3_cbc_decrypt(cipher, out_len, out_data, out_data_len,
-                                 ctx->mech.pParameter, key);
+      rc = ckm_des3_cbc_decrypt(tokdata, cipher, out_len, out_data,
+				out_data_len, ctx->mech.pParameter, key);
 
       if (rc == CKR_OK) {
          *out_data_len = out_len;
@@ -681,7 +692,8 @@ des3_cbc_decrypt_update( SESSION           *sess,
 //
 //
 CK_RV
-des3_cbc_pad_encrypt_update( SESSION           *sess,
+des3_cbc_pad_encrypt_update( STDLL_TokData_t   *tokdata,
+			     SESSION           *sess,
                              CK_BBOOL           length_only,
                              ENCR_DECR_CONTEXT *ctx,
                              CK_BYTE           *in_data,
@@ -754,8 +766,8 @@ des3_cbc_pad_encrypt_update( SESSION           *sess,
       //
       // we don't do padding during the update
       //
-      rc = ckm_des3_cbc_encrypt(clear, out_len, out_data, out_data_len,
-                                 ctx->mech.pParameter, key);
+      rc = ckm_des3_cbc_encrypt(tokdata, clear, out_len, out_data, out_data_len,
+                                ctx->mech.pParameter, key);
 
       if (rc == CKR_OK) {
          // the new init_v is the last encrypted data block
@@ -778,7 +790,8 @@ des3_cbc_pad_encrypt_update( SESSION           *sess,
 //
 //
 CK_RV
-des3_cbc_pad_decrypt_update( SESSION           *sess,
+des3_cbc_pad_decrypt_update( STDLL_TokData_t   *tokdata,
+			     SESSION           *sess,
                              CK_BBOOL           length_only,
                              ENCR_DECR_CONTEXT *ctx,
                              CK_BYTE           *in_data,
@@ -850,8 +863,8 @@ des3_cbc_pad_decrypt_update( SESSION           *sess,
       memcpy( cipher,                context->data, context->len );
       memcpy( cipher + context->len, in_data,       out_len - context->len );
 
-      rc = ckm_des3_cbc_decrypt(cipher, out_len, out_data, out_data_len,
-                                 ctx->mech.pParameter, key);
+      rc = ckm_des3_cbc_decrypt(tokdata, cipher, out_len, out_data, out_data_len,
+                                ctx->mech.pParameter, key);
 
       if (rc == CKR_OK) {
          // the new init_v is the last input data block
@@ -874,7 +887,8 @@ des3_cbc_pad_decrypt_update( SESSION           *sess,
 //
 //
 CK_RV
-des3_ecb_encrypt_final( SESSION           *sess,
+des3_ecb_encrypt_final( STDLL_TokData_t   *tokdata,
+			SESSION           *sess,
                         CK_BBOOL           length_only,
                         ENCR_DECR_CONTEXT *ctx,
                         CK_BYTE          *out_data,
@@ -908,7 +922,8 @@ des3_ecb_encrypt_final( SESSION           *sess,
 //
 //
 CK_RV
-des3_ecb_decrypt_final( SESSION           *sess,
+des3_ecb_decrypt_final( STDLL_TokData_t   *tokdata,
+			SESSION           *sess,
                         CK_BBOOL           length_only,
                         ENCR_DECR_CONTEXT *ctx,
                         CK_BYTE          *out_data,
@@ -943,7 +958,8 @@ des3_ecb_decrypt_final( SESSION           *sess,
 //
 //
 CK_RV
-des3_cbc_encrypt_final( SESSION            *sess,
+des3_cbc_encrypt_final( STDLL_TokData_t    *tokdata,
+			SESSION            *sess,
                         CK_BBOOL           length_only,
                         ENCR_DECR_CONTEXT *ctx,
                         CK_BYTE          *out_data,
@@ -978,7 +994,8 @@ des3_cbc_encrypt_final( SESSION            *sess,
 //
 //
 CK_RV
-des3_cbc_decrypt_final( SESSION           *sess,
+des3_cbc_decrypt_final( STDLL_TokData_t   *tokdata,
+			SESSION           *sess,
                         CK_BBOOL           length_only,
                         ENCR_DECR_CONTEXT *ctx,
                         CK_BYTE          *out_data,
@@ -1013,7 +1030,8 @@ des3_cbc_decrypt_final( SESSION           *sess,
 //
 //
 CK_RV
-des3_cbc_pad_encrypt_final( SESSION           *sess,
+des3_cbc_pad_encrypt_final( STDLL_TokData_t   *tokdata,
+			    SESSION           *sess,
                             CK_BBOOL           length_only,
                             ENCR_DECR_CONTEXT *ctx,
                             CK_BYTE          *out_data,
@@ -1061,8 +1079,8 @@ des3_cbc_pad_encrypt_final( SESSION           *sess,
                         context->len,
                         out_len );
 
-      rc = ckm_des3_cbc_encrypt(clear, out_len, out_data, out_data_len,
-                                 ctx->mech.pParameter, key);
+      rc = ckm_des3_cbc_encrypt(tokdata, clear, out_len, out_data, out_data_len,
+                                ctx->mech.pParameter, key);
       return rc;
    }
 }
@@ -1071,7 +1089,8 @@ des3_cbc_pad_encrypt_final( SESSION           *sess,
 //
 //
 CK_RV
-des3_cbc_pad_decrypt_final( SESSION           *sess,
+des3_cbc_pad_decrypt_final( STDLL_TokData_t   *tokdata,
+			    SESSION           *sess,
                             CK_BBOOL           length_only,
                             ENCR_DECR_CONTEXT *ctx,
                             CK_BYTE          *out_data,
@@ -1112,8 +1131,8 @@ des3_cbc_pad_decrypt_final( SESSION           *sess,
       return CKR_OK;
    }
    else {
-      rc = ckm_des3_cbc_decrypt(context->data, DES_BLOCK_SIZE, clear, &out_len,
-                                 ctx->mech.pParameter, key);
+      rc = ckm_des3_cbc_decrypt(tokdata, context->data, DES_BLOCK_SIZE, clear,
+				&out_len, ctx->mech.pParameter, key);
 
       if (rc == CKR_OK) {
          strip_pkcs_padding( clear, out_len, &out_len );
@@ -1128,7 +1147,8 @@ des3_cbc_pad_decrypt_final( SESSION           *sess,
 }
 
 CK_RV
-des3_ofb_encrypt( SESSION              * sess,
+des3_ofb_encrypt( STDLL_TokData_t      *tokdata,
+		 SESSION              * sess,
                  CK_BBOOL               length_only,
                  ENCR_DECR_CONTEXT    * ctx,
                  CK_BYTE              * in_data,
@@ -1160,15 +1180,16 @@ des3_ofb_encrypt( SESSION              * sess,
       return rc;
    }
 
-   rc = token_specific.t_tdes_ofb(in_data, out_data, in_data_len,
-                              key_obj, ctx->mech.pParameter, 1);
+   rc = token_specific.t_tdes_ofb(tokdata, in_data, out_data, in_data_len,
+				  key_obj, ctx->mech.pParameter, 1);
    if (rc != CKR_OK)
       TRACE_DEVEL("Token specific des3 ofb encrypt failed.\n");
    return rc;
 }
 
 CK_RV
-des3_ofb_encrypt_update( SESSION              * sess,
+des3_ofb_encrypt_update( STDLL_TokData_t      *tokdata,
+			SESSION              * sess,
                         CK_BBOOL               length_only,
                         ENCR_DECR_CONTEXT    * ctx,
                         CK_BYTE              * in_data,
@@ -1229,7 +1250,7 @@ des3_ofb_encrypt_update( SESSION              * sess,
       memcpy( cipher,                    context->data, context->len );
       memcpy( cipher + context->len, in_data, out_len - context->len );
 
-      rc = token_specific.t_tdes_ofb(cipher, out_data, out_len,
+      rc = token_specific.t_tdes_ofb(tokdata, cipher, out_data, out_len,
                               key_obj, ctx->mech.pParameter, 1);
 
       if (rc == CKR_OK) {
@@ -1247,7 +1268,8 @@ des3_ofb_encrypt_update( SESSION              * sess,
 }
 
 CK_RV
-des3_ofb_encrypt_final( SESSION           *sess,
+des3_ofb_encrypt_final( STDLL_TokData_t   *tokdata,
+		       SESSION           *sess,
                        CK_BBOOL           length_only,
                        ENCR_DECR_CONTEXT *ctx,
                        CK_BYTE           *out_data,
@@ -1285,8 +1307,9 @@ des3_ofb_encrypt_final( SESSION           *sess,
          return rc;
       }
 
-      rc = token_specific.t_tdes_ofb(context->data, out_data, context->len,
-                              key_obj, ctx->mech.pParameter, 1);
+      rc = token_specific.t_tdes_ofb(tokdata, context->data, out_data,
+				     context->len, key_obj,
+				     ctx->mech.pParameter, 1);
       if (rc != CKR_OK)
 	 TRACE_DEVEL("Token specific des3 ofb encrypt failed.\n");
 
@@ -1296,7 +1319,8 @@ des3_ofb_encrypt_final( SESSION           *sess,
 }
 
 CK_RV
-des3_ofb_decrypt( SESSION              * sess,
+des3_ofb_decrypt( STDLL_TokData_t      *tokdata,
+		 SESSION              * sess,
                  CK_BBOOL               length_only,
                  ENCR_DECR_CONTEXT    * ctx,
                  CK_BYTE              * in_data,
@@ -1328,8 +1352,8 @@ des3_ofb_decrypt( SESSION              * sess,
       return rc;
    }
 
-   rc = token_specific.t_tdes_ofb(in_data, out_data, in_data_len,
-                              key_obj, ctx->mech.pParameter, 0);
+   rc = token_specific.t_tdes_ofb(tokdata, in_data, out_data, in_data_len,
+				  key_obj, ctx->mech.pParameter, 0);
 
    if (rc != CKR_OK)
 	TRACE_DEVEL("Token specific des3 ofb decrypt failed.\n");
@@ -1337,7 +1361,8 @@ des3_ofb_decrypt( SESSION              * sess,
 }
 
 CK_RV
-des3_ofb_decrypt_update( SESSION              * sess,
+des3_ofb_decrypt_update( STDLL_TokData_t      * tokdata,
+			SESSION              * sess,
                         CK_BBOOL               length_only,
                         ENCR_DECR_CONTEXT    * ctx,
                         CK_BYTE              * in_data,
@@ -1398,7 +1423,7 @@ des3_ofb_decrypt_update( SESSION              * sess,
       memcpy( cipher,                    context->data, context->len );
       memcpy( cipher + context->len, in_data, out_len - context->len );
 
-      rc = token_specific.t_tdes_ofb(cipher, out_data, out_len,
+      rc = token_specific.t_tdes_ofb(tokdata, cipher, out_data, out_len,
                               key_obj, ctx->mech.pParameter, 0);
 
       if (rc == CKR_OK) {
@@ -1417,7 +1442,8 @@ des3_ofb_decrypt_update( SESSION              * sess,
 }
 
 CK_RV
-des3_ofb_decrypt_final( SESSION           *sess,
+des3_ofb_decrypt_final( STDLL_TokData_t   *tokdata,
+		       SESSION           *sess,
                        CK_BBOOL           length_only,
                        ENCR_DECR_CONTEXT *ctx,
                        CK_BYTE           *out_data,
@@ -1455,8 +1481,9 @@ des3_ofb_decrypt_final( SESSION           *sess,
          return rc;
       }
 
-      rc = token_specific.t_tdes_ofb(context->data, out_data, context->len,
-                              key_obj, ctx->mech.pParameter, 0);
+      rc = token_specific.t_tdes_ofb(tokdata, context->data, out_data,
+				     context->len, key_obj,
+				     ctx->mech.pParameter, 0);
 
       if (rc != CKR_OK)
          TRACE_DEVEL("Token specific des3 ofb decrypt failed.\n");
@@ -1467,7 +1494,8 @@ des3_ofb_decrypt_final( SESSION           *sess,
 }
 
 CK_RV
-des3_cfb_encrypt( SESSION             * sess,
+des3_cfb_encrypt( STDLL_TokData_t      *tokdata,
+		 SESSION              * sess,
                  CK_BBOOL               length_only,
                  ENCR_DECR_CONTEXT    * ctx,
                  CK_BYTE              * in_data,
@@ -1500,8 +1528,8 @@ des3_cfb_encrypt( SESSION             * sess,
       return rc;
    }
 
-   rc = token_specific.t_tdes_cfb(in_data, out_data, in_data_len,
-                   key_obj, ctx->mech.pParameter, cfb_len,  1);
+   rc = token_specific.t_tdes_cfb(tokdata, in_data, out_data, in_data_len,
+				  key_obj, ctx->mech.pParameter, cfb_len, 1);
 
    if (rc != CKR_OK)
       TRACE_DEVEL("Token specific des3 cfb encrypt failed.\n");
@@ -1509,7 +1537,8 @@ des3_cfb_encrypt( SESSION             * sess,
 }
 
 CK_RV
-des3_cfb_encrypt_update( SESSION              * sess,
+des3_cfb_encrypt_update( STDLL_TokData_t      * tokdata,
+			SESSION              * sess,
                         CK_BBOOL               length_only,
                         ENCR_DECR_CONTEXT    * ctx,
                         CK_BYTE              * in_data,
@@ -1570,8 +1599,8 @@ des3_cfb_encrypt_update( SESSION              * sess,
       memcpy( cipher,                    context->data, context->len );
       memcpy( cipher + context->len, in_data, out_len - context->len );
 
-      rc = token_specific.t_tdes_cfb(cipher, out_data, out_len,
-                              key_obj, ctx->mech.pParameter, cfb_len, 1);
+      rc = token_specific.t_tdes_cfb(tokdata, cipher, out_data, out_len,
+				     key_obj, ctx->mech.pParameter, cfb_len, 1);
 
       if (rc == CKR_OK) {
          *out_data_len = out_len;
@@ -1589,7 +1618,8 @@ des3_cfb_encrypt_update( SESSION              * sess,
 }
 
 CK_RV
-des3_cfb_encrypt_final( SESSION           *sess,
+des3_cfb_encrypt_final( STDLL_TokData_t   *tokdata,
+		       SESSION           *sess,
                        CK_BBOOL           length_only,
                        ENCR_DECR_CONTEXT *ctx,
                        CK_BYTE           *out_data,
@@ -1628,8 +1658,9 @@ des3_cfb_encrypt_final( SESSION           *sess,
          return rc;
       }
 
-      rc = token_specific.t_tdes_cfb(context->data, out_data, context->len,
-                              key_obj, ctx->mech.pParameter, cfb_len, 1);
+      rc = token_specific.t_tdes_cfb(tokdata, context->data, out_data,
+				     context->len, key_obj,
+				     ctx->mech.pParameter, cfb_len, 1);
 
       if (rc != CKR_OK)
          TRACE_DEVEL("Token specific des3 cfb encrypt failed.\n");
@@ -1640,7 +1671,8 @@ des3_cfb_encrypt_final( SESSION           *sess,
 }
 
 CK_RV
-des3_cfb_decrypt( SESSION              * sess,
+des3_cfb_decrypt( STDLL_TokData_t      * tokdata,
+		 SESSION              * sess,
                  CK_BBOOL               length_only,
                  ENCR_DECR_CONTEXT    * ctx,
                  CK_BYTE              * in_data,
@@ -1673,8 +1705,8 @@ des3_cfb_decrypt( SESSION              * sess,
       return rc;
    }
 
-   rc = token_specific.t_tdes_cfb(in_data, out_data, in_data_len,
-                   key_obj, ctx->mech.pParameter, cfb_len,  0);
+   rc = token_specific.t_tdes_cfb(tokdata, in_data, out_data, in_data_len,
+				  key_obj, ctx->mech.pParameter, cfb_len, 0);
 
    if (rc != CKR_OK)
       TRACE_DEVEL("Token specific des3 cfd decrypt failed.\n");
@@ -1682,7 +1714,8 @@ des3_cfb_decrypt( SESSION              * sess,
 }
 
 CK_RV
-des3_cfb_decrypt_update( SESSION              * sess,
+des3_cfb_decrypt_update( STDLL_TokData_t      * tokdata,
+			SESSION              * sess,
                         CK_BBOOL               length_only,
                         ENCR_DECR_CONTEXT    * ctx,
                         CK_BYTE              * in_data,
@@ -1744,8 +1777,8 @@ des3_cfb_decrypt_update( SESSION              * sess,
       memcpy( cipher,                    context->data, context->len );
       memcpy( cipher + context->len, in_data, out_len - context->len );
 
-      rc = token_specific.t_tdes_cfb(cipher, out_data, out_len,
-                              key_obj, ctx->mech.pParameter, cfb_len, 0);
+      rc = token_specific.t_tdes_cfb(tokdata, cipher, out_data, out_len,
+				     key_obj, ctx->mech.pParameter, cfb_len, 0);
 
       if (rc == CKR_OK) {
          *out_data_len = out_len;
@@ -1763,7 +1796,8 @@ des3_cfb_decrypt_update( SESSION              * sess,
 }
 
 CK_RV
-des3_cfb_decrypt_final( SESSION           *sess,
+des3_cfb_decrypt_final( STDLL_TokData_t   *tokdata,
+		       SESSION           *sess,
                        CK_BBOOL           length_only,
                        ENCR_DECR_CONTEXT *ctx,
                        CK_BYTE           *out_data,
@@ -1802,8 +1836,9 @@ des3_cfb_decrypt_final( SESSION           *sess,
          return rc;
       }
 
-      rc = token_specific.t_tdes_cfb(context->data, out_data, context->len,
-                              key_obj, ctx->mech.pParameter, cfb_len, 0);
+      rc = token_specific.t_tdes_cfb(tokdata, context->data, out_data,
+				     context->len, key_obj,
+				     ctx->mech.pParameter, cfb_len, 0);
 
       if (rc != CKR_OK)
          TRACE_DEVEL("Token specific des3 cfb decrypt failed.\n");
@@ -1814,7 +1849,8 @@ des3_cfb_decrypt_final( SESSION           *sess,
 }
 
 CK_RV
-des3_mac_sign( SESSION              * sess,
+des3_mac_sign( STDLL_TokData_t      * tokdata,
+	       SESSION              * sess,
                CK_BBOOL               length_only,
                SIGN_VERIFY_CONTEXT  * ctx,
                CK_BYTE              * in_data,
@@ -1842,11 +1878,12 @@ des3_mac_sign( SESSION              * sess,
    }
 
  if ( (in_data_len % DES_BLOCK_SIZE) != 0) {
-    rc = des3_mac_sign_update(sess, ctx, in_data, in_data_len);
+    rc = des3_mac_sign_update(tokdata, sess, ctx, in_data, in_data_len);
     if (rc != CKR_OK)
        return rc;
 
-    rc = des3_mac_sign_final(sess, length_only, ctx, out_data, out_data_len);
+    rc = des3_mac_sign_final(tokdata, sess, length_only, ctx, out_data,
+			     out_data_len);
     return rc;
  }
  else {
@@ -1862,8 +1899,8 @@ des3_mac_sign( SESSION              * sess,
       TRACE_ERROR("Failed to find specified object.\n");
       return rc;
    }
-   rc = token_specific.t_tdes_mac(in_data, in_data_len, key_obj,
-                           ((DES_DATA_CONTEXT *)ctx->context)->iv);
+   rc = token_specific.t_tdes_mac(tokdata, in_data, in_data_len, key_obj,
+				  ((DES_DATA_CONTEXT *)ctx->context)->iv);
 
    if (rc != CKR_OK)
       TRACE_DEVEL("Token specific des3 mac failed.\n");
@@ -1875,7 +1912,8 @@ des3_mac_sign( SESSION              * sess,
 }
 
 CK_RV
-des3_mac_sign_update ( SESSION              * sess,
+des3_mac_sign_update ( STDLL_TokData_t      * tokdata,
+		       SESSION              * sess,
                        SIGN_VERIFY_CONTEXT  * ctx,
                        CK_BYTE              * in_data,
                        CK_ULONG               in_data_len )
@@ -1920,7 +1958,8 @@ des3_mac_sign_update ( SESSION              * sess,
       memcpy( cipher,                context->data, context->len );
       memcpy( cipher + context->len, in_data,       out_len - context->len );
 
-      rc = token_specific.t_tdes_mac(cipher, out_len, key_obj, context->iv);
+      rc = token_specific.t_tdes_mac(tokdata, cipher, out_len, key_obj,
+				     context->iv);
 
       if (rc == CKR_OK) {
          // copy the remaining 'new' input data to the context buffer
@@ -1937,7 +1976,8 @@ des3_mac_sign_update ( SESSION              * sess,
 }
 
 CK_RV
-des3_mac_sign_final( SESSION              * sess,
+des3_mac_sign_final( STDLL_TokData_t      * tokdata,
+		     SESSION              * sess,
                      CK_BBOOL               length_only,
                      SIGN_VERIFY_CONTEXT  * ctx,
                      CK_BYTE              * out_data,
@@ -1986,7 +2026,8 @@ des3_mac_sign_final( SESSION              * sess,
 	 TRACE_ERROR("Failed to find specified object.\n");
          return rc;
       }
-      rc = token_specific.t_tdes_mac(context->data, DES_BLOCK_SIZE, key_obj, context->iv);
+      rc = token_specific.t_tdes_mac(tokdata, context->data, DES_BLOCK_SIZE,
+				     key_obj, context->iv);
       if (rc != CKR_OK) {
          TRACE_DEVEL("Token specific des3 mac failed.\n");
          return rc;
@@ -1999,7 +2040,8 @@ des3_mac_sign_final( SESSION              * sess,
 }
 
 CK_RV
-des3_mac_verify( SESSION              * sess,
+des3_mac_verify( STDLL_TokData_t      * tokdata,
+		 SESSION              * sess,
                  SIGN_VERIFY_CONTEXT  * ctx,
                  CK_BYTE              * in_data,
                  CK_ULONG               in_data_len,
@@ -2016,11 +2058,11 @@ des3_mac_verify( SESSION              * sess,
    }
 
  if ( (in_data_len % DES_BLOCK_SIZE) != 0) {
-    rc = des3_mac_verify_update(sess, ctx, in_data, in_data_len);
+    rc = des3_mac_verify_update(tokdata, sess, ctx, in_data, in_data_len);
     if (rc != CKR_OK)
        return rc;
 
-    rc = des3_mac_verify_final(sess, ctx, out_data, out_data_len);
+    rc = des3_mac_verify_final(tokdata, sess, ctx, out_data, out_data_len);
     return rc;
  }
  else {
@@ -2041,8 +2083,8 @@ des3_mac_verify( SESSION              * sess,
       return rc;
    }
 
-   rc = token_specific.t_tdes_mac(in_data, in_data_len, key_obj,
-                         ((DES_DATA_CONTEXT *)ctx->context)->iv);
+   rc = token_specific.t_tdes_mac(tokdata, in_data, in_data_len, key_obj,
+				  ((DES_DATA_CONTEXT *)ctx->context)->iv);
    if (rc != CKR_OK)
       TRACE_DEVEL("Token specific des3 mac failed.\n");
 
@@ -2056,7 +2098,8 @@ des3_mac_verify( SESSION              * sess,
 }
 
 CK_RV
-des3_mac_verify_update( SESSION              * sess,
+des3_mac_verify_update( STDLL_TokData_t      * tokdata,
+			SESSION              * sess,
                         SIGN_VERIFY_CONTEXT  * ctx,
                         CK_BYTE              * in_data,
                         CK_ULONG               in_data_len)
@@ -2101,7 +2144,8 @@ des3_mac_verify_update( SESSION              * sess,
       memcpy( cipher,                context->data, context->len );
       memcpy( cipher + context->len, in_data,       out_len - context->len );
 
-      rc = token_specific.t_tdes_mac(cipher, out_len, key_obj, context->iv);
+      rc = token_specific.t_tdes_mac(tokdata, cipher, out_len, key_obj,
+				     context->iv);
       if (rc == CKR_OK) {
          // copy the remaining 'new' input data to the context buffer
          if (remain != 0)
@@ -2117,7 +2161,8 @@ des3_mac_verify_update( SESSION              * sess,
 }
 
 CK_RV
-des3_mac_verify_final( SESSION              * sess,
+des3_mac_verify_final( STDLL_TokData_t      * tokdata,
+		       SESSION              * sess,
                        SIGN_VERIFY_CONTEXT  * ctx,
                        CK_BYTE              * signature,
                        CK_ULONG               signature_len)
@@ -2160,7 +2205,8 @@ des3_mac_verify_final( SESSION              * sess,
          return rc;
       }
 
-      rc = token_specific.t_tdes_mac(context->data, DES_BLOCK_SIZE, key_obj, context->iv);
+      rc = token_specific.t_tdes_mac(tokdata, context->data, DES_BLOCK_SIZE,
+				     key_obj, context->iv);
       if (rc != CKR_OK) {
          TRACE_DEVEL("Token specific des3 mac failed.\n");
          return rc;
@@ -2182,7 +2228,7 @@ des3_mac_verify_final( SESSION              * sess,
 //
 //
 CK_RV
-ckm_des3_key_gen( TEMPLATE *tmpl )
+ckm_des3_key_gen( STDLL_TokData_t *tokdata, TEMPLATE *tmpl )
 {
 
    CK_ATTRIBUTE     * value_attr    = NULL;
@@ -2210,7 +2256,8 @@ ckm_des3_key_gen( TEMPLATE *tmpl )
     return CKR_HOST_MEMORY;
    }
 
-   rc = token_specific.t_des_key_gen(des_key, keysize, 3 * DES_KEY_SIZE);
+   rc = token_specific.t_des_key_gen(tokdata, des_key, keysize,
+				     3 * DES_KEY_SIZE);
    if (rc != CKR_OK)
       goto err;
 
@@ -2288,7 +2335,8 @@ err:
 //
 //
 CK_RV
-ckm_des3_ecb_encrypt( CK_BYTE     * in_data,
+ckm_des3_ecb_encrypt( STDLL_TokData_t * tokdata,
+		      CK_BYTE     * in_data,
                       CK_ULONG      in_data_len,
                       CK_BYTE     * out_data,
                       CK_ULONG    * out_data_len,
@@ -2309,7 +2357,7 @@ ckm_des3_ecb_encrypt( CK_BYTE     * in_data,
       TRACE_ERROR("%s\n", ock_err(ERR_MECHANISM_INVALID));
       return CKR_MECHANISM_INVALID;
    }
-   rc = token_specific.t_tdes_ecb(in_data, in_data_len,
+   rc = token_specific.t_tdes_ecb(tokdata, in_data, in_data_len,
 				  out_data, out_data_len, key, 1);
 
 
@@ -2322,7 +2370,8 @@ ckm_des3_ecb_encrypt( CK_BYTE     * in_data,
 //
 //
 CK_RV
-ckm_des3_ecb_decrypt( CK_BYTE     * in_data,
+ckm_des3_ecb_decrypt( STDLL_TokData_t * tokdata,
+		      CK_BYTE     * in_data,
                       CK_ULONG      in_data_len,
                       CK_BYTE     * out_data,
                       CK_ULONG    * out_data_len,
@@ -2344,7 +2393,7 @@ ckm_des3_ecb_decrypt( CK_BYTE     * in_data,
       TRACE_ERROR("%s\n", ock_err(ERR_MECHANISM_INVALID));
       return CKR_MECHANISM_INVALID;
    }
-   rc = token_specific.t_tdes_ecb(in_data, in_data_len,
+   rc = token_specific.t_tdes_ecb(tokdata, in_data, in_data_len,
 				  out_data, out_data_len, key, 0);
 
    if (rc != CKR_OK)
@@ -2357,7 +2406,8 @@ ckm_des3_ecb_decrypt( CK_BYTE     * in_data,
 //
 //
 CK_RV
-ckm_des3_cbc_encrypt( CK_BYTE     * in_data,
+ckm_des3_cbc_encrypt( STDLL_TokData_t * tokdata,
+		      CK_BYTE     * in_data,
                       CK_ULONG      in_data_len,
                       CK_BYTE     * out_data,
                       CK_ULONG    * out_data_len,
@@ -2380,7 +2430,7 @@ ckm_des3_cbc_encrypt( CK_BYTE     * in_data,
       TRACE_ERROR("%s\n", ock_err(ERR_MECHANISM_INVALID));
       return CKR_MECHANISM_INVALID;
    }
-   rc = token_specific.t_tdes_cbc(in_data, in_data_len,
+   rc = token_specific.t_tdes_cbc(tokdata, in_data, in_data_len,
 				  out_data, out_data_len, key, init_v, 1);
 
    if (rc != CKR_OK)
@@ -2392,7 +2442,8 @@ ckm_des3_cbc_encrypt( CK_BYTE     * in_data,
 //
 //
 CK_RV
-ckm_des3_cbc_decrypt( CK_BYTE     * in_data,
+ckm_des3_cbc_decrypt( STDLL_TokData_t * tokdata,
+		      CK_BYTE     * in_data,
                       CK_ULONG      in_data_len,
                       CK_BYTE     * out_data,
                       CK_ULONG    * out_data_len,
@@ -2414,7 +2465,7 @@ ckm_des3_cbc_decrypt( CK_BYTE     * in_data,
       TRACE_ERROR("%s\n", ock_err(ERR_MECHANISM_INVALID));
       return CKR_MECHANISM_INVALID;
    }
-   rc = token_specific.t_tdes_cbc(in_data, in_data_len,
+   rc = token_specific.t_tdes_cbc(tokdata, in_data, in_data_len,
 				  out_data, out_data_len, key, init_v, 0);
 
    if (rc != CKR_OK)

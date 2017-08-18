@@ -172,7 +172,7 @@ key_mgr_generate_key( STDLL_TokData_t   * tokdata,
             break;
 
          case CKM_DES3_KEY_GEN:
-            rc = ckm_des3_key_gen( key_obj->template );
+            rc = ckm_des3_key_gen( tokdata, key_obj->template );
             break;
 
 #if !(NOCDMF)
