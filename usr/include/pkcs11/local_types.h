@@ -49,10 +49,15 @@ typedef struct _STDLL_TokData_t STDLL_TokData_t;
 struct btnode *bt_get_node(struct btree *t, unsigned long node_num);
 void *bt_get_node_value(struct btree *t, unsigned long node_num);
 int bt_is_empty(struct btree *t);
-void bt_for_each_node(struct btree *t, void (*)(void *, unsigned long, void *), void *);
+void bt_for_each_node(STDLL_TokData_t *, struct btree *t,
+		      void (*)(STDLL_TokData_t *, void *, unsigned long, void *), void *);
 unsigned long bt_nodes_in_use(struct btree *t);
 unsigned long bt_node_add(struct btree *t, void *value);
-struct btnode *bt_node_free(struct btree *t, unsigned long node_num, void (*delete_func)(void *));
+struct btnode *bt_node_free(struct btree *t, unsigned long node_num,
+			    void (*delete_func)(void *));
+struct btnode *bt_node_free_(STDLL_TokData_t *tokdata, struct btree *t,
+			     unsigned long node_num,
+			     void (*delete_func)(STDLL_TokData_t *, void *));
 void bt_destroy(struct btree *t, void (*func)(void *));
 
 #endif

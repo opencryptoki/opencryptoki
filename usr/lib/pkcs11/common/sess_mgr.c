@@ -306,7 +306,8 @@ done:
  * Callback used to free an individual SESSION object
  */
 void
-session_free(void *node_value, unsigned long node_idx, void *p3)
+session_free(STDLL_TokData_t *tokdata, void *node_value,
+	     unsigned long node_idx, void *p3)
 {
    SESSION *sess = (SESSION *)node_value;
 
@@ -357,7 +358,7 @@ session_free(void *node_value, unsigned long node_idx, void *p3)
 CK_RV
 session_mgr_close_all_sessions( void )
 {
-   bt_for_each_node(&sess_btree, session_free, NULL);
+   bt_for_each_node(NULL, &sess_btree, session_free, NULL);
 
    __transaction_atomic { /* start transaction */
 	   global_login_state = CKS_RO_PUBLIC_SESSION;
@@ -399,7 +400,7 @@ session_login(void *node_value, unsigned long node_idx, void *p3)
 CK_RV
 session_mgr_login_all( CK_USER_TYPE user_type )
 {
-   bt_for_each_node(&sess_btree, session_login, (void *)&user_type);
+   bt_for_each_node(tokdata, &sess_btree, session_login, (void *)&user_type);
 
    return CKR_OK;
 }
@@ -433,7 +434,7 @@ session_logout(void *node_value, unsigned long node_idx, void *p3)
 CK_RV
 session_mgr_logout_all( void )
 {
-   bt_for_each_node(&sess_btree, session_logout, NULL);
+   bt_for_each_node(tokdata, &sess_btree, session_logout, NULL);
 
    return CKR_OK;
 }
