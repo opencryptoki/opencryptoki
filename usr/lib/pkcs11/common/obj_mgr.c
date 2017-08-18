@@ -142,7 +142,7 @@ object_mgr_add( SESSION          * sess,
          // Determine if we have already reached our Max Token Objects
          //
          if (priv_obj) {
-            if (global_shm->num_priv_tok_obj >= MAX_TOK_OBJS) {
+            if (tokdata->global_shm->num_priv_tok_obj >= MAX_TOK_OBJS) {
                rc = CKR_HOST_MEMORY;
                TRACE_ERROR("%s\n", ock_err(ERR_HOST_MEMORY));
                XProcUnLock();
@@ -150,7 +150,7 @@ object_mgr_add( SESSION          * sess,
             }
          }
          else {
-            if (global_shm->num_publ_tok_obj >= MAX_TOK_OBJS) {
+            if (tokdata->global_shm->num_publ_tok_obj >= MAX_TOK_OBJS) {
                rc = CKR_HOST_MEMORY;
                TRACE_ERROR("%s\n", ock_err(ERR_HOST_MEMORY));
                XProcUnLock();
@@ -180,7 +180,7 @@ object_mgr_add( SESSION          * sess,
 
          // add the object identifier to the shared memory segment
          //
-         object_mgr_add_to_shm( o );
+         object_mgr_add_to_shm( o, tokdata->global_shm);
 
          // save_token_data has to lock the mutex itself because it's used elsewhere
          //
@@ -238,7 +238,7 @@ object_mgr_add( SESSION          * sess,
             TRACE_ERROR("Failed to get Process Lock.\n");
             goto done;
          }
-         object_mgr_del_from_shm( o );
+         object_mgr_del_from_shm( o, tokdata->global_shm );
 
          XProcUnLock();
       }
@@ -428,7 +428,7 @@ object_mgr_copy( SESSION          * sess,
          // Determine if we have already reached our Max Token Objects
          //
          if (priv_obj) {
-            if (global_shm->num_priv_tok_obj >= MAX_TOK_OBJS) {
+            if (tokdata->global_shm->num_priv_tok_obj >= MAX_TOK_OBJS) {
                XProcUnLock();
                TRACE_ERROR("%s\n", ock_err(ERR_HOST_MEMORY));
                rc = CKR_HOST_MEMORY;
@@ -436,7 +436,7 @@ object_mgr_copy( SESSION          * sess,
             }
          }
          else {
-            if (global_shm->num_publ_tok_obj >= MAX_TOK_OBJS) {
+            if (tokdata->global_shm->num_publ_tok_obj >= MAX_TOK_OBJS) {
                XProcUnLock();
                TRACE_ERROR("%s\n", ock_err(ERR_HOST_MEMORY));
                rc = CKR_HOST_MEMORY;
@@ -455,7 +455,7 @@ object_mgr_copy( SESSION          * sess,
 
          // add the object identifier to the shared memory segment
          //
-         object_mgr_add_to_shm( new_obj );
+         object_mgr_add_to_shm( new_obj, tokdata->global_shm );
 
          XProcUnLock();
 
@@ -511,7 +511,7 @@ object_mgr_copy( SESSION          * sess,
             TRACE_ERROR("Failed to get Process Lock.\n");
             goto done;
          }
-         object_mgr_del_from_shm( new_obj );
+         object_mgr_del_from_shm( new_obj, tokdata->global_shm );
 
          XProcUnLock();
       }
@@ -653,14 +653,14 @@ object_mgr_create_final( SESSION           * sess,
          // Determine if we have already reached our Max Token Objects
          //
          if (priv_obj) {
-            if (global_shm->num_priv_tok_obj >= MAX_TOK_OBJS) {
+            if (tokdata->global_shm->num_priv_tok_obj >= MAX_TOK_OBJS) {
                XProcUnLock();
                TRACE_ERROR("%s\n", ock_err(ERR_HOST_MEMORY));
                return CKR_HOST_MEMORY;
             }
          }
          else {
-            if (global_shm->num_publ_tok_obj >= MAX_TOK_OBJS) {
+            if (tokdata->global_shm->num_publ_tok_obj >= MAX_TOK_OBJS) {
                XProcUnLock();
                TRACE_ERROR("%s\n", ock_err(ERR_HOST_MEMORY));
                return CKR_HOST_MEMORY;
@@ -678,7 +678,7 @@ object_mgr_create_final( SESSION           * sess,
 
          // add the object identifier to the shared memory segment
          //
-         object_mgr_add_to_shm( obj );
+         object_mgr_add_to_shm( obj, tokdata->global_shm );
 
          XProcUnLock();
 
@@ -732,7 +732,7 @@ object_mgr_create_final( SESSION           * sess,
             TRACE_ERROR("Failed to get Process Lock.\n");
             return rc;
          }
-         object_mgr_del_from_shm( obj );
+         object_mgr_del_from_shm( obj, tokdata->global_shm );
 
          XProcUnLock();
       }
@@ -771,9 +771,9 @@ destroy_object_cb(void *node)
 			TRACE_ERROR("Failed to get Process Lock.\n");
 			goto done;
 		}
-		DUMP_SHM("before");
-		object_mgr_del_from_shm(o);
-		DUMP_SHM("after");
+		DUMP_SHM(tokdata->global_shm, "before");
+		object_mgr_del_from_shm(o, tokdata->global_shm);
+		DUMP_SHM(tokdata->global_shm, "after");
 
 		XProcUnLock();
 
@@ -838,7 +838,7 @@ delete_token_obj_cb(void *node, unsigned long map_handle, void *p3)
 			goto done;
 		}
 
-		object_mgr_del_from_shm(o);
+		object_mgr_del_from_shm(o, tokdata->global_shm);
 
 		XProcUnLock();
 
@@ -868,11 +868,11 @@ object_mgr_destroy_token_objects( void )
    if (rc == CKR_OK) {
       locked = TRUE;
 
-      global_shm->num_priv_tok_obj = 0;
-      global_shm->num_publ_tok_obj = 0;
+      tokdata->global_shm->num_priv_tok_obj = 0;
+      tokdata->global_shm->num_publ_tok_obj = 0;
 
-      memset( &global_shm->publ_tok_objs, 0x0, MAX_TOK_OBJS * sizeof(TOK_OBJ_ENTRY) );
-      memset( &global_shm->priv_tok_objs, 0x0, MAX_TOK_OBJS * sizeof(TOK_OBJ_ENTRY) );
+	memset( &tokdata->global_shm->publ_tok_objs, 0x0, MAX_TOK_OBJS * sizeof(TOK_OBJ_ENTRY) );
+	memset( &tokdata->global_shm->priv_tok_objs, 0x0, MAX_TOK_OBJS * sizeof(TOK_OBJ_ENTRY) );
    }
    else
       TRACE_ERROR("Failed to get Process Lock.\n");
@@ -985,9 +985,9 @@ object_mgr_find_in_map1( CK_OBJECT_HANDLE    handle,
     * Accounting is done in shm, so check shm to see if object still exists.
     */
    if (!object_is_session_object(obj)) {
-   	XProcLock();
-   	rc = object_mgr_check_shm( obj );
-   	XProcUnLock();
+	XProcLock();
+	rc = object_mgr_check_shm( tokdata, obj );
+	XProcUnLock();
 
         if (rc != CKR_OK) {
 		TRACE_DEVEL("object_mgr_check_shm failed.\n");
@@ -1058,7 +1058,7 @@ object_mgr_find_in_map2( OBJECT           * obj,
    *handle = fa.map_handle;
 
    XProcLock();
-   object_mgr_check_shm( obj );
+   object_mgr_check_shm( tokdata, obj );
    XProcUnLock();
 
    return CKR_OK;
@@ -1173,7 +1173,7 @@ object_mgr_find_init( SESSION      * sess,
 
 //  --- need to grab the object lock here
    XProcLock();
-   object_mgr_update_from_shm();
+   object_mgr_update_from_shm(tokdata);
    XProcUnLock();
 
    fa.hw_feature = FALSE;
@@ -1454,18 +1454,18 @@ object_mgr_restore_obj_withSize( CK_BYTE *data, OBJECT *oldObj, int data_size )
          XProcLock();
 
          if (priv) {
-            if (global_shm->priv_loaded == FALSE){
-               if (global_shm->num_priv_tok_obj < MAX_TOK_OBJS)
-                  object_mgr_add_to_shm( obj );
+            if (tokdata->global_shm->priv_loaded == FALSE){
+               if (tokdata->global_shm->num_priv_tok_obj < MAX_TOK_OBJS)
+                  object_mgr_add_to_shm( obj, tokdata->global_shm );
                else{
                   TRACE_ERROR("%s\n", ock_err(ERR_HOST_MEMORY));
                   rc = CKR_HOST_MEMORY;
                }
             }
          } else {
-            if (global_shm->publ_loaded == FALSE){
-               if (global_shm->num_publ_tok_obj < MAX_TOK_OBJS)
-                  object_mgr_add_to_shm( obj );
+            if (tokdata->global_shm->publ_loaded == FALSE){
+               if (tokdata->global_shm->num_publ_tok_obj < MAX_TOK_OBJS)
+                  object_mgr_add_to_shm( obj, tokdata->global_shm );
                else{
                   TRACE_ERROR("%s\n", ock_err(ERR_HOST_MEMORY));
                   rc = CKR_HOST_MEMORY;
@@ -1584,9 +1584,9 @@ object_mgr_set_attribute_values( SESSION           * sess,
          return rc;
       }
       if (priv_obj) {
-         rc = object_mgr_search_shm_for_obj( global_shm->priv_tok_objs,
-                                             0, global_shm->num_priv_tok_obj-1,
-                                             obj, &index );
+         rc = object_mgr_search_shm_for_obj(tokdata->global_shm->priv_tok_objs,
+                                            0, tokdata->global_shm->num_priv_tok_obj-1,
+                                            obj, &index );
 
          if (rc != CKR_OK) {
             TRACE_DEVEL("object_mgr_search_shm_for_obj failed.\n");
@@ -1594,11 +1594,11 @@ object_mgr_set_attribute_values( SESSION           * sess,
             return rc;
          }
 
-         entry = &global_shm->priv_tok_objs[index];
+         entry = &tokdata->global_shm->priv_tok_objs[index];
       }
       else {
-         rc = object_mgr_search_shm_for_obj( global_shm->publ_tok_objs,
-                                             0, global_shm->num_publ_tok_obj-1,
+         rc = object_mgr_search_shm_for_obj( tokdata->global_shm->publ_tok_objs,
+                                             0, tokdata->global_shm->num_publ_tok_obj-1,
                                              obj, &index );
          if (rc != CKR_OK) {
             TRACE_DEVEL("object_mgr_search_shm_for_obj failed.\n");
@@ -1606,7 +1606,7 @@ object_mgr_set_attribute_values( SESSION           * sess,
             return rc;
          }
 
-         entry = &global_shm->publ_tok_objs[index];
+         entry = &tokdata->global_shm->publ_tok_objs[index];
       }
 
       entry->count_lo = obj->count_lo;
@@ -1622,7 +1622,7 @@ object_mgr_set_attribute_values( SESSION           * sess,
 //
 //
 void
-object_mgr_add_to_shm( OBJECT *obj )
+object_mgr_add_to_shm( OBJECT *obj, LW_SHM_TYPE *global_shm )
 {
    // TODO: Can't this function fail?
    TOK_OBJ_ENTRY  * entry  = NULL;
@@ -1658,7 +1658,7 @@ object_mgr_add_to_shm( OBJECT *obj )
 //
 //
 CK_RV
-object_mgr_del_from_shm( OBJECT *obj )
+object_mgr_del_from_shm( OBJECT *obj, LW_SHM_TYPE *global_shm )
 {
    CK_ULONG          index, count;
    CK_BBOOL          priv;
@@ -1752,7 +1752,7 @@ object_mgr_del_from_shm( OBJECT *obj )
 //
 //
 CK_RV
-object_mgr_check_shm( OBJECT *obj )
+object_mgr_check_shm( STDLL_TokData_t  *tokdata, OBJECT *obj )
 {
    TOK_OBJ_ENTRY   * entry = NULL;
    CK_BBOOL          priv;
@@ -1768,33 +1768,33 @@ object_mgr_check_shm( OBJECT *obj )
 
    if (priv) {
 
-      if (global_shm->num_priv_tok_obj == 0) {
+      if (tokdata->global_shm->num_priv_tok_obj == 0) {
 	  TRACE_ERROR("%s\n", ock_err(ERR_OBJECT_HANDLE_INVALID));
 	  return CKR_OBJECT_HANDLE_INVALID;
       }
-      rc = object_mgr_search_shm_for_obj( global_shm->priv_tok_objs,
-                                          0, global_shm->num_priv_tok_obj-1,
+      rc = object_mgr_search_shm_for_obj( tokdata->global_shm->priv_tok_objs,
+                                          0, tokdata->global_shm->num_priv_tok_obj-1,
                                           obj, &index );
       if (rc != CKR_OK){
          TRACE_ERROR("object_mgr_search_shm_for_obj failed.\n");
          return rc;
       }
-      entry = &global_shm->priv_tok_objs[index];
+      entry = &tokdata->global_shm->priv_tok_objs[index];
    }
    else {
 
-      if (global_shm->num_publ_tok_obj == 0) {
+      if (tokdata->global_shm->num_publ_tok_obj == 0) {
 	  TRACE_ERROR("%s\n", ock_err(ERR_OBJECT_HANDLE_INVALID));
 	  return CKR_OBJECT_HANDLE_INVALID;
       }
-      rc = object_mgr_search_shm_for_obj( global_shm->publ_tok_objs,
-                                          0, global_shm->num_publ_tok_obj-1,
+      rc = object_mgr_search_shm_for_obj( tokdata->global_shm->publ_tok_objs,
+                                          0, tokdata->global_shm->num_publ_tok_obj-1,
                                           obj, &index );
       if (rc != CKR_OK){
          TRACE_ERROR("object_mgr_search_shm_for_obj failed.\n");
          return rc;
       }
-      entry = &global_shm->publ_tok_objs[index];
+      entry = &tokdata->global_shm->publ_tok_objs[index];
    }
 
    if ((obj->count_hi == entry->count_hi) && (obj->count_lo == entry->count_lo))
@@ -1878,10 +1878,10 @@ object_mgr_sort_publ_shm( void )
 // processes
 //
 CK_RV
-object_mgr_update_from_shm( void )
+object_mgr_update_from_shm(STDLL_TokData_t *tokdata)
 {
-   object_mgr_update_publ_tok_obj_from_shm();
-   object_mgr_update_priv_tok_obj_from_shm();
+   object_mgr_update_publ_tok_obj_from_shm(tokdata);
+   object_mgr_update_priv_tok_obj_from_shm(tokdata);
 
    return CKR_OK;
 }
@@ -1923,7 +1923,7 @@ find_by_name_cb(void *node, unsigned long obj_handle, void *p3)
 }
 
 CK_RV
-object_mgr_update_publ_tok_obj_from_shm()
+object_mgr_update_publ_tok_obj_from_shm(STDLL_TokData_t  * tokdata)
 {
 	struct update_tok_obj_args   ua;
 	struct find_by_name_args     fa;
@@ -1931,16 +1931,16 @@ object_mgr_update_publ_tok_obj_from_shm()
 	CK_ULONG                     index;
 	OBJECT                     * new_obj;
 
-	ua.entries = global_shm->publ_tok_objs;
-	ua.num_entries = &(global_shm->num_publ_tok_obj);
+	ua.entries = tokdata->global_shm->publ_tok_objs;
+	ua.num_entries = &(tokdata->global_shm->num_publ_tok_obj);
 	ua.t = &publ_token_obj_btree;
 
 	/* delete any objects not in SHM from the btree */
 	bt_for_each_node(&publ_token_obj_btree, delete_objs_from_btree_cb, &ua);
 
 	/* for each item in SHM, add it to the btree if its not there */
-	for (index = 0; index < global_shm->num_publ_tok_obj; index++) {
-		shm_te = &global_shm->publ_tok_objs[index];
+	for (index = 0; index < tokdata->global_shm->num_publ_tok_obj; index++) {
+		shm_te = &tokdata->global_shm->publ_tok_objs[index];
 
 		fa.done = FALSE;
 		fa.name = shm_te->name;
@@ -1963,7 +1963,7 @@ object_mgr_update_publ_tok_obj_from_shm()
 }
 
 CK_RV
-object_mgr_update_priv_tok_obj_from_shm()
+object_mgr_update_priv_tok_obj_from_shm(STDLL_TokData_t *tokdata)
 {
 	struct update_tok_obj_args   ua;
 	struct find_by_name_args     fa;
@@ -1978,16 +1978,16 @@ object_mgr_update_priv_tok_obj_from_shm()
 		return CKR_OK;
 	}
 
-	ua.entries = global_shm->priv_tok_objs;
-	ua.num_entries = &(global_shm->num_priv_tok_obj);
+	ua.entries = tokdata->global_shm->priv_tok_objs;
+	ua.num_entries = &(tokdata->global_shm->num_priv_tok_obj);
 	ua.t = &priv_token_obj_btree;
 
 	/* delete any objects not in SHM from the btree */
 	bt_for_each_node(&priv_token_obj_btree, delete_objs_from_btree_cb, &ua);
 
 	/* for each item in SHM, add it to the btree if its not there */
-	for (index = 0; index < global_shm->num_priv_tok_obj; index++) {
-		shm_te = &global_shm->priv_tok_objs[index];
+	for (index = 0; index < tokdata->global_shm->num_priv_tok_obj; index++) {
+		shm_te = &tokdata->global_shm->priv_tok_objs[index];
 
 		fa.done = FALSE;
 		fa.name = shm_te->name;
@@ -2040,7 +2040,7 @@ object_mgr_purge_map(
 
 #ifdef DEBUG
 void
-dump_shm(const char *s)
+dump_shm(LW_SHM_TYPE *global_shm, const char *s)
 {
 	CK_ULONG i;
 	TRACE_DEBUG("%s: dump_shm priv:", s);

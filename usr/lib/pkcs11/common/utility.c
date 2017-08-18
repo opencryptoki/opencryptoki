@@ -763,13 +763,13 @@ done:
 	return rc;
 }
 
-CK_RV detach_shm()
+CK_RV detach_shm(LW_SHM_TYPE *shm)
 {
 	CK_RV rc = CKR_OK;
 
 	XProcLock();
 
-	if (sm_close((void *)global_shm, 0)) {
+	if (sm_close((void *)shm, 0)) {
 		TRACE_DEVEL("sm_close failed.\n");
 		rc = CKR_FUNCTION_FAILED;
 	}

@@ -75,6 +75,7 @@ typedef struct{
 //
 // Shared Memory Region of Slot information
 //
+typedef struct _LW_SHM_TYPE LW_SHM_TYPE;
 
 // Slot info structure which contains the PKCS11 CK_SLOT_INFO
 // as well as the local information
@@ -84,6 +85,7 @@ typedef struct{
    CK_SLOT_INFO  pk_slot;
    char          dll_location[NAME_MAX+1];   // location of slot management  DLL
    char          slot_init_fcn[NAME_MAX+1];  // function to call to initialize the token in the slot
+   LW_SHM_TYPE   *shm_addr;                  // token specific shm address
 }Slot_Info_t;
 
 
@@ -164,8 +166,10 @@ typedef struct {
 	char		dll_location[NAME_MAX+1];   // location of slot's  DLL
 	char		confname[NAME_MAX+1];	// token specific config file
 	char		tokname[NAME_MAX+1];	// token specific directory
+	LW_SHM_TYPE	*shm_addr;		// token specific shm address
 }Slot_Info_t_64;
 
+typedef Slot_Info_t_64 SLOT_INFO;
 
 typedef struct {
 
@@ -193,6 +197,8 @@ typedef struct {
   CK_INFO               ck_info;
   Slot_Info_t           slot_info[NUMBER_SLOTS_MANAGED];
 } Slot_Mgr_Socket_t;
+
+typedef Slot_Info_t SLOT_INFO;
 
 #endif	// PKCS64
 

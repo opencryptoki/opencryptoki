@@ -1664,7 +1664,7 @@ CK_RV _LockMutex( MUTEX *mutex );
 CK_RV _UnlockMutex( MUTEX *mutex );
 
 CK_RV attach_shm(CK_SLOT_ID slot_id, LW_SHM_TYPE **shmem);
-CK_RV detach_shm(void);
+CK_RV detach_shm(LW_SHM_TYPE *shmem);
 
 //get keytype
 CK_RV get_keytype(CK_OBJECT_HANDLE hkey, CK_KEY_TYPE *keytype);
@@ -1938,9 +1938,9 @@ CK_RV    object_mgr_add_to_map( SESSION          * sess,
 				unsigned long      obj_handle,
                                 CK_OBJECT_HANDLE * handle );
 
-void     object_mgr_add_to_shm  ( OBJECT *obj );
-CK_RV    object_mgr_del_from_shm( OBJECT *obj );
-CK_RV    object_mgr_check_shm   ( OBJECT *obj );
+void     object_mgr_add_to_shm  ( OBJECT *obj, LW_SHM_TYPE *shm );
+CK_RV    object_mgr_del_from_shm( OBJECT *obj, LW_SHM_TYPE *shm );
+CK_RV    object_mgr_check_shm   (STDLL_TokData_t  *tokdata, OBJECT *obj );
 CK_RV    object_mgr_search_shm_for_obj( TOK_OBJ_ENTRY  * list,
                                         CK_ULONG         lo,
                                         CK_ULONG         hi,
@@ -1948,9 +1948,9 @@ CK_RV    object_mgr_search_shm_for_obj( TOK_OBJ_ENTRY  * list,
                                         CK_ULONG       * index );
 CK_RV    object_mgr_sort_priv_shm( void );
 CK_RV    object_mgr_sort_publ_shm( void );
-CK_RV    object_mgr_update_from_shm( void );
-CK_RV    object_mgr_update_publ_tok_obj_from_shm();
-CK_RV    object_mgr_update_priv_tok_obj_from_shm();
+CK_RV    object_mgr_update_from_shm(STDLL_TokData_t  *tokdata);
+CK_RV    object_mgr_update_publ_tok_obj_from_shm(STDLL_TokData_t  *tokdata);
+CK_RV    object_mgr_update_priv_tok_obj_from_shm(STDLL_TokData_t  *tokdata);
 
 CK_RV    object_mgr_copy( SESSION          * sess,
                           CK_ATTRIBUTE     * pTemplate,

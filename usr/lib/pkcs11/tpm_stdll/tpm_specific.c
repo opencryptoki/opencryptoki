@@ -1674,7 +1674,7 @@ token_specific_login(SESSION *sess, CK_USER_TYPE userType, CK_CHAR_PTR pPin, CK_
 		rc = load_private_token_objects();
 
 		XProcLock();
-		global_shm->priv_loaded = TRUE;
+		tokdata->global_shm->priv_loaded = TRUE;
 		XProcUnLock();
 	} else {
 		/* SO path --
