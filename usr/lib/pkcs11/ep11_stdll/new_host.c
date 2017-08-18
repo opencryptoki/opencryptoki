@@ -1432,13 +1432,13 @@ done:
 }
 
 
-CK_RV SC_EncryptInit(ST_SESSION_HANDLE *sSession, CK_MECHANISM_PTR pMechanism,
-		     CK_OBJECT_HANDLE hKey)
+CK_RV SC_EncryptInit(STDLL_TokData_t *tokdata, ST_SESSION_HANDLE *sSession,
+		     CK_MECHANISM_PTR pMechanism, CK_OBJECT_HANDLE hKey)
 {
 	SESSION *sess = NULL;
 	CK_RV rc = CKR_OK;
 
-	if (initialized == FALSE) {
+	if (tokdata->initialized == FALSE) {
 		TRACE_ERROR("%s\n", ock_err(ERR_CRYPTOKI_NOT_INITIALIZED));
 		rc = CKR_CRYPTOKI_NOT_INITIALIZED;
 		goto done;
@@ -1473,7 +1473,7 @@ CK_RV SC_EncryptInit(ST_SESSION_HANDLE *sSession, CK_MECHANISM_PTR pMechanism,
 		goto done;
 	}
 
-	rc = ep11tok_encrypt_init(sess, pMechanism, hKey);
+	rc = ep11tok_encrypt_init(tokdata, sess, pMechanism, hKey);
 
 done:
 	TRACE_INFO("C_EncryptInit: rc = 0x%08lx, sess = %ld, mech = 0x%lx\n",
@@ -1484,15 +1484,15 @@ done:
 }
 
 
-CK_RV SC_Encrypt(ST_SESSION_HANDLE *sSession, CK_BYTE_PTR pData,
-		 CK_ULONG ulDataLen, CK_BYTE_PTR pEncryptedData,
-		 CK_ULONG_PTR pulEncryptedDataLen)
+CK_RV SC_Encrypt(STDLL_TokData_t *tokdata, ST_SESSION_HANDLE *sSession,
+		 CK_BYTE_PTR pData, CK_ULONG ulDataLen,
+		 CK_BYTE_PTR pEncryptedData, CK_ULONG_PTR pulEncryptedDataLen)
 {
 	SESSION *sess = NULL;
 	CK_BBOOL length_only = FALSE;
 	CK_RV rc = CKR_OK;
 
-	if (initialized == FALSE) {
+	if (tokdata->initialized == FALSE) {
 		TRACE_ERROR("%s\n", ock_err(ERR_CRYPTOKI_NOT_INITIALIZED));
 		rc = CKR_CRYPTOKI_NOT_INITIALIZED;
 		goto done;
@@ -1520,8 +1520,8 @@ CK_RV SC_Encrypt(ST_SESSION_HANDLE *sSession, CK_BYTE_PTR pData,
 	if (!pEncryptedData)
 		length_only = TRUE;
 
-	rc = ep11tok_encrypt(sess, pData, ulDataLen, pEncryptedData,
-				      pulEncryptedDataLen);
+	rc = ep11tok_encrypt(tokdata, sess, pData, ulDataLen, pEncryptedData,
+			     pulEncryptedDataLen);
 	if (rc != CKR_OK)
 		TRACE_DEVEL("ep11tok_encrypt() failed.\n");
 
@@ -1536,14 +1536,15 @@ done:
 }
 
 
-CK_RV SC_EncryptUpdate(ST_SESSION_HANDLE *sSession, CK_BYTE_PTR pPart,
-		       CK_ULONG ulPartLen, CK_BYTE_PTR pEncryptedPart,
+CK_RV SC_EncryptUpdate(STDLL_TokData_t *tokdata, ST_SESSION_HANDLE *sSession,
+		       CK_BYTE_PTR pPart, CK_ULONG ulPartLen,
+		       CK_BYTE_PTR pEncryptedPart,
 		       CK_ULONG_PTR pulEncryptedPartLen)
 {
 	SESSION *sess = NULL;
 	CK_RV rc = CKR_OK;
 
-	if (initialized == FALSE) {
+	if (tokdata->initialized == FALSE) {
 		TRACE_ERROR("%s\n", ock_err(ERR_CRYPTOKI_NOT_INITIALIZED));
 		rc = CKR_CRYPTOKI_NOT_INITIALIZED;
 		goto done;
@@ -1568,7 +1569,7 @@ CK_RV SC_EncryptUpdate(ST_SESSION_HANDLE *sSession, CK_BYTE_PTR pPart,
 		goto done;
 	}
 
-	rc = ep11tok_encrypt_update(sess, pPart, ulPartLen, pEncryptedPart,
+	rc = ep11tok_encrypt_update(tokdata, sess, pPart, ulPartLen, pEncryptedPart,
 				    pulEncryptedPartLen);
 	if (rc != CKR_OK)
 		TRACE_DEVEL("ep11tok_encrypt_update() failed.\n");
@@ -1584,7 +1585,7 @@ done:
 }
 
 
-CK_RV SC_EncryptFinal(ST_SESSION_HANDLE *sSession,
+CK_RV SC_EncryptFinal(STDLL_TokData_t *tokdata, ST_SESSION_HANDLE *sSession,
 		      CK_BYTE_PTR pLastEncryptedPart,
 		      CK_ULONG_PTR pulLastEncryptedPartLen)
 {
@@ -1592,7 +1593,7 @@ CK_RV SC_EncryptFinal(ST_SESSION_HANDLE *sSession,
 	CK_BBOOL length_only = FALSE;
 	CK_RV rc = CKR_OK;
 
-	if (initialized == FALSE) {
+	if (tokdata->initialized == FALSE) {
 		TRACE_ERROR("%s\n", ock_err(ERR_CRYPTOKI_NOT_INITIALIZED));
 		rc = CKR_CRYPTOKI_NOT_INITIALIZED;
 		goto done;
@@ -1620,7 +1621,7 @@ CK_RV SC_EncryptFinal(ST_SESSION_HANDLE *sSession,
 	if (!pLastEncryptedPart)
 		length_only = TRUE;
 
-	rc = ep11tok_encrypt_final(sess, pLastEncryptedPart,
+	rc = ep11tok_encrypt_final(tokdata, sess, pLastEncryptedPart,
 				   pulLastEncryptedPartLen);
 	if (rc != CKR_OK)
 		TRACE_ERROR("ep11tok_encrypt_final() failed.\n");
