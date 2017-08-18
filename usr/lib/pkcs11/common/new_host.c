@@ -740,28 +740,28 @@ CK_RV SC_OpenSession(STDLL_TokData_t *tokdata, CK_SLOT_ID sid, CK_FLAGS flags,
 	return rc;
 }
 
-CK_RV SC_CloseSession(ST_SESSION_HANDLE *sSession)
+CK_RV SC_CloseSession(STDLL_TokData_t *tokdata, ST_SESSION_HANDLE *sSession)
 {
 	CK_RV rc = CKR_OK;
 
-	if (initialized == FALSE) {
+	if (tokdata->initialized == FALSE) {
 		TRACE_ERROR("%s\n", ock_err(ERR_CRYPTOKI_NOT_INITIALIZED));
 		rc = CKR_CRYPTOKI_NOT_INITIALIZED;
 		goto done;
 	}
 
-	rc = session_mgr_close_session(sSession->sessionh);
+	rc = session_mgr_close_session(tokdata, sSession->sessionh);
 done:
 	TRACE_INFO("C_CloseSession: rc = 0x%08lx, sess = %lu\n",
 		   rc, sSession->sessionh);
 	return rc;
 }
 
-CK_RV SC_CloseAllSessions(CK_SLOT_ID sid)
+CK_RV SC_CloseAllSessions(STDLL_TokData_t *tokdata, CK_SLOT_ID sid)
 {
 	CK_RV rc = CKR_OK;
 
-	if (initialized == FALSE) {
+	if (tokdata->initialized == FALSE) {
 		TRACE_ERROR("%s\n", ock_err(ERR_CRYPTOKI_NOT_INITIALIZED));
 		rc = CKR_CRYPTOKI_NOT_INITIALIZED;
 		goto done;

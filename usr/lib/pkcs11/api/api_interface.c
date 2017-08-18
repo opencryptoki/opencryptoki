@@ -162,7 +162,7 @@ CK_RV C_CloseSession(CK_SESSION_HANDLE hSession)
 	}
 	if (fcn->ST_CloseSession) {
 		// Map the Session to the slot session
-		rv = fcn->ST_CloseSession(&rSession);
+		rv = fcn->ST_CloseSession(sltp->TokData, &rSession);
 		TRACE_DEVEL("Called STDLL rv = 0x%lx\n", rv);
 		//  If the STDLL successfully closed the session
 		//  we can free it.. Otherwise we will have to leave it
@@ -3014,7 +3014,7 @@ C_OpenSession(CK_SLOT_ID slotID,
 			if (*phSession == 0) {
 				/* failed to add the object to the API-level tree, close the STDLL-level session
 				 * and return failure */
-				fcn->ST_CloseSession(apiSessp);
+				fcn->ST_CloseSession(sltp->TokData, apiSessp);
 				free(apiSessp);
 				rv = CKR_HOST_MEMORY;
 				goto done;

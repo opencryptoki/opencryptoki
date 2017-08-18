@@ -118,7 +118,7 @@ void RemoveFromSessionList(CK_SESSION_HANDLE handle)
  *
  * Callback function used to close an individual session for a slot
  */
-void CloseMe(void *node_value, unsigned long node_handle, void *arg)
+void CloseMe(STDLL_TokData_t *tokdata, void *node_value, unsigned long node_handle, void *arg)
 {
 	CK_RV rv;
 	CK_SLOT_ID slot_id = *(CK_SLOT_ID *) arg;
@@ -132,7 +132,7 @@ void CloseMe(void *node_value, unsigned long node_handle, void *arg)
 		 * here, they must already have been valid */
 		sltp = &(Anchor->SltList[slot_id]);
 		fcn = sltp->FcnList;
-		rv = fcn->ST_CloseSession(s);
+		rv = fcn->ST_CloseSession(sltp->TokData, s);
 		if (rv == CKR_OK) {
 			decr_sess_counts(slot_id);
 			bt_node_free(&(Anchor->sess_btree), node_handle, free);
