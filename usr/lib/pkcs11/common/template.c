@@ -1119,9 +1119,9 @@ CK_RV template_update_attribute(TEMPLATE *tmpl, CK_ATTRIBUTE *new_attr)
  * essentially a group of if-then-else-switch clauses.  separated from
  * template_validate_attributes() to make that routine more readable
  */
-CK_RV template_validate_attribute(TEMPLATE *tmpl, CK_ATTRIBUTE *attr,
-				  CK_ULONG class, CK_ULONG subclass,
-				  CK_ULONG mode)
+CK_RV template_validate_attribute(STDLL_TokData_t  * tokdata, TEMPLATE *tmpl,
+				  CK_ATTRIBUTE *attr, CK_ULONG class,
+				  CK_ULONG subclass, CK_ULONG mode)
 {
 	if (class == CKO_DATA)
 		return data_object_validate_attribute(tmpl, attr, mode);
@@ -1266,8 +1266,9 @@ CK_RV template_validate_attribute(TEMPLATE *tmpl, CK_ATTRIBUTE *attr,
  *
  * walk through the list of attributes in the template validating each one
  */
-CK_RV template_validate_attributes(TEMPLATE *tmpl, CK_ULONG class,
-				   CK_ULONG subclass, CK_ULONG mode)
+CK_RV template_validate_attributes(STDLL_TokData_t  *tokdata, TEMPLATE *tmpl,
+				   CK_ULONG class, CK_ULONG subclass,
+				   CK_ULONG mode)
 {
 	DL_NODE *node;
 	CK_RV rc = CKR_OK;
@@ -1277,7 +1278,7 @@ CK_RV template_validate_attributes(TEMPLATE *tmpl, CK_ULONG class,
 	while (node) {
 		CK_ATTRIBUTE *attr = (CK_ATTRIBUTE *)node->data;
 
-		rc = template_validate_attribute(tmpl, attr, class,
+		rc = template_validate_attribute(tokdata, tmpl, attr, class,
 						 subclass, mode);
 		if (rc != CKR_OK) {
 			TRACE_DEVEL("template_validate_attribute failed.\n");
