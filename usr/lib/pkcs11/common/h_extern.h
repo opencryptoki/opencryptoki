@@ -1793,7 +1793,8 @@ CK_RV     key_mgr_get_private_key_type( CK_BYTE     *keydata,
                                         CK_ULONG     keylen,
                                         CK_KEY_TYPE *keytype );
 
-CK_RV     key_mgr_derive_key( SESSION           * sess,
+CK_RV     key_mgr_derive_key( STDLL_TokData_t   * tokdata,
+			      SESSION           * sess,
                               CK_MECHANISM      * mech,
                               CK_OBJECT_HANDLE    base_key,
                               CK_OBJECT_HANDLE  * derived_key,
