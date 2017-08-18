@@ -552,13 +552,13 @@ CK_RV init_token_data(STDLL_TokData_t *tokdata, CK_SLOT_ID slot_id)
 		//
 		// FIXME: erase the token object index file (and all token objects)
 		//
-		rc = generate_master_key(master_key);
+		rc = generate_master_key(tokdata, tokdata->nv_token_data->master_key);
 		if (rc != CKR_OK) {
 			TRACE_DEVEL("generate_master_key failed.\n");
 			return CKR_FUNCTION_FAILED;
 		}
 
-		rc = save_masterkey_so();
+		rc = save_masterkey_so(tokdata);
 		if (rc != CKR_OK) {
 			TRACE_DEVEL("save_masterkey_so failed.\n");
 			return rc;

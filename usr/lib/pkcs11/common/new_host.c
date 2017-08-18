@@ -552,7 +552,7 @@ CK_RV SC_InitPIN(ST_SESSION_HANDLE *sSession, CK_CHAR_PTR pPin,
 		TRACE_DEVEL("Failed to save token data.\n");
 		goto done;
 	}
-	rc = save_masterkey_user();
+	rc = save_masterkey_user(tokdata);
 	if (rc != CKR_OK)
 		TRACE_DEVEL("Failed to save user's masterkey.\n");
 
@@ -651,7 +651,7 @@ CK_RV SC_SetPIN(ST_SESSION_HANDLE *sSession, CK_CHAR_PTR pOldPin,
 			TRACE_DEVEL("Failed to save token data.\n");
 			goto done;
 		}
-		rc = save_masterkey_user();
+		rc = save_masterkey_user(tokdata);
 	} else if (sess->session_info.state == CKS_RW_SO_FUNCTIONS) {
 		if (memcmp(nv_token_data->so_pin_sha, old_hash_sha,
 			   SHA1_HASH_SIZE) != 0) {
@@ -689,7 +689,7 @@ CK_RV SC_SetPIN(ST_SESSION_HANDLE *sSession, CK_CHAR_PTR pOldPin,
 			TRACE_DEVEL("Failed to save token data.\n");
 			goto done;
 		}
-		rc = save_masterkey_so();
+		rc = save_masterkey_so(tokdata);
 		if (rc != CKR_OK)
 			TRACE_DEVEL("Failed to save SO's masterkey.\n");
 	} else {
@@ -1006,7 +1006,7 @@ CK_RV SC_Login(ST_SESSION_HANDLE *sSession, CK_USER_TYPE userType,
 		compute_md5( pPin, ulPinLen, user_pin_md5 );
 		memset( so_pin_md5, 0x0, MD5_HASH_SIZE );
 
-		rc = load_masterkey_user();
+		rc = load_masterkey_user(tokdata);
 		if (rc != CKR_OK){
 			TRACE_DEVEL("Failed to load user's masterkey.\n");
 			goto done;
@@ -1058,7 +1058,7 @@ CK_RV SC_Login(ST_SESSION_HANDLE *sSession, CK_USER_TYPE userType,
 		compute_md5(pPin, ulPinLen, so_pin_md5);
 		memset(user_pin_md5, 0x0, MD5_HASH_SIZE);
 
-		rc = load_masterkey_so();
+		rc = load_masterkey_so(tokdata);
 		if (rc != CKR_OK)
 			TRACE_DEVEL("Failed to load SO's masterkey.\n");
 	}
