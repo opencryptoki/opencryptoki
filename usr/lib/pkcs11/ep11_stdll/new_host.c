@@ -3052,9 +3052,10 @@ done:
 }
 
 
-CK_RV SC_GetFunctionStatus(ST_SESSION_HANDLE *sSession)
+CK_RV SC_GetFunctionStatus(STDLL_TokData_t *tokdata,
+			   ST_SESSION_HANDLE *sSession)
 {
-	if (initialized == FALSE){
+	if (tokdata->initialized == FALSE){
 		TRACE_ERROR("%s\n", ock_err(ERR_CRYPTOKI_NOT_INITIALIZED));
 		return CKR_CRYPTOKI_NOT_INITIALIZED;
 	}
@@ -3063,9 +3064,9 @@ CK_RV SC_GetFunctionStatus(ST_SESSION_HANDLE *sSession)
 }
 
 
-CK_RV SC_CancelFunction(ST_SESSION_HANDLE *sSession)
+CK_RV SC_CancelFunction(STDLL_TokData_t *tokdata, ST_SESSION_HANDLE *sSession)
 {
-	if (initialized == FALSE){
+	if (tokdata->initialized == FALSE){
 		TRACE_ERROR("%s\n", ock_err(ERR_CRYPTOKI_NOT_INITIALIZED));
 		return CKR_CRYPTOKI_NOT_INITIALIZED;
 	}

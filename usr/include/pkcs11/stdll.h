@@ -289,9 +289,9 @@ typedef CK_RV (CK_PTR  ST_C_GenerateRandom)
                        (STDLL_TokData_t *tokdata, ST_SESSION_T *hSession,
 			CK_BYTE_PTR pRandomData, CK_ULONG usRandomLen);
 typedef CK_RV (CK_PTR  ST_C_GetFunctionStatus)
-                       (ST_SESSION_T *hSession);
+                       (STDLL_TokData_t *tokdata, ST_SESSION_T *hSession);
 typedef CK_RV (CK_PTR  ST_C_CancelFunction)
-                       (ST_SESSION_T *hSession);
+                       (STDLL_TokData_t *tokdata, ST_SESSION_T *hSession);
 typedef CK_RV	(CK_PTR  ST_Notify)
 						(ST_SESSION_T *hSession, CK_NOTIFICATION event,
 						 CK_VOID_PTR pApplication);
