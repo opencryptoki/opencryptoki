@@ -31,7 +31,8 @@
 pthread_rwlock_t obj_list_rw_mutex = PTHREAD_RWLOCK_INITIALIZER;
 
 CK_RV
-object_mgr_add( SESSION          * sess,
+object_mgr_add( STDLL_TokData_t  * tokdata,
+		SESSION          * sess,
                 CK_ATTRIBUTE     * pTemplate,
                 CK_ULONG           ulCount,
                 CK_OBJECT_HANDLE * handle )
@@ -209,7 +210,7 @@ object_mgr_add( SESSION          * sess,
       }
    }
 
-   rc = object_mgr_add_to_map( sess, o, obj_handle, handle );
+   rc = object_mgr_add_to_map( tokdata, sess, o, obj_handle, handle );
    if (rc != CKR_OK) {
       // we need to remove the object from whatever btree we just added it to
       if (sess_obj) {
@@ -256,7 +257,8 @@ done:
 // object_mgr_add_to_map()
 //
 CK_RV
-object_mgr_add_to_map( SESSION          * sess,
+object_mgr_add_to_map( STDLL_TokData_t  * tokdata,
+		       SESSION          * sess,
                        OBJECT           * obj,
 		       unsigned long      obj_handle,
                        CK_OBJECT_HANDLE * map_handle )
@@ -476,7 +478,7 @@ object_mgr_copy( SESSION          * sess,
       }
    }
 
-   rc = object_mgr_add_to_map( sess, new_obj, obj_handle, new_handle );
+   rc = object_mgr_add_to_map( tokdata, sess, new_obj, obj_handle, new_handle );
    if (rc != CKR_OK) {
       TRACE_DEVEL("object_mgr_add_to_map failed.\n");
 
@@ -698,7 +700,7 @@ object_mgr_create_final( SESSION           * sess,
       }
    }
 
-   rc = object_mgr_add_to_map( sess, obj, obj_handle, handle );
+   rc = object_mgr_add_to_map( tokdata, sess, obj, obj_handle, handle );
    if (rc != CKR_OK) {
       TRACE_DEVEL("object_mgr_add_to_map failed.\n");
       // this is messy but we need to remove the object from whatever
@@ -1092,7 +1094,7 @@ find_build_list_cb(STDLL_TokData_t *tokdata, void *node,
    if (match) {
       rc = object_mgr_find_in_map2( tokdata, obj, &map_handle );
       if (rc != CKR_OK) {
-         rc = object_mgr_add_to_map( fa->sess, obj, obj_handle, &map_handle );
+         rc = object_mgr_add_to_map(tokdata, fa->sess, obj, obj_handle, &map_handle);
          if (rc != CKR_OK){
             TRACE_DEVEL("object_mgr_add_to_map failed.\n");
             return;
@@ -1394,7 +1396,8 @@ purge_token_obj_cb(void *node, unsigned long obj_handle, void *p3)
 // need to do this but when tracing memory leaks, it's best that we free everything
 // that we've allocated
 //
-CK_BBOOL object_mgr_purge_token_objects()
+CK_BBOOL
+object_mgr_purge_token_objects(STDLL_TokData_t *tokdata)
 {
    bt_for_each_node(tokdata, &priv_token_obj_btree, purge_token_obj_cb, &priv_token_obj_btree);
    bt_for_each_node(tokdata, &publ_token_obj_btree, purge_token_obj_cb, &publ_token_obj_btree);
@@ -1403,7 +1406,8 @@ CK_BBOOL object_mgr_purge_token_objects()
 }
 
 
-CK_BBOOL object_mgr_purge_private_token_objects(void)
+CK_BBOOL
+object_mgr_purge_private_token_objects(STDLL_TokData_t *tokdata)
 {
    bt_for_each_node(tokdata, &priv_token_obj_btree, purge_token_obj_cb, &priv_token_obj_btree);
 
@@ -2036,8 +2040,8 @@ purge_map_by_type_cb(STDLL_TokData_t *tokdata, void *node,
 }
 
 CK_BBOOL
-object_mgr_purge_map(
-                      SESSION       * sess,
+object_mgr_purge_map( STDLL_TokData_t *tokdata,
+                      SESSION         *sess,
                       SESS_OBJ_TYPE   type )
 {
    bt_for_each_node(tokdata, &object_map_btree, purge_map_by_type_cb, &type);

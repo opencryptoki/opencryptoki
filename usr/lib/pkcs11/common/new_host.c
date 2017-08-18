@@ -67,8 +67,8 @@ void Fork_Initializer(void)
 	/* Clean out the public object map
 	 * First parm is no longer used..
 	 */
-	object_mgr_purge_map((SESSION *)0xFFFF, PUBLIC);
-	object_mgr_purge_map((SESSION *)0xFFFF, PRIVATE);
+	object_mgr_purge_map(NULL, (SESSION *)0xFFFF, PUBLIC);
+	object_mgr_purge_map(NULL, (SESSION *)0xFFFF, PRIVATE);
 
 	/* This should clear the entire session list out */
 	session_mgr_close_all_sessions();
@@ -1152,7 +1152,7 @@ CK_RV SC_CreateObject(ST_SESSION_HANDLE *sSession, CK_ATTRIBUTE_PTR pTemplate,
 		goto done;
 	}
 
-	rc = object_mgr_add(sess, pTemplate, ulCount, phObject);
+	rc = object_mgr_add(tokdata, sess, pTemplate, ulCount, phObject);
 	if (rc != CKR_OK)
 		TRACE_DEVEL("object_mgr_add() failed.\n");
 

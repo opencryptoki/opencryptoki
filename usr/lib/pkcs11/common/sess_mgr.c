@@ -294,7 +294,7 @@ session_mgr_close_session( CK_SESSION_HANDLE handle )
       // The objects really need to be purged .. but this impacts the
       // performance under linux.   So we need to make sure that the
       // login state is valid.    I don't really like this.
-      object_mgr_purge_map((SESSION *)0xFFFF, PRIVATE);
+      object_mgr_purge_map(tokdata, (SESSION *)0xFFFF, PRIVATE);
    }
 
 done:

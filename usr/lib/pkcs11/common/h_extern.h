@@ -1928,12 +1928,14 @@ void set_login_flags(CK_USER_TYPE, CK_FLAGS_32 *);
 
 // object manager routines
 //
-CK_RV    object_mgr_add( SESSION          * sess,
+CK_RV    object_mgr_add( STDLL_TokData_t  * tokdata,
+			 SESSION          * sess,
                          CK_ATTRIBUTE     * pTemplate,
                          CK_ULONG           ulCount,
                          CK_OBJECT_HANDLE * handle );
 
-CK_RV    object_mgr_add_to_map( SESSION          * sess,
+CK_RV    object_mgr_add_to_map( STDLL_TokData_t  * tokdata,
+				SESSION          * sess,
                                 OBJECT           * obj,
 				unsigned long      obj_handle,
                                 CK_OBJECT_HANDLE * handle );
@@ -2023,7 +2025,8 @@ CK_RV    object_mgr_set_attribute_values( SESSION          * sess,
                                           CK_ULONG           ulCount );
 
 // SAB FIXME FIXME
-CK_BBOOL object_mgr_purge_map( SESSION       * sess,
+CK_BBOOL object_mgr_purge_map( STDLL_TokData_t *tokdata,
+			       SESSION         * sess,
                                SESS_OBJ_TYPE   type );
 
 /* structures used to hold arguments to callback functions triggered by either bt_for_each_node
