@@ -2009,7 +2009,8 @@ CK_RV    object_mgr_get_attribute_values( SESSION           * sess,
                                           CK_ATTRIBUTE      * pTemplate,
                                           CK_ULONG            ulCount );
 
-CK_RV    object_mgr_get_object_size( CK_OBJECT_HANDLE   handle,
+CK_RV    object_mgr_get_object_size( STDLL_TokData_t  *tokdata,
+				     CK_OBJECT_HANDLE   handle,
                                      CK_ULONG         * size );
 
 CK_BBOOL object_mgr_purge_session_objects( SESSION       * sess,

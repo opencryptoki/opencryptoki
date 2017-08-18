@@ -2040,7 +2040,8 @@ C_GetObjectSize(CK_SESSION_HANDLE hSession,
 	}
 	if (fcn->ST_GetObjectSize) {
 		// Map the Session to the slot session
-		rv = fcn->ST_GetObjectSize(&rSession, hObject, pulSize);
+		rv = fcn->ST_GetObjectSize(sltp->TokData, &rSession,
+					   hObject, pulSize);
 		TRACE_DEVEL("fcn->ST_GetObjectSize retuned: 0x%lx\n", rv);
 	} else {
 		TRACE_ERROR("%s\n", ock_err(ERR_FUNCTION_NOT_SUPPORTED));

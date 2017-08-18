@@ -122,7 +122,7 @@ typedef CK_RV	(CK_PTR  ST_C_CopyObject)
 typedef CK_RV (CK_PTR  ST_C_DestroyObject)
                        (STDLL_TokData_t *tokdata, ST_SESSION_T *hSession, CK_OBJECT_HANDLE hObject);
 typedef CK_RV(CK_PTR  ST_C_GetObjectSize)
-                       (ST_SESSION_T *hSession, CK_OBJECT_HANDLE hObject,
+                       (STDLL_TokData_t *tokdata, ST_SESSION_T *hSession, CK_OBJECT_HANDLE hObject,
                         CK_ULONG_PTR pusSize);
 typedef CK_RV(CK_PTR  ST_C_GetAttributeValue)
                        (ST_SESSION_T *hSession, CK_OBJECT_HANDLE hObject,
