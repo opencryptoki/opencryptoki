@@ -1145,7 +1145,7 @@ CK_RV template_validate_attribute(TEMPLATE *tmpl, CK_ATTRIBUTE *attr,
 			return dh_publ_validate_attribute(tokdata, tmpl, attr, mode);
 
 		case CKK_KEA:
-			return kea_publ_validate_attribute(tmpl, attr, mode);
+			return kea_publ_validate_attribute(tokdata, tmpl, attr, mode);
 
 		default:
 			TRACE_ERROR("%s\n", ock_err(ERR_ATTRIBUTE_VALUE_INVALID));
@@ -1166,7 +1166,7 @@ CK_RV template_validate_attribute(TEMPLATE *tmpl, CK_ATTRIBUTE *attr,
 			return dh_priv_validate_attribute(tokdata, tmpl, attr, mode);
 
 		case CKK_KEA:
-			return kea_priv_validate_attribute(tmpl, attr, mode);
+			return kea_priv_validate_attribute(tokdata, tmpl, attr, mode);
 
 		default:
 			TRACE_ERROR("%s\n", ock_err(ERR_ATTRIBUTE_VALUE_INVALID));
