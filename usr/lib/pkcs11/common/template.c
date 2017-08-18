@@ -1213,7 +1213,7 @@ CK_RV template_validate_attribute(TEMPLATE *tmpl, CK_ATTRIBUTE *attr,
 #endif
 
 		case CKK_SKIPJACK:
-			return skipjack_validate_attribute(tmpl, attr, mode);
+			return skipjack_validate_attribute(tokdata, tmpl, attr, mode);
 
 		case CKK_BATON:
 			return baton_validate_attribute(tmpl, attr, mode);

@@ -4845,7 +4845,8 @@ skipjack_set_default_attributes( TEMPLATE *tmpl, CK_ULONG mode )
 // skipjack_validate_attribute()
 //
 CK_RV
-skipjack_validate_attribute( TEMPLATE *tmpl, CK_ATTRIBUTE *attr, CK_ULONG mode )
+skipjack_validate_attribute( STDLL_TokData_t *tokdata, TEMPLATE *tmpl,
+			     CK_ATTRIBUTE *attr, CK_ULONG mode )
 {
    switch (attr->type) {
       case CKA_VALUE:
@@ -4863,7 +4864,7 @@ skipjack_validate_attribute( TEMPLATE *tmpl, CK_ATTRIBUTE *attr, CK_ULONG mode )
          }
 
       default:
-         return secret_key_validate_attribute( tmpl, attr, mode );
+         return secret_key_validate_attribute( tokdata, tmpl, attr, mode );
    }
 }
 
