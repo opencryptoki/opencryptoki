@@ -59,8 +59,8 @@ CK_RV icsftok_set_attribute_value(SESSION *sess, CK_OBJECT_HANDLE handle,
 				  CK_ATTRIBUTE *pTemplate, CK_ULONG ulCount);
 
 
-CK_RV icsftok_find_objects_init(SESSION *sess, CK_ATTRIBUTE *pTemplate,
-				CK_ULONG ulCount);
+CK_RV icsftok_find_objects_init(STDLL_TokData_t *tokdata, SESSION *sess,
+				CK_ATTRIBUTE *pTemplate, CK_ULONG ulCount);
 
 CK_RV icsftok_encrypt_init(SESSION *session, CK_MECHANISM_PTR mech,
 			   CK_OBJECT_HANDLE key);

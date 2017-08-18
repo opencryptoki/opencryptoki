@@ -1167,13 +1167,13 @@ done:
 }
 
 
-CK_RV SC_FindObjectsInit(ST_SESSION_HANDLE *sSession,
+CK_RV SC_FindObjectsInit(STDLL_TokData_t *tokdata, ST_SESSION_HANDLE *sSession,
 			 CK_ATTRIBUTE_PTR pTemplate, CK_ULONG ulCount)
 {
 	SESSION *sess = NULL;
 	CK_RV rc = CKR_OK;
 
-	if (initialized == FALSE) {
+	if (tokdata->initialized == FALSE) {
 		TRACE_ERROR("%s\n", ock_err(ERR_CRYPTOKI_NOT_INITIALIZED));
 		rc = CKR_CRYPTOKI_NOT_INITIALIZED;
 		goto done;
@@ -1201,7 +1201,7 @@ CK_RV SC_FindObjectsInit(ST_SESSION_HANDLE *sSession,
 		goto done;
 	}
 
-	rc = icsftok_find_objects_init(sess, pTemplate, ulCount);
+	rc = icsftok_find_objects_init(tokdata, sess, pTemplate, ulCount);
 
 done:
 	TRACE_INFO("C_FindObjectsInit:  rc = 0x%08lx\n", rc);
@@ -1227,14 +1227,15 @@ done:
 }
 
 
-CK_RV SC_FindObjects(ST_SESSION_HANDLE *sSession, CK_OBJECT_HANDLE_PTR phObject,
-		     CK_ULONG ulMaxObjectCount, CK_ULONG_PTR pulObjectCount)
+CK_RV SC_FindObjects(STDLL_TokData_t *tokdata, ST_SESSION_HANDLE *sSession,
+		     CK_OBJECT_HANDLE_PTR phObject, CK_ULONG ulMaxObjectCount,
+		     CK_ULONG_PTR pulObjectCount)
 {
 	SESSION *sess = NULL;
 	CK_ULONG count = 0;
 	CK_RV rc = CKR_OK;
 
-	if (initialized == FALSE) {
+	if (tokdata->initialized == FALSE) {
 		TRACE_ERROR("%s\n", ock_err(ERR_CRYPTOKI_NOT_INITIALIZED));
 		rc = CKR_CRYPTOKI_NOT_INITIALIZED;
 		goto done;
@@ -1282,12 +1283,12 @@ done:
 }
 
 
-CK_RV SC_FindObjectsFinal(ST_SESSION_HANDLE *sSession)
+CK_RV SC_FindObjectsFinal(STDLL_TokData_t *tokdata, ST_SESSION_HANDLE *sSession)
 {
 	SESSION *sess = NULL;
 	CK_RV rc = CKR_OK;
 
-	if (initialized == FALSE) {
+	if (tokdata->initialized == FALSE) {
 		TRACE_ERROR("%s\n", ock_err(ERR_CRYPTOKI_NOT_INITIALIZED));
 		rc = CKR_CRYPTOKI_NOT_INITIALIZED;
 		goto done;

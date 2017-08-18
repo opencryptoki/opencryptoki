@@ -135,14 +135,14 @@ typedef CK_RV(CK_PTR  ST_C_SetAttributeValue)
                        (ST_SESSION_T *hSession, CK_OBJECT_HANDLE hObject,
                         CK_ATTRIBUTE_PTR pTemplate, CK_ULONG usCount);
 typedef CK_RV (CK_PTR  ST_C_FindObjectsInit)
-                       (ST_SESSION_T *hSession, CK_ATTRIBUTE_PTR pTemplate,
+                       (STDLL_TokData_t *tokdata, ST_SESSION_T *hSession, CK_ATTRIBUTE_PTR pTemplate,
                         CK_ULONG usCount);
 typedef CK_RV (CK_PTR  ST_C_FindObjects)
-                       (ST_SESSION_T *hSession,
+                       (STDLL_TokData_t *tokdata, ST_SESSION_T *hSession,
                         CK_OBJECT_HANDLE_PTR phObject, CK_ULONG usMaxObjectCount,
                         CK_ULONG_PTR pusObjectCount);
 typedef CK_RV (CK_PTR  ST_C_FindObjectsFinal)
-                       (ST_SESSION_T *hSession);
+                       (STDLL_TokData_t *tokdata, ST_SESSION_T *hSession);
 typedef CK_RV (CK_PTR  ST_C_EncryptInit)
                        (ST_SESSION_T *hSession, CK_MECHANISM_PTR pMechanism,
                         CK_OBJECT_HANDLE hKey);

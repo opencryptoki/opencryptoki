@@ -3007,8 +3007,8 @@ done:
 /*
  * Initialize a search for token and session objects that match a template.
  */
-CK_RV icsftok_find_objects_init(SESSION *sess, CK_ATTRIBUTE *pTemplate,
-				CK_ULONG ulCount)
+CK_RV icsftok_find_objects_init(STDLL_TokData_t *tokdata, SESSION *sess,
+				CK_ATTRIBUTE *pTemplate, CK_ULONG ulCount)
 {
 	char token_name[sizeof(tokdata->nv_token_data->token_info.label)];
 	struct session_state *session_state;
