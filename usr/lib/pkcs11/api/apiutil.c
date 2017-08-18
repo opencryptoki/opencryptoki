@@ -524,7 +524,7 @@ DLL_Load_t *dllload;
 	if (dllload[i].dlop_p != NULL) {
 		sltp->dlop_p = dllload[i].dlop_p;
 		sltp->dll_information = &dllload[i];
-		dllload[i].dll_load_count = 1;;
+		dllload[i].dll_load_count++;;
 
 	} else {
 		char *e = dlerror();
