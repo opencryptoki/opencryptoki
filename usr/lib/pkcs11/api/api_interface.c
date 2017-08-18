@@ -1558,8 +1558,8 @@ C_GenerateKey(CK_SESSION_HANDLE hSession,
 	}
 	if (fcn->ST_GenerateKey) {
 		// Map the Session to the slot session
-		rv = fcn->ST_GenerateKey(&rSession, pMechanism, pTemplate,
-					 ulCount, phKey);
+		rv = fcn->ST_GenerateKey(sltp->TokData, &rSession, pMechanism,
+					 pTemplate, ulCount, phKey);
 		TRACE_DEVEL("fcn->ST_GenerateKey returned:0x%lx\n", rv);
 	} else {
 		TRACE_ERROR("%s\n", ock_err(ERR_FUNCTION_NOT_SUPPORTED));
@@ -1623,7 +1623,8 @@ C_GenerateKeyPair(CK_SESSION_HANDLE hSession,
 	}
 	if (fcn->ST_GenerateKeyPair) {
 		// Map the Session to the slot session
-		rv = fcn->ST_GenerateKeyPair(&rSession, pMechanism,
+		rv = fcn->ST_GenerateKeyPair(sltp->TokData, &rSession,
+					     pMechanism,
 					     pPublicKeyTemplate,
 					     ulPublicKeyAttributeCount,
 					     pPrivateKeyTemplate,

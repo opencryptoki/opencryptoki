@@ -244,11 +244,12 @@ typedef CK_RV (CK_PTR  ST_C_DecryptVerifyUpdate)
                         CK_ULONG ulEncryptedPartLen, CK_BYTE_PTR pPart,
                         CK_ULONG_PTR pulPartLen);
 typedef CK_RV (CK_PTR  ST_C_GenerateKey)
-                       (ST_SESSION_T *hSession, CK_MECHANISM_PTR pMechanism,
-                        CK_ATTRIBUTE_PTR pTemplate, CK_ULONG usCount,
-                        CK_OBJECT_HANDLE_PTR phKey);
+                       (STDLL_TokData_t *tokdata, ST_SESSION_T *hSession,
+			CK_MECHANISM_PTR pMechanism, CK_ATTRIBUTE_PTR pTemplate,
+			CK_ULONG usCount, CK_OBJECT_HANDLE_PTR phKey);
 typedef CK_RV (CK_PTR  ST_C_GenerateKeyPair)
-                       (ST_SESSION_T *hSession, CK_MECHANISM_PTR pMechanism,
+                       (STDLL_TokData_t *tokdata, ST_SESSION_T *hSession,
+			CK_MECHANISM_PTR pMechanism,
                         CK_ATTRIBUTE_PTR pPublicKeyTemplate,
                         CK_ULONG usPublicKeyAttributeCount,
                         CK_ATTRIBUTE_PTR pPrivateKeyTemplate,
