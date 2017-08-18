@@ -411,7 +411,8 @@ session_mgr_login_all( STDLL_TokData_t *tokdata, CK_USER_TYPE user_type )
  * Callback used to update a SESSION object's login state to be logged out
  */
 void
-session_logout(void *node_value, unsigned long node_idx, void *p3)
+session_logout(STDLL_TokData_t *tokdata, void *node_value,
+	       unsigned long node_idx, void *p3)
 {
    SESSION *s = (SESSION *)node_value;
 
@@ -433,7 +434,7 @@ session_logout(void *node_value, unsigned long node_idx, void *p3)
 // changes the login status of all sessions in the token
 //
 CK_RV
-session_mgr_logout_all( void )
+session_mgr_logout_all( STDLL_TokData_t *tokdata )
 {
    bt_for_each_node(tokdata, &sess_btree, session_logout, NULL);
 

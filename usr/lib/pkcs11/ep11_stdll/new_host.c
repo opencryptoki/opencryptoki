@@ -52,7 +52,7 @@ void Fork_Initializer(void)
 	/* Force logout.  This cleans out the private session and list
 	 * and cleans out the private object map
 	 */
-	session_mgr_logout_all();
+	session_mgr_logout_all(NULL);
 
 	/* Clean out the public object map
 	 * First parm is no longer used..
@@ -991,12 +991,12 @@ done:
 }
 
 
-CK_RV SC_Logout(ST_SESSION_HANDLE *sSession)
+CK_RV SC_Logout(STDLL_TokData_t *tokdata, ST_SESSION_HANDLE *sSession)
 {
 	SESSION *sess = NULL;
 	CK_RV rc = CKR_OK;
 
-	if (initialized == FALSE) {
+	if (tokdata->initialized == FALSE) {
 		TRACE_ERROR("%s\n", ock_err(ERR_CRYPTOKI_NOT_INITIALIZED));
 		rc = CKR_CRYPTOKI_NOT_INITIALIZED;
 		goto done;
@@ -1016,7 +1016,7 @@ CK_RV SC_Logout(ST_SESSION_HANDLE *sSession)
 		goto done;
 	}
 
-	rc = session_mgr_logout_all();
+	rc = session_mgr_logout_all(tokdata);
 	if (rc != CKR_OK)
 		TRACE_DEVEL("session_mgr_logout_all failed.\n");
 
