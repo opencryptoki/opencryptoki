@@ -713,7 +713,7 @@ decr_mgr_decrypt( SESSION           *sess,
                                      out_data, out_data_len );
 
       case CKM_DES_OFB64:
-         get_keytype(ctx->key, &keytype);
+         get_keytype(tokdata, ctx->key, &keytype);
          if (keytype == CKK_DES3) {
             return des3_ofb_decrypt( tokdata, sess,     length_only,
                                      ctx,
@@ -725,7 +725,7 @@ decr_mgr_decrypt( SESSION           *sess,
          }
 
       case CKM_DES_CFB8:
-         get_keytype(ctx->key, &keytype);
+         get_keytype(tokdata, ctx->key, &keytype);
          if (keytype == CKK_DES3) {
             return des3_cfb_decrypt( tokdata, sess,     length_only,
                                      ctx,
@@ -737,7 +737,7 @@ decr_mgr_decrypt( SESSION           *sess,
          }
 
       case CKM_DES_CFB64:
-         get_keytype(ctx->key, &keytype);
+         get_keytype(tokdata, ctx->key, &keytype);
          if (keytype == CKK_DES3) {
             return des3_cfb_decrypt( tokdata, sess,     length_only,
                                      ctx,
@@ -891,7 +891,7 @@ decr_mgr_decrypt_update( SESSION            *sess,
                                             out_data, out_data_len );
 
       case CKM_DES_OFB64:
-         get_keytype(ctx->key, &keytype);
+         get_keytype(tokdata, ctx->key, &keytype);
          if (keytype == CKK_DES3) {
             return des3_ofb_decrypt_update( tokdata, sess,     length_only,
                                             ctx,
@@ -903,7 +903,7 @@ decr_mgr_decrypt_update( SESSION            *sess,
          }
 
       case CKM_DES_CFB8:
-         get_keytype(ctx->key, &keytype);
+         get_keytype(tokdata, ctx->key, &keytype);
          if (keytype == CKK_DES3) {
             return des3_cfb_decrypt_update( tokdata, sess,     length_only,
                                             ctx,
@@ -915,7 +915,7 @@ decr_mgr_decrypt_update( SESSION            *sess,
          }
 
       case CKM_DES_CFB64:
-         get_keytype(ctx->key, &keytype);
+         get_keytype(tokdata, ctx->key, &keytype);
          if (keytype == CKK_DES3) {
             return des3_cfb_decrypt_update( tokdata, sess,     length_only,
                                             ctx,
@@ -1044,7 +1044,7 @@ decr_mgr_decrypt_final( SESSION            *sess,
                                            out_data, out_data_len );
 
       case CKM_DES_OFB64:
-         get_keytype(ctx->key, &keytype);
+         get_keytype(tokdata, ctx->key, &keytype);
          if (keytype == CKK_DES3) {
             return des3_ofb_decrypt_final( tokdata, sess,     length_only,
                                            ctx,
@@ -1055,7 +1055,7 @@ decr_mgr_decrypt_final( SESSION            *sess,
          }
 
       case CKM_DES_CFB8:
-         get_keytype(ctx->key, &keytype);
+         get_keytype(tokdata, ctx->key, &keytype);
          if (keytype == CKK_DES3) {
             return des3_cfb_decrypt_final( tokdata, sess,     length_only,
                                            ctx,
@@ -1066,7 +1066,7 @@ decr_mgr_decrypt_final( SESSION            *sess,
          }
 
       case CKM_DES_CFB64:
-         get_keytype(ctx->key, &keytype);
+         get_keytype(tokdata, ctx->key, &keytype);
          if (keytype == CKK_DES3) {
             return des3_cfb_decrypt_final( tokdata, sess,     length_only,
                                            ctx,

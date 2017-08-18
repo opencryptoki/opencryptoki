@@ -1839,7 +1839,8 @@ CK_RV attach_shm(CK_SLOT_ID slot_id, LW_SHM_TYPE **shmem);
 CK_RV detach_shm(LW_SHM_TYPE *shmem);
 
 //get keytype
-CK_RV get_keytype(CK_OBJECT_HANDLE hkey, CK_KEY_TYPE *keytype);
+CK_RV get_keytype(STDLL_TokData_t  *tokdata, CK_OBJECT_HANDLE hkey,
+		  CK_KEY_TYPE *keytype);
 CK_RV check_user_and_group();
 
 //lock and unlock routines
