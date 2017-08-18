@@ -281,7 +281,7 @@ CK_RV _UnlockMutex(MUTEX * mutex)
 
 static int spinxplfd = -1;
 
-CK_RV CreateXProcLock(void)
+CK_RV CreateXProcLock(char *tokname)
 {
 	CK_BYTE lockfile[2*PATH_MAX + sizeof(LOCKDIR_PATH) + 6];
 	CK_BYTE lockdir[PATH_MAX + sizeof(LOCKDIR_PATH)];
@@ -302,7 +302,10 @@ CK_RV CreateXProcLock(void)
 
 		/** create lock subdir for each token if it doesn't exist.
 		  * The root directory should be created in slotmgr daemon **/
-		sprintf(lockdir, "%s/%s", LOCKDIR_PATH, SUB_DIR);
+		if (tokname)
+			sprintf(lockdir, "%s/%s", LOCKDIR_PATH, tokname);
+		else
+			sprintf(lockdir, "%s/%s", LOCKDIR_PATH, SUB_DIR);
 
 		ret = stat(lockdir, &statbuf);
 		if (ret != 0 && errno == ENOENT) {
@@ -339,7 +342,11 @@ CK_RV CreateXProcLock(void)
 		}
 
 		/* create user lock file */
-		sprintf(lockfile, "%s/%s/LCK..%s",
+		if (tokname)
+			sprintf(lockfile, "%s/%s/LCK..%s",
+				LOCKDIR_PATH, tokname, tokname);
+		else
+			sprintf(lockfile, "%s/%s/LCK..%s",
 				LOCKDIR_PATH, SUB_DIR, SUB_DIR);
 
 		if (stat(lockfile, &statbuf) == 0)
