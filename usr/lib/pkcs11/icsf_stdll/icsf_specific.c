@@ -595,7 +595,7 @@ CK_RV reset_token_data(CK_SLOT_ID slot_id, CK_CHAR_PTR pin, CK_ULONG pin_len)
 	slot_data[slot_id]->initialized = 0;
 	init_token_data(tokdata, slot_id);
 	init_slotInfo();
-	nv_token_data->token_info.flags |= CKF_TOKEN_INITIALIZED;
+	tokdata->nv_token_data->token_info.flags |= CKF_TOKEN_INITIALIZED;
 
 	/* Reset SO pin to default and user pin to invalid */
 	pin_len = strlen((pin = "87654321"));
@@ -692,7 +692,8 @@ CK_RV icsftok_init_token(STDLL_TokData_t *tokdata, CK_SLOT_ID slot_id,
 	if ((rc = reset_token_data(slot_id, pin, pin_len)))
 		goto done;
 
-	if ((rc = destroy_objects(slot_id, nv_token_data->token_info.label,
+	if ((rc = destroy_objects(slot_id,
+				  tokdata->nv_token_data->token_info.label,
 				  pin, pin_len)))
 		goto done;
 
@@ -745,9 +746,9 @@ CK_RV icsftok_init_pin(SESSION *sess, CK_CHAR_PTR pPin, CK_ULONG ulPinLen)
 		return rc;
 	}
 	memcpy(nv_token_data->user_pin_sha, hash_sha, SHA1_HASH_SIZE);
-	nv_token_data->token_info.flags |= CKF_USER_PIN_INITIALIZED;
-	nv_token_data->token_info.flags &= ~(CKF_USER_PIN_TO_BE_CHANGED);
-	nv_token_data->token_info.flags &= ~(CKF_USER_PIN_LOCKED);
+	tokdata->nv_token_data->token_info.flags |= CKF_USER_PIN_INITIALIZED;
+	tokdata->nv_token_data->token_info.flags &= ~(CKF_USER_PIN_TO_BE_CHANGED);
+	tokdata->nv_token_data->token_info.flags &= ~(CKF_USER_PIN_LOCKED);
 	XProcUnLock();
 
 	return rc;
@@ -810,7 +811,7 @@ CK_RV icsftok_set_pin(SESSION *sess, CK_CHAR_PTR pOldPin, CK_ULONG ulOldLen,
 			return rc;
 		}
 		memcpy(nv_token_data->user_pin_sha, new_hash_sha, SHA1_HASH_SIZE);
-		nv_token_data->token_info.flags &= ~(CKF_USER_PIN_TO_BE_CHANGED);
+		tokdata->nv_token_data->token_info.flags &= ~(CKF_USER_PIN_TO_BE_CHANGED);
 		XProcUnLock();
 
 	} else if (sess->session_info.state == CKS_RW_SO_FUNCTIONS) {
@@ -847,7 +848,7 @@ CK_RV icsftok_set_pin(SESSION *sess, CK_CHAR_PTR pOldPin, CK_ULONG ulOldLen,
 			return rc;
 		}
 		memcpy(nv_token_data->so_pin_sha, new_hash_sha, SHA1_HASH_SIZE);
-		nv_token_data->token_info.flags &= ~(CKF_SO_PIN_TO_BE_CHANGED);
+		tokdata->nv_token_data->token_info.flags &= ~(CKF_SO_PIN_TO_BE_CHANGED);
 		XProcUnLock();
 	} else {
 		TRACE_ERROR("%s\n", ock_err(ERR_SESSION_READ_ONLY));
@@ -1372,7 +1373,7 @@ CK_RV icsftok_create_object(SESSION *session, CK_ATTRIBUTE_PTR attrs,
 	struct session_state *session_state;
 	struct icsf_object_mapping *mapping;
 	CK_ULONG node_number;
-	char token_name[sizeof(nv_token_data->token_info.label)];
+	char token_name[sizeof(tokdata->nv_token_data->token_info.label)];
 	int reason = 0;
 
 	/* Check permissions based on attributes and session */
@@ -1382,7 +1383,8 @@ CK_RV icsftok_create_object(SESSION *session, CK_ATTRIBUTE_PTR attrs,
 
 	/* Copy token name from shared memory */
 	XProcLock();
-	memcpy(token_name, nv_token_data->token_info.label, sizeof(token_name));
+	memcpy(token_name, tokdata->nv_token_data->token_info.label,
+	       sizeof(token_name));
 	XProcUnLock();
 
 	/* Allocate structure to keep ICSF object information */
@@ -1541,7 +1543,7 @@ CK_RV icsftok_generate_key_pair(SESSION *session, CK_MECHANISM_PTR mech,
 				CK_OBJECT_HANDLE_PTR p_priv_key)
 {
 	CK_RV rc;
-	char token_name[sizeof(nv_token_data->token_info.label)];
+	char token_name[sizeof(tokdata->nv_token_data->token_info.label)];
 	struct session_state *session_state;
 	struct icsf_object_mapping *pub_key_mapping = NULL;
 	struct icsf_object_mapping *priv_key_mapping = NULL;
@@ -1595,7 +1597,8 @@ CK_RV icsftok_generate_key_pair(SESSION *session, CK_MECHANISM_PTR mech,
 
 	/* Copy token name from shared memory */
 	XProcLock();
-	memcpy(token_name, nv_token_data->token_info.label, sizeof(token_name));
+	memcpy(token_name, tokdata->nv_token_data->token_info.label,
+	       sizeof(token_name));
 	XProcUnLock();
 
 	/* Allocate structure to keep ICSF objects information */
@@ -1653,7 +1656,7 @@ CK_RV icsftok_generate_key(SESSION *session, CK_MECHANISM_PTR mech,
 	struct session_state *session_state;
 	struct icsf_object_mapping *mapping = NULL;
 	CK_ULONG node_number;
-	char token_name[sizeof(nv_token_data->token_info.label)];
+	char token_name[sizeof(tokdata->nv_token_data->token_info.label)];
 	CK_ATTRIBUTE_PTR new_attrs = NULL;
 	CK_ULONG new_attrs_len = 0;
 	CK_ULONG class = CKO_SECRET_KEY;
@@ -1679,7 +1682,8 @@ CK_RV icsftok_generate_key(SESSION *session, CK_MECHANISM_PTR mech,
 
 	/* Copy token name from shared memory */
 	XProcLock();
-	memcpy(token_name, nv_token_data->token_info.label, sizeof(token_name));
+	memcpy(token_name, tokdata->nv_token_data->token_info.label,
+	       sizeof(token_name));
 	XProcUnLock();
 
 	/* Allocate structure to keep ICSF object information */
@@ -2992,7 +2996,7 @@ done:
 CK_RV icsftok_find_objects_init(SESSION *sess, CK_ATTRIBUTE *pTemplate,
 				CK_ULONG ulCount)
 {
-	char token_name[sizeof(nv_token_data->token_info.label)];
+	char token_name[sizeof(tokdata->nv_token_data->token_info.label)];
 	struct session_state *session_state;
 	struct icsf_object_record records[MAX_RECORDS];
 	struct icsf_object_record *previous = NULL;
@@ -3036,7 +3040,7 @@ CK_RV icsftok_find_objects_init(SESSION *sess, CK_ATTRIBUTE *pTemplate,
 	 * Copy token name from shared memory
 	 */
 	XProcLock();
-	memcpy(token_name, nv_token_data->token_info.label, sizeof(token_name));
+	memcpy(token_name, tokdata->nv_token_data->token_info.label, sizeof(token_name));
 	XProcUnLock();
 
 	/* Get session state */
@@ -4564,7 +4568,7 @@ CK_RV icsftok_derive_key(SESSION *session, CK_MECHANISM_PTR mech,
 	struct session_state *session_state;
 	struct icsf_object_mapping *base_key_mapping;
 	CK_ULONG node_number;
-	char token_name[sizeof(nv_token_data->token_info.label)];
+	char token_name[sizeof(tokdata->nv_token_data->token_info.label)];
 	CK_SSL3_KEY_MAT_PARAMS *params = {0};
 	int reason = 0;
 	int i;
@@ -4594,7 +4598,8 @@ CK_RV icsftok_derive_key(SESSION *session, CK_MECHANISM_PTR mech,
 
 	/* Copy token name from shared memory */
 	XProcLock();
-	memcpy(token_name, nv_token_data->token_info.label, sizeof(token_name));
+	memcpy(token_name, tokdata->nv_token_data->token_info.label,
+	       sizeof(token_name));
 	XProcUnLock();
 
 	/* Allocate structure to keep ICSF object information */

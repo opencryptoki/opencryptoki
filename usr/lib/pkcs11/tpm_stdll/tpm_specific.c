@@ -1889,8 +1889,8 @@ token_specific_set_pin(SESSION *sess,
 				return CKR_FUNCTION_FAILED;
 			}
 
-			nv_token_data->token_info.flags &= ~(CKF_USER_PIN_TO_BE_CHANGED);
-			nv_token_data->token_info.flags |= CKF_USER_PIN_INITIALIZED;
+			tokdata->nv_token_data->token_info.flags &= ~(CKF_USER_PIN_TO_BE_CHANGED);
+			tokdata->nv_token_data->token_info.flags |= CKF_USER_PIN_INITIALIZED;
 
 			return save_token_data(tokdata, sess->session_info.slotID);
 		}
@@ -1961,7 +1961,7 @@ token_specific_set_pin(SESSION *sess,
 				return CKR_FUNCTION_FAILED;
 			}
 
-			nv_token_data->token_info.flags &= ~(CKF_SO_PIN_TO_BE_CHANGED);
+			tokdata->nv_token_data->token_info.flags &= ~(CKF_SO_PIN_TO_BE_CHANGED);
 
 			return save_token_data(tokdata, sess->session_info.slotID);
 		}
@@ -2126,11 +2126,11 @@ done:
 	init_token_data(tokdata, sid);
 	init_slotInfo();
 	memcpy(nv_token_data->so_pin_sha, hash_sha, SHA1_HASH_SIZE);
-	nv_token_data->token_info.flags |= CKF_TOKEN_INITIALIZED;
-	memcpy(nv_token_data->token_info.label, pLabel, 32);
+	tokdata->nv_token_data->token_info.flags |= CKF_TOKEN_INITIALIZED;
+	memcpy(tokdata->nv_token_data->token_info.label, pLabel, 32);
 
 	// New for v2.11 - KEY
-	nv_token_data->token_info.flags |= CKF_TOKEN_INITIALIZED;
+	tokdata->nv_token_data->token_info.flags |= CKF_TOKEN_INITIALIZED;
 
 	rc = save_token_data(tokdata, sid);
 	if (rc != CKR_OK) {
