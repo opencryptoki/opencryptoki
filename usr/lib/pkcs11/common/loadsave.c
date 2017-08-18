@@ -238,7 +238,8 @@ static CK_RV encrypt_data_with_clear_key(CK_BYTE *key, CK_ULONG keylen,
 #endif
 }
 
-static CK_RV decrypt_data(CK_BYTE *key, CK_ULONG keylen, const CK_BYTE *iv,
+static CK_RV decrypt_data(STDLL_TokData_t *tokdata,
+			  CK_BYTE *key, CK_ULONG keylen, const CK_BYTE *iv,
 			  CK_BYTE *cipher, CK_ULONG cipher_len,
 			  CK_BYTE *clear, CK_ULONG *p_clear_len)
 {
@@ -306,7 +307,8 @@ static CK_RV decrypt_data(CK_BYTE *key, CK_ULONG keylen, const CK_BYTE *iv,
 #endif
 }
 
-static CK_RV decrypt_data_with_clear_key(CK_BYTE *key, CK_ULONG keylen,
+static CK_RV decrypt_data_with_clear_key(STDLL_TokData_t *tokdata,
+					 CK_BYTE *key, CK_ULONG keylen,
 					 const CK_BYTE *iv,
 					 CK_BYTE *cipher, CK_ULONG cipher_len,
 					 CK_BYTE *clear, CK_ULONG *p_clear_len)
@@ -319,8 +321,8 @@ static CK_RV decrypt_data_with_clear_key(CK_BYTE *key, CK_ULONG keylen,
 	 * clear key.
 	 */
 	if (token_specific.token_keysize == 0) {
-		return decrypt_data(key, keylen, iv, cipher, cipher_len,
-				    clear, p_clear_len);
+		return decrypt_data(tokdata, key, keylen, iv, cipher,
+				    cipher_len, clear, p_clear_len);
 	}
 
 	/* Fall back to a software alternative if key is secure. */
@@ -738,7 +740,7 @@ error:
 
 //
 //
-CK_RV load_public_token_objects(void)
+CK_RV load_public_token_objects(STDLL_TokData_t *tokdata)
 {
 	FILE *fp1 = NULL, *fp2 = NULL;
 	CK_BYTE *buf = NULL;
@@ -746,9 +748,8 @@ CK_RV load_public_token_objects(void)
 	CK_BBOOL priv;
 	CK_ULONG_32 size;
 	size_t read_size;
-	char pk_dir_buf[PATH_MAX];
 
-	sprintf(iname, "%s/%s/%s", get_pk_dir(pk_dir_buf), PK_LITE_OBJ_DIR,
+	sprintf(iname, "%s/%s/%s", tokdata->data_store, PK_LITE_OBJ_DIR,
 		PK_LITE_OBJ_IDX);
 
 	fp1 = fopen((char *)iname, "r");
@@ -760,7 +761,7 @@ CK_RV load_public_token_objects(void)
 		if (!feof(fp1)) {
 			tmp[strlen((char *)tmp) - 1] = 0;
 
-			sprintf((char *)fname, "%s/%s/", get_pk_dir(pk_dir_buf),
+			sprintf((char *)fname, "%s/%s/", tokdata->data_store,
 				PK_LITE_OBJ_DIR);
 			strcat((char *)fname, (char *)tmp);
 
@@ -814,7 +815,7 @@ CK_RV load_public_token_objects(void)
 
 //
 //
-CK_RV load_private_token_objects(void)
+CK_RV load_private_token_objects(STDLL_TokData_t *tokdata)
 {
 	FILE *fp1 = NULL, *fp2 = NULL;
 	CK_BYTE *buf = NULL;
@@ -823,9 +824,8 @@ CK_RV load_private_token_objects(void)
 	CK_ULONG_32 size;
 	CK_RV rc;
 	size_t read_size;
-	char pk_dir_buf[PATH_MAX];
 
-	sprintf(iname, "%s/%s/%s", get_pk_dir(pk_dir_buf), PK_LITE_OBJ_DIR,
+	sprintf(iname, "%s/%s/%s", tokdata->data_store, PK_LITE_OBJ_DIR,
 		PK_LITE_OBJ_IDX);
 
 	fp1 = fopen((char *)iname, "r");
@@ -837,7 +837,7 @@ CK_RV load_private_token_objects(void)
 		if (!feof(fp1)) {
 			tmp[strlen((char *)tmp) - 1] = 0;
 
-			sprintf((char *)fname, "%s/%s/", get_pk_dir(pk_dir_buf),
+			sprintf((char *)fname, "%s/%s/", tokdata->data_store,
 				PK_LITE_OBJ_DIR);
 			strcat((char *)fname, (char *)tmp);
 
@@ -874,7 +874,8 @@ CK_RV load_private_token_objects(void)
 			}
 			// Grab object list  mutex
 			MY_LockMutex(&obj_list_mutex);
-			rc = restore_private_token_object(buf, size, NULL);
+			rc = restore_private_token_object(tokdata, buf,
+							  size, NULL);
 			MY_UnlockMutex(&obj_list_mutex);
 			if (rc != CKR_OK)
 				goto error;
@@ -899,7 +900,8 @@ error:
 
 //
 //
-CK_RV restore_private_token_object(CK_BYTE * data, CK_ULONG len, OBJECT * pObj)
+CK_RV restore_private_token_object(STDLL_TokData_t *tokdata, CK_BYTE * data,
+				   CK_ULONG len, OBJECT * pObj)
 {
 	CK_BYTE *clear = NULL;
 	CK_BYTE *obj_data = NULL;
@@ -940,7 +942,7 @@ CK_RV restore_private_token_object(CK_BYTE * data, CK_ULONG len, OBJECT * pObj)
 	}
 	memcpy(key, master_key, key_len);
 
-	rc = decrypt_data_with_clear_key(key, key_len,
+	rc = decrypt_data_with_clear_key(tokdata, key, key_len,
 			  token_specific.data_store.obj_initial_vector,
 			  data, len, clear, &clear_len);
 	if (rc != CKR_OK) {
@@ -1068,7 +1070,7 @@ CK_RV load_masterkey_so(void)
 	memcpy(key, so_pin_md5, MD5_HASH_SIZE);
 	memcpy(key + MD5_HASH_SIZE, so_pin_md5, key_len - MD5_HASH_SIZE);
 
-	rc = decrypt_data_with_clear_key(key, key_len,
+	rc = decrypt_data_with_clear_key(tokdata, key, key_len,
 					 token_specific.data_store.pin_initial_vector,
 					 cipher, cipher_len,
 					 clear, &clear_len);
@@ -1173,7 +1175,7 @@ CK_RV load_masterkey_user(void)
 	memcpy(key, user_pin_md5, MD5_HASH_SIZE);
 	memcpy(key + MD5_HASH_SIZE, user_pin_md5, key_len - MD5_HASH_SIZE);
 
-	rc = decrypt_data_with_clear_key(key, key_len,
+	rc = decrypt_data_with_clear_key(tokdata, key, key_len,
 					 token_specific.data_store.pin_initial_vector,
 					 cipher, cipher_len,
 					 clear, &clear_len);
@@ -1403,7 +1405,7 @@ done:
 
 //
 //
-CK_RV reload_token_object(OBJECT * obj)
+CK_RV reload_token_object(STDLL_TokData_t *tokdata, OBJECT * obj)
 {
 	FILE *fp = NULL;
 	CK_BYTE *buf = NULL;
@@ -1413,12 +1415,10 @@ CK_RV reload_token_object(OBJECT * obj)
 	CK_ULONG size_64;
 	CK_RV rc;
 	size_t read_size;
-	char pk_dir_buf[PATH_MAX];
 
 	memset((char *)fname, 0x0, sizeof(fname));
 
-	sprintf((char *)fname, "%s/%s/", get_pk_dir(pk_dir_buf),
-		PK_LITE_OBJ_DIR);
+	sprintf((char *)fname, "%s/%s/", tokdata->data_store, PK_LITE_OBJ_DIR);
 
 	strncat((char *)fname, (char *)obj->name, 8);
 
@@ -1457,7 +1457,7 @@ CK_RV reload_token_object(OBJECT * obj)
 	size_64 = size;
 
 	if (priv)
-		rc = restore_private_token_object(buf, size_64, obj);
+		rc = restore_private_token_object(tokdata, buf, size_64, obj);
 	else
 		rc = object_mgr_restore_obj(tokdata, buf, obj);
 

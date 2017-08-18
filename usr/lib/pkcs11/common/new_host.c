@@ -218,7 +218,7 @@ CK_RV ST_Initialize(API_Slot_t *sltp, CK_SLOT_ID SlotNumber,
 	/* no need to return error here, we load the token data we can
 	 * and syslog the rest
 	 */
-	load_public_token_objects();
+	load_public_token_objects(sltp->TokData);
 
 	XProcLock();
 	sltp->TokData->global_shm->publ_loaded = TRUE;
@@ -1015,7 +1015,7 @@ CK_RV SC_Login(ST_SESSION_HANDLE *sSession, CK_USER_TYPE userType,
 		/* no need to return error here, we load the token data
 		 * we can and syslog the rest
 		 */
-		load_private_token_objects();
+		load_private_token_objects(tokdata);
 
 		XProcLock();
 		tokdata->global_shm->priv_loaded = TRUE;

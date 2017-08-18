@@ -1814,7 +1814,7 @@ object_mgr_check_shm( STDLL_TokData_t  *tokdata, OBJECT *obj )
    if ((obj->count_hi == entry->count_hi) && (obj->count_lo == entry->count_lo))
       return CKR_OK;
 
-   rc = reload_token_object( obj );
+   rc = reload_token_object( tokdata, obj );
    return rc;
 }
 
@@ -1970,7 +1970,7 @@ object_mgr_update_publ_tok_obj_from_shm(STDLL_TokData_t  * tokdata)
 			memset( new_obj, 0x0, sizeof(OBJECT) );
 
 			memcpy( new_obj->name, shm_te->name, 8 );
-			reload_token_object( new_obj );
+			reload_token_object(tokdata, new_obj );
 			bt_node_add(&publ_token_obj_btree, new_obj);
 		}
 	}
@@ -2017,7 +2017,7 @@ object_mgr_update_priv_tok_obj_from_shm(STDLL_TokData_t *tokdata)
 			memset( new_obj, 0x0, sizeof(OBJECT) );
 
 			memcpy( new_obj->name, shm_te->name, 8 );
-			reload_token_object( new_obj );
+			reload_token_object( tokdata, new_obj );
 			bt_node_add(&priv_token_obj_btree, new_obj);
 		}
 	}
