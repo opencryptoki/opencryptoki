@@ -161,13 +161,12 @@ struct token_specific_struct {
 	/* Begin code contributed by Corrent corp. */
 
 	// Token Specific DH functions
-	CK_RV(*t_dh_pkcs_derive) (CK_BYTE *,
-				  CK_ULONG *,
-				  CK_BYTE *,
-				  CK_ULONG,
+	CK_RV(*t_dh_pkcs_derive) (STDLL_TokData_t *tokdata, CK_BYTE *,
+				  CK_ULONG *, CK_BYTE *, CK_ULONG,
 				  CK_BYTE *, CK_ULONG, CK_BYTE *, CK_ULONG);
 
-	CK_RV(*t_dh_pkcs_key_pair_gen) (TEMPLATE *, TEMPLATE *);
+	CK_RV(*t_dh_pkcs_key_pair_gen) (STDLL_TokData_t *tokdata, TEMPLATE *,
+					TEMPLATE *);
 
 	/* End code contributed by Corrent corp. */
 

@@ -97,7 +97,7 @@ dh_pkcs_derive( STDLL_TokData_t   * tokdata,
    // Extract public-key from mechanism parameters. base-key contains the
    // private key, prime, and base. The return value will be in the handle.
 
-   rc = ckm_dh_pkcs_derive( mech->pParameter, mech->ulParameterLen,
+   rc = ckm_dh_pkcs_derive( tokdata, mech->pParameter, mech->ulParameterLen,
                             base_key, secret_key_value, &secret_key_value_len );
    if (rc != CKR_OK)
       return rc;
@@ -146,7 +146,8 @@ dh_pkcs_derive( STDLL_TokData_t   * tokdata,
 //
 //
 CK_RV
-ckm_dh_pkcs_derive( CK_VOID_PTR        other_pubkey,
+ckm_dh_pkcs_derive( STDLL_TokData_t   *tokdata,
+		    CK_VOID_PTR        other_pubkey,
                     CK_ULONG           other_pubkey_len,
                     CK_OBJECT_HANDLE   base_key,
                     CK_BYTE            *secret_value,
@@ -199,8 +200,9 @@ ckm_dh_pkcs_derive( CK_VOID_PTR        other_pubkey,
    p_other_pubkey = (CK_BYTE *) other_pubkey ;
 
    // Perform: z = other_pubkey^x mod p
-   rc = token_specific.t_dh_pkcs_derive(secret_value, secret_value_len, p_other_pubkey,
-                                        other_pubkey_len, x, x_len, p, p_len );
+   rc = token_specific.t_dh_pkcs_derive(tokdata, secret_value, secret_value_len,
+					p_other_pubkey, other_pubkey_len, x,
+					x_len, p, p_len );
    if (rc != CKR_OK)
       TRACE_DEVEL("Token specific dh pkcs derive failed.\n");
 
@@ -210,12 +212,13 @@ ckm_dh_pkcs_derive( CK_VOID_PTR        other_pubkey,
 //
 //
 CK_RV
-ckm_dh_pkcs_key_pair_gen( TEMPLATE  * publ_tmpl,
+ckm_dh_pkcs_key_pair_gen( STDLL_TokData_t *tokdata,
+			  TEMPLATE  * publ_tmpl,
                           TEMPLATE  * priv_tmpl )
 {
    CK_RV                rc;
 
-   rc = token_specific.t_dh_pkcs_key_pair_gen(publ_tmpl,priv_tmpl);
+   rc = token_specific.t_dh_pkcs_key_pair_gen(tokdata, publ_tmpl,priv_tmpl);
    if (rc != CKR_OK)
       TRACE_DEVEL("Token specific dh pkcs key pair gen failed.\n");
 
