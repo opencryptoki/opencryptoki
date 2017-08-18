@@ -256,7 +256,8 @@ done:
 }
 
 CK_RV
-token_get_key_blob(CK_OBJECT_HANDLE ckKey, CK_ULONG *blob_size, CK_BYTE **ret_blob)
+token_get_key_blob(STDLL_TokData_t *tokdata, CK_OBJECT_HANDLE ckKey,
+		   CK_ULONG *blob_size, CK_BYTE **ret_blob)
 {
 	CK_RV rc = CKR_OK;
 	CK_BYTE_PTR blob = NULL;
@@ -429,7 +430,8 @@ token_wrap_sw_key(int size_n, unsigned char *n, int size_p, unsigned char *p,
  * a key is in active use, so any failure should trickle through.
  */
 CK_RV
-token_wrap_key_object( CK_OBJECT_HANDLE ckObject, TSS_HKEY hParentKey, TSS_HKEY *phKey )
+token_wrap_key_object( STDLL_TokData_t *tokdata, CK_OBJECT_HANDLE ckObject,
+		       TSS_HKEY hParentKey, TSS_HKEY *phKey )
 {
 	CK_RV		rc = CKR_OK;
 	CK_ATTRIBUTE	*attr = NULL, *new_attr, *prime_attr;
@@ -587,7 +589,8 @@ token_wrap_key_object( CK_OBJECT_HANDLE ckObject, TSS_HKEY hParentKey, TSS_HKEY 
  * load a key in the TSS hierarchy from its CK_OBJECT_HANDLE
  */
 CK_RV
-token_load_key(CK_OBJECT_HANDLE ckKey, TSS_HKEY hParentKey, CK_CHAR_PTR passHash, TSS_HKEY *phKey)
+token_load_key(STDLL_TokData_t *tokdata, CK_OBJECT_HANDLE ckKey,
+	       TSS_HKEY hParentKey, CK_CHAR_PTR passHash, TSS_HKEY *phKey)
 {
 	TSS_RESULT result;
 	TSS_HPOLICY hPolicy;
@@ -595,7 +598,7 @@ token_load_key(CK_OBJECT_HANDLE ckKey, TSS_HKEY hParentKey, CK_CHAR_PTR passHash
 	CK_ULONG ulBlobSize = 0;
 	CK_RV rc;
 
-	if ((rc = token_get_key_blob(ckKey, &ulBlobSize, &blob))) {
+	if ((rc = token_get_key_blob(tokdata, ckKey, &ulBlobSize, &blob))) {
 		if (rc != CKR_ATTRIBUTE_TYPE_INVALID) {
 			TRACE_DEVEL("token_get_key_blob failed. rc=0x%lx\n",
 				     rc);
@@ -604,7 +607,7 @@ token_load_key(CK_OBJECT_HANDLE ckKey, TSS_HKEY hParentKey, CK_CHAR_PTR passHash
 		/* the key blob wasn't found, so check for a modulus
 		 * to load */
 		TRACE_DEVEL("key blob not found, checking for modulus\n");
-		if ((rc = token_wrap_key_object(ckKey, hParentKey, phKey))) {
+		if ((rc = token_wrap_key_object(tokdata, ckKey, hParentKey, phKey))) {
 			TRACE_DEVEL("token_wrap_key_object failed. rc=0x%lx\n",
 				     rc);
 			return rc;
@@ -708,7 +711,7 @@ done:
 }
 
 TSS_RESULT
-token_load_public_root_key()
+token_load_public_root_key(STDLL_TokData_t *tokdata)
 {
 	TSS_RESULT result;
 	BYTE *blob;
@@ -728,7 +731,7 @@ token_load_public_root_key()
 		return CKR_FUNCTION_FAILED;
 	}
 
-	if ((result = token_get_key_blob(ckPublicRootKey, &blob_size, &blob))) {
+	if ((result = token_get_key_blob(tokdata, ckPublicRootKey, &blob_size, &blob))) {
 		TRACE_DEVEL("token_get_key_blob failed. rc=0x%x\n", result);
 		return CKR_FUNCTION_FAILED;
 	}
@@ -1340,7 +1343,7 @@ token_create_public_tree(STDLL_TokData_t *tokdata, CK_BYTE *pinHash, CK_BYTE *pP
 }
 
 CK_RV
-token_migrate(int key_type, CK_BYTE *pin)
+token_migrate(STDLL_TokData_t *tokdata, int key_type, CK_BYTE *pin)
 {
 	RSA			*rsa;
 	char			*backup_loc;
@@ -1509,7 +1512,7 @@ save_masterkey_private()
 }
 
 CK_RV
-load_masterkey_private()
+load_masterkey_private(STDLL_TokData_t *tokdata)
 {
 	FILE		*fp  = NULL;
 	int		err;
@@ -1621,7 +1624,7 @@ token_specific_login(STDLL_TokData_t *tokdata, SESSION *sess,
 
 	if (userType == CKU_USER) {
 		/* If the public root key doesn't exist yet, the SO hasn't init'd the token */
-		if ((result = token_load_public_root_key())) {
+		if ((result = token_load_public_root_key(tokdata))) {
 			TRACE_DEVEL("token_load_public_root_key failed. "
 				     "rc=0x%x\n", result);
 			return CKR_USER_PIN_NOT_INITIALIZED;
@@ -1640,7 +1643,8 @@ token_specific_login(STDLL_TokData_t *tokdata, SESSION *sess,
 			return CKR_OK;
 		}
 
-		if ((rc = token_load_key(ckPrivateRootKey, hSRK, NULL, &hPrivateRootKey))) {
+		if ((rc = token_load_key(tokdata, ckPrivateRootKey, hSRK, NULL,
+					 &hPrivateRootKey))) {
 			TRACE_DEVEL("token_load_key failed. rc=0x%lx\n", rc);
 
 			/* Here, we've found the private root key, but its load failed.
@@ -1651,7 +1655,7 @@ token_specific_login(STDLL_TokData_t *tokdata, SESSION *sess,
 			 * succeeds, we will assume that we're in a migration path and
 			 * re-wrap the private root key to the new SRK.
 			 */
-			if ((token_migrate(TPMTOK_PRIVATE_ROOT_KEY, pPin))) {
+			if ((token_migrate(tokdata, TPMTOK_PRIVATE_ROOT_KEY, pPin))) {
 				TRACE_DEVEL("token_migrate. rc=0x%lx\n", rc);
 				return rc;
 			}
@@ -1669,7 +1673,8 @@ token_specific_login(STDLL_TokData_t *tokdata, SESSION *sess,
 			return CKR_FUNCTION_FAILED;
 		}
 
-		if ((rc = token_load_key(ckPrivateLeafKey, hPrivateRootKey, hash_sha, &hPrivateLeafKey))) {
+		if ((rc = token_load_key(tokdata, ckPrivateLeafKey, hPrivateRootKey,
+					 hash_sha, &hPrivateLeafKey))) {
 			TRACE_DEVEL("token_load_key failed. rc=0x%lx\n", rc);
 			return CKR_FUNCTION_FAILED;
 		}
@@ -1682,7 +1687,7 @@ token_specific_login(STDLL_TokData_t *tokdata, SESSION *sess,
 		memcpy(current_user_pin_sha, hash_sha, SHA1_HASH_SIZE);
 
 		/* load private data encryption key here */
-		if ((rc = load_masterkey_private())) {
+		if ((rc = load_masterkey_private(tokdata))) {
 			TRACE_DEVEL("load_masterkey_private failed. rc=0x%lx\n", rc);
 			Tspi_Key_UnloadKey(hPrivateLeafKey);
 			hPrivateLeafKey = NULL_HKEY;
@@ -1713,7 +1718,8 @@ token_specific_login(STDLL_TokData_t *tokdata, SESSION *sess,
 
 		/* The SO's key hierarchy has previously been created, so load the key
 		 * hierarchy and verify the pin using the TPM. */
-		if ((rc = token_load_key(ckPublicRootKey, hSRK, NULL, &hPublicRootKey))) {
+		if ((rc = token_load_key(tokdata, ckPublicRootKey, hSRK, NULL,
+					 &hPublicRootKey))) {
 			TRACE_DEVEL("token_load_key failed. rc=0x%lx\n", rc);
 
 			/* Here, we've found the public root key, but its load failed.
@@ -1724,7 +1730,7 @@ token_specific_login(STDLL_TokData_t *tokdata, SESSION *sess,
 			 * succeeds, we will assume that we're in a migration path and
 			 * re-wrap the public root key to the new SRK.
 			 */
-			if ((token_migrate(TPMTOK_PUBLIC_ROOT_KEY, pPin))) {
+			if ((token_migrate(tokdata, TPMTOK_PUBLIC_ROOT_KEY, pPin))) {
 				TRACE_DEVEL("token_migrate. rc=0x%lx\n", rc);
 				return rc;
 			}
@@ -1742,7 +1748,8 @@ token_specific_login(STDLL_TokData_t *tokdata, SESSION *sess,
 			return CKR_FUNCTION_FAILED;
 		}
 
-		if ((rc = token_load_key(ckPublicLeafKey, hPublicRootKey, hash_sha, &hPublicLeafKey))) {
+		if ((rc = token_load_key(tokdata, ckPublicLeafKey, hPublicRootKey,
+					 hash_sha, &hPublicLeafKey))) {
 		  TRACE_DEVEL("token_load_key failed. rc=0x%lx\n", rc);
 			return CKR_FUNCTION_FAILED;
 		}
@@ -1818,7 +1825,7 @@ check_pin_properties(CK_USER_TYPE userType, CK_BYTE *pinHash, CK_ULONG ulPinLen)
  * path option or checking of the default user pin.
  */
 CK_RV
-verify_user_pin(CK_BYTE *hash_sha)
+verify_user_pin(STDLL_TokData_t *tokdata, CK_BYTE *hash_sha)
 {
 	CK_RV rc;
 
@@ -1829,8 +1836,8 @@ verify_user_pin(CK_BYTE *hash_sha)
 		return CKR_FUNCTION_FAILED;
 	}
 
-	if ((rc = token_load_key(ckPrivateRootKey, hSRK, NULL,
-					&hPrivateRootKey))) {
+	if ((rc = token_load_key(tokdata, ckPrivateRootKey, hSRK, NULL,
+				 &hPrivateRootKey))) {
 		TRACE_DEVEL("token_load_key failed. rc=0x%lx\n", rc);
 		return CKR_FUNCTION_FAILED;
 	}
@@ -1842,8 +1849,8 @@ verify_user_pin(CK_BYTE *hash_sha)
 		return CKR_FUNCTION_FAILED;
 	}
 
-	if ((rc = token_load_key(ckPrivateLeafKey, hPrivateRootKey, hash_sha,
-					&hPrivateLeafKey))) {
+	if ((rc = token_load_key(tokdata, ckPrivateLeafKey, hPrivateRootKey,
+				 hash_sha, &hPrivateLeafKey))) {
 		TRACE_DEVEL("token_load_key failed. rc=0x%lx\n", rc);
 		return CKR_FUNCTION_FAILED;
 	}
@@ -1924,7 +1931,7 @@ token_specific_set_pin(STDLL_TokData_t *tokdata, SESSION *sess,
 				return CKR_PIN_INCORRECT;
 			}
 		} else {
-			if ((rc = verify_user_pin(oldpin_hash))) {
+			if ((rc = verify_user_pin(tokdata, oldpin_hash))) {
 				return rc;
 			}
 		}
@@ -2116,7 +2123,8 @@ token_specific_init_token(STDLL_TokData_t *tokdata, CK_SLOT_ID sid,
 	}
 
 	/* we found the root key, so check by loading the chain */
-	if ((rc = token_load_key(ckPublicRootKey, hSRK, NULL, &hPublicRootKey))) {
+	if ((rc = token_load_key(tokdata, ckPublicRootKey, hSRK, NULL,
+				 &hPublicRootKey))) {
 		TRACE_DEVEL("token_load_key failed. rc=0x%lx\n", rc);
 		return CKR_FUNCTION_FAILED;
 	}
@@ -2128,7 +2136,8 @@ token_specific_init_token(STDLL_TokData_t *tokdata, CK_SLOT_ID sid,
 		return CKR_FUNCTION_FAILED;
 	}
 
-	if ((rc = token_load_key(ckPublicLeafKey, hPublicRootKey, hash_sha, &hPublicLeafKey))) {
+	if ((rc = token_load_key(tokdata, ckPublicLeafKey, hPublicRootKey,
+				 hash_sha, &hPublicLeafKey))) {
 		TRACE_DEVEL("token_load_key(MigLeafKey) Failed.\n");
 		return CKR_FUNCTION_FAILED;
 	}
@@ -2654,7 +2663,7 @@ token_specific_rsa_generate_keypair( STDLL_TokData_t *tokdata,
 		/* public session, wrap key with the PRK */
 		initFlags |= TSS_KEY_TYPE_LEGACY | TSS_KEY_NO_AUTHORIZATION | TSS_KEY_MIGRATABLE;
 
-		if ((result = token_load_public_root_key())) {
+		if ((result = token_load_public_root_key(tokdata))) {
 			TRACE_DEVEL("token_load_public_root_key failed. "
 				    "rc=%x\n", result);
 			return CKR_FUNCTION_FAILED;
@@ -2756,7 +2765,7 @@ token_specific_rsa_generate_keypair( STDLL_TokData_t *tokdata,
 }
 
 CK_RV
-token_rsa_load_key( OBJECT * key_obj, TSS_HKEY * phKey )
+token_rsa_load_key( STDLL_TokData_t *tokdata, OBJECT * key_obj, TSS_HKEY * phKey )
 {
 	TSS_RESULT	result;
 	TSS_HPOLICY     hPolicy = NULL_HPOLICY;
@@ -2769,7 +2778,7 @@ token_rsa_load_key( OBJECT * key_obj, TSS_HKEY * phKey )
 	if (hPrivateLeafKey != NULL_HKEY) {
 		hParentKey = hPrivateRootKey;
 	} else {
-		if ((result = token_load_public_root_key())) {
+		if ((result = token_load_public_root_key(tokdata))) {
 			TRACE_DEVEL("token_load_public_root_key failed. "
 				    "rc=%x\n", result);
 			return CKR_FUNCTION_FAILED;
@@ -2783,7 +2792,7 @@ token_rsa_load_key( OBJECT * key_obj, TSS_HKEY * phKey )
           rc = object_mgr_find_in_map2(tokdata, key_obj, &handle);
           if (rc != CKR_OK)
             return CKR_FUNCTION_FAILED;
-          if ((rc = token_load_key(handle, hParentKey, NULL, phKey))) {
+          if ((rc = token_load_key(tokdata, handle, hParentKey, NULL, phKey))) {
             TRACE_DEVEL("token_load_key failed. rc=0x%lx\n", rc);
             return rc;
           }
@@ -2874,7 +2883,7 @@ token_specific_rsa_decrypt( STDLL_TokData_t *tokdata,
 	UINT32          buf_size = 0;
 	BYTE            *buf = NULL;
 
-	if ((rc = token_rsa_load_key(key_obj, &hKey))) {
+	if ((rc = token_rsa_load_key(tokdata, key_obj, &hKey))) {
 		TRACE_DEVEL("token_rsa_load_key failed. rc=0x%lx\n", rc);
 		return rc;
 	}
@@ -2926,7 +2935,7 @@ token_specific_rsa_verify( STDLL_TokData_t *tokdata,
 	TSS_HKEY	hKey;
 	CK_RV		rc;
 
-	if ((rc = token_rsa_load_key(key_obj, &hKey))) {
+	if ((rc = token_rsa_load_key(tokdata, key_obj, &hKey))) {
 		TRACE_DEVEL("token_rsa_load_key failed. rc=0x%lx\n", rc);
 		return rc;
 	}
@@ -2977,7 +2986,7 @@ token_specific_rsa_sign( STDLL_TokData_t *tokdata,
 	TSS_HKEY	hKey;
 	CK_RV		rc;
 
-	if ((rc = token_rsa_load_key(key_obj, &hKey))) {
+	if ((rc = token_rsa_load_key(tokdata, key_obj, &hKey))) {
 		TRACE_DEVEL("token_rsa_load_key failed. rc=0x%lx\n", rc);
 		return rc;
 	}
@@ -3031,7 +3040,7 @@ token_specific_rsa_encrypt( STDLL_TokData_t *tokdata,
 	TSS_HKEY	hKey;
 	CK_RV		rc;
 
-	if ((rc = token_rsa_load_key(key_obj, &hKey))) {
+	if ((rc = token_rsa_load_key(tokdata, key_obj, &hKey))) {
 		TRACE_DEVEL("token_rsa_load_key failed. rc=0x%lx\n", rc);
 		return rc;
 	}
