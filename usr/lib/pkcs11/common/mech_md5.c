@@ -41,7 +41,8 @@ static CK_BYTE PADDING[64] = {
 //
 //
 CK_RV
-md5_hash( SESSION         * sess,
+md5_hash( STDLL_TokData_t * tokdata,
+	  SESSION         * sess,
           CK_BBOOL          length_only,
           DIGEST_CONTEXT  * ctx,
           CK_BYTE         * in_data,
@@ -62,21 +63,20 @@ md5_hash( SESSION         * sess,
       return CKR_OK;
    }
 
-   rc = md5_hash_update( sess, ctx, in_data, in_data_len );
+   rc = md5_hash_update( tokdata, sess, ctx, in_data, in_data_len );
    if (rc != CKR_OK){
       TRACE_DEVEL("md5_hash_update failed\n");
       return rc;
    }
-   return md5_hash_final( sess,      FALSE,
-                          ctx,
-                          out_data,  out_data_len );
+   return md5_hash_final( tokdata, sess, FALSE, ctx, out_data,  out_data_len );
 }
 
 
 //
 //
 CK_RV
-md5_hash_update( SESSION         * sess,
+md5_hash_update( STDLL_TokData_t * tokdata,
+		 SESSION         * sess,
                  DIGEST_CONTEXT  * ctx,
                  CK_BYTE         * in_data,
                  CK_ULONG          in_data_len )
@@ -85,7 +85,7 @@ md5_hash_update( SESSION         * sess,
       TRACE_ERROR("%s received bad argument(s)\n", __FUNCTION__);
       return CKR_FUNCTION_FAILED;
    }
-   return ckm_md5_update( (MD5_CONTEXT *)ctx->context,
+   return ckm_md5_update( tokdata, (MD5_CONTEXT *)ctx->context,
                           in_data, in_data_len );
 }
 
@@ -93,7 +93,8 @@ md5_hash_update( SESSION         * sess,
 //
 //
 CK_RV
-md5_hash_final( SESSION         * sess,
+md5_hash_final( STDLL_TokData_t * tokdata,
+		SESSION         * sess,
                 CK_BYTE           length_only,
                 DIGEST_CONTEXT  * ctx,
                 CK_BYTE         * out_data,
@@ -111,7 +112,7 @@ md5_hash_final( SESSION         * sess,
       return CKR_OK;
    }
 
-   rc = ckm_md5_final( (MD5_CONTEXT *)ctx->context,
+   rc = ckm_md5_final( tokdata, (MD5_CONTEXT *)ctx->context,
                        out_data, MD5_HASH_SIZE );
 
    if (rc == CKR_OK) {
@@ -367,7 +368,7 @@ md5_hmac_verify( STDLL_TokData_t      * tokdata,
 
 
 void
-ckm_md5_init( MD5_CONTEXT *context )
+ckm_md5_init( STDLL_TokData_t *tokdata, MD5_CONTEXT *context )
 {
   context->i[0] = context->i[1] = 0;
 
@@ -383,7 +384,8 @@ ckm_md5_init( MD5_CONTEXT *context )
 //
 //
 CK_RV
-ckm_md5_update( MD5_CONTEXT  * context,
+ckm_md5_update( STDLL_TokData_t * tokdata,
+		MD5_CONTEXT  * context,
                 CK_BYTE      * in_data,
                 CK_ULONG       in_data_len )
 {
@@ -416,7 +418,7 @@ ckm_md5_update( MD5_CONTEXT  * context,
                 (((CK_ULONG)context->in[ii+2]) << 16) |
                 (((CK_ULONG)context->in[ii+1]) << 8) |
                  ((CK_ULONG)context->in[ii]);
-      ckm_md5_transform (context->buf, in);
+      ckm_md5_transform (tokdata, context->buf, in);
       mdi = 0;
     }
   }
@@ -428,7 +430,8 @@ ckm_md5_update( MD5_CONTEXT  * context,
 //
 //
 CK_RV
-ckm_md5_final( MD5_CONTEXT *context,
+ckm_md5_final( STDLL_TokData_t *tokdata,
+	       MD5_CONTEXT *context,
                CK_BYTE     *out_data,
                CK_ULONG     out_data_len )
 {
@@ -458,7 +461,7 @@ ckm_md5_final( MD5_CONTEXT *context,
   // pad out to 56 mod 64
   //
   padLen = (mdi < 56) ? (56 - mdi) : (120 - mdi);
-  ckm_md5_update( context, PADDING, padLen );
+  ckm_md5_update( tokdata, context, PADDING, padLen );
 
   // append length in bits and transform
   //
@@ -467,7 +470,7 @@ ckm_md5_final( MD5_CONTEXT *context,
             (((CK_ULONG)context->in[ii+2]) << 16) |
             (((CK_ULONG)context->in[ii+1]) << 8) |
             ((CK_ULONG)context->in[ii]);
-  ckm_md5_transform (context->buf, in);
+  ckm_md5_transform (tokdata, context->buf, in);
 
   // store buffer in digest
   //
@@ -613,7 +616,7 @@ static CK_ULONG T[64] = { 0xD76AA478,  /* T[01]                               */
 // Basic MD5 step. Transform buf based on in.
 //
 void
-ckm_md5_transform( CK_ULONG *long_buf, CK_ULONG *long_in )
+ckm_md5_transform(STDLL_TokData_t *tokdata, CK_ULONG *long_buf, CK_ULONG *long_in)
 {
 
    /*-------------------------------------------------------------------------*/

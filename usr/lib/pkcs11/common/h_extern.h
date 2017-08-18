@@ -527,7 +527,8 @@ void init_data_store(char *directory, char *data_store);
 void copy_token_contents_sensibly(CK_TOKEN_INFO_PTR pInfo,
                                   TOKEN_DATA *nv_token_data);
 
-CK_RV compute_md5( CK_BYTE *data, CK_ULONG len, CK_BYTE *hash );
+CK_RV compute_md5( STDLL_TokData_t *tokdata, CK_BYTE *data, CK_ULONG len,
+		   CK_BYTE *hash );
 CK_RV compute_sha1(STDLL_TokData_t *tokdata, CK_BYTE *data, CK_ULONG len,
 		   CK_BYTE *hash);
 CK_RV compute_sha(STDLL_TokData_t * tokdata, CK_BYTE *data, CK_ULONG len,
@@ -1604,16 +1605,17 @@ CK_RV ckm_generic_secret_key_gen(TEMPLATE *tmpl);
 
 // MD2 mechanisms
 //
-CK_RV  md2_hash( SESSION  *sess,     CK_BBOOL  length_only,
+CK_RV  md2_hash( STDLL_TokData_t *tokdata, SESSION *sess, CK_BBOOL length_only,
                  DIGEST_CONTEXT *ctx,
                  CK_BYTE  *in_data,  CK_ULONG  in_data_len,
                  CK_BYTE  *out_data, CK_ULONG *out_data_len );
 
-CK_RV  md2_hash_update( SESSION *sess,    DIGEST_CONTEXT *ctx,
+CK_RV  md2_hash_update( STDLL_TokData_t *tokdata, SESSION *sess,
+			DIGEST_CONTEXT *ctx,
                         CK_BYTE *in_data, CK_ULONG in_data_len );
 
-CK_RV  md2_hash_final( SESSION  *sess,     CK_BBOOL  length_only,
-                       DIGEST_CONTEXT *ctx,
+CK_RV  md2_hash_final( STDLL_TokData_t *tokdata, SESSION  *sess,
+		       CK_BBOOL length_only, DIGEST_CONTEXT *ctx,
                        CK_BYTE  *out_data, CK_ULONG *out_data_len );
 
 CK_RV  md2_hmac_sign( STDLL_TokData_t     *tokdata,
@@ -1632,27 +1634,29 @@ CK_RV  md2_hmac_verify( STDLL_TokData_t     * tokdata,
                         CK_BYTE             * signature,
                         CK_ULONG              sig_len );
 
-CK_RV  ckm_md2_update( MD2_CONTEXT *context,
+CK_RV  ckm_md2_update( STDLL_TokData_t *tokdata, MD2_CONTEXT *context,
                        CK_BYTE     *in_data,  CK_ULONG in_data_len );
 
-CK_RV  ckm_md2_final( MD2_CONTEXT  *context,
+CK_RV  ckm_md2_final( STDLL_TokData_t *tokdata, MD2_CONTEXT *context,
                       CK_BYTE      *out_data, CK_ULONG  out_data_len );
 
-void   ckm_md2_transform( CK_BYTE *state, CK_BYTE *checksum, CK_BYTE *block );
+void   ckm_md2_transform( STDLL_TokData_t *tokdata, CK_BYTE *state,
+			  CK_BYTE *checksum, CK_BYTE *block );
 
 
 // MD5 mechanisms
 //
-CK_RV  md5_hash( SESSION  *sess,     CK_BBOOL  length_only,
-                 DIGEST_CONTEXT *ctx,
+CK_RV  md5_hash( STDLL_TokData_t *tokdata, SESSION  *sess,
+		 CK_BBOOL length_only, DIGEST_CONTEXT *ctx,
                  CK_BYTE  *in_data,  CK_ULONG  in_data_len,
                  CK_BYTE  *out_data, CK_ULONG *out_data_len );
 
-CK_RV  md5_hash_update( SESSION *sess,    DIGEST_CONTEXT *ctx,
+CK_RV  md5_hash_update( STDLL_TokData_t *tokdata, SESSION *sess,
+			DIGEST_CONTEXT *ctx,
                         CK_BYTE *in_data, CK_ULONG in_data_len );
 
-CK_RV  md5_hash_final( SESSION  *sess,     CK_BBOOL  length_only,
-                       DIGEST_CONTEXT *ctx,
+CK_RV  md5_hash_final( STDLL_TokData_t *tokdata, SESSION  *sess,
+		       CK_BBOOL length_only, DIGEST_CONTEXT *ctx,
                        CK_BYTE  *out_data, CK_ULONG *out_data_len );
 
 CK_RV  md5_hmac_sign( STDLL_TokData_t  *tokdata,
@@ -1671,15 +1675,15 @@ CK_RV  md5_hmac_verify( STDLL_TokData_t     * tokdata,
                         CK_BYTE             * signature,
                         CK_ULONG              sig_len );
 
-void   ckm_md5_init( MD5_CONTEXT *context );
+void   ckm_md5_init( STDLL_TokData_t *tokdata, MD5_CONTEXT *context );
 
-CK_RV  ckm_md5_update( MD5_CONTEXT *context,
+CK_RV  ckm_md5_update( STDLL_TokData_t *tokdata, MD5_CONTEXT *context,
                        CK_BYTE     *in_data,  CK_ULONG in_data_len );
 
-CK_RV  ckm_md5_final( MD5_CONTEXT  *context,
+CK_RV  ckm_md5_final( STDLL_TokData_t *tokdata, MD5_CONTEXT  *context,
                       CK_BYTE      *out_data, CK_ULONG  out_data_len );
 
-void   ckm_md5_transform( CK_ULONG *buf, CK_ULONG *in );
+void   ckm_md5_transform(STDLL_TokData_t *tokdata, CK_ULONG *buf, CK_ULONG *in);
 
 //Elliptic curve (EC) mechanisms
 //

@@ -96,7 +96,7 @@ digest_mgr_init( SESSION           *sess,
                TRACE_ERROR("%s\n", ock_err(ERR_HOST_MEMORY));
                return CKR_HOST_MEMORY;
             }
-            ckm_md5_init( (MD5_CONTEXT *)ctx->context );
+            ckm_md5_init( tokdata, (MD5_CONTEXT *)ctx->context );
          }
          break;
 
@@ -201,16 +201,14 @@ digest_mgr_digest( SESSION         *sess,
 
 #if !(NOMD2 )
       case CKM_MD2:
-         rc = md2_hash( sess,     length_only, ctx,
-                          in_data,  in_data_len,
-                          out_data, out_data_len );
+         rc = md2_hash( tokdata, sess, length_only, ctx, in_data, in_data_len,
+			out_data, out_data_len );
          break;
 #endif
 
       case CKM_MD5:
-         rc = md5_hash( sess,     length_only, ctx,
-                          in_data,  in_data_len,
-                          out_data, out_data_len );
+         rc = md5_hash( tokdata, sess, length_only, ctx, in_data, in_data_len,
+			out_data, out_data_len );
          break;
 
       default:
@@ -263,12 +261,12 @@ digest_mgr_digest_update( SESSION         *sess,
 
 #if !(NOMD2)
       case CKM_MD2:
-         rc = md2_hash_update( sess, ctx, data, data_len );
+         rc = md2_hash_update( tokdata, sess, ctx, data, data_len );
          break;
 #endif
 
       case CKM_MD5:
-         rc = md5_hash_update( sess, ctx, data, data_len );
+         rc = md5_hash_update( tokdata, sess, ctx, data, data_len );
          break;
 
       default:
@@ -380,16 +378,12 @@ digest_mgr_digest_final( SESSION         *sess,
 
 #if !(NOMD2)
       case CKM_MD2:
-         rc = md2_hash_final( sess, length_only,
-                                ctx,
-                                hash, hash_len );
+         rc = md2_hash_final(tokdata, sess, length_only, ctx, hash, hash_len);
          break;
 #endif
 
       case CKM_MD5:
-         rc = md5_hash_final( sess, length_only,
-                                ctx,
-                                hash, hash_len );
+         rc = md5_hash_final(tokdata, sess, length_only, ctx, hash, hash_len);
          break;
 
       default:
