@@ -3151,7 +3151,8 @@ ica_specific_get_mechanism_list(CK_MECHANISM_TYPE_PTR pMechanismList,
 }
 
 CK_RV
-token_specific_get_mechanism_info(CK_MECHANISM_TYPE type,
+token_specific_get_mechanism_info(STDLL_TokData_t *tokdata,
+				  CK_MECHANISM_TYPE type,
 				  CK_MECHANISM_INFO_PTR pInfo)
 {
 	CK_ULONG rc = CKR_OK;

@@ -349,12 +349,12 @@ out:
 /*
  * Get the mechanism info for the current type and token.
  */
-CK_RV SC_GetMechanismInfo(CK_SLOT_ID sid, CK_MECHANISM_TYPE type,
-                          CK_MECHANISM_INFO_PTR pInfo)
+CK_RV SC_GetMechanismInfo(STDLL_TokData_t *tokdata, CK_SLOT_ID sid,
+			  CK_MECHANISM_TYPE type, CK_MECHANISM_INFO_PTR pInfo)
 {
 	CK_RV rc = CKR_OK;
 
-	if (initialized == FALSE) {
+	if (tokdata->initialized == FALSE) {
 		TRACE_ERROR("%s\n", ock_err(ERR_CRYPTOKI_NOT_INITIALIZED));
 		rc = CKR_CRYPTOKI_NOT_INITIALIZED;
 		goto out;

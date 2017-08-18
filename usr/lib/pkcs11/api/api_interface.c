@@ -1917,7 +1917,8 @@ C_GetMechanismInfo(CK_SLOT_ID slotID,
 		return CKR_TOKEN_NOT_PRESENT;
 	}
 	if (fcn->ST_GetMechanismInfo) {
-		rv = fcn->ST_GetMechanismInfo(slotID, type, pInfo);
+		rv = fcn->ST_GetMechanismInfo(sltp->TokData, slotID,
+					      type, pInfo);
 		TRACE_DEVEL("fcn->ST_GetMechanismInfo returned:0x%lx\n", rv);
 	} else {
 		TRACE_ERROR("%s\n", ock_err(ERR_FUNCTION_NOT_SUPPORTED));

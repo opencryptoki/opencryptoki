@@ -53,7 +53,8 @@
 CK_RV ep11tok_get_mechanism_list(STDLL_TokData_t *tokdata,
 				 CK_MECHANISM_TYPE_PTR mlist,
 				 CK_ULONG_PTR count);
-CK_RV ep11tok_get_mechanism_info(CK_MECHANISM_TYPE type,
+CK_RV ep11tok_get_mechanism_info(STDLL_TokData_t *tokdata,
+				 CK_MECHANISM_TYPE type,
 				 CK_MECHANISM_INFO_PTR pInfo);
 
 static m_GenerateRandom_t	dll_m_GenerateRandom;
@@ -3565,13 +3566,14 @@ CK_RV ep11tok_get_mechanism_list(STDLL_TokData_t *tokdata,
 }
 
 
-CK_RV ep11tok_get_mechanism_info(CK_MECHANISM_TYPE type,
+CK_RV ep11tok_get_mechanism_info(STDLL_TokData_t *tokdata,
+				 CK_MECHANISM_TYPE type,
 				 CK_MECHANISM_INFO_PTR pInfo)
 {
 	CK_RV rc;
 	int i;
 
-	rc = dll_m_GetMechanismInfo(0, type, pInfo, ep11tok_target);
+	rc = dll_m_GetMechanismInfo(0, type, pInfo, (uint64_t)tokdata->target_list);
 	if (rc != CKR_OK) {
 		TRACE_ERROR("%s m_GetMechanismInfo(0x%lx) failed with rc=0x%lx\n",
 			    __func__, type, rc);
