@@ -1118,12 +1118,13 @@ done:
 }
 
 
-CK_RV SC_DestroyObject(ST_SESSION_HANDLE *sSession, CK_OBJECT_HANDLE hObject)
+CK_RV SC_DestroyObject(STDLL_TokData_t *tokdata, ST_SESSION_HANDLE *sSession,
+		       CK_OBJECT_HANDLE hObject)
 {
 	SESSION *sess = NULL;
 	CK_RV rc = CKR_OK;
 
-	if (initialized == FALSE) {
+	if (tokdata->initialized == FALSE) {
 		TRACE_ERROR("%s\n", ock_err(ERR_CRYPTOKI_NOT_INITIALIZED));
 		rc = CKR_CRYPTOKI_NOT_INITIALIZED;
 		goto done;
@@ -1143,7 +1144,7 @@ CK_RV SC_DestroyObject(ST_SESSION_HANDLE *sSession, CK_OBJECT_HANDLE hObject)
 		goto done;
 	}
 
-	rc = object_mgr_destroy_object(sess, hObject);
+	rc = object_mgr_destroy_object(tokdata, sess, hObject);
 	if (rc != CKR_OK)
 		TRACE_DEVEL("*_destroy_object() failed\n");
 done:

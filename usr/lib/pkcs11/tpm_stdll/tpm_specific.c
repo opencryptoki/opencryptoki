@@ -1089,7 +1089,7 @@ token_update_private_key(TSS_HKEY hKey, int key_type)
 	}
 
 	/* destroy the private key and create a new one */
-	if ((rc = object_mgr_destroy_object(&dummy_sess, ckHandle))) {
+	if ((rc = object_mgr_destroy_object(tokdata, &dummy_sess, ckHandle))) {
 		TRACE_DEVEL("object_mgr_destroy_object failed: 0x%lx\n", rc);
 		return rc;
 	}
@@ -1398,7 +1398,7 @@ token_migrate(int key_type, CK_BYTE *pin)
 		return CKR_FUNCTION_FAILED;
 	}
 
-	if ((rc = object_mgr_destroy_object(&dummy_sess, *ckHandle))) {
+	if ((rc = object_mgr_destroy_object(tokdata, &dummy_sess, *ckHandle))) {
 		TRACE_DEVEL("object_mgr_destroy_object failed: 0x%lx\n", rc);
 		return rc;
 	}
@@ -1408,7 +1408,7 @@ token_migrate(int key_type, CK_BYTE *pin)
 		return CKR_FUNCTION_FAILED;
 	}
 
-	if ((rc = object_mgr_destroy_object(&dummy_sess, *ckHandle))) {
+	if ((rc = object_mgr_destroy_object(tokdata, &dummy_sess, *ckHandle))) {
 		TRACE_DEVEL("object_mgr_destroy_object failed: 0x%lx\n", rc);
 		return rc;
 	}

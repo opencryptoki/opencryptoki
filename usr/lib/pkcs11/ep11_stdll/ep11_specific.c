@@ -2660,7 +2660,7 @@ CK_RV ep11tok_generate_key_pair(SESSION * sess, CK_MECHANISM_PTR pMechanism,
 	rc = object_mgr_create_final(tokdata, sess, private_key_obj, phPrivateKey);
 	if (rc != CKR_OK) {
 		TRACE_DEVEL("%s Object mgr create final failed\n", __func__);
-		object_mgr_destroy_object(sess, *phPublicKey);
+		object_mgr_destroy_object(tokdata, sess, *phPublicKey);
 		public_key_obj = NULL;
 		goto error;
 	}

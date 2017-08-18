@@ -504,7 +504,7 @@ key_mgr_generate_key_pair( STDLL_TokData_t   * tokdata,
       TRACE_DEVEL("object_mgr_create_final failed.\n");
       // just calling object_free in the error path below would lead to a double
       // free error on session close - KEY 09/26/07
-      object_mgr_destroy_object( sess, *publ_key_handle );
+      object_mgr_destroy_object( tokdata, sess, *publ_key_handle );
       publ_key_obj = NULL;
       goto error;
    }

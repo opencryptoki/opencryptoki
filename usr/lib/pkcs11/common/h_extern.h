@@ -1974,7 +1974,8 @@ CK_RV    object_mgr_create_skel( STDLL_TokData_t * tokdata,
                                  CK_ULONG       subclass,
                                  OBJECT      ** obj );
 
-CK_RV    object_mgr_destroy_object( SESSION         * sess,
+CK_RV    object_mgr_destroy_object( STDLL_TokData_t *tokdata,
+				    SESSION         *sess,
                                     CK_OBJECT_HANDLE  handle );
 
 CK_RV    object_mgr_destroy_token_objects( void );

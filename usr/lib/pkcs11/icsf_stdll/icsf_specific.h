@@ -45,7 +45,8 @@ CK_RV icsftok_copy_object(SESSION * session, CK_ATTRIBUTE_PTR attrs,
 			  CK_ULONG attrs_len, CK_OBJECT_HANDLE src,
 			  CK_OBJECT_HANDLE_PTR dst);
 
-CK_RV icsftok_destroy_object(SESSION *sess, CK_OBJECT_HANDLE handle);
+CK_RV icsftok_destroy_object(STDLL_TokData_t *tokdata, SESSION *sess,
+			     CK_OBJECT_HANDLE handle);
 
 CK_RV icsftok_get_attribute_value(SESSION *sess, CK_OBJECT_HANDLE handle,
 				CK_ATTRIBUTE *pTemplate,

@@ -766,7 +766,7 @@ CK_RV C_DestroyObject(CK_SESSION_HANDLE hSession, CK_OBJECT_HANDLE hObject)
 	}
 	if (fcn->ST_DestroyObject) {
 		// Map the Session to the slot session
-		rv = fcn->ST_DestroyObject(&rSession, hObject);
+		rv = fcn->ST_DestroyObject(sltp->TokData, &rSession, hObject);
 		TRACE_DEVEL("fcn->ST_DestroyObject returned:0x%lx\n", rv);
 	} else {
 		TRACE_ERROR("%s\n", ock_err(ERR_FUNCTION_NOT_SUPPORTED));
