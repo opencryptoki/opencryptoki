@@ -756,7 +756,7 @@ sign_mgr_sign( SESSION              * sess,
 
 #if !(NODSA)
       case CKM_DSA:
-         return dsa_sign( sess,     length_only,  ctx,
+         return dsa_sign( tokdata, sess, length_only, ctx,
                           in_data,  in_data_len,
                           out_data, out_data_len );
 #endif

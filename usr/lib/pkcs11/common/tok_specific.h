@@ -346,15 +346,18 @@ CK_RV token_specific_aes_mac(STDLL_TokData_t *,
 #endif
 
 CK_RV
-token_specific_dsa_generate_keypair( TEMPLATE *,
-                            TEMPLATE *);
+token_specific_dsa_generate_keypair( STDLL_TokData_t *,
+				     TEMPLATE *,
+				     TEMPLATE *);
 CK_RV
-token_specific_dsa_sign( CK_BYTE *,
+token_specific_dsa_sign( STDLL_TokData_t *,
+			 CK_BYTE *,
                          CK_ULONG,
                          CK_ULONG );
 
 CK_RV
-token_specific_dsa_verify( CK_BYTE *,
+token_specific_dsa_verify( STDLL_TokData_t *,
+			   CK_BYTE *,
                            CK_BYTE *,
                            OBJECT * );
 

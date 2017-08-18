@@ -233,13 +233,15 @@ struct token_specific_struct {
 			  CK_BYTE *);
 
 	// Token Specific DSA functions
-	CK_RV(*t_dsa_generate_keypair) (TEMPLATE *, TEMPLATE *);
+	CK_RV(*t_dsa_generate_keypair) (STDLL_TokData_t *, TEMPLATE *, TEMPLATE *);
 
-	CK_RV(*t_dsa_sign) (CK_BYTE *,
+	CK_RV(*t_dsa_sign) (STDLL_TokData_t *,
+			   CK_BYTE *,
 			   CK_BYTE *,
 			   OBJECT *);
 
-	CK_RV(*t_dsa_verify) (CK_BYTE *,
+	CK_RV(*t_dsa_verify) (STDLL_TokData_t *,
+			   CK_BYTE *,
 			   CK_BYTE *,
 			   OBJECT *);
 

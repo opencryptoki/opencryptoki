@@ -1950,7 +1950,8 @@ dh_generate_keypair_end:
 	return rc;
 }
 
-static CK_RV dsa_generate_keypair(CK_MECHANISM_PTR pMechanism,
+static CK_RV dsa_generate_keypair(STDLL_TokData_t *tokdata,
+				  CK_MECHANISM_PTR pMechanism,
 				  TEMPLATE *publ_tmpl, TEMPLATE *priv_tmpl,
 				  CK_ATTRIBUTE_PTR pPublicKeyTemplate,
 				  CK_ULONG ulPublicKeyAttributeCount,
@@ -2583,7 +2584,8 @@ CK_RV ep11tok_generate_key_pair(SESSION * sess, CK_MECHANISM_PTR pMechanism,
 
 	case CKM_DSA_PARAMETER_GEN:
 	case CKM_DSA_KEY_PAIR_GEN:
-		rc = dsa_generate_keypair(pMechanism, public_key_obj->template,
+		rc = dsa_generate_keypair(tokdata, pMechanism,
+					  public_key_obj->template,
 					  private_key_obj->template,
 					  pPublicKeyTemplate,
 					  ulPublicKeyAttributeCount,
