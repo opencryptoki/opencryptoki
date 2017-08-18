@@ -46,6 +46,7 @@ typedef enum {
 	KW_HWVERSION,
 	KW_FWVERSION,
 	KW_CONFNAME,
+	KW_TOKNAME,
 	KW_MAX
 } keyword_token;
 
@@ -60,7 +61,8 @@ static const struct ock_key ock_keywords[] = {
 	{"manufacturer",	KW_MANUFID},
 	{"hwversion",		KW_HWVERSION},
 	{"firmwareversion",	KW_FWVERSION},
-	{"confname",		KW_CONFNAME}
+	{"confname",		KW_CONFNAME},
+	{"tokname",		KW_TOKNAME}
 };
 
 void set_init(void);
@@ -142,6 +144,10 @@ keyword_defs:
 		case KW_CONFNAME:
 			memset(sinfo_struct.confname, 0, sizeof(sinfo_struct.confname));
 			memcpy(sinfo_struct.confname, $3, strlen($3));
+			break;
+		case KW_TOKNAME:
+			memset(sinfo_struct.tokname, 0, sizeof(sinfo_struct.tokname));
+			memcpy(sinfo_struct.tokname, $3, strlen($3));
 			break;
 		default:
 			yyerror("unknown config keyword");
