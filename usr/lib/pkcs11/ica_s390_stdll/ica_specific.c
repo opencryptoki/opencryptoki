@@ -2082,13 +2082,15 @@ CK_RV token_specific_rsa_pss_verify(SIGN_VERIFY_CONTEXT *ctx, CK_BYTE *in_data,
 #ifndef NOAES
 
 CK_RV
-token_specific_aes_key_gen(CK_BYTE *key, CK_ULONG len, CK_ULONG keysize)
+token_specific_aes_key_gen(STDLL_TokData_t *tokdata, CK_BYTE *key,
+			   CK_ULONG len, CK_ULONG keysize)
 {
         return rng_generate(key, len);
 }
 
 CK_RV
-token_specific_aes_ecb(CK_BYTE *in_data, CK_ULONG in_data_len,
+token_specific_aes_ecb(STDLL_TokData_t *tokdata, CK_BYTE *in_data,
+		       CK_ULONG in_data_len,
 		       CK_BYTE *out_data, CK_ULONG *out_data_len,
 		       OBJECT *key, CK_BYTE encrypt)
 {
@@ -2125,7 +2127,8 @@ token_specific_aes_ecb(CK_BYTE *in_data, CK_ULONG in_data_len,
 }
 
 CK_RV
-token_specific_aes_cbc(CK_BYTE         *in_data,
+token_specific_aes_cbc(STDLL_TokData_t *tokdata,
+		       CK_BYTE         *in_data,
 		       CK_ULONG        in_data_len,
 		       CK_BYTE         *out_data,
 		       CK_ULONG        *out_data_len,
@@ -2165,7 +2168,8 @@ token_specific_aes_cbc(CK_BYTE         *in_data,
 	return rc;
 }
 CK_RV
-token_specific_aes_ctr(CK_BYTE          *in_data,
+token_specific_aes_ctr(STDLL_TokData_t  *tokdata,
+		       CK_BYTE          *in_data,
 		       CK_ULONG		 in_data_len,
 		       CK_BYTE 		*out_data,
 		       CK_ULONG		*out_data_len,
@@ -2218,9 +2222,9 @@ token_specific_aes_ctr(CK_BYTE          *in_data,
    return rc;
 }
 
-CK_RV token_specific_aes_gcm_init(SESSION *sess, ENCR_DECR_CONTEXT *ctx,
-				  CK_MECHANISM *mech, CK_OBJECT_HANDLE key,
-				  CK_BYTE encrypt)
+CK_RV token_specific_aes_gcm_init(STDLL_TokData_t *tokdata, SESSION *sess,
+				  ENCR_DECR_CONTEXT *ctx, CK_MECHANISM *mech,
+				  CK_OBJECT_HANDLE key, CK_BYTE encrypt)
 {
 	CK_RV rc = CKR_OK;
 	OBJECT *key_obj = NULL;
@@ -2274,10 +2278,10 @@ CK_RV token_specific_aes_gcm_init(SESSION *sess, ENCR_DECR_CONTEXT *ctx,
 		return CKR_OK;
 }
 
-CK_RV token_specific_aes_gcm(SESSION *sess, ENCR_DECR_CONTEXT *ctx,
-			     CK_BYTE *in_data, CK_ULONG in_data_len,
-			     CK_BYTE *out_data, CK_ULONG *out_data_len,
-			     CK_BYTE encrypt)
+CK_RV token_specific_aes_gcm(STDLL_TokData_t *tokdata, SESSION *sess,
+			     ENCR_DECR_CONTEXT *ctx, CK_BYTE *in_data,
+			     CK_ULONG in_data_len, CK_BYTE *out_data,
+			     CK_ULONG *out_data_len, CK_BYTE encrypt)
 {
 	CK_RV rc;
 	OBJECT *key = NULL;
@@ -2357,10 +2361,10 @@ CK_RV token_specific_aes_gcm(SESSION *sess, ENCR_DECR_CONTEXT *ctx,
 	return rc;
 }
 
-CK_RV token_specific_aes_gcm_update(SESSION *sess, ENCR_DECR_CONTEXT *ctx,
-				    CK_BYTE *in_data, CK_ULONG in_data_len,
-				    CK_BYTE *out_data, CK_ULONG *out_data_len,
-				    CK_BYTE encrypt)
+CK_RV token_specific_aes_gcm_update(STDLL_TokData_t *tokdata, SESSION *sess,
+				    ENCR_DECR_CONTEXT *ctx, CK_BYTE *in_data,
+				    CK_ULONG in_data_len, CK_BYTE *out_data,
+				    CK_ULONG *out_data_len, CK_BYTE encrypt)
 {
 	CK_RV rc;
 	CK_ATTRIBUTE *attr = NULL;
@@ -2505,9 +2509,9 @@ done:
 	return rc;
 }
 
-CK_RV token_specific_aes_gcm_final(SESSION *sess, ENCR_DECR_CONTEXT *ctx,
-				   CK_BYTE *out_data, CK_ULONG *out_data_len,
-				   CK_BYTE encrypt)
+CK_RV token_specific_aes_gcm_final(STDLL_TokData_t *tokdata, SESSION *sess,
+				   ENCR_DECR_CONTEXT *ctx, CK_BYTE *out_data,
+				   CK_ULONG *out_data_len, CK_BYTE encrypt)
 {
 	CK_RV rc = CKR_OK;
 	CK_ATTRIBUTE *attr = NULL;
@@ -2650,9 +2654,9 @@ done:
  * 1 -- Encrypt
  */
 CK_RV
-token_specific_aes_ofb(CK_BYTE *in_data, CK_ULONG in_data_len,
-		       CK_BYTE *out_data, OBJECT *key, CK_BYTE *init_v,
-                       uint_32 direction)
+token_specific_aes_ofb(STDLL_TokData_t *tokdata, CK_BYTE *in_data,
+		       CK_ULONG in_data_len, CK_BYTE *out_data, OBJECT *key,
+		       CK_BYTE *init_v, uint_32 direction)
 {
    CK_RV rc;
    CK_ATTRIBUTE *attr = NULL;
@@ -2680,9 +2684,9 @@ token_specific_aes_ofb(CK_BYTE *in_data, CK_ULONG in_data_len,
  *  1 -- Encrypt
  */
 CK_RV
-token_specific_aes_cfb(CK_BYTE *in_data, CK_ULONG in_data_len,
-		       CK_BYTE *out_data, OBJECT *key, CK_BYTE *init_v,
-                       uint_32 lcfb, uint_32 direction)
+token_specific_aes_cfb(STDLL_TokData_t *tokdata, CK_BYTE *in_data,
+		       CK_ULONG in_data_len, CK_BYTE *out_data, OBJECT *key,
+		       CK_BYTE *init_v, uint_32 lcfb, uint_32 direction)
 {
    CK_RV rc;
    CK_ATTRIBUTE *attr = NULL;
@@ -2704,8 +2708,8 @@ token_specific_aes_cfb(CK_BYTE *in_data, CK_ULONG in_data_len,
 }
 
 CK_RV
-token_specific_aes_mac(CK_BYTE *message, CK_ULONG message_len, OBJECT *key,
-                       CK_BYTE *mac)
+token_specific_aes_mac(STDLL_TokData_t *tokdata, CK_BYTE *message,
+		       CK_ULONG message_len, OBJECT *key, CK_BYTE *mac)
 {
    CK_RV rc;
    CK_ATTRIBUTE *attr = NULL;

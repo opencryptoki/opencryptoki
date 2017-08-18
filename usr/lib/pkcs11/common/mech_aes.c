@@ -27,7 +27,8 @@
 //
 //
 CK_RV
-aes_ecb_encrypt( SESSION           *sess,
+aes_ecb_encrypt( STDLL_TokData_t   *tokdata,
+		 SESSION           *sess,
                  CK_BBOOL           length_only,
                  ENCR_DECR_CONTEXT *ctx,
                  CK_BYTE           *in_data,
@@ -64,7 +65,7 @@ aes_ecb_encrypt( SESSION           *sess,
       return CKR_BUFFER_TOO_SMALL;
    }
 
-   return ckm_aes_ecb_encrypt(in_data, in_data_len,
+   return ckm_aes_ecb_encrypt(tokdata, in_data, in_data_len,
 			      out_data, out_data_len, key);
 }
 
@@ -72,7 +73,8 @@ aes_ecb_encrypt( SESSION           *sess,
 //
 //
 CK_RV
-aes_ecb_decrypt( SESSION           *sess,
+aes_ecb_decrypt( STDLL_TokData_t   *tokdata,
+		 SESSION           *sess,
                  CK_BBOOL           length_only,
                  ENCR_DECR_CONTEXT *ctx,
                  CK_BYTE           *in_data,
@@ -113,7 +115,7 @@ aes_ecb_decrypt( SESSION           *sess,
       return CKR_BUFFER_TOO_SMALL;
    }
 
-   return ckm_aes_ecb_decrypt(in_data, in_data_len,
+   return ckm_aes_ecb_decrypt(tokdata, in_data, in_data_len,
                                out_data, out_data_len, key);
 }
 
@@ -121,7 +123,8 @@ aes_ecb_decrypt( SESSION           *sess,
 //
 //
 CK_RV
-aes_cbc_encrypt( SESSION           *sess,
+aes_cbc_encrypt( STDLL_TokData_t   *tokdata,
+		 SESSION           *sess,
                  CK_BBOOL           length_only,
                  ENCR_DECR_CONTEXT *ctx,
                  CK_BYTE           *in_data,
@@ -161,14 +164,15 @@ aes_cbc_encrypt( SESSION           *sess,
       return CKR_BUFFER_TOO_SMALL;
    }
 
-   return ckm_aes_cbc_encrypt(in_data, in_data_len, out_data, out_data_len,
-				ctx->mech.pParameter, key);
+   return ckm_aes_cbc_encrypt(tokdata, in_data, in_data_len, out_data,
+			      out_data_len, ctx->mech.pParameter, key);
 }
 
 //
 //
 CK_RV
-aes_cbc_decrypt( SESSION            *sess,
+aes_cbc_decrypt( STDLL_TokData_t    *tokdata,
+		 SESSION            *sess,
                  CK_BBOOL            length_only,
                  ENCR_DECR_CONTEXT  *ctx,
                  CK_BYTE            *in_data,
@@ -208,15 +212,16 @@ aes_cbc_decrypt( SESSION            *sess,
       return CKR_BUFFER_TOO_SMALL;
    }
 
-   return ckm_aes_cbc_decrypt(in_data, in_data_len, out_data, out_data_len,
-                                ctx->mech.pParameter, key);
+   return ckm_aes_cbc_decrypt(tokdata, in_data, in_data_len, out_data,
+			      out_data_len, ctx->mech.pParameter, key);
 }
 
 
 //
 //
 CK_RV
-aes_cbc_pad_encrypt( SESSION           *sess,
+aes_cbc_pad_encrypt( STDLL_TokData_t   *tokdata,
+		     SESSION           *sess,
                      CK_BBOOL           length_only,
                      ENCR_DECR_CONTEXT *ctx,
                      CK_BYTE           *in_data,
@@ -269,8 +274,8 @@ aes_cbc_pad_encrypt( SESSION           *sess,
                      in_data_len,
                      padded_len );
 
-   rc = ckm_aes_cbc_encrypt(clear, padded_len, out_data, out_data_len,
-                             ctx->mech.pParameter, key);
+   rc = ckm_aes_cbc_encrypt(tokdata, clear, padded_len, out_data, out_data_len,
+                            ctx->mech.pParameter, key);
 
    free( clear );
    return rc;
@@ -280,7 +285,8 @@ aes_cbc_pad_encrypt( SESSION           *sess,
 //
 //
 CK_RV
-aes_cbc_pad_decrypt( SESSION            *sess,
+aes_cbc_pad_decrypt( STDLL_TokData_t    *tokdata,
+		     SESSION            *sess,
                      CK_BBOOL            length_only,
                      ENCR_DECR_CONTEXT  *ctx,
                      CK_BYTE            *in_data,
@@ -330,8 +336,8 @@ aes_cbc_pad_decrypt( SESSION            *sess,
       TRACE_ERROR("%s\n", ock_err(ERR_HOST_MEMORY));
       return CKR_HOST_MEMORY;
    }
-   rc = ckm_aes_cbc_decrypt(in_data, in_data_len, clear, &padded_len,
-                             ctx->mech.pParameter, key);
+   rc = ckm_aes_cbc_decrypt(tokdata, in_data, in_data_len, clear, &padded_len,
+                            ctx->mech.pParameter, key);
 
    if (rc == CKR_OK) {
       strip_pkcs_padding( clear, padded_len, out_data_len );
@@ -344,7 +350,8 @@ aes_cbc_pad_decrypt( SESSION            *sess,
 //
 //
 CK_RV
-aes_ctr_encrypt( SESSION           *sess,
+aes_ctr_encrypt( STDLL_TokData_t   *tokdata,
+		 SESSION           *sess,
                  CK_BBOOL           length_only,
 		 ENCR_DECR_CONTEXT *ctx,
                  CK_BYTE           *in_data,
@@ -383,15 +390,16 @@ aes_ctr_encrypt( SESSION           *sess,
 
    aesctr = (CK_AES_CTR_PARAMS *)ctx->mech.pParameter;
 
-   return ckm_aes_ctr_encrypt(in_data, in_data_len, out_data, out_data_len,
-                              (CK_BYTE *)aesctr->cb,
+   return ckm_aes_ctr_encrypt(tokdata, in_data, in_data_len, out_data,
+			      out_data_len, (CK_BYTE *)aesctr->cb,
 			      (CK_ULONG)aesctr->ulCounterBits, key);
 }
 
 //
 //
 CK_RV
-aes_ctr_decrypt( SESSION           *sess,
+aes_ctr_decrypt( STDLL_TokData_t   *tokdata,
+		 SESSION           *sess,
                  CK_BBOOL           length_only,
 		 ENCR_DECR_CONTEXT *ctx,
                  CK_BYTE           *in_data,
@@ -430,15 +438,16 @@ aes_ctr_decrypt( SESSION           *sess,
 
    aesctr = (CK_AES_CTR_PARAMS *)ctx->mech.pParameter;
 
-   return ckm_aes_ctr_decrypt(in_data, in_data_len, out_data, out_data_len,
-                              (CK_BYTE *)aesctr->cb,
+   return ckm_aes_ctr_decrypt(tokdata, in_data, in_data_len, out_data,
+			      out_data_len, (CK_BYTE *)aesctr->cb,
 			      (CK_ULONG)aesctr->ulCounterBits, key);
 }
 
 //
 //
 CK_RV
-aes_ecb_encrypt_update( SESSION           *sess,
+aes_ecb_encrypt_update( STDLL_TokData_t   *tokdata,
+			SESSION           *sess,
                         CK_BBOOL           length_only,
                         ENCR_DECR_CONTEXT *ctx,
                         CK_BYTE           *in_data,
@@ -495,7 +504,8 @@ aes_ecb_encrypt_update( SESSION           *sess,
       memcpy( clear,                context->data, context->len );
       memcpy( clear + context->len, in_data,       out_len - context->len );
 
-      rc = ckm_aes_ecb_encrypt(clear, out_len, out_data, out_data_len, key);
+      rc = ckm_aes_ecb_encrypt(tokdata, clear, out_len, out_data, out_data_len,
+			       key);
       if (rc == CKR_OK) {
          *out_data_len = out_len;
 
@@ -517,7 +527,8 @@ aes_ecb_encrypt_update( SESSION           *sess,
 //
 //
 CK_RV
-aes_ecb_decrypt_update( SESSION           *sess,
+aes_ecb_decrypt_update( STDLL_TokData_t   *tokdata,
+			SESSION           *sess,
                         CK_BBOOL           length_only,
                         ENCR_DECR_CONTEXT *ctx,
                         CK_BYTE           *in_data,
@@ -575,7 +586,8 @@ aes_ecb_decrypt_update( SESSION           *sess,
       memcpy( cipher,                context->data, context->len );
       memcpy( cipher + context->len, in_data,       out_len - context->len );
 
-      rc = ckm_aes_ecb_decrypt(cipher, out_len, out_data, out_data_len, key);
+      rc = ckm_aes_ecb_decrypt(tokdata, cipher, out_len, out_data,
+			       out_data_len, key);
       if (rc == CKR_OK) {
          *out_data_len = out_len;
 
@@ -595,7 +607,8 @@ aes_ecb_decrypt_update( SESSION           *sess,
 //
 //
 CK_RV
-aes_cbc_encrypt_update( SESSION           *sess,
+aes_cbc_encrypt_update( STDLL_TokData_t   *tokdata,
+			SESSION           *sess,
                         CK_BBOOL           length_only,
                         ENCR_DECR_CONTEXT *ctx,
                         CK_BYTE           *in_data,
@@ -656,8 +669,8 @@ aes_cbc_encrypt_update( SESSION           *sess,
       memcpy( clear,                context->data, context->len );
       memcpy( clear + context->len, in_data,       out_len - context->len );
 
-      rc = ckm_aes_cbc_encrypt(clear, out_len, out_data, out_data_len,
-                                ctx->mech.pParameter, key);
+      rc = ckm_aes_cbc_encrypt(tokdata, clear, out_len, out_data, out_data_len,
+                               ctx->mech.pParameter, key);
 
       if (rc == CKR_OK) {
          *out_data_len = out_len;
@@ -682,7 +695,8 @@ aes_cbc_encrypt_update( SESSION           *sess,
 //
 //
 CK_RV
-aes_cbc_decrypt_update( SESSION           *sess,
+aes_cbc_decrypt_update( STDLL_TokData_t   *tokdata,
+			SESSION           *sess,
                         CK_BBOOL           length_only,
                         ENCR_DECR_CONTEXT *ctx,
                         CK_BYTE           *in_data,
@@ -744,8 +758,8 @@ aes_cbc_decrypt_update( SESSION           *sess,
       memcpy( cipher,                context->data, context->len );
       memcpy( cipher + context->len, in_data,       out_len - context->len );
 
-      rc = ckm_aes_cbc_decrypt(cipher, out_len, out_data, out_data_len,
-                                ctx->mech.pParameter, key);
+      rc = ckm_aes_cbc_decrypt(tokdata, cipher, out_len, out_data, out_data_len,
+                               ctx->mech.pParameter, key);
 
       if (rc == CKR_OK) {
          *out_data_len = out_len;
@@ -771,7 +785,8 @@ aes_cbc_decrypt_update( SESSION           *sess,
 //
 //
 CK_RV
-aes_cbc_pad_encrypt_update( SESSION           *sess,
+aes_cbc_pad_encrypt_update( STDLL_TokData_t   *tokdata,
+			    SESSION           *sess,
                             CK_BBOOL           length_only,
                             ENCR_DECR_CONTEXT *ctx,
                             CK_BYTE           *in_data,
@@ -845,8 +860,8 @@ aes_cbc_pad_encrypt_update( SESSION           *sess,
       //
       // we don't do padding during the update
       //
-      rc = ckm_aes_cbc_encrypt(clear, out_len, out_data, out_data_len,
-                                ctx->mech.pParameter, key);
+      rc = ckm_aes_cbc_encrypt(tokdata, clear, out_len, out_data, out_data_len,
+                               ctx->mech.pParameter, key);
 
       if (rc == CKR_OK) {
          // the new init_v is the last encrypted data block
@@ -869,7 +884,8 @@ aes_cbc_pad_encrypt_update( SESSION           *sess,
 //
 //
 CK_RV
-aes_cbc_pad_decrypt_update( SESSION           *sess,
+aes_cbc_pad_decrypt_update( STDLL_TokData_t   *tokdata,
+			    SESSION           *sess,
                             CK_BBOOL           length_only,
                             ENCR_DECR_CONTEXT *ctx,
                             CK_BYTE           *in_data,
@@ -942,8 +958,8 @@ aes_cbc_pad_decrypt_update( SESSION           *sess,
       memcpy( cipher,                context->data, context->len );
       memcpy( cipher + context->len, in_data,       out_len - context->len );
 
-      rc = ckm_aes_cbc_decrypt(cipher, out_len, out_data, out_data_len,
-                                ctx->mech.pParameter, key);
+      rc = ckm_aes_cbc_decrypt(tokdata, cipher, out_len, out_data, out_data_len,
+                               ctx->mech.pParameter, key);
 
       if (rc == CKR_OK) {
          // the new init_v is the last input data block
@@ -964,7 +980,8 @@ aes_cbc_pad_decrypt_update( SESSION           *sess,
 //
 //
 CK_RV
-aes_ctr_encrypt_update( SESSION                *sess,
+aes_ctr_encrypt_update( STDLL_TokData_t		*tokdata,
+			SESSION                 *sess,
                         CK_BBOOL 		 length_only,
 			ENCR_DECR_CONTEXT 	*ctx,
                         CK_BYTE                 *in_data,
@@ -1018,7 +1035,7 @@ aes_ctr_encrypt_update( SESSION                *sess,
      memcpy ( clear,		     context->data, context->len);
      memcpy ( clear+context->len, in_data, out_len - context->len);
      aesctr = (CK_AES_CTR_PARAMS *)ctx->mech.pParameter;
-     rc = ckm_aes_ctr_encrypt(clear, out_len, out_data, out_data_len,
+     rc = ckm_aes_ctr_encrypt(tokdata, clear, out_len, out_data, out_data_len,
                                (CK_BYTE *)aesctr->cb,
 			       (CK_ULONG)aesctr->ulCounterBits, key);
      if (rc == CKR_OK){
@@ -1036,7 +1053,8 @@ aes_ctr_encrypt_update( SESSION                *sess,
 //
 //
 CK_RV
-aes_ctr_decrypt_update( SESSION                 *sess,
+aes_ctr_decrypt_update( STDLL_TokData_t		*tokdata,
+			SESSION                 *sess,
                         CK_BBOOL 		 length_only,
 			ENCR_DECR_CONTEXT 	*ctx,
                         CK_BYTE                 *in_data,
@@ -1089,7 +1107,7 @@ aes_ctr_decrypt_update( SESSION                 *sess,
      memcpy ( clear,		     context->data, context->len);
      memcpy ( clear+context->len, in_data, out_len - context->len);
      aesctr = (CK_AES_CTR_PARAMS *)ctx->mech.pParameter;
-     rc = ckm_aes_ctr_decrypt(clear, out_len, out_data, out_data_len,
+     rc = ckm_aes_ctr_decrypt(tokdata, clear, out_len, out_data, out_data_len,
                               (CK_BYTE *)aesctr->cb,
 			      (CK_ULONG)aesctr->ulCounterBits, key);
      if (rc == CKR_OK){
@@ -1107,7 +1125,8 @@ aes_ctr_decrypt_update( SESSION                 *sess,
 //
 //
 CK_RV
-aes_ecb_encrypt_final( SESSION           *sess,
+aes_ecb_encrypt_final( STDLL_TokData_t   *tokdata,
+		       SESSION           *sess,
                        CK_BBOOL           length_only,
                        ENCR_DECR_CONTEXT *ctx,
                        CK_BYTE           *out_data,
@@ -1142,7 +1161,8 @@ aes_ecb_encrypt_final( SESSION           *sess,
 //
 //
 CK_RV
-aes_ecb_decrypt_final( SESSION           *sess,
+aes_ecb_decrypt_final( STDLL_TokData_t   *tokdata,
+		       SESSION           *sess,
                        CK_BBOOL           length_only,
                        ENCR_DECR_CONTEXT *ctx,
                        CK_BYTE           *out_data,
@@ -1177,7 +1197,8 @@ aes_ecb_decrypt_final( SESSION           *sess,
 //
 //
 CK_RV
-aes_cbc_encrypt_final( SESSION           *sess,
+aes_cbc_encrypt_final( STDLL_TokData_t   *tokdata,
+		       SESSION           *sess,
                        CK_BBOOL           length_only,
                        ENCR_DECR_CONTEXT *ctx,
                        CK_BYTE           *out_data,
@@ -1212,7 +1233,8 @@ aes_cbc_encrypt_final( SESSION           *sess,
 //
 //
 CK_RV
-aes_cbc_decrypt_final( SESSION           *sess,
+aes_cbc_decrypt_final( STDLL_TokData_t   *tokdata,
+		       SESSION           *sess,
                        CK_BBOOL           length_only,
                        ENCR_DECR_CONTEXT *ctx,
                        CK_BYTE           *out_data,
@@ -1243,7 +1265,8 @@ aes_cbc_decrypt_final( SESSION           *sess,
 //
 //
 CK_RV
-aes_cbc_pad_encrypt_final( SESSION           *sess,
+aes_cbc_pad_encrypt_final( STDLL_TokData_t   *tokdata,
+			   SESSION           *sess,
                            CK_BBOOL           length_only,
                            ENCR_DECR_CONTEXT *ctx,
                            CK_BYTE           *out_data,
@@ -1291,8 +1314,8 @@ aes_cbc_pad_encrypt_final( SESSION           *sess,
                         context->len,
                         out_len );
 
-      rc = ckm_aes_cbc_encrypt(clear, out_len, out_data, out_data_len,
-                                ctx->mech.pParameter, key);
+      rc = ckm_aes_cbc_encrypt(tokdata, clear, out_len, out_data, out_data_len,
+                               ctx->mech.pParameter, key);
 
       return rc;
    }
@@ -1302,7 +1325,8 @@ aes_cbc_pad_encrypt_final( SESSION           *sess,
 //
 //
 CK_RV
-aes_cbc_pad_decrypt_final( SESSION           *sess,
+aes_cbc_pad_decrypt_final( STDLL_TokData_t   *tokdata,
+			   SESSION           *sess,
                            CK_BBOOL           length_only,
                            ENCR_DECR_CONTEXT *ctx,
                            CK_BYTE           *out_data,
@@ -1343,8 +1367,8 @@ aes_cbc_pad_decrypt_final( SESSION           *sess,
       return CKR_OK;
    }
    else {
-      rc = ckm_aes_cbc_decrypt(context->data, AES_BLOCK_SIZE, clear, &out_len,
-                                 ctx->mech.pParameter, key);
+      rc = ckm_aes_cbc_decrypt(tokdata, context->data, AES_BLOCK_SIZE, clear,
+			       &out_len, ctx->mech.pParameter, key);
 
       if (rc == CKR_OK) {
          strip_pkcs_padding( clear, out_len, &out_len );
@@ -1362,7 +1386,8 @@ aes_cbc_pad_decrypt_final( SESSION           *sess,
 //
 //
 CK_RV
-aes_ctr_encrypt_final( SESSION           *sess,
+aes_ctr_encrypt_final( STDLL_TokData_t   *tokdata,
+		       SESSION           *sess,
                        CK_BBOOL           length_only,
                        ENCR_DECR_CONTEXT *ctx,
                        CK_BYTE           *out_data,
@@ -1405,7 +1430,8 @@ aes_ctr_encrypt_final( SESSION           *sess,
 //
 //
 CK_RV
-aes_ctr_decrypt_final( SESSION           *sess,
+aes_ctr_decrypt_final( STDLL_TokData_t   *tokdata,
+		       SESSION           *sess,
                        CK_BBOOL           length_only,
                        ENCR_DECR_CONTEXT *ctx,
                        CK_BYTE           *out_data,
@@ -1445,7 +1471,8 @@ aes_ctr_decrypt_final( SESSION           *sess,
 }
 
 CK_RV
-aes_ofb_encrypt( SESSION           * sess,
+aes_ofb_encrypt( STDLL_TokData_t   * tokdata,
+		 SESSION           * sess,
                  CK_BBOOL            length_only,
                  ENCR_DECR_CONTEXT * ctx,
                  CK_BYTE           * in_data,
@@ -1477,8 +1504,8 @@ aes_ofb_encrypt( SESSION           * sess,
       return rc;
    }
 
-   rc = token_specific.t_aes_ofb(in_data, in_data_len, out_data,
-                              key_obj, ctx->mech.pParameter, 1);
+   rc = token_specific.t_aes_ofb(tokdata, in_data, in_data_len, out_data,
+				 key_obj, ctx->mech.pParameter, 1);
 
    if (rc != CKR_OK)
 	TRACE_DEVEL("Token specific aes ofb encrypt failed.\n");
@@ -1486,7 +1513,8 @@ aes_ofb_encrypt( SESSION           * sess,
 }
 
 CK_RV
-aes_ofb_encrypt_update( SESSION              * sess,
+aes_ofb_encrypt_update( STDLL_TokData_t      * tokdata,
+			SESSION              * sess,
                         CK_BBOOL               length_only,
                         ENCR_DECR_CONTEXT    * ctx,
                         CK_BYTE              * in_data,
@@ -1547,8 +1575,8 @@ aes_ofb_encrypt_update( SESSION              * sess,
       memcpy( cipher,                    context->data, context->len );
       memcpy( cipher + context->len, in_data, out_len - context->len );
 
-      rc = token_specific.t_aes_ofb(cipher, out_len, out_data,
-                              key_obj, ctx->mech.pParameter, 1);
+      rc = token_specific.t_aes_ofb(tokdata, cipher, out_len, out_data,
+				    key_obj, ctx->mech.pParameter, 1);
 
       if (rc == CKR_OK) {
          *out_data_len = out_len;
@@ -1565,7 +1593,8 @@ aes_ofb_encrypt_update( SESSION              * sess,
 }
 
 CK_RV
-aes_ofb_encrypt_final( SESSION           *sess,
+aes_ofb_encrypt_final( STDLL_TokData_t   *tokdata,
+		       SESSION           *sess,
                        CK_BBOOL           length_only,
                        ENCR_DECR_CONTEXT *ctx,
                        CK_BYTE           *out_data,
@@ -1603,8 +1632,8 @@ aes_ofb_encrypt_final( SESSION           *sess,
          return rc;
       }
 
-      rc = token_specific.t_aes_ofb(context->data, context->len, out_data,
-                              key_obj, ctx->mech.pParameter, 1);
+      rc = token_specific.t_aes_ofb(tokdata, context->data, context->len,
+				    out_data, key_obj, ctx->mech.pParameter, 1);
 
       if (rc != CKR_OK)
 	 TRACE_DEVEL("Token specific aes ofb encrypt failed.\n");
@@ -1615,7 +1644,8 @@ aes_ofb_encrypt_final( SESSION           *sess,
 }
 
 CK_RV
-aes_ofb_decrypt( SESSION           * sess,
+aes_ofb_decrypt( STDLL_TokData_t   *tokdata,
+		 SESSION           * sess,
                  CK_BBOOL            length_only,
                  ENCR_DECR_CONTEXT * ctx,
                  CK_BYTE           * in_data,
@@ -1647,8 +1677,8 @@ aes_ofb_decrypt( SESSION           * sess,
       return rc;
    }
 
-   rc = token_specific.t_aes_ofb(in_data, in_data_len, out_data,
-                              key_obj, ctx->mech.pParameter, 0);
+   rc = token_specific.t_aes_ofb(tokdata, in_data, in_data_len, out_data,
+				 key_obj, ctx->mech.pParameter, 0);
 
    if (rc != CKR_OK)
 	TRACE_DEVEL("Token specific aes ofb decrypt failed.\n");
@@ -1656,7 +1686,8 @@ aes_ofb_decrypt( SESSION           * sess,
 }
 
 CK_RV
-aes_ofb_decrypt_update( SESSION              * sess,
+aes_ofb_decrypt_update( STDLL_TokData_t      * tokdata,
+			SESSION              * sess,
                         CK_BBOOL               length_only,
                         ENCR_DECR_CONTEXT    * ctx,
                         CK_BYTE              * in_data,
@@ -1718,8 +1749,8 @@ aes_ofb_decrypt_update( SESSION              * sess,
       memcpy( cipher,                    context->data, context->len );
       memcpy( cipher + context->len, in_data, out_len - context->len );
 
-      rc = token_specific.t_aes_ofb(cipher, out_len, out_data,
-                              key_obj, ctx->mech.pParameter, 0);
+      rc = token_specific.t_aes_ofb(tokdata, cipher, out_len, out_data,
+				    key_obj, ctx->mech.pParameter, 0);
 
       if (rc == CKR_OK) {
          *out_data_len = out_len;
@@ -1736,7 +1767,8 @@ aes_ofb_decrypt_update( SESSION              * sess,
 }
 
 CK_RV
-aes_ofb_decrypt_final( SESSION           *sess,
+aes_ofb_decrypt_final( STDLL_TokData_t   *tokdata,
+		       SESSION           *sess,
                        CK_BBOOL           length_only,
                        ENCR_DECR_CONTEXT *ctx,
                        CK_BYTE           *out_data,
@@ -1777,8 +1809,8 @@ aes_ofb_decrypt_final( SESSION           *sess,
          return rc;
       }
 
-      rc = token_specific.t_aes_ofb(context->data, context->len, out_data,
-                                           key_obj, ctx->mech.pParameter, 0);
+      rc = token_specific.t_aes_ofb(tokdata, context->data, context->len,
+				    out_data, key_obj, ctx->mech.pParameter, 0);
 
       if (rc != CKR_OK)
          TRACE_DEVEL("Token specific aes ofb decrypt failed.\n");
@@ -1789,7 +1821,8 @@ aes_ofb_decrypt_final( SESSION           *sess,
 }
 
 CK_RV
-aes_cfb_encrypt( SESSION           * sess,
+aes_cfb_encrypt( STDLL_TokData_t   * tokdata,
+		 SESSION           * sess,
                  CK_BBOOL            length_only,
                  ENCR_DECR_CONTEXT * ctx,
                  CK_BYTE           * in_data,
@@ -1822,8 +1855,8 @@ aes_cfb_encrypt( SESSION           * sess,
       return rc;
    }
 
-   rc = token_specific.t_aes_cfb(in_data, in_data_len, out_data,
-                     key_obj, ctx->mech.pParameter, cfb_len, 1);
+   rc = token_specific.t_aes_cfb(tokdata, in_data, in_data_len, out_data,
+				 key_obj, ctx->mech.pParameter, cfb_len, 1);
 
    if (rc != CKR_OK)
       TRACE_DEVEL("Token specific aes cfb encrypt failed.\n");
@@ -1831,7 +1864,8 @@ aes_cfb_encrypt( SESSION           * sess,
 }
 
 CK_RV
-aes_cfb_encrypt_update( SESSION              * sess,
+aes_cfb_encrypt_update( STDLL_TokData_t      * tokdata,
+			SESSION              * sess,
                         CK_BBOOL               length_only,
                         ENCR_DECR_CONTEXT    * ctx,
                         CK_BYTE              * in_data,
@@ -1893,8 +1927,8 @@ aes_cfb_encrypt_update( SESSION              * sess,
       memcpy( cipher,                    context->data, context->len );
       memcpy( cipher + context->len, in_data, out_len - context->len );
 
-      rc = token_specific.t_aes_cfb(cipher, out_len, out_data,
-                              key_obj, ctx->mech.pParameter, cfb_len, 1);
+      rc = token_specific.t_aes_cfb(tokdata, cipher, out_len, out_data,
+				    key_obj, ctx->mech.pParameter, cfb_len, 1);
 
       if (rc == CKR_OK) {
          *out_data_len = out_len;
@@ -1911,7 +1945,8 @@ aes_cfb_encrypt_update( SESSION              * sess,
 }
 
 CK_RV
-aes_cfb_encrypt_final( SESSION           *sess,
+aes_cfb_encrypt_final( STDLL_TokData_t   *tokdata,
+		       SESSION           *sess,
                        CK_BBOOL           length_only,
                        ENCR_DECR_CONTEXT *ctx,
                        CK_BYTE           *out_data,
@@ -1950,8 +1985,9 @@ aes_cfb_encrypt_final( SESSION           *sess,
          return rc;
       }
 
-      rc = token_specific.t_aes_cfb(context->data, context->len, out_data,
-                              key_obj, ctx->mech.pParameter, cfb_len, 1);
+      rc = token_specific.t_aes_cfb(tokdata, context->data, context->len,
+				    out_data, key_obj, ctx->mech.pParameter,
+				    cfb_len, 1);
 
       if (rc != CKR_OK)
          TRACE_DEVEL("Token specific aes cfb encrypt failed.\n");
@@ -1962,7 +1998,8 @@ aes_cfb_encrypt_final( SESSION           *sess,
 }
 
 CK_RV
-aes_cfb_decrypt( SESSION           * sess,
+aes_cfb_decrypt( STDLL_TokData_t   * tokdata,
+		 SESSION           * sess,
                  CK_BBOOL            length_only,
                  ENCR_DECR_CONTEXT * ctx,
                  CK_BYTE           * in_data,
@@ -1995,8 +2032,8 @@ aes_cfb_decrypt( SESSION           * sess,
       return rc;
    }
 
-   rc = token_specific.t_aes_cfb(in_data, in_data_len, out_data,
-                     key_obj, ctx->mech.pParameter, cfb_len, 0);
+   rc = token_specific.t_aes_cfb(tokdata, in_data, in_data_len, out_data,
+				 key_obj, ctx->mech.pParameter, cfb_len, 0);
 
    if (rc != CKR_OK)
       TRACE_DEVEL("Token specific aes cfb decrypt failed.\n");
@@ -2004,7 +2041,8 @@ aes_cfb_decrypt( SESSION           * sess,
 }
 
 CK_RV
-aes_cfb_decrypt_update( SESSION              * sess,
+aes_cfb_decrypt_update( STDLL_TokData_t      * tokdata,
+			SESSION              * sess,
                         CK_BBOOL               length_only,
                         ENCR_DECR_CONTEXT    * ctx,
                         CK_BYTE              * in_data,
@@ -2066,8 +2104,8 @@ aes_cfb_decrypt_update( SESSION              * sess,
       memcpy( cipher,                    context->data, context->len );
       memcpy( cipher + context->len, in_data, out_len - context->len );
 
-      rc = token_specific.t_aes_cfb(cipher, out_len, out_data,
-                              key_obj, ctx->mech.pParameter, cfb_len, 0);
+      rc = token_specific.t_aes_cfb(tokdata, cipher, out_len, out_data,
+				    key_obj, ctx->mech.pParameter, cfb_len, 0);
 
       if (rc == CKR_OK) {
          *out_data_len = out_len;
@@ -2085,7 +2123,8 @@ aes_cfb_decrypt_update( SESSION              * sess,
 }
 
 CK_RV
-aes_cfb_decrypt_final( SESSION           *sess,
+aes_cfb_decrypt_final( STDLL_TokData_t   *tokdata,
+		       SESSION           *sess,
                        CK_BBOOL           length_only,
                        ENCR_DECR_CONTEXT *ctx,
                        CK_BYTE           *out_data,
@@ -2124,8 +2163,9 @@ aes_cfb_decrypt_final( SESSION           *sess,
          return rc;
       }
 
-      rc = token_specific.t_aes_cfb(context->data, context->len, out_data,
-                              key_obj, ctx->mech.pParameter, cfb_len, 0);
+      rc = token_specific.t_aes_cfb(tokdata, context->data, context->len,
+				    out_data, key_obj, ctx->mech.pParameter,
+				    cfb_len, 0);
 
       if (rc != CKR_OK)
          TRACE_DEVEL("Token specific aes cfb decrypt failed.\n");
@@ -2137,7 +2177,8 @@ aes_cfb_decrypt_final( SESSION           *sess,
 
 
 CK_RV
-aes_mac_sign( SESSION              * sess,
+aes_mac_sign( STDLL_TokData_t      * tokdata,
+	      SESSION              * sess,
               CK_BBOOL               length_only,
               SIGN_VERIFY_CONTEXT  * ctx,
               CK_BYTE              * in_data,
@@ -2165,11 +2206,12 @@ aes_mac_sign( SESSION              * sess,
    }
 
  if ( (in_data_len % AES_BLOCK_SIZE) != 0) {
-    rc = aes_mac_sign_update(sess, ctx, in_data, in_data_len);
+    rc = aes_mac_sign_update(tokdata, sess, ctx, in_data, in_data_len);
     if (rc != CKR_OK)
        return rc;
 
-    rc = aes_mac_sign_final(sess, length_only, ctx, out_data, out_data_len);
+    rc = aes_mac_sign_final(tokdata, sess, length_only, ctx, out_data,
+			    out_data_len);
 
     return rc;
  }
@@ -2187,8 +2229,9 @@ aes_mac_sign( SESSION              * sess,
       return rc;
    }
 
-   rc = token_specific.t_aes_mac(in_data, in_data_len,
-        key_obj, ((AES_DATA_CONTEXT *)ctx->context)->iv);
+   rc = token_specific.t_aes_mac(tokdata, in_data, in_data_len,
+				 key_obj,
+				 ((AES_DATA_CONTEXT *)ctx->context)->iv);
    if (rc != CKR_OK)
       TRACE_DEVEL("Token specific aes mac failed.\n");
 
@@ -2200,7 +2243,8 @@ aes_mac_sign( SESSION              * sess,
 }
 
 CK_RV
-aes_mac_sign_update ( SESSION              * sess,
+aes_mac_sign_update ( STDLL_TokData_t      * tokdata,
+		      SESSION              * sess,
                       SIGN_VERIFY_CONTEXT  * ctx,
                       CK_BYTE              * in_data,
                       CK_ULONG               in_data_len )
@@ -2245,7 +2289,7 @@ aes_mac_sign_update ( SESSION              * sess,
       memcpy( cipher,                context->data, context->len );
       memcpy( cipher + context->len, in_data,       out_len - context->len );
 
-      rc = token_specific.t_aes_mac(cipher, out_len, key_obj, context->iv);
+      rc = token_specific.t_aes_mac(tokdata, cipher, out_len, key_obj, context->iv);
 
       if (rc == CKR_OK) {
          // copy the remaining 'new' input data to the context buffer
@@ -2261,7 +2305,8 @@ aes_mac_sign_update ( SESSION              * sess,
 }
 
 CK_RV
-aes_mac_sign_final( SESSION              * sess,
+aes_mac_sign_final( STDLL_TokData_t      * tokdata,
+		    SESSION              * sess,
                     CK_BBOOL               length_only,
                     SIGN_VERIFY_CONTEXT  * ctx,
                     CK_BYTE              * out_data,
@@ -2311,7 +2356,8 @@ aes_mac_sign_final( SESSION              * sess,
          return rc;
       }
 
-      rc = token_specific.t_aes_mac(context->data, AES_BLOCK_SIZE, key_obj, context->iv);
+      rc = token_specific.t_aes_mac(tokdata, context->data, AES_BLOCK_SIZE,
+				    key_obj, context->iv);
       if (rc != CKR_OK) {
          TRACE_DEVEL("Token Specific aes mac failed.\n");
          return rc;
@@ -2324,7 +2370,8 @@ aes_mac_sign_final( SESSION              * sess,
 }
 
 CK_RV
-aes_mac_verify( SESSION              * sess,
+aes_mac_verify( STDLL_TokData_t      * tokdata,
+		SESSION              * sess,
                 SIGN_VERIFY_CONTEXT  * ctx,
                 CK_BYTE              * in_data,
                 CK_ULONG               in_data_len,
@@ -2341,11 +2388,11 @@ aes_mac_verify( SESSION              * sess,
    }
 
  if ( (in_data_len % AES_BLOCK_SIZE) != 0) {
-    rc = aes_mac_verify_update(sess, ctx, in_data, in_data_len);
+    rc = aes_mac_verify_update(tokdata, sess, ctx, in_data, in_data_len);
     if (rc != CKR_OK)
        return rc;
 
-    rc = aes_mac_verify_final(sess, ctx, out_data, out_data_len);
+    rc = aes_mac_verify_final(tokdata, sess, ctx, out_data, out_data_len);
     return rc;
  }
  else {
@@ -2366,8 +2413,9 @@ aes_mac_verify( SESSION              * sess,
       return rc;
    }
 
-   rc = token_specific.t_aes_mac(in_data, in_data_len,
-        key_obj, ((AES_DATA_CONTEXT *)ctx->context)->iv);
+   rc = token_specific.t_aes_mac(tokdata, in_data, in_data_len,
+				 key_obj,
+				 ((AES_DATA_CONTEXT *)ctx->context)->iv);
 
    if (rc != CKR_OK)
       TRACE_DEVEL("Token specific aes mac failed.\n");
@@ -2382,7 +2430,8 @@ aes_mac_verify( SESSION              * sess,
 
 
 CK_RV
-aes_mac_verify_update( SESSION              * sess,
+aes_mac_verify_update( STDLL_TokData_t      * tokdata,
+		       SESSION              * sess,
                        SIGN_VERIFY_CONTEXT  * ctx,
                        CK_BYTE              * in_data,
                        CK_ULONG               in_data_len)
@@ -2427,7 +2476,8 @@ aes_mac_verify_update( SESSION              * sess,
       memcpy( cipher,                context->data, context->len );
       memcpy( cipher + context->len, in_data,       out_len - context->len );
 
-      rc = token_specific.t_aes_mac(cipher, out_len, key_obj, context->iv);
+      rc = token_specific.t_aes_mac(tokdata, cipher, out_len, key_obj,
+				    context->iv);
       if (rc == CKR_OK) {
          // copy the remaining 'new' input data to the context buffer
          if (remain != 0)
@@ -2443,7 +2493,8 @@ aes_mac_verify_update( SESSION              * sess,
 }
 
 CK_RV
-aes_mac_verify_final( SESSION              * sess,
+aes_mac_verify_final( STDLL_TokData_t      * tokdata,
+		      SESSION              * sess,
                       SIGN_VERIFY_CONTEXT  * ctx,
                       CK_BYTE              * signature,
                       CK_ULONG               signature_len)
@@ -2485,7 +2536,8 @@ aes_mac_verify_final( SESSION              * sess,
 	 TRACE_ERROR("Failed to find specified object.\n");
          return rc;
       }
-      rc = token_specific.t_aes_mac(context->data, AES_BLOCK_SIZE, key_obj, context->iv);
+      rc = token_specific.t_aes_mac(tokdata, context->data, AES_BLOCK_SIZE,
+				    key_obj, context->iv);
       if (rc != CKR_OK) {
          TRACE_DEVEL("Token specific aes mac failed.\n");
          return rc;
@@ -2499,7 +2551,8 @@ aes_mac_verify_final( SESSION              * sess,
       return CKR_SIGNATURE_INVALID;
 }
 
-CK_RV aes_gcm_init(SESSION *sess, ENCR_DECR_CONTEXT *ctx, CK_MECHANISM *mech,
+CK_RV aes_gcm_init(STDLL_TokData_t *tokdata, SESSION *sess,
+		   ENCR_DECR_CONTEXT *ctx, CK_MECHANISM *mech,
 		   CK_OBJECT_HANDLE key, CK_BYTE direction)
 {
 	if (token_specific.t_aes_gcm_init == NULL) {
@@ -2507,10 +2560,12 @@ CK_RV aes_gcm_init(SESSION *sess, ENCR_DECR_CONTEXT *ctx, CK_MECHANISM *mech,
 		return CKR_MECHANISM_INVALID;
 	}
 
-	return token_specific.t_aes_gcm_init(sess, ctx, mech, key, direction);
+	return token_specific.t_aes_gcm_init(tokdata, sess, ctx, mech, key,
+					     direction);
 }
 
-CK_RV aes_gcm_encrypt(SESSION *sess, CK_BBOOL length_only,
+CK_RV aes_gcm_encrypt(STDLL_TokData_t *tokdata, SESSION *sess,
+		      CK_BBOOL length_only,
 		      ENCR_DECR_CONTEXT	*ctx, CK_BYTE *in_data,
 		      CK_ULONG in_data_len, CK_BYTE *out_data,
 		      CK_ULONG *out_data_len)
@@ -2544,8 +2599,8 @@ CK_RV aes_gcm_encrypt(SESSION *sess, CK_BBOOL length_only,
 		return CKR_MECHANISM_INVALID;
 	}
 
-	rc = token_specific.t_aes_gcm(sess, ctx , in_data, in_data_len,
-				      out_data, out_data_len, 1);
+	rc = token_specific.t_aes_gcm(tokdata, sess, ctx , in_data,
+				      in_data_len, out_data, out_data_len, 1);
 	if (rc != CKR_OK)
 		TRACE_ERROR("Token specific aes gcm encrypt failed:  %02lx\n",
 			    rc);
@@ -2553,7 +2608,8 @@ CK_RV aes_gcm_encrypt(SESSION *sess, CK_BBOOL length_only,
 
 }
 
-CK_RV aes_gcm_encrypt_update(SESSION *sess, CK_BBOOL length_only,
+CK_RV aes_gcm_encrypt_update(STDLL_TokData_t *tokdata, SESSION *sess,
+			     CK_BBOOL length_only,
 			     ENCR_DECR_CONTEXT *ctx, CK_BYTE *in_data,
 			     CK_ULONG in_data_len, CK_BYTE *out_data,
 			     CK_ULONG *out_data_len)
@@ -2589,17 +2645,18 @@ CK_RV aes_gcm_encrypt_update(SESSION *sess, CK_BBOOL length_only,
 		return CKR_MECHANISM_INVALID;
 	}
 
-	rc = token_specific.t_aes_gcm_update(sess, ctx, in_data, in_data_len,
-					     out_data, out_data_len, 1);
+	rc = token_specific.t_aes_gcm_update(tokdata, sess, ctx, in_data,
+					     in_data_len, out_data,
+					     out_data_len, 1);
 	if (rc != CKR_OK)
 		TRACE_ERROR("Token specific AES GCM EncryptUpdate failed: "
 			    "%02lx\n", rc);
 	return rc;
 }
 
-CK_RV aes_gcm_encrypt_final(SESSION *sess, CK_BBOOL length_only,
-			    ENCR_DECR_CONTEXT *ctx, CK_BYTE *out_data,
-			    CK_ULONG *out_data_len)
+CK_RV aes_gcm_encrypt_final(STDLL_TokData_t *tokdata, SESSION *sess,
+			    CK_BBOOL length_only, ENCR_DECR_CONTEXT *ctx,
+			    CK_BYTE *out_data, CK_ULONG *out_data_len)
 {
 	CK_GCM_PARAMS *aesgcm = NULL;
 	AES_GCM_CONTEXT	*context = NULL;
@@ -2635,14 +2692,16 @@ CK_RV aes_gcm_encrypt_final(SESSION *sess, CK_BBOOL length_only,
 		return CKR_MECHANISM_INVALID;
 	}
 
-	rc = token_specific.t_aes_gcm_final(sess, ctx, out_data, out_data_len, 1);
+	rc = token_specific.t_aes_gcm_final(tokdata, sess, ctx, out_data,
+					    out_data_len, 1);
 	if (rc != CKR_OK)
 		TRACE_ERROR("Token specific AES GCM EncryptFinal failed: "
 			    "%02lx\n", rc);
 	return rc;
 }
 
-CK_RV aes_gcm_decrypt(SESSION *sess, CK_BBOOL length_only,
+CK_RV aes_gcm_decrypt(STDLL_TokData_t *tokdata, SESSION *sess,
+		      CK_BBOOL length_only,
 		      ENCR_DECR_CONTEXT	*ctx, CK_BYTE *in_data,
 		      CK_ULONG in_data_len, CK_BYTE *out_data,
 		      CK_ULONG *out_data_len)
@@ -2675,15 +2734,16 @@ CK_RV aes_gcm_decrypt(SESSION *sess, CK_BBOOL length_only,
 		return CKR_MECHANISM_INVALID;
 	}
 
-	rc = token_specific.t_aes_gcm(sess, ctx, in_data, in_data_len, out_data,
-				      out_data_len, 0);
+	rc = token_specific.t_aes_gcm(tokdata, sess, ctx, in_data, in_data_len,
+				      out_data, out_data_len, 0);
 	if (rc != CKR_OK)
 		TRACE_ERROR("Token specific aes gcm decrypt failed.\n");
 
 	return rc;
 }
 
-CK_RV aes_gcm_decrypt_update(SESSION *sess, CK_BBOOL length_only,
+CK_RV aes_gcm_decrypt_update(STDLL_TokData_t *tokdata, SESSION *sess,
+			     CK_BBOOL length_only,
 			     ENCR_DECR_CONTEXT *ctx, CK_BYTE *in_data,
 			     CK_ULONG in_data_len, CK_BYTE *out_data,
 			     CK_ULONG *out_data_len)
@@ -2729,15 +2789,17 @@ CK_RV aes_gcm_decrypt_update(SESSION *sess, CK_BBOOL length_only,
 		return CKR_MECHANISM_INVALID;
 	}
 
-	rc = token_specific.t_aes_gcm_update(sess, ctx, in_data, in_data_len,
-					     out_data, out_data_len, 0 );
+	rc = token_specific.t_aes_gcm_update(tokdata, sess, ctx, in_data,
+					     in_data_len, out_data,
+					     out_data_len, 0 );
 	if (rc != CKR_OK)
 		TRACE_ERROR("Token specific AES GCM DecryptUpdate "
 			    "failed: %02lx\n", rc);
 	return rc;
 }
 
-CK_RV aes_gcm_decrypt_final(SESSION *sess, CK_BBOOL length_only,
+CK_RV aes_gcm_decrypt_final(STDLL_TokData_t *tokdata, SESSION *sess,
+			    CK_BBOOL length_only,
 			    ENCR_DECR_CONTEXT *ctx, CK_BYTE *out_data,
 			    CK_ULONG *out_data_len)
 {
@@ -2765,7 +2827,8 @@ CK_RV aes_gcm_decrypt_final(SESSION *sess, CK_BBOOL length_only,
 		return CKR_MECHANISM_INVALID;
 	}
 
-	rc = token_specific.t_aes_gcm_final(sess, ctx, out_data, out_data_len, 0);
+	rc = token_specific.t_aes_gcm_final(tokdata, sess, ctx, out_data,
+					    out_data_len, 0);
 	if (rc != CKR_OK)
 		TRACE_ERROR("Token specific AES GCM DecryptFinal failed: "
 			    "%02lx\n", rc);
@@ -2781,7 +2844,7 @@ CK_RV aes_gcm_decrypt_final(SESSION *sess, CK_BBOOL length_only,
 //
 //
 CK_RV
-ckm_aes_key_gen( TEMPLATE *tmpl )
+ckm_aes_key_gen( STDLL_TokData_t *tokdata, TEMPLATE *tmpl )
 {
 
    CK_ATTRIBUTE     * opaque_attr   = NULL;
@@ -2824,7 +2887,7 @@ ckm_aes_key_gen( TEMPLATE *tmpl )
       return CKR_HOST_MEMORY;
    }
 
-   rc = token_specific.t_aes_key_gen(aes_key, token_keysize, key_size);
+   rc = token_specific.t_aes_key_gen(tokdata, aes_key, token_keysize, key_size);
 
    if (rc != CKR_OK)
       goto err;
@@ -2903,7 +2966,8 @@ err:
 //
 //
 CK_RV
-ckm_aes_ecb_encrypt( CK_BYTE     * in_data,
+ckm_aes_ecb_encrypt( STDLL_TokData_t * tokdata,
+		     CK_BYTE     * in_data,
                      CK_ULONG      in_data_len,
                      CK_BYTE     * out_data,
                      CK_ULONG    * out_data_len,
@@ -2925,7 +2989,7 @@ ckm_aes_ecb_encrypt( CK_BYTE     * in_data,
       return CKR_MECHANISM_INVALID;
    }
 
-   rc = token_specific.t_aes_ecb(in_data,in_data_len,
+   rc = token_specific.t_aes_ecb(tokdata, in_data,in_data_len,
 				 out_data,out_data_len, key, 1);
 
    if (rc != CKR_OK)
@@ -2936,7 +3000,8 @@ ckm_aes_ecb_encrypt( CK_BYTE     * in_data,
 //
 //
 CK_RV
-ckm_aes_ecb_decrypt( CK_BYTE     * in_data,
+ckm_aes_ecb_decrypt( STDLL_TokData_t * tokdata,
+		     CK_BYTE     * in_data,
                      CK_ULONG      in_data_len,
                      CK_BYTE     * out_data,
                      CK_ULONG    * out_data_len,
@@ -2959,8 +3024,8 @@ ckm_aes_ecb_decrypt( CK_BYTE     * in_data,
       return CKR_MECHANISM_INVALID;
    }
 
-   rc = token_specific.t_aes_ecb(in_data,in_data_len,
-		      		 out_data,out_data_len, key, 0);
+   rc = token_specific.t_aes_ecb(tokdata, in_data,in_data_len,
+				 out_data,out_data_len, key, 0);
 
    if (rc != CKR_OK)
       TRACE_DEVEL("token specific aes ecb decrypt failed.\n");
@@ -2972,7 +3037,8 @@ ckm_aes_ecb_decrypt( CK_BYTE     * in_data,
 //
 //
 CK_RV
-ckm_aes_cbc_encrypt( CK_BYTE     * in_data,
+ckm_aes_cbc_encrypt( STDLL_TokData_t * tokdata,
+		     CK_BYTE     * in_data,
                      CK_ULONG      in_data_len,
                      CK_BYTE     * out_data,
                      CK_ULONG    * out_data_len,
@@ -2996,8 +3062,8 @@ ckm_aes_cbc_encrypt( CK_BYTE     * in_data,
       return CKR_MECHANISM_INVALID;
    }
 
-   rc = token_specific.t_aes_cbc(in_data, in_data_len,
-		      		 out_data,out_data_len, key, init_v, 1);
+   rc = token_specific.t_aes_cbc(tokdata, in_data, in_data_len,
+				 out_data,out_data_len, key, init_v, 1);
 
    if (rc != CKR_OK)
       TRACE_DEVEL("Token specific aes cbc encrypt failed.\n");
@@ -3008,7 +3074,8 @@ ckm_aes_cbc_encrypt( CK_BYTE     * in_data,
 //
 //
 CK_RV
-ckm_aes_cbc_decrypt( CK_BYTE     * in_data,
+ckm_aes_cbc_decrypt( STDLL_TokData_t * tokdata,
+		     CK_BYTE     * in_data,
                      CK_ULONG      in_data_len,
                      CK_BYTE     * out_data,
                      CK_ULONG    * out_data_len,
@@ -3031,8 +3098,8 @@ ckm_aes_cbc_decrypt( CK_BYTE     * in_data,
       return CKR_MECHANISM_INVALID;
    }
 
-   rc = token_specific.t_aes_cbc(in_data, in_data_len,
-		      		 out_data, out_data_len, key, init_v,0);
+   rc = token_specific.t_aes_cbc(tokdata, in_data, in_data_len,
+				 out_data, out_data_len, key, init_v,0);
 
    if (rc != CKR_OK)
       TRACE_DEVEL("Token specific aes cbc decrypt failed.\n");
@@ -3041,7 +3108,8 @@ ckm_aes_cbc_decrypt( CK_BYTE     * in_data,
 //
 //
 CK_RV
-ckm_aes_ctr_encrypt( CK_BYTE    *in_data,
+ckm_aes_ctr_encrypt( STDLL_TokData_t * tokdata,
+		     CK_BYTE    *in_data,
                      CK_ULONG    in_data_len,
                      CK_BYTE    *out_data,
                      CK_ULONG 	*out_data_len,
@@ -3069,7 +3137,7 @@ ckm_aes_ctr_encrypt( CK_BYTE    *in_data,
       return CKR_MECHANISM_INVALID;
    }
 
-   rc = token_specific.t_aes_ctr(in_data, in_data_len,
+   rc = token_specific.t_aes_ctr(tokdata, in_data, in_data_len,
                                  out_data, out_data_len, key,
 				 counterblock, counter_width, 1);
    if (rc != CKR_OK)
@@ -3079,7 +3147,8 @@ ckm_aes_ctr_encrypt( CK_BYTE    *in_data,
 //
 //
 CK_RV
-ckm_aes_ctr_decrypt( CK_BYTE       *in_data,
+ckm_aes_ctr_decrypt( STDLL_TokData_t * tokdata,
+		     CK_BYTE       *in_data,
                      CK_ULONG       in_data_len,
                      CK_BYTE       *out_data,
                      CK_ULONG      *out_data_len,
@@ -3107,8 +3176,8 @@ ckm_aes_ctr_decrypt( CK_BYTE       *in_data,
       return CKR_MECHANISM_INVALID;
    }
 
-   rc = token_specific.t_aes_ctr(in_data, in_data_len,
-                                 out_data,out_data_len, key,
+   rc = token_specific.t_aes_ctr(tokdata, in_data, in_data_len,
+				 out_data,out_data_len, key,
 				 counterblock, counter_width, 0);
    if (rc != CKR_OK)
       TRACE_ERROR("Token specific aes ctr decrypt failed.\n");
@@ -3117,7 +3186,8 @@ ckm_aes_ctr_decrypt( CK_BYTE       *in_data,
 //
 //
 CK_RV
-ckm_aes_wrap_format( CK_BBOOL    length_only,
+ckm_aes_wrap_format( STDLL_TokData_t * tokdata,
+		     CK_BBOOL    length_only,
                      CK_BYTE  ** data,
                      CK_ULONG  * data_len )
 {

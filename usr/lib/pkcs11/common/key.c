@@ -865,7 +865,7 @@ secret_key_unwrap( TEMPLATE *tmpl,
          break;
 
       case CKK_AES:
-	 rc = aes_unwrap( tmpl, data, data_len, fromend, isopaque );
+	 rc = aes_unwrap( tokdata, tmpl, data, data_len, fromend, isopaque );
 	 break;
 
       case CKK_GENERIC_SECRET:
@@ -5102,7 +5102,8 @@ aes_check_required_attributes( TEMPLATE *tmpl, CK_ULONG mode )
 //
 //
 CK_RV
-aes_validate_attribute( TEMPLATE *tmpl, CK_ATTRIBUTE *attr, CK_ULONG mode )
+aes_validate_attribute( STDLL_TokData_t *tokdata, TEMPLATE *tmpl,
+			CK_ATTRIBUTE *attr, CK_ULONG mode )
 {
    CK_ULONG    val;
 
@@ -5191,7 +5192,8 @@ aes_wrap_get_data( TEMPLATE   * tmpl,
 //
 //
 CK_RV
-aes_unwrap( TEMPLATE *tmpl,
+aes_unwrap( STDLL_TokData_t *tokdata,
+	    TEMPLATE *tmpl,
             CK_BYTE  *data,
             CK_ULONG  data_len,
             CK_BBOOL  fromend,

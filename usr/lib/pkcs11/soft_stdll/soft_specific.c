@@ -1563,13 +1563,15 @@ error:
 
 
 CK_RV
-token_specific_aes_key_gen( CK_BYTE *key, CK_ULONG len, CK_ULONG keysize )
+token_specific_aes_key_gen( STDLL_TokData_t *tokdata, CK_BYTE *key,
+			    CK_ULONG len, CK_ULONG keysize )
 {
 	return rng_generate(key, len);
 }
 
 CK_RV
-token_specific_aes_ecb(	CK_BYTE 	*in_data,
+token_specific_aes_ecb(	STDLL_TokData_t *tokdata,
+			CK_BYTE 	*in_data,
 			CK_ULONG 	in_data_len,
 			CK_BYTE 	*out_data,
 			CK_ULONG	*out_data_len,
@@ -1615,7 +1617,8 @@ token_specific_aes_ecb(	CK_BYTE 	*in_data,
 }
 
 CK_RV
-token_specific_aes_cbc(	CK_BYTE		*in_data,
+token_specific_aes_cbc(	STDLL_TokData_t *tokdata,
+			CK_BYTE		*in_data,
 			CK_ULONG 	in_data_len,
 			CK_BYTE 	*out_data,
 			CK_ULONG	*out_data_len,

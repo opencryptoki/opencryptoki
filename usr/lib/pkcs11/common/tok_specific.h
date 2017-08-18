@@ -259,12 +259,14 @@ CK_RV token_specific_generic_secret_key_gen(TEMPLATE *template);
 
 #ifndef NOAES
 CK_RV
-token_specific_aes_key_gen( CK_BYTE *,
+token_specific_aes_key_gen( STDLL_TokData_t *,
+			    CK_BYTE *,
                             CK_ULONG,
 			    CK_ULONG );
 
 CK_RV
-token_specific_aes_ecb( CK_BYTE  *,
+token_specific_aes_ecb( STDLL_TokData_t *,
+			CK_BYTE  *,
                         CK_ULONG  ,
                         CK_BYTE  *,
                         CK_ULONG *,
@@ -272,7 +274,8 @@ token_specific_aes_ecb( CK_BYTE  *,
                         CK_BYTE     );
 
 CK_RV
-token_specific_aes_cbc( CK_BYTE  *,
+token_specific_aes_cbc( STDLL_TokData_t *,
+			CK_BYTE  *,
                         CK_ULONG  ,
                         CK_BYTE  *,
                         CK_ULONG *,
@@ -281,7 +284,8 @@ token_specific_aes_cbc( CK_BYTE  *,
                         CK_BYTE     );
 
 CK_RV
-token_specific_aes_ctr( CK_BYTE  *,
+token_specific_aes_ctr( STDLL_TokData_t *,
+			CK_BYTE  *,
                         CK_ULONG  ,
                         CK_BYTE  *,
                         CK_ULONG *,
@@ -290,20 +294,24 @@ token_specific_aes_ctr( CK_BYTE  *,
 			CK_ULONG  ,
                         CK_BYTE     );
 
-CK_RV token_specific_aes_gcm_init(SESSION *, ENCR_DECR_CONTEXT *,
-				  CK_MECHANISM *, CK_OBJECT_HANDLE, CK_BYTE);
+CK_RV token_specific_aes_gcm_init(STDLL_TokData_t *, SESSION *,
+				  ENCR_DECR_CONTEXT *, CK_MECHANISM *,
+				  CK_OBJECT_HANDLE, CK_BYTE);
 
-CK_RV token_specific_aes_gcm(SESSION *, ENCR_DECR_CONTEXT *, CK_BYTE *,
-			     CK_ULONG, CK_BYTE *, CK_ULONG *, CK_BYTE);
+CK_RV token_specific_aes_gcm(STDLL_TokData_t *, SESSION *, ENCR_DECR_CONTEXT *,
+			     CK_BYTE *, CK_ULONG, CK_BYTE *, CK_ULONG *, CK_BYTE);
 
-CK_RV token_specific_aes_gcm_update(SESSION *, ENCR_DECR_CONTEXT *, CK_BYTE *,
+CK_RV token_specific_aes_gcm_update(STDLL_TokData_t *, SESSION *,
+				    ENCR_DECR_CONTEXT *, CK_BYTE *,
 				    CK_ULONG, CK_BYTE *, CK_ULONG *, CK_BYTE);
 
-CK_RV token_specific_aes_gcm_final(SESSION *, ENCR_DECR_CONTEXT *, CK_BYTE *,
+CK_RV token_specific_aes_gcm_final(STDLL_TokData_t *, SESSION *,
+				   ENCR_DECR_CONTEXT *, CK_BYTE *,
 				   CK_ULONG *, CK_BYTE);
 
 CK_RV
-token_specific_aes_ofb( CK_BYTE *,
+token_specific_aes_ofb( STDLL_TokData_t *,
+			CK_BYTE *,
                         CK_ULONG,
                         CK_BYTE *,
                         OBJECT *,
@@ -311,7 +319,8 @@ token_specific_aes_ofb( CK_BYTE *,
                         uint_32 );
 
 CK_RV
-token_specific_aes_cfb( CK_BYTE *,
+token_specific_aes_cfb( STDLL_TokData_t *,
+			CK_BYTE *,
                         CK_ULONG,
                         CK_BYTE *,
                         OBJECT *,
@@ -319,7 +328,8 @@ token_specific_aes_cfb( CK_BYTE *,
                         uint_32,
                         uint_32 );
 
-CK_RV token_specific_aes_mac(CK_BYTE *,
+CK_RV token_specific_aes_mac(STDLL_TokData_t *,
+			     CK_BYTE *,
                              CK_ULONG ,
                              OBJECT *,
                              CK_BYTE *);

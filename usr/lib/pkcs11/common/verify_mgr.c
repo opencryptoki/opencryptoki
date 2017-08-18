@@ -799,8 +799,8 @@ verify_mgr_verify( SESSION             * sess,
 
       case CKM_AES_MAC:
       case CKM_AES_MAC_GENERAL:
-         return aes_mac_verify( sess, ctx,
-                         in_data, in_data_len, signature, sig_len);
+         return aes_mac_verify( tokdata, sess, ctx,
+				in_data, in_data_len, signature, sig_len);
 
       case CKM_ECDSA_SHA1:
       case CKM_ECDSA_SHA256:
@@ -872,7 +872,8 @@ verify_mgr_verify_update( SESSION             * sess,
 
       case CKM_AES_MAC:
       case CKM_AES_MAC_GENERAL:
-          return aes_mac_verify_update( sess, ctx, in_data, in_data_len );
+          return aes_mac_verify_update( tokdata, sess, ctx, in_data,
+					in_data_len );
 
       case CKM_ECDSA_SHA1:
       case CKM_ECDSA_SHA256:
@@ -944,7 +945,7 @@ verify_mgr_verify_final( SESSION             * sess,
 
       case CKM_AES_MAC:
       case CKM_AES_MAC_GENERAL:
-         return aes_mac_verify_final( sess, ctx, signature, sig_len );
+         return aes_mac_verify_final( tokdata, sess, ctx, signature, sig_len );
 
       case CKM_ECDSA_SHA1:
       case CKM_ECDSA_SHA256:

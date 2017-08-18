@@ -186,7 +186,7 @@ key_mgr_generate_key( STDLL_TokData_t   * tokdata,
             break;
 #ifndef NOAES
 	 case CKM_AES_KEY_GEN:
-	    rc = ckm_aes_key_gen( key_obj->template );
+	    rc = ckm_aes_key_gen( tokdata, key_obj->template );
 	    break;
 #endif
          case CKM_GENERIC_SECRET_KEY_GEN:
@@ -742,7 +742,7 @@ key_mgr_wrap_key( SESSION           * sess,
       case CKM_AES_CFB8:
       case CKM_AES_CFB64:
       case CKM_AES_CFB128:
-	 rc = ckm_aes_wrap_format( length_only, &data, &data_len );
+	 rc = ckm_aes_wrap_format( tokdata, length_only, &data, &data_len );
 	 if (rc != CKR_OK) {
 	    TRACE_DEVEL("ckm_aes_wrap_format failed.\n");
 	    if (data) free( data );

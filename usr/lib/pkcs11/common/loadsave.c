@@ -173,7 +173,7 @@ static CK_RV encrypt_data(STDLL_TokData_t *tokdata, CK_BYTE *key,
 					  initial_vector, keyobj);
 		break;
 	case CKM_AES_CBC:
-		rc = ckm_aes_cbc_encrypt(clear, clear_len,
+		rc = ckm_aes_cbc_encrypt(tokdata, clear, clear_len,
 		                         cipher, p_cipher_len,
 					 initial_vector, keyobj);
 		break;
@@ -289,7 +289,7 @@ static CK_RV decrypt_data(STDLL_TokData_t *tokdata,
 					  initial_vector, keyobj);
 		break;
 	case CKM_AES_CBC:
-		rc = ckm_aes_cbc_decrypt(cipher, cipher_len,
+		rc = ckm_aes_cbc_decrypt(tokdata, cipher, cipher_len,
 					 clear, p_clear_len,
 					 initial_vector, keyobj);
 		break;
