@@ -417,7 +417,7 @@ key_mgr_generate_key_pair( STDLL_TokData_t   * tokdata,
          break;
 
       case CKM_EC_KEY_PAIR_GEN:
-         rc = ckm_ec_key_pair_gen( publ_key_obj->template,
+         rc = ckm_ec_key_pair_gen( tokdata, publ_key_obj->template,
                                    priv_key_obj->template );
          break;
 

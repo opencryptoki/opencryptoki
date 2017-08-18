@@ -1667,8 +1667,8 @@ token_create_ec_keypair(TEMPLATE *publ_tmpl,
 }
 
 CK_RV
-token_specific_ec_generate_keypair(TEMPLATE *publ_tmpl,
-				TEMPLATE *priv_tmpl)
+token_specific_ec_generate_keypair(STDLL_TokData_t *tokdata, TEMPLATE *publ_tmpl,
+				   TEMPLATE *priv_tmpl)
 {
 	long return_code, reason_code, rule_array_count, exit_data_len = 0;
 	unsigned char *exit_data = NULL;
@@ -1796,7 +1796,8 @@ token_specific_ec_generate_keypair(TEMPLATE *publ_tmpl,
 }
 
 CK_RV
-token_specific_ec_sign(CK_BYTE  * in_data,
+token_specific_ec_sign(STDLL_TokData_t * tokdata,
+			CK_BYTE  * in_data,
 			CK_ULONG   in_data_len,
 			CK_BYTE  * out_data,
 			CK_ULONG * out_data_len,
@@ -1844,7 +1845,8 @@ token_specific_ec_sign(CK_BYTE  * in_data,
 }
 
 CK_RV
-token_specific_ec_verify(CK_BYTE  * in_data,
+token_specific_ec_verify(STDLL_TokData_t * tokdata,
+			  CK_BYTE  * in_data,
 			  CK_ULONG   in_data_len,
 			  CK_BYTE  * out_data,
 			  CK_ULONG   out_data_len,

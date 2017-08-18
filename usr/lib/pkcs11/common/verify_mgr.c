@@ -806,11 +806,11 @@ verify_mgr_verify( SESSION             * sess,
       case CKM_ECDSA_SHA256:
       case CKM_ECDSA_SHA384:
       case CKM_ECDSA_SHA512:
-         return ec_hash_verify( sess,	ctx,
+         return ec_hash_verify( tokdata, sess,	ctx,
                                  in_data,   in_data_len,
                                  signature, sig_len );
       case CKM_ECDSA:
-         return ec_verify( sess,	ctx,
+         return ec_verify( tokdata, sess,	ctx,
                                  in_data,   in_data_len,
                                  signature, sig_len );
       default:
@@ -881,7 +881,7 @@ verify_mgr_verify_update( SESSION             * sess,
       case CKM_ECDSA_SHA256:
       case CKM_ECDSA_SHA384:
       case CKM_ECDSA_SHA512:
-	 return ec_hash_verify_update( sess, ctx, in_data, in_data_len );
+	 return ec_hash_verify_update( tokdata, sess, ctx, in_data, in_data_len );
 
       case CKM_SHA_1_HMAC:
       case CKM_SHA256_HMAC:
@@ -955,7 +955,7 @@ verify_mgr_verify_final( SESSION             * sess,
       case CKM_ECDSA_SHA256:
       case CKM_ECDSA_SHA384:
       case CKM_ECDSA_SHA512:
-	 return ec_hash_verify_final( sess, ctx, signature, sig_len );
+	 return ec_hash_verify_final( tokdata, sess, ctx, signature, sig_len );
 
       case CKM_SHA_1_HMAC:
       case CKM_SHA256_HMAC:

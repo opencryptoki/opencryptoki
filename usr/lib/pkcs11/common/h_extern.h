@@ -1739,15 +1739,18 @@ void   ckm_md5_transform(STDLL_TokData_t *tokdata, CK_ULONG *buf, CK_ULONG *in);
 
 //Elliptic curve (EC) mechanisms
 //
-CK_RV ckm_ec_key_pair_gen( TEMPLATE  * publ_tmpl, TEMPLATE  * priv_tmpl );
+CK_RV ckm_ec_key_pair_gen( STDLL_TokData_t *tokdata, TEMPLATE  * publ_tmpl,
+			   TEMPLATE  * priv_tmpl );
 
-CK_RV ckm_ec_sign( CK_BYTE        *in_data,
+CK_RV ckm_ec_sign( STDLL_TokData_t *tokdata,
+		   CK_BYTE        *in_data,
                    CK_ULONG       in_data_len,
                    CK_BYTE        *out_data,
                    CK_ULONG       *out_data_len,
                    OBJECT         *key_obj );
 
-CK_RV ec_sign( SESSION              *sess,
+CK_RV ec_sign( STDLL_TokData_t      *tokdata,
+	       SESSION              *sess,
                CK_BBOOL             length_only,
                SIGN_VERIFY_CONTEXT  *ctx,
                CK_BYTE              *in_data,
@@ -1755,20 +1758,23 @@ CK_RV ec_sign( SESSION              *sess,
                CK_BYTE              *out_data,
                CK_ULONG             *out_data_len );
 
-CK_RV ckm_ec_verify( CK_BYTE         *in_data,
+CK_RV ckm_ec_verify( STDLL_TokData_t *tokdata,
+		     CK_BYTE         *in_data,
                      CK_ULONG        in_data_len,
                      CK_BYTE         *out_data,
                      CK_ULONG        out_data_len,
                      OBJECT          *key_obj );
 
-CK_RV ec_verify(SESSION               *sess,
+CK_RV ec_verify(STDLL_TokData_t       *tokdata,
+		SESSION               *sess,
                 SIGN_VERIFY_CONTEXT   *ctx,
                 CK_BYTE               *in_data,
                 CK_ULONG              in_data_len,
                 CK_BYTE               *signature,
                 CK_ULONG              sig_len );
 
-CK_RV ec_hash_sign( SESSION          * sess,
+CK_RV ec_hash_sign( STDLL_TokData_t  *tokdata,
+		SESSION              * sess,
                 CK_BBOOL               length_only,
                 SIGN_VERIFY_CONTEXT  * ctx,
                 CK_BYTE              * in_data,
@@ -1776,31 +1782,36 @@ CK_RV ec_hash_sign( SESSION          * sess,
                 CK_BYTE              * signature,
                 CK_ULONG             * sig_len );
 
-CK_RV ec_hash_sign_update( SESSION        * sess,
+CK_RV ec_hash_sign_update( STDLL_TokData_t  *tokdata,
+		     SESSION              * sess,
                      SIGN_VERIFY_CONTEXT  * ctx,
                      CK_BYTE              * in_data,
                      CK_ULONG               in_data_len );
 
-CK_RV ec_hash_sign_final( SESSION        * sess,
+CK_RV ec_hash_sign_final( STDLL_TokData_t  *tokdata,
+		    SESSION              * sess,
                     CK_BBOOL               length_only,
                     SIGN_VERIFY_CONTEXT  * ctx,
                     CK_BYTE              * signature,
                     CK_ULONG             * sig_len );
 
-CK_RV ec_hash_verify( SESSION        * sess,
+CK_RV ec_hash_verify( STDLL_TokData_t  *tokdata,
+		SESSION              * sess,
                 SIGN_VERIFY_CONTEXT  * ctx,
                 CK_BYTE              * in_data,
                 CK_ULONG               in_data_len,
                 CK_BYTE              * signature,
                 CK_ULONG               sig_len );
 
-CK_RV ec_hash_verify_update( SESSION        * sess,
+CK_RV ec_hash_verify_update( STDLL_TokData_t  *tokdata,
+		       SESSION              * sess,
                        SIGN_VERIFY_CONTEXT  * ctx,
                        CK_BYTE              * in_data,
                        CK_ULONG               in_data_len );
 
 
-CK_RV ec_hash_verify_final( SESSION        * sess,
+CK_RV ec_hash_verify_final( STDLL_TokData_t  *tokdata,
+		      SESSION              * sess,
                       SIGN_VERIFY_CONTEXT  * ctx,
                       CK_BYTE              * signature,
                       CK_ULONG               sig_len );
@@ -2460,11 +2471,13 @@ CK_RV     dsa_priv_unwrap( TEMPLATE *tmpl, CK_BYTE *data, CK_ULONG data_len );
 //
 CK_RV     ecdsa_publ_check_required_attributes( TEMPLATE *tmpl, CK_ULONG mode );
 CK_RV     ecdsa_publ_set_default_attributes( TEMPLATE *tmpl, CK_ULONG mode );
-CK_RV     ecdsa_publ_validate_attribute( TEMPLATE *tmpl, CK_ATTRIBUTE *attr, CK_ULONG mode );
+CK_RV     ecdsa_publ_validate_attribute( STDLL_TokData_t *tokdata, TEMPLATE *tmpl,
+					 CK_ATTRIBUTE *attr, CK_ULONG mode );
 CK_BBOOL  ecdsa_priv_check_exportability( CK_ATTRIBUTE_TYPE type );
 CK_RV     ecdsa_priv_check_required_attributes( TEMPLATE *tmpl, CK_ULONG mode );
 CK_RV     ecdsa_priv_set_default_attributes( TEMPLATE *tmpl, CK_ULONG mode );
-CK_RV     ecdsa_priv_validate_attribute( TEMPLATE *tmpl, CK_ATTRIBUTE *attr, CK_ULONG mode );
+CK_RV     ecdsa_priv_validate_attribute( STDLL_TokData_t *tokdata, TEMPLATE *tmpl,
+					 CK_ATTRIBUTE *attr, CK_ULONG mode );
 
 // diffie-hellman routines
 //

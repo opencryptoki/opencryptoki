@@ -100,18 +100,19 @@ CK_RV get_ecsiglen(OBJECT *key_obj, CK_ULONG *size)
 }
 
 CK_RV
-ckm_ec_key_pair_gen( TEMPLATE  * publ_tmpl,
-		TEMPLATE  * priv_tmpl )
+ckm_ec_key_pair_gen( STDLL_TokData_t *tokdata, TEMPLATE  * publ_tmpl,
+		     TEMPLATE  * priv_tmpl )
 {
 	CK_RV rc;
-	rc = token_specific.t_ec_generate_keypair(publ_tmpl, priv_tmpl);
+	rc = token_specific.t_ec_generate_keypair(tokdata, publ_tmpl, priv_tmpl);
 	if (rc != CKR_OK)
 		TRACE_ERROR("Key Generation failed\n");
 	return rc;
 }
 
 CK_RV
-ckm_ec_sign( CK_BYTE		*in_data,
+ckm_ec_sign(	STDLL_TokData_t	*tokdata,
+		CK_BYTE		*in_data,
 		CK_ULONG	in_data_len,
 		CK_BYTE		*out_data,
 		CK_ULONG	*out_data_len,
@@ -135,8 +136,8 @@ ckm_ec_sign( CK_BYTE		*in_data,
 		TRACE_ERROR("This operation requires a private key.\n");
 		return CKR_KEY_FUNCTION_NOT_PERMITTED;
 	}
-	rc = token_specific.t_ec_sign(in_data, in_data_len, out_data,
-					out_data_len, key_obj);
+	rc = token_specific.t_ec_sign(tokdata, in_data, in_data_len, out_data,
+				      out_data_len, key_obj);
 	if (rc != CKR_OK)
 		TRACE_DEVEL("EC Sign failed.\n");
 
@@ -144,13 +145,14 @@ ckm_ec_sign( CK_BYTE		*in_data,
 }
 
 CK_RV
-ec_sign( SESSION			*sess,
-	       CK_BBOOL			length_only,
-	       SIGN_VERIFY_CONTEXT	*ctx,
-	       CK_BYTE			*in_data,
-	       CK_ULONG			in_data_len,
-	       CK_BYTE			*out_data,
-	       CK_ULONG			*out_data_len )
+ec_sign( STDLL_TokData_t		*tokdata,
+	 SESSION			*sess,
+	 CK_BBOOL			length_only,
+	 SIGN_VERIFY_CONTEXT		*ctx,
+	 CK_BYTE			*in_data,
+	 CK_ULONG			in_data_len,
+	 CK_BYTE			*out_data,
+	 CK_ULONG			*out_data_len )
 {
 	OBJECT          *key_obj   = NULL;
 	CK_ULONG         plen;
@@ -186,13 +188,14 @@ ec_sign( SESSION			*sess,
 		return CKR_BUFFER_TOO_SMALL;
 	}
 
-	rc = ckm_ec_sign( in_data, in_data_len, out_data,
+	rc = ckm_ec_sign( tokdata, in_data, in_data_len, out_data,
 			out_data_len, key_obj );
 	return rc;
 }
 
 CK_RV
-ckm_ec_verify( CK_BYTE		*in_data,
+ckm_ec_verify(  STDLL_TokData_t *tokdata,
+		CK_BYTE		*in_data,
 		CK_ULONG	in_data_len,
 		CK_BYTE		*out_data,
 		CK_ULONG	out_data_len,
@@ -217,8 +220,8 @@ ckm_ec_verify( CK_BYTE		*in_data,
 		return CKR_KEY_FUNCTION_NOT_PERMITTED;
 	}
 
-	rc = token_specific.t_ec_verify(in_data, in_data_len,
-			out_data, out_data_len, key_obj);
+	rc = token_specific.t_ec_verify(tokdata, in_data, in_data_len,
+					out_data, out_data_len, key_obj);
 	if (rc != CKR_OK)
 		TRACE_ERROR("Token specific ec verify failed.\n");
 
@@ -226,7 +229,8 @@ ckm_ec_verify( CK_BYTE		*in_data,
 }
 
 CK_RV
-ec_verify(SESSION		*sess,
+ec_verify(STDLL_TokData_t	*tokdata,
+	SESSION			*sess,
 	SIGN_VERIFY_CONTEXT	*ctx,
 	CK_BYTE			*in_data,
 	CK_ULONG		in_data_len,
@@ -259,14 +263,15 @@ ec_verify(SESSION		*sess,
 		TRACE_ERROR("%s\n", ock_err(ERR_SIGNATURE_LEN_RANGE));
 		return CKR_SIGNATURE_LEN_RANGE;
 	}
-	rc = ckm_ec_verify(in_data, in_data_len, signature,
+	rc = ckm_ec_verify(tokdata, in_data, in_data_len, signature,
 			sig_len, key_obj);
 
 	return rc;
 }
 
 CK_RV
-ec_hash_sign( SESSION              * sess,
+ec_hash_sign(	STDLL_TokData_t      * tokdata,
+		SESSION              * sess,
 		CK_BBOOL               length_only,
 		SIGN_VERIFY_CONTEXT  * ctx,
 		CK_BYTE              * in_data,
@@ -347,10 +352,11 @@ error:
 }
 
 CK_RV
-ec_hash_sign_update( SESSION              * sess,
-		     SIGN_VERIFY_CONTEXT  * ctx,
-		     CK_BYTE              * in_data,
-		     CK_ULONG               in_data_len )
+ec_hash_sign_update( STDLL_TokData_t      * tokdata,
+		     SESSION              * sess,
+                     SIGN_VERIFY_CONTEXT  * ctx,
+                     CK_BYTE              * in_data,
+                     CK_ULONG               in_data_len )
 {
    RSA_DIGEST_CONTEXT  * context = NULL;
    CK_MECHANISM          digest_mech;
@@ -400,11 +406,12 @@ ec_hash_sign_update( SESSION              * sess,
 }
 
 CK_RV
-ec_hash_sign_final( SESSION              * sess,
-		    CK_BBOOL               length_only,
-		    SIGN_VERIFY_CONTEXT  * ctx,
-		    CK_BYTE              * signature,
-		    CK_ULONG             * sig_len )
+ec_hash_sign_final( STDLL_TokData_t      * tokdata,
+		    SESSION              * sess,
+                    CK_BBOOL               length_only,
+                    SIGN_VERIFY_CONTEXT  * ctx,
+                    CK_BYTE              * signature,
+                    CK_ULONG             * sig_len )
 {
    CK_BYTE               hash[MAX_SHA_HASH_SIZE];
    RSA_DIGEST_CONTEXT  * context = NULL;
@@ -460,12 +467,13 @@ done:
 }
 
 CK_RV
-ec_hash_verify( SESSION              * sess,
-		SIGN_VERIFY_CONTEXT  * ctx,
-		CK_BYTE              * in_data,
-		CK_ULONG               in_data_len,
-		CK_BYTE              * signature,
-		CK_ULONG               sig_len )
+ec_hash_verify( STDLL_TokData_t      * tokdata,
+		SESSION              * sess,
+                SIGN_VERIFY_CONTEXT  * ctx,
+                CK_BYTE              * in_data,
+                CK_ULONG               in_data_len,
+                CK_BYTE              * signature,
+                CK_ULONG               sig_len )
 {
    CK_BYTE              hash[MAX_SHA_HASH_SIZE];
    DIGEST_CONTEXT       digest_ctx;
@@ -543,10 +551,11 @@ done:
 
 
 CK_RV
-ec_hash_verify_update( SESSION              * sess,
-		       SIGN_VERIFY_CONTEXT  * ctx,
-		       CK_BYTE              * in_data,
-		       CK_ULONG               in_data_len )
+ec_hash_verify_update( STDLL_TokData_t      * tokdata,
+		       SESSION              * sess,
+                       SIGN_VERIFY_CONTEXT  * ctx,
+                       CK_BYTE              * in_data,
+                       CK_ULONG               in_data_len )
 {
    RSA_DIGEST_CONTEXT  * context = NULL;
    CK_MECHANISM          digest_mech;
@@ -596,10 +605,11 @@ ec_hash_verify_update( SESSION              * sess,
 }
 
 CK_RV
-ec_hash_verify_final( SESSION              * sess,
-		      SIGN_VERIFY_CONTEXT  * ctx,
-		      CK_BYTE              * signature,
-		      CK_ULONG               sig_len )
+ec_hash_verify_final( STDLL_TokData_t      * tokdata,
+		      SESSION              * sess,
+                      SIGN_VERIFY_CONTEXT  * ctx,
+                      CK_BYTE              * signature,
+                      CK_ULONG               sig_len )
 {
    CK_BYTE               hash[MAX_SHA_HASH_SIZE];
    RSA_DIGEST_CONTEXT  * context = NULL;
