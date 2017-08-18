@@ -2031,7 +2031,8 @@ CK_RV    object_mgr_restore_obj_withSize( STDLL_TokData_t *tokdata,
 					  CK_BYTE *data, OBJECT *oldObj,
 					  int data_size );
 
-CK_RV    object_mgr_set_attribute_values( SESSION          * sess,
+CK_RV    object_mgr_set_attribute_values( STDLL_TokData_t  *tokdata,
+					  SESSION          * sess,
                                           CK_OBJECT_HANDLE   handle,
                                           CK_ATTRIBUTE     * pTemplate,
                                           CK_ULONG           ulCount );
@@ -2124,7 +2125,8 @@ CK_RV     object_restore_withSize( CK_BYTE  * data,
 				   CK_BBOOL   replace,
 				   int        data_size );
 
-CK_RV     object_set_attribute_values( OBJECT       * obj,
+CK_RV     object_set_attribute_values( STDLL_TokData_t * tokdata,
+				       OBJECT       * obj,
                                        CK_ATTRIBUTE * pTemplate,
                                        CK_ULONG       ulCount );
 

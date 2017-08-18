@@ -3147,8 +3147,8 @@ C_SetAttributeValue(CK_SESSION_HANDLE hSession,
 	}
 	if (fcn->ST_SetAttributeValue) {
 		// Map the Session to the slot session
-		rv = fcn->ST_SetAttributeValue(&rSession, hObject, pTemplate,
-					       ulCount);
+		rv = fcn->ST_SetAttributeValue(sltp->TokData, &rSession,
+					       hObject, pTemplate, ulCount);
 		TRACE_DEVEL("fcn->ST_SetAttributeValue returned:0x%lx\n", rv);
 	} else {
 		TRACE_ERROR("%s\n", ock_err(ERR_FUNCTION_NOT_SUPPORTED));
