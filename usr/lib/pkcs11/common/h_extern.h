@@ -1905,7 +1905,7 @@ CK_RV     verify_mgr_verify_final( SESSION             * sess,
 // session manager routines
 //
 CK_RV  session_mgr_close_all_sessions( void );
-CK_RV  session_mgr_close_session( CK_SESSION_HANDLE );
+CK_RV  session_mgr_close_session( STDLL_TokData_t *tokdata, CK_SESSION_HANDLE );
 CK_RV  session_mgr_new( CK_ULONG flags, CK_SLOT_ID slot_id, CK_SESSION_HANDLE_PTR phSession );
 SESSION * session_mgr_find( CK_SESSION_HANDLE handle );
 CK_RV  session_mgr_login_all ( CK_USER_TYPE user_type );

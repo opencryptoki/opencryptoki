@@ -1000,7 +1000,8 @@ done:
  *
  * Must be called with sess_list_mutex locked.
  */
-static CK_RV close_session(struct session_state *session_state)
+static CK_RV close_session(STDLL_TokData_t *tokdata,
+			   struct session_state *session_state)
 {
 	CK_RV rc = CKR_OK;
 	unsigned long i;
@@ -1064,7 +1065,7 @@ static CK_RV close_session(struct session_state *session_state)
 /*
  * Called during C_CloseSession.
  */
-CK_RV icsftok_close_session(SESSION *session)
+CK_RV icsftok_close_session(STDLL_TokData_t *tokdata, SESSION *session)
 {
 	CK_RV rc;
 	struct session_state *session_state;
@@ -1075,16 +1076,16 @@ CK_RV icsftok_close_session(SESSION *session)
 		return CKR_SESSION_HANDLE_INVALID;
 	}
 
-	if ((rc = close_session(session_state)))
+	if ((rc = close_session(tokdata, session_state)))
 		TRACE_ERROR("close_session failed\n");
-	
+
 	return rc;
 }
 
 /*
  * Called during C_Finalize and C_CloseAllSessions
  */
-CK_RV icsftok_close_all_sessions(void)
+CK_RV icsftok_close_all_sessions(STDLL_TokData_t *tokdata)
 {
 	CK_RV rc = CKR_OK;
 	struct session_state *session_state;
@@ -1098,7 +1099,7 @@ CK_RV icsftok_close_all_sessions(void)
 
 	for_each_list_entry_safe(&sessions, struct session_state, session_state,
 				 sessions, e) {
-		if ((rc = close_session(session_state)))
+		if ((rc = close_session(tokdata, session_state)))
 			break;
 	}
 
