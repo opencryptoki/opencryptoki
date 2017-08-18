@@ -1653,7 +1653,7 @@ CK_RV sha5_hmac_verify(STDLL_TokData_t *tokdata,
                        CK_BYTE *signature, CK_ULONG sig_len);
 
 //adding the hmac secret key generation here
-CK_RV ckm_generic_secret_key_gen(TEMPLATE *tmpl);
+CK_RV ckm_generic_secret_key_gen(STDLL_TokData_t *tokdata, TEMPLATE *tmpl);
 
 // MD2 mechanisms
 //
@@ -2436,8 +2436,12 @@ CK_RV     priv_key_validate_attribute       ( STDLL_TokData_t *tokdata,
 CK_BBOOL  secret_key_check_exportability( CK_ATTRIBUTE_TYPE type );
 CK_RV     secret_key_check_required_attributes( TEMPLATE *tmpl, CK_ULONG mode );
 CK_RV     secret_key_set_default_attributes   ( TEMPLATE *tmpl, CK_ULONG mode );
-CK_RV     secret_key_unwrap( TEMPLATE *tmpl, CK_ULONG keytype, CK_BYTE *data, CK_ULONG data_len, CK_BBOOL fromend, CK_BBOOL isopaque );
-CK_RV     secret_key_validate_attribute       ( TEMPLATE *tmpl, CK_ATTRIBUTE *attr, CK_ULONG mode );
+CK_RV     secret_key_unwrap( STDLL_TokData_t *tokdata, TEMPLATE *tmpl, CK_ULONG keytype,
+			     CK_BYTE *data, CK_ULONG data_len, CK_BBOOL fromend, CK_BBOOL isopaque );
+CK_RV     secret_key_validate_attribute       ( STDLL_TokData_t *tokdata,
+						TEMPLATE *tmpl,
+						CK_ATTRIBUTE *attr,
+						CK_ULONG mode );
 
 // rsa routines
 //
@@ -2507,7 +2511,8 @@ CK_RV     kea_priv_validate_attribute( STDLL_TokData_t *tokdata, TEMPLATE *tmpl,
 // Generic secret key routines
 CK_RV     generic_secret_check_required_attributes( TEMPLATE *tmpl, CK_ULONG mode );
 CK_RV     generic_secret_set_default_attributes( TEMPLATE *tmpl, CK_ULONG mode );
-CK_RV     generic_secret_validate_attribute( TEMPLATE *tmpl, CK_ATTRIBUTE *attr, CK_ULONG mode );
+CK_RV     generic_secret_validate_attribute( STDLL_TokData_t *tokdata, TEMPLATE *tmpl,
+					     CK_ATTRIBUTE *attr, CK_ULONG mode );
 CK_RV     generic_secret_wrap_get_data( TEMPLATE *tmpl, CK_BBOOL length_only, CK_BYTE **data, CK_ULONG *data_len );
 CK_RV     generic_secret_unwrap( TEMPLATE *tmpl, CK_BYTE *data, CK_ULONG data_len, CK_BBOOL fromend, CK_BBOOL isopaque );
 

@@ -190,7 +190,7 @@ key_mgr_generate_key( STDLL_TokData_t   * tokdata,
 	    break;
 #endif
          case CKM_GENERIC_SECRET_KEY_GEN:
-            rc = ckm_generic_secret_key_gen( key_obj->template );
+            rc = ckm_generic_secret_key_gen( tokdata, key_obj->template );
             break;
 
       default:
@@ -1007,7 +1007,8 @@ key_mgr_unwrap_key( SESSION           * sess,
    //
    switch (keyclass) {
       case CKO_SECRET_KEY:
-         rc = secret_key_unwrap(key_obj->template, keytype, data, data_len, fromend,isopaque);
+         rc = secret_key_unwrap(tokdata, key_obj->template, keytype, data,
+				data_len, fromend,isopaque);
          break;
 
       case CKO_PRIVATE_KEY:

@@ -840,7 +840,8 @@ secret_key_set_default_attributes( TEMPLATE *tmpl, CK_ULONG mode )
 //
 //
 CK_RV
-secret_key_unwrap( TEMPLATE *tmpl,
+secret_key_unwrap( STDLL_TokData_t *tokdata,
+		   TEMPLATE *tmpl,
                    CK_ULONG  keytype,
                    CK_BYTE  *data,
                    CK_ULONG  data_len,
@@ -943,7 +944,8 @@ cleanup:
 // secret_key_validate_attribute()
 //
 CK_RV
-secret_key_validate_attribute( TEMPLATE *tmpl, CK_ATTRIBUTE *attr, CK_ULONG mode )
+secret_key_validate_attribute( STDLL_TokData_t *tokdata, TEMPLATE *tmpl,
+			       CK_ATTRIBUTE *attr, CK_ULONG mode )
 {
    switch (attr->type) {
       case CKA_ENCRYPT:
@@ -953,7 +955,7 @@ secret_key_validate_attribute( TEMPLATE *tmpl, CK_ATTRIBUTE *attr, CK_ULONG mode
       case CKA_WRAP:
       case CKA_UNWRAP:
          if (mode == MODE_MODIFY) {
-            if (nv_token_data->tweak_vector.allow_key_mods == TRUE)
+            if (tokdata->nv_token_data->tweak_vector.allow_key_mods == TRUE)
                return CKR_OK;
             TRACE_ERROR("%s\n", ock_err(ERR_ATTRIBUTE_READ_ONLY));
             return CKR_ATTRIBUTE_READ_ONLY;
@@ -3088,7 +3090,8 @@ CK_RV generic_secret_set_default_attributes(TEMPLATE *tmpl, CK_ULONG mode)
 // generic_secret_validate_attribute()
 //
 CK_RV
-generic_secret_validate_attribute( TEMPLATE *tmpl, CK_ATTRIBUTE *attr, CK_ULONG mode )
+generic_secret_validate_attribute( STDLL_TokData_t *tokdata, TEMPLATE *tmpl,
+				   CK_ATTRIBUTE *attr, CK_ULONG mode )
 {
    switch (attr->type) {
       case CKA_VALUE:
@@ -3109,7 +3112,7 @@ generic_secret_validate_attribute( TEMPLATE *tmpl, CK_ATTRIBUTE *attr, CK_ULONG 
             return CKR_OK;
          else {
             if (mode == MODE_UNWRAP) {
-               if (nv_token_data->tweak_vector.netscape_mods == TRUE)
+               if (tokdata->nv_token_data->tweak_vector.netscape_mods == TRUE)
                   return CKR_OK;
             }
             TRACE_ERROR("%s\n", ock_err(ERR_ATTRIBUTE_READ_ONLY));
@@ -3117,7 +3120,7 @@ generic_secret_validate_attribute( TEMPLATE *tmpl, CK_ATTRIBUTE *attr, CK_ULONG 
          }
 
       default:
-         return secret_key_validate_attribute( tmpl, attr, mode );
+         return secret_key_validate_attribute( tokdata, tmpl, attr, mode );
    }
 }
 
@@ -3363,7 +3366,7 @@ rc2_validate_attribute( STDLL_TokData_t *tokdata, TEMPLATE *tmpl,
          }
 
       default:
-         return secret_key_validate_attribute( tmpl, attr, mode );
+         return secret_key_validate_attribute( tokdata, tmpl, attr, mode );
    }
 }
 
@@ -3484,7 +3487,7 @@ rc4_validate_attribute( STDLL_TokData_t *tokdata, TEMPLATE *tmpl,
          }
 
       default:
-         return secret_key_validate_attribute( tmpl, attr, mode );
+         return secret_key_validate_attribute( tokdata, tmpl, attr, mode );
    }
 }
 
@@ -3605,7 +3608,7 @@ rc5_validate_attribute( STDLL_TokData_t *tokdata, TEMPLATE *tmpl,
          }
 
       default:
-         return secret_key_validate_attribute( tmpl, attr, mode );
+         return secret_key_validate_attribute( tokdata, tmpl, attr, mode );
    }
 }
 
@@ -5157,7 +5160,7 @@ aes_validate_attribute( STDLL_TokData_t *tokdata, TEMPLATE *tmpl,
             return CKR_TEMPLATE_INCONSISTENT;
          }
       default:
-         return secret_key_validate_attribute( tmpl, attr, mode );
+         return secret_key_validate_attribute( tokdata, tmpl, attr, mode );
    }
 }
 

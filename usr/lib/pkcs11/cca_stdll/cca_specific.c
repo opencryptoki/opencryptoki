@@ -3280,7 +3280,8 @@ CK_RV token_specific_object_add(STDLL_TokData_t *tokdata, OBJECT *object)
 	return CKR_OK;
 }
 
-CK_RV token_specific_generic_secret_key_gen (TEMPLATE *template)
+CK_RV token_specific_generic_secret_key_gen (STDLL_TokData_t *tokdata,
+					     TEMPLATE *template)
 {
 	CK_RV rc;
 	long return_code, reason_code, rule_array_count;

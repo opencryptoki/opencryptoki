@@ -261,7 +261,8 @@ CK_RV token_specific_hmac_verify_update(STDLL_TokData_t *, SESSION *,
 CK_RV token_specific_hmac_verify_final(STDLL_TokData_t *, SESSION *,
 				       CK_BYTE *, CK_ULONG);
 
-CK_RV token_specific_generic_secret_key_gen(TEMPLATE *template);
+CK_RV token_specific_generic_secret_key_gen(STDLL_TokData_t *,
+					    TEMPLATE *template);
 
 #ifndef NOAES
 CK_RV
