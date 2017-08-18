@@ -1005,7 +1005,7 @@ static CK_RV print_mechanism(void)
 
 
 /* random number generator */
-CK_RV token_specific_rng(CK_BYTE *output, CK_ULONG bytes)
+CK_RV token_specific_rng(STDLL_TokData_t *tokdata, CK_BYTE *output, CK_ULONG bytes)
 {
 	CK_RV rc = dll_m_GenerateRandom(output, bytes, ep11tok_target);
 	if (rc != CKR_OK)

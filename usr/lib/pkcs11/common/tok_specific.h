@@ -29,7 +29,7 @@
 
 int token_specific_creatlock(void);
 CK_RV token_specific_attach_shm(CK_SLOT_ID slot_id, LW_SHM_TYPE **shmem);
-CK_RV token_specific_rng(CK_BYTE *,  CK_ULONG);
+CK_RV token_specific_rng(STDLL_TokData_t *, CK_BYTE *,  CK_ULONG);
 CK_RV token_specific_init(STDLL_TokData_t *,CK_SLOT_ID, char *);
 
 CK_RV token_specific_init_token_data(STDLL_TokData_t *, CK_SLOT_ID slot_id);

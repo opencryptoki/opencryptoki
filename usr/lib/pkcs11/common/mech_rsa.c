@@ -143,7 +143,7 @@ rsa_format_block( STDLL_TokData_t *tokdata,
          * Where ?? is nonzero.
          */
         case 2:
-            rc = rng_generate(&out_data[2], padding_len);
+            rc = rng_generate(tokdata, &out_data[2], padding_len);
             if (rc != CKR_OK) {
                 TRACE_DEVEL("rng_generate failed.\n");
                 return rc;
@@ -2322,7 +2322,7 @@ CK_RV encode_eme_oaep(STDLL_TokData_t *tokdata, CK_BYTE *mData, CK_ULONG mLen,
 	/* pkcs1v2.2, Step d:
 	 * Generate a random seed.
 	 */
-	rc = rng_generate(seed, hlen);
+	rc = rng_generate(tokdata, seed, hlen);
 	if (rc != CKR_OK)
 		return rc;
 
@@ -2513,7 +2513,7 @@ CK_RV emsa_pss_encode(STDLL_TokData_t *tokdata, CK_RSA_PKCS_PSS_PARAMS *pssParms
 	/* pkcs1v2.2, Step 4: Generate salt */
 	salt = buf + (8 + in_data_len);
 	if (pssParms->sLen > 0) {
-		rc = rng_generate(salt, pssParms->sLen);
+		rc = rng_generate(tokdata, salt, pssParms->sLen);
 		if (rc != CKR_OK)
 			goto done;
 	}

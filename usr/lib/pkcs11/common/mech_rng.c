@@ -58,13 +58,13 @@ local_rng(CK_BYTE *output, CK_ULONG bytes)
 //
 //
 CK_RV
-rng_generate( CK_BYTE *output, CK_ULONG bytes )
+rng_generate( STDLL_TokData_t *tokdata, CK_BYTE *output, CK_ULONG bytes )
 {
 	CK_RV rc;
 
 	/* Do token specific rng if it exists. */
 	if (token_specific.t_rng != NULL)
-		rc = token_specific.t_rng(output, bytes);
+		rc = token_specific.t_rng(tokdata, output, bytes);
 	else
 		rc = local_rng(output, bytes);
 

@@ -576,7 +576,7 @@ CK_RV    strip_pkcs_padding( CK_BYTE  * ptr,
 
 // RNG routines
 //
-CK_RV  rng_generate( CK_BYTE *output, CK_ULONG bytes );
+CK_RV  rng_generate( STDLL_TokData_t *tokdata, CK_BYTE *output, CK_ULONG bytes );
 
 
 // SSL3 routines
