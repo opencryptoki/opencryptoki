@@ -881,7 +881,8 @@ tss_change_auth(TSS_HKEY hObjectToChange, TSS_HKEY hParentObject, CK_CHAR *passH
 }
 
 CK_RV
-token_store_priv_key(TSS_HKEY hKey, int key_type, CK_OBJECT_HANDLE *ckKey)
+token_store_priv_key(STDLL_TokData_t *tokdata, TSS_HKEY hKey, int key_type,
+		     CK_OBJECT_HANDLE *ckKey)
 {
 	CK_ATTRIBUTE *new_attr = NULL;
 	OBJECT *priv_key_obj = NULL;
@@ -914,7 +915,8 @@ token_store_priv_key(TSS_HKEY hKey, int key_type, CK_OBJECT_HANDLE *ckKey)
 	}
 
 	/* create skeleton for the private key object */
-	if ((rc = object_create_skel(NULL, 0, MODE_KEYGEN, CKO_PRIVATE_KEY, CKK_RSA, &priv_key_obj))) {
+	if ((rc = object_create_skel(tokdata, NULL, 0, MODE_KEYGEN,
+				     CKO_PRIVATE_KEY, CKK_RSA, &priv_key_obj))) {
 		TRACE_DEVEL("objectr_create_skel: 0x%lx\n", rc);
 		Tspi_Context_FreeMemory(tspContext, rgbBlob);
 		Tspi_Context_FreeMemory(tspContext, rgbPrivBlob);
@@ -988,7 +990,7 @@ token_store_priv_key(TSS_HKEY hKey, int key_type, CK_OBJECT_HANDLE *ckKey)
 	}
 	template_update_attribute( priv_key_obj->template, new_attr );
 
-	if ((rc = object_mgr_create_final(&dummy_sess, priv_key_obj, ckKey))) {
+	if ((rc = object_mgr_create_final(tokdata, &dummy_sess, priv_key_obj, ckKey))) {
 		TRACE_DEVEL("object_mgr_create_final failed.\n");
 	}
 
@@ -996,7 +998,8 @@ token_store_priv_key(TSS_HKEY hKey, int key_type, CK_OBJECT_HANDLE *ckKey)
 }
 
 CK_RV
-token_store_pub_key(TSS_HKEY hKey, int key_type, CK_OBJECT_HANDLE *ckKey)
+token_store_pub_key(STDLL_TokData_t *tokdata, TSS_HKEY hKey, int key_type,
+		    CK_OBJECT_HANDLE *ckKey)
 {
 	CK_RV rc;
 	TSS_RESULT result;
@@ -1036,7 +1039,8 @@ token_store_pub_key(TSS_HKEY hKey, int key_type, CK_OBJECT_HANDLE *ckKey)
 	pub_tmpl[4].ulValueLen = ulBlobLen;
 
 	/* create skeleton for the private key object */
-	if ((rc = object_create_skel(pub_tmpl, 5, MODE_CREATE, CKO_PUBLIC_KEY, CKK_RSA, &pub_key_obj))) {
+	if ((rc = object_create_skel(tokdata, pub_tmpl, 5, MODE_CREATE,
+				     CKO_PUBLIC_KEY, CKK_RSA, &pub_key_obj))) {
 		TRACE_DEVEL("object_create_skel: 0x%lx\n", rc);
 		Tspi_Context_CloseObject(tspContext, hKey);
 		free(key_id);
@@ -1058,7 +1062,7 @@ token_store_pub_key(TSS_HKEY hKey, int key_type, CK_OBJECT_HANDLE *ckKey)
 	}
 	template_update_attribute( pub_key_obj->template, new_attr );
 
-	if ((rc = object_mgr_create_final(&dummy_sess, pub_key_obj, ckKey))) {
+	if ((rc = object_mgr_create_final(tokdata, &dummy_sess, pub_key_obj, ckKey))) {
 		TRACE_DEVEL("object_mgr_create_final failed\n");
 		goto done;
 	}

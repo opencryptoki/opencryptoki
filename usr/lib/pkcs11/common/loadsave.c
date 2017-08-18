@@ -152,8 +152,8 @@ static CK_RV encrypt_data(CK_BYTE *key, CK_ULONG keylen, const CK_BYTE *iv,
 		TRACE_ERROR("%s\n", ock_err(ERR_MECHANISM_INVALID));
 		return ERR_MECHANISM_INVALID;
 	}
-	rc = object_create_skel(key_tmpl, 3, MODE_CREATE, CKO_SECRET_KEY,
-				keyType, &keyobj);
+	rc = object_create_skel(tokdata, key_tmpl, 3, MODE_CREATE,
+				CKO_SECRET_KEY, keyType, &keyobj);
 	if (rc != CKR_OK) {
 		TRACE_DEVEL("object_create_skel failed.\n");
 		return rc;
@@ -266,8 +266,8 @@ static CK_RV decrypt_data(CK_BYTE *key, CK_ULONG keylen, const CK_BYTE *iv,
 		TRACE_ERROR("%s\n", ock_err(ERR_MECHANISM_INVALID));
 		return ERR_MECHANISM_INVALID;
 	}
-	rc = object_create_skel(key_tmpl, 3, MODE_CREATE, CKO_SECRET_KEY,
-				keyType, &keyobj);
+	rc = object_create_skel(tokdata, key_tmpl, 3, MODE_CREATE,
+				CKO_SECRET_KEY, keyType, &keyobj);
 	if (rc != CKR_OK) {
 		TRACE_DEVEL("object_create_skel failed.\n");
 		return rc;

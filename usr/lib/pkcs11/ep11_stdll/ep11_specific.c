@@ -1490,7 +1490,7 @@ CK_RV ep11tok_generate_key(SESSION *session, CK_MECHANISM_PTR mech,
 		   __func__, rc, ep11_get_ckm(mech->mechanism), attrs_len);
 
 	/* Start creating the key object */
-	rc = object_mgr_create_skel(session, new_attrs, new_attrs_len,
+	rc = object_mgr_create_skel(tokdata, session, new_attrs, new_attrs_len,
 				    MODE_KEYGEN, CKO_SECRET_KEY, ktype,
 				    &key_obj);
 	if (rc != CKR_OK) {
@@ -1516,7 +1516,7 @@ CK_RV ep11tok_generate_key(SESSION *session, CK_MECHANISM_PTR mech,
 	/* key should be fully constructed.
 	 * Assign an object handle and store key
 	 */
-	rc = object_mgr_create_final(session, key_obj, handle);
+	rc = object_mgr_create_final(tokdata, session, key_obj, handle);
 	if (rc != CKR_OK) {
 		TRACE_ERROR("%s object_mgr_create_final with rc=0x%lx\n",
 			    __func__, rc);
@@ -1675,7 +1675,7 @@ CK_RV ep11tok_derive_key(SESSION *session, CK_MECHANISM_PTR mech,
 		   __func__, hBaseKey, rc, *handle, newblobsize);
 
 	/* Start creating the key object */
-	rc = object_mgr_create_skel(session, new_attrs, new_attrs_len,
+	rc = object_mgr_create_skel(tokdata, session, new_attrs, new_attrs_len,
 				    MODE_DERIVE, class, ktype, &key_obj);
 	if (rc != CKR_OK) {
 		TRACE_ERROR("%s object_mgr_create_skel failed with rc=0x%lx\n",
@@ -1699,7 +1699,7 @@ CK_RV ep11tok_derive_key(SESSION *session, CK_MECHANISM_PTR mech,
 	/* key should be fully constructed.
 	 * Assign an object handle and store key
 	 */
-	rc = object_mgr_create_final(session, key_obj, handle);
+	rc = object_mgr_create_final(tokdata, session, key_obj, handle);
 	if (rc != CKR_OK) {
 		TRACE_ERROR("%s object_mgr_create_final with rc=0x%lx\n", __func__, rc);
 		goto error;
@@ -2533,7 +2533,7 @@ CK_RV ep11tok_generate_key_pair(SESSION * sess, CK_MECHANISM_PTR pMechanism,
 	}
 
 	/* Now build the skeleton key. */
-	rc = object_mgr_create_skel(sess, pPublicKeyTemplate,
+	rc = object_mgr_create_skel(tokdata, sess, pPublicKeyTemplate,
 				    ulPublicKeyAttributeCount, MODE_KEYGEN,
 				    CKO_PUBLIC_KEY, publ_ktype,
 				    &public_key_obj);
@@ -2542,7 +2542,7 @@ CK_RV ep11tok_generate_key_pair(SESSION * sess, CK_MECHANISM_PTR pMechanism,
 		goto error;
 	}
 
-	rc = object_mgr_create_skel(sess, pPrivateKeyTemplate,
+	rc = object_mgr_create_skel(tokdata, sess, pPrivateKeyTemplate,
 				    ulPrivateKeyAttributeCount, MODE_KEYGEN,
 				    CKO_PRIVATE_KEY, priv_ktype,
 				    &private_key_obj);
@@ -2651,13 +2651,13 @@ CK_RV ep11tok_generate_key_pair(SESSION * sess, CK_MECHANISM_PTR pMechanism,
 	/* Keys should be fully constructed,
 	 * assign object handles and store keys.
 	 */
-	rc = object_mgr_create_final(sess, public_key_obj, phPublicKey);
+	rc = object_mgr_create_final(tokdata, sess, public_key_obj, phPublicKey);
 	if (rc != CKR_OK) {
 		TRACE_DEVEL("%s Object mgr create final failed\n", __func__);
 		goto error;
 	}
 
-	rc = object_mgr_create_final(sess, private_key_obj, phPrivateKey);
+	rc = object_mgr_create_final(tokdata, sess, private_key_obj, phPrivateKey);
 	if (rc != CKR_OK) {
 		TRACE_DEVEL("%s Object mgr create final failed\n", __func__);
 		object_mgr_destroy_object(sess, *phPublicKey);
@@ -3352,7 +3352,7 @@ CK_RV ep11tok_unwrap_key(SESSION *session, CK_MECHANISM_PTR mech,
 	}
 
 	/* Start creating the key object */
-	rc = object_mgr_create_skel(session, new_attrs, new_attrs_len,
+	rc = object_mgr_create_skel(tokdata, session, new_attrs, new_attrs_len,
 				    MODE_UNWRAP, class, ktype, &key_obj);
 	if (rc != CKR_OK) {
 		TRACE_ERROR("%s object_mgr_create_skel failed with rc=0x%lx\n", __func__, rc);
@@ -3386,7 +3386,7 @@ CK_RV ep11tok_unwrap_key(SESSION *session, CK_MECHANISM_PTR mech,
 	/* key should be fully constructed.
 	 * Assign an object handle and store key.
 	 */
-	rc = object_mgr_create_final(session, key_obj, p_key);
+	rc = object_mgr_create_final(tokdata, session, key_obj, p_key);
 	if (rc != CKR_OK) {
 		TRACE_ERROR("%s object_mgr_create_final with rc=0x%lx\n", __func__, rc);
 		goto error;

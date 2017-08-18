@@ -1028,13 +1028,14 @@ done:
 }
 
 
-CK_RV SC_CreateObject(ST_SESSION_HANDLE *sSession, CK_ATTRIBUTE_PTR pTemplate,
-		      CK_ULONG ulCount, CK_OBJECT_HANDLE_PTR phObject)
+CK_RV SC_CreateObject(STDLL_TokData_t *tokdata, ST_SESSION_HANDLE *sSession,
+		      CK_ATTRIBUTE_PTR pTemplate, CK_ULONG ulCount,
+		      CK_OBJECT_HANDLE_PTR phObject)
 {
 	SESSION *sess = NULL;
 	CK_RV rc = CKR_OK;
 
-	if (initialized == FALSE) {
+	if (tokdata->initialized == FALSE) {
 		TRACE_ERROR("%s\n", ock_err(ERR_CRYPTOKI_NOT_INITIALIZED));
 		rc = CKR_CRYPTOKI_NOT_INITIALIZED;
 		goto done;

@@ -43,7 +43,8 @@
 //
 //
 CK_RV
-dh_pkcs_derive( SESSION           * sess,
+dh_pkcs_derive( STDLL_TokData_t   * tokdata,
+		SESSION           * sess,
                 CK_MECHANISM      * mech,
                 CK_OBJECT_HANDLE    base_key,
                 CK_ATTRIBUTE      * pTemplate,
@@ -111,7 +112,7 @@ dh_pkcs_derive( SESSION           * sess,
    // Create the object that will be passed back as a handle. This will
    // contain the new (computed) value of the attribute.
 
-   rc = object_mgr_create_skel( sess,
+   rc = object_mgr_create_skel( tokdata, sess,
                                 pTemplate,       ulCount,
                                 MODE_KEYGEN,
                                 keyclass,  keytype,
@@ -128,7 +129,7 @@ dh_pkcs_derive( SESSION           * sess,
    // at this point, the derived key is fully constructed...assign an
    // object handle and store the key
    //
-   rc = object_mgr_create_final( sess, temp_obj, handle );
+   rc = object_mgr_create_final( tokdata, sess, temp_obj, handle );
    if (rc != CKR_OK) {
       TRACE_DEVEL("Object Mgr create final failed.\n");
       object_free( temp_obj );

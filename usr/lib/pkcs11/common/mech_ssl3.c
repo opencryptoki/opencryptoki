@@ -1063,7 +1063,7 @@ ssl3_master_key_derive( SESSION           * sess,
    }
    // build the key skeleton
    //
-   rc = object_mgr_create_skel( sess,
+   rc = object_mgr_create_skel( tokdata, sess,
                                 pTemplate,       ulCount,
                                 MODE_DERIVE,
                                 CKO_SECRET_KEY,  CKK_GENERIC_SECRET,
@@ -1153,7 +1153,7 @@ ssl3_master_key_derive( SESSION           * sess,
    // at this point, the derived key is fully constructed...assign an
    // object handle and store the key
    //
-   rc = object_mgr_create_final( sess, derived_key_obj, handle );
+   rc = object_mgr_create_final( tokdata, sess, derived_key_obj, handle );
    if (rc != CKR_OK) {
       TRACE_DEVEL("Object Mgr create final failed.\n");
       object_free( derived_key_obj );
@@ -1494,7 +1494,8 @@ error:
 
 
 CK_RV
-ssl3_kmd_process_mac_keys( SESSION           * sess,
+ssl3_kmd_process_mac_keys( STDLL_TokData_t   * tokdata,
+			   SESSION           * sess,
                            CK_ATTRIBUTE      * pTemplate,
                            CK_ULONG            ulCount,
                            CK_OBJECT_HANDLE  * client_handle,
@@ -1584,7 +1585,7 @@ ssl3_kmd_process_mac_keys( SESSION           * sess,
 
    // create the key skeletons
    //
-   rc = object_mgr_create_skel( sess,
+   rc = object_mgr_create_skel( tokdata, sess,
                                 new_attrs,     ulCount,
                                 MODE_DERIVE,
                                 CKO_SECRET_KEY,
@@ -1594,7 +1595,7 @@ ssl3_kmd_process_mac_keys( SESSION           * sess,
       TRACE_DEVEL("Object Mgr Create Skeleton failed.\n");
       goto error;
    }
-   rc = object_mgr_create_skel( sess,
+   rc = object_mgr_create_skel( tokdata, sess,
                                 new_attrs,    ulCount,
                                 MODE_DERIVE,
                                 CKO_SECRET_KEY,
@@ -1636,12 +1637,12 @@ ssl3_kmd_process_mac_keys( SESSION           * sess,
    template_update_attribute( server_obj->template, server_val_attr );
    template_update_attribute( server_obj->template, server_val_len_attr );
 
-   rc = object_mgr_create_final( sess, client_obj, client_handle );
+   rc = object_mgr_create_final( tokdata, sess, client_obj, client_handle );
    if (rc != CKR_OK){
       TRACE_DEVEL("Object Mgr Create Final failed.\n");
       goto error;
    }
-   rc = object_mgr_create_final( sess, server_obj, server_handle );
+   rc = object_mgr_create_final( tokdata, sess, server_obj, server_handle );
    if (rc != CKR_OK){
       TRACE_DEVEL("Object Mgr Create Final failed.\n");
       goto error;
@@ -1684,7 +1685,8 @@ error:
 
 
 CK_RV
-ssl3_kmd_process_write_keys( SESSION           * sess,
+ssl3_kmd_process_write_keys( STDLL_TokData_t   * tokdata,
+			     SESSION           * sess,
                              CK_ATTRIBUTE      * pTemplate,
                              CK_ULONG            ulCount,
                              CK_KEY_TYPE         keytype,
@@ -1769,7 +1771,7 @@ ssl3_kmd_process_write_keys( SESSION           * sess,
 
    ulCount = 7 + cnt;
 
-   rc = object_mgr_create_skel( sess,
+   rc = object_mgr_create_skel( tokdata, sess,
                                 new_attrs, ulCount,
                                 MODE_DERIVE,
                                 CKO_SECRET_KEY,
@@ -1779,7 +1781,7 @@ ssl3_kmd_process_write_keys( SESSION           * sess,
       TRACE_DEVEL("Object Mgr Create Skeleton failed.\n");
       goto error;
    }
-   rc = object_mgr_create_skel( sess,
+   rc = object_mgr_create_skel( tokdata, sess,
                                 new_attrs, ulCount,
                                 MODE_DERIVE,
                                 CKO_SECRET_KEY,
@@ -1893,12 +1895,12 @@ ssl3_kmd_process_write_keys( SESSION           * sess,
 
    // finally, assign a handle to each key
    //
-   rc = object_mgr_create_final( sess, client_obj, client_handle );
+   rc = object_mgr_create_final( tokdata, sess, client_obj, client_handle );
    if (rc != CKR_OK){
       TRACE_DEVEL("Object Mgr Create Final failed.\n");
       goto error;
    }
-   rc = object_mgr_create_final( sess, server_obj, server_handle );
+   rc = object_mgr_create_final( tokdata, sess, server_obj, server_handle );
    if (rc != CKR_OK){
       TRACE_DEVEL("Object Mgr Create Final failed.\n");
       goto error;

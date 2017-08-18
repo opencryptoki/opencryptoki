@@ -47,7 +47,7 @@ object_mgr_add( STDLL_TokData_t  * tokdata,
       return CKR_FUNCTION_FAILED;
    }
 
-   rc = object_create( pTemplate, ulCount, &o );
+   rc = object_create( tokdata, pTemplate, ulCount, &o );
    if (rc != CKR_OK){
       TRACE_DEVEL("Object Create failed.\n");
       goto done;
@@ -532,7 +532,8 @@ done:
 // process' object map.
 //
 CK_RV
-object_mgr_create_skel( SESSION       * sess,
+object_mgr_create_skel( STDLL_TokData_t * tokdata,
+			SESSION       * sess,
                         CK_ATTRIBUTE  * pTemplate,
                         CK_ULONG        ulCount,
                         CK_ULONG        mode,
@@ -557,10 +558,8 @@ object_mgr_create_skel( SESSION       * sess,
    // we don't need to lock mutex for this routine
    //
 
-   rc = object_create_skel( pTemplate, ulCount,
-                            mode,
-                            obj_type, sub_class,
-                            &o );
+   rc = object_create_skel( tokdata, pTemplate, ulCount,
+                            mode, obj_type, sub_class, &o );
    if (rc != CKR_OK){
       TRACE_DEVEL("object_create_skel failed.\n");
       return rc;
@@ -612,7 +611,8 @@ object_mgr_create_skel( SESSION       * sess,
 
 
 CK_RV
-object_mgr_create_final( SESSION           * sess,
+object_mgr_create_final( STDLL_TokData_t  * tokdata,
+			 SESSION           * sess,
                          OBJECT            * obj,
                          CK_OBJECT_HANDLE  * handle )
 {

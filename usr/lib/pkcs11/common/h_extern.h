@@ -1960,11 +1960,13 @@ CK_RV    object_mgr_copy( SESSION          * sess,
                           CK_OBJECT_HANDLE   old_obj,
                           CK_OBJECT_HANDLE * new_obj );
 
-CK_RV    object_mgr_create_final( SESSION           *sess,
+CK_RV    object_mgr_create_final( STDLL_TokData_t  *tokdata,
+				  SESSION           *sess,
                                   OBJECT            *obj,
                                   CK_OBJECT_HANDLE  *handle );
 
-CK_RV    object_mgr_create_skel( SESSION      * sess,
+CK_RV    object_mgr_create_skel( STDLL_TokData_t * tokdata,
+				 SESSION      * sess,
                                  CK_ATTRIBUTE * pTemplate,
                                  CK_ULONG       ulCount,
                                  CK_ULONG       mode,
@@ -2070,11 +2072,13 @@ struct update_tok_obj_args
 
 // object routines
 //
-CK_RV     object_create( CK_ATTRIBUTE  * pTemplate,
+CK_RV     object_create( STDLL_TokData_t * tokdata,
+			 CK_ATTRIBUTE  * pTemplate,
                          CK_ULONG        ulCount,
                          OBJECT       ** obj );
 
-CK_RV     object_create_skel( CK_ATTRIBUTE * pTemplate,
+CK_RV     object_create_skel( STDLL_TokData_t * tokdata,
+			      CK_ATTRIBUTE * pTemplate,
                               CK_ULONG       ulCount,
                               CK_ULONG       mode,
                               CK_ULONG       class,
