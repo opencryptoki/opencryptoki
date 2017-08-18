@@ -789,7 +789,7 @@ static const char* ep11_get_ckm(CK_ULONG mechanism)
 	}
 }
 
-static CK_RV h_opaque_2_blob(CK_OBJECT_HANDLE handle,
+static CK_RV h_opaque_2_blob(STDLL_TokData_t *tokdata, CK_OBJECT_HANDLE handle,
 			     CK_BYTE **blob, size_t *blob_len, OBJECT **kobj);
 
 #define EP11_DEFAULT_CFG_FILE "ep11tok.conf"
@@ -818,9 +818,9 @@ static int read_adapter_config_file(STDLL_TokData_t *tokdata, const char* conf_n
  * that was not created by EP11 hardware, encrypt the key by the wrap key,
  * unwrap it by the wrap key
  */
-static CK_RV rawkey_2_blob(unsigned char *key, CK_ULONG ksize,
-			   CK_KEY_TYPE ktype, unsigned char *blob,
-			   size_t *blen, OBJECT *key_obj)
+static CK_RV rawkey_2_blob(STDLL_TokData_t  * tokdata, unsigned char *key,
+			   CK_ULONG ksize, CK_KEY_TYPE ktype,
+			   unsigned char *blob, size_t *blen, OBJECT *key_obj)
 {
 	char   cipher[MAX_BLOBSIZE];
 	CK_ULONG clen = sizeof(cipher);
@@ -924,7 +924,8 @@ CK_RV token_specific_rng(STDLL_TokData_t *tokdata, CK_BYTE *output, CK_ULONG byt
  * m_UnwrapKey, use one wrap key for this purpose, can be any key,
  * we use an AES key
  */
-static CK_RV make_wrapblob(CK_ATTRIBUTE *tmpl_in, CK_ULONG tmpl_len)
+static CK_RV make_wrapblob(STDLL_TokData_t *tokdata, CK_ATTRIBUTE *tmpl_in,
+			   CK_ULONG tmpl_len)
 {
 	CK_MECHANISM mech = {CKM_AES_KEY_GEN, NULL_PTR, 0};
 	unsigned char csum[MAX_CSUMSIZE];
@@ -1074,7 +1075,7 @@ CK_RV ep11tok_init(STDLL_TokData_t *tokdata, CK_SLOT_ID SlotNumber, char *conf_n
 	/* create an AES key needed for importing keys
 	 * (encrypt by wrap_key and m_UnwrapKey by wrap key)
 	 */
-	rc = make_wrapblob(wrap_tmpl, 8);
+	rc = make_wrapblob(tokdata, wrap_tmpl, 8);
 	if (rc != CKR_OK) {
 		TRACE_ERROR("%s make_wrapblob failed rc=0x%lx\n", __func__, rc);
 		if (rc == 0x80010009) {
@@ -1311,7 +1312,7 @@ token_specific_object_add(STDLL_TokData_t *tokdata, OBJECT *obj)
 		/* attr holds key value specified by user,
 		 * import that key (make a blob)
 		 */
-		rc = rawkey_2_blob(attr->pValue, attr->ulValueLen, keytype,
+		rc = rawkey_2_blob(tokdata, attr->pValue, attr->ulValueLen, keytype,
 				   blob, &blobsize, obj);
 		if (rc != CKR_OK) {
 			TRACE_ERROR("%s rawkey_2_blob rc=0x%lx "
@@ -1551,7 +1552,7 @@ CK_RV ep11tok_derive_key(STDLL_TokData_t *tokdata, SESSION *session, CK_MECHANIS
 
 	memset(newblob, 0, sizeof(newblob));
 
-	rc = h_opaque_2_blob(hBaseKey, &keyblob, &keyblobsize, &key_obj);
+	rc = h_opaque_2_blob(tokdata, hBaseKey, &keyblob, &keyblobsize, &key_obj);
 	if (rc != CKR_OK) {
 		TRACE_ERROR("%s failedL hBaseKey=0x%lx\n", __func__, hBaseKey);
 		return rc;
@@ -2598,7 +2599,7 @@ error:
 /* Returns a blob for a key (handle or key obj).
  * The blob is created if none was build yet.
  */
-static CK_RV h_opaque_2_blob(CK_OBJECT_HANDLE handle,
+static CK_RV h_opaque_2_blob(STDLL_TokData_t *tokdata, CK_OBJECT_HANDLE handle,
 			     CK_BYTE **blob, size_t *blobsize, OBJECT **kobj)
 {
 	OBJECT *key_obj;
@@ -2648,7 +2649,7 @@ CK_RV ep11tok_sign_init(STDLL_TokData_t *tokdata, SESSION *session,
 		return CKR_HOST_MEMORY;
 	}
 
-	rc = h_opaque_2_blob(key, &keyblob, &keyblobsize, &key_obj);
+	rc = h_opaque_2_blob(tokdata, key, &keyblob, &keyblobsize, &key_obj);
 	if (rc != CKR_OK) {
 		TRACE_ERROR("%s no blob rc=0x%lx\n", __func__, rc);
 		return rc;
@@ -2759,7 +2760,7 @@ CK_RV ep11tok_verify_init(STDLL_TokData_t *tokdata, SESSION *session,
 		return CKR_HOST_MEMORY;
 	}
 
-	rc = h_opaque_2_blob(key, &spki, &spki_len, &key_obj);
+	rc = h_opaque_2_blob(tokdata, key, &spki, &spki_len, &key_obj);
 	if (rc != CKR_OK) {
 		TRACE_ERROR("%s no blob rc=0x%lx\n", __func__, rc);
 		return rc;
@@ -2989,8 +2990,8 @@ CK_RV ep11tok_encrypt_update(STDLL_TokData_t *tokdata, SESSION *session,
 }
 
 
-static CK_RV ep11_ende_crypt_init(SESSION *session, CK_MECHANISM_PTR mech,
-				  CK_OBJECT_HANDLE key, int op)
+static CK_RV ep11_ende_crypt_init(STDLL_TokData_t *tokdata, SESSION *session,
+				  CK_MECHANISM_PTR mech, CK_OBJECT_HANDLE key, int op)
 {
 	CK_RV rc = CKR_OK;
 	CK_BYTE *blob;
@@ -3004,7 +3005,7 @@ static CK_RV ep11_ende_crypt_init(SESSION *session, CK_MECHANISM_PTR mech,
 		return CKR_HOST_MEMORY;
 	}
 
-	rc = h_opaque_2_blob(key, &blob, &blob_len, &key_obj);
+	rc = h_opaque_2_blob(tokdata, key, &blob, &blob_len, &key_obj);
 	if (rc != CKR_OK) {
 		TRACE_ERROR("%s no blob rc=0x%lx\n", __func__, rc);
 		return rc;
@@ -3057,7 +3058,7 @@ CK_RV ep11tok_encrypt_init(STDLL_TokData_t *tokdata, SESSION *session,
 
 	TRACE_INFO("%s key=0x%lx\n", __func__, key);
 
-	rc = ep11_ende_crypt_init(session, mech, key, ENCRYPT);
+	rc = ep11_ende_crypt_init(tokdata, session, mech, key, ENCRYPT);
 
 	if (rc != CKR_OK) {
 		TRACE_ERROR("%s rc=0x%lx\n", __func__, rc);
@@ -3076,7 +3077,7 @@ CK_RV ep11tok_decrypt_init(STDLL_TokData_t *tokdata, SESSION *session,
 
 	TRACE_INFO("%s key=0x%lx mech=0x%lx\n", __func__, key, mech->mechanism);
 
-	rc = ep11_ende_crypt_init(session, mech, key, DECRYPT);
+	rc = ep11_ende_crypt_init(tokdata, session, mech, key, DECRYPT);
 
 	if (rc != CKR_OK) {
 		TRACE_ERROR("%s rc=0x%lx\n", __func__, rc);
@@ -3118,7 +3119,8 @@ CK_RV ep11tok_wrap_key(STDLL_TokData_t *tokdata, SESSION *session,
 	}
 
 	/* the key that encrypts */
-	rc = h_opaque_2_blob(wrapping_key, &wrapping_blob, &wrapping_blob_len, &key_obj);
+	rc = h_opaque_2_blob(tokdata, wrapping_key, &wrapping_blob,
+			     &wrapping_blob_len, &key_obj);
 	if (rc != CKR_OK) {
 		TRACE_ERROR("%s h_opaque_2_blob(wrapping_key) failed with rc=0x%lx\n",
 			    __func__, rc);
@@ -3127,7 +3129,8 @@ CK_RV ep11tok_wrap_key(STDLL_TokData_t *tokdata, SESSION *session,
 	}
 
 	/* the key to be wrapped */
-	rc = h_opaque_2_blob(key, &wrap_target_blob, &wrap_target_blob_len, &key_obj);
+	rc = h_opaque_2_blob(tokdata, key, &wrap_target_blob,
+			     &wrap_target_blob_len, &key_obj);
 	if (rc != CKR_OK) {
 		TRACE_ERROR("%s h_opaque_2_blob(key) failed with rc=0x%lx\n", __func__, rc);
 		if (size_querry) free(wrapped_key);
@@ -3198,7 +3201,7 @@ CK_RV ep11tok_unwrap_key(STDLL_TokData_t *tokdata, SESSION *session, CK_MECHANIS
 	OBJECT *kobj = NULL;
 
 	/* get wrapping key blob */
-	rc = h_opaque_2_blob(wrapping_key, &wrapping_blob, &wrapping_blob_len, &kobj);
+	rc = h_opaque_2_blob(tokdata, wrapping_key, &wrapping_blob, &wrapping_blob_len, &kobj);
 	if (rc != CKR_OK) {
 		TRACE_ERROR("%s h_opaque_2_blob(wrapping_key) failed with rc=0x%lx\n", __func__, rc);
 		return rc;
