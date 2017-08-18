@@ -603,8 +603,8 @@ CK_RV reset_token_data(CK_SLOT_ID slot_id, CK_CHAR_PTR pin, CK_ULONG pin_len)
 		TRACE_ERROR("Failed to reset so pin.\n");
 		return CKR_FUNCTION_FAILED;
 	}
-	memset(nv_token_data->user_pin_sha, 0,
-	       sizeof(nv_token_data->user_pin_sha));
+	memset(tokdata->nv_token_data->user_pin_sha, 0,
+	       sizeof(tokdata->nv_token_data->user_pin_sha));
 
 	if (slot_data[slot_id]->mech == ICSF_CFG_MECH_SIMPLE) {
 		/* Save master key */
@@ -746,7 +746,7 @@ CK_RV icsftok_init_pin(SESSION *sess, CK_CHAR_PTR pPin, CK_ULONG ulPinLen)
 		TRACE_ERROR("Process Lock Failed.\n");
 		return rc;
 	}
-	memcpy(nv_token_data->user_pin_sha, hash_sha, SHA1_HASH_SIZE);
+	memcpy(tokdata->nv_token_data->user_pin_sha, hash_sha, SHA1_HASH_SIZE);
 	tokdata->nv_token_data->token_info.flags |= CKF_USER_PIN_INITIALIZED;
 	tokdata->nv_token_data->token_info.flags &= ~(CKF_USER_PIN_TO_BE_CHANGED);
 	tokdata->nv_token_data->token_info.flags &= ~(CKF_USER_PIN_LOCKED);
@@ -790,7 +790,7 @@ CK_RV icsftok_set_pin(SESSION *sess, CK_CHAR_PTR pOldPin, CK_ULONG ulOldLen,
 	if ((sess->session_info.state == CKS_RW_USER_FUNCTIONS) ||
 	    (sess->session_info.state == CKS_RW_PUBLIC_SESSION)) {
 		/* check that old pin matches what is in NVTOK.DAT */
-		if (memcmp(nv_token_data->user_pin_sha, old_hash_sha, SHA1_HASH_SIZE) != 0) {
+		if (memcmp(tokdata->nv_token_data->user_pin_sha, old_hash_sha, SHA1_HASH_SIZE) != 0) {
 			TRACE_ERROR("%s\n", ock_err(ERR_PIN_INCORRECT));
 			return CKR_PIN_INCORRECT;
 		}
@@ -812,7 +812,7 @@ CK_RV icsftok_set_pin(SESSION *sess, CK_CHAR_PTR pOldPin, CK_ULONG ulOldLen,
 			TRACE_ERROR("Process Lock Failed.\n");
 			return rc;
 		}
-		memcpy(nv_token_data->user_pin_sha, new_hash_sha, SHA1_HASH_SIZE);
+		memcpy(tokdata->nv_token_data->user_pin_sha, new_hash_sha, SHA1_HASH_SIZE);
 		tokdata->nv_token_data->token_info.flags &= ~(CKF_USER_PIN_TO_BE_CHANGED);
 		XProcUnLock();
 
@@ -1136,7 +1136,8 @@ CK_RV icsftok_login(SESSION *sess, CK_USER_TYPE userType, CK_CHAR_PTR pPin,
 
 	if (userType == CKU_USER) {
 		/* check if pin initialized */
-		if (memcmp(nv_token_data->user_pin_sha, "00000000000000000000", SHA1_HASH_SIZE) == 0) {
+		if (memcmp(tokdata->nv_token_data->user_pin_sha,
+			   "00000000000000000000", SHA1_HASH_SIZE) == 0) {
 			TRACE_ERROR("%s\n",
 				    ock_err(ERR_USER_PIN_NOT_INITIALIZED));
 			rc = CKR_USER_PIN_NOT_INITIALIZED;
@@ -1144,7 +1145,8 @@ CK_RV icsftok_login(SESSION *sess, CK_USER_TYPE userType, CK_CHAR_PTR pPin,
 		}
 
 		/* check that pin is the same as the one in NVTOK.DAT */
-		if (memcmp(nv_token_data->user_pin_sha, hash_sha, SHA1_HASH_SIZE) != 0) {
+		if (memcmp(tokdata->nv_token_data->user_pin_sha, hash_sha,
+			   SHA1_HASH_SIZE) != 0) {
 			TRACE_ERROR("%s\n", ock_err(ERR_PIN_INCORRECT));
 			rc = CKR_PIN_INCORRECT;
 			goto done;
