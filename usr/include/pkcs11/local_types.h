@@ -44,6 +44,8 @@ struct btree
 	unsigned long free_nodes;
 };
 
+typedef struct _STDLL_TokData_t STDLL_TokData_t;
+
 struct btnode *bt_get_node(struct btree *t, unsigned long node_num);
 void *bt_get_node_value(struct btree *t, unsigned long node_num);
 int bt_is_empty(struct btree *t);

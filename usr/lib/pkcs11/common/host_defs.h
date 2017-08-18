@@ -16,6 +16,7 @@
 #include <endian.h>
 
 #include "pkcs32.h"
+#include <stdint.h>
 
 typedef struct _ENCR_DECR_CONTEXT
 {
@@ -224,6 +225,9 @@ typedef struct _TOKEN_DATA
 
    CK_BYTE   user_pin_sha[3 * DES_BLOCK_SIZE];
    CK_BYTE   so_pin_sha[3 * DES_BLOCK_SIZE];
+   CK_BYTE   user_pin_md5[MD5_HASH_SIZE];
+   CK_BYTE   so_pin_md5[MD5_HASH_SIZE];
+   CK_BYTE   master_key[MAX_KEY_SIZE];
    CK_BYTE   next_token_object_name[8];
    TWEAK_VEC tweak_vector;
 } TOKEN_DATA;
@@ -286,6 +290,17 @@ typedef struct _LW_SHM_TYPE
    TOK_OBJ_ENTRY  publ_tok_objs[ MAX_TOK_OBJS ];
    TOK_OBJ_ENTRY  priv_tok_objs[ MAX_TOK_OBJS ];
 } LW_SHM_TYPE;
+
+typedef struct _STDLL_TokData_t {
+	CK_SLOT_INFO    slot_info;
+	char		data_store[256];	// path information of the token directory
+	CK_BBOOL        initialized;
+	CK_ULONG 	ro_session_count;
+	CK_STATE 	global_login_state;;
+	LW_SHM_TYPE	*global_shm;
+	TOKEN_DATA	*nv_token_data;
+	uint64_t	*target_list;		// pointer to adapter target list
+} STDLL_TokData_t;
 
 // These are the same for both AIX and Linux...
 #define  MY_CreateMutex(x)    _CreateMutex((MUTEX *)(x))
