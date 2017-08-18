@@ -99,7 +99,8 @@ typedef CK_RV	(CK_PTR  ST_C_CloseSession)
 typedef CK_RV	(CK_PTR  ST_C_CloseAllSessions)
 						(STDLL_TokData_t *tokdata, CK_SLOT_ID slotID);
 typedef CK_RV	(CK_PTR  ST_C_GetSessionInfo)
-						(ST_SESSION_T *hSession, CK_SESSION_INFO_PTR pInfo);
+						(STDLL_TokData_t *tokdata, ST_SESSION_T *hSession,
+						 CK_SESSION_INFO_PTR pInfo);
 typedef CK_RV	(CK_PTR  ST_C_GetOperationState)
 						(STDLL_TokData_t *tokdata, ST_SESSION_T *hSession,
 						 CK_BYTE_PTR pOperationState,
