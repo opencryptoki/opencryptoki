@@ -30,6 +30,7 @@ typedef struct {
    CK_SESSION_HANDLE  sessionh;
 } ST_SESSION_T ;
 
+typedef struct _STDLL_TokData_t STDLL_TokData_t;
 
 typedef ST_SESSION_T ST_SESSION_HANDLE;
 

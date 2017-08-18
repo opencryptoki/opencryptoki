@@ -32,6 +32,7 @@ typedef struct {
    CK_BOOL     DLLoaded;    // Flag to indicate if the STDDL has been loaded
    void        *dlop_p;     // Pointer to the value returned from the DL open
    STDLL_FcnList_t   *FcnList;  // Function list pointer for the STDLL
+   STDLL_TokData_t   *TokData;  // Pointer to Token specific data
    DLL_Load_t  *dll_information;
    void            (*pSTfini)();  // Addition of Final function.
    CK_RV           (*pSTcloseall)();  // Addition of close all for leeds code
