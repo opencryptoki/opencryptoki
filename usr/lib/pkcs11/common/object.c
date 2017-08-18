@@ -543,7 +543,8 @@ object_get_attribute_values( OBJECT        * obj,
 // object_set_attribute_values()
 //
 CK_RV
-object_set_attribute_values( OBJECT        * obj,
+object_set_attribute_values( STDLL_TokData_t * tokdata,
+			     OBJECT        * obj,
                              CK_ATTRIBUTE  * pTemplate,
                              CK_ULONG        ulCount )
 {
