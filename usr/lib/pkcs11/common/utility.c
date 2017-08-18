@@ -860,7 +860,8 @@ CK_RV compute_md5(CK_BYTE * data, CK_ULONG len, CK_BYTE * hash)
 	return CKR_OK;
 }
 
-CK_RV get_keytype(CK_OBJECT_HANDLE hkey, CK_KEY_TYPE *keytype)
+CK_RV get_keytype(STDLL_TokData_t *tokdata, CK_OBJECT_HANDLE hkey,
+		  CK_KEY_TYPE *keytype)
 {
 	CK_RV rc;
 	OBJECT *key_obj = NULL;
