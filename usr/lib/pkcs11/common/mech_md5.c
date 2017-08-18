@@ -172,7 +172,7 @@ md5_hmac_sign( SESSION              * sess,
 
    memset( &digest_ctx, 0x0, sizeof(DIGEST_CONTEXT) );
 
-   rc = object_mgr_find_in_map1( ctx->key, &key_obj );
+   rc = object_mgr_find_in_map1( tokdata, ctx->key, &key_obj );
    if (rc != CKR_OK)
       return rc;
 

@@ -161,7 +161,7 @@ ec_sign( SESSION			*sess,
 		return CKR_FUNCTION_FAILED;
 	}
 
-	rc = object_mgr_find_in_map1( ctx->key, &key_obj );
+	rc = object_mgr_find_in_map1( tokdata, ctx->key, &key_obj );
 	if (rc != CKR_OK){
 		TRACE_ERROR("Failed to acquire key from specified handle");
 		if (rc == CKR_OBJECT_HANDLE_INVALID)
@@ -238,7 +238,7 @@ ec_verify(SESSION		*sess,
 	CK_RV            rc;
 
 
-	rc = object_mgr_find_in_map1(ctx->key, &key_obj);
+	rc = object_mgr_find_in_map1(tokdata, ctx->key, &key_obj);
 	if (rc != CKR_OK){
 		TRACE_ERROR("Failed to acquire key from specified handle");
 		if (rc == CKR_OBJECT_HANDLE_INVALID)

@@ -47,7 +47,7 @@ aes_ecb_encrypt( SESSION           *sess,
       TRACE_ERROR("%s\n", ock_err(ERR_DATA_LEN_RANGE));
       return CKR_DATA_LEN_RANGE;
    }
-   rc = object_mgr_find_in_map1( ctx->key, &key );
+   rc = object_mgr_find_in_map1( tokdata, ctx->key, &key );
    if (rc != CKR_OK){
       TRACE_ERROR("Failed to find specified object.\n");
       return rc;
@@ -96,7 +96,7 @@ aes_ecb_decrypt( SESSION           *sess,
       TRACE_ERROR("%s\n", ock_err(ERR_ENCRYPTED_DATA_LEN_RANGE));
       return CKR_ENCRYPTED_DATA_LEN_RANGE;
    }
-   rc = object_mgr_find_in_map1( ctx->key, &key );
+   rc = object_mgr_find_in_map1( tokdata, ctx->key, &key );
    if (rc != CKR_OK){
       TRACE_ERROR("Failed to find specified object.\n");
       return rc;
@@ -144,7 +144,7 @@ aes_cbc_encrypt( SESSION           *sess,
       return CKR_DATA_LEN_RANGE;
    }
 
-   rc = object_mgr_find_in_map1( ctx->key, &key );
+   rc = object_mgr_find_in_map1( tokdata, ctx->key, &key );
    if (rc != CKR_OK){
       TRACE_ERROR("Failed to find specified object.\n");
       return rc;
@@ -191,7 +191,7 @@ aes_cbc_decrypt( SESSION            *sess,
       TRACE_ERROR("%s\n", ock_err(ERR_ENCRYPTED_DATA_LEN_RANGE));
       return CKR_ENCRYPTED_DATA_LEN_RANGE;
    }
-   rc = object_mgr_find_in_map1( ctx->key, &key );
+   rc = object_mgr_find_in_map1( tokdata, ctx->key, &key );
    if (rc != CKR_OK){
       TRACE_ERROR("Failed to find specified object.\n");
       return rc;
@@ -236,7 +236,7 @@ aes_cbc_pad_encrypt( SESSION           *sess,
    // DES3-CBC-PAD has no input length requirements
    //
 
-   rc = object_mgr_find_in_map1( ctx->key, &key );
+   rc = object_mgr_find_in_map1( tokdata, ctx->key, &key );
    if (rc != CKR_OK){
       TRACE_ERROR("Failed to find specified object.\n");
       return rc;
@@ -302,7 +302,7 @@ aes_cbc_pad_decrypt( SESSION            *sess,
    // no need to validate the input length since we'll pad as necessary
    //
 
-   rc = object_mgr_find_in_map1( ctx->key, &key );
+   rc = object_mgr_find_in_map1( tokdata, ctx->key, &key );
    if (rc != CKR_OK){
       TRACE_ERROR("Failed to find specified object.\n");
       return rc;
@@ -364,7 +364,7 @@ aes_ctr_encrypt( SESSION           *sess,
       TRACE_ERROR("%s\n", ock_err(ERR_DATA_LEN_RANGE));
       return CKR_DATA_LEN_RANGE;
    }
-   rc = object_mgr_find_in_map1( ctx->key, &key );
+   rc = object_mgr_find_in_map1( tokdata, ctx->key, &key );
    if (rc != CKR_OK){
       TRACE_ERROR("Failed to find specified object.\n");
       return rc;
@@ -411,7 +411,7 @@ aes_ctr_decrypt( SESSION           *sess,
       TRACE_ERROR("%s\n", ock_err(ERR_ENCRYPTED_DATA_LEN_RANGE));
       return CKR_ENCRYPTED_DATA_LEN_RANGE;
    }
-   rc = object_mgr_find_in_map1( ctx->key, &key );
+   rc = object_mgr_find_in_map1( tokdata, ctx->key, &key );
    if (rc != CKR_OK){
       TRACE_ERROR("Failed to find specified object.\n");
       return rc;
@@ -1261,7 +1261,7 @@ aes_cbc_pad_encrypt_final( SESSION           *sess,
       return CKR_FUNCTION_FAILED;
    }
 
-   rc = object_mgr_find_in_map1( ctx->key, &key );
+   rc = object_mgr_find_in_map1( tokdata, ctx->key, &key );
    if (rc != CKR_OK){
       TRACE_ERROR("Failed to find specified object.\n");
       return rc;
@@ -1318,7 +1318,7 @@ aes_cbc_pad_decrypt_final( SESSION           *sess,
       TRACE_ERROR("%s received bad argument(s)\n", __FUNCTION__);
       return CKR_FUNCTION_FAILED;
    }
-   rc = object_mgr_find_in_map1( ctx->key, &key );
+   rc = object_mgr_find_in_map1( tokdata, ctx->key, &key );
    if (rc != CKR_OK){
       TRACE_ERROR("Failed to find specified object.\n");
       return rc;
@@ -1471,7 +1471,7 @@ aes_ofb_encrypt( SESSION           * sess,
       return CKR_BUFFER_TOO_SMALL;
    }
 
-   rc = object_mgr_find_in_map1( ctx->key, &key_obj );
+   rc = object_mgr_find_in_map1( tokdata, ctx->key, &key_obj );
    if (rc != CKR_OK){
       TRACE_ERROR("Failed to find specified object.\n");
       return rc;
@@ -1532,7 +1532,7 @@ aes_ofb_encrypt_update( SESSION              * sess,
          return CKR_BUFFER_TOO_SMALL;
       }
 
-      rc = object_mgr_find_in_map1( ctx->key, &key_obj );
+      rc = object_mgr_find_in_map1( tokdata, ctx->key, &key_obj );
       if (rc != CKR_OK){
 	 TRACE_ERROR("Failed to find specified object.\n");
          return rc;
@@ -1597,7 +1597,7 @@ aes_ofb_encrypt_final( SESSION           *sess,
          return CKR_OK;
       }
 
-      rc = object_mgr_find_in_map1( ctx->key, &key_obj );
+      rc = object_mgr_find_in_map1( tokdata, ctx->key, &key_obj );
       if (rc != CKR_OK){
          TRACE_ERROR("Failed to find specified object.\n");
          return rc;
@@ -1641,7 +1641,7 @@ aes_ofb_decrypt( SESSION           * sess,
       return CKR_BUFFER_TOO_SMALL;
    }
 
-   rc = object_mgr_find_in_map1( ctx->key, &key_obj );
+   rc = object_mgr_find_in_map1( tokdata, ctx->key, &key_obj );
    if (rc != CKR_OK){
       TRACE_ERROR("Failed to find specified object.\n");
       return rc;
@@ -1703,7 +1703,7 @@ aes_ofb_decrypt_update( SESSION              * sess,
          return CKR_BUFFER_TOO_SMALL;
       }
 
-      rc = object_mgr_find_in_map1( ctx->key, &key_obj );
+      rc = object_mgr_find_in_map1( tokdata, ctx->key, &key_obj );
       if (rc != CKR_OK){
 	 TRACE_ERROR("Failed to find specified object.\n");
          return rc;
@@ -1771,7 +1771,7 @@ aes_ofb_decrypt_final( SESSION           *sess,
          return CKR_OK;
       }
 
-      rc = object_mgr_find_in_map1( ctx->key, &key_obj );
+      rc = object_mgr_find_in_map1( tokdata, ctx->key, &key_obj );
       if (rc != CKR_OK){
 	 TRACE_ERROR("Failed to find specified object.\n");
          return rc;
@@ -1816,7 +1816,7 @@ aes_cfb_encrypt( SESSION           * sess,
       return CKR_BUFFER_TOO_SMALL;
    }
 
-   rc = object_mgr_find_in_map1( ctx->key, &key_obj );
+   rc = object_mgr_find_in_map1( tokdata, ctx->key, &key_obj );
    if (rc != CKR_OK){
       TRACE_ERROR("Failed to find specified object.\n");
       return rc;
@@ -1878,7 +1878,7 @@ aes_cfb_encrypt_update( SESSION              * sess,
          return CKR_BUFFER_TOO_SMALL;
       }
 
-      rc = object_mgr_find_in_map1( ctx->key, &key_obj );
+      rc = object_mgr_find_in_map1( tokdata, ctx->key, &key_obj );
       if (rc != CKR_OK){
 	 TRACE_ERROR("Failed to find specified object.\n");
          return rc;
@@ -1944,7 +1944,7 @@ aes_cfb_encrypt_final( SESSION           *sess,
       return CKR_OK;
    }
    else {
-      rc = object_mgr_find_in_map1( ctx->key, &key_obj );
+      rc = object_mgr_find_in_map1( tokdata, ctx->key, &key_obj );
       if (rc != CKR_OK){
 	TRACE_ERROR("Failed to find specified object.\n");
          return rc;
@@ -1989,7 +1989,7 @@ aes_cfb_decrypt( SESSION           * sess,
       return CKR_BUFFER_TOO_SMALL;
    }
 
-   rc = object_mgr_find_in_map1( ctx->key, &key_obj );
+   rc = object_mgr_find_in_map1( tokdata, ctx->key, &key_obj );
    if (rc != CKR_OK){
       TRACE_ERROR("Failed to find specified object.\n");
       return rc;
@@ -2051,7 +2051,7 @@ aes_cfb_decrypt_update( SESSION              * sess,
          return CKR_BUFFER_TOO_SMALL;
       }
 
-      rc = object_mgr_find_in_map1( ctx->key, &key_obj );
+      rc = object_mgr_find_in_map1( tokdata, ctx->key, &key_obj );
       if (rc != CKR_OK){
 	 TRACE_ERROR("Failed to find specified object.\n");
          return rc;
@@ -2118,7 +2118,7 @@ aes_cfb_decrypt_final( SESSION           *sess,
       return CKR_OK;
    }
    else {
-      rc = object_mgr_find_in_map1( ctx->key, &key_obj );
+      rc = object_mgr_find_in_map1( tokdata, ctx->key, &key_obj );
       if (rc != CKR_OK){
 	 TRACE_ERROR("Failed to find specified object.\n");
          return rc;
@@ -2181,7 +2181,7 @@ aes_mac_sign( SESSION              * sess,
       return CKR_BUFFER_TOO_SMALL;
    }
 
-   rc = object_mgr_find_in_map1( ctx->key, &key_obj );
+   rc = object_mgr_find_in_map1( tokdata, ctx->key, &key_obj );
    if (rc != CKR_OK){
       TRACE_ERROR("Failed to find specified object.\n");
       return rc;
@@ -2230,7 +2230,7 @@ aes_mac_sign_update ( SESSION              * sess,
       remain  = (total % AES_BLOCK_SIZE);
       out_len = total - remain;
 
-      rc = object_mgr_find_in_map1( ctx->key, &key_obj );
+      rc = object_mgr_find_in_map1( tokdata, ctx->key, &key_obj );
       if (rc != CKR_OK){
 	 TRACE_ERROR("Failed to find specified object.\n");
          return rc;
@@ -2305,7 +2305,7 @@ aes_mac_sign_final( SESSION              * sess,
       /* padding with '00' in case case we didn't reach block size */
       memset(context->data + context->len, 0x0, AES_BLOCK_SIZE - context->len);
 
-      rc = object_mgr_find_in_map1( ctx->key, &key_obj );
+      rc = object_mgr_find_in_map1( tokdata, ctx->key, &key_obj );
       if (rc != CKR_OK){
 	 TRACE_ERROR("Failed to find specified object.\n");
          return rc;
@@ -2360,7 +2360,7 @@ aes_mac_verify( SESSION              * sess,
            return CKR_SIGNATURE_LEN_RANGE;
    }
 
-   rc = object_mgr_find_in_map1( ctx->key, &key_obj );
+   rc = object_mgr_find_in_map1( tokdata, ctx->key, &key_obj );
    if (rc != CKR_OK){
       TRACE_ERROR("Failed to find specified object.\n");
       return rc;
@@ -2412,7 +2412,7 @@ aes_mac_verify_update( SESSION              * sess,
       remain  = (total % AES_BLOCK_SIZE);
       out_len = total - remain;
 
-      rc = object_mgr_find_in_map1( ctx->key, &key_obj );
+      rc = object_mgr_find_in_map1( tokdata, ctx->key, &key_obj );
       if (rc != CKR_OK){
 	 TRACE_ERROR("Failed to find specified object.\n");
          return rc;
@@ -2480,7 +2480,7 @@ aes_mac_verify_final( SESSION              * sess,
       /* padding with '00' in case case we didn't reach block size */
       memset(context->data + context->len, 0x0, AES_BLOCK_SIZE - context->len);
 
-      rc = object_mgr_find_in_map1( ctx->key, &key_obj );
+      rc = object_mgr_find_in_map1( tokdata, ctx->key, &key_obj );
       if (rc != CKR_OK){
 	 TRACE_ERROR("Failed to find specified object.\n");
          return rc;

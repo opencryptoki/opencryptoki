@@ -50,7 +50,7 @@ pk_des_ecb_encrypt( SESSION           *sess,
       TRACE_ERROR("%s\n", ock_err(ERR_DATA_LEN_RANGE));
       return CKR_DATA_LEN_RANGE;
    }
-   rc = object_mgr_find_in_map1( ctx->key, &key );
+   rc = object_mgr_find_in_map1( tokdata, ctx->key, &key );
    if (rc != CKR_OK){
       TRACE_ERROR("Failed to find specified object.\n");
       return rc;
@@ -99,7 +99,7 @@ des_ecb_decrypt( SESSION           *sess,
       TRACE_ERROR("%s\n", ock_err(ERR_ENCRYPTED_DATA_LEN_RANGE));
       return CKR_ENCRYPTED_DATA_LEN_RANGE;
    }
-   rc = object_mgr_find_in_map1( ctx->key, &key );
+   rc = object_mgr_find_in_map1( tokdata, ctx->key, &key );
    if (rc != CKR_OK){
       TRACE_ERROR("Failed to find specified object.\n");
       return rc;
@@ -146,7 +146,7 @@ pk_des_cbc_encrypt( SESSION           *sess,
       TRACE_ERROR("%s\n", ock_err(ERR_DATA_LEN_RANGE));
       return CKR_DATA_LEN_RANGE;
    }
-   rc = object_mgr_find_in_map1( ctx->key, &key );
+   rc = object_mgr_find_in_map1( tokdata, ctx->key, &key );
    if (rc != CKR_OK){
       TRACE_ERROR("Failed to find specified object.\n");
       return rc;
@@ -194,7 +194,7 @@ des_cbc_decrypt( SESSION            *sess,
       TRACE_ERROR("%s\n", ock_err(ERR_ENCRYPTED_DATA_LEN_RANGE));
       return CKR_ENCRYPTED_DATA_LEN_RANGE;
    }
-   rc = object_mgr_find_in_map1( ctx->key, &key );
+   rc = object_mgr_find_in_map1( tokdata, ctx->key, &key );
    if (rc != CKR_OK){
       TRACE_ERROR("Failed to find specified object.\n");
       return rc;
@@ -239,7 +239,7 @@ des_cbc_pad_encrypt( SESSION           *sess,
    // DES-CBC-PAD has no input length requirements
    //
 
-   rc = object_mgr_find_in_map1( ctx->key, &key );
+   rc = object_mgr_find_in_map1( tokdata, ctx->key, &key );
    if (rc != CKR_OK){
       TRACE_ERROR("Failed to find specified object.\n");
       return rc;
@@ -304,7 +304,7 @@ des_cbc_pad_decrypt( SESSION            *sess,
    // no need to validate the input length since we'll pad as necessary
    //
 
-   rc = object_mgr_find_in_map1( ctx->key, &key );
+   rc = object_mgr_find_in_map1( tokdata, ctx->key, &key );
    if (rc != CKR_OK){
       TRACE_ERROR("Failed to find specified object.\n");
       return rc;
@@ -1028,7 +1028,7 @@ des_cbc_pad_encrypt_final( SESSION           *sess,
       return CKR_FUNCTION_FAILED;
    }
 
-   rc = object_mgr_find_in_map1( ctx->key, &key );
+   rc = object_mgr_find_in_map1( tokdata, ctx->key, &key );
    if (rc != CKR_OK){
       TRACE_ERROR("Failed to find specified object.\n");
       return rc;
@@ -1085,7 +1085,7 @@ des_cbc_pad_decrypt_final( SESSION           *sess,
       TRACE_ERROR("%s received bad argument(s)\n", __FUNCTION__);
       return CKR_FUNCTION_FAILED;
    }
-   rc = object_mgr_find_in_map1( ctx->key, &key );
+   rc = object_mgr_find_in_map1( tokdata, ctx->key, &key );
    if (rc != CKR_OK){
       TRACE_ERROR("Failed to find specified object.\n");
       return rc;

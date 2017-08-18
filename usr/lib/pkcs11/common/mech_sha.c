@@ -587,7 +587,7 @@ CK_RV sha1_hmac_sign(SESSION *sess, CK_BBOOL length_only,
 
 	memset(&digest_ctx, 0x0, sizeof(DIGEST_CONTEXT));
 
-	rc = object_mgr_find_in_map1(ctx->key, &key_obj);
+	rc = object_mgr_find_in_map1(tokdata, ctx->key, &key_obj);
 	if (rc != CKR_OK) {
 		TRACE_ERROR("Failed to acquire key from specified handle");
 		if (rc == CKR_OBJECT_HANDLE_INVALID)
@@ -763,7 +763,7 @@ CK_RV sha2_hmac_sign(SESSION *sess, CK_BBOOL length_only,
 	 */
 	memset(&digest_ctx, 0x0, sizeof(DIGEST_CONTEXT));
 
-	rc = object_mgr_find_in_map1(ctx->key, &key_obj);
+	rc = object_mgr_find_in_map1(tokdata, ctx->key, &key_obj);
 	if (rc != CKR_OK) {
 		TRACE_ERROR("Failed to acquire key from specified handle");
 		if (rc == CKR_OBJECT_HANDLE_INVALID)
@@ -936,7 +936,7 @@ CK_RV sha3_hmac_sign(SESSION *sess, CK_BBOOL length_only,
 
 	memset( &digest_ctx, 0x0, sizeof(DIGEST_CONTEXT) );
 
-	rc = object_mgr_find_in_map1( ctx->key, &key_obj );
+	rc = object_mgr_find_in_map1(tokdata, ctx->key, &key_obj);
 	if (rc != CKR_OK) {
 		TRACE_ERROR("Failed to acquire key from specified handle");
 		if (rc == CKR_OBJECT_HANDLE_INVALID)
@@ -1108,7 +1108,7 @@ CK_RV sha5_hmac_sign(SESSION *sess, CK_BBOOL length_only,
 	 */
 	memset(&digest_ctx, 0x0, sizeof(DIGEST_CONTEXT));
 
-	rc = object_mgr_find_in_map1(ctx->key, &key_obj);
+	rc = object_mgr_find_in_map1(tokdata, ctx->key, &key_obj);
 	if (rc != CKR_OK) {
 		TRACE_ERROR("Failed to acquire key from specified handle");
 		if (rc == CKR_OBJECT_HANDLE_INVALID)

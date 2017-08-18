@@ -91,7 +91,7 @@ ssl3_mac_sign( SESSION              * sess,
 
    memset( &digest_ctx, 0x0, sizeof(DIGEST_CONTEXT) );
 
-   rc = object_mgr_find_in_map1( ctx->key, &key_obj );
+   rc = object_mgr_find_in_map1( tokdata, ctx->key, &key_obj );
    if (rc != CKR_OK){
       TRACE_ERROR("Failed to acquire key from specified handle");
       if (rc == CKR_OBJECT_HANDLE_INVALID)
@@ -224,7 +224,7 @@ ssl3_mac_sign_update( SESSION              * sess,
    context = (SSL3_MAC_CONTEXT *)ctx->context;
 
    if (context->flag == FALSE) {
-      rc = object_mgr_find_in_map1( ctx->key, &key_obj );
+      rc = object_mgr_find_in_map1( tokdata, ctx->key, &key_obj );
       if (rc != CKR_OK){
 	 TRACE_ERROR("Failed to acquire key from specified handle");
 	 if (rc == CKR_OBJECT_HANDLE_INVALID)
@@ -329,7 +329,7 @@ ssl3_mac_sign_final( SESSION              * sess,
 
    context = (SSL3_MAC_CONTEXT *)ctx->context;
 
-   rc = object_mgr_find_in_map1( ctx->key, &key_obj );
+   rc = object_mgr_find_in_map1( tokdata, ctx->key, &key_obj );
    if (rc != CKR_OK){
       TRACE_ERROR("Failed to acquire key from specified handle");
       if (rc == CKR_OBJECT_HANDLE_INVALID)
@@ -485,7 +485,7 @@ ssl3_mac_verify_update( SESSION              * sess,
    context = (SSL3_MAC_CONTEXT *)ctx->context;
 
    if (context->flag == FALSE) {
-      rc = object_mgr_find_in_map1( ctx->key, &key_obj );
+      rc = object_mgr_find_in_map1( tokdata, ctx->key, &key_obj );
       if (rc != CKR_OK){
 	 TRACE_ERROR("Failed to acquire key from specified handle");
 	 if (rc == CKR_OBJECT_HANDLE_INVALID)
@@ -577,7 +577,7 @@ ssl3_mac_verify_final( SESSION              * sess,
 
    context = (SSL3_MAC_CONTEXT *)ctx->context;
 
-   rc = object_mgr_find_in_map1( ctx->key, &key_obj );
+   rc = object_mgr_find_in_map1( tokdata, ctx->key, &key_obj );
    if (rc != CKR_OK){
       TRACE_ERROR("Failed to acquire key from specified handle");
       if (rc == CKR_OBJECT_HANDLE_INVALID)
@@ -955,7 +955,7 @@ ssl3_master_key_derive( SESSION           * sess,
    }
    params = (CK_SSL3_MASTER_KEY_DERIVE_PARAMS *)mech->pParameter;
 
-   rc = object_mgr_find_in_map1( base_key, &base_key_obj );
+   rc = object_mgr_find_in_map1( tokdata, base_key, &base_key_obj );
    if (rc != CKR_OK){
       TRACE_ERROR("Failed to acquire key from specified handle");
       if (rc == CKR_OBJECT_HANDLE_INVALID)
@@ -1228,7 +1228,7 @@ ssl3_key_and_mac_derive( SESSION           * sess,
    }
    params = (CK_SSL3_KEY_MAT_PARAMS *)mech->pParameter;
 
-   rc = object_mgr_find_in_map1( base_key, &base_key_obj );
+   rc = object_mgr_find_in_map1( tokdata, base_key, &base_key_obj );
    if (rc != CKR_OK){
       TRACE_ERROR("Failed to acquire key from specified handle");
       if (rc == CKR_OBJECT_HANDLE_INVALID)

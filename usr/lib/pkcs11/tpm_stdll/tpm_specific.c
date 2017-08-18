@@ -439,7 +439,7 @@ token_wrap_key_object( CK_OBJECT_HANDLE ckObject, TSS_HKEY hParentKey, TSS_HKEY 
 	BYTE		*rgbBlob;
 	UINT32		ulBlobLen;
 
-	if ((rc = object_mgr_find_in_map1(ckObject, &obj))) {
+	if ((rc = object_mgr_find_in_map1(tokdata, ckObject, &obj))) {
 		TRACE_DEVEL("object_mgr_find_in_map1 failed. rc=0x%lx\n", rc);
 		return rc;
 	}
@@ -2749,7 +2749,7 @@ token_rsa_load_key( OBJECT * key_obj, TSS_HKEY * phKey )
 
 	if ((rc = template_attribute_find( key_obj->template, CKA_IBM_OPAQUE, &attr )) == FALSE) {
           /* if the key blob wasn't found, then try to wrap the key */
-          rc = object_mgr_find_in_map2(key_obj, &handle);
+          rc = object_mgr_find_in_map2(tokdata, key_obj, &handle);
           if (rc != CKR_OK)
             return CKR_FUNCTION_FAILED;
           if ((rc = token_load_key(handle, hParentKey, NULL, phKey))) {

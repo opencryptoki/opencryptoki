@@ -864,7 +864,7 @@ CK_RV get_keytype(CK_OBJECT_HANDLE hkey, CK_KEY_TYPE *keytype)
 	OBJECT *key_obj = NULL;
 	CK_ATTRIBUTE *attr = NULL;
 
-	rc = object_mgr_find_in_map1(hkey, &key_obj);
+	rc = object_mgr_find_in_map1(tokdata, hkey, &key_obj);
 	if (rc != CKR_OK) {
 		TRACE_DEVEL("object_mgr_find_in_map1 failed.\n");
 		return rc;

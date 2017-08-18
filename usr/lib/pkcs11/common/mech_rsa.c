@@ -358,7 +358,7 @@ rsa_pkcs_encrypt( SESSION           *sess,
    CK_RV            rc;
 
 
-   rc = object_mgr_find_in_map1( ctx->key, &key_obj );
+   rc = object_mgr_find_in_map1( tokdata, ctx->key, &key_obj );
    if (rc != CKR_OK){
       TRACE_ERROR("Failed to acquire key from specified handle");
       if (rc == CKR_OBJECT_HANDLE_INVALID)
@@ -428,7 +428,7 @@ rsa_pkcs_decrypt( SESSION           *sess,
    CK_RV            rc;
 
 
-   rc = object_mgr_find_in_map1( ctx->key, &key_obj );
+   rc = object_mgr_find_in_map1( tokdata, ctx->key, &key_obj );
    if (rc != CKR_OK) {
       TRACE_ERROR("Failed to acquire key from specified handle");
       if (rc == CKR_OBJECT_HANDLE_INVALID)
@@ -501,7 +501,7 @@ CK_RV rsa_oaep_crypt(SESSION *sess, CK_BBOOL length_only,
 	CK_RV rc;
 	CK_RSA_PKCS_OAEP_PARAMS_PTR oaepParms = NULL;
 
-	rc = object_mgr_find_in_map1(ctx->key, &key_obj);
+	rc = object_mgr_find_in_map1(tokdata, ctx->key, &key_obj);
 	if (rc != CKR_OK) {
 		TRACE_ERROR("Failed to acquire key from specified handle");
 		if (rc == CKR_OBJECT_HANDLE_INVALID)
@@ -636,7 +636,7 @@ rsa_pkcs_sign( SESSION             *sess,
       TRACE_ERROR("%s received bad argument(s)\n", __FUNCTION__);
       return CKR_FUNCTION_FAILED;
    }
-   rc = object_mgr_find_in_map1( ctx->key, &key_obj );
+   rc = object_mgr_find_in_map1( tokdata, ctx->key, &key_obj );
    if (rc != CKR_OK){
       TRACE_ERROR("Failed to acquire key from specified handle");
       if (rc == CKR_OBJECT_HANDLE_INVALID)
@@ -705,7 +705,7 @@ rsa_pkcs_verify( SESSION             * sess,
    CK_RV            rc;
 
 
-   rc = object_mgr_find_in_map1( ctx->key, &key_obj );
+   rc = object_mgr_find_in_map1( tokdata, ctx->key, &key_obj );
    if (rc != CKR_OK){
       TRACE_ERROR("Failed to acquire key from specified handle");
       if (rc == CKR_OBJECT_HANDLE_INVALID)
@@ -769,7 +769,7 @@ rsa_pkcs_verify_recover( SESSION             * sess,
       TRACE_ERROR("%s received bad argument(s)\n", __FUNCTION__);
       return CKR_FUNCTION_FAILED;
    }
-   rc = object_mgr_find_in_map1( ctx->key, &key_obj );
+   rc = object_mgr_find_in_map1( tokdata, ctx->key, &key_obj );
    if (rc != CKR_OK){
       TRACE_ERROR("Failed to acquire key from specified handle");
       if (rc == CKR_OBJECT_HANDLE_INVALID)
@@ -832,7 +832,7 @@ rsa_x509_encrypt( SESSION           *sess,
    CK_RV            rc;
 
 
-   rc = object_mgr_find_in_map1( ctx->key, &key_obj );
+   rc = object_mgr_find_in_map1( tokdata, ctx->key, &key_obj );
    if (rc != CKR_OK){
       TRACE_ERROR("Failed to acquire key from specified handle");
       if (rc == CKR_OBJECT_HANDLE_INVALID)
@@ -901,7 +901,7 @@ rsa_x509_decrypt( SESSION           *sess,
    CK_RV            rc;
 
 
-   rc = object_mgr_find_in_map1( ctx->key, &key_obj );
+   rc = object_mgr_find_in_map1( tokdata, ctx->key, &key_obj );
    if (rc != CKR_OK){
       TRACE_ERROR("Failed to acquire key from specified handle");
       if (rc == CKR_OBJECT_HANDLE_INVALID)
@@ -984,7 +984,7 @@ rsa_x509_sign( SESSION             *sess,
       TRACE_ERROR("%s received bad argument(s)\n", __FUNCTION__);
       return CKR_FUNCTION_FAILED;
    }
-   rc = object_mgr_find_in_map1( ctx->key, &key_obj );
+   rc = object_mgr_find_in_map1( tokdata, ctx->key, &key_obj );
    if (rc != CKR_OK){
       TRACE_ERROR("Failed to acquire key from specified handle");
       if (rc == CKR_OBJECT_HANDLE_INVALID)
@@ -1051,7 +1051,7 @@ rsa_x509_verify( SESSION             * sess,
    CK_RV            rc;
 
 
-   rc = object_mgr_find_in_map1( ctx->key, &key_obj );
+   rc = object_mgr_find_in_map1( tokdata, ctx->key, &key_obj );
    if (rc != CKR_OK){
       TRACE_ERROR("Failed to acquire key from specified handle");
       if (rc == CKR_OBJECT_HANDLE_INVALID)
@@ -1115,7 +1115,7 @@ rsa_x509_verify_recover( SESSION             * sess,
       TRACE_ERROR("%s received bad argument(s)\n", __FUNCTION__);
       return CKR_FUNCTION_FAILED;
    }
-   rc = object_mgr_find_in_map1( ctx->key, &key_obj );
+   rc = object_mgr_find_in_map1( tokdata, ctx->key, &key_obj );
    if (rc != CKR_OK){
       TRACE_ERROR("Failed to acquire key from specified handle");
       if (rc == CKR_OBJECT_HANDLE_INVALID)
@@ -1186,7 +1186,7 @@ CK_RV rsa_pss_sign(SESSION *sess, CK_BBOOL length_only,
 		return CKR_FUNCTION_FAILED;
 	}
 
-	rc = object_mgr_find_in_map1(ctx->key, &key_obj);
+	rc = object_mgr_find_in_map1(tokdata, ctx->key, &key_obj);
 	if (rc != CKR_OK) {
 		TRACE_ERROR("Failed to acquire key from specified handle");
 		if (rc == CKR_OBJECT_HANDLE_INVALID)
@@ -1258,7 +1258,7 @@ CK_RV rsa_pss_verify(SESSION *sess, SIGN_VERIFY_CONTEXT *ctx, CK_BYTE *in_data,
 	CK_ULONG modulus_bytes;
 	CK_OBJECT_CLASS keyclass;
 
-	rc = object_mgr_find_in_map1(ctx->key, &key_obj);
+	rc = object_mgr_find_in_map1(tokdata, ctx->key, &key_obj);
 	if (rc != CKR_OK) {
 		TRACE_ERROR("Failed to acquire key from specified handle");
 		if (rc == CKR_OBJECT_HANDLE_INVALID)

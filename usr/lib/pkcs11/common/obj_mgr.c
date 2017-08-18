@@ -335,7 +335,7 @@ object_mgr_copy( SESSION          * sess,
       return CKR_FUNCTION_FAILED;
    }
 
-   rc = object_mgr_find_in_map1( old_handle, &old_obj );
+   rc = object_mgr_find_in_map1( tokdata, old_handle, &old_obj );
    if (rc != CKR_OK){
       TRACE_DEVEL("object_mgr_find_in_map1 failed.\n");
       goto done;
@@ -941,7 +941,8 @@ object_mgr_find_in_map_nocache( CK_OBJECT_HANDLE    handle,
 // Locates the specified object in the map
 //
 CK_RV
-object_mgr_find_in_map1( CK_OBJECT_HANDLE    handle,
+object_mgr_find_in_map1( STDLL_TokData_t  *tokdata,
+			 CK_OBJECT_HANDLE handle,
                          OBJECT           ** ptr )
 {
    OBJECT_MAP * map  = NULL;
@@ -1001,7 +1002,7 @@ object_mgr_find_in_map1( CK_OBJECT_HANDLE    handle,
 }
 
 void
-find_obj_cb(void *node, unsigned long map_handle, void *p3)
+find_obj_cb(STDLL_TokData_t *tokdata, void *node, unsigned long map_handle, void *p3)
 {
 	OBJECT_MAP *map = (OBJECT_MAP *)node;
 	OBJECT     *obj;
@@ -1066,7 +1067,8 @@ object_mgr_find_in_map2( STDLL_TokData_t  * tokdata,
 }
 
 void
-find_build_list_cb(void *node, unsigned long obj_handle, void *p3)
+find_build_list_cb(STDLL_TokData_t *tokdata, void *node,
+		   unsigned long obj_handle, void *p3)
 {
    OBJECT *obj = (OBJECT *)node;
    struct find_build_list_args *fa = (struct find_build_list_args *)p3;
@@ -1088,7 +1090,7 @@ find_build_list_cb(void *node, unsigned long obj_handle, void *p3)
    // if we have a match, find the object in the map (add it if necessary)
    // then add the object to the list of found objects //
    if (match) {
-      rc = object_mgr_find_in_map2( obj, &map_handle );
+      rc = object_mgr_find_in_map2( tokdata, obj, &map_handle );
       if (rc != CKR_OK) {
          rc = object_mgr_add_to_map( fa->sess, obj, obj_handle, &map_handle );
          if (rc != CKR_OK){
@@ -1277,7 +1279,7 @@ object_mgr_get_attribute_values( SESSION           * sess,
       return CKR_FUNCTION_FAILED;
    }
 
-   rc = object_mgr_find_in_map1( handle, &obj );
+   rc = object_mgr_find_in_map1( tokdata, handle, &obj );
    if (rc != CKR_OK){
       TRACE_DEVEL("object_mgr_find_in_map1 failed.\n");
       return rc;
@@ -1310,7 +1312,7 @@ object_mgr_get_object_size( CK_OBJECT_HANDLE   handle,
    OBJECT    * obj;
    CK_RV       rc;
 
-   rc = object_mgr_find_in_map1( handle, &obj );
+   rc = object_mgr_find_in_map1( tokdata, handle, &obj );
    if (rc != CKR_OK) {
       TRACE_DEVEL("object_mgr_find_in_map1 failed.\n");
       return rc;
@@ -1504,7 +1506,7 @@ object_mgr_set_attribute_values( SESSION           * sess,
       return CKR_FUNCTION_FAILED;
    }
 
-   rc = object_mgr_find_in_map1( handle, &obj );
+   rc = object_mgr_find_in_map1( tokdata, handle, &obj );
 
    if (rc != CKR_OK) {
       TRACE_DEVEL("object_mgr_find_in_map1 failed.\n");

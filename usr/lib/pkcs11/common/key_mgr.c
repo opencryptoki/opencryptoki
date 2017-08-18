@@ -547,7 +547,7 @@ key_mgr_wrap_key( SESSION           * sess,
       return CKR_FUNCTION_FAILED;
    }
 
-   rc = object_mgr_find_in_map1( h_wrapping_key, &key1_obj );
+   rc = object_mgr_find_in_map1( tokdata, h_wrapping_key, &key1_obj );
    if (rc != CKR_OK){
       TRACE_ERROR("%s\n", ock_err(ERR_WRAPPING_KEY_HANDLE_INVALID));
       if (rc == CKR_OBJECT_HANDLE_INVALID)
@@ -556,7 +556,7 @@ key_mgr_wrap_key( SESSION           * sess,
 	 return rc;
    }
 
-   rc = object_mgr_find_in_map1( h_key, &key2_obj );
+   rc = object_mgr_find_in_map1( tokdata, h_key, &key2_obj );
    if (rc != CKR_OK){
       TRACE_ERROR("Failed to acquire key from specified handle");
       if (rc == CKR_OBJECT_HANDLE_INVALID)
@@ -828,7 +828,7 @@ key_mgr_unwrap_key( SESSION           * sess,
       return CKR_FUNCTION_FAILED;
    }
 
-   rc = object_mgr_find_in_map1( h_unwrapping_key, &tmp_obj );
+   rc = object_mgr_find_in_map1( tokdata, h_unwrapping_key, &tmp_obj );
    if (rc != CKR_OK){
       TRACE_ERROR("Failed to acquire key from specified handle");
       if (rc == CKR_OBJECT_HANDLE_INVALID)
