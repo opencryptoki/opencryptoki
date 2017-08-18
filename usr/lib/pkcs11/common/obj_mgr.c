@@ -221,7 +221,7 @@ object_mgr_add( STDLL_TokData_t  * tokdata,
       else {
          // we'll want to delete the token object file too!
          //
-         delete_token_object( o );
+         delete_token_object( tokdata, o );
 
          if (priv_obj) {
 	    // put the binary tree node which holds o on the free list, but pass NULL here, so that
@@ -494,7 +494,7 @@ object_mgr_copy( STDLL_TokData_t  * tokdata,
       else {
          // FIXME - need to destroy the token object file too
          //
-         delete_token_object( new_obj );
+         delete_token_object( tokdata, new_obj );
 
          if (priv_obj) {
 	    // put the binary tree node which holds new_obj on the free list, but pass NULL here,
@@ -715,7 +715,7 @@ object_mgr_create_final( STDLL_TokData_t  * tokdata,
       else {
          // FIXME - need to destroy the token object file too
          //
-         delete_token_object( obj );
+         delete_token_object( tokdata, obj );
 
          if (priv_obj) {
 	    // put the binary tree node which holds obj on the free list, but pass NULL here,
@@ -750,7 +750,7 @@ object_mgr_create_final( STDLL_TokData_t  * tokdata,
  * in (based on its type)
  */
 void
-destroy_object_cb(void *node)
+destroy_object_cb(STDLL_TokData_t  *tokdata, void *node)
 {
 	OBJECT_MAP *map = (OBJECT_MAP *)node;
 	OBJECT *o;
@@ -766,7 +766,7 @@ destroy_object_cb(void *node)
 		if (!o)
 			return;
 
-		delete_token_object(o);
+		delete_token_object(tokdata, o);
 
 		/* Use the same calling convention as the old code, if XProcLock fails, don't
 		 * delete from shm and don't free the object in its other btree */
@@ -817,7 +817,7 @@ object_mgr_destroy_object( STDLL_TokData_t  *tokdata,
  * Callback to delete an object if its a token object
  */
 void
-delete_token_obj_cb(void *node, unsigned long map_handle, void *p3)
+delete_token_obj_cb(STDLL_TokData_t  *tokdata, void *node, unsigned long map_handle, void *p3)
 {
 	OBJECT_MAP *map = (OBJECT_MAP *)node;
 	OBJECT *o;
@@ -831,7 +831,7 @@ delete_token_obj_cb(void *node, unsigned long map_handle, void *p3)
 		if (!o)
 			goto done;
 
-		delete_token_object(o);
+		delete_token_object(tokdata, o);
 
 		/* Use the same calling convention as the old code, if
 		 * XProcLock fails, don't delete from shm and don't free
@@ -859,7 +859,7 @@ done:
 // this routine will destroy all token objects in the system
 //
 CK_RV
-object_mgr_destroy_token_objects( void )
+object_mgr_destroy_token_objects(STDLL_TokData_t *tokdata)
 {
    CK_BBOOL locked = FALSE;
    CK_RV rc;
@@ -1329,7 +1329,8 @@ object_mgr_get_object_size( STDLL_TokData_t  *tokdata,
 }
 
 void
-purge_session_obj_cb(void *node, unsigned long obj_handle, void *p3)
+purge_session_obj_cb(STDLL_TokData_t  *tokdata, void *node,
+		     unsigned long obj_handle, void *p3)
 {
    OBJECT *obj = (OBJECT *)node;
    struct purge_args *pa = (struct purge_args *)p3;
@@ -1366,7 +1367,8 @@ purge_session_obj_cb(void *node, unsigned long obj_handle, void *p3)
 // the 'type' requirements
 //
 CK_BBOOL
-object_mgr_purge_session_objects( SESSION       * sess,
+object_mgr_purge_session_objects( STDLL_TokData_t *tokdata,
+				  SESSION         *sess,
                                   SESS_OBJ_TYPE   type )
 {
    struct purge_args pa = { sess, type };
@@ -1384,7 +1386,7 @@ object_mgr_purge_session_objects( SESSION       * sess,
  * @p3 is the btree we're purging from
  */
 void
-purge_token_obj_cb(void *node, unsigned long obj_handle, void *p3)
+purge_token_obj_cb(STDLL_TokData_t  *tokdata, void *node, unsigned long obj_handle, void *p3)
 {
    OBJECT *obj = (OBJECT *)node;
    struct btree *t = (struct btree *)p3;

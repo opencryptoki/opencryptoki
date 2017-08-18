@@ -2120,7 +2120,7 @@ token_specific_init_token(STDLL_TokData_t *tokdata, CK_SLOT_ID sid,
 done:
 	// Before we reconstruct all the data, we should delete the
 	// token objects from the filesystem.
-	object_mgr_destroy_token_objects();
+	object_mgr_destroy_token_objects(tokdata);
 	rc = delete_tpm_data();
 	if (rc != CKR_OK)
 		return rc;

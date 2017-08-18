@@ -1472,16 +1472,15 @@ extern void set_perm(int);
 
 //
 //
-CK_RV delete_token_object(OBJECT * obj)
+CK_RV delete_token_object(STDLL_TokData_t *tokdata, OBJECT * obj)
 {
 	FILE *fp1, *fp2;
 	CK_BYTE line[100];
 	CK_BYTE objidx[PATH_MAX], idxtmp[PATH_MAX], fname[PATH_MAX];
-	char pk_dir_buf[PATH_MAX];
 
-	sprintf((char *)objidx, "%s/%s/%s", get_pk_dir(pk_dir_buf),
+	sprintf((char *)objidx, "%s/%s/%s", tokdata->data_store,
 		PK_LITE_OBJ_DIR, PK_LITE_OBJ_IDX);
-	sprintf((char *)idxtmp, "%s/%s/%s", get_pk_dir(pk_dir_buf),
+	sprintf((char *)idxtmp, "%s/%s/%s", tokdata->data_store,
 		PK_LITE_OBJ_DIR, "IDX.TMP");
 
 	// FIXME:  on UNIX, we need to make sure these guys aren't symlinks
@@ -1539,7 +1538,7 @@ CK_RV delete_token_object(OBJECT * obj)
 	fclose(fp1);
 	fclose(fp2);
 
-	sprintf((char *)fname, "%s/%s/%s", get_pk_dir(pk_dir_buf),
+	sprintf((char *)fname, "%s/%s/%s", tokdata->data_store,
 		PK_LITE_OBJ_DIR, (char *)obj->name);
 	unlink((char *)fname);
 	return CKR_OK;

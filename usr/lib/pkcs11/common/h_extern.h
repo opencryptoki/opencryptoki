@@ -506,7 +506,7 @@ CK_RV restore_private_token_object( STDLL_TokData_t *tokdata,
                                     CK_ULONG   len,
                                     OBJECT   * pObj );
 
-CK_RV delete_token_object( OBJECT *ptr );
+CK_RV delete_token_object( STDLL_TokData_t *tokdata, OBJECT *ptr );
 CK_RV delete_token_data(STDLL_TokData_t *tokdata);
 
 CK_BYTE *get_pk_dir(char *);
@@ -1980,7 +1980,7 @@ CK_RV    object_mgr_destroy_object( STDLL_TokData_t *tokdata,
 				    SESSION         *sess,
                                     CK_OBJECT_HANDLE  handle );
 
-CK_RV    object_mgr_destroy_token_objects( void );
+CK_RV    object_mgr_destroy_token_objects(STDLL_TokData_t *tokdata);
 
 CK_RV    object_mgr_find_in_map_nocache( CK_OBJECT_HANDLE    handle,
 					 OBJECT           ** ptr );
@@ -2014,12 +2014,13 @@ CK_RV    object_mgr_get_object_size( STDLL_TokData_t  *tokdata,
 				     CK_OBJECT_HANDLE   handle,
                                      CK_ULONG         * size );
 
-CK_BBOOL object_mgr_purge_session_objects( SESSION       * sess,
+CK_BBOOL object_mgr_purge_session_objects( STDLL_TokData_t *tokdata,
+					   SESSION         *sess,
                                            SESS_OBJ_TYPE   type );
 
-CK_BBOOL object_mgr_purge_token_objects( void );
+CK_BBOOL object_mgr_purge_token_objects( STDLL_TokData_t *tokdata );
 
-CK_BBOOL object_mgr_purge_private_token_objects( void );
+CK_BBOOL object_mgr_purge_private_token_objects( STDLL_TokData_t *tokdata );
 
 CK_RV    object_mgr_restore_obj( STDLL_TokData_t  *tokdata, CK_BYTE *data,
 				 OBJECT *oldObj );
