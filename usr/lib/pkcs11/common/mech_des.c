@@ -27,7 +27,8 @@
 //
 //
 CK_RV
-pk_des_ecb_encrypt( SESSION           *sess,
+pk_des_ecb_encrypt( STDLL_TokData_t *tokdata,
+		 SESSION           *sess,
                  CK_BBOOL           length_only,
                  ENCR_DECR_CONTEXT *ctx,
                  CK_BYTE           *in_data,
@@ -67,7 +68,7 @@ pk_des_ecb_encrypt( SESSION           *sess,
       return CKR_BUFFER_TOO_SMALL;
    }
 
-   return ckm_des_ecb_encrypt( in_data,  in_data_len,
+   return ckm_des_ecb_encrypt( tokdata, in_data,  in_data_len,
                                out_data, out_data_len, key );
 }
 
@@ -75,7 +76,8 @@ pk_des_ecb_encrypt( SESSION           *sess,
 //
 //
 CK_RV
-des_ecb_decrypt( SESSION           *sess,
+des_ecb_decrypt( STDLL_TokData_t   *tokdata,
+		 SESSION           *sess,
                  CK_BBOOL           length_only,
                  ENCR_DECR_CONTEXT *ctx,
                  CK_BYTE           *in_data,
@@ -116,7 +118,7 @@ des_ecb_decrypt( SESSION           *sess,
       return CKR_BUFFER_TOO_SMALL;
    }
 
-   return ckm_des_ecb_decrypt(in_data, in_data_len,
+   return ckm_des_ecb_decrypt(tokdata, in_data, in_data_len,
 			      out_data, out_data_len, key );
 }
 
@@ -124,7 +126,8 @@ des_ecb_decrypt( SESSION           *sess,
 //
 //
 CK_RV
-pk_des_cbc_encrypt( SESSION           *sess,
+pk_des_cbc_encrypt( STDLL_TokData_t *tokdata,
+		 SESSION           *sess,
                  CK_BBOOL           length_only,
                  ENCR_DECR_CONTEXT *ctx,
                  CK_BYTE           *in_data,
@@ -163,15 +166,16 @@ pk_des_cbc_encrypt( SESSION           *sess,
       return CKR_BUFFER_TOO_SMALL;
    }
 
-   return ckm_des_cbc_encrypt(in_data, in_data_len, out_data, out_data_len,
-                               ctx->mech.pParameter, key);
+   return ckm_des_cbc_encrypt(tokdata, in_data, in_data_len, out_data,
+			      out_data_len, ctx->mech.pParameter, key);
 }
 
 
 //
 //
 CK_RV
-des_cbc_decrypt( SESSION            *sess,
+des_cbc_decrypt( STDLL_TokData_t    *tokdata,
+		 SESSION            *sess,
                  CK_BBOOL            length_only,
                  ENCR_DECR_CONTEXT  *ctx,
                  CK_BYTE            *in_data,
@@ -211,15 +215,16 @@ des_cbc_decrypt( SESSION            *sess,
       return CKR_BUFFER_TOO_SMALL;
    }
 
-   return ckm_des_cbc_decrypt(in_data, in_data_len, out_data, out_data_len,
-                               ctx->mech.pParameter, key);
+   return ckm_des_cbc_decrypt(tokdata, in_data, in_data_len, out_data,
+			      out_data_len, ctx->mech.pParameter, key);
 }
 
 
 //
 //
 CK_RV
-des_cbc_pad_encrypt( SESSION           *sess,
+des_cbc_pad_encrypt( STDLL_TokData_t   *tokdata,
+		     SESSION           *sess,
                      CK_BBOOL           length_only,
                      ENCR_DECR_CONTEXT *ctx,
                      CK_BYTE           *in_data,
@@ -272,8 +277,8 @@ des_cbc_pad_encrypt( SESSION           *sess,
                      in_data_len,
                      padded_len );
 
-   rc = ckm_des_cbc_encrypt(clear, padded_len, out_data, out_data_len,
-                             ctx->mech.pParameter, key);
+   rc = ckm_des_cbc_encrypt(tokdata, clear, padded_len, out_data, out_data_len,
+                            ctx->mech.pParameter, key);
    free( clear );
    return rc;
 }
@@ -282,7 +287,8 @@ des_cbc_pad_encrypt( SESSION           *sess,
 //
 //
 CK_RV
-des_cbc_pad_decrypt( SESSION            *sess,
+des_cbc_pad_decrypt( STDLL_TokData_t    *tokdata,
+		     SESSION            *sess,
                      CK_BBOOL            length_only,
                      ENCR_DECR_CONTEXT  *ctx,
                      CK_BYTE            *in_data,
@@ -332,8 +338,8 @@ des_cbc_pad_decrypt( SESSION            *sess,
       TRACE_ERROR("%s\n", ock_err(ERR_HOST_MEMORY));
       return CKR_HOST_MEMORY;
    }
-   rc = ckm_des_cbc_decrypt(in_data, in_data_len, clear, &padded_len,
-                             ctx->mech.pParameter, key);
+   rc = ckm_des_cbc_decrypt(tokdata, in_data, in_data_len, clear, &padded_len,
+                            ctx->mech.pParameter, key);
 
    if (rc == CKR_OK) {
       strip_pkcs_padding( clear, padded_len, out_data_len );
@@ -348,7 +354,8 @@ des_cbc_pad_decrypt( SESSION            *sess,
 //
 //
 CK_RV
-des_ecb_encrypt_update( SESSION            *sess,
+des_ecb_encrypt_update( STDLL_TokData_t    *tokdata,
+			SESSION            *sess,
                         CK_BBOOL            length_only,
                         ENCR_DECR_CONTEXT  *ctx,
                         CK_BYTE            *in_data,
@@ -405,7 +412,7 @@ des_ecb_encrypt_update( SESSION            *sess,
       memcpy( clear,                context->data, context->len );
       memcpy( clear + context->len, in_data,       out_len - context->len );
 
-      rc = ckm_des_ecb_encrypt(clear, out_len, out_data, out_data_len, key);
+      rc = ckm_des_ecb_encrypt(tokdata, clear, out_len, out_data, out_data_len, key);
       if (rc == CKR_OK) {
          *out_data_len = out_len;
 
@@ -425,7 +432,8 @@ des_ecb_encrypt_update( SESSION            *sess,
 //
 //
 CK_RV
-des_ecb_decrypt_update( SESSION           *sess,
+des_ecb_decrypt_update( STDLL_TokData_t   *tokdata,
+			SESSION           *sess,
                         CK_BBOOL           length_only,
                         ENCR_DECR_CONTEXT *ctx,
                         CK_BYTE           *in_data,
@@ -483,7 +491,8 @@ des_ecb_decrypt_update( SESSION           *sess,
       memcpy( cipher,                context->data, context->len );
       memcpy( cipher + context->len, in_data,       out_len - context->len );
 
-      rc = ckm_des_ecb_decrypt(cipher, out_len, out_data, out_data_len, key);
+      rc = ckm_des_ecb_decrypt(tokdata, cipher, out_len, out_data,
+			       out_data_len, key);
       if (rc == CKR_OK) {
          *out_data_len = out_len;
 
@@ -503,7 +512,8 @@ des_ecb_decrypt_update( SESSION           *sess,
 //
 //
 CK_RV
-des_cbc_encrypt_update( SESSION           *sess,
+des_cbc_encrypt_update( STDLL_TokData_t   *tokdata,
+			SESSION           *sess,
                         CK_BBOOL           length_only,
                         ENCR_DECR_CONTEXT *ctx,
                         CK_BYTE           *in_data,
@@ -564,8 +574,8 @@ des_cbc_encrypt_update( SESSION           *sess,
       memcpy( clear,                context->data, context->len );
       memcpy( clear + context->len, in_data,       out_len - context->len );
 
-      rc = ckm_des_cbc_encrypt(clear, out_len, out_data, out_data_len,
-                                ctx->mech.pParameter, key);
+      rc = ckm_des_cbc_encrypt(tokdata, clear, out_len, out_data, out_data_len,
+                               ctx->mech.pParameter, key);
       if (rc == CKR_OK) {
          *out_data_len = out_len;
 
@@ -590,7 +600,8 @@ des_cbc_encrypt_update( SESSION           *sess,
 //
 //
 CK_RV
-des_cbc_decrypt_update( SESSION           *sess,
+des_cbc_decrypt_update( STDLL_TokData_t   *tokdata,
+			SESSION           *sess,
                         CK_BBOOL           length_only,
                         ENCR_DECR_CONTEXT *ctx,
                         CK_BYTE           *in_data,
@@ -651,8 +662,8 @@ des_cbc_decrypt_update( SESSION           *sess,
       memcpy( cipher,                context->data, context->len );
       memcpy( cipher + context->len, in_data,       out_len - context->len );
 
-      rc = ckm_des_cbc_decrypt(cipher, out_len, out_data, out_data_len,
-                                ctx->mech.pParameter, key);
+      rc = ckm_des_cbc_decrypt(tokdata, cipher, out_len, out_data,
+			       out_data_len, ctx->mech.pParameter, key);
       if (rc == CKR_OK) {
          *out_data_len = out_len;
 
@@ -677,7 +688,8 @@ des_cbc_decrypt_update( SESSION           *sess,
 //
 //
 CK_RV
-des_cbc_pad_encrypt_update( SESSION           *sess,
+des_cbc_pad_encrypt_update( STDLL_TokData_t   *tokdata,
+			    SESSION           *sess,
                             CK_BBOOL           length_only,
                             ENCR_DECR_CONTEXT *ctx,
                             CK_BYTE           *in_data,
@@ -752,8 +764,8 @@ des_cbc_pad_encrypt_update( SESSION           *sess,
       //
       // we don't do padding during the update
       //
-      rc = ckm_des_cbc_encrypt(clear, out_len, out_data, out_data_len,
-                                ctx->mech.pParameter, key);
+      rc = ckm_des_cbc_encrypt(tokdata, clear, out_len, out_data, out_data_len,
+                               ctx->mech.pParameter, key);
 
       if (rc == CKR_OK) {
          // the new init_v is the last encrypted data block
@@ -775,7 +787,8 @@ des_cbc_pad_encrypt_update( SESSION           *sess,
 //
 //
 CK_RV
-des_cbc_pad_decrypt_update( SESSION           *sess,
+des_cbc_pad_decrypt_update( STDLL_TokData_t   *tokdata,
+			    SESSION           *sess,
                             CK_BBOOL           length_only,
                             ENCR_DECR_CONTEXT *ctx,
                             CK_BYTE           *in_data,
@@ -847,8 +860,8 @@ des_cbc_pad_decrypt_update( SESSION           *sess,
       memcpy( cipher,                context->data, context->len );
       memcpy( cipher + context->len, in_data,       out_len - context->len );
 
-      rc = ckm_des_cbc_decrypt(cipher, out_len, out_data, out_data_len,
-                                ctx->mech.pParameter, key);
+      rc = ckm_des_cbc_decrypt(tokdata, cipher, out_len, out_data,
+			       out_data_len, ctx->mech.pParameter, key);
 
       if (rc == CKR_OK) {
          // the new init_v is the last decrypted data block
@@ -870,7 +883,8 @@ des_cbc_pad_decrypt_update( SESSION           *sess,
 //
 //
 CK_RV
-des_ecb_encrypt_final( SESSION           *sess,
+des_ecb_encrypt_final( STDLL_TokData_t   *tokdata,
+		       SESSION           *sess,
                        CK_BBOOL           length_only,
                        ENCR_DECR_CONTEXT *ctx,
                        CK_BYTE           *out_data,
@@ -905,7 +919,8 @@ des_ecb_encrypt_final( SESSION           *sess,
 //
 //
 CK_RV
-des_ecb_decrypt_final( SESSION           *sess,
+des_ecb_decrypt_final( STDLL_TokData_t   *tokdata,
+		       SESSION           *sess,
                        CK_BBOOL           length_only,
                        ENCR_DECR_CONTEXT *ctx,
                        CK_BYTE           *out_data,
@@ -940,7 +955,8 @@ des_ecb_decrypt_final( SESSION           *sess,
 //
 //
 CK_RV
-des_cbc_encrypt_final( SESSION           *sess,
+des_cbc_encrypt_final( STDLL_TokData_t   *tokdata,
+		       SESSION           *sess,
                        CK_BBOOL           length_only,
                        ENCR_DECR_CONTEXT *ctx,
                        CK_BYTE           *out_data,
@@ -975,7 +991,8 @@ des_cbc_encrypt_final( SESSION           *sess,
 //
 //
 CK_RV
-des_cbc_decrypt_final( SESSION           *sess,
+des_cbc_decrypt_final( STDLL_TokData_t   *tokdata,
+		       SESSION           *sess,
                        CK_BBOOL           length_only,
                        ENCR_DECR_CONTEXT *ctx,
                        CK_BYTE           *out_data,
@@ -1010,7 +1027,8 @@ des_cbc_decrypt_final( SESSION           *sess,
 //
 //
 CK_RV
-des_cbc_pad_encrypt_final( SESSION           *sess,
+des_cbc_pad_encrypt_final( STDLL_TokData_t   *tokdata,
+			   SESSION           *sess,
                            CK_BBOOL           length_only,
                            ENCR_DECR_CONTEXT *ctx,
                            CK_BYTE           *out_data,
@@ -1058,8 +1076,8 @@ des_cbc_pad_encrypt_final( SESSION           *sess,
                         context->len,
                         out_len );
 
-      rc = ckm_des_cbc_encrypt(clear, out_len, out_data, out_data_len,
-                                ctx->mech.pParameter, key);
+      rc = ckm_des_cbc_encrypt(tokdata, clear, out_len, out_data, out_data_len,
+                               ctx->mech.pParameter, key);
       return rc;
    }
 }
@@ -1068,7 +1086,8 @@ des_cbc_pad_encrypt_final( SESSION           *sess,
 //
 //
 CK_RV
-des_cbc_pad_decrypt_final( SESSION           *sess,
+des_cbc_pad_decrypt_final( STDLL_TokData_t   *tokdata,
+			   SESSION           *sess,
                            CK_BBOOL           length_only,
                            ENCR_DECR_CONTEXT *ctx,
                            CK_BYTE           *out_data,
@@ -1112,8 +1131,8 @@ des_cbc_pad_decrypt_final( SESSION           *sess,
    else {
       memcpy( cipher, context->data, DES_BLOCK_SIZE );
 
-      rc = ckm_des_cbc_decrypt(cipher, DES_BLOCK_SIZE, clear, &out_len,
-                                ctx->mech.pParameter, key);
+      rc = ckm_des_cbc_decrypt(tokdata, cipher, DES_BLOCK_SIZE, clear, &out_len,
+                               ctx->mech.pParameter, key);
       if (rc == CKR_OK) {
          strip_pkcs_padding( clear, DES_BLOCK_SIZE, &out_len );
 
@@ -1136,7 +1155,7 @@ des_cbc_pad_decrypt_final( SESSION           *sess,
 //
 //
 CK_RV
-ckm_des_key_gen( TEMPLATE *tmpl )
+ckm_des_key_gen( STDLL_TokData_t *tokdata, TEMPLATE *tmpl )
 {
 
    CK_ATTRIBUTE     * value_attr    = NULL;
@@ -1164,7 +1183,7 @@ ckm_des_key_gen( TEMPLATE *tmpl )
       return CKR_HOST_MEMORY;
    }
 
-   rc = token_specific.t_des_key_gen(des_key, keysize, DES_KEY_SIZE);
+   rc = token_specific.t_des_key_gen(tokdata, des_key, keysize, DES_KEY_SIZE);
    if (rc != CKR_OK)
       goto err;
 
@@ -1314,7 +1333,8 @@ ckm_cdmf_key_gen( TEMPLATE *tmpl )
 //
 //
 CK_RV
-ckm_des_ecb_encrypt( CK_BYTE   * in_data,
+ckm_des_ecb_encrypt( STDLL_TokData_t * tokdata,
+		     CK_BYTE   * in_data,
                      CK_ULONG    in_data_len,
                      CK_BYTE   * out_data,
                      CK_ULONG  * out_data_len,
@@ -1336,7 +1356,7 @@ ckm_des_ecb_encrypt( CK_BYTE   * in_data,
       TRACE_ERROR("%s\n", ock_err(ERR_MECHANISM_INVALID));
       return CKR_MECHANISM_INVALID;
    }
-   rc = token_specific.t_des_ecb(in_data, in_data_len,
+   rc = token_specific.t_des_ecb(tokdata, in_data, in_data_len,
 				 out_data, out_data_len, key, 1);
 
    if (rc != CKR_OK)
@@ -1348,7 +1368,8 @@ ckm_des_ecb_encrypt( CK_BYTE   * in_data,
 //
 //
 CK_RV
-ckm_des_ecb_decrypt( CK_BYTE   * in_data,
+ckm_des_ecb_decrypt( STDLL_TokData_t * tokdata,
+		     CK_BYTE   * in_data,
                      CK_ULONG    in_data_len,
                      CK_BYTE   * out_data,
                      CK_ULONG  * out_data_len,
@@ -1371,8 +1392,8 @@ ckm_des_ecb_decrypt( CK_BYTE   * in_data,
       TRACE_ERROR("%s\n", ock_err(ERR_MECHANISM_INVALID));
       return CKR_MECHANISM_INVALID;
    }
-   rc = token_specific.t_des_ecb(in_data, in_data_len, out_data,
-         			 out_data_len, key, 0);
+   rc = token_specific.t_des_ecb(tokdata, in_data, in_data_len, out_data,
+				 out_data_len, key, 0);
    if (rc != CKR_OK)
       TRACE_ERROR("Token specific des ecb decrypt failed.\n");
    return rc;
@@ -1382,7 +1403,8 @@ ckm_des_ecb_decrypt( CK_BYTE   * in_data,
 //
 //
 CK_RV
-ckm_des_cbc_encrypt( CK_BYTE   * in_data,
+ckm_des_cbc_encrypt( STDLL_TokData_t * tokdata,
+		     CK_BYTE   * in_data,
                      CK_ULONG    in_data_len,
                      CK_BYTE   * out_data,
                      CK_ULONG  * out_data_len,
@@ -1406,7 +1428,7 @@ ckm_des_cbc_encrypt( CK_BYTE   * in_data,
       TRACE_ERROR("%s\n", ock_err(ERR_MECHANISM_INVALID));
       return CKR_MECHANISM_INVALID;
    }
-   rc = token_specific.t_des_cbc(in_data, in_data_len, out_data,
+   rc = token_specific.t_des_cbc(tokdata, in_data, in_data_len, out_data,
 				 out_data_len, key, init_v, 1);
 
    if (rc != CKR_OK)
@@ -1418,7 +1440,8 @@ ckm_des_cbc_encrypt( CK_BYTE   * in_data,
 //
 //
 CK_RV
-ckm_des_cbc_decrypt( CK_BYTE   * in_data,
+ckm_des_cbc_decrypt( STDLL_TokData_t * tokdata,
+		     CK_BYTE   * in_data,
                      CK_ULONG    in_data_len,
                      CK_BYTE   * out_data,
                      CK_ULONG  * out_data_len,
@@ -1441,7 +1464,7 @@ ckm_des_cbc_decrypt( CK_BYTE   * in_data,
       TRACE_ERROR("%s\n", ock_err(ERR_MECHANISM_INVALID));
       return CKR_MECHANISM_INVALID;
    }
-   rc = token_specific.t_des_cbc(in_data, in_data_len, out_data,
+   rc = token_specific.t_des_cbc(tokdata, in_data, in_data_len, out_data,
 				 out_data_len, key, init_v, 0);
 
    if (rc != CKR_OK)
@@ -1459,7 +1482,8 @@ ckm_des_cbc_decrypt( CK_BYTE   * in_data,
 // this routine works with either DES and 3DES as the wrapping mechanism
 //
 CK_RV
-ckm_des_wrap_format( CK_BBOOL    length_only,
+ckm_des_wrap_format( STDLL_TokData_t * tokdata,
+		     CK_BBOOL    length_only,
                      CK_BYTE  ** data,
                      CK_ULONG  * data_len )
 {

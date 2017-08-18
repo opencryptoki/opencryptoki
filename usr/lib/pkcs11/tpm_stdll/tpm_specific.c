@@ -2182,7 +2182,8 @@ token_specific_final()
 }
 
 CK_RV
-token_specific_des_key_gen(CK_BYTE *des_key, CK_ULONG len, CK_ULONG keysize)
+token_specific_des_key_gen(STDLL_TokData_t *tokdata, CK_BYTE *des_key,
+			   CK_ULONG len, CK_ULONG keysize)
 {
 	// Nothing different to do for DES or TDES here as this is just
 	// random data...  Validation handles the rest
@@ -2202,7 +2203,8 @@ token_specific_des_key_gen(CK_BYTE *des_key, CK_ULONG len, CK_ULONG keysize)
 }
 
 CK_RV
-token_specific_des_ecb(CK_BYTE * in_data,
+token_specific_des_ecb(STDLL_TokData_t *tokdata,
+		CK_BYTE * in_data,
 		CK_ULONG in_data_len,
 		CK_BYTE *out_data,
 		CK_ULONG *out_data_len,
@@ -2260,7 +2262,8 @@ token_specific_des_ecb(CK_BYTE * in_data,
 }
 
 CK_RV
-token_specific_des_cbc(CK_BYTE * in_data,
+token_specific_des_cbc(STDLL_TokData_t *tokdata,
+		CK_BYTE * in_data,
 		CK_ULONG in_data_len,
 		CK_BYTE *out_data,
 		CK_ULONG *out_data_len,

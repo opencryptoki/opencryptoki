@@ -168,7 +168,7 @@ key_mgr_generate_key( STDLL_TokData_t   * tokdata,
 
    switch (mech->mechanism) {
       case CKM_DES_KEY_GEN:
-            rc = ckm_des_key_gen( key_obj->template );
+            rc = ckm_des_key_gen( tokdata, key_obj->template );
             break;
 
          case CKM_DES3_KEY_GEN:
@@ -727,7 +727,7 @@ key_mgr_wrap_key( SESSION           * sess,
       case CKM_DES_CBC:
       case CKM_DES3_ECB:
       case CKM_DES3_CBC:
-         rc = ckm_des_wrap_format( length_only, &data, &data_len );
+         rc = ckm_des_wrap_format( tokdata, length_only, &data, &data_len );
          if (rc != CKR_OK) {
             TRACE_DEVEL("ckm_des_wrap_format failed.\n");
             if (data) free( data );

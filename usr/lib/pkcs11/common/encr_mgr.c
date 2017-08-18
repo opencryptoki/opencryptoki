@@ -673,21 +673,21 @@ encr_mgr_encrypt( SESSION           *sess,
    switch (ctx->mech.mechanism) {
       case CKM_CDMF_ECB:
       case CKM_DES_ECB:
-         return pk_des_ecb_encrypt( sess,     length_only,
+         return pk_des_ecb_encrypt( tokdata, sess, length_only,
                                  ctx,
                                  in_data,  in_data_len,
                                  out_data, out_data_len );
 
       case CKM_CDMF_CBC:
       case CKM_DES_CBC:
-         return pk_des_cbc_encrypt( sess,     length_only,
+         return pk_des_cbc_encrypt( tokdata, sess, length_only,
                                  ctx,
                                  in_data,  in_data_len,
                                  out_data, out_data_len );
 
       case CKM_DES_CBC_PAD:
       case CKM_CDMF_CBC_PAD:
-         return des_cbc_pad_encrypt( sess,     length_only,
+         return des_cbc_pad_encrypt( tokdata, sess, length_only,
                                      ctx,
                                      in_data,  in_data_len,
                                      out_data, out_data_len );
@@ -851,21 +851,21 @@ encr_mgr_encrypt_update( SESSION            *sess,
    switch (ctx->mech.mechanism) {
       case CKM_CDMF_ECB:
       case CKM_DES_ECB:
-         return des_ecb_encrypt_update( sess,     length_only,
+         return des_ecb_encrypt_update( tokdata, sess, length_only,
                                         ctx,
                                         in_data,  in_data_len,
                                         out_data, out_data_len );
 
       case CKM_CDMF_CBC:
       case CKM_DES_CBC:
-         return des_cbc_encrypt_update( sess,     length_only,
+         return des_cbc_encrypt_update( tokdata, sess, length_only,
                                         ctx,
                                         in_data,  in_data_len,
                                         out_data, out_data_len );
 
       case CKM_DES_CBC_PAD:
       case CKM_CDMF_CBC_PAD:
-         return des_cbc_pad_encrypt_update( sess,     length_only,
+         return des_cbc_pad_encrypt_update( tokdata, sess, length_only,
                                             ctx,
                                             in_data,  in_data_len,
                                             out_data, out_data_len );
@@ -1004,19 +1004,19 @@ encr_mgr_encrypt_final( SESSION            *sess,
    switch (ctx->mech.mechanism) {
       case CKM_CDMF_ECB:
       case CKM_DES_ECB:
-         return des_ecb_encrypt_final( sess,     length_only,
+         return des_ecb_encrypt_final( tokdata, sess, length_only,
                                        ctx,
                                        out_data, out_data_len );
 
       case CKM_CDMF_CBC:
       case CKM_DES_CBC:
-         return des_cbc_encrypt_final( sess,     length_only,
+         return des_cbc_encrypt_final( tokdata, sess, length_only,
                                        ctx,
                                        out_data, out_data_len );
 
       case CKM_DES_CBC_PAD:
       case CKM_CDMF_CBC_PAD:
-         return des_cbc_pad_encrypt_final( sess,     length_only,
+         return des_cbc_pad_encrypt_final( tokdata, sess, length_only,
                                            ctx,
                                            out_data, out_data_len );
 

@@ -472,7 +472,8 @@ CK_RV cca_key_gen(enum cca_key_type type, CK_BYTE *key, unsigned char *key_form,
 }
 
 CK_RV
-token_specific_des_key_gen(CK_BYTE *des_key, CK_ULONG len, CK_ULONG keysize)
+token_specific_des_key_gen(STDLL_TokData_t *tokdata, CK_BYTE *des_key,
+			   CK_ULONG len, CK_ULONG keysize)
 {
 	unsigned char key_form[CCA_KEYWORD_SIZE];
 	unsigned char key_type_1[CCA_KEYWORD_SIZE];
@@ -489,7 +490,8 @@ token_specific_des_key_gen(CK_BYTE *des_key, CK_ULONG len, CK_ULONG keysize)
 
 
 CK_RV
-token_specific_des_ecb(CK_BYTE  *in_data,
+token_specific_des_ecb(STDLL_TokData_t *tokdata,
+		       CK_BYTE  *in_data,
 		       CK_ULONG  in_data_len,
 		       CK_BYTE  *out_data,
 		       CK_ULONG *out_data_len,
@@ -501,7 +503,8 @@ token_specific_des_ecb(CK_BYTE  *in_data,
 }
 
 CK_RV
-token_specific_des_cbc(CK_BYTE  *in_data,
+token_specific_des_cbc(STDLL_TokData_t *tokdata,
+		       CK_BYTE  *in_data,
 		       CK_ULONG  in_data_len,
 		       CK_BYTE  *out_data,
 		       CK_ULONG *out_data_len,
@@ -614,7 +617,8 @@ token_specific_des_cbc(CK_BYTE  *in_data,
 }
 
 CK_RV
-token_specific_tdes_ecb(CK_BYTE  *in_data,
+token_specific_tdes_ecb(STDLL_TokData_t *tokdata,
+			CK_BYTE  *in_data,
 			CK_ULONG  in_data_len,
 			CK_BYTE  *out_data,
 			CK_ULONG *out_data_len,
@@ -626,7 +630,8 @@ token_specific_tdes_ecb(CK_BYTE  *in_data,
 }
 
 CK_RV
-token_specific_tdes_cbc(CK_BYTE  *in_data,
+token_specific_tdes_cbc(STDLL_TokData_t *tokdata,
+			CK_BYTE  *in_data,
 			CK_ULONG  in_data_len,
 			CK_BYTE  *out_data,
 			CK_ULONG *out_data_len,
@@ -636,7 +641,7 @@ token_specific_tdes_cbc(CK_BYTE  *in_data,
 {
 	/* Since keys are opaque objects in this token and there's only
 	 * one encipher command to CCA, we can just pass through */
-	return token_specific_des_cbc(in_data, in_data_len, out_data,
+	return token_specific_des_cbc(tokdata, in_data, in_data_len, out_data,
 				      out_data_len, key, init_v, encrypt);
 }
 
