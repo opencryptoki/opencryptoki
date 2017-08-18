@@ -1542,13 +1542,13 @@ done:
 }
 
 
-CK_RV SC_DecryptInit(ST_SESSION_HANDLE *sSession, CK_MECHANISM_PTR pMechanism,
-		     CK_OBJECT_HANDLE hKey)
+CK_RV SC_DecryptInit(STDLL_TokData_t *tokdata, ST_SESSION_HANDLE *sSession,
+		     CK_MECHANISM_PTR pMechanism, CK_OBJECT_HANDLE hKey)
 {
 	SESSION *sess = NULL;
 	CK_RV rc = CKR_OK;
 
-	if (initialized == FALSE) {
+	if (tokdata->initialized == FALSE) {
 		TRACE_ERROR("%s\n", ock_err(ERR_CRYPTOKI_NOT_INITIALIZED));
 		rc = CKR_CRYPTOKI_NOT_INITIALIZED;
 		goto done;
@@ -1599,15 +1599,15 @@ done:
 }
 
 
-CK_RV SC_Decrypt(ST_SESSION_HANDLE *sSession, CK_BYTE_PTR pEncryptedData,
-		 CK_ULONG ulEncryptedDataLen, CK_BYTE_PTR pData,
-		 CK_ULONG_PTR pulDataLen)
+CK_RV SC_Decrypt(STDLL_TokData_t *tokdata, ST_SESSION_HANDLE *sSession,
+		 CK_BYTE_PTR pEncryptedData, CK_ULONG ulEncryptedDataLen,
+		 CK_BYTE_PTR pData, CK_ULONG_PTR pulDataLen)
 {
 	SESSION *sess = NULL;
 	CK_BBOOL length_only = FALSE;
 	CK_RV rc = CKR_OK;
 
-	if (initialized == FALSE) {
+	if (tokdata->initialized == FALSE) {
 		TRACE_ERROR("%s\n", ock_err(ERR_CRYPTOKI_NOT_INITIALIZED));
 		rc = CKR_CRYPTOKI_NOT_INITIALIZED;
 		goto done;
@@ -1654,14 +1654,14 @@ done:
 }
 
 
-CK_RV SC_DecryptUpdate(ST_SESSION_HANDLE *sSession, CK_BYTE_PTR pEncryptedPart,
-		       CK_ULONG ulEncryptedPartLen, CK_BYTE_PTR pPart,
-		       CK_ULONG_PTR pulPartLen)
+CK_RV SC_DecryptUpdate(STDLL_TokData_t *tokdata, ST_SESSION_HANDLE *sSession,
+		       CK_BYTE_PTR pEncryptedPart, CK_ULONG ulEncryptedPartLen,
+		       CK_BYTE_PTR pPart, CK_ULONG_PTR pulPartLen)
 {
 	SESSION *sess = NULL;
 	CK_RV rc = CKR_OK;
 
-	if (initialized == FALSE) {
+	if (tokdata->initialized == FALSE) {
 		TRACE_ERROR("%s\n", ock_err(ERR_CRYPTOKI_NOT_INITIALIZED));
 		rc = CKR_CRYPTOKI_NOT_INITIALIZED;
 		goto done;
@@ -1705,14 +1705,14 @@ done:
 }
 
 
-CK_RV SC_DecryptFinal(ST_SESSION_HANDLE *sSession, CK_BYTE_PTR pLastPart,
-		      CK_ULONG_PTR pulLastPartLen)
+CK_RV SC_DecryptFinal(STDLL_TokData_t *tokdata, ST_SESSION_HANDLE *sSession,
+		      CK_BYTE_PTR pLastPart, CK_ULONG_PTR pulLastPartLen)
 {
 	SESSION *sess = NULL;
 	CK_BBOOL length_only = FALSE;
 	CK_RV rc = CKR_OK;
 
-	if (initialized == FALSE) {
+	if (tokdata->initialized == FALSE) {
 		TRACE_ERROR("%s\n", ock_err(ERR_CRYPTOKI_NOT_INITIALIZED));
 		rc = CKR_CRYPTOKI_NOT_INITIALIZED;
 		goto done;

@@ -29,7 +29,8 @@ CK_AES_CTR_PARAMS aesctr;
 //
 //
 CK_RV
-decr_mgr_init( SESSION           *sess,
+decr_mgr_init( STDLL_TokData_t   *tokdata,
+	       SESSION           *sess,
                ENCR_DECR_CONTEXT *ctx,
                CK_ULONG           operation,
                CK_MECHANISM      *mech,
@@ -661,7 +662,8 @@ decr_mgr_cleanup( ENCR_DECR_CONTEXT *ctx )
 //
 //
 CK_RV
-decr_mgr_decrypt( SESSION           *sess,
+decr_mgr_decrypt( STDLL_TokData_t   *tokdata,
+		  SESSION           *sess,
                   CK_BBOOL           length_only,
                   ENCR_DECR_CONTEXT *ctx,
                   CK_BYTE           *in_data,
@@ -842,7 +844,8 @@ decr_mgr_decrypt( SESSION           *sess,
 //
 //
 CK_RV
-decr_mgr_decrypt_update( SESSION            *sess,
+decr_mgr_decrypt_update( STDLL_TokData_t    *tokdata,
+			 SESSION            *sess,
                          CK_BBOOL            length_only,
                          ENCR_DECR_CONTEXT  *ctx,
                          CK_BYTE            *in_data,
@@ -1007,7 +1010,8 @@ decr_mgr_decrypt_update( SESSION            *sess,
 //
 //
 CK_RV
-decr_mgr_decrypt_final( SESSION            *sess,
+decr_mgr_decrypt_final( STDLL_TokData_t    *tokdata,
+			SESSION            *sess,
                         CK_BBOOL            length_only,
                         ENCR_DECR_CONTEXT  *ctx,
                         CK_BYTE            *out_data,
