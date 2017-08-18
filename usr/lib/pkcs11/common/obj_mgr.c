@@ -1486,7 +1486,8 @@ object_mgr_restore_obj_withSize( CK_BYTE *data, OBJECT *oldObj, int data_size )
 //
 //
 CK_RV
-object_mgr_set_attribute_values( SESSION           * sess,
+object_mgr_set_attribute_values( STDLL_TokData_t  *tokdata,
+				 SESSION           * sess,
                                  CK_OBJECT_HANDLE    handle,
                                  CK_ATTRIBUTE      * pTemplate,
                                  CK_ULONG            ulCount )
@@ -1555,7 +1556,7 @@ object_mgr_set_attribute_values( SESSION           * sess,
    }
 
 
-   rc = object_set_attribute_values( obj, pTemplate, ulCount );
+   rc = object_set_attribute_values( tokdata, obj, pTemplate, ulCount );
    if (rc != CKR_OK){
       TRACE_DEVEL("object_set_attribute_values failed.\n");
       return rc;
