@@ -545,7 +545,7 @@ CK_RV get_ecsiglen(OBJECT *key_obj, CK_ULONG *size);
 //                          CK_BYTE           ** reply,
 //                          CK_ULONG           * reply_len );
 
-void  init_slotInfo(void);
+void  init_slotInfo(CK_SLOT_INFO *);
 void  init_tokenInfo(TOKEN_DATA *nv_token_data);
 
 CK_BYTE  parity_adjust( CK_BYTE b );

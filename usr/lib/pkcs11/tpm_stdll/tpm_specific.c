@@ -2124,7 +2124,7 @@ done:
 	// META This should be fine since the open session checking should occur at
 	// the API not the STDLL
 	init_token_data(tokdata, sid);
-	init_slotInfo();
+	init_slotInfo(&tokdata->slot_info);
 	memcpy(nv_token_data->so_pin_sha, hash_sha, SHA1_HASH_SIZE);
 	tokdata->nv_token_data->token_info.flags |= CKF_TOKEN_INITIALIZED;
 	memcpy(tokdata->nv_token_data->token_info.label, pLabel, 32);

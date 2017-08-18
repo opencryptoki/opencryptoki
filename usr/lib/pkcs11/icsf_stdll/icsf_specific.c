@@ -594,7 +594,7 @@ CK_RV reset_token_data(CK_SLOT_ID slot_id, CK_CHAR_PTR pin, CK_ULONG pin_len)
 	/* Reset token data and keep token name */
 	slot_data[slot_id]->initialized = 0;
 	init_token_data(tokdata, slot_id);
-	init_slotInfo();
+	init_slotInfo(&tokdata->slot_info);
 	tokdata->nv_token_data->token_info.flags |= CKF_TOKEN_INITIALIZED;
 
 	/* Reset SO pin to default and user pin to invalid */
