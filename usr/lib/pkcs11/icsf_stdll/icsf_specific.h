@@ -32,7 +32,7 @@ CK_RV icsftok_set_pin(STDLL_TokData_t *tokdata, SESSION *sess,
 		      CK_CHAR_PTR pOldPin, CK_ULONG ulOldLen,
 		      CK_CHAR_PTR pNewPin, CK_ULONG ulNewLen);
 
-CK_RV icsftok_open_session(SESSION *sess);
+CK_RV icsftok_open_session(STDLL_TokData_t *tokdata, SESSION *sess);
 
 CK_RV icsftok_close_session(SESSION *session);
 

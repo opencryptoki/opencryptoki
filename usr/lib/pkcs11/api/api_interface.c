@@ -2999,7 +2999,8 @@ C_OpenSession(CK_SLOT_ID slotID,
 	}
 
 	if (fcn->ST_OpenSession) {
-		rv = fcn->ST_OpenSession(slotID, flags, &(apiSessp->sessionh));
+		rv = fcn->ST_OpenSession(sltp->TokData, slotID, flags,
+					 &(apiSessp->sessionh));
 		TRACE_DEVEL("fcn->ST_OpenSession returned: 0x%lx\n", rv);
 
 		// If the session allocation is successful, then we need to
