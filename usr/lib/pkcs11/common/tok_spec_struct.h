@@ -75,7 +75,7 @@ struct token_specific_struct {
 			      CK_ULONG, CK_CHAR_PTR);
 	CK_RV(*t_login) (SESSION *, CK_USER_TYPE, CK_CHAR_PTR, CK_ULONG);
 	CK_RV(*t_logout) ();
-	CK_RV(*t_init_pin) (SESSION *, CK_CHAR_PTR, CK_ULONG);
+	CK_RV(*t_init_pin) (STDLL_TokData_t *, SESSION *, CK_CHAR_PTR, CK_ULONG);
 	CK_RV(*t_set_pin) (SESSION *, CK_CHAR_PTR, CK_ULONG, CK_CHAR_PTR,
 			   CK_ULONG);
 

@@ -25,7 +25,8 @@ CK_RV icsftok_close_all_sessions(void);
 CK_RV icsftok_init_token(STDLL_TokData_t *tokdata, CK_SLOT_ID slot_id,
 			 CK_CHAR_PTR pin, CK_ULONG pin_len, CK_CHAR_PTR label);
 
-CK_RV icsftok_init_pin(SESSION *sess, CK_CHAR_PTR pPin, CK_ULONG ulPinLen);
+CK_RV icsftok_init_pin(STDLL_TokData_t *tokdata, SESSION *sess,
+		       CK_CHAR_PTR pPin, CK_ULONG ulPinLen);
 
 CK_RV icsftok_set_pin(SESSION *sess, CK_CHAR_PTR pOldPin, CK_ULONG ulOldLen,
 		      CK_CHAR_PTR pNewPin, CK_ULONG ulNewLen);
