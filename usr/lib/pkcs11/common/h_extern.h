@@ -1777,12 +1777,14 @@ CK_RV    digest_mgr_digest_final( SESSION        *sess, CK_BBOOL  length_only,
 
 // key manager routines
 //
-CK_RV     key_mgr_generate_key( SESSION *sess,
+CK_RV     key_mgr_generate_key( STDLL_TokData_t *tokdata,
+				SESSION *sess,
                                 CK_MECHANISM *mech,
                                 CK_ATTRIBUTE *pTemplate, CK_ULONG ulCount,
                                 CK_OBJECT_HANDLE *key_handle );
 
-CK_RV     key_mgr_generate_key_pair( SESSION *sess,
+CK_RV     key_mgr_generate_key_pair( STDLL_TokData_t *tokdata,
+				     SESSION *sess,
                                      CK_MECHANISM *mech,
                                      CK_ATTRIBUTE *publ_tmpl, CK_ULONG publ_count,
                                      CK_ATTRIBUTE *priv_tmpl, CK_ULONG priv_count,

@@ -2874,14 +2874,14 @@ CK_RV SC_DecryptVerifyUpdate(ST_SESSION_HANDLE *sSession,
 }
 
 
-CK_RV SC_GenerateKey(ST_SESSION_HANDLE *sSession, CK_MECHANISM_PTR pMechanism,
-		     CK_ATTRIBUTE_PTR pTemplate, CK_ULONG ulCount,
-		     CK_OBJECT_HANDLE_PTR phKey)
+CK_RV SC_GenerateKey(STDLL_TokData_t *tokdata, ST_SESSION_HANDLE *sSession,
+		     CK_MECHANISM_PTR pMechanism, CK_ATTRIBUTE_PTR pTemplate,
+		     CK_ULONG ulCount, CK_OBJECT_HANDLE_PTR phKey)
 {
 	SESSION *sess = NULL;
 	CK_RV rc = CKR_OK;
 
-	if (initialized == FALSE) {
+	if (tokdata->initialized == FALSE) {
 		TRACE_ERROR("%s\n", ock_err(ERR_CRYPTOKI_NOT_INITIALIZED));
 		rc = CKR_CRYPTOKI_NOT_INITIALIZED;
 		goto done;
@@ -2911,7 +2911,8 @@ CK_RV SC_GenerateKey(ST_SESSION_HANDLE *sSession, CK_MECHANISM_PTR pMechanism,
 		goto done;
 	}
 
-	rc = key_mgr_generate_key(sess, pMechanism, pTemplate, ulCount, phKey);
+	rc = key_mgr_generate_key(tokdata, sess, pMechanism, pTemplate,
+				  ulCount, phKey);
 	if (rc != CKR_OK)
 		TRACE_DEVEL("key_mgr_generate_key() failed.\n");
 
@@ -2940,7 +2941,8 @@ done:
 }
 
 
-CK_RV SC_GenerateKeyPair(ST_SESSION_HANDLE *sSession,
+CK_RV SC_GenerateKeyPair(STDLL_TokData_t *tokdata,
+			 ST_SESSION_HANDLE *sSession,
 			 CK_MECHANISM_PTR pMechanism,
 			 CK_ATTRIBUTE_PTR pPublicKeyTemplate,
 			 CK_ULONG ulPublicKeyAttributeCount,
@@ -2952,7 +2954,7 @@ CK_RV SC_GenerateKeyPair(ST_SESSION_HANDLE *sSession,
 	SESSION *sess = NULL;
 	CK_RV rc = CKR_OK;
 
-	if (initialized == FALSE) {
+	if (tokdata->initialized == FALSE) {
 		TRACE_ERROR("%s\n", ock_err(ERR_CRYPTOKI_NOT_INITIALIZED));
 		rc = CKR_CRYPTOKI_NOT_INITIALIZED;
 		goto done;
@@ -2984,7 +2986,8 @@ CK_RV SC_GenerateKeyPair(ST_SESSION_HANDLE *sSession,
 		goto done;
 	}
 
-	rc = key_mgr_generate_key_pair(sess, pMechanism, pPublicKeyTemplate,
+	rc = key_mgr_generate_key_pair(tokdata, sess, pMechanism,
+				       pPublicKeyTemplate,
 				       ulPublicKeyAttributeCount,
 				       pPrivateKeyTemplate,
 				       ulPrivateKeyAttributeCount,
