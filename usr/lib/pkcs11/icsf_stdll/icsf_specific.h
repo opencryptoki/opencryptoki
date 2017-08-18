@@ -122,9 +122,10 @@ CK_RV icsftok_unwrap_key(SESSION *session, CK_MECHANISM_PTR mech,
 			 CK_OBJECT_HANDLE wrapping_key,
 			 CK_OBJECT_HANDLE_PTR p_key);
 
-CK_RV icsftok_derive_key(SESSION *session, CK_MECHANISM_PTR mech,
-			 CK_OBJECT_HANDLE hBaseKey, CK_OBJECT_HANDLE_PTR handle,
-			 CK_ATTRIBUTE_PTR attrs, CK_ULONG attrs_len);
+CK_RV icsftok_derive_key(STDLL_TokData_t *tokdata, SESSION *session,
+			 CK_MECHANISM_PTR mech, CK_OBJECT_HANDLE hBaseKey,
+			 CK_OBJECT_HANDLE_PTR handle, CK_ATTRIBUTE_PTR attrs,
+			 CK_ULONG attrs_len);
 
 CK_RV icsftok_generate_key_pair(SESSION *session, CK_MECHANISM_PTR mech,
 				CK_ATTRIBUTE_PTR pub_attrs,
