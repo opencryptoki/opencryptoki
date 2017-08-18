@@ -228,17 +228,17 @@ done:
  * need to close the adapters that are opened, and clear the other
  * stuff
  */
-CK_RV SC_Finalize(CK_SLOT_ID sid)
+CK_RV SC_Finalize(STDLL_TokData_t *tokdata, CK_SLOT_ID sid, SLOT_INFO *sinfp)
 {
 	CK_RV rc;
 
-	if (initialized == FALSE) {
+	if (tokdata->initialized == FALSE) {
 		TRACE_ERROR("%s\n", ock_err(ERR_CRYPTOKI_NOT_INITIALIZED));
 		return CKR_CRYPTOKI_NOT_INITIALIZED;
 	}
 
 	/* If somebody else has taken care of things, leave... */
-	if (initialized == FALSE) {
+	if (tokdata->initialized == FALSE) {
 		TRACE_ERROR("%s\n", ock_err(ERR_CRYPTOKI_NOT_INITIALIZED));
 		return CKR_CRYPTOKI_NOT_INITIALIZED;
 	}
@@ -246,7 +246,7 @@ CK_RV SC_Finalize(CK_SLOT_ID sid)
 	__transaction_atomic { /* start transaction */
 		usage_count--;
 		if (usage_count == 0) {
-			initialized = FALSE;
+			tokdata->initialized = FALSE;
 		}
 	} /* end transaction */
 
@@ -261,6 +261,9 @@ CK_RV SC_Finalize(CK_SLOT_ID sid)
 		TRACE_ERROR("Token specific final call failed.\n");
 		return rc;
 	}
+
+	if (tokdata)
+		free(tokdata);
 
 	return rc;
 }
