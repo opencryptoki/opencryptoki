@@ -106,68 +106,70 @@ CK_RV token_specific_tdes_cfb(STDLL_TokData_t *,
                        uint_32 );
 
 CK_RV
-token_specific_rsa_decrypt( CK_BYTE   * ,
+token_specific_rsa_decrypt( STDLL_TokData_t *,
+		  CK_BYTE   * ,
                   CK_ULONG    ,
                   CK_BYTE   *,
                   CK_ULONG  *,
                   OBJECT    *);
 
 CK_RV
-token_specific_rsa_encrypt( CK_BYTE   * ,
+token_specific_rsa_encrypt( STDLL_TokData_t *,
+		   CK_BYTE   * ,
                    CK_ULONG    ,
                    CK_BYTE   * ,
                    CK_ULONG  *,
                    OBJECT    * );
 
 CK_RV
-token_specific_rsa_generate_keypair( TEMPLATE  * ,
-                            TEMPLATE  * );
+token_specific_rsa_generate_keypair( STDLL_TokData_t *tokdata, TEMPLATE  * ,
+				     TEMPLATE  * );
 
 CK_RV
-token_specific_rsa_sign(CK_BYTE *, CK_ULONG, CK_BYTE *, CK_ULONG *,
-                                OBJECT *);
+token_specific_rsa_sign(STDLL_TokData_t *, CK_BYTE *, CK_ULONG, CK_BYTE *,
+			CK_ULONG *, OBJECT *);
 
 CK_RV
-token_specific_rsa_verify(CK_BYTE *, CK_ULONG, CK_BYTE *, CK_ULONG,
-                                OBJECT *);
+token_specific_rsa_verify(STDLL_TokData_t *tokdata, CK_BYTE *, CK_ULONG,
+			  CK_BYTE *, CK_ULONG, OBJECT *);
 
 CK_RV
-token_specific_rsa_verify_recover(CK_BYTE *, CK_ULONG, CK_BYTE *,
-                                CK_ULONG *, OBJECT *);
+token_specific_rsa_verify_recover(STDLL_TokData_t *tokdata, CK_BYTE *,
+				  CK_ULONG, CK_BYTE *, CK_ULONG *, OBJECT *);
 
 CK_RV
-token_specific_rsa_x509_encrypt(CK_BYTE *, CK_ULONG, CK_BYTE *,
-                                CK_ULONG *, OBJECT *);
+token_specific_rsa_x509_encrypt(STDLL_TokData_t *tokdata, CK_BYTE *, CK_ULONG,
+				CK_BYTE *, CK_ULONG *, OBJECT *);
 
 CK_RV
-token_specific_rsa_x509_decrypt(CK_BYTE *, CK_ULONG, CK_BYTE *,
-                                CK_ULONG *, OBJECT *);
+token_specific_rsa_x509_decrypt(STDLL_TokData_t *tokdata, CK_BYTE *, CK_ULONG,
+				CK_BYTE *, CK_ULONG *, OBJECT *);
 
 CK_RV
-token_specific_rsa_x509_sign(CK_BYTE *, CK_ULONG, CK_BYTE *,
-			     CK_ULONG *, OBJECT *);
+token_specific_rsa_x509_sign(STDLL_TokData_t *tokdata, CK_BYTE *, CK_ULONG,
+			     CK_BYTE *, CK_ULONG *, OBJECT *);
 
 CK_RV
-token_specific_rsa_x509_verify(CK_BYTE *, CK_ULONG, CK_BYTE *,
-				CK_ULONG, OBJECT *);
+token_specific_rsa_x509_verify(STDLL_TokData_t *tokdata, CK_BYTE *, CK_ULONG,
+			       CK_BYTE *, CK_ULONG, OBJECT *);
 
 CK_RV
-token_specific_rsa_x509_verify_recover(CK_BYTE *, CK_ULONG, CK_BYTE *,
-					CK_ULONG *, OBJECT *);
+token_specific_rsa_x509_verify_recover(STDLL_TokData_t *tokdata, CK_BYTE *,
+				       CK_ULONG, CK_BYTE *, CK_ULONG *, OBJECT *);
 
-CK_RV token_specific_rsa_oaep_encrypt(ENCR_DECR_CONTEXT *, CK_BYTE *,
-				      CK_ULONG, CK_BYTE *, CK_ULONG *,
-				      CK_BYTE *, CK_ULONG);
+CK_RV token_specific_rsa_oaep_encrypt(STDLL_TokData_t *, ENCR_DECR_CONTEXT *,
+				      CK_BYTE *, CK_ULONG, CK_BYTE *,
+				      CK_ULONG *, CK_BYTE *, CK_ULONG);
 
-CK_RV token_specific_rsa_oaep_decrypt(ENCR_DECR_CONTEXT *, CK_BYTE *,
-				      CK_ULONG, CK_BYTE *, CK_ULONG *,
-				      CK_BYTE *, CK_ULONG);
+CK_RV token_specific_rsa_oaep_decrypt(STDLL_TokData_t *, ENCR_DECR_CONTEXT *,
+				      CK_BYTE *, CK_ULONG, CK_BYTE *,
+				      CK_ULONG *, CK_BYTE *, CK_ULONG);
 
-CK_RV token_specific_rsa_pss_sign(SIGN_VERIFY_CONTEXT *, CK_BYTE *, CK_ULONG,
-				  CK_BYTE *, CK_ULONG *);
+CK_RV token_specific_rsa_pss_sign(STDLL_TokData_t *, SIGN_VERIFY_CONTEXT *,
+				  CK_BYTE *, CK_ULONG, CK_BYTE *, CK_ULONG *);
 
-CK_RV token_specific_rsa_pss_verify(SIGN_VERIFY_CONTEXT *, CK_BYTE *,
-				    CK_ULONG, CK_BYTE *, CK_ULONG);
+CK_RV token_specific_rsa_pss_verify(STDLL_TokData_t *, SIGN_VERIFY_CONTEXT *,
+				    CK_BYTE *, CK_ULONG, CK_BYTE *, CK_ULONG);
 
 CK_RV
 token_specific_ec_sign(CK_BYTE   * ,

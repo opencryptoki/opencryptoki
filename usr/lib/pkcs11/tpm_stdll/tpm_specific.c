@@ -2612,8 +2612,9 @@ rsa_convert_public_key(OBJECT *key_obj)
 }
 
 CK_RV
-token_specific_rsa_generate_keypair( TEMPLATE  * publ_tmpl,
-		TEMPLATE  * priv_tmpl )
+token_specific_rsa_generate_keypair( STDLL_TokData_t *tokdata,
+				     TEMPLATE  * publ_tmpl,
+				     TEMPLATE  * priv_tmpl )
 {
 	CK_ATTRIBUTE	*attr     = NULL;
 	CK_ULONG	mod_bits = 0;
@@ -2859,11 +2860,12 @@ token_rsa_load_key( OBJECT * key_obj, TSS_HKEY * phKey )
 }
 
 CK_RV
-token_specific_rsa_decrypt( CK_BYTE   * in_data,
-		CK_ULONG    in_data_len,
-		CK_BYTE   * out_data,
-		CK_ULONG  * out_data_len,
-		OBJECT    * key_obj )
+token_specific_rsa_decrypt( STDLL_TokData_t *tokdata,
+			    CK_BYTE   * in_data,
+			    CK_ULONG    in_data_len,
+			    CK_BYTE   * out_data,
+			    CK_ULONG  * out_data_len,
+			    OBJECT    * key_obj )
 {
 	CK_RV           rc;
 	TSS_RESULT      result;
@@ -2912,11 +2914,12 @@ token_specific_rsa_decrypt( CK_BYTE   * in_data,
 }
 
 CK_RV
-token_specific_rsa_verify( CK_BYTE   * in_data,
-		CK_ULONG    in_data_len,
-		CK_BYTE   * sig,
-		CK_ULONG    sig_len,
-		OBJECT    * key_obj )
+token_specific_rsa_verify( STDLL_TokData_t *tokdata,
+			   CK_BYTE   * in_data,
+			   CK_ULONG    in_data_len,
+			   CK_BYTE   * sig,
+			   CK_ULONG    sig_len,
+			   OBJECT    * key_obj )
 {
 	TSS_RESULT	result;
 	TSS_HHASH	hHash;
@@ -2960,11 +2963,12 @@ token_specific_rsa_verify( CK_BYTE   * in_data,
 }
 
 CK_RV
-token_specific_rsa_sign( CK_BYTE   * in_data,
-		CK_ULONG    in_data_len,
-		CK_BYTE   * out_data,
-		CK_ULONG  * out_data_len,
-		OBJECT    * key_obj )
+token_specific_rsa_sign( STDLL_TokData_t *tokdata,
+			 CK_BYTE   * in_data,
+			 CK_ULONG    in_data_len,
+			 CK_BYTE   * out_data,
+			 CK_ULONG  * out_data_len,
+			 OBJECT    * key_obj )
 {
 	TSS_RESULT	result;
 	TSS_HHASH	hHash;
@@ -3013,11 +3017,12 @@ token_specific_rsa_sign( CK_BYTE   * in_data,
 
 
 CK_RV
-token_specific_rsa_encrypt( CK_BYTE   * in_data,
-		CK_ULONG    in_data_len,
-		CK_BYTE   * out_data,
-		CK_ULONG  * out_data_len,
-		OBJECT    * key_obj )
+token_specific_rsa_encrypt( STDLL_TokData_t *tokdata,
+			    CK_BYTE   * in_data,
+			    CK_ULONG    in_data_len,
+			    CK_BYTE   * out_data,
+			    CK_ULONG  * out_data_len,
+			    OBJECT    * key_obj )
 {
 	TSS_RESULT	result;
 	TSS_HENCDATA	hEncData;
@@ -3063,13 +3068,13 @@ token_specific_rsa_encrypt( CK_BYTE   * in_data,
 }
 
 CK_RV
-token_specific_rsa_verify_recover(CK_BYTE *signature, CK_ULONG sig_len,
-				CK_BYTE *out_data, CK_ULONG *out_data_len,
-				OBJECT *key_obj)
+token_specific_rsa_verify_recover(STDLL_TokData_t *tokdata, CK_BYTE *signature,
+				  CK_ULONG sig_len, CK_BYTE *out_data,
+				  CK_ULONG *out_data_len, OBJECT *key_obj)
 {
 	CK_RV   rc;
 
-	rc = token_specific_rsa_encrypt(signature, sig_len, out_data,
+	rc = token_specific_rsa_encrypt(tokdata, signature, sig_len, out_data,
 					out_data_len, key_obj);
 
 	if (rc != CKR_OK)

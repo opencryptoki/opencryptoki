@@ -1133,7 +1133,7 @@ CK_RV template_validate_attribute(TEMPLATE *tmpl, CK_ATTRIBUTE *attr,
 	} else if (class == CKO_PUBLIC_KEY) {
 		switch (subclass) {
 		case CKK_RSA:
-			return rsa_publ_validate_attribute(tmpl, attr, mode);
+			return rsa_publ_validate_attribute(tokdata, tmpl, attr, mode);
 
 		case CKK_DSA:
 			return dsa_publ_validate_attribute(tmpl, attr, mode);
@@ -1154,7 +1154,7 @@ CK_RV template_validate_attribute(TEMPLATE *tmpl, CK_ATTRIBUTE *attr,
 	} else if (class == CKO_PRIVATE_KEY) {
 		switch (subclass) {
 		case CKK_RSA:
-			return rsa_priv_validate_attribute(tmpl, attr, mode);
+			return rsa_priv_validate_attribute(tokdata, tmpl, attr, mode);
 
 		case CKK_DSA:
 			return dsa_priv_validate_attribute(tmpl, attr, mode);
