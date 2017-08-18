@@ -937,7 +937,7 @@ CK_RV icsf_get_handles(CK_SLOT_ID slot_id)
 	return CKR_OK;
 }
 
-CK_RV icsftok_open_session(SESSION *sess)
+CK_RV icsftok_open_session(STDLL_TokData_t *tokdata, SESSION *sess)
 {
 	CK_RV rc = CKR_OK;
 	LDAP *ld;

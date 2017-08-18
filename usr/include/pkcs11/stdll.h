@@ -91,8 +91,8 @@ typedef CK_RV	(CK_PTR  ST_C_SetPIN)
 // 						 CK_SESSION_HANDLE_PTR phSession);
 
 typedef CK_RV	(CK_PTR  ST_C_OpenSession)
-						(CK_SLOT_ID slotID, CK_FLAGS flags,
-						 CK_SESSION_HANDLE_PTR phSession);
+						(STDLL_TokData_t *tokdata, CK_SLOT_ID slotID,
+						 CK_FLAGS flags, CK_SESSION_HANDLE_PTR phSession);
 
 typedef CK_RV	(CK_PTR  ST_C_CloseSession)
 						(ST_SESSION_T *hSession);
