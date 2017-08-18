@@ -242,17 +242,17 @@ done:
  * need to close the adapters that are opened, and clear the other
  * stuff
  */
-CK_RV SC_Finalize(CK_SLOT_ID sid)
+CK_RV SC_Finalize(STDLL_TokData_t *tokdata, CK_SLOT_ID sid, SLOT_INFO *sinfp)
 {
 	CK_RV rc = CKR_OK;
 
-	if (initialized == FALSE) {
+	if (tokdata->initialized == FALSE) {
 		TRACE_ERROR("%s\n", ock_err(ERR_CRYPTOKI_NOT_INITIALIZED));
 		return CKR_CRYPTOKI_NOT_INITIALIZED;
 	}
 
 	/* If somebody else has taken care of things, leave... */
-	if (initialized == FALSE) {
+	if (tokdata->initialized == FALSE) {
 		TRACE_ERROR("%s\n", ock_err(ERR_CRYPTOKI_NOT_INITIALIZED));
 		return CKR_CRYPTOKI_NOT_INITIALIZED;
 	}
@@ -270,12 +270,15 @@ CK_RV SC_Finalize(CK_SLOT_ID sid)
 	/* close spin lock file	*/
 	CloseXProcLock();
 	if (token_specific.t_final != NULL) {
-		rc = token_specific.t_final();
+		rc = token_specific.t_final(tokdata);
 		if (rc != CKR_OK) {
 			TRACE_ERROR("Token specific final call failed.\n");
 			return rc;
 		}
 	}
+
+	if (tokdata)
+		free(tokdata);
 
 	return rc;
 }

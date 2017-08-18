@@ -1192,7 +1192,7 @@ CK_RV ep11tok_init(STDLL_TokData_t *tokdata, CK_SLOT_ID SlotNumber, char *conf_n
 	return CKR_OK;
 }
 
-CK_RV ep11tok_final()
+CK_RV ep11tok_final(STDLL_TokData_t *tokdata)
 {
 	TRACE_INFO("ep11 %s running\n", __func__);
 

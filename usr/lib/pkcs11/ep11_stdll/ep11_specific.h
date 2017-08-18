@@ -27,7 +27,7 @@ CK_RV ep11tok_get_mechanism_info(STDLL_TokData_t *tokdata,
 CK_RV ep11tok_init(STDLL_TokData_t *tokdata, CK_SLOT_ID SlotNumber,
 		   char *conf_name);
 
-CK_RV ep11tok_final(void);
+CK_RV ep11tok_final(STDLL_TokData_t *tokdata);
 
 CK_RV ep11tok_generate_key(SESSION *session, CK_MECHANISM_PTR mech,
 			   CK_ATTRIBUTE_PTR attrs, CK_ULONG attrs_len,
