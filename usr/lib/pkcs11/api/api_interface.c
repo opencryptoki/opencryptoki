@@ -3326,8 +3326,8 @@ C_Sign(CK_SESSION_HANDLE hSession,
 	}
 	if (fcn->ST_Sign) {
 		// Map the Session to the slot session
-		rv = fcn->ST_Sign(&rSession, pData, ulDataLen, pSignature,
-				  pulSignatureLen);
+		rv = fcn->ST_Sign(sltp->TokData, &rSession, pData, ulDataLen,
+				  pSignature, pulSignatureLen);
 		TRACE_DEVEL("fcn->ST_Sign returned: 0x%lx\n", rv);
 	} else {
 		TRACE_ERROR("%s\n", ock_err(ERR_FUNCTION_NOT_SUPPORTED));
@@ -3379,8 +3379,8 @@ C_SignEncryptUpdate(CK_SESSION_HANDLE hSession,
 	}
 	if (fcn->ST_SignEncryptUpdate) {
 		// Map the Session to the slot session
-		rv = fcn->ST_SignEncryptUpdate(&rSession, pPart, ulPartLen,
-					       pEncryptedPart,
+		rv = fcn->ST_SignEncryptUpdate(sltp->TokData, &rSession, pPart,
+					       ulPartLen, pEncryptedPart,
 					       pulEncryptedPartLen);
 		TRACE_DEVEL("fcn->ST_SignEncryptUpdate return: 0x%lx\n", rv);
 	} else {
@@ -3437,7 +3437,8 @@ C_SignFinal(CK_SESSION_HANDLE hSession,
 	}
 	if (fcn->ST_SignFinal) {
 		// Map the Session to the slot session
-		rv = fcn->ST_SignFinal(&rSession, pSignature, pulSignatureLen);
+		rv = fcn->ST_SignFinal(sltp->TokData, &rSession, pSignature,
+				       pulSignatureLen);
 		TRACE_DEVEL("fcn->ST_SignFinal returned: 0x%lx\n", rv);
 	} else {
 		TRACE_ERROR("%s\n", ock_err(ERR_FUNCTION_NOT_SUPPORTED));
@@ -3493,7 +3494,8 @@ C_SignInit(CK_SESSION_HANDLE hSession,
 	}
 	if (fcn->ST_SignInit) {
 		// Map the Session to the slot session
-		rv = fcn->ST_SignInit(&rSession, pMechanism, hKey);
+		rv = fcn->ST_SignInit(sltp->TokData, &rSession,
+				      pMechanism, hKey);
 		TRACE_DEVEL("fcn->ST_SignInit returned: 0x%lx\n", rv);
 	} else {
 		TRACE_ERROR("%s\n", ock_err(ERR_FUNCTION_NOT_SUPPORTED));
@@ -3544,8 +3546,9 @@ C_SignRecover(CK_SESSION_HANDLE hSession,
 	}
 	if (fcn->ST_SignRecover) {
 		// Map the Session to the slot session
-		rv = fcn->ST_SignRecover(&rSession, pData, ulDataLen,
-					 pSignature, pulSignatureLen);
+		rv = fcn->ST_SignRecover(sltp->TokData, &rSession, pData,
+					 ulDataLen, pSignature,
+					 pulSignatureLen);
 		TRACE_DEVEL("fcn->ST_SignRecover returned:0x%lx\n", rv);
 	} else {
 		TRACE_ERROR("%s\n", ock_err(ERR_FUNCTION_NOT_SUPPORTED));
@@ -3597,7 +3600,8 @@ C_SignRecoverInit(CK_SESSION_HANDLE hSession,
 	}
 	if (fcn->ST_SignRecoverInit) {
 		// Map the Session to the slot session
-		rv = fcn->ST_SignRecoverInit(&rSession, pMechanism, hKey);
+		rv = fcn->ST_SignRecoverInit(sltp->TokData, &rSession,
+					     pMechanism, hKey);
 		TRACE_DEVEL("fcn->ST_SignRecoverInit returned: 0x%lx\n", rv);
 	} else {
 		TRACE_ERROR("%s\n", ock_err(ERR_FUNCTION_NOT_SUPPORTED));
@@ -3647,7 +3651,8 @@ C_SignUpdate(CK_SESSION_HANDLE hSession, CK_BYTE_PTR pPart, CK_ULONG ulPartLen)
 	}
 	if (fcn->ST_SignUpdate) {
 		// Map the Session to the slot session
-		rv = fcn->ST_SignUpdate(&rSession, pPart, ulPartLen);
+		rv = fcn->ST_SignUpdate(sltp->TokData, &rSession, pPart,
+					ulPartLen);
 		TRACE_DEVEL("fcn->ST_SignUpdate returned: 0x%lx\n", rv);
 	} else {
 		TRACE_ERROR("%s\n", ock_err(ERR_FUNCTION_NOT_SUPPORTED));

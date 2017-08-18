@@ -28,7 +28,8 @@
 //
 //
 CK_RV
-sign_mgr_init( SESSION                * sess,
+sign_mgr_init( STDLL_TokData_t        * tokdata,
+	       SESSION                * sess,
                SIGN_VERIFY_CONTEXT    * ctx,
                CK_MECHANISM           * mech,
                CK_BBOOL                 recover_mode,
@@ -688,7 +689,8 @@ sign_mgr_cleanup( SIGN_VERIFY_CONTEXT *ctx )
 //
 //
 CK_RV
-sign_mgr_sign( SESSION              * sess,
+sign_mgr_sign( STDLL_TokData_t      * tokdata,
+	       SESSION              * sess,
                CK_BBOOL               length_only,
                SIGN_VERIFY_CONTEXT  * ctx,
                CK_BYTE              * in_data,

@@ -2002,13 +2002,13 @@ done:
 }
 
 
-CK_RV SC_SignInit(ST_SESSION_HANDLE *sSession, CK_MECHANISM_PTR pMechanism,
-		  CK_OBJECT_HANDLE hKey)
+CK_RV SC_SignInit(STDLL_TokData_t *tokdata, ST_SESSION_HANDLE *sSession,
+		  CK_MECHANISM_PTR pMechanism, CK_OBJECT_HANDLE hKey)
 {
 	SESSION *sess = NULL;
 	CK_RV rc = CKR_OK;
 
-	if (initialized == FALSE) {
+	if (tokdata->initialized == FALSE) {
 		TRACE_ERROR("%s\n", ock_err(ERR_CRYPTOKI_NOT_INITIALIZED));
 		rc = CKR_CRYPTOKI_NOT_INITIALIZED;
 		goto done;
@@ -2059,14 +2059,14 @@ done:
 }
 
 
-CK_RV SC_Sign(ST_SESSION_HANDLE *sSession, CK_BYTE_PTR pData,
-	      CK_ULONG ulDataLen, CK_BYTE_PTR pSignature,
+CK_RV SC_Sign(STDLL_TokData_t *tokdata, ST_SESSION_HANDLE *sSession,
+	      CK_BYTE_PTR pData, CK_ULONG ulDataLen, CK_BYTE_PTR pSignature,
 	      CK_ULONG_PTR pulSignatureLen)
 {
 	SESSION *sess = NULL;
 	CK_RV rc = CKR_OK;
 
-	if (initialized == FALSE) {
+	if (tokdata->initialized == FALSE) {
 		TRACE_ERROR("%s\n", ock_err(ERR_CRYPTOKI_NOT_INITIALIZED));
 		rc = CKR_CRYPTOKI_NOT_INITIALIZED;
 		goto done;
@@ -2109,13 +2109,13 @@ done:
 }
 
 
-CK_RV SC_SignUpdate(ST_SESSION_HANDLE *sSession, CK_BYTE_PTR pPart,
-		    CK_ULONG ulPartLen)
+CK_RV SC_SignUpdate(STDLL_TokData_t *tokdata, ST_SESSION_HANDLE *sSession,
+		    CK_BYTE_PTR pPart, CK_ULONG ulPartLen)
 {
 	SESSION *sess = NULL;
 	CK_RV rc = CKR_OK;
 
-	if (initialized == FALSE) {
+	if (tokdata->initialized == FALSE) {
 		TRACE_ERROR("%s\n", ock_err(ERR_CRYPTOKI_NOT_INITIALIZED));
 		rc = CKR_CRYPTOKI_NOT_INITIALIZED;
 		goto done;
@@ -2156,13 +2156,13 @@ done:
 }
 
 
-CK_RV SC_SignFinal(ST_SESSION_HANDLE *sSession, CK_BYTE_PTR pSignature,
-		   CK_ULONG_PTR pulSignatureLen)
+CK_RV SC_SignFinal(STDLL_TokData_t *tokdata, ST_SESSION_HANDLE *sSession,
+		   CK_BYTE_PTR pSignature, CK_ULONG_PTR pulSignatureLen)
 {
 	SESSION *sess = NULL;
 	CK_RV rc = CKR_OK;
 
-	if (initialized == FALSE) {
+	if (tokdata->initialized == FALSE) {
 		TRACE_ERROR("%s\n", ock_err(ERR_CRYPTOKI_NOT_INITIALIZED));
 		rc = CKR_CRYPTOKI_NOT_INITIALIZED;
 		goto done;
@@ -2204,10 +2204,10 @@ done:
 }
 
 
-CK_RV SC_SignRecoverInit(ST_SESSION_HANDLE *sSession,
+CK_RV SC_SignRecoverInit(STDLL_TokData_t *tokdata, ST_SESSION_HANDLE *sSession,
 			 CK_MECHANISM_PTR pMechanism, CK_OBJECT_HANDLE hKey)
 {
-	if (initialized == FALSE) {
+	if (tokdata->initialized == FALSE) {
 		TRACE_ERROR("%s\n", ock_err(ERR_CRYPTOKI_NOT_INITIALIZED));
 		return CKR_CRYPTOKI_NOT_INITIALIZED;
 	}
@@ -2217,11 +2217,11 @@ CK_RV SC_SignRecoverInit(ST_SESSION_HANDLE *sSession,
 }
 
 
-CK_RV SC_SignRecover(ST_SESSION_HANDLE *sSession, CK_BYTE_PTR pData,
-		     CK_ULONG ulDataLen, CK_BYTE_PTR pSignature,
-		     CK_ULONG_PTR pulSignatureLen)
+CK_RV SC_SignRecover(STDLL_TokData_t *tokdata, ST_SESSION_HANDLE *sSession,
+		     CK_BYTE_PTR pData, CK_ULONG ulDataLen,
+		     CK_BYTE_PTR pSignature, CK_ULONG_PTR pulSignatureLen)
 {
-	if (initialized == FALSE) {
+	if (tokdata->initialized == FALSE) {
 		TRACE_ERROR("%s\n", ock_err(ERR_CRYPTOKI_NOT_INITIALIZED));
 		return CKR_CRYPTOKI_NOT_INITIALIZED;
 	}
@@ -2487,11 +2487,12 @@ CK_RV SC_DecryptDigestUpdate(ST_SESSION_HANDLE *sSession,
 }
 
 
-CK_RV SC_SignEncryptUpdate(ST_SESSION_HANDLE *sSession, CK_BYTE_PTR pPart,
-			   CK_ULONG ulPartLen, CK_BYTE_PTR pEncryptedPart,
+CK_RV SC_SignEncryptUpdate(STDLL_TokData_t *tokdata, ST_SESSION_HANDLE *sSession,
+			   CK_BYTE_PTR pPart, CK_ULONG ulPartLen,
+			   CK_BYTE_PTR pEncryptedPart,
 			   CK_ULONG_PTR pulEncryptedPartLen)
 {
-	if (initialized == FALSE) {
+	if (tokdata->initialized == FALSE) {
 		TRACE_ERROR("%s\n", ock_err(ERR_CRYPTOKI_NOT_INITIALIZED));
 		return CKR_CRYPTOKI_NOT_INITIALIZED;
 	}

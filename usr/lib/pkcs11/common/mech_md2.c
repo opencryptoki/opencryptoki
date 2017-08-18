@@ -354,13 +354,13 @@ md2_hmac_verify( STDLL_TokData_t      * tokdata,
 
    memset( &hmac_ctx, 0, sizeof(SIGN_VERIFY_CONTEXT) );
 
-   rc = sign_mgr_init( sess, &hmac_ctx, &ctx->mech, FALSE, ctx->key );
+   rc = sign_mgr_init( tokdata, sess, &hmac_ctx, &ctx->mech, FALSE, ctx->key );
    if (rc != CKR_OK){
       TRACE_DEVEL("Sign Mgr Init failed.\n");
       return rc;
    }
    len = sizeof(hmac);
-   rc = sign_mgr_sign( sess, FALSE, &hmac_ctx,
+   rc = sign_mgr_sign( tokdata, sess, FALSE, &hmac_ctx,
                        in_data, in_data_len,
                        hmac,   &len );
    if (rc != CKR_OK){

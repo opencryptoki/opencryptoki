@@ -46,17 +46,21 @@ CK_RV ep11tok_generate_key_pair(SESSION * sess, CK_MECHANISM_PTR pMechanism,
 				CK_OBJECT_HANDLE_PTR phPublicKey,
 				CK_OBJECT_HANDLE_PTR phPrivateKey);
 
-CK_RV ep11tok_sign_init(SESSION *session, CK_MECHANISM *mech,
-			CK_BBOOL recover_mode, CK_OBJECT_HANDLE key);
+CK_RV ep11tok_sign_init(STDLL_TokData_t *tokdata, SESSION *session,
+			CK_MECHANISM *mech, CK_BBOOL recover_mode,
+			CK_OBJECT_HANDLE key);
 
-CK_RV ep11tok_sign(SESSION *session, CK_BBOOL length_only, CK_BYTE *in_data,
-		   CK_ULONG in_data_len, CK_BYTE *signature, CK_ULONG *sig_len);
+CK_RV ep11tok_sign(STDLL_TokData_t *tokdata, SESSION *session,
+		   CK_BBOOL length_only, CK_BYTE *in_data,
+		   CK_ULONG in_data_len, CK_BYTE *signature,
+		   CK_ULONG *sig_len);
 
-CK_RV ep11tok_sign_update(SESSION *session, CK_BYTE *in_data,
-			  CK_ULONG in_data_len);
+CK_RV ep11tok_sign_update(STDLL_TokData_t *tokdata, SESSION *session,
+			  CK_BYTE *in_data, CK_ULONG in_data_len);
 
-CK_RV ep11tok_sign_final(SESSION *session, CK_BBOOL length_only,
-			 CK_BYTE *signature, CK_ULONG *sig_len);
+CK_RV ep11tok_sign_final(STDLL_TokData_t *tokdata, SESSION *session,
+			 CK_BBOOL length_only, CK_BYTE *signature,
+			 CK_ULONG *sig_len);
 
 CK_RV ep11tok_verify_init(SESSION *session, CK_MECHANISM *mech,
 			  CK_BBOOL recover_mode, CK_OBJECT_HANDLE key);

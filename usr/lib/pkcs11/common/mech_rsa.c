@@ -1387,13 +1387,13 @@ CK_RV rsa_hash_pss_sign(STDLL_TokData_t *tokdata, SESSION *sess,
 	sign_mech.ulParameterLen = ctx->mech.ulParameterLen;
 	sign_mech.pParameter = ctx->mech.pParameter;
 
-	rc = sign_mgr_init(sess, &sign_ctx, &sign_mech, FALSE, ctx->key);
+	rc = sign_mgr_init(tokdata, sess, &sign_ctx, &sign_mech, FALSE, ctx->key);
 	if (rc != CKR_OK) {
 		TRACE_DEVEL("Sign Mgr Init failed.\n");
 		goto done;
 	}
 
-	rc = sign_mgr_sign(sess, length_only, &sign_ctx, hash, hlen,
+	rc = sign_mgr_sign(tokdata,sess, length_only, &sign_ctx, hash, hlen,
 			   sig, sig_len);
 	if (rc != CKR_OK)
 		TRACE_DEVEL("Sign Mgr Sign failed.\n");
@@ -1491,13 +1491,13 @@ CK_RV rsa_hash_pss_sign_final(STDLL_TokData_t *tokdata, SESSION *sess,
 	sign_mech.ulParameterLen = ctx->mech.ulParameterLen;
 	sign_mech.pParameter = ctx->mech.pParameter;
 
-	rc = sign_mgr_init(sess, &sign_ctx, &sign_mech, FALSE, ctx->key);
+	rc = sign_mgr_init(tokdata, sess, &sign_ctx, &sign_mech, FALSE, ctx->key);
 	if (rc != CKR_OK) {
 		TRACE_DEVEL("Sign Mgr Init failed.\n");
 		goto done;
 	}
 
-	rc = sign_mgr_sign(sess, length_only, &sign_ctx, hash, hlen,
+	rc = sign_mgr_sign(tokdata, sess, length_only, &sign_ctx, hash, hlen,
 			   signature, sig_len);
 	if (rc != CKR_OK)
 		TRACE_DEVEL("Sign Mgr Sign failed.\n");
@@ -1742,12 +1742,13 @@ rsa_hash_pkcs_sign( STDLL_TokData_t      * tokdata,
    sign_mech.ulParameterLen = 0;
    sign_mech.pParameter     = NULL;
 
-   rc = sign_mgr_init( sess, &sign_ctx, &sign_mech, FALSE, ctx->key );
+   rc = sign_mgr_init( tokdata, sess, &sign_ctx, &sign_mech, FALSE, ctx->key );
    if (rc != CKR_OK){
       TRACE_DEVEL("Sign Mgr Init failed.\n");
       goto error;
    }
-   rc = sign_mgr_sign( sess, length_only, &sign_ctx, ber_data, ber_data_len, signature, sig_len );
+   rc = sign_mgr_sign( tokdata, sess, length_only, &sign_ctx, ber_data,
+		       ber_data_len, signature, sig_len );
    if (rc != CKR_OK)
       TRACE_DEVEL("Sign Mgr Sign failed.\n");
 
@@ -2068,12 +2069,13 @@ rsa_hash_pkcs_sign_final( STDLL_TokData_t      * tokdata,
    sign_mech.ulParameterLen = 0;
    sign_mech.pParameter     = NULL;
 
-   rc = sign_mgr_init( sess, &sign_ctx, &sign_mech, FALSE, ctx->key );
+   rc = sign_mgr_init( tokdata, sess, &sign_ctx, &sign_mech, FALSE, ctx->key );
    if (rc != CKR_OK){
       TRACE_DEVEL("Sign Mgr Init failed.\n");
       goto done;
    }
-   rc = sign_mgr_sign( sess, length_only, &sign_ctx, ber_data, ber_data_len, signature, sig_len );
+   rc = sign_mgr_sign( tokdata, sess, length_only, &sign_ctx, ber_data,
+		       ber_data_len, signature, sig_len );
    if (rc != CKR_OK)
       TRACE_DEVEL("Sign Mgr Sign failed.\n");
 

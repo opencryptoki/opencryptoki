@@ -1281,13 +1281,13 @@ CK_RV sha1_hmac_verify(STDLL_TokData_t *tokdata, SESSION *sess,
 
 	memset(&hmac_ctx, 0, sizeof(SIGN_VERIFY_CONTEXT));
 
-	rc = sign_mgr_init(sess, &hmac_ctx, &ctx->mech, FALSE, ctx->key);
+	rc = sign_mgr_init(tokdata, sess, &hmac_ctx, &ctx->mech, FALSE, ctx->key);
 	if (rc != CKR_OK) {
 		TRACE_DEVEL("Sign Mgr Init failed.\n");
 		goto done;
 	}
 	len = sizeof(hmac);
-	rc = sign_mgr_sign(sess, FALSE, &hmac_ctx, in_data, in_data_len,
+	rc = sign_mgr_sign(tokdata, sess, FALSE, &hmac_ctx, in_data, in_data_len,
 			   hmac, &len);
 	if (rc != CKR_OK) {
 		TRACE_DEVEL("Sign Mgr Sign failed.\n");
@@ -1339,14 +1339,14 @@ CK_RV sha2_hmac_verify(STDLL_TokData_t *tokdata,
 
 	memset(&hmac_ctx, 0, sizeof(SIGN_VERIFY_CONTEXT));
 
-	rc = sign_mgr_init(sess, &hmac_ctx, &ctx->mech, FALSE, ctx->key);
+	rc = sign_mgr_init(tokdata, sess, &hmac_ctx, &ctx->mech, FALSE, ctx->key);
 	if (rc != CKR_OK) {
 		TRACE_DEVEL("Sign Mgr Init failed.\n");
 		goto done;
 	}
 
 	len = sizeof(hmac);
-	rc = sign_mgr_sign(sess, FALSE, &hmac_ctx, in_data, in_data_len,
+	rc = sign_mgr_sign(tokdata, sess, FALSE, &hmac_ctx, in_data, in_data_len,
 			   hmac, &len);
 	if (rc != CKR_OK) {
 		TRACE_DEVEL("Sign Mgr Sign failed.\n");
@@ -1398,13 +1398,13 @@ CK_RV sha3_hmac_verify(STDLL_TokData_t *tokdata,
 
 	memset(&hmac_ctx, 0, sizeof(SIGN_VERIFY_CONTEXT));
 
-	rc = sign_mgr_init(sess, &hmac_ctx, &ctx->mech, FALSE, ctx->key);
+	rc = sign_mgr_init(tokdata, sess, &hmac_ctx, &ctx->mech, FALSE, ctx->key);
 	if (rc != CKR_OK) {
 		TRACE_DEVEL("Sign Mgr Init failed.\n");
 		goto done;
 	}
 	len = sizeof(hmac);
-	rc = sign_mgr_sign(sess, FALSE, &hmac_ctx, in_data, in_data_len,
+	rc = sign_mgr_sign(tokdata, sess, FALSE, &hmac_ctx, in_data, in_data_len,
 			   hmac, &len);
 	if (rc != CKR_OK) {
 		TRACE_DEVEL("Sign Mgr Sign failed.\n");
@@ -1454,13 +1454,13 @@ CK_RV sha5_hmac_verify(STDLL_TokData_t *tokdata,
 
 	memset(&hmac_ctx, 0, sizeof(SIGN_VERIFY_CONTEXT));
 
-	rc = sign_mgr_init(sess, &hmac_ctx, &ctx->mech, FALSE, ctx->key);
+	rc = sign_mgr_init(tokdata, sess, &hmac_ctx, &ctx->mech, FALSE, ctx->key);
 	if (rc != CKR_OK) {
 		TRACE_DEVEL("Sign Mgr Init failed.\n");
 		goto done;
 	}
 	len = sizeof(hmac);
-	rc = sign_mgr_sign(sess, FALSE, &hmac_ctx, in_data, in_data_len,
+	rc = sign_mgr_sign(tokdata, sess, FALSE, &hmac_ctx, in_data, in_data_len,
 			   hmac, &len);
 	if (rc != CKR_OK) {
 		TRACE_DEVEL("Sign Mgr Sign failed.\n");
