@@ -863,7 +863,8 @@ verify_mgr_verify_update( SESSION             * sess,
 
       case CKM_SSL3_MD5_MAC:
       case CKM_SSL3_SHA1_MAC:
-         return ssl3_mac_verify_update( sess, ctx, in_data, in_data_len );
+         return ssl3_mac_verify_update(tokdata, sess, ctx, in_data,
+				       in_data_len);
 
       case CKM_DES3_MAC:
       case CKM_DES3_MAC_GENERAL:

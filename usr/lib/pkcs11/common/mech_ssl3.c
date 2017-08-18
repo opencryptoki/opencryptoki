@@ -25,7 +25,8 @@
 #include "tok_spec_struct.h"
 #include "trace.h"
 
-CK_RV ssl3_kmd_process_mac_keys( SESSION           * sess,
+CK_RV ssl3_kmd_process_mac_keys( STDLL_TokData_t   * tokdata,
+				 SESSION           * sess,
                                  CK_ATTRIBUTE      * pTemplate,
                                  CK_ULONG            ulCount,
                                  CK_OBJECT_HANDLE  * client_handle,
@@ -34,7 +35,8 @@ CK_RV ssl3_kmd_process_mac_keys( SESSION           * sess,
                                  CK_BYTE           * server_value,
                                  CK_ULONG            mac_len );
 
-CK_RV ssl3_kmd_process_write_keys( SESSION           * sess,
+CK_RV ssl3_kmd_process_write_keys( STDLL_TokData_t   * tokdata,
+				   SESSION           * sess,
                                    CK_ATTRIBUTE      * pTemplate,
                                    CK_ULONG            ulCount,
                                    CK_KEY_TYPE         keytype,
@@ -53,7 +55,8 @@ CK_RV ssl3_kmd_process_write_keys( SESSION           * sess,
 //
 //
 CK_RV
-ssl3_mac_sign( SESSION              * sess,
+ssl3_mac_sign( STDLL_TokData_t      * tokdata,
+	       SESSION              * sess,
                CK_BBOOL               length_only,
                SIGN_VERIFY_CONTEXT  * ctx,
                CK_BYTE              * in_data,
@@ -201,7 +204,8 @@ ssl3_mac_sign( SESSION              * sess,
 //
 //
 CK_RV
-ssl3_mac_sign_update( SESSION              * sess,
+ssl3_mac_sign_update( STDLL_TokData_t      * tokdata,
+		      SESSION              * sess,
                       SIGN_VERIFY_CONTEXT  * ctx,
                       CK_BYTE              * in_data,
                       CK_ULONG               in_data_len )
@@ -292,7 +296,8 @@ ssl3_mac_sign_update( SESSION              * sess,
 //
 //
 CK_RV
-ssl3_mac_sign_final( SESSION              * sess,
+ssl3_mac_sign_final( STDLL_TokData_t      * tokdata,
+		     SESSION              * sess,
                      CK_BBOOL               length_only,
                      SIGN_VERIFY_CONTEXT  * ctx,
                      CK_BYTE              * out_data,
@@ -410,7 +415,8 @@ ssl3_mac_sign_final( SESSION              * sess,
 // This routine could replace the HMAC verification routines
 //
 CK_RV
-ssl3_mac_verify( SESSION              * sess,
+ssl3_mac_verify( STDLL_TokData_t      * tokdata,
+		 SESSION              * sess,
                  SIGN_VERIFY_CONTEXT  * ctx,
                  CK_BYTE              * in_data,
                  CK_ULONG               in_data_len,
@@ -462,7 +468,8 @@ error:
 //
 //
 CK_RV
-ssl3_mac_verify_update( SESSION              * sess,
+ssl3_mac_verify_update( STDLL_TokData_t      * tokdata,
+			SESSION              * sess,
                         SIGN_VERIFY_CONTEXT  * ctx,
                         CK_BYTE              * in_data,
                         CK_ULONG               in_data_len )
@@ -552,7 +559,8 @@ ssl3_mac_verify_update( SESSION              * sess,
 //
 //
 CK_RV
-ssl3_mac_verify_final( SESSION              * sess,
+ssl3_mac_verify_final( STDLL_TokData_t      * tokdata,
+		       SESSION              * sess,
                        SIGN_VERIFY_CONTEXT  * ctx,
                        CK_BYTE              * signature,
                        CK_ULONG               sig_len )
@@ -663,7 +671,8 @@ ssl3_mac_verify_final( SESSION              * sess,
 //
 //
 CK_RV
-ckm_ssl3_pre_master_key_gen( TEMPLATE     * tmpl,
+ckm_ssl3_pre_master_key_gen( STDLL_TokData_t *tokdata,
+			     TEMPLATE     * tmpl,
                              CK_MECHANISM * mech )
 {
    CK_ATTRIBUTE        * value_attr     = NULL;
@@ -750,7 +759,8 @@ ckm_ssl3_pre_master_key_gen( TEMPLATE     * tmpl,
 //
 //
 static CK_RV
-ssl3_sha_then_md5( SESSION   * sess,
+ssl3_sha_then_md5( STDLL_TokData_t * tokdata,
+		   SESSION   * sess,
                    CK_BYTE   * secret,
                    CK_BYTE   * firstRandom,
                    CK_ULONG    firstRandomLen,
@@ -851,7 +861,8 @@ ssl3_sha_then_md5( SESSION   * sess,
 //
 //
 static CK_RV
-ssl3_md5_only( SESSION   * sess,
+ssl3_md5_only( STDLL_TokData_t * tokdata,
+	       SESSION   * sess,
                CK_BYTE   * firstString,
                CK_ULONG    firstStringLen,
                CK_BYTE   * secondString,
@@ -925,7 +936,8 @@ ssl3_md5_only( SESSION   * sess,
 //
 //
 CK_RV
-ssl3_master_key_derive( SESSION           * sess,
+ssl3_master_key_derive( STDLL_TokData_t   * tokdata,
+			SESSION           * sess,
                         CK_MECHANISM      * mech,
                         CK_OBJECT_HANDLE    base_key,
                         CK_ATTRIBUTE      * pTemplate,
@@ -1021,7 +1033,7 @@ ssl3_master_key_derive( SESSION           * sess,
 
    // derive the master key data
    //
-   rc = ssl3_sha_then_md5( sess,
+   rc = ssl3_sha_then_md5( tokdata, sess,
                            base_key_value,
                            random_data->pClientRandom,
                            random_data->ulClientRandomLen,
@@ -1035,7 +1047,7 @@ ssl3_master_key_derive( SESSION           * sess,
       TRACE_DEVEL("ssl3_sha_then_md5 failed.\n");
       goto error;
    }
-   rc = ssl3_sha_then_md5( sess,
+   rc = ssl3_sha_then_md5( tokdata, sess,
                            base_key_value,
                            random_data->pClientRandom,
                            random_data->ulClientRandomLen,
@@ -1048,7 +1060,7 @@ ssl3_master_key_derive( SESSION           * sess,
       TRACE_DEVEL("ssl3_sha_then_md5 failed.\n");
       goto error;
    }
-   rc = ssl3_sha_then_md5( sess,
+   rc = ssl3_sha_then_md5( tokdata, sess,
                            base_key_value,
                            random_data->pClientRandom,
                            random_data->ulClientRandomLen,
@@ -1179,7 +1191,8 @@ error:
 //
 //
 CK_RV
-ssl3_key_and_mac_derive( SESSION           * sess,
+ssl3_key_and_mac_derive( STDLL_TokData_t   * tokdata,
+			 SESSION           * sess,
                          CK_MECHANISM      * mech,
                          CK_OBJECT_HANDLE    base_key,
                          CK_ATTRIBUTE      * pTemplate,
@@ -1343,7 +1356,7 @@ ssl3_key_and_mac_derive( SESSION           * sess,
    for (i=0; i < key_material_loop_count; i++) {
       memset( variable_data, ('A' + i), i+1 );
 
-      rc = ssl3_sha_then_md5( sess,
+      rc = ssl3_sha_then_md5( tokdata, sess,
                               base_key_value,
                               params->RandomInfo.pServerRandom,
                               params->RandomInfo.ulServerRandomLen,
@@ -1378,7 +1391,7 @@ ssl3_key_and_mac_derive( SESSION           * sess,
    // Exportable ciphers require additional processing
    //
    if (params->bIsExport == TRUE) {
-      rc = ssl3_md5_only( sess,
+      rc = ssl3_md5_only( tokdata, sess,
                           client_write_key_value,
                           (params->ulKeySizeInBits + 7)/8,
                           params->RandomInfo.pClientRandom,
@@ -1392,7 +1405,7 @@ ssl3_key_and_mac_derive( SESSION           * sess,
       }
       client_write_key_value = &(key_block[16*26]);
 
-      rc = ssl3_md5_only( sess,
+      rc = ssl3_md5_only( tokdata, sess,
                           server_write_key_value,
                           (params->ulKeySizeInBits + 7)/8,
                           params->RandomInfo.pServerRandom,
@@ -1408,7 +1421,7 @@ ssl3_key_and_mac_derive( SESSION           * sess,
 
       if (params->ulIVSizeInBits != 0)
       {
-         rc = ssl3_md5_only( sess,
+         rc = ssl3_md5_only( tokdata, sess,
                              NULL,
                              0,
                              params->RandomInfo.pClientRandom,
@@ -1422,7 +1435,7 @@ ssl3_key_and_mac_derive( SESSION           * sess,
          }
          client_IV = &(key_block[16*26+2*16]);
 
-         rc = ssl3_md5_only( sess,
+         rc = ssl3_md5_only( tokdata, sess,
                              NULL,
                              0,
                              params->RandomInfo.pServerRandom,
@@ -1439,7 +1452,7 @@ ssl3_key_and_mac_derive( SESSION           * sess,
    }
 
 
-   rc = ssl3_kmd_process_mac_keys( sess, pTemplate, ulCount,
+   rc = ssl3_kmd_process_mac_keys( tokdata, sess, pTemplate, ulCount,
                                    &client_MAC_handle, client_MAC_key_value,
                                    &server_MAC_handle, server_MAC_key_value,
                                    MAC_len );
@@ -1448,7 +1461,7 @@ ssl3_key_and_mac_derive( SESSION           * sess,
       goto error;
    }
 
-   rc = ssl3_kmd_process_write_keys( sess, pTemplate, ulCount, keytype,
+   rc = ssl3_kmd_process_write_keys( tokdata, sess, pTemplate, ulCount, keytype,
                                      &client_write_handle, client_write_key_value,
                                      &server_write_handle, server_write_key_value,
                                      write_len );

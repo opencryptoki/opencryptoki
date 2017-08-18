@@ -182,7 +182,7 @@ key_mgr_generate_key( STDLL_TokData_t   * tokdata,
 #endif
 
          case CKM_SSL3_PRE_MASTER_KEY_GEN:
-            rc = ckm_ssl3_pre_master_key_gen( key_obj->template, mech );
+            rc = ckm_ssl3_pre_master_key_gen(tokdata, key_obj->template, mech);
             break;
 #ifndef NOAES
 	 case CKM_AES_KEY_GEN:
@@ -1106,14 +1106,14 @@ key_mgr_derive_key( SESSION           * sess,
             TRACE_ERROR("%s received bad argument(s)\n", __FUNCTION__);
             return CKR_FUNCTION_FAILED;
          }
-         return ssl3_master_key_derive( sess, mech, base_key,
+         return ssl3_master_key_derive( tokdata, sess, mech, base_key,
                                         pTemplate, ulCount, derived_key );
       }
       break ;
 
       case CKM_SSL3_KEY_AND_MAC_DERIVE:
       {
-         return ssl3_key_and_mac_derive( sess, mech, base_key,
+         return ssl3_key_and_mac_derive( tokdata, sess, mech, base_key,
                                          pTemplate, ulCount );
       }
       break ;
