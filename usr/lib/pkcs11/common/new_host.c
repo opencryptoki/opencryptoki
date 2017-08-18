@@ -91,7 +91,7 @@ void Fork_Initializer(void)
 /* verify that the mech specified is in the
  * mech list for this token...
  */
-CK_RV valid_mech(CK_MECHANISM_PTR m, CK_FLAGS f)
+CK_RV valid_mech(STDLL_TokData_t *tokdata, CK_MECHANISM_PTR m, CK_FLAGS f)
 {
 	CK_RV rc;
 	CK_MECHANISM_INFO info;
@@ -1559,7 +1559,7 @@ CK_RV SC_EncryptInit(ST_SESSION_HANDLE *sSession, CK_MECHANISM_PTR pMechanism,
 		goto done;
 	}
 
-	rc = valid_mech(pMechanism, CKF_ENCRYPT);
+	rc = valid_mech(tokdata, pMechanism, CKF_ENCRYPT);
 	if (rc != CKR_OK)
 		goto done;
 
@@ -1790,7 +1790,7 @@ CK_RV SC_DecryptInit(ST_SESSION_HANDLE *sSession, CK_MECHANISM_PTR pMechanism,
 		goto done;
 	}
 
-	rc = valid_mech(pMechanism, CKF_DECRYPT);
+	rc = valid_mech(tokdata, pMechanism, CKF_DECRYPT);
 	if (rc != CKR_OK)
 		goto done;
 
@@ -2003,7 +2003,7 @@ CK_RV SC_DigestInit(ST_SESSION_HANDLE *sSession, CK_MECHANISM_PTR pMechanism)
 		goto done;
 	}
 
-	rc = valid_mech(pMechanism, CKF_DIGEST);
+	rc = valid_mech(tokdata, pMechanism, CKF_DIGEST);
 	if (rc != CKR_OK)
 		goto done;
 
@@ -2247,7 +2247,7 @@ CK_RV SC_SignInit(ST_SESSION_HANDLE *sSession, CK_MECHANISM_PTR pMechanism,
 		goto done;
 	}
 
-	rc = valid_mech(pMechanism, CKF_SIGN);
+	rc = valid_mech(tokdata, pMechanism, CKF_SIGN);
 	if (rc != CKR_OK)
 		goto done;
 
@@ -2443,7 +2443,7 @@ CK_RV SC_SignRecoverInit(ST_SESSION_HANDLE *sSession,
 		goto done;
 	}
 
-	rc = valid_mech(pMechanism, CKF_SIGN_RECOVER);
+	rc = valid_mech(tokdata, pMechanism, CKF_SIGN_RECOVER);
 	if (rc != CKR_OK)
 		goto done;
 
@@ -2550,7 +2550,7 @@ CK_RV SC_VerifyInit(ST_SESSION_HANDLE *sSession, CK_MECHANISM_PTR pMechanism,
 		goto done;
 	}
 
-	rc = valid_mech(pMechanism, CKF_VERIFY);
+	rc = valid_mech(tokdata, pMechanism, CKF_VERIFY);
 	if (rc != CKR_OK)
 		goto done;
 
@@ -2744,7 +2744,7 @@ CK_RV SC_VerifyRecoverInit(ST_SESSION_HANDLE *sSession,
 		goto done;
 	}
 
-	rc = valid_mech(pMechanism, CKF_VERIFY_RECOVER);
+	rc = valid_mech(tokdata, pMechanism, CKF_VERIFY_RECOVER);
 	if (rc != CKR_OK)
 		goto done;
 
@@ -2911,7 +2911,7 @@ CK_RV SC_GenerateKey(ST_SESSION_HANDLE *sSession, CK_MECHANISM_PTR pMechanism,
 		goto done;
 	}
 
-	rc = valid_mech(pMechanism, CKF_GENERATE);
+	rc = valid_mech(tokdata, pMechanism, CKF_GENERATE);
 	if (rc != CKR_OK)
 		goto done;
 
@@ -2984,7 +2984,7 @@ CK_RV SC_GenerateKeyPair(ST_SESSION_HANDLE *sSession,
 		goto done;
 	}
 
-	rc = valid_mech(pMechanism, CKF_GENERATE_KEY_PAIR);
+	rc = valid_mech(tokdata, pMechanism, CKF_GENERATE_KEY_PAIR);
 	if (rc != CKR_OK)
 		goto done;
 
@@ -3070,7 +3070,7 @@ CK_RV SC_WrapKey(ST_SESSION_HANDLE *sSession, CK_MECHANISM_PTR pMechanism,
 		goto done;
 	}
 
-	rc = valid_mech(pMechanism, CKF_WRAP);
+	rc = valid_mech(tokdata, pMechanism, CKF_WRAP);
 	if (rc != CKR_OK)
 		goto done;
 
@@ -3127,7 +3127,7 @@ CK_RV SC_UnwrapKey(ST_SESSION_HANDLE *sSession, CK_MECHANISM_PTR pMechanism,
 		goto done;
 	}
 
-	rc = valid_mech(pMechanism, CKF_UNWRAP);
+	rc = valid_mech(tokdata, pMechanism, CKF_UNWRAP);
 	if (rc != CKR_OK)
 		goto done;
 
@@ -3196,7 +3196,7 @@ CK_RV SC_DeriveKey(ST_SESSION_HANDLE *sSession, CK_MECHANISM_PTR pMechanism,
 		goto done;
 	}
 
-	rc = valid_mech(pMechanism, CKF_DERIVE);
+	rc = valid_mech(tokdata, pMechanism, CKF_DERIVE);
 	if (rc != CKR_OK)
 		goto done;
 
