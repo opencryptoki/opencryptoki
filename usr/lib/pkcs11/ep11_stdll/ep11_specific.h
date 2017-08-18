@@ -97,9 +97,10 @@ CK_RV ep11tok_encrypt_init(SESSION *session, CK_MECHANISM_PTR mech,
 CK_RV ep11tok_decrypt_init(SESSION *session, CK_MECHANISM_PTR mech,
 			   CK_OBJECT_HANDLE key);
 
-CK_RV ep11tok_wrap_key(SESSION *session, CK_MECHANISM_PTR mech,
-		       CK_OBJECT_HANDLE wrapping_key, CK_OBJECT_HANDLE key,
-		       CK_BYTE_PTR wrapped_key, CK_ULONG_PTR p_wrapped_key_len);
+CK_RV ep11tok_wrap_key(STDLL_TokData_t *tokdata, SESSION *session,
+		       CK_MECHANISM_PTR mech, CK_OBJECT_HANDLE wrapping_key,
+		       CK_OBJECT_HANDLE key, CK_BYTE_PTR wrapped_key,
+		       CK_ULONG_PTR p_wrapped_key_len);
 
 CK_RV ep11tok_unwrap_key(STDLL_TokData_t *tokdata, SESSION *session,
 			 CK_MECHANISM_PTR mech, CK_ATTRIBUTE_PTR attrs,

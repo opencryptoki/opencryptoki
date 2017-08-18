@@ -1800,7 +1800,8 @@ CK_RV     key_mgr_derive_key( SESSION           * sess,
                               CK_ATTRIBUTE      * pTemplate,
                               CK_ULONG            ulCount );
 
-CK_RV     key_mgr_wrap_key( SESSION           *sess,
+CK_RV     key_mgr_wrap_key( STDLL_TokData_t   *tokdata,
+			    SESSION           *sess,
                             CK_BBOOL           length_only,
                             CK_MECHANISM      *mech,
                             CK_OBJECT_HANDLE   h_wrapping_key,
