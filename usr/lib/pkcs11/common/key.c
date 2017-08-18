@@ -3317,7 +3317,8 @@ rc2_set_default_attributes( TEMPLATE *tmpl, CK_ULONG mode )
 // rc2_validate_attribute()
 //
 CK_RV
-rc2_validate_attribute( TEMPLATE *tmpl, CK_ATTRIBUTE *attr, CK_ULONG mode )
+rc2_validate_attribute( STDLL_TokData_t *tokdata, TEMPLATE *tmpl,
+			CK_ATTRIBUTE *attr, CK_ULONG mode )
 {
    switch (attr->type) {
       case CKA_VALUE:
@@ -3433,7 +3434,8 @@ rc4_check_required_attributes( TEMPLATE *tmpl, CK_ULONG mode )
 // rc4_validate_attribute()
 //
 CK_RV
-rc4_validate_attribute( TEMPLATE *tmpl, CK_ATTRIBUTE *attr, CK_ULONG mode )
+rc4_validate_attribute( STDLL_TokData_t *tokdata, TEMPLATE *tmpl,
+			CK_ATTRIBUTE *attr, CK_ULONG mode )
 {
    switch (attr->type) {
       case CKA_VALUE:
@@ -3553,7 +3555,8 @@ rc5_set_default_attributes( TEMPLATE *tmpl, CK_ULONG mode )
 // rc5_validate_attribute()
 //
 CK_RV
-rc5_validate_attribute( TEMPLATE *tmpl, CK_ATTRIBUTE *attr, CK_ULONG mode )
+rc5_validate_attribute( STDLL_TokData_t *tokdata, TEMPLATE *tmpl,
+			CK_ATTRIBUTE *attr, CK_ULONG mode )
 {
    switch (attr->type) {
       case CKA_VALUE:
