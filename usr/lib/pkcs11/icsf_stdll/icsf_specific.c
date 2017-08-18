@@ -819,7 +819,7 @@ CK_RV icsftok_set_pin(SESSION *sess, CK_CHAR_PTR pOldPin, CK_ULONG ulOldLen,
 	} else if (sess->session_info.state == CKS_RW_SO_FUNCTIONS) {
 
 		/* check that old pin matches what is in NVTOK.DAT */
-		if (memcmp(nv_token_data->so_pin_sha, old_hash_sha, SHA1_HASH_SIZE) != 0) {
+		if (memcmp(tokdata->nv_token_data->so_pin_sha, old_hash_sha, SHA1_HASH_SIZE) != 0) {
 			TRACE_ERROR("%s\n", ock_err(ERR_PIN_INCORRECT));
 			return CKR_PIN_INCORRECT;
 		}
@@ -850,7 +850,7 @@ CK_RV icsftok_set_pin(SESSION *sess, CK_CHAR_PTR pOldPin, CK_ULONG ulOldLen,
 			TRACE_ERROR("Process Lock Failed.\n");
 			return rc;
 		}
-		memcpy(nv_token_data->so_pin_sha, new_hash_sha, SHA1_HASH_SIZE);
+		memcpy(tokdata->nv_token_data->so_pin_sha, new_hash_sha, SHA1_HASH_SIZE);
 		tokdata->nv_token_data->token_info.flags &= ~(CKF_SO_PIN_TO_BE_CHANGED);
 		XProcUnLock();
 	} else {
@@ -1167,7 +1167,8 @@ CK_RV icsftok_login(SESSION *sess, CK_USER_TYPE userType, CK_CHAR_PTR pPin,
 		/* if SO ... */
 
 		/* check that pin is the same as the one in NVTOK.DAT */
-		if (memcmp(nv_token_data->so_pin_sha, hash_sha, SHA1_HASH_SIZE) != 0) {
+		if (memcmp(tokdata->nv_token_data->so_pin_sha, hash_sha,
+			   SHA1_HASH_SIZE) != 0) {
 			TRACE_ERROR("%s\n", ock_err(ERR_PIN_INCORRECT));
 			rc = CKR_PIN_INCORRECT;
 			goto done;

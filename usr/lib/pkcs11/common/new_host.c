@@ -653,7 +653,7 @@ CK_RV SC_SetPIN(ST_SESSION_HANDLE *sSession, CK_CHAR_PTR pOldPin,
 		}
 		rc = save_masterkey_user(tokdata);
 	} else if (sess->session_info.state == CKS_RW_SO_FUNCTIONS) {
-		if (memcmp(nv_token_data->so_pin_sha, old_hash_sha,
+		if (memcmp(tokdata->nv_token_data->so_pin_sha, old_hash_sha,
 			   SHA1_HASH_SIZE) != 0) {
 			rc = CKR_PIN_INCORRECT;
 			TRACE_ERROR("%s\n", ock_err(ERR_PIN_INCORRECT));
@@ -680,8 +680,8 @@ CK_RV SC_SetPIN(ST_SESSION_HANDLE *sSession, CK_CHAR_PTR pOldPin,
 			TRACE_DEVEL("Failed to get process lock.\n");
 			goto done;
 		}
-		memcpy(nv_token_data->so_pin_sha, new_hash_sha, SHA1_HASH_SIZE);
-		memcpy(so_pin_md5, hash_md5, MD5_HASH_SIZE);
+		memcpy(tokdata->nv_token_data->so_pin_sha, new_hash_sha, SHA1_HASH_SIZE);
+		memcpy(tokdata->nv_token_data->so_pin_md5, hash_md5, MD5_HASH_SIZE);
 		tokdata->nv_token_data->token_info.flags &= ~(CKF_SO_PIN_TO_BE_CHANGED);
 		XProcUnLock();
 		rc = save_token_data(tokdata, sess->session_info.slotID);
@@ -1004,7 +1004,7 @@ CK_RV SC_Login(ST_SESSION_HANDLE *sSession, CK_USER_TYPE userType,
 				  CKF_USER_PIN_COUNT_LOW);
 
 		compute_md5( pPin, ulPinLen, user_pin_md5 );
-		memset( so_pin_md5, 0x0, MD5_HASH_SIZE );
+		memset(tokdata->nv_token_data->so_pin_md5, 0x0, MD5_HASH_SIZE);
 
 		rc = load_masterkey_user(tokdata);
 		if (rc != CKR_OK){
@@ -1045,7 +1045,7 @@ CK_RV SC_Login(ST_SESSION_HANDLE *sSession, CK_USER_TYPE userType,
 		}
 
 		rc = compute_sha1(pPin, ulPinLen, hash_sha);
-		if (memcmp(nv_token_data->so_pin_sha, hash_sha, SHA1_HASH_SIZE) != 0) {
+		if (memcmp(tokdata->nv_token_data->so_pin_sha, hash_sha, SHA1_HASH_SIZE) != 0) {
 			set_login_flags(userType, flags);
 			TRACE_ERROR("%s\n", ock_err(ERR_PIN_INCORRECT));
 			rc = CKR_PIN_INCORRECT;
@@ -1116,7 +1116,7 @@ CK_RV SC_Logout(ST_SESSION_HANDLE *sSession)
 	}
 
 	memset(tokdata->nv_token_data->user_pin_md5, 0x0, MD5_HASH_SIZE);
-	memset(so_pin_md5, 0x0, MD5_HASH_SIZE);
+	memset(tokdata->nv_token_data->so_pin_md5, 0x0, MD5_HASH_SIZE);
 
 	object_mgr_purge_private_token_objects(tokdata);
 
