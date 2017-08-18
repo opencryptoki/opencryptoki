@@ -1291,6 +1291,8 @@ CK_RV C_Finalize(CK_VOID_PTR pReserved)
 {
 	API_Slot_t *sltp;
 	CK_SLOT_ID slotID;
+	Slot_Mgr_Socket_t *shData = &(Anchor->SocketDataP);
+	SLOT_INFO *sinfp;
 
 	TRACE_INFO("C_Finalize\n");
 	if (API_Initialized() == FALSE) {
@@ -1325,7 +1327,9 @@ CK_RV C_Finalize(CK_VOID_PTR pReserved)
 #endif
 		}
 		if (sltp->pSTfini) {
-			sltp->pSTfini(slotID);	// call the terminate function..
+			sinfp = &(shData->slot_info[slotID]);
+			if (slot_loaded[slotID])
+				sltp->pSTfini(sltp->TokData, slotID, sinfp);	// call the terminate function..
 		}
 
 		DL_UnLoad(sltp, slotID);
