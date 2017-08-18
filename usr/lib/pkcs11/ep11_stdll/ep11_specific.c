@@ -3003,7 +3003,8 @@ CK_RV ep11tok_decrypt_update(SESSION *session, CK_BYTE_PTR input_part,
 }
 
 
-CK_RV ep11tok_encrypt_final(SESSION *session, CK_BYTE_PTR output_part,
+CK_RV ep11tok_encrypt_final(STDLL_TokData_t *tokdata, SESSION *session,
+			    CK_BYTE_PTR output_part,
 			    CK_ULONG_PTR p_output_part_len)
 {
 	CK_RV rc = CKR_OK;
@@ -3022,9 +3023,9 @@ CK_RV ep11tok_encrypt_final(SESSION *session, CK_BYTE_PTR output_part,
 }
 
 
-CK_RV ep11tok_encrypt(SESSION *session, CK_BYTE_PTR input_data,
-		      CK_ULONG input_data_len, CK_BYTE_PTR output_data,
-		      CK_ULONG_PTR p_output_data_len)
+CK_RV ep11tok_encrypt(STDLL_TokData_t *tokdata, SESSION *session,
+		      CK_BYTE_PTR input_data, CK_ULONG input_data_len,
+		      CK_BYTE_PTR output_data, CK_ULONG_PTR p_output_data_len)
 {
 	CK_RV rc = CKR_OK;
 	ENCR_DECR_CONTEXT *ctx = &session->encr_ctx;
@@ -3043,8 +3044,9 @@ CK_RV ep11tok_encrypt(SESSION *session, CK_BYTE_PTR input_data,
 }
 
 
-CK_RV ep11tok_encrypt_update(SESSION *session, CK_BYTE_PTR input_part,
-			     CK_ULONG input_part_len, CK_BYTE_PTR output_part,
+CK_RV ep11tok_encrypt_update(STDLL_TokData_t *tokdata, SESSION *session,
+			     CK_BYTE_PTR input_part, CK_ULONG input_part_len,
+			     CK_BYTE_PTR output_part,
 			     CK_ULONG_PTR p_output_part_len)
 {
 	CK_RV rc = CKR_OK;
@@ -3130,8 +3132,8 @@ static CK_RV ep11_ende_crypt_init(SESSION *session, CK_MECHANISM_PTR mech,
 }
 
 
-CK_RV ep11tok_encrypt_init(SESSION *session, CK_MECHANISM_PTR mech,
-			   CK_OBJECT_HANDLE key)
+CK_RV ep11tok_encrypt_init(STDLL_TokData_t *tokdata, SESSION *session,
+			   CK_MECHANISM_PTR mech, CK_OBJECT_HANDLE key)
 {
 	CK_RV rc;
 

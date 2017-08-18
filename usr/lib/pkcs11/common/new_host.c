@@ -1541,13 +1541,13 @@ done:
 }
 
 
-CK_RV SC_EncryptInit(ST_SESSION_HANDLE *sSession, CK_MECHANISM_PTR pMechanism,
-		     CK_OBJECT_HANDLE hKey)
+CK_RV SC_EncryptInit(STDLL_TokData_t *tokdata, ST_SESSION_HANDLE *sSession,
+		     CK_MECHANISM_PTR pMechanism, CK_OBJECT_HANDLE hKey)
 {
 	SESSION *sess = NULL;
 	CK_RV rc = CKR_OK;
 
-	if (initialized == FALSE) {
+	if (tokdata->initialized == FALSE) {
 		TRACE_ERROR("%s\n", ock_err(ERR_CRYPTOKI_NOT_INITIALIZED));
 		rc = CKR_CRYPTOKI_NOT_INITIALIZED;
 		goto done;
@@ -1583,7 +1583,7 @@ CK_RV SC_EncryptInit(ST_SESSION_HANDLE *sSession, CK_MECHANISM_PTR pMechanism,
 		goto done;
 	}
 
-	rc = encr_mgr_init(sess, &sess->encr_ctx, OP_ENCRYPT_INIT,
+	rc = encr_mgr_init(tokdata, sess, &sess->encr_ctx, OP_ENCRYPT_INIT,
 			   pMechanism, hKey);
 done:
 	TRACE_INFO("C_EncryptInit: rc = 0x%08lx, sess = %ld, mech = 0x%lx\n",
@@ -1594,15 +1594,15 @@ done:
 }
 
 
-CK_RV SC_Encrypt(ST_SESSION_HANDLE *sSession, CK_BYTE_PTR pData,
-		 CK_ULONG ulDataLen, CK_BYTE_PTR pEncryptedData,
-		 CK_ULONG_PTR pulEncryptedDataLen)
+CK_RV SC_Encrypt(STDLL_TokData_t *tokdata, ST_SESSION_HANDLE *sSession,
+		 CK_BYTE_PTR pData, CK_ULONG ulDataLen,
+		 CK_BYTE_PTR pEncryptedData, CK_ULONG_PTR pulEncryptedDataLen)
 {
 	SESSION *sess = NULL;
 	CK_BBOOL length_only = FALSE;
 	CK_RV rc = CKR_OK;
 
-	if (initialized == FALSE) {
+	if (tokdata->initialized == FALSE) {
 		TRACE_ERROR("%s\n", ock_err(ERR_CRYPTOKI_NOT_INITIALIZED));
 		rc = CKR_CRYPTOKI_NOT_INITIALIZED;
 		goto done;
@@ -1630,7 +1630,7 @@ CK_RV SC_Encrypt(ST_SESSION_HANDLE *sSession, CK_BYTE_PTR pData,
 	if (!pEncryptedData)
 		length_only = TRUE;
 
-	rc = encr_mgr_encrypt(sess, length_only, &sess->encr_ctx, pData,
+	rc = encr_mgr_encrypt(tokdata, sess, length_only, &sess->encr_ctx, pData,
 			      ulDataLen, pEncryptedData, pulEncryptedDataLen);
 	if (rc != CKR_OK)
 		TRACE_DEVEL("encr_mgr_encrypt() failed.\n");
@@ -1646,15 +1646,16 @@ done:
 }
 
 
-CK_RV SC_EncryptUpdate(ST_SESSION_HANDLE *sSession, CK_BYTE_PTR pPart,
-		       CK_ULONG ulPartLen, CK_BYTE_PTR pEncryptedPart,
+CK_RV SC_EncryptUpdate(STDLL_TokData_t *tokdata, ST_SESSION_HANDLE *sSession,
+		       CK_BYTE_PTR pPart, CK_ULONG ulPartLen,
+		       CK_BYTE_PTR pEncryptedPart,
 		       CK_ULONG_PTR pulEncryptedPartLen)
 {
 	SESSION *sess = NULL;
 	CK_BBOOL length_only = FALSE;
 	CK_RV rc = CKR_OK;
 
-	if (initialized == FALSE) {
+	if (tokdata->initialized == FALSE) {
 		TRACE_ERROR("%s\n", ock_err(ERR_CRYPTOKI_NOT_INITIALIZED));
 		rc = CKR_CRYPTOKI_NOT_INITIALIZED;
 		goto done;
@@ -1682,9 +1683,9 @@ CK_RV SC_EncryptUpdate(ST_SESSION_HANDLE *sSession, CK_BYTE_PTR pPart,
 	if (!pEncryptedPart)
 		length_only = TRUE;
 
-	rc = encr_mgr_encrypt_update(sess, length_only, &sess->encr_ctx,
-				     pPart, ulPartLen, pEncryptedPart,
-				     pulEncryptedPartLen);
+	rc = encr_mgr_encrypt_update(tokdata, sess, length_only,
+				     &sess->encr_ctx, pPart, ulPartLen,
+				     pEncryptedPart, pulEncryptedPartLen);
 	if (rc != CKR_OK)
 		TRACE_DEVEL("encr_mgr_encrypt_update() failed.\n");
 
@@ -1719,7 +1720,7 @@ done:
  * going to return anything in it.  It would have been cleaner if RSA would
  * have simply included a "give-me-the-length-only flag" as an argument.
  */
-CK_RV SC_EncryptFinal(ST_SESSION_HANDLE *sSession,
+CK_RV SC_EncryptFinal(STDLL_TokData_t *tokdata, ST_SESSION_HANDLE *sSession,
 		      CK_BYTE_PTR pLastEncryptedPart,
 		      CK_ULONG_PTR pulLastEncryptedPartLen)
 {
@@ -1727,7 +1728,7 @@ CK_RV SC_EncryptFinal(ST_SESSION_HANDLE *sSession,
 	CK_BBOOL length_only = FALSE;
 	CK_RV rc = CKR_OK;
 
-	if (initialized == FALSE) {
+	if (tokdata->initialized == FALSE) {
 		TRACE_ERROR("%s\n", ock_err(ERR_CRYPTOKI_NOT_INITIALIZED));
 		rc = CKR_CRYPTOKI_NOT_INITIALIZED;
 		goto done;
@@ -1755,7 +1756,7 @@ CK_RV SC_EncryptFinal(ST_SESSION_HANDLE *sSession,
 	if (!pLastEncryptedPart)
 		length_only = TRUE;
 
-	rc = encr_mgr_encrypt_final(sess,length_only, &sess->encr_ctx,
+	rc = encr_mgr_encrypt_final(tokdata, sess,length_only, &sess->encr_ctx,
 				    pLastEncryptedPart,
 				    pulLastEncryptedPartLen);
 	if (rc != CKR_OK)

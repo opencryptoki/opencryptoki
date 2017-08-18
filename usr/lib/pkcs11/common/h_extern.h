@@ -1856,7 +1856,8 @@ void mechanism_list_transformations(CK_MECHANISM_TYPE_PTR mech_arr_ptr,
 
 // encryption manager routines
 //
-CK_RV     encr_mgr_init( SESSION           * sess,
+CK_RV     encr_mgr_init( STDLL_TokData_t   *tokdata,
+			 SESSION           * sess,
                          ENCR_DECR_CONTEXT * ctx,
                          CK_ULONG            operation,
                          CK_MECHANISM      * mech,
@@ -1864,17 +1865,18 @@ CK_RV     encr_mgr_init( SESSION           * sess,
 
 CK_RV     encr_mgr_cleanup( ENCR_DECR_CONTEXT *ctx );
 
-CK_RV     encr_mgr_encrypt( SESSION  *sess,     CK_BBOOL  length_only,
+CK_RV     encr_mgr_encrypt( STDLL_TokData_t   *tokdata,
+			    SESSION  *sess, CK_BBOOL  length_only,
                             ENCR_DECR_CONTEXT *ctx,
                             CK_BYTE  *in_data,  CK_ULONG  in_data_len,
                             CK_BYTE  *out_data, CK_ULONG *out_data_len );
 
-CK_RV     encr_mgr_encrypt_final( SESSION  *sess,     CK_BBOOL  length_only,
-                                  ENCR_DECR_CONTEXT *ctx,
+CK_RV     encr_mgr_encrypt_final( STDLL_TokData_t *tokdata, SESSION *sess,
+				  CK_BBOOL length_only, ENCR_DECR_CONTEXT *ctx,
                                   CK_BYTE  *out_data, CK_ULONG *out_data_len );
 
-CK_RV     encr_mgr_encrypt_update( SESSION  *sess,     CK_BBOOL  length_only,
-                                   ENCR_DECR_CONTEXT *ctx,
+CK_RV     encr_mgr_encrypt_update( STDLL_TokData_t   *tokdata, SESSION  *sess,
+				   CK_BBOOL length_only, ENCR_DECR_CONTEXT *ctx,
                                    CK_BYTE  *in_data,  CK_ULONG  in_data_len,
                                    CK_BYTE  *out_data, CK_ULONG *out_data_len );
 

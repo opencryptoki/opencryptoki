@@ -1328,13 +1328,13 @@ done:
 }
 
 
-CK_RV SC_EncryptInit(ST_SESSION_HANDLE *sSession, CK_MECHANISM_PTR pMechanism,
-		     CK_OBJECT_HANDLE hKey)
+CK_RV SC_EncryptInit(STDLL_TokData_t *tokdata, ST_SESSION_HANDLE *sSession,
+		     CK_MECHANISM_PTR pMechanism, CK_OBJECT_HANDLE hKey)
 {
 	SESSION *sess = NULL;
 	CK_RV rc = CKR_OK;
 
-	if (initialized == FALSE) {
+	if (tokdata->initialized == FALSE) {
 		TRACE_ERROR("%s\n", ock_err(ERR_CRYPTOKI_NOT_INITIALIZED));
 		rc = CKR_CRYPTOKI_NOT_INITIALIZED;
 		goto done;
@@ -1383,15 +1383,15 @@ done:
 }
 
 
-CK_RV SC_Encrypt(ST_SESSION_HANDLE *sSession, CK_BYTE_PTR pData,
-		 CK_ULONG ulDataLen, CK_BYTE_PTR pEncryptedData,
-		 CK_ULONG_PTR pulEncryptedDataLen)
+CK_RV SC_Encrypt(STDLL_TokData_t *tokdata, ST_SESSION_HANDLE *sSession,
+		 CK_BYTE_PTR pData, CK_ULONG ulDataLen,
+		 CK_BYTE_PTR pEncryptedData, CK_ULONG_PTR pulEncryptedDataLen)
 {
 	SESSION *sess = NULL;
 	CK_BBOOL length_only = FALSE;
 	CK_RV rc = CKR_OK;
 
-	if (initialized == FALSE) {
+	if (tokdata->initialized == FALSE) {
 		TRACE_ERROR("%s\n", ock_err(ERR_CRYPTOKI_NOT_INITIALIZED));
 		rc = CKR_CRYPTOKI_NOT_INITIALIZED;
 		goto done;
@@ -1437,14 +1437,15 @@ done:
 }
 
 
-CK_RV SC_EncryptUpdate(ST_SESSION_HANDLE *sSession, CK_BYTE_PTR pPart,
-		       CK_ULONG ulPartLen, CK_BYTE_PTR pEncryptedPart,
+CK_RV SC_EncryptUpdate(STDLL_TokData_t *tokdata, ST_SESSION_HANDLE *sSession,
+		       CK_BYTE_PTR pPart, CK_ULONG ulPartLen,
+		       CK_BYTE_PTR pEncryptedPart,
 		       CK_ULONG_PTR pulEncryptedPartLen)
 {
 	SESSION *sess = NULL;
 	CK_RV rc = CKR_OK;
 
-	if (initialized == FALSE) {
+	if (tokdata->initialized == FALSE) {
 		TRACE_ERROR("%s\n", ock_err(ERR_CRYPTOKI_NOT_INITIALIZED));
 		rc = CKR_CRYPTOKI_NOT_INITIALIZED;
 		goto done;
@@ -1487,7 +1488,7 @@ done:
 }
 
 
-CK_RV SC_EncryptFinal(ST_SESSION_HANDLE *sSession,
+CK_RV SC_EncryptFinal(STDLL_TokData_t *tokdata, ST_SESSION_HANDLE *sSession,
 		      CK_BYTE_PTR pLastEncryptedPart,
 		      CK_ULONG_PTR pulLastEncryptedPartLen)
 {
@@ -1495,7 +1496,7 @@ CK_RV SC_EncryptFinal(ST_SESSION_HANDLE *sSession,
 	CK_BBOOL length_only = FALSE;
 	CK_RV rc = CKR_OK;
 
-	if (initialized == FALSE) {
+	if (tokdata->initialized == FALSE) {
 		TRACE_ERROR("%s\n", ock_err(ERR_CRYPTOKI_NOT_INITIALIZED));
 		rc = CKR_CRYPTOKI_NOT_INITIALIZED;
 		goto done;
