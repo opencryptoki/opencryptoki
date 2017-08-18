@@ -48,7 +48,7 @@ extern API_Proc_Struct_t *Anchor;
 #include <stdarg.h>
 #include "trace.h"
 
-CK_RV CreateXProcLock(void)
+CK_RV CreateXProcLock(char *tokname)
 {
 	struct stat statbuf;
 

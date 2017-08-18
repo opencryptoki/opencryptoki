@@ -2620,7 +2620,7 @@ CK_RV C_Initialize(CK_VOID_PTR pVoid)
 	}
 
 	// Create the shared memory lock.
-	if (CreateXProcLock() != CKR_OK) {
+	if (CreateXProcLock(NULL) != CKR_OK) {
 		free((void *)Anchor);
 		Anchor = NULL;
 		TRACE_ERROR("Process Lock Failed.\n");

@@ -145,7 +145,7 @@ CK_RV ST_Initialize(API_Slot_t *sltp, CK_SLOT_ID SlotNumber,
 	MY_CreateMutex(&login_mutex);
 
 	/* Create lockfile */
-	if (CreateXProcLock() != CKR_OK) {
+	if (CreateXProcLock(sinfp->tokname) != CKR_OK) {
 		TRACE_ERROR("Process lock failed.\n");
 		rc = CKR_FUNCTION_FAILED;
 		goto done;
