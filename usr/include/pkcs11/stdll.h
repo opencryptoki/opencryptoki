@@ -264,7 +264,8 @@ typedef CK_RV (CK_PTR  ST_C_GenerateKeyPair)
                         CK_OBJECT_HANDLE_PTR phPrivateKey,
                         CK_OBJECT_HANDLE_PTR phPublicKey);
 typedef CK_RV (CK_PTR  ST_C_WrapKey)
-                       (ST_SESSION_T *hSession, CK_MECHANISM_PTR pMechanism,
+                       (STDLL_TokData_t *tokdata, ST_SESSION_T *hSession,
+			CK_MECHANISM_PTR pMechanism,
                         CK_OBJECT_HANDLE hWrappingKey, CK_OBJECT_HANDLE hKey,
                         CK_BYTE_PTR pWrappedKey, CK_ULONG_PTR pusWrappedKeyLen);
 typedef CK_RV (CK_PTR  ST_C_UnwrapKey)

@@ -2771,14 +2771,15 @@ done:
 }
 
 
-CK_RV SC_WrapKey(ST_SESSION_HANDLE *sSession, CK_MECHANISM_PTR pMechanism,
+CK_RV SC_WrapKey(STDLL_TokData_t *tokdata, ST_SESSION_HANDLE *sSession,
+		 CK_MECHANISM_PTR pMechanism,
 		 CK_OBJECT_HANDLE hWrappingKey, CK_OBJECT_HANDLE hKey,
 		 CK_BYTE_PTR pWrappedKey, CK_ULONG_PTR pulWrappedKeyLen)
 {
 	SESSION *sess = NULL;
 	CK_RV rc = CKR_OK;
 
-	if (initialized == FALSE) {
+	if (tokdata->initialized == FALSE) {
 		TRACE_ERROR("%s\n", ock_err(ERR_CRYPTOKI_NOT_INITIALIZED));
 		rc = CKR_CRYPTOKI_NOT_INITIALIZED;
 		goto done;
@@ -2808,8 +2809,8 @@ CK_RV SC_WrapKey(ST_SESSION_HANDLE *sSession, CK_MECHANISM_PTR pMechanism,
 		goto done;
 	}
 
-	rc = ep11tok_wrap_key(sess, pMechanism, hWrappingKey, hKey, pWrappedKey,
-			      pulWrappedKeyLen);
+	rc = ep11tok_wrap_key(tokdata, sess, pMechanism, hWrappingKey, hKey,
+			      pWrappedKey, pulWrappedKeyLen);
 	if (rc != CKR_OK)
 		TRACE_DEVEL("ep11tok_wrap_key() failed.\n");
 

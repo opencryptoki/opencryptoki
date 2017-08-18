@@ -4215,7 +4215,8 @@ C_WrapKey(CK_SESSION_HANDLE hSession,
 	}
 	if (fcn->ST_WrapKey) {
 		// Map the Session to the slot session
-		rv = fcn->ST_WrapKey(&rSession, pMechanism, hWrappingKey, hKey,
+		rv = fcn->ST_WrapKey(sltp->TokData, &rSession, pMechanism,
+				     hWrappingKey, hKey,
 				     pWrappedKey, pulWrappedKeyLen);
 		TRACE_DEVEL("fcn->ST_WrapKey returned: 0x%lx\n", rv);
 	} else {
