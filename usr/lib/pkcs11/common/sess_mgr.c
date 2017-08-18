@@ -213,7 +213,7 @@ session_mgr_readonly_session_exists( void )
 // Returns:  TRUE on success else FALSE
 //
 CK_RV
-session_mgr_close_session( CK_SESSION_HANDLE handle )
+session_mgr_close_session( STDLL_TokData_t *tokdata, CK_SESSION_HANDLE handle )
 {
    SESSION *sess;
    CK_RV      rc = CKR_OK;
