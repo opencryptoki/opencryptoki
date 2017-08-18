@@ -808,7 +808,8 @@ CK_RV get_sha_size(CK_ULONG mech, CK_ULONG *hsize)
 }
 
 /* Compute specified SHA using either software or token implementation */
-CK_RV compute_sha(CK_BYTE * data, CK_ULONG len, CK_BYTE *hash, CK_ULONG mech)
+CK_RV compute_sha(STDLL_TokData_t *tokdata, CK_BYTE * data, CK_ULONG len,
+		  CK_BYTE *hash, CK_ULONG mech)
 {
 	DIGEST_CONTEXT ctx;
 	CK_ULONG hash_len;
@@ -821,16 +822,17 @@ CK_RV compute_sha(CK_BYTE * data, CK_ULONG len, CK_BYTE *hash, CK_ULONG mech)
 	if (rv != CKR_OK)
 		return rv;
 
-	rv = sha_init(NULL, &ctx, &ctx.mech);
+	rv = sha_init(tokdata, NULL, &ctx, &ctx.mech);
 	if (rv != CKR_OK) {
 		TRACE_DEBUG("failed to create digest.\n");
 		return rv;
 	}
-	return sha_hash(NULL, FALSE, &ctx, data, len, hash, &hash_len);
+	return sha_hash(tokdata, NULL, FALSE, &ctx, data, len, hash, &hash_len);
 }
 
 /* Compute SHA1 using software implementation */
-CK_RV compute_sha1(CK_BYTE * data, CK_ULONG len, CK_BYTE *hash)
+CK_RV compute_sha1(STDLL_TokData_t *tokdata, CK_BYTE * data, CK_ULONG len,
+		   CK_BYTE *hash)
 {
 	// XXX KEY
 	DIGEST_CONTEXT ctx;

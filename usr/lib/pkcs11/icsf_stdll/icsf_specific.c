@@ -599,7 +599,8 @@ CK_RV reset_token_data(CK_SLOT_ID slot_id, CK_CHAR_PTR pin, CK_ULONG pin_len)
 
 	/* Reset SO pin to default and user pin to invalid */
 	pin_len = strlen((pin = "87654321"));
-	if (compute_sha1(pin, pin_len, nv_token_data->so_pin_sha)) {
+	if (compute_sha1(tokdata, pin, pin_len,
+			 tokdata->nv_token_data->so_pin_sha)) {
 		TRACE_ERROR("Failed to reset so pin.\n");
 		return CKR_FUNCTION_FAILED;
 	}
@@ -681,7 +682,7 @@ CK_RV icsftok_init_token(STDLL_TokData_t *tokdata, CK_SLOT_ID slot_id,
 	CK_BYTE hash_sha[SHA1_HASH_SIZE];
 
 	/* Check pin */
-	rc = compute_sha1(pin, pin_len, hash_sha);
+	rc = compute_sha1(tokdata, pin, pin_len, hash_sha);
 	if (memcmp(tokdata->nv_token_data->so_pin_sha, hash_sha,
 		   SHA1_HASH_SIZE) != 0) {
 		TRACE_ERROR("%s\n", ock_err(ERR_PIN_INCORRECT));
@@ -720,7 +721,7 @@ CK_RV icsftok_init_pin(STDLL_TokData_t *tokdata, SESSION *sess,
 	sid = sess->session_info.slotID;
 
 	/* compute the SHA of the user pin */
-	rc = compute_sha1(pPin, ulPinLen, hash_sha);
+	rc = compute_sha1(tokdata, pPin, ulPinLen, hash_sha);
 	if (rc != CKR_OK) {
 		TRACE_ERROR("Hash Computation Failed.\n");
 		return rc;
@@ -770,8 +771,8 @@ CK_RV icsftok_set_pin(STDLL_TokData_t *tokdata, SESSION *sess,
 	/* get slot id */
 	sid = sess->session_info.slotID;
 
-	rc = compute_sha1(pNewPin, ulNewLen, new_hash_sha );
-	rc |= compute_sha1( pOldPin, ulOldLen, old_hash_sha );
+	rc = compute_sha1(tokdata, pNewPin, ulNewLen, new_hash_sha );
+	rc |= compute_sha1( tokdata, pOldPin, ulOldLen, old_hash_sha );
 	if (rc != CKR_OK) {
 		TRACE_ERROR("Hash Computation Failed.\n");
 		return rc;
@@ -1130,7 +1131,7 @@ CK_RV icsftok_login(STDLL_TokData_t *tokdata, SESSION *sess,
 	}
 
 	/* compute the sha of the pin. */
-	rc = compute_sha1(pPin, ulPinLen, hash_sha);
+	rc = compute_sha1(tokdata, pPin, ulPinLen, hash_sha);
 	if (rc != CKR_OK) {
 		TRACE_ERROR("Hash Computation Failed.\n");
 		return rc;

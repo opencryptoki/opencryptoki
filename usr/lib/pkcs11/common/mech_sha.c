@@ -414,9 +414,9 @@ CK_RV sw_sha1_hash(DIGEST_CONTEXT *ctx, CK_BYTE *in_data, CK_ULONG in_data_len,
 	return CKR_OK;
 }
 
-CK_RV sha_hash(SESSION *sess, CK_BBOOL length_only, DIGEST_CONTEXT *ctx,
-	       CK_BYTE *in_data, CK_ULONG in_data_len, CK_BYTE *out_data,
-	       CK_ULONG *out_data_len)
+CK_RV sha_hash(STDLL_TokData_t *tokdata, SESSION *sess, CK_BBOOL length_only,
+	       DIGEST_CONTEXT *ctx, CK_BYTE *in_data, CK_ULONG in_data_len,
+	       CK_BYTE *out_data, CK_ULONG *out_data_len)
 {
 	CK_ULONG hsize;
 
@@ -456,7 +456,7 @@ CK_RV sha_hash(SESSION *sess, CK_BBOOL length_only, DIGEST_CONTEXT *ctx,
 		return CKR_HOST_MEMORY;
 
 	if (token_specific.t_sha != NULL)
-		return token_specific.t_sha(ctx, in_data, in_data_len,
+		return token_specific.t_sha(tokdata, ctx, in_data, in_data_len,
 					    out_data, out_data_len);
 	else {
 		if (ctx->mech.mechanism == CKM_SHA_1)
@@ -469,7 +469,8 @@ CK_RV sha_hash(SESSION *sess, CK_BBOOL length_only, DIGEST_CONTEXT *ctx,
 
 //
 //
-CK_RV sha_hash_update(SESSION *sess, DIGEST_CONTEXT *ctx, CK_BYTE *in_data,
+CK_RV sha_hash_update(STDLL_TokData_t *tokdata, SESSION *sess,
+		      DIGEST_CONTEXT *ctx, CK_BYTE *in_data,
 		      CK_ULONG in_data_len)
 {
 	/* if no data to hash, just return */
@@ -477,7 +478,8 @@ CK_RV sha_hash_update(SESSION *sess, DIGEST_CONTEXT *ctx, CK_BYTE *in_data,
 		return CKR_OK;
 
 	if (token_specific.t_sha_update != NULL)
-		return token_specific.t_sha_update(ctx, in_data, in_data_len);
+		return token_specific.t_sha_update(tokdata, ctx, in_data,
+						   in_data_len);
 	else {
 		if (ctx->mech.mechanism == CKM_SHA_1) {
 			shaUpdate((SHA1_CONTEXT *)ctx->context, in_data,
@@ -488,7 +490,8 @@ CK_RV sha_hash_update(SESSION *sess, DIGEST_CONTEXT *ctx, CK_BYTE *in_data,
 	}
 }
 
-CK_RV sha_hash_final(SESSION *sess, CK_BYTE length_only, DIGEST_CONTEXT *ctx,
+CK_RV sha_hash_final(STDLL_TokData_t *tokdata, SESSION *sess,
+		     CK_BYTE length_only, DIGEST_CONTEXT *ctx,
 		     CK_BYTE *out_data, CK_ULONG *out_data_len)
 {
 	CK_ULONG hsize;
@@ -526,7 +529,8 @@ CK_RV sha_hash_final(SESSION *sess, CK_BYTE length_only, DIGEST_CONTEXT *ctx,
         }
 
 	if (token_specific.t_sha_final != NULL)
-		return token_specific.t_sha_final(ctx, out_data, out_data_len);
+		return token_specific.t_sha_final(tokdata, ctx, out_data,
+						  out_data_len);
 	else {
 		if (ctx->mech.mechanism == CKM_SHA_1) {
 			shaFinal((SHA1_CONTEXT *)ctx->context, out_data);
@@ -1460,10 +1464,11 @@ done:
 	return rc;
 }
 
-CK_RV sha_init(SESSION *sess, DIGEST_CONTEXT *ctx, CK_MECHANISM *mech)
+CK_RV sha_init(STDLL_TokData_t *tokdata, SESSION *sess, DIGEST_CONTEXT *ctx,
+	       CK_MECHANISM *mech)
 {
 	if (token_specific.t_sha_init != NULL)
-		return token_specific.t_sha_init(ctx, mech);
+		return token_specific.t_sha_init(tokdata, ctx, mech);
 	else {
 		/* For current tokens, continue legacy of using software
 		 *  implemented SHA-1 if the token does not have its own

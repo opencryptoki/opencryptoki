@@ -644,7 +644,7 @@ CK_RV save_private_token_object(STDLL_TokData_t *tokdata, OBJECT * obj)
 	//       SHA of (object data)             |
 	//    ---- end encrypted part          <--+
 	//
-	compute_sha1(obj_data, obj_data_len, hash_sha);
+	compute_sha1(tokdata, obj_data, obj_data_len, hash_sha);
 
 	// encrypt the sensitive object data.  need to be careful.
 	// if I use the normal high-level encryption routines I'll need to
@@ -975,7 +975,7 @@ CK_RV restore_private_token_object(STDLL_TokData_t *tokdata, CK_BYTE * data,
 
 	// check the hash
 	//
-	rc = compute_sha1(ptr, obj_data_len, hash_sha);
+	rc = compute_sha1(tokdata, ptr, obj_data_len, hash_sha);
 	if (rc != CKR_OK) {
 		goto done;
 	}

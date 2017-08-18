@@ -2001,7 +2001,8 @@ token_specific_get_mechanism_info(STDLL_TokData_t *tokdata,
 	return rc;
 }
 
-CK_RV token_specific_sha_init(DIGEST_CONTEXT *ctx, CK_MECHANISM *mech)
+CK_RV token_specific_sha_init(STDLL_TokData_t *tokdata, DIGEST_CONTEXT *ctx,
+			      CK_MECHANISM *mech)
 {
 	int rc;
 	int (*dgst)(void *);
@@ -2046,9 +2047,9 @@ CK_RV token_specific_sha_init(DIGEST_CONTEXT *ctx, CK_MECHANISM *mech)
 	return CKR_OK;
 }
 
-CK_RV token_specific_sha(DIGEST_CONTEXT *ctx, CK_BYTE *in_data,
-			 CK_ULONG in_data_len, CK_BYTE *out_data,
-			 CK_ULONG *out_data_len)
+CK_RV token_specific_sha(STDLL_TokData_t *tokdata, DIGEST_CONTEXT *ctx,
+			 CK_BYTE *in_data, CK_ULONG in_data_len,
+			 CK_BYTE *out_data, CK_ULONG *out_data_len)
 {
 	int rc;
 	unsigned int hlen;
@@ -2108,8 +2109,8 @@ error:
 	return CKR_FUNCTION_FAILED;
 }
 
-CK_RV token_specific_sha_update(DIGEST_CONTEXT *ctx, CK_BYTE *in_data,
-				CK_ULONG in_data_len)
+CK_RV token_specific_sha_update(STDLL_TokData_t *tokdata, DIGEST_CONTEXT *ctx,
+				CK_BYTE *in_data, CK_ULONG in_data_len)
 {
 	int rc;
 
@@ -2146,8 +2147,8 @@ CK_RV token_specific_sha_update(DIGEST_CONTEXT *ctx, CK_BYTE *in_data,
 	return CKR_OK;
 }
 
-CK_RV token_specific_sha_final(DIGEST_CONTEXT *ctx, CK_BYTE *out_data,
-			       CK_ULONG *out_data_len)
+CK_RV token_specific_sha_final(STDLL_TokData_t *tokdata, DIGEST_CONTEXT *ctx,
+			       CK_BYTE *out_data, CK_ULONG *out_data_len)
 {
 	int rc;
 	unsigned int hlen;

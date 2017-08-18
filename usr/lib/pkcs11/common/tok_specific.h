@@ -226,14 +226,17 @@ CK_RV
 tok_cdmv_transform(CK_VOID_PTR, CK_ULONG);
 
 
-CK_RV token_specific_sha_init(DIGEST_CONTEXT *, CK_MECHANISM *);
+CK_RV token_specific_sha_init(STDLL_TokData_t *, DIGEST_CONTEXT *,
+			      CK_MECHANISM *);
 
-CK_RV token_specific_sha(DIGEST_CONTEXT *, CK_BYTE *, CK_ULONG, CK_BYTE *,
-			 CK_ULONG *);
+CK_RV token_specific_sha(STDLL_TokData_t *, DIGEST_CONTEXT *, CK_BYTE *,
+			 CK_ULONG, CK_BYTE *, CK_ULONG *);
 
-CK_RV token_specific_sha_update(DIGEST_CONTEXT *, CK_BYTE *, CK_ULONG);
+CK_RV token_specific_sha_update(STDLL_TokData_t *, DIGEST_CONTEXT *, CK_BYTE *,
+				CK_ULONG);
 
-CK_RV token_specific_sha_final(DIGEST_CONTEXT *, CK_BYTE *, CK_ULONG *);
+CK_RV token_specific_sha_final(STDLL_TokData_t *, DIGEST_CONTEXT *, CK_BYTE *,
+			       CK_ULONG *);
 
 CK_RV token_specific_hmac_sign_init(SESSION *, CK_MECHANISM *,
 				    CK_OBJECT_HANDLE);

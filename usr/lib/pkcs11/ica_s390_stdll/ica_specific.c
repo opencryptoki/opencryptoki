@@ -465,7 +465,8 @@ token_specific_tdes_mac(STDLL_TokData_t *tokdata, CK_BYTE *message,
 /*
  * Init SHA data structures
  */
-CK_RV token_specific_sha_init(DIGEST_CONTEXT *ctx, CK_MECHANISM *mech)
+CK_RV token_specific_sha_init(STDLL_TokData_t *tokdata, DIGEST_CONTEXT *ctx,
+			      CK_MECHANISM *mech)
 {
 	unsigned int ctxsize, devctxsize;
 	struct oc_sha_ctx *sc;
@@ -525,9 +526,9 @@ CK_RV token_specific_sha_init(DIGEST_CONTEXT *ctx, CK_MECHANISM *mech)
 	return CKR_OK;
 }
 
-CK_RV token_specific_sha(DIGEST_CONTEXT *ctx, CK_BYTE *in_data,
-			 CK_ULONG in_data_len, CK_BYTE *out_data,
-			 CK_ULONG *out_data_len)
+CK_RV token_specific_sha(STDLL_TokData_t *tokdata, DIGEST_CONTEXT *ctx,
+			 CK_BYTE *in_data, CK_ULONG in_data_len,
+			 CK_BYTE *out_data, CK_ULONG *out_data_len)
 {
 	int rc;
 	CK_RV rv = CKR_OK;
@@ -650,8 +651,8 @@ static CK_RV ica_sha_call(DIGEST_CONTEXT *ctx, CK_BYTE *data, CK_ULONG data_len)
 	return(ret ? CKR_FUNCTION_FAILED : CKR_OK);
 }
 
-CK_RV token_specific_sha_update(DIGEST_CONTEXT *ctx, CK_BYTE *in_data,
-				CK_ULONG in_data_len)
+CK_RV token_specific_sha_update(STDLL_TokData_t *tokdata, DIGEST_CONTEXT *ctx,
+				CK_BYTE *in_data, CK_ULONG in_data_len)
 {
 	struct oc_sha_ctx *sc;
 	int fill, len, rest, ret;
@@ -727,8 +728,8 @@ CK_RV token_specific_sha_update(DIGEST_CONTEXT *ctx, CK_BYTE *in_data,
 	return CKR_OK;
 }
 
-CK_RV token_specific_sha_final(DIGEST_CONTEXT *ctx, CK_BYTE *out_data,
-				       CK_ULONG *out_data_len)
+CK_RV token_specific_sha_final(STDLL_TokData_t *tokdata, DIGEST_CONTEXT *ctx,
+			       CK_BYTE *out_data, CK_ULONG *out_data_len)
 {
 	int rc;
 	CK_RV rv = CKR_OK;

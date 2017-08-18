@@ -169,11 +169,11 @@ struct token_specific_struct {
 	/* End code contributed by Corrent corp. */
 
 	// Token Specific SHA1 functions
-	CK_RV(*t_sha_init) (DIGEST_CONTEXT *, CK_MECHANISM *);
-	CK_RV(*t_sha) (DIGEST_CONTEXT *, CK_BYTE *, CK_ULONG, CK_BYTE *,
-		       CK_ULONG *);
-	CK_RV(*t_sha_update) (DIGEST_CONTEXT *, CK_BYTE *, CK_ULONG);
-	CK_RV(*t_sha_final) (DIGEST_CONTEXT *, CK_BYTE *, CK_ULONG *);
+	CK_RV(*t_sha_init) (STDLL_TokData_t *, DIGEST_CONTEXT *, CK_MECHANISM *);
+	CK_RV(*t_sha) (STDLL_TokData_t *, DIGEST_CONTEXT *, CK_BYTE *, CK_ULONG,
+		       CK_BYTE *, CK_ULONG *);
+	CK_RV(*t_sha_update) (STDLL_TokData_t *, DIGEST_CONTEXT *, CK_BYTE *, CK_ULONG);
+	CK_RV(*t_sha_final) (STDLL_TokData_t *, DIGEST_CONTEXT *, CK_BYTE *, CK_ULONG *);
 
 	// Token Specific HMAC
 	CK_RV(*t_hmac_sign_init) (SESSION *, CK_MECHANISM *, CK_OBJECT_HANDLE);

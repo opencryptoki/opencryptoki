@@ -1886,7 +1886,8 @@ token_specific_ec_verify(CK_BYTE  * in_data,
 	return CKR_OK;
 }
 
-CK_RV token_specific_sha_init(DIGEST_CONTEXT *ctx, CK_MECHANISM *mech)
+CK_RV token_specific_sha_init(STDLL_TokData_t *tokdata, DIGEST_CONTEXT *ctx,
+			      CK_MECHANISM *mech)
 {
 	CK_ULONG hash_size;
 	struct cca_sha_ctx *cca_ctx;
@@ -1923,9 +1924,9 @@ CK_RV token_specific_sha_init(DIGEST_CONTEXT *ctx, CK_MECHANISM *mech)
 	return CKR_OK;
 }
 
-CK_RV token_specific_sha(DIGEST_CONTEXT *ctx, CK_BYTE *in_data,
-			 CK_ULONG in_data_len, CK_BYTE *out_data,
-			 CK_ULONG *out_data_len)
+CK_RV token_specific_sha(STDLL_TokData_t *tokdata, DIGEST_CONTEXT *ctx,
+			 CK_BYTE *in_data, CK_ULONG in_data_len,
+			 CK_BYTE *out_data, CK_ULONG *out_data_len)
 {
 	struct cca_sha_ctx *cca_ctx;
 	long return_code, reason_code, rule_array_count = 2;
@@ -1982,8 +1983,8 @@ CK_RV token_specific_sha(DIGEST_CONTEXT *ctx, CK_BYTE *in_data,
 	return CKR_OK;
 }
 
-CK_RV token_specific_sha_update(DIGEST_CONTEXT *ctx, CK_BYTE *in_data,
-				CK_ULONG in_data_len)
+CK_RV token_specific_sha_update(STDLL_TokData_t *tokdata, DIGEST_CONTEXT *ctx,
+				CK_BYTE *in_data, CK_ULONG in_data_len)
 {
 	struct cca_sha_ctx *cca_ctx;
 	long return_code, reason_code, total, buffer_len, rule_array_count = 2;
@@ -2128,8 +2129,8 @@ done:
 	return rc;
 }
 
-CK_RV token_specific_sha_final(DIGEST_CONTEXT *ctx, CK_BYTE *out_data,
-			       CK_ULONG *out_data_len)
+CK_RV token_specific_sha_final(STDLL_TokData_t *tokdata, DIGEST_CONTEXT *ctx,
+			       CK_BYTE *out_data, CK_ULONG *out_data_len)
 {
 	struct cca_sha_ctx *cca_ctx;
 	long return_code, reason_code, rule_array_count = 2;
