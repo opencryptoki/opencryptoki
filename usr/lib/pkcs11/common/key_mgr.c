@@ -780,7 +780,7 @@ key_mgr_wrap_key( STDLL_TokData_t   * tokdata,
 
    // prepare to do the encryption
    //
-   rc = encr_mgr_init( sess, ctx, OP_WRAP, mech, h_wrapping_key );
+   rc = encr_mgr_init( tokdata, sess, ctx, OP_WRAP, mech, h_wrapping_key );
    if (rc != CKR_OK){
       TRACE_DEVEL("encr_mgr_init failed.\n");
       free( ctx );
@@ -789,7 +789,7 @@ key_mgr_wrap_key( STDLL_TokData_t   * tokdata,
    // do the encryption and clean up.  at this point, 'value' may or may not
    // be NULL depending on 'length_only'
    //
-   rc = encr_mgr_encrypt( sess,        length_only,
+   rc = encr_mgr_encrypt( tokdata, sess, length_only,
                           ctx,
                           data,        data_len,
                           wrapped_key, wrapped_key_len );

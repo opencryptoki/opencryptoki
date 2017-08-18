@@ -144,18 +144,20 @@ typedef CK_RV (CK_PTR  ST_C_FindObjects)
 typedef CK_RV (CK_PTR  ST_C_FindObjectsFinal)
                        (ST_SESSION_T *hSession);
 typedef CK_RV (CK_PTR  ST_C_EncryptInit)
-                       (ST_SESSION_T *hSession, CK_MECHANISM_PTR pMechanism,
-                        CK_OBJECT_HANDLE hKey);
+                       (STDLL_TokData_t *tokdata, ST_SESSION_T *hSession,
+			CK_MECHANISM_PTR pMechanism, CK_OBJECT_HANDLE hKey);
 typedef CK_RV (CK_PTR  ST_C_Encrypt)
-                       (ST_SESSION_T *hSession, CK_BYTE_PTR pData,
-                        CK_ULONG usDataLen, CK_BYTE_PTR pEncryptedData,
-                        CK_ULONG_PTR pusEncryptedDataLen);
+                       (STDLL_TokData_t *tokdata, ST_SESSION_T *hSession,
+			CK_BYTE_PTR pData, CK_ULONG usDataLen,
+			CK_BYTE_PTR pEncryptedData,
+			CK_ULONG_PTR pusEncryptedDataLen);
 typedef CK_RV (CK_PTR  ST_C_EncryptUpdate)
-                       (ST_SESSION_T *hSession, CK_BYTE_PTR pPart,
-                        CK_ULONG usPartLen, CK_BYTE_PTR pEncryptedPart,
+                       (STDLL_TokData_t *tokdata, ST_SESSION_T *hSession,
+			CK_BYTE_PTR pPart, CK_ULONG usPartLen,
+			CK_BYTE_PTR pEncryptedPart,
                         CK_ULONG_PTR pusEncryptedPartLen);
 typedef CK_RV (CK_PTR  ST_C_EncryptFinal)
-                       (ST_SESSION_T *hSession,
+                       (STDLL_TokData_t *tokdata, ST_SESSION_T *hSession,
                         CK_BYTE_PTR pLastEncryptedPart,
                         CK_ULONG_PTR pusLastEncryptedPartLen);
 typedef CK_RV (CK_PTR  ST_C_DecryptInit)
