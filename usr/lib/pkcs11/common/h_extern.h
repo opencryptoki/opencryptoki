@@ -1808,7 +1808,8 @@ CK_RV     key_mgr_wrap_key( SESSION           *sess,
                             CK_BYTE           *wrapped_key,
                             CK_ULONG          *wrapped_key_len );
 
-CK_RV     key_mgr_unwrap_key( SESSION          *sess,
+CK_RV     key_mgr_unwrap_key( STDLL_TokData_t  *tokdata,
+			      SESSION          *sess,
                               CK_MECHANISM     *mech,
                               CK_ATTRIBUTE     *pTemplate,
                               CK_ULONG          ulCount,

@@ -3702,8 +3702,9 @@ C_UnwrapKey(CK_SESSION_HANDLE hSession,
 	}
 	if (fcn->ST_UnwrapKey) {
 		// Map the Session to the slot session
-		rv = fcn->ST_UnwrapKey(&rSession, pMechanism, hUnwrappingKey,
-				       pWrappedKey, ulWrappedKeyLen, pTemplate,
+		rv = fcn->ST_UnwrapKey(sltp->TokData, &rSession, pMechanism,
+				       hUnwrappingKey, pWrappedKey,
+				       ulWrappedKeyLen, pTemplate,
 				       ulAttributeCount, phKey);
 		TRACE_DEVEL("fcn->ST_UnwrapKey returned: 0x%lx\n", rv);
 	} else {
