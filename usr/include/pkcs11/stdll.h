@@ -283,11 +283,11 @@ typedef CK_RV (CK_PTR  ST_C_DeriveKey)
                         CK_OBJECT_HANDLE hBaseKey, CK_ATTRIBUTE_PTR pTemplate,
                         CK_ULONG usAttributeCount, CK_OBJECT_HANDLE_PTR phKey);
 typedef CK_RV (CK_PTR  ST_C_SeedRandom)
-                       (ST_SESSION_T *hSession, CK_BYTE_PTR pSeed,
-                        CK_ULONG usSeedLen);
+                       (STDLL_TokData_t *tokdata, ST_SESSION_T *hSession,
+			CK_BYTE_PTR pSeed, CK_ULONG usSeedLen);
 typedef CK_RV (CK_PTR  ST_C_GenerateRandom)
-                       (ST_SESSION_T *hSession, CK_BYTE_PTR pRandomData,
-                        CK_ULONG usRandomLen);
+                       (STDLL_TokData_t *tokdata, ST_SESSION_T *hSession,
+			CK_BYTE_PTR pRandomData, CK_ULONG usRandomLen);
 typedef CK_RV (CK_PTR  ST_C_GetFunctionStatus)
                        (ST_SESSION_T *hSession);
 typedef CK_RV (CK_PTR  ST_C_CancelFunction)

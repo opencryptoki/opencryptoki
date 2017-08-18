@@ -2915,10 +2915,10 @@ done:
 }
 
 
-CK_RV SC_SeedRandom(ST_SESSION_HANDLE *sSession, CK_BYTE_PTR pSeed,
-		    CK_ULONG ulSeedLen)
+CK_RV SC_SeedRandom(STDLL_TokData_t *tokdata, ST_SESSION_HANDLE *sSession,
+		    CK_BYTE_PTR pSeed, CK_ULONG ulSeedLen)
 {
-	if (initialized == FALSE){
+	if (tokdata->initialized == FALSE){
 		TRACE_ERROR("%s\n", ock_err(ERR_CRYPTOKI_NOT_INITIALIZED));
 		return CKR_CRYPTOKI_NOT_INITIALIZED;
 	}
@@ -2928,13 +2928,13 @@ CK_RV SC_SeedRandom(ST_SESSION_HANDLE *sSession, CK_BYTE_PTR pSeed,
 }
 
 
-CK_RV SC_GenerateRandom(ST_SESSION_HANDLE *sSession, CK_BYTE_PTR pRandomData,
-			CK_ULONG ulRandomLen)
+CK_RV SC_GenerateRandom(STDLL_TokData_t *tokdata, ST_SESSION_HANDLE *sSession,
+			CK_BYTE_PTR pRandomData, CK_ULONG ulRandomLen)
 {
 	SESSION *sess = NULL;
 	CK_RV rc = CKR_OK;
 
-	if (initialized == FALSE) {
+	if (tokdata->initialized == FALSE) {
 		TRACE_ERROR("%s\n", ock_err(ERR_CRYPTOKI_NOT_INITIALIZED));
 		rc = CKR_CRYPTOKI_NOT_INITIALIZED;
 		goto done;

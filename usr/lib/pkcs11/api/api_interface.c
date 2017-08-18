@@ -1689,7 +1689,8 @@ C_GenerateRandom(CK_SESSION_HANDLE hSession,
 	}
 	if (fcn->ST_GenerateRandom) {
 		// Map the Session to the slot session
-		rv = fcn->ST_GenerateRandom(&rSession, RandomData, ulRandomLen);
+		rv = fcn->ST_GenerateRandom(sltp->TokData, &rSession,
+					    RandomData, ulRandomLen);
 		TRACE_DEVEL("fcn->ST_GenerateRandom returned:0x%lx\n", rv);
 	} else {
 		TRACE_ERROR("%s\n", ock_err(ERR_FUNCTION_NOT_SUPPORTED));
@@ -3098,7 +3099,7 @@ C_SeedRandom(CK_SESSION_HANDLE hSession, CK_BYTE_PTR pSeed, CK_ULONG ulSeedLen)
 	}
 	if (fcn->ST_SeedRandom) {
 		// Map the Session to the slot session
-		rv = fcn->ST_SeedRandom(&rSession, pSeed, ulSeedLen);
+		rv = fcn->ST_SeedRandom(sltp->TokData, &rSession, pSeed, ulSeedLen);
 		TRACE_DEVEL("fcn->ST_SeedRandom returned: 0x%lx\n", rv);
 	} else {
 		TRACE_ERROR("%s\n", ock_err(ERR_FUNCTION_NOT_SUPPORTED));
