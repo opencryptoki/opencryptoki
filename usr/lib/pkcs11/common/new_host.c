@@ -2538,13 +2538,13 @@ done:
 }
 
 
-CK_RV SC_VerifyInit(ST_SESSION_HANDLE *sSession, CK_MECHANISM_PTR pMechanism,
-		    CK_OBJECT_HANDLE hKey)
+CK_RV SC_VerifyInit(STDLL_TokData_t *tokdata, ST_SESSION_HANDLE *sSession,
+		    CK_MECHANISM_PTR pMechanism, CK_OBJECT_HANDLE hKey)
 {
 	SESSION *sess = NULL;
 	CK_RV rc = CKR_OK;
 
-	if (initialized == FALSE) {
+	if (tokdata->initialized == FALSE) {
 		TRACE_ERROR("%s\n", ock_err(ERR_CRYPTOKI_NOT_INITIALIZED));
 		rc = CKR_CRYPTOKI_NOT_INITIALIZED;
 		goto done;
@@ -2579,7 +2579,8 @@ CK_RV SC_VerifyInit(ST_SESSION_HANDLE *sSession, CK_MECHANISM_PTR pMechanism,
 		goto done;
 	}
 
-	rc = verify_mgr_init(sess, &sess->verify_ctx, pMechanism, FALSE, hKey);
+	rc = verify_mgr_init(tokdata, sess, &sess->verify_ctx, pMechanism,
+			     FALSE, hKey);
 	if (rc != CKR_OK)
 		TRACE_DEVEL("verify_mgr_init() failed.\n");
 
@@ -2592,14 +2593,14 @@ done:
 }
 
 
-CK_RV SC_Verify(ST_SESSION_HANDLE *sSession, CK_BYTE_PTR pData,
-		CK_ULONG ulDataLen, CK_BYTE_PTR pSignature,
+CK_RV SC_Verify(STDLL_TokData_t *tokdata, ST_SESSION_HANDLE *sSession,
+		CK_BYTE_PTR pData, CK_ULONG ulDataLen, CK_BYTE_PTR pSignature,
 		CK_ULONG ulSignatureLen)
 {
 	SESSION *sess = NULL;
 	CK_RV rc = CKR_OK;
 
-	if (initialized == FALSE) {
+	if (tokdata->initialized == FALSE) {
 		TRACE_ERROR("%s\n", ock_err(ERR_CRYPTOKI_NOT_INITIALIZED));
 		rc = CKR_CRYPTOKI_NOT_INITIALIZED;
 		goto done;
@@ -2624,8 +2625,8 @@ CK_RV SC_Verify(ST_SESSION_HANDLE *sSession, CK_BYTE_PTR pData,
 		goto done;
 	}
 
-	rc = verify_mgr_verify(sess, &sess->verify_ctx, pData, ulDataLen,
-			       pSignature, ulSignatureLen);
+	rc = verify_mgr_verify(tokdata, sess, &sess->verify_ctx, pData,
+			       ulDataLen, pSignature, ulSignatureLen);
 	if (rc != CKR_OK)
 		TRACE_DEVEL("verify_mgr_verify() failed.\n");
 
@@ -2639,13 +2640,13 @@ done:
 }
 
 
-CK_RV SC_VerifyUpdate(ST_SESSION_HANDLE *sSession, CK_BYTE_PTR pPart,
-		      CK_ULONG ulPartLen)
+CK_RV SC_VerifyUpdate(STDLL_TokData_t *tokdata, ST_SESSION_HANDLE *sSession,
+		      CK_BYTE_PTR pPart, CK_ULONG ulPartLen)
 {
 	SESSION *sess = NULL;
 	CK_RV rc = CKR_OK;
 
-	if (initialized == FALSE) {
+	if (tokdata->initialized == FALSE) {
 		TRACE_ERROR("%s\n", ock_err(ERR_CRYPTOKI_NOT_INITIALIZED));
 		rc = CKR_CRYPTOKI_NOT_INITIALIZED;
 		goto done;
@@ -2670,7 +2671,7 @@ CK_RV SC_VerifyUpdate(ST_SESSION_HANDLE *sSession, CK_BYTE_PTR pPart,
 		goto done;
 	}
 
-	rc = verify_mgr_verify_update(sess, &sess->verify_ctx, pPart,
+	rc = verify_mgr_verify_update(tokdata, sess, &sess->verify_ctx, pPart,
 				      ulPartLen);
 	if (rc != CKR_OK)
 		TRACE_DEVEL("verify_mgr_verify_update() failed.\n");
@@ -2686,13 +2687,13 @@ done:
 }
 
 
-CK_RV SC_VerifyFinal(ST_SESSION_HANDLE *sSession, CK_BYTE_PTR pSignature,
-		     CK_ULONG ulSignatureLen)
+CK_RV SC_VerifyFinal(STDLL_TokData_t *tokdata, ST_SESSION_HANDLE *sSession,
+		     CK_BYTE_PTR pSignature, CK_ULONG ulSignatureLen)
 {
 	SESSION *sess = NULL;
 	CK_RV rc = CKR_OK;
 
-	if (initialized == FALSE) {
+	if (tokdata->initialized == FALSE) {
 		TRACE_ERROR("%s\n", ock_err(ERR_CRYPTOKI_NOT_INITIALIZED));
 		rc = CKR_CRYPTOKI_NOT_INITIALIZED;
 		goto done;
@@ -2717,8 +2718,8 @@ CK_RV SC_VerifyFinal(ST_SESSION_HANDLE *sSession, CK_BYTE_PTR pSignature,
 		goto done;
 	}
 
-	rc = verify_mgr_verify_final(sess, &sess->verify_ctx, pSignature,
-				     ulSignatureLen);
+	rc = verify_mgr_verify_final(tokdata, sess, &sess->verify_ctx,
+				     pSignature, ulSignatureLen);
 	if (rc != CKR_OK)
 		TRACE_DEVEL("verify_mgr_verify_final() failed.\n");
 
@@ -2732,13 +2733,14 @@ CK_RV SC_VerifyFinal(ST_SESSION_HANDLE *sSession, CK_BYTE_PTR pSignature,
 }
 
 
-CK_RV SC_VerifyRecoverInit(ST_SESSION_HANDLE *sSession,
+CK_RV SC_VerifyRecoverInit(STDLL_TokData_t *tokdata,
+			   ST_SESSION_HANDLE *sSession,
 			   CK_MECHANISM_PTR pMechanism, CK_OBJECT_HANDLE hKey)
 {
 	SESSION *sess = NULL;
 	CK_RV rc = CKR_OK;
 
-	if (initialized == FALSE) {
+	if (tokdata->initialized == FALSE) {
 		TRACE_ERROR("%s\n", ock_err(ERR_CRYPTOKI_NOT_INITIALIZED));
 		rc = CKR_CRYPTOKI_NOT_INITIALIZED;
 		goto done;
@@ -2773,7 +2775,8 @@ CK_RV SC_VerifyRecoverInit(ST_SESSION_HANDLE *sSession,
 		goto done;
 	}
 
-	rc = verify_mgr_init(sess, &sess->verify_ctx, pMechanism, TRUE, hKey);
+	rc = verify_mgr_init(tokdata, sess, &sess->verify_ctx, pMechanism,
+			     TRUE, hKey);
 	if (rc != CKR_OK)
 		TRACE_DEVEL("verify_mgr_init() failed.\n");
 
@@ -2786,15 +2789,15 @@ done:
 }
 
 
-CK_RV SC_VerifyRecover(ST_SESSION_HANDLE *sSession, CK_BYTE_PTR pSignature,
-		       CK_ULONG ulSignatureLen, CK_BYTE_PTR pData,
-		       CK_ULONG_PTR pulDataLen)
+CK_RV SC_VerifyRecover(STDLL_TokData_t *tokdata, ST_SESSION_HANDLE *sSession,
+		       CK_BYTE_PTR pSignature, CK_ULONG ulSignatureLen,
+		       CK_BYTE_PTR pData, CK_ULONG_PTR pulDataLen)
 {
 	SESSION *sess = NULL;
 	CK_BBOOL length_only = FALSE;
 	CK_RV rc = CKR_OK;
 
-	if (initialized == FALSE) {
+	if (tokdata->initialized == FALSE) {
 		TRACE_ERROR("%s\n", ock_err(ERR_CRYPTOKI_NOT_INITIALIZED));
 		rc = CKR_CRYPTOKI_NOT_INITIALIZED;
 		goto done;
@@ -2823,9 +2826,9 @@ CK_RV SC_VerifyRecover(ST_SESSION_HANDLE *sSession, CK_BYTE_PTR pSignature,
 	if (!pData)
 		length_only = TRUE;
 
-	rc = verify_mgr_verify_recover(sess, length_only, &sess->verify_ctx,
-				       pSignature, ulSignatureLen, pData,
-				       pulDataLen);
+	rc = verify_mgr_verify_recover(tokdata, sess, length_only,
+				       &sess->verify_ctx, pSignature,
+				       ulSignatureLen, pData, pulDataLen);
 	if (rc != CKR_OK)
 		TRACE_DEVEL("verify_mgr_verify_recover() failed.\n");
 
@@ -2884,12 +2887,13 @@ CK_RV SC_SignEncryptUpdate(STDLL_TokData_t *tokdata,
 }
 
 
-CK_RV SC_DecryptVerifyUpdate(ST_SESSION_HANDLE *sSession,
+CK_RV SC_DecryptVerifyUpdate(STDLL_TokData_t *tokdata,
+			     ST_SESSION_HANDLE *sSession,
 			     CK_BYTE_PTR pEncryptedPart,
 			     CK_ULONG ulEncryptedPartLen, CK_BYTE_PTR pPart,
 			     CK_ULONG_PTR pulPartLen)
 {
-	if (initialized == FALSE) {
+	if (tokdata->initialized == FALSE) {
 		TRACE_ERROR("%s\n", ock_err(ERR_CRYPTOKI_NOT_INITIALIZED));
 		return CKR_CRYPTOKI_NOT_INITIALIZED;
 	}

@@ -3772,8 +3772,8 @@ C_Verify(CK_SESSION_HANDLE hSession,
 	}
 	if (fcn->ST_Verify) {
 		// Map the Session to the slot session
-		rv = fcn->ST_Verify(&rSession, pData, ulDataLen, pSignature,
-				    ulSignatureLen);
+		rv = fcn->ST_Verify(sltp->TokData, &rSession, pData, ulDataLen,
+				    pSignature, ulSignatureLen);
 		TRACE_DEVEL("fcn->ST_Verify returned: 0x%lx\n", rv);
 	} else {
 		TRACE_ERROR("%s\n", ock_err(ERR_FUNCTION_NOT_SUPPORTED));
@@ -3822,7 +3822,8 @@ C_VerifyFinal(CK_SESSION_HANDLE hSession,
 	}
 	if (fcn->ST_VerifyFinal) {
 		// Map the Session to the slot session
-		rv = fcn->ST_VerifyFinal(&rSession, pSignature, ulSignatureLen);
+		rv = fcn->ST_VerifyFinal(sltp->TokData, &rSession, pSignature,
+					 ulSignatureLen);
 		TRACE_DEVEL("fcn->ST_VerifyFinal returned: 0x%lx\n", rv);
 	} else {
 		TRACE_ERROR("%s\n", ock_err(ERR_FUNCTION_NOT_SUPPORTED));
@@ -3873,7 +3874,8 @@ C_VerifyInit(CK_SESSION_HANDLE hSession,
 	}
 	if (fcn->ST_VerifyInit) {
 		// Map the Session to the slot session
-		rv = fcn->ST_VerifyInit(&rSession, pMechanism, hKey);
+		rv = fcn->ST_VerifyInit(sltp->TokData, &rSession,
+					pMechanism, hKey);
 		TRACE_DEVEL("fcn->ST_VerifyInit returned: 0x%lx\n", rv);
 	} else {
 		TRACE_ERROR("%s\n", ock_err(ERR_FUNCTION_NOT_SUPPORTED));
@@ -3925,7 +3927,7 @@ C_VerifyRecover(CK_SESSION_HANDLE hSession,
 	}
 	if (fcn->ST_VerifyRecover) {
 		// Map the Session to the slot session
-		rv = fcn->ST_VerifyRecover(&rSession, pSignature,
+		rv = fcn->ST_VerifyRecover(sltp->TokData, &rSession, pSignature,
 					   ulSignatureLen, pData, pulDataLen);
 		TRACE_DEVEL("fcn->ST_VerifyRecover returned: 0x%lx\n", rv);
 	} else {
@@ -3975,7 +3977,8 @@ C_VerifyRecoverInit(CK_SESSION_HANDLE hSession,
 	}
 	if (fcn->ST_VerifyRecoverInit) {
 		// Map the Session to the slot session
-		rv = fcn->ST_VerifyRecoverInit(&rSession, pMechanism, hKey);
+		rv = fcn->ST_VerifyRecoverInit(sltp->TokData, &rSession,
+					       pMechanism, hKey);
 		TRACE_DEVEL("fcn->ST_VerifyRecoverInit returned:0x%lx\n", rv);
 	} else {
 		TRACE_ERROR("%s\n", ock_err(ERR_FUNCTION_NOT_SUPPORTED));
@@ -4020,7 +4023,8 @@ C_VerifyUpdate(CK_SESSION_HANDLE hSession,
 	}
 	if (fcn->ST_VerifyUpdate) {
 		// Map the Session to the slot session
-		rv = fcn->ST_VerifyUpdate(&rSession, pPart, ulPartLen);
+		rv = fcn->ST_VerifyUpdate(sltp->TokData, &rSession, pPart,
+					  ulPartLen);
 		TRACE_DEVEL("fcn->ST_VerifyUpdate returned: 0x%lx\n", rv);
 	} else {
 		TRACE_ERROR("%s\n", ock_err(ERR_FUNCTION_NOT_SUPPORTED));
