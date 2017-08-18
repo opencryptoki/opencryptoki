@@ -1737,8 +1737,8 @@ C_GetAttributeValue(CK_SESSION_HANDLE hSession,
 	}
 	if (fcn->ST_GetAttributeValue) {
 		// Map the Session to the slot session
-		rv = fcn->ST_GetAttributeValue(&rSession, hObject, pTemplate,
-					       ulCount);
+		rv = fcn->ST_GetAttributeValue(sltp->TokData, &rSession,
+					       hObject, pTemplate, ulCount);
 		TRACE_DEVEL("fcn->ST_GetAttributeValue returned:0x%lx\n", rv);
 	} else {
 		TRACE_ERROR("%s\n", ock_err(ERR_FUNCTION_NOT_SUPPORTED));

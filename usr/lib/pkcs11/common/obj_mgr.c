@@ -1269,7 +1269,8 @@ object_mgr_find_final( SESSION *sess )
 //
 //
 CK_RV
-object_mgr_get_attribute_values( SESSION           * sess,
+object_mgr_get_attribute_values( STDLL_TokData_t  *tokdata,
+				 SESSION           * sess,
                                  CK_OBJECT_HANDLE    handle,
                                  CK_ATTRIBUTE      * pTemplate,
                                  CK_ULONG            ulCount )

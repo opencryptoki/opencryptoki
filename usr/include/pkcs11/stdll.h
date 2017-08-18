@@ -129,7 +129,7 @@ typedef CK_RV(CK_PTR  ST_C_GetObjectSize)
                        (STDLL_TokData_t *tokdata, ST_SESSION_T *hSession, CK_OBJECT_HANDLE hObject,
                         CK_ULONG_PTR pusSize);
 typedef CK_RV(CK_PTR  ST_C_GetAttributeValue)
-                       (ST_SESSION_T *hSession, CK_OBJECT_HANDLE hObject,
+                       (STDLL_TokData_t *tokdata, ST_SESSION_T *hSession, CK_OBJECT_HANDLE hObject,
                         CK_ATTRIBUTE_PTR pTemplate, CK_ULONG usCount);
 typedef CK_RV(CK_PTR  ST_C_SetAttributeValue)
                        (ST_SESSION_T *hSession, CK_OBJECT_HANDLE hObject,

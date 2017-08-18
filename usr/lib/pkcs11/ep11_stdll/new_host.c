@@ -1188,14 +1188,14 @@ done:
 }
 
 
-CK_RV SC_GetAttributeValue(ST_SESSION_HANDLE *sSession,
+CK_RV SC_GetAttributeValue(STDLL_TokData_t *tokdata, ST_SESSION_HANDLE *sSession,
 			   CK_OBJECT_HANDLE hObject, CK_ATTRIBUTE_PTR pTemplate,
 			   CK_ULONG ulCount)
 {
 	SESSION *sess = NULL;
 	CK_RV rc = CKR_OK;
 
-	if (initialized == FALSE) {
+	if (tokdata->initialized == FALSE) {
 		TRACE_ERROR("%s\n", ock_err(ERR_CRYPTOKI_NOT_INITIALIZED));
 		rc = CKR_CRYPTOKI_NOT_INITIALIZED;
 		goto done;
@@ -1208,7 +1208,7 @@ CK_RV SC_GetAttributeValue(ST_SESSION_HANDLE *sSession,
 		goto done;
 	}
 
-	rc = object_mgr_get_attribute_values(sess, hObject, pTemplate,
+	rc = object_mgr_get_attribute_values(tokdata, sess, hObject, pTemplate,
 					     ulCount);
 	if (rc != CKR_OK)
 		TRACE_DEVEL("obj_mgr_get_attribute_value() failed.\n");

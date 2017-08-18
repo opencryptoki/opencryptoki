@@ -270,7 +270,8 @@ token_get_key_blob(CK_OBJECT_HANDLE ckKey, CK_ULONG *blob_size, CK_BYTE **ret_bl
 	dummy_sess.session_info.state = CKS_RO_USER_FUNCTIONS;
 
 	/* find object the first time to return the size of the buffer needed */
-	if ((rc = object_mgr_get_attribute_values(&dummy_sess, ckKey, tmpl, 1))) {
+	if ((rc = object_mgr_get_attribute_values(tokdata, &dummy_sess, ckKey,
+						  tmpl, 1))) {
 		TRACE_DEVEL("object_mgr_get_attribute_values failed:rc=0x%lx\n",
 			     rc);
 		goto done;
@@ -285,7 +286,8 @@ token_get_key_blob(CK_OBJECT_HANDLE ckKey, CK_ULONG *blob_size, CK_BYTE **ret_bl
 
 	tmpl[0].pValue = blob;
 	/* find object the 2nd time to fill the buffer with data */
-	if ((rc = object_mgr_get_attribute_values(&dummy_sess, ckKey, tmpl, 1))) {
+	if ((rc = object_mgr_get_attribute_values(tokdata, &dummy_sess, ckKey,
+						  tmpl, 1))) {
 		TRACE_DEVEL("object_mgr_get_attribute_values failed:rc=0x%lx\n",
 			     rc);
 		goto done;
