@@ -260,7 +260,8 @@ typedef CK_RV (CK_PTR  ST_C_WrapKey)
                         CK_OBJECT_HANDLE hWrappingKey, CK_OBJECT_HANDLE hKey,
                         CK_BYTE_PTR pWrappedKey, CK_ULONG_PTR pusWrappedKeyLen);
 typedef CK_RV (CK_PTR  ST_C_UnwrapKey)
-                       (ST_SESSION_T *hSession, CK_MECHANISM_PTR pMechanism,
+                       (STDLL_TokData_t *tokdata, ST_SESSION_T *hSession,
+			CK_MECHANISM_PTR pMechanism,
                         CK_OBJECT_HANDLE hUnwrappingKey, CK_BYTE_PTR pWrappedKey,
                         CK_ULONG usWrappedKeyLen, CK_ATTRIBUTE_PTR pTemplate,
                         CK_ULONG usAttributeCount, CK_OBJECT_HANDLE_PTR phKey);
