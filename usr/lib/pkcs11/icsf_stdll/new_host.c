@@ -414,14 +414,14 @@ done:
 }
 
 
-CK_RV SC_InitPIN(ST_SESSION_HANDLE *sSession, CK_CHAR_PTR pPin,
-		 CK_ULONG ulPinLen)
+CK_RV SC_InitPIN(STDLL_TokData_t *tokdata, ST_SESSION_HANDLE *sSession,
+		 CK_CHAR_PTR pPin, CK_ULONG ulPinLen)
 {
 	SESSION *sess = NULL;
 	CK_RV rc = CKR_OK;
 	CK_FLAGS_32 *flags = NULL;
 
-	if (initialized == FALSE) {
+	if (tokdata->initialized == FALSE) {
 		TRACE_ERROR("%s\n", ock_err(ERR_CRYPTOKI_NOT_INITIALIZED));
 		rc = CKR_CRYPTOKI_NOT_INITIALIZED;
 		goto done;
@@ -451,7 +451,7 @@ CK_RV SC_InitPIN(ST_SESSION_HANDLE *sSession, CK_CHAR_PTR pPin,
 		goto done;
 	}
 
-	rc = icsftok_init_pin(sess, pPin, ulPinLen);
+	rc = icsftok_init_pin(tokdata, sess, pPin, ulPinLen);
 	if (rc == CKR_OK) {
 		flags = &nv_token_data->token_info.flags;
 		*flags &= ~(CKF_USER_PIN_LOCKED | CKF_USER_PIN_FINAL_TRY |
