@@ -796,7 +796,8 @@ CK_RV load_public_token_objects(void)
 				continue;
 			}
 			// ... grab object mutex here.
-			if (object_mgr_restore_obj_withSize(buf, NULL, size) !=
+			if (object_mgr_restore_obj_withSize(tokdata, buf,
+							    NULL, size) !=
 							    CKR_OK) {
 				OCK_SYSLOG(LOG_ERR,
 					   "Cannot restore token object %s "
@@ -988,7 +989,7 @@ CK_RV restore_private_token_object(CK_BYTE * data, CK_ULONG len, OBJECT * pObj)
 	// the token object...
 	//
 
-	rc = object_mgr_restore_obj(obj_data, pObj);
+	rc = object_mgr_restore_obj(tokdata, obj_data, pObj);
 	if (rc != CKR_OK) {
 		goto done;
 	}
@@ -1458,7 +1459,7 @@ CK_RV reload_token_object(OBJECT * obj)
 	if (priv)
 		rc = restore_private_token_object(buf, size_64, obj);
 	else
-		rc = object_mgr_restore_obj(buf, obj);
+		rc = object_mgr_restore_obj(tokdata, buf, obj);
 
 done:
 	if (fp)
