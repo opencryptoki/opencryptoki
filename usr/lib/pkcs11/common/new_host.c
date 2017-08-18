@@ -315,10 +315,10 @@ done:
 	return rc;
 }
 
-CK_RV SC_WaitForSlotEvent(CK_FLAGS flags, CK_SLOT_ID_PTR pSlot,
-			  CK_VOID_PTR pReserved)
+CK_RV SC_WaitForSlotEvent(STDLL_TokData_t *tokdata, CK_FLAGS flags,
+			  CK_SLOT_ID_PTR pSlot, CK_VOID_PTR pReserved)
 {
-	if (initialized == FALSE) {
+	if (tokdata->initialized == FALSE) {
 		TRACE_ERROR("%s\n", ock_err(ERR_CRYPTOKI_NOT_INITIALIZED));
 		return CKR_CRYPTOKI_NOT_INITIALIZED;
 	}
