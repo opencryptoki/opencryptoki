@@ -320,13 +320,14 @@ ec_hash_sign(	STDLL_TokData_t      * tokdata,
       return rc;
    }
 
-   rc = digest_mgr_init( sess, &digest_ctx, &digest_mech );
+   rc = digest_mgr_init( tokdata, sess, &digest_ctx, &digest_mech );
    if (rc != CKR_OK){
       TRACE_DEVEL("Digest Mgr Init failed.\n");
       return rc;
    }
 
-   rc = digest_mgr_digest( sess, length_only, &digest_ctx, in_data, in_data_len, hash, &hash_len );
+   rc = digest_mgr_digest( tokdata, sess, length_only, &digest_ctx, in_data,
+			   in_data_len, hash, &hash_len );
    if (rc != CKR_OK){
       TRACE_DEVEL("Digest Mgr Digest failed.\n");
       return rc;
@@ -336,13 +337,14 @@ ec_hash_sign(	STDLL_TokData_t      * tokdata,
     sign_mech.ulParameterLen = 0;
     sign_mech.pParameter     = NULL;
 
-   rc = sign_mgr_init( sess, &sign_ctx, &sign_mech, FALSE, ctx->key );
+   rc = sign_mgr_init( tokdata, sess, &sign_ctx, &sign_mech, FALSE, ctx->key );
    if (rc != CKR_OK){
       TRACE_DEVEL("Sign Mgr Init failed.\n");
       goto error;
    }
 
-   rc = sign_mgr_sign( sess, length_only, &sign_ctx, hash, hash_len, signature, sig_len );
+   rc = sign_mgr_sign( tokdata, sess, length_only, &sign_ctx, hash, hash_len,
+		       signature, sig_len );
    if (rc != CKR_OK)
       TRACE_DEVEL("Sign Mgr Sign failed.\n");
 
@@ -389,7 +391,8 @@ ec_hash_sign_update( STDLL_TokData_t      * tokdata,
       digest_mech.ulParameterLen = 0;
       digest_mech.pParameter     = NULL;
 
-      rc = digest_mgr_init( sess, &context->hash_context, &digest_mech );
+      rc = digest_mgr_init( tokdata, sess, &context->hash_context,
+			    &digest_mech );
       if (rc != CKR_OK){
 	 TRACE_DEVEL("Digest Mgr Init failed.\n");
 	 return rc;
@@ -397,7 +400,8 @@ ec_hash_sign_update( STDLL_TokData_t      * tokdata,
       context->flag = TRUE;
    }
 
-   rc = digest_mgr_digest_update( sess, &context->hash_context, in_data, in_data_len );
+   rc = digest_mgr_digest_update( tokdata, sess, &context->hash_context, in_data,
+				  in_data_len );
    if (rc != CKR_OK){
       TRACE_DEVEL("Digest Mgr Update failed.\n");
       return rc;
@@ -435,7 +439,8 @@ ec_hash_sign_final( STDLL_TokData_t      * tokdata,
       return rc;
    }
 
-   rc = digest_mgr_digest_final( sess, length_only, &context->hash_context, hash, &hash_len );
+   rc = digest_mgr_digest_final( tokdata, sess, length_only,
+				 &context->hash_context, hash, &hash_len );
    if (rc != CKR_OK){
       TRACE_DEVEL("Digest Mgr Final failed.\n");
       return rc;
@@ -445,14 +450,14 @@ ec_hash_sign_final( STDLL_TokData_t      * tokdata,
    sign_mech.ulParameterLen = 0;
    sign_mech.pParameter     = NULL;
 
-   rc = sign_mgr_init( sess, &sign_ctx, &sign_mech, FALSE, ctx->key );
+   rc = sign_mgr_init( tokdata, sess, &sign_ctx, &sign_mech, FALSE, ctx->key );
    if (rc != CKR_OK){
       TRACE_DEVEL("Sign Mgr Init failed.\n");
       goto done;
    }
 
    //rc = sign_mgr_sign( sess, length_only, &sign_ctx, ber_data, ber_data_len, signature, sig_len );
-   rc = sign_mgr_sign( sess, length_only, &sign_ctx, hash, hash_len, signature, sig_len );
+   rc = sign_mgr_sign( tokdata, sess, length_only, &sign_ctx, hash, hash_len, signature, sig_len );
    if (rc != CKR_OK)
       TRACE_DEVEL("Sign Mgr Sign failed.\n");
 
@@ -516,13 +521,14 @@ ec_hash_verify( STDLL_TokData_t      * tokdata,
       return rc;
    }
 
-   rc = digest_mgr_init( sess, &digest_ctx, &digest_mech );
+   rc = digest_mgr_init( tokdata, sess, &digest_ctx, &digest_mech );
    if (rc != CKR_OK){
       TRACE_DEVEL("Digest Mgr Init failed.\n");
       return rc;
    }
 
-   rc = digest_mgr_digest( sess, FALSE, &digest_ctx, in_data, in_data_len, hash, &hash_len );
+   rc = digest_mgr_digest( tokdata, sess, FALSE, &digest_ctx, in_data,
+			   in_data_len, hash, &hash_len );
    if (rc != CKR_OK){
       TRACE_DEVEL("Digest Mgr Digest failed.\n");
       return rc;
@@ -534,14 +540,14 @@ ec_hash_verify( STDLL_TokData_t      * tokdata,
    verify_mech.ulParameterLen = 0;
    verify_mech.pParameter     = NULL;
 
-   rc = verify_mgr_init( sess, &verify_ctx, &verify_mech, FALSE, ctx->key );
+   rc = verify_mgr_init( tokdata, sess, &verify_ctx, &verify_mech, FALSE, ctx->key );
    if (rc != CKR_OK){
       TRACE_DEVEL("Verify Mgr Init failed.\n");
       goto done;
    }
 
    //rc = verify_mgr_verify( sess, &verify_ctx, ber_data, ber_data_len, signature, sig_len );
-   rc = verify_mgr_verify( sess, &verify_ctx, hash, hash_len, signature, sig_len );
+   rc = verify_mgr_verify( tokdata, sess, &verify_ctx, hash, hash_len, signature, sig_len );
    if (rc != CKR_OK)
       TRACE_DEVEL("Verify Mgr Verify failed.\n");
 done:
@@ -588,7 +594,8 @@ ec_hash_verify_update( STDLL_TokData_t      * tokdata,
       digest_mech.ulParameterLen = 0;
       digest_mech.pParameter     = NULL;
 
-      rc = digest_mgr_init( sess, &context->hash_context, &digest_mech );
+      rc = digest_mgr_init( tokdata, sess, &context->hash_context,
+			    &digest_mech );
       if (rc != CKR_OK){
 	 TRACE_DEVEL("Digest Mgr Init failed.\n");
 	 return rc;
@@ -596,7 +603,8 @@ ec_hash_verify_update( STDLL_TokData_t      * tokdata,
       context->flag = TRUE;
    }
 
-   rc = digest_mgr_digest_update( sess, &context->hash_context, in_data, in_data_len );
+   rc = digest_mgr_digest_update( tokdata, sess, &context->hash_context,
+				  in_data, in_data_len );
    if (rc != CKR_OK){
       TRACE_DEVEL("Digest Mgr Update failed.\n");
       return rc;
@@ -632,7 +640,8 @@ ec_hash_verify_final( STDLL_TokData_t      * tokdata,
       return rc;
    }
 
-   rc = digest_mgr_digest_final( sess, FALSE, &context->hash_context, hash, &hash_len );
+   rc = digest_mgr_digest_final( tokdata, sess, FALSE, &context->hash_context,
+				 hash, &hash_len );
    if (rc != CKR_OK){
       TRACE_DEVEL("Digest Mgr Final failed.\n");
       return rc;
@@ -641,13 +650,13 @@ ec_hash_verify_final( STDLL_TokData_t      * tokdata,
    verify_mech.ulParameterLen = 0;
    verify_mech.pParameter     = NULL;
 
-   rc = verify_mgr_init( sess, &verify_ctx, &verify_mech, FALSE, ctx->key );
+   rc = verify_mgr_init( tokdata, sess, &verify_ctx, &verify_mech, FALSE, ctx->key );
    if (rc != CKR_OK){
       TRACE_DEVEL("Verify Mgr Init failed.\n");
       goto done;
    }
 
-   rc = verify_mgr_verify( sess, &verify_ctx, hash, hash_len, signature, sig_len );
+   rc = verify_mgr_verify( tokdata, sess, &verify_ctx, hash, hash_len, signature, sig_len );
    if (rc != CKR_OK)
       TRACE_DEVEL("Verify Mgr Verify failed.\n");
 done:

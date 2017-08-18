@@ -1932,24 +1932,29 @@ CK_RV     decr_mgr_update_des3_cbc( STDLL_TokData_t   * tokdata, SESSION  *sess,
 //
 CK_RV    digest_mgr_cleanup( DIGEST_CONTEXT *ctx );
 
-CK_RV    digest_mgr_init( SESSION        *sess,
+CK_RV    digest_mgr_init( STDLL_TokData_t  *tokdata,
+			  SESSION        *sess,
                           DIGEST_CONTEXT *ctx,
                           CK_MECHANISM   *mech );
 
-CK_RV    digest_mgr_digest( SESSION        *sess, CK_BBOOL  length_only,
+CK_RV    digest_mgr_digest( STDLL_TokData_t  *tokdata,
+			    SESSION        *sess, CK_BBOOL  length_only,
                             DIGEST_CONTEXT *ctx,
                             CK_BYTE        *data, CK_ULONG  data_len,
                             CK_BYTE        *hash, CK_ULONG *hash_len );
 
-CK_RV    digest_mgr_digest_update( SESSION        *sess,
+CK_RV    digest_mgr_digest_update( STDLL_TokData_t  *tokdata,
+				   SESSION        *sess,
                                    DIGEST_CONTEXT *ctx,
                                    CK_BYTE        *data,  CK_ULONG data_len );
 
-CK_RV    digest_mgr_digest_key( SESSION          *sess,
+CK_RV    digest_mgr_digest_key( STDLL_TokData_t  *tokdata,
+				SESSION          *sess,
                                 DIGEST_CONTEXT   *ctx,
                                 CK_OBJECT_HANDLE  key_handle );
 
-CK_RV    digest_mgr_digest_final( SESSION        *sess, CK_BBOOL  length_only,
+CK_RV    digest_mgr_digest_final( STDLL_TokData_t  *tokdata,
+				  SESSION        *sess, CK_BBOOL  length_only,
                                   DIGEST_CONTEXT *ctx,
                                   CK_BYTE        *hash, CK_ULONG *hash_len );
 

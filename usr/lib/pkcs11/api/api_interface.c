@@ -820,8 +820,8 @@ C_Digest(CK_SESSION_HANDLE hSession,
 	}
 	if (fcn->ST_Digest) {
 		// Map the Session to the slot session
-		rv = fcn->ST_Digest(&rSession, pData, ulDataLen, pDigest,
-				    pulDigestLen);
+		rv = fcn->ST_Digest(sltp->TokData, &rSession, pData, ulDataLen,
+				    pDigest, pulDigestLen);
 		TRACE_DEVEL("fcn->ST_Digest:0x%lx\n", rv);
 	} else {
 		TRACE_ERROR("%s\n", ock_err(ERR_FUNCTION_NOT_SUPPORTED));
@@ -876,7 +876,8 @@ C_DigestEncryptUpdate(CK_SESSION_HANDLE hSession,
 	}
 	if (fcn->ST_DigestEncryptUpdate) {
 		// Map the Session to the slot session
-		rv = fcn->ST_DigestEncryptUpdate(&rSession, pPart, ulPartLen,
+		rv = fcn->ST_DigestEncryptUpdate(sltp->TokData, &rSession,
+						 pPart, ulPartLen,
 						 pEncryptedPart,
 						 pulEncryptedPartLen);
 		TRACE_DEVEL("fcn->ST_DigestEncryptUpdate returned:0x%lx\n", rv);
@@ -927,7 +928,8 @@ C_DigestFinal(CK_SESSION_HANDLE hSession,
 	}
 	if (fcn->ST_DigestFinal) {
 		// Map the Session to the slot session
-		rv = fcn->ST_DigestFinal(&rSession, pDigest, pulDigestLen);
+		rv = fcn->ST_DigestFinal(sltp->TokData, &rSession, pDigest,
+					 pulDigestLen);
 		TRACE_DEVEL("fcn->ST_DigestFinal returned:0x%lx\n", rv);
 	} else {
 		TRACE_ERROR("%s\n", ock_err(ERR_FUNCTION_NOT_SUPPORTED));
@@ -976,7 +978,7 @@ CK_RV C_DigestInit(CK_SESSION_HANDLE hSession, CK_MECHANISM_PTR pMechanism)
 	}
 	if (fcn->ST_DigestInit) {
 		// Map the Session to the slot session
-		rv = fcn->ST_DigestInit(&rSession, pMechanism);
+		rv = fcn->ST_DigestInit(sltp->TokData, &rSession, pMechanism);
 		TRACE_DEVEL("fcn->ST_DigestInit returned:0x%lx\n", rv);
 	} else {
 		TRACE_ERROR("%s\n", ock_err(ERR_FUNCTION_NOT_SUPPORTED));
@@ -1019,7 +1021,7 @@ CK_RV C_DigestKey(CK_SESSION_HANDLE hSession, CK_OBJECT_HANDLE hKey)
 	}
 	if (fcn->ST_DigestKey) {
 		// Map the Session to the slot session
-		rv = fcn->ST_DigestKey(&rSession, hKey);
+		rv = fcn->ST_DigestKey(sltp->TokData, &rSession, hKey);
 		TRACE_DEBUG("fcn->ST_DigestKey returned:0x%lx\n", rv);
 	} else {
 		TRACE_ERROR("%s\n", ock_err(ERR_FUNCTION_NOT_SUPPORTED));
@@ -1064,7 +1066,8 @@ C_DigestUpdate(CK_SESSION_HANDLE hSession,
 	}
 	if (fcn->ST_DigestUpdate) {
 		// Map the Session to the slot session
-		rv = fcn->ST_DigestUpdate(&rSession, pPart, ulPartLen);
+		rv = fcn->ST_DigestUpdate(sltp->TokData, &rSession, pPart,
+					  ulPartLen);
 		TRACE_DEVEL("fcn->ST_DigestUpdate returned:0x%lx\n", rv);
 	} else {
 		TRACE_ERROR("%s\n", ock_err(ERR_FUNCTION_NOT_SUPPORTED));
