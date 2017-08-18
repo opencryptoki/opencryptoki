@@ -282,8 +282,8 @@ typedef CK_RV	(CK_PTR  ST_Notify)
 						(ST_SESSION_T *hSession, CK_NOTIFICATION event,
 						 CK_VOID_PTR pApplication);
 typedef CK_RV	(CK_PTR  ST_C_WaitForSlotEvent)
-						(CK_FLAGS flags, CK_SLOT_ID_PTR pSlot,
-						 CK_VOID_PTR pReserved);
+						(STDLL_TokData_t *tokdata, CK_FLAGS flags,
+						 CK_SLOT_ID_PTR pSlot, CK_VOID_PTR pReserved);
 
 
 
