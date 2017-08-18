@@ -1009,7 +1009,7 @@ CK_RV  des_ecb_wrap_key( STDLL_TokData_t *tokdata, SESSION *sess,
 // DES mechanisms
 //
 CK_RV  ckm_des_key_gen ( STDLL_TokData_t *tokdata, TEMPLATE *tmpl );
-CK_RV  ckm_cdmf_key_gen( TEMPLATE *tmpl );
+CK_RV  ckm_cdmf_key_gen( STDLL_TokData_t *tokdata, TEMPLATE *tmpl );
 
 CK_RV  ckm_des_ecb_encrypt( STDLL_TokData_t *tokdata,
 			    CK_BYTE *in_data,   CK_ULONG in_data_len,
@@ -2414,7 +2414,8 @@ CK_RV     idea_validate_attribute( TEMPLATE *tmpl, CK_ATTRIBUTE *attr, CK_ULONG 
 // CDMF routines
 CK_RV     cdmf_check_required_attributes( TEMPLATE *tmpl, CK_ULONG mode );
 CK_RV     cdmf_set_default_attributes( TEMPLATE *tmpl, CK_ULONG mode );
-CK_RV     cdmf_validate_attribute( TEMPLATE *tmpl, CK_ATTRIBUTE *attr, CK_ULONG mode );
+CK_RV     cdmf_validate_attribute( STDLL_TokData_t *tokdata, TEMPLATE *tmpl,
+				   CK_ATTRIBUTE *attr, CK_ULONG mode );
 
 // SKIPJACK routines
 CK_RV     skipjack_check_required_attributes( TEMPLATE *tmpl, CK_ULONG mode );
