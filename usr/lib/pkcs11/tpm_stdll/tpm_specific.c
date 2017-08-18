@@ -208,7 +208,8 @@ token_specific_init(STDLL_TokData_t *tokdata, CK_SLOT_ID SlotNumber,
 }
 
 CK_RV
-token_find_key(int key_type, CK_OBJECT_CLASS class, CK_OBJECT_HANDLE *handle)
+token_find_key(STDLL_TokData_t *tokdata, int key_type, CK_OBJECT_CLASS class,
+	       CK_OBJECT_HANDLE *handle)
 {
 	CK_BYTE *key_id = util_create_id(key_type);
 	CK_RV rc = CKR_OK;
@@ -227,7 +228,7 @@ token_find_key(int key_type, CK_OBJECT_CLASS class, CK_OBJECT_HANDLE *handle)
 	memset(&dummy_sess, 0, sizeof(SESSION));
 	dummy_sess.session_info.state = CKS_RO_USER_FUNCTIONS;
 
-	if ((rc = object_mgr_find_init(&dummy_sess, tmpl, 3))) {
+	if ((rc = object_mgr_find_init(tokdata, &dummy_sess, tmpl, 3))) {
 		goto done;
 	}
 
@@ -719,7 +720,8 @@ token_load_public_root_key()
 		return result;
 	}
 
-	if ((result = token_find_key(TPMTOK_PUBLIC_ROOT_KEY, CKO_PRIVATE_KEY,  &ckPublicRootKey))) {
+	if ((result = token_find_key(tokdata, TPMTOK_PUBLIC_ROOT_KEY,
+				     CKO_PRIVATE_KEY, &ckPublicRootKey))) {
 		TRACE_ERROR("token_find_key failed. rc=0x%x\n", result);
 		return CKR_FUNCTION_FAILED;
 	}
@@ -1072,7 +1074,7 @@ done:
 }
 
 CK_RV
-token_update_private_key(TSS_HKEY hKey, int key_type)
+token_update_private_key(STDLL_TokData_t *tokdata, TSS_HKEY hKey, int key_type)
 {
 	CK_OBJECT_HANDLE ckHandle;
 	CK_RV rc;
@@ -1083,7 +1085,7 @@ token_update_private_key(TSS_HKEY hKey, int key_type)
 	dummy_sess.session_info.state = CKS_RW_USER_FUNCTIONS;
 
 	/* find the private key portion of the key */
-	if ((rc = token_find_key(key_type, CKO_PRIVATE_KEY, &ckHandle))) {
+	if ((rc = token_find_key(tokdata, key_type, CKO_PRIVATE_KEY, &ckHandle))) {
 		TRACE_ERROR("token_find_key failed: 0x%lx\n", rc);
 		return rc;
 	}
@@ -1094,7 +1096,7 @@ token_update_private_key(TSS_HKEY hKey, int key_type)
 		return rc;
 	}
 
-	if ((rc = token_store_priv_key(hKey, key_type, &ckHandle))) {
+	if ((rc = token_store_priv_key(tokdata, hKey, key_type, &ckHandle))) {
 		TRACE_DEVEL("token_store_priv_key failed: 0x%lx\n", rc);
 	}
 
@@ -1102,18 +1104,19 @@ token_update_private_key(TSS_HKEY hKey, int key_type)
 }
 
 CK_RV
-token_store_tss_key(TSS_HKEY hKey, int key_type, CK_OBJECT_HANDLE *ckKey)
+token_store_tss_key(STDLL_TokData_t *tokdata, TSS_HKEY hKey, int key_type,
+		    CK_OBJECT_HANDLE *ckKey)
 {
 	CK_RV rc;
 
 	/* create a PKCS#11 pub key object for the key */
-	if ((rc = token_store_pub_key(hKey, key_type, ckKey))) {
+	if ((rc = token_store_pub_key(tokdata, hKey, key_type, ckKey))) {
 		TRACE_DEVEL("token_store_pub_key failed. rc=0x%lx\n", rc);
 		return rc;
 	}
 
 	/* create a PKCS#11 private key object for the key */
-	if ((rc = token_store_priv_key(hKey, key_type, ckKey))) {
+	if ((rc = token_store_priv_key(tokdata, hKey, key_type, ckKey))) {
 		TRACE_DEVEL("token_store_priv_key failed. rc=0x%lx\n", rc);
 	}
 
@@ -1121,7 +1124,8 @@ token_store_tss_key(TSS_HKEY hKey, int key_type, CK_OBJECT_HANDLE *ckKey)
 }
 
 CK_RV
-token_generate_leaf_key(int key_type, CK_CHAR_PTR passHash, TSS_HKEY *phKey)
+token_generate_leaf_key(STDLL_TokData_t *tokdata, int key_type,
+			CK_CHAR_PTR passHash, TSS_HKEY *phKey)
 {
 	CK_RV			rc = CKR_FUNCTION_FAILED;
 	TSS_RESULT		result;
@@ -1150,7 +1154,7 @@ token_generate_leaf_key(int key_type, CK_CHAR_PTR passHash, TSS_HKEY *phKey)
 		return result;
 	}
 
-	if ((rc = token_store_tss_key(*phKey, key_type, ckKey))) {
+	if ((rc = token_store_tss_key(tokdata, *phKey, key_type, ckKey))) {
 		TRACE_DEVEL("token_store_tss_key failed. rc=0x%x\n", result);
 	}
 
@@ -1200,7 +1204,8 @@ done:
 }
 
 CK_RV
-token_create_private_tree(CK_BYTE *pinHash, CK_BYTE *pPin)
+token_create_private_tree(STDLL_TokData_t *tokdata, CK_BYTE *pinHash,
+			  CK_BYTE *pPin)
 {
 	CK_RV		rc;
 	TSS_RESULT	result;
@@ -1234,7 +1239,8 @@ token_create_private_tree(CK_BYTE *pinHash, CK_BYTE *pPin)
 	RSA_free(rsa);
 
 	/* store the user base key in a PKCS#11 object internally */
-	if ((rc = token_store_tss_key(hPrivateRootKey, TPMTOK_PRIVATE_ROOT_KEY, &ckPrivateRootKey))) {
+	if ((rc = token_store_tss_key(tokdata, hPrivateRootKey,
+				      TPMTOK_PRIVATE_ROOT_KEY, &ckPrivateRootKey))) {
 		TRACE_DEVEL("token_store_tss_key failed. rc=0x%lx\n", rc);
 		return rc;
 	}
@@ -1247,7 +1253,8 @@ token_create_private_tree(CK_BYTE *pinHash, CK_BYTE *pPin)
 	}
 
 	/* generate the private leaf key */
-	if ((rc = token_generate_leaf_key(TPMTOK_PRIVATE_LEAF_KEY, pinHash, &hPrivateLeafKey))) {
+	if ((rc = token_generate_leaf_key(tokdata, TPMTOK_PRIVATE_LEAF_KEY,
+					  pinHash, &hPrivateLeafKey))) {
 		TRACE_DEVEL("token_generate_leaf_key failed. rc=0x%lx\n", rc);
 		return rc;
 	}
@@ -1265,7 +1272,7 @@ token_create_private_tree(CK_BYTE *pinHash, CK_BYTE *pPin)
 }
 
 CK_RV
-token_create_public_tree(CK_BYTE *pinHash, CK_BYTE *pPin)
+token_create_public_tree(STDLL_TokData_t *tokdata, CK_BYTE *pinHash, CK_BYTE *pPin)
 {
 	CK_RV		rc;
 	TSS_RESULT	result;
@@ -1305,13 +1312,15 @@ token_create_public_tree(CK_BYTE *pinHash, CK_BYTE *pPin)
 		return CKR_FUNCTION_FAILED;
 	}
 
-	if ((rc = token_store_tss_key(hPublicRootKey, TPMTOK_PUBLIC_ROOT_KEY, &ckPublicRootKey))) {
+	if ((rc = token_store_tss_key(tokdata, hPublicRootKey,
+				      TPMTOK_PUBLIC_ROOT_KEY, &ckPublicRootKey))) {
 		TRACE_DEVEL("token_store_tss_key failed. rc=0x%lx\n", rc);
 		return rc;
 	}
 
 	/* create the SO's leaf key */
-	if ((rc = token_generate_leaf_key(TPMTOK_PUBLIC_LEAF_KEY, pinHash, &hPublicLeafKey))) {
+	if ((rc = token_generate_leaf_key(tokdata, TPMTOK_PUBLIC_LEAF_KEY,
+					  pinHash, &hPublicLeafKey))) {
 		TRACE_DEVEL("token_generate_leaf_key failed. rc=0x%lx\n", rc);
 		return rc;
 	}
@@ -1393,7 +1402,7 @@ token_migrate(int key_type, CK_BYTE *pin)
 	/* Loading succeeded, so we need to get rid of the old PKCS#11 objects
 	 * and store them anew.
 	 */
-	if ((rc = token_find_key(key_type, CKO_PUBLIC_KEY, ckHandle))) {
+	if ((rc = token_find_key(tokdata, key_type, CKO_PUBLIC_KEY, ckHandle))) {
 		TRACE_ERROR("token_find_key failed. rc=0x%lx\n", rc);
 		return CKR_FUNCTION_FAILED;
 	}
@@ -1403,7 +1412,7 @@ token_migrate(int key_type, CK_BYTE *pin)
 		return rc;
 	}
 
-	if ((rc = token_find_key(key_type, CKO_PRIVATE_KEY, ckHandle))) {
+	if ((rc = token_find_key(tokdata, key_type, CKO_PRIVATE_KEY, ckHandle))) {
 		TRACE_ERROR("token_find_key failed. rc=0x%lx\n", rc);
 		return CKR_FUNCTION_FAILED;
 	}
@@ -1413,7 +1422,7 @@ token_migrate(int key_type, CK_BYTE *pin)
 		return rc;
 	}
 
-	if ((rc = token_store_tss_key(*phKey, key_type, ckHandle))) {
+	if ((rc = token_store_tss_key(tokdata, *phKey, key_type, ckHandle))) {
 		TRACE_DEVEL("token_store_tss_key failed: 0x%lx\n", rc);
 		return rc;
 	}
@@ -1616,7 +1625,8 @@ token_specific_login(SESSION *sess, CK_USER_TYPE userType, CK_CHAR_PTR pPin, CK_
 		}
 
 		/* find, load the private root key */
-		if ((rc = token_find_key(TPMTOK_PRIVATE_ROOT_KEY, CKO_PRIVATE_KEY, &ckPrivateRootKey))) {
+		if ((rc = token_find_key(tokdata, TPMTOK_PRIVATE_ROOT_KEY,
+					 CKO_PRIVATE_KEY, &ckPrivateRootKey))) {
 			/* user's key chain not found, this must be the initial login */
 			if (memcmp(hash_sha, default_user_pin_sha, SHA1_HASH_SIZE)) {
 				TRACE_ERROR("token_find_key failed and PIN != default\n");
@@ -1650,7 +1660,8 @@ token_specific_login(SESSION *sess, CK_USER_TYPE userType, CK_CHAR_PTR pPin, CK_
 		}
 
 		/* find, load the user leaf key */
-		if ((rc = token_find_key(TPMTOK_PRIVATE_LEAF_KEY, CKO_PRIVATE_KEY, &ckPrivateLeafKey))) {
+		if ((rc = token_find_key(tokdata, TPMTOK_PRIVATE_LEAF_KEY,
+					 CKO_PRIVATE_KEY, &ckPrivateLeafKey))) {
 			TRACE_ERROR("token_find_key failed. rc=0x%lx\n", rc);
 			return CKR_FUNCTION_FAILED;
 		}
@@ -1684,7 +1695,8 @@ token_specific_login(SESSION *sess, CK_USER_TYPE userType, CK_CHAR_PTR pPin, CK_
 		/* SO path --
 		 */
 		/* find, load the root key */
-		if ((rc = token_find_key(TPMTOK_PUBLIC_ROOT_KEY, CKO_PRIVATE_KEY, &ckPublicRootKey))) {
+		if ((rc = token_find_key(tokdata, TPMTOK_PUBLIC_ROOT_KEY,
+					 CKO_PRIVATE_KEY, &ckPublicRootKey))) {
 			/* The SO hasn't set her PIN yet, compare the login pin with
 			 * the hard-coded value */
 			if (memcmp(default_so_pin_sha, hash_sha, SHA1_HASH_SIZE)) {
@@ -1721,7 +1733,8 @@ token_specific_login(SESSION *sess, CK_USER_TYPE userType, CK_CHAR_PTR pPin, CK_
 		}
 
 		/* find, load the public leaf key */
-		if ((rc = token_find_key(TPMTOK_PUBLIC_LEAF_KEY, CKO_PRIVATE_KEY, &ckPublicLeafKey))) {
+		if ((rc = token_find_key(tokdata, TPMTOK_PUBLIC_LEAF_KEY,
+					 CKO_PRIVATE_KEY, &ckPublicLeafKey))) {
 			TRACE_ERROR("token_find_key failed. rc=0x%lx\n", rc);
 			return CKR_FUNCTION_FAILED;
 		}
@@ -1807,8 +1820,8 @@ verify_user_pin(CK_BYTE *hash_sha)
 	CK_RV rc;
 
 	/* find, load the private root key */
-	if ((rc = token_find_key(TPMTOK_PRIVATE_ROOT_KEY, CKO_PRIVATE_KEY,
-					&ckPrivateRootKey))) {
+	if ((rc = token_find_key(tokdata, TPMTOK_PRIVATE_ROOT_KEY,
+				 CKO_PRIVATE_KEY, &ckPrivateRootKey))) {
 		TRACE_ERROR("token_find_key failed. rc=0x%lx\n", rc);
 		return CKR_FUNCTION_FAILED;
 	}
@@ -1820,8 +1833,8 @@ verify_user_pin(CK_BYTE *hash_sha)
 	}
 
 	/* find, load the user leaf key */
-	if ((rc = token_find_key(TPMTOK_PRIVATE_LEAF_KEY, CKO_PRIVATE_KEY,
-					&ckPrivateLeafKey))) {
+	if ((rc = token_find_key(tokdata, TPMTOK_PRIVATE_LEAF_KEY,
+				 CKO_PRIVATE_KEY, &ckPrivateLeafKey))) {
 		TRACE_DEVEL("token_find_key failed. rc=0x%lx\n", rc);
 		return CKR_FUNCTION_FAILED;
 	}
@@ -1841,7 +1854,7 @@ verify_user_pin(CK_BYTE *hash_sha)
 }
 
 CK_RV
-token_specific_set_pin(SESSION *sess,
+token_specific_set_pin(STDLL_TokData_t *tokdata, SESSION *sess,
 		       CK_CHAR_PTR pOldPin, CK_ULONG ulOldPinLen,
 		       CK_CHAR_PTR pNewPin, CK_ULONG ulNewPinLen)
 {
@@ -1888,7 +1901,7 @@ token_specific_set_pin(SESSION *sess,
 				return rc;
 			}
 
-			if ((rc = token_create_private_tree(newpin_hash,
+			if ((rc = token_create_private_tree(tokdata, newpin_hash,
 							    pNewPin))) {
 				TRACE_DEVEL("FAILED creating USER tree.\n");
 				return CKR_FUNCTION_FAILED;
@@ -1925,7 +1938,8 @@ token_specific_set_pin(SESSION *sess,
 		}
 
 		/* destroy the old PKCS#11 priv key object and create a new one */
-		if ((rc = token_update_private_key(hPrivateLeafKey, TPMTOK_PRIVATE_LEAF_KEY))) {
+		if ((rc = token_update_private_key(tokdata, hPrivateLeafKey,
+						   TPMTOK_PRIVATE_LEAF_KEY))) {
 			TRACE_DEVEL("token_update_private_key failed.\n");
 			return rc;
 		}
@@ -1961,7 +1975,7 @@ token_specific_set_pin(SESSION *sess,
 				return rc;
 			}
 
-			if ((rc = token_create_public_tree(newpin_hash, pNewPin))) {
+			if ((rc = token_create_public_tree(tokdata, newpin_hash, pNewPin))) {
 				TRACE_DEVEL("FAILED creating SO tree.\n");
 				return CKR_FUNCTION_FAILED;
 			}
@@ -1986,7 +2000,8 @@ token_specific_set_pin(SESSION *sess,
 			return CKR_FUNCTION_FAILED;
 		}
 
-		if ((rc = token_update_private_key(hPublicLeafKey, TPMTOK_PUBLIC_LEAF_KEY))) {
+		if ((rc = token_update_private_key(tokdata, hPublicLeafKey,
+						   TPMTOK_PUBLIC_LEAF_KEY))) {
 			TRACE_DEVEL("token_update_private_key failed.\n");
 			return rc;
 		}
@@ -2081,7 +2096,8 @@ token_specific_init_token(STDLL_TokData_t *tokdata, CK_SLOT_ID sid,
 	}
 
 	/* find, load the migratable root key */
-	if ((rc = token_find_key(TPMTOK_PUBLIC_ROOT_KEY, CKO_PRIVATE_KEY, &ckPublicRootKey))) {
+	if ((rc = token_find_key(tokdata, TPMTOK_PUBLIC_ROOT_KEY,
+				 CKO_PRIVATE_KEY, &ckPublicRootKey))) {
 		/* The SO hasn't set her PIN yet, compare the login pin with
 		 * the hard-coded value */
 		if (memcmp(default_so_pin_sha, hash_sha, SHA1_HASH_SIZE)) {
@@ -2103,7 +2119,8 @@ token_specific_init_token(STDLL_TokData_t *tokdata, CK_SLOT_ID sid,
 	}
 
 	/* find, load the public leaf key */
-	if ((rc = token_find_key(TPMTOK_PUBLIC_LEAF_KEY, CKO_PRIVATE_KEY, &ckPublicLeafKey))) {
+	if ((rc = token_find_key(tokdata, TPMTOK_PUBLIC_LEAF_KEY,
+				 CKO_PRIVATE_KEY, &ckPublicLeafKey))) {
 		TRACE_ERROR("token_find_key failed. rc=0x%lx\n", rc);
 		return CKR_FUNCTION_FAILED;
 	}
