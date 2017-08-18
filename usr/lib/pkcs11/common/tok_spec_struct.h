@@ -244,7 +244,7 @@ struct token_specific_struct {
 	CK_RV(*t_get_mechanism_info) (CK_MECHANISM_TYPE,
 				      CK_MECHANISM_INFO_PTR);
 
-	CK_RV (*t_object_add)(OBJECT *);
+	CK_RV (*t_object_add)(STDLL_TokData_t *, OBJECT *);
 
 };
 

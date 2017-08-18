@@ -3169,7 +3169,7 @@ static CK_RV import_generic_secret_key(OBJECT *object)
 	return CKR_OK;
 }
 
-CK_RV token_specific_object_add(OBJECT *object)
+CK_RV token_specific_object_add(STDLL_TokData_t *tokdata, OBJECT *object)
 {
 
 	CK_RV rc;

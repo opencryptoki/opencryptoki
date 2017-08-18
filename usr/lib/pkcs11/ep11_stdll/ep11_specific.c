@@ -1360,7 +1360,7 @@ import_RSA_key_end:
 }
 
 CK_RV
-token_specific_object_add(OBJECT *obj)
+token_specific_object_add(STDLL_TokData_t *tokdata, OBJECT *obj)
 {
 	CK_KEY_TYPE keytype;
 	CK_ATTRIBUTE *attr = NULL;
