@@ -61,7 +61,8 @@ typedef CK_RV	(CK_PTR  ST_C_GetSlotList)
 typedef CK_RV	(CK_PTR  ST_C_GetSlotInfo)
 						(CK_SLOT_ID slotID, CK_SLOT_INFO_PTR pInfo);
 typedef CK_RV	(CK_PTR  ST_C_GetTokenInfo)
-						(CK_SLOT_ID slotID, CK_TOKEN_INFO_PTR pInfo);
+						(STDLL_TokData_t *tokdata, CK_SLOT_ID slotID,
+						 CK_TOKEN_INFO_PTR pInfo);
 typedef CK_RV	(CK_PTR  ST_C_GetMechanismList)
 						(CK_SLOT_ID slotID, CK_MECHANISM_TYPE_PTR pMechanismList,
 						 CK_ULONG_PTR pusCount);

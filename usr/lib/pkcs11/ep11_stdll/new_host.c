@@ -194,7 +194,7 @@ CK_RV ST_Initialize(API_Slot_t *sltp, CK_SLOT_ID SlotNumber,
 		sltp->TokData->initialized = TRUE;
 	}
 
-	rc = load_token_data(SlotNumber);
+	rc = load_token_data(sltp->TokData, SlotNumber);
 	if (rc != CKR_OK) {
 		sltp->FcnList = NULL;
 		if (sltp->TokData)
@@ -266,12 +266,13 @@ CK_RV SC_Finalize(CK_SLOT_ID sid)
 	return rc;
 }
 
-CK_RV SC_GetTokenInfo(CK_SLOT_ID sid, CK_TOKEN_INFO_PTR pInfo)
+CK_RV SC_GetTokenInfo(STDLL_TokData_t *tokdata, CK_SLOT_ID sid,
+		      CK_TOKEN_INFO_PTR pInfo)
 {
 	CK_RV rc = CKR_OK;
 	time_t now;
 
-	if (initialized == FALSE) {
+	if (tokdata->initialized == FALSE) {
 		TRACE_ERROR("%s\n", ock_err(ERR_CRYPTOKI_NOT_INITIALIZED));
 		rc = CKR_CRYPTOKI_NOT_INITIALIZED;
 		goto done;
@@ -286,7 +287,7 @@ CK_RV SC_GetTokenInfo(CK_SLOT_ID sid, CK_TOKEN_INFO_PTR pInfo)
 		rc = CKR_SLOT_ID_INVALID;
 		goto done;
 	}
-	copy_token_contents_sensibly(pInfo, nv_token_data);
+	copy_token_contents_sensibly(pInfo, tokdata->nv_token_data);
 
 	/* Set the time	*/
 	now = time ((time_t *)NULL);
@@ -417,15 +418,15 @@ CK_RV SC_InitToken(STDLL_TokData_t *tokdata, CK_SLOT_ID sid, CK_CHAR_PTR pPin,
 	 * token objects from the filesystem.
 	 */
 	object_mgr_destroy_token_objects();
-	delete_token_data();
+	delete_token_data(tokdata);
 
-	init_token_data(sid);
+	init_token_data(tokdata, sid);
 	init_slotInfo();
 	memcpy(nv_token_data->so_pin_sha, hash_sha, SHA1_HASH_SIZE);
 	nv_token_data->token_info.flags |= CKF_TOKEN_INITIALIZED;
 	memcpy(nv_token_data->token_info.label, pLabel, 32);
 
-	rc = save_token_data(sid);
+	rc = save_token_data(tokdata, sid);
 	if (rc != CKR_OK) {
 		TRACE_DEVEL("Failed to save token data.\n");
 		goto done;
@@ -494,7 +495,7 @@ CK_RV SC_InitPIN(ST_SESSION_HANDLE *sSession, CK_CHAR_PTR pPin,
 	nv_token_data->token_info.flags &= ~(CKF_USER_PIN_LOCKED);
 	XProcUnLock();
 	memcpy(user_pin_md5, hash_md5, MD5_HASH_SIZE);
-	rc = save_token_data(sess->session_info.slotID);
+	rc = save_token_data(tokdata, sess->session_info.slotID);
 	if (rc != CKR_OK) {
 		TRACE_DEVEL("Failed to save token data.\n");
 		goto done;
@@ -589,7 +590,7 @@ CK_RV SC_SetPIN(ST_SESSION_HANDLE *sSession, CK_CHAR_PTR pOldPin,
 		nv_token_data->token_info.flags &=
 			~(CKF_USER_PIN_TO_BE_CHANGED);
 		XProcUnLock();
-		rc = save_token_data(sess->session_info.slotID);
+		rc = save_token_data(tokdata, sess->session_info.slotID);
 		if (rc != CKR_OK) {
 			TRACE_DEVEL("Failed to save token data.\n");
 			goto done;
@@ -627,7 +628,7 @@ CK_RV SC_SetPIN(ST_SESSION_HANDLE *sSession, CK_CHAR_PTR pOldPin,
 		memcpy(so_pin_md5, hash_md5, MD5_HASH_SIZE);
 		nv_token_data->token_info.flags &= ~(CKF_SO_PIN_TO_BE_CHANGED);
 		XProcUnLock();
-		rc = save_token_data(sess->session_info.slotID);
+		rc = save_token_data(tokdata, sess->session_info.slotID);
 		if (rc != CKR_OK) {
 			TRACE_DEVEL("Failed to save token data.\n");
 			goto done;
@@ -979,7 +980,7 @@ done:
 	}
 
 	TRACE_INFO("C_Login: rc = 0x%08lx\n", rc);
-	save_token_data(sess->session_info.slotID);
+	save_token_data(tokdata, sess->session_info.slotID);
 	MY_UnlockMutex(&login_mutex);
 	return rc;
 }

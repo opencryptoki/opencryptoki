@@ -446,18 +446,16 @@ void init_slotInfo(void)
 
 //
 //
-void init_tokenInfo(void)
+void init_tokenInfo(TOKEN_DATA *nv_token_data)
 {
-	CK_TOKEN_INFO_32 *token_info = NULL;
-
-	token_info = &nv_token_data->token_info;
+	CK_TOKEN_INFO_32 *token_info = &nv_token_data->token_info;
 
 	memset(token_info->manufacturerID, ' ',
 	       sizeof(token_info->manufacturerID));
 	memset(token_info->model, ' ', sizeof(token_info->model));
 	memset(token_info->serialNumber, ' ', sizeof(token_info->serialNumber));
 
-	memcpy(token_info->label, nv_token_data->token_info.label, 32);
+	memcpy(token_info->label, label, strlen((char *)label));
 
 	memcpy(token_info->manufacturerID, manuf, strlen((char *)manuf));
 	memcpy(token_info->model, model, strlen((char *)model));
@@ -509,38 +507,38 @@ void init_tokenInfo(void)
 
 //
 //
-CK_RV init_token_data(CK_SLOT_ID slot_id)
+CK_RV init_token_data(STDLL_TokData_t *tokdata, CK_SLOT_ID slot_id)
 {
 	CK_RV rc;
 
-	memset((char *)nv_token_data, 0, sizeof(nv_token_data));
+	memset((char *)tokdata->nv_token_data, 0, sizeof(TOKEN_DATA));
 
 	// the normal USER pin is not set when the token is initialized
 	//
-	memcpy(nv_token_data->user_pin_sha, "00000000000000000000",
+	memcpy(tokdata->nv_token_data->user_pin_sha, "00000000000000000000",
 	       SHA1_HASH_SIZE);
-	memcpy(nv_token_data->so_pin_sha, default_so_pin_sha, SHA1_HASH_SIZE);
+	memcpy(tokdata->nv_token_data->so_pin_sha, default_so_pin_sha, SHA1_HASH_SIZE);
 
-	memset(user_pin_md5, 0x0, MD5_HASH_SIZE);
-	memcpy(so_pin_md5, default_so_pin_md5, MD5_HASH_SIZE);
+	memset(tokdata->nv_token_data->user_pin_md5, 0x0, MD5_HASH_SIZE);
+	memcpy(tokdata->nv_token_data->so_pin_md5, default_so_pin_md5, MD5_HASH_SIZE);
 
-	memcpy(nv_token_data->next_token_object_name, "00000000", 8);
+	memcpy(tokdata->nv_token_data->next_token_object_name, "00000000", 8);
 
 	// generate the master key used for signing the Operation State information
 	//                          `
-	memset(nv_token_data->token_info.label, ' ',
-	       sizeof(nv_token_data->token_info.label));
-	memcpy(nv_token_data->token_info.label, label, strlen((char *)label));
+	memset(tokdata->nv_token_data->token_info.label, ' ',
+	       sizeof(tokdata->nv_token_data->token_info.label));
+	memcpy(tokdata->nv_token_data->token_info.label, label, strlen((char *)label));
 
-	nv_token_data->tweak_vector.allow_weak_des = TRUE;
-	nv_token_data->tweak_vector.check_des_parity = FALSE;
-	nv_token_data->tweak_vector.allow_key_mods = TRUE;
-	nv_token_data->tweak_vector.netscape_mods = TRUE;
+	tokdata->nv_token_data->tweak_vector.allow_weak_des = TRUE;
+	tokdata->nv_token_data->tweak_vector.check_des_parity = FALSE;
+	tokdata->nv_token_data->tweak_vector.allow_key_mods = TRUE;
+	tokdata->nv_token_data->tweak_vector.netscape_mods = TRUE;
 
-	init_tokenInfo();
+	init_tokenInfo(tokdata->nv_token_data);
 
 	if (token_specific.t_init_token_data) {
-		rc = token_specific.t_init_token_data(slot_id);
+		rc = token_specific.t_init_token_data(tokdata, slot_id);
 		if (rc != CKR_OK)
 			return rc;
 	} else {
@@ -560,7 +558,7 @@ CK_RV init_token_data(CK_SLOT_ID slot_id)
 		}
 	}
 
-	rc = save_token_data(slot_id);
+	rc = save_token_data(tokdata, slot_id);
 
 	return rc;
 }
