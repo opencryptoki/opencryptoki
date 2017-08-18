@@ -550,7 +550,8 @@ done:
 	return rc;
 }
 
-CK_RV reset_token_data(CK_SLOT_ID slot_id, CK_CHAR_PTR pin, CK_ULONG pin_len)
+CK_RV reset_token_data(STDLL_TokData_t *tokdata, CK_SLOT_ID slot_id,
+		       CK_CHAR_PTR pin, CK_ULONG pin_len)
 {
 	CK_BYTE mk[MAX_KEY_SIZE];
 	CK_BYTE racf_pass[PIN_SIZE];
@@ -690,7 +691,7 @@ CK_RV icsftok_init_token(STDLL_TokData_t *tokdata, CK_SLOT_ID slot_id,
 		goto done;
 	}
 
-	if ((rc = reset_token_data(slot_id, pin, pin_len)))
+	if ((rc = reset_token_data(tokdata, slot_id, pin, pin_len)))
 		goto done;
 
 	if ((rc = destroy_objects(slot_id,
@@ -870,7 +871,7 @@ CK_RV icsftok_set_pin(STDLL_TokData_t *tokdata, SESSION *sess,
 	return rc;
 }
 
-LDAP *getLDAPhandle(CK_SLOT_ID slot_id)
+LDAP *getLDAPhandle(STDLL_TokData_t *tokdata, CK_SLOT_ID slot_id)
 {
 	CK_BYTE racfpwd[PIN_SIZE];
 	int racflen;
@@ -915,7 +916,7 @@ LDAP *getLDAPhandle(CK_SLOT_ID slot_id)
 	return new_ld;
 }
 
-CK_RV icsf_get_handles(CK_SLOT_ID slot_id)
+CK_RV icsf_get_handles(STDLL_TokData_t *tokdata, CK_SLOT_ID slot_id)
 {
 	struct session_state *s;
 
@@ -928,7 +929,7 @@ CK_RV icsf_get_handles(CK_SLOT_ID slot_id)
 
         for_each_list_entry(&sessions, struct session_state, s, sessions) {
                  if (s->ld == NULL)
-                        s->ld = getLDAPhandle(slot_id);
+                        s->ld = getLDAPhandle(tokdata, slot_id);
         }
 
         if (pthread_mutex_unlock(&sess_list_mutex)) {
@@ -970,7 +971,7 @@ CK_RV icsftok_open_session(STDLL_TokData_t *tokdata, SESSION *sess)
 	 */
 	if (global_login_state == CKS_RW_USER_FUNCTIONS ||
 	    global_login_state == CKS_RO_USER_FUNCTIONS) {
-		ld = getLDAPhandle(sess->session_info.slotID);
+		ld = getLDAPhandle(tokdata, sess->session_info.slotID);
 		if (ld == NULL) {
 			TRACE_DEVEL("Failed to get LDAP handle for session.\n");
 			rc = CKR_FUNCTION_FAILED;
