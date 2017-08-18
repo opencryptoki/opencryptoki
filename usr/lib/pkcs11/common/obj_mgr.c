@@ -319,7 +319,8 @@ object_mgr_add_to_map( STDLL_TokData_t  * tokdata,
 //    4) perform class-specific sanity checks
 //
 CK_RV
-object_mgr_copy( SESSION          * sess,
+object_mgr_copy( STDLL_TokData_t  * tokdata,
+		 SESSION          * sess,
                  CK_ATTRIBUTE     * pTemplate,
                  CK_ULONG           ulCount,
                  CK_OBJECT_HANDLE   old_handle,
@@ -342,7 +343,7 @@ object_mgr_copy( SESSION          * sess,
       TRACE_DEVEL("object_mgr_find_in_map1 failed.\n");
       goto done;
    }
-   rc = object_copy( pTemplate, ulCount, old_obj, &new_obj );
+   rc = object_copy( tokdata, pTemplate, ulCount, old_obj, &new_obj );
    if (rc != CKR_OK){
       TRACE_DEVEL("Object Copy failed.\n");
       goto done;
@@ -1309,7 +1310,8 @@ object_mgr_get_attribute_values( SESSION           * sess,
 //
 //
 CK_RV
-object_mgr_get_object_size( CK_OBJECT_HANDLE   handle,
+object_mgr_get_object_size( STDLL_TokData_t  *tokdata,
+			    CK_OBJECT_HANDLE   handle,
                             CK_ULONG         * size )
 {
    OBJECT    * obj;

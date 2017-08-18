@@ -1954,7 +1954,8 @@ CK_RV    object_mgr_update_from_shm(STDLL_TokData_t  *tokdata);
 CK_RV    object_mgr_update_publ_tok_obj_from_shm(STDLL_TokData_t  *tokdata);
 CK_RV    object_mgr_update_priv_tok_obj_from_shm(STDLL_TokData_t  *tokdata);
 
-CK_RV    object_mgr_copy( SESSION          * sess,
+CK_RV    object_mgr_copy( STDLL_TokData_t  *tokdata,
+			  SESSION          * sess,
                           CK_ATTRIBUTE     * pTemplate,
                           CK_ULONG           ulCount,
                           CK_OBJECT_HANDLE   old_obj,
@@ -2089,7 +2090,8 @@ CK_RV     object_create_skel( STDLL_TokData_t * tokdata,
                               CK_ULONG       subclass,
                               OBJECT      ** key );
 
-CK_RV     object_copy( CK_ATTRIBUTE * pTemplate,
+CK_RV     object_copy( STDLL_TokData_t * tokdata,
+		       CK_ATTRIBUTE * pTemplate,
                        CK_ULONG       ulCount,
                        OBJECT       * old_obj,
                        OBJECT      ** new_obj );

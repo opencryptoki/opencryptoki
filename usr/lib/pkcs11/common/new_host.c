@@ -1177,14 +1177,14 @@ done:
 }
 
 
-CK_RV  SC_CopyObject(ST_SESSION_HANDLE *sSession, CK_OBJECT_HANDLE hObject,
-		     CK_ATTRIBUTE_PTR pTemplate, CK_ULONG ulCount,
-		     CK_OBJECT_HANDLE_PTR phNewObject)
+CK_RV  SC_CopyObject(STDLL_TokData_t *tokdata, ST_SESSION_HANDLE *sSession,
+		     CK_OBJECT_HANDLE hObject, CK_ATTRIBUTE_PTR pTemplate,
+		     CK_ULONG ulCount, CK_OBJECT_HANDLE_PTR phNewObject)
 {
 	SESSION *sess = NULL;
 	CK_RV rc = CKR_OK;
 
-	if (initialized == FALSE) {
+	if (tokdata->initialized == FALSE) {
 		TRACE_ERROR("%s\n", ock_err(ERR_CRYPTOKI_NOT_INITIALIZED));
 		rc = CKR_CRYPTOKI_NOT_INITIALIZED;
 		goto done;
@@ -1204,7 +1204,7 @@ CK_RV  SC_CopyObject(ST_SESSION_HANDLE *sSession, CK_OBJECT_HANDLE hObject,
 		goto done;
 	}
 
-	rc = object_mgr_copy(sess, pTemplate, ulCount, hObject, phNewObject);
+	rc = object_mgr_copy(tokdata, sess, pTemplate, ulCount, hObject, phNewObject);
 	if (rc != CKR_OK)
 		TRACE_DEVEL("object_mgr_copy() failed\n");
 
