@@ -90,6 +90,9 @@ PopulateSlotInfo(Slot_Info_t_64 *slot_info, int *processed)
 			memcpy(slot_info[id].confname, sinfo[id].confname,
 			       strlen(sinfo[id].confname));
 
+			memcpy(slot_info[id].tokname, sinfo[id].tokname,
+			       strlen(sinfo[id].tokname));
+
 			/* pkcs#11v2.20 says these should be padded with
 			 * spaces and NOT null terminated.
 			 */
