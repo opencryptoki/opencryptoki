@@ -238,25 +238,29 @@ CK_RV token_specific_sha_update(STDLL_TokData_t *, DIGEST_CONTEXT *, CK_BYTE *,
 CK_RV token_specific_sha_final(STDLL_TokData_t *, DIGEST_CONTEXT *, CK_BYTE *,
 			       CK_ULONG *);
 
-CK_RV token_specific_hmac_sign_init(SESSION *, CK_MECHANISM *,
-				    CK_OBJECT_HANDLE);
+CK_RV token_specific_hmac_sign_init(STDLL_TokData_t *, SESSION *,
+				    CK_MECHANISM *, CK_OBJECT_HANDLE);
 
-CK_RV token_specific_hmac_sign(SESSION *, CK_BYTE *, CK_ULONG, CK_BYTE *,
-			       CK_ULONG *);
+CK_RV token_specific_hmac_sign(STDLL_TokData_t *, SESSION *, CK_BYTE *,
+			       CK_ULONG, CK_BYTE *, CK_ULONG *);
 
-CK_RV token_specific_hmac_sign_update(SESSION *, CK_BYTE *, CK_ULONG);
+CK_RV token_specific_hmac_sign_update(STDLL_TokData_t *, SESSION *, CK_BYTE *,
+				      CK_ULONG);
 
-CK_RV token_specific_hmac_sign_final(SESSION *, CK_BYTE *, CK_ULONG *);
+CK_RV token_specific_hmac_sign_final(STDLL_TokData_t *, SESSION *, CK_BYTE *,
+				     CK_ULONG *);
 
-CK_RV token_specific_hmac_verify_init(SESSION *, CK_MECHANISM *,
-				      CK_OBJECT_HANDLE);
+CK_RV token_specific_hmac_verify_init(STDLL_TokData_t *, SESSION *,
+				      CK_MECHANISM *, CK_OBJECT_HANDLE);
 
-CK_RV token_specific_hmac_verify(SESSION *, CK_BYTE *, CK_ULONG, CK_BYTE *,
-				 CK_ULONG);
+CK_RV token_specific_hmac_verify(STDLL_TokData_t *, SESSION *, CK_BYTE *,
+				 CK_ULONG, CK_BYTE *, CK_ULONG);
 
-CK_RV token_specific_hmac_verify_update(SESSION *, CK_BYTE *, CK_ULONG);
+CK_RV token_specific_hmac_verify_update(STDLL_TokData_t *, SESSION *,
+					CK_BYTE *,CK_ULONG);
 
-CK_RV token_specific_hmac_verify_final(SESSION *, CK_BYTE *, CK_ULONG);
+CK_RV token_specific_hmac_verify_final(STDLL_TokData_t *, SESSION *,
+				       CK_BYTE *, CK_ULONG);
 
 CK_RV token_specific_generic_secret_key_gen(TEMPLATE *template);
 

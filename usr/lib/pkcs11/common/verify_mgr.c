@@ -395,7 +395,7 @@ verify_mgr_init( SESSION             * sess,
             ctx->context_len = 0;
             ctx->context     = NULL;
 
-            rc = hmac_verify_init(sess, mech, key);
+            rc = hmac_verify_init(tokdata, sess, mech, key);
             if (rc != CKR_OK) {
                 TRACE_ERROR("Failed to initialize hmac.\n");
                 return rc;
@@ -497,7 +497,7 @@ verify_mgr_init( SESSION             * sess,
             ctx->context_len = 0;
             ctx->context     = NULL;
 
-            rc = hmac_verify_init(sess, mech, key);
+            rc = hmac_verify_init(tokdata, sess, mech, key);
             if (rc != CKR_OK) {
                 TRACE_ERROR("Failed to initialize hmac.\n");
                 return rc;
@@ -751,44 +751,44 @@ verify_mgr_verify( SESSION             * sess,
 #if !(NOMD2)
       case CKM_MD2_HMAC:
       case CKM_MD2_HMAC_GENERAL:
-         return md2_hmac_verify( sess,      ctx,
+         return md2_hmac_verify( tokdata, sess,      ctx,
                                  in_data,   in_data_len,
                                  signature, sig_len );
 #endif
 
       case CKM_MD5_HMAC:
       case CKM_MD5_HMAC_GENERAL:
-         return md5_hmac_verify( sess,      ctx,
+         return md5_hmac_verify( tokdata, sess,      ctx,
                                  in_data,   in_data_len,
                                  signature, sig_len );
 
       case CKM_SHA_1_HMAC:
       case CKM_SHA_1_HMAC_GENERAL:
-         return sha1_hmac_verify( sess,      ctx,
+         return sha1_hmac_verify( tokdata, sess,      ctx,
                                   in_data,   in_data_len,
                                   signature, sig_len );
 
       case CKM_SHA256_HMAC:
       case CKM_SHA256_HMAC_GENERAL:
-         return sha2_hmac_verify( sess,      ctx,
+         return sha2_hmac_verify( tokdata, sess,      ctx,
                                   in_data,   in_data_len,
                                   signature, sig_len );
 
       case CKM_SHA384_HMAC:
       case CKM_SHA384_HMAC_GENERAL:
-         return sha3_hmac_verify( sess,      ctx,
+         return sha3_hmac_verify( tokdata, sess,      ctx,
                                   in_data,   in_data_len,
                                   signature, sig_len );
 
       case CKM_SHA512_HMAC:
       case CKM_SHA512_HMAC_GENERAL:
-         return sha5_hmac_verify( sess,      ctx,
+         return sha5_hmac_verify( tokdata, sess,      ctx,
                                   in_data,   in_data_len,
                                   signature, sig_len );
 
       case CKM_SSL3_MD5_MAC:
       case CKM_SSL3_SHA1_MAC:
-         return ssl3_mac_verify( sess,      ctx,
+         return ssl3_mac_verify( tokdata, sess,      ctx,
                                  in_data,   in_data_len,
                                  signature, sig_len );
 
@@ -889,7 +889,7 @@ verify_mgr_verify_update( SESSION             * sess,
       case CKM_SHA256_HMAC_GENERAL:
       case CKM_SHA384_HMAC_GENERAL:
       case CKM_SHA512_HMAC_GENERAL:
-        return hmac_verify_update(sess, in_data, in_data_len);
+        return hmac_verify_update(tokdata, sess, in_data, in_data_len);
 
       default:
          TRACE_ERROR("%s\n", ock_err(ERR_MECHANISM_INVALID));
@@ -937,7 +937,7 @@ verify_mgr_verify_final( SESSION             * sess,
 
       case CKM_SSL3_MD5_MAC:
       case CKM_SSL3_SHA1_MAC:
-         return ssl3_mac_verify_final( sess, ctx, signature, sig_len );
+         return ssl3_mac_verify_final(tokdata, sess, ctx, signature, sig_len);
 
       case CKM_DES3_MAC:
       case CKM_DES3_MAC_GENERAL:
@@ -961,7 +961,7 @@ verify_mgr_verify_final( SESSION             * sess,
       case CKM_SHA256_HMAC_GENERAL:
       case CKM_SHA384_HMAC_GENERAL:
       case CKM_SHA512_HMAC_GENERAL:
-        return hmac_verify_final(sess, signature, sig_len);
+        return hmac_verify_final(tokdata, sess, signature, sig_len);
 
       default:
          TRACE_ERROR("%s\n", ock_err(ERR_MECHANISM_INVALID));

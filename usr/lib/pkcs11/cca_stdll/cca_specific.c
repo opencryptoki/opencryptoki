@@ -2272,21 +2272,21 @@ static CK_RV ccatok_hmac_init(SIGN_VERIFY_CONTEXT *ctx, CK_MECHANISM *mech,
         return CKR_OK;
 }
 
-CK_RV token_specific_hmac_sign_init(SESSION *sess, CK_MECHANISM *mech,
-				    CK_OBJECT_HANDLE key)
+CK_RV token_specific_hmac_sign_init(STDLL_TokData_t *tokdata, SESSION *sess,
+				    CK_MECHANISM *mech, CK_OBJECT_HANDLE key)
 {
 	return ccatok_hmac_init(&sess->sign_ctx, mech, key);
 }
 
-CK_RV token_specific_hmac_verify_init(SESSION *sess, CK_MECHANISM *mech,
-				      CK_OBJECT_HANDLE key)
+CK_RV token_specific_hmac_verify_init(STDLL_TokData_t *tokdata, SESSION *sess,
+				      CK_MECHANISM *mech, CK_OBJECT_HANDLE key)
 {
 	return ccatok_hmac_init(&sess->verify_ctx, mech, key);
 }
 
-CK_RV ccatok_hmac(SIGN_VERIFY_CONTEXT *ctx, CK_BYTE *in_data,
-			       CK_ULONG in_data_len, CK_BYTE *signature,
-			       CK_ULONG *sig_len, CK_BBOOL sign)
+CK_RV ccatok_hmac(STDLL_TokData_t *tokdata, SIGN_VERIFY_CONTEXT *ctx,
+		  CK_BYTE *in_data, CK_ULONG in_data_len, CK_BYTE *signature,
+		  CK_ULONG *sig_len, CK_BBOOL sign)
 {
 	struct cca_sha_ctx *cca_ctx;
 	long return_code = 0, reason_code = 0, rule_array_count = 3;
@@ -2393,24 +2393,24 @@ CK_RV ccatok_hmac(SIGN_VERIFY_CONTEXT *ctx, CK_BYTE *in_data,
 	return CKR_OK;
 }
 
-CK_RV token_specific_hmac_sign(SESSION *sess, CK_BYTE *in_data,
-			       CK_ULONG in_data_len, CK_BYTE *signature,
-			       CK_ULONG *sig_len)
+CK_RV token_specific_hmac_sign(STDLL_TokData_t *tokdata, SESSION *sess,
+			       CK_BYTE *in_data, CK_ULONG in_data_len,
+			       CK_BYTE *signature, CK_ULONG *sig_len)
 {
-	return ccatok_hmac(&sess->sign_ctx, in_data, in_data_len, signature,
-			   sig_len, TRUE);
+	return ccatok_hmac(tokdata, &sess->sign_ctx, in_data, in_data_len,
+			   signature, sig_len, TRUE);
 }
 
-CK_RV token_specific_hmac_verify(SESSION *sess, CK_BYTE *in_data,
-				 CK_ULONG in_data_len, CK_BYTE *signature,
-				 CK_ULONG sig_len)
+CK_RV token_specific_hmac_verify(STDLL_TokData_t *tokdata, SESSION *sess,
+				 CK_BYTE *in_data, CK_ULONG in_data_len,
+				 CK_BYTE *signature, CK_ULONG sig_len)
 {
-	return ccatok_hmac(&sess->verify_ctx, in_data, in_data_len, signature,
-			   &sig_len, FALSE);
+	return ccatok_hmac(tokdata, &sess->verify_ctx, in_data, in_data_len,
+			   signature, &sig_len, FALSE);
 }
 
-CK_RV ccatok_hmac_update(SIGN_VERIFY_CONTEXT *ctx, CK_BYTE *in_data,
-			 CK_ULONG in_data_len, CK_BBOOL sign)
+CK_RV ccatok_hmac_update(STDLL_TokData_t *tokdata, SIGN_VERIFY_CONTEXT *ctx,
+			 CK_BYTE *in_data, CK_ULONG in_data_len, CK_BBOOL sign)
 {
 	struct cca_sha_ctx *cca_ctx;
 	long return_code, reason_code, total, buffer_len;
@@ -2588,20 +2588,22 @@ done:
 	return rc;
 }
 
-CK_RV token_specific_hmac_sign_update(SESSION *sess, CK_BYTE *in_data,
-				      CK_ULONG in_data_len)
+CK_RV token_specific_hmac_sign_update(STDLL_TokData_t *tokdata, SESSION *sess,
+				      CK_BYTE *in_data, CK_ULONG in_data_len)
 {
-	return ccatok_hmac_update(&sess->sign_ctx, in_data, in_data_len, TRUE);
+	return ccatok_hmac_update(tokdata, &sess->sign_ctx, in_data,
+				  in_data_len, TRUE);
 }
 
-CK_RV token_specific_hmac_verify_update(SESSION *sess, CK_BYTE *in_data,
-					CK_ULONG in_data_len)
+CK_RV token_specific_hmac_verify_update(STDLL_TokData_t *tokdata, SESSION *sess,
+					CK_BYTE *in_data, CK_ULONG in_data_len)
 {
-	return ccatok_hmac_update(&sess->verify_ctx, in_data, in_data_len, FALSE);
+	return ccatok_hmac_update(tokdata, &sess->verify_ctx, in_data,
+				  in_data_len, FALSE);
 }
 
-CK_RV ccatok_hmac_final(SIGN_VERIFY_CONTEXT *ctx, CK_BYTE *signature,
-			CK_ULONG *sig_len, CK_BBOOL sign)
+CK_RV ccatok_hmac_final(STDLL_TokData_t *tokdata, SIGN_VERIFY_CONTEXT *ctx,
+			CK_BYTE *signature, CK_ULONG *sig_len, CK_BBOOL sign)
 {
 	struct cca_sha_ctx *cca_ctx;
 	long return_code, reason_code, rule_array_count = 3;
@@ -2706,16 +2708,18 @@ CK_RV ccatok_hmac_final(SIGN_VERIFY_CONTEXT *ctx, CK_BYTE *signature,
 	return CKR_OK;
 }
 
-CK_RV token_specific_hmac_sign_final(SESSION *sess, CK_BYTE *signature,
-				     CK_ULONG *sig_len)
+CK_RV token_specific_hmac_sign_final(STDLL_TokData_t *tokdata, SESSION *sess,
+				     CK_BYTE *signature, CK_ULONG *sig_len)
 {
-	return ccatok_hmac_final(&sess->sign_ctx, signature, sig_len, TRUE);
+	return ccatok_hmac_final(tokdata, &sess->sign_ctx, signature, sig_len,
+				 TRUE);
 }
 
-CK_RV token_specific_hmac_verify_final(SESSION *sess, CK_BYTE *signature,
-				       CK_ULONG sig_len)
+CK_RV token_specific_hmac_verify_final(STDLL_TokData_t *tokdata, SESSION *sess,
+				       CK_BYTE *signature, CK_ULONG sig_len)
 {
-	return ccatok_hmac_final(&sess->verify_ctx, signature, &sig_len, FALSE);
+	return ccatok_hmac_final(tokdata, &sess->verify_ctx, signature,
+				 &sig_len, FALSE);
 }
 
 static CK_RV rsa_import_privkey_crt(TEMPLATE *priv_tmpl)

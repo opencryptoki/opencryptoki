@@ -545,7 +545,8 @@ CK_RV sha_hash_final(STDLL_TokData_t *tokdata, SESSION *sess,
 //    CKM_SHA_1_HMAC
 //    CKM_SHA_1_HMAC_GENERAL
 //
-CK_RV sha1_hmac_sign(SESSION *sess, CK_BBOOL length_only,
+CK_RV sha1_hmac_sign(STDLL_TokData_t *tokdata,
+		     SESSION *sess, CK_BBOOL length_only,
 		     SIGN_VERIFY_CONTEXT *ctx, CK_BYTE *in_data,
 		     CK_ULONG in_data_len, CK_BYTE *out_data,
 		     CK_ULONG *out_data_len)
@@ -582,8 +583,9 @@ CK_RV sha1_hmac_sign(SESSION *sess, CK_BBOOL length_only,
 	}
 
 	if (token_specific.t_hmac_sign != NULL)
-		return token_specific.t_hmac_sign(sess, in_data, in_data_len,
-						  out_data, out_data_len);
+		return token_specific.t_hmac_sign(tokdata, sess, in_data,
+						  in_data_len, out_data,
+						  out_data_len);
 
 	/* Do manual hmac if token doesn't have an hmac crypto call.
 	 * Secure tokens should not do manual hmac.
@@ -722,7 +724,8 @@ CK_RV sha1_hmac_sign(SESSION *sess, CK_BBOOL length_only,
  *    CKM_SHA256_HMAC
  *    CKM_SHA256_HMAC_GENERAL
  */
-CK_RV sha2_hmac_sign(SESSION *sess, CK_BBOOL length_only,
+CK_RV sha2_hmac_sign(STDLL_TokData_t *tokdata,
+		     SESSION *sess, CK_BBOOL length_only,
 		     SIGN_VERIFY_CONTEXT *ctx, CK_BYTE *in_data,
 		     CK_ULONG in_data_len, CK_BYTE *out_data,
 		     CK_ULONG *out_data_len)
@@ -759,8 +762,9 @@ CK_RV sha2_hmac_sign(SESSION *sess, CK_BBOOL length_only,
 	}
 
 	if (token_specific.t_hmac_sign != NULL)
-		return token_specific.t_hmac_sign(sess, in_data, in_data_len,
-						  out_data, out_data_len);
+		return token_specific.t_hmac_sign(tokdata, sess, in_data,
+						  in_data_len, out_data,
+						  out_data_len);
 
 	/* Do manual hmac if token doesn't have an hmac crypto call.
 	 * Secure tokens should not do manual hmac.
@@ -894,7 +898,8 @@ CK_RV sha2_hmac_sign(SESSION *sess, CK_BBOOL length_only,
  *    CKM_SHA384_HMAC
  *    CKM_SHA384_HMAC_GENERAL
  */
-CK_RV sha3_hmac_sign(SESSION *sess, CK_BBOOL length_only,
+CK_RV sha3_hmac_sign(STDLL_TokData_t *tokdata,
+		     SESSION *sess, CK_BBOOL length_only,
 		     SIGN_VERIFY_CONTEXT *ctx, CK_BYTE *in_data,
 		     CK_ULONG in_data_len, CK_BYTE *out_data,
 		     CK_ULONG *out_data_len)
@@ -931,8 +936,9 @@ CK_RV sha3_hmac_sign(SESSION *sess, CK_BBOOL length_only,
 	}
 
 	if (token_specific.t_hmac_sign != NULL)
-		return token_specific.t_hmac_sign(sess, in_data, in_data_len,
-						  out_data, out_data_len);
+		return token_specific.t_hmac_sign(tokdata, sess, in_data,
+						  in_data_len, out_data,
+						  out_data_len);
 
 	/* Do manual hmac if token doesn't have an hmac crypto call.
 	 * Secure tokens should not do manual hmac.
@@ -1067,7 +1073,8 @@ CK_RV sha3_hmac_sign(SESSION *sess, CK_BBOOL length_only,
  *    CKM_SHA512_HMAC
  *    CKM_SHA512_HMAC_GENERAL
  */
-CK_RV sha5_hmac_sign(SESSION *sess, CK_BBOOL length_only,
+CK_RV sha5_hmac_sign(STDLL_TokData_t *tokdata,
+		     SESSION *sess, CK_BBOOL length_only,
 		     SIGN_VERIFY_CONTEXT *ctx, CK_BYTE *in_data,
 		     CK_ULONG in_data_len, CK_BYTE *out_data,
 		     CK_ULONG *out_data_len)
@@ -1104,7 +1111,8 @@ CK_RV sha5_hmac_sign(SESSION *sess, CK_BBOOL length_only,
 	}
 
 	if (token_specific.t_hmac_sign != NULL)
-		return token_specific.t_hmac_sign(sess, in_data, in_data_len,
+		return token_specific.t_hmac_sign(tokdata, sess, in_data,
+						  in_data_len,
 						  out_data, out_data_len);
 
 	/* Do manual hmac if token doesn't have an hmac crypto call.
@@ -1201,8 +1209,9 @@ CK_RV sha5_hmac_sign(SESSION *sess, CK_BBOOL length_only,
 	}
 
 	if (token_specific.t_hmac_sign != NULL)
-		return token_specific.t_hmac_sign(sess, in_data, in_data_len,
-						  out_data, out_data_len);
+		return token_specific.t_hmac_sign(tokdata, sess, in_data,
+						  in_data_len, out_data,
+						  out_data_len);
 
 	/* Do manual hmac if token doesn't have an hmac crypto call.
 	 * Secure tokens should not do manual hmac.
@@ -1242,7 +1251,8 @@ CK_RV sha5_hmac_sign(SESSION *sess, CK_BBOOL length_only,
 	return CKR_OK;
 }
 
-CK_RV sha1_hmac_verify(SESSION *sess, SIGN_VERIFY_CONTEXT *ctx,
+CK_RV sha1_hmac_verify(STDLL_TokData_t *tokdata, SESSION *sess,
+		       SIGN_VERIFY_CONTEXT *ctx,
 		       CK_BYTE *in_data, CK_ULONG in_data_len,
 		       CK_BYTE *signature, CK_ULONG sig_len)
 {
@@ -1257,8 +1267,9 @@ CK_RV sha1_hmac_verify(SESSION *sess, SIGN_VERIFY_CONTEXT *ctx,
 	}
 
 	if (token_specific.t_hmac_verify != NULL)
-		return token_specific.t_hmac_verify(sess, in_data, in_data_len,
-						    signature, sig_len);
+		return token_specific.t_hmac_verify(tokdata, sess, in_data,
+						    in_data_len, signature,
+						    sig_len);
 
 	/* Do manual hmac verify  if token doesn't have an hmac crypto call.
 	 * Secure tokens should not do manual hmac.
@@ -1298,7 +1309,8 @@ done:
 	return rc;
 }
 
-CK_RV sha2_hmac_verify(SESSION *sess, SIGN_VERIFY_CONTEXT *ctx,
+CK_RV sha2_hmac_verify(STDLL_TokData_t *tokdata,
+		       SESSION *sess, SIGN_VERIFY_CONTEXT *ctx,
 		       CK_BYTE *in_data, CK_ULONG in_data_len,
 		       CK_BYTE *signature, CK_ULONG sig_len)
 {
@@ -1313,8 +1325,9 @@ CK_RV sha2_hmac_verify(SESSION *sess, SIGN_VERIFY_CONTEXT *ctx,
 	}
 
 	if (token_specific.t_hmac_verify != NULL)
-		return token_specific.t_hmac_verify(sess, in_data, in_data_len,
-						    signature, sig_len);
+		return token_specific.t_hmac_verify(tokdata, sess, in_data,
+						    in_data_len, signature,
+						    sig_len);
 
 	/* Do manual hmac verify  if token doesn't have an hmac crypto call.
 	 * Secure tokens should not do manual hmac.
@@ -1356,7 +1369,8 @@ done:
 	return rc;
 }
 
-CK_RV sha3_hmac_verify(SESSION *sess, SIGN_VERIFY_CONTEXT *ctx,
+CK_RV sha3_hmac_verify(STDLL_TokData_t *tokdata,
+		       SESSION *sess, SIGN_VERIFY_CONTEXT *ctx,
 		       CK_BYTE *in_data, CK_ULONG in_data_len,
 		       CK_BYTE *signature, CK_ULONG sig_len)
 {
@@ -1370,8 +1384,9 @@ CK_RV sha3_hmac_verify(SESSION *sess, SIGN_VERIFY_CONTEXT *ctx,
 		return CKR_FUNCTION_FAILED;
 	}
 	if (token_specific.t_hmac_verify != NULL)
-		return token_specific.t_hmac_verify(sess, in_data, in_data_len,
-						    signature, sig_len);
+		return token_specific.t_hmac_verify(tokdata, sess, in_data,
+						    in_data_len, signature,
+						    sig_len);
 
 	/* Do manual hmac verify  if token doesn't have an hmac crypto call.
 	 * Secure tokens should not do manual hmac.
@@ -1410,7 +1425,8 @@ done:
 	return rc;
 }
 
-CK_RV sha5_hmac_verify(SESSION *sess, SIGN_VERIFY_CONTEXT *ctx,
+CK_RV sha5_hmac_verify(STDLL_TokData_t *tokdata,
+		       SESSION *sess, SIGN_VERIFY_CONTEXT *ctx,
 		       CK_BYTE *in_data, CK_ULONG in_data_len,
 		       CK_BYTE *signature, CK_ULONG sig_len)
 {
@@ -1424,8 +1440,9 @@ CK_RV sha5_hmac_verify(SESSION *sess, SIGN_VERIFY_CONTEXT *ctx,
 		return CKR_FUNCTION_FAILED;
 	}
 	if (token_specific.t_hmac_verify != NULL)
-		return token_specific.t_hmac_verify(sess, in_data, in_data_len,
-						    signature, sig_len);
+		return token_specific.t_hmac_verify(tokdata, sess, in_data,
+						    in_data_len, signature,
+						    sig_len);
 
 	/* Do manual hmac verify  if token doesn't have an hmac crypto call.
 	 * Secure tokens should not do manual hmac.
@@ -1486,10 +1503,11 @@ CK_RV sha_init(STDLL_TokData_t *tokdata, SESSION *sess, DIGEST_CONTEXT *ctx,
 	}
 }
 
-CK_RV hmac_sign_init(SESSION *sess, CK_MECHANISM *mech, CK_OBJECT_HANDLE hkey)
+CK_RV hmac_sign_init(STDLL_TokData_t *tokdata, SESSION *sess,
+		     CK_MECHANISM *mech, CK_OBJECT_HANDLE hkey)
 {
 	if (token_specific.t_hmac_sign_init != NULL)
-                return token_specific.t_hmac_sign_init(sess, mech, hkey);
+                return token_specific.t_hmac_sign_init(tokdata, sess, mech, hkey);
 	else
 		/* Return ok with the intention that the local hmac
 		 * implementation will get used instead.
@@ -1499,7 +1517,8 @@ CK_RV hmac_sign_init(SESSION *sess, CK_MECHANISM *mech, CK_OBJECT_HANDLE hkey)
 		return CKR_OK;
 }
 
-CK_RV hmac_sign_update(SESSION *sess, CK_BYTE *in_data, CK_ULONG in_data_len)
+CK_RV hmac_sign_update(STDLL_TokData_t *tokdata, SESSION *sess,
+		       CK_BYTE *in_data, CK_ULONG in_data_len)
 {
 	SIGN_VERIFY_CONTEXT *ctx = &sess->sign_ctx;
 
@@ -1509,7 +1528,8 @@ CK_RV hmac_sign_update(SESSION *sess, CK_BYTE *in_data, CK_ULONG in_data_len)
 	}
 
 	if (token_specific.t_hmac_sign_update != NULL)
-		return token_specific.t_hmac_sign_update(sess, in_data,
+		return token_specific.t_hmac_sign_update(tokdata, sess,
+							 in_data,
 							 in_data_len);
 	else {
 		TRACE_ERROR("hmac-update is not supported\n");
@@ -1517,7 +1537,8 @@ CK_RV hmac_sign_update(SESSION *sess, CK_BYTE *in_data, CK_ULONG in_data_len)
 	}
 }
 
-CK_RV hmac_sign_final(SESSION *sess, CK_BYTE *signature, CK_ULONG *sig_len)
+CK_RV hmac_sign_final(STDLL_TokData_t *tokdata, SESSION *sess,
+		      CK_BYTE *signature, CK_ULONG *sig_len)
 {
 	SIGN_VERIFY_CONTEXT *ctx = &sess->sign_ctx;
 
@@ -1527,7 +1548,8 @@ CK_RV hmac_sign_final(SESSION *sess, CK_BYTE *signature, CK_ULONG *sig_len)
 	}
 
 	if (token_specific.t_hmac_sign_final != NULL)
-		return token_specific.t_hmac_sign_final(sess, signature,
+		return token_specific.t_hmac_sign_final(tokdata, sess,
+							signature,
 							sig_len);
 	else {
 		TRACE_ERROR("hmac-final is not supported\n");
@@ -1535,11 +1557,12 @@ CK_RV hmac_sign_final(SESSION *sess, CK_BYTE *signature, CK_ULONG *sig_len)
 	}
 }
 
-CK_RV hmac_verify_init(SESSION *sess, CK_MECHANISM *mech,
-		       CK_OBJECT_HANDLE hkey)
+CK_RV hmac_verify_init(STDLL_TokData_t *tokdata, SESSION *sess,
+		       CK_MECHANISM *mech, CK_OBJECT_HANDLE hkey)
 {
 	if (token_specific.t_hmac_verify_init != NULL)
-                return token_specific.t_hmac_verify_init(sess, mech, hkey);
+                return token_specific.t_hmac_verify_init(tokdata, sess, mech,
+							 hkey);
 	else
 		/* Return ok with the intention that the local hmac
 		 * implementation will get used instead.
@@ -1549,7 +1572,8 @@ CK_RV hmac_verify_init(SESSION *sess, CK_MECHANISM *mech,
 		return CKR_OK;
 }
 
-CK_RV hmac_verify_update(SESSION *sess, CK_BYTE *in_data, CK_ULONG in_data_len)
+CK_RV hmac_verify_update(STDLL_TokData_t *tokdata, SESSION *sess,
+			 CK_BYTE *in_data, CK_ULONG in_data_len)
 {
 	SIGN_VERIFY_CONTEXT *ctx = &sess->sign_ctx;
 
@@ -1559,7 +1583,8 @@ CK_RV hmac_verify_update(SESSION *sess, CK_BYTE *in_data, CK_ULONG in_data_len)
 	}
 
 	if (token_specific.t_hmac_verify_update != NULL)
-		return token_specific.t_hmac_verify_update(sess, in_data,
+		return token_specific.t_hmac_verify_update(tokdata, sess,
+							   in_data,
 							   in_data_len);
 	else {
 		TRACE_ERROR("hmac-update is not supported\n");
@@ -1567,7 +1592,8 @@ CK_RV hmac_verify_update(SESSION *sess, CK_BYTE *in_data, CK_ULONG in_data_len)
 	}
 }
 
-CK_RV hmac_verify_final(SESSION *sess, CK_BYTE *signature, CK_ULONG sig_len)
+CK_RV hmac_verify_final(STDLL_TokData_t *tokdata, SESSION *sess,
+			CK_BYTE *signature, CK_ULONG sig_len)
 {
 	SIGN_VERIFY_CONTEXT *ctx = &sess->sign_ctx;
 
@@ -1577,7 +1603,8 @@ CK_RV hmac_verify_final(SESSION *sess, CK_BYTE *signature, CK_ULONG sig_len)
 	}
 
 	if (token_specific.t_hmac_verify_final != NULL)
-		return token_specific.t_hmac_verify_final(sess, signature,
+		return token_specific.t_hmac_verify_final(tokdata, sess,
+							  signature,
 							  sig_len);
 	else {
 		TRACE_ERROR("hmac-final is not supported\n");
