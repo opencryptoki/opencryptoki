@@ -2152,7 +2152,7 @@ CK_RV C_GetSessionInfo(CK_SESSION_HANDLE hSession, CK_SESSION_INFO_PTR pInfo)
 	}
 	if (fcn->ST_GetSessionInfo) {
 		// Map the Session to the slot session
-		rv = fcn->ST_GetSessionInfo(&rSession, pInfo);
+		rv = fcn->ST_GetSessionInfo(sltp->TokData, &rSession, pInfo);
 
 		TRACE_DEVEL("fcn->ST_GetSessionInfo returned: 0x%lx\n", rv);
 		TRACE_DEVEL("Slot %lu  State %lx  Flags %lx DevErr %lx\n",
