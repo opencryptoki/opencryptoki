@@ -454,6 +454,7 @@ rsa_convert_private_key(OBJECT *key_obj)
 	CK_BBOOL          rc;
 
 	RSA *rsa;
+	RSA_METHOD *meth;
 	BIGNUM *bn_mod, *bn_pub_exp, *bn_priv_exp, *bn_p1, *bn_p2, *bn_e1, *bn_e2, *bn_cf;
 
 
@@ -474,6 +475,37 @@ rsa_convert_private_key(OBJECT *key_obj)
 	rsa = RSA_new();
 	if (rsa == NULL)
 		return NULL;
+
+    /*
+     * Depending if an engine is loaded on OpenSSL and define its own
+     * RSA_METHOD, we can end up having an infinite loop as the SOFT
+     * Token doesn't implement RSA and, instead, calls OpenSSL for it.
+     * So to avoid it we set RSA methods to the default rsa methods.
+     */
+#ifdef OLDER_OPENSSL
+    if (rsa->engine) {
+        meth = (RSA_METHOD *) rsa->meth;
+        const RSA_METHOD *meth2 = RSA_PKCS1_SSLeay();
+        meth->rsa_pub_enc = meth2->rsa_pub_enc;
+        meth->rsa_pub_dec = meth2->rsa_pub_dec;
+        meth->rsa_priv_enc = meth2->rsa_priv_enc;
+        meth->rsa_priv_dec = meth2->rsa_priv_dec;
+        meth->rsa_mod_exp = meth2->rsa_mod_exp;
+        meth->bn_mod_exp = meth2->bn_mod_exp;
+#else
+    ENGINE *e = RSA_get0_engine(rsa);
+    if (e) {
+        meth = (RSA_METHOD *) RSA_get_method(rsa);
+        const RSA_METHOD *meth2 = RSA_PKCS1_OpenSSL();
+        RSA_meth_set_pub_enc(meth, RSA_meth_get_pub_enc(meth2));
+        RSA_meth_set_pub_dec(meth, RSA_meth_get_pub_dec(meth2));
+        RSA_meth_set_priv_enc(meth, RSA_meth_get_priv_enc(meth2));
+        RSA_meth_set_priv_dec(meth, RSA_meth_get_priv_dec(meth2));
+        RSA_meth_set_mod_exp(meth, RSA_meth_get_mod_exp(meth2));
+        RSA_meth_set_bn_mod_exp(meth, RSA_meth_get_bn_mod_exp(meth2));
+#endif
+    }
+
 	RSA_blinding_off(rsa);
 
 	bn_mod = BN_new();
