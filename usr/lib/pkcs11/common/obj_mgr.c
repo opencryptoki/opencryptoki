@@ -55,7 +55,7 @@ object_mgr_add( SESSION          * sess,
    if (token_specific.t_object_add != NULL) {
       rc = token_specific.t_object_add(o);
       if (rc != CKR_OK) {
-	 TRACE_DEVEL("Token Specific object add failed.\n");
+	 TRACE_DEVEL("Token specific object add failed.\n");
 	 goto done;
       }
    }
