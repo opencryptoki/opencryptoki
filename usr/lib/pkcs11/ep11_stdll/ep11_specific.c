@@ -796,7 +796,7 @@ static const char* ep11_get_ckm(CK_ULONG mechanism)
 	case CKM_IBM_ECDH1_DERIVE_RAW: return "CKM_IBM_ECDH1_DERIVE_RAW";
 	case CKM_IBM_RETAINKEY: return "CKM_IBM_RETAINKEY";
 	default:
-		TRACE_WARNING("%s unknown mechanism %lx\n", __func__, mechanism);
+		TRACE_WARNING("%s unknown mechanism 0x%lx\n", __func__, mechanism);
 		return "UNKNOWN";
 	}
 }

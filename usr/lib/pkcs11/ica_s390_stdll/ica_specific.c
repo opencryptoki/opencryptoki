@@ -2341,7 +2341,7 @@ CK_RV token_specific_aes_gcm(SESSION *sess, ENCR_DECR_CONTEXT *ctx,
 	}
 
 	if (rc != 0) {
-		TRACE_ERROR("ica_aes_gcm failed with %lx.\n", rc);
+		TRACE_ERROR("ica_aes_gcm failed with rc = 0x%lx.\n", rc);
 		(*out_data_len) = 0;
 		rc = CKR_FUNCTION_FAILED;
 	}
@@ -2425,7 +2425,7 @@ CK_RV token_specific_aes_gcm_update(SESSION *sess, ENCR_DECR_CONTEXT *ctx,
 		memcpy (buffer, context->data, context->len);
 		memcpy (buffer+context->len, in_data, out_len - context->len);
 
-		TRACE_DEVEL("Ciphertext length (%02ld bytes).\n", in_data_len);
+		TRACE_DEVEL("Ciphertext length (%ld bytes).\n", in_data_len);
 
 		rc = ica_aes_gcm_intermediate(buffer, (unsigned int)out_len,
 					      out_data, ucb, auth_data,
@@ -2476,7 +2476,7 @@ CK_RV token_specific_aes_gcm_update(SESSION *sess, ENCR_DECR_CONTEXT *ctx,
 	}
 
 	if( rc != 0) {
-		TRACE_ERROR("ica_aes_gcm_update failed with %lx.\n", rc);
+		TRACE_ERROR("ica_aes_gcm_update failed with rc = 0x%lx.\n", rc);
 		rc = CKR_FUNCTION_FAILED;
 		goto done;
 	}
@@ -2561,7 +2561,8 @@ CK_RV token_specific_aes_gcm_final(SESSION *sess, ENCR_DECR_CONTEXT *ctx,
 		} else
 			*out_data_len = tag_data_len;
 
-		TRACE_DEVEL("GCM Final: context->len=%ld, tag_data_len=%ld, out_data_len=%ld\n", context->len, tag_data_len, *out_data_len);
+		TRACE_DEVEL("GCM Final: context->len=%ld, tag_data_len=%ld, out_data_len=%ld\n",
+			    context->len, tag_data_len, *out_data_len);
 
 		rc = ica_aes_gcm_last(icb, (unsigned int)auth_data_len,
 				      (unsigned int)context->ulClen, tag_data,
@@ -2570,7 +2571,7 @@ CK_RV token_specific_aes_gcm_final(SESSION *sess, ENCR_DECR_CONTEXT *ctx,
 				      subkey, 1);
 
 		if (rc != 0) {
-			TRACE_ERROR("ica_aes_gcm_final failed with %lx.\n", rc);
+			TRACE_ERROR("ica_aes_gcm_final failed with rc = 0x%lx.\n", rc);
 			rc = CKR_FUNCTION_FAILED;
 			goto done;
 		}
@@ -2623,7 +2624,7 @@ CK_RV token_specific_aes_gcm_final(SESSION *sess, ENCR_DECR_CONTEXT *ctx,
 				      (unsigned int)attr->ulValueLen, subkey,
 				      0);
 		if (rc != 0) {
-			TRACE_ERROR("ica_aes_gcm_final failed with %lx.\n", rc);
+			TRACE_ERROR("ica_aes_gcm_final failed with rc = 0x%lx.\n", rc);
 			rc = CKR_FUNCTION_FAILED;
 		}
 	}

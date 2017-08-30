@@ -180,7 +180,7 @@ ckm_dsa_key_pair_gen( TEMPLATE  * publ_tmpl,
 
    rc = token_specific.t_dsa_generate_keypair(publ_tmpl,priv_tmpl);
    if (rc != CKR_OK)
-      TRACE_DEVEL("Tpken specific dsa keypair generation failed.\n");
+      TRACE_DEVEL("Token specific dsa keypair generation failed.\n");
    return rc;
 }
 
