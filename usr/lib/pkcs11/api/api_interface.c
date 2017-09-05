@@ -2873,7 +2873,8 @@ C_Login(CK_SESSION_HANDLE hSession,
 	}
 	if (fcn->ST_Login) {
 		// Map the Session to the slot session
-		rv = fcn->ST_Login(&rSession, userType, pPin, ulPinLen);
+		rv = fcn->ST_Login(sltp->TokData, &rSession, userType, pPin,
+				   ulPinLen);
 		TRACE_DEVEL("fcn->ST_Login returned:0x%lx\n", rv);
 	} else {
 		TRACE_ERROR("%s\n", ock_err(ERR_FUNCTION_NOT_SUPPORTED));

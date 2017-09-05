@@ -36,7 +36,8 @@ CK_RV icsftok_open_session(SESSION *sess);
 
 CK_RV icsftok_close_session(SESSION *session);
 
-CK_RV icsftok_login(SESSION *sess, CK_USER_TYPE userType, CK_CHAR_PTR pPin,
+CK_RV icsftok_login(STDLL_TokData_t *tokdata, SESSION *sess,
+		    CK_USER_TYPE userType, CK_CHAR_PTR pPin,
 		    CK_ULONG ulPinLen);
 
 CK_RV icsftok_create_object(SESSION *session, CK_ATTRIBUTE_PTR attrs,
