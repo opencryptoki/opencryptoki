@@ -22,7 +22,8 @@ CK_RV ep11tok_get_mechanism_list(CK_MECHANISM_TYPE_PTR pMechanismList,
 CK_RV ep11tok_get_mechanism_info(CK_MECHANISM_TYPE type,
 				 CK_MECHANISM_INFO_PTR pInfo);
 
-CK_RV ep11tok_init(CK_SLOT_ID SlotNumber, char *conf_name);
+CK_RV ep11tok_init(STDLL_TokData_t *tokdata, CK_SLOT_ID SlotNumber,
+		   char *conf_name);
 
 CK_RV ep11tok_final(void);
 

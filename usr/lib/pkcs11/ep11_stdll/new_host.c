@@ -99,10 +99,11 @@ CK_RV valid_mech(CK_MECHANISM_PTR m, CK_FLAGS f)
 /* In an STDLL this is called once for each card in the system
  * therefore the initialized only flags certain one time things.
  */
-CK_RV ST_Initialize(void **FunctionList, CK_SLOT_ID SlotNumber, char *conf_name,
-		    struct trace_handle_t t)
+CK_RV ST_Initialize(API_Slot_t *sltp, CK_SLOT_ID SlotNumber,
+		    SLOT_INFO *sinfp, struct trace_handle_t t)
 {
 	CK_RV rc = CKR_OK;
+	char abs_tokdir_name[PATH_MAX];
 
 	if ((rc = check_user_and_group()) != CKR_OK)
 		return rc;
@@ -111,7 +112,6 @@ CK_RV ST_Initialize(void **FunctionList, CK_SLOT_ID SlotNumber, char *conf_name,
 	 * since that only happens on C_Initialize and that is the
 	 * resonsibility of the upper layer..
 	 */
-	initialized = FALSE; /* So the rest of the code works correctly */
 
 	/* If we're not already initialized, grab the mutex and do the
 	 * initialization.  Check to see if another thread did so while we
@@ -147,15 +147,31 @@ CK_RV ST_Initialize(void **FunctionList, CK_SLOT_ID SlotNumber, char *conf_name,
 	/* Create lockfile */
 	if (CreateXProcLock() != CKR_OK) {
 		TRACE_ERROR("Process lock failed.\n");
+		rc = CKR_FUNCTION_FAILED;
 		goto done;
 	}
 
-	init_data_store((char *)PK_DIR);
+	/*
+	 * Create separate memory area for each token specific data
+	 */
+	sltp->TokData = (STDLL_TokData_t *)calloc(1, sizeof(STDLL_TokData_t));
+	if (!sltp->TokData) {
+		TRACE_ERROR("Allocating host memory failed.\n");
+		goto done;
+	}
+
+	if (strlen(sinfp->tokname)) {
+		sprintf(abs_tokdir_name,"%s/%s", CONFIG_PATH, sinfp->tokname);
+		TRACE_DEVEL("Token directory: %s\n", abs_tokdir_name);
+		init_data_store((char *)abs_tokdir_name, sltp->TokData->data_store);
+	}
+	else
+		init_data_store((char *)PK_DIR, sltp->TokData->data_store);
 
 	/* Handle global initialization issues first if we have not
 	 * been initialized.
 	 */
-	if (initialized == FALSE) {
+	if (sltp->TokData->initialized == FALSE) {
 
 		rc = attach_shm(SlotNumber, &global_shm);
 		if (rc != CKR_OK) {
@@ -164,21 +180,27 @@ CK_RV ST_Initialize(void **FunctionList, CK_SLOT_ID SlotNumber, char *conf_name,
 		}
 
 		nv_token_data = &global_shm->nv_token_data;
-		initialized = TRUE;
 		SC_SetFunctionList();
 
-		rc =  ep11tok_init(SlotNumber, conf_name);
+		rc =  ep11tok_init(sltp->TokData, SlotNumber, sinfp->confname);
 		if (rc != 0) {
-			*FunctionList = NULL;
+			sltp->FcnList = NULL;
+			if (sltp->TokData)
+				free(sltp->TokData);
+			sltp->TokData = NULL;
 			TRACE_DEVEL("Token Specific Init failed.\n");
 			goto done;
 		}
+		sltp->TokData->initialized = TRUE;
 	}
 
 	rc = load_token_data(SlotNumber);
 	if (rc != CKR_OK) {
-		*FunctionList = NULL;
-		TRACE_DEVEL("Failed to load token data.\n");
+		sltp->FcnList = NULL;
+		if (sltp->TokData)
+			free(sltp->TokData);
+		sltp->TokData = NULL;
+		TRACE_DEVEL("Failed to load token data. (rc=0x%02lx)\n", rc);
 		goto done;
 	}
 
@@ -194,7 +216,7 @@ CK_RV ST_Initialize(void **FunctionList, CK_SLOT_ID SlotNumber, char *conf_name,
 	init_slotInfo();
 
 	usage_count++;
-	(*FunctionList) = &function_list;
+	(sltp->FcnList) = &function_list;
 
 done:
 	if (pthread_mutex_unlock(&native_mutex)) {
@@ -362,13 +384,13 @@ out:
  * only process Meta API should prevent this since it knows session
  * states in the shared memory.
 */
-CK_RV SC_InitToken(CK_SLOT_ID sid, CK_CHAR_PTR pPin, CK_ULONG ulPinLen,
-		   CK_CHAR_PTR pLabel)
+CK_RV SC_InitToken(STDLL_TokData_t *tokdata, CK_SLOT_ID sid, CK_CHAR_PTR pPin,
+		   CK_ULONG ulPinLen, CK_CHAR_PTR pLabel)
 {
 	CK_RV rc = CKR_OK;
 	CK_BYTE hash_sha[SHA1_HASH_SIZE];
 
-	if (initialized == FALSE) {
+	if (tokdata->initialized == FALSE) {
 		TRACE_ERROR("%s\n", ock_err(ERR_CRYPTOKI_NOT_INITIALIZED));
 		rc = CKR_CRYPTOKI_NOT_INITIALIZED;
 		goto done;

@@ -166,6 +166,7 @@ typedef struct {
 	char		tokname[NAME_MAX+1];	// token specific directory
 }Slot_Info_t_64;
 
+typedef Slot_Info_t_64 SLOT_INFO;
 
 typedef struct {
 
@@ -193,6 +194,8 @@ typedef struct {
   CK_INFO               ck_info;
   Slot_Info_t           slot_info[NUMBER_SLOTS_MANAGED];
 } Slot_Mgr_Socket_t;
+
+typedef Slot_Info_t SLOT_INFO;
 
 #endif	// PKCS64
 

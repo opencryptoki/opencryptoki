@@ -2815,7 +2815,7 @@ C_InitToken(CK_SLOT_ID slotID,
 		return CKR_TOKEN_NOT_PRESENT;
 	}
 	if (fcn->ST_InitToken) {
-		rv = fcn->ST_InitToken(slotID, pPin, ulPinLen, pLabel);
+		rv = fcn->ST_InitToken(sltp->TokData, slotID, pPin, ulPinLen, pLabel);
 		TRACE_DEVEL("fcn->ST_InitToken returned: 0x%lx\n", rv);
 	} else {
 		TRACE_ERROR("%s\n", ock_err(ERR_FUNCTION_NOT_SUPPORTED));

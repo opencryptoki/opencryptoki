@@ -346,7 +346,8 @@ CK_RV cca_resolve_lib_sym(void *hdl) {
 }
 
 CK_RV
-token_specific_init(CK_SLOT_ID SlotNumber, char *conf_name)
+token_specific_init(STDLL_TokData_t *tokdata, CK_SLOT_ID SlotNumber,
+		    char *conf_name)
 {
 	unsigned char rule_array[256] = { 0, };
 	long return_code, reason_code, rule_array_count, verb_data_length;

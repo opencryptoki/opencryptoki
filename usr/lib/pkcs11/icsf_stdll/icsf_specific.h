@@ -18,12 +18,12 @@
 
 #include "pkcs11types.h"
 
-CK_RV icsftok_init(CK_SLOT_ID slot_id, char *conf_name);
+CK_RV icsftok_init(STDLL_TokData_t *tokdata, CK_SLOT_ID slot_id, char *conf_name);
 
 CK_RV icsftok_close_all_sessions(void);
 
-CK_RV icsftok_init_token(CK_SLOT_ID slot_id, CK_CHAR_PTR pin, CK_ULONG pin_len,
-			 CK_CHAR_PTR label);
+CK_RV icsftok_init_token(STDLL_TokData_t *tokdata, CK_SLOT_ID slot_id,
+			 CK_CHAR_PTR pin, CK_ULONG pin_len, CK_CHAR_PTR label);
 
 CK_RV icsftok_init_pin(SESSION *sess, CK_CHAR_PTR pPin, CK_ULONG ulPinLen);
 

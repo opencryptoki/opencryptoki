@@ -1114,7 +1114,7 @@ CK_RV ep11_resolve_lib_sym(void *hdl) {
 		return CKR_OK;
 }
 
-CK_RV ep11tok_init(CK_SLOT_ID SlotNumber, char *conf_name)
+CK_RV ep11tok_init(STDLL_TokData_t *tokdata, CK_SLOT_ID SlotNumber, char *conf_name)
 {
 	CK_RV rc;
 	void *lib_ep11;
