@@ -613,7 +613,7 @@ int DL_Load_and_Init(API_Slot_t *sltp, CK_SLOT_ID slotID)
 		return FALSE;
 	}
 	// Returns true or false
-	rv = pSTinit(&(sltp->FcnList), slotID, sinfp->confname, trace);
+	rv = pSTinit(sltp, slotID, sinfp, trace);
 	TRACE_DEBUG("return from STDDLL Init = %lx\n", rv);
 
 	if (rv != CKR_OK) {

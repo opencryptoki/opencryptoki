@@ -270,7 +270,8 @@ int icsf_to_ock_err(int icsf_return_code, int icsf_reason_code)
 /*
  * Called during C_Initialize.
  */
-CK_RV icsftok_init(CK_SLOT_ID slot_id, char *conf_name)
+CK_RV icsftok_init(STDLL_TokData_t *tokdata, CK_SLOT_ID slot_id,
+		  char *conf_name)
 {
 	CK_RV rc = CKR_OK;
 	struct slot_data *data;
@@ -292,7 +293,7 @@ CK_RV icsftok_init(CK_SLOT_ID slot_id, char *conf_name)
 	}
 
 	data = slot_data[slot_id];
-
+	data->initialized = 0;
 	strncpy(data->conf_name, conf_name, sizeof(data->conf_name) - 1);
 	data->conf_name[sizeof(data->conf_name) - 1] = '\0';
 
@@ -670,8 +671,8 @@ done:
 /*
  * Initialize token.
  */
-CK_RV icsftok_init_token(CK_SLOT_ID slot_id, CK_CHAR_PTR pin, CK_ULONG pin_len,
-			 CK_CHAR_PTR label)
+CK_RV icsftok_init_token(STDLL_TokData_t *tokdata, CK_SLOT_ID slot_id,
+			 CK_CHAR_PTR pin, CK_ULONG pin_len, CK_CHAR_PTR label)
 {
 	CK_RV rc = CKR_OK;
 	CK_BYTE hash_sha[SHA1_HASH_SIZE];

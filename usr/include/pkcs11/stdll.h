@@ -31,7 +31,8 @@ typedef struct {
 } ST_SESSION_T ;
 
 typedef struct _STDLL_TokData_t STDLL_TokData_t;
-
+typedef struct API_Slot_t API_Slot;
+typedef struct trace_handle_t trace_handle;
 typedef ST_SESSION_T ST_SESSION_HANDLE;
 
 /* CK_FUNCTION_LIST is a structure holding a Cryptoki spec
@@ -41,9 +42,10 @@ typedef ST_SESSION_T ST_SESSION_HANDLE;
 
 
 
-typedef CK_RV (CK_PTR ST_C_Initialize) (void **ppFunctionList,
-					CK_SLOT_ID slotID,
-					CK_CHAR_PTR pConfName);
+typedef CK_RV (CK_PTR ST_C_Initialize) (API_Slot *sltp,
+                                        CK_SLOT_ID slotID,
+                                        SLOT_INFO *sinfp,
+                                        trace_handle t);
 
 typedef CK_RV	(CK_PTR  ST_C_Finalize)
 						(CK_VOID_PTR pReserved);
@@ -67,7 +69,8 @@ typedef CK_RV	(CK_PTR  ST_C_GetMechanismInfo)
 						(CK_SLOT_ID slotID, CK_MECHANISM_TYPE type,
 						 CK_MECHANISM_INFO_PTR pInfo);
 typedef CK_RV	(CK_PTR  ST_C_InitToken)
-						(CK_SLOT_ID slotID, CK_CHAR_PTR pPin, CK_ULONG usPinLen,
+						(STDLL_TokData_t *tokdata, CK_SLOT_ID slotID,
+						 CK_CHAR_PTR pPin, CK_ULONG usPinLen,
 						 CK_CHAR_PTR pLabel);
 typedef CK_RV	(CK_PTR  ST_C_InitPIN)
 						(ST_SESSION_T *hSession, CK_CHAR_PTR pPin,

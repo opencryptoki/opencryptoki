@@ -156,7 +156,8 @@ token_specific_rng(CK_BYTE *output, CK_ULONG bytes)
 }
 
 CK_RV
-token_specific_init(CK_SLOT_ID SlotNumber, char *conf_name)
+token_specific_init(STDLL_TokData_t *tokdata, CK_SLOT_ID SlotNumber,
+		    char *conf_name)
 {
 	TSS_RESULT result;
 	char path_buf[PATH_MAX], fname[PATH_MAX];
@@ -2062,7 +2063,8 @@ static CK_RV delete_tpm_data()
 
 /* only called at token init time */
 CK_RV
-token_specific_init_token(CK_SLOT_ID sid, CK_CHAR_PTR pPin, CK_ULONG ulPinLen,
+token_specific_init_token(STDLL_TokData_t *tokdata, CK_SLOT_ID sid,
+			  CK_CHAR_PTR pPin, CK_ULONG ulPinLen,
 			  CK_CHAR_PTR pLabel)
 {
 	CK_BYTE hash_sha[SHA1_HASH_SIZE];

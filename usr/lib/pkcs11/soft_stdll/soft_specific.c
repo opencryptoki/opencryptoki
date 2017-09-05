@@ -70,7 +70,8 @@ CK_CHAR descr[] = "IBM PKCS#11 Soft token";
 CK_CHAR label[] = "IBM OS PKCS#11   ";
 
 CK_RV
-token_specific_init(CK_SLOT_ID SlotNumber, char *conf_name)
+token_specific_init(STDLL_TokData_t *tokdata, CK_SLOT_ID SlotNumber,
+		    char *conf_name)
 {
 	TRACE_INFO("soft %s slot=%lu running\n", __func__, SlotNumber);
 	return CKR_OK;
