@@ -750,7 +750,8 @@ CK_RV icsftok_init_pin(STDLL_TokData_t *tokdata, SESSION *sess,
 	return rc;
 }
 
-CK_RV icsftok_set_pin(SESSION *sess, CK_CHAR_PTR pOldPin, CK_ULONG ulOldLen,
+CK_RV icsftok_set_pin(STDLL_TokData_t *tokdata, SESSION *sess,
+		      CK_CHAR_PTR pOldPin, CK_ULONG ulOldLen,
 		      CK_CHAR_PTR pNewPin, CK_ULONG ulNewLen)
 {
 	CK_RV rc = CKR_OK;

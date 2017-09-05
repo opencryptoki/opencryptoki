@@ -3251,8 +3251,8 @@ C_SetPIN(CK_SESSION_HANDLE hSession,
 	}
 	if (fcn->ST_SetPIN) {
 		// Map the Session to the slot session
-		rv = fcn->ST_SetPIN(&rSession, pOldPin, ulOldLen, pNewPin,
-				    ulNewLen);
+		rv = fcn->ST_SetPIN(sltp->TokData, &rSession, pOldPin,
+				    ulOldLen, pNewPin, ulNewLen);
 		TRACE_DEVEL("fcn->ST_SetPIN returned: 0x%lx\n", rv);
 	} else {
 		TRACE_ERROR("%s\n", ock_err(ERR_FUNCTION_NOT_SUPPORTED));

@@ -1837,7 +1837,7 @@ verify_user_pin(CK_BYTE *hash_sha)
 }
 
 CK_RV
-token_specific_set_pin(SESSION *sess,
+token_specific_set_pin(STDLL_TokData_t *tokdata, SESSION *sess,
 		       CK_CHAR_PTR pOldPin, CK_ULONG ulOldPinLen,
 		       CK_CHAR_PTR pNewPin, CK_ULONG ulNewPinLen)
 {
