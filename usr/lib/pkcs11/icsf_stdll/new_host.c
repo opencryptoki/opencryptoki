@@ -466,13 +466,14 @@ done:
 	return rc;
 }
 
-CK_RV SC_SetPIN(ST_SESSION_HANDLE *sSession, CK_CHAR_PTR pOldPin,
-		CK_ULONG ulOldLen, CK_CHAR_PTR pNewPin, CK_ULONG ulNewLen)
+CK_RV SC_SetPIN(STDLL_TokData_t *tokdata, ST_SESSION_HANDLE *sSession,
+		CK_CHAR_PTR pOldPin, CK_ULONG ulOldLen, CK_CHAR_PTR pNewPin,
+		CK_ULONG ulNewLen)
 {
 	SESSION *sess = NULL;
 	CK_RV rc = CKR_OK;
 
-	if (initialized == FALSE) {
+	if (tokdata->initialized == FALSE) {
 		TRACE_ERROR("%s\n", ock_err(ERR_CRYPTOKI_NOT_INITIALIZED));
 		rc = CKR_CRYPTOKI_NOT_INITIALIZED;
 		goto done;
@@ -493,7 +494,7 @@ CK_RV SC_SetPIN(ST_SESSION_HANDLE *sSession, CK_CHAR_PTR pOldPin,
 		goto done;
 	}
 
-	rc = icsftok_set_pin(sess, pOldPin, ulOldLen, pNewPin, ulNewLen);
+	rc = icsftok_set_pin(tokdata, sess, pOldPin, ulOldLen, pNewPin, ulNewLen);
 
 done:
 	TRACE_INFO("C_SetPin: rc = 0x%08lx, session = %lu\n",

@@ -560,8 +560,9 @@ done:
 	return rc;
 }
 
-CK_RV SC_SetPIN(ST_SESSION_HANDLE *sSession, CK_CHAR_PTR pOldPin,
-		CK_ULONG ulOldLen, CK_CHAR_PTR pNewPin, CK_ULONG ulNewLen)
+CK_RV SC_SetPIN(STDLL_TokData_t *tokdata, ST_SESSION_HANDLE *sSession,
+		CK_CHAR_PTR pOldPin, CK_ULONG ulOldLen, CK_CHAR_PTR pNewPin,
+		CK_ULONG ulNewLen)
 {
 	SESSION *sess = NULL;
 	CK_BYTE old_hash_sha[SHA1_HASH_SIZE];
@@ -569,7 +570,7 @@ CK_RV SC_SetPIN(ST_SESSION_HANDLE *sSession, CK_CHAR_PTR pOldPin,
 	CK_BYTE hash_md5[MD5_HASH_SIZE];
 	CK_RV rc = CKR_OK;
 
-	if (initialized == FALSE) {
+	if (tokdata->initialized == FALSE) {
 		TRACE_ERROR("%s\n", ock_err(ERR_CRYPTOKI_NOT_INITIALIZED));
 		rc = CKR_CRYPTOKI_NOT_INITIALIZED;
 		goto done;
@@ -591,7 +592,8 @@ CK_RV SC_SetPIN(ST_SESSION_HANDLE *sSession, CK_CHAR_PTR pOldPin,
 	 * to default behaviour.
 	 */
 	if (token_specific.t_set_pin) {
-		rc = token_specific.t_set_pin(sess, pOldPin, ulOldLen, pNewPin, ulNewLen);
+		rc = token_specific.t_set_pin(tokdata, sess, pOldPin, ulOldLen,
+					      pNewPin, ulNewLen);
 		goto done;
 	}
 
