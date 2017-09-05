@@ -397,7 +397,7 @@ session_login(void *node_value, unsigned long node_idx, void *p3)
 // Arg:  CK_USER_TYPE  user_type : USER or SO
 //
 CK_RV
-session_mgr_login_all( CK_USER_TYPE user_type )
+session_mgr_login_all( STDLL_TokData_t *tokdata, CK_USER_TYPE user_type )
 {
    bt_for_each_node(&sess_btree, session_login, (void *)&user_type);
 

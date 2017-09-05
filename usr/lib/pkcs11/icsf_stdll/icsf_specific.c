@@ -1102,7 +1102,8 @@ CK_RV icsftok_close_all_sessions(void)
 	return rc;
 }
 
-CK_RV icsftok_login(SESSION *sess, CK_USER_TYPE userType, CK_CHAR_PTR pPin,
+CK_RV icsftok_login(STDLL_TokData_t *tokdata, SESSION *sess,
+		    CK_USER_TYPE userType, CK_CHAR_PTR pPin,
 		    CK_ULONG ulPinLen)
 {
 	CK_RV rc = CKR_OK;

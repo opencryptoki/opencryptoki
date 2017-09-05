@@ -883,8 +883,8 @@ done:
 }
 
 
-CK_RV SC_Login(ST_SESSION_HANDLE *sSession, CK_USER_TYPE userType,
-	       CK_CHAR_PTR pPin, CK_ULONG ulPinLen)
+CK_RV SC_Login(STDLL_TokData_t *tokdata, ST_SESSION_HANDLE *sSession,
+	       CK_USER_TYPE userType, CK_CHAR_PTR pPin, CK_ULONG ulPinLen)
 {
 	SESSION *sess = NULL;
 	CK_FLAGS_32 *flags = NULL;
@@ -900,7 +900,7 @@ CK_RV SC_Login(ST_SESSION_HANDLE *sSession, CK_USER_TYPE userType,
 		return CKR_FUNCTION_FAILED;
 	}
 
-	if (initialized == FALSE) {
+	if (tokdata->initialized == FALSE) {
 		TRACE_ERROR("%s\n", ock_err(ERR_CRYPTOKI_NOT_INITIALIZED));
 		rc = CKR_CRYPTOKI_NOT_INITIALIZED;
 		goto done;
@@ -971,8 +971,8 @@ CK_RV SC_Login(ST_SESSION_HANDLE *sSession, CK_USER_TYPE userType,
 		 */
 		if (token_specific.t_login) {
 			// call the pluggable login function here - KEY
-			rc = token_specific.t_login(sess, userType, pPin,
-						    ulPinLen);
+			rc = token_specific.t_login(tokdata, sess, userType,
+						    pPin, ulPinLen);
 			if (rc == CKR_OK) {
 				*flags &= ~(CKF_USER_PIN_LOCKED |
 				          CKF_USER_PIN_FINAL_TRY |
@@ -1032,7 +1032,7 @@ CK_RV SC_Login(ST_SESSION_HANDLE *sSession, CK_USER_TYPE userType,
 		 */
 		if (token_specific.t_login) {
 			/* call the pluggable login function here - KEY */
-			rc = token_specific.t_login(sess, userType,
+			rc = token_specific.t_login(tokdata, sess, userType,
 						    pPin, ulPinLen);
 			if (rc == CKR_OK) {
 				*flags &= ~(CKF_SO_PIN_LOCKED |
@@ -1064,8 +1064,8 @@ CK_RV SC_Login(ST_SESSION_HANDLE *sSession, CK_USER_TYPE userType,
 	}
 
 done:
- 	if (rc == CKR_OK) {
-		rc = session_mgr_login_all(userType);
+	if (rc == CKR_OK) {
+		rc = session_mgr_login_all(tokdata, userType);
 		if (rc != CKR_OK)
 			TRACE_DEVEL("session_mgr_login_all failed.\n");
 	}
