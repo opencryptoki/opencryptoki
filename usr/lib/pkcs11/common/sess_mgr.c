@@ -431,7 +431,7 @@ session_logout(void *node_value, unsigned long node_idx, void *p3)
 // changes the login status of all sessions in the token
 //
 CK_RV
-session_mgr_logout_all( void )
+session_mgr_logout_all( STDLL_TokData_t *tokdata )
 {
    bt_for_each_node(&sess_btree, session_logout, NULL);
 

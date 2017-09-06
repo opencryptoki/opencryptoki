@@ -1908,7 +1908,7 @@ CK_RV  session_mgr_close_session( CK_SESSION_HANDLE );
 CK_RV  session_mgr_new( CK_ULONG flags, CK_SLOT_ID slot_id, CK_SESSION_HANDLE_PTR phSession );
 SESSION * session_mgr_find( CK_SESSION_HANDLE handle );
 CK_RV  session_mgr_login_all ( STDLL_TokData_t *tokdata, CK_USER_TYPE user_type );
-CK_RV  session_mgr_logout_all( void );
+CK_RV  session_mgr_logout_all( STDLL_TokData_t *tokdata );
 
 CK_BBOOL  session_mgr_readonly_session_exists( void );
 CK_BBOOL  session_mgr_so_session_exists    ( void );

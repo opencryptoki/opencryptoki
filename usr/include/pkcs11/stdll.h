@@ -109,7 +109,8 @@ typedef CK_RV	(CK_PTR  ST_C_Login)
 						(STDLL_TokData_t *tokdata, ST_SESSION_T *hSession,
 						 CK_USER_TYPE userType, CK_CHAR_PTR pPin,
 						 CK_ULONG usPinLen);
-typedef CK_RV	(CK_PTR  ST_C_Logout)(ST_SESSION_T *hSession);
+typedef CK_RV	(CK_PTR  ST_C_Logout)
+						(STDLL_TokData_t *tokdata, ST_SESSION_T *hSession);
 typedef CK_RV	(CK_PTR  ST_C_CreateObject)
 						(ST_SESSION_T *hSession, CK_ATTRIBUTE_PTR pTemplate,
 						 CK_ULONG usCount, CK_OBJECT_HANDLE_PTR phObject);
