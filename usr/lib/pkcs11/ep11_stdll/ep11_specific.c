@@ -50,7 +50,8 @@
 
 #define EP11SHAREDLIB "libep11.so"
 
-CK_RV ep11tok_get_mechanism_list(CK_MECHANISM_TYPE_PTR mlist,
+CK_RV ep11tok_get_mechanism_list(STDLL_TokData_t *tokdata,
+				 CK_MECHANISM_TYPE_PTR mlist,
 				 CK_ULONG_PTR count);
 CK_RV ep11tok_get_mechanism_info(CK_MECHANISM_TYPE type,
 				 CK_MECHANISM_INFO_PTR pInfo);
@@ -948,7 +949,7 @@ static const char* print_flags(CK_ULONG flags)
 }
 
 
-static CK_RV print_mechanism(void)
+static CK_RV print_mechanism(STDLL_TokData_t *tokdata)
 {
 	CK_MECHANISM_TYPE_PTR list = NULL;
 	CK_ULONG count = 0;
@@ -957,7 +958,7 @@ static CK_RV print_mechanism(void)
 	CK_RV rc;
 
 	/* first call is just to fetch the count value */
-	rc = ep11tok_get_mechanism_list(list, &count);
+	rc = ep11tok_get_mechanism_list(tokdata, list, &count);
 	if (rc != CKR_OK) {
 		TRACE_ERROR("%s can't fetch mechanism list (get_mech_list rc=0x%lx)\n",
 			    __func__, rc);
@@ -970,7 +971,7 @@ static CK_RV print_mechanism(void)
 	}
 
 	/* now really fill the list */
-	rc = ep11tok_get_mechanism_list(list, &count);
+	rc = ep11tok_get_mechanism_list(tokdata, list, &count);
 	if (rc != CKR_OK) {
 		TRACE_ERROR("%s can't fetch mechanism list (get_mech_list rc=0x%lx)\n",
 			    __func__, rc);
@@ -1162,7 +1163,7 @@ CK_RV ep11tok_init(STDLL_TokData_t *tokdata, CK_SLOT_ID SlotNumber, char *conf_n
 #endif
 
 	/* print mechanismlist to log file */
-	rc = print_mechanism();
+	rc = print_mechanism(tokdata);
 	if (rc != CKR_OK) {
 		TRACE_ERROR("%s failure on fetching mechanism list rc=0x%lx, maybe wrong config ?\n",
 			    __func__, rc);
@@ -3460,7 +3461,8 @@ CK_ULONG banned_mech_list_len = (sizeof(ep11_banned_mech_list) / sizeof(CK_MECHA
 /* filtering out some mechanisms we do not want to provide
  * makes it complicated
  */
-CK_RV ep11tok_get_mechanism_list(CK_MECHANISM_TYPE_PTR pMechanismList,
+CK_RV ep11tok_get_mechanism_list(STDLL_TokData_t *tokdata,
+				 CK_MECHANISM_TYPE_PTR pMechanismList,
 				 CK_ULONG_PTR pulCount)
 {
 	CK_RV rc = 0;
@@ -3471,7 +3473,7 @@ CK_RV ep11tok_get_mechanism_list(CK_MECHANISM_TYPE_PTR pMechanismList,
 	/* size querry */
 	if (pMechanismList == NULL) {
 		rc = dll_m_GetMechanismList(0, pMechanismList, pulCount,
-					ep11tok_target);
+					    (uint64_t)tokdata->target_list);
 		if (rc != CKR_OK) {
 			TRACE_ERROR("%s bad rc=0x%lx from m_GetMechanismList() #1\n", __func__, rc);
 			return rc;
@@ -3486,7 +3488,7 @@ CK_RV ep11tok_get_mechanism_list(CK_MECHANISM_TYPE_PTR pMechanismList,
 			TRACE_ERROR("%s Memory allocation failed\n", __func__);
 			return CKR_HOST_MEMORY;
 		}
-		rc = dll_m_GetMechanismList(0, mlist, &counter, ep11tok_target);
+		rc = dll_m_GetMechanismList(0, mlist, &counter, (uint64_t)tokdata->target_list);
 		if (rc != CKR_OK) {
 			TRACE_ERROR("%s bad rc=0x%lx from m_GetMechanismList() #2\n", __func__, rc);
 			free(mlist);
@@ -3516,7 +3518,8 @@ CK_RV ep11tok_get_mechanism_list(CK_MECHANISM_TYPE_PTR pMechanismList,
 		 * that comes as parameter, this is a 'reduced size',
 		 * ep11 would complain about insufficient list size
 		 */
-		rc = dll_m_GetMechanismList(0, mlist, &counter, ep11tok_target);
+		rc = dll_m_GetMechanismList(0, mlist, &counter,
+					    (uint64_t)tokdata->target_list);
 		if (rc != CKR_OK) {
 			TRACE_ERROR("%s bad rc=0x%lx from m_GetMechanismList() #3\n", __func__, rc);
 			return rc;
@@ -3528,7 +3531,7 @@ CK_RV ep11tok_get_mechanism_list(CK_MECHANISM_TYPE_PTR pMechanismList,
 			return CKR_HOST_MEMORY;
 		}
 		/* all the card has */
-		rc = dll_m_GetMechanismList(0, mlist, &counter, ep11tok_target);
+		rc = dll_m_GetMechanismList(0, mlist, &counter, (uint64_t)tokdata->target_list);
 		if (rc != CKR_OK) {
 			TRACE_ERROR("%s bad rc=0x%lx from m_GetMechanismList() #4\n", __func__, rc);
 			free(mlist);

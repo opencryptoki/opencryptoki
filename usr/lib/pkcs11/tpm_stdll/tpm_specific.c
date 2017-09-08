@@ -3363,7 +3363,8 @@ token_specific_dh_pkcs_key_pair_gen( TEMPLATE  * publ_tmpl,
 #endif
 
 CK_RV
-token_specific_get_mechanism_list(CK_MECHANISM_TYPE_PTR pMechanismList,
+token_specific_get_mechanism_list(STDLL_TokData_t *tokdata,
+				  CK_MECHANISM_TYPE_PTR pMechanismList,
                                   CK_ULONG_PTR pulCount)
 {
 	int rc;

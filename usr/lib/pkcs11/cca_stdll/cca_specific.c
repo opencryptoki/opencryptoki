@@ -1485,7 +1485,9 @@ token_specific_dh_pkcs_key_pair_gen(TEMPLATE *publ_tmpl,
  * mech_list_len.
  */
 CK_RV
-token_specific_get_mechanism_list(CK_MECHANISM_TYPE *pMechanismList, CK_ULONG *pulCount)
+token_specific_get_mechanism_list(STDLL_TokData_t *tokdata,
+				  CK_MECHANISM_TYPE *pMechanismList,
+				  CK_ULONG *pulCount)
 {
 	CK_ULONG i;
 

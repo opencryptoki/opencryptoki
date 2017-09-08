@@ -313,12 +313,13 @@ CK_RV SC_WaitForSlotEvent(CK_FLAGS flags, CK_SLOT_ID_PTR pSlot,
 /*
  * Get the mechanism type list for the current token.
  */
-CK_RV SC_GetMechanismList(CK_SLOT_ID sid, CK_MECHANISM_TYPE_PTR pMechList,
+CK_RV SC_GetMechanismList(STDLL_TokData_t *tokdata, CK_SLOT_ID sid,
+			  CK_MECHANISM_TYPE_PTR pMechList,
                           CK_ULONG_PTR count)
 {
 	CK_RV rc = CKR_OK;
 
-	if (initialized == FALSE) {
+	if (tokdata->initialized == FALSE) {
 		TRACE_ERROR("%s\n", ock_err(ERR_CRYPTOKI_NOT_INITIALIZED));
 		rc = CKR_CRYPTOKI_NOT_INITIALIZED;
 		goto out;

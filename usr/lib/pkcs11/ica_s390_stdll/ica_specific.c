@@ -3107,7 +3107,8 @@ MECH_LIST_ELEMENT mech_list[] = {
 CK_ULONG mech_list_len = 3;
 
 CK_RV
-token_specific_get_mechanism_list(CK_MECHANISM_TYPE_PTR pMechanismList,
+token_specific_get_mechanism_list(STDLL_TokData_t *tokdata,
+				  CK_MECHANISM_TYPE_PTR pMechanismList,
 				  CK_ULONG_PTR pulCount)
 {
 	CK_ULONG rc = CKR_OK;
