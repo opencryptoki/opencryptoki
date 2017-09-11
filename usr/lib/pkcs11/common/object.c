@@ -186,7 +186,8 @@ error:
 // are done by the object manager.
 //
 CK_RV
-object_copy( CK_ATTRIBUTE  * pTemplate,
+object_copy( STDLL_TokData_t * tokdata,
+             CK_ATTRIBUTE  * pTemplate,
              CK_ULONG        ulCount,
              OBJECT        * old_obj,
              OBJECT       ** new_obj )
