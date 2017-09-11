@@ -241,8 +241,8 @@ C_CopyObject(CK_SESSION_HANDLE hSession,
 	}
 	if (fcn->ST_CopyObject) {
 		// Map the Session to the slot session
-		rv = fcn->ST_CopyObject(&rSession, hObject, pTemplate, ulCount,
-					phNewObject);
+		rv = fcn->ST_CopyObject(sltp->TokData, &rSession, hObject,
+					pTemplate, ulCount, phNewObject);
 	} else {
 		TRACE_ERROR("%s\n", ock_err(ERR_FUNCTION_NOT_SUPPORTED));
 		rv = CKR_FUNCTION_NOT_SUPPORTED;

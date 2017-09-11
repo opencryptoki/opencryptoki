@@ -120,9 +120,9 @@ typedef CK_RV	(CK_PTR  ST_C_CreateObject)
 						 CK_ULONG usCount, CK_OBJECT_HANDLE_PTR phObject);
 
 typedef CK_RV	(CK_PTR  ST_C_CopyObject)
-						(ST_SESSION_T *hSession, CK_OBJECT_HANDLE hObject,
-						 CK_ATTRIBUTE_PTR pTemplate, CK_ULONG usCount,
-						 CK_OBJECT_HANDLE_PTR phNewObject);
+						(STDLL_TokData_t *tokdata, ST_SESSION_T *hSession,
+						 CK_OBJECT_HANDLE hObject, CK_ATTRIBUTE_PTR pTemplate,
+						 CK_ULONG usCount, CK_OBJECT_HANDLE_PTR phNewObject);
 typedef CK_RV (CK_PTR  ST_C_DestroyObject)
                        (ST_SESSION_T *hSession, CK_OBJECT_HANDLE hObject);
 typedef CK_RV(CK_PTR  ST_C_GetObjectSize)
