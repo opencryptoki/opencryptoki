@@ -1303,7 +1303,8 @@ object_mgr_get_attribute_values( SESSION           * sess,
 //
 //
 CK_RV
-object_mgr_get_object_size( CK_OBJECT_HANDLE   handle,
+object_mgr_get_object_size( STDLL_TokData_t  *tokdata,
+			    CK_OBJECT_HANDLE   handle,
                             CK_ULONG         * size )
 {
    OBJECT    * obj;
