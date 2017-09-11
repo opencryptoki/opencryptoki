@@ -1015,8 +1015,8 @@ done:
 }
 
 
-CK_RV SC_GetObjectSize(ST_SESSION_HANDLE *sSession, CK_OBJECT_HANDLE hObject,
-		       CK_ULONG_PTR pulSize)
+CK_RV SC_GetObjectSize(STDLL_TokData_t *tokdata, ST_SESSION_HANDLE *sSession,
+		       CK_OBJECT_HANDLE hObject, CK_ULONG_PTR pulSize)
 {
 	SESSION *sess = NULL;
 	CK_RV rc = CKR_OK;
@@ -1033,7 +1033,7 @@ CK_RV SC_GetObjectSize(ST_SESSION_HANDLE *sSession, CK_OBJECT_HANDLE hObject,
 	CK_ATTRIBUTE_PTR pTemplate = NULL;
 	CK_ULONG ulCount = 1;
 
-	if (initialized == FALSE) {
+	if (tokdata->initialized == FALSE) {
 		TRACE_ERROR("%s\n", ock_err(ERR_CRYPTOKI_NOT_INITIALIZED));
 		return CKR_CRYPTOKI_NOT_INITIALIZED;
 	}
