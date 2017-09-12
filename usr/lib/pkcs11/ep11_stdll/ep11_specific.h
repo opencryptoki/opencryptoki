@@ -70,15 +70,18 @@ CK_RV ep11tok_verify_update(SESSION *session, CK_BYTE *in_data,
 CK_RV ep11tok_verify_final(SESSION *session, CK_BYTE *signature,
 			   CK_ULONG sig_len);
 
-CK_RV ep11tok_decrypt_final(SESSION *session, CK_BYTE_PTR output_part,
+CK_RV ep11tok_decrypt_final(STDLL_TokData_t *tokdata, SESSION *session,
+			    CK_BYTE_PTR output_part,
 			    CK_ULONG_PTR p_output_part_len);
 
-CK_RV ep11tok_decrypt(SESSION *session, CK_BYTE_PTR input_data,
-		      CK_ULONG input_data_len, CK_BYTE_PTR output_data,
+CK_RV ep11tok_decrypt(STDLL_TokData_t *tokdata, SESSION *session,
+		      CK_BYTE_PTR input_data, CK_ULONG input_data_len,
+		      CK_BYTE_PTR output_data,
 		      CK_ULONG_PTR p_output_data_len);
 
-CK_RV ep11tok_decrypt_update(SESSION *session, CK_BYTE_PTR input_part,
-			     CK_ULONG input_part_len, CK_BYTE_PTR output_part,
+CK_RV ep11tok_decrypt_update(STDLL_TokData_t *tokdata, SESSION *session,
+			     CK_BYTE_PTR input_part, CK_ULONG input_part_len,
+			     CK_BYTE_PTR output_part,
 			     CK_ULONG_PTR p_output_part_len);
 
 CK_RV ep11tok_encrypt_final(STDLL_TokData_t *tokdata, SESSION *session,
@@ -97,8 +100,8 @@ CK_RV ep11tok_encrypt_update(STDLL_TokData_t *tokdata, SESSION *session,
 CK_RV ep11tok_encrypt_init(STDLL_TokData_t *tokdata, SESSION *session,
 			   CK_MECHANISM_PTR mech, CK_OBJECT_HANDLE key);
 
-CK_RV ep11tok_decrypt_init(SESSION *session, CK_MECHANISM_PTR mech,
-			   CK_OBJECT_HANDLE key);
+CK_RV ep11tok_decrypt_init(STDLL_TokData_t *tokdata, SESSION *session,
+			   CK_MECHANISM_PTR mech, CK_OBJECT_HANDLE key);
 
 CK_RV ep11tok_wrap_key(STDLL_TokData_t *tokdata, SESSION *session,
 		       CK_MECHANISM_PTR mech, CK_OBJECT_HANDLE wrapping_key,
