@@ -1759,13 +1759,13 @@ done:
 }
 
 
-CK_RV SC_DecryptInit(ST_SESSION_HANDLE *sSession, CK_MECHANISM_PTR pMechanism,
-		     CK_OBJECT_HANDLE hKey)
+CK_RV SC_DecryptInit(STDLL_TokData_t *tokdata, ST_SESSION_HANDLE *sSession,
+		     CK_MECHANISM_PTR pMechanism, CK_OBJECT_HANDLE hKey)
 {
 	SESSION *sess = NULL;
 	CK_RV rc = CKR_OK;
 
-	if (initialized == FALSE) {
+	if (tokdata->initialized == FALSE) {
 		TRACE_ERROR("%s\n", ock_err(ERR_CRYPTOKI_NOT_INITIALIZED));
 		rc = CKR_CRYPTOKI_NOT_INITIALIZED;
 		goto done;
@@ -1800,7 +1800,7 @@ CK_RV SC_DecryptInit(ST_SESSION_HANDLE *sSession, CK_MECHANISM_PTR pMechanism,
 		goto done;
 	}
 
-	rc = decr_mgr_init(sess, &sess->decr_ctx, OP_DECRYPT_INIT,
+	rc = decr_mgr_init(tokdata, sess, &sess->decr_ctx, OP_DECRYPT_INIT,
 			   pMechanism, hKey);
 	if (rc != CKR_OK)
 		TRACE_DEVEL("decr_mgr_init() failed.\n");
@@ -1814,15 +1814,15 @@ done:
 }
 
 
-CK_RV SC_Decrypt(ST_SESSION_HANDLE *sSession, CK_BYTE_PTR pEncryptedData,
-		 CK_ULONG ulEncryptedDataLen, CK_BYTE_PTR pData,
-		 CK_ULONG_PTR pulDataLen)
+CK_RV SC_Decrypt(STDLL_TokData_t *tokdata, ST_SESSION_HANDLE *sSession,
+		 CK_BYTE_PTR pEncryptedData, CK_ULONG ulEncryptedDataLen,
+		 CK_BYTE_PTR pData, CK_ULONG_PTR pulDataLen)
 {
 	SESSION *sess = NULL;
 	CK_BBOOL length_only = FALSE;
 	CK_RV rc = CKR_OK;
 
-	if (initialized == FALSE) {
+	if (tokdata->initialized == FALSE) {
 		TRACE_ERROR("%s\n", ock_err(ERR_CRYPTOKI_NOT_INITIALIZED));
 		rc = CKR_CRYPTOKI_NOT_INITIALIZED;
 		goto done;
@@ -1850,7 +1850,7 @@ CK_RV SC_Decrypt(ST_SESSION_HANDLE *sSession, CK_BYTE_PTR pEncryptedData,
 	if (!pData)
 		length_only = TRUE;
 
-	rc = decr_mgr_decrypt(sess, length_only, &sess->decr_ctx,
+	rc = decr_mgr_decrypt(tokdata, sess, length_only, &sess->decr_ctx,
 			      pEncryptedData, ulEncryptedDataLen, pData,
 			      pulDataLen);
 	if (rc != CKR_OK)
@@ -1868,15 +1868,15 @@ done:
 }
 
 
-CK_RV SC_DecryptUpdate(ST_SESSION_HANDLE *sSession, CK_BYTE_PTR pEncryptedPart,
-		       CK_ULONG ulEncryptedPartLen, CK_BYTE_PTR pPart,
-		       CK_ULONG_PTR pulPartLen)
+CK_RV SC_DecryptUpdate(STDLL_TokData_t *tokdata, ST_SESSION_HANDLE *sSession,
+		       CK_BYTE_PTR pEncryptedPart, CK_ULONG ulEncryptedPartLen,
+		       CK_BYTE_PTR pPart, CK_ULONG_PTR pulPartLen)
 {
 	SESSION *sess = NULL;
 	CK_BBOOL length_only = FALSE;
 	CK_RV rc = CKR_OK;
 
-	if (initialized == FALSE) {
+	if (tokdata->initialized == FALSE) {
 		TRACE_ERROR("%s\n", ock_err(ERR_CRYPTOKI_NOT_INITIALIZED));
 		rc = CKR_CRYPTOKI_NOT_INITIALIZED;
 		goto done;
@@ -1904,9 +1904,9 @@ CK_RV SC_DecryptUpdate(ST_SESSION_HANDLE *sSession, CK_BYTE_PTR pEncryptedPart,
 	if (!pPart)
 		length_only = TRUE;
 
-	rc = decr_mgr_decrypt_update(sess, length_only, &sess->decr_ctx,
-				     pEncryptedPart,ulEncryptedPartLen,
-				     pPart, pulPartLen);
+	rc = decr_mgr_decrypt_update(tokdata, sess, length_only,
+				     &sess->decr_ctx, pEncryptedPart,
+				     ulEncryptedPartLen, pPart, pulPartLen);
 	if (rc != CKR_OK)
 		TRACE_DEVEL("decr_mgr_decrypt_update() failed.\n");
 
@@ -1922,14 +1922,14 @@ done:
 }
 
 
-CK_RV SC_DecryptFinal(ST_SESSION_HANDLE *sSession, CK_BYTE_PTR pLastPart,
-		      CK_ULONG_PTR pulLastPartLen)
+CK_RV SC_DecryptFinal(STDLL_TokData_t *tokdata, ST_SESSION_HANDLE *sSession,
+		      CK_BYTE_PTR pLastPart, CK_ULONG_PTR pulLastPartLen)
 {
 	SESSION *sess = NULL;
 	CK_BBOOL length_only = FALSE;
 	CK_RV rc = CKR_OK;
 
-	if (initialized == FALSE) {
+	if (tokdata->initialized == FALSE) {
 		TRACE_ERROR("%s\n", ock_err(ERR_CRYPTOKI_NOT_INITIALIZED));
 		rc = CKR_CRYPTOKI_NOT_INITIALIZED;
 		goto done;
@@ -1957,7 +1957,7 @@ CK_RV SC_DecryptFinal(ST_SESSION_HANDLE *sSession, CK_BYTE_PTR pLastPart,
 	if (!pLastPart)
 		length_only = TRUE;
 
-	rc = decr_mgr_decrypt_final(sess, length_only, &sess->decr_ctx,
+	rc = decr_mgr_decrypt_final(tokdata, sess, length_only, &sess->decr_ctx,
 				    pLastPart, pulLastPartLen);
 	if (rc != CKR_OK)
 		TRACE_DEVEL("decr_mgr_decrypt_final() failed.\n");

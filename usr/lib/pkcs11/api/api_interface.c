@@ -369,7 +369,7 @@ C_Decrypt(CK_SESSION_HANDLE hSession,
 	}
 	if (fcn->ST_Decrypt) {
 		// Map the Session to the slot session
-		rv = fcn->ST_Decrypt(&rSession, pEncryptedData,
+		rv = fcn->ST_Decrypt(sltp->TokData, &rSession, pEncryptedData,
 				     ulEncryptedDataLen, pData, pulDataLen);
 		TRACE_DEVEL("fcn->ST_Decrypt returned:0x%lx\n", rv);
 	} else {
@@ -486,7 +486,8 @@ C_DecryptFinal(CK_SESSION_HANDLE hSession,
 	}
 	if (fcn->ST_DecryptFinal) {
 		// Map the Session to the slot session
-		rv = fcn->ST_DecryptFinal(&rSession, pLastPart, pulLastPartLen);
+		rv = fcn->ST_DecryptFinal(sltp->TokData, &rSession, pLastPart,
+					  pulLastPartLen);
 		TRACE_DEVEL("fcn->ST_DecryptFinal returned: 0x%lx\n", rv);
 	} else {
 		TRACE_ERROR("%s\n", ock_err(ERR_FUNCTION_NOT_SUPPORTED));
@@ -540,7 +541,8 @@ C_DecryptInit(CK_SESSION_HANDLE hSession,
 	}
 	if (fcn->ST_DecryptInit) {
 		// Map the Session to the slot session
-		rv = fcn->ST_DecryptInit(&rSession, pMechanism, hKey);
+		rv = fcn->ST_DecryptInit(sltp->TokData, &rSession,
+					 pMechanism, hKey);
 		TRACE_DEVEL("fcn->ST_DecryptInit returned:0x%lx\n", rv);
 	} else {
 		TRACE_ERROR("%s\n", ock_err(ERR_FUNCTION_NOT_SUPPORTED));
@@ -596,9 +598,9 @@ C_DecryptUpdate(CK_SESSION_HANDLE hSession,
 	}
 	if (fcn->ST_DecryptUpdate) {
 		// Map the Session to the slot session
-		rv = fcn->ST_DecryptUpdate(&rSession, pEncryptedPart,
-					   ulEncryptedPartLen, pPart,
-					   pulPartLen);
+		rv = fcn->ST_DecryptUpdate(sltp->TokData, &rSession,
+					   pEncryptedPart, ulEncryptedPartLen,
+					   pPart, pulPartLen);
 		TRACE_DEVEL("fcn->ST_DecryptUpdate:0x%lx\n", rv);
 	} else {
 		TRACE_ERROR("%s\n", ock_err(ERR_FUNCTION_NOT_SUPPORTED));

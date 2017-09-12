@@ -932,11 +932,11 @@ key_mgr_unwrap_key( STDLL_TokData_t   * tokdata,
    }
    memset( ctx, 0x0, sizeof(ENCR_DECR_CONTEXT) );
 
-   rc = decr_mgr_init( sess, ctx, OP_UNWRAP, mech, h_unwrapping_key );
+   rc = decr_mgr_init( tokdata, sess, ctx, OP_UNWRAP, mech, h_unwrapping_key );
    if (rc != CKR_OK)
       return rc;
 
-   rc = decr_mgr_decrypt( sess,
+   rc = decr_mgr_decrypt( tokdata, sess,
                           TRUE,
                           ctx,
                           wrapped_key, wrapped_key_len,
@@ -952,7 +952,7 @@ key_mgr_unwrap_key( STDLL_TokData_t   * tokdata,
       goto error;
    }
 
-   rc = decr_mgr_decrypt( sess,
+   rc = decr_mgr_decrypt( tokdata, sess,
                           FALSE,
                           ctx,
                           wrapped_key, wrapped_key_len,
