@@ -212,25 +212,25 @@ typedef CK_RV (CK_PTR  ST_C_SignRecover)
                         CK_ULONG usDataLen, CK_BYTE_PTR pSignature,
                         CK_ULONG_PTR pusSignatureLen);
 typedef CK_RV (CK_PTR  ST_C_VerifyInit)
-                       (ST_SESSION_T *hSession, CK_MECHANISM_PTR pMechanism,
-                        CK_OBJECT_HANDLE hKey);
+                       (STDLL_TokData_t *tokdata, ST_SESSION_T *hSession,
+			CK_MECHANISM_PTR pMechanism, CK_OBJECT_HANDLE hKey);
 typedef CK_RV (CK_PTR  ST_C_Verify)
-                       (ST_SESSION_T *hSession, CK_BYTE_PTR pData,
-                        CK_ULONG usDataLen, CK_BYTE_PTR pSignature,
-                        CK_ULONG usSignatureLen);
+                       (STDLL_TokData_t *tokdata, ST_SESSION_T *hSession,
+			CK_BYTE_PTR pData, CK_ULONG usDataLen,
+			CK_BYTE_PTR pSignature, CK_ULONG usSignatureLen);
 typedef CK_RV (CK_PTR  ST_C_VerifyUpdate)
-                       (ST_SESSION_T *hSession, CK_BYTE_PTR pPart,
-                        CK_ULONG usPartLen);
+                       (STDLL_TokData_t *tokdata, ST_SESSION_T *hSession,
+			CK_BYTE_PTR pPart, CK_ULONG usPartLen);
 typedef CK_RV (CK_PTR  ST_C_VerifyFinal)
-                       (ST_SESSION_T *hSession, CK_BYTE_PTR pSignature,
-                        CK_ULONG usSignatureLen);
+                       (STDLL_TokData_t *tokdata, ST_SESSION_T *hSession,
+			CK_BYTE_PTR pSignature, CK_ULONG usSignatureLen);
 typedef CK_RV (CK_PTR  ST_C_VerifyRecoverInit)
-                       (ST_SESSION_T *hSession, CK_MECHANISM_PTR pMechanism,
-                        CK_OBJECT_HANDLE hKey);
+                       (STDLL_TokData_t *tokdata, ST_SESSION_T *hSession,
+			CK_MECHANISM_PTR pMechanism, CK_OBJECT_HANDLE hKey);
 typedef CK_RV (CK_PTR  ST_C_VerifyRecover)
-                       (ST_SESSION_T *hSession, CK_BYTE_PTR pSignature,
-                        CK_ULONG usSignatureLen, CK_BYTE_PTR pData,
-                        CK_ULONG_PTR pusDataLen);
+                       (STDLL_TokData_t *tokdata, ST_SESSION_T *hSession,
+			CK_BYTE_PTR pSignature, CK_ULONG usSignatureLen,
+			CK_BYTE_PTR pData, CK_ULONG_PTR pusDataLen);
 typedef CK_RV (CK_PTR  ST_C_DigestEncryptUpdate)
                        (ST_SESSION_T *hSession, CK_BYTE_PTR pPart,
                         CK_ULONG ulPartLen, CK_BYTE_PTR pEncryptedPart,
@@ -244,9 +244,9 @@ typedef CK_RV (CK_PTR  ST_C_SignEncryptUpdate)
                         CK_ULONG ulPartLen, CK_BYTE_PTR pEncryptedPart,
                         CK_ULONG_PTR pulEncryptedPartLen);
 typedef CK_RV (CK_PTR  ST_C_DecryptVerifyUpdate)
-                       (ST_SESSION_T *hSession, CK_BYTE_PTR pEncryptedPart,
-                        CK_ULONG ulEncryptedPartLen, CK_BYTE_PTR pPart,
-                        CK_ULONG_PTR pulPartLen);
+                       (STDLL_TokData_t *tokdata, ST_SESSION_T *hSession,
+			CK_BYTE_PTR pEncryptedPart, CK_ULONG ulEncryptedPartLen,
+			CK_BYTE_PTR pPart, CK_ULONG_PTR pulPartLen);
 typedef CK_RV (CK_PTR  ST_C_GenerateKey)
                        (STDLL_TokData_t *tokdata, ST_SESSION_T *hSession,
 			CK_MECHANISM_PTR pMechanism, CK_ATTRIBUTE_PTR pTemplate,
