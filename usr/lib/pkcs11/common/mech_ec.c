@@ -526,14 +526,14 @@ ec_hash_verify( SESSION              * sess,
    verify_mech.ulParameterLen = 0;
    verify_mech.pParameter     = NULL;
 
-   rc = verify_mgr_init( sess, &verify_ctx, &verify_mech, FALSE, ctx->key );
+   rc = verify_mgr_init( NULL, sess, &verify_ctx, &verify_mech, FALSE, ctx->key );
    if (rc != CKR_OK){
       TRACE_DEVEL("Verify Mgr Init failed.\n");
       goto done;
    }
 
    //rc = verify_mgr_verify( sess, &verify_ctx, ber_data, ber_data_len, signature, sig_len );
-   rc = verify_mgr_verify( sess, &verify_ctx, hash, hash_len, signature, sig_len );
+   rc = verify_mgr_verify( NULL, sess, &verify_ctx, hash, hash_len, signature, sig_len );
    if (rc != CKR_OK)
       TRACE_DEVEL("Verify Mgr Verify failed.\n");
 done:
@@ -631,13 +631,13 @@ ec_hash_verify_final( SESSION              * sess,
    verify_mech.ulParameterLen = 0;
    verify_mech.pParameter     = NULL;
 
-   rc = verify_mgr_init( sess, &verify_ctx, &verify_mech, FALSE, ctx->key );
+   rc = verify_mgr_init( NULL, sess, &verify_ctx, &verify_mech, FALSE, ctx->key );
    if (rc != CKR_OK){
       TRACE_DEVEL("Verify Mgr Init failed.\n");
       goto done;
    }
 
-   rc = verify_mgr_verify( sess, &verify_ctx, hash, hash_len, signature, sig_len );
+   rc = verify_mgr_verify( NULL, sess, &verify_ctx, hash, hash_len, signature, sig_len );
    if (rc != CKR_OK)
       TRACE_DEVEL("Verify Mgr Verify failed.\n");
 done:
