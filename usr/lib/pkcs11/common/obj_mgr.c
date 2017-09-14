@@ -31,7 +31,8 @@
 pthread_rwlock_t obj_list_rw_mutex = PTHREAD_RWLOCK_INITIALIZER;
 
 CK_RV
-object_mgr_add( SESSION          * sess,
+object_mgr_add( STDLL_TokData_t  * tokdata,
+		SESSION          * sess,
                 CK_ATTRIBUTE     * pTemplate,
                 CK_ULONG           ulCount,
                 CK_OBJECT_HANDLE * handle )
@@ -46,7 +47,7 @@ object_mgr_add( SESSION          * sess,
       return CKR_FUNCTION_FAILED;
    }
 
-   rc = object_create( pTemplate, ulCount, &o );
+   rc = object_create( tokdata, pTemplate, ulCount, &o );
    if (rc != CKR_OK){
       TRACE_DEVEL("Object Create failed.\n");
       goto done;
@@ -209,7 +210,7 @@ object_mgr_add( SESSION          * sess,
       }
    }
 
-   rc = object_mgr_add_to_map( sess, o, obj_handle, handle );
+   rc = object_mgr_add_to_map( tokdata, sess, o, obj_handle, handle );
    if (rc != CKR_OK) {
       // we need to remove the object from whatever btree we just added it to
       if (sess_obj) {
@@ -256,7 +257,8 @@ done:
 // object_mgr_add_to_map()
 //
 CK_RV
-object_mgr_add_to_map( SESSION          * sess,
+object_mgr_add_to_map( STDLL_TokData_t  * tokdata,
+		       SESSION          * sess,
                        OBJECT           * obj,
 		       unsigned long      obj_handle,
                        CK_OBJECT_HANDLE * map_handle )
@@ -477,7 +479,7 @@ object_mgr_copy( STDLL_TokData_t  * tokdata,
       }
    }
 
-   rc = object_mgr_add_to_map( sess, new_obj, obj_handle, new_handle );
+   rc = object_mgr_add_to_map( tokdata, sess, new_obj, obj_handle, new_handle );
    if (rc != CKR_OK) {
       TRACE_DEVEL("object_mgr_add_to_map failed.\n");
 
@@ -531,7 +533,8 @@ done:
 // process' object map.
 //
 CK_RV
-object_mgr_create_skel( SESSION       * sess,
+object_mgr_create_skel( STDLL_TokData_t * tokdata,
+			SESSION       * sess,
                         CK_ATTRIBUTE  * pTemplate,
                         CK_ULONG        ulCount,
                         CK_ULONG        mode,
@@ -556,10 +559,8 @@ object_mgr_create_skel( SESSION       * sess,
    // we don't need to lock mutex for this routine
    //
 
-   rc = object_create_skel( pTemplate, ulCount,
-                            mode,
-                            obj_type, sub_class,
-                            &o );
+   rc = object_create_skel( tokdata, pTemplate, ulCount,
+                            mode, obj_type, sub_class, &o );
    if (rc != CKR_OK){
       TRACE_DEVEL("object_create_skel failed.\n");
       return rc;
@@ -611,7 +612,8 @@ object_mgr_create_skel( SESSION       * sess,
 
 
 CK_RV
-object_mgr_create_final( SESSION           * sess,
+object_mgr_create_final( STDLL_TokData_t  * tokdata,
+			 SESSION           * sess,
                          OBJECT            * obj,
                          CK_OBJECT_HANDLE  * handle )
 {
@@ -699,7 +701,7 @@ object_mgr_create_final( SESSION           * sess,
       }
    }
 
-   rc = object_mgr_add_to_map( sess, obj, obj_handle, handle );
+   rc = object_mgr_add_to_map( tokdata, sess, obj, obj_handle, handle );
    if (rc != CKR_OK) {
       TRACE_DEVEL("object_mgr_add_to_map failed.\n");
       // this is messy but we need to remove the object from whatever
@@ -1090,7 +1092,7 @@ find_build_list_cb(void *node, unsigned long obj_handle, void *p3)
    if (match) {
       rc = object_mgr_find_in_map2( obj, &map_handle );
       if (rc != CKR_OK) {
-         rc = object_mgr_add_to_map( fa->sess, obj, obj_handle, &map_handle );
+         rc = object_mgr_add_to_map( NULL, fa->sess, obj, obj_handle, &map_handle );
          if (rc != CKR_OK){
             TRACE_DEVEL("object_mgr_add_to_map failed.\n");
             return;

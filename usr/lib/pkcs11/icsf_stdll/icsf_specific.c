@@ -1365,8 +1365,9 @@ done:
 /*
  * Create a new object.
  */
-CK_RV icsftok_create_object(SESSION *session, CK_ATTRIBUTE_PTR attrs,
-			    CK_ULONG attrs_len, CK_OBJECT_HANDLE_PTR handle)
+CK_RV icsftok_create_object(STDLL_TokData_t *tokdata, SESSION *session,
+			    CK_ATTRIBUTE_PTR attrs, CK_ULONG attrs_len,
+			    CK_OBJECT_HANDLE_PTR handle)
 {
 	CK_RV rc = CKR_OK;
 	struct session_state *session_state;

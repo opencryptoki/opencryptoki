@@ -311,8 +311,8 @@ C_CreateObject(CK_SESSION_HANDLE hSession,
 	}
 	if (fcn->ST_CreateObject) {
 		// Map the Session to the slot session
-		rv = fcn->ST_CreateObject(&rSession, pTemplate, ulCount,
-					  phObject);
+		rv = fcn->ST_CreateObject(sltp->TokData, &rSession, pTemplate,
+					  ulCount, phObject);
 		TRACE_DEVEL("fcn->ST_CreateObject returned:0x%lx\n", rv);
 	} else {
 		TRACE_ERROR("%s\n", ock_err(ERR_FUNCTION_NOT_SUPPORTED));

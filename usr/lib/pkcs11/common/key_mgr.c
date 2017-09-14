@@ -151,7 +151,7 @@ key_mgr_generate_key( STDLL_TokData_t   * tokdata,
    }
 
 
-   rc = object_mgr_create_skel( sess,
+   rc = object_mgr_create_skel( tokdata, sess,
                                 pTemplate, ulCount,
                                 MODE_KEYGEN,
                                 CKO_SECRET_KEY, subclass,
@@ -249,7 +249,7 @@ key_mgr_generate_key( STDLL_TokData_t   * tokdata,
    // at this point, the key should be fully constructed...assign
    // an object handle and store the key
    //
-   rc = object_mgr_create_final( sess, key_obj, handle );
+   rc = object_mgr_create_final( tokdata, sess, key_obj, handle );
    if (rc != CKR_OK){
       TRACE_DEVEL("object_mgr_create_final failed.\n");
       goto error;
@@ -386,7 +386,7 @@ key_mgr_generate_key_pair( STDLL_TokData_t   * tokdata,
    }
 
 
-   rc = object_mgr_create_skel( sess,
+   rc = object_mgr_create_skel( tokdata, sess,
                                 publ_tmpl,       publ_count,
                                 MODE_KEYGEN,
                                 CKO_PUBLIC_KEY,  subclass,
@@ -395,7 +395,7 @@ key_mgr_generate_key_pair( STDLL_TokData_t   * tokdata,
       TRACE_DEVEL("object_mgr_create_skel failed.\n");
       goto error;
    }
-   rc = object_mgr_create_skel( sess,
+   rc = object_mgr_create_skel( tokdata, sess,
                                 priv_tmpl,       priv_count,
                                 MODE_KEYGEN,
                                 CKO_PRIVATE_KEY, subclass,
@@ -494,12 +494,12 @@ key_mgr_generate_key_pair( STDLL_TokData_t   * tokdata,
    // at this point, the keys should be fully constructed...assign
    // object handles and store the keys
    //
-   rc = object_mgr_create_final( sess, publ_key_obj, publ_key_handle );
+   rc = object_mgr_create_final(tokdata, sess, publ_key_obj, publ_key_handle);
    if (rc != CKR_OK){
       TRACE_DEVEL("object_mgr_create_final failed.\n");
       goto error;
    }
-   rc = object_mgr_create_final( sess, priv_key_obj, priv_key_handle );
+   rc = object_mgr_create_final(tokdata, sess, priv_key_obj, priv_key_handle);
    if (rc != CKR_OK){
       TRACE_DEVEL("object_mgr_create_final failed.\n");
       // just calling object_free in the error path below would lead to a double
@@ -991,7 +991,7 @@ key_mgr_unwrap_key( STDLL_TokData_t   * tokdata,
    // object...
    //
 
-   rc = object_mgr_create_skel( sess,
+   rc = object_mgr_create_skel( tokdata, sess,
                                 attributes,    attrib_count,
                                 MODE_UNWRAP,
                                 keyclass,      keytype,
@@ -1028,7 +1028,7 @@ key_mgr_unwrap_key( STDLL_TokData_t   * tokdata,
    // at this point, the key should be fully constructed...assign
    // an object handle and store the key
    //
-   rc = object_mgr_create_final( sess, key_obj, h_unwrapped_key );
+   rc = object_mgr_create_final( tokdata, sess, key_obj, h_unwrapped_key );
    if (rc != CKR_OK){
       TRACE_DEVEL("object_mgr_create_final failed.\n");
       goto error;

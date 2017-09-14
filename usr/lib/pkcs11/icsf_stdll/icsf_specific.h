@@ -40,8 +40,9 @@ CK_RV icsftok_login(STDLL_TokData_t *tokdata, SESSION *sess,
 		    CK_USER_TYPE userType, CK_CHAR_PTR pPin,
 		    CK_ULONG ulPinLen);
 
-CK_RV icsftok_create_object(SESSION *session, CK_ATTRIBUTE_PTR attrs,
-			    CK_ULONG attrs_len, CK_OBJECT_HANDLE_PTR handle);
+CK_RV icsftok_create_object(STDLL_TokData_t *tokdata, SESSION *session,
+			    CK_ATTRIBUTE_PTR attrs, CK_ULONG attrs_len,
+			    CK_OBJECT_HANDLE_PTR handle);
 
 CK_RV icsftok_copy_object(SESSION * session, CK_ATTRIBUTE_PTR attrs,
 			  CK_ULONG attrs_len, CK_OBJECT_HANDLE src,
