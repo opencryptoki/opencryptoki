@@ -1243,7 +1243,7 @@ err:
 //
 //
 CK_RV
-ckm_cdmf_key_gen( TEMPLATE *tmpl )
+ckm_cdmf_key_gen( STDLL_TokData_t *tokdata, TEMPLATE *tmpl )
 {
    CK_ATTRIBUTE     * value_attr    = NULL;
    CK_ATTRIBUTE     * key_type_attr = NULL;

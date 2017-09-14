@@ -1209,7 +1209,7 @@ CK_RV template_validate_attribute(STDLL_TokData_t  * tokdata, TEMPLATE *tmpl,
 
 #if !(NOCDMF)
 		case CKK_CDMF:
-			return cdmf_validate_attribute(tmpl, attr, mode);
+			return cdmf_validate_attribute(tokdata, tmpl, attr, mode);
 #endif
 
 		case CKK_SKIPJACK:

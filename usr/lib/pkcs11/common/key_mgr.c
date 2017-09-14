@@ -177,7 +177,7 @@ key_mgr_generate_key( STDLL_TokData_t   * tokdata,
 
 #if !(NOCDMF)
          case CKM_CDMF_KEY_GEN:
-            rc = ckm_cdmf_key_gen( key_obj->template );
+            rc = ckm_cdmf_key_gen( tokdata, key_obj->template );
             break;
 #endif
 
