@@ -617,7 +617,8 @@ token_specific_des_cbc(STDLL_TokData_t *tokdata,
 }
 
 CK_RV
-token_specific_tdes_ecb(CK_BYTE  *in_data,
+token_specific_tdes_ecb(STDLL_TokData_t *tokdata,
+			CK_BYTE  *in_data,
 			CK_ULONG  in_data_len,
 			CK_BYTE  *out_data,
 			CK_ULONG *out_data_len,
@@ -629,7 +630,8 @@ token_specific_tdes_ecb(CK_BYTE  *in_data,
 }
 
 CK_RV
-token_specific_tdes_cbc(CK_BYTE  *in_data,
+token_specific_tdes_cbc(STDLL_TokData_t *tokdata,
+			CK_BYTE  *in_data,
 			CK_ULONG  in_data_len,
 			CK_BYTE  *out_data,
 			CK_ULONG *out_data_len,
@@ -639,7 +641,7 @@ token_specific_tdes_cbc(CK_BYTE  *in_data,
 {
 	/* Since keys are opaque objects in this token and there's only
 	 * one encipher command to CCA, we can just pass through */
-	return token_specific_des_cbc(NULL, in_data, in_data_len, out_data,
+	return token_specific_des_cbc(tokdata, in_data, in_data_len, out_data,
 				      out_data_len, key, init_v, encrypt);
 }
 

@@ -862,7 +862,7 @@ secret_key_unwrap( STDLL_TokData_t *tokdata,
          break;
 
       case CKK_DES3:
-         rc = des3_unwrap( tmpl, data, data_len, fromend, isopaque );
+         rc = des3_unwrap( tokdata, tmpl, data, data_len, fromend, isopaque );
          break;
 
       case CKK_AES:
@@ -4050,7 +4050,8 @@ des3_set_default_attributes( TEMPLATE *tmpl, CK_ULONG mode )
 //
 //
 CK_RV
-des3_unwrap( TEMPLATE *tmpl,
+des3_unwrap( STDLL_TokData_t *tokdata,
+	     TEMPLATE *tmpl,
              CK_BYTE  *data,
              CK_ULONG  data_len,
              CK_BBOOL  fromend,
@@ -4076,7 +4077,7 @@ des3_unwrap( TEMPLATE *tmpl,
    if (isopaque)
       value_attr = (CK_ATTRIBUTE *)malloc( sizeof(CK_ATTRIBUTE) + data_len );
    else {
-      if (nv_token_data->tweak_vector.check_des_parity == TRUE) {
+      if (tokdata->nv_token_data->tweak_vector.check_des_parity == TRUE) {
          for (i=0; i < 3*DES_KEY_SIZE; i++) {
             if (parity_is_odd(ptr[i]) == FALSE){
                TRACE_ERROR("%s\n", ock_err(ERR_ATTRIBUTE_VALUE_INVALID));
@@ -4113,7 +4114,8 @@ des3_unwrap( TEMPLATE *tmpl,
 //
 //
 CK_RV
-des3_validate_attribute( TEMPLATE *tmpl, CK_ATTRIBUTE *attr, CK_ULONG mode )
+des3_validate_attribute( STDLL_TokData_t  *tokdata, TEMPLATE *tmpl,
+			 CK_ATTRIBUTE *attr, CK_ULONG mode )
 {
    CK_BYTE   * ptr = NULL;
    CK_ULONG    i;
@@ -4127,7 +4129,7 @@ des3_validate_attribute( TEMPLATE *tmpl, CK_ATTRIBUTE *attr, CK_ULONG mode )
                TRACE_ERROR("%s\n", ock_err(ERR_ATTRIBUTE_VALUE_INVALID));
                return CKR_ATTRIBUTE_VALUE_INVALID;
             }
-            if (nv_token_data->tweak_vector.check_des_parity == TRUE) {
+            if (tokdata->nv_token_data->tweak_vector.check_des_parity == TRUE) {
                ptr = attr->pValue;
                for (i=0; i < 3*DES_KEY_SIZE; i++) {
                   if (parity_is_odd(ptr[i]) == FALSE){
@@ -4145,7 +4147,7 @@ des3_validate_attribute( TEMPLATE *tmpl, CK_ATTRIBUTE *attr, CK_ULONG mode )
       case CKA_VALUE_LEN:
          // Cryptoki doesn't allow this but Netscape tries uses it
          //
-         if (nv_token_data->tweak_vector.netscape_mods == TRUE) {
+         if (tokdata->nv_token_data->tweak_vector.netscape_mods == TRUE) {
             if (mode == MODE_CREATE || mode == MODE_DERIVE ||
                 mode == MODE_KEYGEN || mode == MODE_UNWRAP)
             {
@@ -4161,7 +4163,7 @@ des3_validate_attribute( TEMPLATE *tmpl, CK_ATTRIBUTE *attr, CK_ULONG mode )
             return CKR_TEMPLATE_INCONSISTENT;
          }
       default:
-         return secret_key_validate_attribute( NULL, tmpl, attr, mode );
+         return secret_key_validate_attribute( tokdata, tmpl, attr, mode );
    }
 }
 

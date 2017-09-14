@@ -717,7 +717,7 @@ decr_mgr_decrypt( STDLL_TokData_t   *tokdata,
       case CKM_DES_OFB64:
          get_keytype(tokdata, ctx->key, &keytype);
          if (keytype == CKK_DES3) {
-            return des3_ofb_decrypt( sess,     length_only,
+            return des3_ofb_decrypt( tokdata, sess,     length_only,
                                      ctx,
                                      in_data,  in_data_len,
                                      out_data, out_data_len );
@@ -729,7 +729,7 @@ decr_mgr_decrypt( STDLL_TokData_t   *tokdata,
       case CKM_DES_CFB8:
          get_keytype(tokdata, ctx->key, &keytype);
          if (keytype == CKK_DES3) {
-            return des3_cfb_decrypt( sess,     length_only,
+            return des3_cfb_decrypt( tokdata, sess,     length_only,
                                      ctx,
                                      in_data,  in_data_len,
                                      out_data, out_data_len, 0x01);
@@ -741,7 +741,7 @@ decr_mgr_decrypt( STDLL_TokData_t   *tokdata,
       case CKM_DES_CFB64:
          get_keytype(tokdata, ctx->key, &keytype);
          if (keytype == CKK_DES3) {
-            return des3_cfb_decrypt( sess,     length_only,
+            return des3_cfb_decrypt( tokdata, sess,     length_only,
                                      ctx,
                                      in_data,  in_data_len,
                                      out_data, out_data_len, 0x08);
@@ -751,19 +751,19 @@ decr_mgr_decrypt( STDLL_TokData_t   *tokdata,
          }
 
       case CKM_DES3_ECB:
-         return des3_ecb_decrypt( sess,     length_only,
+         return des3_ecb_decrypt( tokdata, sess,     length_only,
                                   ctx,
                                   in_data,  in_data_len,
                                   out_data, out_data_len );
 
       case CKM_DES3_CBC:
-         return des3_cbc_decrypt( sess,     length_only,
+         return des3_cbc_decrypt( tokdata, sess,     length_only,
                                   ctx,
                                   in_data,  in_data_len,
                                   out_data, out_data_len );
 
       case CKM_DES3_CBC_PAD:
-         return des3_cbc_pad_decrypt( sess,     length_only,
+         return des3_cbc_pad_decrypt( tokdata, sess,     length_only,
                                       ctx,
                                       in_data,  in_data_len,
                                       out_data, out_data_len );
@@ -896,7 +896,7 @@ decr_mgr_decrypt_update( STDLL_TokData_t    *tokdata,
       case CKM_DES_OFB64:
          get_keytype(tokdata, ctx->key, &keytype);
          if (keytype == CKK_DES3) {
-            return des3_ofb_decrypt_update( sess,     length_only,
+            return des3_ofb_decrypt_update( tokdata, sess,     length_only,
                                             ctx,
                                             in_data,  in_data_len,
                                             out_data, out_data_len );
@@ -908,7 +908,7 @@ decr_mgr_decrypt_update( STDLL_TokData_t    *tokdata,
       case CKM_DES_CFB8:
          get_keytype(tokdata, ctx->key, &keytype);
          if (keytype == CKK_DES3) {
-            return des3_cfb_decrypt_update( sess,     length_only,
+            return des3_cfb_decrypt_update( tokdata, sess,     length_only,
                                             ctx,
                                             in_data,  in_data_len,
                                             out_data, out_data_len, 0x01);
@@ -920,7 +920,7 @@ decr_mgr_decrypt_update( STDLL_TokData_t    *tokdata,
       case CKM_DES_CFB64:
          get_keytype(tokdata, ctx->key, &keytype);
          if (keytype == CKK_DES3) {
-            return des3_cfb_decrypt_update( sess,     length_only,
+            return des3_cfb_decrypt_update( tokdata, sess,     length_only,
                                             ctx,
                                             in_data,  in_data_len,
                                             out_data, out_data_len, 0x08);
@@ -931,19 +931,19 @@ decr_mgr_decrypt_update( STDLL_TokData_t    *tokdata,
          }
 
       case CKM_DES3_ECB:
-         return des3_ecb_decrypt_update( sess,     length_only,
+         return des3_ecb_decrypt_update( tokdata, sess,     length_only,
                                          ctx,
                                          in_data,  in_data_len,
                                          out_data, out_data_len );
 
       case CKM_DES3_CBC:
-         return des3_cbc_decrypt_update( sess,     length_only,
+         return des3_cbc_decrypt_update( tokdata, sess,     length_only,
                                          ctx,
                                          in_data,  in_data_len,
                                          out_data, out_data_len );
 
       case CKM_DES3_CBC_PAD:
-         return des3_cbc_pad_decrypt_update( sess,     length_only,
+         return des3_cbc_pad_decrypt_update( tokdata, sess,     length_only,
                                              ctx,
                                              in_data,  in_data_len,
                                              out_data, out_data_len );
@@ -1050,7 +1050,7 @@ decr_mgr_decrypt_final( STDLL_TokData_t    *tokdata,
       case CKM_DES_OFB64:
          get_keytype(tokdata, ctx->key, &keytype);
          if (keytype == CKK_DES3) {
-            return des3_ofb_decrypt_final( sess,     length_only,
+            return des3_ofb_decrypt_final( tokdata, sess,     length_only,
                                            ctx,
                                            out_data, out_data_len );
          } else {
@@ -1061,7 +1061,7 @@ decr_mgr_decrypt_final( STDLL_TokData_t    *tokdata,
       case CKM_DES_CFB8:
          get_keytype(tokdata, ctx->key, &keytype);
          if (keytype == CKK_DES3) {
-            return des3_cfb_decrypt_final( sess,     length_only,
+            return des3_cfb_decrypt_final( tokdata, sess,     length_only,
                                            ctx,
                                            out_data, out_data_len, 0x01);
          } else {
@@ -1072,7 +1072,7 @@ decr_mgr_decrypt_final( STDLL_TokData_t    *tokdata,
       case CKM_DES_CFB64:
          get_keytype(tokdata, ctx->key, &keytype);
          if (keytype == CKK_DES3) {
-            return des3_cfb_decrypt_final( sess,     length_only,
+            return des3_cfb_decrypt_final( tokdata, sess,     length_only,
                                            ctx,
                                            out_data, out_data_len, 0x08);
          } else {
@@ -1081,17 +1081,17 @@ decr_mgr_decrypt_final( STDLL_TokData_t    *tokdata,
          }
 
       case CKM_DES3_ECB:
-         return des3_ecb_decrypt_final( sess,     length_only,
+         return des3_ecb_decrypt_final( tokdata, sess,     length_only,
                                         ctx,
                                         out_data, out_data_len );
 
       case CKM_DES3_CBC:
-         return des3_cbc_decrypt_final( sess,     length_only,
+         return des3_cbc_decrypt_final( tokdata, sess,     length_only,
                                         ctx,
                                         out_data, out_data_len );
 
       case CKM_DES3_CBC_PAD:
-         return des3_cbc_pad_decrypt_final( sess,     length_only,
+         return des3_cbc_pad_decrypt_final( tokdata, sess,     length_only,
                                             ctx,
                                             out_data, out_data_len );
 #ifndef NOAES
