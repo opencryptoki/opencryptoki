@@ -201,18 +201,13 @@ token_specific_generate_key_pair(SESSION *, CK_MECHANISM_PTR,
 /* Begin code contributed by Corrent corp. */
 #ifndef NODH
 CK_RV
-token_specific_dh_pkcs_derive( CK_BYTE *,
-                               CK_ULONG *,
-                               CK_BYTE *,
-                               CK_ULONG,
-                               CK_BYTE *,
-                               CK_ULONG,
-                               CK_BYTE *,
-                               CK_ULONG ) ;
+token_specific_dh_pkcs_derive( STDLL_TokData_t *tokdata, CK_BYTE *, CK_ULONG *,
+                               CK_BYTE *, CK_ULONG, CK_BYTE *, CK_ULONG,
+                               CK_BYTE *, CK_ULONG ) ;
 
 CK_RV
-token_specific_dh_pkcs_key_pair_gen( TEMPLATE  * publ_tmpl,
-                                     TEMPLATE  * priv_tmpl );
+token_specific_dh_pkcs_key_pair_gen(STDLL_TokData_t *tokdata,
+				    TEMPLATE *publ_tmpl, TEMPLATE *priv_tmpl);
 #endif
 /* End code contributed by Corrent corp. */
 CK_RV
