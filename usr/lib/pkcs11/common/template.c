@@ -1205,7 +1205,7 @@ CK_RV template_validate_attribute(STDLL_TokData_t  * tokdata, TEMPLATE *tmpl,
 			return cast5_validate_attribute(tmpl, attr, mode);
 
 		case CKK_IDEA:
-			return idea_validate_attribute(tmpl, attr, mode);
+			return idea_validate_attribute(tokdata, tmpl, attr, mode);
 
 #if !(NOCDMF)
 		case CKK_CDMF:
