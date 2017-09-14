@@ -2187,8 +2187,8 @@ CK_RV token_specific_sha_final(DIGEST_CONTEXT *ctx, CK_BYTE *out_data,
 	return CKR_OK;
 }
 
-static CK_RV softtok_hmac_init(SIGN_VERIFY_CONTEXT *ctx, CK_MECHANISM_PTR mech,
-			       CK_OBJECT_HANDLE Hkey)
+static CK_RV softtok_hmac_init(STDLL_TokData_t *tokdata, SIGN_VERIFY_CONTEXT *ctx,
+			       CK_MECHANISM_PTR mech, CK_OBJECT_HANDLE Hkey)
 {
 	int rc;
 	OBJECT *key = NULL;
@@ -2254,16 +2254,16 @@ static CK_RV softtok_hmac_init(SIGN_VERIFY_CONTEXT *ctx, CK_MECHANISM_PTR mech,
 	return CKR_OK;
 }
 
-CK_RV token_specific_hmac_sign_init (SESSION *sess, CK_MECHANISM *mech,
-				     CK_OBJECT_HANDLE Hkey)
+CK_RV token_specific_hmac_sign_init (STDLL_TokData_t *tokdata, SESSION *sess,
+				     CK_MECHANISM *mech, CK_OBJECT_HANDLE Hkey)
 {
-	return softtok_hmac_init(&sess->sign_ctx, mech, Hkey);
+	return softtok_hmac_init(tokdata, &sess->sign_ctx, mech, Hkey);
 }
 
-CK_RV token_specific_hmac_verify_init (SESSION *sess, CK_MECHANISM *mech,
-				       CK_OBJECT_HANDLE Hkey)
+CK_RV token_specific_hmac_verify_init (STDLL_TokData_t *tokdata, SESSION *sess,
+				       CK_MECHANISM *mech, CK_OBJECT_HANDLE Hkey)
 {
-	return softtok_hmac_init(&sess->verify_ctx, mech, Hkey);
+	return softtok_hmac_init(tokdata, &sess->verify_ctx, mech, Hkey);
 }
 
 static CK_RV softtok_hmac(SIGN_VERIFY_CONTEXT *ctx, CK_BYTE *in_data,
@@ -2358,17 +2358,17 @@ done:
 	return rv;
 }
 
-CK_RV token_specific_hmac_sign(SESSION *sess, CK_BYTE *in_data,
-			       CK_ULONG in_data_len, CK_BYTE *signature,
-			       CK_ULONG *sig_len)
+CK_RV token_specific_hmac_sign(STDLL_TokData_t *tokdata, SESSION *sess,
+			       CK_BYTE *in_data, CK_ULONG in_data_len,
+			       CK_BYTE *signature, CK_ULONG *sig_len)
 {
 	return softtok_hmac(&sess->sign_ctx, in_data, in_data_len, signature,
 			    sig_len, TRUE);
 }
 
-CK_RV token_specific_hmac_verify(SESSION *sess, CK_BYTE *in_data,
-				 CK_ULONG in_data_len, CK_BYTE *signature,
-				 CK_ULONG sig_len)
+CK_RV token_specific_hmac_verify(STDLL_TokData_t *tokdata, SESSION *sess,
+				 CK_BYTE *in_data, CK_ULONG in_data_len,
+				 CK_BYTE *signature, CK_ULONG sig_len)
 {
 	return softtok_hmac(&sess->verify_ctx, in_data, in_data_len, signature,
                             &sig_len, FALSE);
@@ -2400,14 +2400,14 @@ static CK_RV softtok_hmac_update(SIGN_VERIFY_CONTEXT *ctx, CK_BYTE *in_data,
 	return rv;
 }
 
-CK_RV token_specific_hmac_sign_update(SESSION *sess, CK_BYTE *in_data,
-				      CK_ULONG in_data_len)
+CK_RV token_specific_hmac_sign_update(STDLL_TokData_t *tokdata, SESSION *sess,
+				      CK_BYTE *in_data, CK_ULONG in_data_len)
 {
 	return softtok_hmac_update(&sess->sign_ctx, in_data, in_data_len, TRUE);
 }
 
-CK_RV token_specific_hmac_verify_update(SESSION *sess, CK_BYTE *in_data,
-					CK_ULONG in_data_len)
+CK_RV token_specific_hmac_verify_update(STDLL_TokData_t *tokdata, SESSION *sess,
+					CK_BYTE *in_data, CK_ULONG in_data_len)
 {
 	return softtok_hmac_update(&sess->verify_ctx, in_data, in_data_len,
 				   FALSE);
@@ -2495,14 +2495,14 @@ done:
 	return rv;
 }
 
-CK_RV token_specific_hmac_sign_final(SESSION *sess, CK_BYTE *signature,
-				     CK_ULONG *sig_len)
+CK_RV token_specific_hmac_sign_final(STDLL_TokData_t *tokdata, SESSION *sess,
+				     CK_BYTE *signature, CK_ULONG *sig_len)
 {
 	return softtok_hmac_final(&sess->sign_ctx, signature, sig_len, TRUE);
 }
 
-CK_RV token_specific_hmac_verify_final(SESSION *sess, CK_BYTE *signature,
-				       CK_ULONG sig_len)
+CK_RV token_specific_hmac_verify_final(STDLL_TokData_t *tokdata, SESSION *sess,
+				       CK_BYTE *signature, CK_ULONG sig_len)
 {
 	return softtok_hmac_final(&sess->verify_ctx, signature, &sig_len, FALSE);
 }
