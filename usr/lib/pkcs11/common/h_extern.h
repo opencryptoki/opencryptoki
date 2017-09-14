@@ -2517,7 +2517,8 @@ CK_RV     cast5_validate_attribute( TEMPLATE *tmpl, CK_ATTRIBUTE *attr, CK_ULONG
 // IDEA routines
 CK_RV     idea_check_required_attributes( TEMPLATE *tmpl, CK_ULONG mode );
 CK_RV     idea_set_default_attributes( TEMPLATE *tmpl, CK_ULONG mode );
-CK_RV     idea_validate_attribute( TEMPLATE *tmpl, CK_ATTRIBUTE *attr, CK_ULONG mode );
+CK_RV     idea_validate_attribute( STDLL_TokData_t *tokdata, TEMPLATE *tmpl,
+				   CK_ATTRIBUTE *attr, CK_ULONG mode );
 
 // CDMF routines
 CK_RV     cdmf_check_required_attributes( TEMPLATE *tmpl, CK_ULONG mode );
