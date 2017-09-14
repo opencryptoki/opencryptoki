@@ -4696,7 +4696,8 @@ cdmf_set_default_attributes( TEMPLATE *tmpl, CK_ULONG mode )
 // cdmf_validate_attribute()
 //
 CK_RV
-cdmf_validate_attribute( TEMPLATE *tmpl, CK_ATTRIBUTE *attr, CK_ULONG mode )
+cdmf_validate_attribute( STDLL_TokData_t *tokdata, TEMPLATE *tmpl,
+			 CK_ATTRIBUTE *attr, CK_ULONG mode )
 {
    CK_ULONG len;
 
