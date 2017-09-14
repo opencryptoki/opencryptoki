@@ -1607,11 +1607,11 @@ CK_RV hmac_verify_final(STDLL_TokData_t *tokdata, SESSION *sess,
 	}
 }
 
-CK_RV ckm_generic_secret_key_gen(TEMPLATE *tmpl)
+CK_RV ckm_generic_secret_key_gen(STDLL_TokData_t *tokdata, TEMPLATE *tmpl)
 {
 	if (token_specific.t_generic_secret_key_gen == NULL) {
 		TRACE_ERROR("%s\n", ock_err(ERR_MECHANISM_INVALID));
 		return CKR_MECHANISM_INVALID;
 	} else
-		return token_specific.t_generic_secret_key_gen(tmpl);
+		return token_specific.t_generic_secret_key_gen(tokdata, tmpl);
 }

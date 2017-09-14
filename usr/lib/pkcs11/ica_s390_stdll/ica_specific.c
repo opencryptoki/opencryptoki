@@ -3364,7 +3364,7 @@ mech_list_ica_initialize(void)
 	return rc;
 }
 
-CK_RV token_specific_generic_secret_key_gen(TEMPLATE *tmpl)
+CK_RV token_specific_generic_secret_key_gen(STDLL_TokData_t *tokdata, TEMPLATE *tmpl)
 {
 	CK_ATTRIBUTE *attr = NULL;
 	CK_RV rc = CKR_OK;

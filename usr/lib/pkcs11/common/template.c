@@ -1175,8 +1175,8 @@ CK_RV template_validate_attribute(STDLL_TokData_t  * tokdata, TEMPLATE *tmpl,
 	} else if (class == CKO_SECRET_KEY) {
 		switch (subclass) {
 		case CKK_GENERIC_SECRET:
-			return generic_secret_validate_attribute(tmpl, attr,
-								 mode);
+			return generic_secret_validate_attribute(tokdata, tmpl,
+								 attr, mode);
 		case CKK_RC2:
 			return rc2_validate_attribute(tokdata, tmpl, attr, mode);
 

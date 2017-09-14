@@ -2509,7 +2509,8 @@ CK_RV token_specific_hmac_verify_final(STDLL_TokData_t *tokdata, SESSION *sess,
 	return softtok_hmac_final(&sess->verify_ctx, signature, &sig_len, FALSE);
 }
 
-CK_RV token_specific_generic_secret_key_gen(TEMPLATE *tmpl)
+CK_RV token_specific_generic_secret_key_gen(STDLL_TokData_t *tokdata,
+					    TEMPLATE *tmpl)
 {
 	CK_ATTRIBUTE *attr = NULL;
 	CK_ATTRIBUTE *gkey = NULL;
