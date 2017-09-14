@@ -2210,7 +2210,7 @@ ckm_des3_key_gen( TEMPLATE *tmpl )
     return CKR_HOST_MEMORY;
    }
 
-   rc = token_specific.t_des_key_gen(des_key, keysize, 3 * DES_KEY_SIZE);
+   rc = token_specific.t_des_key_gen(NULL, des_key, keysize, 3 * DES_KEY_SIZE);
    if (rc != CKR_OK)
       goto err;
 

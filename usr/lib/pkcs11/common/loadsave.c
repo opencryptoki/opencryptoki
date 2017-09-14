@@ -1597,7 +1597,7 @@ CK_RV generate_master_key(CK_BYTE *key)
 	 */
 	switch (token_specific.data_store.encryption_algorithm) {
 	case CKM_DES3_CBC:
-		return token_specific.t_des_key_gen(key, master_key_len,
+		return token_specific.t_des_key_gen(NULL, key, master_key_len,
 						    key_len);
 	case CKM_AES_CBC:
 		return token_specific.t_aes_key_gen(key, master_key_len,
