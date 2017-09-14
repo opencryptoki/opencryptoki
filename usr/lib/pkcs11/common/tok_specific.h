@@ -46,16 +46,18 @@ CK_RV token_specific_init_pin(STDLL_TokData_t *, SESSION *, CK_CHAR_PTR, CK_ULON
 CK_RV token_specific_set_pin(STDLL_TokData_t *, SESSION *, CK_CHAR_PTR,
 			     CK_ULONG, CK_CHAR_PTR, CK_ULONG);
 
-CK_RV token_specific_des_key_gen(CK_BYTE  *,CK_ULONG, CK_ULONG) ;
+CK_RV token_specific_des_key_gen(STDLL_TokData_t *, CK_BYTE  *,CK_ULONG, CK_ULONG) ;
 
-CK_RV token_specific_des_ecb(CK_BYTE *,
+CK_RV token_specific_des_ecb(STDLL_TokData_t *,
+		  CK_BYTE *,
                   CK_ULONG ,
                   CK_BYTE *,
                   CK_ULONG *,
                   OBJECT  *,
                   CK_BYTE );
 
-CK_RV token_specific_des_cbc(CK_BYTE *,
+CK_RV token_specific_des_cbc(STDLL_TokData_t *,
+		  CK_BYTE *,
                   CK_ULONG ,
                   CK_BYTE *,
                   CK_ULONG *,

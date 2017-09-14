@@ -695,21 +695,21 @@ decr_mgr_decrypt( STDLL_TokData_t   *tokdata,
    switch (ctx->mech.mechanism) {
       case CKM_CDMF_ECB:
       case CKM_DES_ECB:
-         return des_ecb_decrypt( sess,     length_only,
+         return des_ecb_decrypt( tokdata, sess,     length_only,
                                  ctx,
                                  in_data,  in_data_len,
                                  out_data, out_data_len );
 
       case CKM_CDMF_CBC:
       case CKM_DES_CBC:
-         return des_cbc_decrypt( sess,     length_only,
+         return des_cbc_decrypt( tokdata, sess,     length_only,
                                  ctx,
                                  in_data,  in_data_len,
                                  out_data, out_data_len );
 
       case CKM_DES_CBC_PAD:
       case CKM_CDMF_CBC_PAD:
-         return des_cbc_pad_decrypt( sess,     length_only,
+         return des_cbc_pad_decrypt( tokdata, sess,     length_only,
                                      ctx,
                                      in_data,  in_data_len,
                                      out_data, out_data_len );
@@ -874,21 +874,21 @@ decr_mgr_decrypt_update( STDLL_TokData_t    *tokdata,
    switch (ctx->mech.mechanism) {
       case CKM_CDMF_ECB:
       case CKM_DES_ECB:
-         return des_ecb_decrypt_update( sess,     length_only,
+         return des_ecb_decrypt_update( tokdata, sess,     length_only,
                                         ctx,
                                         in_data,  in_data_len,
                                         out_data, out_data_len );
 
       case CKM_CDMF_CBC:
       case CKM_DES_CBC:
-         return des_cbc_decrypt_update( sess,     length_only,
+         return des_cbc_decrypt_update( tokdata, sess,     length_only,
                                         ctx,
                                         in_data,  in_data_len,
                                         out_data, out_data_len );
 
       case CKM_DES_CBC_PAD:
       case CKM_CDMF_CBC_PAD:
-         return des_cbc_pad_decrypt_update( sess,     length_only,
+         return des_cbc_pad_decrypt_update( tokdata, sess,     length_only,
                                             ctx,
                                             in_data,  in_data_len,
                                             out_data, out_data_len );
@@ -1031,19 +1031,19 @@ decr_mgr_decrypt_final( STDLL_TokData_t    *tokdata,
    switch (ctx->mech.mechanism) {
       case CKM_CDMF_ECB:
       case CKM_DES_ECB:
-         return des_ecb_decrypt_final( sess,     length_only,
+         return des_ecb_decrypt_final( tokdata, sess,     length_only,
                                        ctx,
                                        out_data, out_data_len );
 
       case CKM_CDMF_CBC:
       case CKM_DES_CBC:
-         return des_cbc_decrypt_final( sess,     length_only,
+         return des_cbc_decrypt_final( tokdata, sess,     length_only,
                                        ctx,
                                        out_data, out_data_len );
 
       case CKM_DES_CBC_PAD:
       case CKM_CDMF_CBC_PAD:
-         return des_cbc_pad_decrypt_final( sess,     length_only,
+         return des_cbc_pad_decrypt_final( tokdata, sess,     length_only,
                                            ctx,
                                            out_data, out_data_len );
 
