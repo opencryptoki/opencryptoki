@@ -1836,12 +1836,12 @@ ssl3_kmd_process_write_keys( STDLL_TokData_t   * tokdata,
 	       TRACE_DEVEL("Failed to build CKA_VALUE_LEN attribute.\n");
                goto error;
             }
-            rc  = template_validate_attribute( client_obj->template,
+            rc  = template_validate_attribute( tokdata, client_obj->template,
                                                client_val_len_attr,
                                                CKO_SECRET_KEY,
                                                keytype,
                                                MODE_DERIVE );
-            rc |= template_validate_attribute( server_obj->template,
+            rc |= template_validate_attribute( tokdata, server_obj->template,
                                                server_val_len_attr,
                                                CKO_SECRET_KEY,
                                                keytype,
@@ -1851,12 +1851,12 @@ ssl3_kmd_process_write_keys( STDLL_TokData_t   * tokdata,
             // no othe modes are allowed to mess wiht CKA_VALUE (see for instance,
             // des_validate_attribute())
             //
-            rc |= template_validate_attribute( client_obj->template,
+            rc |= template_validate_attribute( tokdata, client_obj->template,
                                                client_val_attr,
                                                CKO_SECRET_KEY,
                                                keytype,
                                                MODE_CREATE );
-            rc |= template_validate_attribute( server_obj->template,
+            rc |= template_validate_attribute( tokdata, server_obj->template,
                                                server_val_attr,
                                                CKO_SECRET_KEY,
                                                keytype,
@@ -1881,12 +1881,12 @@ ssl3_kmd_process_write_keys( STDLL_TokData_t   * tokdata,
 
       default:
          {
-            rc  = template_validate_attribute( client_obj->template,
+            rc  = template_validate_attribute( tokdata, client_obj->template,
                                                client_val_attr,
                                                CKO_SECRET_KEY,
                                                keytype,
                                                MODE_CREATE );
-            rc |= template_validate_attribute( server_obj->template,
+            rc |= template_validate_attribute( tokdata, server_obj->template,
                                                server_val_attr,
                                                CKO_SECRET_KEY,
                                                keytype,
