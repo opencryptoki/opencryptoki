@@ -1842,7 +1842,8 @@ CK_RV     key_mgr_derive_prolog( SESSION              *sess,
 
 // signature manager routines
 //
-CK_RV     sign_mgr_init( SESSION             * sess,
+CK_RV     sign_mgr_init( STDLL_TokData_t     * tokdata,
+			 SESSION             * sess,
                          SIGN_VERIFY_CONTEXT * ctx,
                          CK_MECHANISM        * mech,
                          CK_BBOOL              recover_mode,
@@ -1850,7 +1851,8 @@ CK_RV     sign_mgr_init( SESSION             * sess,
 
 CK_RV     sign_mgr_cleanup( SIGN_VERIFY_CONTEXT *ctx );
 
-CK_RV     sign_mgr_sign( SESSION             * sess,
+CK_RV     sign_mgr_sign( STDLL_TokData_t     * tokdata,
+			 SESSION             * sess,
                          CK_BBOOL              length_only,
                          SIGN_VERIFY_CONTEXT * ctx,
                          CK_BYTE             * in_data,
@@ -1858,7 +1860,8 @@ CK_RV     sign_mgr_sign( SESSION             * sess,
                          CK_BYTE             * out_data,
                          CK_ULONG            * out_data_len );
 
-CK_RV     sign_mgr_sign_recover( SESSION             * sess,
+CK_RV     sign_mgr_sign_recover( STDLL_TokData_t     *tokdata,
+				 SESSION             * sess,
                                  CK_BBOOL              length_only,
                                  SIGN_VERIFY_CONTEXT * ctx,
                                  CK_BYTE             * in_data,
@@ -1866,13 +1869,15 @@ CK_RV     sign_mgr_sign_recover( SESSION             * sess,
                                  CK_BYTE             * out_data,
                                  CK_ULONG            * out_data_len );
 
-CK_RV     sign_mgr_sign_final( SESSION             * sess,
+CK_RV     sign_mgr_sign_final( STDLL_TokData_t     * tokdata,
+			       SESSION             * sess,
                                CK_BBOOL              length_only,
                                SIGN_VERIFY_CONTEXT * ctx,
                                CK_BYTE             * out_data,
                                CK_ULONG            * out_data_len );
 
-CK_RV     sign_mgr_sign_update( SESSION             * sess,
+CK_RV     sign_mgr_sign_update( STDLL_TokData_t     * tokdata,
+				SESSION             * sess,
                                 SIGN_VERIFY_CONTEXT * ctx,
                                 CK_BYTE             * in_data,
                                 CK_ULONG              in_data_len );

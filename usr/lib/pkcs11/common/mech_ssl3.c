@@ -430,13 +430,13 @@ ssl3_mac_verify( SESSION              * sess,
 
    memset( &mac_ctx, 0, sizeof(SIGN_VERIFY_CONTEXT) );
 
-   rc = sign_mgr_init( sess, &mac_ctx, &ctx->mech, FALSE, ctx->key );
+   rc = sign_mgr_init( NULL, sess, &mac_ctx, &ctx->mech, FALSE, ctx->key );
    if (rc != CKR_OK){
       TRACE_DEVEL("Sign Init failed.\n");
       goto error;
    }
    len = sizeof(mac);
-   rc = sign_mgr_sign( sess, FALSE, &mac_ctx,
+   rc = sign_mgr_sign( NULL, sess, FALSE, &mac_ctx,
                        in_data, in_data_len,
                        mac,     &len );
    if (rc != CKR_OK){
