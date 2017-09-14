@@ -2638,7 +2638,8 @@ kea_publ_set_default_attributes( TEMPLATE *tmpl, CK_ULONG mode )
 // kea_publ_validate_attribute()
 //
 CK_RV
-kea_publ_validate_attribute( TEMPLATE *tmpl, CK_ATTRIBUTE *attr, CK_ULONG mode )
+kea_publ_validate_attribute( STDLL_TokData_t *tokdata, TEMPLATE *tmpl,
+			     CK_ATTRIBUTE *attr, CK_ULONG mode )
 {
    switch (attr->type) {
       case CKA_PRIME:
@@ -2779,7 +2780,8 @@ kea_priv_set_default_attributes( TEMPLATE *tmpl, CK_ULONG mode )
 // kea_priv_validate_attribute()
 //
 CK_RV
-kea_priv_validate_attribute( TEMPLATE *tmpl, CK_ATTRIBUTE *attr, CK_ULONG mode )
+kea_priv_validate_attribute( STDLL_TokData_t *tokdata, TEMPLATE *tmpl,
+			     CK_ATTRIBUTE *attr, CK_ULONG mode )
 {
    switch (attr->type) {
       case CKA_PRIME:
