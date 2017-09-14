@@ -2715,8 +2715,9 @@ static CK_RV h_opaque_2_blob(CK_OBJECT_HANDLE handle,
 	}
 }
 
-CK_RV ep11tok_sign_init(SESSION *session, CK_MECHANISM *mech,
-			CK_BBOOL recover_mode, CK_OBJECT_HANDLE key)
+CK_RV ep11tok_sign_init(STDLL_TokData_t *tokdata, SESSION *session,
+			CK_MECHANISM *mech, CK_BBOOL recover_mode,
+			CK_OBJECT_HANDLE key)
 {
 	CK_RV rc;
 	size_t keyblobsize = 0;
@@ -2762,7 +2763,8 @@ CK_RV ep11tok_sign_init(SESSION *session, CK_MECHANISM *mech,
 }
 
 
-CK_RV ep11tok_sign(SESSION *session, CK_BBOOL length_only, CK_BYTE *in_data,
+CK_RV ep11tok_sign(STDLL_TokData_t *tokdata, SESSION *session,
+		   CK_BBOOL length_only, CK_BYTE *in_data,
 		   CK_ULONG in_data_len, CK_BYTE *signature, CK_ULONG *sig_len)
 {
 	CK_RV rc;
@@ -2781,8 +2783,8 @@ CK_RV ep11tok_sign(SESSION *session, CK_BBOOL length_only, CK_BYTE *in_data,
 }
 
 
-CK_RV ep11tok_sign_update(SESSION *session, CK_BYTE *in_data,
-			  CK_ULONG in_data_len)
+CK_RV ep11tok_sign_update(STDLL_TokData_t *tokdata, SESSION *session,
+			  CK_BYTE *in_data, CK_ULONG in_data_len)
 {
 	CK_RV rc;
 	SIGN_VERIFY_CONTEXT *ctx = &session->sign_ctx;
@@ -2803,8 +2805,9 @@ CK_RV ep11tok_sign_update(SESSION *session, CK_BYTE *in_data,
 }
 
 
-CK_RV ep11tok_sign_final(SESSION *session, CK_BBOOL length_only,
-			 CK_BYTE *signature, CK_ULONG *sig_len)
+CK_RV ep11tok_sign_final(STDLL_TokData_t *tokdata, SESSION *session,
+			 CK_BBOOL length_only, CK_BYTE *signature,
+			 CK_ULONG *sig_len)
 {
 	CK_RV rc;
 	SIGN_VERIFY_CONTEXT *ctx = &session->sign_ctx;

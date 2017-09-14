@@ -331,13 +331,13 @@ ec_hash_sign( SESSION              * sess,
     sign_mech.ulParameterLen = 0;
     sign_mech.pParameter     = NULL;
 
-   rc = sign_mgr_init( sess, &sign_ctx, &sign_mech, FALSE, ctx->key );
+   rc = sign_mgr_init( NULL, sess, &sign_ctx, &sign_mech, FALSE, ctx->key );
    if (rc != CKR_OK){
       TRACE_DEVEL("Sign Mgr Init failed.\n");
       goto error;
    }
 
-   rc = sign_mgr_sign( sess, length_only, &sign_ctx, hash, hash_len, signature, sig_len );
+   rc = sign_mgr_sign( NULL, sess, length_only, &sign_ctx, hash, hash_len, signature, sig_len );
    if (rc != CKR_OK)
       TRACE_DEVEL("Sign Mgr Sign failed.\n");
 
@@ -438,14 +438,14 @@ ec_hash_sign_final( SESSION              * sess,
    sign_mech.ulParameterLen = 0;
    sign_mech.pParameter     = NULL;
 
-   rc = sign_mgr_init( sess, &sign_ctx, &sign_mech, FALSE, ctx->key );
+   rc = sign_mgr_init( NULL, sess, &sign_ctx, &sign_mech, FALSE, ctx->key );
    if (rc != CKR_OK){
       TRACE_DEVEL("Sign Mgr Init failed.\n");
       goto done;
    }
 
    //rc = sign_mgr_sign( sess, length_only, &sign_ctx, ber_data, ber_data_len, signature, sig_len );
-   rc = sign_mgr_sign( sess, length_only, &sign_ctx, hash, hash_len, signature, sig_len );
+   rc = sign_mgr_sign( NULL, sess, length_only, &sign_ctx, hash, hash_len, signature, sig_len );
    if (rc != CKR_OK)
       TRACE_DEVEL("Sign Mgr Sign failed.\n");
 
