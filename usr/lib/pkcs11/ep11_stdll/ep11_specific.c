@@ -1720,7 +1720,8 @@ error:
 
 #define  CKA_IBM_STRUCT_PARAMS  (CKA_VENDOR_DEFINED +0x10009)
 
-static CK_RV dh_generate_keypair(CK_MECHANISM_PTR pMechanism,
+static CK_RV dh_generate_keypair(STDLL_TokData_t *tokdata,
+				 CK_MECHANISM_PTR pMechanism,
 				 TEMPLATE *publ_tmpl, TEMPLATE *priv_tmpl,
 				 CK_ATTRIBUTE_PTR pPublicKeyTemplate,
 				 CK_ULONG ulPublicKeyAttributeCount,
@@ -2555,7 +2556,8 @@ CK_RV ep11tok_generate_key_pair(STDLL_TokData_t *tokdata, SESSION * sess,
 
 	switch(pMechanism->mechanism) {
 	case CKM_DH_PKCS_KEY_PAIR_GEN:
-		rc = dh_generate_keypair(pMechanism, public_key_obj->template,
+		rc = dh_generate_keypair(tokdata, pMechanism,
+					 public_key_obj->template,
 					 private_key_obj->template,
 					 pPublicKeyTemplate,
 					 ulPublicKeyAttributeCount,

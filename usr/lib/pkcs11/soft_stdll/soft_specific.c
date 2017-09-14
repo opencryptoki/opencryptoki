@@ -1657,7 +1657,8 @@ token_specific_aes_cbc(	CK_BYTE		*in_data,
 // All length's are in number of bytes. All data comes in as Big Endian.
 
 CK_RV
-token_specific_dh_pkcs_derive( CK_BYTE   *z,
+token_specific_dh_pkcs_derive( STDLL_TokData_t *tokdata,
+			       CK_BYTE   *z,
                                CK_ULONG  *z_len,
                                CK_BYTE   *y,
                                CK_ULONG  y_len,
@@ -1732,7 +1733,8 @@ token_specific_dh_pkcs_derive( CK_BYTE   *z,
 // All length's are in number of bytes. All data comes in as Big Endian.
 
 CK_RV
-token_specific_dh_pkcs_key_pair_gen( TEMPLATE  * publ_tmpl,
+token_specific_dh_pkcs_key_pair_gen( STDLL_TokData_t *tokdata,
+				     TEMPLATE  * publ_tmpl,
                                      TEMPLATE  * priv_tmpl )
 {
     CK_BBOOL           rc;

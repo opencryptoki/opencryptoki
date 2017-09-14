@@ -2335,7 +2335,8 @@ dh_publ_set_default_attributes( TEMPLATE *tmpl, CK_ULONG mode )
 // dh_publ_validate_attribute()
 //
 CK_RV
-dh_publ_validate_attribute( TEMPLATE *tmpl, CK_ATTRIBUTE *attr, CK_ULONG mode )
+dh_publ_validate_attribute( STDLL_TokData_t *tokdata, TEMPLATE *tmpl,
+			    CK_ATTRIBUTE *attr, CK_ULONG mode )
 {
    switch (attr->type) {
       case CKA_PRIME:
@@ -2474,7 +2475,8 @@ dh_priv_set_default_attributes( TEMPLATE *tmpl, CK_ULONG mode )
 // dh_priv_validate_attribute()
 //
 CK_RV
-dh_priv_validate_attribute( TEMPLATE *tmpl, CK_ATTRIBUTE *attr, CK_ULONG mode )
+dh_priv_validate_attribute( STDLL_TokData_t *tokdata, TEMPLATE *tmpl,
+			    CK_ATTRIBUTE *attr, CK_ULONG mode )
 {
    switch (attr->type) {
       case CKA_PRIME:

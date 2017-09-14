@@ -431,7 +431,7 @@ key_mgr_generate_key_pair( STDLL_TokData_t   * tokdata,
 /* Begin code contributed by Corrent corp. */
 #if !(NODH)
       case CKM_DH_PKCS_KEY_PAIR_GEN:
-         rc = ckm_dh_pkcs_key_pair_gen( publ_key_obj->template,
+         rc = ckm_dh_pkcs_key_pair_gen( tokdata, publ_key_obj->template,
                                         priv_key_obj->template );
          break;
 #endif
@@ -1129,7 +1129,7 @@ key_mgr_derive_key( STDLL_TokData_t   * tokdata,
             TRACE_ERROR("%s received bad argument(s)\n", __FUNCTION__);
             return CKR_FUNCTION_FAILED;
          }
-         return dh_pkcs_derive( sess, mech, base_key,
+         return dh_pkcs_derive( tokdata, sess, mech, base_key,
                                 pTemplate, ulCount, derived_key );
       }
       break ;

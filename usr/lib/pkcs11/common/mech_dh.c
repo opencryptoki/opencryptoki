@@ -43,7 +43,8 @@
 //
 //
 CK_RV
-dh_pkcs_derive( SESSION           * sess,
+dh_pkcs_derive( STDLL_TokData_t   * tokdata,
+		SESSION           * sess,
                 CK_MECHANISM      * mech,
                 CK_OBJECT_HANDLE    base_key,
                 CK_ATTRIBUTE      * pTemplate,
@@ -96,7 +97,7 @@ dh_pkcs_derive( SESSION           * sess,
    // Extract public-key from mechanism parameters. base-key contains the
    // private key, prime, and base. The return value will be in the handle.
 
-   rc = ckm_dh_pkcs_derive( mech->pParameter, mech->ulParameterLen,
+   rc = ckm_dh_pkcs_derive( tokdata, mech->pParameter, mech->ulParameterLen,
                             base_key, secret_key_value, &secret_key_value_len );
    if (rc != CKR_OK)
       return rc;
@@ -111,7 +112,7 @@ dh_pkcs_derive( SESSION           * sess,
    // Create the object that will be passed back as a handle. This will
    // contain the new (computed) value of the attribute.
 
-   rc = object_mgr_create_skel( NULL, sess,
+   rc = object_mgr_create_skel( tokdata, sess,
                                 pTemplate,       ulCount,
                                 MODE_KEYGEN,
                                 keyclass,  keytype,
@@ -128,7 +129,7 @@ dh_pkcs_derive( SESSION           * sess,
    // at this point, the derived key is fully constructed...assign an
    // object handle and store the key
    //
-   rc = object_mgr_create_final( NULL, sess, temp_obj, handle );
+   rc = object_mgr_create_final( tokdata, sess, temp_obj, handle );
    if (rc != CKR_OK) {
       TRACE_DEVEL("Object Mgr create final failed.\n");
       object_free( temp_obj );
@@ -145,7 +146,8 @@ dh_pkcs_derive( SESSION           * sess,
 //
 //
 CK_RV
-ckm_dh_pkcs_derive( CK_VOID_PTR        other_pubkey,
+ckm_dh_pkcs_derive( STDLL_TokData_t   *tokdata,
+		    CK_VOID_PTR        other_pubkey,
                     CK_ULONG           other_pubkey_len,
                     CK_OBJECT_HANDLE   base_key,
                     CK_BYTE            *secret_value,
@@ -198,8 +200,9 @@ ckm_dh_pkcs_derive( CK_VOID_PTR        other_pubkey,
    p_other_pubkey = (CK_BYTE *) other_pubkey ;
 
    // Perform: z = other_pubkey^x mod p
-   rc = token_specific.t_dh_pkcs_derive(secret_value, secret_value_len, p_other_pubkey,
-                                        other_pubkey_len, x, x_len, p, p_len );
+   rc = token_specific.t_dh_pkcs_derive(tokdata, secret_value, secret_value_len,
+					p_other_pubkey, other_pubkey_len, x,
+					x_len, p, p_len );
    if (rc != CKR_OK)
       TRACE_DEVEL("Token specific dh pkcs derive failed.\n");
 
@@ -209,12 +212,13 @@ ckm_dh_pkcs_derive( CK_VOID_PTR        other_pubkey,
 //
 //
 CK_RV
-ckm_dh_pkcs_key_pair_gen( TEMPLATE  * publ_tmpl,
+ckm_dh_pkcs_key_pair_gen( STDLL_TokData_t *tokdata,
+			  TEMPLATE  * publ_tmpl,
                           TEMPLATE  * priv_tmpl )
 {
    CK_RV                rc;
 
-   rc = token_specific.t_dh_pkcs_key_pair_gen(publ_tmpl,priv_tmpl);
+   rc = token_specific.t_dh_pkcs_key_pair_gen(tokdata, publ_tmpl,priv_tmpl);
    if (rc != CKR_OK)
       TRACE_DEVEL("Token specific dh pkcs key pair gen failed.\n");
 
