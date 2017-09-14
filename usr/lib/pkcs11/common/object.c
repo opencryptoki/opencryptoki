@@ -255,7 +255,8 @@ object_copy( STDLL_TokData_t * tokdata,
    // allowed to be specified by the user (ie. CKA_LOCAL for key types) but
    // may still be part of the old template.
    //
-   rc = template_validate_attributes( new_tmpl, class, subclass, MODE_COPY );
+   rc = template_validate_attributes( tokdata, new_tmpl, class, subclass,
+				      MODE_COPY );
    if (rc != CKR_OK){
       TRACE_DEVEL("template_validate_attributes failed.\n");
       goto error;
@@ -586,7 +587,8 @@ object_set_attribute_values( STDLL_TokData_t * tokdata,
    // allowed to be specified by the user (ie. CKA_LOCAL for key types) but
    // may still be part of the old template.
    //
-   rc = template_validate_attributes( new_tmpl, class, subclass, MODE_MODIFY );
+   rc = template_validate_attributes( tokdata, new_tmpl, class, subclass,
+				      MODE_MODIFY );
    if (rc != CKR_OK){
       TRACE_DEVEL("template_validate_attributes failed.\n");
       goto error;
@@ -733,7 +735,7 @@ object_create_skel( STDLL_TokData_t  * tokdata,
    //    4) conflicting attributes/values
    //
 
-   rc = template_validate_attributes( tmpl2, class, subclass, mode );
+   rc = template_validate_attributes( tokdata, tmpl2, class, subclass, mode );
    if (rc != CKR_OK){
       TRACE_DEVEL("template_validate_attributes failed.\n");
       goto done;

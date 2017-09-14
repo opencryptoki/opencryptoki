@@ -2227,13 +2227,15 @@ CK_RV     template_unflatten_withSize( TEMPLATE ** new_tmpl,
 				       CK_ULONG    count,
 				       int         buf_size );
 
-CK_RV     template_validate_attribute( TEMPLATE     * tmpl,
+CK_RV     template_validate_attribute( STDLL_TokData_t * tokdata,
+				       TEMPLATE     * tmpl,
                                        CK_ATTRIBUTE * attr,
                                        CK_ULONG       class,
                                        CK_ULONG       subclass,
                                        CK_ULONG       mode );
 
-CK_RV     template_validate_attributes( TEMPLATE * tmpl,
+CK_RV     template_validate_attributes( STDLL_TokData_t *tokdata,
+					TEMPLATE * tmpl,
                                         CK_ULONG   class,
                                         CK_ULONG   subclass,
                                         CK_ULONG   mode );
