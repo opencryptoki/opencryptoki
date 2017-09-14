@@ -4291,7 +4291,8 @@ cast_set_default_attributes( TEMPLATE *tmpl, CK_ULONG mode )
 // cast_validate_attribute()
 //
 CK_RV
-cast_validate_attribute( TEMPLATE *tmpl, CK_ATTRIBUTE *attr, CK_ULONG mode )
+cast_validate_attribute( STDLL_TokData_t *tokdata, TEMPLATE *tmpl,
+			 CK_ATTRIBUTE *attr, CK_ULONG mode )
 {
    CK_ULONG len;
 
@@ -4327,7 +4328,7 @@ cast_validate_attribute( TEMPLATE *tmpl, CK_ATTRIBUTE *attr, CK_ULONG mode )
 
 
       default:
-         return secret_key_validate_attribute( NULL, tmpl, attr, mode );
+         return secret_key_validate_attribute( tokdata, tmpl, attr, mode );
    }
 }
 
@@ -4412,7 +4413,8 @@ cast3_set_default_attributes( TEMPLATE *tmpl, CK_ULONG mode )
 // cast3_validate_attribute()
 //
 CK_RV
-cast3_validate_attribute( TEMPLATE *tmpl, CK_ATTRIBUTE *attr, CK_ULONG mode )
+cast3_validate_attribute( STDLL_TokData_t *tokdata, TEMPLATE *tmpl,
+			  CK_ATTRIBUTE *attr, CK_ULONG mode )
 {
    CK_ULONG len;
 
@@ -4447,7 +4449,7 @@ cast3_validate_attribute( TEMPLATE *tmpl, CK_ATTRIBUTE *attr, CK_ULONG mode )
          }
 
       default:
-         return secret_key_validate_attribute( NULL, tmpl, attr, mode );
+         return secret_key_validate_attribute( tokdata, tmpl, attr, mode );
    }
 }
 
@@ -4528,7 +4530,8 @@ cast5_set_default_attributes( TEMPLATE *tmpl, CK_ULONG mode )
 // cast5_validate_attribute()
 //
 CK_RV
-cast5_validate_attribute( TEMPLATE *tmpl, CK_ATTRIBUTE *attr, CK_ULONG mode )
+cast5_validate_attribute( STDLL_TokData_t *tokdata, TEMPLATE *tmpl,
+			  CK_ATTRIBUTE *attr, CK_ULONG mode )
 {
    CK_ULONG  len;
 
@@ -4563,7 +4566,7 @@ cast5_validate_attribute( TEMPLATE *tmpl, CK_ATTRIBUTE *attr, CK_ULONG mode )
          }
 
       default:
-         return secret_key_validate_attribute( NULL, tmpl, attr, mode );
+         return secret_key_validate_attribute( tokdata, tmpl, attr, mode );
    }
 }
 

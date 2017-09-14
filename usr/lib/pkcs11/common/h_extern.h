@@ -2502,17 +2502,20 @@ CK_RV     aes_wrap_get_data( TEMPLATE *tmpl, CK_BBOOL length_only, CK_BYTE **dat
 // CAST routines
 CK_RV     cast_check_required_attributes( TEMPLATE *tmpl, CK_ULONG mode );
 CK_RV     cast_set_default_attributes( TEMPLATE *tmpl, CK_ULONG mode );
-CK_RV     cast_validate_attribute( TEMPLATE *tmpl, CK_ATTRIBUTE *attr, CK_ULONG mode );
+CK_RV     cast_validate_attribute( STDLL_TokData_t *tokdata, TEMPLATE *tmpl,
+				   CK_ATTRIBUTE *attr, CK_ULONG mode );
 
 // CAST3 routines
 CK_RV     cast3_check_required_attributes( TEMPLATE *tmpl, CK_ULONG mode );
 CK_RV     cast3_set_default_attributes( TEMPLATE *tmpl, CK_ULONG mode );
-CK_RV     cast3_validate_attribute( TEMPLATE *tmpl, CK_ATTRIBUTE *attr, CK_ULONG mode );
+CK_RV     cast3_validate_attribute( STDLL_TokData_t *tokdata, TEMPLATE *tmpl,
+				    CK_ATTRIBUTE *attr, CK_ULONG mode );
 
 // CAST5 routines
 CK_RV     cast5_check_required_attributes( TEMPLATE *tmpl, CK_ULONG mode );
 CK_RV     cast5_set_default_attributes( TEMPLATE *tmpl, CK_ULONG mode );
-CK_RV     cast5_validate_attribute( TEMPLATE *tmpl, CK_ATTRIBUTE *attr, CK_ULONG mode );
+CK_RV     cast5_validate_attribute( STDLL_TokData_t *tokdata, TEMPLATE *tmpl,
+				    CK_ATTRIBUTE *attr, CK_ULONG mode );
 
 // IDEA routines
 CK_RV     idea_check_required_attributes( TEMPLATE *tmpl, CK_ULONG mode );

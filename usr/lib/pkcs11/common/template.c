@@ -1196,13 +1196,13 @@ CK_RV template_validate_attribute(STDLL_TokData_t  * tokdata, TEMPLATE *tmpl,
 			return des3_validate_attribute(tokdata, tmpl, attr, mode);
 
 		case CKK_CAST:
-			return cast_validate_attribute(tmpl, attr, mode);
+			return cast_validate_attribute(tokdata, tmpl, attr, mode);
 
 		case CKK_CAST3:
-			return cast3_validate_attribute(tmpl, attr, mode);
+			return cast3_validate_attribute(tokdata, tmpl, attr, mode);
 
 		case CKK_CAST5:
-			return cast5_validate_attribute(tmpl, attr, mode);
+			return cast5_validate_attribute(tokdata, tmpl, attr, mode);
 
 		case CKK_IDEA:
 			return idea_validate_attribute(tokdata, tmpl, attr, mode);
