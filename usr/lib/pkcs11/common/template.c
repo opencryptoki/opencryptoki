@@ -1178,13 +1178,13 @@ CK_RV template_validate_attribute(STDLL_TokData_t  * tokdata, TEMPLATE *tmpl,
 			return generic_secret_validate_attribute(tmpl, attr,
 								 mode);
 		case CKK_RC2:
-			return rc2_validate_attribute(tmpl, attr, mode);
+			return rc2_validate_attribute(tokdata, tmpl, attr, mode);
 
 		case CKK_RC4:
-			return rc4_validate_attribute(tmpl, attr, mode);
+			return rc4_validate_attribute(tokdata, tmpl, attr, mode);
 
 		case CKK_RC5:
-			return rc5_validate_attribute(tmpl, attr, mode);
+			return rc5_validate_attribute(tokdata, tmpl, attr, mode);
 
 		case CKK_DES:
 			return des_validate_attribute(tmpl, attr, mode);
