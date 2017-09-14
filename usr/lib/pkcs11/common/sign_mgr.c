@@ -803,7 +803,7 @@ sign_mgr_sign( STDLL_TokData_t      * tokdata,
 
       case CKM_SSL3_MD5_MAC:
       case CKM_SSL3_SHA1_MAC:
-         return ssl3_mac_sign( sess,     length_only, ctx,
+         return ssl3_mac_sign( tokdata, sess, length_only, ctx,
                                in_data,  in_data_len,
 			       out_data, out_data_len );
       case CKM_ECDSA_SHA1:
@@ -880,7 +880,7 @@ sign_mgr_sign_update( STDLL_TokData_t     * tokdata,
 
       case CKM_SSL3_MD5_MAC:
       case CKM_SSL3_SHA1_MAC:
-         return ssl3_mac_sign_update( sess, ctx, in_data, in_data_len );
+         return ssl3_mac_sign_update( tokdata, sess, ctx, in_data, in_data_len );
 
       case CKM_DES3_MAC:
       case CKM_DES3_MAC_GENERAL:
@@ -958,7 +958,7 @@ sign_mgr_sign_final( STDLL_TokData_t     * tokdata,
 
       case CKM_SSL3_MD5_MAC:
       case CKM_SSL3_SHA1_MAC:
-         return ssl3_mac_sign_final( sess, length_only, ctx, signature, sig_len );
+         return ssl3_mac_sign_final( tokdata, sess, length_only, ctx, signature, sig_len );
       case CKM_DES3_MAC:
       case CKM_DES3_MAC_GENERAL:
          return des3_mac_sign_final( sess, length_only, ctx, signature, sig_len );

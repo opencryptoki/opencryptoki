@@ -790,7 +790,7 @@ verify_mgr_verify( STDLL_TokData_t     * tokdata,
 
       case CKM_SSL3_MD5_MAC:
       case CKM_SSL3_SHA1_MAC:
-         return ssl3_mac_verify( sess,      ctx,
+         return ssl3_mac_verify( tokdata, sess,      ctx,
                                  in_data,   in_data_len,
                                  signature, sig_len );
 
@@ -866,7 +866,8 @@ verify_mgr_verify_update( STDLL_TokData_t     * tokdata,
 
       case CKM_SSL3_MD5_MAC:
       case CKM_SSL3_SHA1_MAC:
-         return ssl3_mac_verify_update( sess, ctx, in_data, in_data_len );
+         return ssl3_mac_verify_update(tokdata, sess, ctx, in_data,
+				       in_data_len);
 
       case CKM_DES3_MAC:
       case CKM_DES3_MAC_GENERAL:
@@ -939,7 +940,7 @@ verify_mgr_verify_final( STDLL_TokData_t     * tokdata,
 
       case CKM_SSL3_MD5_MAC:
       case CKM_SSL3_SHA1_MAC:
-         return ssl3_mac_verify_final( sess, ctx, signature, sig_len );
+         return ssl3_mac_verify_final( tokdata, sess, ctx, signature, sig_len );
 
       case CKM_DES3_MAC:
       case CKM_DES3_MAC_GENERAL:
