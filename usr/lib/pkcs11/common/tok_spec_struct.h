@@ -144,11 +144,12 @@ struct token_specific_struct {
 
 	CK_RV(*t_rsa_generate_keypair) (TEMPLATE *, TEMPLATE *);
 
-	CK_RV(*t_ec_sign) (CK_BYTE *, CK_ULONG, CK_BYTE *, CK_ULONG *,
-			   OBJECT *);
-	CK_RV(*t_ec_verify) (CK_BYTE *, CK_ULONG, CK_BYTE *, CK_ULONG,
-			     OBJECT *);
-	CK_RV(*t_ec_generate_keypair) (TEMPLATE *, TEMPLATE *);
+	CK_RV(*t_ec_sign) (STDLL_TokData_t *tokdata, CK_BYTE *, CK_ULONG,
+			   CK_BYTE *, CK_ULONG *, OBJECT *);
+	CK_RV(*t_ec_verify) (STDLL_TokData_t *tokdata, CK_BYTE *, CK_ULONG,
+			     CK_BYTE *, CK_ULONG, OBJECT *);
+	CK_RV(*t_ec_generate_keypair) (STDLL_TokData_t *tokdata, TEMPLATE *,
+				       TEMPLATE *);
 
 
 	/* Begin code contributed by Corrent corp. */

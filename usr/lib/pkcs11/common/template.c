@@ -1139,7 +1139,7 @@ CK_RV template_validate_attribute(STDLL_TokData_t  * tokdata, TEMPLATE *tmpl,
 			return dsa_publ_validate_attribute(tmpl, attr, mode);
 
 		case CKK_ECDSA:
-			return ecdsa_publ_validate_attribute(tmpl, attr, mode);
+			return ecdsa_publ_validate_attribute(tokdata, tmpl, attr, mode);
 
 		case CKK_DH:
 			return dh_publ_validate_attribute(tokdata, tmpl, attr, mode);
@@ -1160,7 +1160,7 @@ CK_RV template_validate_attribute(STDLL_TokData_t  * tokdata, TEMPLATE *tmpl,
 			return dsa_priv_validate_attribute(tmpl, attr, mode);
 
 		case CKK_ECDSA:
-			return ecdsa_priv_validate_attribute(tmpl, attr, mode);
+			return ecdsa_priv_validate_attribute(tokdata, tmpl, attr, mode);
 
 		case CKK_DH:
 			return dh_priv_validate_attribute(tokdata, tmpl, attr, mode);

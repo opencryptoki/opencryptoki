@@ -163,14 +163,16 @@ CK_RV token_specific_rsa_pss_verify(SIGN_VERIFY_CONTEXT *, CK_BYTE *,
 				    CK_ULONG, CK_BYTE *, CK_ULONG);
 
 CK_RV
-token_specific_ec_sign(CK_BYTE   * ,
+token_specific_ec_sign(STDLL_TokData_t *,
+		  CK_BYTE   * ,
                   CK_ULONG    ,
                   CK_BYTE   * ,
                   CK_ULONG  * ,
                   OBJECT    * );
 
 CK_RV
-token_specific_ec_verify(CK_BYTE   * ,
+token_specific_ec_verify(STDLL_TokData_t *,
+		  CK_BYTE   * ,
                   CK_ULONG    ,
                   CK_BYTE   * ,
                   CK_ULONG    ,
@@ -181,7 +183,7 @@ token_specific_copy_object(SESSION *, CK_ATTRIBUTE_PTR, CK_ULONG,
 			   CK_OBJECT_HANDLE, CK_OBJECT_HANDLE_PTR);
 
 CK_RV
-token_specific_ec_generate_keypair( TEMPLATE  * , TEMPLATE  * );
+token_specific_ec_generate_keypair( STDLL_TokData_t *, TEMPLATE  * , TEMPLATE  * );
 
 CK_RV
 token_specific_create_object(SESSION *, CK_ATTRIBUTE_PTR, CK_ULONG,
