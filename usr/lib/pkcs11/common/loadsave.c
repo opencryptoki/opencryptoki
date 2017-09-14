@@ -167,7 +167,7 @@ static CK_RV encrypt_data(CK_BYTE *key, CK_ULONG keylen, const CK_BYTE *iv,
 
 	switch (token_specific.data_store.encryption_algorithm) {
 	case CKM_DES3_CBC:
-		rc = ckm_des3_cbc_encrypt(clear, clear_len,
+		rc = ckm_des3_cbc_encrypt(NULL, clear, clear_len,
 					  cipher, p_cipher_len,
 					  initial_vector, keyobj);
 		break;
@@ -281,7 +281,7 @@ static CK_RV decrypt_data(CK_BYTE *key, CK_ULONG keylen, const CK_BYTE *iv,
 
 	switch (token_specific.data_store.encryption_algorithm) {
 	case CKM_DES3_CBC:
-		rc = ckm_des3_cbc_decrypt(cipher, cipher_len,
+		rc = ckm_des3_cbc_decrypt(NULL, cipher, cipher_len,
 					  clear, p_clear_len,
 					  initial_vector, keyobj);
 		break;

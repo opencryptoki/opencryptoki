@@ -87,19 +87,20 @@ struct token_specific_struct {
 			   CK_BYTE *, CK_ULONG *, OBJECT *, CK_BYTE *,
 			   CK_BYTE);
 
-	CK_RV(*t_tdes_ecb) (CK_BYTE *, CK_ULONG,
+	CK_RV(*t_tdes_ecb) (STDLL_TokData_t *, CK_BYTE *, CK_ULONG,
 			    CK_BYTE *, CK_ULONG *, OBJECT *, CK_BYTE);
-	CK_RV(*t_tdes_cbc) (CK_BYTE *, CK_ULONG,
+	CK_RV(*t_tdes_cbc) (STDLL_TokData_t *, CK_BYTE *, CK_ULONG,
 			    CK_BYTE *, CK_ULONG *, OBJECT *, CK_BYTE *,
 			    CK_BYTE);
 
-	CK_RV(*t_tdes_ofb)(CK_BYTE *, CK_BYTE *, CK_ULONG, OBJECT *, CK_BYTE *,
-			   uint_32);
+	CK_RV(*t_tdes_ofb)(STDLL_TokData_t *, CK_BYTE *, CK_BYTE *, CK_ULONG,
+			   OBJECT *, CK_BYTE *, uint_32);
 
-	CK_RV(*t_tdes_cfb)(CK_BYTE *, CK_BYTE *, CK_ULONG, OBJECT *, CK_BYTE *,
-			   uint_32, uint_32);
+	CK_RV(*t_tdes_cfb)(STDLL_TokData_t *, CK_BYTE *, CK_BYTE *, CK_ULONG,
+			   OBJECT *, CK_BYTE *, uint_32, uint_32);
 
-	CK_RV(*t_tdes_mac)(CK_BYTE *, CK_ULONG, OBJECT *, CK_BYTE *);
+	CK_RV(*t_tdes_mac)(STDLL_TokData_t *, CK_BYTE *, CK_ULONG, OBJECT *,
+			   CK_BYTE *);
 
 	CK_RV(*t_rsa_decrypt) (CK_BYTE *,
 				CK_ULONG, CK_BYTE *, CK_ULONG *, OBJECT *);
