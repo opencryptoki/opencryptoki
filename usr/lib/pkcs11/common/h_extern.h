@@ -577,54 +577,65 @@ CK_RV  rng_generate( CK_BYTE *output, CK_ULONG bytes );
 
 // SSL3 routines
 //
-CK_RV  ssl3_mac_sign( SESSION *sess,  CK_BBOOL length_only,
+CK_RV  ssl3_mac_sign( STDLL_TokData_t     * tokdata,
+		      SESSION             * sess,
+		      CK_BBOOL length_only,
                       SIGN_VERIFY_CONTEXT * ctx,
                       CK_BYTE             * in_data,
                       CK_ULONG              in_data_len,
                       CK_BYTE             * out_data,
                       CK_ULONG            * out_data_len );
 
-CK_RV  ssl3_mac_sign_update( SESSION             * sess,
+CK_RV  ssl3_mac_sign_update( STDLL_TokData_t     * tokdata,
+			     SESSION             * sess,
                              SIGN_VERIFY_CONTEXT * ctx,
                              CK_BYTE             * in_data,
                              CK_ULONG              in_data_len );
 
-CK_RV  ssl3_mac_sign_final( SESSION *sess,  CK_BBOOL length_only,
+CK_RV  ssl3_mac_sign_final( STDLL_TokData_t     * tokdata,
+			    SESSION             * sess,
+			    CK_BBOOL              length_only,
                             SIGN_VERIFY_CONTEXT * ctx,
                             CK_BYTE             * out_data,
                             CK_ULONG            * out_data_len );
 
-CK_RV  ssl3_mac_verify( SESSION             * sess,
+CK_RV  ssl3_mac_verify( STDLL_TokData_t     * tokdata,
+			SESSION             * sess,
                         SIGN_VERIFY_CONTEXT * ctx,
                         CK_BYTE             * in_data,
                         CK_ULONG              in_data_len,
                         CK_BYTE             * signature,
                         CK_ULONG              sig_len );
 
-CK_RV  ssl3_mac_verify_update( SESSION             * sess,
+CK_RV  ssl3_mac_verify_update( STDLL_TokData_t     * tokdata,
+			       SESSION             * sess,
                                SIGN_VERIFY_CONTEXT * ctx,
                                CK_BYTE             * in_data,
                                CK_ULONG              in_data_len );
 
-CK_RV  ssl3_mac_verify_final( SESSION             * sess,
+CK_RV  ssl3_mac_verify_final( STDLL_TokData_t     * tokdata,
+			      SESSION             * sess,
                               SIGN_VERIFY_CONTEXT * ctx,
                               CK_BYTE             * signature,
                               CK_ULONG              sig_len );
 
-CK_RV  ssl3_master_key_derive( SESSION          * sess,
+CK_RV  ssl3_master_key_derive( STDLL_TokData_t  * tokdata,
+			       SESSION          * sess,
                                CK_MECHANISM     * mech,
                                CK_OBJECT_HANDLE   base_key,
                                CK_ATTRIBUTE     * attributes,
                                CK_ULONG           count,
                                CK_OBJECT_HANDLE * handle );
 
-CK_RV  ssl3_key_and_mac_derive( SESSION          * sess,
+CK_RV  ssl3_key_and_mac_derive( STDLL_TokData_t  * tokdata,
+				SESSION          * sess,
                                 CK_MECHANISM     * mech,
                                 CK_OBJECT_HANDLE   base_key,
                                 CK_ATTRIBUTE     * attributes,
                                 CK_ULONG           count );
 
-CK_RV  ckm_ssl3_pre_master_key_gen( TEMPLATE *tmpl, CK_MECHANISM *mech );
+CK_RV  ckm_ssl3_pre_master_key_gen( STDLL_TokData_t  * tokdata,
+				    TEMPLATE *tmpl, CK_MECHANISM *mech );
 
 
 // RSA routines
