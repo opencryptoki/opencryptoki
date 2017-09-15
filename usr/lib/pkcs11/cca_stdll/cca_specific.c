@@ -1158,7 +1158,8 @@ token_specific_rsa_verify(CK_BYTE  * in_data,
 
 #ifndef NOAES
 CK_RV
-token_specific_aes_key_gen(CK_BYTE *aes_key, CK_ULONG len, CK_ULONG key_size)
+token_specific_aes_key_gen(STDLL_TokData_t *tokdata, CK_BYTE *aes_key,
+			   CK_ULONG len, CK_ULONG key_size)
 {
 	long return_code, reason_code;
 	unsigned char key_token[CCA_KEY_ID_SIZE] = { 0, };
@@ -1235,7 +1236,8 @@ token_specific_aes_key_gen(CK_BYTE *aes_key, CK_ULONG len, CK_ULONG key_size)
 }
 
 CK_RV
-token_specific_aes_ecb(CK_BYTE  *in_data,
+token_specific_aes_ecb(STDLL_TokData_t *tokdata,
+		       CK_BYTE  *in_data,
 		       CK_ULONG  in_data_len,
 		       CK_BYTE	*out_data,
 		       CK_ULONG	*out_data_len,
@@ -1330,7 +1332,8 @@ token_specific_aes_ecb(CK_BYTE  *in_data,
 }
 
 CK_RV
-token_specific_aes_cbc(CK_BYTE  *in_data,
+token_specific_aes_cbc(STDLL_TokData_t *tokdata,
+		       CK_BYTE  *in_data,
 		       CK_ULONG	 in_data_len,
 		       CK_BYTE	*out_data,
 		       CK_ULONG	*out_data_len,

@@ -172,7 +172,7 @@ static CK_RV encrypt_data(CK_BYTE *key, CK_ULONG keylen, const CK_BYTE *iv,
 					  initial_vector, keyobj);
 		break;
 	case CKM_AES_CBC:
-		rc = ckm_aes_cbc_encrypt(clear, clear_len,
+		rc = ckm_aes_cbc_encrypt(NULL, clear, clear_len,
 		                         cipher, p_cipher_len,
 					 initial_vector, keyobj);
 		break;
@@ -286,7 +286,7 @@ static CK_RV decrypt_data(CK_BYTE *key, CK_ULONG keylen, const CK_BYTE *iv,
 					  initial_vector, keyobj);
 		break;
 	case CKM_AES_CBC:
-		rc = ckm_aes_cbc_decrypt(cipher, cipher_len,
+		rc = ckm_aes_cbc_decrypt(NULL, cipher, cipher_len,
 					 clear, p_clear_len,
 					 initial_vector, keyobj);
 		break;
@@ -1600,7 +1600,7 @@ CK_RV generate_master_key(CK_BYTE *key)
 		return token_specific.t_des_key_gen(NULL, key, master_key_len,
 						    key_len);
 	case CKM_AES_CBC:
-		return token_specific.t_aes_key_gen(key, master_key_len,
+		return token_specific.t_aes_key_gen(NULL, key, master_key_len,
 						    key_len);
 	}
 
