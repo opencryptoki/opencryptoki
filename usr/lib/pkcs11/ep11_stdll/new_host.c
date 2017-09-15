@@ -88,7 +88,7 @@ CK_RV valid_mech(STDLL_TokData_t *tokdata, CK_MECHANISM_PTR m, CK_FLAGS f)
 
 	if (m) {
 		memset(&info, 0, sizeof(info));
-		rc = ep11tok_get_mechanism_info(m->mechanism, &info);
+		rc = ep11tok_get_mechanism_info(tokdata, m->mechanism, &info);
 		if (rc != CKR_OK || !(info.flags & (f)))
 			return CKR_MECHANISM_INVALID;
 	}
@@ -353,12 +353,12 @@ out:
 /*
  * Get the mechanism info for the current type and token.
  */
-CK_RV SC_GetMechanismInfo(CK_SLOT_ID sid, CK_MECHANISM_TYPE type,
-                          CK_MECHANISM_INFO_PTR pInfo)
+CK_RV SC_GetMechanismInfo(STDLL_TokData_t *tokdata, CK_SLOT_ID sid,
+			  CK_MECHANISM_TYPE type, CK_MECHANISM_INFO_PTR pInfo)
 {
 	CK_RV rc = CKR_OK;
 
-	if (initialized == FALSE) {
+	if (tokdata->initialized == FALSE) {
 		TRACE_ERROR("%s\n", ock_err(ERR_CRYPTOKI_NOT_INITIALIZED));
 		rc = CKR_CRYPTOKI_NOT_INITIALIZED;
 		goto out;
@@ -374,7 +374,7 @@ CK_RV SC_GetMechanismInfo(CK_SLOT_ID sid, CK_MECHANISM_TYPE type,
 		goto out;
 	}
 
-	rc = ep11tok_get_mechanism_info(type, pInfo);
+	rc = ep11tok_get_mechanism_info(tokdata, type, pInfo);
 out:
 	TRACE_INFO("C_GetMechanismInfo: rc = 0x%08lx, mech type = 0x%08lx\n",
 		     rc, type);
