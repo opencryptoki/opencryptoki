@@ -531,8 +531,8 @@ CK_RV compute_sha1(CK_BYTE *data, CK_ULONG len, CK_BYTE *hash);
 CK_RV compute_sha(CK_BYTE *data, CK_ULONG len, CK_BYTE *hash, CK_ULONG mech);
 CK_RV get_sha_size(CK_ULONG mech, CK_ULONG *hsize);
 
-CK_RV mgf1(CK_BYTE *seed, CK_ULONG seedlen, CK_BYTE *mask, CK_ULONG maskLen,
-	   CK_RSA_PKCS_MGF_TYPE mgf);
+CK_RV mgf1(STDLL_TokData_t *tokdata, CK_BYTE *seed, CK_ULONG seedlen,
+	   CK_BYTE *mask, CK_ULONG maskLen, CK_RSA_PKCS_MGF_TYPE mgf);
 
 CK_RV get_ecsiglen(OBJECT *key_obj, CK_ULONG *size);
 
