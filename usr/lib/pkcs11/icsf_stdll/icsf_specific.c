@@ -3159,7 +3159,8 @@ done:
 /*
  * Destroy an object.
  */
-CK_RV icsftok_destroy_object(SESSION *sess, CK_OBJECT_HANDLE handle)
+CK_RV icsftok_destroy_object(STDLL_TokData_t *tokdata, SESSION *sess,
+			     CK_OBJECT_HANDLE handle)
 {
 	struct session_state *session_state;
 	struct icsf_object_mapping *mapping = NULL;

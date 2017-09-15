@@ -792,7 +792,8 @@ done:
 // XXX Why does this function take @sess as an argument?
 //
 CK_RV
-object_mgr_destroy_object( SESSION          * sess,
+object_mgr_destroy_object( STDLL_TokData_t  *tokdata,
+			   SESSION          * sess,
                            CK_OBJECT_HANDLE   handle )
 {
    CK_RV rc = CKR_OK;
