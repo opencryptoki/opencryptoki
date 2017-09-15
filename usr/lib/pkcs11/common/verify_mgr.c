@@ -745,7 +745,7 @@ verify_mgr_verify( STDLL_TokData_t     * tokdata,
 
 #if !(NODSA)
       case CKM_DSA:
-         return dsa_verify( sess,      ctx,
+         return dsa_verify( tokdata, sess, ctx,
                             in_data,   in_data_len,
                             signature, sig_len );
 #endif

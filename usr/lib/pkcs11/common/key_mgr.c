@@ -423,7 +423,7 @@ key_mgr_generate_key_pair( STDLL_TokData_t   * tokdata,
 
 #if !(NODSA)
       case CKM_DSA_KEY_PAIR_GEN:
-         rc = ckm_dsa_key_pair_gen( publ_key_obj->template,
+         rc = ckm_dsa_key_pair_gen( tokdata, publ_key_obj->template,
                                     priv_key_obj->template );
          break;
 #endif
