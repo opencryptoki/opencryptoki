@@ -1974,12 +1974,13 @@ done:
 }
 
 
-CK_RV SC_DigestInit(ST_SESSION_HANDLE *sSession, CK_MECHANISM_PTR pMechanism)
+CK_RV SC_DigestInit(STDLL_TokData_t *tokdata, ST_SESSION_HANDLE *sSession,
+		    CK_MECHANISM_PTR pMechanism)
 {
 	SESSION *sess = NULL;
 	CK_RV rc = CKR_OK;
 
-	if (initialized == FALSE) {
+	if (tokdata->initialized == FALSE) {
 		TRACE_ERROR("%s\n", ock_err(ERR_CRYPTOKI_NOT_INITIALIZED));
 		rc = CKR_CRYPTOKI_NOT_INITIALIZED;
 		goto done;
@@ -2013,7 +2014,7 @@ CK_RV SC_DigestInit(ST_SESSION_HANDLE *sSession, CK_MECHANISM_PTR pMechanism)
 		goto done;
 	}
 
-	rc = digest_mgr_init(sess, &sess->digest_ctx, pMechanism);
+	rc = digest_mgr_init(tokdata, sess, &sess->digest_ctx, pMechanism);
 	if (rc != CKR_OK)
 		TRACE_DEVEL("digest_mgr_init() failed.\n");
 
@@ -2026,15 +2027,15 @@ done:
 }
 
 
-CK_RV SC_Digest(ST_SESSION_HANDLE *sSession, CK_BYTE_PTR pData,
-		CK_ULONG ulDataLen, CK_BYTE_PTR pDigest,
+CK_RV SC_Digest(STDLL_TokData_t *tokdata, ST_SESSION_HANDLE *sSession,
+		CK_BYTE_PTR pData, CK_ULONG ulDataLen, CK_BYTE_PTR pDigest,
 		CK_ULONG_PTR pulDigestLen)
 {
 	SESSION *sess = NULL;
 	CK_BBOOL length_only = FALSE;
 	CK_RV rc = CKR_OK;
 
-	if (initialized == FALSE) {
+	if (tokdata->initialized == FALSE) {
 		TRACE_ERROR("%s\n", ock_err(ERR_CRYPTOKI_NOT_INITIALIZED));
 		rc = CKR_CRYPTOKI_NOT_INITIALIZED;
 		goto done;
@@ -2065,8 +2066,8 @@ CK_RV SC_Digest(ST_SESSION_HANDLE *sSession, CK_BYTE_PTR pData,
 	if (!pDigest)
 		length_only = TRUE;
 
-	rc = digest_mgr_digest(sess, length_only, &sess->digest_ctx, pData,
-			       ulDataLen, pDigest, pulDigestLen);
+	rc = digest_mgr_digest(tokdata, sess, length_only, &sess->digest_ctx,
+			       pData, ulDataLen, pDigest, pulDigestLen);
 	if (rc != CKR_OK)
 		TRACE_DEVEL("digest_mgr_digest() failed.\n");
 
@@ -2078,13 +2079,13 @@ done:
 }
 
 
-CK_RV SC_DigestUpdate(ST_SESSION_HANDLE *sSession, CK_BYTE_PTR pPart,
-		      CK_ULONG ulPartLen)
+CK_RV SC_DigestUpdate(STDLL_TokData_t *tokdata, ST_SESSION_HANDLE *sSession,
+		      CK_BYTE_PTR pPart, CK_ULONG ulPartLen)
 {
 	SESSION *sess = NULL;
 	CK_RV rc = CKR_OK;
 
-	if (initialized == FALSE) {
+	if (tokdata->initialized == FALSE) {
 		TRACE_ERROR("%s\n", ock_err(ERR_CRYPTOKI_NOT_INITIALIZED));
 		rc = CKR_CRYPTOKI_NOT_INITIALIZED;
 		goto done;
@@ -2111,8 +2112,8 @@ CK_RV SC_DigestUpdate(ST_SESSION_HANDLE *sSession, CK_BYTE_PTR pPart,
 
 	/* If there is data to hash, do so. */
 	if (ulPartLen) {
-		rc = digest_mgr_digest_update(sess, &sess->digest_ctx, pPart,
-					      ulPartLen);
+		rc = digest_mgr_digest_update(tokdata, sess, &sess->digest_ctx,
+					      pPart, ulPartLen);
 		if (rc != CKR_OK)
 			TRACE_DEVEL("digest_mgr_digest_update() failed.\n");
 	}
@@ -2124,12 +2125,13 @@ done:
 }
 
 
-CK_RV SC_DigestKey(ST_SESSION_HANDLE *sSession, CK_OBJECT_HANDLE hKey)
+CK_RV SC_DigestKey(STDLL_TokData_t *tokdata, ST_SESSION_HANDLE *sSession,
+		   CK_OBJECT_HANDLE hKey)
 {
 	SESSION *sess = NULL;
 	CK_RV rc = CKR_OK;
 
-	if (initialized == FALSE) {
+	if (tokdata->initialized == FALSE) {
 		TRACE_ERROR("%s\n", ock_err(ERR_CRYPTOKI_NOT_INITIALIZED));
 		rc = CKR_CRYPTOKI_NOT_INITIALIZED;
 		goto done;
@@ -2148,7 +2150,7 @@ CK_RV SC_DigestKey(ST_SESSION_HANDLE *sSession, CK_OBJECT_HANDLE hKey)
 		goto done;
 	}
 
-	rc = digest_mgr_digest_key(sess, &sess->digest_ctx, hKey);
+	rc = digest_mgr_digest_key(tokdata, sess, &sess->digest_ctx, hKey);
 	if (rc != CKR_OK)
 		TRACE_DEVEL("digest_mgr_digest_key() failed.\n");
 
@@ -2160,14 +2162,14 @@ done:
 }
 
 
-CK_RV SC_DigestFinal(ST_SESSION_HANDLE *sSession, CK_BYTE_PTR pDigest,
-		     CK_ULONG_PTR pulDigestLen)
+CK_RV SC_DigestFinal(STDLL_TokData_t *tokdata, ST_SESSION_HANDLE *sSession,
+		     CK_BYTE_PTR pDigest, CK_ULONG_PTR pulDigestLen)
 {
 	SESSION *sess = NULL;
 	CK_BBOOL length_only = FALSE;
 	CK_RV rc = CKR_OK;
 
-	if (initialized == FALSE) {
+	if (tokdata->initialized == FALSE) {
 		TRACE_ERROR("%s\n", ock_err(ERR_CRYPTOKI_NOT_INITIALIZED));
 		rc = CKR_CRYPTOKI_NOT_INITIALIZED;
 		goto done;
@@ -2195,8 +2197,8 @@ CK_RV SC_DigestFinal(ST_SESSION_HANDLE *sSession, CK_BYTE_PTR pDigest,
 	if (!pDigest)
 		length_only = TRUE;
 
-	rc = digest_mgr_digest_final(sess, length_only, &sess->digest_ctx,
-				     pDigest, pulDigestLen);
+	rc = digest_mgr_digest_final(tokdata, sess, length_only,
+				     &sess->digest_ctx, pDigest, pulDigestLen);
 	if (rc != CKR_OK)
 		TRACE_ERROR("digest_mgr_digest_final() failed.\n");
 
@@ -2828,11 +2830,12 @@ done:
 }
 
 
-CK_RV SC_DigestEncryptUpdate(ST_SESSION_HANDLE *sSession, CK_BYTE_PTR pPart,
+CK_RV SC_DigestEncryptUpdate(STDLL_TokData_t *tokdata,
+			     ST_SESSION_HANDLE *sSession, CK_BYTE_PTR pPart,
 			     CK_ULONG ulPartLen, CK_BYTE_PTR pEncryptedPart,
 			     CK_ULONG_PTR pulEncryptedPartLen)
 {
-	if (initialized == FALSE) {
+	if (tokdata->initialized == FALSE) {
 		TRACE_ERROR("%s\n", ock_err(ERR_CRYPTOKI_NOT_INITIALIZED));
 		return CKR_CRYPTOKI_NOT_INITIALIZED;
 	}
@@ -2841,12 +2844,13 @@ CK_RV SC_DigestEncryptUpdate(ST_SESSION_HANDLE *sSession, CK_BYTE_PTR pPart,
 }
 
 
-CK_RV SC_DecryptDigestUpdate(ST_SESSION_HANDLE *sSession,
+CK_RV SC_DecryptDigestUpdate(STDLL_TokData_t *tokdata,
+			     ST_SESSION_HANDLE *sSession,
 			     CK_BYTE_PTR pEncryptedPart,
 			     CK_ULONG ulEncryptedPartLen, CK_BYTE_PTR pPart,
 			     CK_ULONG_PTR pulPartLen)
 {
-	if (initialized == FALSE) {
+	if (tokdata->initialized == FALSE) {
 		TRACE_ERROR("%s\n", ock_err(ERR_CRYPTOKI_NOT_INITIALIZED));
 		return CKR_CRYPTOKI_NOT_INITIALIZED;
 	}
