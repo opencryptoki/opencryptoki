@@ -2223,8 +2223,8 @@ ckm_rsa_key_pair_gen( STDLL_TokData_t *tokdata,
    return rc;
 }
 
-CK_RV mgf1(CK_BYTE *seed, CK_ULONG seedlen, CK_BYTE *mask, CK_ULONG maskLen,
-	   CK_RSA_PKCS_MGF_TYPE mgf)
+CK_RV mgf1(STDLL_TokData_t *tokdata, CK_BYTE *seed, CK_ULONG seedlen,
+	   CK_BYTE *mask, CK_ULONG maskLen, CK_RSA_PKCS_MGF_TYPE mgf)
 {
 
 	int i, T_len = 0;
@@ -2342,7 +2342,7 @@ CK_RV encode_eme_oaep(STDLL_TokData_t *tokdata, CK_BYTE *mData, CK_ULONG mLen,
 		return CKR_HOST_MEMORY;
 	}
 
-	rc = mgf1(seed, hlen, dbMask, dbMask_len, mgf);
+	rc = mgf1(tokdata, seed, hlen, dbMask, dbMask_len, mgf);
 	if (rc != CKR_OK)
 		goto done;
 
@@ -2356,7 +2356,7 @@ CK_RV encode_eme_oaep(STDLL_TokData_t *tokdata, CK_BYTE *mData, CK_ULONG mLen,
 	 * Compute seedMask using MGF1.
 	 */
 	memset(maskedSeed, 0, hlen);
-	rc = mgf1(maskedDB, dbMask_len, maskedSeed, hlen, mgf);
+	rc = mgf1(tokdata, maskedDB, dbMask_len, maskedSeed, hlen, mgf);
 	if (rc != CKR_OK)
 		goto done;
 
@@ -2407,7 +2407,7 @@ CK_RV decode_eme_oaep(STDLL_TokData_t *tokdata, CK_BYTE *emData, CK_ULONG emLen,
 	/* pkcs1v2.2, section 7.1.2, Step 3c:
 	 * Compute seedMask using MGF1.
 	 */
-	if (mgf1(maskedDB, dbMask_len, seedMask, hlen, mgf))
+	if (mgf1(tokdata, maskedDB, dbMask_len, seedMask, hlen, mgf))
 		error++;
 
 	/* pkcs1v2.2, section 7.1.2, Step 3d:
@@ -2419,7 +2419,7 @@ CK_RV decode_eme_oaep(STDLL_TokData_t *tokdata, CK_BYTE *emData, CK_ULONG emLen,
 	/* pkcs1v2.2, section 7.1.2, Step 3e:
 	 * Compute dbMask using MGF1.
 	 */
-	if (mgf1(seedMask, hlen, dbMask, dbMask_len, mgf))
+	if (mgf1(tokdata, seedMask, hlen, dbMask, dbMask_len, mgf))
 		error++;
 
 	/* pkcs1v2.2, section 7.1.2, Step 3f:
@@ -2541,7 +2541,7 @@ CK_RV emsa_pss_encode(STDLL_TokData_t *tokdata, CK_RSA_PKCS_PSS_PARAMS *pssParms
 	 * Note: reuse "buf" for dbMask.
 	 */
 	memset(buf, 0, buflen);
-	rc = mgf1(H, hlen, buf, emLen - hlen - 1, pssParms->mgf);
+	rc = mgf1(tokdata, H, hlen, buf, emLen - hlen - 1, pssParms->mgf);
 	if (rc != CKR_OK)
 		goto done;
 
@@ -2611,7 +2611,7 @@ CK_RV emsa_pss_verify(STDLL_TokData_t *tokdata, CK_RSA_PKCS_PSS_PARAMS *pssParms
 	}
 
 	/* pkcs1v2.2, Step 7: Compute mgf. */
-	rc = mgf1(H, hlen, buf, emLen - hlen - 1, pssParms->mgf);
+	rc = mgf1(tokdata, H, hlen, buf, emLen - hlen - 1, pssParms->mgf);
 	if (rc != CKR_OK)
 		goto done;
 
