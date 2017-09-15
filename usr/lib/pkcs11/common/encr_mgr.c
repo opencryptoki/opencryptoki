@@ -539,7 +539,7 @@ encr_mgr_init( STDLL_TokData_t   *tokdata,
 		}
 		memset(ctx->context, 0x0, sizeof(AES_GCM_CONTEXT));
 
-		rc = aes_gcm_init(sess, ctx, mech, key_handle, 1);
+		rc = aes_gcm_init(tokdata, sess, ctx, mech, key_handle, 1);
 		if (rc != CKR_OK) {
 			TRACE_ERROR("Could not initialize AES_GCM parms.\n");
 			return CKR_FUNCTION_FAILED;
@@ -765,48 +765,49 @@ encr_mgr_encrypt( STDLL_TokData_t   *tokdata,
                                   out_data, out_data_len );
 #ifndef NOAES
       case CKM_AES_CBC:
-	 return aes_cbc_encrypt( sess,     length_only,
-			 	 ctx,
+	 return aes_cbc_encrypt( tokdata, sess,     length_only,
+				 ctx,
 				 in_data,  in_data_len,
 				 out_data, out_data_len );
 
       case CKM_AES_ECB:
-	 return aes_ecb_encrypt( sess,     length_only,
-			 	 ctx,
+	 return aes_ecb_encrypt( tokdata, sess,     length_only,
+				 ctx,
 				 in_data,  in_data_len,
 				 out_data, out_data_len );
 
       case CKM_AES_CBC_PAD:
-	 return aes_cbc_pad_encrypt( sess,     length_only,
-			 	     ctx,
+	 return aes_cbc_pad_encrypt( tokdata, sess,     length_only,
+				     ctx,
 				     in_data,  in_data_len,
 				     out_data, out_data_len );
       case CKM_AES_CTR:
-	 return aes_ctr_encrypt( sess,     length_only,
+	 return aes_ctr_encrypt( tokdata, sess,     length_only,
 				 ctx,
 				 in_data,  in_data_len,
 				 out_data, out_data_len );
 	case CKM_AES_GCM:
-	   return aes_gcm_encrypt(sess, length_only, ctx, in_data, in_data_len,
+	   return aes_gcm_encrypt(tokdata, sess, length_only,
+				  ctx, in_data, in_data_len,
 				  out_data, out_data_len);
       case CKM_AES_OFB:
-          return aes_ofb_encrypt( sess,     length_only,
+          return aes_ofb_encrypt( tokdata, sess,     length_only,
                                   ctx,
                                   in_data,  in_data_len,
                                   out_data, out_data_len );
 
       case CKM_AES_CFB8:
-          return aes_cfb_encrypt( sess,     length_only,
+          return aes_cfb_encrypt( tokdata, sess,     length_only,
                                   ctx,
                                   in_data,  in_data_len,
                                   out_data, out_data_len, 0x01);
       case CKM_AES_CFB64:
-          return aes_cfb_encrypt( sess,     length_only,
+          return aes_cfb_encrypt( tokdata, sess,     length_only,
                                   ctx,
                                   in_data,  in_data_len,
                                   out_data, out_data_len, 0x08);
       case CKM_AES_CFB128:
-          return aes_cfb_encrypt( sess,     length_only,
+          return aes_cfb_encrypt( tokdata, sess,     length_only,
                                   ctx,
                                   in_data,  in_data_len,
                                   out_data, out_data_len, 0x10);
@@ -928,51 +929,51 @@ encr_mgr_encrypt_update( STDLL_TokData_t    *tokdata,
                                              out_data, out_data_len );
 #ifndef NOAES
       case CKM_AES_ECB:
-	 return aes_ecb_encrypt_update( sess,     length_only,
-			 		ctx,
+	 return aes_ecb_encrypt_update( tokdata, sess,     length_only,
+					ctx,
 					in_data,  in_data_len,
 					out_data, out_data_len );
 
       case CKM_AES_CBC:
-	 return aes_cbc_encrypt_update( sess,     length_only,
-			 		ctx,
+	 return aes_cbc_encrypt_update( tokdata, sess,     length_only,
+					ctx,
 					in_data,  in_data_len,
 					out_data, out_data_len );
 
       case CKM_AES_CBC_PAD:
-	 return aes_cbc_pad_encrypt_update( sess,     length_only,
-			 		    ctx,
+	 return aes_cbc_pad_encrypt_update( tokdata, sess,     length_only,
+					    ctx,
 					    in_data,  in_data_len,
 					    out_data, out_data_len );
 
      case CKM_AES_CTR:
-	 return aes_ctr_encrypt_update( sess,     length_only,
+	 return aes_ctr_encrypt_update( tokdata, sess,     length_only,
 					 ctx,
 					 in_data,  in_data_len,
 					 out_data, out_data_len );
 
       case CKM_AES_GCM:
-	  return aes_gcm_encrypt_update(sess, length_only, ctx, in_data,
+	  return aes_gcm_encrypt_update(tokdata, sess, length_only, ctx, in_data,
 					in_data_len, out_data, out_data_len);
 
      case CKM_AES_OFB:
-        return aes_ofb_encrypt_update( sess,     length_only,
+        return aes_ofb_encrypt_update( tokdata, sess,     length_only,
                                        ctx,
                                        in_data,  in_data_len,
                                        out_data, out_data_len );
 
      case CKM_AES_CFB8:
-         return aes_cfb_encrypt_update( sess,     length_only,
+         return aes_cfb_encrypt_update( tokdata, sess,     length_only,
                                         ctx,
                                         in_data,  in_data_len,
                                         out_data, out_data_len, 0x01);
      case CKM_AES_CFB64:
-         return aes_cfb_encrypt_update( sess,     length_only,
+         return aes_cfb_encrypt_update( tokdata, sess,     length_only,
                                         ctx,
                                         in_data,  in_data_len,
                                         out_data, out_data_len, 0x08);
      case CKM_AES_CFB128:
-         return aes_cfb_encrypt_update( sess,     length_only,
+         return aes_cfb_encrypt_update( tokdata, sess,     length_only,
                                         ctx,
                                         in_data,  in_data_len,
                                         out_data, out_data_len, 0x10);
@@ -1073,46 +1074,43 @@ encr_mgr_encrypt_final( STDLL_TokData_t    *tokdata,
                                             out_data, out_data_len );
 #ifndef NOAES
       case CKM_AES_ECB:
-	 return aes_ecb_encrypt_final( sess,     length_only,
-			 	       ctx,
+	 return aes_ecb_encrypt_final( tokdata, sess,     length_only,
+				       ctx,
 				       out_data, out_data_len );
 
       case CKM_AES_CBC:
-	 return aes_cbc_encrypt_final( sess,     length_only,
-			 	       ctx,
+	 return aes_cbc_encrypt_final( tokdata, sess,     length_only,
+				       ctx,
 				       out_data, out_data_len );
 
       case CKM_AES_CBC_PAD:
-	 return aes_cbc_pad_encrypt_final( sess,     length_only,
-			 		   ctx,
+	 return aes_cbc_pad_encrypt_final( tokdata, sess,     length_only,
+					   ctx,
 					   out_data, out_data_len );
 
      case CKM_AES_CTR:
-	 return aes_ctr_encrypt_final( sess,     length_only,
+	 return aes_ctr_encrypt_final( tokdata, sess,     length_only,
 				       ctx,
 				       out_data, out_data_len );
 
      case CKM_AES_GCM:
-	 return aes_gcm_encrypt_final(sess, length_only, ctx, out_data,
-				      out_data_len);
+	 return aes_gcm_encrypt_final(tokdata, sess, length_only, ctx,
+				      out_data, out_data_len);
 
      case CKM_AES_OFB:
-         return aes_ofb_encrypt_final( sess,     length_only,
+         return aes_ofb_encrypt_final( tokdata, sess,     length_only,
                                        ctx,
                                        out_data, out_data_len );
 
      case CKM_AES_CFB8:
-         return aes_cfb_encrypt_final( sess,     length_only,
-                                       ctx,
-                                       out_data, out_data_len, 0x01);
+         return aes_cfb_encrypt_final( tokdata, sess,     length_only,
+                                       ctx, out_data, out_data_len, 0x01);
      case CKM_AES_CFB64:
-         return aes_cfb_encrypt_final( sess,     length_only,
-                                       ctx,
-                                       out_data, out_data_len, 0x08);
+         return aes_cfb_encrypt_final( tokdata, sess,     length_only,
+                                       ctx, out_data, out_data_len, 0x08);
      case CKM_AES_CFB128:
-         return aes_cfb_encrypt_final( sess,     length_only,
-                                       ctx,
-                                       out_data, out_data_len, 0x10);
+         return aes_cfb_encrypt_final( tokdata, sess,     length_only,
+                                       ctx, out_data, out_data_len, 0x10);
 #endif
       default:
          return CKR_MECHANISM_INVALID;

@@ -1222,7 +1222,7 @@ CK_RV template_validate_attribute(STDLL_TokData_t  * tokdata, TEMPLATE *tmpl,
 			return juniper_validate_attribute(tokdata, tmpl, attr, mode);
 
 		case CKK_AES:
-			return aes_validate_attribute(tmpl, attr, mode);
+			return aes_validate_attribute(tokdata, tmpl, attr, mode);
 
 		default:
 			TRACE_ERROR("%s\n", ock_err(ERR_ATTRIBUTE_VALUE_INVALID));

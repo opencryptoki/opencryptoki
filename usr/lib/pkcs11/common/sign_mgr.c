@@ -826,7 +826,8 @@ sign_mgr_sign( STDLL_TokData_t      * tokdata,
 
       case CKM_AES_MAC:
       case CKM_AES_MAC_GENERAL:
-         return aes_mac_sign( sess, length_only, ctx, in_data, in_data_len, out_data, out_data_len );
+         return aes_mac_sign( tokdata, sess, length_only, ctx, in_data,
+			      in_data_len, out_data, out_data_len );
 
       default:
          TRACE_ERROR("%s\n", ock_err(ERR_MECHANISM_INVALID));
@@ -889,7 +890,7 @@ sign_mgr_sign_update( STDLL_TokData_t     * tokdata,
 
       case CKM_AES_MAC:
       case CKM_AES_MAC_GENERAL:
-          return aes_mac_sign_update( sess, ctx, in_data, in_data_len );
+          return aes_mac_sign_update(tokdata, sess, ctx, in_data, in_data_len);
 
       case CKM_ECDSA_SHA1:
       case CKM_ECDSA_SHA256:
@@ -968,7 +969,8 @@ sign_mgr_sign_final( STDLL_TokData_t     * tokdata,
 
       case CKM_AES_MAC:
       case CKM_AES_MAC_GENERAL:
-         return aes_mac_sign_final( sess, length_only, ctx, signature, sig_len );
+         return aes_mac_sign_final( tokdata, sess, length_only, ctx, signature,
+				    sig_len );
 
       case CKM_ECDSA_SHA1:
       case CKM_ECDSA_SHA256:
