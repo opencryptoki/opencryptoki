@@ -54,7 +54,7 @@ object_mgr_add( STDLL_TokData_t  * tokdata,
    }
 
    if (token_specific.t_object_add != NULL) {
-      rc = token_specific.t_object_add(o);
+      rc = token_specific.t_object_add(tokdata, o);
       if (rc != CKR_OK) {
 	 TRACE_DEVEL("Token specific object add failed.\n");
 	 goto done;
