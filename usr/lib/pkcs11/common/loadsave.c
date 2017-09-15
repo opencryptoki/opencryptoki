@@ -1590,7 +1590,7 @@ CK_RV generate_master_key(CK_BYTE *key)
 	 * software(openssl), not token. So generate masterkey via RNG.
 	 */
 	if (token_specific.token_keysize)
-		return rng_generate(key, key_len);
+		return rng_generate(NULL, key, key_len);
 
 	/* For clear key tokens, let token generate masterkey
 	 * since token will also encrypt/decrypt the objects.

@@ -201,7 +201,7 @@ MECH_LIST_ELEMENT mech_list[] = {
 CK_ULONG mech_list_len = (sizeof(mech_list) / sizeof(MECH_LIST_ELEMENT));
 
 CK_RV
-token_specific_rng(CK_BYTE *output, CK_ULONG bytes)
+token_specific_rng(STDLL_TokData_t *tokdata, CK_BYTE *output, CK_ULONG bytes)
 {
 	long return_code, reason_code;
 	unsigned char form[CCA_KEYWORD_SIZE], random_number[CCA_RNG_SIZE];
