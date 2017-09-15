@@ -4944,7 +4944,8 @@ baton_set_default_attributes( TEMPLATE *tmpl, CK_ULONG mode )
 // baton_validate_attribute()
 //
 CK_RV
-baton_validate_attribute( TEMPLATE *tmpl, CK_ATTRIBUTE *attr, CK_ULONG mode )
+baton_validate_attribute( STDLL_TokData_t *tokdata, TEMPLATE *tmpl,
+			  CK_ATTRIBUTE *attr, CK_ULONG mode )
 {
    switch (attr->type) {
       case CKA_VALUE:
@@ -4962,7 +4963,7 @@ baton_validate_attribute( TEMPLATE *tmpl, CK_ATTRIBUTE *attr, CK_ULONG mode )
          }
 
       default:
-         return secret_key_validate_attribute( NULL, tmpl, attr, mode );
+         return secret_key_validate_attribute( tokdata, tmpl, attr, mode );
    }
 }
 

@@ -1216,7 +1216,7 @@ CK_RV template_validate_attribute(STDLL_TokData_t  * tokdata, TEMPLATE *tmpl,
 			return skipjack_validate_attribute(tokdata, tmpl, attr, mode);
 
 		case CKK_BATON:
-			return baton_validate_attribute(tmpl, attr, mode);
+			return baton_validate_attribute(tokdata, tmpl, attr, mode);
 
 		case CKK_JUNIPER:
 			return juniper_validate_attribute(tmpl, attr, mode);
