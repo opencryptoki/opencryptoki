@@ -95,11 +95,11 @@ token_specific_des_key_gen(STDLL_TokData_t *tokdata, CK_BYTE  *des_key,
 	// random data...  Validation handles the rest
 	// Only check for weak keys when single DES.
 	if (len == (3 * DES_KEY_SIZE))
-		rng_generate(des_key,len);
+		rng_generate(tokdata, des_key,len);
 	else {
 		do {
-			rng_generate(des_key, len);
-        	} while (des_check_weak_key(des_key) == TRUE);
+			rng_generate(tokdata, des_key, len);
+		} while (des_check_weak_key(des_key) == TRUE);
 	}
 
 	// we really need to validate the key for parity etc...
@@ -567,7 +567,7 @@ rsa_convert_private_key(OBJECT *key_obj)
 //  time is VERY slow..  Keygen is gated by this function.
 
 unsigned char
-nextRandom (void) {
+nextRandom (STDLL_TokData_t *tokdata) {
 
   static unsigned char  buffer[RNG_BUF_SIZE];
   unsigned char  byte;
@@ -575,7 +575,7 @@ nextRandom (void) {
 
   pthread_mutex_lock(&nextmutex);
   if (used >= RNG_BUF_SIZE){
-    rng_generate(buffer,sizeof(buffer));
+    rng_generate(tokdata, buffer,sizeof(buffer));
     used = 0;
   }
 
@@ -1576,7 +1576,7 @@ CK_RV
 token_specific_aes_key_gen( STDLL_TokData_t *tokdata, CK_BYTE *key,
 			    CK_ULONG len, CK_ULONG keysize )
 {
-	return rng_generate(key, len);
+	return rng_generate(tokdata, key, len);
 }
 
 CK_RV
@@ -2558,7 +2558,7 @@ CK_RV token_specific_generic_secret_key_gen(STDLL_TokData_t *tokdata,
 		return CKR_KEY_SIZE_RANGE;
 	}
 
-	rc = rng_generate(secret_key, key_length);
+	rc = rng_generate(tokdata, secret_key, key_length);
 	if (rc != CKR_OK) {
 		TRACE_DEVEL("Generic secret key generation failed.\n");
 		return rc;

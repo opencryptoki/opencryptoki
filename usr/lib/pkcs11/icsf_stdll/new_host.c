@@ -2943,7 +2943,7 @@ CK_RV SC_GenerateRandom(STDLL_TokData_t *tokdata, ST_SESSION_HANDLE *sSession,
 	//set the handle into the session.
 	sess->handle = sSession->sessionh;
 
-	rc = rng_generate(pRandomData, ulRandomLen);
+	rc = rng_generate(tokdata, pRandomData, ulRandomLen);
 	if (rc != CKR_OK)
 		TRACE_DEVEL("rng_generate() failed.\n");
 

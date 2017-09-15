@@ -66,7 +66,7 @@ struct token_specific_struct {
 	CK_RV (*t_save_token_data) (CK_SLOT_ID slot_id, FILE *fh);
 
 	// Random Number Gen
-	CK_RV(*t_rng) (CK_BYTE *, CK_ULONG);
+	CK_RV(*t_rng) (STDLL_TokData_t *, CK_BYTE *, CK_ULONG);
 
 	// any specific final code
 	CK_RV(*t_final) ();

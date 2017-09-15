@@ -52,7 +52,7 @@ pthread_mutex_t  rngmtx = PTHREAD_MUTEX_INITIALIZER;
 unsigned int  rnginitialized=0;
 
 CK_RV
-token_specific_rng(CK_BYTE *output, CK_ULONG bytes)
+token_specific_rng(STDLL_TokData_t *tokdata, CK_BYTE *output, CK_ULONG bytes)
 {
    unsigned int  rc;
 
@@ -143,12 +143,12 @@ token_specific_des_key_gen(STDLL_TokData_t *tokdata, CK_BYTE  *des_key,
    // random data...  Validation handles the rest
    // Only check for weak keys when DES.
         if (len == (3 * DES_KEY_SIZE)) {
-                rng_generate(des_key,len);
-        	adjust_des_key_parity_bits(des_key, len, ODD_PARITY);
+                rng_generate(tokdata, des_key,len);
+		adjust_des_key_parity_bits(des_key, len, ODD_PARITY);
 	} else {
                 do {
-                        rng_generate(des_key, len);
-        		adjust_des_key_parity_bits(des_key, len, ODD_PARITY);
+                        rng_generate(tokdata, des_key, len);
+			adjust_des_key_parity_bits(des_key, len, ODD_PARITY);
                 } while (des_check_weak_key(des_key) == TRUE);
         }
 
@@ -2096,7 +2096,7 @@ CK_RV
 token_specific_aes_key_gen(STDLL_TokData_t *tokdata, CK_BYTE *key,
 			   CK_ULONG len, CK_ULONG keysize)
 {
-        return rng_generate(key, len);
+        return rng_generate(tokdata, key, len);
 }
 
 CK_RV
@@ -3417,7 +3417,7 @@ CK_RV token_specific_generic_secret_key_gen(STDLL_TokData_t *tokdata, TEMPLATE *
         /* libica does not have generic secret key generation,
 	 * so call token rng here.
 	 */
-	rc = rng_generate(secret_key, key_length);
+	rc = rng_generate(tokdata, secret_key, key_length);
 	if (rc != CKR_OK) {
 		TRACE_DEVEL("Generic secret key generation failed.\n");
 		return rc;

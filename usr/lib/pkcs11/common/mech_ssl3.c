@@ -698,7 +698,7 @@ ckm_ssl3_pre_master_key_gen( STDLL_TokData_t *tokdata,
    CK_ULONG              rc;
 
 
-   rc = rng_generate( key, 48 );
+   rc = rng_generate( tokdata, key, 48 );
    if (rc != CKR_OK){
       TRACE_DEVEL("rng_generate failed.\n");
       return rc;
