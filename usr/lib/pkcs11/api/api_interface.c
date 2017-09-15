@@ -2487,7 +2487,7 @@ CK_RV C_GetTokenInfo(CK_SLOT_ID slotID, CK_TOKEN_INFO_PTR pInfo)
 		return CKR_TOKEN_NOT_PRESENT;
 	}
 	if (fcn->ST_GetTokenInfo) {
-		rv = fcn->ST_GetTokenInfo(slotID, pInfo);
+		rv = fcn->ST_GetTokenInfo(sltp->TokData, slotID, pInfo);
 		if (rv == CKR_OK) {
 			get_sess_count(slotID, &(pInfo->ulSessionCount));
 		}
