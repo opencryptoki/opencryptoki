@@ -67,7 +67,8 @@ typedef CK_RV	(CK_PTR  ST_C_GetMechanismList)
 						 CK_MECHANISM_TYPE_PTR pMechanismList,
 						 CK_ULONG_PTR pusCount);
 typedef CK_RV	(CK_PTR  ST_C_GetMechanismInfo)
-						(CK_SLOT_ID slotID, CK_MECHANISM_TYPE type,
+						(STDLL_TokData_t *tokdata, CK_SLOT_ID slotID,
+						 CK_MECHANISM_TYPE type,
 						 CK_MECHANISM_INFO_PTR pInfo);
 typedef CK_RV	(CK_PTR  ST_C_InitToken)
 						(STDLL_TokData_t *tokdata, CK_SLOT_ID slotID,
