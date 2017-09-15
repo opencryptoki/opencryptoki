@@ -29,7 +29,8 @@
 //
 //
 CK_RV
-dsa_sign( SESSION             * sess,
+dsa_sign( STDLL_TokData_t     * tokdata,
+	  SESSION             * sess,
           CK_BBOOL              length_only,
           SIGN_VERIFY_CONTEXT * ctx,
           CK_BYTE             * in_data,
@@ -84,7 +85,7 @@ dsa_sign( SESSION             * sess,
       return CKR_OK;
    }
 
-   rc = ckm_dsa_sign( in_data, sig, key_obj );
+   rc = ckm_dsa_sign( tokdata, in_data, sig, key_obj );
    if (rc == CKR_OK) {
       memcpy( out_data, sig, DSA_SIGNATURE_SIZE );
       *out_data_len = DSA_SIGNATURE_SIZE;
@@ -97,7 +98,8 @@ dsa_sign( SESSION             * sess,
 //
 //
 CK_RV
-dsa_verify( SESSION             * sess,
+dsa_verify( STDLL_TokData_t     * tokdata,
+	    SESSION             * sess,
             SIGN_VERIFY_CONTEXT * ctx,
             CK_BYTE             * in_data,
             CK_ULONG              in_data_len,
@@ -145,7 +147,7 @@ dsa_verify( SESSION             * sess,
       TRACE_ERROR("%s\n", ock_err(ERR_DATA_LEN_RANGE));
       return CKR_DATA_LEN_RANGE;
    }
-   rc = ckm_dsa_verify( signature, in_data, key_obj );
+   rc = ckm_dsa_verify( tokdata, signature, in_data, key_obj );
    return rc;
 }
 
@@ -158,7 +160,8 @@ dsa_verify( SESSION             * sess,
 //
 //
 CK_RV
-ckm_dsa_key_pair_gen( TEMPLATE  * publ_tmpl,
+ckm_dsa_key_pair_gen( STDLL_TokData_t *tokdata,
+		      TEMPLATE  * publ_tmpl,
                       TEMPLATE  * priv_tmpl )
 {
    CK_ATTRIBUTE       * prime     = NULL;
@@ -178,7 +181,7 @@ ckm_dsa_key_pair_gen( TEMPLATE  * publ_tmpl,
       return CKR_MECHANISM_INVALID;
    }
 
-   rc = token_specific.t_dsa_generate_keypair(publ_tmpl,priv_tmpl);
+   rc = token_specific.t_dsa_generate_keypair(tokdata, publ_tmpl,priv_tmpl);
    if (rc != CKR_OK)
       TRACE_DEVEL("Token specific dsa keypair generation failed.\n");
    return rc;
@@ -188,7 +191,8 @@ ckm_dsa_key_pair_gen( TEMPLATE  * publ_tmpl,
 //
 //
 CK_RV
-ckm_dsa_sign( CK_BYTE   * in_data,
+ckm_dsa_sign( STDLL_TokData_t *tokdata,
+	      CK_BYTE   * in_data,
               CK_BYTE   * signature,
               OBJECT    * priv_key )
 {
@@ -221,7 +225,7 @@ ckm_dsa_sign( CK_BYTE   * in_data,
       return CKR_MECHANISM_INVALID;
    }
 
-   rc = token_specific.t_dsa_sign(in_data, signature, priv_key);
+   rc = token_specific.t_dsa_sign(tokdata, in_data, signature, priv_key);
    if (rc != CKR_OK)
       TRACE_DEVEL("Token specific dsa sign failed.\n");
    return rc;
@@ -231,7 +235,8 @@ ckm_dsa_sign( CK_BYTE   * in_data,
 //
 //
 CK_RV
-ckm_dsa_verify( CK_BYTE   * signature,
+ckm_dsa_verify( STDLL_TokData_t *tokdata,
+		CK_BYTE   * signature,
                 CK_BYTE   * data,
                 OBJECT    * publ_key )
 {
@@ -263,7 +268,7 @@ ckm_dsa_verify( CK_BYTE   * signature,
       TRACE_ERROR("%s\n", ock_err(ERR_MECHANISM_INVALID));
       return CKR_MECHANISM_INVALID;
    }
-   rc = token_specific.t_dsa_verify(signature, data, publ_key);
+   rc = token_specific.t_dsa_verify(tokdata, signature, data, publ_key);
    if (rc != CKR_OK)
       TRACE_DEVEL("Token specific dsa verify failed.\n");
    return rc;

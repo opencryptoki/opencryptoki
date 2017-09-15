@@ -356,7 +356,8 @@ publ_key_set_default_attributes( TEMPLATE *tmpl, CK_ULONG mode )
 // publ_key_validate_attribute
 //
 CK_RV
-publ_key_validate_attribute( TEMPLATE *tmpl, CK_ATTRIBUTE *attr, CK_ULONG mode )
+publ_key_validate_attribute( STDLL_TokData_t *tokdata, TEMPLATE *tmpl,
+			     CK_ATTRIBUTE *attr, CK_ULONG mode )
 {
    switch (attr->type) {
       case CKA_SUBJECT:
@@ -367,7 +368,7 @@ publ_key_validate_attribute( TEMPLATE *tmpl, CK_ATTRIBUTE *attr, CK_ULONG mode )
       case CKA_VERIFY_RECOVER:
       case CKA_WRAP:
          if (mode == MODE_MODIFY) {
-            if (nv_token_data->tweak_vector.allow_key_mods == TRUE)
+            if (tokdata->nv_token_data->tweak_vector.allow_key_mods == TRUE)
                return CKR_OK;
             TRACE_ERROR("%s\n", ock_err(ERR_ATTRIBUTE_READ_ONLY));
             return CKR_ATTRIBUTE_READ_ONLY;
@@ -609,7 +610,8 @@ cleanup:
 // priv_key_validate_attribute()
 //
 CK_RV
-priv_key_validate_attribute( TEMPLATE *tmpl, CK_ATTRIBUTE *attr, CK_ULONG mode )
+priv_key_validate_attribute( STDLL_TokData_t *tokdata, TEMPLATE *tmpl,
+			     CK_ATTRIBUTE *attr, CK_ULONG mode )
 {
    switch (attr->type) {
       case CKA_SUBJECT:
@@ -622,7 +624,7 @@ priv_key_validate_attribute( TEMPLATE *tmpl, CK_ATTRIBUTE *attr, CK_ULONG mode )
          // we might want to do this for MODE_COPY too
          //
          if (mode == MODE_MODIFY) {
-            if (nv_token_data->tweak_vector.allow_key_mods == TRUE)
+            if (tokdata->nv_token_data->tweak_vector.allow_key_mods == TRUE)
                return CKR_OK;
             TRACE_ERROR("%s\n", ock_err(ERR_ATTRIBUTE_READ_ONLY));
             return CKR_ATTRIBUTE_READ_ONLY;
@@ -1188,7 +1190,7 @@ rsa_publ_validate_attribute( STDLL_TokData_t *tokdata, TEMPLATE *tmpl,
             return CKR_ATTRIBUTE_READ_ONLY;
          }
       default:
-         return publ_key_validate_attribute( tmpl, attr, mode );
+         return publ_key_validate_attribute( tokdata, tmpl, attr, mode );
    }
 }
 
@@ -1383,7 +1385,7 @@ rsa_priv_validate_attribute( STDLL_TokData_t *tokdata, TEMPLATE *tmpl,
             return CKR_ATTRIBUTE_READ_ONLY;
          }
       default:
-         return priv_key_validate_attribute( tmpl, attr, mode );
+         return priv_key_validate_attribute( tokdata, tmpl, attr, mode );
    }
 }
 
@@ -1677,7 +1679,8 @@ dsa_publ_set_default_attributes( TEMPLATE *tmpl, CK_ULONG mode )
 // dsa_publ_validate_attributes()
 //
 CK_RV
-dsa_publ_validate_attribute( TEMPLATE *tmpl, CK_ATTRIBUTE *attr, CK_ULONG mode )
+dsa_publ_validate_attribute( STDLL_TokData_t *tokdata, TEMPLATE *tmpl,
+			     CK_ATTRIBUTE *attr, CK_ULONG mode )
 {
    switch (attr->type) {
       case CKA_PRIME:
@@ -1734,7 +1737,7 @@ dsa_publ_validate_attribute( TEMPLATE *tmpl, CK_ATTRIBUTE *attr, CK_ULONG mode )
             return CKR_ATTRIBUTE_READ_ONLY;
          }
       default:
-         return publ_key_validate_attribute( tmpl, attr, mode );
+         return publ_key_validate_attribute( tokdata, tmpl, attr, mode );
    }
 }
 
@@ -1851,7 +1854,8 @@ dsa_priv_set_default_attributes( TEMPLATE *tmpl, CK_ULONG mode )
 // dsa_priv_validate_attributes()
 //
 CK_RV
-dsa_priv_validate_attribute( TEMPLATE *tmpl, CK_ATTRIBUTE *attr, CK_ULONG mode )
+dsa_priv_validate_attribute( STDLL_TokData_t *tokdata, TEMPLATE *tmpl,
+			     CK_ATTRIBUTE *attr, CK_ULONG mode )
 {
    switch (attr->type) {
       case CKA_PRIME:
@@ -1900,7 +1904,7 @@ dsa_priv_validate_attribute( TEMPLATE *tmpl, CK_ATTRIBUTE *attr, CK_ULONG mode )
             return CKR_ATTRIBUTE_READ_ONLY;
          }
       default:
-         return priv_key_validate_attribute( tmpl, attr, mode );
+         return priv_key_validate_attribute( tokdata, tmpl, attr, mode );
    }
 }
 
@@ -2118,7 +2122,7 @@ ecdsa_publ_validate_attribute( STDLL_TokData_t *tokdata, TEMPLATE *tmpl,
             return CKR_ATTRIBUTE_READ_ONLY;
          }
       default:
-         return publ_key_validate_attribute( tmpl, attr, mode );
+         return publ_key_validate_attribute( tokdata, tmpl, attr, mode );
    }
 }
 
@@ -2224,7 +2228,7 @@ ecdsa_priv_validate_attribute( STDLL_TokData_t *tokdata, TEMPLATE *tmpl,
             return CKR_ATTRIBUTE_READ_ONLY;
          }
       default:
-         return priv_key_validate_attribute( tmpl, attr, mode );
+         return priv_key_validate_attribute( tokdata, tmpl, attr, mode );
    }
 }
 
@@ -2365,7 +2369,7 @@ dh_publ_validate_attribute( STDLL_TokData_t *tokdata, TEMPLATE *tmpl,
             return CKR_ATTRIBUTE_READ_ONLY;
          }
       default:
-         return publ_key_validate_attribute( tmpl, attr, mode );
+         return publ_key_validate_attribute( tokdata, tmpl, attr, mode );
    }
 }
 
@@ -2512,7 +2516,7 @@ dh_priv_validate_attribute( STDLL_TokData_t *tokdata, TEMPLATE *tmpl,
            break ;
 
       default:
-         return priv_key_validate_attribute( tmpl, attr, mode );
+         return priv_key_validate_attribute( tokdata, tmpl, attr, mode );
    }
 }
 
@@ -2669,7 +2673,7 @@ kea_publ_validate_attribute( STDLL_TokData_t *tokdata, TEMPLATE *tmpl,
             return CKR_ATTRIBUTE_READ_ONLY;
          }
       default:
-         return publ_key_validate_attribute( tmpl, attr, mode );
+         return publ_key_validate_attribute( tokdata, tmpl, attr, mode );
    }
 }
 
@@ -2803,7 +2807,7 @@ kea_priv_validate_attribute( STDLL_TokData_t *tokdata, TEMPLATE *tmpl,
             return CKR_ATTRIBUTE_READ_ONLY;
          }
       default:
-         return priv_key_validate_attribute( tmpl, attr, mode );
+         return priv_key_validate_attribute( tokdata, tmpl, attr, mode );
    }
 }
 

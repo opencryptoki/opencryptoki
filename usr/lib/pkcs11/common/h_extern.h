@@ -882,7 +882,8 @@ CK_RV check_pss_params(CK_MECHANISM *mechanism, CK_ULONG);
 #ifndef NODSA
 // DSA routines
 //
-CK_RV  dsa_sign   ( SESSION             * sess,
+CK_RV  dsa_sign   ( STDLL_TokData_t     * tokdata,
+		    SESSION             * sess,
                     CK_BBOOL              length_only,
                     SIGN_VERIFY_CONTEXT * ctx,
                     CK_BYTE             * in_data,
@@ -890,7 +891,8 @@ CK_RV  dsa_sign   ( SESSION             * sess,
                     CK_BYTE             * signature,
                     CK_ULONG            * sig_len );
 
-CK_RV  dsa_verify ( SESSION             * sess,
+CK_RV  dsa_verify ( STDLL_TokData_t     * tokdata,
+		    SESSION             * sess,
                     SIGN_VERIFY_CONTEXT * ctx,
                     CK_BYTE             * in_data,
                     CK_ULONG              in_data_len,
@@ -900,13 +902,16 @@ CK_RV  dsa_verify ( SESSION             * sess,
 
 // DSA mechanisms
 //
-CK_RV  ckm_dsa_key_pair_gen( TEMPLATE *publ_tmpl, TEMPLATE *priv_tmpl );
+CK_RV  ckm_dsa_key_pair_gen( STDLL_TokData_t *tokdata, TEMPLATE *publ_tmpl,
+			     TEMPLATE *priv_tmpl );
 
-CK_RV  ckm_dsa_sign( CK_BYTE *in_data,      // must be 20 bytes
+CK_RV  ckm_dsa_sign( STDLL_TokData_t *tokdata,
+		     CK_BYTE *in_data,      // must be 20 bytes
                      CK_BYTE *signature,    // must be 40 bytes
                      OBJECT  *priv_key );
 
-CK_RV  ckm_dsa_verify( CK_BYTE *signature,  // must be 40 bytes
+CK_RV  ckm_dsa_verify( STDLL_TokData_t *tokdata,
+		       CK_BYTE *signature,  // must be 40 bytes
                        CK_BYTE *data,       // must be 20 bytes
                        OBJECT  *publ_key );
 
@@ -2419,12 +2424,18 @@ CK_RV     key_object_validate_attribute       ( TEMPLATE *tmpl, CK_ATTRIBUTE *at
 
 CK_RV     publ_key_check_required_attributes( TEMPLATE *tmpl, CK_ULONG mode );
 CK_RV     publ_key_set_default_attributes   ( TEMPLATE *tmpl, CK_ULONG mode );
-CK_RV     publ_key_validate_attribute       ( TEMPLATE *tmpl, CK_ATTRIBUTE *attr, CK_ULONG mode );
+CK_RV     publ_key_validate_attribute       ( STDLL_TokData_t *tokdata,
+					      TEMPLATE *tmpl,
+					      CK_ATTRIBUTE *attr,
+					      CK_ULONG mode );
 
 CK_RV     priv_key_check_required_attributes( TEMPLATE *tmpl, CK_ULONG mode );
 CK_RV     priv_key_set_default_attributes   ( TEMPLATE *tmpl, CK_ULONG mode );
 CK_RV     priv_key_unwrap( TEMPLATE *tmpl, CK_ULONG keytype, CK_BYTE *data, CK_ULONG data_len, CK_BBOOL isopaque );
-CK_RV     priv_key_validate_attribute       ( TEMPLATE *tmpl, CK_ATTRIBUTE *attr, CK_ULONG mode );
+CK_RV     priv_key_validate_attribute       ( STDLL_TokData_t *tokdata,
+					      TEMPLATE *tmpl,
+					      CK_ATTRIBUTE *attr,
+					      CK_ULONG mode );
 
 CK_BBOOL  secret_key_check_exportability( CK_ATTRIBUTE_TYPE type );
 CK_RV     secret_key_check_required_attributes( TEMPLATE *tmpl, CK_ULONG mode );
@@ -2454,11 +2465,13 @@ CK_RV     rsa_priv_unwrap( TEMPLATE *tmpl, CK_BYTE *data, CK_ULONG data_len, CK_
 //
 CK_RV     dsa_publ_check_required_attributes( TEMPLATE *tmpl, CK_ULONG mode );
 CK_RV     dsa_publ_set_default_attributes( TEMPLATE *tmpl, CK_ULONG mode );
-CK_RV     dsa_publ_validate_attribute( TEMPLATE *tmpl, CK_ATTRIBUTE *attr, CK_ULONG mode );
+CK_RV     dsa_publ_validate_attribute( STDLL_TokData_t *tokdata, TEMPLATE *tmpl,
+				       CK_ATTRIBUTE *attr, CK_ULONG mode );
 CK_BBOOL  dsa_priv_check_exportability( CK_ATTRIBUTE_TYPE type );
 CK_RV     dsa_priv_check_required_attributes( TEMPLATE *tmpl, CK_ULONG mode );
 CK_RV     dsa_priv_set_default_attributes( TEMPLATE *tmpl, CK_ULONG mode );
-CK_RV     dsa_priv_validate_attribute( TEMPLATE *tmpl, CK_ATTRIBUTE *attr, CK_ULONG mode );
+CK_RV     dsa_priv_validate_attribute( STDLL_TokData_t *tokdata, TEMPLATE *tmpl,
+				       CK_ATTRIBUTE *attr, CK_ULONG mode );
 CK_RV     dsa_priv_wrap_get_data( TEMPLATE *tmpl, CK_BBOOL length_only, CK_BYTE **data, CK_ULONG *data_len );
 CK_RV     dsa_priv_unwrap( TEMPLATE *tmpl, CK_BYTE *data, CK_ULONG data_len );
 
