@@ -434,21 +434,21 @@ extern CK_CHAR label[];
 
 //
 //
-void init_slotInfo(void)
+void init_slotInfo(CK_SLOT_INFO *slot_info)
 {
-	memset(&slot_info.slotDescription, ' ',
-	       sizeof(slot_info.slotDescription));
-	memset(&slot_info.manufacturerID, ' ',
-	       sizeof(slot_info.manufacturerID));
+	memset(slot_info->slotDescription, ' ',
+	       sizeof(slot_info->slotDescription));
+	memset(slot_info->manufacturerID, ' ',
+	       sizeof(slot_info->manufacturerID));
 
-	memcpy(&slot_info.slotDescription, descr, strlen((char *)descr));
-	memcpy(&slot_info.manufacturerID, manuf, strlen((char *)manuf));
+	memcpy(slot_info->slotDescription, descr, strlen((char *)descr));
+	memcpy(slot_info->manufacturerID, manuf, strlen((char *)manuf));
 
-	slot_info.hardwareVersion.major = 1;
-	slot_info.hardwareVersion.minor = 0;
-	slot_info.firmwareVersion.major = 1;
-	slot_info.firmwareVersion.minor = 0;
-	slot_info.flags = CKF_TOKEN_PRESENT | CKF_HW_SLOT;
+	slot_info->hardwareVersion.major = 1;
+	slot_info->hardwareVersion.minor = 0;
+	slot_info->firmwareVersion.major = 1;
+	slot_info->firmwareVersion.minor = 0;
+	slot_info->flags = CKF_TOKEN_PRESENT | CKF_HW_SLOT;
 }
 
 //

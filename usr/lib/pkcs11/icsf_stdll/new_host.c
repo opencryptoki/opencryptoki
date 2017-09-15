@@ -211,7 +211,7 @@ CK_RV ST_Initialize(API_Slot_t *sltp, CK_SLOT_ID SlotNumber,
 	global_shm->publ_loaded = TRUE;
 	XProcUnLock();
 
-	init_slotInfo();
+	init_slotInfo(&(sltp->TokData->slot_info));
 
 	usage_count++;
 	(sltp->FcnList) = &function_list;
