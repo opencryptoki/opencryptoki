@@ -129,33 +129,34 @@ ssl3_mac_sign( STDLL_TokData_t      * tokdata,
 
    // inner hash
    //
-   rc = digest_mgr_init( sess, &digest_ctx, &digest_mech );
+   rc = digest_mgr_init( tokdata, sess, &digest_ctx, &digest_mech );
    if (rc != CKR_OK){
       TRACE_DEVEL("Digest Init failed.\n");
       return rc;
    }
-   rc = digest_mgr_digest_update( sess, &digest_ctx, key_data, key_bytes );
+   rc = digest_mgr_digest_update( tokdata, sess, &digest_ctx, key_data,
+				  key_bytes );
    if (rc != CKR_OK){
       TRACE_DEVEL("Digest update failed.\n");
       return rc;
    }
    if (ctx->mech.mechanism == CKM_SSL3_MD5_MAC){
-      rc = digest_mgr_digest_update( sess, &digest_ctx, inner, 48 );
+      rc = digest_mgr_digest_update( tokdata, sess, &digest_ctx, inner, 48 );
    }
    else {
-      rc = digest_mgr_digest_update( sess, &digest_ctx, inner, 40 );
+      rc = digest_mgr_digest_update( tokdata, sess, &digest_ctx, inner, 40 );
    }
    if (rc != CKR_OK){
       TRACE_DEVEL("Digest update failed.\n");
       return rc;
    }
-   rc = digest_mgr_digest_update( sess, &digest_ctx, in_data, in_data_len );
+   rc = digest_mgr_digest_update( tokdata, sess, &digest_ctx, in_data, in_data_len );
    if (rc != CKR_OK){
       TRACE_DEVEL("Digest update failed.\n");
       return rc;
    }
    hash_len = sizeof(hash);
-   rc = digest_mgr_digest_final( sess, FALSE, &digest_ctx,  hash, &hash_len );
+   rc = digest_mgr_digest_final( tokdata, sess, FALSE, &digest_ctx,  hash, &hash_len );
    if (rc != CKR_OK){
       TRACE_DEVEL("Digest final failed.\n");
       return rc;
@@ -165,31 +166,31 @@ ssl3_mac_sign( STDLL_TokData_t      * tokdata,
 
    // outer hash
    //
-   rc = digest_mgr_init( sess, &digest_ctx, &digest_mech );
+   rc = digest_mgr_init( tokdata, sess, &digest_ctx, &digest_mech );
    if (rc != CKR_OK){
       TRACE_DEVEL("Digest Init failed.\n");
       return rc;
    }
-   rc = digest_mgr_digest_update( sess, &digest_ctx, key_data, key_bytes );
+   rc = digest_mgr_digest_update( tokdata, sess, &digest_ctx, key_data, key_bytes );
    if (rc != CKR_OK){
       TRACE_DEVEL("Digest update failed.\n");
       return rc;
    }
    if (ctx->mech.mechanism == CKM_SSL3_MD5_MAC)
-      rc = digest_mgr_digest_update( sess, &digest_ctx, outer, 48 );
+      rc = digest_mgr_digest_update( tokdata, sess, &digest_ctx, outer, 48 );
    else
-      rc = digest_mgr_digest_update( sess, &digest_ctx, outer, 40 );
+      rc = digest_mgr_digest_update( tokdata, sess, &digest_ctx, outer, 40 );
    if (rc != CKR_OK){
       TRACE_DEVEL("Digest update failed.\n");
       return rc;
    }
-   rc = digest_mgr_digest_update( sess, &digest_ctx, hash, hash_len );
+   rc = digest_mgr_digest_update( tokdata, sess, &digest_ctx, hash, hash_len );
    if (rc != CKR_OK){
       TRACE_DEVEL("Digest update failed.\n");
       return rc;
    }
    hash_len = sizeof(hash);
-   rc = digest_mgr_digest_final( sess, FALSE, &digest_ctx, hash, &hash_len );
+   rc = digest_mgr_digest_final( tokdata, sess, FALSE, &digest_ctx, hash, &hash_len );
    if (rc != CKR_OK){
       TRACE_DEVEL("Digest final failed.\n");
       return rc;
@@ -261,20 +262,20 @@ ssl3_mac_sign_update( STDLL_TokData_t      * tokdata,
 
       // inner hash
       //
-      rc = digest_mgr_init( sess, &context->hash_context, &digest_mech );
+      rc = digest_mgr_init( tokdata, sess, &context->hash_context, &digest_mech );
       if (rc != CKR_OK){
          TRACE_DEVEL("Digest Init failed.\n");
          return rc;
       }
-      rc = digest_mgr_digest_update( sess, &context->hash_context, key_data, key_bytes );
+      rc = digest_mgr_digest_update( tokdata, sess, &context->hash_context, key_data, key_bytes );
       if (rc != CKR_OK){
          TRACE_DEVEL("Digest update failed.\n");
          return rc;
       }
       if (ctx->mech.mechanism == CKM_SSL3_MD5_MAC)
-         rc = digest_mgr_digest_update( sess, &context->hash_context, inner, 48 );
+         rc = digest_mgr_digest_update( tokdata, sess, &context->hash_context, inner, 48 );
       else
-         rc = digest_mgr_digest_update( sess, &context->hash_context, inner, 40 );
+         rc = digest_mgr_digest_update( tokdata, sess, &context->hash_context, inner, 40 );
       if (rc != CKR_OK){
          TRACE_DEVEL("Digest update failed.\n");
          return rc;
@@ -283,7 +284,7 @@ ssl3_mac_sign_update( STDLL_TokData_t      * tokdata,
    }
 
 
-   rc = digest_mgr_digest_update( sess, &context->hash_context, in_data, in_data_len );
+   rc = digest_mgr_digest_update( tokdata, sess, &context->hash_context, in_data, in_data_len );
    if (rc != CKR_OK){
       TRACE_DEVEL("Digest update failed.\n");
       return rc;
@@ -355,7 +356,7 @@ ssl3_mac_sign_final( STDLL_TokData_t      * tokdata,
    // finish the inner hash
    //
    hash_len = sizeof(hash);
-   rc = digest_mgr_digest_final( sess, FALSE, &context->hash_context, hash, &hash_len );
+   rc = digest_mgr_digest_final( tokdata, sess, FALSE, &context->hash_context, hash, &hash_len );
    if (rc != CKR_OK){
       TRACE_DEVEL("Digest Final failed.\n");
       return rc;
@@ -374,32 +375,37 @@ ssl3_mac_sign_final( STDLL_TokData_t      * tokdata,
    digest_mech.ulParameterLen = 0;
    digest_mech.pParameter     = NULL;
 
-   rc = digest_mgr_init( sess, &context->hash_context, &digest_mech );
+   rc = digest_mgr_init( tokdata, sess, &context->hash_context, &digest_mech );
    if (rc != CKR_OK){
       TRACE_DEVEL("Digest Init failed.\n");
       return rc;
    }
-   rc = digest_mgr_digest_update( sess, &context->hash_context, key_data, key_bytes );
+   rc = digest_mgr_digest_update( tokdata, sess, &context->hash_context,
+				  key_data, key_bytes );
    if (rc != CKR_OK){
       TRACE_DEVEL("Digest Update failed.\n");
       return rc;
    }
    if (ctx->mech.mechanism == CKM_SSL3_MD5_MAC)
-      rc = digest_mgr_digest_update( sess, &context->hash_context, outer, 48 );
+      rc = digest_mgr_digest_update( tokdata, sess, &context->hash_context,
+				     outer, 48 );
    else
-      rc = digest_mgr_digest_update( sess, &context->hash_context, outer, 40 );
+      rc = digest_mgr_digest_update( tokdata, sess, &context->hash_context,
+				     outer, 40 );
 
    if (rc != CKR_OK){
       TRACE_DEVEL("Digest Update failed.\n");
       return rc;
    }
-   rc = digest_mgr_digest_update( sess, &context->hash_context, hash, hash_len );
+   rc = digest_mgr_digest_update( tokdata, sess, &context->hash_context, hash,
+				  hash_len );
    if (rc != CKR_OK){
       TRACE_DEVEL("Digest Update failed.\n");
       return rc;
    }
    hash_len = sizeof(hash);
-   rc = digest_mgr_digest_final( sess, FALSE, &context->hash_context, hash, &hash_len );
+   rc = digest_mgr_digest_final( tokdata, sess, FALSE, &context->hash_context,
+				 hash, &hash_len );
    if (rc != CKR_OK){
       TRACE_DEVEL("Digest Final failed.\n");
       return rc;
@@ -525,20 +531,20 @@ ssl3_mac_verify_update( STDLL_TokData_t      * tokdata,
 
       // inner hash
       //
-      rc = digest_mgr_init( sess, &context->hash_context, &digest_mech );
+      rc = digest_mgr_init( tokdata, sess, &context->hash_context, &digest_mech );
       if (rc != CKR_OK){
          TRACE_DEVEL("Digest Init failed.\n");
          return rc;
       }
-      rc = digest_mgr_digest_update( sess, &context->hash_context, key_data, key_bytes );
+      rc = digest_mgr_digest_update( tokdata, sess, &context->hash_context, key_data, key_bytes );
       if (rc != CKR_OK){
          TRACE_DEVEL("Digest Update failed.\n");
          return rc;
       }
       if (ctx->mech.mechanism == CKM_SSL3_MD5_MAC)
-         rc = digest_mgr_digest_update( sess, &context->hash_context, inner, 48 );
+         rc = digest_mgr_digest_update( tokdata, sess, &context->hash_context, inner, 48 );
       else
-         rc = digest_mgr_digest_update( sess, &context->hash_context, inner, 40 );
+         rc = digest_mgr_digest_update( tokdata, sess, &context->hash_context, inner, 40 );
       if (rc != CKR_OK){
          TRACE_DEVEL("Digest Update failed.\n");
          return rc;
@@ -546,7 +552,7 @@ ssl3_mac_verify_update( STDLL_TokData_t      * tokdata,
       context->flag = TRUE;
    }
 
-   rc = digest_mgr_digest_update( sess, &context->hash_context, in_data, in_data_len );
+   rc = digest_mgr_digest_update( tokdata, sess, &context->hash_context, in_data, in_data_len );
    if (rc != CKR_OK){
       TRACE_DEVEL("Digest Update failed.\n");
       return rc;
@@ -606,7 +612,8 @@ ssl3_mac_verify_final( STDLL_TokData_t      * tokdata,
    // finish the inner hash
    //
    hash_len = sizeof(hash);
-   rc = digest_mgr_digest_final( sess, FALSE, &context->hash_context, hash, &hash_len );
+   rc = digest_mgr_digest_final( tokdata, sess, FALSE, &context->hash_context,
+				 hash, &hash_len );
    if (rc != CKR_OK){
       TRACE_DEVEL("Digest Final failed.\n");
       return rc;
@@ -625,32 +632,37 @@ ssl3_mac_verify_final( STDLL_TokData_t      * tokdata,
    digest_mech.ulParameterLen = 0;
    digest_mech.pParameter     = NULL;
 
-   rc = digest_mgr_init( sess, &context->hash_context, &digest_mech );
+   rc = digest_mgr_init( tokdata, sess, &context->hash_context, &digest_mech );
    if (rc != CKR_OK){
       TRACE_DEVEL("Digest Init failed.\n");
       return rc;
    }
-   rc = digest_mgr_digest_update( sess, &context->hash_context, key_data, key_bytes );
+   rc = digest_mgr_digest_update( tokdata, sess, &context->hash_context,
+				  key_data, key_bytes );
    if (rc != CKR_OK){
       TRACE_DEVEL("Digest Update failed.\n");
       return rc;
    }
    if (ctx->mech.mechanism == CKM_SSL3_MD5_MAC)
-      rc = digest_mgr_digest_update( sess, &context->hash_context, outer, 48 );
+      rc = digest_mgr_digest_update( tokdata, sess, &context->hash_context,
+				     outer, 48 );
    else
-      rc = digest_mgr_digest_update( sess, &context->hash_context, outer, 40 );
+      rc = digest_mgr_digest_update( tokdata, sess, &context->hash_context,
+				     outer, 40 );
 
    if (rc != CKR_OK){
       TRACE_DEVEL("Digest Update failed.\n");
       return rc;
    }
-   rc = digest_mgr_digest_update( sess, &context->hash_context, hash, hash_len );
+   rc = digest_mgr_digest_update( tokdata, sess, &context->hash_context, hash,
+				  hash_len );
    if (rc != CKR_OK){
       TRACE_DEVEL("Digest Update failed.\n");
       return rc;
    }
    hash_len = sizeof(hash);
-   rc = digest_mgr_digest_final( sess, FALSE, &context->hash_context, hash, &hash_len );
+   rc = digest_mgr_digest_final( tokdata, sess, FALSE, &context->hash_context,
+				 hash, &hash_len );
    if (rc != CKR_OK){
       TRACE_DEVEL("Digest Final failed.\n");
       return rc;
@@ -783,12 +795,12 @@ ssl3_sha_then_md5( STDLL_TokData_t * tokdata,
    digest_mech.ulParameterLen = 0;
    digest_mech.pParameter     = NULL;
 
-   rc = digest_mgr_init( sess, &digest_ctx, &digest_mech );
+   rc = digest_mgr_init( tokdata, sess, &digest_ctx, &digest_mech );
    if (rc != CKR_OK){
       TRACE_DEVEL("Digest Init failed.\n");
       return rc;
    }
-   rc = digest_mgr_digest_update( sess,
+   rc = digest_mgr_digest_update( tokdata, sess,
                                   &digest_ctx,
                                   variableData,
                                   variableDataLen );
@@ -796,12 +808,12 @@ ssl3_sha_then_md5( STDLL_TokData_t * tokdata,
       TRACE_DEVEL("Digest Update failed.\n");
       return rc;
    }
-   rc = digest_mgr_digest_update( sess, &digest_ctx, secret, 48 );
+   rc = digest_mgr_digest_update( tokdata, sess, &digest_ctx, secret, 48 );
    if (rc != CKR_OK){
       TRACE_DEVEL("Digest Update failed.\n");
       return rc;
    }
-   rc = digest_mgr_digest_update( sess,
+   rc = digest_mgr_digest_update( tokdata, sess,
                                   &digest_ctx,
                                   firstRandom,
                                   firstRandomLen );
@@ -809,7 +821,7 @@ ssl3_sha_then_md5( STDLL_TokData_t * tokdata,
       TRACE_DEVEL("Digest Update failed.\n");
       return rc;
    }
-   rc = digest_mgr_digest_update( sess,
+   rc = digest_mgr_digest_update( tokdata, sess,
                                   &digest_ctx,
                                   secondRandom,
                                   secondRandomLen );
@@ -818,7 +830,7 @@ ssl3_sha_then_md5( STDLL_TokData_t * tokdata,
       return rc;
    }
    len = sizeof(hash);
-   rc = digest_mgr_digest_final( sess, FALSE, &digest_ctx, hash, &len );
+   rc = digest_mgr_digest_final(tokdata, sess, FALSE, &digest_ctx, hash, &len);
    if (rc != CKR_OK){
       TRACE_DEVEL("Digest Final failed.\n");
       return rc;
@@ -831,23 +843,23 @@ ssl3_sha_then_md5( STDLL_TokData_t * tokdata,
    digest_mech.ulParameterLen = 0;
    digest_mech.pParameter     = NULL;
 
-   rc = digest_mgr_init( sess, &digest_ctx, &digest_mech );
+   rc = digest_mgr_init( tokdata, sess, &digest_ctx, &digest_mech );
    if (rc != CKR_OK){
       TRACE_DEVEL("Digest Init failed.\n");
       return rc;
    }
-   rc = digest_mgr_digest_update( sess, &digest_ctx, secret, 48 );
+   rc = digest_mgr_digest_update( tokdata, sess, &digest_ctx, secret, 48 );
    if (rc != CKR_OK){
       TRACE_DEVEL("Digest Update failed.\n");
       return rc;
    }
-   rc = digest_mgr_digest_update( sess, &digest_ctx, hash, len );
+   rc = digest_mgr_digest_update( tokdata, sess, &digest_ctx, hash, len );
    if (rc != CKR_OK){
       TRACE_DEVEL("Digest Update failed.\n");
       return rc;
    }
    len = sizeof(hash);
-   rc = digest_mgr_digest_final( sess, FALSE, &digest_ctx, hash, &len );
+   rc = digest_mgr_digest_final(tokdata, sess, FALSE, &digest_ctx, hash, &len);
 
    if (rc == CKR_OK){
       memcpy( outBuff, hash, len );
@@ -890,13 +902,13 @@ ssl3_md5_only( STDLL_TokData_t * tokdata,
    digest_mech.ulParameterLen = 0;
    digest_mech.pParameter     = NULL;
 
-   rc = digest_mgr_init( sess, &digest_ctx, &digest_mech );
+   rc = digest_mgr_init( tokdata, sess, &digest_ctx, &digest_mech );
    if (rc != CKR_OK){
       TRACE_DEVEL("Digest Init failed.\n");
       return rc;
    }
    if (firstString != NULL) {
-      rc = digest_mgr_digest_update( sess,
+      rc = digest_mgr_digest_update( tokdata, sess,
                                      &digest_ctx,
                                      firstString,
                                      firstStringLen );
@@ -906,7 +918,7 @@ ssl3_md5_only( STDLL_TokData_t * tokdata,
       }
    }
 
-   rc = digest_mgr_digest_update( sess,
+   rc = digest_mgr_digest_update( tokdata, sess,
                                   &digest_ctx,
                                   secondString,
                                   secondStringLen );
@@ -914,7 +926,7 @@ ssl3_md5_only( STDLL_TokData_t * tokdata,
       TRACE_DEVEL("Digest Update failed.\n");
       return rc;
    }
-   rc = digest_mgr_digest_update( sess,
+   rc = digest_mgr_digest_update( tokdata, sess,
                                   &digest_ctx,
                                   thirdString,
                                   thirdStringLen );
@@ -923,7 +935,7 @@ ssl3_md5_only( STDLL_TokData_t * tokdata,
       return rc;
    }
    len = sizeof(hash);
-   rc = digest_mgr_digest_final( sess, FALSE, &digest_ctx, hash, &len );
+   rc = digest_mgr_digest_final(tokdata, sess, FALSE, &digest_ctx, hash, &len);
 
    if (rc == CKR_OK){
       TRACE_DEVEL("Digest Final failed.\n");

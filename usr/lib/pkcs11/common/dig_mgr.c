@@ -28,7 +28,8 @@
 //
 //
 CK_RV
-digest_mgr_init( SESSION           *sess,
+digest_mgr_init( STDLL_TokData_t   *tokdata,
+		 SESSION           *sess,
                  DIGEST_CONTEXT    *ctx,
                  CK_MECHANISM      *mech )
 {
@@ -157,7 +158,8 @@ digest_mgr_cleanup( DIGEST_CONTEXT *ctx )
 //
 //
 CK_RV
-digest_mgr_digest( SESSION         *sess,
+digest_mgr_digest( STDLL_TokData_t *tokdata,
+		   SESSION         *sess,
                    CK_BBOOL         length_only,
                    DIGEST_CONTEXT  *ctx,
                    CK_BYTE         *in_data,
@@ -235,7 +237,8 @@ out:
 //
 //
 CK_RV
-digest_mgr_digest_update( SESSION         *sess,
+digest_mgr_digest_update( STDLL_TokData_t *tokdata,
+			  SESSION         *sess,
                           DIGEST_CONTEXT  *ctx,
                           CK_BYTE         *data,
                           CK_ULONG         data_len )
@@ -288,7 +291,8 @@ digest_mgr_digest_update( SESSION         *sess,
 //
 //
 CK_RV
-digest_mgr_digest_key( SESSION          * sess,
+digest_mgr_digest_key( STDLL_TokData_t  *tokdata,
+		       SESSION          * sess,
                        DIGEST_CONTEXT   * ctx,
                        CK_OBJECT_HANDLE   key_handle )
 {
@@ -334,10 +338,8 @@ digest_mgr_digest_key( SESSION          * sess,
       rc = CKR_KEY_INDIGESTIBLE;
       goto out;
    }
-   rc = digest_mgr_digest_update( sess,
-                                  ctx,
-                                  attr->pValue,
-                                  attr->ulValueLen );
+   rc = digest_mgr_digest_update( tokdata, sess, ctx,
+                                  attr->pValue, attr->ulValueLen );
    if (rc != CKR_OK){
       TRACE_DEVEL("digest_mgr_digest_update failed\n");
    }
@@ -353,7 +355,8 @@ out:
 //
 //
 CK_RV
-digest_mgr_digest_final( SESSION         *sess,
+digest_mgr_digest_final( STDLL_TokData_t *tokdata,
+			 SESSION         *sess,
                          CK_BBOOL         length_only,
                          DIGEST_CONTEXT  *ctx,
                          CK_BYTE         *hash,

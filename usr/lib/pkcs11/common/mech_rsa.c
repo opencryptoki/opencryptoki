@@ -1369,14 +1369,14 @@ CK_RV rsa_hash_pss_sign(STDLL_TokData_t *tokdata, SESSION *sess,
                 return CKR_MECHANISM_PARAM_INVALID;
         }
 
-	rc = digest_mgr_init(sess, &digest_ctx, &digest_mech);
+	rc = digest_mgr_init(tokdata, sess, &digest_ctx, &digest_mech);
 	if (rc != CKR_OK) {
 		TRACE_DEVEL("Digest Mgr Init failed.\n");
 		return rc;
 	}
 
-	rc = digest_mgr_digest(sess, length_only, &digest_ctx, in_data,
-			       in_data_len, hash, &hlen);
+	rc = digest_mgr_digest(tokdata, sess, length_only, &digest_ctx,
+			       in_data, in_data_len, hash, &hlen);
 	if (rc != CKR_OK) {
 		TRACE_DEVEL("Digest Mgr Digest failed.\n");
 		return rc;
@@ -1439,14 +1439,15 @@ CK_RV rsa_hash_pss_update(STDLL_TokData_t *tokdata, SESSION *sess,
 		digest_mech.ulParameterLen = 0;
 		digest_mech.pParameter = NULL;
 
-		rc = digest_mgr_init(sess, digest_ctx, &digest_mech);
+		rc = digest_mgr_init(tokdata, sess, digest_ctx, &digest_mech);
 		if (rc != CKR_OK) {
 			TRACE_DEVEL("Digest Mgr Init failed.\n");
 			return rc;
 		}
 	}
 
-	rc = digest_mgr_digest_update(sess, digest_ctx, in_data, in_data_len);
+	rc = digest_mgr_digest_update(tokdata, sess, digest_ctx, in_data,
+				      in_data_len);
 	if (rc != CKR_OK)
 		TRACE_DEVEL("Digest Mgr Update failed.\n");
 
@@ -1479,7 +1480,7 @@ CK_RV rsa_hash_pss_sign_final(STDLL_TokData_t *tokdata, SESSION *sess,
                 return CKR_MECHANISM_PARAM_INVALID;
         }
 
-	rc = digest_mgr_digest_final(sess, length_only, digest_ctx,
+	rc = digest_mgr_digest_final(tokdata, sess, length_only, digest_ctx,
 				     hash, &hlen);
 	if (rc != CKR_OK) {
 		TRACE_DEVEL("Digest Mgr Final failed.\n");
@@ -1552,13 +1553,13 @@ CK_RV rsa_hash_pss_verify(STDLL_TokData_t *tokdata, SESSION *sess,
 		return CKR_MECHANISM_PARAM_INVALID;
 	}
 
-	rc = digest_mgr_init(sess, &digest_ctx, &digest_mech);
+	rc = digest_mgr_init(tokdata, sess, &digest_ctx, &digest_mech);
 	if (rc != CKR_OK) {
 		TRACE_DEVEL("Digest Mgr Init failed.\n");
 		return rc;
 	}
 
-	rc = digest_mgr_digest(sess, FALSE, &digest_ctx, in_data,
+	rc = digest_mgr_digest(tokdata, sess, FALSE, &digest_ctx, in_data,
 			       in_data_len, hash, &hlen);
 	if (rc != CKR_OK) {
 		TRACE_DEVEL("Digest Mgr Digest failed.\n");
@@ -1613,7 +1614,8 @@ CK_RV rsa_hash_pss_verify_final(STDLL_TokData_t *tokdata, SESSION *sess,
 		return CKR_MECHANISM_PARAM_INVALID;
 	}
 
-	rc = digest_mgr_digest_final(sess, FALSE, digest_ctx, hash, &hlen);
+	rc = digest_mgr_digest_final(tokdata, sess, FALSE, digest_ctx, hash,
+				     &hlen);
 	if (rc != CKR_OK) {
 		TRACE_DEVEL("Digest Mgr Final failed.\n");
 		return rc;
@@ -1710,13 +1712,14 @@ rsa_hash_pkcs_sign( STDLL_TokData_t      * tokdata,
    digest_mech.ulParameterLen = 0;
    digest_mech.pParameter     = NULL;
 
-   rc = digest_mgr_init( sess, &digest_ctx, &digest_mech );
+   rc = digest_mgr_init( tokdata, sess, &digest_ctx, &digest_mech );
    if (rc != CKR_OK){
       TRACE_DEVEL("Digest Mgr Init failed.\n");
       return rc;
    }
    hash_len = sizeof(hash);
-   rc = digest_mgr_digest( sess, length_only, &digest_ctx, in_data, in_data_len, hash, &hash_len );
+   rc = digest_mgr_digest( tokdata, sess, length_only, &digest_ctx, in_data,
+			   in_data_len, hash, &hash_len );
    if (rc != CKR_OK){
       TRACE_DEVEL("Digest Mgr Digest failed.\n");
       return rc;
@@ -1798,7 +1801,7 @@ rsa_hash_pkcs_sign_update( STDLL_TokData_t      * tokdata,
       digest_mech.ulParameterLen = 0;
       digest_mech.pParameter     = NULL;
 
-      rc = digest_mgr_init( sess, &context->hash_context, &digest_mech );
+      rc = digest_mgr_init(tokdata, sess, &context->hash_context, &digest_mech);
       if (rc != CKR_OK){
          TRACE_DEVEL("Digest Mgr Init failed.\n");
          return rc;
@@ -1806,7 +1809,8 @@ rsa_hash_pkcs_sign_update( STDLL_TokData_t      * tokdata,
       context->flag = TRUE;
    }
 
-   rc = digest_mgr_digest_update( sess, &context->hash_context, in_data, in_data_len );
+   rc = digest_mgr_digest_update( tokdata, sess, &context->hash_context,
+				  in_data, in_data_len );
    if (rc != CKR_OK){
       TRACE_DEVEL("Digest Mgr Digest failed.\n");
       return rc;
@@ -1882,13 +1886,14 @@ rsa_hash_pkcs_verify( STDLL_TokData_t      * tokdata,
    digest_mech.ulParameterLen = 0;
    digest_mech.pParameter     = NULL;
 
-   rc = digest_mgr_init( sess, &digest_ctx, &digest_mech );
+   rc = digest_mgr_init( tokdata, sess, &digest_ctx, &digest_mech );
    if (rc != CKR_OK){
       TRACE_DEVEL("Digest Mgr Init failed.\n");
       return rc;
    }
    hash_len = sizeof(hash);
-   rc = digest_mgr_digest( sess, FALSE, &digest_ctx, in_data, in_data_len, hash, &hash_len );
+   rc = digest_mgr_digest( tokdata, sess, FALSE, &digest_ctx, in_data,
+			   in_data_len, hash, &hash_len );
    if (rc != CKR_OK){
       TRACE_DEVEL("Digest Mgr Digest failed.\n");
       return rc;
@@ -1968,7 +1973,8 @@ rsa_hash_pkcs_verify_update( STDLL_TokData_t      * tokdata,
       digest_mech.ulParameterLen = 0;
       digest_mech.pParameter     = NULL;
 
-      rc = digest_mgr_init( sess, &context->hash_context, &digest_mech );
+      rc = digest_mgr_init( tokdata, sess, &context->hash_context,
+			    &digest_mech );
       if (rc != CKR_OK){
          TRACE_DEVEL("Digest Mgr Init failed.\n");
          return rc;
@@ -1976,7 +1982,8 @@ rsa_hash_pkcs_verify_update( STDLL_TokData_t      * tokdata,
       context->flag = TRUE;
    }
 
-   rc = digest_mgr_digest_update( sess, &context->hash_context, in_data, in_data_len );
+   rc = digest_mgr_digest_update( tokdata, sess, &context->hash_context,
+				  in_data, in_data_len );
    if (rc != CKR_OK){
       TRACE_DEVEL("Digest Mgr Update failed.\n");
       return rc;
@@ -2044,7 +2051,8 @@ rsa_hash_pkcs_sign_final( STDLL_TokData_t      * tokdata,
    context = (RSA_DIGEST_CONTEXT *)ctx->context;
 
    hash_len = sizeof(hash);
-   rc = digest_mgr_digest_final( sess, length_only, &context->hash_context, hash, &hash_len );
+   rc = digest_mgr_digest_final( tokdata, sess, length_only,
+				 &context->hash_context, hash, &hash_len );
    if (rc != CKR_OK){
       TRACE_DEVEL("Digest Mgr Final failed.\n");
       return rc;
@@ -2150,7 +2158,8 @@ rsa_hash_pkcs_verify_final( STDLL_TokData_t      * tokdata,
    context = (RSA_DIGEST_CONTEXT *)ctx->context;
 
    hash_len = sizeof(hash);
-   rc = digest_mgr_digest_final( sess, FALSE, &context->hash_context, hash, &hash_len );
+   rc = digest_mgr_digest_final( tokdata, sess, FALSE, &context->hash_context,
+				 hash, &hash_len );
    if (rc != CKR_OK){
       TRACE_DEVEL("Digest Mgr Final failed.\n");
       return rc;

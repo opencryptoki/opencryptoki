@@ -613,15 +613,16 @@ CK_RV sha1_hmac_sign(STDLL_TokData_t *tokdata,
 		digest_mech.ulParameterLen = 0;
 		digest_mech.pParameter = NULL;
 
-		rc = digest_mgr_init(sess, &digest_ctx, &digest_mech);
+		rc = digest_mgr_init(tokdata, sess, &digest_ctx, &digest_mech);
 		if (rc != CKR_OK) {
 			TRACE_DEVEL("Digest Mgr Init failed.\n");
 			return rc;
 		}
 
 		hash_len = sizeof(hash);
-		rc = digest_mgr_digest(sess, FALSE, &digest_ctx, attr->pValue,
-				       attr->ulValueLen, hash, &hash_len);
+		rc = digest_mgr_digest(tokdata, sess, FALSE, &digest_ctx,
+				       attr->pValue, attr->ulValueLen, hash,
+				       &hash_len);
 		if (rc != CKR_OK) {
 			TRACE_DEVEL("Digest Mgr Digest failed.\n");
 			return rc;
@@ -654,27 +655,29 @@ CK_RV sha1_hmac_sign(STDLL_TokData_t *tokdata,
 
 	// inner hash
 	//
-	rc = digest_mgr_init(sess, &digest_ctx, &digest_mech);
+	rc = digest_mgr_init(tokdata, sess, &digest_ctx, &digest_mech);
 	if (rc != CKR_OK) {
 		TRACE_DEVEL("Digest Mgr Init failed.\n");
 		return rc;
 	}
 
-	rc = digest_mgr_digest_update(sess, &digest_ctx, k_ipad,
+	rc = digest_mgr_digest_update(tokdata, sess, &digest_ctx, k_ipad,
 				      SHA1_BLOCK_SIZE);
 	if (rc != CKR_OK) {
 		TRACE_DEVEL("Digest Mgr Update failed.\n");
 		return rc;
 	}
 
-	rc = digest_mgr_digest_update(sess, &digest_ctx, in_data, in_data_len);
+	rc = digest_mgr_digest_update(tokdata, sess, &digest_ctx, in_data,
+				      in_data_len);
 	if (rc != CKR_OK) {
 		TRACE_DEVEL("Digest Mgr Update failed.\n");
 		return rc;
 	}
 
 	hash_len = sizeof(hash);
-	rc = digest_mgr_digest_final(sess, FALSE, &digest_ctx, hash, &hash_len);
+	rc = digest_mgr_digest_final(tokdata, sess, FALSE, &digest_ctx, hash,
+				     &hash_len);
 	if (rc != CKR_OK) {
 		TRACE_DEVEL("Digest Mgr Final failed.\n");
 		return rc;
@@ -684,27 +687,29 @@ CK_RV sha1_hmac_sign(STDLL_TokData_t *tokdata,
 
 	// outer hash
 	//
-	rc = digest_mgr_init(sess, &digest_ctx, &digest_mech);
+	rc = digest_mgr_init(tokdata, sess, &digest_ctx, &digest_mech);
 	if (rc != CKR_OK) {
 		TRACE_DEVEL("Digest Mgr Init failed.\n");
 		return rc;
 	}
 
-	rc = digest_mgr_digest_update(sess, &digest_ctx, k_opad,
+	rc = digest_mgr_digest_update(tokdata, sess, &digest_ctx, k_opad,
 					SHA1_BLOCK_SIZE);
 	if (rc != CKR_OK) {
 		TRACE_DEVEL("Digest Mgr Update failed.\n");
 		return rc;
 	}
 
-	rc = digest_mgr_digest_update(sess, &digest_ctx, hash, hash_len);
+	rc = digest_mgr_digest_update(tokdata, sess, &digest_ctx, hash,
+				      hash_len);
 	if (rc != CKR_OK) {
 		TRACE_DEVEL("Digest Mgr Update failed.\n");
 		return rc;
 	}
 
 	hash_len = sizeof(hash);
-	rc = digest_mgr_digest_final(sess, FALSE, &digest_ctx, hash, &hash_len);
+	rc = digest_mgr_digest_final(tokdata, sess, FALSE, &digest_ctx, hash,
+				     &hash_len);
 	if (rc != CKR_OK) {
 		TRACE_DEVEL("Digest Mgr Final failed.\n");
 		return rc;
@@ -789,15 +794,16 @@ CK_RV sha2_hmac_sign(STDLL_TokData_t *tokdata,
 		digest_mech.ulParameterLen = 0;
 		digest_mech.pParameter = NULL;
 
-		rc = digest_mgr_init(sess, &digest_ctx, &digest_mech);
+		rc = digest_mgr_init(tokdata, sess, &digest_ctx, &digest_mech);
 		if (rc != CKR_OK) {
 			TRACE_DEVEL("Digest Mgr Init failed.\n");
 			return rc;
 		}
 
 		hash_len = sizeof(hash);
-		rc = digest_mgr_digest(sess, FALSE, &digest_ctx, attr->pValue,
-					attr->ulValueLen, hash, &hash_len);
+		rc = digest_mgr_digest(tokdata, sess, FALSE, &digest_ctx,
+				       attr->pValue, attr->ulValueLen,
+				       hash, &hash_len);
 		if (rc != CKR_OK) {
 			TRACE_DEVEL("Digest Mgr Digest failed.\n");
 			return rc;
@@ -830,26 +836,29 @@ CK_RV sha2_hmac_sign(STDLL_TokData_t *tokdata,
 
 	// inner hash
 	//
-	rc = digest_mgr_init(sess, &digest_ctx, &digest_mech);
+	rc = digest_mgr_init(tokdata, sess, &digest_ctx, &digest_mech);
 	if (rc != CKR_OK) {
 		TRACE_DEVEL("Digest Mgr Init failed.\n");
 		return rc;
 	}
 
-	rc = digest_mgr_digest_update(sess, &digest_ctx, k_ipad, SHA2_BLOCK_SIZE);
+	rc = digest_mgr_digest_update(tokdata, sess, &digest_ctx, k_ipad,
+				      SHA2_BLOCK_SIZE);
 	if (rc != CKR_OK) {
 		TRACE_DEVEL("Digest Mgr Update failed.\n");
 		return rc;
 	}
 
-	rc = digest_mgr_digest_update(sess, &digest_ctx, in_data, in_data_len);
+	rc = digest_mgr_digest_update(tokdata, sess, &digest_ctx, in_data,
+				      in_data_len);
 	if (rc != CKR_OK) {
 		TRACE_DEVEL("Digest Mgr Update failed.\n");
 		return rc;
 	}
 
 	hash_len = sizeof(hash);
-	rc = digest_mgr_digest_final(sess, FALSE, &digest_ctx, hash, &hash_len);
+	rc = digest_mgr_digest_final(tokdata, sess, FALSE, &digest_ctx, hash,
+				     &hash_len);
 	if (rc != CKR_OK) {
 		TRACE_DEVEL("Digest Mgr Final failed.\n");
 		return rc;
@@ -859,26 +868,29 @@ CK_RV sha2_hmac_sign(STDLL_TokData_t *tokdata,
 
 	// outer hash
 	//
-	rc = digest_mgr_init(sess, &digest_ctx, &digest_mech);
+	rc = digest_mgr_init(tokdata, sess, &digest_ctx, &digest_mech);
 	if (rc != CKR_OK) {
 		TRACE_DEVEL("Digest Mgr Init failed.\n");
 		return rc;
 	}
 
-	rc = digest_mgr_digest_update(sess, &digest_ctx, k_opad, SHA2_BLOCK_SIZE);
+	rc = digest_mgr_digest_update(tokdata, sess, &digest_ctx, k_opad,
+				      SHA2_BLOCK_SIZE);
 	if (rc != CKR_OK) {
 		TRACE_DEVEL("Digest Mgr Update failed.\n");
 		return rc;
 	}
 
-	rc = digest_mgr_digest_update(sess, &digest_ctx, hash, hash_len);
+	rc = digest_mgr_digest_update(tokdata, sess, &digest_ctx, hash,
+				      hash_len);
 	if (rc != CKR_OK) {
 		TRACE_DEVEL("Digest Mgr Update failed.\n");
 		return rc;
 	}
 
 	hash_len = sizeof(hash);
-	rc = digest_mgr_digest_final(sess, FALSE, &digest_ctx, hash, &hash_len);
+	rc = digest_mgr_digest_final(tokdata, sess, FALSE, &digest_ctx, hash,
+				     &hash_len);
 	if (rc != CKR_OK) {
 		TRACE_DEVEL("Digest Mgr Final failed.\n");
 		return rc;
@@ -964,15 +976,16 @@ CK_RV sha3_hmac_sign(STDLL_TokData_t *tokdata,
 		digest_mech.ulParameterLen = 0;
 		digest_mech.pParameter = NULL;
 
-		rc = digest_mgr_init(sess, &digest_ctx, &digest_mech);
+		rc = digest_mgr_init(tokdata, sess, &digest_ctx, &digest_mech);
 		if (rc != CKR_OK) {
 			TRACE_DEVEL("Digest Mgr Init failed.\n");
 			return rc;
 		}
 
 		hash_len = sizeof(hash);
-		rc = digest_mgr_digest(sess, FALSE, &digest_ctx, attr->pValue,
-					attr->ulValueLen, hash, &hash_len);
+		rc = digest_mgr_digest(tokdata, sess, FALSE, &digest_ctx,
+				       attr->pValue, attr->ulValueLen, hash,
+				       &hash_len);
 		if (rc != CKR_OK) {
 			TRACE_DEVEL("Digest Mgr Digest failed.\n");
 			return rc;
@@ -1005,26 +1018,29 @@ CK_RV sha3_hmac_sign(STDLL_TokData_t *tokdata,
 
 	// inner hash
 	//
-	rc = digest_mgr_init(sess, &digest_ctx, &digest_mech);
+	rc = digest_mgr_init(tokdata, sess, &digest_ctx, &digest_mech);
 	if (rc != CKR_OK) {
 		TRACE_DEVEL("Digest Mgr Init failed.\n");
 		return rc;
 	}
 
-	rc = digest_mgr_digest_update(sess, &digest_ctx, k_ipad, SHA3_BLOCK_SIZE);
+	rc = digest_mgr_digest_update(tokdata, sess, &digest_ctx, k_ipad,
+				      SHA3_BLOCK_SIZE);
 	if (rc != CKR_OK) {
 		TRACE_DEVEL("Digest Mgr Update failed.\n");
 		return rc;
 	}
 
-	rc = digest_mgr_digest_update(sess, &digest_ctx, in_data, in_data_len);
+	rc = digest_mgr_digest_update(tokdata, sess, &digest_ctx, in_data,
+				      in_data_len);
 	if (rc != CKR_OK) {
 		TRACE_DEVEL("Digest Mgr Update failed.\n");
 		return rc;
 	}
 
 	hash_len = sizeof(hash);
-	rc = digest_mgr_digest_final(sess, FALSE, &digest_ctx, hash, &hash_len);
+	rc = digest_mgr_digest_final(tokdata, sess, FALSE, &digest_ctx, hash,
+				     &hash_len);
 	if (rc != CKR_OK) {
 		TRACE_DEVEL("Digest Mgr Final failed.\n");
 		return rc;
@@ -1034,26 +1050,29 @@ CK_RV sha3_hmac_sign(STDLL_TokData_t *tokdata,
 
 	// outer hash
 	//
-	rc = digest_mgr_init(sess, &digest_ctx, &digest_mech);
+	rc = digest_mgr_init(tokdata, sess, &digest_ctx, &digest_mech);
 	if (rc != CKR_OK) {
 		TRACE_DEVEL("Digest Mgr Init failed.\n");
 		return rc;
 	}
 
-	rc = digest_mgr_digest_update(sess, &digest_ctx, k_opad, SHA3_BLOCK_SIZE);
+	rc = digest_mgr_digest_update(tokdata, sess, &digest_ctx, k_opad,
+				      SHA3_BLOCK_SIZE);
 	if (rc != CKR_OK) {
 		TRACE_DEVEL("Digest Mgr Update failed.\n");
 		return rc;
 	}
 
-	rc = digest_mgr_digest_update(sess, &digest_ctx, hash, hash_len);
+	rc = digest_mgr_digest_update(tokdata, sess, &digest_ctx, hash,
+				      hash_len);
 	if (rc != CKR_OK) {
 		TRACE_DEVEL("Digest Mgr Update failed.\n");
 		return rc;
 	}
 
 	hash_len = sizeof(hash);
-	rc = digest_mgr_digest_final(sess, FALSE, &digest_ctx, hash, &hash_len);
+	rc = digest_mgr_digest_final(tokdata, sess, FALSE, &digest_ctx, hash,
+				     &hash_len);
 	if (rc != CKR_OK) {
 		TRACE_DEVEL("Digest Mgr Final failed.\n");
 		return rc;
@@ -1138,15 +1157,16 @@ CK_RV sha5_hmac_sign(STDLL_TokData_t *tokdata,
 		digest_mech.ulParameterLen = 0;
 		digest_mech.pParameter = NULL;
 
-		rc = digest_mgr_init(sess, &digest_ctx, &digest_mech);
+		rc = digest_mgr_init(tokdata, sess, &digest_ctx, &digest_mech);
 		if (rc != CKR_OK) {
 			TRACE_DEVEL("Digest Mgr Init failed.\n");
 			return rc;
 		}
 
 		hash_len = sizeof(hash);
-		rc = digest_mgr_digest(sess, FALSE, &digest_ctx, attr->pValue,
-					attr->ulValueLen, hash, &hash_len);
+		rc = digest_mgr_digest(tokdata, sess, FALSE, &digest_ctx,
+				       attr->pValue, attr->ulValueLen, hash,
+				       &hash_len);
 		if (rc != CKR_OK) {
 			TRACE_DEVEL("Digest Mgr Digest failed.\n");
 			return rc;
@@ -1179,26 +1199,29 @@ CK_RV sha5_hmac_sign(STDLL_TokData_t *tokdata,
 
 	// inner hash
 	//
-	rc = digest_mgr_init(sess, &digest_ctx, &digest_mech);
+	rc = digest_mgr_init(tokdata, sess, &digest_ctx, &digest_mech);
 	if (rc != CKR_OK) {
 		TRACE_DEVEL("Digest Mgr Init failed.\n");
 		return rc;
 	}
 
-	rc = digest_mgr_digest_update(sess, &digest_ctx, k_ipad, SHA5_BLOCK_SIZE);
+	rc = digest_mgr_digest_update(tokdata, sess, &digest_ctx, k_ipad,
+				      SHA5_BLOCK_SIZE);
 	if (rc != CKR_OK) {
 		TRACE_DEVEL("Digest Mgr Update failed.\n");
 		return rc;
 	}
 
-	rc = digest_mgr_digest_update(sess, &digest_ctx, in_data, in_data_len);
+	rc = digest_mgr_digest_update(tokdata, sess, &digest_ctx, in_data,
+				      in_data_len);
 	if (rc != CKR_OK) {
 		TRACE_DEVEL("Digest Mgr Update failed.\n");
 		return rc;
 	}
 
 	hash_len = sizeof(hash);
-	rc = digest_mgr_digest_final(sess, FALSE, &digest_ctx, hash, &hash_len);
+	rc = digest_mgr_digest_final(tokdata, sess, FALSE, &digest_ctx, hash,
+				     &hash_len);
 	if (rc != CKR_OK) {
 		TRACE_DEVEL("Digest Mgr Final failed.\n");
 		return rc;
@@ -1216,26 +1239,29 @@ CK_RV sha5_hmac_sign(STDLL_TokData_t *tokdata,
 
 	// outer hash
 	//
-	rc = digest_mgr_init(sess, &digest_ctx, &digest_mech);
+	rc = digest_mgr_init(tokdata, sess, &digest_ctx, &digest_mech);
 	if (rc != CKR_OK) {
 		TRACE_DEVEL("Digest Mgr Init failed.\n");
 		return rc;
 	}
 
-	rc = digest_mgr_digest_update(sess, &digest_ctx, k_opad, SHA5_BLOCK_SIZE);
+	rc = digest_mgr_digest_update(tokdata, sess, &digest_ctx, k_opad,
+				      SHA5_BLOCK_SIZE);
 	if (rc != CKR_OK) {
 		TRACE_DEVEL("Digest Mgr Update failed.\n");
 		return rc;
 	}
 
-	rc = digest_mgr_digest_update(sess, &digest_ctx, hash, hash_len);
+	rc = digest_mgr_digest_update(tokdata, sess, &digest_ctx, hash,
+				      hash_len);
 	if (rc != CKR_OK) {
 		TRACE_DEVEL("Digest Mgr Update failed.\n");
 		return rc;
 	}
 
 	hash_len = sizeof(hash);
-	rc = digest_mgr_digest_final(sess, FALSE, &digest_ctx, hash, &hash_len);
+	rc = digest_mgr_digest_final(tokdata, sess, FALSE, &digest_ctx, hash,
+				     &hash_len);
 	if (rc != CKR_OK) {
 		TRACE_DEVEL("Digest Mgr Final failed.\n");
 		return rc;
