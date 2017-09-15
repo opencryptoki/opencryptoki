@@ -1219,7 +1219,7 @@ CK_RV template_validate_attribute(STDLL_TokData_t  * tokdata, TEMPLATE *tmpl,
 			return baton_validate_attribute(tokdata, tmpl, attr, mode);
 
 		case CKK_JUNIPER:
-			return juniper_validate_attribute(tmpl, attr, mode);
+			return juniper_validate_attribute(tokdata, tmpl, attr, mode);
 
 		case CKK_AES:
 			return aes_validate_attribute(tmpl, attr, mode);
