@@ -61,9 +61,12 @@ struct token_specific_struct {
 	CK_RV(*t_init) (STDLL_TokData_t *, CK_SLOT_ID, char *);
 
 	// Token data functions
-	CK_RV (*t_init_token_data) (CK_SLOT_ID slot_id);
-	CK_RV (*t_load_token_data) (CK_SLOT_ID slot_id, FILE *fh);
-	CK_RV (*t_save_token_data) (CK_SLOT_ID slot_id, FILE *fh);
+	CK_RV (*t_init_token_data) (STDLL_TokData_t *tokdata,
+				    CK_SLOT_ID slot_id);
+	CK_RV (*t_load_token_data) (STDLL_TokData_t *tokdata,
+				    CK_SLOT_ID slot_id, FILE *fh);
+	CK_RV (*t_save_token_data) (STDLL_TokData_t *tokdata,
+				    CK_SLOT_ID slot_id, FILE *fh);
 
 	// Random Number Gen
 	CK_RV(*t_rng) (STDLL_TokData_t *, CK_BYTE *, CK_ULONG);

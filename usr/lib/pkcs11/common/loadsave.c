@@ -384,13 +384,12 @@ error:
 //
 //
 CK_RV
-load_token_data(CK_SLOT_ID slot_id)
+load_token_data(STDLL_TokData_t *tokdata, CK_SLOT_ID slot_id)
 {
 	FILE *fp = NULL;
 	CK_BYTE fname[PATH_MAX];
 	TOKEN_DATA td;
 	CK_RV rc;
-	char pk_dir_buf[PATH_MAX];
 
 	rc = XProcLock();
 	if (rc != CKR_OK) {
@@ -398,7 +397,7 @@ load_token_data(CK_SLOT_ID slot_id)
 		goto out_nolock;
 	}
 
-	sprintf(fname, "%s/%s", get_pk_dir(pk_dir_buf), PK_LITE_NV);
+	sprintf(fname, "%s/%s", tokdata->data_store, PK_LITE_NV);
 	fp = fopen((char *)fname, "r");
 	if (!fp) {
 		/* Better error checking added */
@@ -407,7 +406,7 @@ load_token_data(CK_SLOT_ID slot_id)
 			 * grabs the lock, so we must release it around this
 			 * call */
 			XProcUnLock();
-			init_token_data(slot_id);
+			init_token_data(tokdata, slot_id);
 			rc = XProcLock();
 			if (rc != CKR_OK) {
 				TRACE_ERROR("Failed to get Process Lock.\n");
@@ -437,11 +436,11 @@ load_token_data(CK_SLOT_ID slot_id)
 		rc = CKR_FUNCTION_FAILED;
 		goto out_unlock;
 	}
-	memcpy(nv_token_data, &td, sizeof(TOKEN_DATA));
+	memcpy(tokdata->nv_token_data, &td, sizeof(TOKEN_DATA));
 
 	/* Load token-specific data */
 	if (token_specific.t_load_token_data) {
-		rc = token_specific.t_load_token_data(slot_id, fp);
+		rc = token_specific.t_load_token_data(tokdata, slot_id, fp);
 		if (rc)
 			goto out_unlock;
 	}
@@ -459,13 +458,12 @@ out_nolock:
 
 //
 //
-CK_RV save_token_data(CK_SLOT_ID slot_id)
+CK_RV save_token_data(STDLL_TokData_t *tokdata, CK_SLOT_ID slot_id)
 {
 	FILE *fp = NULL;
 	TOKEN_DATA td;
 	CK_RV rc;
 	CK_BYTE fname[PATH_MAX];
-	char pk_dir_buf[PATH_MAX];
 
 	rc = XProcLock();
 	if (rc != CKR_OK) {
@@ -473,7 +471,7 @@ CK_RV save_token_data(CK_SLOT_ID slot_id)
 		goto out_nolock;
 	}
 
-	sprintf(fname, "%s/%s", get_pk_dir(pk_dir_buf), PK_LITE_NV);
+	sprintf(fname, "%s/%s", tokdata->data_store, PK_LITE_NV);
 	fp = fopen((char *)fname, "w");
 	if (!fp) {
 		TRACE_ERROR("fopen(%s): %s\n", fname, strerror(errno));
@@ -483,7 +481,7 @@ CK_RV save_token_data(CK_SLOT_ID slot_id)
 	set_perm(fileno(fp));
 
 	/* Write generic token data */
-	memcpy(&td, nv_token_data, sizeof(TOKEN_DATA));
+	memcpy(&td, tokdata->nv_token_data, sizeof(TOKEN_DATA));
 	if (!fwrite(&td, sizeof(TOKEN_DATA), 1, fp)) {
 		rc = CKR_FUNCTION_FAILED;
 		goto done;
@@ -491,7 +489,7 @@ CK_RV save_token_data(CK_SLOT_ID slot_id)
 
 	/* Write token-specific data */
 	if (token_specific.t_save_token_data) {
-		rc = token_specific.t_save_token_data(slot_id, fp);
+		rc = token_specific.t_save_token_data(tokdata, slot_id, fp);
 		if (rc)
 			goto done;
 	}
@@ -1548,11 +1546,10 @@ CK_RV delete_token_object(OBJECT * obj)
 
 }
 
-CK_RV delete_token_data()
+CK_RV delete_token_data(STDLL_TokData_t *tokdata)
 {
 	CK_RV rc = CKR_OK;
 	char *cmd = NULL;
-	char pk_dir_buf[PATH_MAX];
 
 	// Construct a string to delete the token objects.
 	//
@@ -1561,7 +1558,7 @@ CK_RV delete_token_data()
 	//
 	// TODO: Implement delete_all_files_in_dir() */
 	if (asprintf(&cmd, "%s %s/%s/* > /dev/null 2>&1", DEL_CMD,
-			    get_pk_dir(pk_dir_buf), PK_LITE_OBJ_DIR) < 0) {
+		     tokdata->data_store, PK_LITE_OBJ_DIR) < 0) {
 		rc = CKR_HOST_MEMORY;
 		goto done;
 	}

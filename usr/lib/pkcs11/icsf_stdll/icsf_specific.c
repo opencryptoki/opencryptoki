@@ -302,7 +302,8 @@ done:
 	return rc;
 }
 
-CK_RV token_specific_init_token_data(CK_SLOT_ID slot_id)
+CK_RV token_specific_init_token_data(STDLL_TokData_t *tokdata,
+				     CK_SLOT_ID slot_id)
 {
 	CK_RV rc = CKR_OK;
 	const char *conf_name = NULL;
@@ -345,10 +346,10 @@ CK_RV token_specific_init_token_data(CK_SLOT_ID slot_id)
 	}
 
 	/* Copy general info */
-	strcpy(nv_token_data->token_info.label, config.name);
-	strcpy(nv_token_data->token_info.manufacturerID, config.manuf);
-	strcpy(nv_token_data->token_info.model, config.model);
-	strcpy(nv_token_data->token_info.serialNumber, config.serial);
+	strcpy(tokdata->nv_token_data->token_info.label, config.name);
+	strcpy(tokdata->nv_token_data->token_info.manufacturerID, config.manuf);
+	strcpy(tokdata->nv_token_data->token_info.model, config.model);
+	strcpy(tokdata->nv_token_data->token_info.serialNumber, config.serial);
 
 	/* Copy ICSF specific info */
 	strcpy(slot_data[slot_id]->uri, config.uri);
@@ -364,7 +365,8 @@ done:
 	return rc;
 }
 
-CK_RV token_specific_load_token_data(CK_SLOT_ID slot_id, FILE *fh)
+CK_RV token_specific_load_token_data(STDLL_TokData_t *tokdata,
+				     CK_SLOT_ID slot_id, FILE *fh)
 {
 	CK_RV rc = CKR_OK;
 	struct slot_data data;
@@ -396,7 +398,8 @@ done:
 }
 
 CK_RV
-token_specific_save_token_data(CK_SLOT_ID slot_id, FILE *fh)
+token_specific_save_token_data(STDLL_TokData_t *tokdata, CK_SLOT_ID slot_id,
+			       FILE *fh)
 {
 	CK_RV rc = CKR_OK;
 
@@ -590,7 +593,7 @@ CK_RV reset_token_data(CK_SLOT_ID slot_id, CK_CHAR_PTR pin, CK_ULONG pin_len)
 
 	/* Reset token data and keep token name */
 	slot_data[slot_id]->initialized = 0;
-	init_token_data(slot_id);
+	init_token_data(NULL, slot_id);
 	init_slotInfo();
 	nv_token_data->token_info.flags |= CKF_TOKEN_INITIALIZED;
 
@@ -612,7 +615,7 @@ CK_RV reset_token_data(CK_SLOT_ID slot_id, CK_CHAR_PTR pin, CK_ULONG pin_len)
 		}
 	}
 
-	if (save_token_data(slot_id)) {
+	if (save_token_data(NULL, slot_id)) {
 		TRACE_DEVEL("Failed to save token data.\n");
 		return CKR_FUNCTION_FAILED;
 	}
@@ -854,7 +857,7 @@ CK_RV icsftok_set_pin(STDLL_TokData_t *tokdata, SESSION *sess,
 		return CKR_SESSION_READ_ONLY;
 	}
 
-	rc = save_token_data(sid);
+	rc = save_token_data(tokdata, sid);
 	if (rc != CKR_OK) {
 		TRACE_ERROR("Save Token Failed.\n");
 		return rc;

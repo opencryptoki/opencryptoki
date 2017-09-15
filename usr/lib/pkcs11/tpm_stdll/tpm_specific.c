@@ -1896,7 +1896,7 @@ token_specific_set_pin(STDLL_TokData_t *tokdata, SESSION *sess,
 			nv_token_data->token_info.flags &= ~(CKF_USER_PIN_TO_BE_CHANGED);
 			nv_token_data->token_info.flags |= CKF_USER_PIN_INITIALIZED;
 
-			return save_token_data(sess->session_info.slotID);
+			return save_token_data(tokdata, sess->session_info.slotID);
 		}
 
 		if (sess->session_info.state == CKS_RW_USER_FUNCTIONS) {
@@ -1967,7 +1967,7 @@ token_specific_set_pin(STDLL_TokData_t *tokdata, SESSION *sess,
 
 			nv_token_data->token_info.flags &= ~(CKF_SO_PIN_TO_BE_CHANGED);
 
-			return save_token_data(sess->session_info.slotID);
+			return save_token_data(tokdata, sess->session_info.slotID);
 		}
 
 		if (memcmp(current_so_pin_sha, oldpin_hash, SHA1_HASH_SIZE)) {
@@ -2127,7 +2127,7 @@ done:
 
 	// META This should be fine since the open session checking should occur at
 	// the API not the STDLL
-	init_token_data(sid);
+	init_token_data(tokdata, sid);
 	init_slotInfo();
 	memcpy(nv_token_data->so_pin_sha, hash_sha, SHA1_HASH_SIZE);
 	nv_token_data->token_info.flags |= CKF_TOKEN_INITIALIZED;
@@ -2136,7 +2136,7 @@ done:
 	// New for v2.11 - KEY
 	nv_token_data->token_info.flags |= CKF_TOKEN_INITIALIZED;
 
-	rc = save_token_data(sid);
+	rc = save_token_data(tokdata, sid);
 	if (rc != CKR_OK) {
 		TRACE_DEVEL("save_token_data failed.\n");
 		return rc;
@@ -3497,7 +3497,7 @@ err:
 }
 
 CK_RV
-token_specific_init_token_data(CK_SLOT_ID slot_id)
+token_specific_init_token_data(STDLL_TokData_t *tokdata, CK_SLOT_ID slot_id)
 {
         /* do nothing. */
         return CKR_OK;

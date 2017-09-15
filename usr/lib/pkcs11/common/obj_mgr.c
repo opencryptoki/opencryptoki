@@ -159,7 +159,7 @@ object_mgr_add( STDLL_TokData_t  * tokdata,
             }
          }
 
-         memcpy( current, &nv_token_data->next_token_object_name, 8 );
+         memcpy( current, &tokdata->nv_token_data->next_token_object_name, 8 );
 
          o->session = NULL;
          memcpy( &o->name, current, 8 );
@@ -170,7 +170,7 @@ object_mgr_add( STDLL_TokData_t  * tokdata,
                 XProcUnLock();
                  goto done;
          }
-         memcpy( &nv_token_data->next_token_object_name, next, 8 );
+         memcpy( &tokdata->nv_token_data->next_token_object_name, next, 8 );
 
          rc = save_token_object( o );
          if (rc != CKR_OK) {
@@ -185,7 +185,7 @@ object_mgr_add( STDLL_TokData_t  * tokdata,
 
          // save_token_data has to lock the mutex itself because it's used elsewhere
          //
-         rc = save_token_data(sess->session_info.slotID);
+         rc = save_token_data(tokdata, sess->session_info.slotID);
          if (rc != CKR_OK) {
                  // TODO: handle error, check if rc is a valid per spec
                 XProcUnLock();
@@ -446,13 +446,13 @@ object_mgr_copy( STDLL_TokData_t  * tokdata,
                goto done;
             }
          }
-         memcpy( current, &nv_token_data->next_token_object_name, 8 );
+         memcpy( current, &tokdata->nv_token_data->next_token_object_name, 8 );
 
          new_obj->session = NULL;
          memcpy( &new_obj->name, current, 8 );
 
          compute_next_token_obj_name( current, next );
-         memcpy( &nv_token_data->next_token_object_name, next, 8 );
+         memcpy( &tokdata->nv_token_data->next_token_object_name, next, 8 );
 
          save_token_object( new_obj );
 
@@ -462,7 +462,7 @@ object_mgr_copy( STDLL_TokData_t  * tokdata,
 
          XProcUnLock();
 
-         save_token_data(sess->session_info.slotID);
+         save_token_data(tokdata, sess->session_info.slotID);
       }
 
       // now, store the object in the token object btree
@@ -669,13 +669,13 @@ object_mgr_create_final( STDLL_TokData_t  * tokdata,
                return CKR_HOST_MEMORY;
             }
          }
-         memcpy( current, &nv_token_data->next_token_object_name, 8 );
+         memcpy( current, &tokdata->nv_token_data->next_token_object_name, 8 );
 
          obj->session = NULL;
          memcpy( &obj->name, current, 8 );
 
          compute_next_token_obj_name( current, next );
-         memcpy( &nv_token_data->next_token_object_name, next, 8 );
+         memcpy( &tokdata->nv_token_data->next_token_object_name, next, 8 );
 
          save_token_object( obj );
 
@@ -685,7 +685,7 @@ object_mgr_create_final( STDLL_TokData_t  * tokdata,
 
          XProcUnLock();
 
-         save_token_data(sess->session_info.slotID);
+         save_token_data(tokdata, sess->session_info.slotID);
       }
 
       // now, store the object in the token object btree
