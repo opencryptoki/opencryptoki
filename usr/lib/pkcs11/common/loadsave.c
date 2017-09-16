@@ -124,7 +124,8 @@ done:
 	return initial_vector;
 }
 
-static CK_RV encrypt_data(CK_BYTE *key, CK_ULONG keylen, const CK_BYTE *iv,
+static CK_RV encrypt_data(STDLL_TokData_t *tokdata, CK_BYTE *key,
+			  CK_ULONG keylen, const CK_BYTE *iv,
 			  CK_BYTE *clear, CK_ULONG clear_len,
 			  CK_BYTE *cipher, CK_ULONG *p_cipher_len)
 {
@@ -152,7 +153,7 @@ static CK_RV encrypt_data(CK_BYTE *key, CK_ULONG keylen, const CK_BYTE *iv,
 		TRACE_ERROR("%s\n", ock_err(ERR_MECHANISM_INVALID));
 		return ERR_MECHANISM_INVALID;
 	}
-	rc = object_create_skel(NULL, key_tmpl, 3, MODE_CREATE,
+	rc = object_create_skel(tokdata, key_tmpl, 3, MODE_CREATE,
 				CKO_SECRET_KEY, keyType, &keyobj);
 	if (rc != CKR_OK) {
 		TRACE_DEVEL("object_create_skel failed.\n");
@@ -167,12 +168,12 @@ static CK_RV encrypt_data(CK_BYTE *key, CK_ULONG keylen, const CK_BYTE *iv,
 
 	switch (token_specific.data_store.encryption_algorithm) {
 	case CKM_DES3_CBC:
-		rc = ckm_des3_cbc_encrypt(NULL, clear, clear_len,
+		rc = ckm_des3_cbc_encrypt(tokdata, clear, clear_len,
 					  cipher, p_cipher_len,
 					  initial_vector, keyobj);
 		break;
 	case CKM_AES_CBC:
-		rc = ckm_aes_cbc_encrypt(NULL, clear, clear_len,
+		rc = ckm_aes_cbc_encrypt(tokdata, clear, clear_len,
 		                         cipher, p_cipher_len,
 					 initial_vector, keyobj);
 		break;
@@ -192,7 +193,8 @@ static CK_RV encrypt_data(CK_BYTE *key, CK_ULONG keylen, const CK_BYTE *iv,
 #endif
 }
 
-static CK_RV encrypt_data_with_clear_key(CK_BYTE *key, CK_ULONG keylen,
+static CK_RV encrypt_data_with_clear_key(STDLL_TokData_t * tokdata,
+					 CK_BYTE *key, CK_ULONG keylen,
 					 const CK_BYTE *iv,
 					 CK_BYTE *clear, CK_ULONG clear_len,
 					 CK_BYTE *cipher, CK_ULONG *p_cipher_len)
@@ -205,7 +207,7 @@ static CK_RV encrypt_data_with_clear_key(CK_BYTE *key, CK_ULONG keylen,
 	 * clear key.
 	 */
 	if (token_specific.token_keysize == 0) {
-		return encrypt_data(key, keylen, iv, clear, clear_len,
+		return encrypt_data(tokdata, key, keylen, iv, clear, clear_len,
 				    cipher, p_cipher_len);
 	}
 
@@ -509,24 +511,23 @@ out_nolock:
 
 //
 //
-CK_RV save_token_object(OBJECT * obj)
+CK_RV save_token_object(STDLL_TokData_t *tokdata, OBJECT * obj)
 {
 	FILE *fp = NULL;
 	CK_BYTE line[100];
 	CK_RV rc;
 	CK_BYTE fname[PATH_MAX];
-	char pk_dir_buf[PATH_MAX];
 
 	if (object_is_private(obj) == TRUE)
-		rc = save_private_token_object(obj);
+		rc = save_private_token_object(tokdata, obj);
 	else
-		rc = save_public_token_object(obj);
+		rc = save_public_token_object(tokdata, obj);
 
 	if (rc != CKR_OK)
 		return rc;
 
 	// update the index file if it exists
-	sprintf(fname, "%s/%s/%s", get_pk_dir(pk_dir_buf), PK_LITE_OBJ_DIR,
+	sprintf(fname, "%s/%s/%s", tokdata->data_store, PK_LITE_OBJ_DIR,
 		PK_LITE_OBJ_IDX);
 	fp = fopen((char *)fname, "r");
 	if (fp) {
@@ -563,7 +564,7 @@ CK_RV save_token_object(OBJECT * obj)
 // this is the same as the old version.  public token objects are stored in the
 // clear
 //
-CK_RV save_public_token_object(OBJECT * obj)
+CK_RV save_public_token_object(STDLL_TokData_t *tokdata, OBJECT * obj)
 {
 	FILE *fp = NULL;
 	CK_BYTE *clear = NULL;
@@ -572,14 +573,13 @@ CK_RV save_public_token_object(OBJECT * obj)
 	CK_BBOOL flag = FALSE;
 	CK_RV rc;
 	CK_ULONG_32 total_len;
-	char pk_dir_buf[PATH_MAX];
 
 	rc = object_flatten(obj, &clear, &clear_len);
 	if (rc != CKR_OK) {
 		goto error;
 	}
 
-	sprintf(fname, "%s/%s/", get_pk_dir(pk_dir_buf), PK_LITE_OBJ_DIR);
+	sprintf(fname, "%s/%s/", tokdata->data_store, PK_LITE_OBJ_DIR);
 	strncat((char *)fname, (char *)obj->name, 8);
 	fp = fopen((char *)fname, "w");
 	if (!fp) {
@@ -611,7 +611,7 @@ error:
 
 //
 //
-CK_RV save_private_token_object(OBJECT * obj)
+CK_RV save_private_token_object(STDLL_TokData_t *tokdata, OBJECT * obj)
 {
 	FILE *fp = NULL;
 	CK_BYTE *obj_data = NULL;
@@ -629,7 +629,6 @@ CK_RV save_private_token_object(OBJECT * obj)
 	CK_RV rc;
 	CK_ULONG_32 obj_data_len_32;
 	CK_ULONG_32 total_len;
-	char pk_dir_buf[PATH_MAX];
 
 	rc = object_flatten(obj, &obj_data, &obj_data_len);
 	obj_data_len_32 = obj_data_len;
@@ -645,7 +644,7 @@ CK_RV save_private_token_object(OBJECT * obj)
 	//       SHA of (object data)             |
 	//    ---- end encrypted part          <--+
 	//
-	compute_sha1(NULL, obj_data, obj_data_len, hash_sha);
+	compute_sha1(tokdata, obj_data, obj_data_len, hash_sha);
 
 	// encrypt the sensitive object data.  need to be careful.
 	// if I use the normal high-level encryption routines I'll need to
@@ -687,14 +686,14 @@ CK_RV save_private_token_object(OBJECT * obj)
 	add_pkcs_padding(clear + clear_len, block_size, clear_len,
 			 padded_len);
 
-	rc = encrypt_data_with_clear_key(key, key_len,
+	rc = encrypt_data_with_clear_key(tokdata, key, key_len,
 			  token_specific.data_store.obj_initial_vector,
 			  clear, padded_len, cipher, &cipher_len);
 	if (rc != CKR_OK) {
 		goto error;
 	}
 
-	sprintf(fname, "%s/%s/", get_pk_dir(pk_dir_buf), PK_LITE_OBJ_DIR);
+	sprintf(fname, "%s/%s/", tokdata->data_store, PK_LITE_OBJ_DIR);
 	strncat((char *)fname, (char *)obj->name, 8);
 	fp = fopen((char *)fname, "w");
 	if (!fp) {
@@ -1269,7 +1268,7 @@ CK_RV save_masterkey_so(void)
 	memcpy(key, so_pin_md5, MD5_HASH_SIZE);
 	memcpy(key + MD5_HASH_SIZE, so_pin_md5, key_len - MD5_HASH_SIZE);
 
-	rc = encrypt_data_with_clear_key(key, key_len,
+	rc = encrypt_data_with_clear_key(NULL, key, key_len,
 					 token_specific.data_store.pin_initial_vector,
 					 clear, clear_len,
 					 cipher, &cipher_len);
@@ -1360,7 +1359,7 @@ CK_RV save_masterkey_user(void)
 	memcpy(key, user_pin_md5, MD5_HASH_SIZE);
 	memcpy(key + MD5_HASH_SIZE, user_pin_md5, key_len - MD5_HASH_SIZE);
 
-	rc = encrypt_data_with_clear_key(key, key_len,
+	rc = encrypt_data_with_clear_key(NULL, key, key_len,
 					 token_specific.data_store.pin_initial_vector,
 					 clear, clear_len,
 					 cipher, &cipher_len);

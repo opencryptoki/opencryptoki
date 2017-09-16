@@ -574,7 +574,7 @@ token_wrap_key_object( CK_OBJECT_HANDLE ckObject, TSS_HKEY hParentKey, TSS_HKEY 
 	/* if this is a token object, save it with the new attribute so that we
 	 * don't have to go down this path again */
 	if (!object_is_session_object(obj)) {
-		rc = save_token_object(obj);
+		rc = save_token_object(NULL, obj);
 	}
 
 	return rc;
