@@ -496,12 +496,13 @@ CK_RV save_token_object        ( OBJECT *obj );
 CK_RV save_public_token_object ( OBJECT *obj );
 CK_RV save_private_token_object( OBJECT *obj );
 
-CK_RV load_public_token_objects ( void );
-CK_RV load_private_token_objects( void );
+CK_RV load_public_token_objects ( STDLL_TokData_t *tokdata);
+CK_RV load_private_token_objects( STDLL_TokData_t *tokdata );
 
-CK_RV reload_token_object( OBJECT *obj );
+CK_RV reload_token_object(STDLL_TokData_t *tokdata, OBJECT *obj );
 
-CK_RV restore_private_token_object( CK_BYTE  * data,
+CK_RV restore_private_token_object( STDLL_TokData_t *tokdata,
+				    CK_BYTE  * data,
                                     CK_ULONG   len,
                                     OBJECT   * pObj );
 
