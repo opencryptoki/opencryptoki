@@ -2218,9 +2218,12 @@ CK_BBOOL object_mgr_purge_token_objects( STDLL_TokData_t *tokdata );
 
 CK_BBOOL object_mgr_purge_private_token_objects( STDLL_TokData_t *tokdata );
 
-CK_RV    object_mgr_restore_obj( CK_BYTE *data, OBJECT *oldObj );
+CK_RV    object_mgr_restore_obj( STDLL_TokData_t  *tokdata, CK_BYTE *data,
+				 OBJECT *oldObj );
 
-CK_RV    object_mgr_restore_obj_withSize( CK_BYTE *data, OBJECT *oldObj, int data_size );
+CK_RV    object_mgr_restore_obj_withSize( STDLL_TokData_t *tokdata,
+					  CK_BYTE *data, OBJECT *oldObj,
+					  int data_size );
 
 CK_RV    object_mgr_set_attribute_values( STDLL_TokData_t  *tokdata,
 					  SESSION          * sess,
