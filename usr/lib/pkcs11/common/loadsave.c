@@ -664,7 +664,7 @@ CK_RV save_private_token_object(STDLL_TokData_t *tokdata, OBJECT * obj)
 	key = malloc(key_len);
 	if (!key)
 		goto oom_error;
-	memcpy(key, master_key, key_len);
+	memcpy(key, tokdata->nv_token_data->master_key, key_len);
 
 
 	clear_len = sizeof(CK_ULONG_32) + obj_data_len_32 + SHA1_HASH_SIZE;
@@ -938,7 +938,7 @@ CK_RV restore_private_token_object(STDLL_TokData_t *tokdata, CK_BYTE * data,
 		rc = ERR_HOST_MEMORY;
 		goto done;
 	}
-	memcpy(key, master_key, key_len);
+	memcpy(key, tokdata->nv_token_data->master_key, key_len);
 
 	rc = decrypt_data_with_clear_key(tokdata, key, key_len,
 			  token_specific.data_store.obj_initial_vector,
@@ -1006,7 +1006,7 @@ done:
 
 //
 //
-CK_RV load_masterkey_so(void)
+CK_RV load_masterkey_so(STDLL_TokData_t *tokdata)
 {
 	FILE *fp = NULL;
 	CK_BYTE hash_sha[SHA1_HASH_SIZE];
@@ -1020,7 +1020,6 @@ CK_RV load_masterkey_so(void)
 	CK_ULONG key_len = 0L;
 	CK_ULONG master_key_len = 0L;
 	CK_ULONG block_size = 0L;
-	char pk_dir_buf[PATH_MAX];
 
 	if ((rc = get_encryption_info_for_clear_key(&key_len,
 						    &block_size)) != CKR_OK)
@@ -1029,7 +1028,7 @@ CK_RV load_masterkey_so(void)
 	if ((rc = get_encryption_info(&master_key_len, NULL)) != CKR_OK)
 		goto done;
 
-	memset(master_key, 0x0, master_key_len);
+	memset(tokdata->nv_token_data->master_key, 0x0, master_key_len);
 
 	data_len = master_key_len + SHA1_HASH_SIZE;
 	clear_len = cipher_len = (data_len + block_size - 1)
@@ -1046,7 +1045,7 @@ CK_RV load_masterkey_so(void)
 	// this file gets created on C_InitToken so we can assume that it always
 	// exists
 	//
-	sprintf(fname, "%s/MK_SO", get_pk_dir(pk_dir_buf));
+	sprintf(fname, "%s/MK_SO", tokdata->data_store);
 	fp = fopen((char *)fname, "r");
 	if (!fp) {
 		TRACE_ERROR("fopen(%s): %s\n", fname, strerror(errno));
@@ -1068,7 +1067,7 @@ CK_RV load_masterkey_so(void)
 	memcpy(key, so_pin_md5, MD5_HASH_SIZE);
 	memcpy(key + MD5_HASH_SIZE, so_pin_md5, key_len - MD5_HASH_SIZE);
 
-	rc = decrypt_data_with_clear_key(NULL, key, key_len,
+	rc = decrypt_data_with_clear_key(tokdata, key, key_len,
 					 token_specific.data_store.pin_initial_vector,
 					 cipher, cipher_len,
 					 clear, &clear_len);
@@ -1084,7 +1083,7 @@ CK_RV load_masterkey_so(void)
 
 	// compare the hashes
 	//
-	rc = compute_sha1(NULL, clear, master_key_len, hash_sha);
+	rc = compute_sha1(tokdata, clear, master_key_len, hash_sha);
 	if (rc != CKR_OK) {
 		goto done;
 	}
@@ -1095,7 +1094,7 @@ CK_RV load_masterkey_so(void)
 		goto done;
 	}
 
-	memcpy(master_key, clear, master_key_len);
+	memcpy(tokdata->nv_token_data->master_key, clear, master_key_len);
 	rc = CKR_OK;
 
 done:
@@ -1112,7 +1111,7 @@ done:
 
 //
 //
-CK_RV load_masterkey_user(void)
+CK_RV load_masterkey_user(STDLL_TokData_t *tokdata)
 {
 	FILE *fp = NULL;
 	CK_BYTE hash_sha[SHA1_HASH_SIZE];
@@ -1126,7 +1125,6 @@ CK_RV load_masterkey_user(void)
 	CK_ULONG key_len = 0L;
 	CK_ULONG master_key_len = 0L;
 	CK_ULONG block_size = 0L;
-	char pk_dir_buf[PATH_MAX];
 
 	if ((rc = get_encryption_info_for_clear_key(&key_len,
 						    &block_size)) != CKR_OK)
@@ -1135,7 +1133,7 @@ CK_RV load_masterkey_user(void)
 	if ((rc = get_encryption_info(&master_key_len, NULL)) != CKR_OK)
 		goto done;
 
-	memset(master_key, 0x0, master_key_len);
+	memset(tokdata->nv_token_data->master_key, 0x0, master_key_len);
 
 	data_len = master_key_len + SHA1_HASH_SIZE;
 	clear_len = cipher_len = (data_len + block_size - 1)
@@ -1152,7 +1150,7 @@ CK_RV load_masterkey_user(void)
 	// this file gets created on C_InitToken so we can assume that it always
 	// exists
 	//
-	sprintf(fname, "%s/MK_USER", get_pk_dir(pk_dir_buf));
+	sprintf(fname, "%s/MK_USER", tokdata->data_store);
 	fp = fopen((char *)fname, "r");
 	if (!fp) {
 		TRACE_ERROR("fopen(%s): %s\n", fname, strerror(errno));
@@ -1173,7 +1171,7 @@ CK_RV load_masterkey_user(void)
 	memcpy(key, user_pin_md5, MD5_HASH_SIZE);
 	memcpy(key + MD5_HASH_SIZE, user_pin_md5, key_len - MD5_HASH_SIZE);
 
-	rc = decrypt_data_with_clear_key(NULL, key, key_len,
+	rc = decrypt_data_with_clear_key(tokdata, key, key_len,
 					 token_specific.data_store.pin_initial_vector,
 					 cipher, cipher_len,
 					 clear, &clear_len);
@@ -1189,7 +1187,7 @@ CK_RV load_masterkey_user(void)
 
 	// compare the hashes
 	//
-	rc = compute_sha1(NULL, clear, master_key_len, hash_sha);
+	rc = compute_sha1(tokdata, clear, master_key_len, hash_sha);
 	if (rc != CKR_OK) {
 		goto done;
 	}
@@ -1200,7 +1198,7 @@ CK_RV load_masterkey_user(void)
 		goto done;
 	}
 
-	memcpy(master_key, clear, master_key_len);
+	memcpy(tokdata->nv_token_data->master_key, clear, master_key_len);
 	rc = CKR_OK;
 
 done:
@@ -1217,7 +1215,7 @@ done:
 
 //
 //
-CK_RV save_masterkey_so(void)
+CK_RV save_masterkey_so(STDLL_TokData_t *tokdata)
 {
 	FILE *fp = NULL;
 	CK_BYTE *clear = NULL;
@@ -1231,10 +1229,9 @@ CK_RV save_masterkey_so(void)
 	CK_ULONG data_len = 0L;
 	CK_BYTE fname[PATH_MAX];
 	CK_RV rc;
-	char pk_dir_buf[PATH_MAX];
 
 	/* Skip it if master key is not needed. */
-   	if (!token_specific.data_store.use_master_key)
+	if (!token_specific.data_store.use_master_key)
 		return CKR_OK;
 
 	if ((rc = get_encryption_info_for_clear_key(&key_len,
@@ -1257,9 +1254,9 @@ CK_RV save_masterkey_so(void)
 	}
 
 	// Copy data to buffer (key+hash)
-	memcpy(clear, master_key, master_key_len);
-	if ((rc = compute_sha1(NULL, master_key, master_key_len,
-			      clear + master_key_len)) != CKR_OK)
+	memcpy(clear, tokdata->nv_token_data->master_key, master_key_len);
+	if ((rc = compute_sha1(tokdata, tokdata->nv_token_data->master_key,
+			       master_key_len, clear + master_key_len)) != CKR_OK)
 		goto done;
 	add_pkcs_padding(clear + data_len, block_size, data_len,
 			 clear_len);
@@ -1268,7 +1265,7 @@ CK_RV save_masterkey_so(void)
 	memcpy(key, so_pin_md5, MD5_HASH_SIZE);
 	memcpy(key + MD5_HASH_SIZE, so_pin_md5, key_len - MD5_HASH_SIZE);
 
-	rc = encrypt_data_with_clear_key(NULL, key, key_len,
+	rc = encrypt_data_with_clear_key(tokdata, key, key_len,
 					 token_specific.data_store.pin_initial_vector,
 					 clear, clear_len,
 					 cipher, &cipher_len);
@@ -1280,7 +1277,7 @@ CK_RV save_masterkey_so(void)
 	//
 	// probably ought to ensure the permissions are correct
 	//
-	sprintf(fname, "%s/MK_SO", get_pk_dir(pk_dir_buf));
+	sprintf(fname, "%s/MK_SO", tokdata->data_store);
 	fp = fopen((char *)fname, "w");
 	if (!fp) {
 		TRACE_ERROR("fopen(%s): %s\n", fname, strerror(errno));
@@ -1312,7 +1309,7 @@ done:
 
 //
 //
-CK_RV save_masterkey_user(void)
+CK_RV save_masterkey_user(STDLL_TokData_t *tokdata)
 {
 	FILE *fp = NULL;
 	CK_BYTE *clear = NULL;
@@ -1326,7 +1323,6 @@ CK_RV save_masterkey_user(void)
 	CK_ULONG data_len = 0L;
 	CK_BYTE fname[PATH_MAX];
 	CK_RV rc;
-	char pk_dir_buf[PATH_MAX];
 
 	if ((rc = get_encryption_info_for_clear_key(&key_len,
 						    &block_size)) != CKR_OK)
@@ -1348,9 +1344,9 @@ CK_RV save_masterkey_user(void)
 	}
 
 	// Copy data to buffer (key+hash)
-	memcpy(clear, master_key, master_key_len);
-	if ((rc = compute_sha1(NULL, master_key, master_key_len,
-			      clear + master_key_len)) != CKR_OK)
+	memcpy(clear, tokdata->nv_token_data->master_key, master_key_len);
+	if ((rc = compute_sha1(tokdata, tokdata->nv_token_data->master_key,
+			       master_key_len, clear + master_key_len)) != CKR_OK)
 		goto done;
 	add_pkcs_padding(clear + data_len, block_size , data_len,
 			 clear_len);
@@ -1359,7 +1355,7 @@ CK_RV save_masterkey_user(void)
 	memcpy(key, user_pin_md5, MD5_HASH_SIZE);
 	memcpy(key + MD5_HASH_SIZE, user_pin_md5, key_len - MD5_HASH_SIZE);
 
-	rc = encrypt_data_with_clear_key(NULL, key, key_len,
+	rc = encrypt_data_with_clear_key(tokdata, key, key_len,
 					 token_specific.data_store.pin_initial_vector,
 					 clear, clear_len,
 					 cipher, &cipher_len);
@@ -1371,7 +1367,7 @@ CK_RV save_masterkey_user(void)
 	//
 	// probably ought to ensure the permissions are correct
 	//
-	sprintf(fname, "%s/MK_USER", get_pk_dir(pk_dir_buf));
+	sprintf(fname, "%s/MK_USER", tokdata->data_store);
 	fp = fopen((char *)fname, "w");
 	if (!fp) {
 		TRACE_ERROR("fopen(%s): %s\n", fname, strerror(errno));
@@ -1567,7 +1563,7 @@ done:
 	return rc;
 }
 
-CK_RV generate_master_key(CK_BYTE *key)
+CK_RV generate_master_key(STDLL_TokData_t *tokdata, CK_BYTE *key)
 {
 	CK_RV rc = CKR_OK;
 	CK_ULONG key_len = 0L;
@@ -1585,18 +1581,18 @@ CK_RV generate_master_key(CK_BYTE *key)
 	 * software(openssl), not token. So generate masterkey via RNG.
 	 */
 	if (token_specific.token_keysize)
-		return rng_generate(NULL, key, key_len);
+		return rng_generate(tokdata, key, key_len);
 
 	/* For clear key tokens, let token generate masterkey
 	 * since token will also encrypt/decrypt the objects.
 	 */
 	switch (token_specific.data_store.encryption_algorithm) {
 	case CKM_DES3_CBC:
-		return token_specific.t_des_key_gen(NULL, key, master_key_len,
-						    key_len);
+		return token_specific.t_des_key_gen(tokdata, key,
+						    master_key_len, key_len);
 	case CKM_AES_CBC:
-		return token_specific.t_aes_key_gen(NULL, key, master_key_len,
-						    key_len);
+		return token_specific.t_aes_key_gen(tokdata, key,
+						    master_key_len, key_len);
 	}
 
 	return ERR_MECHANISM_INVALID;

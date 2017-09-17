@@ -733,8 +733,9 @@ CK_RV icsftok_init_pin(STDLL_TokData_t *tokdata, SESSION *sess,
 	if (slot_data[sid]->mech == ICSF_CFG_MECH_SIMPLE) {
 		sprintf(fname, "%s/MK_USER", get_pk_dir(pk_dir_buf));
 
-		rc = secure_masterkey(master_key, AES_KEY_SIZE_256, pPin,
-					ulPinLen, fname);
+		rc = secure_masterkey(tokdata->nv_token_data->master_key,
+				      AES_KEY_SIZE_256, pPin,
+				      ulPinLen, fname);
 		if (rc != CKR_OK) {
 			TRACE_DEVEL("Could not create MK_USER.\n");
 			return rc;
@@ -798,8 +799,9 @@ CK_RV icsftok_set_pin(STDLL_TokData_t *tokdata, SESSION *sess,
 		/* if using simple auth, encrypt masterkey with new pin */
 		if (slot_data[sid]->mech == ICSF_CFG_MECH_SIMPLE) {
 			sprintf (fname, "%s/MK_USER", get_pk_dir(pk_dir_buf));
-			rc = secure_masterkey(master_key, AES_KEY_SIZE_256,
-						pNewPin, ulNewLen, fname);
+			rc = secure_masterkey(tokdata->nv_token_data->master_key,
+					      AES_KEY_SIZE_256,
+					      pNewPin, ulNewLen, fname);
 			if (rc != CKR_OK) {
 				TRACE_ERROR("Save Master Key Failed.\n");
 				return rc;
@@ -835,7 +837,8 @@ CK_RV icsftok_set_pin(STDLL_TokData_t *tokdata, SESSION *sess,
 			 * if using simle auth, encrypt masterkey with new pin
 			 */
 			sprintf (fname, "%s/MK_SO", get_pk_dir(pk_dir_buf));
-			rc = secure_masterkey(master_key, AES_KEY_SIZE_256,
+			rc = secure_masterkey(tokdata->nv_token_data->master_key,
+					      AES_KEY_SIZE_256,
 					      pNewPin, ulNewLen, fname);
 			if (rc != CKR_OK) {
 				TRACE_ERROR("Save Master Key Failed.\n");
@@ -882,7 +885,8 @@ LDAP *getLDAPhandle(CK_SLOT_ID slot_id)
 	if (slot_data[slot_id]->mech == ICSF_CFG_MECH_SIMPLE) {
 		TRACE_INFO("Using SIMPLE auth with slot ID: %lu\n", slot_id);
 		/* get racf passwd */
-		rc = get_racf(master_key, AES_KEY_SIZE_256, racfpwd, &racflen);
+		rc = get_racf(nv_token_data->master_key,
+			      AES_KEY_SIZE_256, racfpwd, &racflen);
 		if (rc != CKR_OK) {
 			TRACE_DEVEL("Failed to get racf passwd.\n");
 			return NULL;
@@ -1153,7 +1157,8 @@ CK_RV icsftok_login(STDLL_TokData_t *tokdata, SESSION *sess,
 		/* now load the master key */
 		if (slot_data[slot_id]->mech == ICSF_CFG_MECH_SIMPLE) {
 			sprintf(fname, "%s/MK_USER", get_pk_dir(pk_dir_buf));
-			rc = get_masterkey(pPin, ulPinLen, fname, master_key,
+			rc = get_masterkey(pPin, ulPinLen, fname,
+					   tokdata->nv_token_data->master_key,
 					   &mklen);
 			if (rc != CKR_OK) {
 				TRACE_DEVEL("Failed to load master key.\n");
@@ -1173,7 +1178,8 @@ CK_RV icsftok_login(STDLL_TokData_t *tokdata, SESSION *sess,
 		if (slot_data[slot_id]->mech == ICSF_CFG_MECH_SIMPLE) {
 			/* now load the master key */
 			sprintf(fname, "%s/MK_SO", get_pk_dir(pk_dir_buf));
-			rc = get_masterkey(pPin, ulPinLen, fname, master_key,
+			rc = get_masterkey(pPin, ulPinLen, fname,
+					   tokdata->nv_token_data->master_key,
 					   &mklen);
 			if (rc != CKR_OK) {
 				TRACE_DEVEL("Failed to load master key.\n");

@@ -515,12 +515,12 @@ CK_RV init_token_data(STDLL_TokData_t *, CK_SLOT_ID);
 CK_RV load_token_data(STDLL_TokData_t *, CK_SLOT_ID);
 CK_RV save_token_data(STDLL_TokData_t *, CK_SLOT_ID);
 
-CK_RV load_masterkey_so  ( void );
-CK_RV load_masterkey_user( void );
-CK_RV save_masterkey_so  ( void );
-CK_RV save_masterkey_user( void );
+CK_RV load_masterkey_so  ( STDLL_TokData_t * tokdata );
+CK_RV load_masterkey_user( STDLL_TokData_t * tokdata );
+CK_RV save_masterkey_so  ( STDLL_TokData_t * tokdata );
+CK_RV save_masterkey_user( STDLL_TokData_t * tokdata );
 
-CK_RV generate_master_key(CK_BYTE *key);
+CK_RV generate_master_key(STDLL_TokData_t *tokdata, CK_BYTE *key);
 
 void init_data_store(char *directory, char *data_store);
 
