@@ -2129,9 +2129,9 @@ done:
 	// the API not the STDLL
 	init_token_data(tokdata, sid);
 	init_slotInfo(&tokdata->slot_info);
-	memcpy(nv_token_data->so_pin_sha, hash_sha, SHA1_HASH_SIZE);
-	nv_token_data->token_info.flags |= CKF_TOKEN_INITIALIZED;
-	memcpy(nv_token_data->token_info.label, pLabel, 32);
+	memcpy(tokdata->nv_token_data->so_pin_sha, hash_sha, SHA1_HASH_SIZE);
+	tokdata->nv_token_data->token_info.flags |= CKF_TOKEN_INITIALIZED;
+	memcpy(tokdata->nv_token_data->token_info.label, pLabel, 32);
 
 	// New for v2.11 - KEY
 	nv_token_data->token_info.flags |= CKF_TOKEN_INITIALIZED;

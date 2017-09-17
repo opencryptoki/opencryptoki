@@ -881,7 +881,7 @@ CK_RV SC_Logout(STDLL_TokData_t *tokdata, ST_SESSION_HANDLE *sSession)
 
 
 	memset(tokdata->nv_token_data->user_pin_md5, 0x0, MD5_HASH_SIZE);
-	memset(so_pin_md5, 0x0, MD5_HASH_SIZE);
+	memset(tokdata->nv_token_data->so_pin_md5, 0x0, MD5_HASH_SIZE);
 
 	object_mgr_purge_private_token_objects();
 
