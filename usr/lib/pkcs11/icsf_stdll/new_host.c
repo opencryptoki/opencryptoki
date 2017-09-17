@@ -880,7 +880,7 @@ CK_RV SC_Logout(STDLL_TokData_t *tokdata, ST_SESSION_HANDLE *sSession)
 		TRACE_DEVEL("session_mgr_logout_all failed.\n");
 
 
-	memset(user_pin_md5, 0x0, MD5_HASH_SIZE);
+	memset(tokdata->nv_token_data->user_pin_md5, 0x0, MD5_HASH_SIZE);
 	memset(so_pin_md5, 0x0, MD5_HASH_SIZE);
 
 	object_mgr_purge_private_token_objects();

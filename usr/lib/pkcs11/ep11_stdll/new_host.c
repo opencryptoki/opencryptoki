@@ -493,12 +493,12 @@ CK_RV SC_InitPIN(STDLL_TokData_t *tokdata, ST_SESSION_HANDLE *sSession,
 		TRACE_ERROR("Failed to get process lock.\n");
 		goto done;
 	}
-	memcpy(nv_token_data->user_pin_sha, hash_sha, SHA1_HASH_SIZE);
-	nv_token_data->token_info.flags |= CKF_USER_PIN_INITIALIZED;
-	nv_token_data->token_info.flags &= ~(CKF_USER_PIN_TO_BE_CHANGED);
-	nv_token_data->token_info.flags &= ~(CKF_USER_PIN_LOCKED);
+	memcpy(tokdata->nv_token_data->user_pin_sha, hash_sha, SHA1_HASH_SIZE);
+	tokdata->nv_token_data->token_info.flags |= CKF_USER_PIN_INITIALIZED;
+	tokdata->nv_token_data->token_info.flags &= ~(CKF_USER_PIN_TO_BE_CHANGED);
+	tokdata->nv_token_data->token_info.flags &= ~(CKF_USER_PIN_LOCKED);
 	XProcUnLock();
-	memcpy(user_pin_md5, hash_md5, MD5_HASH_SIZE);
+	memcpy(tokdata->nv_token_data->user_pin_md5, hash_md5, MD5_HASH_SIZE);
 	rc = save_token_data(tokdata, sess->session_info.slotID);
 	if (rc != CKR_OK) {
 		TRACE_DEVEL("Failed to save token data.\n");
@@ -562,7 +562,7 @@ CK_RV SC_SetPIN(STDLL_TokData_t *tokdata, ST_SESSION_HANDLE *sSession, CK_CHAR_P
 	 */
 	if ((sess->session_info.state == CKS_RW_USER_FUNCTIONS) ||
 	    (sess->session_info.state == CKS_RW_PUBLIC_SESSION)) {
-		if (memcmp(nv_token_data->user_pin_sha, old_hash_sha,
+		if (memcmp(tokdata->nv_token_data->user_pin_sha, old_hash_sha,
 			   SHA1_HASH_SIZE) != 0) {
 			TRACE_ERROR("%s\n", ock_err(ERR_PIN_INCORRECT));
 			rc = CKR_PIN_INCORRECT;
@@ -588,10 +588,11 @@ CK_RV SC_SetPIN(STDLL_TokData_t *tokdata, ST_SESSION_HANDLE *sSession, CK_CHAR_P
 			TRACE_DEVEL("Failed to get process lock.\n");
 			goto done;
 		}
-		memcpy(nv_token_data->user_pin_sha, new_hash_sha,
+		memcpy(tokdata->nv_token_data->user_pin_sha, new_hash_sha,
 		       SHA1_HASH_SIZE);
-		memcpy(user_pin_md5, hash_md5, MD5_HASH_SIZE);
-		nv_token_data->token_info.flags &=
+		memcpy(tokdata->nv_token_data->user_pin_md5, hash_md5,
+		       MD5_HASH_SIZE);
+		tokdata->nv_token_data->token_info.flags &=
 			~(CKF_USER_PIN_TO_BE_CHANGED);
 		XProcUnLock();
 		rc = save_token_data(tokdata, sess->session_info.slotID);
@@ -916,7 +917,7 @@ CK_RV SC_Login(STDLL_TokData_t *tokdata, ST_SESSION_HANDLE *sSession,
 			goto done;
 		}
 
-		if (memcmp(nv_token_data->user_pin_sha,
+		if (memcmp(tokdata->nv_token_data->user_pin_sha,
 			   "00000000000000000000", SHA1_HASH_SIZE) == 0) {
 			TRACE_ERROR("%s\n",
 				    ock_err(ERR_USER_PIN_NOT_INITIALIZED));
@@ -1025,7 +1026,7 @@ CK_RV SC_Logout(STDLL_TokData_t *tokdata, ST_SESSION_HANDLE *sSession)
 	if (rc != CKR_OK)
 		TRACE_DEVEL("session_mgr_logout_all failed.\n");
 
-	memset(user_pin_md5, 0x0, MD5_HASH_SIZE);
+	memset(tokdata->nv_token_data->user_pin_md5, 0x0, MD5_HASH_SIZE);
 	memset(so_pin_md5, 0x0, MD5_HASH_SIZE);
 
 	object_mgr_purge_private_token_objects();
