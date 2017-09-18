@@ -402,7 +402,7 @@ CK_RV SC_InitToken(STDLL_TokData_t *tokdata, CK_SLOT_ID sid, CK_CHAR_PTR pPin,
 		rc = CKR_ARGUMENTS_BAD;
 		goto done;
 	}
-	if (nv_token_data->token_info.flags & CKF_SO_PIN_LOCKED) {
+	if (tokdata->nv_token_data->token_info.flags & CKF_SO_PIN_LOCKED) {
 		TRACE_ERROR("%s\n", ock_err(ERR_PIN_LOCKED));
 		rc = CKR_PIN_LOCKED;
 		goto done;
@@ -445,7 +445,8 @@ CK_RV SC_InitPIN(STDLL_TokData_t *tokdata, ST_SESSION_HANDLE *sSession,
 	//set the handle here as handle is never set into session during creation
 	sess->handle = sSession->sessionh;
 
-	if (pin_locked(&sess->session_info, nv_token_data->token_info.flags) == TRUE) {
+	if (pin_locked(&sess->session_info,
+		       tokdata->nv_token_data->token_info.flags) == TRUE) {
 		TRACE_ERROR("%s\n", ock_err(ERR_PIN_LOCKED));
 		rc = CKR_PIN_LOCKED;
 		goto done;
@@ -458,7 +459,7 @@ CK_RV SC_InitPIN(STDLL_TokData_t *tokdata, ST_SESSION_HANDLE *sSession,
 
 	rc = icsftok_init_pin(tokdata, sess, pPin, ulPinLen);
 	if (rc == CKR_OK) {
-		flags = &nv_token_data->token_info.flags;
+		flags = &tokdata->nv_token_data->token_info.flags;
 		*flags &= ~(CKF_USER_PIN_LOCKED | CKF_USER_PIN_FINAL_TRY |
 			    CKF_USER_PIN_COUNT_LOW);
 		rc = save_token_data(tokdata, sess->session_info.slotID);
@@ -493,7 +494,7 @@ CK_RV SC_SetPIN(STDLL_TokData_t *tokdata, ST_SESSION_HANDLE *sSession,
 	sess->handle = sSession->sessionh;
 
 	if (pin_locked(&sess->session_info,
-		       nv_token_data->token_info.flags) == TRUE) {
+		       tokdata->nv_token_data->token_info.flags) == TRUE) {
 		TRACE_ERROR("%s\n", ock_err(ERR_PIN_LOCKED));
 		rc = CKR_PIN_LOCKED;
 		goto done;
@@ -752,7 +753,7 @@ CK_RV SC_Login(STDLL_TokData_t *tokdata, ST_SESSION_HANDLE *sSession,
 	//set the handle into the session.
 	sess->handle = sSession->sessionh;
 
-	flags = &nv_token_data->token_info.flags;
+	flags = &tokdata->nv_token_data->token_info.flags;
 
 	if (!pPin || ulPinLen > MAX_PIN_LEN) {
 		set_login_flags(userType, flags);
@@ -913,7 +914,8 @@ CK_RV SC_CreateObject(STDLL_TokData_t *tokdata, ST_SESSION_HANDLE *sSession,
 	//set the handle into the session.
 	sess->handle = sSession->sessionh;
 
-	if (pin_expired(&sess->session_info, nv_token_data->token_info.flags)) {
+	if (pin_expired(&sess->session_info,
+			tokdata->nv_token_data->token_info.flags)) {
 		TRACE_ERROR("%s\n", ock_err(ERR_PIN_EXPIRED));
 		rc = CKR_PIN_EXPIRED;
 		goto done;
@@ -964,7 +966,8 @@ CK_RV  SC_CopyObject(STDLL_TokData_t *tokdata, ST_SESSION_HANDLE *sSession,
 	//set the handle into the session.
 	sess->handle = sSession->sessionh;
 
-	if (pin_expired(&sess->session_info, nv_token_data->token_info.flags) == TRUE) {
+	if (pin_expired(&sess->session_info,
+			tokdata->nv_token_data->token_info.flags) == TRUE) {
 		TRACE_ERROR("%s\n", ock_err(ERR_PIN_EXPIRED));
 		rc = CKR_PIN_EXPIRED;
 		goto done;
@@ -1003,7 +1006,8 @@ CK_RV SC_DestroyObject(STDLL_TokData_t *tokdata, ST_SESSION_HANDLE *sSession,
 	//set the handle into the session.
 	sess->handle = sSession->sessionh;
 
-	if (pin_expired(&sess->session_info, nv_token_data->token_info.flags) == TRUE) {
+	if (pin_expired(&sess->session_info,
+			tokdata->nv_token_data->token_info.flags) == TRUE) {
 		TRACE_ERROR("%s\n", ock_err(ERR_PIN_EXPIRED));
 		rc = CKR_PIN_EXPIRED;
 		goto done;
@@ -1187,7 +1191,8 @@ CK_RV SC_FindObjectsInit(STDLL_TokData_t *tokdata, ST_SESSION_HANDLE *sSession,
 	//set the handle into the session.
 	sess->handle = sSession->sessionh;
 
-	if (pin_expired(&sess->session_info, nv_token_data->token_info.flags) == TRUE) {
+	if (pin_expired(&sess->session_info,
+			tokdata->nv_token_data->token_info.flags) == TRUE) {
 		TRACE_ERROR("%s\n", ock_err(ERR_PIN_EXPIRED));
 		rc = CKR_PIN_EXPIRED;
 		goto done;
@@ -1354,7 +1359,8 @@ CK_RV SC_EncryptInit(STDLL_TokData_t *tokdata, ST_SESSION_HANDLE *sSession,
 	//set the handle into the session.
 	sess->handle = sSession->sessionh;
 
-	if (pin_expired(&sess->session_info, nv_token_data->token_info.flags) == TRUE) {
+	if (pin_expired(&sess->session_info,
+			tokdata->nv_token_data->token_info.flags) == TRUE) {
 		TRACE_ERROR("%s\n", ock_err(ERR_PIN_EXPIRED));
 		rc = CKR_PIN_EXPIRED;
 		goto done;
@@ -1567,7 +1573,8 @@ CK_RV SC_DecryptInit(STDLL_TokData_t *tokdata, ST_SESSION_HANDLE *sSession,
 	//set the handle into the session.
 	sess->handle = sSession->sessionh;
 
-	if (pin_expired(&sess->session_info, nv_token_data->token_info.flags) == TRUE) {
+	if (pin_expired(&sess->session_info,
+			tokdata->nv_token_data->token_info.flags) == TRUE) {
 		TRACE_ERROR("%s\n", ock_err(ERR_PIN_EXPIRED));
 		rc = CKR_PIN_EXPIRED;
 		goto done;
@@ -1780,7 +1787,8 @@ CK_RV SC_DigestInit(STDLL_TokData_t *tokdata, ST_SESSION_HANDLE *sSession,
 	//set the handle into the session.
 	sess->handle = sSession->sessionh;
 
-	if (pin_expired(&sess->session_info, nv_token_data->token_info.flags) == TRUE) {
+	if (pin_expired(&sess->session_info,
+			tokdata->nv_token_data->token_info.flags) == TRUE) {
 		TRACE_ERROR("%s\n", ock_err(ERR_PIN_EXPIRED));
 		rc = CKR_PIN_EXPIRED;
 		goto done;
@@ -2027,7 +2035,8 @@ CK_RV SC_SignInit(STDLL_TokData_t *tokdata, ST_SESSION_HANDLE *sSession,
 	if (rc != CKR_OK)
 		goto done;
 
-	if (pin_expired(&sess->session_info, nv_token_data->token_info.flags) == TRUE) {
+	if (pin_expired(&sess->session_info,
+			tokdata->nv_token_data->token_info.flags) == TRUE) {
 		TRACE_ERROR("%s\n", ock_err(ERR_PIN_EXPIRED));
 		rc = CKR_PIN_EXPIRED;
 		goto done;
@@ -2256,7 +2265,7 @@ CK_RV SC_VerifyInit(STDLL_TokData_t *tokdata, ST_SESSION_HANDLE *sSession,
 	sess->handle = sSession->sessionh;
 
 	if (pin_expired(&sess->session_info,
-	    nv_token_data->token_info.flags) == TRUE) {
+			tokdata->nv_token_data->token_info.flags) == TRUE) {
 		TRACE_ERROR("%s\n", ock_err(ERR_PIN_EXPIRED));
 		rc = CKR_PIN_EXPIRED;
 		goto done;
@@ -2545,7 +2554,7 @@ CK_RV SC_GenerateKey(STDLL_TokData_t *tokdata, ST_SESSION_HANDLE *sSession,
 	sess->handle = sSession->sessionh;
 
 	if (pin_expired(&sess->session_info,
-				nv_token_data->token_info.flags) == TRUE) {
+			tokdata->nv_token_data->token_info.flags) == TRUE) {
 		TRACE_ERROR("%s\n", ock_err(ERR_PIN_EXPIRED));
 		rc = CKR_PIN_EXPIRED;
 		goto done;
@@ -2622,7 +2631,7 @@ CK_RV SC_GenerateKeyPair(STDLL_TokData_t *tokdata,
 	sess->handle = sSession->sessionh;
 
 	if (pin_expired(&sess->session_info,
-			nv_token_data->token_info.flags) == TRUE) {
+			tokdata->nv_token_data->token_info.flags) == TRUE) {
 		TRACE_ERROR("%s\n", ock_err(ERR_PIN_EXPIRED));
 		rc = CKR_PIN_EXPIRED;
 		goto done;
@@ -2710,7 +2719,7 @@ CK_RV SC_WrapKey(STDLL_TokData_t *tokdata, ST_SESSION_HANDLE *sSession,
 	sess->handle = sSession->sessionh;
 
 	if (pin_expired(&sess->session_info,
-			nv_token_data->token_info.flags) == TRUE) {
+			tokdata->nv_token_data->token_info.flags) == TRUE) {
 		TRACE_ERROR("%s\n", ock_err(ERR_PIN_EXPIRED));
 		rc = CKR_PIN_EXPIRED;
 		goto done;
@@ -2767,7 +2776,7 @@ CK_RV SC_UnwrapKey(STDLL_TokData_t *tokdata, ST_SESSION_HANDLE *sSession,
 	sess->handle = sSession->sessionh;
 
 	if (pin_expired(&sess->session_info,
-			nv_token_data->token_info.flags) == TRUE) {
+			tokdata->nv_token_data->token_info.flags) == TRUE) {
 		TRACE_ERROR("%s\n", ock_err(ERR_PIN_EXPIRED));
 		rc = CKR_PIN_EXPIRED;
 		goto done;
@@ -2839,7 +2848,7 @@ CK_RV SC_DeriveKey(STDLL_TokData_t *tokdata, ST_SESSION_HANDLE *sSession,
 	sess->handle = sSession->sessionh;
 
 	if (pin_expired(&sess->session_info,
-			nv_token_data->token_info.flags) == TRUE) {
+			tokdata->nv_token_data->token_info.flags) == TRUE) {
 		TRACE_ERROR("%s\n", ock_err(ERR_PIN_EXPIRED));
 		rc = CKR_PIN_EXPIRED;
 		goto done;
