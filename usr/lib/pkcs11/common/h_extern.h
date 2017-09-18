@@ -2183,10 +2183,12 @@ CK_RV    object_mgr_destroy_token_objects(STDLL_TokData_t *tokdata);
 CK_RV    object_mgr_find_in_map_nocache( CK_OBJECT_HANDLE    handle,
 					 OBJECT           ** ptr );
 
-CK_RV    object_mgr_find_in_map1( CK_OBJECT_HANDLE   handle,
+CK_RV    object_mgr_find_in_map1( STDLL_TokData_t  *tokdata,
+				  CK_OBJECT_HANDLE handle,
                                   OBJECT           ** ptr );
 
-CK_RV    object_mgr_find_in_map2( OBJECT           * ptr,
+CK_RV    object_mgr_find_in_map2( STDLL_TokData_t  *tokdata,
+				  OBJECT           * ptr,
                                   CK_OBJECT_HANDLE * handle );
 
 CK_RV    object_mgr_find_init( SESSION      * sess,

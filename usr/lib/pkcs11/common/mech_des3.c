@@ -51,7 +51,7 @@ des3_ecb_encrypt( STDLL_TokData_t   *tokdata,
       TRACE_ERROR("%s\n", ock_err(ERR_DATA_LEN_RANGE));
       return CKR_DATA_LEN_RANGE;
    }
-   rc = object_mgr_find_in_map1( ctx->key, &key );
+   rc = object_mgr_find_in_map1( tokdata, ctx->key, &key );
    if (rc != CKR_OK){
       TRACE_ERROR("Failed to find specified object.\n");
       return rc;
@@ -100,7 +100,7 @@ des3_ecb_decrypt( STDLL_TokData_t   *tokdata,
       TRACE_ERROR("%s\n", ock_err(ERR_ENCRYPTED_DATA_LEN_RANGE));
       return CKR_ENCRYPTED_DATA_LEN_RANGE;
    }
-   rc = object_mgr_find_in_map1( ctx->key, &key );
+   rc = object_mgr_find_in_map1( tokdata, ctx->key, &key );
    if (rc != CKR_OK){
       TRACE_ERROR("Failed to find specified object.\n");
       return rc;
@@ -149,7 +149,7 @@ des3_cbc_encrypt( STDLL_TokData_t   *tokdata,
       return CKR_DATA_LEN_RANGE;
    }
 
-   rc = object_mgr_find_in_map1( ctx->key, &key );
+   rc = object_mgr_find_in_map1( tokdata, ctx->key, &key );
    if (rc != CKR_OK){
       TRACE_ERROR("Failed to find specified object.\n");
       return rc;
@@ -197,7 +197,7 @@ des3_cbc_decrypt( STDLL_TokData_t    *tokdata,
       TRACE_ERROR("%s\n", ock_err(ERR_ENCRYPTED_DATA_LEN_RANGE));
       return CKR_ENCRYPTED_DATA_LEN_RANGE;
    }
-   rc = object_mgr_find_in_map1( ctx->key, &key );
+   rc = object_mgr_find_in_map1( tokdata, ctx->key, &key );
    if (rc != CKR_OK){
       TRACE_ERROR("Failed to find specified object.\n");
       return rc;
@@ -243,7 +243,7 @@ des3_cbc_pad_encrypt( STDLL_TokData_t   *tokdata,
    // DES3-CBC-PAD has no input length requirements
    //
 
-   rc = object_mgr_find_in_map1( ctx->key, &key );
+   rc = object_mgr_find_in_map1( tokdata, ctx->key, &key );
    if (rc != CKR_OK){
       TRACE_ERROR("Failed to find specified object.\n");
       return rc;
@@ -310,7 +310,7 @@ des3_cbc_pad_decrypt( STDLL_TokData_t    *tokdata,
    // no need to validate the input length since we'll pad as necessary
    //
 
-   rc = object_mgr_find_in_map1( ctx->key, &key );
+   rc = object_mgr_find_in_map1( tokdata, ctx->key, &key );
    if (rc != CKR_OK){
       TRACE_ERROR("Failed to find specified object.\n");
       return rc;
@@ -477,7 +477,7 @@ des3_ecb_decrypt_update( STDLL_TokData_t   *tokdata,
          return CKR_OK;
       }
 
-      rc = object_mgr_find_in_map1( ctx->key, &key );
+      rc = object_mgr_find_in_map1( tokdata, ctx->key, &key );
       if (rc != CKR_OK){
 	 TRACE_ERROR("Failed to find specified object.\n");
          return rc;
@@ -1049,7 +1049,7 @@ des3_cbc_pad_encrypt_final( STDLL_TokData_t   *tokdata,
       return CKR_FUNCTION_FAILED;
    }
 
-   rc = object_mgr_find_in_map1( ctx->key, &key );
+   rc = object_mgr_find_in_map1( tokdata, ctx->key, &key );
    if (rc != CKR_OK){
       TRACE_ERROR("Failed to find specified object.\n");
       return rc;
@@ -1106,7 +1106,7 @@ des3_cbc_pad_decrypt_final( STDLL_TokData_t   *tokdata,
       TRACE_ERROR("%s received bad argument(s)\n", __FUNCTION__);
       return CKR_FUNCTION_FAILED;
    }
-   rc = object_mgr_find_in_map1( ctx->key, &key );
+   rc = object_mgr_find_in_map1( tokdata, ctx->key, &key );
    if (rc != CKR_OK){
       TRACE_ERROR("Failed to find specified object.\n");
       return rc;
@@ -1174,7 +1174,7 @@ des3_ofb_encrypt( STDLL_TokData_t      *tokdata,
       return CKR_BUFFER_TOO_SMALL;
    }
 
-   rc = object_mgr_find_in_map1( ctx->key, &key_obj );
+   rc = object_mgr_find_in_map1( tokdata, ctx->key, &key_obj );
    if (rc != CKR_OK){
       TRACE_ERROR("Failed to find specified object.\n");
       return rc;
@@ -1235,7 +1235,7 @@ des3_ofb_encrypt_update( STDLL_TokData_t      *tokdata,
          return CKR_BUFFER_TOO_SMALL;
       }
 
-      rc = object_mgr_find_in_map1( ctx->key, &key_obj );
+      rc = object_mgr_find_in_map1( tokdata, ctx->key, &key_obj );
       if (rc != CKR_OK){
 	 TRACE_ERROR("Failed to find specified object.\n");
          return rc;
@@ -1301,7 +1301,7 @@ des3_ofb_encrypt_final( STDLL_TokData_t   *tokdata,
          return CKR_OK;
       }
 
-      rc = object_mgr_find_in_map1( ctx->key, &key_obj );
+      rc = object_mgr_find_in_map1( tokdata, ctx->key, &key_obj );
       if (rc != CKR_OK){
 	 TRACE_ERROR("Failed to find specified object.\n");
          return rc;
@@ -1346,7 +1346,7 @@ des3_ofb_decrypt( STDLL_TokData_t      *tokdata,
       return CKR_BUFFER_TOO_SMALL;
    }
 
-   rc = object_mgr_find_in_map1( ctx->key, &key_obj );
+   rc = object_mgr_find_in_map1( tokdata, ctx->key, &key_obj );
    if (rc != CKR_OK){
       TRACE_ERROR("Failed to find specified object.\n");
       return rc;
@@ -1408,7 +1408,7 @@ des3_ofb_decrypt_update( STDLL_TokData_t      * tokdata,
          return CKR_BUFFER_TOO_SMALL;
       }
 
-      rc = object_mgr_find_in_map1( ctx->key, &key_obj );
+      rc = object_mgr_find_in_map1( tokdata, ctx->key, &key_obj );
       if (rc != CKR_OK){
 	 TRACE_ERROR("Failed to find specified object.\n");
          return rc;
@@ -1475,7 +1475,7 @@ des3_ofb_decrypt_final( STDLL_TokData_t   *tokdata,
          return CKR_OK;
       }
 
-      rc = object_mgr_find_in_map1( ctx->key, &key_obj );
+      rc = object_mgr_find_in_map1( tokdata, ctx->key, &key_obj );
       if (rc != CKR_OK){
 	 TRACE_ERROR("Failed to find specified object.\n");
          return rc;
@@ -1522,7 +1522,7 @@ des3_cfb_encrypt( STDLL_TokData_t      *tokdata,
       return CKR_BUFFER_TOO_SMALL;
    }
 
-   rc = object_mgr_find_in_map1( ctx->key, &key_obj );
+   rc = object_mgr_find_in_map1( tokdata, ctx->key, &key_obj );
    if (rc != CKR_OK){
       TRACE_ERROR("Failed to find specified object.\n");
       return rc;
@@ -1585,7 +1585,7 @@ des3_cfb_encrypt_update( STDLL_TokData_t      * tokdata,
          return CKR_BUFFER_TOO_SMALL;
       }
 
-      rc = object_mgr_find_in_map1( ctx->key, &key_obj );
+      rc = object_mgr_find_in_map1( tokdata, ctx->key, &key_obj );
       if (rc != CKR_OK){
 	 TRACE_ERROR("Failed to find specified object.\n");
          return rc;
@@ -1652,7 +1652,7 @@ des3_cfb_encrypt_final( STDLL_TokData_t   *tokdata,
       return CKR_OK;
    }
    else {
-      rc = object_mgr_find_in_map1( ctx->key, &key_obj );
+      rc = object_mgr_find_in_map1( tokdata, ctx->key, &key_obj );
       if (rc != CKR_OK){
 	 TRACE_ERROR("Failed to find specified object.\n");
          return rc;
@@ -1699,7 +1699,7 @@ des3_cfb_decrypt( STDLL_TokData_t      * tokdata,
       return CKR_BUFFER_TOO_SMALL;
    }
 
-   rc = object_mgr_find_in_map1( ctx->key, &key_obj );
+   rc = object_mgr_find_in_map1( tokdata, ctx->key, &key_obj );
    if (rc != CKR_OK){
       TRACE_ERROR("Failed to find specified object.\n");
       return rc;
@@ -1763,7 +1763,7 @@ des3_cfb_decrypt_update( STDLL_TokData_t      * tokdata,
          return CKR_BUFFER_TOO_SMALL;
       }
 
-      rc = object_mgr_find_in_map1( ctx->key, &key_obj );
+      rc = object_mgr_find_in_map1( tokdata, ctx->key, &key_obj );
       if (rc != CKR_OK){
 	 TRACE_ERROR("Failed to find specified object.\n");
          return rc;
@@ -1830,7 +1830,7 @@ des3_cfb_decrypt_final( STDLL_TokData_t   *tokdata,
       return CKR_OK;
    }
    else {
-      rc = object_mgr_find_in_map1( ctx->key, &key_obj );
+      rc = object_mgr_find_in_map1( tokdata, ctx->key, &key_obj );
       if (rc != CKR_OK){
 	 TRACE_ERROR("Failed to find specified object.\n");
          return rc;
@@ -1894,7 +1894,7 @@ des3_mac_sign( STDLL_TokData_t      * tokdata,
       return CKR_BUFFER_TOO_SMALL;
    }
 
-   rc = object_mgr_find_in_map1( ctx->key, &key_obj );
+   rc = object_mgr_find_in_map1( tokdata, ctx->key, &key_obj );
    if (rc != CKR_OK){
       TRACE_ERROR("Failed to find specified object.\n");
       return rc;
@@ -1943,7 +1943,7 @@ des3_mac_sign_update ( STDLL_TokData_t      * tokdata,
       remain  = (total % DES_BLOCK_SIZE);
       out_len = total - remain;
 
-      rc = object_mgr_find_in_map1( ctx->key, &key_obj );
+      rc = object_mgr_find_in_map1( tokdata, ctx->key, &key_obj );
       if (rc != CKR_OK){
 	 TRACE_ERROR("Failed to find specified object.\n");
          return rc;
@@ -2021,7 +2021,7 @@ des3_mac_sign_final( STDLL_TokData_t      * tokdata,
       /* padding with '00' in case case we didn't reach block size */
       memset(context->data + context->len, 0x0, DES_BLOCK_SIZE - context->len);
 
-      rc = object_mgr_find_in_map1( ctx->key, &key_obj );
+      rc = object_mgr_find_in_map1( tokdata, ctx->key, &key_obj );
       if (rc != CKR_OK){
 	 TRACE_ERROR("Failed to find specified object.\n");
          return rc;
@@ -2077,7 +2077,7 @@ des3_mac_verify( STDLL_TokData_t      * tokdata,
            return CKR_SIGNATURE_LEN_RANGE;
    }
 
-   rc = object_mgr_find_in_map1( ctx->key, &key_obj );
+   rc = object_mgr_find_in_map1( tokdata, ctx->key, &key_obj );
    if (rc != CKR_OK){
       TRACE_ERROR("Failed to find specified object.\n");
       return rc;
@@ -2129,7 +2129,7 @@ des3_mac_verify_update( STDLL_TokData_t      * tokdata,
       remain  = (total % DES_BLOCK_SIZE);
       out_len = total - remain;
 
-      rc = object_mgr_find_in_map1( ctx->key, &key_obj );
+      rc = object_mgr_find_in_map1( tokdata, ctx->key, &key_obj );
       if (rc != CKR_OK){
 	 TRACE_ERROR("Failed to find specified object.\n");
          return rc;
@@ -2199,7 +2199,7 @@ des3_mac_verify_final( STDLL_TokData_t      * tokdata,
       /* padding with '00' in case case we didn't reach block size */
       memset(context->data + context->len, 0x0, DES_BLOCK_SIZE - context->len);
 
-      rc = object_mgr_find_in_map1( ctx->key, &key_obj );
+      rc = object_mgr_find_in_map1( tokdata, ctx->key, &key_obj );
       if (rc != CKR_OK){
 	 TRACE_ERROR("Failed to find specified object.\n");
          return rc;

@@ -2699,7 +2699,7 @@ static CK_RV h_opaque_2_blob(CK_OBJECT_HANDLE handle,
 	CK_RV rc;
 
 	/* find the key obj by the key handle */
-	rc = object_mgr_find_in_map1(handle, &key_obj);
+	rc = object_mgr_find_in_map1(NULL, handle, &key_obj);
 	if (rc != CKR_OK) {
 		TRACE_ERROR("%s key 0x%lx not mapped\n", __func__, handle);
 		return rc;

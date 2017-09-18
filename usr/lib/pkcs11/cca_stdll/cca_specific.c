@@ -2312,7 +2312,7 @@ CK_RV ccatok_hmac(STDLL_TokData_t *tokdata, SIGN_VERIFY_CONTEXT *ctx,
 		return CKR_FUNCTION_FAILED;
 	}
 
-	rc = object_mgr_find_in_map1(ctx->key, &key);
+	rc = object_mgr_find_in_map1(tokdata, ctx->key, &key);
 	if (rc != CKR_OK) {
 		TRACE_ERROR("Failed to find specified object.\n");
 		return rc;
@@ -2440,7 +2440,7 @@ CK_RV ccatok_hmac_update(STDLL_TokData_t *tokdata, SIGN_VERIFY_CONTEXT *ctx,
 	if (in_data_len == 0)
 		return CKR_OK;
 
-	rc = object_mgr_find_in_map1(ctx->key, &key);
+	rc = object_mgr_find_in_map1(tokdata, ctx->key, &key);
 	if (rc != CKR_OK) {
 		TRACE_ERROR("Failed to find specified object.\n");
 		return rc;
@@ -2624,7 +2624,7 @@ CK_RV ccatok_hmac_final(STDLL_TokData_t *tokdata, SIGN_VERIFY_CONTEXT *ctx,
 		return CKR_OPERATION_NOT_INITIALIZED;
 	}
 
-	rc = object_mgr_find_in_map1(ctx->key, &key);
+	rc = object_mgr_find_in_map1(tokdata, ctx->key, &key);
 	if (rc != CKR_OK) {
 		TRACE_ERROR("Failed to find specified object.\n");
 		return rc;

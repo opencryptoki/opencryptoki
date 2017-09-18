@@ -94,7 +94,7 @@ ssl3_mac_sign( STDLL_TokData_t      * tokdata,
 
    memset( &digest_ctx, 0x0, sizeof(DIGEST_CONTEXT) );
 
-   rc = object_mgr_find_in_map1( ctx->key, &key_obj );
+   rc = object_mgr_find_in_map1( tokdata, ctx->key, &key_obj );
    if (rc != CKR_OK){
       TRACE_ERROR("Failed to acquire key from specified handle");
       if (rc == CKR_OBJECT_HANDLE_INVALID)
@@ -229,7 +229,7 @@ ssl3_mac_sign_update( STDLL_TokData_t      * tokdata,
    context = (SSL3_MAC_CONTEXT *)ctx->context;
 
    if (context->flag == FALSE) {
-      rc = object_mgr_find_in_map1( ctx->key, &key_obj );
+      rc = object_mgr_find_in_map1( tokdata, ctx->key, &key_obj );
       if (rc != CKR_OK){
 	 TRACE_ERROR("Failed to acquire key from specified handle");
 	 if (rc == CKR_OBJECT_HANDLE_INVALID)
@@ -335,7 +335,7 @@ ssl3_mac_sign_final( STDLL_TokData_t      * tokdata,
 
    context = (SSL3_MAC_CONTEXT *)ctx->context;
 
-   rc = object_mgr_find_in_map1( ctx->key, &key_obj );
+   rc = object_mgr_find_in_map1( tokdata, ctx->key, &key_obj );
    if (rc != CKR_OK){
       TRACE_ERROR("Failed to acquire key from specified handle");
       if (rc == CKR_OBJECT_HANDLE_INVALID)
@@ -498,7 +498,7 @@ ssl3_mac_verify_update( STDLL_TokData_t      * tokdata,
    context = (SSL3_MAC_CONTEXT *)ctx->context;
 
    if (context->flag == FALSE) {
-      rc = object_mgr_find_in_map1( ctx->key, &key_obj );
+      rc = object_mgr_find_in_map1( tokdata, ctx->key, &key_obj );
       if (rc != CKR_OK){
 	 TRACE_ERROR("Failed to acquire key from specified handle");
 	 if (rc == CKR_OBJECT_HANDLE_INVALID)
@@ -591,7 +591,7 @@ ssl3_mac_verify_final( STDLL_TokData_t      * tokdata,
 
    context = (SSL3_MAC_CONTEXT *)ctx->context;
 
-   rc = object_mgr_find_in_map1( ctx->key, &key_obj );
+   rc = object_mgr_find_in_map1( tokdata, ctx->key, &key_obj );
    if (rc != CKR_OK){
       TRACE_ERROR("Failed to acquire key from specified handle");
       if (rc == CKR_OBJECT_HANDLE_INVALID)
@@ -979,7 +979,7 @@ ssl3_master_key_derive( STDLL_TokData_t   * tokdata,
    }
    params = (CK_SSL3_MASTER_KEY_DERIVE_PARAMS *)mech->pParameter;
 
-   rc = object_mgr_find_in_map1( base_key, &base_key_obj );
+   rc = object_mgr_find_in_map1( tokdata, base_key, &base_key_obj );
    if (rc != CKR_OK){
       TRACE_ERROR("Failed to acquire key from specified handle");
       if (rc == CKR_OBJECT_HANDLE_INVALID)
@@ -1253,7 +1253,7 @@ ssl3_key_and_mac_derive( STDLL_TokData_t   * tokdata,
    }
    params = (CK_SSL3_KEY_MAT_PARAMS *)mech->pParameter;
 
-   rc = object_mgr_find_in_map1( base_key, &base_key_obj );
+   rc = object_mgr_find_in_map1( tokdata, base_key, &base_key_obj );
    if (rc != CKR_OK){
       TRACE_ERROR("Failed to acquire key from specified handle");
       if (rc == CKR_OBJECT_HANDLE_INVALID)

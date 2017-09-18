@@ -305,7 +305,7 @@ digest_mgr_digest_key( STDLL_TokData_t  *tokdata,
       return CKR_FUNCTION_FAILED;
    }
 
-   rc = object_mgr_find_in_map1( key_handle, &key_obj );
+   rc = object_mgr_find_in_map1( tokdata, key_handle, &key_obj );
    if (rc != CKR_OK){
       TRACE_ERROR("%s\n", ock_err(ERR_KEY_HANDLE_INVALID));
       rc = CKR_KEY_HANDLE_INVALID;
