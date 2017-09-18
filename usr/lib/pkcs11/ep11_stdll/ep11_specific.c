@@ -179,6 +179,12 @@ typedef struct {
 static unsigned char *ep11_pin_blob = NULL;
 static CK_ULONG ep11_pin_blob_len = 0;
 
+/* mechanisms provided by this token will be generated from the underlaying
+ * crypto adapter. Anyway to be conform to the generic mech_list handling
+ * we need to define these dummies */
+MECH_LIST_ELEMENT mech_list[] = {};
+CK_ULONG mech_list_len = 0;
+
 /* mechanisms yet unknown by ock, but known by EP11 */
 #define CKM_SHA224_RSA_PKCS       0x00000046
 #define CKM_SHA224_RSA_PKCS_PSS   0x00000047
