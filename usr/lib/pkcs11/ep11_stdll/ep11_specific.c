@@ -908,88 +908,6 @@ rawkey_2_blob_end:
 	return rc;
 }
 
-
-static const char* print_flags(CK_ULONG flags)
-{
-	switch(flags) {
-	case CKF_ENCRYPT: return "ENCRYPT";
-	case CKF_DECRYPT: return "DECRYPT";
-	case CKF_DIGEST : return "DIGEST";
-	case CKF_SIGN   : return "SIGN";
-	case CKF_SIGN_RECOVER      : return "SIGN_RECOVER";
-	case CKF_VERIFY            : return "VERIFY";
-	case CKF_VERIFY_RECOVER    : return "VERIFY_RECOVER";
-	case CKF_GENERATE          : return "GENERATE";
-	case CKF_GENERATE_KEY_PAIR : return "GENERATE_KEY_PAIR";
-	case CKF_WRAP              : return "WRAP";
-	case CKF_UNWRAP            : return "UNWRAP";
-	case CKF_DERIVE            : return "DERIVE";
-		/* The following are new for v2.11 */
-	case CKF_EC_F_P            : return "CKF_EC_F_P";
-	case CKF_EC_F_2M           : return "CKF_EC_F_2M";
-	case CKF_EC_ECPARAMETERS   : return "EC_ECPARAMETERS";
-	case CKF_EC_NAMEDCURVE     : return "EC_NAMEDCURVE";
-	case CKF_EC_UNCOMPRESS     : return "EC_UNCOMPRESS";
-	case CKF_EC_COMPRESS       : return "EC_COMPRESS";
-	default                    : return "UNKNOWN";
-	}
-}
-
-
-static CK_RV print_mechanism(STDLL_TokData_t *tokdata)
-{
-	CK_MECHANISM_TYPE_PTR list = NULL;
-	CK_ULONG count = 0;
-	int i;
-	CK_MECHANISM_INFO m_info;
-	CK_RV rc;
-
-	/* first call is just to fetch the count value */
-	rc = ep11tok_get_mechanism_list(tokdata, list, &count);
-	if (rc != CKR_OK) {
-		TRACE_ERROR("%s can't fetch mechanism list (get_mech_list rc=0x%lx)\n",
-			    __func__, rc);
-		return rc;
-	}
-	list = (CK_MECHANISM_TYPE_PTR)malloc(sizeof(CK_MECHANISM_TYPE) * count);
-	if (!list) {
-		TRACE_ERROR("%s Memory allocation failed\n", __func__);
-		return CKR_HOST_MEMORY;
-	}
-
-	/* now really fill the list */
-	rc = ep11tok_get_mechanism_list(tokdata, list, &count);
-	if (rc != CKR_OK) {
-		TRACE_ERROR("%s can't fetch mechanism list (get_mech_list rc=0x%lx)\n",
-			    __func__, rc);
-		free(list);
-		return rc;
-	}
-
-	TRACE_INFO("%s EP11 token mechanism list, %lu entries:\n", __func__, count);
-	for (i = 0; i < count; i++) {
-		char strflags[1024];
-		strflags[0] = 0;
-		memset(&m_info, 0, sizeof(m_info));
-		ep11tok_get_mechanism_info(NULL, list[i], &m_info);
-		if (m_info.flags) {
-			CK_ULONG flag;
-			for (flag = 1; flag < 0x80000000; flag = flag * 2) {
-				if ((flag & m_info.flags) != 0) {
-					strcat(strflags, ",");
-					strcat(strflags, print_flags(flag & m_info.flags));
-				}
-			}
-		}
-		TRACE_INFO(" %s {%lu,%lu%s}\n", ep11_get_ckm(list[i]),
-			   m_info.ulMinKeySize, m_info.ulMaxKeySize, strflags);
-	}
-
-	free(list);
-	return CKR_OK;
-}
-
-
 /* random number generator */
 CK_RV token_specific_rng(STDLL_TokData_t *tokdata, CK_BYTE *output, CK_ULONG bytes)
 {
@@ -1153,14 +1071,6 @@ CK_RV ep11tok_init(STDLL_TokData_t *tokdata, CK_SLOT_ID SlotNumber, char *conf_n
 		return CKR_DEVICE_ERROR;
 	}
 #endif
-
-	/* print mechanismlist to log file */
-	rc = print_mechanism(tokdata);
-	if (rc != CKR_OK) {
-		TRACE_ERROR("%s failure on fetching mechanism list rc=0x%lx, maybe wrong config ?\n",
-			    __func__, rc);
-		return CKR_GENERAL_ERROR;
-	}
 
 	/* create an AES key needed for importing keys
 	 * (encrypt by wrap_key and m_UnwrapKey by wrap key)
