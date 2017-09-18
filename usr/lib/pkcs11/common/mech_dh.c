@@ -162,7 +162,7 @@ ckm_dh_pkcs_derive( STDLL_TokData_t   *tokdata,
    OBJECT         *base_key_obj = NULL ;
    CK_BYTE        *p_other_pubkey ;
 
-   rc = object_mgr_find_in_map1( base_key, &base_key_obj );
+   rc = object_mgr_find_in_map1( tokdata, base_key, &base_key_obj );
    if (rc != CKR_OK){
       TRACE_ERROR("Failed to acquire key from specified handle");
       if (rc == CKR_OBJECT_HANDLE_INVALID)

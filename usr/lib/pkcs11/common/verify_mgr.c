@@ -56,7 +56,7 @@ verify_mgr_init( STDLL_TokData_t     * tokdata,
 
    // key usage restrictions
    //
-   rc = object_mgr_find_in_map1( key, &key_obj );
+   rc = object_mgr_find_in_map1( tokdata, key, &key_obj );
    if (rc != CKR_OK){
       TRACE_ERROR("Failed to acquire key from specified handle.\n");
       if (rc == CKR_OBJECT_HANDLE_INVALID)

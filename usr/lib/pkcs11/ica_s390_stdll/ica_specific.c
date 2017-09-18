@@ -1879,7 +1879,7 @@ CK_RV token_specific_rsa_oaep_encrypt(STDLL_TokData_t *tokdata,
 
 	oaepParms = (CK_RSA_PKCS_OAEP_PARAMS_PTR)ctx->mech.pParameter;
 
-	rc = object_mgr_find_in_map1(ctx->key, &key_obj);
+	rc = object_mgr_find_in_map1(tokdata, ctx->key, &key_obj);
 	if (rc != CKR_OK) {
 		TRACE_DEVEL("object_mgr_find_in_map1 failed\n");
 		return rc;
@@ -1939,7 +1939,7 @@ CK_RV token_specific_rsa_oaep_decrypt(STDLL_TokData_t *tokdata,
 
 	oaepParms = (CK_RSA_PKCS_OAEP_PARAMS_PTR)ctx->mech.pParameter;
 
-	rc = object_mgr_find_in_map1(ctx->key, &key_obj);
+	rc = object_mgr_find_in_map1(tokdata, ctx->key, &key_obj);
 	if (rc != CKR_OK) {
 		TRACE_DEVEL("object_mgr_find_in_map1 failed\n");
 		return rc;
@@ -2000,7 +2000,7 @@ CK_RV token_specific_rsa_pss_sign(STDLL_TokData_t *tokdata,
 	pssParms = (CK_RSA_PKCS_PSS_PARAMS *)ctx->mech.pParameter;
 
 	/* get the key */
-	rc = object_mgr_find_in_map1(ctx->key, &key_obj);
+	rc = object_mgr_find_in_map1(tokdata, ctx->key, &key_obj);
 	if (rc != CKR_OK) {
 		TRACE_DEVEL("object_mgr_find_in_map1 failed\n");
 		return rc;
@@ -2064,7 +2064,7 @@ CK_RV token_specific_rsa_pss_verify(STDLL_TokData_t *tokdata, SIGN_VERIFY_CONTEX
 	pssParms = (CK_RSA_PKCS_PSS_PARAMS *)ctx->mech.pParameter;
 
 	/* get the key */
-	rc = object_mgr_find_in_map1(ctx->key, &key_obj);
+	rc = object_mgr_find_in_map1(tokdata, ctx->key, &key_obj);
 	if (rc != CKR_OK) {
 		TRACE_DEVEL("object_mgr_find_in_map1 failed\n");
 		return rc;
@@ -2246,7 +2246,7 @@ CK_RV token_specific_aes_gcm_init(STDLL_TokData_t *tokdata, SESSION *sess,
 	CK_ULONG icv_length;
 
 	/* find key object */
-	rc = object_mgr_find_in_map1 (key, &key_obj);
+	rc = object_mgr_find_in_map1 (tokdata, key, &key_obj);
 	if (rc != CKR_OK){
 		TRACE_ERROR("Failed to find specified object.\n");
 		return rc;
@@ -2323,7 +2323,7 @@ CK_RV token_specific_aes_gcm(STDLL_TokData_t *tokdata, SESSION *sess,
 	tag_data_len = (aes_gcm_param->ulTagBits + 7) / 8;
 
 	/* find key object */
-	rc = object_mgr_find_in_map1(ctx->key, &key);
+	rc = object_mgr_find_in_map1(tokdata, ctx->key, &key);
 	if (rc != CKR_OK) {
 		TRACE_ERROR("Failed to find specified object.\n");
 		return rc;

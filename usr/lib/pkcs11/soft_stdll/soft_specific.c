@@ -1187,7 +1187,7 @@ CK_RV token_specific_rsa_pss_sign(STDLL_TokData_t *tokdata,
 	pssParms = (CK_RSA_PKCS_PSS_PARAMS *)ctx->mech.pParameter;
 
 	/* get the key */
-	rc = object_mgr_find_in_map1(ctx->key, &key_obj);
+	rc = object_mgr_find_in_map1(tokdata, ctx->key, &key_obj);
 	if (rc != CKR_OK) {
 		TRACE_DEVEL("object_mgr_find_in_map1 failed\n");
 		return rc;
@@ -1251,7 +1251,7 @@ CK_RV token_specific_rsa_pss_verify(STDLL_TokData_t *tokdata, SIGN_VERIFY_CONTEX
 	pssParms = (CK_RSA_PKCS_PSS_PARAMS *)ctx->mech.pParameter;
 
 	/* get the key */
-	rc = object_mgr_find_in_map1(ctx->key, &key_obj);
+	rc = object_mgr_find_in_map1(tokdata, ctx->key, &key_obj);
 	if (rc != CKR_OK) {
 		TRACE_DEVEL("object_mgr_find_in_map1 failed\n");
 		return rc;
@@ -1478,7 +1478,7 @@ CK_RV token_specific_rsa_oaep_encrypt(STDLL_TokData_t *tokdata,
 
 	oaepParms = (CK_RSA_PKCS_OAEP_PARAMS_PTR)ctx->mech.pParameter;
 
-	rc = object_mgr_find_in_map1(ctx->key, &key_obj);
+	rc = object_mgr_find_in_map1(tokdata, ctx->key, &key_obj);
 	if (rc != CKR_OK) {
 		TRACE_DEVEL("object_mgr_find_in_map1 failed\n");
 		return rc;
@@ -1537,7 +1537,7 @@ CK_RV token_specific_rsa_oaep_decrypt(STDLL_TokData_t *tokdata,
 
 	oaepParms = (CK_RSA_PKCS_OAEP_PARAMS_PTR)ctx->mech.pParameter;
 
-	rc = object_mgr_find_in_map1(ctx->key, &key_obj);
+	rc = object_mgr_find_in_map1(tokdata, ctx->key, &key_obj);
 	if (rc != CKR_OK) {
 		TRACE_DEVEL("object_mgr_find_in_map1 failed\n");
 		return rc;
@@ -2218,7 +2218,7 @@ static CK_RV softtok_hmac_init(STDLL_TokData_t *tokdata, SIGN_VERIFY_CONTEXT *ct
 	EVP_MD_CTX *mdctx = NULL;
 	EVP_PKEY *pkey = NULL;
 
-	rc = object_mgr_find_in_map1(Hkey, &key);
+	rc = object_mgr_find_in_map1(tokdata, Hkey, &key);
 	if (rc != CKR_OK) {
 		TRACE_ERROR("Failed to find specified object.\n");
 		return rc;
