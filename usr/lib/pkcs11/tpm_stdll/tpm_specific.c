@@ -1679,7 +1679,7 @@ token_specific_login(STDLL_TokData_t *tokdata, SESSION *sess,
 		rc = load_private_token_objects(tokdata);
 
 		XProcLock();
-		global_shm->priv_loaded = TRUE;
+		tokdata->global_shm->priv_loaded = TRUE;
 		XProcUnLock();
 	} else {
 		/* SO path --
