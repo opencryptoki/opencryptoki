@@ -265,7 +265,7 @@ CK_RV SC_Finalize(STDLL_TokData_t *tokdata, CK_SLOT_ID sid, SLOT_INFO *sinfp)
 	} /* end transaction */
 
 	session_mgr_close_all_sessions();
-	object_mgr_purge_token_objects();
+	object_mgr_purge_token_objects(tokdata);
 	detach_shm();
 	/* close spin lock file	*/
 	CloseXProcLock();
@@ -453,7 +453,7 @@ CK_RV SC_InitToken(STDLL_TokData_t *tokdata, CK_SLOT_ID sid, CK_CHAR_PTR pPin,
 	/* Before we reconstruct all the data, we should delete the
 	 * token objects from the filesystem.
 	 */
-	object_mgr_destroy_token_objects();
+	object_mgr_destroy_token_objects(tokdata);
 	delete_token_data(tokdata);
 
 	init_token_data(tokdata, sid);
