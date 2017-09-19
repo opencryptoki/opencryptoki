@@ -750,7 +750,7 @@ object_mgr_create_final( STDLL_TokData_t  * tokdata,
  * in (based on its type)
  */
 void
-destroy_object_cb(void *node)
+destroy_object_cb(STDLL_TokData_t  *tokdata, void *node)
 {
 	OBJECT_MAP *map = (OBJECT_MAP *)node;
 	OBJECT *o;
@@ -766,7 +766,7 @@ destroy_object_cb(void *node)
 		if (!o)
 			return;
 
-		delete_token_object(NULL, o);
+		delete_token_object(tokdata, o);
 
 		/* Use the same calling convention as the old code, if XProcLock fails, don't
 		 * delete from shm and don't free the object in its other btree */
@@ -804,7 +804,7 @@ object_mgr_destroy_object( STDLL_TokData_t  *tokdata,
       return CKR_FUNCTION_FAILED;
    }
 
-   if (!bt_node_free(&object_map_btree, handle, destroy_object_cb)) {
+   if (!bt_node_free_(tokdata, &object_map_btree, handle, destroy_object_cb)) {
       TRACE_ERROR("%s\n", ock_err(ERR_OBJECT_HANDLE_INVALID));
       rc = CKR_OBJECT_HANDLE_INVALID;
    }
@@ -817,7 +817,7 @@ object_mgr_destroy_object( STDLL_TokData_t  *tokdata,
  * Callback to delete an object if its a token object
  */
 void
-delete_token_obj_cb(void *node, unsigned long map_handle, void *p3)
+delete_token_obj_cb(STDLL_TokData_t  *tokdata, void *node, unsigned long map_handle, void *p3)
 {
 	OBJECT_MAP *map = (OBJECT_MAP *)node;
 	OBJECT *o;
@@ -831,7 +831,7 @@ delete_token_obj_cb(void *node, unsigned long map_handle, void *p3)
 		if (!o)
 			goto done;
 
-		delete_token_object(NULL, o);
+		delete_token_object(tokdata, o);
 
 		/* Use the same calling convention as the old code, if
 		 * XProcLock fails, don't delete from shm and don't free
@@ -864,7 +864,7 @@ object_mgr_destroy_token_objects(STDLL_TokData_t *tokdata)
    CK_BBOOL locked = FALSE;
    CK_RV rc;
 
-   bt_for_each_node(&object_map_btree, delete_token_obj_cb, NULL);
+   bt_for_each_node(tokdata, &object_map_btree, delete_token_obj_cb, NULL);
 
    // now we want to purge the token object list in shared memory
    //
@@ -1005,7 +1005,7 @@ object_mgr_find_in_map1( CK_OBJECT_HANDLE    handle,
 }
 
 void
-find_obj_cb(void *node, unsigned long map_handle, void *p3)
+find_obj_cb(STDLL_TokData_t *tokdata, void *node, unsigned long map_handle, void *p3)
 {
 	OBJECT_MAP *map = (OBJECT_MAP *)node;
 	OBJECT     *obj;
@@ -1053,7 +1053,7 @@ object_mgr_find_in_map2( OBJECT           * obj,
    fa.map_handle = 0;
 
    // pass the fa structure with the values to operate on in the find_obj_cb function
-   bt_for_each_node(&object_map_btree, find_obj_cb, &fa);
+   bt_for_each_node(NULL, &object_map_btree, find_obj_cb, &fa);
 
    if (fa.done == FALSE || fa.map_handle == 0) {
       return CKR_OBJECT_HANDLE_INVALID;
@@ -1069,7 +1069,8 @@ object_mgr_find_in_map2( OBJECT           * obj,
 }
 
 void
-find_build_list_cb(void *node, unsigned long obj_handle, void *p3)
+find_build_list_cb(STDLL_TokData_t *tokdata, void *node,
+		   unsigned long obj_handle, void *p3)
 {
    OBJECT *obj = (OBJECT *)node;
    struct find_build_list_args *fa = (struct find_build_list_args *)p3;
@@ -1093,7 +1094,7 @@ find_build_list_cb(void *node, unsigned long obj_handle, void *p3)
    if (match) {
       rc = object_mgr_find_in_map2( obj, &map_handle );
       if (rc != CKR_OK) {
-         rc = object_mgr_add_to_map( NULL, fa->sess, obj, obj_handle, &map_handle );
+         rc = object_mgr_add_to_map(tokdata, fa->sess, obj, obj_handle, &map_handle);
          if (rc != CKR_OK){
             TRACE_DEVEL("object_mgr_add_to_map failed.\n");
             return;
@@ -1220,17 +1221,17 @@ object_mgr_find_init( SESSION      * sess,
       case CKS_RW_SO_FUNCTIONS:
 	 fa.public_only = TRUE;
 
-	 bt_for_each_node(&publ_token_obj_btree, find_build_list_cb, &fa);
-	 bt_for_each_node(&sess_obj_btree, find_build_list_cb, &fa);
+	 bt_for_each_node(NULL, &publ_token_obj_btree, find_build_list_cb, &fa);
+	 bt_for_each_node(NULL, &sess_obj_btree, find_build_list_cb, &fa);
          break;
 
       case CKS_RO_USER_FUNCTIONS:
       case CKS_RW_USER_FUNCTIONS:
 	 fa.public_only = FALSE;
 
-	 bt_for_each_node(&priv_token_obj_btree, find_build_list_cb, &fa);
-	 bt_for_each_node(&publ_token_obj_btree, find_build_list_cb, &fa);
-	 bt_for_each_node(&sess_obj_btree, find_build_list_cb, &fa);
+	 bt_for_each_node(NULL, &priv_token_obj_btree, find_build_list_cb, &fa);
+	 bt_for_each_node(NULL, &publ_token_obj_btree, find_build_list_cb, &fa);
+	 bt_for_each_node(NULL, &sess_obj_btree, find_build_list_cb, &fa);
          break;
    }
 
@@ -1325,7 +1326,8 @@ object_mgr_get_object_size( STDLL_TokData_t  *tokdata,
 }
 
 void
-purge_session_obj_cb(void *node, unsigned long obj_handle, void *p3)
+purge_session_obj_cb(STDLL_TokData_t  *tokdata, void *node,
+		     unsigned long obj_handle, void *p3)
 {
    OBJECT *obj = (OBJECT *)node;
    struct purge_args *pa = (struct purge_args *)p3;
@@ -1371,7 +1373,7 @@ object_mgr_purge_session_objects( STDLL_TokData_t *tokdata,
    if (!sess)
       return FALSE;
 
-   bt_for_each_node(&sess_obj_btree, purge_session_obj_cb, &pa);
+   bt_for_each_node(tokdata, &sess_obj_btree, purge_session_obj_cb, &pa);
 
    return TRUE;
 }
@@ -1381,7 +1383,7 @@ object_mgr_purge_session_objects( STDLL_TokData_t *tokdata,
  * @p3 is the btree we're purging from
  */
 void
-purge_token_obj_cb(void *node, unsigned long obj_handle, void *p3)
+purge_token_obj_cb(STDLL_TokData_t  *tokdata, void *node, unsigned long obj_handle, void *p3)
 {
    OBJECT *obj = (OBJECT *)node;
    struct btree *t = (struct btree *)p3;
@@ -1399,16 +1401,17 @@ purge_token_obj_cb(void *node, unsigned long obj_handle, void *p3)
 CK_BBOOL
 object_mgr_purge_token_objects(STDLL_TokData_t *tokdata)
 {
-   bt_for_each_node(&priv_token_obj_btree, purge_token_obj_cb, &priv_token_obj_btree);
-   bt_for_each_node(&publ_token_obj_btree, purge_token_obj_cb, &publ_token_obj_btree);
+   bt_for_each_node(tokdata, &priv_token_obj_btree, purge_token_obj_cb, &priv_token_obj_btree);
+   bt_for_each_node(tokdata, &publ_token_obj_btree, purge_token_obj_cb, &publ_token_obj_btree);
 
    return TRUE;
 }
 
 
-CK_BBOOL object_mgr_purge_private_token_objects(void)
+CK_BBOOL
+object_mgr_purge_private_token_objects(STDLL_TokData_t *tokdata)
 {
-   bt_for_each_node(&priv_token_obj_btree, purge_token_obj_cb, &priv_token_obj_btree);
+   bt_for_each_node(tokdata, &priv_token_obj_btree, purge_token_obj_cb, &priv_token_obj_btree);
 
    return TRUE;
 }
@@ -1895,7 +1898,8 @@ object_mgr_update_from_shm( void )
 }
 
 void
-delete_objs_from_btree_cb(void *node, unsigned long obj_handle, void *p3)
+delete_objs_from_btree_cb(STDLL_TokData_t  *tokdata, void *node,
+			  unsigned long obj_handle, void *p3)
 {
    struct update_tok_obj_args * ua = (struct update_tok_obj_args *)p3;
    TOK_OBJ_ENTRY              * shm_te = NULL;
@@ -1917,7 +1921,8 @@ delete_objs_from_btree_cb(void *node, unsigned long obj_handle, void *p3)
 }
 
 void
-find_by_name_cb(void *node, unsigned long obj_handle, void *p3)
+find_by_name_cb(STDLL_TokData_t  *tokdata, void *node,
+		unsigned long obj_handle, void *p3)
 {
 	OBJECT *obj                  = (OBJECT *)node;
 	struct find_by_name_args *fa = (struct find_by_name_args *)p3;
@@ -1944,7 +1949,7 @@ object_mgr_update_publ_tok_obj_from_shm()
 	ua.t = &publ_token_obj_btree;
 
 	/* delete any objects not in SHM from the btree */
-	bt_for_each_node(&publ_token_obj_btree, delete_objs_from_btree_cb, &ua);
+	bt_for_each_node(NULL, &publ_token_obj_btree, delete_objs_from_btree_cb, &ua);
 
 	/* for each item in SHM, add it to the btree if its not there */
 	for (index = 0; index < global_shm->num_publ_tok_obj; index++) {
@@ -1954,7 +1959,7 @@ object_mgr_update_publ_tok_obj_from_shm()
 		fa.name = shm_te->name;
 
 		/* find an object from SHM in the btree */
-		bt_for_each_node(&publ_token_obj_btree, find_by_name_cb, &fa);
+		bt_for_each_node(NULL, &publ_token_obj_btree, find_by_name_cb, &fa);
 
 		/* we didn't find it in the btree, so add it */
 		if (fa.done == FALSE) {
@@ -1991,7 +1996,7 @@ object_mgr_update_priv_tok_obj_from_shm()
 	ua.t = &priv_token_obj_btree;
 
 	/* delete any objects not in SHM from the btree */
-	bt_for_each_node(&priv_token_obj_btree, delete_objs_from_btree_cb, &ua);
+	bt_for_each_node(NULL, &priv_token_obj_btree, delete_objs_from_btree_cb, &ua);
 
 	/* for each item in SHM, add it to the btree if its not there */
 	for (index = 0; index < global_shm->num_priv_tok_obj; index++) {
@@ -2001,7 +2006,7 @@ object_mgr_update_priv_tok_obj_from_shm()
 		fa.name = shm_te->name;
 
 		/* find an object from SHM in the btree */
-		bt_for_each_node(&priv_token_obj_btree, find_by_name_cb, &fa);
+		bt_for_each_node(NULL, &priv_token_obj_btree, find_by_name_cb, &fa);
 
 		/* we didn't find it in the btree, so add it */
 		if (fa.done == FALSE) {
@@ -2020,7 +2025,8 @@ object_mgr_update_priv_tok_obj_from_shm()
 // SAB FIXME FIXME
 
 void
-purge_map_by_type_cb(void *node, unsigned long map_handle, void *p3)
+purge_map_by_type_cb(STDLL_TokData_t *tokdata, void *node,
+		     unsigned long map_handle, void *p3)
 {
    OBJECT_MAP    *map  = (OBJECT_MAP *)node;
    SESS_OBJ_TYPE  type = *(SESS_OBJ_TYPE *)p3;
@@ -2037,11 +2043,11 @@ purge_map_by_type_cb(void *node, unsigned long map_handle, void *p3)
 }
 
 CK_BBOOL
-object_mgr_purge_map(
-                      SESSION       * sess,
+object_mgr_purge_map( STDLL_TokData_t *tokdata,
+                      SESSION         *sess,
                       SESS_OBJ_TYPE   type )
 {
-   bt_for_each_node(&object_map_btree, purge_map_by_type_cb, &type);
+   bt_for_each_node(tokdata, &object_map_btree, purge_map_by_type_cb, &type);
 
    return TRUE;
 }

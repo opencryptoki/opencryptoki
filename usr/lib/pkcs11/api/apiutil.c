@@ -148,8 +148,11 @@ void CloseMe(STDLL_TokData_t *tokdata, void *node_value, unsigned long node_hand
  */
 void CloseAllSessions(CK_SLOT_ID slot_id)
 {
+	API_Slot_t *sltp = &(Anchor->SltList[slot_id]);
+
 	/* for every node in the API-level session tree, call CloseMe on it */
-	bt_for_each_node(&(Anchor->sess_btree), CloseMe, (void *)&slot_id);
+	bt_for_each_node(sltp->TokData, &(Anchor->sess_btree), CloseMe,
+			 (void *)&slot_id);
 
 	if (bt_is_empty(&(Anchor->sess_btree)))
 		bt_destroy(&(Anchor->sess_btree), NULL);
