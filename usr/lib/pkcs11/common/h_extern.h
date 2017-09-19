@@ -2216,7 +2216,7 @@ CK_BBOOL object_mgr_purge_session_objects( STDLL_TokData_t *tokdata,
 
 CK_BBOOL object_mgr_purge_token_objects( STDLL_TokData_t *tokdata );
 
-CK_BBOOL object_mgr_purge_private_token_objects( void );
+CK_BBOOL object_mgr_purge_private_token_objects( STDLL_TokData_t *tokdata );
 
 CK_RV    object_mgr_restore_obj( CK_BYTE *data, OBJECT *oldObj );
 
@@ -2229,7 +2229,8 @@ CK_RV    object_mgr_set_attribute_values( STDLL_TokData_t  *tokdata,
                                           CK_ULONG           ulCount );
 
 // SAB FIXME FIXME
-CK_BBOOL object_mgr_purge_map( SESSION       * sess,
+CK_BBOOL object_mgr_purge_map( STDLL_TokData_t *tokdata,
+			       SESSION         * sess,
                                SESS_OBJ_TYPE   type );
 
 /* structures used to hold arguments to callback functions triggered by either bt_for_each_node

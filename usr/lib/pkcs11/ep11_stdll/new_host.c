@@ -57,8 +57,8 @@ void Fork_Initializer(void)
 	/* Clean out the public object map
 	 * First parm is no longer used..
 	 */
-	object_mgr_purge_map((SESSION *)0xFFFF, PUBLIC);
-	object_mgr_purge_map((SESSION *)0xFFFF, PRIVATE);
+	object_mgr_purge_map(NULL, (SESSION *)0xFFFF, PUBLIC);
+	object_mgr_purge_map(NULL, (SESSION *)0xFFFF, PRIVATE);
 
 	/* This should clear the entire session list out */
 	session_mgr_close_all_sessions();
@@ -1029,7 +1029,7 @@ CK_RV SC_Logout(STDLL_TokData_t *tokdata, ST_SESSION_HANDLE *sSession)
 	memset(tokdata->nv_token_data->user_pin_md5, 0x0, MD5_HASH_SIZE);
 	memset(tokdata->nv_token_data->so_pin_md5, 0x0, MD5_HASH_SIZE);
 
-	object_mgr_purge_private_token_objects();
+	object_mgr_purge_private_token_objects(tokdata);
 
 done:
 	TRACE_INFO("C_Logout: rc = 0x%08lx\n", rc);
