@@ -1409,8 +1409,8 @@ C_FindObjects(CK_SESSION_HANDLE hSession,
 	}
 	if (fcn->ST_FindObjects) {
 		// Map the Session to the slot session
-		rv = fcn->ST_FindObjects(&rSession, phObject, ulMaxObjectCount,
-					 pulObjectCount);
+		rv = fcn->ST_FindObjects(sltp->TokData, &rSession, phObject,
+					 ulMaxObjectCount, pulObjectCount);
 		TRACE_DEVEL("fcn->ST_FindObjects returned:0x%lx\n", rv);
 	} else {
 		TRACE_ERROR("%s\n", ock_err(ERR_FUNCTION_NOT_SUPPORTED));
@@ -1459,7 +1459,7 @@ CK_RV C_FindObjectsFinal(CK_SESSION_HANDLE hSession)
 	}
 	if (fcn->ST_FindObjectsFinal) {
 		// Map the Session to the slot session
-		rv = fcn->ST_FindObjectsFinal(&rSession);
+		rv = fcn->ST_FindObjectsFinal(sltp->TokData, &rSession);
 		TRACE_DEVEL("fcn->ST_FindObjectsFinal returned: 0x%lx\n", rv);
 	} else {
 		TRACE_ERROR("%s\n", ock_err(ERR_FUNCTION_NOT_SUPPORTED));
@@ -1512,7 +1512,8 @@ C_FindObjectsInit(CK_SESSION_HANDLE hSession,
 	}
 	if (fcn->ST_FindObjectsInit) {
 		// Map the Session to the slot session
-		rv = fcn->ST_FindObjectsInit(&rSession, pTemplate, ulCount);
+		rv = fcn->ST_FindObjectsInit(sltp->TokData, &rSession,
+					     pTemplate, ulCount);
 		TRACE_DEVEL("fcn->ST_FindObjectsInit returned:0x%lx\n", rv);
 	} else {
 		TRACE_ERROR("%s\n", ock_err(ERR_FUNCTION_NOT_SUPPORTED));
