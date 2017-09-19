@@ -54,7 +54,7 @@
 
     extern Slot_Info_t_64            sinfo[NUMBER_SLOTS_MANAGED];
 
-    extern unsigned char          NumberSlotsInDB;
+    extern unsigned int          NumberSlotsInDB;
 
     extern int			  socketfd;
     extern Slot_Mgr_Socket_t	  socketData;

@@ -29,7 +29,7 @@ int		shmid;
 key_t		tok;
 Slot_Info_t_64  sinfo[NUMBER_SLOTS_MANAGED];
 Slot_Info_t_64  *psinfo;
-unsigned char NumberSlotsInDB = 0;
+unsigned int NumberSlotsInDB = 0;
 
 int socketfd;
 Slot_Mgr_Socket_t      socketData;
