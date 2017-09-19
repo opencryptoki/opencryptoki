@@ -410,8 +410,8 @@ CK_RV SC_InitToken(STDLL_TokData_t *tokdata, CK_SLOT_ID sid, CK_CHAR_PTR pPin,
 		goto done;
 	}
 
-	rc = compute_sha1(pPin, ulPinLen, hash_sha);
-	if (memcmp(nv_token_data->so_pin_sha, hash_sha, SHA1_HASH_SIZE) != 0) {
+	rc = compute_sha1(tokdata, pPin, ulPinLen, hash_sha);
+	if (memcmp(tokdata->nv_token_data->so_pin_sha, hash_sha, SHA1_HASH_SIZE) != 0) {
 		TRACE_ERROR("%s\n", ock_err(ERR_PIN_INCORRECT));
 		rc = CKR_PIN_INCORRECT;
 		goto done;
@@ -481,7 +481,7 @@ CK_RV SC_InitPIN(STDLL_TokData_t *tokdata, ST_SESSION_HANDLE *sSession,
 		goto done;
 	}
 	/* compute the SHA and MD5 hashes of the user pin */
-	rc  = compute_sha1(pPin, ulPinLen, hash_sha);
+	rc  = compute_sha1(tokdata, pPin, ulPinLen, hash_sha);
 	rc |= compute_md5( pPin, ulPinLen, hash_md5 );
 	if (rc != CKR_OK) {
 		TRACE_ERROR("Failed to compute sha or md5 for user pin.\n");
@@ -549,7 +549,7 @@ CK_RV SC_SetPIN(STDLL_TokData_t *tokdata, ST_SESSION_HANDLE *sSession, CK_CHAR_P
 		rc = CKR_PIN_LEN_RANGE;
 		goto done;
 	}
-	rc = compute_sha1(pOldPin, ulOldLen, old_hash_sha);
+	rc = compute_sha1(tokdata, pOldPin, ulOldLen, old_hash_sha);
 	if (rc != CKR_OK) {
 		TRACE_ERROR("Failed to compute sha for old pin.\n");
 		goto done;
@@ -567,7 +567,7 @@ CK_RV SC_SetPIN(STDLL_TokData_t *tokdata, ST_SESSION_HANDLE *sSession, CK_CHAR_P
 			rc = CKR_PIN_INCORRECT;
 			goto done;
 		}
-		rc  = compute_sha1(pNewPin, ulNewLen, new_hash_sha);
+		rc  = compute_sha1(tokdata, pNewPin, ulNewLen, new_hash_sha);
 		rc |= compute_md5(pNewPin, ulNewLen, hash_md5);
 		if (rc != CKR_OK) {
 			TRACE_ERROR("Failed to compute hash for new pin.\n");
@@ -606,7 +606,7 @@ CK_RV SC_SetPIN(STDLL_TokData_t *tokdata, ST_SESSION_HANDLE *sSession, CK_CHAR_P
 			TRACE_ERROR("%s\n", ock_err(ERR_PIN_INCORRECT));
 			goto done;
 		}
-		rc = compute_sha1(pNewPin, ulNewLen, new_hash_sha);
+		rc = compute_sha1(tokdata, pNewPin, ulNewLen, new_hash_sha);
 		rc |= compute_md5(pNewPin, ulNewLen, hash_md5);
 		if (rc != CKR_OK) {
 			TRACE_ERROR("Failed to compute hash for new pin.\n");
@@ -923,8 +923,8 @@ CK_RV SC_Login(STDLL_TokData_t *tokdata, ST_SESSION_HANDLE *sSession,
 			goto done;
 		}
 
-		rc = compute_sha1(pPin, ulPinLen, hash_sha);
-		if (memcmp(nv_token_data->user_pin_sha, hash_sha,
+		rc = compute_sha1(tokdata, pPin, ulPinLen, hash_sha);
+		if (memcmp(tokdata->nv_token_data->user_pin_sha, hash_sha,
 			   SHA1_HASH_SIZE) != 0) {
 			set_login_flags(userType, flags);
 			TRACE_ERROR("%s\n", ock_err(ERR_PIN_INCORRECT));
@@ -960,8 +960,9 @@ CK_RV SC_Login(STDLL_TokData_t *tokdata, ST_SESSION_HANDLE *sSession,
 			goto done;
 		}
 
-		rc = compute_sha1(pPin, ulPinLen, hash_sha);
-		if (memcmp(nv_token_data->so_pin_sha, hash_sha, SHA1_HASH_SIZE) != 0) {
+		rc = compute_sha1(tokdata, pPin, ulPinLen, hash_sha);
+		if (memcmp(tokdata->nv_token_data->so_pin_sha, hash_sha,
+			   SHA1_HASH_SIZE) != 0) {
 			set_login_flags(userType, flags);
 			TRACE_ERROR("%s\n", ock_err(ERR_PIN_INCORRECT));
 			rc = CKR_PIN_INCORRECT;

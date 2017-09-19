@@ -527,8 +527,10 @@ void copy_token_contents_sensibly(CK_TOKEN_INFO_PTR pInfo,
                                   TOKEN_DATA *nv_token_data);
 
 CK_RV compute_md5( CK_BYTE *data, CK_ULONG len, CK_BYTE *hash );
-CK_RV compute_sha1(CK_BYTE *data, CK_ULONG len, CK_BYTE *hash);
-CK_RV compute_sha(CK_BYTE *data, CK_ULONG len, CK_BYTE *hash, CK_ULONG mech);
+CK_RV compute_sha1(STDLL_TokData_t *tokdata, CK_BYTE *data, CK_ULONG len,
+		   CK_BYTE *hash);
+CK_RV compute_sha(STDLL_TokData_t * tokdata, CK_BYTE *data, CK_ULONG len,
+		  CK_BYTE *hash, CK_ULONG mech);
 CK_RV get_sha_size(CK_ULONG mech, CK_ULONG *hsize);
 
 CK_RV mgf1(STDLL_TokData_t *tokdata, CK_BYTE *seed, CK_ULONG seedlen,
@@ -1564,16 +1566,19 @@ void sw_sha1_init(DIGEST_CONTEXT *ctx);
 CK_RV sw_sha1_hash(DIGEST_CONTEXT *ctx, CK_BYTE *in_data, CK_ULONG in_data_len,
                    CK_BYTE *out_data, CK_ULONG *out_data_len);
 
-CK_RV sha_init(SESSION *sess, DIGEST_CONTEXT *ctx, CK_MECHANISM *mech);
+CK_RV sha_init(STDLL_TokData_t *tokdata, SESSION *sess, DIGEST_CONTEXT *ctx,
+	       CK_MECHANISM *mech);
 
-CK_RV sha_hash(SESSION *sess, CK_BBOOL length_only, DIGEST_CONTEXT *ctx,
-	       CK_BYTE *in_data, CK_ULONG in_data_len, CK_BYTE *out_data,
-	       CK_ULONG *out_data_len);
+CK_RV sha_hash(STDLL_TokData_t *tokdata, SESSION *sess, CK_BBOOL length_only,
+	       DIGEST_CONTEXT *ctx, CK_BYTE *in_data, CK_ULONG in_data_len,
+	       CK_BYTE *out_data, CK_ULONG *out_data_len);
 
-CK_RV sha_hash_update(SESSION *sess, DIGEST_CONTEXT *ctx, CK_BYTE *in_data,
+CK_RV sha_hash_update(STDLL_TokData_t *tokdata, SESSION *sess,
+		      DIGEST_CONTEXT *ctx, CK_BYTE *in_data,
 		      CK_ULONG in_data_len);
 
-CK_RV sha_hash_final(SESSION *sess, CK_BBOOL length_only, DIGEST_CONTEXT *ctx,
+CK_RV sha_hash_final(STDLL_TokData_t *tokdata, SESSION *sess,
+		     CK_BBOOL length_only, DIGEST_CONTEXT *ctx,
 		     CK_BYTE *out_data, CK_ULONG *out_data_len);
 
 CK_RV hmac_sign_init(STDLL_TokData_t *tokdata, SESSION *sess,
