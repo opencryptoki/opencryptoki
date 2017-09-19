@@ -640,7 +640,8 @@ CK_RV  ckm_ssl3_pre_master_key_gen( STDLL_TokData_t  * tokdata,
 
 // RSA routines
 //
-CK_RV  rsa_pkcs_encrypt( SESSION           * sess,
+CK_RV  rsa_pkcs_encrypt( STDLL_TokData_t   * tokdata,
+			 SESSION           * sess,
                          CK_BBOOL            length_only,
                          ENCR_DECR_CONTEXT * ctx,
                          CK_BYTE           * in_data,
@@ -648,7 +649,8 @@ CK_RV  rsa_pkcs_encrypt( SESSION           * sess,
                          CK_BYTE           * out_data,
                          CK_ULONG          * out_data_len );
 
-CK_RV  rsa_pkcs_decrypt( SESSION           * sess,
+CK_RV  rsa_pkcs_decrypt( STDLL_TokData_t   * tokdata,
+			 SESSION           * sess,
                          CK_BBOOL            length_only,
                          ENCR_DECR_CONTEXT * ctx,
                          CK_BYTE           * in_data,
@@ -656,7 +658,8 @@ CK_RV  rsa_pkcs_decrypt( SESSION           * sess,
                          CK_BYTE           * out_data,
                          CK_ULONG          * out_data_len );
 
-CK_RV  rsa_pkcs_sign   ( SESSION             * sess,
+CK_RV  rsa_pkcs_sign   ( STDLL_TokData_t     * tokdata,
+			 SESSION             * sess,
                          CK_BBOOL              length_only,
                          SIGN_VERIFY_CONTEXT * ctx,
                          CK_BYTE             * in_data,
@@ -664,14 +667,16 @@ CK_RV  rsa_pkcs_sign   ( SESSION             * sess,
                          CK_BYTE             * signature,
                          CK_ULONG            * sig_len );
 
-CK_RV  rsa_pkcs_verify ( SESSION             * sess,
+CK_RV  rsa_pkcs_verify ( STDLL_TokData_t     * tokdata,
+			 SESSION             * sess,
                          SIGN_VERIFY_CONTEXT * ctx,
                          CK_BYTE             * in_data,
                          CK_ULONG              in_data_len,
                          CK_BYTE             * signature,
                          CK_ULONG              sig_len );
 
-CK_RV  rsa_pkcs_verify_recover ( SESSION             * sess,
+CK_RV  rsa_pkcs_verify_recover ( STDLL_TokData_t     * tokdata,
+				 SESSION             * sess,
                                  CK_BBOOL              length_only,
                                  SIGN_VERIFY_CONTEXT * ctx,
                                  CK_BYTE             * signature,
@@ -679,12 +684,14 @@ CK_RV  rsa_pkcs_verify_recover ( SESSION             * sess,
                                  CK_BYTE             * out_data,
                                  CK_ULONG            * out_len );
 
-CK_RV rsa_oaep_crypt(SESSION *sess, CK_BBOOL length_only,
+CK_RV rsa_oaep_crypt(STDLL_TokData_t *tokdata, SESSION *sess,
+		     CK_BBOOL length_only,
 		     ENCR_DECR_CONTEXT *ctx, CK_BYTE *in_data,
 		     CK_ULONG in_data_len, CK_BYTE *out_data,
 		     CK_ULONG *out_data_len, CK_BBOOL encrypt);
 
-CK_RV  rsa_x509_encrypt ( SESSION           * sess,
+CK_RV  rsa_x509_encrypt ( STDLL_TokData_t   * tokdata,
+			  SESSION           * sess,
                           CK_BBOOL            length_only,
                           ENCR_DECR_CONTEXT * ctx,
                           CK_BYTE           * in_data,
@@ -692,7 +699,8 @@ CK_RV  rsa_x509_encrypt ( SESSION           * sess,
                           CK_BYTE           * out_data,
                           CK_ULONG          * out_data_len );
 
-CK_RV  rsa_x509_decrypt ( SESSION           * sess,
+CK_RV  rsa_x509_decrypt ( STDLL_TokData_t   * tokdata,
+			  SESSION           * sess,
                           CK_BBOOL            length_only,
                           ENCR_DECR_CONTEXT * ctx,
                           CK_BYTE           * in_data,
@@ -700,7 +708,8 @@ CK_RV  rsa_x509_decrypt ( SESSION           * sess,
                           CK_BYTE           * out_data,
                           CK_ULONG          * out_data_len );
 
-CK_RV  rsa_x509_sign   ( SESSION             * sess,
+CK_RV  rsa_x509_sign   ( STDLL_TokData_t     * tokdata,
+			 SESSION             * sess,
                          CK_BBOOL              length_only,
                          SIGN_VERIFY_CONTEXT * ctx,
                          CK_BYTE             * in_data,
@@ -708,14 +717,16 @@ CK_RV  rsa_x509_sign   ( SESSION             * sess,
                          CK_BYTE             * signature,
                          CK_ULONG            * sig_len );
 
-CK_RV  rsa_x509_verify ( SESSION             * sess,
+CK_RV  rsa_x509_verify ( STDLL_TokData_t     * tokdata,
+			 SESSION             * sess,
                          SIGN_VERIFY_CONTEXT * ctx,
                          CK_BYTE             * in_data,
                          CK_ULONG              in_data_len,
                          CK_BYTE             * signature,
                          CK_ULONG              sig_len );
 
-CK_RV  rsa_x509_verify_recover( SESSION             * sess,
+CK_RV  rsa_x509_verify_recover(  STDLL_TokData_t     * tokdata,
+				 SESSION             * sess,
                                  CK_BBOOL              length_only,
                                  SIGN_VERIFY_CONTEXT * ctx,
                                  CK_BYTE             * signature,
@@ -723,7 +734,8 @@ CK_RV  rsa_x509_verify_recover( SESSION             * sess,
                                  CK_BYTE             * out_data,
                                  CK_ULONG            * out_len );
 
-CK_RV  rsa_hash_pkcs_sign   ( SESSION             * sess,
+CK_RV  rsa_hash_pkcs_sign   ( STDLL_TokData_t     * tokdata,
+			      SESSION             * sess,
                               CK_BBOOL              length_only,
                               SIGN_VERIFY_CONTEXT * ctx,
                               CK_BYTE             * in_data,
@@ -731,61 +743,74 @@ CK_RV  rsa_hash_pkcs_sign   ( SESSION             * sess,
                               CK_BYTE             * signature,
                               CK_ULONG            * sig_len );
 
-CK_RV  rsa_hash_pkcs_verify ( SESSION             * sess,
+CK_RV  rsa_hash_pkcs_verify ( STDLL_TokData_t     * tokdata,
+			      SESSION             * sess,
                               SIGN_VERIFY_CONTEXT * ctx,
                               CK_BYTE             * in_data,
                               CK_ULONG              in_data_len,
                               CK_BYTE             * signature,
                               CK_ULONG              sig_len );
 
-CK_RV  rsa_hash_pkcs_sign_update   ( SESSION             * sess,
+CK_RV  rsa_hash_pkcs_sign_update   ( STDLL_TokData_t     * tokdata,
+				     SESSION             * sess,
                                      SIGN_VERIFY_CONTEXT * ctx,
                                      CK_BYTE             * in_data,
                                      CK_ULONG              in_data_len );
 
-CK_RV  rsa_hash_pkcs_verify_update ( SESSION             * sess,
+CK_RV  rsa_hash_pkcs_verify_update ( STDLL_TokData_t     * tokdata,
+				     SESSION             * sess,
                                      SIGN_VERIFY_CONTEXT * ctx,
                                      CK_BYTE             * in_data,
                                      CK_ULONG              in_data_len );
 
-CK_RV  rsa_hash_pkcs_sign_final   ( SESSION              * sess,
+CK_RV  rsa_hash_pkcs_sign_final   ( STDLL_TokData_t      * tokdata,
+				    SESSION              * sess,
                                     CK_BBOOL               length_only,
                                     SIGN_VERIFY_CONTEXT  * ctx,
                                     CK_BYTE              * signature,
                                     CK_ULONG             * sig_len );
 
-CK_RV  rsa_hash_pkcs_verify_final ( SESSION             * sess,
+CK_RV  rsa_hash_pkcs_verify_final ( STDLL_TokData_t     * tokdata,
+				    SESSION             * sess,
                                     SIGN_VERIFY_CONTEXT * ctx,
                                     CK_BYTE             * signature,
                                     CK_ULONG              sig_len );
 
-CK_RV rsa_pss_sign(SESSION *sess, CK_BBOOL length_only,
+CK_RV rsa_pss_sign(STDLL_TokData_t *tokdata, SESSION *sess,
+		   CK_BBOOL length_only,
                    SIGN_VERIFY_CONTEXT *ctx, CK_BYTE *in_data,
                    CK_ULONG in_data_len, CK_BYTE *out_data,
                    CK_ULONG *out_data_len);
 
-CK_RV rsa_hash_pss_sign(SESSION *sess, CK_BBOOL length_only,
+CK_RV rsa_hash_pss_sign(STDLL_TokData_t *tokdata, SESSION *sess,
+			CK_BBOOL length_only,
                         SIGN_VERIFY_CONTEXT *ctx, CK_BYTE *in_data,
                         CK_ULONG in_data_len, CK_BYTE *sig, CK_ULONG *sig_len);
 
-CK_RV rsa_hash_pss_update(SESSION *sess, SIGN_VERIFY_CONTEXT *ctx,
+CK_RV rsa_hash_pss_update(STDLL_TokData_t *tokdata, SESSION *sess,
+			  SIGN_VERIFY_CONTEXT *ctx,
                           CK_BYTE *in_data, CK_ULONG in_data_len);
 
-CK_RV rsa_hash_pss_sign_final(SESSION *sess, CK_BBOOL length_only,
+CK_RV rsa_hash_pss_sign_final(STDLL_TokData_t *tokdata, SESSION *sess,
+			      CK_BBOOL length_only,
                               SIGN_VERIFY_CONTEXT *ctx, CK_BYTE *signature,
                               CK_ULONG *sig_len);
 
-CK_RV rsa_pss_verify(SESSION *sess, SIGN_VERIFY_CONTEXT *ctx, CK_BYTE *in_data,
+CK_RV rsa_pss_verify(STDLL_TokData_t *tokdata, SESSION *sess,
+		     SIGN_VERIFY_CONTEXT *ctx, CK_BYTE *in_data,
                      CK_ULONG in_data_len, CK_BYTE *signature, CK_ULONG sig_len);
 
-CK_RV rsa_hash_pss_verify(SESSION *sess, SIGN_VERIFY_CONTEXT *ctx,
+CK_RV rsa_hash_pss_verify(STDLL_TokData_t *tokdata, SESSION *sess,
+			  SIGN_VERIFY_CONTEXT *ctx,
                           CK_BYTE *in_data, CK_ULONG in_data_len,
                           CK_BYTE *signature, CK_ULONG sig_len);
 
-CK_RV rsa_hash_pss_verify_final(SESSION *sess, SIGN_VERIFY_CONTEXT *ctx,
+CK_RV rsa_hash_pss_verify_final(STDLL_TokData_t *tokdata, SESSION *sess,
+				SIGN_VERIFY_CONTEXT *ctx,
                                 CK_BYTE *signature, CK_ULONG sig_len);
 
-CK_RV rsa_format_block( CK_BYTE   * in_data,
+CK_RV rsa_format_block( STDLL_TokData_t *tokdata,
+		  CK_BYTE   * in_data,
                   CK_ULONG    in_data_len,
                   CK_BYTE   * out_data,
                   CK_ULONG    out_data_len,
@@ -799,29 +824,35 @@ CK_RV rsa_parse_block( CK_BYTE  * in_data,
 
 // RSA mechanisms
 //
-CK_RV  ckm_rsa_key_pair_gen( TEMPLATE *publ_tmpl, TEMPLATE *priv_tmpl );
+CK_RV  ckm_rsa_key_pair_gen( STDLL_TokData_t *tokdata, TEMPLATE *publ_tmpl,
+			     TEMPLATE *priv_tmpl );
 
-CK_RV  ckm_rsa_encrypt( CK_BYTE  * in_data,
+CK_RV  ckm_rsa_encrypt( STDLL_TokData_t *tokdata,
+			CK_BYTE  * in_data,
                         CK_ULONG   in_data_len,
                         CK_BYTE  * out_data,
 			CK_ULONG * out_data_len,
                         OBJECT   * key_obj );
 
-CK_RV  ckm_rsa_decrypt( CK_BYTE  * in_data,
+CK_RV  ckm_rsa_decrypt( STDLL_TokData_t *tokdata,
+			CK_BYTE  * in_data,
                         CK_ULONG   in_data_len,
                         CK_BYTE  * out_data,
                         CK_ULONG * out_data_len,
                         OBJECT   * key_obj );
 
-CK_RV  ckm_rsa_compute_priv_exp( TEMPLATE *tmpl );
+CK_RV  ckm_rsa_compute_priv_exp( STDLL_TokData_t *tokdata,
+				 TEMPLATE *tmpl );
 
-CK_RV  ckm_rsa_sign( CK_BYTE  * in_data,
+CK_RV  ckm_rsa_sign( STDLL_TokData_t *tokdata,
+		     CK_BYTE  * in_data,
                      CK_ULONG   in_data_len,
                      CK_BYTE  * out_data,
                      CK_ULONG * out_data_len,
                      OBJECT   * key_obj );
 
-CK_RV  ckm_rsa_verify( CK_BYTE  * in_data,
+CK_RV  ckm_rsa_verify( STDLL_TokData_t *tokdata,
+		       CK_BYTE  * in_data,
                        CK_ULONG   in_data_len,
                        CK_BYTE  * out_data,
                        CK_ULONG   out_data_len,
@@ -829,19 +860,21 @@ CK_RV  ckm_rsa_verify( CK_BYTE  * in_data,
 
 // RSA mechanism - EME-OAEP encoding
 //
-CK_RV encode_eme_oaep(CK_BYTE *mData, CK_ULONG mLen, CK_BYTE *emData,
-		      CK_ULONG modLength, CK_RSA_PKCS_MGF_TYPE mgf,
-		      CK_BYTE *hash, CK_ULONG hlen);
+CK_RV encode_eme_oaep(STDLL_TokData_t *tokdata, CK_BYTE *mData, CK_ULONG mLen,
+		      CK_BYTE *emData, CK_ULONG modLength,
+		      CK_RSA_PKCS_MGF_TYPE mgf, CK_BYTE *hash, CK_ULONG hlen);
 
-CK_RV decode_eme_oaep(CK_BYTE *emData, CK_ULONG emLen, CK_BYTE *out_data,
-		      CK_ULONG *out_data_len, CK_RSA_PKCS_MGF_TYPE mgf,
-		      CK_BYTE *hash, CK_ULONG hlen);
+CK_RV decode_eme_oaep(STDLL_TokData_t *tokdata, CK_BYTE *emData, CK_ULONG emLen,
+		      CK_BYTE *out_data, CK_ULONG *out_data_len,
+		      CK_RSA_PKCS_MGF_TYPE mgf, CK_BYTE *hash, CK_ULONG hlen);
 
-CK_RV emsa_pss_encode(CK_RSA_PKCS_PSS_PARAMS_PTR pssParms, CK_BYTE *in_data,
+CK_RV emsa_pss_encode(STDLL_TokData_t *tokdata,
+		      CK_RSA_PKCS_PSS_PARAMS_PTR pssParms, CK_BYTE *in_data,
 		      CK_ULONG in_data_len, CK_BYTE *emData,
 		      CK_ULONG *modbytes);
 
-CK_RV emsa_pss_verify(CK_RSA_PKCS_PSS_PARAMS_PTR pssParms, CK_BYTE *in_data,
+CK_RV emsa_pss_verify(STDLL_TokData_t *tokdata,
+		      CK_RSA_PKCS_PSS_PARAMS_PTR pssParms, CK_BYTE *in_data,
 		      CK_ULONG in_data_len, CK_BYTE *sig, CK_ULONG modbytes);
 
 CK_RV check_pss_params(CK_MECHANISM *mechanism, CK_ULONG);
@@ -2406,12 +2439,14 @@ CK_RV     secret_key_validate_attribute       ( STDLL_TokData_t *tokdata,
 // rsa routines
 //
 CK_RV     rsa_publ_check_required_attributes( TEMPLATE *tmpl, CK_ULONG mode );
-CK_RV     rsa_publ_validate_attribute( TEMPLATE *tmpl, CK_ATTRIBUTE *attr, CK_ULONG mode );
+CK_RV     rsa_publ_validate_attribute( STDLL_TokData_t *tokdata, TEMPLATE *tmpl,
+				       CK_ATTRIBUTE *attr, CK_ULONG mode );
 CK_RV     rsa_publ_set_default_attributes( TEMPLATE *tmpl, TEMPLATE *basetmpl, CK_ULONG mode );
 CK_BBOOL  rsa_priv_check_exportability( CK_ATTRIBUTE_TYPE type );
 CK_RV     rsa_priv_check_required_attributes( TEMPLATE *tmpl, CK_ULONG mode );
 CK_RV     rsa_priv_set_default_attributes( TEMPLATE *tmpl, CK_ULONG mode );
-CK_RV     rsa_priv_validate_attribute( TEMPLATE *tmpl, CK_ATTRIBUTE *attr, CK_ULONG mode );
+CK_RV     rsa_priv_validate_attribute( STDLL_TokData_t *tokdata, TEMPLATE *tmpl,
+				       CK_ATTRIBUTE *attr, CK_ULONG mode );
 CK_RV     rsa_priv_wrap_get_data( TEMPLATE *tmpl, CK_BBOOL length_only, CK_BYTE **data, CK_ULONG *data_len );
 CK_RV     rsa_priv_unwrap( TEMPLATE *tmpl, CK_BYTE *data, CK_ULONG data_len, CK_BBOOL isopaque );
 

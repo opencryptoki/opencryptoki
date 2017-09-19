@@ -1204,7 +1204,8 @@ CK_RV ep11tok_final(STDLL_TokData_t *tokdata)
  * SPKIs for public imported RSA keys.
  * Similar to rawkey_2_blob, but keys must follow a standard BER encoding.
  */
-static CK_RV import_RSA_key(OBJECT *rsa_key_obj, CK_BYTE *blob, size_t *blob_size)
+static CK_RV import_RSA_key(STDLL_TokData_t *tokdata, OBJECT *rsa_key_obj,
+			    CK_BYTE *blob, size_t *blob_size)
 {
 	CK_RV rc;
 	CK_ATTRIBUTE *attr = NULL;
@@ -1382,7 +1383,7 @@ token_specific_object_add(STDLL_TokData_t *tokdata, OBJECT *obj)
 	/* only these keys can be imported */
 	switch(keytype) {
 	case CKK_RSA:
-		rc = import_RSA_key(obj, blob, &blobsize);
+		rc = import_RSA_key(tokdata, obj, blob, &blobsize);
 		if (rc != CKR_OK) {
 			TRACE_ERROR("%s import RSA key rc=0x%lx blobsize=0x%zx\n",
 				    __func__, rc, blobsize);
@@ -2201,7 +2202,8 @@ dsa_generate_keypair_end:
 	return rc;
 }
 
-static CK_RV rsa_ec_generate_keypair(CK_MECHANISM_PTR pMechanism,
+static CK_RV rsa_ec_generate_keypair(STDLL_TokData_t *tokdata,
+				     CK_MECHANISM_PTR pMechanism,
 				     TEMPLATE *publ_tmpl, TEMPLATE *priv_tmpl,
 				     CK_ATTRIBUTE_PTR pPublicKeyTemplate,
 				     CK_ULONG ulPublicKeyAttributeCount,
@@ -2569,7 +2571,7 @@ CK_RV ep11tok_generate_key_pair(STDLL_TokData_t *tokdata, SESSION * sess,
 	case CKM_EC_KEY_PAIR_GEN:      /* takes same parameters as RSA */
 	case CKM_RSA_PKCS_KEY_PAIR_GEN:
 	case CKM_RSA_X9_31_KEY_PAIR_GEN:
-		rc = rsa_ec_generate_keypair(pMechanism,
+		rc = rsa_ec_generate_keypair(tokdata, pMechanism,
 					     public_key_obj->template,
 					     private_key_obj->template,
 					     pPublicKeyTemplate,

@@ -713,17 +713,17 @@ verify_mgr_verify( STDLL_TokData_t     * tokdata,
 
    switch (ctx->mech.mechanism) {
       case CKM_RSA_PKCS:
-         return rsa_pkcs_verify( sess,      ctx,
+         return rsa_pkcs_verify( tokdata, sess, ctx,
                                  in_data,   in_data_len,
                                  signature, sig_len );
 
       case CKM_RSA_X_509:
-         return rsa_x509_verify( sess,      ctx,
+         return rsa_x509_verify( tokdata, sess, ctx,
                                  in_data,   in_data_len,
                                  signature, sig_len );
 
       case CKM_RSA_PKCS_PSS:
-	 return rsa_pss_verify(sess, ctx, in_data, in_data_len,
+	 return rsa_pss_verify(tokdata, sess, ctx, in_data, in_data_len,
 			       signature, sig_len);
 
       case CKM_MD2_RSA_PKCS:
@@ -732,7 +732,7 @@ verify_mgr_verify( STDLL_TokData_t     * tokdata,
       case CKM_SHA256_RSA_PKCS:
       case CKM_SHA384_RSA_PKCS:
       case CKM_SHA512_RSA_PKCS:
-         return rsa_hash_pkcs_verify( sess,      ctx,
+         return rsa_hash_pkcs_verify( tokdata, sess, ctx,
                                       in_data,   in_data_len,
                                       signature, sig_len );
 
@@ -740,8 +740,8 @@ verify_mgr_verify( STDLL_TokData_t     * tokdata,
       case CKM_SHA256_RSA_PKCS_PSS:
       case CKM_SHA384_RSA_PKCS_PSS:
       case CKM_SHA512_RSA_PKCS_PSS:
-	 return rsa_hash_pss_verify(sess, ctx, in_data, in_data_len, signature,
-				    sig_len);
+	 return rsa_hash_pss_verify(tokdata, sess, ctx, in_data, in_data_len,
+				    signature, sig_len);
 
 #if !(NODSA)
       case CKM_DSA:
@@ -856,13 +856,14 @@ verify_mgr_verify_update( STDLL_TokData_t     * tokdata,
       case CKM_SHA256_RSA_PKCS:
       case CKM_SHA384_RSA_PKCS:
       case CKM_SHA512_RSA_PKCS:
-         return rsa_hash_pkcs_verify_update( sess, ctx, in_data, in_data_len );
+         return rsa_hash_pkcs_verify_update( tokdata, sess, ctx, in_data,
+					     in_data_len );
 
       case CKM_SHA1_RSA_PKCS_PSS:
       case CKM_SHA256_RSA_PKCS_PSS:
       case CKM_SHA384_RSA_PKCS_PSS:
       case CKM_SHA512_RSA_PKCS_PSS:
-	 return rsa_hash_pss_update(sess, ctx, in_data, in_data_len);
+	 return rsa_hash_pss_update(tokdata, sess, ctx, in_data, in_data_len);
 
       case CKM_SSL3_MD5_MAC:
       case CKM_SSL3_SHA1_MAC:
@@ -932,13 +933,15 @@ verify_mgr_verify_final( STDLL_TokData_t     * tokdata,
       case CKM_SHA256_RSA_PKCS:
       case CKM_SHA384_RSA_PKCS:
       case CKM_SHA512_RSA_PKCS:
-         return rsa_hash_pkcs_verify_final( sess, ctx, signature, sig_len );
+         return rsa_hash_pkcs_verify_final( tokdata, sess, ctx, signature,
+					    sig_len );
 
       case CKM_SHA1_RSA_PKCS_PSS:
       case CKM_SHA256_RSA_PKCS_PSS:
       case CKM_SHA384_RSA_PKCS_PSS:
       case CKM_SHA512_RSA_PKCS_PSS:
-	 return rsa_hash_pss_verify_final(sess, ctx, signature, sig_len);
+	 return rsa_hash_pss_verify_final(tokdata, sess, ctx, signature,
+					  sig_len);
 
       case CKM_SSL3_MD5_MAC:
       case CKM_SSL3_SHA1_MAC:
@@ -1017,12 +1020,12 @@ verify_mgr_verify_recover( STDLL_TokData_t     * tokdata,
 
    switch (ctx->mech.mechanism) {
       case CKM_RSA_PKCS:
-         return rsa_pkcs_verify_recover( sess,      length_only,
+         return rsa_pkcs_verify_recover( tokdata, sess, length_only,
                                          ctx,
                                          signature, sig_len,
                                          out_data,  out_len );
       case CKM_RSA_X_509:
-         return rsa_x509_verify_recover( sess,      length_only,
+         return rsa_x509_verify_recover( tokdata, sess, length_only,
                                          ctx,
                                          signature, sig_len,
                                          out_data,  out_len );

@@ -60,7 +60,8 @@ rsa_get_key_info(OBJECT *key_obj, CK_ULONG *mod_bytes,
  */
 
 CK_RV
-rsa_format_block( CK_BYTE   * in_data,
+rsa_format_block( STDLL_TokData_t *tokdata,
+		  CK_BYTE   * in_data,
                   CK_ULONG    in_data_len,
                   CK_BYTE   * out_data,
                   CK_ULONG    out_data_len,
@@ -344,7 +345,8 @@ CK_RV get_mgf_mech(CK_RSA_PKCS_MGF_TYPE mgf, CK_MECHANISM_TYPE *mech)
 //
 //
 CK_RV
-rsa_pkcs_encrypt( SESSION           *sess,
+rsa_pkcs_encrypt( STDLL_TokData_t   *tokdata,
+		  SESSION           *sess,
                   CK_BBOOL           length_only,
                   ENCR_DECR_CONTEXT *ctx,
                   CK_BYTE           *in_data,
@@ -402,7 +404,8 @@ rsa_pkcs_encrypt( SESSION           *sess,
      return CKR_MECHANISM_INVALID;
    }
 
-   rc = token_specific.t_rsa_encrypt(in_data, in_data_len, out_data, out_data_len, key_obj);
+   rc = token_specific.t_rsa_encrypt(tokdata, in_data, in_data_len, out_data,
+				     out_data_len, key_obj);
 
    if (rc != CKR_OK)
       TRACE_DEVEL("Token Specific rsa encrypt failed.\n");
@@ -414,7 +417,8 @@ rsa_pkcs_encrypt( SESSION           *sess,
 //
 //
 CK_RV
-rsa_pkcs_decrypt( SESSION           *sess,
+rsa_pkcs_decrypt( STDLL_TokData_t     *tokdata,
+		  SESSION           *sess,
                   CK_BBOOL           length_only,
                   ENCR_DECR_CONTEXT *ctx,
                   CK_BYTE           *in_data,
@@ -475,7 +479,8 @@ rsa_pkcs_decrypt( SESSION           *sess,
      return CKR_MECHANISM_INVALID;
    }
 
-   rc = token_specific.t_rsa_decrypt(in_data, in_data_len, out_data, out_data_len, key_obj);
+   rc = token_specific.t_rsa_decrypt(tokdata, in_data, in_data_len, out_data,
+				     out_data_len, key_obj);
 
    if (rc != CKR_OK) {
       if (rc == CKR_DATA_LEN_RANGE) {
@@ -489,7 +494,8 @@ rsa_pkcs_decrypt( SESSION           *sess,
 }
 
 
-CK_RV rsa_oaep_crypt(SESSION *sess, CK_BBOOL length_only,
+CK_RV rsa_oaep_crypt(STDLL_TokData_t *tokdata, SESSION *sess,
+		     CK_BBOOL length_only,
 		     ENCR_DECR_CONTEXT *ctx, CK_BYTE *in_data,
 		     CK_ULONG in_data_len, CK_BYTE *out_data,
 		     CK_ULONG *out_data_len, CK_BBOOL encrypt)
@@ -582,7 +588,7 @@ CK_RV rsa_oaep_crypt(SESSION *sess, CK_BBOOL length_only,
 			return CKR_MECHANISM_INVALID;
 		}
 
-		rc = token_specific.t_rsa_oaep_encrypt(ctx, in_data,
+		rc = token_specific.t_rsa_oaep_encrypt(tokdata, ctx, in_data,
 						       in_data_len, out_data,
 						       out_data_len, hash,
 						       hlen);
@@ -605,7 +611,7 @@ CK_RV rsa_oaep_crypt(SESSION *sess, CK_BBOOL length_only,
 			return CKR_MECHANISM_INVALID;
 		}
 
-		 rc = token_specific.t_rsa_oaep_decrypt(ctx, in_data,
+		 rc = token_specific.t_rsa_oaep_decrypt(tokdata, ctx, in_data,
 							in_data_len, out_data,
 							out_data_len, hash,
 							hlen);
@@ -618,7 +624,8 @@ CK_RV rsa_oaep_crypt(SESSION *sess, CK_BBOOL length_only,
 }
 
 CK_RV
-rsa_pkcs_sign( SESSION             *sess,
+rsa_pkcs_sign( STDLL_TokData_t     *tokdata,
+	       SESSION             *sess,
                CK_BBOOL             length_only,
                SIGN_VERIFY_CONTEXT *ctx,
                CK_BYTE             *in_data,
@@ -681,7 +688,8 @@ rsa_pkcs_sign( SESSION             *sess,
      return CKR_MECHANISM_INVALID;
    }
 
-   rc = token_specific.t_rsa_sign(in_data, in_data_len, out_data, out_data_len, key_obj);
+   rc = token_specific.t_rsa_sign(tokdata, in_data, in_data_len, out_data,
+				  out_data_len, key_obj);
 
    if (rc != CKR_OK)
       TRACE_DEVEL("Token Specific rsa sign failed.\n");
@@ -692,7 +700,8 @@ rsa_pkcs_sign( SESSION             *sess,
 //
 //
 CK_RV
-rsa_pkcs_verify( SESSION             * sess,
+rsa_pkcs_verify( STDLL_TokData_t     *tokdata,
+		 SESSION             * sess,
                  SIGN_VERIFY_CONTEXT * ctx,
                  CK_BYTE             * in_data,
                  CK_ULONG              in_data_len,
@@ -740,7 +749,8 @@ rsa_pkcs_verify( SESSION             * sess,
       return CKR_MECHANISM_INVALID;
    }
 
-   rc = token_specific.t_rsa_verify(in_data, in_data_len, signature, sig_len, key_obj);
+   rc = token_specific.t_rsa_verify(tokdata, in_data, in_data_len, signature,
+				    sig_len, key_obj);
    if (rc != CKR_OK)
       TRACE_DEVEL("Token Specific rsa verify failed.\n");
 
@@ -751,7 +761,8 @@ rsa_pkcs_verify( SESSION             * sess,
 //
 //
 CK_RV
-rsa_pkcs_verify_recover( SESSION             * sess,
+rsa_pkcs_verify_recover( STDLL_TokData_t     *tokdata,
+			 SESSION             * sess,
                          CK_BBOOL              length_only,
                          SIGN_VERIFY_CONTEXT * ctx,
                          CK_BYTE             * signature,
@@ -807,7 +818,8 @@ rsa_pkcs_verify_recover( SESSION             * sess,
       return CKR_MECHANISM_INVALID;
    }
 
-   rc = token_specific.t_rsa_verify_recover(signature, sig_len, out_data, out_data_len, key_obj);
+   rc = token_specific.t_rsa_verify_recover(tokdata, signature, sig_len,
+					    out_data, out_data_len, key_obj);
    if (rc != CKR_OK)
       TRACE_DEVEL("Token Specific rsa verify failed.\n");
 
@@ -818,7 +830,8 @@ rsa_pkcs_verify_recover( SESSION             * sess,
 //
 //
 CK_RV
-rsa_x509_encrypt( SESSION           *sess,
+rsa_x509_encrypt( STDLL_TokData_t   *tokdata,
+		  SESSION           *sess,
                   CK_BBOOL           length_only,
                   ENCR_DECR_CONTEXT *ctx,
                   CK_BYTE           *in_data,
@@ -876,7 +889,8 @@ rsa_x509_encrypt( SESSION           *sess,
       return CKR_MECHANISM_INVALID;
    }
 
-   rc = token_specific.t_rsa_x509_encrypt(in_data, in_data_len, out_data, out_data_len, key_obj);
+   rc = token_specific.t_rsa_x509_encrypt(tokdata, in_data, in_data_len,
+					  out_data, out_data_len, key_obj);
    if (rc != CKR_OK)
       TRACE_DEVEL("Token Specific rsa x509 encrypt failed.\n");
 
@@ -887,7 +901,8 @@ rsa_x509_encrypt( SESSION           *sess,
 //
 //
 CK_RV
-rsa_x509_decrypt( SESSION           *sess,
+rsa_x509_decrypt( STDLL_TokData_t   *tokdata,
+		  SESSION           *sess,
                   CK_BBOOL           length_only,
                   ENCR_DECR_CONTEXT *ctx,
                   CK_BYTE           *in_data,
@@ -949,7 +964,8 @@ rsa_x509_decrypt( SESSION           *sess,
       return CKR_MECHANISM_INVALID;
    }
 
-   rc = token_specific.t_rsa_x509_decrypt(in_data, in_data_len, out_data, out_data_len, key_obj);
+   rc = token_specific.t_rsa_x509_decrypt(tokdata, in_data, in_data_len,
+					  out_data, out_data_len, key_obj);
    if (rc != CKR_OK)
       TRACE_ERROR("Token Specific rsa x509 decrypt failed.\n");
    // ckm_rsa_operation is used for all RSA operations so we need to adjust
@@ -966,7 +982,8 @@ rsa_x509_decrypt( SESSION           *sess,
 //
 //
 CK_RV
-rsa_x509_sign( SESSION             *sess,
+rsa_x509_sign( STDLL_TokData_t     *tokdata,
+	       SESSION             *sess,
                CK_BBOOL             length_only,
                SIGN_VERIFY_CONTEXT *ctx,
                CK_BYTE             *in_data,
@@ -1027,7 +1044,8 @@ rsa_x509_sign( SESSION             *sess,
       TRACE_ERROR("%s\n", ock_err(ERR_MECHANISM_INVALID));
       return CKR_MECHANISM_INVALID;
    }
-   rc = token_specific.t_rsa_x509_sign(in_data, in_data_len, out_data, out_data_len, key_obj);
+   rc = token_specific.t_rsa_x509_sign(tokdata, in_data, in_data_len, out_data,
+				       out_data_len, key_obj);
    if (rc != CKR_OK)
       TRACE_DEVEL("Token Specific rsa x509 sign failed.\n");
 
@@ -1038,7 +1056,8 @@ rsa_x509_sign( SESSION             *sess,
 //
 //
 CK_RV
-rsa_x509_verify( SESSION             * sess,
+rsa_x509_verify( STDLL_TokData_t     *tokdata,
+		 SESSION             * sess,
                  SIGN_VERIFY_CONTEXT * ctx,
                  CK_BYTE             * in_data,
                  CK_ULONG              in_data_len,
@@ -1086,7 +1105,8 @@ rsa_x509_verify( SESSION             * sess,
    }
    // verify is a public key operation --> encrypt
    //
-   rc = token_specific.t_rsa_x509_verify(in_data, in_data_len, signature, sig_len, key_obj);
+   rc = token_specific.t_rsa_x509_verify(tokdata, in_data, in_data_len,
+					 signature, sig_len, key_obj);
    if (rc != CKR_OK)
       TRACE_ERROR("Token Specific rsa x509 verify failed.\n");
 
@@ -1097,7 +1117,8 @@ rsa_x509_verify( SESSION             * sess,
 //
 //
 CK_RV
-rsa_x509_verify_recover( SESSION             * sess,
+rsa_x509_verify_recover( STDLL_TokData_t     *tokdata,
+			 SESSION             * sess,
                          CK_BBOOL              length_only,
                          SIGN_VERIFY_CONTEXT * ctx,
                          CK_BYTE             * signature,
@@ -1163,14 +1184,16 @@ rsa_x509_verify_recover( SESSION             * sess,
 
    // verify is a public key operation --> encrypt
    //
-   rc = token_specific.t_rsa_x509_verify_recover(signature, sig_len, out_data, out_data_len, key_obj);
+   rc = token_specific.t_rsa_x509_verify_recover(tokdata, signature, sig_len,
+						 out_data, out_data_len, key_obj);
    if (rc != CKR_OK)
       TRACE_ERROR("Token Specific rsa x509 verify recover.\n");
 
    return rc;
 }
 
-CK_RV rsa_pss_sign(SESSION *sess, CK_BBOOL length_only,
+CK_RV rsa_pss_sign(STDLL_TokData_t *tokdata, SESSION *sess,
+		   CK_BBOOL length_only,
 		   SIGN_VERIFY_CONTEXT *ctx, CK_BYTE *in_data,
 		   CK_ULONG in_data_len, CK_BYTE *out_data,
 		   CK_ULONG *out_data_len)
@@ -1242,15 +1265,16 @@ CK_RV rsa_pss_sign(SESSION *sess, CK_BBOOL length_only,
 		return CKR_MECHANISM_INVALID;
 	}
 
-	rc = token_specific.t_rsa_pss_sign(ctx, in_data, in_data_len, out_data,
-					   out_data_len);
+	rc = token_specific.t_rsa_pss_sign(tokdata, ctx, in_data, in_data_len,
+					   out_data, out_data_len);
 	if (rc != CKR_OK)
 		TRACE_DEVEL("Token Specific rsa pss sign failed.\n");
 
 	return rc;
 }
 
-CK_RV rsa_pss_verify(SESSION *sess, SIGN_VERIFY_CONTEXT *ctx, CK_BYTE *in_data,
+CK_RV rsa_pss_verify(STDLL_TokData_t *tokdata, SESSION *sess,
+		     SIGN_VERIFY_CONTEXT *ctx, CK_BYTE *in_data,
 		     CK_ULONG in_data_len, CK_BYTE *signature, CK_ULONG sig_len)
 {
 	CK_RV rc;
@@ -1291,7 +1315,7 @@ CK_RV rsa_pss_verify(SESSION *sess, SIGN_VERIFY_CONTEXT *ctx, CK_BYTE *in_data,
 		return CKR_MECHANISM_INVALID;
 	}
 
-	rc = token_specific.t_rsa_pss_verify(ctx, in_data, in_data_len,
+	rc = token_specific.t_rsa_pss_verify(tokdata, ctx, in_data, in_data_len,
 					     signature, sig_len);
 	if (rc != CKR_OK)
 		TRACE_ERROR("Token Specific rsa pss verify.\n");
@@ -1299,7 +1323,8 @@ CK_RV rsa_pss_verify(SESSION *sess, SIGN_VERIFY_CONTEXT *ctx, CK_BYTE *in_data,
 	return rc;
 }
 
-CK_RV rsa_hash_pss_sign(SESSION *sess, CK_BBOOL length_only,
+CK_RV rsa_hash_pss_sign(STDLL_TokData_t *tokdata, SESSION *sess,
+			CK_BBOOL length_only,
 			SIGN_VERIFY_CONTEXT *ctx, CK_BYTE *in_data,
 			CK_ULONG in_data_len, CK_BYTE *sig, CK_ULONG *sig_len)
 {
@@ -1362,13 +1387,13 @@ CK_RV rsa_hash_pss_sign(SESSION *sess, CK_BBOOL length_only,
 	sign_mech.ulParameterLen = ctx->mech.ulParameterLen;
 	sign_mech.pParameter = ctx->mech.pParameter;
 
-	rc = sign_mgr_init(NULL, sess, &sign_ctx, &sign_mech, FALSE, ctx->key);
+	rc = sign_mgr_init(tokdata, sess, &sign_ctx, &sign_mech, FALSE, ctx->key);
 	if (rc != CKR_OK) {
 		TRACE_DEVEL("Sign Mgr Init failed.\n");
 		goto done;
 	}
 
-	rc = sign_mgr_sign(NULL,sess, length_only, &sign_ctx, hash, hlen,
+	rc = sign_mgr_sign(tokdata,sess, length_only, &sign_ctx, hash, hlen,
 			   sig, sig_len);
 	if (rc != CKR_OK)
 		TRACE_DEVEL("Sign Mgr Sign failed.\n");
@@ -1378,7 +1403,8 @@ done:
 	return rc;
 }
 
-CK_RV rsa_hash_pss_update(SESSION *sess, SIGN_VERIFY_CONTEXT *ctx,
+CK_RV rsa_hash_pss_update(STDLL_TokData_t *tokdata, SESSION *sess,
+			  SIGN_VERIFY_CONTEXT *ctx,
 			  CK_BYTE *in_data, CK_ULONG in_data_len)
 {
 	DIGEST_CONTEXT *digest_ctx = NULL;
@@ -1427,9 +1453,9 @@ CK_RV rsa_hash_pss_update(SESSION *sess, SIGN_VERIFY_CONTEXT *ctx,
 	return rc;
 }
 
-CK_RV rsa_hash_pss_sign_final(SESSION *sess, CK_BBOOL length_only,
-			      SIGN_VERIFY_CONTEXT *ctx, CK_BYTE *signature,
-			      CK_ULONG *sig_len)
+CK_RV rsa_hash_pss_sign_final(STDLL_TokData_t *tokdata, SESSION *sess,
+			      CK_BBOOL length_only, SIGN_VERIFY_CONTEXT *ctx,
+			      CK_BYTE *signature, CK_ULONG *sig_len)
 {
 	CK_ULONG hlen;
 	CK_BYTE hash[MAX_SHA_HASH_SIZE];
@@ -1465,13 +1491,13 @@ CK_RV rsa_hash_pss_sign_final(SESSION *sess, CK_BBOOL length_only,
 	sign_mech.ulParameterLen = ctx->mech.ulParameterLen;
 	sign_mech.pParameter = ctx->mech.pParameter;
 
-	rc = sign_mgr_init(NULL, sess, &sign_ctx, &sign_mech, FALSE, ctx->key);
+	rc = sign_mgr_init(tokdata, sess, &sign_ctx, &sign_mech, FALSE, ctx->key);
 	if (rc != CKR_OK) {
 		TRACE_DEVEL("Sign Mgr Init failed.\n");
 		goto done;
 	}
 
-	rc = sign_mgr_sign(NULL, sess, length_only, &sign_ctx, hash, hlen,
+	rc = sign_mgr_sign(tokdata, sess, length_only, &sign_ctx, hash, hlen,
 			   signature, sig_len);
 	if (rc != CKR_OK)
 		TRACE_DEVEL("Sign Mgr Sign failed.\n");
@@ -1481,7 +1507,8 @@ done:
 	return rc;
 }
 
-CK_RV rsa_hash_pss_verify(SESSION *sess, SIGN_VERIFY_CONTEXT *ctx,
+CK_RV rsa_hash_pss_verify(STDLL_TokData_t *tokdata, SESSION *sess,
+			  SIGN_VERIFY_CONTEXT *ctx,
 			  CK_BYTE *in_data, CK_ULONG in_data_len,
 			  CK_BYTE *signature, CK_ULONG sig_len)
 {
@@ -1543,14 +1570,14 @@ CK_RV rsa_hash_pss_verify(SESSION *sess, SIGN_VERIFY_CONTEXT *ctx,
 	verify_mech.ulParameterLen = ctx->mech.ulParameterLen;
 	verify_mech.pParameter = ctx->mech.pParameter;
 
-	rc = verify_mgr_init(NULL, sess, &verify_ctx, &verify_mech, FALSE,
+	rc = verify_mgr_init(tokdata, sess, &verify_ctx, &verify_mech, FALSE,
 			     ctx->key);
 	if (rc != CKR_OK) {
 		TRACE_DEVEL("Verify Mgr Init failed.\n");
 		goto done;
 	}
 
-	rc = verify_mgr_verify(NULL, sess, &verify_ctx, hash, hlen,
+	rc = verify_mgr_verify(tokdata, sess, &verify_ctx, hash, hlen,
 			       signature, sig_len);
 	if (rc != CKR_OK)
 		TRACE_DEVEL("Verify Mgr Verify failed.\n");
@@ -1560,7 +1587,8 @@ done:
 	return rc;
 }
 
-CK_RV rsa_hash_pss_verify_final(SESSION *sess, SIGN_VERIFY_CONTEXT *ctx,
+CK_RV rsa_hash_pss_verify_final(STDLL_TokData_t *tokdata, SESSION *sess,
+				SIGN_VERIFY_CONTEXT *ctx,
 				CK_BYTE *signature, CK_ULONG sig_len)
 {
 	CK_ULONG hlen;
@@ -1596,14 +1624,14 @@ CK_RV rsa_hash_pss_verify_final(SESSION *sess, SIGN_VERIFY_CONTEXT *ctx,
 	verify_mech.ulParameterLen = ctx->mech.ulParameterLen;
 	verify_mech.pParameter = ctx->mech.pParameter;
 
-	rc = verify_mgr_init(NULL, sess, &verify_ctx, &verify_mech, FALSE,
+	rc = verify_mgr_init(tokdata, sess, &verify_ctx, &verify_mech, FALSE,
 			     ctx->key);
 	if (rc != CKR_OK) {
 		TRACE_DEVEL("Verify Mgr Init failed.\n");
 		goto done;
 	}
 
-	rc = verify_mgr_verify(NULL, sess, &verify_ctx, hash, hlen,
+	rc = verify_mgr_verify(tokdata, sess, &verify_ctx, hash, hlen,
 			       signature, sig_len);
 	if (rc != CKR_OK)
 		TRACE_DEVEL("Verify Mgr Verify failed.\n");
@@ -1616,7 +1644,8 @@ done:
 //
 //
 CK_RV
-rsa_hash_pkcs_sign( SESSION              * sess,
+rsa_hash_pkcs_sign( STDLL_TokData_t      * tokdata,
+		    SESSION              * sess,
                     CK_BBOOL               length_only,
                     SIGN_VERIFY_CONTEXT  * ctx,
                     CK_BYTE              * in_data,
@@ -1715,12 +1744,12 @@ rsa_hash_pkcs_sign( SESSION              * sess,
    sign_mech.ulParameterLen = 0;
    sign_mech.pParameter     = NULL;
 
-   rc = sign_mgr_init( NULL, sess, &sign_ctx, &sign_mech, FALSE, ctx->key );
+   rc = sign_mgr_init( tokdata, sess, &sign_ctx, &sign_mech, FALSE, ctx->key );
    if (rc != CKR_OK){
       TRACE_DEVEL("Sign Mgr Init failed.\n");
       goto error;
    }
-   rc = sign_mgr_sign( NULL, sess, length_only, &sign_ctx, ber_data,
+   rc = sign_mgr_sign( tokdata, sess, length_only, &sign_ctx, ber_data,
 		       ber_data_len, signature, sig_len );
    if (rc != CKR_OK)
       TRACE_DEVEL("Sign Mgr Sign failed.\n");
@@ -1736,7 +1765,8 @@ error:
 //
 //
 CK_RV
-rsa_hash_pkcs_sign_update( SESSION              * sess,
+rsa_hash_pkcs_sign_update( STDLL_TokData_t      * tokdata,
+			   SESSION              * sess,
                            SIGN_VERIFY_CONTEXT  * ctx,
                            CK_BYTE              * in_data,
                            CK_ULONG               in_data_len )
@@ -1788,7 +1818,8 @@ rsa_hash_pkcs_sign_update( SESSION              * sess,
 //
 //
 CK_RV
-rsa_hash_pkcs_verify( SESSION              * sess,
+rsa_hash_pkcs_verify( STDLL_TokData_t      * tokdata,
+		      SESSION              * sess,
                       SIGN_VERIFY_CONTEXT  * ctx,
                       CK_BYTE              * in_data,
                       CK_ULONG               in_data_len,
@@ -1885,12 +1916,12 @@ rsa_hash_pkcs_verify( SESSION              * sess,
    verify_mech.ulParameterLen = 0;
    verify_mech.pParameter     = NULL;
 
-   rc = verify_mgr_init( NULL, sess, &verify_ctx, &verify_mech, FALSE, ctx->key );
+   rc = verify_mgr_init( tokdata, sess, &verify_ctx, &verify_mech, FALSE, ctx->key );
    if (rc != CKR_OK){
       TRACE_DEVEL("Verify Mgr Init failed.\n");
       goto done;
    }
-   rc = verify_mgr_verify( NULL, sess, &verify_ctx, ber_data, ber_data_len,
+   rc = verify_mgr_verify( tokdata, sess, &verify_ctx, ber_data, ber_data_len,
 			   signature, sig_len );
    if (rc != CKR_OK)
       TRACE_DEVEL("Verify Mgr Verify failed.\n");
@@ -1904,7 +1935,8 @@ done:
 //
 //
 CK_RV
-rsa_hash_pkcs_verify_update( SESSION              * sess,
+rsa_hash_pkcs_verify_update( STDLL_TokData_t      * tokdata,
+			     SESSION              * sess,
                              SIGN_VERIFY_CONTEXT  * ctx,
                              CK_BYTE              * in_data,
                              CK_ULONG               in_data_len )
@@ -1956,7 +1988,8 @@ rsa_hash_pkcs_verify_update( SESSION              * sess,
 //
 //
 CK_RV
-rsa_hash_pkcs_sign_final( SESSION              * sess,
+rsa_hash_pkcs_sign_final( STDLL_TokData_t      * tokdata,
+			  SESSION              * sess,
                           CK_BBOOL               length_only,
                           SIGN_VERIFY_CONTEXT  * ctx,
                           CK_BYTE              * signature,
@@ -2039,12 +2072,12 @@ rsa_hash_pkcs_sign_final( SESSION              * sess,
    sign_mech.ulParameterLen = 0;
    sign_mech.pParameter     = NULL;
 
-   rc = sign_mgr_init( NULL, sess, &sign_ctx, &sign_mech, FALSE, ctx->key );
+   rc = sign_mgr_init( tokdata, sess, &sign_ctx, &sign_mech, FALSE, ctx->key );
    if (rc != CKR_OK){
       TRACE_DEVEL("Sign Mgr Init failed.\n");
       goto done;
    }
-   rc = sign_mgr_sign( NULL, sess, length_only, &sign_ctx, ber_data,
+   rc = sign_mgr_sign( tokdata, sess, length_only, &sign_ctx, ber_data,
 		       ber_data_len, signature, sig_len );
    if (rc != CKR_OK)
       TRACE_DEVEL("Sign Mgr Sign failed.\n");
@@ -2064,7 +2097,8 @@ done:
 //
 //
 CK_RV
-rsa_hash_pkcs_verify_final( SESSION              * sess,
+rsa_hash_pkcs_verify_final( STDLL_TokData_t      * tokdata,
+			    SESSION              * sess,
                             SIGN_VERIFY_CONTEXT  * ctx,
                             CK_BYTE              * signature,
                             CK_ULONG               sig_len )
@@ -2144,12 +2178,12 @@ rsa_hash_pkcs_verify_final( SESSION              * sess,
    verify_mech.ulParameterLen = 0;
    verify_mech.pParameter     = NULL;
 
-   rc = verify_mgr_init( NULL, sess, &verify_ctx, &verify_mech, FALSE, ctx->key );
+   rc = verify_mgr_init( tokdata, sess, &verify_ctx, &verify_mech, FALSE, ctx->key );
    if (rc != CKR_OK){
       TRACE_DEVEL("Verify Mgr Init failed.\n");
       goto done;
    }
-   rc = verify_mgr_verify( NULL, sess, &verify_ctx, ber_data, ber_data_len,
+   rc = verify_mgr_verify( tokdata, sess, &verify_ctx, ber_data, ber_data_len,
 			   signature, sig_len );
    if (rc != CKR_OK)
       TRACE_DEVEL("Verify Mgr Verify failed.\n");
@@ -2170,7 +2204,8 @@ done:
 //
 //
 CK_RV
-ckm_rsa_key_pair_gen( TEMPLATE  * publ_tmpl,
+ckm_rsa_key_pair_gen( STDLL_TokData_t *tokdata,
+		      TEMPLATE  * publ_tmpl,
                       TEMPLATE  * priv_tmpl )
 {
    CK_RV                rc;
@@ -2181,7 +2216,7 @@ ckm_rsa_key_pair_gen( TEMPLATE  * publ_tmpl,
       return CKR_MECHANISM_INVALID;
    }
 
-   rc = token_specific.t_rsa_generate_keypair(publ_tmpl, priv_tmpl);
+   rc = token_specific.t_rsa_generate_keypair(tokdata, publ_tmpl, priv_tmpl);
    if (rc != CKR_OK)
       TRACE_DEVEL("Token specific rsa generate keypair failed.\n");
 
@@ -2253,9 +2288,9 @@ done:
 
 // RSA mechanism - EME-OAEP encoding
 //
-CK_RV encode_eme_oaep(CK_BYTE *mData, CK_ULONG mLen, CK_BYTE *emData,
-                      CK_ULONG modLength, CK_RSA_PKCS_MGF_TYPE mgf,
-                      CK_BYTE *hash, CK_ULONG hlen)
+CK_RV encode_eme_oaep(STDLL_TokData_t *tokdata, CK_BYTE *mData, CK_ULONG mLen,
+		      CK_BYTE *emData, CK_ULONG modLength,
+		      CK_RSA_PKCS_MGF_TYPE mgf, CK_BYTE *hash, CK_ULONG hlen)
 {
         int i, ps_len, dbMask_len;
         CK_BYTE *maskedSeed, *maskedDB, *dbMask;
@@ -2336,9 +2371,9 @@ done:
 	return rc;
 }
 
-CK_RV decode_eme_oaep(CK_BYTE *emData, CK_ULONG emLen, CK_BYTE *out_data,
-		      CK_ULONG *out_data_len, CK_RSA_PKCS_MGF_TYPE mgf,
-		      CK_BYTE *hash, CK_ULONG hlen)
+CK_RV decode_eme_oaep(STDLL_TokData_t *tokdata, CK_BYTE *emData, CK_ULONG emLen,
+		      CK_BYTE *out_data, CK_ULONG *out_data_len,
+		      CK_RSA_PKCS_MGF_TYPE mgf, CK_BYTE *hash, CK_ULONG hlen)
 {
 	int i, error = 0;;
 	CK_RV rc = CKR_OK;
@@ -2427,8 +2462,9 @@ done:
 	return rc;
 }
 
-CK_RV emsa_pss_encode(CK_RSA_PKCS_PSS_PARAMS *pssParms, CK_BYTE *in_data,
-		      CK_ULONG in_data_len, CK_BYTE *em, CK_ULONG *modbytes)
+CK_RV emsa_pss_encode(STDLL_TokData_t *tokdata, CK_RSA_PKCS_PSS_PARAMS *pssParms,
+		      CK_BYTE *in_data, CK_ULONG in_data_len, CK_BYTE *em,
+		      CK_ULONG *modbytes)
 {
 	CK_BYTE *salt, *DB, *H, *buf = NULL;
 	CK_ULONG emBits, emLen, buflen, hlen, PSlen;
@@ -2527,8 +2563,9 @@ done:
 	return rc;
 }
 
-CK_RV emsa_pss_verify(CK_RSA_PKCS_PSS_PARAMS *pssParms, CK_BYTE *in_data,
-		      CK_ULONG in_data_len, CK_BYTE *sig, CK_ULONG modbytes)
+CK_RV emsa_pss_verify(STDLL_TokData_t *tokdata, CK_RSA_PKCS_PSS_PARAMS *pssParms,
+		      CK_BYTE *in_data, CK_ULONG in_data_len, CK_BYTE *sig,
+		      CK_ULONG modbytes)
 {
 	int i;
 	CK_ULONG buflen, hlen, emBits, emLen, plen;

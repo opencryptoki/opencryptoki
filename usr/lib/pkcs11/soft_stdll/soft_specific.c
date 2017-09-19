@@ -891,8 +891,9 @@ done:
 }
 
 CK_RV
-token_specific_rsa_generate_keypair( TEMPLATE  * publ_tmpl,
-                      TEMPLATE  * priv_tmpl )
+token_specific_rsa_generate_keypair( STDLL_TokData_t *tokdata,
+				     TEMPLATE  * publ_tmpl,
+				     TEMPLATE  * priv_tmpl )
 {
 	CK_RV                rc;
 
@@ -970,9 +971,9 @@ done:
 }
 
 CK_RV
-token_specific_rsa_encrypt(CK_BYTE *in_data, CK_ULONG in_data_len,
-			CK_BYTE *out_data, CK_ULONG  *out_data_len,
-			OBJECT *key_obj)
+token_specific_rsa_encrypt(STDLL_TokData_t *tokdata, CK_BYTE *in_data,
+			   CK_ULONG in_data_len, CK_BYTE *out_data,
+			   CK_ULONG  *out_data_len, OBJECT *key_obj)
 {
 	CK_RV		rc;
 	CK_ULONG	modulus_bytes;
@@ -986,7 +987,8 @@ token_specific_rsa_encrypt(CK_BYTE *in_data, CK_ULONG in_data_len,
 	}
 	modulus_bytes = attr->ulValueLen;
 
-	rc = rsa_format_block(in_data, in_data_len, clear, modulus_bytes, PKCS_BT_2);
+	rc = rsa_format_block(tokdata, in_data, in_data_len, clear,
+			      modulus_bytes, PKCS_BT_2);
 	if (rc != CKR_OK) {
 		TRACE_DEVEL("rsa_format_block failed\n");
 		return rc;
@@ -1004,9 +1006,9 @@ token_specific_rsa_encrypt(CK_BYTE *in_data, CK_ULONG in_data_len,
 }
 
 CK_RV
-token_specific_rsa_decrypt(CK_BYTE *in_data, CK_ULONG in_data_len,
-			CK_BYTE *out_data, CK_ULONG *out_data_len,
-			OBJECT *key_obj)
+token_specific_rsa_decrypt(STDLL_TokData_t *tokdata, CK_BYTE *in_data,
+			CK_ULONG in_data_len, CK_BYTE *out_data,
+			CK_ULONG *out_data_len, OBJECT *key_obj)
 {
 	CK_RV		rc;
 	CK_BYTE		out[MAX_RSA_KEYLEN];
@@ -1040,9 +1042,9 @@ token_specific_rsa_decrypt(CK_BYTE *in_data, CK_ULONG in_data_len,
 
 
 CK_RV
-token_specific_rsa_sign(CK_BYTE *in_data, CK_ULONG in_data_len,
-                           CK_BYTE *out_data, CK_ULONG *out_data_len,
-                           OBJECT *key_obj)
+token_specific_rsa_sign(STDLL_TokData_t *tokdata, CK_BYTE *in_data,
+			CK_ULONG in_data_len, CK_BYTE *out_data,
+			CK_ULONG *out_data_len, OBJECT *key_obj)
 {
         CK_BYTE         data[MAX_RSA_KEYLEN], sig[MAX_RSA_KEYLEN];
         CK_ULONG        modulus_bytes;
@@ -1055,7 +1057,8 @@ token_specific_rsa_sign(CK_BYTE *in_data, CK_ULONG in_data_len,
                 return CKR_FUNCTION_FAILED;
         }
         modulus_bytes = attr->ulValueLen;
-        rc = rsa_format_block(in_data, in_data_len, data, modulus_bytes, PKCS_BT_1);
+        rc = rsa_format_block(tokdata, in_data, in_data_len, data,
+			      modulus_bytes, PKCS_BT_1);
         if (rc != CKR_OK) {
                 TRACE_DEVEL("rsa_format_block failed\n");
                 return rc;
@@ -1073,8 +1076,9 @@ token_specific_rsa_sign(CK_BYTE *in_data, CK_ULONG in_data_len,
 }
 
 CK_RV
-token_specific_rsa_verify(CK_BYTE *in_data, CK_ULONG in_data_len,
-                          CK_BYTE *signature, CK_ULONG sig_len, OBJECT *key_obj)
+token_specific_rsa_verify(STDLL_TokData_t *tokdata, CK_BYTE *in_data,
+			  CK_ULONG in_data_len, CK_BYTE *signature,
+			  CK_ULONG sig_len, OBJECT *key_obj)
 {
         CK_ATTRIBUTE    *attr = NULL;
         CK_BYTE         out[MAX_RSA_KEYLEN], out_data[MAX_RSA_KEYLEN];
@@ -1120,9 +1124,9 @@ token_specific_rsa_verify(CK_BYTE *in_data, CK_ULONG in_data_len,
 }
 
 CK_RV
-token_specific_rsa_verify_recover(CK_BYTE *signature, CK_ULONG sig_len,
-                                  CK_BYTE *out_data, CK_ULONG  *out_data_len,
-                                  OBJECT *key_obj)
+token_specific_rsa_verify_recover(STDLL_TokData_t *tokdata, CK_BYTE *signature,
+				  CK_ULONG sig_len, CK_BYTE *out_data,
+				  CK_ULONG *out_data_len, OBJECT *key_obj)
 {
         CK_ATTRIBUTE    *attr = NULL;
         CK_BYTE         out[MAX_RSA_KEYLEN];
@@ -1156,9 +1160,10 @@ token_specific_rsa_verify_recover(CK_BYTE *signature, CK_ULONG sig_len,
         return rc;
 }
 
-CK_RV token_specific_rsa_pss_sign(SIGN_VERIFY_CONTEXT *ctx, CK_BYTE *in_data,
-				  CK_ULONG in_data_len, CK_BYTE *sig,
-				  CK_ULONG *sig_len)
+CK_RV token_specific_rsa_pss_sign(STDLL_TokData_t *tokdata,
+				  SIGN_VERIFY_CONTEXT *ctx,
+				  CK_BYTE *in_data, CK_ULONG in_data_len,
+				  CK_BYTE *sig, CK_ULONG *sig_len)
 {
 	CK_RV rc;
 	CK_ULONG modbytes;
@@ -1201,7 +1206,8 @@ CK_RV token_specific_rsa_pss_sign(SIGN_VERIFY_CONTEXT *ctx, CK_BYTE *in_data,
 		return CKR_HOST_MEMORY;
 	}
 
-	rc = emsa_pss_encode(pssParms, in_data, in_data_len, emdata, &modbytes);
+	rc = emsa_pss_encode(tokdata, pssParms, in_data, in_data_len, emdata,
+			     &modbytes);
 	if (rc != CKR_OK)
 		goto done;
 
@@ -1219,9 +1225,9 @@ done:
 }
 
 
-CK_RV token_specific_rsa_pss_verify(SIGN_VERIFY_CONTEXT *ctx, CK_BYTE *in_data,
-                                    CK_ULONG in_data_len, CK_BYTE *signature,
-				    CK_ULONG sig_len)
+CK_RV token_specific_rsa_pss_verify(STDLL_TokData_t *tokdata, SIGN_VERIFY_CONTEXT *ctx,
+				    CK_BYTE *in_data, CK_ULONG in_data_len,
+				    CK_BYTE *signature, CK_ULONG sig_len)
 {
 	CK_RV rc;
 	CK_ULONG modbytes;
@@ -1266,15 +1272,16 @@ CK_RV token_specific_rsa_pss_verify(SIGN_VERIFY_CONTEXT *ctx, CK_BYTE *in_data,
 		modbytes = attr->ulValueLen;
 
 	/* call the pss verify scheme */
-	rc = emsa_pss_verify(pssParms, in_data, in_data_len, out, modbytes);
+	rc = emsa_pss_verify(tokdata, pssParms, in_data, in_data_len, out,
+			     modbytes);
 	return rc;
 }
 
 
 CK_RV
-token_specific_rsa_x509_encrypt(CK_BYTE *in_data, CK_ULONG in_data_len,
-                                CK_BYTE *out_data, CK_ULONG  *out_data_len,
-                                OBJECT *key_obj)
+token_specific_rsa_x509_encrypt(STDLL_TokData_t *tokdata, CK_BYTE *in_data,
+				CK_ULONG in_data_len, CK_BYTE *out_data,
+				CK_ULONG *out_data_len, OBJECT *key_obj)
 {
         CK_ATTRIBUTE    *attr = NULL;
         CK_BYTE         clear[MAX_RSA_KEYLEN], cipher[MAX_RSA_KEYLEN];
@@ -1306,9 +1313,9 @@ token_specific_rsa_x509_encrypt(CK_BYTE *in_data, CK_ULONG in_data_len,
 }
 
 CK_RV
-token_specific_rsa_x509_decrypt(CK_BYTE *in_data, CK_ULONG in_data_len,
-				CK_BYTE *out_data, CK_ULONG  *out_data_len,
-				OBJECT *key_obj)
+token_specific_rsa_x509_decrypt(STDLL_TokData_t *tokdata, CK_BYTE *in_data,
+				CK_ULONG in_data_len, CK_BYTE *out_data,
+				CK_ULONG *out_data_len, OBJECT *key_obj)
 {
 	CK_ATTRIBUTE	*attr = NULL;
 	CK_BYTE		out[MAX_RSA_KEYLEN];
@@ -1335,9 +1342,9 @@ token_specific_rsa_x509_decrypt(CK_BYTE *in_data, CK_ULONG in_data_len,
 
 
 CK_RV
-token_specific_rsa_x509_sign(CK_BYTE *in_data, CK_ULONG in_data_len,
-			CK_BYTE *out_data, CK_ULONG  *out_data_len,
-			OBJECT *key_obj)
+token_specific_rsa_x509_sign(STDLL_TokData_t *tokdata, CK_BYTE *in_data,
+			     CK_ULONG in_data_len, CK_BYTE *out_data,
+			     CK_ULONG  *out_data_len, OBJECT *key_obj)
 {
 	CK_ATTRIBUTE	*attr = NULL;
 	CK_BYTE		data[MAX_RSA_KEYLEN], sig[MAX_RSA_KEYLEN];
@@ -1369,9 +1376,9 @@ token_specific_rsa_x509_sign(CK_BYTE *in_data, CK_ULONG in_data_len,
 }
 
 CK_RV
-token_specific_rsa_x509_verify(CK_BYTE *in_data, CK_ULONG in_data_len,
-				CK_BYTE *signature, CK_ULONG sig_len,
-				OBJECT *key_obj)
+token_specific_rsa_x509_verify(STDLL_TokData_t *tokdata, CK_BYTE *in_data,
+			       CK_ULONG in_data_len, CK_BYTE *signature,
+			       CK_ULONG sig_len, OBJECT *key_obj)
 {
 	CK_ATTRIBUTE	*attr = NULL;
 	CK_BYTE		out[MAX_RSA_KEYLEN];
@@ -1421,9 +1428,10 @@ token_specific_rsa_x509_verify(CK_BYTE *in_data, CK_ULONG in_data_len,
 }
 
 CK_RV
-token_specific_rsa_x509_verify_recover(CK_BYTE *signature, CK_ULONG sig_len,
-				CK_BYTE *out_data, CK_ULONG *out_data_len,
-				OBJECT *key_obj)
+token_specific_rsa_x509_verify_recover(STDLL_TokData_t *tokdata,
+				       CK_BYTE *signature, CK_ULONG sig_len,
+				       CK_BYTE *out_data,
+				       CK_ULONG *out_data_len, OBJECT *key_obj)
 {
 	CK_ATTRIBUTE	*attr = NULL;
 	CK_BYTE		out[MAX_RSA_KEYLEN];
@@ -1448,7 +1456,8 @@ token_specific_rsa_x509_verify_recover(CK_BYTE *signature, CK_ULONG sig_len,
 	return rc;
 }
 
-CK_RV token_specific_rsa_oaep_encrypt(ENCR_DECR_CONTEXT *ctx, CK_BYTE *in_data,
+CK_RV token_specific_rsa_oaep_encrypt(STDLL_TokData_t *tokdata,
+				      ENCR_DECR_CONTEXT *ctx, CK_BYTE *in_data,
 				      CK_ULONG in_data_len, CK_BYTE *out_data,
 				      CK_ULONG *out_data_len, CK_BYTE *hash,
 				      CK_ULONG hlen)
@@ -1491,8 +1500,8 @@ CK_RV token_specific_rsa_oaep_encrypt(ENCR_DECR_CONTEXT *ctx, CK_BYTE *in_data,
 		return CKR_HOST_MEMORY;
 	}
 
-	rc = encode_eme_oaep(in_data, in_data_len, em_data, modulus_bytes,
-			     oaepParms->mgf, hash, hlen);
+	rc = encode_eme_oaep(tokdata, in_data, in_data_len, em_data,
+			     modulus_bytes, oaepParms->mgf, hash, hlen);
 	if (rc != CKR_OK)
 		goto done;
 
@@ -1508,7 +1517,8 @@ done:
 	return rc;
 }
 
-CK_RV token_specific_rsa_oaep_decrypt(ENCR_DECR_CONTEXT *ctx, CK_BYTE *in_data,
+CK_RV token_specific_rsa_oaep_decrypt(STDLL_TokData_t *tokdata,
+				      ENCR_DECR_CONTEXT *ctx, CK_BYTE *in_data,
 				      CK_ULONG in_data_len, CK_BYTE *out_data,
 				      CK_ULONG *out_data_len, CK_BYTE *hash,
 				      CK_ULONG hlen)
@@ -1552,8 +1562,8 @@ CK_RV token_specific_rsa_oaep_decrypt(ENCR_DECR_CONTEXT *ctx, CK_BYTE *in_data,
 	/* pkcs1v2.2, section 7.1.2 Step 2:
 	 * EME-OAEP decoding.
 	 */
-	rc = decode_eme_oaep(decr_data, in_data_len, out_data, out_data_len,
-			     oaepParms->mgf, hash, hlen);
+	rc = decode_eme_oaep(tokdata, decr_data, in_data_len, out_data,
+			     out_data_len, oaepParms->mgf, hash, hlen);
 
 error:
 	if (decr_data)
