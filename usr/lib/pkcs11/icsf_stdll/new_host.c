@@ -837,7 +837,8 @@ done:
 			TRACE_DEVEL("session_mgr_login_all failed.\n");
 		else {
 			if (sess)
-				rc = icsf_get_handles(sess->session_info.slotID);
+				rc = icsf_get_handles(tokdata,
+						      sess->session_info.slotID);
 		}
 	}
 
