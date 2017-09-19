@@ -1140,7 +1140,8 @@ rsa_publ_set_default_attributes( TEMPLATE *tmpl, TEMPLATE *basetmpl, CK_ULONG mo
 // rsa_publ_validate_attributes()
 //
 CK_RV
-rsa_publ_validate_attribute( TEMPLATE *tmpl, CK_ATTRIBUTE *attr, CK_ULONG mode )
+rsa_publ_validate_attribute( STDLL_TokData_t *tokdata, TEMPLATE *tmpl,
+			     CK_ATTRIBUTE *attr, CK_ULONG mode )
 {
    switch (attr->type) {
       case CKA_MODULUS_BITS:
@@ -1353,7 +1354,8 @@ rsa_priv_set_default_attributes( TEMPLATE *tmpl, CK_ULONG mode )
 // rsa_priv_validate_attributes()
 //
 CK_RV
-rsa_priv_validate_attribute( TEMPLATE *tmpl, CK_ATTRIBUTE *attr, CK_ULONG mode )
+rsa_priv_validate_attribute( STDLL_TokData_t *tokdata, TEMPLATE *tmpl,
+			     CK_ATTRIBUTE *attr, CK_ULONG mode )
 {
    switch (attr->type) {
       case CKA_MODULUS:

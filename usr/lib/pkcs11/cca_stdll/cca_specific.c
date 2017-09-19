@@ -785,7 +785,8 @@ token_create_priv_key(TEMPLATE *priv_tmpl, CK_ULONG tok_len, CK_BYTE *tok)
 #endif
 
 CK_RV
-token_specific_rsa_generate_keypair(TEMPLATE *publ_tmpl,
+token_specific_rsa_generate_keypair(STDLL_TokData_t *tokdata,
+				    TEMPLATE *publ_tmpl,
 				    TEMPLATE *priv_tmpl)
 {
 	long return_code, reason_code, rule_array_count;
@@ -954,7 +955,8 @@ token_specific_rsa_generate_keypair(TEMPLATE *publ_tmpl,
 
 
 CK_RV
-token_specific_rsa_encrypt(CK_BYTE  *in_data,
+token_specific_rsa_encrypt(STDLL_TokData_t *tokdata,
+			   CK_BYTE  *in_data,
 			   CK_ULONG  in_data_len,
 			   CK_BYTE  *out_data,
 			   CK_ULONG *out_data_len,
@@ -1008,7 +1010,8 @@ token_specific_rsa_encrypt(CK_BYTE  *in_data,
 }
 
 CK_RV
-token_specific_rsa_decrypt(CK_BYTE  *in_data,
+token_specific_rsa_decrypt(STDLL_TokData_t *tokdata,
+			   CK_BYTE  *in_data,
 			   CK_ULONG  in_data_len,
 			   CK_BYTE  *out_data,
 			   CK_ULONG *out_data_len,
@@ -1062,7 +1065,8 @@ token_specific_rsa_decrypt(CK_BYTE  *in_data,
 }
 
 CK_RV
-token_specific_rsa_sign(CK_BYTE  * in_data,
+token_specific_rsa_sign(STDLL_TokData_t *tokdata,
+			CK_BYTE  * in_data,
 			CK_ULONG   in_data_len,
 			CK_BYTE  * out_data,
 			CK_ULONG * out_data_len,
@@ -1109,7 +1113,8 @@ token_specific_rsa_sign(CK_BYTE  * in_data,
 }
 
 CK_RV
-token_specific_rsa_verify(CK_BYTE  * in_data,
+token_specific_rsa_verify(STDLL_TokData_t *tokdata,
+			  CK_BYTE  * in_data,
 			  CK_ULONG   in_data_len,
 			  CK_BYTE  * out_data,
 			  CK_ULONG   out_data_len,
