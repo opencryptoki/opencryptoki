@@ -1601,7 +1601,7 @@ token_specific_login(STDLL_TokData_t *tokdata, SESSION *sess,
 		return CKR_FUNCTION_FAILED;
 	}
 
-	if ((rc = compute_sha1(pPin, ulPinLen, hash_sha))) {
+	if ((rc = compute_sha1(tokdata, pPin, ulPinLen, hash_sha))) {
 		TRACE_ERROR("compute_sha1 failed. rc=0x%lx\n", rc);
 		return CKR_FUNCTION_FAILED;
 	}
@@ -1854,11 +1854,11 @@ token_specific_set_pin(STDLL_TokData_t *tokdata, SESSION *sess,
 		return CKR_SESSION_HANDLE_INVALID;
 	}
 
-	if ((rc = compute_sha1(pOldPin, ulOldPinLen, oldpin_hash))) {
+	if ((rc = compute_sha1(tokdata, pOldPin, ulOldPinLen, oldpin_hash))) {
 		TRACE_ERROR("compute_sha1 failed. rc=0x%lx\n", rc);
 		return CKR_FUNCTION_FAILED;
 	}
-	if ((rc = compute_sha1(pNewPin, ulNewPinLen, newpin_hash))) {
+	if ((rc = compute_sha1(tokdata, pNewPin, ulNewPinLen, newpin_hash))) {
 		TRACE_ERROR("compute_sha1 failed. rc=0x%lx\n", rc);
 		return CKR_FUNCTION_FAILED;
 	}
@@ -2074,7 +2074,7 @@ token_specific_init_token(STDLL_TokData_t *tokdata, CK_SLOT_ID sid,
 	CK_BYTE hash_sha[SHA1_HASH_SIZE];
 	CK_RV rc;
 
-	if ((rc = compute_sha1(pPin, ulPinLen, hash_sha))) {
+	if ((rc = compute_sha1(tokdata, pPin, ulPinLen, hash_sha))) {
 		TRACE_ERROR("compute_sha1 failed. rc=0x%lx\n", rc);
 		return CKR_FUNCTION_FAILED;
 	}

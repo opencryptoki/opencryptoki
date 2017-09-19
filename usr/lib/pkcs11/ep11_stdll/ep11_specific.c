@@ -1536,7 +1536,8 @@ done:
 	return rc;
 }
 
-CK_RV token_specific_sha_init(DIGEST_CONTEXT *c, CK_MECHANISM *mech)
+CK_RV token_specific_sha_init(STDLL_TokData_t *tokdata, DIGEST_CONTEXT *c,
+			      CK_MECHANISM *mech)
 {
 	CK_RV rc;
 	size_t state_len = MAX_DIGEST_STATE_BYTES;
@@ -1571,7 +1572,8 @@ CK_RV token_specific_sha_init(DIGEST_CONTEXT *c, CK_MECHANISM *mech)
 }
 
 
-CK_RV token_specific_sha(DIGEST_CONTEXT *c, CK_BYTE *in_data,
+CK_RV token_specific_sha(STDLL_TokData_t *tokdata, DIGEST_CONTEXT *c,
+			 CK_BYTE *in_data,
 			 CK_ULONG in_data_len, CK_BYTE *out_data,
 			 CK_ULONG *out_data_len)
 {
@@ -1589,8 +1591,8 @@ CK_RV token_specific_sha(DIGEST_CONTEXT *c, CK_BYTE *in_data,
 }
 
 
-CK_RV token_specific_sha_update(DIGEST_CONTEXT *c, CK_BYTE *in_data,
-				CK_ULONG in_data_len)
+CK_RV token_specific_sha_update(STDLL_TokData_t *tokdata, DIGEST_CONTEXT *c,
+				CK_BYTE *in_data, CK_ULONG in_data_len)
 {
 	CK_RV rc;
 
@@ -1606,8 +1608,8 @@ CK_RV token_specific_sha_update(DIGEST_CONTEXT *c, CK_BYTE *in_data,
 }
 
 
-CK_RV token_specific_sha_final(DIGEST_CONTEXT *c, CK_BYTE *out_data,
-			       CK_ULONG *out_data_len)
+CK_RV token_specific_sha_final(STDLL_TokData_t *tokdata, DIGEST_CONTEXT *c,
+			       CK_BYTE *out_data, CK_ULONG *out_data_len)
 {
 	CK_RV rc;
 

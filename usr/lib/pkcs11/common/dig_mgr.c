@@ -58,7 +58,7 @@ digest_mgr_init( STDLL_TokData_t   *tokdata,
             }
 
             ctx->context = NULL;
-            rc = sha_init(sess, ctx, mech);
+            rc = sha_init(tokdata, sess, ctx, mech);
             if (rc != CKR_OK) {
                digest_mgr_cleanup(ctx);  // to de-initialize context above
 	       TRACE_ERROR("Failed to init sha context.\n");
@@ -197,8 +197,8 @@ digest_mgr_digest( STDLL_TokData_t *tokdata,
       case CKM_SHA256:
       case CKM_SHA384:
       case CKM_SHA512:
-         rc = sha_hash(sess, length_only, ctx, in_data, in_data_len, out_data,
-		       out_data_len);
+         rc = sha_hash( tokdata, sess, length_only, ctx, in_data, in_data_len,
+		        out_data, out_data_len );
          break;
 
 #if !(NOMD2 )
@@ -261,7 +261,7 @@ digest_mgr_digest_update( STDLL_TokData_t *tokdata,
       case CKM_SHA256:
       case CKM_SHA384:
       case CKM_SHA512:
-         rc = sha_hash_update(sess, ctx, data, data_len);
+         rc = sha_hash_update(tokdata, sess, ctx, data, data_len);
          break;
 
 #if !(NOMD2)
@@ -378,7 +378,7 @@ digest_mgr_digest_final( STDLL_TokData_t *tokdata,
       case CKM_SHA256:
       case CKM_SHA384:
       case CKM_SHA512:
-         rc = sha_hash_final(sess, length_only, ctx, hash, hash_len);
+         rc = sha_hash_final(tokdata, sess, length_only, ctx, hash, hash_len);
          break;
 
 #if !(NOMD2)

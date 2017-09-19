@@ -645,7 +645,7 @@ CK_RV save_private_token_object(OBJECT * obj)
 	//       SHA of (object data)             |
 	//    ---- end encrypted part          <--+
 	//
-	compute_sha1(obj_data, obj_data_len, hash_sha);
+	compute_sha1(NULL, obj_data, obj_data_len, hash_sha);
 
 	// encrypt the sensitive object data.  need to be careful.
 	// if I use the normal high-level encryption routines I'll need to
@@ -975,7 +975,7 @@ CK_RV restore_private_token_object(CK_BYTE * data, CK_ULONG len, OBJECT * pObj)
 
 	// check the hash
 	//
-	rc = compute_sha1(ptr, obj_data_len, hash_sha);
+	rc = compute_sha1(NULL, ptr, obj_data_len, hash_sha);
 	if (rc != CKR_OK) {
 		goto done;
 	}
@@ -1085,7 +1085,7 @@ CK_RV load_masterkey_so(void)
 
 	// compare the hashes
 	//
-	rc = compute_sha1(clear, master_key_len, hash_sha);
+	rc = compute_sha1(NULL, clear, master_key_len, hash_sha);
 	if (rc != CKR_OK) {
 		goto done;
 	}
@@ -1190,7 +1190,7 @@ CK_RV load_masterkey_user(void)
 
 	// compare the hashes
 	//
-	rc = compute_sha1(clear, master_key_len, hash_sha);
+	rc = compute_sha1(NULL, clear, master_key_len, hash_sha);
 	if (rc != CKR_OK) {
 		goto done;
 	}
@@ -1259,7 +1259,7 @@ CK_RV save_masterkey_so(void)
 
 	// Copy data to buffer (key+hash)
 	memcpy(clear, master_key, master_key_len);
-	if ((rc = compute_sha1(master_key, master_key_len,
+	if ((rc = compute_sha1(NULL, master_key, master_key_len,
 			      clear + master_key_len)) != CKR_OK)
 		goto done;
 	add_pkcs_padding(clear + data_len, block_size, data_len,
@@ -1350,7 +1350,7 @@ CK_RV save_masterkey_user(void)
 
 	// Copy data to buffer (key+hash)
 	memcpy(clear, master_key, master_key_len);
-	if ((rc = compute_sha1(master_key, master_key_len,
+	if ((rc = compute_sha1(NULL, master_key, master_key_len,
 			      clear + master_key_len)) != CKR_OK)
 		goto done;
 	add_pkcs_padding(clear + data_len, block_size , data_len,

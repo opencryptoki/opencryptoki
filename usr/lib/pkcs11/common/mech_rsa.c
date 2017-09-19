@@ -565,9 +565,9 @@ CK_RV rsa_oaep_crypt(STDLL_TokData_t *tokdata, SESSION *sess,
 
 	/* hash the label now */
 	if (!(oaepParms->pSourceData) || !(oaepParms->ulSourceDataLen))
-		rc = compute_sha("", 0, hash, oaepParms->hashAlg);
+		rc = compute_sha(tokdata, "", 0, hash, oaepParms->hashAlg);
 	else
-		rc = compute_sha(oaepParms->pSourceData,
+		rc = compute_sha(tokdata, oaepParms->pSourceData,
 				 oaepParms->ulSourceDataLen, hash,
 				 oaepParms->hashAlg);
 
@@ -2274,7 +2274,7 @@ CK_RV mgf1(STDLL_TokData_t *tokdata, CK_BYTE *seed, CK_ULONG seedlen,
 		memcpy(seed_buffer + seedlen, counter, 4);
 
 		/* compute hash of concatenated seed and octet string */
-		rc = compute_sha(seed_buffer, seedlen + 4, hash, mech);
+		rc = compute_sha(tokdata, seed_buffer, seedlen + 4, hash, mech);
 		if (rc != CKR_OK)
 			goto done;
 
@@ -2537,7 +2537,8 @@ CK_RV emsa_pss_encode(STDLL_TokData_t *tokdata, CK_RSA_PKCS_PSS_PARAMS *pssParms
 	memcpy(buf + 8, in_data, in_data_len);
 
 	/* pkcs1v2.2, Step 6: Compute Hash(M') */
-	rc = compute_sha(buf, 8 + hlen + pssParms->sLen, H, pssParms->hashAlg);
+	rc = compute_sha(tokdata, buf, 8 + hlen + pssParms->sLen, H,
+			 pssParms->hashAlg);
 	if (rc != CKR_OK)
 		goto done;
 
@@ -2652,7 +2653,8 @@ CK_RV emsa_pss_verify(STDLL_TokData_t *tokdata, CK_RSA_PKCS_PSS_PARAMS *pssParms
 	memcpy(M + (8 + in_data_len), salt, pssParms->sLen);
 
 	/* pkcs1v2.2, Step 13: Compute Hash(M'). */
-	rc = compute_sha(M, 8 + hlen + pssParms->sLen, hash, pssParms->hashAlg);
+	rc = compute_sha(tokdata, M, 8 + hlen + pssParms->sLen, hash,
+			 pssParms->hashAlg);
 	if (rc != CKR_OK)
 		goto done;
 
