@@ -482,7 +482,7 @@ CK_RV SC_InitPIN(STDLL_TokData_t *tokdata, ST_SESSION_HANDLE *sSession,
 	}
 	/* compute the SHA and MD5 hashes of the user pin */
 	rc  = compute_sha1(tokdata, pPin, ulPinLen, hash_sha);
-	rc |= compute_md5( pPin, ulPinLen, hash_md5 );
+	rc |= compute_md5( tokdata, pPin, ulPinLen, hash_md5 );
 	if (rc != CKR_OK) {
 		TRACE_ERROR("Failed to compute sha or md5 for user pin.\n");
 		goto done;
@@ -568,7 +568,7 @@ CK_RV SC_SetPIN(STDLL_TokData_t *tokdata, ST_SESSION_HANDLE *sSession, CK_CHAR_P
 			goto done;
 		}
 		rc  = compute_sha1(tokdata, pNewPin, ulNewLen, new_hash_sha);
-		rc |= compute_md5(pNewPin, ulNewLen, hash_md5);
+		rc |= compute_md5(tokdata, pNewPin, ulNewLen, hash_md5);
 		if (rc != CKR_OK) {
 			TRACE_ERROR("Failed to compute hash for new pin.\n");
 			goto done;
@@ -607,7 +607,7 @@ CK_RV SC_SetPIN(STDLL_TokData_t *tokdata, ST_SESSION_HANDLE *sSession, CK_CHAR_P
 			goto done;
 		}
 		rc = compute_sha1(tokdata, pNewPin, ulNewLen, new_hash_sha);
-		rc |= compute_md5(pNewPin, ulNewLen, hash_md5);
+		rc |= compute_md5(tokdata, pNewPin, ulNewLen, hash_md5);
 		if (rc != CKR_OK) {
 			TRACE_ERROR("Failed to compute hash for new pin.\n");
 			goto done;
@@ -936,8 +936,9 @@ CK_RV SC_Login(STDLL_TokData_t *tokdata, ST_SESSION_HANDLE *sSession,
 				  CKF_USER_PIN_FINAL_TRY |
 				  CKF_USER_PIN_COUNT_LOW);
 
-		compute_md5( pPin, ulPinLen, user_pin_md5 );
-		memset( so_pin_md5, 0x0, MD5_HASH_SIZE );
+		compute_md5(tokdata, pPin, ulPinLen,
+			    tokdata->nv_token_data->user_pin_md5);
+		memset(tokdata->nv_token_data->so_pin_md5, 0x0, MD5_HASH_SIZE);
 
 		rc = load_masterkey_user();
 		if (rc != CKR_OK){
@@ -972,8 +973,9 @@ CK_RV SC_Login(STDLL_TokData_t *tokdata, ST_SESSION_HANDLE *sSession,
 		*flags &= ~(CKF_SO_PIN_LOCKED | CKF_SO_PIN_FINAL_TRY |
 			    CKF_SO_PIN_COUNT_LOW);
 
-		compute_md5(pPin, ulPinLen, so_pin_md5);
-		memset(user_pin_md5, 0x0, MD5_HASH_SIZE);
+		compute_md5(tokdata, pPin, ulPinLen,
+			    tokdata->nv_token_data->so_pin_md5);
+		memset(tokdata->nv_token_data->user_pin_md5, 0x0, MD5_HASH_SIZE);
 
 		rc = load_masterkey_so();
 		if (rc != CKR_OK)
