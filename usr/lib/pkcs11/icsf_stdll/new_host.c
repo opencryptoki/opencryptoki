@@ -251,7 +251,7 @@ CK_RV SC_Finalize(STDLL_TokData_t *tokdata, CK_SLOT_ID sid, SLOT_INFO *sinfp)
 	} /* end transaction */
 
 	session_mgr_close_all_sessions();
-	object_mgr_purge_token_objects();
+	object_mgr_purge_token_objects(tokdata);
 	detach_shm();
 	/* close spin lock file	*/
 	CloseXProcLock();

@@ -225,7 +225,7 @@ session_mgr_close_session( STDLL_TokData_t *tokdata, CK_SESSION_HANDLE handle )
 	   goto done;
    }
 
-   object_mgr_purge_session_objects( sess, ALL );
+   object_mgr_purge_session_objects( tokdata, sess, ALL );
 
    __transaction_atomic { /* start transaction */
 	   if ( (sess->session_info.state == CKS_RO_PUBLIC_SESSION) ||
@@ -310,7 +310,7 @@ session_free(void *node_value, unsigned long node_idx, void *p3)
 {
    SESSION *sess = (SESSION *)node_value;
 
-   object_mgr_purge_session_objects( sess, ALL );
+   object_mgr_purge_session_objects( NULL, sess, ALL );
    sess->handle = CK_INVALID_HANDLE;
 
    if (sess->find_list)
@@ -416,7 +416,7 @@ session_logout(void *node_value, unsigned long node_idx, void *p3)
    // all sessions get logged out so destroy any private objects
    // public objects are left alone
    //
-   object_mgr_purge_session_objects( s, PRIVATE );
+   object_mgr_purge_session_objects( NULL, s, PRIVATE );
 
    if (s->session_info.flags & CKF_RW_SESSION)
       s->session_info.state = CKS_RW_PUBLIC_SESSION;

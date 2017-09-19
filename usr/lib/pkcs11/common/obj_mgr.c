@@ -221,7 +221,7 @@ object_mgr_add( STDLL_TokData_t  * tokdata,
       else {
          // we'll want to delete the token object file too!
          //
-         delete_token_object( o );
+         delete_token_object( tokdata, o );
 
          if (priv_obj) {
 	    // put the binary tree node which holds o on the free list, but pass NULL here, so that
@@ -494,7 +494,7 @@ object_mgr_copy( STDLL_TokData_t  * tokdata,
       else {
          // FIXME - need to destroy the token object file too
          //
-         delete_token_object( new_obj );
+         delete_token_object( tokdata, new_obj );
 
          if (priv_obj) {
 	    // put the binary tree node which holds new_obj on the free list, but pass NULL here,
@@ -715,7 +715,7 @@ object_mgr_create_final( STDLL_TokData_t  * tokdata,
       else {
          // FIXME - need to destroy the token object file too
          //
-         delete_token_object( obj );
+         delete_token_object( tokdata, obj );
 
          if (priv_obj) {
 	    // put the binary tree node which holds obj on the free list, but pass NULL here,
@@ -766,7 +766,7 @@ destroy_object_cb(void *node)
 		if (!o)
 			return;
 
-		delete_token_object(o);
+		delete_token_object(NULL, o);
 
 		/* Use the same calling convention as the old code, if XProcLock fails, don't
 		 * delete from shm and don't free the object in its other btree */
@@ -831,7 +831,7 @@ delete_token_obj_cb(void *node, unsigned long map_handle, void *p3)
 		if (!o)
 			goto done;
 
-		delete_token_object(o);
+		delete_token_object(NULL, o);
 
 		/* Use the same calling convention as the old code, if
 		 * XProcLock fails, don't delete from shm and don't free
@@ -859,7 +859,7 @@ done:
 // this routine will destroy all token objects in the system
 //
 CK_RV
-object_mgr_destroy_token_objects( void )
+object_mgr_destroy_token_objects(STDLL_TokData_t *tokdata)
 {
    CK_BBOOL locked = FALSE;
    CK_RV rc;
@@ -1362,7 +1362,8 @@ purge_session_obj_cb(void *node, unsigned long obj_handle, void *p3)
 // the 'type' requirements
 //
 CK_BBOOL
-object_mgr_purge_session_objects( SESSION       * sess,
+object_mgr_purge_session_objects( STDLL_TokData_t *tokdata,
+				  SESSION         *sess,
                                   SESS_OBJ_TYPE   type )
 {
    struct purge_args pa = { sess, type };
@@ -1395,7 +1396,8 @@ purge_token_obj_cb(void *node, unsigned long obj_handle, void *p3)
 // need to do this but when tracing memory leaks, it's best that we free everything
 // that we've allocated
 //
-CK_BBOOL object_mgr_purge_token_objects()
+CK_BBOOL
+object_mgr_purge_token_objects(STDLL_TokData_t *tokdata)
 {
    bt_for_each_node(&priv_token_obj_btree, purge_token_obj_cb, &priv_token_obj_btree);
    bt_for_each_node(&publ_token_obj_btree, purge_token_obj_cb, &publ_token_obj_btree);
