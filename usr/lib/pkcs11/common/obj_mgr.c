@@ -1140,7 +1140,8 @@ find_build_list_cb(STDLL_TokData_t *tokdata, void *node,
 }
 
 CK_RV
-object_mgr_find_init( SESSION      * sess,
+object_mgr_find_init( STDLL_TokData_t  *tokdata,
+		      SESSION      * sess,
                       CK_ATTRIBUTE * pTemplate,
                       CK_ULONG       ulCount )
 {
@@ -1223,17 +1224,17 @@ object_mgr_find_init( SESSION      * sess,
       case CKS_RW_SO_FUNCTIONS:
 	 fa.public_only = TRUE;
 
-	 bt_for_each_node(NULL, &publ_token_obj_btree, find_build_list_cb, &fa);
-	 bt_for_each_node(NULL, &sess_obj_btree, find_build_list_cb, &fa);
+	 bt_for_each_node(tokdata, &publ_token_obj_btree, find_build_list_cb, &fa);
+	 bt_for_each_node(tokdata, &sess_obj_btree, find_build_list_cb, &fa);
          break;
 
       case CKS_RO_USER_FUNCTIONS:
       case CKS_RW_USER_FUNCTIONS:
 	 fa.public_only = FALSE;
 
-	 bt_for_each_node(NULL, &priv_token_obj_btree, find_build_list_cb, &fa);
-	 bt_for_each_node(NULL, &publ_token_obj_btree, find_build_list_cb, &fa);
-	 bt_for_each_node(NULL, &sess_obj_btree, find_build_list_cb, &fa);
+	 bt_for_each_node(tokdata, &priv_token_obj_btree, find_build_list_cb, &fa);
+	 bt_for_each_node(tokdata, &publ_token_obj_btree, find_build_list_cb, &fa);
+	 bt_for_each_node(tokdata, &sess_obj_btree, find_build_list_cb, &fa);
          break;
    }
 

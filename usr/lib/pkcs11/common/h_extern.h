@@ -2191,7 +2191,8 @@ CK_RV    object_mgr_find_in_map2( STDLL_TokData_t  *tokdata,
 				  OBJECT           * ptr,
                                   CK_OBJECT_HANDLE * handle );
 
-CK_RV    object_mgr_find_init( SESSION      * sess,
+CK_RV    object_mgr_find_init( STDLL_TokData_t  *tokdata,
+			       SESSION      * sess,
                                CK_ATTRIBUTE * pTemplate,
                                CK_ULONG       ulCount );
 

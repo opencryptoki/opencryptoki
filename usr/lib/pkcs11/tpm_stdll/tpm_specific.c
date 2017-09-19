@@ -227,7 +227,7 @@ token_find_key(int key_type, CK_OBJECT_CLASS class, CK_OBJECT_HANDLE *handle)
 	memset(&dummy_sess, 0, sizeof(SESSION));
 	dummy_sess.session_info.state = CKS_RO_USER_FUNCTIONS;
 
-	if ((rc = object_mgr_find_init(&dummy_sess, tmpl, 3))) {
+	if ((rc = object_mgr_find_init(NULL, &dummy_sess, tmpl, 3))) {
 		goto done;
 	}
 
