@@ -11,6 +11,9 @@
 #ifndef _TRACE_H
 #define _TRACE_H
 
+#include "defs.h"
+#include "host_defs.h"
+
 /* pkcs11 error messages */
 
 enum errmsg {
@@ -129,11 +132,11 @@ const char *ock_err(int num);
 
 #ifdef DEBUG
 #define TRACE_DEBUG(fmt, ...)	ock_traceit(TRACE_LEVEL_DEBUG, "[%s:%d %s] DEBUG: " fmt, __FILE__, __LINE__, STDLL_NAME, ##__VA_ARGS__)
-void dump_shm(const char *);
-#define DUMP_SHM(x)	dump_shm(x)
+void dump_shm(LW_SHM_TYPE *, const char *);
+#define DUMP_SHM(x,y)	dump_shm(x,y)
 #else
 #define TRACE_DEBUG(fmt, ...)
-#define DUMP_SHM(x)
+#define DUMP_SHM(x,y)
 #endif
 
 #endif

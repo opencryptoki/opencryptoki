@@ -173,13 +173,13 @@ CK_RV ST_Initialize(API_Slot_t *sltp, CK_SLOT_ID SlotNumber,
 	 */
 	if (sltp->TokData->initialized == FALSE) {
 
-		rc = attach_shm(SlotNumber, &global_shm);
+		rc = attach_shm(SlotNumber, &(sltp->TokData->global_shm));
 		if (rc != CKR_OK) {
 			TRACE_ERROR("Could not attach to shared memory.\n");
 			goto done;
 		}
 
-		nv_token_data = &global_shm->nv_token_data;
+		sltp->TokData->nv_token_data = &(sltp->TokData->global_shm->nv_token_data);
 		SC_SetFunctionList();
 
 		rc =  ep11tok_init(sltp->TokData, SlotNumber, sinfp->confname);
@@ -210,7 +210,7 @@ CK_RV ST_Initialize(API_Slot_t *sltp, CK_SLOT_ID SlotNumber,
 	load_public_token_objects(sltp->TokData);
 
 	XProcLock();
-	global_shm->publ_loaded = TRUE;
+	sltp->TokData->global_shm->publ_loaded = TRUE;
 	XProcUnLock();
 
 	init_slotInfo(&(sltp->TokData->slot_info));
@@ -254,7 +254,7 @@ CK_RV SC_Finalize(STDLL_TokData_t *tokdata, CK_SLOT_ID sid, SLOT_INFO *sinfp)
 
 	session_mgr_close_all_sessions();
 	object_mgr_purge_token_objects(tokdata);
-	detach_shm();
+	detach_shm(tokdata->global_shm);
 	/* close spin lock file	*/
 	CloseXProcLock();
 	rc = ep11tok_final(tokdata);
@@ -956,7 +956,7 @@ CK_RV SC_Login(STDLL_TokData_t *tokdata, ST_SESSION_HANDLE *sSession,
 		load_private_token_objects(tokdata);
 
 		XProcLock();
-		global_shm->priv_loaded = TRUE;
+		tokdata->global_shm->priv_loaded = TRUE;
 		XProcUnLock();
 	} else {
 		if (*flags & CKF_SO_PIN_LOCKED) {
