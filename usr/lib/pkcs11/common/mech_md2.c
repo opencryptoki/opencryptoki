@@ -70,7 +70,8 @@ static CK_BYTE *padding[] = {
 //
 //
 CK_RV
-md2_hash( SESSION         * sess,
+md2_hash( STDLL_TokData_t * tokdata,
+	  SESSION         * sess,
           CK_BBOOL          length_only,
           DIGEST_CONTEXT  * ctx,
           CK_BYTE         * in_data,
@@ -91,21 +92,20 @@ md2_hash( SESSION         * sess,
       return CKR_OK;
    }
 
-   rc = md2_hash_update( sess, ctx, in_data, in_data_len );
+   rc = md2_hash_update( tokdata, sess, ctx, in_data, in_data_len );
    if (rc != CKR_OK){
       TRACE_DEVEL("md2_hash_update failed.\n");
       return CKR_FUNCTION_FAILED;
    }
-   return md2_hash_final( sess,      FALSE,
-                          ctx,
-                          out_data,  out_data_len );
+   return md2_hash_final( tokdata, sess, FALSE, ctx, out_data, out_data_len );
 }
 
 
 //
 //
 CK_RV
-md2_hash_update( SESSION         * sess,
+md2_hash_update( STDLL_TokData_t * tokdata,
+		 SESSION         * sess,
                  DIGEST_CONTEXT  * ctx,
                  CK_BYTE         * in_data,
                  CK_ULONG          in_data_len )
@@ -114,7 +114,7 @@ md2_hash_update( SESSION         * sess,
       TRACE_ERROR("%s received bad argument(s)\n", __FUNCTION__);
       return CKR_FUNCTION_FAILED;
    }
-   return ckm_md2_update( (MD2_CONTEXT *)ctx->context,
+   return ckm_md2_update( tokdata, (MD2_CONTEXT *)ctx->context,
                           in_data, in_data_len );
 }
 
@@ -122,7 +122,8 @@ md2_hash_update( SESSION         * sess,
 //
 //
 CK_RV
-md2_hash_final( SESSION         * sess,
+md2_hash_final( STDLL_TokData_t * tokdata,
+		SESSION         * sess,
                 CK_BYTE           length_only,
                 DIGEST_CONTEXT  * ctx,
                 CK_BYTE         * out_data,
@@ -139,7 +140,7 @@ md2_hash_final( SESSION         * sess,
       return CKR_OK;
    }
 
-   rc = ckm_md2_final( (MD2_CONTEXT *)ctx->context,
+   rc = ckm_md2_final( tokdata, (MD2_CONTEXT *)ctx->context,
                        out_data, MD2_HASH_SIZE );
 
    if (rc == CKR_OK) {
@@ -353,13 +354,13 @@ md2_hmac_verify( STDLL_TokData_t      * tokdata,
 
    memset( &hmac_ctx, 0, sizeof(SIGN_VERIFY_CONTEXT) );
 
-   rc = sign_mgr_init( NULL, sess, &hmac_ctx, &ctx->mech, FALSE, ctx->key );
+   rc = sign_mgr_init( tokdata, sess, &hmac_ctx, &ctx->mech, FALSE, ctx->key );
    if (rc != CKR_OK){
       TRACE_DEVEL("Sign Mgr Init failed.\n");
       return rc;
    }
    len = sizeof(hmac);
-   rc = sign_mgr_sign( NULL, sess, FALSE, &hmac_ctx,
+   rc = sign_mgr_sign( tokdata, sess, FALSE, &hmac_ctx,
                        in_data, in_data_len,
                        hmac,   &len );
    if (rc != CKR_OK){
@@ -388,7 +389,8 @@ md2_hmac_verify( STDLL_TokData_t      * tokdata,
 //   context.
 //
 CK_RV
-ckm_md2_update( MD2_CONTEXT  * context,
+ckm_md2_update( STDLL_TokData_t * tokdata,
+		MD2_CONTEXT  * context,
                 CK_BYTE      * input,
                 CK_ULONG       inputLen )
 {
@@ -406,10 +408,10 @@ ckm_md2_update( MD2_CONTEXT  * context,
    if (inputLen >= partLen)
    {
       memcpy( (CK_BYTE *)&context->buffer[index], (CK_BYTE *)input, partLen );
-      ckm_md2_transform( context->state, context->checksum, context->buffer );
+      ckm_md2_transform( tokdata, context->state, context->checksum, context->buffer );
 
       for (i = partLen; i + 15 < inputLen; i += 16)
-         ckm_md2_transform( context->state, context->checksum, &input[i] );
+         ckm_md2_transform( tokdata, context->state, context->checksum, &input[i] );
 
       index = 0;
    }
@@ -428,7 +430,8 @@ ckm_md2_update( MD2_CONTEXT  * context,
 //   message digest and zeroizing the context.
 //
 CK_RV
-ckm_md2_final( MD2_CONTEXT  * context,
+ckm_md2_final( STDLL_TokData_t * tokdata,
+	       MD2_CONTEXT  * context,
                CK_BYTE      * out_data,
                CK_ULONG       out_data_len )
 {
@@ -442,11 +445,11 @@ ckm_md2_final( MD2_CONTEXT  * context,
    //
    index = context->count;
    padLen = 16 - index;
-   ckm_md2_update( context, padding[padLen], padLen );
+   ckm_md2_update( tokdata, context, padding[padLen], padLen );
 
    // Add checksum
    //
-   ckm_md2_update( context, context->checksum, 16 );
+   ckm_md2_update( tokdata, context, context->checksum, 16 );
 
    // Store state in digest
    //
@@ -460,7 +463,8 @@ ckm_md2_final( MD2_CONTEXT  * context,
 //   based on block.
 //
 void
-ckm_md2_transform( CK_BYTE  * state,
+ckm_md2_transform( STDLL_TokData_t * tokdata,
+		   CK_BYTE  * state,
                    CK_BYTE  * checksum,
                    CK_BYTE  * block )
 {
