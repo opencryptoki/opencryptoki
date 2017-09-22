@@ -109,7 +109,7 @@ init_slot()
                 return 1
             fi
             ;;
-        CCA | ICA | Software)
+        CCA | EP11 | ICA | Software)
             echo "Initializing $TOKTYPE using init_token.sh"
             if ! $TESTDIR/init_token.sh $1; then
                 echo "Error initializing $TOKTYPE token"
@@ -152,6 +152,10 @@ check_slot()
         *SoftTok*)
             echo "Software Token type detected"
             TOKTYPE="Software"
+            ;;
+        *EP11*)
+            echo "EP11 Token type detected"
+            TOKTYPE="EP11"
             ;;
         *)
             echo "Error: unsupported or undetermined token type"
