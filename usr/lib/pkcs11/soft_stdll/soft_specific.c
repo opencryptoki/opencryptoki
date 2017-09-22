@@ -18,7 +18,11 @@
 
 
 ****************************************************************************/
+#if __GLIBC__ >= 2 && __GLIBC_MINOR__ > 19
 #define _DEFAULT_SOURCE
+#else
+#define _BSD_SOURCE
+#endif
 
 #include <pthread.h>
 #include <string.h>            // for memcmp() et al
