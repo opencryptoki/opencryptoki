@@ -4,8 +4,8 @@ Version:		3.7.0
 Release:		1%{?dist}
 License:		CPL
 Group:			System Environment/Base
-URL:			http://sourceforge.net/projects/opencryptoki
-Source:			http://downloads.sourceforge.net/%{name}/%{name}-%{version}.tar.gz
+URL:			https://github.com/opencryptoki/opencryptoki
+Source:			https://github.com/%{name}/%{name}/archive/v%{version}.tar.gz
 
 Requires(pre):		coreutils
 BuildRequires:		openssl-devel
