@@ -433,11 +433,12 @@ done:
  * this because it uses additional data in the shared memory and in the future
  * multiple slots should be supported for ICSF.
  */
-CK_RV token_specific_attach_shm(CK_SLOT_ID slot_id, LW_SHM_TYPE **shm)
+CK_RV token_specific_attach_shm(STDLL_TokData_t *tokdata, CK_SLOT_ID slot_id)
 {
 	CK_RV rc = CKR_OK;
 	int ret;
 	void *ptr;
+	LW_SHM_TYPE **shm = &tokdata->global_shm;
 	size_t len = sizeof(**shm) + sizeof(**slot_data);
 	char *shm_id = NULL;
 

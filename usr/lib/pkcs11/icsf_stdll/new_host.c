@@ -171,7 +171,7 @@ CK_RV ST_Initialize(API_Slot_t *sltp, CK_SLOT_ID SlotNumber,
 	 */
 	if (sltp->TokData->initialized == FALSE) {
 
-		rc = attach_shm(SlotNumber, &(sltp->TokData->global_shm));
+		rc = attach_shm(sltp->TokData, SlotNumber);
 		if (rc != CKR_OK) {
 			TRACE_ERROR("Could not attach to shared memory.\n");
 			goto done;
@@ -252,7 +252,7 @@ CK_RV SC_Finalize(STDLL_TokData_t *tokdata, CK_SLOT_ID sid, SLOT_INFO *sinfp)
 
 	session_mgr_close_all_sessions();
 	object_mgr_purge_token_objects(tokdata);
-	detach_shm(tokdata->global_shm);
+	detach_shm(tokdata);
 	/* close spin lock file	*/
 	CloseXProcLock();
 

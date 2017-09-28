@@ -55,7 +55,7 @@ struct token_specific_struct {
 	int (*t_creatlock) (void);
 
 	// Create or attach to token's shared memory
-	CK_RV (*t_attach_shm) (CK_SLOT_ID slot_id, LW_SHM_TYPE **shmem);
+	CK_RV (*t_attach_shm) (STDLL_TokData_t *, CK_SLOT_ID slot_id);
 
 	// Initialization function
 	CK_RV(*t_init) (STDLL_TokData_t *, CK_SLOT_ID, char *);
