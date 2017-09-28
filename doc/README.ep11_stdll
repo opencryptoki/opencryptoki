@@ -13,6 +13,10 @@ into the kernel and the availability of EP11 library libep11.
 The token directory of the EP11 token is opencryptoki/ep11tok typically located
 in /var/lib.
 
+There is a new possibility to configure multiple EP11 tokens.
+Thus dedicated adapter/domains can be assigned to different tokens respectively
+applications. That ensures data isolation between multiple applications.
+
 Configuration
 -------------
 
@@ -22,19 +26,33 @@ configuration file that sets the stdll attribute to libpkcs11_ep11.so.
 A EP11 token specific configuration file must be set up to define the target
 adapters and target adapter domains. The name of the configuration file must be
 defined in the global openCryptoki configuration opencryptoki.conf file as part
-of the token specification using the confname attribute.
-E.g. the entry
+of the token specification using the confname attribute. In case of using
+multiple ep11 tokens a token directory name must be specified for each token
+using the tokname attribute.
+E.g.
 
 slot 4
 {
 stdll = libpkcs11_ep11.so
-confname = ep11tok.conf
+confname = ep11tok01.conf
+tokname = ep11token01
 }
 
-defines the name of the configuration file of the EP11 token to be ep11tok.conf.
-Per default this file is searched in the directory where openCryptoki searches
-its global configuration file. This default path can be overridden using the
-OCK_EP11_TOKEN_DIR environment variable.
+slot 5
+{
+stdll = libpkcs11_ep11.so
+confname = ep11tok02.conf
+tokname = ep11token02
+}
+
+The sample entry define the name of the configuration files of the EP11 token
+to be e.g. ep11tok01.conf. Per default this file is searched in the directory
+where openCryptoki searches its global configuration file. This default path
+can be overriden using the OCK_EP11_TOKEN_DIR environment variable.
+
+The tokname attribute specifies the name of the individual token directory.
+Typically it's located in /var/lib/opencryptoki/. Each token directory contain
+it's own token individual objects that are separated from other ep11 tokens.
 
 EP11 token configuration files defines a list of adapter/domain pairs to which
 the EP11 token sends its cryptographic requests. This list can be specified as a
