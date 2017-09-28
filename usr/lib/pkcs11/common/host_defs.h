@@ -293,6 +293,7 @@ typedef struct _LW_SHM_TYPE
 
 typedef struct _STDLL_TokData_t {
 	CK_SLOT_INFO    slot_info;
+	int             spinxplfd;              // token specific lock
 	char		data_store[256];	// path information of the token directory
 	CK_BBOOL        initialized;
 	CK_ULONG 	ro_session_count;

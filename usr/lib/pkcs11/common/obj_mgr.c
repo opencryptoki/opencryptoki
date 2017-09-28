@@ -133,7 +133,7 @@ object_mgr_add( STDLL_TokData_t  * tokdata,
       // we'll be modifying nv_token_data so we should protect this part with
       // the 'pkcs_mutex'
       //
-      rc = XProcLock();
+      rc = XProcLock(tokdata);
       if (rc != CKR_OK){
          TRACE_ERROR("Failed to get Process Lock.\n");
          goto done;
@@ -146,7 +146,7 @@ object_mgr_add( STDLL_TokData_t  * tokdata,
             if (tokdata->global_shm->num_priv_tok_obj >= MAX_TOK_OBJS) {
                rc = CKR_HOST_MEMORY;
                TRACE_ERROR("%s\n", ock_err(ERR_HOST_MEMORY));
-               XProcUnLock();
+               XProcUnLock(tokdata);
                goto done;
             }
          }
@@ -154,7 +154,7 @@ object_mgr_add( STDLL_TokData_t  * tokdata,
             if (tokdata->global_shm->num_publ_tok_obj >= MAX_TOK_OBJS) {
                rc = CKR_HOST_MEMORY;
                TRACE_ERROR("%s\n", ock_err(ERR_HOST_MEMORY));
-               XProcUnLock();
+               XProcUnLock(tokdata);
                goto done;
             }
          }
@@ -167,7 +167,7 @@ object_mgr_add( STDLL_TokData_t  * tokdata,
          rc = compute_next_token_obj_name( current, next );
          if (rc != CKR_OK) {
                  // TODO: handle error, check if rc is a valid per spec
-                XProcUnLock();
+                XProcUnLock(tokdata);
                  goto done;
          }
          memcpy( &tokdata->nv_token_data->next_token_object_name, next, 8 );
@@ -175,7 +175,7 @@ object_mgr_add( STDLL_TokData_t  * tokdata,
          rc = save_token_object( tokdata, o );
          if (rc != CKR_OK) {
                  // TODO: handle error, check if rc is a valid per spec
-                XProcUnLock();
+                XProcUnLock(tokdata);
                 goto done;
          }
 
@@ -188,11 +188,11 @@ object_mgr_add( STDLL_TokData_t  * tokdata,
          rc = save_token_data(tokdata, sess->session_info.slotID);
          if (rc != CKR_OK) {
                  // TODO: handle error, check if rc is a valid per spec
-                XProcUnLock();
+                XProcUnLock(tokdata);
                 goto done;
          }
 
-         XProcUnLock();
+         XProcUnLock(tokdata);
 
       }
 
@@ -234,14 +234,14 @@ object_mgr_add( STDLL_TokData_t  * tokdata,
 	    bt_node_free(&publ_token_obj_btree, obj_handle, NULL);
          }
 
-         rc = XProcLock();
+         rc = XProcLock(tokdata);
          if (rc != CKR_OK){
             TRACE_ERROR("Failed to get Process Lock.\n");
             goto done;
          }
          object_mgr_del_from_shm( o, tokdata->global_shm );
 
-         XProcUnLock();
+         XProcUnLock(tokdata);
       }
    }
 
@@ -421,7 +421,7 @@ object_mgr_copy( STDLL_TokData_t  * tokdata,
       // we'll be modifying nv_token_data so we should protect this part
       // with 'pkcs_mutex'
       //
-      rc = XProcLock();
+      rc = XProcLock(tokdata);
       if (rc != CKR_OK){
          TRACE_ERROR("Failed to get Process Lock.\n");
          goto done;
@@ -432,7 +432,7 @@ object_mgr_copy( STDLL_TokData_t  * tokdata,
          //
          if (priv_obj) {
             if (tokdata->global_shm->num_priv_tok_obj >= MAX_TOK_OBJS) {
-               XProcUnLock();
+               XProcUnLock(tokdata);
                TRACE_ERROR("%s\n", ock_err(ERR_HOST_MEMORY));
                rc = CKR_HOST_MEMORY;
                goto done;
@@ -440,7 +440,7 @@ object_mgr_copy( STDLL_TokData_t  * tokdata,
          }
          else {
             if (tokdata->global_shm->num_publ_tok_obj >= MAX_TOK_OBJS) {
-               XProcUnLock();
+               XProcUnLock(tokdata);
                TRACE_ERROR("%s\n", ock_err(ERR_HOST_MEMORY));
                rc = CKR_HOST_MEMORY;
                goto done;
@@ -460,7 +460,7 @@ object_mgr_copy( STDLL_TokData_t  * tokdata,
          //
          object_mgr_add_to_shm( new_obj, tokdata->global_shm );
 
-         XProcUnLock();
+         XProcUnLock(tokdata);
 
          save_token_data(tokdata, sess->session_info.slotID);
       }
@@ -509,14 +509,14 @@ object_mgr_copy( STDLL_TokData_t  * tokdata,
 	    bt_node_free(&publ_token_obj_btree, obj_handle, NULL);
          }
 
-         rc = XProcLock();
+         rc = XProcLock(tokdata);
          if (rc != CKR_OK){
             TRACE_ERROR("Failed to get Process Lock.\n");
             goto done;
          }
          object_mgr_del_from_shm( new_obj, tokdata->global_shm );
 
-         XProcUnLock();
+         XProcUnLock(tokdata);
       }
    }
 
@@ -646,7 +646,7 @@ object_mgr_create_final( STDLL_TokData_t  * tokdata,
       // we'll be modifying nv_token_data so we should protect this part
       // with 'pkcs_mutex'
       //
-      rc = XProcLock();
+      rc = XProcLock(tokdata);
       if (rc != CKR_OK){
          TRACE_ERROR("Failed to get Process Lock.\n");
          return rc;
@@ -657,14 +657,14 @@ object_mgr_create_final( STDLL_TokData_t  * tokdata,
          //
          if (priv_obj) {
             if (tokdata->global_shm->num_priv_tok_obj >= MAX_TOK_OBJS) {
-               XProcUnLock();
+               XProcUnLock(tokdata);
                TRACE_ERROR("%s\n", ock_err(ERR_HOST_MEMORY));
                return CKR_HOST_MEMORY;
             }
          }
          else {
             if (tokdata->global_shm->num_publ_tok_obj >= MAX_TOK_OBJS) {
-               XProcUnLock();
+               XProcUnLock(tokdata);
                TRACE_ERROR("%s\n", ock_err(ERR_HOST_MEMORY));
                return CKR_HOST_MEMORY;
             }
@@ -683,7 +683,7 @@ object_mgr_create_final( STDLL_TokData_t  * tokdata,
          //
          object_mgr_add_to_shm( obj, tokdata->global_shm );
 
-         XProcUnLock();
+         XProcUnLock(tokdata);
 
          save_token_data(tokdata, sess->session_info.slotID);
       }
@@ -730,14 +730,14 @@ object_mgr_create_final( STDLL_TokData_t  * tokdata,
 	    bt_node_free(&publ_token_obj_btree, obj_handle, NULL);
          }
 
-         rc = XProcLock();
+         rc = XProcLock(tokdata);
          if (rc != CKR_OK){
             TRACE_ERROR("Failed to get Process Lock.\n");
             return rc;
          }
          object_mgr_del_from_shm( obj, tokdata->global_shm );
 
-         XProcUnLock();
+         XProcUnLock(tokdata);
       }
    }
 
@@ -770,7 +770,7 @@ destroy_object_cb(STDLL_TokData_t  *tokdata, void *node)
 
 		/* Use the same calling convention as the old code, if XProcLock fails, don't
 		 * delete from shm and don't free the object in its other btree */
-		if (XProcLock()) {
+		if (XProcLock(tokdata)) {
 			TRACE_ERROR("Failed to get Process Lock.\n");
 			goto done;
 		}
@@ -778,7 +778,7 @@ destroy_object_cb(STDLL_TokData_t  *tokdata, void *node)
 		object_mgr_del_from_shm(o, tokdata->global_shm);
 		DUMP_SHM(tokdata->global_shm, "after");
 
-		XProcUnLock();
+		XProcUnLock(tokdata);
 
 		if (map->is_private)
 			bt_node_free(&priv_token_obj_btree, map->obj_handle, call_free);
@@ -837,14 +837,14 @@ delete_token_obj_cb(STDLL_TokData_t  *tokdata, void *node, unsigned long map_han
 		 * XProcLock fails, don't delete from shm and don't free
 		 * the object in its other btree
 		 */
-		if (XProcLock()) {
+		if (XProcLock(tokdata)) {
 			TRACE_ERROR("Failed to get Process Lock.\n");
 			goto done;
 		}
 
 		object_mgr_del_from_shm(o, tokdata->global_shm);
 
-		XProcUnLock();
+		XProcUnLock(tokdata);
 
 		if (map->is_private)
 			bt_node_free(&priv_token_obj_btree, map->obj_handle, call_free);
@@ -868,7 +868,7 @@ object_mgr_destroy_token_objects(STDLL_TokData_t *tokdata)
 
    // now we want to purge the token object list in shared memory
    //
-   rc = XProcLock();
+   rc = XProcLock(tokdata);
    if (rc == CKR_OK) {
       locked = TRUE;
 
@@ -882,7 +882,7 @@ object_mgr_destroy_token_objects(STDLL_TokData_t *tokdata)
       TRACE_ERROR("Failed to get Process Lock.\n");
 
    if (locked == TRUE) {
-	XProcUnLock();
+	XProcUnLock(tokdata);
    }
 
    return rc;
@@ -990,9 +990,9 @@ object_mgr_find_in_map1( STDLL_TokData_t  *tokdata,
     * Accounting is done in shm, so check shm to see if object still exists.
     */
    if (!object_is_session_object(obj)) {
-	XProcLock();
+	XProcLock(tokdata);
 	rc = object_mgr_check_shm( tokdata, obj );
-	XProcUnLock();
+	XProcUnLock(tokdata);
 
         if (rc != CKR_OK) {
 		TRACE_DEVEL("object_mgr_check_shm failed.\n");
@@ -1063,9 +1063,9 @@ object_mgr_find_in_map2( STDLL_TokData_t  * tokdata,
 
    *handle = fa.map_handle;
 
-   XProcLock();
+   XProcLock(tokdata);
    object_mgr_check_shm( tokdata, obj );
-   XProcUnLock();
+   XProcUnLock(tokdata);
 
    return CKR_OK;
 }
@@ -1180,9 +1180,9 @@ object_mgr_find_init( STDLL_TokData_t  *tokdata,
    sess->find_idx   = 0;
 
 //  --- need to grab the object lock here
-   XProcLock();
+   XProcLock(tokdata);
    object_mgr_update_from_shm(tokdata);
-   XProcUnLock();
+   XProcUnLock(tokdata);
 
    fa.hw_feature = FALSE;
    fa.hidden_object = FALSE;
@@ -1468,7 +1468,7 @@ object_mgr_restore_obj_withSize(STDLL_TokData_t  *tokdata, CK_BYTE *data,
 	    }
 	 }
 
-         XProcLock();
+         XProcLock(tokdata);
 
          if (priv) {
             if (tokdata->global_shm->priv_loaded == FALSE){
@@ -1490,7 +1490,7 @@ object_mgr_restore_obj_withSize(STDLL_TokData_t  *tokdata, CK_BYTE *data,
             }
          }
 
-         XProcUnLock();
+         XProcUnLock(tokdata);
       } else {
          TRACE_DEVEL("object_restore_withSize failed.\n");
       }
@@ -1596,7 +1596,7 @@ object_mgr_set_attribute_values( STDLL_TokData_t  *tokdata,
 
       save_token_object( tokdata, obj );
 
-      rc = XProcLock();
+      rc = XProcLock(tokdata);
       if (rc != CKR_OK){
          TRACE_ERROR("Failed to get Process Lock.\n");
          return rc;
@@ -1608,7 +1608,7 @@ object_mgr_set_attribute_values( STDLL_TokData_t  *tokdata,
 
          if (rc != CKR_OK) {
             TRACE_DEVEL("object_mgr_search_shm_for_obj failed.\n");
-            XProcUnLock();
+            XProcUnLock(tokdata);
             return rc;
          }
 
@@ -1620,7 +1620,7 @@ object_mgr_set_attribute_values( STDLL_TokData_t  *tokdata,
                                              obj, &index );
          if (rc != CKR_OK) {
             TRACE_DEVEL("object_mgr_search_shm_for_obj failed.\n");
-            XProcUnLock();
+            XProcUnLock(tokdata);
             return rc;
          }
 
@@ -1630,7 +1630,7 @@ object_mgr_set_attribute_values( STDLL_TokData_t  *tokdata,
       entry->count_lo = obj->count_lo;
       entry->count_hi = obj->count_hi;
 
-      XProcUnLock();
+      XProcUnLock(tokdata);
    }
 
    return rc;

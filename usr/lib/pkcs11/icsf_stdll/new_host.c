@@ -158,10 +158,10 @@ CK_RV ST_Initialize(API_Slot_t *sltp, CK_SLOT_ID SlotNumber,
 		init_data_store((char *)PK_DIR, sltp->TokData->data_store);
 
 	/* Initialize lock */
-	XProcLock_Init();
+	XProcLock_Init(sltp->TokData);
 
 	/* Create lockfile */
-	if (CreateXProcLock(sinfp->tokname) != CKR_OK) {
+	if (CreateXProcLock(sinfp->tokname, sltp->TokData) != CKR_OK) {
 		TRACE_ERROR("Process lock failed.\n");
 		rc = CKR_FUNCTION_FAILED;
 		goto done;
@@ -208,9 +208,9 @@ CK_RV ST_Initialize(API_Slot_t *sltp, CK_SLOT_ID SlotNumber,
 	 */
 	load_public_token_objects(sltp->TokData);
 
-	XProcLock();
+	XProcLock(sltp->TokData);
 	sltp->TokData->global_shm->publ_loaded = TRUE;
-	XProcUnLock();
+	XProcUnLock(sltp->TokData);
 
 	init_slotInfo(&(sltp->TokData->slot_info));
 
@@ -255,7 +255,7 @@ CK_RV SC_Finalize(STDLL_TokData_t *tokdata, CK_SLOT_ID sid, SLOT_INFO *sinfp)
 	object_mgr_purge_token_objects(tokdata);
 	detach_shm(tokdata);
 	/* close spin lock file	*/
-	CloseXProcLock();
+	CloseXProcLock(tokdata);
 
 	rc = icsftok_close_all_sessions();
 	if (rc != CKR_OK) {
