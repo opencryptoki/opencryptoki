@@ -1359,7 +1359,7 @@ CK_RV C_Finalize(CK_VOID_PTR pReserved)
 	trace_finalize();
 
 	//close the lock file descriptor here to avoid memory leak
-	XProcClose();
+	ProcClose();
 
 	return CKR_OK;
 }				// end of C_Finalize
@@ -2642,7 +2642,7 @@ CK_RV C_Initialize(CK_VOID_PTR pVoid)
 	}
 
 	// Create the shared memory lock.
-	if (CreateXProcLock(NULL) != CKR_OK) {
+	if (CreateProcLock() != CKR_OK) {
 		free((void *)Anchor);
 		Anchor = NULL;
 		TRACE_ERROR("Process Lock Failed.\n");
@@ -4105,7 +4105,7 @@ C_WaitForSlotEvent(CK_FLAGS flags, CK_SLOT_ID_PTR pSlot, CK_VOID_PTR pReserved)
 	//  REally should be the procp->proc_mutex
 	// but this is such an infrequent thing that we will simply get
 	// the global shared memory lock
-	XProcLock();
+	ProcLock();
 	if (procp->slotmap) {
 		// find the first bit set
 		// This will have to change if more than 32 slots ever get supported
@@ -4116,11 +4116,11 @@ C_WaitForSlotEvent(CK_FLAGS flags, CK_SLOT_ID_PTR pSlot, CK_VOID_PTR pReserved)
 			}
 		}
 		*pSlot = i;	// set the flag
-		XProcUnLock();
+		ProcUnLock();
 		return CKR_OK;
 	} else {
 		if (flags & CKF_DONT_BLOCK) {
-			XProcUnLock();
+			ProcUnLock();
 			return CKR_NO_EVENT;
 		} else {
 			// WE need to
@@ -4135,14 +4135,14 @@ C_WaitForSlotEvent(CK_FLAGS flags, CK_SLOT_ID_PTR pSlot, CK_VOID_PTR pReserved)
 			// We will choose to fail the call.
 			if (procp->blocking) {
 				TRACE_DEVEL("WaitForSlot event called by process twice.\n");
-				XProcUnLock();	// Unlock aftersetting
+				ProcUnLock();	// Unlock aftersetting
 				TRACE_ERROR("%s\n",
 					    ock_err(ERR_FUNCTION_FAILED));
 				return CKR_FUNCTION_FAILED;
 			}
 			procp->error = 0;
 			procp->blocking = 0x01;
-			XProcUnLock();	// Unlock aftersetting
+			ProcUnLock();	// Unlock aftersetting
 
 			// NOTE:  We need to have an asynchronous mechanism for
 			// the slot manager to wake up anyone blocking on this.
@@ -4152,10 +4152,10 @@ C_WaitForSlotEvent(CK_FLAGS flags, CK_SLOT_ID_PTR pSlot, CK_VOID_PTR pReserved)
 			while (!procp->slotmap && !procp->error) {
 				sleep(1);	// Note This is really bad form.  But what the heck
 			}
-			XProcLock();
+			ProcLock();
 			procp->blocking = 0;
 			if (procp->error) {
-				XProcUnLock();
+				ProcUnLock();
 				TRACE_ERROR("%s\n", ock_err(ERR_GENERAL_ERROR));
 				return CKR_GENERAL_ERROR;	// We bailed on this because we were terminating
 				// General error should cause the calling thread to not try anything
@@ -4168,7 +4168,7 @@ C_WaitForSlotEvent(CK_FLAGS flags, CK_SLOT_ID_PTR pSlot, CK_VOID_PTR pReserved)
 					}
 				}
 				*pSlot = i;	// set the flag
-				XProcUnLock();
+				ProcUnLock();
 				return CKR_OK;
 			}
 		}

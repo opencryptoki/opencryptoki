@@ -48,7 +48,7 @@ extern API_Proc_Struct_t *Anchor;
 #include <stdarg.h>
 #include "trace.h"
 
-CK_RV CreateXProcLock(char *tokname)
+CK_RV CreateProcLock(void)
 {
 	struct stat statbuf;
 
@@ -70,7 +70,7 @@ CK_RV CreateXProcLock(char *tokname)
 	return CKR_OK;
 }
 
-CK_RV XProcLock(void)
+CK_RV ProcLock(void)
 {
 	if (xplfd != -1)
 		flock(xplfd, LOCK_EX);
@@ -80,7 +80,7 @@ CK_RV XProcLock(void)
 	return CKR_OK;
 }
 
-CK_RV XProcUnLock(void)
+CK_RV ProcUnLock(void)
 {
 	if (xplfd != -1)
 		flock(xplfd, LOCK_UN);
@@ -90,12 +90,12 @@ CK_RV XProcUnLock(void)
 	return CKR_OK;
 }
 
-CK_RV XProcClose(void)
+CK_RV ProcClose(void)
 {
 	if (xplfd != -1)
 		close(xplfd);
 	else
-		TRACE_DEVEL("XProcClose: No file descriptor open to close.\n");
+		TRACE_DEVEL("ProcClose: No file descriptor open to close.\n");
 
 	return CKR_OK;
 }
@@ -203,9 +203,9 @@ void get_sess_count(CK_SLOT_ID slotID, CK_ULONG * ret)
 	Slot_Mgr_Shr_t *shm;
 
 	shm = Anchor->SharedMemP;
-	XProcLock();
+	ProcLock();
 	*ret = shm->slot_global_sessions[slotID];
-	XProcUnLock();
+	ProcUnLock();
 }
 
 void incr_sess_counts(CK_SLOT_ID slotID)
@@ -220,14 +220,14 @@ void incr_sess_counts(CK_SLOT_ID slotID)
 	// Get the slot mutex
 	shm = Anchor->SharedMemP;
 
-	XProcLock();
+	ProcLock();
 
 	shm->slot_global_sessions[slotID]++;
 
 	procp = &shm->proc_table[Anchor->MgrProcIndex];
 	procp->slot_session_count[slotID]++;
 
-	XProcUnLock();
+	ProcUnLock();
 
 }
 
@@ -243,7 +243,7 @@ void decr_sess_counts(CK_SLOT_ID slotID)
 	// Get the slot mutex
 	shm = Anchor->SharedMemP;
 
-	XProcLock();
+	ProcLock();
 
 	if (shm->slot_global_sessions[slotID] > 0) {
 		shm->slot_global_sessions[slotID]--;
@@ -254,7 +254,7 @@ void decr_sess_counts(CK_SLOT_ID slotID)
 		procp->slot_session_count[slotID]++;
 	}
 
-	XProcUnLock();
+	ProcUnLock();
 
 }
 
@@ -273,9 +273,9 @@ int sessions_exist(CK_SLOT_ID slotID)
 	// Get the slot mutex
 	shm = Anchor->SharedMemP;
 
-	XProcLock();
+	ProcLock();
         numSessions = shm->slot_global_sessions[slotID];
-	XProcUnLock();
+	ProcUnLock();
 
 	return numSessions != 0;
 }
@@ -336,7 +336,7 @@ int API_Register()
 
 	shm = Anchor->SharedMemP;
 
-	XProcLock();
+	ProcLock();
 
 	procp = shm->proc_table;
 	for (indx = 0; indx < NUMBER_PROCESSES_ALLOWED; indx++, procp++) {
@@ -368,7 +368,7 @@ int API_Register()
 
 	// If we did not find a free entry then we fail the routine
 	if ((reuse == -1) && (free == -1)) {
-		XProcUnLock();
+		ProcUnLock();
 		return FALSE;
 	}
 	// check if we are reusing a control block or taking the first free.
@@ -402,7 +402,7 @@ int API_Register()
 	//Does initializing them in the slotd allow for them to not be
 	//initialized in the application.
 
-	XProcUnLock();
+	ProcUnLock();
 
 	return TRUE;
 }
@@ -430,7 +430,7 @@ void API_UnRegister()
 
 	shm = Anchor->SharedMemP;
 
-	XProcLock();
+	ProcLock();
 
 	procp = &(shm->proc_table[Anchor->MgrProcIndex]);
 
@@ -446,7 +446,7 @@ void API_UnRegister()
 	//Does initializing them in the slotd allow for them to not be
 	//initialized in the application.
 
-	XProcUnLock();
+	ProcUnLock();
 
 }
 
