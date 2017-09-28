@@ -478,8 +478,8 @@ done:
 	return rc;
 }
 
-CK_RV login(LDAP **ld, CK_SLOT_ID slot_id, CK_BYTE *pin, CK_ULONG pin_len,
-	    const char *pass_file_type)
+CK_RV login(STDLL_TokData_t *tokdata, LDAP **ld, CK_SLOT_ID slot_id,
+	    CK_BYTE *pin, CK_ULONG pin_len, const char *pass_file_type)
 {
 	CK_RV rc = CKR_OK;
 	struct slot_data data;
@@ -625,8 +625,9 @@ CK_RV reset_token_data(STDLL_TokData_t *tokdata, CK_SLOT_ID slot_id,
 	return CKR_OK;
 }
 
-CK_RV destroy_objects(CK_SLOT_ID slot_id, CK_CHAR_PTR token_name,
-		      CK_CHAR_PTR pin, CK_ULONG pin_len)
+CK_RV destroy_objects(STDLL_TokData_t *tokdata, CK_SLOT_ID slot_id,
+		      CK_CHAR_PTR token_name, CK_CHAR_PTR pin,
+		      CK_ULONG pin_len)
 {
 	CK_RV rc = CKR_OK;
 	LDAP *ld = NULL;
@@ -635,7 +636,7 @@ CK_RV destroy_objects(CK_SLOT_ID slot_id, CK_CHAR_PTR token_name,
 	size_t i, records_len;
 	int reason = 0;
 
-	if (login(&ld, slot_id, pin, pin_len, RACFFILE))
+	if (login(tokdata, &ld, slot_id, pin, pin_len, RACFFILE))
 		return CKR_FUNCTION_FAILED;
 
 	TRACE_DEVEL("Destroying objects in slot %lu.\n", slot_id);
@@ -695,7 +696,7 @@ CK_RV icsftok_init_token(STDLL_TokData_t *tokdata, CK_SLOT_ID slot_id,
 	if ((rc = reset_token_data(tokdata, slot_id, pin, pin_len)))
 		goto done;
 
-	if ((rc = destroy_objects(slot_id,
+	if ((rc = destroy_objects(tokdata, slot_id,
 				  tokdata->nv_token_data->token_info.label,
 				  pin, pin_len)))
 		goto done;
