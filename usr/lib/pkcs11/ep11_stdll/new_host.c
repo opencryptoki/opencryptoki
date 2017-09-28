@@ -46,8 +46,6 @@ CK_ULONG  usage_count = 0;	/* track DLL usage */
 void Fork_Initializer(void)
 {
 
-	/* Initialize spinlock. */
-	XProcLock_Init();
 
 	/* Force logout.  This cleans out the private session and list
 	 * and cleans out the private object map
@@ -144,13 +142,6 @@ CK_RV ST_Initialize(API_Slot_t *sltp, CK_SLOT_ID SlotNumber,
 	MY_CreateMutex(&sess_list_mutex);
 	MY_CreateMutex(&login_mutex);
 
-	/* Create lockfile */
-	if (CreateXProcLock(sinfp->tokname) != CKR_OK) {
-		TRACE_ERROR("Process lock failed.\n");
-		rc = CKR_FUNCTION_FAILED;
-		goto done;
-	}
-
 	/*
 	 * Create separate memory area for each token specific data
 	 */
@@ -167,6 +158,16 @@ CK_RV ST_Initialize(API_Slot_t *sltp, CK_SLOT_ID SlotNumber,
 	}
 	else
 		init_data_store((char *)PK_DIR, sltp->TokData->data_store);
+
+	/* Initialize lock */
+	XProcLock_Init();
+
+	/* Create lockfile */
+	if (CreateXProcLock(sinfp->tokname) != CKR_OK) {
+		TRACE_ERROR("Process lock failed.\n");
+		rc = CKR_FUNCTION_FAILED;
+		goto done;
+	}
 
 	/* Handle global initialization issues first if we have not
 	 * been initialized.
