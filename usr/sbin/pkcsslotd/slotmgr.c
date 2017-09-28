@@ -145,54 +145,73 @@ int chk_create_tokdir(char* tokdir) {
 	struct group *grp;
 	gid_t grpid;
 	int uid, rc;
+	mode_t proc_umask;
 
 	/* skip if no dedicated token directory is required */
 	if (!tokdir || strlen(tokdir) == 0)
 		return 0;
+
+	proc_umask = umask(0);
+
+	/* get 'PKCS11' group id */
+	uid = (int) geteuid();
+	grp = getgrnam("pkcs11");
+	if (!grp) {
+		fprintf(stderr, "PKCS11 group does not exist [errno=%d].\n", errno);
+		return errno;
+	} else
+		grpid = grp->gr_gid;
+
 
 	/* Create token specific directory */
 	sprintf(tokendir, "%s/%s", CONFIG_PATH, tokdir);
 	rc = stat(tokendir, &sbuf);
 	if (rc != 0 && errno == ENOENT) {
 		/* directory does not exist, create it */
-		rc = mkdir(tokendir, 0770);
+		rc = mkdir(tokendir, S_IRWXU | S_IRWXG);
 		if (rc != 0) {
 			fprintf(stderr,
 				"Creating directory '%s' failed [errno=%d].\n",
 				tokendir, errno);
+			umask(proc_umask);
 			return rc;
 		}
+
+		rc = chown(tokendir, uid, grpid);
+		if (rc != 0) {
+			fprintf(stderr,
+				"Could not set PKCS11 group permission [errno=%d].\n",
+				errno);
+			umask(proc_umask);
+			return rc;
+		}
+
 	}
 
 	/* Create TOK_OBJ directory */
-	uid = (int) geteuid();
-	grp = getgrnam("pkcs11");
-	if (!grp) {
-		fprintf(stderr, "PKCS11 group does not exist [errno=%d].\n",
-                                    errno);
-		return errno;
-	} else
-		grpid = grp->gr_gid;
-
 	sprintf(tokendir, "%s/%s/%s", CONFIG_PATH, tokdir, OBJ_DIR);
 	rc = stat(tokendir, &sbuf);
 	if (rc != 0 && errno == ENOENT) {
 		/* directory does not exist, create it */
-		rc = mkdir(tokendir, 0770);
+		rc = mkdir(tokendir, S_IRWXU | S_IRWXG);
 		if (rc != 0) {
 			fprintf(stderr,
 				"Creating directory '%s' failed [errno=%d].\n",
 				tokendir, errno);
+			umask(proc_umask);
+			return rc;
+		}
+
+		rc = chown(tokendir, uid, grpid);
+		if (rc != 0) {
+			fprintf(stderr,
+				"Could not set PKCS11 group permission [errno=%d].\n",
+				errno);
+			umask(proc_umask);
 			return rc;
 		}
 	}
-	rc = chown(tokendir, uid, grpid);
-	if (rc != 0) {
-		fprintf(stderr,
-			"Could not set PKCS11 group permission [errno=%d].\n",
-			errno);
-		return rc;
-	}
+	umask(proc_umask);
 	return 0;
 }
 
