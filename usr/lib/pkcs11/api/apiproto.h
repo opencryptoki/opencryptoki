@@ -31,10 +31,10 @@ void API_UnRegister();
 int DL_Load_and_Init(API_Slot_t *, CK_SLOT_ID);
 
 
-CK_RV CreateXProcLock(char *tokname);
-CK_RV XProcLock(void);
-CK_RV XProcUnLock(void);
-CK_RV XProcClose(void);
+CK_RV CreateProcLock();
+CK_RV ProcLock(void);
+CK_RV ProcUnLock(void);
+CK_RV ProcClose(void);
 
 void _init(void);
 void get_sess_count(CK_SLOT_ID, CK_ULONG *);

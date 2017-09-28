@@ -279,9 +279,7 @@ CK_RV _UnlockMutex(MUTEX * mutex)
 
 }
 
-static int spinxplfd = -1;
-
-CK_RV CreateXProcLock(char *tokname)
+CK_RV CreateXProcLock(char *tokname, STDLL_TokData_t *tokdata)
 {
 	CK_BYTE lockfile[2*PATH_MAX + sizeof(LOCKDIR_PATH) + 6];
 	CK_BYTE lockdir[PATH_MAX + sizeof(LOCKDIR_PATH)];
@@ -290,11 +288,11 @@ CK_RV CreateXProcLock(char *tokname)
 	mode_t mode = (S_IRUSR | S_IRGRP);
 	int ret = -1;
 
-	if (spinxplfd == -1) {
+	if (tokdata->spinxplfd == -1) {
 
 		if (token_specific.t_creatlock != NULL) {
-			spinxplfd = token_specific.t_creatlock();
-			if (spinxplfd != -1)
+			tokdata->spinxplfd = token_specific.t_creatlock();
+			if (tokdata->spinxplfd != -1)
 				return CKR_OK;
 			else
 				return CKR_FUNCTION_FAILED;
@@ -302,7 +300,7 @@ CK_RV CreateXProcLock(char *tokname)
 
 		/** create lock subdir for each token if it doesn't exist.
 		  * The root directory should be created in slotmgr daemon **/
-		if (tokname)
+		if (strlen(tokname) > 0)
 			sprintf(lockdir, "%s/%s", LOCKDIR_PATH, tokname);
 		else
 			sprintf(lockdir, "%s/%s", LOCKDIR_PATH, SUB_DIR);
@@ -342,7 +340,7 @@ CK_RV CreateXProcLock(char *tokname)
 		}
 
 		/* create user lock file */
-		if (tokname)
+		if (strlen(tokname) > 0)
 			sprintf(lockfile, "%s/%s/LCK..%s",
 				LOCKDIR_PATH, tokname, tokname);
 		else
@@ -350,12 +348,12 @@ CK_RV CreateXProcLock(char *tokname)
 				LOCKDIR_PATH, SUB_DIR, SUB_DIR);
 
 		if (stat(lockfile, &statbuf) == 0)
-			spinxplfd = open(lockfile, O_RDONLY, mode);
+			tokdata->spinxplfd = open(lockfile, O_RDONLY, mode);
 		else {
-			spinxplfd = open(lockfile, O_CREAT | O_RDONLY, mode);
-			if (spinxplfd != -1) {
+			tokdata->spinxplfd = open(lockfile, O_CREAT | O_RDONLY, mode);
+			if (tokdata->spinxplfd != -1) {
 				/* umask may prevent correct mode,so set it. */
-				if (fchmod(spinxplfd, mode) == -1) {
+				if (fchmod(tokdata->spinxplfd, mode) == -1) {
 					OCK_SYSLOG(LOG_ERR, "fchmod(%s): %s\n",
 							lockfile, strerror(errno));
 					goto err;
@@ -363,8 +361,8 @@ CK_RV CreateXProcLock(char *tokname)
 
 				grp = getgrnam("pkcs11");
 				if (grp != NULL) {
-					if (fchown(spinxplfd, -1, grp->gr_gid)
-							== -1) {
+					if (fchown(tokdata->spinxplfd, -1,
+						   grp->gr_gid) == -1) {
 						OCK_SYSLOG(LOG_ERR,
 								"fchown(%s): %s\n",
 								lockfile,
@@ -378,7 +376,7 @@ CK_RV CreateXProcLock(char *tokname)
 				}
 			}
 		}
-		if (spinxplfd == -1) {
+		if (tokdata->spinxplfd == -1) {
 			OCK_SYSLOG(LOG_ERR, "open(%s): %s\n",
 					lockfile, strerror(errno));
 			return CKR_FUNCTION_FAILED;
@@ -388,40 +386,44 @@ CK_RV CreateXProcLock(char *tokname)
 	return CKR_OK;
 
 err:
-	if (spinxplfd != -1)
-		close(spinxplfd);
+	if (tokdata->spinxplfd != -1)
+		close(tokdata->spinxplfd);
 	return CKR_FUNCTION_FAILED;
 }
 
-void CloseXProcLock(void)
+void CloseXProcLock(STDLL_TokData_t *tokdata)
 {
-	if (spinxplfd != -1)
-		close(spinxplfd);
+	if (tokdata->spinxplfd != -1)
+		close(tokdata->spinxplfd);
 }
 
-CK_RV XProcLock(void)
+CK_RV XProcLock(STDLL_TokData_t *tokdata)
 {
-	if (spinxplfd != -1)
-		flock(spinxplfd, LOCK_EX);
-	else
+	if (tokdata->spinxplfd != -1)
+		flock(tokdata->spinxplfd, LOCK_EX);
+	else {
 		TRACE_DEVEL("No file descriptor to lock with.\n");
+		return CKR_CANT_LOCK;
+	}
 
 	return CKR_OK;
 }
 
-CK_RV XProcUnLock(void)
+CK_RV XProcUnLock(STDLL_TokData_t *tokdata)
 {
-	if (spinxplfd != -1)
-		flock(spinxplfd, LOCK_UN);
-	else
+	if (tokdata->spinxplfd != -1)
+		flock(tokdata->spinxplfd, LOCK_UN);
+	else {
 		TRACE_DEVEL("No file descriptor to unlock with.\n");
+		return CKR_CANT_LOCK;
+	}
 
 	return CKR_OK;
 }
 
-void XProcLock_Init(void)
+void XProcLock_Init(STDLL_TokData_t *tokdata)
 {
-	spinxplfd = -1;
+	tokdata->spinxplfd = -1;
 }
 
 //
@@ -752,7 +754,7 @@ CK_RV attach_shm(STDLL_TokData_t *tokdata, CK_SLOT_ID slot_id)
 	if (token_specific.t_attach_shm != NULL)
 		return token_specific.t_attach_shm(tokdata, slot_id);
 
-	XProcLock();
+	XProcLock(tokdata);
 
 	/*
 	 * Attach to an existing shared memory region or create it if it doesn't
@@ -767,7 +769,7 @@ CK_RV attach_shm(STDLL_TokData_t *tokdata, CK_SLOT_ID slot_id)
 	}
 
 done:
-	XProcUnLock();
+	XProcUnLock(tokdata);
 	return rc;
 }
 
@@ -775,14 +777,14 @@ CK_RV detach_shm(STDLL_TokData_t *tokdata)
 {
 	CK_RV rc = CKR_OK;
 
-	XProcLock();
+	XProcLock(tokdata);
 
 	if (sm_close((void *)tokdata->global_shm, 0)) {
 		TRACE_DEVEL("sm_close failed.\n");
 		rc = CKR_FUNCTION_FAILED;
 	}
 
-	XProcUnLock();
+	XProcUnLock(tokdata);
 
 	return rc;
 }
