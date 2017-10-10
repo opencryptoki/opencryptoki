@@ -28,8 +28,6 @@
 
 #include "../api/apiproto.h"
 
-pthread_rwlock_t obj_list_rw_mutex = PTHREAD_RWLOCK_INITIALIZER;
-
 CK_RV
 object_mgr_add( STDLL_TokData_t  * tokdata,
 		SESSION          * sess,

@@ -36,9 +36,6 @@
 
 #include "../api/apiproto.h"
 
-/* Declared in obj_mgr.c */
-extern pthread_rwlock_t obj_list_rw_mutex;
-
 void SC_SetFunctionList(void);
 
 CK_ULONG  usage_count = 0;	/* track DLL usage */
@@ -136,9 +133,6 @@ CK_RV ST_Initialize(API_Slot_t *sltp, CK_SLOT_ID SlotNumber,
 
 	MY_CreateMutex(&pkcs_mutex);
 	MY_CreateMutex(&obj_list_mutex);
-	if (pthread_rwlock_init(&obj_list_rw_mutex, NULL)) {
-		TRACE_ERROR("Mutex lock failed.\n");
-	}
 	MY_CreateMutex(&sess_list_mutex);
 	MY_CreateMutex(&login_mutex);
 
@@ -241,12 +235,20 @@ CK_RV SC_Finalize(STDLL_TokData_t *tokdata, CK_SLOT_ID sid, SLOT_INFO *sinfp)
 	}
 
 
+#ifdef ENABLE_LOCKS
+    MY_LockMutex(&pkcs_mutex);
+#else
 	__transaction_atomic { /* start transaction */
+#endif
 		usage_count--;
 		if (usage_count == 0) {
 			tokdata->initialized = FALSE;
 		}
+#ifdef ENABLE_LOCKS
+    MY_UnlockMutex(&pkcs_mutex);
+#else
 	} /* end transaction */
+#endif
 
 	session_mgr_close_all_sessions();
 	object_mgr_purge_token_objects(tokdata);

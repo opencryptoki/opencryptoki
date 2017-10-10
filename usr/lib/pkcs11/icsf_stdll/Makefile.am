@@ -19,12 +19,65 @@ opencryptoki_stdll_libpkcs11_icsf_la_CFLAGS = -DNOCDMF			\
 					      -I../common		\
 					      -DSTDLL_NAME=\"icsftok\"
 
+if ENABLE_LOCKS
 opencryptoki_stdll_libpkcs11_icsf_la_LDFLAGS = -shared			\
 					       -Wl,-Bsymbolic		\
 					       -lcrypto			\
 					       -lldap			\
 					       -lpthread		\
-					       -litm			\
+					       -lrt			\
+					       -llber
+
+opencryptoki_stdll_libpkcs11_icsf_la_SOURCES = ../common/asn1.c		\
+					       ../common/lock_btree.c	\
+					       ../common/dig_mgr.c	\
+					       ../common/hwf_obj.c	\
+					       ../common/trace.c	\
+					       ../common/key.c		\
+					       ../common/mech_dh.c	\
+					       ../common/mech_rng.c	\
+					       new_host.c		\
+					       ../common/sign_mgr.c	\
+					       ../common/cert.c		\
+					       ../common/dp_obj.c	\
+					       ../common/mech_aes.c	\
+					       ../common/mech_rsa.c	\
+					       ../common/mech_ec.c	\
+					       ../common/obj_mgr.c	\
+					       ../common/template.c	\
+					       ../common/p11util.c	\
+					       ../common/data_obj.c	\
+					       ../common/encr_mgr.c	\
+					       ../common/key_mgr.c	\
+					       ../common/mech_md2.c	\
+					       ../common/mech_sha.c	\
+					       ../common/object.c	\
+					       ../common/decr_mgr.c	\
+					       ../common/globals.c	\
+					       ../common/sw_crypt.c	\
+					       ../common/loadsave.c	\
+					       ../common/utility.c	\
+					       ../common/mech_des.c	\
+					       ../common/mech_des3.c	\
+					       ../common/mech_md5.c	\
+					       ../common/mech_ssl3.c	\
+					       ../common/lock_sess_mgr.c	\
+					       ../common/verify_mgr.c	\
+					       ../common/mech_list.c	\
+					       ../common/shared_memory.c\
+					       ../common/attributes.c	\
+					       pbkdf.c			\
+					       icsf_specific.c		\
+					       icsf_config_parse.y	\
+					       icsf_config_lexer.l	\
+					       icsf.c
+else
+opencryptoki_stdll_libpkcs11_icsf_la_LDFLAGS = -shared			\
+					       -Wl,-Bsymbolic		\
+					       -lcrypto			\
+					       -lldap			\
+					       -lpthread		\
+						   -litm		\
 					       -lrt			\
 					       -llber
 
@@ -71,7 +124,7 @@ opencryptoki_stdll_libpkcs11_icsf_la_SOURCES = ../common/asn1.c		\
 					       icsf_config_parse.y	\
 					       icsf_config_lexer.l	\
 					       icsf.c
-
+endif
 
 noinst_HEADERS = icsf.h pbkdf.h
 
