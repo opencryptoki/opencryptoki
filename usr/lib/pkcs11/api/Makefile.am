@@ -4,18 +4,28 @@ SO_CURRENT=0
 SO_REVISION=0
 SO_AGE=0
 
-opencryptoki_libopencryptoki_la_LDFLAGS = -shared -Wl,-Bsymbolic -lc -ldl \
-					  -lpthread -litm -version-info   \
-					  $(SO_CURRENT):$(SO_REVISION):$(SO_AGE)
-
 # Not all versions of automake observe libname_CFLAGS
 opencryptoki_libopencryptoki_la_CFLAGS = -DAPI -DDEV -D_THREAD_SAFE 		\
 					 -fPIC -I../. -I../../../include/pkcs11 \
 					 -I ../common -DSTDLL_NAME=\"api\"
 
+if ENABLE_LOCKS
+opencryptoki_libopencryptoki_la_LDFLAGS = -shared -Wl,-Bsymbolic -lc -ldl \
+					  -lpthread -version-info   \
+					  $(SO_CURRENT):$(SO_REVISION):$(SO_AGE)
+
 opencryptoki_libopencryptoki_la_SOURCES = api_interface.c shrd_mem.c \
 					  socket_client.c apiutil.c \
-					  ../common/btree.c ../common/trace.c
+					  ../common/trace.c ../common/lock_btree.c
+else
+opencryptoki_libopencryptoki_la_LDFLAGS = -shared -Wl,-Bsymbolic -lc -ldl \
+					  -lpthread -litm -version-info   \
+					  $(SO_CURRENT):$(SO_REVISION):$(SO_AGE)
+
+opencryptoki_libopencryptoki_la_SOURCES = api_interface.c shrd_mem.c \
+					  socket_client.c apiutil.c \
+					  ../common/trace.c ../common/btree.c
+endif
 
 install-data-hook:
 	$(MKDIR_P) $(DESTDIR)$(libdir)/opencryptoki/stdll

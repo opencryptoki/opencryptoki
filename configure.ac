@@ -50,7 +50,7 @@ if test "x$YACC" = "xyacc"; then
     fi
 fi
 
-AC_CHECK_LIB([itm], [_ITM_commitTransaction], [], AC_MSG_ERROR(["libitm couldn't be found"]))
+AC_CHECK_LIB([itm], [_ITM_commitTransaction], [itm=yes], [itm=no])
 
 dnl Define custom variables
 
@@ -134,6 +134,13 @@ AC_ARG_ENABLE([pkcsep11_migrate],
 	AS_HELP_STRING([--enable-pkcsep11_migrate],[build pkcsep11_migrate (EP11 token key migration tool) @<:@default=enabled if EP11 library is present@:>@]),
 	[],
 	[enable_pkcsep11_migrate=check])
+
+dnl --- locking support
+AC_ARG_ENABLE([locks],
+	AS_HELP_STRING([--enable-locks],[build opencryptoki with locks instead of transactional memory @<:@default=disabled@:>@]),
+	[enable_locks=yes],
+	[enable_locks=no])
+
 dnl ---
 dnl --- Check for external software
 dnl --- Define what to check based on enabled features
@@ -559,16 +566,30 @@ if test "x$enable_pkcsep11_migrate" = "xyes"; then
 		enable_pkcsep11_migrate=no
 	fi
 fi
-
 if test "x$enable_pkcsep11_migrate" != "xno" -a "x$with_zcrypt" != "xno"; then
         enable_pkcsep11_migrate=yes
 else
         enable_pkcsep11_migrate=no
 fi
-
 AM_CONDITIONAL([ENABLE_PKCSEP11_MIGRATE], [test "x$enable_pkcsep11_migrate" = "xyes"])
 
-CFLAGS="$CFLAGS -DPKCS64 -D_XOPEN_SOURCE=600 -Wall -Wno-pointer-sign -fgnu-tm"
+dnl --- enable_locks
+if test "x$enable_locks" = "xno"; then
+	if test "x$itm" != "xyes"; then
+		AC_MSG_ERROR([in order to build opencryptoki with transactional memory,
+libitm and gcc>=4.7 is required])
+    fi
+fi
+if test "x$enable_locks" != "xno"; then
+        enable_locks=yes
+        CFLAGS="$CFLAGS -DENABLE_LOCKS"
+else
+        enable_locks=no
+        CFLAGS="$CFLAGS -fgnu-tm"
+fi
+AM_CONDITIONAL([ENABLE_LOCKS], [test "x$enable_locks" = "xyes"])
+
+CFLAGS="$CFLAGS -DPKCS64 -D_XOPEN_SOURCE=600 -Wall -Wno-pointer-sign"
 
 CFLAGS+=' -DCONFIG_PATH=\"$(localstatedir)/lib/opencryptoki\" -DSBIN_PATH=\"$(sbindir)\" -DLIB_PATH=\"$(libdir)\" -DLOCKDIR_PATH=\"$(lockdir)\" -DOCK_CONFDIR=\"$(sysconfdir)/opencryptoki\" -DOCK_LOGDIR=\"$(logdir)\"'
 
