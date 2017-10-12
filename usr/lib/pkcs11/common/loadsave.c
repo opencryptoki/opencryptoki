@@ -1065,8 +1065,8 @@ CK_RV load_masterkey_so(STDLL_TokData_t *tokdata)
 	// decrypt the master key data using the MD5 of the SO key
 	// (we can't use the SHA of the SO key since the SHA of the key is
 	// stored in the token data file).
-	memcpy(key, tokdata->nv_token_data->so_pin_md5, MD5_HASH_SIZE);
-	memcpy(key + MD5_HASH_SIZE, tokdata->nv_token_data->so_pin_md5,
+	memcpy(key, tokdata->so_pin_md5, MD5_HASH_SIZE);
+	memcpy(key + MD5_HASH_SIZE, tokdata->so_pin_md5,
 	       key_len - MD5_HASH_SIZE);
 
 	rc = decrypt_data_with_clear_key(tokdata, key, key_len,
@@ -1265,8 +1265,8 @@ CK_RV save_masterkey_so(STDLL_TokData_t *tokdata)
 			 clear_len);
 
 	// encrypt the key data
-	memcpy(key, tokdata->nv_token_data->so_pin_md5, MD5_HASH_SIZE);
-	memcpy(key + MD5_HASH_SIZE, tokdata->nv_token_data->so_pin_md5,
+	memcpy(key, tokdata->so_pin_md5, MD5_HASH_SIZE);
+	memcpy(key + MD5_HASH_SIZE, tokdata->so_pin_md5,
 	       key_len - MD5_HASH_SIZE);
 
 	rc = encrypt_data_with_clear_key(tokdata, key, key_len,
