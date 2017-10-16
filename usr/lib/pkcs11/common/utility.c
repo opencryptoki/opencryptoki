@@ -529,7 +529,7 @@ CK_RV init_token_data(STDLL_TokData_t *tokdata, CK_SLOT_ID slot_id)
 	memcpy(tokdata->nv_token_data->so_pin_sha, default_so_pin_sha, SHA1_HASH_SIZE);
 
 	memset(tokdata->user_pin_md5, 0x0, MD5_HASH_SIZE);
-	memcpy(tokdata->nv_token_data->so_pin_md5, default_so_pin_md5, MD5_HASH_SIZE);
+	memcpy(tokdata->so_pin_md5, default_so_pin_md5, MD5_HASH_SIZE);
 
 	memcpy(tokdata->nv_token_data->next_token_object_name, "00000000", 8);
 
