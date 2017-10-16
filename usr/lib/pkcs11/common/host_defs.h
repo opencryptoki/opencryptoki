@@ -225,6 +225,7 @@ typedef struct _TOKEN_DATA
 
    CK_BYTE   user_pin_sha[3 * DES_BLOCK_SIZE];
    CK_BYTE   so_pin_sha[3 * DES_BLOCK_SIZE];
+   CK_BYTE   user_pin_md5[MD5_HASH_SIZE];
    CK_BYTE   so_pin_md5[MD5_HASH_SIZE];
    CK_BYTE   master_key[MAX_KEY_SIZE];
    CK_BYTE   next_token_object_name[8];
@@ -294,7 +295,6 @@ typedef struct _STDLL_TokData_t {
 	CK_SLOT_INFO    slot_info;
 	int             spinxplfd;              // token specific lock
 	char		data_store[256];	// path information of the token directory
-	CK_BYTE		user_pin_md5[MD5_HASH_SIZE];
 	CK_BBOOL        initialized;
 	CK_ULONG 	ro_session_count;
 	CK_STATE 	global_login_state;;
