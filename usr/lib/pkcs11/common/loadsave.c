@@ -664,7 +664,7 @@ CK_RV save_private_token_object(STDLL_TokData_t *tokdata, OBJECT * obj)
 	key = malloc(key_len);
 	if (!key)
 		goto oom_error;
-	memcpy(key, tokdata->master_key, key_len);
+	memcpy(key, tokdata->nv_token_data->master_key, key_len);
 
 
 	clear_len = sizeof(CK_ULONG_32) + obj_data_len_32 + SHA1_HASH_SIZE;
@@ -939,7 +939,7 @@ CK_RV restore_private_token_object(STDLL_TokData_t *tokdata, CK_BYTE * data,
 		rc = ERR_HOST_MEMORY;
 		goto done;
 	}
-	memcpy(key, tokdata->master_key, key_len);
+	memcpy(key, tokdata->nv_token_data->master_key, key_len);
 
 	rc = decrypt_data_with_clear_key(tokdata, key, key_len,
 			  token_specific.data_store.obj_initial_vector,
@@ -1029,7 +1029,7 @@ CK_RV load_masterkey_so(STDLL_TokData_t *tokdata)
 	if ((rc = get_encryption_info(&master_key_len, NULL)) != CKR_OK)
 		goto done;
 
-	memset(tokdata->master_key, 0x0, master_key_len);
+	memset(tokdata->nv_token_data->master_key, 0x0, master_key_len);
 
 	data_len = master_key_len + SHA1_HASH_SIZE;
 	clear_len = cipher_len = (data_len + block_size - 1)
@@ -1096,7 +1096,7 @@ CK_RV load_masterkey_so(STDLL_TokData_t *tokdata)
 		goto done;
 	}
 
-	memcpy(tokdata->master_key, clear, master_key_len);
+	memcpy(tokdata->nv_token_data->master_key, clear, master_key_len);
 	rc = CKR_OK;
 
 done:
@@ -1135,7 +1135,7 @@ CK_RV load_masterkey_user(STDLL_TokData_t *tokdata)
 	if ((rc = get_encryption_info(&master_key_len, NULL)) != CKR_OK)
 		goto done;
 
-	memset(tokdata->master_key, 0x0, master_key_len);
+	memset(tokdata->nv_token_data->master_key, 0x0, master_key_len);
 
 	data_len = master_key_len + SHA1_HASH_SIZE;
 	clear_len = cipher_len = (data_len + block_size - 1)
@@ -1201,7 +1201,7 @@ CK_RV load_masterkey_user(STDLL_TokData_t *tokdata)
 		goto done;
 	}
 
-	memcpy(tokdata->master_key, clear, master_key_len);
+	memcpy(tokdata->nv_token_data->master_key, clear, master_key_len);
 	rc = CKR_OK;
 
 done:
@@ -1257,8 +1257,8 @@ CK_RV save_masterkey_so(STDLL_TokData_t *tokdata)
 	}
 
 	// Copy data to buffer (key+hash)
-	memcpy(clear, tokdata->master_key, master_key_len);
-	if ((rc = compute_sha1(tokdata, tokdata->master_key,
+	memcpy(clear, tokdata->nv_token_data->master_key, master_key_len);
+	if ((rc = compute_sha1(tokdata, tokdata->nv_token_data->master_key,
 			       master_key_len, clear + master_key_len)) != CKR_OK)
 		goto done;
 	add_pkcs_padding(clear + data_len, block_size, data_len,
@@ -1348,8 +1348,8 @@ CK_RV save_masterkey_user(STDLL_TokData_t *tokdata)
 	}
 
 	// Copy data to buffer (key+hash)
-	memcpy(clear, tokdata->master_key, master_key_len);
-	if ((rc = compute_sha1(tokdata, tokdata->master_key,
+	memcpy(clear, tokdata->nv_token_data->master_key, master_key_len);
+	if ((rc = compute_sha1(tokdata, tokdata->nv_token_data->master_key,
 			       master_key_len, clear + master_key_len)) != CKR_OK)
 		goto done;
 	add_pkcs_padding(clear + data_len, block_size , data_len,
