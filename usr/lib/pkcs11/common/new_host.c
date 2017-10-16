@@ -688,7 +688,7 @@ CK_RV SC_SetPIN(STDLL_TokData_t *tokdata, ST_SESSION_HANDLE *sSession,
 			goto done;
 		}
 		memcpy(tokdata->nv_token_data->so_pin_sha, new_hash_sha, SHA1_HASH_SIZE);
-		memcpy(tokdata->so_pin_md5, hash_md5, MD5_HASH_SIZE);
+		memcpy(tokdata->nv_token_data->so_pin_md5, hash_md5, MD5_HASH_SIZE);
 		tokdata->nv_token_data->token_info.flags &= ~(CKF_SO_PIN_TO_BE_CHANGED);
 		XProcUnLock(tokdata);
 		rc = save_token_data(tokdata, sess->session_info.slotID);
@@ -1014,7 +1014,7 @@ CK_RV SC_Login(STDLL_TokData_t *tokdata, ST_SESSION_HANDLE *sSession,
 				  CKF_USER_PIN_COUNT_LOW);
 
 		compute_md5( tokdata, pPin, ulPinLen, tokdata->user_pin_md5 );
-		memset(tokdata->so_pin_md5, 0x0, MD5_HASH_SIZE);
+		memset(tokdata->nv_token_data->so_pin_md5, 0x0, MD5_HASH_SIZE);
 
 		rc = load_masterkey_user(tokdata);
 		if (rc != CKR_OK){
@@ -1065,7 +1065,8 @@ CK_RV SC_Login(STDLL_TokData_t *tokdata, ST_SESSION_HANDLE *sSession,
 		*flags &= ~(CKF_SO_PIN_LOCKED | CKF_SO_PIN_FINAL_TRY |
 			    CKF_SO_PIN_COUNT_LOW);
 
-		compute_md5(tokdata, pPin, ulPinLen, tokdata->so_pin_md5);
+		compute_md5(tokdata, pPin, ulPinLen,
+			    tokdata->nv_token_data->so_pin_md5);
 		memset(tokdata->user_pin_md5, 0x0, MD5_HASH_SIZE);
 
 		rc = load_masterkey_so(tokdata);
@@ -1126,7 +1127,7 @@ CK_RV SC_Logout(STDLL_TokData_t *tokdata, ST_SESSION_HANDLE *sSession)
 	}
 
 	memset(tokdata->user_pin_md5, 0x0, MD5_HASH_SIZE);
-	memset(tokdata->so_pin_md5, 0x0, MD5_HASH_SIZE);
+	memset(tokdata->nv_token_data->so_pin_md5, 0x0, MD5_HASH_SIZE);
 
 	object_mgr_purge_private_token_objects(tokdata);
 
