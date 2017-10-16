@@ -44,12 +44,6 @@
 
 #endif /* DEV */
 
-#define HASH_SHA1   1
-#define HASH_MD5    2
-#define compute_md5(a,b,c)      compute_hash(HASH_MD5,b,a,c)
-
-int compute_hash(int hash_type, int buf_size, char* buf, char* digest);
-
 /********************
  * Global Variables *
  ********************/
