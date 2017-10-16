@@ -12,7 +12,6 @@
 			  Change Log
 			  ==========
 ****************************************************************************/
-#define _DEFAULT_SOURCE
 
 #include <pthread.h>
 #include <string.h>
@@ -34,7 +33,6 @@
 #include <sys/types.h>
 #include <sys/stat.h>
 #include <fcntl.h>
-#include <endian.h>
 #include <asm/zcrypt.h>
 #include <syslog.h>
 #include <dlfcn.h>
@@ -790,7 +788,7 @@ static const char* ep11_get_ckm(CK_ULONG mechanism)
 	case CKM_IBM_ECDH1_DERIVE_RAW: return "CKM_IBM_ECDH1_DERIVE_RAW";
 	case CKM_IBM_RETAINKEY: return "CKM_IBM_RETAINKEY";
 	default:
-		TRACE_WARNING("%s unknown mechanism %lx\n", __func__, mechanism);
+		TRACE_WARNING("%s unknown mechanism 0x%lx\n", __func__, mechanism);
 		return "UNKNOWN";
 	}
 }
