@@ -16,6 +16,7 @@
 #include <sys/stat.h>
 #include <grp.h>
 #include <string.h>
+#include <openssl/evp.h>
 
 #include "log.h"
 #include "slotmgr.h"
@@ -23,6 +24,10 @@
 #include "parser.h"
 
 #define OBJ_DIR "TOK_OBJ"
+#define MD5_HASH_SIZE	16
+
+typedef char md5_hash_entry[MD5_HASH_SIZE];
+md5_hash_entry tokname_hash_table[NUMBER_SLOTS_MANAGED];
 
 Slot_Mgr_Shr_t	*shmp;     // pointer to the shared memory region.
 int		shmid;
@@ -60,6 +65,48 @@ DumpSharedMemory(void)
 		LogLog(Buf);
 	}
 	return;
+}
+
+int compute_hash(int hash_type, int buf_size, char *buf, char *digest)
+{
+	EVP_MD_CTX *md_ctx = NULL;
+	unsigned int result_size;
+	int rc;
+
+	md_ctx = EVP_MD_CTX_create();
+
+	switch (hash_type) {
+	case HASH_SHA1:
+		rc = EVP_DigestInit(md_ctx, EVP_sha1());
+		break;
+	case HASH_MD5:
+		rc = EVP_DigestInit(md_ctx, EVP_md5());
+		break;
+	default:
+		EVP_MD_CTX_destroy(md_ctx);
+		return -1;
+	break;
+	}
+
+	if (rc != 1) {
+		fprintf(stderr, "EVP_DigestInit() failed: rc = %d\n", rc);
+		return -1;
+	}
+
+        rc = EVP_DigestUpdate(md_ctx, buf, buf_size);
+        if (rc != 1) {
+		fprintf(stderr, "EVP_DigestUpdate() failed: rc = %d\n", rc);
+		return -1;
+        }
+
+	result_size = EVP_MD_CTX_size(md_ctx);
+	rc = EVP_DigestFinal(md_ctx, (unsigned char *)digest, &result_size);
+        if (rc != 1) {
+		fprintf(stderr, "EVP_DigestFinal() failed: rc = %d\n", rc);
+		return -1;
+        }
+	EVP_MD_CTX_destroy(md_ctx);
+        return 0;
 }
 
 /** This function does basic sanity checks to make sure the
@@ -139,13 +186,25 @@ void run_sanity_checks()
 	}
 }
 
-int chk_create_tokdir(char* tokdir) {
+int is_duplicate(md5_hash_entry hash, md5_hash_entry *hash_table) {
+	int i;
+
+	for(i = 0; i < NUMBER_SLOTS_MANAGED; i++) {
+		if (memcmp(hash_table[i], hash, sizeof(md5_hash_entry)) == 0)
+			return 1;
+	}
+	return 0;
+}
+
+int chk_create_tokdir(Slot_Info_t_64* psinfo) {
 	struct stat sbuf;
 	char tokendir[PATH_MAX];
 	struct group *grp;
 	gid_t grpid;
 	int uid, rc;
 	mode_t proc_umask;
+	char *tokdir = psinfo->tokname;
+	unsigned char token_md5_hash[MD5_HASH_SIZE];
 
 	/* skip if no dedicated token directory is required */
 	if (!tokdir || strlen(tokdir) == 0)
@@ -162,6 +221,21 @@ int chk_create_tokdir(char* tokdir) {
 	} else
 		grpid = grp->gr_gid;
 
+	/* calculate md5 hash from token name */
+	rc = compute_md5(tokdir, strlen(tokdir), token_md5_hash);
+	if (rc) {
+		fprintf(stderr, "Error calculating MD5 of token name!\n");
+		return -1;
+	}
+	/* check for duplicate token names */
+	if (is_duplicate(token_md5_hash, tokname_hash_table)) {
+		fprintf(stderr, "Duplicate token name '%s'!\n", tokdir);
+		return -1;
+	}
+
+	/* add entry into hash table */
+	memcpy(tokname_hash_table[psinfo->slot_number], token_md5_hash,
+	       MD5_HASH_SIZE);
 
 	/* Create token specific directory */
 	sprintf(tokendir, "%s/%s", CONFIG_PATH, tokdir);
@@ -311,7 +385,7 @@ int main ( int argc, char *argv[], char *envp[]) {
 	/* Create customized token directories */
 	psinfo = &socketData.slot_info[0];
 	for (i = 0; i < NUMBER_SLOTS_MANAGED; i++, psinfo++) {
-		ret = chk_create_tokdir(psinfo->tokname);
+		ret = chk_create_tokdir(psinfo);
 		if (ret)
 			return EACCES;
 	}

@@ -3,7 +3,7 @@ BUILT_SOURCES = parser.h
 AM_YFLAGS = -v -d
 EXTRA_DIST=opencryptoki.conf
 
-pkcsslotd_LDFLAGS = -lpthread
+pkcsslotd_LDFLAGS = -lpthread -lcrypto
 
 # Not all versions of automake observe sbinname_CFLAGS
 pkcsslotd_CFLAGS =  -DPROGRAM_NAME=\"$(@)\" \
