@@ -528,8 +528,8 @@ CK_RV init_token_data(STDLL_TokData_t *tokdata, CK_SLOT_ID slot_id)
 	       SHA1_HASH_SIZE);
 	memcpy(tokdata->nv_token_data->so_pin_sha, default_so_pin_sha, SHA1_HASH_SIZE);
 
-	memset(tokdata->nv_token_data->user_pin_md5, 0x0, MD5_HASH_SIZE);
-	memcpy(tokdata->nv_token_data->so_pin_md5, default_so_pin_md5, MD5_HASH_SIZE);
+	memset(tokdata->user_pin_md5, 0x0, MD5_HASH_SIZE);
+	memcpy(tokdata->so_pin_md5, default_so_pin_md5, MD5_HASH_SIZE);
 
 	memcpy(tokdata->nv_token_data->next_token_object_name, "00000000", 8);
 
@@ -554,7 +554,7 @@ CK_RV init_token_data(STDLL_TokData_t *tokdata, CK_SLOT_ID slot_id)
 		//
 		// FIXME: erase the token object index file (and all token objects)
 		//
-		rc = generate_master_key(tokdata, tokdata->nv_token_data->master_key);
+		rc = generate_master_key(tokdata, tokdata->master_key);
 		if (rc != CKR_OK) {
 			TRACE_DEVEL("generate_master_key failed.\n");
 			return CKR_FUNCTION_FAILED;
