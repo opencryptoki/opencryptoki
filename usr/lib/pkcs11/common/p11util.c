@@ -163,6 +163,7 @@ is_attribute_defined( CK_ATTRIBUTE_TYPE type )
       case  CKA_LOCAL:
       case  CKA_NEVER_EXTRACTABLE:
       case  CKA_ALWAYS_SENSITIVE:
+      case  CKA_ALWAYS_AUTHENTICATE:
       case  CKA_MODIFIABLE:
       case  CKA_ECDSA_PARAMS:
       case  CKA_EC_POINT:

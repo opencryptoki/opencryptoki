@@ -510,6 +510,7 @@ typedef CK_ULONG          CK_ATTRIBUTE_TYPE;
 /* The following are new for v2.11 */
 #define CKA_SECONDARY_AUTH     0x00000200
 #define CKA_AUTH_PIN_FLAGS     0x00000201
+#define CKA_ALWAYS_AUTHENTICATE 0x00000202
 #define CKA_HW_FEATURE_TYPE    0x00000300
 #define CKA_RESET_ON_INIT      0x00000301
 #define CKA_HAS_RESET          0x00000302

@@ -413,6 +413,7 @@ priv_key_set_default_attributes( TEMPLATE *tmpl, CK_ULONG mode )
    CK_ATTRIBUTE    *extractable_attr  = NULL;
    CK_ATTRIBUTE    *never_extr_attr   = NULL;
    CK_ATTRIBUTE    *always_sens_attr  = NULL;
+   CK_ATTRIBUTE    *always_auth_attr  = NULL;
    CK_RV            rc;
 
 
@@ -433,10 +434,11 @@ priv_key_set_default_attributes( TEMPLATE *tmpl, CK_ULONG mode )
    extractable_attr  = (CK_ATTRIBUTE *)malloc( sizeof(CK_ATTRIBUTE) + sizeof(CK_BBOOL) );
    never_extr_attr   = (CK_ATTRIBUTE *)malloc( sizeof(CK_ATTRIBUTE) + sizeof(CK_BBOOL) );
    always_sens_attr  = (CK_ATTRIBUTE *)malloc( sizeof(CK_ATTRIBUTE) + sizeof(CK_BBOOL) );
+   always_auth_attr  = (CK_ATTRIBUTE *)malloc( sizeof(CK_ATTRIBUTE) + sizeof(CK_BBOOL) );
 
    if (!class_attr || !subject_attr      || !sensitive_attr || !decrypt_attr ||
        !sign_attr  || !sign_recover_attr || !unwrap_attr    || !extractable_attr ||
-       !never_extr_attr || !always_sens_attr )
+       !never_extr_attr || !always_sens_attr || !always_auth_attr)
    {
       if (class_attr)        free( class_attr );
       if (subject_attr)      free( subject_attr );
@@ -448,6 +450,7 @@ priv_key_set_default_attributes( TEMPLATE *tmpl, CK_ULONG mode )
       if (extractable_attr)  free( extractable_attr );
       if (always_sens_attr)  free( always_sens_attr );
       if (never_extr_attr)   free( never_extr_attr );
+      if (always_auth_attr)  free( always_auth_attr );
 
       TRACE_ERROR("%s\n", ock_err(ERR_HOST_MEMORY));
       return CKR_HOST_MEMORY;
@@ -505,6 +508,11 @@ priv_key_set_default_attributes( TEMPLATE *tmpl, CK_ULONG mode )
    always_sens_attr->pValue     = (CK_BYTE *)always_sens_attr + sizeof(CK_ATTRIBUTE);
    *(CK_BBOOL *)always_sens_attr->pValue = FALSE;
 
+   always_auth_attr->type       = CKA_ALWAYS_AUTHENTICATE;
+   always_auth_attr->ulValueLen = sizeof(CK_BBOOL);
+   always_auth_attr->pValue     = (CK_BYTE *)always_auth_attr + sizeof(CK_ATTRIBUTE);
+   *(CK_BBOOL *)always_auth_attr->pValue = FALSE;
+
    template_update_attribute( tmpl, class_attr );
    template_update_attribute( tmpl, subject_attr );
    template_update_attribute( tmpl, sensitive_attr );
@@ -515,6 +523,7 @@ priv_key_set_default_attributes( TEMPLATE *tmpl, CK_ULONG mode )
    template_update_attribute( tmpl, extractable_attr );
    template_update_attribute( tmpl, never_extr_attr );
    template_update_attribute( tmpl, always_sens_attr );
+   template_update_attribute( tmpl, always_auth_attr );
 
    return CKR_OK;
 }
