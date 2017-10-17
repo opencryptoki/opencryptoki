@@ -231,7 +231,7 @@ CK_BBOOL session_mgr_readonly_session_exists(void)
 // Returns:  TRUE on success else FALSE
 //
 CK_RV
-session_mgr_close_session( CK_SESSION_HANDLE handle )
+session_mgr_close_session( STDLL_TokData_t *tokdata, CK_SESSION_HANDLE handle )
 {
     SESSION *sess;
     CK_RV      rc = CKR_OK;
@@ -248,7 +248,7 @@ session_mgr_close_session( CK_SESSION_HANDLE handle )
         return FALSE;
     }
     
-    object_mgr_purge_session_objects( sess, ALL );
+    object_mgr_purge_session_objects( tokdata, sess, ALL );
     
     if ((sess->session_info.state == CKS_RO_PUBLIC_SESSION) ||
 		(sess->session_info.state == CKS_RO_USER_FUNCTIONS)) {
@@ -306,13 +306,13 @@ session_mgr_close_session( CK_SESSION_HANDLE handle )
         if (token_specific.t_logout) {
             rc = token_specific.t_logout();
         }
-        object_mgr_purge_private_token_objects();
+        object_mgr_purge_private_token_objects(tokdata);
 
 		global_login_state = CKS_RO_PUBLIC_SESSION;
         // The objects really need to be purged .. but this impacts the
         // performance under linux.   So we need to make sure that the
         // login state is valid.    I don't really like this.
-        object_mgr_purge_map((SESSION *)0xFFFF, PRIVATE);
+        object_mgr_purge_map(tokdata, (SESSION *)0xFFFF, PRIVATE);
     }
 
 done:
@@ -325,11 +325,12 @@ done:
  * Callback used to free an individual SESSION object
  */
 void
-session_free(void *node_value, unsigned long node_idx, void *p3)
+session_free(STDLL_TokData_t *tokdata, void *node_value, unsigned long node_idx,
+        void *p3)
 {
    SESSION *sess = (SESSION *)node_value;
 
-   object_mgr_purge_session_objects( sess, ALL );
+   object_mgr_purge_session_objects( tokdata, sess, ALL );
    sess->handle = CK_INVALID_HANDLE;
 
    if (sess->find_list)
@@ -375,7 +376,7 @@ session_free(void *node_value, unsigned long node_idx, void *p3)
 //
 CK_RV session_mgr_close_all_sessions(void)
 {
-   bt_for_each_node(&sess_btree, session_free, NULL);
+   bt_for_each_node(NULL, &sess_btree, session_free, NULL);
 
    if (pthread_rwlock_wrlock(&sess_list_rwlock)) {
         TRACE_ERROR("Read Lock failed.\n");
@@ -395,7 +396,8 @@ CK_RV session_mgr_close_all_sessions(void)
  * Callback used to update a SESSION object's login state to logged in based on user type
  */
 void
-session_login(void *node_value, unsigned long node_idx, void *p3)
+session_login(STDLL_TokData_t *tokdata, void *node_value,
+        unsigned long node_idx, void *p3)
 {
    SESSION *s = (SESSION *)node_value;
    CK_USER_TYPE user_type = *(CK_USER_TYPE *)p3;
@@ -420,9 +422,9 @@ session_login(void *node_value, unsigned long node_idx, void *p3)
 // Arg:  CK_USER_TYPE  user_type : USER or SO
 //
 CK_RV
-session_mgr_login_all( CK_USER_TYPE user_type )
+session_mgr_login_all( STDLL_TokData_t *tokdata, CK_USER_TYPE user_type )
 {
-   bt_for_each_node(&sess_btree, session_login, (void *)&user_type);
+   bt_for_each_node(tokdata, &sess_btree, session_login, (void *)&user_type);
 
    return CKR_OK;
 }
@@ -432,14 +434,15 @@ session_mgr_login_all( CK_USER_TYPE user_type )
  * Callback used to update a SESSION object's login state to be logged out
  */
 void
-session_logout(void *node_value, unsigned long node_idx, void *p3)
+session_logout(STDLL_TokData_t *tokdata, void *node_value,
+        unsigned long node_idx, void *p3)
 {
    SESSION *s = (SESSION *)node_value;
 
    // all sessions get logged out so destroy any private objects
    // public objects are left alone
    //
-   object_mgr_purge_session_objects( s, PRIVATE );
+   object_mgr_purge_session_objects( tokdata, s, PRIVATE );
 
    if (s->session_info.flags & CKF_RW_SESSION)
       s->session_info.state = CKS_RW_PUBLIC_SESSION;
@@ -454,9 +457,9 @@ session_logout(void *node_value, unsigned long node_idx, void *p3)
 // changes the login status of all sessions in the token
 //
 CK_RV
-session_mgr_logout_all( void )
+session_mgr_logout_all( STDLL_TokData_t *tokdata )
 {
-   bt_for_each_node(&sess_btree, session_logout, NULL);
+   bt_for_each_node(tokdata, &sess_btree, session_logout, NULL);
 
    return CKR_OK;
 }
