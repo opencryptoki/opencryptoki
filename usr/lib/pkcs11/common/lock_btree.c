@@ -243,6 +243,35 @@ struct btnode *bt_node_free(struct btree *t, unsigned long node_num,
     return node;
 }
 
+struct btnode *bt_node_free_(STDLL_TokData_t *tokdata, struct btree *t,
+        unsigned long node_num, void (*delete_func)(STDLL_TokData_t *tokdata,
+            void *))
+{
+    struct btnode *node = bt_get_node(t, node_num);
+
+    if (pthread_rwlock_wrlock(&btree_rwlock)) {
+        TRACE_ERROR("Write Lock failed.\n");
+        return NULL;
+    }
+
+    if (node) {
+        if (delete_func)
+            (*delete_func)(tokdata, node->value);
+
+        node->flags |= BT_FLAG_FREE;
+
+        /* add node to the free list,
+         * which is chained by using
+         * the value pointer
+         */
+        node->value = t->free_list;
+        t->free_list = node;
+        t->free_nodes++;
+    }
+
+    pthread_rwlock_unlock(&btree_rwlock);
+    return node;
+}
 /* bt_is_empty
  *
  * return 0 if binary tree has at least 1 node in use, !0 otherwise
@@ -292,9 +321,10 @@ unsigned long bt_nodes_in_use(struct btree *t)
  *  p2 is the node's handle
  *  p3 is passed through this function for the caller
  */
-void bt_for_each_node(struct btree *t,
-                      void (*func)(void *p1, unsigned long p2, void *p3),
-                      void *p3)
+void
+bt_for_each_node(STDLL_TokData_t *tokdata, struct btree *t,
+        void (*func)(STDLL_TokData_t *tokdata, void *p1, unsigned long p2,
+            void *p3), void *p3)
 {
     unsigned int i;
     struct btnode *node;
@@ -303,7 +333,7 @@ void bt_for_each_node(struct btree *t,
         node = bt_get_node(t, i);
 
         if (node) {
-            (*func)(node->value, i, p3);
+            (*func)(tokdata, node->value, i, p3);
         }
     }
 }
