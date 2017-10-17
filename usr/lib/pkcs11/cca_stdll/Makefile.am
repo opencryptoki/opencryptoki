@@ -14,8 +14,53 @@ opencryptoki_stdll_libpkcs11_cca_la_CFLAGS = -DLINUX -DNOCDMF		\
 					     -I../common		\
 					     -DSTDLL_NAME=\"ccatok\"
 
+if ENABLE_LOCKS
 opencryptoki_stdll_libpkcs11_cca_la_LDFLAGS = -shared -Wl,-Bsymbolic	\
-					      -lcrypto -lpthread -litm	\
+					      -lcrypto -lpthread	\
+					      -nostartfiles		\
+					      -Wl,-soname,$@		\
+					      -lrt
+
+opencryptoki_stdll_libpkcs11_cca_la_SOURCES = ../common/asn1.c		\
+					      ../common/lock_btree.c	\
+					      ../common/dig_mgr.c	\
+					      ../common/hwf_obj.c	\
+					      ../common/trace.c		\
+					      ../common/key.c		\
+					      ../common/mech_dh.c	\
+					      ../common/mech_rng.c	\
+					      ../common/new_host.c	\
+					      ../common/sign_mgr.c	\
+					      ../common/cert.c		\
+					      ../common/dp_obj.c	\
+					      ../common/mech_aes.c	\
+					      ../common/mech_rsa.c	\
+					      ../common/mech_ec.c	\
+					      ../common/obj_mgr.c	\
+					      ../common/template.c	\
+					      ../common/data_obj.c	\
+					      ../common/encr_mgr.c	\
+					      ../common/key_mgr.c	\
+					      ../common/mech_md2.c	\
+					      ../common/mech_sha.c	\
+					      ../common/object.c	\
+					      ../common/decr_mgr.c	\
+					      ../common/globals.c	\
+					      ../common/loadsave.c	\
+					      ../common/utility.c	\
+					      ../common/mech_des.c	\
+					      ../common/mech_des3.c	\
+					      ../common/mech_md5.c	\
+					      ../common/mech_ssl3.c	\
+					      ../common/lock_sess_mgr.c	\
+					      ../common/verify_mgr.c	\
+					      ../common/p11util.c	\
+					      ../common/sw_crypt.c	\
+					      ../common/shared_memory.c	\
+					      cca_specific.c
+else
+opencryptoki_stdll_libpkcs11_cca_la_LDFLAGS = -shared -Wl,-Bsymbolic	\
+					      -lcrypto -lpthread -litm \
 					      -nostartfiles		\
 					      -Wl,-soname,$@		\
 					      -lrt
@@ -57,6 +102,7 @@ opencryptoki_stdll_libpkcs11_cca_la_SOURCES = ../common/asn1.c		\
 					      ../common/sw_crypt.c	\
 					      ../common/shared_memory.c	\
 					      cca_specific.c
+endif
 
 noinst_HEADERS = defs.h		\
 		 csulincl.h	\
