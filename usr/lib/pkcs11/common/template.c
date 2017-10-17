@@ -1316,6 +1316,11 @@ CK_RV template_validate_base_attribute(TEMPLATE *tmpl, CK_ATTRIBUTE *attr,
 			     MODE_UNWRAP)) != 0)
 			return CKR_OK;
 		break;
+	case CKA_ALWAYS_AUTHENTICATE:
+		if ((mode & (MODE_CREATE|MODE_COPY|MODE_DERIVE|MODE_KEYGEN|
+			     MODE_UNWRAP)) != 0)
+			return CKR_OK;
+		break;
 
 	case CKA_LABEL:
 		return CKR_OK;
