@@ -2059,7 +2059,9 @@ static CK_RV delete_tpm_data()
 			   PK_LITE_OBJ_DIR) < 0) {
 		return CKR_HOST_MEMORY;
 	}
-	system(cmd);
+	if (system(cmd) == -1)
+		TRACE_ERROR("system() failed.\n");
+
 	free(cmd);
 
 	// delete the OpenSSL backup keys
@@ -2068,7 +2070,9 @@ static CK_RV delete_tpm_data()
 			   TPMTOK_PUB_ROOT_KEY_FILE) < 0) {
 		return CKR_HOST_MEMORY;
 	}
-	system(cmd);
+	if (system(cmd) == -1)
+		TRACE_ERROR("system() failed.\n");
+
 	free(cmd);
 
 	if (asprintf(&cmd, "%s %s/%s/%s > /dev/null 2>&1", DEL_CMD,
@@ -2076,7 +2080,9 @@ static CK_RV delete_tpm_data()
 			    TPMTOK_PRIV_ROOT_KEY_FILE) < 0) {
 		return CKR_HOST_MEMORY;
 	}
-	system(cmd);
+	if (system(cmd) == -1)
+		TRACE_ERROR("system() failed.\n");
+
 	free(cmd);
 
 	// delete the masterkey
@@ -2085,7 +2091,9 @@ static CK_RV delete_tpm_data()
 			   TPMTOK_MASTERKEY_PRIVATE) < 0) {
 		return CKR_HOST_MEMORY;
 	}
-	system(cmd);
+	if (system(cmd) == -1)
+		TRACE_ERROR("system() failed.\n");
+
 	free(cmd);
 
 	return CKR_OK;

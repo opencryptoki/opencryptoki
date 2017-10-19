@@ -176,90 +176,95 @@ int load_private_token_objects(unsigned char *data_store,
 	if (!fp1)
 		return -1;  // no token objects
 
-	while (!feof(fp1)) {
-		(void)fgets((char *)tmp, 50, fp1);
-		if (!feof(fp1)) {
-			tmp[strlen((char *)tmp) - 1] = 0;
+	while (fgets((char *)tmp, 50, fp1)) {
+		tmp[strlen((char *)tmp) - 1] = 0;
 
-			snprintf((char *)fname, sizeof(fname), "%s/TOK_OBJ/",
-				 data_store);
-			strcat((char *)fname, (char *)tmp);
+		snprintf((char *)fname, sizeof(fname), "%s/TOK_OBJ/",
+			 data_store);
+		strcat((char *)fname, (char *)tmp);
 
-			fp2 = fopen((char *)fname, "r");
-			if (!fp2)
-				continue;
+		fp2 = fopen((char *)fname, "r");
+		if (!fp2)
+			continue;
 
-			fread(&size, sizeof(unsigned int), 1, fp2);
-			fread(&priv, sizeof(CK_BBOOL), 1, fp2);
-			if (priv == FALSE) {
-				fclose(fp2);
-				continue;
-			}
-
-			size = size - sizeof(unsigned int) - sizeof(CK_BBOOL);
-			buf = (unsigned char *) malloc(size);
-			if (!buf) {
-				fprintf(stderr, "Cannot malloc for object %s "
-					"(ignoring it).\n", tmp);
-				goto cleanup;
-			}
-
-			read_size = fread((char *)buf, 1, size, fp2);
-			if (read_size != size) {
-				fprintf(stderr, "Cannot read object %s "
-					"(ignoring it).\n", tmp);
-				goto cleanup;
-			}
-
-			new_cipher_len = size;
-			new_cipher = malloc(new_cipher_len);
-			if (!new_cipher) {
-				fprintf(stderr, "Cannot malloc space for new "
-					"cipher (ignoring object %s).\n", tmp);
-				goto cleanup;
-			}
-
-			/* After reading the private token object,
-			 * decrypt it using CCA des3 and then re-encrypt it
-			 * using software des3.
-			 */
-			memset(new_cipher, 0, new_cipher_len);
-			rc = reencrypt_private_token_object(buf, size,
-					new_cipher, &new_cipher_len,
-					masterkey);
-			if (rc)
-				goto cleanup;
-
+		read_size = fread(&size, sizeof(unsigned int), 1, fp2);
+		if (read_size != 1) {
+			fprintf(stderr, "Cannot read size\n");
+			goto cleanup;
+		}
+		read_size = fread(&priv, sizeof(CK_BBOOL), 1, fp2);
+		if (read_size != 1) {
+			fprintf(stderr, "Cannot read boolean\n");
+			goto cleanup;
+		}
+		if (priv == FALSE) {
 			fclose(fp2);
+			continue;
+		}
 
-			/* now save the newly re-encrypted object back to
-			 * disk in its original file.
-			 */
-			fp2 = fopen((char *)fname, "w");
-			size = sizeof(unsigned int) + sizeof(CK_BBOOL)
-				    + new_cipher_len;
-			(void)fwrite(&size, sizeof(unsigned int), 1, fp2);
-			(void)fwrite(&priv, sizeof(CK_BBOOL), 1, fp2);
-			(void)fwrite(new_cipher, new_cipher_len, 1, fp2);
-			rc = 0;
+		size = size - sizeof(unsigned int) - sizeof(CK_BBOOL);
+		buf = (unsigned char *) malloc(size);
+		if (!buf) {
+			fprintf(stderr, "Cannot malloc for object %s "
+				"(ignoring it).\n", tmp);
+			goto cleanup;
+		}
+
+		read_size = fread((char *)buf, 1, size, fp2);
+		if (read_size != size) {
+			fprintf(stderr, "Cannot read object %s "
+				"(ignoring it).\n", tmp);
+			goto cleanup;
+		}
+
+		new_cipher_len = size;
+		new_cipher = malloc(new_cipher_len);
+		if (!new_cipher) {
+			fprintf(stderr, "Cannot malloc space for new "
+				"cipher (ignoring object %s).\n", tmp);
+			goto cleanup;
+		}
+
+		/* After reading the private token object,
+		 * decrypt it using CCA des3 and then re-encrypt it
+		 * using software des3.
+		 */
+		memset(new_cipher, 0, new_cipher_len);
+		rc = reencrypt_private_token_object(buf, size,
+				new_cipher, &new_cipher_len,
+				masterkey);
+		if (rc)
+			goto cleanup;
+
+		fclose(fp2);
+
+		/* now save the newly re-encrypted object back to
+		 * disk in its original file.
+		 */
+		fp2 = fopen((char *)fname, "w");
+		size = sizeof(unsigned int) + sizeof(CK_BBOOL)
+			    + new_cipher_len;
+		(void)fwrite(&size, sizeof(unsigned int), 1, fp2);
+		(void)fwrite(&priv, sizeof(CK_BBOOL), 1, fp2);
+		(void)fwrite(new_cipher, new_cipher_len, 1, fp2);
+		rc = 0;
 
 cleanup:
-			if (fp2)
-				fclose(fp2);
-			if (buf)
-				free(buf);
-			if (new_cipher)
-				free(new_cipher);
+		if (fp2)
+			fclose(fp2);
+		if (buf)
+			free(buf);
+		if (new_cipher)
+			free(new_cipher);
 
-			if (rc) {
-				if (v_flag)
-					printf("Failed to process %s\n", fname);
-				fcount++;
-			} else {
-				if (v_flag)
-					printf("Processed %s.\n", fname);
-				scount++;
-			}
+		if (rc) {
+			if (v_flag)
+				printf("Failed to process %s\n", fname);
+			fcount++;
+		} else {
+			if (v_flag)
+				printf("Processed %s.\n", fname);
+			scount++;
 		}
 	}
 	fclose(fp1);

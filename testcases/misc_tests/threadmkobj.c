@@ -12,8 +12,9 @@
  *
  * Test driver for testing the proper storage of token objects
 */
-
+#ifndef _REENTRANT
 #define _REENTRANT
+#endif
 
 #include <pthread.h>
 

@@ -211,7 +211,7 @@ get_masterkey(CK_BYTE *pin, CK_ULONG pinlen, CK_BYTE *fname, CK_BYTE *masterkey,
 		return CKR_FUNCTION_FAILED;
 	}
 
-        ret = fread(salt, SALTSIZE, 1, fp);
+	ret = fread(salt, SALTSIZE, 1, fp);
 	if (ret != 1) {
 		fclose(fp);
 		TRACE_ERROR("fread failed.\n");
@@ -277,8 +277,19 @@ get_racf(CK_BYTE *masterkey, CK_ULONG mklen, CK_BYTE *racfpwd, int *racflen)
 		return CKR_FUNCTION_FAILED;
 	}
 
-	fread(&len, sizeof(CK_ULONG_32), 1, fp);
-        fread(iv, AES_INIT_VECTOR_SIZE, 1, fp);
+	readsize = fread(&len, sizeof(CK_ULONG_32), 1, fp);
+	if (readsize != 1) {
+		TRACE_ERROR("fread failed\n");
+		fclose(fp);
+		return CKR_FUNCTION_FAILED;
+	}
+
+	readsize = fread(iv, AES_INIT_VECTOR_SIZE, 1, fp);
+	if (readsize != 1) {
+		TRACE_ERROR("fread failed\n");
+		fclose(fp);
+		return CKR_FUNCTION_FAILED;
+	}
 
 	/* get length of encryted data */
 	datasize = len - AES_INIT_VECTOR_SIZE;
