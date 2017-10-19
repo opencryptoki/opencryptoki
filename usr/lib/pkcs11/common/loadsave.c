@@ -532,15 +532,12 @@ CK_RV save_token_object(STDLL_TokData_t *tokdata, OBJECT * obj)
 	fp = fopen((char *)fname, "r");
 	if (fp) {
 		set_perm(fileno(fp));
-		while (!feof(fp)) {
-			(void)fgets((char *)line, 50, fp);
-			if (!feof(fp)) {
-				line[strlen(line) - 1] = 0;
-				if (strcmp(line, obj->name) == 0) {
-					fclose(fp);
-					// object is already in the list
-					return CKR_OK;
-				}
+		while (fgets((char *)line, 50, fp)) {
+			line[strlen(line) - 1] = 0;
+			if (strcmp(line, obj->name) == 0) {
+				fclose(fp);
+				// object is already in the list
+				return CKR_OK;
 			}
 		}
 		fclose(fp);
@@ -755,57 +752,62 @@ CK_RV load_public_token_objects(STDLL_TokData_t *tokdata)
 	if (!fp1)
 		return CKR_OK;	// no token objects
 
-	while (!feof(fp1)) {
-		(void)fgets((char *)tmp, 50, fp1);
-		if (!feof(fp1)) {
-			tmp[strlen((char *)tmp) - 1] = 0;
+	while (fgets((char *)tmp, 50, fp1)) {
+		tmp[strlen((char *)tmp) - 1] = 0;
 
-			sprintf((char *)fname, "%s/%s/", tokdata->data_store,
-				PK_LITE_OBJ_DIR);
-			strcat((char *)fname, (char *)tmp);
+		sprintf((char *)fname, "%s/%s/", tokdata->data_store,
+			PK_LITE_OBJ_DIR);
+		strcat((char *)fname, (char *)tmp);
 
-			fp2 = fopen((char *)fname, "r");
-			if (!fp2)
-				continue;
+		fp2 = fopen((char *)fname, "r");
+		if (!fp2)
+			continue;
 
-			fread(&size, sizeof(CK_ULONG_32), 1, fp2);
-			fread(&priv, sizeof(CK_BBOOL), 1, fp2);
-			if (priv == TRUE) {
-				fclose(fp2);
-				continue;
-			}
-			// size--;
-			size = size - sizeof(CK_ULONG_32) - sizeof(CK_BBOOL);
-			buf = (CK_BYTE *) malloc(size);
-			if (!buf) {
-				fclose(fp2);
-				OCK_SYSLOG(LOG_ERR,
-					   "Cannot malloc %u bytes to read in "
-					   "token object %s (ignoring it)",
-					   size, fname);
-				continue;
-			}
-
-			read_size = fread(buf, 1, size, fp2);
-			if (read_size != size) {
-				fclose(fp2);
-				free(buf);
-				OCK_SYSLOG(LOG_ERR,
-					   "Cannot read token object %s "
-					   "(ignoring it)", fname);
-				continue;
-			}
-			// ... grab object mutex here.
-			if (object_mgr_restore_obj_withSize(tokdata, buf,
-							    NULL, size) !=
-							    CKR_OK) {
-				OCK_SYSLOG(LOG_ERR,
-					   "Cannot restore token object %s "
-					   "(ignoring it)", fname);
-			}
-			free(buf);
+		if (!fread(&size, sizeof(CK_ULONG_32), 1, fp2)) {
 			fclose(fp2);
+			OCK_SYSLOG(LOG_ERR, "Cannot read size\n");
+			continue;
 		}
+		if (!fread(&priv, sizeof(CK_BBOOL), 1, fp2)) {
+			fclose(fp2);
+			OCK_SYSLOG(LOG_ERR, "Cannot read boolean\n");
+			continue;
+		}
+		if (priv == TRUE) {
+			fclose(fp2);
+			continue;
+		}
+		// size--;
+		size = size - sizeof(CK_ULONG_32) - sizeof(CK_BBOOL);
+		buf = (CK_BYTE *) malloc(size);
+		if (!buf) {
+			fclose(fp2);
+			OCK_SYSLOG(LOG_ERR,
+				   "Cannot malloc %u bytes to read in "
+				   "token object %s (ignoring it)",
+				   size, fname);
+			continue;
+		}
+
+		read_size = fread(buf, 1, size, fp2);
+		if (read_size != size) {
+			fclose(fp2);
+			free(buf);
+			OCK_SYSLOG(LOG_ERR,
+				   "Cannot read token object %s "
+				   "(ignoring it)", fname);
+			continue;
+		}
+		// ... grab object mutex here.
+		if (object_mgr_restore_obj_withSize(tokdata, buf,
+						    NULL, size) !=
+						    CKR_OK) {
+			OCK_SYSLOG(LOG_ERR,
+				   "Cannot restore token object %s "
+				   "(ignoring it)", fname);
+		}
+		free(buf);
+		fclose(fp2);
 	}
 	fclose(fp1);
 
@@ -831,57 +833,62 @@ CK_RV load_private_token_objects(STDLL_TokData_t *tokdata)
 	if (!fp1)
 		return CKR_OK;	// no token objects
 
-	while (!feof(fp1)) {
-		(void)fgets((char *)tmp, 50, fp1);
-		if (!feof(fp1)) {
-			tmp[strlen((char *)tmp) - 1] = 0;
+	while (fgets((char *)tmp, 50, fp1)) {
+		tmp[strlen((char *)tmp) - 1] = 0;
 
-			sprintf((char *)fname, "%s/%s/", tokdata->data_store,
-				PK_LITE_OBJ_DIR);
-			strcat((char *)fname, (char *)tmp);
+		sprintf((char *)fname, "%s/%s/", tokdata->data_store,
+			PK_LITE_OBJ_DIR);
+		strcat((char *)fname, (char *)tmp);
 
-			fp2 = fopen((char *)fname, "r");
-			if (!fp2)
-				continue;
+		fp2 = fopen((char *)fname, "r");
+		if (!fp2)
+			continue;
 
-			fread(&size, sizeof(CK_ULONG_32), 1, fp2);
-			fread(&priv, sizeof(CK_BBOOL), 1, fp2);
-			if (priv == FALSE) {
-				fclose(fp2);
-				continue;
-			}
-			//size--;
-			size = size - sizeof(CK_ULONG_32) - sizeof(CK_BBOOL);
-			buf = (CK_BYTE *) malloc(size);
-			if (!buf) {
-				fclose(fp2);
-				OCK_SYSLOG(LOG_ERR,
-					   "Cannot malloc %u bytes to read in "
-					   "token object %s (ignoring it)",
-					   size, fname);
-				continue;
-			}
+		if (!fread(&size, sizeof(CK_ULONG_32), 1, fp2)) {
+			fclose(fp2);
+			OCK_SYSLOG(LOG_ERR, "Cannot read size\n");
+			continue;
+		}
+		if (!fread(&priv, sizeof(CK_BBOOL), 1, fp2)) {
+			fclose(fp2);
+			OCK_SYSLOG(LOG_ERR, "Cannot read boolean\n");
+			continue;
+		}
+		if (priv == FALSE) {
+			fclose(fp2);
+			continue;
+		}
+		//size--;
+		size = size - sizeof(CK_ULONG_32) - sizeof(CK_BBOOL);
+		buf = (CK_BYTE *) malloc(size);
+		if (!buf) {
+			fclose(fp2);
+			OCK_SYSLOG(LOG_ERR,
+				   "Cannot malloc %u bytes to read in "
+				   "token object %s (ignoring it)",
+				   size, fname);
+			continue;
+		}
 
-			read_size = fread((char *)buf, 1, size, fp2);
-			if (read_size != size) {
-				free(buf);
-				fclose(fp2);
-				OCK_SYSLOG(LOG_ERR,
-					   "Cannot read token object %s "
-					   "(ignoring it)", fname);
-				continue;
-			}
-			// Grab object list  mutex
-			MY_LockMutex(&obj_list_mutex);
-			rc = restore_private_token_object(tokdata, buf,
-							  size, NULL);
-			MY_UnlockMutex(&obj_list_mutex);
-			if (rc != CKR_OK)
-				goto error;
-
+		read_size = fread((char *)buf, 1, size, fp2);
+		if (read_size != size) {
 			free(buf);
 			fclose(fp2);
+			OCK_SYSLOG(LOG_ERR,
+				   "Cannot read token object %s "
+				   "(ignoring it)", fname);
+			continue;
 		}
+		// Grab object list  mutex
+		MY_LockMutex(&obj_list_mutex);
+		rc = restore_private_token_object(tokdata, buf,
+						  size, NULL);
+		MY_UnlockMutex(&obj_list_mutex);
+		if (rc != CKR_OK)
+			goto error;
+
+		free(buf);
+		fclose(fp2);
 	}
 	fclose(fp1);
 
@@ -1430,8 +1437,17 @@ CK_RV reload_token_object(STDLL_TokData_t *tokdata, OBJECT * obj)
 
 	set_perm(fileno(fp));
 
-	fread(&size, sizeof(CK_ULONG_32), 1, fp);
-	fread(&priv, sizeof(CK_BBOOL), 1, fp);
+	if (!fread(&size, sizeof(CK_ULONG_32), 1, fp)) {
+		OCK_SYSLOG(LOG_ERR, "Cannot read size\n");
+		rc = CKR_FUNCTION_FAILED;
+		goto done;
+	}
+
+	if (!fread(&priv, sizeof(CK_BBOOL), 1, fp)) {
+		OCK_SYSLOG(LOG_ERR, "Cannot read boolean\n");
+		rc = CKR_FUNCTION_FAILED;
+		goto done;
+	}
 
 	size = size - sizeof(CK_ULONG_32) - sizeof(CK_BBOOL);	// SAB
 
@@ -1503,15 +1519,12 @@ CK_RV delete_token_object(STDLL_TokData_t *tokdata, OBJECT * obj)
 
 	set_perm(fileno(fp2));
 
-	while (!feof(fp1)) {
-		(void)fgets((char *)line, 50, fp1);
-		if (!feof(fp1)) {
-			line[strlen((char *)line) - 1] = 0;
-			if (strcmp((char *)line, (char *)obj->name) == 0)
-				continue;
-			else
-				fprintf(fp2, "%s\n", line);
-		}
+	while (fgets((char *)line, 50, fp1)) {
+		line[strlen((char *)line) - 1] = 0;
+		if (strcmp((char *)line, (char *)obj->name) == 0)
+			continue;
+		else
+			fprintf(fp2, "%s\n", line);
 	}
 
 	fclose(fp1);
@@ -1529,10 +1542,8 @@ CK_RV delete_token_object(STDLL_TokData_t *tokdata, OBJECT * obj)
 
 	set_perm(fileno(fp2));
 
-	while (!feof(fp1)) {
-		(void)fgets((char *)line, 50, fp1);
-		if (!feof(fp1))
-			fprintf(fp2, "%s", (char *)line);
+	while (fgets((char *)line, 50, fp1)) {
+		fprintf(fp2, "%s", (char *)line);
 	}
 
 	fclose(fp1);
@@ -1562,7 +1573,9 @@ CK_RV delete_token_data(STDLL_TokData_t *tokdata)
 		goto done;
 	}
 
-	system(cmd);
+	if (system(cmd))
+		TRACE_ERROR("system() failed.\n");
+
 done:
 	free(cmd);
 	return rc;

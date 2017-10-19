@@ -416,8 +416,12 @@ int do_inittoken( void )
    memcpy( label,   "                                      ", 32 );
 
    printf("Enter Token Label:");
-   scanf("%32s",label);
-   printf("\nLabel is %s:",label);
+   if (!fgets(label, 32, stdin)) {
+       show_error("fgets failed", CKR_FUNCTION_FAILED);
+       rc = FALSE;
+       goto done;
+   }
+   printf("\nLabel is: %s",label);
 
    for (len = 0; len <31;len++){
       if (label[len] == '\0'){
@@ -547,6 +551,20 @@ int do_GetTokenInfo( void )
    return TRUE;
 }
 
+void menu(void)
+{
+    printf("\n1.  Create a token object\n");
+    printf("2.  Count token objects\n");
+    printf("3.  Verify contents of the first token object\n");
+    printf("4.  Destroy all token objects\n");
+    printf("5.  Initialize Token\n");
+    printf("6.  Set USER PIN\n");
+    printf("7.  Get Token Info\n");
+    printf("9.  Exit\n");
+    printf("Selection:   ");
+    fflush(stdout);
+}
+
 
 //
 //
@@ -580,19 +598,9 @@ int main( int argc, char **argv )
    funcs->C_Initialize( NULL );
 
 
-   while (1) {
-      printf("\n1.  Create a token object\n");
-      printf("2.  Count token objects\n");
-      printf("3.  Verify contents of the first token object\n");
-      printf("4.  Destroy all token objects\n");
-      printf("5.  Initialize Token\n");
-      printf("6.  Set USER PIN\n");
-      printf("7.  Get Token Info\n");
-      printf("9.  Exit\n");
-      printf("Selection:   ");  fflush(stdout);
-
-      fgets((char *)line, 10, stdin);
-
+   menu();
+   
+   while (fgets((char *)line, 10, stdin)) {
       val = atoi((char *)line);
 
       switch (val) {
@@ -620,6 +628,8 @@ int main( int argc, char **argv )
          case 9:  goto done;
                   break;
       }
+
+      menu();
    }
 
 done:

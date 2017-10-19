@@ -237,7 +237,8 @@ void ock_traceit(trace_level_t level, const char *fmt, ...)
 
 		/* serialize appends to the file */
 		pthread_mutex_lock(&tlmtx);
-		write(trace.fd, buf, strlen(buf));
+		if (write(trace.fd, buf, strlen(buf) == -1))
+			fprintf(stderr, "cannot write to trace file\n");
 		pthread_mutex_unlock(&tlmtx);
 	}
 }
