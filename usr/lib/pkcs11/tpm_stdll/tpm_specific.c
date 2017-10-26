@@ -132,6 +132,22 @@ int not_initialized = 0;
 CK_BYTE current_user_pin_sha[SHA1_HASH_SIZE];
 CK_BYTE current_so_pin_sha[SHA1_HASH_SIZE];
 
+static void
+clear_internal_structures()
+{
+	hSRK = NULL_HKEY;
+	hPrivateLeafKey = NULL_HKEY;
+	hPublicLeafKey = NULL_HKEY;
+	hPrivateRootKey = NULL_HKEY;
+	hPublicRootKey = NULL_HKEY;
+
+	memset(master_key_private, 0, MK_SIZE);
+	memset(current_so_pin_sha, 0, SHA1_HASH_SIZE);
+	memset(current_user_pin_sha, 0, SHA1_HASH_SIZE);
+
+	object_mgr_purge_private_token_objects();
+}
+
 CK_RV
 token_specific_rng(STDLL_TokData_t *tokdata, CK_BYTE *output, CK_ULONG bytes)
 {
@@ -306,7 +322,7 @@ token_wrap_sw_key(int size_n, unsigned char *n, int size_p, unsigned char *p,
 {
 	TSS_RESULT result;
 	TSS_HPOLICY hPolicy;
-	static TSS_BOOL get_srk_pub_key = TRUE;
+	TSS_BOOL get_srk_pub_key = TRUE;
 	UINT32 key_size;
 
 	key_size = util_get_keysize_flag(size_n * 8);
@@ -1770,16 +1786,11 @@ token_specific_logout()
 {
 	if (hPrivateLeafKey != NULL_HKEY) {
 		Tspi_Key_UnloadKey(hPrivateLeafKey);
-		hPrivateLeafKey = NULL_HKEY;
 	} else if (hPublicLeafKey != NULL_HKEY) {
 		Tspi_Key_UnloadKey(hPublicLeafKey);
-		hPublicLeafKey = NULL_HKEY;
 	}
 
-	memset(master_key_private, 0, MK_SIZE);
-	memset(current_so_pin_sha, 0, SHA1_HASH_SIZE);
-	memset(current_user_pin_sha, 0, SHA1_HASH_SIZE);
-
+	clear_internal_structures();
 	return CKR_OK;
 }
 
@@ -2195,6 +2206,7 @@ token_specific_final()
                 return CKR_FUNCTION_FAILED;
         }
 
+	clear_internal_structures();
 	return CKR_OK;
 }
 
