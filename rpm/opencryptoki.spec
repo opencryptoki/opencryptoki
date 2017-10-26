@@ -1,6 +1,6 @@
 Name:			opencryptoki
 Summary:		Implementation of the PKCS#11 (Cryptoki) specification v2.20
-Version:		3.7.0
+Version:		3.8.0
 Release:		1%{?dist}
 License:		CPL
 Group:			System Environment/Base
@@ -315,6 +315,9 @@ gpasswd -a root pkcs11
 
 
 %changelog
+* Thu Oct 26 2017 Eduardo Barretto <ebarretto@linux.vnet.ibm.com> 3.8.0
+- Update URL and source
+- Remove unnecessary steps from spec file
 * Tue Apr 25 2017 Eduardo Barretto <ebarretto@linux.vnet.ibm.com> 3.7.0
 - Update spec file according to Fedora 25
 - Add libitm as build dependency

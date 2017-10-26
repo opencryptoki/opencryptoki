@@ -1,5 +1,5 @@
 The following are the system resources used by openCryptoki as of
-openCryptoki-3.7 release.
+openCryptoki-3.8 release.
 
 1.Shared memory = 1 per token + 1 segment between pkcsslotd & api = 7 max currently
     a. Between pkcsslotd and api
