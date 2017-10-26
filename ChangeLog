@@ -1,3 +1,11 @@
+* opencryptoki 3.8.0
+- Multi token instance feature.
+- Added possibility to run opencryptoki with transactional memory or locks
+(--enable-locks on configure step).
+- Updated documentation.
+- Fix segfault on ec_test.
+- Bunch of small fixes.
+
 * opencryptoki 3.7.0
 - Update example spec file
 - Performance improvement. Moving from mutexes to transactional memory.
