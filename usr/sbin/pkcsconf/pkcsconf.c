@@ -1043,8 +1043,7 @@ init(void){
    /* Get the list of the PKCS11 functions this token support */
    symPtr = (void (*)())dlsym(dllPtr, "C_GetFunctionList");
    if (!symPtr) {
-      rc = errno;
-      printf("Error getting function list: 0x%lX (%s)\n", rc, p11_get_ckr(rc));
+      printf("Error getting function list, symbol not found, error: %s\n", strerror(errno));
       fflush(stdout);
       return rc;
    }
