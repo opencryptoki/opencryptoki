@@ -94,15 +94,17 @@ dnl --- that it will enable it by default it dependencies are met
 
 dnl --- ICA token
 AC_ARG_ENABLE([icatok],
-	AS_HELP_STRING([--enable-icatok],[build ica token @<:@default=enabled if libica is present@:>@]),
+	AS_HELP_STRING([--enable-icatok],[build ica token @<:@default=enabled if
+        libica is present@:>@]),
 	[],
 	[enable_icatok=check])
 
 dnl --- CCA token
 AC_ARG_ENABLE([ccatok],
-	AS_HELP_STRING([--enable-ccatok],[build cca token (IBM Common Cryptographic Architecture) @<:@default=enabled in s390 arch@:>@]),
+	AS_HELP_STRING([--enable-ccatok],[build cca token (IBM Common Cryptographic
+        Architecture) @<:@default=enabled@:>@]),
 	[],
-	[enable_ccatok=check])
+	[enable_ccatok=yes])
 
 dnl --- software token
 AC_ARG_ENABLE([swtok],
@@ -112,19 +114,23 @@ AC_ARG_ENABLE([swtok],
 
 dnl --- EP11 token
 AC_ARG_ENABLE([ep11tok],
-        AS_HELP_STRING([--enable-ep11tok],[build ep11 token @<:@default=enabled@:>@]),
-        [],
-        [enable_ep11tok=check])
+    AS_HELP_STRING([--enable-ep11tok],[build ep11 token @<:@default=enabled
+        if zcrypt is present@:>@]),
+    [],
+    [enable_ep11tok=check])
 
 dnl --- TPM token
 AC_ARG_ENABLE([tpmtok],
-	AS_HELP_STRING([--enable-tpmtok],[build tpm token (Trusted Platform Module) @<:@default=enabled if TrouSerS is present@:>@]),
+	AS_HELP_STRING([--enable-tpmtok],[build tpm token (Trusted Platform Module)
+        @<:@default=enabled if TrouSerS is present@:>@]),
 	[],
 	[enable_tpmtok=check])
 
 dnl -- icsf token (Integrated Cryptographic Service Facility remote token)
 AC_ARG_ENABLE([icsftok],
-	AS_HELP_STRING([--enable-iscftok],[build icsf token (Integrated Cryptographic Service Facility) @<:@default=enabled if OpenLDAP library is present@:>@]),
+	AS_HELP_STRING([--enable-icsftok],[build icsf token (Integrated
+        Cryptographic Service Facility) @<:@default=enabled if OpenLDAP library
+        is present@:>@]),
 	[],
 	[enable_icsftok=check])
 
@@ -475,8 +481,7 @@ if test "x$enable_icatok" = "xyes"; then
 		AC_MSG_ERROR([ica token build requested but libica development files not found])
 		enable_icatok=no
 	fi
-fi
-if test "x$enable_icatok" = "xyes"; then
+
 	if test "x$with_openssl" != "xyes"; then
 		AC_MSG_ERROR([ica token build requested but OpenSSL development files not found])
 		enable_icatok=no
@@ -490,11 +495,6 @@ fi
 AM_CONDITIONAL([ENABLE_ICATOK], [test "x$enable_icatok" = "xyes"])
 
 dnl --- enable_ccatok
-if test "x$enable_ccatok" != "xno"; then
-	enable_ccatok=yes
-else
-	enable_ccatok=no
-fi
 AM_CONDITIONAL([ENABLE_CCATOK], [test "x$enable_ccatok" = "xyes"])
 
 dnl --- enable_swtok
@@ -513,7 +513,6 @@ AM_CONDITIONAL([ENABLE_SWTOK], [test "x$enable_swtok" = "xyes"])
 
 dnl --- enable_ep11tok
 if test "x$enable_ep11tok" = "xyes"; then
-
 	if test "x$with_zcrypt" != "xyes"; then
 		AC_MSG_ERROR([ep11 token build requested but ep11 development files not found])
 		enable_ep11=no
