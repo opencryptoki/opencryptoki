@@ -144,8 +144,6 @@ clear_internal_structures()
 	memset(master_key_private, 0, MK_SIZE);
 	memset(current_so_pin_sha, 0, SHA1_HASH_SIZE);
 	memset(current_user_pin_sha, 0, SHA1_HASH_SIZE);
-
-	object_mgr_purge_private_token_objects();
 }
 
 CK_RV
