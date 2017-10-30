@@ -7,7 +7,7 @@ language: c
 
 before_install:
     - sudo apt-get -qq update
-    - sudo apt-get install -y expect
+    - sudo apt-get install -y expect trousers libldap2-dev libtspi-dev
 before_script:
     - sudo groupadd pkcs11
     - ./bootstrap.sh
