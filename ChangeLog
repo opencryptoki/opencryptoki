@@ -1,3 +1,9 @@
+* opencryptoki 3.8.1
+- Fix TPM data-structure reset function.
+- Fix error message when dlsym fails.
+- Update configure.ac
+- Update travis.
+
 * opencryptoki 3.8.0
 - Multi token instance feature.
 - Added possibility to run opencryptoki with transactional memory or locks
