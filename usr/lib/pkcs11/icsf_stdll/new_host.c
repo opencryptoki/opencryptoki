@@ -2648,7 +2648,7 @@ CK_RV SC_GenerateKeyPair(STDLL_TokData_t *tokdata,
 				       ulPrivateKeyAttributeCount,
 				       phPublicKey, phPrivateKey);
 	if (rc != CKR_OK)
-		TRACE_DEVEL("icsftok_generate_key_pair() faild.\n");
+		TRACE_DEVEL("icsftok_generate_key_pair() failed.\n");
 done:
 	TRACE_INFO("C_GenerateKeyPair: rc = %08lx, sess = %ld, mech = %lx\n",
 		   rc, (sess == NULL) ? -1 : ((CK_LONG) sess->handle),
