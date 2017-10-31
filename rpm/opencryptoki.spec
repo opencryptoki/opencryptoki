@@ -1,3 +1,5 @@
+%global _hardened_build 1
+
 Name:			opencryptoki
 Summary:		Implementation of the PKCS#11 (Cryptoki) specification v2.20
 Version:		3.8.1
@@ -5,7 +7,7 @@ Release:		1%{?dist}
 License:		CPL
 Group:			System Environment/Base
 URL:			https://github.com/opencryptoki/opencryptoki
-Source:			https://github.com/%{name}/%{name}/archive/v%{version}.tar.gz
+Source:			https://github.com/%{name}/%{name}/archive/v%{version}.tar.gz#/%{name}-%{version}.tar.gz
 
 Requires(pre):		coreutils
 BuildRequires:		openssl-devel
@@ -13,8 +15,8 @@ BuildRequires:		trousers-devel
 BuildRequires:		openldap-devel
 BuildRequires:		autoconf automake libtool
 BuildRequires:		bison flex
-BuildRequires:		libitm
 BuildRequires:		systemd
+BuildRequires:		libitm-devel
 %ifarch s390 s390x
 BuildRequires:		libica-devel >= 2.3
 %endif
@@ -25,8 +27,9 @@ Requires(post):		systemd
 Requires(preun):	systemd
 Requires(postun):	systemd
 
+
 %description
-Opencryptoki implements the PKCS#11 specification v2.11 for a set of
+Opencryptoki implements the PKCS#11 specification v2.20 for a set of
 cryptographic hardware, such as IBM 4764 and 4765 crypto cards, and the
 Trusted Platform Module (TPM) chip. Opencryptoki also brings a software
 token implementation that can be used without any cryptographic
@@ -36,11 +39,11 @@ This package contains the Slot Daemon (pkcsslotd) and general utilities.
 
 %package libs
 Group:			System Environment/Libraries
-Summary:		The run-time libraries for the opencryptoki package
+Summary:		The run-time libraries for opencryptoki package
 Requires(pre):		shadow-utils
 
 %description libs
-Opencryptoki implements the PKCS#11 specification v2.11 for a set of
+Opencryptoki implements the PKCS#11 specification v2.20 for a set of
 cryptographic hardware, such as IBM 4764 and 4765 crypto cards, and the
 Trusted Platform Module (TPM) chip. Opencryptoki also brings a software
 token implementation that can be used without any cryptographic
@@ -62,13 +65,13 @@ opencryptoki and PKCS#11 based applications
 
 %package swtok
 Group:			System Environment/Libraries
-Summary:		The software token implementation for the opencryptoki package
+Summary:		The software token implementation for opencryptoki
 Requires(pre):		%{name}-libs%{?_isa} = %{version}-%{release}
 Requires:		%{name}-libs%{?_isa} = %{version}-%{release}
-Requires:		%{name}(token)
+Provides:		%{name}(token)
 
 %description swtok
-Opencryptoki implements the PKCS#11 specification v2.11 for a set of
+Opencryptoki implements the PKCS#11 specification v2.20 for a set of
 cryptographic hardware, such as IBM 4764 and 4765 crypto cards, and the
 Trusted Platform Module (TPM) chip. Opencryptoki also brings a software
 token implementation that can be used without any cryptographic
@@ -82,10 +85,10 @@ Group:			System Environment/Libraries
 Summary:		Trusted Platform Module (TPM) device support for opencryptoki
 Requires(pre):		%{name}-libs%{?_isa} = %{version}-%{release}
 Requires:		%{name}-libs%{?_isa} = %{version}-%{release}
-Requires:		%{name}(token)
+Provides:		%{name}(token)
 
 %description tpmtok
-Opencryptoki implements the PKCS#11 specification v2.11 for a set of
+Opencryptoki implements the PKCS#11 specification v2.20 for a set of
 cryptographic hardware, such as IBM 4764 and 4765 crypto cards, and the
 Trusted Platform Module (TPM) chip. Opencryptoki also brings a software
 token implementation that can be used without any cryptographic
@@ -95,14 +98,14 @@ Trusted Platform Module (TPM) devices in the opencryptoki stack.
 
 
 %package icsftok
-Group:                  System Environment/Libraries
-Summary:                ICSF token support for opencryptoki
-Requires(pre):          %{name}-libs%{?_isa} = %{version}-%{release}
-Requires:               %{name}-libs%{?_isa} = %{version}-%{release}
-Provides:               %{name}(token)
+Group:			System Environment/Libraries
+Summary:		ICSF token support for opencryptoki
+Requires(pre):		%{name}-libs%{?_isa} = %{version}-%{release}
+Requires:		%{name}-libs%{?_isa} = %{version}-%{release}
+Provides:		%{name}(token)
 
 %description icsftok
-Opencryptoki implements the PKCS#11 specification v2.11 for a set of
+Opencryptoki implements the PKCS#11 specification v2.20 for a set of
 cryptographic hardware, such as IBM 4764 and 4765 crypto cards, and the
 Trusted Platform Module (TPM) chip. Opencryptoki also brings a software
 token implementation that can be used without any cryptographic
@@ -117,10 +120,10 @@ Group:			System Environment/Libraries
 Summary:		ICA cryptographic devices (clear-key) support for opencryptoki
 Requires(pre):		%{name}-libs%{?_isa} = %{version}-%{release}
 Requires:		%{name}-libs%{?_isa} = %{version}-%{release}
-Requires:		%{name}(token)
+Provides:		%{name}(token)
 
 %description icatok
-Opencryptoki implements the PKCS#11 specification v2.11 for a set of
+Opencryptoki implements the PKCS#11 specification v2.20 for a set of
 cryptographic hardware, such as IBM 4764 and 4765 crypto cards, and the
 Trusted Platform Module (TPM) chip. Opencryptoki also brings a software
 token implementation that can be used without any cryptographic
@@ -135,10 +138,10 @@ Group:			System Environment/Libraries
 Summary:		CCA cryptographic devices (secure-key) support for opencryptoki
 Requires(pre):		%{name}-libs%{?_isa} = %{version}-%{release}
 Requires:		%{name}-libs%{?_isa} = %{version}-%{release}
-Requires:		%{name}(token)
+Provides:		%{name}(token)
 
 %description ccatok
-Opencryptoki implements the PKCS#11 specification v2.11 for a set of
+Opencryptoki implements the PKCS#11 specification v2.20 for a set of
 cryptographic hardware, such as IBM 4764 and 4765 crypto cards, and the
 Trusted Platform Module (TPM) chip. Opencryptoki also brings a software
 token implementation that can be used without any cryptographic
@@ -148,16 +151,15 @@ devices in the opencryptoki stack. CCA is an interface to IBM
 cryptographic hardware such as IBM 4764 or 4765 that uses the
 "co-processor" or "secure-key" path.
 
-
 %package ep11tok
-Group:                  System Environment/Libraries
-Summary:                CCA cryptographic devices (secure-key) support for opencryptoki
-Requires(pre):          %{name}-libs%{?_isa} = %{version}-%{release}
-Requires:               %{name}-libs%{?_isa} = %{version}-%{release}
-Provides:               %{name}(token)
+Group:			System Environment/Libraries
+Summary:		EP11 cryptographic devices (secure-key) support for opencryptoki
+Requires(pre):		%{name}-libs%{?_isa} = %{version}-%{release}
+Requires:		%{name}-libs%{?_isa} = %{version}-%{release}
+Provides:		%{name}(token)
 
 %description ep11tok
-Opencryptoki implements the PKCS#11 specification v2.11 for a set of
+Opencryptoki implements the PKCS#11 specification v2.20 for a set of
 cryptographic hardware, such as IBM 4764 and 4765 crypto cards, and the
 Trusted Platform Module (TPM) chip. Opencryptoki also brings a software
 token implementation that can be used without any cryptographic
@@ -170,7 +172,7 @@ configured with Enterprise PKCS#11 (EP11) firmware.
 
 
 %prep
-%setup -q
+%setup -q -n %{name}-%{version}
 
 %build
 ./bootstrap.sh
@@ -182,11 +184,12 @@ configured with Enterprise PKCS#11 (EP11) firmware.
     --disable-icatok --disable-ccatok --disable-ep11tok --disable-pkcsep11_migrate --disable-pkcscca_migrate
 %endif
 
-make %{?_smp_mflags}
+make %{?_smp_mflags} CHGRP=/bin/true
 
 %install
-rm -rf $RPM_BUILD_ROOT
-make install DESTDIR=$RPM_BUILD_ROOT
+make install DESTDIR=$RPM_BUILD_ROOT CHGRP=/bin/true
+
+# Remove unwanted cruft
 rm -f $RPM_BUILD_ROOT/%{_libdir}/%{name}/*.la
 rm -f $RPM_BUILD_ROOT/%{_libdir}/%{name}/stdll/*.la
 
@@ -213,8 +216,7 @@ rm -f $RPM_BUILD_ROOT/%{_libdir}/%{name}/stdll/*.la
 %pre libs
 # Create pkcs11 group
 getent group pkcs11 >/dev/null || groupadd -r pkcs11
-# Add root to the pkcs11 group
-gpasswd -a root pkcs11
+exit 0
 
 %post
 %systemd_post pkcsslotd.service
@@ -223,15 +225,16 @@ gpasswd -a root pkcs11
 %systemd_preun pkcsslotd.service
 
 %postun
-%systemd_portun_with_restart pkcsslotd.service
+%systemd_postun_with_restart pkcsslotd.service
 
 
 %files
-%doc Changelog FAQ README
+%doc ChangeLog FAQ README
 %doc doc/openCryptoki-HOWTO.pdf
 %doc doc/README.token_data
-%dir ${_sysconfdir}/%{name}
+%dir %{_sysconfdir}/%{name}
 %config(noreplace) %{_sysconfdir}/%{name}/%{name}.conf
+%{_prefix}/lib/tmpfiles.d/%{name}.conf
 %{_unitdir}/pkcsslotd.service
 %{_sbindir}/pkcsconf
 %{_sbindir}/pkcsslotd
@@ -269,7 +272,7 @@ gpasswd -a root pkcs11
 %{_libdir}/opencryptoki/stdll/libpkcs11_sw.*
 %{_libdir}/opencryptoki/stdll/PKCS11_SW.so
 %dir %attr(770,root,pkcs11) %{_sharedstatedir}/%{name}/swtok/
-%dir %attr{770,root,pkcs11) %{_sharedstatedir}/%{name}/swtok/TOK_OBJ/
+%dir %attr(770,root,pkcs11) %{_sharedstatedir}/%{name}/swtok/TOK_OBJ/
 
 %files tpmtok
 %doc doc/README.tpm_stdll
