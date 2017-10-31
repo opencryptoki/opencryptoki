@@ -2327,7 +2327,7 @@ C_GetSlotList(CK_BBOOL tokenPresent,
 		TRACE_ERROR("%s\n", ock_err(ERR_FUNCTION_FAILED));
 		return CKR_FUNCTION_FAILED;
 	}
-	TRACE_DEVEL(" Pres %d Count %lu\n", tokenPresent, *pulCount);
+	TRACE_DEVEL(" Present %d Count %lu\n", tokenPresent, *pulCount);
 
 	sinfp = shData->slot_info;
 	count = 0;
