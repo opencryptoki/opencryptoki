@@ -136,8 +136,7 @@ int CreateSharedMemory ( void ) {
 
    grp = getgrnam("pkcs11");
    if ( !grp ) {
-     ErrLog("Group \"pkcs11\" does not exist! Please run %s/pkcs11_startup.",
-		     SBIN_PATH);
+     ErrLog("Group \"pkcs11\" does not exist! Opencryptoki setup is incorrect.");
      return FALSE;  // Group does not exist... setup is wrong..
    }
 
