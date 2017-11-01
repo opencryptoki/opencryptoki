@@ -23,7 +23,6 @@ init_token.sh: init_token.sh.in
 
 installcheck-local: all
 	killall -HUP pkcsslotd || true
-	@sbindir@/pkcs11_startup
 	@sbindir@/pkcsslotd
 	if test ! -z ${PKCS11_TEST_USER}; then \
 		su ${PKCS11_TEST_USER} -c "PKCS11_SO_PIN=76543210 PKCS11_USER_PIN=01234567 PKCSLIB=@libdir@/opencryptoki/libopencryptoki.so sh ./ock_tests.sh"; \

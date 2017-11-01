@@ -253,7 +253,6 @@ exit 0
 %{_sysconfdir}/ld.so.conf.d/*
 # Unversioned .so symlinks usually belong to -devel packages, but opencryptoki
 # needs them in the main package, because:
-#   pkcs11_startup looks for opencryptoki/stdll/*.so, and
 #   documentation suggests that programs should dlopen "PKCS11_API.so".
 %dir %{_libdir}/opencryptoki
 %{_libdir}/opencryptoki/libopencryptoki.*
