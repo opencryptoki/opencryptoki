@@ -300,7 +300,7 @@ typedef struct _STDLL_TokData_t {
 	CK_STATE 	global_login_state;;
 	LW_SHM_TYPE	*global_shm;
 	TOKEN_DATA	*nv_token_data;
-	uint64_t	*target_list;		// pointer to adapter target list
+    void        *private_data;
 } STDLL_TokData_t;
 
 // These are the same for both AIX and Linux...
