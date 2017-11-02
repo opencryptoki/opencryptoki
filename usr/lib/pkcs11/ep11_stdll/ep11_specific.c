@@ -157,9 +157,15 @@ CK_CHAR label[] = "IBM OS PKCS#11   ";
 
 /* wrap_key is used for importing keys */
 char     wrap_key_name[] = "EP11_wrapkey";
-/* blob and blobsize of wrap key */
-CK_BYTE  raw2key_wrap_blob[MAX_BLOBSIZE];
-size_t   raw2key_wrap_blob_l = 0;
+
+/* EP11 token private data */
+typedef struct {
+    uint64_t      *target_list; // pointer to adapter target list
+    unsigned char *ep11_pin_blob;
+    CK_ULONG      ep11_pin_blob_len;
+    CK_BYTE       raw2key_wrap_blob[MAX_BLOBSIZE];
+    size_t        raw2key_wrap_blob_l;
+} ep11_private_data_t;
 
 /* target list of adapters/domains, specified in a config file by user,
    tells the device driver which adapter/domain pairs should be used,
@@ -173,9 +179,6 @@ typedef struct {
 /* defined in the makefile, ep11 library can run standalone (without HW card),
    crypto algorithms are implemented in software then (no secure key) */
 
-/* */
-static unsigned char *ep11_pin_blob = NULL;
-static CK_ULONG ep11_pin_blob_len = 0;
 
 /* mechanisms provided by this token will be generated from the underlaying
  * crypto adapter. Anyway to be conform to the generic mech_list handling
@@ -826,6 +829,7 @@ static CK_RV rawkey_2_blob(STDLL_TokData_t  * tokdata, unsigned char *key,
 			   CK_ULONG ksize, CK_KEY_TYPE ktype,
 			   unsigned char *blob, size_t *blen, OBJECT *key_obj)
 {
+    ep11_private_data_t *ep11_data = tokdata->private_data;
 	char   cipher[MAX_BLOBSIZE];
 	CK_ULONG clen = sizeof(cipher);
 	CK_BYTE csum[MAX_CSUMSIZE];
@@ -871,8 +875,8 @@ static CK_RV rawkey_2_blob(STDLL_TokData_t  * tokdata, unsigned char *key,
 	 * calls the ep11 lib (which in turns sends the request to the card),
 	 * all m_ function are ep11 functions
 	 */
-	rc = dll_m_EncryptSingle(raw2key_wrap_blob, raw2key_wrap_blob_l, &mech,
-			     key, ksize, cipher, &clen, (uint64_t)tokdata->target_list);
+	rc = dll_m_EncryptSingle(ep11_data->raw2key_wrap_blob, ep11_data->raw2key_wrap_blob_l, &mech,
+			     key, ksize, cipher, &clen, (uint64_t)ep11_data->target_list);
 
 	if (rc != CKR_OK) {
 		TRACE_ERROR("%s encrypt ksize=0x%lx clen=0x%lx rc=0x%lx\n",
@@ -893,10 +897,10 @@ static CK_RV rawkey_2_blob(STDLL_TokData_t  * tokdata, unsigned char *key,
 	/* the encrypted key is decrypted and a blob is build,
 	 * card accepts only blobs as keys
 	 */
-	rc = dll_m_UnwrapKey(cipher, clen, raw2key_wrap_blob, raw2key_wrap_blob_l,
-			 NULL, ~0, ep11_pin_blob, ep11_pin_blob_len, &mech,
+	rc = dll_m_UnwrapKey(cipher, clen, ep11_data->raw2key_wrap_blob, ep11_data->raw2key_wrap_blob_l,
+			 NULL, ~0, ep11_data->ep11_pin_blob, ep11_data->ep11_pin_blob_len, &mech,
 			 new_p_attrs, new_attrs_len, blob, blen, csum, &cslen,
-			 (uint64_t)tokdata->target_list);
+			 (uint64_t)ep11_data->target_list);
 
 	if (rc != CKR_OK) {
 		TRACE_ERROR("%s unwrap blen=%zd rc=0x%lx\n", __func__, *blen, rc);
@@ -915,8 +919,10 @@ rawkey_2_blob_end:
 /* random number generator */
 CK_RV token_specific_rng(STDLL_TokData_t *tokdata, CK_BYTE *output, CK_ULONG bytes)
 {
+    ep11_private_data_t *ep11_data = tokdata->private_data;
+
 	CK_RV rc = dll_m_GenerateRandom(output, bytes,
-					(uint64_t)tokdata->target_list);
+					(uint64_t)ep11_data->target_list);
 	if (rc != CKR_OK)
 		TRACE_ERROR("%s output=%p bytes=%lu rc=0x%lx\n",
 			    __func__, output, bytes, rc);
@@ -931,29 +937,30 @@ CK_RV token_specific_rng(STDLL_TokData_t *tokdata, CK_BYTE *output, CK_ULONG byt
 static CK_RV make_wrapblob(STDLL_TokData_t *tokdata, CK_ATTRIBUTE *tmpl_in,
 			   CK_ULONG tmpl_len)
 {
+    ep11_private_data_t *ep11_data = tokdata->private_data;
 	CK_MECHANISM mech = {CKM_AES_KEY_GEN, NULL_PTR, 0};
 	unsigned char csum[MAX_CSUMSIZE];
 	size_t csum_l = sizeof(csum);
 	CK_RV rc;
 
-	if (raw2key_wrap_blob_l != 0) {
+	if (ep11_data->raw2key_wrap_blob_l != 0) {
 		TRACE_INFO("%s blob already exists raw2key_wrap_blob_l=0x%zx\n",
-			   __func__, raw2key_wrap_blob_l);
+			   __func__, ep11_data->raw2key_wrap_blob_l);
 		return CKR_OK;
 	}
 
-	raw2key_wrap_blob_l = sizeof(raw2key_wrap_blob);
-	rc = dll_m_GenerateKey(&mech, tmpl_in, tmpl_len, NULL, 0, raw2key_wrap_blob,
-			       &raw2key_wrap_blob_l, csum, &csum_l,
-			       (uint64_t)tokdata->target_list);
+	ep11_data->raw2key_wrap_blob_l = sizeof(ep11_data->raw2key_wrap_blob);
+	rc = dll_m_GenerateKey(&mech, tmpl_in, tmpl_len, NULL, 0, ep11_data->raw2key_wrap_blob,
+			       &ep11_data->raw2key_wrap_blob_l, csum, &csum_l,
+			       (uint64_t)ep11_data->target_list);
 
 
 	if (rc != CKR_OK) {
 		TRACE_ERROR("%s end raw2key_wrap_blob_l=0x%zx rc=0x%lx\n",
-			    __func__, raw2key_wrap_blob_l, rc);
+			    __func__, ep11_data->raw2key_wrap_blob_l, rc);
 	} else {
 		TRACE_INFO("%s end raw2key_wrap_blob_l=0x%zx rc=0x%lx\n",
-			   __func__, raw2key_wrap_blob_l, rc);
+			   __func__, ep11_data->raw2key_wrap_blob_l, rc);
 	}
 
 	return rc;
@@ -1041,10 +1048,18 @@ CK_RV ep11tok_init(STDLL_TokData_t *tokdata, CK_SLOT_ID SlotNumber, char *conf_n
 				    {CKA_EXTRACTABLE, (void*)&cktrue, sizeof(cktrue)},
 				    {CKA_LABEL, (void*)wrap_key_name, sizeof(wrap_key_name)},
 				    {CKA_TOKEN, (void*)&cktrue, sizeof(cktrue)}};
+	ep11_private_data_t *ep11_data;
 
 	TRACE_INFO("ep11 %s slot=%lu running\n", __func__, SlotNumber);
 
-	tokdata->target_list = calloc(1, sizeof(ep11_target_t));
+    ep11_data = calloc(1, sizeof(ep11_private_data_t));
+    if (ep11_data == NULL)
+        return CKR_HOST_MEMORY;
+    ep11_data->target_list = calloc(1, sizeof(ep11_target_t));
+    if (ep11_data->target_list == NULL)
+        return CKR_HOST_MEMORY;
+
+    tokdata->private_data = ep11_data;
 
 	/* read ep11 specific config file with user specified adapter/domain pairs, ... */
 	rc = read_adapter_config_file(tokdata, conf_name);
@@ -1099,10 +1114,16 @@ CK_RV ep11tok_init(STDLL_TokData_t *tokdata, CK_SLOT_ID SlotNumber, char *conf_n
 
 CK_RV ep11tok_final(STDLL_TokData_t *tokdata)
 {
+    ep11_private_data_t *ep11_data = tokdata->private_data;
+
 	TRACE_INFO("ep11 %s running\n", __func__);
 
-	if (tokdata->target_list)
-		free(tokdata->target_list);
+    if (ep11_data != NULL) {
+        if (ep11_data->target_list)
+            free(ep11_data->target_list);
+        free(ep11_data);
+        tokdata->private_data = NULL;
+    }
 
 	return CKR_OK;
 }
@@ -1116,6 +1137,7 @@ CK_RV ep11tok_final(STDLL_TokData_t *tokdata)
 static CK_RV import_RSA_key(STDLL_TokData_t *tokdata, OBJECT *rsa_key_obj,
 			    CK_BYTE *blob, size_t *blob_size)
 {
+    ep11_private_data_t *ep11_data = tokdata->private_data;
 	CK_RV rc;
 	CK_ATTRIBUTE *attr = NULL;
 	CK_BYTE iv[AES_BLOCK_SIZE];
@@ -1223,9 +1245,9 @@ static CK_RV import_RSA_key(STDLL_TokData_t *tokdata, OBJECT *rsa_key_obj,
 		}
 
 		/* encrypt */
-		rc = dll_m_EncryptSingle(raw2key_wrap_blob, raw2key_wrap_blob_l, &mech_w,
+		rc = dll_m_EncryptSingle(ep11_data->raw2key_wrap_blob, ep11_data->raw2key_wrap_blob_l, &mech_w,
 					 data, data_len, cipher, &cipher_l,
-					 (uint64_t)tokdata->target_list);
+					 (uint64_t)ep11_data->target_list);
 
 		TRACE_INFO("%s wrapping wrap key rc=0x%lx cipher_l=0x%lx\n",
 			   __func__, rc, cipher_l);
@@ -1247,10 +1269,10 @@ static CK_RV import_RSA_key(STDLL_TokData_t *tokdata, OBJECT *rsa_key_obj,
 		/* calls the card, it decrypts the private RSA key,
 		 * reads its BER format and builds a blob.
 		 */
-		rc = dll_m_UnwrapKey(cipher, cipher_l, raw2key_wrap_blob, raw2key_wrap_blob_l,
-				 NULL, ~0, ep11_pin_blob, ep11_pin_blob_len, &mech_w,
+		rc = dll_m_UnwrapKey(cipher, cipher_l, ep11_data->raw2key_wrap_blob, ep11_data->raw2key_wrap_blob_l,
+				 NULL, ~0, ep11_data->ep11_pin_blob, ep11_data->ep11_pin_blob_len, &mech_w,
 				 new_p_attrs, new_attrs_len, blob, blob_size, csum, &cslen,
-				 (uint64_t)tokdata->target_list);
+				 (uint64_t)ep11_data->target_list);
 
 		if (rc != CKR_OK) {
 			TRACE_ERROR("%s wrapping unwrap key rc=0x%lx blob_size=0x%zx\n",
@@ -1358,6 +1380,7 @@ CK_RV ep11tok_generate_key(STDLL_TokData_t *tokdata, SESSION *session,
 			   CK_MECHANISM_PTR mech, CK_ATTRIBUTE_PTR attrs,
 			   CK_ULONG attrs_len, CK_OBJECT_HANDLE_PTR handle)
 {
+    ep11_private_data_t *ep11_data = tokdata->private_data;
 	CK_BYTE blob[MAX_BLOBSIZE];
 	size_t blobsize = sizeof(blob);
 	CK_BYTE csum[MAX_CSUMSIZE];
@@ -1389,9 +1412,9 @@ CK_RV ep11tok_generate_key(STDLL_TokData_t *tokdata, SESSION *session,
 		return rc;
 	}
 
-	rc = dll_m_GenerateKey(mech, new_attrs, new_attrs_len, ep11_pin_blob,
-			   ep11_pin_blob_len, blob, &blobsize,
-			   csum, &csum_len, (uint64_t)tokdata->target_list);
+	rc = dll_m_GenerateKey(mech, new_attrs, new_attrs_len, ep11_data->ep11_pin_blob,
+			   ep11_data->ep11_pin_blob_len, blob, &blobsize,
+			   csum, &csum_len, (uint64_t)ep11_data->target_list);
 	if (rc != CKR_OK) {
 		TRACE_ERROR("%s m_GenerateKey rc=0x%lx mech='%s' attrs_len=0x%lx\n",
 			    __func__, rc, ep11_get_ckm(mech->mechanism), attrs_len);
@@ -1449,6 +1472,7 @@ done:
 CK_RV token_specific_sha_init(STDLL_TokData_t *tokdata, DIGEST_CONTEXT *c,
 			      CK_MECHANISM *mech)
 {
+    ep11_private_data_t *ep11_data = tokdata->private_data;
 	CK_RV rc;
 	size_t state_len = MAX_DIGEST_STATE_BYTES;
 	CK_BYTE *state;
@@ -1460,7 +1484,7 @@ CK_RV token_specific_sha_init(STDLL_TokData_t *tokdata, DIGEST_CONTEXT *c,
 	}
 
 	rc = dll_m_DigestInit (state, &state_len, mech,
-			       (uint64_t)tokdata->target_list);
+			       (uint64_t)ep11_data->target_list);
 
 	if (rc != CKR_OK) {
 		TRACE_ERROR("%s rc=0x%lx\n", __func__, rc);
@@ -1488,10 +1512,11 @@ CK_RV token_specific_sha(STDLL_TokData_t *tokdata, DIGEST_CONTEXT *c,
 			 CK_ULONG in_data_len, CK_BYTE *out_data,
 			 CK_ULONG *out_data_len)
 {
+    ep11_private_data_t *ep11_data = tokdata->private_data;
 	CK_RV rc;
 
 	rc = dll_m_Digest(c->context, c->context_len, in_data, in_data_len,
-		      out_data, out_data_len, (uint64_t)tokdata->target_list);
+		      out_data, out_data_len, (uint64_t)ep11_data->target_list);
 
 	if (rc != CKR_OK) {
 		TRACE_ERROR("%s rc=0x%lx\n", __func__, rc);
@@ -1505,10 +1530,11 @@ CK_RV token_specific_sha(STDLL_TokData_t *tokdata, DIGEST_CONTEXT *c,
 CK_RV token_specific_sha_update(STDLL_TokData_t *tokdata, DIGEST_CONTEXT *c,
 				CK_BYTE *in_data, CK_ULONG in_data_len)
 {
+    ep11_private_data_t *ep11_data = tokdata->private_data;
 	CK_RV rc;
 
 	rc = dll_m_DigestUpdate(c->context, c->context_len, in_data, in_data_len,
-				(uint64_t)tokdata->target_list) ;
+				(uint64_t)ep11_data->target_list) ;
 
 	if (rc != CKR_OK) {
 		TRACE_ERROR("%s rc=0x%lx\n", __func__, rc);
@@ -1522,10 +1548,11 @@ CK_RV token_specific_sha_update(STDLL_TokData_t *tokdata, DIGEST_CONTEXT *c,
 CK_RV token_specific_sha_final(STDLL_TokData_t *tokdata, DIGEST_CONTEXT *c,
 			       CK_BYTE *out_data, CK_ULONG *out_data_len)
 {
+    ep11_private_data_t *ep11_data = tokdata->private_data;
 	CK_RV rc;
 
 	rc = dll_m_DigestFinal(c->context, c->context_len, out_data, out_data_len,
-			       (uint64_t)tokdata->target_list) ;
+			       (uint64_t)ep11_data->target_list) ;
 
 	if (rc != CKR_OK) {
 		TRACE_ERROR("%s rc=0x%lx\n", __func__, rc);
@@ -1540,6 +1567,7 @@ CK_RV ep11tok_derive_key(STDLL_TokData_t *tokdata, SESSION *session, CK_MECHANIS
 			 CK_OBJECT_HANDLE hBaseKey, CK_OBJECT_HANDLE_PTR handle,
 			 CK_ATTRIBUTE_PTR attrs, CK_ULONG attrs_len)
 {
+    ep11_private_data_t *ep11_data = tokdata->private_data;
 	CK_RV rc;
 	CK_BYTE *keyblob;
 	size_t keyblobsize;
@@ -1578,8 +1606,8 @@ CK_RV ep11tok_derive_key(STDLL_TokData_t *tokdata, SESSION *session, CK_MECHANIS
 	}
 
 	rc = dll_m_DeriveKey (mech, new_attrs, new_attrs_len, keyblob, keyblobsize, NULL,
-			  0, ep11_pin_blob, ep11_pin_blob_len, newblob, &newblobsize,
-			  csum, &cslen, (uint64_t)tokdata->target_list);
+			  0, ep11_data->ep11_pin_blob, ep11_data->ep11_pin_blob_len, newblob, &newblobsize,
+			  csum, &cslen, (uint64_t)ep11_data->target_list);
 
 	if (rc != CKR_OK) {
 		TRACE_ERROR("%s hBaseKey=0x%lx rc=0x%lx handle=0x%lx blobsize=0x%zx\n",
@@ -1643,6 +1671,7 @@ static CK_RV dh_generate_keypair(STDLL_TokData_t *tokdata,
 				 CK_ULONG ulPrivateKeyAttributeCount,
 				 CK_SESSION_HANDLE h)
 {
+    ep11_private_data_t *ep11_data = tokdata->private_data;
 	CK_RV  rc;
 	CK_BYTE publblob[MAX_BLOBSIZE];
 	size_t publblobsize = sizeof(publblob);
@@ -1764,10 +1793,10 @@ static CK_RV dh_generate_keypair(STDLL_TokData_t *tokdata,
 
 	rc = dll_m_GenerateKeyPair(pMechanism, pPublicKeyTemplate_new,
 			       new_public_attr+1, pPrivateKeyTemplate,
-			       ulPrivateKeyAttributeCount, ep11_pin_blob,
-			       ep11_pin_blob_len, privblob, &privblobsize,
+			       ulPrivateKeyAttributeCount, ep11_data->ep11_pin_blob,
+			       ep11_data->ep11_pin_blob_len, privblob, &privblobsize,
 			       publblob, &publblobsize,
-			       (uint64_t)tokdata->target_list);
+			       (uint64_t)ep11_data->target_list);
 
 	if (rc != CKR_OK) {
 		TRACE_ERROR("%s m_GenerateKeyPair failed rc=0x%lx\n", __func__, rc);
@@ -1871,6 +1900,7 @@ static CK_RV dsa_generate_keypair(STDLL_TokData_t *tokdata,
 				  CK_ULONG ulPrivateKeyAttributeCount,
 				  CK_SESSION_HANDLE h)
 {
+    ep11_private_data_t *ep11_data = tokdata->private_data;
 	CK_RV  rc;
 	CK_BYTE publblob[MAX_BLOBSIZE];
 	size_t publblobsize = sizeof(publblob);
@@ -2034,10 +2064,10 @@ static CK_RV dsa_generate_keypair(STDLL_TokData_t *tokdata,
 	rc = dll_m_GenerateKeyPair(pMechanism, dsa_pPublicKeyTemplate,
 			       dsa_ulPublicKeyAttributeCount,
 			       dsa_pPrivateKeyTemplate,
-			       dsa_ulPrivateKeyAttributeCount, ep11_pin_blob,
-			       ep11_pin_blob_len, privblob, &privblobsize,
+			       dsa_ulPrivateKeyAttributeCount, ep11_data->ep11_pin_blob,
+			       ep11_data->ep11_pin_blob_len, privblob, &privblobsize,
 			       publblob, &publblobsize,
-			       (uint64_t)tokdata->target_list);
+			       (uint64_t)ep11_data->target_list);
 
 	if (rc != CKR_OK) {
 		TRACE_ERROR("%s m_GenerateKeyPair failed with rc=0x%lx\n", __func__, rc);
@@ -2127,6 +2157,7 @@ static CK_RV rsa_ec_generate_keypair(STDLL_TokData_t *tokdata,
 				     CK_ULONG ulPrivateKeyAttributeCount,
 				     CK_SESSION_HANDLE h)
 {
+    ep11_private_data_t *ep11_data = tokdata->private_data;
 	CK_RV rc;
 	CK_ATTRIBUTE *attr = NULL;
 	CK_ATTRIBUTE *n_attr = NULL;
@@ -2191,10 +2222,10 @@ static CK_RV rsa_ec_generate_keypair(STDLL_TokData_t *tokdata,
 
 	rc = dll_m_GenerateKeyPair(pMechanism, new_pPublicKeyTemplate,
 			       new_ulPublicKeyAttributeCount, new_pPrivateKeyTemplate,
-			       new_ulPrivateKeyAttributeCount, ep11_pin_blob,
-			       ep11_pin_blob_len, privkey_blob,
+			       new_ulPrivateKeyAttributeCount, ep11_data->ep11_pin_blob,
+			       ep11_data->ep11_pin_blob_len, privkey_blob,
 			       &privkey_blob_len, spki, &spki_len,
-			       (uint64_t)tokdata->target_list);
+			       (uint64_t)ep11_data->target_list);
 	if (rc != CKR_OK) {
 		TRACE_ERROR("%s m_GenerateKeyPair rc=0x%lx spki_len=0x%zx "
 			    "privkey_blob_len=0x%zx mech='%s'\n",
@@ -2640,6 +2671,7 @@ CK_RV ep11tok_sign_init(STDLL_TokData_t *tokdata, SESSION *session,
 			CK_MECHANISM *mech, CK_BBOOL recover_mode,
 			CK_OBJECT_HANDLE key)
 {
+    ep11_private_data_t *ep11_data = tokdata->private_data;
 	CK_RV rc;
 	size_t keyblobsize = 0;
 	CK_BYTE *keyblob;
@@ -2661,7 +2693,7 @@ CK_RV ep11tok_sign_init(STDLL_TokData_t *tokdata, SESSION *session,
 
 	rc = dll_m_SignInit(ep11_sign_state, &ep11_sign_state_l,
 			    mech, keyblob, keyblobsize,
-			    (uint64_t)tokdata->target_list);
+			    (uint64_t)ep11_data->target_list);
 
 	if (rc != CKR_OK) {
 		TRACE_ERROR("%s rc=0x%lx blobsize=0x%zx key=0x%lx mech=0x%lx\n",
@@ -2689,11 +2721,12 @@ CK_RV ep11tok_sign(STDLL_TokData_t *tokdata, SESSION *session,
 		   CK_BBOOL length_only, CK_BYTE *in_data,
 		   CK_ULONG in_data_len, CK_BYTE *signature, CK_ULONG *sig_len)
 {
+    ep11_private_data_t *ep11_data = tokdata->private_data;
 	CK_RV rc;
 	SIGN_VERIFY_CONTEXT *ctx = &session->sign_ctx;
 
 	rc = dll_m_Sign(ctx->context, ctx->context_len, in_data, in_data_len,
-		    signature, sig_len, (uint64_t)tokdata->target_list);
+		    signature, sig_len, (uint64_t)ep11_data->target_list);
 
 	if (rc != CKR_OK) {
 		TRACE_ERROR("%s rc=0x%lx\n", __func__, rc);
@@ -2708,6 +2741,7 @@ CK_RV ep11tok_sign(STDLL_TokData_t *tokdata, SESSION *session,
 CK_RV ep11tok_sign_update(STDLL_TokData_t *tokdata, SESSION *session,
 			  CK_BYTE *in_data, CK_ULONG in_data_len)
 {
+    ep11_private_data_t *ep11_data = tokdata->private_data;
 	CK_RV rc;
 	SIGN_VERIFY_CONTEXT *ctx = &session->sign_ctx;
 
@@ -2715,7 +2749,7 @@ CK_RV ep11tok_sign_update(STDLL_TokData_t *tokdata, SESSION *session,
 		return CKR_OK;
 
 	rc = dll_m_SignUpdate(ctx->context, ctx->context_len, in_data,
-			  in_data_len, (uint64_t)tokdata->target_list);
+			  in_data_len, (uint64_t)ep11_data->target_list);
 
 	if (rc != CKR_OK) {
 		TRACE_ERROR("%s rc=0x%lx\n", __func__, rc);
@@ -2731,11 +2765,12 @@ CK_RV ep11tok_sign_final(STDLL_TokData_t *tokdata, SESSION *session,
 			 CK_BBOOL length_only, CK_BYTE *signature,
 			 CK_ULONG *sig_len)
 {
+    ep11_private_data_t *ep11_data = tokdata->private_data;
 	CK_RV rc;
 	SIGN_VERIFY_CONTEXT *ctx = &session->sign_ctx;
 
 	rc = dll_m_SignFinal(ctx->context, ctx->context_len, signature, sig_len,
-			     (uint64_t)tokdata->target_list);
+			     (uint64_t)ep11_data->target_list);
 
 	if (rc != CKR_OK) {
 		TRACE_ERROR("%s rc=0x%lx\n", __func__, rc);
@@ -2751,6 +2786,7 @@ CK_RV ep11tok_verify_init(STDLL_TokData_t *tokdata, SESSION *session,
 			  CK_MECHANISM *mech, CK_BBOOL recover_mode,
 			  CK_OBJECT_HANDLE key)
 {
+    ep11_private_data_t *ep11_data = tokdata->private_data;
 	CK_RV rc;
 	CK_BYTE *spki;
 	size_t spki_len = 0;
@@ -2771,7 +2807,7 @@ CK_RV ep11tok_verify_init(STDLL_TokData_t *tokdata, SESSION *session,
 	}
 
 	rc = dll_m_VerifyInit(ep11_sign_state, &ep11_sign_state_l, mech,
-			  spki, spki_len, (uint64_t)tokdata->target_list);
+			  spki, spki_len, (uint64_t)ep11_data->target_list);
 
 	if (rc != CKR_OK) {
 		TRACE_ERROR("%s rc=0x%lx spki_len=0x%zx key=0x%lx "
@@ -2798,11 +2834,12 @@ CK_RV ep11tok_verify_init(STDLL_TokData_t *tokdata, SESSION *session,
 CK_RV ep11tok_verify(STDLL_TokData_t *tokdata, SESSION *session, CK_BYTE *in_data,
 		     CK_ULONG in_data_len, CK_BYTE *signature, CK_ULONG sig_len)
 {
+    ep11_private_data_t *ep11_data = tokdata->private_data;
 	CK_RV rc;
 	SIGN_VERIFY_CONTEXT *ctx = &session->verify_ctx;
 
 	rc = dll_m_Verify(ctx->context, ctx->context_len, in_data, in_data_len,
-		      signature, sig_len, (uint64_t)tokdata->target_list);
+		      signature, sig_len, (uint64_t)ep11_data->target_list);
 
 	if (rc != CKR_OK) {
 		TRACE_ERROR("%s rc=0x%lx\n", __func__, rc);
@@ -2817,6 +2854,7 @@ CK_RV ep11tok_verify(STDLL_TokData_t *tokdata, SESSION *session, CK_BYTE *in_dat
 CK_RV ep11tok_verify_update(STDLL_TokData_t *tokdata, SESSION *session,
 			    CK_BYTE *in_data, CK_ULONG in_data_len)
 {
+    ep11_private_data_t *ep11_data = tokdata->private_data;
 	CK_RV rc;
 	SIGN_VERIFY_CONTEXT *ctx = &session->verify_ctx;
 
@@ -2824,7 +2862,7 @@ CK_RV ep11tok_verify_update(STDLL_TokData_t *tokdata, SESSION *session,
 		return CKR_OK;
 
 	rc = dll_m_VerifyUpdate(ctx->context, ctx->context_len, in_data,
-			    in_data_len, (uint64_t)tokdata->target_list);
+			    in_data_len, (uint64_t)ep11_data->target_list);
 
 	if (rc != CKR_OK) {
 		TRACE_ERROR("%s rc=0x%lx\n", __func__, rc);
@@ -2839,11 +2877,12 @@ CK_RV ep11tok_verify_update(STDLL_TokData_t *tokdata, SESSION *session,
 CK_RV ep11tok_verify_final(STDLL_TokData_t *tokdata, SESSION *session,
 			   CK_BYTE *signature, CK_ULONG sig_len)
 {
+    ep11_private_data_t *ep11_data = tokdata->private_data;
 	CK_RV rc;
 	SIGN_VERIFY_CONTEXT *ctx = &session->verify_ctx;
 
 	rc = dll_m_VerifyFinal(ctx->context, ctx->context_len, signature,
-			   sig_len, (uint64_t)tokdata->target_list);
+			   sig_len, (uint64_t)ep11_data->target_list);
 
 	if (rc != CKR_OK) {
 		TRACE_ERROR("%s rc=0x%lx\n", __func__, rc);
@@ -2859,12 +2898,13 @@ CK_RV ep11tok_decrypt_final(STDLL_TokData_t *tokdata, SESSION *session,
 			    CK_BYTE_PTR output_part,
 			    CK_ULONG_PTR p_output_part_len)
 {
+    ep11_private_data_t *ep11_data = tokdata->private_data;
 	CK_RV rc = CKR_OK;
 	ENCR_DECR_CONTEXT *ctx = &session->decr_ctx;
 
 	rc = dll_m_DecryptFinal(ctx->context, ctx->context_len,
 				output_part, p_output_part_len,
-				(uint64_t)tokdata->target_list);
+				(uint64_t)ep11_data->target_list);
 
 	if (rc != CKR_OK) {
 		TRACE_ERROR("%s rc=0x%lx\n", __func__, rc);
@@ -2880,12 +2920,13 @@ CK_RV ep11tok_decrypt(STDLL_TokData_t *tokdata, SESSION *session,
 		      CK_BYTE_PTR input_data, CK_ULONG input_data_len,
 		      CK_BYTE_PTR output_data, CK_ULONG_PTR p_output_data_len)
 {
+    ep11_private_data_t *ep11_data = tokdata->private_data;
 	CK_RV rc = CKR_OK;
 	ENCR_DECR_CONTEXT *ctx = &session->decr_ctx;
 
 	rc = dll_m_Decrypt(ctx->context, ctx->context_len, input_data,
 			   input_data_len, output_data, p_output_data_len,
-			   (uint64_t)tokdata->target_list);
+			   (uint64_t)ep11_data->target_list);
 
 	if (rc != CKR_OK) {
 		TRACE_ERROR("%s rc=0x%lx\n", __func__, rc);
@@ -2902,6 +2943,7 @@ CK_RV ep11tok_decrypt_update(STDLL_TokData_t *tokdata, SESSION *session,
 			     CK_BYTE_PTR output_part,
 			     CK_ULONG_PTR p_output_part_len)
 {
+    ep11_private_data_t *ep11_data = tokdata->private_data;
 	CK_RV rc = CKR_OK;
 	ENCR_DECR_CONTEXT *ctx = &session->decr_ctx;
 
@@ -2912,7 +2954,7 @@ CK_RV ep11tok_decrypt_update(STDLL_TokData_t *tokdata, SESSION *session,
 
 	rc = dll_m_DecryptUpdate(ctx->context, ctx->context_len,
 			     input_part, input_part_len, output_part,
-			     p_output_part_len, (uint64_t)tokdata->target_list);
+			     p_output_part_len, (uint64_t)ep11_data->target_list);
 
 	if (rc != CKR_OK) {
 		TRACE_ERROR("%s rc=0x%lx\n", __func__, rc);
@@ -2928,12 +2970,13 @@ CK_RV ep11tok_encrypt_final(STDLL_TokData_t *tokdata, SESSION *session,
 			    CK_BYTE_PTR output_part,
 			    CK_ULONG_PTR p_output_part_len)
 {
+    ep11_private_data_t *ep11_data = tokdata->private_data;
 	CK_RV rc = CKR_OK;
 	ENCR_DECR_CONTEXT *ctx = &session->encr_ctx;
 
 	rc = dll_m_EncryptFinal(ctx->context, ctx->context_len,
 				output_part, p_output_part_len,
-				(uint64_t)tokdata->target_list);
+				(uint64_t)ep11_data->target_list);
 
 	if (rc != CKR_OK) {
 		TRACE_ERROR("%s rc=0x%lx\n", __func__, rc);
@@ -2949,12 +2992,13 @@ CK_RV ep11tok_encrypt(STDLL_TokData_t *tokdata, SESSION *session,
 		      CK_BYTE_PTR input_data, CK_ULONG input_data_len,
 		      CK_BYTE_PTR output_data, CK_ULONG_PTR p_output_data_len)
 {
+    ep11_private_data_t *ep11_data = tokdata->private_data;
 	CK_RV rc = CKR_OK;
 	ENCR_DECR_CONTEXT *ctx = &session->encr_ctx;
 
 	rc = dll_m_Encrypt(ctx->context, ctx->context_len, input_data,
 			   input_data_len, output_data, p_output_data_len,
-			   (uint64_t)tokdata->target_list);
+			   (uint64_t)ep11_data->target_list);
 
 	if (rc != CKR_OK) {
 		TRACE_ERROR("%s rc=0x%lx\n", __func__, rc);
@@ -2971,6 +3015,7 @@ CK_RV ep11tok_encrypt_update(STDLL_TokData_t *tokdata, SESSION *session,
 			     CK_BYTE_PTR output_part,
 			     CK_ULONG_PTR p_output_part_len)
 {
+    ep11_private_data_t *ep11_data = tokdata->private_data;
 	CK_RV rc = CKR_OK;
 	ENCR_DECR_CONTEXT *ctx = &session->encr_ctx;
 
@@ -2982,7 +3027,7 @@ CK_RV ep11tok_encrypt_update(STDLL_TokData_t *tokdata, SESSION *session,
 	rc = dll_m_EncryptUpdate(ctx->context, ctx->context_len,
 				 input_part, input_part_len, output_part,
 				 p_output_part_len,
-				 (uint64_t)tokdata->target_list);
+				 (uint64_t)ep11_data->target_list);
 
 	if (rc != CKR_OK) {
 		TRACE_ERROR("%s rc=0x%lx\n", __func__, rc);
@@ -2997,6 +3042,7 @@ CK_RV ep11tok_encrypt_update(STDLL_TokData_t *tokdata, SESSION *session,
 static CK_RV ep11_ende_crypt_init(STDLL_TokData_t *tokdata, SESSION *session,
 				  CK_MECHANISM_PTR mech, CK_OBJECT_HANDLE key, int op)
 {
+    ep11_private_data_t *ep11_data = tokdata->private_data;
 	CK_RV rc = CKR_OK;
 	CK_BYTE *blob;
 	size_t blob_len = 0;
@@ -3018,7 +3064,7 @@ static CK_RV ep11_ende_crypt_init(STDLL_TokData_t *tokdata, SESSION *session,
 	if (op == DECRYPT) {
 		ENCR_DECR_CONTEXT *ctx = &session->decr_ctx;
 		rc = dll_m_DecryptInit(ep11_state, &ep11_state_l, mech, blob,
-				   blob_len, (uint64_t)tokdata->target_list);
+				   blob_len, (uint64_t)ep11_data->target_list);
 		ctx->key = key;
 		ctx->active = TRUE;
 		ctx->context = ep11_state;
@@ -3035,7 +3081,7 @@ static CK_RV ep11_ende_crypt_init(STDLL_TokData_t *tokdata, SESSION *session,
 	} else {
 		ENCR_DECR_CONTEXT *ctx = &session->encr_ctx;
 		rc = dll_m_EncryptInit (ep11_state, &ep11_state_l, mech, blob,
-				    blob_len, (uint64_t)tokdata->target_list);
+				    blob_len, (uint64_t)ep11_data->target_list);
 		ctx->key = key;
 		ctx->active = TRUE;
 		ctx->context = ep11_state;
@@ -3098,6 +3144,7 @@ CK_RV ep11tok_wrap_key(STDLL_TokData_t *tokdata, SESSION *session,
 		       CK_OBJECT_HANDLE key, CK_BYTE_PTR wrapped_key,
 		       CK_ULONG_PTR p_wrapped_key_len)
 {
+    ep11_private_data_t *ep11_data = tokdata->private_data;
 	CK_RV rc;
 	CK_BYTE *wrapping_blob;
 	size_t wrapping_blob_len;
@@ -3167,7 +3214,7 @@ CK_RV ep11tok_wrap_key(STDLL_TokData_t *tokdata, SESSION *session,
 	 */
 	rc = dll_m_WrapKey(wrap_target_blob, wrap_target_blob_len, wrapping_blob,
 		       wrapping_blob_len, NULL, ~0, mech, wrapped_key,
-		       p_wrapped_key_len, (uint64_t)tokdata->target_list);
+		       p_wrapped_key_len, (uint64_t)ep11_data->target_list);
 
 	if (rc != CKR_OK) {
 		TRACE_ERROR("%s m_WrapKey failed with rc=0x%lx\n", __func__, rc);
@@ -3187,6 +3234,7 @@ CK_RV ep11tok_unwrap_key(STDLL_TokData_t *tokdata, SESSION *session, CK_MECHANIS
 			 CK_OBJECT_HANDLE wrapping_key,
 			 CK_OBJECT_HANDLE_PTR p_key)
 {
+    ep11_private_data_t *ep11_data = tokdata->private_data;
 	CK_RV rc;
 	CK_BYTE *wrapping_blob;
 	size_t wrapping_blob_len;
@@ -3264,10 +3312,10 @@ CK_RV ep11tok_unwrap_key(STDLL_TokData_t *tokdata, SESSION *session, CK_MECHANIS
 	 * the wrapped key comes in BER
 	 */
 	rc = dll_m_UnwrapKey(wrapped_key, wrapped_key_len, wrapping_blob,
-			 wrapping_blob_len, NULL, ~0, ep11_pin_blob,
-			 ep11_pin_blob_len, mech, new_attrs, new_attrs_len,
+			 wrapping_blob_len, NULL, ~0, ep11_data->ep11_pin_blob,
+			 ep11_data->ep11_pin_blob_len, mech, new_attrs, new_attrs_len,
 			 keyblob, &keyblobsize, csum, &cslen,
-			 (uint64_t)tokdata->target_list);
+			 (uint64_t)ep11_data->target_list);
 
 	if (rc != CKR_OK) {
 		TRACE_ERROR("%s m_UnwrapKey rc=0x%lx blobsize=0x%zx mech=0x%lx\n",
@@ -3347,7 +3395,7 @@ done:
 /* mechanisms ep11 reports but should be hidden because e.g.
    the EP11 card operates in a FIPS mode that forbides the mechanism,
    add here other mechanisms if required */
-CK_MECHANISM_TYPE ep11_banned_mech_list[] =
+const CK_MECHANISM_TYPE ep11_banned_mech_list[] =
 {
 #ifdef DEFENSIVE_MECHLIST
 	CKM_DES_KEY_GEN,
@@ -3393,7 +3441,7 @@ CK_MECHANISM_TYPE ep11_banned_mech_list[] =
 
 #endif
 };
-CK_ULONG banned_mech_list_len = (sizeof(ep11_banned_mech_list) / sizeof(CK_MECHANISM_TYPE));
+const CK_ULONG banned_mech_list_len = (sizeof(ep11_banned_mech_list) / sizeof(CK_MECHANISM_TYPE));
 
 
 /* filtering out some mechanisms we do not want to provide
@@ -3403,6 +3451,7 @@ CK_RV ep11tok_get_mechanism_list(STDLL_TokData_t *tokdata,
 				 CK_MECHANISM_TYPE_PTR pMechanismList,
 				 CK_ULONG_PTR pulCount)
 {
+    ep11_private_data_t *ep11_data = tokdata->private_data;
 	CK_RV rc = 0;
 	CK_ULONG counter = 0;
 	CK_MECHANISM_TYPE_PTR mlist = NULL;
@@ -3411,7 +3460,7 @@ CK_RV ep11tok_get_mechanism_list(STDLL_TokData_t *tokdata,
 	/* size querry */
 	if (pMechanismList == NULL) {
 		rc = dll_m_GetMechanismList(0, pMechanismList, pulCount,
-					    (uint64_t)tokdata->target_list);
+					    (uint64_t)ep11_data->target_list);
 		if (rc != CKR_OK) {
 			TRACE_ERROR("%s bad rc=0x%lx from m_GetMechanismList() #1\n", __func__, rc);
 			return rc;
@@ -3426,7 +3475,7 @@ CK_RV ep11tok_get_mechanism_list(STDLL_TokData_t *tokdata,
 			TRACE_ERROR("%s Memory allocation failed\n", __func__);
 			return CKR_HOST_MEMORY;
 		}
-		rc = dll_m_GetMechanismList(0, mlist, &counter, (uint64_t)tokdata->target_list);
+		rc = dll_m_GetMechanismList(0, mlist, &counter, (uint64_t)ep11_data->target_list);
 		if (rc != CKR_OK) {
 			TRACE_ERROR("%s bad rc=0x%lx from m_GetMechanismList() #2\n", __func__, rc);
 			free(mlist);
@@ -3457,7 +3506,7 @@ CK_RV ep11tok_get_mechanism_list(STDLL_TokData_t *tokdata,
 		 * ep11 would complain about insufficient list size
 		 */
 		rc = dll_m_GetMechanismList(0, mlist, &counter,
-					    (uint64_t)tokdata->target_list);
+					    (uint64_t)ep11_data->target_list);
 		if (rc != CKR_OK) {
 			TRACE_ERROR("%s bad rc=0x%lx from m_GetMechanismList() #3\n", __func__, rc);
 			return rc;
@@ -3469,7 +3518,7 @@ CK_RV ep11tok_get_mechanism_list(STDLL_TokData_t *tokdata,
 			return CKR_HOST_MEMORY;
 		}
 		/* all the card has */
-		rc = dll_m_GetMechanismList(0, mlist, &counter, (uint64_t)tokdata->target_list);
+		rc = dll_m_GetMechanismList(0, mlist, &counter, (uint64_t)ep11_data->target_list);
 		if (rc != CKR_OK) {
 			TRACE_ERROR("%s bad rc=0x%lx from m_GetMechanismList() #4\n", __func__, rc);
 			free(mlist);
@@ -3507,10 +3556,11 @@ CK_RV ep11tok_get_mechanism_info(STDLL_TokData_t *tokdata,
 				 CK_MECHANISM_TYPE type,
 				 CK_MECHANISM_INFO_PTR pInfo)
 {
+    ep11_private_data_t *ep11_data = tokdata->private_data;
 	CK_RV rc;
 	int i;
 
-	rc = dll_m_GetMechanismInfo(0, type, pInfo, (uint64_t)tokdata->target_list);
+	rc = dll_m_GetMechanismInfo(0, type, pInfo, (uint64_t)ep11_data->target_list);
 	if (rc != CKR_OK) {
 		TRACE_ERROR("%s m_GetMechanismInfo(0x%lx) failed with rc=0x%lx\n",
 			    __func__, type, rc);
@@ -3610,6 +3660,7 @@ static inline short check_n(ep11_target_t *target, char *nptr, int *apqn_i)
 
 static int read_adapter_config_file(STDLL_TokData_t *tokdata, const char* conf_name)
 {
+    ep11_private_data_t *ep11_data = tokdata->private_data;
 	FILE *ap_fp = NULL;       /* file pointer adapter config file */
 	int i, ap_file_size = 0;     /* size adapter config file */
 	char *token, *str;
@@ -3620,7 +3671,7 @@ static int read_adapter_config_file(STDLL_TokData_t *tokdata, const char* conf_n
 	int apqn_i = 0;     /* how many APQN numbers */
 	char *conf_dir = getenv("OCK_EP11_TOKEN_DIR");
 	char fname[PATH_MAX];
-	ep11_target_t *ep11_targets = (ep11_target_t *)tokdata->target_list;
+	ep11_target_t *ep11_targets = (ep11_target_t *)ep11_data->target_list;
 	int rc = 0;
 
 	if (tokdata->initialized)
