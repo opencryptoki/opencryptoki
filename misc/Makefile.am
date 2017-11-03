@@ -43,6 +43,7 @@ install-data-hook:
 	mkdir -p $(DESTDIR)/usr/lib/tmpfiles.d
 	cp tmpfiles.conf $(DESTDIR)/usr/lib/tmpfiles.d/opencryptoki.conf
 	$(CHMOD) 0644 $(DESTDIR)/usr/lib/tmpfiles.d/opencryptoki.conf
+	rm -f $(DESTDIR)/usr/lib/systemd/system/tmpfiles.conf
 
 uninstall-hook:
 	if test -e $(DESTDIR)/usr/lib/tmpfiles.d/opencryptoki.conf; then \
