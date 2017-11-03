@@ -229,8 +229,8 @@ exit 0
 
 
 %files
-%doc ChangeLog FAQ README
-%doc doc/openCryptoki-HOWTO.pdf
+%doc ChangeLog FAQ README.md
+%doc doc/opencryptoki-howto.md
 %doc doc/README.token_data
 %dir %{_sysconfdir}/%{name}
 %config(noreplace) %{_sysconfdir}/%{name}/%{name}.conf
@@ -295,7 +295,6 @@ exit 0
 %dir %attr(770,root,pkcs11) %{_sharedstatedir}/%{name}/lite/TOK_OBJ/
 
 %files ccatok
-%doc doc/README-IBM_CCA_users
 %doc doc/README.cca_stdll
 %{_sbindir}/pkcscca
 %{_mandir}/man1/pkcscca.1*
