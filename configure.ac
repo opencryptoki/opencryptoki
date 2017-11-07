@@ -623,6 +623,7 @@ AC_CONFIG_FILES([Makefile usr/Makefile \
 	  testcases/pkcs11/Makefile \
 	  testcases/login/Makefile \
 	  testcases/misc_tests/Makefile \
+	  testcases/multi_token_tests/Makefile \
 	  man/Makefile \
 	  man/man1/Makefile \
 	  man/man1/pkcsconf.1 \
