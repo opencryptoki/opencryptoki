@@ -55,6 +55,15 @@ minor version number (the hundredths portion of the version).
 If the slot is associated with a token that has its own configuration file,
 this option identifies the name of that configuration file.
 For example, confname=ep11tok.conf
+.TP
+.BR tokname
+If a token want to have its own token directory name that is different from the
+default name, especially if multiple tokens of the same type are configured,
+this option defines the name of the token individual directory.
+For example, tokname=ep11tok01
+
+Note: This key-value pair is optional: If only one token per token type is used,
+you don't need that entry. In that case the default directory name is used.
 
 .SH Notes
 The pound sign ('#') is used to indicate a comment.
