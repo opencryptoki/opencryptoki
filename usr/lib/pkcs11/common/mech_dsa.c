@@ -52,7 +52,7 @@ dsa_sign( STDLL_TokData_t     * tokdata,
       if (rc == CKR_OBJECT_HANDLE_INVALID)
           return CKR_KEY_HANDLE_INVALID;
       else
-        return rc
+        return rc;
    }
 
    // must be a PRIVATE key operation
@@ -119,7 +119,7 @@ dsa_verify( STDLL_TokData_t     * tokdata,
       if (rc == CKR_OBJECT_HANDLE_INVALID)
           return CKR_KEY_HANDLE_INVALID;
       else
-        return rc
+        return rc;
    }
 
    // must be a PUBLIC key operation
@@ -164,15 +164,6 @@ ckm_dsa_key_pair_gen( STDLL_TokData_t *tokdata,
 		      TEMPLATE  * publ_tmpl,
                       TEMPLATE  * priv_tmpl )
 {
-   CK_ATTRIBUTE       * prime     = NULL;
-   CK_ATTRIBUTE       * subprime  = NULL;
-   CK_ATTRIBUTE       * base      = NULL;
-   CK_ATTRIBUTE       * priv_exp  = NULL;
-   CK_ATTRIBUTE       * publ_exp  = NULL;
-   CK_ATTRIBUTE       * attr      = NULL;
-   CK_BYTE            * ptr       = NULL;
-   CK_BYTE              repl_buf[5500];
-   CK_BBOOL             flag;
    CK_RV                rc;
 
 
@@ -196,12 +187,7 @@ ckm_dsa_sign( STDLL_TokData_t *tokdata,
               CK_BYTE   * signature,
               OBJECT    * priv_key )
 {
-   CK_ATTRIBUTE     * prime     = NULL;
-   CK_ATTRIBUTE     * subprime  = NULL;
-   CK_ATTRIBUTE     * base      = NULL;
-   CK_ATTRIBUTE     * exponent  = NULL;
    CK_ATTRIBUTE     * attr      = NULL;
-   CK_BYTE          * ptr       = NULL;
    CK_OBJECT_CLASS    keyclass;
    CK_RV              rc;
 
@@ -240,12 +226,7 @@ ckm_dsa_verify( STDLL_TokData_t *tokdata,
                 CK_BYTE   * data,
                 OBJECT    * publ_key )
 {
-   CK_ATTRIBUTE     * prime     = NULL;
-   CK_ATTRIBUTE     * subprime  = NULL;
-   CK_ATTRIBUTE     * base      = NULL;
-   CK_ATTRIBUTE     * exponent  = NULL;
    CK_ATTRIBUTE     * attr      = NULL;
-   CK_BYTE          * ptr       = NULL;
    CK_OBJECT_CLASS    keyclass;
    CK_RV              rc;
 
