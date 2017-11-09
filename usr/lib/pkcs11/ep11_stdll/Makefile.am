@@ -14,7 +14,7 @@ opencryptoki_stdll_libpkcs11_ep11_la_CFLAGS = -DDEV -D_THREAD_SAFE            \
 
 if ENABLE_LOCKS
 opencryptoki_stdll_libpkcs11_ep11_la_LDFLAGS = -shared -Wl,-Bsymbolic	\
-					     -lc -lpthread -lcrypto -lrt -llber
+					     -lc -lpthread -lcrypto -lrt -llber -ldl
 
 opencryptoki_stdll_libpkcs11_ep11_la_SOURCES = ../common/asn1.c		\
 					     ../common/lock_btree.c		\
@@ -30,6 +30,8 @@ opencryptoki_stdll_libpkcs11_ep11_la_SOURCES = ../common/asn1.c		\
 					     ../common/mech_md2.c	\
 					     ../common/mech_rng.c	\
 					     ../common/mech_sha.c	\
+					     ../common/mech_dsa.c	\
+					     ../common/mech_dh.c	\
 					     new_host.c			\
 					     ../common/obj_mgr.c	\
 					     ../common/object.c		\
@@ -45,7 +47,7 @@ opencryptoki_stdll_libpkcs11_ep11_la_SOURCES = ../common/asn1.c		\
 					     ep11_specific.c
 else
 opencryptoki_stdll_libpkcs11_ep11_la_LDFLAGS = -shared -Wl,-Bsymbolic	\
-					     -lc -lpthread -litm -lcrypto -lrt -llber
+					     -lc -lpthread -litm -lcrypto -lrt -llber -ldl
 
 opencryptoki_stdll_libpkcs11_ep11_la_SOURCES = ../common/asn1.c		\
 					     ../common/btree.c		\
@@ -67,6 +69,8 @@ opencryptoki_stdll_libpkcs11_ep11_la_SOURCES = ../common/asn1.c		\
 					     ../common/mech_rng.c	\
 					     ../common/mech_rsa.c       \
 					     ../common/mech_sha.c	\
+					     ../common/mech_dsa.c	\
+					     ../common/mech_dh.c	\
 					     ../common/mech_ssl3.c      \
 					     new_host.c			\
 					     ../common/obj_mgr.c	\
