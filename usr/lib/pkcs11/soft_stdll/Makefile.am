@@ -11,7 +11,7 @@ opencryptoki_stdll_libpkcs11_sw_la_CFLAGS = -DDEV -D_THREAD_SAFE            \
 					    -I../common -DSTDLL_NAME=\"swtok\"
 
 if ENABLE_LOCKS
-opencryptoki_stdll_libpkcs11_sw_la_LDFLAGS = -shared -Wl,-Bsymbolic	\
+opencryptoki_stdll_libpkcs11_sw_la_LDFLAGS = -shared -Wl,-z,defs,-Bsymbolic	\
 					     -lc -lpthread -lcrypto -lrt
 
 opencryptoki_stdll_libpkcs11_sw_la_SOURCES = ../common/asn1.c		\
@@ -53,7 +53,7 @@ opencryptoki_stdll_libpkcs11_sw_la_SOURCES = ../common/asn1.c		\
 					     ../common/shared_memory.c	\
 					     soft_specific.c
 else
-opencryptoki_stdll_libpkcs11_sw_la_LDFLAGS = -shared -Wl,-Bsymbolic	\
+opencryptoki_stdll_libpkcs11_sw_la_LDFLAGS = -shared -Wl,-z,defs,-Bsymbolic	\
 					     -lc -lpthread -litm -lcrypto -lrt
 
 opencryptoki_stdll_libpkcs11_sw_la_SOURCES = ../common/asn1.c		\

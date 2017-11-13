@@ -21,7 +21,7 @@ opencryptoki_stdll_libpkcs11_icsf_la_CFLAGS = -DNOCDMF			\
 
 if ENABLE_LOCKS
 opencryptoki_stdll_libpkcs11_icsf_la_LDFLAGS = -shared			\
-					       -Wl,-Bsymbolic		\
+					       -Wl,-z,defs,-Bsymbolic		\
 					       -lcrypto			\
 					       -lldap			\
 					       -lpthread		\
@@ -73,7 +73,7 @@ opencryptoki_stdll_libpkcs11_icsf_la_SOURCES = ../common/asn1.c		\
 					       icsf.c
 else
 opencryptoki_stdll_libpkcs11_icsf_la_LDFLAGS = -shared			\
-					       -Wl,-Bsymbolic		\
+					       -Wl,-z,defs,-Bsymbolic		\
 					       -lcrypto			\
 					       -lldap			\
 					       -lpthread		\
