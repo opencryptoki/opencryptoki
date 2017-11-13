@@ -23,7 +23,7 @@ const char *usage =
 int main(int argc, char **argv)
 {
 	pid_t  pid;
-	int status, i, c, rc = 0, slots = 1;
+	int i, c, rc = 0, slots = 1;
 	char *pin = NULL, *path = NULL, *testcase = NULL;
 	int pin_len = 0, path_len = 0;
 	char cmd[512];
@@ -71,8 +71,17 @@ int main(int argc, char **argv)
 	}
 
 	for (i = 1; i <= slots; i++) {
-		pid = fork();
 
+		/* check if token is available */
+		sprintf(cmd, "pkcsconf -t -c %d >> /dev/null", i);
+		rc = system(cmd);
+		if (rc) {
+			fprintf(stderr, "Token no. %d is not present!\n", i);
+			continue;
+		}
+		
+		pid = fork();
+ 
 		if (pid == -1) {
 			/* Error, fork failed */
 			fprintf(stderr, "Fork failed, error %d\n", errno);
@@ -92,13 +101,14 @@ int main(int argc, char **argv)
 		}
 		else {
 			/* Parent process */
-			waitpid(pid, &status, 0);
-			if (status != 0) {
-				printf("The child process terminated!\n");
-			}
 			continue;
 		}
+	}
 
+	while ((pid = waitpid(-1, NULL, 0))) {
+		if (errno == ECHILD) {
+			break;
+		}
 	}
 
 	if (pin)
@@ -108,3 +118,4 @@ int main(int argc, char **argv)
 
 	return 0;
 }
+
