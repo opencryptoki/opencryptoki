@@ -13,9 +13,9 @@ if ENABLE_LOCKS
 opencryptoki_stdll_libpkcs11_ica_la_LDFLAGS = $(LCRYPTO)		\
 					     $(ICA_LIB_DIRS)		\
 					     -nostartfiles -shared	\
-					     -Wl,-Bsymbolic		\
+					     -Wl,-z,defs,-Bsymbolic		\
 					     -Wl,-soname,$@		\
-					     -Wl,-Bsymbolic -lc		\
+					     -lc		\
 					     -lpthread -lica -ldl \
 					     -lcrypto
 
@@ -60,9 +60,9 @@ else
 opencryptoki_stdll_libpkcs11_ica_la_LDFLAGS = $(LCRYPTO)		\
 					     $(ICA_LIB_DIRS)		\
 					     -nostartfiles -shared	\
-					     -Wl,-Bsymbolic		\
+					     -Wl,-z,defs,-Bsymbolic		\
 					     -Wl,-soname,$@		\
-					     -Wl,-Bsymbolic -lc		\
+					     -lc		\
 					     -lpthread -litm -lica -ldl \
 					     -lcrypto
 

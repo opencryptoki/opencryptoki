@@ -10,7 +10,7 @@ opencryptoki_libopencryptoki_la_CFLAGS = -DAPI -DDEV -D_THREAD_SAFE 		\
 					 -I ../common -DSTDLL_NAME=\"api\"
 
 if ENABLE_LOCKS
-opencryptoki_libopencryptoki_la_LDFLAGS = -shared -Wl,-Bsymbolic -lc -ldl \
+opencryptoki_libopencryptoki_la_LDFLAGS = -shared -Wl,-z,defs,-Bsymbolic -lc -ldl \
 					  -lpthread -version-info   \
 					  $(SO_CURRENT):$(SO_REVISION):$(SO_AGE)
 
@@ -18,7 +18,7 @@ opencryptoki_libopencryptoki_la_SOURCES = api_interface.c shrd_mem.c \
 					  socket_client.c apiutil.c \
 					  ../common/trace.c ../common/lock_btree.c
 else
-opencryptoki_libopencryptoki_la_LDFLAGS = -shared -Wl,-Bsymbolic -lc -ldl \
+opencryptoki_libopencryptoki_la_LDFLAGS = -shared -Wl,-z,defs,-Bsymbolic -lc -ldl \
 					  -lpthread -litm -version-info   \
 					  $(SO_CURRENT):$(SO_REVISION):$(SO_AGE)
 
