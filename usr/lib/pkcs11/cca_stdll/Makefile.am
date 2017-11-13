@@ -15,7 +15,7 @@ opencryptoki_stdll_libpkcs11_cca_la_CFLAGS = -DLINUX -DNOCDMF		\
 					     -DSTDLL_NAME=\"ccatok\"
 
 if ENABLE_LOCKS
-opencryptoki_stdll_libpkcs11_cca_la_LDFLAGS = -shared -Wl,-Bsymbolic	\
+opencryptoki_stdll_libpkcs11_cca_la_LDFLAGS = -shared -Wl,-z,defs,-Bsymbolic	\
 					      -lcrypto -lpthread	\
 					      -nostartfiles		\
 					      -Wl,-soname,$@		\
@@ -59,7 +59,7 @@ opencryptoki_stdll_libpkcs11_cca_la_SOURCES = ../common/asn1.c		\
 					      ../common/shared_memory.c	\
 					      cca_specific.c
 else
-opencryptoki_stdll_libpkcs11_cca_la_LDFLAGS = -shared -Wl,-Bsymbolic	\
+opencryptoki_stdll_libpkcs11_cca_la_LDFLAGS = -shared -Wl,-z,defs,-Bsymbolic	\
 					      -lcrypto -lpthread -litm \
 					      -nostartfiles		\
 					      -Wl,-soname,$@		\

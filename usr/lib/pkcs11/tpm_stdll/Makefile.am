@@ -17,7 +17,7 @@ opencryptoki_stdll_libpkcs11_tpm_la_CFLAGS = -DLINUX -DNOCDMF		\
 					     -DSTDLL_NAME=\"tpmtok\"
 
 if ENABLE_LOCKS
-opencryptoki_stdll_libpkcs11_tpm_la_LDFLAGS = -shared -Wl,-Bsymbolic	\
+opencryptoki_stdll_libpkcs11_tpm_la_LDFLAGS = -shared -Wl,-z,defs,-Bsymbolic	\
 					      -lcrypto -ltspi -lpthread	\
 					      -lrt
 
@@ -34,7 +34,6 @@ opencryptoki_stdll_libpkcs11_tpm_la_SOURCES = ../common/asn1.c		\
 					      ../common/cert.c		\
 					      ../common/dp_obj.c	\
 					      ../common/mech_aes.c	\
-					      ../common/$(MECH_DSA)	\
 					      ../common/mech_rsa.c	\
 					      ../common/mech_ec.c	\
 					      ../common/obj_mgr.c	\
@@ -64,7 +63,7 @@ opencryptoki_stdll_libpkcs11_tpm_la_SOURCES = ../common/asn1.c		\
 					      tpm_util.c
 
 else
-opencryptoki_stdll_libpkcs11_tpm_la_LDFLAGS = -shared -Wl,-Bsymbolic	\
+opencryptoki_stdll_libpkcs11_tpm_la_LDFLAGS = -shared -Wl,-z,defs,-Bsymbolic	\
 					      -lcrypto -ltspi -lpthread -litm -lrt
 
 opencryptoki_stdll_libpkcs11_tpm_la_SOURCES = ../common/asn1.c		\
@@ -80,7 +79,6 @@ opencryptoki_stdll_libpkcs11_tpm_la_SOURCES = ../common/asn1.c		\
 					      ../common/cert.c		\
 					      ../common/dp_obj.c	\
 					      ../common/mech_aes.c	\
-					      ../common/$(MECH_DSA)	\
 					      ../common/mech_rsa.c	\
 					      ../common/mech_ec.c	\
 					      ../common/obj_mgr.c	\
