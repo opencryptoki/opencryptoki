@@ -3210,7 +3210,7 @@ cleanup:
  * Devive multiple keys at once.
  */
 int
-icsf_derive_multple_keys(LDAP *ld, int *p_reason, CK_MECHANISM_PTR mech,
+icsf_derive_multiple_keys(LDAP *ld, int *p_reason, CK_MECHANISM_PTR mech,
 			 struct icsf_object_record *key,
 			 CK_ATTRIBUTE_PTR attrs, CK_ULONG attrs_len,
 			 struct icsf_object_record *client_mac_handle,
