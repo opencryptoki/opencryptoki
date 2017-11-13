@@ -23,28 +23,40 @@ opencryptoki_stdll_libpkcs11_ep11_la_SOURCES = ../common/asn1.c		\
 					     ../common/dp_obj.c		\
 					     ../common/data_obj.c	\
 					     ../common/dig_mgr.c	\
+					     ../common/encr_mgr.c	\
+					     ../common/decr_mgr.c	\
 					     ../common/globals.c	\
 					     ../common/loadsave.c	\
+					     ../common/mech_aes.c       \
+                         ../common/mech_des.c       \
+                         ../common/mech_des3.c      \
 					     ../common/mech_ec.c	\
 					     ../common/mech_md5.c	\
 					     ../common/mech_md2.c	\
 					     ../common/mech_rng.c	\
+					     ../common/mech_rsa.c       \
 					     ../common/mech_sha.c	\
 					     ../common/mech_dsa.c	\
 					     ../common/mech_dh.c	\
-					     new_host.c			\
+					     ../common/mech_ssl3.c      \
 					     ../common/obj_mgr.c	\
 					     ../common/object.c		\
 					     ../common/lock_sess_mgr.c	\
+					     ../common/sign_mgr.c	\
+					     ../common/verify_mgr.c	\
 					     ../common/key.c		\
+					     ../common/key_mgr.c        \
 					     ../common/template.c	\
 					     ../common/p11util.c	\
 					     ../common/utility.c	\
 					     ../common/trace.c		\
+					     ../common/mech_list.c	\
 					     ../common/shared_memory.c	\
 					     ../common/attributes.c     \
 					     ../common/sw_crypt.c       \
+					     new_host.c			\
 					     ep11_specific.c
+
 else
 opencryptoki_stdll_libpkcs11_ep11_la_LDFLAGS = -shared -Wl,-z,defs,-Bsymbolic	\
 					     -lc -lpthread -litm -lcrypto -lrt -llber -ldl
@@ -61,8 +73,8 @@ opencryptoki_stdll_libpkcs11_ep11_la_SOURCES = ../common/asn1.c		\
 					     ../common/globals.c	\
 					     ../common/loadsave.c	\
 					     ../common/mech_aes.c       \
-                                             ../common/mech_des.c       \
-                                             ../common/mech_des3.c      \
+                         ../common/mech_des.c       \
+                         ../common/mech_des3.c      \
 					     ../common/mech_ec.c	\
 					     ../common/mech_md5.c	\
 					     ../common/mech_md2.c	\
@@ -72,7 +84,6 @@ opencryptoki_stdll_libpkcs11_ep11_la_SOURCES = ../common/asn1.c		\
 					     ../common/mech_dsa.c	\
 					     ../common/mech_dh.c	\
 					     ../common/mech_ssl3.c      \
-					     new_host.c			\
 					     ../common/obj_mgr.c	\
 					     ../common/object.c		\
 					     ../common/sess_mgr.c	\
@@ -88,6 +99,7 @@ opencryptoki_stdll_libpkcs11_ep11_la_SOURCES = ../common/asn1.c		\
 					     ../common/shared_memory.c	\
 					     ../common/attributes.c     \
 					     ../common/sw_crypt.c       \
+					     new_host.c			\
 					     ep11_specific.c
 endif
 
