@@ -48,17 +48,23 @@ NONEED_TOKEN_INIT=0
 # login/login MUST come last if it appears in this list
 #
 OCK_TESTS="crypto/*tests"
+OCK_TEST=""
 OCK_BENCHS="pkcs11/*bench"
 
 usage()
 {
-    echo -e "   usage: ./ock_tests.sh [-s <slot>] [-l <logfile>] [-n] [-h]"
-    echo -e "       -l          logfile to redirect output to (default is command line)"
-    echo -e "       -h          display this help"
-    echo -e "       -q          run quietly - display only total number of tests passed/failed"
-    echo -e "       -s <slot>   slot against which the testcases will run"
-    echo -e "       -n          don't stop in case one of the testcases fail"
-    echo -e "       -b          also run benchmarks or performance tests"
+    echo -e " usage: ./ock_tests.sh [-s <slot>] [-f <testfile>]" \
+            "[-l <logfile>] [-n] [-h]"
+    echo -e "     -l <logfile>   redirect output to logfile" \
+            "(default is command line)"
+    echo -e "     -h             display this help"
+    echo -e "     -q             run quietly - display only total number" \
+            "of tests passed/failed"
+    echo -e "     -s <slot>      slot against which the testcases will run" \
+            "(omit it to test all available tokens)"
+    echo -e "     -f <testfile>  path to test that will be run"
+    echo -e "     -n             don't stop in case one of the testcases fail"
+    echo -e "     -b             also run benchmarks or performance tests"
     exit -1
 }
 
@@ -159,7 +165,7 @@ check_slot()
             ;;
         *)
             echo "Error: unsupported or undetermined token type"
-            echo "       wrong Slot?"
+            echo "       wrong Slot $1?"
             return 1
         esac
 
@@ -233,10 +239,13 @@ check_env()
 ###
 run_tests()
 {
+    if [ -n "$OCK_TEST" ]; then
+        OCK_TESTS="$OCK_TEST"
+    fi
     echo "***** Will run the following tests for slot $1: $(ls -U $OCK_TESTS)"
-    for i in $( ls -U $OCK_TESTS ); do
-        echo "** Now executing '$i'"
-        $i -slot $1 $NO_STOP 2>&1
+    for j in $( ls -U $OCK_TESTS ); do
+        echo "** Now executing '$j'"
+        $j -slot $1 $NO_STOP 2>&1
         RES=$?
 		if [ $RES -ne 0 ]; then
 			echo "ERROR: Testcase $i failed to execute."
@@ -258,8 +267,12 @@ run_benchs()
         $i -slot $1 $NO_STOP 2>&1
     done
 }
+
+
 main_script()
 {
+    LOGFILE=0
+
     # check generic stuff first
     check_env
 
@@ -268,21 +281,30 @@ main_script()
         NUMSLOT=$(grep '^slot' $PKCONF | wc -l)
         for ((i=0; i<$NUMSLOT; i++)); do
             SLOT="$SLOT $i"
+            LOGFILE=1
         done
     fi
 
-    for i in $SLOT; do
+    for i in $SLOT; do (
         echo "********** Testing Slot $i **********"
         check_slot $i || { echo "SKIPPING slot $i"; continue; }
         if [ $NONEED_TOKEN_INIT -eq 0 ]; then
             init_slot $i || { echo "SKIPPING slot $i"; continue; }
         fi
-        run_tests $i
+        if [ "$LOGFILE" = "1" ]; then
+            echo "test output for slot $i stored in log-slot_$i.txt"
+            run_tests $i > "log-slot_$i.txt" 2>&1
+        else
+            run_tests $i
+        fi
         [ -n "$BENCHMARK" ] && run_benchs $i
+        echo "********** Finished Testing Slot $i **********"
+        ) &
     done
+    wait
 }
 
-while getopts s:l:hc:n arg; do
+while getopts s:f:l:hc:n arg; do
     case $arg in
         h)
             usage
@@ -303,6 +325,9 @@ while getopts s:l:hc:n arg; do
             ;;
         s)
             SLOT="$OPTARG"
+            ;;
+        f)
+            OCK_TEST="$OPTARG"
             ;;
         b)
             BENCHMARK="yes"
