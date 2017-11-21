@@ -2117,17 +2117,17 @@ CK_RV token_specific_sha(STDLL_TokData_t *tokdata, DIGEST_CONTEXT *ctx,
 		dgstfin = (void*) &SHA1_Final;
 		break;
 	case CKM_SHA256:
-		hlen = SHA2_HASH_SIZE;
+		hlen = SHA256_HASH_SIZE;
 		dgstup = (void*) &SHA256_Update;
 		dgstfin = (void*) &SHA256_Final;
 		break;
 	case CKM_SHA384:
-		hlen = SHA3_HASH_SIZE;
+		hlen = SHA384_HASH_SIZE;
 		dgstup = (void*) &SHA384_Update;
 		dgstfin = (void*) &SHA384_Final;
 		break;
 	case CKM_SHA512:
-		hlen = SHA5_HASH_SIZE;
+		hlen = SHA512_HASH_SIZE;
 		dgstup = (void*) &SHA512_Update;
 		dgstfin = (void*) &SHA512_Final;
 		break;
@@ -2214,15 +2214,15 @@ CK_RV token_specific_sha_final(STDLL_TokData_t *tokdata, DIGEST_CONTEXT *ctx,
 		dgstfin = (void*) &SHA1_Final;
 		break;
 	case CKM_SHA256:
-		hlen = SHA2_HASH_SIZE;
+		hlen = SHA256_HASH_SIZE;
 		dgstfin = (void*) &SHA256_Final;
 		break;
 	case CKM_SHA384:
-		hlen = SHA3_HASH_SIZE;
+		hlen = SHA384_HASH_SIZE;
 		dgstfin = (void*) &SHA384_Final;
 		break;
 	case CKM_SHA512:
-		hlen = SHA5_HASH_SIZE;
+		hlen = SHA512_HASH_SIZE;
 		dgstfin = (void*) &SHA512_Final;
 		break;
 	default:
@@ -2356,19 +2356,19 @@ static CK_RV softtok_hmac(SIGN_VERIFY_CONTEXT *ctx, CK_BYTE *in_data,
 		general = TRUE;
 		/* fallthrough */
 	case CKM_SHA256_HMAC:
-		mac_len = SHA2_HASH_SIZE;
+		mac_len = SHA256_HASH_SIZE;
 		break;
 	case CKM_SHA384_HMAC_GENERAL:
 		general = TRUE;
 		/* fallthrough */
 	case CKM_SHA384_HMAC:
-		mac_len = SHA3_HASH_SIZE;
+		mac_len = SHA384_HASH_SIZE;
 		break;
 	case CKM_SHA512_HMAC_GENERAL:
 		general = TRUE;
 		/* fallthrough */
 	case CKM_SHA512_HMAC:
-		mac_len = SHA5_HASH_SIZE;
+		mac_len = SHA512_HASH_SIZE;
 		break;
 	default:
 		TRACE_ERROR("%s\n", ock_err(ERR_MECHANISM_INVALID));
@@ -2500,19 +2500,19 @@ static CK_RV softtok_hmac_final(SIGN_VERIFY_CONTEXT *ctx, CK_BYTE *signature,
 		general = TRUE;
 		/* fallthrough */
 	case CKM_SHA256_HMAC:
-		mac_len = SHA2_HASH_SIZE;
+		mac_len = SHA256_HASH_SIZE;
 		break;
 	case CKM_SHA384_HMAC_GENERAL:
 		general = TRUE;
 		/* fallthrough */
 	case CKM_SHA384_HMAC:
-		mac_len = SHA3_HASH_SIZE;
+		mac_len = SHA384_HASH_SIZE;
 		break;
 	case CKM_SHA512_HMAC_GENERAL:
 		general = TRUE;
 		/* fallthrough */
 	case CKM_SHA512_HMAC:
-		mac_len = SHA5_HASH_SIZE;
+		mac_len = SHA512_HASH_SIZE;
 		break;
 	default:
 		TRACE_ERROR("%s\n", ock_err(ERR_MECHANISM_INVALID));

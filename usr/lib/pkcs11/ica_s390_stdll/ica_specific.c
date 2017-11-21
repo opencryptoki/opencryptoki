@@ -510,16 +510,16 @@ CK_RV token_specific_sha_init(STDLL_TokData_t *tokdata, DIGEST_CONTEXT *ctx,
 		sc->hash_blksize = SHA1_BLOCK_SIZE;
 		break;
 	case CKM_SHA256:
-		sc->hash_len = SHA2_HASH_SIZE;
-		sc->hash_blksize = SHA2_BLOCK_SIZE;
+		sc->hash_len = SHA256_HASH_SIZE;
+		sc->hash_blksize = SHA256_BLOCK_SIZE;
 		break;
 	case CKM_SHA384:
-		sc->hash_len = SHA3_HASH_SIZE;
-		sc->hash_blksize = SHA3_BLOCK_SIZE;
+		sc->hash_len = SHA384_HASH_SIZE;
+		sc->hash_blksize = SHA384_BLOCK_SIZE;
 		break;
 	case CKM_SHA512:
-		sc->hash_len = SHA5_HASH_SIZE;
-		sc->hash_blksize = SHA5_BLOCK_SIZE;
+		sc->hash_len = SHA512_HASH_SIZE;
+		sc->hash_blksize = SHA512_BLOCK_SIZE;
 		break;
 	}
 

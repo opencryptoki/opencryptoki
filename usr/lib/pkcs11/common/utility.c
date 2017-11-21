@@ -795,14 +795,17 @@ CK_RV get_sha_size(CK_ULONG mech, CK_ULONG *hsize)
 	case CKM_SHA_1:
 		*hsize = SHA1_HASH_SIZE;
 		break;
+    case CKM_SHA224:
+        *hsize = SHA224_HASH_SIZE;
+        break;
 	case CKM_SHA256:
-		*hsize = SHA2_HASH_SIZE;
+		*hsize = SHA256_HASH_SIZE;
 		break;
 	case CKM_SHA384:
-		*hsize = SHA3_HASH_SIZE;
+		*hsize = SHA384_HASH_SIZE;
 		break;
 	case CKM_SHA512:
-		*hsize = SHA5_HASH_SIZE;
+		*hsize = SHA512_HASH_SIZE;
 		break;
 	default:
 		return CKR_MECHANISM_INVALID;

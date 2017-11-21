@@ -258,6 +258,9 @@ p11_get_ckm(CK_ULONG mechanism)
 	_sym2str(CKM_RIPEMD160);
 	_sym2str(CKM_RIPEMD160_HMAC);
 	_sym2str(CKM_RIPEMD160_HMAC_GENERAL);
+    _sym2str(CKM_SHA224);
+    _sym2str(CKM_SHA224_HMAC);
+    _sym2str(CKM_SHA224_HMAC_GENERAL);
 	_sym2str(CKM_SHA256);
 	_sym2str(CKM_SHA256_HMAC);
 	_sym2str(CKM_SHA256_HMAC_GENERAL);

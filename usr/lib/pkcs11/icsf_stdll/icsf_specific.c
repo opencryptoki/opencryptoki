@@ -3257,11 +3257,11 @@ get_signverify_len(CK_MECHANISM mech)
 	case CKM_SSL3_SHA1_MAC:
 		return SHA1_HASH_SIZE;
 	case CKM_SHA256_HMAC:
-		return SHA2_HASH_SIZE;
+		return SHA256_HASH_SIZE;
 	case CKM_SHA384_HMAC:
-		return SHA3_HASH_SIZE;
+		return SHA384_HASH_SIZE;
 	case CKM_SHA512_HMAC:
-		return SHA5_HASH_SIZE;
+		return SHA512_HASH_SIZE;
 	}
 	return -1;
 }
