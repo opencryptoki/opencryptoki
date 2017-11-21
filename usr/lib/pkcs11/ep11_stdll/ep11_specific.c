@@ -3637,6 +3637,18 @@ CK_RV ep11tok_unwrap_key(STDLL_TokData_t *tokdata, SESSION *session, CK_MECHANIS
 		goto error;
 	}
 
+	/*
+	 * In case of unwrapping an EC private key
+	 * (CKA_CLASS == CKO_PRIVATE_KEY, CKA_KEY_TYPE == CKK_EC),
+	 * the following attributes needs to be added to the new template.
+	 * CKA_EC_PARAMS (curve's algorithm id)
+	 * CKA_EC_POINT (public key information)
+	 */
+	if ( (*(CK_OBJECT_CLASS *)cla_attr->pValue == CKO_PRIVATE_KEY) &&
+	     (*(CK_KEY_TYPE *)keytype_attr->pValue == CKK_EC) ) {
+		ecdsa_priv_unwrap_get_data(key_obj->template, csum, cslen);
+	}
+
 	/* key should be fully constructed.
 	 * Assign an object handle and store key.
 	 */
