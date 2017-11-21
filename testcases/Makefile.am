@@ -1,4 +1,4 @@
-SUBDIRS=common crypto pkcs11 login misc_tests
+SUBDIRS=common crypto pkcs11 login misc_tests multi_token_tests
 
 noinst_SCRIPTS = ock_tests.sh init_token.sh
 
