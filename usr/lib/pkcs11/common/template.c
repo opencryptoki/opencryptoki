@@ -215,6 +215,8 @@ CK_RV template_add_default_attributes(TEMPLATE *tmpl, TEMPLATE *basetmpl,
 		}
 
 	case CKO_HW_FEATURE:
+        if (subclass >= CKH_VENDOR_DEFINED)
+            return CKR_OK;
 		switch (subclass) {
 		case CKH_CLOCK:
 			return clock_set_default_attributes(tmpl, mode);
@@ -412,6 +414,8 @@ CK_RV template_check_required_attributes(TEMPLATE *tmpl, CK_ULONG class,
 			return CKR_ATTRIBUTE_VALUE_INVALID;  // unknown key type
 		}
 	} else if (class == CKO_HW_FEATURE) {
+        if (subclass >= CKH_VENDOR_DEFINED)
+            return CKR_OK;
 		switch (subclass) {
 		case CKH_CLOCK:
 			return clock_check_required_attributes(tmpl, mode);
@@ -1229,6 +1233,8 @@ CK_RV template_validate_attribute(STDLL_TokData_t  * tokdata, TEMPLATE *tmpl,
 			return CKR_ATTRIBUTE_VALUE_INVALID; // unknown key type
 		}
 	} else if (class == CKO_HW_FEATURE) {
+        if (subclass >= CKH_VENDOR_DEFINED)
+            return CKR_OK;
 		switch (subclass) {
 		case CKH_CLOCK:
 			return clock_validate_attribute(tmpl, attr, mode);
