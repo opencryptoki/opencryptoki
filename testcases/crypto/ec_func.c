@@ -18,7 +18,7 @@
 #include "pkcs11types.h"
 #include "regress.h"
 #include "common.c"
-
+#include "ec.h"
 
 /*
  * Below is a list for the OIDs and DER encodings of the brainpool.
@@ -431,6 +431,313 @@ testcase_cleanup:
 	return rc;
 }
 
+CK_RV
+run_ImportECCKeyPairSignVerify()
+{
+	CK_MECHANISM		mech;
+	CK_OBJECT_HANDLE	publ_key, priv_key;
+	CK_SESSION_HANDLE	session;
+	CK_BYTE			user_pin[PKCS11_MAX_PIN_LEN];
+	CK_ULONG		user_pin_len, i, j;
+	CK_FLAGS		flags;
+	CK_MECHANISM_INFO	mech_info;
+	CK_RV rc;
+
+	testcase_begin("Starting ECC import key pair.");
+
+	testcase_rw_session();
+	testcase_user_login();
+
+	mech.mechanism	= CKM_ECDSA;
+	mech.ulParameterLen = 0;
+	mech.pParameter	= NULL;
+
+	/* query the slot, check if this mech is supported */
+	rc = funcs->C_GetMechanismInfo(SLOT_ID, mech.mechanism, &mech_info);
+	if (rc != CKR_OK) {
+		if (rc == CKR_MECHANISM_INVALID) {
+			/* no support for EC key gen? skip */
+			testcase_skip("Slot %u doesn't support CKM_ECDSA",
+				(unsigned int) SLOT_ID);
+			goto testcase_cleanup;
+		} else {
+			testcase_error("C_GetMechanismInfo() rc = %s", p11_get_ckr(rc));
+			goto testcase_cleanup;
+		}
+	}
+
+	for (i = 0; i < EC_TV_NUM; i++) {
+
+		rc = create_ECPrivateKey(session, ec_tv[i].params, ec_tv[i].params_len,
+					 ec_tv[i].privkey, ec_tv[i].privkey_len,
+					 ec_tv[i].pubkey, ec_tv[i].pubkey_len, &priv_key);
+
+		testcase_new_assertion();
+		if (rc != CKR_OK) {
+			testcase_fail("C_CreateObject (EC Private Key) failed at i=%lu, rc=%s", i, p11_get_ckr(rc));
+			goto testcase_cleanup;
+		}
+		testcase_pass("*Import EC private key (%s) index=%lu passed.", ec_tv[i].name, i);
+
+		rc = create_ECPublicKey(session, ec_tv[i].params, ec_tv[i].params_len,
+					ec_tv[i].pubkey, ec_tv[i].pubkey_len, &publ_key);
+
+		testcase_new_assertion();
+		if (rc != CKR_OK) {
+			testcase_fail("C_CreateObject (EC Public Key) failed at i=%lu, rc=%s", i, p11_get_ckr(rc));
+			goto testcase_cleanup;
+		}
+		testcase_pass("*Import EC public key (%s) index=%lu passed.", ec_tv[i].name, i);
+
+		/* create signature with private key */
+		for (j = 0; j < (sizeof(signVerifyInput) / sizeof(_signVerifyParam)); j++) {
+			testcase_new_assertion();
+			rc = run_GenerateSignVerifyECC(
+					session,
+					signVerifyInput[j].mechtype,
+					signVerifyInput[j].inputlen,
+					signVerifyInput[j].parts,
+					priv_key,
+					publ_key);
+			if (rc != 0) {
+				testcase_fail("run_GenerateSignVerifyECC failed index=%lu.", j);
+				goto testcase_cleanup;
+			}
+			testcase_pass("*Sign & verify i=%lu, j=%lu passed.", i, j);
+		}
+
+		// clean up
+		rc = funcs->C_DestroyObject(session, publ_key);
+		if (rc != CKR_OK) {
+			testcase_error("C_DestroyObject(), rc=%s.",
+				p11_get_ckr(rc));
+		}
+
+		rc = funcs->C_DestroyObject(session, priv_key);
+		if (rc != CKR_OK) {
+			testcase_error("C_DestroyObject(), rc=%s.",
+				p11_get_ckr(rc));
+		}
+	}
+
+	goto done;
+testcase_cleanup:
+	funcs->C_DestroyObject(session, publ_key);
+	funcs->C_DestroyObject(session, priv_key);
+done:
+	testcase_user_logout();
+	testcase_close_session();
+	return rc;
+}
+
+CK_RV
+run_TransferECCKeyPairSignVerify()
+{
+	CK_MECHANISM		mech;
+	CK_OBJECT_HANDLE	publ_key, priv_key;
+	CK_SESSION_HANDLE	session;
+	CK_BYTE			user_pin[PKCS11_MAX_PIN_LEN];
+	CK_ULONG		user_pin_len, i, j;
+	CK_FLAGS		flags;
+	CK_MECHANISM_INFO	mech_info;
+	CK_RV rc;
+	CK_MECHANISM aes_keygen_mech;
+	CK_OBJECT_HANDLE secret_key;
+	CK_BYTE_PTR wrapped_key = NULL;
+	CK_ULONG wrapped_keylen;
+	CK_OBJECT_HANDLE unwrapped_key;
+        CK_MECHANISM wrap_mech;
+
+	testcase_begin("Starting ECC transfer key pair.");
+
+	testcase_rw_session();
+	testcase_user_login();
+
+	mech.mechanism	= CKM_ECDSA;
+	mech.ulParameterLen = 0;
+	mech.pParameter	= NULL;
+
+	/* query the slot, check if this mech is supported */
+	rc = funcs->C_GetMechanismInfo(SLOT_ID, mech.mechanism, &mech_info);
+	if (rc != CKR_OK) {
+		if (rc == CKR_MECHANISM_INVALID) {
+			/* no support for EC key gen? skip */
+			testcase_skip("Slot %u doesn't support CKM_ECDSA",
+				(unsigned int) SLOT_ID);
+			goto testcase_cleanup;
+		} else {
+			testcase_error("C_GetMechanismInfo() rc = %s", p11_get_ckr(rc));
+			goto testcase_cleanup;
+		}
+	}
+
+	for (i = 0; i < EC_TV_NUM; i++) {
+
+		rc = create_ECPrivateKey(session, ec_tv[i].params, ec_tv[i].params_len,
+					 ec_tv[i].privkey, ec_tv[i].privkey_len,
+					 ec_tv[i].pubkey, ec_tv[i].pubkey_len, &priv_key);
+
+		testcase_new_assertion();
+		if (rc != CKR_OK) {
+			testcase_fail("C_CreateObject (EC Private Key) failed at i=%lu, rc=%s", i, p11_get_ckr(rc));
+			goto testcase_cleanup;
+		}
+		testcase_pass("*Import EC private key (%s) index=%lu passed.", ec_tv[i].name, i);
+
+		rc = create_ECPublicKey(session, ec_tv[i].params, ec_tv[i].params_len,
+					ec_tv[i].pubkey, ec_tv[i].pubkey_len, &publ_key);
+
+		testcase_new_assertion();
+		if (rc != CKR_OK) {
+			testcase_fail("C_CreateObject (EC Public Key) failed at i=%lu, rc=%s", i, p11_get_ckr(rc));
+			goto testcase_cleanup;
+		}
+		testcase_pass("*Import EC public key (%s) index=%lu passed.", ec_tv[i].name, i);
+
+		/* create wrapping key (secret key) */
+		aes_keygen_mech.mechanism = CKM_AES_KEY_GEN;
+
+		CK_OBJECT_CLASS wkclass = CKO_SECRET_KEY;
+		CK_ULONG keylen = 32;
+		CK_BBOOL true = TRUE;
+		CK_BYTE  wrap_key_label[] = "Wrap_Key";
+		CK_ATTRIBUTE    secret_tmpl[] = {
+			{CKA_CLASS, &wkclass, sizeof(wkclass)},
+			{CKA_VALUE_LEN, &keylen, sizeof(keylen)},
+			{CKA_LABEL, &wrap_key_label, sizeof(wrap_key_label)},
+			{CKA_TOKEN, &true, sizeof(true)},
+			{CKA_WRAP, &true, sizeof(true)},
+			{CKA_UNWRAP, &true, sizeof(true)}
+		};
+
+		rc = funcs->C_GenerateKey(session, &aes_keygen_mech, secret_tmpl,
+					  sizeof(secret_tmpl)/sizeof(CK_ATTRIBUTE), &secret_key);
+		if (rc != CKR_OK) {
+			testcase_error("C_GenerateKey, rc=%s", p11_get_ckr(rc));
+			goto testcase_cleanup;
+		}
+
+		/* wrap/unwrap private and public EC key with a transport key */
+
+		// length only
+		wrap_mech.mechanism = CKM_AES_CBC_PAD;
+		wrap_mech.pParameter = "0123456789abcdef";
+		wrap_mech.ulParameterLen = 16;
+		rc = funcs->C_WrapKey(session, &wrap_mech, secret_key, priv_key,
+				      NULL, &wrapped_keylen);
+		if (rc != CKR_OK) {
+			testcase_error("C_WrapKey(), rc=%s.", p11_get_ckr(rc));
+			goto testcase_cleanup;
+		}
+
+		// allocate memory for wrapped_key
+		wrapped_key = calloc(sizeof(CK_BYTE), wrapped_keylen);
+		if (wrapped_key == NULL) {
+			testcase_error("Can't allocate memory for %lu bytes.",
+					sizeof(CK_BYTE) * wrapped_keylen);
+			rc = CKR_HOST_MEMORY;
+			goto testcase_cleanup;
+		}
+
+		// wrap key
+		//
+		rc = funcs->C_WrapKey(session, &wrap_mech, secret_key, priv_key,
+				      wrapped_key, &wrapped_keylen);
+		if (rc != CKR_OK) {
+			testcase_fail("C_WrapKey, rc=%s", p11_get_ckr(rc));
+			goto testcase_cleanup;
+		}
+
+		// unwrap key
+		//
+		CK_OBJECT_CLASS class = CKO_PRIVATE_KEY;
+		CK_KEY_TYPE key_type  = CKK_EC;
+		CK_BYTE unwrap_label[] = "unwrapped_private_EC_Key";
+		CK_BYTE subject[] = {};
+		CK_BYTE id[] = {123};
+
+		CK_ATTRIBUTE unwrap_tmpl[] = {
+			{CKA_CLASS, &class, sizeof(class)},
+			{CKA_KEY_TYPE, &key_type, sizeof(key_type)},
+			{CKA_TOKEN, &true, sizeof(true)},
+			{CKA_LABEL, &unwrap_label, sizeof(unwrap_label)},
+			{CKA_SUBJECT, subject, sizeof(subject)},
+			{CKA_ID, id, sizeof(id)},
+			{CKA_SENSITIVE, &true, sizeof(true)},
+			{CKA_DECRYPT, &true, sizeof(true)},
+			{CKA_SIGN, &true, sizeof(true)},
+		};
+
+		rc = funcs->C_UnwrapKey(session, &wrap_mech, secret_key,
+					wrapped_key, wrapped_keylen,
+					unwrap_tmpl, sizeof(unwrap_tmpl) / sizeof(CK_ATTRIBUTE),
+					&unwrapped_key);
+		if (rc != CKR_OK) {
+			testcase_fail("C_UnwrapKey, rc=%s", p11_get_ckr(rc));
+			goto testcase_cleanup;
+		}
+
+		if (wrapped_key)
+			free (wrapped_key);
+
+		/* create signature with unwrapped private key and verify with public key */
+		for (j = 0; j < (sizeof(signVerifyInput) / sizeof(_signVerifyParam)); j++) {
+			testcase_new_assertion();
+			rc = run_GenerateSignVerifyECC(
+					session,
+					signVerifyInput[j].mechtype,
+					signVerifyInput[j].inputlen,
+					signVerifyInput[j].parts,
+					unwrapped_key,
+					publ_key);
+			if (rc != 0) {
+				testcase_fail("run_GenerateSignVerifyECC failed index=%lu.", j);
+				goto testcase_cleanup;
+			}
+			testcase_pass("*Sign & verify i=%lu, j=%lu passed.", i, j);
+		}
+
+		// clean up
+		rc = funcs->C_DestroyObject(session, publ_key);
+		if (rc != CKR_OK) {
+			testcase_error("C_DestroyObject(), rc=%s.",
+				p11_get_ckr(rc));
+		}
+
+		rc = funcs->C_DestroyObject(session, priv_key);
+		if (rc != CKR_OK) {
+			testcase_error("C_DestroyObject(), rc=%s.",
+				p11_get_ckr(rc));
+		}
+
+		rc = funcs->C_DestroyObject(session, secret_key);
+		if (rc != CKR_OK) {
+			testcase_error("C_DestroyObject(), rc=%s.",
+				p11_get_ckr(rc));
+		}
+		rc = funcs->C_DestroyObject(session, unwrapped_key);
+		if (rc != CKR_OK) {
+			testcase_error("C_DestroyObject(), rc=%s.",
+				p11_get_ckr(rc));
+		}
+	}
+
+	goto done;
+testcase_cleanup:
+	funcs->C_DestroyObject(session, publ_key);
+	funcs->C_DestroyObject(session, priv_key);
+	funcs->C_DestroyObject(session, secret_key);
+	funcs->C_DestroyObject(session, unwrapped_key);
+
+	if (wrapped_key)
+		free(wrapped_key);
+
+done:
+	testcase_user_logout();
+	testcase_close_session();
+	return rc;
+}
+
 int
 main(int argc, char **argv)
 {
@@ -473,6 +780,10 @@ main(int argc, char **argv)
 	testcase_setup(total_assertions);
 
 	rv = run_GenerateECCKeyPairSignVerify();
+
+	rv = run_ImportECCKeyPairSignVerify();
+
+	rv = run_TransferECCKeyPairSignVerify();
 
 	testcase_print_result();
 
