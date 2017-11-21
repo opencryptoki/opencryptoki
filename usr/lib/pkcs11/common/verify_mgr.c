@@ -367,6 +367,7 @@ verify_mgr_init( STDLL_TokData_t     * tokdata,
 	 break;
 
       case CKM_SHA_1_HMAC:
+      case CKM_SHA224_HMAC:
       case CKM_SHA256_HMAC:
       case CKM_SHA384_HMAC:
       case CKM_SHA512_HMAC:
@@ -443,6 +444,7 @@ verify_mgr_init( STDLL_TokData_t     * tokdata,
 	 break;
 
       case CKM_SHA_1_HMAC_GENERAL:
+      case CKM_SHA224_HMAC_GENERAL:
       case CKM_SHA256_HMAC_GENERAL:
       case CKM_SHA384_HMAC_GENERAL:
       case CKM_SHA512_HMAC_GENERAL:
@@ -462,6 +464,10 @@ verify_mgr_init( STDLL_TokData_t     * tokdata,
                return CKR_MECHANISM_PARAM_INVALID;
             }
             if ((mech->mechanism == CKM_SHA_1_HMAC_GENERAL) && (*param > 20)){
+               TRACE_ERROR("%s\n", ock_err(ERR_MECHANISM_PARAM_INVALID));
+               return CKR_MECHANISM_PARAM_INVALID;
+            }
+            if ((mech->mechanism == CKM_SHA224_HMAC_GENERAL) && (*param > 28)) {
                TRACE_ERROR("%s\n", ock_err(ERR_MECHANISM_PARAM_INVALID));
                return CKR_MECHANISM_PARAM_INVALID;
             }
@@ -770,21 +776,27 @@ verify_mgr_verify( STDLL_TokData_t     * tokdata,
                                   in_data,   in_data_len,
                                   signature, sig_len );
 
+      case CKM_SHA224_HMAC:
+      case CKM_SHA224_HMAC_GENERAL:
+         return sha224_hmac_verify(tokdata, sess,    ctx,
+                                  in_data,   in_data_len,
+                                  signature, sig_len );
+
       case CKM_SHA256_HMAC:
       case CKM_SHA256_HMAC_GENERAL:
-         return sha2_hmac_verify( tokdata, sess,      ctx,
+         return sha256_hmac_verify(tokdata, sess,      ctx,
                                   in_data,   in_data_len,
                                   signature, sig_len );
 
       case CKM_SHA384_HMAC:
       case CKM_SHA384_HMAC_GENERAL:
-         return sha3_hmac_verify( tokdata, sess,      ctx,
+         return sha384_hmac_verify(tokdata, sess,      ctx,
                                   in_data,   in_data_len,
                                   signature, sig_len );
 
       case CKM_SHA512_HMAC:
       case CKM_SHA512_HMAC_GENERAL:
-         return sha5_hmac_verify( tokdata, sess,      ctx,
+         return sha512_hmac_verify(tokdata, sess,      ctx,
                                   in_data,   in_data_len,
                                   signature, sig_len );
 
@@ -887,10 +899,12 @@ verify_mgr_verify_update( STDLL_TokData_t     * tokdata,
 	 return ec_hash_verify_update( tokdata, sess, ctx, in_data, in_data_len );
 
       case CKM_SHA_1_HMAC:
+      case CKM_SHA224_HMAC:
       case CKM_SHA256_HMAC:
       case CKM_SHA384_HMAC:
       case CKM_SHA512_HMAC:
       case CKM_SHA_1_HMAC_GENERAL:
+      case CKM_SHA224_HMAC_GENERAL:
       case CKM_SHA256_HMAC_GENERAL:
       case CKM_SHA384_HMAC_GENERAL:
       case CKM_SHA512_HMAC_GENERAL:
@@ -962,10 +976,12 @@ verify_mgr_verify_final( STDLL_TokData_t     * tokdata,
 	 return ec_hash_verify_final( tokdata, sess, ctx, signature, sig_len );
 
       case CKM_SHA_1_HMAC:
+      case CKM_SHA224_HMAC:
       case CKM_SHA256_HMAC:
       case CKM_SHA384_HMAC:
       case CKM_SHA512_HMAC:
       case CKM_SHA_1_HMAC_GENERAL:
+      case CKM_SHA224_HMAC_GENERAL:
       case CKM_SHA256_HMAC_GENERAL:
       case CKM_SHA384_HMAC_GENERAL:
       case CKM_SHA512_HMAC_GENERAL:

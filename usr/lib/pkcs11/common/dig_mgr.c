@@ -48,6 +48,7 @@ digest_mgr_init( STDLL_TokData_t   *tokdata,
    //
    switch (mech->mechanism) {
       case CKM_SHA_1:
+      case CKM_SHA224:
       case CKM_SHA256:
       case CKM_SHA384:
       case CKM_SHA512:
@@ -194,6 +195,7 @@ digest_mgr_digest( STDLL_TokData_t *tokdata,
    }
    switch (ctx->mech.mechanism) {
       case CKM_SHA_1:
+      case CKM_SHA224:
       case CKM_SHA256:
       case CKM_SHA384:
       case CKM_SHA512:
@@ -256,6 +258,7 @@ digest_mgr_digest_update( STDLL_TokData_t *tokdata,
 
    switch (ctx->mech.mechanism) {
       case CKM_SHA_1:
+      case CKM_SHA224:
       case CKM_SHA256:
       case CKM_SHA384:
       case CKM_SHA512:
@@ -373,6 +376,7 @@ digest_mgr_digest_final( STDLL_TokData_t *tokdata,
 
    switch (ctx->mech.mechanism) {
       case CKM_SHA_1:
+      case CKM_SHA224:
       case CKM_SHA256:
       case CKM_SHA384:
       case CKM_SHA512:

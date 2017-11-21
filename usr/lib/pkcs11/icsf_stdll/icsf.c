@@ -1715,7 +1715,7 @@ icsf_block_size(CK_MECHANISM_TYPE mech_type, CK_ULONG_PTR p_block_size)
 
 	case CKM_SHA384_RSA_PKCS:
 	case CKM_SHA512_RSA_PKCS:
-		block_size = SHA3_BLOCK_SIZE;
+		block_size = SHA384_BLOCK_SIZE;
 		break;
 
 	default:

@@ -174,6 +174,9 @@ MECH_LIST_ELEMENT mech_list[] = {
 	{CKM_SHA256, {0, 0, CKF_HW|CKF_DIGEST}},
 	{CKM_SHA256_HMAC, {80, 2048, CKF_SIGN|CKF_VERIFY}},
 	{CKM_SHA256_HMAC_GENERAL, {80, 2048, CKF_SIGN|CKF_VERIFY}},
+    {CKM_SHA224, {0, 0, CKF_HW|CKF_DIGEST}},
+    {CKM_SHA224_HMAC, {80, 2048, CKF_SIGN|CKF_VERIFY}},
+    {CKM_SHA224_HMAC_GENERAL, {80, 2048, CKF_SIGN|CKF_VERIFY}},	{CKM_SHA_1, {0, 0, CKF_DIGEST}},
 	{CKM_SHA_1, {0, 0, CKF_DIGEST}},
 	{CKM_SHA_1_HMAC, {80, 2048, CKF_SIGN|CKF_VERIFY}},
 	{CKM_SHA_1_HMAC_GENERAL, {80, 2048, CKF_SIGN|CKF_VERIFY}},
@@ -1903,14 +1906,17 @@ CK_RV token_specific_sha_init(STDLL_TokData_t *tokdata, DIGEST_CONTEXT *ctx,
 	case CKM_SHA_1:
 		hash_size = SHA1_HASH_SIZE;
 		break;
+    case CKM_SHA224:
+        hash_size = SHA224_HASH_SIZE;
+        break;
 	case CKM_SHA256:
-		hash_size = SHA2_HASH_SIZE;
+		hash_size = SHA256_HASH_SIZE;
 		break;
 	case CKM_SHA384:
-		hash_size = SHA3_HASH_SIZE;
+		hash_size = SHA384_HASH_SIZE;
 		break;
 	case CKM_SHA512:
-		hash_size = SHA5_HASH_SIZE;
+		hash_size = SHA512_HASH_SIZE;
 		break;
 	default:
 		return CKR_MECHANISM_INVALID;
@@ -1955,6 +1961,10 @@ CK_RV token_specific_sha(STDLL_TokData_t *tokdata, DIGEST_CONTEXT *ctx,
 		memcpy(rule_array, "SHA-1   ONLY    ", CCA_KEYWORD_SIZE * 2);
 		cca_ctx->part = CCA_HASH_PART_ONLY;
 		break;
+    case CKM_SHA224:
+        memcpy(rule_array, "SHA-224 ONLY    ", CCA_KEYWORD_SIZE * 2);
+        cca_ctx->part = CCA_HASH_PART_ONLY;
+        break;
 	case CKM_SHA256:
 		memcpy(rule_array, "SHA-256 ONLY    ", CCA_KEYWORD_SIZE * 2);
 		cca_ctx->part = CCA_HASH_PART_ONLY;
@@ -2011,17 +2021,21 @@ CK_RV token_specific_sha_update(STDLL_TokData_t *tokdata, DIGEST_CONTEXT *ctx,
 		blocksz = SHA1_BLOCK_SIZE;
 		blocksz_mask = SHA1_BLOCK_SIZE_MASK;
 		break;
+    case CKM_SHA224:
+        blocksz = SHA224_BLOCK_SIZE;
+        blocksz_mask = SHA224_BLOCK_SIZE_MASK;
+        break;
 	case CKM_SHA256:
-		blocksz = SHA2_BLOCK_SIZE;
-		blocksz_mask = SHA2_BLOCK_SIZE_MASK;
+		blocksz = SHA256_BLOCK_SIZE;
+		blocksz_mask = SHA256_BLOCK_SIZE_MASK;
 		break;
 	case CKM_SHA384:
-		blocksz = SHA3_BLOCK_SIZE;
-		blocksz_mask = SHA3_BLOCK_SIZE_MASK;
+		blocksz = SHA384_BLOCK_SIZE;
+		blocksz_mask = SHA384_BLOCK_SIZE_MASK;
 		break;
 	case CKM_SHA512:
-		blocksz = SHA5_BLOCK_SIZE;
-		blocksz_mask = SHA5_BLOCK_SIZE_MASK;
+		blocksz = SHA512_BLOCK_SIZE;
+		blocksz_mask = SHA512_BLOCK_SIZE_MASK;
 		break;
 	default:
 		return CKR_MECHANISM_INVALID;
@@ -2087,6 +2101,16 @@ send:
 				CCA_KEYWORD_SIZE * 2);
 		}
 		break;
+    case CKM_SHA224:
+        if (cca_ctx->part == CCA_HASH_PART_FIRST) {
+            memcpy(rule_array, "SHA-224 FIRST   ",
+                CCA_KEYWORD_SIZE * 2);
+            cca_ctx->part = CCA_HASH_PART_MIDDLE;
+        } else {
+            memcpy(rule_array, "SHA-224 MIDDLE  ",
+                CCA_KEYWORD_SIZE * 2);
+        }
+        break;
 	case CKM_SHA256:
 		if (cca_ctx->part == CCA_HASH_PART_FIRST) {
 			memcpy(rule_array, "SHA-256 FIRST   ",
@@ -2166,6 +2190,18 @@ CK_RV token_specific_sha_final(STDLL_TokData_t *tokdata, DIGEST_CONTEXT *ctx,
 				CCA_KEYWORD_SIZE * 2);
 		}
 		break;
+    case CKM_SHA224:
+        if (cca_ctx->part == CCA_HASH_PART_FIRST) {
+            memcpy(rule_array, "SHA-224 ONLY    ",
+                CCA_KEYWORD_SIZE * 2);
+        } else {
+            /* there's some extra data we need to hash to
+             * complete the operation
+             */
+            memcpy(rule_array, "SHA-224 LAST    ",
+                CCA_KEYWORD_SIZE * 2);
+        }
+        break;
 	case CKM_SHA256:
 		if (cca_ctx->part == CCA_HASH_PART_FIRST) {
 			memcpy(rule_array, "SHA-256 ONLY    ",
@@ -2235,18 +2271,21 @@ static long get_mac_len(CK_MECHANISM *mech)
 {
 	switch (mech->mechanism) {
 	case CKM_SHA_1_HMAC_GENERAL:
+    case CKM_SHA224_HMAC_GENERAL:
 	case CKM_SHA256_HMAC_GENERAL:
 	case CKM_SHA384_HMAC_GENERAL:
 	case CKM_SHA512_HMAC_GENERAL:
 		return *(CK_ULONG *)(mech->pParameter);
 	case CKM_SHA_1_HMAC:
 		return SHA1_HASH_SIZE;
+    case CKM_SHA224_HMAC:
+        return SHA224_HASH_SIZE;
 	case CKM_SHA256_HMAC:
-		return SHA2_HASH_SIZE;
+		return SHA256_HASH_SIZE;
 	case CKM_SHA384_HMAC:
-		return SHA3_HASH_SIZE;
+		return SHA384_HASH_SIZE;
 	case CKM_SHA512_HMAC:
-		return SHA5_HASH_SIZE;
+		return SHA512_HASH_SIZE;
 	default:
 		TRACE_ERROR("%s\n", ock_err(ERR_MECHANISM_INVALID));
 		return -1;
@@ -2332,6 +2371,11 @@ CK_RV ccatok_hmac(STDLL_TokData_t *tokdata, SIGN_VERIFY_CONTEXT *ctx,
 		memcpy(rule_array, "HMAC    SHA-1   ONLY    ",
 		       3 * CCA_KEYWORD_SIZE);
 		break;
+    case CKM_SHA224_HMAC_GENERAL:
+    case CKM_SHA224_HMAC:
+        memcpy(rule_array, "HMAC    SHA-224 ONLY    ",
+               3 * CCA_KEYWORD_SIZE);
+        break;
 	case CKM_SHA256_HMAC_GENERAL:
 	case CKM_SHA256_HMAC:
 		memcpy(rule_array, "HMAC    SHA-256 ONLY    ",
@@ -2455,6 +2499,7 @@ CK_RV ccatok_hmac_update(STDLL_TokData_t *tokdata, SIGN_VERIFY_CONTEXT *ctx,
 	switch(ctx->mech.mechanism) {
 	case CKM_SHA_1_HMAC:
 	case CKM_SHA_1_HMAC_GENERAL:
+	case CKM_SHA224_HMAC:
 	case CKM_SHA256_HMAC:
 	case CKM_SHA256_HMAC_GENERAL:
 		blocksz = SHA1_BLOCK_SIZE;		// set to 64 bytes
@@ -2464,8 +2509,8 @@ CK_RV ccatok_hmac_update(STDLL_TokData_t *tokdata, SIGN_VERIFY_CONTEXT *ctx,
 	case CKM_SHA384_HMAC_GENERAL:
 	case CKM_SHA512_HMAC:
 	case CKM_SHA512_HMAC_GENERAL:
-		blocksz = SHA5_BLOCK_SIZE;		// set to 128 bytes
-		blocksz_mask = SHA5_BLOCK_SIZE_MASK;	// set to 127
+		blocksz = SHA512_BLOCK_SIZE;		// set to 128 bytes
+		blocksz_mask = SHA512_BLOCK_SIZE_MASK;	// set to 127
 		break;
 	default:
 		return CKR_MECHANISM_INVALID;
@@ -2531,19 +2576,24 @@ send:
 		hsize = SHA1_HASH_SIZE;
 		memcpy(rule_array, "HMAC    SHA-1   ", CCA_KEYWORD_SIZE * 2);
                 break;
+    case CKM_SHA224_HMAC:
+    case CKM_SHA224_HMAC_GENERAL:
+        hsize = SHA224_HASH_SIZE;
+        memcpy(rule_array, "HMAC    SHA-224 ", CCA_KEYWORD_SIZE * 2);
+        break;
 	case CKM_SHA256_HMAC:
 	case CKM_SHA256_HMAC_GENERAL:
-		hsize = SHA2_HASH_SIZE;
+		hsize = SHA256_HASH_SIZE;
 		memcpy(rule_array, "HMAC    SHA-256 ", CCA_KEYWORD_SIZE * 2);
 		break;
 	case CKM_SHA384_HMAC:
 	case CKM_SHA384_HMAC_GENERAL:
-		hsize = SHA3_HASH_SIZE;
+		hsize = SHA384_HASH_SIZE;
 		memcpy(rule_array, "HMAC    SHA-384 ", CCA_KEYWORD_SIZE * 2);
                 break;
 	case CKM_SHA512_HMAC:
 	case CKM_SHA512_HMAC_GENERAL:
-		hsize = SHA5_HASH_SIZE;
+		hsize = SHA512_HASH_SIZE;
 		memcpy(rule_array, "HMAC    SHA-512 ", CCA_KEYWORD_SIZE * 2);
                 break;
         }
@@ -2643,6 +2693,10 @@ CK_RV ccatok_hmac_final(STDLL_TokData_t *tokdata, SIGN_VERIFY_CONTEXT *ctx,
 	case CKM_SHA_1_HMAC_GENERAL:
 		memcpy(rule_array, "HMAC    SHA-1   ", CCA_KEYWORD_SIZE * 2);
                 break;
+    case CKM_SHA224_HMAC:
+    case CKM_SHA224_HMAC_GENERAL:
+        memcpy(rule_array, "HMAC    SHA-224 ", CCA_KEYWORD_SIZE * 2);
+        break;
 	case CKM_SHA256_HMAC:
 	case CKM_SHA256_HMAC_GENERAL:
 		memcpy(rule_array, "HMAC    SHA-256 ", CCA_KEYWORD_SIZE * 2);

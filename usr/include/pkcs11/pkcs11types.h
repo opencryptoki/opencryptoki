@@ -669,6 +669,9 @@ typedef CK_ULONG          CK_MECHANISM_TYPE;
 #define CKM_SHA256                     0x00000250
 #define CKM_SHA256_HMAC                0x00000251
 #define CKM_SHA256_HMAC_GENERAL        0x00000252
+#define CKM_SHA224                     0x00000255
+#define CKM_SHA224_HMAC                0x00000256
+#define CKM_SHA224_HMAC_GENERAL        0x00000257
 #define CKM_SHA384                     0x00000260
 #define CKM_SHA384_HMAC                0x00000261
 #define CKM_SHA384_HMAC_GENERAL        0x00000262

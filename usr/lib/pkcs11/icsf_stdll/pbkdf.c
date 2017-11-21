@@ -319,8 +319,8 @@ CK_RV
 pbkdf(CK_BYTE *password, CK_ULONG len, CK_BYTE *salt, CK_BYTE *dkey, CK_ULONG klen)
 {
 
-	unsigned char hash[SHA2_HASH_SIZE];
-	unsigned char hash_block[SHA2_HASH_SIZE];
+	unsigned char hash[SHA256_HASH_SIZE];
+	unsigned char hash_block[SHA256_HASH_SIZE];
 	unsigned char *result;
 	unsigned int r, num_of_blocks;
 	unsigned int count, hashlen;
@@ -344,31 +344,31 @@ pbkdf(CK_BYTE *password, CK_ULONG len, CK_BYTE *salt, CK_BYTE *dkey, CK_ULONG kl
 	 */
 	count = 1000;
 
-	hashlen = SHA2_HASH_SIZE;
+	hashlen = SHA256_HASH_SIZE;
 
 	/* Calculate amount of blocks in klen.
 	 * SP 800-132: len = [kLen / hLen] (rounded up).
 	 * 	       r = kLen - (len - 1) * hLen;
 	 */
-	if (klen < SHA2_HASH_SIZE) {
+	if (klen < SHA256_HASH_SIZE) {
 		num_of_blocks = 1;
 		r = klen;
 	} else {
-		num_of_blocks = klen/SHA2_HASH_SIZE;
+		num_of_blocks = klen/SHA256_HASH_SIZE;
 		/* round up by adding another block if there is a modulus */
-		if ((klen % SHA2_HASH_SIZE) != 0)
+		if ((klen % SHA256_HASH_SIZE) != 0)
 			num_of_blocks++;
-		r = klen - (num_of_blocks - 1) * SHA2_HASH_SIZE;
+		r = klen - (num_of_blocks - 1) * SHA256_HASH_SIZE;
 	}
 
 	/* SP 800-132: For i = 1 to len */
 	for (i = 1; i <= num_of_blocks; i++) {
 
 		/* SP 800-132: Ti = 0; */
-		memset(hash_block, 0, SHA2_HASH_SIZE);
+		memset(hash_block, 0, SHA256_HASH_SIZE);
 
 		/* SP 800-132: U0 = S || Int(i); */
-		memset(hash, 0, SHA2_HASH_SIZE);
+		memset(hash, 0, SHA256_HASH_SIZE);
 		memcpy(hash, salt, SALTSIZE);
 		hash[SALTSIZE] = i;
 		hashlen = SALTSIZE+1;
@@ -384,12 +384,12 @@ pbkdf(CK_BYTE *password, CK_ULONG len, CK_BYTE *salt, CK_BYTE *dkey, CK_ULONG kl
 			}
 
 			/* SP 800-132: Ti = Ti Exclusive_OR Uj; */
-			for (k = 0; k < SHA2_HASH_SIZE; k++)
+			for (k = 0; k < SHA256_HASH_SIZE; k++)
 				hash_block[k] ^= hash[k];
 
 			/* prep U(j-1) for next iteration */
-			memcpy(hash, result, SHA2_HASH_SIZE);
-			hashlen = SHA2_HASH_SIZE;
+			memcpy(hash, result, SHA256_HASH_SIZE);
+			hashlen = SHA256_HASH_SIZE;
 		}
 
 	/* SP 800-132: derived_key =
@@ -404,7 +404,7 @@ pbkdf(CK_BYTE *password, CK_ULONG len, CK_BYTE *salt, CK_BYTE *dkey, CK_ULONG kl
 		if ((i == num_of_blocks) && (r != 0))
 			memcpy(dkey, hash_block, r);
 		else
-			memcpy(dkey, hash_block, SHA2_HASH_SIZE);
+			memcpy(dkey, hash_block, SHA256_HASH_SIZE);
 
 	}
 

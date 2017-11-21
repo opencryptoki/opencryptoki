@@ -1662,7 +1662,7 @@ rsa_hash_pkcs_sign( STDLL_TokData_t      * tokdata,
 
    CK_ULONG             buf1[16];  // 64 bytes is more than enough
 
-   CK_BYTE              hash[SHA5_HASH_SIZE];  // must be large enough for the largest hash
+   CK_BYTE              hash[MAX_SHA_HASH_SIZE];  // must be large enough for the largest hash
    DIGEST_CONTEXT       digest_ctx;
    SIGN_VERIFY_CONTEXT  sign_ctx;
    CK_MECHANISM         digest_mech;
@@ -1836,7 +1836,7 @@ rsa_hash_pkcs_verify( STDLL_TokData_t      * tokdata,
    CK_BYTE            * tmp       = NULL;
 
    CK_ULONG             buf1[16];  // 64 bytes is more than enough
-   CK_BYTE              hash[SHA5_HASH_SIZE];
+   CK_BYTE              hash[MAX_SHA_HASH_SIZE];
    DIGEST_CONTEXT       digest_ctx;
    SIGN_VERIFY_CONTEXT  verify_ctx;
    CK_MECHANISM         digest_mech;
@@ -2009,7 +2009,7 @@ rsa_hash_pkcs_sign_final( STDLL_TokData_t      * tokdata,
 
    CK_ULONG              buf1[16];  // 64 bytes is more than enough
 
-   CK_BYTE               hash[SHA5_HASH_SIZE];
+   CK_BYTE               hash[MAX_SHA_HASH_SIZE];
    RSA_DIGEST_CONTEXT  * context = NULL;
    CK_ULONG              ber_data_len, hash_len, octet_str_len, oid_len;
    CK_MECHANISM          sign_mech;
@@ -2117,7 +2117,7 @@ rsa_hash_pkcs_verify_final( STDLL_TokData_t      * tokdata,
    CK_BYTE            * tmp       = NULL;
 
    CK_ULONG             buf1[16];   // 64 bytes is more than enough
-   CK_BYTE               hash[SHA5_HASH_SIZE];
+   CK_BYTE               hash[MAX_SHA_HASH_SIZE];
    RSA_DIGEST_CONTEXT  * context = NULL;
    CK_ULONG              ber_data_len, hash_len, octet_str_len, oid_len;
    CK_MECHANISM          verify_mech;
