@@ -1203,7 +1203,6 @@ object_mgr_find_init( STDLL_TokData_t  *tokdata,
       if (pTemplate[i].type == CKA_CLASS) {
 	 if (*(CK_ULONG *)pTemplate[i].pValue == CKO_HW_FEATURE) {
 	    fa.hw_feature = TRUE;
-	    break;
 	 }
       }
 
@@ -1211,7 +1210,6 @@ object_mgr_find_init( STDLL_TokData_t  *tokdata,
       if (pTemplate[i].type == CKA_HIDDEN) {
 	 if (*(CK_BBOOL *)pTemplate[i].pValue == TRUE) {
 	    fa.hidden_object = TRUE;
-	    break;
 	 }
       }
    }
