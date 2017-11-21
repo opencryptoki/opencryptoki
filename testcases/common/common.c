@@ -350,6 +350,88 @@ CK_RV generate_RSA_PKCS_KeyPair(CK_SESSION_HANDLE session,
         // see rsa_func.c
 }
 
+/** Create an EC private key using private value 'd'
+    and ec parameter values (alg id of curve) **/
+CK_RV create_ECPrivateKey(CK_SESSION_HANDLE session,
+                        CK_BYTE params[],
+                        CK_ULONG params_len,
+                        CK_BYTE privatekey[],
+                        CK_ULONG privatekey_len,
+                        CK_BYTE pubkey[],
+                        CK_ULONG pubkey_len,
+                        CK_OBJECT_HANDLE *priv_key)
+{
+
+        CK_OBJECT_CLASS class = CKO_PRIVATE_KEY;
+        CK_KEY_TYPE keyType = CKK_EC;
+        CK_UTF8CHAR label[] = "An EC private key object";
+        CK_BYTE subject[] = {};
+        CK_BYTE id[] = {123};
+        CK_RV rc;
+
+        CK_BBOOL true = TRUE;
+        CK_ATTRIBUTE template[] = {
+                {CKA_CLASS, &class, sizeof(class)},
+                {CKA_KEY_TYPE, &keyType, sizeof(keyType)},
+                {CKA_TOKEN, &true, sizeof(true)},
+                {CKA_PRIVATE, &true, sizeof(true)},
+                {CKA_LABEL, label, sizeof(label)},
+                {CKA_SUBJECT, subject, sizeof(subject)},
+                {CKA_ID, id, sizeof(id)},
+                {CKA_SENSITIVE, &true, sizeof(true)},
+                {CKA_DECRYPT, &true, sizeof(true)},
+                {CKA_SIGN, &true, sizeof(true)},
+                {CKA_EC_PARAMS, params, params_len},
+                {CKA_EC_POINT, pubkey, pubkey_len},
+                {CKA_VALUE, privatekey, privatekey_len}
+        };
+
+        // create key
+        rc = funcs->C_CreateObject(session, template,
+				   sizeof(template)/sizeof (CK_ATTRIBUTE),
+				   priv_key);
+        if (rc != CKR_OK) {
+                testcase_error("C_CreateObject rc=%s", p11_get_ckr(rc));
+        }
+        return rc;
+}
+
+/** Create an EC public key using  ec params and point 'Q' **/
+CK_RV create_ECPublicKey(CK_SESSION_HANDLE session,
+                        CK_BYTE params[],
+                        CK_ULONG params_len,
+                        CK_BYTE pointq[],
+                        CK_ULONG pointq_len,
+                        CK_OBJECT_HANDLE *publ_key)
+{
+        CK_RV           rc;
+        CK_OBJECT_CLASS class = CKO_PUBLIC_KEY;
+        CK_KEY_TYPE     keyType = CKK_EC;
+        CK_UTF8CHAR     label[] = "An EC public key object";
+        CK_BBOOL        true = TRUE;
+        CK_ATTRIBUTE    template[] = {
+                {CKA_CLASS, &class, sizeof(class)},
+                {CKA_KEY_TYPE, &keyType, sizeof(keyType)},
+                {CKA_TOKEN, &true, sizeof(true)},
+                {CKA_LABEL, label, sizeof(label)},
+                {CKA_ENCRYPT, &true, sizeof(true)},
+                {CKA_VERIFY, &true, sizeof(true)},
+                {CKA_EC_PARAMS, params, params_len},
+                {CKA_EC_POINT, pointq, pointq_len}
+        };
+
+        // create key
+        rc = funcs->C_CreateObject(session, template,
+				   sizeof(template)/sizeof (CK_ATTRIBUTE),
+				   publ_key);
+        if (rc != CKR_OK) {
+                testcase_error("C_CreateObject rc=%s", p11_get_ckr(rc));
+        }
+        return rc;
+
+}
+
+
 /* Generate a secret key */
 CK_RV generate_SecretKey(CK_SESSION_HANDLE session,
                         CK_ULONG keylen,
