@@ -536,6 +536,13 @@ CK_RV do_Sign_FIPS_HMAC(struct HMAC_TEST_SUITE_INFO *tsuite)
 				continue;
 			}
 			break;
+        case CKM_SHA224_HMAC:
+            if (tsuite->tv[i].mac_len != 28) {
+                testcase_skip("Skip, this testcase is not"
+                          " for SHA224 HMAC");
+                continue;
+            }
+            break;
 		case CKM_SHA256_HMAC:
 			if (tsuite->tv[i].mac_len != 32) {
 				testcase_skip("Skip, this testcase is not"
@@ -683,6 +690,13 @@ CK_RV do_Verify_FIPS_HMAC(struct HMAC_TEST_SUITE_INFO *tsuite)
 				continue;
 			}
 			break;
+        case CKM_SHA224_HMAC:
+            if (tsuite->tv[i].mac_len != 28) {
+                testcase_skip("Skip, this testcase is not"
+                          " for SHA224 HMAC");
+                continue;
+            }
+            break;
 		case CKM_SHA256_HMAC:
 			if (tsuite->tv[i].mac_len != 32) {
 				testcase_skip("Skip, this testcase is not"
@@ -819,6 +833,13 @@ CK_RV do_SignUpdate_FIPS_HMAC(struct HMAC_TEST_SUITE_INFO *tsuite)
 				continue;
 			}
 			break;
+        case CKM_SHA224_HMAC:
+            if (tsuite->tv[i].mac_len != 28) {
+                testcase_skip("Skip, testcase not applicable"
+                                              " to SHA224 HMAC");
+                continue;
+            }
+            break;
 		case CKM_SHA256_HMAC:
 			if (tsuite->tv[i].mac_len != 32) {
 				testcase_skip("Skip, testcase not applicable"
@@ -1003,6 +1024,13 @@ CK_RV do_VerifyUpdate_FIPS_HMAC(struct HMAC_TEST_SUITE_INFO *tsuite)
 				continue;
 			}
 			break;
+        case CKM_SHA224_HMAC:
+            if (tsuite->tv[i].mac_len != 28) {
+                testcase_skip("Skip, testcase not applicable"
+                                              " to SHA224 HMAC");
+                continue;
+            }
+            break;
 		case CKM_SHA256_HMAC:
 			if (tsuite->tv[i].mac_len != 32) {
 				testcase_skip("Skip, testcase not applicable"

@@ -166,6 +166,12 @@ mech_to_str(CK_ULONG mech)
 		 		 return "CKM_RIPEMD160_HMAC";
 		 if (mech == CKM_RIPEMD160_HMAC_GENERAL)
 		 		 return "CKM_RIPEMD160_HMAC_GENERAL";
+        if (mech == CKM_SHA224)
+                return "CKM_SHA224";
+        if (mech == CKM_SHA224_HMAC)
+                return "CKM_SHA224_HMAC";
+        if (mech == CKM_SHA224_HMAC_GENERAL)
+                return "CKM_SHA224_HMAC_GENERAL";
 		 if (mech == CKM_SHA256)
 		 		 return "CKM_SHA256";
 		 if (mech == CKM_SHA256_HMAC)
