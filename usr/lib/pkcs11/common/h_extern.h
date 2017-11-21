@@ -71,6 +71,8 @@ extern CK_BYTE            ber_AlgIdRSAEncryption[];
 extern CK_ULONG           ber_AlgIdRSAEncryptionLen;
 extern CK_BYTE            ber_rsaEncryption[];
 extern CK_ULONG           ber_rsaEncryptionLen;
+extern CK_BYTE            der_AlgIdECBase[];
+extern CK_ULONG           der_AlgIdECBaseLen;
 extern CK_BYTE            ber_idDSA[];
 extern CK_ULONG           ber_idDSALen;
 
@@ -2512,6 +2514,8 @@ CK_RV     ecdsa_priv_check_required_attributes( TEMPLATE *tmpl, CK_ULONG mode );
 CK_RV     ecdsa_priv_set_default_attributes( TEMPLATE *tmpl, CK_ULONG mode );
 CK_RV     ecdsa_priv_validate_attribute( STDLL_TokData_t *tokdata, TEMPLATE *tmpl,
 					 CK_ATTRIBUTE *attr, CK_ULONG mode );
+CK_RV     ecdsa_priv_wrap_get_data(TEMPLATE *tmpl, CK_BBOOL length_only,
+				   CK_BYTE **data, CK_ULONG *data_len);
 
 // diffie-hellman routines
 //
@@ -2736,6 +2740,13 @@ CK_RV    ber_decode_RSAPrivateKey( CK_BYTE     * data,
                                    CK_ATTRIBUTE ** opaque,
 				   CK_BBOOL	   isopaque );
 
+CK_RV    der_encode_ECPrivateKey(CK_BBOOL      length_only,
+                                 CK_BYTE     **data,
+                                 CK_ULONG     *data_len,
+                                 CK_ATTRIBUTE *params,
+                                 CK_ATTRIBUTE *point,
+                                 CK_ATTRIBUTE *opaque,
+                                 CK_ATTRIBUTE *pubkey);
 
 CK_RV    ber_encode_DSAPrivateKey( CK_BBOOL      length_only,
                                    CK_BYTE    ** data,
