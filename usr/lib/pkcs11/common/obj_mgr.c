@@ -2062,14 +2062,14 @@ void
 dump_shm(LW_SHM_TYPE *global_shm, const char *s)
 {
 	CK_ULONG i;
-	TRACE_DEBUG("%s: dump_shm priv:", s);
+	TRACE_DEBUG("%s: dump_shm priv:\n", s);
 
 	for (i = 0; i < global_shm->num_priv_tok_obj; i++) {
-		TRACE_DEBUG("[%lu]: %.8s", i, global_shm->priv_tok_objs[i].name);
+		TRACE_DEBUG("[%lu]: %.8s\n", i, global_shm->priv_tok_objs[i].name);
 	}
-	TRACE_DEBUG("%s: dump_shm publ:", s);
+	TRACE_DEBUG("%s: dump_shm publ:\n", s);
 	for (i = 0; i < global_shm->num_publ_tok_obj; i++) {
-		TRACE_DEBUG("[%lu]: %.8s", i, global_shm->publ_tok_objs[i].name);
+		TRACE_DEBUG("[%lu]: %.8s\n", i, global_shm->publ_tok_objs[i].name);
 	}
 }
 #endif
