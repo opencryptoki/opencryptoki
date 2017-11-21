@@ -2236,8 +2236,16 @@ ecdsa_priv_validate_attribute( STDLL_TokData_t *tokdata, TEMPLATE *tmpl,
             TRACE_ERROR("%s\n", ock_err(ERR_ATTRIBUTE_READ_ONLY));
             return CKR_ATTRIBUTE_READ_ONLY;
          }
+      case CKA_EC_POINT:
+         if (mode == MODE_CREATE) {
+            p11_attribute_trim(attr);
+            return CKR_OK;
+         } else {
+            TRACE_ERROR("%s\n", ock_err(ERR_ATTRIBUTE_READ_ONLY));
+            return CKR_ATTRIBUTE_READ_ONLY;
+         }
       default:
-         return priv_key_validate_attribute( tokdata, tmpl, attr, mode );
+         return priv_key_validate_attribute(tokdata, tmpl, attr, mode);
    }
 }
 
