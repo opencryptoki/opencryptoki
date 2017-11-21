@@ -407,6 +407,74 @@ ber_decode_OCTET_STRING( CK_BYTE  * str,
    return CKR_FUNCTION_FAILED;
 }
 
+//
+//
+CK_RV
+ber_decode_BIT_STRING(CK_BYTE  * str,
+		      CK_BYTE ** data,
+		      CK_ULONG * data_len,
+		      CK_ULONG * field_len)
+{
+	CK_ULONG  len, length_octets;
+
+	if (!str) {
+		TRACE_ERROR("%s\n", ock_err(ERR_FUNCTION_FAILED));
+		return CKR_FUNCTION_FAILED;
+	}
+	if (str[0] != 0x03) {
+		TRACE_ERROR("%s\n", ock_err(ERR_FUNCTION_FAILED));
+		return CKR_FUNCTION_FAILED;
+	}
+
+	if ((str[1] & 0x80) == 0) {
+		len = str[1] & 0x7F;
+
+		*data = &str[2];
+		*data_len  = len;
+		*field_len = 1 + (1) + len;
+		return CKR_OK;
+	}
+
+	length_octets = str[1] & 0x7F;
+
+	if (length_octets == 1) {
+		len = str[2];
+
+		*data = &str[3];
+		*data_len  = len;
+		*field_len = 1 + (1 + 1) + len;
+		return CKR_OK;
+	}
+
+	if (length_octets == 2) {
+		len = str[2];
+		len = len << 8;
+		len |= str[3];
+
+		*data = &str[4];
+		*data_len  = len;
+		*field_len = 1 + (1 + 2) + len;
+		return CKR_OK;
+	}
+
+	if (length_octets == 3) {
+		len = str[2];
+		len = len << 8;
+		len |= str[3];
+		len = len << 8;
+		len |= str[4];
+
+		*data = &str[5];
+		*data_len  = len;
+		*field_len = 1 + (1 + 3) + len;
+		return CKR_OK;
+	}
+
+	// > 3 length octets implies a length > 16MB
+	//
+	TRACE_ERROR("%s\n", ock_err(ERR_FUNCTION_FAILED));
+	return CKR_FUNCTION_FAILED;
+}
 
 //
 //
@@ -1686,6 +1754,40 @@ cleanup:
    return rc;
 }
 
+/*
+ * ECC Functions
+ */
+//
+//
+CK_RV
+ecdsa_priv_unwrap_get_data(TEMPLATE *tmpl,
+			   CK_BYTE  *data,
+			   CK_ULONG  total_length)
+{
+	CK_ATTRIBUTE *params  = NULL;
+	CK_ATTRIBUTE *point   = NULL;
+	CK_RV rc;
+
+	rc = der_decode_ECPublicKey(data, total_length, &params, &point);
+
+	if (rc != CKR_OK) {
+		TRACE_DEVEL("ber_decode_ECPrivateKey failed\n");
+		return rc;
+	}
+
+	p11_attribute_trim(params);
+	p11_attribute_trim(point);
+
+	rc = template_update_attribute(tmpl, params);
+	if (rc != CKR_OK)
+		TRACE_DEVEL("template_update_attribute(CKA_EC_PARAMS) failed\n");
+	rc = template_update_attribute(tmpl, point);
+	if (rc != CKR_OK)
+		TRACE_DEVEL("template_update_attribute(CKA_EC_POINT) failed\n");
+
+	return CKR_OK;
+}
+
 
 //
 //
@@ -1848,5 +1950,115 @@ error:
 		free(buf2);
 	if (buf)
 		free(buf);
+	return rc;
+}
+
+/*
+ * ASN.1 type PrivateKeyInfo ::= SEQUENCE {
+ *    version Version
+ *    privateKeyAlgorithm  PrivateKeyAlgorithmIdentifier
+ *    privateKey PrivateKey
+ *    attributes OPTIONAL
+ * }
+ *
+ * Where PrivateKey is defined as follows for EC:
+ *
+ * ASN.1 type RSAPrivateKey
+ *
+ * ECPrivateKey ::= SEQUENCE {
+ *   version Version
+ *   privateKey OCTET STRING
+ *   parameters [0] ECParameters (OPTIONAL)
+ *   publicKey  [1] BIT STRING (OPTIONAL)
+ * }
+ */
+CK_RV
+der_decode_ECPublicKey(CK_BYTE	     *data,
+		       CK_ULONG       data_len,
+		       CK_ATTRIBUTE **ec_params,
+		       CK_ATTRIBUTE **ec_point)
+{
+	CK_ATTRIBUTE *params_attr = NULL;
+	CK_ATTRIBUTE *point_attr = NULL;
+
+	CK_BYTE  *inner_seq    = NULL;
+	CK_BYTE  *algid        = NULL;
+	CK_ULONG  algid_len;
+	CK_BYTE  *algid_ECBase = NULL;
+	CK_BYTE  *param        = NULL;
+	CK_ULONG  param_len;
+	CK_BYTE  *point        = NULL;
+	CK_ULONG  point_len;
+	CK_ULONG  offset = 0;
+	CK_ULONG  field_len, len;
+	CK_RV     rc;
+
+	rc = ber_decode_SEQUENCE(data, &inner_seq, &len, &field_len);
+	if (rc != CKR_OK) {
+		TRACE_DEVEL("ber_decode_PrivateKeyInfo failed\n");
+		return rc;
+	}
+
+	rc = ber_decode_SEQUENCE(inner_seq, &algid, &algid_len, &field_len);
+	if (rc != CKR_OK) {
+		TRACE_DEVEL("ber_decode_SEQUENCE failed\n");
+		return rc;
+	}
+	offset += field_len;
+
+	/*
+	 * Make sure we're dealing with an EC key.
+	 * Extract base alg-id of DER encoded EC byte string
+	 * and compare against the decoded alg-id from the inner sequence
+	 */
+	 rc = ber_decode_SEQUENCE(der_AlgIdECBase, &algid_ECBase, &len,
+				 &field_len);
+	if (rc != CKR_OK) {
+		TRACE_DEVEL("ber_decode_SEQUENCE failed\n");
+		return rc;
+	}
+
+	if (memcmp(algid, algid_ECBase, len) != 0) {
+		TRACE_ERROR("%s\n", ock_err(ERR_FUNCTION_FAILED));
+		return CKR_FUNCTION_FAILED;
+	}
+
+	/* skip the generic EC publ key ID and
+	 * point to the curve specific parameter
+	 */
+	param = algid + algid[1] + 2;
+	param_len = algid_len - algid[1] - 2;
+
+	rc = ber_decode_BIT_STRING(inner_seq + offset, &point, &point_len,
+				   &field_len);
+	if (rc != CKR_OK) {
+		TRACE_DEVEL("ber_decode_OCTET_STRING failed\n");
+		goto cleanup;
+	}
+
+	// build ec-parameter attribute
+	rc = build_attribute(CKA_EC_PARAMS, param, param_len, &params_attr);
+	if (rc != CKR_OK) {
+		TRACE_DEVEL("build_attribute failed\n");
+		goto cleanup;
+	}
+
+	// build ec-point attribute
+	rc = build_attribute(CKA_EC_POINT, point, point_len, &point_attr);
+	if (rc != CKR_OK) {
+		TRACE_DEVEL("build_attribute failed\n");
+		goto cleanup;
+	}
+
+	*ec_params = params_attr;
+	*ec_point  = point_attr;
+	return CKR_OK;
+
+cleanup:
+	if (params_attr)
+		free(params_attr);
+	if (point_attr)
+		free(point_attr);
+
 	return rc;
 }

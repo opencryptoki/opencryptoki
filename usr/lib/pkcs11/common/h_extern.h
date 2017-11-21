@@ -2516,6 +2516,8 @@ CK_RV     ecdsa_priv_validate_attribute( STDLL_TokData_t *tokdata, TEMPLATE *tmp
 					 CK_ATTRIBUTE *attr, CK_ULONG mode );
 CK_RV     ecdsa_priv_wrap_get_data(TEMPLATE *tmpl, CK_BBOOL length_only,
 				   CK_BYTE **data, CK_ULONG *data_len);
+CK_RV     ecdsa_priv_unwrap_get_data(TEMPLATE *tmpl, CK_BYTE *data,
+				     CK_ULONG data_len);
 
 // diffie-hellman routines
 //
@@ -2747,6 +2749,11 @@ CK_RV    der_encode_ECPrivateKey(CK_BBOOL      length_only,
                                  CK_ATTRIBUTE *point,
                                  CK_ATTRIBUTE *opaque,
                                  CK_ATTRIBUTE *pubkey);
+
+CK_RV    der_decode_ECPublicKey(CK_BYTE       *data,
+                                CK_ULONG       data_len,
+                                CK_ATTRIBUTE **params,
+                                CK_ATTRIBUTE **point);
 
 CK_RV    ber_encode_DSAPrivateKey( CK_BBOOL      length_only,
                                    CK_BYTE    ** data,
