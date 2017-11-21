@@ -16,8 +16,10 @@
 #include <pthread.h>
 #include <stdlib.h>
 #include <string.h>  // for memcmp() et al
+#include <lber.h>
 
 #include "pkcs11types.h"
+#include "p11util.h"
 #include "defs.h"
 #include "host_defs.h"
 #include "h_extern.h"
@@ -571,7 +573,99 @@ ber_decode_SEQUENCE( CK_BYTE  * seq,
    return CKR_FUNCTION_FAILED;
 }
 
+//
+//
+CK_RV
+ber_encode_CHOICE(CK_BBOOL  length_only,
+		  CK_BYTE   option,
+		  CK_BYTE **str,
+		  CK_ULONG *str_len,
+		  CK_BYTE  *data,
+		  CK_ULONG  data_len)
+{
+	CK_BYTE *buf = NULL;
+	CK_ULONG len;
 
+	/*
+	 *  if data_len < 127 use short-form length id
+	 *  if data_len < 65536 use long-form length id with 2-byte length field
+	 */
+
+	if (data_len < 128) {
+		len = 1 + 1 + data_len;
+	} else if (data_len < 256) {
+		len = 1 + (1 + 1) + data_len;
+	} else if (data_len < (1 << 16)) {
+		len = 1 + (1 + 2) + data_len;
+	} else if (data_len < (1 << 24)) {
+		len = 1 + (1 + 3) + data_len;
+	} else {
+		TRACE_ERROR("%s\n", ock_err(ERR_FUNCTION_FAILED));
+		return CKR_FUNCTION_FAILED;
+	}
+	if (length_only == TRUE) {
+		*str_len = len;
+		return CKR_OK;
+	}
+
+	buf = (CK_BYTE *)malloc(len);
+	if (!buf) {
+		TRACE_ERROR("%s\n", ock_err(ERR_HOST_MEMORY));
+		return CKR_HOST_MEMORY;
+	}
+
+	if (data_len < 128) {
+		buf[0] = 0xA0 | option;	// constructed, CHOICE
+		buf[1] = data_len;
+		memcpy(&buf[2], data, data_len);
+
+		*str_len = len;
+		*str = buf;
+		return CKR_OK;
+	}
+
+	if (data_len < 256) {
+		buf[0] = 0xA0 | option;	// constructed, CHOICE
+		buf[1] = 0x81;		// length header -- 1 length octets
+		buf[2] = data_len;
+
+		memcpy(&buf[3], data, data_len);
+
+		*str_len = len;
+		*str = buf;
+		return CKR_OK;
+	}
+
+	if (data_len < (1 << 16)) {
+		buf[0] = 0xA0 | option;	// constructed, CHOICE
+		buf[1] = 0x82;		// length header -- 2 length octets
+		buf[2] = (data_len >> 8) & 0xFF;
+		buf[3] = (data_len     ) & 0xFF;
+
+		memcpy(&buf[4], data, data_len);
+
+		*str_len = len;
+		*str = buf;
+		return CKR_OK;
+	}
+	if (data_len < (1 << 24)) {
+		buf[0] = 0xA0 | option;	// constructed, CHOICE
+		buf[1] = 0x83;		// length header -- 3 length octets
+		buf[2] = (data_len >> 16) & 0xFF;
+		buf[3] = (data_len >>  8) & 0xFF;
+		buf[4] = (data_len      ) & 0xFF;
+
+		memcpy(&buf[5], data, data_len);
+
+		*str_len = len;
+		*str = buf;
+		return CKR_OK;
+	}
+
+	free(buf);
+	TRACE_ERROR("%s\n", ock_err(ERR_FUNCTION_FAILED));
+	return CKR_FUNCTION_FAILED;
+}
 
 // PrivateKeyInfo ::= SEQUENCE {
 //    version  Version  -- always '0' for now
@@ -1590,4 +1684,169 @@ cleanup:
    if (x_attr)  free(x_attr);
 
    return rc;
+}
+
+
+//
+//
+CK_RV
+der_encode_ECPrivateKey(CK_BBOOL   length_only,
+			CK_BYTE  **data,
+			CK_ULONG  *data_len,
+			CK_ATTRIBUTE *params,
+			CK_ATTRIBUTE *point,
+			CK_ATTRIBUTE *opaque,
+			CK_ATTRIBUTE *pubkey)
+{
+	CK_BYTE   *buf = NULL;
+	CK_BYTE   *buf2 = NULL;
+	CK_ULONG   len, offset = 0;
+	CK_BYTE    version[] = { 1 }; // ecPrivkeyVer1
+	CK_BYTE    der_AlgIdEC[der_AlgIdECBaseLen + params->ulValueLen];
+	CK_ULONG   der_AlgIdECLen = sizeof(der_AlgIdEC);
+	BerElement *ber;
+	BerValue   *val;
+	CK_RV      rc = 0;
+
+	/* Calculate BER encoding length
+	 * Inner SEQUENCE of
+	 * Integer (version), OCTET STRING (private key)
+	 * and CHOICE [1] BIT STRING (public key)
+	 */
+	// version
+	rc |= ber_encode_INTEGER(TRUE, NULL, &len, NULL, sizeof(version));
+	offset += len;
+
+	// private key octet
+	if (opaque != NULL) {
+		rc |= ber_encode_OCTET_STRING(TRUE, NULL, &len, NULL,
+					      opaque->ulValueLen);
+		offset += len;
+	} else {
+		rc |= ber_encode_OCTET_STRING(TRUE, NULL, &len, NULL,
+					      point->ulValueLen);
+		offset += len;
+	}
+	if (rc != CKR_OK) {
+		TRACE_DEVEL("der encoding failed\n");
+		return CKR_FUNCTION_FAILED;
+	}
+
+	// public key bit string
+	if (pubkey && pubkey->pValue) {
+		ber = ber_alloc_t(LBER_USE_DER);
+		rc = ber_put_bitstring(ber, pubkey->pValue,
+				       pubkey->ulValueLen * 8, 0x03);
+		rc = ber_flatten(ber, &val);
+
+		ber_encode_CHOICE(TRUE, 1, &buf2, &len, val->bv_val,
+				  val->bv_len);
+		offset += len;
+		ber_free(ber, 1);
+	}
+
+	if (length_only == TRUE) {
+		rc = ber_encode_SEQUENCE(TRUE, NULL, &len, NULL, offset);
+		if (rc != CKR_OK) {
+			TRACE_DEVEL("ber_encode_SEQUENCE failed\n");
+			return rc;
+		}
+		rc = ber_encode_PrivateKeyInfo(TRUE, NULL, data_len, NULL,
+					       der_AlgIdECLen, NULL, len);
+		if (rc != CKR_OK) {
+			TRACE_DEVEL("ber_encode_PrivateKeyInfo failed\n");
+			return rc;
+		}
+		return rc;
+	}
+
+	/* Now starting with the real data */
+	buf = (CK_BYTE *)malloc(offset);
+	if (!buf) {
+		TRACE_ERROR("%s\n", ock_err(ERR_HOST_MEMORY));
+		return CKR_HOST_MEMORY;
+	}
+	offset = 0;
+	rc = 0;
+
+	rc = ber_encode_INTEGER(FALSE, &buf2, &len, version, sizeof(version));
+	if (rc != CKR_OK) {
+		TRACE_DEVEL("ber_encode_INTEGER failed\n");
+		goto error;
+	}
+	memcpy(buf+offset, buf2, len);
+	offset += len;
+	free(buf2);
+	buf2 = NULL;
+
+	if (opaque != NULL) {
+	// the CKA_IBM_OPAQUE attrib
+		rc = ber_encode_OCTET_STRING(FALSE, &buf2, &len,
+					     (CK_BYTE *)opaque +
+					     sizeof(CK_ATTRIBUTE),
+					     opaque->ulValueLen);
+		if (rc != CKR_OK) {
+			TRACE_DEVEL("ber_encode_OCTET_STRING failed\n");
+			goto error;
+		}
+		memcpy(buf+offset, buf2, len);
+		offset += len;
+		free(buf2);
+		buf2 = NULL;
+	} else {
+		rc = ber_encode_OCTET_STRING(FALSE, &buf2, &len,
+					     (CK_BYTE *)point +
+					     sizeof(CK_ATTRIBUTE),
+					     point->ulValueLen );
+		if (rc != CKR_OK) {
+			TRACE_DEVEL("ber_encode_INTEGER failed\n");
+			goto error;
+		}
+		memcpy(buf+offset, buf2, len);
+		offset += len;
+		free(buf2);
+		buf2 = NULL;
+	}
+
+	/* generate optional bit-string of public key */
+	if (pubkey && pubkey->pValue) {
+		ber = ber_alloc_t(LBER_USE_DER);
+		rc  = ber_put_bitstring(ber, pubkey->pValue,
+					pubkey->ulValueLen * 8, 0x03);
+		rc  = ber_flatten(ber, &val);
+
+		ber_encode_CHOICE(FALSE, 1, &buf2, &len, val->bv_val,
+				  val->bv_len);
+		memcpy(buf + offset, buf2, len);
+		offset += len;
+		free(buf2);
+		buf2 = NULL;
+		ber_free(ber, 1);
+	}
+
+	rc = ber_encode_SEQUENCE(FALSE, &buf2, &len, buf, offset);
+	if (rc != CKR_OK) {
+		TRACE_DEVEL("ber_encode_SEQUENCE failed\n");
+		goto error;
+	}
+
+	/* concatenate EC algorithm-id + specific curve id */
+	memcpy(der_AlgIdEC, der_AlgIdECBase, der_AlgIdECBaseLen);
+	memcpy(der_AlgIdEC + der_AlgIdECBaseLen, params->pValue,
+	       params->ulValueLen);
+	/* adjust length field */
+	der_AlgIdEC[1] = der_AlgIdEC[1] + params->ulValueLen;
+
+	rc = ber_encode_PrivateKeyInfo(FALSE, data, data_len, der_AlgIdEC,
+				       der_AlgIdECLen, buf2, len);
+	if (rc != CKR_OK) {
+		TRACE_ERROR("ber_encode_PrivateKeyInfo failed\n");
+	}
+
+error:
+	if (buf2)
+		free(buf2);
+	if (buf)
+		free(buf);
+	return rc;
 }
