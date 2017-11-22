@@ -1687,8 +1687,11 @@ rsa_hash_pkcs_sign( STDLL_TokData_t      * tokdata,
       digest_mech.mechanism      = CKM_MD5;
       oid = ber_AlgMd5;
       oid_len = ber_AlgMd5Len;
-   }
-   else if (ctx->mech.mechanism == CKM_SHA256_RSA_PKCS) {
+   } else if (ctx->mech.mechanism == CKM_SHA224_RSA_PKCS) {
+      digest_mech.mechanism      = CKM_SHA224;
+      oid = ber_AlgSha224;
+      oid_len = ber_AlgSha224Len;
+   } else if (ctx->mech.mechanism == CKM_SHA256_RSA_PKCS) {
       digest_mech.mechanism      = CKM_SHA256;
       oid = ber_AlgSha256;
       oid_len = ber_AlgSha256Len;
@@ -1789,6 +1792,8 @@ rsa_hash_pkcs_sign_update( STDLL_TokData_t      * tokdata,
          digest_mech.mechanism = CKM_MD2;
       else if (ctx->mech.mechanism == CKM_MD5_RSA_PKCS)
          digest_mech.mechanism = CKM_MD5;
+      else if (ctx->mech.mechanism == CKM_SHA224_RSA_PKCS)
+         digest_mech.mechanism = CKM_SHA224;
       else if (ctx->mech.mechanism == CKM_SHA256_RSA_PKCS)
          digest_mech.mechanism = CKM_SHA256;
       else if (ctx->mech.mechanism == CKM_SHA384_RSA_PKCS)
@@ -1860,8 +1865,11 @@ rsa_hash_pkcs_verify( STDLL_TokData_t      * tokdata,
       digest_mech.mechanism      = CKM_MD5;
       oid = ber_AlgMd5;
       oid_len = ber_AlgMd5Len;
-   }
-   else if (ctx->mech.mechanism == CKM_SHA256_RSA_PKCS) {
+   } else if (ctx->mech.mechanism == CKM_SHA224_RSA_PKCS) {
+      digest_mech.mechanism      = CKM_SHA224;
+      oid = ber_AlgSha224;
+      oid_len = ber_AlgSha224Len;
+   } else if (ctx->mech.mechanism == CKM_SHA256_RSA_PKCS) {
       digest_mech.mechanism      = CKM_SHA256;
       oid = ber_AlgSha256;
       oid_len = ber_AlgSha256Len;
@@ -1961,6 +1969,8 @@ rsa_hash_pkcs_verify_update( STDLL_TokData_t      * tokdata,
          digest_mech.mechanism = CKM_MD2;
       else if (ctx->mech.mechanism == CKM_MD5_RSA_PKCS)
          digest_mech.mechanism = CKM_MD5;
+      else if (ctx->mech.mechanism == CKM_SHA224_RSA_PKCS)
+         digest_mech.mechanism = CKM_SHA224;
       else if (ctx->mech.mechanism == CKM_SHA256_RSA_PKCS)
          digest_mech.mechanism = CKM_SHA256;
       else if (ctx->mech.mechanism == CKM_SHA384_RSA_PKCS)
@@ -2028,8 +2038,10 @@ rsa_hash_pkcs_sign_final( STDLL_TokData_t      * tokdata,
    else if (ctx->mech.mechanism == CKM_MD5_RSA_PKCS) {
       oid = ber_AlgMd5;
       oid_len = ber_AlgMd5Len;
-   }
-   else if (ctx->mech.mechanism == CKM_SHA256_RSA_PKCS) {
+   } else if (ctx->mech.mechanism == CKM_SHA224_RSA_PKCS) {
+      oid = ber_AlgSha224;
+      oid_len = ber_AlgSha224Len;
+   } else if (ctx->mech.mechanism == CKM_SHA256_RSA_PKCS) {
       oid = ber_AlgSha256;
       oid_len = ber_AlgSha256Len;
    }
@@ -2135,8 +2147,10 @@ rsa_hash_pkcs_verify_final( STDLL_TokData_t      * tokdata,
    else if (ctx->mech.mechanism == CKM_MD5_RSA_PKCS) {
       oid = ber_AlgMd5;
       oid_len = ber_AlgMd5Len;
-   }
-   else if (ctx->mech.mechanism == CKM_SHA256_RSA_PKCS) {
+   } else if (ctx->mech.mechanism == CKM_SHA224_RSA_PKCS) {
+      oid = ber_AlgSha224;
+      oid_len = ber_AlgSha224Len;
+   } else if (ctx->mech.mechanism == CKM_SHA256_RSA_PKCS) {
       oid = ber_AlgSha256;
       oid_len = ber_AlgSha256Len;
    }

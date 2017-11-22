@@ -200,6 +200,7 @@ verify_mgr_init( STDLL_TokData_t     * tokdata,
       case CKM_MD2_RSA_PKCS:
       case CKM_MD5_RSA_PKCS:
       case CKM_SHA1_RSA_PKCS:
+      case CKM_SHA224_RSA_PKCS:
       case CKM_SHA256_RSA_PKCS:
       case CKM_SHA384_RSA_PKCS:
       case CKM_SHA512_RSA_PKCS:
@@ -736,6 +737,7 @@ verify_mgr_verify( STDLL_TokData_t     * tokdata,
       case CKM_MD2_RSA_PKCS:
       case CKM_MD5_RSA_PKCS:
       case CKM_SHA1_RSA_PKCS:
+      case CKM_SHA224_RSA_PKCS:
       case CKM_SHA256_RSA_PKCS:
       case CKM_SHA384_RSA_PKCS:
       case CKM_SHA512_RSA_PKCS:
@@ -867,6 +869,7 @@ verify_mgr_verify_update( STDLL_TokData_t     * tokdata,
       case CKM_MD2_RSA_PKCS:
       case CKM_MD5_RSA_PKCS:
       case CKM_SHA1_RSA_PKCS:
+      case CKM_SHA224_RSA_PKCS:
       case CKM_SHA256_RSA_PKCS:
       case CKM_SHA384_RSA_PKCS:
       case CKM_SHA512_RSA_PKCS:
@@ -947,6 +950,7 @@ verify_mgr_verify_final( STDLL_TokData_t     * tokdata,
       case CKM_MD2_RSA_PKCS:
       case CKM_MD5_RSA_PKCS:
       case CKM_SHA1_RSA_PKCS:
+      case CKM_SHA224_RSA_PKCS:
       case CKM_SHA256_RSA_PKCS:
       case CKM_SHA384_RSA_PKCS:
       case CKM_SHA512_RSA_PKCS:
