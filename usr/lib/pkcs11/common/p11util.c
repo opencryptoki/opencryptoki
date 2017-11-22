@@ -271,6 +271,12 @@ p11_get_ckm(CK_ULONG mechanism)
 	_sym2str(CKM_SHA512);
 	_sym2str(CKM_SHA512_HMAC);
 	_sym2str(CKM_SHA512_HMAC_GENERAL);
+    _sym2str(CKM_SHA512_224);
+    _sym2str(CKM_SHA512_224_HMAC);
+    _sym2str(CKM_SHA512_224_HMAC_GENERAL);
+    _sym2str(CKM_SHA512_256);
+    _sym2str(CKM_SHA512_256_HMAC);
+    _sym2str(CKM_SHA512_256_HMAC_GENERAL);
 	_sym2str(CKM_CAST_KEY_GEN);
 	_sym2str(CKM_CAST_ECB);
 	_sym2str(CKM_CAST_CBC);

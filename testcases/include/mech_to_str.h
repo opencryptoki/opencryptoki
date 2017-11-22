@@ -192,6 +192,18 @@ mech_to_str(CK_ULONG mech)
 		 		 return "CKM_SHA512_HMAC";
 		 if (mech == CKM_SHA512_HMAC_GENERAL)
 		 		 return "CKM_SHA512_HMAC_GENERAL";
+        if (mech == CKM_SHA512_224)
+                return "CKM_SHA512_224";
+        if (mech == CKM_SHA512_224_HMAC)
+                return "CKM_SHA512_224_HMAC";
+        if (mech == CKM_SHA512_224_HMAC_GENERAL)
+                return "CKM_SHA512_224_HMAC_GENERAL";
+        if (mech == CKM_SHA512_256)
+                return "CKM_SHA512_256";
+        if (mech == CKM_SHA512_256_HMAC)
+                return "CKM_SHA512_256_HMAC";
+        if (mech == CKM_SHA512_256_HMAC_GENERAL)
+                return "CKM_SHA512_256_HMAC_GENERAL";
 		 if (mech == CKM_CAST_KEY_GEN)
 		 		 return "CKM_CAST_KEY_GEN";
 		 if (mech == CKM_CAST_ECB)

@@ -681,6 +681,13 @@ typedef CK_ULONG          CK_MECHANISM_TYPE;
 #define CKM_SHA512_HMAC                0x00000271
 #define CKM_SHA512_HMAC_GENERAL        0x00000272
 
+#define CKM_SHA512_224                 0x00000048
+#define CKM_SHA512_224_HMAC            0x00000049
+#define CKM_SHA512_224_HMAC_GENERAL    0x0000004A
+#define CKM_SHA512_256                 0x0000004C
+#define CKM_SHA512_256_HMAC            0x0000004D
+#define CKM_SHA512_256_HMAC_GENERAL    0x0000004E
+
 /* All of the following mechanisms are new for v2.0 */
 /* Note that CAST128 and CAST5 are the same algorithm */
 #define CKM_CAST_KEY_GEN               0x00000300

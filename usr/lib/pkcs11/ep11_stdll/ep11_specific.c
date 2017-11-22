@@ -186,13 +186,6 @@ typedef struct {
 MECH_LIST_ELEMENT mech_list[] = {};
 CK_ULONG mech_list_len = 0;
 
-/* mechanisms yet unknown by ock, but known by EP11 */
-#define CKM_SHA512_224                      0x00000048
-#define CKM_SHA512_224_HMAC                 0x00000049
-#define CKM_SHA512_224_HMAC_GENERAL         0x0000004A
-#define CKM_SHA512_256                      0x0000004C
-#define CKM_SHA512_256_HMAC                 0x0000004D
-#define CKM_SHA512_256_HMAC_GENERAL         0x0000004E
 
 /* mechanisms defined by EP11 with an invalid (outdated) ID */
 #define CKM_EP11_SHA512_224                 0x000002B0   // 0x00000048 in PKCS#11
@@ -3702,13 +3695,6 @@ const CK_MECHANISM_TYPE ep11_banned_mech_list[] =
 	CKM_DES_CBC,
 	CKM_DES_CBC_PAD,
 	CKM_GENERIC_SECRET_KEY_GEN,
-
-	CKM_SHA512_224,
-	CKM_SHA512_224_HMAC,
-	CKM_SHA512_224_HMAC_GENERAL,
-	CKM_SHA512_256,
-	CKM_SHA512_256_HMAC,
-	CKM_SHA512_256_HMAC_GENERAL,
 
 	/* Wrong/outdated */
     CKM_EP11_SHA512_224,
