@@ -25,7 +25,10 @@ Trusted Key Entry console (TKE) before using this utility.
 .br
 3. Before using this tool make a back-up of the token objects in ep11tok/TOK_OBJ/.
 .br
-4. After successfully execution of the migrate utility and before (re)starting
+4. Also, before using this tool make sure you've set the environment variable
+PKCS11_USER_PIN with the correct User PIN.
+.br
+5. After successfully execution of the migrate utility and before (re)starting
    programs using the EP11 token the new master key must be activated using the TKE.
 
 .SH "COMMAND SUMMARY"
