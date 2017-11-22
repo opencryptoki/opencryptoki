@@ -148,6 +148,7 @@ sign_mgr_init( STDLL_TokData_t        * tokdata,
 
       case CKM_ECDSA:
       case CKM_ECDSA_SHA1:
+      case CKM_ECDSA_SHA224:
       case CKM_ECDSA_SHA256:
       case CKM_ECDSA_SHA384:
       case CKM_ECDSA_SHA512:
@@ -819,6 +820,7 @@ sign_mgr_sign( STDLL_TokData_t      * tokdata,
                                in_data,  in_data_len,
 			       out_data, out_data_len );
       case CKM_ECDSA_SHA1:
+      case CKM_ECDSA_SHA224:
       case CKM_ECDSA_SHA256:
       case CKM_ECDSA_SHA384:
       case CKM_ECDSA_SHA512:
@@ -906,6 +908,7 @@ sign_mgr_sign_update( STDLL_TokData_t     * tokdata,
           return aes_mac_sign_update(tokdata, sess, ctx, in_data, in_data_len);
 
       case CKM_ECDSA_SHA1:
+      case CKM_ECDSA_SHA224:
       case CKM_ECDSA_SHA256:
       case CKM_ECDSA_SHA384:
       case CKM_ECDSA_SHA512:
@@ -989,6 +992,7 @@ sign_mgr_sign_final( STDLL_TokData_t     * tokdata,
 				    sig_len );
 
       case CKM_ECDSA_SHA1:
+      case CKM_ECDSA_SHA224:
       case CKM_ECDSA_SHA256:
       case CKM_ECDSA_SHA384:
       case CKM_ECDSA_SHA512:

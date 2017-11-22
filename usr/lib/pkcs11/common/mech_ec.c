@@ -298,6 +298,9 @@ ec_hash_sign(	STDLL_TokData_t      * tokdata,
    case CKM_ECDSA_SHA1:
        digest_mech.mechanism = CKM_SHA_1;
        break;
+   case CKM_ECDSA_SHA224:
+       digest_mech.mechanism = CKM_SHA224;
+       break;
    case CKM_ECDSA_SHA256:
        digest_mech.mechanism = CKM_SHA256;
        break;
@@ -375,6 +378,9 @@ ec_hash_sign_update( STDLL_TokData_t      * tokdata,
       case CKM_ECDSA_SHA1:
 	  digest_mech.mechanism = CKM_SHA_1;
 	  break;
+      case CKM_ECDSA_SHA224:
+          digest_mech.mechanism = CKM_SHA224;
+          break;
       case CKM_ECDSA_SHA256:
 	  digest_mech.mechanism = CKM_SHA256;
 	  break;
@@ -499,6 +505,9 @@ ec_hash_verify( STDLL_TokData_t      * tokdata,
    case CKM_ECDSA_SHA1:
        digest_mech.mechanism = CKM_SHA_1;
        break;
+   case CKM_ECDSA_SHA224:
+       digest_mech.mechanism = CKM_SHA224;
+       break;
    case CKM_ECDSA_SHA256:
        digest_mech.mechanism = CKM_SHA256;
        break;
@@ -578,6 +587,9 @@ ec_hash_verify_update( STDLL_TokData_t      * tokdata,
       case CKM_ECDSA_SHA1:
 	  digest_mech.mechanism = CKM_SHA_1;
 	  break;
+      case CKM_ECDSA_SHA224:
+          digest_mech.mechanism = CKM_SHA224;
+          break;
       case CKM_ECDSA_SHA256:
 	  digest_mech.mechanism = CKM_SHA256;
 	  break;

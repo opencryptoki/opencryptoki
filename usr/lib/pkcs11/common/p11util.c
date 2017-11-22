@@ -360,6 +360,7 @@ p11_get_ckm(CK_ULONG mechanism)
 	_sym2str(CKM_EC_KEY_PAIR_GEN);
 	_sym2str(CKM_ECDSA);
 	_sym2str(CKM_ECDSA_SHA1);
+    _sym2str(CKM_ECDSA_SHA224);
 	_sym2str(CKM_ECDSA_SHA256);
 	_sym2str(CKM_ECDSA_SHA384);
 	_sym2str(CKM_ECDSA_SHA512);

@@ -145,6 +145,7 @@ verify_mgr_init( STDLL_TokData_t     * tokdata,
 
       case CKM_ECDSA:
       case CKM_ECDSA_SHA1:
+      case CKM_ECDSA_SHA224:
       case CKM_ECDSA_SHA256:
       case CKM_ECDSA_SHA384:
       case CKM_ECDSA_SHA512:
@@ -817,6 +818,7 @@ verify_mgr_verify( STDLL_TokData_t     * tokdata,
 				in_data, in_data_len, signature, sig_len);
 
       case CKM_ECDSA_SHA1:
+      case CKM_ECDSA_SHA224:
       case CKM_ECDSA_SHA256:
       case CKM_ECDSA_SHA384:
       case CKM_ECDSA_SHA512:
@@ -893,6 +895,7 @@ verify_mgr_verify_update( STDLL_TokData_t     * tokdata,
 					in_data_len );
 
       case CKM_ECDSA_SHA1:
+      case CKM_ECDSA_SHA224:
       case CKM_ECDSA_SHA256:
       case CKM_ECDSA_SHA384:
       case CKM_ECDSA_SHA512:
@@ -970,6 +973,7 @@ verify_mgr_verify_final( STDLL_TokData_t     * tokdata,
          return aes_mac_verify_final( tokdata, sess, ctx, signature, sig_len );
 
       case CKM_ECDSA_SHA1:
+      case CKM_ECDSA_SHA224:
       case CKM_ECDSA_SHA256:
       case CKM_ECDSA_SHA384:
       case CKM_ECDSA_SHA512:
