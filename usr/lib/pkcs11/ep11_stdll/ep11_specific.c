@@ -18,6 +18,8 @@
 #include <stdlib.h>
 #include <unistd.h>
 #include <stdint.h>
+#include <regex.h>
+#include <dirent.h>
 
 #include "pkcs11types.h"
 #include "defs.h"
@@ -109,6 +111,9 @@ static m_add_backend_t		dll_m_add_backend;
 static m_init_t			dll_m_init;
 static m_shutdown_t		dll_m_shutdown;
 
+static xcpa_queryblock_t dll_xcpa_queryblock;
+static xcpa_internal_rv_t dll_xcpa_internal_rv;
+
 #ifdef DEBUG
 
 /* a simple function for dumping out a memory area */
@@ -187,6 +192,12 @@ typedef struct {
 MECH_LIST_ELEMENT mech_list[] = {};
 CK_ULONG mech_list_len = 0;
 
+typedef struct const_info {
+  unsigned const int       code;
+  const char              *name;
+} const_info_t;
+
+#define CONSTINFO(_X) { (_X), (#_X) }
 
 /* mechanisms defined by EP11 with an invalid (outdated) ID */
 #define CKM_EP11_SHA512_224                 0x000002B0   // 0x00000048 in PKCS#11
@@ -1138,6 +1149,9 @@ CK_RV ep11_resolve_lib_sym(void *hdl) {
 	dll_m_init		= (m_init_t)dlsym(hdl, "m_init");
 	dll_m_add_backend	= (m_add_backend_t)dlsym(hdl, "m_add_backend");
 	dll_m_shutdown		= (m_shutdown_t)dlsym(hdl, "m_shutdown");
+
+    dll_xcpa_queryblock = (xcpa_queryblock_t)dlsym(hdl, "xcpa_queryblock");
+    dll_xcpa_internal_rv = (xcpa_internal_rv_t)dlsym(hdl, "xcpa_internal_rv");
 
 	if ((error = dlerror()) != NULL)  {
 		OCK_SYSLOG(LOG_ERR, "%s\n", error);
@@ -4204,4 +4218,427 @@ static int read_adapter_config_file(STDLL_TokData_t *tokdata, const char* conf_n
 
 	tokdata->initialized = TRUE;
 	return rc;
+}
+
+#define UNKNOWN_CP          0xFFFFFFFF
+
+#define CP_BYTE_NO(cp)      ((cp) / 8)
+#define CP_BIT_IN_BYTE(cp)  ((cp) % 8)
+#define CP_BIT_MASK(cp)     (0x80 >> CP_BIT_IN_BYTE(cp))
+
+static const_info_t ep11_cps[] = {
+    CONSTINFO(XCP_CPB_ADD_CPBS),
+    CONSTINFO(XCP_CPB_DELETE_CPBS),
+    CONSTINFO(XCP_CPB_SIGN_ASYMM),
+    CONSTINFO(XCP_CPB_SIGN_SYMM),
+    CONSTINFO(XCP_CPB_SIGVERIFY_SYMM),
+    CONSTINFO(XCP_CPB_ENCRYPT_SYMM),
+    CONSTINFO(XCP_CPB_DECRYPT_ASYMM),
+    CONSTINFO(XCP_CPB_DECRYPT_SYMM),
+    CONSTINFO(XCP_CPB_WRAP_ASYMM),
+    CONSTINFO(XCP_CPB_WRAP_SYMM),
+    CONSTINFO(XCP_CPB_UNWRAP_ASYMM),
+    CONSTINFO(XCP_CPB_UNWRAP_SYMM),
+    CONSTINFO(XCP_CPB_KEYGEN_ASYMM),
+    CONSTINFO(XCP_CPB_KEYGEN_SYMM),
+    CONSTINFO(XCP_CPB_RETAINKEYS),
+    CONSTINFO(XCP_CPB_SKIP_KEYTESTS),
+    CONSTINFO(XCP_CPB_NON_ATTRBOUND),
+    CONSTINFO(XCP_CPB_MODIFY_OBJECTS),
+    CONSTINFO(XCP_CPB_RNG_SEED),
+    CONSTINFO(XCP_CPB_ALG_RAW_RSA),
+    CONSTINFO(XCP_CPB_ALG_NFIPS2009),
+    CONSTINFO(XCP_CPB_ALG_NBSI2009),
+    CONSTINFO(XCP_CPB_KEYSZ_HMAC_ANY),
+    CONSTINFO(XCP_CPB_KEYSZ_BELOW80BIT),
+    CONSTINFO(XCP_CPB_KEYSZ_80BIT),
+    CONSTINFO(XCP_CPB_KEYSZ_112BIT),
+    CONSTINFO(XCP_CPB_KEYSZ_128BIT),
+    CONSTINFO(XCP_CPB_KEYSZ_192BIT),
+    CONSTINFO(XCP_CPB_KEYSZ_256BIT),
+    CONSTINFO(XCP_CPB_KEYSZ_RSA65536),
+    CONSTINFO(XCP_CPB_ALG_RSA),
+    CONSTINFO(XCP_CPB_ALG_DSA),
+    CONSTINFO(XCP_CPB_ALG_EC),
+    CONSTINFO(XCP_CPB_ALG_EC_BPOOLCRV),
+    CONSTINFO(XCP_CPB_ALG_EC_NISTCRV),
+    CONSTINFO(XCP_CPB_ALG_NFIPS2011),
+    CONSTINFO(XCP_CPB_ALG_NBSI2011),
+    CONSTINFO(XCP_CPB_USER_SET_TRUSTED),
+    CONSTINFO(XCP_CPB_ALG_SKIP_CROSSCHK),
+    CONSTINFO(XCP_CPB_WRAP_CRYPT_KEYS),
+    CONSTINFO(XCP_CPB_SIGN_CRYPT_KEYS),
+    CONSTINFO(XCP_CPB_WRAP_SIGN_KEYS),
+    CONSTINFO(XCP_CPB_USER_SET_ATTRBOUND),
+    CONSTINFO(XCP_CPB_ALLOW_PASSPHRASE),
+    CONSTINFO(XCP_CPB_WRAP_STRONGER_KEY),
+    CONSTINFO(XCP_CPB_WRAP_WITH_RAW_SPKI),
+    CONSTINFO(XCP_CPB_ALG_DH),
+    CONSTINFO(XCP_CPB_DERIVE),
+};
+
+#ifdef DEBUG
+static const char *ep11_get_cp(unsigned int cp)
+{
+    unsigned int i;
+
+    for(i=0; i < (sizeof(ep11_cps) / sizeof(ep11_cps[0])); i++) {
+        if (ep11_cps[i].code == cp)
+            return ep11_cps[i].name;
+    }
+
+    TRACE_WARNING("%s unknown control point %u\n", __func__, cp);
+    return "UNKNOWN";
+}
+#endif
+
+static CK_ULONG ep11_get_cp_by_name(const char *name)
+{
+    unsigned int i;
+
+    for(i=0; i < (sizeof(ep11_cps) / sizeof(ep11_cps[0])); i++) {
+        if (strcmp(ep11_cps[i].name, name) == 0)
+            return ep11_cps[i].code;
+    }
+
+    TRACE_WARNING("%s unknown control point name '%s'\n", __func__, name);
+    return UNKNOWN_CP;
+}
+
+#define SYSFS_DEVICES_AP        "/sys/devices/ap/"
+#define REGEX_CARD_PATTERN      "card[0-9a-fA-F]+"
+#define REGEX_SUB_CARD_PATTERN  "[0-9a-fA-F]+\\.[0-9a-fA-F]+"
+#define MASK_EP11               0x04000000
+
+typedef CK_RV (*adapter_handler_t)(uint_32 adapter, uint_32 domain,
+                                   void* handler_data);
+
+static CK_RV file_fgets(const char *fname, char *buf, size_t buflen)
+{
+    FILE* fp;
+    char *end;
+    CK_RV rc = CKR_OK;
+
+    buf[0] = '\0';
+
+    fp = fopen(fname, "r");
+    if (fp == NULL) {
+        TRACE_ERROR("Failed to open file '%s'\n", fname);
+        return CKR_FUNCTION_FAILED;
+    }
+    if (fgets(buf, buflen, fp) == NULL) {
+        TRACE_ERROR("Failed to read from file '%s'\n", fname);
+        rc = CKR_FUNCTION_FAILED;
+        goto out_fclose;
+    }
+
+    end = memchr(buf, '\n', buflen);
+    if (end)
+        *end = 0;
+    else
+        buf[buflen - 1] = 0;
+
+    if (strlen(buf) == 0) {
+        rc = CKR_FUNCTION_FAILED;
+        goto out_fclose;
+    }
+
+out_fclose:
+    fclose(fp);
+    return rc;
+}
+
+static CK_RV is_card_ep11_and_online(const char *name)
+{
+    char fname[250];
+    char buf[250];
+    CK_RV rc;
+    unsigned long val;
+
+    sprintf(fname, "%s%s/online", SYSFS_DEVICES_AP, name);
+    rc = file_fgets(fname, buf, sizeof(buf));
+    if (rc !=  CKR_OK)
+        return rc;
+    if (strcmp(buf, "1") != 0)
+        return CKR_FUNCTION_FAILED;
+
+    sprintf(fname, "%s%s/ap_functions", SYSFS_DEVICES_AP, name);
+    rc = file_fgets(fname, buf, sizeof(buf));
+    if (rc != CKR_OK)
+        return rc;
+    if (sscanf(buf, "%lx", &val) != 1)
+        val = 0x00000000;
+    if ((val & MASK_EP11) == 0)
+        return CKR_FUNCTION_FAILED;
+
+    return CKR_OK;
+}
+
+static CK_RV scan_for_card_domains(const char *name, adapter_handler_t handler,
+                                   void* handler_data)
+{
+    char fname[250];
+    regex_t reg_buf;
+    regmatch_t pmatch[1];
+    DIR *d;
+    struct dirent *de;
+    char *tok;
+    uint_32 adapter, domain;
+
+    if (regcomp(&reg_buf, REGEX_SUB_CARD_PATTERN, REG_EXTENDED) != 0) {
+        TRACE_ERROR("Failed to compile regular expression '%s'\n", REGEX_SUB_CARD_PATTERN);
+        return CKR_FUNCTION_FAILED;
+    }
+
+    sprintf(fname, "%s%s/", SYSFS_DEVICES_AP, name);
+    d = opendir(fname);
+    if (d == NULL) {
+        TRACE_ERROR("Directory %s is not available\n", fname);
+        regfree(&reg_buf);
+        // ignore this error, card may have been removed in the meantime
+        return CKR_OK;
+    }
+
+    while((de = readdir(d)) != NULL) {
+        if (regexec(&reg_buf, de->d_name, (size_t) 1, pmatch, 0) == 0) {
+            tok = strtok(de->d_name, ".");
+            if (tok == NULL)
+                continue;
+            if (sscanf(tok, "%x", &adapter) != 1)
+                continue;
+
+            tok = strtok(NULL, ",");
+            if (tok == NULL)
+                continue;
+            if (sscanf(tok, "%x", &domain) != 1)
+                continue;
+
+            if (handler(adapter, domain, handler_data) != CKR_OK)
+                break;
+        }
+    }
+
+    closedir(d);
+    regfree(&reg_buf);
+    return CKR_OK;
+}
+
+/*
+ * Iterate over all cards in the sysfs directorys /sys/device/ap/cardxxx
+ * and check if the card is online. Calls the handler function for all
+ * online EP11 cards.
+ */
+static CK_RV scan_for_ep11_cards(adapter_handler_t handler,
+                                 void* handler_data)
+{
+    DIR *d;
+    struct dirent *de;
+    regex_t reg_buf;
+    regmatch_t pmatch[1];
+
+    if (handler == NULL)
+        return CKR_ARGUMENTS_BAD;
+
+    if (regcomp(&reg_buf, REGEX_CARD_PATTERN, REG_EXTENDED) != 0) {
+        TRACE_ERROR("Failed to compile regular expression '%s'\n", REGEX_CARD_PATTERN);
+        return CKR_FUNCTION_FAILED;
+    }
+
+    d = opendir(SYSFS_DEVICES_AP);
+    if (d == NULL) {
+        TRACE_ERROR("Directory %s is not available\n", SYSFS_DEVICES_AP);
+        regfree(&reg_buf);
+        return CKR_FUNCTION_FAILED;
+    }
+
+    while((de = readdir(d)) != NULL) {
+        if (regexec(&reg_buf, de->d_name, (size_t) 1, pmatch, 0) == 0) {
+            if (is_card_ep11_and_online(de->d_name) != CKR_OK)
+                continue;
+
+            if (scan_for_card_domains(de->d_name, handler, handler_data) != CKR_OK)
+                break;
+        }
+    }
+
+    closedir(d);
+    regfree(&reg_buf);
+    return CKR_OK;
+}
+
+static CK_RV handle_all_ep11_cards(ep11_target_t *ep11_targets,
+                                   adapter_handler_t handler,
+                                   void* handler_data)
+{
+    int i;
+    CK_RV rc;
+
+    if (ep11_targets->length > 0) {
+        /* APQN_WHITELIST is specified */
+        for(i = 0; i < ep11_targets->length; i++)  {
+            rc = handler(ep11_targets->apqns[2*i], ep11_targets->apqns[2*i+1],
+                         handler_data);
+            if (rc != CKR_OK)
+                return rc;
+        }
+    } else {
+        /* APQN_ANY used, scan sysfs for available cards */
+        return scan_for_ep11_cards(handler, handler_data);
+    }
+
+    return CKR_OK;
+}
+
+static CK_RV get_control_points_for_adapter(uint_32 adapter, uint_32 domain,
+                                            unsigned char *cp, size_t *cp_len)
+{
+    unsigned char rsp[200];
+    unsigned char cmd[100];
+    struct XCPadmresp rb;
+    size_t rlen, clen;
+    long rc, rv = 0;
+    ep11_target_t target;
+
+    memset(&target, 0, sizeof(target));
+    target.length = 1;
+    target.apqns[0] = adapter;
+    target.apqns[1] = domain;
+
+    memset(cmd, 0, sizeof(cmd));
+    rc = dll_xcpa_queryblock(cmd, sizeof(cmd), XCP_ADMQ_DOM_CTRLPOINTS,
+                             (uint64_t)adapter << 32 | domain,
+                             NULL, 0);
+    if (rc < 0) {
+        TRACE_ERROR("%s xcpa_queryblock failed: rc=%ld\n",
+                        __func__, rc);
+        return CKR_DEVICE_ERROR;
+    }
+    clen = rc;
+
+    memset(rsp, 0, sizeof(rsp));
+    rlen = sizeof(rsp);
+    rc = dll_m_admin(rsp, &rlen, NULL, NULL, cmd, clen, NULL, 0, (uint64_t)&target);
+    if (rc < 0) {
+        TRACE_ERROR("%s m_admin rc=%ld\n",
+                        __func__, rc);
+        return CKR_DEVICE_ERROR;
+    }
+
+    memset(&rb, 0, sizeof(rb));
+    rc =  dll_xcpa_internal_rv(rsp, rlen, &rb, &rv);
+    if (rc < 0 || rv != 0) {
+        TRACE_ERROR("%s xcpa_internal_rv failed: rc=%ld rv=%ld\n",
+                        __func__, rc, rv);
+        return CKR_DEVICE_ERROR;
+    }
+
+    if (*cp_len < rb.pllen) {
+        TRACE_ERROR("%s Cp_len is too small. cp_len=%lu required=%lu\n",
+                                __func__, *cp_len, rb.pllen);
+        *cp_len = rb.pllen;
+        return CKR_ARGUMENTS_BAD;
+    }
+
+    memcpy(cp, rb.payload, rb.pllen);
+    *cp_len = rb.pllen;
+
+    return CKR_OK;
+}
+
+typedef struct cp_handler_data
+{
+    unsigned char   combined_cp[XCP_CP_BYTES];
+    unsigned char   first_cp[XCP_CP_BYTES];
+    uint32_t        first_adapter;
+    uint32_t        first_domain;
+    int             first;
+} cp_handler_data_t;
+
+static CK_RV control_point_handler(uint_32 adapter, uint_32 domain,
+                                   void* handler_data)
+{
+    CK_RV rc;
+    cp_handler_data_t *data = (cp_handler_data_t*)handler_data;
+    unsigned char cp[XCP_CP_BYTES];
+    size_t cp_len = sizeof(cp);
+    int i;
+
+    TRACE_INFO("Getting control points for adapter %02X.%04X\n", adapter, domain);
+
+    memset(cp, 0, sizeof(cp));
+    rc = get_control_points_for_adapter(adapter, domain, cp, &cp_len);
+    if (rc != CKR_OK) {
+        TRACE_ERROR("%s Failed to get CPS from adapter %02X.%04X\n",
+                __func__, adapter, domain);
+        // card may no longer be online, so ignore this error situation
+        return CKR_OK;
+    }
+
+#ifdef DEBUG
+    TRACE_DEBUG("Control points from adapter %02X.%04X\n", adapter, domain);
+    TRACE_DEBUG_DUMP(cp, cp_len);
+#endif
+
+    if (data->first) {
+        data->first_adapter = adapter;
+        data->first_domain = domain;
+        memcpy(data->first_cp, cp, cp_len);
+        memcpy(data->combined_cp, cp, cp_len);
+        data->first = 0;
+    } else {
+        // check if subsequent adapters have the same CPs
+        if (memcmp(cp, data->first_cp, sizeof(cp)) != 0) {
+            TRACE_WARNING("%s Adapter %02X.%04X has different control points than adapter %02X.%04X, using minimum.\n",
+                                            __func__, adapter, domain,
+                                            data->first_adapter, data->first_domain);
+            OCK_SYSLOG(LOG_WARNING, "Adapter %02X.%04X has different control points than adapter %02X.%04X, using minimum.\n",
+                       adapter, domain, data->first_adapter, data->first_domain);
+        }
+
+        for(i = 0; i < cp_len; i++) {
+            data->combined_cp[i] &= cp[i];
+        }
+    }
+
+    return CKR_OK;
+}
+
+#ifdef DEBUG
+static void print_control_points(unsigned char *cp, size_t cp_len)
+{
+    unsigned int i;
+
+    for(i=0; i <= XCP_CPBITS_MAX && CP_BYTE_NO(i) < cp_len; i++) {
+        if ((cp[CP_BYTE_NO(i)] & CP_BIT_MASK(i)) == 0)
+            TRACE_INFO("CP %u (%s)is off\n", i, ep11_get_cp(i));
+        else
+            TRACE_INFO("CP %u (%s) is on\n", i, ep11_get_cp(i));
+    }
+}
+#endif
+
+static CK_RV get_control_points(STDLL_TokData_t *tokdata,
+                                unsigned char* cp, size_t* cp_len)
+{
+    CK_RV rc;
+    cp_handler_data_t data;
+    ep11_private_data_t *ep11_data = tokdata->private_data;
+
+    memset(&data, 0, sizeof(data));
+    data.first = 1;
+    rc = handle_all_ep11_cards((ep11_target_t *)ep11_data->target_list,
+                               control_point_handler, &data);
+    if (rc != CKR_OK)
+        return rc;
+
+    *cp_len = MIN(*cp_len, sizeof(data.combined_cp));
+    memcpy(cp, data.combined_cp, *cp_len);
+
+#ifdef DEBUG
+    TRACE_DEBUG("Combined control points from all cards:\n");
+    TRACE_DEBUG_DUMP(cp, *cp_len);
+    print_control_points(cp,*cp_len);
+#endif
+
+    return CKR_OK;
 }
