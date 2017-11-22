@@ -530,6 +530,16 @@ typedef CK_ULONG          CK_ATTRIBUTE_TYPE;
  * in key objects only. */
 #define CKA_IBM_OPAQUE         CKA_VENDOR_DEFINED + 1
 
+#define CKA_IBM_RESTRICTABLE      (CKA_VENDOR_DEFINED +0x10001)
+#define CKA_IBM_NEVER_MODIFIABLE  (CKA_VENDOR_DEFINED +0x10002)
+#define CKA_IBM_RETAINKEY         (CKA_VENDOR_DEFINED +0x10003)
+#define CKA_IBM_ATTRBOUND         (CKA_VENDOR_DEFINED +0x10004)
+#define CKA_IBM_KEYTYPE           (CKA_VENDOR_DEFINED +0x10005)
+#define CKA_IBM_CV                (CKA_VENDOR_DEFINED +0x10006)
+#define CKA_IBM_MACKEY            (CKA_VENDOR_DEFINED +0x10007)
+#define CKA_IBM_USE_AS_DATA       (CKA_VENDOR_DEFINED +0x10008)
+#define CKA_IBM_STRUCT_PARAMS     (CKA_VENDOR_DEFINED +0x10009)
+#define CKA_IBM_STD_COMPLIANCE1   (CKA_VENDOR_DEFINED +0x1000a)
 
 /* CK_ATTRIBUTE is a structure that includes the type, length
  * and value of an attribute */

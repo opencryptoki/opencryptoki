@@ -1958,7 +1958,6 @@ error:
 }
 
 
-#define  CKA_IBM_STRUCT_PARAMS  (CKA_VENDOR_DEFINED +0x10009)
 
 static CK_RV dh_generate_keypair(STDLL_TokData_t *tokdata,
 				 CK_MECHANISM_PTR pMechanism,
