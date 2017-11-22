@@ -70,7 +70,34 @@ struct RSA_GENERATED_TEST_VECTOR rsa_oaep_generated_tv[] = {
 				"abcdefghijklmnopqrstuvwxyz", 26},
 		.keylen = 16,
 		.keytype = {CKM_AES_KEY_GEN, 0, 0}
-	}, {	// #3
+    }, {    // #3
+        .modbits = 1024,
+        .publ_exp_len = 3,
+        .publ_exp = { 0x01, 0x00, 0x01 },
+        .inputlen = 28,
+        .oaep_params = {CKM_SHA224, CKG_MGF1_SHA224, CKZ_DATA_SPECIFIED,
+                "", 0},
+        .keylen = 24,
+        .keytype = {CKM_AES_KEY_GEN, 0, 0}
+    }, {    // #4
+        .modbits = 2048,
+        .publ_exp_len = 3,
+        .publ_exp = { 0x01, 0x00, 0x01 },
+        .inputlen = 16,
+        .oaep_params = {CKM_SHA224, CKG_MGF1_SHA224, CKZ_DATA_SPECIFIED,
+                "abcdefghijkl", 12},
+        .keylen = 32,
+        .keytype = {CKM_AES_KEY_GEN, 0, 0}
+    }, {    // #5
+        .modbits = 4096,
+        .publ_exp_len = 3,
+        .publ_exp = { 0x01, 0x00, 0x01 },
+        .inputlen = 36,
+        .oaep_params = {CKM_SHA224, CKG_MGF1_SHA224, CKZ_DATA_SPECIFIED,
+                "abcdefghijklmnopqrstuvwxyz", 26},
+        .keylen = 32,
+        .keytype = {CKM_GENERIC_SECRET_KEY_GEN, 0, 0}
+	}, {	// #5
 		.modbits = 1024,
 		.publ_exp_len = 3,
 		.publ_exp = { 0x01, 0x00, 0x01 },
@@ -79,7 +106,7 @@ struct RSA_GENERATED_TEST_VECTOR rsa_oaep_generated_tv[] = {
 				"", 0},
 		.keylen = 24,
 		.keytype = {CKM_AES_KEY_GEN, 0, 0}
-	}, {	// #4
+	}, {	// #6
 		.modbits = 2048,
 		.publ_exp_len = 3,
 		.publ_exp = { 0x01, 0x00, 0x01 },
@@ -88,7 +115,7 @@ struct RSA_GENERATED_TEST_VECTOR rsa_oaep_generated_tv[] = {
 				"abcdefghijkl", 12},
 		.keylen = 32,
 		.keytype = {CKM_AES_KEY_GEN, 0, 0}
-	}, {	// #5
+	}, {	// #7
 		.modbits = 4096,
 		.publ_exp_len = 3,
 		.publ_exp = { 0x01, 0x00, 0x01 },
@@ -97,7 +124,7 @@ struct RSA_GENERATED_TEST_VECTOR rsa_oaep_generated_tv[] = {
 				"abcdefghijklmnopqrstuvwxyz", 26},
 		.keylen = 32,
 		.keytype = {CKM_GENERIC_SECRET_KEY_GEN, 0, 0}
-	}, {	// #6
+	}, {	// #8
 		.modbits = 1024,
 		.publ_exp_len = 3,
 		.publ_exp = { 0x01, 0x00, 0x01 },
@@ -106,7 +133,7 @@ struct RSA_GENERATED_TEST_VECTOR rsa_oaep_generated_tv[] = {
 				"", 0},
 		.keylen = 24,
 		.keytype = {CKM_DES3_KEY_GEN, 0, 0}
-	}, {	// #7
+	}, {	// #9
 		.modbits = 2048,
 		.publ_exp_len = 3,
 		.publ_exp = { 0x01, 0x00, 0x01 },
@@ -115,7 +142,7 @@ struct RSA_GENERATED_TEST_VECTOR rsa_oaep_generated_tv[] = {
 				"abcdefghijkl", 12},
 		.keylen = 16,
 		.keytype = {CKM_AES_KEY_GEN, 0, 0}
-	}, {	// #8
+	}, {	// #10
 		.modbits = 4096,
 		.publ_exp_len = 3,
 		.publ_exp = { 0x01, 0x00, 0x01 },
@@ -124,7 +151,7 @@ struct RSA_GENERATED_TEST_VECTOR rsa_oaep_generated_tv[] = {
 				"abcdefghijklmnopqrstuvwxyz", 26},
 		.keylen = 24,
 		.keytype = {CKM_AES_KEY_GEN, 0, 0}
-	}, {	// #9
+	}, {	// #11
 		.modbits = 2048,
 		.publ_exp_len = 3,
 		.publ_exp = { 0x01, 0x00, 0x01 },
@@ -133,7 +160,7 @@ struct RSA_GENERATED_TEST_VECTOR rsa_oaep_generated_tv[] = {
 				"", 0},
 		.keylen = 32,
 		.keytype = {CKM_AES_KEY_GEN, 0, 0}
-	}, {	// #10
+	}, {	// #12
 		.modbits = 2048,
 		.publ_exp_len = 3,
 		.publ_exp = { 0x01, 0x00, 0x01 },
@@ -142,7 +169,7 @@ struct RSA_GENERATED_TEST_VECTOR rsa_oaep_generated_tv[] = {
 				"abcdefghijkl", 12},
                 .keylen = 8,
                 .keytype = {CKM_CDMF_KEY_GEN, 0, 0},
-	}, {	// #11
+	}, {	// #13
 		.modbits = 4096,
 		.publ_exp_len = 3,
 		.publ_exp = { 0x01, 0x00, 0x01 },
@@ -158,7 +185,7 @@ struct RSA_GENERATED_TEST_VECTOR rsa_oaep_generated_tv[] = {
 struct GENERATED_TEST_SUITE_INFO generated_oaep_test_suites[] = {
 	{
 		.name = "RSA PKCS OAEP",
-		.tvcount = 12,
+		.tvcount = 15,
 		.tv = rsa_oaep_generated_tv,
 		.mech = {CKM_RSA_PKCS_OAEP, 0, 0},
 	}
@@ -1364,7 +1391,7 @@ struct GENERATED_TEST_SUITE_INFO generated_keywrap_test_suites[] = {
 };
 
 
-#define NUM_OF_GENERATED_SIGVER_TESTSUITES 5
+#define NUM_OF_GENERATED_SIGVER_TESTSUITES 7
 struct GENERATED_TEST_SUITE_INFO generated_sigver_test_suites[] = {
 	{
 		.name = "RSA PKCS",
@@ -1376,6 +1403,11 @@ struct GENERATED_TEST_SUITE_INFO generated_sigver_test_suites[] = {
 		.tvcount = 30,
 		.tv = rsa_generated_tv,
 		.mech = {CKM_SHA1_RSA_PKCS, 0, 0},
+    }, {
+        .name = "RSA SHA224 PKCS",
+        .tvcount = 30,
+        .tv = rsa_generated_tv,
+        .mech = {CKM_SHA224_RSA_PKCS, 0, 0},
 	}, {
 		.name = "RSA SHA256 PKCS",
 		.tvcount = 30,
@@ -1400,7 +1432,7 @@ struct GENERATED_TEST_SUITE_INFO generated_sigver_test_suites[] = {
 };
 
 
-#define NUM_OF_GENERATED_SIGVER_UPDATE_TESTSUITES 4
+#define NUM_OF_GENERATED_SIGVER_UPDATE_TESTSUITES 5
 struct GENERATED_TEST_SUITE_INFO generated_sigver_update_test_suites[] = {
 	{
 		.name = "RSA SHA1 PKCS",
@@ -1408,6 +1440,11 @@ struct GENERATED_TEST_SUITE_INFO generated_sigver_update_test_suites[] = {
 		.tv = rsa_generated_tv,
 		.mech = {CKM_SHA1_RSA_PKCS, 0, 0},
 	}, {
+        .name = "RSA SHA224 PKCS",
+        .tvcount = 30,
+        .tv = rsa_generated_tv,
+        .mech = {CKM_SHA224_RSA_PKCS, 0, 0},
+    }, {
 		.name = "RSA SHA256 PKCS",
 		.tvcount = 30,
 		.tv = rsa_generated_tv,
