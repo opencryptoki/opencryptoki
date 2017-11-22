@@ -213,6 +213,7 @@ p11_get_ckm(CK_ULONG mechanism)
 	_sym2str(CKM_X9_42_DH_DERIVE);
 	_sym2str(CKM_X9_42_DH_HYBRID_DERIVE);
 	_sym2str(CKM_X9_42_MQV_DERIVE);
+    _sym2str(CKM_SHA224_RSA_PKCS);
 	_sym2str(CKM_SHA256_RSA_PKCS);
 	_sym2str(CKM_SHA384_RSA_PKCS);
 	_sym2str(CKM_SHA512_RSA_PKCS);
