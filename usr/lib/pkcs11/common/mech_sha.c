@@ -430,9 +430,11 @@ CK_RV sha_hash(STDLL_TokData_t *tokdata, SESSION *sess, CK_BBOOL length_only,
 		hsize = SHA1_HASH_SIZE;
 		break;
     case CKM_SHA224:
+    case CKM_SHA512_224:
         hsize = SHA224_HASH_SIZE;
         break;
 	case CKM_SHA256:
+    case CKM_SHA512_256:
 		hsize = SHA256_HASH_SIZE;
 		break;
 	case CKM_SHA384:
@@ -509,9 +511,11 @@ CK_RV sha_hash_final(STDLL_TokData_t *tokdata, SESSION *sess,
 		hsize = SHA1_HASH_SIZE;
 		break;
     case CKM_SHA224:
+    case CKM_SHA512_224:
         hsize = SHA224_HASH_SIZE;
         break;
 	case CKM_SHA256:
+    case CKM_SHA512_256:
 		hsize = SHA256_HASH_SIZE;
 		break;
 	case CKM_SHA384:
@@ -1277,9 +1281,13 @@ CK_RV sha384_hmac_sign(STDLL_TokData_t *tokdata,
 	return CKR_OK;
 }
 
-/** This routine gets called for two mechanisms actually:
+/** This routine gets called for 6 mechanisms actually:
  *    CKM_SHA512_HMAC
  *    CKM_SHA512_HMAC_GENERAL
+ *    CKM_SHA512_224_HMAC
+ *    CKM_SHA512_224_HMAC_GENERAL
+ *    CKM_SHA512_256_HMAC
+ *    CKM_SHA512_256_HMAC_GENERAL
  */
 CK_RV sha512_hmac_sign(STDLL_TokData_t *tokdata,
 		     SESSION *sess, CK_BBOOL length_only,
@@ -1303,15 +1311,22 @@ CK_RV sha512_hmac_sign(STDLL_TokData_t *tokdata,
 		return CKR_FUNCTION_FAILED;
 	}
 
-	if (ctx->mech.mechanism == CKM_SHA512_HMAC_GENERAL) {
+	if (ctx->mech.mechanism == CKM_SHA512_HMAC_GENERAL ||
+        ctx->mech.mechanism == CKM_SHA512_224_HMAC_GENERAL ||
+        ctx->mech.mechanism == CKM_SHA512_256_HMAC_GENERAL) {
 		hmac_len = *(CK_ULONG *)ctx->mech.pParameter;
 
 		if (hmac_len == 0) {
 			*out_data_len = 0;
 			return CKR_OK;
 		}
-	} else
-		hmac_len = SHA512_HASH_SIZE;
+    } else if (ctx->mech.mechanism == CKM_SHA512_224_HMAC) {
+        hmac_len = SHA224_HASH_SIZE;
+    } else if (ctx->mech.mechanism == CKM_SHA512_224_HMAC) {
+        hmac_len = SHA256_HASH_SIZE;
+    } else {
+        hmac_len = SHA512_HASH_SIZE;
+    }
 
 	if (length_only == TRUE) {
 		*out_data_len = hmac_len;
@@ -1724,6 +1739,10 @@ CK_RV sha512_hmac_verify(STDLL_TokData_t *tokdata,
 	 */
 	if (ctx->mech.mechanism == CKM_SHA512_HMAC_GENERAL)
 		hmac_len = *(CK_ULONG *)ctx->mech.pParameter;
+	else if (ctx->mech.mechanism == CKM_SHA512_224_HMAC)
+        hmac_len = SHA224_HASH_SIZE;
+    else if (ctx->mech.mechanism == CKM_SHA512_256_HMAC)
+        hmac_len = SHA256_HASH_SIZE;
 	else
 		hmac_len = SHA512_HASH_SIZE;
 

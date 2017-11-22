@@ -52,6 +52,8 @@ digest_mgr_init( STDLL_TokData_t   *tokdata,
       case CKM_SHA256:
       case CKM_SHA384:
       case CKM_SHA512:
+      case CKM_SHA512_224:
+      case CKM_SHA512_256:
          {
             if (mech->ulParameterLen != 0){
                TRACE_ERROR("%s\n", ock_err(ERR_MECHANISM_PARAM_INVALID));
@@ -199,6 +201,8 @@ digest_mgr_digest( STDLL_TokData_t *tokdata,
       case CKM_SHA256:
       case CKM_SHA384:
       case CKM_SHA512:
+      case CKM_SHA512_224:
+      case CKM_SHA512_256:
          rc = sha_hash( tokdata, sess, length_only, ctx, in_data, in_data_len,
 		        out_data, out_data_len );
          break;
@@ -262,6 +266,8 @@ digest_mgr_digest_update( STDLL_TokData_t *tokdata,
       case CKM_SHA256:
       case CKM_SHA384:
       case CKM_SHA512:
+      case CKM_SHA512_224:
+      case CKM_SHA512_256:
          rc = sha_hash_update(tokdata, sess, ctx, data, data_len);
          break;
 
@@ -380,6 +386,8 @@ digest_mgr_digest_final( STDLL_TokData_t *tokdata,
       case CKM_SHA256:
       case CKM_SHA384:
       case CKM_SHA512:
+      case CKM_SHA512_224:
+      case CKM_SHA512_256:
          rc = sha_hash_final(tokdata, sess, length_only, ctx, hash, hash_len);
          break;
 

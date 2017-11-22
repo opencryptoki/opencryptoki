@@ -796,9 +796,11 @@ CK_RV get_sha_size(CK_ULONG mech, CK_ULONG *hsize)
 		*hsize = SHA1_HASH_SIZE;
 		break;
     case CKM_SHA224:
+    case CKM_SHA512_224:
         *hsize = SHA224_HASH_SIZE;
         break;
 	case CKM_SHA256:
+    case CKM_SHA512_256:
 		*hsize = SHA256_HASH_SIZE;
 		break;
 	case CKM_SHA384:
