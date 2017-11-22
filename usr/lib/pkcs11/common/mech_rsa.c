@@ -1347,6 +1347,9 @@ CK_RV rsa_hash_pss_sign(STDLL_TokData_t *tokdata, SESSION *sess,
 	case CKM_SHA1_RSA_PKCS_PSS:
 		digest_mech.mechanism = CKM_SHA_1;
 		break;
+    case CKM_SHA224_RSA_PKCS_PSS:
+        digest_mech.mechanism = CKM_SHA224;
+        break;
 	case CKM_SHA256_RSA_PKCS_PSS:
 		digest_mech.mechanism = CKM_SHA256;
 		break;
@@ -1423,6 +1426,9 @@ CK_RV rsa_hash_pss_update(STDLL_TokData_t *tokdata, SESSION *sess,
 		case CKM_SHA1_RSA_PKCS_PSS:
 			digest_mech.mechanism = CKM_SHA_1;
 			break;
+        case CKM_SHA224_RSA_PKCS_PSS:
+            digest_mech.mechanism = CKM_SHA224;
+            break;
 		case CKM_SHA256_RSA_PKCS_PSS:
 			digest_mech.mechanism = CKM_SHA256;
 			break;
@@ -1531,6 +1537,9 @@ CK_RV rsa_hash_pss_verify(STDLL_TokData_t *tokdata, SESSION *sess,
 	case CKM_SHA1_RSA_PKCS_PSS:
 		digest_mech.mechanism = CKM_SHA_1;
 		break;
+    case CKM_SHA224_RSA_PKCS_PSS:
+        digest_mech.mechanism = CKM_SHA224;
+        break;
 	case CKM_SHA256_RSA_PKCS_PSS:
 		digest_mech.mechanism = CKM_SHA256;
 		break;
@@ -2721,6 +2730,15 @@ CK_RV check_pss_params(CK_MECHANISM *mech, CK_ULONG modlen)
 			return CKR_MECHANISM_PARAM_INVALID;
 		}
 		break;
+
+    case CKM_SHA224_RSA_PKCS_PSS:
+        if ((pssParams->hashAlg != CKM_SHA224) &&
+            (pssParams->hashAlg != mgf_mech)) {
+            TRACE_ERROR("%s\n",
+                    ock_err(ERR_MECHANISM_PARAM_INVALID));
+            return CKR_MECHANISM_PARAM_INVALID;
+        }
+        break;
 
 	case CKM_SHA256_RSA_PKCS_PSS:
 		if ((pssParams->hashAlg != CKM_SHA256) &&
