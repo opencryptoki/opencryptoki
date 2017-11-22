@@ -165,6 +165,7 @@ typedef struct {
     CK_ULONG      ep11_pin_blob_len;
     CK_BYTE       raw2key_wrap_blob[MAX_BLOBSIZE];
     size_t        raw2key_wrap_blob_l;
+    int           cka_sensitive_default_true;
 } ep11_private_data_t;
 
 /* target list of adapters/domains, specified in a config file by user,
@@ -224,7 +225,8 @@ CK_ULONG mech_list_len = 0;
 
 
 static CK_RV
-check_key_attributes(CK_KEY_TYPE kt, CK_OBJECT_CLASS kc, CK_ATTRIBUTE_PTR attrs,
+check_key_attributes(STDLL_TokData_t *tokdata,
+             CK_KEY_TYPE kt, CK_OBJECT_CLASS kc, CK_ATTRIBUTE_PTR attrs,
 		     CK_ULONG attrs_len, CK_ATTRIBUTE_PTR *p_attrs,
 		     CK_ULONG *p_attrs_len) {
 
@@ -235,12 +237,17 @@ check_key_attributes(CK_KEY_TYPE kt, CK_OBJECT_CLASS kc, CK_ATTRIBUTE_PTR attrs,
 	CK_ULONG check_types_priv[] = {CKA_SIGN, CKA_DECRYPT, CKA_UNWRAP };
 	CK_ULONG check_types_sec[] =
 		{CKA_ENCRYPT, CKA_DECRYPT, CKA_WRAP, CKA_UNWRAP};
+    CK_ULONG check_types_sec_sensitive[] =
+        {CKA_ENCRYPT, CKA_DECRYPT, CKA_WRAP, CKA_UNWRAP, CKA_SENSITIVE};
 	CK_ULONG check_types_gen_sec[] =
 		{CKA_SIGN, CKA_VERIFY, CKA_ENCRYPT, CKA_DECRYPT};
+    CK_ULONG check_types_gen_sec_sensitive[] =
+        {CKA_SIGN, CKA_VERIFY, CKA_ENCRYPT, CKA_DECRYPT, CKA_SENSITIVE};
 	CK_ULONG check_types_derive[] = {CKA_DERIVE};
 	CK_ULONG *check_types = NULL;
-	CK_BBOOL *check_values[] = { &true, &true, &true, &true };
+	CK_BBOOL *check_values[] = { &true, &true, &true, &true , &true};
 	CK_ULONG attr_cnt = 0;
+    ep11_private_data_t *ep11_data = tokdata->private_data;
 
 	/* check/add attributes for public key template */
 	if ((rc = dup_attribute_array(attrs, attrs_len,
@@ -250,12 +257,23 @@ check_key_attributes(CK_KEY_TYPE kt, CK_OBJECT_CLASS kc, CK_ATTRIBUTE_PTR attrs,
 	switch (kc) {
 	case CKO_SECRET_KEY:
 		if (kt == CKK_GENERIC_SECRET) {
-			check_types = &check_types_gen_sec[0];
-			attr_cnt = sizeof(check_types_gen_sec)/sizeof(CK_ULONG);
-		} else {
-			check_types = &check_types_sec[0];
-			attr_cnt = sizeof(check_types_sec)/sizeof(CK_ULONG);
-		}
+            if (ep11_data->cka_sensitive_default_true) {
+                check_types = &check_types_gen_sec_sensitive[0];
+                attr_cnt = sizeof(check_types_gen_sec_sensitive)/sizeof(CK_ULONG);
+
+            } else {
+                check_types = &check_types_gen_sec[0];
+                attr_cnt = sizeof(check_types_gen_sec)/sizeof(CK_ULONG);
+            }
+        } else {
+            if (ep11_data->cka_sensitive_default_true) {
+                check_types = &check_types_sec_sensitive[0];
+                attr_cnt = sizeof(check_types_sec_sensitive)/sizeof(CK_ULONG);
+            } else {
+                check_types = &check_types_sec[0];
+                attr_cnt = sizeof(check_types_sec)/sizeof(CK_ULONG);
+            }
+        }
 		break;
 	case CKO_PUBLIC_KEY:
 		if ((kt == CKK_EC) || (kt == CKK_ECDSA) ||
@@ -981,7 +999,7 @@ static CK_RV rawkey_2_blob(STDLL_TokData_t  * tokdata, unsigned char *key,
 	TRACE_INFO("%s encrypt ksize=0x%lx clen=0x%lx rc=0x%lx\n",
 		   __func__, ksize, clen, rc);
 
-	rc = check_key_attributes(ktype, CKO_SECRET_KEY, p_attrs, attrs_len,
+	rc = check_key_attributes(tokdata, ktype, CKO_SECRET_KEY, p_attrs, attrs_len,
 				  &new_p_attrs, &new_attrs_len);
 	if (rc != CKR_OK) {
 		TRACE_ERROR("%s RSA/EC check private key attributes failed with rc=0x%lx\n",
@@ -1353,7 +1371,7 @@ static CK_RV import_RSA_key(STDLL_TokData_t *tokdata, OBJECT *rsa_key_obj,
 			goto import_RSA_key_end;
 		}
 
-		rc = check_key_attributes(CKK_RSA, CKO_PRIVATE_KEY, p_attrs, attrs_len,
+		rc = check_key_attributes(tokdata, CKK_RSA, CKO_PRIVATE_KEY, p_attrs, attrs_len,
 					  &new_p_attrs, &new_attrs_len);
 		if (rc != CKR_OK) {
 			TRACE_ERROR("%s RSA/EC check private key attributes failed with rc=0x%lx\n",
@@ -1524,7 +1542,7 @@ static CK_RV import_EC_key(STDLL_TokData_t *tokdata, OBJECT *ec_key_obj,
 			goto import_EC_key_end;
 		}
 
-		rc = check_key_attributes(CKK_EC, CKO_PRIVATE_KEY, p_attrs, attrs_len,
+		rc = check_key_attributes(tokdata, CKK_EC, CKO_PRIVATE_KEY, p_attrs, attrs_len,
 					  &new_p_attrs, &new_attrs_len);
 		if (rc != CKR_OK) {
 			TRACE_ERROR("%s EC check private key attributes failed with rc=0x%lx\n",
@@ -1684,7 +1702,7 @@ CK_RV ep11tok_generate_key(STDLL_TokData_t *tokdata, SESSION *session,
 		goto error;
 	}
 
-	rc = check_key_attributes(ktype, CKO_SECRET_KEY, attrs, attrs_len,
+	rc = check_key_attributes(tokdata, ktype, CKO_SECRET_KEY, attrs, attrs_len,
 				  &new_attrs, &new_attrs_len);
 	if (rc != CKR_OK) {
 		TRACE_ERROR("%s check secret key attributes failed: rc=0x%lx\n",
@@ -1877,7 +1895,7 @@ CK_RV ep11tok_derive_key(STDLL_TokData_t *tokdata, SESSION *session, CK_MECHANIS
 		goto error;
 	}
 
-	rc = check_key_attributes(ktype, class, attrs, attrs_len,
+	rc = check_key_attributes(tokdata, ktype, class, attrs, attrs_len,
 				  &new_attrs, &new_attrs_len);
 	if (rc != CKR_OK) {
 		TRACE_ERROR("%s Check key attributes for derived key failed with rc=0x%lx\n",
@@ -2321,7 +2339,7 @@ static CK_RV dsa_generate_keypair(STDLL_TokData_t *tokdata,
 	memcpy(&(pPublicKeyTemplate_new[new_public_attr]),
 	       &(pqgs[0]), sizeof(CK_ATTRIBUTE));
 
-	rc = check_key_attributes(CKK_DSA, CKO_PUBLIC_KEY,
+	rc = check_key_attributes(tokdata, CKK_DSA, CKO_PUBLIC_KEY,
 				  pPublicKeyTemplate_new, new_public_attr+1,
 				  &dsa_pPublicKeyTemplate,
 				  &dsa_ulPublicKeyAttributeCount);
@@ -2331,7 +2349,7 @@ static CK_RV dsa_generate_keypair(STDLL_TokData_t *tokdata,
 		return rc;
 	}
 
-	rc = check_key_attributes(CKK_DSA, CKO_PRIVATE_KEY,
+	rc = check_key_attributes(tokdata, CKK_DSA, CKO_PRIVATE_KEY,
 				  pPrivateKeyTemplate, ulPrivateKeyAttributeCount,
 				  &dsa_pPrivateKeyTemplate,
 				  &dsa_ulPrivateKeyAttributeCount);
@@ -2472,7 +2490,7 @@ static CK_RV rsa_ec_generate_keypair(STDLL_TokData_t *tokdata,
 		return CKR_MECHANISM_INVALID;
 	}
 
-	rc = check_key_attributes(ktype, CKO_PUBLIC_KEY,
+	rc = check_key_attributes(tokdata, ktype, CKO_PUBLIC_KEY,
 				  pPublicKeyTemplate, ulPublicKeyAttributeCount,
 				  &new_pPublicKeyTemplate,
 				  &new_ulPublicKeyAttributeCount);
@@ -2482,7 +2500,7 @@ static CK_RV rsa_ec_generate_keypair(STDLL_TokData_t *tokdata,
 		return rc;
 	}
 
-	rc = check_key_attributes(ktype, CKO_PRIVATE_KEY, pPrivateKeyTemplate,
+	rc = check_key_attributes(tokdata, ktype, CKO_PRIVATE_KEY, pPrivateKeyTemplate,
 				  ulPrivateKeyAttributeCount,
 				  &new_pPrivateKeyTemplate,
 				  &new_ulPrivateKeyAttributeCount);
@@ -3556,18 +3574,21 @@ CK_RV ep11tok_unwrap_key(STDLL_TokData_t *tokdata, SESSION *session, CK_MECHANIS
 	}
 	switch (*(CK_KEY_TYPE *)cla_attr->pValue) {
 	case CKO_SECRET_KEY:
-		rc = check_key_attributes(*(CK_KEY_TYPE *)keytype_attr->pValue,
+		rc = check_key_attributes(tokdata,
+                      *(CK_KEY_TYPE *)keytype_attr->pValue,
 					  CKO_SECRET_KEY, attrs,
 					  attrs_len, &new_attrs,
 					  &new_attrs_len);
 		break;
 	case CKO_PUBLIC_KEY:
-		rc = check_key_attributes(*(CK_KEY_TYPE *)keytype_attr->pValue,
+		rc = check_key_attributes(tokdata,
+                      *(CK_KEY_TYPE *)keytype_attr->pValue,
 					  CKO_PUBLIC_KEY, attrs, attrs_len,
 					  &new_attrs, &new_attrs_len);
 		break;
 	case CKO_PRIVATE_KEY:
-		rc = check_key_attributes(*(CK_KEY_TYPE *)keytype_attr->pValue,
+		rc = check_key_attributes(tokdata,
+                      *(CK_KEY_TYPE *)keytype_attr->pValue,
 					  CKO_PRIVATE_KEY, attrs, attrs_len,
 					  &new_attrs, &new_attrs_len);
 		break;
@@ -4074,9 +4095,12 @@ static int read_adapter_config_file(STDLL_TokData_t *tokdata, const char* conf_n
 			} else if (strncmp(token, "APQN_ANY", 8) == 0) {
 				anymode = 1;
 				i = 0;
-			} else if (strncmp(token, "LOGLEVEL", 8) == 0)
+			} else if (strncmp(token, "LOGLEVEL", 8) == 0) {
 				i = 3;
-			else {
+            } else if (strncmp(token, "FORCE_SENSITIVE", 15) == 0) {
+               i = 0;
+               ep11_data->cka_sensitive_default_true = 1;
+            } else {
 				/* syntax error */
 				TRACE_ERROR("%s Expected APQN_WHITELIST or"
 					    " APQN_ANY or LOGLEVEL keyword,"
