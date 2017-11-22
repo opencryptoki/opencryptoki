@@ -302,8 +302,14 @@ mech_to_str(CK_ULONG mech)
 		 		 return "CKM_MD2_KEY_DERIVATION";
 		 if (mech == CKM_SHA1_KEY_DERIVATION)
 		 		 return "CKM_SHA1_KEY_DERIVATION";
+        if (mech == CKM_SHA224_KEY_DERIVATION)
+            return "CKM_SHA224_KEY_DERIVATION";
 		 if (mech == CKM_SHA256_KEY_DERIVATION)
 		 		 return "CKM_SHA256_KEY_DERIVATION";
+        if (mech == CKM_SHA384_KEY_DERIVATION)
+            return "CKM_SHA384_KEY_DERIVATION";
+        if (mech == CKM_SHA512_KEY_DERIVATION)
+            return "CKM_SHA512_KEY_DERIVATION";
 		 if (mech == CKM_PBE_MD2_DES_CBC)
 		 		 return "CKM_PBE_MD2_DES_CBC";
 		 if (mech == CKM_PBE_MD5_DES_CBC)
