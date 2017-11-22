@@ -70,6 +70,8 @@ mech_to_str(CK_ULONG mech)
 		 		 return "CKM_X9_42_DH_HYBRID_DERIVE";
 		 if (mech == CKM_X9_42_MQV_DERIVE)
 		 		 return "CKM_X9_42_MQV_DERIVE";
+        if (mech == CKM_SHA224_RSA_PKCS)
+                return "CKM_SHA224_RSA_PKCS";
 		 if (mech == CKM_SHA256_RSA_PKCS)
 		 		 return "CKM_SHA256_RSA_PKCS";
 		 if (mech == CKM_SHA384_RSA_PKCS)
