@@ -178,6 +178,16 @@ is_attribute_defined( CK_ATTRIBUTE_TYPE type )
       case  CKA_OWNER:
       case  CKA_ATTR_TYPES:
       case  CKA_TRUSTED:
+      case CKA_IBM_RESTRICTABLE:
+      case CKA_IBM_NEVER_MODIFIABLE:
+      case CKA_IBM_RETAINKEY:
+      case CKA_IBM_ATTRBOUND:
+      case CKA_IBM_KEYTYPE:
+      case CKA_IBM_CV:
+      case CKA_IBM_MACKEY:
+      case CKA_IBM_USE_AS_DATA:
+      case CKA_IBM_STRUCT_PARAMS:
+      case CKA_IBM_STD_COMPLIANCE1:
          return TRUE;
    }
 
