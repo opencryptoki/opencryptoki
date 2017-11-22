@@ -52,6 +52,14 @@ fi
 
 AC_CHECK_LIB([itm], [_ITM_commitTransaction], [itm=yes], [itm=no])
 
+OPENLDAP_LIBS=
+AC_CHECK_HEADERS([lber.h ldap.h],
+                [OPENLDAP_LIBS="-llber -lldap"],
+                [AC_MSG_ERROR([lber.h and ldap.h are missing. Please install
+                              'openldap-devel'.])])
+LIBS="$LIBS $OPENLDAP_LIBS"
+AC_SUBST([OPENLDAP_LIBS])
+
 dnl Define custom variables
 
 lockdir=$localstatedir/lock/opencryptoki
@@ -157,12 +165,6 @@ AC_ARG_WITH([openssl],
 	[],
 	[with_openssl=check])
 
-dnl --- Openldap development files
-AC_ARG_WITH([openldap],
-	AS_HELP_STRING([--with-openldap@<:@=DIR@:>@],[OpenLDAP development files location]),
-	[],
-	[with_openldap=check])
-
 dnl --- Libica development files
 AC_ARG_WITH([libica],
 	AS_HELP_STRING([--with-libica@<:@=DIR@:>@],[libica development files location]),
@@ -255,43 +257,6 @@ if test "x$with_openssl" != "xno"; then
 fi
 AC_SUBST([OPENSSL_CFLAGS])
 AC_SUBST([OPENSSL_LIBS])
-
-dnl --- with_openldap
-OPENLDAP_CFLAGS=
-OPENLDAP_LIBS=
-if test "x$with_openldap" != "xno"; then
-	if test "x$with_openldap" != "xyes" -a "x$with_openldap" != "xcheck"; then
-		OPENLDAP_CFLAGS="-I$with_openldap"
-		OPENLDAP_LIBS="-L$with_openldap"
-	fi
-	old_cflags="$CFLAGS"
-	old_libs="$LIBS"
-	CFLAGS="$CFLAGS $OPENLDAP_CFLAGS"
-	LIBS="$LIBS $OPENLDAP_LIBS"
-	AC_CHECK_HEADER([ldap.h], [], [
-		if test "x$with_openldap" != "xcheck"; then
-			AC_MSG_ERROR([Build with OpenLDAP requested but OpenLDAP headers couldn't be found])
-		fi
-		with_openldap=no
-	])
-	if test "x$with_openldap" != "xno"; then
-		AC_CHECK_LIB([ldap], [ldap_extended_operation_s], [
-			OPENLDAP_LIBS="$OPENLDAP_LIBS -lldap"
-			with_openldap=yes
-			], [
-				if test "x$with_openldap" != "xcheck"; then
-					AC_MSG_ERROR([Build with OpenLDAP requested but OpenLDAP libraries couldn't be found])
-				fi
-				with_openldap=no
-		])
-	fi
-	if test "x$with_openldap" = "xno"; then
-		CFLAGS="$old_cflags"
-		LIBS="$old_libs"
-	fi
-fi
-AC_SUBST([OPENLDAP_CFLAGS])
-AC_SUBST([OPENLDAP_LIBS])
 
 dnl --- with_libica
 LIBICA_CFLAGS=
@@ -527,16 +492,12 @@ AM_CONDITIONAL([ENABLE_EP11TOK], [test "x$enable_ep11tok" = "xyes"])
 
 dnl --- enable_icsftok
 if test "x$enable_icsftok" = "xyes"; then
-	if test "x$with_openldap" != "xyes"; then
-		AC_MSG_ERROR([ICSF token build requested but OpenLDAP development files not found])
-		enable_icsftok=no
-	fi
 	if test "x$with_openssl" != "xyes"; then
 		AC_MSG_ERROR([ICSF token build requested but OpenSSL development files not found])
 		enable_icsftok=no
 	fi
 fi
-if test "x$enable_icsftok" != "xno" -a "x$with_openldap" != "xno" -a "x$with_openssl" != "xno"; then
+if test "x$enable_icsftok" != "xno" -a "x$with_openssl" != "xno"; then
 	enable_icsftok=yes
 else
 	enable_icsftok=no
