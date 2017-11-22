@@ -1,3 +1,12 @@
+* opencryptoki 3.8.2
+- Update man pages.
+- Improve ock_tests for parallel execution.
+- Fix FindObjectsInit for hidden HW-feature.
+- Fix to allow vendor defined hardware features.
+- Fix unresolved symbols.
+- Fix tracing.
+- Code/project cleanup.
+
 * opencryptoki 3.8.1
 - Fix TPM data-structure reset function.
 - Fix error message when dlsym fails.
