@@ -152,6 +152,8 @@ _signVerifyParam signVerifyInput[] = {
 	{ CKM_ECDSA, 64, 0 },
 	{ CKM_ECDSA_SHA1, 100, 0 },
 	{ CKM_ECDSA_SHA1, 100, 4 },
+    { CKM_ECDSA_SHA224, 100, 0 },
+    { CKM_ECDSA_SHA224, 100, 4 },
 	{ CKM_ECDSA_SHA256, 100, 0 },
 	{ CKM_ECDSA_SHA256, 100, 4 },
 	{ CKM_ECDSA_SHA384, 100, 0 },
