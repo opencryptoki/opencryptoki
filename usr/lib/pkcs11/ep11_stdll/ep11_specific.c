@@ -4067,10 +4067,12 @@ static int read_adapter_config_file(STDLL_TokData_t *tokdata, const char* conf_n
 			} else {
 				TRACE_ERROR("%s EP 11 config file filename too large\n",
 					    __func__);
+                fclose(ap_fp);
 				return  APQN_FILE_INV_FILE_SIZE;
 			}
 		}
 	}
+    fclose(ap_fp);
 
 	ep11_targets->length = 0;
 
