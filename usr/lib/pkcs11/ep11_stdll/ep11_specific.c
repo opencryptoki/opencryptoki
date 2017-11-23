@@ -981,12 +981,8 @@ static CK_RV h_opaque_2_blob(STDLL_TokData_t *tokdata, CK_OBJECT_HANDLE handle,
 #define EP11_DEFAULT_CPFILTER_FILE "ep11cpfilter.conf"
 
 /* error rc for reading the adapter config file */
-static const int APQN_FILE_INV_0 = 1;
-static const int APQN_FILE_INV_1 = 2;
-static const int APQN_FILE_INV_2 = 3;
-static const int APQN_FILE_INV_3 = 4;
+static const int APQN_FILE_INV = 3;
 static const int APQN_FILE_INV_FILE_SIZE = 5;
-static const int APQN_FILE_FILE_ACCESS    = 6;
 static const int APQN_FILE_SYNTAX_ERROR_0 = 7;
 static const int APQN_FILE_SYNTAX_ERROR_1 = 8;
 static const int APQN_FILE_SYNTAX_ERROR_2 = 9;
@@ -1214,8 +1210,9 @@ CK_RV ep11_resolve_lib_sym(void *hdl) {
     dll_xcpa_internal_rv = (xcpa_internal_rv_t)dlsym(hdl, "xcpa_internal_rv");
 
 	if ((error = dlerror()) != NULL)  {
-		OCK_SYSLOG(LOG_ERR, "%s\n", error);
-		return (EXIT_FAILURE);
+        TRACE_ERROR("%s Error: %s\n", __func__, error);
+        OCK_SYSLOG(LOG_ERR, "%s: Error: %s\n", __func__, error);
+        return CKR_FUNCTION_FAILED;
 	}
 	else
 		return CKR_OK;
@@ -1267,13 +1264,16 @@ CK_RV ep11tok_init(STDLL_TokData_t *tokdata, CK_SLOT_ID SlotNumber, char *conf_n
 	}
 
 	rc = ep11_resolve_lib_sym(lib_ep11);
-	if (rc)
-		exit(rc);
+    if (rc != CKR_OK)
+        return rc;
 
 #ifndef XCP_STANDALONE
 	/* call ep11 shared lib init */
 	if (dll_m_init() < 0) {
 		TRACE_ERROR("%s ep11 lib init failed\n", __func__);
+        OCK_SYSLOG(LOG_ERR,
+                   "%s: Error: EP 11 library initialization failed\n",
+                   __func__);
 		return CKR_DEVICE_ERROR;
 	}
 #endif
@@ -1283,6 +1283,8 @@ CK_RV ep11tok_init(STDLL_TokData_t *tokdata, CK_SLOT_ID SlotNumber, char *conf_n
                             &ep11_data->control_points_len);
     if (rc != CKR_OK) {
         TRACE_ERROR("%s Failed to get the control points (get_control_points rc=0x%lx)\n",
+                   __func__, rc);
+        OCK_SYSLOG(LOG_ERR, "%s: Failed to get the control points rc=0x%lx\n",
                    __func__, rc);
         return rc;
     }
@@ -1297,9 +1299,18 @@ CK_RV ep11tok_init(STDLL_TokData_t *tokdata, CK_SLOT_ID SlotNumber, char *conf_n
 			TRACE_ERROR("%s rc is CKR_IBM_WK_NOT_INITIALIZED, "
 				    "no master key set ?\n", __func__);
 			OCK_SYSLOG(LOG_ERR,
-				   "%s: CKR_IBM_WK_NOT_INITIALIZED occured, no "
+				   "%s: Error: CKR_IBM_WK_NOT_INITIALIZED occurred, no "
 				   "master key set ?\n", __func__);
 		}
+        if (rc == CKR_FUNCTION_CANCELED) {
+            TRACE_ERROR("%s rc is CKR_FUNCTION_CANCELED, "
+                    "control point 13 (generate or derive symmetric "
+                    "keys including DSA parameters) disabled ?\n", __func__);
+            OCK_SYSLOG(LOG_ERR,
+                   "%s: Error: CKR_FUNCTION_CANCELED occurred, "
+                   "control point 13 (generate or derive symmetric "
+                   "keys including DSA parameters) disabled ?\n", __func__);
+        }
 		return CKR_GENERAL_ERROR;
 	}
 
@@ -4153,7 +4164,9 @@ static int read_adapter_config_file(STDLL_TokData_t *tokdata, const char* conf_n
 	/* now we should really have an open ep11 token config file */
 	if (!ap_fp) {
 		TRACE_ERROR("%s no valid EP 11 config file found\n", __func__);
-		return APQN_FILE_INV_2;
+        OCK_SYSLOG(LOG_ERR,"%s: Error: EP 11 config file '%s' not found\n",
+                   __func__, fname);
+        return APQN_FILE_INV;
 	}
 
 	TRACE_INFO("%s EP 11 token config file is '%s'\n", __func__, fname);
@@ -4175,9 +4188,11 @@ static int read_adapter_config_file(STDLL_TokData_t *tokdata, const char* conf_n
 				memcpy(filebuf+ap_file_size, p, len);
 				ap_file_size += len;
 			} else {
-				TRACE_ERROR("%s EP 11 config file filename too large\n",
-					    __func__);
+				TRACE_ERROR("%s EP 11 config file '%s' is too large\n",
+					    __func__, fname);
                 fclose(ap_fp);
+                OCK_SYSLOG(LOG_ERR,"%s: Error: EP 11 config file '%s' is too large\n",
+                           __func__, fname);
 				return  APQN_FILE_INV_FILE_SIZE;
 			}
 		}
@@ -4215,10 +4230,14 @@ static int read_adapter_config_file(STDLL_TokData_t *tokdata, const char* conf_n
                 i = 4;
             } else {
 				/* syntax error */
-				TRACE_ERROR("%s Expected APQN_WHITELIST or"
-					    " APQN_ANY or LOGLEVEL keyword,"
-					    " found '%s' in configfile\n",
-					    __func__, token);
+				TRACE_ERROR("%s Expected APQN_WHITELIST,"
+					    " APQN_ANY, LOGLEVEL, FORCE_SENSITIVE, or CPFILTER keyword,"
+					    " found '%s' in config file '%s'\n",
+					    __func__, token, fname);
+                OCK_SYSLOG(LOG_ERR,"%s: Error: Expected APQN_WHITELIST,"
+                           " APQN_ANY, LOGLEVEL, FORCE_SENSITIVE, or CPFILTER keyword,"
+                           " found '%s' in config file '%s'\n",
+                                   __func__, token, fname);
 				rc = APQN_FILE_SYNTAX_ERROR_0;
 				break;
 			}
@@ -4228,6 +4247,9 @@ static int read_adapter_config_file(STDLL_TokData_t *tokdata, const char* conf_n
 			 */
             if (token == NULL) {
                 rc = APQN_FILE_UNEXPECTED_END_OF_FILE;
+                OCK_SYSLOG(LOG_ERR,"%s: Error: Unexpected end of file found"
+                           " in config file '%s', expected 'END' or adapter number\n",
+                           __func__, fname);
                 break;
             }
 			if (strncmp(token, "END", 3) == 0)
@@ -4235,6 +4257,9 @@ static int read_adapter_config_file(STDLL_TokData_t *tokdata, const char* conf_n
 			else {
 				if (check_n(ep11_targets, token, &apqn_i) < 0) {
 					rc = APQN_FILE_SYNTAX_ERROR_1;
+                    OCK_SYSLOG(LOG_ERR,"%s: Error: Expected valid adapter"
+                               " number, found '%s' in config file '%s'\n",
+                               __func__, token, fname);
 					break;
 				}
 				i = 2;
@@ -4245,22 +4270,33 @@ static int read_adapter_config_file(STDLL_TokData_t *tokdata, const char* conf_n
 			 */
             if (token == NULL) {
                 rc = APQN_FILE_UNEXPECTED_END_OF_FILE;
+                OCK_SYSLOG(LOG_ERR,"%s: Error: Unexpected end of file found"
+                           " in config file '%s', expected domain number (2nd number)\n",
+                           __func__, fname);
                 break;
             }
 			if (strncmp(token, "END", 3) == 0) {
-				TRACE_ERROR("%s Expected 2nd number, found '%s' in configfile\n",
+				TRACE_ERROR("%s Expected 2nd number, found '%s' in config file\n",
 					    __func__, token);
+                OCK_SYSLOG(LOG_ERR,"%s: Error: Expected valid domain"
+                           " number (2nd number), found '%s' in config file '%s'\n",
+                           __func__, token, fname);
 				rc = APQN_FILE_SYNTAX_ERROR_2;
 				break;
 			}
 			if (check_n(ep11_targets, token, &apqn_i) < 0) {
+                OCK_SYSLOG(LOG_ERR,"%s: Error: Expected valid domain"
+                           " number (2nd number), found '%s' in config file '%s'\n",
+                           __func__, token, fname);
 				rc = APQN_FILE_SYNTAX_ERROR_3;
 				break;
 			}
 			ep11_targets->length++;
 			if (ep11_targets->length > MAX_APQN) {
-				TRACE_ERROR("%s Too many APQNs in configfile (max %d)\n",
+				TRACE_ERROR("%s Too many APQNs in config file (max %d)\n",
 					    __func__, (int) MAX_APQN);
+                OCK_SYSLOG(LOG_ERR,"%s: Error: Too many APQNs in config file '%s'\n",
+                           __func__, fname);
 				rc = APQN_FILE_SYNTAX_ERROR_4;
 				break;
 			}
@@ -4271,28 +4307,42 @@ static int read_adapter_config_file(STDLL_TokData_t *tokdata, const char* conf_n
 			 */
             if (token == NULL) {
                 rc = APQN_FILE_UNEXPECTED_END_OF_FILE;
+                OCK_SYSLOG(LOG_ERR,"%s: Error: Unexpected end of file found"
+                           " in config file '%s', expected LOGLEVEL value\n",
+                           __func__, fname);
                 break;
             }
 			char *endptr;
 			int loglevel  = strtol(token, &endptr, 10);
 			if (*endptr != '\0' || loglevel < 0 || loglevel > 9) {
-				TRACE_ERROR("%s Invalid loglevel value '%s' in configfile\n",
+				TRACE_ERROR("%s Invalid loglevel value '%s' in config file\n",
 					    __func__, token);
+                OCK_SYSLOG(LOG_ERR,"%s: Error: Invalid LOGLEVEL value '%s' in config file '%s'\n",
+                           __func__, token, fname);
 				rc = APQN_FILE_SYNTAX_ERROR_5;
 				break;
 			}
 			TRACE_WARNING("%s LOGLEVEL setting is not supported any more !\n", __func__);
 			TRACE_WARNING("%s Use opencryptoki logging/tracing facilities instead.\n", __func__);
+            OCK_SYSLOG(LOG_WARNING,"%s: Warning: LOGLEVEL setting is not supported any more."
+                       " Use opencryptoki logging/tracing facilities instead.\n",
+                       __func__);
 			i = 0;
         } else if (i == 4) {
             /* expecting CP-filter config file name */
             if (token == NULL) {
                 rc = APQN_FILE_UNEXPECTED_END_OF_FILE;
+                OCK_SYSLOG(LOG_ERR,"%s: Error: Unexpected end of file found"
+                           " in config file '%s', expected CP-Filter file name\n",
+                           __func__, fname);
                 break;
             }
             if (strlen(token) > sizeof(ep11_data->cp_filter_config_filename)-1) {
                 TRACE_ERROR("%s CP-Filter config file name is too long: '%s'\n",
                                         __func__, token);
+                OCK_SYSLOG(LOG_ERR,"%s: Error: CP-Filter config file name '%s' is too long"
+                           " in config file '%s'\n",
+                           __func__, token, fname);
                 rc = APQN_FILE_SYNTAX_ERROR_6;
                 break;
             }
@@ -4306,14 +4356,27 @@ static int read_adapter_config_file(STDLL_TokData_t *tokdata, const char* conf_n
 	/* do some checks: */
 	if (rc == 0) {
 		if ( !(whitemode || anymode)) {
-			TRACE_ERROR("%s At least one APQN mode needs to be present in configfile:"
+			TRACE_ERROR("%s At least one APQN mode needs to be present in config file:"
 				    " APQN_WHITEMODE or APQN_ANY\n", __func__);
+            OCK_SYSLOG(LOG_ERR,"%s: Error: At least one APQN mode needs to be present in"
+                       " config file '%s': APQN_WHITEMODE or APQN_ANY\n",
+                       __func__, fname);
 			rc = APQN_FILE_NO_APQN_MODE;
+        } else if (whitemode && anymode) {
+            TRACE_ERROR("%s Only one APQN mode can be present in config file:"
+                    " APQN_WHITEMODE or APQN_ANY\n", __func__);
+            OCK_SYSLOG(LOG_ERR,"%s: Error: Only one APQN mode can be present in"
+                       " config file '%s': APQN_WHITEMODE or APQN_ANY\n",
+                       __func__, fname);
+            rc = APQN_FILE_NO_APQN_MODE;
 		} else if (whitemode) {
 			/* at least one APQN needs to be defined */
 			if (ep11_targets->length < 1) {
-				TRACE_ERROR("%s At least one APQN needs to be defined in the configfile\n",
+				TRACE_ERROR("%s At least one APQN needs to be defined in the config file\n",
 					    __func__);
+                OCK_SYSLOG(LOG_ERR,"%s: Error: At least one APQN needs to be defined in"
+                           " config file '%s'\n",
+                           __func__, fname);
 				rc = APQN_FILE_NO_APQN_GIVEN;
 			}
 		}
@@ -4381,6 +4444,9 @@ static int read_cp_filter_config_file(const char* conf_name, cp_config_t   **cp_
     fp = fopen(conf_name, "r");
     if (fp == NULL) {
         TRACE_ERROR("%s no valid EP 11 CP-filter config file found\n", __func__);
+        OCK_SYSLOG(LOG_WARNING,"%s: Warning: EP 11 CP-filter config file '%s'"
+                   " does not exist, no filtering will be used\n",
+                   __func__, conf_name);
         /* this is not an error condition. When no CP-filter file is available,
          * then the mechanisms are not filtered. */
         return 0;
@@ -4399,6 +4465,9 @@ static int read_cp_filter_config_file(const char* conf_name, cp_config_t   **cp_
             val = ep11_get_cp_by_name(tok);
             if (val == UNKNOWN_CP) {
                 TRACE_ERROR("%s Syntax error in EP 11 CP-filter config file found. \n", __func__);
+                OCK_SYSLOG(LOG_ERR,"%s: Error: Expected valid control point name or number,"
+                           " found '%s' in CP-filter config file '%s'\n",
+                           __func__, tok, conf_name);
                 rc = APQN_FILE_SYNTAX_ERROR_7;
                 goto out_fclose;
             }
@@ -4424,6 +4493,9 @@ static int read_cp_filter_config_file(const char* conf_name, cp_config_t   **cp_
                 val = ep11_get_mechanisms_by_name(tok);
                 if (val == UNKNOWN_MECHANISM) {
                     TRACE_ERROR("%s Syntax error in EP 11 CP-filter config file found. \n", __func__);
+                    OCK_SYSLOG(LOG_ERR,"%s: Error: Expected valid mechanism name or number,"
+                               " found '%s' in CP-filter config file '%s'\n",
+                               __func__, tok, conf_name);
                     rc = APQN_FILE_SYNTAX_ERROR_8;
                     free_cp_config(cp);
                     goto out_fclose;
@@ -4433,6 +4505,9 @@ static int read_cp_filter_config_file(const char* conf_name, cp_config_t   **cp_
             mech = (cp_mech_config_t *)malloc(sizeof(cp_mech_config_t));
             if (mech == NULL) {
                 TRACE_ERROR("%s Out of memory.\n", __func__);
+                OCK_SYSLOG(LOG_ERR,"%s: Error: Out of memory while parsing the"
+                           " CP-filter config file '%s'\n",
+                           __func__, conf_name);
                 rc = APQN_OUT_OF_MEMORY;
                 free_cp_config(cp);
                 goto out_fclose;
@@ -4895,7 +4970,7 @@ static CK_RV control_point_handler(uint_32 adapter, uint_32 domain,
             TRACE_WARNING("%s Adapter %02X.%04X has different control points than adapter %02X.%04X, using minimum.\n",
                                             __func__, adapter, domain,
                                             data->first_adapter, data->first_domain);
-            OCK_SYSLOG(LOG_WARNING, "Adapter %02X.%04X has different control points than adapter %02X.%04X, using minimum.\n",
+            OCK_SYSLOG(LOG_WARNING, "Warning: Adapter %02X.%04X has different control points than adapter %02X.%04X, using minimum\n",
                        adapter, domain, data->first_adapter, data->first_domain);
         }
 
