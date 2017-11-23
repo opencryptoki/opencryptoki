@@ -306,6 +306,7 @@ exit 0
 %files ep11tok
 %doc doc/README.ep11_stdll
 %config(noreplace) %{_sysconfdir}/%{name}/ep11tok.conf
+%config(noreplace) %{_sysconfdir}/%{name}/ep11cpfilter.conf
 %{_sbindir}/pkcsep11_migrate
 %{_mandir}/man1/pkcsep11_migrate.1.*
 %{_libdir}/opencryptoki/stdll/libpkcs11_ep11.*

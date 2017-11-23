@@ -20,6 +20,7 @@
 #include <stdint.h>
 #include <regex.h>
 #include <dirent.h>
+#include <libgen.h>
 
 #include "pkcs11types.h"
 #include "defs.h"
@@ -163,6 +164,26 @@ CK_CHAR label[] = "IBM OS PKCS#11   ";
 /* wrap_key is used for importing keys */
 char     wrap_key_name[] = "EP11_wrapkey";
 
+typedef struct cp_mech_config
+{
+    CK_MECHANISM_TYPE       mech;   // the mechanism ID
+    struct cp_mech_config   *next;  // next mechanism, or NULL
+} cp_mech_config_t;
+
+
+typedef struct cp_config
+{
+    unsigned long int       cp;     // control point number
+    cp_mech_config_t        *mech;  // list of mechanisms affected by this CP
+    struct cp_config        *next;  // next control point, or NULL
+} cp_config_t;
+
+static void free_cp_config(cp_config_t *cp);
+#ifdef DEBUG
+static const char *ep11_get_cp(unsigned int cp);
+#endif
+static CK_ULONG ep11_get_cp_by_name(const char *name);
+
 /* EP11 token private data */
 typedef struct {
     uint64_t      *target_list; // pointer to adapter target list
@@ -171,6 +192,8 @@ typedef struct {
     CK_BYTE       raw2key_wrap_blob[MAX_BLOBSIZE];
     size_t        raw2key_wrap_blob_l;
     int           cka_sensitive_default_true;
+    char          cp_filter_config_filename[PATH_MAX];
+    cp_config_t   *cp_config;
 } ep11_private_data_t;
 
 /* target list of adapters/domains, specified in a config file by user,
@@ -667,257 +690,279 @@ ep11_get_keytype(CK_ATTRIBUTE *attrs, CK_ULONG attrs_len,
 	return rc;
 }
 
+static const_info_t ep11_mechanisms[] = {
+    CONSTINFO(CKM_RSA_PKCS_KEY_PAIR_GEN),
+    CONSTINFO(CKM_RSA_PKCS),
+    CONSTINFO(CKM_RSA_9796),
+    CONSTINFO(CKM_RSA_X_509),
+    CONSTINFO(CKM_MD2_RSA_PKCS),
+    CONSTINFO(CKM_MD5_RSA_PKCS),
+    CONSTINFO(CKM_SHA1_RSA_PKCS),
+    CONSTINFO(CKM_RIPEMD128_RSA_PKCS),
+    CONSTINFO(CKM_RIPEMD160_RSA_PKCS),
+    CONSTINFO(CKM_RSA_PKCS_OAEP),
+    CONSTINFO(CKM_RSA_X9_31_KEY_PAIR_GEN),
+    CONSTINFO(CKM_RSA_X9_31),
+    CONSTINFO(CKM_SHA1_RSA_X9_31),
+    CONSTINFO(CKM_RSA_PKCS_PSS),
+    CONSTINFO(CKM_SHA1_RSA_PKCS_PSS),
+    CONSTINFO(CKM_DSA_KEY_PAIR_GEN),
+    CONSTINFO(CKM_DSA),
+    CONSTINFO(CKM_DSA_SHA1),
+    CONSTINFO(CKM_DH_PKCS_KEY_PAIR_GEN),
+    CONSTINFO(CKM_DH_PKCS_DERIVE),
+    CONSTINFO(CKM_X9_42_DH_KEY_PAIR_GEN),
+    CONSTINFO(CKM_X9_42_DH_DERIVE),
+    CONSTINFO(CKM_X9_42_DH_HYBRID_DERIVE),
+    CONSTINFO(CKM_X9_42_MQV_DERIVE),
+    CONSTINFO(CKM_SHA256_RSA_PKCS),
+    CONSTINFO(CKM_SHA384_RSA_PKCS),
+    CONSTINFO(CKM_SHA512_RSA_PKCS),
+    CONSTINFO(CKM_RC2_KEY_GEN),
+    CONSTINFO(CKM_RC2_ECB),
+    CONSTINFO(CKM_RC2_CBC),
+    CONSTINFO(CKM_RC2_MAC),
+    CONSTINFO(CKM_RC2_MAC_GENERAL),
+    CONSTINFO(CKM_RC2_CBC_PAD),
+    CONSTINFO(CKM_RC4_KEY_GEN),
+    CONSTINFO(CKM_RC4),
+    CONSTINFO(CKM_DES_KEY_GEN),
+    CONSTINFO(CKM_DES_ECB),
+    CONSTINFO(CKM_DES_CBC),
+    CONSTINFO(CKM_DES_MAC),
+    CONSTINFO(CKM_DES_MAC_GENERAL),
+    CONSTINFO(CKM_DES_CBC_PAD),
+    CONSTINFO(CKM_DES2_KEY_GEN),
+    CONSTINFO(CKM_DES3_KEY_GEN),
+    CONSTINFO(CKM_DES3_ECB),
+    CONSTINFO(CKM_DES3_CBC),
+    CONSTINFO(CKM_DES3_MAC),
+    CONSTINFO(CKM_DES3_MAC_GENERAL),
+    CONSTINFO(CKM_DES3_CBC_PAD),
+    CONSTINFO(CKM_CDMF_KEY_GEN),
+    CONSTINFO(CKM_CDMF_ECB),
+    CONSTINFO(CKM_CDMF_CBC),
+    CONSTINFO(CKM_CDMF_MAC),
+    CONSTINFO(CKM_CDMF_MAC_GENERAL),
+    CONSTINFO(CKM_CDMF_CBC_PAD),
+    CONSTINFO(CKM_MD2),
+    CONSTINFO(CKM_MD2_HMAC),
+    CONSTINFO(CKM_MD2_HMAC_GENERAL),
+    CONSTINFO(CKM_MD5),
+    CONSTINFO(CKM_MD5_HMAC),
+    CONSTINFO(CKM_MD5_HMAC_GENERAL),
+    CONSTINFO(CKM_SHA_1),
+    CONSTINFO(CKM_SHA_1_HMAC),
+    CONSTINFO(CKM_SHA_1_HMAC_GENERAL),
+    CONSTINFO(CKM_RIPEMD128),
+    CONSTINFO(CKM_RIPEMD128_HMAC),
+    CONSTINFO(CKM_RIPEMD128_HMAC_GENERAL),
+    CONSTINFO(CKM_RIPEMD160),
+    CONSTINFO(CKM_RIPEMD160_HMAC),
+    CONSTINFO(CKM_RIPEMD160_HMAC_GENERAL),
+    CONSTINFO(CKM_SHA224),
+    CONSTINFO(CKM_SHA224_HMAC),
+    CONSTINFO(CKM_SHA224_HMAC_GENERAL),
+    CONSTINFO(CKM_SHA256),
+    CONSTINFO(CKM_SHA256_HMAC),
+    CONSTINFO(CKM_SHA256_HMAC_GENERAL),
+    CONSTINFO(CKM_SHA384),
+    CONSTINFO(CKM_SHA384_HMAC),
+    CONSTINFO(CKM_SHA384_HMAC_GENERAL),
+    CONSTINFO(CKM_SHA512),
+    CONSTINFO(CKM_SHA512_HMAC),
+    CONSTINFO(CKM_SHA512_HMAC_GENERAL),
+    CONSTINFO(CKM_CAST_KEY_GEN),
+    CONSTINFO(CKM_CAST_ECB),
+    CONSTINFO(CKM_CAST_CBC),
+    CONSTINFO(CKM_CAST_MAC),
+    CONSTINFO(CKM_CAST_MAC_GENERAL),
+    CONSTINFO(CKM_CAST_CBC_PAD),
+    CONSTINFO(CKM_CAST3_KEY_GEN),
+    CONSTINFO(CKM_CAST3_ECB),
+    CONSTINFO(CKM_CAST3_CBC),
+    CONSTINFO(CKM_CAST3_MAC),
+    CONSTINFO(CKM_CAST3_MAC_GENERAL),
+    CONSTINFO(CKM_CAST3_CBC_PAD),
+    CONSTINFO(CKM_CAST5_KEY_GEN),
+    CONSTINFO(CKM_CAST5_ECB),
+    CONSTINFO(CKM_CAST5_CBC),
+    CONSTINFO(CKM_CAST5_MAC),
+    CONSTINFO(CKM_CAST5_MAC_GENERAL),
+    CONSTINFO(CKM_CAST5_CBC_PAD),
+    CONSTINFO(CKM_RC5_KEY_GEN),
+    CONSTINFO(CKM_RC5_ECB),
+    CONSTINFO(CKM_RC5_CBC),
+    CONSTINFO(CKM_RC5_MAC),
+    CONSTINFO(CKM_RC5_MAC_GENERAL),
+    CONSTINFO(CKM_RC5_CBC_PAD),
+    CONSTINFO(CKM_IDEA_KEY_GEN),
+    CONSTINFO(CKM_IDEA_ECB),
+    CONSTINFO(CKM_IDEA_CBC),
+    CONSTINFO(CKM_IDEA_MAC),
+    CONSTINFO(CKM_IDEA_MAC_GENERAL),
+    CONSTINFO(CKM_IDEA_CBC_PAD),
+    CONSTINFO(CKM_GENERIC_SECRET_KEY_GEN),
+    CONSTINFO(CKM_CONCATENATE_BASE_AND_KEY),
+    CONSTINFO(CKM_CONCATENATE_BASE_AND_DATA),
+    CONSTINFO(CKM_CONCATENATE_DATA_AND_BASE),
+    CONSTINFO(CKM_XOR_BASE_AND_DATA),
+    CONSTINFO(CKM_EXTRACT_KEY_FROM_KEY),
+    CONSTINFO(CKM_SSL3_PRE_MASTER_KEY_GEN),
+    CONSTINFO(CKM_SSL3_MASTER_KEY_DERIVE),
+    CONSTINFO(CKM_SSL3_KEY_AND_MAC_DERIVE),
+    CONSTINFO(CKM_SSL3_MASTER_KEY_DERIVE_DH),
+    CONSTINFO(CKM_TLS_PRE_MASTER_KEY_GEN),
+    CONSTINFO(CKM_TLS_MASTER_KEY_DERIVE),
+    CONSTINFO(CKM_TLS_KEY_AND_MAC_DERIVE),
+    CONSTINFO(CKM_TLS_MASTER_KEY_DERIVE_DH),
+    CONSTINFO(CKM_SSL3_MD5_MAC),
+    CONSTINFO(CKM_SSL3_SHA1_MAC),
+    CONSTINFO(CKM_MD5_KEY_DERIVATION),
+    CONSTINFO(CKM_MD2_KEY_DERIVATION),
+    CONSTINFO(CKM_SHA1_KEY_DERIVATION),
+    CONSTINFO(CKM_SHA256_KEY_DERIVATION),
+    CONSTINFO(CKM_PBE_MD2_DES_CBC),
+    CONSTINFO(CKM_PBE_MD5_DES_CBC),
+    CONSTINFO(CKM_PBE_MD5_CAST_CBC),
+    CONSTINFO(CKM_PBE_MD5_CAST3_CBC),
+    CONSTINFO(CKM_PBE_MD5_CAST5_CBC),
+    CONSTINFO(CKM_PBE_SHA1_CAST5_CBC),
+    CONSTINFO(CKM_PBE_SHA1_RC4_128),
+    CONSTINFO(CKM_PBE_SHA1_RC4_40),
+    CONSTINFO(CKM_PBE_SHA1_DES3_EDE_CBC),
+    CONSTINFO(CKM_PBE_SHA1_DES2_EDE_CBC),
+    CONSTINFO(CKM_PBE_SHA1_RC2_128_CBC),
+    CONSTINFO(CKM_PBE_SHA1_RC2_40_CBC),
+    CONSTINFO(CKM_PKCS5_PBKD2),
+    CONSTINFO(CKM_PBA_SHA1_WITH_SHA1_HMAC),
+    CONSTINFO(CKM_KEY_WRAP_LYNKS),
+    CONSTINFO(CKM_KEY_WRAP_SET_OAEP),
+    CONSTINFO(CKM_SKIPJACK_KEY_GEN),
+    CONSTINFO(CKM_SKIPJACK_ECB64),
+    CONSTINFO(CKM_SKIPJACK_CBC64),
+    CONSTINFO(CKM_SKIPJACK_OFB64),
+    CONSTINFO(CKM_SKIPJACK_CFB64),
+    CONSTINFO(CKM_SKIPJACK_CFB32),
+    CONSTINFO(CKM_SKIPJACK_CFB16),
+    CONSTINFO(CKM_SKIPJACK_CFB8),
+    CONSTINFO(CKM_SKIPJACK_WRAP),
+    CONSTINFO(CKM_SKIPJACK_PRIVATE_WRAP),
+    CONSTINFO(CKM_SKIPJACK_RELAYX),
+    CONSTINFO(CKM_KEA_KEY_PAIR_GEN),
+    CONSTINFO(CKM_KEA_KEY_DERIVE),
+    CONSTINFO(CKM_FORTEZZA_TIMESTAMP),
+    CONSTINFO(CKM_BATON_KEY_GEN),
+    CONSTINFO(CKM_BATON_ECB128),
+    CONSTINFO(CKM_BATON_ECB96),
+    CONSTINFO(CKM_BATON_CBC128),
+    CONSTINFO(CKM_BATON_COUNTER),
+    CONSTINFO(CKM_BATON_SHUFFLE),
+    CONSTINFO(CKM_BATON_WRAP),
+    CONSTINFO(CKM_EC_KEY_PAIR_GEN),
+    CONSTINFO(CKM_ECDSA),
+    CONSTINFO(CKM_ECDSA_SHA1),
+    CONSTINFO(CKM_ECDSA_SHA224),
+    CONSTINFO(CKM_ECDSA_SHA256),
+    CONSTINFO(CKM_ECDSA_SHA384),
+    CONSTINFO(CKM_ECDSA_SHA512),
+    CONSTINFO(CKM_ECDH1_DERIVE),
+    CONSTINFO(CKM_ECDH1_COFACTOR_DERIVE),
+    CONSTINFO(CKM_ECMQV_DERIVE),
+    CONSTINFO(CKM_JUNIPER_KEY_GEN),
+    CONSTINFO(CKM_JUNIPER_ECB128),
+    CONSTINFO(CKM_JUNIPER_CBC128),
+    CONSTINFO(CKM_JUNIPER_COUNTER),
+    CONSTINFO(CKM_JUNIPER_SHUFFLE),
+    CONSTINFO(CKM_JUNIPER_WRAP),
+    CONSTINFO(CKM_FASTHASH),
+    CONSTINFO(CKM_AES_KEY_GEN),
+    CONSTINFO(CKM_AES_ECB),
+    CONSTINFO(CKM_AES_CBC),
+    CONSTINFO(CKM_AES_MAC),
+    CONSTINFO(CKM_AES_MAC_GENERAL),
+    CONSTINFO(CKM_AES_CBC_PAD),
+    CONSTINFO(CKM_AES_CTR),
+    CONSTINFO(CKM_DSA_PARAMETER_GEN),
+    CONSTINFO(CKM_DH_PKCS_PARAMETER_GEN),
+    CONSTINFO(CKM_X9_42_DH_PARAMETER_GEN),
+    CONSTINFO(CKM_VENDOR_DEFINED),
+    CONSTINFO(CKM_SHA256_RSA_PKCS_PSS ),
+    CONSTINFO(CKM_SHA224_RSA_PKCS),
+    CONSTINFO(CKM_SHA224_RSA_PKCS_PSS),
+    CONSTINFO(CKM_SHA384_RSA_PKCS_PSS),
+    CONSTINFO(CKM_SHA512_RSA_PKCS_PSS),
+    CONSTINFO(CKM_SHA224_KEY_DERIVATION),
+    CONSTINFO(CKM_SHA384_KEY_DERIVATION),
+    CONSTINFO(CKM_SHA512_KEY_DERIVATION),
+    CONSTINFO(CKM_SHA512_224),
+    CONSTINFO(CKM_SHA512_224_HMAC),
+    CONSTINFO(CKM_SHA512_224_HMAC_GENERAL),
+    CONSTINFO(CKM_SHA512_256),
+    CONSTINFO(CKM_SHA512_256_HMAC),
+    CONSTINFO(CKM_SHA512_256_HMAC_GENERAL),
+
+    CONSTINFO(CKM_EP11_SHA512_224),
+    CONSTINFO(CKM_EP11_SHA512_224_HMAC),
+    CONSTINFO(CKM_EP11_SHA512_224_HMAC_GENERAL),
+    CONSTINFO(CKM_EP11_SHA512_256),
+    CONSTINFO(CKM_EP11_SHA512_256_HMAC),
+    CONSTINFO(CKM_EP11_SHA512_256_HMAC_GENERAL),
+
+    CONSTINFO(CKM_IBM_CMAC),
+    CONSTINFO(CKM_IBM_ECDSA_SHA224),
+    CONSTINFO(CKM_IBM_ECDSA_SHA256),
+    CONSTINFO(CKM_IBM_ECDSA_SHA384),
+    CONSTINFO(CKM_IBM_ECDSA_SHA512),
+    CONSTINFO(CKM_IBM_EC_MULTIPLY),
+    CONSTINFO(CKM_IBM_EAC),
+    CONSTINFO(CKM_IBM_SHA512_256),
+    CONSTINFO(CKM_IBM_SHA512_224),
+    CONSTINFO(CKM_IBM_SHA512_256_HMAC),
+    CONSTINFO(CKM_IBM_SHA512_224_HMAC),
+    CONSTINFO(CKM_IBM_SHA512_256_KEY_DERIVATION),
+    CONSTINFO(CKM_IBM_SHA512_224_KEY_DERIVATION),
+    CONSTINFO(CKM_IBM_EC_C25519),
+    CONSTINFO(CKM_IBM_EDDSA_SHA512),
+    CONSTINFO(CKM_IBM_EDDSA_PH_SHA512),
+    CONSTINFO(CKM_IBM_EC_C448),
+    CONSTINFO(CKM_IBM_SIPHASH),
+    CONSTINFO(CKM_IBM_CLEARKEY_TRANSPORT),
+    CONSTINFO(CKM_IBM_ATTRIBUTEBOUND_WRAP),
+    CONSTINFO(CKM_IBM_TRANSPORTKEY),
+    CONSTINFO(CKM_IBM_DH_PKCS_DERIVE_RAW),
+    CONSTINFO(CKM_IBM_ECDH1_DERIVE_RAW),
+    CONSTINFO(CKM_IBM_WIRETEST),
+    CONSTINFO(CKM_IBM_RETAINKEY),
+};
+
+#define UNKNOWN_MECHANISM   0xFFFFFFFF
+
 /* for logging, debugging */
 static const char* ep11_get_ckm(CK_ULONG mechanism)
 {
-	switch(mechanism) {
-	case CKM_RSA_PKCS_KEY_PAIR_GEN: return "CKM_RSA_PKCS_KEY_PAIR_GEN";
-	case CKM_RSA_PKCS: return "CKM_RSA_PKCS";
-	case CKM_RSA_9796: return "CKM_RSA_9796";
-	case CKM_RSA_X_509: return "CKM_RSA_X_509";
-	case CKM_MD2_RSA_PKCS: return "CKM_MD2_RSA_PKCS";
-	case CKM_MD5_RSA_PKCS: return "CKM_MD5_RSA_PKCS";
-	case CKM_SHA1_RSA_PKCS: return "CKM_SHA1_RSA_PKCS";
-	case CKM_RIPEMD128_RSA_PKCS: return "CKM_RIPEMD128_RSA_PKCS";
-	case CKM_RIPEMD160_RSA_PKCS: return "CKM_RIPEMD160_RSA_PKCS";
-	case CKM_RSA_PKCS_OAEP: return "CKM_RSA_PKCS_OAEP";
-	case CKM_RSA_X9_31_KEY_PAIR_GEN: return "CKM_RSA_X9_31_KEY_PAIR_GEN";
-	case CKM_RSA_X9_31: return "CKM_RSA_X9_31";
-	case CKM_SHA1_RSA_X9_31: return "CKM_SHA1_RSA_X9_31";
-	case CKM_RSA_PKCS_PSS: return "CKM_RSA_PKCS_PSS";
-	case CKM_SHA1_RSA_PKCS_PSS: return "CKM_SHA1_RSA_PKCS_PSS";
-	case CKM_DSA_KEY_PAIR_GEN: return "CKM_DSA_KEY_PAIR_GEN";
-	case CKM_DSA: return "CKM_DSA";
-	case CKM_DSA_SHA1: return "CKM_DSA_SHA1";
-	case CKM_DH_PKCS_KEY_PAIR_GEN: return "CKM_DH_PKCS_KEY_PAIR_GEN";
-	case CKM_DH_PKCS_DERIVE: return "CKM_DH_PKCS_DERIVE";
-	case CKM_X9_42_DH_KEY_PAIR_GEN: return "CKM_X9_42_DH_KEY_PAIR_GEN";
-	case CKM_X9_42_DH_DERIVE: return "CKM_X9_42_DH_DERIVE";
-	case CKM_X9_42_DH_HYBRID_DERIVE: return "CKM_X9_42_DH_HYBRID_DERIVE";
-	case CKM_X9_42_MQV_DERIVE: return "CKM_X9_42_MQV_DERIVE";
-	case CKM_SHA256_RSA_PKCS: return "CKM_SHA256_RSA_PKCS";
-	case CKM_SHA384_RSA_PKCS: return "CKM_SHA384_RSA_PKCS";
-	case CKM_SHA512_RSA_PKCS: return "CKM_SHA512_RSA_PKCS";
-	case CKM_RC2_KEY_GEN: return "CKM_RC2_KEY_GEN";
-	case CKM_RC2_ECB: return "CKM_RC2_ECB";
-	case CKM_RC2_CBC: return "CKM_RC2_CBC";
-	case CKM_RC2_MAC: return "CKM_RC2_MAC";
-	case CKM_RC2_MAC_GENERAL: return "CKM_RC2_MAC_GENERAL";
-	case CKM_RC2_CBC_PAD: return "CKM_RC2_CBC_PAD";
-	case CKM_RC4_KEY_GEN: return "CKM_RC4_KEY_GEN";
-	case CKM_RC4: return "CKM_RC4";
-	case CKM_DES_KEY_GEN: return "CKM_DES_KEY_GEN";
-	case CKM_DES_ECB: return "CKM_DES_ECB";
-	case CKM_DES_CBC: return "CKM_DES_CBC";
-	case CKM_DES_MAC: return "CKM_DES_MAC";
-	case CKM_DES_MAC_GENERAL: return "CKM_DES_MAC_GENERAL";
-	case CKM_DES_CBC_PAD: return "CKM_DES_CBC_PAD";
-	case CKM_DES2_KEY_GEN: return "CKM_DES2_KEY_GEN";
-	case CKM_DES3_KEY_GEN: return "CKM_DES3_KEY_GEN";
-	case CKM_DES3_ECB: return "CKM_DES3_ECB";
-	case CKM_DES3_CBC: return "CKM_DES3_CBC";
-	case CKM_DES3_MAC: return "CKM_DES3_MAC";
-	case CKM_DES3_MAC_GENERAL: return "CKM_DES3_MAC_GENERAL";
-	case CKM_DES3_CBC_PAD: return "CKM_DES3_CBC_PAD";
-	case CKM_CDMF_KEY_GEN: return "CKM_CDMF_KEY_GEN";
-	case CKM_CDMF_ECB: return "CKM_CDMF_ECB";
-	case CKM_CDMF_CBC: return "CKM_CDMF_CBC";
-	case CKM_CDMF_MAC: return "CKM_CDMF_MAC";
-	case CKM_CDMF_MAC_GENERAL: return "CKM_CDMF_MAC_GENERAL";
-	case CKM_CDMF_CBC_PAD: return "CKM_CDMF_CBC_PAD";
-	case CKM_MD2: return "CKM_MD2";
-	case CKM_MD2_HMAC: return "CKM_MD2_HMAC";
-	case CKM_MD2_HMAC_GENERAL: return "CKM_MD2_HMAC_GENERAL";
-	case CKM_MD5: return "CKM_MD5";
-	case CKM_MD5_HMAC: return "CKM_MD5_HMAC";
-	case CKM_MD5_HMAC_GENERAL: return "CKM_MD5_HMAC_GENERAL";
-	case CKM_SHA_1: return "CKM_SHA_1";
-	case CKM_SHA_1_HMAC: return "CKM_SHA_1_HMAC";
-	case CKM_SHA_1_HMAC_GENERAL: return "CKM_SHA_1_HMAC_GENERAL";
-	case CKM_RIPEMD128: return "CKM_RIPEMD128";
-	case CKM_RIPEMD128_HMAC: return "CKM_RIPEMD128_HMAC";
-	case CKM_RIPEMD128_HMAC_GENERAL: return "CKM_RIPEMD128_HMAC_GENERAL";
-	case CKM_RIPEMD160: return "CKM_RIPEMD160";
-	case CKM_RIPEMD160_HMAC: return "CKM_RIPEMD160_HMAC";
-	case CKM_RIPEMD160_HMAC_GENERAL: return "CKM_RIPEMD160_HMAC_GENERAL";
-    case CKM_SHA224: return "CKM_SHA224";
-    case CKM_SHA224_HMAC: return "CKM_SHA224_HMAC";
-    case CKM_SHA224_HMAC_GENERAL: return "CKM_SHA224_HMAC_GENERAL";
-	case CKM_SHA256: return "CKM_SHA256";
-	case CKM_SHA256_HMAC: return "CKM_SHA256_HMAC";
-	case CKM_SHA256_HMAC_GENERAL: return "CKM_SHA256_HMAC_GENERAL";
-	case CKM_SHA384: return "CKM_SHA384";
-	case CKM_SHA384_HMAC: return "CKM_SHA384_HMAC";
-	case CKM_SHA384_HMAC_GENERAL: return "CKM_SHA384_HMAC_GENERAL";
-	case CKM_SHA512: return "CKM_SHA512";
-	case CKM_SHA512_HMAC: return "CKM_SHA512_HMAC";
-	case CKM_SHA512_HMAC_GENERAL: return "CKM_SHA512_HMAC_GENERAL";
-	case CKM_CAST_KEY_GEN: return "CKM_CAST_KEY_GEN";
-	case CKM_CAST_ECB: return "CKM_CAST_ECB";
-	case CKM_CAST_CBC: return "CKM_CAST_CBC";
-	case CKM_CAST_MAC: return "CKM_CAST_MAC";
-	case CKM_CAST_MAC_GENERAL: return "CKM_CAST_MAC_GENERAL";
-	case CKM_CAST_CBC_PAD: return "CKM_CAST_CBC_PAD";
-	case CKM_CAST3_KEY_GEN: return "CKM_CAST3_KEY_GEN";
-	case CKM_CAST3_ECB: return "CKM_CAST3_ECB";
-	case CKM_CAST3_CBC: return "CKM_CAST3_CBC";
-	case CKM_CAST3_MAC: return "CKM_CAST3_MAC";
-	case CKM_CAST3_MAC_GENERAL: return "CKM_CAST3_MAC_GENERAL";
-	case CKM_CAST3_CBC_PAD: return "CKM_CAST3_CBC_PAD";
-	case CKM_CAST5_KEY_GEN: return "CKM_CAST5_KEY_GEN";
-	case CKM_CAST5_ECB: return "CKM_CAST5_ECB";
-	case CKM_CAST5_CBC: return "CKM_CAST5_CBC";
-	case CKM_CAST5_MAC: return "CKM_CAST5_MAC";
-	case CKM_CAST5_MAC_GENERAL: return "CKM_CAST5_MAC_GENERAL";
-	case CKM_CAST5_CBC_PAD: return "CKM_CAST5_CBC_PAD";
-	case CKM_RC5_KEY_GEN: return "CKM_RC5_KEY_GEN";
-	case CKM_RC5_ECB: return "CKM_RC5_ECB";
-	case CKM_RC5_CBC: return "CKM_RC5_CBC";
-	case CKM_RC5_MAC: return "CKM_RC5_MAC";
-	case CKM_RC5_MAC_GENERAL: return "CKM_RC5_MAC_GENERAL";
-	case CKM_RC5_CBC_PAD: return "CKM_RC5_CBC_PAD";
-	case CKM_IDEA_KEY_GEN: return "CKM_IDEA_KEY_GEN";
-	case CKM_IDEA_ECB: return "CKM_IDEA_ECB";
-	case CKM_IDEA_CBC: return "CKM_IDEA_CBC";
-	case CKM_IDEA_MAC: return "CKM_IDEA_MAC";
-	case CKM_IDEA_MAC_GENERAL: return "CKM_IDEA_MAC_GENERAL";
-	case CKM_IDEA_CBC_PAD: return "CKM_IDEA_CBC_PAD";
-	case CKM_GENERIC_SECRET_KEY_GEN: return "CKM_GENERIC_SECRET_KEY_GEN";
-	case CKM_CONCATENATE_BASE_AND_KEY: return "CKM_CONCATENATE_BASE_AND_KEY";
-	case CKM_CONCATENATE_BASE_AND_DATA: return "CKM_CONCATENATE_BASE_AND_DATA";
-	case CKM_CONCATENATE_DATA_AND_BASE: return "CKM_CONCATENATE_DATA_AND_BASE";
-	case CKM_XOR_BASE_AND_DATA: return "CKM_XOR_BASE_AND_DATA";
-	case CKM_EXTRACT_KEY_FROM_KEY: return "CKM_EXTRACT_KEY_FROM_KEY";
-	case CKM_SSL3_PRE_MASTER_KEY_GEN: return "CKM_SSL3_PRE_MASTER_KEY_GEN";
-	case CKM_SSL3_MASTER_KEY_DERIVE: return "CKM_SSL3_MASTER_KEY_DERIVE";
-	case CKM_SSL3_KEY_AND_MAC_DERIVE: return "CKM_SSL3_KEY_AND_MAC_DERIVE";
-	case CKM_SSL3_MASTER_KEY_DERIVE_DH: return "CKM_SSL3_MASTER_KEY_DERIVE_DH";
-	case CKM_TLS_PRE_MASTER_KEY_GEN: return "CKM_TLS_PRE_MASTER_KEY_GEN";
-	case CKM_TLS_MASTER_KEY_DERIVE: return "CKM_TLS_MASTER_KEY_DERIVE";
-	case CKM_TLS_KEY_AND_MAC_DERIVE: return "CKM_TLS_KEY_AND_MAC_DERIVE";
-	case CKM_TLS_MASTER_KEY_DERIVE_DH: return "CKM_TLS_MASTER_KEY_DERIVE_DH";
-	case CKM_SSL3_MD5_MAC: return "CKM_SSL3_MD5_MAC";
-	case CKM_SSL3_SHA1_MAC: return "CKM_SSL3_SHA1_MAC";
-	case CKM_MD5_KEY_DERIVATION: return "CKM_MD5_KEY_DERIVATION";
-	case CKM_MD2_KEY_DERIVATION: return "CKM_MD2_KEY_DERIVATION";
-	case CKM_SHA1_KEY_DERIVATION: return "CKM_SHA1_KEY_DERIVATION";
-	case CKM_SHA256_KEY_DERIVATION: return "CKM_SHA256_KEY_DERIVATION";
-	case CKM_PBE_MD2_DES_CBC: return "CKM_PBE_MD2_DES_CBC";
-	case CKM_PBE_MD5_DES_CBC: return "CKM_PBE_MD5_DES_CBC";
-	case CKM_PBE_MD5_CAST_CBC: return "CKM_PBE_MD5_CAST_CBC";
-	case CKM_PBE_MD5_CAST3_CBC: return "CKM_PBE_MD5_CAST3_CBC";
-	case CKM_PBE_MD5_CAST5_CBC: return "CKM_PBE_MD5_CAST5_CBC";
-	case CKM_PBE_SHA1_CAST5_CBC: return "CKM_PBE_SHA1_CAST5_CBC";
-	case CKM_PBE_SHA1_RC4_128: return "CKM_PBE_SHA1_RC4_128";
-	case CKM_PBE_SHA1_RC4_40: return "CKM_PBE_SHA1_RC4_40";
-	case CKM_PBE_SHA1_DES3_EDE_CBC: return "CKM_PBE_SHA1_DES3_EDE_CBC";
-	case CKM_PBE_SHA1_DES2_EDE_CBC: return "CKM_PBE_SHA1_DES2_EDE_CBC";
-	case CKM_PBE_SHA1_RC2_128_CBC: return "CKM_PBE_SHA1_RC2_128_CBC";
-	case CKM_PBE_SHA1_RC2_40_CBC: return "CKM_PBE_SHA1_RC2_40_CBC";
-	case CKM_PKCS5_PBKD2: return "CKM_PKCS5_PBKD2";
-	case CKM_PBA_SHA1_WITH_SHA1_HMAC: return "CKM_PBA_SHA1_WITH_SHA1_HMAC";
-	case CKM_KEY_WRAP_LYNKS: return "CKM_KEY_WRAP_LYNKS";
-	case CKM_KEY_WRAP_SET_OAEP: return "CKM_KEY_WRAP_SET_OAEP";
-	case CKM_SKIPJACK_KEY_GEN: return "CKM_SKIPJACK_KEY_GEN";
-	case CKM_SKIPJACK_ECB64: return "CKM_SKIPJACK_ECB64";
-	case CKM_SKIPJACK_CBC64: return "CKM_SKIPJACK_CBC64";
-	case CKM_SKIPJACK_OFB64: return "CKM_SKIPJACK_OFB64";
-	case CKM_SKIPJACK_CFB64: return "CKM_SKIPJACK_CFB64";
-	case CKM_SKIPJACK_CFB32: return "CKM_SKIPJACK_CFB32";
-	case CKM_SKIPJACK_CFB16: return "CKM_SKIPJACK_CFB16";
-	case CKM_SKIPJACK_CFB8: return "CKM_SKIPJACK_CFB8";
-	case CKM_SKIPJACK_WRAP: return "CKM_SKIPJACK_WRAP";
-	case CKM_SKIPJACK_PRIVATE_WRAP: return "CKM_SKIPJACK_PRIVATE_WRAP";
-	case CKM_SKIPJACK_RELAYX: return "CKM_SKIPJACK_RELAYX";
-	case CKM_KEA_KEY_PAIR_GEN: return "CKM_KEA_KEY_PAIR_GEN";
-	case CKM_KEA_KEY_DERIVE: return "CKM_KEA_KEY_DERIVE";
-	case CKM_FORTEZZA_TIMESTAMP: return "CKM_FORTEZZA_TIMESTAMP";
-	case CKM_BATON_KEY_GEN: return "CKM_BATON_KEY_GEN";
-	case CKM_BATON_ECB128: return "CKM_BATON_ECB128";
-	case CKM_BATON_ECB96: return "CKM_BATON_ECB96";
-	case CKM_BATON_CBC128: return "CKM_BATON_CBC128";
-	case CKM_BATON_COUNTER: return "CKM_BATON_COUNTER";
-	case CKM_BATON_SHUFFLE: return "CKM_BATON_SHUFFLE";
-	case CKM_BATON_WRAP: return "CKM_BATON_WRAP";
-	case CKM_EC_KEY_PAIR_GEN: return "CKM_EC_KEY_PAIR_GEN";
-	case CKM_ECDSA: return "CKM_ECDSA";
-	case CKM_ECDSA_SHA1: return "CKM_ECDSA_SHA1";
-	case CKM_ECDSA_SHA224: return "CKM_ECDSA_SHA224";
-	case CKM_ECDSA_SHA256: return "CKM_ECDSA_SHA256";
-	case CKM_ECDSA_SHA384: return "CKM_ECDSA_SHA384";
-	case CKM_ECDSA_SHA512: return "CKM_ECDSA_SHA512";
-	case CKM_ECDH1_DERIVE: return "CKM_ECDH1_DERIVE";
-	case CKM_ECDH1_COFACTOR_DERIVE: return "CKM_ECDH1_COFACTOR_DERIVE";
-	case CKM_ECMQV_DERIVE: return "CKM_ECMQV_DERIVE";
-	case CKM_JUNIPER_KEY_GEN: return "CKM_JUNIPER_KEY_GEN";
-	case CKM_JUNIPER_ECB128: return "CKM_JUNIPER_ECB128";
-	case CKM_JUNIPER_CBC128: return "CKM_JUNIPER_CBC128";
-	case CKM_JUNIPER_COUNTER: return "CKM_JUNIPER_COUNTER";
-	case CKM_JUNIPER_SHUFFLE: return "CKM_JUNIPER_SHUFFLE";
-	case CKM_JUNIPER_WRAP: return "CKM_JUNIPER_WRAP";
-	case CKM_FASTHASH: return "CKM_FASTHASH";
-	case CKM_AES_KEY_GEN: return "CKM_AES_KEY_GEN";
-	case CKM_AES_ECB: return "CKM_AES_ECB";
-	case CKM_AES_CBC: return "CKM_AES_CBC";
-	case CKM_AES_MAC: return "CKM_AES_MAC";
-	case CKM_AES_MAC_GENERAL: return "CKM_AES_MAC_GENERAL";
-	case CKM_AES_CBC_PAD: return "CKM_AES_CBC_PAD";
-	case CKM_AES_CTR: return "CKM_AES_CTR";
-	case CKM_DSA_PARAMETER_GEN: return "CKM_DSA_PARAMETER_GEN";
-	case CKM_DH_PKCS_PARAMETER_GEN: return "CKM_DH_PKCS_PARAMETER_GEN";
-	case CKM_X9_42_DH_PARAMETER_GEN: return "CKM_X9_42_DH_PARAMETER_GEN";
-	case CKM_VENDOR_DEFINED: return "CKM_VENDOR_DEFINED";
-	case CKM_SHA256_RSA_PKCS_PSS : return "CKM_SHA256_RSA_PKCS_PSS";
-	case CKM_SHA224_RSA_PKCS: return "CKM_SHA224_RSA_PKCS";
-	case CKM_SHA224_RSA_PKCS_PSS: return "CKM_SHA224_RSA_PKCS_PSS";
-	case CKM_SHA384_RSA_PKCS_PSS: return "CKM_SHA384_RSA_PKCS_PSS";
-	case CKM_SHA512_RSA_PKCS_PSS: return "CKM_SHA512_RSA_PKCS_PSS";
-	case CKM_SHA224_KEY_DERIVATION: return "CKM_SHA224_KEY_DERIVATION";
-	case CKM_SHA384_KEY_DERIVATION: return "CKM_SHA384_KEY_DERIVATION";
-	case CKM_SHA512_KEY_DERIVATION: return "CKM_SHA512_KEY_DERIVATION";
-	case CKM_SHA512_224: return "CKM_SHA512_224";
-	case CKM_SHA512_224_HMAC: return "CKM_SHA512_224_HMAC";
-	case CKM_SHA512_224_HMAC_GENERAL: return "CKM_SHA512_224_HMAC_GENERAL";
-	case CKM_SHA512_256: return "CKM_SHA512_256";
-	case CKM_SHA512_256_HMAC: return "CKM_SHA512_256_HMAC";
-	case CKM_SHA512_256_HMAC_GENERAL: return "CKM_SHA512_256_HMAC_GENERAL";
+    unsigned int i;
 
-    case CKM_EP11_SHA512_224: return "CKM_EP11_SHA512_224";
-    case CKM_EP11_SHA512_224_HMAC: return "CKM_EP11_SHA512_224_HMAC";
-    case CKM_EP11_SHA512_224_HMAC_GENERAL: return "CKM_EP11_SHA512_224_HMAC_GENERAL";
-    case CKM_EP11_SHA512_256: return "CKM_EP11_SHA512_256";
-    case CKM_EP11_SHA512_256_HMAC: return "CKM_EP11_SHA512_256_HMAC";
-    case CKM_EP11_SHA512_256_HMAC_GENERAL: return "CKM_EP11_SHA512_256_HMAC_GENERAL";
+    for(i=0; i < (sizeof(ep11_mechanisms) / sizeof(ep11_mechanisms[0])); i++) {
+        if (ep11_mechanisms[i].code == mechanism)
+            return ep11_mechanisms[i].name;
+    }
 
-    case CKM_IBM_CMAC: return "CKM_IBM_CMAC";
-    case CKM_IBM_ECDSA_SHA224: return "CKM_IBM_ECDSA_SHA224";
-    case CKM_IBM_ECDSA_SHA256: return "CKM_IBM_ECDSA_SHA256";
-    case CKM_IBM_ECDSA_SHA384: return "CKM_IBM_ECDSA_SHA384";
-    case CKM_IBM_ECDSA_SHA512: return "CKM_IBM_ECDSA_SHA512";
-    case CKM_IBM_EC_MULTIPLY: return "CKM_IBM_EC_MULTIPLY";
-    case CKM_IBM_EAC: return "CKM_IBM_EAC";
-    case CKM_IBM_SHA512_256: return "CKM_IBM_SHA512_256";
-    case CKM_IBM_SHA512_224: return "CKM_IBM_SHA512_224";
-    case CKM_IBM_SHA512_256_HMAC: return "CKM_IBM_SHA512_256_HMAC";
-    case CKM_IBM_SHA512_224_HMAC: return "CKM_IBM_SHA512_224_HMAC";
-    case CKM_IBM_SHA512_256_KEY_DERIVATION: return "CKM_IBM_SHA512_256_KEY_DERIVATION";
-    case CKM_IBM_SHA512_224_KEY_DERIVATION: return "CKM_IBM_SHA512_224_KEY_DERIVATION";
-    case CKM_IBM_EC_C25519: return "CKM_IBM_EC_C25519";
-    case CKM_IBM_EDDSA_SHA512: return "CKM_IBM_EDDSA_SHA512";
-    case CKM_IBM_EDDSA_PH_SHA512: return "CKM_IBM_EDDSA_PH_SHA512";
-    case CKM_IBM_EC_C448: return "CKM_IBM_EC_C448";
-    case CKM_IBM_SIPHASH: return "CKM_IBM_SIPHASH";
-    case CKM_IBM_CLEARKEY_TRANSPORT: return "CKM_IBM_CLEARKEY_TRANSPORT";
-    case CKM_IBM_ATTRIBUTEBOUND_WRAP: return "CKM_IBM_ATTRIBUTEBOUND_WRAP";
-    case CKM_IBM_TRANSPORTKEY: return "CKM_IBM_TRANSPORTKEY";
-    case CKM_IBM_DH_PKCS_DERIVE_RAW: return "CKM_IBM_DH_PKCS_DERIVE_RAW";
-    case CKM_IBM_ECDH1_DERIVE_RAW: return "CKM_IBM_ECDH1_DERIVE_RAW";
-    case CKM_IBM_WIRETEST: return "CKM_IBM_WIRETEST";
-    case CKM_IBM_RETAINKEY:	 return "CKM_IBM_RETAINKEY";
-	default:
-		TRACE_WARNING("%s unknown mechanism 0x%lx\n", __func__, mechanism);
-		return "UNKNOWN";
-	}
+    TRACE_WARNING("%s unknown mechanism %lx\n", __func__, mechanism);
+    return "UNKNOWN";
+}
+
+static CK_ULONG ep11_get_mechanisms_by_name(const char *name)
+{
+    unsigned int i;
+
+    for(i=0; i < (sizeof(ep11_mechanisms) / sizeof(ep11_mechanisms[0])); i++) {
+        if (strcmp(ep11_mechanisms[i].name, name) == 0)
+            return ep11_mechanisms[i].code;
+    }
+
+    TRACE_WARNING("%s unknown mechanism name '%s'\n", __func__, name);
+    return UNKNOWN_MECHANISM;
 }
 
 static CK_RV h_opaque_2_blob(STDLL_TokData_t *tokdata, CK_OBJECT_HANDLE handle,
@@ -925,6 +970,8 @@ static CK_RV h_opaque_2_blob(STDLL_TokData_t *tokdata, CK_OBJECT_HANDLE handle,
 
 #define EP11_DEFAULT_CFG_FILE "ep11tok.conf"
 #define EP11_CFG_FILE_SIZE 4096
+
+#define EP11_DEFAULT_CPFILTER_FILE "ep11cpfilter.conf"
 
 /* error rc for reading the adapter config file */
 static const int APQN_FILE_INV_0 = 1;
@@ -942,8 +989,14 @@ static const int APQN_FILE_SYNTAX_ERROR_5 = 12;
 static const int APQN_FILE_NO_APQN_GIVEN = 13;
 static const int APQN_FILE_NO_APQN_MODE = 14;
 static const int APQN_FILE_UNEXPECTED_END_OF_FILE = 15;
+static const int APQN_FILE_SYNTAX_ERROR_6 = 16;
+static const int APQN_FILE_SYNTAX_ERROR_7 = 17;
+static const int APQN_FILE_SYNTAX_ERROR_8 = 18;
+static const int APQN_OUT_OF_MEMORY = 19;
 
 static int read_adapter_config_file(STDLL_TokData_t *tokdata, const char* conf_name);
+static int read_cp_filter_config_file(const char* conf_name,
+                                      cp_config_t   **cp_config);
 
 /* import a DES/AES key, that is, make a blob for a DES/AES key
  * that was not created by EP11 hardware, encrypt the key by the wrap key,
@@ -1248,6 +1301,7 @@ CK_RV ep11tok_final(STDLL_TokData_t *tokdata)
     if (ep11_data != NULL) {
         if (ep11_data->target_list)
             free(ep11_data->target_list);
+        free_cp_config(ep11_data->cp_config);
         free(ep11_data);
         tokdata->private_data = NULL;
     }
@@ -3999,6 +4053,8 @@ static int read_adapter_config_file(STDLL_TokData_t *tokdata, const char* conf_n
 	char fname[PATH_MAX];
 	ep11_target_t *ep11_targets = (ep11_target_t *)ep11_data->target_list;
 	int rc = 0;
+    char *cfg_dir;
+    char cfgname[PATH_MAX];
 
 	if (tokdata->initialized)
 		return 0;
@@ -4115,6 +4171,8 @@ static int read_adapter_config_file(STDLL_TokData_t *tokdata, const char* conf_n
             } else if (strncmp(token, "FORCE_SENSITIVE", 15) == 0) {
                i = 0;
                ep11_data->cka_sensitive_default_true = 1;
+            } else if (strncmp(token, "CPFILTER", 8) == 0) {
+                i = 4;
             } else {
 				/* syntax error */
 				TRACE_ERROR("%s Expected APQN_WHITELIST or"
@@ -4186,7 +4244,23 @@ static int read_adapter_config_file(STDLL_TokData_t *tokdata, const char* conf_n
 			TRACE_WARNING("%s LOGLEVEL setting is not supported any more !\n", __func__);
 			TRACE_WARNING("%s Use opencryptoki logging/tracing facilities instead.\n", __func__);
 			i = 0;
-		}
+        } else if (i == 4) {
+            /* expecting CP-filter config file name */
+            if (token == NULL) {
+                rc = APQN_FILE_UNEXPECTED_END_OF_FILE;
+                break;
+            }
+            if (strlen(token) > sizeof(ep11_data->cp_filter_config_filename)-1) {
+                TRACE_ERROR("%s CP-Filter config file name is too long: '%s'\n",
+                                        __func__, token);
+                rc = APQN_FILE_SYNTAX_ERROR_6;
+                break;
+            }
+            strncpy(ep11_data->cp_filter_config_filename, token,
+                    sizeof(ep11_data->cp_filter_config_filename)-1);
+            ep11_data->cp_filter_config_filename[sizeof(ep11_data->cp_filter_config_filename)-1] = '\0';
+            i = 0;
+        }
 	}
 
 	/* do some checks: */
@@ -4216,6 +4290,29 @@ static int read_adapter_config_file(STDLL_TokData_t *tokdata, const char* conf_n
 		}
 	}
 
+    /* read CP-filter config file */
+    if (rc == 0) {
+        cfg_dir = dirname(fname);
+        if (strlen(ep11_data->cp_filter_config_filename) == 0) {
+            snprintf(ep11_data->cp_filter_config_filename,
+                     sizeof(ep11_data->cp_filter_config_filename)-1,
+                    "%s/%s", cfg_dir, EP11_DEFAULT_CPFILTER_FILE);
+            ep11_data->cp_filter_config_filename[sizeof(ep11_data->cp_filter_config_filename)-1] = '\0';
+        }
+
+        if (strchr(ep11_data->cp_filter_config_filename, '/') == NULL) {
+            snprintf(cfgname, sizeof(cfgname)-1,
+                    "%s/%s", cfg_dir, ep11_data->cp_filter_config_filename);
+            cfgname[sizeof(cfgname)-1] = '\0';
+            strncpy(ep11_data->cp_filter_config_filename, cfgname,
+                    sizeof(ep11_data->cp_filter_config_filename));
+            ep11_data->cp_filter_config_filename[sizeof(ep11_data->cp_filter_config_filename)-1] = '\0';
+        }
+
+        rc = read_cp_filter_config_file(ep11_data->cp_filter_config_filename,
+                                        &ep11_data->cp_config);
+    }
+
 	tokdata->initialized = TRUE;
 	return rc;
 }
@@ -4225,6 +4322,145 @@ static int read_adapter_config_file(STDLL_TokData_t *tokdata, const char* conf_n
 #define CP_BYTE_NO(cp)      ((cp) / 8)
 #define CP_BIT_IN_BYTE(cp)  ((cp) % 8)
 #define CP_BIT_MASK(cp)     (0x80 >> CP_BIT_IN_BYTE(cp))
+
+static int read_cp_filter_config_file(const char* conf_name, cp_config_t   **cp_config)
+{
+    int rc = 0;
+    FILE *fp = NULL;
+    char line[1024];
+    char *tok;
+    unsigned long int val;
+    char *endp;
+    cp_config_t *cp;
+    cp_config_t *last_cp = NULL;
+    cp_mech_config_t *mech;
+    cp_mech_config_t *last_mech;
+
+    TRACE_INFO("%s EP 11 CP-filter config file is '%s'\n", __func__, conf_name);
+
+    fp = fopen(conf_name, "r");
+    if (fp == NULL) {
+        TRACE_ERROR("%s no valid EP 11 CP-filter config file found\n", __func__);
+        /* this is not an error condition. When no CP-filter file is available,
+         * then the mechanisms are not filtered. */
+        return 0;
+    }
+
+    while (fgets((char *)line, sizeof(line), fp)) {
+        tok = strtok(line, ": \t\n");
+
+        if (tok == NULL)
+            continue;
+        if (*tok == '#')
+            continue;
+
+        val = strtoul(tok, &endp, 0);
+        if (*endp != '\0') {
+            val = ep11_get_cp_by_name(tok);
+            if (val == UNKNOWN_CP) {
+                TRACE_ERROR("%s Syntax error in EP 11 CP-filter config file found. \n", __func__);
+                rc = APQN_FILE_SYNTAX_ERROR_7;
+                goto out_fclose;
+            }
+        }
+
+        cp = (cp_config_t *)malloc(sizeof(cp_config_t));
+        if (cp == NULL) {
+            TRACE_ERROR("%s Out of memory.\n", __func__);
+            rc = APQN_OUT_OF_MEMORY;
+            goto out_fclose;
+        }
+        cp->cp = val;
+        cp->mech = NULL;
+        cp->next = NULL;
+
+        last_mech = NULL;
+        while((tok = strtok(NULL, ", \t\n")) != NULL) {
+            if (*tok == '#')
+                break;
+
+            val = strtoul(tok, &endp, 0);
+            if (*endp != '\0') {
+                val = ep11_get_mechanisms_by_name(tok);
+                if (val == UNKNOWN_MECHANISM) {
+                    TRACE_ERROR("%s Syntax error in EP 11 CP-filter config file found. \n", __func__);
+                    rc = APQN_FILE_SYNTAX_ERROR_8;
+                    free_cp_config(cp);
+                    goto out_fclose;
+                }
+            }
+
+            mech = (cp_mech_config_t *)malloc(sizeof(cp_mech_config_t));
+            if (mech == NULL) {
+                TRACE_ERROR("%s Out of memory.\n", __func__);
+                rc = APQN_OUT_OF_MEMORY;
+                free_cp_config(cp);
+                goto out_fclose;
+            }
+            mech->mech = val;
+            mech->next = NULL;
+
+            if (last_mech == NULL)
+                cp->mech = mech;
+            else
+                last_mech->next = mech;
+            last_mech = mech;
+        }
+
+        if (cp->mech == NULL) {
+            /* empty CP, skip this one */
+            free(cp);
+            continue;
+        }
+
+        if (last_cp == NULL)
+            *cp_config = cp;
+        else
+            last_cp->next = cp;
+        last_cp = cp;
+    }
+
+#ifdef DEBUG
+    /* print CP filter config */
+    TRACE_INFO("%s CP-Filter defined:\n", __func__);
+    cp = *cp_config;
+    while(cp != NULL) {
+        TRACE_INFO("  CP %lu (%s):\n", cp->cp, ep11_get_cp(cp->cp));
+        mech = cp->mech;
+        while(mech != NULL) {
+            TRACE_INFO("    Mechanism 0x%08lx (%s)\n", mech->mech, ep11_get_ckm(mech->mech));
+            mech = mech->next;
+        }
+        cp = cp->next;
+    }
+#endif
+
+out_fclose:
+    fclose(fp);
+    return rc;
+}
+
+static void free_cp_config(cp_config_t *cp)
+{
+    cp_config_t *next_cp = cp;
+    cp_mech_config_t *mech;
+    cp_mech_config_t *next_mech;
+
+    TRACE_INFO("%s running\n", __func__);
+
+    while(cp != NULL) {
+        mech = cp->mech;
+        while(mech != NULL) {
+            next_mech = mech->next;
+            free(mech);
+            mech = next_mech;
+        }
+
+        next_cp = cp->next;
+        free(cp);
+        cp = next_cp;
+    }
+}
 
 static const_info_t ep11_cps[] = {
     CONSTINFO(XCP_CPB_ADD_CPBS),
