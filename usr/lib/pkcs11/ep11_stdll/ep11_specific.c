@@ -391,7 +391,7 @@ ber_encode_RSAPublicKey(CK_BBOOL length_only, CK_BYTE **data, CK_ULONG *data_len
 
 	if (rc != CKR_OK) {
 		TRACE_DEVEL("%s ber_encode_Int failed with rc=0x%lx\n", __func__, rc);
-		return CKR_FUNCTION_FAILED;
+		return rc;
 	}
 
 	buf = (CK_BYTE *)malloc(offset);
@@ -490,7 +490,7 @@ ber_encode_ECPublicKey(CK_BBOOL length_only, CK_BYTE **data, CK_ULONG *data_len,
 	if (rc != CKR_OK) {
 		TRACE_DEVEL("%s der_encode_sequence failed with rc=0x%lx\n",
 			    __func__, rc);
-		return CKR_FUNCTION_FAILED;
+		return rc;
 	}
 
 	/* public key */
@@ -503,7 +503,7 @@ ber_encode_ECPublicKey(CK_BBOOL length_only, CK_BYTE **data, CK_ULONG *data_len,
 	if (rc != CKR_OK) {
 		TRACE_DEVEL("%s der_encode_sequence failed with rc=0x%lx\n",
 			    __func__, rc);
-		return CKR_FUNCTION_FAILED;
+		return rc;
 	}
 	ber_free(ber, 1);
 
@@ -576,7 +576,7 @@ ep11_spki_key(CK_BYTE *spki, CK_BYTE **key, CK_ULONG *bit_str_len)
 	if (rc != CKR_OK) {
 		TRACE_ERROR("%s ber_decode_SEQUENCE #1 failed rc=0x%lx\n",
 			    __func__, rc);
-		return CKR_FUNCTION_FAILED;
+		return rc;
 	}
 
 	id_seq = out_seq + field_len - data_len;
@@ -585,14 +585,14 @@ ep11_spki_key(CK_BYTE *spki, CK_BYTE **key, CK_ULONG *bit_str_len)
 	if (rc != CKR_OK) {
 		TRACE_ERROR("%s ber_decode_SEQUENCE #2 failed rc=0x%lx\n",
 			    __func__, rc);
-		return CKR_FUNCTION_FAILED;
+		return rc;
 	}
 
 	bit_str = id_seq + field_len;
 	/* we should be at a bistring */
 	if (bit_str[0] != 0x03) {
 		TRACE_ERROR("%s ber_decode no BITSTRING\n", __func__);
-		return CKR_GENERAL_ERROR;
+		return CKR_FUNCTION_FAILED;
 	}
 
 	if ((bit_str[1] & 0x80) == 0) {
@@ -1702,7 +1702,7 @@ token_specific_object_add(STDLL_TokData_t *tokdata, OBJECT *obj)
 		if (rc != CKR_OK) {
 			TRACE_ERROR("%s import RSA key rc=0x%lx blobsize=0x%zx\n",
 				    __func__, rc, blobsize);
-			return CKR_FUNCTION_FAILED;
+			return rc;
 		}
 		TRACE_INFO("%s import RSA key rc=0x%lx blobsize=0x%zx\n",
 			   __func__, rc, blobsize);
@@ -1712,7 +1712,7 @@ token_specific_object_add(STDLL_TokData_t *tokdata, OBJECT *obj)
 		if (rc != CKR_OK) {
 			TRACE_ERROR("%s import EC key rc=0x%lx blobsize=0x%zx\n",
 				    __func__, rc, blobsize);
-			return CKR_FUNCTION_FAILED;
+			return rc;
 		}
 		TRACE_INFO("%s import EC key rc=0x%lx blobsize=0x%zx\n",
 			   __func__, rc, blobsize);
@@ -1736,7 +1736,7 @@ token_specific_object_add(STDLL_TokData_t *tokdata, OBJECT *obj)
 		if (rc != CKR_OK) {
 			TRACE_ERROR("%s rawkey_2_blob rc=0x%lx "
 				    "blobsize=0x%zx\n", __func__, rc, blobsize);
-			return CKR_FUNCTION_FAILED;
+			return rc;
 		}
 
 		/* clear value attribute */
@@ -2234,7 +2234,6 @@ static CK_RV dh_generate_keypair(STDLL_TokData_t *tokdata,
 	rc = ep11_spki_key(publblob, &y_start, &bit_str_len);
 	if (rc != CKR_OK) {
 		TRACE_ERROR("%s ber_decode SKPI failed rc=0x%lx\n", __func__, rc);
-		rc = CKR_GENERAL_ERROR;
 		goto dh_generate_keypair_end;
 	}
 
@@ -2242,7 +2241,6 @@ static CK_RV dh_generate_keypair(STDLL_TokData_t *tokdata,
 	rc = ber_decode_INTEGER(y_start, &data, &data_len, &field_len);
 	if (rc != CKR_OK) {
 		TRACE_ERROR("%s ber_decode_INTEGER failed rc=0x%lx\n", __func__, rc);
-		rc = CKR_GENERAL_ERROR;
 		goto dh_generate_keypair_end;
 	}
 
@@ -3055,7 +3053,7 @@ static CK_RV h_opaque_2_blob(STDLL_TokData_t *tokdata, CK_OBJECT_HANDLE handle,
 		 * should cause a failing token_specific_object_add
 		 */
 		TRACE_ERROR("%s no blob\n", __func__);
-		return CKR_FUNCTION_FAILED;
+		return CKR_ATTRIBUTE_VALUE_INVALID;
 	}
 }
 
@@ -3664,7 +3662,7 @@ CK_RV ep11tok_unwrap_key(STDLL_TokData_t *tokdata, SESSION *session, CK_MECHANIS
 	CK_ATTRIBUTE_PTR keytype_attr = get_attribute_by_type(attrs, attrs_len, CKA_KEY_TYPE);
 	if (!cla_attr || !keytype_attr) {
 		TRACE_ERROR("%s CKA_CLASS or CKA_KEY_CLASS attributes not found\n", __func__);
-		return CKR_FUNCTION_FAILED;
+		return CKR_TEMPLATE_INCONSISTENT;
 	}
 	switch (*(CK_KEY_TYPE *)cla_attr->pValue) {
 	case CKO_SECRET_KEY:

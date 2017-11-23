@@ -42,7 +42,7 @@ object_mgr_add( STDLL_TokData_t  * tokdata,
 
    if (!sess || !pTemplate || !handle){
       TRACE_ERROR("Invalid function arguments.\n");
-      return CKR_FUNCTION_FAILED;
+      return CKR_ARGUMENTS_BAD;
    }
 
    rc = object_create( tokdata, pTemplate, ulCount, &o );
