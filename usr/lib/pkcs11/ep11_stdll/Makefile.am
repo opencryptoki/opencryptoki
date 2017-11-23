@@ -125,3 +125,4 @@ uninstall-hook:
 install-data-local :
 	test -f $(DESTDIR)$(sysconfdir)/opencryptoki || $(MKDIR_P) $(DESTDIR)$(sysconfdir)/opencryptoki || true
 	test -f $(DESTDIR)$(sysconfdir)/opencryptoki/ep11tok.conf || $(INSTALL) -m 644 $(srcdir)/ep11tok.conf $(DESTDIR)$(sysconfdir)/opencryptoki/ep11tok.conf || true
+	test -f $(DESTDIR)$(sysconfdir)/opencryptoki/ep11cpfilter.conf || $(INSTALL) -m 644 $(srcdir)/ep11cpfilter.conf $(DESTDIR)$(sysconfdir)/opencryptoki/ep11cpfilter.conf || true
