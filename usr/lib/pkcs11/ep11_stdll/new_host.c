@@ -1384,7 +1384,7 @@ CK_RV SC_FindObjects(STDLL_TokData_t *tokdata, ST_SESSION_HANDLE *sSession,
 
 	if (!sess->find_list) {
 		TRACE_DEVEL("sess->find_list is NULL.\n");
-		rc = CKR_FUNCTION_FAILED;
+		rc = CKR_OPERATION_NOT_INITIALIZED;
 		goto done;
 	}
 	count = MIN(ulMaxObjectCount, (sess->find_count - sess->find_idx));
