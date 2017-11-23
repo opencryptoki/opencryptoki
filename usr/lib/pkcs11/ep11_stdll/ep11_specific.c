@@ -183,6 +183,11 @@ static void free_cp_config(cp_config_t *cp);
 static const char *ep11_get_cp(unsigned int cp);
 #endif
 static CK_ULONG ep11_get_cp_by_name(const char *name);
+static CK_RV check_cps_for_mechanism(cp_config_t *cp_config,
+                                     CK_MECHANISM_TYPE mech,
+                                     unsigned char *cp, size_t cp_len);
+static CK_RV get_control_points(STDLL_TokData_t *tokdata,
+                                unsigned char* cp, size_t* cp_len);
 
 /* EP11 token private data */
 typedef struct {
@@ -194,6 +199,8 @@ typedef struct {
     int           cka_sensitive_default_true;
     char          cp_filter_config_filename[PATH_MAX];
     cp_config_t   *cp_config;
+    unsigned char control_points[XCP_CP_BYTES];
+    size_t        control_points_len;
 } ep11_private_data_t;
 
 /* target list of adapters/domains, specified in a config file by user,
@@ -1270,6 +1277,15 @@ CK_RV ep11tok_init(STDLL_TokData_t *tokdata, CK_SLOT_ID SlotNumber, char *conf_n
 		return CKR_DEVICE_ERROR;
 	}
 #endif
+
+    ep11_data->control_points_len = sizeof(ep11_data->control_points);
+    rc = get_control_points(tokdata, ep11_data->control_points,
+                            &ep11_data->control_points_len);
+    if (rc != CKR_OK) {
+        TRACE_ERROR("%s Failed to get the control points (get_control_points rc=0x%lx)\n",
+                   __func__, rc);
+        return rc;
+    }
 
 	/* create an AES key needed for importing keys
 	 * (encrypt by wrap_key and m_UnwrapKey by wrap key)
@@ -3871,6 +3887,16 @@ CK_RV ep11tok_get_mechanism_list(STDLL_TokData_t *tokdata,
 						   __func__, ep11_get_ckm(ep11_banned_mech_list[j]));
 				}
 			}
+
+            if (!banned &&
+                check_cps_for_mechanism(ep11_data->cp_config,
+                                        mlist[i], ep11_data->control_points,
+                                        ep11_data->control_points_len) != CKR_OK) {
+                banned = 1;
+                TRACE_INFO("%s banned mech '%s' due to control point\n",
+                                           __func__, ep11_get_ckm(mlist[i]));
+            }
+
 			if (banned == 1) {
 				/* banned mech found,
 				 * decrement reported list size
@@ -3918,6 +3944,11 @@ CK_RV ep11tok_get_mechanism_list(STDLL_TokData_t *tokdata,
 					banned = 1;
 				}
 			}
+            if (!banned &&
+                check_cps_for_mechanism(ep11_data->cp_config,
+                                        mlist[i], ep11_data->control_points,
+                                        ep11_data->control_points_len) != CKR_OK)
+                banned = 1;
 			if (banned == 0) {
 				pMechanismList[*pulCount] = mlist[i];
 				*pulCount = *pulCount + 1;
@@ -3956,6 +3987,15 @@ CK_RV ep11tok_get_mechanism_info(STDLL_TokData_t *tokdata,
 		if (type == ep11_banned_mech_list[i])
 			return CKR_MECHANISM_INVALID;
 	}
+
+    if (check_cps_for_mechanism(ep11_data->cp_config,
+                                type, ep11_data->control_points,
+                                ep11_data->control_points_len) != CKR_OK) {
+        TRACE_INFO("%s Mech '%s' banned due to control point\n",
+                                   __func__, ep11_get_ckm(type));
+        return CKR_MECHANISM_INVALID;
+    }
+
 #ifdef DEFENSIVE_MECHLIST
 	if (rc == CKR_OK) {
 		switch (type) {
@@ -4539,6 +4579,34 @@ static CK_ULONG ep11_get_cp_by_name(const char *name)
 
     TRACE_WARNING("%s unknown control point name '%s'\n", __func__, name);
     return UNKNOWN_CP;
+}
+
+static CK_RV check_cps_for_mechanism(cp_config_t *cp_config,
+                                     CK_MECHANISM_TYPE mech,
+                                     unsigned char *cp, size_t cp_len)
+{
+    cp_config_t *cp_cfg = cp_config;
+    cp_mech_config_t *mech_cfg;
+
+    TRACE_DEBUG("%s Check mechanism 0x%08lx ('%s')\n", __func__, mech, ep11_get_ckm(mech));
+
+    while(cp_cfg != NULL) {
+        if (CP_BYTE_NO(cp_cfg->cp) >= cp_len ||
+            (cp[CP_BYTE_NO(cp_cfg->cp)] & CP_BIT_MASK(cp_cfg->cp)) == 0) {
+            /* CP is off, check if the current mechanism is associated with it */
+            mech_cfg = cp_cfg->mech;
+            while(mech_cfg != NULL) {
+                if (mech_cfg->mech == mech) {
+                    TRACE_DEBUG("%s mechanism 0x%08lx ('%s') not enabled\n", __func__, mech, ep11_get_ckm(mech));
+                    return CKR_MECHANISM_INVALID;
+                }
+                mech_cfg = mech_cfg->next;
+            }
+        }
+        cp_cfg = cp_cfg->next;
+    }
+
+    return CKR_OK;
 }
 
 #define SYSFS_DEVICES_AP        "/sys/devices/ap/"
