@@ -2328,7 +2328,7 @@ import_DH_key_end:
     return rc;
 }
 CK_RV
-token_specific_object_add(STDLL_TokData_t *tokdata, OBJECT *obj)
+token_specific_object_add(STDLL_TokData_t *tokdata, SESSION *sess, OBJECT *obj)
 {
 	CK_KEY_TYPE keytype;
 	CK_ATTRIBUTE *attr = NULL;
