@@ -196,7 +196,21 @@ typedef struct {
 
 #define PUBLIC_SESSION_ID_LENGTH    16
 
+#define MAX_RETRY_COUNT 100
+
+#define RETRY_START             for(int retry_count = 0;                 \
+                                    retry_count < MAX_RETRY_COUNT;       \
+                                    retry_count ++) {
+
+#define RETRY_END(rc, tokdata, session)  if ((rc) != CKR_SESSION_CLOSED) \
+                                    break;                               \
+                                (rc) = ep11tok_relogin_session(tokdata, session); \
+                                if ((rc) != CKR_OK)                      \
+                                    break;                               \
+                                }
+
 CK_BOOL ep11_is_session_object(CK_ATTRIBUTE_PTR attrs, CK_ULONG attrs_len);
+CK_RV ep11tok_relogin_session(STDLL_TokData_t *tokdata, SESSION *session);
 
 static void free_cp_config(cp_config_t *cp);
 #ifdef DEBUG
@@ -1358,8 +1372,10 @@ static CK_RV rawkey_2_blob(STDLL_TokData_t  * tokdata, SESSION *sess,
 	 * calls the ep11 lib (which in turns sends the request to the card),
 	 * all m_ function are ep11 functions
 	 */
+    RETRY_START
 	rc = dll_m_EncryptSingle(ep11_data->raw2key_wrap_blob, ep11_data->raw2key_wrap_blob_l, &mech,
 			     key, ksize, cipher, &clen, (uint64_t)ep11_data->target_list);
+    RETRY_END(rc, tokdata, sess)
 
 	if (rc != CKR_OK) {
 		TRACE_ERROR("%s encrypt ksize=0x%lx clen=0x%lx rc=0x%lx\n",
@@ -1386,10 +1402,12 @@ static CK_RV rawkey_2_blob(STDLL_TokData_t  * tokdata, SESSION *sess,
 	/* the encrypted key is decrypted and a blob is build,
 	 * card accepts only blobs as keys
 	 */
+    RETRY_START
 	rc = dll_m_UnwrapKey(cipher, clen, ep11_data->raw2key_wrap_blob, ep11_data->raw2key_wrap_blob_l,
 			 NULL, ~0, ep11_pin_blob, ep11_pin_blob_len, &mech,
 			 new_p_attrs, new_attrs_len, blob, blen, csum, &cslen,
 			 (uint64_t)ep11_data->target_list);
+    RETRY_END(rc, tokdata, sess)
 
 	if (rc != CKR_OK) {
 		TRACE_ERROR("%s unwrap blen=%zd rc=0x%lx\n", __func__, *blen, rc);
@@ -1766,9 +1784,11 @@ static CK_RV import_RSA_key(STDLL_TokData_t *tokdata, SESSION *sess,
 		}
 
 		/* encrypt */
+        RETRY_START
 		rc = dll_m_EncryptSingle(ep11_data->raw2key_wrap_blob, ep11_data->raw2key_wrap_blob_l, &mech_w,
 					 data, data_len, cipher, &cipher_l,
 					 (uint64_t)ep11_data->target_list);
+        RETRY_END(rc, tokdata, sess)
 
 		TRACE_INFO("%s wrapping wrap key rc=0x%lx cipher_l=0x%lx\n",
 			   __func__, rc, cipher_l);
@@ -1796,10 +1816,12 @@ static CK_RV import_RSA_key(STDLL_TokData_t *tokdata, SESSION *sess,
 		/* calls the card, it decrypts the private RSA key,
 		 * reads its BER format and builds a blob.
 		 */
+        RETRY_START
 		rc = dll_m_UnwrapKey(cipher, cipher_l, ep11_data->raw2key_wrap_blob, ep11_data->raw2key_wrap_blob_l,
 				 NULL, ~0, ep11_pin_blob, ep11_pin_blob_len, &mech_w,
 				 new_p_attrs, new_attrs_len, blob, blob_size, csum, &cslen,
 				 (uint64_t)ep11_data->target_list);
+        RETRY_END(rc, tokdata, sess)
 
 		if (rc != CKR_OK) {
 			TRACE_ERROR("%s wrapping unwrap key rc=0x%lx blob_size=0x%zx\n",
@@ -1945,11 +1967,13 @@ static CK_RV import_EC_key(STDLL_TokData_t *tokdata, SESSION *sess,
 		}
 
 		/* encrypt */
+        RETRY_START
 		rc = dll_m_EncryptSingle(ep11_data->raw2key_wrap_blob,
 					 ep11_data->raw2key_wrap_blob_l,
 					 &mech_w, data, data_len,
 					 cipher, &cipher_l,
 					 (uint64_t)ep11_data->target_list);
+        RETRY_END(rc, tokdata, sess)
 
 		TRACE_INFO("%s wrapping wrap key rc=0x%lx cipher_l=0x%lx\n",
 			   __func__, rc, cipher_l);
@@ -1977,6 +2001,7 @@ static CK_RV import_EC_key(STDLL_TokData_t *tokdata, SESSION *sess,
 		/* calls the card, it decrypts the private EC key,
 		 * reads its BER format and builds a blob.
 		 */
+        RETRY_START
 		rc = dll_m_UnwrapKey(cipher, cipher_l,
 				     ep11_data->raw2key_wrap_blob,
 				     ep11_data->raw2key_wrap_blob_l, NULL, ~0,
@@ -1985,6 +2010,7 @@ static CK_RV import_EC_key(STDLL_TokData_t *tokdata, SESSION *sess,
 				     new_p_attrs, new_attrs_len, blob,
 				     blob_size, csum, &cslen,
 				     (uint64_t)ep11_data->target_list);
+        RETRY_END(rc, tokdata, sess)
 
 		if (rc != CKR_OK) {
 			TRACE_ERROR("%s wrapping unwrap key rc=0x%lx blob_size=0x%zx\n",
@@ -2142,11 +2168,13 @@ static CK_RV import_DSA_key(STDLL_TokData_t *tokdata, SESSION *sess,
         }
 
         /* encrypt */
+        RETRY_START
         rc = dll_m_EncryptSingle(ep11_data->raw2key_wrap_blob,
                      ep11_data->raw2key_wrap_blob_l,
                      &mech_w, data, data_len,
                      cipher, &cipher_l,
                      (uint64_t)ep11_data->target_list);
+        RETRY_END(rc, tokdata, sess)
 
 
         TRACE_INFO("%s wrapping wrap key rc=0x%lx cipher_l=0x%lx\n",
@@ -2175,6 +2203,7 @@ static CK_RV import_DSA_key(STDLL_TokData_t *tokdata, SESSION *sess,
         /* calls the card, it decrypts the private EC key,
          * reads its BER format and builds a blob.
          */
+        RETRY_START
         rc = dll_m_UnwrapKey(cipher, cipher_l,
                      ep11_data->raw2key_wrap_blob,
                      ep11_data->raw2key_wrap_blob_l, NULL, ~0,
@@ -2183,6 +2212,7 @@ static CK_RV import_DSA_key(STDLL_TokData_t *tokdata, SESSION *sess,
                      new_p_attrs, new_attrs_len, blob,
                      blob_size, csum, &cslen,
                      (uint64_t)ep11_data->target_list);
+        RETRY_END(rc, tokdata, sess)
 
         if (rc != CKR_OK) {
             TRACE_ERROR("%s wrapping unwrap key rc=0x%lx blob_size=0x%zx\n",
@@ -2334,11 +2364,13 @@ static CK_RV import_DH_key(STDLL_TokData_t *tokdata, SESSION *sess,
         }
 
         /* encrypt */
+        RETRY_START
         rc = dll_m_EncryptSingle(ep11_data->raw2key_wrap_blob,
                      ep11_data->raw2key_wrap_blob_l,
                      &mech_w, data, data_len,
                      cipher, &cipher_l,
                      (uint64_t)ep11_data->target_list);
+        RETRY_END(rc, tokdata, sess)
 
         TRACE_INFO("%s wrapping wrap key rc=0x%lx cipher_l=0x%lx\n",
                __func__, rc, cipher_l);
@@ -2366,6 +2398,7 @@ static CK_RV import_DH_key(STDLL_TokData_t *tokdata, SESSION *sess,
         /* calls the card, it decrypts the private EC key,
          * reads its BER format and builds a blob.
          */
+        RETRY_START
         rc = dll_m_UnwrapKey(cipher, cipher_l,
                      ep11_data->raw2key_wrap_blob,
                      ep11_data->raw2key_wrap_blob_l, NULL, ~0,
@@ -2374,6 +2407,7 @@ static CK_RV import_DH_key(STDLL_TokData_t *tokdata, SESSION *sess,
                      new_p_attrs, new_attrs_len, blob,
                      blob_size, csum, &cslen,
                      (uint64_t)ep11_data->target_list);
+        RETRY_END(rc, tokdata, sess)
 
         if (rc != CKR_OK) {
             TRACE_ERROR("%s wrapping unwrap key rc=0x%lx blob_size=0x%zx\n",
@@ -2551,9 +2585,11 @@ CK_RV ep11tok_generate_key(STDLL_TokData_t *tokdata, SESSION *session,
         TRACE_DEVEL("%s CKA_TOKEN=FALSE -> pass pin_blob\n", __func__);
     }
 
+    RETRY_START
 	rc = dll_m_GenerateKey(mech, new_attrs, new_attrs_len, ep11_pin_blob,
 			   ep11_pin_blob_len, blob, &blobsize,
 			   csum, &csum_len, (uint64_t)ep11_data->target_list);
+    RETRY_END(rc, tokdata, session)
 	if (rc != CKR_OK) {
 		TRACE_ERROR("%s m_GenerateKey rc=0x%lx mech='%s' attrs_len=0x%lx\n",
 			    __func__, rc, ep11_get_ckm(mech->mechanism), attrs_len);
@@ -2753,9 +2789,11 @@ CK_RV ep11tok_derive_key(STDLL_TokData_t *tokdata, SESSION *session, CK_MECHANIS
         TRACE_DEVEL("%s CKA_TOKEN=FALSE -> pass pin_blob\n", __func__);
     }
 
+    RETRY_START
 	rc = dll_m_DeriveKey (mech, new_attrs, new_attrs_len, keyblob, keyblobsize, NULL,
 			  0, ep11_pin_blob, ep11_pin_blob_len, newblob, &newblobsize,
 			  csum, &cslen, (uint64_t)ep11_data->target_list);
+    RETRY_END(rc, tokdata, session)
 
 	if (rc != CKR_OK) {
 		TRACE_ERROR("%s hBaseKey=0x%lx rc=0x%lx handle=0x%lx blobsize=0x%zx\n",
@@ -2950,12 +2988,14 @@ static CK_RV dh_generate_keypair(STDLL_TokData_t *tokdata,
         TRACE_DEVEL("%s CKA_TOKEN=FALSE -> pass pin_blob\n", __func__);
     }
 
+    RETRY_START
 	rc = dll_m_GenerateKeyPair(pMechanism, pPublicKeyTemplate_new,
 			       new_public_attr+1, pPrivateKeyTemplate,
 			       ulPrivateKeyAttributeCount, ep11_pin_blob,
 			       ep11_pin_blob_len, privblob, &privblobsize,
 			       publblob, &publblobsize,
 			       (uint64_t)ep11_data->target_list);
+    RETRY_END(rc, tokdata, sess)
 
 	if (rc != CKR_OK) {
 		TRACE_ERROR("%s m_GenerateKeyPair failed rc=0x%lx\n", __func__, rc);
@@ -3230,6 +3270,7 @@ static CK_RV dsa_generate_keypair(STDLL_TokData_t *tokdata,
         TRACE_DEVEL("%s CKA_TOKEN=FALSE -> pass pin_blob\n", __func__);
     }
 
+    RETRY_START
 	rc = dll_m_GenerateKeyPair(pMechanism, dsa_pPublicKeyTemplate,
 			       dsa_ulPublicKeyAttributeCount,
 			       dsa_pPrivateKeyTemplate,
@@ -3237,6 +3278,7 @@ static CK_RV dsa_generate_keypair(STDLL_TokData_t *tokdata,
 			       ep11_pin_blob_len, privblob, &privblobsize,
 			       publblob, &publblobsize,
 			       (uint64_t)ep11_data->target_list);
+    RETRY_END(rc, tokdata, sess)
 
 	if (rc != CKR_OK) {
 		TRACE_ERROR("%s m_GenerateKeyPair failed with rc=0x%lx\n", __func__, rc);
@@ -3401,12 +3443,14 @@ static CK_RV rsa_ec_generate_keypair(STDLL_TokData_t *tokdata,
         TRACE_DEVEL("%s CKA_TOKEN=FALSE -> pass pin_blob\n", __func__);
     }
 
+    RETRY_START
 	rc = dll_m_GenerateKeyPair(pMechanism, new_pPublicKeyTemplate,
 			       new_ulPublicKeyAttributeCount, new_pPrivateKeyTemplate,
 			       new_ulPrivateKeyAttributeCount, ep11_pin_blob,
 			       ep11_pin_blob_len, privkey_blob,
 			       &privkey_blob_len, spki, &spki_len,
 			       (uint64_t)ep11_data->target_list);
+    RETRY_END(rc, tokdata, sess)
 	if (rc != CKR_OK) {
 		TRACE_ERROR("%s m_GenerateKeyPair rc=0x%lx spki_len=0x%zx "
 			    "privkey_blob_len=0x%zx mech='%s'\n",
@@ -3872,9 +3916,11 @@ CK_RV ep11tok_sign_init(STDLL_TokData_t *tokdata, SESSION *session,
 		return rc;
 	}
 
+    RETRY_START
 	rc = dll_m_SignInit(ep11_sign_state, &ep11_sign_state_l,
 			    mech, keyblob, keyblobsize,
 			    (uint64_t)ep11_data->target_list);
+    RETRY_END(rc, tokdata, session)
 
 	if (rc != CKR_OK) {
 		TRACE_ERROR("%s rc=0x%lx blobsize=0x%zx key=0x%lx mech=0x%lx\n",
@@ -3906,8 +3952,10 @@ CK_RV ep11tok_sign(STDLL_TokData_t *tokdata, SESSION *session,
 	CK_RV rc;
 	SIGN_VERIFY_CONTEXT *ctx = &session->sign_ctx;
 
+    RETRY_START
 	rc = dll_m_Sign(ctx->context, ctx->context_len, in_data, in_data_len,
 		    signature, sig_len, (uint64_t)ep11_data->target_list);
+    RETRY_END(rc, tokdata, session)
 
 	if (rc != CKR_OK) {
 		TRACE_ERROR("%s rc=0x%lx\n", __func__, rc);
@@ -3929,8 +3977,10 @@ CK_RV ep11tok_sign_update(STDLL_TokData_t *tokdata, SESSION *session,
 	if (!in_data || !in_data_len)
 		return CKR_OK;
 
+    RETRY_START
 	rc = dll_m_SignUpdate(ctx->context, ctx->context_len, in_data,
 			  in_data_len, (uint64_t)ep11_data->target_list);
+    RETRY_END(rc, tokdata, session)
 
 	if (rc != CKR_OK) {
 		TRACE_ERROR("%s rc=0x%lx\n", __func__, rc);
@@ -3950,8 +4000,10 @@ CK_RV ep11tok_sign_final(STDLL_TokData_t *tokdata, SESSION *session,
 	CK_RV rc;
 	SIGN_VERIFY_CONTEXT *ctx = &session->sign_ctx;
 
+    RETRY_START
 	rc = dll_m_SignFinal(ctx->context, ctx->context_len, signature, sig_len,
 			     (uint64_t)ep11_data->target_list);
+    RETRY_END(rc, tokdata, session)
 
 	if (rc != CKR_OK) {
 		TRACE_ERROR("%s rc=0x%lx\n", __func__, rc);
@@ -3987,8 +4039,10 @@ CK_RV ep11tok_verify_init(STDLL_TokData_t *tokdata, SESSION *session,
 		return rc;
 	}
 
+    RETRY_START
 	rc = dll_m_VerifyInit(ep11_sign_state, &ep11_sign_state_l, mech,
 			  spki, spki_len, (uint64_t)ep11_data->target_list);
+    RETRY_END(rc, tokdata, session)
 
 	if (rc != CKR_OK) {
 		TRACE_ERROR("%s rc=0x%lx spki_len=0x%zx key=0x%lx "
@@ -4019,8 +4073,10 @@ CK_RV ep11tok_verify(STDLL_TokData_t *tokdata, SESSION *session, CK_BYTE *in_dat
 	CK_RV rc;
 	SIGN_VERIFY_CONTEXT *ctx = &session->verify_ctx;
 
+    RETRY_START
 	rc = dll_m_Verify(ctx->context, ctx->context_len, in_data, in_data_len,
 		      signature, sig_len, (uint64_t)ep11_data->target_list);
+    RETRY_END(rc, tokdata, session)
 
 	if (rc != CKR_OK) {
 		TRACE_ERROR("%s rc=0x%lx\n", __func__, rc);
@@ -4042,8 +4098,10 @@ CK_RV ep11tok_verify_update(STDLL_TokData_t *tokdata, SESSION *session,
 	if (!in_data || !in_data_len)
 		return CKR_OK;
 
+    RETRY_START
 	rc = dll_m_VerifyUpdate(ctx->context, ctx->context_len, in_data,
 			    in_data_len, (uint64_t)ep11_data->target_list);
+    RETRY_END(rc, tokdata, session)
 
 	if (rc != CKR_OK) {
 		TRACE_ERROR("%s rc=0x%lx\n", __func__, rc);
@@ -4062,8 +4120,10 @@ CK_RV ep11tok_verify_final(STDLL_TokData_t *tokdata, SESSION *session,
 	CK_RV rc;
 	SIGN_VERIFY_CONTEXT *ctx = &session->verify_ctx;
 
+    RETRY_START
 	rc = dll_m_VerifyFinal(ctx->context, ctx->context_len, signature,
 			   sig_len, (uint64_t)ep11_data->target_list);
+    RETRY_END(rc, tokdata, session)
 
 	if (rc != CKR_OK) {
 		TRACE_ERROR("%s rc=0x%lx\n", __func__, rc);
@@ -4083,9 +4143,11 @@ CK_RV ep11tok_decrypt_final(STDLL_TokData_t *tokdata, SESSION *session,
 	CK_RV rc = CKR_OK;
 	ENCR_DECR_CONTEXT *ctx = &session->decr_ctx;
 
+    RETRY_START
 	rc = dll_m_DecryptFinal(ctx->context, ctx->context_len,
 				output_part, p_output_part_len,
 				(uint64_t)ep11_data->target_list);
+    RETRY_END(rc, tokdata, session)
 
 	if (rc != CKR_OK) {
 		TRACE_ERROR("%s rc=0x%lx\n", __func__, rc);
@@ -4105,9 +4167,11 @@ CK_RV ep11tok_decrypt(STDLL_TokData_t *tokdata, SESSION *session,
 	CK_RV rc = CKR_OK;
 	ENCR_DECR_CONTEXT *ctx = &session->decr_ctx;
 
+    RETRY_START
 	rc = dll_m_Decrypt(ctx->context, ctx->context_len, input_data,
 			   input_data_len, output_data, p_output_data_len,
 			   (uint64_t)ep11_data->target_list);
+    RETRY_END(rc, tokdata, session)
 
 	if (rc != CKR_OK) {
 		TRACE_ERROR("%s rc=0x%lx\n", __func__, rc);
@@ -4133,9 +4197,11 @@ CK_RV ep11tok_decrypt_update(STDLL_TokData_t *tokdata, SESSION *session,
 		return CKR_OK; /* nothing to update, keep context */
 	}
 
+    RETRY_START
 	rc = dll_m_DecryptUpdate(ctx->context, ctx->context_len,
 			     input_part, input_part_len, output_part,
 			     p_output_part_len, (uint64_t)ep11_data->target_list);
+    RETRY_END(rc, tokdata, session)
 
 	if (rc != CKR_OK) {
 		TRACE_ERROR("%s rc=0x%lx\n", __func__, rc);
@@ -4155,9 +4221,11 @@ CK_RV ep11tok_encrypt_final(STDLL_TokData_t *tokdata, SESSION *session,
 	CK_RV rc = CKR_OK;
 	ENCR_DECR_CONTEXT *ctx = &session->encr_ctx;
 
+    RETRY_START
 	rc = dll_m_EncryptFinal(ctx->context, ctx->context_len,
 				output_part, p_output_part_len,
 				(uint64_t)ep11_data->target_list);
+    RETRY_END(rc, tokdata, session)
 
 	if (rc != CKR_OK) {
 		TRACE_ERROR("%s rc=0x%lx\n", __func__, rc);
@@ -4177,9 +4245,11 @@ CK_RV ep11tok_encrypt(STDLL_TokData_t *tokdata, SESSION *session,
 	CK_RV rc = CKR_OK;
 	ENCR_DECR_CONTEXT *ctx = &session->encr_ctx;
 
+    RETRY_START
 	rc = dll_m_Encrypt(ctx->context, ctx->context_len, input_data,
 			   input_data_len, output_data, p_output_data_len,
 			   (uint64_t)ep11_data->target_list);
+    RETRY_END(rc, tokdata, session)
 
 	if (rc != CKR_OK) {
 		TRACE_ERROR("%s rc=0x%lx\n", __func__, rc);
@@ -4205,10 +4275,12 @@ CK_RV ep11tok_encrypt_update(STDLL_TokData_t *tokdata, SESSION *session,
 		return CKR_OK; /* nothing to update, keep context */
 	}
 
+    RETRY_START
 	rc = dll_m_EncryptUpdate(ctx->context, ctx->context_len,
 				 input_part, input_part_len, output_part,
 				 p_output_part_len,
 				 (uint64_t)ep11_data->target_list);
+    RETRY_END(rc, tokdata, session)
 
 	if (rc != CKR_OK) {
 		TRACE_ERROR("%s rc=0x%lx\n", __func__, rc);
@@ -4244,8 +4316,10 @@ static CK_RV ep11_ende_crypt_init(STDLL_TokData_t *tokdata, SESSION *session,
 
 	if (op == DECRYPT) {
 		ENCR_DECR_CONTEXT *ctx = &session->decr_ctx;
+        RETRY_START
 		rc = dll_m_DecryptInit(ep11_state, &ep11_state_l, mech, blob,
 				   blob_len, (uint64_t)ep11_data->target_list);
+        RETRY_END(rc, tokdata, session)
 		ctx->key = key;
 		ctx->active = TRUE;
 		ctx->context = ep11_state;
@@ -4261,8 +4335,10 @@ static CK_RV ep11_ende_crypt_init(STDLL_TokData_t *tokdata, SESSION *session,
 		}
 	} else {
 		ENCR_DECR_CONTEXT *ctx = &session->encr_ctx;
+        RETRY_START
 		rc = dll_m_EncryptInit (ep11_state, &ep11_state_l, mech, blob,
 				    blob_len, (uint64_t)ep11_data->target_list);
+        RETRY_END(rc, tokdata, session)
 		ctx->key = key;
 		ctx->active = TRUE;
 		ctx->context = ep11_state;
@@ -4393,9 +4469,11 @@ CK_RV ep11tok_wrap_key(STDLL_TokData_t *tokdata, SESSION *session,
 	 * the wrapping key (wrapping_blob).
 	 * The wrapped key can be processed by any PKCS11 implementation.
 	 */
+    RETRY_START
 	rc = dll_m_WrapKey(wrap_target_blob, wrap_target_blob_len, wrapping_blob,
 		       wrapping_blob_len, NULL, ~0, mech, wrapped_key,
 		       p_wrapped_key_len, (uint64_t)ep11_data->target_list);
+    RETRY_END(rc, tokdata, session)
 
 	if (rc != CKR_OK) {
 		TRACE_ERROR("%s m_WrapKey failed with rc=0x%lx\n", __func__, rc);
@@ -4504,11 +4582,13 @@ CK_RV ep11tok_unwrap_key(STDLL_TokData_t *tokdata, SESSION *session, CK_MECHANIS
 	/* we need a blob for the new key created by unwrapping,
 	 * the wrapped key comes in BER
 	 */
+    RETRY_START
 	rc = dll_m_UnwrapKey(wrapped_key, wrapped_key_len, wrapping_blob,
 			 wrapping_blob_len, NULL, ~0, ep11_pin_blob,
 			 ep11_pin_blob_len, mech, new_attrs, new_attrs_len,
 			 keyblob, &keyblobsize, csum, &cslen,
 			 (uint64_t)ep11_data->target_list);
+    RETRY_END(rc, tokdata, session)
 
 	if (rc != CKR_OK) {
 		TRACE_ERROR("%s m_UnwrapKey rc=0x%lx blobsize=0x%zx mech=0x%lx\n",
