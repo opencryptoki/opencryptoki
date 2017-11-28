@@ -556,6 +556,10 @@ priv_key_unwrap( TEMPLATE *tmpl,
          rc = dsa_priv_unwrap( tmpl, data, data_len );
          break;
 
+      case CKK_DH:
+         rc = dh_priv_unwrap(tmpl, data, data_len);
+         break;
+
       default:
          TRACE_ERROR("%s\n", ock_err(ERR_WRAPPED_KEY_INVALID));
          return CKR_WRAPPED_KEY_INVALID;
@@ -2616,6 +2620,93 @@ dh_priv_check_exportability( CK_ATTRIBUTE_TYPE type )
    }
 
    return TRUE;
+}
+
+//
+//
+CK_RV
+dh_priv_unwrap(TEMPLATE *tmpl,
+               CK_BYTE  *data,
+               CK_ULONG  total_length)
+{
+    CK_ATTRIBUTE *prime     = NULL;
+    CK_ATTRIBUTE *base      = NULL;
+    CK_ATTRIBUTE *value     = NULL;
+    CK_RV      rc;
+
+    rc = ber_decode_DHPrivateKey(data, total_length,
+                                 &prime, &base, &value);
+
+    if (rc != CKR_OK) {
+        TRACE_DEVEL("ber_decode_DHPrivateKey failed\n");
+        return rc;
+    }
+    p11_attribute_trim(prime);
+    p11_attribute_trim(base);
+    p11_attribute_trim(value);
+
+    template_update_attribute(tmpl, prime);
+    template_update_attribute(tmpl, base);
+    template_update_attribute(tmpl, value);
+
+    return CKR_OK;
+}
+
+// create the ASN.1 encoding for the private key for wrapping as defined
+// in PKCS #8
+//
+// ASN.1 type PrivateKeyInfo ::= SEQUENCE {
+//    version Version
+//    privateKeyAlgorithm  PrivateKeyAlgorithmIdentifier
+//    privateKey PrivateKey
+//    attributes OPTIONAL
+// }
+//
+// PrivateKeyAlgorithmIdentifier ::= AlgorithmIdentifier
+//
+// AlgorithmIdentifier ::= SEQUENCE {
+//    algorithm OBJECT IDENTIFIER
+//    parameters ANY DEFINED BY algorithm OPTIONAL
+// }
+//
+// paramters ::= SEQUENCE {
+//    p  INTEGER
+//    g  INTEGER
+// }
+//
+// privateKey ::= INTEGER
+//
+//
+CK_RV
+dh_priv_wrap_get_data(TEMPLATE  *tmpl,
+                      CK_BBOOL   length_only,
+                      CK_BYTE  **data,
+                      CK_ULONG  *data_len)
+{
+    CK_ATTRIBUTE *prime     = NULL;
+    CK_ATTRIBUTE *base      = NULL;
+    CK_ATTRIBUTE *value     = NULL;
+    CK_RV      rc;
+
+    // compute the total length of the BER-encoded data
+    if (template_attribute_find(tmpl, CKA_PRIME, &prime) == FALSE) {
+        TRACE_ERROR("Could not find CKA_PRIME for the key.\n");
+        return CKR_FUNCTION_FAILED;
+    }
+    if (template_attribute_find(tmpl, CKA_BASE, &base) == FALSE) {
+        TRACE_ERROR("Could not find CKA_BASE for the key.\n");
+        return CKR_FUNCTION_FAILED;
+    }
+    if (template_attribute_find(tmpl, CKA_VALUE, &value) == FALSE) {
+        TRACE_ERROR("Could not find CKA_VALUE for the key.\n");
+        return CKR_FUNCTION_FAILED;
+    }
+    rc = ber_encode_DHPrivateKey(length_only, data, data_len,
+                                 prime, base, value);
+    if (rc != CKR_OK)
+        TRACE_DEVEL("ber_encode_DSAPrivateKe failed\n");
+
+    return rc;
 }
 
 

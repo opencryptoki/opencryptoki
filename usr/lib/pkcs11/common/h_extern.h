@@ -75,6 +75,8 @@ extern CK_BYTE            der_AlgIdECBase[];
 extern CK_ULONG           der_AlgIdECBaseLen;
 extern CK_BYTE            ber_idDSA[];
 extern CK_ULONG           ber_idDSALen;
+extern CK_BYTE            ber_idDH[];
+extern CK_ULONG           ber_idDHLen;
 
 extern CK_BYTE   ber_md2WithRSAEncryption[];
 extern CK_ULONG  ber_md2WithRSAEncryptionLen;
@@ -2547,6 +2549,10 @@ CK_RV     dh_priv_check_required_attributes( TEMPLATE *tmpl, CK_ULONG mode );
 CK_RV     dh_priv_set_default_attributes( TEMPLATE *tmpl, CK_ULONG mode );
 CK_RV     dh_priv_validate_attribute( STDLL_TokData_t *tokdata, TEMPLATE *tmpl,
 				      CK_ATTRIBUTE *attr, CK_ULONG mode );
+CK_RV     dh_priv_wrap_get_data(TEMPLATE *tmpl,
+                      CK_BBOOL length_only, CK_BYTE **data, CK_ULONG *data_len);
+CK_RV     dh_priv_unwrap(TEMPLATE *tmpl,
+                      CK_BYTE *data, CK_ULONG data_len);
 
 // KEA routines
 //
@@ -2787,6 +2793,18 @@ CK_RV    ber_decode_DSAPrivateKey( CK_BYTE     * data,
                                    CK_ATTRIBUTE ** base,
                                    CK_ATTRIBUTE ** priv_key );
 
+CK_RV    ber_encode_DHPrivateKey(CK_BBOOL      length_only,
+                                 CK_BYTE    ** data,
+                                 CK_ULONG    * data_len,
+                                 CK_ATTRIBUTE  * prime,
+                                 CK_ATTRIBUTE  * base,
+                                 CK_ATTRIBUTE  * priv_key);
+
+CK_RV    ber_decode_DHPrivateKey(CK_BYTE     * data,
+                                 CK_ULONG      data_len,
+                                 CK_ATTRIBUTE ** prime,
+                                 CK_ATTRIBUTE ** base,
+                                 CK_ATTRIBUTE ** priv_key);
 
 #include "tok_spec_struct.h"
 extern token_spec_t token_specific;
