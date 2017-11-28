@@ -41,6 +41,8 @@
 #include <dlfcn.h>
 #include <lber.h>
 #include <grp.h>
+#include <sys/time.h>
+#include <time.h>
 
 #ifdef DEBUG
 #include <ctype.h>
@@ -5692,4 +5694,337 @@ static CK_RV get_control_points(STDLL_TokData_t *tokdata,
 #endif
 
     return CKR_OK;
+}
+
+typedef struct {
+    SESSION           *session;
+    CK_BYTE            session_id[SHA256_HASH_SIZE];
+    CK_OBJECT_HANDLE   ep11_object;
+    CK_BYTE            pin_blob[XCP_PINBLOB_BYTES];
+    CK_BYTE            flags;
+} ep11_session_t;
+
+#define EP11_SESS_PINBLOB_VALID  0x01
+
+#define DEFAULT_EP11_PIN         "        "
+
+#define CKH_IBM_EP11_SESSION     CKH_VENDOR_DEFINED + 1
+
+#define PUBLIC_SESSION_ID_LENGTH    16
+
+CK_RV SC_CreateObject(STDLL_TokData_t *tokdata,
+                      ST_SESSION_HANDLE *sSession, CK_ATTRIBUTE_PTR pTemplate,
+                      CK_ULONG ulCount, CK_OBJECT_HANDLE_PTR phObject);
+CK_RV SC_DestroyObject(STDLL_TokData_t *tokdata,
+                       ST_SESSION_HANDLE *sSession, CK_OBJECT_HANDLE hObject);
+
+static CK_RV generate_ep11_session_id(STDLL_TokData_t *tokdata,
+                                      SESSION *session, ep11_session_t *ep11_session)
+{
+    ep11_private_data_t *ep11_data = tokdata->private_data;
+    CK_RV rc;
+    struct {
+        CK_SESSION_HANDLE    handle;
+        struct timeval       timeofday;
+        clock_t              clock;
+        pid_t                pid;
+    }
+    session_id_data;
+    CK_MECHANISM mech;
+    CK_ULONG len;
+
+    session_id_data.handle = session->handle;
+    gettimeofday(&session_id_data.timeofday, NULL);
+    session_id_data.clock = clock();
+    session_id_data.pid = getpid();
+
+    mech.mechanism = CKM_SHA256;
+    mech.pParameter = NULL;
+    mech.ulParameterLen = 0;
+
+    len = sizeof(ep11_session->session_id);
+    rc = dll_m_DigestSingle(&mech, (CK_BYTE_PTR)&session_id_data, sizeof(session_id_data),
+                            ep11_session->session_id, &len, (uint64_t)ep11_data->target_list);
+    if (rc != CKR_OK) {
+        TRACE_ERROR("%s m_DigestSingle failed: 0x%lu\n", __func__, rc);
+        return rc;
+    }
+
+    return CKR_OK;
+}
+
+static CK_RV create_ep11_object(STDLL_TokData_t *tokdata,
+                                SESSION *session, ep11_session_t *ep11_session)
+{
+    ep11_private_data_t *ep11_data = tokdata->private_data;
+    CK_RV rc;
+    CK_OBJECT_CLASS class = CKO_HW_FEATURE;
+    CK_HW_FEATURE_TYPE type = CKH_IBM_EP11_SESSION;
+    CK_BYTE subject[] = "EP11 Session Object";
+    pid_t pid;
+    CK_DATE date;
+    CK_BYTE true  = TRUE;
+    time_t t;
+    struct tm  *tm;
+    CK_CHAR tmp[4+2+2+1];
+    ST_SESSION_HANDLE handle = { .slotID = session->session_info.slotID, .sessionh = session->handle };
+
+    CK_ATTRIBUTE attrs[] =
+    {
+        {CKA_CLASS,            &class,             sizeof(class)   },
+        {CKA_TOKEN,            &true,              sizeof(true)    },
+        {CKA_PRIVATE,          &true,              sizeof(true)    },
+        {CKA_HIDDEN,           &true,              sizeof(true)    },
+        {CKA_HW_FEATURE_TYPE,  &type,              sizeof(type)    },
+        {CKA_SUBJECT,          &subject,           sizeof(subject) },
+        {CKA_VALUE,            ep11_session->pin_blob,   sizeof(ep11_session->pin_blob)   },
+        {CKA_ID,               ep11_session->session_id, PUBLIC_SESSION_ID_LENGTH },
+        {CKA_APPLICATION,      (ep11_target_t *)ep11_data->target_list, sizeof(ep11_target_t) },
+        {CKA_OWNER,            &pid,               sizeof(pid)     },
+        {CKA_START_DATE,       &date,              sizeof(date)    }
+    };
+
+    pid = getpid();
+    time(&t);
+    tm = localtime(&t);
+    sprintf(tmp,"%4d%2d%2d", tm->tm_year + 1900, tm->tm_mon + 1, tm->tm_mday);
+    memcpy(date.year, tmp, 4);
+    memcpy(date.month, tmp+4, 2);
+    memcpy(date.day, tmp+4+2, 2);
+
+    rc = SC_CreateObject(tokdata, &handle,
+                         attrs, sizeof(attrs) / sizeof(CK_ATTRIBUTE),
+                         &ep11_session->ep11_object);
+    if (rc != CKR_OK) {
+        TRACE_ERROR("%s SC_CreateObject failed: 0x%lu\n", __func__, rc);
+        return rc;
+    }
+
+    return CKR_OK;
+}
+
+static CK_RV ep11_login_handler(uint_32 adapter, uint_32 domain,
+                                void* handler_data)
+{
+    ep11_session_t *ep11_session = (ep11_session_t *)handler_data;
+    ep11_target_t target;
+    CK_RV rc;
+    CK_BYTE pin_blob[XCP_PINBLOB_BYTES];
+    CK_ULONG pin_blob_len = XCP_PINBLOB_BYTES;
+
+    TRACE_INFO("Logging in adapter %02X.%04X\n", adapter, domain);
+
+    memset(&target, 0, sizeof(target));
+    target.length = 1;
+    target.apqns[0] = adapter;
+    target.apqns[1] = domain;
+
+    rc = dll_m_Login(DEFAULT_EP11_PIN, strlen(DEFAULT_EP11_PIN),
+                     ep11_session->session_id, sizeof(ep11_session->session_id),
+                     pin_blob, &pin_blob_len,
+                     (uint64_t)&target);
+    if (rc != CKR_OK) {
+        TRACE_ERROR("%s dll_m_Login failed: 0x%lu\n", __func__, rc);
+        /* ignore the error here, the adapter may not be able to perform m_Login at this moment */
+        return CKR_OK;
+    }
+
+#ifdef DEBUG
+    TRACE_DEBUG("EP11 Pin blob (size: %lu):\n", XCP_PINBLOB_BYTES);
+    TRACE_DEBUG_DUMP(pin_blob, XCP_PINBLOB_BYTES);
+#endif
+
+    if (ep11_session->flags & EP11_SESS_PINBLOB_VALID) {
+        /* First part of pin-blob (keypart and session) must be equal */
+        if (memcmp(ep11_session->pin_blob, pin_blob, XCP_WK_BYTES) != 0) {
+            TRACE_ERROR("%s Pin blob not equal to previous one\n", __func__);
+            OCK_SYSLOG(LOG_ERR,
+                               "%s: Error: Pin blob of adapter %02X.%04X is not equal to other adapters for same session\n",
+                               __func__, adapter, domain);
+            return CKR_DEVICE_ERROR;
+        }
+    }
+    else {
+       memcpy(ep11_session->pin_blob, pin_blob, XCP_PINBLOB_BYTES);
+       ep11_session->flags |= EP11_SESS_PINBLOB_VALID;
+    }
+
+    return CKR_OK;
+}
+
+static CK_RV ep11_logout_handler(uint_32 adapter, uint_32 domain,
+                                 void* handler_data)
+{
+    ep11_session_t *ep11_session = (ep11_session_t *)handler_data;
+    ep11_target_t target;
+    CK_RV rc;
+
+    TRACE_INFO("Logging out adapter %02X.%04X\n", adapter, domain);
+
+    memset(&target, 0, sizeof(target));
+    target.length = 1;
+    target.apqns[0] = adapter;
+    target.apqns[1] = domain;
+
+#ifdef DEBUG
+    TRACE_DEBUG("EP11 Pin blob (size: %lu):\n", XCP_PINBLOB_BYTES);
+    TRACE_DEBUG_DUMP(ep11_session->pin_blob, XCP_PINBLOB_BYTES);
+#endif
+
+    rc = dll_m_Logout(ep11_session->pin_blob, XCP_PINBLOB_BYTES,
+            (uint64_t)&target);
+    if (rc != CKR_OK)
+        TRACE_ERROR("%s dll_m_Logout failed: 0x%lu\n", __func__, rc);
+    /* ignore any errors during m_logout */
+
+    return CKR_OK;
+}
+
+CK_RV ep11tok_login_session(STDLL_TokData_t *tokdata, SESSION *session)
+{
+    ep11_private_data_t *ep11_data = tokdata->private_data;
+    ep11_session_t *ep11_session;
+    CK_RV rc;
+    CK_RV rc2;
+    ST_SESSION_HANDLE handle = { .slotID = session->session_info.slotID, .sessionh = session->handle };
+
+    TRACE_INFO("%s session=%lu\n", __func__, session->handle);
+
+    if (!ep11_data->strict_mode)
+        return CKR_OK;
+
+    if (session->session_info.state == CKS_RW_SO_FUNCTIONS ||
+        session->session_info.state == CKS_RO_PUBLIC_SESSION ||
+        session->session_info.state == CKS_RW_PUBLIC_SESSION ||
+        session->session_info.state == CKS_RO_USER_FUNCTIONS) {
+        TRACE_INFO("%s Read-only, public or SO session\n", __func__);
+        return CKR_OK;
+    }
+
+    if (session->private_data != NULL) {
+        TRACE_INFO("%s Session already logged in\n", __func__);
+        return CKR_USER_ALREADY_LOGGED_IN;
+    }
+
+    ep11_session = (ep11_session_t * )calloc(1, sizeof(ep11_session_t));
+    if (ep11_session == NULL) {
+        TRACE_ERROR("%s Memory allocation failed\n", __func__);
+        return CKR_HOST_MEMORY;
+    }
+    ep11_session->session = session;
+    ep11_session->ep11_object = CK_INVALID_HANDLE;
+    session->private_data = ep11_session;
+
+    rc = generate_ep11_session_id(tokdata, session, ep11_session);
+    if (rc != CKR_OK) {
+        TRACE_ERROR("%s _generate_ep11_session_id failed: 0x%lu\n", __func__, rc);
+        goto done;
+    }
+
+#ifdef DEBUG
+    TRACE_DEBUG("EP11 Session-ID for PKCS#11 session %lu:\n", session->handle);
+    TRACE_DEBUG_DUMP(ep11_session->session_id, sizeof(ep11_session->session_id));
+#endif
+
+    rc = handle_all_ep11_cards((ep11_target_t *)&ep11_data->target_list,
+                               ep11_login_handler, ep11_session);
+    if (rc != CKR_OK) {
+        TRACE_ERROR("%s handle_all_ep11_cards failed: 0x%lu\n", __func__, rc);
+        goto done;
+    }
+    if ((ep11_session->flags & EP11_SESS_PINBLOB_VALID) == 0) {
+        rc = CKR_DEVICE_ERROR;
+        TRACE_ERROR("%s no pinblob available\n", __func__);
+        goto done;
+    }
+
+    rc = create_ep11_object(tokdata, session, ep11_session);
+    if (rc != CKR_OK) {
+        TRACE_ERROR("%s _create_ep11_object failed: 0x%lu\n", __func__, rc);
+        goto done;
+    }
+
+done:
+    if (rc != CKR_OK) {
+        if (ep11_session->flags & EP11_SESS_PINBLOB_VALID) {
+            rc2 = handle_all_ep11_cards((ep11_target_t *)&ep11_data->target_list,
+                                        ep11_logout_handler, ep11_session);
+            if (rc2 != CKR_OK)
+                TRACE_ERROR("%s handle_all_ep11_cards failed: 0x%lu\n", __func__, rc2);
+        }
+
+        if (ep11_session->ep11_object != CK_INVALID_HANDLE) {
+            rc2 = SC_DestroyObject(tokdata, &handle, ep11_session->ep11_object);
+            if (rc2 != CKR_OK)
+                TRACE_ERROR("%s SC_DestroyObject failed: 0x%lu\n", __func__, rc2);
+        }
+
+        free(ep11_session);
+        session->private_data = NULL;
+
+        TRACE_ERROR("%s: failed: 0x%lu\n", __func__, rc);
+    }
+
+    return rc;
+}
+
+CK_RV ep11tok_relogin_session(STDLL_TokData_t *tokdata, SESSION *session)
+{
+    ep11_private_data_t *ep11_data = tokdata->private_data;
+    ep11_session_t *ep11_session = (ep11_session_t *)session->private_data;
+    CK_RV rc;
+
+    TRACE_INFO("%s session=%lu\n", __func__, session->handle);
+
+    if (ep11_session == NULL) {
+        TRACE_INFO("%s Session not yet logged in\n", __func__);
+        return CKR_USER_NOT_LOGGED_IN;
+    }
+
+    rc = handle_all_ep11_cards((ep11_target_t *)&ep11_data->target_list,
+                               ep11_login_handler, ep11_session);
+    if (rc != CKR_OK)
+        TRACE_ERROR("%s handle_all_ep11_cards failed: 0x%lu\n", __func__, rc);
+
+    return CKR_OK;
+}
+
+CK_RV ep11tok_logout_session(STDLL_TokData_t *tokdata, SESSION *session)
+{
+    ep11_private_data_t *ep11_data = tokdata->private_data;
+    ep11_session_t *ep11_session = (ep11_session_t *)session->private_data;
+    CK_RV rc;
+    ST_SESSION_HANDLE handle = { .slotID = session->session_info.slotID, .sessionh = session->handle };
+
+    TRACE_INFO("%s session=%lu\n", __func__, session->handle);
+
+    if (!ep11_data->strict_mode)
+        return CKR_OK;
+
+    if (session->session_info.state == CKS_RW_SO_FUNCTIONS ||
+        session->session_info.state == CKS_RO_PUBLIC_SESSION ||
+        session->session_info.state == CKS_RW_PUBLIC_SESSION ||
+        session->session_info.state == CKS_RO_USER_FUNCTIONS) {
+        TRACE_INFO("%s Read-only, public or SO session\n", __func__);
+        return CKR_OK;
+    }
+
+    if (ep11_session == NULL) {
+        TRACE_INFO("%s CKR_USER_NOT_LOGGED_IN\n", __func__);
+        return CKR_USER_NOT_LOGGED_IN;
+    }
+
+    rc = handle_all_ep11_cards((ep11_target_t *)&ep11_data->target_list,
+                               ep11_logout_handler, ep11_session);
+    if (rc != CKR_OK)
+        TRACE_ERROR("%s handle_all_ep11_cards failed: 0x%lu\n", __func__, rc);
+
+    rc = SC_DestroyObject(tokdata, &handle, ep11_session->ep11_object);
+    if (rc != CKR_OK)
+        TRACE_ERROR("%s SC_DestroyObject failed: 0x%lu\n", __func__, rc);
+
+    free(ep11_session);
+    session->private_data = NULL;
+
+    return rc;
 }

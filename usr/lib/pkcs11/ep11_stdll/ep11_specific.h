@@ -122,4 +122,10 @@ CK_RV ep11tok_unwrap_key(STDLL_TokData_t *tokdata, SESSION *session,
 			 CK_OBJECT_HANDLE wrapping_key,
 			 CK_OBJECT_HANDLE_PTR p_key);
 
+CK_RV ep11tok_login_session(STDLL_TokData_t *tokdata, SESSION *session);
+
+CK_RV ep11tok_relogin_session(STDLL_TokData_t *tokdata, SESSION *session);
+
+CK_RV ep11tok_logout_session(STDLL_TokData_t *tokdata, SESSION *session);
+
 #endif
