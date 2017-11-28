@@ -319,3 +319,14 @@ typedef long (*xcpa_queryblock_t)(unsigned char *blk, size_t blen, unsigned int 
 typedef long (*xcpa_internal_rv_t)(const unsigned char *rsp,   size_t rlen,
                                    struct XCPadmresp *rspblk, CK_RV *rv);
 
+#ifndef XCP_PINBLOB_BYTES
+    #define  XCP_HMAC_BYTES ((size_t) (256 /8)) /* SHA-256 */
+    #define  XCP_WK_BYTES   ((size_t) (256 /8)) /* keypart and session sizes   */
+    #define  MOD_WRAP_BLOCKSIZE ((size_t) (128 /8)) /* blob crypt block bytecount */
+    #define  XCP_PIN_SALT_BYTES  MOD_WRAP_BLOCKSIZE
+    #define  XCP_PINBLOB_BYTES  \
+            (XCP_WK_BYTES +XCP_PIN_SALT_BYTES +XCP_HMAC_BYTES)
+    #define  XCP_MIN_PINBYTES          8
+    #define  XCP_MAX_PINBYTES         16
+#endif
+

@@ -37,6 +37,8 @@
 #include "../api/apiproto.h"
 
 void SC_SetFunctionList(void);
+static void _ep11tok_logout_session(STDLL_TokData_t *tokdata, void *node_value,
+                                    unsigned long node_idx, void *p3);
 
 CK_ULONG  usage_count = 0;	/* track DLL usage */
 
@@ -249,6 +251,11 @@ CK_RV SC_Finalize(STDLL_TokData_t *tokdata, CK_SLOT_ID sid, SLOT_INFO *sinfp)
 #else
 	} /* end transaction */
 #endif
+
+    if (session_mgr_so_session_exists() ||
+        session_mgr_user_session_exists()) {
+        bt_for_each_node(tokdata, &sess_btree, _ep11tok_logout_session, NULL);
+    }
 
 	session_mgr_close_all_sessions();
 	object_mgr_purge_token_objects(tokdata);
@@ -655,6 +662,7 @@ CK_RV SC_OpenSession(STDLL_TokData_t *tokdata, CK_SLOT_ID sid, CK_FLAGS flags,
 		     CK_SESSION_HANDLE_PTR phSession)
 {
 	CK_RV rc = CKR_OK;
+    SESSION *sess;
 
 	if (tokdata->initialized == FALSE) {
 		TRACE_ERROR("%s\n", ock_err(ERR_CRYPTOKI_NOT_INITIALIZED));
@@ -681,19 +689,68 @@ CK_RV SC_OpenSession(STDLL_TokData_t *tokdata, CK_SLOT_ID sid, CK_FLAGS flags,
 		return rc;
 	}
 
+    sess = session_mgr_find(*phSession);
+    if (!sess) {
+        TRACE_ERROR("%s\n", ock_err(ERR_SESSION_HANDLE_INVALID));
+        return CKR_SESSION_HANDLE_INVALID;
+    }
+
+    sess->handle = *phSession;
+
+    if (session_mgr_so_session_exists() ||
+        session_mgr_user_session_exists()) {
+        rc = ep11tok_login_session(tokdata, sess);
+    }
+
 	TRACE_INFO("C_OpenSession: rc = 0x%08lx\n", rc);
 	return rc;
+}
+
+
+static void _ep11tok_login_session(STDLL_TokData_t *tokdata, void *node_value,
+                                   unsigned long node_idx, void *p3)
+{
+    CK_RV rc;
+    CK_RV *r = (CK_RV *)p3;
+
+    rc = ep11tok_login_session(tokdata, (SESSION *)node_value);
+    if (rc != CKR_OK)
+        *r = rc;
+}
+
+static void _ep11tok_logout_session(STDLL_TokData_t *tokdata, void *node_value,
+                                    unsigned long node_idx, void *p3)
+{
+    ep11tok_logout_session(tokdata, (SESSION *)node_value);
 }
 
 CK_RV SC_CloseSession(STDLL_TokData_t *tokdata, ST_SESSION_HANDLE *sSession)
 {
 	CK_RV rc = CKR_OK;
+    SESSION *sess = NULL;
 
 	if (tokdata->initialized == FALSE) {
 		TRACE_ERROR("%s\n", ock_err(ERR_CRYPTOKI_NOT_INITIALIZED));
 		rc = CKR_CRYPTOKI_NOT_INITIALIZED;
 		goto done;
 	}
+
+    if (session_mgr_so_session_exists() ||
+        session_mgr_user_session_exists()) {
+        sess = session_mgr_find(sSession->sessionh);
+        if (!sess) {
+            TRACE_ERROR("%s\n", ock_err(ERR_SESSION_HANDLE_INVALID));
+            rc = CKR_SESSION_HANDLE_INVALID;
+            goto done;
+        }
+
+        rc = ep11tok_logout_session(tokdata, sess);
+        if (rc != CKR_OK) {
+            TRACE_ERROR("ep11tok_logout_session failed: %s\n", ock_err(rc));
+            goto done;
+        }
+    }
+
 
 	rc = session_mgr_close_session(tokdata, sSession->sessionh);
 done:
@@ -711,6 +768,12 @@ CK_RV SC_CloseAllSessions(STDLL_TokData_t *tokdata, CK_SLOT_ID sid)
 		rc = CKR_CRYPTOKI_NOT_INITIALIZED;
 		goto done;
 	}
+
+    if (session_mgr_so_session_exists() ||
+        session_mgr_user_session_exists()) {
+        bt_for_each_node(tokdata, &sess_btree, _ep11tok_logout_session, NULL);
+    }
+
 	rc = session_mgr_close_all_sessions();
 	if (rc != CKR_OK)
 		TRACE_DEVEL("session_mgr_close_all_sessions() failed.\n");
@@ -988,8 +1051,15 @@ done:
 			TRACE_DEVEL("session_mgr_login_all failed.\n");
 	}
 
+    if (rc == CKR_OK) {
+        bt_for_each_node(tokdata, &sess_btree, _ep11tok_login_session, &rc);
+        if (rc != CKR_OK)
+            TRACE_DEVEL("_ep11tok_login_session failed.\n");
+    }
+
 	TRACE_INFO("C_Login: rc = 0x%08lx\n", rc);
-	save_token_data(tokdata, sess->session_info.slotID);
+    if (sess)
+        save_token_data(tokdata, sess->session_info.slotID);
 	MY_UnlockMutex(&login_mutex);
 	return rc;
 }
@@ -1019,6 +1089,8 @@ CK_RV SC_Logout(STDLL_TokData_t *tokdata, ST_SESSION_HANDLE *sSession)
 		rc = CKR_USER_NOT_LOGGED_IN;
 		goto done;
 	}
+
+    bt_for_each_node(tokdata, &sess_btree, _ep11tok_logout_session, NULL);
 
 	rc = session_mgr_logout_all(tokdata);
 	if (rc != CKR_OK)
