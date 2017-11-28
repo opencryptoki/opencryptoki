@@ -65,6 +65,8 @@ typedef struct _SESSION
    DIGEST_CONTEXT       digest_ctx;
    SIGN_VERIFY_CONTEXT  sign_ctx;
    SIGN_VERIFY_CONTEXT  verify_ctx;
+
+   void                 *private_data;
 } SESSION;
 
 /* TODO:
