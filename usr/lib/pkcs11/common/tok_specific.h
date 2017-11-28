@@ -370,6 +370,6 @@ token_specific_get_mechanism_info(STDLL_TokData_t *,
                                   CK_MECHANISM_INFO_PTR pInfo);
 
 CK_RV
-token_specific_object_add(STDLL_TokData_t *, OBJECT *);
+token_specific_object_add(STDLL_TokData_t *, SESSION *, OBJECT *);
 
 #endif
