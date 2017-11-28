@@ -431,6 +431,92 @@ CK_RV create_ECPublicKey(CK_SESSION_HANDLE session,
 
 }
 
+/** Create an DSA public key using the prime 'p', subprime 'q', base 'g' and private value 'y' **/
+CK_RV create_DSAPrivateKey(CK_SESSION_HANDLE session,
+                           CK_BYTE prime[],
+                           CK_ULONG prime_len,
+                           CK_BYTE subprime[],
+                           CK_ULONG subprime_len,
+                           CK_BYTE base[],
+                           CK_ULONG base_len,
+                           CK_BYTE privatekey[],
+                           CK_ULONG privatekey_len,
+                           CK_OBJECT_HANDLE *priv_key)
+{
+
+    CK_OBJECT_CLASS class = CKO_PRIVATE_KEY;
+    CK_KEY_TYPE keyType = CKK_DSA;
+    CK_UTF8CHAR label[] = "An DSA private key object";
+    CK_BYTE subject[] = {};
+    CK_BYTE id[] = {123};
+    CK_RV rc;
+
+    CK_BBOOL true = TRUE;
+    CK_ATTRIBUTE template[] = {
+                {CKA_CLASS, &class, sizeof(class)},
+                {CKA_KEY_TYPE, &keyType, sizeof(keyType)},
+                {CKA_TOKEN, &true, sizeof(true)},
+                {CKA_LABEL, label, sizeof(label)},
+                {CKA_SUBJECT, subject, sizeof(subject)},
+                {CKA_ID, id, sizeof(id)},
+                {CKA_SENSITIVE, &true, sizeof(true)},
+                {CKA_DECRYPT, &true, sizeof(true)},
+                {CKA_SIGN, &true, sizeof(true)},
+                {CKA_PRIME, prime, prime_len},
+                {CKA_SUBPRIME, subprime, subprime_len},
+                {CKA_BASE, base, base_len},
+                {CKA_VALUE, privatekey, privatekey_len}
+    };
+
+    // create key
+    rc = funcs->C_CreateObject(session, template,
+                               sizeof(template)/sizeof (CK_ATTRIBUTE),
+                               priv_key);
+    if (rc != CKR_OK) {
+            testcase_error("C_CreateObject rc=%s", p11_get_ckr(rc));
+    }
+    return rc;
+}
+
+/** Create an DSA public key using the prime 'p', subprime 'q', base 'g' and public value 'x' **/
+CK_RV create_DSAPublicKey(CK_SESSION_HANDLE session,
+                          CK_BYTE prime[],
+                          CK_ULONG prime_len,
+                          CK_BYTE subprime[],
+                          CK_ULONG subprime_len,
+                          CK_BYTE base[],
+                          CK_ULONG base_len,
+                          CK_BYTE publickey[],
+                          CK_ULONG publickey_len,
+                          CK_OBJECT_HANDLE *publ_key)
+{
+    CK_RV           rc;
+    CK_OBJECT_CLASS class = CKO_PUBLIC_KEY;
+    CK_KEY_TYPE     keyType = CKK_DSA;
+    CK_UTF8CHAR     label[] = "An DSA public key object";
+    CK_BBOOL        true = TRUE;
+    CK_ATTRIBUTE    template[] = {
+                {CKA_CLASS, &class, sizeof(class)},
+                {CKA_KEY_TYPE, &keyType, sizeof(keyType)},
+                {CKA_TOKEN, &true, sizeof(true)},
+                {CKA_LABEL, label, sizeof(label)},
+                {CKA_ENCRYPT, &true, sizeof(true)},
+                {CKA_VERIFY, &true, sizeof(true)},
+                {CKA_PRIME, prime, prime_len},
+                {CKA_SUBPRIME, subprime, subprime_len},
+                {CKA_BASE, base, base_len},
+                {CKA_VALUE, publickey, publickey_len}
+    };
+
+    // create key
+    rc = funcs->C_CreateObject(session, template,
+                               sizeof(template)/sizeof (CK_ATTRIBUTE),
+                               publ_key);
+    if (rc != CKR_OK) {
+            testcase_error("C_CreateObject rc=%s", p11_get_ckr(rc));
+    }
+    return rc;
+}
 
 /* Generate a secret key */
 CK_RV generate_SecretKey(CK_SESSION_HANDLE session,
