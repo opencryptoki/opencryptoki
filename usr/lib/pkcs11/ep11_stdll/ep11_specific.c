@@ -180,6 +180,24 @@ typedef struct cp_config
     struct cp_config        *next;  // next control point, or NULL
 } cp_config_t;
 
+typedef struct {
+    SESSION           *session;
+    CK_BYTE            session_id[SHA256_HASH_SIZE];
+    CK_OBJECT_HANDLE   ep11_object;
+    CK_BYTE            pin_blob[XCP_PINBLOB_BYTES];
+    CK_BYTE            flags;
+} ep11_session_t;
+
+#define EP11_SESS_PINBLOB_VALID  0x01
+
+#define DEFAULT_EP11_PIN         "        "
+
+#define CKH_IBM_EP11_SESSION     CKH_VENDOR_DEFINED + 1
+
+#define PUBLIC_SESSION_ID_LENGTH    16
+
+CK_BOOL ep11_is_session_object(CK_ATTRIBUTE_PTR attrs, CK_ULONG attrs_len);
+
 static void free_cp_config(cp_config_t *cp);
 #ifdef DEBUG
 static const char *ep11_get_cp(unsigned int cp);
@@ -194,8 +212,6 @@ static CK_RV get_control_points(STDLL_TokData_t *tokdata,
 /* EP11 token private data */
 typedef struct {
     uint64_t      *target_list; // pointer to adapter target list
-    unsigned char *ep11_pin_blob;
-    CK_ULONG      ep11_pin_blob_len;
     CK_BYTE       raw2key_wrap_blob[MAX_BLOBSIZE];
     size_t        raw2key_wrap_blob_l;
     int           cka_sensitive_default_true;
@@ -1288,7 +1304,8 @@ static int read_cp_filter_config_file(const char* conf_name,
  * that was not created by EP11 hardware, encrypt the key by the wrap key,
  * unwrap it by the wrap key
  */
-static CK_RV rawkey_2_blob(STDLL_TokData_t  * tokdata, unsigned char *key,
+static CK_RV rawkey_2_blob(STDLL_TokData_t  * tokdata, SESSION *sess,
+               unsigned char *key,
 			   CK_ULONG ksize, CK_KEY_TYPE ktype,
 			   unsigned char *blob, size_t *blen, OBJECT *key_obj)
 {
@@ -1305,6 +1322,9 @@ static CK_RV rawkey_2_blob(STDLL_TokData_t  * tokdata, unsigned char *key,
 	CK_ULONG attrs_len = 0;
 	CK_ATTRIBUTE_PTR new_p_attrs = NULL;
 	CK_ULONG new_attrs_len = 0;
+    unsigned char *ep11_pin_blob = NULL;
+    CK_ULONG ep11_pin_blob_len = 0;
+    ep11_session_t *ep11_session = (ep11_session_t *)sess->private_data;
 
 	/* tell ep11 the attributes the user specified */
 	node = key_obj->template->attribute_list;
@@ -1357,11 +1377,17 @@ static CK_RV rawkey_2_blob(STDLL_TokData_t  * tokdata, unsigned char *key,
 		return rc;
 	}
 
+    if (ep11_session != NULL && object_is_session_object(key_obj)) {
+        ep11_pin_blob = ep11_session->pin_blob;
+        ep11_pin_blob_len = sizeof(ep11_session->pin_blob);
+        TRACE_DEVEL("%s CKA_TOKEN=FALSE -> pass pin_blob\n", __func__);
+    }
+
 	/* the encrypted key is decrypted and a blob is build,
 	 * card accepts only blobs as keys
 	 */
 	rc = dll_m_UnwrapKey(cipher, clen, ep11_data->raw2key_wrap_blob, ep11_data->raw2key_wrap_blob_l,
-			 NULL, ~0, ep11_data->ep11_pin_blob, ep11_data->ep11_pin_blob_len, &mech,
+			 NULL, ~0, ep11_pin_blob, ep11_pin_blob_len, &mech,
 			 new_p_attrs, new_attrs_len, blob, blen, csum, &cslen,
 			 (uint64_t)ep11_data->target_list);
 
@@ -1625,7 +1651,8 @@ CK_RV ep11tok_final(STDLL_TokData_t *tokdata)
  * SPKIs for public imported RSA keys.
  * Similar to rawkey_2_blob, but keys must follow a standard BER encoding.
  */
-static CK_RV import_RSA_key(STDLL_TokData_t *tokdata, OBJECT *rsa_key_obj,
+static CK_RV import_RSA_key(STDLL_TokData_t *tokdata, SESSION *sess,
+                OBJECT *rsa_key_obj,
 			    CK_BYTE *blob, size_t *blob_size)
 {
     ep11_private_data_t *ep11_data = tokdata->private_data;
@@ -1645,6 +1672,9 @@ static CK_RV import_RSA_key(STDLL_TokData_t *tokdata, OBJECT *rsa_key_obj,
 	CK_OBJECT_CLASS class;
 	CK_BYTE *data = NULL;
 	CK_ULONG data_len;
+    unsigned char *ep11_pin_blob = NULL;
+    CK_ULONG ep11_pin_blob_len = 0;
+    ep11_session_t *ep11_session = (ep11_session_t *)sess->private_data;
 
 	memcpy(iv, "1234567812345678", AES_BLOCK_SIZE);
 
@@ -1757,11 +1787,17 @@ static CK_RV import_RSA_key(STDLL_TokData_t *tokdata, OBJECT *rsa_key_obj,
 			return rc;
 		}
 
+        if (ep11_session != NULL && object_is_session_object(rsa_key_obj)) {
+            ep11_pin_blob = ep11_session->pin_blob;
+            ep11_pin_blob_len = sizeof(ep11_session->pin_blob);
+            TRACE_DEVEL("%s CKA_TOKEN=FALSE -> pass pin_blob\n", __func__);
+        }
+
 		/* calls the card, it decrypts the private RSA key,
 		 * reads its BER format and builds a blob.
 		 */
 		rc = dll_m_UnwrapKey(cipher, cipher_l, ep11_data->raw2key_wrap_blob, ep11_data->raw2key_wrap_blob_l,
-				 NULL, ~0, ep11_data->ep11_pin_blob, ep11_data->ep11_pin_blob_len, &mech_w,
+				 NULL, ~0, ep11_pin_blob, ep11_pin_blob_len, &mech_w,
 				 new_p_attrs, new_attrs_len, blob, blob_size, csum, &cslen,
 				 (uint64_t)ep11_data->target_list);
 
@@ -1789,7 +1825,8 @@ import_RSA_key_end:
  * SPKIs for public imported EC keys.
  * Similar to rawkey_2_blob, but keys must follow a standard BER encoding.
  */
-static CK_RV import_EC_key(STDLL_TokData_t *tokdata, OBJECT *ec_key_obj,
+static CK_RV import_EC_key(STDLL_TokData_t *tokdata, SESSION *sess,
+               OBJECT *ec_key_obj,
 			   CK_BYTE *blob, size_t *blob_size)
 {
 	ep11_private_data_t *ep11_data = tokdata->private_data;
@@ -1809,6 +1846,9 @@ static CK_RV import_EC_key(STDLL_TokData_t *tokdata, OBJECT *ec_key_obj,
 	CK_OBJECT_CLASS class;
 	CK_BYTE *data = NULL;
 	CK_ULONG data_len;
+    unsigned char *ep11_pin_blob = NULL;
+    CK_ULONG ep11_pin_blob_len = 0;
+    ep11_session_t *ep11_session = (ep11_session_t *)sess->private_data;
 
 	memcpy(iv, "1234567812345678", AES_BLOCK_SIZE);
 
@@ -1928,14 +1968,20 @@ static CK_RV import_EC_key(STDLL_TokData_t *tokdata, OBJECT *ec_key_obj,
 			return rc;
 		}
 
+        if (ep11_session != NULL && object_is_session_object(ec_key_obj)) {
+            ep11_pin_blob = ep11_session->pin_blob;
+            ep11_pin_blob_len = sizeof(ep11_session->pin_blob);
+            TRACE_DEVEL("%s CKA_TOKEN=FALSE -> pass pin_blob\n", __func__);
+        }
+
 		/* calls the card, it decrypts the private EC key,
 		 * reads its BER format and builds a blob.
 		 */
 		rc = dll_m_UnwrapKey(cipher, cipher_l,
 				     ep11_data->raw2key_wrap_blob,
 				     ep11_data->raw2key_wrap_blob_l, NULL, ~0,
-				     ep11_data->ep11_pin_blob,
-				     ep11_data->ep11_pin_blob_len, &mech_w,
+				     ep11_pin_blob,
+				     ep11_pin_blob_len, &mech_w,
 				     new_p_attrs, new_attrs_len, blob,
 				     blob_size, csum, &cslen,
 				     (uint64_t)ep11_data->target_list);
@@ -1964,7 +2010,8 @@ import_EC_key_end:
  * SPKIs for public imported DSA keys.
  * Similar to rawkey_2_blob, but keys must follow a standard BER encoding.
  */
-static CK_RV import_DSA_key(STDLL_TokData_t *tokdata, OBJECT *dsa_key_obj,
+static CK_RV import_DSA_key(STDLL_TokData_t *tokdata, SESSION *sess,
+                            OBJECT *dsa_key_obj,
                             CK_BYTE *blob, size_t *blob_size)
 {
     ep11_private_data_t *ep11_data = tokdata->private_data;
@@ -1984,6 +2031,9 @@ static CK_RV import_DSA_key(STDLL_TokData_t *tokdata, OBJECT *dsa_key_obj,
     CK_OBJECT_CLASS class;
     CK_BYTE *data = NULL;
     CK_ULONG data_len;
+    unsigned char *ep11_pin_blob = NULL;
+    CK_ULONG ep11_pin_blob_len = 0;
+    ep11_session_t *ep11_session = (ep11_session_t *)sess->private_data;
 
     memcpy(iv, "1234567812345678", AES_BLOCK_SIZE);
 
@@ -2116,14 +2166,20 @@ static CK_RV import_DSA_key(STDLL_TokData_t *tokdata, OBJECT *dsa_key_obj,
             return rc;
         }
 
+        if (ep11_session != NULL && object_is_session_object(dsa_key_obj)) {
+            ep11_pin_blob = ep11_session->pin_blob;
+            ep11_pin_blob_len = sizeof(ep11_session->pin_blob);
+            TRACE_DEVEL("%s CKA_TOKEN=FALSE -> pass pin_blob\n", __func__);
+        }
+
         /* calls the card, it decrypts the private EC key,
          * reads its BER format and builds a blob.
          */
         rc = dll_m_UnwrapKey(cipher, cipher_l,
                      ep11_data->raw2key_wrap_blob,
                      ep11_data->raw2key_wrap_blob_l, NULL, ~0,
-                     ep11_data->ep11_pin_blob,
-                     ep11_data->ep11_pin_blob_len, &mech_w,
+                     ep11_pin_blob,
+                     ep11_pin_blob_len, &mech_w,
                      new_p_attrs, new_attrs_len, blob,
                      blob_size, csum, &cslen,
                      (uint64_t)ep11_data->target_list);
@@ -2152,7 +2208,8 @@ import_DSA_key_end:
  * SPKIs for public imported DH keys.
  * Similar to rawkey_2_blob, but keys must follow a standard BER encoding.
  */
-static CK_RV import_DH_key(STDLL_TokData_t *tokdata, OBJECT *dh_key_obj,
+static CK_RV import_DH_key(STDLL_TokData_t *tokdata, SESSION *sess,
+                           OBJECT *dh_key_obj,
                            CK_BYTE *blob, size_t *blob_size)
 {
     ep11_private_data_t *ep11_data = tokdata->private_data;
@@ -2172,6 +2229,9 @@ static CK_RV import_DH_key(STDLL_TokData_t *tokdata, OBJECT *dh_key_obj,
     CK_OBJECT_CLASS class;
     CK_BYTE *data = NULL;
     CK_ULONG data_len;
+    unsigned char *ep11_pin_blob = NULL;
+    CK_ULONG ep11_pin_blob_len = 0;
+    ep11_session_t *ep11_session = (ep11_session_t *)sess->private_data;
 
     memcpy(iv, "1234567812345678", AES_BLOCK_SIZE);
 
@@ -2297,14 +2357,20 @@ static CK_RV import_DH_key(STDLL_TokData_t *tokdata, OBJECT *dh_key_obj,
             return rc;
         }
 
+        if (ep11_session != NULL && object_is_session_object(dh_key_obj)) {
+            ep11_pin_blob = ep11_session->pin_blob;
+            ep11_pin_blob_len = sizeof(ep11_session->pin_blob);
+            TRACE_DEVEL("%s CKA_TOKEN=FALSE -> pass pin_blob\n", __func__);
+        }
+
         /* calls the card, it decrypts the private EC key,
          * reads its BER format and builds a blob.
          */
         rc = dll_m_UnwrapKey(cipher, cipher_l,
                      ep11_data->raw2key_wrap_blob,
                      ep11_data->raw2key_wrap_blob_l, NULL, ~0,
-                     ep11_data->ep11_pin_blob,
-                     ep11_data->ep11_pin_blob_len, &mech_w,
+                     ep11_pin_blob,
+                     ep11_pin_blob_len, &mech_w,
                      new_p_attrs, new_attrs_len, blob,
                      blob_size, csum, &cslen,
                      (uint64_t)ep11_data->target_list);
@@ -2349,7 +2415,7 @@ token_specific_object_add(STDLL_TokData_t *tokdata, SESSION *sess, OBJECT *obj)
 	/* only these keys can be imported */
 	switch(keytype) {
 	case CKK_RSA:
-		rc = import_RSA_key(tokdata, obj, blob, &blobsize);
+		rc = import_RSA_key(tokdata, sess, obj, blob, &blobsize);
 		if (rc != CKR_OK) {
 			TRACE_ERROR("%s import RSA key rc=0x%lx blobsize=0x%zx\n",
 				    __func__, rc, blobsize);
@@ -2359,7 +2425,7 @@ token_specific_object_add(STDLL_TokData_t *tokdata, SESSION *sess, OBJECT *obj)
 			   __func__, rc, blobsize);
 		break;
 	case CKK_EC:
-		rc = import_EC_key(tokdata, obj, blob, &blobsize);
+		rc = import_EC_key(tokdata, sess, obj, blob, &blobsize);
 		if (rc != CKR_OK) {
 			TRACE_ERROR("%s import EC key rc=0x%lx blobsize=0x%zx\n",
 				    __func__, rc, blobsize);
@@ -2369,7 +2435,7 @@ token_specific_object_add(STDLL_TokData_t *tokdata, SESSION *sess, OBJECT *obj)
 			   __func__, rc, blobsize);
 		break;
     case CKK_DSA:
-        rc = import_DSA_key(tokdata, obj, blob, &blobsize);
+        rc = import_DSA_key(tokdata, sess, obj, blob, &blobsize);
         if (rc != CKR_OK) {
             TRACE_ERROR("%s import DSA key rc=0x%lx blobsize=0x%zx\n",
                         __func__, rc, blobsize);
@@ -2379,7 +2445,7 @@ token_specific_object_add(STDLL_TokData_t *tokdata, SESSION *sess, OBJECT *obj)
                    __func__, rc, blobsize);
         break;
     case CKK_DH:
-        rc = import_DH_key(tokdata, obj, blob, &blobsize);
+        rc = import_DH_key(tokdata, sess, obj, blob, &blobsize);
         if (rc != CKR_OK) {
             TRACE_ERROR("%s import DH key rc=0x%lx blobsize=0x%zx\n",
                         __func__, rc, blobsize);
@@ -2402,7 +2468,7 @@ token_specific_object_add(STDLL_TokData_t *tokdata, SESSION *sess, OBJECT *obj)
 		/* attr holds key value specified by user,
 		 * import that key (make a blob)
 		 */
-		rc = rawkey_2_blob(tokdata, attr->pValue, attr->ulValueLen, keytype,
+		rc = rawkey_2_blob(tokdata, sess, attr->pValue, attr->ulValueLen, keytype,
 				   blob, &blobsize, obj);
 		if (rc != CKR_OK) {
 			TRACE_ERROR("%s rawkey_2_blob rc=0x%lx "
@@ -2456,6 +2522,9 @@ CK_RV ep11tok_generate_key(STDLL_TokData_t *tokdata, SESSION *session,
 	CK_ATTRIBUTE_PTR new_attrs = NULL;
 	CK_ULONG new_attrs_len = 0;
 	CK_RV rc;
+    unsigned char *ep11_pin_blob = NULL;
+    CK_ULONG ep11_pin_blob_len = 0;
+    ep11_session_t *ep11_session = (ep11_session_t *)session->private_data;
 
 	memset(blob, 0, sizeof(blob));
 	memset(csum, 0, sizeof(csum));
@@ -2476,8 +2545,14 @@ CK_RV ep11tok_generate_key(STDLL_TokData_t *tokdata, SESSION *session,
 		return rc;
 	}
 
-	rc = dll_m_GenerateKey(mech, new_attrs, new_attrs_len, ep11_data->ep11_pin_blob,
-			   ep11_data->ep11_pin_blob_len, blob, &blobsize,
+    if (ep11_session != NULL && ep11_is_session_object(attrs, attrs_len)) {
+        ep11_pin_blob = ep11_session->pin_blob;
+        ep11_pin_blob_len = sizeof(ep11_session->pin_blob);
+        TRACE_DEVEL("%s CKA_TOKEN=FALSE -> pass pin_blob\n", __func__);
+    }
+
+	rc = dll_m_GenerateKey(mech, new_attrs, new_attrs_len, ep11_pin_blob,
+			   ep11_pin_blob_len, blob, &blobsize,
 			   csum, &csum_len, (uint64_t)ep11_data->target_list);
 	if (rc != CKR_OK) {
 		TRACE_ERROR("%s m_GenerateKey rc=0x%lx mech='%s' attrs_len=0x%lx\n",
@@ -2645,6 +2720,9 @@ CK_RV ep11tok_derive_key(STDLL_TokData_t *tokdata, SESSION *session, CK_MECHANIS
 	CK_ULONG class;
 	CK_ATTRIBUTE_PTR new_attrs = NULL;
 	CK_ULONG new_attrs_len = 0;
+    unsigned char *ep11_pin_blob = NULL;
+    CK_ULONG ep11_pin_blob_len = 0;
+    ep11_session_t *ep11_session = (ep11_session_t *)session->private_data;
 
 	memset(newblob, 0, sizeof(newblob));
 
@@ -2669,8 +2747,14 @@ CK_RV ep11tok_derive_key(STDLL_TokData_t *tokdata, SESSION *session, CK_MECHANIS
 		return rc;
 	}
 
+    if (ep11_session != NULL && ep11_is_session_object(attrs, attrs_len)) {
+        ep11_pin_blob = ep11_session->pin_blob;
+        ep11_pin_blob_len = sizeof(ep11_session->pin_blob);
+        TRACE_DEVEL("%s CKA_TOKEN=FALSE -> pass pin_blob\n", __func__);
+    }
+
 	rc = dll_m_DeriveKey (mech, new_attrs, new_attrs_len, keyblob, keyblobsize, NULL,
-			  0, ep11_data->ep11_pin_blob, ep11_data->ep11_pin_blob_len, newblob, &newblobsize,
+			  0, ep11_pin_blob, ep11_pin_blob_len, newblob, &newblobsize,
 			  csum, &cslen, (uint64_t)ep11_data->target_list);
 
 	if (rc != CKR_OK) {
@@ -2726,6 +2810,7 @@ error:
 
 
 static CK_RV dh_generate_keypair(STDLL_TokData_t *tokdata,
+                 SESSION *sess,
 				 CK_MECHANISM_PTR pMechanism,
 				 TEMPLATE *publ_tmpl, TEMPLATE *priv_tmpl,
 				 CK_ATTRIBUTE_PTR pPublicKeyTemplate,
@@ -2753,6 +2838,9 @@ static CK_RV dh_generate_keypair(STDLL_TokData_t *tokdata,
 	CK_BYTE  *data;
 	CK_BYTE  *y_start;
 	CK_ULONG bit_str_len;
+    unsigned char *ep11_pin_blob = NULL;
+    CK_ULONG ep11_pin_blob_len = 0;
+    ep11_session_t *ep11_session = (ep11_session_t *)sess->private_data;
 
 	/* ep11 accepts CKA_PRIME and CKA_BASE parameters/attributes
 	 * only in this format
@@ -2854,10 +2942,18 @@ static CK_RV dh_generate_keypair(STDLL_TokData_t *tokdata,
 	memcpy(&(pPublicKeyTemplate_new[new_public_attr]),
 	       &(pgs[0]), sizeof(CK_ATTRIBUTE));
 
+    if (ep11_session != NULL &&
+        (ep11_is_session_object(pPublicKeyTemplate, ulPublicKeyAttributeCount) ||
+         ep11_is_session_object(pPrivateKeyTemplate, ulPrivateKeyAttributeCount))) {
+        ep11_pin_blob = ep11_session->pin_blob;
+        ep11_pin_blob_len = sizeof(ep11_session->pin_blob);
+        TRACE_DEVEL("%s CKA_TOKEN=FALSE -> pass pin_blob\n", __func__);
+    }
+
 	rc = dll_m_GenerateKeyPair(pMechanism, pPublicKeyTemplate_new,
 			       new_public_attr+1, pPrivateKeyTemplate,
-			       ulPrivateKeyAttributeCount, ep11_data->ep11_pin_blob,
-			       ep11_data->ep11_pin_blob_len, privblob, &privblobsize,
+			       ulPrivateKeyAttributeCount, ep11_pin_blob,
+			       ep11_pin_blob_len, privblob, &privblobsize,
 			       publblob, &publblobsize,
 			       (uint64_t)ep11_data->target_list);
 
@@ -2953,6 +3049,7 @@ dh_generate_keypair_end:
 }
 
 static CK_RV dsa_generate_keypair(STDLL_TokData_t *tokdata,
+                  SESSION *sess,
 				  CK_MECHANISM_PTR pMechanism,
 				  TEMPLATE *publ_tmpl, TEMPLATE *priv_tmpl,
 				  CK_ATTRIBUTE_PTR pPublicKeyTemplate,
@@ -2983,6 +3080,9 @@ static CK_RV dsa_generate_keypair(STDLL_TokData_t *tokdata,
 	CK_ULONG dsa_ulPublicKeyAttributeCount = 0;
 	CK_ATTRIBUTE_PTR dsa_pPrivateKeyTemplate = NULL;
 	CK_ULONG dsa_ulPrivateKeyAttributeCount = 0;
+    unsigned char *ep11_pin_blob = NULL;
+    CK_ULONG ep11_pin_blob_len = 0;
+    ep11_session_t *ep11_session = (ep11_session_t *)sess->private_data;
 
 	/* ep11 accepts CKA_PRIME,CKA_SUBPRIME,CKA_BASE only in this format */
 	struct {
@@ -3122,11 +3222,19 @@ static CK_RV dsa_generate_keypair(STDLL_TokData_t *tokdata,
 		return rc;
 	}
 
+    if (ep11_session != NULL &&
+        (ep11_is_session_object(pPublicKeyTemplate, ulPublicKeyAttributeCount) ||
+        ep11_is_session_object(pPrivateKeyTemplate, ulPrivateKeyAttributeCount))) {
+        ep11_pin_blob = ep11_session->pin_blob;
+        ep11_pin_blob_len = sizeof(ep11_session->pin_blob);
+        TRACE_DEVEL("%s CKA_TOKEN=FALSE -> pass pin_blob\n", __func__);
+    }
+
 	rc = dll_m_GenerateKeyPair(pMechanism, dsa_pPublicKeyTemplate,
 			       dsa_ulPublicKeyAttributeCount,
 			       dsa_pPrivateKeyTemplate,
-			       dsa_ulPrivateKeyAttributeCount, ep11_data->ep11_pin_blob,
-			       ep11_data->ep11_pin_blob_len, privblob, &privblobsize,
+			       dsa_ulPrivateKeyAttributeCount, ep11_pin_blob,
+			       ep11_pin_blob_len, privblob, &privblobsize,
 			       publblob, &publblobsize,
 			       (uint64_t)ep11_data->target_list);
 
@@ -3210,6 +3318,7 @@ dsa_generate_keypair_end:
 }
 
 static CK_RV rsa_ec_generate_keypair(STDLL_TokData_t *tokdata,
+                     SESSION *sess,
 				     CK_MECHANISM_PTR pMechanism,
 				     TEMPLATE *publ_tmpl, TEMPLATE *priv_tmpl,
 				     CK_ATTRIBUTE_PTR pPublicKeyTemplate,
@@ -3241,6 +3350,9 @@ static CK_RV rsa_ec_generate_keypair(STDLL_TokData_t *tokdata,
 	CK_ATTRIBUTE_PTR new_pPrivateKeyTemplate = NULL;
 	CK_ULONG new_ulPrivateKeyAttributeCount = 0;
 	CK_ULONG ktype;
+    unsigned char *ep11_pin_blob = NULL;
+    CK_ULONG ep11_pin_blob_len = 0;
+    ep11_session_t *ep11_session = (ep11_session_t *)sess->private_data;
 
 	if (pMechanism->mechanism == CKM_EC_KEY_PAIR_GEN)
 		ktype = CKK_EC;
@@ -3281,10 +3393,18 @@ static CK_RV rsa_ec_generate_keypair(STDLL_TokData_t *tokdata,
 			   new_ulPrivateKeyAttributeCount);
 	}
 
+    if (ep11_session != NULL &&
+        (ep11_is_session_object(pPublicKeyTemplate, ulPublicKeyAttributeCount) ||
+         ep11_is_session_object(pPrivateKeyTemplate, ulPrivateKeyAttributeCount))) {
+        ep11_pin_blob = ep11_session->pin_blob;
+        ep11_pin_blob_len = sizeof(ep11_session->pin_blob);
+        TRACE_DEVEL("%s CKA_TOKEN=FALSE -> pass pin_blob\n", __func__);
+    }
+
 	rc = dll_m_GenerateKeyPair(pMechanism, new_pPublicKeyTemplate,
 			       new_ulPublicKeyAttributeCount, new_pPrivateKeyTemplate,
-			       new_ulPrivateKeyAttributeCount, ep11_data->ep11_pin_blob,
-			       ep11_data->ep11_pin_blob_len, privkey_blob,
+			       new_ulPrivateKeyAttributeCount, ep11_pin_blob,
+			       ep11_pin_blob_len, privkey_blob,
 			       &privkey_blob_len, spki, &spki_len,
 			       (uint64_t)ep11_data->target_list);
 	if (rc != CKR_OK) {
@@ -3566,7 +3686,7 @@ CK_RV ep11tok_generate_key_pair(STDLL_TokData_t *tokdata, SESSION * sess,
 
 	switch(pMechanism->mechanism) {
 	case CKM_DH_PKCS_KEY_PAIR_GEN:
-		rc = dh_generate_keypair(tokdata, pMechanism,
+		rc = dh_generate_keypair(tokdata, sess, pMechanism,
 					 public_key_obj->template,
 					 private_key_obj->template,
 					 pPublicKeyTemplate,
@@ -3579,7 +3699,7 @@ CK_RV ep11tok_generate_key_pair(STDLL_TokData_t *tokdata, SESSION * sess,
 	case CKM_EC_KEY_PAIR_GEN:      /* takes same parameters as RSA */
 	case CKM_RSA_PKCS_KEY_PAIR_GEN:
 	case CKM_RSA_X9_31_KEY_PAIR_GEN:
-		rc = rsa_ec_generate_keypair(tokdata, pMechanism,
+		rc = rsa_ec_generate_keypair(tokdata, sess, pMechanism,
 					     public_key_obj->template,
 					     private_key_obj->template,
 					     pPublicKeyTemplate,
@@ -3591,7 +3711,7 @@ CK_RV ep11tok_generate_key_pair(STDLL_TokData_t *tokdata, SESSION * sess,
 
 	case CKM_DSA_PARAMETER_GEN:
 	case CKM_DSA_KEY_PAIR_GEN:
-		rc = dsa_generate_keypair(tokdata, pMechanism,
+		rc = dsa_generate_keypair(tokdata, sess, pMechanism,
 					  public_key_obj->template,
 					  private_key_obj->template,
 					  pPublicKeyTemplate,
@@ -4312,6 +4432,9 @@ CK_RV ep11tok_unwrap_key(STDLL_TokData_t *tokdata, SESSION *session, CK_MECHANIS
 	CK_ATTRIBUTE_PTR new_attrs = NULL;
 	CK_ULONG new_attrs_len = 0;
 	OBJECT *kobj = NULL;
+    unsigned char *ep11_pin_blob = NULL;
+    CK_ULONG ep11_pin_blob_len = 0;
+    ep11_session_t *ep11_session = (ep11_session_t *)session->private_data;
 
 	/* get wrapping key blob */
 	rc = h_opaque_2_blob(tokdata, wrapping_key, &wrapping_blob, &wrapping_blob_len, &kobj);
@@ -4372,12 +4495,18 @@ CK_RV ep11tok_unwrap_key(STDLL_TokData_t *tokdata, SESSION *session, CK_MECHANIS
 	      (mech->mechanism == CKM_AES_CBC)))
 		return CKR_ARGUMENTS_BAD;
 
+    if (ep11_session != NULL && ep11_is_session_object(attrs, attrs_len)) {
+        ep11_pin_blob = ep11_session->pin_blob;
+        ep11_pin_blob_len = sizeof(ep11_session->pin_blob);
+        TRACE_DEVEL("%s CKA_TOKEN=FALSE -> pass pin_blob\n", __func__);
+    }
+
 	/* we need a blob for the new key created by unwrapping,
 	 * the wrapped key comes in BER
 	 */
 	rc = dll_m_UnwrapKey(wrapped_key, wrapped_key_len, wrapping_blob,
-			 wrapping_blob_len, NULL, ~0, ep11_data->ep11_pin_blob,
-			 ep11_data->ep11_pin_blob_len, mech, new_attrs, new_attrs_len,
+			 wrapping_blob_len, NULL, ~0, ep11_pin_blob,
+			 ep11_pin_blob_len, mech, new_attrs, new_attrs_len,
 			 keyblob, &keyblobsize, csum, &cslen,
 			 (uint64_t)ep11_data->target_list);
 
@@ -5696,21 +5825,6 @@ static CK_RV get_control_points(STDLL_TokData_t *tokdata,
     return CKR_OK;
 }
 
-typedef struct {
-    SESSION           *session;
-    CK_BYTE            session_id[SHA256_HASH_SIZE];
-    CK_OBJECT_HANDLE   ep11_object;
-    CK_BYTE            pin_blob[XCP_PINBLOB_BYTES];
-    CK_BYTE            flags;
-} ep11_session_t;
-
-#define EP11_SESS_PINBLOB_VALID  0x01
-
-#define DEFAULT_EP11_PIN         "        "
-
-#define CKH_IBM_EP11_SESSION     CKH_VENDOR_DEFINED + 1
-
-#define PUBLIC_SESSION_ID_LENGTH    16
 
 CK_RV SC_CreateObject(STDLL_TokData_t *tokdata,
                       ST_SESSION_HANDLE *sSession, CK_ATTRIBUTE_PTR pTemplate,
@@ -6027,4 +6141,22 @@ CK_RV ep11tok_logout_session(STDLL_TokData_t *tokdata, SESSION *session)
     session->private_data = NULL;
 
     return rc;
+}
+
+
+CK_BOOL ep11_is_session_object(CK_ATTRIBUTE_PTR attrs, CK_ULONG attrs_len)
+{
+    CK_ATTRIBUTE_PTR attr;
+
+    attr = get_attribute_by_type(attrs, attrs_len, CKA_TOKEN);
+    if (attr == NULL)
+        return TRUE;
+
+    if (attr->pValue == NULL)
+        return TRUE;
+
+    if (*((CK_BBOOL *)attr->pValue) == FALSE)
+        return TRUE;
+
+    return FALSE;
 }
