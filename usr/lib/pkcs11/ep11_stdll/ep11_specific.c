@@ -545,6 +545,151 @@ ber_encode_ECPublicKey(CK_BBOOL length_only, CK_BYTE **data, CK_ULONG *data_len,
 	return rc;
 }
 
+CK_RV
+ber_encode_DSAPublicKey(CK_BBOOL length_only, CK_BYTE **data, CK_ULONG *data_len,
+            CK_ATTRIBUTE *prime, CK_ATTRIBUTE *subprime, CK_ATTRIBUTE *base, CK_ATTRIBUTE *value)
+{
+    CK_ULONG len, parm_len, id_len, pub_len, offset, total;
+    CK_RV rc = 0;
+    CK_BYTE *buf = NULL;
+    CK_BYTE *buf2 = NULL;
+    BerValue *val;
+    BerElement *ber;
+
+    /* Calculate the BER container length
+     *
+     * SPKI := SEQUENCE {
+     *  SEQUENCE {
+     *      OID
+     *      Parameters
+     *  }
+     *  BITSTRING public key
+     * }
+     */
+
+    offset = 0;
+    rc = 0;
+    total = 0;
+    parm_len = 0;
+    id_len = 0;
+    pub_len = 0;
+
+    /* OID and parameters */
+    rc |= ber_encode_INTEGER(TRUE, NULL, &len, NULL, prime->ulValueLen);
+    offset += len;
+    rc |= ber_encode_INTEGER(TRUE, NULL, &len, NULL, subprime->ulValueLen);
+    offset += len;
+    rc |= ber_encode_INTEGER(TRUE, NULL, &len, NULL, base->ulValueLen);
+    offset += len;
+    rc |= ber_encode_SEQUENCE(TRUE, NULL, &parm_len, NULL, offset);
+    rc |= ber_encode_SEQUENCE(TRUE, NULL, &id_len, NULL, ber_idDSALen + parm_len);
+
+    /* public key */
+    rc |= ber_encode_INTEGER(FALSE, &buf, &len, value->pValue, value->ulValueLen);
+    ber = ber_alloc_t(LBER_USE_DER);
+    rc  = ber_put_bitstring(ber, buf, len*8, 0x03);
+    rc  = ber_flatten(ber, &val);
+    pub_len = val->bv_len;
+    ber_free(ber, 1);
+    free(buf);
+
+    rc |= ber_encode_SEQUENCE(TRUE, NULL, &total, NULL, id_len + pub_len);
+
+    if (rc != CKR_OK) {
+        TRACE_DEVEL("%s der_encode_sequence failed with rc=0x%lx\n", __func__, rc);
+        return rc;
+    }
+
+    if (length_only == TRUE) {
+        *data_len = total;
+        return rc;
+    }
+
+    buf = (CK_BYTE *)malloc(id_len + pub_len);
+    if (!buf) {
+        TRACE_ERROR("%s Memory allocation failed\n", __func__);
+        return CKR_HOST_MEMORY;
+    }
+
+    /* Parameters */
+    offset = 0;
+    rc = ber_encode_INTEGER(FALSE, &buf2, &len, prime->pValue, prime->ulValueLen);
+    if (rc != CKR_OK) {
+        TRACE_DEVEL("%s ber_encode_Int failed with rc=0x%lx\n", __func__, rc);
+        return rc;
+    }
+    memcpy(buf+offset, buf2, len);
+    offset += len;
+    free(buf2);
+
+    rc = ber_encode_INTEGER(FALSE, &buf2, &len, subprime->pValue, subprime->ulValueLen);
+    if (rc != CKR_OK) {
+        TRACE_DEVEL("%s ber_encode_Int failed with rc=0x%lx\n", __func__, rc);
+        return rc;
+    }
+    memcpy(buf+offset, buf2, len);
+    offset += len;
+    free(buf2);
+
+    rc = ber_encode_INTEGER(FALSE, &buf2, &len, base->pValue, base->ulValueLen);
+    if (rc != CKR_OK) {
+        TRACE_DEVEL("%s ber_encode_Int failed with rc=0x%lx\n", __func__, rc);
+        return rc;
+    }
+    memcpy(buf+offset, buf2, len);
+    offset += len;
+    free(buf2);
+
+    rc = ber_encode_SEQUENCE(FALSE, &buf2, &parm_len, buf, offset);
+    if (rc != CKR_OK) {
+        TRACE_DEVEL("%s ber_encode_Seq failed with rc=0x%lx\n", __func__, rc);
+        return rc;
+    }
+
+    /* OID and parameters */
+    memcpy(buf, ber_idDSA, ber_idDSALen);
+    memcpy(buf + ber_idDSALen, buf2, parm_len);
+    free(buf2);
+
+    rc = ber_encode_SEQUENCE(FALSE, &buf2, &id_len, buf, ber_idDSALen + parm_len);
+    if (rc != CKR_OK) {
+        TRACE_DEVEL("%s ber_encode_Seq failed with rc=0x%lx\n", __func__, rc);
+        return rc;
+    }
+    free(buf);
+
+    /* public key */
+    rc = ber_encode_INTEGER(FALSE, &buf, &len, value->pValue, value->ulValueLen);
+    if (rc != CKR_OK) {
+        TRACE_DEVEL("%s ber_encode_Int failed with rc=0x%lx\n", __func__, rc);
+        return rc;
+    }
+
+    ber = ber_alloc_t(LBER_USE_DER);
+    rc  = ber_put_bitstring(ber, buf, len*8, 0x03);
+    rc  = ber_flatten(ber, &val);
+    free(buf);
+
+    buf = (CK_BYTE *)malloc(id_len + val->bv_len);
+    if (!buf) {
+        TRACE_ERROR("%s Memory allocation failed\n", __func__);
+        return CKR_HOST_MEMORY;
+    }
+    memcpy(buf, buf2, id_len);
+    memcpy(buf + id_len, val->bv_val, val->bv_len);
+    free(buf2);
+    ber_free(ber, 1);
+
+    /* outer sequence */
+    rc = ber_encode_SEQUENCE(FALSE, data, data_len, buf, id_len + pub_len);
+    if (rc != CKR_OK) {
+        TRACE_DEVEL("%s der_encode_Seq failed with rc=0x%lx\n", __func__, rc);
+        return rc;
+    }
+    free(buf);
+
+    return rc;
+}
 
 /* get the public key from a SPKI
  *   SubjectPublicKeyInfo ::= SEQUENCE {
@@ -1676,6 +1821,194 @@ import_EC_key_end:
 	return rc;
 }
 
+/*
+ * makes blobs for private imported DSA keys and
+ * SPKIs for public imported DSA keys.
+ * Similar to rawkey_2_blob, but keys must follow a standard BER encoding.
+ */
+static CK_RV import_DSA_key(STDLL_TokData_t *tokdata, OBJECT *dsa_key_obj,
+                            CK_BYTE *blob, size_t *blob_size)
+{
+    ep11_private_data_t *ep11_data = tokdata->private_data;
+    CK_RV rc;
+    CK_ATTRIBUTE *attr = NULL;
+    CK_BYTE iv[AES_BLOCK_SIZE];
+    CK_MECHANISM mech_w = {CKM_AES_CBC_PAD, iv, AES_BLOCK_SIZE};
+    CK_BYTE cipher[MAX_BLOBSIZE];
+    CK_ULONG cipher_l = sizeof(cipher);
+    DL_NODE *node;
+    CK_ATTRIBUTE_PTR p_attrs = NULL;
+    CK_ULONG attrs_len = 0;
+    CK_ATTRIBUTE_PTR new_p_attrs = NULL;
+    CK_ULONG new_attrs_len = 0;
+    char csum[MAX_BLOBSIZE];
+    CK_ULONG cslen = sizeof(csum);
+    CK_OBJECT_CLASS class;
+    CK_BYTE *data = NULL;
+    CK_ULONG data_len;
+
+    memcpy(iv, "1234567812345678", AES_BLOCK_SIZE);
+
+    /* need class for private/public key info */
+    if (!template_attribute_find(dsa_key_obj->template, CKA_CLASS, &attr)) {
+        TRACE_ERROR("%s no CKA_CLASS\n", __func__);
+        return CKR_TEMPLATE_INCOMPLETE;
+    }
+
+    /* m_Unwrap builds key blob in the card,
+     * tell ep11 the attributes the user specified for that key.
+     */
+    node = dsa_key_obj->template->attribute_list;
+    while (node != NULL) {
+        CK_ATTRIBUTE_PTR a = node->data;
+
+        /* ep11 handles this as 'read only' */
+        if (CKA_NEVER_EXTRACTABLE == a->type ||
+            CKA_MODIFIABLE == a->type || CKA_LOCAL == a->type)
+            ;
+        else {
+            rc = add_to_attribute_array(&p_attrs, &attrs_len,
+                            a->type, a->pValue,
+                            a->ulValueLen);
+            if (rc != CKR_OK) {
+                TRACE_ERROR("%s adding attribute failed type=0x%lx rc=0x%lx\n",
+                        __func__, a->type, rc);
+                goto import_DSA_key_end;
+            }
+        }
+
+        node = node->next;
+    }
+
+    class = *(CK_OBJECT_CLASS *)attr->pValue;
+
+    if (class != CKO_PRIVATE_KEY) {
+
+        /* an imported public DSA key, we need a SPKI for it. */
+
+        CK_ATTRIBUTE *prime;
+        CK_ATTRIBUTE *subprime;
+        CK_ATTRIBUTE *base;
+        CK_ATTRIBUTE *value;
+
+        if (!template_attribute_find(dsa_key_obj->template,
+                CKA_PRIME, &prime)) {
+            rc = CKR_TEMPLATE_INCOMPLETE;
+            goto import_DSA_key_end;
+        }
+        if (!template_attribute_find(dsa_key_obj->template,
+                CKA_SUBPRIME, &subprime)) {
+            rc = CKR_TEMPLATE_INCOMPLETE;
+            goto import_DSA_key_end;
+        }
+        if (!template_attribute_find(dsa_key_obj->template,
+                CKA_BASE, &base)) {
+            rc = CKR_TEMPLATE_INCOMPLETE;
+            goto import_DSA_key_end;
+        }
+        if (!template_attribute_find(dsa_key_obj->template,
+                CKA_VALUE, &value)) {
+            rc = CKR_TEMPLATE_INCOMPLETE;
+            goto import_DSA_key_end;
+        }
+
+        /*
+         * Builds the DER encoding (ansi_x962) SPKI.
+         * (get the length first)
+         */
+        rc = ber_encode_DSAPublicKey(TRUE, &data, &data_len,
+                                     prime, subprime, base, value);
+        data = malloc(data_len);
+
+        rc = ber_encode_DSAPublicKey(FALSE, &data, &data_len,
+                                     prime, subprime, base, value);
+        if (rc != CKR_OK) {
+            TRACE_ERROR("%s public key import class=0x%lx rc=0x%lx "
+                    "data_len=0x%lx\n", __func__, class, rc,
+                    data_len);
+            goto import_DSA_key_end;
+        } else {
+            TRACE_INFO("%s public key import class=0x%lx rc=0x%lx "
+                   "data_len=0x%lx\n", __func__, class, rc,
+                   data_len);
+        }
+
+        /* save the SPKI as blob although it is not a blob.
+         * The card expects SPKIs as public keys.
+         */
+        memcpy(blob, data, data_len);
+        *blob_size = data_len;
+
+    } else {
+
+        /* imported private DSA key goes here */
+
+        /* extract the secret data to be wrapped
+         * since this is AES_CBC_PAD, padding is done in mechanism.
+         */
+        rc = dsa_priv_wrap_get_data(dsa_key_obj->template, FALSE,
+                          &data, &data_len);
+        if (rc != CKR_OK) {
+            TRACE_DEVEL("%s DSA wrap get data failed\n", __func__);
+            goto import_DSA_key_end;
+        }
+
+        /* encrypt */
+        rc = dll_m_EncryptSingle(ep11_data->raw2key_wrap_blob,
+                     ep11_data->raw2key_wrap_blob_l,
+                     &mech_w, data, data_len,
+                     cipher, &cipher_l,
+                     (uint64_t)ep11_data->target_list);
+
+
+        TRACE_INFO("%s wrapping wrap key rc=0x%lx cipher_l=0x%lx\n",
+               __func__, rc, cipher_l);
+
+        if (rc != CKR_OK) {
+            TRACE_ERROR("%s wrapping wrap key rc=0x%lx cipher_l=0x%lx\n",
+                    __func__, rc, cipher_l);
+            goto import_DSA_key_end;
+        }
+
+        rc = check_key_attributes(tokdata, CKK_DSA, CKO_PRIVATE_KEY, p_attrs, attrs_len,
+                      &new_p_attrs, &new_attrs_len);
+        if (rc != CKR_OK) {
+            TRACE_ERROR("%s DSA check private key attributes failed with rc=0x%lx\n",
+                    __func__, rc);
+            return rc;
+        }
+
+        /* calls the card, it decrypts the private EC key,
+         * reads its BER format and builds a blob.
+         */
+        rc = dll_m_UnwrapKey(cipher, cipher_l,
+                     ep11_data->raw2key_wrap_blob,
+                     ep11_data->raw2key_wrap_blob_l, NULL, ~0,
+                     ep11_data->ep11_pin_blob,
+                     ep11_data->ep11_pin_blob_len, &mech_w,
+                     new_p_attrs, new_attrs_len, blob,
+                     blob_size, csum, &cslen,
+                     (uint64_t)ep11_data->target_list);
+
+        if (rc != CKR_OK) {
+            TRACE_ERROR("%s wrapping unwrap key rc=0x%lx blob_size=0x%zx\n",
+                    __func__, rc, *blob_size);
+        } else {
+            TRACE_INFO("%s wrapping unwrap key rc=0x%lx blob_size=0x%zx\n",
+                   __func__, rc, *blob_size);
+        }
+    }
+
+import_DSA_key_end:
+    if (data)
+        free(data);
+    if (p_attrs != NULL)
+        free_attribute_array(p_attrs, attrs_len);
+    if (new_p_attrs)
+        free_attribute_array(new_p_attrs, new_attrs_len);
+    return rc;
+}
+
 CK_RV
 token_specific_object_add(STDLL_TokData_t *tokdata, OBJECT *obj)
 {
@@ -1717,6 +2050,16 @@ token_specific_object_add(STDLL_TokData_t *tokdata, OBJECT *obj)
 		TRACE_INFO("%s import EC key rc=0x%lx blobsize=0x%zx\n",
 			   __func__, rc, blobsize);
 		break;
+    case CKK_DSA:
+        rc = import_DSA_key(tokdata, obj, blob, &blobsize);
+        if (rc != CKR_OK) {
+            TRACE_ERROR("%s import DSA key rc=0x%lx blobsize=0x%zx\n",
+                        __func__, rc, blobsize);
+            return rc;
+        }
+        TRACE_INFO("%s import DSA key rc=0x%lx blobsize=0x%zx\n",
+                   __func__, rc, blobsize);
+        break;
 
 	case CKK_DES2:
 	case CKK_DES3:
