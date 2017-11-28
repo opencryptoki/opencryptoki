@@ -129,6 +129,7 @@ CK_BYTE  ber_md2WithRSAEncryption[] = { 0x06, 0x09, 0x2a, 0x86, 0x48, 0x86, 0xf7
 CK_BYTE  ber_md4WithRSAEncryption[] = { 0x06, 0x09, 0x2a, 0x86, 0x48, 0x86, 0xf7, 0x0d, 0x01, 0x01, 0x03 };
 CK_BYTE  ber_md5WithRSAEncryption[] = { 0x06, 0x09, 0x2a, 0x86, 0x48, 0x86, 0xf7, 0x0d, 0x01, 0x01, 0x04 };
 CK_BYTE  ber_sha1WithRSAEncryption[] = { 0x06, 0x09, 0x2a, 0x86, 0x48, 0x86, 0xf7, 0x0d, 0x01, 0x01, 0x05 };
+CK_BYTE  ber_idDH[]         = { 0x06, 0x09, 0x2a, 0x86, 0x48, 0x86, 0xF7, 0x0D, 0x01, 0x03, 0x01 };
 
 // Algorithm IDs. (Sequence of OID plus parms, usually NULL)
 //
@@ -151,6 +152,7 @@ CK_ULONG ber_md2WithRSAEncryptionLen = sizeof(ber_md2WithRSAEncryption);
 CK_ULONG ber_md4WithRSAEncryptionLen = sizeof(ber_md4WithRSAEncryption);
 CK_ULONG ber_md5WithRSAEncryptionLen = sizeof(ber_md5WithRSAEncryption);
 CK_ULONG ber_sha1WithRSAEncryptionLen= sizeof(ber_sha1WithRSAEncryption);
+CK_ULONG ber_idDHLen = sizeof(ber_idDH);
 
 CK_ULONG ber_AlgMd2Len=    sizeof(ber_AlgMd2);
 CK_ULONG ber_AlgMd5Len=    sizeof(ber_AlgMd5);

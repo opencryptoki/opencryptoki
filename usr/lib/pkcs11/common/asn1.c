@@ -2062,3 +2062,283 @@ cleanup:
 
 	return rc;
 }
+
+// DH is a little different from RSA
+//
+// DHPrivateKey ::= INTEGER
+//
+// The 'parameters' field of the AlgorithmIdentifier are as follows:
+//
+// DSSParameters ::= SEQUENCE {
+//    prime   INTEGER
+//    base    INTEGER
+// }
+//
+CK_RV
+ber_encode_DHPrivateKey(CK_BBOOL    length_only,
+                        CK_BYTE  ** data,
+                        CK_ULONG  * data_len,
+                        CK_ATTRIBUTE * prime,
+                        CK_ATTRIBUTE * base,
+                        CK_ATTRIBUTE * priv_key)
+{
+    CK_BYTE  *param = NULL;
+    CK_BYTE  *buf = NULL;
+    CK_BYTE  *tmp = NULL;
+    CK_BYTE  *alg = NULL;
+    CK_ULONG  offset, len, param_len;
+    CK_ULONG  alg_len;
+    CK_RV     rc;
+
+    // build the DSS parameters first
+    offset = 0;
+    rc = 0;
+
+    rc |= ber_encode_INTEGER(TRUE, NULL, &len, NULL, prime->ulValueLen);
+    offset += len;
+    rc |= ber_encode_INTEGER(TRUE, NULL, &len, NULL, base->ulValueLen);
+    offset += len;
+
+    if (rc != CKR_OK) {
+        TRACE_DEVEL("ber_encode_INTEGER failed\n");
+        return CKR_FUNCTION_FAILED;
+    }
+    if (length_only == TRUE) {
+        rc = ber_encode_SEQUENCE(TRUE, NULL, &param_len, NULL, offset);
+        if (rc != CKR_OK) {
+            TRACE_DEVEL("ber_encode_SEQUENCE failed\n");
+            return rc;
+        }
+        rc = ber_encode_INTEGER(TRUE, NULL, &len, NULL, priv_key->ulValueLen);
+        if (rc != CKR_OK) {
+            TRACE_DEVEL("ber_encode_INTEGER failed\n");
+            return rc;
+        }
+        rc = ber_encode_PrivateKeyInfo(TRUE,
+                                      NULL, data_len,
+                                      NULL, ber_idDHLen + param_len,
+                                      NULL, len);
+        if (rc != CKR_OK) {
+            TRACE_DEVEL("ber_encode_PrivateKeyInfo failed\n");
+        }
+        return rc;
+    }
+
+    // 'buf' will be the sequence data for the AlgorithmIdentifyer::parameter
+    buf = (CK_BYTE *)malloc(offset);
+    if (!buf) {
+        TRACE_ERROR("%s\n", ock_err(ERR_HOST_MEMORY));
+        return CKR_HOST_MEMORY;
+    }
+    len = 0;
+    offset = 0;
+
+    rc = ber_encode_INTEGER(FALSE, &tmp, &len, prime->pValue, prime->ulValueLen);
+    if (rc != CKR_OK) {
+        TRACE_DEVEL("ber_encode_INTEGER failed\n");
+        goto error;
+    }
+    memcpy(buf + offset, tmp, len);
+    offset += len;
+    free(tmp);
+    tmp = NULL;
+
+    rc = ber_encode_INTEGER(FALSE, &tmp, &len, base->pValue, base->ulValueLen);
+    if (rc != CKR_OK) {
+        TRACE_DEVEL("ber_encode_INTEGER failed\n");
+        goto error;
+    }
+    memcpy(buf + offset, tmp, len);
+    offset += len;
+    free(tmp);
+    tmp = NULL;
+
+    rc = ber_encode_SEQUENCE(FALSE, &param, &param_len, buf, offset);
+    if (rc != CKR_OK) {
+        TRACE_DEVEL("ber_encode_SEQUENCE failed\n");
+        free(buf);
+        return rc;
+    }
+
+    free(buf);
+    buf = NULL;
+
+    // Build the DSA AlgorithmIdentifier
+    //
+    // AlgorithmIdentifier ::= SEQUENCE {
+    //    algorithm  OBJECT IDENTIFIER
+    //    parameters ANY DEFINED BY algorithm OPTIONAL
+    // }
+    //
+    len = ber_idDHLen + param_len;
+    buf = (CK_BYTE *)malloc(len);
+    if (!buf) {
+        TRACE_ERROR("%s\n", ock_err(ERR_HOST_MEMORY));
+        goto error;
+    }
+    memcpy(buf, ber_idDH, ber_idDHLen);
+    memcpy(buf + ber_idDHLen, param, param_len);
+
+    free(param);
+    param = NULL;
+
+    rc = ber_encode_SEQUENCE(FALSE, &alg, &alg_len, buf, len);
+    if (rc != CKR_OK) {
+        TRACE_DEVEL("ber_encode_SEQUENCE failed\n");
+        goto error;
+    }
+    free(buf);
+    buf = NULL;
+
+    // build the private key INTEGER
+    rc = ber_encode_INTEGER(FALSE, &buf, &len, priv_key->pValue, priv_key->ulValueLen);
+    if (rc != CKR_OK) {
+        TRACE_DEVEL("ber_encode_INTEGER failed\n");
+        goto error;
+    }
+
+    rc = ber_encode_PrivateKeyInfo(FALSE,
+                                   data, data_len,
+                                   alg, alg_len,
+                                   buf, len);
+    if (rc != CKR_OK) {
+        TRACE_DEVEL("ber_encode_PrivateKeyInfo failed\n");
+        goto error;
+    }
+
+error:
+    if (alg)
+        free(alg);
+    if (buf)
+        free(buf);
+    if (param)
+        free(param);
+    if (tmp)
+        free(tmp);
+
+    return rc;
+}
+
+//
+//
+CK_RV
+ber_decode_DHPrivateKey(CK_BYTE     * data,
+                        CK_ULONG      data_len,
+                        CK_ATTRIBUTE  ** prime,
+                        CK_ATTRIBUTE  ** base,
+                        CK_ATTRIBUTE  ** priv_key)
+{
+    CK_ATTRIBUTE  *p_attr = NULL;
+    CK_ATTRIBUTE  *g_attr = NULL;
+    CK_ATTRIBUTE  *x_attr = NULL;
+    CK_BYTE    *alg    = NULL;
+    CK_BYTE    *buf    = NULL;
+    CK_BYTE    *dhkey = NULL;
+    CK_BYTE    *tmp    = NULL;
+    CK_ULONG    buf_len, field_len, len, offset;
+    CK_RV       rc;
+
+    rc = ber_decode_PrivateKeyInfo(data, data_len, &alg, &len, &dhkey);
+    if (rc != CKR_OK) {
+        TRACE_DEVEL("ber_decode_PrivateKeyInfo failed\n");
+        return rc;
+    }
+
+    // make sure we're dealing with a DH key.  just compare the OBJECT
+    // IDENTIFIER
+    if (memcmp(alg, ber_idDH, ber_idDHLen) != 0) {
+       TRACE_ERROR("%s\n", ock_err(ERR_FUNCTION_FAILED));
+       return CKR_FUNCTION_FAILED;
+    }
+
+    // extract the parameter data into ATTRIBUTES
+    //
+    rc = ber_decode_SEQUENCE(alg + ber_idDSALen, &buf, &buf_len, &field_len);
+    if (rc != CKR_OK) {
+        TRACE_DEVEL("ber_decode_SEQUENCE failed\n");
+        return rc;
+    }
+    offset = 0;
+
+    // prime
+    rc = ber_decode_INTEGER(buf+offset, &tmp, &len, &field_len);
+    if (rc != CKR_OK) {
+        TRACE_DEVEL("ber_decode_INTEGER failed\n");
+        goto cleanup;
+    }
+    offset += field_len;
+
+    // base
+    rc = ber_decode_INTEGER(buf+offset, &tmp, &len, &field_len);
+    if (rc != CKR_OK) {
+        TRACE_DEVEL("ber_decode_INTEGER failed\n");
+        goto cleanup;
+    }
+    offset += field_len;
+
+    if (offset > buf_len) {
+        TRACE_ERROR("%s\n", ock_err(ERR_FUNCTION_FAILED));
+        return CKR_FUNCTION_FAILED;
+    }
+    // it looks okay.  build the attributes
+
+    offset = 0;
+
+    // prime
+    rc = ber_decode_INTEGER(buf+offset, &tmp, &len, &field_len);
+    if (rc != CKR_OK) {
+        TRACE_DEVEL("ber_decode_INTEGER failed\n");
+        goto cleanup;
+    } else {
+        rc = build_attribute(CKA_PRIME, tmp, len, &p_attr);
+        if (rc != CKR_OK) {
+            TRACE_DEVEL("build_attribute failed\n");
+            goto cleanup;
+        }
+        offset += field_len;
+    }
+
+    // base
+    rc = ber_decode_INTEGER(buf+offset, &tmp, &len, &field_len);
+    if (rc != CKR_OK) {
+        TRACE_DEVEL("ber_decode_INTEGER failed\n");
+        goto cleanup;
+    } else {
+        rc = build_attribute(CKA_BASE, tmp, len, &g_attr);
+        if (rc != CKR_OK) {
+            TRACE_DEVEL("build_attribute failed\n");
+            goto cleanup;
+        }
+        offset += field_len;
+    }
+
+    // now get the private key
+    rc = ber_decode_INTEGER(dhkey, &tmp, &len, &field_len);
+    if (rc != CKR_OK) {
+        TRACE_DEVEL("ber_decode_INTEGER failed\n");
+        goto cleanup;
+    } else {
+        rc = build_attribute(CKA_VALUE, tmp, len, &x_attr);
+        if (rc != CKR_OK) {
+            TRACE_DEVEL("build_attribute failed\n");
+            goto cleanup;
+        }
+        offset += field_len;
+    }
+
+    *prime = p_attr;
+    *base = g_attr;
+    *priv_key = x_attr;
+
+    return CKR_OK;
+
+cleanup:
+    if (p_attr)
+        free(p_attr);
+    if (g_attr)
+        free(g_attr);
+    if (x_attr)
+        free(x_attr);
+
+    return rc;
+}
