@@ -201,6 +201,7 @@ typedef struct {
     cp_config_t   *cp_config;
     unsigned char control_points[XCP_CP_BYTES];
     size_t        control_points_len;
+    int           strict_mode;
 } ep11_private_data_t;
 
 /* target list of adapters/domains, specified in a config file by user,
@@ -4894,14 +4895,19 @@ static int read_adapter_config_file(STDLL_TokData_t *tokdata, const char* conf_n
                ep11_data->cka_sensitive_default_true = 1;
             } else if (strncmp(token, "CPFILTER", 8) == 0) {
                 i = 4;
+            } else if (strncmp(token, "STRICT_MODE", 11) == 0) {
+               i = 0;
+               ep11_data->strict_mode = 1;
             } else {
 				/* syntax error */
 				TRACE_ERROR("%s Expected APQN_WHITELIST,"
-					    " APQN_ANY, LOGLEVEL, FORCE_SENSITIVE, or CPFILTER keyword,"
+					    " APQN_ANY, LOGLEVEL, FORCE_SENSITIVE, CPFILTER,"
+				        " or STRICT_MODE keyword,"
 					    " found '%s' in config file '%s'\n",
 					    __func__, token, fname);
                 OCK_SYSLOG(LOG_ERR,"%s: Error: Expected APQN_WHITELIST,"
-                           " APQN_ANY, LOGLEVEL, FORCE_SENSITIVE, or CPFILTER keyword,"
+                           " APQN_ANY, LOGLEVEL, FORCE_SENSITIVE, CPFILTER,"
+                           " or STRICT_MODE keyword,"
                            " found '%s' in config file '%s'\n",
                                    __func__, token, fname);
 				rc = APQN_FILE_SYNTAX_ERROR_0;
