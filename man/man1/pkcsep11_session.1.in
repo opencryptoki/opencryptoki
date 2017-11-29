@@ -1,0 +1,57 @@
+.TH PKCSEP11_SESSION 1 "Nov 2017" "@PACKAGE_VERSION@" "openCryptoki"
+.SH NAME
+pkcsep11_session \- utility to manage EP11 sessions.
+
+.SH SYNOPSIS
+\fBpkcep11_session\fP
+[\fB-h\fP]
+[\fBshow|logout\fP \fB-slot\fP \fIslot-number\fP [\fB-id\fP \fIsession-ID\fP]
+[\fB-pid\fP \fIprocess-ID\fP] [\fB-date\fP \fIyyyy/mm/dd\fP] [\fB-force\fP] ]
+
+.SH DESCRIPTION
+When STRICT_MODE is enabled in the EP11 configuration file, all 
+session-keys will strictly belong to the PKCS#11 session that created it.
+When the PKCS#11 session ends, all session keys created for this session
+can no longer be used. The EP11 token creates EP11-sessions when a PKCS#11
+session is logged on, and destroys the EP11-session when the PKCS#11 session
+is logged out or closed. When an application terminates abnormally, without
+logging out or closing the PKCS#11 session, then the corresponding EP11-session
+is also not destroyed. The pkcep11_session tool can be used to display
+and logout left-over EP11-sessions. 
+.br
+Before using this tool make sure you've set the environment variable  
+PKCS11_USER_PIN with the correct User PIN.  
+
+.SH "COMMAND SUMMARY"
+.IP "\fBshow\fP" 10
+displays all left-over EP11-sessions. Use -session-ID, -pid or -date
+options to filter the to be displayed sessions.
+.IP "\fBlogout\fP" 10
+logs out all left-over EP11-sessions. Use -session-ID, -pid or -date
+options to filter the to be logged out sessions.
+
+.SH "OPTIONS"
+.IP "\fB-slot\fP \fIslot-number\fP" 10
+specifies the token slot of the EP11 token
+.IP "\fB-force\fP" 10
+delete a session even when logout is not working on all adapters.
+.IP "\fB-id\fP \fIsession-ID\fP" 10
+specifies the EP11-session ID to display or logout.
+.IP "\fB-pid\fP \fIprocess-ID\fP" 10
+specifies the process-ID (pid) to display or logout EP11-sessions for.
+.IP "\fB-date\fP \fIyyyy/mm/dd\fP" 10
+specifies a date to filter the EP11-Sessions to display or logout. 
+Any EP11-session that is equal or older than the specified date are
+displayed or logged out. 
+.IP "\fB-h\fP" 10
+show usage information
+
+.SH SEE ALSO
+.PD 0
+.TP
+\fBpkcsconf\fP(1),
+.TP
+\fBopencryptoki\fP(7),
+.TP
+\fBpkcsslotd\fP(8).
+.PD

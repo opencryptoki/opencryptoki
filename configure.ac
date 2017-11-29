@@ -148,6 +148,12 @@ AC_ARG_ENABLE([pkcsep11_migrate],
 	AS_HELP_STRING([--enable-pkcsep11_migrate],[build pkcsep11_migrate (EP11 token key migration tool) @<:@default=enabled if EP11 library is present@:>@]),
 	[],
 	[enable_pkcsep11_migrate=check])
+	
+dnl --- pkcsep11_session
+AC_ARG_ENABLE([pkcsep11_session],
+	AS_HELP_STRING([--enable-pkcsep11_session],[build pkcsep11_session (EP11 token session logout tool) @<:@default=enabled if EP11 library is present@:>@]),
+	[],
+	[enable_pkcsep11_session=check])
 
 dnl --- locking support
 AC_ARG_ENABLE([locks],
@@ -533,6 +539,22 @@ else
 fi
 AM_CONDITIONAL([ENABLE_PKCSEP11_MIGRATE], [test "x$enable_pkcsep11_migrate" = "xyes"])
 
+dnl --- enable_pkcsep11_session
+if test "x$enable_pkcsep11_session" = "xyes"; then
+	if test "x$with_zcrypt" != "xyes"; then
+		AC_MSG_ERROR([pkcsep11_session build requested but no ep11 libraries found])
+		enable_pkcsep11_session=no
+	fi
+fi
+
+if test "x$enable_pkcsep11_session" != "xno" -a "x$with_zcrypt" != "xno"; then
+        enable_pkcsep11_session=yes
+else
+        enable_pkcsep11_session=no
+fi
+
+AM_CONDITIONAL([ENABLE_PKCSEP11_SESSION], [test "x$enable_pkcsep11_session" = "xyes"])
+
 dnl --- enable_locks
 if test "x$enable_locks" = "xno"; then
 	if test "x$itm" != "xyes"; then
@@ -572,6 +594,7 @@ AC_CONFIG_FILES([Makefile usr/Makefile \
           usr/sbin/pkcsicsf/Makefile \
           usr/sbin/pkcscca/Makefile \
           usr/sbin/pkcsep11_migrate/Makefile \
+          usr/sbin/pkcsep11_session/Makefile \
           usr/lib/pkcs11/soft_stdll/Makefile \
           usr/lib/pkcs11/ep11_stdll/Makefile \
           usr/lib/pkcs11/tpm_stdll/Makefile \
@@ -590,6 +613,7 @@ AC_CONFIG_FILES([Makefile usr/Makefile \
 	  man/man1/pkcsicsf.1 \
 	  man/man1/pkcscca.1 \
 	  man/man1/pkcsep11_migrate.1 \
+	  man/man1/pkcsep11_session.1 \
 	  man/man5/Makefile \
 	  man/man5/opencryptoki.conf.5 \
 	  man/man7/Makefile \
@@ -615,6 +639,7 @@ echo "	ICSF token:		$enable_icsftok"
 echo
 echo "Token-specific features:"
 echo "	pkcsep11migrate build:	$enable_pkcsep11_migrate"
+echo "	pkcsep11session build:	$enable_pkcsep11_session"
 echo
 echo "CFLAGS=$CFLAGS"
 echo
