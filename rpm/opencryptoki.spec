@@ -308,7 +308,9 @@ exit 0
 %config(noreplace) %{_sysconfdir}/%{name}/ep11tok.conf
 %config(noreplace) %{_sysconfdir}/%{name}/ep11cpfilter.conf
 %{_sbindir}/pkcsep11_migrate
+%{_sbindir}/pkcsep11_session
 %{_mandir}/man1/pkcsep11_migrate.1.*
+%{_mandir}/man1/pkcsep11_session.1.*
 %{_libdir}/opencryptoki/stdll/libpkcs11_ep11.*
 %{_libdir}/opencryptoki/stdll/PKCS11_EP11.so
 %dir %attr(770,root,pkcs11) %{_sharedstatedir}/%{name}/ep11tok/
