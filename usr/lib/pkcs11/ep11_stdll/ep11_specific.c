@@ -183,16 +183,24 @@ typedef struct cp_config
 typedef struct {
     SESSION           *session;
     CK_BYTE            session_id[SHA256_HASH_SIZE];
-    CK_OBJECT_HANDLE   ep11_object;
-    CK_BYTE            pin_blob[XCP_PINBLOB_BYTES];
+    CK_BYTE            vhsm_pin[XCP_MAX_PINBYTES];
     CK_BYTE            flags;
+    CK_BYTE            session_pin_blob[XCP_PINBLOB_BYTES];
+    CK_OBJECT_HANDLE   session_object;
+    CK_BYTE            vhsm_pin_blob[XCP_PINBLOB_BYTES];
+    CK_OBJECT_HANDLE   vhsm_object;
 } ep11_session_t;
 
 #define EP11_SESS_PINBLOB_VALID  0x01
+#define EP11_VHSM_PINBLOB_VALID  0x02
+#define EP11_VHSMPIN_VALID       0x10
+#define EP11_STRICT_MODE         0x40
+#define EP11_VHSM_MODE           0x80
 
 #define DEFAULT_EP11_PIN         "        "
 
 #define CKH_IBM_EP11_SESSION     CKH_VENDOR_DEFINED + 1
+#define CKH_IBM_EP11_VHSMPIN     CKH_VENDOR_DEFINED + 2
 
 #define PUBLIC_SESSION_ID_LENGTH    16
 
@@ -211,6 +219,8 @@ typedef struct {
 
 CK_BOOL ep11_is_session_object(CK_ATTRIBUTE_PTR attrs, CK_ULONG attrs_len);
 CK_RV ep11tok_relogin_session(STDLL_TokData_t *tokdata, SESSION *session);
+void ep11_get_pin_blob(ep11_session_t *ep11_session, CK_BOOL is_session_obj,
+                       CK_BYTE **pin_blob, CK_ULONG *pin_blob_len);
 
 static void free_cp_config(cp_config_t *cp);
 #ifdef DEBUG
@@ -234,6 +244,7 @@ typedef struct {
     unsigned char control_points[XCP_CP_BYTES];
     size_t        control_points_len;
     int           strict_mode;
+    int           vhsm_mode;
 } ep11_private_data_t;
 
 /* target list of adapters/domains, specified in a config file by user,
@@ -1393,11 +1404,8 @@ static CK_RV rawkey_2_blob(STDLL_TokData_t  * tokdata, SESSION *sess,
 		return rc;
 	}
 
-    if (ep11_session != NULL && object_is_session_object(key_obj)) {
-        ep11_pin_blob = ep11_session->pin_blob;
-        ep11_pin_blob_len = sizeof(ep11_session->pin_blob);
-        TRACE_DEVEL("%s CKA_TOKEN=FALSE -> pass pin_blob\n", __func__);
-    }
+    ep11_get_pin_blob(ep11_session, object_is_session_object(key_obj),
+                      &ep11_pin_blob, &ep11_pin_blob_len);
 
 	/* the encrypted key is decrypted and a blob is build,
 	 * card accepts only blobs as keys
@@ -1807,11 +1815,8 @@ static CK_RV import_RSA_key(STDLL_TokData_t *tokdata, SESSION *sess,
 			return rc;
 		}
 
-        if (ep11_session != NULL && object_is_session_object(rsa_key_obj)) {
-            ep11_pin_blob = ep11_session->pin_blob;
-            ep11_pin_blob_len = sizeof(ep11_session->pin_blob);
-            TRACE_DEVEL("%s CKA_TOKEN=FALSE -> pass pin_blob\n", __func__);
-        }
+        ep11_get_pin_blob(ep11_session, object_is_session_object(rsa_key_obj),
+                          &ep11_pin_blob, &ep11_pin_blob_len);
 
 		/* calls the card, it decrypts the private RSA key,
 		 * reads its BER format and builds a blob.
@@ -1992,11 +1997,8 @@ static CK_RV import_EC_key(STDLL_TokData_t *tokdata, SESSION *sess,
 			return rc;
 		}
 
-        if (ep11_session != NULL && object_is_session_object(ec_key_obj)) {
-            ep11_pin_blob = ep11_session->pin_blob;
-            ep11_pin_blob_len = sizeof(ep11_session->pin_blob);
-            TRACE_DEVEL("%s CKA_TOKEN=FALSE -> pass pin_blob\n", __func__);
-        }
+        ep11_get_pin_blob(ep11_session, object_is_session_object(ec_key_obj),
+                          &ep11_pin_blob, &ep11_pin_blob_len);
 
 		/* calls the card, it decrypts the private EC key,
 		 * reads its BER format and builds a blob.
@@ -2194,11 +2196,8 @@ static CK_RV import_DSA_key(STDLL_TokData_t *tokdata, SESSION *sess,
             return rc;
         }
 
-        if (ep11_session != NULL && object_is_session_object(dsa_key_obj)) {
-            ep11_pin_blob = ep11_session->pin_blob;
-            ep11_pin_blob_len = sizeof(ep11_session->pin_blob);
-            TRACE_DEVEL("%s CKA_TOKEN=FALSE -> pass pin_blob\n", __func__);
-        }
+        ep11_get_pin_blob(ep11_session, object_is_session_object(dsa_key_obj),
+                          &ep11_pin_blob, &ep11_pin_blob_len);
 
         /* calls the card, it decrypts the private EC key,
          * reads its BER format and builds a blob.
@@ -2389,11 +2388,8 @@ static CK_RV import_DH_key(STDLL_TokData_t *tokdata, SESSION *sess,
             return rc;
         }
 
-        if (ep11_session != NULL && object_is_session_object(dh_key_obj)) {
-            ep11_pin_blob = ep11_session->pin_blob;
-            ep11_pin_blob_len = sizeof(ep11_session->pin_blob);
-            TRACE_DEVEL("%s CKA_TOKEN=FALSE -> pass pin_blob\n", __func__);
-        }
+        ep11_get_pin_blob(ep11_session, object_is_session_object(dh_key_obj),
+                          &ep11_pin_blob, &ep11_pin_blob_len);
 
         /* calls the card, it decrypts the private EC key,
          * reads its BER format and builds a blob.
@@ -2579,11 +2575,8 @@ CK_RV ep11tok_generate_key(STDLL_TokData_t *tokdata, SESSION *session,
 		return rc;
 	}
 
-    if (ep11_session != NULL && ep11_is_session_object(attrs, attrs_len)) {
-        ep11_pin_blob = ep11_session->pin_blob;
-        ep11_pin_blob_len = sizeof(ep11_session->pin_blob);
-        TRACE_DEVEL("%s CKA_TOKEN=FALSE -> pass pin_blob\n", __func__);
-    }
+    ep11_get_pin_blob(ep11_session, ep11_is_session_object(attrs, attrs_len),
+                      &ep11_pin_blob, &ep11_pin_blob_len);
 
     RETRY_START
 	rc = dll_m_GenerateKey(mech, new_attrs, new_attrs_len, ep11_pin_blob,
@@ -2783,11 +2776,8 @@ CK_RV ep11tok_derive_key(STDLL_TokData_t *tokdata, SESSION *session, CK_MECHANIS
 		return rc;
 	}
 
-    if (ep11_session != NULL && ep11_is_session_object(attrs, attrs_len)) {
-        ep11_pin_blob = ep11_session->pin_blob;
-        ep11_pin_blob_len = sizeof(ep11_session->pin_blob);
-        TRACE_DEVEL("%s CKA_TOKEN=FALSE -> pass pin_blob\n", __func__);
-    }
+    ep11_get_pin_blob(ep11_session, ep11_is_session_object(attrs, attrs_len),
+                      &ep11_pin_blob, &ep11_pin_blob_len);
 
     RETRY_START
 	rc = dll_m_DeriveKey (mech, new_attrs, new_attrs_len, keyblob, keyblobsize, NULL,
@@ -2980,13 +2970,9 @@ static CK_RV dh_generate_keypair(STDLL_TokData_t *tokdata,
 	memcpy(&(pPublicKeyTemplate_new[new_public_attr]),
 	       &(pgs[0]), sizeof(CK_ATTRIBUTE));
 
-    if (ep11_session != NULL &&
-        (ep11_is_session_object(pPublicKeyTemplate, ulPublicKeyAttributeCount) ||
-         ep11_is_session_object(pPrivateKeyTemplate, ulPrivateKeyAttributeCount))) {
-        ep11_pin_blob = ep11_session->pin_blob;
-        ep11_pin_blob_len = sizeof(ep11_session->pin_blob);
-        TRACE_DEVEL("%s CKA_TOKEN=FALSE -> pass pin_blob\n", __func__);
-    }
+    ep11_get_pin_blob(ep11_session, (ep11_is_session_object(pPublicKeyTemplate, ulPublicKeyAttributeCount) ||
+                                     ep11_is_session_object(pPrivateKeyTemplate, ulPrivateKeyAttributeCount)),
+                      &ep11_pin_blob, &ep11_pin_blob_len);
 
     RETRY_START
 	rc = dll_m_GenerateKeyPair(pMechanism, pPublicKeyTemplate_new,
@@ -3262,13 +3248,9 @@ static CK_RV dsa_generate_keypair(STDLL_TokData_t *tokdata,
 		return rc;
 	}
 
-    if (ep11_session != NULL &&
-        (ep11_is_session_object(pPublicKeyTemplate, ulPublicKeyAttributeCount) ||
-        ep11_is_session_object(pPrivateKeyTemplate, ulPrivateKeyAttributeCount))) {
-        ep11_pin_blob = ep11_session->pin_blob;
-        ep11_pin_blob_len = sizeof(ep11_session->pin_blob);
-        TRACE_DEVEL("%s CKA_TOKEN=FALSE -> pass pin_blob\n", __func__);
-    }
+    ep11_get_pin_blob(ep11_session, (ep11_is_session_object(pPublicKeyTemplate, ulPublicKeyAttributeCount) ||
+                                     ep11_is_session_object(pPrivateKeyTemplate, ulPrivateKeyAttributeCount)),
+                      &ep11_pin_blob, &ep11_pin_blob_len);
 
     RETRY_START
 	rc = dll_m_GenerateKeyPair(pMechanism, dsa_pPublicKeyTemplate,
@@ -3435,13 +3417,9 @@ static CK_RV rsa_ec_generate_keypair(STDLL_TokData_t *tokdata,
 			   new_ulPrivateKeyAttributeCount);
 	}
 
-    if (ep11_session != NULL &&
-        (ep11_is_session_object(pPublicKeyTemplate, ulPublicKeyAttributeCount) ||
-         ep11_is_session_object(pPrivateKeyTemplate, ulPrivateKeyAttributeCount))) {
-        ep11_pin_blob = ep11_session->pin_blob;
-        ep11_pin_blob_len = sizeof(ep11_session->pin_blob);
-        TRACE_DEVEL("%s CKA_TOKEN=FALSE -> pass pin_blob\n", __func__);
-    }
+    ep11_get_pin_blob(ep11_session, (ep11_is_session_object(pPublicKeyTemplate, ulPublicKeyAttributeCount) ||
+                                     ep11_is_session_object(pPrivateKeyTemplate, ulPrivateKeyAttributeCount)),
+                      &ep11_pin_blob, &ep11_pin_blob_len);
 
     RETRY_START
 	rc = dll_m_GenerateKeyPair(pMechanism, new_pPublicKeyTemplate,
@@ -4573,11 +4551,8 @@ CK_RV ep11tok_unwrap_key(STDLL_TokData_t *tokdata, SESSION *session, CK_MECHANIS
 	      (mech->mechanism == CKM_AES_CBC)))
 		return CKR_ARGUMENTS_BAD;
 
-    if (ep11_session != NULL && ep11_is_session_object(attrs, attrs_len)) {
-        ep11_pin_blob = ep11_session->pin_blob;
-        ep11_pin_blob_len = sizeof(ep11_session->pin_blob);
-        TRACE_DEVEL("%s CKA_TOKEN=FALSE -> pass pin_blob\n", __func__);
-    }
+    ep11_get_pin_blob(ep11_session, ep11_is_session_object(attrs, attrs_len),
+                      &ep11_pin_blob, &ep11_pin_blob_len);
 
 	/* we need a blob for the new key created by unwrapping,
 	 * the wrapped key comes in BER
@@ -5109,16 +5084,19 @@ static int read_adapter_config_file(STDLL_TokData_t *tokdata, const char* conf_n
             } else if (strncmp(token, "STRICT_MODE", 11) == 0) {
                i = 0;
                ep11_data->strict_mode = 1;
+            } else if (strncmp(token, "VHSM_MODE", 11) == 0) {
+               i = 0;
+               ep11_data->vhsm_mode = 1;
             } else {
 				/* syntax error */
 				TRACE_ERROR("%s Expected APQN_WHITELIST,"
 					    " APQN_ANY, LOGLEVEL, FORCE_SENSITIVE, CPFILTER,"
-				        " or STRICT_MODE keyword,"
+				        " STRICT_MODE, or VHSM_MODE keyword,"
 					    " found '%s' in config file '%s'\n",
 					    __func__, token, fname);
                 OCK_SYSLOG(LOG_ERR,"%s: Error: Expected APQN_WHITELIST,"
                            " APQN_ANY, LOGLEVEL, FORCE_SENSITIVE, CPFILTER,"
-                           " or STRICT_MODE keyword,"
+                           " STRICT_MODE, or VHSM_MODE keyword,"
                            " found '%s' in config file '%s'\n",
                                    __func__, token, fname);
 				rc = APQN_FILE_SYNTAX_ERROR_0;
@@ -5911,6 +5889,17 @@ CK_RV SC_CreateObject(STDLL_TokData_t *tokdata,
                       CK_ULONG ulCount, CK_OBJECT_HANDLE_PTR phObject);
 CK_RV SC_DestroyObject(STDLL_TokData_t *tokdata,
                        ST_SESSION_HANDLE *sSession, CK_OBJECT_HANDLE hObject);
+CK_RV SC_FindObjectsInit(STDLL_TokData_t *tokdata,
+                         ST_SESSION_HANDLE *sSession,
+                         CK_ATTRIBUTE_PTR pTemplate, CK_ULONG ulCount);
+CK_RV SC_FindObjects(STDLL_TokData_t *tokdata,
+                     ST_SESSION_HANDLE *sSession, CK_OBJECT_HANDLE_PTR phObject,
+                     CK_ULONG ulMaxObjectCount, CK_ULONG_PTR pulObjectCount);
+CK_RV SC_FindObjectsFinal(STDLL_TokData_t *tokdata, ST_SESSION_HANDLE *sSession);
+CK_RV SC_GetAttributeValue(STDLL_TokData_t *tokdata,
+                           ST_SESSION_HANDLE *sSession,
+                           CK_OBJECT_HANDLE hObject, CK_ATTRIBUTE_PTR pTemplate,
+                           CK_ULONG ulCount);
 
 static CK_RV generate_ep11_session_id(STDLL_TokData_t *tokdata,
                                       SESSION *session, ep11_session_t *ep11_session)
@@ -5948,7 +5937,9 @@ static CK_RV generate_ep11_session_id(STDLL_TokData_t *tokdata,
 }
 
 static CK_RV create_ep11_object(STDLL_TokData_t *tokdata,
-                                SESSION *session, ep11_session_t *ep11_session)
+                                SESSION *session, ep11_session_t *ep11_session,
+                                CK_BYTE* pin_blob, CK_ULONG pin_blob_len,
+                                CK_OBJECT_HANDLE *obj)
 {
     ep11_private_data_t *ep11_data = tokdata->private_data;
     CK_RV rc;
@@ -5971,7 +5962,7 @@ static CK_RV create_ep11_object(STDLL_TokData_t *tokdata,
         {CKA_HIDDEN,           &true,              sizeof(true)    },
         {CKA_HW_FEATURE_TYPE,  &type,              sizeof(type)    },
         {CKA_SUBJECT,          &subject,           sizeof(subject) },
-        {CKA_VALUE,            ep11_session->pin_blob,   sizeof(ep11_session->pin_blob)   },
+        {CKA_VALUE,            pin_blob,           pin_blob_len    },
         {CKA_ID,               ep11_session->session_id, PUBLIC_SESSION_ID_LENGTH },
         {CKA_APPLICATION,      (ep11_target_t *)ep11_data->target_list, sizeof(ep11_target_t) },
         {CKA_OWNER,            &pid,               sizeof(pid)     },
@@ -5988,13 +5979,69 @@ static CK_RV create_ep11_object(STDLL_TokData_t *tokdata,
 
     rc = SC_CreateObject(tokdata, &handle,
                          attrs, sizeof(attrs) / sizeof(CK_ATTRIBUTE),
-                         &ep11_session->ep11_object);
+                         obj);
     if (rc != CKR_OK) {
         TRACE_ERROR("%s SC_CreateObject failed: 0x%lu\n", __func__, rc);
         return rc;
     }
 
     return CKR_OK;
+}
+
+static CK_RV get_vhsmpin(STDLL_TokData_t *tokdata,
+                         SESSION *session, ep11_session_t *ep11_session)
+{
+    CK_RV rc;
+    ST_SESSION_HANDLE handle = { .slotID = session->session_info.slotID, .sessionh = session->handle };
+    CK_OBJECT_HANDLE obj_store[16];
+    CK_ULONG    objs_found = 0;
+    CK_OBJECT_CLASS class = CKO_HW_FEATURE;
+    CK_HW_FEATURE_TYPE type = CKH_IBM_EP11_VHSMPIN;
+    CK_BYTE true  = TRUE;
+    CK_ATTRIBUTE vhsmpin_template[] =
+    {
+        {CKA_CLASS,            &class,             sizeof(class)   },
+        {CKA_TOKEN,            &true,              sizeof(true)    },
+        {CKA_PRIVATE,          &true,              sizeof(true)    },
+        {CKA_HIDDEN,           &true,              sizeof(true)    },
+        {CKA_HW_FEATURE_TYPE,  &type,              sizeof(type)    },
+    };
+    CK_ATTRIBUTE attrs[] =
+    {
+        {CKA_VALUE,            ep11_session->vhsm_pin, sizeof(ep11_session->vhsm_pin) },
+    };
+
+    rc = SC_FindObjectsInit(tokdata, &handle,
+                            vhsmpin_template, sizeof(vhsmpin_template) / sizeof(CK_ATTRIBUTE));
+    if (rc != CKR_OK) {
+        TRACE_ERROR("%s SC_FindObjectsInit failed: 0x%lu\n", __func__, rc);
+        goto out;
+    }
+
+    rc = SC_FindObjects(tokdata, &handle, obj_store, 16, &objs_found);
+    if (rc != CKR_OK) {
+        TRACE_ERROR("%s SC_FindObjects failed: 0x%lu\n", __func__, rc);
+        goto out;
+    }
+
+    if (objs_found == 0) {
+        rc = CKR_FUNCTION_FAILED;
+        TRACE_ERROR("%s No VHSMPIN object found\n", __func__);
+        goto out;
+    }
+
+    rc = SC_GetAttributeValue(tokdata, &handle, obj_store[0],
+                              attrs, sizeof(attrs) / sizeof(CK_ATTRIBUTE));
+    if (rc != CKR_OK) {
+       TRACE_ERROR("%s SC_GetAttributeValue failed: 0x%lu\n", __func__, rc);
+       goto out;
+    }
+
+    ep11_session->flags |= EP11_VHSMPIN_VALID;
+
+out:
+    SC_FindObjectsFinal(tokdata, &handle);
+    return rc;
 }
 
 static CK_RV ep11_login_handler(uint_32 adapter, uint_32 domain,
@@ -6005,6 +6052,10 @@ static CK_RV ep11_login_handler(uint_32 adapter, uint_32 domain,
     CK_RV rc;
     CK_BYTE pin_blob[XCP_PINBLOB_BYTES];
     CK_ULONG pin_blob_len = XCP_PINBLOB_BYTES;
+    CK_BYTE *pin = DEFAULT_EP11_PIN;
+    CK_ULONG pin_len = strlen(DEFAULT_EP11_PIN);
+    CK_BYTE *nonce = NULL;
+    CK_ULONG nonce_len = 0;
 
     TRACE_INFO("Logging in adapter %02X.%04X\n", adapter, domain);
 
@@ -6013,34 +6064,76 @@ static CK_RV ep11_login_handler(uint_32 adapter, uint_32 domain,
     target.apqns[0] = adapter;
     target.apqns[1] = domain;
 
-    rc = dll_m_Login(DEFAULT_EP11_PIN, strlen(DEFAULT_EP11_PIN),
-                     ep11_session->session_id, sizeof(ep11_session->session_id),
-                     pin_blob, &pin_blob_len,
-                     (uint64_t)&target);
-    if (rc != CKR_OK) {
-        TRACE_ERROR("%s dll_m_Login failed: 0x%lu\n", __func__, rc);
-        /* ignore the error here, the adapter may not be able to perform m_Login at this moment */
-        return CKR_OK;
-    }
+    if (ep11_session->flags & EP11_VHSM_MODE) {
+        pin = ep11_session->vhsm_pin;
+        pin_len = sizeof(ep11_session->vhsm_pin);
 
-#ifdef DEBUG
-    TRACE_DEBUG("EP11 Pin blob (size: %lu):\n", XCP_PINBLOB_BYTES);
-    TRACE_DEBUG_DUMP(pin_blob, XCP_PINBLOB_BYTES);
-#endif
+        rc = dll_m_Login(pin, pin_len,
+                         nonce, nonce_len,
+                         pin_blob, &pin_blob_len,
+                         (uint64_t)&target);
+        if (rc != CKR_OK) {
+            TRACE_ERROR("%s dll_m_Login failed: 0x%lu\n", __func__, rc);
+            /* ignore the error here, the adapter may not be able to perform m_Login at this moment */
+            goto strict_mode;
+        }
 
-    if (ep11_session->flags & EP11_SESS_PINBLOB_VALID) {
-        /* First part of pin-blob (keypart and session) must be equal */
-        if (memcmp(ep11_session->pin_blob, pin_blob, XCP_WK_BYTES) != 0) {
-            TRACE_ERROR("%s Pin blob not equal to previous one\n", __func__);
-            OCK_SYSLOG(LOG_ERR,
-                               "%s: Error: Pin blob of adapter %02X.%04X is not equal to other adapters for same session\n",
-                               __func__, adapter, domain);
-            return CKR_DEVICE_ERROR;
+    #ifdef DEBUG
+        TRACE_DEBUG("EP11 VHSM Pin blob (size: %lu):\n", XCP_PINBLOB_BYTES);
+        TRACE_DEBUG_DUMP(pin_blob, XCP_PINBLOB_BYTES);
+    #endif
+
+        if (ep11_session->flags & EP11_VHSM_PINBLOB_VALID) {
+            /* First part of pin-blob (keypart and session) must be equal */
+            if (memcmp(ep11_session->vhsm_pin_blob, pin_blob, XCP_WK_BYTES) != 0) {
+                TRACE_ERROR("%s VHSM-Pin blob not equal to previous one\n", __func__);
+                OCK_SYSLOG(LOG_ERR,
+                           "%s: Error: VHSM-Pin blob of adapter %02X.%04X is not equal to other adapters for same session\n",
+                           __func__, adapter, domain);
+                return CKR_DEVICE_ERROR;
+            }
+        }
+        else {
+           memcpy(ep11_session->vhsm_pin_blob, pin_blob, XCP_PINBLOB_BYTES);
+           ep11_session->flags |= EP11_VHSM_PINBLOB_VALID;
         }
     }
-    else {
-       memcpy(ep11_session->pin_blob, pin_blob, XCP_PINBLOB_BYTES);
-       ep11_session->flags |= EP11_SESS_PINBLOB_VALID;
+
+strict_mode:
+    if (ep11_session->flags & EP11_STRICT_MODE) {
+        nonce = ep11_session->session_id;
+        nonce_len = sizeof(ep11_session->session_id);
+        /* pin is already set to default pin or vhsm pin (if VHSM mode) */
+
+        rc = dll_m_Login(pin, pin_len,
+                         nonce, nonce_len,
+                         pin_blob, &pin_blob_len,
+                         (uint64_t)&target);
+        if (rc != CKR_OK) {
+            TRACE_ERROR("%s dll_m_Login failed: 0x%lu\n", __func__, rc);
+            /* ignore the error here, the adapter may not be able to perform m_Login at this moment */
+            return CKR_OK;
+        }
+
+    #ifdef DEBUG
+        TRACE_DEBUG("EP11 Session Pin blob (size: %lu):\n", XCP_PINBLOB_BYTES);
+        TRACE_DEBUG_DUMP(pin_blob, XCP_PINBLOB_BYTES);
+    #endif
+
+        if (ep11_session->flags & EP11_SESS_PINBLOB_VALID) {
+            /* First part of pin-blob (keypart and session) must be equal */
+            if (memcmp(ep11_session->session_pin_blob, pin_blob, XCP_WK_BYTES) != 0) {
+                TRACE_ERROR("%s Pin blob not equal to previous one\n", __func__);
+                OCK_SYSLOG(LOG_ERR,
+                           "%s: Error: Pin blob of adapter %02X.%04X is not equal to other adapters for same session\n",
+                           __func__, adapter, domain);
+                return CKR_DEVICE_ERROR;
+            }
+        }
+        else {
+           memcpy(ep11_session->session_pin_blob, pin_blob, XCP_PINBLOB_BYTES);
+           ep11_session->flags |= EP11_SESS_PINBLOB_VALID;
+        }
     }
 
     return CKR_OK;
@@ -6060,16 +6153,31 @@ static CK_RV ep11_logout_handler(uint_32 adapter, uint_32 domain,
     target.apqns[0] = adapter;
     target.apqns[1] = domain;
 
+    if (ep11_session->flags & EP11_SESS_PINBLOB_VALID) {
 #ifdef DEBUG
-    TRACE_DEBUG("EP11 Pin blob (size: %lu):\n", XCP_PINBLOB_BYTES);
-    TRACE_DEBUG_DUMP(ep11_session->pin_blob, XCP_PINBLOB_BYTES);
+        TRACE_DEBUG("EP11 Session Pin blob (size: %lu):\n", XCP_PINBLOB_BYTES);
+        TRACE_DEBUG_DUMP(ep11_session->session_pin_blob, XCP_PINBLOB_BYTES);
 #endif
 
-    rc = dll_m_Logout(ep11_session->pin_blob, XCP_PINBLOB_BYTES,
-            (uint64_t)&target);
-    if (rc != CKR_OK)
-        TRACE_ERROR("%s dll_m_Logout failed: 0x%lu\n", __func__, rc);
-    /* ignore any errors during m_logout */
+        rc = dll_m_Logout(ep11_session->session_pin_blob, XCP_PINBLOB_BYTES,
+                (uint64_t)&target);
+        if (rc != CKR_OK)
+            TRACE_ERROR("%s dll_m_Logout failed: 0x%lu\n", __func__, rc);
+        /* ignore any errors during m_logout */
+    }
+
+    if (ep11_session->flags & EP11_VHSM_PINBLOB_VALID) {
+#ifdef DEBUG
+        TRACE_DEBUG("EP11 VHSM Pin blob (size: %lu):\n", XCP_PINBLOB_BYTES);
+        TRACE_DEBUG_DUMP(ep11_session->vhsm_pin_blob, XCP_PINBLOB_BYTES);
+#endif
+
+        rc = dll_m_Logout(ep11_session->vhsm_pin_blob, XCP_PINBLOB_BYTES,
+                (uint64_t)&target);
+        if (rc != CKR_OK)
+            TRACE_ERROR("%s dll_m_Logout failed: 0x%lu\n", __func__, rc);
+        /* ignore any errors during m_logout */
+    }
 
     return CKR_OK;
 }
@@ -6084,7 +6192,7 @@ CK_RV ep11tok_login_session(STDLL_TokData_t *tokdata, SESSION *session)
 
     TRACE_INFO("%s session=%lu\n", __func__, session->handle);
 
-    if (!ep11_data->strict_mode)
+    if (!ep11_data->strict_mode && !ep11_data->vhsm_mode)
         return CKR_OK;
 
     if (session->session_info.state == CKS_RW_SO_FUNCTIONS ||
@@ -6106,7 +6214,12 @@ CK_RV ep11tok_login_session(STDLL_TokData_t *tokdata, SESSION *session)
         return CKR_HOST_MEMORY;
     }
     ep11_session->session = session;
-    ep11_session->ep11_object = CK_INVALID_HANDLE;
+    ep11_session->session_object = CK_INVALID_HANDLE;
+    ep11_session->vhsm_object = CK_INVALID_HANDLE;
+    if (ep11_data->strict_mode)
+        ep11_session->flags |= EP11_STRICT_MODE;
+    if (ep11_data->vhsm_mode)
+        ep11_session->flags |= EP11_VHSM_MODE;
     session->private_data = ep11_session;
 
     rc = generate_ep11_session_id(tokdata, session, ep11_session);
@@ -6120,35 +6233,71 @@ CK_RV ep11tok_login_session(STDLL_TokData_t *tokdata, SESSION *session)
     TRACE_DEBUG_DUMP(ep11_session->session_id, sizeof(ep11_session->session_id));
 #endif
 
+    if (ep11_data->vhsm_mode) {
+        rc = get_vhsmpin(tokdata, session, ep11_session);
+        if (rc != CKR_OK) {
+            TRACE_ERROR("%s get_vhsmpin failed: 0x%lu\n", __func__, rc);
+            OCK_SYSLOG(LOG_ERR, "%s: Error: A VHSM-PIN is required for VHSM_MODE.\n", __func__);
+            goto done;
+        }
+    }
+
     rc = handle_all_ep11_cards((ep11_target_t *)&ep11_data->target_list,
                                ep11_login_handler, ep11_session);
     if (rc != CKR_OK) {
         TRACE_ERROR("%s handle_all_ep11_cards failed: 0x%lu\n", __func__, rc);
         goto done;
     }
-    if ((ep11_session->flags & EP11_SESS_PINBLOB_VALID) == 0) {
-        rc = CKR_DEVICE_ERROR;
-        TRACE_ERROR("%s no pinblob available\n", __func__);
-        goto done;
+
+    if (ep11_data->strict_mode) {
+        if ((ep11_session->flags & EP11_SESS_PINBLOB_VALID) == 0) {
+            rc = CKR_DEVICE_ERROR;
+            TRACE_ERROR("%s no pinblob available\n", __func__);
+            goto done;
+        }
+
+        rc = create_ep11_object(tokdata, session, ep11_session,
+                                ep11_session->session_pin_blob, sizeof(ep11_session->session_pin_blob),
+                                &ep11_session->session_object);
+        if (rc != CKR_OK) {
+            TRACE_ERROR("%s _create_ep11_object failed: 0x%lu\n", __func__, rc);
+            goto done;
+        }
     }
 
-    rc = create_ep11_object(tokdata, session, ep11_session);
-    if (rc != CKR_OK) {
-        TRACE_ERROR("%s _create_ep11_object failed: 0x%lu\n", __func__, rc);
-        goto done;
+    if (ep11_data->vhsm_mode) {
+        if ((ep11_session->flags & EP11_VHSM_PINBLOB_VALID) == 0) {
+            rc = CKR_DEVICE_ERROR;
+            TRACE_ERROR("%s no VHSM pinblob available\n", __func__);
+            goto done;
+        }
+
+        rc = create_ep11_object(tokdata, session, ep11_session,
+                                ep11_session->vhsm_pin_blob, sizeof(ep11_session->vhsm_pin_blob),
+                                &ep11_session->vhsm_object);
+        if (rc != CKR_OK) {
+            TRACE_ERROR("%s _create_ep11_object failed: 0x%lu\n", __func__, rc);
+            goto done;
+        }
     }
 
 done:
     if (rc != CKR_OK) {
-        if (ep11_session->flags & EP11_SESS_PINBLOB_VALID) {
+        if (ep11_session->flags & (EP11_SESS_PINBLOB_VALID | EP11_VHSM_PINBLOB_VALID)) {
             rc2 = handle_all_ep11_cards((ep11_target_t *)&ep11_data->target_list,
                                         ep11_logout_handler, ep11_session);
             if (rc2 != CKR_OK)
                 TRACE_ERROR("%s handle_all_ep11_cards failed: 0x%lu\n", __func__, rc2);
         }
 
-        if (ep11_session->ep11_object != CK_INVALID_HANDLE) {
-            rc2 = SC_DestroyObject(tokdata, &handle, ep11_session->ep11_object);
+        if (ep11_session->session_object != CK_INVALID_HANDLE) {
+            rc2 = SC_DestroyObject(tokdata, &handle, ep11_session->session_object);
+            if (rc2 != CKR_OK)
+                TRACE_ERROR("%s SC_DestroyObject failed: 0x%lu\n", __func__, rc2);
+        }
+
+        if (ep11_session->vhsm_object != CK_INVALID_HANDLE) {
+            rc2 = SC_DestroyObject(tokdata, &handle, ep11_session->vhsm_object);
             if (rc2 != CKR_OK)
                 TRACE_ERROR("%s SC_DestroyObject failed: 0x%lu\n", __func__, rc2);
         }
@@ -6192,7 +6341,7 @@ CK_RV ep11tok_logout_session(STDLL_TokData_t *tokdata, SESSION *session)
 
     TRACE_INFO("%s session=%lu\n", __func__, session->handle);
 
-    if (!ep11_data->strict_mode)
+    if (!ep11_data->strict_mode && !ep11_data->vhsm_mode)
         return CKR_OK;
 
     if (session->session_info.state == CKS_RW_SO_FUNCTIONS ||
@@ -6213,9 +6362,16 @@ CK_RV ep11tok_logout_session(STDLL_TokData_t *tokdata, SESSION *session)
     if (rc != CKR_OK)
         TRACE_ERROR("%s handle_all_ep11_cards failed: 0x%lu\n", __func__, rc);
 
-    rc = SC_DestroyObject(tokdata, &handle, ep11_session->ep11_object);
-    if (rc != CKR_OK)
-        TRACE_ERROR("%s SC_DestroyObject failed: 0x%lu\n", __func__, rc);
+    if (ep11_session->session_object != CK_INVALID_HANDLE) {
+        rc = SC_DestroyObject(tokdata, &handle, ep11_session->session_object);
+        if (rc != CKR_OK)
+            TRACE_ERROR("%s SC_DestroyObject failed: 0x%lu\n", __func__, rc);
+    }
+    if (ep11_session->vhsm_object != CK_INVALID_HANDLE) {
+        rc = SC_DestroyObject(tokdata, &handle, ep11_session->vhsm_object);
+        if (rc != CKR_OK)
+            TRACE_ERROR("%s SC_DestroyObject failed: 0x%lu\n", __func__, rc);
+    }
 
     free(ep11_session);
     session->private_data = NULL;
@@ -6239,4 +6395,26 @@ CK_BOOL ep11_is_session_object(CK_ATTRIBUTE_PTR attrs, CK_ULONG attrs_len)
         return TRUE;
 
     return FALSE;
+}
+
+void ep11_get_pin_blob(ep11_session_t *ep11_session, CK_BOOL is_session_obj,
+                       CK_BYTE **pin_blob, CK_ULONG *pin_blob_len)
+{
+    if (ep11_session != NULL &&
+        (ep11_session->flags & EP11_STRICT_MODE) &&
+        is_session_obj) {
+        *pin_blob = ep11_session->session_pin_blob;
+        *pin_blob_len = sizeof(ep11_session->session_pin_blob);
+        TRACE_DEVEL("%s Strict mode and CKA_TOKEN=FALSE -> pass session pin_blob\n", __func__);
+    }
+    else if (ep11_session != NULL &&
+            (ep11_session->flags & EP11_VHSM_MODE)) {
+        *pin_blob = ep11_session->vhsm_pin_blob;
+        *pin_blob_len = sizeof(ep11_session->vhsm_pin_blob);
+        TRACE_DEVEL("%s vHSM mode -> pass VHSM pin_blob\n", __func__);
+    }
+    else {
+        *pin_blob = NULL;
+        *pin_blob_len = 0;
+    }
 }
