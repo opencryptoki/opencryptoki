@@ -33,8 +33,10 @@
 #define PKCS11_MAX_PIN_LEN	128
 #define PKCS11_SO_PIN_ENV_VAR   "PKCS11_SO_PIN"
 #define PKCS11_USER_PIN_ENV_VAR "PKCS11_USER_PIN"
+#define EP11_VHSM_PIN_ENV_VAR   "EP11_VHSM_PIN"
 
 #define CKH_IBM_EP11_SESSION     CKH_VENDOR_DEFINED + 1
+#define CKH_IBM_EP11_VHSMPIN     CKH_VENDOR_DEFINED + 2
 #define CKA_HIDDEN               CKA_VENDOR_DEFINED + 0x01000000
 
 #ifndef XCP_PINBLOB_BYTES
@@ -88,6 +90,7 @@ CK_RV error = CKR_OK;
 
 #define ACTION_SHOW     1
 #define ACTION_LOGOUT   2
+#define ACTION_VHSMPIN  3
 
 static int get_user_pin(CK_BYTE *dest)
 {
@@ -104,6 +107,34 @@ static int get_user_pin(CK_BYTE *dest)
         fprintf(stderr, "The environment variable %s must hold a "
                 "value less than %d chars in length.\n",
                 PKCS11_USER_PIN_ENV_VAR, (int)PKCS11_MAX_PIN_LEN);
+        return -1;
+    }
+
+    memcpy(dest, val, strlen(val) + 1);
+    return 0;
+}
+
+static int get_vhsm_pin(CK_BYTE *dest)
+{
+    char *val;
+
+    val = getenv(EP11_VHSM_PIN_ENV_VAR);
+    if (val == NULL) {
+        fprintf(stderr, "The environment variable %s must be set.\n",
+                EP11_VHSM_PIN_ENV_VAR);
+        return -1;
+    }
+
+    if ((strlen(val) + 1) < XCP_MIN_PINBYTES) {
+        fprintf(stderr, "The environment variable %s must hold a "
+                "value of minimum %d chars in length.\n",
+                EP11_VHSM_PIN_ENV_VAR, (int)XCP_MIN_PINBYTES);
+        return -1;
+    }
+    if ((strlen(val) + 1) > XCP_MAX_PINBYTES) {
+        fprintf(stderr, "The environment variable %s must hold a "
+                "value of maximum %d chars in length.\n",
+                EP11_VHSM_PIN_ENV_VAR, (int)XCP_MAX_PINBYTES);
         return -1;
     }
 
@@ -153,7 +184,7 @@ int is_ep11_token(CK_SLOT_ID slot_id)
 
 static void usage(char *fct)
 {
-    printf("usage:  %s show|logout [-date <yyyy/mm/dd>] [-pid <pid>] [-id <sess-id>] [-slot <num>] [-force] [-h]\n\n", fct );
+    printf("usage:  %s show|logout|vhsmpin [-date <yyyy/mm/dd>] [-pid <pid>] [-id <sess-id>] [-slot <num>] [-force] [-h]\n\n", fct );
     return;
 }
 
@@ -178,6 +209,9 @@ static int do_ParseArgs(int argc, char **argv)
     }
     else if (strcmp (argv[1], "logout") == 0) {
         action = ACTION_LOGOUT;
+    }
+    else if (strcmp (argv[1], "vhsmpin") == 0) {
+        action = ACTION_VHSMPIN;
     }
     else {
         printf ("Unknown Action given. For help use the '--help' or '-h' option.\n");
@@ -708,6 +742,99 @@ static CK_RV logout_sessions(CK_SESSION_HANDLE session)
     return rc;
 }
 
+static CK_RV find_vhsmpin_object(CK_SESSION_HANDLE session, CK_OBJECT_HANDLE *obj)
+{
+    CK_RV rc;
+    CK_OBJECT_HANDLE obj_store[16];
+    CK_ULONG    objs_found = 0;
+    CK_OBJECT_CLASS class = CKO_HW_FEATURE;
+    CK_HW_FEATURE_TYPE type = CKH_IBM_EP11_VHSMPIN;
+    CK_BYTE true  = TRUE;
+    CK_ATTRIBUTE vhsmpin_template[] =
+    {
+        {CKA_CLASS,            &class,             sizeof(class)   },
+        {CKA_TOKEN,            &true,              sizeof(true)    },
+        {CKA_PRIVATE,          &true,              sizeof(true)    },
+        {CKA_HIDDEN,           &true,              sizeof(true)    },
+        {CKA_HW_FEATURE_TYPE,  &type,              sizeof(type)    },
+    };
+
+    /* find all objects */
+    rc = funcs->C_FindObjectsInit(session, vhsmpin_template, sizeof(vhsmpin_template) / sizeof(CK_ATTRIBUTE));
+    if (rc != CKR_OK) {
+        fprintf(stderr, "C_FindObjectsInit() rc = 0x%02lx [%s]\n",rc, p11_get_ckr(rc));
+        goto out;
+    }
+
+    rc = funcs->C_FindObjects(session, obj_store, 16, &objs_found);
+    if (rc != CKR_OK) {
+        fprintf(stderr, "C_FindObjects() rc = 0x%02lx [%s]\n",rc, p11_get_ckr(rc));
+        goto out;
+    }
+
+    if (objs_found > 0)
+        *obj = obj_store[0];
+    else
+        *obj = CK_INVALID_HANDLE;
+
+out:
+    funcs->C_FindObjectsFinal(session);
+    return rc;
+}
+
+
+static CK_RV set_vhsmpin(CK_SESSION_HANDLE session)
+{
+    CK_RV rc;
+    CK_BYTE     vhsm_pin[XCP_MAX_PINBYTES];
+    CK_OBJECT_HANDLE obj = CK_INVALID_HANDLE;
+    CK_OBJECT_CLASS class = CKO_HW_FEATURE;
+    CK_HW_FEATURE_TYPE type = CKH_IBM_EP11_VHSMPIN;
+    CK_BYTE subject[] = "EP11 VHSM-Pin Object";
+    CK_BYTE true  = TRUE;
+
+    if (get_vhsm_pin(vhsm_pin)) {
+        fprintf(stderr, "get_vhsm_pin() failed\n");
+        return CKR_FUNCTION_FAILED;
+    }
+
+    CK_ATTRIBUTE attrs[] =
+    {
+        {CKA_CLASS,            &class,             sizeof(class)   },
+        {CKA_TOKEN,            &true,              sizeof(true)    },
+        {CKA_PRIVATE,          &true,              sizeof(true)    },
+        {CKA_HIDDEN,           &true,              sizeof(true)    },
+        {CKA_HW_FEATURE_TYPE,  &type,              sizeof(type)    },
+        {CKA_SUBJECT,          &subject,           sizeof(subject) },
+        {CKA_VALUE,            vhsm_pin,           strlen(vhsm_pin)},
+    };
+
+    rc = find_vhsmpin_object(session, &obj);
+    if (rc != CKR_OK) {
+        fprintf(stderr, "find_vhsmpin_object() failed\n");
+        return CKR_FUNCTION_FAILED;
+    }
+
+    if (obj != CK_INVALID_HANDLE) {
+        rc = funcs->C_DestroyObject(session, obj);
+        if (rc != CKR_OK) {
+            fprintf(stderr, "C_DestroyObject() rc = 0x%02lx [%s]\n",rc, p11_get_ckr(rc));
+            return rc;
+        }
+    }
+
+    rc = funcs->C_CreateObject(session,
+                               attrs, sizeof(attrs) / sizeof(CK_ATTRIBUTE),
+                               &obj);
+    if (rc != CKR_OK) {
+        fprintf(stderr, "C_CreateObject() rc = 0x%02lx [%s]\n",rc, p11_get_ckr(rc));
+        return rc;
+    }
+    printf("VHSM-pin successfully set.\n");
+
+    return CKR_OK;
+}
+
 int main(int argc, char **argv)
 {
     int rc;
@@ -792,6 +919,9 @@ int main(int argc, char **argv)
             break;
         case ACTION_LOGOUT:
             rc = logout_sessions(session);
+            break;
+        case ACTION_VHSMPIN:
+            rc = set_vhsmpin(session);
             break;
     }
     if (rc != CKR_OK)
