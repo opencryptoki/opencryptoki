@@ -25,12 +25,17 @@ extern "C"
 {
 #endif
 
+#define CK_TRUE  1
+#define CK_FALSE 0
+
+#ifndef CK_DISABLE_TRUE_FALSE
 #ifndef FALSE
-#define FALSE             0
+#define FALSE CK_FALSE
 #endif
 
 #ifndef TRUE
-#define TRUE              (!FALSE)
+#define TRUE  CK_TRUE
+#endif
 #endif
 
 // AIX Addition for 64Bit work.
