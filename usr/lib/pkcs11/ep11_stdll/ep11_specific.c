@@ -217,10 +217,16 @@ typedef struct {
                                     break;                               \
                                 }
 
+#define CKF_EP11_HELPER_SESSION      0x80000000
+
 CK_BOOL ep11_is_session_object(CK_ATTRIBUTE_PTR attrs, CK_ULONG attrs_len);
 CK_RV ep11tok_relogin_session(STDLL_TokData_t *tokdata, SESSION *session);
 void ep11_get_pin_blob(ep11_session_t *ep11_session, CK_BOOL is_session_obj,
                        CK_BYTE **pin_blob, CK_ULONG *pin_blob_len);
+CK_RV ep11_open_helper_session(STDLL_TokData_t *tokdata, SESSION *sess,
+                               CK_SESSION_HANDLE_PTR phSession);
+CK_RV ep11_close_helper_session(STDLL_TokData_t *tokdata,
+                                ST_SESSION_HANDLE *sSession);
 
 static void free_cp_config(cp_config_t *cp);
 #ifdef DEBUG
@@ -5900,6 +5906,9 @@ CK_RV SC_GetAttributeValue(STDLL_TokData_t *tokdata,
                            ST_SESSION_HANDLE *sSession,
                            CK_OBJECT_HANDLE hObject, CK_ATTRIBUTE_PTR pTemplate,
                            CK_ULONG ulCount);
+CK_RV SC_OpenSession(STDLL_TokData_t *tokdata, CK_SLOT_ID sid, CK_FLAGS flags,
+                     CK_SESSION_HANDLE_PTR phSession);
+CK_RV SC_CloseSession(STDLL_TokData_t *tokdata, ST_SESSION_HANDLE *sSession);
 
 static CK_RV generate_ep11_session_id(STDLL_TokData_t *tokdata,
                                       SESSION *session, ep11_session_t *ep11_session)
@@ -5937,7 +5946,7 @@ static CK_RV generate_ep11_session_id(STDLL_TokData_t *tokdata,
 }
 
 static CK_RV create_ep11_object(STDLL_TokData_t *tokdata,
-                                SESSION *session, ep11_session_t *ep11_session,
+                                ST_SESSION_HANDLE *handle, ep11_session_t *ep11_session,
                                 CK_BYTE* pin_blob, CK_ULONG pin_blob_len,
                                 CK_OBJECT_HANDLE *obj)
 {
@@ -5952,7 +5961,6 @@ static CK_RV create_ep11_object(STDLL_TokData_t *tokdata,
     time_t t;
     struct tm  *tm;
     CK_CHAR tmp[4+2+2+1];
-    ST_SESSION_HANDLE handle = { .slotID = session->session_info.slotID, .sessionh = session->handle };
 
     CK_ATTRIBUTE attrs[] =
     {
@@ -5977,7 +5985,7 @@ static CK_RV create_ep11_object(STDLL_TokData_t *tokdata,
     memcpy(date.month, tmp+4, 2);
     memcpy(date.day, tmp+4+2, 2);
 
-    rc = SC_CreateObject(tokdata, &handle,
+    rc = SC_CreateObject(tokdata, handle,
                          attrs, sizeof(attrs) / sizeof(CK_ATTRIBUTE),
                          obj);
     if (rc != CKR_OK) {
@@ -6189,18 +6197,30 @@ CK_RV ep11tok_login_session(STDLL_TokData_t *tokdata, SESSION *session)
     CK_RV rc;
     CK_RV rc2;
     ST_SESSION_HANDLE handle = { .slotID = session->session_info.slotID, .sessionh = session->handle };
+    CK_SESSION_HANDLE helper_session = CK_INVALID_HANDLE;
 
     TRACE_INFO("%s session=%lu\n", __func__, session->handle);
 
     if (!ep11_data->strict_mode && !ep11_data->vhsm_mode)
         return CKR_OK;
 
-    if (session->session_info.state == CKS_RW_SO_FUNCTIONS ||
-        session->session_info.state == CKS_RO_PUBLIC_SESSION ||
-        session->session_info.state == CKS_RW_PUBLIC_SESSION ||
-        session->session_info.state == CKS_RO_USER_FUNCTIONS) {
-        TRACE_INFO("%s Read-only, public or SO session\n", __func__);
+    if (session->session_info.flags & CKF_EP11_HELPER_SESSION)
         return CKR_OK;
+
+    switch (session->session_info.state) {
+    case CKS_RW_SO_FUNCTIONS:
+    case CKS_RO_PUBLIC_SESSION:
+    case CKS_RW_PUBLIC_SESSION:
+        TRACE_INFO("%s Public or SO session\n", __func__);
+        return CKR_OK;
+    case CKS_RO_USER_FUNCTIONS:
+        rc = ep11_open_helper_session(tokdata, session, &helper_session);
+        if (rc != CKR_OK)
+            return rc;
+        handle.sessionh = helper_session;
+        break;
+    default:
+        break;
     }
 
     if (session->private_data != NULL) {
@@ -6256,7 +6276,7 @@ CK_RV ep11tok_login_session(STDLL_TokData_t *tokdata, SESSION *session)
             goto done;
         }
 
-        rc = create_ep11_object(tokdata, session, ep11_session,
+        rc = create_ep11_object(tokdata, &handle, ep11_session,
                                 ep11_session->session_pin_blob, sizeof(ep11_session->session_pin_blob),
                                 &ep11_session->session_object);
         if (rc != CKR_OK) {
@@ -6272,7 +6292,7 @@ CK_RV ep11tok_login_session(STDLL_TokData_t *tokdata, SESSION *session)
             goto done;
         }
 
-        rc = create_ep11_object(tokdata, session, ep11_session,
+        rc = create_ep11_object(tokdata, &handle, ep11_session,
                                 ep11_session->vhsm_pin_blob, sizeof(ep11_session->vhsm_pin_blob),
                                 &ep11_session->vhsm_object);
         if (rc != CKR_OK) {
@@ -6308,6 +6328,12 @@ done:
         TRACE_ERROR("%s: failed: 0x%lu\n", __func__, rc);
     }
 
+    if (helper_session != CK_INVALID_HANDLE) {
+        rc2 = ep11_close_helper_session(tokdata, &handle);
+        if (rc2 != CKR_OK)
+            TRACE_ERROR("%s ep11_close_helper_session failed: 0x%lu\n", __func__, rc2);
+    }
+
     return rc;
 }
 
@@ -6336,20 +6362,32 @@ CK_RV ep11tok_logout_session(STDLL_TokData_t *tokdata, SESSION *session)
 {
     ep11_private_data_t *ep11_data = tokdata->private_data;
     ep11_session_t *ep11_session = (ep11_session_t *)session->private_data;
-    CK_RV rc;
+    CK_RV rc, rc2;
     ST_SESSION_HANDLE handle = { .slotID = session->session_info.slotID, .sessionh = session->handle };
+    CK_SESSION_HANDLE helper_session = CK_INVALID_HANDLE;
 
     TRACE_INFO("%s session=%lu\n", __func__, session->handle);
 
     if (!ep11_data->strict_mode && !ep11_data->vhsm_mode)
         return CKR_OK;
 
-    if (session->session_info.state == CKS_RW_SO_FUNCTIONS ||
-        session->session_info.state == CKS_RO_PUBLIC_SESSION ||
-        session->session_info.state == CKS_RW_PUBLIC_SESSION ||
-        session->session_info.state == CKS_RO_USER_FUNCTIONS) {
-        TRACE_INFO("%s Read-only, public or SO session\n", __func__);
+    if (session->session_info.flags & CKF_EP11_HELPER_SESSION)
         return CKR_OK;
+
+    switch (session->session_info.state) {
+    case CKS_RW_SO_FUNCTIONS:
+    case CKS_RO_PUBLIC_SESSION:
+    case CKS_RW_PUBLIC_SESSION:
+        TRACE_INFO("%s Public or SO session\n", __func__);
+        return CKR_OK;
+    case CKS_RO_USER_FUNCTIONS:
+        rc = ep11_open_helper_session(tokdata, session, &helper_session);
+        if (rc != CKR_OK)
+            return rc;
+        handle.sessionh = helper_session;
+        break;
+    default:
+        break;
     }
 
     if (ep11_session == NULL) {
@@ -6375,6 +6413,12 @@ CK_RV ep11tok_logout_session(STDLL_TokData_t *tokdata, SESSION *session)
 
     free(ep11_session);
     session->private_data = NULL;
+
+    if (helper_session != CK_INVALID_HANDLE) {
+       rc2 = ep11_close_helper_session(tokdata, &handle);
+       if (rc2 != CKR_OK)
+           TRACE_ERROR("%s ep11_close_helper_session failed: 0x%lu\n", __func__, rc2);
+   }
 
     return rc;
 }
@@ -6418,3 +6462,34 @@ void ep11_get_pin_blob(ep11_session_t *ep11_session, CK_BOOL is_session_obj,
         *pin_blob_len = 0;
     }
 }
+
+CK_RV ep11_open_helper_session(STDLL_TokData_t *tokdata, SESSION *sess,
+                               CK_SESSION_HANDLE_PTR phSession)
+{
+    CK_RV rc;
+
+    TRACE_INFO("%s\n", __func__);
+
+    rc = SC_OpenSession(tokdata, sess->session_info.slotID,
+                        CKF_RW_SESSION | CKF_SERIAL_SESSION | CKF_EP11_HELPER_SESSION,
+                        phSession);
+    if (rc != CKR_OK)
+        TRACE_ERROR("%s SC_OpenSession failed: 0x%lu\n", __func__, rc);
+
+    return rc;
+}
+
+CK_RV ep11_close_helper_session(STDLL_TokData_t *tokdata,
+                                ST_SESSION_HANDLE *sSession)
+{
+    CK_RV rc;
+
+    TRACE_INFO("%s\n", __func__);
+
+    rc = SC_CloseSession(tokdata, sSession);
+    if (rc != CKR_OK)
+        TRACE_ERROR("%s SC_CloseSession failed: 0x%lu\n", __func__, rc);
+
+    return rc;
+}
+
